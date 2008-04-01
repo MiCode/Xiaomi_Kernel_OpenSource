@@ -867,6 +867,13 @@ config RTC_ASYNC_MODEM_SUPPORT
 	 Say yes here to have the system time updated if there is
 	 an asynchronous MODEM boot.
 
+config RTC_DRV_MSM7X00A
+	tristate "MSM7X00A"
+	depends on ARCH_MSM
+	default n
+	help
+	  RTC driver for Qualcomm MSM7K chipsets
+
 config RTC_DRV_DAVINCI
 	tristate "TI DaVinci RTC"
 	depends on ARCH_DAVINCI_DM365
