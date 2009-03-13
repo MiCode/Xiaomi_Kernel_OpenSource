@@ -8,6 +8,11 @@
 use strict;
 use POSIX;
 
+use constant BEFORE_SHORTTEXT => 0;
+use constant IN_SHORTTEXT => 1;
+use constant AFTER_SHORTTEXT => 2;
+use constant SHORTTEXT_LIMIT => 75;
+
 my $P = $0;
 $P =~ s@(.*)/@@g;
 my $D = $1;
@@ -1877,6 +1882,8 @@ sub process {
 	my $setup_docs = 0;
 
 	my $camelcase_file_seeded = 0;
+	my $shorttext = BEFORE_SHORTTEXT;
+	my $shorttext_exspc = 0;
 
 	sanitise_line_reset();
 	my $line;
@@ -2053,12 +2060,45 @@ sub process {
 			}
 			next;
 		}
-
 		$here .= "FILE: $realfile:$realline:" if ($realcnt != 0);
 
 		my $hereline = "$here\n$rawline\n";
 		my $herecurr = "$here\n$rawline\n";
 		my $hereprev = "$here\n$prevrawline\n$rawline\n";
+
+		if ($shorttext != AFTER_SHORTTEXT) {
+			if ($shorttext == IN_SHORTTEXT) {
+				if ($line=~/^---/ || $line=~/^diff.*/) {
+					$shorttext = AFTER_SHORTTEXT;
+				} elsif (length($line) > (SHORTTEXT_LIMIT +
+							  $shorttext_exspc)
+					 && $line !~ /^:([0-7]{6}\s){2}
+						      ([[:xdigit:]]+\.*
+						       \s){2}\w+\s\w+/xms) {
+					WARN("LONG_COMMIT_TEXT",
+					     "commit text line over " .
+					     SHORTTEXT_LIMIT .
+					     " characters\n" . $herecurr);
+				}
+			} elsif ($line=~/^Subject: \[[^\]]*\] (.*)/) {
+				$shorttext = IN_SHORTTEXT;
+				if (length($1) > SHORTTEXT_LIMIT) {
+					WARN("LONG_SUMMARY_LINE",
+					     "summary line over " .
+					     SHORTTEXT_LIMIT .
+					     " characters\n" . $herecurr);
+				}
+			} elsif ($line=~/^    (.*)/) {
+				$shorttext = IN_SHORTTEXT;
+				$shorttext_exspc = 4;
+				if (length($1) > SHORTTEXT_LIMIT) {
+					WARN("LONG_SUMMARY_LINE",
+					     "summary line over " .
+					     SHORTTEXT_LIMIT .
+					     " characters\n" . $herecurr);
+				}
+			}
+		}
 
 		$cnt_lines++ if ($realcnt != 0);
 
