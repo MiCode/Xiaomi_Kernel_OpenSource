@@ -169,6 +169,9 @@ static inline struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 #define EP0_BUFSIZE	256
 #define DELAYED_STATUS	(EP0_BUFSIZE + 999)	/* An impossibly large value */
 
+#ifdef CONFIG_USB_CSW_HACK
+#define fsg_num_buffers		4
+#else
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 
 static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
@@ -184,6 +187,7 @@ MODULE_PARM_DESC(num_buffers, "Number of pipeline buffers");
 #define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
 
 #endif /* CONFIG_USB_DEBUG */
+#endif /* CONFIG_USB_CSW_HACK */
 
 /* check if fsg_num_buffers is within a valid range */
 static inline int fsg_num_buffers_validate(void)
