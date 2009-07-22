@@ -1,0 +1,231 @@
+TSIF driver serves piece of hardware found in Qualcomm MSM's.
+It deals with Digital Mobile Broadcast.
+
+If you are dealing with Qualcomm MSM that have relevant piece of hardware,
+read on.
+
+There are various Digital Mobile Broadcast (DMB) systems developed to receive
+audio and/or television broadcast programs by Mobile Station Modem (MSM).
+(in simplified words - cellular phone)
+
+All of these systems have similar architecture. They use radio link which
+is different from primary handset link and hence use the additional antenna.
+RF signal from the broadcast tuner goes to de-modulator.
+Regardless of actual tuner and de-modulator, all systems present
+ITU-T H.222.0 (also known as MPEG2) Transport Stream (HTS)
+to the Mobile Station Modem (MSM).
+
+TSIF stands for Transport Stream Interface;
+this is hardware block in MSM that receives HTS signal from the de-modulator.
+
+TSIF use serial interface with de-modulator;
+it buffers data received in internal registers.
+TSIF support data copying from its internal registers to the RAM
+with the Data Mover (DM).
+
+TSIF driver prevent MSM from sleeping while TSIF hardware is active.
+To achieve this, driver holds wake lock.
+
+For access to TSIF data, TSIF driver provides kernel API
+that may be used by another kernel module. As example for API usage,
+simple TSIF chardev adapter provided. It provides character device
+/dev/tsif0. This device may be opened by single process at a time.
+When read, it provides TS stream.
+
+Quick start:
+
+### copy modules to the target
+adb push msm_tsif.ko /data/local/tmp/
+adb push tsif_chrdev.ko /data/local/tmp/
+### Load modules on the target:
+adb shell mount -t debugfs debugfs /sys/kernel/debug
+adb shell insmod /data/local/tmp/msm_tsif.ko
+adb shell insmod /data/local/tmp/tsif_chrdev.ko
+### Run capture:
+adb shell cat /dev/tsif0 > /data/local/tmp/tsif.dump
+
+
+# tests:
+adb shell mount -t debugfs debugfs /sys/kernel/debug
+adb shell rmmod tsif_chrdev
+adb shell rmmod msm_tsif
+adb shell insmod /data/local/tmp/msm_tsif.ko
+adb shell insmod /data/local/tmp/tsif_chrdev.ko
+adb shell 'echo 60 > /sys/devices/platform/msm_tsif.0/time_limit'
+adb shell 'echo "16 * 8" > /sys/devices/platform/msm_tsif.0/buf_config'
+
+# separate xterm:
+watch adb shell cat /sys/devices/platform/msm_tsif.0/stats
+# separate xterm:
+watch adb shell cat /sys/kernel/debug/msm_tsif.0/dma
+# separate xterm:
+adb shell dd if=/dev/tsif0 of=/dev/null
+
+Mode of operation
+
+TSIF hardware have 2 modes of operation: mode1 and mode 2.
+They differ in serial interface signals. Mode used should match demodulator
+chip interface.
+
+In addition to these 2 modes of operation, TSIF driver have pseudo-mode 3
+that means "debug mode" where all operation controlled through debug interfaces.
+Client configure TSIF mode of operation using tsif_set_mode().
+Alternatively, mode of operation may be configured using device attribute file:
+echo 1 > /sys/devices/platform/msm_tsif.0/mode
+
+Time limit
+
+TSIF driver maintains time limit value. Its value corresponds
+to the TSIF_TIME_LIMIT register in TSIF hardware.
+Value in ticks of tsif_ref_clk. If time between the end of previous
+packet and end of current one exceeds this value, timeout status reported
+for the current TSIF packet.
+Client configure TSIF time limit using tsif_set_time_limit().
+Alternatively, time limit may be configured using device attribute file:
+echo 100 > /sys/devices/platform/msm_tsif.0/time_limit
+
+TSIF packet format
+
+TSIF driver uses 192 byte packets; where first 188 packets is HTS packet;
+last 4 bytes consists of :
+3 bytes TTS in bytes 188..190; and status byte ib byte 191.
+
+Status byte contains the following fields:
+Bit   Name        Comment
+0     Valid	    Always set to 1 to indicate valid HTS packet and status.
+                    If set to 0, this packet is not valid and should be ignored
+1     First packet  When set, indicates 1-st packet of a new stream or
+                    1-st valid packet after one or more packets were lost.
+2     Overflow	    When set, indicates overflow condition in TSIF hardware;
+                    one or more packets were lost. Current packet is valid.
+3     Error	    Indicates the tsif_error signal status
+4     Null	    Indicates the tsif_null signal status
+5     Reserved	    Don't care
+6     Timeout	    Indicates the 1-st packet after timeout.
+                    First packet flag will also be set.
+
+Debug facilities
+
+TSIF driver provides extensive debugging facilities to assist debug both
+TSIF input and TSIF client interfaces. 2 mechanisms used:
+
+Device attribute, accessible through usual /sys hierarchy under
+/sys/devices/platform/msm_tsif.0, provides status and statistics information.
+
+Debugfs exposes more hardware and software details. In order to use debugfs,
+one need to mount it:
+
+adb shell mount -t debugfs debugfs /sys/kernel/debug
+
+When debugfs mounted, TSIF entries may be found under
+/sys/kernel/debug/msm_tsif.0
+
+Register access
+
+All TSIF hardware registers accessible through debugfs.
+$ adb shell ls -l /sys/kernel/debug/msm_tsif.0
+-r--r--r-- root     root            0 1980-01-07 16:15 dma
+--w------- root     root            0 1980-01-07 16:15 action
+-r--r--r-- root     root            0 1980-01-07 16:15 gpios
+-r-------- root     root            0 1980-01-07 16:15 data_port
+-r--r--r-- root     root            0 1980-01-07 16:15 test_current
+-rw-r--r-- root     root            0 1980-01-07 16:15 test_export
+--w------- root     root            0 1980-01-07 16:15 test_reset
+-rw-r--r-- root     root            0 1980-01-07 16:15 test_mode
+-rw-r--r-- root     root            0 1980-01-07 16:15 test_ctl
+-rw-r--r-- root     root            0 1980-01-07 16:15 lpbk_data
+-rw-r--r-- root     root            0 1980-01-07 16:15 lpbk_flags
+-rw-r--r-- root     root            0 1980-01-07 16:15 clk_ref
+-rw-r--r-- root     root            0 1980-01-07 16:15 time_limit
+-rw-r--r-- root     root            0 1980-01-07 16:15 sts_ctl
+
+TSIF clocks are off when TSIF is not running.
+To control TSIF through low level register access, it should be set to the
+mode 3 ("debug"); in addition, TSIF start/stop actions may be executed using
+debugfs action file:
+
+adb shell 'echo open > /sys/kernel/debug/msm_tsif.0/action'
+
+Possible actions are "open" and "close".
+
+DMA activity
+
+DMA activity may be queried using debugfs dma file:
+
+$ adb shell cat /sys/kernel/debug/msm_tsif.0/dma
+ri  16 | wi  24 | dmwi  40 | [ 24]{ 32} [ 32]{ 40}
+
+This file provides ri/wi/dmwi indexes
+(dmwi is for Data Mover write index - index for first location where
+next DMA may be scheduled);
+and 2 Data Mover transfer tasks, each in [wi] {next_wi} format.
+Here, wi is index DMA is scheduled for; next_wi is where driver's
+wi will be set after DMA completion.
+
+Driver status
+
+Driver status available through stats device attribute:
+
+$ adb shell cat /sys/devices/platform/msm_tsif.0/stats
+Device       msm_tsif.0
+Mode       = 1
+Time limit = 60
+State        running
+Client     = bf036f68
+Pkt/Buf    = 64
+Pkt/chunk  = 8
+--statistics--
+Rx chunks  = 3288898
+Overflow   = 4606
+Lost sync  = 0
+Timeout    = 1
+DMA error  = 0
+Soft drop  = 0
+IFI        = 48
+--debug--
+GLBL_CLK_ENA     = 0x637dfe23
+ROW_RESET        = 0x000008c1
+CLK_HALT_STATEB  = 0xde6d80ff
+TV_NS_REG        = 0xf8e00b44
+TSIF_NS_REG      = 0x00000b40
+
+GPIO
+
+Current GPIO values may be read using debugfs gpio file:
+$ adb shell cat /sys/kernel/debug/msm_tsif.0/gpios
+       tsif_clk: 0
+        tsif_en: 0
+      tsif_data: 0
+      tsif_sync: 0
+
+In normal regime, signals changed too fast for this facility to provide
+change by change log; it should be seen as random time capture.
+When debugging TSIF input connectivity, it may be helpful to run
+
+watch -d adb shell cat /sys/kernel/debug/msm_tsif.0/gpios
+
+to see if input ever changes. If nothing changes at all; it is indication
+for mis-configured input.
+
+Another tip: in case of wire connection between components, one may connect
+TSIF input pin to logical 1 instead of actual signal source,
+to verify this is the pin required.
+
+Inter frame interval
+
+To estimate incoming bit rate, TSIF driver measure average time interval
+between packets. Interval measured in tsif_ref_clk ticks. Actually, TSIF
+gets TTS from 1-st and last packets in chunk and use this time to calculate
+inter frame interval.
+Inter frame interval available as part of device statistics.
+
+Tip: to measure tsif_ref_clk  frequency, this approach may be used:
+
+adb shell cat /sys/kernel/debug/msm_tsif.0/clk_ref; sleep 10; adb shell cat /sys/kernel/debug/msm_tsif.0/clk_ref
+0x8db70ec8
+0x8dc6974b
+
+Then, calculate (0x8dc6974b - 0x8db70ec8)/10 that is 101798.7 Hz
+
+
+
