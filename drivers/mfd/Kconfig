@@ -352,6 +352,14 @@ config TIMPANI_CODEC
 	 This driver programs Timpani Wideband Codec for input/output of
 	 audio signal.
 
+config MARIMBA_TSADC
+	tristate "Support for Marimba Touchscreen ADC"
+	depends on MARIMBA_CORE && ARCH_MSM7X30
+	default y if MARIMBA_CORE
+	help
+	  Say yes here if you want to include support for TSADC in the
+	  Qualcomm Marimba chip.
+
 config MFD_MAX8997
 	bool "Maxim Semiconductor MAX8997/8966 PMIC Support"
 	depends on I2C=y && GENERIC_HARDIRQS
