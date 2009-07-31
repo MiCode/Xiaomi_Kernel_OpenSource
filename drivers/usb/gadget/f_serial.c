@@ -33,6 +33,7 @@ struct f_gser {
 	u8				data_id;
 	u8				port_num;
 
+	u8				online;
 #ifdef CONFIG_MODEM_SUPPORT
 	u8				pending;
 	spinlock_t			lock;
@@ -386,6 +387,7 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 	}
 	gserial_connect(&gser->port, gser->port_num);
+	gser->online = 1;
 	return rc;
 }
 
@@ -401,6 +403,7 @@ static void gser_disable(struct usb_function *f)
 	usb_ep_fifo_flush(gser->notify);
 	usb_ep_disable(gser->notify);
 #endif
+	gser->online = 0;
 }
 #ifdef CONFIG_MODEM_SUPPORT
 static int gser_notify(struct f_gser *gser, u8 type, u16 value,
