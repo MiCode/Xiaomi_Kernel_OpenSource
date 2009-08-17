@@ -336,6 +336,14 @@ config MARIMBA_CORE
 	  This driver dynamically detects the SoC and works for both
 	  Marimba and Bahama Chip.
 
+config MARIMBA_CODEC
+	tristate "Marimba Codec"
+	depends on MARIMBA_CORE
+	default n
+	help
+	 This driver programs Marimba Wideband Codec for input/output of
+	 audio signal.
+
 config MFD_MAX8997
 	bool "Maxim Semiconductor MAX8997/8966 PMIC Support"
 	depends on I2C=y && GENERIC_HARDIRQS

@@ -74,6 +74,8 @@ obj-$(CONFIG_MFD_TWL4030_AUDIO)	+= twl4030-audio.o
 obj-$(CONFIG_TWL6040_CORE)	+= twl6040.o
 
 obj-$(CONFIG_MARIMBA_CORE)	+= marimba-core.o
+obj-$(CONFIG_MARIMBA_CODEC)     += marimba-codec.o
+obj-$(CONFIG_MARIMBA_CODEC)	+= msm-adie-codec.o
 
 obj-$(CONFIG_MFD_MC13XXX)	+= mc13xxx-core.o
 obj-$(CONFIG_MFD_MC13XXX_SPI)	+= mc13xxx-spi.o
