@@ -285,7 +285,55 @@ extern int dmabounce_register_dev(struct device *, unsigned long,
  */
 extern void dmabounce_unregister_dev(struct device *);
 
+/**
+ * dma_cache_pre_ops - clean or invalidate cache before dma transfer is
+ *                     initiated and perform a barrier operation.
+ * @virtual_addr: A kernel logical or kernel virtual address
+ * @size: size of buffer to map
+ * @dir: DMA transfer direction
+ *
+ * Ensure that any data held in the cache is appropriately discarded
+ * or written back.
+ *
+ */
+static inline void dma_cache_pre_ops(void *virtual_addr,
+		size_t size, enum dma_data_direction dir)
+{
+	extern void ___dma_single_cpu_to_dev(const void *, size_t,
+		enum dma_data_direction);
 
+	BUG_ON(!valid_dma_direction(dir));
+
+	___dma_single_cpu_to_dev(virtual_addr, size, dir);
+}
+
+/**
+ * dma_cache_post_ops - clean or invalidate cache after dma transfer is
+ *                     initiated and perform a barrier operation.
+ * @virtual_addr: A kernel logical or kernel virtual address
+ * @size: size of buffer to map
+ * @dir: DMA transfer direction
+ *
+ * Ensure that any data held in the cache is appropriately discarded
+ * or written back.
+ *
+ */
+static inline void dma_cache_post_ops(void *virtual_addr,
+		size_t size, enum dma_data_direction dir)
+{
+	extern void ___dma_single_cpu_to_dev(const void *, size_t,
+		enum dma_data_direction);
+
+	BUG_ON(!valid_dma_direction(dir));
+
+	if (arch_has_speculative_dfetch() && dir != DMA_TO_DEVICE)
+		/*
+		 * Treat DMA_BIDIRECTIONAL and DMA_FROM_DEVICE
+		 * identically: invalidate
+		 */
+		___dma_single_cpu_to_dev(virtual_addr,
+					 size, DMA_FROM_DEVICE);
+}
 
 /*
  * The scatter list versions of the above methods.
