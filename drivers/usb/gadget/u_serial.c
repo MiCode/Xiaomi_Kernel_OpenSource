@@ -591,20 +591,22 @@ static void gs_rx_push(unsigned long _port)
 static void gs_read_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct gs_port	*port = ep->driver_data;
+	unsigned long flags;
 
 	/* Queue all received data until the tty layer is ready for it. */
-	spin_lock(&port->port_lock);
+	spin_lock_irqsave(&port->port_lock, flags);
 	port->nbytes_from_host += req->actual;
 	list_add_tail(&req->list, &port->read_queue);
 	tasklet_schedule(&port->push);
-	spin_unlock(&port->port_lock);
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct gs_port	*port = ep->driver_data;
+	unsigned long flags;
 
-	spin_lock(&port->port_lock);
+	spin_lock_irqsave(&port->port_lock, flags);
 	port->nbytes_to_host += req->actual;
 	list_add(&req->list, &port->write_pool);
 	port->write_started--;
@@ -627,7 +629,7 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	}
 
-	spin_unlock(&port->port_lock);
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void gs_free_requests(struct usb_ep *ep, struct list_head *head,
