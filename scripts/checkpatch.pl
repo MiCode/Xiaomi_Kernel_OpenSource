@@ -5055,9 +5055,16 @@ sub process {
 
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
-			CHK("REDUNDANT_CODE",
-			    "if this code is redundant consider removing it\n" .
-				$herecurr);
+			WARN("IF_0",
+			     "if this code is redundant consider removing it\n"
+				.  $herecurr);
+		}
+
+# warn about #if 1
+		if ($line =~ /^.\s*\#\s*if\s+1\b/) {
+			WARN("IF_1",
+			     "if this code is required consider removing"
+				. " #if 1\n" .  $herecurr);
 		}
 
 # check for needless "if (<foo>) fn(<foo>)" uses
