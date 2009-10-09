@@ -269,6 +269,16 @@ config WIFI_CONTROL_FUNC
 	help
 	  Enables Power/Reset/Carddetect function abstraction
 
+config LIBRA_SDIOIF
+	tristate "Qualcomm libra wlan SDIO driver"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	depends on MMC_MSM
+	---help---
+	  A driver for Qualcomm WLAN SDIO Libra chipset.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
