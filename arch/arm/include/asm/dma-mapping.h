@@ -114,6 +114,39 @@ extern int dma_supported(struct device *dev, u64 mask);
 
 extern int arm_dma_set_mask(struct device *dev, u64 dma_mask);
 
+/*
+ * dma_coherent_pre_ops - barrier functions for coherent memory before DMA.
+ * A barrier is required to ensure memory operations are complete before the
+ * initiation of a DMA xfer.
+ * If the coherent memory is Strongly Ordered
+ * - pre ARMv7 and 8x50 guarantees ordering wrt other mem accesses
+ * - ARMv7 guarantees ordering only within a 1KB block, so we need a barrier
+ * If coherent memory is normal then we need a barrier to prevent
+ * reordering
+ */
+static inline void dma_coherent_pre_ops(void)
+{
+#if COHERENT_IS_NORMAL == 1
+	dmb();
+#else
+	barrier();
+#endif
+}
+/*
+ * dma_post_coherent_ops - barrier functions for coherent memory after DMA.
+ * If the coherent memory is Strongly Ordered we dont need a barrier since
+ * there are no speculative fetches to Strongly Ordered memory.
+ * If coherent memory is normal then we need a barrier to prevent reordering
+ */
+static inline void dma_coherent_post_ops(void)
+{
+#if COHERENT_IS_NORMAL == 1
+	dmb();
+#else
+	barrier();
+#endif
+}
+
 /**
  * arm_dma_alloc - allocate consistent memory for DMA
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
