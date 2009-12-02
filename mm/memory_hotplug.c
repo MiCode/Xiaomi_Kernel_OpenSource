@@ -1171,6 +1171,34 @@ out:
 }
 EXPORT_SYMBOL_GPL(add_memory);
 
+int __ref physical_remove_memory(u64 start, u64 size)
+{
+	int ret;
+	struct resource *res, *res_old;
+	res = kzalloc(sizeof(struct resource), GFP_KERNEL);
+	BUG_ON(!res);
+
+	/* call arch's memory hotremove */
+	ret = arch_physical_remove_memory(start, size);
+	if (ret) {
+		kfree(res);
+		return ret;
+	}
+
+	res->name = "System RAM";
+	res->start = start;
+	res->end = start + size - 1;
+	res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+
+	res_old = locate_resource(&iomem_resource, res);
+	if (res_old)
+		release_memory_resource(res_old);
+	kfree(res);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(physical_remove_memory);
+
 #ifdef CONFIG_MEMORY_HOTREMOVE
 /*
  * A free page on the buddy free lists (not the per-cpu lists) has PageBuddy

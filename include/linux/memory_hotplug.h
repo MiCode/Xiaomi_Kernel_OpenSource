@@ -259,3 +259,4 @@ extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
 					  unsigned long pnum);
 
 #endif /* __LINUX_MEMORY_HOTPLUG_H */
+extern int physical_remove_memory(u64 start, u64 size);
