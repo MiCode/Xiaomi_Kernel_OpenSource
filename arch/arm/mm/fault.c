@@ -25,6 +25,10 @@
 #include <asm/system_misc.h>
 #include <asm/system_info.h>
 #include <asm/tlbflush.h>
+#if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
+#include <asm/io.h>
+#include <mach/msm_iomap.h>
+#endif
 
 #include "fault.h"
 
@@ -504,6 +508,49 @@ do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 static int
 do_bad(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
+	return 1;
+}
+
+#ifdef CONFIG_ARCH_MSM_SCORPION
+#define __str(x) #x
+#define MRC(x, v1, v2, v4, v5, v6) do {					\
+	unsigned int __##x;						\
+	asm("mrc " __str(v1) ", " __str(v2) ", %0, " __str(v4) ", "	\
+		__str(v5) ", " __str(v6) "\n" \
+		: "=r" (__##x));					\
+	pr_info("%s: %s = 0x%.8x\n", __func__, #x, __##x);		\
+} while(0)
+
+#define MSM_TCSR_SPARE2 (MSM_TCSR_BASE + 0x60)
+
+#endif
+
+int
+do_imprecise_ext(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+{
+#ifdef CONFIG_ARCH_MSM_SCORPION
+	MRC(ADFSR,    p15, 0,  c5, c1, 0);
+	MRC(DFSR,     p15, 0,  c5, c0, 0);
+	MRC(ACTLR,    p15, 0,  c1, c0, 1);
+	MRC(EFSR,     p15, 7, c15, c0, 1);
+	MRC(L2SR,     p15, 3, c15, c1, 0);
+	MRC(L2CR0,    p15, 3, c15, c0, 1);
+	MRC(L2CPUESR, p15, 3, c15, c1, 1);
+	MRC(L2CPUCR,  p15, 3, c15, c0, 2);
+	MRC(SPESR,    p15, 1,  c9, c7, 0);
+	MRC(SPCR,     p15, 0,  c9, c7, 0);
+	MRC(DMACHSR,  p15, 1, c11, c0, 0);
+	MRC(DMACHESR, p15, 1, c11, c0, 1);
+	MRC(DMACHCR,  p15, 0, c11, c0, 2);
+
+	/* clear out EFSR and ADFSR after fault */
+	asm volatile ("mcr p15, 7, %0, c15, c0, 1\n\t"
+		      "mcr p15, 0, %0, c5, c1, 0"
+		      : : "r" (0));
+#endif
+#ifdef CONFIG_ARCH_MSM_SCORPION
+	pr_info("%s: TCSR_SPARE2 = 0x%.8x\n", __func__, readl(MSM_TCSR_SPARE2));
+#endif
 	return 1;
 }
 
