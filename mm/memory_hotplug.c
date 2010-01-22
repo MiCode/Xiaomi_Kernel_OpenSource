@@ -1199,6 +1199,16 @@ int __ref physical_remove_memory(u64 start, u64 size)
 }
 EXPORT_SYMBOL_GPL(physical_remove_memory);
 
+int __ref physical_low_power_memory(u64 start, u64 size)
+{
+	int ret;
+
+	/* call arch's memory low power routine */
+	ret = arch_physical_low_power_memory(start, size);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(physical_low_power_memory);
+
 #ifdef CONFIG_MEMORY_HOTREMOVE
 /*
  * A free page on the buddy free lists (not the per-cpu lists) has PageBuddy
