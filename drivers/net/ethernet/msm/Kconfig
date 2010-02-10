@@ -1,3 +1,18 @@
 #
 # msm network device configuration
 #
+
+config MSM_RMNET
+	tristate "MSM RMNET Virtual Network Device"
+	depends on ARCH_MSM
+	default y
+	help
+	  Virtual ethernet interface for MSM RMNET transport.
+
+config MSM_RMNET_DEBUG
+	bool "MSM RMNET debug interface"
+	depends on MSM_RMNET
+	default n
+	help
+	  Debug stats on wakeup counts.
+
