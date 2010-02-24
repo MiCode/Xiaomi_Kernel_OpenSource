@@ -63,6 +63,19 @@ config USB_EHCI_HCD
 	  To compile this driver as a module, choose M here: the
 	  module will be called ehci-hcd.
 
+config USB_EHCI_EHSET
+	bool "Embedded High-speed Host Electrical Test Support"
+	depends on USB_EHCI_HCD
+	---help---
+	  This option is required for EHSET Host Compliance Tests support on an
+	  embedded Hi-speed USB Host or OTG port.
+
+	  This enables the software support for the "Single Step Set Featue" test.
+	  Apart from this test, other EHSET tests TEST_SE0/J/K/PACKET are part
+	  of EHCI specification and their support already exists in the EHCI driver.
+
+	  If unsure, say N.
+
 config USB_EHCI_ROOT_HUB_TT
 	bool "Root Hub Transaction Translators"
 	depends on USB_EHCI_HCD || USB_CHIPIDEA_HOST
