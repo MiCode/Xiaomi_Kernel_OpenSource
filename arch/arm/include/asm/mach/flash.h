@@ -22,6 +22,7 @@ enum sw_version {
  * map_name:	the map probe function name
  * name:	flash device name (eg, as used with mtdparts=)
  * width:	width of mapped device
+ * interleave:  interleave mode feature support
  * init:	method called at driver/device initialisation
  * exit:	method called at driver/device removal
  * set_vpp:	method called to enable or disable VPP
@@ -34,6 +35,7 @@ struct flash_platform_data {
 	const char	*map_name;
 	const char	*name;
 	unsigned int	width;
+	unsigned int    interleave;
 	int		(*init)(void);
 	void		(*exit)(void);
 	void		(*set_vpp)(int on);
