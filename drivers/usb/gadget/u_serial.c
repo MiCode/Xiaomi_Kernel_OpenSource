@@ -81,8 +81,13 @@
  * next layer of buffering.  For TX that's a circular buffer; for RX
  * consider it a NOP.  A third layer is provided by the TTY code.
  */
-#define QUEUE_SIZE		16
+#define TX_QUEUE_SIZE		8
+#define TX_BUF_SIZE		4096
 #define WRITE_BUF_SIZE		8192		/* TX only */
+
+#define RX_QUEUE_SIZE		8
+#define RX_BUF_SIZE		4096
+
 
 /* circular buffer */
 struct gs_buf {
@@ -376,11 +381,11 @@ __acquires(&port->port_lock)
 		struct usb_request	*req;
 		int			len;
 
-		if (port->write_started >= QUEUE_SIZE)
+		if (port->write_started >= TX_QUEUE_SIZE)
 			break;
 
 		req = list_entry(pool->next, struct usb_request, list);
-		len = gs_send_packet(port, req->buf, in->maxpacket);
+		len = gs_send_packet(port, req->buf, TX_BUF_SIZE);
 		if (len == 0) {
 			/* Queue zero length packet explicitly to make it
 			 * work with UDCs which don't support req->zero flag
@@ -469,12 +474,12 @@ __acquires(&port->port_lock)
 		if (!tty)
 			break;
 
-		if (port->read_started >= QUEUE_SIZE)
+		if (port->read_started >= RX_QUEUE_SIZE)
 			break;
 
 		req = list_entry(pool->next, struct usb_request, list);
 		list_del(&req->list);
-		req->length = out->maxpacket;
+		req->length = RX_BUF_SIZE;
 
 		/* drop lock while we call out; the controller driver
 		 * may need to call us back (e.g. for disconnect)
@@ -669,19 +674,18 @@ static void gs_free_requests(struct usb_ep *ep, struct list_head *head,
 }
 
 static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
-		void (*fn)(struct usb_ep *, struct usb_request *),
+		int num, int size, void (*fn)(struct usb_ep *, struct usb_request *),
 		int *allocated)
 {
 	int			i;
 	struct usb_request	*req;
-	int n = allocated ? QUEUE_SIZE - *allocated : QUEUE_SIZE;
 
 	/* Pre-allocate up to QUEUE_SIZE transfers, but if we can't
 	 * do quite that many this time, don't fail ... we just won't
 	 * be as speedy as we might otherwise be.
 	 */
-	for (i = 0; i < n; i++) {
-		req = gs_alloc_req(ep, ep->maxpacket, GFP_ATOMIC);
+	for (i = 0; i < num; i++) {
+		req = gs_alloc_req(ep, size, GFP_ATOMIC);
 		if (!req)
 			return list_empty(head) ? -ENOMEM : 0;
 		req->complete = fn;
@@ -714,13 +718,13 @@ static int gs_start_io(struct gs_port *port)
 	 * configurations may use different endpoints with a given port;
 	 * and high speed vs full speed changes packet sizes too.
 	 */
-	status = gs_alloc_requests(ep, head, gs_read_complete,
-		&port->read_allocated);
+	status = gs_alloc_requests(ep, head, RX_QUEUE_SIZE, RX_BUF_SIZE,
+			 gs_read_complete, &port->read_allocated);
 	if (status)
 		return status;
 
 	status = gs_alloc_requests(port->port_usb->in, &port->write_pool,
-			gs_write_complete, &port->write_allocated);
+			TX_QUEUE_SIZE, TX_BUF_SIZE, gs_write_complete, &port->write_allocated);
 	if (status) {
 		gs_free_requests(ep, head, &port->read_allocated);
 		return status;
