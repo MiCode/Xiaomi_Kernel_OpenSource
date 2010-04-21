@@ -1158,6 +1158,15 @@ static int ehci_hub_control (
 					|| (temp & PORT_RESET) != 0)
 				goto error;
 
+#ifdef	CONFIG_USB_OTG
+			if (hcd->self.otg_port == (wIndex + 1) &&
+					hcd->self.b_hnp_enable &&
+					ehci->start_hnp) {
+				set_bit(wIndex, &ehci->suspended_ports);
+				ehci->start_hnp(ehci);
+				break;
+			}
+#endif
 			/* After above check the port must be connected.
 			 * Set appropriate bit thus could put phy into low power
 			 * mode if we have hostpc feature

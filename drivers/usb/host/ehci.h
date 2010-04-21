@@ -188,6 +188,7 @@ struct ehci_hcd {			/* one per controller */
 	u32			command;
 
 	unsigned		max_log2_irq_thresh;
+	void (*start_hnp)(struct ehci_hcd *ehci);
 
 	/* SILICON QUIRKS */
 	unsigned		no_selective_suspend:1;
