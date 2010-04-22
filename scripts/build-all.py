@@ -49,9 +49,12 @@ make_env.update({
 	'KCONFIG_NOTIMESTAMP': 'true' })
 all_options = {}
 
+def error(msg):
+    sys.stderr.write("error: %s\n" % msg)
+
 def fail(msg):
     """Fail with a user-printed message"""
-    sys.stderr.write("error: %s\n" % msg)
+    error(msg)
     sys.exit(1)
 
 def check_kernel():
@@ -115,11 +118,11 @@ class Builder:
 		sys.stdout.flush()
 	print
 	result = proc.wait()
-	if result != 0:
-	    fail("Failed to build, see %s" % self.logname)
 
-    def close(self):
 	self.fd.close()
+	return result
+
+failed_targets = []
 
 def build(target):
     dest_dir = os.path.join(build_dir, target)
@@ -138,8 +141,16 @@ def build(target):
 
     if not all_options.updateconfigs:
         build = Builder(log_name)
-        build.run(['make', 'O=%s' % dest_dir] + make_command)
-        build.close()
+
+        result = build.run(['make', 'O=%s' % dest_dir] + make_command)
+
+	if result != 0:
+	    if all_options.keep_going:
+		failed_targets.append(target)
+		fail_or_error = error
+	    else:
+	        fail_or_error = fail
+	    fail_or_error("Failed to build %s, see %s" % (target, build.logname))
 
     # Copy the defconfig back.
     if all_options.configs or all_options.updateconfigs:
@@ -151,6 +162,9 @@ def build_many(allconf, targets):
 	if all_options.updateconfigs:
             update_config(allconf[target], all_options.updateconfigs)
         build(target)
+    if failed_targets:
+	fail('\n  '.join(["Failed targets:"] +
+	    [target for target in failed_targets]))
 
 def main():
     check_kernel()
@@ -181,7 +195,10 @@ def main():
 	    help="Number of simultaneous jobs")
     parser.add_option('-l', '--load-average', type='int',
 	    dest='load_average',
-	    help="Don'start t multiple jobs unless load is below LOAD_AVERAGE.")
+	    help="Don't start multiple jobs unless load is below LOAD_AVERAGE")
+    parser.add_option('-k', '--keep-going', action='store_true',
+	    dest='keep_going', default=False,
+	    help="Keep building other targets if a target fails")
 
     (options, args) = parser.parse_args()
     global all_options
