@@ -524,5 +524,12 @@ config REGULATOR_AS3711
 	  This driver provides support for the voltage regulators on the
 	  AS3711 PMIC
 
+config REGULATOR_PMIC8058
+        tristate "PMIC8058 regulator driver"
+        depends on PMIC8058 && (ARCH_MSM8X60 || ARCH_FSM9XXX)
+        default y if PMIC8058 && (ARCH_MSM8X60 || ARCH_FSM9XXX)
+        help
+         Say Y here to support the voltage regulators on PMIC8058
+
 endif
 
