@@ -1795,6 +1795,8 @@ config KS8851
 	depends on SPI
 	select MII
 	select CRC32
+	select MISC_DEVICES
+	select EEPROM_93CX6
 	help
 	  SPI driver for Micrel KS8851 SPI attached network chip.
 
