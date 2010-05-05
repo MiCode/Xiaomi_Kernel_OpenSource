@@ -2424,6 +2424,10 @@ sub process {
 					     "email address '$email' might be better as '$suggested_email$comment'\n" . $herecurr);
 				}
 			}
+			if ($line =~ /^\s*signed-off-by:.*(quicinc|qualcomm)\.com/i) {
+				WARN("BAD_SIGN_OFF",
+				     "invalid Signed-off-by identity\n" . $line );
+			}			
 
 # Check for duplicate signatures
 			my $sig_nospace = $line;
@@ -2553,6 +2557,11 @@ sub process {
 			$reported_maintainer_file = 1;
 			WARN("FILE_PATH_CHANGES",
 			     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
+		}
+
+#check the patch for invalid author credentials
+		if ($line =~ /^From:.*(quicinc|qualcomm)\.com/) {
+			WARN("BAD_AUTHOR", "invalid author identity\n" . $line );
 		}
 
 # Check for wrappage within a valid hunk of the file
