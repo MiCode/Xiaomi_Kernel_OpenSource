@@ -337,6 +337,8 @@ struct usb_bus {
 					 * the ep queue on a short transfer
 					 * with the URB_SHORT_NOT_OK flag set.
 					 */
+	unsigned hnp_support:1;		/* OTG: HNP is supported on OTG port */
+	struct delayed_work hnp_polling;/* OTG: HNP polling work */
 	unsigned sg_tablesize;		/* 0 or largest number of sg list entries */
 
 	int devnum_next;		/* Next open device number in

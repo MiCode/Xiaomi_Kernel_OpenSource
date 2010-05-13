@@ -2045,6 +2045,12 @@ void usb_disconnect(struct usb_device **pdev)
 	dev_info(&udev->dev, "USB disconnect, device number %d\n",
 			udev->devnum);
 
+#ifdef CONFIG_USB_OTG
+	if (udev->bus->hnp_support && udev->portnum == udev->bus->otg_port) {
+		cancel_delayed_work_sync(&udev->bus->hnp_polling);
+	}
+#endif
+
 	usb_lock_device(udev);
 
 	/* Free up all the children before we remove this device */
@@ -2162,15 +2168,34 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 					(port1 == bus->otg_port)
 						? "" : "non-");
 
+				/* a_alt_hnp_support is obsoleted */
+				if (port1 != bus->otg_port)
+					goto out;
+
+				bus->hnp_support = 1;
+
+				/* a_hnp_support is not required for devices
+				 * compliant to revision 2.0 or subsequent
+				 * versions.
+				 */
+
+				if ((le16_to_cpu(desc->bLength) ==
+						USB_DT_OTG_SIZE) &&
+					le16_to_cpu(desc->bcdOTG) >= 0x0200)
+					goto out;
+
+				/* Legacy B-device i.e compliant to spec
+				 * revision 1.3 expect A-device to set
+				 * a_hnp_support or b_hnp_enable before
+				 * selecting configuration.
+				 */
+				old_otg = true;
+
 				/* enable HNP before suspend, it's simpler */
-				if (port1 == bus->otg_port)
-					bus->b_hnp_enable = 1;
 				err = usb_control_msg(udev,
 					usb_sndctrlpipe(udev, 0),
 					USB_REQ_SET_FEATURE, 0,
-					bus->b_hnp_enable
-						? USB_DEVICE_B_HNP_ENABLE
-						: USB_DEVICE_A_ALT_HNP_SUPPORT,
+					USB_DEVICE_A_HNP_SUPPORT,
 					0, NULL, 0, USB_CTRL_SET_TIMEOUT);
 				if (err < 0) {
 					/* OTG MESSAGE: report errors here,
@@ -2179,26 +2204,38 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 					dev_info(&udev->dev,
 						"can't set HNP mode: %d\n",
 						err);
-					bus->b_hnp_enable = 0;
+					bus->hnp_support = 0;
 				}
 			}
 		}
 	}
+out:
 
 	if (!is_targeted(udev)) {
 
 		/* Maybe it can talk to us, though we can't talk to it.
 		 * (Includes HNP test device.)
 		 */
-		if (udev->bus->b_hnp_enable || udev->bus->is_b_host) {
+		if (udev->bus->hnp_support) {
 			err = usb_port_suspend(udev, PMSG_SUSPEND);
 			if (err < 0)
 				dev_dbg(&udev->dev, "HNP fail, %d\n", err);
 		}
 		err = -ENOTSUPP;
-		goto fail;
+	} else if (udev->bus->hnp_support &&
+		udev->portnum == udev->bus->otg_port) {
+		/* HNP polling is introduced in OTG supplement Rev 2.0
+		 * and older devices may not support. Work is not
+		 * re-armed if device returns STALL. B-Host also perform
+		 * HNP polling.
+		 */
+		if (udev->bus->quick_hnp)
+			schedule_delayed_work(&udev->bus->hnp_polling,
+				msecs_to_jiffies(OTG_TTST_SUSP));
+		else
+			schedule_delayed_work(&udev->bus->hnp_polling,
+				msecs_to_jiffies(THOST_REQ_POLL));
 	}
-fail:
 #endif
 	return err;
 }
@@ -2967,6 +3004,22 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 				return status;
 		}
 	}
+#ifdef CONFIG_USB_OTG
+	if (!udev->bus->is_b_host && udev->bus->hnp_support &&
+		udev->portnum == udev->bus->otg_port) {
+		status = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+				USB_REQ_SET_FEATURE, 0,
+				USB_DEVICE_B_HNP_ENABLE,
+				0, NULL, 0, USB_CTRL_SET_TIMEOUT);
+		if (status < 0) {
+			otg_send_event(OTG_EVENT_NO_RESP_FOR_HNP_ENABLE);
+			dev_dbg(&udev->dev, "can't enable HNP on port %d, "
+					"status %d\n", port1, status);
+		} else {
+			udev->bus->b_hnp_enable = 1;
+		}
+	}
+#endif
 
 	/* disable USB2 hardware LPM */
 	if (udev->usb2_hw_lpm_enabled == 1)

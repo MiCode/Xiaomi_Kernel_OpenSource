@@ -160,6 +160,10 @@
 
 #define USB_ENDPOINT_HALT		0	/* IN/OUT will STALL */
 
+#define OTG_STATUS_SELECTOR		0xF000
+#define HOST_REQUEST_FLAG		0
+#define THOST_REQ_POLL			1500    /* msec (1000 - 2000) */
+
 /* Bit array elements as returned by the USB_REQ_GET_STATUS request. */
 #define USB_DEV_STAT_U1_ENABLED		2	/* transition into U1 state */
 #define USB_DEV_STAT_U2_ENABLED		3	/* transition into U2 state */
@@ -672,8 +676,10 @@ struct usb_otg_descriptor {
 	__u8  bDescriptorType;
 
 	__u8  bmAttributes;	/* support for HNP, SRP, etc */
+	__le16 bcdOTG;
 } __attribute__ ((packed));
 
+#define USB_DT_OTG_SIZE		5
 /* from usb_otg_descriptor.bmAttributes */
 #define USB_OTG_SRP		(1 << 0)
 #define USB_OTG_HNP		(1 << 1)	/* swap host/device roles */

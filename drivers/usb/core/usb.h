@@ -122,6 +122,10 @@ static inline int usb_set_usb2_hardware_lpm(struct usb_device *udev, int enable)
 }
 #endif
 
+#ifdef CONFIG_USB_OTG
+extern void usb_hnp_polling_work(struct work_struct *work);
+#endif
+
 extern struct bus_type usb_bus_type;
 extern struct device_type usb_device_type;
 extern struct device_type usb_if_device_type;
