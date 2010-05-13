@@ -531,5 +531,12 @@ config REGULATOR_PMIC8058
         help
          Say Y here to support the voltage regulators on PMIC8058
 
+config REGULATOR_PMIC8901
+        tristate "PMIC8901 regulator driver"
+        depends on PMIC8901 && ARCH_MSM8X60
+        default y if PMIC8901 && ARCH_MSM8X60
+        help
+         Say Y here to support the voltage regulators on PMIC8901
+
 endif
 
