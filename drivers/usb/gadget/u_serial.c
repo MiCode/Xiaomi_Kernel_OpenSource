@@ -28,6 +28,7 @@
 #include <linux/export.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
 
 #include "u_serial.h"
 
@@ -115,7 +116,7 @@ struct gs_port {
 	int read_allocated;
 	struct list_head	read_queue;
 	unsigned		n_read;
-	struct tasklet_struct	push;
+	struct work_struct	push;
 
 	struct list_head	write_pool;
 	int write_started;
@@ -135,6 +136,8 @@ static struct portmaster {
 	struct mutex	lock;			/* protect open/close */
 	struct gs_port	*port;
 } ports[MAX_U_SERIAL_PORTS];
+
+static struct workqueue_struct *gserial_wq;
 
 #define GS_CLOSE_TIMEOUT		15		/* seconds */
 
@@ -513,9 +516,9 @@ __acquires(&port->port_lock)
  * So QUEUE_SIZE packets plus however many the FIFO holds (usually two)
  * can be buffered before the TTY layer's buffers (currently 64 KB).
  */
-static void gs_rx_push(unsigned long _port)
+static void gs_rx_push(struct work_struct *w)
 {
-	struct gs_port		*port = (void *)_port;
+	struct gs_port		*port = container_of(w, struct gs_port, push);
 	struct tty_struct	*tty;
 	struct list_head	*queue = &port->read_queue;
 	bool			disconnect = false;
@@ -589,19 +592,18 @@ static void gs_rx_push(unsigned long _port)
 	if (do_push)
 		tty_flip_buffer_push(&port->port);
 
-
 	/* We want our data queue to become empty ASAP, keeping data
 	 * in the tty and ldisc (not here).  If we couldn't push any
 	 * this time around, there may be trouble unless there's an
 	 * implicit tty_unthrottle() call on its way...
 	 *
-	 * REVISIT we should probably add a timer to keep the tasklet
+	 * REVISIT we should probably add a timer to keep the work queue
 	 * from starving ... but it's not clear that case ever happens.
 	 */
 	if (!list_empty(queue) && tty) {
 		if (!test_bit(TTY_THROTTLED, &tty->flags)) {
 			if (do_push)
-				tasklet_schedule(&port->push);
+				queue_work(gserial_wq, &port->push);
 			else
 				pr_warning(PREFIX "%d: RX not scheduled?\n",
 					port->port_num);
@@ -624,7 +626,7 @@ static void gs_read_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->nbytes_from_host += req->actual;
 	list_add_tail(&req->list, &port->read_queue);
-	tasklet_schedule(&port->push);
+	queue_work(gserial_wq, &port->push);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
@@ -908,7 +910,7 @@ static void gs_close(struct tty_struct *tty, struct file *file)
 
 	/* Iff we're disconnected, there can be no I/O in flight so it's
 	 * ok to free the circular buffer; else just scrub it.  And don't
-	 * let the push tasklet fire again until we're re-opened.
+	 * let the push work queue fire again until we're re-opened.
 	 */
 	if (gser == NULL)
 		gs_buf_free(&port->port_write_buf);
@@ -1029,7 +1031,7 @@ static void gs_unthrottle(struct tty_struct *tty)
 		 * rts/cts, or other handshaking with the host, but if the
 		 * read queue backs up enough we'll be NAKing OUT packets.
 		 */
-		tasklet_schedule(&port->push);
+		queue_work(gserial_wq, &port->push);
 		pr_vdebug(PREFIX "%d: unthrottle\n", port->port_num);
 	}
 	spin_unlock_irqrestore(&port->port_lock, flags);
@@ -1164,7 +1166,7 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
 	spin_lock_init(&port->port_lock);
 	init_waitqueue_head(&port->drain_wait);
 
-	tasklet_init(&port->push, gs_rx_push, (unsigned long) port);
+	INIT_WORK(&port->push, gs_rx_push);
 
 	INIT_LIST_HEAD(&port->read_pool);
 	INIT_LIST_HEAD(&port->read_queue);
@@ -1301,7 +1303,7 @@ static int gs_closed(struct gs_port *port)
 
 static void gserial_free_port(struct gs_port *port)
 {
-	tasklet_kill(&port->push);
+	cancel_work_sync(&port->push);
 	/* wait for old opens to finish */
 	wait_event(port->port.close_wait, gs_closed(port));
 	WARN_ON(port->port_usb != NULL);
@@ -1549,6 +1551,12 @@ static int userial_init(void)
 	for (i = 0; i < MAX_U_SERIAL_PORTS; i++)
 		mutex_init(&ports[i].lock);
 
+	gserial_wq = create_singlethread_workqueue("k_gserial");
+	if (!gserial_wq) {
+		status = -ENOMEM;
+		goto fail;
+	}
+
 	/* export the driver ... */
 	status = tty_register_driver(gs_tty_driver);
 	if (status) {
@@ -1567,6 +1575,8 @@ static int userial_init(void)
 	return status;
 fail:
 	put_tty_driver(gs_tty_driver);
+	if (gserial_wq)
+		destroy_workqueue(gserial_wq);
 	gs_tty_driver = NULL;
 	return status;
 }
@@ -1574,6 +1584,7 @@ module_init(userial_init);
 
 static void userial_cleanup(void)
 {
+	destroy_workqueue(gserial_wq);
 	tty_unregister_driver(gs_tty_driver);
 	put_tty_driver(gs_tty_driver);
 	gs_tty_driver = NULL;
