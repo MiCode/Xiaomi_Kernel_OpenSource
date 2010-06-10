@@ -344,6 +344,14 @@ config MARIMBA_CODEC
 	 This driver programs Marimba Wideband Codec for input/output of
 	 audio signal.
 
+config TIMPANI_CODEC
+	tristate "Timpani Codec"
+	depends on MARIMBA_CORE
+	default n
+	help
+	 This driver programs Timpani Wideband Codec for input/output of
+	 audio signal.
+
 config MFD_MAX8997
 	bool "Maxim Semiconductor MAX8997/8966 PMIC Support"
 	depends on I2C=y && GENERIC_HARDIRQS

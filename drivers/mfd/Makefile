@@ -77,6 +77,9 @@ obj-$(CONFIG_MARIMBA_CORE)	+= marimba-core.o
 obj-$(CONFIG_MARIMBA_CODEC)     += marimba-codec.o
 obj-$(CONFIG_MARIMBA_CODEC)	+= msm-adie-codec.o
 
+obj-$(CONFIG_TIMPANI_CODEC)	+= timpani-codec.o
+obj-$(CONFIG_TIMPANI_CODEC)	+= msm-adie-codec.o
+
 obj-$(CONFIG_MFD_MC13XXX)	+= mc13xxx-core.o
 obj-$(CONFIG_MFD_MC13XXX_SPI)	+= mc13xxx-spi.o
 obj-$(CONFIG_MFD_MC13XXX_I2C)	+= mc13xxx-i2c.o
