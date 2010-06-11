@@ -465,6 +465,22 @@ struct mmc_host {
 	 * actually disabling the clock from it's source.
 	 */
 	bool			card_clock_off;
+
+#ifdef CONFIG_MMC_PERF_PROFILING
+	struct {
+
+		unsigned long rbytes_mmcq; /* Rd bytes MMC queue */
+		unsigned long wbytes_mmcq; /* Wr bytes MMC queue */
+		unsigned long rbytes_drv;  /* Rd bytes MMC Host  */
+		unsigned long wbytes_drv;  /* Wr bytes MMC Host  */
+		ktime_t rtime_mmcq;	   /* Rd time  MMC queue */
+		ktime_t wtime_mmcq;	   /* Wr time  MMC queue */
+		ktime_t rtime_drv;	   /* Rd time  MMC Host  */
+		ktime_t wtime_drv;	   /* Wr time  MMC Host  */
+		ktime_t start;
+	} perf;
+#endif
+
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
