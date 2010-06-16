@@ -416,6 +416,14 @@ config PM8058_FIX_USB
 	  staying high even when USB cable is removed. This option
 	  is in lieu of a complete pm8058 charging driver.
 
+config BATTERY_QCIBAT
+	tristate "Quanta Computer Inc. Battery"
+	depends on SENSORS_WPCE775X
+	default n
+	help
+	  Say Y here if you want to use the Quanta battery driver for ST15
+	  platform.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
