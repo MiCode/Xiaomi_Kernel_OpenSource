@@ -34,6 +34,9 @@ struct ashmem_pin {
 #define ASHMEM_UNPIN		_IOW(__ASHMEMIOC, 8, struct ashmem_pin)
 #define ASHMEM_GET_PIN_STATUS	_IO(__ASHMEMIOC, 9)
 #define ASHMEM_PURGE_ALL_CACHES	_IO(__ASHMEMIOC, 10)
+#define ASHMEM_CACHE_FLUSH_RANGE	_IO(__ASHMEMIOC, 11)
+#define ASHMEM_CACHE_CLEAN_RANGE	_IO(__ASHMEMIOC, 12)
+#define ASHMEM_CACHE_INV_RANGE		_IO(__ASHMEMIOC, 13)
 
 /* support of 32bit userspace on 64bit platforms */
 #ifdef CONFIG_COMPAT
