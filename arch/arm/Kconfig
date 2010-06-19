@@ -1734,11 +1734,11 @@ config HW_PERF_EVENTS
 source "mm/Kconfig"
 
 config ARCH_MEMORY_PROBE
-	def_bool y
+	def_bool n
 	depends on MEMORY_HOTPLUG
 
 config ARCH_MEMORY_REMOVE
-	def_bool y
+	def_bool n
 	depends on MEMORY_HOTPLUG
 
 config FORCE_MAX_ZONEORDER
