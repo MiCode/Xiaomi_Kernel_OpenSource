@@ -815,6 +815,59 @@ static long compat_ashmem_ioctl(struct file *file, unsigned int cmd, unsigned lo
 }
 #endif
 
+static int is_ashmem_file(struct file *file)
+{
+	char fname[256], *name;
+	name = dentry_path(file->f_dentry, fname, 256);
+	return strcmp(name, "/ashmem") ? 0 : 1;
+}
+
+int get_ashmem_file(int fd, struct file **filp, struct file **vm_file,
+			unsigned long *len)
+{
+	int ret = -1;
+	struct file *file = fget(fd);
+	*filp = NULL;
+	*vm_file = NULL;
+	if (unlikely(file == NULL)) {
+		pr_err("ashmem: %s: requested data from file "
+			"descriptor that doesn't exist.\n", __func__);
+	} else {
+		char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
+		pr_debug("filp %p rdev %d pid %u(%s) file %p(%ld)"
+			" dev id: %d\n", filp,
+			file->f_dentry->d_inode->i_rdev,
+			current->pid, get_task_comm(currtask_name, current),
+			file, file_count(file),
+			MINOR(file->f_dentry->d_inode->i_rdev));
+		if (is_ashmem_file(file)) {
+			struct ashmem_area *asma = file->private_data;
+			*filp = file;
+			*vm_file = asma->file;
+			*len = asma->size;
+			ret = 0;
+		} else {
+			pr_err("file descriptor is not an ashmem "
+				"region fd: %d\n", fd);
+			fput(file);
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(get_ashmem_file);
+
+void put_ashmem_file(struct file *file)
+{
+	char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
+	pr_debug("rdev %d pid %u(%s) file %p(%ld)" " dev id: %d\n",
+		file->f_dentry->d_inode->i_rdev, current->pid,
+		get_task_comm(currtask_name, current), file,
+		file_count(file), MINOR(file->f_dentry->d_inode->i_rdev));
+	if (file && is_ashmem_file(file))
+		fput(file);
+}
+EXPORT_SYMBOL(put_ashmem_file);
+
 static const struct file_operations ashmem_fops = {
 	.owner = THIS_MODULE,
 	.open = ashmem_open,
