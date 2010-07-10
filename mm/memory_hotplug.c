@@ -133,9 +133,10 @@ void __ref put_page_bootmem(struct page *page)
 #ifndef CONFIG_SPARSEMEM_VMEMMAP
 static void register_page_bootmem_info_section(unsigned long start_pfn)
 {
-	unsigned long *usemap, mapsize, section_nr, i;
+	unsigned long *usemap, mapsize, page_mapsize, section_nr, i, j;
 	struct mem_section *ms;
-	struct page *page, *memmap;
+	struct page *page, *memmap, *page_page;
+	int memmap_page_valid;
 
 	section_nr = pfn_to_section_nr(start_pfn);
 	ms = __nr_to_section(section_nr);
@@ -151,9 +152,21 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
 	mapsize = sizeof(struct page) * PAGES_PER_SECTION;
 	mapsize = PAGE_ALIGN(mapsize) >> PAGE_SHIFT;
 
-	/* remember memmap's page */
-	for (i = 0; i < mapsize; i++, page++)
-		get_page_bootmem(section_nr, page, SECTION_INFO);
+	page_mapsize = PAGE_SIZE/sizeof(struct page);
+
+	/* remember memmap's page, except those that reference only holes */
+	for (i = 0; i < mapsize; i++, page++) {
+		memmap_page_valid = 0;
+		page_page = __va(page_to_pfn(page) << PAGE_SHIFT);
+		for (j = 0; j < page_mapsize; j++, page_page++) {
+			if (early_pfn_valid(page_to_pfn(page_page))) {
+				memmap_page_valid = 1;
+				break;
+			}
+		}
+		if (memmap_page_valid)
+			get_page_bootmem(section_nr, page, SECTION_INFO);
+	}
 
 	usemap = __nr_to_section(section_nr)->pageblock_flags;
 	page = virt_to_page(usemap);

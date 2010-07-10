@@ -1212,7 +1212,10 @@ static inline int pfn_present(unsigned long pfn)
 #define pfn_to_nid(pfn)		(0)
 #endif
 
+#ifndef early_pfn_valid
 #define early_pfn_valid(pfn)	pfn_valid(pfn)
+#endif
+
 void sparse_init(void);
 #else
 #define sparse_init()	do {} while (0)
