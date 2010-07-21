@@ -5255,6 +5255,12 @@ sub process {
 			     "Comparing get_jiffies_64() is almost always wrong; prefer time_after64, time_before64 and friends\n" . $herecurr);
 		}
 
+# check the patch for use of mdelay
+		if ($line =~ /\bmdelay\s*\(/) {
+			WARN("MDELAY",
+			     "use of mdelay() found: msleep() is the preferred API.\n" . $herecurr );
+		}
+
 # warn about #ifdefs in C files
 #		if ($line =~ /^.\s*\#\s*if(|n)def/ && ($realfile =~ /\.c$/)) {
 #			print "#ifdef in C files should be avoided\n";
