@@ -454,6 +454,14 @@ config LEDS_MC13783
 	  This option enable support for on-chip LED drivers found
 	  on Freescale Semiconductor MC13783 PMIC.
 
+config LEDS_QCIBL
+	tristate "LED Support for Quanta LCD backlight"
+	depends on SENSORS_WPCE775X && ARCH_MSM_SCORPION
+	default n
+	help
+	  Say Y here if you want to use the Quanta backlight driver for ST15
+	  platform.
+
 config LEDS_NS2
 	tristate "LED support for Network Space v2 GPIO LEDs"
 	depends on LEDS_CLASS
