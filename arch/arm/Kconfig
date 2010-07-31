@@ -1845,6 +1845,17 @@ config XEN
 	help
 	  Say Y if you want to run Linux in a Virtual Machine on Xen on ARM.
 
+config CP_ACCESS
+	tristate "CP register access tool"
+	default m
+	help
+	  Provide support for Coprocessor register access using /sys
+	  interface. Read and write to CP registers from userspace
+	  through sysfs interface. A sys file (cp_rw) will be created under
+	  /sys/devices/system/cpaccess/cpaccess0.
+
+	  If unsure, say N.
+
 endmenu
 
 menu "Boot options"
