@@ -44,9 +44,9 @@ build_dir = '../all-kernels'
 make_command = ["vmlinux", "modules"]
 make_env = os.environ
 make_env.update({
-	'ARCH': 'arm',
-	'CROSS_COMPILE': 'arm-none-linux-gnueabi-',
-	'KCONFIG_NOTIMESTAMP': 'true' })
+        'ARCH': 'arm',
+        'CROSS_COMPILE': 'arm-none-linux-gnueabi-',
+        'KCONFIG_NOTIMESTAMP': 'true' })
 all_options = {}
 
 def error(msg):
@@ -60,14 +60,13 @@ def fail(msg):
 def check_kernel():
     """Ensure that PWD is a kernel directory"""
     if (not os.path.isfile('MAINTAINERS') or
-	    not os.path.isfile('arch/arm/mach-msm/Kconfig')):
-	fail("This doesn't seem to be an MSM kernel dir")
+        not os.path.isfile('arch/arm/mach-msm/Kconfig')):
+        fail("This doesn't seem to be an MSM kernel dir")
 
 def check_build():
     """Ensure that the build directory is present."""
     if not os.path.isdir(build_dir):
-	fail("Build directory doesn't exist, please create: %s" %
-		build_dir)
+        fail("Build directory doesn't exist, please create: %s" % build_dir)
 
 def update_config(file, str):
     print 'Updating %s with \'%s\'\n' % (file, str)
@@ -86,41 +85,41 @@ def scan_configs():
 
 class Builder:
     def __init__(self, logname):
-	self.logname = logname
-	self.fd = open(logname, 'w')
+        self.logname = logname
+        self.fd = open(logname, 'w')
 
     def run(self, args):
-	devnull = open('/dev/null', 'r')
-	proc = subprocess.Popen(args, stdin=devnull,
-		env=make_env,
-		bufsize=0,
-		stdout=subprocess.PIPE,
-		stderr=subprocess.STDOUT)
-	count = 0
-	# for line in proc.stdout:
-	rawfd = proc.stdout.fileno()
-	while True:
-	    line = os.read(rawfd, 1024)
-	    if not line:
-		break
-	    self.fd.write(line)
-	    self.fd.flush()
-	    if all_options.verbose:
-		sys.stdout.write(line)
-		sys.stdout.flush()
-	    else:
-		for i in range(line.count('\n')):
-		    count += 1
-		    if count == 64:
-			count = 0
-			print
-		    sys.stdout.write('.')
-		sys.stdout.flush()
-	print
-	result = proc.wait()
+        devnull = open('/dev/null', 'r')
+        proc = subprocess.Popen(args, stdin=devnull,
+                env=make_env,
+                bufsize=0,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT)
+        count = 0
+        # for line in proc.stdout:
+        rawfd = proc.stdout.fileno()
+        while True:
+            line = os.read(rawfd, 1024)
+            if not line:
+                break
+            self.fd.write(line)
+            self.fd.flush()
+            if all_options.verbose:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+            else:
+                for i in range(line.count('\n')):
+                    count += 1
+                    if count == 64:
+                        count = 0
+                        print
+                    sys.stdout.write('.')
+                sys.stdout.flush()
+        print
+        result = proc.wait()
 
-	self.fd.close()
-	return result
+        self.fd.close()
+        return result
 
 failed_targets = []
 
@@ -129,14 +128,14 @@ def build(target):
     log_name = '%s/log-%s.log' % (build_dir, target)
     print 'Building %s in %s log %s' % (target, dest_dir, log_name)
     if not os.path.isdir(dest_dir):
-	os.mkdir(dest_dir)
+        os.mkdir(dest_dir)
     defconfig = 'arch/arm/configs/%s_defconfig' % target
     dotconfig = '%s/.config' % dest_dir
     shutil.copyfile(defconfig, dotconfig)
 
     devnull = open('/dev/null', 'r')
     subprocess.check_call(['make', 'O=%s' % dest_dir,
-	'%s_defconfig' % target], env=make_env, stdin=devnull)
+        '%s_defconfig' % target], env=make_env, stdin=devnull)
     devnull.close()
 
     if not all_options.updateconfigs:
@@ -144,13 +143,13 @@ def build(target):
 
         result = build.run(['make', 'O=%s' % dest_dir] + make_command)
 
-	if result != 0:
-	    if all_options.keep_going:
-		failed_targets.append(target)
-		fail_or_error = error
-	    else:
-	        fail_or_error = fail
-	    fail_or_error("Failed to build %s, see %s" % (target, build.logname))
+        if result != 0:
+            if all_options.keep_going:
+                failed_targets.append(target)
+                fail_or_error = error
+            else:
+                fail_or_error = fail
+            fail_or_error("Failed to build %s, see %s" % (target, build.logname))
 
     # Copy the defconfig back.
     if all_options.configs or all_options.updateconfigs:
@@ -159,12 +158,12 @@ def build(target):
 def build_many(allconf, targets):
     print "Building %d target(s)" % len(targets)
     for target in targets:
-	if all_options.updateconfigs:
+        if all_options.updateconfigs:
             update_config(allconf[target], all_options.updateconfigs)
         build(target)
     if failed_targets:
-	fail('\n  '.join(["Failed targets:"] +
-	    [target for target in failed_targets]))
+        fail('\n  '.join(["Failed targets:"] +
+            [target for target in failed_targets]))
 
 def main():
     check_kernel()
@@ -173,63 +172,63 @@ def main():
     configs = scan_configs()
 
     usage = ("usage: %prog [options] all\n" +
-	"       %prog [options] target target ...")
+        "       %prog [options] target target ...")
     parser = OptionParser(usage=usage, version=version)
     parser.add_option('--configs', action='store_true',
-	    dest='configs',
-	    help="Copy configs back into tree")
+            dest='configs',
+            help="Copy configs back into tree")
     parser.add_option('--list', action='store_true',
-	    dest='list',
-	    help='List available targets')
+            dest='list',
+            help='List available targets')
     parser.add_option('-v', '--verbose', action='store_true',
-	    dest='verbose',
-	    help='Output to stdout in addition to log file')
+            dest='verbose',
+            help='Output to stdout in addition to log file')
     parser.add_option('--oldconfig', action='store_true',
-	    dest='oldconfig',
-	    help='Only process "make oldconfig"')
+            dest='oldconfig',
+            help='Only process "make oldconfig"')
     parser.add_option('--updateconfigs',
             dest='updateconfigs',
             help="Update defconfigs with provided option setting, "
                  "e.g. --updateconfigs=\'CONFIG_USE_THING=y\'")
     parser.add_option('-j', '--jobs', type='int', dest="jobs",
-	    help="Number of simultaneous jobs")
+            help="Number of simultaneous jobs")
     parser.add_option('-l', '--load-average', type='int',
-	    dest='load_average',
-	    help="Don't start multiple jobs unless load is below LOAD_AVERAGE")
+            dest='load_average',
+            help="Don't start multiple jobs unless load is below LOAD_AVERAGE")
     parser.add_option('-k', '--keep-going', action='store_true',
-	    dest='keep_going', default=False,
-	    help="Keep building other targets if a target fails")
+            dest='keep_going', default=False,
+            help="Keep building other targets if a target fails")
 
     (options, args) = parser.parse_args()
     global all_options
     all_options = options
 
     if options.list:
-	print "Available targets:"
+        print "Available targets:"
         for target in configs.keys():
-	    print "   %s" % target
-	sys.exit(0)
+            print "   %s" % target
+        sys.exit(0)
 
     if options.oldconfig:
-	global make_command
-	make_command = ["oldconfig"]
+        global make_command
+        make_command = ["oldconfig"]
 
     if options.jobs:
-	make_command.append("-j%d" % options.jobs)
+        make_command.append("-j%d" % options.jobs)
     if options.load_average:
-	make_command.append("-l%d" % options.load_average)
+        make_command.append("-l%d" % options.load_average)
 
     if args == ['all']:
         build_many(configs, configs.keys())
     elif len(args) > 0:
-	targets = []
-	for t in args:
+        targets = []
+        for t in args:
             if t not in configs.keys():
                 parser.error("Target '%s' not one of %s" % (t, configs.keys()))
-	    targets.append(t)
+            targets.append(t)
         build_many(configs, targets)
     else:
-	parser.error("Must specify a target to build, or 'all'")
+        parser.error("Must specify a target to build, or 'all'")
 
 if __name__ == "__main__":
     main()
