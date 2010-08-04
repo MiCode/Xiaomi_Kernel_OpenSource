@@ -6373,6 +6373,12 @@ sub process {
 			     "switch default: should use break\n" . $herectx);
 		}
 
+# check for return codes on error paths
+		if ($line =~ /\breturn\s+-\d+/) {
+			ERROR("NO_ERROR_CODE",
+			      "illegal return value, please use an error code\n" . $herecurr);
+		}
+
 # check for gcc specific __FUNCTION__
 		if ($line =~ /\b__FUNCTION__\b/) {
 			if (WARN("USE_FUNC",
