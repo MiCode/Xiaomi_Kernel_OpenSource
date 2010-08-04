@@ -66,7 +66,13 @@ def check_kernel():
 def check_build():
     """Ensure that the build directory is present."""
     if not os.path.isdir(build_dir):
-        fail("Build directory doesn't exist, please create: %s" % build_dir)
+        try:
+            os.makedirs(build_dir)
+        except OSError as exc:
+            if exc.errno == errno.EEXIST:
+                pass
+            else:
+                raise
 
 def update_config(file, str):
     print 'Updating %s with \'%s\'\n' % (file, str)
@@ -171,8 +177,11 @@ def main():
 
     configs = scan_configs()
 
-    usage = ("usage: %prog [options] all\n" +
-        "       %prog [options] target target ...")
+    usage = ("""
+           %prog [options] all                 -- Build all targets
+           %prog [options] target target ...   -- List specific targets
+           %prog [options] perf                -- Build all perf targets
+           %prog [options] noperf              -- Build all non-perf targets""")
     parser = OptionParser(usage=usage, version=version)
     parser.add_option('--configs', action='store_true',
             dest='configs',
@@ -220,6 +229,18 @@ def main():
 
     if args == ['all']:
         build_many(configs, configs.keys())
+    elif args == ['perf']:
+        targets = []
+        for t in configs.keys():
+            if "perf" in t:
+                targets.append(t)
+        build_many(configs, targets)
+    elif args == ['noperf']:
+        targets = []
+        for t in configs.keys():
+            if "perf" not in t:
+                targets.append(t)
+        build_many(configs, targets)
     elif len(args) > 0:
         targets = []
         for t in args:
