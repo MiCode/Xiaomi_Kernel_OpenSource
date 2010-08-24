@@ -375,6 +375,17 @@ config PM8058_CHARGER
 	  pmic8058 provides a linear charging circuit connected to the usb
 	  cable on Qualcomm's msm8x60 surf board.
 
+config ISL9519_CHARGER
+	tristate "isl9519 charger"
+	depends on (BATTERY_MSM8X60 || PM8921_CHARGER)
+	depends on I2C
+	default n
+	help
+	  The isl9519q charger chip from intersil is connected to an external
+	  charger cable and is preferred way of charging the battery because
+	  of its high current rating.
+	  Choose Y if you are compiling for Qualcomm's msm8x60 surf/ffa board.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
