@@ -99,4 +99,10 @@ config TCG_ST_I2C
 	  If you have a ST19NP18-TPM-I2C TPM security chip from ST Micro
 	  say Yes and it will be accessible from Linux.
 
+config TCG_TPMD_DEV
+	tristate "tpmd_dev TPM Emulator driver"
+	default n
+	---help---
+	  Enables the TPM emulator driver
+
 endif # TCG_TPM
