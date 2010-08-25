@@ -665,4 +665,16 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
+config INPUT_PMIC8058_VIBRA_MEMLESS
+	tristate "Qualcomm PM8058 vibrator support (ff-memless)"
+	depends on PMIC8058 && INPUT_FF_MEMLESS
+	default n
+	help
+	  This option enables device driver support for the vibrator
+	  on Qualcomm PM8058 chip. This driver supports ff-memless interface
+	  from input framework.
+
+	  To compile this driver as module, choose M here: the
+	  module will be called pmic8058-vib-memless.
+
 endif
