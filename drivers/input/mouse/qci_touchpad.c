@@ -113,7 +113,7 @@ static const struct i2c_device_id qcitp_idtable[] = {
 
 MODULE_DEVICE_TABLE(i2c, qcitp_idtable);
 #ifdef CONFIG_PM
-static struct dev_pm_ops qcitp_pm_ops = {
+static const struct dev_pm_ops qcitp_pm_ops = {
 	.suspend  = qcitp_suspend,
 	.resume   = qcitp_resume,
 };
