@@ -198,12 +198,16 @@ static unsigned long do_cpregister_rw(int write)
 	p_opcode = (unsigned long *)&cpaccess_dummy;
 	mem_text_write_kernel_word(p_opcode, opcode);
 
+#ifdef CONFIG_SMP
 	/*
 	 * Use smp_call_function_single to do CPU core specific
 	 * get_asm_value function call.
 	 */
 	if (smp_call_function_single(cpu, get_asm_value, &ret, 1))
 		printk(KERN_ERR "Error cpaccess smp call single\n");
+#else
+		get_asm_value(&ret);
+#endif
 
 	return ret;
 }
