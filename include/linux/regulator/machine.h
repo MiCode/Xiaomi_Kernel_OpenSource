@@ -193,12 +193,17 @@ int regulator_suspend_finish(void);
 #ifdef CONFIG_REGULATOR
 void regulator_has_full_constraints(void);
 void regulator_use_dummy_regulator(void);
+void regulator_suppress_info_printing(void);
 #else
 static inline void regulator_has_full_constraints(void)
 {
 }
 
 static inline void regulator_use_dummy_regulator(void)
+{
+}
+
+static inline void regulator_suppress_info_printing(void)
 {
 }
 #endif
