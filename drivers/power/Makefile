@@ -54,6 +54,7 @@ obj-$(CONFIG_CHARGER_BQ2415X)	+= bq2415x_charger.o
 obj-$(CONFIG_POWER_AVS)		+= avs/
 obj-$(CONFIG_BATTERY_MSM)       += msm_battery.o
 obj-$(CONFIG_BATTERY_MSM8X60)   += msm_charger.o
+obj-$(CONFIG_PM8058_CHARGER)    += pmic8058-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_POWER_RESET)	+= reset/

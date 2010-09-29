@@ -366,6 +366,15 @@ config BATTERY_MSM8X60
 	  Say Y to enable support for the battery charging in
 	  such devices.
 
+config PM8058_CHARGER
+	tristate "pmic8058 charger"
+	depends on BATTERY_MSM8X60
+	depends on PMIC8058
+	help
+	  Say Y to enable support for battery charging from the pmic8058.
+	  pmic8058 provides a linear charging circuit connected to the usb
+	  cable on Qualcomm's msm8x60 surf board.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
