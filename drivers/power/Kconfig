@@ -358,6 +358,14 @@ config BATTERY_MSM_FAKE
 	help
 	  Say Y to bypass actual battery queries.
 
+config BATTERY_MSM8X60
+	tristate "MSM8X60 battery"
+	select PMIC8XXX_BATTALARM
+	help
+	  Some MSM boards have dual charging paths to charge the battery.
+	  Say Y to enable support for the battery charging in
+	  such devices.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
