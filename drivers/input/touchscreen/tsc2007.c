@@ -87,6 +87,7 @@ struct tsc2007 {
 
 	int			(*get_pendown_state)(void);
 	void			(*clear_penirq)(void);
+	int			(*power_shutdown)(bool);
 };
 
 static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
@@ -282,9 +283,9 @@ static void tsc2007_free_irq(struct tsc2007 *ts)
 }
 
 #ifdef CONFIG_PM
-/* REVISIT: Changes for Power optimization */
 static int tsc2007_suspend(struct device *dev)
 {
+	int rc;
 	struct tsc2007	*ts = dev_get_drvdata(dev);
 
 	disable_irq(ts->irq);
@@ -292,12 +293,39 @@ static int tsc2007_suspend(struct device *dev)
 	if (cancel_delayed_work_sync(&ts->work))
 		enable_irq(ts->irq);
 
+	if (ts->power_shutdown) {
+		rc = ts->power_shutdown(true);
+		if (rc) {
+			pr_err("%s: Power off failed, suspend failed (%d)\n",
+							__func__, rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
 static int tsc2007_resume(struct device *dev)
 {
+	int rc;
 	struct tsc2007	*ts = dev_get_drvdata(dev);
+
+	if (ts->power_shutdown) {
+		rc = ts->power_shutdown(false);
+		if (rc) {
+			pr_err("%s: Power on failed, resume failed (%d)\n",
+							 __func__, rc);
+			return rc;
+		}
+	}
+
+	/* Prepare for touch readings - power down ADC and enable PENIRQ */
+	rc = tsc2007_xfer(ts, PWRDOWN);
+	if (rc < 0) {
+		pr_err("%s: TSC2007 enable failed\n", __func__);
+		ts->power_shutdown(true);
+		return rc;
+	}
 
 	enable_irq(ts->irq);
 
@@ -350,6 +378,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	ts->invert_y	      = pdata->invert_y;
 	ts->invert_z1	      = pdata->invert_z1;
 	ts->invert_z2	      = pdata->invert_z2;
+	ts->power_shutdown    = pdata->power_shutdown;
 
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input0", dev_name(&client->dev));
