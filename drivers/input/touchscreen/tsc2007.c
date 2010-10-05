@@ -26,6 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
 #include <linux/i2c/tsc2007.h>
+#include <linux/pm.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -79,6 +80,11 @@ struct tsc2007 {
 	bool			pendown;
 	int			irq;
 
+	bool			invert_x;
+	bool			invert_y;
+	bool			invert_z1;
+	bool			invert_z2;
+
 	int			(*get_pendown_state)(void);
 	void			(*clear_penirq)(void);
 };
@@ -116,6 +122,18 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	/* turn y+ off, x- on; we'll use formula #1 */
 	tc->z1 = tsc2007_xfer(tsc, READ_Z1);
 	tc->z2 = tsc2007_xfer(tsc, READ_Z2);
+
+	if (tsc->invert_x == true)
+		tc->x = MAX_12BIT - tc->x;
+
+	if (tsc->invert_y == true)
+		tc->y = MAX_12BIT - tc->y;
+
+	if (tsc->invert_z1 == true)
+		tc->z1 = MAX_12BIT - tc->z1;
+
+	if (tsc->invert_z2 == true)
+		tc->z2 = MAX_12BIT - tc->z2;
 
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(tsc, PWRDOWN);
@@ -263,6 +281,35 @@ static void tsc2007_free_irq(struct tsc2007 *ts)
 	}
 }
 
+#ifdef CONFIG_PM
+/* REVISIT: Changes for Power optimization */
+static int tsc2007_suspend(struct device *dev)
+{
+	struct tsc2007	*ts = dev_get_drvdata(dev);
+
+	disable_irq(ts->irq);
+
+	if (cancel_delayed_work_sync(&ts->work))
+		enable_irq(ts->irq);
+
+	return 0;
+}
+
+static int tsc2007_resume(struct device *dev)
+{
+	struct tsc2007	*ts = dev_get_drvdata(dev);
+
+	enable_irq(ts->irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops tsc2007_pm_ops = {
+	.suspend	= tsc2007_suspend,
+	.resume		= tsc2007_resume,
+};
+#endif
+
 static int tsc2007_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
@@ -299,6 +346,10 @@ static int tsc2007_probe(struct i2c_client *client,
 	ts->poll_period       = pdata->poll_period ? : 1;
 	ts->get_pendown_state = pdata->get_pendown_state;
 	ts->clear_penirq      = pdata->clear_penirq;
+	ts->invert_x	      = pdata->invert_x;
+	ts->invert_y	      = pdata->invert_y;
+	ts->invert_z1	      = pdata->invert_z1;
+	ts->invert_z2	      = pdata->invert_z2;
 
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input0", dev_name(&client->dev));
@@ -318,7 +369,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();
 
-	err = request_irq(ts->irq, tsc2007_irq, 0,
+	err = request_irq(ts->irq, tsc2007_irq, pdata->irq_flags,
 			client->dev.driver->name, ts);
 	if (err < 0) {
 		dev_err(&client->dev, "irq %d busy?\n", ts->irq);
@@ -374,7 +425,10 @@ MODULE_DEVICE_TABLE(i2c, tsc2007_idtable);
 static struct i2c_driver tsc2007_driver = {
 	.driver = {
 		.owner	= THIS_MODULE,
-		.name	= "tsc2007"
+		.name	= "tsc2007",
+#ifdef CONFIG_PM
+		.pm = &tsc2007_pm_ops,
+#endif
 	},
 	.id_table	= tsc2007_idtable,
 	.probe		= tsc2007_probe,

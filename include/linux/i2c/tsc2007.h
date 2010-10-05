@@ -13,6 +13,11 @@ struct tsc2007_platform_data {
 	int	fuzzx; /* fuzz factor for X, Y and pressure axes */
 	int	fuzzy;
 	int	fuzzz;
+	unsigned long irq_flags;
+	bool	invert_x;
+	bool	invert_y;
+	bool	invert_z1;
+	bool	invert_z2;
 
 	int	(*get_pendown_state)(void);
 	void	(*clear_penirq)(void);		/* If needed, clear 2nd level
