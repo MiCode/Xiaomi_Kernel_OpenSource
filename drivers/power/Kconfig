@@ -386,6 +386,17 @@ config ISL9519_CHARGER
 	  of its high current rating.
 	  Choose Y if you are compiling for Qualcomm's msm8x60 surf/ffa board.
 
+config SMB137B_CHARGER
+	tristate "smb137b charger"
+	default n
+	depends on I2C
+	help
+	  The smb137b charger chip from summit is a switching mode based
+	  charging solution.
+	  Choose Y if you are compiling for Qualcomm's msm8x60 fluid board.
+	  To compile this driver as a module, choose M here: the module will
+	  be called smb137b.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
