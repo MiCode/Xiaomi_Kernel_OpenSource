@@ -176,7 +176,7 @@ static int mmc_bus_resume(struct device *dev)
 	struct mmc_host *host = card->host;
 	int ret;
 
-	if (host->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME) {
+	if (mmc_bus_manual_resume(host)) {
 		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
 		goto skip_full_resume;
 	}
