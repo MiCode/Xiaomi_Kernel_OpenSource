@@ -2058,6 +2058,7 @@ void usb_disconnect(struct usb_device **pdev)
 #ifdef CONFIG_USB_OTG
 	if (udev->bus->hnp_support && udev->portnum == udev->bus->otg_port) {
 		cancel_delayed_work_sync(&udev->bus->hnp_polling);
+		udev->bus->hnp_support = 0;
 	}
 #endif
 
