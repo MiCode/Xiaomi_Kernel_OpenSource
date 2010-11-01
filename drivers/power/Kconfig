@@ -407,6 +407,15 @@ config SMB349_CHARGER
 	  SMB349 be operated as a slave device via the power supply
 	  framework.
 
+config PM8058_FIX_USB
+	tristate "pmic8058 software workaround for usb removal"
+	depends on PMIC8058
+	depends on !PM8058_CHARGER
+	help
+	  Say Y to enable the software workaround to USB Vbus line
+	  staying high even when USB cable is removed. This option
+	  is in lieu of a complete pm8058 charging driver.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
