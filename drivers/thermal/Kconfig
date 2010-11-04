@@ -91,6 +91,18 @@ config THERMAL_EMULATION
 	  because userland can easily disable the thermal policy by simply
 	  flooding this sysfs node with low temperature values.
 
+config THERMAL_MSM_POPMEM
+	tristate "Qualcomm MSM POP memory temperature sensor"
+	depends on THERMAL
+	default n
+	help
+	  This enables a thermal sysfs driver for MSM POP memory. It shows up in
+	  sysfs as a thermal zone with one trip point. Due to hardware
+	  limitations, the temperatures are reported as "Low Temperature" (20 C)
+	  "Normal Temperature" (50 C) and "Out of Spec High Temperature" (85 C).
+	  This driver is designed to be used in conjunction with a user space
+	  application to make all policy decisions.
+
 config SPEAR_THERMAL
 	bool "SPEAr thermal sensor driver"
 	depends on PLAT_SPEAR
