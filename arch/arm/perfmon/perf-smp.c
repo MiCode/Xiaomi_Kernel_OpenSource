@@ -693,15 +693,7 @@ void l2_pm_initialize(void)
 		return;
   initialized = 1;
 
-	#ifdef CONFIG_ARCH_QSD8X50
-		irqid = INT_ARM11_PM;
-	#endif
-	#ifdef CONFIG_ARCH_MSM7X30
-		irqid = INT_ARM11_PM;
-	#endif
-	#ifdef CONFIG_ARCH_MSM8X60
-		irqid = CPU_SICCPUXPERFMONIRPTREQ;
-	#endif
+  irqid = SC_SICL2PERFMONIRPTREQ;
   RCP15_L2PMCR(reg);
   imp = (reg>>24) & 0xFF;
   id  = (reg>>16) & 0xFF;
