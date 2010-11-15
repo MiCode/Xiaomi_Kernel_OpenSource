@@ -45,7 +45,7 @@ int adsp_video_verify_cmd(struct msm_adsp_module *module,
 int adsp_videoenc_verify_cmd(struct msm_adsp_module *module,
 			  unsigned int queue_id, void *cmd_data,
 			  size_t cmd_size);
-
+void q5audio_dsp_not_responding(void);
 
 struct adsp_event;
 
