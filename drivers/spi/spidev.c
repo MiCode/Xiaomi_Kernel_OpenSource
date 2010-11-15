@@ -94,6 +94,30 @@ static unsigned bufsiz = 4096;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
+/*
+ * This can be used for testing the controller, given the busnum and the
+ * cs required to use. If those parameters are used, spidev is
+ * dynamically added as device on the busnum, and messages can be sent
+ * via this interface.
+ */
+static int busnum = -1;
+module_param(busnum, int, S_IRUGO);
+MODULE_PARM_DESC(busnum, "bus num of the controller");
+
+static int chipselect = -1;
+module_param(chipselect, int, S_IRUGO);
+MODULE_PARM_DESC(chipselect, "chip select of the desired device");
+
+static int maxspeed = 10000000;
+module_param(maxspeed, int, S_IRUGO);
+MODULE_PARM_DESC(maxspeed, "max_speed of the desired device");
+
+static int spimode = SPI_MODE_3;
+module_param(spimode, int, S_IRUGO);
+MODULE_PARM_DESC(spimode, "mode of the desired device");
+
+static struct spi_device *spi;
+
 /*-------------------------------------------------------------------------*/
 
 /*
@@ -684,21 +708,58 @@ static int __init spidev_init(void)
 
 	spidev_class = class_create(THIS_MODULE, "spidev");
 	if (IS_ERR(spidev_class)) {
-		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
-		return PTR_ERR(spidev_class);
+		status = PTR_ERR(spidev_class);
+		goto error_class;
 	}
 
 	status = spi_register_driver(&spidev_spi_driver);
-	if (status < 0) {
-		class_destroy(spidev_class);
-		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
+	if (status < 0)
+		goto error_register;
+
+	if (busnum != -1 && chipselect != -1) {
+		struct spi_board_info chip = {
+					.modalias	= "spidev",
+					.mode		= spimode,
+					.bus_num	= busnum,
+					.chip_select	= chipselect,
+					.max_speed_hz	= maxspeed,
+		};
+
+		struct spi_master *master;
+
+		master = spi_busnum_to_master(busnum);
+		if (!master) {
+			status = -ENODEV;
+			goto error_busnum;
+		}
+
+		/* We create a virtual device that will sit on the bus */
+		spi = spi_new_device(master, &chip);
+		if (!spi) {
+			status = -ENOMEM;
+			goto error_mem;
+		}
+		dev_dbg(&spi->dev, "busnum=%d cs=%d bufsiz=%d maxspeed=%d",
+			busnum, chipselect, bufsiz, maxspeed);
 	}
+	return 0;
+error_mem:
+error_busnum:
+	spi_unregister_driver(&spidev_spi_driver);
+error_register:
+	class_destroy(spidev_class);
+error_class:
+	unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
 	return status;
 }
 module_init(spidev_init);
 
 static void __exit spidev_exit(void)
 {
+	if (spi) {
+		spi_dev_put(spi);
+		spi = NULL;
+	}
 	spi_unregister_driver(&spidev_spi_driver);
 	class_destroy(spidev_class);
 	unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
