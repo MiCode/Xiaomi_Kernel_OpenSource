@@ -85,6 +85,7 @@ struct spidev_data {
 	struct mutex		buf_lock;
 	unsigned		users;
 	u8			*buffer;
+	u8			*bufferrx;
 };
 
 static LIST_HEAD(device_list);
@@ -247,7 +248,7 @@ static int spidev_message(struct spidev_data *spidev,
 	struct spi_transfer	*k_tmp;
 	struct spi_ioc_transfer *u_tmp;
 	unsigned		n, total;
-	u8			*buf;
+	u8			*buf, *bufrx;
 	int			status = -EFAULT;
 
 	spi_message_init(&msg);
@@ -260,6 +261,7 @@ static int spidev_message(struct spidev_data *spidev,
 	 * to initialize a kernel version of the same transfer.
 	 */
 	buf = spidev->buffer;
+	bufrx = spidev->bufferrx;
 	total = 0;
 	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers;
 			n;
@@ -273,7 +275,7 @@ static int spidev_message(struct spidev_data *spidev,
 		}
 
 		if (u_tmp->rx_buf) {
-			k_tmp->rx_buf = buf;
+			k_tmp->rx_buf = bufrx;
 			if (!access_ok(VERIFY_WRITE, (u8 __user *)
 						(uintptr_t) u_tmp->rx_buf,
 						u_tmp->len))
@@ -287,6 +289,7 @@ static int spidev_message(struct spidev_data *spidev,
 				goto done;
 		}
 		buf += k_tmp->len;
+		bufrx += k_tmp->len;
 
 		k_tmp->cs_change = !!u_tmp->cs_change;
 		k_tmp->bits_per_word = u_tmp->bits_per_word;
@@ -311,7 +314,7 @@ static int spidev_message(struct spidev_data *spidev,
 		goto done;
 
 	/* copy any rx data out of bounce buffer */
-	buf = spidev->buffer;
+	buf = spidev->bufferrx;
 	for (n = n_xfers, u_tmp = u_xfers; n; n--, u_tmp++) {
 		if (u_tmp->rx_buf) {
 			if (__copy_to_user((u8 __user *)
@@ -529,6 +532,15 @@ static int spidev_open(struct inode *inode, struct file *filp)
 				status = -ENOMEM;
 			}
 		}
+		if (!spidev->bufferrx) {
+			spidev->bufferrx = kmalloc(bufsiz, GFP_KERNEL);
+			if (!spidev->bufferrx) {
+				dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+				kfree(spidev->buffer);
+				spidev->buffer = NULL;
+				status = -ENOMEM;
+			}
+		}
 		if (status == 0) {
 			spidev->users++;
 			filp->private_data = spidev;
@@ -557,6 +569,8 @@ static int spidev_release(struct inode *inode, struct file *filp)
 
 		kfree(spidev->buffer);
 		spidev->buffer = NULL;
+		kfree(spidev->bufferrx);
+		spidev->bufferrx = NULL;
 
 		/* ... after we unbound from the underlying device? */
 		spin_lock_irq(&spidev->spi_lock);
