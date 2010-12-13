@@ -208,6 +208,34 @@ static int gic_suspend(void)
 	return 0;
 }
 
+extern int msm_show_resume_irq_mask;
+
+static void gic_show_resume_irq(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	u32 enabled;
+	unsigned long pending[32];
+	void __iomem *base = gic_data_dist_base(gic);
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	raw_spin_lock(&irq_controller_lock);
+	for (i = 0; i * 32 < gic->gic_irqs; i++) {
+		enabled = readl_relaxed(base + GIC_DIST_ENABLE_CLEAR + i * 4);
+		pending[i] = readl_relaxed(base + GIC_DIST_PENDING_SET + i * 4);
+		pending[i] &= enabled;
+	}
+	raw_spin_unlock(&irq_controller_lock);
+
+	for (i = find_first_bit(pending, gic->gic_irqs);
+	     i < gic->gic_irqs;
+	     i = find_next_bit(pending, gic->gic_irqs, i+1)) {
+		pr_warning("%s: %d triggered", __func__,
+					i + gic->irq_offset);
+	}
+}
+
 static void gic_resume_one(struct gic_chip_data *gic)
 {
 	unsigned int i;
