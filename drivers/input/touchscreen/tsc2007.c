@@ -327,14 +327,6 @@ static int tsc2007_resume(struct device *dev)
 		}
 	}
 
-	/* Prepare for touch readings - power down ADC and enable PENIRQ */
-	rc = tsc2007_xfer(ts, PWRDOWN);
-	if (rc < 0) {
-		pr_err("%s: TSC2007 enable failed\n", __func__);
-		ts->power_shutdown(true);
-		return rc;
-	}
-
 	enable_irq(ts->irq);
 
 	return 0;
