@@ -1,5 +1,5 @@
-#ifndef __LINUX_MFD_MSM_ADIE_CODEC_H
-#define __LINUX_MFD_MSM_ADIE_CODEC_H
+#ifndef __UAPI_MFD_MSM_ADIE_CODEC_H
+#define __UAPI_MFD_MSM_ADIE_CODEC_H
 
 #include <linux/types.h>
 
