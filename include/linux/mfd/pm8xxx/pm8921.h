@@ -24,6 +24,7 @@
 #include <linux/mfd/pm8xxx/rtc.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
+#include <linux/regulator/pm8921-regulator.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -59,6 +60,8 @@ struct pm8921_platform_data {
 	struct pm8xxx_rtc_platform_data         *rtc_pdata;
 	struct pm8xxx_pwrkey_platform_data	*pwrkey_pdata;
 	struct pm8xxx_keypad_platform_data	*keypad_pdata;
+	struct pm8921_regulator_platform_data	*regulator_pdatas;
+	int					num_regulators;
 };
 
 #endif

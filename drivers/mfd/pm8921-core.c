@@ -30,6 +30,7 @@
 struct pm8921 {
 	struct device			*dev;
 	struct pm_irq_chip		*irq_chip;
+	struct mfd_cell                 *mfd_regulators;
 };
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
@@ -182,6 +183,8 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 {
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
+	static struct mfd_cell *mfd_regulators;
+	int i;
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8921_NR_IRQS;
@@ -256,6 +259,36 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 			pr_err("Failed to add keypad subdevice ret=%d\n", ret);
 			goto bail;
 		}
+	}
+
+	/* Add one device for each regulator used by the board. */
+	if (pdata->num_regulators > 0 && pdata->regulator_pdatas) {
+		mfd_regulators = kzalloc(sizeof(struct mfd_cell)
+					 * (pdata->num_regulators), GFP_KERNEL);
+		if (!mfd_regulators) {
+			pr_err("Cannot allocate %d bytes for pm8921 regulator "
+				"mfd cells\n", sizeof(struct mfd_cell)
+						* (pdata->num_regulators));
+			ret = -ENOMEM;
+			goto bail;
+		}
+		for (i = 0; i < pdata->num_regulators; i++) {
+			mfd_regulators[i].name = PM8921_REGULATOR_DEV_NAME;
+			mfd_regulators[i].id = pdata->regulator_pdatas[i].id;
+			mfd_regulators[i].platform_data =
+				&(pdata->regulator_pdatas[i]);
+			mfd_regulators[i].pdata_size =
+				sizeof(struct pm8921_regulator_platform_data);
+		}
+		ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
+				pdata->num_regulators, NULL, irq_base);
+		if (ret) {
+			pr_err("Failed to add regulator subdevices ret=%d\n",
+				ret);
+			kfree(mfd_regulators);
+			goto bail;
+		}
+		pmic->mfd_regulators = mfd_regulators;
 	}
 
 	return 0;
@@ -343,6 +376,7 @@ static int pm8921_remove(struct platform_device *pdev)
 		pmic->irq_chip = NULL;
 	}
 	platform_set_drvdata(pdev, NULL);
+	kfree(pmic->mfd_regulators);
 	kfree(pmic);
 
 	return 0;
