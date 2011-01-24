@@ -41,7 +41,15 @@ enum tsens_trip_type {
 
 #define TSENS_NUM_SENSORS	1 /* There are 5 but only 1 is useful now */
 #define TSENS_CAL_DEGC		30 /* degree C used for calibration */
-
+#define TSENS_QFPROM_ADDR (MSM_QFPROM_BASE + 0x000000bc)
+#define TSENS_QFPROM_RED_TEMP_SENSOR0_SHIFT 24
+#define TSENS_QFPROM_TEMP_SENSOR0_SHIFT 16
+#define TSENS_QFPROM_TEMP_SENSOR0_MASK (255 << TSENS_QFPROM_TEMP_SENSOR0_SHIFT)
+#define TSENS_SLOPE (0.702)  /* slope in (degrees_C / ADC_code) */
+#define TSENS_FACTOR (1000)  /* convert floating-point into integer */
+#define TSENS_CONFIG 01      /* this setting found to be optimal */
+#define TSENS_CONFIG_SHIFT 28
+#define TSENS_CONFIG_MASK (3 << TSENS_CONFIG_SHIFT)
 #define TSENS_CNTL_ADDR (MSM_CLK_CTL_BASE + 0x00003620)
 #define TSENS_EN (1 << 0)
 #define TSENS_SW_RST (1 << 1)
@@ -88,17 +96,31 @@ struct tsens_tm_device {
 
 struct tsens_tm_device *tmdev;
 
-/* Slope is .64; Temperature on y axis and code on x-axis */
+/* Temperature on y axis and ADC-code on x-axis */
 static int tsens_tz_code_to_degC(int adc_code)
 {
-	return ((adc_code << 6) + tmdev->offset + 50) / 100;
+	int degC, degcbeforefactor;
+	degcbeforefactor = adc_code * (int)(TSENS_SLOPE * TSENS_FACTOR)
+				+ tmdev->offset;
+	if (degcbeforefactor == 0)
+		degC = degcbeforefactor;
+	else if (degcbeforefactor > 0)
+		degC = (degcbeforefactor + TSENS_FACTOR/2) / TSENS_FACTOR;
+	else  /* rounding for negative degrees */
+		degC = (degcbeforefactor - TSENS_FACTOR/2) / TSENS_FACTOR;
+	return degC;
 }
 
 static int tsens_tz_degC_to_code(int degC)
 {
-	/* 100x = (x<<6)+(x<<5)+(x<<2) */
-	return ((degC << 6) + (degC << 5) + (degC << 2) - tmdev->offset + 32)
-									>> 6;
+	int code = (degC * TSENS_FACTOR - tmdev->offset
+			+ (int)(TSENS_FACTOR * TSENS_SLOPE)/2)
+			/ (int)(TSENS_FACTOR * TSENS_SLOPE);
+	if (code > 255) /* upper bound */
+		code = 255;
+	else if (code < 0) /* lower bound */
+		code = 0;
+	return code;
 }
 
 static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
@@ -422,6 +444,7 @@ static irqreturn_t tsens_isr_thread(int irq, void *data)
 	struct tsens_tm_device *tm = data;
 	unsigned int threshold, threshold_low, i, code, reg, sensor, mask;
 	bool upper_th_x, lower_th_x;
+	int adc_code;
 
 	mask = ~(TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR);
 	threshold = readl(TSENS_THRESHOLD_ADDR);
@@ -447,6 +470,12 @@ static irqreturn_t tsens_isr_thread(int irq, void *data)
 				/* Notify user space */
 				kobject_uevent(&tm->sensor[i].
 					tz_dev->device.kobj, KOBJ_CHANGE);
+				adc_code = readl(TSENS_S0_STATUS_ADDR
+							+ (i << 2));
+				printk(KERN_INFO"\nTrip point triggered by "
+					"current temperature (%d degrees) "
+					"measured by Temperature-Sensor %d\n",
+				tsens_tz_code_to_degC(adc_code), i);
 			}
 		}
 		sensor >>= 1;
@@ -460,22 +489,17 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	unsigned int reg, i, calib_data, calib_data_backup;
 	int rc;
 
-	/* TODO: Needs to read calibration data from QFROM.
-	   Right now, assume it is 0x5a at 30 degC
+	calib_data = (readl(TSENS_QFPROM_ADDR) & TSENS_QFPROM_TEMP_SENSOR0_MASK)
+					>> TSENS_QFPROM_TEMP_SENSOR0_SHIFT;
+	calib_data_backup = readl(TSENS_QFPROM_ADDR)
+					>> TSENS_QFPROM_RED_TEMP_SENSOR0_SHIFT;
 
-	   If direct access to QFPROM is reasonable w/ the "legal team",
-	   physical addr 0x7040bc bit [16,31] is where data resides for 8660.
-	   You need the physical addr. -> virtual addr. translation block
-	   in the msm_iomap-8x60.h before accessing the data using
-	   virtual addr. */
-
-	calib_data = 0x5a; /* need to get from qfprom; hardcode for now */
-	calib_data_backup = 0; /* need to get from qfprom; hardcode for now */
 	if (calib_data_backup)
 		calib_data = calib_data_backup;
 
 	if (!calib_data) {
-		pr_err("%s: Unprogrammed calibration data.\n", __func__);
+		pr_err("%s: No temperature sensor data for calibration"
+						" in QFPROM!\n", __func__);
 		return -ENODEV;
 	}
 
@@ -487,7 +511,8 @@ static int tsens_tm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tmdev);
 
-	tmdev->offset = 100 * TSENS_CAL_DEGC - (calib_data << 6);
+	tmdev->offset = TSENS_FACTOR * TSENS_CAL_DEGC
+			- (int)(TSENS_FACTOR * TSENS_SLOPE) * calib_data;
 	tmdev->prev_reading_avail = 0;
 	rc = request_threaded_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
 		tsens_isr_thread, 0, "tsens", tmdev);
@@ -504,6 +529,11 @@ static int tsens_tm_probe(struct platform_device *pdev)
 		TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR |
 		TSENS_MIN_STATUS_MASK | TSENS_MAX_STATUS_MASK |
 		(((1 << TSENS_NUM_SENSORS) - 1) << 3);
+
+	/* set TSENS_CONFIG bits (bits 29:28 of TSENS_CNTL) to '01';
+		this setting found to be optimal. */
+	reg = (reg & ~TSENS_CONFIG_MASK) | (TSENS_CONFIG << TSENS_CONFIG_SHIFT);
+
 	writel(reg, TSENS_CNTL_ADDR);
 
 	writel((TSENS_LOWER_LIMIT_TH << 0) | (TSENS_UPPER_LIMIT_TH << 8) |
