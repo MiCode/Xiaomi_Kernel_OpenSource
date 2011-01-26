@@ -92,6 +92,7 @@ struct tsens_tm_device {
 	struct tsens_tm_device_sensor sensor[TSENS_NUM_SENSORS];
 	bool prev_reading_avail;
 	int offset;
+	struct work_struct work;
 };
 
 struct tsens_tm_device *tmdev;
@@ -429,6 +430,17 @@ static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_crit_temp = tsens_tz_get_crit_temp,
 };
 
+static void notify_uspace_tsens_fn(struct work_struct *work)
+{
+	struct tsens_tm_device *tm = container_of(work, struct tsens_tm_device,
+					work);
+	/* Currently only Sensor0 is supported. We added support
+	   to notify only the supported Sensor and this portion
+	   needs to be revisited once other sensors are supported */
+	sysfs_notify(&tm->sensor[0].tz_dev->device.kobj,
+					NULL, "type");
+}
+
 static irqreturn_t tsens_isr(int irq, void *data)
 {
 	unsigned int reg = readl(TSENS_CNTL_ADDR);
@@ -468,14 +480,13 @@ static irqreturn_t tsens_isr_thread(int irq, void *data)
 							tm->sensor[i].tz_dev);
 
 				/* Notify user space */
-				kobject_uevent(&tm->sensor[i].
-					tz_dev->device.kobj, KOBJ_CHANGE);
+				schedule_work(&tm->work);
 				adc_code = readl(TSENS_S0_STATUS_ADDR
 							+ (i << 2));
 				printk(KERN_INFO"\nTrip point triggered by "
 					"current temperature (%d degrees) "
 					"measured by Temperature-Sensor %d\n",
-				tsens_tz_code_to_degC(adc_code), i);
+					tsens_tz_code_to_degC(adc_code), i);
 			}
 		}
 		sensor >>= 1;
@@ -522,6 +533,8 @@ static int tsens_tm_probe(struct platform_device *pdev)
 		kfree(tmdev);
 		return rc;
 	}
+
+	INIT_WORK(&tmdev->work, notify_uspace_tsens_fn);
 
 	reg = readl(TSENS_CNTL_ADDR);
 	writel(reg | TSENS_SW_RST, TSENS_CNTL_ADDR);
