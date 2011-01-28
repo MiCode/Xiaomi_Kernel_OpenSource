@@ -4167,14 +4167,22 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 					buf->bMaxPacketSize0;
 			kfree(buf);
 
-			retval = hub_port_reset(hub, port1, udev, delay, false);
-			if (retval < 0)		/* error or disconnect */
-				goto fail;
-			if (oldspeed != udev->speed) {
-				dev_dbg(&udev->dev,
-					"device reset changed speed!\n");
-				retval = -ENODEV;
-				goto fail;
+			/*
+			 * If it is a HSET Test device, we don't issue a
+			 * second reset which results in failure due to
+			 * speed change.
+			 */
+			if (le16_to_cpu(buf->idVendor) != 0x1a0a) {
+				retval = hub_port_reset(hub, port1, udev,
+							 delay, false);
+				if (retval < 0)	/* error or disconnect */
+					goto fail;
+				if (oldspeed != udev->speed) {
+					dev_dbg(&udev->dev,
+					       "device reset changed speed!\n");
+					retval = -ENODEV;
+					goto fail;
+				}
 			}
 			if (r) {
 				if (r != -ENODEV)
