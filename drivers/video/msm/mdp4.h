@@ -143,7 +143,7 @@ enum {
 };
 
 /* 2 VG pipes can be shared by RGB and VIDEO */
-#define MDP4_MAX_PIPE 	(OVERLAY_PIPE_MAX + 2)
+#define MDP4_MAX_PIPE (OVERLAY_PIPE_MAX + 2)
 
 #define OVERLAY_TYPE_RGB	0x01
 #define	OVERLAY_TYPE_VIDEO	0x02
@@ -343,6 +343,7 @@ struct mdp4_statistic {
 	ulong err_format;
 };
 
+struct mdp4_overlay_pipe *mdp4_overlay_ndx2pipe(int ndx);
 void mdp4_sw_reset(unsigned long bits);
 void mdp4_display_intf_sel(int output, unsigned long intf);
 void mdp4_overlay_cfg(int layer, int blt_mode, int refresh, int direct_out);
@@ -367,16 +368,9 @@ void mdp4_isr_read(int);
 void mdp4_clear_lcdc(void);
 void mdp4_mixer_blend_init(int mixer_num);
 void mdp4_vg_qseed_init(int vg_num);
-void mdp4_vg_csc_mv_setup(int vp_num);
-void mdp4_vg_csc_pre_bv_setup(int vp_num);
-void mdp4_vg_csc_post_bv_setup(int vp_num);
-void mdp4_vg_csc_pre_lv_setup(int vp_num);
-void mdp4_vg_csc_post_lv_setup(int vp_num);
-void mdp4_mixer1_csc_mv_setup(void);
-void mdp4_mixer1_csc_pre_bv_setup(void);
-void mdp4_mixer1_csc_post_bv_setup(void);
-void mdp4_mixer1_csc_pre_lv_setup(void);
-void mdp4_mixer1_csc_post_lv_setup(void);
+void mdp4_vg_csc_setup(int vp_num);
+void mdp4_mixer1_csc_setup(void);
+void mdp4_vg_csc_update(struct mdp_csc *p);
 irqreturn_t mdp4_isr(int irq, void *ptr);
 void mdp4_overlay_format_to_pipe(uint32 format, struct mdp4_overlay_pipe *pipe);
 uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe);
