@@ -50,6 +50,8 @@
 
 #include <trace/events/asoc.h>
 
+#define PATH_MAX_HOPS 16
+
 /* dapm power sequences - make this per codec in the future */
 static int dapm_up_seq[] = {
 	[snd_soc_dapm_pre] = 0,
@@ -193,6 +195,204 @@ int soc_widget_test_bits(struct snd_soc_dapm_widget *w, unsigned short reg,
 	return change;
 }
 
+/* reset 'walked' bit for each dapm path */
+static inline void dapm_clear_walk(struct snd_soc_dapm_context *dapm)
+{
+	struct snd_soc_dapm_path *p;
+
+	list_for_each_entry(p, &dapm->card->paths, list)
+		p->walked = 0;
+}
+
+static void dapm_clear_paths(struct snd_soc_dapm_context *dapm)
+{
+	struct snd_soc_dapm_path *p;
+	struct snd_soc_dapm_widget *w;
+	struct list_head *l;
+
+	list_for_each(l, &dapm->paths) {
+		p = list_entry(l, struct snd_soc_dapm_path, list);
+		p->length = 0;
+	}
+	list_for_each(l, &dapm->card->widgets) {
+		w = list_entry(l, struct snd_soc_dapm_widget, list);
+		w->hops = 0;
+	}
+	dapm_clear_walk(dapm);
+}
+
+/*
+ * find all the paths between source and sink
+ */
+static int dapm_find_playback_paths (struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink,
+		int hops)
+{
+	struct list_head *lp;
+	struct snd_soc_dapm_path *path;
+	int dist = 0;
+
+	if (hops > PATH_MAX_HOPS)
+		return 0;
+
+	if (source == sink) {
+		dev_dbg(dapm->dev," ! %d: valid route found\n", hops);
+		dapm->num_valid_paths++;
+		return 1;
+	}
+
+	if (source->hops && source->hops <= hops)
+		return 0;
+	source->hops = hops;
+
+	/* check all the output paths on this source widget by walking
+	 * from source to sink */
+	list_for_each(lp, &source->sinks) {
+		path = list_entry(lp, struct snd_soc_dapm_path, list_source);
+
+		dev_dbg(dapm->dev," %c %d: %s -> %s -> %s\n",
+				path->connect ? '*' : ' ', hops,
+				source->name, path->name, path->sink->name);
+
+		/* been here before ? */
+		if (path->length && path->length <= hops)
+			continue;
+
+		/* check down the next path if connected */
+		if (path->sink && path->connect &&
+				dapm_find_playback_paths(dapm, path->sink, sink, hops + 1)) {
+			path->length = hops;
+			if (!dist || dist > path->length)
+				dist = path->length;
+		}
+	}
+
+	return dist;
+}
+
+static int dapm_find_capture_paths (struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink,
+		int hops)
+{
+	struct list_head *lp;
+	struct snd_soc_dapm_path *path;
+	int dist = 0;
+
+	if (hops > PATH_MAX_HOPS)
+		return 0;
+
+	if (source == sink) {
+		dev_dbg(dapm->dev," ! %d: valid route found\n", hops);
+		dapm->num_valid_paths++;
+		return 1;
+	}
+
+	if (sink->hops && sink->hops <= hops)
+		return 0;
+	sink->hops = hops;
+
+	/* check all the output paths on this source widget by walking from
+	 * sink to source */
+	list_for_each(lp, &sink->sources) {
+		path = list_entry(lp, struct snd_soc_dapm_path, list_sink);
+
+		dev_dbg(dapm->dev," %c %d: %s <- %s <- %s\n",
+				path->connect ? '*' : ' ', hops,
+				sink->name, path->name, path->source->name);
+
+		/* been here before ? */
+		if (path->length && path->length <= hops)
+			continue;
+
+		/* check down the next path if connected */
+		if (path->source && path->connect &&
+				dapm_find_capture_paths(dapm, source, path->source, hops + 1)) {
+			path->length = hops;
+			if (!dist || dist > path->length)
+				dist = path->length;
+		}
+	}
+
+	return dist;
+}
+
+/*
+ * traverse the tree from sink to source via the shortest path
+ */
+static int dapm_get_playback_paths(struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink)
+{
+	dev_dbg(dapm->dev, "Playback: checking path from %s to %s\n",
+			source->name, sink->name);
+
+	dapm->num_valid_paths = 0;
+	dapm_find_playback_paths(dapm, source, sink, 1);
+	return dapm->num_valid_paths;
+}
+
+static int dapm_get_capture_paths(struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink)
+{
+	dev_dbg(dapm->dev, "check capture  path to %s from %s\n",
+			source->name, sink->name);
+
+	dapm->num_valid_paths = 0;
+	dapm_find_capture_paths(dapm, sink, source, 1);
+	return dapm->num_valid_paths;
+}
+
+/**
+ * snd_soc_dapm_query_path - query audio path
+ * @dapm: the dapm context
+ * @source_name: source widget name
+ * @sink_name: sink widget name
+ * @stream: stream direction
+ *
+ * Queries DAPM graph as to whether an valid audio stream path exists between
+ * the source and sink widgets specified. This takes into account current
+ * mixer and mux kcontrol settings.
+ *
+ * Returns the number of valid paths or negative error.
+ */
+int snd_soc_dapm_query_path(struct snd_soc_dapm_context *dapm,
+	const char *source_name, const char *sink_name, int stream)
+{
+	struct snd_soc_dapm_widget *sink = NULL, *source = NULL;
+	struct list_head *l = NULL;
+	int routes;
+
+	/* find source and sink widgets */
+	list_for_each(l, &dapm->card->widgets) {
+		struct snd_soc_dapm_widget *w =
+				list_entry(l, struct snd_soc_dapm_widget, list);
+
+		if (!source && !strcmp(w->name, source_name)) {
+			source = w;
+			continue;
+		}
+
+		if (!sink && !strcmp(w->name, sink_name))
+			sink = w;
+	}
+
+	if (!source) {
+		dev_err(dapm->dev, "can't find source widget: %s\n", source_name);
+		return -EINVAL;
+	}
+	if (!sink) {
+		dev_err(dapm->dev, "can't find sink widget: %s\n", sink_name);
+		return -EINVAL;
+	}
+
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		routes = dapm_get_playback_paths(dapm, source, sink);
+	else
+		routes = dapm_get_capture_paths(dapm, source, sink);
+
+	dapm_clear_paths(dapm);
+	return routes;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_query_path);
 
 /**
  * snd_soc_dapm_set_bias_level - set the bias level for the system
@@ -612,15 +812,6 @@ static int dapm_new_pga(struct snd_soc_dapm_widget *w)
 			"asoc: PGA controls not supported: '%s'\n", w->name);
 
 	return 0;
-}
-
-/* reset 'walked' bit for each dapm path */
-static inline void dapm_clear_walk(struct snd_soc_dapm_context *dapm)
-{
-	struct snd_soc_dapm_path *p;
-
-	list_for_each_entry(p, &dapm->card->paths, list)
-		p->walked = 0;
 }
 
 /* We implement power down on suspend by checking the power state of
@@ -1546,7 +1737,7 @@ static ssize_t widget_show(struct snd_soc_dapm_context *dapm,
 
 	count += sprintf(buf + count, "\n%s\n", name);
 
-	list_for_each_entry(w, &dapm->widgets, list) {
+	list_for_each_entry(w, &dapm->card->widgets, list) {
 
 		/* only display widgets that burnm power */
 		switch (w->id) {
@@ -1974,13 +2165,14 @@ const char *snd_soc_dapm_get_aif(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_widget *w;
 
-	list_for_each_entry(w, &dapm->widgets, list) {
+	list_for_each_entry(w, &dapm->card->widgets, list) {
 
 		if (!w->sname)
 			continue;
 
 		if (w->id == type && strstr(w->sname, stream_name))
 			return w->name;
+
 	}
 	return NULL;
 }
