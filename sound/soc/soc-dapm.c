@@ -29,7 +29,7 @@
  *    o Support for reduced codec bias currents.
  */
 
-#define DEBUG
+#undef DEBUG
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -2703,6 +2703,9 @@ static void soc_dapm_stream_event(struct snd_soc_dapm_context *dapm,
 	const char *stream, int event)
 {
 	struct snd_soc_dapm_widget *w;
+
+	if (!dapm)
+		return;
 
 	list_for_each_entry(w, &dapm->card->widgets, list)
 	{

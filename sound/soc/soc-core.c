@@ -37,6 +37,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/soc-dsp.h>
 #include <sound/initval.h>
 
 #define CREATE_TRACE_POINTS
@@ -58,6 +59,7 @@ static LIST_HEAD(platform_list);
 static LIST_HEAD(codec_list);
 
 static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num);
+int soc_dsp_debugfs_add(struct snd_soc_pcm_runtime *rtd);
 
 /*
  * This is a timeout to do a DAPM powerdown after a stream is closed().
@@ -573,6 +575,10 @@ int soc_pcm_open(struct snd_pcm_substream *substream)
 		}
 	}
 
+	/* DSP DAI links compat checks are different */
+	if (rtd->dai_link->dynamic || rtd->dai_link->no_pcm)
+		goto dynamic;
+
 	/* Check that the codec and cpu DAIs are compatible */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw.rate_min =
@@ -656,6 +662,7 @@ int soc_pcm_open(struct snd_pcm_substream *substream)
 	pr_debug("asoc: min rate %d max rate %d\n", runtime->hw.rate_min,
 		 runtime->hw.rate_max);
 
+dynamic:
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		cpu_dai->playback_active++;
 		codec_dai->playback_active++;
@@ -1019,16 +1026,45 @@ snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	return offset;
 }
 
-/* ASoC PCM operations */
-static struct snd_pcm_ops soc_pcm_ops = {
-	.open		= soc_pcm_open,
-	.close		= soc_pcm_close,
-	.hw_params	= soc_pcm_hw_params,
-	.hw_free	= soc_pcm_hw_free,
-	.prepare	= soc_pcm_prepare,
-	.trigger	= soc_pcm_trigger,
-	.pointer	= soc_pcm_pointer,
-};
+static int soc_pcm_ioctl(struct snd_pcm_substream *substream,
+		     unsigned int cmd, void *arg)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_platform *platform = rtd->platform;
+
+	if (platform->driver->ops->ioctl)
+		return platform->driver->ops->ioctl(substream, cmd, arg);
+	return snd_pcm_lib_ioctl(substream, cmd, arg);
+}
+
+struct snd_pcm_substream *snd_soc_get_dai_substream(struct snd_soc_card *card,
+		const char *dai_link, int stream)
+{
+	int i;
+
+	for (i = 0; i < card->num_links; i++) {
+		if (card->rtd[i].dai_link->no_pcm &&
+			!strcmp(card->rtd[i].dai_link->name, dai_link))
+			return card->rtd[i].pcm->streams[stream].substream;
+	}
+	dev_dbg(card->dev, "failed to find dai link %s\n", dai_link);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_get_dai_substream);
+
+struct snd_soc_pcm_runtime *snd_soc_get_pcm_runtime(struct snd_soc_card *card,
+		const char *dai_link)
+{
+	int i;
+
+	for (i = 0; i < card->num_links; i++) {
+		if (!strcmp(card->rtd[i].dai_link->name, dai_link))
+			return &card->rtd[i];
+	}
+	dev_dbg(card->dev, "failed to find rtd %s\n", dai_link);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_get_pcm_runtime);
 
 #ifdef CONFIG_PM_SLEEP
 /* powers down audio subsystem for suspend */
@@ -1059,16 +1095,22 @@ int snd_soc_suspend(struct device *dev)
 		struct snd_soc_dai *dai = card->rtd[i].codec_dai;
 		struct snd_soc_dai_driver *drv = dai->driver;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (drv->ops->digital_mute && dai->playback_active)
-			drv->ops->digital_mute(dai, 1);
+		if (card->rtd[i].dai_link->dynamic)
+			soc_dsp_be_digital_mute(&card->rtd[i], 1);
+		else {
+			if (drv->ops->digital_mute && dai->playback_active)
+				drv->ops->digital_mute(dai, 1);
+		}
 	}
 
 	/* suspend all pcms */
 	for (i = 0; i < card->num_rtd; i++) {
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
 		snd_pcm_suspend_all(card->rtd[i].pcm);
@@ -1081,14 +1123,20 @@ int snd_soc_suspend(struct device *dev)
 		struct snd_soc_dai *cpu_dai = card->rtd[i].cpu_dai;
 		struct snd_soc_platform *platform = card->rtd[i].platform;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (cpu_dai->driver->suspend && !cpu_dai->driver->ac97_control)
-			cpu_dai->driver->suspend(cpu_dai);
-		if (platform->driver->suspend && !platform->suspended) {
-			platform->driver->suspend(cpu_dai);
-			platform->suspended = 1;
+		if (card->rtd[i].dai_link->dynamic) {
+			soc_dsp_be_cpu_dai_suspend(&card->rtd[i]);
+			soc_dsp_be_platform_suspend(&card->rtd[i]);
+		} else {
+			if (cpu_dai->driver->suspend && !cpu_dai->driver->ac97_control)
+				cpu_dai->driver->suspend(cpu_dai);
+			if (platform->driver->suspend && !platform->suspended) {
+				platform->driver->suspend(cpu_dai);
+				platform->suspended = 1;
+			}
 		}
 	}
 
@@ -1101,7 +1149,8 @@ int snd_soc_suspend(struct device *dev)
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai_driver *driver = card->rtd[i].codec_dai->driver;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
 		if (driver->playback.stream_name != NULL)
@@ -1134,11 +1183,15 @@ int snd_soc_suspend(struct device *dev)
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai *cpu_dai = card->rtd[i].cpu_dai;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (cpu_dai->driver->suspend && cpu_dai->driver->ac97_control)
-			cpu_dai->driver->suspend(cpu_dai);
+		if (card->rtd[i].dai_link->dynamic)
+			soc_dsp_be_ac97_cpu_dai_suspend(&card->rtd[i]);
+		else
+			if (cpu_dai->driver->suspend && cpu_dai->driver->ac97_control)
+				cpu_dai->driver->suspend(cpu_dai);
 	}
 
 	if (card->suspend_post)
@@ -1174,11 +1227,15 @@ static void soc_resume_deferred(struct work_struct *work)
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai *cpu_dai = card->rtd[i].cpu_dai;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (cpu_dai->driver->resume && cpu_dai->driver->ac97_control)
-			cpu_dai->driver->resume(cpu_dai);
+		if (card->rtd[i].dai_link->dynamic)
+			soc_dsp_be_ac97_cpu_dai_resume(&card->rtd[i]);
+		else
+			if (cpu_dai->driver->resume && cpu_dai->driver->ac97_control)
+				cpu_dai->driver->resume(cpu_dai);
 	}
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
@@ -1203,7 +1260,8 @@ static void soc_resume_deferred(struct work_struct *work)
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai_driver *driver = card->rtd[i].codec_dai->driver;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
 		if (driver->playback.stream_name != NULL)
@@ -1220,25 +1278,36 @@ static void soc_resume_deferred(struct work_struct *work)
 		struct snd_soc_dai *dai = card->rtd[i].codec_dai;
 		struct snd_soc_dai_driver *drv = dai->driver;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (drv->ops->digital_mute && dai->playback_active)
-			drv->ops->digital_mute(dai, 0);
+		if (card->rtd[i].dai_link->dynamic)
+			soc_dsp_be_digital_mute(&card->rtd[i], 0);
+		else {
+			if (drv->ops->digital_mute && dai->playback_active)
+				drv->ops->digital_mute(dai, 0);
+		}
 	}
 
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai *cpu_dai = card->rtd[i].cpu_dai;
 		struct snd_soc_platform *platform = card->rtd[i].platform;
 
-		if (card->rtd[i].dai_link->ignore_suspend)
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (cpu_dai->driver->resume && !cpu_dai->driver->ac97_control)
-			cpu_dai->driver->resume(cpu_dai);
-		if (platform->driver->resume && platform->suspended) {
-			platform->driver->resume(cpu_dai);
-			platform->suspended = 0;
+		if (card->rtd[i].dai_link->dynamic) {
+			soc_dsp_be_cpu_dai_resume(&card->rtd[i]);
+			soc_dsp_be_platform_resume(&card->rtd[i]);
+		} else {
+			if (cpu_dai->driver->resume && !cpu_dai->driver->ac97_control)
+				cpu_dai->driver->resume(cpu_dai);
+			if (platform->driver->resume && platform->suspended) {
+				platform->driver->resume(cpu_dai);
+				platform->suspended = 0;
+			}
 		}
 	}
 
@@ -1282,8 +1351,30 @@ EXPORT_SYMBOL_GPL(snd_soc_resume);
 #define snd_soc_resume NULL
 #endif
 
+#define NULL_FORMATS \
+	(SNDRV_PCM_FMTBIT_S16 | SNDRV_PCM_FMTBIT_U16 |\
+	SNDRV_PCM_FMTBIT_S24 | SNDRV_PCM_FMTBIT_U24 |\
+	SNDRV_PCM_FMTBIT_S32 | SNDRV_PCM_FMTBIT_U32)
+
 static struct snd_soc_dai_ops null_dai_ops = {
 };
+static struct snd_soc_dai_driver null_codec_dai_drv = {
+		.name = "null-codec-dai",
+		.ops = &null_dai_ops,
+		.capture = {
+			.channels_min = 1 ,
+			.channels_max = 16,
+			.rates = SNDRV_PCM_RATE_CONTINUOUS,
+			.formats = NULL_FORMATS,
+		},
+		.playback = {
+			.channels_min = 1 ,
+			.channels_max = 16,
+			.rates = SNDRV_PCM_RATE_CONTINUOUS,
+			.formats = NULL_FORMATS,
+		},
+};
+static struct snd_soc_codec_driver null_codec_drv = {};
 
 static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 {
@@ -1578,6 +1669,10 @@ static int soc_post_component_init(struct snd_soc_card *card,
 	rtd->dev.release = rtd_release;
 	rtd->dev.init_name = name;
 	mutex_init(&rtd->pcm_mutex);
+	INIT_LIST_HEAD(&rtd->dsp[SNDRV_PCM_STREAM_PLAYBACK].be_clients);
+	INIT_LIST_HEAD(&rtd->dsp[SNDRV_PCM_STREAM_CAPTURE].be_clients);
+	INIT_LIST_HEAD(&rtd->dsp[SNDRV_PCM_STREAM_PLAYBACK].fe_clients);
+	INIT_LIST_HEAD(&rtd->dsp[SNDRV_PCM_STREAM_CAPTURE].fe_clients);
 	ret = device_register(&rtd->dev);
 	if (ret < 0) {
 		dev_err(card->dev,
@@ -1599,6 +1694,17 @@ static int soc_post_component_init(struct snd_soc_card *card,
 		dev_err(codec->dev,
 			"asoc: failed to add codec sysfs files: %d\n", ret);
 
+#ifdef CONFIG_DEBUG_FS
+	/* add DSP sysfs entries */
+	if (!dai_link->dynamic)
+		goto out;
+
+	ret = soc_dsp_debugfs_add(rtd);
+	if (ret < 0)
+		dev_err(&rtd->dev, "asoc: failed to add dsp sysfs entries: %d\n", ret);
+
+out:
+#endif
 	return 0;
 }
 
@@ -2128,6 +2234,7 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	struct snd_soc_platform *platform = rtd->platform;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_pcm_substream *substream[2];
 	struct snd_pcm *pcm;
 	char new_name[64];
 	int ret = 0, playback = 0, capture = 0;
@@ -2136,10 +2243,17 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	snprintf(new_name, sizeof(new_name), "%s %s-%d",
 			rtd->dai_link->stream_name, codec_dai->name, num);
 
-	if (codec_dai->driver->playback.channels_min)
-		playback = 1;
-	if (codec_dai->driver->capture.channels_min)
-		capture = 1;
+	if (rtd->dai_link->dynamic) {
+		if (rtd->dai_link->dsp_link->fe_playback_channels)
+			playback = 1;
+		if (rtd->dai_link->dsp_link->fe_capture_channels)
+			capture = 1;
+	} else {
+		if (codec_dai->driver->playback.channels_min)
+			playback = 1;
+		if (codec_dai->driver->capture.channels_min)
+			capture = 1;
+	}
 
 	dev_dbg(rtd->card->dev, "registered pcm #%d %s\n",num,new_name);
 	ret = snd_pcm_new(rtd->card->snd_card, new_name,
@@ -2151,21 +2265,54 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 
 	rtd->pcm = pcm;
 	pcm->private_data = rtd;
+
+	substream[SNDRV_PCM_STREAM_PLAYBACK] =
+			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	substream[SNDRV_PCM_STREAM_CAPTURE] =
+			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream;
+
+	if (rtd->dai_link->no_pcm) {
+		if (playback)
+			substream[SNDRV_PCM_STREAM_PLAYBACK]->private_data = rtd;
+		if (capture)
+			substream[SNDRV_PCM_STREAM_CAPTURE]->private_data = rtd;
+		goto out;
+	}
+
+	/* ASoC PCM operations */
+	if (rtd->dai_link->dynamic) {
+		rtd->ops.open		= soc_dsp_fe_dai_open;
+		rtd->ops.hw_params	= soc_dsp_fe_dai_hw_params;
+		rtd->ops.prepare	= soc_dsp_fe_dai_prepare;
+		rtd->ops.trigger	= soc_dsp_fe_dai_trigger;
+		rtd->ops.hw_free	= soc_dsp_fe_dai_hw_free;
+		rtd->ops.close		= soc_dsp_fe_dai_close;
+		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.ioctl		= soc_pcm_ioctl;
+	} else {
+		rtd->ops.open		= soc_pcm_open;
+		rtd->ops.hw_params	= soc_pcm_hw_params;
+		rtd->ops.prepare	= soc_pcm_prepare;
+		rtd->ops.trigger	= soc_pcm_trigger;
+		rtd->ops.hw_free	= soc_pcm_hw_free;
+		rtd->ops.close		= soc_pcm_close;
+		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.ioctl		= soc_pcm_ioctl;
+	}
+
 	if (platform->driver->ops) {
-		soc_pcm_ops.mmap = platform->driver->ops->mmap;
-		soc_pcm_ops.pointer = platform->driver->ops->pointer;
-		soc_pcm_ops.ioctl = platform->driver->ops->ioctl;
-		soc_pcm_ops.copy = platform->driver->ops->copy;
-		soc_pcm_ops.silence = platform->driver->ops->silence;
-		soc_pcm_ops.ack = platform->driver->ops->ack;
-		soc_pcm_ops.page = platform->driver->ops->page;
+		rtd->ops.ack		= platform->driver->ops->ack;
+		rtd->ops.copy		= platform->driver->ops->copy;
+		rtd->ops.silence	= platform->driver->ops->silence;
+		rtd->ops.page		= platform->driver->ops->page;
+		rtd->ops.mmap		= platform->driver->ops->mmap;
 	}
 
 	if (playback)
-		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &soc_pcm_ops);
+		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &rtd->ops);
 
 	if (capture)
-		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &soc_pcm_ops);
+		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &rtd->ops);
 
 	if (platform->driver->pcm_new) {
 		ret = platform->driver->pcm_new(rtd);
@@ -2176,6 +2323,7 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	}
 
 	pcm->private_free = platform->driver->pcm_free;
+out:
 	printk(KERN_INFO "asoc: %s <-> %s mapping ok\n", codec_dai->name,
 		cpu_dai->name);
 	return ret;
@@ -2443,6 +2591,8 @@ int snd_soc_set_runtime_hwparams(struct snd_pcm_substream *substream,
 	const struct snd_pcm_hardware *hw)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	if (!runtime)
+		return 0;
 	runtime->hw.info = hw->info;
 	runtime->hw.formats = hw->formats;
 	runtime->hw.period_bytes_min = hw->period_bytes_min;
@@ -3432,6 +3582,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dai_digital_mute);
 int snd_soc_register_card(struct snd_soc_card *card)
 {
 	int i;
+	int ret = 0;
 
 	if (!card->name || !card->dev)
 		return -EINVAL;
@@ -3449,13 +3600,42 @@ int snd_soc_register_card(struct snd_soc_card *card)
 		return -ENOMEM;
 	card->rtd_aux = &card->rtd[card->num_links];
 
-	for (i = 0; i < card->num_links; i++)
+	for (i = 0; i < card->num_links; i++) {
 		card->rtd[i].dai_link = &card->dai_link[i];
+		if (card->rtd[i].dai_link->dynamic) {
+
+			card->rtd[i].dai_link->codec_name = "null-codec";
+			card->rtd[i].dai_link->codec_dai_name = "null-codec-dai";
+
+			ret = snd_soc_register_codec(card->dev, &null_codec_drv,
+					&null_codec_dai_drv, 1);
+			if (ret < 0) {
+				printk(KERN_ERR "%s: failed to register dynamic DAI link %d\n",
+						__func__, ret);
+				goto out;
+			}
+
+			continue;
+		}
+		if (card->rtd[i].dai_link->no_codec) {
+			card->rtd[i].dai_link->codec_name = "null-codec";
+
+			ret = snd_soc_register_codec(card->dev, &null_codec_drv,
+					&null_codec_dai_drv, 1);
+			if (ret < 0) {
+				printk(KERN_ERR "%s: failed to register dynamic DAI link %d\n",
+						__func__, ret);
+				goto out;
+			}
+			continue;
+		}
+	}
 
 	INIT_LIST_HEAD(&card->list);
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
 	mutex_init(&card->dapm_mutex);
+	mutex_init(&card->dsp_mutex);
 
 	mutex_lock(&client_mutex);
 	list_add(&card->list, &card_list);
@@ -3464,7 +3644,8 @@ int snd_soc_register_card(struct snd_soc_card *card)
 
 	dev_dbg(card->dev, "Registered card '%s'\n", card->name);
 
-	return 0;
+out:
+	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_register_card);
 
@@ -3805,7 +3986,10 @@ int snd_soc_register_codec(struct device *dev,
 		return -ENOMEM;
 
 	/* create CODEC component name */
-	codec->name = fmt_single_name(dev, &codec->id);
+	if (codec_drv == &null_codec_drv)
+		codec->name = kstrdup("null-codec", GFP_KERNEL);
+	else
+		codec->name = fmt_single_name(dev, &codec->id);
 	if (codec->name == NULL) {
 		kfree(codec);
 		return -ENOMEM;
