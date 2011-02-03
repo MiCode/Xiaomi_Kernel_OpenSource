@@ -3,7 +3,9 @@
  *
  * Copyright (C) 2010 Texas Instruments
  *
- * Contact: Liam Girdwood <lrg@slimlogic.co.uk>
+ * Contact: Liam Girdwood <lrg@ti.com>
+ *          Misael Lopez Cruz <misael.lopez@ti.com>
+ *          Sebastien Guiriec <s-guiriec@ti.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -1239,6 +1241,6 @@ static void __exit omap_abe_exit(void)
 }
 module_exit(omap_abe_exit);
 
-MODULE_AUTHOR("Liam Girdwood <lrg@slimlogic.co.uk>");
+MODULE_AUTHOR("Liam Girdwood <lrg@ti.com>");
 MODULE_DESCRIPTION("OMAP ABE SoC Interface");
 MODULE_LICENSE("GPL");
