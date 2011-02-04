@@ -32,7 +32,6 @@
 #include <plat/hardware.h>
 #include <plat/mux.h>
 
-#include "mcpdm.h"
 #include "omap-pcm.h"
 #include "../codecs/twl6040.h"
 
