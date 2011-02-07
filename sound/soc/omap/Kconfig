@@ -101,8 +101,8 @@ config SND_OMAP_SOC_SDP3430
 	  SDP3430.
 
 config SND_OMAP_SOC_SDP4430
-	tristate "SoC Audio support for Texas Instruments SDP4430"
-	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_4430SDP
+	tristate "SoC Audio support for Texas Instruments SDP4430 or PandaBoard"
+	depends on TWL4030_CORE && (MACH_OMAP_4430SDP || MACH_OMAP4_PANDA)
 	select SND_OMAP_SOC_MCPDM
 	select SND_SOC_TWL6040
 	select SND_OMAP_SOC_ABE
@@ -112,7 +112,7 @@ config SND_OMAP_SOC_SDP4430
 	select SND_OMAP_SOC_ABE_DSP
 	help
 	  Say Y if you want to add support for SoC audio on Texas Instruments
-	  SDP4430.
+	  SDP4430 or PandaBoard.
 
 config SND_OMAP_SOC_HDMI
 	tristate "SoC Audio support for HDMI interface on SDP4430"
