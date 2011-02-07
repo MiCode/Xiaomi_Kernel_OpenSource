@@ -44,6 +44,27 @@
 
 static int twl6040_power_mode;
 static int mcbsp_cfg;
+static struct i2c_client *tps6130x_client;
+static struct i2c_board_info tps6130x_hwmon_info = {
+	I2C_BOARD_INFO("tps6130x", 0x33),
+};
+
+/* configure the TPS6130x Handsfree Boost Converter */
+static int sdp4430_tps6130x_configure(void)
+{
+	u8 data[2];
+
+	data[0] = 0x01;
+	data[1] = 0x60;
+	if (i2c_master_send(tps6130x_client, data, 2) != 2)
+		printk(KERN_ERR "I2C write to TPS6130x failed\n");
+
+	data[0] = 0x02;
+	if (i2c_master_send(tps6130x_client, data, 2) != 2)
+		printk(KERN_ERR "I2C write to TPS6130x failed\n");
+
+	return 0;
+}
 
 static int sdp4430_mcpdm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -809,7 +830,7 @@ static struct snd_soc_card snd_soc_sdp4430 = {
 };
 
 static struct platform_device *sdp4430_snd_device;
-struct i2c_adapter *adapter;
+static struct i2c_adapter *adapter;
 
 static int __init sdp4430_soc_init(void)
 {
@@ -833,17 +854,40 @@ static int __init sdp4430_soc_init(void)
 
 	ret = snd_soc_register_dais(&sdp4430_snd_device->dev, dai, ARRAY_SIZE(dai));
 	if (ret < 0)
-		goto err;
+		goto err_dai;
 	platform_set_drvdata(sdp4430_snd_device, &snd_soc_sdp4430);
 
 	ret = platform_device_add(sdp4430_snd_device);
 	if (ret)
-		goto err;
+		goto err_dev;
+
+	adapter = i2c_get_adapter(1);
+	if (!adapter) {
+		printk(KERN_ERR "can't get i2c adapter\n");
+		ret = -ENODEV;
+		goto err_adap;
+	}
+
+	tps6130x_client = i2c_new_device(adapter, &tps6130x_hwmon_info);
+	if (!tps6130x_client) {
+		printk(KERN_ERR "can't add i2c device\n");
+		ret = -ENODEV;
+		goto err_i2c;
+	}
+
+	/* Only configure the TPS6130x on SDP4430 */
+	if (machine_is_omap_4430sdp())
+		sdp4430_tps6130x_configure();
 
 	return 0;
 
-err:
-	printk(KERN_ERR "Unable to add platform device\n");
+err_i2c:
+	i2c_put_adapter(adapter);
+err_adap:
+	platform_device_del(sdp4430_snd_device);
+err_dev:
+	snd_soc_unregister_dais(&sdp4430_snd_device->dev, ARRAY_SIZE(dai));
+err_dai:
 	platform_device_put(sdp4430_snd_device);
 	return ret;
 }
@@ -852,6 +896,9 @@ module_init(sdp4430_soc_init);
 static void __exit sdp4430_soc_exit(void)
 {
 	platform_device_unregister(sdp4430_snd_device);
+	snd_soc_unregister_dais(&sdp4430_snd_device->dev, ARRAY_SIZE(dai));
+	i2c_unregister_device(tps6130x_client);
+	i2c_put_adapter(adapter);
 }
 module_exit(sdp4430_soc_exit);
 
