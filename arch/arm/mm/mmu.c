@@ -291,6 +291,18 @@ static struct mem_type mem_types[] = {
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE,
 		.domain    = DOMAIN_KERNEL,
 	},
+	[MT_MEMORY_R] = {
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RW] = {
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RX] = {
+		.prot_sect = PMD_TYPE_SECT,
+		.domain    = DOMAIN_KERNEL,
+	},
 	[MT_ROM] = {
 		.prot_sect = PMD_TYPE_SECT,
 		.domain    = DOMAIN_KERNEL,
@@ -468,6 +480,8 @@ static void __init build_mem_type_table(void)
 		 * from SVC mode and no access from userspace.
 		 */
 		mem_types[MT_ROM].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+		mem_types[MT_MEMORY_RX].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+		mem_types[MT_MEMORY_R].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 #endif
@@ -489,6 +503,9 @@ static void __init build_mem_type_table(void)
 			mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
 			mem_types[MT_MEMORY_DMA_READY].prot_pte |= L_PTE_SHARED;
 			mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_R].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_RW].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_RX].prot_sect |= PMD_SECT_S;
 			mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
 		}
 	}
@@ -545,6 +562,9 @@ static void __init build_mem_type_table(void)
 	mem_types[MT_MEMORY].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_DMA_READY].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_NONCACHED].prot_sect |= ecc_mask;
+	mem_types[MT_MEMORY_R].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY_RW].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY_RX].prot_sect |= ecc_mask | cp->pmd;
 	mem_types[MT_ROM].prot_sect |= cp->pmd;
 
 	switch (cp->pmd) {
@@ -1265,6 +1285,9 @@ static void __init kmap_init(void)
 #endif
 }
 
+
+extern char __init_data[];
+
 static void __init map_lowmem(void)
 {
 	struct memblock_region *reg;
@@ -1282,8 +1305,46 @@ static void __init map_lowmem(void)
 
 		map.pfn = __phys_to_pfn(start);
 		map.virtual = __phys_to_virt(start);
+#ifdef CONFIG_STRICT_MEMORY_RWX
+		if (start <= __pa(_text) && __pa(_text) < end) {
+			map.length = SECTION_SIZE;
+			map.type = MT_MEMORY;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(start + SECTION_SIZE);
+			map.virtual = __phys_to_virt(start + SECTION_SIZE);
+			map.length = (unsigned long)RX_AREA_END - map.virtual;
+			map.type = MT_MEMORY_RX;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(__start_rodata));
+			map.virtual = (unsigned long)__start_rodata;
+			map.length = __init_begin - __start_rodata;
+			map.type = MT_MEMORY_R;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(__init_begin));
+			map.virtual = (unsigned long)__init_begin;
+			map.length = __init_data - __init_begin;
+			map.type = MT_MEMORY;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(__init_data));
+			map.virtual = (unsigned long)__init_data;
+			map.length = __phys_to_virt(end) - (unsigned int)__init_data;
+			map.type = MT_MEMORY_RW;
+		} else {
+			map.length = end - start;
+			map.type = MT_MEMORY_RW;
+		}
+#else
 		map.length = end - start;
 		map.type = MT_MEMORY;
+#endif
 
 		create_mapping(&map);
 	}
