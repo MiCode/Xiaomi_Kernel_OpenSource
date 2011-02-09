@@ -438,6 +438,13 @@ config BQ27520_TEST_ENABLE
 	help
 	  Say Y here to enable Test sysfs Interface for BQ27520 Drivers.
 
+config BATTERY_BQ27541
+	tristate "BQ27541 battery driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
