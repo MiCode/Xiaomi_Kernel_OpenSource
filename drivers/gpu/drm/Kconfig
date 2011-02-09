@@ -30,6 +30,13 @@ config DRM_USB
 	depends on USB_SUPPORT && USB_ARCH_HAS_HCD
 	select USB
 
+config NO_GPU_AUTHENTICATION
+	bool "Disable GPU authentication"
+	depends on DRM
+	default n
+	help
+	  Choose this option if you want to disable GPU authentication.
+
 config DRM_KMS_HELPER
 	tristate
 	depends on DRM

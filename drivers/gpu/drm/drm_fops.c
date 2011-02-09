@@ -203,8 +203,13 @@ static int drm_open_helper(struct file *filp, struct drm_minor *minor)
 	priv->minor = minor;
 
 	/* for compatibility root is always authenticated */
+#ifdef CONFIG_NO_GPU_AUTHENTICATION
+	priv->always_authenticated = 1;
+	priv->authenticated = 1;
+#else
 	priv->always_authenticated = capable(CAP_SYS_ADMIN);
 	priv->authenticated = priv->always_authenticated;
+#endif
 	priv->lock_count = 0;
 
 	INIT_LIST_HEAD(&priv->lhead);
