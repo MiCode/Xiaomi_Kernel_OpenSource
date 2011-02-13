@@ -27,6 +27,7 @@
 #include <mach/gpio.h>
 #include <plat/menelaus.h>
 #include <plat/mcbsp.h>
+#include <plat/mcpdm.h>
 #include <plat/omap44xx.h>
 
 /*-------------------------------------------------------------------------*/
@@ -77,31 +78,38 @@ void omap_mcbsp_register_board_cfg(struct resource *res, int res_count,
 #if defined(CONFIG_SND_OMAP_SOC_MCPDM) || \
 		defined(CONFIG_SND_OMAP_SOC_MCPDM_MODULE)
 
-static struct resource mcpdm_resources[] = {
+static struct omap_device_pm_latency omap_mcpdm_latency[] = {
 	{
-		.name		= "mcpdm_mem",
-		.start		= OMAP44XX_MCPDM_BASE,
-		.end		= OMAP44XX_MCPDM_BASE + SZ_4K,
-		.flags		= IORESOURCE_MEM,
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func = omap_device_enable_hwmods,
+		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
 	},
-	{
-		.name		= "mcpdm_irq",
-		.start		= OMAP44XX_IRQ_MCPDM,
-		.end		= OMAP44XX_IRQ_MCPDM,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device omap_mcpdm_device = {
-	.name		= "omap-mcpdm",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(mcpdm_resources),
-	.resource	= mcpdm_resources,
 };
 
 static void omap_init_mcpdm(void)
 {
-	(void) platform_device_register(&omap_mcpdm_device);
+	struct omap_hwmod *oh;
+	struct omap_device *od;
+	struct omap_mcpdm_platform_data *pdata;
+
+	oh = omap_hwmod_lookup("mcpdm");
+	if (!oh) {
+		printk(KERN_ERR "Could not look up mcpdm hw_mod\n");
+		return;
+	}
+
+	pdata = kzalloc(sizeof(struct omap_mcpdm_platform_data), GFP_KERNEL);
+	if (!pdata) {
+		printk(KERN_ERR "Could not allocate platform data\n");
+		return;
+	}
+
+	od = omap_device_build("omap-mcpdm", -1, oh, pdata,
+				sizeof(struct omap_mcpdm_platform_data),
+				omap_mcpdm_latency,
+				ARRAY_SIZE(omap_mcpdm_latency), 0);
+	if (IS_ERR(od))
+		printk(KERN_ERR "Could not build omap_device for omap-mcpdm-dai\n");
 }
 #else
 static inline void omap_init_mcpdm(void) {}
