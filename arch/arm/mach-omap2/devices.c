@@ -292,6 +292,21 @@ static inline void omap_init_mbox(void) { }
 
 static inline void omap_init_sti(void) {}
 
+#if defined CONFIG_ARCH_OMAP4
+
+static struct platform_device omap_abe_dai = {
+	.name	= "omap-abe-dai",
+	.id	= -1,
+};
+
+static inline void omap_init_abe(void)
+{
+	platform_device_register(&omap_abe_dai);
+}
+#else
+static inline void omap_init_abe(void) {}
+#endif
+
 #if defined(CONFIG_SND_SOC) || defined(CONFIG_SND_SOC_MODULE)
 
 static struct platform_device omap_pcm = {
@@ -681,6 +696,7 @@ static int __init omap2_init_devices(void)
 	 * please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+	omap_init_abe();
 	omap_init_audio();
 	omap_init_camera();
 	omap_init_mbox();
