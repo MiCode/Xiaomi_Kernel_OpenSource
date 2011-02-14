@@ -294,6 +294,21 @@ static inline void omap_init_sti(void) {}
 
 #if defined CONFIG_ARCH_OMAP4
 
+static struct platform_device codec_dmic0 = {
+	.name	= "dmic-codec",
+	.id	= 0,
+};
+
+static struct platform_device codec_dmic1 = {
+	.name	= "dmic-codec",
+	.id	= 1,
+};
+
+static struct platform_device codec_dmic2 = {
+	.name	= "dmic-codec",
+	.id	= 2,
+};
+
 static struct platform_device omap_abe_dai = {
 	.name	= "omap-abe-dai",
 	.id	= -1,
@@ -301,6 +316,9 @@ static struct platform_device omap_abe_dai = {
 
 static inline void omap_init_abe(void)
 {
+	platform_device_register(&codec_dmic0);
+	platform_device_register(&codec_dmic1);
+	platform_device_register(&codec_dmic2);
 	platform_device_register(&omap_abe_dai);
 }
 #else
