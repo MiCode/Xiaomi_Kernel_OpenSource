@@ -58,6 +58,25 @@ static ssize_t led_brightness_store(struct device *dev,
 	return size;
 }
 
+static ssize_t led_max_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long state = 0;
+
+	ret = strict_strtoul(buf, 10, &state);
+	if (!ret) {
+		ret = size;
+		if (state > LED_FULL)
+			state = LED_FULL;
+		led_cdev->max_brightness = state;
+		led_set_brightness(led_cdev, led_cdev->brightness);
+	}
+
+	return ret;
+}
+
 static ssize_t led_max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -68,7 +87,8 @@ static ssize_t led_max_brightness_show(struct device *dev,
 
 static struct device_attribute led_class_attrs[] = {
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
-	__ATTR(max_brightness, 0444, led_max_brightness_show, NULL),
+	__ATTR(max_brightness, 0644, led_max_brightness_show,
+			led_max_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS
 	__ATTR(trigger, 0644, led_trigger_show, led_trigger_store),
 #endif
