@@ -501,8 +501,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	if (IS_ERR(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
 				(uint32_t)client);
-		ret = -ENXIO;
-		goto err;
+		return -ENXIO;
 	}
 
 	mutex_lock(&msm_bus_lock);
