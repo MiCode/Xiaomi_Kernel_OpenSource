@@ -2582,14 +2582,21 @@ sub process {
 					     " characters\n" . $herecurr);
 				}
 			} elsif ($shorttext == CHECK_NEXT_SHORTTEXT) {
-				$shorttext = IN_SHORTTEXT;
+# The Subject line doesn't have to be the last header in the patch.
+# Avoid moving to the IN_SHORTTEXT state until clear of all headers.
+# Per RFC5322, continuation lines must be folded, so any left-justified
+# text which looks like a header is definitely a header.
+				if ($line!~/^[\x21-\x39\x3b-\x7e]+:/) {
+					$shorttext = IN_SHORTTEXT;
 # Check for Subject line followed by a blank line.
-				if (length($line) != 0) {
-					WARN("NONBLANK_AFTER_SUMMARY",
-					     "non-blank line after summary " .
-					     "line\n" . $sublinenr . $here .
-					     "\n" . $subjectline . "\n" .
-					     $line . "\n");
+					if (length($line) != 0) {
+						WARN("NONBLANK_AFTER_SUMMARY",
+						     "non-blank line after " .
+						     "summary line\n" .
+						     $sublinenr . $here .
+						     "\n" . $subjectline .
+						     "\n" . $line . "\n");
+					}
 				}
 			} elsif ($line=~/^Subject: \[[^\]]*\] (.*)/) {
 				$shorttext = CHECK_NEXT_SHORTTEXT;
