@@ -1030,6 +1030,34 @@ int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
+int soc_pcm_bespoke_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_platform *platform = rtd->platform;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	int ret;
+
+	if (codec_dai->driver->ops->bespoke_trigger) {
+		ret = codec_dai->driver->ops->bespoke_trigger(substream, cmd, codec_dai);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (platform->driver->bespoke_trigger) {
+		ret = platform->driver->bespoke_trigger(substream, cmd);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (cpu_dai->driver->ops->bespoke_trigger) {
+		ret = cpu_dai->driver->ops->bespoke_trigger(substream, cmd, cpu_dai);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 /*
  * soc level wrapper for pointer callback
  * If cpu_dai, codec_dai, platform driver has the delay callback, than
