@@ -9,7 +9,7 @@ obj-y += audio_pcm_in.o
 else
 obj-y += audio_in.o snd_pcm_client.o
 endif
-obj-$(CONFIG_MSM7X27A_AUDIO) += audio_evrc_in.o audio_qcelp_in.o
+obj-$(CONFIG_MSM7X27A_AUDIO) += audio_aac_in.o audio_evrc_in.o audio_qcelp_in.o
 obj-y += audio_out.o audio_mp3.o audmgr.o audpp.o audrec.o audpreproc.o
 obj-y += audio_evrc.o audio_qcelp.o audio_amrnb.o audio_aac.o audio_amrnb_in.o
 obj-y += audio_wma.o audio_voicememo.o audio_pcm.o audio_amrwb.o audio_wmapro.o
