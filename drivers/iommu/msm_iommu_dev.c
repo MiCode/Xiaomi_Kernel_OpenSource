@@ -124,6 +124,7 @@ static void msm_iommu_reset(void __iomem *base, int ncb)
 		SET_NMRR(base, ctx, 0);
 		SET_CONTEXTIDR(base, ctx, 0);
 	}
+	mb();
 }
 
 static int msm_iommu_probe(struct platform_device *pdev)
@@ -216,9 +217,11 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	SET_PAR(regs_base, 0, 0);
 	SET_V2PCFG(regs_base, 0, 1);
 	SET_V2PPR(regs_base, 0, 0);
+	mb();
 	par = GET_PAR(regs_base, 0);
 	SET_V2PCFG(regs_base, 0, 0);
 	SET_M(regs_base, 0, 0);
+	mb();
 
 	if (!par) {
 		pr_err("%s: Invalid PAR value detected\n", iommu_dev->name);
@@ -350,6 +353,7 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		/* Set security bit override to be Non-secure */
 		SET_NSCFG(drvdata->base, mid, 3);
 	}
+	mb();
 
 	if (drvdata->clk)
 		clk_disable(drvdata->clk);
