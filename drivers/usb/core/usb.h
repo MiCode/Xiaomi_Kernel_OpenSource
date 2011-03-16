@@ -181,6 +181,7 @@ extern void usb_devio_cleanup(void);
 /* internal notify stuff */
 extern void usb_notify_add_device(struct usb_device *udev);
 extern void usb_notify_remove_device(struct usb_device *udev);
+extern void usb_notify_config_device(struct usb_device *udev);
 extern void usb_notify_add_bus(struct usb_bus *ubus);
 extern void usb_notify_remove_bus(struct usb_bus *ubus);
 extern enum usb_port_connect_type
