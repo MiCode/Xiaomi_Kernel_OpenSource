@@ -3912,6 +3912,13 @@ sub process {
 			     "Use of volatile is usually wrong: see Documentation/volatile-considered-harmful.txt\n" . $herecurr);
 		}
 
+# sys_open/read/write/close are not allowed in the kernel
+		if ($line =~ /\b(sys_(?:open|read|write|close))\b/) {
+			ERROR("FILE_OPS",
+			      "$1 is inappropriate in kernel code.\n" .
+			      $herecurr);
+		}
+
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
 			WARN("IF_0",
