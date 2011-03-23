@@ -437,6 +437,7 @@ u32 abe_enable_gain(u32 id, u32 p)
 	omap_abe_enable_gain(abe, id, p);
 	return 0;
 }
+EXPORT_SYMBOL(abe_enable_gain);
 
 /**
  * abe_mute_gain
