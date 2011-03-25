@@ -297,6 +297,17 @@ config LEDS_PCA955X
 	  LED driver chips accessed via the I2C bus.  Supported
 	  devices include PCA9550, PCA9551, PCA9552, and PCA9553.
 
+config LEDS_PM8XXX
+	tristate "LED Support for Qualcomm PMIC8XXX"
+	depends on MFD_PM8XXX
+	help
+	  This option enables support for LEDs connected over PMIC8XXX
+	  (Power Management IC) chip on Qualcomm reference boards,
+	  for example SURF and FFAs.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-pmic8xxx.
+
 config LEDS_PCA9633
 	tristate "LED support for PCA9633 I2C chip"
 	depends on LEDS_CLASS
