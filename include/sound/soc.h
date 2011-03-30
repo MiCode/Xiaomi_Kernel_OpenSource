@@ -612,6 +612,10 @@ struct snd_soc_codec_driver {
 
 	void (*seq_notifier)(struct snd_soc_dapm_context *,
 			     enum snd_soc_dapm_type, int);
+
+	/* probe ordering - for components with runtime dependencies */
+	bool late_probe;
+	bool early_remove;
 };
 
 /* SoC platform interface */
@@ -636,6 +640,10 @@ struct snd_soc_platform_driver {
 
 	/* platform stream ops */
 	struct snd_pcm_ops *ops;
+
+	/* probe ordering - for components with runtime dependencies */
+	bool late_probe;
+	bool early_remove;
 };
 
 struct snd_soc_platform {
