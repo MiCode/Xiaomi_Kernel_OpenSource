@@ -3634,6 +3634,7 @@ int snd_soc_register_platform(struct device *dev,
 
 	platform->dev = dev;
 	platform->driver = platform_drv;
+	platform->dapm.dev = dev;
 
 	mutex_lock(&client_mutex);
 	list_add(&platform->list, &platform_list);
