@@ -43,6 +43,11 @@ static inline int be_connect(struct snd_soc_pcm_runtime *fe,
 {
 	struct snd_soc_dsp_params *dsp_params;
 
+	if (!fe->dsp[stream].runtime) {
+		dev_err(&fe->dev, "%s no runtime\n", fe->dai_link->name);
+		return -ENODEV;
+	}
+
 	/* only add new dsp_paramss */
 	list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
 		if (dsp_params->be == be && dsp_params->fe == fe)
