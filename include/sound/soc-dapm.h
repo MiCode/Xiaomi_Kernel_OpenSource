@@ -515,6 +515,8 @@ struct snd_soc_dapm_context {
 	int dev_power;
 	struct list_head list;
 
+	int (*stream_event)(struct snd_soc_dapm_context *dapm);
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_dapm;
 #endif

@@ -2440,6 +2440,9 @@ static void soc_dapm_stream_event(struct snd_soc_dapm_context *dapm,
 	}
 
 	dapm_power_widgets(dapm, event);
+	/* do we need to notify any clients that DAPM stream is complete */
+	if (dapm->stream_event)
+		dapm->stream_event(dapm);
 }
 
 /**
@@ -2461,9 +2464,12 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	if (stream == NULL)
 		return 0;
 
-	mutex_lock(&codec->mutex);
-	soc_dapm_stream_event(&codec->dapm, stream, event);
-	mutex_unlock(&codec->mutex);
+	mutex_lock(&rtd->card->dapm_mutex);
+
+	soc_dapm_stream_event(&rtd->platform->dapm, stream, event);
+	soc_dapm_stream_event(&rtd->codec->dapm, stream, event);
+
+	mutex_unlock(&rtd->card->dapm_mutex);
 	return 0;
 }
 
