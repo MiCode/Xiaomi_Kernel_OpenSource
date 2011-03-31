@@ -114,6 +114,27 @@ static struct mfd_cell mpp_cell = {
 	.num_resources	= ARRAY_SIZE(mpp_cell_resources),
 };
 
+static const struct resource rtc_cell_resources[] = {
+	[0] = {
+		.start  = PM8921_RTC_ALARM_IRQ,
+		.end    = PM8921_RTC_ALARM_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	[1] = {
+		.name   = "pmic_rtc_base",
+		.start  = PM8921_RTC_BASE,
+		.end    = PM8921_RTC_BASE,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct mfd_cell rtc_cell = {
+	.name           = PM8XXX_RTC_DEV_NAME,
+	.id             = -1,
+	.resources      = rtc_cell_resources,
+	.num_resources  = ARRAY_SIZE(rtc_cell_resources),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -158,6 +179,17 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 					irq_base);
 		if (ret) {
 			pr_err("Failed to add mpp subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->rtc_pdata) {
+		rtc_cell.platform_data = pdata->rtc_pdata;
+		rtc_cell.pdata_size = sizeof(struct pm8xxx_rtc_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &rtc_cell, 1, NULL,
+				irq_base);
+		if (ret) {
+			pr_err("Failed to add rtc subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
