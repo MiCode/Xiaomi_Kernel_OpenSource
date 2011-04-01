@@ -27,6 +27,14 @@
 
 #define REG_MPP_BASE		0x050
 
+#define SINGLE_IRQ_RESOURCE(_name, _irq) \
+{ \
+	.name	= _name, \
+	.start	= _irq, \
+	.end	= _irq, \
+	.flags	= IORESOURCE_IRQ, \
+}
+
 struct pm8921 {
 	struct device			*dev;
 	struct pm_irq_chip		*irq_chip;
@@ -188,6 +196,48 @@ static struct mfd_cell pwm_cell = {
 	.id             = -1,
 };
 
+static const struct resource charger_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE("USBIN_VALID_IRQ", PM8921_USBIN_VALID_IRQ),
+	SINGLE_IRQ_RESOURCE("USBIN_OV_IRQ", PM8921_USBIN_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("BATT_INSERTED_IRQ", PM8921_BATT_INSERTED_IRQ),
+	SINGLE_IRQ_RESOURCE("VBATDET_LOW_IRQ", PM8921_VBATDET_LOW_IRQ),
+	SINGLE_IRQ_RESOURCE("USBIN_UV_IRQ", PM8921_USBIN_UV_IRQ),
+	SINGLE_IRQ_RESOURCE("VBAT_OV_IRQ", PM8921_VBAT_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGWDOG_IRQ", PM8921_CHGWDOG_IRQ),
+	SINGLE_IRQ_RESOURCE("VCP_IRQ", PM8921_VCP_IRQ),
+	SINGLE_IRQ_RESOURCE("ATCDONE_IRQ", PM8921_ATCDONE_IRQ),
+	SINGLE_IRQ_RESOURCE("ATCFAIL_IRQ", PM8921_ATCFAIL_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGDONE_IRQ", PM8921_CHGDONE_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGFAIL_IRQ", PM8921_CHGFAIL_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGSTATE_IRQ", PM8921_CHGSTATE_IRQ),
+	SINGLE_IRQ_RESOURCE("LOOP_CHANGE_IRQ", PM8921_LOOP_CHANGE_IRQ),
+	SINGLE_IRQ_RESOURCE("FASTCHG_IRQ", PM8921_FASTCHG_IRQ),
+	SINGLE_IRQ_RESOURCE("TRKLCHG_IRQ", PM8921_TRKLCHG_IRQ),
+	SINGLE_IRQ_RESOURCE("BATT_REMOVED_IRQ", PM8921_BATT_REMOVED_IRQ),
+	SINGLE_IRQ_RESOURCE("BATTTEMP_HOT_IRQ", PM8921_BATTTEMP_HOT_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGHOT_IRQ", PM8921_CHGHOT_IRQ),
+	SINGLE_IRQ_RESOURCE("BATTTEMP_COLD_IRQ", PM8921_BATTTEMP_COLD_IRQ),
+	SINGLE_IRQ_RESOURCE("CHG_GONE_IRQ", PM8921_CHG_GONE_IRQ),
+	SINGLE_IRQ_RESOURCE("BAT_TEMP_OK_IRQ", PM8921_BAT_TEMP_OK_IRQ),
+	SINGLE_IRQ_RESOURCE("COARSE_DET_LOW_IRQ", PM8921_COARSE_DET_LOW_IRQ),
+	SINGLE_IRQ_RESOURCE("VDD_LOOP_IRQ", PM8921_VDD_LOOP_IRQ),
+	SINGLE_IRQ_RESOURCE("VREG_OV_IRQ", PM8921_VREG_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("VBAT_IRQ", PM8921_VBAT_IRQ),
+	SINGLE_IRQ_RESOURCE("VBATDET_IRQ", PM8921_VBATDET_IRQ),
+	SINGLE_IRQ_RESOURCE("BATFET_IRQ", PM8921_BATFET_IRQ),
+	SINGLE_IRQ_RESOURCE("PSI_IRQ", PM8921_PSI_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_VALID_IRQ", PM8921_DCIN_VALID_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_OV_IRQ", PM8921_DCIN_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_UV_IRQ", PM8921_DCIN_UV_IRQ),
+};
+
+static struct mfd_cell charger_cell = {
+	.name		= PM8921_CHARGER_DEV_NAME,
+	.id		= -1,
+	.resources	= charger_cell_resources,
+	.num_resources	= ARRAY_SIZE(charger_cell_resources),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -269,6 +319,19 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 					irq_base);
 		if (ret) {
 			pr_err("Failed to add keypad subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->charger_pdata) {
+		pdata->charger_pdata->charger_cdata.rev = rev;
+		charger_cell.platform_data = pdata->charger_pdata;
+		charger_cell.pdata_size =
+				sizeof(struct pm8921_charger_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &charger_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add charger subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}

@@ -26,6 +26,7 @@
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -50,6 +51,39 @@
 #define PM8921_KEYPAD_IRQ		PM8921_IRQ_BLOCK_BIT(9, 2)
 #define PM8921_KEYSTUCK_IRQ		PM8921_IRQ_BLOCK_BIT(9, 3)
 
+#define PM8921_USBIN_VALID_IRQ		PM8921_IRQ_BLOCK_BIT(1, 7)
+#define PM8921_USBIN_OV_IRQ		PM8921_IRQ_BLOCK_BIT(1, 6)
+#define PM8921_BATT_INSERTED_IRQ	PM8921_IRQ_BLOCK_BIT(1, 5)
+#define PM8921_VBATDET_LOW_IRQ		PM8921_IRQ_BLOCK_BIT(1, 4)
+#define PM8921_USBIN_UV_IRQ		PM8921_IRQ_BLOCK_BIT(1, 3)
+#define PM8921_VBAT_OV_IRQ		PM8921_IRQ_BLOCK_BIT(1, 2)
+#define PM8921_CHGWDOG_IRQ		PM8921_IRQ_BLOCK_BIT(1, 1)
+#define PM8921_VCP_IRQ			PM8921_IRQ_BLOCK_BIT(1, 0)
+#define PM8921_ATCDONE_IRQ		PM8921_IRQ_BLOCK_BIT(2, 7)
+#define PM8921_ATCFAIL_IRQ		PM8921_IRQ_BLOCK_BIT(2, 6)
+#define PM8921_CHGDONE_IRQ		PM8921_IRQ_BLOCK_BIT(2, 5)
+#define PM8921_CHGFAIL_IRQ		PM8921_IRQ_BLOCK_BIT(2, 4)
+#define PM8921_CHGSTATE_IRQ		PM8921_IRQ_BLOCK_BIT(2, 3)
+#define PM8921_LOOP_CHANGE_IRQ		PM8921_IRQ_BLOCK_BIT(2, 2)
+#define PM8921_FASTCHG_IRQ		PM8921_IRQ_BLOCK_BIT(2, 1)
+#define PM8921_TRKLCHG_IRQ		PM8921_IRQ_BLOCK_BIT(2, 0)
+#define PM8921_BATT_REMOVED_IRQ		PM8921_IRQ_BLOCK_BIT(3, 7)
+#define PM8921_BATTTEMP_HOT_IRQ		PM8921_IRQ_BLOCK_BIT(3, 6)
+#define PM8921_CHGHOT_IRQ		PM8921_IRQ_BLOCK_BIT(3, 5)
+#define PM8921_BATTTEMP_COLD_IRQ	PM8921_IRQ_BLOCK_BIT(3, 4)
+#define PM8921_CHG_GONE_IRQ		PM8921_IRQ_BLOCK_BIT(3, 3)
+#define PM8921_BAT_TEMP_OK_IRQ		PM8921_IRQ_BLOCK_BIT(3, 2)
+#define PM8921_COARSE_DET_LOW_IRQ	PM8921_IRQ_BLOCK_BIT(3, 1)
+#define PM8921_VDD_LOOP_IRQ		PM8921_IRQ_BLOCK_BIT(3, 0)
+#define PM8921_VREG_OV_IRQ		PM8921_IRQ_BLOCK_BIT(5, 7)
+#define PM8921_VBAT_IRQ			PM8921_IRQ_BLOCK_BIT(5, 6)
+#define PM8921_VBATDET_IRQ		PM8921_IRQ_BLOCK_BIT(5, 5)
+#define PM8921_BATFET_IRQ		PM8921_IRQ_BLOCK_BIT(5, 4)
+#define PM8921_PSI_IRQ			PM8921_IRQ_BLOCK_BIT(5, 3)
+#define PM8921_DCIN_VALID_IRQ		PM8921_IRQ_BLOCK_BIT(5, 2)
+#define PM8921_DCIN_OV_IRQ		PM8921_IRQ_BLOCK_BIT(5, 1)
+#define PM8921_DCIN_UV_IRQ		PM8921_IRQ_BLOCK_BIT(5, 0)
+
 /* PMIC I/O Resources */
 #define PM8921_RTC_BASE 0x11D
 
@@ -61,6 +95,7 @@ struct pm8921_platform_data {
 	struct pm8xxx_rtc_platform_data         *rtc_pdata;
 	struct pm8xxx_pwrkey_platform_data	*pwrkey_pdata;
 	struct pm8xxx_keypad_platform_data	*keypad_pdata;
+	struct pm8921_charger_platform_data	*charger_pdata;
 	struct pm8921_regulator_platform_data	*regulator_pdatas;
 	int					num_regulators;
 };
