@@ -445,6 +445,12 @@ config BATTERY_BQ27541
 	help
 	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
 
+config PM8921_CHARGER
+	tristate "PM8921 Charger driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip charger subdevice
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
