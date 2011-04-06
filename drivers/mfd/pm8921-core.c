@@ -155,6 +155,26 @@ static struct mfd_cell pwrkey_cell = {
 	.resources	= resources_pwrkey,
 };
 
+static const struct resource resources_keypad[] = {
+	{
+		.start  = PM8921_KEYPAD_IRQ,
+		.end    = PM8921_KEYPAD_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start  = PM8921_KEYSTUCK_IRQ,
+		.end    = PM8921_KEYSTUCK_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct mfd_cell keypad_cell = {
+	.name		= PM8XXX_KEYPAD_DEV_NAME,
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_keypad),
+	.resources	= resources_keypad,
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -222,6 +242,18 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 					irq_base);
 		if (ret) {
 			pr_err("Failed to add pwrkey subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->keypad_pdata) {
+		keypad_cell.platform_data = pdata->keypad_pdata;
+		keypad_cell.pdata_size =
+			sizeof(struct pm8xxx_keypad_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &keypad_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add keypad subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
