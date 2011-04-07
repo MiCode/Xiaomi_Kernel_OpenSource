@@ -135,6 +135,26 @@ static struct mfd_cell rtc_cell = {
 	.num_resources  = ARRAY_SIZE(rtc_cell_resources),
 };
 
+static const struct resource resources_pwrkey[] = {
+	{
+		.start  = PM8921_PWRKEY_REL_IRQ,
+		.end    = PM8921_PWRKEY_REL_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start  = PM8921_PWRKEY_PRESS_IRQ,
+		.end    = PM8921_PWRKEY_PRESS_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct mfd_cell pwrkey_cell = {
+	.name		= PM8XXX_PWRKEY_DEV_NAME,
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_pwrkey),
+	.resources	= resources_pwrkey,
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -190,6 +210,18 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 				irq_base);
 		if (ret) {
 			pr_err("Failed to add rtc subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->pwrkey_pdata) {
+		pwrkey_cell.platform_data = pdata->pwrkey_pdata;
+		pwrkey_cell.pdata_size =
+			sizeof(struct pm8xxx_pwrkey_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &pwrkey_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add pwrkey subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}

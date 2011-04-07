@@ -22,6 +22,7 @@
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/mfd/pm8xxx/mpp.h>
 #include <linux/mfd/pm8xxx/rtc.h>
+#include <linux/input/pmic8xxx-pwrkey.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -40,7 +41,9 @@
 		PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, (mpp)-1))
 
 /* PMIC Interrupts */
-#define PM8921_RTC_ALARM_IRQ	PM8921_IRQ_BLOCK_BIT(4, 7)
+#define PM8921_RTC_ALARM_IRQ		PM8921_IRQ_BLOCK_BIT(4, 7)
+#define PM8921_PWRKEY_REL_IRQ		PM8921_IRQ_BLOCK_BIT(6, 2)
+#define PM8921_PWRKEY_PRESS_IRQ		PM8921_IRQ_BLOCK_BIT(6, 3)
 
 /* PMIC I/O Resources */
 #define PM8921_RTC_BASE 0x11D
@@ -51,6 +54,7 @@ struct pm8921_platform_data {
 	struct pm8xxx_gpio_platform_data	*gpio_pdata;
 	struct pm8xxx_mpp_platform_data		*mpp_pdata;
 	struct pm8xxx_rtc_platform_data         *rtc_pdata;
+	struct pm8xxx_pwrkey_platform_data	*pwrkey_pdata;
 };
 
 #endif
