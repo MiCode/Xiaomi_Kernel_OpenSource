@@ -172,6 +172,8 @@ def build_many(allconf, targets):
             [target for target in failed_targets]))
 
 def main():
+    global make_command
+
     check_kernel()
     check_build()
 
@@ -207,6 +209,9 @@ def main():
     parser.add_option('-k', '--keep-going', action='store_true',
             dest='keep_going', default=False,
             help="Keep building other targets if a target fails")
+    parser.add_option('-m', '--make-target', action='append',
+            help='Build the indicated make target (default: %s)' %
+                 ' '.join(make_command))
 
     (options, args) = parser.parse_args()
     global all_options
@@ -219,8 +224,9 @@ def main():
         sys.exit(0)
 
     if options.oldconfig:
-        global make_command
         make_command = ["oldconfig"]
+    elif options.make_target:
+        make_command = options.make_target
 
     if options.jobs:
         make_command.append("-j%d" % options.jobs)
