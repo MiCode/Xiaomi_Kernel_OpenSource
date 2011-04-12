@@ -31,6 +31,8 @@
 #define USBCMD_RST            BIT(1)
 #define USBCMD_SUTW           BIT(13)
 #define USBCMD_ATDTW          BIT(14)
+#define USBCMD_ITC(n)         (n << 16) /* n = 0, 1, 2, 4, 8, 16, 32, 64 */
+#define USBCMD_ITC_MASK       (0xFF << 16)
 
 /* USBSTS & USBINTR */
 #define USBi_UI               BIT(0)
