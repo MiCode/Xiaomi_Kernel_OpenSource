@@ -42,6 +42,7 @@ allowed_warnings = set([
     "alignment.c:720",
     "async.c:122",
     "async.c:270",
+    "dir.c:43",
     "dm.c:1053",
     "dm.c:1080",
     "dm-table.c:1120",
