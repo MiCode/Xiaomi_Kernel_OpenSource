@@ -39,6 +39,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/regulator/consumer.h>
+#include <linux/msm-charger.h>
 
 #include <mach/clk.h>
 
@@ -59,6 +60,8 @@
 
 #define USB_PHY_VDD_DIG_VOL_MIN	1000000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
+
+static struct msm_otg *the_msm_otg;
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
@@ -1285,6 +1288,21 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void msm_otg_set_vbus_state(int online)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	/* We depend on PMIC for only VBUS ON interrupt */
+	if (!atomic_read(&motg->in_lpm) || !online)
+		return;
+
+	/*
+	 * Let interrupt handler take care of resuming
+	 * the hardware.
+	 */
+	msm_otg_irq(motg->irq, (void *) motg);
+}
+
 static int msm_otg_mode_show(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
@@ -1441,6 +1459,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	the_msm_otg = motg;
 	motg->pdata = pdev->dev.platform_data;
 	phy = &motg->phy;
 	phy->dev = &pdev->dev;
@@ -1577,6 +1596,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 					"not available\n");
 	}
 
+	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
+		msm_charger_register_vbus_sn(&msm_otg_set_vbus_state);
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
@@ -1620,6 +1642,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 	if (phy->otg->host || phy->otg->gadget)
 		return -EBUSY;
 
+	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
+		msm_charger_unregister_vbus_sn(0);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_work_sync(&motg->sm_work);
