@@ -21,6 +21,7 @@
 #define USB_CAPLENGTH        (MSM_USB_BASE + 0x0100) /* 8 bit */
 
 #define USB_USBCMD           (MSM_USB_BASE + 0x0140)
+#define USB_USBSTS           (MSM_USB_BASE + 0x0144)
 #define USB_PORTSC           (MSM_USB_BASE + 0x0184)
 #define USB_OTGSC            (MSM_USB_BASE + 0x01A4)
 #define USB_USBMODE          (MSM_USB_BASE + 0x01A8)
@@ -42,6 +43,7 @@
 #define ULPI_DATA(n)          ((n) & 255)
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
 
+#define PHY_ALT_INT		(1 << 28) /* PHY alternate interrupt */
 #define ASYNC_INTR_CTRL         (1 << 29) /* Enable async interrupt */
 #define ULPI_STP_CTRL           (1 << 30) /* Block communication with PHY */
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
