@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/sched.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_cffdump.h"
@@ -83,6 +84,19 @@ struct cff_op_write_membuf {
 	uint addr;
 	ushort count;
 	uint buffer[MEMBUF_SIZE];
+} __packed;
+
+#define CFF_OP_MEMORY_BASE	0x0000000d
+struct cff_op_memory_base {
+	unsigned char op;
+	uint base;
+	uint size;
+	uint gmemsize;
+} __packed;
+
+#define CFF_OP_HANG		0x0000000e
+struct cff_op_hang {
+	unsigned char op;
 } __packed;
 
 #define CFF_OP_EOF              0xffffffff
@@ -196,6 +210,8 @@ static void cffdump_printline(int id, uint opcode, uint op1, uint op2,
 	struct cff_op_write_reg cff_op_write_reg;
 	struct cff_op_poll_reg cff_op_poll_reg;
 	struct cff_op_wait_irq cff_op_wait_irq;
+	struct cff_op_memory_base cff_op_memory_base;
+	struct cff_op_hang cff_op_hang;
 	struct cff_op_eof cff_op_eof;
 	unsigned char out_buf[sizeof(cff_op_write_membuf)/3*4 + 16];
 	void *data;
@@ -241,6 +257,21 @@ static void cffdump_printline(int id, uint opcode, uint op1, uint op2,
 		cff_op_wait_irq.op = opcode;
 		data = &cff_op_wait_irq;
 		len = sizeof(cff_op_wait_irq);
+		break;
+
+	case CFF_OP_MEMORY_BASE:
+		cff_op_memory_base.op = opcode;
+		cff_op_memory_base.base = op1;
+		cff_op_memory_base.size = op2;
+		cff_op_memory_base.gmemsize = op3;
+		data = &cff_op_memory_base;
+		len = sizeof(cff_op_memory_base);
+		break;
+
+	case CFF_OP_HANG:
+		cff_op_hang.op = opcode;
+		data = &cff_op_hang;
+		len = sizeof(cff_op_hang);
 		break;
 
 	case CFF_OP_EOF:
@@ -306,6 +337,27 @@ void kgsl_cffdump_destroy()
 
 void kgsl_cffdump_open(enum kgsl_deviceid device_id)
 {
+	/*TODO: move this to where we can report correct gmemsize*/
+	unsigned int va_base;
+
+	if (cpu_is_msm8x60() || cpu_is_msm8960())
+		va_base = 0x40000000;
+	else
+		va_base = 0x20000000;
+
+	kgsl_cffdump_memory_base(device_id, va_base,
+			CONFIG_MSM_KGSL_PAGE_TABLE_SIZE, SZ_256K);
+}
+
+void kgsl_cffdump_memory_base(enum kgsl_deviceid device_id, unsigned int base,
+			      unsigned int range, unsigned gmemsize)
+{
+	cffdump_printline(device_id, CFF_OP_MEMORY_BASE, base, range, gmemsize);
+}
+
+void kgsl_cffdump_hang(enum kgsl_deviceid device_id)
+{
+	cffdump_printline(device_id, CFF_OP_HANG, 0, 0, 0);
 }
 
 void kgsl_cffdump_close(enum kgsl_deviceid device_id)

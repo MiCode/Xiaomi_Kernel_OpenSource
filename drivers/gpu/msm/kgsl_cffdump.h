@@ -37,6 +37,11 @@ bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
 	bool check_only);
 static inline bool kgsl_cffdump_flags_no_memzero(void) { return true; }
 
+void kgsl_cffdump_memory_base(enum kgsl_deviceid device_id, unsigned int base,
+			      unsigned int range, unsigned int gmemsize);
+
+void kgsl_cffdump_hang(enum kgsl_deviceid device_id);
+
 #else
 
 #define kgsl_cffdump_init()					(void)0
@@ -51,6 +56,8 @@ static inline bool kgsl_cffdump_flags_no_memzero(void) { return true; }
 #define kgsl_cffdump_parse_ibs(dev_priv, memdesc, gpuaddr, \
 	sizedwords, check_only)					true
 #define kgsl_cffdump_flags_no_memzero()				true
+#define kgsl_cffdump_memory_base(base, range, gmemsize)		(void)0
+#define kgsl_cffdump_hang(device_id)				(void)0
 
 #endif /* CONFIG_MSM_KGSL_CFF_DUMP */
 
