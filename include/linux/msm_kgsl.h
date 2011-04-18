@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        5
+#define KGSL_VERSION_MINOR        6
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM	1
@@ -398,6 +398,15 @@ struct kgsl_gpumem_alloc {
 
 #define IOCTL_KGSL_GPUMEM_ALLOC \
 	_IOWR(KGSL_IOC_TYPE, 0x2f, struct kgsl_gpumem_alloc)
+
+struct kgsl_cff_syncmem {
+	unsigned int gpuaddr;
+	unsigned int len;
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
+#define IOCTL_KGSL_CFF_SYNCMEM \
+	_IOW(KGSL_IOC_TYPE, 0x30, struct kgsl_cff_syncmem)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM
