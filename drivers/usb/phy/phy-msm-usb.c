@@ -632,8 +632,8 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 	if (motg->cur_power == mA)
 		return;
 
-	/* TODO: Notify PMIC about available current */
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
+	msm_charger_vbus_draw(mA);
 	motg->cur_power = mA;
 }
 
