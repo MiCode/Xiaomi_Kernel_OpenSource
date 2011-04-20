@@ -22,6 +22,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
+#include <linux/wakelock.h>
 #include <linux/pm_qos.h>
 
 /*
@@ -179,6 +180,8 @@ struct msm_otg_platform_data {
  * @chg_type: The type of charger attached.
  * @dcd_retires: The retry count used to track Data contact
  *               detection process.
+ * @wlock: Wake lock struct to prevent system suspend when
+ *               USB is active.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -201,6 +204,7 @@ struct msm_otg {
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
+	struct wake_lock wlock;
 };
 
 struct msm_hsic_host_platform_data {

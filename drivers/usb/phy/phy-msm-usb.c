@@ -545,6 +545,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	atomic_set(&motg->in_lpm, 1);
 	enable_irq(motg->irq);
+	wake_unlock(&motg->wlock);
 
 	dev_info(phy->dev, "USB in low power mode\n");
 
@@ -561,6 +562,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
 
+	wake_lock(&motg->wlock);
 	if (!IS_ERR(motg->pclk_src))
 		clk_enable(motg->pclk_src);
 
@@ -1571,13 +1573,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	writel(0, USB_USBINTR);
 	writel(0, USB_OTGSC);
 
+	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", motg);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed\n");
-		goto disable_clks;
+		goto destroy_wlock;
 	}
 
 	phy->init = msm_otg_reset;
@@ -1620,6 +1623,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		msm_charger_register_vbus_sn(&msm_otg_set_vbus_state);
 
+	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
@@ -1629,7 +1633,8 @@ remove_phy:
 	usb_remove_phy(NULL);
 free_irq:
 	free_irq(motg->irq, motg);
-disable_clks:
+destroy_wlock:
+	wake_lock_destroy(&motg->wlock);
 	clk_disable(motg->pclk);
 	clk_disable(motg->clk);
 ldo_exit:
@@ -1676,6 +1681,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
+	wake_lock_destroy(&motg->wlock);
 
 	if (motg->pdata->pmic_id_irq)
 		free_irq(motg->pdata->pmic_id_irq, motg);
