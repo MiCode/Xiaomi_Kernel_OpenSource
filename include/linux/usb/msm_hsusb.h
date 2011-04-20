@@ -143,6 +143,7 @@ enum usb_chg_type {
  *              OTG switch is controller by user.
  * @pclk_src_name: pclk is derived from ebi1_usb_clk in case of 7x27 and 8k
  *              dfab_usb_hs_clk in case of 8660 and 8960.
+ * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -154,6 +155,7 @@ struct msm_otg_platform_data {
 	enum msm_usb_phy_type phy_type;
 	void (*setup_gpio)(enum usb_otg_state state);
 	char *pclk_src_name;
+	int pmic_id_irq;
 };
 
 /**

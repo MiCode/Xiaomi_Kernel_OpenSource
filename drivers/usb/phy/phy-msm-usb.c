@@ -1303,6 +1303,16 @@ static void msm_otg_set_vbus_state(int online)
 	msm_otg_irq(motg->irq, (void *) motg);
 }
 
+static irqreturn_t msm_pmic_id_irq(int irq, void *data)
+{
+	struct msm_otg *motg = data;
+
+	if (atomic_read(&motg->in_lpm))
+		msm_otg_irq(motg->irq, motg);
+
+	return IRQ_HANDLED;
+}
+
 static int msm_otg_mode_show(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
@@ -1585,6 +1595,17 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_irq;
 	}
 
+	if (motg->pdata->pmic_id_irq) {
+		ret = request_irq(motg->pdata->pmic_id_irq, msm_pmic_id_irq,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"msm_otg", motg);
+		if (ret) {
+			dev_err(&pdev->dev, "request irq failed for PMIC ID\n");
+			goto remove_phy;
+		}
+	}
+
 	platform_set_drvdata(pdev, motg);
 	device_init_wakeup(&pdev->dev, 1);
 
@@ -1603,6 +1624,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	return 0;
+
+remove_phy:
+	usb_remove_phy(NULL);
 free_irq:
 	free_irq(motg->irq, motg);
 disable_clks:
@@ -1653,6 +1677,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
 
+	if (motg->pdata->pmic_id_irq)
+		free_irq(motg->pdata->pmic_id_irq, motg);
 	usb_remove_phy(phy);
 	free_irq(motg->irq, motg);
 
