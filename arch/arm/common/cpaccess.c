@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,13 @@
 #include <linux/string.h>
 #include <linux/smp.h>
 #include <asm/cacheflush.h>
+#include <asm/smp_plat.h>
+
+#ifdef CONFIG_ARCH_MSM_KRAIT
+#include <mach/msm-krait-l2-accessors.h>
+#endif
+
+#define TYPE_MAX_CHARACTERS 10
 
 static unsigned long cpaccess_dummy(unsigned long write_val)
 	__attribute__((aligned(32)));
@@ -36,6 +43,7 @@ static unsigned long cpaccess_dummy(unsigned long write_val)
  * CP parameters
  */
 struct cp_params {
+	unsigned long il2index;
 	unsigned long cp;
 	unsigned long op1;
 	unsigned long op2;
@@ -46,14 +54,85 @@ struct cp_params {
 };
 
 static struct semaphore cp_sem;
+static unsigned long il2_output;
 static int cpu;
+char type[TYPE_MAX_CHARACTERS] = "C";
 
 static DEFINE_PER_CPU(struct cp_params, cp_param)
-	 = { 15, 0, 0, 0, 0, 0, 'r' };
+	 = { 0, 15, 0, 0, 0, 0, 0, 'r' };
 
 static struct sysdev_class cpaccess_sysclass = {
 	.name = "cpaccess",
 };
+
+#ifdef CONFIG_ARCH_MSM_KRAIT
+/*
+ * do_read_il2 - Read indirect L2 registers
+ * @ret:	Pointer	to return value
+ *
+ */
+static void do_read_il2(void *ret)
+{
+	*(unsigned long *)ret =
+		get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu));
+}
+
+/*
+ * do_write_il2 - Write indirect L2 registers
+ * @ret:	Pointer	to return value
+ *
+ */
+static void do_write_il2(void *ret)
+{
+	*(unsigned long *)ret =
+		set_get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu),
+				per_cpu(cp_param.write_value, cpu));
+}
+
+/*
+ * do_il2_rw - Call Read/Write indirect L2 register functions
+ * @ret:	Pointer	to return value in case of CP register
+ *
+ */
+static int do_il2_rw(char *str_tmp)
+{
+	unsigned long write_value, il2index;
+	char rw;
+	int ret = 0;
+
+	il2index = 0;
+	sscanf(str_tmp, "%lx:%c:%lx:%d", &il2index, &rw, &write_value,
+								&cpu);
+	per_cpu(cp_param.il2index, cpu) = il2index;
+	per_cpu(cp_param.rw, cpu) = rw;
+	per_cpu(cp_param.write_value, cpu) = write_value;
+
+	if (per_cpu(cp_param.rw, cpu) == 'r') {
+		if (is_smp()) {
+			if (smp_call_function_single(cpu, do_read_il2,
+							&il2_output, 1))
+				pr_err("Error cpaccess smp call single\n");
+		} else
+			do_read_il2(&il2_output);
+	} else if (per_cpu(cp_param.rw, cpu) == 'w') {
+		if (is_smp()) {
+			if (smp_call_function_single(cpu, do_write_il2,
+							&il2_output, 1))
+				pr_err("Error cpaccess smp call single\n");
+		} else
+			do_write_il2(&il2_output);
+	} else {
+			pr_err("cpaccess: Wrong Entry for 'r' or 'w'.\n");
+			return -EINVAL;
+	}
+	return ret;
+}
+#else
+static void do_il2_rw(char *str_tmp)
+{
+	il2_output = 0;
+}
+#endif
 
 /*
  * get_asm_value - Dummy fuction
@@ -136,6 +215,45 @@ static unsigned long do_cpregister_rw(int write)
 	return ret;
 }
 
+static int get_register_params(char *str_tmp)
+{
+	unsigned long op1, op2, crn, crm, cp = 15, write_value, il2index;
+	char rw;
+	int cnt = 0;
+
+	il2index = 0;
+	strncpy(type, strsep(&str_tmp, ":"), TYPE_MAX_CHARACTERS);
+
+	if (strncasecmp(type, "C", TYPE_MAX_CHARACTERS) == 0) {
+
+		sscanf(str_tmp, "%lu:%lu:%lu:%lu:%lu:%c:%lx:%d",
+			&cp, &op1, &crn, &crm, &op2, &rw, &write_value, &cpu);
+		per_cpu(cp_param.cp, cpu) = cp;
+		per_cpu(cp_param.op1, cpu) = op1;
+		per_cpu(cp_param.crn, cpu) = crn;
+		per_cpu(cp_param.crm, cpu) = crm;
+		per_cpu(cp_param.op2, cpu) = op2;
+		per_cpu(cp_param.rw, cpu) = rw;
+		per_cpu(cp_param.write_value, cpu) = write_value;
+
+		if ((per_cpu(cp_param.rw, cpu) != 'w') &&
+				(per_cpu(cp_param.rw, cpu) != 'r')) {
+			pr_err("cpaccess: Wrong entry for 'r' or 'w'.\n");
+			return -EINVAL;
+		}
+
+		if (per_cpu(cp_param.rw, cpu) == 'w')
+			do_cpregister_rw(1);
+	} else if (strncasecmp(type, "IL2", TYPE_MAX_CHARACTERS) == 0)
+		do_il2_rw(str_tmp);
+	else {
+		pr_err("cpaccess: Not a valid type. Entered: %s\n", type);
+		return -EINVAL;
+	}
+
+	return cnt;
+}
+
 /*
  * cp_register_write_sysfs - sysfs interface for writing to
  * CP register
@@ -146,34 +264,14 @@ static unsigned long do_cpregister_rw(int write)
  *
  */
 static ssize_t cp_register_write_sysfs(struct sys_device *dev,
- struct sysdev_attribute *attr, const char *buf, size_t cnt)
+	struct sysdev_attribute *attr, const char *buf, size_t cnt)
 {
-	unsigned long op1, op2, crn, crm, cp = 15, write_value, ret;
-	char rw;
+	char *str_tmp = (char *)buf;
+
 	if (down_timeout(&cp_sem, 6000))
 		return -ERESTARTSYS;
 
-	sscanf(buf, "%lu:%lu:%lu:%lu:%lu:%c:%lx:%d", &cp, &op1, &crn,
-	 &crm, &op2, &rw, &write_value, &cpu);
-	per_cpu(cp_param.cp, cpu) = cp;
-	per_cpu(cp_param.op1, cpu) = op1;
-	per_cpu(cp_param.crn, cpu) = crn;
-	per_cpu(cp_param.crm, cpu) = crm;
-	per_cpu(cp_param.op2, cpu) = op2;
-	per_cpu(cp_param.rw, cpu) = rw;
-	per_cpu(cp_param.write_value, cpu) = write_value;
-
-	if (per_cpu(cp_param.rw, cpu) == 'w') {
-		do_cpregister_rw(1);
-		ret = cnt;
-	}
-
-	if ((per_cpu(cp_param.rw, cpu) != 'w') &&
-	(per_cpu(cp_param.rw, cpu) != 'r')) {
-		ret = -1;
-		printk(KERN_INFO "Wrong Entry for 'r' or 'w'. \
-			Use cp:op1:crn:crm:op2:r/w:write_value.\n");
-	}
+	get_register_params(str_tmp);
 
 	return cnt;
 }
@@ -190,10 +288,17 @@ static ssize_t cp_register_write_sysfs(struct sys_device *dev,
  * result to the caller.
  */
 static ssize_t cp_register_read_sysfs(struct sys_device *dev,
- struct sysdev_attribute *attr, char *buf)
+	struct sysdev_attribute *attr, char *buf)
 {
 	int ret;
-	ret = sprintf(buf, "%lx\n", do_cpregister_rw(0));
+
+	if (strncasecmp(type, "C", TYPE_MAX_CHARACTERS) == 0)
+		ret = snprintf(buf, TYPE_MAX_CHARACTERS, "%lx\n",
+					do_cpregister_rw(0));
+	else if (strncasecmp(type, "IL2", TYPE_MAX_CHARACTERS) == 0)
+		ret = snprintf(buf, TYPE_MAX_CHARACTERS, "%lx\n", il2_output);
+	else
+		ret = -EINVAL;
 
 	if (cp_sem.count <= 0)
 		up(&cp_sem);
@@ -204,8 +309,7 @@ static ssize_t cp_register_read_sysfs(struct sys_device *dev,
 /*
  * Setup sysfs files
  */
-SYSDEV_ATTR(cp_rw, 0644, cp_register_read_sysfs,
- cp_register_write_sysfs);
+SYSDEV_ATTR(cp_rw, 0644, cp_register_read_sysfs, cp_register_write_sysfs);
 
 static struct sys_device device_cpaccess = {
 	.id     = 0,
@@ -222,15 +326,13 @@ static int __init init_cpaccess_sysfs(void)
 	if (!error)
 		error = sysdev_register(&device_cpaccess);
 	else
-		printk(KERN_ERR "Error initializing cpaccess \
-		interface\n");
+		pr_err("Error initializing cpaccess interface\n");
 
 	if (!error)
 		error = sysdev_create_file(&device_cpaccess,
 		 &attr_cp_rw);
 	else {
-		printk(KERN_ERR "Error initializing cpaccess \
-		interface\n");
+		pr_err("Error initializing cpaccess interface\n");
 		sysdev_unregister(&device_cpaccess);
 		sysdev_class_unregister(&cpaccess_sysclass);
 	}
