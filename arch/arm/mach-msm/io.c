@@ -204,6 +204,7 @@ static struct map_desc msm8960_io_desc[] __initdata = {
 #ifdef CONFIG_MSM_DEBUG_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
+	MSM_CHIP_DEVICE(QFPROM, MSM8960),
 };
 
 void __init msm_map_msm8960_io(void)

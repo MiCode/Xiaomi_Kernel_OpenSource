@@ -113,4 +113,7 @@
 #endif
 #endif
 
+#define MSM8960_QFPROM_PHYS		0x00700000
+#define MSM8960_QFPROM_SIZE		SZ_4K
+
 #endif
