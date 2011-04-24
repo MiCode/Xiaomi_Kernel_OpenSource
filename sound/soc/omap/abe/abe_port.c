@@ -1097,6 +1097,7 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_MM_UL_PORT:
 			copy_func_index1 = COPY_MM_UL_CFPID;
 			before_func_index = ROUTE_MM_UL_CFPID;
+			abe->MultiFrame[19][6] = ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL);
 			break;
 		case OMAP_ABE_MM_UL2_PORT:
 			abe->MultiFrame[17][3] = ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL2);
