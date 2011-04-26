@@ -281,6 +281,9 @@ static const struct snd_soc_dapm_widget sdp4430_twl6040_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headset Stereophone", NULL),
 	SND_SOC_DAPM_SPK("Earphone Spk", NULL),
 	SND_SOC_DAPM_INPUT("Aux/FM Stereo In"),
+	SND_SOC_DAPM_MIC("Digital Mic 0", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic 1", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic 2", NULL),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -307,6 +310,16 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* Aux/FM Stereo In: AFML, AFMR */
 	{"AFML", NULL, "Aux/FM Stereo In"},
 	{"AFMR", NULL, "Aux/FM Stereo In"},
+
+	/* Digital Mics: DMic0, DMic1, DMic2 with bias */
+	{"DMIC0", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 0"},
+
+	{"DMIC1", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 1"},
+
+	{"DMIC2", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 2"},
 };
 
 static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
@@ -345,6 +358,9 @@ static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "AFMR");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Stereophone");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 0");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 1");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 2");
 
 	ret = snd_soc_dapm_sync(dapm);
 	if (ret)
