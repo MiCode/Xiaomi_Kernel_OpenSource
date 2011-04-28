@@ -22,6 +22,7 @@
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/mfd/pm8xxx/mpp.h>
 #include <linux/mfd/pm8xxx/rtc.h>
+#include <linux/mfd/pm8xxx/pwm.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
