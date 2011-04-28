@@ -546,6 +546,16 @@ config MFD_PM8XXX_IRQ
 	  This is required to use certain other PM 8xxx features, such as GPIO
 	  and MPP.
 
+config MFD_PM8XXX_PWM
+	tristate "Support for Qualcomm PM8xxx PWM feature"
+	depends on MFD_PM8XXX
+	default y if MFD_PM8XXX
+	help
+	  This is the Pulse Width Modulation (PWM) driver for Qualcomm
+	  PM 8xxx PMIC chips. It can drive 8 channels of PWM output, and
+	  has a lookup table with size of 64 to be shared by any of the
+	  8 channels.
+
 config MFD_PM8821_IRQ
 	bool "Support for Qualcomm PM8821 IRQ features"
 	default y if MFD_PM8821_CORE
