@@ -383,6 +383,39 @@ static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	return ret;
 }
 
+/* SDP4430 digital microphones DAPM */
+static const struct snd_soc_dapm_widget sdp4430_dmic_dapm_widgets[] = {
+	SND_SOC_DAPM_MIC("Digital Mic Legacy", NULL),
+};
+
+static const struct snd_soc_dapm_route dmic_audio_map[] = {
+	{"DMic", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic Legacy"},
+};
+
+static int sdp4430_dmic_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	int ret;
+
+	ret = snd_soc_dapm_new_controls(dapm, sdp4430_dmic_dapm_widgets,
+				ARRAY_SIZE(sdp4430_dmic_dapm_widgets));
+	if (ret)
+		return ret;
+
+	ret = snd_soc_dapm_add_routes(dapm, dmic_audio_map,
+				ARRAY_SIZE(dmic_audio_map));
+	if (ret)
+		return ret;
+
+	snd_soc_dapm_enable_pin(dapm, "Digital Mic Legacy");
+
+	ret = snd_soc_dapm_sync(dapm);
+
+	return ret;
+}
+
 /* TODO: make this a separate BT CODEC driver or DUMMY */
 static struct snd_soc_dai_driver dai[] = {
 {
@@ -659,6 +692,7 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 		.codec_dai_name = "dmic-hifi",
 		.codec_name = "dmic-codec.0",
 
+		.init = sdp4430_dmic_init,
 		.ops = &sdp4430_dmic_ops,
 	},
 
