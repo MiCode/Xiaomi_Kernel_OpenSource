@@ -5051,7 +5051,7 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_mpu_private_hwmod,
 
 	/* aess class */
-/*	&omap44xx_aess_hwmod, */
+	&omap44xx_aess_hwmod,
 
 	/* bandgap class */
 	&omap44xx_bandgap_hwmod,
