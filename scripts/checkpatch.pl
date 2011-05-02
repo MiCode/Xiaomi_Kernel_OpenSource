@@ -5542,6 +5542,26 @@ sub process {
 			      $herecurr);
 		}
 
+# read[bwl] & write[bwl] use too many barriers, use the _relaxed variants
+		if ($line =~ /\b((?:read|write)[bwl])\b/) {
+			ERROR("NON_RELAXED_IO",
+			      "Use of $1 is deprecated: use $1_relaxed\n\t" .
+			      "with appropriate memory barriers instead.\n" .
+			      $herecurr);
+		}
+
+# likewise, in/out[bwl] should be __raw_read/write[bwl]...
+		if ($line =~ /\b((in|out)([bwl]))\b/) {
+			my ($all, $pref, $suf) = ($1, $2, $3);
+			$pref =~ s/in/read/;
+			$pref =~ s/out/write/;
+			ERROR("NON_RELAXED_IO",
+			      "Use of $all is deprecated: use " .
+			      "__raw_$pref$suf\n\t" .
+			      "with appropriate memory barriers instead.\n" .
+			      $herecurr);
+		}
+
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
 			WARN("IF_0",
