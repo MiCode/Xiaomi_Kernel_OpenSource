@@ -176,6 +176,13 @@ static struct mfd_cell keypad_cell = {
 	.resources	= resources_keypad,
 };
 
+static struct mfd_cell debugfs_cell = {
+	.name		= "pm8xxx-debug",
+	.id		= -1,
+	.platform_data	= "pm8921-dbg",
+	.pdata_size	= sizeof("pm8921-dbg"),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -289,6 +296,12 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 			goto bail;
 		}
 		pmic->mfd_regulators = mfd_regulators;
+	}
+
+	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base);
+	if (ret) {
+		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
+		goto bail;
 	}
 
 	return 0;

@@ -1105,6 +1105,16 @@ config MFD_WM5110
 	help
 	  Support for Wolfson Microelectronics WM5110 low power audio SoC
 
+config MFD_PM8XXX_DEBUG
+	tristate "Qualcomm PM8xxx debugfs support"
+	depends on MFD_PM8XXX && DEBUG_FS
+	default y if MFD_PM8XXX
+	help
+	  This driver provides a debugfs interface to the SSBI registers on
+	  Qualcomm PM 8xxx PMIC chips.  It allows for reads and writes to
+	  arbitrary addresses.  Writes are blocking so values are guaranteed to
+	  be set into hardware registers upon return.
+
 config MFD_WM8400
 	bool "Wolfson Microelectronics WM8400"
 	select MFD_CORE
