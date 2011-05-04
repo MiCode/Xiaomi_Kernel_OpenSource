@@ -395,7 +395,7 @@ static int __init pm8921_init(void)
 {
 	return platform_driver_register(&pm8921_driver);
 }
-subsys_initcall(pm8921_init);
+postcore_initcall(pm8921_init);
 
 static void __exit pm8921_exit(void)
 {
