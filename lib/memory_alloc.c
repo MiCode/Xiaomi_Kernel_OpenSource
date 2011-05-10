@@ -174,7 +174,7 @@ static void __free(void *vaddr, bool unmap)
 	kfree(node);
 }
 
-struct mem_pool *mem_type_to_memory_pool(int mem_type)
+static struct mem_pool *mem_type_to_memory_pool(int mem_type)
 {
 	struct mem_pool *mpool = &mpools[mem_type];
 
@@ -190,7 +190,6 @@ struct mem_pool *mem_type_to_memory_pool(int mem_type)
 
 	return mpool;
 }
-EXPORT_SYMBOL_GPL(mem_type_to_memory_pool);
 
 struct mem_pool *initialize_memory_pool(unsigned long start,
 	unsigned long size, int mem_type)

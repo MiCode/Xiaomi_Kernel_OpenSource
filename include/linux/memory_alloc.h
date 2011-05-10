@@ -33,13 +33,8 @@ struct alloc {
 	unsigned long len;
 };
 
-struct mem_pool *mem_type_to_memory_pool(int mem_type);
-
 struct mem_pool *initialize_memory_pool(unsigned long start,
 	unsigned long size, int mem_type);
-
-void *alloc_from_memory_pool(struct mem_pool *mpool, unsigned long size,
-	unsigned long align, int cached);
 
 void *allocate_contiguous_memory(unsigned long size,
 	int mem_type, unsigned long align, int cached);
