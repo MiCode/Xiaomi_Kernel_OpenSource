@@ -1574,6 +1574,18 @@ static long kgsl_ioctl_cff_syncmem(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
+static long kgsl_ioctl_cff_user_event(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	int result = 0;
+	struct kgsl_cff_user_event *param = data;
+
+	kgsl_cffdump_user_event(param->cff_opcode, param->op1, param->op2,
+			param->op3, param->op4, param->op5);
+
+	return result;
+}
+
 typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
 	unsigned int, void *);
 
@@ -1613,6 +1625,8 @@ static const struct {
 			kgsl_ioctl_gpumem_alloc, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CFF_SYNCMEM,
 			kgsl_ioctl_cff_syncmem, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_CFF_USER_EVENT,
+			kgsl_ioctl_cff_user_event, 0),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
