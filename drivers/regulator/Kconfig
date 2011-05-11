@@ -547,5 +547,14 @@ config REGULATOR_PM8XXX
 	  regulators.  They also provide negative charge pumps and voltage
 	  switches.
 
+config REGULATOR_MSM_GPIO
+	tristate "MSM GPIO regulator"
+	depends on GPIOLIB
+	help
+	  This driver provides a regulator wrapper around a GPIO pin that is set
+	  to output.  It is intended to be used for GPIO pins that provide the
+	  enable signal to a physical regulator.  The GPIO enable signal can
+	  be configured to be active high (default) or active low.
+
 endif
 
