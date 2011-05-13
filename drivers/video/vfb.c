@@ -35,6 +35,13 @@
 static void *videomemory;
 static u_long videomemorysize = VIDEOMEMSIZE;
 module_param(videomemorysize, ulong, 0);
+static char *mode_option ;
+static int bpp = 8;
+
+module_param(mode_option, charp, 0);
+MODULE_PARM_DESC(mode_option, "Initial video mode e.g. '648x480-8@60'");
+module_param(bpp, int, 0);
+
 
 /**********************************************************************
  *
@@ -471,6 +478,14 @@ static int __init vfb_setup(char *options)
 		/* Test disable for backwards compatibility */
 		if (!strcmp(this_opt, "disable"))
 			vfb_enable = 0;
+		else if (!strncmp(this_opt, "bpp=", 4)) {
+			if (kstrtoint(this_opt + 4, 0, &bpp) < 0)
+				bpp = 8;
+		} else if (!strncmp(this_opt, "memsize=", 8)) {
+			if (kstrtoul(this_opt + 8, 0, &videomemorysize) < 0)
+				videomemorysize = VIDEOMEMSIZE;
+		} else
+			mode_option = this_opt;
 	}
 	return 1;
 }
@@ -506,8 +521,8 @@ static int vfb_probe(struct platform_device *dev)
 	info->screen_base = (char __iomem *)videomemory;
 	info->fbops = &vfb_ops;
 
-	retval = fb_find_mode(&info->var, info, NULL,
-			      NULL, 0, NULL, 8);
+	retval = fb_find_mode(&info->var, info, mode_option,
+			      NULL, 0, NULL, bpp);
 
 	if (!retval || (retval == 4))
 		info->var = vfb_default;
