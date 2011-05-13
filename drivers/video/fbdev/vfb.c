@@ -36,6 +36,8 @@ static void *videomemory;
 static u_long videomemorysize = VIDEOMEMSIZE;
 module_param(videomemorysize, ulong, 0);
 MODULE_PARM_DESC(videomemorysize, "RAM available to frame buffer (in bytes)");
+static int bpp = 8;
+module_param(bpp, int, 0644);
 
 static char *mode_option = NULL;
 module_param(mode_option, charp, 0);
@@ -397,7 +399,13 @@ static int __init vfb_setup(char *options)
 		/* Test disable for backwards compatibility */
 		if (!strcmp(this_opt, "disable"))
 			vfb_enable = 0;
-		else
+		else if (!strcmp(this_opt, "bpp=")) {
+			if (kstrtoint(this_opt + 4, 0, &bpp) < 0)
+				bpp = 8;
+		} else if (!strcmp(this_opt, "memsize=")) {
+			if (kstrtoul(this_opt + 8, 0, &videomemorysize) < 0)
+				videomemorysize = VIDEOMEMSIZE;
+		} else
 			mode_option = this_opt;
 	}
 	return 1;
@@ -427,12 +435,8 @@ static int vfb_probe(struct platform_device *dev)
 	info->screen_base = (char __iomem *)videomemory;
 	info->fbops = &vfb_ops;
 
-	if (!fb_find_mode(&info->var, info, mode_option,
-			  NULL, 0, &vfb_default, 8)){
-		fb_err(info, "Unable to find usable video mode.\n");
-		retval = -EINVAL;
-		goto err1;
-	}
+	retval = fb_find_mode(&info->var, info, mode_option,
+			      NULL, 0, NULL, bpp);
 
 	vfb_fix.smem_start = (unsigned long) videomemory;
 	vfb_fix.smem_len = videomemorysize;
