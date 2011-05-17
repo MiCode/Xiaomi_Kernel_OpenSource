@@ -46,8 +46,26 @@
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
 
+#ifdef CONFIG_USB_MSM_ACA
 static void msm_chg_enable_aca_det(struct msm_otg *motg);
 static void msm_chg_enable_aca_intr(struct msm_otg *motg);
+#else
+static inline bool msm_chg_aca_detect(struct msm_otg *motg)
+{
+	return false;
+}
+
+static inline void msm_chg_enable_aca_det(struct msm_otg *motg)
+{
+}
+static inline void msm_chg_enable_aca_intr(struct msm_otg *motg)
+{
+}
+static inline bool msm_chg_check_aca_intr(struct msm_otg *motg)
+{
+	return false;
+}
+#endif
 
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 
@@ -845,6 +863,7 @@ static int msm_otg_set_peripheral(struct usb_otg *otg,
 	return 0;
 }
 
+#ifdef CONFIG_USB_MSM_ACA
 static bool msm_chg_aca_detect(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -945,7 +964,7 @@ static bool msm_chg_check_aca_intr(struct msm_otg *motg)
 	}
 	return ret;
 }
-
+#endif
 static bool msm_chg_check_secondary_det(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
