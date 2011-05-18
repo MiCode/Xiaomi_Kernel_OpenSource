@@ -237,16 +237,13 @@ unsigned long allocate_contiguous_memory_nomap(unsigned long size,
 	int log_align = ilog2(align);
 
 	mpool = mem_type_to_memory_pool(mem_type);
-	if (!mpool)
-		return -EINVAL;
-
-	if (!mpool->gpool)
-		return -EAGAIN;
+	if (!mpool || !mpool->gpool)
+		return 0;
 
 	aligned_size = PFN_ALIGN(size);
 	paddr = gen_pool_alloc_aligned(mpool->gpool, aligned_size, log_align);
 	if (!paddr)
-		return -EAGAIN;
+		return 0;
 
 	node = kmalloc(sizeof(struct alloc), GFP_KERNEL);
 	if (!node)
@@ -273,7 +270,7 @@ out_kfree:
 	kfree(node);
 out:
 	gen_pool_free(mpool->gpool, paddr, aligned_size);
-	return -ENOMEM;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(allocate_contiguous_memory_nomap);
 
