@@ -492,10 +492,10 @@ static int dapm_new_mux(struct snd_soc_dapm_widget *w)
 	wlist->widgets[wlistentries - 1] = w;
 
 	if (!kcontrol) {
-		if (dapm->codec)
+		if (dapm->codec && dapm->codec->name_prefix)
 			prefix = dapm->codec->name_prefix;
 		else
-			prefix = NULL;
+			prefix = w->name;
 
 		if (shared) {
 			name = w->kcontrol_news[0].name;
