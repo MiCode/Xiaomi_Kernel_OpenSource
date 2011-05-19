@@ -65,6 +65,13 @@ struct ddl_profile_info_type {
 	u32 pic_profile;
 };
 
+enum vidc_sm_mpeg4_profileinfo {
+	VIDC_SM_PROFILE_INFO_DISABLE  = 0,
+	VIDC_SM_PROFILE_INFO_SP       = 1,
+	VIDC_SM_PROFILE_INFO_ASP      = 2,
+	VIDC_SM_PROFILE_INFO_MAX      = 0x7fffffff
+};
+
 void vidc_sm_get_extended_decode_status(struct ddl_buf_addr *shared_mem,
 	u32 *more_field_needed,
 	u32 *resl_change);
@@ -154,4 +161,6 @@ void vidc_sm_set_concealment_color(struct ddl_buf_addr *shared_mem,
 	u32 conceal_ycolor, u32 conceal_ccolor);
 void vidc_sm_set_chroma_addr_change(struct ddl_buf_addr *shared_mem,
 	u32 addr_change);
+void vidc_sm_set_mpeg4_profile_override(struct ddl_buf_addr *shared_mem,
+	enum vidc_sm_mpeg4_profileinfo profile_info);
 #endif
