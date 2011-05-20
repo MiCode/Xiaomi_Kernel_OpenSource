@@ -1504,6 +1504,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		else
 			clear_bit(ID, &motg->inputs);
 		dev_dbg(phy->dev, "ID set/clear\n");
+		schedule_work(&motg->sm_work);
 		pm_runtime_get_noresume(phy->dev);
 	} else if ((otgsc & OTGSC_BSVIS) && (otgsc & OTGSC_BSVIE)) {
 		if (otgsc & OTGSC_BSV)
@@ -1511,11 +1512,11 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		else
 			clear_bit(B_SESS_VLD, &motg->inputs);
 		dev_dbg(phy->dev, "BSV set/clear\n");
+		schedule_work(&motg->sm_work);
 		pm_runtime_get_noresume(phy->dev);
 	}
 
 	writel(otgsc, USB_OTGSC);
-	schedule_work(&motg->sm_work);
 	return IRQ_HANDLED;
 }
 
