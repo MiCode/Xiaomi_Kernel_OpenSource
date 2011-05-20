@@ -387,6 +387,7 @@ header-y += tspp.h
 header-y += tty.h
 header-y += tty_flags.h
 header-y += types.h
+header-y += tzcom.h
 header-y += udf_fs_i.h
 header-y += udp.h
 header-y += uhid.h

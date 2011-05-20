@@ -622,6 +622,14 @@ config PMIC8058_XOADC
 	  PMIC8058. Driver interface to program registers of the ADC over
 	  AMUX channels, devices on programmable MPP's and xotherm.
 
+config TZCOM
+	tristate "Trustzone Communicator driver"
+	default n
+	help
+	  Provides a communication interface between userspace and
+	  TrustZone Operating Environment (TZBSP) using Secure Channel
+	  Manager (SCM) interface.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
