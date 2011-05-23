@@ -52,6 +52,7 @@ static void snddev_hsed_config_restore_setting(void);
 
 #define SNDDEV_GPIO_MIC2_ANCR_SEL 294
 #define SNDDEV_GPIO_MIC1_ANCL_SEL 295
+#define SNDDEV_GPIO_HS_MIC4_SEL 296
 
 static struct resource msm_cdcclk_ctl_resources[] = {
 	{
@@ -507,6 +508,51 @@ static void msm_snddev_disable_anc_power(void)
 #endif
 }
 
+static int msm_snddev_enable_amic_sec_power(void)
+{
+#ifdef CONFIG_PMIC8058_OTHC
+	int ret;
+
+	if (machine_is_msm8x60_fluid()) {
+
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2,
+				OTHC_SIGNAL_ALWAYS_ON);
+		if (ret)
+			pr_err("%s: Enabling amic2 power failed\n", __func__);
+
+		ret = gpio_request(SNDDEV_GPIO_HS_MIC4_SEL,
+						"HS_MIC4_SEL");
+		if (ret) {
+			pr_err("%s: spkr pamp gpio %d request failed\n",
+					__func__, SNDDEV_GPIO_HS_MIC4_SEL);
+			return ret;
+		}
+		gpio_direction_output(SNDDEV_GPIO_HS_MIC4_SEL, 1);
+	}
+#endif
+
+	msm_snddev_enable_amic_power();
+	return 0;
+}
+
+static void msm_snddev_disable_amic_sec_power(void)
+{
+#ifdef CONFIG_PMIC8058_OTHC
+	int ret;
+	if (machine_is_msm8x60_fluid()) {
+
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2,
+					OTHC_SIGNAL_OFF);
+		if (ret)
+			pr_err("%s: Disabling amic2 power failed\n", __func__);
+
+		gpio_free(SNDDEV_GPIO_HS_MIC4_SEL);
+	}
+#endif
+
+	msm_snddev_disable_amic_power();
+}
+
 static int msm_snddev_enable_dmic_sec_power(void)
 {
 	int ret;
@@ -906,6 +952,110 @@ static struct platform_device msm_spkr_dual_mic_broadside_device = {
 	.name = "snddev_icodec",
 	.id = 18,
 	.dev = { .platform_data = &snddev_spkr_dual_mic_broadside_data },
+};
+
+static struct adie_codec_action_unit
+		fluid_dual_mic_endfire_8KHz_osr256_actions[] =
+	FLUID_AMIC_DUAL_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry fluid_dual_mic_endfire_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = fluid_dual_mic_endfire_8KHz_osr256_actions,
+		.action_sz =
+			ARRAY_SIZE(fluid_dual_mic_endfire_8KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile fluid_dual_mic_endfire_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = fluid_dual_mic_endfire_settings,
+	.setting_sz = ARRAY_SIZE(fluid_dual_mic_endfire_settings),
+};
+
+static struct snddev_icodec_data snddev_fluid_dual_mic_endfire_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_endfire_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.profile = &fluid_dual_mic_endfire_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_enable_amic_sec_power,
+	.pamp_off = msm_snddev_disable_amic_sec_power,
+};
+
+static struct platform_device msm_fluid_hs_dual_mic_endfire_device = {
+	.name = "snddev_icodec",
+	.dev = { .platform_data = &snddev_fluid_dual_mic_endfire_data },
+};
+
+static struct snddev_icodec_data snddev_fluid_dual_mic_spkr_endfire_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "speaker_dual_mic_endfire_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.profile = &fluid_dual_mic_endfire_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_enable_amic_sec_power,
+	.pamp_off = msm_snddev_disable_amic_sec_power,
+};
+
+static struct platform_device msm_fluid_spkr_dual_mic_endfire_device = {
+	.name = "snddev_icodec",
+	.dev = { .platform_data = &snddev_fluid_dual_mic_spkr_endfire_data },
+};
+
+static struct adie_codec_action_unit
+		fluid_dual_mic_broadside_8KHz_osr256_actions[] =
+	FLUID_AMIC_DUAL_BROADSIDE_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry fluid_dual_mic_broadside_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = fluid_dual_mic_broadside_8KHz_osr256_actions,
+		.action_sz =
+		ARRAY_SIZE(fluid_dual_mic_broadside_8KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile fluid_dual_mic_broadside_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = fluid_dual_mic_broadside_settings,
+	.setting_sz = ARRAY_SIZE(fluid_dual_mic_broadside_settings),
+};
+
+static struct snddev_icodec_data snddev_fluid_dual_mic_broadside_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_broadside_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.profile = &fluid_dual_mic_broadside_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_enable_amic_power,
+	.pamp_off = msm_snddev_disable_amic_power,
+};
+
+static struct platform_device msm_fluid_hs_dual_mic_broadside_device = {
+	.name = "snddev_icodec",
+	.dev = { .platform_data = &snddev_fluid_dual_mic_broadside_data },
+};
+
+static struct snddev_icodec_data snddev_fluid_dual_mic_spkr_broadside_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "speaker_dual_mic_broadside_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.profile = &fluid_dual_mic_broadside_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_enable_amic_power,
+	.pamp_off = msm_snddev_disable_amic_power,
+};
+
+static struct platform_device msm_fluid_spkr_dual_mic_broadside_device = {
+	.name = "snddev_icodec",
+	.dev = { .platform_data = &snddev_fluid_dual_mic_spkr_broadside_data },
 };
 
 static struct snddev_hdmi_data snddev_hdmi_stereo_rx_data = {
@@ -2405,6 +2555,10 @@ static struct platform_device *snd_devices_fluid[] __initdata = {
 	&msm_bt_sco_mic_device,
 	&msm_mi2s_fm_tx_device,
 	&msm_mi2s_fm_rx_device,
+	&msm_fluid_hs_dual_mic_endfire_device,
+	&msm_fluid_spkr_dual_mic_endfire_device,
+	&msm_fluid_hs_dual_mic_broadside_device,
+	&msm_fluid_spkr_dual_mic_broadside_device,
 	&msm_anc_headset_device,
 	&msm_auxpga_lp_hs_device,
 	&msm_auxpga_lp_lo_device,
