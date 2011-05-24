@@ -750,7 +750,7 @@ static int __init spidev_init(void)
 		/* We create a virtual device that will sit on the bus */
 		spi = spi_new_device(master, &chip);
 		if (!spi) {
-			status = -ENOMEM;
+			status = -EBUSY;
 			goto error_mem;
 		}
 		dev_dbg(&spi->dev, "busnum=%d cs=%d bufsiz=%d maxspeed=%d",
