@@ -18,8 +18,11 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
-#include <mach/msm_iomap.h>
+
 #include <asm/mach-types.h>
+
+#include <mach/msm_iomap.h>
+#include <mach/scm.h>
 
 #include "peripheral-loader.h"
 
@@ -116,6 +119,41 @@
 #define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
 #define PPSS_HCLK_CTL			(MSM_CLK_CTL_BASE + 0x2580)
 
+#define PAS_Q6		1
+#define PAS_DSPS	2
+#define PAS_MODEM_SW	4
+#define PAS_MODEM_FW	5
+
+#define PAS_INIT_IMAGE_CMD	1
+#define PAS_MEM_CMD		2
+#define PAS_AUTH_AND_RESET_CMD	5
+#define PAS_SHUTDOWN_CMD	6
+
+struct pas_init_image_req {
+	u32	proc;
+	u32	image_addr;
+};
+
+struct pas_init_image_resp {
+	u32	image_valid;
+};
+
+struct pas_auth_image_req {
+	u32	proc;
+};
+
+struct pas_auth_image_resp {
+	u32	reset_initiated;
+};
+
+struct pas_shutdown_req {
+	u32	proc;
+};
+
+struct pas_shutdown_resp {
+	u32	success;
+};
+
 struct q6_data {
 	const unsigned strap_tcm_base;
 	const unsigned strap_ahb_upper;
@@ -163,6 +201,45 @@ static void __iomem *mss_enable_reg;
 static void __iomem *msm_riva_base;
 static unsigned long riva_start;
 
+static int init_image_trusted(int id, const u8 *metadata, size_t size)
+{
+	int ret;
+	struct pas_init_image_req request;
+	struct pas_init_image_resp resp = {0};
+	void *mdata_buf;
+
+	/* Make memory physically contiguous */
+	mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
+	if (!mdata_buf)
+		return -ENOMEM;
+
+	request.proc = id;
+	request.image_addr = virt_to_phys(mdata_buf);
+
+	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
+			sizeof(request), &resp, sizeof(resp));
+	kfree(mdata_buf);
+
+	if (ret)
+		return ret;
+	return resp.image_valid;
+}
+
+static int init_image_lpass_q6_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_Q6, metadata, size);
+}
+
+static int init_image_modem_fw_q6_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_MODEM_FW, metadata, size);
+}
+
+static int init_image_modem_sw_q6_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_MODEM_SW, metadata, size);
+}
+
 static int init_image_lpass_q6_untrusted(const u8 *metadata, size_t size)
 {
 	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
@@ -187,6 +264,56 @@ static int init_image_modem_sw_q6_untrusted(const u8 *metadata, size_t size)
 static int verify_blob(u32 phy_addr, size_t size)
 {
 	return 0;
+}
+
+static int auth_and_reset_trusted(int id)
+{
+	int ret;
+	struct pas_auth_image_req request;
+	struct pas_auth_image_resp resp = {0};
+
+	request.proc = id;
+	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &request,
+			sizeof(request), &resp, sizeof(resp));
+	if (ret)
+		return ret;
+
+	return resp.reset_initiated;
+}
+
+static int reset_q6_trusted(int id, struct q6_data *q6)
+{
+	int err;
+
+	err = regulator_set_voltage(q6->vreg, 1050000, 1050000);
+	if (err) {
+		pr_err("Failed to set %s regulator's voltage.\n", q6->name);
+		return err;
+	}
+	err = regulator_enable(q6->vreg);
+	if (err) {
+		pr_err("Failed to enable %s's regulator.\n", q6->name);
+		return err;
+	}
+	q6->vreg_enabled = true;
+
+	return auth_and_reset_trusted(id);
+}
+
+
+static int reset_lpass_q6_trusted(void)
+{
+	return reset_q6_trusted(PAS_Q6, &q6_lpass);
+}
+
+static int reset_modem_fw_q6_trusted(void)
+{
+	return reset_q6_trusted(PAS_MODEM_FW, &q6_modem_fw);
+}
+
+static int reset_modem_sw_q6_trusted(void)
+{
+	return reset_q6_trusted(PAS_MODEM_SW, &q6_modem_sw);
 }
 
 static int reset_q6_untrusted(struct q6_data *q6)
@@ -316,6 +443,49 @@ static int reset_modem_fw_q6_untrusted(void)
 static int reset_modem_sw_q6_untrusted(void)
 {
 	return reset_q6_untrusted(&q6_modem_sw);
+}
+
+static int shutdown_trusted(int id)
+{
+	int ret;
+	struct pas_shutdown_req request;
+	struct pas_shutdown_resp resp = {0};
+
+	request.proc = id;
+	ret = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &request, sizeof(request),
+			&resp, sizeof(resp));
+	if (ret)
+		return ret;
+
+	return resp.success;
+}
+
+static int shutdown_q6_trusted(int id, struct q6_data *q6)
+{
+	int ret;
+
+	ret = shutdown_trusted(id);
+	if (q6->vreg_enabled) {
+		regulator_disable(q6->vreg);
+		q6->vreg_enabled = false;
+	}
+
+	return ret;
+}
+
+static int shutdown_lpass_q6_trusted(void)
+{
+	return shutdown_q6_trusted(PAS_Q6, &q6_lpass);
+}
+
+static int shutdown_modem_fw_q6_trusted(void)
+{
+	return shutdown_q6_trusted(PAS_MODEM_FW, &q6_modem_fw);
+}
+
+static int shutdown_modem_sw_q6_trusted(void)
+{
+	return shutdown_q6_trusted(PAS_MODEM_SW, &q6_modem_sw);
 }
 
 static int shutdown_q6_untrusted(struct q6_data *q6)
@@ -492,6 +662,21 @@ static int shutdown_dsps_untrusted(void)
 	return 0;
 }
 
+static int init_image_dsps_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_DSPS, metadata, size);
+}
+
+static int reset_dsps_trusted(void)
+{
+	return auth_and_reset_trusted(PAS_DSPS);
+}
+
+static int shutdown_dsps_trusted(void)
+{
+	return shutdown_trusted(PAS_DSPS);
+}
+
 static struct pil_reset_ops pil_modem_fw_q6_ops = {
 	.init_image = init_image_modem_fw_q6_untrusted,
 	.verify_blob = verify_blob,
@@ -598,6 +783,12 @@ err_map:
 	return err;
 }
 
+#ifdef CONFIG_MSM_SECURE_PIL
+static bool secure_pil = true;
+#else
+static bool secure_pil;
+#endif
+
 static int __init msm_peripheral_reset_init(void)
 {
 	int err;
@@ -608,6 +799,24 @@ static int __init msm_peripheral_reset_init(void)
 	 */
 	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3())
 		return 0;
+
+	if (secure_pil) {
+		pil_lpass_q6_ops.init_image = init_image_lpass_q6_trusted;
+		pil_lpass_q6_ops.auth_and_reset = reset_lpass_q6_trusted;
+		pil_lpass_q6_ops.shutdown = shutdown_lpass_q6_trusted;
+
+		pil_modem_fw_q6_ops.init_image = init_image_modem_fw_q6_trusted;
+		pil_modem_fw_q6_ops.auth_and_reset = reset_modem_fw_q6_trusted;
+		pil_modem_fw_q6_ops.shutdown = shutdown_modem_fw_q6_trusted;
+
+		pil_modem_sw_q6_ops.init_image = init_image_modem_sw_q6_trusted;
+		pil_modem_sw_q6_ops.auth_and_reset = reset_modem_sw_q6_trusted;
+		pil_modem_sw_q6_ops.shutdown = shutdown_modem_sw_q6_trusted;
+
+		pil_dsps_ops.init_image = init_image_dsps_trusted;
+		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
+		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
+	}
 
 	err = q6_reset_init(&q6_lpass);
 	if (err)
@@ -640,3 +849,5 @@ static int __init msm_peripheral_reset_init(void)
 	return 0;
 }
 arch_initcall(msm_peripheral_reset_init);
+module_param(secure_pil, bool, S_IRUGO);
+MODULE_PARM_DESC(secure_pil, "Use Secure PIL");
