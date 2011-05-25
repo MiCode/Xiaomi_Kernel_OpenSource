@@ -406,6 +406,7 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
 	struct omap_mcpdm *mcpdm = snd_soc_dai_get_drvdata(dai);
+	u32 ctrl;
 	int err = 0;
 
 	dev_dbg(dai->dev, "%s: active %d\n", __func__, dai->active);
@@ -419,6 +420,12 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 	if (!dai->active) {
 		pm_runtime_get_sync(mcpdm->dev);
 		omap_mcpdm_set_offset(mcpdm);
+
+		/* Enable McPDM watch dog for ES above ES 1.0 to avoid saturation */
+		if (omap_rev() != OMAP4430_REV_ES1_0) {
+			ctrl = omap_mcpdm_read(mcpdm, MCPDM_CTRL);
+			omap_mcpdm_write(mcpdm, MCPDM_CTRL, ctrl | WD_EN);
+		}
 	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -631,16 +638,9 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 
 	ret = request_irq(mcpdm->irq, omap_mcpdm_irq_handler,
 				0, "McPDM", (void *)mcpdm);
-	if (ret) {
+	if (ret)
 		dev_err(mcpdm->dev, "Request for McPDM IRQ failed\n");
-		goto out;
-	}
 
-	if (omap_rev() != OMAP4430_REV_ES1_0) {
-		/* Enable McPDM watch dog for ES above ES 1.0 to avoid saturation */
-		omap_mcpdm_write(mcpdm, MCPDM_CTRL, WD_EN);
-	}
-out:
 	pm_runtime_put_sync(mcpdm->dev);
 	return ret;
 }
