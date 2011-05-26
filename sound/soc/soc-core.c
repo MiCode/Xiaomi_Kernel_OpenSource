@@ -2344,12 +2344,18 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 
 	/* setup any hostless PCMs - i.e. no host IO is performed */
 	if (rtd->dai_link->no_host_mode) {
-		substream[SNDRV_PCM_STREAM_PLAYBACK]->hw_no_buffer = 1;
-		substream[SNDRV_PCM_STREAM_CAPTURE]->hw_no_buffer = 1;
-		snd_soc_set_runtime_hwparams(substream[SNDRV_PCM_STREAM_PLAYBACK],
+		if (substream[SNDRV_PCM_STREAM_PLAYBACK]) {
+			substream[SNDRV_PCM_STREAM_PLAYBACK]->hw_no_buffer = 1;
+			snd_soc_set_runtime_hwparams(
+				substream[SNDRV_PCM_STREAM_PLAYBACK],
 				&no_host_hardware);
-		snd_soc_set_runtime_hwparams(substream[SNDRV_PCM_STREAM_CAPTURE],
+		}
+		if (substream[SNDRV_PCM_STREAM_CAPTURE]) {
+			substream[SNDRV_PCM_STREAM_CAPTURE]->hw_no_buffer = 1;
+			snd_soc_set_runtime_hwparams(
+				substream[SNDRV_PCM_STREAM_CAPTURE],
 				&no_host_hardware);
+		}
 	}
 
 	/* ASoC PCM operations */
