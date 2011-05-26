@@ -19,6 +19,9 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/log2.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+
 
 #define MAX_MEMPOOLS 8
 
@@ -27,6 +30,59 @@ struct mem_pool mpools[MAX_MEMPOOLS];
 /* The tree contains all allocations over all memory pools */
 static struct rb_root alloc_root;
 static struct mutex alloc_mutex;
+
+static void *s_start(struct seq_file *m, loff_t *pos)
+	__acquires(&alloc_mutex)
+{
+	loff_t n = *pos;
+	struct rb_node *r;
+
+	mutex_lock(&alloc_mutex);
+	r = rb_first(&alloc_root);
+
+	while (n > 0 && r) {
+		n--;
+		r = rb_next(r);
+	}
+	if (!n)
+		return r;
+	return NULL;
+}
+
+static void *s_next(struct seq_file *m, void *p, loff_t *pos)
+{
+	struct rb_node *r = p;
+	++*pos;
+	return rb_next(r);
+}
+
+static void s_stop(struct seq_file *m, void *p)
+	__releases(&alloc_mutex)
+{
+	mutex_unlock(&alloc_mutex);
+}
+
+static int s_show(struct seq_file *m, void *p)
+{
+	struct rb_node *r = p;
+	struct alloc *node = rb_entry(r, struct alloc, rb_node);
+
+	seq_printf(m, "0x%lx 0x%p %ld %u %pS\n", node->paddr, node->vaddr,
+		   node->len, node->mpool->id, node->caller);
+	return 0;
+}
+
+static const struct seq_operations mempool_op = {
+	.start = s_start,
+	.next = s_next,
+	.stop = s_stop,
+	.show = s_show,
+};
+
+static int mempool_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &mempool_op);
+}
 
 static struct alloc *find_alloc(void *addr)
 {
@@ -111,7 +167,7 @@ static struct gen_pool *initialize_gpool(unsigned long start,
 }
 
 static void *__alloc(struct mem_pool *mpool, unsigned long size,
-	unsigned long align, int cached)
+	unsigned long align, int cached, void *caller)
 {
 	unsigned long paddr;
 	void __iomem *vaddr;
@@ -142,6 +198,7 @@ static void *__alloc(struct mem_pool *mpool, unsigned long size,
 	node->paddr = paddr;
 	node->len = aligned_size;
 	node->mpool = mpool;
+	node->caller = caller;
 	if (add_alloc(node))
 		goto out_kfree;
 
@@ -204,6 +261,7 @@ struct mem_pool *initialize_memory_pool(unsigned long start,
 	mpools[id].paddr = start;
 	mpools[id].size = size;
 	mpools[id].free = size;
+	mpools[id].id = id;
 	mutex_unlock(&mpools[id].pool_mutex);
 
 	pr_info("memory pool %d (start %lx size %lx) initialized\n",
@@ -221,13 +279,14 @@ void *allocate_contiguous_memory(unsigned long size,
 	mpool = mem_type_to_memory_pool(mem_type);
 	if (!mpool)
 		return NULL;
-	return __alloc(mpool, aligned_size, align, cached);
+	return __alloc(mpool, aligned_size, align, cached,
+		__builtin_return_address(0));
 
 }
 EXPORT_SYMBOL_GPL(allocate_contiguous_memory);
 
-unsigned long allocate_contiguous_memory_nomap(unsigned long size,
-	int mem_type, unsigned long align)
+unsigned long _allocate_contiguous_memory_nomap(unsigned long size,
+	int mem_type, unsigned long align, void *caller)
 {
 	unsigned long paddr;
 	unsigned long aligned_size;
@@ -261,6 +320,7 @@ unsigned long allocate_contiguous_memory_nomap(unsigned long size,
 	node->vaddr = (void *)paddr;
 	node->len = aligned_size;
 	node->mpool = mpool;
+	node->caller = caller;
 	if (add_alloc(node))
 		goto out_kfree;
 
@@ -271,6 +331,14 @@ out_kfree:
 out:
 	gen_pool_free(mpool->gpool, paddr, aligned_size);
 	return 0;
+}
+EXPORT_SYMBOL_GPL(_allocate_contiguous_memory_nomap);
+
+unsigned long allocate_contiguous_memory_nomap(unsigned long size,
+	int mem_type, unsigned long align)
+{
+	return _allocate_contiguous_memory_nomap(size, mem_type, align,
+		__builtin_return_address(0));
 }
 EXPORT_SYMBOL_GPL(allocate_contiguous_memory_nomap);
 
@@ -314,6 +382,14 @@ unsigned long memory_pool_node_len(void *vaddr)
 }
 EXPORT_SYMBOL_GPL(memory_pool_node_len);
 
+static const struct file_operations mempool_operations = {
+	.owner		= THIS_MODULE,
+	.open           = mempool_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = seq_release_private,
+};
+
 int __init memory_pool_init(void)
 {
 	int i;
@@ -324,5 +400,26 @@ int __init memory_pool_init(void)
 		mutex_init(&mpools[i].pool_mutex);
 		mpools[i].gpool = NULL;
 	}
+
 	return 0;
 }
+
+static int __init debugfs_mempool_init(void)
+{
+	struct dentry *entry, *dir = debugfs_create_dir("mempool", NULL);
+
+	if (!dir) {
+		pr_err("Cannot create /sys/kernel/debug/mempool");
+		return -EINVAL;
+	}
+
+	entry = debugfs_create_file("map", S_IRUSR, dir,
+		NULL, &mempool_operations);
+
+	if (!entry)
+		pr_err("Cannot create /sys/kernel/debug/mempool/map");
+
+	return entry ? 0 : -EINVAL;
+}
+
+module_init(debugfs_mempool_init);

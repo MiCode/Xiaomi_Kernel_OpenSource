@@ -361,7 +361,8 @@ EXPORT_SYMBOL(allocate_contiguous_ebi);
 unsigned long allocate_contiguous_ebi_nomap(unsigned long size,
 	unsigned long align)
 {
-	return allocate_contiguous_memory_nomap(size, get_ebi_memtype(), align);
+	return _allocate_contiguous_memory_nomap(size, get_ebi_memtype(),
+		align, __builtin_return_address(0));
 }
 EXPORT_SYMBOL(allocate_contiguous_ebi_nomap);
 
@@ -402,10 +403,12 @@ int32_t pmem_kalloc(const size_t size, const uint32_t flags)
 		return -EINVAL;
 	}
 
-	paddr = allocate_contiguous_memory_nomap(size, memtype, align);
+	paddr = _allocate_contiguous_memory_nomap(size, memtype, align,
+		__builtin_return_address(0));
+
 	if (!paddr && pmem_memtype == PMEM_MEMTYPE_SMI)
-		paddr = allocate_contiguous_memory_nomap(size,
-			ebi1_memtype, align);
+		paddr = _allocate_contiguous_memory_nomap(size,
+			ebi1_memtype, align, __builtin_return_address(0));
 
 	if (!paddr)
 		return -ENOMEM;

@@ -23,6 +23,7 @@ struct mem_pool {
 	unsigned long paddr;
 	unsigned long size;
 	unsigned long free;
+	unsigned int id;
 };
 
 struct alloc {
@@ -31,6 +32,7 @@ struct alloc {
 	unsigned long paddr;
 	struct mem_pool *mpool;
 	unsigned long len;
+	void *caller;
 };
 
 struct mem_pool *initialize_memory_pool(unsigned long start,
@@ -38,6 +40,9 @@ struct mem_pool *initialize_memory_pool(unsigned long start,
 
 void *allocate_contiguous_memory(unsigned long size,
 	int mem_type, unsigned long align, int cached);
+
+unsigned long _allocate_contiguous_memory_nomap(unsigned long size,
+	int mem_type, unsigned long align, void *caller);
 
 unsigned long allocate_contiguous_memory_nomap(unsigned long size,
 	int mem_type, unsigned long align);
