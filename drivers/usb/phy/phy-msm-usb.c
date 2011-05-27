@@ -457,6 +457,8 @@ static int msm_otg_reset(struct usb_phy *phy)
 	writel(0x0, USB_AHBBURST);
 	writel(0x00, USB_AHBMODE);
 
+	/* Ensure that RESET operation is completed before turning off clock */
+	mb();
 	clk_disable(motg->clk);
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
 		val = readl(USB_OTGSC);
@@ -549,6 +551,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 			motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		writel(readl(USB_PHY_CTRL) | PHY_RETEN, USB_PHY_CTRL);
 
+	/* Ensure that above operation is completed before turning off clocks */
+	mb();
 	clk_disable(motg->pclk);
 	if (motg->core_clk)
 		clk_disable(motg->core_clk);
@@ -1801,6 +1805,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	writel(0, USB_USBINTR);
 	writel(0, USB_OTGSC);
+	/* Ensure that above STOREs are completed before enabling interrupts */
+	mb();
 
 	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
