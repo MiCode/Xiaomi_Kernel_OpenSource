@@ -330,6 +330,7 @@ static void videobuf_status(struct videobuf_queue *q, struct v4l2_buffer *b,
 		break;
 	case V4L2_MEMORY_USERPTR:
 		b->m.userptr = vb->baddr;
+		b->reserved = vb->boff;
 		b->length    = vb->bsize;
 		break;
 	case V4L2_MEMORY_OVERLAY:
@@ -588,6 +589,7 @@ int videobuf_qbuf(struct videobuf_queue *q, struct v4l2_buffer *b)
 		    buf->baddr != b->m.userptr)
 			q->ops->buf_release(q, buf);
 		buf->baddr = b->m.userptr;
+		buf->boff = b->reserved;
 		break;
 	case V4L2_MEMORY_OVERLAY:
 		buf->boff = b->m.offset;
