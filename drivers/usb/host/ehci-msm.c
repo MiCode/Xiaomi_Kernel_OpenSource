@@ -199,6 +199,9 @@ static int ehci_msm_pm_suspend(struct device *dev)
 
 	dev_dbg(dev, "ehci-msm PM suspend\n");
 
+	if (!hcd->rh_registered)
+		return 0;
+
 	ret = ehci_suspend(hcd, do_wakeup);
 	if (ret)
 		return ret;
@@ -211,6 +214,9 @@ static int ehci_msm_pm_resume(struct device *dev)
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "ehci-msm PM resume\n");
+	if (!hcd->rh_registered)
+		return 0;
+
 	ehci_resume(hcd, false);
 
 	return usb_phy_set_suspend(phy, 0);
