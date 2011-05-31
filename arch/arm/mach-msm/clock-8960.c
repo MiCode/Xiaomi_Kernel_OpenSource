@@ -57,7 +57,6 @@
 #define GSBIn_UART_APPS_NS_REG(n)		REG(0x29D4+(0x20*((n)-1)))
 #define LPASS_XO_SRC_CLK_CTL_REG		REG(0x2EC0)
 #define PDM_CLK_NS_REG				REG(0x2CC0)
-#define BB_PLL_ENA_Q6_SW_REG			REG(0x3500)
 #define BB_PLL_ENA_SC0_REG			REG(0x34C0)
 #define BB_PLL0_STATUS_REG			REG(0x30D8)
 #define BB_PLL5_STATUS_REG			REG(0x30F8)
@@ -3940,12 +3939,6 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 
 static void __init reg_init(void)
 {
-	/* TODO: Remove once LPASS starts voting */
-	u32 reg;
-	reg = readl_relaxed(BB_PLL_ENA_Q6_SW_REG);
-	reg |= BIT(4);
-	writel_relaxed(reg, BB_PLL_ENA_Q6_SW_REG);
-
 	/* Setup LPASS toplevel muxes */
 	writel_relaxed(0x15, LPASS_XO_SRC_CLK_CTL_REG); /* Select PXO */
 	writel_relaxed(0x1, LCC_PXO_SRC_CLK_CTL_REG); /* Select PXO */
