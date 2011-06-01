@@ -129,7 +129,8 @@ static DECLARE_WORK(work_sdio_mux_read, sdio_mux_read_data);
 static DECLARE_WORK(work_sdio_mux_write, sdio_mux_write_data);
 static DECLARE_DELAYED_WORK(delayed_work_sdio_mux_write, sdio_mux_write_data);
 
-static struct workqueue_struct *sdio_mux_workqueue;
+static struct workqueue_struct *sdio_mux_read_workqueue;
+static struct workqueue_struct *sdio_mux_write_workqueue;
 static struct sdio_partial_pkt_info sdio_partial_pkt;
 
 #define sdio_ch_is_open(x)						\
@@ -353,7 +354,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 		pr_err("%s: sdio read failed %d\n", __func__, rc);
 		dev_kfree_skb_any(skb_mux);
 		mutex_unlock(&sdio_mux_lock);
-		queue_work(sdio_mux_workqueue, &work_sdio_mux_read);
+		queue_work(sdio_mux_read_workqueue, &work_sdio_mux_read);
 		return;
 	}
 	mutex_unlock(&sdio_mux_lock);
@@ -384,7 +385,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 	dev_kfree_skb_any(skb_mux);
 
 	DBG("%s: read done\n", __func__);
-	queue_work(sdio_mux_workqueue, &work_sdio_mux_read);
+	queue_work(sdio_mux_read_workqueue, &work_sdio_mux_read);
 }
 
 static int sdio_mux_write(struct sk_buff *skb)
@@ -513,7 +514,7 @@ static void sdio_mux_write_data(struct work_struct *work)
 			notify = 1;
 		} else {
 			__skb_queue_head(&sdio_mux_write_pool, skb);
-			queue_delayed_work(sdio_mux_workqueue,
+			queue_delayed_work(sdio_mux_write_workqueue,
 					&delayed_work_sdio_mux_write,
 					msecs_to_jiffies(250)
 					);
@@ -624,7 +625,7 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 	sdio_ch[id].num_tx_pkts++;
 	spin_unlock(&sdio_ch[id].lock);
 
-	queue_work(sdio_mux_workqueue, &work_sdio_mux_write);
+	queue_work(sdio_mux_write_workqueue, &work_sdio_mux_write);
 
 write_done:
 	spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
@@ -703,11 +704,11 @@ static void sdio_mux_notify(void *_dev, unsigned event)
 	/* write avail may not be enouogh for a packet, but should be fine */
 	if ((event == SDIO_EVENT_DATA_WRITE_AVAIL) &&
 	    sdio_write_avail(sdio_mux_ch))
-		queue_work(sdio_mux_workqueue, &work_sdio_mux_write);
+		queue_work(sdio_mux_write_workqueue, &work_sdio_mux_write);
 
 	if ((event == SDIO_EVENT_DATA_READ_AVAIL) &&
 	    sdio_read_avail(sdio_mux_ch))
-		queue_work(sdio_mux_workqueue, &work_sdio_mux_read);
+		queue_work(sdio_mux_read_workqueue, &work_sdio_mux_read);
 }
 
 int msm_sdio_dmux_is_ch_full(uint32_t id)
@@ -810,9 +811,17 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 	DBG("%s probe called\n", __func__);
 
 	if (!sdio_mux_initialized) {
-		sdio_mux_workqueue = create_singlethread_workqueue("sdio_dmux");
-		if (!sdio_mux_workqueue)
+		sdio_mux_read_workqueue = create_singlethread_workqueue(
+								"sdio_dmux_read");
+		if (!sdio_mux_read_workqueue)
 			return -ENOMEM;
+
+		sdio_mux_write_workqueue = create_singlethread_workqueue(
+								"sdio_dmux_write");
+		if (!sdio_mux_write_workqueue) {
+			destroy_workqueue(sdio_mux_read_workqueue);
+			return -ENOMEM;
+		}
 
 		skb_queue_head_init(&sdio_mux_write_pool);
 		spin_lock_init(&sdio_mux_write_lock);
@@ -829,7 +838,8 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("%s: sido open failed %d\n", __func__, rc);
 		wake_lock_destroy(&sdio_mux_ch_wakelock);
-		destroy_workqueue(sdio_mux_workqueue);
+		destroy_workqueue(sdio_mux_read_workqueue);
+		destroy_workqueue(sdio_mux_write_workqueue);
 		sdio_mux_initialized = 0;
 		return rc;
 	}
