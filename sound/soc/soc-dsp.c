@@ -106,93 +106,114 @@ static inline void be_disconnect(struct snd_soc_pcm_runtime *fe, int stream)
 	}
 }
 
+static struct snd_soc_pcm_runtime *be_get_rtd(struct snd_soc_card *card,
+		struct snd_soc_dapm_widget *widget)
+{
+	struct snd_soc_pcm_runtime *be;
+	int i;
+
+	if (!widget->sname)
+		return NULL;
+
+	for (i = 0; i < card->num_links; i++) {
+		be = &card->rtd[i];
+
+		if (!strcmp(widget->sname, be->dai_link->stream_name))
+			return be;
+	}
+
+	return NULL;
+}
+
+static struct snd_soc_dapm_widget *be_get_widget(struct snd_soc_card *card,
+		struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dapm_widget *widget;
+
+	list_for_each_entry(widget, &card->widgets, list) {
+
+		if (!widget->sname)
+			continue;
+
+		if (!strcmp(widget->sname, rtd->dai_link->stream_name))
+			return widget;
+	}
+
+	return NULL;
+}
+
+static int widget_in_list(struct snd_soc_dapm_widget_list *list,
+		struct snd_soc_dapm_widget *widget)
+{
+	int i;
+
+	for (i = 0; i < list->num_widgets; i++) {
+			if (widget == list->widgets[i])
+				return 1;
+	}
+
+	return 0;
+}
+
 /*
  * Find the corresponding BE DAIs that source or sink audio to this
  * FE substream.
  */
-static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe, int stream,
-	int pending)
+static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe,
+	int stream, int pending)
 {
 	struct snd_soc_dai *cpu_dai = fe->cpu_dai;
 	struct snd_soc_card *card = fe->card;
-	int i, num, count = 0, err;
-	const char *fe_aif = NULL, *be_aif;
+	struct snd_soc_dapm_widget_list *list;
 	enum snd_soc_dapm_type fe_type, be_type;
-
-	dev_dbg(&fe->dev, "scan for new %s %s streams\n", fe->dai_link->name,
-			stream ? "capture" : "playback");
+	int i, count = 0, err, paths;
 
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		fe_type = snd_soc_dapm_aif_in;
 		be_type = snd_soc_dapm_aif_out;
 	} else {
-		fe_type = snd_soc_dapm_aif_out;
-		be_type = snd_soc_dapm_aif_in;
+		fe_type = snd_soc_dapm_aif_in;
+		be_type = snd_soc_dapm_aif_out;
 	}
 
-	/* search card for valid FE AIF that matches our DAI */
-	for (i = 0; i < card->num_links; i++) {
-		struct snd_soc_pcm_runtime *be = &card->rtd[i];
+	/* get number of valid playback paths and their widgets */
+	paths = snd_soc_dapm_get_connected_widgets_type(&card->dapm,
+			cpu_dai->driver->name, &list, stream, fe_type);
 
-		/* is this a BE DAI link ? */
-		if (be->dai_link->dynamic)
-			continue;
+	dev_dbg(&fe->dev, "found %d audio %s paths\n", paths,
+			stream ? "capture" : "playback");
+	if (!paths)
+		goto out;
 
-		/* does this DAI have a AIF that matches ours ? */
-		fe_aif = snd_soc_dapm_get_aif(&be->platform->dapm,
-				cpu_dai->driver->name, fe_type);
-		if (fe_aif)
-			break;
+	/* find BE DAI widgets and and connect the to FE */
+	for (i = 0; i < list->num_widgets; i++) {
+
+		if (list->widgets[i]->id == be_type) {
+			struct snd_soc_pcm_runtime *be;
+
+			/* is there a valid BE rtd for this widget */
+			be = be_get_rtd(card, list->widgets[i]);
+			if (!be) {
+				dev_err(&fe->dev, "no BE found for %s\n",
+						list->widgets[i]->name);
+				continue;
+			}
+
+			/* newly connected FE and BE */
+			err = be_connect(fe, be, stream);
+			if (err < 0) {
+				dev_err(&fe->dev, "can't connect %s\n", list->widgets[i]->name);
+				break;
+			} else if (err == 0)
+				continue;
+
+			be->dsp[stream].runtime_update = pending;
+			count++;
+		}
 	}
 
-	if (fe_aif == NULL)
-		return 0;
-
-	/* search card for valid BE AIFs */
-	for (i = 0; i < card->num_links; i++) {
-		struct snd_soc_pcm_runtime *be = &card->rtd[i];
-
-		/* is this a BE DAI link ? */
-		if (be->dai_link->dynamic)
-			continue;
-
-		/* BEs must belong to this FE */
-		if (!be->dai_link->no_pcm)
-			continue;
-
-		/* BE must be supported by machine driver */
-		if (!is_be_supported(fe, be->dai_link->name))
-			continue;
-
-		/* get BE AIF */
-		be_aif = snd_soc_dapm_get_aif(&be->platform->dapm,
-				be->dai_link->stream_name, be_type);
-		if (be_aif == NULL)
-			continue;
-
-		/* check for valid dsp_params */
-		num = snd_soc_dapm_query_path(&be->platform->dapm,
-					fe_aif, be_aif, stream);
-
-		dev_dbg(&fe->dev, " scanned %s paths BE %s for stream %s num %d",
-				stream ? "capture" : "playback", be_aif,
-				be->dai_link->stream_name, num);
-
-		/* add backend if we have space */
-		if (num <= 0)
-			continue;
-
-		err = be_connect(fe, be, stream);
-		if (err < 0)
-			break;
-		else if (err == 0)
-			continue;
-
-		be->dsp[stream].runtime_update = pending;
-		count++;
-	}
-
-	/* the number of new paths created */
+out:
+	kfree(list);
 	return count;
 }
 
@@ -206,9 +227,10 @@ static int dsp_prune_old_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	struct snd_soc_dai *cpu_dai = fe->cpu_dai;
 	struct snd_soc_card *card = fe->card;
 	struct snd_soc_dsp_params *dsp_params;
-	int i, num, count = 0;
-	const char *fe_aif = NULL, *be_aif;
+	struct snd_soc_dapm_widget_list *list;
+	int count = 0, paths;
 	enum snd_soc_dapm_type fe_type, be_type;
+	struct snd_soc_dapm_widget *widget;
 
 	dev_dbg(&fe->dev, "scan for old %s %s streams\n", fe->dai_link->name,
 			stream ? "capture" : "playback");
@@ -221,52 +243,52 @@ static int dsp_prune_old_paths(struct snd_soc_pcm_runtime *fe, int stream,
 		be_type = snd_soc_dapm_aif_in;
 	}
 
-	/* search card for valid FE AIF that matches our DAI */
-	for (i = 0; i < card->num_links; i++) {
-		struct snd_soc_pcm_runtime *be = &card->rtd[i];
+	/* get number of valid playback paths and their widgets */
+	paths = snd_soc_dapm_get_connected_widgets_type(&card->dapm,
+			cpu_dai->driver->name, &list, stream, fe_type);
 
-		/* check for frontend */
-		if (be->dai_link->dynamic)
-			continue;
+	dev_dbg(&fe->dev, "found %d audio %s paths\n", paths,
+			stream ? "capture" : "playback");
+	if (!paths) {
+		/* prune all BEs */
+		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
 
-		/* does this DAI have a AIF that matches ours ? */
-		fe_aif = snd_soc_dapm_get_aif(&be->platform->dapm,
-				cpu_dai->driver->name, fe_type);
-		if (fe_aif)
-			break;
+			dsp_params->state = SND_SOC_DSP_LINK_STATE_FREE;
+			dsp_params->be->dsp[stream].runtime_update = pending;
+			count++;
+		}
+
+		dev_dbg(&fe->dev, "pruned all %s BE for FE %s\n", fe->dai_link->name,
+			stream ? "capture" : "playback");
+		goto out;
 	}
-
-	if (fe_aif == NULL)
-		return 0;
 
 	/* search card for valid BE AIFs */
 	list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
 
-		/* get BE AIF */
-		be_aif = snd_soc_dapm_get_aif(&dsp_params->be->platform->dapm,
-				dsp_params->be->dai_link->stream_name, be_type);
-		if (be_aif == NULL) {
+		/* is there a valid widget for this BE */
+		widget = be_get_widget(card, dsp_params->be);
+		if (!widget) {
+			dev_err(&fe->dev, "no widget found for %s\n",
+					dsp_params->be->dai_link->name);
 			continue;
 		}
 
-		/* check for valid dsp_params */
-		num = snd_soc_dapm_query_path(&dsp_params->be->platform->dapm,
-					fe_aif, be_aif, stream);
-
-		dev_dbg(&fe->dev, " scanned %s paths BE %s for stream %s num %d",
-				stream ? "capture" : "playback", be_aif,
-				dsp_params->be->dai_link->stream_name, num);
-
-		/* prune backend if no longer used */
-		if (num > 0)
+		/* prune the BE if it's no longer in our active list */
+		if (widget_in_list(list, widget))
 			continue;
 
+		dev_dbg(&fe->dev, "pruning %s BE %s for %s\n",
+			stream ? "capture" : "playback", dsp_params->be->dai_link->name,
+			fe->dai_link->name);
 		dsp_params->state = SND_SOC_DSP_LINK_STATE_FREE;
 		dsp_params->be->dsp[stream].runtime_update = pending;
 		count++;
 	}
 
 	/* the number of old paths pruned */
+out:
+	kfree(list);
 	return count;
 }
 
