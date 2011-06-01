@@ -245,6 +245,11 @@ static struct mfd_cell charger_cell = {
 	.num_resources	= ARRAY_SIZE(charger_cell_resources),
 };
 
+static struct mfd_cell misc_cell = {
+	.name           = PM8XXX_MISC_DEV_NAME,
+	.id             = -1,
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
@@ -379,6 +384,17 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	if (ret) {
 		pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 		goto bail;
+	}
+
+	if (pdata->misc_pdata) {
+		misc_cell.platform_data = pdata->misc_pdata;
+		misc_cell.pdata_size = sizeof(struct pm8xxx_misc_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &misc_cell, 1, NULL,
+				      irq_base);
+		if (ret) {
+			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
+			goto bail;
+		}
 	}
 
 	return 0;
