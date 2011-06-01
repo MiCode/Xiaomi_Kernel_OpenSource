@@ -556,6 +556,14 @@ config MFD_PM8XXX_PWM
 	  has a lookup table with size of 64 to be shared by any of the
 	  8 channels.
 
+config MFD_PM8XXX_MISC
+	tristate "Support for Qualcomm PM8xxx miscellaneous APIs"
+	depends on MFD_PM8XXX
+	default y if MFD_PM8XXX
+	help
+	  This driver implements several miscellaneous APIs that may be needed
+	  in order to control the PM8XXX PMIC chip.
+
 config MFD_PM8821_IRQ
 	bool "Support for Qualcomm PM8821 IRQ features"
 	default y if MFD_PM8821_CORE
