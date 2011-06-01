@@ -223,12 +223,94 @@ static void dapm_clear_paths(struct snd_soc_dapm_context *dapm)
 	dapm_clear_walk(dapm);
 }
 
+static int dapm_add_unique_widget(struct snd_soc_dapm_context *dapm,
+	struct snd_soc_dapm_widget_list **list, struct snd_soc_dapm_widget *w)
+{
+	struct snd_soc_dapm_widget_list *wlist;
+	int wlistsize, wlistentries, i;
+
+	/* is the list empty ? */
+	if (*list == NULL) {
+
+		wlistsize = sizeof(struct snd_soc_dapm_widget_list) +
+				sizeof(struct snd_soc_dapm_widget *);
+		*list = kzalloc(wlistsize, GFP_KERNEL);
+		if (*list == NULL) {
+			dev_err(dapm->dev, "can't allocate widget list for %s\n", w->name);
+			return -ENOMEM;
+		}
+	} else {
+
+		wlist = *list;
+		/* is this widget already in the list */
+		for (i = 0; i < wlist->num_widgets; i++) {
+			if (wlist->widgets[i] == w)
+				return 0;
+		}
+
+		wlistentries = wlist->num_widgets + 1;
+		wlistsize = sizeof(struct snd_soc_dapm_widget_list) +
+				wlistentries * sizeof(struct snd_soc_dapm_widget *);
+		*list = krealloc(wlist, wlistsize, GFP_KERNEL);
+		if (*list == NULL) {
+			dev_err(dapm->dev, "can't allocate widget list for %s\n", w->name);
+			return -ENOMEM;
+		}
+	}
+	wlist = *list;
+
+	/* insert the widget */
+	dev_dbg(dapm->dev, "added %s in widget list pos %d\n",
+			w->name, wlist->num_widgets);
+	wlist->widgets[wlist->num_widgets] = w;
+	wlist->num_widgets++;
+	return 1;
+}
+
+static int is_output_widget_ep(struct snd_soc_dapm_widget *widget)
+{
+	switch (widget->id) {
+	case snd_soc_dapm_adc:
+	case snd_soc_dapm_aif_out:
+		return 1;
+	case snd_soc_dapm_output:
+		if (widget->connected && !widget->ext)
+			return 1;
+		else
+			return 0;
+	case snd_soc_dapm_hp:
+	case snd_soc_dapm_spk:
+	case snd_soc_dapm_line:
+		return !list_empty(&widget->sources);
+	default:
+		return 0;
+	}
+}
+
+static int is_input_widget_ep(struct snd_soc_dapm_widget *widget)
+{
+	switch (widget->id) {
+	case snd_soc_dapm_dac:
+	case snd_soc_dapm_aif_in:
+		return 1;
+	case snd_soc_dapm_input:
+		if (widget->connected && !widget->ext)
+			return 1;
+		else
+			return 0;
+	case snd_soc_dapm_mic:
+		return !list_empty(&widget->sources);
+	default:
+		return 0;
+	}
+}
+
 /*
  * find all the paths between source and sink
  */
-static int dapm_find_playback_paths (struct snd_soc_dapm_context *dapm,
-		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink,
-		int hops)
+static int dapm_find_playback_paths(struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *root,
+		struct snd_soc_dapm_widget_list **list, int hops)
 {
 	struct list_head *lp;
 	struct snd_soc_dapm_path *path;
@@ -237,24 +319,24 @@ static int dapm_find_playback_paths (struct snd_soc_dapm_context *dapm,
 	if (hops > PATH_MAX_HOPS)
 		return 0;
 
-	if (source == sink) {
-		dev_dbg(dapm->dev," ! %d: valid route found\n", hops);
+	if (is_output_widget_ep(root) && hops != 1) {
+		dev_dbg(dapm->dev," ! %d: valid playback route found\n", hops);
 		dapm->num_valid_paths++;
 		return 1;
 	}
 
-	if (source->hops && source->hops <= hops)
+	if (root->hops && root->hops <= hops)
 		return 0;
-	source->hops = hops;
+	root->hops = hops;
 
 	/* check all the output paths on this source widget by walking
 	 * from source to sink */
-	list_for_each(lp, &source->sinks) {
+	list_for_each(lp, &root->sinks) {
 		path = list_entry(lp, struct snd_soc_dapm_path, list_source);
 
 		dev_dbg(dapm->dev," %c %d: %s -> %s -> %s\n",
 				path->connect ? '*' : ' ', hops,
-				source->name, path->name, path->sink->name);
+				root->name, path->name, path->sink->name);
 
 		/* been here before ? */
 		if (path->length && path->length <= hops)
@@ -262,8 +344,12 @@ static int dapm_find_playback_paths (struct snd_soc_dapm_context *dapm,
 
 		/* check down the next path if connected */
 		if (path->sink && path->connect &&
-				dapm_find_playback_paths(dapm, path->sink, sink, hops + 1)) {
+				dapm_find_playback_paths(dapm, path->sink, list, hops + 1)) {
 			path->length = hops;
+
+			/* add widget to list */
+			dapm_add_unique_widget(dapm, list, path->sink);
+
 			if (!dist || dist > path->length)
 				dist = path->length;
 		}
@@ -272,9 +358,9 @@ static int dapm_find_playback_paths (struct snd_soc_dapm_context *dapm,
 	return dist;
 }
 
-static int dapm_find_capture_paths (struct snd_soc_dapm_context *dapm,
-		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink,
-		int hops)
+static int dapm_find_capture_paths(struct snd_soc_dapm_context *dapm,
+		struct snd_soc_dapm_widget *root,
+		struct snd_soc_dapm_widget_list **list, int hops)
 {
 	struct list_head *lp;
 	struct snd_soc_dapm_path *path;
@@ -283,24 +369,24 @@ static int dapm_find_capture_paths (struct snd_soc_dapm_context *dapm,
 	if (hops > PATH_MAX_HOPS)
 		return 0;
 
-	if (source == sink) {
-		dev_dbg(dapm->dev," ! %d: valid route found\n", hops);
+	if (is_input_widget_ep(root) && hops != 1) {
+		dev_dbg(dapm->dev," ! %d: valid capture route found\n", hops);
 		dapm->num_valid_paths++;
 		return 1;
 	}
 
-	if (sink->hops && sink->hops <= hops)
+	if (root->hops && root->hops <= hops)
 		return 0;
-	sink->hops = hops;
+	root->hops = hops;
 
 	/* check all the output paths on this source widget by walking from
 	 * sink to source */
-	list_for_each(lp, &sink->sources) {
+	list_for_each(lp, &root->sources) {
 		path = list_entry(lp, struct snd_soc_dapm_path, list_sink);
 
 		dev_dbg(dapm->dev," %c %d: %s <- %s <- %s\n",
 				path->connect ? '*' : ' ', hops,
-				sink->name, path->name, path->source->name);
+				root->name, path->name, path->source->name);
 
 		/* been here before ? */
 		if (path->length && path->length <= hops)
@@ -308,8 +394,12 @@ static int dapm_find_capture_paths (struct snd_soc_dapm_context *dapm,
 
 		/* check down the next path if connected */
 		if (path->source && path->connect &&
-				dapm_find_capture_paths(dapm, source, path->source, hops + 1)) {
+				dapm_find_capture_paths(dapm, path->source, list, hops + 1)) {
 			path->length = hops;
+
+			/* add widget to list */
+			dapm_add_unique_widget(dapm, list, path->source);
+
 			if (!dist || dist > path->length)
 				dist = path->length;
 		}
@@ -322,79 +412,107 @@ static int dapm_find_capture_paths (struct snd_soc_dapm_context *dapm,
  * traverse the tree from sink to source via the shortest path
  */
 static int dapm_get_playback_paths(struct snd_soc_dapm_context *dapm,
-		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink)
+		struct snd_soc_dapm_widget *root,
+		struct snd_soc_dapm_widget_list **list)
 {
-	dev_dbg(dapm->dev, "Playback: checking path from %s to %s\n",
-			source->name, sink->name);
-
-	dapm->num_valid_paths = 0;
-	dapm_find_playback_paths(dapm, source, sink, 1);
+	dev_dbg(dapm->dev, "Playback: checking paths from %s\n",root->name);
+	dapm_find_playback_paths(dapm, root, list, 1);
 	return dapm->num_valid_paths;
 }
 
 static int dapm_get_capture_paths(struct snd_soc_dapm_context *dapm,
-		struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink)
+		struct snd_soc_dapm_widget *root,
+		struct snd_soc_dapm_widget_list **list)
 {
-	dev_dbg(dapm->dev, "check capture  path to %s from %s\n",
-			source->name, sink->name);
-
-	dapm->num_valid_paths = 0;
-	dapm_find_capture_paths(dapm, sink, source, 1);
+	dev_dbg(dapm->dev, "Capture: checking paths to %s\n", root->name);
+	dapm_find_capture_paths(dapm, root, list, 1);
 	return dapm->num_valid_paths;
 }
 
 /**
- * snd_soc_dapm_query_path - query audio path
- * @dapm: the dapm context
- * @source_name: source widget name
- * @sink_name: sink widget name
- * @stream: stream direction
+ * snd_soc_dapm_get_connected_widgets_type - query audio path and it's widgets.
+ * @dapm: the dapm context.
+ * @stream_name: stream name.
+ * @list: list of active widgets for this stream.
+ * @stream: stream direction.
+ * @type: Initial widget type.
  *
- * Queries DAPM graph as to whether an valid audio stream path exists between
- * the source and sink widgets specified. This takes into account current
- * mixer and mux kcontrol settings.
+ * Queries DAPM graph as to whether an valid audio stream path exists for
+ * the DAPM stream and initial widget type specified. This takes into account
+ * current mixer and mux kcontrol settings. Creates list of valid widgets.
  *
  * Returns the number of valid paths or negative error.
  */
-int snd_soc_dapm_query_path(struct snd_soc_dapm_context *dapm,
-	const char *source_name, const char *sink_name, int stream)
+int snd_soc_dapm_get_connected_widgets_type(struct snd_soc_dapm_context *dapm,
+		const char *stream_name, struct snd_soc_dapm_widget_list **list,
+		int stream, enum snd_soc_dapm_type type)
 {
-	struct snd_soc_dapm_widget *sink = NULL, *source = NULL;
-	struct list_head *l = NULL;
-	int routes;
+	struct snd_soc_dapm_widget *w;
+	int paths;
 
-	/* find source and sink widgets */
-	list_for_each(l, &dapm->card->widgets) {
-		struct snd_soc_dapm_widget *w =
-				list_entry(l, struct snd_soc_dapm_widget, list);
+	/* get stream root widget AIF, DAC or ADC from stream string and direction */
+	list_for_each_entry(w, &dapm->card->widgets, list) {
 
-		if (!source && !strcmp(w->name, source_name)) {
-			source = w;
+		if (!w->sname)
 			continue;
-		}
 
-		if (!sink && !strcmp(w->name, sink_name))
-			sink = w;
-	}
+		if (w->id != type)
+			continue;
 
-	if (!source) {
-		dev_err(dapm->dev, "can't find source widget: %s\n", source_name);
-		return -EINVAL;
+		if (strstr(w->sname, stream_name))
+			goto found;
 	}
-	if (!sink) {
-		dev_err(dapm->dev, "can't find sink widget: %s\n", sink_name);
-		return -EINVAL;
-	}
+	dev_err(dapm->dev, "root widget not found\n");
+	return 0;
 
+found:
+	dapm->num_valid_paths = 0;
+	*list = NULL;
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		routes = dapm_get_playback_paths(dapm, source, sink);
+		paths = dapm_get_playback_paths(dapm, w, list);
 	else
-		routes = dapm_get_capture_paths(dapm, source, sink);
+		paths = dapm_get_capture_paths(dapm, w, list);
 
 	dapm_clear_paths(dapm);
-	return routes;
+	return paths;
 }
-EXPORT_SYMBOL_GPL(snd_soc_dapm_query_path);
+/**
+ * snd_soc_dapm_get_connected_widgets_name - query audio path and it's widgets.
+ * @dapm: the dapm context.
+ * @name: initial widget name.
+ * @list: list of active widgets for this stream.
+ * @stream: stream direction.
+ *
+ * Queries DAPM graph as to whether an valid audio stream path exists for
+ * the initial widget specified by name. This takes into account
+ * current mixer and mux kcontrol settings. Creates list of valid widgets.
+ *
+ * Returns the number of valid paths or negative error.
+ */
+int snd_soc_dapm_get_connected_widgets_name(struct snd_soc_dapm_context *dapm,
+		const char *name, struct snd_soc_dapm_widget_list **list, int stream)
+{
+	struct snd_soc_dapm_widget *w;
+	int paths;
+
+	/* get stream root widget AIF, DAC or ADC from stream string and direction */
+	list_for_each_entry(w, &dapm->card->widgets, list) {
+
+		if (strstr(w->name, name))
+			goto found;
+	}
+	dev_err(dapm->dev, "root widget %s not found\n", name);
+	return 0;
+
+found:
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		paths = dapm_get_playback_paths(dapm, w, list);
+	else
+		paths = dapm_get_capture_paths(dapm, w, list);
+
+	dapm_clear_paths(dapm);
+	return paths;
+}
 
 /**
  * snd_soc_dapm_set_bias_level - set the bias level for the system
