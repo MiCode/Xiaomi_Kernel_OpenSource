@@ -39,18 +39,6 @@ int soc_pcm_prepare(struct snd_pcm_substream *);
 int soc_pcm_trigger(struct snd_pcm_substream *, int);
 int soc_pcm_bespoke_trigger(struct snd_pcm_substream *, int);
 
-static int is_be_supported(struct snd_soc_pcm_runtime *rtd, const char *link)
-{
-	struct snd_soc_dsp_link *dsp = rtd->dai_link->dsp_link;
-	int i;
-
-	for (i= 0; i < dsp->num_be; i++) {
-		if(!strcmp(dsp->supported_be[i], link))
-			return 1;
-	}
-	return 0;
-}
-
 static inline int be_connect(struct snd_soc_pcm_runtime *fe,
 		struct snd_soc_pcm_runtime *be, int stream)
 {
