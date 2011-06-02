@@ -39,7 +39,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/regulator/consumer.h>
-#include <linux/msm-charger.h>
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 
 #include <mach/clk.h>
 
@@ -662,7 +662,7 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		return;
 
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
-	msm_charger_vbus_draw(mA);
+	pm8921_charger_vbus_draw(mA);
 	motg->cur_power = mA;
 }
 
@@ -1857,7 +1857,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
-		msm_charger_register_vbus_sn(&msm_otg_set_vbus_state);
+		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
@@ -1907,7 +1907,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 		return -EBUSY;
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
-		msm_charger_unregister_vbus_sn(0);
+		pm8921_charger_unregister_vbus_sn(0);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_work_sync(&motg->sm_work);
