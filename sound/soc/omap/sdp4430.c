@@ -480,100 +480,40 @@ static struct snd_soc_dai_driver dai[] = {
 },
 };
 
-static const char *mm1_be[] = {
-		OMAP_ABE_BE_PDM_DL1,
-		OMAP_ABE_BE_PDM_UL1,
-		OMAP_ABE_BE_PDM_DL2,
-		OMAP_ABE_BE_BT_VX,
-		OMAP_ABE_BE_MM_EXT0,
-		OMAP_ABE_BE_DMIC0,
-		OMAP_ABE_BE_DMIC1,
-		OMAP_ABE_BE_DMIC2,
-};
-
 struct snd_soc_dsp_link fe_media = {
-	.supported_be	= mm1_be,
-	.num_be			= ARRAY_SIZE(mm1_be),
-	.fe_playback_channels	= 2,
-	.fe_capture_channels	= 8,
+	.playback	= true,
+	.capture	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
-};
-
-static const char *mm2_be[] = {
-		OMAP_ABE_BE_PDM_UL1,
-		OMAP_ABE_BE_BT_VX,
-		OMAP_ABE_BE_MM_EXT0,
-		OMAP_ABE_BE_DMIC0,
-		OMAP_ABE_BE_DMIC1,
-		OMAP_ABE_BE_DMIC2,
 };
 
 struct snd_soc_dsp_link fe_media_capture = {
-	.supported_be	= mm2_be,
-	.num_be			= ARRAY_SIZE(mm2_be),
-	.fe_capture_channels	= 8,
+	.capture	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
-};
-
-static const char *tones_be[] = {
-		OMAP_ABE_BE_PDM_DL1,
-		OMAP_ABE_BE_PDM_DL2,
-		OMAP_ABE_BE_BT_VX,
-		OMAP_ABE_BE_MM_EXT0,
 };
 
 struct snd_soc_dsp_link fe_tones = {
-	.supported_be	= tones_be,
-	.num_be			= ARRAY_SIZE(tones_be),
-	.fe_playback_channels	= 2,
+	.playback	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
-};
-
-static const char *vib_be[] = {
-		OMAP_ABE_BE_PDM_VIB,
 };
 
 struct snd_soc_dsp_link fe_vib = {
-	.supported_be	= vib_be,
-	.num_be			= ARRAY_SIZE(vib_be),
-	.fe_playback_channels	= 2,
+	.playback	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
-};
-
-static const char *modem_be[] = {
-		OMAP_ABE_BE_PDM_DL1,
-		OMAP_ABE_BE_PDM_UL1,
-		OMAP_ABE_BE_PDM_DL2,
-		OMAP_ABE_BE_BT_VX,
-		OMAP_ABE_BE_DMIC0,
-		OMAP_ABE_BE_DMIC1,
-		OMAP_ABE_BE_DMIC2,
 };
 
 struct snd_soc_dsp_link fe_modem = {
-	.supported_be	= modem_be,
-	.num_be			= ARRAY_SIZE(modem_be),
-	.fe_playback_channels	= 2,
-	.fe_capture_channels	= 2,
+	.playback	= true,
+	.capture	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
 };
 
-static const char *mm_lp_be[] = {
-		OMAP_ABE_BE_PDM_DL1,
-		OMAP_ABE_BE_PDM_DL2,
-		OMAP_ABE_BE_BT_VX,
-		OMAP_ABE_BE_MM_EXT0,
-};
-
 struct snd_soc_dsp_link fe_lp_media = {
-	.supported_be	= mm_lp_be,
-	.num_be			= ARRAY_SIZE(mm_lp_be),
-	.fe_playback_channels	= 2,
+	.playback	= true,
 	.trigger =
 		{SND_SOC_DSP_TRIGGER_BESPOKE, SND_SOC_DSP_TRIGGER_BESPOKE},
 };
