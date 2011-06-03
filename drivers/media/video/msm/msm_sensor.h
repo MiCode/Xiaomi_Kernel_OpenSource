@@ -52,18 +52,35 @@ enum msm_sensor_cam_mode_t {
 	MSM_SENSOR_MODE_INVALID
 };
 
+enum msm_sensor_i2c_reg_addr_type {
+	MSM_SENSOR_I2C_BYTE_ADDR = 1,
+	MSM_SENSOR_I2C_WORD_ADDR,
+};
+
+struct msm_sensor_i2c_client {
+	struct i2c_client *client;
+	enum msm_sensor_i2c_reg_addr_type addr_type;
+};
+
 struct msm_sensor_i2c_reg_conf {
-	unsigned short reg_addr;
-	unsigned short reg_data;
+	uint16_t reg_addr;
+	uint16_t reg_data;
+};
+
+enum msm_sensor_i2c_data_type {
+	MSM_SENSOR_I2C_BYTE_DATA = 1,
+	MSM_SENSOR_I2C_WORD_DATA,
 };
 
 struct msm_sensor_i2c_conf_array {
 	struct msm_sensor_i2c_reg_conf *conf;
-	unsigned short size;
-	unsigned short delay;
+	uint16_t size;
+	uint16_t delay;
+	enum msm_sensor_i2c_data_type data_type;
 };
 
 struct msm_sensor_reg_t {
+	enum msm_sensor_i2c_data_type default_data_type;
 	struct msm_sensor_i2c_reg_conf *start_stream_conf;
 	uint8_t start_stream_conf_size;
 	struct msm_sensor_i2c_reg_conf *stop_stream_conf;
@@ -89,8 +106,9 @@ struct msm_sensor_ctrl_t {
 	const struct  msm_camera_sensor_info *sensordata;
 	struct i2c_client *msm_sensor_client;
 	struct i2c_driver *msm_sensor_i2c_driver;
+	struct msm_sensor_i2c_client *sensor_i2c_client;
 	struct msm_sensor_reg_t msm_sensor_reg;
-
+	uint16_t sensor_i2c_addr;
 	uint16_t sensor_id_addr;
 	uint16_t sensor_id;
 	uint16_t frame_length_lines_addr;
@@ -167,26 +185,29 @@ struct msm_sensor_ctrl_t {
 	} func_tbl;
 };
 
-int32_t msm_sensor_i2c_rxdata(struct msm_sensor_ctrl_t *s_ctrl,
-	unsigned char *rxdata, int length);
+int32_t msm_sensor_i2c_rxdata(struct msm_sensor_i2c_client *client,
+	unsigned char *rxdata, int data_length);
 
-int32_t msm_sensor_i2c_txdata(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t msm_sensor_i2c_txdata(struct msm_sensor_i2c_client *client,
 	unsigned char *txdata, int length);
 
-int32_t msm_sensor_i2c_waddr_write_b(struct msm_sensor_ctrl_t *s_ctrl,
-	uint16_t waddr, uint8_t bdata);
+int32_t msm_sensor_i2c_read(struct msm_sensor_i2c_client *client,
+	uint16_t addr, uint16_t *data,
+	enum msm_sensor_i2c_data_type data_type);
 
-int32_t msm_sensor_i2c_waddr_write_w(struct msm_sensor_ctrl_t *s_ctrl,
-	uint16_t waddr, uint16_t wdata);
+int32_t msm_sensor_i2c_read_seq(struct msm_sensor_i2c_client *client,
+	uint16_t addr, uint8_t *data, uint16_t num_byte);
 
-int32_t msm_sensor_i2c_waddr_read_w(struct msm_sensor_ctrl_t *s_ctrl,
-	uint16_t waddr, uint16_t *data);
+int32_t msm_sensor_i2c_write(struct msm_sensor_i2c_client *client,
+	uint16_t addr, uint16_t data,
+	enum msm_sensor_i2c_data_type data_type);
 
-int32_t msm_sensor_i2c_waddr_write_b_tbl(struct msm_sensor_ctrl_t *s_ctrl,
-	struct msm_sensor_i2c_reg_conf const *reg_conf_tbl, uint8_t size);
+int32_t msm_sensor_i2c_write_seq(struct msm_sensor_i2c_client *client,
+	uint16_t addr, uint8_t *data, uint16_t num_byte);
 
-int32_t msm_sensor_i2c_waddr_write_w_tbl(struct msm_sensor_ctrl_t *s_ctrl,
-	struct msm_sensor_i2c_reg_conf const *reg_conf_tbl, uint8_t size);
+int32_t msm_sensor_i2c_write_tbl(struct msm_sensor_i2c_client *client,
+	struct msm_sensor_i2c_reg_conf *reg_conf_tbl, uint8_t size,
+	enum msm_sensor_i2c_data_type data_type);
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl);
@@ -206,22 +227,15 @@ int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line);
 int32_t msm_sensor_write_exp_gain2(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line);
-int32_t msm_sensor_set_sensor_mode_b(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 	int mode, int res);
-int32_t msm_sensor_set_sensor_mode_w(struct msm_sensor_ctrl_t *s_ctrl,
-	int mode, int res);
-int32_t msm_sensor_mode_init_bdata(struct msm_sensor_ctrl_t *s_ctrl,
-			int mode, struct sensor_init_cfg *init_info);
-int32_t msm_sensor_mode_init_wdata(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t msm_sensor_mode_init(struct msm_sensor_ctrl_t *s_ctrl,
 			int mode, struct sensor_init_cfg *init_info);
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			void __user *argp);
 int16_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
-uint16_t msm_sensor_read_b_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
+uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
 			enum msm_sensor_resolution_t res, int8_t array_addr);
-uint16_t msm_sensor_read_w_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
-			enum msm_sensor_resolution_t res, int8_t array_addr);
-
 int msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);
 
@@ -236,11 +250,8 @@ int msm_sensor_v4l2_probe(struct msm_sensor_ctrl_t *s_ctrl,
 int msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			enum v4l2_mbus_pixelcode *code);
 
-int msm_sensor_write_b_init_settings(struct msm_sensor_ctrl_t *s_ctrl);
-int msm_sensor_write_w_init_settings(struct msm_sensor_ctrl_t *s_ctrl);
-int msm_sensor_write_b_res_settings
-	(struct msm_sensor_ctrl_t *s_ctrl, uint16_t res);
-int msm_sensor_write_w_res_settings
+int msm_sensor_write_init_settings(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_write_res_settings
 	(struct msm_sensor_ctrl_t *s_ctrl, uint16_t res);
 
 int msm_sensor_enable_debugfs(struct msm_sensor_ctrl_t *s_ctrl);

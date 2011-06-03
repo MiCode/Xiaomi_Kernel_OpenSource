@@ -361,35 +361,41 @@ static struct v4l2_subdev_info ov2720_subdev_info[] = {
 
 static struct msm_sensor_i2c_conf_array ov2720_init_conf[] = {
 	{&ov2720_recommend_settings[0],
-	ARRAY_SIZE(ov2720_recommend_settings), 0}
+	ARRAY_SIZE(ov2720_recommend_settings), 0, MSM_SENSOR_I2C_BYTE_DATA}
 };
 
 static struct msm_sensor_i2c_conf_array ov2720_confs[] = {
-	{&ov2720_prev_settings[0], ARRAY_SIZE(ov2720_prev_settings), 0},
-	{&ov2720_vga_settings[0], ARRAY_SIZE(ov2720_vga_settings), 0},
-	{&ov2720_720_settings[0], ARRAY_SIZE(ov2720_720_settings), 0},
+	{&ov2720_prev_settings[0],
+	ARRAY_SIZE(ov2720_prev_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
+	{&ov2720_vga_settings[0],
+	ARRAY_SIZE(ov2720_vga_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
+	{&ov2720_720_settings[0],
+	ARRAY_SIZE(ov2720_720_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
 };
 
 static int32_t ov2720_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
 {
 	uint32_t fl_lines, offset;
+	uint8_t int_time[3];
 	fl_lines =
 		(s_ctrl->curr_frame_length_lines * s_ctrl->fps_divider) / Q10;
 	offset = s_ctrl->vert_offset;
 	if (line > (fl_lines - offset))
 		fl_lines = line + offset;
 
-	pr_err("LINE: 0x%x\n", line);
 	s_ctrl->func_tbl.sensor_group_hold_on(s_ctrl);
-	msm_sensor_i2c_waddr_write_w(s_ctrl,
-			s_ctrl->frame_length_lines_addr, fl_lines);
-	msm_sensor_i2c_waddr_write_b(s_ctrl,
-			s_ctrl->coarse_int_time_addr-1, line >> 12);
-	msm_sensor_i2c_waddr_write_w(s_ctrl,
-			s_ctrl->coarse_int_time_addr, ((line << 4) & 0xFFFF));
-	msm_sensor_i2c_waddr_write_w(s_ctrl,
-			s_ctrl->global_gain_addr, gain);
+	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+			s_ctrl->frame_length_lines_addr, fl_lines,
+			MSM_SENSOR_I2C_WORD_DATA);
+	int_time[0] = line >> 12;
+	int_time[1] = line >> 4;
+	int_time[2] = line << 4;
+	msm_sensor_i2c_write_seq(s_ctrl->sensor_i2c_client,
+			s_ctrl->coarse_int_time_addr-1, &int_time[0], 3);
+	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+			s_ctrl->global_gain_addr, gain,
+			MSM_SENSOR_I2C_WORD_DATA);
 	s_ctrl->func_tbl.sensor_group_hold_off(s_ctrl);
 	return 0;
 }
@@ -405,9 +411,9 @@ static int32_t ov2720_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 	if (update_type == MSM_SENSOR_REG_INIT) {
 		s_ctrl->config_csi_flag = 1;
 		msm_sensor_enable_debugfs(s_ctrl);
-		msm_sensor_write_b_init_settings(s_ctrl);
+		msm_sensor_write_init_settings(s_ctrl);
 	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
-		msm_sensor_write_b_res_settings(s_ctrl, rt);
+		msm_sensor_write_res_settings(s_ctrl, rt);
 		if (s_ctrl->config_csi_flag) {
 			struct msm_camera_csid_vc_cfg ov2720_vccfg[] = {
 				{0, CSI_RAW10, CSI_DECODE_10BIT},
@@ -443,7 +449,7 @@ static int ov2720_sensor_config(void __user *argp)
 
 static int ov2720_power_down(const struct msm_camera_sensor_info *data)
 {
-	pr_err("%s\n", __func__);
+	CDBG("%s\n", __func__);
 	gpio_set_value_cansleep(data->sensor_reset, 0);
 	gpio_free(data->sensor_reset);
 	return 0;
@@ -452,13 +458,13 @@ static int ov2720_power_down(const struct msm_camera_sensor_info *data)
 static int ov2720_power_up(const struct msm_camera_sensor_info *data)
 {
 	int32_t rc = 0;
-	pr_err("%s: %d\n", __func__, __LINE__);
+	CDBG("%s: %d\n", __func__, __LINE__);
 	msm_camio_clk_rate_set(MSM_SENSOR_MCLK_24HZ);
 	rc = gpio_request(data->sensor_reset, "SENSOR_NAME");
 	if (rc < 0)
 		goto gpio_request_fail;
 
-	pr_err("%s: reset sensor\n", __func__);
+	CDBG("%s: reset sensor\n", __func__);
 	gpio_direction_output(data->sensor_reset, 0);
 	msleep(50);
 	gpio_set_value_cansleep(data->sensor_reset, 1);
@@ -470,21 +476,21 @@ static int ov2720_power_up(const struct msm_camera_sensor_info *data)
 
 	goto init_probe_done;
 gpio_request_fail:
-	pr_err("%s: gpio request fail\n", __func__);
+	CDBG("%s: gpio request fail\n", __func__);
 	return rc;
 init_probe_fail:
-	pr_err(" %s fails\n", __func__);
+	CDBG(" %s fails\n", __func__);
 	ov2720_power_down(data);
 	return rc;
 init_probe_done:
-	pr_err("%s finishes\n", __func__);
+	CDBG("%s finishes\n", __func__);
 	return rc;
 }
 
 static int ov2720_sensor_open_init(const struct msm_camera_sensor_info *data)
 {
 	int32_t rc = 0;
-	pr_err("%s: %d\n", __func__, __LINE__);
+	CDBG("%s: %d\n", __func__, __LINE__);
 	ov2720_s_ctrl.fps = 30*Q8;
 	ov2720_s_ctrl.fps_divider = 1 * 0x00000400;
 	ov2720_s_ctrl.cam_mode = MSM_SENSOR_MODE_INVALID;
@@ -498,7 +504,7 @@ static int ov2720_sensor_open_init(const struct msm_camera_sensor_info *data)
 
 	goto init_done;
 init_done:
-	pr_err("%s finishes\n", __func__);
+	CDBG("%s finishes\n", __func__);
 	return rc;
 }
 
@@ -509,7 +515,7 @@ static int ov2720_sensor_release(void)
 	msleep(20);
 	gpio_free(ov2720_s_ctrl.sensordata->sensor_reset);
 	mutex_unlock(ov2720_s_ctrl.msm_sensor_mutex);
-	pr_err("%s completed\n", __func__);
+	CDBG("%s completed\n", __func__);
 	return 0;
 }
 
@@ -524,6 +530,10 @@ static struct i2c_driver ov2720_i2c_driver = {
 	.driver = {
 		.name = SENSOR_NAME,
 	},
+};
+
+static struct msm_sensor_i2c_client ov2720_sensor_i2c_client = {
+	.addr_type = MSM_SENSOR_I2C_WORD_ADDR,
 };
 
 static int ov2720_sensor_v4l2_probe(const struct msm_camera_sensor_info *info,
@@ -562,6 +572,7 @@ static struct v4l2_subdev_ops ov2720_subdev_ops = {
 
 static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.msm_sensor_reg = {
+		.default_data_type = MSM_SENSOR_I2C_BYTE_DATA,
 		.start_stream_conf = ov2720_start_settings,
 		.start_stream_conf_size = ARRAY_SIZE(ov2720_start_settings),
 		.stop_stream_conf = ov2720_stop_settings,
@@ -576,6 +587,8 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 		.res_settings = &ov2720_confs[0],
 		.num_conf = ARRAY_SIZE(ov2720_confs),
 	},
+	.sensor_i2c_client = &ov2720_sensor_i2c_client,
+	.sensor_i2c_addr = 0x6C,
 	.sensor_id_addr = 0x300A,
 	.sensor_id = 0x2720,
 	.frame_length_lines_addr = 0x380e,
@@ -609,8 +622,8 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 		.sensor_set_fps = msm_sensor_set_fps,
 		.sensor_write_exp_gain = ov2720_write_exp_gain,
 		.sensor_setting = ov2720_sensor_setting,
-		.sensor_set_sensor_mode = msm_sensor_set_sensor_mode_b,
-		.sensor_mode_init = msm_sensor_mode_init_bdata,
+		.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
+		.sensor_mode_init = msm_sensor_mode_init,
 		.sensor_config = ov2720_sensor_config,
 		.sensor_open_init = ov2720_sensor_open_init,
 		.sensor_release = ov2720_sensor_release,
