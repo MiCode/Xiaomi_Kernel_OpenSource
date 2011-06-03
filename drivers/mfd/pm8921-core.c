@@ -251,11 +251,28 @@ static const struct resource charger_cell_resources[] = {
 	SINGLE_IRQ_RESOURCE("DCIN_UV_IRQ", PM8921_DCIN_UV_IRQ),
 };
 
+static const struct resource bms_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_SBI_WRITE_OK", PM8921_BMS_SBI_WRITE_OK),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_CC_THR", PM8921_BMS_CC_THR),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_THR", PM8921_BMS_VSENSE_THR),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_FOR_R", PM8921_BMS_VSENSE_FOR_R),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_OCV_FOR_R", PM8921_BMS_OCV_FOR_R),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_GOOD_OCV", PM8921_BMS_GOOD_OCV),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_AVG", PM8921_BMS_VSENSE_AVG),
+};
+
 static struct mfd_cell charger_cell = {
 	.name		= PM8921_CHARGER_DEV_NAME,
 	.id		= -1,
 	.resources	= charger_cell_resources,
 	.num_resources	= ARRAY_SIZE(charger_cell_resources),
+};
+
+static struct mfd_cell bms_cell = {
+	.name		= PM8921_BMS_DEV_NAME,
+	.id		= -1,
+	.resources	= bms_cell_resources,
+	.num_resources	= ARRAY_SIZE(bms_cell_resources),
 };
 
 static struct mfd_cell misc_cell = {
@@ -366,6 +383,17 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		if (ret) {
 			pr_err("Failed to add regulator subdevices ret=%d\n",
 					ret);
+		}
+	}
+
+	if (pdata->bms_pdata) {
+		bms_cell.platform_data = pdata->bms_pdata;
+		bms_cell.pdata_size =
+				sizeof(struct pm8921_bms_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &bms_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add bms subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
