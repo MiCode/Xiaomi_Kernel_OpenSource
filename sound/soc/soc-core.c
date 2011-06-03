@@ -1547,7 +1547,7 @@ static void soc_remove_codec(struct snd_soc_codec *codec)
 	module_put(codec->dev->driver->owner);
 }
 
-static void soc_remove_dai_link(struct snd_soc_card *card, int num, int early)
+static void soc_remove_dai_link(struct snd_soc_card *card, int num, int order)
 {
 	struct snd_soc_pcm_runtime *rtd = &card->rtd[num];
 	struct snd_soc_codec *codec = rtd->codec;
@@ -1565,7 +1565,7 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num, int early)
 
 	/* remove the CODEC DAI */
 	if (codec_dai && codec_dai->probed &&
-			codec_dai->driver->early_remove == early) {
+			codec_dai->driver->remove_order == order) {
 		if (codec_dai->driver->remove) {
 			err = codec_dai->driver->remove(codec_dai);
 			if (err < 0)
@@ -1578,7 +1578,7 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num, int early)
 
 	/* remove the platform */
 	if (platform && platform->probed &&
-			platform->driver->early_remove == early) {
+			platform->driver->remove_order == order) {
 		if (platform->driver->remove) {
 			err = platform->driver->remove(platform);
 			if (err < 0)
@@ -1591,12 +1591,12 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num, int early)
 
 	/* remove the CODEC */
 	if (codec && codec->probed &&
-			codec->driver->early_remove == early)
+			codec->driver->remove_order == order)
 		soc_remove_codec(codec);
 
 	/* remove the cpu_dai */
 	if (cpu_dai && cpu_dai->probed &&
-			cpu_dai->driver->early_remove == early) {
+			cpu_dai->driver->remove_order == order) {
 		if (cpu_dai->driver->remove) {
 			err = cpu_dai->driver->remove(cpu_dai);
 			if (err < 0)
@@ -1610,13 +1610,13 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num, int early)
 
 static void soc_remove_dai_links(struct snd_soc_card *card)
 {
-	int i;
+	int dai, order;
 
-	for (i = 0; i < card->num_rtd; i++)
-			soc_remove_dai_link(card, i, 1); /* early remove */
-	for (i = 0; i < card->num_rtd; i++)
-		soc_remove_dai_link(card, i, 0); /* late remove */
-
+	for (order = SND_SOC_COMP_ORDER_FIRST; order <= SND_SOC_COMP_ORDER_LAST;
+			order++) {
+		for (dai = 0; dai < card->num_rtd; dai++)
+			soc_remove_dai_link(card, dai, order);
+	}
 	card->num_rtd = 0;
 }
 
@@ -1773,7 +1773,7 @@ out:
 	return 0;
 }
 
-static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
+static int soc_probe_dai_link(struct snd_soc_card *card, int num, int order)
 {
 	struct snd_soc_dai_link *dai_link = &card->dai_link[num];
 	struct snd_soc_pcm_runtime *rtd = &card->rtd[num];
@@ -1782,7 +1782,8 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai, *cpu_dai = rtd->cpu_dai;
 	int ret;
 
-	dev_dbg(card->dev, "probe %s dai link %d late %d\n", card->name, num, late);
+	dev_dbg(card->dev, "probe %s dai link %d late %d\n",
+			card->name, num, order);
 
 	/* config components */
 	codec_dai->codec = codec;
@@ -1796,7 +1797,7 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 
 	/* probe the cpu_dai */
 	if (!cpu_dai->probed &&
-			cpu_dai->driver->late_probe == late) {
+			cpu_dai->driver->probe_order == order) {
 		if (!try_module_get(cpu_dai->dev->driver->owner))
 			return -ENODEV;
 
@@ -1816,7 +1817,7 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 
 	/* probe the CODEC */
 	if (!codec->probed &&
-			codec->driver->late_probe == late) {
+			codec->driver->probe_order == order) {
 		ret = soc_probe_codec(card, codec);
 		if (ret < 0)
 			return ret;
@@ -1824,7 +1825,7 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 
 	/* probe the platform */
 	if (!platform->probed &&
-			platform->driver->late_probe == late) {
+			platform->driver->probe_order == order) {
 		if (!try_module_get(platform->dev->driver->owner))
 			return -ENODEV;
 
@@ -1844,7 +1845,7 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 	}
 
 	/* probe the CODEC DAI */
-	if (!codec_dai->probed && codec_dai->driver->late_probe == late) {
+	if (!codec_dai->probed && codec_dai->driver->probe_order == order) {
 		if (!try_module_get(codec_dai->dev->driver->owner))
 			return -ENODEV;
 		if (codec_dai->driver->probe) {
@@ -1862,8 +1863,8 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int late)
 		list_add(&codec_dai->card_list, &card->dai_dev_list);
 	}
 
-	/* complete DAI probe during late probe */
-	if (!late)
+	/* complete DAI probe during last probe */
+	if (order != SND_SOC_COMP_ORDER_LAST)
 		return 0;
 
 	/* DAPM dai link stream work */
@@ -2006,7 +2007,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	struct snd_soc_codec *codec;
 	struct snd_soc_codec_conf *codec_conf;
 	enum snd_soc_compress_type compress_type;
-	int ret, i;
+	int ret, i, order;
 
 	mutex_lock(&card->mutex);
 
@@ -2085,21 +2086,15 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	}
 
 	/* early DAI link probe */
-	for (i = 0; i < card->num_links; i++) {
-		ret = soc_probe_dai_link(card, i, 0);
-		if (ret < 0) {
-			pr_err("asoc: failed to instantiate card %s: %d\n",
+	for (order = SND_SOC_COMP_ORDER_FIRST; order <= SND_SOC_COMP_ORDER_LAST;
+			order++) {
+		for (i = 0; i < card->num_links; i++) {
+			ret = soc_probe_dai_link(card, i, order);
+			if (ret < 0) {
+				pr_err("asoc: failed to instantiate card %s: %d\n",
 			       card->name, ret);
-			goto probe_dai_err;
-		}
-	}
-	/* late DAI link probe */
-	for (i = 0; i < card->num_links; i++) {
-		ret = soc_probe_dai_link(card, i, 1);
-		if (ret < 0) {
-			pr_err("asoc: failed to instantiate card %s: %d\n",
-			       card->name, ret);
-			goto probe_dai_err;
+				goto probe_dai_err;
+			}
 		}
 	}
 

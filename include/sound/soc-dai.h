@@ -213,8 +213,8 @@ struct snd_soc_dai_driver {
 	unsigned int symmetric_rates:1;
 
 	/* probe ordering - for components with runtime dependencies */
-	bool late_probe;
-	bool early_remove;
+	int probe_order;
+	int remove_order;
 };
 
 /*
