@@ -53,13 +53,8 @@ struct snd_soc_dsp_params {
 };
 
 struct snd_soc_dsp_link {
-	/* supported BE */
-	const char **supported_be;
-	int num_be;
-	/* supported channels */
-	int fe_playback_channels;
-	int fe_capture_channels;
-
+	bool capture;
+	bool playback;
 	enum snd_soc_dsp_trigger trigger[2];
 };
 

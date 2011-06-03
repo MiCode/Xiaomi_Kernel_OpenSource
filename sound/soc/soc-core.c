@@ -2312,10 +2312,8 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 			rtd->dai_link->stream_name, codec_dai->name, num);
 
 	if (rtd->dai_link->dynamic) {
-		if (rtd->dai_link->dsp_link->fe_playback_channels)
-			playback = 1;
-		if (rtd->dai_link->dsp_link->fe_capture_channels)
-			capture = 1;
+		playback = rtd->dai_link->dsp_link->playback;
+		capture = rtd->dai_link->dsp_link->capture;
 	} else {
 		if (codec_dai->driver->playback.channels_min)
 			playback = 1;
