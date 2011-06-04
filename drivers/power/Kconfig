@@ -464,6 +464,13 @@ config LTC4088_CHARGER
 	  Say Y here to enable support for ltc4088 chip charger. It controls the
 	  operations through GPIO pins.
 
+config PM8921_BMS
+	select PM8XXX_CCADC
+	tristate "PM8921 Battery Monitoring System driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip bms subdevice
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
