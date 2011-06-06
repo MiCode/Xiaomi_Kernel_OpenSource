@@ -663,6 +663,9 @@ int __init msm7x2x_misc_init(void)
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n", __func__);
 
+	if (cpu_is_msm7x27aa())
+		msm7x2x_clock_data.max_speed_delta_khz = 504000;
+
 	msm_clock_init(msm_clocks_7x27a, msm_num_clocks_7x27a);
 	msm_acpu_clock_init(&msm7x2x_clock_data);
 
