@@ -114,6 +114,17 @@ config THERMAL_TSENS
 	  Also able to set threshold temperature for both hot and cold and update
 	  when a threshold is reached.
 
+config THERMAL_PM8XXX
+	tristate "Qualcomm PMIC PM8xxx Temperature Alarm"
+	depends on THERMAL
+	depends on MFD_PM8XXX
+	help
+	  This enables a thermal Sysfs driver for the PMIC PM8xxx devices. It
+	  shows up in Sysfs as a thermal zone with multiple trip points.
+	  Enabling the thermal zone device via the mode file results in
+	  shifting over temperature shutdown control of the PMIC from hardware
+	  to software.
+
 config SPEAR_THERMAL
 	bool "SPEAr thermal sensor driver"
 	depends on PLAT_SPEAR
