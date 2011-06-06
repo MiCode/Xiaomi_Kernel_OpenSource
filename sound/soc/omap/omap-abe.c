@@ -39,7 +39,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/soc-dsp.h>
 
-#include <plat/control.h>
 #include <plat/dma-44xx.h>
 #include <plat/dma.h>
 #include "omap-pcm.h"
