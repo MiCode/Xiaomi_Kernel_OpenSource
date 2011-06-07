@@ -3357,6 +3357,12 @@ sub process {
 			      $herecurr);
 		}
 
+# filp_open is a backdoor for sys_open
+		if ($line =~ /\b(filp_open)\b/) {
+			ERROR("$1 is inappropriate in kernel code.\n" .
+			      $herecurr);
+		}
+
 # read[bwl] & write[bwl] use too many barriers, use the _relaxed variants
 		if ($line =~ /\b((?:read|write)[bwl])\b/) {
 			ERROR("Use of $1 is deprecated: use $1_relaxed\n\t" .
