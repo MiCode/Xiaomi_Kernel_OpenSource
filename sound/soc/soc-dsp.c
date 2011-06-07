@@ -160,8 +160,8 @@ static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe,
 		fe_type = snd_soc_dapm_aif_in;
 		be_type = snd_soc_dapm_aif_out;
 	} else {
-		fe_type = snd_soc_dapm_aif_in;
-		be_type = snd_soc_dapm_aif_out;
+		fe_type = snd_soc_dapm_aif_out;
+		be_type = snd_soc_dapm_aif_in;
 	}
 
 	/* get number of valid playback paths and their widgets */
