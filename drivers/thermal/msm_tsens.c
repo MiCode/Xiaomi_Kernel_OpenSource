@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -525,14 +525,6 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	tmdev->offset = TSENS_FACTOR * TSENS_CAL_DEGC
 			- (int)(TSENS_FACTOR * TSENS_SLOPE) * calib_data;
 	tmdev->prev_reading_avail = 0;
-	rc = request_threaded_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
-		tsens_isr_thread, 0, "tsens", tmdev);
-
-	if (rc < 0) {
-		pr_err("%s: request_irq FAIL: %d\n", __func__, rc);
-		kfree(tmdev);
-		return rc;
-	}
 
 	INIT_WORK(&tmdev->work, notify_uspace_tsens_fn);
 
@@ -570,6 +562,14 @@ static int tsens_tm_probe(struct platform_device *pdev)
 		tmdev->sensor[i].sensor_num = i;
 		thermal_zone_device_update(tmdev->sensor[i].tz_dev);
 		tmdev->sensor[i].mode = THERMAL_DEVICE_DISABLED;
+	}
+
+	rc = request_threaded_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
+		tsens_isr_thread, 0, "tsens", tmdev);
+	if (rc < 0) {
+		pr_err("%s: request_irq FAIL: %d\n", __func__, rc);
+		kfree(tmdev);
+		return rc;
 	}
 
 	writel(reg & ~((((1 << TSENS_NUM_SENSORS) - 1) << 3)
