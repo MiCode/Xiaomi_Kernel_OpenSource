@@ -1,0 +1,309 @@
+Driver name: Qualcomm FSM9xxx Ethernet Driver
+
+Supported hardware: FSM9xxx Ethernet Controller
+
+Maintainer(s):
+Author(s):
+
+
+Introduction:
+=============
+
+The FSM9xxx Ethernet controller is register based with separate TX and RX DMA
+engines supporting scatter/gather and support 1EEE-1588 timestamping.
+MII, RevMII and RgMII interfaces are support.  RgMII support 1G.
+
+The driver supports gather but not scatter, uses the controller DMA engines,
+and timestamping.
+
+
+Hardware description:
+=====================
+
+The Ethernet Controller is a memory mapped register device with two
+internal DMA engines for TX and RX path processing using separate
+buffer-descriptors (BD) allocated from non-cached main memory for the TX
+and RX paths.  These BDs support scatter-gather but are only used to
+transfer single max sized Ethernet frames.  The BDs are sequentially
+accessed as a ring, with an end-of-ring bit set in the last BD.  Ownership
+bits control access by hardware and software to individual BDs.
+
+An additional 4 words of space can be configured and is allocated between
+each BD to store additional information about the sk_buff associated with it.
+The driver software uses 2 ring structures and local functions to manage
+them to keep in sync with the hardware the BDs .  The number of BDs is
+determined from the space allocated for them (PAGE_SIZE).  The ratio of RX
+to TX BD is set by a #define.
+
+Interrupts are used to service and replenish pre-allocated sk_buff for each
+RX BD.   TX frames are allocated to a TX BD and transmitted frames are
+freed within the xmit() invoked to send the frame.  No TX interrupts are
+processed since sk_buffs are freed in the xmit().
+
+Three PHY interfaces are supported: MII, RevMII and RgMII.  The selected
+interface is determined from the resource structure (to be completed) and
+programmed into a register prior to resetting the Ethernet controller.
+
+Separate PLLs are managed to provide MAC/PHY clocks in RevMii and RgMii
+modes, and a 25mHz clock timestamping.
+
+
+
+Software description
+====================
+
+Structures
+
+struct qfec_buf_desc {
+	uint32_t            status;
+	uint32_t            ctl;
+	void               *p_buf;
+	void               *next;
+};
+
+struct buf_desc {
+	struct qfec_buf_desc    desc;       /* must be first */
+
+	struct sk_buff         *skb;
+	void                   *buf_virt_addr;
+	void                   *buf_phys_addr;
+	uint32_t                last_bd_flag;
+};
+
+struct ring {
+	int     head;
+	int     tail;
+	int     n_free;
+	int     len;
+};
+
+struct qfec_priv {
+	struct net_device      *net_dev;
+	struct net_device_stats stats;            /* req statistics */
+
+	struct device           dev;
+
+	spinlock_t              hw_lock;
+
+	unsigned int            state;            /* driver state */
+
+	void                   *bd_base;          /* addr buf-desc */
+	dma_addr_t              tbd_dma;          /* dma/phy-addr buf-desc */
+	dma_addr_t              rbd_dma;          /* dma/phy-addr buf-desc */
+
+	struct resource        *mac_res;
+	void                   *mac_base;         /* mac (virt) base address */
+
+	struct resource        *clk_res;
+	void                   *clk_base;         /* clk (virt) base address */
+
+	unsigned int            n_tbd;            /* # of TX buf-desc */
+	struct ring             ring_tbd;         /* TX ring */
+	struct buf_desc        *p_tbd;            /* # TX buf-desc */
+
+	unsigned int            n_rbd;            /* # of RX buf-desc */
+	struct ring             ring_rbd;         /* RX ring */
+	struct buf_desc        *p_rbd;            /* # RX buf-desc */
+
+	unsigned long           cntr[cntr_last];  /* activity counters */
+
+	struct mii_if_info      mii;
+
+	int                     mdio_clk;         /* phy mdio clock rate */
+	int                     phy_id;           /* default PHY addr (0) */
+	struct timer_list       phy_tmr;          /* monitor PHY state */
+};
+
+
+
+Initialization is divided between probe() and open() such that the
+net_device is allocated, the address space is mapped for register access,
+and procfs files created in probe().  BD memory is allocated and
+initialized along with interrupts and timers in open().   BD is not
+de-allocated in close() allowing it to be debugged after the interface is
+ifconfig down'd.  This approach is intended to aid with debugging by
+allowing configuring the interface down and up may clear some early usage
+problems
+
+Phy link state changes are monitored using a timer using some existing
+functions from the mii library, but also with local functions intended to
+support RGMII in the future.
+
+A variety of information is accessible through procFs.  Counters are used
+to track various driver events, these include abnormal and error
+interrupts.  Hardware counters of various frame statistics (e.g. types and
+sizes of TX and RX frames) are available. Hardware registers and up to the
+50 TX and RX BDs can be can be displayed.   A table of procfs filenames and
+functions are used to create and delete the procfs entries as needed.
+
+Probe()
+
+Allocate and initialize the net_device structure with resource information
+specifying the Ethernet controller, clock control and MAC address memory
+regions.  Set netdev_ops to a statically defined sub-structure supporting
+the device.
+
+Open()
+
+Use qfec_mem_alloc() to allocate space for the buffer-descriptors (BD).
+TX BDs are initialized by clearing the ownership bit of each.  Each RX BD
+is initialized using qfec_rbd_init().   Qfec_rbd_init() pre-allocates an
+sk_buff, saving the addresses of both the sk_buff and its data buffer in the
+additional BD space, setting the BD buf pointer to the physical address of
+the sk_buff data, and finally setting the ownership bit.
+
+Once the BDs are initialized, interface selected register is set to the
+appropriate PHY interface configuration, and the Ethernet controller is
+reset and its registers initialized, including the starting addresses of
+the TX and RX BDs.
+
+The PHY monitor state is initialized and the timer initialized and started.
+
+Finally, the interrupt for the Ethernet controller is initialized.
+
+    Note - Interrupts from both from the external PHY and internal RevMii
+           PHY, are available, but neither is used in preference to the
+	   timer.
+
+
+Interrupt Processing
+
+Besides recognizing abnormal error interrupts, RX, TX and GMAC interrupts
+are recognized, although TX and GMAC interrupts are ignored but cleared and
+counted.  (The gmac interrupt can be ignored but must be disabled).
+
+RX interrupts invoke a handler to process the received frame, send it
+to the stack and re-allocate a replacement sk_bufff for the buffer-
+descriptor.
+
+
+Receive  Processing
+
+The RX buffer descriptors are initialized by _open() using qfec_rbd_init()
+which pre-allocated an sk_buff, saving its address and the physical address
+of its data in the additional BD space, as well as writing the physical
+address to the BD pbuf entry read by HW.  The size of the buffer and
+other control information are written to the BD, as well as setting the
+ownership bit.
+
+A received frame generates an interrupt invoking qfec_rx_int().  It
+repeatedly checks the ownership the next available BD, and passing the
+sk_buff containing the received frame to the stack via netif_rx().
+
+Once all received frames are processed, it repeatedly calls qfec_rbd_init()
+to allocate a new sk_buff with each available BD.
+
+
+Transmit Processing
+
+Frames are transmitted through the start_xmit callback function.
+qfec_tx_replenish() is immediately called to free sk_buffs from BD
+that have been transmitted, before checking is a BD is available.
+The sk_buff address is stored in the additional BD space and the
+physical address of its data is store in the pbuf BD entry used
+by the HW.   The TX poll-demand register is accessed, causing the
+HW to recheck the current BD and process it.
+
+While the TX interrupt could be processed to free sk_buffs as BD
+are processed, they are ignored since the sk_buffs will be freed
+with each call to _xmit().
+
+procfs
+
+debug files are available to display the controller registers,
+frame counters from the controller, driver activity counters, and
+the first 50 entries of the RX and TX buffer descriptors.
+
+
+Callbacks
+
+In addition to the functions described above, the following functions
+are used to support their correspondingly named device operations:
+
+	qfec_stop
+	qfec_do_ioctl
+	qfec_tx_timeout
+	qfec_set_mac_address
+	qfec_get_stats
+	qfec_set_config
+
+	eth_change_mtu
+	eth_validate_addr
+
+
+Power Management
+================
+None
+
+
+Interface:
+==========
+
+- Module-init/exit
+- standard network interface functions
+
+
+Module parameters:
+==================
+
+static struct resource qfec_resources [] = {
+        [0] = {
+                .start = QFEC_MAC_BASE,
+                .end   = QFEC_MAC_BASE + QFEC_MAC_SIZE,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = QFEC_MAC_IRQ,
+                .end   = QFEC_MAC_IRQ,
+                .flags = IORESOURCE_IRQ,
+        },
+        [2] = {
+                .start = QFEC_CLK_BASE,
+                .end   = QFEC_CLK_BASE + QFEC_CLK_SIZE,
+                .flags = IORESOURCE_IO,
+        },
+        [3] = {
+                .start = QFEC_MAC_FUSE_BASE,
+                .end   = QFEC_MAC_FUSE_BASE + QFEC_MAC_FUSE_SIZE,
+                .flags = IORESOURCE_DMA,
+        },
+};
+
+static struct platform_device qfec_device = {
+	.name           = "qfec",
+	.id             = 0,
+	.num_resources  = ARRAY_SIZE(qfec_resources),
+	.resource       = qfec_resources,
+};
+
+
+Resource entries exist for three address regions and one interrupt.  The
+interrupt is identified as IORESOURCE_IRQ, the controller registers as
+OPRESOURCE_MEM, the clock control registers as IORESOURCE_IO, and the
+MAC address fuses as IORESOURCE_DMA.
+
+
+Dependencies:
+=============
+None
+
+
+User space utilities:
+=====================
+
+See procfs descriptions
+
+
+Known issues:
+=============
+
+- replace procfs w/ debugfs
+
+
+To do:
+======
+
+- specify interface (MII/RevMII/RgMii) in resource structure
+- RevMii  support untested
+- RgMii (10/100/1000)
+- generic timestamp support

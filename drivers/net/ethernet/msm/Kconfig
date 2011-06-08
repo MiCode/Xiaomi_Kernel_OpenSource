@@ -42,3 +42,11 @@ config MSM_RMNET_DEBUG
 	help
 	  Debug stats on wakeup counts.
 
+config QFEC
+	tristate "QFEC ethernet driver"
+	select MII
+	depends on ARM
+	help
+	  This driver supports Ethernet in the FSM9xxx.
+	  To compile this driver as a module, choose M here: the
+	  module will be called qfec.
