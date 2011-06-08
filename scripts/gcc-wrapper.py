@@ -30,6 +30,7 @@
 # Invoke gcc, looking for warnings, and causing a failure if there are
 # non-whitelisted warnings.
 
+import errno
 import re
 import os
 import sys
@@ -93,12 +94,20 @@ def run_gcc():
 
     compiler = sys.argv[0]
 
-    proc = subprocess.Popen(args, stderr=subprocess.PIPE)
-    for line in proc.stderr:
-        print line,
-        interpret_warning(line)
+    try:
+        proc = subprocess.Popen(args, stderr=subprocess.PIPE)
+        for line in proc.stderr:
+            print line,
+            interpret_warning(line)
 
-    result = proc.wait()
+        result = proc.wait()
+    except OSError as e:
+        result = e.errno
+        if result == errno.ENOENT:
+            print args[0] + ':',e.strerror
+            print 'Is your PATH set correctly?'
+        else:
+            print ' '.join(args), str(e)
 
     return result
 
