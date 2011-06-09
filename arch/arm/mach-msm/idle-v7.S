@@ -32,21 +32,15 @@
 #endif
 
 ENTRY(msm_arch_idle)
-	stmfd   sp!, {lr}
 #ifdef CONFIG_MSM_JTAG_V7
+	stmfd   sp!, {lr}
 	bl      msm_save_jtag_debug
 #endif
-#ifdef CONFIG_MSM_ETM
-	bl      etm_save_reg_check
-#endif
 	wfi
-#ifdef CONFIG_MSM_ETM
-	bl      etm_restore_reg_check
-#endif
 #ifdef CONFIG_MSM_JTAG_V7
 	bl      msm_restore_jtag_debug
-#endif
 	ldmfd   sp!, {lr}
+#endif
 	bx	lr
 
 ENTRY(msm_pm_collapse)
@@ -94,7 +88,7 @@ ENTRY(msm_pm_collapse)
 #ifdef CONFIG_MSM_JTAG_V7
 	bl      msm_save_jtag_debug
 #endif
-#ifdef CONFIG_MSM_ETM
+#ifdef CONFIG_MSM_TRACE_ACROSS_PC
 	bl      etm_save_reg_check
 #endif
 	bl      v7_flush_dcache_all
@@ -119,7 +113,7 @@ ENTRY(msm_pm_collapse)
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
 	cpsie   f
 #endif
-#ifdef CONFIG_MSM_ETM
+#ifdef CONFIG_MSM_TRACE_ACROSS_PC
 	bl	etm_restore_reg_check
 #endif
 #ifdef CONFIG_MSM_JTAG_V7
@@ -207,7 +201,7 @@ msm_pm_pa_to_va:
 	isb
 	stmfd   sp!, {lr}
 	bl      v7_flush_kern_cache_all
-#ifdef CONFIG_MSM_ETM
+#ifdef CONFIG_MSM_TRACE_ACROSS_PC
 	bl      etm_restore_reg_check
 #endif
 #ifdef CONFIG_MSM_JTAG_V7

@@ -1547,11 +1547,25 @@ config MSM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
+config MSM_TRACE_ACROSS_PC
+	bool "Trace support across power collapse"
+	depends on ARCH_MSM8X60 || ARCH_MSM8960
+	help
+	  Enables trace state to be saved and restored across power collapse.
+
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"
 	depends on ARCH_MSM8X60
+	select MSM_TRACE_ACROSS_PC
 	help
-		This enables embedded trace collection on Qualcomm v7 CPUs.
+	  Enables embedded trace collection on Qualcomm v7 CPUs.
+
+config MSM_QDSS
+	bool "Coresight tracing support"
+	depends on ARCH_MSM8960
+	select MSM_TRACE_ACROSS_PC
+	help
+	  Enables support for Qualcomm debug subsystem.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"

@@ -2204,3 +2204,73 @@ struct platform_device msm_dsps_device = {
 };
 
 #endif /* CONFIG_MSM_DSPS */
+
+#ifdef CONFIG_MSM_QDSS
+
+#define MSM_QDSS_PHYS_BASE		0x01A00000
+#define MSM_ETB_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1000)
+#define MSM_TPIU_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x3000)
+#define MSM_FUNNEL_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x4000)
+#define MSM_PTM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+
+static struct resource msm_etb_resources[] = {
+	{
+		.start = MSM_ETB_PHYS_BASE,
+		.end   = MSM_ETB_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_etb_device = {
+	.name          = "msm_etb",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_etb_resources),
+	.resource      = msm_etb_resources,
+};
+
+static struct resource msm_tpiu_resources[] = {
+	{
+		.start = MSM_TPIU_PHYS_BASE,
+		.end   = MSM_TPIU_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_tpiu_device = {
+	.name          = "msm_tpiu",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_tpiu_resources),
+	.resource      = msm_tpiu_resources,
+};
+
+static struct resource msm_funnel_resources[] = {
+	{
+		.start = MSM_FUNNEL_PHYS_BASE,
+		.end   = MSM_FUNNEL_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_funnel_device = {
+	.name          = "msm_funnel",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_funnel_resources),
+	.resource      = msm_funnel_resources,
+};
+
+static struct resource msm_ptm_resources[] = {
+	{
+		.start = MSM_PTM_PHYS_BASE,
+		.end   = MSM_PTM_PHYS_BASE + (SZ_4K * 2) - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_ptm_device = {
+	.name          = "msm_ptm",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_ptm_resources),
+	.resource      = msm_ptm_resources,
+};
+
+#endif
