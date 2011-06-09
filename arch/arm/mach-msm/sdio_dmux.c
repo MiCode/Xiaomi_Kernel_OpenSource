@@ -124,7 +124,8 @@ static void sdio_mux_read_data(struct work_struct *work);
 static void sdio_mux_write_data(struct work_struct *work);
 static void sdio_mux_send_open_cmd(uint32_t id);
 
-static DEFINE_MUTEX(sdio_mux_lock);
+static DEFINE_MUTEX(sdio_read_mux_lock);
+static DEFINE_MUTEX(sdio_write_mux_lock);
 static DECLARE_WORK(work_sdio_mux_read, sdio_mux_read_data);
 static DECLARE_WORK(work_sdio_mux_write, sdio_mux_write_data);
 static DECLARE_DELAYED_WORK(delayed_work_sdio_mux_write, sdio_mux_write_data);
@@ -307,13 +308,13 @@ static void sdio_mux_read_data(struct work_struct *work)
 
 	DBG("%s: reading\n", __func__);
 	/* should probably have a separate read lock */
-	mutex_lock(&sdio_mux_lock);
+	mutex_lock(&sdio_read_mux_lock);
 	sz = sdio_read_avail(sdio_mux_ch);
 	DBG("%s: read avail %d\n", __func__, sz);
 	if (sz <= 0) {
 		if (sz)
 			pr_err("%s: read avail failed %d\n", __func__, sz);
-		mutex_unlock(&sdio_mux_lock);
+		mutex_unlock(&sdio_read_mux_lock);
 		return;
 	}
 
@@ -337,7 +338,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 		 */
 		if (sz + NET_IP_ALIGN + len + NET_SKB_PAD <= PAGE_SIZE) {
 			pr_err("%s: allocation failed\n", __func__);
-			mutex_unlock(&sdio_mux_lock);
+			mutex_unlock(&sdio_read_mux_lock);
 			return;
 		}
 		sz /= 2;
@@ -353,11 +354,11 @@ static void sdio_mux_read_data(struct work_struct *work)
 	if (rc) {
 		pr_err("%s: sdio read failed %d\n", __func__, rc);
 		dev_kfree_skb_any(skb_mux);
-		mutex_unlock(&sdio_mux_lock);
+		mutex_unlock(&sdio_read_mux_lock);
 		queue_work(sdio_mux_read_workqueue, &work_sdio_mux_read);
 		return;
 	}
-	mutex_unlock(&sdio_mux_lock);
+	mutex_unlock(&sdio_read_mux_lock);
 
 	DBG_INC_READ_CNT(sz);
 	DBG("%s: head %p data %p tail %p end %p len %d\n", __func__,
@@ -392,7 +393,7 @@ static int sdio_mux_write(struct sk_buff *skb)
 {
 	int rc, sz;
 
-	mutex_lock(&sdio_mux_lock);
+	mutex_lock(&sdio_write_mux_lock);
 	sz = sdio_write_avail(sdio_mux_ch);
 	DBG("%s: avail %d len %d\n", __func__, sz, skb->len);
 	if (skb->len <= sz) {
@@ -403,7 +404,7 @@ static int sdio_mux_write(struct sk_buff *skb)
 	} else
 		rc = -ENOMEM;
 
-	mutex_unlock(&sdio_mux_lock);
+	mutex_unlock(&sdio_write_mux_lock);
 	return rc;
 }
 
@@ -411,7 +412,7 @@ static int sdio_mux_write_cmd(void *data, uint32_t len)
 {
 	int avail, rc;
 	for (;;) {
-		mutex_lock(&sdio_mux_lock);
+		mutex_lock(&sdio_write_mux_lock);
 		avail = sdio_write_avail(sdio_mux_ch);
 		DBG("%s: avail %d len %d\n", __func__, avail, len);
 		if (avail >= len) {
@@ -422,10 +423,10 @@ static int sdio_mux_write_cmd(void *data, uint32_t len)
 				break;
 			}
 		}
-		mutex_unlock(&sdio_mux_lock);
+		mutex_unlock(&sdio_write_mux_lock);
 		msleep(250);
 	}
-	mutex_unlock(&sdio_mux_lock);
+	mutex_unlock(&sdio_write_mux_lock);
 	return 0;
 }
 
@@ -585,21 +586,21 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 	}
 	spin_unlock_irqrestore(&sdio_ch[id].lock, flags);
 
-	spin_lock_irqsave(&sdio_mux_write_lock, flags);
 	/* if skb do not have any tailroom for padding,
 	   copy the skb into a new expanded skb */
 	if ((skb->len & 0x3) && (skb_tailroom(skb) < (4 - (skb->len & 0x3)))) {
 		/* revisit, probably dev_alloc_skb and memcpy is effecient */
 		new_skb = skb_copy_expand(skb, skb_headroom(skb),
-					  4 - (skb->len & 0x3), GFP_ATOMIC);
+					  4 - (skb->len & 0x3), GFP_KERNEL);
 		if (new_skb == NULL) {
 			pr_err("%s: cannot allocate skb\n", __func__);
-			rc = -ENOMEM;
-			goto write_done;
+			return -ENOMEM;
 		}
 		dev_kfree_skb_any(skb);
 		skb = new_skb;
+		spin_lock_irqsave(&sdio_mux_write_lock, flags);
 		DBG_INC_WRITE_CPY(skb->len);
+		spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
 	}
 
 	hdr = (struct sdio_mux_hdr *)skb_push(skb, sizeof(struct sdio_mux_hdr));
@@ -619,16 +620,16 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 	DBG("%s: data %p, tail %p skb len %d pkt len %d pad len %d\n",
 	    __func__, skb->data, skb->tail, skb->len,
 	    hdr->pkt_len, hdr->pad_len);
-	__skb_queue_tail(&sdio_mux_write_pool, skb);
 
+	spin_lock_irqsave(&sdio_mux_write_lock, flags);
+	__skb_queue_tail(&sdio_mux_write_pool, skb);
 	spin_lock(&sdio_ch[id].lock);
 	sdio_ch[id].num_tx_pkts++;
 	spin_unlock(&sdio_ch[id].lock);
+	spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
 
 	queue_work(sdio_mux_write_workqueue, &work_sdio_mux_write);
 
-write_done:
-	spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
 	return rc;
 }
 
