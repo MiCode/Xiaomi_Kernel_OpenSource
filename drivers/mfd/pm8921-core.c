@@ -27,6 +27,10 @@
 
 #define REG_MPP_BASE		0x050
 
+#define PM8921_VERSION_MASK	0xFFF0
+#define PM8921_VERSION_VALUE	0x06F0
+#define PM8921_REVISION_MASK	0x000F
+
 #define SINGLE_IRQ_RESOURCE(_name, _irq) \
 { \
 	.name	= _name, \
@@ -39,6 +43,7 @@ struct pm8921 {
 	struct device			*dev;
 	struct pm_irq_chip		*irq_chip;
 	struct mfd_cell                 *mfd_regulators;
+	u32				rev_registers;
 };
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
@@ -83,12 +88,34 @@ static int pm8921_read_irq_stat(const struct device *dev, int irq)
 	return pm8xxx_get_irq_stat(pmic->irq_chip, irq);
 }
 
+static enum pm8xxx_version pm8921_get_version(const struct device *dev)
+{
+	const struct pm8xxx_drvdata *pm8921_drvdata = dev_get_drvdata(dev);
+	const struct pm8921 *pmic = pm8921_drvdata->pm_chip_data;
+	enum pm8xxx_version version = -ENODEV;
+
+	if ((pmic->rev_registers & PM8921_VERSION_MASK) == PM8921_VERSION_VALUE)
+		version = PM8XXX_VERSION_8921;
+
+	return version;
+}
+
+static int pm8921_get_revision(const struct device *dev)
+{
+	const struct pm8xxx_drvdata *pm8921_drvdata = dev_get_drvdata(dev);
+	const struct pm8921 *pmic = pm8921_drvdata->pm_chip_data;
+
+	return pmic->rev_registers & PM8921_REVISION_MASK;
+}
+
 static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_readb		= pm8921_readb,
 	.pmic_writeb		= pm8921_writeb,
 	.pmic_read_buf		= pm8921_read_buf,
 	.pmic_write_buf		= pm8921_write_buf,
 	.pmic_read_irq_stat	= pm8921_read_irq_stat,
+	.pmic_get_version	= pm8921_get_version,
+	.pmic_get_revision	= pm8921_get_revision,
 };
 
 static const struct resource gpio_cell_resources[] = {
@@ -218,10 +245,8 @@ static struct mfd_cell charger_cell = {
 	.num_resources	= ARRAY_SIZE(charger_cell_resources),
 };
 
-static int pm8921_add_subdevices(const struct pm8921_platform_data
-					   *pdata,
-					   struct pm8921 *pmic,
-					   u32 rev)
+static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
+		      struct pm8921 *pmic)
 {
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
@@ -230,7 +255,6 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8921_NR_IRQS;
-		pdata->irq_pdata->irq_cdata.rev = rev;
 		irq_base = pdata->irq_pdata->irq_base;
 		irq_chip = pm8xxx_irq_init(pmic->dev, pdata->irq_pdata);
 
@@ -244,7 +268,6 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 
 	if (pdata->gpio_pdata) {
 		pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
-		pdata->gpio_pdata->gpio_cdata.rev = rev;
 		gpio_cell.platform_data = pdata->gpio_pdata;
 		gpio_cell.pdata_size = sizeof(struct pm8xxx_gpio_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &gpio_cell, 1,
@@ -304,7 +327,7 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 	}
 
 	if (pdata->charger_pdata) {
-		pdata->charger_pdata->charger_cdata.rev = rev;
+		pdata->charger_pdata->charger_cdata.rev = pmic->rev_registers;
 		charger_cell.platform_data = pdata->charger_pdata;
 		charger_cell.pdata_size =
 				sizeof(struct pm8921_charger_platform_data);
@@ -373,7 +396,6 @@ static int pm8921_probe(struct platform_device *pdev)
 	struct pm8921 *pmic;
 	int rc;
 	u8 val;
-	u32 rev;
 
 	if (!pdata) {
 		pr_err("missing platform data\n");
@@ -393,7 +415,7 @@ static int pm8921_probe(struct platform_device *pdev)
 		goto err_read_rev;
 	}
 	pr_info("PMIC revision 1: %02X\n", val);
-	rev = val;
+	pmic->rev_registers = val;
 
 	/* Read PMIC chip revision 2 */
 	rc = ssbi_read(pdev->dev.parent, REG_HWREV_2, &val, sizeof(val));
@@ -403,13 +425,13 @@ static int pm8921_probe(struct platform_device *pdev)
 		goto err_read_rev;
 	}
 	pr_info("PMIC revision 2: %02X\n", val);
-	rev |= val << BITS_PER_BYTE;
+	pmic->rev_registers |= val << BITS_PER_BYTE;
 
 	pmic->dev = &pdev->dev;
 	pm8921_drvdata.pm_chip_data = pmic;
 	platform_set_drvdata(pdev, &pm8921_drvdata);
 
-	rc = pm8921_add_subdevices(pdata, pmic, rev);
+	rc = pm8921_add_subdevices(pdata, pmic);
 	if (rc) {
 		pr_err("Cannot add subdevices rc=%d\n", rc);
 		goto err;

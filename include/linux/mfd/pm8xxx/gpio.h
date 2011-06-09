@@ -24,7 +24,6 @@
 #define PM8XXX_GPIO_DEV_NAME	"pm8xxx-gpio"
 
 struct pm8xxx_gpio_core_data {
-	u32	rev;
 	int	ngpios;
 };
 

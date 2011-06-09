@@ -22,7 +22,6 @@
 #include <linux/err.h>
 
 struct pm8xxx_irq_core_data {
-	u32		rev;
 	int		nirqs;
 };
 
