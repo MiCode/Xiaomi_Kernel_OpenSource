@@ -1510,6 +1510,10 @@ config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
 
+config MSM_BUS_RPM_MULTI_TIER_ENABLED
+	bool "RPM Multi-tiering Configuration"
+	depends on MSM_BUS_SCALING
+
 config MSM_WATCHDOG
 	bool "MSM Watchdog Support"
 	depends on ARCH_MSM8X60 || ARCH_MSM8960
