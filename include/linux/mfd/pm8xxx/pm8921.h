@@ -28,6 +28,7 @@
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
+#include <linux/mfd/pm8921-adc.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -51,6 +52,9 @@
 #define PM8921_PWRKEY_PRESS_IRQ		PM8921_IRQ_BLOCK_BIT(6, 3)
 #define PM8921_KEYPAD_IRQ		PM8921_IRQ_BLOCK_BIT(9, 2)
 #define PM8921_KEYSTUCK_IRQ		PM8921_IRQ_BLOCK_BIT(9, 3)
+#define PM8921_ADC_EOC_USR_IRQ		PM8921_IRQ_BLOCK_BIT(9, 6)
+#define PM8921_ADC_BATT_TEMP_WARM_IRQ	PM8921_IRQ_BLOCK_BIT(9, 1)
+#define PM8921_ADC_BATT_TEMP_COLD_IRQ	PM8921_IRQ_BLOCK_BIT(9, 0)
 #define PM8921_USB_ID_IN_IRQ(base)	(base + PM8921_IRQ_BLOCK_BIT(6, 1))
 
 #define PM8921_USBIN_VALID_IRQ		PM8921_IRQ_BLOCK_BIT(1, 7)
@@ -101,6 +105,7 @@ struct pm8921_platform_data {
 	struct pm8xxx_misc_platform_data	*misc_pdata;
 	struct pm8921_regulator_platform_data	*regulator_pdatas;
 	int					num_regulators;
+	struct pm8921_adc_platform_data		*adc_pdata;
 };
 
 #endif

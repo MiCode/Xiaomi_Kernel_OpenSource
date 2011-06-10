@@ -134,6 +134,19 @@ static struct mfd_cell gpio_cell = {
 	.num_resources	= ARRAY_SIZE(gpio_cell_resources),
 };
 
+static const struct resource adc_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE(NULL, PM8921_ADC_EOC_USR_IRQ),
+	SINGLE_IRQ_RESOURCE(NULL, PM8921_ADC_BATT_TEMP_WARM_IRQ),
+	SINGLE_IRQ_RESOURCE(NULL, PM8921_ADC_BATT_TEMP_COLD_IRQ),
+};
+
+static struct mfd_cell adc_cell = {
+	.name		= PM8921_ADC_DEV_NAME,
+	.id		= -1,
+	.resources	= adc_cell_resources,
+	.num_resources	= ARRAY_SIZE(adc_cell_resources),
+};
+
 static const struct resource mpp_cell_resources[] = {
 	{
 		.start	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0),
@@ -340,6 +353,19 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 					irq_base);
 		if (ret) {
 			pr_err("Failed to add charger subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->adc_pdata) {
+		adc_cell.platform_data = pdata->adc_pdata;
+		adc_cell.pdata_size =
+			sizeof(struct pm8921_adc_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &adc_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add regulator subdevices ret=%d\n",
+					ret);
 			goto bail;
 		}
 	}
