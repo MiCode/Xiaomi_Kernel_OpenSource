@@ -111,18 +111,26 @@ static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
 
 		ret = regulator_enable(hsusb_vddcx);
 		if (ret) {
-			dev_err(motg->phy.dev, "unable to enable hsusb vddcx\n");
+			regulator_set_voltage(hsusb_vddcx, 0,
+			USB_PHY_VDD_DIG_VOL_MIN);
 			regulator_put(hsusb_vddcx);
+			dev_err(motg->phy.dev, "unable to enable the hsusb vddcx\n");
+			return ret;
 		}
+
 	} else {
+
+		ret = regulator_disable(hsusb_vddcx);
+		if (ret) {
+			dev_err(motg->phy.dev, "unable to disable hsusb vddcx\n");
+			return ret;
+		}
+
 		ret = regulator_set_voltage(hsusb_vddcx, 0,
 			USB_PHY_VDD_DIG_VOL_MAX);
 		if (ret)
 			dev_err(motg->phy.dev, "unable to set the voltage "
 					"for hsusb vddcx\n");
-		ret = regulator_disable(hsusb_vddcx);
-		if (ret)
-			dev_err(motg->phy.dev, "unable to disable hsusb vddcx\n");
 
 		regulator_put(hsusb_vddcx);
 	}
@@ -148,11 +156,6 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 					"for hsusb 3p3\n");
 			goto put_3p3;
 		}
-		rc = regulator_enable(hsusb_3p3);
-		if (rc) {
-			dev_err(motg->phy.dev, "unable to enable the hsusb 3p3\n");
-			goto put_3p3;
-		}
 		hsusb_1p8 = regulator_get(motg->phy.dev, "HSUSB_1p8");
 		if (IS_ERR(hsusb_1p8)) {
 			dev_err(motg->phy.dev, "unable to get hsusb 1p8\n");
@@ -166,17 +169,12 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 					"for hsusb 1p8\n");
 			goto put_1p8;
 		}
-		rc = regulator_enable(hsusb_1p8);
-		if (rc) {
-			dev_err(motg->phy.dev, "unable to enable the hsusb 1p8\n");
-			goto put_1p8;
-		}
 
 		return 0;
 	}
 
-	regulator_disable(hsusb_1p8);
 put_1p8:
+	regulator_set_voltage(hsusb_1p8, 0, USB_PHY_1P8_VOL_MAX);
 	regulator_put(hsusb_1p8);
 disable_3p3:
 	regulator_disable(hsusb_3p3);
@@ -211,7 +209,7 @@ static int msm_hsusb_config_vddcx(int high)
 }
 #endif
 
-static int msm_hsusb_ldo_set_mode(int on)
+static int msm_hsusb_ldo_enable(struct msm_otg *motg, int on)
 {
 	int ret = 0;
 
@@ -233,23 +231,55 @@ static int msm_hsusb_ldo_set_mode(int on)
 				"HSUSB_1p8\n", __func__);
 			return ret;
 		}
+
+		ret = regulator_enable(hsusb_1p8);
+		if (ret) {
+			dev_err(motg->phy.dev, "%s: unable to enable the hsusb 1p8\n",
+				__func__);
+			regulator_set_optimum_mode(hsusb_1p8, 0);
+			return ret;
+		}
+
 		ret = regulator_set_optimum_mode(hsusb_3p3,
 				USB_PHY_3P3_HPM_LOAD);
 		if (ret < 0) {
 			pr_err("%s: Unable to set HPM of the regulator "
 				"HSUSB_3p3\n", __func__);
-			regulator_set_optimum_mode(hsusb_1p8,
-				USB_PHY_1P8_LPM_LOAD);
+			regulator_set_optimum_mode(hsusb_1p8, 0);
+			regulator_disable(hsusb_1p8);
 			return ret;
 		}
+
+		ret = regulator_enable(hsusb_3p3);
+		if (ret) {
+			dev_err(motg->phy.dev, "%s: unable to enable the hsusb 3p3\n",
+				__func__);
+			regulator_set_optimum_mode(hsusb_3p3, 0);
+			regulator_set_optimum_mode(hsusb_1p8, 0);
+			regulator_disable(hsusb_1p8);
+			return ret;
+		}
+
 	} else {
-		ret = regulator_set_optimum_mode(hsusb_1p8,
-				USB_PHY_1P8_LPM_LOAD);
+		ret = regulator_disable(hsusb_1p8);
+		if (ret) {
+			dev_err(motg->phy.dev, "%s: unable to disable the hsusb 1p8\n",
+				__func__);
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(hsusb_1p8, 0);
 		if (ret < 0)
 			pr_err("%s: Unable to set LPM of the regulator "
 				"HSUSB_1p8\n", __func__);
-		ret = regulator_set_optimum_mode(hsusb_3p3,
-				USB_PHY_3P3_LPM_LOAD);
+
+		ret = regulator_disable(hsusb_3p3);
+		if (ret) {
+			dev_err(motg->phy.dev, "%s: unable to disable the hsusb 3p3\n",
+				 __func__);
+			return ret;
+		}
+		ret = regulator_set_optimum_mode(hsusb_3p3, 0);
 		if (ret < 0)
 			pr_err("%s: Unable to set LPM of the regulator "
 				"HSUSB_3p3\n", __func__);
@@ -562,7 +592,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY &&
 			motg->pdata->otg_control == OTG_PMIC_CONTROL) {
-		msm_hsusb_ldo_set_mode(0);
+		msm_hsusb_ldo_enable(motg, 0);
 		msm_hsusb_config_vddcx(0);
 	}
 
@@ -600,7 +630,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY &&
 			motg->pdata->otg_control == OTG_PMIC_CONTROL) {
-		msm_hsusb_ldo_set_mode(1);
+		msm_hsusb_ldo_enable(motg, 1);
 		msm_hsusb_config_vddcx(1);
 		writel(readl(USB_PHY_CTRL) & ~PHY_RETEN, USB_PHY_CTRL);
 	}
@@ -1785,19 +1815,26 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	ret = msm_hsusb_init_vddcx(motg, 1);
 	if (ret) {
-		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
+		dev_err(&pdev->dev, "hsusb vddcx init failed\n");
 		goto free_regs;
+	}
+
+	ret = msm_hsusb_config_vddcx(1);
+	if (ret) {
+		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
+		goto free_init_vddcx;
 	}
 
 	ret = msm_hsusb_ldo_init(motg, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
-		goto vddcx_exit;
+		goto free_init_vddcx;
 	}
-	ret = msm_hsusb_ldo_set_mode(1);
+
+	ret = msm_hsusb_ldo_enable(motg, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
-		goto ldo_exit;
+		goto free_ldo_init;
 	}
 
 	if (motg->core_clk)
@@ -1872,9 +1909,10 @@ free_irq:
 destroy_wlock:
 	wake_lock_destroy(&motg->wlock);
 	clk_disable(motg->pclk);
-ldo_exit:
+	msm_hsusb_ldo_enable(motg, 0);
+free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
-vddcx_exit:
+free_init_vddcx:
 	msm_hsusb_init_vddcx(motg, 0);
 free_regs:
 	iounmap(motg->regs);
@@ -1946,7 +1984,9 @@ static int msm_otg_remove(struct platform_device *pdev)
 		clk_disable(motg->pclk_src);
 		clk_put(motg->pclk_src);
 	}
+	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
+	msm_hsusb_init_vddcx(motg, 0);
 
 	iounmap(motg->regs);
 	pm_runtime_set_suspended(&pdev->dev);
