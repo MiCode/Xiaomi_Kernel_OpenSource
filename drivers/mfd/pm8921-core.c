@@ -406,10 +406,20 @@ bail:
 	return ret;
 }
 
+static const char * const pm8921_rev_names[] = {
+	[PM8XXX_REVISION_8921_TEST]	= "test",
+	[PM8XXX_REVISION_8921_1p0]	= "1.0",
+	[PM8XXX_REVISION_8921_1p1]	= "1.1",
+	[PM8XXX_REVISION_8921_2p0]	= "2.0",
+};
+
 static int pm8921_probe(struct platform_device *pdev)
 {
 	const struct pm8921_platform_data *pdata = pdev->dev.platform_data;
+	const char *revision_name = "unknown";
 	struct pm8921 *pmic;
+	enum pm8xxx_version version;
+	int revision;
 	int rc;
 	u8 val;
 
@@ -446,6 +456,17 @@ static int pm8921_probe(struct platform_device *pdev)
 	pmic->dev = &pdev->dev;
 	pm8921_drvdata.pm_chip_data = pmic;
 	platform_set_drvdata(pdev, &pm8921_drvdata);
+
+	/* Print out human readable version and revision names. */
+	version = pm8xxx_get_version(pmic->dev);
+	if (version == PM8XXX_VERSION_8921) {
+		revision = pm8xxx_get_revision(pmic->dev);
+		if (revision >= 0 && revision < ARRAY_SIZE(pm8921_rev_names))
+			revision_name = pm8921_rev_names[revision];
+		pr_info("PMIC version: PM8921 rev %s\n", revision_name);
+	} else {
+		WARN_ON(version != PM8XXX_VERSION_8921);
+	}
 
 	rc = pm8921_add_subdevices(pdata, pmic);
 	if (rc) {
