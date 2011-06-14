@@ -637,6 +637,14 @@ config QSEECOM
 	  Qualcomm Secure Execution Environment (QSEE) using Secure Channel
 	  Manager (SCM) interface.
 
+config QFP_FUSE
+	tristate "QFPROM Fuse Read/Write support"
+	help
+	  This option enables device driver to read/write QFPROM
+	  fuses. The ioctls provides the necessary interface
+	  to the fuse block. Currently this is supported only
+	  on FSM targets.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
