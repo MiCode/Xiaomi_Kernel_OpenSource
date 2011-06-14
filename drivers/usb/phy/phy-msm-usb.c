@@ -490,19 +490,19 @@ static int msm_otg_reset(struct usb_phy *phy)
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 	clk_disable(motg->clk);
-	if (pdata->otg_control == OTG_PHY_CONTROL) {
-		val = readl(USB_OTGSC);
-		if (pdata->mode == USB_OTG) {
-			ulpi_val = ULPI_INT_IDGRD | ULPI_INT_SESS_VALID;
-			val |= OTGSC_IDIE | OTGSC_BSVIE;
-		} else if (pdata->mode == USB_PERIPHERAL) {
-			ulpi_val = ULPI_INT_SESS_VALID;
-			val |= OTGSC_BSVIE;
-		}
-		writel(val, USB_OTGSC);
-		ulpi_write(phy, ulpi_val, ULPI_USB_INT_EN_RISE);
-		ulpi_write(phy, ulpi_val, ULPI_USB_INT_EN_FALL);
+
+	val = readl_relaxed(USB_OTGSC);
+	if (pdata->mode == USB_OTG) {
+		ulpi_val = ULPI_INT_IDGRD | ULPI_INT_SESS_VALID;
+		val |= OTGSC_IDIE | OTGSC_BSVIE;
+	} else if (pdata->mode == USB_PERIPHERAL) {
+		ulpi_val = ULPI_INT_SESS_VALID;
+		val |= OTGSC_BSVIE;
 	}
+	writel_relaxed(val, USB_OTGSC);
+	ulpi_write(phy, ulpi_val, ULPI_USB_INT_EN_RISE);
+	ulpi_write(phy, ulpi_val, ULPI_USB_INT_EN_FALL);
+
 	msm_chg_enable_aca_det(motg);
 	msm_chg_enable_aca_intr(motg);
 
@@ -1338,17 +1338,7 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 
 	switch (pdata->mode) {
 	case USB_OTG:
-		if (pdata->otg_control == OTG_PHY_CONTROL) {
-			if (otgsc & OTGSC_ID)
-				set_bit(ID, &motg->inputs);
-			else
-				clear_bit(ID, &motg->inputs);
-
-			if (otgsc & OTGSC_BSV)
-				set_bit(B_SESS_VLD, &motg->inputs);
-			else
-				clear_bit(B_SESS_VLD, &motg->inputs);
-		} else if (pdata->otg_control == OTG_USER_CONTROL) {
+		if (pdata->otg_control == OTG_USER_CONTROL) {
 			if (pdata->default_mode == USB_HOST) {
 				clear_bit(ID, &motg->inputs);
 			} else if (pdata->default_mode == USB_PERIPHERAL) {
@@ -1358,6 +1348,16 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 				set_bit(ID, &motg->inputs);
 				clear_bit(B_SESS_VLD, &motg->inputs);
 			}
+		} else {
+			if (otgsc & OTGSC_ID)
+				set_bit(ID, &motg->inputs);
+			else
+				clear_bit(ID, &motg->inputs);
+
+			if (otgsc & OTGSC_BSV)
+				set_bit(B_SESS_VLD, &motg->inputs);
+			else
+				clear_bit(B_SESS_VLD, &motg->inputs);
 		}
 		break;
 	case USB_HOST:
