@@ -206,7 +206,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 
 	sk = xt_socket_get4_sk(skb, par);
 
-	if (sk) {
+	if (sk != NULL) {
 		bool wildcard;
 		bool transparent = true;
 
