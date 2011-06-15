@@ -134,6 +134,7 @@
 #define JPEGD_CC_REG				REG_MM(0x00A4)
 #define JPEGD_NS_REG				REG_MM(0x00AC)
 #define MAXI_EN_REG				REG_MM(0x0018)
+#define MAXI_EN2_REG				REG_MM(0x0020)
 #define MAXI_EN3_REG				REG_MM(0x002C)
 #define MDP_CC_REG				REG_MM(0x00C0)
 #define MDP_MD0_REG				REG_MM(0x00C4)
@@ -664,24 +665,32 @@ static struct branch_clk vfe_axi_clk = {
 
 static struct branch_clk rot_axi_clk = {
 	.b = {
+		.ctl_reg = MAXI_EN2_REG,
+		.en_mask = BIT(24),
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(6),
+		.halt_reg = DBG_BUS_VEC_E_REG,
+		.halt_bit = 2,
 	},
 	.c = {
 		.dbg_name = "rot_axi_clk",
-		.ops = &clk_ops_reset,
+		.ops = &clk_ops_branch,
 		CLK_INIT(rot_axi_clk.c),
 	},
 };
 
 static struct branch_clk vpe_axi_clk = {
 	.b = {
+		.ctl_reg = MAXI_EN2_REG,
+		.en_mask = BIT(26),
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(15),
+		.halt_reg = DBG_BUS_VEC_E_REG,
+		.halt_bit = 1,
 	},
 	.c = {
 		.dbg_name = "vpe_axi_clk",
-		.ops = &clk_ops_reset,
+		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_axi_clk.c),
 	},
 };
@@ -2606,6 +2615,7 @@ static struct rcg_clk rot_clk = {
 	.set_rate = set_rate_div_banked,
 	.freq_tbl = clk_tbl_rot,
 	.bank_masks = &bdiv_info_rot,
+	.depends = &rot_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "rot_clk",
@@ -2828,6 +2838,7 @@ static struct rcg_clk vpe_clk = {
 	.ns_mask = (BM(15, 12) | BM(2, 0)),
 	.set_rate = set_rate_nop,
 	.freq_tbl = clk_tbl_vpe,
+	.depends = &vpe_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "vpe_clk",
@@ -3253,8 +3264,10 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_HS(0x13), &imem_axi_clk.c },
 	{ TEST_MM_HS(0x14), &jpegd_axi_clk.c },
 	{ TEST_MM_HS(0x15), &mdp_axi_clk.c },
+	{ TEST_MM_HS(0x16), &rot_axi_clk.c },
 	{ TEST_MM_HS(0x17), &vcodec_axi_clk.c },
 	{ TEST_MM_HS(0x18), &vfe_axi_clk.c },
+	{ TEST_MM_HS(0x19), &vpe_axi_clk.c },
 	{ TEST_MM_HS(0x1A), &mdp_clk.c },
 	{ TEST_MM_HS(0x1B), &rot_clk.c },
 	{ TEST_MM_HS(0x1C), &vpe_clk.c },
@@ -3706,7 +3719,7 @@ static void __init reg_init(void)
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
 	rmwreg(0x000207F9, MAXI_EN_REG,  0x0FFFFFFF);
-	/* MAXI_EN2_REG is owned by the RPM.  Don't touch it. */
+	writel_relaxed(0x7027FCFF, MAXI_EN2_REG);
 	writel_relaxed(0x3FE7FCFF, MAXI_EN3_REG);
 	writel_relaxed(0x000001D8, SAXI_EN_REG);
 
