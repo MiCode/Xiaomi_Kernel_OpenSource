@@ -16,6 +16,7 @@
  */
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
+#include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
 #include <linux/kthread.h>
@@ -77,8 +78,48 @@
 #define SSBI_REG_ADDR_PON_CNTL_5 0x7B
 #define PM8058_HARD_RESET_EN_MASK 0x08
 
-/* Regulator L22 control register */
+/* Regulator master enable addresses */
+#define SSBI_REG_ADDR_VREG_EN_MSM	0x018
+#define SSBI_REG_ADDR_VREG_EN_GRP_5_4	0x1C8
+
+/* Regulator control registers for shutdown/reset */
+#define SSBI_REG_ADDR_S0_CTRL		0x004
+#define SSBI_REG_ADDR_S1_CTRL		0x005
+#define SSBI_REG_ADDR_S3_CTRL		0x111
+#define SSBI_REG_ADDR_L21_CTRL		0x120
 #define SSBI_REG_ADDR_L22_CTRL		0x121
+
+#define REGULATOR_ENABLE_MASK		0x80
+#define REGULATOR_ENABLE		0x80
+#define REGULATOR_DISABLE		0x00
+#define REGULATOR_PULL_DOWN_MASK	0x40
+#define REGULATOR_PULL_DOWN_EN		0x40
+#define REGULATOR_PULL_DOWN_DIS		0x00
+
+/* Buck CTRL register */
+#define SMPS_LEGACY_VREF_SEL		0x20
+#define SMPS_LEGACY_VPROG_MASK		0x1F
+#define SMPS_ADVANCED_BAND_MASK		0xC0
+#define SMPS_ADVANCED_BAND_SHIFT	6
+#define SMPS_ADVANCED_VPROG_MASK	0x3F
+
+/* Buck TEST2 registers for shutdown/reset */
+#define SSBI_REG_ADDR_S0_TEST2		0x084
+#define SSBI_REG_ADDR_S1_TEST2		0x085
+#define SSBI_REG_ADDR_S3_TEST2		0x11A
+
+#define REGULATOR_BANK_WRITE		0x80
+#define REGULATOR_BANK_MASK		0x70
+#define REGULATOR_BANK_SHIFT		4
+#define REGULATOR_BANK_SEL(n)		((n) << REGULATOR_BANK_SHIFT)
+
+/* Buck TEST2 register bank 1 */
+#define SMPS_LEGACY_VLOW_SEL		0x01
+
+/* Buck TEST2 register bank 7 */
+#define SMPS_ADVANCED_MODE_MASK		0x02
+#define SMPS_ADVANCED_MODE		0x02
+#define SMPS_LEGACY_MODE		0x00
 
 /* SLEEP CNTL register */
 #define SSBI_REG_ADDR_SLEEP_CNTL	0x02B
@@ -362,15 +403,170 @@ int pm8058_watchdog_reset_control(int enable)
 }
 EXPORT_SYMBOL(pm8058_watchdog_reset_control);
 
-int pm8058_reset_pwr_off(int reset)
+/*
+ * Set an SMPS regulator to be disabled in its CTRL register, but enabled
+ * in the master enable register.  Also set it's pull down enable bit.
+ * Take care to make sure that the output voltage doesn't change if switching
+ * from advanced mode to legacy mode.
+ */
+static int disable_smps_locally_set_pull_down(u16 ctrl_addr, u16 test2_addr,
+		u16 master_enable_addr, u8 master_enable_bit)
 {
-	int		rc;
-	u8		pon;
-	u8		ctrl;
-	u8		smpl;
+	int rc = 0;
+	u8 vref_sel, vlow_sel, band, vprog, bank, reg;
 
 	if (pmic_chip == NULL)
 		return -ENODEV;
+
+	bank = REGULATOR_BANK_SEL(7);
+	rc = ssbi_write(pmic_chip->dev, test2_addr, &bank, 1);
+	if (rc) {
+		pr_err("%s: FAIL ssbi_write(0x%03X): rc=%d\n", __func__,
+			test2_addr, rc);
+		goto done;
+	}
+
+	rc = ssbi_read(pmic_chip->dev, test2_addr, &reg, 1);
+	if (rc) {
+		pr_err("%s: FAIL pm8058_read(0x%03X): rc=%d\n",
+		       __func__, test2_addr, rc);
+		goto done;
+	}
+
+	/* Check if in advanced mode. */
+	if ((reg & SMPS_ADVANCED_MODE_MASK) == SMPS_ADVANCED_MODE) {
+		/* Determine current output voltage. */
+		rc = ssbi_read(pmic_chip->dev, ctrl_addr, &reg, 1);
+		if (rc) {
+			pr_err("%s: FAIL pm8058_read(0x%03X): rc=%d\n",
+			       __func__, ctrl_addr, rc);
+			goto done;
+		}
+
+		band = (reg & SMPS_ADVANCED_BAND_MASK)
+			>> SMPS_ADVANCED_BAND_SHIFT;
+		switch (band) {
+		case 3:
+			vref_sel = 0;
+			vlow_sel = 0;
+			break;
+		case 2:
+			vref_sel = SMPS_LEGACY_VREF_SEL;
+			vlow_sel = 0;
+			break;
+		case 1:
+			vref_sel = SMPS_LEGACY_VREF_SEL;
+			vlow_sel = SMPS_LEGACY_VLOW_SEL;
+			break;
+		default:
+			pr_err("%s: regulator already disabled\n", __func__);
+			return -EPERM;
+		}
+		vprog = (reg & SMPS_ADVANCED_VPROG_MASK);
+		/* Round up if fine step is in use. */
+		vprog = (vprog + 1) >> 1;
+		if (vprog > SMPS_LEGACY_VPROG_MASK)
+			vprog = SMPS_LEGACY_VPROG_MASK;
+
+		/* Set VLOW_SEL bit. */
+		bank = REGULATOR_BANK_SEL(1);
+		rc = ssbi_write(pmic_chip->dev, test2_addr, &bank, 1);
+		if (rc) {
+			pr_err("%s: FAIL ssbi_write(0x%03X): rc=%d\n",
+			       __func__, test2_addr, rc);
+			goto done;
+		}
+		rc = pm8058_masked_write(test2_addr,
+			REGULATOR_BANK_WRITE | REGULATOR_BANK_SEL(1)
+				| vlow_sel,
+			REGULATOR_BANK_WRITE | REGULATOR_BANK_MASK
+				| SMPS_LEGACY_VLOW_SEL);
+		if (rc)
+			goto done;
+
+		/* Switch to legacy mode */
+		bank = REGULATOR_BANK_SEL(7);
+		rc = ssbi_write(pmic_chip->dev, test2_addr, &bank, 1);
+		if (rc) {
+			pr_err("%s: FAIL ssbi_write(0x%03X): rc=%d\n", __func__,
+				test2_addr, rc);
+			goto done;
+		}
+		rc = pm8058_masked_write(test2_addr,
+				REGULATOR_BANK_WRITE | REGULATOR_BANK_SEL(7)
+					| SMPS_LEGACY_MODE,
+				REGULATOR_BANK_WRITE | REGULATOR_BANK_MASK
+					| SMPS_ADVANCED_MODE_MASK);
+		if (rc)
+			goto done;
+
+		/* Enable locally, enable pull down, keep voltage the same. */
+		rc = pm8058_masked_write(ctrl_addr,
+			REGULATOR_ENABLE | REGULATOR_PULL_DOWN_EN
+				| vref_sel | vprog,
+			REGULATOR_ENABLE_MASK | REGULATOR_PULL_DOWN_MASK
+			       | SMPS_LEGACY_VREF_SEL | SMPS_LEGACY_VPROG_MASK);
+		if (rc)
+			goto done;
+	}
+
+	/* Enable in master control register. */
+	rc = pm8058_masked_write(master_enable_addr, master_enable_bit,
+				 master_enable_bit);
+	if (rc)
+		goto done;
+
+	/* Disable locally and enable pull down. */
+	rc = pm8058_masked_write(ctrl_addr,
+		REGULATOR_DISABLE | REGULATOR_PULL_DOWN_EN,
+		REGULATOR_ENABLE_MASK | REGULATOR_PULL_DOWN_MASK);
+
+done:
+	return rc;
+}
+
+static int disable_ldo_locally_set_pull_down(u16 ctrl_addr,
+		u16 master_enable_addr, u8 master_enable_bit)
+{
+	int rc;
+
+	/* Enable LDO in master control register. */
+	rc = pm8058_masked_write(master_enable_addr, master_enable_bit,
+				 master_enable_bit);
+	if (rc)
+		goto done;
+
+	/* Disable LDO in CTRL register and set pull down */
+	rc = pm8058_masked_write(ctrl_addr,
+		REGULATOR_DISABLE | REGULATOR_PULL_DOWN_EN,
+		REGULATOR_ENABLE_MASK | REGULATOR_PULL_DOWN_MASK);
+
+done:
+	return rc;
+}
+
+int pm8058_reset_pwr_off(int reset)
+{
+	int rc;
+	u8 pon, ctrl, smpl;
+
+	if (pmic_chip == NULL)
+		return -ENODEV;
+
+	/* When shutting down, enable active pulldowns on important rails. */
+	if (!reset) {
+		/* Disable SMPS's 0,1,3 locally and set pulldown enable bits. */
+		disable_smps_locally_set_pull_down(SSBI_REG_ADDR_S0_CTRL,
+		     SSBI_REG_ADDR_S0_TEST2, SSBI_REG_ADDR_VREG_EN_MSM, BIT(7));
+		disable_smps_locally_set_pull_down(SSBI_REG_ADDR_S1_CTRL,
+		     SSBI_REG_ADDR_S1_TEST2, SSBI_REG_ADDR_VREG_EN_MSM, BIT(6));
+		disable_smps_locally_set_pull_down(SSBI_REG_ADDR_S3_CTRL,
+		     SSBI_REG_ADDR_S3_TEST2, SSBI_REG_ADDR_VREG_EN_GRP_5_4,
+		     BIT(7) | BIT(4));
+		/* Disable LDO 21 locally and set pulldown enable bit. */
+		disable_ldo_locally_set_pull_down(SSBI_REG_ADDR_L21_CTRL,
+		     SSBI_REG_ADDR_VREG_EN_GRP_5_4, BIT(1));
+	}
 
 	/* Set regulator L22 to 1.225V in high power mode. */
 	rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_L22_CTRL, &ctrl, 1);
