@@ -229,6 +229,29 @@ struct msm_otg {
 	struct wake_lock wlock;
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
+	unsigned long caps;
+	/*
+	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
+	 * analog regulators while going to low power mode.
+	 * Currently only 8960(28nm PHY) has the support to allowing PHY
+	 * power collapse since it doesn't have leakage currents while
+	 * turning off the power rails.
+	 */
+#define ALLOW_PHY_POWER_COLLAPSE	BIT(0)
+	/*
+	 * Allow PHY RETENTION mode before turning off the digital
+	 * voltage regulator(VDDCX).
+	 */
+#define ALLOW_PHY_RETENTION		BIT(1)
+	  /*
+	   * Disable the OTG comparators to save more power
+	   * if depends on PMIC for VBUS and ID interrupts.
+	   */
+#define ALLOW_PHY_COMP_DISABLE		BIT(2)
+	unsigned long lpm_flags;
+#define PHY_PWR_COLLAPSED		BIT(0)
+#define PHY_RETENTIONED			BIT(1)
+#define PHY_OTG_COMP_DISABLED		BIT(2)
 };
 
 struct msm_hsic_host_platform_data {
