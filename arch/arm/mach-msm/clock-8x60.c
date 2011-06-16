@@ -116,6 +116,7 @@
 #define DBG_BUS_VEC_E_REG			REG_MM(0x01D8)
 #define DBG_BUS_VEC_F_REG			REG_MM(0x01DC)
 #define DBG_BUS_VEC_H_REG			REG_MM(0x01E4)
+#define DBG_BUS_VEC_I_REG			REG_MM(0x01E8)
 #define DBG_CFG_REG_HS_REG			REG_MM(0x01B4)
 #define DBG_CFG_REG_LS_REG			REG_MM(0x01B8)
 #define GFX2D0_CC_REG				REG_MM(0x0060)
@@ -694,6 +695,21 @@ static struct branch_clk vpe_axi_clk = {
 		.dbg_name = "vpe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_axi_clk.c),
+	},
+};
+
+static struct branch_clk smi_2x_axi_clk = {
+	.b = {
+		.ctl_reg = MAXI_EN2_REG,
+		.en_mask = BIT(30),
+		.halt_reg = DBG_BUS_VEC_I_REG,
+		.halt_bit = 0,
+	},
+	.c = {
+		.dbg_name = "smi_2x_axi_clk",
+		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_SKIP_AUTO_OFF,
+		CLK_INIT(smi_2x_axi_clk.c),
 	},
 };
 
@@ -3135,7 +3151,7 @@ DEFINE_CLK_RPM(mmfab_clk, mmfab_a_clk, MM_FABRIC, NULL);
 DEFINE_CLK_RPM(mmfpb_clk, mmfpb_a_clk, MMFPB, NULL);
 DEFINE_CLK_RPM(sfab_clk, sfab_a_clk, SYSTEM_FABRIC, NULL);
 DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
-DEFINE_CLK_RPM(smi_clk, smi_a_clk, SMI, NULL);
+DEFINE_CLK_RPM(smi_clk, smi_a_clk, SMI, &smi_2x_axi_clk.c);
 
 static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
@@ -3306,6 +3322,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_HS(0x1C), &vpe_clk.c },
 	{ TEST_MM_HS(0x1E), &hdmi_tv_clk.c },
 	{ TEST_MM_HS(0x1F), &mdp_tv_clk.c },
+	{ TEST_MM_HS(0x24), &smi_2x_axi_clk.c },
 
 	{ TEST_MM_HS2X(0x24), &smi_clk.c },
 	{ TEST_MM_HS2X(0x24), &smi_a_clk.c },
