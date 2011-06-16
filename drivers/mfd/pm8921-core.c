@@ -28,6 +28,9 @@
 
 #define REG_MPP_BASE		0x050
 
+#define REG_TEMP_ALARM_CTRL	0x1B
+#define REG_TEMP_ALARM_PWM	0x9B
+
 #define PM8921_VERSION_MASK	0xFFF0
 #define PM8921_VERSION_VALUE	0x06F0
 #define PM8921_REVISION_MASK	0x000F
@@ -285,6 +288,30 @@ static struct mfd_cell leds_cell = {
 	.id		= -1,
 };
 
+static const struct resource thermal_alarm_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE("pm8921_tempstat_irq", PM8921_TEMPSTAT_IRQ),
+	SINGLE_IRQ_RESOURCE("pm8921_overtemp_irq", PM8921_OVERTEMP_IRQ),
+};
+
+static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
+	.adc_channel =			CHANNEL_DIE_TEMP,
+	.adc_type =			PM8XXX_TM_ADC_PM8921_ADC,
+	.reg_addr_temp_alarm_ctrl =	REG_TEMP_ALARM_CTRL,
+	.reg_addr_temp_alarm_pwm =	REG_TEMP_ALARM_PWM,
+	.tm_name =			"pm8921_tz",
+	.irq_name_temp_stat =		"pm8921_tempstat_irq",
+	.irq_name_over_temp =		"pm8921_overtemp_irq",
+};
+
+static struct mfd_cell thermal_alarm_cell = {
+	.name		= PM8XXX_TM_DEV_NAME,
+	.id		= -1,
+	.resources	= thermal_alarm_cell_resources,
+	.num_resources	= ARRAY_SIZE(thermal_alarm_cell_resources),
+	.platform_data	= &thermal_alarm_cdata,
+	.pdata_size	= sizeof(struct pm8xxx_tm_core_data),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
@@ -473,6 +500,14 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
+	}
+
+	ret = mfd_add_devices(pmic->dev, 0, &thermal_alarm_cell, 1, NULL,
+				irq_base);
+	if (ret) {
+		pr_err("Failed to add thermal alarm subdevice ret=%d\n",
+			ret);
+		goto bail;
 	}
 
 	return 0;

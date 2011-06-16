@@ -24,6 +24,7 @@
 #include <linux/mfd/pm8xxx/rtc.h>
 #include <linux/mfd/pm8xxx/pwm.h>
 #include <linux/mfd/pm8xxx/misc.h>
+#include <linux/mfd/pm8xxx/tm.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
@@ -99,6 +100,9 @@
 #define PM8921_BMS_GOOD_OCV		PM8921_IRQ_BLOCK_BIT(15, 2)
 #define PM8921_BMS_VSENSE_AVG		PM8921_IRQ_BLOCK_BIT(15, 1)
 #define PM8921_BMS_CCADC_EOC		PM8921_IRQ_BLOCK_BIT(15, 0)
+
+#define PM8921_OVERTEMP_IRQ		PM8921_IRQ_BLOCK_BIT(4, 2)
+#define PM8921_TEMPSTAT_IRQ		PM8921_IRQ_BLOCK_BIT(6, 7)
 
 /* PMIC I/O Resources */
 #define PM8921_RTC_BASE 0x11D
