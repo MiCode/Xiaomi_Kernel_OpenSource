@@ -1181,14 +1181,14 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 		.playback = {
 			.stream_name = "Voice Playback",
 			.channels_min = 1,
-			.channels_max = 1,
+			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 			.formats = OMAP_ABE_FORMATS | SNDRV_PCM_FMTBIT_S16_LE,
 		},
 		.capture = {
 			.stream_name = "Voice Capture",
 			.channels_min = 1,
-			.channels_max = 1,
+			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 			.formats = OMAP_ABE_FORMATS | SNDRV_PCM_FMTBIT_S16_LE,
 		},
