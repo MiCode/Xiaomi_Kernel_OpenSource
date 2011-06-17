@@ -410,21 +410,10 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 	mutex_lock(&sb_in_lock);
 	resp.sb_in_rsp_addr = sb_in_virt + cmd.sb_in_cmd_len;
 	resp.sb_in_rsp_len = req.resp_len;
+	memcpy(req.resp_buf, resp.sb_in_rsp_addr, resp.sb_in_rsp_len);
+	/* Zero out memory for security purpose */
+	memset(sb_in_virt, 0, reqd_len_sb_in);
 	mutex_unlock(&sb_in_lock);
-
-	/* Cmd is done now. Copy the response from SB in to user */
-	if (req.resp_len >= resp.sb_in_rsp_len) {
-		PDEBUG("Before memcpy resp_buf");
-		mutex_lock(&sb_in_lock);
-		memcpy(req.resp_buf, resp.sb_in_rsp_addr, resp.sb_in_rsp_len);
-		mutex_unlock(&sb_in_lock);
-	} else {
-		PDEBUG("Provided response buffer is smaller"
-				" than required. Required: %u,"
-				" Provided: %u",
-				resp.sb_in_rsp_len, req.resp_len);
-		ret = -ENOMEM;
-	}
 
 	PDEBUG("sending cmd_req.rsp "
 			"size: %u, ptr: 0x%p", req.resp_len,
