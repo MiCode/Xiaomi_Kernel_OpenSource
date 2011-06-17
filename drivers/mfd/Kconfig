@@ -571,6 +571,16 @@ config MFD_PM8XXX_SPK
 	  This driver implements several external speaker amplifier APIs that
 	  may be needed in order to control the PM8XXX PMIC chip.
 
+config MFD_PM8XXX_BATT_ALARM
+	tristate "Support for Qualcomm PM8xxx battery voltage alarm"
+	depends on MFD_PM8XXX
+	help
+	  This driver provides a means monitor battery under and over-voltage
+	  conditions.  An upper and/or lower threshold can be specified for
+	  normal operation.  A wakeable interrupt is triggered when the battery
+	  voltage leaves the accepatable range which then calls a notifier call
+	  chain.
+
 config MFD_PM8821_IRQ
 	bool "Support for Qualcomm PM8821 IRQ features"
 	default y if MFD_PM8821_CORE
