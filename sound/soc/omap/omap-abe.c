@@ -1002,14 +1002,30 @@ static int omap_abe_dai_trigger(struct snd_pcm_substream *substream,
 static int omap_abe_dai_bespoke_trigger(struct snd_pcm_substream *substream,
 				  int cmd, struct snd_soc_dai *dai)
 {
+	struct omap_abe_data *abe_priv = snd_soc_dai_get_drvdata(dai);
+	int ret = 0;
+
 	dev_dbg(dai->dev, "%s: %s cmd %d\n", __func__, dai->name, cmd);
+
+	if (dai->id == ABE_FRONTEND_DAI_MODEM) {
+
+		dev_dbg(abe_priv->modem_dai->dev, "%s: MODEM stream %d cmd %d\n",
+				__func__, substream->stream, cmd);
+
+		ret = snd_soc_dai_trigger(abe_priv->modem_substream[substream->stream],
+				cmd, abe_priv->modem_dai);
+		if (ret < 0) {
+			dev_err(abe_priv->modem_dai->dev, "MODEM trigger failed\n");
+			return ret;
+		}
+	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		playback_trigger(substream, dai, cmd);
 	else
 		capture_trigger(substream, dai, cmd);
 
-	return 0;
+	return ret;
 }
 
 static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
