@@ -885,7 +885,7 @@ static int dapm_new_mux(struct snd_soc_dapm_widget *w)
 		if (dapm->codec && dapm->codec->name_prefix)
 			prefix = dapm->codec->name_prefix;
 		else
-			prefix = w->name;
+			prefix = NULL;
 
 		if (shared) {
 			name = w->kcontrol_news[0].name;
@@ -904,7 +904,7 @@ static int dapm_new_mux(struct snd_soc_dapm_widget *w)
 		 * cut the prefix off the front of the widget name.
 		 */
 		kcontrol = snd_soc_cnew(&w->kcontrol_news[0], wlist,
-					name + prefix_len, prefix);
+					name, prefix);
 		ret = snd_ctl_add(card, kcontrol);
 		if (ret < 0) {
 			dev_err(dapm->dev,
