@@ -663,13 +663,6 @@ int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 	int uV = min_uV;
 	int lim_min_uV, lim_max_uV, i, rc;
 
-	/*
-	 * TODO: make this function a no-op so that it can be called by
-	 * consumers before RPM capabilities are present. (needed for
-	 * acpuclock driver)
-	 */
-	return 0;
-
 	if (vreg_id < 0 || vreg_id > RPM_VREG_ID_PM8921_MAX_REAL) {
 		pr_err("invalid regulator id=%d\n", vreg_id);
 		return -EINVAL;
@@ -745,13 +738,6 @@ int rpm_vreg_set_frequency(enum rpm_vreg_id vreg_id, enum rpm_vreg_freq freq)
 	unsigned int mask[2] = {0}, val[2] = {0};
 	struct vreg *vreg;
 	int rc;
-
-	/*
-	 * TODO: make this function a no-op so that it can be called by
-	 * consumers before RPM capabilities are present. (needed for
-	 * acpuclock driver)
-	 */
-	return 0;
 
 	if (vreg_id < 0 || vreg_id > RPM_VREG_ID_PM8921_MAX_REAL) {
 		pr_err("invalid regulator id=%d\n", vreg_id);

@@ -14,6 +14,7 @@
 #define __ARCH_ARM_MACH_MSM_BOARD_MSM8960_H
 
 #include <mach/irqs.h>
+#include <mach/rpm-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
@@ -38,5 +39,8 @@ extern struct gpio_regulator_platform_data
 extern struct regulator_init_data msm_saw_regulator_pdata_s5;
 extern struct regulator_init_data msm_saw_regulator_pdata_s6;
 
+extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
+
 extern struct pm8921_bms_battery_data  palladium_1500_data;
+
 #endif

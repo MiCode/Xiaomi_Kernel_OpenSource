@@ -2676,7 +2676,7 @@ static struct platform_device fish_battery_device = {
 };
 #endif
 
-struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
+static struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= PM8921_MPP_PM_TO_SYS(7),
 	.dev	= {
@@ -2684,11 +2684,19 @@ struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
 	},
 };
 
-struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
+static struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 91,
 	.dev	= {
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
+	},
+};
+
+static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
+	.name	= "rpm-regulator",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_rpm_regulator_pdata,
 	},
 };
 
@@ -3389,6 +3397,7 @@ static void __init msm8960_sim_init(void)
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
 				ARRAY_SIZE(msm_rpmrs_levels)));
 	regulator_suppress_info_printing();
+	platform_device_register(&msm8960_device_rpm_regulator);
 	msm_clock_init(&msm8960_clock_init_data);
 	msm8960_device_ssbi_pm8921.dev.platform_data =
 				&msm8960_ssbi_pm8921_pdata;
@@ -3434,6 +3443,7 @@ static void __init msm8960_rumi3_init(void)
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
 				ARRAY_SIZE(msm_rpmrs_levels)));
 	regulator_suppress_info_printing();
+	platform_device_register(&msm8960_device_rpm_regulator);
 	msm_clock_init(&msm8960_dummy_clock_init_data);
 	gpiomux_init();
 	ethernet_init();
@@ -3472,6 +3482,7 @@ static void __init msm8960_cdp_init(void)
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
+	platform_device_register(&msm8960_device_rpm_regulator);
 	msm_clock_init(&msm8960_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
