@@ -1238,6 +1238,13 @@ config MSM7X27A_AUDIO
 	help
 	  Enable support for 7x27a. This provides audio functionality.
 
+config MSM_PROC_COMM_REGULATOR
+	bool
+	depends on MSM_PROC_COMM && REGULATOR
+	help
+	  Enable regulator framework support for regulators managed by PMLIB
+	  on the modem, and controlled through proccomm calls.
+
 config MSM_VREG_SWITCH_INVERTED
 	bool "Reverse vreg switch polarity"
 	default n
