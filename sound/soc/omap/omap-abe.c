@@ -255,10 +255,7 @@ static void enable_be_port(struct snd_soc_pcm_runtime *be,
 	case OMAP_ABE_DAI_PDM_DL1:
 	case OMAP_ABE_DAI_PDM_DL2:
 	case OMAP_ABE_DAI_PDM_VIB:
-		break;
 	case OMAP_ABE_DAI_PDM_UL:
-		omap_abe_port_enable(abe_priv->abe,
-				abe_priv->port[OMAP_ABE_BE_PORT_PDM_UL1]);
 		break;
 	case OMAP_ABE_DAI_BT_VX:
 		if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -392,10 +389,7 @@ static void disable_be_port(struct snd_soc_pcm_runtime *be,
 	case OMAP_ABE_DAI_PDM_DL1:
 	case OMAP_ABE_DAI_PDM_DL2:
 	case OMAP_ABE_DAI_PDM_VIB:
-		break;
 	case OMAP_ABE_DAI_PDM_UL:
-		omap_abe_port_disable(abe_priv->abe,
-				abe_priv->port[OMAP_ABE_BE_PORT_PDM_UL1]);
 		break;
 	case OMAP_ABE_DAI_BT_VX:
 		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
