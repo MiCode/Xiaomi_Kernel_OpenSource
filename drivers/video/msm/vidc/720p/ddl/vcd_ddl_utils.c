@@ -88,8 +88,9 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 	u32 guard_bytes, align_mask;
 	u32 physical_addr;
 	u32 align_offset;
-	u32 alloc_size;
+	u32 alloc_size, flags = 0;
 	struct ddl_context *ddl_context;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
 
 	if (!buff_addr) {
 		ERR("\n%s() Invalid Parameters", __func__);
@@ -121,18 +122,20 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 		goto bailout;
 	}
 	buff_addr->physical_base_addr = (u32 *) physical_addr;
-
-	buff_addr->virtual_base_addr =
-	    (u32 *) ioremap((unsigned long)physical_addr,
-			    sz + guard_bytes);
-	if (!buff_addr->virtual_base_addr) {
-
-		pr_err("%s: could not ioremap in kernel pmem buffers\n",
-		       __func__);
-			free_contiguous_memory_by_paddr(
-				(unsigned long) physical_addr);
-		goto bailout;
+	flags = MSM_SUBSYSTEM_MAP_KADDR;
+	buff_addr->mapped_buffer =
+	msm_subsystem_map_buffer((unsigned long)physical_addr,
+	alloc_size, flags, NULL, 0);
+	if (IS_ERR(buff_addr->mapped_buffer)) {
+		pr_err(" %s() buffer map failed", __func__);
+		goto free_acm_alloc;
 	}
+	mapped_buffer = buff_addr->mapped_buffer;
+	if (!mapped_buffer->vaddr) {
+		pr_err("%s() mapped virtual address is NULL", __func__);
+		goto free_map_buffers;
+	}
+	buff_addr->virtual_base_addr = mapped_buffer->vaddr;
 	memset(buff_addr->virtual_base_addr, 0 , sz + guard_bytes);
 	buff_addr->buffer_size = sz;
 
@@ -151,10 +154,16 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 		buff_addr->buffer_size);
 
 	return;
+free_map_buffers:
+	msm_subsystem_unmap_buffer(buff_addr->mapped_buffer);
+free_acm_alloc:
+	free_contiguous_memory_by_paddr(
+		(unsigned long) physical_addr);
 bailout:
 	buff_addr->physical_base_addr = NULL;
 	buff_addr->virtual_base_addr = NULL;
 	buff_addr->buffer_size = 0;
+	buff_addr->mapped_buffer = NULL;
 }
 
 void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
@@ -167,8 +176,8 @@ void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
 		buff_addr->physical_base_addr, buff_addr->virtual_base_addr,
 		buff_addr->buffer_size);
 
-	if (buff_addr->virtual_base_addr)
-		iounmap((void *)buff_addr->virtual_base_addr);
+	if (buff_addr->mapped_buffer)
+		msm_subsystem_unmap_buffer(buff_addr->mapped_buffer);
 	if (buff_addr->physical_base_addr)
 		free_contiguous_memory_by_paddr(
 			(unsigned long) buff_addr->physical_base_addr);
@@ -178,6 +187,7 @@ void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
 	buff_addr->buffer_size = 0;
 	buff_addr->physical_base_addr = NULL;
 	buff_addr->virtual_base_addr = NULL;
+	buff_addr->mapped_buffer = NULL;
 }
 #endif
 

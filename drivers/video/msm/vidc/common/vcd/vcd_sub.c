@@ -10,55 +10,110 @@
  * GNU General Public License for more details.
  *
  */
-
+#include <linux/memory_alloc.h>
+#include <mach/msm_subsystem_map.h>
 #include <asm/div64.h>
-
 #include "vidc_type.h"
 #include "vcd.h"
 #include "vdec_internal.h"
-#include <linux/memory_alloc.h>
+
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MAP_TABLE_SZ 64
+
+struct vcd_msm_map_buffer {
+	phys_addr_t phy_addr;
+	struct msm_mapped_buffer *mapped_buffer;
+	u32 in_use;
+};
+static struct vcd_msm_map_buffer msm_mapped_buffer_table[MAP_TABLE_SZ];
+static unsigned int vidc_mmu_subsystem[] = {MSM_SUBSYSTEM_VIDEO};
 
 static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr)
 {
-	u32 memtype;
+	u32 memtype, i = 0, flags = 0;
+	struct vcd_msm_map_buffer *map_buffer = NULL;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
 
 	if (!kernel_vaddr || !phy_addr) {
 		pr_err("\n%s: Invalid parameters", __func__);
-		return -ENOMEM;
+		goto bailout;
+	}
+	*phy_addr = NULL;
+	*kernel_vaddr = NULL;
+	for (i = 0; i  < MAP_TABLE_SZ; i++) {
+		if (!msm_mapped_buffer_table[i].in_use) {
+			map_buffer = &msm_mapped_buffer_table[i];
+			map_buffer->in_use = 1;
+			break;
+		}
+	}
+	if (!map_buffer) {
+		pr_err("%s() map table is full", __func__);
+		goto bailout;
 	}
 	memtype = res_trk_get_mem_type();
-	*phy_addr = (u8 *) allocate_contiguous_memory_nomap(sz,
-					memtype, SZ_4K);
-	if (!*phy_addr) {
-		*kernel_vaddr = ioremap((unsigned long)*phy_addr, sz);
-
-		if (!*kernel_vaddr) {
-			pr_err("%s: could not ioremap in kernel pmem buffers\n",
-			       __func__);
-			free_contiguous_memory_by_paddr(
-				(unsigned long) *phy_addr);
-			*phy_addr = NULL;
-			return -ENOMEM;
-		}
-		pr_debug("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
-			 (u32) *phy_addr, (u32) *kernel_vaddr);
-		return 0;
-	} else {
-		pr_err("%s: could not allocte in kernel pmem buffers\n",
-		       __func__);
-		return -ENOMEM;
+	map_buffer->phy_addr = (phys_addr_t)
+	allocate_contiguous_memory_nomap(sz, memtype, SZ_4K);
+	if (!map_buffer->phy_addr) {
+		pr_err("%s() acm alloc failed", __func__);
+		goto free_map_table;
 	}
 
+	flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
+	map_buffer->mapped_buffer =
+	msm_subsystem_map_buffer((unsigned long)*phy_addr,
+	sz,	flags, vidc_mmu_subsystem,
+	sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
+	if (IS_ERR(map_buffer->mapped_buffer)) {
+		pr_err(" %s() buffer map failed", __func__);
+		goto free_acm_alloc;
+	}
+	mapped_buffer = map_buffer->mapped_buffer;
+	if (!mapped_buffer->vaddr || !mapped_buffer->iova[0]) {
+		pr_err("%s() map buffers failed", __func__);
+		goto free_map_buffers;
+	}
+	*phy_addr = (u8 *) mapped_buffer->iova[0];
+	*kernel_vaddr = (u8 *) mapped_buffer->vaddr;
+	return 0;
+
+free_map_buffers:
+	msm_subsystem_unmap_buffer(map_buffer->mapped_buffer);
+free_acm_alloc:
+	free_contiguous_memory_by_paddr(
+		(unsigned long)map_buffer->phy_addr);
+free_map_table:
+	map_buffer->in_use = 0;
+bailout:
+	return -ENOMEM;
 }
 
 static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr)
 {
-	if (kernel_vaddr)
-		iounmap((void *)kernel_vaddr);
-	if (phy_addr)
-		free_contiguous_memory_by_paddr((unsigned long)phy_addr);
+	u32 i = 0;
+	struct vcd_msm_map_buffer *map_buffer = NULL;
+	if (!kernel_vaddr || !phy_addr) {
+		pr_err("\n%s: Invalid parameters", __func__);
+		goto bailout;
+	}
+	for (i = 0; i  < MAP_TABLE_SZ; i++) {
+		if (msm_mapped_buffer_table[i].in_use &&
+			(msm_mapped_buffer_table[i]
+			 .mapped_buffer->vaddr == kernel_vaddr)) {
+			map_buffer = &msm_mapped_buffer_table[i];
+			map_buffer->in_use = 0;
+			break;
+		}
+	}
+	if (!map_buffer) {
+		pr_err("%s() Entry not found", __func__);
+		goto bailout;
+	}
+	msm_subsystem_unmap_buffer(map_buffer->mapped_buffer);
+	free_contiguous_memory_by_paddr(
+		(unsigned long)map_buffer->phy_addr);
+bailout:
 	kernel_vaddr = NULL;
 	phy_addr = NULL;
 	return 0;
