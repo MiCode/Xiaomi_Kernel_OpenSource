@@ -3047,7 +3047,7 @@ static struct cyttsp_platform_data cyttsp_fluid_pdata = {
 	.use_mt = CY_USE_MT,
 	.use_hndshk = CY_SEND_HNDSHK,
 	.use_trk_id = CY_USE_TRACKING_ID,
-	.use_sleep = CY_USE_SLEEP,
+	.use_sleep = CY_USE_DEEP_SLEEP_SEL | CY_USE_LOW_POWER_SEL,
 	.use_gestures = CY_USE_GESTURES,
 	/* activate up to 4 groups
 	 * and set active distance
@@ -3089,7 +3089,7 @@ static struct cyttsp_platform_data cyttsp_tmg240_pdata = {
 	.use_mt = CY_USE_MT,
 	.use_hndshk = CY_SEND_HNDSHK,
 	.use_trk_id = CY_USE_TRACKING_ID,
-	.use_sleep = CY_USE_SLEEP,
+	.use_sleep = CY_USE_DEEP_SLEEP_SEL | CY_USE_LOW_POWER_SEL,
 	.use_gestures = CY_USE_GESTURES,
 	/* activate up to 4 groups
 	 * and set active distance

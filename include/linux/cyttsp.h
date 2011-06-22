@@ -139,16 +139,6 @@
 #define CY_USE_TEST_DATA
  */
 
-/* define to activate power management */
-/*
-#define CY_USE_LOW_POWER
- */
-
-/* define if wake on i2c addr is activated */
-/*
-#define CY_USE_DEEP_SLEEP
- */
-
 /* define if gesture signaling is used
  * and which gesture groups to use
  */
@@ -283,16 +273,8 @@
 #endif
 #endif /* ABS_MT_TRACKING_ID */
 
-#ifdef CY_USE_DEEP_SLEEP
-	#define CY_USE_DEEP_SLEEP_SEL	0x80
-#else
-	#define CY_USE_DEEP_SLEEP_SEL	0x00
-#endif
-#ifdef CY_USE_LOW_POWER
-	#define CY_USE_SLEEP	(CY_USE_DEEP_SLEEP_SEL | 0x01)
-#else
-	#define CY_USE_SLEEP	0x00
-#endif /* CY_USE_LOW_POWER */
+#define CY_USE_DEEP_SLEEP_SEL		0x80
+#define CY_USE_LOW_POWER_SEL		0x01
 
 #ifdef CY_USE_TEST_DATA
 	#define cyttsp_testdat(ray1, ray2, sizeofray) \
