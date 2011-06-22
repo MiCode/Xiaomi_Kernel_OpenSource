@@ -21,6 +21,7 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/leds-pm8xxx.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
@@ -279,6 +280,11 @@ static struct mfd_cell misc_cell = {
 	.id             = -1,
 };
 
+static struct mfd_cell leds_cell = {
+	.name		= PM8XXX_LEDS_DEV_NAME,
+	.id		= -1,
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
@@ -446,6 +452,25 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 				      irq_base);
 		if (ret) {
 			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->leds_pdata) {
+		/* PM8921 supports only 4 LED DRVs */
+		for (i = 0; i < pdata->leds_pdata->num_leds; i++) {
+			if (pdata->leds_pdata->leds[i].flags >
+						PM8XXX_ID_LED_2) {
+				pr_err("%s: LED %d not supported\n", __func__,
+					pdata->leds_pdata->leds[i].flags);
+				goto bail;
+			}
+		}
+		leds_cell.platform_data = pdata->leds_pdata;
+		leds_cell.pdata_size = sizeof(struct led_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}

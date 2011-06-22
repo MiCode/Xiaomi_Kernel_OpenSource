@@ -30,6 +30,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8921-adc.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
+#include <linux/leds.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -116,6 +117,7 @@ struct pm8921_platform_data {
 	struct pm8921_regulator_platform_data	*regulator_pdatas;
 	int					num_regulators;
 	struct pm8921_adc_platform_data		*adc_pdata;
+	struct led_platform_data		*leds_pdata;
 };
 
 #endif
