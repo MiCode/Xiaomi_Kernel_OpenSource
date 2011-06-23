@@ -2708,11 +2708,54 @@ static struct platform_device android_pmem_audio_device = {
 	.dev = { .platform_data = &android_pmem_audio_pdata },
 };
 
+#define PMEM_BUS_WIDTH(_bw) \
+	{ \
+		.vectors = &(struct msm_bus_vectors){ \
+			.src = MSM_BUS_MASTER_AMPSS_M0, \
+			.dst = MSM_BUS_SLAVE_SMI, \
+			.ib = (_bw), \
+			.ab = 0, \
+		}, \
+	.num_paths = 1, \
+	}
+static struct msm_bus_paths pmem_smi_table[] = {
+	[0] = PMEM_BUS_WIDTH(0), /* Off */
+	[1] = PMEM_BUS_WIDTH(1), /* On */
+};
+
+static struct msm_bus_scale_pdata smi_client_pdata = {
+	.usecase = pmem_smi_table,
+	.num_usecases = ARRAY_SIZE(pmem_smi_table),
+	.name = "pmem_smi",
+};
+
+void pmem_request_smi_region(void *data)
+{
+	int bus_id = (int) data;
+
+	msm_bus_scale_client_update_request(bus_id, 1);
+}
+
+void pmem_release_smi_region(void *data)
+{
+	int bus_id = (int) data;
+
+	msm_bus_scale_client_update_request(bus_id, 0);
+}
+
+void *pmem_setup_smi_region(void)
+{
+	return (void *)msm_bus_scale_register_client(&smi_client_pdata);
+}
 static struct android_pmem_platform_data android_pmem_smipool_pdata = {
 	.name = "pmem_smipool",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
 	.cached = 0,
 	.memory_type = MEMTYPE_SMI,
+	.request_region = pmem_request_smi_region,
+	.release_region = pmem_release_smi_region,
+	.setup_region = pmem_setup_smi_region,
+	.map_on_demand = 1,
 };
 static struct platform_device android_pmem_smipool_device = {
 	.name = "android_pmem",
