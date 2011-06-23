@@ -66,6 +66,7 @@ struct cyttsp {
 	char phys[32];
 	struct cyttsp_platform_data *platform_data;
 	u8 num_prv_st_tch;
+	u16 fw_start_addr;
 	u16 act_trk[CY_NUM_TRK_ID];
 	u16 prv_st_tch[CY_NUM_ST_TCH_ID];
 	u16 prv_mt_tch[CY_NUM_MT_TCH_ID];
@@ -209,7 +210,6 @@ static DEVICE_ATTR(cyttsp_fw_ver, 0777, cyttsp_fw_show, NULL);
 /* firmware flashing block */
 #define BLK_SIZE     16
 #define DATA_REC_LEN 64
-#define START_ADDR   0x0b00
 #define BLK_SEED     0xff
 #define RECAL_REG    0x1b
 
@@ -420,7 +420,7 @@ static void init_data_record(struct fw_record *rec, unsigned short addr)
 	rec->data_cs = 0;
 }
 
-static int check_record(u8 *rec)
+static int check_record(struct cyttsp *ts, u8 *rec)
 {
 	int rc;
 	u16 addr;
@@ -447,7 +447,8 @@ static int check_record(u8 *rec)
 
 	addr = (hi_off << 8) | lo_off;
 
-	if (addr >= START_ADDR || addr == BL_REC1_ADDR || addr == BL_REC2_ADDR)
+	if (addr >= ts->fw_start_addr || addr == BL_REC1_ADDR
+			|| addr == BL_REC2_ADDR)
 		return 0;
 
 	return -EINVAL;
@@ -514,7 +515,7 @@ static int flash_data_rec(struct cyttsp *ts, u8 *buf)
 	if (!buf)
 		return -EINVAL;
 
-	rc = check_record(buf);
+	rc = check_record(ts, buf);
 
 	if (rc < 0) {
 		pr_debug("%s: record ignored %s", __func__, buf);
@@ -2757,6 +2758,16 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 							FW_FNAME_LEN - 1);
 		else
 			strncpy(ts->fw_fname, "cyttsp.hex", FW_FNAME_LEN - 1);
+
+		if (ts->platform_data->gen == CY_GEN3) {
+			ts->fw_start_addr = 0x0b00;
+		} else if (ts->platform_data->gen == CY_GEN2) {
+			ts->fw_start_addr = 0x0880;
+		} else {
+			pr_err("%s: unsupported cypress chip\n", __func__);
+			kfree(ts);
+			return -EINVAL;
+		}
 
 		i2c_set_clientdata(client, ts);
 
