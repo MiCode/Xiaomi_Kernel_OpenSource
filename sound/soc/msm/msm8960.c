@@ -61,6 +61,7 @@ static int clk_users;
 static int msm8960_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
+static struct snd_soc_jack button_jack;
 
 static void codec_poweramp_on(void)
 {
@@ -268,7 +269,15 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pr_err("failed to create new jack\n");
 		return err;
 	}
-	tabla_hs_detect(codec, &hs_jack, &tabla_cal);
+
+	err = snd_soc_jack_new(codec, "Button Jack",
+				SND_JACK_BTN_0, &button_jack);
+	if (err) {
+		pr_err("failed to create new jack\n");
+		return err;
+	}
+
+	tabla_hs_detect(codec, &hs_jack, &button_jack, &tabla_cal);
 
 	return 0;
 }

@@ -45,4 +45,5 @@ struct tabla_mbhc_calibration {
 };
 
 extern int tabla_hs_detect(struct snd_soc_codec *codec,
-	struct snd_soc_jack *jack, struct tabla_mbhc_calibration *calibration);
+	struct snd_soc_jack *headset_jack, struct snd_soc_jack *button_jack,
+	struct tabla_mbhc_calibration *calibration);
