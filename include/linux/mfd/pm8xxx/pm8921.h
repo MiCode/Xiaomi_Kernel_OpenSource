@@ -25,6 +25,7 @@
 #include <linux/mfd/pm8xxx/pwm.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/mfd/pm8xxx/tm.h>
+#include <linux/mfd/pm8xxx/batt-alarm.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
@@ -51,6 +52,7 @@
 
 /* PMIC Interrupts */
 #define PM8921_RTC_ALARM_IRQ		PM8921_IRQ_BLOCK_BIT(4, 7)
+#define PM8921_BATT_ALARM_IRQ		PM8921_IRQ_BLOCK_BIT(5, 6)
 #define PM8921_PWRKEY_REL_IRQ		PM8921_IRQ_BLOCK_BIT(6, 2)
 #define PM8921_PWRKEY_PRESS_IRQ		PM8921_IRQ_BLOCK_BIT(6, 3)
 #define PM8921_KEYPAD_IRQ		PM8921_IRQ_BLOCK_BIT(9, 2)

@@ -31,6 +31,11 @@
 #define REG_TEMP_ALARM_CTRL	0x1B
 #define REG_TEMP_ALARM_PWM	0x9B
 
+#define REG_BATT_ALARM_THRESH	0x023
+#define REG_BATT_ALARM_CTRL1	0x024
+#define REG_BATT_ALARM_CTRL2	0x0AA
+#define REG_BATT_ALARM_PWM_CTRL	0x0A3
+
 #define PM8921_VERSION_MASK	0xFFF0
 #define PM8921_VERSION_VALUE	0x06F0
 #define PM8921_REVISION_MASK	0x000F
@@ -312,6 +317,27 @@ static struct mfd_cell thermal_alarm_cell = {
 	.pdata_size	= sizeof(struct pm8xxx_tm_core_data),
 };
 
+static const struct resource batt_alarm_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE("pm8921_batt_alarm_irq", PM8921_BATT_ALARM_IRQ),
+};
+
+static struct pm8xxx_batt_alarm_core_data batt_alarm_cdata = {
+	.irq_name		= "pm8921_batt_alarm_irq",
+	.reg_addr_threshold	= REG_BATT_ALARM_THRESH,
+	.reg_addr_ctrl1		= REG_BATT_ALARM_CTRL1,
+	.reg_addr_ctrl2		= REG_BATT_ALARM_CTRL2,
+	.reg_addr_pwm_ctrl	= REG_BATT_ALARM_PWM_CTRL,
+};
+
+static struct mfd_cell batt_alarm_cell = {
+	.name		= PM8XXX_BATT_ALARM_DEV_NAME,
+	.id		= -1,
+	.resources	= batt_alarm_cell_resources,
+	.num_resources	= ARRAY_SIZE(batt_alarm_cell_resources),
+	.platform_data	= &batt_alarm_cdata,
+	.pdata_size	= sizeof(struct pm8xxx_batt_alarm_core_data),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
@@ -506,6 +532,14 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 				irq_base);
 	if (ret) {
 		pr_err("Failed to add thermal alarm subdevice ret=%d\n",
+			ret);
+		goto bail;
+	}
+
+	ret = mfd_add_devices(pmic->dev, 0, &batt_alarm_cell, 1, NULL,
+				irq_base);
+	if (ret) {
+		pr_err("Failed to add battery alarm subdevice ret=%d\n",
 			ret);
 		goto bail;
 	}
