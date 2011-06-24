@@ -1,6 +1,6 @@
 /* linux/sound/soc/msm/msm7201.c
  *
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2011 Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -44,6 +44,7 @@ static struct msm_rpc_endpoint *snd_ep;
 struct msm_snd_rpc_ids {
 	unsigned long   prog;
 	unsigned long   vers;
+	unsigned long   vers2;
 	unsigned long   rpc_set_snd_device;
 	int device;
 };
@@ -92,7 +93,7 @@ static int snd_msm_device_info(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-	uinfo->count = 1; /* Device */
+	uinfo->count = 3; /* Device */
 
 	/*
 	 * The number of devices supported is 26 (0 to 25)
@@ -113,6 +114,7 @@ int msm_snd_init_rpc_ids(void)
 {
 	snd_rpc_ids.prog	= 0x30000002;
 	snd_rpc_ids.vers	= 0x00020001;
+	snd_rpc_ids.vers2	= 0x00030001;
 	/*
 	 * The magic number 2 corresponds to the rpc call
 	 * index for snd_set_device
@@ -138,8 +140,16 @@ int msm_snd_rpc_connect(void)
 	snd_ep = msm_rpc_connect_compatible(snd_rpc_ids.prog,
 				snd_rpc_ids.vers, 0);
 	if (IS_ERR(snd_ep)) {
-		printk(KERN_ERR "%s: failed (compatible VERS = %ld)\n",
+		printk(KERN_DEBUG "%s failed (compatible VERS = %ld) \
+				 trying again with another API\n",
 				__func__, snd_rpc_ids.vers);
+		snd_ep =
+			msm_rpc_connect_compatible(snd_rpc_ids.prog,
+					snd_rpc_ids.vers2, 0);
+	}
+	if (IS_ERR(snd_ep)) {
+		printk(KERN_ERR "%s: failed (compatible VERS = %ld)\n",
+				__func__, snd_rpc_ids.vers2);
 		snd_ep = NULL;
 		return -EAGAIN;
 	}
@@ -187,8 +197,10 @@ static int snd_msm_device_put(struct snd_kcontrol *kcontrol,
 	req.hdr.rpc_vers = 2;
 
 	req.rpc_snd_device = cpu_to_be32(snd_rpc_ids.device);
-	req.snd_mute_ear_mute = cpu_to_be32(1);
-	req.snd_mute_mic_mute = cpu_to_be32(0);
+	req.snd_mute_ear_mute =
+		cpu_to_be32((int)ucontrol->value.integer.value[1]);
+	req.snd_mute_mic_mute =
+		cpu_to_be32((int)ucontrol->value.integer.value[2]);
 	req.callback_ptr = -1;
 	req.client_data = cpu_to_be32(0);
 

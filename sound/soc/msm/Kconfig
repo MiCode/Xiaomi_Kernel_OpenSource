@@ -9,7 +9,7 @@ config SND_MSM_SOC_MSM7K
 
 config SND_MSM_SOC
 	tristate "SoC Audio for the MSM series chips"
-	depends on ARCH_MSM_ARM11 && SND_SOC && MSM_ADSP
+	depends on ARCH_MSM7X27
 	select SND_MSM_DAI_SOC
 	select SND_MSM_SOC_MSM7K
 	default n

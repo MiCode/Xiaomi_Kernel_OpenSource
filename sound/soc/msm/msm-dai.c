@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Derived from msm-pcm.c and msm7201.c.
  *
@@ -30,11 +30,7 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/soc.h>
-#ifdef CONFIG_ARCH_MSM_ARM11
 #include "msm-pcm.h"
-#else
-#include "qsd-pcm.h"
-#endif
 
 static struct snd_soc_dai_driver msm_pcm_codec_dais[] = {
 {

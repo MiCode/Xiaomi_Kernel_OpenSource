@@ -2549,6 +2549,9 @@ static struct platform_device *surf_ffa_devices[] __initdata = {
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 	&msm_wlan_ar6000_pm_device,
 #endif
+	&asoc_msm_pcm,
+	&asoc_msm_dai0,
+	&asoc_msm_dai1,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
