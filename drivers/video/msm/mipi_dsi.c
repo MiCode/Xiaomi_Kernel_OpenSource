@@ -113,13 +113,19 @@ static int mipi_dsi_off(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #endif
+
+	local_bh_disable();
+	mipi_dsi_clk_disable();
+	local_bh_enable();
+
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
 
 	mipi_dsi_phy_ctrl(0);
 
+
 	local_bh_disable();
-	mipi_dsi_clk_disable();
+	mipi_dsi_ahb_ctrl(0);
 	local_bh_enable();
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
@@ -157,12 +163,13 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
 
+	local_bh_disable();
+	mipi_dsi_ahb_ctrl(1);
+	local_bh_enable();
+
 	clk_rate = mfd->fbi->var.pixclock;
 	clk_rate = min(clk_rate, mfd->panel_info.clk_max);
 
-	local_bh_disable();
-	mipi_dsi_clk_enable();
-	local_bh_enable();
 
 #ifndef CONFIG_FB_MSM_MDP303
 	mdp4_overlay_dsi_state_set(ST_DSI_RESUME);
@@ -186,6 +193,10 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		target_type = mipi_dsi_pdata->target_type;
 
 	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
+
+	local_bh_disable();
+	mipi_dsi_clk_enable();
+	local_bh_enable();
 
 	mipi  = &mfd->panel_info.mipi;
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {

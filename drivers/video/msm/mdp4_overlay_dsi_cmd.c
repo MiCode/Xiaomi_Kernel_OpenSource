@@ -61,7 +61,7 @@ static void dsi_clock_tout(unsigned long data)
 	if (mipi_dsi_clk_on) {
 		if (dsi_state == ST_DSI_PLAYING) {
 			mdp4_stat.dsi_clkoff++;
-			mipi_dsi_clk_disable();
+			mipi_dsi_turn_off_clks();
 			mdp4_overlay_dsi_state_set(ST_DSI_CLK_OFF);
 		}
 	}
@@ -577,7 +577,7 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 	/* satrt dsi clock if necessary */
 	if (mipi_dsi_clk_on == 0) {
 		local_bh_disable();
-		mipi_dsi_clk_enable();
+		mipi_dsi_turn_on_clks();
 		local_bh_enable();
 	}
 
