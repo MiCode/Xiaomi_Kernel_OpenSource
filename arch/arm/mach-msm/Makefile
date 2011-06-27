@@ -154,6 +154,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-$(CONFIG_ARCH_MSM8X60) += subsystem-fatal-8x60.o
 endif
 obj-$(CONFIG_MSM_MODEM_8960) += modem-8960.o
+obj-$(CONFIG_MSM_LPASS_8960) += lpass-8960.o
 
 ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_MSM8960) += cpuidle.o
