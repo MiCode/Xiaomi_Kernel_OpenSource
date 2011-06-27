@@ -239,31 +239,31 @@ int msm_get_voice_state(void)
 }
 EXPORT_SYMBOL(msm_get_voice_state);
 
-int msm_set_voice_mute(int dir, int mute)
+int msm_set_voice_mute(int dir, int mute, u32 session_id)
 {
 	pr_debug("dir %x mute %x\n", dir, mute);
 	if (dir == DIR_TX) {
 		routing_info.tx_mute = mute;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
-			routing_info.voice_tx_dev_id, SESSION_IGNORE);
+			routing_info.voice_tx_dev_id, session_id);
 	} else
 		return -EPERM;
 	return 0;
 }
 EXPORT_SYMBOL(msm_set_voice_mute);
 
-int msm_set_voice_vol(int dir, s32 volume)
+int msm_set_voice_vol(int dir, s32 volume, u32 session_id)
 {
 	if (dir == DIR_TX) {
 		routing_info.voice_tx_vol = volume;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
 					routing_info.voice_tx_dev_id,
-					SESSION_IGNORE);
+					session_id);
 	} else if (dir == DIR_RX) {
 		routing_info.voice_rx_vol = volume;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
 					routing_info.voice_rx_dev_id,
-					SESSION_IGNORE);
+					session_id);
 	} else
 		return -EINVAL;
 	return 0;
@@ -1397,7 +1397,8 @@ void broadcast_event(u32 evt_id, u32 dev_id, u64 session_id)
 		memset(evt_payload, 0, sizeof(union auddev_evt_data));
 
 		if ((evt_id == AUDDEV_EVT_START_VOICE)
-			|| (evt_id == AUDDEV_EVT_END_VOICE))
+			|| (evt_id == AUDDEV_EVT_END_VOICE)
+			|| evt_id == AUDDEV_EVT_DEVICE_VOL_MUTE_CHG)
 			goto skip_check;
 		if (callback->clnt_type == AUDDEV_CLNT_AUDIOCAL)
 			goto aud_cal;
@@ -1557,6 +1558,9 @@ voc_events:
 				pending_sent = 1;
 
 			if (evt_id == AUDDEV_EVT_DEVICE_VOL_MUTE_CHG) {
+				evt_payload->voc_vm_info.voice_session_id =
+								session_id;
+
 				if (dev_info->capability & SNDDEV_CAP_TX) {
 					evt_payload->voc_vm_info.dev_type =
 						SNDDEV_CAP_TX;
@@ -1575,10 +1579,12 @@ voc_events:
 						routing_info.voice_rx_vol;
 				}
 			} else if ((evt_id == AUDDEV_EVT_START_VOICE)
-					|| (evt_id == AUDDEV_EVT_END_VOICE))
+					|| (evt_id == AUDDEV_EVT_END_VOICE)) {
 				memset(evt_payload, 0,
 					sizeof(union auddev_evt_data));
-			else if (evt_id == AUDDEV_EVT_FREQ_CHG) {
+
+				evt_payload->voice_session_id = session_id;
+			} else if (evt_id == AUDDEV_EVT_FREQ_CHG) {
 				if (routing_info.voice_tx_sample_rate
 						!= dev_info->set_sample_rate) {
 					routing_info.voice_tx_sample_rate
