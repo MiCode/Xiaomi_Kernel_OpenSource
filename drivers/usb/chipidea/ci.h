@@ -302,4 +302,6 @@ int hw_port_test_set(struct ci13xxx *ci, u8 mode);
 
 u8 hw_port_test_get(struct ci13xxx *ci);
 
+int ci13xxx_wakeup(struct usb_gadget *_gadget);
+
 #endif	/* __DRIVERS_USB_CHIPIDEA_CI_H */

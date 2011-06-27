@@ -1443,7 +1443,7 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 	return 0;
 }
 
-static int ci13xxx_wakeup(struct usb_gadget *_gadget)
+int ci13xxx_wakeup(struct usb_gadget *_gadget)
 {
 	struct ci13xxx *ci = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
@@ -1463,6 +1463,7 @@ out:
 	spin_unlock_irqrestore(&ci->lock, flags);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(ci13xxx_wakeup);
 
 static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {

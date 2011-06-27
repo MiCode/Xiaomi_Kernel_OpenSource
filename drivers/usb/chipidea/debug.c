@@ -248,6 +248,21 @@ static const struct file_operations ci_role_fops = {
 	.release	= single_release,
 };
 
+static ssize_t ci_wakeup_write(struct file *file, const char __user *ubuf,
+			     size_t count, loff_t *ppos)
+{
+	struct ci13xxx *ci = file->private;
+
+	ci13xxx_wakeup(&ci->gadget);
+
+	return count;
+}
+
+static const struct file_operations ci_wakeup_fops = {
+	.open		= simple_open,
+	.write		= ci_role_write,
+};
+
 /**
  * dbg_create_files: initializes the attribute interface
  * @ci: device
@@ -280,6 +295,11 @@ int dbg_create_files(struct ci13xxx *ci)
 	dent = debugfs_create_file("requests", S_IRUGO, ci->debugfs, ci,
 				   &ci_requests_fops);
 	if (!dent)
+		goto err;
+
+	retval = debugfs_create_file("wakeup", S_IWUSR, ci->debugfs, ci,
+				   &ci_wakeup_fops);
+	if (retval)
 		goto err;
 
 	dent = debugfs_create_file("role", S_IRUGO | S_IWUSR, ci->debugfs, ci,
