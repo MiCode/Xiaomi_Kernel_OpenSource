@@ -944,7 +944,26 @@ u32 ddl_check_reconfig(struct ddl_client_context *ddl)
 
 void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl)
 {
-	if (res_change) {
+	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
+	if ((decoder->cont_mode) &&
+		(res_change == DDL_RESL_CHANGE_DECREASED)) {
+		DDL_MSG_LOW("%s Resolution decreased, continue decoding\n",
+				 __func__);
+		vidc_sm_get_min_yc_dpb_sizes(
+					&ddl->shared_mem[ddl->command_channel],
+					&decoder->dpb_buf_size.size_y,
+					&decoder->dpb_buf_size.size_c);
+		DDL_MSG_LOW(" %s Resolution decreased, size_y = %u"
+				" size_c = %u\n",
+				__func__,
+				decoder->dpb_buf_size.size_y,
+				decoder->dpb_buf_size.size_c);
+		ddl_decoder_chroma_dpb_change(ddl);
+		vidc_sm_set_chroma_addr_change(
+				&ddl->shared_mem[ddl->command_channel],
+				true);
+		ddl_vidc_decode_frame_run(ddl);
+	} else {
 		DDL_MSG_LOW("%s Resolution change, start realloc\n",
 				 __func__);
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_EOS_DONE;
