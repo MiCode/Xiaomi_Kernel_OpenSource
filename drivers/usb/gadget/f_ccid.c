@@ -71,9 +71,6 @@ struct f_ccid {
 	struct usb_ep *notify;
 	struct usb_ep *in;
 	struct usb_ep *out;
-	struct usb_endpoint_descriptor *in_desc;
-	struct usb_endpoint_descriptor *out_desc;
-	struct usb_endpoint_descriptor *notify_desc;
 	struct usb_request *notify_req;
 	struct ccid_ctrl_dev ctrl_dev;
 	struct ccid_bulk_dev bulk_dev;
@@ -436,10 +433,10 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 
 	/* choose the descriptors and enable endpoints */
-	ccid_dev->notify_desc = ep_choose(cdev->gadget,
+	ccid_dev->notify->desc = ep_choose(cdev->gadget,
 				ccid_dev->hs.notify,
 				ccid_dev->fs.notify);
-	ret = usb_ep_enable(ccid_dev->notify, ccid_dev->notify_desc);
+	ret = usb_ep_enable(ccid_dev->notify);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->notify->name, ret);
@@ -447,18 +444,18 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	ccid_dev->notify->driver_data = ccid_dev;
 
-	ccid_dev->in_desc = ep_choose(cdev->gadget,
+	ccid_dev->in->desc = ep_choose(cdev->gadget,
 			ccid_dev->hs.in, ccid_dev->fs.in);
-	ret = usb_ep_enable(ccid_dev->in, ccid_dev->in_desc);
+	ret = usb_ep_enable(ccid_dev->in);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->in->name, ret);
 		goto disable_ep_notify;
 	}
 
-	ccid_dev->out_desc = ep_choose(cdev->gadget,
+	ccid_dev->out->desc = ep_choose(cdev->gadget,
 			ccid_dev->hs.out, ccid_dev->fs.out);
-	ret = usb_ep_enable(ccid_dev->out, ccid_dev->out_desc);
+	ret = usb_ep_enable(ccid_dev->out);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->out->name, ret);

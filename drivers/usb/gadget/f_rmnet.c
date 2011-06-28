@@ -52,7 +52,6 @@ struct f_rmnet {
 
 	/* usb eps*/
 	struct usb_ep			*notify;
-	struct usb_endpoint_descriptor	*notify_desc;
 	struct usb_request		*notify_req;
 
 	/* control info */
@@ -483,10 +482,10 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		pr_debug("%s: reset port:%d\n", __func__, dev->port_num);
 		usb_ep_disable(dev->notify);
 	}
-	dev->notify_desc = ep_choose(cdev->gadget,
+	dev->notify->desc = ep_choose(cdev->gadget,
 				dev->hs.notify,
 				dev->fs.notify);
-	ret = usb_ep_enable(dev->notify, dev->notify_desc);
+	ret = usb_ep_enable(dev->notify);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, dev->notify->name, ret);
@@ -499,9 +498,9 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		gport_rmnet_disconnect(dev);
 	}
 
-	dev->port.in_desc = ep_choose(cdev->gadget,
+	dev->port.in->desc = ep_choose(cdev->gadget,
 			dev->hs.in, dev->fs.in);
-	dev->port.out_desc = ep_choose(cdev->gadget,
+	dev->port.out->desc = ep_choose(cdev->gadget,
 			dev->hs.out, dev->fs.out);
 
 	ret = gport_rmnet_connect(dev);

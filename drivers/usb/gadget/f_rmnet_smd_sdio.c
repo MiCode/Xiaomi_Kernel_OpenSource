@@ -1365,18 +1365,21 @@ static int rmnet_mux_set_alt(struct usb_function *f,
 	dev->notify_req->complete = rmnet_mux_notify_complete;
 	dev->notify_req->context = dev;
 	dev->notify_req->length = RMNET_MUX_SDIO_MAX_NFY_SZE;
-	usb_ep_enable(dev->epnotify, ep_choose(cdev->gadget,
+	dev->epnotify->desc = ep_choose(cdev->gadget,
 				&rmnet_mux_hs_notify_desc,
-				&rmnet_mux_fs_notify_desc));
+				&rmnet_mux_fs_notify_desc);
+	usb_ep_enable(dev->epnotify);
 
 	dev->epin->driver_data = dev;
-	usb_ep_enable(dev->epin, ep_choose(cdev->gadget,
+	dev->epin->desc = ep_choose(cdev->gadget,
 				&rmnet_mux_hs_in_desc,
-				&rmnet_mux_fs_in_desc));
+				&rmnet_mux_fs_in_desc);
+	usb_ep_enable(dev->epin);
 	dev->epout->driver_data = dev;
-	usb_ep_enable(dev->epout, ep_choose(cdev->gadget,
+	dev->epout->desc = ep_choose(cdev->gadget,
 				&rmnet_mux_hs_out_desc,
-				&rmnet_mux_fs_out_desc));
+				&rmnet_mux_fs_out_desc);
+	usb_ep_enable(dev->epout);
 
 	dev->dpkts_tolaptop = 0;
 	dev->cpkts_tolaptop = 0;

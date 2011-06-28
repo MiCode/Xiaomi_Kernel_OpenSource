@@ -51,7 +51,6 @@ struct f_gser {
 	u8				pending;
 	spinlock_t			lock;
 	struct usb_ep			*notify;
-	struct usb_endpoint_descriptor	*notify_desc;
 	struct usb_request		*notify_req;
 
 	struct usb_cdc_line_coding	port_line_coding;
@@ -479,10 +478,10 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		usb_ep_disable(gser->notify);
 		gser->notify->driver_data = NULL;
 	}
-	gser->notify_desc = ep_choose(cdev->gadget,
+	gser->notify->desc = ep_choose(cdev->gadget,
 			gser->hs.notify,
 			gser->fs.notify);
-	rc = usb_ep_enable(gser->notify, gser->notify_desc);
+	rc = usb_ep_enable(gser->notify);
 	if (rc) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					gser->notify->name, rc);
@@ -497,9 +496,9 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else {
 		DBG(cdev, "activate generic data ttyGS%d\n", gser->port_num);
 	}
-	gser->port.in_desc = ep_choose(cdev->gadget,
+	gser->port.in->desc = ep_choose(cdev->gadget,
 			gser->hs.in, gser->fs.in);
-	gser->port.out_desc = ep_choose(cdev->gadget,
+	gser->port.out->desc = ep_choose(cdev->gadget,
 			gser->hs.out, gser->fs.out);
 
 	gport_connect(gser);

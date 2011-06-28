@@ -956,17 +956,19 @@ static int rmnet_smd_set_alt(struct usb_function *f,
 	struct usb_composite_dev *cdev = dev->cdev;
 	int ret = 0;
 
-	ret = usb_ep_enable(dev->epin, ep_choose(cdev->gadget,
+	dev->epin->desc = ep_choose(cdev->gadget,
 				&rmnet_smd_hs_in_desc,
-				&rmnet_smd_fs_in_desc));
+				&rmnet_smd_fs_in_desc);
+	ret = usb_ep_enable(dev->epin);
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					dev->epin->name, ret);
 		return ret;
 	}
-	ret = usb_ep_enable(dev->epout, ep_choose(cdev->gadget,
+	dev->epout->desc = ep_choose(cdev->gadget,
 				&rmnet_smd_hs_out_desc,
-				&rmnet_smd_fs_out_desc));
+				&rmnet_smd_fs_out_desc);
+	ret = usb_ep_enable(dev->epout);
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					dev->epout->name, ret);
@@ -974,9 +976,10 @@ static int rmnet_smd_set_alt(struct usb_function *f,
 		return ret;
 	}
 
-	ret = usb_ep_enable(dev->epnotify, ep_choose(cdev->gadget,
+	dev->epnotify->desc = ep_choose(cdev->gadget,
 				&rmnet_smd_hs_notify_desc,
-				&rmnet_smd_fs_notify_desc));
+				&rmnet_smd_fs_notify_desc);
+	ret = usb_ep_enable(dev->epnotify);
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					dev->epnotify->name, ret);
