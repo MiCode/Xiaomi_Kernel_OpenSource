@@ -1132,21 +1132,24 @@ static int mtp_function_set_alt(struct usb_function *f,
 	int ret;
 
 	DBG(cdev, "mtp_function_set_alt intf: %d alt: %d\n", intf, alt);
-	ret = usb_ep_enable(dev->ep_in,
-			ep_choose(cdev->gadget,
+	dev->ep_in->desc = ep_choose(cdev->gadget,
 				&mtp_highspeed_in_desc,
-				&mtp_fullspeed_in_desc));
+				&mtp_fullspeed_in_desc);
+	ret = usb_ep_enable(dev->ep_in);
+
 	if (ret)
 		return ret;
-	ret = usb_ep_enable(dev->ep_out,
-			ep_choose(cdev->gadget,
+	dev->ep_out->desc = ep_choose(cdev->gadget,
 				&mtp_highspeed_out_desc,
-				&mtp_fullspeed_out_desc));
+				&mtp_fullspeed_out_desc);
+	ret = usb_ep_enable(dev->ep_out);
+
 	if (ret) {
 		usb_ep_disable(dev->ep_in);
 		return ret;
 	}
-	ret = usb_ep_enable(dev->ep_intr, &mtp_intr_desc);
+	dev->ep_intr->desc = &mtp_intr_desc;
+	ret = usb_ep_enable(dev->ep_intr);
 	if (ret) {
 		usb_ep_disable(dev->ep_out);
 		usb_ep_disable(dev->ep_in);

@@ -1256,16 +1256,19 @@ static int rmnet_sdio_set_alt(struct usb_function *f,
 	int ret = 0;
 
 	dev->epin->driver_data = dev;
-	usb_ep_enable(dev->epin, ep_choose(cdev->gadget,
+	dev->epin->desc = ep_choose(cdev->gadget,
 				&rmnet_sdio_hs_in_desc,
-				&rmnet_sdio_fs_in_desc));
+				&rmnet_sdio_fs_in_desc);
+	usb_ep_enable(dev->epin);
 	dev->epout->driver_data = dev;
-	usb_ep_enable(dev->epout, ep_choose(cdev->gadget,
+	dev->epout->desc = ep_choose(cdev->gadget,
 				&rmnet_sdio_hs_out_desc,
-				&rmnet_sdio_fs_out_desc));
-	usb_ep_enable(dev->epnotify, ep_choose(cdev->gadget,
+				&rmnet_sdio_fs_out_desc);
+	usb_ep_enable(dev->epout);
+	dev->epnotify->desc = ep_choose(cdev->gadget,
 				&rmnet_sdio_hs_notify_desc,
-				&rmnet_sdio_fs_notify_desc));
+				&rmnet_sdio_fs_notify_desc);
+	usb_ep_enable(dev->epnotify);
 
 	/* allocate notification */
 	dev->notify_req = rmnet_sdio_alloc_req(dev->epnotify,
