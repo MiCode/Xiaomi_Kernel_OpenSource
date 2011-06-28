@@ -121,7 +121,7 @@ static int pm_bms_get_rt_status(struct pm8921_bms_chip *chip, int irq_id)
 static void pm8921_bms_disable_irq(struct pm8921_bms_chip *chip, int interrupt)
 {
 	if (__test_and_clear_bit(interrupt, chip->enabled_irqs)) {
-		dev_dbg(chip->dev, "%d\n", chip->pmic_bms_irq[interrupt]);
+		pr_debug("%d\n", chip->pmic_bms_irq[interrupt]);
 		disable_irq_nosync(chip->pmic_bms_irq[interrupt]);
 	}
 }
@@ -300,13 +300,13 @@ static int interpolate_single_lut(struct single_row_lut *lut, int x)
 	int i, result;
 
 	if (x < lut->x[0]) {
-		pr_err("x %d less than known range returning y = %d\n",
-							x, lut->y[0]);
+		pr_debug("x %d less than known range return y = %d lut = %pS\n",
+							x, lut->y[0], lut);
 		return lut->y[0];
 	}
 	if (x > lut->x[lut->cols - 1]) {
-		pr_err("x %d more than known range returning y = %d\n",
-						x, lut->y[lut->cols - 1]);
+		pr_debug("x %d more than known range return y = %d lut = %pS\n",
+						x, lut->y[lut->cols - 1], lut);
 		return lut->y[lut->cols - 1];
 	}
 
@@ -345,12 +345,12 @@ static int interpolate_scalingfactor_pc(struct pm8921_bms_chip *chip,
 	int cols = chip->pc_sf_lut->cols;
 
 	if (pc > chip->pc_sf_lut->percent[0]) {
-		pr_err("pc %d greater than known pc ranges for sfd\n", pc);
+		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
 		row1 = 0;
 		row2 = 0;
 	}
 	if (pc < chip->pc_sf_lut->percent[rows - 1]) {
-		pr_err("pc %d less than known pc ranges for sf", pc);
+		pr_debug("pc %d less than known pc ranges for sf", pc);
 		row1 = rows - 1;
 		row2 = rows - 1;
 	}
@@ -417,11 +417,11 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 	int cols = chip->pc_temp_ocv_lut->cols;
 
 	if (batt_temp < chip->pc_temp_ocv_lut->temp[0]) {
-		pr_err("batt_temp %d < known temp range for pc\n", batt_temp);
+		pr_debug("batt_temp %d < known temp range for pc\n", batt_temp);
 		batt_temp = chip->pc_temp_ocv_lut->temp[0];
 	}
 	if (batt_temp > chip->pc_temp_ocv_lut->temp[cols - 1]) {
-		pr_err("batt_temp %d > known temp range for pc\n", batt_temp);
+		pr_debug("batt_temp %d > known temp range for pc\n", batt_temp);
 		batt_temp = chip->pc_temp_ocv_lut->temp[cols - 1];
 	}
 
@@ -490,7 +490,7 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 		}
 	}
 
-	pr_err("%d ocv wasn't found for temp %d in the LUT returning pc = %d",
+	pr_debug("%d ocv wasn't found for temp %d in the LUT returning pc = %d",
 							ocv, batt_temp, pc);
 	return pc;
 }
@@ -518,7 +518,8 @@ static int calculate_rbatt(struct pm8921_bms_chip *chip)
 	if (ocv == 0
 		|| ocv == vbatt
 		|| vsense == 0) {
-		pr_warning("incorret reading ocv = %d, vbatt = %d, vsen = %d\n",
+		pr_debug("rbatt readings unavailable ocv = %d, vbatt = %d,"
+					"vsen = %d\n",
 					ocv, vbatt, vsense);
 		return -EINVAL;
 	}
@@ -574,7 +575,7 @@ static void calculate_cc_mvh(struct pm8921_bms_chip *chip, int64_t *val,
 	if (rc) {
 		*coulumb_counter = (last_coulumb_counter < 0) ?
 			DEFAULT_COULUMB_COUNTER : last_coulumb_counter;
-		pr_err("couldn't read coulumb counter err = %d assuming %d\n",
+		pr_debug("couldn't read coulumb counter err = %d assuming %d\n",
 							rc, *coulumb_counter);
 		*update_userspace = 0;
 	}
@@ -617,7 +618,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	rbatt = calculate_rbatt(chip);
 	if (rbatt < 0) {
 		rbatt = (last_rbatt < 0) ? DEFAULT_RBATT_MOHMS : last_rbatt;
-		pr_err("failed to read rbatt assuming %d\n",
+		pr_debug("rbatt unavailable assuming %d\n",
 						rbatt);
 		update_userspace = 0;
 	}
@@ -626,10 +627,10 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	fcc = calculate_fcc(chip, batt_temp, chargecycles);
 	if (fcc < -EINVAL) {
 		fcc = (last_fcc < 0) ? chip->fcc : last_fcc;
-		pr_err("failed to read fcc assuming %d\n", fcc);
+		pr_debug("failed to read fcc assuming %d\n", fcc);
 		update_userspace = 0;
 	}
-	pr_debug("fcc = %umAh", fcc);
+	pr_debug("FCC = %umAh", fcc);
 
 	/* calculate unusable charge */
 	voltage_unusable_uv = (rbatt * chip->i_test)
@@ -639,11 +640,12 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	if (pc_unusable < 0) {
 		unusable_charge = (last_unusable_charge < 0) ?
 			DEFAULT_UNUSABLE_CHARGE_MAH : last_unusable_charge;
-		pr_err("unusable_charge failed assuming %d\n", unusable_charge);
+		pr_debug("unusable_charge failed assuming %d\n",
+							unusable_charge);
 	} else {
 		unusable_charge = (fcc * pc_unusable) / 100;
 	}
-	pr_debug("unusable_charge = %umAh at temp = %d, fcc = %umAh"
+	pr_debug("UUC = %umAh at temp = %d, fcc = %umAh"
 			"unusable_voltage = %umicroVolts pc_unusable = %d\n",
 			unusable_charge, batt_temp, fcc,
 			voltage_unusable_uv, pc_unusable);
@@ -652,11 +654,12 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	rc = read_last_good_ocv(chip, &ocv);
 	if (rc || ocv == 0) {
 		rc = get_battery_uvolts(chip, &ocv);
-		pr_err("ocv not available adc vbat = %d rc = %d\n", ocv, rc);
+		pr_debug("ocv not available adc vbat = %d rc = %d\n", ocv, rc);
 		if (rc) {
 			ocv = (last_ocv_uv < 0) ?
 					DEFAULT_OCV_MICROVOLTS : last_ocv_uv;
-			pr_err("adc ocv failed assuming %d rc = %d\n", ocv, rc);
+			pr_debug("adc ocv failed assuming %d rc = %d\n",
+								ocv, rc);
 		}
 		update_userspace = 0;
 	}
@@ -664,13 +667,13 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	if (pc < 0) {
 		remaining_charge = (last_remaining_charge < 0) ?
 			DEFAULT_REMAINING_CHARGE_MAH : last_remaining_charge;
-		pr_err("calculate remaining charge failed assuming %d\n",
+		pr_debug("calculate remaining charge failed assuming %d\n",
 				remaining_charge);
 		update_userspace = 0;
 	} else {
 		remaining_charge = (fcc * pc) / 100;
 	}
-	pr_debug("remaining_charge = %umAh ocv = %d pc = %d\n",
+	pr_debug("RC = %umAh ocv = %d pc = %d\n",
 			remaining_charge, ocv, pc);
 
 	/* calculate cc milli_volt_hour */
@@ -679,7 +682,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge = remaining_charge - cc_mah - unusable_charge;
-	pr_debug("remaining_usable_charge = %dmAh\n", remaining_usable_charge);
+	pr_debug("RUC = %dmAh\n", remaining_usable_charge);
 	if (remaining_usable_charge < 0) {
 		pr_err("bad rem_usb_chg cc_mah %lld, rem_chg %d unusb_chg %d\n",
 				cc_mah, remaining_charge, unusable_charge);
@@ -692,7 +695,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 				remaining_usable_charge, fcc, unusable_charge);
 		update_userspace = 0;
 	}
-	pr_debug("soc = %u%%\n", soc);
+	pr_debug("SOC = %u%%\n", soc);
 
 	if (update_userspace) {
 		last_rbatt = rbatt;
@@ -759,31 +762,45 @@ EXPORT_SYMBOL_GPL(pm8921_bms_charging_end);
 
 static irqreturn_t pm8921_bms_sbi_write_ok_handler(int irq, void *data)
 {
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t pm8921_bms_cc_thr_handler(int irq, void *data)
 {
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t pm8921_bms_vsense_thr_handler(int irq, void *data)
 {
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t pm8921_bms_vsense_for_r_handler(int irq, void *data)
 {
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t pm8921_bms_ocv_for_r_handler(int irq, void *data)
 {
+
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t pm8921_bms_good_ocv_handler(int irq, void *data)
 {
+
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t pm8921_bms_vsense_avg_handler(int irq, void *data)
 {
+	pr_debug("irq = %d triggered", irq);
 	return IRQ_HANDLED;
 }
 
@@ -1125,8 +1142,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	chip = kzalloc(sizeof(struct pm8921_bms_chip),
-					GFP_KERNEL);
+	chip = kzalloc(sizeof(struct pm8921_bms_chip), GFP_KERNEL);
 	if (!chip) {
 		pr_err("Cannot allocate pm_bms_chip\n");
 		return -ENOMEM;
