@@ -25,11 +25,6 @@
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
 
-struct rmnet_descs {
-	struct usb_endpoint_descriptor	*in;
-	struct usb_endpoint_descriptor	*out;
-	struct usb_endpoint_descriptor	*notify;
-};
 
 #define ACM_CTRL_DTR	(1 << 0)
 
@@ -45,10 +40,6 @@ struct f_rmnet {
 	struct usb_composite_dev	*cdev;
 
 	spinlock_t			lock;
-
-	/* usb descriptors */
-	struct rmnet_descs		fs;
-	struct rmnet_descs		hs;
 
 	/* usb eps*/
 	struct usb_ep			*notify;
@@ -482,10 +473,16 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		pr_debug("%s: reset port:%d\n", __func__, dev->port_num);
 		usb_ep_disable(dev->notify);
 	}
-	dev->notify->desc = ep_choose(cdev->gadget,
-				dev->hs.notify,
-				dev->fs.notify);
+
+	ret = config_ep_by_speed(cdev->gadget, f, dev->notify);
+	if (ret) {
+		dev->notify->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failes for ep %s, result %d\n",
+					dev->notify->name, ret);
+		return ret;
+	}
 	ret = usb_ep_enable(dev->notify);
+
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, dev->notify->name, ret);
@@ -498,10 +495,12 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		gport_rmnet_disconnect(dev);
 	}
 
-	dev->port.in->desc = ep_choose(cdev->gadget,
-			dev->hs.in, dev->fs.in);
-	dev->port.out->desc = ep_choose(cdev->gadget,
-			dev->hs.out, dev->fs.out);
+	if (config_ep_by_speed(cdev->gadget, f, dev->port.in) ||
+	    config_ep_by_speed(cdev->gadget, f, dev->port.out)) {
+			dev->port.in->desc = NULL;
+			dev->port.out->desc = NULL;
+			return -EINVAL;
+	}
 
 	ret = gport_rmnet_connect(dev);
 
@@ -855,16 +854,6 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!f->descriptors)
 		goto fail;
 
-	dev->fs.in = usb_find_endpoint(rmnet_fs_function,
-					f->descriptors,
-					&rmnet_fs_in_desc);
-	dev->fs.out = usb_find_endpoint(rmnet_fs_function,
-					f->descriptors,
-					&rmnet_fs_out_desc);
-	dev->fs.notify = usb_find_endpoint(rmnet_fs_function,
-					f->descriptors,
-					&rmnet_fs_notify_desc);
-
 	if (gadget_is_dualspeed(cdev->gadget)) {
 		rmnet_hs_in_desc.bEndpointAddress =
 				rmnet_fs_in_desc.bEndpointAddress;
@@ -878,13 +867,6 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 
 		if (!f->hs_descriptors)
 			goto fail;
-
-		dev->hs.in = usb_find_endpoint(rmnet_hs_function,
-				f->hs_descriptors, &rmnet_hs_in_desc);
-		dev->hs.out = usb_find_endpoint(rmnet_hs_function,
-				f->hs_descriptors, &rmnet_hs_out_desc);
-		dev->hs.notify = usb_find_endpoint(rmnet_hs_function,
-				f->hs_descriptors, &rmnet_hs_notify_desc);
 	}
 
 	pr_info("%s: RmNet(%d) %s Speed, IN:%s OUT:%s\n",

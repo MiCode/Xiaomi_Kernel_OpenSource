@@ -533,6 +533,18 @@ static int fsg_set_halt(struct fsg_dev *fsg, struct usb_ep *ep)
 
 /*-------------------------------------------------------------------------*/
 
+/* Maxpacket and other transfer characteristics vary by speed. */
+static struct usb_endpoint_descriptor *
+fsg_ep_desc(struct usb_gadget *g, struct usb_endpoint_descriptor *fs,
+		struct usb_endpoint_descriptor *hs)
+{
+	if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
+		return hs;
+	return fs;
+}
+
+/*-------------------------------------------------------------------------*/
+
 /*
  * DESCRIPTORS ... most are static, but strings and (full) configuration
  * descriptors are built on demand.  Also the (static) config and interface

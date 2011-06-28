@@ -956,19 +956,32 @@ static int rmnet_smd_set_alt(struct usb_function *f,
 	struct usb_composite_dev *cdev = dev->cdev;
 	int ret = 0;
 
-	dev->epin->desc = ep_choose(cdev->gadget,
-				&rmnet_smd_hs_in_desc,
-				&rmnet_smd_fs_in_desc);
+	/* Enable epin endpoint */
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epin);
+	if (ret) {
+		dev->epin->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failed for ep %s, result %d\n",
+			dev->epin->name, ret);
+		return ret;
+	}
 	ret = usb_ep_enable(dev->epin);
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					dev->epin->name, ret);
 		return ret;
 	}
-	dev->epout->desc = ep_choose(cdev->gadget,
-				&rmnet_smd_hs_out_desc,
-				&rmnet_smd_fs_out_desc);
+
+	/* Enable epout endpoint */
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epout);
+	if (ret) {
+		dev->epout->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failed for ep %s, result %d\n",
+					dev->epout->name, ret);
+		usb_ep_disable(dev->epin);
+		return ret;
+	}
 	ret = usb_ep_enable(dev->epout);
+
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
 					dev->epout->name, ret);
@@ -976,9 +989,16 @@ static int rmnet_smd_set_alt(struct usb_function *f,
 		return ret;
 	}
 
-	dev->epnotify->desc = ep_choose(cdev->gadget,
-				&rmnet_smd_hs_notify_desc,
-				&rmnet_smd_fs_notify_desc);
+	/* Enable epnotify endpoint */
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epnotify);
+	if (ret) {
+		dev->epnotify->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failed for ep %s, result %d\n",
+			dev->epnotify->name, ret);
+		usb_ep_disable(dev->epin);
+		usb_ep_disable(dev->epout);
+		return ret;
+	}
 	ret = usb_ep_enable(dev->epnotify);
 	if (ret) {
 		ERROR(cdev, "can't enable %s, result %d\n",
