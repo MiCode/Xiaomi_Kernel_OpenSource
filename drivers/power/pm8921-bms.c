@@ -77,6 +77,7 @@ struct pm8921_bms_chip {
 	struct pc_sf_lut	*pc_sf_lut;
 	struct delayed_work	calib_work;
 	unsigned int		calib_delay_ms;
+	unsigned int		revision;
 	unsigned int		batt_temp_channel;
 	unsigned int		vbat_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
@@ -577,10 +578,41 @@ static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv, int batt_temp,
 	return pc;
 }
 
-#define CC_TO_MICROVOLT(cc)		div_s64(cc * 1085069, 100000);
-#define CCMICROVOLT_TO_UVH(cc_uv)	div_s64(cc_uv * 55, 32768 * 3600)
+#define CC_RESOLUTION_N_V1	1085069
+#define CC_RESOLUTION_D_V1	100000
+#define CC_RESOLUTION_N_V2	868056
+#define CC_RESOLUTION_D_V2	10000
+static s64 cc_to_microvolt_v1(s64 cc)
+{
+	return div_s64(cc * CC_RESOLUTION_N_V1, CC_RESOLUTION_D_V1);
+}
 
-static void calculate_cc_mvh(struct pm8921_bms_chip *chip, int64_t *val,
+static s64 cc_to_microvolt_v2(s64 cc)
+{
+	return div_s64(cc * CC_RESOLUTION_N_V2, CC_RESOLUTION_D_V2);
+}
+
+static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
+{
+	/*
+	 * resolution (the value of a single bit) was changed after revision 2.0
+	 * for more accurate readings
+	 */
+	return (chip->revision < PM8XXX_REVISION_8901_2p0) ?
+				cc_to_microvolt_v1((s64)cc) :
+				cc_to_microvolt_v2((s64)cc);
+}
+
+#define CC_READING_TICKS	55
+#define SLEEP_CLK_HZ		32768
+#define SECONDS_PER_HOUR	3600
+static s64 ccmicrovolt_to_uvh(s64 cc_uv)
+{
+	return div_s64(cc_uv * CC_READING_TICKS,
+			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
+}
+
+static void calculate_cc_mah(struct pm8921_bms_chip *chip, int64_t *val,
 			int *coulumb_counter, int *update_userspace)
 {
 	int rc;
@@ -595,9 +627,9 @@ static void calculate_cc_mvh(struct pm8921_bms_chip *chip, int64_t *val,
 		*update_userspace = 0;
 	}
 	cc_voltage_uv = (int64_t)*coulumb_counter;
-	cc_voltage_uv = CC_TO_MICROVOLT(cc_voltage_uv);
+	cc_voltage_uv = cc_to_microvolt(chip, cc_voltage_uv);
 	pr_debug("cc_voltage_uv = %lld microvolts\n", cc_voltage_uv);
-	cc_uvh = CCMICROVOLT_TO_UVH(cc_voltage_uv);
+	cc_uvh = ccmicrovolt_to_uvh(cc_voltage_uv);
 	pr_debug("cc_uvh = %lld micro_volt_hour\n", cc_uvh);
 	cc_mah = div_s64(cc_uvh, chip->r_sense);
 	*val = cc_mah;
@@ -692,7 +724,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 			remaining_charge, ocv, pc);
 
 	/* calculate cc milli_volt_hour */
-	calculate_cc_mvh(chip, &cc_mah, &coulumb_counter, &update_userspace);
+	calculate_cc_mah(chip, &cc_mah, &coulumb_counter, &update_userspace);
 	pr_debug("cc_mah = %lldmAh cc = %d\n", cc_mah, coulumb_counter);
 
 	/* calculate remaining usable charge */
@@ -1192,6 +1224,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 
 	chip->batt_temp_channel = pdata->bms_cdata.batt_temp_channel;
 	chip->vbat_channel = pdata->bms_cdata.vbat_channel;
+	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 
 	rc = pm8921_bms_hw_init(chip);
 	if (rc) {
