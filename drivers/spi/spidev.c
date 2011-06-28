@@ -771,7 +771,7 @@ module_init(spidev_init);
 static void __exit spidev_exit(void)
 {
 	if (spi) {
-		spi_dev_put(spi);
+		spi_unregister_device(spi);
 		spi = NULL;
 	}
 	spi_unregister_driver(&spidev_spi_driver);
