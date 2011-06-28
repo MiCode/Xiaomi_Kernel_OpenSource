@@ -509,17 +509,6 @@ static struct usb_descriptor_header *fsg_hs_function[] = {
 	NULL,
 };
 
-/* Maxpacket and other transfer characteristics vary by speed. */
-static struct usb_endpoint_descriptor *
-fsg_ep_desc(struct usb_gadget *g, struct usb_endpoint_descriptor *fs,
-		struct usb_endpoint_descriptor *hs)
-{
-	if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
-		return hs;
-	return fs;
-}
-
-
 /* Static strings, in UTF-8 (for simplicity we use only ASCII characters) */
 static struct usb_string		fsg_strings[] = {
 #ifndef FSG_NO_DEVICE_STRINGS

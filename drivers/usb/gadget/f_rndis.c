@@ -76,12 +76,6 @@
  *   - MS-Windows drivers sometimes emit undocumented requests.
  */
 
-struct rndis_ep_descs {
-	struct usb_endpoint_descriptor	*in;
-	struct usb_endpoint_descriptor	*out;
-	struct usb_endpoint_descriptor	*notify;
-};
-
 struct f_rndis {
 	struct gether			port;
 	u8				ctrl_id, data_id;
@@ -89,10 +83,6 @@ struct f_rndis {
 	u32				vendorID;
 	const char			*manufacturer;
 	int				config;
-
-
-	struct rndis_ep_descs		fs;
-	struct rndis_ep_descs		hs;
 
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
@@ -485,12 +475,12 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (rndis->notify->driver_data) {
 			VDBG(cdev, "reset rndis control %d\n", intf);
 			usb_ep_disable(rndis->notify);
-		} else {
-			VDBG(cdev, "init rndis ctrl %d\n", intf);
 		}
-		rndis->notify->desc = ep_choose(cdev->gadget,
-				rndis->hs.notify,
-				rndis->fs.notify);
+		if (!rndis->notify->desc) {
+			VDBG(cdev, "init rndis ctrl %d\n", intf);
+			if (config_ep_by_speed(cdev->gadget, f, rndis->notify))
+				goto fail;
+		}
 		usb_ep_enable(rndis->notify);
 		rndis->notify->driver_data = rndis;
 
@@ -502,13 +492,17 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			gether_disconnect(&rndis->port);
 		}
 
-		if (!rndis->port.in_ep->desc) {
+		if (!rndis->port.in_ep->desc || !rndis->port.out_ep->desc) {
 			DBG(cdev, "init rndis\n");
+			if (config_ep_by_speed(cdev->gadget, f,
+					       rndis->port.in_ep) ||
+			    config_ep_by_speed(cdev->gadget, f,
+					       rndis->port.out_ep)) {
+				rndis->port.in_ep->desc = NULL;
+				rndis->port.out_ep->desc = NULL;
+				goto fail;
+			}
 		}
-		rndis->port.in_ep->desc = ep_choose(cdev->gadget,
-				rndis->hs.in, rndis->fs.in);
-		rndis->port.out_ep->desc = ep_choose(cdev->gadget,
-				rndis->hs.out, rndis->fs.out);
 
 		/* Avoid ZLPs; they can be troublesome. */
 		rndis->port.is_zlp_ok = false;
@@ -663,13 +657,6 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!f->descriptors)
 		goto fail;
 
-	rndis->fs.in = usb_find_endpoint(eth_fs_function,
-			f->descriptors, &fs_in_desc);
-	rndis->fs.out = usb_find_endpoint(eth_fs_function,
-			f->descriptors, &fs_out_desc);
-	rndis->fs.notify = usb_find_endpoint(eth_fs_function,
-			f->descriptors, &fs_notify_desc);
-
 	/* support all relevant hardware speeds... we expect that when
 	 * hardware is dual speed, all bulk-capable endpoints work at
 	 * both speeds
@@ -687,13 +674,6 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 
 		if (!f->hs_descriptors)
 			goto fail;
-
-		rndis->hs.in = usb_find_endpoint(eth_hs_function,
-				f->hs_descriptors, &hs_in_desc);
-		rndis->hs.out = usb_find_endpoint(eth_hs_function,
-				f->hs_descriptors, &hs_out_desc);
-		rndis->hs.notify = usb_find_endpoint(eth_hs_function,
-				f->hs_descriptors, &hs_notify_desc);
 	}
 
 	rndis->port.open = rndis_open;

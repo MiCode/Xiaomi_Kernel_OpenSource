@@ -1354,6 +1354,7 @@ static int rmnet_mux_set_alt(struct usb_function *f,
 								function);
 	struct rmnet_mux_sdio_dev *sdio_dev = &dev->sdio_dev;
 	struct usb_composite_dev *cdev = dev->cdev;
+	int ret = 0;
 
 	/* allocate notification */
 	dev->notify_req = rmnet_mux_alloc_req(dev->epnotify,
@@ -1365,21 +1366,59 @@ static int rmnet_mux_set_alt(struct usb_function *f,
 	dev->notify_req->complete = rmnet_mux_notify_complete;
 	dev->notify_req->context = dev;
 	dev->notify_req->length = RMNET_MUX_SDIO_MAX_NFY_SZE;
-	dev->epnotify->desc = ep_choose(cdev->gadget,
-				&rmnet_mux_hs_notify_desc,
-				&rmnet_mux_fs_notify_desc);
-	usb_ep_enable(dev->epnotify);
 
+	/* Enable epin */
 	dev->epin->driver_data = dev;
-	dev->epin->desc = ep_choose(cdev->gadget,
-				&rmnet_mux_hs_in_desc,
-				&rmnet_mux_fs_in_desc);
-	usb_ep_enable(dev->epin);
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epin);
+	if (ret) {
+			dev->epin->desc = NULL;
+			ERROR(cdev, "config_ep_by_speed failes for ep %s, result %d\n",
+				dev->epin->name, ret);
+			return ret;
+	}
+	ret = usb_ep_enable(dev->epin);
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+		dev->epin->name, ret);
+		return ret;
+	}
+
+	/* Enable epout */
 	dev->epout->driver_data = dev;
-	dev->epout->desc = ep_choose(cdev->gadget,
-				&rmnet_mux_hs_out_desc,
-				&rmnet_mux_fs_out_desc);
-	usb_ep_enable(dev->epout);
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epout);
+	if (ret) {
+		dev->epout->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failes for ep %s, result %d\n",
+				dev->epout->name, ret);
+		usb_ep_disable(dev->epin);
+		return ret;
+	}
+	ret = usb_ep_enable(dev->epout);
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+			dev->epout->name, ret);
+		usb_ep_disable(dev->epin);
+		return ret;
+	}
+
+	/* Enable epnotify */
+	ret = config_ep_by_speed(cdev->gadget, f, dev->epnotify);
+	if (ret) {
+		dev->epnotify->desc = NULL;
+		ERROR(cdev, "config_ep_by_speed failes for ep %s, result %d\n",
+			dev->epnotify->name, ret);
+		usb_ep_disable(dev->epin);
+		usb_ep_disable(dev->epout);
+		return ret;
+	}
+	ret = usb_ep_enable(dev->epnotify);
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+			dev->epnotify->name, ret);
+		usb_ep_disable(dev->epin);
+		usb_ep_disable(dev->epout);
+		return ret;
+	}
 
 	dev->dpkts_tolaptop = 0;
 	dev->cpkts_tolaptop = 0;

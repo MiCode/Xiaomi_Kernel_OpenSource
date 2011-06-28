@@ -512,12 +512,13 @@ static int diag_function_set_alt(struct usb_function *f,
 	unsigned long flags;
 	int rc = 0;
 
-	dev->in->desc = ep_choose(cdev->gadget,
-			(struct usb_endpoint_descriptor *)f->hs_descriptors[1],
-			(struct usb_endpoint_descriptor *)f->descriptors[1]);
-	dev->out->desc = ep_choose(cdev->gadget,
-			(struct usb_endpoint_descriptor *)f->hs_descriptors[2],
-			(struct usb_endpoint_descriptor *)f->descriptors[2]);
+	if (config_ep_by_speed(cdev->gadget, f, dev->in) ||
+	    config_ep_by_speed(cdev->gadget, f, dev->out)) {
+		dev->in->desc = NULL;
+		dev->out->desc = NULL;
+		return -EINVAL;
+	}
+
 	dev->in->driver_data = dev;
 	rc = usb_ep_enable(dev->in);
 	if (rc) {
