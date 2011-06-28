@@ -1453,7 +1453,10 @@ static void usb_start(struct usb_info *ui)
 
 static int usb_free(struct usb_info *ui, int ret)
 {
-	dev_dbg(&ui->pdev->dev, "usb_free(%d)\n", ret);
+	if (ret)
+		dev_dbg(&ui->pdev->dev, "usb_free(%d)\n", ret);
+
+	usb_del_gadget_udc(&ui->gadget);
 
 	if (ui->xceiv)
 		otg_put_transceiver(ui->xceiv);
@@ -2385,6 +2388,11 @@ static int msm72k_set_selfpowered(struct usb_gadget *_gadget, int set)
 
 }
 
+static int msm72k_gadget_start(struct usb_gadget_driver *driver,
+		int (*bind)(struct usb_gadget *));
+static int msm72k_gadget_stop(struct usb_gadget_driver *driver);
+
+
 static const struct usb_gadget_ops msm72k_ops = {
 	.get_frame	= msm72k_get_frame,
 	.vbus_session	= msm72k_udc_vbus_session,
@@ -2392,6 +2400,8 @@ static const struct usb_gadget_ops msm72k_ops = {
 	.pullup		= msm72k_pullup,
 	.wakeup		= msm72k_wakeup,
 	.set_selfpowered = msm72k_set_selfpowered,
+	.start		= msm72k_gadget_start,
+	.stop		= msm72k_gadget_stop,
 };
 
 static void usb_do_remote_wakeup(struct work_struct *w)
@@ -2585,6 +2595,10 @@ static int msm72k_probe(struct platform_device *pdev)
 	ui->gadget.is_otg = 1;
 #endif
 
+	retval = usb_add_gadget_udc(&pdev->dev, &ui->gadget);
+	if (retval)
+		return usb_free(ui, retval);
+
 	ui->sdev.name = DRIVER_NAME;
 	ui->sdev.print_name = print_switch_name;
 	ui->sdev.print_state = print_switch_state;
@@ -2629,7 +2643,7 @@ static int msm72k_probe(struct platform_device *pdev)
 	return 0;
 }
 
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+static int msm72k_gadget_start(struct usb_gadget_driver *driver,
 			    int (*bind)(struct usb_gadget *))
 {
 	struct usb_info *ui = the_usb_info;
@@ -2715,9 +2729,8 @@ fail:
 	ui->gadget.dev.driver = NULL;
 	return retval;
 }
-EXPORT_SYMBOL(usb_gadget_probe_driver);
 
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int msm72k_gadget_stop(struct usb_gadget_driver *driver)
 {
 	struct usb_info *dev = the_usb_info;
 
@@ -2754,7 +2767,6 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		"unregistered gadget driver '%s'\n", driver->driver.name);
 	return 0;
 }
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 
 static int msm72k_udc_runtime_suspend(struct device *dev)
