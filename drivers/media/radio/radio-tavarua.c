@@ -2889,6 +2889,13 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 			break;
 		}
 		break;
+	case V4L2_CID_PRIVATE_TAVARUA_HLSI:
+		retval = tavarua_read_registers(radio, RDCTRL, 1);
+		SET_REG_FIELD(radio->registers[RDCTRL], ctrl->value,
+			RDCTRL_HLSI_OFFSET, RDCTRL_HLSI_MASK);
+		retval = tavarua_write_register(radio, RDCTRL,
+			radio->registers[RDCTRL]);
+		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSD_BUF:
 		retval = sync_read_xfr(radio, RDS_CONFIG, xfr_buf);
 		if (retval < 0)
