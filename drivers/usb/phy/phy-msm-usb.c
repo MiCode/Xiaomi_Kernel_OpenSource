@@ -519,13 +519,14 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct usb_bus *bus = phy->otg->host;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
-	bool host_bus_suspend;
+	bool session_active;
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
 	disable_irq(motg->irq);
-	host_bus_suspend = otg->host && !test_bit(ID, &motg->inputs);
+	session_active = (otg->host && !test_bit(ID, &motg->inputs)) ||
+				test_bit(B_SESS_VLD, &motg->inputs);
 	/*
 	 * Chipidea 45-nm PHY suspend sequence:
 	 *
@@ -554,7 +555,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * Turn off the OTG comparators, if depends on PMIC for
 	 * VBUS and ID notifications.
 	 */
-	if (motg->caps & ALLOW_PHY_COMP_DISABLE) {
+	if ((motg->caps & ALLOW_PHY_COMP_DISABLE) && !session_active) {
 		ulpi_write(phy, OTG_COMP_DISABLE,
 			ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 		motg->lpm_flags |= PHY_OTG_COMP_DISABLED;
@@ -589,7 +590,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 */
 	writel(readl(USB_USBCMD) | ASYNC_INTR_CTRL | ULPI_STP_CTRL, USB_USBCMD);
 
-	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend) {
+	if (motg->caps & ALLOW_PHY_RETENTION && !session_active) {
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL) & ~PHY_RETEN,
 				USB_PHY_CTRL);
 		motg->lpm_flags |= PHY_RETENTIONED;
@@ -604,7 +605,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (!IS_ERR(motg->pclk_src))
 		clk_disable(motg->pclk_src);
 
-	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !host_bus_suspend) {
+	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !session_active) {
 		msm_hsusb_ldo_enable(motg, 0);
 		motg->lpm_flags |= PHY_PWR_COLLAPSED;
 	}
