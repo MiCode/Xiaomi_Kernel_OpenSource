@@ -465,23 +465,12 @@ void res_trk_init(struct device *device, u32 irq)
 			resource_context.memtype = -1;
 		}
 		resource_context.core_type = VCD_CORE_1080P;
-		if (resource_context.memtype == MEMTYPE_EBI1) {
-			resource_context.device_addr =
-			(phys_addr_t)
-			allocate_contiguous_memory_nomap(VIDC_FW_SIZE,
-					resource_context.memtype, SZ_4K);
-			if (resource_context.device_addr) {
-				resource_context.base_addr = (u8 *)
-				ioremap((unsigned long)
-				resource_context.device_addr, VIDC_FW_SIZE);
-				if (!resource_context.base_addr) {
-					free_contiguous_memory_by_paddr(
-					(unsigned long)
-					resource_context.device_addr);
-					resource_context.device_addr =
-						(phys_addr_t)NULL;
-				}
-			}
+		if (!ddl_pmem_alloc(&resource_context.firmware_addr,
+			VIDC_FW_SIZE, DDL_KILO_BYTE(128))) {
+			pr_err("%s() Firmware buffer allocation failed",
+				   __func__);
+			memset(&resource_context.firmware_addr, 0,
+				   sizeof(resource_context.firmware_addr));
 		}
 	}
 }
@@ -490,14 +479,12 @@ u32 res_trk_get_core_type(void){
 	return resource_context.core_type;
 }
 
-u32 res_trk_get_firmware_addr(struct res_trk_firmware_addr *firm_addr)
+u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr)
 {
 	int status = -1;
-	if (firm_addr && resource_context.base_addr &&
-		resource_context.device_addr) {
-		firm_addr->base_addr = resource_context.base_addr;
-		firm_addr->device_addr = resource_context.device_addr;
-		firm_addr->buf_size = VIDC_FW_SIZE;
+	if (resource_context.firmware_addr.mapped_buffer) {
+		memcpy(firm_addr, &resource_context.firmware_addr,
+			   sizeof(struct ddl_buf_addr));
 		status = 0;
 	}
 	return status;

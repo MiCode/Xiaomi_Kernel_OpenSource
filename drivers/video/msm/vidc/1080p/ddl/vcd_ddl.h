@@ -298,7 +298,6 @@ union ddl_codec_data{
 	struct ddl_encoder_data   encoder;
 };
 struct ddl_context{
-	int memtype;
 	u8 *core_virtual_base_addr;
 	void *client_data;
 	u32 device_state;

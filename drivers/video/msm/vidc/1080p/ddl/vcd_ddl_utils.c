@@ -14,6 +14,7 @@
 #include <mach/msm_subsystem_map.h>
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl.h"
+#include "vcd_res_tracker_api.h"
 
 struct time_data {
 	unsigned int ddl_t1;
@@ -52,7 +53,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 	alloc_size = (sz + alignment);
 	addr->alloced_phys_addr = (phys_addr_t)
 	allocate_contiguous_memory_nomap(alloc_size,
-		ddl_context->memtype, SZ_4K);
+		res_trk_get_mem_type(), SZ_4K);
 	if (!addr->alloced_phys_addr) {
 		DDL_MSG_ERROR("%s() : acm alloc failed (%d)\n", __func__,
 			alloc_size);

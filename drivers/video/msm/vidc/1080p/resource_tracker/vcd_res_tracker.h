@@ -46,8 +46,7 @@ struct res_trk_context {
 	uint32_t     pcl;
 #endif
 	u32 core_type;
-	u8 *base_addr;
-	phys_addr_t device_addr;
+	struct ddl_buf_addr firmware_addr;
 };
 
 #if DEBUG

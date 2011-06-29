@@ -333,10 +333,6 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 
 void ddl_release_context_buffers(struct ddl_context *ddl_context)
 {
-	if (ddl_context->memtype == MEMTYPE_SMI_KERNEL) {
-		ddl_pmem_free(&ddl_context->dram_base_a);
-		ddl_pmem_free(&ddl_context->dram_base_b);
-	}
 	ddl_pmem_free(&ddl_context->metadata_shared_input);
 	ddl_fw_release();
 }
