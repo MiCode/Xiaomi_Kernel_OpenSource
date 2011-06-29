@@ -183,10 +183,12 @@ void mdp4_overlay_dmae_cfg(struct msm_fb_data_type *mfd, int atv)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_3D
+void unfill_black_screen(void) { return; }
+#else
 void unfill_black_screen(void)
 {
 	uint32 temp_src_format;
-
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	/*
 	* VG2 Constant Color
@@ -198,8 +200,13 @@ void unfill_black_screen(void)
 	*/
 	MDP_OUTP(MDP_BASE + 0x18000, BIT(3));
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	return;
 }
+#endif
 
+#ifdef CONFIG_FB_MSM_HDMI_3D
+void fill_black_screen(void) { return; }
+#else
 void fill_black_screen(void)
 {
 	/*Black color*/
@@ -220,7 +227,9 @@ void fill_black_screen(void)
 	*/
 	MDP_OUTP(MDP_BASE + 0x18000, BIT(3));
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	return;
 }
+#endif
 
 void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe)
 {
