@@ -411,6 +411,8 @@ static void msm_hsl_break_ctl(struct uart_port *port, int break_ctl)
 static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 {
 	unsigned int baud_code, rxstale, watermark;
+	unsigned int data;
+	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 
 	switch (baud) {
 	case 300:
@@ -464,7 +466,6 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 		break;
 	}
 
-	msm_hsl_write(port, RESET_RX, UARTDM_CR_ADDR);
 	msm_hsl_write(port, baud_code, UARTDM_CSR_ADDR);
 
 	/* RX stale watermark */
@@ -479,7 +480,19 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	/* set TX watermark */
 	msm_hsl_write(port, 0, UARTDM_TFWR_ADDR);
 
+	msm_hsl_write(port, CR_PROTECTION_EN, UARTDM_CR_ADDR);
+	msm_hsl_reset(port);
+
+	data = UARTDM_CR_TX_EN_BMSK;
+	data |= UARTDM_CR_RX_EN_BMSK;
+	/* enable TX & RX */
+	msm_hsl_write(port, data, UARTDM_CR_ADDR);
+
 	msm_hsl_write(port, RESET_STALE_INT, UARTDM_CR_ADDR);
+	/* turn on RX and CTS interrupts */
+	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
+		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
+	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
 	msm_hsl_write(port, 6500, UARTDM_DMRX_ADDR);
 	msm_hsl_write(port, STALE_EVENT_ENABLE, UARTDM_CR_ADDR);
 }
@@ -555,29 +568,6 @@ static int msm_hsl_startup(struct uart_port *port)
 	data |= UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK & (rfr_level << 2);
 	data |= UARTDM_MR1_AUTO_RFR_LEVEL0_BMSK & rfr_level;
 	msm_hsl_write(port, data, UARTDM_MR1_ADDR);
-
-
-	/* Make sure IPR is not 0 to start with*/
-	msm_hsl_write(port, UARTDM_IPR_STALE_LSB_BMSK, UARTDM_IPR_ADDR);
-	data = 0;
-
-	if (!(is_console(port)) || (!port->cons) ||
-		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
-		msm_hsl_write(port, CR_PROTECTION_EN, UARTDM_CR_ADDR);
-		msm_hsl_write(port, UARTDM_MR2_BITS_PER_CHAR_8 | STOP_BIT_ONE,
-			      UARTDM_MR2_ADDR);	/* 8N1 */
-		msm_hsl_reset(port);
-		data = UARTDM_CR_TX_EN_BMSK;
-	}
-
-	data |= UARTDM_CR_RX_EN_BMSK;
-
-	msm_hsl_write(port, data, UARTDM_CR_ADDR);	/* enable TX & RX */
-
-	/* turn on RX and CTS interrupts */
-	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
-		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
-
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	ret = request_irq(port->irq, msm_hsl_irq, IRQF_TRIGGER_HIGH,
@@ -586,14 +576,6 @@ static int msm_hsl_startup(struct uart_port *port)
 		printk(KERN_ERR "%s: failed to request_irq\n", __func__);
 		return ret;
 	}
-
-	spin_lock_irqsave(&port->lock, flags);
-	msm_hsl_write(port, RESET_STALE_INT, UARTDM_CR_ADDR);
-	msm_hsl_write(port, 6500, UARTDM_DMRX_ADDR);
-	msm_hsl_write(port, STALE_EVENT_ENABLE, UARTDM_CR_ADDR);
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
-	spin_unlock_irqrestore(&port->lock, flags);
-
 	return 0;
 }
 
