@@ -18,6 +18,7 @@
 #include <linux/errno.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/mfd/pm8921-adc.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
@@ -76,6 +77,8 @@ struct pm8921_bms_chip {
 	struct pc_sf_lut	*pc_sf_lut;
 	struct delayed_work	calib_work;
 	unsigned int		calib_delay_ms;
+	unsigned int		batt_temp_channel;
+	unsigned int		vbat_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
 };
@@ -584,6 +587,24 @@ static void calculate_cc_mvh(struct pm8921_bms_chip *chip, int64_t *val,
 	*val = cc_mah;
 }
 
+static int get_battery_uvolts(struct pm8921_bms_chip *chip, int *uvolts)
+{
+	int rc;
+	struct pm8921_adc_chan_result result;
+
+	rc = pm8921_adc_read(chip->vbat_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					chip->vbat_channel, rc);
+		return rc;
+	}
+	pr_debug("mvolts phy = %lld meas = 0x%llx", result.physical,
+						result.measurement);
+	*uvolts = (int)result.physical;
+	*uvolts = *uvolts * 1000;
+	return 0;
+}
+
 static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						int batt_temp, int chargecycles)
 {
@@ -630,8 +651,13 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	/* calculate remainging charge */
 	rc = read_last_good_ocv(chip, &ocv);
 	if (rc || ocv == 0) {
-		ocv = (last_ocv_uv < 0) ? DEFAULT_OCV_MICROVOLTS : last_ocv_uv;
-		pr_err("ocv failed assuming %d rc = %d\n", ocv, rc);
+		rc = get_battery_uvolts(chip, &ocv);
+		pr_err("ocv not available adc vbat = %d rc = %d\n", ocv, rc);
+		if (rc) {
+			ocv = (last_ocv_uv < 0) ?
+					DEFAULT_OCV_MICROVOLTS : last_ocv_uv;
+			pr_err("adc ocv failed assuming %d rc = %d\n", ocv, rc);
+		}
 		update_userspace = 0;
 	}
 	pc = calculate_pc(chip, ocv, batt_temp, chargecycles);
@@ -682,9 +708,23 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 int pm8921_bms_get_percent_charge(void)
 {
-	/* TODO get batt_temp from ADC */
-	int batt_temp = 73;
+	int batt_temp, rc;
+	struct pm8921_adc_chan_result result;
 
+	if (!the_chip) {
+		pr_err("called before initialization\n");
+		return -EINVAL;
+	}
+
+	rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					the_chip->batt_temp_channel, rc);
+		return rc;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
 	return calculate_state_of_charge(the_chip,
 					batt_temp, last_chargecycles);
 }
@@ -694,22 +734,14 @@ static int start_percent;
 static int end_percent;
 void pm8921_bms_charging_began(void)
 {
-	/* TODO get batt_temp from ADC */
-	int batt_temp = 73;
-
-	start_percent = calculate_state_of_charge(the_chip,
-					batt_temp, last_chargecycles);
+	start_percent = pm8921_bms_get_percent_charge();
 	pr_debug("start_percent = %u%%\n", start_percent);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
 void pm8921_bms_charging_end(void)
 {
-	/* TODO get batt_temp from ADC */
-	int batt_temp = 73;
-
-	end_percent = calculate_state_of_charge(the_chip,
-					batt_temp, last_chargecycles);
+	end_percent = pm8921_bms_get_percent_charge();
 	if (end_percent > start_percent) {
 		last_charge_increase = end_percent - start_percent;
 		if (last_charge_increase > 100) {
@@ -1111,6 +1143,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->fcc_sf_lut = pdata->batt_data->fcc_sf_lut;
 	chip->pc_temp_ocv_lut = pdata->batt_data->pc_temp_ocv_lut;
 	chip->pc_sf_lut = pdata->batt_data->pc_sf_lut;
+
+	chip->batt_temp_channel = pdata->bms_cdata.batt_temp_channel;
+	chip->vbat_channel = pdata->bms_cdata.vbat_channel;
 
 	rc = pm8921_bms_hw_init(chip);
 	if (rc) {

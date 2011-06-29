@@ -87,6 +87,11 @@ struct pm8921_bms_battery_data {
 	struct pc_sf_lut		*pc_sf_lut;
 };
 
+struct pm8xxx_bms_core_data {
+	unsigned int	batt_temp_channel;
+	unsigned int	vbat_channel;
+};
+
 /**
  * struct pm8921_bms_platform_data -
  * @r_sense:		sense resistor value in (mOhms)
@@ -97,6 +102,7 @@ struct pm8921_bms_battery_data {
  * @batt_data:		the battery profile data for the one used in the board
  */
 struct pm8921_bms_platform_data {
+	struct pm8xxx_bms_core_data	bms_cdata;
 	unsigned int			r_sense;
 	unsigned int			i_test;
 	unsigned int			v_failure;
