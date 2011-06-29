@@ -518,7 +518,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct usb_phy *phy = &motg->phy;
 	struct usb_bus *bus = phy->otg->host;
 	struct msm_otg_platform_data *pdata = motg->pdata;
-	int cnt = 0, val;
+	int cnt = 0;
 	bool host_bus_suspend;
 
 	if (atomic_read(&motg->in_lpm))
@@ -555,9 +555,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * VBUS and ID notifications.
 	 */
 	if (motg->caps & ALLOW_PHY_COMP_DISABLE) {
-		val = ulpi_read(phy, ULPI_PWR_CLK_MNG_REG);
-		val |= OTG_COMP_DISABLE;
-		ulpi_write(phy, val, ULPI_PWR_CLK_MNG_REG);
+		ulpi_write(phy, OTG_COMP_DISABLE,
+			ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 		motg->lpm_flags |= PHY_OTG_COMP_DISABLED;
 	}
 
@@ -694,9 +693,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 skip_phy_resume:
 	/* Turn on the OTG comparators on resume */
 	if (motg->lpm_flags & PHY_OTG_COMP_DISABLED) {
-		temp = ulpi_read(phy, ULPI_PWR_CLK_MNG_REG);
-		temp &= ~OTG_COMP_DISABLE;
-		ulpi_write(phy, temp, ULPI_PWR_CLK_MNG_REG);
+		ulpi_write(phy, OTG_COMP_DISABLE,
+			ULPI_CLR(ULPI_PWR_CLK_MNG_REG));
 		motg->lpm_flags &= ~PHY_OTG_COMP_DISABLED;
 	}
 	if (device_may_wakeup(phy->dev))

@@ -44,8 +44,8 @@
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
 
 /* synopsys 28nm phy registers */
-#define ULPI_PWR_CLK_MNG_REG	0x89
-#define OTG_COMP_DISABLE	BIT(0);
+#define ULPI_PWR_CLK_MNG_REG	0x88
+#define OTG_COMP_DISABLE	BIT(0)
 
 #define PHY_ALT_INT		(1 << 28) /* PHY alternate interrupt */
 #define ASYNC_INTR_CTRL         (1 << 29) /* Enable async interrupt */
