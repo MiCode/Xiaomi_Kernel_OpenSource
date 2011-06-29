@@ -2497,6 +2497,7 @@ static int tavarua_vidioc_g_ctrl(struct file *file, void *priv,
 		retval = tavarua_read_registers(radio, ADVCTRL, 1);
 		if (retval > -1)
 			ctrl->value = radio->registers[ADVCTRL];
+		msleep(TAVARUA_DELAY*5);
 		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSD_BUF:
 		retval = sync_read_xfr(radio, RDS_CONFIG, xfr_buf);
@@ -2798,8 +2799,17 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		retval = sync_write_xfr(radio, RDS_CONFIG, xfr_buf);
 		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSGROUP_PROC:
-		value  = radio->registers[ADVCTRL] | ctrl->value  ;
+		value  = radio->registers[ADVCTRL] | ctrl->value;
 		retval = tavarua_write_register(radio, ADVCTRL, value);
+		break;
+	case V4L2_CID_PRIVATE_TAVARUA_AF_JUMP:
+		retval = tavarua_read_registers(radio, ADVCTRL, 1);
+		SET_REG_FIELD(radio->registers[ADVCTRL], ctrl->value,
+			RDSAF_OFFSET, RDSAF_MASK);
+		msleep(TAVARUA_DELAY*5);
+		retval = tavarua_write_register(radio,
+			ADVCTRL, radio->registers[ADVCTRL]);
+		msleep(TAVARUA_DELAY*5);
 		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSD_BUF:
 		retval = sync_read_xfr(radio, RDS_CONFIG, xfr_buf);
