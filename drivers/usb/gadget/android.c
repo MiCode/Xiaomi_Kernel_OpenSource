@@ -1949,7 +1949,7 @@ static struct usb_composite_driver android_usb_driver = {
 	.bind		= android_bind,
 	.unbind		= android_usb_unbind,
 	.disconnect	= android_disconnect,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_SUPER
 };
 
 static int android_create_device(struct android_dev *dev)
