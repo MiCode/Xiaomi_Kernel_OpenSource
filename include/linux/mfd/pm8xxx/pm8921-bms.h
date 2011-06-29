@@ -111,10 +111,23 @@ struct pm8921_bms_platform_data {
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
+/**
+ * pm8921_bms_get_vsense_avg - return the voltage across the sense
+ *				resitor in microvolts
+ * @result:	The pointer where the voltage will be updated
+ *
+ * RETURNS:	Error code if there was a problem reading vsense, Zero otherwise
+ *		The result won't be updated in case of an error.
+ */
+int pm8921_bms_get_vsense_avg(int *result);
 int pm8921_bms_get_percent_charge(void);
 void pm8921_bms_charging_began(void);
 void pm8921_bms_charging_end(void);
 #else
+static inline int pm8921_bms_get_vsense_avg(int *result)
+{
+	return -ENXIO;
+}
 static inline int pm8921_bms_get_percent_charge(void)
 {
 	return -ENXIO;

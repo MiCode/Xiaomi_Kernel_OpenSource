@@ -285,6 +285,21 @@ static int read_ocv_for_rbatt(struct pm8921_bms_chip *chip, uint *result)
 	return 0;
 }
 
+static int read_vsense_avg(struct pm8921_bms_chip *chip, int *result)
+{
+	int rc;
+	int16_t reading;
+
+	rc = pm_bms_read_output_data(chip, VSENSE_AVG, &reading);
+	if (rc) {
+		pr_err("fail to read VSENSE_AVG rc = %d\n", rc);
+		return rc;
+	}
+	*result = CONV_READING(reading);
+	pr_debug("read = %04x vsense = %d\n", reading, *result);
+	return 0;
+}
+
 static int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 {
 	if (y0 == y1 || x == x0)
@@ -709,6 +724,16 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	return soc;
 }
 
+int pm8921_bms_get_vsense_avg(int *result)
+{
+	if (the_chip)
+		return read_vsense_avg(the_chip, result);
+
+	pr_err("called before initialization\n");
+	return -EINVAL;
+}
+EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
+
 int pm8921_bms_get_percent_charge(void)
 {
 	int batt_temp, rc;
@@ -1004,6 +1029,9 @@ static int get_reading(void *data, u64 * val)
 	case OCV_FOR_RBATT:
 		read_ocv_for_rbatt(the_chip, (uint *)val);
 		break;
+	case VSENSE_AVG:
+		read_vsense_avg(the_chip, (uint *)val);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1107,6 +1135,8 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)VSENSE_FOR_RBATT, &reading_fops);
 	debugfs_create_file("read_ocv_for_rbatt", 0644, chip->dent,
 				(void *)OCV_FOR_RBATT, &reading_fops);
+	debugfs_create_file("read_vsense_avg", 0644, chip->dent,
+				(void *)VSENSE_AVG, &reading_fops);
 
 	debugfs_create_file("show_rbatt", 0644, chip->dent,
 				(void *)CALC_RBATT, &calc_fops);
