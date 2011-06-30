@@ -22,6 +22,8 @@
 
 #include <linux/i2c.h>
 #include <linux/mfd/marimba.h>
+#include <linux/slab.h>
+#include <linux/debugfs.h>
 
 #define MARIMBA_MODE				0x00
 
@@ -44,6 +46,19 @@ static bool bt_status;
 #define NUM_ADD	MARIMBA_NUM_CHILD
 #else
 #define NUM_ADD	(MARIMBA_NUM_CHILD - 1)
+#endif
+
+#if defined(CONFIG_DEBUG_FS)
+struct adie_dbg_device {
+	struct mutex		dbg_mutex;
+	struct dentry		*dent;
+	int			addr;
+	int			mod_id;
+};
+
+static struct adie_dbg_device *marimba_dbg_device;
+static struct adie_dbg_device *timpani_dbg_device;
+static struct adie_dbg_device *bahama_dbg_device;
 #endif
 
 
@@ -475,6 +490,203 @@ void marimba_set_bt_status(struct marimba *marimba, bool value)
 }
 EXPORT_SYMBOL(marimba_set_bt_status);
 
+#if defined(CONFIG_DEBUG_FS)
+
+static int check_addr(int addr, const char *func_name)
+{
+	if (addr < 0 || addr > 0xFF) {
+		pr_err("%s: Marimba register address is invalid: %d\n",
+			func_name, addr);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int marimba_debugfs_set(void *data, u64 val)
+{
+	struct adie_dbg_device *dbgdev = data;
+	u8 reg = val;
+	int rc;
+	struct marimba marimba_id;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc)
+		goto done;
+
+	marimba_id.mod_id = dbgdev->mod_id;
+	rc = marimba_write(&marimba_id, dbgdev->addr, &reg, 1);
+	rc = (rc == 1) ? 0 : rc;
+
+	if (rc)
+		pr_err("%s: FAIL marimba_write(0x%03X)=0x%02X: rc=%d\n",
+			__func__, dbgdev->addr, reg, rc);
+done:
+	mutex_unlock(&dbgdev->dbg_mutex);
+	return rc;
+}
+
+static int marimba_debugfs_get(void *data, u64 *val)
+{
+	struct adie_dbg_device *dbgdev = data;
+	int rc;
+	u8 reg;
+	struct marimba marimba_id;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc)
+		goto done;
+
+	marimba_id.mod_id = dbgdev->mod_id;
+	rc = marimba_read(&marimba_id, dbgdev->addr, &reg, 1);
+	rc = (rc == 2) ? 0 : rc;
+
+	if (rc) {
+		pr_err("%s: FAIL marimba_read(0x%03X)=0x%02X: rc=%d\n",
+			__func__, dbgdev->addr, reg, rc);
+		goto done;
+	}
+
+	*val = reg;
+done:
+	mutex_unlock(&dbgdev->dbg_mutex);
+	return rc;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(dbg_marimba_fops, marimba_debugfs_get,
+		marimba_debugfs_set, "0x%02llX\n");
+
+static int addr_set(void *data, u64 val)
+{
+	struct adie_dbg_device *dbgdev = data;
+	int rc;
+
+	rc = check_addr(val, __func__);
+	if (rc)
+		return rc;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+	dbgdev->addr = val;
+	mutex_unlock(&dbgdev->dbg_mutex);
+
+	return 0;
+}
+
+static int addr_get(void *data, u64 *val)
+{
+	struct adie_dbg_device *dbgdev = data;
+	int rc;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc) {
+		mutex_unlock(&dbgdev->dbg_mutex);
+		return rc;
+	}
+	*val = dbgdev->addr;
+
+	mutex_unlock(&dbgdev->dbg_mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(dbg_addr_fops, addr_get, addr_set, "0x%03llX\n");
+
+static int __devinit marimba_dbg_init(int adie_type)
+{
+	struct adie_dbg_device *dbgdev;
+	struct dentry *dent;
+	struct dentry *temp;
+
+	dbgdev = kzalloc(sizeof *dbgdev, GFP_KERNEL);
+	if (dbgdev == NULL) {
+		pr_err("%s: kzalloc() failed.\n", __func__);
+		return -ENOMEM;
+	}
+
+	mutex_init(&dbgdev->dbg_mutex);
+	dbgdev->addr = -1;
+
+	if (adie_type == MARIMBA_ID) {
+		marimba_dbg_device = dbgdev;
+		marimba_dbg_device->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
+		dent = debugfs_create_dir("marimba-dbg", NULL);
+	} else if (adie_type == TIMPANI_ID) {
+		timpani_dbg_device = dbgdev;
+		timpani_dbg_device->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
+		dent = debugfs_create_dir("timpani-dbg", NULL);
+	} else if (adie_type == BAHAMA_ID) {
+		bahama_dbg_device = dbgdev;
+		bahama_dbg_device->mod_id = SLAVE_ID_BAHAMA;
+		dent = debugfs_create_dir("bahama-dbg", NULL);
+	}
+	if (dent == NULL || IS_ERR(dent)) {
+		pr_err("%s: ERR debugfs_create_dir: dent=0x%X\n",
+					__func__, (unsigned)dent);
+		kfree(dbgdev);
+		return -ENOMEM;
+	}
+
+	temp = debugfs_create_file("addr", S_IRUSR | S_IWUSR, dent,
+					dbgdev, &dbg_addr_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
+				__func__, (unsigned)temp);
+		goto debug_error;
+	}
+
+	temp = debugfs_create_file("data", S_IRUSR | S_IWUSR, dent,
+					dbgdev,	&dbg_marimba_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
+				__func__, (unsigned)temp);
+		goto debug_error;
+	}
+	dbgdev->dent = dent;
+
+	return 0;
+
+debug_error:
+	kfree(dbgdev);
+	debugfs_remove_recursive(dent);
+	return -ENOMEM;
+}
+
+static int __devexit marimba_dbg_remove(void)
+{
+	if (marimba_dbg_device) {
+		debugfs_remove_recursive(marimba_dbg_device->dent);
+		kfree(marimba_dbg_device);
+	}
+	if (timpani_dbg_device) {
+		debugfs_remove_recursive(timpani_dbg_device->dent);
+		kfree(timpani_dbg_device);
+	}
+	if (bahama_dbg_device) {
+		debugfs_remove_recursive(bahama_dbg_device->dent);
+		kfree(bahama_dbg_device);
+	}
+	return 0;
+}
+
+#else
+
+static int __devinit marimba_dbg_init(int adie_type)
+{
+	return 0;
+}
+
+static int __devexit marimba_dbg_remove(void)
+{
+	return 0;
+}
+
+#endif
+
 static int get_adie_type(void)
 {
 	u8 rd_val;
@@ -634,6 +846,9 @@ static int marimba_probe(struct i2c_client *client,
 
 	}
 
+	if (marimba_dbg_init(rc) != 0)
+		pr_debug("%s: marimba debugfs init failed\n", __func__);
+
 	marimba_init_reg(client, id->driver_data);
 
 	status = marimba_add_child(pdata, id->driver_data);
@@ -663,6 +878,7 @@ static int __devexit marimba_remove(struct i2c_client *client)
 			mutex_destroy(&marimba->xfer_lock);
 
 	}
+	marimba_dbg_remove();
 	mutex_initialized = 0;
 	if (pdata->marimba_shutdown != NULL)
 		pdata->marimba_shutdown();
