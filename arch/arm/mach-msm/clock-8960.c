@@ -3918,7 +3918,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("dfab_sdc_clk",	dfab_sdc3_clk.c, "msm_sdcc.3"),
 	CLK_LOOKUP("dfab_sdc_clk",	dfab_sdc4_clk.c, "msm_sdcc.4"),
 	CLK_LOOKUP("dfab_sdc_clk",	dfab_sdc5_clk.c, "msm_sdcc.5"),
-	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,	NULL /* sps */),
+	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,	"msm_sps"),
 
 	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_adm_clk.c, "msm_dmov"),
