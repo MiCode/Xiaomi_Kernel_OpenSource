@@ -1595,6 +1595,7 @@ fail:	mutex_unlock(&v->lock);
 int voc_enable_cvp(void)
 {
 	struct voice_data *v = &voice;
+	struct sidetone_cal sidetone_cal_data;
 	int ret = 0;
 
 	mutex_lock(&v->lock);
@@ -1610,8 +1611,10 @@ int voc_enable_cvp(void)
 			pr_err("enable vocproc failed\n");
 			goto fail;
 		}
+		get_sidetone_cal(&sidetone_cal_data);
 		ret = afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
-						 1, v->sidetone_gain);
+						sidetone_cal_data.enable,
+						sidetone_cal_data.gain);
 
 		if (ret < 0)
 			pr_err("AFE command sidetone failed\n");
@@ -1720,6 +1723,7 @@ int voc_end_voice_call(void)
 	mutex_lock(&v->lock);
 
 	if (v->voc_state == VOC_RUN) {
+		afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id, 0, 0);
 		ret = voice_destroy_vocproc(v);
 		if (ret < 0)
 			pr_err("%s:  destroy voice failed\n", __func__);
@@ -1734,6 +1738,7 @@ int voc_end_voice_call(void)
 int voc_start_voice_call(void)
 {
 	struct voice_data *v = &voice;
+	struct sidetone_cal sidetone_cal_data;
 	int ret = 0;
 
 	mutex_lock(&v->lock);
@@ -1760,8 +1765,11 @@ int voc_start_voice_call(void)
 			pr_err("start voice failed\n");
 			goto fail;
 		}
+		get_sidetone_cal(&sidetone_cal_data);
 		ret = afe_sidetone(v->dev_tx.port_id,
-				v->dev_rx.port_id, 1, v->sidetone_gain);
+					v->dev_rx.port_id,
+					sidetone_cal_data.enable,
+					sidetone_cal_data.gain);
 		if (ret < 0)
 			pr_err("AFE command sidetone failed\n");
 
