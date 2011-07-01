@@ -208,10 +208,8 @@ int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 
 	msm_spm_drv_set_start_addr(dev, addr);
 
-	if (addr) {
-		msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW2_SPM_CTL);
-		wmb();
-	}
+	msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW2_SPM_CTL);
+	wmb();
 
 	if (msm_spm_debug_mask & MSM_SPM_DEBUG_SHADOW) {
 		int i;
