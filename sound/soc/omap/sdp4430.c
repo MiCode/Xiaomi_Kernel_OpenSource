@@ -22,6 +22,7 @@
 
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
 #include <linux/mfd/twl6040.h>
 
 #include <sound/core.h>
