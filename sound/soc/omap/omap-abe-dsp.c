@@ -1730,13 +1730,10 @@ static const struct snd_pcm_hardware omap_abe_hardware = {
 	.buffer_bytes_max	= 24 * 1024 * 2,
 };
 
-static int aess_set_runtime_opp_level(struct abe_data *abe)
+
+static int abe_set_opp_mode(struct abe_data *abe)
 {
 	int i, opp = 0;
-
-	mutex_lock(&abe->opp_mutex);
-
-	pm_runtime_get_sync(abe->dev);
 
 	/* now calculate OPP level based upon DAPM widget status */
 	for (i = 0; i < ABE_NUM_WIDGETS; i++) {
@@ -1784,11 +1781,116 @@ static int aess_set_runtime_opp_level(struct abe_data *abe)
 	abe->opp = opp;
 	dev_dbg(abe->dev, "new OPP level is %d\n", opp);
 
+	return 0;
+}
+
+static int aess_set_runtime_opp_level(struct abe_data *abe)
+{
+	mutex_lock(&abe->opp_mutex);
+
+	pm_runtime_get_sync(abe->dev);
+	abe_set_opp_mode(abe);
 	pm_runtime_put_sync(abe->dev);
 
 	mutex_unlock(&abe->opp_mutex);
 
 	return 0;
+}
+
+static int aess_save_context(struct abe_data *abe)
+{
+	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
+
+	/* TODO: Find a better way to save/retore gains after OFF mode */
+
+	abe_mute_gain(MIXSDT, MIX_SDT_INPUT_UP_MIXER);
+	abe_mute_gain(MIXSDT, MIX_SDT_INPUT_DL1_MIXER);
+	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
+	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_TONES);
+	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_UPLINK);
+	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_VX_DL);
+	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_TONES);
+	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_DL);
+	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_MM_DL);
+	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_UL);
+	abe_mute_gain(MIXDL1, MIX_DL1_INPUT_MM_DL);
+	abe_mute_gain(MIXDL1, MIX_DL1_INPUT_MM_UL2);
+	abe_mute_gain(MIXDL1, MIX_DL1_INPUT_VX_DL);
+	abe_mute_gain(MIXDL1, MIX_DL1_INPUT_TONES);
+	abe_mute_gain(MIXDL2, MIX_DL2_INPUT_TONES);
+	abe_mute_gain(MIXDL2, MIX_DL2_INPUT_VX_DL);
+	abe_mute_gain(MIXDL2, MIX_DL2_INPUT_MM_DL);
+	abe_mute_gain(MIXDL2, MIX_DL2_INPUT_MM_UL2);
+	abe_mute_gain(MIXECHO, MIX_ECHO_DL1);
+	abe_mute_gain(MIXECHO, MIX_ECHO_DL2);
+	abe_mute_gain(GAINS_DMIC1, GAIN_LEFT_OFFSET);
+	abe_mute_gain(GAINS_DMIC1, GAIN_RIGHT_OFFSET);
+	abe_mute_gain(GAINS_DMIC2, GAIN_LEFT_OFFSET);
+	abe_mute_gain(GAINS_DMIC2, GAIN_RIGHT_OFFSET);
+	abe_mute_gain(GAINS_DMIC3, GAIN_LEFT_OFFSET);
+	abe_mute_gain(GAINS_DMIC3, GAIN_RIGHT_OFFSET);
+	abe_mute_gain(GAINS_AMIC, GAIN_LEFT_OFFSET);
+	abe_mute_gain(GAINS_AMIC, GAIN_RIGHT_OFFSET);
+
+	if (pdata->get_context_loss_count)
+	        abe->loss_count = pdata->get_context_loss_count(abe->dev);
+
+	return 0;
+}
+
+static int aess_restore_context(struct abe_data *abe)
+{
+	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
+	int loss_count = 0;
+
+	omap_device_set_rate(&abe->dev, &abe->dev, 98000000);
+
+	if (pdata->get_context_loss_count)
+		loss_count = pdata->get_context_loss_count(abe->dev);
+
+	if  (loss_count != the_abe->loss_count)
+	        abe_reload_fw();
+
+	/* TODO: Find a better way to save/retore gains after dor OFF mode */
+	abe_unmute_gain(MIXSDT, MIX_SDT_INPUT_UP_MIXER);
+	abe_unmute_gain(MIXSDT, MIX_SDT_INPUT_DL1_MIXER);
+	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
+	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_TONES);
+	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_UPLINK);
+	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_VX_DL);
+	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_TONES);
+	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_DL);
+	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_MM_DL);
+	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_UL);
+	abe_unmute_gain(MIXDL1, MIX_DL1_INPUT_MM_DL);
+	abe_unmute_gain(MIXDL1, MIX_DL1_INPUT_MM_UL2);
+	abe_unmute_gain(MIXDL1, MIX_DL1_INPUT_VX_DL);
+	abe_unmute_gain(MIXDL1, MIX_DL1_INPUT_TONES);
+	abe_unmute_gain(MIXDL2, MIX_DL2_INPUT_TONES);
+	abe_unmute_gain(MIXDL2, MIX_DL2_INPUT_VX_DL);
+	abe_unmute_gain(MIXDL2, MIX_DL2_INPUT_MM_DL);
+	abe_unmute_gain(MIXDL2, MIX_DL2_INPUT_MM_UL2);
+	abe_unmute_gain(MIXECHO, MIX_ECHO_DL1);
+	abe_unmute_gain(MIXECHO, MIX_ECHO_DL2);
+	abe_unmute_gain(GAINS_DMIC1, GAIN_LEFT_OFFSET);
+	abe_unmute_gain(GAINS_DMIC1, GAIN_RIGHT_OFFSET);
+	abe_unmute_gain(GAINS_DMIC2, GAIN_LEFT_OFFSET);
+	abe_unmute_gain(GAINS_DMIC2, GAIN_RIGHT_OFFSET);
+	abe_unmute_gain(GAINS_DMIC3, GAIN_LEFT_OFFSET);
+	abe_unmute_gain(GAINS_DMIC3, GAIN_RIGHT_OFFSET);
+	abe_unmute_gain(GAINS_AMIC, GAIN_LEFT_OFFSET);
+	abe_unmute_gain(GAINS_AMIC, GAIN_RIGHT_OFFSET);
+/*
+	abe_dsp_set_equalizer(EQ1, abe->dl1_equ_profile);
+	abe_dsp_set_equalizer(EQ2L, abe->dl20_equ_profile);
+	abe_dsp_set_equalizer(EQ2R, abe->dl21_equ_profile);
+	abe_dsp_set_equalizer(EQAMIC, abe->amic_equ_profile);
+	abe_dsp_set_equalizer(EQDMIC, abe->dmic_equ_profile);
+	abe_dsp_set_equalizer(EQSDT, abe->sdt_equ_profile);
+*/
+	abe_set_router_configuration(UPROUTE, 0, (u32 *)abe->router);
+
+       return 0;
 }
 
 static int aess_open(struct snd_pcm_substream *substream)
@@ -1805,8 +1907,12 @@ static int aess_open(struct snd_pcm_substream *substream)
 
 	pm_runtime_get_sync(abe->dev);
 
-	if (!abe->active++)
+	if (!abe->active++) {
+		abe->opp = 0;
+		aess_restore_context(abe);
+		abe_set_opp_mode(abe);
 		abe_wakeup();
+	}
 
 	switch (dai->id) {
 	case ABE_FRONTEND_DAI_MODEM:
@@ -1906,9 +2012,11 @@ static int aess_close(struct snd_pcm_substream *substream)
 
 	if (!--abe->active) {
 		abe_disable_irq();
+		aess_save_context(abe);
 		abe_dsp_shutdown();
-		pm_runtime_put_sync(abe->dev);
 	}
+
+	pm_runtime_put_sync(abe->dev);
 
 	mutex_unlock(&abe->mutex);
 	return 0;
@@ -1964,40 +2072,12 @@ static struct snd_pcm_ops omap_aess_pcm_ops = {
 static int aess_suspend(struct device *dev)
 {
 	struct abe_data *abe = dev_get_drvdata(dev);
-	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
 
 	pm_runtime_get_sync(abe->dev);
 
-	if (abe->active && abe_check_activity()) {
-		dev_dbg(abe->dev, "Suspend in a middle of ABE activity!\n");
-		goto no_suspend;
-	}
+	aess_save_context(abe);
 
-	/* TODO: Find a better way to save/retore gains after dor OFF mode */
-	abe_mute_gain(MIXSDT, MIX_SDT_INPUT_UP_MIXER);
-	abe_mute_gain(MIXSDT, MIX_SDT_INPUT_DL1_MIXER);
-	abe_mute_gain(MIXECHO, MIX_ECHO_DL1);
-	abe_mute_gain(MIXECHO, MIX_ECHO_DL2);
-	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
-	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_TONES);
-	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_UPLINK);
-	abe_mute_gain(MIXAUDUL, MIX_AUDUL_INPUT_VX_DL);
-	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_TONES);
-	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_DL);
-	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_MM_DL);
-	abe_mute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_UL);
-
-no_suspend:
 	pm_runtime_put_sync(abe->dev);
-
-	/*
-	 * force setting OPP after suspend/resume to ensure
-	 * ABE freq/volt are set to proper values
-	 */
-	abe->opp = 0;
-
-	if (pdata->get_context_loss_count)
-		abe->loss_count = pdata->get_context_loss_count(dev);
 
 	return 0;
 }
@@ -2005,43 +2085,11 @@ no_suspend:
 static int aess_resume(struct device *dev)
 {
 	struct abe_data *abe = dev_get_drvdata(dev);
-	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
-	int loss_count = 0;
-
-	if (pdata->get_context_loss_count)
-		loss_count = pdata->get_context_loss_count(dev);
 
 	pm_runtime_get_sync(abe->dev);
 
-	if (abe->active && abe_check_activity()) {
-		dev_dbg(abe->dev, "Resume in a middle of ABE activity!\n");
-		goto no_resume;
-	}
+	aess_restore_context(abe);
 
-	if (loss_count != abe->loss_count)
-		abe_reload_fw();
-
-	/* TODO: Find a better way to save/retore gains after dor OFF mode */
-	abe_unmute_gain(MIXSDT, MIX_SDT_INPUT_UP_MIXER);
-	abe_unmute_gain(MIXSDT, MIX_SDT_INPUT_DL1_MIXER);
-	abe_unmute_gain(MIXECHO, MIX_ECHO_DL1);
-	abe_unmute_gain(MIXECHO, MIX_ECHO_DL2);
-	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
-	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_TONES);
-	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_UPLINK);
-	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_VX_DL);
-	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_TONES);
-	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_DL);
-	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_MM_DL);
-	abe_unmute_gain(MIXVXREC, MIX_VXREC_INPUT_VX_UL);
-//	abe_dsp_set_equalizer(EQ1, abe->dl1_equ_profile);
-//	abe_dsp_set_equalizer(EQ2L, abe->dl20_equ_profile);
-//	abe_dsp_set_equalizer(EQ2R, abe->dl21_equ_profile);
-//	abe_dsp_set_equalizer(EQAMIC, abe->amic_equ_profile);
-//	abe_dsp_set_equalizer(EQDMIC, abe->dmic_equ_profile);
-//	abe_dsp_set_equalizer(EQSDT, abe->sdt_equ_profile);
-
-no_resume:
 	pm_runtime_put_sync(abe->dev);
 
 	return 0;
