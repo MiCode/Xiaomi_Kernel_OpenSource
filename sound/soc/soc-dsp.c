@@ -436,7 +436,7 @@ static int soc_dsp_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 	struct snd_pcm_runtime *runtime = fe_substream->runtime;
 	int ret = 0;
 
-	mutex_lock(&fe->card->dsp_mutex);
+	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
 	ret = soc_dsp_be_dai_startup(fe, fe_substream->stream);
 	if (ret < 0)
@@ -501,7 +501,7 @@ static int soc_dsp_fe_dai_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
 	int stream = substream->stream;
 
-	mutex_lock(&fe->card->dsp_mutex);
+	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
 	/* shutdown the BEs */
 	soc_dsp_be_dai_shutdown(fe, substream->stream);
@@ -580,7 +580,7 @@ int soc_dsp_fe_dai_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
 	int ret;
 
-	mutex_lock(&fe->card->dsp_mutex);
+	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
 	memcpy(&fe->dsp[substream->stream].params, params,
 			sizeof(struct snd_pcm_hw_params));
@@ -773,7 +773,7 @@ int soc_dsp_fe_dai_prepare(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
 	int stream = substream->stream, ret = 0;
 
-	mutex_lock(&fe->card->dsp_mutex);
+	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
 	dev_dbg(&fe->dev, "dsp: prepare FE %s\n", fe->dai_link->name);
 
@@ -851,7 +851,7 @@ int soc_dsp_fe_dai_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
 	int ret, stream = substream->stream;
 
-	mutex_lock(&fe->card->dsp_mutex);
+	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
 	fe_state_update(fe, stream, SND_SOC_DSP_LINK_STATE_FREE);
 
@@ -1105,7 +1105,7 @@ int soc_dsp_runtime_update(struct snd_soc_dapm_widget *widget)
 	else
 		return -EINVAL;
 
-	mutex_lock(&widget->dapm->card->dsp_mutex);
+	mutex_lock_nested(&widget->dapm->card->dsp_mutex, 1);
 
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_pcm_runtime *fe = &card->rtd[i];
