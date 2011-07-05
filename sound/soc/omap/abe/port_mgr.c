@@ -31,14 +31,12 @@
 #include "port_mgr.h"
 #include "abe_main.h"
 
-#ifdef CONFIG_DEBUG_FS
 /* this must match logical ID numbers in port_mgr.h */
 static const char *lport_name[] = {
 		"dmic0", "dmic1", "dmic2", "pdmdl1", "pdmdl2", "pdmvib",
 		"pdmul1", "bt_vx_dl", "bt_vx_ul", "mm_ext_ul", "mm_ext_dl",
 		"mm_dl1", "mm_ul1", "mm_ul2", "vx_dl", "vx_ul", "vib", "tones"
 };
-#endif
 
 static DEFINE_MUTEX(port_mgr_mutex);
 static struct abe *the_abe = NULL;
@@ -301,7 +299,9 @@ static struct abe *omap_abe_port_mgr_init(void)
 
 static void omap_abe_port_mgr_free(struct abe *abe)
 {
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(abe->debugfs_root);
+#endif
 	kfree(abe);
 	the_abe = NULL;
 }
