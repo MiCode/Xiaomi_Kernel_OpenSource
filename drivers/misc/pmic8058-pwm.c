@@ -173,6 +173,8 @@ static unsigned int pt_t[NUM_PRE_DIVIDE][NUM_CLOCKS] = {
 #define	MIN_MPT	((PRE_DIVIDE_MIN * CLK_PERIOD_MIN) << PM8058_PWM_M_MIN)
 #define	MAX_MPT	((PRE_DIVIDE_MAX * CLK_PERIOD_MAX) << PM8058_PWM_M_MAX)
 
+#define	CHAN_LUT_SIZE		(PM_PWM_LUT_SIZE / PM8058_PWM_CHANNELS)
+
 /* Private data */
 struct pm8058_pwm_chip;
 
@@ -183,7 +185,7 @@ struct pwm_device {
 	struct pm8058_pwm_period	period;
 	int			pwm_value;
 	int			pwm_period;
-	int			pwm_duty;
+	int			use_lut;	/* Use LUT to output PWM */
 	u8			pwm_ctl[PM8058_LPG_CTL_REGS];
 	int			irq;
 	struct pm8058_pwm_chip	*chip;
@@ -578,6 +580,7 @@ struct pwm_device *pwm_request(int pwm_id, const char *label)
 	if (!pwm->in_use) {
 		pwm->in_use = 1;
 		pwm->label = label;
+		pwm->use_lut = 0;
 
 		if (pwm_chip->pdata && pwm_chip->pdata->config)
 			pwm_chip->pdata->config(pwm, pwm_id, 1);
@@ -714,7 +717,106 @@ void pwm_disable(struct pwm_device *pwm)
 }
 EXPORT_SYMBOL(pwm_disable);
 
-/*
+/**
+ * pm8058_pwm_config_period - change PWM period
+ *
+ * @pwm: the PWM device
+ * @pwm_p: period in struct pm8058_pwm_period
+ */
+int pm8058_pwm_config_period(struct pwm_device *pwm,
+			     struct pm8058_pwm_period *period)
+{
+	int			rc;
+
+	if (pwm == NULL || IS_ERR(pwm) || period == NULL)
+		return -EINVAL;
+	if (pwm->chip == NULL)
+		return -ENODEV;
+
+	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (!pwm->in_use) {
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	pwm->period.pwm_size = period->pwm_size;
+	pwm->period.clk = period->clk;
+	pwm->period.pre_div = period->pre_div;
+	pwm->period.pre_div_exp = period->pre_div_exp;
+
+	pm8058_pwm_save_period(pwm);
+	pm8058_pwm_bank_sel(pwm);
+	rc = pm8058_pwm_write(pwm, 4, 6);
+
+out_unlock:
+	mutex_unlock(&pwm->chip->pwm_mutex);
+	return rc;
+}
+EXPORT_SYMBOL(pm8058_pwm_config_period);
+
+/**
+ * pm8058_pwm_config_duty_cycle - change PWM duty cycle
+ *
+ * @pwm: the PWM device
+ * @pwm_value: the duty cycle in raw PWM value (< 2^pwm_size)
+ */
+int pm8058_pwm_config_duty_cycle(struct pwm_device *pwm, int pwm_value)
+{
+	struct pm8058_pwm_lut	lut;
+	int		flags, start_idx;
+	int		rc = 0;
+
+	if (pwm == NULL || IS_ERR(pwm))
+		return -EINVAL;
+	if (pwm->chip == NULL)
+		return -ENODEV;
+
+	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (!pwm->in_use || !pwm->pwm_period) {
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (pwm->pwm_value == pwm_value)
+		goto out_unlock;
+
+	pwm->pwm_value = pwm_value;
+	flags = PM_PWM_LUT_RAMP_UP;
+
+	start_idx = pwm->pwm_id * CHAN_LUT_SIZE;
+	pm8058_pwm_change_table(pwm, &pwm_value, start_idx, 1, 1);
+
+	if (!pwm->use_lut) {
+		pwm->use_lut = 1;
+
+		lut.lut_duty_ms = 1;
+		lut.lut_lo_index = start_idx;
+		lut.lut_hi_index = start_idx;
+		lut.lut_pause_lo = 0;
+		lut.lut_pause_hi = 0;
+		lut.flags = flags;
+
+		rc = pm8058_pwm_change_lut(pwm, &lut);
+	} else {
+		pm8058_pwm_save_index(pwm, start_idx, start_idx, flags);
+		pm8058_pwm_save(&pwm->pwm_ctl[1], PM8058_PWM_BYPASS_LUT, 0);
+
+		pm8058_pwm_bank_sel(pwm);
+		rc = pm8058_pwm_write(pwm, 0, 3);
+	}
+
+	if (rc)
+		pr_err("[%d]: pm8058_pwm_write: rc=%d\n", pwm->pwm_id, rc);
+
+out_unlock:
+	mutex_unlock(&pwm->chip->pwm_mutex);
+	return rc;
+}
+EXPORT_SYMBOL(pm8058_pwm_config_duty_cycle);
+
+/**
  * pm8058_pwm_lut_config - change a PWM device configuration to use LUT
  *
  * @pwm: the PWM device
@@ -726,7 +828,6 @@ EXPORT_SYMBOL(pwm_disable);
  * @pause_lo: pause time in millisecond at low index
  * @pause_hi: pause time in millisecond at high index
  * @flags: control flags
- *
  */
 int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int duty_pct[], int duty_time_ms, int start_idx,
@@ -790,7 +891,7 @@ out_unlock:
 }
 EXPORT_SYMBOL(pm8058_pwm_lut_config);
 
-/*
+/**
  * pm8058_pwm_lut_enable - control a PWM device to start/stop LUT ramp
  *
  * @pwm: the PWM device

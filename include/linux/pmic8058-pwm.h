@@ -84,14 +84,38 @@ enum pm_pwm_pre_div {
 	PM_PWM_PDIV_6,
 };
 
+/**
+ * struct pm8058_pwm_period - PWM period structure
+ * @pwm_size: enum pm_pwm_size
+ * @clk: enum pm_pwm_clk
+ * @pre_div: enum pm_pwm_pre_div
+ * @pre_div_exp: exponent of 2 as part of pre-divider: 0..7
+ */
 struct pm8058_pwm_period {
 	enum pm_pwm_size	pwm_size;
 	enum pm_pwm_clk		clk;
 	enum pm_pwm_pre_div	pre_div;
-	int			pre_div_exp;	/* 0..7 */
+	int			pre_div_exp;
 };
 
-/*
+/**
+ * pm8058_pwm_config_period - change PWM period
+ *
+ * @pwm: the PWM device
+ * @pwm_p: period in struct pm8058_pwm_period
+ */
+int pm8058_pwm_config_period(struct pwm_device *pwm,
+			     struct pm8058_pwm_period *pwm_p);
+
+/**
+ * pm8058_pwm_config_duty_cycle - change PWM duty cycle
+ *
+ * @pwm: the PWM device
+ * @pwm_value: the duty cycle in raw PWM value (< 2^pwm_size)
+ */
+int pm8058_pwm_config_duty_cycle(struct pwm_device *pwm, int pwm_value);
+
+/**
  * pm8058_pwm_lut_config - change a PWM device configuration to use LUT
  *
  * @pwm: the PWM device
@@ -103,13 +127,12 @@ struct pm8058_pwm_period {
  * @pause_lo: pause time in millisecond at low index
  * @pause_hi: pause time in millisecond at high index
  * @flags: control flags
- *
  */
 int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int duty_pct[], int duty_time_ms, int start_idx,
 			  int len, int pause_lo, int pause_hi, int flags);
 
-/*
+/**
  * pm8058_pwm_lut_enable - control a PWM device to start/stop LUT ramp
  *
  * @pwm: the PWM device
