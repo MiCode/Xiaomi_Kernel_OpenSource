@@ -56,6 +56,7 @@
 
 #define CY8CTMA300	0x0
 #define CY8CTMG200	0x1
+#define CY8CTMA340	0x2
 
 #define INVALID_DATA	0xff
 
@@ -98,6 +99,18 @@ static struct cy8c_ts_data devices[] = {
 		.status_reg = 0x5,
 		.update_data = 0x1,
 		.touch_bytes = 12,
+		.finger_size = 70,
+	},
+	[2] = {
+		.x_index = 1,
+		.y_index = 3,
+		.z_index = 5,
+		.id_index = 6,
+		.data_reg = 0x2,
+		.status_reg = 0,
+		.update_data = 0x4,
+		.touch_bytes = 6,
+		.touch_meta_data = 3,
 		.finger_size = 70,
 	},
 };
@@ -286,7 +299,7 @@ static void cy8c_ts_xy_worker(struct work_struct *work)
 	if (ts->touch_data[ts->dd->touch_index] == INVALID_DATA)
 		goto schedule;
 
-	if (ts->device_id == CY8CTMA300)
+	if ((ts->device_id == CY8CTMA300) || (ts->device_id == CY8CTMA340))
 		process_tma300_data(ts);
 	else
 		process_tmg200_data(ts);
@@ -346,6 +359,14 @@ static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
 		}
 		ts->dd->data_size = ts->dd->touch_bytes;
 		ts->dd->touch_index = 0x0;
+	} else if (ts->device_id == CY8CTMA340) {
+		if (ts->pdata->nfingers > 10) {
+			dev_err(&client->dev, "Touches >=1 & <= 10\n");
+			return -EINVAL;
+		}
+		ts->dd->data_size = ts->pdata->nfingers * ts->dd->touch_bytes +
+						ts->dd->touch_meta_data;
+		ts->dd->touch_index = 0x0;
 	}
 
 	ts->touch_data = kzalloc(ts->dd->data_size, GFP_KERNEL);
@@ -369,6 +390,13 @@ static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
 	input_set_drvdata(input_device, ts);
 
 	__set_bit(EV_ABS, input_device->evbit);
+
+	if (ts->device_id == CY8CTMA340) {
+		/* set up virtual key */
+		__set_bit(EV_KEY, input_device->evbit);
+		/* set dummy key to make driver work with virtual keys */
+		input_set_capability(input_device, EV_KEY, KEY_PROG1);
+	}
 
 	input_set_abs_params(input_device, ABS_MT_POSITION_X,
 			ts->pdata->dis_min_x, ts->pdata->dis_max_x, 0, 0);
@@ -601,6 +629,8 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 	/* read one byte to make sure i2c device exists */
 	if (id->driver_data == CY8CTMA300)
 		temp_reg = 0x01;
+	else if (id->driver_data == CY8CTMA340)
+		temp_reg = 0x00;
 	else
 		temp_reg = 0x05;
 
@@ -759,6 +789,7 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 static const struct i2c_device_id cy8c_ts_id[] = {
 	{"cy8ctma300", CY8CTMA300},
 	{"cy8ctmg200", CY8CTMG200},
+	{"cy8ctma340", CY8CTMA340},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, cy8c_ts_id);
@@ -793,6 +824,6 @@ static void __exit cy8c_ts_exit(void)
 module_exit(cy8c_ts_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("CY8CTMA300-CY8CTMG200 touchscreen controller driver");
+MODULE_DESCRIPTION("CY8CTMA340-CY8CTMG200 touchscreen controller driver");
 MODULE_AUTHOR("Cypress");
 MODULE_ALIAS("platform:cy8c_ts");
