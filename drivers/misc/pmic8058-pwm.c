@@ -180,6 +180,9 @@ struct pwm_device {
 	int			pwm_id;		/* = bank/channel id */
 	int			in_use;
 	const char		*label;
+	struct pm8058_pwm_period	period;
+	int			pwm_value;
+	int			bypass_lut;
 	int			pwm_period;
 	int			pwm_duty;
 	u8			pwm_ctl[PM8058_LPG_CTL_REGS];
@@ -197,15 +200,8 @@ struct pm8058_pwm_chip {
 
 static struct pm8058_pwm_chip	*pwm_chip;
 
-struct pw8058_pwm_config {
-	int	pwm_size;	/* round up to 6 or 9 for 6/9-bit PWM SIZE */
-	int	clk;
-	int	pre_div;
-	int	pre_div_exp;
-	int	pwm_value;
-	int	bypass_lut;
-
-	/* LUT parameters when bypass_lut is 0 */
+struct pm8058_pwm_lut {
+	/* LUT parameters */
 	int	lut_duty_ms;
 	int	lut_lo_index;
 	int	lut_hi_index;
@@ -291,7 +287,7 @@ static int pm8058_pwm_start(struct pwm_device *pwm, int start, int ramp_start)
 }
 
 static void pm8058_pwm_calc_period(unsigned int period_us,
-					   struct pw8058_pwm_config *pwm_conf)
+				   struct pm8058_pwm_period *period)
 {
 	int	n, m, clk, div;
 	int	best_m, best_div, best_clk;
@@ -354,10 +350,10 @@ static void pm8058_pwm_calc_period(unsigned int period_us,
 		}
 	}
 
-	pwm_conf->pwm_size = n;
-	pwm_conf->clk = best_clk;
-	pwm_conf->pre_div = best_div;
-	pwm_conf->pre_div_exp = best_m;
+	period->pwm_size = n;
+	period->clk = best_clk;
+	period->pre_div = best_div;
+	period->pre_div_exp = best_m;
 
 	pr_debug("period=%u: n=%d, m=%d, clk[%d]=%s, div[%d]=%d\n",
 		 (unsigned)period_us, n, best_m,
@@ -365,33 +361,34 @@ static void pm8058_pwm_calc_period(unsigned int period_us,
 }
 
 static int pm8058_pwm_configure(struct pwm_device *pwm,
-			 struct pw8058_pwm_config *pwm_conf)
+			 struct pm8058_pwm_lut *pwm_conf)
 {
 	int	i, rc, len;
 	u8	reg, ramp_enabled = 0;
+	struct pm8058_pwm_period *period = &pwm->period;
 
-	reg = (pwm_conf->pwm_size > 6) ? PM8058_PWM_SIZE_9_BIT : 0;
+	reg = (period->pwm_size > 6) ? PM8058_PWM_SIZE_9_BIT : 0;
 	pwm->pwm_ctl[5] = reg;
 
-	reg = ((pwm_conf->clk + 1) << PM8058_PWM_CLK_SEL_SHIFT)
+	reg = ((period->clk + 1) << PM8058_PWM_CLK_SEL_SHIFT)
 		& PM8058_PWM_CLK_SEL_MASK;
-	reg |= (pwm_conf->pre_div << PM8058_PWM_PREDIVIDE_SHIFT)
+	reg |= (period->pre_div << PM8058_PWM_PREDIVIDE_SHIFT)
 		& PM8058_PWM_PREDIVIDE_MASK;
-	reg |= pwm_conf->pre_div_exp & PM8058_PWM_M_MASK;
+	reg |= period->pre_div_exp & PM8058_PWM_M_MASK;
 	pwm->pwm_ctl[4] = reg;
 
-	if (pwm_conf->bypass_lut) {
+	if (pwm->bypass_lut) {
 		pwm->pwm_ctl[0] &= PM8058_PWM_PWM_START; /* keep enabled */
 		pwm->pwm_ctl[1] = PM8058_PWM_BYPASS_LUT;
 		pwm->pwm_ctl[2] = 0;
 
-		if (pwm_conf->pwm_size > 6) {
-			pwm->pwm_ctl[3] = pwm_conf->pwm_value
+		if (period->pwm_size > 6) {
+			pwm->pwm_ctl[3] = pwm->pwm_value
 						& PM8058_PWM_VALUE_BIT7_0;
-			pwm->pwm_ctl[4] |= (pwm_conf->pwm_value >> 1)
+			pwm->pwm_ctl[4] |= (pwm->pwm_value >> 1)
 						& PM8058_PWM_VALUE_BIT8;
 		} else {
-			pwm->pwm_ctl[3] = pwm_conf->pwm_value
+			pwm->pwm_ctl[3] = pwm->pwm_value
 						& PM8058_PWM_VALUE_BIT5_0;
 		}
 
@@ -538,9 +535,9 @@ EXPORT_SYMBOL(pwm_free);
  */
 int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 {
-	struct pw8058_pwm_config	pwm_conf;
+	struct pm8058_pwm_lut	pwm_conf;
 	unsigned int max_pwm_value, tmp;
-	int	rc;
+	int				rc;
 
 	if (pwm == NULL || IS_ERR(pwm) ||
 		(unsigned)duty_us > (unsigned)period_us ||
@@ -557,27 +554,27 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 		goto out_unlock;
 	}
 
-	pm8058_pwm_calc_period(period_us, &pwm_conf);
+	pm8058_pwm_calc_period(period_us, &pwm->period);
 
 	/* Figure out pwm_value with overflow handling */
-	if ((unsigned)period_us > (1 << pwm_conf.pwm_size)) {
+	if ((unsigned)period_us > (1 << pwm->period.pwm_size)) {
 		tmp = period_us;
-		tmp >>= pwm_conf.pwm_size;
-		pwm_conf.pwm_value = (unsigned)duty_us / tmp;
+		tmp >>= pwm->period.pwm_size;
+		pwm->pwm_value = (unsigned)duty_us / tmp;
 	} else {
 		tmp = duty_us;
-		tmp <<= pwm_conf.pwm_size;
-		pwm_conf.pwm_value = tmp / (unsigned)period_us;
+		tmp <<= pwm->period.pwm_size;
+		pwm->pwm_value = tmp / (unsigned)period_us;
 	}
-	max_pwm_value = (1 << pwm_conf.pwm_size) - 1;
-	if (pwm_conf.pwm_value > max_pwm_value)
-		pwm_conf.pwm_value = max_pwm_value;
+	max_pwm_value = (1 << pwm->period.pwm_size) - 1;
+	if (pwm->pwm_value > max_pwm_value)
+		pwm->pwm_value = max_pwm_value;
 
-	pwm_conf.bypass_lut = 1;
+	pwm->bypass_lut = 1;
 
 	pr_debug("duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
 		 (unsigned)duty_us, (unsigned)period_us,
-		 pwm_conf.pwm_value, 1 << pwm_conf.pwm_size);
+		 pwm->pwm_value, 1 << pwm->period.pwm_size);
 
 	rc = pm8058_pwm_configure(pwm, &pwm_conf);
 
@@ -656,7 +653,7 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int duty_pct[], int duty_time_ms, int start_idx,
 			  int idx_len, int pause_lo, int pause_hi, int flags)
 {
-	struct pw8058_pwm_config	pwm_conf;
+	struct pm8058_pwm_lut	pwm_conf;
 	unsigned int pwm_value, max_pwm_value;
 	u8	cfg0, cfg1;
 	int	i, len;
@@ -683,16 +680,16 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		goto out_unlock;
 	}
 
-	pm8058_pwm_calc_period(period_us, &pwm_conf);
+	pm8058_pwm_calc_period(period_us, &pwm->period);
 
 	len = (idx_len > PM_PWM_LUT_SIZE) ? PM_PWM_LUT_SIZE : idx_len;
 
 	if (flags & PM_PWM_LUT_NO_TABLE)
 		goto after_table_write;
 
-	max_pwm_value = (1 << pwm_conf.pwm_size) - 1;
+	max_pwm_value = (1 << pwm->period.pwm_size) - 1;
 	for (i = 0; i < len; i++) {
-		pwm_value = (duty_pct[i] << pwm_conf.pwm_size) / 100;
+		pwm_value = (duty_pct[i] << pwm->period.pwm_size) / 100;
 		/* Avoid overflow */
 		if (pwm_value > max_pwm_value)
 			pwm_value = max_pwm_value;
@@ -717,7 +714,6 @@ after_table_write:
 	pwm_conf.lut_pause_lo = pause_lo;
 	pwm_conf.lut_pause_hi = pause_hi;
 	pwm_conf.flags = flags;
-	pwm_conf.bypass_lut = 0;
 
 	rc = pm8058_pwm_configure(pwm, &pwm_conf);
 
