@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,8 @@
  * Qualcomm PMIC8058 PWM driver
  *
  */
+
+#define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -241,8 +243,7 @@ static int pm8058_pwm_bank_enable(struct pwm_device *pwm, int enable)
 
 	rc = pm8058_write(chip->pm_chip, SSBI_REG_ADDR_LPG_BANK_EN, &reg, 1);
 	if (rc) {
-		pr_err("%s: pm8058_write(): rc=%d (Enable LPG Bank)\n",
-		       __func__, rc);
+		pr_err("pm8058_write(): rc=%d (Enable LPG Bank)\n", rc);
 		goto bail_out;
 	}
 	chip->bank_mask = reg;
@@ -260,8 +261,7 @@ static int pm8058_pwm_bank_sel(struct pwm_device *pwm)
 	rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_BANK_SEL,
 			     &reg, 1);
 	if (rc)
-		pr_err("%s: pm8058_write(): rc=%d (Select PWM Bank)\n",
-		       __func__, rc);
+		pr_err("pm8058_write(): rc=%d (Select PWM Bank)\n", rc);
 	return rc;
 }
 
@@ -284,8 +284,7 @@ static int pm8058_pwm_start(struct pwm_device *pwm, int start, int ramp_start)
 	rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_CTL(0),
 			  &reg, 1);
 	if (rc)
-		pr_err("%s: pm8058_write(): rc=%d (Enable PWM Ctl 0)\n",
-		       __func__, rc);
+		pr_err("pm8058_write(): rc=%d (Enable PWM Ctl 0)\n", rc);
 	else
 		pwm->pwm_ctl[0] = reg;
 	return rc;
@@ -360,8 +359,8 @@ static void pm8058_pwm_calc_period(unsigned int period_us,
 	pwm_conf->pre_div = best_div;
 	pwm_conf->pre_div_exp = best_m;
 
-	pr_debug("%s: period=%u: n=%d, m=%d, clk[%d]=%s, div[%d]=%d\n",
-		 __func__, (unsigned)period_us, n, best_m,
+	pr_debug("period=%u: n=%d, m=%d, clk[%d]=%s, div[%d]=%d\n",
+		 (unsigned)period_us, n, best_m,
 		 best_clk, clks[best_clk], best_div, pre_div[best_div]);
 }
 
@@ -463,8 +462,7 @@ static int pm8058_pwm_configure(struct pwm_device *pwm,
 				  SSBI_REG_ADDR_LPG_CTL(i),
 				  &pwm->pwm_ctl[i], 1);
 		if (rc) {
-			pr_err("%s: pm8058_write(): rc=%d (PWM Ctl[%d])\n",
-			       __func__, rc, i);
+			pr_err("pm8058_write(): rc=%d (PWM Ctl[%d])\n", rc, i);
 			break;
 		}
 	}
@@ -577,8 +575,8 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 
 	pwm_conf.bypass_lut = 1;
 
-	pr_debug("%s: duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
-		 __func__, (unsigned)duty_us, (unsigned)period_us,
+	pr_debug("duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
+		 (unsigned)duty_us, (unsigned)period_us,
 		 pwm_conf.pwm_value, 1 << pwm_conf.pwm_size);
 
 	rc = pm8058_pwm_configure(pwm, &pwm_conf);
@@ -702,7 +700,7 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		cfg1 = (pwm_value >> 1) & 0x80;
 		cfg1 |= start_idx + i;
 
-		pr_debug("%s: %d: pwm=%d\n", __func__, i, pwm_value);
+		pr_debug("%d: pwm=%d\n", i, pwm_value);
 
 		pm8058_write(pwm->chip->pm_chip,
 			     SSBI_REG_ADDR_LPG_LUT_CFG0,
@@ -847,8 +845,7 @@ int pm8058_pwm_set_dtest(struct pwm_device *pwm, int enable)
 		rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_TEST,
 				  &reg, 1);
 		if (rc)
-			pr_err("%s: pm8058_write(DTEST=0x%x): rc=%d\n",
-			       __func__, reg, rc);
+			pr_err("pm8058_write(DTEST=0x%x): rc=%d\n", reg, rc);
 
 	}
 	return rc;
@@ -863,13 +860,13 @@ static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 
 	pm_chip = dev_get_drvdata(pdev->dev.parent);
 	if (pm_chip == NULL) {
-		pr_err("%s: no parent data passed in.\n", __func__);
+		pr_err("no parent data passed in.\n");
 		return -EFAULT;
 	}
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
 	if (chip == NULL) {
-		pr_err("%s: kzalloc() failed.\n", __func__);
+		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
 	}
 
@@ -885,7 +882,7 @@ static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 	pwm_chip = chip;
 	platform_set_drvdata(pdev, chip);
 
-	pr_notice("%s: OK\n", __func__);
+	pr_notice("OK\n");
 	return 0;
 }
 
