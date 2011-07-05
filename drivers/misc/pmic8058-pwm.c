@@ -625,7 +625,7 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	int				rc;
 
 	if (pwm == NULL || IS_ERR(pwm) ||
-		(unsigned)duty_us > (unsigned)period_us ||
+		duty_us > period_us ||
 		(unsigned)period_us > PM_PWM_PERIOD_MAX ||
 		(unsigned)period_us < PM_PWM_PERIOD_MIN)
 		return -EINVAL;
@@ -639,9 +639,12 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 		goto out_unlock;
 	}
 
-	pm8058_pwm_calc_period(period_us, &pwm->period);
+	if (pwm->pwm_period != period_us) {
+		pm8058_pwm_calc_period(period_us, &pwm->period);
+		pm8058_pwm_save_period(pwm);
+		pwm->pwm_period = period_us;
+	}
 
-	pm8058_pwm_save_period(pwm);
 	pm8058_pwm_calc_pwm_value(pwm, period_us, duty_us);
 	pm8058_pwm_save_pwm_value(pwm);
 	pm8058_pwm_save(&pwm->pwm_ctl[1],
@@ -754,8 +757,11 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		goto out_unlock;
 	}
 
-	pm8058_pwm_calc_period(period_us, &pwm->period);
-	pm8058_pwm_save_period(pwm);
+	if (pwm->pwm_period != period_us) {
+		pm8058_pwm_calc_period(period_us, &pwm->period);
+		pm8058_pwm_save_period(pwm);
+		pwm->pwm_period = period_us;
+	}
 
 	len = (idx_len > PM_PWM_LUT_SIZE) ? PM_PWM_LUT_SIZE : idx_len;
 
