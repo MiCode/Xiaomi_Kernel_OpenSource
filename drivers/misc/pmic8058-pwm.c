@@ -839,7 +839,7 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int duty_pct[], int duty_time_ms, int start_idx,
 			  int idx_len, int pause_lo, int pause_hi, int flags)
 {
-	struct pm8058_pwm_lut		pwm_conf;
+	struct pm8058_pwm_lut		lut;
 	int	len;
 	int	rc;
 
@@ -882,14 +882,14 @@ int pm8058_pwm_lut_config(struct pwm_device *pwm, int period_us,
 	}
 
 after_table_write:
-	pwm_conf.lut_duty_ms = duty_time_ms;
-	pwm_conf.lut_lo_index = start_idx;
-	pwm_conf.lut_hi_index = start_idx + len - 1;
-	pwm_conf.lut_pause_lo = pause_lo;
-	pwm_conf.lut_pause_hi = pause_hi;
-	pwm_conf.flags = flags;
+	lut.lut_duty_ms = duty_time_ms;
+	lut.lut_lo_index = start_idx;
+	lut.lut_hi_index = start_idx + len - 1;
+	lut.lut_pause_lo = pause_lo;
+	lut.lut_pause_hi = pause_hi;
+	lut.flags = flags;
 
-	rc = pm8058_pwm_change_lut(pwm, &pwm_conf);
+	rc = pm8058_pwm_change_lut(pwm, &lut);
 
 out_unlock:
 	mutex_unlock(&pwm->chip->pwm_mutex);
