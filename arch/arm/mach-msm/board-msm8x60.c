@@ -3333,6 +3333,108 @@ static struct i2c_board_info cy8ctmg200_board_info[] = {
 	}
 };
 
+static struct regulator *vreg_tma340;
+
+static int tma340_power(int vreg_on)
+{
+	int rc = -EINVAL;
+
+	if (!vreg_tma340) {
+		pr_err("%s: regulator 8901_l2 not found (%d)\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = vreg_on ? regulator_enable(vreg_tma340) :
+			regulator_disable(vreg_tma340);
+	if (rc < 0)
+		pr_err("%s: vreg 8901_l2 %s failed (%d)\n",
+				__func__, vreg_on ? "enable" : "disable", rc);
+
+	/* wait for vregs to stabilize */
+	msleep(20);
+
+	return rc;
+}
+
+static struct kobject *tma340_prop_kobj;
+
+static int tma340_dragon_dev_setup(bool enable)
+{
+	int rc;
+
+	if (enable) {
+		vreg_tma340 = regulator_get(NULL, "8901_l2");
+		if (IS_ERR(vreg_tma340)) {
+			pr_err("%s: regulator get of 8901_l2 failed (%ld)\n",
+				__func__, PTR_ERR(vreg_tma340));
+			rc = PTR_ERR(vreg_tma340);
+			return rc;
+		}
+
+		rc = regulator_set_voltage(vreg_tma340, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: regulator_set_voltage() = %d\n",
+				__func__, rc);
+			goto reg_put;
+		}
+		tma300_vkeys_attr.attr.name = "virtualkeys.cy8ctma340";
+		tma340_prop_kobj = kobject_create_and_add("board_properties",
+					NULL);
+		if (tma340_prop_kobj) {
+			rc = sysfs_create_group(tma340_prop_kobj,
+				&tma300_properties_attr_group);
+			if (rc) {
+				kobject_put(tma340_prop_kobj);
+				pr_err("%s: failed to create board_properties\n",
+					__func__);
+				goto reg_put;
+			}
+		}
+
+	} else {
+		/* put voltage sources */
+		regulator_put(vreg_tma340);
+		/* destroy virtual keys */
+		if (tma340_prop_kobj) {
+			sysfs_remove_group(tma340_prop_kobj,
+				&tma300_properties_attr_group);
+			kobject_put(tma340_prop_kobj);
+		}
+	}
+	return 0;
+reg_put:
+	regulator_put(vreg_tma340);
+	return rc;
+}
+
+
+static struct cy8c_ts_platform_data cy8ctma340_dragon_pdata = {
+	.ts_name = "cy8ctma340",
+	.dis_min_x = 0,
+	.dis_max_x = 479,
+	.dis_min_y = 0,
+	.dis_max_y = 799,
+	.min_tid = 0,
+	.max_tid = 255,
+	.min_touch = 0,
+	.max_touch = 255,
+	.min_width = 0,
+	.max_width = 255,
+	.power_on = tma340_power,
+	.dev_setup = tma340_dragon_dev_setup,
+	.nfingers = 2,
+	.irq_gpio = TS_PEN_IRQ_GPIO,
+	.resout_gpio = -1,
+};
+
+static struct i2c_board_info cy8ctma340_dragon_board_info[] = {
+	{
+		I2C_BOARD_INFO("cy8ctma340", 0x24),
+		.platform_data = &cy8ctma340_dragon_pdata,
+	}
+};
+
 #ifdef CONFIG_SERIAL_MSM_HS
 static int configure_uart_gpios(int on)
 {
@@ -6994,10 +7096,16 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 	},
 #endif
 	{
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		cy8ctmg200_board_info,
 		ARRAY_SIZE(cy8ctmg200_board_info),
+	},
+	{
+		I2C_DRAGON,
+		MSM_GSBI3_QUP_I2C_BUS_ID,
+		cy8ctma340_dragon_board_info,
+		ARRAY_SIZE(cy8ctma340_dragon_board_info),
 	},
 #if defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C) || \
 		defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C_MODULE)
