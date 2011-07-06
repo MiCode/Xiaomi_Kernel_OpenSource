@@ -498,13 +498,18 @@ static int hw_ep_prime(int num, int dir, int is_ctrl)
  */
 static int hw_ep_set_halt(int num, int dir, int value)
 {
+	u32 addr, mask_xs, mask_xr;
+
 	if (value != 0 && value != 1)
 		return -EINVAL;
 
 	do {
-		u32 addr = CAP_ENDPTCTRL + num * sizeof(u32);
-		u32 mask_xs = dir ? ENDPTCTRL_TXS : ENDPTCTRL_RXS;
-		u32 mask_xr = dir ? ENDPTCTRL_TXR : ENDPTCTRL_RXR;
+		if (hw_cread(CAP_ENDPTSETUPSTAT, BIT(num)))
+			return 0;
+
+		addr = CAP_ENDPTCTRL + num * sizeof(u32);
+		mask_xs = dir ? ENDPTCTRL_TXS : ENDPTCTRL_RXS;
+		mask_xr = dir ? ENDPTCTRL_TXR : ENDPTCTRL_RXR;
 
 		/* data toggle - reserved for EP0 but it's in ESS */
 		hw_cwrite(addr, mask_xs|mask_xr, value ? mask_xs : mask_xr);
