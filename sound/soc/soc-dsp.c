@@ -511,13 +511,13 @@ static int soc_dsp_fe_dai_shutdown(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&fe->card->dsp_mutex, 0);
 
-	/* shutdown the BEs */
-	soc_dsp_be_dai_shutdown(fe, substream->stream);
-
 	dev_dbg(&fe->dev, "dsp: close FE %s\n", fe->dai_link->name);
 
 	/* now shutdown the frontend */
 	soc_pcm_close(substream);
+
+	/* shutdown the BEs */
+	soc_dsp_be_dai_shutdown(fe, substream->stream);
 
 	/* run the stream event for each BE */
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
