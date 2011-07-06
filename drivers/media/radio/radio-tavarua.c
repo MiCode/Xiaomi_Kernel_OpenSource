@@ -2755,7 +2755,6 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		/* RMSSI Threshold is a signed 8 bit value */
 		xfr_buf[0] = (unsigned char)ctrl->value;
 		xfr_buf[1] = (unsigned char)ctrl->value;
-		xfr_buf[4] = 0x01;
 		retval = sync_write_xfr(radio, RX_CONFIG, xfr_buf);
 		if (retval < 0) {
 			FMDERR("V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH]\n");
@@ -2810,6 +2809,21 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		retval = tavarua_write_register(radio,
 			ADVCTRL, radio->registers[ADVCTRL]);
 		msleep(TAVARUA_DELAY*5);
+		break;
+	case V4L2_CID_PRIVATE_TAVARUA_RSSI_DELTA:
+		retval = sync_read_xfr(radio, RX_CONFIG, xfr_buf);
+		if (retval < 0) {
+			FMDERR("V4L2_CID_PRIVATE_TAVARUA_RSSI_DELTA]\n");
+			FMDERR("sync_read_xfr [retval=%d]\n", retval);
+			break;
+		}
+		xfr_buf[4] = (unsigned char)ctrl->value;
+		retval = sync_write_xfr(radio, RX_CONFIG, xfr_buf);
+		if (retval < 0) {
+			FMDERR("V4L2_CID_PRIVATE_TAVARUA_RSSI_DELTA]\n");
+			FMDERR("sync_write_xfr [retval=%d]\n", retval);
+			break;
+		}
 		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSD_BUF:
 		retval = sync_read_xfr(radio, RDS_CONFIG, xfr_buf);
