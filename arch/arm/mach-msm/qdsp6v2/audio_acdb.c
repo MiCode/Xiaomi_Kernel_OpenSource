@@ -373,7 +373,7 @@ void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block)
 		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
 		goto done;
 	}
-	if (path > MAX_AUDPROC_TYPES || path < 0) {
+	if (path >= MAX_AUDPROC_TYPES || path < 0) {
 		pr_err("ACDB=> Bad path sent to %s, path: %d\n",
 			__func__, path);
 		goto done;

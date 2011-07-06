@@ -418,8 +418,8 @@ static long audlpa_process_event_req(struct audio *audio, void __user *arg)
 		rc = -1;
 	spin_unlock(&audio->event_queue_lock);
 
-	if (drv_evt->event_type == AUDIO_EVENT_WRITE_DONE ||
-	    drv_evt->event_type == AUDIO_EVENT_READ_DONE) {
+	if (drv_evt && (drv_evt->event_type == AUDIO_EVENT_WRITE_DONE ||
+	    drv_evt->event_type == AUDIO_EVENT_READ_DONE)) {
 		pr_debug("%s: AUDIO_EVENT_WRITE_DONE completing\n", __func__);
 		mutex_lock(&audio->lock);
 		audlpa_pmem_fixup(audio, drv_evt->payload.aio_buf.buf_addr,
@@ -630,6 +630,7 @@ static int audlpa_aio_buf_add(struct audio *audio, unsigned dir,
 		audlpa_async_send_data(audio, 0, 0);
 	} else {
 		/* read */
+		kfree(buf_node);
 	}
 	return 0;
 }

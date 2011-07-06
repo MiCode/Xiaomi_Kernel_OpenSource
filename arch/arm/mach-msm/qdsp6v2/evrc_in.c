@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,8 +204,8 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 	audio = kzalloc(sizeof(struct q6audio_in), GFP_KERNEL);
 
 	if (audio == NULL) {
-		pr_err("%s:session id %d: Could not allocate memory for evrc\
-				driver\n", __func__, audio->ac->session);
+		pr_err("%s: Could not allocate memory for evrc\
+				driver\n", __func__);
 		return -ENOMEM;
 	}
 	/* Allocate memory for encoder config param */
@@ -245,8 +245,8 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 				(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s:session id %d: Could not allocate memory for audio\
-				client\n", __func__, audio->ac->session);
+		pr_err("%s: Could not allocate memory for audio\
+				client\n", __func__);
 		kfree(audio->enc_cfg);
 		kfree(audio);
 		return -ENOMEM;

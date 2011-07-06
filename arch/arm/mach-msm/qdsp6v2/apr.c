@@ -396,7 +396,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	if (src_port != 0xFFFFFFFF) {
 		temp_port = ((src_port >> 8) * 8) + (src_port & 0xFF);
 		pr_debug("port = %d t_port = %d\n", src_port, temp_port);
-		if (temp_port > APR_MAX_PORTS || temp_port < 0) {
+		if (temp_port >= APR_MAX_PORTS || temp_port < 0) {
 			pr_err("APR: temp_port out of bounds\n");
 			mutex_unlock(&svc->m_lock);
 			return NULL;

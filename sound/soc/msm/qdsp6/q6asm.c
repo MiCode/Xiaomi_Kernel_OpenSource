@@ -1741,6 +1741,11 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 			+ sizeof(struct asm_memory_map_regions) * bufcnt;
 
 	mmap_region_cmd = kzalloc(cmd_size, GFP_KERNEL);
+	if (mmap_region_cmd == NULL) {
+		pr_err("%s: Mem alloc failed\n", __func__);
+		rc = -EINVAL;
+		return rc;
+	}
 	mmap_regions = (struct asm_stream_cmd_memory_map_regions *)
 							mmap_region_cmd;
 	q6asm_add_mmaphdr(&mmap_regions->hdr, cmd_size, TRUE);
@@ -1804,6 +1809,11 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 			sizeof(struct asm_memory_unmap_regions) * bufcnt;
 
 	unmap_region_cmd = kzalloc(cmd_size, GFP_KERNEL);
+	if (unmap_region_cmd == NULL) {
+		pr_err("%s: Mem alloc failed\n", __func__);
+		rc = -EINVAL;
+		return rc;
+	}
 	unmap_regions = (struct asm_stream_cmd_memory_unmap_regions *)
 							unmap_region_cmd;
 	q6asm_add_mmaphdr(&unmap_regions->hdr, cmd_size, TRUE);
