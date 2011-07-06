@@ -1,3 +1,4 @@
+
 /* audio_pcm.c - pcm audio decoder driver
  *
  * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
@@ -23,6 +24,9 @@
  * along with this program; if not, you can find it at http://www.fsf.org
  */
 
+#include <asm/atomic.h>
+#include <asm/ioctls.h>
+
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -36,20 +40,23 @@
 #include <linux/list.h>
 #include <linux/android_pmem.h>
 #include <linux/slab.h>
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
-#include <mach/msm_adsp.h>
-
 #include <linux/msm_audio.h>
 
-#include "audmgr.h"
 
+#include <mach/msm_adsp.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5/qdsp5audppcmdi.h>
 #include <mach/qdsp5/qdsp5audppmsg.h>
 #include <mach/qdsp5/qdsp5audplaycmdi.h>
 #include <mach/qdsp5/qdsp5audplaymsg.h>
 #include <mach/qdsp5/qdsp5rmtcmdi.h>
 #include <mach/debug_mm.h>
+#include <linux/memory_alloc.h>
+#include <mach/msm_memtypes.h>
+
+#include "audmgr.h"
 
 /* for queue ids - should be relative to module number*/
 #include "adsp.h"
@@ -180,6 +187,7 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	int32_t phys;
+	struct msm_mapped_buffer *map_v_write;
 
 	uint32_t drv_status;
 	int wflush; /* Write flush */
@@ -1108,6 +1116,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
+
 	case AUDIO_PAUSE:
 		MM_DBG("AUDIO_PAUSE %ld\n", arg);
 		rc = audpp_pause(audio->dec_id, (int) arg);
@@ -1366,8 +1375,8 @@ static int audio_release(struct inode *inode, struct file *file)
 	audpcm_reset_event_queue(audio);
 	MM_DBG("pmem area = 0x%8x\n", (unsigned int)audio->data);
 	if (audio->data) {
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->phys);
 	}
 	mutex_unlock(&audio->lock);
 #ifdef CONFIG_DEBUG_FS
@@ -1534,22 +1543,27 @@ static int audio_open(struct inode *inode, struct file *file)
 	/* Non AIO interface */
 	if (!(file->f_flags & O_NONBLOCK)) {
 		while (pmem_sz >= DMASZ_MIN) {
-			MM_DBG("pmemsz = %d \n", pmem_sz);
-			audio->phys = pmem_kalloc(pmem_sz, PMEM_MEMTYPE_EBI1|
-					PMEM_ALIGNMENT_4K);
-			if (!IS_ERR((void *)audio->phys)) {
-				audio->data = ioremap(audio->phys, pmem_sz);
-				if (!audio->data) {
-					MM_ERR("could not allocate write\
+			MM_DBG("pmemsz = %d\n", pmem_sz);
+			audio->phys = allocate_contiguous_ebi_nomap(pmem_sz,
+								SZ_4K);
+			if (audio->phys) {
+				audio->map_v_write = msm_subsystem_map_buffer(
+							audio->phys, pmem_sz,
+							MSM_SUBSYSTEM_MAP_KADDR,
+							NULL, 0);
+				if (IS_ERR(audio->map_v_write)) {
+					MM_ERR("could not map write\
 							buffers\n");
 					rc = -ENOMEM;
-					pmem_kfree(audio->phys);
+					free_contiguous_memory_by_paddr(
+								audio->phys);
 					audpp_adec_free(audio->dec_id);
 					MM_DBG("audio instance 0x%08x\
 						freeing\n", (int)audio);
 					kfree(audio);
 					goto done;
 				}
+				audio->data = audio->map_v_write->vaddr;
 				MM_DBG("write buf: phy addr 0x%08x kernel addr\
 					0x%08x\n", audio->phys,\
 					(int)audio->data);
@@ -1660,8 +1674,8 @@ done:
 	return rc;
 err:
 	if (audio->data) {
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->phys);
 	}
 	audpp_adec_free(audio->dec_id);
 	MM_DBG("audio instance 0x%08x freeing\n", (int)audio);
