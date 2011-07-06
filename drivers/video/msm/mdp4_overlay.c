@@ -1730,7 +1730,8 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 	return ret;
 }
 
-int mdp4_overlay_3d(struct fb_info *info, struct msmfb_overlay_3d *req)
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = -EPERM;
@@ -1738,17 +1739,24 @@ int mdp4_overlay_3d(struct fb_info *info, struct msmfb_overlay_3d *req)
 	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
 		return -EINTR;
 
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-	/* Only dsi_cmd panel support 3D */
 	if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
-		mdp4_dsi_cmd_3d(mfd, req);
+		mdp4_dsi_cmd_3d_sbys(mfd, req);
+		ret = 0;
+	} else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
+		mdp4_dsi_video_3d_sbys(mfd, req);
 		ret = 0;
 	}
-#endif
 	mutex_unlock(&mfd->dma->ov_mutex);
 
 	return ret;
 }
+#else
+int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
+{
+	/* do nothing */
+	return -EPERM;
+}
+#endif
 
 #ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
 int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req)

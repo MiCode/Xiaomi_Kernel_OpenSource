@@ -2577,7 +2577,7 @@ static int msmfb_overlay_blt_off(struct fb_info *info, unsigned long *argp)
 }
 #endif
 
-static int msmfb_overlay_3d(struct fb_info *info, unsigned long *argp)
+static int msmfb_overlay_3d_sbys(struct fb_info *info, unsigned long *argp)
 {
 	int	ret;
 	struct msmfb_overlay_3d req;
@@ -2589,7 +2589,7 @@ static int msmfb_overlay_3d(struct fb_info *info, unsigned long *argp)
 		return ret;
 	}
 
-	ret = mdp4_overlay_3d(info, &req);
+	ret = mdp4_overlay_3d_sbys(info, &req);
 
 	return ret;
 }
@@ -2715,7 +2715,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_OVERLAY_3D:
 		down(&msm_fb_ioctl_ppp_sem);
-		ret = msmfb_overlay_3d(info, argp);
+		ret = msmfb_overlay_3d_sbys(info, argp);
 		up(&msm_fb_ioctl_ppp_sem);
 		break;
 #endif

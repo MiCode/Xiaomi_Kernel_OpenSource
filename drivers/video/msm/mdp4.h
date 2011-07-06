@@ -545,8 +545,10 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 void mdp4_dsi_cmd_overlay_restore(void);
 
 void mdp4_overlay_panel_3d(int mixer_num, uint32 panel_3d);
-int mdp4_overlay_3d(struct fb_info *info, struct msmfb_overlay_3d *req);
-void mdp4_dsi_cmd_3d(struct msm_fb_data_type *mfd,
+int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req);
+void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
+			 struct msmfb_overlay_3d *r3d);
+void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
 
 void mdp_dmap_vsync_set(int enable);

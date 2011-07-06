@@ -226,7 +226,9 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	wmb();
 }
 
-void mdp4_dsi_cmd_3d(struct msm_fb_data_type *mfd, struct msmfb_overlay_3d *r3d)
+/* 3D side by side */
+void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
+				struct msmfb_overlay_3d *r3d)
 {
 	struct fb_info *fbi;
 	struct mdp4_overlay_pipe *pipe;
