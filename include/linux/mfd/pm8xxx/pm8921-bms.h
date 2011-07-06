@@ -120,8 +120,23 @@ struct pm8921_bms_platform_data {
  *		The result won't be updated in case of an error.
  */
 int pm8921_bms_get_vsense_avg(int *result);
+
+/**
+ * pm8921_bms_get_percent_charge - returns the current battery charge in percent
+ *
+ */
 int pm8921_bms_get_percent_charge(void);
+/**
+ * pm8921_bms_charging_began - function to notify the bms driver that charging
+ *				has started. Used by the bms driver to keep
+ *				track of chargecycles
+ */
 void pm8921_bms_charging_began(void);
+/**
+ * pm8921_bms_charging_end - function to notify the bms driver that charging
+ *				has stopped. Used by the bms driver to keep
+ *				track of chargecycles
+ */
 void pm8921_bms_charging_end(void);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
