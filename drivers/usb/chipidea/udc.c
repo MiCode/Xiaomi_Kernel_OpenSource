@@ -249,6 +249,9 @@ static int hw_ep_set_halt(struct ci13xxx *ci, int num, int dir, int value)
 		u32 mask_xs = dir ? ENDPTCTRL_TXS : ENDPTCTRL_RXS;
 		u32 mask_xr = dir ? ENDPTCTRL_TXR : ENDPTCTRL_RXR;
 
+		if (hw_read(ci, OP_ENDPTSETUPSTAT, BIT(num)))
+			return 0;
+
 		/* data toggle - reserved for EP0 but it's in ESS */
 		hw_write(ci, reg, mask_xs|mask_xr,
 			  value ? mask_xs : mask_xr);
