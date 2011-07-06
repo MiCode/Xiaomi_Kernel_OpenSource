@@ -556,5 +556,14 @@ config REGULATOR_MSM_GPIO
 	  enable signal to a physical regulator.  The GPIO enable signal can
 	  be configured to be active high (default) or active low.
 
+config REGULATOR_PM8058_XO
+	tristate "PM8058 XO Buffer driver"
+	depends on PMIC8058
+	default n
+	help
+	  This driver supports xo buffer control in the Qualcomm PM8058 PMIC
+	  chip. It is only supposed to be used when Linux on application
+	  processor is the master in control of XO buffers.
+
 endif
 
