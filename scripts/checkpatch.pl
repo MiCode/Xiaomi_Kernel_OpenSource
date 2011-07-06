@@ -2243,6 +2243,33 @@ sub tabify {
 	return "$leading";
 }
 
+sub cleanup_continuation_headers {
+	# Collapse any header-continuation lines into a single line so they
+	# can be parsed meaningfully, as the parser only has one line
+	# of context to work with.
+	my $again;
+	do {
+		$again = 0;
+		foreach my $n (0 .. scalar(@rawlines) - 2) {
+			if ($rawlines[$n]=~/^\s*$/) {
+				# A blank line means there's no more chance
+				# of finding headers.  Shortcut to done.
+				return;
+			}
+			if ($rawlines[$n]=~/^[\x21-\x39\x3b-\x7e]+:/ &&
+			    $rawlines[$n+1]=~/^\s+/) {
+				# Continuation header.  Collapse it.
+				my $line = splice @rawlines, $n+1, 1;
+				$line=~s/^\s+/ /;
+				$rawlines[$n] .= $line;
+				# We've 'destabilized' the list, so restart.
+				$again = 1;
+				last;
+			}
+		}
+	} while ($again);
+}
+
 sub pos_last_openparen {
 	my ($line) = @_;
 
@@ -2349,7 +2376,9 @@ sub process {
 	my $checklicenseline = 1;
 
 	sanitise_line_reset();
+	cleanup_continuation_headers();
 	my $line;
+
 	foreach my $rawline (@rawlines) {
 		$linenr++;
 		$line = $rawline;
