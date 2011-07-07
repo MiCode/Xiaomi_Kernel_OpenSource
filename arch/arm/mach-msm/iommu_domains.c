@@ -41,16 +41,6 @@ struct {
 	char *name;
 	int  domain;
 } msm_iommu_ctx_names[] = {
-	/* Video */
-	{
-		.name = "jpegd_src",
-		.domain = VIDEO_DOMAIN,
-	},
-	/* Video */
-	{
-		.name = "jpegd_dst",
-		.domain = VIDEO_DOMAIN,
-	},
 	/* Camera */
 	{
 		.name = "vpe_src",
@@ -59,6 +49,36 @@ struct {
 	/* Camera */
 	{
 		.name = "vpe_dst",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_imgwr",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_misc",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name =	"ijpeg_src",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name =	"ijpeg_dst",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_src",
+		.domain = GLOBAL_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_dst",
 		.domain = GLOBAL_DOMAIN,
 	},
 	/* Display */
@@ -93,32 +113,17 @@ struct {
 	},
 	/* Video */
 	{
-		.name =	"ijpeg_src",
-		.domain = VIDEO_DOMAIN,
-	},
-	/* Video */
-	{
-		.name =	"ijpeg_dst",
-		.domain = VIDEO_DOMAIN,
-	},
-	/* Camera */
-	{
-		.name = "vfe_imgwr",
-		.domain = GLOBAL_DOMAIN,
-	},
-	/* Camera */
-	{
-		.name = "vfe_misc",
-		.domain = GLOBAL_DOMAIN,
-	},
-	/* Video */
-	{
 		.name = "vcodec_a_mm1",
 		.domain = VIDEO_DOMAIN,
 	},
 	/* Video */
 	{
 		.name = "vcodec_b_mm2",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_stream",
 		.domain = VIDEO_DOMAIN,
 	},
 };
@@ -154,8 +159,8 @@ static struct mem_pool msm_iommu_iova_pools[] = {
 
 static struct msm_iommu_domain msm_iommu_subsystems[] = {
 	[JPEGD_SUBSYS_ID]	= {
-		.domain_idx	= VIDEO_DOMAIN,
-		.iova_pool_idx	= VIDEO_ALLOC_POOL,
+		.domain_idx	= GLOBAL_DOMAIN,
+		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
 	},
 	[VPE_SUBSYS_ID]		= {
 		.domain_idx	= GLOBAL_DOMAIN,
@@ -174,8 +179,8 @@ static struct msm_iommu_domain msm_iommu_subsystems[] = {
 		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
 	},
 	[IJPEG_SUBSYS_ID]	= {
-		.domain_idx	= VIDEO_DOMAIN,
-		.iova_pool_idx	= VIDEO_ALLOC_POOL,
+		.domain_idx	= GLOBAL_DOMAIN,
+		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
 	},
 	[VFE_SUBSYS_ID]		= {
 		.domain_idx	= GLOBAL_DOMAIN,
