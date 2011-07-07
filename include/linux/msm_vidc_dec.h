@@ -35,6 +35,7 @@
 #define VDEC_S_ENOTIMPL	(VDEC_S_BASE + 12)
 /* Command is not implemented by the driver.  */
 #define VDEC_S_BUSY	(VDEC_S_BASE + 13)
+#define VDEC_S_INPUT_BITSTREAM_ERR (VDEC_S_BASE + 14)
 
 #define VDEC_INTF_VER	1
 #define VDEC_MSG_BASE	0x0000000
