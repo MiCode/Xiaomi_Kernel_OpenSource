@@ -205,7 +205,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_mem;
 	}
 
-	irq = platform_get_irq_byname(pdev, "secure_irq");
+	irq = platform_get_irq_byname(pdev, "nonsecure_irq");
 	if (irq < 0) {
 		ret = -ENODEV;
 		goto fail_io;
