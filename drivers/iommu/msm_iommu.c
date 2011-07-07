@@ -424,43 +424,76 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 	if (len == SZ_16M) {
 		int i = 0;
+
+		for (i = 0; i < 16; i++)
+			if (*(fl_pte+i)) {
+				ret = -EBUSY;
+				goto fail;
+			}
+
 		for (i = 0; i < 16; i++)
 			*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION |
 				  FL_AP_READ | FL_AP_WRITE | FL_TYPE_SECT |
 				  FL_SHARED | FL_NG | pgprot;
 	}
 
-	if (len == SZ_1M)
-		*fl_pte = (pa & 0xFFF00000) | FL_AP_READ | FL_AP_WRITE | FL_NG |
-					    FL_TYPE_SECT | FL_SHARED | pgprot;
-
-	/* Need a 2nd level table */
-	if ((len == SZ_4K || len == SZ_64K) && (*fl_pte) == 0) {
-		unsigned long *sl;
-		sl = (unsigned long *) __get_free_pages(GFP_ATOMIC,
-							get_order(SZ_4K));
-
-		if (!sl) {
-			pr_debug("Could not allocate second level table\n");
-			ret = -ENOMEM;
+	if (len == SZ_1M) {
+		if (*fl_pte) {
+			ret = -EBUSY;
 			goto fail;
 		}
 
-		memset(sl, 0, SZ_4K);
-		*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | FL_TYPE_TABLE);
+		*fl_pte = (pa & 0xFFF00000) | FL_AP_READ | FL_AP_WRITE | FL_NG |
+					    FL_TYPE_SECT | FL_SHARED | pgprot;
+	}
+
+	/* Need a 2nd level table */
+	if (len == SZ_4K || len == SZ_64K) {
+
+		if (*fl_pte == 0) {
+			unsigned long *sl;
+			sl = (unsigned long *) __get_free_pages(GFP_ATOMIC,
+							get_order(SZ_4K));
+
+			if (!sl) {
+				pr_debug("Could not allocate second level table\n");
+				ret = -ENOMEM;
+				goto fail;
+			}
+			memset(sl, 0, SZ_4K);
+
+			*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
+						      FL_TYPE_TABLE);
+		}
+
+		if (!(*fl_pte & FL_TYPE_TABLE)) {
+			ret = -EBUSY;
+			goto fail;
+		}
 	}
 
 	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
 	sl_offset = SL_OFFSET(va);
 	sl_pte = sl_table + sl_offset;
 
+	if (len == SZ_4K) {
+		if (*sl_pte) {
+			ret = -EBUSY;
+			goto fail;
+		}
 
-	if (len == SZ_4K)
 		*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_AP0 | SL_AP1 | SL_NG |
 					  SL_SHARED | SL_TYPE_SMALL | pgprot;
+	}
 
 	if (len == SZ_64K) {
 		int i;
+
+		for (i = 0; i < 16; i++)
+			if (*(sl_pte+i)) {
+				ret = -EBUSY;
+				goto fail;
+			}
 
 		for (i = 0; i < 16; i++)
 			*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_AP0 |
