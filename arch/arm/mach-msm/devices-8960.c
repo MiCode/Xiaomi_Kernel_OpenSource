@@ -2130,6 +2130,7 @@ struct msm_rpm_map_data rpm_map_data[] __initdata = {
 	MSM_RPM_MAP(CXO_BUFFERS, CXO_BUFFERS, 1),
 	MSM_RPM_MAP(USB_OTG_SWITCH, USB_OTG_SWITCH, 1),
 	MSM_RPM_MAP(HDMI_SWITCH, HDMI_SWITCH, 1),
+	MSM_RPM_MAP(DDR_DMM_0, DDR_DMM, 2),
 
 };
 unsigned int rpm_map_data_size = ARRAY_SIZE(rpm_map_data);
