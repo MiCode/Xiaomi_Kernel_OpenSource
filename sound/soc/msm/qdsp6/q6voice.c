@@ -558,7 +558,6 @@ fail:
 
 static int voice_send_tty_mode_cmd(struct voice_data *v)
 {
-	int tty_mode = 0;
 	int ret = 0;
 	struct mvm_set_tty_mode_cmd mvm_tty_mode_cmd;
 	void *apr_mvm;
@@ -576,7 +575,7 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 	}
 	mvm_handle = voice_get_mvm_handle(v);
 
-	if (tty_mode) {
+	if (v->tty_mode) {
 		/* send tty mode cmd to mvm */
 		mvm_tty_mode_cmd.hdr.hdr_field = APR_HDR_FIELD(
 						APR_MSG_TYPE_SEQ_CMD,
@@ -590,7 +589,7 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 		mvm_tty_mode_cmd.hdr.dest_port = mvm_handle;
 		mvm_tty_mode_cmd.hdr.token = 0;
 		mvm_tty_mode_cmd.hdr.opcode = VSS_ISTREAM_CMD_SET_TTY_MODE;
-		mvm_tty_mode_cmd.tty_mode.mode = tty_mode;
+		mvm_tty_mode_cmd.tty_mode.mode = v->tty_mode;
 		pr_debug("tty mode =%d\n", mvm_tty_mode_cmd.tty_mode.mode);
 
 		v->mvm_state = CMD_STATUS_FAIL;
@@ -1612,7 +1611,11 @@ int voc_enable_cvp(void)
 		if (ret < 0) {
 			pr_err("enable vocproc failed\n");
 			goto fail;
+
 		}
+		/* send tty mode if tty device is used */
+		voice_send_tty_mode_cmd(v);
+
 		get_sidetone_cal(&sidetone_cal_data);
 		ret = afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
 						sidetone_cal_data.enable,
@@ -1641,6 +1644,34 @@ int voc_set_tx_mute(uint32_t dir, uint32_t mute)
 
 	if (v->voc_state == VOC_RUN)
 		ret = voice_send_mute_cmd(v);
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+int voc_set_tty_mode(uint8_t tty_mode)
+{
+	struct voice_data *v = &voice;
+	int ret = 0;
+
+	mutex_lock(&v->lock);
+
+	v->tty_mode = tty_mode;
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+uint8_t voc_get_tty_mode(void)
+{
+	struct voice_data *v = &voice;
+	int ret = 0;
+
+	mutex_lock(&v->lock);
+
+	ret = v->tty_mode;
 
 	mutex_unlock(&v->lock);
 
@@ -2069,6 +2100,8 @@ static int __init voice_init(void)
 
 	v->dev_tx.port_id = 1;
 	v->dev_rx.port_id = 0;
+
+	v->tty_mode = 0;
 
 	v->voc_state = VOC_INIT;
 	v->voc_path = VOC_PATH_PASSIVE;

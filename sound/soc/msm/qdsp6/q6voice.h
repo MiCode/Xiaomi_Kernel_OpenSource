@@ -628,6 +628,7 @@ struct voice_data {
 	uint32_t default_mute_val;
 	uint32_t default_vol_val;
 	uint32_t default_sample_val;
+	uint8_t tty_mode;
 
 	/* APR to MVM in the Q6 */
 	void *apr_q6_mvm;
@@ -680,6 +681,8 @@ enum {
 };
 
 /* called  by alsa driver */
+uint8_t voc_get_tty_mode(void);
+int voc_set_tty_mode(uint8_t tty_mode);
 int voc_start_voice_call(void);
 int voc_end_voice_call(void);
 void voc_set_rxtx_port(uint32_t dev_port_id, uint32_t dev_type);
