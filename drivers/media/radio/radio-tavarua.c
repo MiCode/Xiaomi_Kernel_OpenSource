@@ -1689,6 +1689,7 @@ static int tavarua_fops_open(struct file *file)
 				__func__);
 			goto open_err_all;
 		}
+
 		/* Check for Bahama V2 variant*/
 		if (bahama_version == 0x09)	{
 
@@ -1950,13 +1951,14 @@ static int tavarua_fops_release(struct file *file)
 	}
 	FMDBG("%s, Calling fm_shutdown\n", __func__);
 	/* teardown gpio and pmic */
+
+	marimba_set_fm_status(radio->marimba, false);
 	radio->pdata->fm_shutdown(radio->pdata);
 	if (radio->pdata->config_i2s_gpio != NULL)
 		radio->pdata->config_i2s_gpio(FM_I2S_OFF);
 	radio->handle_irq = 1;
 	radio->users = 0;
 	radio->marimba->mod_id = SLAVE_ID_BAHAMA;
-	marimba_set_fm_status(radio->marimba, false);
 	return 0;
 }
 
