@@ -558,11 +558,10 @@ static int bahama_bt(int on)
 	u8 offset = 0; /* index into bahama configs */
 	on = on ? 1 : 0;
 	version = marimba_read_bahama_ver(&config);
-
-	if (version == BAHAMA_VER_UNSUPPORTED) {
-		dev_err(&msm_bt_power_device.dev,
-			"%s: unsupported version\n",
-			__func__);
+	if ((int)version < 0 || version == BAHAMA_VER_UNSUPPORTED) {
+		dev_err(&msm_bt_power_device.dev, "%s: Bahama \
+				version read Error, version = %d \n",
+				__func__, version);
 		return -EIO;
 	}
 
@@ -589,7 +588,7 @@ static int bahama_bt(int on)
 				__func__, (p+i)->reg, rc);
 			return rc;
 		}
-		dev_info(&msm_bt_power_device.dev,
+		dev_dbg(&msm_bt_power_device.dev,
 			"%s: reg 0x%02x write value 0x%02x mask 0x%02x\n",
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
@@ -600,7 +599,7 @@ static int bahama_bt(int on)
 		if (rc < 0)
 			dev_err(&msm_bt_power_device.dev, "%s marimba_read_bit_mask- error",
 					__func__);
-		dev_info(&msm_bt_power_device.dev,
+		dev_dbg(&msm_bt_power_device.dev,
 			"%s: reg 0x%02x read value 0x%02x mask 0x%02x\n",
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
