@@ -1688,14 +1688,14 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec,
 			TABLA_A_CDC_CONN_TX_SB_B1_CTL + tx_channel, 0x30, 0x20);
 		snd_soc_update_bits(codec,
-			TABLA_A_CDC_TX1_MUX_CTL + tx_channel, 0x8, 0x0);
+			TABLA_A_CDC_TX1_MUX_CTL + (tx_channel * 8), 0x8, 0x0);
 
 	}
 	for (tx_channel = 6; tx_channel < 10; tx_channel++) {
 		snd_soc_update_bits(codec,
 			TABLA_A_CDC_CONN_TX_SB_B1_CTL + tx_channel, 0x60, 0x40);
 		snd_soc_update_bits(codec,
-			TABLA_A_CDC_TX1_MUX_CTL + tx_channel, 0x8, 0x0);
+			TABLA_A_CDC_TX1_MUX_CTL + (tx_channel * 8), 0x8, 0x0);
 	}
 	snd_soc_write(codec, TABLA_A_CDC_CONN_RX_SB_B1_CTL, 0xAA);
 	snd_soc_write(codec, TABLA_A_CDC_CONN_RX_SB_B2_CTL, 0xAA);
