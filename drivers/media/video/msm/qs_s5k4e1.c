@@ -56,8 +56,11 @@
 
 /* AF Total steps parameters */
 #define QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR    32
+#define QS_S5K4E1_TOTAL_STEPS_3D    32
 
 uint16_t qs_s5k4e1_step_position_table[QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR+1];
+uint16_t qs_s5k4e1_step_position_table_left[QS_S5K4E1_TOTAL_STEPS_3D+1];
+uint16_t qs_s5k4e1_step_position_table_right[QS_S5K4E1_TOTAL_STEPS_3D+1];
 uint16_t qs_s5k4e1_nl_region_boundary1;
 uint16_t qs_s5k4e1_nl_region_code_per_step1 = 190;
 uint16_t qs_s5k4e1_l_region_code_per_step = 8;
@@ -796,11 +799,28 @@ static int32_t qs_s5k4e1_write_focus_value(uint16_t code_value)
 	return 0;
 }
 
+static int32_t qs_s5k4e1_write_1D_focus_value(uint16_t code_value)
+{
+	uint8_t code_val_msb, code_val_lsb;
+	CDBG("%s: Lens Position: %d\n", __func__, code_value);
+	code_val_msb = code_value >> 4;
+	code_val_lsb = (code_value & 0x000F) << 4;
+	code_val_lsb |= qs_s5k4e1_af_mode;
+	if (af_i2c_write_b_sensor(code_val_msb, code_val_lsb) < 0) {
+		CDBG("move_focus failed at line %d ...\n", __LINE__);
+		return -EBUSY;
+	}
+
+	usleep(qs_s5k4e1_sw_damping_time_wait*50);
+	return 0;
+}
+
 static int32_t qs_s5k4e1_move_focus(int direction,
 	int32_t num_steps)
 {
 	int16_t step_direction, actual_step, dest_lens_position,
 		dest_step_position;
+	int16_t max_step_postion = QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR;
 	CDBG("Inside %s\n", __func__);
 	if (direction == MOVE_NEAR)
 		step_direction = 1;
@@ -811,8 +831,11 @@ static int32_t qs_s5k4e1_move_focus(int direction,
 	dest_step_position = (int16_t) (qs_s5k4e1_ctrl->curr_step_pos +
 		actual_step);
 
-	if (dest_step_position > QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR)
-		dest_step_position = QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR;
+	if (qs_s5k4e1_ctrl->cam_mode == MODE_3D)
+		max_step_postion = QS_S5K4E1_TOTAL_STEPS_3D;
+
+	if (dest_step_position > max_step_postion)
+		dest_step_position = max_step_postion;
 	else if (dest_step_position < 0)
 		dest_step_position = 0;
 
@@ -822,9 +845,6 @@ static int32_t qs_s5k4e1_move_focus(int direction,
 			qs_s5k4e1_ctrl->curr_step_pos);
 		return 0;
 	}
-
-	dest_lens_position = qs_s5k4e1_step_position_table[dest_step_position];
-	CDBG("%s: Step Position: %d\n", __func__, dest_step_position);
 
 	if (step_direction < 0) {
 		if (num_steps >= 20) {
@@ -845,6 +865,37 @@ static int32_t qs_s5k4e1_move_focus(int direction,
 		qs_s5k4e1_sw_damping_time_wait = 16;
 	}
 
+	if (qs_s5k4e1_ctrl->cam_mode == MODE_3D) {
+		/* Left */
+		bridge_i2c_write_w(0x06, 0x02);
+		dest_lens_position =
+			qs_s5k4e1_step_position_table_left[dest_step_position];
+		if (qs_s5k4e1_write_1D_focus_value(dest_lens_position) < 0) {
+			CDBG("move_focus failed at line %d ...\n", __LINE__);
+			bridge_i2c_write_w(0x06, 0x03);
+			return -EBUSY;
+		}
+		/* Keep left sensor as reference as AF stats is from left */
+		qs_s5k4e1_ctrl->curr_step_pos = dest_step_position;
+		qs_s5k4e1_ctrl->curr_lens_pos = dest_lens_position;
+
+		/* Right */
+		bridge_i2c_write_w(0x06, 0x01);
+		dest_lens_position =
+			qs_s5k4e1_step_position_table_right[dest_step_position];
+		if (qs_s5k4e1_write_1D_focus_value(dest_lens_position) < 0) {
+			CDBG("move_focus failed at line %d ...\n", __LINE__);
+			bridge_i2c_write_w(0x06, 0x03);
+			return -EBUSY;
+		}
+
+		/* 3D Mode */
+		bridge_i2c_write_w(0x06, 0x03);
+		return 0;
+	}
+
+	dest_lens_position = qs_s5k4e1_step_position_table[dest_step_position];
+	CDBG("%s: Step Position: %d\n", __func__, dest_step_position);
 	if (qs_s5k4e1_ctrl->curr_lens_pos != dest_lens_position) {
 		if (qs_s5k4e1_write_focus_value(dest_lens_position) < 0) {
 			CDBG("move_focus failed at line %d ...\n", __LINE__);
@@ -866,15 +917,123 @@ static int32_t qs_s5k4e1_set_default_focus(uint8_t af_step)
 		if (rc < 0)
 			return rc;
 	} else {
-		rc = qs_s5k4e1_write_focus_value(
-			qs_s5k4e1_step_position_table[0]);
-		if (rc < 0)
-			return rc;
-		qs_s5k4e1_ctrl->curr_lens_pos =
-			qs_s5k4e1_step_position_table[0];
+		if (qs_s5k4e1_ctrl->cam_mode == MODE_3D) {
+			/* Left */
+			bridge_i2c_write_w(0x06, 0x02);
+			rc = qs_s5k4e1_write_1D_focus_value(
+				qs_s5k4e1_step_position_table_left[0]);
+			if (rc < 0) {
+				bridge_i2c_write_w(0x06, 0x03);
+				return rc;
+			}
+
+			/* Right */
+			bridge_i2c_write_w(0x06, 0x01);
+			rc = qs_s5k4e1_write_1D_focus_value(
+				qs_s5k4e1_step_position_table_right[0]);
+			if (rc < 0) {
+				bridge_i2c_write_w(0x06, 0x03);
+				return rc;
+			}
+
+			/* Left sensor is the reference sensor for AF stats */
+			qs_s5k4e1_ctrl->curr_lens_pos =
+				qs_s5k4e1_step_position_table_left[0];
+
+			/* 3D Mode */
+			bridge_i2c_write_w(0x06, 0x03);
+		} else {
+			rc = qs_s5k4e1_write_focus_value(
+				qs_s5k4e1_step_position_table[0]);
+			if (rc < 0)
+				return rc;
+			qs_s5k4e1_ctrl->curr_lens_pos =
+				qs_s5k4e1_step_position_table[0];
+		}
 	}
 	CDBG("%s\n", __func__);
 	return 0;
+}
+
+static void qs_s5k4e1_3d_table_init(void)
+{
+	int16_t af_data = 0;
+	uint16_t step = 8, step_q2 = 8, anchor_point_q2;
+	int32_t rc = 0, i, j;
+	uint16_t eeprom_read_addr[2][3] = {{0x110, 0x114, 0x118},
+		{0x112, 0x116, 0x11A} };
+	uint16_t *step_position_table;
+
+	step_position_table = qs_s5k4e1_step_position_table_left;
+	for (j = 0; j < 2; j++) {
+		rc = qs_s5k4e1_eeprom_i2c_read_b(eeprom_read_addr[j][0],
+			&af_data, 2);
+		if (rc == 0) {
+			CDBG("%s: Far data - %d\n", __func__, af_data);
+			step_position_table[0] = af_data;
+		} else {
+			CDBG("%s: EEPROM data read error\n", __func__);
+			return;
+		}
+
+		rc = qs_s5k4e1_eeprom_i2c_read_b(eeprom_read_addr[j][1],
+			&af_data, 2);
+		if (rc == 0) {
+			CDBG("%s: Medium data - %d\n", __func__, af_data);
+			step_position_table[2] = af_data;
+		} else {
+			CDBG("%s: EEPROM data read error\n", __func__);
+			return;
+		}
+
+		/*
+		 * Using the 150cm and 100cm calibration values
+		 * as per the Lens characteristics derive intermediate step
+		 */
+		step_position_table[1] = step_position_table[0] +
+			(step_position_table[2] - step_position_table[0])/2;
+		CDBG("%s: Step between 150cm:100cm is %d\n", __func__,
+			step_position_table[1]);
+
+		rc = qs_s5k4e1_eeprom_i2c_read_b(eeprom_read_addr[j][2],
+			&af_data, 2);
+		if (rc == 0) {
+			CDBG("%s: Short data - %d\n", __func__, af_data);
+			step_position_table[6] = af_data;
+		} else {
+			CDBG("%s: EEPROM data read error\n", __func__);
+			return;
+		}
+
+		/*
+		 * Using the 100cm and 50cm calibration values
+		 * as per the Lens characteristics derive
+		 * intermediate steps
+		 */
+		step = (step_position_table[6] - step_position_table[2])/4;
+
+		/*
+		 * Interpolate the intermediate steps between 100cm
+		 * to 50cm based on COC1.5
+		 */
+		step_position_table[3] = step_position_table[2] + step;
+		step_position_table[4] = step_position_table[3] + step;
+		step_position_table[5] = step_position_table[4] + step;
+
+		/*
+		 * Extrapolate the steps within 50cm based on
+		 * OC2 to converge faster. This range is beyond the 3D
+		 * specification of 50cm
+		 */
+		anchor_point_q2 = step_position_table[6] << 1;
+		step_q2 = (step_position_table[6] - step_position_table[2]);
+
+		for (i = 7; i < QS_S5K4E1_TOTAL_STEPS_3D; i++) {
+			anchor_point_q2 += step_q2;
+			step_position_table[i] = anchor_point_q2 >> 1;
+		}
+		step_position_table = qs_s5k4e1_step_position_table_right;
+	}
 }
 
 static void qs_s5k4e1_init_focus(void)
@@ -896,6 +1055,8 @@ static void qs_s5k4e1_init_focus(void)
 		qs_s5k4e1_af_right_adjust = af_far_data -
 			qs_s5k4e1_af_initial_code;
 	}
+
+	qs_s5k4e1_3d_table_init();
 
 	qs_s5k4e1_step_position_table[0] = qs_s5k4e1_af_initial_code;
 	for (i = 1; i <= QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR; i++) {
@@ -1404,7 +1565,12 @@ int qs_s5k4e1_2D_sensor_config(void __user *argp)
 			break;
 
 		case CFG_GET_AF_MAX_STEPS:
-			cdata.max_steps = QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR;
+			if (qs_s5k4e1_ctrl->cam_mode == MODE_3D)
+				cdata.max_steps = QS_S5K4E1_TOTAL_STEPS_3D;
+			else
+				cdata.max_steps =
+					QS_S5K4E1_TOTAL_STEPS_NEAR_TO_FAR;
+
 			if (copy_to_user((void *)argp,
 				&cdata,
 				sizeof(struct sensor_cfg_data)))
