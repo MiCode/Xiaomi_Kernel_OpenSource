@@ -205,9 +205,8 @@ err:
 static int voice_create_mvm_cvs_session(struct voice_data *v)
 {
 	int ret = 0;
-	struct mvm_create_passive_ctl_session_cmd mvm_session_cmd;
+	struct mvm_create_ctl_session_cmd mvm_session_cmd;
 	struct cvs_create_passive_ctl_session_cmd cvs_session_cmd;
-	struct mvm_create_full_ctl_session_cmd mvm_full_ctl_cmd;
 	struct cvs_create_full_ctl_session_cmd cvs_full_ctl_cmd;
 	struct mvm_attach_stream_cmd attach_stream_cmd;
 	void *apr_mvm, *apr_cvs, *apr_cvp;
@@ -250,6 +249,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			mvm_session_cmd.hdr.token = 0;
 			mvm_session_cmd.hdr.opcode =
 				VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
+			strncpy(mvm_session_cmd.mvm_session.name,
+				"default modem voice", SESSION_NAME_LEN);
+
 			v->mvm_state = CMD_STATUS_FAIL;
 
 			ret = apr_send_pkt(apr_mvm,
@@ -267,25 +269,25 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			}
 		} else {
 			pr_debug("%s: creating MVM full ctrl\n", __func__);
-			mvm_full_ctl_cmd.hdr.hdr_field =
+			mvm_session_cmd.hdr.hdr_field =
 					APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-			mvm_full_ctl_cmd.hdr.pkt_size =
+			mvm_session_cmd.hdr.pkt_size =
 					APR_PKT_SIZE(APR_HDR_SIZE,
-					sizeof(mvm_full_ctl_cmd) -
+					sizeof(mvm_session_cmd) -
 					APR_HDR_SIZE);
-			mvm_full_ctl_cmd.hdr.src_port = 0;
-			mvm_full_ctl_cmd.hdr.dest_port = 0;
-			mvm_full_ctl_cmd.hdr.token = 0;
-			mvm_full_ctl_cmd.hdr.opcode =
+			mvm_session_cmd.hdr.src_port = 0;
+			mvm_session_cmd.hdr.dest_port = 0;
+			mvm_session_cmd.hdr.token = 0;
+			mvm_session_cmd.hdr.opcode =
 				VSS_IMVM_CMD_CREATE_FULL_CONTROL_SESSION;
-			strncpy(mvm_full_ctl_cmd.mvm_session.name,
-				"default voip", 12);
+			strncpy(mvm_session_cmd.mvm_session.name,
+				"default voip", SESSION_NAME_LEN);
 
 			v->mvm_state = CMD_STATUS_FAIL;
 
 			ret = apr_send_pkt(apr_mvm,
-					(uint32_t *) &mvm_full_ctl_cmd);
+					(uint32_t *) &mvm_session_cmd);
 			if (ret < 0) {
 				pr_err("Fail in sending MVM_CONTROL_SESSION\n");
 				goto fail;
@@ -320,7 +322,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			cvs_session_cmd.hdr.opcode =
 				VSS_ISTREAM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
 			strncpy(cvs_session_cmd.cvs_session.name,
-				"default modem voice", 19);
+				"default modem voice", SESSION_NAME_LEN);
 
 			v->cvs_state = CMD_STATUS_FAIL;
 
@@ -1363,13 +1365,13 @@ static int voice_send_attach_vocproc_cmd(struct voice_data *v)
 	mvm_a_vocproc_cmd.hdr.src_port = 0;
 	mvm_a_vocproc_cmd.hdr.dest_port = mvm_handle;
 	mvm_a_vocproc_cmd.hdr.token = 0;
-	mvm_a_vocproc_cmd.hdr.opcode = VSS_ISTREAM_CMD_ATTACH_VOCPROC;
+	mvm_a_vocproc_cmd.hdr.opcode = VSS_IMVM_CMD_ATTACH_VOCPROC;
 	mvm_a_vocproc_cmd.mvm_attach_cvp_handle.handle = cvp_handle;
 
 	v->mvm_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_a_vocproc_cmd);
 	if (ret < 0) {
-		pr_err("Fail in sending VSS_ISTREAM_CMD_ATTACH_VOCPROC\n");
+		pr_err("Fail in sending VSS_IMVM_CMD_ATTACH_VOCPROC\n");
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -1421,13 +1423,13 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	mvm_d_vocproc_cmd.hdr.src_port = 0;
 	mvm_d_vocproc_cmd.hdr.dest_port = mvm_handle;
 	mvm_d_vocproc_cmd.hdr.token = 0;
-	mvm_d_vocproc_cmd.hdr.opcode = VSS_ISTREAM_CMD_DETACH_VOCPROC;
+	mvm_d_vocproc_cmd.hdr.opcode = VSS_IMVM_CMD_DETACH_VOCPROC;
 	mvm_d_vocproc_cmd.mvm_detach_cvp_handle.handle = cvp_handle;
 
 	v->mvm_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_d_vocproc_cmd);
 	if (ret < 0) {
-		pr_err("Fail in sending VSS_ISTREAM_CMD_DETACH_VOCPROC\n");
+		pr_err("Fail in sending VSS_IMVM_CMD_DETACH_VOCPROC\n");
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -1860,9 +1862,9 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 				wake_up(&v->mvm_wait);
 				break;
 			case VSS_IMVM_CMD_START_VOICE:
-			case VSS_ISTREAM_CMD_ATTACH_VOCPROC:
+			case VSS_IMVM_CMD_ATTACH_VOCPROC:
 			case VSS_IMVM_CMD_STOP_VOICE:
-			case VSS_ISTREAM_CMD_DETACH_VOCPROC:
+			case VSS_IMVM_CMD_DETACH_VOCPROC:
 			case VSS_ISTREAM_CMD_SET_TTY_MODE:
 			case APRV2_IBASIC_CMD_DESTROY_SESSION:
 			case VSS_IMVM_CMD_ATTACH_STREAM:

@@ -15,6 +15,7 @@
 #include <mach/qdsp6v2/apr.h>
 
 #define MAX_VOC_PKT_SIZE 322
+#define SESSION_NAME_LEN 20
 
 struct voice_header {
 	uint32_t id;
@@ -64,6 +65,16 @@ enum {
 
 #define VSS_IMVM_CMD_DETACH_STREAM			0x0001123D
 /* Detach a stream from the MVM. */
+
+#define VSS_IMVM_CMD_ATTACH_VOCPROC		       0x0001123E
+/* Attach a vocproc to the MVM. The MVM will symmetrically connect this vocproc
+ * to all the streams currently attached to it.
+ */
+
+#define VSS_IMVM_CMD_DETACH_VOCPROC			0x0001123F
+/* Detach a vocproc from the MVM. The MVM will symmetrically disconnect this
+ * vocproc from all the streams to which it is currently attached.
+*/
 
 #define VSS_IMVM_CMD_START_VOICE			0x00011190
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
@@ -151,8 +162,8 @@ struct vss_icommon_cmd_set_voice_timing_t {
 	 */
 } __packed;
 
-struct vss_imvm_cmd_create_full_control_session_t {
-	char name[20];
+struct vss_imvm_cmd_create_control_session_t {
+	char name[SESSION_NAME_LEN];
 	/*
 	* A variable-sized stream name.
 	*
@@ -172,13 +183,9 @@ struct mvm_detach_vocproc_cmd {
 	struct vss_istream_cmd_detach_vocproc_t mvm_detach_cvp_handle;
 } __packed;
 
-struct mvm_create_passive_ctl_session_cmd {
+struct mvm_create_ctl_session_cmd {
 	struct apr_hdr hdr;
-} __packed;
-
-struct mvm_create_full_ctl_session_cmd {
-	struct apr_hdr hdr;
-	struct vss_imvm_cmd_create_full_control_session_t mvm_session;
+	struct vss_imvm_cmd_create_control_session_t mvm_session;
 } __packed;
 
 struct mvm_set_tty_mode_cmd {
@@ -246,7 +253,7 @@ struct mvm_set_voice_timing_cmd {
 /* Set encoder DTX mode. */
 
 struct vss_istream_cmd_create_passive_control_session_t {
-	char name[20];
+	char name[SESSION_NAME_LEN];
 	/**<
 	* A variable-sized stream name.
 	*
@@ -289,7 +296,7 @@ struct vss_istream_cmd_create_full_control_session_t {
 	/* Rx vocoder type. (Refer to VSS_MEDIA_ID_XXX). */
 	uint32_t network_id;
 	/* Network ID. (Refer to VSS_NETWORK_ID_XXX). */
-	char name[20];
+	char name[SESSION_NAME_LEN];
 	/*
 	 * A variable-sized stream name.
 	 *
