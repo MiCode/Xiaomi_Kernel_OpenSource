@@ -692,6 +692,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 
 	pr_err("Unexpected IOMMU page fault!\n");
 	pr_err("base = %08x\n", (unsigned int) base);
+	pr_err("name = %s\n", drvdata->name);
 
 	ret = __enable_clocks(drvdata);
 	if (ret)

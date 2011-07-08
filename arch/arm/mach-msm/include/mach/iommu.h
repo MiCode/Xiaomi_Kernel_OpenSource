@@ -85,6 +85,7 @@ struct msm_iommu_drvdata {
 	int ncb;
 	struct clk *clk;
 	struct clk *pclk;
+	const char *name;
 };
 
 /**
