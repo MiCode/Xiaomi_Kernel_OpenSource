@@ -123,8 +123,10 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE_TLV("DEC6 Volume", TABLA_A_CDC_TX6_VOL_CTL_GAIN, 0, 100, 0,
 		digital_gain),
 
-	SOC_SINGLE_TLV("ADC1 Volume", TABLA_A_TX_1_2_EN, 1, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC2 Volume", TABLA_A_TX_1_2_EN, 5, 3, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC1 Volume", TABLA_A_TX_1_2_EN, 5, 3, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC2 Volume", TABLA_A_TX_1_2_EN, 1, 3, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC5 Volume", TABLA_A_TX_5_6_EN, 5, 3, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC6 Volume", TABLA_A_TX_5_6_EN, 1, 3, 0, analog_gain),
 
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch", TABLA_A_MICB_1_CTL, 4, 1, 1),
 };
@@ -159,6 +161,10 @@ static const char *dec1_mux_text[] = {
 	"ZERO", "DMIC1", "ADC6",
 };
 
+static const char *dec2_mux_text[] = {
+	"ZERO", "DMIC2", "ADC5",
+};
+
 static const char *dec5_mux_text[] = {
 	"ZERO", "DMIC5", "ADC2",
 };
@@ -169,6 +175,10 @@ static const char *dec6_mux_text[] = {
 
 static const char const *dec7_mux_text[] = {
 	"ZERO", "DMIC1", "DMIC6", "ADC1", "ADC6", "ANC1_FB", "ANC2_FB",
+};
+
+static const char *dec8_mux_text[] = {
+	"ZERO", "DMIC2", "DMIC5", "ADC2", "ADC5",
 };
 
 static const char *iir1_inp1_text[] = {
@@ -226,6 +236,9 @@ static const struct soc_enum sb_tx1_mux_enum =
 static const struct soc_enum dec1_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B1_CTL, 0, 3, dec1_mux_text);
 
+static const struct soc_enum dec2_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B1_CTL, 2, 3, dec2_mux_text);
+
 static const struct soc_enum dec5_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B2_CTL, 0, 3, dec5_mux_text);
 
@@ -234,6 +247,9 @@ static const struct soc_enum dec6_mux_enum =
 
 static const struct soc_enum dec7_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B2_CTL, 4, 7, dec7_mux_text);
+
+static const struct soc_enum dec8_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B3_CTL, 0, 7, dec8_mux_text);
 
 static const struct soc_enum iir1_inp1_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_EQ1_B1_CTL, 0, 18, iir1_inp1_text);
@@ -286,6 +302,9 @@ static const struct snd_kcontrol_new sb_tx1_mux =
 static const struct snd_kcontrol_new dec1_mux =
 	SOC_DAPM_ENUM("DEC1 MUX Mux", dec1_mux_enum);
 
+static const struct snd_kcontrol_new dec2_mux =
+	SOC_DAPM_ENUM("DEC2 MUX Mux", dec2_mux_enum);
+
 static const struct snd_kcontrol_new dec5_mux =
 	SOC_DAPM_ENUM("DEC5 MUX Mux", dec5_mux_enum);
 
@@ -294,6 +313,9 @@ static const struct snd_kcontrol_new dec6_mux =
 
 static const struct snd_kcontrol_new dec7_mux =
 	SOC_DAPM_ENUM("DEC7 MUX Mux", dec7_mux_enum);
+
+static const struct snd_kcontrol_new dec8_mux =
+	SOC_DAPM_ENUM("DEC8 MUX Mux", dec8_mux_enum);
 
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
@@ -671,8 +693,20 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_INPUT("AMIC5"),
+	SND_SOC_DAPM_ADC_E("ADC5", NULL, TABLA_A_TX_5_6_EN, 7, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_INPUT("AMIC6"),
+	SND_SOC_DAPM_ADC_E("ADC6", NULL, TABLA_A_TX_5_6_EN, 3, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
+
 	SND_SOC_DAPM_MUX_E("DEC1 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
 		&dec1_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX_E("DEC2 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 1, 0,
+		&dec2_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX_E("DEC5 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 4, 0,
@@ -685,6 +719,10 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MUX_E("DEC7 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 6, 0,
 		&dec7_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX_E("DEC8 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 7, 0,
+		&dec8_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC2"),
@@ -749,9 +787,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"SLIM TX7", NULL, "SLIM TX7 MUX"},
 	{"SLIM TX7 MUX", "DEC1", "DEC1 MUX"},
-	{"SLIM TX7 MUX", "DEC7", "DEC7 MUX"},
+	{"SLIM TX7 MUX", "DEC2", "DEC2 MUX"},
 	{"SLIM TX7 MUX", "DEC5", "DEC5 MUX"},
 	{"SLIM TX7 MUX", "DEC6", "DEC6 MUX"},
+	{"SLIM TX7 MUX", "DEC7", "DEC7 MUX"},
+	{"SLIM TX7 MUX", "DEC8", "DEC8 MUX"},
 
 	{"SLIM TX8", NULL, "SLIM TX8 MUX"},
 	{"SLIM TX8 MUX", "DEC5", "DEC5 MUX"},
@@ -833,6 +873,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC6", "DEC6 MUX"},
 
+	/* Analog Inputs */
+	{"DEC8 MUX", "ADC5", "ADC5"},
+	{"DEC2 MUX", "ADC5", "ADC5"},
+	{"ADC5", NULL, "AMIC5"},
+	{"DEC7 MUX", "ADC6", "ADC6"},
+	{"DEC1 MUX", "ADC6", "ADC6"},
+	{"ADC6", NULL, "AMIC6"},
 };
 
 static int tabla_readable(struct snd_soc_codec *ssc, unsigned int reg)
