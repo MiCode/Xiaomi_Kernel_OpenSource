@@ -42,6 +42,7 @@
 #define MSM_ROTATOR_SRC_SIZE			(MSM_ROTATOR_BASE+0x1108)
 #define MSM_ROTATOR_SRCP0_ADDR			(MSM_ROTATOR_BASE+0x110c)
 #define MSM_ROTATOR_SRCP1_ADDR			(MSM_ROTATOR_BASE+0x1110)
+#define MSM_ROTATOR_SRCP2_ADDR			(MSM_ROTATOR_BASE+0x1114)
 #define MSM_ROTATOR_SRC_YSTRIDE1		(MSM_ROTATOR_BASE+0x111c)
 #define MSM_ROTATOR_SRC_YSTRIDE2		(MSM_ROTATOR_BASE+0x1120)
 #define MSM_ROTATOR_SRC_FORMAT			(MSM_ROTATOR_BASE+0x1124)
@@ -50,6 +51,7 @@
 #define MSM_ROTATOR_OUT_PACK_PATTERN1		(MSM_ROTATOR_BASE+0x1154)
 #define MSM_ROTATOR_OUTP0_ADDR			(MSM_ROTATOR_BASE+0x1168)
 #define MSM_ROTATOR_OUTP1_ADDR			(MSM_ROTATOR_BASE+0x116c)
+#define MSM_ROTATOR_OUTP2_ADDR			(MSM_ROTATOR_BASE+0x1170)
 #define MSM_ROTATOR_OUT_YSTRIDE1		(MSM_ROTATOR_BASE+0x1178)
 #define MSM_ROTATOR_OUT_YSTRIDE2		(MSM_ROTATOR_BASE+0x117c)
 #define MSM_ROTATOR_SRC_XY			(MSM_ROTATOR_BASE+0x1200)
@@ -261,6 +263,8 @@ static int get_bpp(int format)
 
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_H2V2:
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
 		return 1;
@@ -375,13 +379,11 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 				  unsigned int use_imem,
 				  int new_session,
 				  unsigned int in_chroma_paddr,
-				  unsigned int out_chroma_paddr)
+				  unsigned int out_chroma_paddr,
+				  int is_planar)
 {
 	int bpp;
 	unsigned int in_chr_addr, out_chr_addr;
-
-	if (info->src.format != info->dst.format)
-		return -EINVAL;
 
 	bpp = get_bpp(info->src.format);
 	if (bpp < 0)
@@ -411,14 +413,30 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 			((info->dst_y * info->dst.width)/2 + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
+	if (is_planar) {
+		iowrite32(in_chr_addr +
+				(info->src.width / 2) * (info->src.height / 2),
+				MSM_ROTATOR_SRCP2_ADDR);
+	}
+
 	if (new_session) {
-		iowrite32(info->src.width |
-			  info->src.width << 16,
-			  MSM_ROTATOR_SRC_YSTRIDE1);
+		if (is_planar) {
+			iowrite32(info->src.width |
+					(info->src.width / 2) << 16,
+					MSM_ROTATOR_SRC_YSTRIDE1);
+			iowrite32((info->src.width / 2),
+					MSM_ROTATOR_SRC_YSTRIDE2);
+		} else {
+			iowrite32(info->src.width |
+					info->src.width << 16,
+					MSM_ROTATOR_SRC_YSTRIDE1);
+		}
 		iowrite32(info->dst.width |
-			  info->dst.width << 16,
-			  MSM_ROTATOR_OUT_YSTRIDE1);
-		if (info->src.format == MDP_Y_CBCR_H2V2) {
+				info->dst.width << 16,
+				MSM_ROTATOR_OUT_YSTRIDE1);
+
+		if ((info->src.format == MDP_Y_CBCR_H2V2) ||
+		    (info->src.format == MDP_Y_CB_CR_H2V2)) {
 			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
 				  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
 			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
@@ -435,7 +453,7 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 			  MSM_ROTATOR_SUB_BLOCK_CFG);
 		iowrite32(0 << 29 | 		/* frame format 0 = linear */
 			  (use_imem ? 0 : 1) << 22 | /* tile size */
-			  2 << 19 | 		/* fetch planes 2 = pseudo */
+			  (is_planar ? 1 : 2) << 19 | /* fetch planes */
 			  0 << 18 | 		/* unpack align */
 			  1 << 17 | 		/* unpack tight */
 			  1 << 13 | 		/* unpack count 0=1 component */
@@ -897,7 +915,18 @@ static int msm_rotator_do_rotate(unsigned long arg)
 					    msm_rotator_dev->last_session_idx
 								!= s,
 					    in_chroma_paddr,
-					    out_chroma_paddr);
+					    out_chroma_paddr,
+						0);
+		break;
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_H2V2:
+		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
+					    in_paddr, out_paddr, use_imem,
+					    msm_rotator_dev->last_session_idx
+								!= s,
+					    in_chroma_paddr,
+					    out_chroma_paddr,
+						1);
 		break;
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
@@ -1007,6 +1036,8 @@ static int msm_rotator_start(unsigned long arg, int pid)
 	case MDP_BGRA_8888:
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_H2V2:
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H2V1:
 	case MDP_YCRYCB_H2V1:
@@ -1028,6 +1059,8 @@ static int msm_rotator_start(unsigned long arg, int pid)
 	case MDP_BGRA_8888:
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_H2V2:
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H2V1:
 	case MDP_YCRYCB_H2V1:
