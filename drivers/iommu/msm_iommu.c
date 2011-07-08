@@ -144,9 +144,11 @@ static void __reset_context(void __iomem *base, int ctx)
 	mb();
 }
 
-static void __program_context(void __iomem *base, int ctx, phys_addr_t pgtable)
+static void __program_context(void __iomem *base, int ctx, int ncb,
+			      phys_addr_t pgtable)
 {
 	unsigned int prrr, nmrr;
+	int i, j, found;
 	__reset_context(base, ctx);
 
 	/* Set up HTW mode */
@@ -157,7 +159,7 @@ static void __program_context(void __iomem *base, int ctx, phys_addr_t pgtable)
 	SET_V2PCFG(base, ctx, 0x3);
 
 	SET_TTBCR(base, ctx, 0);
-	SET_TTBR0_PA(base, ctx, (pgtable >> 14));
+	SET_TTBR0_PA(base, ctx, (pgtable >> TTBR0_PA_SHIFT));
 
 	/* Invalidate the TLB for this context */
 	SET_CTX_TLBIALL(base, ctx, 0);
@@ -207,6 +209,35 @@ static void __program_context(void __iomem *base, int ctx, phys_addr_t pgtable)
 	SET_TTBR0_ORGN(base, ctx, 1); /* WB, WA */
 	SET_TTBR1_ORGN(base, ctx, 1); /* WB, WA */
 #endif
+
+	/* Find if this page table is used elsewhere, and re-use ASID */
+	found = 0;
+	for (i = 0; i < ncb; i++)
+		if (GET_TTBR0_PA(base, i) == (pgtable >> TTBR0_PA_SHIFT) &&
+		    i != ctx) {
+			SET_CONTEXTIDR_ASID(base, ctx, \
+					    GET_CONTEXTIDR_ASID(base, i));
+			found = 1;
+			break;
+		}
+
+	/* If page table is new, find an unused ASID */
+	if (!found) {
+		for (i = 0; i < ncb; i++) {
+			found = 0;
+			for (j = 0; j < ncb; j++) {
+				if (GET_CONTEXTIDR_ASID(base, j) == i &&
+				    j != ctx)
+					found = 1;
+			}
+
+			if (!found) {
+				SET_CONTEXTIDR_ASID(base, ctx, i);
+				break;
+			}
+		}
+		BUG_ON(found);
+	}
 
 	/* Enable the MMU */
 	SET_M(base, ctx, 1);
@@ -311,7 +342,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (ret)
 		goto fail;
 
-	__program_context(iommu_drvdata->base, ctx_dev->num,
+	__program_context(iommu_drvdata->base, ctx_dev->num, iommu_drvdata->ncb,
 			  __pa(priv->pgtable));
 
 	__disable_clocks(iommu_drvdata);

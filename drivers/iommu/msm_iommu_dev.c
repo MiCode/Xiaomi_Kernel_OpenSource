@@ -345,11 +345,11 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		/* Set the context number for that MID to this context */
 		SET_CBNDX(drvdata->base, mid, c->num);
 
-		/* Set MID associated with this context bank to 0*/
+		/* Set MID associated with this context bank to 0 */
 		SET_CBVMID(drvdata->base, c->num, 0);
 
-		/* Set the ASID for TLB tagging for this context */
-		SET_CONTEXTIDR_ASID(drvdata->base, c->num, c->num);
+		/* Set the ASID for TLB tagging for this context to 0 */
+		SET_CONTEXTIDR_ASID(drvdata->base, c->num, 0);
 
 		/* Set security bit override to be Non-secure */
 		SET_NSCFG(drvdata->base, mid, 3);
