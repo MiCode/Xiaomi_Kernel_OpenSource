@@ -993,22 +993,6 @@ int remove_memory(u64 start, u64 size)
 	return offline_pages(start_pfn, end_pfn, 120 * HZ);
 }
 
-void reserve_hotplug_pages(unsigned long start_pfn, unsigned long nr_pages)
-{
-	nr_pages = ((nr_pages + pageblock_nr_pages - 1) >> pageblock_order)
-		<< pageblock_order;
-	offline_isolated_pages(start_pfn, start_pfn + nr_pages);
-}
-
-void unreserve_hotplug_pages(unsigned long start_pfn, unsigned long nr_pages)
-{
-	unsigned long onlined_pages = 0;
-
-	nr_pages = ((nr_pages + pageblock_nr_pages - 1) >> pageblock_order)
-		<< pageblock_order;
-	online_pages_range(start_pfn, nr_pages, &onlined_pages);
-}
-
 #else
 int remove_memory(u64 start, u64 size)
 {
