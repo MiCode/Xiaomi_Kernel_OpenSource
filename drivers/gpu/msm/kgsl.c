@@ -1210,6 +1210,11 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 	if (ret)
 		return ret;
 
+	if (phys == 0) {
+		ret = -EINVAL;
+		goto err;
+	}
+
 	if (offset >= len) {
 		ret = -EINVAL;
 		goto err;
