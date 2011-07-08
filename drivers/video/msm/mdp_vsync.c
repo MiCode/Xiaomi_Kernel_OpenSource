@@ -66,7 +66,7 @@ int vsync_start_th = 1;
 int vsync_load_cnt;
 int vsync_clk_status;
 DEFINE_MUTEX(vsync_clk_lock);
-DEFINE_MUTEX(vsync_timer_lock);
+static DEFINE_SPINLOCK(vsync_timer_lock);
 
 static struct clk *mdp_vsync_clk;
 static struct msm_fb_data_type *vsync_mfd;
@@ -111,13 +111,13 @@ void mdp_vsync_clk_disable(void)
 {
 	if (vsync_mfd) {
 		if (vsync_mfd->vsync_resync_timer.function) {
-			mutex_lock(&vsync_timer_lock);
+			spin_lock(&vsync_timer_lock);
 			timer_shutdown_flag = 1;
-			mutex_unlock(&vsync_timer_lock);
+			spin_unlock(&vsync_timer_lock);
 			del_timer_sync(&vsync_mfd->vsync_resync_timer);
-			mutex_lock(&vsync_timer_lock);
+			spin_lock(&vsync_timer_lock);
 			timer_shutdown_flag = 0;
-			mutex_unlock(&vsync_timer_lock);
+			spin_unlock(&vsync_timer_lock);
 			vsync_mfd->vsync_resync_timer.function = NULL;
 		}
 
@@ -153,7 +153,7 @@ static void mdp_set_vsync(unsigned long data)
 		     mfd->vsync_handler_pending);
 	}
 
-	mutex_lock(&vsync_timer_lock);
+	spin_lock(&vsync_timer_lock);
 	if (!timer_shutdown_flag) {
 		mfd->vsync_resync_timer.function = mdp_set_vsync;
 		mfd->vsync_resync_timer.data = data;
@@ -161,7 +161,7 @@ static void mdp_set_vsync(unsigned long data)
 			jiffies + mfd->panel_info.lcd.vsync_notifier_period;
 		add_timer(&mfd->vsync_resync_timer);
 	}
-	mutex_unlock(&vsync_timer_lock);
+	spin_unlock(&vsync_timer_lock);
 }
 
 static void mdp_vsync_handler(void *data)
