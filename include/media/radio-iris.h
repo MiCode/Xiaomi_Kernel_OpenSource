@@ -408,6 +408,15 @@ struct hci_fm_dbg_param_rsp {
 #define hci_req_lock(d)		mutex_lock(&d->req_lock)
 #define hci_req_unlock(d)	mutex_unlock(&d->req_lock)
 
+/* FM RDS */
+#define RDS_PTYPE 0
+#define RDS_PID_LOWER 2
+#define RDS_PID_HIGHER 3
+#define RDS_OFFSET 5
+#define RDS_PS_LENGTH_OFFSET 7
+#define RDS_STRING 8
+#define RDS_PS_DATA_OFFSET 8
+
 /*FM states*/
 
 enum radio_state_t {

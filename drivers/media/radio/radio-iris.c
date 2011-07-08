@@ -1503,6 +1503,80 @@ static inline void hci_ev_stereo_status(struct radio_hci_dev *hdev,
 		iris_q_event(radio, IRIS_EVT_MONO);
 }
 
+
+static void iris_q_rds_data(struct iris_device *radio,
+		char *data, int len, int event)
+{
+	struct kfifo *data_b = &radio->data_buf[event];
+
+	if (kfifo_in_locked(data_b, data, len, &radio->buf_lock[event]))
+		wake_up_interruptible(&radio->event_queue);
+}
+
+
+static inline void hci_ev_program_service(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	int len;
+	char *data;
+
+	len = (skb->data[RDS_PS_LENGTH_OFFSET] * RDS_STRING) + RDS_OFFSET;
+	iris_q_event(radio, IRIS_EVT_NEW_PS_RDS);
+	data = kmalloc(len, GFP_ATOMIC);
+	if (!data) {
+		FMDERR("Failed to allocate memory");
+		return;
+	}
+
+	data[0] = skb->data[RDS_PS_LENGTH_OFFSET];
+	data[1] = skb->data[RDS_PTYPE];
+	data[2] = skb->data[RDS_PID_LOWER];
+	data[3] = skb->data[RDS_PID_HIGHER];
+	data[4] = 0;
+
+	memcpy(data+RDS_OFFSET, &skb->data[RDS_PS_DATA_OFFSET], len-RDS_OFFSET);
+
+	iris_q_rds_data(radio, data, len, IRIS_BUF_PS_RDS);
+
+	kfree(data);
+}
+
+
+static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	int len = 0;
+	char *data;
+
+	iris_q_event(radio, IRIS_EVT_NEW_RT_RDS);
+
+	while (skb->data[len+RDS_OFFSET] != 0x0d)
+		len++;
+	len++;
+
+	data = kmalloc(len+RDS_OFFSET, GFP_ATOMIC);
+	if (!data) {
+		FMDERR("Failed to allocate memory");
+		return;
+	}
+
+	data[0] = len;
+	data[1] = skb->data[RDS_PTYPE];
+	data[2] = skb->data[RDS_PID_LOWER];
+	data[3] = skb->data[RDS_PID_HIGHER];
+	data[4] = 0;
+
+	memcpy(data+RDS_OFFSET, &skb->data[RDS_OFFSET], len);
+	data[len+RDS_OFFSET] = 0x00;
+
+	iris_q_rds_data(radio, data, len+RDS_OFFSET, IRIS_BUF_RT_RDS);
+
+	kfree(data);
+}
+
+
 void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 {
 	struct radio_hci_event_hdr *hdr = (void *) skb->data;
@@ -1525,8 +1599,13 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 	case HCI_EV_RDS_LOCK_STATUS:
 	case HCI_EV_SERVICE_AVAILABLE:
 	case HCI_EV_RDS_RX_DATA:
+		break;
 	case HCI_EV_PROGRAM_SERVICE:
+		hci_ev_program_service(hdev, skb);
+		break;
 	case HCI_EV_RADIO_TEXT:
+		hci_ev_radio_text(hdev, skb);
+		break;
 	case HCI_EV_FM_AF_LIST:
 	case HCI_EV_TX_RDS_GRP_COMPL:
 	case HCI_EV_TX_RDS_CONT_GRP_COMPL:
