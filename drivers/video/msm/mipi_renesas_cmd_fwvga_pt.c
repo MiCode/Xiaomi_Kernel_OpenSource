@@ -104,11 +104,6 @@ static int __init mipi_cmd_renesas_fwvga_pt_init(void)
 #else
 	pinfo.clk_rate = 152000000;
 #endif
-
-#ifdef USE_HW_VSYNC
-	pinfo.lcd.vsync_enable = TRUE;
-	pinfo.lcd.hw_vsync_mode = TRUE;
-#endif
 	pinfo.lcd.refx100 = 6000; /* adjust refx100 to prevent tearing */
 
 	pinfo.mipi.mode = DSI_CMD_MODE;
@@ -117,13 +112,15 @@ static int __init mipi_cmd_renesas_fwvga_pt_init(void)
 	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_RGB;
 	pinfo.mipi.data_lane0 = TRUE;
 #ifdef CONFIG_FB_MSM_MDP303
+	pinfo.lcd.vsync_enable = TRUE;
+	pinfo.lcd.hw_vsync_mode = TRUE;
 	pinfo.mipi.data_lane1 = TRUE;
 	pinfo.mipi.t_clk_post = 0x20;
 	pinfo.mipi.t_clk_pre = 0x2F;
 	pinfo.mipi.stream = 0; /* dma_p */
 	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
-	pinfo.mipi.te_sel = 0; /* TE from vsync gpio */
+	pinfo.mipi.te_sel = 1; /* TE from vsync gpio */
 	pinfo.mipi.interleave_max = 1;
 	pinfo.mipi.insert_dcs_cmd = TRUE;
 	pinfo.mipi.wr_mem_continue = 0x3c;

@@ -45,6 +45,9 @@ static char config_CASET[7] = {0x2a, 0x00, 0x00, 0x00, 0x00, 0x01, 0xdf };
 static char config_PASET[7] = {0x2b, 0x00, 0x00, 0x00, 0x00, 0x03, 0x5f };
 static char config_TXON[2] = {0x81, 0x00};
 static char config_BLSET_TM[2] = {0xff, 0x6c};
+static char config_DSIRXCTL[2] = {0x41, 0x01};
+static char config_TEON[2] = {0x35, 0x00};
+static char config_TEOFF[1] = {0x34};
 
 static char config_AGCPSCTL_TM[2] = {0x56, 0x08};
 
@@ -245,7 +248,9 @@ static struct dsi_cmd_desc renesas_display_off_cmds[] = {
 		sizeof(config_Power_Ctrl_1a_cmd),
 				config_Power_Ctrl_1a_cmd},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, RENESAS_CMD_DELAY,
-		sizeof(config_DBICSET_15), config_DBICSET_15}
+		sizeof(config_DBICSET_15), config_DBICSET_15},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, RENESAS_CMD_DELAY,
+		sizeof(config_TEOFF), config_TEOFF},
 };
 
 static struct dsi_cmd_desc renesas_display_on_cmds[] = {
@@ -289,6 +294,10 @@ static struct dsi_cmd_desc renesas_display_on_cmds[] = {
 		sizeof(config_CASET), config_CASET},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, RENESAS_CMD_DELAY,
 		sizeof(config_PASET), config_PASET},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, RENESAS_CMD_DELAY,
+		sizeof(config_DSIRXCTL), config_DSIRXCTL},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, RENESAS_CMD_DELAY,
+		sizeof(config_TEON), config_TEON},
 	{DTYPE_DCS_WRITE, 1, 0, 0, RENESAS_CMD_DELAY,
 		sizeof(config_TXON), config_TXON},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, RENESAS_CMD_DELAY,

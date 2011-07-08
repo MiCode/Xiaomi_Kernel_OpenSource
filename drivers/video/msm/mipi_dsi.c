@@ -37,6 +37,8 @@
 
 u32 dsi_irq;
 
+static boolean tlmm_settings = FALSE;
+
 static int mipi_dsi_probe(struct platform_device *pdev);
 static int mipi_dsi_remove(struct platform_device *pdev);
 
@@ -98,9 +100,10 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
-			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0)
-				gpio_free(vsync_gpio);
-
+			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
+				if (MDP_REV_303 != mdp_rev)
+					gpio_free(vsync_gpio);
+			}
 			mipi_dsi_set_tear_off(mfd);
 		}
 	}
@@ -250,11 +253,45 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
 			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
-				if (gpio_request(vsync_gpio, "MDP_VSYNC") == 0)
-					gpio_direction_input(vsync_gpio);
-				else
-					pr_err("%s: unable to request gpio=%d\n",
-						__func__, vsync_gpio);
+				if (mdp_rev >= MDP_REV_41) {
+					if (gpio_request(vsync_gpio,
+						"MDP_VSYNC") == 0)
+						gpio_direction_input(
+							vsync_gpio);
+					else
+						pr_err("%s: unable to \
+							request gpio=%d\n",
+							__func__, vsync_gpio);
+				} else if (mdp_rev == MDP_REV_303) {
+					if (!tlmm_settings && gpio_request(
+						vsync_gpio, "MDP_VSYNC") == 0) {
+						ret = gpio_tlmm_config(
+							GPIO_CFG(
+							vsync_gpio, 1,
+							GPIO_CFG_INPUT,
+							GPIO_CFG_PULL_DOWN,
+							GPIO_CFG_2MA),
+							GPIO_CFG_ENABLE);
+
+						if (ret) {
+							pr_err(
+							"%s: unable to config \
+							tlmm = %d\n",
+							__func__, vsync_gpio);
+						}
+						tlmm_settings = TRUE;
+
+						gpio_direction_input(
+							vsync_gpio);
+					} else {
+						if (!tlmm_settings) {
+							pr_err(
+							"%s: unable to request \
+							gpio=%d\n",
+							__func__, vsync_gpio);
+						}
+					}
+				}
 			}
 			mipi_dsi_set_tear_on(mfd);
 		}
