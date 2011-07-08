@@ -1,6 +1,7 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2000-2001 Qualcomm Incorporated
+   Copyright (c) 2011, Code Aurora Forum. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -173,7 +174,7 @@ static inline int sco_chan_add(struct sco_conn *conn, struct sock *sk, struct so
 	return err;
 }
 
-static int sco_connect(struct sock *sk)
+static int sco_connect(struct sock *sk, __s8 is_wbs)
 {
 	bdaddr_t *src = &bt_sk(sk)->src;
 	bdaddr_t *dst = &bt_sk(sk)->dst;
@@ -191,17 +192,30 @@ static int sco_connect(struct sock *sk)
 
 	hci_dev_lock_bh(hdev);
 
-	if (lmp_esco_capable(hdev) && !disable_esco)
+	hdev->is_wbs = is_wbs;
+
+	if (lmp_esco_capable(hdev) && !disable_esco) {
 		type = ESCO_LINK;
-	else {
+	} else if (is_wbs) {
+		return -ENAVAIL;
+	} else {
 		type = SCO_LINK;
 		pkt_type &= SCO_ESCO_MASK;
 	}
+
+	BT_DBG("type: %d, pkt_type: 0x%x", type, pkt_type);
 
 	hcon = hci_connect(hdev, type, pkt_type, dst,
 					BT_SECURITY_LOW, HCI_AT_NO_BONDING);
 	if (IS_ERR(hcon)) {
 		err = PTR_ERR(hcon);
+		goto done;
+	}
+
+	if (is_wbs && (hcon->type != ESCO_LINK)) {
+		BT_ERR("WBS [ hcon->type: 0x%x, hcon->pkt_type: 0x%x ]",
+				hcon->type, hcon->pkt_type);
+		err = -EREMOTEIO;
 		goto done;
 	}
 
@@ -527,7 +541,7 @@ static int sco_sock_connect(struct socket *sock, struct sockaddr *addr, int alen
 	bacpy(&bt_sk(sk)->dst, &sa.sco_bdaddr);
 	sco_pi(sk)->pkt_type = sa.sco_pkt_type;
 
-	err = sco_connect(sk);
+	err = sco_connect(sk, sa.is_wbs);
 	if (err)
 		goto done;
 

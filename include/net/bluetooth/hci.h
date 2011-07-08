@@ -160,10 +160,24 @@ enum {
 #define ESCO_2EV5	0x0100
 #define ESCO_3EV5	0x0200
 
+#define ESCO_WBS	(ESCO_EV3 | (EDR_ESCO_MASK ^ ESCO_2EV3))
+
 #define SCO_ESCO_MASK	(ESCO_HV1 | ESCO_HV2 | ESCO_HV3)
 #define EDR_ESCO_MASK	(ESCO_2EV3 | ESCO_3EV3 | ESCO_2EV5 | ESCO_3EV5)
 #define ALL_ESCO_MASK	(SCO_ESCO_MASK | ESCO_EV3 | ESCO_EV4 | ESCO_EV5 | \
 			EDR_ESCO_MASK)
+
+/* Air Coding Format */
+#define ACF_CVSD	0x0000;
+#define ACF_ULAW	0x0001;
+#define ACF_ALAW	0x0002;
+#define ACF_TRANS	0x0003;
+
+/* Retransmission Effort */
+#define RE_NO_RETRANS		0x00;
+#define RE_POWER_CONSUMP	0x01;
+#define RE_LINK_QUALITY		0x02;
+#define RE_DONT_CARE		0xFF;
 
 /* ACL flags */
 #define ACL_START_NO_FLUSH	0x00

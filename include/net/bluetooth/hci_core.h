@@ -171,6 +171,8 @@ struct hci_dev {
 	__u32		amp_max_flush_to;
 	__u32		amp_be_flush_to;
 
+	__s8		is_wbs;
+
 	unsigned long	quirks;
 
 	atomic_t	cmd_cnt;
