@@ -164,6 +164,18 @@ config MSM_SOC_REV_A
 	select ARCH_MSM7X27A if ARCH_MSM7X27
 endchoice
 
+config MSM_KRAIT_TBB_ABORT_HANDLER
+	bool "Krait TBB/TBH data abort handler"
+	depends on ARCH_MSM_KRAIT
+	depends on ARM_THUMB
+	help
+	  Certain early samples of the Krait processor may generate data
+	  aborts for TBB / TBH instructions that fail their condition code
+	  checks. Enabling this option will ignore these erroneous data aborts,
+	  at the expense of a very small performance penalty.
+
+	  If unsure, say N.
+
 config  ARCH_MSM_ARM11
 	bool
 
