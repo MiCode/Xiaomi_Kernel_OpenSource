@@ -20,9 +20,6 @@
 #include <linux/gfp.h>
 #include <linux/memblock.h>
 #include <linux/sort.h>
-#ifdef CONFIG_MEMORY_HOTPLUG
-#include <linux/memory_hotplug.h>
-#endif
 
 #include <asm/mach-types.h>
 #include <asm/prom.h>
@@ -387,24 +384,6 @@ int _early_pfn_valid(unsigned long pfn)
 EXPORT_SYMBOL(_early_pfn_valid);
 #endif
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-static void map_reserved_memory(void)
-{
-	struct map_desc map;
-
-	map.pfn = (movable_reserved_start >> PAGE_SHIFT);
-	map.virtual = __phys_to_virt(movable_reserved_start);
-	map.length = movable_reserved_size;
-#ifdef CONFIG_STRICT_MEMORY_RWX
-	map.type = MT_MEMORY_RW;
-#else
-	map.type = MT_MEMORY;
-#endif
-
-	create_mapping(&map);
-}
-#endif
-
 void __init bootmem_init(void)
 {
 	unsigned long min, max_low, max_high;
@@ -433,13 +412,6 @@ void __init bootmem_init(void)
 	 */
 	arm_bootmem_free(min, max_low, max_high);
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-	if (movable_reserved_size) {
-		max_low = (movable_reserved_start + movable_reserved_size)
-			>> PAGE_SHIFT;
-		map_reserved_memory();
-	}
-#endif
 	high_memory = __va(((phys_addr_t)max_low << PAGE_SHIFT) - 1) + 1;
 
 	/*
