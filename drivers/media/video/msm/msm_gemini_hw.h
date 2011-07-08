@@ -15,6 +15,7 @@
 
 #include <media/msm_gemini.h>
 #include "msm_gemini_hw_reg.h"
+#include <mach/msm_subsystem_map.h>
 
 struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
@@ -25,6 +26,8 @@ struct msm_gemini_hw_buf {
 	uint32_t cbcr_buffer_addr;
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
+	struct msm_mapped_buffer *msm_buffer;
+	int subsystem_id;
 };
 
 struct msm_gemini_hw_pingpong {

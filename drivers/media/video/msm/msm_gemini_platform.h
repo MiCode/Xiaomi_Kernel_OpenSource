@@ -16,8 +16,11 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 
-void msm_gemini_platform_p2v(struct file  *file);
-uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file);
+void msm_gemini_platform_p2v(struct file  *file,
+				struct msm_mapped_buffer **msm_buffer);
+uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file,
+				struct msm_mapped_buffer **msm_buffer,
+				int *subsys_id);
 
 int msm_gemini_platform_clk_enable(void);
 int msm_gemini_platform_clk_disable(void);

@@ -70,7 +70,8 @@ void msm_gemini_core_release(int release_buf)
 	int i = 0;
 	for (i = 0; i < 2; i++) {
 		if (we_pingpong_buf.buf_status[i] && release_buf)
-			msm_gemini_platform_p2v(we_pingpong_buf.buf[i].file);
+			msm_gemini_platform_p2v(we_pingpong_buf.buf[i].file,
+					&we_pingpong_buf.buf[i].msm_buffer);
 		we_pingpong_buf.buf_status[i] = 0;
 	}
 }
