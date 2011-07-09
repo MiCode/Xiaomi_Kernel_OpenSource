@@ -215,11 +215,36 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char const *tty_mode[] = {"OFF", "HCO", "VCO", "FULL"};
+static const struct soc_enum msm_tty_mode_enum[] = {
+		SOC_ENUM_SINGLE_EXT(4, tty_mode),
+};
+
+static int msm_voice_tty_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = voc_get_tty_mode();
+	return 0;
+}
+
+static int msm_voice_tty_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int tty_mode = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: tty_mode=%d\n", __func__, tty_mode);
+
+	voc_set_tty_mode(tty_mode);
+
+	return 0;
+}
 static struct snd_kcontrol_new msm_voice_controls[] = {
 	SOC_SINGLE_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voice_mute_get, msm_voice_mute_put),
 	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 5, 0,
 				msm_voice_volume_get, msm_voice_volume_put),
+	SOC_ENUM_EXT("TTY Mode", msm_tty_mode_enum[0], msm_voice_tty_mode_get,
+				msm_voice_tty_mode_put),
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {
