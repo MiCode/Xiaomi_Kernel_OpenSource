@@ -1173,12 +1173,23 @@ static void __init msm_register_device(struct platform_device *pdev, void *data)
 			__func__, ret);
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct platform_device msm_dtv_device = {
+	.name   = "dtv",
+	.id     = 0,
+};
+#endif
+
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3))
 		msm_register_device(&msm_mdp_device, data);
 	else if (!strncmp(name, "mipi_dsi", 8))
 		msm_register_device(&msm_mipi_dsi1_device, data);
+#ifdef CONFIG_MSM_BUS_SCALING
+	else if (!strncmp(name, "dtv", 3))
+		msm_register_device(&msm_dtv_device, data);
+#endif
 	else
 		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
 }
