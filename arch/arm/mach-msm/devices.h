@@ -105,8 +105,6 @@ extern struct platform_device msm_device_ssbi7;
 
 extern struct platform_device msm_gsbi1_qup_spi_device;
 
-extern struct platform_device msm_device_wcnss_wlan;
-
 extern struct platform_device msm_device_vidc_720p;
 
 extern struct platform_device msm_pcm;

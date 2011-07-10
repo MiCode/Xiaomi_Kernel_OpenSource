@@ -456,37 +456,6 @@ struct platform_device msm_device_vidc = {
 	},
 };
 
-#define MSM_WCNSS_PHYS	0x03000000
-#define MSM_WCNSS_SIZE	0x280000
-
-static struct resource resources_wcnss_wlan[] = {
-	{
-		.start	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
-		.end	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
-		.name	= "wcnss_wlanrx_irq",
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-		.end	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-		.name	= "wcnss_wlantx_irq",
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= MSM_WCNSS_PHYS,
-		.end	= MSM_WCNSS_PHYS + MSM_WCNSS_SIZE - 1,
-		.name	= "wcnss_mmio",
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-struct platform_device msm_device_wcnss_wlan = {
-	.name		= "wcnss_wlan",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(resources_wcnss_wlan),
-	.resource	= resources_wcnss_wlan,
-};
-
 #define MSM_SDC1_BASE         0x12400000
 #define MSM_SDC1_DML_BASE     (MSM_SDC1_BASE + 0x800)
 #define MSM_SDC1_BAM_BASE     (MSM_SDC1_BASE + 0x2000)

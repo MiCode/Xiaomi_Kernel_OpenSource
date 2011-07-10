@@ -1586,6 +1586,37 @@ static struct slim_boardinfo msm_slim_devices[] = {
 	/* add more slimbus slaves as needed */
 };
 
+#define MSM_WCNSS_PHYS	0x03000000
+#define MSM_WCNSS_SIZE	0x280000
+
+static struct resource resources_wcnss_wlan[] = {
+	{
+		.start	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+		.end	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+		.name	= "wcnss_wlanrx_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+		.end	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+		.name	= "wcnss_wlantx_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_WCNSS_PHYS,
+		.end	= MSM_WCNSS_PHYS + MSM_WCNSS_SIZE - 1,
+		.name	= "wcnss_mmio",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device msm_device_wcnss_wlan = {
+	.name		= "wcnss_wlan",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_wcnss_wlan),
+	.resource	= resources_wcnss_wlan,
+};
+
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
