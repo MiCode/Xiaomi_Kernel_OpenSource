@@ -681,21 +681,21 @@ static uint32_t qs_s5k4e1_get_pict_max_exp_lc(void)
 
 static int32_t qs_s5k4e1_set_fps(struct fps_cfg   *fps)
 {
-	uint16_t total_line_length_pclk;
+	uint16_t total_lines_per_frame;
 	int32_t rc = 0;
 	qs_s5k4e1_ctrl->fps_divider = fps->fps_div;
 	qs_s5k4e1_ctrl->pict_fps_divider = fps->pict_fps_div;
 	if (qs_s5k4e1_ctrl->sensormode == SENSOR_PREVIEW_MODE) {
-		total_line_length_pclk = (uint16_t)
-		((prev_line_length_pck) * qs_s5k4e1_ctrl->fps_divider/0x400);
+		total_lines_per_frame = (uint16_t)
+		((prev_frame_length_lines) * qs_s5k4e1_ctrl->fps_divider/0x400);
 	} else {
-		total_line_length_pclk = (uint16_t)
-		((snap_line_length_pck) *
+		total_lines_per_frame = (uint16_t)
+		((snap_frame_length_lines) *
 			qs_s5k4e1_ctrl->pict_fps_divider/0x400);
 	}
 	qs_s5k4e1_group_hold_on();
-	rc = qs_s5k4e1_i2c_write_w_sensor(REG_LINE_LENGTH_PCK,
-							total_line_length_pclk);
+	rc = qs_s5k4e1_i2c_write_w_sensor(REG_FRAME_LENGTH_LINES,
+							total_lines_per_frame);
 	qs_s5k4e1_group_hold_off();
 	return rc;
 }
@@ -703,11 +703,9 @@ static int32_t qs_s5k4e1_set_fps(struct fps_cfg   *fps)
 static int32_t qs_s5k4e1_write_exp_gain(struct sensor_3d_exp_cfg exp_cfg)
 {
 	uint16_t max_legal_gain = 0x0200;
-	uint16_t min_ll_pck = 0x0AB2;
 	uint32_t ll_pck, fl_lines;
 	uint16_t gain = exp_cfg.gain;
 	uint32_t line = exp_cfg.line;
-	uint32_t ll_ratio;
 	int32_t rc = 0;
 	if (gain > max_legal_gain) {
 		CDBG("Max legal gain Line:%d\n", __LINE__);
@@ -718,24 +716,19 @@ static int32_t qs_s5k4e1_write_exp_gain(struct sensor_3d_exp_cfg exp_cfg)
 	if (qs_s5k4e1_ctrl->sensormode == SENSOR_PREVIEW_MODE) {
 		qs_s5k4e1_ctrl->my_reg_gain = gain;
 		qs_s5k4e1_ctrl->my_reg_line_count = (uint16_t) line;
-		ll_ratio = (uint32_t)(qs_s5k4e1_ctrl->fps_divider);
-		fl_lines = prev_frame_length_lines;
+		fl_lines = prev_frame_length_lines *
+			qs_s5k4e1_ctrl->fps_divider / 0x400;
 		ll_pck = prev_line_length_pck;
 	} else {
-		ll_ratio = (uint32_t)(qs_s5k4e1_ctrl->pict_fps_divider);
-		fl_lines = snap_frame_length_lines;
+		fl_lines = snap_frame_length_lines *
+			qs_s5k4e1_ctrl->pict_fps_divider / 0x400;
 		ll_pck = snap_line_length_pck;
 	}
-	if (((fl_lines * ll_ratio / 0x400) - QS_S5K4E1_OFFSET) < line) {
-		ll_ratio = ll_ratio * line / (fl_lines - QS_S5K4E1_OFFSET);
-		line = fl_lines - QS_S5K4E1_OFFSET;
-	}
-	ll_pck = ll_pck * ll_ratio / 0x400;
-	if (ll_pck < min_ll_pck)
-		ll_pck = min_ll_pck;
+	if (line > (fl_lines - QS_S5K4E1_OFFSET))
+		fl_lines = line + QS_S5K4E1_OFFSET;
 	qs_s5k4e1_group_hold_on();
 	rc = qs_s5k4e1_i2c_write_w_sensor(REG_GLOBAL_GAIN, gain);
-	rc = qs_s5k4e1_i2c_write_w_sensor(REG_LINE_LENGTH_PCK, ll_pck);
+	rc = qs_s5k4e1_i2c_write_w_sensor(REG_FRAME_LENGTH_LINES, fl_lines);
 	rc = qs_s5k4e1_i2c_write_w_sensor(REG_COARSE_INTEGRATION_TIME, line);
 	if ((qs_s5k4e1_ctrl->cam_mode == MODE_3D) && (cali_data_status == 1)) {
 		bridge_i2c_write_w(0x06, 0x01);
@@ -953,7 +946,7 @@ static int32_t qs_s5k4e1_sensor_setting(int update_type, int rt)
 	if (update_type == REG_INIT) {
 		CSI_CONFIG = 0;
 		LENS_SHADE_CONFIG = 0;
-		default_lens_shade = 1;
+		default_lens_shade = 0;
 		bridge_i2c_write_w(0x53, 0x01);
 		msleep(30);
 		qs_s5k4e1_bridge_config(qs_s5k4e1_ctrl->cam_mode, rt);
@@ -969,12 +962,12 @@ static int32_t qs_s5k4e1_sensor_setting(int update_type, int rt)
 				qs_s5k4e1_csi_params.lane_cnt = 4;
 				qs_s5k4e1_csi_params.data_format = CSI_8BIT;
 			} else {
-				qs_s5k4e1_csi_params.lane_cnt = 2;
+				qs_s5k4e1_csi_params.lane_cnt = 1;
 				qs_s5k4e1_csi_params.data_format = CSI_10BIT;
 			}
 			qs_s5k4e1_csi_params.lane_assign = 0xe4;
 			qs_s5k4e1_csi_params.dpcm_scheme = 0;
-			qs_s5k4e1_csi_params.settle_cnt = 24;
+			qs_s5k4e1_csi_params.settle_cnt = 28;
 			rc = msm_camio_csi_config(&qs_s5k4e1_csi_params);
 			msleep(10);
 			cam_debug_init();
