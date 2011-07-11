@@ -16,6 +16,9 @@
  *
  */
 
+#include <asm/atomic.h>
+#include <asm/ioctls.h>
+
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -25,16 +28,18 @@
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio_qcp.h>
 #include <linux/android_pmem.h>
-
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
+#include <linux/memory_alloc.h>
 
 #include <mach/msm_adsp.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/qdsp5audreccmdi.h>
 #include <mach/qdsp5v2/qdsp5audrecmsg.h>
 #include <mach/qdsp5v2/audpreproc.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
+#include <mach/msm_memtypes.h>
 
 #define META_OUT_SIZE	24
 /* FRAME_NUM must be a power of two */
@@ -125,7 +130,8 @@ struct audio_in {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
-
+	struct msm_mapped_buffer *map_v_read;
+	struct msm_mapped_buffer *map_v_write;
 	int opened;
 	int enabled;
 	int running;
@@ -1305,13 +1311,13 @@ static int audevrc_in_release(struct inode *inode, struct file *file)
 	audio->audrec = NULL;
 	audio->opened = 0;
 	if (audio->data) {
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
+		msm_subsystem_unmap_buffer(audio->map_v_read);
+		free_contiguous_memory_by_paddr(audio->phys);
 		audio->data = NULL;
 	}
 	if (audio->out_data) {
-		iounmap(audio->out_data);
-		pmem_kfree(audio->out_phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->out_phys);
 		audio->out_data = NULL;
 	}
 	mutex_unlock(&audio->lock);
@@ -1330,16 +1336,19 @@ static int audevrc_in_open(struct inode *inode, struct file *file)
 		rc = -EBUSY;
 		goto done;
 	}
-	audio->phys = pmem_kalloc(DMASZ, PMEM_MEMTYPE_EBI1|
-					PMEM_ALIGNMENT_4K);
-	if (!IS_ERR((void *)audio->phys)) {
-		audio->data = ioremap(audio->phys, DMASZ);
-		if (!audio->data) {
-			MM_ERR("could not allocate DMA buffers\n");
+	audio->phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
+	if (audio->phys) {
+		audio->map_v_read = msm_subsystem_map_buffer(
+						audio->phys, DMASZ,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+		if (IS_ERR(audio->map_v_read)) {
+			MM_ERR("failed to map read physical address\n");
 			rc = -ENOMEM;
-			pmem_kfree(audio->phys);
+			free_contiguous_memory_by_paddr(audio->phys);
 			goto done;
 		}
+		audio->data = audio->map_v_read->vaddr;
 	} else {
 		MM_ERR("could not allocate DMA buffers\n");
 		rc = -ENOMEM;
@@ -1401,20 +1410,24 @@ static int audevrc_in_open(struct inode *inode, struct file *file)
 	audevrc_in_flush(audio);
 	audevrc_out_flush(audio);
 
-	audio->out_phys = pmem_kalloc(BUFFER_SIZE,
-				PMEM_MEMTYPE_EBI1 | PMEM_ALIGNMENT_4K);
-	if (IS_ERR((void *)audio->out_phys)) {
+	audio->out_phys = allocate_contiguous_ebi_nomap(BUFFER_SIZE,
+								SZ_4K);
+	if (!audio->out_phys) {
 		MM_ERR("could not allocate write buffers\n");
 		rc = -ENOMEM;
 		goto evt_error;
 	} else {
-		audio->out_data = ioremap(audio->out_phys, BUFFER_SIZE);
-		if (!audio->out_data) {
+		audio->map_v_write = msm_subsystem_map_buffer(
+						audio->out_phys, BUFFER_SIZE,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could map write buffers\n");
 			rc = -ENOMEM;
-			pmem_kfree(audio->out_phys);
+			free_contiguous_memory_by_paddr(audio->out_phys);
 			goto evt_error;
 		}
+		audio->out_data = audio->map_v_write->vaddr;
 		MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->out_phys, (int)audio->out_data);
 	}
@@ -1440,8 +1453,8 @@ static int audevrc_in_open(struct inode *inode, struct file *file)
 					evrc_in_listener, (void *) audio);
 	if (rc) {
 		MM_ERR("failed to register device event listener\n");
-		iounmap(audio->out_data);
-		pmem_kfree(audio->out_phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->out_phys);
 		goto evt_error;
 	}
 	audio->mfield = META_OUT_SIZE;

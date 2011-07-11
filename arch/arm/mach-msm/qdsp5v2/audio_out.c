@@ -15,6 +15,9 @@
  * GNU General Public License for more details.
  *
  */
+#include <asm/atomic.h>
+#include <asm/ioctls.h>
+
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -25,18 +28,22 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/wakelock.h>
+#include <linux/memory_alloc.h>
 
 #include <linux/msm_audio.h>
 #include <linux/android_pmem.h>
 
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
 #include <mach/msm_adsp.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/qdsp5audppcmdi.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/qdsp5v2/audpp.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/msm_memtypes.h>
+
 
 #include <mach/htc_pwrsink.h>
 #include <mach/debug_mm.h>
@@ -79,7 +86,7 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
-
+	struct msm_mapped_buffer *map_v_write;
 	int teos; /* valid only if tunnel mode & no data left for decoder */
 	int opened;
 	int enabled;
@@ -695,17 +702,20 @@ struct miscdevice audio_misc = {
 
 static int __init audio_init(void)
 {
-	the_audio.phys = pmem_kalloc(DMASZ, PMEM_MEMTYPE_EBI1|
-					PMEM_ALIGNMENT_4K);
-	if (!IS_ERR((void *)the_audio.phys)) {
-		the_audio.data = ioremap(the_audio.phys, DMASZ);
-		if (!the_audio.data) {
-			MM_ERR("could not map pmem buffers\n");
-			pmem_kfree(the_audio.phys);
+	the_audio.phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
+	if (the_audio.phys) {
+		the_audio.map_v_write = msm_subsystem_map_buffer(
+						the_audio.phys, DMASZ,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+		if (IS_ERR(the_audio.map_v_write)) {
+			MM_ERR("could not map physical buffers\n");
+			free_contiguous_memory_by_paddr(the_audio.phys);
 			return -ENOMEM;
 		}
+		the_audio.data = the_audio.map_v_write->vaddr;
 	} else {
-			MM_ERR("could not allocate pmem buffers\n");
+			MM_ERR("could not allocate physical buffers\n");
 			return -ENOMEM;
 	}
 	MM_DBG("Memory addr = 0x%8x  phy addr = 0x%8x\n",\

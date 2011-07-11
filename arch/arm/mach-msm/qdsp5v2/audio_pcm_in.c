@@ -16,6 +16,9 @@
  *
  */
 
+#include <asm/atomic.h>
+#include <asm/ioctls.h>
+
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -25,9 +28,12 @@
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio.h>
 #include <linux/android_pmem.h>
+#include <linux/memory_alloc.h>
+#include <mach/msm_memtypes.h>
 
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 
 #include <mach/msm_adsp.h>
 #include <mach/qdsp5v2/qdsp5audreccmdi.h>
@@ -106,6 +112,7 @@ struct audio_in {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
+	struct msm_mapped_buffer *map_v_read;
 
 	int opened;
 	int enabled;
@@ -808,8 +815,8 @@ static int audpcm_in_release(struct inode *inode, struct file *file)
 	audio->audrec = NULL;
 	audio->opened = 0;
 	if (audio->data) {
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
+		msm_subsystem_unmap_buffer(audio->map_v_read);
+		free_contiguous_memory_by_paddr(audio->phys);
 		audio->data = NULL;
 	}
 	mutex_unlock(&audio->lock);
@@ -827,16 +834,18 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 		rc = -EBUSY;
 		goto done;
 	}
-	audio->phys = pmem_kalloc(DMASZ, PMEM_MEMTYPE_EBI1|
-					PMEM_ALIGNMENT_4K);
-	if (!IS_ERR((void *)audio->phys)) {
-		audio->data = ioremap(audio->phys, DMASZ);
-		if (!audio->data) {
-			MM_ERR("could not allocate read buffers\n");
+	audio->phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
+	if (audio->phys) {
+		audio->map_v_read = msm_subsystem_map_buffer(
+					audio->phys, DMASZ,
+					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+		if (IS_ERR(audio->map_v_read)) {
+			MM_ERR("could not map read phys buffers\n");
 			rc = -ENOMEM;
-			pmem_kfree(audio->phys);
+			free_contiguous_memory_by_paddr(audio->phys);
 			goto done;
 		}
+		audio->data = audio->map_v_read->vaddr;
 	} else {
 		MM_ERR("could not allocate read buffers\n");
 		rc = -ENOMEM;

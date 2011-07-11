@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,6 +15,9 @@
  * GNU General Public License for more details.
  *
  */
+
+#include <asm/atomic.h>
+#include <asm/ioctls.h>
 
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -28,11 +31,14 @@
 #include <linux/list.h>
 #include <linux/earlysuspend.h>
 #include <linux/android_pmem.h>
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
 #include <linux/slab.h>
-#include <mach/msm_adsp.h>
 #include <linux/msm_audio_aac.h>
+#include <linux/memory_alloc.h>
+
+#include <mach/msm_adsp.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/qdsp5audplaycmdi.h>
 #include <mach/qdsp5v2/qdsp5audplaymsg.h>
@@ -40,6 +46,8 @@
 #include <mach/qdsp5v2/audpp.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
+#include <mach/msm_memtypes.h>
+
 
 #define BUFSZ 32768
 #define DMASZ (BUFSZ * 2)
@@ -134,6 +142,8 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	int32_t phys; /* physical address of write buffer */
+	struct msm_mapped_buffer *map_v_read;
+	struct msm_mapped_buffer *map_v_write;
 
 	int mfield; /* meta field embedded in data */
 	int rflush; /* Read  flush */
@@ -1619,10 +1629,10 @@ static int audio_release(struct inode *inode, struct file *file)
 	audio->event_abort = 1;
 	wake_up(&audio->event_wait);
 	audaac_reset_event_queue(audio);
-	iounmap(audio->data);
-	pmem_kfree(audio->phys);
-	iounmap(audio->read_data);
-	pmem_kfree(audio->read_phys);
+	msm_subsystem_unmap_buffer(audio->map_v_write);
+	free_contiguous_memory_by_paddr(audio->phys);
+	msm_subsystem_unmap_buffer(audio->map_v_read);
+	free_contiguous_memory_by_paddr(audio->read_phys);
 	mutex_unlock(&audio->lock);
 #ifdef CONFIG_DEBUG_FS
 	if (audio->dentry)
@@ -1807,21 +1817,25 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->dec_id = decid & MSM_AUD_DECODER_MASK;
 
 	while (pmem_sz >= DMASZ_MIN) {
-		MM_DBG("pmemsz = %d \n", pmem_sz);
-		audio->phys = pmem_kalloc(pmem_sz, PMEM_MEMTYPE_EBI1|
-						PMEM_ALIGNMENT_4K);
-		if (!IS_ERR((void *)audio->phys)) {
-			audio->data = ioremap(audio->phys, pmem_sz);
-			if (!audio->data) {
-				MM_ERR("could not allocate write buffers, \
+		MM_DBG("pmemsz = %d\n", pmem_sz);
+		audio->phys = allocate_contiguous_ebi_nomap(pmem_sz, SZ_4K);
+		if (audio->phys) {
+			audio->map_v_write =
+					msm_subsystem_map_buffer(audio->phys,
+						pmem_sz,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+			if (IS_ERR(audio->map_v_write)) {
+				MM_ERR("could not map write phys address, \
 						freeing instance 0x%08x\n",
 						(int)audio);
 				rc = -ENOMEM;
-				pmem_kfree(audio->phys);
+				free_contiguous_memory_by_paddr(audio->phys);
 				audpp_adec_free(audio->dec_id);
 				kfree(audio);
 				goto done;
 			}
+			audio->data = (u8 *)audio->map_v_write->vaddr;
 			MM_DBG("write buf: phy addr 0x%08x kernel addr \
 				0x%08x\n", audio->phys, (int)audio->data);
 			break;
@@ -1837,31 +1851,34 @@ static int audio_open(struct inode *inode, struct file *file)
 	}
 	audio->out_dma_sz = pmem_sz;
 
-	audio->read_phys = pmem_kalloc(PCM_BUFSZ_MIN * PCM_BUF_MAX_COUNT,
-				PMEM_MEMTYPE_EBI1|PMEM_ALIGNMENT_4K);
-	if (IS_ERR((void *)audio->read_phys)) {
+	audio->read_phys = allocate_contiguous_ebi_nomap(PCM_BUFSZ_MIN
+					* PCM_BUF_MAX_COUNT, SZ_4K);
+	if (!audio->read_phys) {
 		MM_ERR("could not allocate read buffers, freeing instance \
 				0x%08x\n", (int)audio);
 		rc = -ENOMEM;
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->phys);
 		audpp_adec_free(audio->dec_id);
 		kfree(audio);
 		goto done;
 	}
-	audio->read_data = ioremap(audio->read_phys,
-				PCM_BUFSZ_MIN * PCM_BUF_MAX_COUNT);
-	if (!audio->read_data) {
-		MM_ERR("could not allocate read buffers, freeing instance \
+	audio->map_v_read = msm_subsystem_map_buffer(
+				audio->read_phys,
+				PCM_BUFSZ_MIN * PCM_BUF_MAX_COUNT,
+				MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+	if (IS_ERR(audio->map_v_read)) {
+		MM_ERR("could not map read phys address, freeing instance \
 				0x%08x\n", (int)audio);
 		rc = -ENOMEM;
-		iounmap(audio->data);
-		pmem_kfree(audio->phys);
-		pmem_kfree(audio->read_phys);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->phys);
+		free_contiguous_memory_by_paddr(audio->read_phys);
 		audpp_adec_free(audio->dec_id);
 		kfree(audio);
 		goto done;
 	}
+	audio->read_data = audio->map_v_read->vaddr;
 	MM_DBG("read buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->read_phys, (int)audio->read_data);
 
@@ -1983,10 +2000,10 @@ done:
 event_err:
 	msm_adsp_put(audio->audplay);
 err:
-	iounmap(audio->data);
-	pmem_kfree(audio->phys);
-	iounmap(audio->read_data);
-	pmem_kfree(audio->read_phys);
+	msm_subsystem_unmap_buffer(audio->map_v_write);
+	free_contiguous_memory_by_paddr(audio->phys);
+	msm_subsystem_unmap_buffer(audio->map_v_read);
+	free_contiguous_memory_by_paddr(audio->read_phys);
 	audpp_adec_free(audio->dec_id);
 	kfree(audio);
 	return rc;
