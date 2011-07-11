@@ -427,7 +427,7 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 free_irq:
 	free_irq(client->irq, NULL);
 unregister:
-	msm_charger_register(&isl_chg->adapter_hw_chg);
+	msm_charger_unregister(&isl_chg->adapter_hw_chg);
 free_gpio:
 	gpio_free(pdata->valid_n_gpio);
 free_isl_chg:
