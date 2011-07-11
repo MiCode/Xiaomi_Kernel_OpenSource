@@ -13,6 +13,7 @@
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
 
+#include "adreno_pm4types.h"
 #include "a200_reg.h"
 #include "a220_reg.h"
 
@@ -93,5 +94,25 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 				      struct kgsl_context *context,
 					unsigned int offset);
+
+/* GPU context switch helper functions */
+
+unsigned int uint2float(unsigned int);
+
+static inline unsigned int virt2gpu(unsigned int *cmd,
+				    struct kgsl_memdesc *memdesc)
+{
+	return memdesc->gpuaddr + ((char *) cmd - (char *) memdesc->hostptr);
+}
+
+static inline void create_ib1(struct adreno_context *drawctxt,
+			      unsigned int *cmd,
+			      unsigned int *start,
+			      unsigned int *end)
+{
+	cmd[0] = PM4_HDR_INDIRECT_BUFFER_PFD;
+	cmd[1] = virt2gpu(start, &drawctxt->gpustate);
+	cmd[2] = end - start;
+}
 
 #endif  /* __ADRENO_DRAWCTXT_H */

@@ -25,7 +25,6 @@
 
 #include "a200_reg.h"
 
-#define VALID_STATUS_COUNT_MAX	10
 #define GSL_RB_NOP_SIZEDWORDS				2
 /* protected mode error checking below register address 0x800
 *  note: if CP_INTERRUPT packet is used then checking needs
@@ -45,97 +44,6 @@
 #define A220_PM4_470_FW "leia_pm4_470.fw"
 #define A225_PFP_FW "a225_pfp.fw"
 #define A225_PM4_FW "a225_pm4.fw"
-
-/* functions */
-void kgsl_cp_intrcallback(struct kgsl_device *device)
-{
-	unsigned int status = 0, num_reads = 0, master_status = 0;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-
-	adreno_regread(device, REG_MASTER_INT_SIGNAL, &master_status);
-	while (!status && (num_reads < VALID_STATUS_COUNT_MAX) &&
-		(master_status & MASTER_INT_SIGNAL__CP_INT_STAT)) {
-		adreno_regread(device, REG_CP_INT_STATUS, &status);
-		adreno_regread(device, REG_MASTER_INT_SIGNAL,
-					&master_status);
-		num_reads++;
-	}
-	if (num_reads > 1)
-		KGSL_DRV_WARN(device,
-			"Looped %d times to read REG_CP_INT_STATUS\n",
-			num_reads);
-	if (!status) {
-		if (master_status & MASTER_INT_SIGNAL__CP_INT_STAT) {
-			/* This indicates that we could not read CP_INT_STAT.
-			 * As a precaution just wake up processes so
-			 * they can check their timestamps. Since, we
-			 * did not ack any interrupts this interrupt will
-			 * be generated again */
-			KGSL_DRV_WARN(device, "Unable to read CP_INT_STATUS\n");
-			wake_up_interruptible_all(&device->wait_queue);
-		} else
-			KGSL_DRV_WARN(device, "Spurious interrput detected\n");
-		return;
-	}
-
-	if (status & CP_INT_CNTL__RB_INT_MASK) {
-		/* signal intr completion event */
-		unsigned int enableflag = 0;
-		kgsl_sharedmem_writel(&rb->device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable),
-			enableflag);
-		wmb();
-		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
-	}
-
-	if (status & CP_INT_CNTL__T0_PACKET_IN_IB_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer TO packet in IB interrupt\n");
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__OPCODE_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer opcode error interrupt\n");
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer protected mode error interrupt\n");
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__RESERVED_BIT_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer reserved bit error interrupt\n");
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__IB_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer IB error interrupt\n");
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__SW_INT_MASK)
-		KGSL_CMD_INFO(rb->device, "ringbuffer software interrupt\n");
-
-	if (status & CP_INT_CNTL__IB2_INT_MASK)
-		KGSL_CMD_INFO(rb->device, "ringbuffer ib2 interrupt\n");
-
-	if (status & (~KGSL_CP_INT_MASK))
-		KGSL_CMD_WARN(rb->device,
-			"bad bits in REG_CP_INT_STATUS %08x\n", status);
-
-	/* only ack bits we understand */
-	status &= KGSL_CP_INT_MASK;
-	adreno_regwrite(device, REG_CP_INT_ACK, status);
-
-	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
-		KGSL_CMD_WARN(rb->device, "ringbuffer ib1/rb interrupt\n");
-		wake_up_interruptible_all(&device->wait_queue);
-		atomic_notifier_call_chain(&(device->ts_notifier_list),
-					   device->id,
-					   NULL);
-	}
-}
 
 static void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 {

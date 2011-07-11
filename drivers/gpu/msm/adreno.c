@@ -33,10 +33,6 @@
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
-#define KGSL_RBBM_INT_MASK \
-	 (RBBM_INT_CNTL__RDERR_INT_MASK |  \
-	  RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK)
-
 /* Adreno MH arbiter config*/
 #define ADRENO_CFG_MHARB \
 	(0x10 \
@@ -152,66 +148,13 @@ static int adreno_gmemclose(struct kgsl_device *device)
 	return 0;
 }
 
-static void adreno_rbbm_intrcallback(struct kgsl_device *device)
-{
-	unsigned int status = 0;
-	unsigned int rderr = 0;
-
-	adreno_regread(device, REG_RBBM_INT_STATUS, &status);
-
-	if (status & RBBM_INT_CNTL__RDERR_INT_MASK) {
-		union rbbm_read_error_u rerr;
-		adreno_regread(device, REG_RBBM_READ_ERROR, &rderr);
-		rerr.val = rderr;
-		if (rerr.f.read_address == REG_CP_INT_STATUS &&
-			rerr.f.read_error &&
-			rerr.f.read_requester)
-			KGSL_DRV_WARN(device,
-				"rbbm read error interrupt: %08x\n", rderr);
-		else
-			KGSL_DRV_CRIT(device,
-				"rbbm read error interrupt: %08x\n", rderr);
-	} else if (status & RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK) {
-		KGSL_DRV_INFO(device, "rbbm display update interrupt\n");
-	} else if (status & RBBM_INT_CNTL__GUI_IDLE_INT_MASK) {
-		KGSL_DRV_INFO(device, "rbbm gui idle interrupt\n");
-	} else {
-		KGSL_CMD_WARN(device,
-			"bad bits in REG_CP_INT_STATUS %08x\n", status);
-	}
-
-	status &= KGSL_RBBM_INT_MASK;
-	adreno_regwrite(device, REG_RBBM_INT_ACK, status);
-}
-
 irqreturn_t adreno_isr(int irq, void *data)
 {
-	irqreturn_t result = IRQ_NONE;
-	struct kgsl_device *device;
-	unsigned int status;
+	irqreturn_t result;
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	device = (struct kgsl_device *) data;
-
-	BUG_ON(device == NULL);
-	BUG_ON(device->regspace.sizebytes == 0);
-	BUG_ON(device->regspace.mmio_virt_base == 0);
-
-	adreno_regread(device, REG_MASTER_INT_SIGNAL, &status);
-
-	if (status & MASTER_INT_SIGNAL__MH_INT_STAT) {
-		kgsl_mh_intrcallback(device);
-		result = IRQ_HANDLED;
-	}
-
-	if (status & MASTER_INT_SIGNAL__CP_INT_STAT) {
-		kgsl_cp_intrcallback(device);
-		result = IRQ_HANDLED;
-	}
-
-	if (status & MASTER_INT_SIGNAL__RBBM_INT_STAT) {
-		adreno_rbbm_intrcallback(device);
-		result = IRQ_HANDLED;
-	}
+	result = adreno_dev->gpudev->irq_handler(adreno_dev);
 
 	if (device->requested_state == KGSL_STATE_NONE) {
 		if (device->pwrctrl.nap_allowed == true) {
@@ -464,6 +407,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	}
 
 	adreno_dev->gpurev = gpurev;
+	adreno_dev->gpudev = &adreno_a2xx_gpudev;
 }
 
 static int __devinit
@@ -1254,17 +1198,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 void adreno_irqctrl(struct kgsl_device *device, int state)
 {
-	/* Enable GPU and GPUMMU interrupts */
-
-	if (state) {
-		adreno_regwrite(device, REG_RBBM_INT_CNTL, KGSL_RBBM_INT_MASK);
-		adreno_regwrite(device, REG_CP_INT_CNTL, KGSL_CP_INT_MASK);
-		adreno_regwrite(device, MH_INTERRUPT_MASK, KGSL_MMU_INT_MASK);
-	} else {
-		adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);
-		adreno_regwrite(device, REG_CP_INT_CNTL, 0);
-		adreno_regwrite(device, MH_INTERRUPT_MASK, 0);
-	}
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	adreno_dev->gpudev->irq_control(adreno_dev, state);
 }
 
 static const struct kgsl_functable adreno_functable = {

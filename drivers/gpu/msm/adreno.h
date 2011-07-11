@@ -38,17 +38,6 @@
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  NULL
 #endif
 
-#define KGSL_CP_INT_MASK \
-	(CP_INT_CNTL__SW_INT_MASK | \
-	CP_INT_CNTL__T0_PACKET_IN_IB_MASK | \
-	CP_INT_CNTL__OPCODE_ERROR_MASK | \
-	CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK | \
-	CP_INT_CNTL__RESERVED_BIT_ERROR_MASK | \
-	CP_INT_CNTL__IB_ERROR_MASK | \
-	CP_INT_CNTL__IB2_INT_MASK | \
-	CP_INT_CNTL__IB1_INT_MASK | \
-	CP_INT_CNTL__RB_INT_MASK)
-
 enum adreno_gpurev {
 	ADRENO_REV_UNKNOWN = 0,
 	ADRENO_REV_A200 = 200,
@@ -56,6 +45,8 @@ enum adreno_gpurev {
 	ADRENO_REV_A220 = 220,
 	ADRENO_REV_A225 = 225,
 };
+
+struct adreno_gpudev;
 
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -70,7 +61,21 @@ struct adreno_device {
 	size_t pm4_fw_size;
 	struct adreno_ringbuffer ringbuffer;
 	unsigned int mharb;
+	struct adreno_gpudev *gpudev;
 };
+
+struct adreno_gpudev {
+	int (*ctxt_gpustate_shadow)(struct adreno_device *,
+		struct adreno_context *);
+	int (*ctxt_gmem_shadow)(struct adreno_device *,
+		struct adreno_context *);
+	void (*ctxt_save)(struct adreno_device *, struct adreno_context *);
+	void (*ctxt_restore)(struct adreno_device *, struct adreno_context *);
+	irqreturn_t (*irq_handler)(struct adreno_device *);
+	void (*irq_control)(struct adreno_device *, int);
+};
+
+extern struct adreno_gpudev adreno_a2xx_gpudev;
 
 int adreno_idle(struct kgsl_device *device, unsigned int timeout);
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
