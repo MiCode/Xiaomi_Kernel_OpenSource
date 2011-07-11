@@ -576,7 +576,7 @@ static int z180_stop(struct kgsl_device *device)
 {
 	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
 
-	del_timer(&device->idle_timer);
+	del_timer_sync(&device->idle_timer);
 
 	kgsl_mmu_stop(device);
 

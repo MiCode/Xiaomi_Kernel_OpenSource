@@ -315,7 +315,7 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 		mutex_lock(&device->mutex);
 	}
 	/* Don't let the timer wake us during suspended sleep. */
-	del_timer(&device->idle_timer);
+	del_timer_sync(&device->idle_timer);
 	switch (device->state) {
 		case KGSL_STATE_INIT:
 			break;

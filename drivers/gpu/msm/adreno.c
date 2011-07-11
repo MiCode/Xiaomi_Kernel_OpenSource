@@ -564,7 +564,7 @@ static int adreno_stop(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	del_timer(&device->idle_timer);
+	del_timer_sync(&device->idle_timer);
 
 	adreno_dev->drawctxt_active = NULL;
 

@@ -794,7 +794,7 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 
 	}
 	/* Disable the idle timer so we don't get interrupted */
-	del_timer(&device->idle_timer);
+	del_timer_sync(&device->idle_timer);
 
 	/* Turn off napping to make sure we have the clocks full
 	   attention through the following process */
