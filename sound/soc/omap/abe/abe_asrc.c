@@ -346,10 +346,17 @@ void abe_init_asrc_vx_dl(s32 dppm)
 	mem_tag = ABE_SMEM;
 	mem_addr = ASRC_DL_VX_Coefs_labelID;
 	el[i] = (mem_tag << 16) + (mem_addr << 2);
-	el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
-	el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
-	el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
-	el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	if (dppm == 0) {
+		el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	} else {
+		el[i + 1] = OMAP_ABE_C_COEFASRC1_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC1_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC2_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC2_VX_SIZE >> 2);
+	}
 	i = i + 3;
 	/* 10. CMEM for ASRC_DL_VX_Coefs pointer */
 	/* ASRC_DL_VX_Coefs = C_CoefASRC16_VX_ADDR/C_CoefASRC16_VX_sizeof/0/1/
@@ -533,10 +540,17 @@ void abe_init_asrc_vx_ul(s32 dppm)
 	mem_tag = ABE_SMEM;
 	mem_addr = ASRC_UL_VX_Coefs_labelID;
 	el[i] = (mem_tag << 16) + (mem_addr << 2);
-	el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
-	el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
-	el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
-	el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	if (dppm == 0) {
+		el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	} else {
+		el[i + 1] = OMAP_ABE_C_COEFASRC1_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC1_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC2_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC2_VX_SIZE >> 2);
+	}
 	i = i + 3;
 	/* 10. CMEM for ASRC_UL_VX_Coefs pointer */
 	/* ASRC_UL_VX_Coefs = C_CoefASRC16_VX_ADDR/C_CoefASRC16_VX_sizeof/0/1/
@@ -739,10 +753,17 @@ void abe_init_asrc_mm_ext_in(s32 dppm)
 	mem_tag = ABE_SMEM;
 	mem_addr = ASRC_MM_EXT_IN_Coefs_labelID;
 	el[i] = (mem_tag << 16) + (mem_addr << 2);
-	el[i + 1] = OMAP_ABE_C_COEFASRC16_MM_ADDR >> 2;
-	el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_MM_SIZE >> 2);
-	el[i + 2] = OMAP_ABE_C_COEFASRC15_MM_ADDR >> 2;
-	el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_MM_SIZE >> 2);
+	if (dppm == 0) {
+		el[i + 1] = OMAP_ABE_C_COEFASRC16_MM_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_MM_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC15_MM_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_MM_SIZE >> 2);
+	} else {
+		el[i + 1] = OMAP_ABE_C_COEFASRC1_MM_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC1_MM_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC2_MM_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC2_MM_SIZE >> 2);
+	}
 	i = i + 3;
 	/*10. CMEM for ASRC_MM_EXT_IN_Coefs pointer */
 	/* ASRC_MM_EXT_IN_Coefs = C_CoefASRC16_MM_ADDR/C_CoefASRC16_MM_sizeof/
@@ -924,10 +945,17 @@ void abe_init_asrc_bt_ul(s32 dppm)
 	mem_tag = ABE_SMEM;
 	mem_addr = ASRC_BT_UL_Coefs_labelID;
 	el[i] = (mem_tag << 16) + (mem_addr << 2);
-	el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
-	el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
-	el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
-	el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	if (dppm == 0) {
+		el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	} else {
+		el[i + 1] = OMAP_ABE_C_COEFASRC1_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC1_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC2_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC2_VX_SIZE >> 2);
+	}
 	i = i + 3;
 	/* 10. CMEM for ASRC_BT_UL_Coefs pointer */
 	/* ASRC_BT_UL_Coefs = C_CoefASRC16_VX_ADDR/C_CoefASRC16_VX_sizeof/0/1/
@@ -1111,10 +1139,17 @@ void abe_init_asrc_bt_dl(s32 dppm)
 	mem_tag = ABE_SMEM;
 	mem_addr = ASRC_BT_DL_Coefs_labelID;
 	el[i] = (mem_tag << 16) + (mem_addr << 2);
-	el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
-	el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
-	el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
-	el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	if (dppm == 0) {
+		el[i + 1] = OMAP_ABE_C_COEFASRC16_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC16_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC15_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC15_VX_SIZE >> 2);
+	} else {
+		el[i + 1] = OMAP_ABE_C_COEFASRC1_VX_ADDR >> 2;
+		el[i + 1] = (el[i + 1] << 8) + (OMAP_ABE_C_COEFASRC1_VX_SIZE >> 2);
+		el[i + 2] = OMAP_ABE_C_COEFASRC2_VX_ADDR >> 2;
+		el[i + 2] = (el[i + 2] << 8) + (OMAP_ABE_C_COEFASRC2_VX_SIZE >> 2);
+	}
 	i = i + 3;
 	/* 10. CMEM for ASRC_BT_DL_Coefs pointer */
 	/* ASRC_BT_DL_Coefs = C_CoefASRC16_VX_ADDR/C_CoefASRC16_VX_sizeof/0/1/

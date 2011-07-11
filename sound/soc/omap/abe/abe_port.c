@@ -192,6 +192,9 @@ void omap_abe_clean_temporary_buffers(struct omap_abe *abe, u32 id)
 				   OMAP_ABE_S_VX_DL_8_48_LP_DATA_ADDR,
 				   OMAP_ABE_S_VX_DL_8_48_LP_DATA_SIZE);
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
+				   OMAP_ABE_S_VX_DL_8_48_OSR_LP_DATA_ADDR,
+				   OMAP_ABE_S_VX_DL_8_48_OSR_LP_DATA_SIZE);
+		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_VX_DL_16_48_HP_DATA_ADDR,
 				   OMAP_ABE_S_VX_DL_16_48_HP_DATA_SIZE);
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
@@ -254,18 +257,6 @@ void omap_abe_clean_temporary_buffers(struct omap_abe *abe, u32 id)
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_IHF_48_96_LP_DATA_ADDR,
 				   OMAP_ABE_S_IHF_48_96_LP_DATA_SIZE);
-		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
-				   OMAP_ABE_S_APS_DL1_EQ_DATA_ADDR,
-				   OMAP_ABE_S_APS_DL1_EQ_DATA_SIZE);
-		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
-				   OMAP_ABE_S_APS_DL2_EQ_DATA_ADDR,
-				   OMAP_ABE_S_APS_DL2_EQ_DATA_SIZE);
-		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
-				   OMAP_ABE_S_APS_DL2_L_IIRMEM1_ADDR,
-				   OMAP_ABE_S_APS_DL2_L_IIRMEM1_SIZE);
-		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
-				   OMAP_ABE_S_APS_DL2_R_IIRMEM1_ADDR,
-				   OMAP_ABE_S_APS_DL2_R_IIRMEM1_SIZE);
 		omap_abe_reset_gain_mixer(abe, GAINS_DL1, GAIN_LEFT_OFFSET);
 		omap_abe_reset_gain_mixer(abe, GAINS_DL1, GAIN_RIGHT_OFFSET);
 		omap_abe_reset_gain_mixer(abe, GAINS_DL2, GAIN_LEFT_OFFSET);
@@ -323,9 +314,10 @@ void omap_abe_disable_enable_dma_request(struct omap_abe *abe, u32 id,
 			sio_desc_address, (u32 *) &sio_desc,
 			sizeof(sio_desc));
 		if (on_off) {
-			sio_desc.atc_irq_data =
-				(u8) abe_port[id].protocol.p.prot_dmareq.
-				dma_data;
+			if (abe_port[id].protocol.protocol_switch != SERIAL_PORT_PROT)
+				sio_desc.atc_irq_data =
+					(u8) abe_port[id].protocol.p.prot_dmareq.
+					dma_data;
 			sio_desc.on_off = 0x80;
 		} else {
 			sio_desc.atc_irq_data = 0;
@@ -639,13 +631,26 @@ int omap_abe_enable_data_transfer(struct omap_abe *abe, u32 id)
 		abe_init_io_tasks(OMAP_ABE_DMIC_PORT, &format, protocol);
 	}
 	if (id == OMAP_ABE_VX_UL_PORT) {
-		/* Init VX_UL ASRC and enable its adaptation */
-		abe_init_asrc_vx_ul(250);
+		if (abe_port[OMAP_ABE_VX_DL_PORT].status == OMAP_ABE_PORT_ACTIVITY_RUNNING) {
+			/* VX_DL port already started, hence no need to
+				initialize ASRC */
+		} else {
+			/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+			abe_init_asrc_vx_ul(-250);
+			abe_init_asrc_vx_dl(250);
+		}
 	}
 	if (id == OMAP_ABE_VX_DL_PORT) {
-		/* Init VX_DL ASRC and enable its adaptation */
-		abe_init_asrc_vx_dl(250);
+		if (abe_port[OMAP_ABE_VX_UL_PORT].status == OMAP_ABE_PORT_ACTIVITY_RUNNING) {
+			/* VX_UL port already started, hence no need to
+				initialize ASRC */
+		} else {
+			/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+			abe_init_asrc_vx_ul(-250);
+			abe_init_asrc_vx_dl(250);
+		}
 	}
+
 	/* local host variable status= "port is running" */
 	abe_port[id].status = OMAP_ABE_PORT_ACTIVITY_RUNNING;
 	/* enable DMA requests */
@@ -681,12 +686,14 @@ int omap_abe_connect_cbpr_dmareq_port(struct omap_abe *abe,
 	abe_port[id].protocol.p.prot_dmareq.iter = abe_dma_port_iteration(f);
 	abe_port[id].protocol.p.prot_dmareq.dma_addr = ABE_DMASTATUS_RAW;
 	abe_port[id].protocol.p.prot_dmareq.dma_data = (1 << d);
-	abe_port[id].status = OMAP_ABE_PORT_INITIALIZED;
 	/* load the dma_t with physical information from AE memory mapping */
 	abe_init_dma_t(id, &((abe_port[id]).protocol));
+
 	/* load the micro-task parameters */
 	abe_init_io_tasks(id, &((abe_port[id]).format),
 			  &((abe_port[id]).protocol));
+	abe_port[id].status = OMAP_ABE_PORT_INITIALIZED;
+
 	/* load the ATC descriptors - disabled */
 	omap_abe_init_atc(abe, id);
 	/* return the dma pointer address */
@@ -772,10 +779,12 @@ int omap_abe_connect_serial_port(struct omap_abe *abe,
 	/* check the iteration of ATC */
 	(abe_port[id]).protocol.p.prot_serial.iter =
 		abe_dma_port_iter_factor(f);
-	abe_port[id].status = OMAP_ABE_PORT_INITIALIZED;
+
 	/* load the micro-task parameters */
 	abe_init_io_tasks(id, &((abe_port[id]).format),
 			  &((abe_port[id]).protocol));
+	abe_port[id].status = OMAP_ABE_PORT_INITIALIZED;
+
 	/* load the ATC descriptors - disabled */
 	omap_abe_init_atc(abe, id);
 
@@ -1105,46 +1114,92 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_VX_DL_PORT:
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
-				abe->MultiFrame[TASK_ASRC_VX_DL_SLT]
-					[TASK_ASRC_VX_DL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
 				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48);
+					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
 				/*Voice_8k_DL_labelID */
 				smem1 = IO_VX_DL_ASRC_labelID;
+
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_DL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_DL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			} else {
-				abe->MultiFrame[TASK_ASRC_VX_DL_SLT]
-					[TASK_ASRC_VX_DL_IDX] =
-					ABE_TASK_ID
-					(C_ABE_FW_TASK_ASRC_VX_DL_16);
 				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_16_48);
 				/* Voice_16k_DL_labelID */
 				smem1 = IO_VX_DL_ASRC_labelID;
+
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_DL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_DL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			}
-			abe->MultiFrame[0][2] = ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
+			abe->MultiFrame[0][2] =	ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
 			break;
 		case OMAP_ABE_VX_UL_PORT:
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
-				abe->MultiFrame[TASK_ASRC_VX_UL_SLT]
-					[TASK_ASRC_VX_UL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8);
 				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_8);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
 				   ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_48_8); */
 				smem1 = Voice_8k_UL_labelID;
+
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_UL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_UL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8_SIB);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			} else {
-				abe->MultiFrame[TASK_ASRC_VX_UL_SLT]
-					[TASK_ASRC_VX_UL_IDX] =
-					ABE_TASK_ID
-					(C_ABE_FW_TASK_ASRC_VX_UL_16);
 				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_16);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
 				   ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_48_16); */
 				smem1 = Voice_16k_UL_labelID;
+
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_UL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_UL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16_SIB);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			}
 			abe->MultiFrame[16][3] = ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_UL);
 			break;
@@ -1153,40 +1208,54 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			omap_abe_mem_read(abe, OMAP_ABE_DMEM,
 				       OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR, &dOppMode32,
 				       sizeof(u32));
+
 			if (abe_port[id].format.f == 8000) {
-				abe->MultiFrame[TASK_ASRC_BT_DL_SLT]
-					[TASK_ASRC_BT_DL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_8);
 				if (dOppMode32 == DOPPMODE32_OPP100) {
-					abe->MultiFrame[TASK_BT_DL_48_8_SLT]
-						[TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID
-						(C_ABE_FW_TASK_BT_DL_48_8_OPP100);
+					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_OPP100);
 					smem1 = BT_DL_8k_opp100_labelID;
 				} else {
-					abe->MultiFrame[TASK_BT_DL_48_8_SLT]
-						[TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID
-						(C_ABE_FW_TASK_BT_DL_48_8);
+					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
 					smem1 = BT_DL_8k_labelID;
 				}
+				if ((abe_port[OMAP_ABE_BT_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_BT_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is BT_VX_DL_PORT
+					 * both BT_VX_DL ASRC and BT_VX_UL ASRC will add/remove sample
+					 * referring to BT_VX_DL flow_counter */
+					abe->MultiFrame[TASK_ASRC_BT_DL_SLT][TASK_ASRC_BT_DL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_8);
+					abe->MultiFrame[TASK_ASRC_BT_UL_SLT][TASK_ASRC_BT_UL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_8_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			} else {
-				abe->MultiFrame[TASK_ASRC_BT_DL_SLT]
-					[TASK_ASRC_BT_DL_IDX] =
-					ABE_TASK_ID
-					(C_ABE_FW_TASK_ASRC_BT_DL_16);
 				if (dOppMode32 == DOPPMODE32_OPP100) {
-					abe->MultiFrame[TASK_BT_DL_48_8_SLT]
-						[TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID
-						(C_ABE_FW_TASK_BT_DL_48_16_OPP100);
+					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_16_OPP100);
 					smem1 = BT_DL_16k_opp100_labelID;
 				} else {
-					abe->MultiFrame[TASK_BT_DL_48_8_SLT]
-						[TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID
-						(C_ABE_FW_TASK_BT_DL_48_16);
+					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_16);
 					smem1 = BT_DL_16k_labelID;
+				}
+				if ((abe_port[OMAP_ABE_BT_VX_DL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_BT_VX_UL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is BT_VX_DL_PORT
+					 * both BT_VX_DL ASRC and BT_VX_UL ASRC will add/remove sample
+					 * referring to BT_VX_DL flow_counter */
+						abe->MultiFrame[TASK_ASRC_BT_DL_SLT][TASK_ASRC_BT_DL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_16);
+						abe->MultiFrame[TASK_ASRC_BT_UL_SLT][TASK_ASRC_BT_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_16_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
 				}
 			}
 			abe->MultiFrame[13][5] = ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_DL);
@@ -1197,12 +1266,9 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			omap_abe_mem_read(abe, OMAP_ABE_DMEM,
 				       OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR, &dOppMode32,
 				       sizeof(u32));
+
 			if (abe_port[id].format.f == 8000) {
-				abe->MultiFrame[TASK_ASRC_BT_UL_SLT]
-					[TASK_ASRC_BT_UL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_8);
-				abe->MultiFrame[TASK_BT_UL_8_48_SLT]
-					[TASK_BT_UL_8_48_IDX] =
+				abe->MultiFrame[TASK_BT_UL_8_48_SLT][TASK_BT_UL_8_48_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_BT_UL_8_48);
 				if (dOppMode32 == DOPPMODE32_OPP100)
 					/* ASRC input buffer, size 40 */
@@ -1210,13 +1276,22 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				else
 					/* at OPP 50 without ASRC */
 					smem1 = BT_UL_8k_labelID;
+				if ((abe_port[OMAP_ABE_BT_VX_UL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_BT_VX_DL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is BT_VX_UL_PORT */
+					/* both BT_VX_UL ASRC and BT_VX_DL ASRC will add/remove sample
+						referring to BT_VX_UL flow_counter */
+						abe->MultiFrame[TASK_ASRC_BT_UL_SLT][TASK_ASRC_BT_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_8);
+						abe->MultiFrame[TASK_ASRC_BT_DL_SLT][TASK_ASRC_BT_DL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_8_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			} else {
-				abe->MultiFrame[TASK_ASRC_BT_UL_SLT]
-					[TASK_ASRC_BT_UL_IDX] =
-					ABE_TASK_ID
-					(C_ABE_FW_TASK_ASRC_BT_UL_16);
-				abe->MultiFrame[TASK_BT_UL_8_48_SLT]
-					[TASK_BT_UL_8_48_IDX] =
+				abe->MultiFrame[TASK_BT_UL_8_48_SLT][TASK_BT_UL_8_48_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_BT_UL_16_48);
 				if (dOppMode32 == DOPPMODE32_OPP100)
 					/* ASRC input buffer, size 40 */
@@ -1224,6 +1299,20 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				else
 					/* at OPP 50 without ASRC */
 					smem1 = BT_UL_16k_labelID;
+				if ((abe_port[OMAP_ABE_BT_VX_UL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_BT_VX_DL_PORT].status ==
+						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is BT_VX_UL_PORT */
+					/* both BT_VX_UL ASRC and BT_VX_DL ASRC will add/remove sample
+						referring to BT_VX_UL flow_counter */
+						abe->MultiFrame[TASK_ASRC_BT_UL_SLT][TASK_ASRC_BT_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_16);
+						abe->MultiFrame[TASK_ASRC_BT_DL_SLT][TASK_ASRC_BT_DL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_16_SIB);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
+				}
 			}
 			abe->MultiFrame[15][3] = ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_UL);
 			break;
@@ -1579,3 +1668,80 @@ abehal_status abe_read_remaining_data(u32 port, u32 *n)
 	return 0;
 }
 EXPORT_SYMBOL(abe_read_remaining_data);
+
+/**
+ * abe_mono_mixer
+ * @id: name of the mixer (MIXDL1 or MIXDL2)
+ * on_off: enable\disable flag
+ *
+ * This API Programs DL1Mixer or DL2Mixer to output mono data
+ * on both left and right data paths.
+ */
+abehal_status abe_mono_mixer(u32 id, u32 on_off)
+{
+
+	switch (id) {
+	case MIXDL1:
+		if (on_off)
+			abe->MultiFrame[TASK_DL1Mixer_SLT][TASK_DL1Mixer_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_DL1Mixer_dual_mono);
+		else
+			abe->MultiFrame[TASK_DL1Mixer_SLT][TASK_DL1Mixer_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_DL1Mixer);
+		break;
+	case MIXDL2:
+		if (on_off)
+			abe->MultiFrame[TASK_DL2Mixer_SLT][TASK_DL2Mixer_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_DL2Mixer_dual_mono);
+		else
+			abe->MultiFrame[TASK_DL2Mixer_SLT][TASK_DL2Mixer_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_DL2Mixer);
+		break;
+	case MIXAUDUL:
+		if (on_off)
+			abe->MultiFrame[12][4] =
+				ABE_TASK_ID(C_ABE_FW_TASK_ULMixer_dual_mono);
+		else
+			abe->MultiFrame[12][4] =
+				ABE_TASK_ID(C_ABE_FW_TASK_ULMixer);
+		break;
+	default:
+		break;
+	}
+
+	omap_abe_mem_write(abe, OMAP_ABE_DMEM, OMAP_ABE_D_MULTIFRAME_ADDR,
+		       (u32 *) abe->MultiFrame, sizeof(abe->MultiFrame));
+
+	return 0;
+}
+EXPORT_SYMBOL(abe_mono_mixer);
+/**
+ * abe_write_pdmdl_offset - write the desired offset on the DL1/DL2 paths
+ *
+ * Parameters:
+ *   path: 1 for the DL1 ABE path, 2 for the DL2 ABE path
+ *   offset_left: integer value that will be added on all PDM left samples
+ *   offset_right: integer value that will be added on all PDM right samples
+ *
+ */
+void abe_write_pdmdl_offset(u32 path, u32 offset_left, u32 offset_right)
+{
+	switch (path) {
+	case 1:
+		omap_abe_mem_write(abe, OMAP_ABE_SMEM, OMAP_ABE_S_DC_HS_ADDR + 4,
+		       &offset_left, sizeof(u32));
+		omap_abe_mem_write(abe, OMAP_ABE_SMEM, OMAP_ABE_S_DC_HS_ADDR,
+		       &offset_right, sizeof(u32));
+		break;
+	case 2:
+		omap_abe_mem_write(abe, OMAP_ABE_SMEM, OMAP_ABE_S_DC_HF_ADDR + 4,
+		       &offset_left, sizeof(u32));
+		omap_abe_mem_write(abe, OMAP_ABE_SMEM, OMAP_ABE_S_DC_HF_ADDR,
+		       &offset_right, sizeof(u32));
+		break;
+	default:
+		break;
+	}
+}
+EXPORT_SYMBOL(abe_write_pdmdl_offset);
+

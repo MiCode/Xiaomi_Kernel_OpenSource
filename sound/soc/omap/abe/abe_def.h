@@ -243,7 +243,7 @@
 #define MUTE_GAIN -12000L
 #define GAIN_TOOLOW -13000L
 #define GAIN_MUTE MUTE_GAIN
-#define RAMP_MINLENGTH 3L
+#define RAMP_MINLENGTH 0L
 /* ramp_t is in milli- seconds */
 #define RAMP_0MS 0L
 #define RAMP_1MS 1L

@@ -68,6 +68,7 @@
 #include "abe_aess.h"
 #include "abe_port.h"
 #include "abe_mem.h"
+#include "abe_taskid.h"
 
 #define OMAP_ABE_IRQ_FIFO_MASK ((OMAP_ABE_D_MCUIRQFIFO_SIZE >> 2) - 1)
 
@@ -475,8 +476,9 @@ int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 	/* Write Multiframe inside DMEM */
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM,
 		       OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR, &dOppMode32, sizeof(u32));
+
 	sio_desc_address = OMAP_ABE_D_IODESCR_ADDR + (OMAP_ABE_MM_EXT_IN_PORT *
-						sizeof(struct ABE_SIODescriptor));
+				sizeof(struct ABE_SIODescriptor));
 	omap_abe_mem_read(abe, OMAP_ABE_DMEM, sio_desc_address,
 			(u32 *) &sio_desc, sizeof(sio_desc));
 	if (dOppMode32 == DOPPMODE32_OPP100) {
@@ -484,48 +486,79 @@ int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 		sio_desc.smem_addr1 = smem_mm_ext_in_opp100;
 		/* Init MM_EXT_IN ASRC and enable its adaptation */
 		abe_init_asrc_mm_ext_in(250);
-	} else {
+	} else
 		/* at OPP 50 or without ASRC */
 		sio_desc.smem_addr1 = smem_mm_ext_in_opp50;
-	}
 
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM, sio_desc_address,
-			(u32 *) &sio_desc, sizeof(sio_desc));
+		       (u32 *) &sio_desc, sizeof(sio_desc));
 
 	sio_desc_address = OMAP_ABE_D_IODESCR_ADDR + (OMAP_ABE_BT_VX_UL_PORT *
-						sizeof(struct ABE_SIODescriptor));
+				sizeof(struct ABE_SIODescriptor));
 	omap_abe_mem_read(abe, OMAP_ABE_DMEM, sio_desc_address,
 			(u32 *) &sio_desc, sizeof(sio_desc));
-	if (dOppMode32 == DOPPMODE32_OPP100) {
-		/* ASRC input buffer, size 40 */
-		sio_desc.smem_addr1 = smem_bt_vx_ul_opp100;
-		/* Init MM_EXT_IN ASRC and enable its adaptation */
-		abe_init_asrc_bt_ul(250);
+
+	if (abe_port[OMAP_ABE_BT_VX_UL_PORT].format.f == 8000) {
+		if (dOppMode32 == DOPPMODE32_OPP100)
+			/* ASRC input buffer, size 40 */
+			sio_desc.smem_addr1 = smem_bt_vx_ul_opp100;
+		else
+			/* at OPP 50 without ASRC */
+			sio_desc.smem_addr1 = BT_UL_8k_labelID;
 	} else {
-		/* at OPP 50 or without ASRC */
-		sio_desc.smem_addr1 = smem_bt_vx_ul_opp50;
+		if (dOppMode32 == DOPPMODE32_OPP100)
+			/* ASRC input buffer, size 40 */
+			sio_desc.smem_addr1 = smem_bt_vx_ul_opp100;
+		else
+			/* at OPP 50 without ASRC */
+			sio_desc.smem_addr1 = BT_UL_16k_labelID;
 	}
 
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM, sio_desc_address,
 		       (u32 *) &sio_desc, sizeof(sio_desc));
 
 	sio_desc_address = OMAP_ABE_D_IODESCR_ADDR + (OMAP_ABE_BT_VX_DL_PORT *
-						sizeof(struct ABE_SIODescriptor));
+				sizeof(struct ABE_SIODescriptor));
 	omap_abe_mem_read(abe, OMAP_ABE_DMEM, sio_desc_address,
-		       (u32 *) &sio_desc, sizeof(sio_desc));
-	if (dOppMode32 == DOPPMODE32_OPP100) {
-		/* ASRC input buffer, size 40 */
-		sio_desc.smem_addr1 = smem_bt_vx_dl_opp100;
-		/* Init MM_EXT_IN ASRC and enable its adaptation */
-		abe_init_asrc_bt_dl(250);
+			(u32 *) &sio_desc, sizeof(sio_desc));
+
+#define ABE_TASK_ID(ID) (OMAP_ABE_D_TASKSLIST_ADDR + sizeof(ABE_STask)*(ID))
+#define TASK_BT_DL_48_8_SLT 14
+#define TASK_BT_DL_48_8_IDX 4
+	if (abe_port[OMAP_ABE_BT_VX_DL_PORT].format.f == 8000) {
+		if (dOppMode32 == DOPPMODE32_OPP100) {
+			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_OPP100);
+			sio_desc.smem_addr1 = BT_DL_8k_opp100_labelID;
+		} else {
+			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
+			sio_desc.smem_addr1 = BT_DL_8k_labelID;
+		}
 	} else {
-		/* at OPP 50 or without ASRC */
-		sio_desc.smem_addr1 = smem_bt_vx_dl_opp50;
+		if (dOppMode32 == DOPPMODE32_OPP100) {
+			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_16_OPP100);
+			sio_desc.smem_addr1 = BT_DL_16k_opp100_labelID;
+		} else {
+			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_16);
+			sio_desc.smem_addr1 = BT_DL_16k_labelID;
+		}
 	}
+
+	omap_abe_mem_write(abe, OMAP_ABE_DMEM, OMAP_ABE_D_MULTIFRAME_ADDR,
+		       (u32 *) abe->MultiFrame, sizeof(abe->MultiFrame));
 
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM, sio_desc_address,
 		       (u32 *) &sio_desc, sizeof(sio_desc));
 
+	if (dOppMode32 == DOPPMODE32_OPP100) {
+		/* Init BT_VX_UL ASRC and enable its adaptation */
+		abe_init_asrc_bt_ul(250);
+		/* Init BT_VX_DL ASRC and enable its adaptation */
+		abe_init_asrc_bt_dl(-250);
+	}
 	return 0;
 
 }

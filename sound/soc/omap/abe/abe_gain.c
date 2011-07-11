@@ -403,21 +403,6 @@ int omap_abe_write_equalizer(struct omap_abe *abe,
 		/* three DMIC are clear at the same time DMIC0 DMIC1 DMIC2 */
 		eq_mem_len *= 3;
 		break;
-	case APS1:
-		eq_offset = OMAP_ABE_C_APS_DL1_COEFFS1_ADDR;
-		eq_mem = OMAP_ABE_S_APS_IIRMEM1_ADDR;
-		eq_mem_len = OMAP_ABE_S_APS_IIRMEM1_SIZE;
-		break;
-	case APS2L:
-		eq_offset = OMAP_ABE_C_APS_DL2_L_COEFFS1_ADDR;
-		eq_mem = OMAP_ABE_S_APS_M_IIRMEM2_ADDR;
-		eq_mem_len = OMAP_ABE_S_APS_M_IIRMEM2_SIZE;
-		break;
-	case APS2R:
-		eq_offset = OMAP_ABE_C_APS_DL2_R_COEFFS1_ADDR;
-		eq_mem = OMAP_ABE_S_APS_M_IIRMEM2_ADDR;
-		eq_mem_len = OMAP_ABE_S_APS_M_IIRMEM2_SIZE;
-		break;
 	}
 	/* reset SMEM buffers before the coefficients are loaded */
 	omap_abe_reset_mem(abe, OMAP_ABE_SMEM, eq_mem, eq_mem_len);
@@ -633,7 +618,9 @@ int omap_abe_write_gain(struct omap_abe *abe,
 	}
 	ramp = maximum(minimum(RAMP_MAXLENGTH, ramp), RAMP_MINLENGTH);
 	/* ramp data should be interpolated in the table instead */
-	ramp_index = 8;
+	ramp_index = 3;
+	if ((RAMP_2MS <= ramp) && (ramp < RAMP_5MS))
+		ramp_index = 8;
 	if ((RAMP_5MS <= ramp) && (ramp < RAMP_50MS))
 		ramp_index = 24;
 	if ((RAMP_50MS <= ramp) && (ramp < RAMP_500MS))
@@ -645,14 +632,14 @@ int omap_abe_write_gain(struct omap_abe *abe,
 	/* CMEM bytes address */
 	mixer_target = OMAP_ABE_C_1_ALPHA_ADDR;
 	/* a pair of gains is updated once in the firmware */
-	mixer_target += (p + mixer_offset) << 1;
+	mixer_target += ((p + mixer_offset) >> 1) << 2;
 	/* load the ramp delay data */
 	omap_abe_mem_write(abe, OMAP_ABE_CMEM, mixer_target,
 		       (u32 *) &alpha, sizeof(alpha));
 	/* CMEM bytes address */
 	mixer_target = OMAP_ABE_C_ALPHA_ADDR;
 	/* a pair of gains is updated once in the firmware */
-	mixer_target += (p + mixer_offset) << 1;
+	mixer_target += ((p + mixer_offset) >> 1) << 2;
 	omap_abe_mem_write(abe, OMAP_ABE_CMEM, mixer_target,
 		       (u32 *) &beta, sizeof(beta));
 	return 0;
