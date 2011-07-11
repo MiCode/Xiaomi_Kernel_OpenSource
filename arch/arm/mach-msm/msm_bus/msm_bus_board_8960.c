@@ -106,7 +106,6 @@ enum msm_bus_8660_slave_ports_type {
 };
 
 static int tier2[] = {MSM_BUS_BW_TIER2,};
-static int tier1[] = {MSM_BUS_BW_TIER1,};
 static uint32_t master_iids[NMASTERS];
 static uint32_t slave_iids[NSLAVES];
 
@@ -115,13 +114,19 @@ static int mport_kmpss_m1[] = {MSM_BUS_MASTER_PORT_KMPSS_M1,};
 
 static int mmss_mport_apps_fab[] = {MSM_BUS_MMSS_MASTER_PORT_APPS_FAB,};
 static int system_mport_appss_fab[] = {MSM_BUS_SYSTEM_MASTER_PORT_APPSS_FAB,};
-static int sport_ebi1_ch0[] = {MSM_BUS_SLAVE_PORT_EBI1_CH0,};
+static int sport_ebi1_ch0[] = {
+	MSM_BUS_SLAVE_PORT_EBI1_CH0,
+	MSM_BUS_SLAVE_PORT_EBI1_CH1,
+};
 static int sport_ebi1_ch1[] = {MSM_BUS_SLAVE_PORT_EBI1_CH1,};
 static int sport_kmpss_l2[] = {MSM_BUS_SLAVE_PORT_KMPSS_L2,};
 static int appss_sport_mmss_fab[] = {MSM_BUS_APPSS_SLAVE_PORT_MMSS_FAB,};
 static int sport_system_fab[] = {MSM_BUS_SLAVE_PORT_SYSTEM_FAB,};
 
-static int tiered_slave_ebi1_ch0[] = {MSM_BUS_TIERED_SLAVE_EBI1_CH0,};
+static int tiered_slave_ebi1_ch0[] = {
+	MSM_BUS_TIERED_SLAVE_EBI1_CH0,
+	MSM_BUS_TIERED_SLAVE_EBI1_CH1,
+};
 static int tiered_slave_ebi1_ch1[] = {MSM_BUS_TIERED_SLAVE_EBI1_CH1,};
 
 static int tiered_slave_kmpss[] = {MSM_BUS_TIERED_SLAVE_KMPSS_L2,};
@@ -413,8 +418,7 @@ static int mport_mdp[] = {
 	MSM_BUS_MASTER_PORT_MDP_PORT0,
 	MSM_BUS_MASTER_PORT_MDP_PORT1,
 };
-
-static int mmss_mport_unused_2[] = {MSM_BUS_MMSS_MASTER_PORT_UNUSED_2,};
+static int mport_mdp1[] = {MSM_BUS_MASTER_PORT_MDP_PORT1,};
 static int mport_rotator[] = {MSM_BUS_MASTER_PORT_ROTATOR,};
 static int mport_graphics_3d[] = {MSM_BUS_MASTER_PORT_GRAPHICS_3D,};
 static int mport_jpeg_dec[] = {MSM_BUS_MASTER_PORT_JPEG_DEC,};
@@ -448,13 +452,13 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 		.id = MSM_BUS_MASTER_MDP_PORT0,
 		.masterp = mport_mdp,
 		.num_mports = ARRAY_SIZE(mport_mdp),
-		.tier = tier1,
-		.num_tiers = ARRAY_SIZE(tier1),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
 	},
 	{
-		.id = MSM_BUS_MMSS_MASTER_UNUSED_2,
-		.masterp = mmss_mport_unused_2,
-		.num_mports = ARRAY_SIZE(mmss_mport_unused_2),
+		.id = MSM_BUS_MASTER_MDP_PORT1,
+		.masterp = mport_mdp1,
+		.num_mports = ARRAY_SIZE(mport_mdp1),
 		.tier = tier2,
 		.num_tiers = ARRAY_SIZE(tier2),
 	},
