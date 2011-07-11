@@ -81,6 +81,9 @@
 #define GPIO_GRFC_28		154
 #define GPIO_GRFC_29		155
 
+#define GPIO_USER_FIRST		58
+#define GPIO_USER_LAST		63
+
 #define FPGA_SDCC_STATUS        0x8E0001A8
 
 /* Macros assume PMIC GPIOs start at 0 */
@@ -584,6 +587,19 @@ fsm9xxx_init_ssbi_gpio(void)
 #endif
 
 /*
+ * User GPIOs
+ */
+
+static void user_gpios_init(void)
+{
+	unsigned int gpio;
+
+	for (gpio = GPIO_USER_FIRST; gpio <= GPIO_USER_LAST; ++gpio)
+		gpio_tlmm_config(GPIO_CFG(gpio, 0, GPIO_CFG_INPUT,
+			GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+}
+
+/*
  * Crypto
  */
 
@@ -826,6 +842,7 @@ static void __init fsm9xxx_init(void)
 	buses_init();
 	phy_init();
 	grfc_init();
+	user_gpios_init();
 
 #ifdef CONFIG_SERIAL_MSM_CONSOLE
 	fsm9xxx_init_uart1();
