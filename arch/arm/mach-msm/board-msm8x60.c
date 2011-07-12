@@ -5279,7 +5279,7 @@ static const unsigned int fluid_keymap[] = {
 	KEY(4, 3, KEY_HOME),	  /* Right switch: MIC Bd */
 	KEY(4, 4, KEY_FN_F3),	  /* Reserved MIC */
 
-	KEY(5, 0, KEY_CAMERA_SNAPSHOT), /* RS - PUSH2 */
+	KEY(5, 0, KEY_CAMERA), /* RS - PUSH2 */
 	KEY(5, 1, KEY_RIGHT),	  /* USER_RIGHT */
 	KEY(5, 2, KEY_DOWN),	  /* USER_DOWN */
 	KEY(5, 3, KEY_BACK),	  /* Left switch: MIC */
