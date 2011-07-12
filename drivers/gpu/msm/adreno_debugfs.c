@@ -396,8 +396,8 @@ static void kgsl_mh_reg_read_fill(struct kgsl_device *device, int i,
 	int j;
 
 	for (j = 0; j < linec; ++j) {
-		kgsl_regwrite(device, REG_MH_DEBUG_CTRL, i+j);
-		kgsl_regread(device, REG_MH_DEBUG_DATA, vals+j);
+		kgsl_regwrite(device, MH_DEBUG_CTRL, i+j);
+		kgsl_regread(device, MH_DEBUG_DATA, vals+j);
 	}
 }
 

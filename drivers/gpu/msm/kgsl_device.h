@@ -109,6 +109,15 @@ struct kgsl_memregion {
 	unsigned int sizebytes;
 };
 
+/* MH register values */
+struct kgsl_mh {
+	unsigned int     mharb;
+	unsigned int     mh_intf_cfg1;
+	unsigned int     mh_intf_cfg2;
+	uint32_t         mpu_base;
+	int              mpu_range;
+};
+
 struct kgsl_device {
 	struct device *dev;
 	const char *name;
@@ -120,6 +129,7 @@ struct kgsl_device {
 	struct kgsl_memdesc memstore;
 	const char *iomemname;
 
+	struct kgsl_mh mh;
 	struct kgsl_mmu mmu;
 	struct completion hwaccess_gate;
 	const struct kgsl_functable *ftbl;

@@ -307,10 +307,6 @@ union reg_cp_rb_cntl {
 
 #define REG_MASTER_INT_SIGNAL            0x03B7
 
-#define REG_MH_ARBITER_CONFIG            0x0A40
-#define REG_MH_CLNT_INTF_CTRL_CONFIG1    0x0A54
-#define REG_MH_CLNT_INTF_CTRL_CONFIG2    0x0A55
-
 #define REG_PA_CL_VPORT_XSCALE           0x210F
 #define REG_PA_CL_VPORT_ZOFFSET          0x2114
 #define REG_PA_CL_VPORT_ZSCALE           0x2113
@@ -399,8 +395,6 @@ union reg_cp_rb_cntl {
 #define REG_SQ_CONSTANT_0                0x4000
 #define REG_SQ_FETCH_0                   0x4800
 
-#define REG_MH_DEBUG_CTRL                0xA4E
-#define REG_MH_DEBUG_DATA                0xA4F
 #define REG_COHER_BASE_PM4               0xA2A
 #define REG_COHER_STATUS_PM4             0xA2B
 #define REG_COHER_SIZE_PM4               0xA29

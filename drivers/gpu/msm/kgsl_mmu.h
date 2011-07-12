@@ -42,6 +42,12 @@
 #define MH_INTERRUPT_STATUS          0x0A43
 #define MH_INTERRUPT_CLEAR           0x0A44
 #define MH_AXI_ERROR                 0x0A45
+#define MH_ARBITER_CONFIG            0x0A40
+#define MH_DEBUG_CTRL                0x0A4E
+#define MH_DEBUG_DATA                0x0A4F
+#define MH_AXI_HALT_CONTROL          0x0A50
+#define MH_CLNT_INTF_CTRL_CONFIG1    0x0A54
+#define MH_CLNT_INTF_CTRL_CONFIG2    0x0A55
 
 /* MH_MMU_CONFIG bit definitions */
 
@@ -128,8 +134,6 @@ struct kgsl_mmu {
 	uint32_t      flags;
 	struct kgsl_device     *device;
 	unsigned int     config;
-	uint32_t        mpu_base;
-	int              mpu_range;
 	struct kgsl_memdesc    dummyspace;
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
@@ -150,6 +154,9 @@ struct kgsl_ptpool_chunk {
 
 struct kgsl_pagetable *kgsl_mmu_getpagetable(unsigned long name);
 
+void kgsl_mh_start(struct kgsl_device *device);
+void kgsl_mh_intrcallback(struct kgsl_device *device);
+
 #ifdef CONFIG_MSM_KGSL_MMU
 
 int kgsl_mmu_init(struct kgsl_device *device);
@@ -167,7 +174,6 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 void kgsl_ptpool_destroy(struct kgsl_ptpool *pool);
 int kgsl_ptpool_init(struct kgsl_ptpool *pool, int ptsize, int entries);
-void kgsl_mh_intrcallback(struct kgsl_device *device);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 void kgsl_setstate(struct kgsl_device *device, uint32_t flags);

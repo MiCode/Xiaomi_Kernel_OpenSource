@@ -134,13 +134,18 @@ static struct z180_device device_2d0 = {
 		.id = KGSL_DEVICE_2D0,
 		.ver_major = DRIVER_VERSION_MAJOR,
 		.ver_minor = DRIVER_VERSION_MINOR,
-		.mmu = {
-			.config = Z180_MMU_CONFIG,
+		.mh = {
+			.mharb = Z180_CFG_MHARB,
+			.mh_intf_cfg1 = 0x00032f07,
+			.mh_intf_cfg2 = 0x004b274f,
 			/* turn off memory protection unit by setting
 			   acceptable physical address range to include
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
+		},
+		.mmu = {
+			.config = Z180_MMU_CONFIG,
 		},
 		.pwrctrl = {
 			.regulator_name = "fs_gfx2d0",
@@ -167,13 +172,18 @@ static struct z180_device device_2d1 = {
 		.id = KGSL_DEVICE_2D1,
 		.ver_major = DRIVER_VERSION_MAJOR,
 		.ver_minor = DRIVER_VERSION_MINOR,
-		.mmu = {
-			.config = Z180_MMU_CONFIG,
+		.mh = {
+			.mharb = Z180_CFG_MHARB,
+			.mh_intf_cfg1 = 0x00032f07,
+			.mh_intf_cfg2 = 0x004b274f,
 			/* turn off memory protection unit by setting
 			   acceptable physical address range to include
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
+		},
+		.mmu = {
+			.config = Z180_MMU_CONFIG,
 		},
 		.pwrctrl = {
 			.regulator_name = "fs_gfx2d1",
@@ -546,15 +556,10 @@ static int z180_start(struct kgsl_device *device, unsigned int init_ram)
 
 	kgsl_pwrctrl_enable(device);
 
-	/* Set up MH arbiter.  MH offsets are considered to be dword
-	 * based, therefore no down shift. */
-	z180_regwrite(device, ADDR_MH_ARBITER_CONFIG, Z180_CFG_MHARB);
-
-	z180_regwrite(device, ADDR_MH_CLNT_INTF_CTRL_CONFIG1, 0x00030F27);
-	z180_regwrite(device, ADDR_MH_CLNT_INTF_CTRL_CONFIG2, 0x004B274F);
-
 	/* Set interrupts to 0 to ensure a good state */
 	z180_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x0);
+
+	kgsl_mh_start(device);
 
 	status = kgsl_mmu_start(device);
 	if (status)
@@ -755,8 +760,8 @@ static void z180_regread(struct kgsl_device *device,
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
 
-	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
-	     offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
+	if ((offsetwords >= MH_ARBITER_CONFIG &&
+	     offsetwords <= MH_AXI_HALT_CONTROL) ||
 	    (offsetwords >= MH_MMU_CONFIG &&
 	     offsetwords <= MH_MMU_MPU_END)) {
 		_z180_regread_mmu(device, offsetwords, value);
@@ -772,8 +777,8 @@ static void z180_regwrite(struct kgsl_device *device,
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
 
-	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
-	     offsetwords <= ADDR_MH_CLNT_INTF_CTRL_CONFIG2) ||
+	if ((offsetwords >= MH_ARBITER_CONFIG &&
+	     offsetwords <= MH_CLNT_INTF_CTRL_CONFIG2) ||
 	    (offsetwords >= MH_MMU_CONFIG &&
 	     offsetwords <= MH_MMU_MPU_END)) {
 		_z180_regwrite_mmu(device, offsetwords, value);

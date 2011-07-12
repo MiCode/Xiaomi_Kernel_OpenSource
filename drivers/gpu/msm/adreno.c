@@ -76,13 +76,21 @@ static struct adreno_device device_3d0 = {
 		.id = KGSL_DEVICE_3D0,
 		.ver_major = DRIVER_VERSION_MAJOR,
 		.ver_minor = DRIVER_VERSION_MINOR,
-		.mmu = {
-			.config = ADRENO_MMU_CONFIG,
+		.mh = {
+			.mharb  = ADRENO_CFG_MHARB,
+			/* Remove 1k boundary check in z470 to avoid a GPU
+			 * hang.  Notice that this solution won't work if
+			 * both EBI and SMI are used
+			 */
+			.mh_intf_cfg1 = 0x00032f07,
 			/* turn off memory protection unit by setting
 			   acceptable physical address range to include
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
+		},
+		.mmu = {
+			.config = ADRENO_MMU_CONFIG,
 		},
 		.pwrctrl = {
 			.regulator_name = "fs_gfx3d",
@@ -108,7 +116,6 @@ static struct adreno_device device_3d0 = {
 	},
 	.pfp_fw = NULL,
 	.pm4_fw = NULL,
-	.mharb  = ADRENO_CFG_MHARB,
 };
 
 static int adreno_gmeminit(struct adreno_device *adreno_dev)
@@ -478,6 +485,17 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
 
+	if (adreno_is_a20x(adreno_dev)) {
+		/*
+		 * the MH_CLNT_INTF_CTRL_CONFIG registers aren't present
+		 * on older gpus
+		 */
+		device->mh.mh_intf_cfg1 = 0;
+		device->mh.mh_intf_cfg2 = 0;
+	}
+
+	kgsl_mh_start(device);
+
 	if (kgsl_mmu_start(device))
 		goto error_clk_off;
 
@@ -503,16 +521,6 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	adreno_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000000);
 
 	adreno_regwrite(device, REG_RBBM_CNTL, 0x00004442);
-
-	adreno_regwrite(device, REG_MH_ARBITER_CONFIG,
-				adreno_dev->mharb);
-
-	/* Remove 1k boundary check in z470 to avoid GPU hang.
-	   Notice that, this solution won't work if both EBI and SMI are used */
-	if (adreno_is_a220(adreno_dev)) {
-		adreno_regwrite(device, REG_MH_CLNT_INTF_CTRL_CONFIG1,
-				 0x00032f07);
-	}
 
 	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
@@ -552,9 +560,9 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 
 error_irq_off:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_mmu_stop(device);
 error_clk_off:
 	kgsl_pwrctrl_disable(device);
-	kgsl_mmu_stop(device);
 
 	return status;
 }
