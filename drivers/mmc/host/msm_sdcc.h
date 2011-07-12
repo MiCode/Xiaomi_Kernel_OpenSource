@@ -335,7 +335,8 @@ struct msmsdcc_host {
 
 	unsigned int	mci_irqenable;
 	unsigned int	dummy_52_needed;
-	unsigned int	dummy_52_state;
+	unsigned int	dummy_52_sent;
+
 	unsigned int	sdio_irq_disabled;
 	struct wake_lock	sdio_wlock;
 	struct wake_lock	sdio_suspend_wlock;
