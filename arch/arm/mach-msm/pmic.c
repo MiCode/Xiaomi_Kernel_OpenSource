@@ -232,6 +232,7 @@ static int pmic_buf_init(void)
 static inline void pmic_buf_reserve(struct pmic_buf *bp, int len)
 {
 	bp->data += len;
+	bp->len  += len;
 }
 
 static inline void pmic_buf_reset(struct pmic_buf *bp)
@@ -359,7 +360,6 @@ static int pmic_rpc_req_reply(struct pmic_buf *tbuf, struct pmic_buf *rbuf,
 	* the length
 	*/
 	tbuf->data = tbuf->start;
-	tbuf->len += sizeof(struct rpc_request_hdr);
 
 	len = msm_rpc_call_reply(pm->endpoint, proc,
 				tbuf->data, tbuf->len,
