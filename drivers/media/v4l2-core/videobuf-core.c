@@ -1129,8 +1129,6 @@ unsigned int videobuf_poll_stream(struct file *file,
 			buf = list_entry(q->stream.next,
 					 struct videobuf_buffer, stream);
 	} else if (req_events & (POLLIN | POLLRDNORM)) {
-		if (!q->reading)
-			__videobuf_read_start(q);
 		if (!q->reading) {
 			rc = POLLERR;
 		} else if (NULL == q->read_buf) {
