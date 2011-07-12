@@ -2032,6 +2032,7 @@ u32 vcd_handle_frame_done(
 		(struct ddl_frame_data_tag *) payload;
 	struct vcd_transc *transc;
 	u32 rc;
+	s64 time_stamp;
 
 	rc = vcd_validate_io_done_pyld(cctxt, payload, status);
 	if (rc == VCD_ERR_CLIENT_FATAL)
@@ -2079,8 +2080,10 @@ u32 vcd_handle_frame_done(
 		transc->frame = op_frm->vcd_frm.frame;
 	transc->frame_done = true;
 
-	if (transc->input_done && transc->frame_done)
+	if (transc->input_done && transc->frame_done) {
+		time_stamp = transc->time_stamp;
 		vcd_release_trans_tbl_entry(transc);
+	}
 
 	if (status == VCD_ERR_INTRLCD_FIELD_DROP ||
 		(op_frm->vcd_frm.intrlcd_ip_frm_tag !=
@@ -2088,6 +2091,13 @@ u32 vcd_handle_frame_done(
 		op_frm->vcd_frm.intrlcd_ip_frm_tag)) {
 		vcd_handle_frame_done_for_interlacing(cctxt, transc,
 							  op_frm, status);
+		if (status == VCD_ERR_INTRLCD_FIELD_DROP) {
+			cctxt->callback(VCD_EVT_IND_INFO_FIELD_DROPPED,
+				VCD_S_SUCCESS,
+				&time_stamp,
+				sizeof(time_stamp),
+				cctxt, cctxt->client_data);
+		}
 	}
 
 	if (status != VCD_ERR_INTRLCD_FIELD_DROP) {

@@ -140,6 +140,42 @@ void vid_dec_vcd_open_done(struct video_client_ctx *client_ctx,
 		ERR("%s(): ERROR. client_ctx is NULL\n", __func__);
 }
 
+static void vid_dec_handle_field_drop(struct video_client_ctx *client_ctx,
+	u32 event, u32 status, int64_t time_stamp)
+{
+	struct vid_dec_msg *vdec_msg;
+
+	if (!client_ctx) {
+		ERR("%s() NULL pointer\n", __func__);
+		return;
+	}
+
+	vdec_msg = kzalloc(sizeof(struct vid_dec_msg), GFP_KERNEL);
+	if (!vdec_msg) {
+		ERR("%s(): cannot allocate vid_dec_msg "
+			" buffer\n", __func__);
+		return;
+	}
+	vdec_msg->vdec_msg_info.status_code = vid_dec_get_status(status);
+	if (event == VCD_EVT_IND_INFO_FIELD_DROPPED) {
+		vdec_msg->vdec_msg_info.msgcode =
+			VDEC_MSG_EVT_INFO_FIELD_DROPPED;
+		vdec_msg->vdec_msg_info.msgdata.output_frame.time_stamp
+		= time_stamp;
+		DBG("Send FIELD_DROPPED message to client = %p\n", client_ctx);
+	} else {
+		ERR("vid_dec_input_frame_done(): invalid event type: "
+			"%d\n", event);
+		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_INVALID;
+	}
+	vdec_msg->vdec_msg_info.msgdatasize =
+		sizeof(struct vdec_output_frameinfo);
+	mutex_lock(&client_ctx->msg_queue_lock);
+	list_add_tail(&vdec_msg->list, &client_ctx->msg_queue);
+	mutex_unlock(&client_ctx->msg_queue_lock);
+	wake_up(&client_ctx->msg_wait);
+}
+
 static void vid_dec_input_frame_done(struct video_client_ctx *client_ctx,
 				     u32 event, u32 status,
 				     struct vcd_frame_data *vcd_frame_data)
@@ -410,6 +446,13 @@ void vid_dec_vcd_cb(u32 event, u32 status,
 	case VCD_EVT_RESP_INPUT_FLUSHED:
 		vid_dec_input_frame_done(client_ctx, event, status,
 					 (struct vcd_frame_data *)info);
+		break;
+	case VCD_EVT_IND_INFO_FIELD_DROPPED:
+		if (info)
+			vid_dec_handle_field_drop(client_ctx, event,
+			status,	*((int64_t *)info));
+		else
+			pr_err("Wrong Payload for Field dropped\n");
 		break;
 	case VCD_EVT_RESP_OUTPUT_DONE:
 	case VCD_EVT_RESP_OUTPUT_FLUSHED:
