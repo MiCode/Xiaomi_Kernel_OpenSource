@@ -194,7 +194,6 @@ static int abe_dsp_write(struct snd_soc_platform *platform, unsigned int reg,
 
 static void abe_irq_pingpong_subroutine(u32 *data)
 {
-	struct abe_data *abe = (struct abe_data *)data;
 	u32 dst, n_bytes;
 
 	abe_read_next_ping_pong_buffer(MM_DL_PORT, &dst, &n_bytes);
@@ -2343,7 +2342,7 @@ static int __devinit abe_engine_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct omap4_abe_dsp_pdata *pdata = pdev->dev.platform_data;
 	struct abe_data *abe;
-	int ret = -EINVAL, i, k;
+	int ret = -EINVAL, i;
 
 	abe = kzalloc(sizeof(struct abe_data), GFP_KERNEL);
 	if (abe == NULL)
