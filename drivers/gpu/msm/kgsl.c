@@ -1381,6 +1381,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	struct kgsl_map_user_mem *param = data;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_process_private *private = dev_priv->process_priv;
+	enum kgsl_user_mem_type memtype;
 
 	entry = kgsl_mem_entry_create();
 
@@ -1389,7 +1390,12 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	kgsl_memqueue_drain_unlocked(dev_priv->device);
 
-	switch (param->memtype) {
+	if (_IOC_SIZE(cmd) == sizeof(struct kgsl_sharedmem_from_pmem))
+		memtype = KGSL_USER_MEM_TYPE_PMEM;
+	else
+		memtype = param->memtype;
+
+	switch (memtype) {
 	case KGSL_USER_MEM_TYPE_PMEM:
 		if (param->fd == 0 || param->len == 0)
 			break;
@@ -1431,7 +1437,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 					   param->len);
 		break;
 	default:
-		KGSL_CORE_ERR("Invalid memory type: %x\n", param->memtype);
+		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
 		break;
 	}
 
