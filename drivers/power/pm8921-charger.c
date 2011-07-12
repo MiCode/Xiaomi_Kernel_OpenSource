@@ -517,6 +517,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 };
 
 static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
@@ -543,6 +544,19 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 		pr_warn("low battery charge = %d%%\n", percent_soc);
 
 	return percent_soc;
+}
+
+static int get_prop_batt_current(struct pm8921_chg_chip *chip)
+{
+	int result_ma, rc;
+
+	rc = pm8921_bms_get_battery_current(&result_ma);
+	if (rc) {
+		pr_err("unable to get batt current rc = %d\n", rc);
+		return rc;
+	} else {
+		return result_ma;
+	}
 }
 
 static int get_prop_batt_health(struct pm8921_chg_chip *chip)
@@ -637,6 +651,9 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_batt_capacity(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = get_prop_batt_current(chip);
 		break;
 	default:
 		return -EINVAL;

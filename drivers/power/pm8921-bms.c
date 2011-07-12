@@ -788,6 +788,24 @@ int pm8921_bms_get_vsense_avg(int *result)
 }
 EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
 
+int pm8921_bms_get_battery_current(int *result)
+{
+	if (!the_chip) {
+		pr_err("called before initialization\n");
+		return -EINVAL;
+	}
+	if (the_chip->r_sense == 0) {
+		pr_err("r_sense is zero\n");
+		return -EINVAL;
+	}
+
+	read_vsense_avg(the_chip, result);
+	pr_debug("vsense=%d\n", *result);
+	*result = *result / the_chip->r_sense;
+	return 0;
+}
+EXPORT_SYMBOL(pm8921_bms_get_battery_current);
+
 int pm8921_bms_get_percent_charge(void)
 {
 	int batt_temp, rc;
@@ -1091,7 +1109,7 @@ static int get_reading(void *data, u64 * val)
 	}
 	return ret;
 }
-DEFINE_SIMPLE_ATTRIBUTE(reading_fops, get_reading, NULL, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(reading_fops, get_reading, NULL, "%lld\n");
 
 static int get_rt_status(void *data, u64 * val)
 {

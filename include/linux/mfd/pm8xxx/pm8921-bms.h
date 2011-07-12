@@ -114,12 +114,29 @@ struct pm8921_bms_platform_data {
 /**
  * pm8921_bms_get_vsense_avg - return the voltage across the sense
  *				resitor in microvolts
- * @result:	The pointer where the voltage will be updated
+ * @result:	The pointer where the voltage will be updated. A -ve
+ *		result means that the current is flowing in
+ *		the battery - during battery charging
  *
  * RETURNS:	Error code if there was a problem reading vsense, Zero otherwise
  *		The result won't be updated in case of an error.
+ *
+ *
  */
 int pm8921_bms_get_vsense_avg(int *result);
+
+/**
+ * pm8921_bms_get_battery_current - return the battery current based on vsense
+ *				resitor in milliamperes
+ * @result:	The pointer where the voltage will be updated. A -ve
+ *		result means that the current is flowing in
+ *		the battery - during battery charging
+ *
+ * RETURNS:	Error code if there was a problem reading vsense, Zero otherwise
+ *		The result won't be updated in case of an error.
+ *
+ */
+int pm8921_bms_get_battery_current(int *result);
 
 /**
  * pm8921_bms_get_percent_charge - returns the current battery charge in percent
@@ -140,6 +157,10 @@ void pm8921_bms_charging_began(void);
 void pm8921_bms_charging_end(void);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_battery_current(int *result)
 {
 	return -ENXIO;
 }
