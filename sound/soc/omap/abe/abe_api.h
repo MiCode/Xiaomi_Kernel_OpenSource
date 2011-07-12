@@ -137,15 +137,6 @@ abehal_status abe_reset_hal(void);
  */
 abehal_status abe_load_fw_param(u32 *FW);
 /**
- * abe_reload_fw - Reload ABE Firmware after OFF mode
- */
-abehal_status abe_reload_fw(void);
-/**
- * abe_load_fw - Load ABE Firmware and initialize memories
- *
- */
-abehal_status abe_load_fw(void);
-/**
  * abe_irq_processing - Process ABE interrupt
  *
  * This subroutine is call upon reception of "MA_IRQ_99 ABE_MPU_IRQ" Audio

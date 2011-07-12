@@ -120,6 +120,7 @@ struct abe_data {
 
 	/* coefficients */
 	struct fw_header hdr;
+	u32 *firmware;
 	s32 *equ[ABE_MAX_EQU];
 	int equ_profile[ABE_MAX_EQU];
 	struct soc_enum equalizer_enum[ABE_MAX_EQU];
@@ -1848,7 +1849,7 @@ static int aess_restore_context(struct abe_data *abe)
 		loss_count = pdata->get_context_loss_count(abe->dev);
 
 	if  (loss_count != the_abe->loss_count)
-	        abe_reload_fw();
+	        abe_reload_fw(abe->firmware);
 
 	/* TODO: Find a better way to save/retore gains after dor OFF mode */
 	abe_unmute_gain(MIXSDT, MIX_SDT_INPUT_UP_MIXER);
@@ -2256,7 +2257,16 @@ static int abe_probe(struct snd_soc_platform *platform)
 		abe->equ[i] = abe->equ[i - 1] +
 			abe->equ_texts[i - 1].count * abe->equ_texts[i - 1].coeff * sizeof(s32);
 	}
+
+	/* store ABE firmware for later context restore */
+	abe->firmware = kzalloc(abe->hdr.firmware_size, GFP_KERNEL);
+	memcpy(abe->firmware,
+		fw->data + sizeof(struct fw_header) + abe->hdr.coeff_size,
+		abe->hdr.firmware_size);
+#else
+	abe->firmware = abe_get_default_fw();
 #endif
+
 	ret = request_irq(abe->irq, abe_irq_handler, 0, "ABE", (void *)abe);
 	if (ret) {
 		dev_err(platform->dev, "request for ABE IRQ %d failed %d\n",
@@ -2273,12 +2283,8 @@ static int abe_probe(struct snd_soc_platform *platform)
 
 	abe_reset_hal();
 
-#if 0
-#warning fixup load fw args
-	//abe_load_fw(fw->data + sizeof(struct fw_header) + abe->hdr.coeff_size);
-#else
-	abe_load_fw();
-#endif
+	abe_load_fw(abe->firmware);
+
 	/* Config OPP 100 for now */
 	abe_set_opp_processing(ABE_OPP100);
 
@@ -2297,6 +2303,7 @@ static int abe_probe(struct snd_soc_platform *platform)
 	return ret;
 
 err_texts:
+	kfree(abe->firmware);
 #if defined(CONFIG_SND_OMAP_SOC_ABE_DSP_MODULE)
 	for (i = 0; i < abe->hdr.num_equ; i++)
 		kfree(abe->equalizer_enum[i].texts);
@@ -2323,6 +2330,8 @@ static int abe_remove(struct snd_soc_platform *platform)
 	kfree(abe->equ[0]);
 	kfree(abe->equ_texts);
 #endif
+	kfree(abe->firmware);
+
 	pm_runtime_disable(abe->dev);
 
 	return 0;

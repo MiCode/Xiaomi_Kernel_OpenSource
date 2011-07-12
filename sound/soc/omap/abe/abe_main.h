@@ -615,8 +615,9 @@ extern u32 abe_irq_pingpong_player_id;
 
 void abe_init_mem(void __iomem **_io_base);
 u32 abe_reset_hal(void);
-u32 abe_load_fw(void);
-u32 abe_reload_fw(void);
+int abe_load_fw(u32 *firmware);
+int abe_reload_fw(u32 *firmware);
+u32 *abe_get_default_fw(void);
 u32 abe_wakeup(void);
 u32 abe_irq_processing(void);
 u32 abe_clear_irq(void);

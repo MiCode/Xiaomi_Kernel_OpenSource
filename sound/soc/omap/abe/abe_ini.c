@@ -174,10 +174,10 @@ EXPORT_SYMBOL(abe_load_fw_param);
  * @abe: Pointer on abe handle
  *
  */
-int omap_abe_load_fw(struct omap_abe *abe)
+int omap_abe_load_fw(struct omap_abe *abe, u32 *firmware)
 {
 	_log(ABE_ID_LOAD_FW, 0, 0, 0);
-	abe_load_fw_param((u32 *) abe_firmware_array);
+	abe_load_fw_param(firmware);
 	omap_abe_reset_all_ports(abe);
 	omap_abe_build_scheduler_table(abe);
 	omap_abe_reset_all_sequence(abe);
@@ -189,10 +189,10 @@ EXPORT_SYMBOL(omap_abe_load_fw);
 /**
  * abe_reload_fw - Reload ABE Firmware after OFF mode
  */
-int abe_reload_fw(void)
+int omap_abe_reload_fw(struct omap_abe *abe, u32 *firmware)
 {
 	abe->warm_boot = 0;
-	abe_load_fw_param((u32 *) abe_firmware_array);
+	abe_load_fw_param(firmware);
 	omap_abe_build_scheduler_table(abe);
 	omap_abe_dbg_reset(&abe->dbg);
 	/* IRQ circular read pointer in DMEM */
@@ -212,7 +212,17 @@ int abe_reload_fw(void)
 			    RAMP_5MS, GAIN_RIGHT_OFFSET);
 	return 0;
 }
-EXPORT_SYMBOL(abe_reload_fw);
+EXPORT_SYMBOL(omap_abe_reload_fw);
+
+/**
+ * omap_abe_get_default_fw
+ *
+ * Get default ABE firmware
+ */
+u32 *omap_abe_get_default_fw(struct omap_abe *abe)
+{
+	return (u32 *)abe_firmware_array;
+}
 
 /**
  * abe_build_scheduler_table
