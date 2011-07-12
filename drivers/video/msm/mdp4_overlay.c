@@ -98,7 +98,7 @@ struct mdp4_overlay_ctrl {
 };
 
 static struct mdp4_overlay_ctrl *ctrl = &mdp4_overlay_db;
-static uint32 perf_level;
+static uint32 new_perf_level;
 static uint32 mdp4_del_res_rel;
 /* static array with index 0 for unset status and 1 for set status */
 static bool overlay_status[MDP4_OVERLAY_TYPE_MAX];
@@ -1873,10 +1873,20 @@ static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req)
 		return OVERLAY_PERF_LEVEL1;
 }
 
+void mdp4_set_perf_level(void)
+{
+	static int old_perf_level;
+
+	if (old_perf_level != new_perf_level) {
+		mdp_set_core_clk(new_perf_level);
+		old_perf_level = new_perf_level;
+	}
+}
+
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	int ret, mixer;
+	int ret, mixer, perf_level;
 	struct mdp4_overlay_pipe *pipe;
 
 	if (mfd == NULL) {
@@ -1964,7 +1974,8 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 
 	mdp4_del_res_rel = 0;
 	mutex_unlock(&mfd->dma->ov_mutex);
-	mdp_set_core_clk(perf_level);
+
+	new_perf_level = perf_level;
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (pipe->mixer_num == MDP4_MIXER0) {
@@ -1974,14 +1985,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 #endif
 
 	return 0;
-}
-
-void  mdp4_overlay_resource_release(void)
-{
-	if (mdp4_del_res_rel) {
-		mdp_set_core_clk(OVERLAY_PERF_LEVEL4);
-		mdp4_del_res_rel = 0;
-	}
 }
 
 int mdp4_overlay_unset(struct fb_info *info, int ndx)
@@ -2069,7 +2072,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 	if (!(ctrl->ov_pipe[OVERLAY_PIPE_VG1].ref_cnt +
 		ctrl->ov_pipe[OVERLAY_PIPE_VG2].ref_cnt))
-		mdp4_del_res_rel = 1;
+		new_perf_level = OVERLAY_PERF_LEVEL4;
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 

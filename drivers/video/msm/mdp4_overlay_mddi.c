@@ -447,6 +447,9 @@ void mdp4_mddi_kickoff_ui(struct msm_fb_data_type *mfd,
 void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
+	/* change mdp clk while mdp is idle` */
+	mdp4_set_perf_level();
+
 	if (mdp_hw_revision == MDP4_REVISION_V2_1) {
 		if (mdp4_overlay_status_read(MDP4_OVERLAY_TYPE_UNSET)) {
 			uint32  data;
@@ -546,6 +549,9 @@ void mdp4_dma_s_update_lcd(struct msm_fb_data_type *mfd,
 void mdp4_mddi_dma_s_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
+	/* change mdp clk while mdp is idle` */
+	mdp4_set_perf_level();
+
 	mdp_enable_irq(MDP_DMA_S_TERM);
 	mfd->dma->busy = TRUE;
 	mfd->ibuf_flushed = TRUE;
@@ -595,7 +601,6 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 			complete(&mfd->pan_comp);
 		}
 	}
-	mdp4_overlay_resource_release();
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
 
