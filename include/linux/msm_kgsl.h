@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        4
+#define KGSL_VERSION_MINOR        5
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM	1
@@ -238,8 +238,11 @@ struct kgsl_cmdstream_readtimestamp {
 	unsigned int timestamp; /*output param */
 };
 
-#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP \
+#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_OLD \
 	_IOR(KGSL_IOC_TYPE, 0x11, struct kgsl_cmdstream_readtimestamp)
+
+#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP \
+	_IOWR(KGSL_IOC_TYPE, 0x11, struct kgsl_cmdstream_readtimestamp)
 
 /* free memory when the GPU reaches a given timestamp.
  * gpuaddr specify a memory region created by a

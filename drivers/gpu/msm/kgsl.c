@@ -1594,6 +1594,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	if (cmd == IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_OLD)
 		cmd = IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP;
+	else if (cmd == IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_OLD)
+		cmd = IOCTL_KGSL_CMDSTREAM_READTIMESTAMP;
 
 	if (cmd & (IOC_IN | IOC_OUT)) {
 		if (_IOC_SIZE(cmd) < sizeof(ustack))
