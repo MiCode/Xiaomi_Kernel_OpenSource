@@ -795,11 +795,16 @@ static void msm_hsl_config_port(struct uart_port *port, int flags)
 		if (msm_hsl_request_port(port))
 			return;
 	}
-	if (msm_serial_hsl_has_gsbi(port))
+	if (msm_serial_hsl_has_gsbi(port)) {
+		if (msm_hsl_port->pclk)
+			clk_enable(msm_hsl_port->pclk);
 		if ((ioread32(msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR) &
 			GSBI_PROTOCOL_I2C_UART) != GSBI_PROTOCOL_I2C_UART)
 			iowrite32(GSBI_PROTOCOL_I2C_UART,
 				msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
+		if (msm_hsl_port->pclk)
+			clk_disable(msm_hsl_port->pclk);
+	}
 }
 
 static int msm_hsl_verify_port(struct uart_port *port,
