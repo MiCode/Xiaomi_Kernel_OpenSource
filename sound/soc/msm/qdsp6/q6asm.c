@@ -176,7 +176,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 	cnt = port->max_buf_cnt - 1;
 
 	if (cnt >= 0) {
-		rc = q6asm_memory_unmap(ac, port->buf[0].size, dir);
+		rc = q6asm_memory_unmap(ac, port->buf[0].phys, dir);
 		if (rc < 0)
 			pr_err("%s CMD Memory_unmap_regions failed\n",
 							__func__);
