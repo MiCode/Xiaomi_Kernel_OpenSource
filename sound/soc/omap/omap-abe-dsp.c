@@ -742,18 +742,22 @@ static int abe_put_equalizer(struct snd_kcontrol *kcontrol,
 	struct soc_enum *eqc = (struct soc_enum *)kcontrol->private_value;
 	u16 val = ucontrol->value.enumerated.item[0];
 	abe_equ_t equ_params;
-	int size;
+	int len;
 
-	if (val >= the_abe->hdr.num_equ)
+	if (eqc->reg >= the_abe->hdr.num_equ)
 		return -EINVAL;
 
-	equ_params.equ_length = the_abe->equ_texts[eqc->reg].coeff;
-	size = the_abe->equ_texts[eqc->reg].coeff * sizeof(s32);
-	memcpy(equ_params.coef.type1, the_abe->equ[eqc->reg] + val * size, size);
+	if (val >= the_abe->equ_texts[eqc->reg].count)
+		return -EINVAL;
+
+	len = the_abe->equ_texts[eqc->reg].coeff;
+	equ_params.equ_length = len;
+	memcpy(equ_params.coef.type1, the_abe->equ[eqc->reg] + val * len,
+		len * sizeof(u32));
 	the_abe->equ_profile[eqc->reg] = val;
 
 	pm_runtime_get_sync(the_abe->dev);
-	abe_write_equalizer(eqc->reg, &equ_params);
+	abe_write_equalizer(eqc->reg + 1, &equ_params);
 	pm_runtime_put_sync(the_abe->dev);
 
 	return 1;
@@ -2255,7 +2259,7 @@ static int abe_probe(struct snd_soc_platform *platform)
 	/* initialise coefficient equalizers */
 	for (i = 1; i < abe->hdr.num_equ; i++) {
 		abe->equ[i] = abe->equ[i - 1] +
-			abe->equ_texts[i - 1].count * abe->equ_texts[i - 1].coeff * sizeof(s32);
+			abe->equ_texts[i - 1].count * abe->equ_texts[i - 1].coeff;
 	}
 
 	/* store ABE firmware for later context restore */
