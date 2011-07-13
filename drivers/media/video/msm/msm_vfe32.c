@@ -2331,6 +2331,7 @@ static void vfe32_process_output_path_irq_0(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
+			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_SNAPSHOT) {
@@ -2432,6 +2433,7 @@ static void vfe32_process_output_path_irq_1(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
+			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_SNAPSHOT ||
@@ -2531,6 +2533,7 @@ static void vfe32_process_output_path_irq_2(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
+			kfree(free_buf);
 		}
 		vfe_send_outmsg(MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
 	} else {
