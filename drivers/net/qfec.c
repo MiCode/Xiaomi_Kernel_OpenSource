@@ -33,7 +33,7 @@
 #include "qfec.h"
 
 #define QFEC_NAME       "qfec"
-#define QFEC_DRV_VER    "June 18a 2011"
+#define QFEC_DRV_VER    "July 14 2011"
 
 #define ETH_BUF_SIZE    0x600
 #define MAX_N_BD        50
@@ -638,8 +638,7 @@ static struct reg_entry  qfec_reg_tbl[] = {
 
 	{ 1, TS_HI_UPDT_REG,         "TS_HI_UPDATE_REG",       0 },
 	{ 1, TS_LO_UPDT_REG,         "TS_LO_UPDATE_REG",       0 },
-	{ 0, TS_SUB_SEC_INCR_REG,    "TS_SUB_SEC_INCR_REG",    86 },
-
+	{ 0, TS_SUB_SEC_INCR_REG,    "TS_SUB_SEC_INCR_REG",    1 },
 	{ 0, TS_CTL_REG,             "TS_CTL_REG",        TS_CTL_TSENALL
 							| TS_CTL_TSCTRLSSR
 							| TS_CTL_TSINIT
@@ -963,14 +962,11 @@ static int qfec_speed_cfg(struct net_device *dev, unsigned int spd,
  */
 
 static struct qfec_pll_cfg qfec_pll_ptp = {
-	/* 25 MHz */
-	0,      ETH_MD_M(1) | ETH_MD_2D_N(10),    ETH_NS_NM(10-1)
+	/* 19.2 MHz  tcxo */
+	0,      0,                                ETH_NS_PRE_DIV(0)
 						| EMAC_PTP_NS_ROOT_EN
 						| EMAC_PTP_NS_CLK_EN
-						| ETH_NS_MCNTR_EN
-						| ETH_NS_MCNTR_MODE_DUAL
-						| ETH_NS_PRE_DIV(0)
-						| CLK_SRC_PLL_EMAC
+						| CLK_SRC_TCXO
 };
 
 #define PLLTEST_PAD_CFG     0x01E0
@@ -1302,27 +1298,173 @@ static int qfec_bd_rx_show(struct device *dev, struct device_attribute *attr,
 }
 
 /*
- * read timestamp from buffer descriptor
- *    the pbuf and next fields of the buffer descriptors are overwritten
- *    with the timestamp high and low register values.   The high register
- *    counts seconds, but the sub-second increment register is programmed
- *    with the appropriate value to increment the timestamp low register
- *    such that it overflows at 0x8000 0000.  The low register value
- *    (next) must be converted to units of nano secs, * 10^9 / 2^31.
+ * process timestamp values
+ *    The pbuf and next fields of the buffer descriptors are overwritten
+ *    with the timestamp high and low register values.
+ *
+ *    The low register is incremented by the value in the subsec_increment
+ *    register and overflows at 0x8000 0000 causing the high register to
+ *    increment.
+ *
+ *    The subsec_increment register is recommended to be set to the number
+ *    of nanosec corresponding to each clock tic, scaled by 2^31 / 10^9
+ *    (e.g. 40 * 2^32 / 10^9 = 85.9, or 86 for 25 MHz).  However, the
+ *    rounding error in this case will result in a 1 sec error / ~14 mins.
+ *
+ *    An alternate approach is used.  The subsec_increment is set to 1,
+ *    and the concatenation of the 2 timestamp registers used to count
+ *    clock tics.  The 63-bit result is manipulated to determine the number
+ *    of sec and ns.
+ */
+
+/*
+ * convert 19.2 MHz clock tics into sec/ns
+ */
+#define TS_LOW_REG_BITS    31
+
+#define MILLION            1000000UL
+#define BILLION            1000000000UL
+
+#define F_CLK              19200000UL
+#define F_CLK_PRE_SC       24
+#define F_CLK_INV_Q        56
+#define F_CLK_INV          (((unsigned long long)1 << F_CLK_INV_Q) / F_CLK)
+#define F_CLK_TO_NS_Q      25
+#define F_CLK_TO_NS \
+	(((((unsigned long long)1<<F_CLK_TO_NS_Q)*BILLION)+(F_CLK-1))/F_CLK)
+#define US_TO_F_CLK_Q      20
+#define US_TO_F_CLK \
+	(((((unsigned long long)1<<US_TO_F_CLK_Q)*F_CLK)+(MILLION-1))/MILLION)
+
+static inline void qfec_get_sec(uint64_t *cnt,
+			uint32_t  *sec, uint32_t  *ns)
+{
+	unsigned long long  t;
+	unsigned long long  subsec;
+
+	t       = *cnt >> F_CLK_PRE_SC;
+	t      *= F_CLK_INV;
+	t     >>= F_CLK_INV_Q - F_CLK_PRE_SC;
+	*sec    = t;
+
+	t       = *cnt - (t * F_CLK);
+	subsec  = t;
+
+	if (subsec >= F_CLK)  {
+		subsec -= F_CLK;
+		*sec   += 1;
+	}
+
+	subsec  *= F_CLK_TO_NS;
+	subsec >>= F_CLK_TO_NS_Q;
+	*ns      = subsec;
+}
+
+/*
+ * read ethernet timestamp registers, pass up raw register values
+ * and values converted to sec/ns
  */
 static void qfec_read_timestamp(struct buf_desc *p_bd,
 	struct skb_shared_hwtstamps *ts)
 {
-	unsigned long  sec = (unsigned long)qfec_bd_next_get(p_bd);
-	long long      ns  = (unsigned long)qfec_bd_pbuf_get(p_bd);
+	unsigned long long  cnt;
+	unsigned int        sec;
+	unsigned int        subsec;
 
-#define BILLION		1000000000
-#define LOW_REG_BITS    31
-	ns  *= BILLION;
-	ns >>= LOW_REG_BITS;
+	cnt    = (unsigned long)qfec_bd_next_get(p_bd);
+	cnt  <<= TS_LOW_REG_BITS;
+	cnt   |= (unsigned long)qfec_bd_pbuf_get(p_bd);
 
-	ts->hwtstamp  = ktime_set(sec, ns);
-	ts->syststamp = ktime_set(sec, ns);
+	/* report raw counts as concatenated 63 bits */
+	sec    = cnt >> 32;
+	subsec = cnt & 0xffffffff;
+
+	ts->hwtstamp  = ktime_set(sec, subsec);
+
+	/* translate counts to sec and ns */
+	qfec_get_sec(&cnt, &sec, &subsec);
+
+	ts->syststamp = ktime_set(sec, subsec);
+}
+
+/*
+ * capture the current system time in the timestamp registers
+ */
+static int qfec_cmd(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct qfec_priv  *priv = netdev_priv(to_net_dev(dev));
+	struct timeval     tv;
+
+	if (!strncmp(buf, "setTs", 5))  {
+		unsigned long long  cnt;
+		uint32_t            ts_hi;
+		uint32_t            ts_lo;
+		unsigned long long  subsec;
+
+		do_gettimeofday(&tv);
+
+		/* convert raw sec/usec to ns */
+		subsec   = tv.tv_usec;
+		subsec  *= US_TO_F_CLK;
+		subsec >>= US_TO_F_CLK_Q;
+
+		cnt     = tv.tv_sec;
+		cnt    *= F_CLK;
+		cnt    += subsec;
+
+		ts_hi   = cnt >> 31;
+		ts_lo   = cnt & 0x7FFFFFFF;
+
+		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+
+		qfec_reg_write(priv, TS_CTL_REG,
+			qfec_reg_read(priv, TS_CTL_REG) | TS_CTL_TSINIT);
+	} else
+		pr_err("%s: unknown cmd, %s.\n", __func__, buf);
+
+	return strnlen(buf, count);
+}
+
+/*
+ * display ethernet tstamp and system time
+ */
+static int qfec_tstamp_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct qfec_priv   *priv = netdev_priv(to_net_dev(dev));
+	int                 count = PAGE_SIZE;
+	int                 l;
+	struct timeval      tv;
+	unsigned long long  cnt;
+	uint32_t            sec;
+	uint32_t            ns;
+	uint32_t            ts_hi;
+	uint32_t            ts_lo;
+
+	/* insure that ts_hi didn't increment during read */
+	do {
+		ts_hi = qfec_reg_read(priv, TS_HIGH_REG);
+		ts_lo = qfec_reg_read(priv, TS_LOW_REG);
+	} while (ts_hi != qfec_reg_read(priv, TS_HIGH_REG));
+
+	cnt    = ts_hi;
+	cnt  <<= TS_LOW_REG_BITS;
+	cnt   |= ts_lo;
+
+	do_gettimeofday(&tv);
+
+	ts_hi  = cnt >> 32;
+	ts_lo  = cnt & 0xffffffff;
+
+	qfec_get_sec(&cnt, &sec, &ns);
+
+	l = snprintf(buf, count,
+		"%12u.%09u sec 0x%08x 0x%08x tstamp  %12u.%06u time-of-day\n",
+		sec, ns, ts_hi, ts_lo, (int)tv.tv_sec, (int)tv.tv_usec);
+
+	return l;
 }
 
 /*
@@ -2278,9 +2420,11 @@ static DEVICE_ATTR(bd_tx,   0444, qfec_bd_tx_show,   NULL);
 static DEVICE_ATTR(bd_rx,   0444, qfec_bd_rx_show,   NULL);
 static DEVICE_ATTR(cfg,     0444, qfec_config_show,  NULL);
 static DEVICE_ATTR(clk_reg, 0444, qfec_clk_reg_show, NULL);
+static DEVICE_ATTR(cmd,     0222, NULL,              qfec_cmd);
 static DEVICE_ATTR(cntrs,   0444, qfec_cntrs_show,   NULL);
-static DEVICE_ATTR(stats,   0444, qfec_stats_show,   NULL);
 static DEVICE_ATTR(reg,     0444, qfec_reg_show,     NULL);
+static DEVICE_ATTR(stats,   0444, qfec_stats_show,   NULL);
+static DEVICE_ATTR(tstamp,  0444, qfec_tstamp_show,  NULL);
 
 static void qfec_sysfs_create(struct net_device *dev)
 {
@@ -2288,9 +2432,11 @@ static void qfec_sysfs_create(struct net_device *dev)
 		device_create_file(&(dev->dev), &dev_attr_bd_rx) ||
 		device_create_file(&(dev->dev), &dev_attr_cfg) ||
 		device_create_file(&(dev->dev), &dev_attr_clk_reg) ||
+		device_create_file(&(dev->dev), &dev_attr_cmd) ||
 		device_create_file(&(dev->dev), &dev_attr_cntrs) ||
 		device_create_file(&(dev->dev), &dev_attr_reg) ||
-		device_create_file(&(dev->dev), &dev_attr_stats))
+		device_create_file(&(dev->dev), &dev_attr_stats) ||
+		device_create_file(&(dev->dev), &dev_attr_tstamp))
 		pr_err("qfec_sysfs_create failed to create sysfs files\n");
 }
 
