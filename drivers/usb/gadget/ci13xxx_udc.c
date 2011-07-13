@@ -2309,6 +2309,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	struct ci13xxx_req *mReq = container_of(req, struct ci13xxx_req, req);
 	int retval = 0;
 	unsigned long flags;
+	struct ci13xxx *udc = _udc;
 
 	trace("%p, %p, %X", ep, req, gfp_flags);
 
@@ -2316,6 +2317,15 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		return -EINVAL;
 
 	spin_lock_irqsave(mEp->lock, flags);
+
+	if (!udc->configured && mEp->type !=
+		USB_ENDPOINT_XFER_CONTROL) {
+		spin_unlock_irqrestore(mEp->lock, flags);
+		trace("usb is not configured"
+			"ept #%d, ept name#%s\n",
+			mEp->num, mEp->ep.name);
+		return -ESHUTDOWN;
+	}
 
 	if (mEp->type == USB_ENDPOINT_XFER_CONTROL) {
 		if (req->length)
