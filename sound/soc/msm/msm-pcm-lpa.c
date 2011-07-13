@@ -91,8 +91,11 @@ static void event_handler(uint32_t opcode,
 			snd_pcm_period_elapsed(substream);
 		atomic_inc(&prtd->out_count);
 		wake_up(&the_locks.write_wait);
-		if (!atomic_read(&prtd->start))
+		if (!atomic_read(&prtd->start)) {
+			prtd->pending_buffer = 1;
 			break;
+		} else
+			prtd->pending_buffer = 0;
 		pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
 				__func__, prtd->pcm_count);
 
@@ -124,6 +127,8 @@ static void event_handler(uint32_t opcode,
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
 		case ASM_SESSION_CMD_RUN: {
+			if (!prtd->pending_buffer)
+				break;
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
 				__func__, prtd->pcm_count);
@@ -275,6 +280,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		pr_debug("snd_pcm_hw_constraint_integer failed\n");
 
 	prtd->dsp_cnt = 0;
+	prtd->pending_buffer = 1;
 	runtime->private_data = prtd;
 
 	return 0;
