@@ -353,7 +353,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 		pg_size = SZ_4K;
 
 		for (i = 0; i < ARRAY_SIZE(iommu_page_sizes); i++) {
-			if ((length > iommu_page_sizes[i]) &&
+			if (IS_ALIGNED(length, iommu_page_sizes[i]) &&
 				IS_ALIGNED(phys, iommu_page_sizes[i])) {
 				pg_size = iommu_page_sizes[i];
 				break;
