@@ -776,7 +776,7 @@ static int sdio_cmux_probe(struct platform_device *pdev)
 		if (r < 0) {
 			mutex_unlock(&modem_reset_lock);
 			pr_err("%s: sdio_open() failed\n", __func__);
-			goto error2;
+			goto error0;
 		}
 		abort_tx = 0;
 		mutex_unlock(&modem_reset_lock);
