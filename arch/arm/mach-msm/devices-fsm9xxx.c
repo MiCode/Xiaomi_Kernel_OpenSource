@@ -369,3 +369,12 @@ struct platform_device fsm_qfp_fuse_device = {
 
 #endif
 
+/*
+ * XO
+ */
+
+struct platform_device fsm_xo_device = {
+	.name   = "fsm_xo_driver",
+	.id     = -1,
+};
+

@@ -130,6 +130,8 @@ extern unsigned msm_num_footswitch_devices;
 
 extern struct platform_device fsm_qfp_fuse_device;
 
+extern struct platform_device fsm_xo_device;
+
 extern struct platform_device qfec_device;
 
 extern struct clk_lookup msm_clocks_7x01a[];
