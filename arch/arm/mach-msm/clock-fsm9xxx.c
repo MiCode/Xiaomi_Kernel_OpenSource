@@ -15,21 +15,7 @@
 
 #include <mach/clk.h>
 
-#include "clock-local.h"
-
-int soc_update_sys_vdd(enum sys_vdd_level level)
-{
-	return -EINVAL;
-}
-
-int soc_set_pwr_rail(struct clk *clk, int enable)
-{
-	return 0;
-}
-
-void __init msm_clk_soc_init(void)
-{
-}
+#include "clock.h"
 
 /*
  * Clocks
