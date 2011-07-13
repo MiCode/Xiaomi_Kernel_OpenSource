@@ -1785,7 +1785,7 @@ static int config_camera_on_gpios_web_cam(void)
 		return rc;
 	}
 
-	if (!machine_is_msm8x60_fluid()) {
+	if (!(machine_is_msm8x60_fluid() || machine_is_msm8x60_dragon())) {
 		rc = gpio_request(GPIO_WEB_CAMIF_STANDBY, "CAM_EN");
 		if (rc < 0) {
 			config_gpio_table(MSM_CAM_OFF);
@@ -1801,7 +1801,7 @@ static int config_camera_on_gpios_web_cam(void)
 static void config_camera_off_gpios_web_cam(void)
 {
 	config_gpio_table(MSM_CAM_OFF);
-	if (!machine_is_msm8x60_fluid()) {
+	if (!(machine_is_msm8x60_fluid() || machine_is_msm8x60_dragon())) {
 		gpio_set_value_cansleep(GPIO_WEB_CAMIF_STANDBY, 1);
 		gpio_free(GPIO_WEB_CAMIF_STANDBY);
 	}
@@ -2376,6 +2376,11 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 };
 
 static struct i2c_board_info msm_camera_dragon_boardinfo[] __initdata = {
+	#ifdef CONFIG_WEBCAM_OV9726
+	{
+		I2C_BOARD_INFO("ov9726", 0x10),
+	},
+	#endif
 	#ifdef CONFIG_VX6953
 	{
 		I2C_BOARD_INFO("vx6953", 0x20),
@@ -9832,6 +9837,12 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	/* Disable END_CALL simulation function of powerkey on fluid */
 	if (machine_is_msm8x60_fluid()) {
 		pwrkey_pdata.pwrkey_time_ms = 0;
+	}
+
+	/* Specify reset pin for OV9726 */
+	if (machine_is_msm8x60_dragon()) {
+		msm_camera_sensor_ov9726_data.sensor_reset = 62;
+		ov9726_sensor_8660_info.mount_angle = 270;
 	}
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
