@@ -148,10 +148,12 @@ static const struct vm_operations_struct videobuf_vm_ops = {
  */
 static void videobuf_pmem_contig_user_put(struct videobuf_contig_pmem *mem)
 {
-	put_pmem_file(mem->file);
-	mem->is_userptr = 0;
-	mem->phyaddr = 0;
-	mem->size = 0;
+	if (mem->phyaddr) {
+		put_pmem_file(mem->file);
+		mem->is_userptr = 0;
+		mem->phyaddr = 0;
+		mem->size = 0;
+	}
 }
 
 /**
