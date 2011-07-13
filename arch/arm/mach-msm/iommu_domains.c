@@ -158,46 +158,26 @@ static struct mem_pool msm_iommu_iova_pools[] = {
 };
 
 static struct msm_iommu_domain msm_iommu_subsystems[] = {
-	[JPEGD_SUBSYS_ID]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[VPE_SUBSYS_ID]		= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[MDP0_SUBSYS_ID]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[MDP1_SUBSYS_ID]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[ROT_SUBSYS_ID]		= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[IJPEG_SUBSYS_ID]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[VFE_SUBSYS_ID]		= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[VCODEC_A_SUBSYS_ID]	= {
+	[MSM_SUBSYSTEM_VIDEO]	= {
 		.domain_idx	= VIDEO_DOMAIN,
 		.iova_pool_idx	= VIDEO_ALLOC_POOL,
 	},
-	[VCODEC_B_SUBSYS_ID]	= {
-		.domain_idx	= VIDEO_DOMAIN,
-		.iova_pool_idx	= VIDEO_ALLOC_POOL,
-	},
-	[VIDEO_FWARE_ID]	= {
+	[MSM_SUBSYSTEM_VIDEO_FWARE]	= {
 		.domain_idx	= VIDEO_DOMAIN,
 		.iova_pool_idx	= VIDEO_FIRMWARE_POOL,
-	}
+	},
+	[MSM_SUBSYSTEM_CAMERA]	= {
+		.domain_idx	= GLOBAL_DOMAIN,
+		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
+	},
+	[MSM_SUBSYSTEM_DISPLAY]	= {
+		.domain_idx	= GLOBAL_DOMAIN,
+		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
+	},
+	[MSM_SUBSYSTEM_ROTATOR]	= {
+		.domain_idx	= GLOBAL_DOMAIN,
+		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
+	},
 };
 
 struct iommu_domain *msm_subsystem_get_domain(int subsys_id)
