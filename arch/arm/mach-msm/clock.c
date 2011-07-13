@@ -185,12 +185,15 @@ static struct clock_init_data __initdata *clk_init_data;
 void __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
-	struct clk_lookup *clock_tbl = data->table;
-	size_t num_clocks = data->size;
+	struct clk_lookup *clock_tbl;
+	size_t num_clocks;
 
 	clk_init_data = data;
 	if (clk_init_data->init)
 		clk_init_data->init();
+
+	clock_tbl = data->table;
+	num_clocks = data->size;
 
 	for (n = 0; n < num_clocks; n++) {
 		struct clk *clk = clock_tbl[n].clk;
