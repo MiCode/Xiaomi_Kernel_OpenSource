@@ -804,9 +804,20 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 					MSM_RPM_STATUS_ID_VERSION_BUILD);
 	pr_info("%s: RPM firmware %u.%u.%u\n", __func__, major, minor, build);
 
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MAJOR, 2);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MINOR, 0);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_BUILD, 0);
+	if (major != RPM_MAJOR_VER) {
+		pr_err("%s: RPM version %u.%u.%u incompatible with "
+				"this driver version %u.%u.%u\n", __func__,
+				major, minor, build,
+				RPM_MAJOR_VER, RPM_MINOR_VER, RPM_BUILD_VER);
+		return -EFAULT;
+	}
+
+	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MAJOR,
+			RPM_MAJOR_VER);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MINOR,
+			RPM_MINOR_VER);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_BUILD,
+			RPM_BUILD_VER);
 
 	irq = msm_rpm_platform->irq_ack;
 

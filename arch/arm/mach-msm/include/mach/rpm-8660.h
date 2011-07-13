@@ -13,6 +13,11 @@
 #ifndef __ARCH_ARM_MACH_MSM_RPM_8660_H
 #define __ARCH_ARM_MACH_MSM_RPM_8660_H
 
+#define RPM_MAJOR_VER	2
+#define RPM_MINOR_VER	0
+#define RPM_BUILD_VER	0
+
+
 /* RPM control message RAM enums */
 enum {
 	MSM_RPM_CTRL_VERSION_MAJOR,
