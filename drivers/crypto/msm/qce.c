@@ -2338,8 +2338,8 @@ int qce_close(void *handle)
 	kfree(pce_dev->chan_ce_in_cmd);
 	kfree(pce_dev->chan_ce_out_cmd);
 
-	kfree(handle);
 	clk_put(pce_dev->ce_clk);
+	kfree(handle);
 	return 0;
 }
 EXPORT_SYMBOL(qce_close);
@@ -2605,5 +2605,5 @@ EXPORT_SYMBOL(qce_f9_req);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.12");
+MODULE_VERSION("1.13");
 
