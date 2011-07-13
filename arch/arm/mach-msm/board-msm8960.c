@@ -867,12 +867,37 @@ struct platform_device msm8960_camera_sensor_ov2720 = {
 	},
 };
 #endif
+
+static struct msm_camera_sensor_flash_data flash_qs_mt9p017 = {
+	.flash_type	= MSM_CAMERA_FLASH_LED,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_qs_mt9p017_data = {
+	.sensor_name	= "qs_mt9p017",
+	.sensor_reset	= 107,
+	.sensor_pwd	= 85,
+	.vcm_pwd	= 0,
+	.vcm_enable	= 1,
+	.pdata	= &msm_camera_csi0_device_data,
+	.flash_data	= &flash_qs_mt9p017,
+	.sensor_platform_info = &sensor_board_info,
+	.csi_if	= 1
+};
+
+struct platform_device msm8960_camera_sensor_qs_mt9p017 = {
+	.name	= "msm_camera_qs_mt9p017",
+	.dev	= {
+		.platform_data = &msm_camera_sensor_qs_mt9p017_data,
+	},
+};
+
 static void __init msm8960_init_cam(void)
 {
 	int i;
 	struct platform_device *cam_dev[] = {
 		&msm8960_camera_sensor_imx074,
 		&msm8960_camera_sensor_ov2720,
+		&msm8960_camera_sensor_qs_mt9p017,
 	};
 
 	for (i = 0; i < ARRAY_SIZE(cam_dev); i++) {
@@ -3118,6 +3143,9 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	},
 #endif
+	{
+	I2C_BOARD_INFO("qs_mt9p017", 0x6C >> 1),
+	},
 };
 #endif
 
