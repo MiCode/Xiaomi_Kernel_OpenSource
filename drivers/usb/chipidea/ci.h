@@ -158,6 +158,7 @@ struct ci13xxx {
 	u8				address;
 	u8				remote_wakeup;
 	u8				suspended;
+	u8				configured; /* is device configured */
 	u8				test_mode;
 
 	struct ci13xxx_platform_data	*platdata;

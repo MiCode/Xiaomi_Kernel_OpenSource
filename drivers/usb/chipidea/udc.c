@@ -611,6 +611,7 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	ci->gadget.speed = USB_SPEED_UNKNOWN;
 	ci->remote_wakeup = 0;
 	ci->suspended = 0;
+	ci->configured = 0;
 	spin_unlock_irqrestore(&ci->lock, flags);
 
 	gadget->b_hnp_enable = 0;
@@ -1014,6 +1015,10 @@ __acquires(ci->lock)
 			ci->setaddr = true;
 			err = isr_setup_status_phase(ci);
 			break;
+		case USB_REQ_SET_CONFIGURATION:
+			if (type == (USB_DIR_OUT|USB_TYPE_STANDARD))
+				ci->configured = !!req.wValue;
+			goto delegate;
 		case USB_REQ_SET_FEATURE:
 			if (type == (USB_DIR_OUT|USB_RECIP_ENDPOINT) &&
 					le16_to_cpu(req.wValue) ==
@@ -1258,6 +1263,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		    gfp_t __maybe_unused gfp_flags)
 {
 	struct ci13xxx_ep  *mEp  = container_of(ep,  struct ci13xxx_ep, ep);
+	struct ci13xxx *ci = mEp->ci;
 	int retval = 0;
 	unsigned long flags;
 
@@ -1265,6 +1271,11 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		return -EINVAL;
 
 	spin_lock_irqsave(mEp->lock, flags);
+	if (!ci->configured && mEp->type !=
+		USB_ENDPOINT_XFER_CONTROL) {
+		spin_unlock_irqrestore(mEp->lock, flags);
+		return -ESHUTDOWN;
+	}
 	retval = _ep_queue(ep, req, gfp_flags);
 	spin_unlock_irqrestore(mEp->lock, flags);
 	return retval;
