@@ -120,6 +120,7 @@ struct q6_data {
 	const unsigned strap_tcm_base;
 	const unsigned strap_ahb_upper;
 	const unsigned strap_ahb_lower;
+	const unsigned reg_base_phys;
 	void __iomem *reg_base;
 	void __iomem *aclk_reg;
 	void __iomem *jtag_clk_reg;
@@ -133,6 +134,7 @@ static struct q6_data q6_lpass = {
 	.strap_tcm_base  = (0x146 << 16),
 	.strap_ahb_upper = (0x029 << 16),
 	.strap_ahb_lower = (0x028 << 4),
+	.reg_base_phys = MSM_LPASS_QDSP6SS_PHYS,
 	.aclk_reg = SFAB_LPASS_Q6_ACLK_CTL,
 	.name = "q6_lpass",
 };
@@ -141,6 +143,7 @@ static struct q6_data q6_modem_fw = {
 	.strap_tcm_base  = (0x40 << 16),
 	.strap_ahb_upper = (0x09 << 16),
 	.strap_ahb_lower = (0x08 << 4),
+	.reg_base_phys = MSM_FW_QDSP6SS_PHYS,
 	.aclk_reg = SFAB_MSS_Q6_FW_ACLK_CTL,
 	.jtag_clk_reg = MSS_Q6FW_JTAG_CLK_CTL,
 	.name = "q6_modem_fw",
@@ -150,6 +153,7 @@ static struct q6_data q6_modem_sw = {
 	.strap_tcm_base  = (0x42 << 16),
 	.strap_ahb_upper = (0x09 << 16),
 	.strap_ahb_lower = (0x08 << 4),
+	.reg_base_phys = MSM_SW_QDSP6SS_PHYS,
 	.aclk_reg = SFAB_MSS_Q6_SW_ACLK_CTL,
 	.jtag_clk_reg = MSS_Q6SW_JTAG_CLK_CTL,
 	.name = "q6_modem_sw",
@@ -523,54 +527,79 @@ struct pil_reset_ops pil_dsps_ops = {
 	.shutdown = shutdown_dsps_untrusted,
 };
 
-static struct pil_device peripherals[] = {
-	{
-		.name = "q6",
-		.pdev = {
-			.name = "pil_lpass_q6",
-			.id = -1,
-		},
-		.ops = &pil_lpass_q6_ops,
+static struct pil_device pil_lpass_q6 = {
+	.name = "q6",
+	.pdev = {
+		.name = "pil_lpass_q6",
+		.id = -1,
 	},
-	{
-		.name = "modem_fw",
-		.depends_on = "q6",
-		.pdev = {
-			.name = "pil_modem_fw_q6",
-			.id = -1,
-		},
-		.ops = &pil_modem_fw_q6_ops,
-	},
-	{
-		.name = "modem",
-		.depends_on = "modem_fw",
-		.pdev = {
-			.name = "pil_modem_sw_q6",
-			.id = -1,
-		},
-		.ops = &pil_modem_sw_q6_ops,
-	},
-	{
-		.name = "wcnss",
-		.pdev = {
-			.name = "pil_riva",
-			.id = -1,
-		},
-		.ops = &pil_riva_ops,
-	},
-	{
-		.name = "dsps",
-		.pdev = {
-			.name = "pil_dsps",
-			.id = -1,
-		},
-		.ops = &pil_dsps_ops,
-	},
+	.ops = &pil_lpass_q6_ops,
 };
+
+static struct pil_device pil_modem_fw_q6 = {
+	.name = "modem_fw",
+	.depends_on = "q6",
+	.pdev = {
+		.name = "pil_modem_fw_q6",
+		.id = -1,
+	},
+	.ops = &pil_modem_fw_q6_ops,
+};
+
+static struct pil_device pil_modem_sw_q6 = {
+	.name = "modem",
+	.depends_on = "modem_fw",
+	.pdev = {
+		.name = "pil_modem_sw_q6",
+		.id = -1,
+	},
+	.ops = &pil_modem_sw_q6_ops,
+};
+
+static struct pil_device pil_riva = {
+	.name = "wcnss",
+	.pdev = {
+		.name = "pil_riva",
+		.id = -1,
+	},
+	.ops = &pil_riva_ops,
+};
+
+static struct pil_device pil_dsps = {
+	.name = "dsps",
+	.pdev = {
+		.name = "pil_dsps",
+		.id = -1,
+	},
+	.ops = &pil_dsps_ops,
+};
+
+static int __init q6_reset_init(struct q6_data *q6)
+{
+	int err;
+
+	q6->reg_base = ioremap(q6->reg_base_phys, SZ_256);
+	if (!q6->reg_base) {
+		err = -ENOMEM;
+		goto err_map;
+	}
+
+	q6->vreg = regulator_get(NULL, q6->name);
+	if (IS_ERR(q6->vreg)) {
+		err = PTR_ERR(q6->vreg);
+		goto err_vreg;
+	}
+
+	return 0;
+
+err_vreg:
+	iounmap(q6->reg_base);
+err_map:
+	return err;
+}
 
 static int __init msm_peripheral_reset_init(void)
 {
-	unsigned i;
 	int err;
 
 	/*
@@ -580,74 +609,34 @@ static int __init msm_peripheral_reset_init(void)
 	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3())
 		return 0;
 
-	mss_enable_reg = ioremap(MSM_MSS_ENABLE_PHYS, 1);
-	if (!mss_enable_reg) {
-		err = -ENOMEM;
-		goto err_map_mss;
-	}
+	err = q6_reset_init(&q6_lpass);
+	if (err)
+		return err;
+	msm_pil_add_device(&pil_lpass_q6);
 
-	q6_lpass.reg_base = ioremap(MSM_LPASS_QDSP6SS_PHYS, SZ_256);
-	if (!q6_lpass.reg_base) {
-		err = -ENOMEM;
-		goto err_map_lpass_q6;
-	}
+	mss_enable_reg = ioremap(MSM_MSS_ENABLE_PHYS, 4);
+	if (!mss_enable_reg)
+		return -ENOMEM;
 
-	q6_modem_fw.reg_base = ioremap(MSM_FW_QDSP6SS_PHYS, SZ_256);
-	if (!q6_modem_fw.reg_base) {
-		err = -ENOMEM;
-		goto err_map_modem_fw_q6;
+	err = q6_reset_init(&q6_modem_fw);
+	if (err) {
+		iounmap(mss_enable_reg);
+		return err;
 	}
+	msm_pil_add_device(&pil_modem_fw_q6);
 
-	q6_modem_sw.reg_base = ioremap(MSM_SW_QDSP6SS_PHYS, SZ_256);
-	if (!q6_modem_sw.reg_base) {
-		err = -ENOMEM;
-		goto err_map_modem_sw_q6;
-	}
+	err = q6_reset_init(&q6_modem_sw);
+	if (err)
+		return err;
+	msm_pil_add_device(&pil_modem_sw_q6);
+
+	msm_pil_add_device(&pil_dsps);
 
 	msm_riva_base = ioremap(MSM_RIVA_PHYS, SZ_256);
-	if (!msm_riva_base) {
-		err = -ENOMEM;
-		goto err_map_riva;
-	}
-
-	q6_lpass.vreg = regulator_get(NULL, "lpass_q6");
-	if (IS_ERR(q6_lpass.vreg)) {
-		err = PTR_ERR(q6_lpass.vreg);
-		goto err_vreg_lpass;
-	}
-
-	q6_modem_fw.vreg = regulator_get(NULL, "modem_fw_q6");
-	if (IS_ERR(q6_modem_fw.vreg)) {
-		err = PTR_ERR(q6_modem_fw.vreg);
-		goto err_vreg_modem_fw_q6;
-	}
-
-	q6_modem_sw.vreg = regulator_get(NULL, "modem_sw_q6");
-	if (IS_ERR(q6_modem_sw.vreg)) {
-		err = PTR_ERR(q6_modem_sw.vreg);
-		goto err_vreg_modem_sw_q6;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(peripherals); i++)
-		msm_pil_add_device(&peripherals[i]);
+	if (!msm_riva_base)
+		return -ENOMEM;
+	msm_pil_add_device(&pil_riva);
 
 	return 0;
-
-err_vreg_modem_sw_q6:
-	regulator_put(q6_modem_fw.vreg);
-err_vreg_modem_fw_q6:
-	regulator_put(q6_lpass.vreg);
-err_vreg_lpass:
-	iounmap(msm_riva_base);
-err_map_riva:
-	iounmap(q6_modem_sw.reg_base);
-err_map_modem_sw_q6:
-	iounmap(q6_modem_fw.reg_base);
-err_map_modem_fw_q6:
-	iounmap(q6_lpass.reg_base);
-err_map_lpass_q6:
-	iounmap(mss_enable_reg);
-err_map_mss:
-	return err;
 }
 arch_initcall(msm_peripheral_reset_init);
