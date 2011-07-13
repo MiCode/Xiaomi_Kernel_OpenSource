@@ -1651,16 +1651,18 @@ static int config_camera_on_gpios(void)
 		return rc;
 	}
 
-	rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
-	if (rc < 0) {
-		config_gpio_table(MSM_CAM_OFF);
-		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
-			"failed\n", __func__, GPIO_EXT_CAMIF_PWR_EN);
-		return rc;
+	if (!machine_is_msm8x60_dragon()) {
+		rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
+		if (rc < 0) {
+			config_gpio_table(MSM_CAM_OFF);
+			pr_err("%s: CAMSENSOR gpio %d request"
+				"failed\n", __func__, GPIO_EXT_CAMIF_PWR_EN);
+			return rc;
+		}
+		gpio_direction_output(GPIO_EXT_CAMIF_PWR_EN, 0);
+		msleep(20);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 1);
 	}
-	gpio_direction_output(GPIO_EXT_CAMIF_PWR_EN, 0);
-	mdelay(20);
-	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 1);
 
 #ifdef CONFIG_MSM_CAMERA_FLASH
 #ifdef CONFIG_IMX074
@@ -1679,8 +1681,10 @@ static void config_camera_off_gpios(void)
 
 	config_gpio_table(MSM_CAM_OFF);
 
-	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
-	gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+	if (!machine_is_msm8x60_dragon()) {
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+	}
 }
 
 #ifdef CONFIG_QS_S5K4E1
@@ -2284,6 +2288,36 @@ static struct platform_device msm_camera_sensor_webcam_ov7692 = {
 	},
 };
 #endif
+#ifdef CONFIG_VX6953
+static struct msm_camera_sensor_platform_info vx6953_sensor_8660_info = {
+	.mount_angle = 270
+};
+
+static struct msm_camera_sensor_flash_data flash_vx6953 = {
+	.flash_type		= MSM_CAMERA_FLASH_NONE,
+	.flash_src		= &msm_flash_src
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_vx6953_data = {
+	.sensor_name	= "vx6953",
+	.sensor_reset	= 63,
+	.sensor_pwd		= 63,
+	.vcm_pwd		= GPIO_AUX_CAM_2P7_EN,
+	.vcm_enable		= 1,
+	.pdata			= &msm_camera_device_data,
+	.resource		= msm_camera_resources,
+	.num_resources	= ARRAY_SIZE(msm_camera_resources),
+	.flash_data		= &flash_vx6953,
+	.sensor_platform_info = &vx6953_sensor_8660_info,
+	.csi_if			= 1
+};
+struct platform_device msm_camera_sensor_vx6953 = {
+	.name	= "msm_camera_vx6953",
+	.dev	= {
+		.platform_data = &msm_camera_sensor_vx6953_data,
+	},
+};
+#endif
 #ifdef CONFIG_QS_S5K4E1
 
 static char eeprom_data[864];
@@ -2337,6 +2371,14 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 	#ifdef CONFIG_QS_S5K4E1
 	{
 		I2C_BOARD_INFO("qs_s5k4e1", 0x20),
+	},
+	#endif
+};
+
+static struct i2c_board_info msm_camera_dragon_boardinfo[] __initdata = {
+	#ifdef CONFIG_VX6953
+	{
+		I2C_BOARD_INFO("vx6953", 0x20),
 	},
 	#endif
 };
@@ -3931,6 +3973,9 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 #ifdef CONFIG_IMX074
 	&msm_camera_sensor_imx074,
 #endif
+#ifdef CONFIG_VX6953
+	&msm_camera_sensor_vx6953,
+#endif
 #ifdef CONFIG_WEBCAM_OV7692
 	&msm_camera_sensor_webcam_ov7692,
 #endif
@@ -4797,6 +4842,9 @@ static struct platform_device *surf_devices[] __initdata = {
 #endif
 #ifdef CONFIG_QS_S5K4E1
 	&msm_camera_sensor_qs_s5k4e1,
+#endif
+#ifdef CONFIG_VX6953
+	&msm_camera_sensor_vx6953,
 #endif
 #endif
 #ifdef CONFIG_MSM_GEMINI
@@ -6956,11 +7004,17 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 	},
 #endif
 #ifdef CONFIG_MSM_CAMERA
-    {
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID ,
 		MSM_GSBI4_QUP_I2C_BUS_ID,
 		msm_camera_boardinfo,
 		ARRAY_SIZE(msm_camera_boardinfo),
+	},
+	{
+		I2C_DRAGON,
+		MSM_GSBI4_QUP_I2C_BUS_ID,
+		msm_camera_dragon_boardinfo,
+		ARRAY_SIZE(msm_camera_dragon_boardinfo),
 	},
 #endif
 	{

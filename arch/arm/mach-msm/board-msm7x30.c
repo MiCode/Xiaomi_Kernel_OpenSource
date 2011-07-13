@@ -1182,6 +1182,10 @@ static struct platform_device msm_camera_sensor_mt9e013 = {
 #endif
 
 #ifdef CONFIG_VX6953
+static struct msm_camera_sensor_platform_info vx6953_sensor_7630_info = {
+	.mount_angle = 0
+};
+
 static struct msm_camera_sensor_flash_data flash_vx6953 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
 	.flash_src  = &msm_flash_src_pwm
@@ -1195,6 +1199,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_vx6953_data = {
 	.pdata          = &msm_camera_device_data,
 	.resource       = msm_camera_resources,
 	.num_resources  = ARRAY_SIZE(msm_camera_resources),
+	.sensor_platform_info = &vx6953_sensor_7630_info,
 	.flash_data     = &flash_vx6953,
 	.csi_if         = 1
 };

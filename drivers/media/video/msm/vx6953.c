@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3080,7 +3080,7 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			vx6953_csi_params.settle_cnt = 7;
 			rc = msm_camio_csi_config(&vx6953_csi_params);
 			if (rc < 0)
-				CDBG(" config csi controller failed \n");
+				return rc;
 
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
 
@@ -3630,7 +3630,7 @@ static int vx6953_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = vx6953_sensor_open_init;
 	s->s_release = vx6953_sensor_release;
 	s->s_config  = vx6953_sensor_config;
-	s->s_mount_angle  = 0;
+	s->s_mount_angle  = info->sensor_platform_info->mount_angle;
 	vx6953_probe_init_done(info);
 	return rc;
 
