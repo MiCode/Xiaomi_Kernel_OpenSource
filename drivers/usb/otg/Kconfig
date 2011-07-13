@@ -158,6 +158,16 @@ config USB_MSM_ACA
 	  Charging Specification(1.1). It enables OTG devices to charge
 	  while operating as a host or peripheral at the same time.
 
+config USB_MSM_STANDARD_ACA
+	bool "Support for Standard ACA"
+	depends on USB_MSM_ACA
+	default y
+	help
+	  A Standard ACA has a Standard-A receptacle on the Accessory Port,
+	  and can only be attached to a B-device.  RID_A and RID_GND states
+	  are only possible with Standard ACA.  Select this feature if the
+	  board is intended to support only Standard ACA.
+
 config AB8500_USB
         tristate "AB8500 USB Transceiver Driver"
         depends on AB8500_CORE
