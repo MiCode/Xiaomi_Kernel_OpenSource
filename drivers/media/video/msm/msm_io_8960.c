@@ -466,11 +466,12 @@ static int msm_camera_vreg_enable(struct platform_device *pdev)
 	if (fs_vfe == NULL) {
 		fs_vfe = regulator_get(&pdev->dev, "fs_vfe");
 		if (IS_ERR(fs_vfe)) {
-			CDBG("%s: Regulator FS_VFE get failed %ld\n", __func__,
-				PTR_ERR(fs_vfe));
+			pr_err("%s: Regulator FS_VFE get failed %ld\n",
+				__func__, PTR_ERR(fs_vfe));
 			fs_vfe = NULL;
 		} else if (regulator_enable(fs_vfe)) {
-			CDBG("%s: Regulator FS_VFE enable failed\n", __func__);
+			pr_err("%s: Regulator FS_VFE enable failed\n",
+							__func__);
 			regulator_put(fs_vfe);
 		}
 	}
@@ -984,7 +985,8 @@ int msm_camio_jpeg_clk_disable(void)
 	if (fs_ijpeg) {
 		rc = regulator_disable(fs_ijpeg);
 		if (rc < 0) {
-			CDBG("%s: Regulator disable failed %d\n", __func__, rc);
+			pr_err("%s: Regulator disable failed %d\n",
+						__func__, rc);
 			return rc;
 		}
 		regulator_put(fs_ijpeg);
@@ -1008,11 +1010,11 @@ int msm_camio_jpeg_clk_enable(void)
 		return rc;
 	fs_ijpeg = regulator_get(NULL, "fs_ijpeg");
 	if (IS_ERR(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG get failed %ld\n", __func__,
-			PTR_ERR(fs_ijpeg));
+		pr_err("%s: Regulator FS_IJPEG get failed %ld\n",
+			__func__, PTR_ERR(fs_ijpeg));
 		fs_ijpeg = NULL;
 	} else if (regulator_enable(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG enable failed\n", __func__);
+		pr_err("%s: Regulator FS_IJPEG enable failed\n", __func__);
 		regulator_put(fs_ijpeg);
 	}
 	CDBG("%s: exit %d\n", __func__, rc);
@@ -1040,11 +1042,11 @@ int msm_camio_vpe_clk_enable(uint32_t clk_rate)
 	(void)clk_rate;
 	fs_vpe = regulator_get(NULL, "fs_vpe");
 	if (IS_ERR(fs_vpe)) {
-		CDBG("%s: Regulator FS_VPE get failed %ld\n", __func__,
+		pr_err("%s: Regulator FS_VPE get failed %ld\n", __func__,
 			PTR_ERR(fs_vpe));
 		fs_vpe = NULL;
 	} else if (regulator_enable(fs_vpe)) {
-		CDBG("%s: Regulator FS_VPE enable failed\n", __func__);
+		pr_err("%s: Regulator FS_VPE enable failed\n", __func__);
 		regulator_put(fs_vpe);
 	}
 

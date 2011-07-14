@@ -1079,6 +1079,9 @@ struct platform_device msm_pcm_hostless = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
+	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
+	FS_8X60(FS_VFE,    "fs_vfe"),
+	FS_8X60(FS_VPE,    "fs_vpe"),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
