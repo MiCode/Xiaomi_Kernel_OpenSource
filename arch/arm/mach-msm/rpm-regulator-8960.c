@@ -93,25 +93,25 @@ struct rpm_vreg_parts ldo_parts = {
 	.request_len	= 2,
 	.uV		= REQUEST_MEMBER(0, 0x007FFFFF,  0),
 	.pd		= REQUEST_MEMBER(0, 0x00800000, 23),
-	.fm		= REQUEST_MEMBER(0, 0x0F000000, 24),
-	.pc		= REQUEST_MEMBER(0, 0xF0000000, 28),
+	.pc		= REQUEST_MEMBER(0, 0x0F000000, 24),
+	.pf		= REQUEST_MEMBER(0, 0xF0000000, 28),
 	.ip		= REQUEST_MEMBER(1, 0x000003FF,  0),
-	.pf		= REQUEST_MEMBER(1, 0x00003C00, 10),
-	.ia		= REQUEST_MEMBER(1, 0x00FFC000, 14),
+	.ia		= REQUEST_MEMBER(1, 0x000FFC00, 10),
+	.fm		= REQUEST_MEMBER(1, 0x00700000, 20),
 };
 
 struct rpm_vreg_parts smps_parts = {
 	.request_len	= 2,
 	.uV		= REQUEST_MEMBER(0, 0x007FFFFF,  0),
 	.pd		= REQUEST_MEMBER(0, 0x00800000, 23),
-	.fm		= REQUEST_MEMBER(0, 0x0F000000, 24),
-	.pc		= REQUEST_MEMBER(0, 0xF0000000, 28),
+	.pc		= REQUEST_MEMBER(0, 0x0F000000, 24),
+	.pf		= REQUEST_MEMBER(0, 0xF0000000, 28),
 	.ip		= REQUEST_MEMBER(1, 0x000003FF,  0),
-	.pf		= REQUEST_MEMBER(1, 0x00003C00, 10),
-	.ia		= REQUEST_MEMBER(1, 0x00FFC000, 14),
+	.ia		= REQUEST_MEMBER(1, 0x000FFC00, 10),
+	.fm		= REQUEST_MEMBER(1, 0x00700000, 20),
+	.pm		= REQUEST_MEMBER(1, 0x00800000, 23),
 	.freq		= REQUEST_MEMBER(1, 0x1F000000, 24),
 	.freq_clk_src	= REQUEST_MEMBER(1, 0x60000000, 29),
-	.pm		= REQUEST_MEMBER(1, 0x80000000, 31),
 };
 
 struct rpm_vreg_parts switch_parts = {
