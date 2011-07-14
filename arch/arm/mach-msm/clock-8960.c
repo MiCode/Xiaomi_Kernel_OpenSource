@@ -523,38 +523,6 @@ static struct branch_clk jpegd_axi_clk = {
 	},
 };
 
-static struct branch_clk vcodec_axi_clk = {
-	.b = {
-		.ctl_reg = MAXI_EN_REG,
-		.en_mask = BIT(19),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(7),
-		.halt_reg = DBG_BUS_VEC_E_REG,
-		.halt_bit = 3,
-	},
-	.c = {
-		.dbg_name = "vcodec_axi_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(vcodec_axi_clk.c),
-	},
-};
-
-static struct branch_clk vcodec_axi_a_clk = {
-	.b = {
-		.ctl_reg = MAXI_EN4_REG,
-		.en_mask = BIT(25),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(5),
-		.halt_reg = DBG_BUS_VEC_I_REG,
-		.halt_bit = 26,
-	},
-	.c = {
-		.dbg_name = "vcodec_axi_a_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(vcodec_axi_a_clk.c),
-	},
-};
-
 static struct branch_clk vcodec_axi_b_clk = {
 	.b = {
 		.ctl_reg = MAXI_EN4_REG,
@@ -568,6 +536,40 @@ static struct branch_clk vcodec_axi_b_clk = {
 		.dbg_name = "vcodec_axi_b_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_b_clk.c),
+	},
+};
+
+static struct branch_clk vcodec_axi_a_clk = {
+	.b = {
+		.ctl_reg = MAXI_EN4_REG,
+		.en_mask = BIT(25),
+		.reset_reg = SW_RESET_AXI_REG,
+		.reset_mask = BIT(5),
+		.halt_reg = DBG_BUS_VEC_I_REG,
+		.halt_bit = 26,
+	},
+	.depends = &vcodec_axi_b_clk.c,
+	.c = {
+		.dbg_name = "vcodec_axi_a_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(vcodec_axi_a_clk.c),
+	},
+};
+
+static struct branch_clk vcodec_axi_clk = {
+	.b = {
+		.ctl_reg = MAXI_EN_REG,
+		.en_mask = BIT(19),
+		.reset_reg = SW_RESET_AXI_REG,
+		.reset_mask = BIT(7),
+		.halt_reg = DBG_BUS_VEC_E_REG,
+		.halt_bit = 3,
+	},
+	.depends = &vcodec_axi_a_clk.c,
+	.c = {
+		.dbg_name = "vcodec_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(vcodec_axi_clk.c),
 	},
 };
 
