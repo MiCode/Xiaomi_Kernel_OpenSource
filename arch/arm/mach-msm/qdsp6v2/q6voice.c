@@ -910,6 +910,8 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	struct acdb_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
+	uint32_t num_volume_steps;
+	int offset = 0;
 	int index = 0;
 	int ret = 0;
 	void *apr_cvp = voice_get_apr_cvp(v);
@@ -948,14 +950,25 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	for (; index < cal_data.num_cal_blocks; index++) {
 		cal_size_per_network = cal_blk[index].cal_size;
 		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+
+		/* Number of volume steps are only included in the */
+		/* first block, need to be inserted into the rest */
+		if (index != 0) {
+			offset = sizeof(num_volume_steps);
+			memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
+				&num_volume_steps, offset);
+		} else {
+			num_volume_steps = *cal_data_per_network;
+		}
+
 		pr_debug("Cal size =%d, index=%d\n", cal_size_per_network,
 			index);
 		pr_debug("Cal data=%x\n", (uint32_t)cal_data_per_network);
 		cvp_vol_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-			cal_size_per_network);
+			cal_size_per_network + offset);
 		memcpy(cmd_buf, &cvp_vol_cal_cmd_hdr,  APR_HDR_SIZE);
-		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
-			cal_data_per_network, cal_size_per_network);
+		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)) +
+			offset, cal_data_per_network, cal_size_per_network);
 		pr_debug("Send vol table\n");
 
 		v->cvp_state = CMD_STATUS_FAIL;
