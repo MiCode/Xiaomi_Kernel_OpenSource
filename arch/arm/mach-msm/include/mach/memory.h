@@ -67,6 +67,8 @@ int platform_physical_remove_pages(unsigned long, unsigned long);
 int platform_physical_active_pages(unsigned long, unsigned long);
 int platform_physical_low_power_pages(unsigned long, unsigned long);
 
+extern int (*change_memory_power)(unsigned long, unsigned long, int);
+
 #if defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
 void write_to_strongly_ordered_memory(void);
 void map_page_strongly_ordered(void);

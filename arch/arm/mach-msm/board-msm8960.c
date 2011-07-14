@@ -740,6 +740,12 @@ static void __init msm8960_reserve(void)
 	msm_reserve();
 }
 
+static int msm8960_change_memory_power(unsigned long start_pfn,
+	unsigned long nr_pages, int change_type)
+{
+	return 1;
+}
+
 #ifdef CONFIG_MSM_CAMERA
 
 static int msm_cam_gpio_tbl[] = {
@@ -3377,6 +3383,7 @@ static void __init msm8960_cdp_init(void)
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
+	change_memory_power = &msm8960_change_memory_power;
 }
 
 MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")

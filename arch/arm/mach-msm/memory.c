@@ -194,24 +194,31 @@ void *alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
 	return (void *)addr;
 }
 
+int (*change_memory_power)(unsigned long, unsigned long, int);
+
 int platform_physical_remove_pages(unsigned long start_pfn,
 	unsigned long nr_pages)
 {
-	return 1;
+	if (!change_memory_power)
+		return 0;
+	return change_memory_power(start_pfn, nr_pages, MEMORY_DEEP_POWERDOWN);
 }
 
 int platform_physical_active_pages(unsigned long start_pfn,
 	unsigned long nr_pages)
 {
-	return 1;
+	if (!change_memory_power)
+		return 0;
+	return change_memory_power(start_pfn, nr_pages, MEMORY_ACTIVE);
 }
 
 int platform_physical_low_power_pages(unsigned long start_pfn,
 	unsigned long nr_pages)
 {
-	return 1;
+	if (!change_memory_power)
+		return 0;
+	return change_memory_power(start_pfn, nr_pages, MEMORY_SELF_REFRESH);
 }
-
 
 char *memtype_name[] = {
 	"SMI_KERNEL",
