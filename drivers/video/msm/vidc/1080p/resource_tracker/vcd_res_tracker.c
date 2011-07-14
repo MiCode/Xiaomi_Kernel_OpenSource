@@ -60,20 +60,6 @@ static u32 res_trk_get_clk()
 						__func__);
 		goto release_vcodec_clk;
 	}
-	resource_context.vcodec_axi_a_clk = clk_get(resource_context.device,
-			"vcodec_axi_a_clk");
-	if (IS_ERR(resource_context.vcodec_axi_a_clk)) {
-		VCDRES_MSG_ERROR("%s(): vcodec_axi_a_clk get failed\n",
-						__func__);
-		resource_context.vcodec_axi_a_clk = NULL;
-	}
-	resource_context.vcodec_axi_b_clk = clk_get(resource_context.device,
-			"vcodec_axi_b_clk");
-	if (IS_ERR(resource_context.vcodec_axi_b_clk)) {
-		VCDRES_MSG_ERROR("%s(): vcodec_axi_b_clk get failed\n",
-						__func__);
-		resource_context.vcodec_axi_b_clk = NULL;
-	}
 	if (clk_set_rate(resource_context.vcodec_clk,
 		vidc_clk_table[0])) {
 		VCDRES_MSG_ERROR("%s(): set rate failed in power up\n",
@@ -82,14 +68,8 @@ static u32 res_trk_get_clk()
 	}
 	return true;
 release_vcodec_pclk:
-	if (resource_context.vcodec_axi_a_clk)
-		clk_put(resource_context.vcodec_axi_a_clk);
-	if (resource_context.vcodec_axi_b_clk)
-		clk_put(resource_context.vcodec_axi_b_clk);
 	clk_put(resource_context.vcodec_pclk);
 	resource_context.vcodec_pclk = NULL;
-	resource_context.vcodec_axi_a_clk = NULL;
-	resource_context.vcodec_axi_b_clk = NULL;
 release_vcodec_clk:
 	clk_put(resource_context.vcodec_clk);
 	resource_context.vcodec_clk = NULL;
@@ -103,12 +83,6 @@ static void res_trk_put_clk()
 		clk_put(resource_context.vcodec_clk);
 	if (resource_context.vcodec_pclk)
 		clk_put(resource_context.vcodec_pclk);
-	if (resource_context.vcodec_axi_a_clk)
-		clk_put(resource_context.vcodec_axi_a_clk);
-	if (resource_context.vcodec_axi_b_clk)
-		clk_put(resource_context.vcodec_axi_b_clk);
-	resource_context.vcodec_axi_b_clk = NULL;
-	resource_context.vcodec_axi_a_clk = NULL;
 	resource_context.vcodec_clk = NULL;
 	resource_context.vcodec_pclk = NULL;
 }
@@ -152,15 +126,6 @@ u32 res_trk_enable_clocks(void)
 			if (clk_enable(resource_context.vcodec_clk)) {
 				VCDRES_MSG_ERROR("vidc core clk Enable fail\n");
 				goto vidc_disable_pclk;
-			}
-			if (resource_context.vcodec_axi_a_clk &&
-				resource_context.vcodec_axi_b_clk) {
-				if (clk_enable(resource_context.
-					vcodec_axi_a_clk))
-					VCDRES_MSG_ERROR("a_clk Enable fail\n");
-				if (clk_enable(resource_context.
-					vcodec_axi_b_clk))
-					VCDRES_MSG_ERROR("b_clk Enable fail\n");
 			}
 
 			VCDRES_MSG_LOW("%s(): Clocks enabled!\n", __func__);
@@ -224,10 +189,6 @@ u32 res_trk_disable_clocks(void)
 			clk_disable(resource_context.vcodec_clk);
 		if (resource_context.vcodec_pclk)
 			clk_disable(resource_context.vcodec_pclk);
-		if (resource_context.vcodec_axi_a_clk)
-			clk_disable(resource_context.vcodec_axi_a_clk);
-		if (resource_context.vcodec_axi_b_clk)
-			clk_disable(resource_context.vcodec_axi_b_clk);
 		status = true;
 	}
 	mutex_unlock(&resource_context.lock);
