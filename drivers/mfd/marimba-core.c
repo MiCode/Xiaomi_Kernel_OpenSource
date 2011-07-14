@@ -28,7 +28,7 @@
 #define ADIE_ARRY_SIZE  (CHIP_ID_MAX * MARIMBA_NUM_CHILD)
 
 static int marimba_shadow[ADIE_ARRY_SIZE][0xff];
-
+static int mutex_initialized;
 struct marimba marimba_modules[ADIE_ARRY_SIZE];
 
 #define MARIMBA_VERSION_REG		0x11
@@ -543,45 +543,50 @@ static int marimba_probe(struct i2c_client *client,
 
 	if (!pdata) {
 		dev_dbg(&client->dev, "no platform data?\n");
-		return -EINVAL;
+		status = -EINVAL;
+		goto fail;
 	}
 
 	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
 		dev_dbg(&client->dev, "can't talk I2C?\n");
-		return -EIO;
+		status = -EIO;
+		goto fail;
 	}
-
+	if (!mutex_initialized) {
+		for (i = 0; i < ADIE_ARRY_SIZE; ++i) {
+			marimba = &marimba_modules[i];
+			mutex_init(&marimba->xfer_lock);
+		}
+		mutex_initialized = 1;
+	}
 	/* First, identify the codec type */
 	if (pdata->marimba_setup != NULL) {
 		rc_marimba = pdata->marimba_setup();
 		if (rc_marimba)
 			pdata->marimba_shutdown();
 	}
-
 	if (pdata->bahama_setup != NULL &&
 		cur_connv_type != BAHAMA_ID) {
 		rc_bahama = pdata->bahama_setup();
 		if (rc_bahama)
 			pdata->bahama_shutdown(cur_connv_type);
 	}
-
-	if (rc_marimba & rc_bahama)
-		return -EAGAIN;
-
+	if (rc_marimba & rc_bahama) {
+		status = -EAGAIN;
+		goto fail;
+	}
 	marimba = &marimba_modules[ADIE_ARRY_SIZE - 1];
 	marimba->client = client;
-	mutex_init(&marimba->xfer_lock);
 
 	rc = get_adie_type();
-
-	mutex_destroy(&marimba->xfer_lock);
 
 	if (rc < 0) {
 		if (pdata->bahama_setup != NULL)
 			pdata->bahama_shutdown(cur_adie_type);
 		if (pdata->marimba_shutdown != NULL)
 			pdata->marimba_shutdown();
-		return -ENODEV;
+		status = -ENODEV;
+		goto fail;
 	}
 
 	if (rc < 2) {
@@ -602,7 +607,6 @@ static int marimba_probe(struct i2c_client *client,
 
 	marimba = &marimba_modules[adie_arry_idx];
 	marimba->client = client;
-	mutex_init(&marimba->xfer_lock);
 
 	for (i = 1; i <= (NUM_ADD - client_loop); i++) {
 		/* Skip adding BT/FM for Timpani */
@@ -628,7 +632,6 @@ static int marimba_probe(struct i2c_client *client,
 		strlcpy(marimba->client->name, id->name,
 			sizeof(marimba->client->name));
 
-		mutex_init(&marimba->xfer_lock);
 	}
 
 	marimba_init_reg(client, id->driver_data);
@@ -649,15 +652,18 @@ static int __devexit marimba_remove(struct i2c_client *client)
 	struct marimba_platform_data *pdata;
 
 	pdata = client->dev.platform_data;
-	for (i = 0; i <= ADIE_ARRY_SIZE; i++) {
+	for (i = 0; i < ADIE_ARRY_SIZE; i++) {
 		struct marimba *marimba = &marimba_modules[i];
 
 		if (marimba->client && marimba->client != client)
 			i2c_unregister_device(marimba->client);
 
 		marimba_modules[i].client = NULL;
-	}
+		if (mutex_initialized)
+			mutex_destroy(&marimba->xfer_lock);
 
+	}
+	mutex_initialized = 0;
 	if (pdata->marimba_shutdown != NULL)
 		pdata->marimba_shutdown();
 
