@@ -911,7 +911,57 @@ static int msm_loopback_put(struct snd_kcontrol *kcontrol,
 	}
 	return rc;
 }
+static int msm_device_mute_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = msm_snddev_devcount();
+	return 0;
+}
 
+static int msm_device_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_device_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int dev_id = ucontrol->value.integer.value[0];
+	int mute = ucontrol->value.integer.value[1];
+	struct msm_snddev_info *dev_info;
+	int rc = 0;
+	u16 gain = 0x2000;
+
+	dev_info = audio_dev_ctrl_find_dev(dev_id);
+	if (IS_ERR(dev_info)) {
+		rc = PTR_ERR(dev_info);
+		pr_err("%s: audio_dev_ctrl_find_dev failed. %ld\n",
+			__func__, PTR_ERR(dev_info));
+		return rc;
+	}
+	if (!(dev_info->capability & SNDDEV_CAP_TX)) {
+		rc = -EINVAL;
+		return rc;
+	}
+	if (mute)
+		gain = 0;
+
+	pr_debug("%s:dev_name = %s dev_id = %d, gain = %hX\n",
+			__func__, dev_info->name, dev_id, gain);
+	rc = afe_apply_gain(dev_info->copp_id, gain);
+	if (rc < 0) {
+		pr_err("%s : device %s not able to set device gain "
+				"control.", __func__, dev_info->name);
+		return rc;
+	}
+	pr_debug("Muting/Unmuting device id %d(%s)\n", dev_id, dev_info->name);
+
+	return rc;
+}
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
 static int snd_dev_ctl_index(int idx)
@@ -976,6 +1026,8 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 	MSM_EXT("Reset", msm_reset_info,
 			msm_reset_get, msm_reset_put, 0),
 	MSM_EXT("ANC", msm_anc_info, msm_anc_get, msm_anc_put, 0),
+	MSM_EXT("Device_Mute", msm_device_mute_info,
+			msm_device_mute_get, msm_device_mute_put, 0),
 };
 
 static struct snd_kcontrol_new snd_msm_secondary_controls[] = {
