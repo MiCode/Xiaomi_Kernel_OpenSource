@@ -1054,8 +1054,21 @@ static void vfe32_start_common(void)
 	atomic_set(&vfe32_ctrl->vstate, 1);
 }
 
+#define ENQUEUED_BUFFERS 3
 static int vfe32_start_recording(void)
 {
+	/* Clear out duplicate entries in free_buf qeueue,
+	 * because the same number of the buffers were programmed
+	 * during AXI config and then enqueued before recording.
+	 * TODO: Do AXI config separately for recording at the
+	 * time of enqueue */
+	int i;
+	for (i = 0; i < ENQUEUED_BUFFERS; ++i) {
+		struct vfe32_free_buf *free_buf = NULL;
+		free_buf = vfe32_dequeue_free_buf(&vfe32_ctrl->outpath.out2);
+		kfree(free_buf);
+	}
+
 	vfe32_ctrl->req_start_video_rec = TRUE;
 	/* Mask with 0x7 to extract the pixel pattern*/
 	switch (msm_io_r(vfe32_ctrl->vfebase + VFE_CFG) & 0x7) {
