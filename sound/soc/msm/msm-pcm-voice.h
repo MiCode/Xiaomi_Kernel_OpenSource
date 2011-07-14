@@ -29,13 +29,4 @@ struct msm_voice {
 	int capture_start;
 };
 
-#define MSM_EXT(xname, fp_info, fp_get, fp_put, addr) \
-	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER, \
-	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE, \
-	.name = xname, \
-	.info = fp_info,\
-	.get = fp_get, .put = fp_put, \
-	.private_value = addr, \
-	}
-
 #endif /*_MSM_PCM_VOICE_H*/

@@ -178,17 +178,6 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int msm_voice_volume_info(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-	uinfo->count = 2; /* Volume */
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 5;
-
-	return 0;
-}
-
 static int msm_voice_volume_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -199,23 +188,11 @@ static int msm_voice_volume_get(struct snd_kcontrol *kcontrol,
 static int msm_voice_volume_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	int dir = ucontrol->value.integer.value[0];
-	int volume = ucontrol->value.integer.value[1];
+	int volume = ucontrol->value.integer.value[0];
 
-	pr_debug(" dir: %d, volume: %d\n", dir, volume);
+	pr_debug("%s: volume: %d\n", __func__, volume);
 
-	voc_set_rx_vol_index(dir, volume);
-	return 0;
-}
-
-static int msm_voice_mute_info(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 2;
-
+	voc_set_rx_vol_index(RX_PATH, volume);
 	return 0;
 }
 
@@ -229,21 +206,20 @@ static int msm_voice_mute_get(struct snd_kcontrol *kcontrol,
 static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	int dir = ucontrol->value.integer.value[0];
-	int mute = ucontrol->value.integer.value[1];
+	int mute = ucontrol->value.integer.value[0];
 
-	pr_debug("%s: dir=%d, mute=%d\n", __func__, dir, mute);
+	pr_debug("%s: mute=%d\n", __func__, mute);
 
-	voc_set_tx_mute(dir, mute);
+	voc_set_tx_mute(TX_PATH, mute);
 
 	return 0;
 }
 
 static struct snd_kcontrol_new msm_voice_controls[] = {
-	MSM_EXT("VoiceVolume", msm_voice_volume_info, msm_voice_volume_get, \
-		msm_voice_volume_put, 0),
-	MSM_EXT("VoiceMute", msm_voice_mute_info, msm_voice_mute_get, \
-		msm_voice_mute_put, 0),
+	SOC_SINGLE_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, 1, 0,
+				msm_voice_mute_get, msm_voice_mute_put),
+	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+				msm_voice_volume_get, msm_voice_volume_put),
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {
