@@ -527,8 +527,6 @@ static struct branch_clk vcodec_axi_b_clk = {
 	.b = {
 		.ctl_reg = MAXI_EN4_REG,
 		.en_mask = BIT(23),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(4),
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 25,
 	},
@@ -543,8 +541,6 @@ static struct branch_clk vcodec_axi_a_clk = {
 	.b = {
 		.ctl_reg = MAXI_EN4_REG,
 		.en_mask = BIT(25),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(5),
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 26,
 	},
@@ -561,7 +557,7 @@ static struct branch_clk vcodec_axi_clk = {
 		.ctl_reg = MAXI_EN_REG,
 		.en_mask = BIT(19),
 		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(7),
+		.reset_mask = BIT(4)|BIT(5)|BIT(7),
 		.halt_reg = DBG_BUS_VEC_E_REG,
 		.halt_bit = 3,
 	},
