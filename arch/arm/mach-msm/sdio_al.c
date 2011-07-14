@@ -745,6 +745,9 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 					   ch->read_threshold);
 		}
 	}
+	/* Prevent modem to go to sleep until we get the PROG_DONE on
+	   the dummy CMD52 */
+	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 0);
 	/* Mark HOST_OK_TOSLEEP */
 	sdio_al_dev->is_ok_to_sleep = 1;
 	write_lpm_info(sdio_al_dev);
@@ -755,6 +758,7 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 	/* Disable clocks here */
 	host->ios.clock = 0;
 	msmsdcc_lpm_enable(host);
+	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 1);
 	LPM_DEBUG(MODULE_NAME ":Finished sleep sequence for card %d. "
 			    "Sleep now.\n",
 		sdio_al_dev->card->host->index);
