@@ -88,6 +88,7 @@ struct gsdio_port {
 	struct usb_cdc_line_coding	line_coding;
 
 	int				sdio_open;
+	int				sdio_probe;
 	int				ctrl_ch_err;
 	struct sdio_port_info		*sport_info;
 	struct delayed_work		sdio_open_work;
@@ -185,6 +186,11 @@ void gsdio_start_rx(struct gsdio_port *port)
 
 	if (!port->port_usb) {
 		pr_debug("%s: usb is disconnected\n", __func__);
+		goto start_rx_end;
+	}
+
+	if (!port->sdio_open) {
+		pr_debug("%s: sdio is not open\n", __func__);
 		goto start_rx_end;
 	}
 
@@ -731,6 +737,7 @@ static void gsdio_open_work(struct work_struct *w)
 		return;
 	}
 
+	port->ctrl_ch_err = 0;
 	ret = sdio_cmux_open(pi->ctrl_ch_id, 0, 0,
 			gsdio_ctrl_modem_status, port);
 	if (ret) {
@@ -767,6 +774,57 @@ static void gsdio_open_work(struct work_struct *w)
 
 #define SDIO_CH_NAME_MAX_LEN	9
 #define SDIO_OPEN_DELAY		msecs_to_jiffies(10000)
+static int gsdio_ch_remove(struct platform_device *dev)
+{
+	struct gsdio_port	*port;
+	struct sdio_port_info	*pi;
+	int i;
+	unsigned long		flags;
+
+	pr_debug("%s: name:%s\n", __func__, dev->name);
+
+	for (i = 0; i < n_sdio_ports; i++) {
+		port = sdio_ports[i].port;
+		pi = port->sport_info;
+
+		if (!strncmp(pi->data_ch_name, dev->name,
+					SDIO_CH_NAME_MAX_LEN)) {
+			struct gserial *gser = port->port_usb;
+
+			port->sdio_open = 0;
+			port->sdio_probe = 0;
+			port->ctrl_ch_err = 1;
+
+			/* check if usb cable is connected */
+			if (!gser)
+				continue;
+
+			/* indicated call status to usb host */
+			gsdio_ctrl_modem_status(0, port);
+
+			usb_ep_fifo_flush(gser->in);
+			usb_ep_fifo_flush(gser->out);
+
+			cancel_work_sync(&port->push);
+			cancel_work_sync(&port->pull);
+
+			spin_lock_irqsave(&port->port_lock, flags);
+			gsdio_free_requests(gser->out, &port->read_pool);
+			gsdio_free_requests(gser->out, &port->read_queue);
+			gsdio_free_requests(gser->in, &port->write_pool);
+
+			port->rp_len = 0;
+			port->rq_len = 0;
+			port->wp_len = 0;
+			port->n_read = 0;
+			spin_unlock_irqrestore(&port->port_lock, flags);
+
+		}
+	}
+
+	return 0;
+}
+
 static int gsdio_ch_probe(struct platform_device *dev)
 {
 	struct gsdio_port	*port;
@@ -788,6 +846,7 @@ static int gsdio_ch_probe(struct platform_device *dev)
 		 */
 		if (!strncmp(pi->data_ch_name, dev->name,
 					SDIO_CH_NAME_MAX_LEN)) {
+			port->sdio_probe = 1;
 			queue_delayed_work(gsdio_wq,
 				&port->sdio_open_work, SDIO_OPEN_DELAY);
 			return 0;
@@ -834,6 +893,7 @@ int gsdio_port_alloc(unsigned portno,
 	pdriver = &sdio_ports[portno].gsdio_ch;
 
 	pdriver->probe = gsdio_ch_probe;
+	pdriver->remove = gsdio_ch_remove;
 	pdriver->driver.name = pi->data_ch_name;
 	pdriver->driver.owner = THIS_MODULE;
 
@@ -951,10 +1011,15 @@ static ssize_t debug_sdio_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	struct gsdio_port *port;
-	char *buf = debug_buffer;
+	char *buf;
 	unsigned long flags;
 	int i = 0;
 	int temp = 0;
+	int ret;
+
+	buf = kzalloc(sizeof(char) * 1024, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	while (i < n_sdio_ports) {
 		port = sdio_ports[i].port;
@@ -968,17 +1033,24 @@ static ssize_t debug_sdio_read_stats(struct file *file, char __user *ubuf,
 				"read_pool_len:   %lu\n"
 				"read_queue_len:  %lu\n"
 				"write_pool_len:  %lu\n"
-				"n_read:          %u\n",
+				"n_read:          %u\n"
+				"sdio_open:       %d\n"
+				"sdio_probe:      %d\n",
 				i, port,
 				port->nbytes_tolaptop, port->nbytes_tomodem,
 				port->cbits_to_modem, port->cbits_to_laptop,
 				port->rp_len, port->rq_len, port->wp_len,
-				port->n_read);
+				port->n_read,
+				port->sdio_open, port->sdio_probe);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		i++;
 	}
 
-	return simple_read_from_buffer(ubuf, count, ppos, buf, temp);
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
+
+	kfree(buf);
+
+	return ret;
 }
 
 static ssize_t debug_sdio_reset_stats(struct file *file, const char __user *buf,
