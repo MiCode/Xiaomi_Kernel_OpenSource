@@ -273,31 +273,31 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_800_pll4_0[] = {
 
 /* 7x27a pll2 at 1200mhz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_800[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 19200, 0, 0, 30720 },
-	{ 0, 61440, ACPU_PLL_1, 1, 3,  61440, 0, 1,  61440 },
-	{ 1, 122880, ACPU_PLL_1, 1, 1,  61440, 1, 2,  61440 },
-	{ 1, 245760, ACPU_PLL_1, 1, 0, 122880, 1, 3,  61440 },
-	{ 0, 300000, ACPU_PLL_2, 2, 3, 150000, 1, 4, 150000 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 160000, 1, 4, 122880 },
-	{ 0, 400000, ACPU_PLL_4, 6, 1, 133333, 2, 4, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 160000, 2, 5, 122880 },
-	{ 1, 600000, ACPU_PLL_2, 2, 1, 200000, 2, 6, 200000 },
-	{ 1, 800000, ACPU_PLL_4, 6, 0, 200000, 3, 7, 200000 },
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 1,  61440 },
+	{ 1, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 2,  61440 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 3,  61440 },
+	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 4, 150000 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 0, 400000, ACPU_PLL_4, 6, 1, 50000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
+	{ 1, 800000, ACPU_PLL_4, 6, 0, 100000, 3, 7, 200000 },
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
 };
 
 /* 7x27a pll2 at 1200mhz with CDMA only modem */
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_800[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 19200, 0, 0, 24576 },
-	{ 0, 65536, ACPU_PLL_1, 1, 3,  65536, 0, 1,  49152 },
-	{ 1, 98304, ACPU_PLL_1, 1, 1,  49152, 1, 2,  49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 98304, 1, 3,  98304 },
-	{ 0, 300000, ACPU_PLL_2, 2, 3, 150000, 1, 4, 150000 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 160000, 1, 4, 160000 },
-	{ 0, 400000, ACPU_PLL_4, 6, 1, 200000, 1, 4, 160000 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 160000, 2, 5, 160000 },
-	{ 1, 600000, ACPU_PLL_2, 2, 1, 200000, 2, 6, 200000 },
-	{ 1, 800000, ACPU_PLL_4, 6, 0, 200000, 3, 7, 200000 },
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1,  49152 },
+	{ 1, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2,  49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3,  98304 },
+	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 4, 150000 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 160000 },
+	{ 0, 400000, ACPU_PLL_4, 6, 1, 50000, 3, 4, 160000 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 160000 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
+	{ 1, 800000, ACPU_PLL_4, 6, 0, 100000, 3, 7, 200000 },
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
 };
 
@@ -708,7 +708,7 @@ out:
 static void __init acpuclk_init(void)
 {
 	struct clkctl_acpu_speed *speed;
-	uint32_t div, sel;
+	uint32_t div, sel, reg_clksel;
 	int res;
 
 	/*
@@ -746,6 +746,14 @@ static void __init acpuclk_init(void)
 	if (speed->pll != ACPU_PLL_TCXO)
 		if (pc_pll_request(speed->pll, 1))
 			pr_warning("Failed to vote for boot PLL\n");
+
+	/* Fix div2 to 2 for 7x27/5a(aa) targets */
+	if (!cpu_is_msm7x27()) {
+		reg_clksel = readl_relaxed(A11S_CLK_SEL_ADDR);
+		reg_clksel &= ~(0x3 << 14);
+		reg_clksel |= (0x1 << 14);
+		writel_relaxed(reg_clksel, A11S_CLK_SEL_ADDR);
+	}
 
 	res = clk_set_rate(drv_state.ebi1_clk, speed->axiclk_khz * 1000);
 	if (res < 0)
