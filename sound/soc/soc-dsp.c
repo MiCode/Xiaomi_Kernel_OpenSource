@@ -954,25 +954,6 @@ static int dsp_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 	return 0;
 }
 
-/* check for running FEs */
-static int dsp_get_be_trigger_cmd(struct snd_soc_pcm_runtime *fe, int stream)
-{
-	struct snd_soc_dsp_params *dsp_be_params, *dsp_fe_params;
-
-	/* get the FEs for each BE */
-	list_for_each_entry(dsp_be_params, &fe->dsp[stream].be_clients, list_be) {
-		struct snd_soc_pcm_runtime *be = dsp_be_params->be;
-
-		/* get the FEs for this BE */
-		list_for_each_entry(dsp_fe_params, &be->dsp[stream].fe_clients, list_fe) {
-
-			if (dsp_fe_params->state == SND_SOC_DSP_LINK_STATE_START)
-				return SND_SOC_DSP_LINK_STATE_START;
-		}
-	}
-	return SND_SOC_DSP_LINK_STATE_PAUSED;
-}
-
 /* check for running BEs */
 static int dsp_get_fe_trigger_cmd(struct snd_soc_pcm_runtime *fe, int stream)
 {
@@ -1058,17 +1039,11 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 	} else {
 
 		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
-
-			/* there is no point in triggering start iff all FEs are PAUSED */
-			cmd = dsp_get_be_trigger_cmd(fe, stream);
-
-			dev_dbg(&fe->dev, "dsp: trigger FE %s cmd start\n",
-				fe->dai_link->name);
-
-			ret = soc_dsp_be_dai_trigger(fe, stream, cmd);
+			ret = soc_dsp_be_dai_trigger(fe, stream,
+				SNDRV_PCM_TRIGGER_START);
 			if (ret < 0)
 				return ret;
-			}
+		}
 	}
 
 	return 0;
