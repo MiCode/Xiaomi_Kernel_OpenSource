@@ -190,7 +190,7 @@ static int load_image(struct pil_device *pil)
 		goto release_fw;
 	}
 
-	phdr = (const struct elf32_phdr *)(fw->data + ehdr->e_phoff);
+	phdr = (const struct elf32_phdr *)(fw->data + sizeof(struct elf32_hdr));
 	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
 		if (!segment_is_loadable(phdr))
 			continue;
