@@ -52,6 +52,8 @@ enum {
 	AUDIO_PORT_MIXER_MAX,
 };
 
+static int fm_switch_enable;
+
 /* Tx mixer session is stored based on BE DAI ID
  * Need to map to actual AFE port ID since AFE port
  * ID can get really large.
@@ -315,6 +317,30 @@ static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_routing_get_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = fm_switch_enable;
+	pr_debug("%s: FM Switch enable %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget *widget = snd_kcontrol_chip(kcontrol);
+
+	pr_debug("%s: FM Switch enable %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+	if (ucontrol->value.integer.value[0])
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+	else
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+	fm_switch_enable = ucontrol->value.integer.value[0];
+	return 1;
+}
+
 static int msm_routing_get_port_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -482,6 +508,11 @@ static const struct snd_kcontrol_new sbus_0_rx_port_mixer_controls[] = {
 	msm_routing_put_port_mixer),
 };
 
+static const struct snd_kcontrol_new fm_switch_mixer_controls =
+	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
+	0, 1, 0, msm_routing_get_switch_mixer,
+	msm_routing_put_switch_mixer);
+
 static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Frontend AIF */
 	/* Widget name equals to Front-End DAI name<Need confirmation>,
@@ -519,7 +550,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 				0, 0, 0 , 0),
 	SND_SOC_DAPM_AIF_IN("INT_FM_TX", "Internal FM Capture",
 				0, 0, 0, 0),
-
+	/* Switch Definitions */
+	SND_SOC_DAPM_SWITCH("SBUS_0_RX", SND_SOC_NOPM, 0, 0,
+				&fm_switch_mixer_controls),
 	/* Mixer definitions */
 	SND_SOC_DAPM_MIXER("PRI_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	pri_i2s_rx_mixer_controls, ARRAY_SIZE(pri_i2s_rx_mixer_controls)),
@@ -606,7 +639,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Voip_Tx Mixer", "SLIM_0_TX_Voip", "SLIMBUS_0_TX"},
 	{"Voip_Tx Mixer", "INTERNAL_BT_SCO_TX_Voip", "INT_BT_SCO_TX"},
 	{"VOIP_UL", NULL, "Voip_Tx Mixer"},
-	{"SLIMBUS_0_RX", NULL, "SLIM0_DL_HL"},
+	{"SLIMBUS_0_RX", "Switch", "SLIM0_DL_HL"},
 	{"SLIM0_UL_HL", NULL, "SLIMBUS_0_TX"},
 	{"INT_FM_RX", NULL, "INTFM_DL_HL"},
 	{"INTFM_UL_HL", NULL, "INT_FM_TX"},
