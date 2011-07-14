@@ -486,7 +486,7 @@ static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 	}
 }
 
-static int _rcg_clk_enable(struct rcg_clk *clk)
+static void _rcg_clk_enable(struct rcg_clk *clk)
 {
 	unsigned long flags;
 
@@ -494,8 +494,6 @@ static int _rcg_clk_enable(struct rcg_clk *clk)
 	__rcg_clk_enable_reg(clk);
 	clk->enabled = true;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	return 0;
 }
 
 static void _rcg_clk_disable(struct rcg_clk *clk)
@@ -520,13 +518,9 @@ int rcg_clk_enable(struct clk *c)
 	rc = clk_enable(clk->depends);
 	if (rc)
 		goto err_dep;
-	rc = _rcg_clk_enable(clk);
-	if (rc)
-		goto err_enable;
+	_rcg_clk_enable(clk);
 	return rc;
 
-err_enable:
-	clk_disable(clk->depends);
 err_dep:
 	local_unvote_sys_vdd(clk->current_freq->sys_vdd);
 err_vdd:
