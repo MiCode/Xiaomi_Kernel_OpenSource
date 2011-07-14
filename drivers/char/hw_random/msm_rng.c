@@ -112,8 +112,6 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	struct msm_rng_device *msm_rng_dev = NULL;
 	void __iomem *base = NULL;
 	int error = 0;
-	unsigned long val;
-	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
@@ -149,27 +147,6 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	msm_rng_dev->pdev = pdev;
 	platform_set_drvdata(pdev, msm_rng_dev);
 
-	ret = clk_enable(msm_rng_dev->prng_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable clock in probe\n");
-		error = -EPERM;
-		goto err_clk_enable;
-	}
-
-	/* enable PRNG h/w (this may not work since XPU protect may be enabled
-	 * elsewhere which case then the hardware should have already been set
-	 * up)
-	 */
-	val = readl(base + PRNG_LFSR_CFG_OFFSET) & PRNG_LFSR_CFG_MASK;
-	val |= PRNG_LFSR_CFG_CLOCKS;
-	writel(val, base + PRNG_LFSR_CFG_OFFSET);
-
-	val = readl(base + PRNG_CONFIG_OFFSET) & PRNG_CONFIG_MASK;
-	val |= PRNG_CONFIG_ENABLE;
-	writel(val, base + PRNG_CONFIG_OFFSET);
-
-	clk_disable(msm_rng_dev->prng_clk);
-
 	/* register with hwrng framework */
 	msm_rng.priv = (unsigned long) msm_rng_dev;
 	error = hwrng_register(&msm_rng);
@@ -182,7 +159,6 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	return 0;
 
 err_hw_register:
-err_clk_enable:
 	clk_put(msm_rng_dev->prng_clk);
 err_clk_get:
 	iounmap(msm_rng_dev->base);
