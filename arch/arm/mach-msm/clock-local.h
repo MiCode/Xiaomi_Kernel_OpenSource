@@ -142,6 +142,18 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 	return container_of(clk, struct rcg_clk, c);
 }
 
+int rcg_clk_enable(struct clk *clk);
+void rcg_clk_disable(struct clk *clk);
+void rcg_clk_auto_off(struct clk *clk);
+int rcg_clk_set_rate(struct clk *clk, unsigned rate);
+int rcg_clk_set_min_rate(struct clk *clk, unsigned rate);
+int rcg_clk_set_max_rate(struct clk *clk, unsigned rate);
+unsigned rcg_clk_get_rate(struct clk *clk);
+int rcg_clk_list_rate(struct clk *clk, unsigned n);
+int rcg_clk_is_enabled(struct clk *clk);
+long rcg_clk_round_rate(struct clk *clk, unsigned rate);
+struct clk *rcg_clk_get_parent(struct clk *c);
+
 /*
  * SYS_VDD voltage levels
  */
@@ -288,22 +300,7 @@ extern struct fixed_clk		gnd_clk;
  */
 int local_vote_sys_vdd(enum sys_vdd_level level);
 int local_unvote_sys_vdd(enum sys_vdd_level level);
-
-/*
- * clk_ops APIs
- */
-int local_clk_enable(struct clk *clk);
-void local_clk_disable(struct clk *clk);
-void local_clk_auto_off(struct clk *clk);
-int local_clk_set_rate(struct clk *clk, unsigned rate);
-int local_clk_set_min_rate(struct clk *clk, unsigned rate);
-int local_clk_set_max_rate(struct clk *clk, unsigned rate);
-unsigned local_clk_get_rate(struct clk *clk);
-int local_clk_list_rate(struct clk *clk, unsigned n);
-int local_clk_is_enabled(struct clk *clk);
-long local_clk_round_rate(struct clk *clk, unsigned rate);
 bool local_clk_is_local(struct clk *clk);
-struct clk *local_clk_get_parent(struct clk *c);
 
 /*
  * Required SoC-specific functions, implemented for every supported SoC

@@ -518,19 +518,19 @@ static int soc_clk_reset(struct clk *clk, enum clk_reset_action action)
 }
 
 static struct clk_ops soc_clk_ops_8x60 = {
-	.enable = local_clk_enable,
-	.disable = local_clk_disable,
-	.auto_off = local_clk_auto_off,
-	.set_rate = local_clk_set_rate,
-	.set_min_rate = local_clk_set_min_rate,
-	.set_max_rate = local_clk_set_max_rate,
-	.get_rate = local_clk_get_rate,
-	.list_rate = local_clk_list_rate,
-	.is_enabled = local_clk_is_enabled,
-	.round_rate = local_clk_round_rate,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
+	.auto_off = rcg_clk_auto_off,
+	.set_rate = rcg_clk_set_rate,
+	.set_min_rate = rcg_clk_set_min_rate,
+	.set_max_rate = rcg_clk_set_max_rate,
+	.get_rate = rcg_clk_get_rate,
+	.list_rate = rcg_clk_list_rate,
+	.is_enabled = rcg_clk_is_enabled,
+	.round_rate = rcg_clk_round_rate,
 	.reset = soc_clk_reset,
 	.is_local = local_clk_is_local,
-	.get_parent = local_clk_get_parent,
+	.get_parent = rcg_clk_get_parent,
 };
 
 static struct clk_ops clk_ops_branch = {
@@ -3789,10 +3789,10 @@ void __init msm8660_clock_init(void)
 
 	/* The halt status bits for PDM and TSSC may be incorrect at boot.
 	 * Toggle these clocks on and off to refresh them. */
-	local_clk_enable(&pdm_clk.c);
-	local_clk_disable(&pdm_clk.c);
-	local_clk_enable(&tssc_clk.c);
-	local_clk_disable(&tssc_clk.c);
+	rcg_clk_enable(&pdm_clk.c);
+	rcg_clk_disable(&pdm_clk.c);
+	rcg_clk_enable(&tssc_clk.c);
+	rcg_clk_disable(&tssc_clk.c);
 
 	msm_clock_init(msm_clocks_8x60, ARRAY_SIZE(msm_clocks_8x60));
 }

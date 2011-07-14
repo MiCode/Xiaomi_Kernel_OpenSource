@@ -386,7 +386,7 @@ static void __branch_clk_enable_reg(const struct branch *clk, const char *name)
 }
 
 /* Perform any register operations required to enable the clock. */
-static void __local_clk_enable_reg(struct rcg_clk *clk)
+static void __rcg_clk_enable_reg(struct rcg_clk *clk)
 {
 	u32 reg_val;
 	void __iomem *const reg = clk->b.ctl_reg;
@@ -458,7 +458,7 @@ static u32 __branch_clk_disable_reg(const struct branch *clk, const char *name)
 }
 
 /* Perform any register operations required to disable the generator. */
-static void __local_clk_disable_reg(struct rcg_clk *clk)
+static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 {
 	void __iomem *const reg = clk->b.ctl_reg;
 	uint32_t reg_val;
@@ -486,30 +486,30 @@ static void __local_clk_disable_reg(struct rcg_clk *clk)
 	}
 }
 
-static int _local_clk_enable(struct rcg_clk *clk)
+static int _rcg_clk_enable(struct rcg_clk *clk)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__local_clk_enable_reg(clk);
+	__rcg_clk_enable_reg(clk);
 	clk->enabled = true;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return 0;
 }
 
-static void _local_clk_disable(struct rcg_clk *clk)
+static void _rcg_clk_disable(struct rcg_clk *clk)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__local_clk_disable_reg(clk);
+	__rcg_clk_disable_reg(clk);
 	clk->enabled = false;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 /* Enable a clock and any related power rail. */
-int local_clk_enable(struct clk *c)
+int rcg_clk_enable(struct clk *c)
 {
 	int rc;
 	struct rcg_clk *clk = to_rcg_clk(c);
@@ -520,7 +520,7 @@ int local_clk_enable(struct clk *c)
 	rc = clk_enable(clk->depends);
 	if (rc)
 		goto err_dep;
-	rc = _local_clk_enable(clk);
+	rc = _rcg_clk_enable(clk);
 	if (rc)
 		goto err_enable;
 	return rc;
@@ -534,19 +534,19 @@ err_vdd:
 }
 
 /* Disable a clock and any related power rail. */
-void local_clk_disable(struct clk *c)
+void rcg_clk_disable(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 
-	_local_clk_disable(clk);
+	_rcg_clk_disable(clk);
 	clk_disable(clk->depends);
 	local_unvote_sys_vdd(clk->current_freq->sys_vdd);
 }
 
 /* Turn off a clock at boot, without checking refcounts or disabling depends. */
-void local_clk_auto_off(struct clk *c)
+void rcg_clk_auto_off(struct clk *c)
 {
-	_local_clk_disable(to_rcg_clk(c));
+	_rcg_clk_disable(to_rcg_clk(c));
 }
 
 /*
@@ -554,7 +554,7 @@ void local_clk_auto_off(struct clk *c)
  */
 
 /* Set a clock's frequency. */
-static int _local_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
+static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 {
 	struct clk_freq_tbl *cf;
 	int rc = 0;
@@ -596,7 +596,7 @@ static int _local_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 				__branch_clk_disable_reg(&x->b, x->c.dbg_name);
 		}
 		if (clk->enabled)
-			__local_clk_disable_reg(clk);
+			__rcg_clk_disable_reg(clk);
 	}
 
 	/* Perform clock-specific frequency switch operations. */
@@ -604,7 +604,7 @@ static int _local_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	clk->set_rate(clk, nf);
 
 	/*
-	 * Current freq must be updated before __local_clk_enable_reg()
+	 * Current freq must be updated before __rcg_clk_enable_reg()
 	 * is called to make sure the MNCNTR_EN bit is set correctly.
 	 */
 	clk->current_freq = nf;
@@ -612,7 +612,7 @@ static int _local_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	/* Enable any clocks that were disabled. */
 	if (clk->bank_masks == NULL) {
 		if (clk->enabled)
-			__local_clk_enable_reg(clk);
+			__rcg_clk_enable_reg(clk);
 		/* Enable only branches that were ON before. */
 		list_for_each_entry(chld, &clk->c.children, siblings) {
 			struct branch_clk *x = to_branch_clk(chld);
@@ -635,7 +635,7 @@ unlock:
 }
 
 /* Set a clock to an exact rate. */
-int local_clk_set_rate(struct clk *c, unsigned rate)
+int rcg_clk_set_rate(struct clk *c, unsigned rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *nf;
@@ -647,11 +647,11 @@ int local_clk_set_rate(struct clk *c, unsigned rate)
 	if (nf->freq_hz == FREQ_END)
 		return -EINVAL;
 
-	return _local_clk_set_rate(clk, nf);
+	return _rcg_clk_set_rate(clk, nf);
 }
 
 /* Set a clock to a rate greater than some minimum. */
-int local_clk_set_min_rate(struct clk *c, unsigned rate)
+int rcg_clk_set_min_rate(struct clk *c, unsigned rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *nf;
@@ -663,17 +663,17 @@ int local_clk_set_min_rate(struct clk *c, unsigned rate)
 	if (nf->freq_hz == FREQ_END)
 		return -EINVAL;
 
-	return _local_clk_set_rate(clk, nf);
+	return _rcg_clk_set_rate(clk, nf);
 }
 
 /* Set a clock to a maximum rate. */
-int local_clk_set_max_rate(struct clk *clk, unsigned rate)
+int rcg_clk_set_max_rate(struct clk *clk, unsigned rate)
 {
 	return -EPERM;
 }
 
 /* Get the currently-set rate of a clock in Hz. */
-unsigned local_clk_get_rate(struct clk *c)
+unsigned rcg_clk_get_rate(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	unsigned long flags;
@@ -694,13 +694,13 @@ unsigned local_clk_get_rate(struct clk *c)
 }
 
 /* Check if a clock is currently enabled. */
-int local_clk_is_enabled(struct clk *clk)
+int rcg_clk_is_enabled(struct clk *clk)
 {
 	return to_rcg_clk(clk)->enabled;
 }
 
 /* Return a supported rate that's at least the specified rate. */
-long local_clk_round_rate(struct clk *c, unsigned rate)
+long rcg_clk_round_rate(struct clk *c, unsigned rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *f;
@@ -718,7 +718,7 @@ bool local_clk_is_local(struct clk *clk)
 }
 
 /* Return the nth supported frequency for a given clock. */
-int local_clk_list_rate(struct clk *c, unsigned n)
+int rcg_clk_list_rate(struct clk *c, unsigned n)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 
@@ -728,7 +728,7 @@ int local_clk_list_rate(struct clk *c, unsigned n)
 	return (clk->freq_tbl + n)->freq_hz;
 }
 
-struct clk *local_clk_get_parent(struct clk *clk)
+struct clk *rcg_clk_get_parent(struct clk *clk)
 {
 	return to_rcg_clk(clk)->current_freq->src_clk;
 }

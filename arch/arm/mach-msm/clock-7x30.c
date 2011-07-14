@@ -2965,20 +2965,20 @@ void __init msm7x30_clock_init(void)
  * Clock operation handler registration
  */
 static struct clk_ops soc_clk_ops_7x30 = {
-	.enable = local_clk_enable,
-	.disable = local_clk_disable,
-	.auto_off = local_clk_auto_off,
-	.set_rate = local_clk_set_rate,
-	.set_min_rate = local_clk_set_min_rate,
-	.set_max_rate = local_clk_set_max_rate,
-	.get_rate = local_clk_get_rate,
-	.list_rate = local_clk_list_rate,
-	.is_enabled = local_clk_is_enabled,
-	.round_rate = local_clk_round_rate,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
+	.auto_off = rcg_clk_auto_off,
+	.set_rate = rcg_clk_set_rate,
+	.set_min_rate = rcg_clk_set_min_rate,
+	.set_max_rate = rcg_clk_set_max_rate,
+	.get_rate = rcg_clk_get_rate,
+	.list_rate = rcg_clk_list_rate,
+	.is_enabled = rcg_clk_is_enabled,
+	.round_rate = rcg_clk_round_rate,
 	.reset = msm7x30_clk_reset,
 	.set_flags = soc_clk_set_flags,
 	.is_local = local_clk_is_local,
-	.get_parent = local_clk_get_parent,
+	.get_parent = rcg_clk_get_parent,
 };
 
 static struct clk_ops clk_ops_branch = {
