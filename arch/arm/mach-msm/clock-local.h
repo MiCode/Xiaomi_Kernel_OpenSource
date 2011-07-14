@@ -251,6 +251,7 @@ struct branch_clk {
 	bool enabled;
 	struct branch b;
 	struct clk *parent;
+	struct clk *depends;
 	struct clk c;
 };
 

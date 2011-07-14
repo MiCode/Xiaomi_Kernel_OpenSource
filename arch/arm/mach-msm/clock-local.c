@@ -877,8 +877,13 @@ struct clk_ops clk_ops_measure = {
 
 int branch_clk_enable(struct clk *clk)
 {
+	int rc;
 	unsigned long flags;
 	struct branch_clk *branch = to_branch_clk(clk);
+
+	rc = clk_enable(branch->depends);
+	if (rc)
+		return rc;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	__branch_clk_enable_reg(&branch->b, branch->c.dbg_name);
@@ -897,6 +902,8 @@ void branch_clk_disable(struct clk *clk)
 	__branch_clk_disable_reg(&branch->b, branch->c.dbg_name);
 	branch->enabled = false;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	clk_disable(branch->depends);
 }
 
 struct clk *branch_clk_get_parent(struct clk *clk)
