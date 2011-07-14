@@ -1654,6 +1654,7 @@ static int iris_search(struct iris_device *radio, int on, int dir)
 		case RDS_SEEK_PTY:
 		case RDS_SCAN_PTY:
 		case RDS_SEEK_PI:
+			srch = srch - SEARCH_RDS_STNS_MODE_OFFSET;
 			radio->srch_rds.srch_station.srch_mode = srch;
 			radio->srch_rds.srch_station.srch_dir = dir;
 			radio->srch_rds.srch_station.scan_time =

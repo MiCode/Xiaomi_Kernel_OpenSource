@@ -549,6 +549,8 @@ enum search_t {
 #define SRCH_DIR_UP		(0)
 #define SRCH_DIR_DOWN		(1)
 
+/*Search RDS stations*/
+#define SEARCH_RDS_STNS_MODE_OFFSET 4
 /* control options */
 #define CTRL_ON			(1)
 #define CTRL_OFF		(0)
