@@ -574,6 +574,49 @@ static int get_fsm_status(void *data, u64 * val)
 	return 0;
 }
 
+static int pm_chg_disable(int value)
+{
+	u8 temp;
+	int ret;
+
+	ret = pm8058_read(pm8058_chg.pm_chip, PM8058_CHG_CNTRL, &temp, 1);
+	if (ret)
+		return ret;
+	if (value)
+		temp |= BIT(CHG_CHARGE_DIS);
+	else
+		temp &= ~BIT(CHG_CHARGE_DIS);
+
+	return pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_CNTRL, &temp, 1);
+}
+
+static void pm8058_start_system_current(struct msm_hardware_charger *hw_chg,
+								int max_current)
+{
+	int ret = 0;
+
+	if (pm8058_chg.disabled)
+		return;
+
+	ret = pm_chg_imaxsel_set(max_current);
+	ret |= pm_chg_enum_done_enable(1);
+	ret |= pm_chg_disable(0);
+	if (ret)
+		pr_err("%s: failed to turn on system power err=%d",
+							__func__, ret);
+}
+
+static void pm8058_stop_system_current(struct msm_hardware_charger *hw_chg)
+{
+	int ret = 0;
+
+	ret = pm_chg_enum_done_enable(0);
+	ret |= pm_chg_disable(1);
+	if (ret)
+		pr_err("%s: failed to turn off system power err=%d",
+							__func__, ret);
+}
+
 static int __pm8058_start_charging(int chg_current, int termination_current,
 				   int time)
 {
@@ -1618,12 +1661,14 @@ static void remove_debugfs_entries(void)
 }
 
 static struct msm_hardware_charger usb_hw_chg = {
-	.type = CHG_TYPE_USB,
-	.rating = 1,
-	.name = "pm8058-usb",
-	.start_charging = pm8058_start_charging,
-	.stop_charging = pm8058_stop_charging,
-	.charging_switched = pm8058_charging_switched,
+	.type			= CHG_TYPE_USB,
+	.rating			= 1,
+	.name			= "pm8058-usb",
+	.start_charging		= pm8058_start_charging,
+	.stop_charging		= pm8058_stop_charging,
+	.charging_switched	= pm8058_charging_switched,
+	.start_system_current	= pm8058_start_system_current,
+	.stop_system_current	= pm8058_stop_system_current,
 };
 
 static int batt_read_adc(int channel, int *mv_reading)
