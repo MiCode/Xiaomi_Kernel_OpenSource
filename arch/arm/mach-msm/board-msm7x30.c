@@ -88,6 +88,8 @@
 #include "smd_private.h"
 #include <linux/bma150.h>
 
+#include "board-msm7x30-regulator.h"
+
 #define MSM_PMEM_SF_SIZE	0x1700000
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_SIZE            0x780000
@@ -262,6 +264,18 @@ static int pm8058_gpios_init(void)
 
 	return 0;
 }
+
+/* Regulator API support */
+
+#ifdef CONFIG_MSM_PROC_COMM_REGULATOR
+static struct platform_device msm_proccomm_regulator_dev = {
+	.name = PROCCOMM_REGULATOR_DEV_NAME,
+	.id   = -1,
+	.dev  = {
+		.platform_data = &msm7x30_proccomm_regulator_data
+	}
+};
+#endif
 
 /*virtual key support */
 static ssize_t tma300_vkeys_show(struct kobject *kobj,
@@ -5258,6 +5272,9 @@ struct platform_device msm_device_sdio_al = {
 static struct platform_device *devices[] __initdata = {
 #if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	&msm_device_uart2,
+#endif
+#ifdef CONFIG_MSM_PROC_COMM_REGULATOR
+	&msm_proccomm_regulator_dev,
 #endif
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,

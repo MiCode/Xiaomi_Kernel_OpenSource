@@ -254,3 +254,6 @@ obj-$(CONFIG_MSM_RPC_VIBRATOR) += msm_vibrator.o
 obj-$(CONFIG_MSM_NATIVE_RESTART) += restart.o
 
 obj-$(CONFIG_MSM_PROC_COMM_REGULATOR) += proccomm-regulator.o
+ifdef CONFIG_MSM_PROC_COMM_REGULATOR
+obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30-regulator.o
+endif
