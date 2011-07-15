@@ -59,6 +59,9 @@ struct msm_hardware_charger {
 			       int chg_voltage, int chg_current);
 	int (*stop_charging) (struct msm_hardware_charger *hw_chg);
 	int (*charging_switched) (struct msm_hardware_charger *hw_chg);
+	void (*start_system_current) (struct msm_hardware_charger *hw_chg,
+							int chg_current);
+	void (*stop_system_current) (struct msm_hardware_charger *hw_chg);
 
 	void *charger_private;	/* used by the msm_charger.c */
 };
