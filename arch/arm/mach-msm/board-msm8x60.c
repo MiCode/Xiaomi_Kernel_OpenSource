@@ -5844,6 +5844,37 @@ static struct pmic8058_leds_platform_data pm8058_flash_leds_data = {
 	.leds	= pmic8058_flash_leds,
 };
 
+static struct pmic8058_led pmic8058_dragon_leds[] = {
+	[0] = {
+		/* RED */
+		.name		= "led_drv0",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_0,
+	},/* 300 mA flash led0 drv sink */
+	[1] = {
+		/* Yellow */
+		.name		= "led_drv1",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_1,
+	},/* 300 mA flash led0 drv sink */
+	[2] = {
+		/* Green */
+		.name		= "led_drv2",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_2,
+	},/* 300 mA flash led0 drv sink */
+	[3] = {
+		.name		= "led_psensor",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_KB_LIGHT,
+	},/* 300 mA flash led0 drv sink */
+};
+
+static struct pmic8058_leds_platform_data pm8058_dragon_leds_data = {
+	.num_leds = ARRAY_SIZE(pmic8058_dragon_leds),
+	.leds	= pmic8058_dragon_leds,
+};
+
 static struct pmic8058_led pmic8058_fluid_flash_leds[] = {
 	[0] = {
 		.name		= "led:drv0",
@@ -9813,6 +9844,11 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 			platform_data = &pm8058_fluid_flash_leds_data;
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].pdata_size
 			= sizeof(pm8058_fluid_flash_leds_data);
+	} else if (machine_is_msm8x60_dragon()) {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
+			platform_data = &pm8058_dragon_leds_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].pdata_size
+			= sizeof(pm8058_dragon_leds_data);
 	} else {
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
 			platform_data = &pm8058_flash_leds_data;
