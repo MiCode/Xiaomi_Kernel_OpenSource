@@ -29,6 +29,7 @@
 #define MSM_GSBI6_PHYS		0x16500000
 #define MSM_GSBI7_PHYS		0x16600000
 
+/* GSBI UART devices */
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
 
 /* GSBI QUP devices */
@@ -89,6 +90,34 @@ struct platform_device apq8064_device_uart_gsbi3 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi3),
 	.resource	= resources_uart_gsbi3,
+};
+
+static struct resource resources_qup_i2c_gsbi4[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI4_PHYS,
+		.end	= MSM_GSBI4_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI4_QUP_PHYS,
+		.end	= MSM_GSBI4_QUP_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI4_QUP_IRQ,
+		.end	= GSBI4_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device apq8064_device_qup_i2c_gsbi4 = {
+	.name		= "qup_i2c",
+	.id		= 4,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi4),
+	.resource	= resources_qup_i2c_gsbi4,
 };
 
 static struct resource resources_qup_spi_gsbi5[] = {
@@ -440,11 +469,16 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("gsbi_uart_clk",	GSBI5_UART_CLK,		NULL, OFF),
 	CLK_DUMMY("uartdm_clk",		GSBI6_UART_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_uart_clk",	GSBI7_UART_CLK,		NULL, OFF),
-	CLK_DUMMY("spi_clk",		GSBI1_QUP_CLK,		NULL, OFF),
+	CLK_DUMMY("gsbi_uart_clk",	GSBI8_UART_CLK,		NULL, OFF),
+	CLK_DUMMY("gsbi_uart_clk",	GSBI9_UART_CLK,		NULL, OFF),
+	CLK_DUMMY("gsbi_uart_clk",	GSBI10_UART_CLK,	NULL, OFF),
+	CLK_DUMMY("gsbi_uart_clk",	GSBI11_UART_CLK,	NULL, OFF),
+	CLK_DUMMY("gsbi_uart_clk",	GSBI12_UART_CLK,	NULL, OFF),
+	CLK_DUMMY("gsbi_qup_clk",	GSBI1_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI2_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI3_QUP_CLK,		NULL, OFF),
-	CLK_DUMMY("gsbi_qup_clk",	GSBI4_QUP_CLK,		NULL, OFF),
-	CLK_DUMMY("spi_clk",	GSBI5_QUP_CLK,		 "spi_qsd.0", OFF),
+	CLK_DUMMY("gsbi_qup_clk",	GSBI4_QUP_CLK,	 "qup_i2c.4", OFF),
+	CLK_DUMMY("spi_clk",		GSBI5_QUP_CLK,	 "spi_qsd.0", OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI6_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI7_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("pdm_clk",		PDM_CLK,		NULL, OFF),
@@ -472,11 +506,11 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("sata_rxoob_clk",     SATA_RXOOB_CLK,         NULL, OFF),
 	CLK_DUMMY("sata_pmalive_clk",   SATA_PMALIVE_CLK,       NULL, OFF),
 	CLK_DUMMY("sata_phy_ref_clk",   SATA_PHY_REF_CLK,       NULL, OFF),
-	CLK_DUMMY("spi_pclk",		GSBI1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("gsbi_pclk",		GSBI1_P_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI2_P_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI3_P_CLK,
 						  "msm_serial_hsl.0", OFF),
-	CLK_DUMMY("gsbi_pclk",		GSBI4_P_CLK,		NULL, OFF),
+	CLK_DUMMY("gsbi_pclk",		GSBI4_P_CLK,	 "qup_i2c.4", OFF),
 	CLK_DUMMY("spi_pclk",		GSBI5_P_CLK,	 "spi_qsd.0", OFF),
 	CLK_DUMMY("uartdm_pclk",	GSBI6_P_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI7_P_CLK,		NULL, OFF),

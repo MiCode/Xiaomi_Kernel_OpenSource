@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/irq.h>
+#include <linux/i2c.h>
 #include <linux/msm_ssbi.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -75,6 +76,7 @@ static void __init apq8064_init_irq(void)
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_uart_gsbi3,
+	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
@@ -110,12 +112,26 @@ static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 	},
 };
 
+static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+	.clk = "gsbi_qup_clk",
+	.pclk = "gsbi_pclk",
+};
+
+static void __init apq8064_i2c_init(void)
+{
+	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
+					&apq8064_i2c_qup_gsbi4_pdata;
+}
+
 static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	msm_clock_init(&apq8064_dummy_clock_init_data);
 	gpiomux_init();
+	apq8064_i2c_init();
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
