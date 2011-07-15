@@ -922,6 +922,7 @@ static irqreturn_t pm8058_chg_auto_chgdone_handler(int irq, void *dev_id)
 {
 	dev_info(pm8058_chg.dev, "%s waiting a sec to confirm\n",
 		__func__);
+	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
 	pm8058_chg_disable_irq(VBATDET_IRQ);
 	if (!delayed_work_pending(&pm8058_chg.chg_done_check_work)) {
 		schedule_delayed_work(&pm8058_chg.chg_done_check_work,
@@ -1173,7 +1174,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 	} else {
 		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_auto_chgdone_handler,
-				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				  IRQF_TRIGGER_RISING,
 				  res->name, NULL);
 		if (ret < 0) {
 			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
@@ -1400,6 +1401,16 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 	int ret;
 
 	dev_info(pm8058_chg.dev, "%s stopping charging\n", __func__);
+
+	/* disable the irqs enabled while charging */
+	pm8058_chg_disable_irq(AUTO_CHGFAIL_IRQ);
+	pm8058_chg_disable_irq(CHGHOT_IRQ);
+	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
+	pm8058_chg_disable_irq(FASTCHG_IRQ);
+	pm8058_chg_disable_irq(CHG_END_IRQ);
+	pm8058_chg_disable_irq(VBATDET_IRQ);
+	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
+
 	cancel_delayed_work_sync(&pm8058_chg.veoc_begin_work);
 	cancel_delayed_work_sync(&pm8058_chg.check_vbat_low_work);
 	cancel_delayed_work_sync(&pm8058_chg.chg_done_check_work);
@@ -1417,14 +1428,6 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 	pm8058_chg.waiting_for_veoc = 0;
 	pm8058_chg.waiting_for_topoff = 0;
 
-	/* disable the irqs enabled while charging */
-	pm8058_chg_disable_irq(AUTO_CHGFAIL_IRQ);
-	pm8058_chg_disable_irq(CHGHOT_IRQ);
-	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
-	pm8058_chg_disable_irq(FASTCHG_IRQ);
-	pm8058_chg_disable_irq(CHG_END_IRQ);
-	pm8058_chg_disable_irq(VBATDET_IRQ);
-	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
 	if (pm8058_chg.voter)
 		msm_xo_mode_vote(pm8058_chg.voter, MSM_XO_MODE_OFF);
 
