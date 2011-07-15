@@ -15,7 +15,6 @@
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 #include <mach/clk.h>
-#include <mach/msm_reqs.h>
 #include <linux/interrupt.h>
 #include "vidc_type.h"
 #include "vcd_res_tracker.h"
@@ -32,23 +31,12 @@ static unsigned int mfc_clk_freq_table[3] = {
 	61440000, 122880000, 170667000
 };
 
-#ifndef CONFIG_MSM_NPA_SYSTEM_BUS
 static unsigned int axi_clk_freq_table_enc[2] = {
 	122880, 192000
 };
 static unsigned int axi_clk_freq_table_dec[2] = {
 	122880, 192000
 };
-#else
-static unsigned int axi_clk_freq_table_enc[2] = {
-	MSM_AXI_FLOW_VIDEO_RECORDING_720P,
-	MSM_AXI_FLOW_VIDEO_RECORDING_720P
-};
-static unsigned int axi_clk_freq_table_dec[2] = {
-	MSM_AXI_FLOW_VIDEO_PLAYBACK_720P,
-	MSM_AXI_FLOW_VIDEO_PLAYBACK_720P
-};
-#endif
 
 static struct res_trk_context resource_context;
 

@@ -17,7 +17,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
 #include <mach/clk.h>
-#include <mach/msm_reqs.h>
 #include <mach/msm_memtypes.h>
 #include <linux/interrupt.h>
 #include <linux/memory_alloc.h>

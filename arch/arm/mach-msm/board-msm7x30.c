@@ -82,7 +82,6 @@
 #include "spm.h"
 #include <mach/dal_axi.h>
 #include <mach/msm_serial_hs.h>
-#include <mach/msm_reqs.h>
 #include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/sdio_al.h>

@@ -29,19 +29,13 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <mach/msm_reqs.h>
 
 #define TVENC_C
 #include "tvenc.h"
 #include "msm_fb.h"
 #include "mdp4.h"
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-/* NPA Flow ID */
-#define MSM_SYSTEM_BUS_RATE	MSM_AXI_FLOW_MDP_DTV_720P_2BPP
-#else
 /* AXI rate in KHz */
 #define MSM_SYSTEM_BUS_RATE	128000000
-#endif
 
 static int tvenc_probe(struct platform_device *pdev);
 static int tvenc_remove(struct platform_device *pdev);

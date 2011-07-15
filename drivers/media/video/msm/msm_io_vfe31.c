@@ -93,17 +93,10 @@
 #define	CAMIO_VFE_CLK_SNAP			122880000
 #define	CAMIO_VFE_CLK_PREV			122880000
 
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-/* NPA Flow IDs */
-#define MSM_AXI_QOS_PREVIEW     MSM_AXI_FLOW_CAMERA_PREVIEW_HIGH
-#define MSM_AXI_QOS_SNAPSHOT    MSM_AXI_FLOW_CAMERA_SNAPSHOT_12MP
-#define MSM_AXI_QOS_RECORDING   MSM_AXI_FLOW_CAMERA_RECORDING_720P
-#else
 /* AXI rates in KHz */
 #define MSM_AXI_QOS_PREVIEW     192000
 #define MSM_AXI_QOS_SNAPSHOT    192000
 #define MSM_AXI_QOS_RECORDING   192000
-#endif
 
 static struct clk *camio_vfe_mdc_clk;
 static struct clk *camio_mdc_clk;

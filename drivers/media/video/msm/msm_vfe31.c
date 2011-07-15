@@ -17,7 +17,6 @@
 #include <linux/io.h>
 #include <mach/irqs.h>
 #include <mach/camera.h>
-#include <mach/msm_reqs.h>
 #include <asm/atomic.h>
 
 #include "msm_vfe31.h"

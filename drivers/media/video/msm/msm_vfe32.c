@@ -17,7 +17,6 @@
 #include <linux/atomic.h>
 #include <mach/irqs.h>
 #include <mach/camera.h>
-#include <mach/msm_reqs.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 

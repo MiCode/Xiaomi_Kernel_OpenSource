@@ -16,7 +16,6 @@
 #include <mach/clk.h>
 #include <linux/io.h>
 #include <linux/android_pmem.h>
-#include <mach/msm_reqs.h>
 #include <mach/camera.h>
 #include <mach/msm_subsystem_map.h>
 
@@ -24,13 +23,8 @@
 #include "msm_gemini_common.h"
 #include "msm_gemini_hw.h"
 
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-/* NPA Flow ID */
-#define MSM_SYSTEM_BUS_RATE	MSM_AXI_FLOW_JPEG_12MP
-#else
 /* AXI rate in KHz */
 #define MSM_SYSTEM_BUS_RATE	160000
-#endif
 
 void msm_gemini_platform_p2v(struct file  *file,
 				struct msm_mapped_buffer **msm_buffer)

@@ -17,7 +17,6 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include "msm_vpe1.h"
-#include <mach/msm_reqs.h>
 #include <linux/pm_qos_params.h>
 #include <linux/clk.h>
 #include <mach/clk.h>

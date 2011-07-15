@@ -29,7 +29,6 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <mach/msm_reqs.h>
 
 #include "msm_fb.h"
 
@@ -105,15 +104,11 @@ static int lcdc_on(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-	pm_qos_rate = MSM_AXI_FLOW_MDP_LCDC_WVGA_2BPP;
-#else
 	if (panel_pixclock_freq > 65000000)
 		/* pm_qos_rate should be in Khz */
 		pm_qos_rate = panel_pixclock_freq / 1000 ;
 	else
 		pm_qos_rate = 65000;
-#endif
 
 	if (mdp_rev != MDP_REV_303) {
 		if (mfd->ebi1_clk) {
