@@ -563,7 +563,7 @@ static int smd_pkt_dummy_probe(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < NUM_SMD_PKT_PORTS; i++) {
-		if (!strcmp(pdev->name, smd_ch_name[i])) {
+		if (!strncmp(pdev->name, smd_ch_name[i], SMD_MAX_CH_NAME_LEN)) {
 			complete_all(&smd_pkt_devp[i]->ch_allocated);
 			break;
 		}
@@ -612,7 +612,8 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			** Loopback channel to be allocated at the modem. Since
 			** the wait need to be done atmost once, using msleep
 			** doesn't degrade the performance. */
-			if (!strcmp(smd_ch_name[smd_pkt_devp->i], "LOOPBACK")) {
+			if (!strncmp(smd_ch_name[smd_pkt_devp->i], "LOOPBACK",
+						SMD_MAX_CH_NAME_LEN)) {
 				if (!is_modem_smsm_inited())
 					msleep(5000);
 				smsm_change_state(SMSM_APPS_STATE,
