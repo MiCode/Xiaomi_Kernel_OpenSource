@@ -1669,24 +1669,11 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 					(!decoder->progressive_only),
 					decoder->hdr.decoding, NULL);
 	} else {
-		if (min_dpb >= decoder->min_dpb_num ||
-			decoder->idr_only_decoding) {
-			frame_size = &decoder->frame_size;
-			output_buf_req = &decoder->actual_output_buf_req;
-			input_buf_req = &decoder->actual_input_buf_req;
-			min_dpb = decoder->min_dpb_num;
-			y_cb_cr_size = decoder->y_cb_cr_size;
-		} else {
-			u32 max_dpb_size;
-
-			max_dpb_size = DDL_NO_OF_MB(
-				decoder->client_frame_size.stride,
-				decoder->client_frame_size.scan_lines);
-			max_dpb_size *= (decoder->min_dpb_num - 2);
-			DDL_MSG_ERROR("Error: H264MaxDpbSizeExceeded: %d > %d",
-				max_dpb_size, MAX_DPB_SIZE_L4PT0_MBS);
-			return false;
-		}
+		frame_size = &decoder->frame_size;
+		output_buf_req = &decoder->actual_output_buf_req;
+		input_buf_req = &decoder->actual_input_buf_req;
+		min_dpb = decoder->min_dpb_num;
+		y_cb_cr_size = decoder->y_cb_cr_size;
 	}
 	memset(output_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
