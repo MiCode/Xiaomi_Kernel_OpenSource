@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,8 @@
 #ifndef __RTC_PM8058_H__
 #define __RTC_PM8058_H__
 
-struct pm8058_rtc_pdata {
-	bool rtc_write_enable;
+struct pm8058_rtc_platform_data {
+	bool rtc_alarm_powerup;
 };
 
 #endif /* __RTC_PM8058_H__ */
