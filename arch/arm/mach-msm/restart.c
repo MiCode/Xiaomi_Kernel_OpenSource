@@ -171,7 +171,7 @@ void arch_reset(char mode, const char *cmd)
 	__raw_writel(1, WDT0_RST);
 	__raw_writel(5*0x31F3, WDT0_BARK_TIME);
 	__raw_writel(0x31F3, WDT0_BITE_TIME);
-	__raw_writel(3, WDT0_EN);
+	__raw_writel(1, WDT0_EN);
 	secure_writel(3, MSM_TCSR_BASE + TCSR_WDT_CFG);
 
 	mdelay(10000);
