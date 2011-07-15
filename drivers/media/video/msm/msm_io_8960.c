@@ -225,6 +225,27 @@ static struct msm_bus_vectors cam_snapshot_vectors[] = {
 	},
 };
 
+static struct msm_bus_vectors cam_zsl_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
+	},
+};
+
 static struct msm_bus_paths cam_bus_client_config[] = {
 	{
 		ARRAY_SIZE(cam_init_vectors),
@@ -241,6 +262,10 @@ static struct msm_bus_paths cam_bus_client_config[] = {
 	{
 		ARRAY_SIZE(cam_snapshot_vectors),
 		cam_snapshot_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_zsl_vectors),
+		cam_zsl_vectors,
 	},
 };
 
@@ -1348,6 +1373,14 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 3);
 			CDBG("%s: S_CAPTURE rc = %d\n", __func__, rc);
+		} else
+			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+		break;
+	case S_ZSL:
+		if (bus_perf_client) {
+			rc = msm_bus_scale_client_update_request(
+				bus_perf_client, 4);
+			CDBG("%s: S_ZSL rc = %d\n", __func__, rc);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;

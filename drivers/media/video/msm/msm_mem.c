@@ -330,7 +330,7 @@ uint8_t msm_pmem_region_lookup_3(struct msm_cam_v4l2_device *pcam, int idx,
 			mem = vb2_plane_cookie(q->bufs[i], 0);
 			if (!mem) {
 				pr_err("%s mem is null. Return ", __func__);
-				break;
+				continue;
 			}
 			reg->paddr = mem->msm_buffer->iova[0];
 			D("%s paddr for buf %d is 0x%p\n", __func__,
