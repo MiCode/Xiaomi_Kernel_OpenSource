@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -26,8 +28,6 @@
 
 #define FSM_XO_DEVICE_READY	0x01
 #define FSM_XO_DEVICE_OFF	0x00
-
-#define pr_fmt(fmt) "%s: " fmt, __func__
 
 /* enum for TCXO clock output buffer definition */
 enum clk_buffer_type {
