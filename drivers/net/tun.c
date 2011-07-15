@@ -2879,6 +2879,12 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
 	int ret;
 	bool do_notify = false;
 
+#ifdef CONFIG_ANDROID_PARANOID_NETWORK
+	if (cmd != TUNGETIFF && !capable(CAP_NET_ADMIN)) {
+		return -EPERM;
+	}
+#endif
+
 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE ||
 	    (_IOC_TYPE(cmd) == SOCK_IOC_TYPE && cmd != SIOCGSKNS)) {
 		if (copy_from_user(&ifr, argp, ifreq_len))
