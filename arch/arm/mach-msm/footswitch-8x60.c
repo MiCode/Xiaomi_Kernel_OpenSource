@@ -575,7 +575,8 @@ static int __init late_footswitch_init(void)
 	/* Turn off all registered but unused footswitches. */
 	for (i = 0; i < ARRAY_SIZE(footswitches); i++)
 		if (footswitches[i].rdev && !footswitches[i].is_claimed)
-			footswitch_disable(footswitches[i].rdev);
+			footswitches[i].rdev->desc->ops->
+				disable(footswitches[i].rdev);
 	mutex_unlock(&claim_lock);
 
 	return 0;
