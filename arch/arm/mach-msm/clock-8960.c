@@ -55,7 +55,6 @@
 #define GSBIn_RESET_REG(n)			REG(0x29DC+(0x20*((n)-1)))
 #define GSBIn_UART_APPS_MD_REG(n)		REG(0x29D0+(0x20*((n)-1)))
 #define GSBIn_UART_APPS_NS_REG(n)		REG(0x29D4+(0x20*((n)-1)))
-#define LPASS_XO_SRC_CLK_CTL_REG		REG(0x2EC0)
 #define PDM_CLK_NS_REG				REG(0x2CC0)
 #define BB_PLL_ENA_SC0_REG			REG(0x34C0)
 #define BB_PLL0_STATUS_REG			REG(0x30D8)
@@ -199,8 +198,6 @@
 #define LCC_PCM_NS_REG				REG_LPA(0x0054)
 #define LCC_PCM_STATUS_REG			REG_LPA(0x005C)
 #define LCC_PLL0_STATUS_REG			REG_LPA(0x0018)
-#define LCC_PRI_PLL_CLK_CTL_REG			REG_LPA(0x00C4)
-#define LCC_PXO_SRC_CLK_CTL_REG			REG_LPA(0x00B4)
 #define LCC_SPARE_I2S_MIC_MD_REG		REG_LPA(0x007C)
 #define LCC_SPARE_I2S_MIC_NS_REG		REG_LPA(0x0078)
 #define LCC_SPARE_I2S_MIC_STATUS_REG		REG_LPA(0x0080)
@@ -3939,11 +3936,6 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 
 static void __init reg_init(void)
 {
-	/* Setup LPASS toplevel muxes */
-	writel_relaxed(0x15, LPASS_XO_SRC_CLK_CTL_REG); /* Select PXO */
-	writel_relaxed(0x1, LCC_PXO_SRC_CLK_CTL_REG); /* Select PXO */
-	writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG); /* Select PLL4 */
-
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel_relaxed(0, SW_RESET_ALL_REG);
 
