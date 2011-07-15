@@ -16,6 +16,7 @@
 #define _VIDEOBUF2_PMEM_CONTIG_H
 
 #include <media/videobuf2-core.h>
+#include <mach/msm_subsystem_map.h>
 
 struct videobuf2_mapping {
 	unsigned int count;
@@ -35,6 +36,8 @@ struct videobuf2_contig_pmem {
 	int dirty;
 	unsigned int count;
 	void *alloc_ctx;
+	struct msm_mapped_buffer *msm_buffer;
+	int subsys_id;
 };
 void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					enum v4l2_buf_type type,
@@ -48,6 +51,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					uint32_t yoffset, uint32_t cbcroffset,
 					uint32_t addr_offset, int path);
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem);
-int videobuf2_to_pmem_contig(struct vb2_buffer *buf, unsigned int plane_no);
+unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *buf,
+					unsigned int plane_no);
 
 #endif /* _VIDEOBUF2_PMEM_CONTIG_H */

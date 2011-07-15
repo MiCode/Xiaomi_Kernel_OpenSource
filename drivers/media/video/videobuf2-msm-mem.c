@@ -29,7 +29,7 @@
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_camera.h>
 #include <mach/memory.h>
-
+#include <mach/msm_subsystem_map.h>
 #include <media/videobuf2-core.h>
 
 #define MAGIC_PMEM 0x0733ac64
@@ -82,6 +82,8 @@ static const struct vm_operations_struct videobuf2_vm_ops = {
 static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 {
 	struct videobuf2_contig_pmem *mem;
+	unsigned int flags = 0;
+	long rc;
 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
 	if (!mem)
 		return ERR_PTR(-ENOMEM);
@@ -96,13 +98,28 @@ static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 		kfree(mem);
 		return ERR_PTR(-ENOMEM);
 	}
+	flags = MSM_SUBSYSTEM_MAP_IOVA;
+	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
+	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, mem->size,
+					flags, &(mem->subsys_id), 1);
+	if (IS_ERR((void *)mem->msm_buffer)) {
+		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
+		rc = PTR_ERR((void *)mem->msm_buffer);
+		msm_mem_free(mem->phyaddr);
+		kfree(mem);
+		return ERR_PTR(-ENOMEM);
+	}
 	return mem;
 }
 static void msm_vb2_mem_ops_put(void *buf_priv)
 {
 	struct videobuf2_contig_pmem *mem = buf_priv;
-	if (!mem->is_userptr)
+	if (!mem->is_userptr) {
+		D("%s Freeing memory ", __func__);
+		if (msm_subsystem_unmap_buffer(mem->msm_buffer) < 0)
+			D("%s unmapped memory\n", __func__);
 		msm_mem_free(mem->phyaddr);
+	}
 	kfree(mem);
 }
 int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
@@ -133,6 +150,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	unsigned long kvstart;
 	unsigned long len;
 	int rc;
+	unsigned int flags = 0;
 
 	if (mem->phyaddr != 0)
 		return 0;
@@ -148,12 +166,23 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	mem->y_off = yoffset;
 	mem->cbcr_off = cbcroffset;
 	mem->buffer_type = path;
+	flags = MSM_SUBSYSTEM_MAP_IOVA;
+	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
+	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, mem->size,
+					flags, &(mem->subsys_id), 1);
+	if (IS_ERR((void *)mem->msm_buffer)) {
+		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
+		put_pmem_file(mem->file);
+		return PTR_ERR((void *)mem->msm_buffer);
+	}
 	return rc;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
 
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem)
 {
+	if (msm_subsystem_unmap_buffer(mem->msm_buffer) < 0)
+		D("%s unmapped memory\n", __func__);
 	if (mem->is_userptr)
 		put_pmem_file(mem->file);
 	mem->is_userptr = 0;
@@ -206,7 +235,6 @@ static int msm_vb2_mem_ops_mmap(void *buf_priv, struct vm_area_struct *vma)
 	D("mem = 0x%x\n", (u32)mem);
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
-
 	/* Try to remap memory */
 	size = vma->vm_end - vma->vm_start;
 	size = (size < mem->size) ? size : mem->size;
@@ -261,13 +289,14 @@ void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 }
 EXPORT_SYMBOL_GPL(videobuf2_queue_pmem_contig_init);
 
-int videobuf2_to_pmem_contig(struct vb2_buffer *vb, unsigned int plane_no)
+unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *vb,
+				unsigned int plane_no)
 {
 	struct videobuf2_contig_pmem *mem;
 	mem = vb2_plane_cookie(vb, plane_no);
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
-	return mem->phyaddr;
+	return mem->msm_buffer->iova[0];
 }
 EXPORT_SYMBOL_GPL(videobuf2_to_pmem_contig);
 
