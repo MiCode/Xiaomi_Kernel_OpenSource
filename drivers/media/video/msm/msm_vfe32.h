@@ -882,8 +882,8 @@ struct vfe32_cmd_type {
 struct vfe32_free_buf {
 	struct list_head node;
 	uint32_t paddr;
-	uint32_t y_off;
-	uint32_t cbcr_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
 };
 
 struct vfe32_output_ch {

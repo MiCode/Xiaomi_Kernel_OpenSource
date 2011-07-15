@@ -23,8 +23,9 @@ struct videobuf_contig_pmem {
 	int phyaddr;
 	unsigned long size;
 	int is_userptr;
-	uint32_t y_off;
-	uint32_t cbcr_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
+	uint32_t planar2_off;
 	int buffer_type;
 	struct file *file;
 };

@@ -369,8 +369,9 @@ struct msm_pmem_info {
 	void *vaddr;
 	uint32_t offset;
 	uint32_t len;
-	uint32_t y_off;
-	uint32_t cbcr_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
+	uint32_t planar2_off;
 	uint8_t active;
 };
 
@@ -416,8 +417,9 @@ struct msm_frame {
 	int type;
 	unsigned long buffer;
 	uint32_t phy_offset;
-	uint32_t y_off;
-	uint32_t cbcr_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
+	uint32_t planar2_off;
 	int fd;
 
 	void *cropinfo;
@@ -444,10 +446,10 @@ struct msm_st_crop {
 };
 
 struct msm_st_half {
-	uint32_t buf_y_off;
-	uint32_t buf_cbcr_off;
-	uint32_t buf_y_stride;
-	uint32_t buf_cbcr_stride;
+	uint32_t buf_p0_off;
+	uint32_t buf_p1_off;
+	uint32_t buf_p0_stride;
+	uint32_t buf_p1_stride;
 	uint32_t pix_x_off;
 	uint32_t pix_y_off;
 	struct msm_st_crop stCropInfo;
