@@ -3690,7 +3690,7 @@ static unsigned measure_clk_get_rate(struct clk *clk)
 	}
 
 	/* Route dbg_hs_clk to PLLTEST.  300mV single-ended amplitude. */
-	writel_relaxed(0x3CF8, PLLTEST_PAD_CFG_REG);
+	writel_relaxed(0x38F8, PLLTEST_PAD_CFG_REG);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return ret;
