@@ -171,6 +171,8 @@ static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
+	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -179,11 +181,19 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* Microphone path */
 	{"AMIC1", NULL, "MIC BIAS1 Internal"},
-	{"DMIC1 IN", NULL, "MIC BIAS1 External"},
-	{"AMIC2", NULL, "MIC BIAS2 External"},
 	{"MIC BIAS1 Internal", NULL, "Handset Mic"},
-	{"MIC BIAS1 External", NULL, "Digital Mic1"},
+
+	{"AMIC2", NULL, "MIC BIAS2 External"},
 	{"MIC BIAS2 External", NULL, "Headset Mic"},
+
+	{"AMIC3", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "ANCRight Headset Mic"},
+
+	{"AMIC4", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "ANCLeft Headset Mic"},
+
+	{"DMIC1 IN", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic1"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
