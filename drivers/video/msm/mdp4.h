@@ -341,10 +341,11 @@ struct mdp4_statistic {
 static inline int mdp4_overlay_writeback_setup(struct fb_info *fbi,
 		struct mdp4_overlay_pipe *pipe, uint8 *buf, int bpp)
 {
+	struct msm_fb_data_type *mfd = fbi->par;
 	int off;
 
 	pipe->blt_base = (ulong) buf;
-	off = ALIGN(fbi->var.xres, 32) * fbi->var.yres * bpp * 2;
+	off = ALIGN(fbi->var.xres, 32) * fbi->var.yres * bpp * mfd->fb_page;
 	off += (1920 * 1080 * 2 * 1); /* hdmi */
 	pipe->blt_base += off;
 
