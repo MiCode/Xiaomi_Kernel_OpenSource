@@ -413,9 +413,9 @@ struct hci_fm_dbg_param_rsp {
 #define hci_req_unlock(d)	mutex_unlock(&d->req_lock)
 
 /* FM RDS */
-#define RDS_PTYPE 0
-#define RDS_PID_LOWER 2
-#define RDS_PID_HIGHER 3
+#define RDS_PTYPE 2
+#define RDS_PID_LOWER 1
+#define RDS_PID_HIGHER 0
 #define RDS_OFFSET 5
 #define RDS_PS_LENGTH_OFFSET 7
 #define RDS_STRING 8
