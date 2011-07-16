@@ -773,6 +773,8 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
 	u32 vcd_status = VCD_S_SUCCESS;
 	struct vidc_1080p_dec_init_buffers_param init_buf_param;
+	u32 size_y = 0;
+	u32 size_c = 0;
 
 	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_DPB)) {
 		DDL_MSG_ERROR("STATE-CRITICAL");
@@ -800,10 +802,23 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_DPBDONE;
 	ddl->cmd_state = DDL_CMD_DECODE_SET_DPB;
-	vidc_sm_set_allocated_dpb_size(
-		&ddl->shared_mem[ddl->command_channel],
-		decoder->dpb_buf_size.size_y,
-		decoder->dpb_buf_size.size_c);
+	if (decoder->cont_mode) {
+		size_y = ddl_get_yuv_buf_size(decoder->client_frame_size.width,
+				decoder->client_frame_size.height,
+				DDL_YUV_BUF_TYPE_TILE);
+		size_c = ddl_get_yuv_buf_size(decoder->client_frame_size.width,
+				(decoder->client_frame_size.height >> 1),
+				DDL_YUV_BUF_TYPE_TILE);
+		vidc_sm_set_allocated_dpb_size(
+			&ddl->shared_mem[ddl->command_channel],
+			size_y,
+			size_c);
+	} else {
+		vidc_sm_set_allocated_dpb_size(
+			&ddl->shared_mem[ddl->command_channel],
+			decoder->dpb_buf_size.size_y,
+			decoder->dpb_buf_size.size_c);
+	}
 	init_buf_param.cmd_seq_num = ++ddl_context->cmd_seq_num;
 	init_buf_param.inst_id = ddl->instance_id;
 	init_buf_param.shared_mem_addr_offset = DDL_ADDR_OFFSET(
