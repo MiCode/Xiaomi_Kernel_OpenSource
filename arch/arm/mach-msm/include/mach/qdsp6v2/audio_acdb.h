@@ -18,6 +18,12 @@
 
 #define NUM_AUDPROC_BUFFERS	6
 
+enum {
+	RX_CAL,
+	TX_CAL,
+	MAX_AUDPROC_TYPES
+};
+
 struct acdb_cal_block {
 	uint32_t		cal_size;
 	uint32_t		cal_kvaddr;
@@ -37,7 +43,8 @@ struct audproc_buffer_data {
 
 uint32_t get_voice_rx_topology(void);
 uint32_t get_voice_tx_topology(void);
-uint32_t get_adm_topology(void);
+uint32_t get_adm_rx_topology(void);
+uint32_t get_adm_tx_topology(void);
 uint32_t get_asm_topology(void);
 void get_all_voice_cal(struct acdb_cal_block *cal_block);
 void get_all_cvp_cal(struct acdb_cal_block *cal_block);

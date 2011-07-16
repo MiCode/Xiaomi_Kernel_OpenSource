@@ -45,9 +45,6 @@ struct audio_dev_ctrl_state {
 static struct audio_dev_ctrl_state audio_dev_ctrl;
 struct event_listner event;
 
-#define PLAYBACK 0x1
-#define LIVE_RECORDING 0x2
-#define NON_LIVE_RECORDING 0x3
 #define MAX_COPP_DEVICES 4
 
 struct session_freq {

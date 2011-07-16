@@ -30,6 +30,11 @@
    per clients, MAX_BIT_PER_CLIENT >= MAX_SESSIONS */
 #define MAX_BIT_PER_CLIENT 16
 
+/* Path ID used by dev ctrl & Q6 */
+#define PLAYBACK 0x1
+#define LIVE_RECORDING 0x2
+#define NON_LIVE_RECORDING 0x3
+
 #define VOICE_STATE_INVALID 0x0
 #define VOICE_STATE_INCALL 0x1
 #define VOICE_STATE_OFFCALL 0x2

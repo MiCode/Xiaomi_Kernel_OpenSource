@@ -29,12 +29,6 @@
 #define ACDB_BLOCK_SIZE		4096
 #define NUM_VOCPROC_BLOCKS	18
 
-enum {
-	RX_CAL,
-	TX_CAL,
-	MAX_AUDPROC_TYPES
-};
-
 struct acdb_data {
 	struct mutex		acdb_mutex;
 
@@ -42,8 +36,8 @@ struct acdb_data {
 	struct acdb_cal_block	anc_cal;
 
 	/* AudProc Cal */
-	uint32_t		adm_topology;
 	uint32_t		asm_topology;
+	uint32_t		adm_topology[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block	audproc_cal[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block	audstrm_cal[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block	audvol_cal[MAX_AUDPROC_TYPES];
@@ -98,14 +92,24 @@ void store_voice_tx_topology(uint32_t topology)
 	acdb_data.voice_tx_topology = topology;
 }
 
-uint32_t get_adm_topology(void)
+uint32_t get_adm_rx_topology(void)
 {
-	return acdb_data.adm_topology;
+	return acdb_data.adm_topology[RX_CAL];
 }
 
-void store_adm_topology(uint32_t topology)
+void store_adm_rx_topology(uint32_t topology)
 {
-	acdb_data.adm_topology = topology;
+	acdb_data.adm_topology[RX_CAL] = topology;
+}
+
+uint32_t get_adm_tx_topology(void)
+{
+	return acdb_data.adm_topology[TX_CAL];
+}
+
+void store_adm_tx_topology(uint32_t topology)
+{
+	acdb_data.adm_topology[TX_CAL] = topology;
 }
 
 uint32_t get_asm_topology(void)
@@ -709,13 +713,21 @@ static long acdb_ioctl(struct file *f,
 		}
 		store_voice_tx_topology(topology);
 		goto done;
-	case AUDIO_SET_ADM_TOPOLOGY:
+	case AUDIO_SET_ADM_RX_TOPOLOGY:
 		if (copy_from_user(&topology, (void *)arg,
 				sizeof(topology))) {
 			pr_err("%s: fail to copy topology!\n", __func__);
 			result = -EFAULT;
 		}
-		store_adm_topology(topology);
+		store_adm_rx_topology(topology);
+		goto done;
+	case AUDIO_SET_ADM_TX_TOPOLOGY:
+		if (copy_from_user(&topology, (void *)arg,
+				sizeof(topology))) {
+			pr_err("%s: fail to copy topology!\n", __func__);
+			result = -EFAULT;
+		}
+		store_adm_tx_topology(topology);
 		goto done;
 	case AUDIO_SET_ASM_TOPOLOGY:
 		if (copy_from_user(&topology, (void *)arg,

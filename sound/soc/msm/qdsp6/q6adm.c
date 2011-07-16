@@ -344,7 +344,12 @@ int adm_open_mixer(int port_id, int path, int rate,
 		open.endpoint_id1 = port_id;
 		open.endpoint_id2 = 0xFFFF;
 
-		open.topology_id = get_adm_topology();
+		/* convert path to acdb path */
+		if (path == PLAYBACK)
+			open.topology_id = get_adm_rx_topology();
+		else
+			open.topology_id = get_adm_tx_topology();
+
 		if (open.topology_id  == 0)
 			open.topology_id = topology;
 
@@ -438,7 +443,12 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.endpoint_id1 = port_id;
 		open.endpoint_id2 = 0xFFFF;
 
-		open.topology_id = get_adm_topology();
+		/* convert path to acdb path */
+		if (path == PLAYBACK)
+			open.topology_id = get_adm_rx_topology();
+		else
+			open.topology_id = get_adm_tx_topology();
+
 		if (open.topology_id  == 0)
 			open.topology_id = topology;
 
