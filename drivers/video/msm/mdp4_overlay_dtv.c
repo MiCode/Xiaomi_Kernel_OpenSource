@@ -115,8 +115,13 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		format = MDP_RGB_565;
 	else if (bpp == 3)
 		format = MDP_RGB_888;
-	else
+	else {
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+		format = MSMFB_DEFAULT_TYPE;
+#else
 		format = MDP_ARGB_8888;
+#endif
+	}
 
 	if (dtv_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(format);
@@ -143,7 +148,12 @@ int mdp4_dtv_on(struct platform_device *pdev)
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+	if (is_mdp4_hw_reset()) {
+		mdp4_hw_init();
+		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+	}
+#endif
 	pipe->src_height = fbi->var.yres;
 	pipe->src_width = fbi->var.xres;
 	pipe->src_h = fbi->var.yres;

@@ -3002,8 +3002,13 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	 * at panel_info
 	 *
 	 */
-	if (type == HDMI_PANEL || type == DTV_PANEL || type == TV_PANEL)
+	if (type == HDMI_PANEL || type == DTV_PANEL || type == TV_PANEL) {
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+		pdata->panel_info.fb_num = 2;
+#else
 		pdata->panel_info.fb_num = 1;
+#endif
+	}
 	else
 		pdata->panel_info.fb_num = MSM_FB_NUM;
 
