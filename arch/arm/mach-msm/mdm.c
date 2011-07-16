@@ -164,6 +164,7 @@ static long charm_modem_ioctl(struct file *filp, unsigned int cmd,
 			charm_boot_status = -EIO;
 		else
 			charm_boot_status = 0;
+		charm_ready = 1;
 		complete(&charm_boot);
 		break;
 	case RAM_DUMP_DONE:
@@ -246,7 +247,6 @@ static irqreturn_t charm_status_change(int irq, void *dev_id)
 		queue_work(charm_queue, &charm_status_work);
 	} else if (gpio_get_value(MDM2AP_STATUS) == 1) {
 		CHARM_DBG("%s: charm is now ready\n", __func__);
-		charm_ready = 1;
 	}
 	return IRQ_HANDLED;
 }
