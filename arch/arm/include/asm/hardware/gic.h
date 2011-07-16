@@ -43,6 +43,17 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq);
 void gic_enable_ppi(unsigned int);
 bool gic_is_spi_pending(unsigned int irq);
 void gic_clear_spi_pending(unsigned int irq);
+
+struct gic_chip_data {
+	unsigned int irq_offset;
+	void __iomem *dist_base;
+	void __iomem *cpu_base;
+	unsigned int max_irq;
+#ifdef CONFIG_PM
+	unsigned int wakeup_irqs[32];
+	unsigned int enabled_irqs[32];
+#endif
+};
 #endif
 
 #endif
