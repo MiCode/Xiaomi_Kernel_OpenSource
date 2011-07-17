@@ -235,25 +235,30 @@ static const struct snd_soc_dapm_route fluid_audio_map[] = {
 };
 
 static const char *spk_function[] = {"Off", "On"};
+static const char *slim0_rx_ch_text[] = {"One", "Two"};
+static const char *slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
+
 static const struct soc_enum msm8960_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
+	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 };
 
 static int msm8960_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s: msm8960_slim_0_rx_ch  = %d", __func__,
+	pr_debug("%s: msm8960_slim_0_rx_ch  = %d\n", __func__,
 			msm8960_slim_0_rx_ch);
-	ucontrol->value.integer.value[0] = msm8960_slim_0_rx_ch;
+	ucontrol->value.integer.value[0] = msm8960_slim_0_rx_ch - 1;
 	return 0;
 }
 
 static int msm8960_slim_0_rx_ch_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	msm8960_slim_0_rx_ch = ucontrol->value.integer.value[0];
+	msm8960_slim_0_rx_ch = ucontrol->value.integer.value[0] + 1;
 
-	pr_debug("%s: msm8960_slim_0_tx_ch = %d\n", __func__,
+	pr_debug("%s: msm8960_slim_0_rx_ch = %d\n", __func__,
 			msm8960_slim_0_rx_ch);
 	return 1;
 }
@@ -261,16 +266,16 @@ static int msm8960_slim_0_rx_ch_put(struct snd_kcontrol *kcontrol,
 static int msm8960_slim_0_tx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s: msm8960_slim_0_tx_ch  = %d", __func__,
+	pr_debug("%s: msm8960_slim_0_tx_ch  = %d\n", __func__,
 			msm8960_slim_0_tx_ch);
-	ucontrol->value.integer.value[0] = msm8960_slim_0_tx_ch;
+	ucontrol->value.integer.value[0] = msm8960_slim_0_tx_ch - 1;
 	return 0;
 }
 
 static int msm8960_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	msm8960_slim_0_tx_ch = ucontrol->value.integer.value[0];
+	msm8960_slim_0_tx_ch = ucontrol->value.integer.value[0] + 1;
 
 	pr_debug("%s: msm8960_slim_0_tx_ch = %d\n", __func__,
 			msm8960_slim_0_tx_ch);
@@ -281,12 +286,10 @@ static int msm8960_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 static const struct snd_kcontrol_new tabla_msm8960_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm8960_enum[0], msm8960_get_spk,
 		msm8960_set_spk),
-	SOC_SINGLE_EXT("SLIM_0_RX Channels", 0, 0,
-			msm8960_SLIM_0_RX_MAX_CHANNELS, 0,
-			msm8960_slim_0_rx_ch_get, msm8960_slim_0_rx_ch_put),
-	SOC_SINGLE_EXT("SLIM_0_TX Channels", 0, 0,
-			msm8960_SLIM_0_TX_MAX_CHANNELS, 0,
-			msm8960_slim_0_tx_ch_get, msm8960_slim_0_tx_ch_put),
+	SOC_ENUM_EXT("SLIM_0_RX Channels", msm8960_enum[1],
+		msm8960_slim_0_rx_ch_get, msm8960_slim_0_rx_ch_put),
+	SOC_ENUM_EXT("SLIM_0_TX Channels", msm8960_enum[2],
+		msm8960_slim_0_tx_ch_get, msm8960_slim_0_tx_ch_put),
 };
 
 static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
