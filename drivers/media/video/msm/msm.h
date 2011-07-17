@@ -354,7 +354,9 @@ int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 			int msg_type, uint32_t y_phy);
-int msm_mctl_fetch_free_buf(struct msm_cam_media_controller *pmctl,
+int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
+				int path, struct msm_free_buf *free_buf);
+int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 				int path, struct msm_free_buf *free_buf);
 /*Memory(PMEM) functions*/
 int msm_register_pmem(struct hlist_head *ptype, void __user *arg);

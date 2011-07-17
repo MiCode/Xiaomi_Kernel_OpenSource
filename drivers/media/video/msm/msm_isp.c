@@ -171,6 +171,11 @@ static int msm_isp_notify(struct v4l2_subdev *sd, void *arg)
 	struct msm_sync *sync =
 		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
+	struct msm_free_buf free_buf;
+	struct msm_camvfe_params vfe_params;
+	struct msm_vfe_cfg_cmd cfgcmd;
+	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
+	int vfe_id = vdata->evt_msg.msg_id;
 
 	if (!sync) {
 		pr_err("%s: no context in dsp callback.\n", __func__);
@@ -212,13 +217,61 @@ static int msm_isp_notify(struct v4l2_subdev *sd, void *arg)
 		D("%s: qtype %d, general msg, enqueue event_q.\n",
 					__func__, vdata->type);
 		break;
+	case VFE_MSG_V32_START:
+	case VFE_MSG_V32_START_RECORDING:
+		D("%s Got V32_START_*: Getting ping addr id = %d",
+						__func__, vfe_id);
+		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		break;
+	case VFE_MSG_V32_CAPTURE:
+		D("%s Got V32_CAPTURE: getting buffer for id = %d",
+						__func__, vfe_id);
+		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		/* Write the same buffer into PONG */
+		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		break;
+	case VFE_MSG_OUTPUT_IRQ:
+		D("%s Got OUTPUT_IRQ: Getting free buf id = %d",
+						__func__, vfe_id);
+		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		cfgcmd.cmd_type = CMD_CONFIG_FREE_BUF_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		break;
 	default:
 		D("%s: qtype %d not handled\n", __func__, vdata->type);
 		/* fall through, send to config. */
 	}
-
-	D("%s: msm_enqueue event_q\n", __func__);
-	rc = msm_isp_enqueue(&sync->pcam_sync->mctl, vdata, MSM_CAM_Q_VFE_MSG);
+	if (vdata->type != VFE_MSG_V32_START &&
+		vdata->type != VFE_MSG_V32_START_RECORDING &&
+		vdata->type != VFE_MSG_V32_CAPTURE &&
+		vdata->type != VFE_MSG_OUTPUT_IRQ) {
+		D("%s: msm_enqueue event_q\n", __func__);
+		rc = msm_isp_enqueue(&sync->pcam_sync->mctl,
+					vdata, MSM_CAM_Q_VFE_MSG);
+	}
 
 	msm_isp_sync_free(vdata);
 

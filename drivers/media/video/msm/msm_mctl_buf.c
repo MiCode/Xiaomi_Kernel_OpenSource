@@ -211,6 +211,9 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	pcam_inst = vb2_get_drv_priv(vb->vb2_queue);
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
+	mem = vb2_plane_cookie(vb, 0);
+	if (!mem)
+		return;
 	D("%s: inst=0x%x, buf=0x%x, idx=%d\n", __func__,
 	(uint32_t)pcam_inst, (uint32_t)buf, vb->v4l2_buf.index);
 	vb_phyaddr = (unsigned long) videobuf2_to_pmem_contig(vb, 0);
@@ -238,6 +241,12 @@ static int msm_vb2_ops_start_streaming(struct vb2_queue *q)
 
 static int msm_vb2_ops_stop_streaming(struct vb2_queue *q)
 {
+	int rc = 0;
+	struct msm_free_buf *free_buf = NULL;
+	struct msm_cam_v4l2_dev_inst *pcam_inst = vb2_get_drv_priv(q);
+	if (rc != 0)
+		msm_mctl_release_free_buf(&pcam_inst->pcam->mctl,
+					pcam_inst->path, free_buf);
 	return 0;
 }
 
@@ -247,10 +256,7 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_device *pcam = NULL;
 	unsigned long phyaddr = 0;
 	unsigned long flags = 0;
-	int rc;
 	struct vb2_queue *vq = vb->vb2_queue;
-	struct msm_frame frame;
-	struct msm_vfe_cfg_cmd cfgcmd;
 	struct videobuf2_contig_pmem *mem;
 	struct msm_frame_buffer *buf;
 	D("%s\n", __func__);
@@ -268,20 +274,10 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	/* get the physcial address of the buffer */
 	phyaddr = (unsigned long) videobuf2_to_pmem_contig(vb, 0);
 	D("%s buffer type is %d\n", __func__, mem->buffer_type);
-	frame.path = pcam_inst->path;
-	frame.buffer = 0;
-	frame.y_off = mem->y_off;
-	frame.cbcr_off = mem->cbcr_off;
-	/* now release frame to vfe */
-	cfgcmd.cmd_type = CMD_FRAME_BUF_RELEASE;
-	cfgcmd.value    = (void *)&frame;
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
+	D("Inst %p,  >>>ADD>>> Buf 0x%x index %d into free Q",
+		 pcam_inst, (int)phyaddr, vb->v4l2_buf.index);
 	list_add_tail(&buf->list, &pcam_inst->free_vq);
-	/* TBD: need to remove. VFE is going to call
-	   msm_mctl_fetch_free_buf to get free buf.
-	   Work with Shuzhen to hash out details tomorrow */
-	rc = msm_isp_subdev_ioctl(&pcam->mctl.isp_sdev->sd,
-			&cfgcmd, &phyaddr);
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 }
 
@@ -375,23 +371,6 @@ static int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
 	return 0;
 }
 
-static int msm_mctl_get_pcam_inst_idx(int out_put_type)
-{
-	switch (out_put_type) {
-	case OUTPUT_TYPE_T:
-		return MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
-	case OUTPUT_TYPE_S:
-		return MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
-	case OUTPUT_TYPE_V:
-		return MSM_V4L2_EXT_CAPTURE_MODE_VIDEO;
-	case OUTPUT_TYPE_P:
-	  return MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
-	default:
-		return 0;
-	}
-}
-
-
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 					int msg_type, uint32_t y_phy)
 {
@@ -422,6 +401,9 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 			__func__, (uint32_t)y_phy, (uint32_t)buf_phyaddr);
 		return -EINVAL;
 	}
+	D("%s Inst %p, <<<REMOVE<<< buffer 0x%x, index %d"
+		" from free Q", __func__, pcam_inst,
+		buf_phyaddr, buf->vidbuf.v4l2_buf.index);
 	list_del(&buf->list);
 	buf->vidbuf.v4l2_buf.sequence++;
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
@@ -436,27 +418,29 @@ int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam)
 	return 0;
 }
 
-int msm_mctl_fetch_free_buf(struct msm_cam_media_controller *pmctl,
-				int path, struct msm_free_buf *free_buf)
+int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
+				int msg_type, struct msm_free_buf *free_buf)
 {
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	struct videobuf2_contig_pmem *mem;
-	int idx = msm_mctl_get_pcam_inst_idx(path);
 	unsigned long flags = 0;
 	struct msm_frame_buffer *buf = NULL;
-	int rc = -1;
+	int rc = -EINVAL, idx;
 
+	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync, msg_type);
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
 		if (buf->inuse == 0) {
 			mem = vb2_plane_cookie(&buf->vidbuf, 0);
+			if (!mem)
+				continue;
 			free_buf->paddr =
 			(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
 			free_buf->y_off = mem->y_off;
 			free_buf->cbcr_off = mem->cbcr_off;
-			D("%s path=%d,inst=0x%p,idx=%d,paddr=0x%x, "
-				"y_off=%d,cbcroff=%d\n", __func__, path,
+			D("%s idx=%d,inst=0x%p,idx=%d,paddr=0x%x, "
+				"y_off=%d,cbcroff=%d\n", __func__, idx,
 				pcam_inst, buf->vidbuf.v4l2_buf.index,
 				free_buf->paddr, free_buf->y_off,
 				free_buf->cbcr_off);
@@ -466,6 +450,45 @@ int msm_mctl_fetch_free_buf(struct msm_cam_media_controller *pmctl,
 			break;
 		}
 	}
+	if (rc != 0) {
+		free_buf->paddr = 0;
+		pr_err("No free buffer available ");
+	}
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;
 }
+
+int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
+				int msg_type, struct msm_free_buf *free_buf)
+{
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	unsigned long flags = 0;
+	struct msm_frame_buffer *buf = NULL;
+	uint32_t buf_phyaddr = 0;
+	int rc = -EINVAL, idx;
+
+	if (!free_buf)
+		return rc;
+
+	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync, msg_type);
+	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
+	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
+	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+		buf_phyaddr =
+			(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
+		if (free_buf->paddr == buf_phyaddr) {
+			D("%s buf = 0x%x ", __func__, free_buf->paddr);
+			/* mark it free */
+			buf->inuse = 0;
+			rc = 0;
+			break;
+		}
+	}
+
+	if (rc != 0)
+		pr_err("%s invalid buffer address ", __func__);
+
+	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+	return rc;
+}
+

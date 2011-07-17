@@ -305,6 +305,9 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_CFG_ZSL 43
 #define CMD_AXI_CFG_SNAP_VPE 44
 #define CMD_AXI_CFG_SNAP_THUMB_VPE 45
+#define CMD_CONFIG_PING_ADDR 46
+#define CMD_CONFIG_PONG_ADDR 47
+#define CMD_CONFIG_FREE_BUF_ADDR 48
 
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {

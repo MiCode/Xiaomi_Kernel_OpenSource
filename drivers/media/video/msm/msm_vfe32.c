@@ -34,6 +34,24 @@ atomic_t irq_cnt;
 	}								\
 }
 
+#define VFE32_AXI_OFFSET 0x0050
+#define vfe32_get_ch_ping_addr(chn) \
+	(msm_io_r(vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn)))
+#define vfe32_get_ch_pong_addr(chn) \
+	(msm_io_r(vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn) + 4))
+#define vfe32_get_ch_addr(ping_pong, chn) \
+	(((ping_pong) & (1 << (chn))) == 0 ? \
+	vfe32_get_ch_pong_addr(chn) : vfe32_get_ch_ping_addr(chn))
+
+#define vfe32_put_ch_ping_addr(chn, addr) \
+	(msm_io_w((addr), vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn)))
+#define vfe32_put_ch_pong_addr(chn, addr) \
+	(msm_io_w((addr), vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn) + 4))
+#define vfe32_put_ch_addr(ping_pong, chn, addr) \
+	(((ping_pong) & (1 << (chn))) == 0 ?   \
+	vfe32_put_ch_pong_addr((chn), (addr)) : \
+	vfe32_put_ch_ping_addr((chn), (addr)))
+
 static struct vfe32_ctrl_type *vfe32_ctrl;
 static struct msm_camera_io_clk camio_clk;
 static void  *vfe_syncdata;
@@ -576,82 +594,28 @@ static void vfe32_stop(void)
 		vfe32_ctrl->vfebase + VFE_GLOBAL_RESET);
 }
 
-static int vfe32_enqueue_free_buf(struct vfe32_output_ch *outch,
-	uint32_t paddr, uint32_t y_off, uint32_t cbcr_off)
+static void vfe32_subdev_notify(int id, int path)
 {
-	struct vfe32_free_buf *free_buf = NULL;
+	struct msm_vfe_resp *rp;
 	unsigned long flags = 0;
-	free_buf = kmalloc(sizeof(struct vfe32_free_buf), GFP_KERNEL);
-	if (!free_buf)
-		return -ENOMEM;
-
-	spin_lock_irqsave(&outch->free_buf_lock, flags);
-	free_buf->paddr = paddr;
-	free_buf->y_off = y_off;
-	free_buf->cbcr_off = cbcr_off;
-	list_add_tail(&free_buf->node, &outch->free_buf_queue);
-	CDBG("%s: free_buf paddr = 0x%x, y_off = %d, cbcr_off = %d\n",
-		__func__, free_buf->paddr, free_buf->y_off,
-		free_buf->cbcr_off);
-	spin_unlock_irqrestore(&outch->free_buf_lock, flags);
-	return 0;
-}
-
-static struct vfe32_free_buf *vfe32_dequeue_free_buf(
-	struct vfe32_output_ch *outch)
-{
-	unsigned long flags = 0;
-	struct vfe32_free_buf *free_buf = NULL;
-	spin_lock_irqsave(&outch->free_buf_lock, flags);
-	if (!list_empty(&outch->free_buf_queue)) {
-		free_buf = list_first_entry(&outch->free_buf_queue,
-			struct vfe32_free_buf, node);
-		if (free_buf)
-			list_del_init(&free_buf->node);
+	spin_lock_irqsave(&vfe32_ctrl->sd_notify_lock, flags);
+	rp = msm_isp_sync_alloc(sizeof(struct msm_vfe_resp),
+		vfe32_ctrl->syncdata, GFP_ATOMIC);
+	if (!rp) {
+		CDBG("rp: cannot allocate buffer\n");
+		return;
 	}
-	spin_unlock_irqrestore(&outch->free_buf_lock, flags);
-	return free_buf;
-}
-
-static void vfe32_reset_free_buf_queue(
-	struct vfe32_output_ch *outch)
-{
-	unsigned long flags = 0;
-	struct vfe32_free_buf *free_buf = NULL;
-	spin_lock_irqsave(&outch->free_buf_lock, flags);
-	while (!list_empty(&outch->free_buf_queue)) {
-		free_buf = list_first_entry(&outch->free_buf_queue,
-			struct vfe32_free_buf, node);
-		if (free_buf) {
-			list_del_init(&free_buf->node);
-			kfree(free_buf);
-		}
-	}
-	spin_unlock_irqrestore(&outch->free_buf_lock, flags);
-}
-
-static void vfe32_init_free_buf_queues(void)
-{
-	INIT_LIST_HEAD(&vfe32_ctrl->outpath.out0.free_buf_queue);
-	INIT_LIST_HEAD(&vfe32_ctrl->outpath.out1.free_buf_queue);
-	INIT_LIST_HEAD(&vfe32_ctrl->outpath.out2.free_buf_queue);
-	spin_lock_init(&vfe32_ctrl->outpath.out0.free_buf_lock);
-	spin_lock_init(&vfe32_ctrl->outpath.out1.free_buf_lock);
-	spin_lock_init(&vfe32_ctrl->outpath.out2.free_buf_lock);
-}
-
-static void vfe32_reset_free_buf_queues(void)
-{
-	vfe32_reset_free_buf_queue(&vfe32_ctrl->outpath.out0);
-	vfe32_reset_free_buf_queue(&vfe32_ctrl->outpath.out1);
-	vfe32_reset_free_buf_queue(&vfe32_ctrl->outpath.out2);
+	CDBG("vfe32_subdev_notify : msgId = %d\n", id);
+	rp->evt_msg.type   = MSM_CAMERA_MSG;
+	rp->evt_msg.msg_id = path;
+	rp->type	   = id;
+	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_VFE_MSG_EVT, rp);
+	spin_unlock_irqrestore(&vfe32_ctrl->sd_notify_lock, flags);
 }
 
 static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 {
-	int ret;
-	int i;
-	uint32_t *p, *p1, *p2;
+	uint32_t *p, *p1;
 	int32_t *ch_info;
 	struct vfe32_output_ch *outp1, *outp2;
 	struct msm_pmem_region *regp1 = NULL;
@@ -676,7 +640,6 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 
 	CDBG("vfe32_config_axi: mode = %d, bufnum1 = %d, bufnum2 = %d\n",
 		mode, ad->bufnum1, ad->bufnum2);
-
 	switch (mode) {
 
 	case OUTPUT_2: {
@@ -686,21 +649,6 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		outp1 = &(vfe32_ctrl->outpath.out0);
 		vfe32_ctrl->outpath.output_mode |= VFE32_OUTPUT_MODE_PT;
 
-		for (i = 0; i < 2; i++) {
-			p1 = ao + 6 + i;    /* wm0 for y  */
-			*p1 = (regp1->paddr + regp1->info.y_off);
-
-			p1 = ao + 12 + i;  /* wm1 for cbcr */
-			*p1 = (regp1->paddr + regp1->info.cbcr_off);
-			regp1++;
-		}
-		for (i = 2; i < ad->bufnum2; i++) {
-			ret = vfe32_enqueue_free_buf(outp1, regp1->paddr,
-				regp1->info.y_off, regp1->info.cbcr_off);
-			if (ret < 0)
-				return ret;
-			regp1++;
-		}
 	}
 		break;
 
@@ -718,62 +666,6 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		regp2 = &(ad->region[ad->bufnum1]);
 		outp1 = &(vfe32_ctrl->outpath.out0);
 		outp2 = &(vfe32_ctrl->outpath.out1); /* snapshot */
-
-		/*  Parse the buffers!!! */
-		if (ad->bufnum2 == 1) {	/* assuming bufnum1 = bufnum2 */
-			p1 = ao + 6;   /* wm0 ping */
-			*p1++ = (regp1->paddr + regp1->info.y_off);
-			/* this is to duplicate ping address to pong.*/
-			*p1 = (regp1->paddr + regp1->info.y_off);
-			p1 = ao + 30;  /* wm4 ping */
-			*p1++ = (regp1->paddr + regp1->info.cbcr_off);
-			/* this is to duplicate ping address to pong.*/
-			*p1 = (regp1->paddr + regp1->info.cbcr_off);
-			p1 = ao + 12;   /* wm1 ping */
-			*p1++ = (regp2->paddr + regp2->info.y_off);
-			/* pong = ping,*/
-			*p1 = (regp2->paddr + regp2->info.y_off);
-			p1 = ao + 36;  /* wm5 */
-			*p1++ = (regp2->paddr + regp2->info.cbcr_off);
-			*p1 = (regp2->paddr + regp2->info.cbcr_off);
-
-		} else { /* more than one snapshot */
-			/* first fill ping & pong */
-			for (i = 0; i < 2; i++) {
-				p1 = ao + 6 + i;    /* wm0 for y  */
-				*p1 = (regp1->paddr + regp1->info.y_off);
-				p1 = ao + 30 + i;  /* wm4 for cbcr */
-				*p1 = (regp1->paddr + regp1->info.cbcr_off);
-				regp1++;
-			}
-
-			for (i = 0; i < 2; i++) {
-				p2 = ao + 12 + i;    /* wm1 for y  */
-				*p2 = (regp2->paddr + regp2->info.y_off);
-				p2 = ao + 36 + i;  /* wm5 for cbcr */
-				*p2 = (regp2->paddr + regp2->info.cbcr_off);
-				regp2++;
-			}
-
-			for (i = 2; i < ad->bufnum1; i++) {
-				ret = vfe32_enqueue_free_buf(outp1,
-							regp1->paddr,
-							regp1->info.y_off,
-							regp1->info.cbcr_off);
-				if (ret < 0)
-					return ret;
-				regp1++;
-			}
-			for (i = 2; i < ad->bufnum2; i++) {
-				ret = vfe32_enqueue_free_buf(outp2,
-							regp2->paddr,
-							regp2->info.y_off,
-							regp2->info.cbcr_off);
-				if (ret < 0)
-					return ret;
-				regp2++;
-			}
-		}
 		break;
 
 	case OUTPUT_1_AND_3:
@@ -791,40 +683,6 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		outp1 = &(vfe32_ctrl->outpath.out0); /* preview */
 		outp2 = &(vfe32_ctrl->outpath.out2); /* video */
 
-
-		for (i = 0; i < 2; i++) {
-			p1 = ao + 6 + i;    /* wm0 for y  */
-			*p1 = (regp1->paddr + regp1->info.y_off);
-
-			p1 = ao + 30 + i;  /* wm1 for cbcr */
-			*p1 = (regp1->paddr + regp1->info.cbcr_off);
-			regp1++;
-		}
-
-		for (i = 0; i < 2; i++) {
-			p2 = ao + 12 + i;    /* wm0 for y  */
-			*p2 = (regp2->paddr + regp2->info.y_off);
-
-			p2 = ao + 36 + i;  /* wm1 for cbcr */
-			*p2 = (regp2->paddr + regp2->info.cbcr_off);
-			regp2++;
-		}
-		for (i = 2; i < ad->bufnum1; i++) {
-			ret = vfe32_enqueue_free_buf(outp1, regp1->paddr,
-						regp1->info.y_off,
-						regp1->info.cbcr_off);
-			if (ret < 0)
-				return ret;
-			regp1++;
-		}
-		for (i = 2; i < ad->bufnum2; i++) {
-			ret = vfe32_enqueue_free_buf(outp2, regp2->paddr,
-						regp2->info.y_off,
-						regp2->info.cbcr_off);
-			if (ret < 0)
-				return ret;
-			regp2++;
-		}
 		break;
 	case CAMIF_TO_AXI_VIA_OUTPUT_2: {  /* use wm0 only */
 		if (ad->bufnum2 < 1)
@@ -898,7 +756,6 @@ static void vfe32_reset_internal_variables(void)
 static void vfe32_reset(void)
 {
 	uint32_t vfe_version;
-	vfe32_reset_free_buf_queues();
 	vfe32_reset_internal_variables();
 	vfe_version = msm_io_r(vfe32_ctrl->vfebase);
 	CDBG("vfe_version = 0x%x\n", vfe_version);
@@ -1056,18 +913,6 @@ static void vfe32_start_common(void)
 #define ENQUEUED_BUFFERS 3
 static int vfe32_start_recording(void)
 {
-	/* Clear out duplicate entries in free_buf qeueue,
-	 * because the same number of the buffers were programmed
-	 * during AXI config and then enqueued before recording.
-	 * TODO: Do AXI config separately for recording at the
-	 * time of enqueue */
-	int i;
-	for (i = 0; i < ENQUEUED_BUFFERS; ++i) {
-		struct vfe32_free_buf *free_buf = NULL;
-		free_buf = vfe32_dequeue_free_buf(&vfe32_ctrl->outpath.out2);
-		kfree(free_buf);
-	}
-
 	vfe32_ctrl->req_start_video_rec = TRUE;
 	/* Mask with 0x7 to extract the pixel pattern*/
 	switch (msm_io_r(vfe32_ctrl->vfebase + VFE_CFG) & 0x7) {
@@ -1320,7 +1165,66 @@ static void vfe32_write_la_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	}
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
+static struct msm_free_buf *vfe32_check_free_buffer(int id, int path)
+{
+	struct vfe32_output_ch *outch = NULL;
+	struct msm_free_buf *b = NULL;
+	vfe32_subdev_notify(id, path);
+	switch (path) {
+	case VFE_MSG_OUTPUT_P:
+	case VFE_MSG_OUTPUT_T:
+		outch = &vfe32_ctrl->outpath.out0;
+		break;
+	case VFE_MSG_OUTPUT_S:
+		outch = &vfe32_ctrl->outpath.out1;
+		break;
+	case VFE_MSG_OUTPUT_V:
+		outch = &vfe32_ctrl->outpath.out2;
+		break;
+	}
+	if (outch->free_buf.paddr)
+		b = &outch->free_buf;
+	return b;
+}
+static int vfe32_configure_pingpong_buffers(int id, int path)
+{
+	struct vfe32_output_ch *outch = NULL;
+	int rc = 0;
+	vfe32_subdev_notify(id, path);
+	switch (path) {
+	case VFE_MSG_OUTPUT_P:
+	case VFE_MSG_OUTPUT_T:
+		outch = &vfe32_ctrl->outpath.out0;
+		break;
+	case VFE_MSG_OUTPUT_S:
+		outch = &vfe32_ctrl->outpath.out1;
+		break;
+	case VFE_MSG_OUTPUT_V:
+		outch = &vfe32_ctrl->outpath.out2;
+		break;
+	}
+	if (outch->ping.paddr && outch->pong.paddr) {
+		/* Configure Preview Ping Pong */
+		pr_err("%s Configure ping/pong address for %d", __func__, path);
+		vfe32_put_ch_ping_addr(outch->ch0,
+			outch->ping.paddr + outch->ping.y_off);
+		vfe32_put_ch_ping_addr(outch->ch1,
+			outch->ping.paddr + outch->ping.cbcr_off);
 
+		vfe32_put_ch_pong_addr(outch->ch0,
+			outch->pong.paddr + outch->pong.y_off);
+		vfe32_put_ch_pong_addr(outch->ch1,
+			outch->pong.paddr + outch->pong.cbcr_off);
+
+		/* avoid stale info */
+		outch->ping.paddr = 0;
+		outch->pong.paddr = 0;
+	} else {
+		pr_err("%s ping/pong addr is null!!", __func__);
+		rc = -EINVAL;
+	}
+	return rc;
+}
 
 static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 {
@@ -1341,6 +1245,14 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 	case V32_START:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_START,
+							VFE_MSG_OUTPUT_P);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers"
+				" for preview", __func__);
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
 		rc = vfe32_start();
 		break;
 	case V32_UPDATE:
@@ -1354,11 +1266,35 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
+							VFE_MSG_OUTPUT_S);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers"
+				   " for preview", __func__);
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
+							VFE_MSG_OUTPUT_T);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers"
+				   " for preview", __func__);
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
 		rc = vfe32_capture(snapshot_cnt);
 		break;
 	case V32_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
+		rc = vfe32_configure_pingpong_buffers(
+			VFE_MSG_V32_START_RECORDING, VFE_MSG_OUTPUT_V);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers"
+				" for recording", __func__);
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
 		rc = vfe32_start_recording();
 		break;
 	case V32_STOP_RECORDING:
@@ -2280,23 +2216,6 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 		pr_err("vfe32_irq: axi error\n");
 }
 
-#define VFE32_AXI_OFFSET 0x0050
-#define vfe32_get_ch_ping_addr(chn) \
-	(msm_io_r(vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn)))
-#define vfe32_get_ch_pong_addr(chn) \
-	(msm_io_r(vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn) + 4))
-#define vfe32_get_ch_addr(ping_pong, chn) \
-	(((ping_pong) & (1 << (chn))) == 0 ? \
-	vfe32_get_ch_pong_addr(chn) : vfe32_get_ch_ping_addr(chn))
-
-#define vfe32_put_ch_ping_addr(chn, addr) \
-	(msm_io_w((addr), vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn)))
-#define vfe32_put_ch_pong_addr(chn, addr) \
-	(msm_io_w((addr), vfe32_ctrl->vfebase + 0x0050 + 0x18 * (chn) + 4))
-#define vfe32_put_ch_addr(ping_pong, chn, addr) \
-	(((ping_pong) & (1 << (chn))) == 0 ?   \
-	vfe32_put_ch_pong_addr((chn), (addr)) : \
-	vfe32_put_ch_ping_addr((chn), (addr)))
 
 static void vfe32_process_output_path_irq_0(void)
 {
@@ -2306,8 +2225,16 @@ static void vfe32_process_output_path_irq_0(void)
 	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
 #endif
 	uint8_t out_bool = 0;
-	struct vfe32_free_buf *free_buf = NULL;
-	free_buf = vfe32_dequeue_free_buf(&vfe32_ctrl->outpath.out0);
+	struct msm_free_buf *free_buf = NULL;
+	if (vfe32_ctrl->operation_mode ==
+			VFE_MODE_OF_OPERATION_SNAPSHOT)
+		free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
+							VFE_MSG_OUTPUT_T);
+	else
+		free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
+							VFE_MSG_OUTPUT_P);
+	if (!free_buf)
+		pr_err(" Output IRQ 0: NO FREE BUFF");
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.
@@ -2343,7 +2270,6 @@ static void vfe32_process_output_path_irq_0(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
-			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_SNAPSHOT) {
@@ -2408,9 +2334,11 @@ static void vfe32_process_output_path_irq_1(void)
 #endif
 	/* this must be snapshot main image output. */
 	uint8_t out_bool = 0;
-	struct vfe32_free_buf *free_buf = NULL;
-	free_buf = vfe32_dequeue_free_buf(&vfe32_ctrl->outpath.out1);
-
+	struct msm_free_buf *free_buf = NULL;
+	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
+						VFE_MSG_OUTPUT_S);
+	if (!free_buf)
+		pr_err(" Output IRQ 1: NO FREE BUFF");
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.
@@ -2445,7 +2373,6 @@ static void vfe32_process_output_path_irq_1(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
-			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_SNAPSHOT ||
@@ -2505,9 +2432,11 @@ static void vfe32_process_output_path_irq_2(void)
 	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
 #endif
 	uint8_t out_bool = 0;
-	struct vfe32_free_buf *free_buf = NULL;
-	free_buf = vfe32_dequeue_free_buf(&vfe32_ctrl->outpath.out2);
-
+	struct msm_free_buf *free_buf = NULL;
+	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
+						VFE_MSG_OUTPUT_V);
+	if (!free_buf)
+		pr_err(" Output IRQ 2: NO FREE BUFF");
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.
@@ -2545,7 +2474,6 @@ static void vfe32_process_output_path_irq_2(void)
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
-			kfree(free_buf);
 		}
 		vfe_send_outmsg(MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
 	} else {
@@ -3033,8 +2961,8 @@ static int vfe32_resource_init(struct platform_device *pdev, void *sdata)
 	spin_lock_init(&vfe32_ctrl->aec_ack_lock);
 	spin_lock_init(&vfe32_ctrl->awb_ack_lock);
 	spin_lock_init(&vfe32_ctrl->af_ack_lock);
+	spin_lock_init(&vfe32_ctrl->sd_notify_lock);
 	INIT_LIST_HEAD(&vfe32_ctrl->tasklet_q);
-	vfe32_init_free_buf_queues();
 
 	vfe32_ctrl->syncdata = sdata;
 	vfe32_ctrl->vfemem = vfemem;
@@ -3066,6 +2994,9 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_pmem_region   *regptr = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
 	if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
+		cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
+		cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
+		cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR &&
 		cmd->cmd_type != CMD_STATS_AEC_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_AWB_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_IHIST_BUF_RELEASE &&
@@ -3081,7 +3012,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 	} else {
 	/* here eith stats release or frame release. */
-		if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE) {
+		if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
+			cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
+			cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
+			cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR) {
 			/* then must be stats release. */
 			if (!data)
 				return -EFAULT;
@@ -3176,7 +3110,51 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			break;
 		}
 
-		rc = vfe32_enqueue_free_buf(outch, p, b->y_off, b->cbcr_off);
+	}
+		break;
+
+	case CMD_CONFIG_PING_ADDR: {
+		struct vfe32_output_ch *outch = NULL;
+		int path = *((int *)cmd->value);
+		if ((path == VFE_MSG_OUTPUT_P)
+			|| (path == VFE_MSG_OUTPUT_T))
+			outch = &vfe32_ctrl->outpath.out0;
+		else if (path == VFE_MSG_OUTPUT_S)
+			outch = &vfe32_ctrl->outpath.out1;
+		else if (path == VFE_MSG_OUTPUT_V)
+			outch = &vfe32_ctrl->outpath.out2;
+
+		outch->ping = *((struct msm_free_buf *)data);
+	}
+		break;
+
+	case CMD_CONFIG_PONG_ADDR: {
+		struct vfe32_output_ch *outch = NULL;
+		int path = *((int *)cmd->value);
+		if ((path == VFE_MSG_OUTPUT_P)
+			|| (path == VFE_MSG_OUTPUT_T))
+			outch = &vfe32_ctrl->outpath.out0;
+		else if (path == VFE_MSG_OUTPUT_S)
+			outch = &vfe32_ctrl->outpath.out1;
+		else if (path == VFE_MSG_OUTPUT_V)
+			outch = &vfe32_ctrl->outpath.out2;
+
+		outch->pong = *((struct msm_free_buf *)data);
+	}
+		break;
+
+	case CMD_CONFIG_FREE_BUF_ADDR: {
+		struct vfe32_output_ch *outch = NULL;
+		int path = *((int *)cmd->value);
+		if ((path == VFE_MSG_OUTPUT_P)
+			|| (path == VFE_MSG_OUTPUT_T))
+			outch = &vfe32_ctrl->outpath.out0;
+		else if (path == VFE_MSG_OUTPUT_S)
+			outch = &vfe32_ctrl->outpath.out1;
+		else if (path == VFE_MSG_OUTPUT_V)
+			outch = &vfe32_ctrl->outpath.out2;
+
+		outch->free_buf = *((struct msm_free_buf *)data);
 	}
 		break;
 
@@ -3360,7 +3338,6 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 {
 	struct resource	*vfemem, *vfeio;
 
-	vfe32_reset_free_buf_queues();
 	CDBG("%s, free_irq\n", __func__);
 	free_irq(vfe32_ctrl->vfeirq, 0);
 	tasklet_kill(&vfe32_tasklet);

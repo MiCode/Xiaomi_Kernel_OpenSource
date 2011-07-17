@@ -895,6 +895,9 @@ struct vfe32_output_ch {
 	int8_t ch2;
 	uint32_t  capture_cnt;
 	uint32_t  frame_drop_cnt;
+	struct msm_free_buf ping;
+	struct msm_free_buf pong;
+	struct msm_free_buf free_buf;
 };
 
 /* no error irq in mask 0 */
@@ -1082,6 +1085,7 @@ struct vfe32_ctrl_type {
 
 	/* v4l2 subdev */
 	struct v4l2_subdev *subdev;
+	spinlock_t  sd_notify_lock;
 };
 
 #define statsAeNum      0

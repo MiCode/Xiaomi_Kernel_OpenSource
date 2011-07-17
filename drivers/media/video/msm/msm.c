@@ -639,7 +639,7 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s\n", __func__);
+	D("%s Inst = %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	D("%s stored reserved info %d", __func__, pb->reserved);
@@ -679,7 +679,7 @@ static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s\n", __func__);
+	D("%s Inst %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	D("%s Calling videobuf_streamon", __func__);
@@ -707,7 +707,7 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s\n", __func__);
+	pr_err("%s Inst %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	/* first turn of HW (VFE/sensor) streaming so that buffers are
