@@ -27,18 +27,22 @@
 #include <linux/msm_audio.h>
 #include <linux/android_pmem.h>
 #include <linux/memory_alloc.h>
+#include <linux/debugfs.h>
+#include <linux/time.h>
+#include <linux/atomic.h>
+
+#include <asm/ioctls.h>
+
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
 #include <mach/peripheral-loader.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
 #include <mach/msm_subsystem_map.h>
+
 #include <sound/apr_audio.h>
 #include <sound/q6asm.h>
-#include <asm/atomic.h>
-#include <asm/ioctls.h>
-#include  <linux/debugfs.h>
-#include  <linux/time.h>
+
 
 #define TRUE        0x01
 #define FALSE       0x00
@@ -389,9 +393,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 		pr_err("%s Registration with APR failed\n", __func__);
 			goto fail;
 	}
-#ifdef CONFIG_MSM8X60_RTAC
 	rtac_set_asm_handle(n, ac->apr);
-#endif
+
 	pr_debug("%s Registering the common port with APR\n", __func__);
 	if (atomic_read(&this_mmap.ref_cnt) == 0) {
 		this_mmap.apr = apr_register("ADSP", "ASM", \
@@ -679,11 +682,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		token = data->token;
 		switch (payload[0]) {
 		case ASM_STREAM_CMD_SET_PP_PARAMS:
-#ifdef CONFIG_MSM8X60_RTAC
 			if (rtac_make_asm_callback(ac->session, payload,
 					data->payload_size))
 				break;
-#endif
 		case ASM_SESSION_CMD_PAUSE:
 		case ASM_DATA_CMD_EOS:
 		case ASM_STREAM_CMD_CLOSE:
@@ -765,12 +766,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		}
 		break;
 	}
-#ifdef CONFIG_MSM8X60_RTAC
 	case ASM_STREAM_CMDRSP_GET_PP_PARAMS:
 		rtac_make_asm_callback(ac->session, payload,
 			data->payload_size);
 		break;
-#endif
 	case ASM_DATA_EVENT_READ_DONE:{
 
 		struct audio_port_data *port = &ac->port[OUT];
@@ -2847,7 +2846,6 @@ fail_cmd:
 	return -EINVAL;
 }
 
-#ifdef CONFIG_MSM8X60_RTAC
 int q6asm_get_apr_service_id(int session_id)
 {
 	pr_debug("%s\n", __func__);
@@ -2859,7 +2857,6 @@ int q6asm_get_apr_service_id(int session_id)
 
 	return ((struct apr_svc *)session[session_id]->apr)->id;
 }
-#endif
 
 
 static int __init q6asm_init(void)

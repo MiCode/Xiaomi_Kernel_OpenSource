@@ -1,5 +1,6 @@
+obj-y += rtac.o
+
 ifdef CONFIG_ARCH_MSM8X60
-obj-$(CONFIG_MSM8X60_RTAC) += rtac.o
 obj-y += audio_dev_ctl.o
 obj-y += board-msm8x60-audio.o
 obj-$(CONFIG_TIMPANI_CODEC) += snddev_icodec.o

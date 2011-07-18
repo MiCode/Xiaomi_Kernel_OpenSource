@@ -22,11 +22,13 @@
 #include <linux/completion.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/dal.h>
 #include <mach/qdsp6v2/q6voice.h>
 #include <mach/qdsp6v2/rtac.h>
 #include <mach/qdsp6v2/audio_acdb.h>
+
 #include "q6core.h"
 
 
@@ -107,9 +109,7 @@ static void voice_set_apr_cvs(void *apr_cvs)
 		common.apr_cvs = apr_cvs;
 	else
 		common.apr_q6_cvs = apr_cvs;
-#ifdef CONFIG_MSM8X60_RTAC
 	rtac_set_voice_handle(RTAC_CVS, apr_cvs);
-#endif
 }
 
 static void *voice_get_apr_cvp(void)
@@ -136,9 +136,7 @@ static void voice_set_apr_cvp(void *apr_cvp)
 		common.apr_cvp = apr_cvp;
 	else
 		common.apr_q6_cvp = apr_cvp;
-#ifdef CONFIG_MSM8X60_RTAC
 	rtac_set_voice_handle(RTAC_CVP, apr_cvp);
-#endif
 }
 
 static u16 voice_get_mvm_handle(struct voice_data *v)
@@ -1333,9 +1331,7 @@ static int voice_disable_vocproc(struct voice_data *v)
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
-#ifdef CONFIG_MSM8X60_RTAC
-	rtac_remove_voice(v);
-#endif
+	rtac_remove_voice(v->cvs_handle);
 
 	return 0;
 fail:
@@ -1426,9 +1422,8 @@ static int voice_set_device(struct voice_data *v)
 	if (is_voip_session(v->session_id))
 		voice_send_netid_timing_cmd(v);
 
-#ifdef CONFIG_MSM8X60_RTAC
-	rtac_add_voice(v);
-#endif
+	rtac_add_voice(v->cvs_handle, v->cvp_handle,
+		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id);
 
 	return 0;
 fail:
@@ -1722,9 +1717,9 @@ static int voice_attach_vocproc(struct voice_data *v)
 	if (is_voip_session(v->session_id))
 		voice_send_netid_timing_cmd(v);
 
-#ifdef CONFIG_MSM8X60_RTAC
-	rtac_add_voice(v);
-#endif
+	rtac_add_voice(v->cvs_handle, v->cvp_handle,
+		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id);
+
 	return 0;
 fail:
 	return -EINVAL;
@@ -1792,10 +1787,7 @@ static int voice_destroy_modem_voice(struct voice_data *v)
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
-
-#ifdef CONFIG_MSM8X60_RTAC
-	rtac_remove_voice(v);
-#endif
+	rtac_remove_voice(v->cvs_handle);
 	cvp_handle = 0;
 	voice_set_cvp_handle(v, cvp_handle);
 
@@ -2691,11 +2683,9 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 
 					v->cvs_state = CMD_STATUS_SUCCESS;
 					wake_up(&v->cvs_wait);
-#ifdef CONFIG_MSM8X60_RTAC
 			} else if (ptr[0] == VOICE_CMD_SET_PARAM) {
 				rtac_make_voice_callback(RTAC_CVS, ptr,
 					data->payload_size);
-#endif
 			} else if (ptr[0] == VSS_ISTREAM_CMD_START_PLAYBACK) {
 				pr_debug("%s: START_PLAYBACK resp 0x%x\n",
 					 __func__, ptr[1]);
@@ -2768,12 +2758,9 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 		} else {
 			pr_err("%s: ul_cb is NULL\n", __func__);
 		}
-#ifdef CONFIG_MSM8X60_RTAC
 	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
 		rtac_make_voice_callback(RTAC_CVS, data->payload,
 					data->payload_size);
-#endif
-
 	} else {
 		pr_debug("%s: Unknown opcode 0x%x\n", __func__, data->opcode);
 	}
@@ -2862,20 +2849,16 @@ static int32_t modem_cvp_callback(struct apr_client_data *data, void *priv)
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->cvp_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvp_wait);
-#ifdef CONFIG_MSM8X60_RTAC
 			} else if (ptr[0] == VOICE_CMD_SET_PARAM) {
 				rtac_make_voice_callback(RTAC_CVP, ptr,
 					data->payload_size);
-#endif
 			} else
 				pr_debug("%s: not match cmd = 0x%x\n",
 							__func__, ptr[0]);
 		}
-#ifdef CONFIG_MSM8X60_RTAC
 	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
 		rtac_make_voice_callback(RTAC_CVP, data->payload,
 			data->payload_size);
-#endif
 	}
 	return 0;
 }

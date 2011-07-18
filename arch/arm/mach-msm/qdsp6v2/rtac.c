@@ -25,6 +25,28 @@
 #include <sound/q6asm.h>
 #include <sound/q6adm.h>
 
+#ifndef CONFIG_MSM8X60_RTAC
+
+void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id) {}
+void rtac_remove_adm_device(u32 port_id, u32 popp_id) {}
+void rtac_set_adm_handle(void *handle) {}
+bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size)
+	{return false; }
+void rtac_set_asm_handle(u32 session_id, void *handle) {}
+bool rtac_make_asm_callback(u32 session_id, uint32_t *payload,
+	u32 payload_size) {return false; }
+void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
+	u32 tx_afe_port) {}
+void rtac_remove_voice(u32 cvs_handle) {}
+void rtac_set_voice_handle(u32 mode, void *handle) {}
+bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
+		u32 payload_size) {return false; }
+
+#else
+
+#define VOICE_CMD_SET_PARAM		0x00011006
+#define VOICE_CMD_GET_PARAM		0x00011007
+#define VOICE_EVT_GET_PARAM_ACK		0x00011008
 
 /* Max size of payload (buf size - apr header) */
 #define MAX_PAYLOAD_SIZE		4076
@@ -240,18 +262,20 @@ done:
 
 
 /* Voice Info */
-static void set_rtac_voice_data(int idx, struct voice_data *v)
+static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
+					u32 rx_afe_port, u32 tx_afe_port)
 {
 	rtac_voice_data.voice[idx].tx_topology_id = get_voice_tx_topology();
 	rtac_voice_data.voice[idx].rx_topology_id = get_voice_rx_topology();
-	rtac_voice_data.voice[idx].tx_afe_port = v->dev_tx.dev_port_id;
-	rtac_voice_data.voice[idx].rx_afe_port = v->dev_rx.dev_port_id;
-	rtac_voice_data.voice[idx].cvs_handle = v->cvs_handle;
-	rtac_voice_data.voice[idx].cvp_handle = v->cvp_handle;
+	rtac_voice_data.voice[idx].tx_afe_port = tx_afe_port;
+	rtac_voice_data.voice[idx].rx_afe_port = rx_afe_port;
+	rtac_voice_data.voice[idx].cvs_handle = cvs_handle;
+	rtac_voice_data.voice[idx].cvp_handle = cvp_handle;
 
 }
 
-void rtac_add_voice(struct voice_data *v)
+void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
+			u32 tx_afe_port)
 {
 	u32 i = 0;
 	pr_debug("%s\n", __func__);
@@ -266,9 +290,10 @@ void rtac_add_voice(struct voice_data *v)
 	/* Check if device already added */
 	if (rtac_voice_data.num_of_voice_combos != 0) {
 		for (; i < rtac_voice_data.num_of_voice_combos; i++) {
-			if (rtac_voice_data.voice[i].cvp_handle ==
-							v->cvp_handle) {
-				set_rtac_voice_data(i, v);
+			if (rtac_voice_data.voice[i].cvs_handle ==
+							cvs_handle) {
+				set_rtac_voice_data(i, cvs_handle, cvp_handle,
+					rx_afe_port, tx_afe_port);
 				goto done;
 			}
 		}
@@ -276,7 +301,8 @@ void rtac_add_voice(struct voice_data *v)
 
 	/* Add device */
 	rtac_voice_data.num_of_voice_combos++;
-	set_rtac_voice_data(i, v);
+	set_rtac_voice_data(i, cvs_handle, cvp_handle,
+				rx_afe_port, tx_afe_port);
 done:
 	mutex_unlock(&rtac_voice_mutex);
 	return;
@@ -291,7 +317,7 @@ static void shift_voice_devices(u32 idx)
 	}
 }
 
-void rtac_remove_voice(struct voice_data *v)
+void rtac_remove_voice(u32 cvs_handle)
 {
 	u32 i = 0;
 	pr_debug("%s\n", __func__);
@@ -299,7 +325,7 @@ void rtac_remove_voice(struct voice_data *v)
 	mutex_lock(&rtac_voice_mutex);
 	/* look for device */
 	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
-		if (rtac_voice_data.voice[i].cvp_handle == v->cvp_handle) {
+		if (rtac_voice_data.voice[i].cvs_handle == cvs_handle) {
 			shift_voice_devices(i);
 			rtac_voice_data.num_of_voice_combos--;
 			memset(&rtac_voice_data.voice[
@@ -967,3 +993,5 @@ module_init(rtac_init);
 
 MODULE_DESCRIPTION("MSM 8x60 Real-Time Audio Calibration driver");
 MODULE_LICENSE("GPL v2");
+
+#endif

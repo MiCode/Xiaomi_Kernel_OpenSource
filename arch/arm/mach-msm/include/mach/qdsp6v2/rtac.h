@@ -14,10 +14,6 @@
 #ifndef __RTAC_H__
 #define __RTAC_H__
 
-#ifdef CONFIG_MSM8X60_RTAC
-
-#include <mach/qdsp6v2/q6voice.h>
-
 /* Voice Modes */
 #define RTAC_CVP		0
 #define RTAC_CVS		1
@@ -25,8 +21,9 @@
 
 void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id);
 void rtac_remove_adm_device(u32 port_id, u32 popp_id);
-void rtac_add_voice(struct voice_data *v);
-void rtac_remove_voice(struct voice_data *v);
+void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
+	u32 tx_afe_port);
+void rtac_remove_voice(u32 cvs_handle);
 void rtac_set_adm_handle(void *handle);
 bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size);
 void rtac_copy_adm_payload_to_user(void *payload, u32 payload_size);
@@ -39,6 +36,3 @@ bool rtac_make_voice_callback(u32 mode, uint32_t *payload, u32 payload_size);
 void rtac_copy_voice_payload_to_user(void *payload, u32 payload_size);
 
 #endif
-
-#endif
-
