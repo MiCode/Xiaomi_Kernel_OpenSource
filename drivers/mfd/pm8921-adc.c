@@ -96,22 +96,7 @@
 #define PM8921_ADC_ARB_BTM_BAT_WARM_THR1		0x187
 #define PM8921_ADC_ARB_BTM_BAT_WARM_THR0		0x188
 
-#define PM8921_ADC_ARB_SECP_CNTRL			0x190
-#define PM8921_ADC_ARB_IRQ_BLOCK_SEL_SEC		0x1ac
-#define PM8921_ADC_ARB_IRQ_CONFIG_SEC			0x1ae
-#define PM8921_ADC_ARB_IRQ_BIT_PERM_USR			0x1a6
-#define PM8921_ADC_ARB_IRQ_BLOCK_SEL_USR		0x1c0
-#define PM8921_ADC_ARB_IRQ_CONFIG_USR			0x1c2
-
-#define PM8921_ADC_ARB_IRQ_BLOCK_SEL_DATA		0x09
-#define PM8921_ADC_ARB_IRQ_CONFIG_SEC_DATA		0xe0
-#define PM8921_ADC_ARB_IRQ_BIT_PERM_USR_DATA		0x40
-#define PM8921_ADC_ARB_IRQ_BLOCK_SEL_USR_DATA		0x09
-#define PM8921_ADC_ARB_IRQ_CONFIG_USR_DATA		0xe0
-
 #define PM8921_ADC_ARB_ANA_DIG				0xa0
-#define PM8921_ADC_ARB_SECP_CNTRL_WR			0x31
-
 #define PM8921_ADC_AMUX_MPP_SEL				2
 #define PM8921_ADC_AMUX_SEL				4
 #define PM8921_ADC_RSV_IP_SEL				4
@@ -176,8 +161,7 @@ static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
 	u8 data_arb_cntrl = 0;
 
 	if (arb_cntrl)
-		data_arb_cntrl |= (PM8921_ADC_ARB_USRP_CNTRL1_REQ |
-				PM8921_ADC_ARB_USRP_CNTRL1_EN_ARB);
+		data_arb_cntrl |= PM8921_ADC_ARB_USRP_CNTRL1_EN_ARB;
 
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
@@ -188,6 +172,12 @@ static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
 			pr_err("PM8921 arb cntrl write failed with %d\n", rc);
 			return rc;
 		}
+	}
+
+	if (arb_cntrl) {
+		data_arb_cntrl |= PM8921_ADC_ARB_USRP_CNTRL1_REQ;
+		rc = pm8xxx_writeb(adc_pmic->dev->parent,
+			PM8921_ADC_ARB_USRP_CNTRL1, data_arb_cntrl);
 	}
 
 	return 0;
@@ -226,14 +216,7 @@ static int32_t pm8921_adc_configure(
 {
 	struct pm8921_adc *adc_pmic = pmic_adc;
 	u8 data_amux_chan = 0, data_arb_rsv = 0, data_dig_param = 0;
-	int rc, i;
-
-	for (i = 0; i < 2; i++) {
-		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_SECP_CNTRL,
-					PM8921_ADC_ARB_SECP_CNTRL_WR);
-		if (rc < 0)
-			return rc;
-	}
+	int rc;
 
 	data_amux_chan |= chan_prop->amux_channel << PM8921_ADC_AMUX_SEL;
 
@@ -288,31 +271,6 @@ static int32_t pm8921_adc_configure(
 
 	if (!pm8921_adc_calib_first_adc)
 		enable_irq(adc_pmic->adc_irq);
-
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_IRQ_BLOCK_SEL_SEC,
-					PM8921_ADC_ARB_IRQ_BLOCK_SEL_DATA);
-	if (rc < 0)
-		return rc;
-
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_IRQ_CONFIG_SEC,
-					PM8921_ADC_ARB_IRQ_CONFIG_SEC_DATA);
-	if (rc < 0)
-		return rc;
-
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_IRQ_BIT_PERM_USR,
-					PM8921_ADC_ARB_IRQ_BIT_PERM_USR_DATA);
-	if (rc < 0)
-		return rc;
-
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_IRQ_BLOCK_SEL_USR,
-					PM8921_ADC_ARB_IRQ_BLOCK_SEL_USR_DATA);
-	if (rc < 0)
-		return rc;
-
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_IRQ_CONFIG_USR,
-					PM8921_ADC_ARB_IRQ_CONFIG_USR_DATA);
-	if (rc < 0)
-		return rc;
 
 	rc = pm8921_adc_arb_cntrl(1);
 	if (rc < 0) {
