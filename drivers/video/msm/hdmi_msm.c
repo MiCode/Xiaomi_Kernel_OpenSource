@@ -420,8 +420,11 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 		boolean cable_detected = (hpd_int_status & 2) >> 1;
 
 		/* HDMI_HPD_INT_CTRL[0x0254] */
-		/* Clear all interrupts, timer will turn IRQ back on */
-		HDMI_OUTP(0x0254, 1 << 0);
+		/* Clear all interrupts, timer will turn IRQ back on
+		 * Leaving the bit[2] on, else core goes off
+		 * on getting HPD during power off
+		 */
+		HDMI_OUTP(0x0254, (1 << 2) | (1 << 0));
 
 		DEV_DBG("%s: HPD IRQ, Ctrl=%04x, State=%04x\n", __func__,
 			hpd_int_ctrl, hpd_int_status);
