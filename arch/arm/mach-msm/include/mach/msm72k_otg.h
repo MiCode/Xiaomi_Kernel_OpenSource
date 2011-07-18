@@ -32,6 +32,7 @@
 #define OTGSC_DPIE             (1 << 30)
 #define OTGSC_DPIS             (1 << 22)
 #define OTGSC_HADP             (1 << 6)
+#define OTGSC_IDPU             (1 << 5)
 
 #define ULPI_STP_CTRL   (1 << 30)
 #define ASYNC_INTR_CTRL (1 << 29)
