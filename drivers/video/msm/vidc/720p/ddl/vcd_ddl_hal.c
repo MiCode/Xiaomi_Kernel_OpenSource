@@ -22,6 +22,8 @@
 #define DBG(x...)
 #endif
 
+#define DBG_INFO(x...) pr_info(x)
+
 void ddl_core_init(struct ddl_context *ddl_context)
 {
 	char *psz_version;
@@ -48,6 +50,9 @@ void ddl_core_init(struct ddl_context *ddl_context)
 	intr_mask |= VIDC_720P_INTR_FRAME_DONE;
 
 	vidc_720p_do_sw_reset();
+
+	DBG_INFO("Loading CONTROL_FW of FW_SIZE %u\n",
+		fw_details.fw_size*4);
 
 	vidc_720p_init(&psz_version,
 			fw_details.fw_size,
@@ -160,6 +165,9 @@ void ddl_channel_set(struct ddl_client_context *ddl)
 
 	ddl_move_command_state(ddl->ddl_context, DDL_CMD_CHANNEL_SET);
 	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_CHDONE);
+
+	DBG_INFO("Loading firmware for CODEC:%u of FW_SIZE:%u\n",
+		fw_details.codec, fw_details.fw_size*4);
 
 	vidc_720p_set_channel(ddl->channel_id,
 			       enc_dec_sel,
