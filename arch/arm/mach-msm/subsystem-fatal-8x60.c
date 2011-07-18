@@ -56,6 +56,7 @@ static void do_soc_restart(void);
 static void q6_fatal_fn(struct work_struct *);
 static DECLARE_WORK(q6_fatal_work, q6_fatal_fn);
 static void *q6_ramdump_dev, *modem_ramdump_dev;
+static void __iomem *q6_wakeup_intr;
 
 static void q6_fatal_fn(struct work_struct *work)
 {
@@ -68,19 +69,17 @@ static void send_q6_nmi(void)
 {
 	/* Send NMI to QDSP6 via an SCM call. */
 	uint32_t cmd = 0x1;
-	void __iomem *q6_wakeup_intr;
 
 	scm_call(SCM_SVC_UTIL, SCM_Q6_NMI_CMD,
 	&cmd, sizeof(cmd), NULL, 0);
 
 	/* Wakeup the Q6 */
-	q6_wakeup_intr = ioremap_nocache(Q6SS_SOFT_INTR_WAKEUP, 8);
-	writel_relaxed(0x2000, q6_wakeup_intr);
-	iounmap(q6_wakeup_intr);
+	if (q6_wakeup_intr)
+		writel_relaxed(0x2000, q6_wakeup_intr);
 	mb();
 
 	/* Q6 requires atleast 100ms to dump caches etc.*/
-	msleep(100);
+	mdelay(100);
 
 	pr_info("subsystem-fatal-8x60: Q6 NMI was sent.\n");
 }
@@ -377,6 +376,11 @@ static int __init subsystem_fatal_init(void)
 			__func__);
 		goto out;
 	}
+
+	q6_wakeup_intr = ioremap_nocache(Q6SS_SOFT_INTR_WAKEUP, 8);
+
+	if (!q6_wakeup_intr)
+		pr_err("%s: Unable to request q6 wakeup interrupt.", __func__);
 
 	q6_ramdump_dev = create_ramdump_device("lpass");
 
