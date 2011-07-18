@@ -106,8 +106,6 @@ static const u32 cmd19_tuning_block[16] = {
 	0xFDFFFDFF, 0xFFBFFFDF, 0xFFF7FFBB, 0xDE7B7FF7
 };
 
-#define VERBOSE_COMMAND_TIMEOUTS	0
-
 #if IRQ_DEBUG == 1
 static char *irq_status_bits[] = { "cmdcrcfail", "datcrcfail", "cmdtimeout",
 				   "dattimeout", "txunderrun", "rxoverrun",
@@ -1250,9 +1248,7 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 	cmd->resp[3] = readl_relaxed(host->base + MMCIRESPONSE3);
 
 	if (status & (MCI_CMDTIMEOUT | MCI_AUTOCMD19TIMEOUT)) {
-#if VERBOSE_COMMAND_TIMEOUTS
-		pr_err("%s: Command timeout\n", mmc_hostname(host->mmc));
-#endif
+		pr_debug("%s: Command timeout\n", mmc_hostname(host->mmc));
 		cmd->error = -ETIMEDOUT;
 	} else if ((status & MCI_CMDCRCFAIL && cmd->flags & MMC_RSP_CRC) &&
 			!host->cmd19_tuning_in_progress) {
