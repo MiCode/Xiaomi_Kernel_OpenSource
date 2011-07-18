@@ -173,6 +173,15 @@ static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
+
+	/* Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP. */
+	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
+
+	/* Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP. */
+	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
+
+	/* Digital Mic4. Back Top Digital Mic on Fluid. */
+	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -192,8 +201,26 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AMIC4", NULL, "MIC BIAS4 External"},
 	{"MIC BIAS4 External", NULL, "ANCLeft Headset Mic"},
 
-	{"DMIC1 IN", NULL, "MIC BIAS1 External"},
+	/**
+	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
+	 * Conncted to DMIC2 Input on Tabla codec.
+	 */
+	{"DMIC2", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic1"},
+
+	/**
+	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
+	 * Conncted to DMIC1 Input on Tabla codec.
+	 */
+	{"DMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic2"},
+
+	/**
+	 * Digital Mic4. Back top Digital Mic on Fluid.
+	 * Conncted to DMIC3 Input on Tabla codec.
+	 */
+	{"DMIC3", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic4"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
