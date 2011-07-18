@@ -507,22 +507,57 @@ static int tabla_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tabla_codec_enable_dmic1(struct snd_soc_dapm_widget *w,
+
+static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	u16 tx_mux_ctl_reg, tx_dmic_ctl_reg;
+	u8 dmic_clk_sel, dmic_clk_en;
+
+	if (!strncmp(w->name, "DMIC1", 5))  {
+
+		tx_mux_ctl_reg = TABLA_A_CDC_TX1_MUX_CTL;
+		tx_dmic_ctl_reg = TABLA_A_CDC_TX1_DMIC_CTL;
+		dmic_clk_sel = 0x2;
+		dmic_clk_en = 0x1;
+
+	} else if (!strncmp(w->name, "DMIC2", 5))  {
+
+		tx_mux_ctl_reg = TABLA_A_CDC_TX2_MUX_CTL;
+		tx_dmic_ctl_reg = TABLA_A_CDC_TX2_DMIC_CTL;
+		dmic_clk_sel = 0x2;
+		dmic_clk_en = 0x1;
+
+	} else if (!strncmp(w->name, "DMIC3", 5))  {
+
+		tx_mux_ctl_reg = TABLA_A_CDC_TX3_MUX_CTL;
+		tx_dmic_ctl_reg = TABLA_A_CDC_TX3_DMIC_CTL;
+		dmic_clk_sel = 0x8;
+		dmic_clk_en = 0x4;
+
+	} else {
+		pr_err("%s: Error, DMIC = %s\n", __func__, w->name);
+		return -EINVAL;
+	}
 
 	pr_debug("%s %d\n", __func__, event);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, TABLA_A_CDC_TX1_MUX_CTL, 0x1, 0x1);
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL, 0x2, 0x2);
-		snd_soc_update_bits(codec, TABLA_A_CDC_TX1_DMIC_CTL, 0x1, 0x1);
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL, 0x1, 0x1);
+		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x1, 0x1);
+
+		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
+				dmic_clk_sel, dmic_clk_sel);
+
+		snd_soc_update_bits(codec, tx_dmic_ctl_reg, 0x1, 0x1);
+
+		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
+				dmic_clk_en, dmic_clk_en);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, TABLA_A_CDC_TX1_DMIC_CTL, 0x1, 0);
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL, 0x3, 0);
+		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
+				dmic_clk_en, 0);
 		break;
 	}
 	return 0;
@@ -847,9 +882,10 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("SLIM TX8", "AIF1 Capture", NULL, SND_SOC_NOPM,
 			0, 0),
 
-	/* Digital Mic */
-	SND_SOC_DAPM_INPUT("DMIC1 IN"),
-	SND_SOC_DAPM_MIC("DMIC1", &tabla_codec_enable_dmic1),
+	/* Digital Mic Inputs */
+	SND_SOC_DAPM_MIC("DMIC1", &tabla_codec_enable_dmic),
+	SND_SOC_DAPM_MIC("DMIC2", &tabla_codec_enable_dmic),
+	SND_SOC_DAPM_MIC("DMIC3", &tabla_codec_enable_dmic),
 
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
@@ -883,6 +919,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX7 MUX", "DEC10", "DEC10 MUX"},
 
 	{"SLIM TX8", NULL, "SLIM TX8 MUX"},
+	{"SLIM TX8 MUX", "DEC1", "DEC1 MUX"},
+	{"SLIM TX8 MUX", "DEC2", "DEC2 MUX"},
+	{"SLIM TX8 MUX", "DEC3", "DEC3 MUX"},
 	{"SLIM TX8 MUX", "DEC5", "DEC5 MUX"},
 	{"SLIM TX8 MUX", "DEC6", "DEC6 MUX"},
 
@@ -947,15 +986,17 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX6 MIX1 INP2", "RX2", "RX BIAS"},
 
 	/* Decimator Inputs */
-	{"DEC1 MUX", "ADC6", "ADC6"},
 	{"DEC1 MUX", "DMIC1", "DMIC1"},
+	{"DEC1 MUX", "ADC6", "ADC6"},
+	{"DEC2 MUX", "DMIC2", "DMIC2"},
 	{"DEC2 MUX", "ADC5", "ADC5"},
+	{"DEC3 MUX", "DMIC3", "DMIC3"},
 	{"DEC3 MUX", "ADC4", "ADC4"},
 	{"DEC4 MUX", "ADC3", "ADC3"},
 	{"DEC5 MUX", "ADC2", "ADC2"},
 	{"DEC6 MUX", "ADC1", "ADC1"},
-	{"DEC7 MUX", "ADC6", "ADC6"},
 	{"DEC7 MUX", "DMIC1", "DMIC1"},
+	{"DEC7 MUX", "ADC6", "ADC6"},
 	{"DEC8 MUX", "ADC5", "ADC5"},
 	{"DEC9 MUX", "ADC3", "ADC3"},
 	{"DEC10 MUX", "ADC4", "ADC4"},
@@ -967,9 +1008,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ADC4", NULL, "AMIC4"},
 	{"ADC5", NULL, "AMIC5"},
 	{"ADC6", NULL, "AMIC6"},
-
-	/* Digital Mic */
-	{"DMIC1", NULL, "DMIC1 IN"},
 
 	/* Sidetone (IIR1) */
 	{"RX1 MIX1 INP1", "IIR1", "IIR1"},
