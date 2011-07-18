@@ -660,12 +660,6 @@ int rcg_clk_set_min_rate(struct clk *c, unsigned rate)
 	return _rcg_clk_set_rate(clk, nf);
 }
 
-/* Set a clock to a maximum rate. */
-int rcg_clk_set_max_rate(struct clk *clk, unsigned rate)
-{
-	return -EPERM;
-}
-
 /* Get the currently-set rate of a clock in Hz. */
 unsigned rcg_clk_get_rate(struct clk *c)
 {
