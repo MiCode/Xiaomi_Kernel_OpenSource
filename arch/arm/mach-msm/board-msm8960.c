@@ -34,6 +34,7 @@
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/setup.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/mmc.h>
 
@@ -717,15 +718,15 @@ static void __init reserve_pmem_memory(void)
 #endif
 }
 
+static int msm8960_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
 static void __init msm8960_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
-}
-
-static int msm8960_paddr_to_memtype(unsigned int paddr)
-{
-	return MEMTYPE_EBI1;
 }
 
 static struct reserve_info msm8960_reserve_info __initdata = {
@@ -734,9 +735,37 @@ static struct reserve_info msm8960_reserve_info __initdata = {
 	.paddr_to_memtype = msm8960_paddr_to_memtype,
 };
 
+static int msm8960_memory_bank_size(void)
+{
+	return 1<<29;
+}
+
+static void __init locate_unstable_memory(void)
+{
+	struct membank *mb = &meminfo.bank[meminfo.nr_banks - 1];
+	unsigned long bank_size;
+	unsigned long low, high;
+
+	bank_size = msm8960_memory_bank_size();
+	low = meminfo.bank[0].start;
+	high = mb->start + mb->size;
+	low &= ~(bank_size - 1);
+
+	if (high - low <= bank_size)
+		return;
+	msm8960_reserve_info.low_unstable_address = low + bank_size;
+	msm8960_reserve_info.max_unstable_size = high - low - bank_size;
+	msm8960_reserve_info.bank_size = bank_size;
+	pr_info("low unstable address %lx max size %lx bank size %lx\n",
+		msm8960_reserve_info.low_unstable_address,
+		msm8960_reserve_info.max_unstable_size,
+		msm8960_reserve_info.bank_size);
+}
+
 static void __init msm8960_reserve(void)
 {
 	reserve_info = &msm8960_reserve_info;
+	locate_unstable_memory();
 	msm_reserve();
 }
 
