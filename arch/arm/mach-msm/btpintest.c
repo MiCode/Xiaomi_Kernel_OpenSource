@@ -23,7 +23,7 @@
 #include <linux/gpio.h>
 #include <mach/gpio.h>
 #include <mach/vreg.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 
 #define VERSION     "1.0"
 struct dentry *pin_debugfs_dent;

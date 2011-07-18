@@ -20,8 +20,8 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <mach/gpiomux.h>
 #include "gpio_hw.h"
-#include "gpiomux.h"
 #include "proc_comm.h"
 #include "smd_private.h"
 

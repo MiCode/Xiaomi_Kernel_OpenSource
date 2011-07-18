@@ -12,7 +12,7 @@
 #include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 #include "proc_comm.h"
 #include "gpio.h"
 

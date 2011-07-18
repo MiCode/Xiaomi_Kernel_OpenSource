@@ -51,6 +51,7 @@
 #include <mach/socinfo.h>
 #include <mach/rpm.h>
 #include <mach/gpio.h>
+#include <mach/gpiomux.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/dma.h>
@@ -64,10 +65,8 @@
 #endif
 
 #include "timer.h"
-#include "gpiomux.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
-#include "gpiomux.h"
 #include "spm.h"
 #include "board-msm8960.h"
 #include "pm.h"

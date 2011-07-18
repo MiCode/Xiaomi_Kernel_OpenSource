@@ -12,7 +12,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 
 struct msm_gpiomux_rec {
 	struct gpiomux_setting *sets[GPIOMUX_NSETTINGS];

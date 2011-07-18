@@ -15,8 +15,8 @@
 #include <linux/gpio.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <mach/gpiomux.h>
 #include "gpio_hw.h"
-#include "gpiomux.h"
 
 #define MSM_GPIO_BANK(bank, first, last)				\
 	{								\

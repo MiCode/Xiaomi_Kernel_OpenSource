@@ -12,7 +12,7 @@
 #include <linux/module.h>
 #include <mach/irqs.h>
 #include <asm/mach-types.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 #include "gpiomux-8x60.h"
 
 static struct gpiomux_setting console_uart = {

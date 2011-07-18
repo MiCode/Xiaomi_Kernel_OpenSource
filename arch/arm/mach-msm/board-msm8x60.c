@@ -71,6 +71,7 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
+#include <mach/gpiomux.h>
 #ifdef CONFIG_MSM_DSPS
 #include <mach/msm_dsps.h>
 #endif
@@ -96,7 +97,6 @@
 #include "spm.h"
 #include "rpm_log.h"
 #include "timer.h"
-#include "gpiomux.h"
 #include "gpiomux-8x60.h"
 #include "rpm_stats.h"
 #include "peripheral-loader.h"

@@ -12,7 +12,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <mach/msm_iomap.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 
 #define GPIO_CFG(n)    (MSM_TLMM_BASE + 0x1000 + (0x10 * n))
 #define GPIO_IN_OUT(n) (MSM_TLMM_BASE + 0x1004 + (0x10 * n))

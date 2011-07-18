@@ -11,7 +11,7 @@
  */
 #include <linux/module.h>
 #include <mach/irqs.h>
-#include "gpiomux.h"
+#include <mach/gpiomux.h>
 
 static int __init gpiomux_init(void)
 {
