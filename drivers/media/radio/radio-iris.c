@@ -1477,12 +1477,49 @@ static inline void hci_ev_search_compl(struct radio_hci_dev *hdev,
 	iris_q_event(radio, IRIS_EVT_SEEK_COMPLETE);
 }
 
+
+static void iris_q_evt_data(struct iris_device *radio,
+					char *data, int len, int event)
+{
+	struct kfifo *data_b = &radio->data_buf[event];
+	if (kfifo_in_locked(data_b, data, len, &radio->buf_lock[event]))
+			wake_up_interruptible(&radio->event_queue);
+}
 static inline void hci_ev_srch_st_list_compl(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
-	struct hci_ev_srch_list_compl *ev = (void *) skb->data;
-	radio->srch_st_result = *ev;
+	struct hci_ev_srch_list_compl *ev ;
+	int cnt;
+	int stn_num;
+	int rel_freq;
+	int abs_freq;
+	int len;
+
+	ev = kmalloc(sizeof(*ev), GFP_ATOMIC);
+	if (!ev) {
+		FMDERR("Memory allocation failed");
+		return ;
+	}
+
+	ev->num_stations_found = skb->data[STN_NUM_OFFSET];
+	len = ev->num_stations_found * PARAMS_PER_STATION + STN_FREQ_OFFSET;
+
+	for (cnt = STN_FREQ_OFFSET, stn_num = 0;
+		(cnt < len) && (stn_num < ev->num_stations_found);
+		cnt += PARAMS_PER_STATION, stn_num++) {
+		abs_freq = *((int *)&skb->data[cnt]);
+		rel_freq = abs_freq - radio->recv_conf.band_low_limit;
+		rel_freq = (rel_freq * 20) / KHZ_TO_MHZ;
+
+		ev->rel_freq[stn_num].rel_freq_lsb = GET_LSB(rel_freq);
+		ev->rel_freq[stn_num].rel_freq_msb = GET_MSB(rel_freq);
+	}
+
+	len = ev->num_stations_found * 2 + sizeof(ev->num_stations_found);
+	iris_q_event(radio, IRIS_EVT_NEW_SRCH_LIST);
+	iris_q_evt_data(radio, (char *)ev, len, IRIS_BUF_SRCH_LIST);
+	kfree(ev);
 }
 
 static inline void hci_ev_search_next(struct radio_hci_dev *hdev,
@@ -1501,16 +1538,6 @@ static inline void hci_ev_stereo_status(struct radio_hci_dev *hdev,
 		iris_q_event(radio, IRIS_EVT_STEREO);
 	else
 		iris_q_event(radio, IRIS_EVT_MONO);
-}
-
-
-static void iris_q_rds_data(struct iris_device *radio,
-		char *data, int len, int event)
-{
-	struct kfifo *data_b = &radio->data_buf[event];
-
-	if (kfifo_in_locked(data_b, data, len, &radio->buf_lock[event]))
-		wake_up_interruptible(&radio->event_queue);
 }
 
 
@@ -1537,7 +1564,7 @@ static inline void hci_ev_program_service(struct radio_hci_dev *hdev,
 
 	memcpy(data+RDS_OFFSET, &skb->data[RDS_PS_DATA_OFFSET], len-RDS_OFFSET);
 
-	iris_q_rds_data(radio, data, len, IRIS_BUF_PS_RDS);
+	iris_q_evt_data(radio, data, len, IRIS_BUF_PS_RDS);
 
 	kfree(data);
 }
@@ -1571,7 +1598,7 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 	memcpy(data+RDS_OFFSET, &skb->data[RDS_OFFSET], len);
 	data[len+RDS_OFFSET] = 0x00;
 
-	iris_q_rds_data(radio, data, len+RDS_OFFSET, IRIS_BUF_RT_RDS);
+	iris_q_evt_data(radio, data, len+RDS_OFFSET, IRIS_BUF_RT_RDS);
 
 	kfree(data);
 }
@@ -1625,6 +1652,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 		break;
 
 	case HCI_EV_SEARCH_LIST_COMPLETE:
+		hci_ev_srch_st_list_compl(hdev, skb);
 		break;
 
 	default:

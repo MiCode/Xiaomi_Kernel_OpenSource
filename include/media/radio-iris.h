@@ -343,10 +343,14 @@ struct hci_ev_srch_st {
 	__le16   status_opcode;
 } __packed;
 
+struct hci_ev_rel_freq {
+	__u8  rel_freq_msb;
+	__u8  rel_freq_lsb;
+
+} __packed;
 struct hci_ev_srch_list_compl {
-	__u8    status;
 	__u8    num_stations_found;
-	struct  hci_ev_srch_st  srch_st[20];
+	struct hci_ev_rel_freq  rel_freq[20];
 } __packed;
 
 /* ----- HCI Event Response ----- */
@@ -551,6 +555,15 @@ enum search_t {
 
 /*Search RDS stations*/
 #define SEARCH_RDS_STNS_MODE_OFFSET 4
+
+/*Search Station list */
+#define PARAMS_PER_STATION 0x07
+#define STN_NUM_OFFSET     0x01
+#define STN_FREQ_OFFSET    0x02
+#define KHZ_TO_MHZ         1000
+#define GET_MSB(x)((x >> 8) & 0xFF)
+#define GET_LSB(x)((x) & 0xFF)
+
 /* control options */
 #define CTRL_ON			(1)
 #define CTRL_OFF		(0)
