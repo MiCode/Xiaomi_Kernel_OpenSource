@@ -137,7 +137,6 @@ struct kgsl_device_pwr_data {
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	unsigned int nap_allowed;
-	unsigned int idle_pass;
 };
 
 struct kgsl_clk_data {

@@ -663,10 +663,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		.num_levels = 4,
 		.set_grp_async = NULL,
 		.idle_timeout = HZ/5,
-#ifdef CONFIG_MSM_BUS_SCALING
 		.nap_allowed = true,
-		.idle_pass = true,
-#endif
 	},
 	.clk = {
 		.name = {
@@ -724,9 +721,7 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 		.num_levels = 2,
 		.set_grp_async = NULL,
 		.idle_timeout = HZ/10,
-#ifdef CONFIG_MSM_BUS_SCALING
 		.nap_allowed = true,
-#endif
 	},
 	.clk = {
 		.name = {
@@ -781,9 +776,7 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 		.num_levels = 2,
 		.set_grp_async = NULL,
 		.idle_timeout = HZ/10,
-#ifdef CONFIG_MSM_BUS_SCALING
 		.nap_allowed = true,
-#endif
 	},
 	.clk = {
 		.name = {
