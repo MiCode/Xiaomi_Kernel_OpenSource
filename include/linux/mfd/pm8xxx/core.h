@@ -24,6 +24,7 @@ enum pm8xxx_version {
 	PM8XXX_VERSION_8058,
 	PM8XXX_VERSION_8901,
 	PM8XXX_VERSION_8921,
+	PM8XXX_VERSION_8821,
 };
 
 /* PMIC version specific silicon revisions */
@@ -42,6 +43,11 @@ enum pm8xxx_version {
 #define PM8XXX_REVISION_8921_1p0	1
 #define PM8XXX_REVISION_8921_1p1	2
 #define PM8XXX_REVISION_8921_2p0	3
+
+#define PM8XXX_REVISION_8821_TEST	0
+#define PM8XXX_REVISION_8821_1p0	1
+#define PM8XXX_REVISION_8821_2p0	2
+#define PM8XXX_REVISION_8821_2p1	3
 
 struct pm8xxx_drvdata {
 	int			(*pmic_readb) (const struct device *dev,

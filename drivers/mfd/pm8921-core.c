@@ -170,7 +170,7 @@ static const struct resource mpp_cell_resources[] __devinitconst = {
 
 static struct mfd_cell mpp_cell __devinitdata = {
 	.name		= PM8XXX_MPP_DEV_NAME,
-	.id		= -1,
+	.id		= 0,
 	.resources	= mpp_cell_resources,
 	.num_resources	= ARRAY_SIZE(mpp_cell_resources),
 };
@@ -218,7 +218,7 @@ static struct mfd_cell keypad_cell __devinitdata = {
 
 static struct mfd_cell debugfs_cell __devinitdata = {
 	.name		= "pm8xxx-debug",
-	.id		= -1,
+	.id		= 0,
 	.platform_data	= "pm8921-dbg",
 	.pdata_size	= sizeof("pm8921-dbg"),
 };
