@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <mach/socinfo.h>
+#include <mach/scm.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -29,28 +30,15 @@ struct tz_priv {
 };
 
 #define SWITCH_OFF		200
-#define TZ_UPDATE_ID		0x01404000
-#define TZ_RESET_ID		0x01403000
+#define TZ_RESET_ID		0x3
+#define TZ_UPDATE_ID		0x4
 
 #ifdef CONFIG_MSM_SECURE_IO
 /* Trap into the TrustZone, and call funcs there. */
 static int __secure_tz_entry(u32 cmd, u32 val)
 {
-	register u32 r0 asm("r0") = cmd;
-	register u32 r1 asm("r1") = 0x0;
-	register u32 r2 asm("r2") = val;
-
 	__iowmb();
-	asm(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		__asmeq("%3", "r2")
-		"smc    #0      @ switch to secure world\n"
-		: "=r" (r0)
-		: "r" (r0), "r" (r1), "r" (r2)
-		);
-	return r0;
+	return scm_call_atomic1(SCM_SVC_IO, cmd, val);
 }
 #else
 static int __secure_tz_entry(u32 cmd, u32 val)
