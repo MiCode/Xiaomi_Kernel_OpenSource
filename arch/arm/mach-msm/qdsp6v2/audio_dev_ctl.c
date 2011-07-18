@@ -22,7 +22,6 @@
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
 #include <mach/qdsp6v2/q6voice.h>
-#include <mach/qdsp6v2/rtac.h>
 #include <sound/apr_audio.h>
 #include <sound/q6adm.h>
 
@@ -44,8 +43,6 @@ struct audio_dev_ctrl_state {
 
 static struct audio_dev_ctrl_state audio_dev_ctrl;
 struct event_listner event;
-
-#define MAX_COPP_DEVICES 4
 
 struct session_freq {
 	int freq;
@@ -366,7 +363,7 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 
 	mutex_lock(&routing_info.adm_mutex);
 	if (set) {
-		rc = adm_open(copp_id, PLAYBACK, rate, mode,
+		rc = adm_open(copp_id, ADM_PATH_PLAYBACK, rate, mode,
 			DEFAULT_COPP_TOPOLOGY);
 		if (rc < 0) {
 			pr_err("%s: adm open fail rc[%d]\n", __func__, rc);
@@ -381,7 +378,7 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 				(sizeof(unsigned int) * AFE_MAX_PORTS));
 		num_copps = msm_check_multicopp_per_stream(popp_id, &payload);
 		/* Multiple streams per copp is handled, one stream at a time */
-		rc = adm_matrix_map(popp_id, PLAYBACK, num_copps,
+		rc = adm_matrix_map(popp_id, ADM_PATH_PLAYBACK, num_copps,
 					payload.copp_ids, copp_id);
 		if (rc < 0) {
 			pr_err("%s: matrix map failed rc[%d]\n",
@@ -518,14 +515,14 @@ int msm_snddev_set_enc(int popp_id, int copp_id, int set,
 			rate = 16000;
 		}
 		mutex_unlock(&adm_tx_topology_tbl.lock);
-		rc = adm_open(copp_id, LIVE_RECORDING, rate, mode, topology);
+		rc = adm_open(copp_id, ADM_PATH_LIVE_REC, rate, mode, topology);
 		if (rc < 0) {
 			pr_err("%s: adm open fail rc[%d]\n", __func__, rc);
 			rc = -EINVAL;
 			goto fail_cmd;
 		}
 
-		rc = adm_matrix_map(popp_id, LIVE_RECORDING, 1,
+		rc = adm_matrix_map(popp_id, ADM_PATH_LIVE_REC, 1,
 					(unsigned int *)&copp_id, copp_id);
 		if (rc < 0) {
 			pr_err("%s: matrix map failed rc[%d]\n", __func__, rc);
@@ -998,7 +995,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_open(port_id[0], LIVE_RECORDING, rate, channel_mode,
+		rc = adm_open(port_id[0], ADM_PATH_LIVE_REC, rate, channel_mode,
 				DEFAULT_COPP_TOPOLOGY);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM open %d\n",
@@ -1007,7 +1004,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_matrix_map(popp_id, LIVE_RECORDING, 1,
+		rc = adm_matrix_map(popp_id, ADM_PATH_LIVE_REC, 1,
 				&port_id[0], port_id[0]);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM matrix map %d\n",
@@ -1027,7 +1024,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_open(port_id[1], LIVE_RECORDING, rate, channel_mode,
+		rc = adm_open(port_id[1], ADM_PATH_LIVE_REC, rate, channel_mode,
 				DEFAULT_COPP_TOPOLOGY);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM open %d\n",
@@ -1036,7 +1033,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_matrix_map(popp_id, LIVE_RECORDING, 1,
+		rc = adm_matrix_map(popp_id, ADM_PATH_LIVE_REC, 1,
 				&port_id[1], port_id[1]);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM matrix map %d\n",
@@ -1056,7 +1053,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_open(port_id[0], LIVE_RECORDING, rate, channel_mode,
+		rc = adm_open(port_id[0], ADM_PATH_LIVE_REC, rate, channel_mode,
 				DEFAULT_COPP_TOPOLOGY);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM open %d\n",
@@ -1075,7 +1072,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_open(port_id[1], LIVE_RECORDING, rate, channel_mode,
+		rc = adm_open(port_id[1], ADM_PATH_LIVE_REC, rate, channel_mode,
 				DEFAULT_COPP_TOPOLOGY);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM open %d\n",
@@ -1084,7 +1081,7 @@ int msm_enable_incall_recording(int popp_id, int rec_mode, int rate,
 			goto fail_cmd;
 		}
 
-		rc = adm_matrix_map(popp_id, LIVE_RECORDING, 2,
+		rc = adm_matrix_map(popp_id, ADM_PATH_LIVE_REC, 2,
 				&port_id[0], port_id[1]);
 		if (rc < 0) {
 			pr_err("%s: Error %d in ADM matrix map\n",
@@ -1362,10 +1359,6 @@ void broadcast_event(u32 evt_id, u32 dev_id, u64 session_id)
 			return;
 		}
 	}
-
-#ifdef CONFIG_MSM8X60_RTAC
-	update_rtac(evt_id, dev_id, dev_info);
-#endif
 
 	if (event.cb != NULL)
 		callback = event.cb;

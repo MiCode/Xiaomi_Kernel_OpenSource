@@ -16,7 +16,6 @@
 
 #ifdef CONFIG_MSM8X60_RTAC
 
-#include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/q6voice.h>
 
 /* Voice Modes */
@@ -24,8 +23,7 @@
 #define RTAC_CVS		1
 #define RTAC_VOICE_MODES	2
 
-void update_rtac(u32 evt_id, u32 dev_id, struct msm_snddev_info *dev_info);
-void rtac_add_adm_device(u32 port_id, u32 popp_id);
+void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id);
 void rtac_remove_adm_device(u32 port_id, u32 popp_id);
 void rtac_add_voice(struct voice_data *v);
 void rtac_remove_voice(struct voice_data *v);

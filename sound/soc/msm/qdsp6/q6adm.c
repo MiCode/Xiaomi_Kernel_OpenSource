@@ -265,6 +265,10 @@ int adm_cmd_map(int port_id, int session_id)
 
 	/* have to convert path to dev ctrl standard */
 	send_adm_cal(port_id, (route.path + 1));
+#ifdef CONFIG_MSM8X60_RTAC
+	rtac_add_adm_device(port_id, atomic_read(&this_adm.copp_id[index]),
+		(route.path + 1), session_id);
+#endif
 fail_cmd:
 	return ret;
 }
@@ -326,6 +330,9 @@ int adm_open_mixer(int port_id, int path, int rate,
 			ret = -ENODEV;
 			return ret;
 		}
+#ifdef CONFIG_MSM8X60_RTAC
+		rtac_set_adm_handle(this_adm.apr);
+#endif
 	}
 
 	if (atomic_read(&this_adm.copp_cnt[index]) == 0) {
@@ -347,7 +354,7 @@ int adm_open_mixer(int port_id, int path, int rate,
 		open.endpoint_id2 = 0xFFFF;
 
 		/* convert path to acdb path */
-		if (path == PLAYBACK)
+		if (path == ADM_PATH_PLAYBACK)
 			open.topology_id = get_adm_rx_topology();
 		else {
 			open.topology_id = get_adm_tx_topology();
@@ -452,7 +459,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.endpoint_id2 = 0xFFFF;
 
 		/* convert path to acdb path */
-		if (path == PLAYBACK)
+		if (path == ADM_PATH_PLAYBACK)
 			open.topology_id = get_adm_rx_topology();
 		else {
 			open.topology_id = get_adm_tx_topology();
@@ -575,6 +582,12 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	for (i = 0; i < num_copps; i++)
 		send_adm_cal(port_id[i], path);
 
+#ifdef CONFIG_MSM8X60_RTAC
+	for (i = 0; i < num_copps; i++)
+		rtac_add_adm_device(port_id[i],	atomic_read(&this_adm.copp_id
+			[afe_get_port_index(port_id[i])]),
+			path, session_id);
+#endif
 	return 0;
 
 fail_cmd:
@@ -729,16 +742,16 @@ fail_cmd:
 }
 
 #ifdef CONFIG_MSM8X60_RTAC
-int adm_get_copp_id(int port_id)
+int adm_get_copp_id(int port_index)
 {
 	pr_debug("%s\n", __func__);
 
-	if (port_id < 0) {
-		pr_err("%s: invalid port_id = %d\n", __func__, port_id);
+	if (port_index < 0) {
+		pr_err("%s: invalid port_id = %d\n", __func__, port_index);
 		return -EINVAL;
 	}
 
-	return atomic_read(&this_adm.copp_id[port_id]);
+	return atomic_read(&this_adm.copp_id[port_index]);
 }
 #endif
 

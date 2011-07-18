@@ -20,10 +20,9 @@
 #include <linux/sched.h>
 #include <linux/msm_audio_acdb.h>
 #include <asm/atomic.h>
-#include <mach/qdsp6v2/apr_audio.h>
-#include <mach/qdsp6v2/q6asm.h>
-#include <mach/qdsp6v2/q6afe.h>
+#include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
+#include <sound/q6asm.h>
 #include <sound/q6adm.h>
 
 
@@ -48,22 +47,9 @@ static struct rtac_apr_data	rtac_asm_apr_data[SESSION_MAX+1];
 static struct rtac_apr_data	rtac_voice_apr_data[RTAC_VOICE_MODES];
 
 
-/* Dev ctrl info */
-struct rtac_dev_ctrl_data {
-	uint32_t	dev_id;
-	uint32_t	afe_port;
-};
-
-struct rtac_dev_ctrl {
-	uint32_t			num_of_dev;
-	struct rtac_dev_ctrl_data	device[RTAC_MAX_ACTIVE_DEVICES];
-};
-
-static struct rtac_dev_ctrl	rtac_dev_ctl_data;
-
-
 /* ADM info & APR */
 struct rtac_adm_data {
+	uint32_t	topology_id;
 	uint32_t	afe_port;
 	uint32_t	copp;
 	uint32_t	num_of_popp;
@@ -88,8 +74,8 @@ static u8			*rtac_asm_buffer;
 
 /* Voice info & APR */
 struct rtac_voice_data {
-	uint32_t	tx_dev_id;
-	uint32_t	rx_dev_id;
+	uint32_t	tx_topology_id;
+	uint32_t	rx_topology_id;
 	uint32_t	tx_afe_port;
 	uint32_t	rx_afe_port;
 	uint16_t	cvs_handle;
@@ -108,7 +94,6 @@ static u8			*rtac_voice_buffer;
 
 
 
-struct mutex			rtac_dev_ctrl_mutex;
 struct mutex			rtac_adm_mutex;
 struct mutex			rtac_adm_apr_mutex;
 struct mutex			rtac_asm_apr_mutex;
@@ -126,99 +111,6 @@ static int rtac_release(struct inode *inode, struct file *f)
 	pr_debug("%s\n", __func__);
 	return 0;
 }
-
-
-/* Dev ctrl info */
-void rtac_add_dev_ctrl_device(u32 dev_id, struct msm_snddev_info *dev_info)
-{
-	s32 i = 0;
-	pr_debug("%s: dev_id = %d\n", __func__, dev_id);
-
-	mutex_lock(&rtac_dev_ctrl_mutex);
-	if (rtac_dev_ctl_data.num_of_dev == RTAC_MAX_ACTIVE_DEVICES) {
-		pr_err("%s, Can't add anymore RTAC devices!\n", __func__);
-		goto done;
-	}
-
-	/* Check if device already added */
-	if (rtac_dev_ctl_data.num_of_dev != 0) {
-		for (; i < rtac_dev_ctl_data.num_of_dev; i++) {
-			if (rtac_dev_ctl_data.device[i].dev_id == dev_id) {
-				pr_debug("%s, Device = %d already present"
-					 "in list\n", __func__, dev_id);
-				goto done;
-			}
-		}
-	}
-
-	/* Add device */
-	rtac_dev_ctl_data.num_of_dev++;
-	rtac_dev_ctl_data.device[i].dev_id = dev_id;
-	rtac_dev_ctl_data.device[i].afe_port = dev_info->copp_id;
-done:
-	mutex_unlock(&rtac_dev_ctrl_mutex);
-	return;
-}
-
-void shift_dev_ctrl_devices(u32 dev_idx)
-{
-	for (; dev_idx < rtac_dev_ctl_data.num_of_dev; dev_idx++) {
-		rtac_dev_ctl_data.device[dev_idx].dev_id =
-			rtac_dev_ctl_data.device[dev_idx + 1].dev_id;
-		rtac_dev_ctl_data.device[dev_idx].afe_port =
-			rtac_dev_ctl_data.device[dev_idx + 1].afe_port;
-	}
-}
-
-void rtac_remove_dev_ctrl_device(u32 dev_id)
-{
-	s32 i;
-	pr_debug("%s: dev_id = %d\n", __func__, dev_id);
-
-	mutex_lock(&rtac_dev_ctrl_mutex);
-	if (rtac_dev_ctl_data.num_of_dev == 0)
-		goto done;
-
-	/* look for device */
-	for (i = 0; i < rtac_dev_ctl_data.num_of_dev; i++) {
-		if (rtac_dev_ctl_data.device[i].dev_id == dev_id) {
-			if (rtac_dev_ctl_data.device[i].afe_port ==
-				rtac_adm_data.device[i].afe_port) {
-				if (rtac_adm_data.device[i].num_of_popp == 0) {
-					shift_dev_ctrl_devices(i);
-					rtac_dev_ctl_data.device[i+1].dev_id
-									= 0;
-					rtac_dev_ctl_data.device[i+1].afe_port
-									= 0;
-					rtac_dev_ctl_data.num_of_dev--;
-					break;
-				} else
-					pr_debug("%s:Device has atleast one"
-						 " POPP associated with it\n",
-						  __func__);
-			}
-		}
-	}
-done:
-	mutex_unlock(&rtac_dev_ctrl_mutex);
-	return;
-}
-
-void update_rtac(u32 evt_id, u32 dev_id, struct msm_snddev_info *dev_info)
-{
-	pr_debug("%s, evt_id = %d, dev_id = %d\n", __func__, evt_id, dev_id);
-	switch (evt_id) {
-	case AUDDEV_EVT_DEV_RDY:
-		rtac_add_dev_ctrl_device(dev_id, dev_info);
-		break;
-	case AUDDEV_EVT_DEV_RLS:
-		rtac_remove_dev_ctrl_device(dev_id);
-		break;
-	default:
-		break;
-	}
-}
-
 
 /* ADM Info */
 void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
@@ -240,7 +132,7 @@ done:
 	return;
 }
 
-void rtac_add_adm_device(u32 port_id, u32 popp_id)
+void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
 {
 	u32 i = 0;
 	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
@@ -269,8 +161,15 @@ void rtac_add_adm_device(u32 port_id, u32 popp_id)
 
 	/* Add device */
 	rtac_adm_data.num_of_dev++;
+
+	if (path_id == ADM_PATH_PLAYBACK)
+		rtac_adm_data.device[i].topology_id =
+						get_adm_rx_topology();
+	else
+		rtac_adm_data.device[i].topology_id =
+						get_adm_tx_topology();
 	rtac_adm_data.device[i].afe_port = port_id;
-	rtac_adm_data.device[i].copp = adm_get_copp_id(port_id);
+	rtac_adm_data.device[i].copp = copp_id;
 	rtac_adm_data.device[i].popp[
 		rtac_adm_data.device[i].num_of_popp++] = popp_id;
 done:
@@ -278,7 +177,7 @@ done:
 	return;
 }
 
-void shift_adm_devices(u32 dev_idx)
+static void shift_adm_devices(u32 dev_idx)
 {
 	for (; dev_idx < rtac_adm_data.num_of_dev; dev_idx++) {
 		memcpy(&rtac_adm_data.device[dev_idx],
@@ -289,7 +188,7 @@ void shift_adm_devices(u32 dev_idx)
 	}
 }
 
-void shift_popp(u32 copp_idx, u32 popp_idx)
+static void shift_popp(u32 copp_idx, u32 popp_idx)
 {
 	for (; popp_idx < rtac_adm_data.device[copp_idx].num_of_popp;
 							popp_idx++) {
@@ -328,12 +227,6 @@ void rtac_remove_adm_device(u32 port_id, u32 popp_id)
 					}
 				}
 			}
-			if (rtac_adm_data.device[i].num_of_popp == 0) {
-				shift_dev_ctrl_devices(i);
-				rtac_dev_ctl_data.device[i+1].dev_id = 0;
-				rtac_dev_ctl_data.device[i+1].afe_port = 0;
-				rtac_dev_ctl_data.num_of_dev--;
-			}
 			if (rtac_adm_data.num_of_dev >= 1) {
 				shift_adm_devices(i);
 				break;
@@ -347,10 +240,10 @@ done:
 
 
 /* Voice Info */
-void set_rtac_voice_data(int idx, struct voice_data *v)
+static void set_rtac_voice_data(int idx, struct voice_data *v)
 {
-	rtac_voice_data.voice[idx].tx_dev_id = v->dev_tx.dev_id;
-	rtac_voice_data.voice[idx].rx_dev_id = v->dev_rx.dev_id;
+	rtac_voice_data.voice[idx].tx_topology_id = get_voice_tx_topology();
+	rtac_voice_data.voice[idx].rx_topology_id = get_voice_rx_topology();
 	rtac_voice_data.voice[idx].tx_afe_port = v->dev_tx.dev_port_id;
 	rtac_voice_data.voice[idx].rx_afe_port = v->dev_rx.dev_port_id;
 	rtac_voice_data.voice[idx].cvs_handle = v->cvs_handle;
@@ -389,7 +282,7 @@ done:
 	return;
 }
 
-void shift_voice_devices(u32 idx)
+static void shift_voice_devices(u32 idx)
 {
 	for (; idx < rtac_voice_data.num_of_voice_combos - 1; idx++) {
 		memcpy(&rtac_voice_data.voice[idx],
@@ -471,7 +364,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	s32				result;
 	u32				count = 0;
 	u32				bytes_returned = 0;
-	u32				port_id = 0;
+	u32				port_index = 0;
 	u32				copp_id;
 	u32				payload_size;
 	struct apr_hdr			adm_params;
@@ -510,12 +403,13 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		goto done;
 	}
 
-	for (port_id = 0; port_id < AFE_MAX_PORTS; port_id++) {
-		if (adm_get_copp_id(port_id) == copp_id)
+	for (port_index = 0; port_index < AFE_MAX_PORTS; port_index++) {
+		if (adm_get_copp_id(port_index) == copp_id)
 			break;
 	}
-	if (port_id >= AFE_MAX_PORTS) {
-		pr_err("%s: Invalid Port ID = %d\n", __func__, port_id);
+	if (port_index >= AFE_MAX_PORTS) {
+		pr_err("%s: Could not find port index for copp = %d\n",
+		       __func__, copp_id);
 		goto done;
 	}
 
@@ -542,11 +436,11 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		payload_size);
 	adm_params.src_svc = APR_SVC_ADM;
 	adm_params.src_domain = APR_DOMAIN_APPS;
-	adm_params.src_port = port_id;
+	adm_params.src_port = port_index;
 	adm_params.dest_svc = APR_SVC_ADM;
 	adm_params.dest_domain = APR_DOMAIN_ADSP;
-	adm_params.dest_port = adm_get_copp_id(port_id);
-	adm_params.token = port_id;
+	adm_params.dest_port = copp_id;
+	adm_params.token = port_index;
 	adm_params.opcode = opcode;
 
 	memcpy(rtac_adm_buffer, &adm_params, sizeof(adm_params));
@@ -558,8 +452,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	result = apr_send_pkt(rtac_adm_apr_data.apr_handle,
 				(uint32_t *)rtac_adm_buffer);
 	if (result < 0) {
-		pr_err("%s: Set params failed port = %d\n",
-			__func__, port_id);
+		pr_err("%s: Set params failed port = %d, copp = %d\n",
+			__func__, port_index, copp_id);
 		goto err;
 	}
 	/* Wait for the callback */
@@ -568,8 +462,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		msecs_to_jiffies(TIMEOUT_MS));
 	mutex_unlock(&rtac_adm_apr_mutex);
 	if (!result) {
-		pr_err("%s: Set params timed out port = %d\n",
-			__func__, port_id);
+		pr_err("%s: Set params timed out port = %d, copp = %d\n",
+			__func__, port_index, copp_id);
 		goto done;
 	}
 
@@ -933,7 +827,7 @@ err:
 
 
 
-static int rtac_ioctl(struct inode *inode, struct file *f,
+static long rtac_ioctl(struct file *f,
 		unsigned int cmd, unsigned long arg)
 {
 	s32 result = 0;
@@ -946,13 +840,6 @@ static int rtac_ioctl(struct inode *inode, struct file *f,
 	}
 
 	switch (cmd) {
-	case AUDIO_GET_RTAC_DEV_CTRL_INFO:
-		if (copy_to_user((void *)arg, &rtac_dev_ctl_data,
-						sizeof(rtac_dev_ctl_data)))
-			pr_err("%s: Could not copy to userspace!\n", __func__);
-		else
-			result = sizeof(rtac_dev_ctl_data);
-		break;
 	case AUDIO_GET_RTAC_ADM_INFO:
 		if (copy_to_user((void *)arg, &rtac_adm_data,
 						sizeof(rtac_adm_data)))
@@ -1010,7 +897,7 @@ static const struct file_operations rtac_fops = {
 	.owner = THIS_MODULE,
 	.open = rtac_open,
 	.release = rtac_release,
-	.ioctl = rtac_ioctl,
+	.unlocked_ioctl = rtac_ioctl,
 };
 
 struct miscdevice rtac_misc = {
@@ -1023,10 +910,6 @@ static int __init rtac_init(void)
 {
 	int i = 0;
 	pr_debug("%s\n", __func__);
-
-	/* Dev ctrl */
-	memset(&rtac_dev_ctl_data, 0, sizeof(rtac_dev_ctl_data));
-	mutex_init(&rtac_dev_ctrl_mutex);
 
 	/* ADM */
 	memset(&rtac_adm_data, 0, sizeof(rtac_adm_data));
