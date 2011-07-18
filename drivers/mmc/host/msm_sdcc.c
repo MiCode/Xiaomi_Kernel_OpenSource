@@ -3881,6 +3881,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 	if (host->plat->is_sdio_al_client)
 		return 0;
 
+	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
 		host->sdcc_suspending = 1;
 		mmc->suspend_task = current;
@@ -3943,6 +3944,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		if (rc && wake_lock_active(&host->sdio_suspend_wlock))
 			wake_unlock(&host->sdio_suspend_wlock);
 	}
+	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
 	return rc;
 }
 
@@ -3956,6 +3958,7 @@ msmsdcc_runtime_resume(struct device *dev)
 	if (host->plat->is_sdio_al_client)
 		return 0;
 
+	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
 		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 			if (host->sdcc_irq_disabled) {
@@ -4006,6 +4009,7 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		wake_unlock(&host->sdio_suspend_wlock);
 	}
+	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
 	return 0;
 }
 
