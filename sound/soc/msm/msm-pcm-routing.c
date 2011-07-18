@@ -25,7 +25,7 @@
 #include <sound/control.h>
 #include <sound/q6adm.h>
 #include <sound/q6afe.h>
-
+#include <sound/tlv.h>
 #include "msm-pcm-routing.h"
 #include "qdsp6/q6voice.h"
 
@@ -53,6 +53,12 @@ enum {
 };
 
 static int fm_switch_enable;
+#define INT_FM_RX_VOL_MAX_STEPS 100
+#define INT_FM_RX_VOL_GAIN 2000
+
+static int msm_route_fm_vol_control;
+static const DECLARE_TLV_DB_SCALE(fm_rx_vol_gain, 0,
+			INT_FM_RX_VOL_MAX_STEPS, 0);
 
 /* Tx mixer session is stored based on BE DAI ID
  * Need to map to actual AFE port ID since AFE port
@@ -382,6 +388,23 @@ static int msm_routing_put_port_mixer(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_routing_get_fm_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_route_fm_vol_control;
+	return 0;
+}
+
+static int msm_routing_set_fm_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	afe_loopback_gain(INT_FM_TX , ucontrol->value.integer.value[0]);
+
+	msm_route_fm_vol_control = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", AUDIO_MIXER_PRI_I2S_RX ,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
@@ -512,6 +535,12 @@ static const struct snd_kcontrol_new fm_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 	0, 1, 0, msm_routing_get_switch_mixer,
 	msm_routing_put_switch_mixer);
+
+static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
+	INT_FM_RX_VOL_GAIN, 0, msm_routing_get_fm_vol_mixer,
+	msm_routing_set_fm_vol_mixer, fm_rx_vol_gain),
+};
 
 static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Frontend AIF */
@@ -675,6 +704,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_dapm_new_widgets(&platform->dapm);
 
+	snd_soc_add_platform_controls(platform,
+				int_fm_vol_mixer_controls,
+			ARRAY_SIZE(int_fm_vol_mixer_controls));
 	return 0;
 }
 
