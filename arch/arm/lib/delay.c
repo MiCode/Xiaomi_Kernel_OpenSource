@@ -85,6 +85,6 @@ EXPORT_SYMBOL(__const_udelay);
  */
 void __udelay(unsigned long usecs)
 {
-	__const_udelay(usecs * ((2199023*HZ)>>11));
+	__const_udelay(usecs * ((2199023UL*HZ)>>11));
 }
 EXPORT_SYMBOL(__udelay);
