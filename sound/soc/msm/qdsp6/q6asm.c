@@ -37,6 +37,8 @@
 #include <sound/q6asm.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
+#include  <linux/debugfs.h>
+#include  <linux/time.h>
 
 #define TRUE        0x01
 #define FALSE       0x00
@@ -49,7 +51,10 @@
 #define READDONE_IDX_FLAGS 6
 #define READDONE_IDX_NUMFRAMES 7
 #define READDONE_IDX_ID 8
-
+#ifdef CONFIG_DEBUG_FS
+#define OUT_BUFFER_SIZE 56
+#define IN_BUFFER_SIZE 24
+#endif
 static DEFINE_MUTEX(session_lock);
 
 /* session id: 0 reserved */
@@ -67,6 +72,108 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 
 static void q6asm_reset_buf_state(struct audio_client *ac);
 
+#ifdef CONFIG_DEBUG_FS
+static struct timeval out_cold_tv;
+static struct timeval out_warm_tv;
+static struct timeval out_cont_tv;
+static struct timeval in_cont_tv;
+static long out_enable_flag;
+static long in_enable_flag;
+static struct dentry *out_dentry;
+static struct dentry *in_dentry;
+static int in_cont_index;
+/*This var is used to keep track of first write done for cold output latency */
+static int out_cold_index;
+static char *out_buffer;
+static char *in_buffer;
+static int audio_output_latency_dbgfs_open(struct inode *inode,
+							struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+static ssize_t audio_output_latency_dbgfs_read(struct file *file,
+				char __user *buf, size_t count, loff_t *ppos)
+{
+	snprintf(out_buffer, OUT_BUFFER_SIZE, "%ld,%ld,%ld,%ld,%ld,%ld,",\
+		out_cold_tv.tv_sec, out_cold_tv.tv_usec, out_warm_tv.tv_sec,\
+		out_warm_tv.tv_usec, out_cont_tv.tv_sec, out_cont_tv.tv_usec);
+	return  simple_read_from_buffer(buf, OUT_BUFFER_SIZE, ppos,
+						out_buffer, OUT_BUFFER_SIZE);
+}
+static ssize_t audio_output_latency_dbgfs_write(struct file *file,
+			const char __user *buf, size_t count, loff_t *ppos)
+{
+	char *temp;
+
+	if (count > 2*sizeof(char))
+		return -EINVAL;
+	else
+		temp  = kmalloc(2*sizeof(char), GFP_KERNEL);
+
+	out_cold_index = 0;
+
+	if (temp) {
+		if (copy_from_user(temp, buf, 2*sizeof(char))) {
+			kfree(temp);
+			return -EFAULT;
+		}
+		if (!strict_strtol(temp, 10, &out_enable_flag)) {
+			kfree(temp);
+			return count;
+		}
+		kfree(temp);
+	}
+	return -EINVAL;
+}
+static const struct file_operations audio_output_latency_debug_fops = {
+	.open = audio_output_latency_dbgfs_open,
+	.read = audio_output_latency_dbgfs_read,
+	.write = audio_output_latency_dbgfs_write
+};
+
+static int audio_input_latency_dbgfs_open(struct inode *inode,
+							struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+static ssize_t audio_input_latency_dbgfs_read(struct file *file,
+				char __user *buf, size_t count, loff_t *ppos)
+{
+	snprintf(in_buffer, IN_BUFFER_SIZE, "%ld,%ld,",\
+				in_cont_tv.tv_sec, in_cont_tv.tv_usec);
+	return  simple_read_from_buffer(buf, IN_BUFFER_SIZE, ppos,
+						in_buffer, IN_BUFFER_SIZE);
+}
+static ssize_t audio_input_latency_dbgfs_write(struct file *file,
+			const char __user *buf, size_t count, loff_t *ppos)
+{
+	char *temp;
+
+	if (count > 2*sizeof(char))
+		return -EINVAL;
+	else
+		temp  = kmalloc(2*sizeof(char), GFP_KERNEL);
+	if (temp) {
+		if (copy_from_user(temp, buf, 2*sizeof(char))) {
+			kfree(temp);
+			return -EFAULT;
+		}
+		if (!strict_strtol(temp, 10, &in_enable_flag)) {
+			kfree(temp);
+			return count;
+		}
+		kfree(temp);
+	}
+	return -EINVAL;
+}
+static const struct file_operations audio_input_latency_debug_fops = {
+	.open = audio_input_latency_dbgfs_open,
+	.read = audio_input_latency_dbgfs_read,
+	.write = audio_input_latency_dbgfs_write
+};
+#endif
 struct asm_mmap {
 	atomic_t ref_cnt;
 	atomic_t cmd_state;
@@ -636,6 +743,22 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			token = data->token;
 			port->buf[token].used = 1;
 			spin_unlock_irqrestore(&port->dsp_lock, dsp_flags);
+#ifdef CONFIG_DEBUG_FS
+			if (out_enable_flag) {
+				/* For first Write done log the time and reset
+				   out_cold_index*/
+				if (out_cold_index != 1) {
+					do_gettimeofday(&out_cold_tv);
+					pr_debug("COLD: apr_send_pkt at %ld \
+					sec %ld microsec\n",\
+					out_cold_tv.tv_sec,\
+					out_cold_tv.tv_usec);
+					out_cold_index = 1;
+				}
+				pr_debug("out_enable_flag %ld",\
+					out_enable_flag);
+			}
+#endif
 			for (i = 0; i < port->max_buf_cnt; i++)
 				pr_debug("%d ", port->buf[i].used);
 
@@ -651,7 +774,27 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	case ASM_DATA_EVENT_READ_DONE:{
 
 		struct audio_port_data *port = &ac->port[OUT];
-
+#ifdef CONFIG_DEBUG_FS
+		if (in_enable_flag) {
+			/* when in_cont_index == 7, DSP would be
+			 * writing into the 8th 512 byte buffer and this
+			 * timestamp is tapped here.Once done it then writes
+			 * to 9th 512 byte buffer.These two buffers(8th, 9th)
+			 * reach the test application in 5th iteration and that
+			 * timestamp is tapped at user level. The difference
+			 * of these two timestamps gives us the time between
+			 * the time at which dsp started filling the sample
+			 * required and when it reached the test application.
+			 * Hence continuous input latency
+			 */
+			if (in_cont_index == 7) {
+				do_gettimeofday(&in_cont_tv);
+				pr_err("In_CONT:previous read buffer done \
+				at %ld sec %ld microsec\n",\
+				out_cont_tv.tv_sec, out_cont_tv.tv_usec);
+			}
+		}
+#endif
 		pr_debug("%s:R-D: status=%d buff_add=%x act_size=%d offset=%d\n",
 				__func__, payload[READDONE_IDX_STATUS],
 				payload[READDONE_IDX_BUFFER],
@@ -663,7 +806,11 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				payload[READDONE_IDX_FLAGS],
 				payload[READDONE_IDX_ID],
 				payload[READDONE_IDX_NUMFRAMES]);
-
+#ifdef CONFIG_DEBUG_FS
+		if (in_enable_flag) {
+			in_cont_index++;
+		}
+#endif
 		if (ac->io_mode == SYNC_IO_MODE) {
 			if (port->buf == NULL) {
 				pr_err("%s: Unexpected Write Done\n", __func__);
@@ -848,7 +995,9 @@ int q6asm_open_read(struct audio_client *ac,
 {
 	int rc = 0x00;
 	struct asm_stream_cmd_open_read open;
-
+#ifdef CONFIG_DEBUG_FS
+	in_cont_index = 0;
+#endif
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
@@ -1065,7 +1214,13 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 	run.flags    = flags;
 	run.msw_ts   = msw_ts;
 	run.lsw_ts   = lsw_ts;
-
+#ifdef CONFIG_DEBUG_FS
+	if (out_enable_flag) {
+		do_gettimeofday(&out_cold_tv);
+		pr_debug("COLD: apr_send_pkt at %ld sec %ld microsec\n",\
+				out_cold_tv.tv_sec, out_cold_tv.tv_usec);
+	}
+#endif
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &run);
 	if (rc < 0) {
 		pr_err("Commmand run failed[%d]", rc);
@@ -2340,7 +2495,31 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 							write.hdr.token,
 							write.uid);
 		mutex_unlock(&port->lock);
-
+#ifdef CONFIG_DEBUG_FS
+		if (out_enable_flag) {
+			char zero_pattern[2] = {0x00, 0x00};
+			/* If First two byte is non zero and last two byte
+			is zero then it is warm output pattern */
+			if ((strncmp(((char *)ab->data), zero_pattern, 2)) &&
+			(!strncmp(((char *)ab->data + 2), zero_pattern, 2))) {
+				do_gettimeofday(&out_warm_tv);
+				pr_debug("WARM:apr_send_pkt at \
+				%ld sec %ld microsec\n", out_warm_tv.tv_sec,\
+				out_warm_tv.tv_usec);
+				pr_debug("Warm Pattern Matched");
+			}
+			/* If First two byte is zero and last two byte is
+			non zero then it is cont ouput pattern */
+			else if ((!strncmp(((char *)ab->data), zero_pattern, 2))
+			&& (strncmp(((char *)ab->data + 2), zero_pattern, 2))) {
+				do_gettimeofday(&out_cont_tv);
+				pr_debug("CONT:apr_send_pkt at \
+				%ld sec %ld microsec\n", out_cont_tv.tv_sec,\
+				out_cont_tv.tv_usec);
+				pr_debug("Cont Pattern Matched");
+			}
+		}
+#endif
 		rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 		if (rc < 0) {
 			pr_err("write op[0x%x]rc[%d]\n", write.hdr.opcode, rc);
@@ -2642,6 +2821,20 @@ static int __init q6asm_init(void)
 	pr_debug("%s\n", __func__);
 	init_waitqueue_head(&this_mmap.cmd_wait);
 	memset(session, 0, sizeof(session));
+#ifdef CONFIG_DEBUG_FS
+	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
+	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
+				S_IFREG | S_IRUGO | S_IWUGO,\
+				NULL, NULL, &audio_output_latency_debug_fops);
+	if (IS_ERR(out_dentry))
+		pr_err("debugfs_create_file failed\n");
+	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
+	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
+				S_IFREG | S_IRUGO | S_IWUGO,\
+				NULL, NULL, &audio_input_latency_debug_fops);
+	if (IS_ERR(in_dentry))
+		pr_err("debugfs_create_file failed\n");
+#endif
 	return 0;
 }
 
