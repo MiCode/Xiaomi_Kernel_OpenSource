@@ -26,6 +26,21 @@
 #define MSM_GSBI3_PHYS		0x16200000
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
 
+static struct resource msm_dmov_resource[] = {
+	{
+		.start = ADM_0_SCSS_0_IRQ,
+		.end = (resource_size_t)MSM_DMOV_BASE,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_dmov = {
+	.name	= "msm_dmov",
+	.id	= -1,
+	.resource = msm_dmov_resource,
+	.num_resources = ARRAY_SIZE(msm_dmov_resource),
+};
+
 static struct resource resources_uart_gsbi3[] = {
 	{
 		.start	= GSBI3_UARTDM_IRQ,

@@ -60,6 +60,9 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 #elif defined(CONFIG_ARCH_MSM8960)
 #define DMOV_SD_SIZE 0x800
 #define DMOV_SD_AARM 1
+#elif defined(CONFIG_ARCH_APQ8064)
+#define DMOV_SD_SIZE 0x800
+#define DMOV_SD_AARM 0
 #elif defined(CONFIG_MSM_ADM3)
 #define DMOV_SD_SIZE 0x800
 #define DMOV_SD_MASTER 1
