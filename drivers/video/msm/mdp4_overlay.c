@@ -445,11 +445,68 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	mdp4_stat.pipe[pipe->pipe_num]++;
 }
 
+
+static void mdp4_overlay_vg_get_src_offset(struct mdp4_overlay_pipe *pipe,
+	char *vg_base, uint32 *luma_off, uint32 *chroma_off)
+{
+	uint32 src_xy;
+	*luma_off = 0;
+	*chroma_off = 0;
+
+	if (pipe->src_x) {
+		src_xy = (pipe->src_y << 16) | pipe->src_x;
+		src_xy &= 0xffff0000;
+		outpdw(vg_base + 0x0004, src_xy);	/* MDP_RGB_SRC_XY */
+
+		switch (pipe->src_format) {
+		case MDP_Y_CR_CB_H2V2:
+		case MDP_Y_CB_CR_H2V2:
+				*luma_off = pipe->src_x;
+				*chroma_off = pipe->src_x/2;
+			break;
+
+		case MDP_Y_CBCR_H2V2_TILE:
+		case MDP_Y_CRCB_H2V2_TILE:
+		case MDP_Y_CBCR_H2V2:
+		case MDP_Y_CRCB_H2V2:
+		case MDP_Y_CRCB_H1V1:
+		case MDP_Y_CBCR_H1V1:
+		case MDP_Y_CRCB_H2V1:
+		case MDP_Y_CBCR_H2V1:
+			*luma_off = pipe->src_x;
+			*chroma_off = pipe->src_x;
+			break;
+
+		case MDP_YCRYCB_H2V1:
+			if (pipe->src_x & 0x1)
+				pipe->src_x += 1;
+			*luma_off += pipe->src_x * 2;
+			break;
+
+		case MDP_ARGB_8888:
+		case MDP_RGBA_8888:
+		case MDP_BGRA_8888:
+		case MDP_RGBX_8888:
+		case MDP_RGB_565:
+		case MDP_BGR_565:
+		case MDP_XRGB_8888:
+		case MDP_RGB_888:
+			*luma_off = pipe->src_x * pipe->bpp;
+			break;
+
+		default:
+			pr_err("Source format %u not supported for x offset adjustment\n",
+				pipe->src_format);
+			break;
+		}
+	}
+}
+
 void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 {
 	char *vg_base;
 	uint32 frame_size, src_size, src_xy, dst_size, dst_xy;
-	uint32 format, pattern;
+	uint32 format, pattern, luma_offset, chroma_offset;
 	int pnum;
 
 	pnum = pipe->pipe_num - OVERLAY_PIPE_VG1; /* start from 0 */
@@ -484,14 +541,22 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	outpdw(vg_base + 0x000c, dst_xy);	/* MDP_RGB_DST_XY */
 	outpdw(vg_base + 0x0048, frame_size);	/* TILE frame size */
 
+	/*
+	 * Adjust src X offset to avoid MDP from overfetching pixels
+	 * present before the offset. This is required for video
+	 * frames coming with unused green pixels along the left margin
+	 */
+	mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset,
+		&chroma_offset);
+
 	/* luma component plane */
-	outpdw(vg_base + 0x0010, pipe->srcp0_addr);
+	outpdw(vg_base + 0x0010, pipe->srcp0_addr + luma_offset);
 
 	/* chroma component plane or  planar color 1 */
-	outpdw(vg_base + 0x0014, pipe->srcp1_addr);
+	outpdw(vg_base + 0x0014, pipe->srcp1_addr + chroma_offset);
 
 	/* planar color 2 */
-	outpdw(vg_base + 0x0018, pipe->srcp2_addr);
+	outpdw(vg_base + 0x0018, pipe->srcp2_addr + chroma_offset);
 
 	outpdw(vg_base + 0x0040,
 			pipe->srcp1_ystride << 16 | pipe->srcp0_ystride);
