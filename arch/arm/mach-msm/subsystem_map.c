@@ -349,6 +349,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 	}
 
 	if ((flags & MSM_SUBSYSTEM_MAP_IOVA) && subsys_ids) {
+		unsigned int min_align;
 
 		pg_size = SZ_4K;
 
@@ -368,6 +369,12 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 			goto outremovephys;
 		}
 
+		/*
+		 * The alignment must be specified as the exact value wanted
+		 * e.g. 8k alignment must pass (0x2000 | other flags)
+		 */
+		min_align = flags & ~(SZ_4K - 1);
+
 		for (i = 0; i < nsubsys; i++) {
 			if (!subsys_validate(subsys_ids[i])) {
 				buf->iova[i] = phys;
@@ -377,7 +384,8 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 			d = msm_subsystem_get_domain(subsys_ids[i]);
 
 			iova_start = allocate_iova_address(length,
-						subsys_ids[i], pg_size);
+						subsys_ids[i],
+						max(min_align, pg_size));
 
 			if (!iova_start) {
 				pr_err("%s: could not allocate iova address\n",

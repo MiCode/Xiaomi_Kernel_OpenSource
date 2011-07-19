@@ -24,6 +24,14 @@
 #define	MSM_SUBSYSTEM_MAP_CACHED	0x4
 /* ioremaps in the kernel address space are uncached */
 #define MSM_SUBSYSTEM_MAP_UNCACHED	0x8
+/*
+ * Shortcut flags for alignment.
+ * The flag must be equal to the alignment requested.
+ * e.g. for 8k alignment the flags must be (0x2000 | other flags)
+ */
+#define	MSM_SUBSYSTEM_ALIGN_IOVA_8K	SZ_8K
+#define MSM_SUBSYSTEM_ALIGN_IOVA_1M	SZ_1M
+
 
 #define MSM_SUBSYSTEM_VIDEO		VCODEC_A_SUBSYS_ID
 #define MSM_SUBSYSTEM_VIDEO_FWARE	VIDEO_FWARE_ID
