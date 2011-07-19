@@ -123,6 +123,7 @@
 
 #define MDM2AP_SYNC 129
 
+#define GPIO_ETHERNET_RESET_N_DRAGON	30
 #define LCDC_SPI_GPIO_CLK				73
 #define LCDC_SPI_GPIO_CS				72
 #define LCDC_SPI_GPIO_MOSI				70
@@ -9913,6 +9914,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		msm_fb_add_devices();
 	fixup_i2c_configs();
 	register_i2c_devices();
+
+	if (machine_is_msm8x60_dragon())
+		smsc911x_config.reset_gpio
+			= GPIO_ETHERNET_RESET_N_DRAGON;
 
 	platform_device_register(&smsc911x_device);
 
