@@ -113,6 +113,10 @@ static void voice_auddev_cb_function(u32 evt_id,
 				MM_DBG("dev_state into ready\n");
 				wake_up(&v->dev_wait);
 			}
+			if (v->voc_state == VOICE_CHANGE) {
+				MM_DBG("voc_state is in VOICE_CHANGE\n");
+				v->voc_state = VOICE_ACQUIRE;
+			}
 		}
 		break;
 	case AUDDEV_EVT_DEV_CHG_VOICE:
