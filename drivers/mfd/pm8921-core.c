@@ -453,11 +453,11 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	if (pdata->bms_pdata) {
 		pdata->bms_pdata->bms_cdata.batt_temp_channel
 						= CHANNEL_BATT_THERM;
-		pdata->bms_pdata->bms_cdata.vbat_channel
-						= CHANNEL_VBAT;
+		pdata->bms_pdata->bms_cdata.vbat_channel = CHANNEL_VBAT;
+		pdata->bms_pdata->bms_cdata.ref625mv_channel = CHANNEL_625MV;
+		pdata->bms_pdata->bms_cdata.ref1p25v_channel = CHANNEL_125V;
 		bms_cell.platform_data = pdata->bms_pdata;
-		bms_cell.pdata_size =
-				sizeof(struct pm8921_bms_platform_data);
+		bms_cell.pdata_size = sizeof(struct pm8921_bms_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &bms_cell, 1, NULL,
 					irq_base);
 		if (ret) {

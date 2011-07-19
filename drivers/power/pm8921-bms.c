@@ -36,12 +36,12 @@
 #define CCADC_OFFSET_TRIM1	0x34A
 #define CCADC_OFFSET_TRIM0	0x34B
 
-#define ADC_ARB_SECP_CNTRL 0x190
-#define ADC_ARB_SECP_AMUX_CNTRL 0x191
-#define ADC_ARB_SECP_ANA_PARAM 0x192
-#define ADC_ARB_SECP_RSV 0x194
-#define ADC_ARB_SECP_DATA1 0x195
-#define ADC_ARB_SECP_DATA0 0x196
+#define ADC_ARB_SECP_CNTRL	0x190
+#define ADC_ARB_SECP_AMUX_CNTRL	0x191
+#define ADC_ARB_SECP_ANA_PARAM	0x192
+#define ADC_ARB_SECP_RSV	0x194
+#define ADC_ARB_SECP_DATA1	0x195
+#define ADC_ARB_SECP_DATA0	0x196
 
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
@@ -75,11 +75,15 @@ struct pm8921_bms_chip {
 	struct single_row_lut	*fcc_sf_lut;
 	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
 	struct pc_sf_lut	*pc_sf_lut;
-	struct delayed_work	calib_work;
+	struct work_struct	calib_hkadc_work;
 	unsigned int		calib_delay_ms;
 	unsigned int		revision;
+	unsigned int		xoadc_v0625;
+	unsigned int		xoadc_v125;
 	unsigned int		batt_temp_channel;
 	unsigned int		vbat_channel;
+	unsigned int		ref625mv_channel;
+	unsigned int		ref1p25v_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
 };
@@ -109,6 +113,15 @@ static int pm_bms_get_rt_status(struct pm8921_bms_chip *chip, int irq_id)
 {
 	return pm8xxx_read_irq_stat(chip->dev->parent,
 					chip->pmic_bms_irq[irq_id]);
+}
+
+static void pm8921_bms_enable_irq(struct pm8921_bms_chip *chip, int interrupt)
+{
+	if (!__test_and_set_bit(interrupt, chip->enabled_irqs)) {
+		dev_dbg(chip->dev, "%s %d\n", __func__,
+						chip->pmic_bms_irq[interrupt]);
+		enable_irq(chip->pmic_bms_irq[interrupt]);
+	}
 }
 
 static void pm8921_bms_disable_irq(struct pm8921_bms_chip *chip, int interrupt)
@@ -200,6 +213,17 @@ static int vbatt_to_microvolt(unsigned int a)
 		return 0;
 
 	return (a - INTRINSIC_OFFSET) * V_PER_BIT_MUL_FACTOR;
+}
+
+#define XOADC_CALIB_UV		625000
+static int adjust_xo_reading(struct pm8921_bms_chip *chip, unsigned int uv)
+{
+	u64 numerator = ((u64)uv - chip->xoadc_v0625) * XOADC_CALIB_UV;
+	u64 denominator =  chip->xoadc_v125 - chip->xoadc_v0625;
+
+	if (denominator == 0)
+		return uv;
+	return XOADC_CALIB_UV + div_u64(numerator, denominator);
 }
 
 #define CC_RESOLUTION_N_V1	1085069
@@ -574,11 +598,15 @@ static int calculate_rbatt(struct pm8921_bms_chip *chip)
 		pr_err("fail to read ocv_for_rbatt rc = %d\n", rc);
 		ocv = 0;
 	}
+	ocv = adjust_xo_reading(chip, ocv);
+
 	rc = read_vbatt_for_rbatt(chip, &vbatt);
 	if (rc) {
 		pr_err("fail to read vbatt_for_rbatt rc = %d\n", rc);
 		ocv = 0;
 	}
+	vbatt = adjust_xo_reading(chip, vbatt);
+
 	rc = read_vsense_for_rbatt(chip, &vsense);
 	if (rc) {
 		pr_err("fail to read vsense_for_rbatt rc = %d\n", rc);
@@ -762,6 +790,65 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	return soc;
 }
 
+#define XOADC_MAX_1P25V		1312500
+#define XOADC_MIN_1P25V		1187500
+#define XOADC_MAX_0P625V		656250
+#define XOADC_MIN_0P625V		593750
+
+#define HKADC_V_PER_BIT_MUL_FACTOR	977
+#define HKADC_V_PER_BIT_DIV_FACTOR	10
+static int calib_hkadc_convert_microvolt(unsigned int phy)
+{
+	return phy * HKADC_V_PER_BIT_MUL_FACTOR / HKADC_V_PER_BIT_DIV_FACTOR;
+}
+
+static void calib_hkadc(struct pm8921_bms_chip *chip)
+{
+	int voltage, rc;
+	struct pm8921_adc_chan_result result;
+
+	rc = pm8921_adc_read(the_chip->ref1p25v_channel, &result);
+	if (rc) {
+		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
+		return;
+	}
+	voltage = calib_hkadc_convert_microvolt(result.physical);
+
+	pr_debug("result 1.25v = 0x%llx, voltage = %dmV adc_meas = %lld\n",
+				result.physical, voltage, result.measurement);
+
+	/* check for valid range */
+	if (voltage > XOADC_MAX_1P25V)
+		voltage = XOADC_MAX_1P25V;
+	else if (voltage < XOADC_MIN_1P25V)
+		voltage = XOADC_MIN_1P25V;
+	chip->xoadc_v125 = voltage;
+
+	rc = pm8921_adc_read(the_chip->ref625mv_channel, &result);
+	if (rc) {
+		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
+		return;
+	}
+	voltage = calib_hkadc_convert_microvolt(result.physical);
+	pr_debug("result 0.625V = 0x%llx, voltage = %dmV adc_mead = %lld\n",
+				result.physical, voltage, result.measurement);
+	/* check for valid range */
+	if (voltage > XOADC_MAX_0P625V)
+		voltage = XOADC_MAX_0P625V;
+	else if (voltage < XOADC_MIN_0P625V)
+		voltage = XOADC_MIN_0P625V;
+
+	chip->xoadc_v0625 = voltage;
+}
+
+static void calibrate_hkadc_work(struct work_struct *work)
+{
+	struct pm8921_bms_chip *chip = container_of(work,
+				struct pm8921_bms_chip, calib_hkadc_work);
+
+	calib_hkadc(chip);
+}
+
 int pm8921_bms_get_vsense_avg(int *result)
 {
 	if (the_chip)
@@ -867,15 +954,19 @@ static irqreturn_t pm8921_bms_vsense_for_r_handler(int irq, void *data)
 
 static irqreturn_t pm8921_bms_ocv_for_r_handler(int irq, void *data)
 {
+	struct pm8921_bms_chip *chip = data;
 
 	pr_debug("irq = %d triggered", irq);
+	schedule_work(&chip->calib_hkadc_work);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t pm8921_bms_good_ocv_handler(int irq, void *data)
 {
+	struct pm8921_bms_chip *chip = data;
 
 	pr_debug("irq = %d triggered", irq);
+	schedule_work(&chip->calib_hkadc_work);
 	return IRQ_HANDLED;
 }
 
@@ -1015,6 +1106,7 @@ enum {
 	CALC_FCC,
 	CALC_PC,
 	CALC_SOC,
+	CALIB_HKADC,
 };
 
 static int test_batt_temp = 5;
@@ -1084,6 +1176,11 @@ static int get_calc(void *data, u64 * val)
 	case CALC_SOC:
 		*val = calculate_state_of_charge(the_chip,
 					test_batt_temp, test_chargecycle);
+		break;
+	case CALIB_HKADC:
+		/* reading this will trigger calibration */
+		*val = 0;
+		calib_hkadc(the_chip);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1234,6 +1331,8 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)CALC_PC, &calc_fops);
 	debugfs_create_file("show_soc", 0644, chip->dent,
 				(void *)CALC_SOC, &calc_fops);
+	debugfs_create_file("calib_hkadc", 0644, chip->dent,
+				(void *)CALIB_HKADC, &calc_fops);
 
 	for (i = 0; i < ARRAY_SIZE(bms_irq_data); i++) {
 		if (chip->pmic_bms_irq[bms_irq_data[i].irq_id])
@@ -1242,11 +1341,6 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)bms_irq_data[i].irq_id,
 				&rt_fops);
 	}
-}
-
-static void calibrate_work(struct work_struct *work)
-{
-	/* TODO */
 }
 
 static int __devinit pm8921_bms_probe(struct platform_device *pdev)
@@ -1280,7 +1374,10 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 
 	chip->batt_temp_channel = pdata->bms_cdata.batt_temp_channel;
 	chip->vbat_channel = pdata->bms_cdata.vbat_channel;
+	chip->ref625mv_channel = pdata->bms_cdata.ref625mv_channel;
+	chip->ref1p25v_channel = pdata->bms_cdata.ref1p25v_channel;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
+	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
 
 	rc = pm8921_bms_hw_init(chip);
 	if (rc) {
@@ -1300,10 +1397,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 
 	check_initial_ocv(chip);
 
-	INIT_DELAYED_WORK(&chip->calib_work, calibrate_work);
-	schedule_delayed_work(&chip->calib_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(chip->calib_delay_ms)));
+	/* enable the vbatt reading interrupts for scheduling hkadc calib */
+	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
+	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
 	return 0;
 
 free_chip:

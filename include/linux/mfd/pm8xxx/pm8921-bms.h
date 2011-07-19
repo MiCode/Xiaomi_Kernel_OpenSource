@@ -90,6 +90,8 @@ struct pm8921_bms_battery_data {
 struct pm8xxx_bms_core_data {
 	unsigned int	batt_temp_channel;
 	unsigned int	vbat_channel;
+	unsigned int	ref625mv_channel;
+	unsigned int	ref1p25v_channel;
 };
 
 /**
