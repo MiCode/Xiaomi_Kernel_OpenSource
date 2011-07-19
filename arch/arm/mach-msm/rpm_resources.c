@@ -57,8 +57,6 @@ static void msm_rpmrs_restore_vdd_mem(void);
 static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits);
 static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits);
 static void msm_rpmrs_restore_vdd_dig(void);
-static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_restore_rpm_cpu(void);
 
 #ifdef CONFIG_MSM_L2_SPM
 static  void *msm_rpmrs_l2_counter_addr;
@@ -123,8 +121,8 @@ static struct msm_rpmrs_resource msm_rpmrs_rpm_cpu = {
 	.size = 1,
 	.name = "rpm_cpu",
 	.beyond_limits = NULL,
-	.aggregate = msm_rpmrs_aggregate_rpm_cpu,
-	.restore = msm_rpmrs_restore_rpm_cpu,
+	.aggregate = NULL,
+	.restore = NULL,
 };
 
 static struct msm_rpmrs_resource *msm_rpmrs_resources[] = {
@@ -363,25 +361,6 @@ static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
 static void msm_rpmrs_restore_vdd_dig(void)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_dig;
-
-	if (test_bit(rs->rs[0].id, msm_rpmrs_buffered))
-		msm_rpmrs_buffer[rs->rs[0].id] = rs->rs[0].value;
-}
-
-static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits)
-{
-	struct msm_rpmrs_resource *rs = &msm_rpmrs_rpm_cpu;
-
-	if (test_bit(rs->rs[0].id, msm_rpmrs_buffered)) {
-		rs->rs[0].value = msm_rpmrs_buffer[rs->rs[0].id];
-		if (!msm_rpmrs_rpm_cpu.enable_low_power)
-			msm_rpmrs_buffer[rs->rs[0].id] = 1;
-	}
-}
-
-static void msm_rpmrs_restore_rpm_cpu(void)
-{
-	struct msm_rpmrs_resource *rs = &msm_rpmrs_rpm_cpu;
 
 	if (test_bit(rs->rs[0].id, msm_rpmrs_buffered))
 		msm_rpmrs_buffer[rs->rs[0].id] = rs->rs[0].value;
@@ -689,6 +668,20 @@ static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 
 	spin_lock_irqsave(&msm_rpmrs_lock, flags);
 	GET_RS_FROM_ATTR(attr)->enable_low_power = temp;
+
+	/* special case active-set signal for MSM_RPMRS_ID_RPM_CTL */
+	if (GET_RS_FROM_ATTR(attr)->rs[0].id == MSM_RPMRS_ID_RPM_CTL) {
+		struct msm_rpm_iv_pair req;
+		req.id = MSM_RPMRS_ID_RPM_CTL;
+		req.value = GET_RS_FROM_ATTR(attr)->enable_low_power ? 0 : 1;
+
+		rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &req, 1);
+		if (rc) {
+			pr_err("%s: failed to request RPM_CTL to %d: %d\n",
+				__func__, req.value, rc);
+		}
+	}
+
 	msm_rpmrs_update_levels();
 	spin_unlock_irqrestore(&msm_rpmrs_lock, flags);
 
@@ -963,13 +956,14 @@ static int __init msm_rpmrs_init(void)
 		}
 	}
 
+	/* Enable RPM SWFI on Apps initialization */
 	req.id = MSM_RPMRS_ID_RPM_CTL;
 	req.value = 0;
 
-	rc = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, &req, 1);
+	rc = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &req, 1);
 	if (rc) {
-		pr_err("%s: failed to initialize RPM CPU for sleep: %d\n",
-			__func__, rc);
+		pr_err("%s: failed to initialize RPM halt: "
+		       "%d\n", __func__, rc);
 		goto init_exit;
 	}
 
