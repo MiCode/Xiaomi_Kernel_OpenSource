@@ -435,6 +435,7 @@ static struct clk_ops soc_clk_ops_8960 = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
 	.auto_off = rcg_clk_auto_off,
+	.handoff = rcg_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
 	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
@@ -4005,8 +4006,8 @@ static void __init reg_init(void)
 	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
 	 * prevent its memory from being collapsed when the clock is halted.
 	 * The sleep and wake-up delays are set to safe values. */
-	rmwreg(0x00000003, AHB_EN_REG,  0x0F7FFFFF);
-	rmwreg(0x000007F9, AHB_EN2_REG, 0xFFFFBFFF);
+	rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
+	writel_relaxed(0x000007F9, AHB_EN2_REG);
 
 	/* Deassert all locally-owned MM AHB resets. */
 	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
@@ -4015,35 +4016,34 @@ static void __init reg_init(void)
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
 	/* TODO: Enable HW Gating */
-	rmwreg(0x000007F9, MAXI_EN_REG,  0x0FFFFFFF);
-	rmwreg(0x1027FCFF, MAXI_EN2_REG, 0x1FFFFFFF);
-	writel_relaxed(0x0027FCFF, MAXI_EN3_REG);
-	writel_relaxed(0x0027FCFF, MAXI_EN4_REG);
-	writel_relaxed(0x000003C7, SAXI_EN_REG);
+	rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
+	rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
+	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
+	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+	rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
 
 	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
 	 * memories retain state even when not clocked. Also, set sleep and
 	 * wake-up delays to safe values. */
-	writel_relaxed(0x00000000, CSI0_CC_REG);
-	writel_relaxed(0x00000000, CSI1_CC_REG);
-	rmwreg(0x80FF0000, DSI1_BYTE_CC_REG, BM(31, 29) | BM(23, 16));
-	rmwreg(0x80FF0000, DSI2_BYTE_CC_REG, BM(31, 29) | BM(23, 16));
-	rmwreg(0x80FF0000, DSI_PIXEL_CC_REG, BM(31, 29) | BM(23, 16));
-	rmwreg(0x80FF0000, DSI2_PIXEL_CC_REG, BM(31, 29) | BM(23, 16));
-	writel_relaxed(0x80FF0000, GFX2D0_CC_REG);
-	writel_relaxed(0x80FF0000, GFX2D1_CC_REG);
-	writel_relaxed(0x80FF0000, GFX3D_CC_REG);
-	writel_relaxed(0x80FF0000, IJPEG_CC_REG);
-	writel_relaxed(0x80FF0000, JPEGD_CC_REG);
-	/* MDP clocks may be running at boot, don't turn them off. */
-	rmwreg(0x80FF0000, MDP_CC_REG,   BM(31, 29) | BM(23, 16));
-	rmwreg(0x80FF0000, MDP_LUT_CC_REG,  BM(31, 29) | BM(23, 16));
-	writel_relaxed(0x80FF0000, ROT_CC_REG);
-	writel_relaxed(0x80FF0000, TV_CC_REG);
-	writel_relaxed(0x000004FF, TV_CC2_REG);
-	writel_relaxed(0xC0FF0000, VCODEC_CC_REG);
-	writel_relaxed(0x80FF0000, VFE_CC_REG);
-	writel_relaxed(0x80FF0000, VPE_CC_REG);
+	rmwreg(0x00000000, CSI0_CC_REG,       0x00000410);
+	rmwreg(0x00000000, CSI1_CC_REG,       0x00000410);
+	rmwreg(0x80FF0000, DSI1_BYTE_CC_REG,  0xE0FF0010);
+	rmwreg(0x80FF0000, DSI2_BYTE_CC_REG,  0xE0FF0010);
+	rmwreg(0x80FF0000, DSI_PIXEL_CC_REG,  0xE0FF0010);
+	rmwreg(0x80FF0000, DSI2_PIXEL_CC_REG, 0xE0FF0010);
+	rmwreg(0x80FF0000, GFX2D0_CC_REG,     0xE0FF0010);
+	rmwreg(0x80FF0000, GFX2D1_CC_REG,     0xE0FF0010);
+	rmwreg(0x80FF0000, GFX3D_CC_REG,      0xE0FF0010);
+	rmwreg(0x80FF0000, IJPEG_CC_REG,      0xE0FF0010);
+	rmwreg(0x80FF0000, JPEGD_CC_REG,      0xE0FF0010);
+	rmwreg(0x80FF0000, MDP_CC_REG,        0xE1FF0010);
+	rmwreg(0x80FF0000, MDP_LUT_CC_REG,    0xE0FF0010);
+	rmwreg(0x80FF0000, ROT_CC_REG,        0xE0FF0010);
+	rmwreg(0x80FF0000, TV_CC_REG,         0xE1FFC010);
+	rmwreg(0x000004FF, TV_CC2_REG,        0x000007FF);
+	rmwreg(0xC0FF0000, VCODEC_CC_REG,     0xE0FF0010);
+	rmwreg(0x80FF0000, VFE_CC_REG,        0xE0FF4010);
+	rmwreg(0x80FF0000, VPE_CC_REG,        0xE0FF0010);
 
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel_relaxed(0, SW_RESET_AXI_REG);
