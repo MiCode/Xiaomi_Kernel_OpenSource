@@ -15,7 +15,7 @@
  * this needs to be before <linux/kernel.h> is loaded,
  * and <linux/sched.h> loads <linux/kernel.h>
  */
-#define DEBUG  1
+#define DEBUG  0
 
 #include <linux/slab.h>
 #include <linux/earlysuspend.h>
