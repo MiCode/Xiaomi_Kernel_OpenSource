@@ -205,6 +205,40 @@ static int pm_bms_read_output_data(struct pm8921_bms_chip *chip, int type,
 #define CONV_READING(a)		(((a) * (int)V_PER_BIT_MUL_FACTOR)\
 				/V_PER_BIT_DIV_FACTOR)
 
+#define CC_RESOLUTION_N_V1	1085069
+#define CC_RESOLUTION_D_V1	100000
+#define CC_RESOLUTION_N_V2	868056
+#define CC_RESOLUTION_D_V2	10000
+static s64 cc_to_microvolt_v1(s64 cc)
+{
+	return div_s64(cc * CC_RESOLUTION_N_V1, CC_RESOLUTION_D_V1);
+}
+
+static s64 cc_to_microvolt_v2(s64 cc)
+{
+	return div_s64(cc * CC_RESOLUTION_N_V2, CC_RESOLUTION_D_V2);
+}
+
+static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
+{
+	/*
+	 * resolution (the value of a single bit) was changed after revision 2.0
+	 * for more accurate readings
+	 */
+	return (chip->revision < PM8XXX_REVISION_8901_2p0) ?
+				cc_to_microvolt_v1((s64)cc) :
+				cc_to_microvolt_v2((s64)cc);
+}
+
+#define CC_READING_TICKS	55
+#define SLEEP_CLK_HZ		32768
+#define SECONDS_PER_HOUR	3600
+static s64 ccmicrovolt_to_uvh(s64 cc_uv)
+{
+	return div_s64(cc_uv * CC_READING_TICKS,
+			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
+}
+
 /* returns the signed value read from the hardware */
 static int read_cc(struct pm8921_bms_chip *chip, int *result)
 {
@@ -266,7 +300,7 @@ static int read_vsense_for_rbatt(struct pm8921_bms_chip *chip, uint *result)
 		pr_err("fail to read VSENSE_FOR_RBATT rc = %d\n", rc);
 		return rc;
 	}
-	*result = CONV_READING(reading);
+	*result = cc_to_microvolt(chip, reading);
 	pr_debug("raw = %04x vsense_for_r_microV = %u\n", reading, *result);
 	return 0;
 }
@@ -296,7 +330,7 @@ static int read_vsense_avg(struct pm8921_bms_chip *chip, int *result)
 		pr_err("fail to read VSENSE_AVG rc = %d\n", rc);
 		return rc;
 	}
-	*result = CONV_READING(reading);
+	*result = cc_to_microvolt(chip, reading);
 	pr_debug("read = %04x vsense = %d\n", reading, *result);
 	return 0;
 }
@@ -598,40 +632,6 @@ static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv, int batt_temp,
 	/* Multiply the initial FCC value by the scale factor. */
 	pc = (pc * scalefactor) / 100;
 	return pc;
-}
-
-#define CC_RESOLUTION_N_V1	1085069
-#define CC_RESOLUTION_D_V1	100000
-#define CC_RESOLUTION_N_V2	868056
-#define CC_RESOLUTION_D_V2	10000
-static s64 cc_to_microvolt_v1(s64 cc)
-{
-	return div_s64(cc * CC_RESOLUTION_N_V1, CC_RESOLUTION_D_V1);
-}
-
-static s64 cc_to_microvolt_v2(s64 cc)
-{
-	return div_s64(cc * CC_RESOLUTION_N_V2, CC_RESOLUTION_D_V2);
-}
-
-static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
-{
-	/*
-	 * resolution (the value of a single bit) was changed after revision 2.0
-	 * for more accurate readings
-	 */
-	return (chip->revision < PM8XXX_REVISION_8901_2p0) ?
-				cc_to_microvolt_v1((s64)cc) :
-				cc_to_microvolt_v2((s64)cc);
-}
-
-#define CC_READING_TICKS	55
-#define SLEEP_CLK_HZ		32768
-#define SECONDS_PER_HOUR	3600
-static s64 ccmicrovolt_to_uvh(s64 cc_uv)
-{
-	return div_s64(cc_uv * CC_READING_TICKS,
-			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
 }
 
 static void calculate_cc_mah(struct pm8921_bms_chip *chip, int64_t *val,
