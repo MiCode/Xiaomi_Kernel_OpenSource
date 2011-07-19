@@ -371,6 +371,17 @@ static int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
 	return 0;
 }
 
+static void msm_mctl_gettimeofday(struct timeval *tv)
+{
+	struct timespec ts;
+
+	BUG_ON(!tv);
+
+	ktime_get_ts(&ts);
+	tv->tv_sec = ts.tv_sec;
+	tv->tv_usec = ts.tv_nsec/1000;
+}
+
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 					int msg_type, uint32_t y_phy)
 {
@@ -407,7 +418,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 	list_del(&buf->list);
 	buf->vidbuf.v4l2_buf.sequence++;
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
-	do_gettimeofday(&buf->vidbuf.v4l2_buf.timestamp);
+	msm_mctl_gettimeofday(&buf->vidbuf.v4l2_buf.timestamp);
 	vb2_buffer_done(&buf->vidbuf, VB2_BUF_STATE_DONE);
 	return 0;
 }
