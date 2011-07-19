@@ -178,8 +178,9 @@ static int load_image(struct pil_device *pil)
 		ret = -EIO;
 		goto release_fw;
 	}
-	if (ehdr->e_phoff > fw->size) {
-		dev_err(&pil->pdev.dev, "Program header beyond size of mdt\n");
+	if (sizeof(struct elf32_phdr) * ehdr->e_phnum +
+	    sizeof(struct elf32_hdr) > fw->size) {
+		dev_err(&pil->pdev.dev, "Program headers not within mdt\n");
 		ret = -EIO;
 		goto release_fw;
 	}
