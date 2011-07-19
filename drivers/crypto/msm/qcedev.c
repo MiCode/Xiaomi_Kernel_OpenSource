@@ -86,6 +86,8 @@ struct qcedev_async_req {
 	int					err;
 };
 
+static DEFINE_MUTEX(send_cmd_lock);
+
 /**********************************************************************
  * Register ourselves as a misc device to be able to access the dev driver
  * from userspace. */
@@ -98,8 +100,7 @@ struct qcedev_control{
 	/* CE features supported by platform */
 	struct msm_ce_hw_support platform_support;
 
-	bool ce_locked;
-
+	uint32_t ce_lock_count;
 	/* CE features/algorithms supported by HW engine*/
 	struct ce_hw_support ce_support;
 
@@ -151,24 +152,38 @@ static int qcedev_scm_cmd(int resource, int cmd, int *response)
 
 static int qcedev_unlock_ce(struct qcedev_control *podev)
 {
-	if ((podev->platform_support.ce_shared) && (podev->ce_locked == true)) {
+	int ret = 0;
+
+	mutex_lock(&send_cmd_lock);
+	if (podev->ce_lock_count == 1) {
 		int response = 0;
 
 		if (qcedev_scm_cmd(podev->platform_support.shared_ce_resource,
 					QCEDEV_CE_UNLOCK_CMD, &response)) {
-			printk(KERN_ERR "%s Failed to release CE lock\n",
-				__func__);
-			return -EUSERS;
+			pr_err("Failed to release CE lock\n");
+			ret = -EIO;
 		}
-		podev->ce_locked = false;
 	}
-	return 0;
+	if (ret == 0) {
+		if (podev->ce_lock_count)
+			podev->ce_lock_count--;
+		else {
+			/* We should never be here */
+			ret = -EIO;
+			pr_err("CE hardware is already unlocked\n");
+		}
+	}
+	mutex_unlock(&send_cmd_lock);
+
+	return ret;
 }
 
 static int qcedev_lock_ce(struct qcedev_control *podev)
 {
-	if ((podev->platform_support.ce_shared) &&
-					(podev->ce_locked == false)) {
+	int ret = 0;
+
+	mutex_lock(&send_cmd_lock);
+	if (podev->ce_lock_count == 0) {
 		int response = -CE_BUSY;
 		int i = 0;
 
@@ -181,15 +196,17 @@ static int qcedev_lock_ce(struct qcedev_control *podev)
 			}
 		} while ((response == -CE_BUSY) && (i++ < NUM_RETRY));
 
-		if ((response == -CE_BUSY) && (i >= NUM_RETRY))
-			return -EUSERS;
-		if (response < 0)
-			return -EINVAL;
-
-		podev->ce_locked = true;
+		if ((response == -CE_BUSY) && (i >= NUM_RETRY)) {
+			ret = -EUSERS;
+		} else {
+			if (response < 0)
+				ret = -EINVAL;
+		}
 	}
-
-	return 0;
+	if (ret == 0)
+		podev->ce_lock_count++;
+	mutex_unlock(&send_cmd_lock);
+	return ret;
 }
 
 #define QCEDEV_MAGIC 0x56434544 /* "qced" */
@@ -198,8 +215,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg);
 static int qcedev_open(struct inode *inode, struct file *file);
 static int qcedev_release(struct inode *inode, struct file *file);
 static int start_cipher_req(struct qcedev_control *podev);
-static int start_sha_req(struct qcedev_control *podev,
-			struct qcedev_sha_op_req *sha_op_req);
+static int start_sha_req(struct qcedev_control *podev);
 
 static const struct file_operations qcedev_fops = {
 	.owner = THIS_MODULE,
@@ -218,7 +234,6 @@ static struct qcedev_control qce_dev[] = {
 		.magic = QCEDEV_MAGIC,
 	},
 };
-
 
 #define MAX_QCE_DEVICE ARRAY_SIZE(qce_dev)
 #define DEBUG_MAX_FNAME  16
@@ -303,7 +318,7 @@ again:
 		if (new_req->op_type == QCEDEV_CRYPTO_OPER_CIPHER)
 			ret = start_cipher_req(podev);
 		else
-			ret = start_sha_req(podev, &areq->sha_op_req);
+			ret = start_sha_req(podev);
 	}
 
 	spin_unlock_irqrestore(&podev->lock, flags);
@@ -470,8 +485,7 @@ unsupported:
 	return ret;
 };
 
-static int start_sha_req(struct qcedev_control *podev,
-			struct qcedev_sha_op_req *sha_op_req)
+static int start_sha_req(struct qcedev_control *podev)
 {
 	struct qcedev_async_req *qcedev_areq;
 	struct qce_sha_req sreq;
@@ -523,19 +537,19 @@ static int start_sha_req(struct qcedev_control *podev,
 
 	sreq.qce_cb = qcedev_sha_req_cb;
 	if (qcedev_areq->sha_op_req.alg != QCEDEV_ALG_AES_CMAC) {
-		sreq.auth_data[0] = sha_op_req->ctxt.auth_data[0];
-		sreq.auth_data[1] = sha_op_req->ctxt.auth_data[1];
-		sreq.auth_data[2] = sha_op_req->ctxt.auth_data[2];
-		sreq.auth_data[3] = sha_op_req->ctxt.auth_data[3];
-		sreq.digest = &sha_op_req->ctxt.digest[0];
-		sreq.first_blk = sha_op_req->ctxt.first_blk;
-		sreq.last_blk = sha_op_req->ctxt.last_blk;
+		sreq.auth_data[0] = qcedev_areq->sha_op_req.ctxt.auth_data[0];
+		sreq.auth_data[1] = qcedev_areq->sha_op_req.ctxt.auth_data[1];
+		sreq.auth_data[2] = qcedev_areq->sha_op_req.ctxt.auth_data[2];
+		sreq.auth_data[3] = qcedev_areq->sha_op_req.ctxt.auth_data[3];
+		sreq.digest = &qcedev_areq->sha_op_req.ctxt.digest[0];
+		sreq.first_blk = qcedev_areq->sha_op_req.ctxt.first_blk;
+		sreq.last_blk = qcedev_areq->sha_op_req.ctxt.last_blk;
 	}
 	sreq.size = qcedev_areq->sha_req.sreq.nbytes;
 	sreq.src = qcedev_areq->sha_req.sreq.src;
 	sreq.areq = (void *)&qcedev_areq->sha_req;
 	qcedev_areq->sha_req.sha_ctxt =
-		(struct qcedev_sha_ctxt *)(&sha_op_req->ctxt);
+		(struct qcedev_sha_ctxt *)(&qcedev_areq->sha_op_req.ctxt);
 
 	ret = qce_process_sha_req(podev->qce, &sreq);
 
@@ -555,9 +569,11 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	qcedev_areq->err = 0;
 
-	ret = qcedev_lock_ce(podev);
-	if (ret)
-		return ret;
+	if (podev->platform_support.ce_shared) {
+		ret = qcedev_lock_ce(podev);
+		if (ret)
+			return ret;
+	}
 
 	spin_lock_irqsave(&podev->lock, flags);
 
@@ -566,7 +582,7 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 		if (qcedev_areq->op_type == QCEDEV_CRYPTO_OPER_CIPHER)
 			ret = start_cipher_req(podev);
 		else
-			ret = start_sha_req(podev, &qcedev_areq->sha_op_req);
+			ret = start_sha_req(podev);
 	} else {
 		list_add_tail(&qcedev_areq->list, &podev->ready_commands);
 	}
@@ -579,9 +595,11 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 	if (ret == 0)
 		wait_for_completion(&qcedev_areq->complete);
 
-	ret = qcedev_unlock_ce(podev);
+	if (podev->platform_support.ce_shared)
+		ret = qcedev_unlock_ce(podev);
+
 	if (ret)
-			qcedev_areq->err = -EIO;
+		qcedev_areq->err = -EIO;
 
 	pstat = &_qcedev_stat[podev->pdev->id];
 	if (qcedev_areq->op_type == QCEDEV_CRYPTO_OPER_CIPHER) {
@@ -906,6 +924,8 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	qcedev_areq->sha_op_req.ctxt.last_blk = 0;
 	qcedev_areq->sha_op_req.ctxt.auth_data[0] = 0;
 	qcedev_areq->sha_op_req.ctxt.auth_data[1] = 0;
+	qcedev_areq->sha_op_req.ctxt.auth_data[2] = 0;
+	qcedev_areq->sha_op_req.ctxt.auth_data[3] = 0;
 	qcedev_areq->sha_op_req.ctxt.trailing_buf_len = 0;
 	memset(&qcedev_areq->sha_op_req.ctxt.trailing_buf[0], 0, 64);
 
@@ -1746,10 +1766,16 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 	switch (cmd) {
 	case QCEDEV_IOCTL_LOCK_CE:
-		err = qcedev_lock_ce(podev);
+		if (podev->platform_support.ce_shared)
+			err = qcedev_lock_ce(podev);
+		else
+			err = -ENOTTY;
 		break;
 	case QCEDEV_IOCTL_UNLOCK_CE:
-		err = qcedev_unlock_ce(podev);
+		if (podev->platform_support.ce_shared)
+			err = qcedev_unlock_ce(podev);
+		else
+			err = -ENOTTY;
 		break;
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
@@ -1916,7 +1942,7 @@ static int qcedev_probe(struct platform_device *pdev)
 				platform_support->shared_ce_resource;
 	podev->platform_support.hw_key_support =
 				platform_support->hw_key_support;
-	podev->ce_locked = false;
+	podev->ce_lock_count = 0;
 
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
@@ -2089,7 +2115,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.20");
+MODULE_VERSION("1.21");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
