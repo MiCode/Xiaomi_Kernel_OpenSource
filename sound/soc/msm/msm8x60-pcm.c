@@ -523,6 +523,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 				prtd->cmd_ack, 5 * HZ);
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 
@@ -530,7 +531,6 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC,
 		substream->number);
 	pr_debug("%s\n", __func__);
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	msm_clear_session_id(prtd->session_id);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
@@ -619,11 +619,11 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	int dir = OUT;
 
 	pr_debug("%s\n", __func__);
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_ENC,
 		substream->number);
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	msm_clear_session_id(prtd->session_id);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
