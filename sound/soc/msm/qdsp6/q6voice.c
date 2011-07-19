@@ -16,9 +16,13 @@
 #include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+
 #include <mach/qdsp6v2/audio_acdb.h>
+#include <mach/qdsp6v2/rtac.h>
+
 #include "sound/apr_audio.h"
 #include "sound/q6afe.h"
+
 #include "q6voice.h"
 
 #define TIMEOUT_MS 3000
@@ -184,6 +188,8 @@ static int voice_apr_register(struct voice_data *v)
 			goto err;
 		}
 		v->apr_q6_cvs = apr_cvs;
+
+		rtac_set_voice_handle(RTAC_CVS, apr_cvs);
 	}
 
 	if (apr_cvp == NULL) {
@@ -198,6 +204,8 @@ static int voice_apr_register(struct voice_data *v)
 			goto err;
 		}
 		v->apr_q6_cvp = apr_cvp;
+
+		rtac_set_voice_handle(RTAC_CVP, apr_cvp);
 	}
 	return 0;
 
@@ -205,6 +213,7 @@ err:
 	if (v->apr_q6_cvs != NULL) {
 		apr_deregister(apr_cvs);
 		v->apr_q6_cvs = NULL;
+		rtac_set_voice_handle(RTAC_CVS, NULL);
 	}
 	if (v->apr_q6_mvm != NULL) {
 		apr_deregister(apr_mvm);
@@ -1773,6 +1782,10 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->voc_path == VOC_PATH_FULL)
 		voice_send_netid_timing_cmd(v);
 
+	rtac_add_voice(voice_get_cvs_handle(v),
+		voice_get_cvp_handle(v),
+		v->dev_rx.port_id, v->dev_tx.port_id);
+
 	return 0;
 
 fail:
@@ -2066,6 +2079,7 @@ static int voice_destroy_vocproc(struct voice_data *v)
 		goto fail;
 	}
 
+	rtac_remove_voice(voice_get_cvs_handle(v));
 	cvp_handle = 0;
 	voice_set_cvp_handle(v, cvp_handle);
 
@@ -2179,6 +2193,8 @@ int voc_disable_cvp(void)
 
 	if (v->voc_state == VOC_RUN) {
 		afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id, 0, 0);
+
+		rtac_remove_voice(voice_get_cvs_handle(v));
 		/* send cmd to dsp to disable vocproc */
 		ret = voice_send_disable_vocproc_cmd(v);
 		if (ret < 0) {
@@ -2236,6 +2252,9 @@ int voc_enable_cvp(void)
 		if (ret < 0)
 			pr_err("AFE command sidetone failed\n");
 
+		rtac_add_voice(voice_get_cvs_handle(v),
+			voice_get_cvp_handle(v),
+			v->dev_rx.port_id, v->dev_tx.port_id);
 		v->voc_state = VOC_RUN;
 	}
 
@@ -2577,6 +2596,10 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);
 				break;
+			case VOICE_CMD_SET_PARAM:
+				rtac_make_voice_callback(RTAC_CVS, ptr,
+							data->payload_size);
+				break;
 			default:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				break;
@@ -2635,10 +2658,12 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			}
 		} else
 			pr_debug("%s: dl_cb is NULL\n", __func__);
-	} else if (data->opcode == VSS_ISTREAM_EVT_SEND_DEC_BUFFER)
+	} else if (data->opcode == VSS_ISTREAM_EVT_SEND_DEC_BUFFER) {
 		pr_debug("Send dec buf resp\n");
-
-	else
+	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
+		rtac_make_voice_callback(RTAC_CVS, data->payload,
+					data->payload_size);
+	} else
 		pr_debug("Unknown opcode 0x%x\n", data->opcode);
 
 fail:
@@ -2692,12 +2717,19 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				v->cvp_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvp_wait);
 				break;
+			case VOICE_CMD_SET_PARAM:
+				rtac_make_voice_callback(RTAC_CVP, ptr,
+							data->payload_size);
+				break;
 			default:
 				pr_debug("%s: not match cmd = 0x%x\n",
 					__func__, ptr[0]);
 				break;
 			}
 		}
+	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
+		rtac_make_voice_callback(RTAC_CVP, data->payload,
+			data->payload_size);
 	}
 	return 0;
 }
