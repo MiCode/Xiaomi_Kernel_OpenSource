@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
+#include <linux/i2c/sx150x.h>
 #include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/gpio-regulator.h>
@@ -193,6 +194,24 @@ static void __init pm8921_gpio_mpp_init(void)
 #define PM8921_MPP_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8921_MPP_BASE)
 #define PM8921_IRQ_BASE			(NR_MSM_IRQS + NR_GPIO_IRQS)
 #define PM8921_MPP_IRQ_BASE		(PM8921_IRQ_BASE + NR_GPIO_IRQS)
+
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+enum {
+	GPIO_EXPANDER_IRQ_BASE = (PM8921_MPP_IRQ_BASE + PM8921_NR_MPPS),
+	GPIO_EXPANDER_GPIO_BASE = (PM8921_MPP_BASE + PM8921_NR_MPPS),
+	/* CAM Expander */
+	GPIO_CAM_EXPANDER_BASE = GPIO_EXPANDER_GPIO_BASE,
+	GPIO_CAM_GP_STROBE_READY = GPIO_CAM_EXPANDER_BASE,
+	GPIO_CAM_GP_AFBUSY,
+	GPIO_CAM_GP_STROBE_CE,
+	GPIO_CAM_GP_CAM1MP_XCLR,
+	GPIO_CAM_GP_CAMIF_RESET_N,
+	GPIO_CAM_GP_XMT_FLASH_INT,
+	GPIO_CAM_GP_LED_EN1,
+	GPIO_CAM_GP_LED_EN2,
+
+};
+#endif
 
 static struct gpiomux_setting gsbi1 = {
 	.func = GPIOMUX_FUNC_1,
@@ -574,7 +593,6 @@ static struct gpiomux_setting cyts_int_sus_cfg = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
-
 static struct msm_gpiomux_config msm8960_cyts_configs[] __initdata = {
 	{	/* TS INTERRUPT */
 		.gpio = 11,
@@ -598,6 +616,23 @@ static struct msm_gpiomux_config msm8960_cyts_configs[] __initdata = {
 		},
 	},
 };
+
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+enum {
+	SX150X_CAM,
+};
+
+static struct sx150x_platform_data sx150x_data[] __initdata = {
+	[SX150X_CAM] = {
+		.gpio_base         = GPIO_CAM_EXPANDER_BASE,
+		.oscio_is_gpo      = false,
+		.io_pullup_ena     = 0x0,
+		.io_pulldn_ena     = 0x0,
+		.io_open_drain_ena = 0x0,
+		.irq_summary       = -1,
+	},
+};
+#endif
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_PMEM_ADSP_SIZE         0x3800000
@@ -3205,6 +3240,15 @@ struct i2c_registry {
 	int                    len;
 };
 
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+static struct i2c_board_info cam_expander_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("sx1508q", 0x22),
+		.platform_data = &sx150x_data[SX150X_CAM]
+	},
+};
+#endif
+
 #ifdef CONFIG_MSM_CAMERA
 static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 #ifdef CONFIG_IMX074
@@ -3255,7 +3299,15 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
 		cyttsp_info,
 		ARRAY_SIZE(cyttsp_info),
-	}
+	},
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+	{
+		I2C_SURF | I2C_FFA,
+		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+		cam_expander_i2c_info,
+		ARRAY_SIZE(cam_expander_i2c_info),
+	},
+#endif
 };
 #endif /* CONFIG_I2C */
 
