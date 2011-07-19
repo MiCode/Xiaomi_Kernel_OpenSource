@@ -1045,8 +1045,39 @@ static void __init map_lowmem(void)
 
 		map.pfn = __phys_to_pfn(start);
 		map.virtual = __phys_to_virt(start);
+#ifdef CONFIG_STRICT_MEMORY_RWX
+		if (start <= __pa(_text) && __pa(_text) < end) {
+			map.length = (unsigned long)_text - map.virtual;
+			map.type = MT_MEMORY;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(_text));
+			map.virtual = (unsigned long)_text;
+			map.length = __start_rodata - _text;
+			map.type = MT_MEMORY_RX;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(__start_rodata));
+			map.virtual = (unsigned long)__start_rodata;
+			map.length = _sdata - __start_rodata;
+			map.type = MT_MEMORY_R;
+
+			create_mapping(&map);
+
+			map.pfn = __phys_to_pfn(__pa(_sdata));
+			map.virtual = (unsigned long)_sdata;
+			map.length = __phys_to_virt(end) - (unsigned int)_sdata;
+			map.type = MT_MEMORY_RW;
+		} else {
+			map.length = end - start;
+			map.type = MT_MEMORY_RW;
+		}
+#else
 		map.length = end - start;
 		map.type = MT_MEMORY;
+#endif
 
 		create_mapping(&map);
 	}
