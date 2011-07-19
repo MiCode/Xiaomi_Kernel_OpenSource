@@ -415,12 +415,12 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 				prtd->cmd_ack, 5 * HZ);
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 	SNDRV_PCM_STREAM_PLAYBACK);
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
