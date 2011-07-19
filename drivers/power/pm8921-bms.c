@@ -192,10 +192,15 @@ static int pm_bms_read_output_data(struct pm8921_bms_chip *chip, int type,
 	return 0;
 }
 
-#define V_PER_BIT_MUL_FACTOR	977
-#define V_PER_BIT_DIV_FACTOR	10
-#define CONV_READING(a)		(((a) * (int)V_PER_BIT_MUL_FACTOR)\
-				/V_PER_BIT_DIV_FACTOR)
+#define V_PER_BIT_MUL_FACTOR	293
+#define INTRINSIC_OFFSET	0x6000
+static int vbatt_to_microvolt(unsigned int a)
+{
+	if (a <= INTRINSIC_OFFSET)
+		return 0;
+
+	return (a - INTRINSIC_OFFSET) * V_PER_BIT_MUL_FACTOR;
+}
 
 #define CC_RESOLUTION_N_V1	1085069
 #define CC_RESOLUTION_D_V1	100000
@@ -262,7 +267,7 @@ static int read_last_good_ocv(struct pm8921_bms_chip *chip, uint *result)
 		pr_err("fail to read LAST_GOOD_OCV_VALUE rc = %d\n", rc);
 		return rc;
 	}
-	*result = CONV_READING(reading);
+	*result = vbatt_to_microvolt(reading);
 	pr_debug("raw = %04x ocv_microV = %u\n", reading, *result);
 	return 0;
 }
@@ -277,7 +282,7 @@ static int read_vbatt_for_rbatt(struct pm8921_bms_chip *chip, uint *result)
 		pr_err("fail to read VBATT_FOR_RBATT rc = %d\n", rc);
 		return rc;
 	}
-	*result = CONV_READING(reading);
+	*result = vbatt_to_microvolt(reading);
 	pr_debug("raw = %04x vbatt_for_r_microV = %u\n", reading, *result);
 	return 0;
 }
@@ -307,7 +312,7 @@ static int read_ocv_for_rbatt(struct pm8921_bms_chip *chip, uint *result)
 		pr_err("fail to read OCV_FOR_RBATT rc = %d\n", rc);
 		return rc;
 	}
-	*result = CONV_READING(reading);
+	*result = vbatt_to_microvolt(reading);
 	pr_debug("read = %04x ocv_for_r_microV = %u\n", reading, *result);
 	return 0;
 }
