@@ -107,6 +107,10 @@
  */
 #define DEFAULT_READ_THRESHOLD  	(1024)
 
+/* Extra bytes to ensure getting the rx threshold interrupt on stream channels
+   when restoring the threshold after sleep */
+#define THRESHOLD_CHANGE_EXTRA_BYTES (100)
+
 /** SW threshold to trigger reading the mailbox. */
 #define DEFAULT_MIN_WRITE_THRESHOLD 	(1024)
 #define DEFAULT_MIN_WRITE_THRESHOLD_STREAMING	(1600)
@@ -875,10 +879,19 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 		ch->statistics.last_read_avail = read_avail;
 		ch->statistics.last_old_read_avail = old_read_avail;
 
-		if (ch->is_packet_mode)
+		if (ch->is_packet_mode) {
 			new_packet_size = check_pending_rx_packet(ch, eot_pipe);
-		else
+		} else {
 			ch->read_avail = read_avail;
+			/* Restore default thresh for non packet channels */
+			if ((ch->read_threshold != ch->def_read_threshold) &&
+			    (read_avail >= ch->threshold_change_cnt)) {
+				ch->read_threshold = ch->def_read_threshold;
+				set_pipe_threshold(sdio_al_dev,
+						   ch->rx_pipe_index,
+						   ch->read_threshold);
+			}
+		}
 
 		if ((ch->is_packet_mode) && (new_packet_size > 0)) {
 			rx_notify_bitmask |= (1<<ch->num);
@@ -1629,9 +1642,10 @@ static int read_sdioc_channel_config(struct sdio_channel *ch)
 	ch->read_threshold = (ch_config->max_rx_threshold * 9) / 10;
 	/* Threshold on 50% of the maximum size , sdioc uses double-buffer */
 	ch->write_threshold = (ch_config->max_tx_threshold * 5) / 10;
+	ch->threshold_change_cnt = ch->ch_config.max_rx_threshold -
+			ch->read_threshold + THRESHOLD_CHANGE_EXTRA_BYTES;
 
 	ch->def_read_threshold = ch->read_threshold;
-
 	ch->is_packet_mode = ch_config->is_packet_mode;
 	if (!ch->is_packet_mode) {
 		ch->poll_delay_msec = DEFAULT_POLL_DELAY_NOPACKET_MSEC;
@@ -2003,7 +2017,7 @@ static void restart_timer(struct sdio_al_device *sdio_al_dev)
 static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 			   u32 not_from_int)
 {
-	int ret = 0, i;
+	int ret = 0;
 	struct sdio_func *wk_func =
 		sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
 	unsigned long time_to_wait;
@@ -2069,17 +2083,6 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 		goto error_exit;
 	}
 
-	/* Restore default thresh for non packet channels */
-	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
-		struct sdio_channel *ch = &sdio_al_dev->channel[i];
-		if ((!ch->is_valid) || (!ch->is_open))
-			continue;
-		if (ch->is_packet_mode == false) {
-			ch->read_threshold = ch->def_read_threshold;
-			set_pipe_threshold(sdio_al_dev, ch->rx_pipe_index,
-					   ch->read_threshold);
-		}
-	}
 	sdio_disable_func(wk_func);
 
 	/* Start the timer again*/

@@ -159,6 +159,7 @@ struct sdio_channel {
 	int read_threshold;
 	int write_threshold;
 	int def_read_threshold;
+	int threshold_change_cnt;
 	int min_write_avail;
 	int poll_delay_msec;
 	int is_packet_mode;
