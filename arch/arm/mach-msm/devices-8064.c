@@ -24,7 +24,21 @@
 
 /* Address of GSBI blocks */
 #define MSM_GSBI3_PHYS		0x16200000
+#define MSM_GSBI4_PHYS		0x16300000
+#define MSM_GSBI5_PHYS		0x1A200000
+#define MSM_GSBI6_PHYS		0x16500000
+#define MSM_GSBI7_PHYS		0x16600000
+
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
+
+/* GSBI QUP devices */
+#define MSM_GSBI3_QUP_PHYS	(MSM_GSBI3_PHYS + 0x80000)
+#define MSM_GSBI4_QUP_PHYS	(MSM_GSBI4_PHYS + 0x80000)
+#define MSM_GSBI5_QUP_PHYS	(MSM_GSBI5_PHYS + 0x80000)
+#define MSM_GSBI6_QUP_PHYS	(MSM_GSBI6_PHYS + 0x80000)
+#define MSM_GSBI7_QUP_PHYS	(MSM_GSBI7_PHYS + 0x80000)
+#define MSM_QUP_SIZE		SZ_4K
+
 
 static struct resource msm_dmov_resource[] = {
 	{
@@ -426,7 +440,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("gsbi_qup_clk",	GSBI2_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI3_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI4_QUP_CLK,		NULL, OFF),
-	CLK_DUMMY("gsbi_qup_clk",	GSBI5_QUP_CLK,		NULL, OFF),
+	CLK_DUMMY("spi_clk",	GSBI5_QUP_CLK,		 "spi_qsd.0", OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI6_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI7_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_qup_clk",	GSBI8_QUP_CLK,		NULL, OFF),
@@ -459,7 +473,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("gsbi_pclk",		GSBI3_P_CLK,
 						  "msm_serial_hsl.0", OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI4_P_CLK,		NULL, OFF),
-	CLK_DUMMY("gsbi_pclk",		GSBI5_P_CLK,		NULL, OFF),
+	CLK_DUMMY("spi_pclk",		GSBI5_P_CLK,	 "spi_qsd.0", OFF),
 	CLK_DUMMY("uartdm_pclk",	GSBI6_P_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI7_P_CLK,		NULL, OFF),
 	CLK_DUMMY("gsbi_pclk",		GSBI8_P_CLK,		NULL, OFF),
