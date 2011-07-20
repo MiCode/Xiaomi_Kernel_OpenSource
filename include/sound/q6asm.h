@@ -202,6 +202,9 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 int q6asm_enable_sbrps(struct audio_client *ac,
 			uint32_t sbr_ps);
 
+int q6asm_cfg_dual_mono_aac(struct audio_client *ac,
+			uint16_t sce_left, uint16_t sce_right);
+
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		uint16_t min_rate, uint16_t max_rate,
 		uint16_t reduced_rate_level, uint16_t rate_modulation_cmd);
