@@ -660,38 +660,34 @@ static int get_battery_uvolts(struct pm8921_bms_chip *chip, int *uvolts)
 	return 0;
 }
 
-static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
-						int batt_temp, int chargecycles)
+static int calculate_unusable_charge_mah(struct pm8921_bms_chip *chip,
+				 int fcc, int batt_temp, int chargecycles)
 {
-	int remaining_usable_charge, fcc, unusable_charge;
-	int remaining_charge, soc, rc, ocv, pc, coulumb_counter;
 	int rbatt, voltage_unusable_uv, pc_unusable;
-	int update_userspace = 1;
-	int64_t cc_mah;
 
 	rbatt = calculate_rbatt(chip);
 	if (rbatt < 0) {
 		rbatt = (last_rbatt < 0) ? DEFAULT_RBATT_MOHMS : last_rbatt;
-		pr_debug("rbatt unavailable assuming %d\n",
-						rbatt);
-		update_userspace = 0;
+		pr_debug("rbatt unavailable assuming %d\n", rbatt);
+	} else {
+		last_rbatt = rbatt;
 	}
-	pr_debug("rbatt = %umilliOhms", rbatt);
-
-	fcc = calculate_fcc(chip, batt_temp, chargecycles);
-	pr_debug("FCC = %umAh", fcc);
 
 	/* calculate unusable charge */
 	voltage_unusable_uv = (rbatt * chip->i_test)
 						+ (chip->v_failure * 1000);
 	pc_unusable = calculate_pc(chip, voltage_unusable_uv,
 						batt_temp, chargecycles);
+	pr_debug("rbatt = %umilliOhms unusable_v =%d unusable_pc = %d\n",
+			rbatt, voltage_unusable_uv, pc_unusable);
+	return (fcc * pc_unusable) / 100;
+}
 
-	unusable_charge = (fcc * pc_unusable) / 100;
-	pr_debug("UUC = %umAh at temp = %d, fcc = %umAh"
-			"unusable_voltage = %umicroVolts pc_unusable = %d\n",
-			unusable_charge, batt_temp, fcc,
-			voltage_unusable_uv, pc_unusable);
+/* calculate remainging charge at the time of ocv */
+static int calculate_remaining_charge_mah(struct pm8921_bms_chip *chip, int fcc,
+						int batt_temp, int chargecycles)
+{
+	int rc, ocv, pc;
 
 	/* calculate remainging charge */
 	rc = read_last_good_ocv(chip, &ocv);
@@ -704,12 +700,36 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 			pr_debug("adc ocv failed assuming %d rc = %d\n",
 								ocv, rc);
 		}
-		update_userspace = 0;
+	} else {
+		last_ocv_uv = ocv;
 	}
+
 	pc = calculate_pc(chip, ocv, batt_temp, chargecycles);
-	remaining_charge = (fcc * pc) / 100;
-	pr_debug("RC = %umAh ocv = %d pc = %d\n",
-			remaining_charge, ocv, pc);
+	pr_debug("ocv = %d pc = %d\n", ocv, pc);
+	return (fcc * pc) / 100;
+}
+
+static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
+						int batt_temp, int chargecycles)
+{
+	int remaining_usable_charge, fcc, unusable_charge;
+	int remaining_charge, soc, coulumb_counter;
+	int update_userspace = 1;
+	int64_t cc_mah;
+
+	fcc = calculate_fcc(chip, batt_temp, chargecycles);
+	pr_debug("FCC = %umAh batt_temp = %d, cycles = %d",
+					fcc, batt_temp, chargecycles);
+
+	unusable_charge = calculate_unusable_charge_mah(chip, fcc,
+						batt_temp, chargecycles);
+
+	pr_debug("UUC = %umAh", unusable_charge);
+
+	/* calculate remainging charge */
+	remaining_charge = calculate_remaining_charge_mah(chip, fcc, batt_temp,
+								chargecycles);
+	pr_debug("RC = %umAh\n", remaining_charge);
 
 	/* calculate cc milli_volt_hour */
 	calculate_cc_mah(chip, &cc_mah, &coulumb_counter);
@@ -733,8 +753,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	pr_debug("SOC = %u%%\n", soc);
 
 	if (update_userspace) {
-		last_rbatt = rbatt;
-		last_ocv_uv = ocv;
 		last_soc = soc;
 	}
 	return soc;
