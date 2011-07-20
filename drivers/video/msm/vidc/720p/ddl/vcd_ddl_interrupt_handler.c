@@ -847,6 +847,12 @@ static u32 ddl_get_frame
 			frame->data_len = 0;
 			break;
 		}
+	case VIDC_720P_IDRFRAME:
+		{
+			frame->flags |= VCD_FRAME_FLAG_SYNCFRAME;
+			frame->frame = VCD_FRAME_IDR;
+			break;
+		}
 	default:
 		{
 			VIDC_LOG_STRING("CRITICAL-FRAMETYPE");

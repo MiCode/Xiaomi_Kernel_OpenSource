@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1974,7 +1974,7 @@ do { \
 	(VIDC_720P_WRAPPER_REG_BASE      + 0x00000ebc)
 #define VIDC_REG_441270_PHYS                    \
 	(VIDC_720P_WRAPPER_REG_BASE_PHYS + 0x00000ebc)
-#define VIDC_REG_441270_RMSK                           0xf
+#define VIDC_REG_441270_RMSK                          0x1f
 #define VIDC_REG_441270_SHFT                             0
 #define VIDC_REG_441270_IN                      \
 	in_dword_masked(VIDC_REG_441270_ADDR,  \
@@ -1984,7 +1984,7 @@ do { \
 #define VIDC_REG_441270_DATA_PARTITIONED_BMSK 0x8
 #define VIDC_REG_441270_DATA_PARTITIONED_SHFT 0x3
 
-#define VIDC_REG_441270_FRAME_TYPE_BMSK                0x7
+#define VIDC_REG_441270_FRAME_TYPE_BMSK               0x17
 #define VIDC_REG_441270_FRAME_TYPE_SHFT                  0
 
 #define VIDC_REG_724381_ADDR        \
@@ -2284,7 +2284,8 @@ enum vidc_720p_frame {
 	VIDC_720P_NOTCODED = 0,
 	VIDC_720P_IFRAME = 1,
 	VIDC_720P_PFRAME = 2,
-	VIDC_720P_BFRAME = 3
+	VIDC_720P_BFRAME = 3,
+	VIDC_720P_IDRFRAME = 4
 };
 
 enum vidc_720p_entropy_sel {

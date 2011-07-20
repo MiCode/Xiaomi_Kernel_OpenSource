@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@ enum vcd_frame {
 	VCD_FRAME_P,
 	VCD_FRAME_B,
 	VCD_FRAME_NOTCODED,
+	VCD_FRAME_IDR,
 	VCD_FRAME_32BIT = 0x7fffffff
 };
 

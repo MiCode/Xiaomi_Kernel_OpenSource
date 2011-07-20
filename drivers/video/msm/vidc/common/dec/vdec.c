@@ -316,6 +316,9 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 		case VCD_FRAME_NOTCODED:
 			pic_type = PICTURE_TYPE_SKIP;
 			break;
+		case VCD_FRAME_IDR:
+			pic_type = PICTURE_TYPE_IDR;
+			break;
 		default:
 			pic_type = PICTURE_TYPE_UNKNOWN;
 		}

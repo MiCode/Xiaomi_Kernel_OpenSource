@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -762,7 +762,10 @@ void vidc_720p_decode_display_info(struct vidc_720p_dec_disp_info
 	disp_info->input_is_interlace =
 	    ((disp_info->input_frame & 0x4) >> 2);
 
-	disp_info->input_frame &= 0x3;
+	if (disp_info->input_frame & 0x10)
+		disp_info->input_frame = VIDC_720P_IDRFRAME;
+	else
+		disp_info->input_frame &= 0x3;
 }
 
 void vidc_720p_decode_skip_frm_details(u32 *free_luma_dpb)
