@@ -186,11 +186,21 @@ struct msm_cam_evt_msg {
 	void *data;
 };
 
+struct msm_cam_evt_divert_frame {
+	uint32_t image_mode;
+	uint32_t op_mode;
+	unsigned short inst_idx;
+	unsigned short node_idx;
+	unsigned int len;
+	void *data;
+};
+
 struct msm_isp_stats_event_ctrl {
 	unsigned short resptype;
 	union {
 		struct msm_cam_evt_msg isp_msg;
 		struct msm_ctrl_cmd ctrl;
+		struct msm_cam_evt_divert_frame div_frame;
 	} isp_data;
 };
 
@@ -199,13 +209,51 @@ struct msm_isp_stats_event_ctrl {
 #define MSM_CAM_RESP_STEREO_OP_1  2
 #define MSM_CAM_RESP_STEREO_OP_2  3
 #define MSM_CAM_RESP_V4L2         4
-#define MSM_CAM_RESP_MAX          5
+#define MSM_CAM_RESP_DIV_FRAME_EVT_MSG 5
+#define MSM_CAM_RESP_MAX          6
+
+#define MSM_CAMERA_EVT_TYPE_BASE	V4L2_EVENT_PRIVATE_START
+enum msm_camera_event_type {
+	MSM_CAMERA_EVT_TYPE_STREAM,
+	MSM_CAMERA_EVT_TYPE_CTRL,
+	MSM_CAMERA_EVT_TYPE_STATS,
+	MSM_CAMERA_EVT_TYPE_MAX
+};
+
+enum msm_camera_stream_status {
+	MSM_CAMERA_STREAM_STATUS_ON,
+	MSM_CAMERA_STREAM_STATUS_OFF,
+	MSM_CAMERA_STREAM_STATUS_ERR,
+};
+struct msm_camera_event_stream {
+	uint32_t op_mode;
+	uint32_t image_mode;
+	uint32_t status;
+};
+struct msm_camera_event_ctrl {
+	uint32_t event_id;
+	uint32_t status;
+};
+struct msm_camera_event_stats {
+	uint32_t event_id;
+	uint8_t data[60]; /* to be determined later */
+};
+
+struct msm_camera_event {
+	uint32_t event_type;
+	/* the union size cannot go beyond 64 bytes. need RFC */
+	union {
+		struct msm_camera_event_stream stream;
+		struct msm_camera_event_ctrl ctrl;
+		struct msm_camera_event_stats stats;
+	};
+};
 
 /* driver event types */
 #define MSM_CAM_EVT_HISTOGRAM_NOTIFY	(V4L2_EVENT_PRIVATE_START+1)
 #define MSM_CAM_EVT_STREAMING_NOTIFY	(V4L2_EVENT_PRIVATE_START+2)
 #define MSM_CAM_EVT_ASYNC_CMD_NOTIFY	(V4L2_EVENT_PRIVATE_START+3)
-#define MSM_CAM_EVT_CNT_MAX						3
+#define MSM_CAM_EVT_CNT_MAX				3
 
 struct msm_event_histogram {
 	int32_t fd;
@@ -411,6 +459,31 @@ struct outputCfg {
 struct fd_roi_info {
 	void *info;
 	int info_len;
+};
+
+#define MSM_MEM_MMAP		0
+#define MSM_MEM_USERPTR		1
+#define MSM_PLANE_MAX		8
+#define MSM_PLANE_Y			0
+#define MSM_PLANE_UV		1
+
+struct msm_buffer_plane {
+	int				type;
+	uint32_t		offset;
+	uint32_t		length;
+	uint32_t		error;
+	unsigned long	buffer;
+	unsigned long	addr;
+	uint32_t		addr_offset;
+	int				fd;
+};
+struct msm_buffer {
+	struct timeval	timestamp;
+	int				memory_type;
+	uint32_t		frame_id;
+	int				path;
+	int				num;
+	struct			msm_buffer_plane planes[MSM_PLANE_MAX];
 };
 
 struct msm_frame {
