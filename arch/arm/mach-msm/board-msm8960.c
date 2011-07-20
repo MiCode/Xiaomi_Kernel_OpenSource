@@ -3267,6 +3267,8 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_RUMI;
 	else if (machine_is_msm8960_sim())
 		mach_mask = I2C_SIM;
+	else if (machine_is_msm8960_fluid())
+		mach_mask = I2C_FLUID;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
