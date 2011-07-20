@@ -717,10 +717,12 @@ static unsigned int msm_bahama_shutdown_power(int value)
 		vreg_put(vreg_s3);
 		return rc;
 	}
-	rc = bt_set_gpio(0);
-	if (rc) {
-		pr_err("%s: bt_set_gpio = %d\n",
-		       __func__, rc);
+	if (value == BAHAMA_ID) {
+		rc = bt_set_gpio(0);
+		if (rc) {
+			pr_err("%s: bt_set_gpio = %d\n",
+					__func__, rc);
+		}
 	}
 	return rc;
 }
