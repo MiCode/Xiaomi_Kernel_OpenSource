@@ -59,9 +59,12 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 			alloc_size);
 		goto bail_out;
 	}
+	flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
 	if (alignment == DDL_KILO_BYTE(128))
 			index = 1;
-	flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
+	else if (alignment > SZ_4K)
+		flags |= MSM_SUBSYSTEM_ALIGN_IOVA_8K;
+
 	addr->mapped_buffer =
 	msm_subsystem_map_buffer((unsigned long)addr->alloced_phys_addr,
 	alloc_size, flags, &vidc_mmu_subsystem[index],
