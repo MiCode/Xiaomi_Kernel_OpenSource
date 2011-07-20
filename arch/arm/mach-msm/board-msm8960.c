@@ -1440,6 +1440,28 @@ static void __init msm_fb_add_devices(void)
 #endif
 }
 
+static struct gpiomux_setting mdp_vsync_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mdp_vsync_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
+	{
+		.gpio = MDP_VSYNC_GPIO,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mdp_vsync_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mdp_vsync_suspend_cfg,
+		},
+	}
+};
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static struct gpiomux_setting hdmi_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -1862,6 +1884,9 @@ static int __init gpiomux_init(void)
 	msm_gpiomux_install(msm8960_hdmi_configs,
 			ARRAY_SIZE(msm8960_hdmi_configs));
 #endif
+
+	msm_gpiomux_install(msm8960_mdp_vsync_configs,
+			ARRAY_SIZE(msm8960_mdp_vsync_configs));
 
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
