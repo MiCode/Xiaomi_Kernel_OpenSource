@@ -115,7 +115,7 @@ void set_rate_mnd_8(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 
 void set_rate_mnd_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 {
-	struct bank_masks *banks = clk->bank_masks;
+	struct bank_masks *banks = clk->bank_info;
 	const struct bank_mask_info *new_bank_masks;
 	const struct bank_mask_info *old_bank_masks;
 	uint32_t ns_reg_val, ctl_reg_val;
@@ -207,7 +207,7 @@ void set_rate_mnd_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 
 void set_rate_div_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 {
-	struct bank_masks *banks = clk->bank_masks;
+	struct bank_masks *banks = clk->bank_info;
 	const struct bank_mask_info *new_bank_masks;
 	const struct bank_mask_info *old_bank_masks;
 	uint32_t ns_reg_val, bank_sel;
@@ -568,7 +568,7 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	spin_lock(&local_clock_reg_lock);
 
 	/* Disable branch if clock isn't dual-banked with a glitch-free MUX. */
-	if (clk->bank_masks == NULL) {
+	if (!clk->bank_info) {
 		/* Disable all branches to prevent glitches. */
 		list_for_each_entry(chld, &clk->c.children, siblings) {
 			struct branch_clk *x = to_branch_clk(chld);
@@ -595,7 +595,7 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	clk->current_freq = nf;
 
 	/* Enable any clocks that were disabled. */
-	if (clk->bank_masks == NULL) {
+	if (!clk->bank_info) {
 		if (clk->enabled)
 			__rcg_clk_enable_reg(clk);
 		/* Enable only branches that were ON before. */
@@ -722,12 +722,13 @@ void rcg_clk_handoff(struct clk *c)
 	if (!(ctl_val & clk->root_en_mask))
 		return;
 
-	if (clk->bank_masks) {
+	if (clk->bank_info) {
+		const struct bank_masks *bank_masks = clk->bank_info;
 		const struct bank_mask_info *bank_info;
-		if (!(ctl_val & clk->bank_masks->bank_sel_mask))
-			bank_info = &clk->bank_masks->bank0_mask;
+		if (!(ctl_val & bank_masks->bank_sel_mask))
+			bank_info = &bank_masks->bank0_mask;
 		else
-			bank_info = &clk->bank_masks->bank1_mask;
+			bank_info = &bank_masks->bank1_mask;
 
 		ns_mask = bank_info->ns_mask;
 		md_val = readl_relaxed(bank_info->md_reg);

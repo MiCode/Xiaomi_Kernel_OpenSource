@@ -126,9 +126,10 @@ struct rcg_clk {
 	const uint32_t	root_en_mask;
 	uint32_t	ns_mask;
 	const uint32_t	ctl_mask;
-	struct bank_masks *const bank_masks;
 
+	void		*bank_info;
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
+
 	struct clk_freq_tbl *const freq_tbl;
 	struct clk_freq_tbl *current_freq;
 
