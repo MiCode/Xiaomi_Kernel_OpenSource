@@ -867,6 +867,11 @@ static int sdio_dmux_remove(struct platform_device *pdev)
 			sdio_ch[i].status |= SDIO_CH_IN_RESET;
 			sdio_ch[i].status &= ~SDIO_CH_REMOTE_OPEN;
 
+			/* notify client so it can update its status */
+			if (sdio_ch[i].receive_cb)
+				sdio_ch[i].receive_cb(
+						sdio_ch[i].priv, NULL);
+
 			/* cancel any pending writes */
 			spin_lock_irqsave(&sdio_mux_write_lock,
 					write_lock_flags);
@@ -879,11 +884,6 @@ static int sdio_dmux_remove(struct platform_device *pdev)
 			}
 			spin_unlock_irqrestore(&sdio_mux_write_lock,
 					write_lock_flags);
-
-			/* notify client so it can update its status */
-			if (sdio_ch[i].receive_cb)
-				sdio_ch[i].receive_cb(
-						sdio_ch[i].priv, NULL);
 		}
 		spin_unlock_irqrestore(&sdio_ch[i].lock, ch_lock_flags);
 	}
