@@ -3518,22 +3518,10 @@ done:
 
 			if (pi->conf_state & L2CAP_CONF_LOCKSTEP_PEND &&
 					pi->amp_id) {
+				struct hci_chan *chan;
 				/* Trigger logical link creation only on AMP */
 
-				struct hci_chan *chan;
-				u8 amp_id = A2MP_HCI_ID(pi->amp_id);
-				BT_DBG("Set up logical link");
-
-				if (bt_sk(sk)->parent) {
-					/* Incoming connection */
-					chan = hci_chan_accept(amp_id,
-								pi->conn->dst);
-				} else {
-					/* Outgoing connection */
-					chan = hci_chan_create(amp_id,
-								pi->conn->dst);
-				}
-
+				chan = l2cap_chan_admit(pi->amp_id, pi);
 				if (!chan)
 					return -ECONNREFUSED;
 
@@ -4356,7 +4344,7 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 
 		pi->conf_state |= L2CAP_CONF_LOCKSTEP_PEND;
 
-		/* Check Extended Flow Specification */
+		l2cap_conf_ext_fs_get(sk, rsp->data, len);
 
 		if (pi->amp_id && pi->conf_state & L2CAP_CONF_PEND_SENT) {
 			struct hci_chan *chan;
@@ -4364,18 +4352,7 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 			/* Already sent a 'pending' response, so set up
 			 * the logical link now
 			 */
-			BT_DBG("Set up logical link");
-
-			if (bt_sk(sk)->parent) {
-				/* Incoming connection */
-				chan = hci_chan_accept(A2MP_HCI_ID(pi->amp_id),
-								pi->conn->dst);
-			} else {
-				/* Outgoing connection */
-				chan = hci_chan_create(A2MP_HCI_ID(pi->amp_id),
-								pi->conn->dst);
-			}
-
+			chan = l2cap_chan_admit(pi->amp_id, pi);
 			if (!chan) {
 				l2cap_send_disconn_req(pi->conn, sk,
 							ECONNRESET);
