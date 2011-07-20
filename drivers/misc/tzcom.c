@@ -682,28 +682,22 @@ static int tzcom_open(struct inode *inode, struct file *file)
 			"sb_in_cmd_len: %u }",
 			cmd.cmd_type, cmd.sb_in_cmd_addr, cmd.sb_in_cmd_len);
 
-	resp.cmd_status = 0;
-	resp.sb_in_rsp_addr = (u8 *)cmd.sb_in_cmd_addr + cmd.sb_in_cmd_len;
-	resp.sb_in_rsp_len = sizeof(sb_out_init_rsp);
-	PDEBUG("tzcom_response before scm { cmd_status: %u, "
-			"sb_in_rsp_addr: %p, sb_in_rsp_len: %u }",
-			resp.cmd_status, resp.sb_in_rsp_addr,
-			resp.sb_in_rsp_len);
+	resp.cmd_status = TZ_SCHED_STATUS_INCOMPLETE;
 
 	PDEBUG("Before scm_call for sb_init");
 	tzcom_scm_call(&cmd, sizeof(cmd), &resp, sizeof(resp));
 	PDEBUG("After scm_call for sb_init");
-	PDEBUG("tzcom_response after scm { cmd_status: %u, "
-			"sb_in_rsp_addr: %p, sb_in_rsp_len: %u }",
-			resp.cmd_status, resp.sb_in_rsp_addr,
-			resp.sb_in_rsp_len);
-
-	if (resp.sb_in_rsp_addr) {
+	PDEBUG("tzcom_response after scm cmd_status: %u", resp.cmd_status);
+	if (resp.cmd_status == TZ_SCHED_STATUS_COMPLETE) {
+		resp.sb_in_rsp_addr = (u8 *)cmd.sb_in_cmd_addr +
+				cmd.sb_in_cmd_len;
+		resp.sb_in_rsp_len = sizeof(sb_out_init_rsp);
+		PDEBUG("tzcom_response sb_in_rsp_addr: %p, sb_in_rsp_len: %u",
+				resp.sb_in_rsp_addr, resp.sb_in_rsp_len);
 		rsp_addr_virt = tzcom_phys_to_virt((unsigned long)
 				resp.sb_in_rsp_addr);
 		PDEBUG("Received response phys: %p, virt: %p",
-				resp.sb_in_rsp_addr,
-				rsp_addr_virt);
+				resp.sb_in_rsp_addr, rsp_addr_virt);
 		memcpy(&sb_out_init_rsp, rsp_addr_virt, resp.sb_in_rsp_len);
 	} else {
 		PERR("Error with SB initialization");
