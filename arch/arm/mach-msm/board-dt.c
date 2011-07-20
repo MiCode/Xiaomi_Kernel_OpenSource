@@ -54,9 +54,9 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 	return 0;
 }
 
-int local_timer_ack(void)
+void local_timer_stop(void)
 {
-	return 1;
+	return;
 }
 
 static void __init msm_dt_init_irq(void)

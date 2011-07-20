@@ -21,6 +21,7 @@
 #include <linux/mfd/pmic8058.h>
 #include <linux/jiffies.h>
 #include <linux/suspend.h>
+#include <linux/percpu.h>
 #include <linux/interrupt.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
@@ -86,6 +87,8 @@ module_param(print_all_stacks, int,  S_IRUGO | S_IWUSR);
 
 /* Area for context dump in secure mode */
 static void *scm_regsave;
+
+static struct msm_watchdog_pdata __percpu **percpu_pdata;
 
 static void pet_watchdog_work(struct work_struct *work);
 static void init_watchdog_work(struct work_struct *work);
@@ -158,7 +161,9 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 		if (!old_val) {
 			__raw_writel(0, msm_tmr0_base + WDT0_EN);
 			mb();
-			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
+			disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
+			free_percpu_irq(WDT0_ACCSCSSNBARK_INT, percpu_pdata);
+			free_percpu(percpu_pdata);
 			enable = 0;
 			atomic_notifier_chain_unregister(&panic_notifier_list,
 			       &panic_blk);
@@ -216,7 +221,9 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	if (enable) {
 		__raw_writel(0, msm_tmr0_base + WDT0_EN);
 		mb();
-		free_irq(WDT0_ACCSCSSNBARK_INT, 0);
+		disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
+		free_percpu_irq(WDT0_ACCSCSSNBARK_INT, percpu_pdata);
+		free_percpu(percpu_pdata);
 		enable = 0;
 		/* In case we got suspended mid-exit */
 		__raw_writel(0, msm_tmr0_base + WDT0_EN);
@@ -331,11 +338,23 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 
 	msm_tmr0_base = msm_timer_get_timer0_base();
 
+	percpu_pdata = alloc_percpu(struct msm_watchdog_pdata *);
+	if (!percpu_pdata) {
+		pr_err("%s: memory allocation failed for percpu data\n",
+				__func__);
+		return -ENOMEM;
+	}
+
+	*__this_cpu_ptr(percpu_pdata) = pdata;
 	/* Must request irq before sending scm command */
-	ret = request_irq(WDT0_ACCSCSSNBARK_INT, wdog_bark_handler, 0,
-			  "apps_wdog_bark", NULL);
-	if (ret)
-		return -EINVAL;
+	ret = request_percpu_irq(WDT0_ACCSCSSNBARK_INT, wdog_bark_handler,
+			  "apps_wdog_bark", percpu_pdata);
+	if (ret) {
+		free_percpu(percpu_pdata);
+		return ret;
+	}
+
+	enable_percpu_irq(WDT0_ACCSCSSNBARK_INT, 0);
 
 	/*
 	 * This is only temporary till SBLs turn on the XPUs

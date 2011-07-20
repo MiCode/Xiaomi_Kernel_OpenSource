@@ -25,7 +25,6 @@
 #include <asm/sched_clock.h>
 #include <asm/hardware/gic.h>
 
-static struct irqaction arch_irqaction[2];
 static unsigned long arch_timer_rate;
 static int arch_timer_ppi;
 static int arch_timer_ppi2;
@@ -151,9 +150,9 @@ static void __cpuinit arch_timer_setup(void *data)
 	clockevents_config_and_register(clk, arch_timer_rate,
 					0xf, 0x7fffffff);
 
-	gic_enable_ppi(arch_timer_ppi);
+	enable_percpu_irq(arch_timer_ppi, 0);
 	if (arch_timer_ppi2 > 0)
-		gic_enable_ppi(arch_timer_ppi2);
+		enable_percpu_irq(arch_timer_ppi2, 0);
 }
 
 /* Is the optional system timer available? */
@@ -256,11 +255,9 @@ static void __cpuinit arch_timer_teardown(void *data)
 	struct clock_event_device *clk = data;
 	pr_debug("arch_timer_teardown disable IRQ%d cpu #%d\n",
 		 clk->irq, smp_processor_id());
-	if (!smp_processor_id()) {
-		remove_irq(arch_timer_ppi, &arch_irqaction[0]);
-		if (arch_timer_ppi2 > 0)
-			remove_irq(arch_timer_ppi2, &arch_irqaction[1]);
-	}
+	disable_percpu_irq(arch_timer_ppi);
+	if (arch_timer_ppi2 > 0)
+		disable_percpu_irq(arch_timer_ppi2);
 	arch_timer_set_mode(CLOCK_EVT_MODE_UNUSED, clk);
 }
 
@@ -291,8 +288,6 @@ static struct notifier_block __cpuinitdata arch_timer_cpu_nb = {
 
 int __init arch_timer_register(struct resource *res, int res_nr)
 {
-	struct irqaction *irqa;
-	unsigned int cpu = smp_processor_id();
 	int err;
 
 	if (!res_nr || res[0].start < 0 || !(res[0].flags & IORESOURCE_IRQ))
@@ -319,34 +314,24 @@ int __init arch_timer_register(struct resource *res, int res_nr)
 	set_delay_fn(read_current_timer_delay_loop);
 #endif
 
-	irqa = &arch_irqaction[0];
-	irqa->name = "arch_sys_timer";
-	irqa->flags = IRQF_DISABLED | IRQF_TIMER | IRQF_TRIGGER_HIGH;
-	irqa->handler = arch_timer_handler;
-	irqa->dev_id = per_cpu_ptr(arch_timer_evt, cpu);
-	irqa->irq = arch_timer_ppi;
-	err = setup_irq(arch_timer_ppi, irqa);
+	err = request_percpu_irq(arch_timer_ppi, arch_timer_handler,
+				"arch_sys_timer", arch_timer_evt);
 	if (err) {
 		pr_err("%s: can't register interrupt %d (%d)\n",
-		       irqa->name, irqa->irq, err);
+		       "arch_sys_timer", arch_timer_ppi, err);
 		return err;
 	}
 
 	if (arch_timer_ppi2 > 0) {
-		irqa = &arch_irqaction[1];
-		irqa->name = "arch_sys_timer";
-		irqa->flags = IRQF_DISABLED | IRQF_TIMER | IRQF_TRIGGER_HIGH;
-		irqa->handler = arch_timer_handler;
-		irqa->dev_id = per_cpu_ptr(arch_timer_evt, cpu);
-		irqa->irq = arch_timer_ppi2;
-		err = setup_irq(arch_timer_ppi2, irqa);
+		err = request_percpu_irq(arch_timer_ppi2, arch_timer_handler,
+					"arch_sys_timer", arch_timer_evt);
 		if (err)
 			pr_warn("%s: can't register interrupt %d (%d)\n",
-				irqa->name, irqa->irq, err);
+				"arch_sys_timer", arch_timer_ppi2, err);
 	}
 
 	/* Immediately configure the timer on the boot CPU */
-	arch_timer_setup(per_cpu_ptr(arch_timer_evt, cpu));
+	arch_timer_setup(per_cpu_ptr(arch_timer_evt, smp_processor_id()));
 
 	register_cpu_notifier(&arch_timer_cpu_nb);
 
