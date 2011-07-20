@@ -634,6 +634,14 @@ void hdmi_phy_reset(void)
 		HDMI_OUTP(HDMI_PHY_CTRL, val | SW_RESET_PLL);
 }
 
+void hdmi_msm_reset_core(void)
+{
+	hdmi_msm_set_mode(FALSE);
+	hdmi_msm_clk(0);
+	udelay(5);
+	hdmi_msm_clk(1);
+}
+
 void hdmi_msm_init_phy(int video_format)
 {
 	uint32 offset;
