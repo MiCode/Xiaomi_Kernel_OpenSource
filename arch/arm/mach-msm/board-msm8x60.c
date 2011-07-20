@@ -2240,6 +2240,7 @@ static struct msm_camera_sensor_flash_data flash_ov9726 = {
 };
 static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 	.sensor_name	= "ov9726",
+	.sensor_reset_enable = 1,
 	.sensor_reset	= GPIO_FRONT_CAM_RESET_N,
 	.sensor_pwd	= 85,
 	.vcm_pwd	= 1,
