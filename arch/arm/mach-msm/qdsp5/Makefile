@@ -7,7 +7,7 @@ obj-y += adsp_lpm_verify_cmd.o
 ifdef CONFIG_MSM7X27A_AUDIO
 obj-y += audio_pcm_in.o
 else
-obj-y += audio_in.o
+obj-y += audio_in.o snd_pcm_client.o
 endif
 obj-$(CONFIG_MSM7X27A_AUDIO) += audio_evrc_in.o audio_qcelp_in.o
 obj-y += audio_out.o audio_mp3.o audmgr.o audpp.o audrec.o audpreproc.o
