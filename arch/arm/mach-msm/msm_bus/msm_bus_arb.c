@@ -511,7 +511,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	curr = client->curr;
 	pdata = client->pdata;
 
-	if ((index < 0) || (index > pdata->num_usecases)) {
+	if ((index < 0) || (index >= pdata->num_usecases)) {
 		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
 			(uint32_t)client, index);
 		ret = -ENXIO;

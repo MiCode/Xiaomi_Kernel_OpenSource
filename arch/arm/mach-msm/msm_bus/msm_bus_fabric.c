@@ -22,9 +22,6 @@
 #include <mach/rpm.h>
 #include "msm_bus_core.h"
 
-#define GET_RATE(clk, nports) \
-	((clk % nports) ? ((clk + nports - 1) / nports) : (clk / nports))
-
 enum {
 	SLAVE_NODE,
 	MASTER_NODE,
@@ -288,19 +285,18 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	} else {
 		nodeclk = &slave->nodeclk[ctx];
 		if (nodeclk->clk && (!((ctx == ACTIVE_CTX) ^ cl_active_flag))) {
-			rate = GET_RATE(*pclk, slave->node_info->num_sports);
+			rate = *pclk;
 			MSM_BUS_DBG("AXI_clks: id: %d set-clk: %lu "
 			"bwsum_hz: %lu\n" , slave->node_info->priv_id, rate,
 			bwsum_hz);
-			if (nodeclk->rate != *pclk) {
+			if (nodeclk->rate != rate) {
 				nodeclk->dirty = true;
 				nodeclk->rate = rate;
 			}
 		}
 		if (!status && slave->memclk.clk &&
 			(!((ctx == ACTIVE_CTX) ^ cl_active_flag))) {
-			rate = GET_RATE(*slave->link_info.sel_clk,
-				slave->node_info->num_sports);
+			rate = *slave->link_info.sel_clk;
 			if (slave->memclk.rate != rate) {
 				slave->memclk.rate = rate;
 				slave->memclk.dirty = true;
@@ -471,7 +467,7 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int iid)
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
 	struct msm_bus_inode_info *info = NULL;
-	uint8_t mport, i;
+	uint8_t mport;
 	uint32_t haltid = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -483,26 +479,23 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int iid)
 	}
 
 	haltid = fabric->pdata->haltid;
-	for (i = 0; i < info->node_info->num_mports; i++) {
-		mport = info->node_info->masterp[i];
-		MSM_BUS_MASTER_HALT(hvector.haltmask, hvector.haltval, mport);
-		rpm_data[0].id = haltid;
-		rpm_data[0].value = hvector.haltval;
-		rpm_data[1].id = haltid + 1;
-		rpm_data[1].value = hvector.haltmask;
+	mport = info->node_info->masterp[0];
+	MSM_BUS_MASTER_HALT(hvector.haltmask, hvector.haltval, mport);
+	rpm_data[0].id = haltid;
+	rpm_data[0].value = hvector.haltval;
+	rpm_data[1].id = haltid + 1;
+	rpm_data[1].value = hvector.haltmask;
 
-		MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
-				MSM_RPM_CTX_SET_0,
-				rpm_data[0].id, rpm_data[0].value);
-		MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
-				MSM_RPM_CTX_SET_0,
-				rpm_data[1].id, rpm_data[1].value);
+	MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
+		MSM_RPM_CTX_SET_0, rpm_data[0].id, rpm_data[0].value);
+	MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
+		MSM_RPM_CTX_SET_0, rpm_data[1].id, rpm_data[1].value);
 
-		if (fabric->pdata->rpm_enabled)
-			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
-		if (status)
-			MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
-	}
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (status)
+		MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
+
 	return status;
 }
 
@@ -516,7 +509,7 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int iid)
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
 	struct msm_bus_inode_info *info = NULL;
-	uint8_t mport, i;
+	uint8_t mport;
 	uint32_t haltid = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -528,27 +521,23 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int iid)
 	}
 
 	haltid = fabric->pdata->haltid;
-	for (i = 0; i < info->node_info->num_mports; i++) {
-		mport = info->node_info->masterp[i];
-		MSM_BUS_MASTER_UNHALT(hvector.haltmask, hvector.haltval,
-			mport);
-		rpm_data[0].id = haltid;
-		rpm_data[0].value = hvector.haltval;
-		rpm_data[1].id = haltid + 1;
-		rpm_data[1].value = hvector.haltmask;
+	mport = info->node_info->masterp[0];
+	MSM_BUS_MASTER_UNHALT(hvector.haltmask, hvector.haltval,
+		mport);
+	rpm_data[0].id = haltid;
+	rpm_data[0].value = hvector.haltval;
+	rpm_data[1].id = haltid + 1;
+	rpm_data[1].value = hvector.haltmask;
 
-		MSM_FAB_DBG("unalt: ctx: %d, id: %d, value: %d\n",
-				MSM_RPM_CTX_SET_SLEEP,
-				rpm_data[0].id, rpm_data[0].value);
-		MSM_FAB_DBG("unhalt: ctx: %d, id: %d, value: %d\n",
-				MSM_RPM_CTX_SET_SLEEP,
-				rpm_data[1].id, rpm_data[1].value);
+	MSM_FAB_DBG("unalt: ctx: %d, id: %d, value: %d\n",
+		MSM_RPM_CTX_SET_SLEEP, rpm_data[0].id, rpm_data[0].value);
+	MSM_FAB_DBG("unhalt: ctx: %d, id: %d, value: %d\n",
+		MSM_RPM_CTX_SET_SLEEP, rpm_data[1].id, rpm_data[1].value);
 
-		if (fabric->pdata->rpm_enabled)
-			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
-		if (status)
-			MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
-	}
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (status)
+		MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
 
 	return status;
 }

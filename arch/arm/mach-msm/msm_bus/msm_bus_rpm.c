@@ -187,10 +187,20 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	int index, i, j;
 	struct commit_data *sel_cd = (struct commit_data *)sel_cdata;
 
+	add_bw /= info->node_info->num_mports;
 	for (i = 0; i < hop->node_info->num_tiers; i++) {
 		for (j = 0; j < info->node_info->num_mports; j++) {
 
 			uint16_t hop_tier;
+			/*
+			 * For interleaved gateway ports and slave ports,
+			 * there is one-one mapping between gateway port and
+			 * the slave port
+			 */
+			if (info->node_info->gateway && i != j &&
+				(hop->node_info->num_sports > 1))
+				continue;
+
 			if (!hop->node_info->tier)
 				hop_tier = MSM_BUS_BW_TIER2 - 1;
 			else
@@ -213,7 +223,18 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 					tier = master_tiers[0];
 				else
 					tier = MSM_BUS_BW_TIER2;
-				tieredbw += add_bw/info->node_info->num_mports;
+
+				/*
+				 * Make sure gateway to slave port bandwidth
+				 * is not divided when slave is interleaved
+				 */
+				if (info->node_info->gateway
+					&& hop->node_info->num_sports > 1)
+					tieredbw += add_bw;
+				else
+					tieredbw += add_bw/
+						hop->node_info->num_sports;
+
 				/* If bw is 0, update tier to default */
 				if (!tieredbw)
 					tier = MSM_BUS_BW_TIER2;
@@ -269,7 +290,7 @@ int msm_bus_rpm_commit(struct msm_bus_fabric_registration
 	 * Since bwsum is uint16, the values need to be adjusted to
 	 * be copied to value field of rpm-data, which is 32 bits.
 	 */
-	for (i = 0; i < fab_pdata->nslaves; i += 2) {
+	for (i = 0; i < (fab_pdata->nslaves - 1); i += 2) {
 		rpm_data[index].id = offset + index;
 		rpm_data[index].value = RPM_SHIFT(*(cd->bwsum + i + 1)) |
 			*(cd->bwsum + i);
