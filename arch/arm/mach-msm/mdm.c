@@ -133,6 +133,7 @@ static struct notifier_block charm_panic_blk = {
 	.notifier_call  = charm_panic_prep,
 };
 
+static int first_boot = 1;
 
 static long charm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
@@ -165,7 +166,11 @@ static long charm_modem_ioctl(struct file *filp, unsigned int cmd,
 		else
 			charm_boot_status = 0;
 		charm_ready = 1;
-		complete(&charm_boot);
+
+		if (!first_boot)
+			complete(&charm_boot);
+		else
+			first_boot = 0;
 		break;
 	case RAM_DUMP_DONE:
 		CHARM_DBG("%s: charm done collecting RAM dumps\n", __func__);
