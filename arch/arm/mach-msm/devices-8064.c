@@ -39,6 +39,10 @@
 #define MSM_GSBI7_QUP_PHYS	(MSM_GSBI7_PHYS + 0x80000)
 #define MSM_QUP_SIZE		SZ_4K
 
+/* Address of SSBI CMD */
+#define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
+#define MSM_PMIC2_SSBI_CMD_PHYS	0x00C00000
+#define MSM_PMIC_SSBI_SIZE	SZ_4K
 
 static struct resource msm_dmov_resource[] = {
 	{

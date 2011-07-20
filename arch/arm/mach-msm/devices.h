@@ -55,6 +55,8 @@ extern struct platform_device msm8960_gemini_device;
 
 extern struct platform_device apq8064_device_uart_gsbi3;
 extern struct platform_device apq8064_device_qup_spi_gsbi5;
+extern struct platform_device apq8064_device_ssbi_pmic1;
+extern struct platform_device apq8064_device_ssbi_pmic2;
 
 extern struct platform_device msm_device_sdc1;
 extern struct platform_device msm_device_sdc2;
