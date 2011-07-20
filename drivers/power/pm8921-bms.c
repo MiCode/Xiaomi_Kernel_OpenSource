@@ -690,17 +690,16 @@ static int calculate_remaining_charge_mah(struct pm8921_bms_chip *chip, int fcc,
 	int rc, ocv, pc;
 
 	/* calculate remainging charge */
+	ocv = 0;
 	rc = read_last_good_ocv(chip, &ocv);
-	if (rc || ocv == 0) {
-		rc = get_battery_uvolts(chip, &ocv);
-		pr_debug("ocv not available adc vbat = %d rc = %d\n", ocv, rc);
-		if (rc) {
-			ocv = (last_ocv_uv < 0) ?
-					DEFAULT_OCV_MICROVOLTS : last_ocv_uv;
-			pr_debug("adc ocv failed assuming %d rc = %d\n",
-								ocv, rc);
-		}
+	if (rc)
+		pr_debug("failed to read ocv rc = %d\n", rc);
+
+	if (ocv == 0) {
+		ocv = last_ocv_uv;
+		pr_debug("ocv not available using last_ocv_uv=%d\n", ocv);
 	} else {
+		/* update the usespace param since a good ocv is available */
 		last_ocv_uv = ocv;
 	}
 
@@ -972,6 +971,38 @@ static int __devinit pm8921_bms_hw_init(struct pm8921_bms_chip *chip)
 	}
 
 	return 0;
+}
+
+static void check_initial_ocv(struct pm8921_bms_chip *chip)
+{
+	int ocv, vbatt, rbatt, ibatt, rc;
+
+	/*
+	 * Check if a last_good_ocv is available,
+	 * if not compute it here at boot time.
+	 */
+	rc = read_last_good_ocv(chip, &ocv);
+	if (rc || ocv == 0) {
+		rc = get_battery_uvolts(chip, &vbatt);
+		if (rc) {
+			pr_err("failed to read vbatt from adc rc = %d\n", rc);
+			last_ocv_uv = DEFAULT_OCV_MICROVOLTS;
+			return;
+		}
+
+		rc =  pm8921_bms_get_battery_current(&ibatt);
+		if (rc) {
+			pr_err("failed to read batt current rc = %d\n", rc);
+			last_ocv_uv = DEFAULT_OCV_MICROVOLTS;
+			return;
+		}
+
+		rbatt = calculate_rbatt(the_chip);
+		if (rbatt < 0)
+			rbatt = DEFAULT_RBATT_MOHMS;
+		last_ocv_uv = vbatt + ibatt * rbatt;
+	}
+	pr_debug("ocv = %d last_ocv_uv = %d\n", ocv, last_ocv_uv);
 }
 
 enum {
@@ -1261,6 +1292,8 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
 	create_debugfs_entries(chip);
+
+	check_initial_ocv(chip);
 
 	INIT_DELAYED_WORK(&chip->calib_work, calibrate_work);
 	schedule_delayed_work(&chip->calib_work,
