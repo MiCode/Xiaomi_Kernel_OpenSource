@@ -522,6 +522,8 @@ static int __devinit z180_probe(struct platform_device *pdev)
 	if (status)
 		goto error_close_ringbuffer;
 
+	kgsl_pwrscale_init(device);
+
 	return status;
 
 error_close_ringbuffer:
@@ -537,6 +539,7 @@ static int __devexit z180_remove(struct platform_device *pdev)
 
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 
+	kgsl_pwrscale_close(device);
 	kgsl_device_platform_remove(device);
 
 	z180_ringbuffer_close(device);
@@ -861,8 +864,19 @@ z180_drawctxt_destroy(struct kgsl_device *device,
 static void z180_power_stats(struct kgsl_device *device,
 			    struct kgsl_power_stats *stats)
 {
-	stats->total_time = 0;
-	stats->busy_time = 0;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	if (pwr->time == 0) {
+		pwr->time = ktime_to_us(ktime_get());
+		stats->total_time = 0;
+		stats->busy_time = 0;
+	} else {
+		s64 tmp;
+		tmp = ktime_to_us(ktime_get());
+		stats->total_time = tmp - pwr->time;
+		stats->busy_time = tmp - pwr->time;
+		pwr->time = tmp;
+	}
 }
 
 static void z180_irqctrl(struct kgsl_device *device, int state)

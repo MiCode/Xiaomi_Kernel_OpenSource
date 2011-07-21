@@ -53,6 +53,7 @@ struct kgsl_pwrscale_policy_attribute {
 		__ATTR(_name, _mode, _show, _store)
 
 extern struct kgsl_pwrscale_policy kgsl_pwrscale_policy_tz;
+extern struct kgsl_pwrscale_policy kgsl_pwrscale_policy_idlestats;
 
 int kgsl_pwrscale_init(struct kgsl_device *device);
 void kgsl_pwrscale_close(struct kgsl_device *device);
