@@ -591,7 +591,6 @@ static struct branch_clk mdp_axi_clk = {
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(13),
 		.halt_reg = DBG_BUS_VEC_E_REG,
-		.halt_check = HALT,
 		.halt_bit = 8,
 	},
 	.c = {
@@ -608,7 +607,6 @@ static struct branch_clk rot_axi_clk = {
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(6),
 		.halt_reg = DBG_BUS_VEC_E_REG,
-		.halt_check = HALT,
 		.halt_bit = 2,
 	},
 	.c = {
@@ -625,7 +623,6 @@ static struct branch_clk vpe_axi_clk = {
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(15),
 		.halt_reg = DBG_BUS_VEC_E_REG,
-		.halt_check = HALT,
 		.halt_bit = 1,
 	},
 	.c = {
@@ -1172,7 +1169,7 @@ static struct rcg_clk prng_clk = {
 	},
 };
 
-#define CLK_SDC(i, n, h_r, h_c, h_b) \
+#define CLK_SDC(i, n, h_r, h_b) \
 	struct rcg_clk i##_clk = { \
 		.b = { \
 			.ctl_reg = SDCn_APPS_CLK_NS_REG(n), \
@@ -1180,7 +1177,6 @@ static struct rcg_clk prng_clk = {
 			.reset_reg = SDCn_RESET_REG(n), \
 			.reset_mask = BIT(0), \
 			.halt_reg = h_r, \
-			.halt_check = h_c, \
 			.halt_bit = h_b, \
 		}, \
 		.ns_reg = SDCn_APPS_CLK_NS_REG(n), \
@@ -1220,11 +1216,11 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_END
 };
 
-static CLK_SDC(sdc1, 1, CLK_HALT_DFAB_STATE_REG, HALT, 6);
-static CLK_SDC(sdc2, 2, CLK_HALT_DFAB_STATE_REG, HALT, 5);
-static CLK_SDC(sdc3, 3, CLK_HALT_DFAB_STATE_REG, HALT, 4);
-static CLK_SDC(sdc4, 4, CLK_HALT_DFAB_STATE_REG, HALT, 3);
-static CLK_SDC(sdc5, 5, CLK_HALT_DFAB_STATE_REG, HALT, 2);
+static CLK_SDC(sdc1, 1, CLK_HALT_DFAB_STATE_REG, 6);
+static CLK_SDC(sdc2, 2, CLK_HALT_DFAB_STATE_REG, 5);
+static CLK_SDC(sdc3, 3, CLK_HALT_DFAB_STATE_REG, 4);
+static CLK_SDC(sdc4, 4, CLK_HALT_DFAB_STATE_REG, 3);
+static CLK_SDC(sdc5, 5, CLK_HALT_DFAB_STATE_REG, 2);
 
 #define F_TSIF_REF(f, s, d, m, n, v) \
 	{ \
@@ -3356,7 +3352,6 @@ static struct branch_clk slimbus_xo_src_clk = {
 		.ctl_reg = SLIMBUS_XO_SRC_CLK_CTL_REG,
 		.en_mask = BIT(2),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
-		.halt_check = HALT,
 		.halt_bit = 28,
 	},
 	.parent = &sps_slimbus_clk.c,
