@@ -153,6 +153,7 @@ inline void msm_gemini_outbuf_q_cleanup(struct msm_gemini_q *q_p)
 			msm_gemini_platform_p2v(buf_p->file,
 						&buf_p->msm_buffer);
 			GMN_DBG("%s:%d] %s\n", __func__, __LINE__, q_p->name);
+			kfree(buf_p->subsystem_id);
 			kfree(buf_p);
 		}
 	} while (buf_p);
@@ -317,6 +318,7 @@ int msm_gemini_output_get(struct msm_gemini_device *pgmn_dev, void __user *to)
 
 	buf_cmd = buf_p->vbuf;
 	msm_gemini_platform_p2v(buf_p->file, &buf_p->msm_buffer);
+	kfree(buf_p->subsystem_id);
 	kfree(buf_p);
 
 	GMN_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
@@ -358,11 +360,18 @@ int msm_gemini_output_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 	GMN_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__, (int) buf_cmd.vaddr,
 		buf_cmd.y_len);
 
+	buf_p->subsystem_id = kmalloc(sizeof(int), GFP_ATOMIC);
+	if (!buf_p->subsystem_id) {
+		GMN_PR_ERR("%s:%d] no mem\n", __func__, __LINE__);
+		kfree(buf_p);
+		return -ENOMEM;
+	}
 	buf_p->y_buffer_addr = msm_gemini_platform_v2p(buf_cmd.fd,
 		buf_cmd.y_len, &buf_p->file, &buf_p->msm_buffer,
-		&buf_p->subsystem_id);
+		buf_p->subsystem_id);
 	if (!buf_p->y_buffer_addr) {
 		GMN_PR_ERR("%s:%d] v2p wrong\n", __func__, __LINE__);
+		kfree(buf_p->subsystem_id);
 		kfree(buf_p);
 		return -1;
 	}
@@ -426,6 +435,7 @@ int msm_gemini_input_get(struct msm_gemini_device *pgmn_dev, void __user * to)
 
 	buf_cmd = buf_p->vbuf;
 	msm_gemini_platform_p2v(buf_p->file, &buf_p->msm_buffer);
+	kfree(buf_p->subsystem_id);
 	kfree(buf_p);
 
 	GMN_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
@@ -466,9 +476,15 @@ int msm_gemini_input_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 	GMN_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
 		(int) buf_cmd.vaddr, buf_cmd.y_len);
 
+	buf_p->subsystem_id = kmalloc(sizeof(int), GFP_ATOMIC);
+	if (!buf_p->subsystem_id) {
+		GMN_PR_ERR("%s:%d] no mem\n", __func__, __LINE__);
+		kfree(buf_p);
+		return -ENOMEM;
+	}
 	buf_p->y_buffer_addr    = msm_gemini_platform_v2p(buf_cmd.fd,
 		buf_cmd.y_len + buf_cmd.cbcr_len, &buf_p->file,
-			&buf_p->msm_buffer, &buf_p->subsystem_id)
+			&buf_p->msm_buffer, buf_p->subsystem_id)
 			+ buf_cmd.offset;
 	buf_p->y_len          = buf_cmd.y_len;
 
@@ -479,6 +495,7 @@ int msm_gemini_input_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 
 	if (!buf_p->y_buffer_addr || !buf_p->cbcr_buffer_addr) {
 		GMN_PR_ERR("%s:%d] v2p wrong\n", __func__, __LINE__);
+		kfree(buf_p->subsystem_id);
 		kfree(buf_p);
 		return -1;
 	}

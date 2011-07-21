@@ -27,7 +27,7 @@ struct msm_gemini_hw_buf {
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
 	struct msm_mapped_buffer *msm_buffer;
-	int subsystem_id;
+	int *subsystem_id;
 };
 
 struct msm_gemini_hw_pingpong {
