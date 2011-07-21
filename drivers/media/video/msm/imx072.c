@@ -679,9 +679,8 @@ static int imx072_probe_init_sensor(
 		msleep(50);
 		gpio_set_value_cansleep(data->sensor_reset, 1);
 		msleep(20);
-	} else {
-		goto init_probe_done;
-	}
+	} else
+		goto gpio_req_fail;
 
 	CDBG(" imx072_probe_init_sensor is called\n");
 	rc = imx072_i2c_read(0x0, &chipid, 2);
@@ -692,13 +691,20 @@ static int imx072_probe_init_sensor(
 		pr_err("imx072_probe_init_sensor chip id doesnot match\n");
 		goto init_probe_fail;
 	}
-	goto init_probe_done;
+
+	return rc;
 init_probe_fail:
 	pr_err(" imx072_probe_init_sensor fails\n");
 	gpio_set_value_cansleep(data->sensor_reset, 0);
 	imx072_probe_init_done(data);
-init_probe_done:
-	pr_err(" imx072_probe_init_sensor finishes\n");
+	if (data->vcm_enable) {
+		rc = gpio_request(data->vcm_pwd, "imx072_af");
+		if (!rc) {
+			gpio_direction_output(data->vcm_pwd, 0);
+			gpio_free(data->vcm_pwd);
+		}
+	}
+gpio_req_fail:
 	return rc;
 }
 
@@ -946,6 +952,10 @@ static int imx072_sensor_release(void)
 	gpio_set_value_cansleep(imx072_ctrl->sensordata->sensor_reset, 0);
 	msleep(20);
 	gpio_free(imx072_ctrl->sensordata->sensor_reset);
+	if (imx072_ctrl->sensordata->vcm_enable) {
+		gpio_set_value_cansleep(imx072_ctrl->sensordata->vcm_pwd, 0);
+		gpio_free(imx072_ctrl->sensordata->vcm_pwd);
+	}
 	kfree(imx072_ctrl);
 	imx072_ctrl = NULL;
 	pr_err("imx072_release completed\n");
@@ -975,6 +985,13 @@ static int imx072_sensor_probe(const struct msm_camera_sensor_info *info,
 
 	gpio_set_value_cansleep(info->sensor_reset, 0);
 	imx072_probe_init_done(info);
+	if (info->vcm_enable) {
+		rc = gpio_request(info->vcm_pwd, "imx072_af");
+		if (!rc) {
+			gpio_direction_output(info->vcm_pwd, 0);
+			gpio_free(info->vcm_pwd);
+		}
+	}
 	pr_info("imx072_sensor_probe : SUCCESS\n");
 	return rc;
 

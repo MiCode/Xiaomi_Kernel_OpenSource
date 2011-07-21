@@ -647,9 +647,9 @@ static int s5k4e1_probe_init_sensor(const struct msm_camera_sensor_info *data)
 		msleep(50);
 		gpio_set_value_cansleep(data->sensor_reset, 1);
 		msleep(20);
-	} else {
-		goto init_probe_done;
-	}
+	} else
+		goto gpio_req_fail;
+
 	msleep(20);
 
 	s5k4e1_i2c_read(regaddress1, &chipid1, 1);
@@ -669,13 +669,20 @@ static int s5k4e1_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	CDBG("ID: %d\n", chipid1);
 	CDBG("ID: %d\n", chipid1);
 
+	return rc;
 
-	goto init_probe_done;
 init_probe_fail:
 	CDBG(" s5k4e1_probe_init_sensor fails\n");
+	gpio_set_value_cansleep(data->sensor_reset, 0);
 	s5k4e1_probe_init_done(data);
-init_probe_done:
-	CDBG(" s5k4e1_probe_init_sensor finishes\n");
+	if (data->vcm_enable) {
+		rc = gpio_request(data->vcm_pwd, "s5k4e1_af");
+		if (!rc) {
+			gpio_direction_output(data->vcm_pwd, 0);
+			gpio_free(data->vcm_pwd);
+		}
+	}
+gpio_req_fail:
 	return rc;
 }
 
@@ -1009,7 +1016,7 @@ static int s5k4e1_sensor_release(void)
 	usleep_range(5000, 5100);
 	gpio_free(s5k4e1_ctrl->sensordata->sensor_reset);
 	if (s5k4e1_ctrl->sensordata->vcm_enable) {
-		gpio_direction_output(s5k4e1_ctrl->sensordata->vcm_pwd, 0);
+		gpio_set_value_cansleep(s5k4e1_ctrl->sensordata->vcm_pwd, 0);
 		gpio_free(s5k4e1_ctrl->sensordata->vcm_pwd);
 	}
 	kfree(s5k4e1_ctrl);
@@ -1051,7 +1058,14 @@ static int s5k4e1_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_mount_angle = info->sensor_platform_info->mount_angle;
 	gpio_set_value_cansleep(info->sensor_reset, 0);
 	s5k4e1_probe_init_done(info);
-
+	/* Keep vcm_pwd to OUT Low */
+	if (info->vcm_enable) {
+		rc = gpio_request(info->vcm_pwd, "s5k4e1_af");
+		if (!rc) {
+			gpio_direction_output(info->vcm_pwd, 0);
+			gpio_free(info->vcm_pwd);
+		}
+	}
 	return rc;
 
 probe_fail_3:
