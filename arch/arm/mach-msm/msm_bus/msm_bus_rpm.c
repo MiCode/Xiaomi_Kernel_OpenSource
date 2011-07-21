@@ -113,13 +113,13 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 	struct commit_data **cd = (struct commit_data **)cdata;
 	*cd = kzalloc(sizeof(struct commit_data), GFP_KERNEL);
 	if (!*cd) {
-		MSM_FAB_DBG("Couldn't alloc mem for cdata\n");
+		MSM_BUS_DBG("Couldn't alloc mem for cdata\n");
 		return -ENOMEM;
 	}
 	(*cd)->bwsum = kzalloc((sizeof(uint16_t) * fab_pdata->nslaves),
 			GFP_KERNEL);
 	if (!(*cd)->bwsum) {
-		MSM_FAB_DBG("Couldn't alloc mem for slaves\n");
+		MSM_BUS_DBG("Couldn't alloc mem for slaves\n");
 		kfree(*cd);
 		return -ENOMEM;
 	}
@@ -127,7 +127,7 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 		(fab_pdata->ntieredslaves * fab_pdata->nmasters) + 1),
 		GFP_KERNEL);
 	if (!(*cd)->arb) {
-		MSM_FAB_DBG("Couldn't alloc memory for"
+		MSM_BUS_DBG("Couldn't alloc memory for"
 				" slaves\n");
 		kfree((*cd)->bwsum);
 		kfree(*cd);
@@ -137,7 +137,7 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 		(fab_pdata->ntieredslaves * fab_pdata->nmasters) + 1),
 		GFP_KERNEL);
 	if (!(*cd)->actarb) {
-		MSM_FAB_DBG("Couldn't alloc memory for"
+		MSM_BUS_DBG("Couldn't alloc memory for"
 				" slaves\n");
 		kfree((*cd)->bwsum);
 		kfree((*cd)->arb);
@@ -316,22 +316,22 @@ int msm_bus_rpm_commit(struct msm_bus_fabric_registration
 		index++;
 	}
 
-	MSM_FAB_DBG("rpm data for fab: %d\n", fab_pdata->id);
+	MSM_BUS_DBG("rpm data for fab: %d\n", fab_pdata->id);
 	for (i = 0; i < count; i++)
-		MSM_FAB_DBG("%d %x\n", rpm_data[i].id, rpm_data[i].value);
+		MSM_BUS_DBG("%d %x\n", rpm_data[i].id, rpm_data[i].value);
 
-	MSM_FAB_DBG("Commit Data: Fab: %d BWSum:\n", fab_pdata->id);
+	MSM_BUS_DBG("Commit Data: Fab: %d BWSum:\n", fab_pdata->id);
 	for (i = 0; i < fab_pdata->nslaves; i++)
-		MSM_FAB_DBG("fab_slaves:0x%x\n", cd->bwsum[i]);
-	MSM_FAB_DBG("Commit Data: Fab: %d Arb:\n", fab_pdata->id);
+		MSM_BUS_DBG("fab_slaves:0x%x\n", cd->bwsum[i]);
+	MSM_BUS_DBG("Commit Data: Fab: %d Arb:\n", fab_pdata->id);
 	for (i = 0; i < fab_pdata->ntieredslaves; i++) {
-		MSM_FAB_DBG("tiered-slave: %d\n", i);
+		MSM_BUS_DBG("tiered-slave: %d\n", i);
 		for (j = 0; j < fab_pdata->nmasters; j++)
-			MSM_FAB_DBG(" 0x%x\n",
+			MSM_BUS_DBG(" 0x%x\n",
 			cd->arb[(i * fab_pdata->nmasters) + j]);
 	}
 
-	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
+	MSM_BUS_DBG("calling msm_rpm_set:  %d\n", status);
 	msm_bus_dbg_commit_data(fab_pdata->name, cd, fab_pdata->
 		nmasters, fab_pdata->nslaves, fab_pdata->ntieredslaves,
 		MSM_BUS_DBG_OP);
@@ -341,7 +341,7 @@ int msm_bus_rpm_commit(struct msm_bus_fabric_registration
 				count);
 	}
 
-	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
+	MSM_BUS_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
 
