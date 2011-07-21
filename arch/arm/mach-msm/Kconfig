@@ -1222,12 +1222,11 @@ config MSM8X60_FTM_AUDIO_DEVICES
 	  Enable support audio factory test mode devices.  This is used
 	  in a production line environment.
 
-config MSM8X60_RTAC
-	tristate "MSM8X60 real-time audio calibration support"
-	depends on MSM8X60_AUDIO
-	default n
+config RTAC
+	bool "MSM8K real-time audio calibration support"
+	default y
 	help
-	  Enable support for rtac in qdsp6v2. This enables calibration during
+	  Enable support for rtac. This enables calibration during
 	  audio operation
 
 config MSM7X27A_AUDIO

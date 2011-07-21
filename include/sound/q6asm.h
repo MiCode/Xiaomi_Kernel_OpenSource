@@ -252,7 +252,7 @@ uint64_t q6asm_get_session_time(struct audio_client *ac);
 /* Client can set the IO mode to either AIO/SIO mode */
 int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);
 
-#ifdef CONFIG_MSM8X60_RTAC
+#ifdef CONFIG_RTAC
 /* Get Service ID for APR communication */
 int q6asm_get_apr_service_id(int session_id);
 #endif

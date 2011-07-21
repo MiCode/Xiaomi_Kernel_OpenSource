@@ -25,7 +25,7 @@
 #include <sound/q6asm.h>
 #include <sound/q6adm.h>
 
-#ifndef CONFIG_MSM8X60_RTAC
+#ifndef CONFIG_RTAC
 
 void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id) {}
 void rtac_remove_adm_device(u32 port_id, u32 popp_id) {}
