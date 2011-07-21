@@ -196,6 +196,8 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"AMIC2", NULL, "MIC BIAS2 External"},
 	{"MIC BIAS2 External", NULL, "Headset Mic"},
 
+	{"HEADPHONE", NULL, "LDO_H"},
+
 	/**
 	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
 	 * Conncted to DMIC2 Input on Tabla codec.
