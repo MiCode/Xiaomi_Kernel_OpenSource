@@ -28,6 +28,7 @@ struct charm_platform_data {
 #define AP2MDM_PMIC_RESET_N     131
 #define AP2MDM_KPDPWR_N 132
 #define AP2PMIC_TMPNI_CKEN      141
+#define AP2MDM_WAKEUP	135
 
 extern void (*charm_intentional_reset)(void);
 

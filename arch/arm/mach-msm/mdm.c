@@ -316,9 +316,11 @@ static int __init charm_modem_probe(struct platform_device *pdev)
 	gpio_request(AP2MDM_PMIC_RESET_N, "AP2MDM_PMIC_RESET_N");
 	gpio_request(MDM2AP_STATUS, "MDM2AP_STATUS");
 	gpio_request(MDM2AP_ERRFATAL, "MDM2AP_ERRFATAL");
+	gpio_request(AP2MDM_WAKEUP, "AP2MDM_WAKEUP");
 
 	gpio_direction_output(AP2MDM_STATUS, 1);
 	gpio_direction_output(AP2MDM_ERRFATAL, 0);
+	gpio_direction_output(AP2MDM_WAKEUP, 0);
 	gpio_direction_input(MDM2AP_STATUS);
 	gpio_direction_input(MDM2AP_ERRFATAL);
 
@@ -421,6 +423,7 @@ static void charm_modem_shutdown(struct platform_device *pdev)
 	charm_disable_irqs();
 
 	gpio_set_value(AP2MDM_STATUS, 0);
+	gpio_set_value(AP2MDM_WAKEUP, 1);
 
 	for (i = CHARM_MODEM_TIMEOUT; i > 0; i -= CHARM_MODEM_DELTA) {
 		pet_watchdog();
@@ -439,6 +442,7 @@ static void charm_modem_shutdown(struct platform_device *pdev)
 		}
 		gpio_direction_output(AP2MDM_PMIC_RESET_N, 0);
 	}
+	gpio_set_value(AP2MDM_WAKEUP, 0);
 }
 
 static struct platform_driver charm_modem_driver = {
