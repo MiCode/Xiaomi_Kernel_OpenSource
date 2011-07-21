@@ -577,6 +577,13 @@ static void msm_hs_set_bps_locked(struct uart_port *uport,
 	data |= UARTDM_IPR_STALE_TIMEOUT_MSB_BMSK & (rxstale << 2);
 
 	msm_hs_write(uport, UARTDM_IPR_ADDR, data);
+	/*
+	 * It is suggested to do reset of transmitter and receiver after
+	 * changing any protocol configuration. Here Baud rate and stale
+	 * timeout are getting updated. Hence reset transmitter and receiver.
+	 */
+	msm_hs_write(uport, UARTDM_CR_ADDR, RESET_TX);
+	msm_hs_write(uport, UARTDM_CR_ADDR, RESET_RX);
 }
 
 
@@ -647,6 +654,19 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	spin_lock_irqsave(&uport->lock, flags);
 	clk_enable(msm_uport->clk);
+
+	/*
+	 * Disable Rx channel of UARTDM
+	 * DMA Rx Stall happens if enqueue and flush of Rx command happens
+	 * concurrently. Hence before changing the baud rate/protocol
+	 * configuration and sending flush command to ADM, disable the Rx
+	 * channel of UARTDM.
+	 * Note: should not reset the receiver here immediately as it is not
+	 * suggested to do disable/reset or reset/disable at the same time.
+	 */
+	data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
+	data &= ~UARTDM_RX_DM_EN_BMSK;
+	msm_hs_write(uport, UARTDM_DMEN_ADDR, data);
 
 	/* 300 is the minimum baud support by the driver  */
 	bps = uart_get_baud_rate(uport, termios, oldtermios, 200, 4000000);
@@ -884,6 +904,7 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	unsigned int buffer_pending = msm_uport->rx.buffer_pending;
+	unsigned int data;
 
 	msm_uport->rx.buffer_pending = 0;
 	if (buffer_pending && hs_serial_debug_mask)
@@ -894,6 +915,14 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	msm_hs_write(uport, UARTDM_DMRX_ADDR, UARTDM_RX_BUF_SIZE);
 	msm_hs_write(uport, UARTDM_CR_ADDR, STALE_EVENT_ENABLE);
 	msm_uport->imr_reg |= UARTDM_ISR_RXLEV_BMSK;
+
+	/*
+	 * Enable UARTDM Rx Interface as previously it has been
+	 * disable in set_termios before configuring baud rate.
+	 */
+	data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
+	data |= UARTDM_RX_DM_EN_BMSK;
+	msm_hs_write(uport, UARTDM_DMEN_ADDR, data);
 	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
 	/* Calling next DMOV API. Hence mb() here. */
 	mb();
