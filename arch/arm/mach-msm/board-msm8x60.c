@@ -6510,9 +6510,12 @@ static unsigned int msm_bahama_setup_power(void)
 		goto unenable;
 	}
 
-	if (!rc)
-		rc = gpio_direction_output(GPIO_MS_SYS_RESET_N, 1);
-	else {
+	if (!rc) {
+		gpio_direction_output(GPIO_MS_SYS_RESET_N, 0);
+		usleep_range(1000, 1050);
+		gpio_direction_output(GPIO_MS_SYS_RESET_N, 1);
+		usleep_range(1000, 1050);
+	} else {
 		pr_err("%s: gpio_direction_output %d = %d\n", __func__,
 			GPIO_MS_SYS_RESET_N, rc);
 		goto unrequest;
