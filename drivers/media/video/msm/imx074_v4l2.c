@@ -1385,6 +1385,7 @@ static int imx074_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = imx074_sensor_open_init;
 	s->s_release = imx074_sensor_release;
 	s->s_config  = imx074_sensor_config;
+	s->s_camera_type = BACK_CAMERA_2D;
 	s->s_mount_angle = info->sensor_platform_info->mount_angle;
 	imx074_probe_init_done(info);
 	return rc;

@@ -1991,6 +1991,15 @@ int msm_sensor_register(struct platform_device *pdev,
 	D("%s Connected video device %s\n", __func__,
 	  g_server_dev.camera_info.video_dev_name
 		[g_server_dev.camera_info.num_cameras]);
+
+	g_server_dev.camera_info.s_mount_angle
+	[g_server_dev.camera_info.num_cameras]
+	= sctrl.s_mount_angle;
+
+	g_server_dev.camera_info.is_internal_cam
+	[g_server_dev.camera_info.num_cameras]
+	= sctrl.s_camera_type;
+
 	g_server_dev.camera_info.num_cameras++;
 
 	D("%s done, rc = %d\n", __func__, rc);

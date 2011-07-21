@@ -767,7 +767,7 @@ struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 
 #ifdef CONFIG_IMX074
 static struct msm_camera_sensor_platform_info sensor_board_info = {
-	.mount_angle = 0
+	.mount_angle = 90
 };
 #endif
 
