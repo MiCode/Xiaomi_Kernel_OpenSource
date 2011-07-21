@@ -228,6 +228,7 @@ struct msm_cam_v4l2_dev_inst {
 	/* buffer offset, if any */
 	uint32_t buf_offset[VIDEO_MAX_FRAME];
 	struct v4l2_crop crop;
+	int streamon;
 };
 #define MSM_MAX_IMG_MODE                5
 /* abstract camera device for each sensor successfully probed*/

@@ -715,6 +715,7 @@ static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 
 	mutex_lock(&pcam->vid_lock);
 	/* turn HW (VFE/sensor) streaming */
+	pcam_inst->streamon = 1;
 	rc = msm_server_streamon(pcam, pcam_inst->my_index);
 	mutex_unlock(&pcam->vid_lock);
 	D("%s rc = %d\n", __func__, rc);
@@ -738,16 +739,19 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 	WARN_ON(pctx != f->private_data);
 
 	/* first turn of HW (VFE/sensor) streaming so that buffers are
-	  not in use when we free the buffers */
+		not in use when we free the buffers */
 	mutex_lock(&pcam->vid_lock);
+	pcam_inst->streamon = 0;
 	rc = msm_server_streamoff(pcam, pcam_inst->my_index);
 	mutex_unlock(&pcam->vid_lock);
 	if (rc < 0)
 		pr_err("%s: hw failed to stop streaming\n", __func__);
 
+	msleep(67);
 	/* stop buffer streaming */
 	rc = vb2_streamoff(&pcam_inst->vid_bufq, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	D("%s, videobuf_streamoff returns %d\n", __func__, rc);
+	msm_streaming_action_notify(pcam_inst, 0, rc);
 
 	return rc;
 }

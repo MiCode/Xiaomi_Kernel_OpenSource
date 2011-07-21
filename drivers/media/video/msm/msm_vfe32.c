@@ -2221,9 +2221,6 @@ static void vfe32_process_output_path_irq_0(void)
 {
 	uint32_t ping_pong;
 	uint32_t pyaddr, pcbcraddr;
-#ifdef CONFIG_MSM_CAMERA_V4L2
-	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
-#endif
 	uint8_t out_bool = 0;
 	struct msm_free_buf *free_buf = NULL;
 	if (vfe32_ctrl->operation_mode ==
@@ -2286,42 +2283,6 @@ static void vfe32_process_output_path_irq_0(void)
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
 		pr_warning("path_irq_0 - no free buffer!\n");
-#ifdef CONFIG_MSM_CAMERA_V4L2
-		pr_info("Swapping ping and pong\n");
-
-		/*get addresses*/
-		/* Y channel */
-		pyaddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out0.ch0);
-		/* Chroma channel */
-		pcbcraddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out0.ch1);
-		/* Y channel */
-		pyaddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out0.ch0);
-		/* Chroma channel */
-		pcbcraddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out0.ch1);
-
-		CDBG("ping = 0x%p, pong = 0x%p\n", (void *)pyaddr_ping,
-						(void *)pyaddr_pong);
-		CDBG("ping_cbcr = 0x%p, pong_cbcr = 0x%p\n",
-			(void *)pcbcraddr_ping, (void *)pcbcraddr_pong);
-
-		/*put addresses*/
-		/* SWAP y channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out0.ch0,
-							pyaddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out0.ch0,
-							pyaddr_ping);
-		/* SWAP chroma channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out0.ch1,
-						pcbcraddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out0.ch1,
-						pcbcraddr_ping);
-		CDBG("after swap: ping = 0x%p, pong = 0x%p\n",
-			(void *)pyaddr_pong, (void *)pyaddr_ping);
-#endif
 	}
 }
 
@@ -2329,9 +2290,6 @@ static void vfe32_process_output_path_irq_1(void)
 {
 	uint32_t ping_pong;
 	uint32_t pyaddr, pcbcraddr;
-#ifdef CONFIG_MSM_CAMERA_V4L2
-	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
-#endif
 	/* this must be snapshot main image output. */
 	uint8_t out_bool = 0;
 	struct msm_free_buf *free_buf = NULL;
@@ -2385,42 +2343,6 @@ static void vfe32_process_output_path_irq_1(void)
 	} else {
 		vfe32_ctrl->outpath.out1.frame_drop_cnt++;
 		pr_warning("path_irq_1 - no free buffer!\n");
-#ifdef CONFIG_MSM_CAMERA_V4L2
-		pr_info("Swapping ping and pong\n");
-
-		/*get addresses*/
-		/* Y channel */
-		pyaddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out1.ch0);
-		/* Chroma channel */
-		pcbcraddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out1.ch1);
-		/* Y channel */
-		pyaddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out1.ch0);
-		/* Chroma channel */
-		pcbcraddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out1.ch1);
-
-		CDBG("ping = 0x%p, pong = 0x%p\n", (void *)pyaddr_ping,
-						(void *)pyaddr_pong);
-		CDBG("ping_cbcr = 0x%p, pong_cbcr = 0x%p\n",
-			(void *)pcbcraddr_ping, (void *)pcbcraddr_pong);
-
-		/*put addresses*/
-		/* SWAP y channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out1.ch0,
-							pyaddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out1.ch0,
-							pyaddr_ping);
-		/* SWAP chroma channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out1.ch1,
-						pcbcraddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out1.ch1,
-						pcbcraddr_ping);
-		CDBG("after swap: ping = 0x%p, pong = 0x%p\n",
-			(void *)pyaddr_pong, (void *)pyaddr_ping);
-#endif
 	}
 }
 
@@ -2428,9 +2350,6 @@ static void vfe32_process_output_path_irq_2(void)
 {
 	uint32_t ping_pong;
 	uint32_t pyaddr, pcbcraddr;
-#ifdef CONFIG_MSM_CAMERA_V4L2
-	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
-#endif
 	uint8_t out_bool = 0;
 	struct msm_free_buf *free_buf = NULL;
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
@@ -2479,42 +2398,6 @@ static void vfe32_process_output_path_irq_2(void)
 	} else {
 		vfe32_ctrl->outpath.out2.frame_drop_cnt++;
 		pr_warning("path_irq_2 - no free buffer!\n");
-#ifdef CONFIG_MSM_CAMERA_V4L2
-		pr_info("Swapping ping and pong\n");
-
-		/*get addresses*/
-		/* Y channel */
-		pyaddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out2.ch0);
-		/* Chroma channel */
-		pcbcraddr_ping = vfe32_get_ch_ping_addr(
-			vfe32_ctrl->outpath.out2.ch1);
-		/* Y channel */
-		pyaddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out2.ch0);
-		/* Chroma channel */
-		pcbcraddr_pong = vfe32_get_ch_pong_addr(
-			vfe32_ctrl->outpath.out2.ch1);
-
-		CDBG("ping = 0x%p, pong = 0x%p\n", (void *)pyaddr_ping,
-						(void *)pyaddr_pong);
-		CDBG("ping_cbcr = 0x%p, pong_cbcr = 0x%p\n",
-			(void *)pcbcraddr_ping, (void *)pcbcraddr_pong);
-
-		/*put addresses*/
-		/* SWAP y channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out2.ch0,
-							pyaddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out2.ch0,
-							pyaddr_ping);
-		/* SWAP chroma channel*/
-		vfe32_put_ch_ping_addr(vfe32_ctrl->outpath.out2.ch1,
-						pcbcraddr_pong);
-		vfe32_put_ch_pong_addr(vfe32_ctrl->outpath.out2.ch1,
-						pcbcraddr_ping);
-		CDBG("after swap: ping = 0x%p, pong = 0x%p\n",
-			(void *)pyaddr_pong, (void *)pyaddr_ping);
-#endif
 	}
 }
 

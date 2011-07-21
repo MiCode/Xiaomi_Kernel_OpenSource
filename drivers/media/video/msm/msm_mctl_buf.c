@@ -208,6 +208,8 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	struct videobuf2_contig_pmem *mem;
 	struct msm_frame_buffer *buf;
 	uint32_t i, vb_phyaddr = 0, buf_phyaddr = 0;
+	unsigned long flags = 0;
+
 	pcam_inst = vb2_get_drv_priv(vb->vb2_queue);
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
@@ -217,20 +219,26 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	D("%s: inst=0x%x, buf=0x%x, idx=%d\n", __func__,
 	(uint32_t)pcam_inst, (uint32_t)buf, vb->v4l2_buf.index);
 	vb_phyaddr = (unsigned long) videobuf2_to_pmem_contig(vb, 0);
-	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
-		buf_phyaddr = (unsigned long)
+	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
+	if (!list_empty(&pcam_inst->free_vq)) {
+		list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+			buf_phyaddr = (unsigned long)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0);
-		D("%s vb_idx=%d,vb_paddr=0x%x,phyaddr=0x%x\n",
+		  D("%s vb_idx=%d,vb_paddr=0x%x,phyaddr=0x%x\n",
 			__func__, buf->vidbuf.v4l2_buf.index,
 			buf_phyaddr, vb_phyaddr);
-		if (vb_phyaddr == buf_phyaddr) {
-			list_del(&buf->list);
-			break;
+			if (vb_phyaddr == buf_phyaddr) {
+				list_del_init(&buf->list);
+				break;
+			}
 		}
 	}
+	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
-		videobuf2_pmem_contig_user_put(mem);
+		if (mem)
+			videobuf2_pmem_contig_user_put(mem);
 	}
 }
 
@@ -266,7 +274,8 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	}
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
-	D("%s pcam_inst=%p,(vb=0x%p),idx=%d,len=%d\n", __func__, pcam_inst,
+	D("%s pcam_inst=%p,(vb=0x%p),idx=%d,len=%d\n",
+		__func__, pcam_inst,
 	vb, vb->v4l2_buf.index, vb->v4l2_buf.length);
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
 	/* we are returning a buffer to the queue */
@@ -393,17 +402,20 @@ static struct msm_frame_buffer *msm_mctl_buf_find(
 
 	/* we actually need a list, not a queue */
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
-	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
-		buf_phyaddr = (unsigned long)
+	if (!list_empty(&pcam_inst->free_vq)) {
+		list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+			buf_phyaddr = (unsigned long)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0);
-		D("%s vb_idx=%d,vb_paddr=0x%x,y_phy=0x%x\n",
-			__func__, buf->vidbuf.v4l2_buf.index,
-			buf_phyaddr, y_phy);
-		if (y_phy == buf_phyaddr) {
-			if (del_buf)
-				list_del_init(&buf->list);
-			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
-			return buf;
+			D("%s vb_idx=%d,vb_paddr=0x%x,y_phy=0x%x\n",
+				__func__, buf->vidbuf.v4l2_buf.index,
+				buf_phyaddr, y_phy);
+			if (y_phy == buf_phyaddr) {
+				if (del_buf)
+					list_del_init(&buf->list);
+				spin_unlock_irqrestore(&pcam_inst->vq_irqlock,
+					flags);
+				return buf;
+			}
 		}
 	}
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
@@ -427,7 +439,8 @@ int msm_mctl_buf_done_proc(
 		return -EINVAL;
 	}
 	if (!timestamp)
-		msm_mctl_gettimeofday(&buf->vidbuf.v4l2_buf.timestamp);
+		msm_mctl_gettimeofday(
+			&buf->vidbuf.v4l2_buf.timestamp);
 	else
 		buf->vidbuf.v4l2_buf.timestamp = *timestamp;
 	vb2_buffer_done(&buf->vidbuf, VB2_BUF_STATE_DONE);
@@ -443,7 +456,8 @@ static int msm_mctl_buf_divert(
 	struct msm_isp_stats_event_ctrl *isp_event;
 
 	memset(&v4l2_evt, 0, sizeof(v4l2_evt));
-	isp_event = (struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
+	isp_event =
+		(struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
 	D("%s inst = %p, image_mode = %d, frame_id=%d\n",
 	__func__, pcam_inst, pcam_inst->image_mode, (*buf)->frame_id);
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -560,33 +574,44 @@ int msm_mctl_reserve_free_buf(
 	struct msm_frame_buffer *buf = NULL;
 	int rc = -EINVAL, idx;
 
+	if (!free_buf) {
+		pr_err("%s: free_buf= null\n", __func__);
+		return rc;
+	}
+	memset(free_buf, 0, sizeof(struct msm_free_buf));
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync, msg_type);
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
+	if (!pcam_inst->streamon) {
+		pr_err("%s: stream 0x%p is off\n", __func__, pcam_inst);
+		return rc;
+	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
-	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
-		if (buf->inuse == 0) {
-			mem = vb2_plane_cookie(&buf->vidbuf, 0);
-			if (!mem)
-				continue;
-			free_buf->paddr =
-			(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
-			free_buf->y_off = mem->y_off;
-			free_buf->cbcr_off = mem->cbcr_off;
-			D("%s idx=%d,inst=0x%p,idx=%d,paddr=0x%x, "
-				"y_off=%d,cbcroff=%d\n", __func__, idx,
-				pcam_inst, buf->vidbuf.v4l2_buf.index,
-				free_buf->paddr, free_buf->y_off,
-				free_buf->cbcr_off);
-			/* mark it used */
-			buf->inuse = 1;
-			rc = 0;
-			break;
+	if (!list_empty(&pcam_inst->free_vq)) {
+		list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+			if (buf->inuse == 0) {
+				mem = vb2_plane_cookie(&buf->vidbuf, 0);
+				if (!mem)
+					continue;
+				free_buf->paddr =
+				(uint32_t) videobuf2_to_pmem_contig(
+					&buf->vidbuf, 0);
+				free_buf->y_off = mem->y_off;
+				free_buf->cbcr_off = mem->cbcr_off;
+				D("%s idx=%d,inst=0x%p,idx=%d,paddr=0x%x, "
+					"y_off=%d,cbcroff=%d\n", __func__, idx,
+					pcam_inst, buf->vidbuf.v4l2_buf.index,
+					free_buf->paddr, free_buf->y_off,
+					free_buf->cbcr_off);
+				/* mark it used */
+				buf->inuse = 1;
+				rc = 0;
+				break;
+			}
 		}
 	}
-	if (rc != 0) {
-		free_buf->paddr = 0;
-		pr_err("No free buffer available ");
-	}
+	if (rc != 0)
+		pr_err("%s:No free buffer available: inst = 0x%p ",
+				__func__, pcam_inst);
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;
 }
