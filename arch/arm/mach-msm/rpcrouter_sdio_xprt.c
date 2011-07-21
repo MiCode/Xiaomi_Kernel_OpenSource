@@ -575,11 +575,12 @@ static int rpcrouter_sdio_remote_probe(struct platform_device *pdev)
 
 		init_waitqueue_head(&write_avail_wait_q);
 	}
-	mutex_unlock(&modem_reset_lock);
+	modem_reset = 0;
 
 	rc = allocate_sdio_xprt(&sdio_remote_xprt.channel);
 	if (rc) {
 		destroy_workqueue(sdio_xprt_read_workqueue);
+		mutex_unlock(&modem_reset_lock);
 		return rc;
 	}
 
@@ -590,11 +591,9 @@ static int rpcrouter_sdio_remote_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		free_sdio_xprt(sdio_remote_xprt.channel);
 		destroy_workqueue(sdio_xprt_read_workqueue);
+		mutex_unlock(&modem_reset_lock);
 		return rc;
 	}
-
-	mutex_lock(&modem_reset_lock);
-	modem_reset = 0;
 	mutex_unlock(&modem_reset_lock);
 
 	msm_rpcrouter_xprt_notify(&sdio_remote_xprt.xprt,
