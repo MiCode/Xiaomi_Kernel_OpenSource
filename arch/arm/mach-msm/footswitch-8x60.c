@@ -145,6 +145,11 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	fs->is_claimed = true;
 	mutex_unlock(&claim_lock);
 
+	/* Return early if already enabled. */
+	regval = readl_relaxed(fs->gfs_ctl_reg);
+	if ((regval & (ENABLE_BIT | CLAMP_BIT)) == ENABLE_BIT)
+		return 0;
+
 	/* Make sure required clocks are on at the correct rates. */
 	rc = setup_clocks(fs);
 	if (rc)
@@ -179,7 +184,6 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	udelay(RESET_DELAY_US);
 
 	/* Enable the power rail at the footswitch. */
-	regval = readl_relaxed(fs->gfs_ctl_reg);
 	regval |= ENABLE_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 	/* Wait for the rail to fully charge. */
@@ -215,6 +219,11 @@ static int footswitch_disable(struct regulator_dev *rdev)
 {
 	struct footswitch *fs = rdev_get_drvdata(rdev);
 	uint32_t regval, rc = 0;
+
+	/* Return early if already disabled. */
+	regval = readl_relaxed(fs->gfs_ctl_reg);
+	if ((regval & ENABLE_BIT) == 0)
+		return 0;
 
 	/* Make sure required clocks are on at the correct rates. */
 	rc = setup_clocks(fs);
@@ -252,7 +261,6 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	 * Clamp the I/O ports of the core to ensure the values
 	 * remain fixed while the core is collapsed.
 	 */
-	regval = readl_relaxed(fs->gfs_ctl_reg);
 	regval |= CLAMP_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 
@@ -281,6 +289,11 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	mutex_lock(&claim_lock);
 	fs->is_claimed = true;
 	mutex_unlock(&claim_lock);
+
+	/* Return early if already enabled. */
+	regval = readl_relaxed(fs->gfs_ctl_reg);
+	if ((regval & (ENABLE_BIT | CLAMP_BIT)) == ENABLE_BIT)
+		return 0;
 
 	/* Make sure required clocks are on at the correct rates. */
 	rc = setup_clocks(fs);
@@ -312,7 +325,6 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	udelay(20);
 
 	/* Enable the power rail at the footswitch. */
-	regval = readl_relaxed(fs->gfs_ctl_reg);
 	regval |= ENABLE_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 	mb();
@@ -344,6 +356,11 @@ static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
 {
 	struct footswitch *fs = rdev_get_drvdata(rdev);
 	uint32_t regval, rc = 0;
+
+	/* Return early if already disabled. */
+	regval = readl_relaxed(fs->gfs_ctl_reg);
+	if ((regval & ENABLE_BIT) == 0)
+		return 0;
 
 	/* Make sure required clocks are on at the correct rates. */
 	rc = setup_clocks(fs);
@@ -377,7 +394,6 @@ static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
 	 * Clamp the I/O ports of the core to ensure the values
 	 * remain fixed while the core is collapsed.
 	 */
-	regval = readl_relaxed(fs->gfs_ctl_reg);
 	regval |= CLAMP_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 
