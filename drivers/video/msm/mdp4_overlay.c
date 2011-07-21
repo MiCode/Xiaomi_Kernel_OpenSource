@@ -43,7 +43,7 @@
 struct mdp4_overlay_ctrl {
 	struct mdp4_pipe_desc ov_pipe[OVERLAY_PIPE_MAX];/* 4 */
 	struct mdp4_overlay_pipe plist[MDP4_MAX_PIPE];	/* 4 + 2 */
-	struct mdp4_overlay_pipe *stage[MDP4_MAX_MIXER][MDP4_MAX_STAGE + 2];
+	struct mdp4_overlay_pipe *stage[MDP4_MAX_MIXER][MDP4_MIXER_STAGE_MAX];
 	uint32 panel_3d;
 	uint32 panel_mode;
 	uint32 mixer0_played;
@@ -1073,6 +1073,33 @@ int mdp4_overlay_pipe_staged(int mixer)
 		return p2;
 	else
 		return p1;
+}
+
+int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info)
+{
+
+	int ndx, cnt;
+	struct mdp4_overlay_pipe *pipe;
+
+	if (mixer_num > MDP4_MIXER_MAX)
+		return -ENODEV;
+
+	cnt = 0;
+	ndx = 1; /* ndx 0 if not used */
+
+	for ( ; ndx < MDP4_MIXER_STAGE_MAX; ndx++) {
+		pipe = ctrl->stage[mixer_num][ndx];
+		if (pipe == NULL)
+			continue;
+		info->z_order = pipe->mixer_stage - MDP4_MIXER_STAGE0;
+		info->ptype = pipe->pipe_type;
+		info->pnum = pipe->pipe_num;
+		info->pndx = pipe->pipe_ndx;
+		info->mixer_num = pipe->mixer_num;
+		info++;
+		cnt++;
+	}
+	return cnt;
 }
 
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe)
