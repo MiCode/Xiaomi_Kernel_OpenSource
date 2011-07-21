@@ -1562,29 +1562,52 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 		.ops = &tabla_dai_ops,
 	},
 };
-
-static short tabla_codec_measure_micbias_voltage(struct snd_soc_codec *codec,
-	int dce)
+static short tabla_codec_read_sta_result(struct snd_soc_codec *codec)
 {
 	u8 bias_msb, bias_lsb;
 	short bias_value;
 
+	bias_msb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B3_STATUS);
+	bias_lsb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B2_STATUS);
+	bias_value = (bias_msb << 8) | bias_lsb;
+	return bias_value;
+}
+
+static short tabla_codec_read_dce_result(struct snd_soc_codec *codec)
+{
+	u8 bias_msb, bias_lsb;
+	short bias_value;
+
+	bias_msb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B5_STATUS);
+	bias_lsb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B4_STATUS);
+	bias_value = (bias_msb << 8) | bias_lsb;
+	return bias_value;
+}
+
+static short tabla_codec_measure_micbias_voltage(struct snd_soc_codec *codec,
+	int dce)
+{
+	short bias_value;
+
 	if (dce) {
-		bias_msb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B5_STATUS);
-		bias_lsb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B4_STATUS);
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
+		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x4);
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
+		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x4);
+		usleep_range(60000, 60000);
+		bias_value = tabla_codec_read_dce_result(codec);
 	} else {
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x2);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
-		msleep(100);
+		usleep_range(5000, 5000);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x2);
-		bias_msb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B3_STATUS);
-		bias_lsb = snd_soc_read(codec, TABLA_A_CDC_MBHC_B2_STATUS);
+		usleep_range(50, 50);
+		bias_value = tabla_codec_read_sta_result(codec);
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
+		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x0);
 	}
 
-	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x0);
-
-	bias_value = (bias_msb << 8) | bias_lsb;
 	pr_debug("read microphone bias value %x\n", bias_value);
 	return bias_value;
 }
@@ -1645,7 +1668,7 @@ static int tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 		pr_err("Error, invalid mic bias line\n");
 		return -EINVAL;
 	}
-	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x40);
+	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x00);
 
 	snd_soc_update_bits(codec, micbias_ctl_reg, 0x1F, 0x16);
 	snd_soc_update_bits(codec, micbias_ctl_reg, 0x60,
@@ -1667,13 +1690,14 @@ static int tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x6);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x00);
+	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x10);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x01);
 
 	tabla_codec_calibrate_hs_polling(codec);
 
 	bias_value = tabla_codec_measure_micbias_voltage(codec, 0);
-
+	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x40);
+	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 	threshold_no_mic = 0xF7F6;
 
 	if (bias_value < threshold_no_mic) {
@@ -1721,6 +1745,10 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0xC,
 		calibration->hph_current << 2);
 
+	/* Turn off HPH PAs during insertion detection to avoid false
+	 * insertion interrupts
+	 */
+	snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
 
 	switch (calibration->bias) {
@@ -1773,6 +1801,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 		calibration->mic_current << 5);
 	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x80, 0x80);
 	usleep_range(calibration->mic_pid, calibration->mic_pid);
+
 	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x10);
 
 	snd_soc_update_bits(codec, TABLA_A_MICB_4_MBHC, 0x3, calibration->bias);
@@ -1804,11 +1833,14 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
+	short bias_value;
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
-	pr_debug("%s: Button pressed\n", __func__);
+	bias_value = tabla_codec_read_dce_result(codec);
+	pr_debug("button press interrupt, bias value is %d\n", bias_value);
+
 	if (priv->button_jack)
 		snd_soc_jack_report(priv->button_jack, SND_JACK_BTN_0,
 			SND_JACK_BTN_0);
@@ -1851,7 +1883,6 @@ static void tabla_codec_shutdown_hs_removal_detect(struct snd_soc_codec *codec)
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x0);
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x0);
 
 	switch (calibration->bias) {
 	case TABLA_MICBIAS1:
@@ -1871,7 +1902,6 @@ static void tabla_codec_shutdown_hs_removal_detect(struct snd_soc_codec *codec)
 		return;
 	}
 	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x80, 0x00);
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x00);
 	usleep_range(calibration->shutdown_plug_removal,
 		calibration->shutdown_plug_removal);
 
@@ -1947,6 +1977,7 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
+	short bias_value;
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
@@ -1954,14 +1985,22 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 	usleep_range(priv->calibration->shutdown_plug_removal,
 		priv->calibration->shutdown_plug_removal);
 
-	if (priv->headset_jack) {
-		pr_debug("%s: Reporting removal\n", __func__);
-		snd_soc_jack_report(priv->headset_jack, 0, SND_JACK_HEADSET);
+	bias_value = tabla_codec_measure_micbias_voltage(codec, 1);
+	pr_debug("removal interrupt, bias value is %d\n", bias_value);
+
+	if (bias_value < -90) {
+		pr_debug("False alarm, headset not actually removed\n");
+		tabla_codec_start_hs_polling(codec);
+	} else {
+		if (priv->headset_jack) {
+			pr_debug("%s: Reporting removal\n", __func__);
+			snd_soc_jack_report(priv->headset_jack, 0,
+				SND_JACK_HEADSET);
+		}
+		tabla_codec_shutdown_hs_polling(codec);
+
+		tabla_codec_enable_hs_detect(codec, 1);
 	}
-	tabla_codec_shutdown_hs_polling(codec);
-
-	tabla_codec_enable_hs_detect(codec, 1);
-
 	return IRQ_HANDLED;
 }
 
@@ -2038,11 +2077,6 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_MICB_2_INT_RBIAS, 0x24, 0x24);
 	snd_soc_update_bits(codec, TABLA_A_MICB_3_INT_RBIAS, 0x24, 0x24);
 	snd_soc_update_bits(codec, TABLA_A_MICB_4_INT_RBIAS, 0x24, 0x24);
-
-	/* Set headset CFILT to fast mode */
-	snd_soc_update_bits(codec, TABLA_A_MICB_CFILT_1_CTL, 0x00, 0x00);
-	snd_soc_update_bits(codec, TABLA_A_MICB_CFILT_2_CTL, 0x00, 0x00);
-	snd_soc_update_bits(codec, TABLA_A_MICB_CFILT_3_CTL, 0x00, 0x00);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_CONN_CLSG_CTL, 0x30, 0x10);
 
