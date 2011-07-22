@@ -278,6 +278,8 @@ enum rpm_vreg_voter {
 	RPM_VREG_VOTER1,		/* for use by the acpu-clock driver */
 	RPM_VREG_VOTER2,		/* for use by the acpu-clock driver */
 	RPM_VREG_VOTER3,		/* for use by other drivers */
+	RPM_VREG_VOTER4,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER5,		/* for use by the acpu-clock driver */
 	RPM_VREG_VOTER_COUNT,
 };
 
