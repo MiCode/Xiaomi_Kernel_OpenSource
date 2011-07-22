@@ -25,6 +25,21 @@
 #include <mach/socinfo.h>
 #include "timer.h"
 #include "devices.h"
+#include <mach/msm_spi.h>
+#include <mach/gpio.h>
+#include <mach/gpiomux.h>
+
+static int __init gpiomux_init(void)
+{
+	int rc;
+
+	rc = msm_gpiomux_init(NR_GPIO_IRQS);
+	if (rc) {
+		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
+		return rc;
+	}
+	return 0;
+}
 
 static void __init apq8064_map_io(void)
 {
@@ -85,6 +100,7 @@ static void __init apq8064_common_init(void)
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	msm_clock_init(msm_clocks_8064_dummy, msm_num_clocks_8064_dummy);
+	gpiomux_init();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 

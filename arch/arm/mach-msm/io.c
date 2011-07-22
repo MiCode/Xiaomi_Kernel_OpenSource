@@ -220,6 +220,7 @@ static struct map_desc apq8064_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(TMR, APQ8064),
 	MSM_CHIP_DEVICE(TMR0, APQ8064),
 	MSM_CHIP_DEVICE(DMOV, APQ8064),
+	MSM_CHIP_DEVICE(TLMM, APQ8064),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
