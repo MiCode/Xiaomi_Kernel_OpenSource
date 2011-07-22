@@ -34,4 +34,20 @@ enum pm8xxx_leds {
 	PM8XXX_ID_FLASH_LED_1,
 };
 
+/**
+ * pm8xxx_led_modes - Operating modes of LEDs
+ */
+enum pm8xxx_led_modes {
+	PM8XXX_LED_MODE_MANUAL,
+	PM8XXX_LED_MODE_PWM1,
+	PM8XXX_LED_MODE_PWM2,
+	PM8XXX_LED_MODE_PWM3,
+	PM8XXX_LED_MODE_DTEST1,
+	PM8XXX_LED_MODE_DTEST2,
+	PM8XXX_LED_MODE_DTEST3,
+	PM8XXX_LED_MODE_DTEST4
+};
+
+int pm8xxx_led_config(enum pm8xxx_leds led_id,
+		enum pm8xxx_led_modes led_mode, int max_current);
 #endif /* __LEDS_PM8XXX_H__ */

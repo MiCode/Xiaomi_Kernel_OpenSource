@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"%s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -35,24 +37,27 @@
 #define PM8XXX_DRV_LED_CTRL_MASK	0xf8
 #define PM8XXX_DRV_LED_CTRL_SHIFT	0x03
 
-#define MAX_FLASH_LED_CURRENT	300
-#define MAX_LC_LED_CURRENT	40
-#define MAX_KP_BL_LED_CURRENT	300
+#define MAX_FLASH_LED_CURRENT		300
+#define MAX_LC_LED_CURRENT		40
+#define MAX_KP_BL_LED_CURRENT		300
 
-#define MAX_KEYPAD_BL_LEVEL	(1 << 4)
-#define MAX_LED_DRV_LEVEL	20 /* 2 * 20 mA */
+#define PM8XXX_ID_LED_CURRENT_FACTOR	2  /* Iout = x * 2mA */
+#define PM8XXX_ID_FLASH_CURRENT_FACTOR	20 /* Iout = x * 20mA */
+
+#define PM8XXX_FLASH_MODE_DBUS1		1
+#define PM8XXX_FLASH_MODE_DBUS2		2
+#define PM8XXX_FLASH_MODE_PWM		3
 
 #define PM8XXX_LED_OFFSET(id) ((id) - PM8XXX_ID_LED_0)
 
-#define MAX_KB_LED_BRIGHTNESS		15
 #define MAX_LC_LED_BRIGHTNESS		20
-#define MAX_FLASH_LED_BRIGHTNESS	15
+#define MAX_FLASH_BRIGHTNESS		15
+#define MAX_KB_LED_BRIGHTNESS		15
 
 /**
  * struct pm8xxx_led_data - internal led data structure
  * @led_classdev - led class device
  * @id - led index
- * @led_brightness - led brightness levels
  * @work - workqueue for led
  * @lock - to protect the transactions
  * @reg - cached value of led register
@@ -61,11 +66,12 @@ struct pm8xxx_led_data {
 	struct led_classdev	cdev;
 	int			id;
 	u8			reg;
-	enum led_brightness	brightness;
 	struct device		*dev;
 	struct work_struct	work;
 	struct mutex		lock;
 };
+
+static struct pm8xxx_led_data *pm8xxx_leds;
 
 static void led_kp_set(struct pm8xxx_led_data *led, enum led_brightness value)
 {
@@ -133,21 +139,22 @@ static void pm8xxx_led_work(struct work_struct *work)
 {
 	struct pm8xxx_led_data *led = container_of(work,
 					 struct pm8xxx_led_data, work);
+	int level = led->cdev.brightness;
 
 	mutex_lock(&led->lock);
 
 	switch (led->id) {
 	case PM8XXX_ID_LED_KB_LIGHT:
-		led_kp_set(led, led->brightness);
+		led_kp_set(led, level);
 	break;
 	case PM8XXX_ID_LED_0:
 	case PM8XXX_ID_LED_1:
 	case PM8XXX_ID_LED_2:
-		led_lc_set(led, led->brightness);
+		led_lc_set(led, level);
 	break;
 	case PM8XXX_ID_FLASH_LED_0:
 	case PM8XXX_ID_FLASH_LED_1:
-		led_flash_set(led, led->brightness);
+		led_flash_set(led, level);
 	break;
 	}
 
@@ -157,13 +164,98 @@ static void pm8xxx_led_work(struct work_struct *work)
 static void pm8xxx_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
 {
-	struct pm8xxx_led_data *led;
+	struct	pm8xxx_led_data *led;
 
 	led = container_of(led_cdev, struct pm8xxx_led_data, cdev);
 
-	led->brightness = value;
+	if (value < LED_OFF || value > led->cdev.max_brightness) {
+		dev_err(led->cdev.dev, "Invalid brightness value exceeds");
+		return;
+	}
+
+	led->cdev.brightness = value;
 	schedule_work(&led->work);
 }
+
+int pm8xxx_led_config(enum pm8xxx_leds led_id,
+		enum pm8xxx_led_modes led_mode, int max_current)
+{
+	int rc = 0;
+	struct pm8xxx_led_data *led = pm8xxx_leds;
+
+	if (led_id < PM8XXX_ID_LED_KB_LIGHT ||
+			led_id > PM8XXX_ID_FLASH_LED_1) {
+		pr_err("Invalid led no. provided\n");
+		return -EINVAL;
+	}
+
+	if (led_mode < PM8XXX_LED_MODE_MANUAL ||
+			led_mode > PM8XXX_LED_MODE_DTEST4) {
+		pr_err("Invalid led mode provided\n");
+		return -EINVAL;
+	}
+
+	while (led->id != 0) {
+		if (led->id == led_id)
+			break;
+		led++;
+	}
+
+	if (led->id == 0) {
+		pr_err("Could not find LED with the given id");
+		return -EINVAL;
+	}
+
+	mutex_lock(&led->lock);
+
+	switch (led_id) {
+	case PM8XXX_ID_LED_0:
+	case PM8XXX_ID_LED_1:
+	case PM8XXX_ID_LED_2:
+		led->cdev.max_brightness = max_current /
+						PM8XXX_ID_LED_CURRENT_FACTOR;
+		led->reg |= led_mode;
+		break;
+	case PM8XXX_ID_LED_KB_LIGHT:
+	case PM8XXX_ID_FLASH_LED_0:
+	case PM8XXX_ID_FLASH_LED_1:
+		led->cdev.max_brightness = max_current /
+						PM8XXX_ID_FLASH_CURRENT_FACTOR;
+		switch (led_mode) {
+		case PM8XXX_LED_MODE_PWM1:
+		case PM8XXX_LED_MODE_PWM2:
+		case PM8XXX_LED_MODE_PWM3:
+			led->reg |=
+				PM8XXX_FLASH_MODE_PWM;
+			break;
+		case PM8XXX_LED_MODE_DTEST1:
+			led->reg |=
+				PM8XXX_FLASH_MODE_DBUS1;
+			break;
+		case PM8XXX_LED_MODE_DTEST2:
+			led->reg |=
+				PM8XXX_FLASH_MODE_DBUS2;
+			break;
+		default:
+			led->reg |=
+				PM8XXX_LED_MODE_MANUAL;
+			break;
+		}
+		break;
+	default:
+		rc = -EINVAL;
+		pr_err("LED Id is invalid");
+		break;
+	}
+
+	mutex_unlock(&led->lock);
+
+	if (!rc)
+		pm8xxx_led_set(&led->cdev, led->cdev.max_brightness);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_led_config);
 
 static enum led_brightness pm8xxx_led_get(struct led_classdev *led_cdev)
 {
@@ -171,7 +263,7 @@ static enum led_brightness pm8xxx_led_get(struct led_classdev *led_cdev)
 
 	led = container_of(led_cdev, struct pm8xxx_led_data, cdev);
 
-	return led->brightness;
+	return led->cdev.brightness;
 }
 
 static int __devinit get_max_brightness(enum pm8xxx_leds id)
@@ -185,7 +277,7 @@ static int __devinit get_max_brightness(enum pm8xxx_leds id)
 		return MAX_LC_LED_BRIGHTNESS;
 	case PM8XXX_ID_FLASH_LED_0:
 	case PM8XXX_ID_FLASH_LED_1:
-		return MAX_FLASH_LED_CURRENT;
+		return MAX_FLASH_BRIGHTNESS;
 	default:
 		return 0;
 	}
@@ -234,7 +326,10 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	led = kcalloc(pdata->num_leds, sizeof(*led), GFP_KERNEL);
+	/* Let the last member of the list be zero to
+	 * mark the end of the list.
+	 */
+	led = kcalloc(pdata->num_leds + 1, sizeof(*led), GFP_KERNEL);
 	if (led == NULL) {
 		dev_err(&pdev->dev, "failed to alloc memory\n");
 		return -ENOMEM;
@@ -260,9 +355,9 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		led_dat->cdev.brightness_get    = pm8xxx_led_get;
 		led_dat->cdev.brightness	= LED_OFF;
 		led_dat->cdev.flags		= LED_CORE_SUSPENDRESUME;
-
-		led_dat->cdev.max_brightness = get_max_brightness(led_dat->id);
-		led_dat->dev = &pdev->dev;
+		led_dat->cdev.max_brightness	=
+						get_max_brightness(led_dat->id);
+		led_dat->dev			= &pdev->dev;
 
 		rc =  get_init_value(led_dat, &led_dat->reg);
 		if (rc < 0)
@@ -278,6 +373,8 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 			goto fail_id_check;
 		}
 	}
+
+	pm8xxx_leds = led;
 
 	platform_set_drvdata(pdev, led);
 
@@ -325,7 +422,7 @@ static int __init pm8xxx_led_init(void)
 {
 	return platform_driver_register(&pm8xxx_led_driver);
 }
-module_init(pm8xxx_led_init);
+subsys_initcall(pm8xxx_led_init);
 
 static void __exit pm8xxx_led_exit(void)
 {
