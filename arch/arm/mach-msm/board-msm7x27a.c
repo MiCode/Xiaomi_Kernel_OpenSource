@@ -3197,6 +3197,7 @@ static struct platform_device hs_pdev = {
 #define UART1DM_RX_GPIO		45
 static void __init msm7x2x_init(void)
 {
+	msm7x2x_misc_init();
 
 	/* Common functions for SURF/FFA/RUMI3 */
 	msm_device_i2c_init();
@@ -3277,7 +3278,6 @@ static void __init msm7x2x_init(void)
 
 static void __init msm7x2x_init_early(void)
 {
-	msm7x2x_misc_init();
 	msm_msm7x2x_allocate_memory_regions();
 }
 
