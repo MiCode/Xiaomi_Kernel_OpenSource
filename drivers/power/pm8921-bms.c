@@ -425,10 +425,20 @@ static int interpolate_scalingfactor_pc(struct pm8921_bms_chip *chip,
 	return scalefactor;
 }
 
+static int is_between(int left, int right, int value)
+{
+	if (left >= right && left >= value && value >= right)
+		return 1;
+	if (left <= right && left <= value && value <= right)
+		return 1;
+
+	return 0;
+}
+
 static int interpolate_pc(struct pm8921_bms_chip *chip,
 				int batt_temp, int ocv)
 {
-	int i, j, ocvi, ocviplusone, pc = 0;
+	int i, j, pcj, pcj_minus_one, pc;
 	int rows = chip->pc_temp_ocv_lut->rows;
 	int cols = chip->pc_temp_ocv_lut->cols;
 
@@ -466,49 +476,61 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 		}
 	}
 
+	/*
+	 * batt_temp is within temperature for
+	 * column j-1 and j
+	 */
 	if (ocv >= chip->pc_temp_ocv_lut->ocv[0][j])
 		return chip->pc_temp_ocv_lut->percent[0];
 	if (ocv <= chip->pc_temp_ocv_lut->ocv[rows - 1][j - 1])
 		return chip->pc_temp_ocv_lut->percent[rows - 1];
-	for (i = 0; i < rows; i++) {
-		if (ocv >= chip->pc_temp_ocv_lut->ocv[i][j - 1]
-			&& ocv <= chip->pc_temp_ocv_lut->ocv[i][j]) {
-			pc = chip->pc_temp_ocv_lut->percent[i];
 
-			if (i < rows - 1
-				&& ocv >=
-					chip->pc_temp_ocv_lut->ocv[i + 1][j - 1]
-				&& ocv <=
-					chip->pc_temp_ocv_lut->ocv[i + 1][j]) {
-				ocvi = linear_interpolate(
-					chip->pc_temp_ocv_lut->ocv[i][j - 1],
-					chip->pc_temp_ocv_lut->temp[j - 1],
-					chip->pc_temp_ocv_lut->ocv[i][j],
-					chip->pc_temp_ocv_lut->temp[j],
-					batt_temp);
+	pcj_minus_one = 0;
+	pcj = 0;
+	for (i = 0; i < rows-1; i++) {
+		if (pcj == 0
+			&& is_between(chip->pc_temp_ocv_lut->ocv[i][j],
+				chip->pc_temp_ocv_lut->ocv[i+1][j], ocv)) {
+			pcj = linear_interpolate(
+				chip->pc_temp_ocv_lut->percent[i],
+				chip->pc_temp_ocv_lut->ocv[i][j],
+				chip->pc_temp_ocv_lut->percent[i + 1],
+				chip->pc_temp_ocv_lut->ocv[i+1][j],
+				ocv);
+		}
 
-				ocviplusone = linear_interpolate(
-					chip->pc_temp_ocv_lut
-							->ocv[i + 1][j - 1],
-					chip->pc_temp_ocv_lut->temp[j - 1],
-					chip->pc_temp_ocv_lut->ocv[i + 1][j],
-					chip->pc_temp_ocv_lut->temp[j],
-					batt_temp);
+		if (pcj_minus_one == 0
+			&& is_between(chip->pc_temp_ocv_lut->ocv[i][j-1],
+				chip->pc_temp_ocv_lut->ocv[i+1][j-1], ocv)) {
 
-				pc = linear_interpolate(
-					chip->pc_temp_ocv_lut->percent[i],
-					ocvi,
-					chip->pc_temp_ocv_lut->percent[i + 1],
-					ocviplusone,
-					ocv);
-			}
+			pcj_minus_one = linear_interpolate(
+				chip->pc_temp_ocv_lut->percent[i],
+				chip->pc_temp_ocv_lut->ocv[i][j-1],
+				chip->pc_temp_ocv_lut->percent[i + 1],
+				chip->pc_temp_ocv_lut->ocv[i+1][j-1],
+				ocv);
+		}
+
+		if (pcj && pcj_minus_one) {
+			pc = linear_interpolate(
+				pcj_minus_one,
+				chip->pc_temp_ocv_lut->temp[j-1],
+				pcj,
+				chip->pc_temp_ocv_lut->temp[j],
+				batt_temp);
 			return pc;
 		}
 	}
 
-	pr_debug("%d ocv wasn't found for temp %d in the LUT returning pc = %d",
-							ocv, batt_temp, pc);
-	return pc;
+	if (pcj)
+		return pcj;
+
+	if (pcj_minus_one)
+		return pcj_minus_one;
+
+	pr_debug("%d ocv wasn't found for temp %d in the LUT returning 100%%",
+							ocv, batt_temp);
+	return 100;
 }
 
 static int calculate_rbatt(struct pm8921_bms_chip *chip)
