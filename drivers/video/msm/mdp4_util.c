@@ -282,6 +282,11 @@ void mdp4_hw_init(void)
 	mdp4_mixer1_csc_pre_lv_setup();
 	mdp4_mixer1_csc_post_lv_setup();
 
+	if (mdp_rev <= MDP_REV_41) {
+		mdp4_mixer_gc_lut_setup(0);
+		mdp4_mixer_gc_lut_setup(1);
+	}
+
 	mdp4_vg_igc_lut_setup(0);
 	mdp4_vg_igc_lut_setup(1);
 
@@ -546,15 +551,27 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		outpdw(MDP_DMA_P_HIST_INTR_CLEAR, isr);
 		isr &= mask;
 		if (isr & INTR_HIST_DONE) {
-			if (mdp_hist.r)
-				memcpy(mdp_hist.r, MDP_BASE + 0x95100,
+			if (mdp_rev <= MDP_REV_41) {
+				if (mdp_hist.r)
+					memcpy(mdp_hist.r, MDP_BASE + 0x95100,
+							mdp_hist.bin_cnt*4);
+				if (mdp_hist.g)
+					memcpy(mdp_hist.g, MDP_BASE + 0x95200,
+							mdp_hist.bin_cnt*4);
+				if (mdp_hist.b)
+					memcpy(mdp_hist.b, MDP_BASE + 0x95300,
 						mdp_hist.bin_cnt*4);
-			if (mdp_hist.g)
-				memcpy(mdp_hist.g, MDP_BASE + 0x95200,
+			} else {
+				if (mdp_hist.r)
+					memcpy(mdp_hist.r, MDP_BASE + 0x95400,
+							mdp_hist.bin_cnt*4);
+				if (mdp_hist.g)
+					memcpy(mdp_hist.g, MDP_BASE + 0x95800,
+							mdp_hist.bin_cnt*4);
+				if (mdp_hist.b)
+					memcpy(mdp_hist.b, MDP_BASE + 0x95C00,
 						mdp_hist.bin_cnt*4);
-			if (mdp_hist.b)
-				memcpy(mdp_hist.b, MDP_BASE + 0x95300,
-					mdp_hist.bin_cnt*4);
+			}
 			complete(&mdp_hist_comp);
 			if (mdp_is_hist_start == TRUE) {
 				MDP_OUTP(MDP_BASE + 0x95004,

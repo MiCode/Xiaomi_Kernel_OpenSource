@@ -225,10 +225,11 @@ static void mdp_lut_enable(void)
 	}
 }
 
-#define MDP_HIST_MAX_BIN 32
-static __u32 mdp_hist_r[MDP_HIST_MAX_BIN];
-static __u32 mdp_hist_g[MDP_HIST_MAX_BIN];
-static __u32 mdp_hist_b[MDP_HIST_MAX_BIN];
+#define MDP_REV42_HIST_MAX_BIN 128
+#define MDP_REV41_HIST_MAX_BIN 32
+static __u32 mdp_hist_r[MDP_REV42_HIST_MAX_BIN];
+static __u32 mdp_hist_g[MDP_REV42_HIST_MAX_BIN];
+static __u32 mdp_hist_b[MDP_REV42_HIST_MAX_BIN];
 
 #ifdef CONFIG_FB_MSM_MDP40
 struct mdp_histogram mdp_hist;
@@ -329,9 +330,14 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 {
 	int ret = 0;
 
-	if (!hist->frame_cnt || (hist->bin_cnt == 0) ||
-				 (hist->bin_cnt > MDP_HIST_MAX_BIN))
+	if (!hist->frame_cnt || (hist->bin_cnt == 0))
 		return -EINVAL;
+
+	if ((mdp_rev <= MDP_REV_41 && hist->bin_cnt > MDP_REV41_HIST_MAX_BIN)
+		|| (mdp_rev == MDP_REV_42 &&
+		hist->bin_cnt > MDP_REV42_HIST_MAX_BIN))
+		return -EINVAL;
+
 	mutex_lock(&mdp_hist_mutex);
 	if (!mdp_is_hist_start) {
 		printk(KERN_ERR "%s histogram not started\n", __func__);
@@ -1403,6 +1409,8 @@ static int mdp_probe(struct platform_device *pdev)
 		pdata->off = mdp4_dsi_video_off;
 		mfd->hw_refresh = TRUE;
 		mfd->dma_fnc = mdp4_dsi_video_overlay;
+		mfd->lut_update = mdp_lut_update_lcdc;
+		mfd->do_histogram = mdp_do_histogram;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
