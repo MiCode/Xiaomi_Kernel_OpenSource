@@ -871,22 +871,22 @@ static int sdio_dmux_remove(struct platform_device *pdev)
 			if (sdio_ch[i].receive_cb)
 				sdio_ch[i].receive_cb(
 						sdio_ch[i].priv, NULL);
-
-			/* cancel any pending writes */
-			spin_lock_irqsave(&sdio_mux_write_lock,
-					write_lock_flags);
-			while ((skb = __skb_dequeue(&sdio_mux_write_pool))) {
-				if (sdio_ch[i].write_done)
-					sdio_ch[i].write_done(
-							sdio_ch[i].priv, skb);
-				else
-					dev_kfree_skb_any(skb);
-			}
-			spin_unlock_irqrestore(&sdio_mux_write_lock,
-					write_lock_flags);
 		}
 		spin_unlock_irqrestore(&sdio_ch[i].lock, ch_lock_flags);
 	}
+
+	/* cancel any pending writes */
+	spin_lock_irqsave(&sdio_mux_write_lock, write_lock_flags);
+	while ((skb = __skb_dequeue(&sdio_mux_write_pool))) {
+		i = ((struct sdio_mux_hdr *)skb->data)->ch_id;
+		if (sdio_ch[i].write_done)
+			sdio_ch[i].write_done(
+					sdio_ch[i].priv, skb);
+		else
+			dev_kfree_skb_any(skb);
+	}
+	spin_unlock_irqrestore(&sdio_mux_write_lock,
+			write_lock_flags);
 
 	return 0;
 }
