@@ -198,6 +198,14 @@ static enum msm_cpu cpu_of_id[] = {
 	[99] = MSM_CPU_7X25AA,
 	[100] = MSM_CPU_7X25AA,
 
+	/*  7x27AA ID */
+	[101] = MSM_CPU_7X27AA,
+	[102] = MSM_CPU_7X27AA,
+	[103] = MSM_CPU_7X27AA,
+
+	/* 8064 IDs*/
+	[109] = MSM_CPU_8064,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -560,6 +568,8 @@ void *setup_dummy_socinfo(void)
 	if (machine_is_msm8960_rumi3() || machine_is_msm8960_sim() ||
 	    machine_is_msm8960_cdp())
 		dummy_socinfo.id = 87;
+	else if (machine_is_apq8064_sim())
+		dummy_socinfo.id = 109;
 	return (void *) &dummy_socinfo;
 }
 
