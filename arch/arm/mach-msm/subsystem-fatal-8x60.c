@@ -78,8 +78,8 @@ static void send_q6_nmi(void)
 	iounmap(q6_wakeup_intr);
 	mb();
 
-	/* Q6 requires atleast 5ms to dump caches etc.*/
-	usleep(5000);
+	/* Q6 requires atleast 100ms to dump caches etc.*/
+	msleep(100);
 
 	pr_info("subsystem-fatal-8x60: Q6 NMI was sent.\n");
 }
