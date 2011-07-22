@@ -1082,6 +1082,9 @@ struct platform_device *msm_footswitch_devices[] = {
 	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
 	FS_8X60(FS_VFE,    "fs_vfe"),
 	FS_8X60(FS_VPE,    "fs_vpe"),
+	FS_8X60(FS_GFX3D,  "fs_gfx3d"),
+	FS_8X60(FS_GFX2D0, "fs_gfx2d0"),
+	FS_8X60(FS_GFX2D1, "fs_gfx2d1"),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
