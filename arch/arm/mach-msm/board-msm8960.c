@@ -459,100 +459,101 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 		},
 	},
 };
+static struct gpiomux_setting cam_settings[4] = {
+	{
+		.func = GPIOMUX_FUNC_GPIO, /*suspend*/
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
+	},
 
-static struct gpiomux_setting cam_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	{
+		.func = GPIOMUX_FUNC_1, /*active 1*/
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+
+	{
+		.func = GPIOMUX_FUNC_GPIO, /*active 2*/
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+
+	{
+		.func = GPIOMUX_FUNC_1, /*active 3*/
+		.drv = GPIOMUX_DRV_8MA,
+		.pull = GPIOMUX_PULL_UP,
+	},
 };
 
-static struct gpiomux_setting cam_active_1_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting cam_active_2_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting cam_active_3_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct msm_gpiomux_config msm8960_cam_configs[] __initdata = {
+static struct msm_gpiomux_config msm8960_cam_configs[] = {
 	{
 		.gpio = 2,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_2_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 3,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 4,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 5,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 18,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_3_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 19,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_3_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 20,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_3_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 21,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_3_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 76,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_2_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 	{
 		.gpio = 107,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_active_2_cfg,
-			[GPIOMUX_SUSPENDED] = &cam_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
 };
@@ -622,16 +623,40 @@ enum {
 	SX150X_CAM,
 };
 
-static struct sx150x_platform_data sx150x_data[] __initdata = {
+static struct sx150x_platform_data sx150x_data[] = {
 	[SX150X_CAM] = {
 		.gpio_base         = GPIO_CAM_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0x0,
-		.io_pulldn_ena     = 0x0,
+		.io_pulldn_ena     = 0xc0,
 		.io_open_drain_ena = 0x0,
 		.irq_summary       = -1,
 	},
 };
+
+#endif
+
+#ifdef CONFIG_I2C
+
+#define MSM_8960_GSBI4_QUP_I2C_BUS_ID 4
+#define MSM_8960_GSBI3_QUP_I2C_BUS_ID 3
+
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+
+static struct i2c_board_info cam_expander_i2c_info[] = {
+	{
+		I2C_BOARD_INFO("sx1508q", 0x22),
+		.platform_data = &sx150x_data[SX150X_CAM]
+	},
+};
+
+static struct msm_cam_expander_info cam_expander_info[] = {
+	{
+		cam_expander_i2c_info,
+		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+	},
+};
+#endif
 #endif
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
@@ -828,6 +853,18 @@ struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 	.irq = MSM_GPIO_TO_INT(VFE_CAMIF_TIMER3_GPIO_INT),
 };
 
+#ifdef CONFIG_MSM_CAMERA_FLASH
+static struct msm_camera_sensor_flash_src msm_flash_src = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	._fsrc.ext_driver_src.led_en = GPIO_CAM_GP_LED_EN1,
+	._fsrc.ext_driver_src.led_flash_en = GPIO_CAM_GP_LED_EN2,
+#if defined(CONFIG_I2C) && (defined(CONFIG_GPIO_SX150X) || \
+			defined(CONFIG_GPIO_SX150X_MODULE))
+	._fsrc.ext_driver_src.expander_info = cam_expander_info,
+#endif
+};
+#endif
+
 #ifdef CONFIG_IMX074
 static struct msm_camera_sensor_platform_info sensor_board_info = {
 	.mount_angle = 90
@@ -891,6 +928,9 @@ struct msm_camera_device_platform_data msm_camera_csi1_device_data = {
 #ifdef CONFIG_IMX074
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
+#ifdef CONFIG_MSM_CAMERA_FLASH
+	.flash_src	= &msm_flash_src
+#endif
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
@@ -3216,8 +3256,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 #define I2C_RUMI (1 << 2)
 #define I2C_SIM  (1 << 3)
 #define I2C_FLUID (1 << 4)
-#define MSM_8960_GSBI4_QUP_I2C_BUS_ID 4
-#define MSM_8960_GSBI3_QUP_I2C_BUS_ID 3
 
 struct i2c_registry {
 	u8                     machs;
@@ -3225,15 +3263,6 @@ struct i2c_registry {
 	struct i2c_board_info *info;
 	int                    len;
 };
-
-#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
-static struct i2c_board_info cam_expander_i2c_info[] __initdata = {
-	{
-		I2C_BOARD_INFO("sx1508q", 0x22),
-		.platform_data = &sx150x_data[SX150X_CAM]
-	},
-};
-#endif
 
 #ifdef CONFIG_MSM_CAMERA
 static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
@@ -3250,6 +3279,11 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 	{
 	I2C_BOARD_INFO("qs_mt9p017", 0x6C >> 1),
 	},
+#ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
+	{
+	I2C_BOARD_INFO("sc628a", 0x6E),
+	},
+#endif
 };
 #endif
 
@@ -3286,14 +3320,6 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		cyttsp_info,
 		ARRAY_SIZE(cyttsp_info),
 	},
-#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
-	{
-		I2C_SURF | I2C_FFA,
-		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
-		cam_expander_i2c_info,
-		ARRAY_SIZE(cam_expander_i2c_info),
-	},
-#endif
 };
 #endif /* CONFIG_I2C */
 

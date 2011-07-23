@@ -61,6 +61,11 @@ struct msm_camera_io_clk {
 	uint32_t vfe_clk_rate;
 };
 
+struct msm_cam_expander_info {
+	struct i2c_board_info const *board_info;
+	int bus_id;
+};
+
 struct msm_camera_device_platform_data {
 	int (*camera_gpio_on) (void);
 	void (*camera_gpio_off)(void);
@@ -100,6 +105,8 @@ struct msm_camera_legacy_device_platform_data {
 #define MSM_CAMERA_FLASH_SRC_PMIC (0x00000001<<0)
 #define MSM_CAMERA_FLASH_SRC_PWM  (0x00000001<<1)
 #define MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER	(0x00000001<<2)
+#define MSM_CAMERA_FLASH_SRC_EXT     (0x00000001<<3)
+
 
 struct msm_camera_sensor_flash_pmic {
 	uint8_t num_of_src;
@@ -123,8 +130,12 @@ struct msm_camera_sensor_flash_current_driver {
 	uint32_t low_current;
 	uint32_t high_current;
 	const struct pmic8058_leds_platform_data *driver_channel;
-	uint32_t led1;
-	uint32_t led2;
+};
+
+struct msm_camera_sensor_flash_external {
+	uint32_t led_en;
+	uint32_t led_flash_en;
+	struct msm_cam_expander_info *expander_info;
 };
 
 struct msm_camera_sensor_flash_src {
@@ -135,6 +146,8 @@ struct msm_camera_sensor_flash_src {
 		struct msm_camera_sensor_flash_pwm pwm_src;
 		struct msm_camera_sensor_flash_current_driver
 			current_driver_src;
+		struct msm_camera_sensor_flash_external
+			ext_driver_src;
 	} _fsrc;
 };
 

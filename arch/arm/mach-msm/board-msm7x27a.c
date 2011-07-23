@@ -2122,9 +2122,9 @@ static uint32_t camera_on_gpio_table[] = {
 
 #ifdef CONFIG_MSM_CAMERA_FLASH
 static struct msm_camera_sensor_flash_src msm_flash_src = {
-	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
-	._fsrc.current_driver_src.led1 = GPIO_CAM_GP_LED_EN1,
-	._fsrc.current_driver_src.led2 = GPIO_CAM_GP_LED_EN2,
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	._fsrc.ext_driver_src.led_en = GPIO_CAM_GP_LED_EN1,
+	._fsrc.ext_driver_src.led_flash_en = GPIO_CAM_GP_LED_EN2,
 };
 #endif
 
@@ -2466,7 +2466,7 @@ static struct i2c_board_info i2c_camera_devices[] = {
 	},
 	#endif
 	{
-		I2C_BOARD_INFO("sc628a", 0x37),
+		I2C_BOARD_INFO("sc628a", 0x6E),
 	},
 };
 #endif

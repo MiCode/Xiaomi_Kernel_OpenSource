@@ -1452,12 +1452,6 @@ static int msm_close(struct file *f)
 	f->private_data = NULL;
 
 	if (pcam->use_count == 0) {
-		if (pcam->mctl.mctl_release) {
-			rc = pcam->mctl.mctl_release(&(pcam->mctl));
-			if (rc < 0)
-				pr_err("mctl_release fails %d\n", rc);
-		}
-
 		v4l2_device_unregister_subdev(&pcam->mctl.isp_sdev->sd);
 
 		rc = msm_cam_server_close_session(&g_server_dev, pcam);
@@ -1467,6 +1461,11 @@ static int msm_close(struct file *f)
 		rc = msm_send_close_server(pcam->vnode_id);
 		if (rc < 0)
 			pr_err("msm_send_close_server failed %d\n", rc);
+		if (pcam->mctl.mctl_release) {
+			rc = pcam->mctl.mctl_release(&(pcam->mctl));
+			if (rc < 0)
+				pr_err("mctl_release fails %d\n", rc);
+		}
 
 		dma_release_declared_memory(&pcam->pdev->dev);
 	}
