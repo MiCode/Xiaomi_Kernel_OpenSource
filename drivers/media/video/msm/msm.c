@@ -193,7 +193,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 }
 
 /*send open command to server*/
-static int msm_send_open_server(void)
+static int msm_send_open_server(int vnode_id)
 {
 	int rc = 0;
 	struct msm_ctrl_cmd ctrlcmd;
@@ -202,6 +202,7 @@ static int msm_send_open_server(void)
 	ctrlcmd.timeout_ms = 10000;
 	ctrlcmd.length	 = 0;
 	ctrlcmd.value    = NULL;
+	ctrlcmd.vnode_id = vnode_id;
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -209,7 +210,7 @@ static int msm_send_open_server(void)
 	return rc;
 }
 
-static int msm_send_close_server(void)
+static int msm_send_close_server(int vnode_id)
 {
 	int rc = 0;
 	struct msm_ctrl_cmd ctrlcmd;
@@ -218,6 +219,7 @@ static int msm_send_close_server(void)
 	ctrlcmd.timeout_ms = 10000;
 	ctrlcmd.length	 = 0;
 	ctrlcmd.value    = NULL;
+	ctrlcmd.vnode_id = vnode_id;
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -253,6 +255,7 @@ static int msm_server_set_fmt(struct msm_cam_v4l2_device *pcam, int idx,
 	ctrlcmd.length     = MSM_V4L2_DIMENSION_SIZE;
 	ctrlcmd.value      = (void *)pfmt->fmt.pix.priv;
 	ctrlcmd.timeout_ms = 10000;
+	ctrlcmd.vnode_id   = pcam->vnode_id;
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -591,13 +594,38 @@ static int msm_camera_v4l2_s_ctrl(struct file *f, void *pctx,
 {
 	int rc = 0;
 	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	pcam_inst = container_of(f->private_data,
+		struct msm_cam_v4l2_dev_inst, eventHandle);
 
 	D("%s\n", __func__);
+
 	WARN_ON(pctx != f->private_data);
 	mutex_lock(&pcam->vid_lock);
-	if (ctrl->id == MSM_V4L2_PID_CAM_MODE)
-		pcam->op_mode = ctrl->value;
-	rc = msm_server_s_ctrl(pcam, ctrl);
+	switch (ctrl->id) {
+	case MSM_V4L2_PID_MMAP_INST:
+		pr_err("%s: mmap_inst=(0x%p, %d)\n",
+			 __func__, pcam_inst, pcam->remap_index);
+		pcam->remap_index = pcam_inst->my_index;
+		break;
+	case MSM_V4L2_PID_MMAP_ENTRY:
+		if (copy_from_user(&pcam->mmap_entry,
+						(void *)ctrl->value,
+						sizeof(pcam->mmap_entry))) {
+			rc = -EFAULT;
+		} else
+			pr_err("%s:mmap entry:phy=0x%x,image_mode=%d,op_mode=%d\n",
+				__func__, pcam->mmap_entry.phy_addr,
+				pcam->mmap_entry.image_mode,
+				pcam->mmap_entry.op_mode);
+
+		break;
+	default:
+		if (ctrl->id == MSM_V4L2_PID_CAM_MODE)
+			pcam->op_mode = ctrl->value;
+		rc = msm_server_s_ctrl(pcam, ctrl);
+		break;
+	}
 	mutex_unlock(&pcam->vid_lock);
 
 	return rc;
@@ -1311,7 +1339,7 @@ static int msm_open(struct file *f)
 
 
 	if (pcam->use_count == 1) {
-		rc = msm_send_open_server();
+		rc = msm_send_open_server(pcam->vnode_id);
 		if (rc < 0) {
 			mutex_unlock(&pcam->vid_lock);
 			pr_err("%s failed\n", __func__);
@@ -1323,6 +1351,37 @@ static int msm_open(struct file *f)
 	return rc;
 }
 
+static int msm_addr_remap(struct msm_cam_v4l2_dev_inst *pcam_inst,
+						  struct vm_area_struct *vma,
+						  struct msm_mmap_entry *entry)
+{
+	int phyaddr;
+	int retval;
+	unsigned long size;
+
+	phyaddr = (int)entry->phy_addr;
+	pr_err("%s: phy_addr=0x%x\n", __func__, (uint32_t)phyaddr);
+	size = vma->vm_end - vma->vm_start;
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	retval = remap_pfn_range(vma, vma->vm_start,
+			phyaddr >> PAGE_SHIFT,
+			size, vma->vm_page_prot);
+	if (retval) {
+		pr_err("%s:mmap: remap failed with error %d. ",
+			   __func__, retval);
+		goto error;
+	}
+	pr_err("%s:mmap: phy_addr=0x%x: %08lx-%08lx, pgoff %08lx\n",
+		   __func__, (uint32_t)phyaddr,
+		   vma->vm_start, vma->vm_end, vma->vm_pgoff);
+	memset(entry, 0, sizeof(struct msm_mmap_entry));
+	return 0;
+error:
+	pr_err("%s:ret=%d\n", __func__, retval);
+	memset(entry, 0, sizeof(struct msm_mmap_entry));
+	return -ENOMEM;
+}
+
 static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 {
 	int rc = 0;
@@ -1332,7 +1391,17 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 
 	D("mmap called, vma=0x%08lx\n", (unsigned long)vma);
 
-	rc = vb2_mmap(&pcam_inst->vid_bufq, vma);
+	if (pcam_inst->pcam->remap_index ==
+		pcam_inst->my_index &&
+		pcam_inst->pcam->mmap_entry.phy_addr) {
+		pr_err("%s: ioremap called, vma=0x%08lx\n",
+			 __func__, (unsigned long)vma);
+		rc = msm_addr_remap(pcam_inst, vma,
+						  &pcam_inst->pcam->mmap_entry);
+		pr_err("%s: msm_addr_remap ret=%d\n", __func__, rc);
+		return rc;
+	} else
+		rc = vb2_mmap(&pcam_inst->vid_bufq, vma);
 	D("vma start=0x%08lx, size=%ld, ret=%d\n",
 		(unsigned long)vma->vm_start,
 		(unsigned long)vma->vm_end - (unsigned long)vma->vm_start,
@@ -1358,6 +1427,11 @@ static int msm_close(struct file *f)
 
 	mutex_lock(&pcam->vid_lock);
 	pcam->use_count--;
+	if (pcam_inst->pcam->remap_index ==
+		pcam_inst->my_index) {
+		pcam_inst->pcam->remap_index = 0;
+		memset(&pcam->mmap_entry, 0, sizeof(pcam->mmap_entry));
+	}
 	pcam->dev_inst_map[pcam_inst->image_mode] = NULL;
 	vb2_queue_release(&pcam_inst->vid_bufq);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;
@@ -1381,7 +1455,7 @@ static int msm_close(struct file *f)
 		if (rc < 0)
 			pr_err("msm_cam_server_close_session fails %d\n", rc);
 
-		rc = msm_send_close_server();
+		rc = msm_send_close_server(pcam->vnode_id);
 		if (rc < 0)
 			pr_err("msm_send_close_server failed %d\n", rc);
 
@@ -1689,7 +1763,8 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 		if (copy_from_user(&ev, (void __user *)arg,
 				sizeof(struct v4l2_event)))
 			break;
-		u_isp_event = (struct msm_isp_stats_event_ctrl *)ev.u.data;
+		u_isp_event =
+			(struct msm_isp_stats_event_ctrl *)ev.u.data;
 		u_msg_value = u_isp_event->isp_data.isp_msg.data;
 
 		rc = v4l2_event_dequeue(
@@ -1699,21 +1774,24 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 			pr_err("no pending events?");
 			break;
 		}
-
-		k_isp_event = (struct msm_isp_stats_event_ctrl *)ev.u.data;
-		if (ev.type ==
-			V4L2_EVENT_PRIVATE_START+MSM_CAM_RESP_STAT_EVT_MSG &&
-			k_isp_event->isp_data.isp_msg.len > 0) {
-			void *k_msg_value = k_isp_event->isp_data.isp_msg.data;
-			if (copy_to_user(u_msg_value, k_msg_value,
-				k_isp_event->isp_data.isp_msg.len)) {
-				rc = -EINVAL;
-				break;
+		if (ev.type != (V4L2_EVENT_PRIVATE_START +
+				MSM_CAM_RESP_DIV_FRAME_EVT_MSG)) {
+			k_isp_event =
+			(struct msm_isp_stats_event_ctrl *)ev.u.data;
+			if (ev.type == (V4L2_EVENT_PRIVATE_START +
+				MSM_CAM_RESP_STAT_EVT_MSG) &&
+				k_isp_event->isp_data.isp_msg.len > 0) {
+				void *k_msg_value =
+					k_isp_event->isp_data.isp_msg.data;
+				if (copy_to_user(u_msg_value, k_msg_value,
+					k_isp_event->isp_data.isp_msg.len)) {
+					rc = -EINVAL;
+					break;
+				}
+				kfree(k_msg_value);
 			}
-			kfree(k_msg_value);
+			k_isp_event->isp_data.isp_msg.data = u_msg_value;
 		}
-		k_isp_event->isp_data.isp_msg.data = u_msg_value;
-
 		if (copy_to_user((void __user *)arg, &ev,
 				sizeof(struct v4l2_event))) {
 			rc = -EINVAL;

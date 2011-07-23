@@ -190,12 +190,19 @@ struct msm_cam_evt_msg {
 };
 
 struct msm_cam_evt_divert_frame {
-	uint32_t image_mode;
-	uint32_t op_mode;
+	unsigned short image_mode;
+	unsigned short op_mode;
 	unsigned short inst_idx;
 	unsigned short node_idx;
-	unsigned int len;
-	void *data;
+	unsigned long  phy_addr;
+	uint32_t       phy_offset;
+	uint32_t       y_off;
+	uint32_t       cbcr_off;
+	int32_t        fd;
+	uint32_t       frame_id;
+	int            path;
+	uint32_t       length;
+	struct timeval timestamp;
 };
 
 struct msm_isp_stats_event_ctrl {
@@ -203,7 +210,6 @@ struct msm_isp_stats_event_ctrl {
 	union {
 		struct msm_cam_evt_msg isp_msg;
 		struct msm_ctrl_cmd ctrl;
-		struct msm_cam_evt_divert_frame div_frame;
 	} isp_data;
 };
 
@@ -465,6 +471,14 @@ struct fd_roi_info {
 	int info_len;
 };
 
+struct msm_mmap_entry {
+	uint32_t image_mode;/* extended mode */
+	uint32_t op_mode;	/* operation mode, video, capture */
+	uint32_t vnode_idx;	/* dev node idx */
+	uint32_t phy_addr;	/* phy address: TBD: to be dropped */
+	uint32_t idx;		/* v4l2 buffer index */
+};
+
 #define MSM_MEM_MMAP		0
 #define MSM_MEM_USERPTR		1
 #define MSM_PLANE_MAX		8
@@ -595,8 +609,10 @@ struct msm_stats_buf {
 #define MSM_V4L2_PID_SNOW_DETECTION         (V4L2_CID_PRIVATE_BASE+12)
 #define MSM_V4L2_PID_CTRL_CMD               (V4L2_CID_PRIVATE_BASE+13)
 #define MSM_V4L2_PID_EVT_SUB_INFO           (V4L2_CID_PRIVATE_BASE+14)
-#define MSM_V4L2_PID_STROBE_FLASH	    (V4L2_CID_PRIVATE_BASE+15)
-#define MSM_V4L2_PID_MAX                    MSM_V4L2_PID_STROBE_FLASH
+#define MSM_V4L2_PID_STROBE_FLASH           (V4L2_CID_PRIVATE_BASE+15)
+#define MSM_V4L2_PID_MMAP_ENTRY             (V4L2_CID_PRIVATE_BASE+16)
+#define MSM_V4L2_PID_MMAP_INST              (V4L2_CID_PRIVATE_BASE+17)
+#define MSM_V4L2_PID_MAX                    MSM_V4L2_PID_MMAP_INST
 
 /* camera operation mode for video recording - two frame output queues */
 #define MSM_V4L2_CAM_OP_DEFAULT         0

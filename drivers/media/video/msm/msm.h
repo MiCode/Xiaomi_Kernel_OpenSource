@@ -94,6 +94,7 @@ enum isp_vfe_cmd_id {
 
 struct msm_cam_v4l2_device;
 struct msm_cam_v4l2_dev_inst;
+#define MSM_MAX_IMG_MODE                8
 
 /* buffer for one video frame */
 struct msm_frame_buffer {
@@ -139,6 +140,19 @@ struct msm_ispif_fns {
 
 extern int msm_ispif_init_module(struct msm_ispif_ops *p_ispif);
 
+struct msm_free_buf {
+	uint32_t paddr;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+};
+
+struct msm_mctl_pp_info {
+	spinlock_t lock;
+	uint32_t cnt;
+	uint32_t pp_key;
+	uint32_t cur_frame_id[MSM_MAX_IMG_MODE];
+	struct msm_free_buf div_frame[MSM_MAX_IMG_MODE];
+};
 /* "Media Controller" represents a camera steaming session,
  * which consists of a "sensor" device and an "isp" device
  * (such as VFE, if needed), connected via an "IO" device,
@@ -179,7 +193,7 @@ struct msm_cam_media_controller {
 	struct msm_ispif_fns *ispif_fns;
 
 	struct pm_qos_request_list pm_qos_req_list;
-	uint32_t pp_key;
+	struct msm_mctl_pp_info pp_info;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -206,11 +220,7 @@ struct msm_isp_buf_info {
 	unsigned long buffer;
 	int fd;
 };
-struct msm_free_buf {
-	uint32_t paddr;
-	uint32_t y_off;
-	uint32_t cbcr_off;
-};
+
 #define MSM_DEV_INST_MAX                    16
 struct msm_cam_v4l2_dev_inst {
 	struct v4l2_fh  eventHandle;
@@ -230,7 +240,6 @@ struct msm_cam_v4l2_dev_inst {
 	struct v4l2_crop crop;
 	int streamon;
 };
-#define MSM_MAX_IMG_MODE                5
 /* abstract camera device for each sensor successfully probed*/
 struct msm_cam_v4l2_device {
 	/* standard device interfaces */
@@ -287,6 +296,8 @@ struct msm_cam_v4l2_device {
 	uint8_t ctrl_data[max_control_command_size];
 	struct msm_ctrl_cmd ctrl;
 	uint32_t event_mask;
+	struct msm_mmap_entry mmap_entry;
+	int remap_index;
 };
 static inline struct msm_cam_v4l2_device *to_pcam(
 	struct v4l2_device *v4l2_dev)
@@ -359,9 +370,7 @@ int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 			int msg_type, uint32_t y_phy, uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
-					int msg_type, uint32_t y_phy,
-					uint32_t frame_id,
-					struct timeval *timestamp);
+			int msg_type, struct msm_free_buf *frame, int dirty);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 				int path, struct msm_free_buf *free_buf);
 int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,

@@ -204,40 +204,67 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 static int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
 				void __user *arg)
 {
-	if (copy_from_user(&p_mctl->pp_key, arg, sizeof(p_mctl->pp_key)))
-		return -EFAULT;
-	return 0;
+	int rc = 0;
+	unsigned long flags;
+	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
+	if (copy_from_user(&p_mctl->pp_info.pp_key,
+			arg, sizeof(p_mctl->pp_info.pp_key)))
+		rc = -EFAULT;
+	else
+		D("%s: mctl=0x%p, pp_key_setting=0x%x",
+			__func__, p_mctl, p_mctl->pp_info.pp_key);
+
+	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
+	return rc;
 }
 
 static int msm_mctl_pp_done(struct msm_cam_media_controller *p_mctl,
 				void __user *arg)
 {
-	struct msm_buffer buf;
-	int msg_type;
+	struct msm_frame frame;
+	int msg_type, image_mode, rc = 0;
+	int dirty = 0;
+	struct msm_free_buf buf;
+	unsigned long flags;
 
-	if (copy_from_user(&buf, arg, sizeof(struct msm_buffer)))
+	if (copy_from_user(&frame, arg, sizeof(frame)))
 		return -EFAULT;
-
-	switch (buf.path) {
+	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
+	switch (frame.path) {
 	case OUTPUT_TYPE_P:
-		if (!(p_mctl->pp_key & PP_PREV))
-			return -EFAULT;
+		if (!(p_mctl->pp_info.pp_key & PP_PREV)) {
+			rc = -EFAULT;
+			goto err;
+		}
 		msg_type = VFE_MSG_OUTPUT_P;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
 		break;
 	case OUTPUT_TYPE_S:
-		if (!(p_mctl->pp_key & (PP_SNAP|PP_RAW_SNAP)))
+		if (!(p_mctl->pp_info.pp_key & PP_SNAP))
 			return -EFAULT;
 		msg_type = VFE_MSG_OUTPUT_S;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
 		break;
 	case OUTPUT_TYPE_T:
 	case OUTPUT_TYPE_V:
 	default:
-		return -EFAULT;
+		rc = -EFAULT;
+		goto err;
 	}
+	memcpy(&buf, &p_mctl->pp_info.div_frame[image_mode], sizeof(buf));
+	memset(&p_mctl->pp_info.div_frame[image_mode], 0, sizeof(buf));
+	if (p_mctl->pp_info.cur_frame_id[image_mode] !=
+					frame.frame_id) {
+		/* dirty frame. should not pass to app */
+		dirty = 1;
+	}
+	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
 	/* here buf.addr is phy_addr */
-	return msm_mctl_buf_done_pp(p_mctl, msg_type,
-					buf.planes[0].addr,
-					buf.frame_id, &buf.timestamp);
+	rc = msm_mctl_buf_done_pp(p_mctl, msg_type, &buf, dirty);
+	return rc;
+err:
+	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
+	return rc;
 }
 
 /* called by the server or the config nodes to handle user space
@@ -479,6 +506,8 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 	pmctl->plat_dev = pcam->pdev;
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);
+	memset(&pmctl->pp_info, 0, sizeof(pmctl->pp_info));
+	spin_lock_init(&pmctl->pp_info.lock);
 	/* init sub device*/
 	v4l2_subdev_init(&(pmctl->mctl_sdev), &mctl_subdev_ops);
 	v4l2_set_subdevdata(&(pmctl->mctl_sdev), pmctl);
