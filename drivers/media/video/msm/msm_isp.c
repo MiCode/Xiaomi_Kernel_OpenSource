@@ -119,7 +119,7 @@ static int msm_isp_enqueue(struct msm_cam_media_controller *pmctl,
 			data->type == VFE_MSG_OUTPUT_S ||
 			data->type == VFE_MSG_OUTPUT_T) {
 			msm_mctl_buf_done(pmctl, data->type,
-					(u32)data->phy.planar0_off);
+					(u32)data->phy.y_phy);
 		}
 		break;
 	default:
@@ -584,7 +584,7 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		D("%s region %d paddr = 0x%p\n", __func__, i,
 					(void *)region[i].paddr);
 		D("%s region y_off = %d cbcr_off = %d\n", __func__,
-			region[i].info.planar0_off, region[i].info.planar1_off);
+			region[i].info.y_off, region[i].info.cbcr_off);
 	}
 	/* send the AXI configuration command to driver */
 	rc = msm_isp_subdev_ioctl(sd, cfgcmd, data);

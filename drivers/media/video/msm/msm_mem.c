@@ -84,16 +84,16 @@ static int check_pmem_info(struct msm_pmem_info *info, int len)
 {
 	if (info->offset < len &&
 		info->offset + info->len <= len &&
-		info->planar0_off < len &&
-		info->planar1_off < len)
+		info->y_off < len &&
+		info->cbcr_off < len)
 		return 0;
 
 	pr_err("%s: check failed: off %d len %d y %d cbcr %d (total len %d)\n",
 						__func__,
 						info->offset,
 						info->len,
-						info->planar0_off,
-						info->planar1_off,
+						info->y_off,
+						info->cbcr_off,
 						len);
 	return -EINVAL;
 }
@@ -325,10 +325,10 @@ uint8_t msm_pmem_region_lookup_3(struct msm_cam_v4l2_device *pcam, int idx,
 		reg->info.type = mem_type;
 
 		reg->info.offset = 0;
-		reg->info.planar0_off = mem->planar0_off;
-		reg->info.planar1_off = PAD_TO_WORD(mem->planar1_off);
+		reg->info.y_off = mem->y_off;
+		reg->info.cbcr_off = PAD_TO_WORD(mem->cbcr_off);
 		D("%s y_off = %d, cbcr_off = %d\n", __func__,
-			reg->info.planar0_off, reg->info.planar1_off);
+			reg->info.y_off, reg->info.cbcr_off);
 		rc += 1;
 		reg++;
 	}

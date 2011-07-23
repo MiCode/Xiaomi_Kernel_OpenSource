@@ -335,9 +335,9 @@ static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
 			break;
 		}
 		pinfo->output_id = outid;
-		pinfo->planar0_off =
+		pinfo->y_phy =
 			((struct vfe_message *)data)->_u.msgOut.yBuffer;
-		pinfo->planar1_off =
+		pinfo->cbcr_phy =
 			((struct vfe_message *)data)->_u.msgOut.cbcrBuffer;
 
 		pinfo->frame_id =
@@ -587,12 +587,12 @@ static int vfe32_enqueue_free_buf(struct vfe32_output_ch *outch,
 
 	spin_lock_irqsave(&outch->free_buf_lock, flags);
 	free_buf->paddr = paddr;
-	free_buf->planar0_off = y_off;
-	free_buf->planar1_off = cbcr_off;
+	free_buf->y_off = y_off;
+	free_buf->cbcr_off = cbcr_off;
 	list_add_tail(&free_buf->node, &outch->free_buf_queue);
 	CDBG("%s: free_buf paddr = 0x%x, y_off = %d, cbcr_off = %d\n",
-		__func__, free_buf->paddr, free_buf->planar0_off,
-		free_buf->planar1_off);
+		__func__, free_buf->paddr, free_buf->y_off,
+		free_buf->cbcr_off);
 	spin_unlock_irqrestore(&outch->free_buf_lock, flags);
 	return 0;
 }
@@ -688,17 +688,15 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 
 		for (i = 0; i < 2; i++) {
 			p1 = ao + 6 + i;    /* wm0 for y  */
-			*p1 = (regp1->paddr + regp1->info.planar0_off);
+			*p1 = (regp1->paddr + regp1->info.y_off);
 
 			p1 = ao + 12 + i;  /* wm1 for cbcr */
-			*p1 = (regp1->paddr + regp1->info.planar1_off);
+			*p1 = (regp1->paddr + regp1->info.cbcr_off);
 			regp1++;
 		}
-
 		for (i = 2; i < ad->bufnum2; i++) {
 			ret = vfe32_enqueue_free_buf(outp1, regp1->paddr,
-				regp1->info.planar0_off,
-				regp1->info.planar1_off);
+				regp1->info.y_off, regp1->info.cbcr_off);
 			if (ret < 0)
 				return ret;
 			regp1++;
@@ -724,53 +722,53 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		/*  Parse the buffers!!! */
 		if (ad->bufnum2 == 1) {	/* assuming bufnum1 = bufnum2 */
 			p1 = ao + 6;   /* wm0 ping */
-			*p1++ = (regp1->paddr + regp1->info.planar0_off);
+			*p1++ = (regp1->paddr + regp1->info.y_off);
 			/* this is to duplicate ping address to pong.*/
-			*p1 = (regp1->paddr + regp1->info.planar0_off);
+			*p1 = (regp1->paddr + regp1->info.y_off);
 			p1 = ao + 30;  /* wm4 ping */
-			*p1++ = (regp1->paddr + regp1->info.planar1_off);
+			*p1++ = (regp1->paddr + regp1->info.cbcr_off);
 			/* this is to duplicate ping address to pong.*/
-			*p1 = (regp1->paddr + regp1->info.planar1_off);
+			*p1 = (regp1->paddr + regp1->info.cbcr_off);
 			p1 = ao + 12;   /* wm1 ping */
-			*p1++ = (regp2->paddr + regp2->info.planar0_off);
+			*p1++ = (regp2->paddr + regp2->info.y_off);
 			/* pong = ping,*/
-			*p1 = (regp2->paddr + regp2->info.planar0_off);
+			*p1 = (regp2->paddr + regp2->info.y_off);
 			p1 = ao + 36;  /* wm5 */
-			*p1++ = (regp2->paddr + regp2->info.planar1_off);
-			*p1 = (regp2->paddr + regp2->info.planar1_off);
+			*p1++ = (regp2->paddr + regp2->info.cbcr_off);
+			*p1 = (regp2->paddr + regp2->info.cbcr_off);
 
 		} else { /* more than one snapshot */
 			/* first fill ping & pong */
 			for (i = 0; i < 2; i++) {
 				p1 = ao + 6 + i;    /* wm0 for y  */
-				*p1 = (regp1->paddr + regp1->info.planar0_off);
+				*p1 = (regp1->paddr + regp1->info.y_off);
 				p1 = ao + 30 + i;  /* wm4 for cbcr */
-				*p1 = (regp1->paddr + regp1->info.planar1_off);
+				*p1 = (regp1->paddr + regp1->info.cbcr_off);
 				regp1++;
 			}
 
 			for (i = 0; i < 2; i++) {
 				p2 = ao + 12 + i;    /* wm1 for y  */
-				*p2 = (regp2->paddr + regp2->info.planar0_off);
+				*p2 = (regp2->paddr + regp2->info.y_off);
 				p2 = ao + 36 + i;  /* wm5 for cbcr */
-				*p2 = (regp2->paddr + regp2->info.planar1_off);
+				*p2 = (regp2->paddr + regp2->info.cbcr_off);
 				regp2++;
 			}
 
 			for (i = 2; i < ad->bufnum1; i++) {
 				ret = vfe32_enqueue_free_buf(outp1,
-					regp1->paddr,
-					regp1->info.planar0_off,
-					regp1->info.planar1_off);
+							regp1->paddr,
+							regp1->info.y_off,
+							regp1->info.cbcr_off);
 				if (ret < 0)
 					return ret;
 				regp1++;
 			}
 			for (i = 2; i < ad->bufnum2; i++) {
 				ret = vfe32_enqueue_free_buf(outp2,
-					regp2->paddr,
-					regp2->info.planar0_off,
-					regp2->info.planar1_off);
+							regp2->paddr,
+							regp2->info.y_off,
+							regp2->info.cbcr_off);
 				if (ret < 0)
 					return ret;
 				regp2++;
@@ -796,37 +794,33 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 
 		for (i = 0; i < 2; i++) {
 			p1 = ao + 6 + i;    /* wm0 for y  */
-			*p1 = (regp1->paddr +
-				   regp1->info.planar0_off);
+			*p1 = (regp1->paddr + regp1->info.y_off);
 
 			p1 = ao + 30 + i;  /* wm1 for cbcr */
-			*p1 = (regp1->paddr +
-				   regp1->info.planar1_off);
+			*p1 = (regp1->paddr + regp1->info.cbcr_off);
 			regp1++;
 		}
 
 		for (i = 0; i < 2; i++) {
 			p2 = ao + 12 + i;    /* wm0 for y  */
-			*p2 = (regp2->paddr +
-				   regp2->info.planar0_off);
+			*p2 = (regp2->paddr + regp2->info.y_off);
 
 			p2 = ao + 36 + i;  /* wm1 for cbcr */
-			*p2 = (regp2->paddr +
-				   regp2->info.planar1_off);
+			*p2 = (regp2->paddr + regp2->info.cbcr_off);
 			regp2++;
 		}
 		for (i = 2; i < ad->bufnum1; i++) {
 			ret = vfe32_enqueue_free_buf(outp1, regp1->paddr,
-						regp1->info.planar0_off,
-						regp1->info.planar1_off);
+						regp1->info.y_off,
+						regp1->info.cbcr_off);
 			if (ret < 0)
 				return ret;
 			regp1++;
 		}
 		for (i = 2; i < ad->bufnum2; i++) {
 			ret = vfe32_enqueue_free_buf(outp2, regp2->paddr,
-						regp2->info.planar0_off,
-						regp2->info.planar1_off);
+						regp2->info.y_off,
+						regp2->info.cbcr_off);
 			if (ret < 0)
 				return ret;
 			regp2++;
@@ -840,7 +834,7 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		regp1 = &(ad->region[ad->bufnum1]);
 		vfe32_ctrl->outpath.output_mode |= VFE32_OUTPUT_MODE_S;
 		p1 = ao + 6;    /* wm0 for y  */
-		*p1 = (regp1->paddr + regp1->info.planar0_off);
+		*p1 = (regp1->paddr + regp1->info.y_off);
 		}
 		break;
 	default:
@@ -2344,11 +2338,11 @@ static void vfe32_process_output_path_irq_0(void)
 			/* Y channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch0,
-			free_buf->paddr + free_buf->planar0_off);
+			free_buf->paddr + free_buf->y_off);
 			/* Chroma channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch1,
-			free_buf->paddr + free_buf->planar1_off);
+			free_buf->paddr + free_buf->cbcr_off);
 			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
@@ -2446,11 +2440,11 @@ static void vfe32_process_output_path_irq_1(void)
 			/* Y channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch0,
-			free_buf->paddr + free_buf->planar0_off);
+			free_buf->paddr + free_buf->y_off);
 			/* Chroma channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
-			free_buf->paddr + free_buf->planar1_off);
+			free_buf->paddr + free_buf->cbcr_off);
 			kfree(free_buf);
 		}
 		if (vfe32_ctrl->operation_mode ==
@@ -2546,11 +2540,11 @@ static void vfe32_process_output_path_irq_2(void)
 			/* Y channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch0,
-			free_buf->paddr + free_buf->planar0_off);
+			free_buf->paddr + free_buf->y_off);
 			/* Chroma channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
-			free_buf->paddr + free_buf->planar1_off);
+			free_buf->paddr + free_buf->cbcr_off);
 			kfree(free_buf);
 		}
 		vfe_send_outmsg(MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
@@ -3181,8 +3175,8 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			rc = -EFAULT;
 			break;
 		}
-		rc = vfe32_enqueue_free_buf(outch, p, b->planar0_off,
-			b->planar1_off);
+
+		rc = vfe32_enqueue_free_buf(outch, p, b->y_off, b->cbcr_off);
 	}
 		break;
 

@@ -72,15 +72,14 @@ static void vfe_7x_convert(struct msm_vfe_phy_info *pinfo,
 {
 	switch (type) {
 	case VFE_MSG_OUTPUT_P: {
-		pinfo->planar0_off = ((struct vfe_endframe *)data)->y_address;
-		pinfo->planar1_off =
+		pinfo->y_phy = ((struct vfe_endframe *)data)->y_address;
+		pinfo->cbcr_phy =
 			((struct vfe_endframe *)data)->cbcr_address;
 
-		pinfo->planar2_off = pinfo->planar0_off;
 		pinfo->output_id = OUTPUT_TYPE_P;
 
 		CDBG("vfe_7x_convert, y_phy = 0x%x, cbcr_phy = 0x%x\n",
-				 pinfo->planar0_off, pinfo->planar1_off);
+				 pinfo->y_phy, pinfo->cbcr_phy);
 
 		((struct vfe_frame_extra *)extdata)->bl_evencol =
 		((struct vfe_endframe *)data)->blacklevelevencolumn;
@@ -100,20 +99,20 @@ static void vfe_7x_convert(struct msm_vfe_phy_info *pinfo,
 		break;
 
 	case VFE_MSG_OUTPUT_S: {
-		pinfo->planar0_off = paddr_s_y;
-		pinfo->planar1_off = paddr_s_cbcr;
+		pinfo->y_phy = paddr_s_y;
+		pinfo->cbcr_phy = paddr_s_cbcr;
 		pinfo->output_id = OUTPUT_TYPE_S;
 		CDBG("vfe_7x_convert: y_phy = 0x%x cbcr_phy = 0x%x\n",
-					pinfo->planar0_off, pinfo->planar1_off);
+					pinfo->y_phy, pinfo->cbcr_phy);
 	}
 		break;
 
 	case VFE_MSG_OUTPUT_T: {
-		pinfo->planar0_off = paddr_t_y;
-		pinfo->planar1_off = paddr_t_cbcr;
+		pinfo->y_phy = paddr_t_y;
+		pinfo->cbcr_phy = paddr_t_cbcr;
 		pinfo->output_id = OUTPUT_TYPE_T;
 		CDBG("vfe_7x_convert: y_phy = 0x%x cbcr_phy = 0x%x\n",
-					pinfo->planar0_off, pinfo->planar1_off);
+					pinfo->y_phy, pinfo->cbcr_phy);
 	}
 		break;
 
@@ -373,20 +372,19 @@ static int vfe_7x_config_axi(int mode,
 
 		CDBG("bufnum1 = %d\n", ad->bufnum1);
 		if (mode == OUTPUT_1_AND_2) {
-			paddr_t_y = regptr->paddr + regptr->info.planar0_off;
-			paddr_t_cbcr = regptr->paddr +
-				regptr->info.planar1_off;
+			paddr_t_y = regptr->paddr + regptr->info.y_off;
+			paddr_t_cbcr = regptr->paddr +  regptr->info.cbcr_off;
 		}
 
 		CDBG("config_axi1: O1, phy = 0x%lx, y_off = %d, cbcr_off =%d\n",
-			regptr->paddr, regptr->info.planar0_off,
-			regptr->info.planar1_off);
+			regptr->paddr, regptr->info.y_off,
+			regptr->info.cbcr_off);
 
 		bptr = &ao->output1buffer1_y_phy;
 		for (cnt = 0; cnt < ad->bufnum1; cnt++) {
-			*bptr = regptr->paddr + regptr->info.planar0_off;
+			*bptr = regptr->paddr + regptr->info.y_off;
 			bptr++;
-			*bptr = regptr->paddr + regptr->info.planar1_off;
+			*bptr = regptr->paddr + regptr->info.cbcr_off;
 
 			bptr++;
 			regptr++;
@@ -394,9 +392,9 @@ static int vfe_7x_config_axi(int mode,
 
 		regptr--;
 		for (cnt = 0; cnt < (8 - ad->bufnum1); cnt++) {
-			*bptr = regptr->paddr + regptr->info.planar0_off;
+			*bptr = regptr->paddr + regptr->info.y_off;
 			bptr++;
-			*bptr = regptr->paddr + regptr->info.planar1_off;
+			*bptr = regptr->paddr + regptr->info.cbcr_off;
 			bptr++;
 		}
 	} /* if OUTPUT1 or Both */
@@ -405,17 +403,16 @@ static int vfe_7x_config_axi(int mode,
 		regptr = &(ad->region[ad->bufnum1]);
 
 		CDBG("bufnum2 = %d\n", ad->bufnum2);
-		paddr_s_y = regptr->paddr +  regptr->info.planar0_off;
-		paddr_s_cbcr = regptr->paddr +  regptr->info.planar1_off;
+		paddr_s_y = regptr->paddr +  regptr->info.y_off;
+		paddr_s_cbcr = regptr->paddr +  regptr->info.cbcr_off;
 		CDBG("config_axi2: O2, phy = 0x%lx, y_off = %d, cbcr_off =%d\n",
-		     regptr->paddr, regptr->info.planar0_off,
-			 regptr->info.planar1_off);
+		     regptr->paddr, regptr->info.y_off, regptr->info.cbcr_off);
 
 		bptr = &ao->output2buffer1_y_phy;
 		for (cnt = 0; cnt < ad->bufnum2; cnt++) {
-			*bptr = regptr->paddr + regptr->info.planar0_off;
+			*bptr = regptr->paddr + regptr->info.y_off;
 			bptr++;
-			*bptr = regptr->paddr + regptr->info.planar1_off;
+			*bptr = regptr->paddr + regptr->info.cbcr_off;
 
 			bptr++;
 			regptr++;
@@ -423,9 +420,9 @@ static int vfe_7x_config_axi(int mode,
 
 		regptr--;
 		for (cnt = 0; cnt < (8 - ad->bufnum2); cnt++) {
-			*bptr = regptr->paddr + regptr->info.planar0_off;
+			*bptr = regptr->paddr + regptr->info.y_off;
 			bptr++;
-			*bptr = regptr->paddr + regptr->info.planar1_off;
+			*bptr = regptr->paddr + regptr->info.cbcr_off;
 			bptr++;
 		}
 	}
@@ -587,10 +584,10 @@ static int vfe_7x_config(struct msm_vfe_cfg_cmd *cmd, void *data)
 		fack.header = VFE_FRAME_ACK;
 
 		fack.output2newybufferaddress =
-			(void *)(p + b->planar0_off);
+			(void *)(p + b->y_off);
 
 		fack.output2newcbcrbufferaddress =
-			(void *)(p + b->planar1_off);
+			(void *)(p + b->cbcr_off);
 
 		vfecmd->queue = QDSP_CMDQUEUE;
 		vfecmd->length = sizeof(struct vfe_outputack);

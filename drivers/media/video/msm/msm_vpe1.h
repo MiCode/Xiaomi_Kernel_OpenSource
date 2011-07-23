@@ -212,9 +212,8 @@ struct vpe_msg_stats{
 
 struct vpe_msg_output {
 	uint8_t   output_id;
-	uint32_t  p0_Buffer;
-	uint32_t  p1_Buffer;
-	uint32_t  p2_Buffer;
+	uint32_t  yBuffer;
+	uint32_t  cbcrBuffer;
 	uint32_t  frameCounter;
 };
 

@@ -297,8 +297,9 @@ static void msm_vidbuf_queue(struct videobuf_queue *vq,
 		D("%s buffer type is %d\n", __func__, mem->buffer_type);
 		frame.path = pcam_inst->path;
 		frame.buffer = 0;
-		frame.planar0_off = mem->planar0_off;
-		frame.planar1_off = mem->planar1_off;
+		frame.y_off = mem->y_off;
+		frame.cbcr_off = mem->cbcr_off;
+
 		/* now release frame to vfe */
 		cfgcmd.cmd_type = CMD_FRAME_BUF_RELEASE;
 		cfgcmd.value    = (void *)&frame;

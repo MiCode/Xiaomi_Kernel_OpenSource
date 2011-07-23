@@ -183,8 +183,8 @@ static int videobuf_pmem_contig_user_get(struct videobuf_contig_pmem *mem,
 		return rc;
 	}
 	mem->phyaddr += vb->boff;
-	mem->planar0_off = 0;
-	mem->planar1_off = (vb->size)*2/3;
+	mem->y_off = 0;
+	mem->cbcr_off = (vb->size)*2/3;
 	mem->is_userptr = 1;
 	return rc;
 }
@@ -274,8 +274,8 @@ static int __videobuf_mmap_mapper(struct videobuf_queue *q,
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
 
 	mem->size = PAGE_ALIGN(buf->bsize);
-	mem->planar0_off = 0;
-	mem->planar1_off = (buf->bsize)*2/3;
+	mem->y_off = 0;
+	mem->cbcr_off = (buf->bsize)*2/3;
 	if (buf->i >= 0 && buf->i <= 3)
 		mem->buffer_type = OUTPUT_TYPE_P;
 	else
