@@ -26,8 +26,8 @@
 #include <media/v4l2-fh.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-mediabus.h>
-#include <media/videobuf-dma-contig.h>
-#include <media/videobuf-msm-mem.h>
+#include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-msm-mem.h>
 #include <mach/camera.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
@@ -98,7 +98,8 @@ struct msm_cam_v4l2_dev_inst;
 /* buffer for one video frame */
 struct msm_frame_buffer {
 	/* common v4l buffer stuff -- must be first */
-	struct videobuf_buffer    vidbuf;
+	struct vb2_buffer         vidbuf;
+	struct list_head		  list;
 	enum v4l2_mbus_pixelcode  pxlcode;
 	int                       inuse;
 	int                       active;
@@ -138,11 +139,12 @@ struct msm_ispif_fns {
 
 extern int msm_ispif_init_module(struct msm_ispif_ops *p_ispif);
 
-/*"Media Controller" represents a camera steaming session, which consists
-   of a "sensor" device and an "isp" device (such as VFE, if needed),
-   connected via an "IO" device, (such as IPIF on 8960, or none on 8660)
-   plus other extra sub devices such as VPE and flash
-*/
+/* "Media Controller" represents a camera steaming session,
+ * which consists of a "sensor" device and an "isp" device
+ * (such as VFE, if needed), connected via an "IO" device,
+ * (such as IPIF on 8960, or none on 8660) plus other extra
+ * sub devices such as VPE and flash.
+ */
 
 struct msm_cam_media_controller {
 
@@ -155,7 +157,7 @@ struct msm_cam_media_controller {
 					unsigned int cmd, unsigned long arg);
 	int (*mctl_release)(struct msm_cam_media_controller *p_mctl);
 	int (*mctl_vidbuf_init)(struct msm_cam_v4l2_dev_inst *pcam,
-						struct videobuf_queue *);
+						struct vb2_queue *q);
 	int (*mctl_ufmt_init)(struct msm_cam_media_controller *p_mctl);
 
 	struct v4l2_device v4l2_dev;
@@ -203,18 +205,27 @@ struct msm_isp_buf_info {
 	unsigned long buffer;
 	int fd;
 };
+struct msm_free_buf {
+	uint32_t paddr;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+};
 #define MSM_DEV_INST_MAX                    16
 struct msm_cam_v4l2_dev_inst {
-	struct videobuf_queue vid_bufq;
-	spinlock_t vb_irqlock;
+	struct v4l2_fh  eventHandle;
+	struct vb2_queue vid_bufq;
+	spinlock_t vq_irqlock;
+	struct list_head free_vq;
 	struct v4l2_format vid_fmt;
-	/* senssor pixel code*/
+	/* sensor pixel code*/
 	enum v4l2_mbus_pixelcode sensor_pxlcode;
 	struct msm_cam_v4l2_device *pcam;
 	int my_index;
 	int image_mode;
 	int path;
 	int buf_count;
+	/* buffer offset, if any */
+	uint32_t buf_offset[VIDEO_MAX_FRAME];
 };
 #define MSM_MAX_IMG_MODE                5
 /* abstract camera device for each sensor successfully probed*/
@@ -339,9 +350,12 @@ int msm_sensor_register(struct platform_device *pdev,
 int msm_isp_init_module(int g_num_config_nodes);
 
 int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam);
+int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 			int msg_type, uint32_t y_phy);
+int msm_mctl_fetch_free_buf(struct msm_cam_media_controller *pmctl,
+				int path, struct msm_free_buf *free_buf);
 /*Memory(PMEM) functions*/
 int msm_register_pmem(struct hlist_head *ptype, void __user *arg);
 int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg);
