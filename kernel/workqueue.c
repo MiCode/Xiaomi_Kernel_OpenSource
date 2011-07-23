@@ -3069,32 +3069,6 @@ reflush:
 EXPORT_SYMBOL_GPL(destroy_workqueue);
 
 /**
- * workqueue_empty - test whether a workqueue is empty
- * @wq: target workqueue
- *
- * Test whether @wq's cpu workqueue(s) are empty.
- *
- * Returns:	false - workqueue is not empty
- *		true  - workqueue is empty
- */
-bool workqueue_empty(struct workqueue_struct *wq)
-{
-	int cpu;
-
-	for_each_cwq_cpu(cpu, wq) {
-		struct cpu_workqueue_struct *cwq = get_cwq(cpu, wq);
-
-		if (!cwq->nr_active && list_empty(&cwq->delayed_works))
-			continue;
-
-		return false;
-	}
-
-	return true;
-}
-EXPORT_SYMBOL_GPL(workqueue_empty);
-
-/**
  * workqueue_set_max_active - adjust max_active of a workqueue
  * @wq: target workqueue
  * @max_active: new max_active value.

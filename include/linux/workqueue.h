@@ -346,8 +346,6 @@ alloc_ordered_workqueue(const char *name, unsigned int flags)
 
 extern void destroy_workqueue(struct workqueue_struct *wq);
 
-extern bool workqueue_empty(struct workqueue_struct *wq);
-
 extern int queue_work(struct workqueue_struct *wq, struct work_struct *work);
 extern int queue_work_on(int cpu, struct workqueue_struct *wq,
 			struct work_struct *work);
