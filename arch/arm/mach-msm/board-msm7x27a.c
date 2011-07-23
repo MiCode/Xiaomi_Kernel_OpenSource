@@ -122,6 +122,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 
 	/* FM Platform power and shutdown routines */
 #define FPGA_MSM_CNTRL_REG2 0x90008010
+
 static void config_pcm_i2s_mode(int mode)
 {
 	void __iomem *cfg_ptr;
@@ -419,7 +420,6 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 	/* Releasing the 1.8V Regulator */
 	if (fm_regulator != NULL) {
 		rc = vreg_disable(fm_regulator);
-
 		if (rc)
 			pr_err("%s: disable regulator failed:(%d)\n",
 				__func__, rc);
@@ -456,16 +456,22 @@ static struct platform_device msm_wlan_ar6000_pm_device = {
 static struct platform_device msm_bt_power_device = {
 	.name = "bt_power",
 };
-	struct bahama_config_register {
+struct bahama_config_register {
 		u8 reg;
 		u8 value;
 		u8 mask;
-	};
-static const char * const vregs_bahama_name[] = {
-	"msme1",
-	"bt",
 };
-static struct vreg *vregs_bahama[ARRAY_SIZE(vregs_bahama_name)];
+struct bt_vreg_info {
+	const char *name;
+	unsigned int pmapp_id;
+	unsigned int level;
+	unsigned int is_pin_controlled;
+	struct vreg *vregs;
+};
+static struct bt_vreg_info bt_vregs[] = {
+	{"msme1", 2, 1800, 0, NULL},
+	{"bt", 21, 2900, 1, NULL}
+};
 
 static int bahama_bt(int on)
 {
@@ -619,42 +625,51 @@ static int bahama_bt(int on)
 static int bluetooth_switch_regulators(int on)
 {
 	int i, rc = 0;
+	const char *id = "BTPW";
 
-	for (i = 0; i < ARRAY_SIZE(vregs_bahama_name); i++) {
-		if (!vregs_bahama[i]) {
+	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
+		if (!bt_vregs[i].vregs) {
 			pr_err("%s: vreg_get %s failed(%d)\n",
-			__func__, vregs_bahama_name[i], rc);
+			__func__, bt_vregs[i].name, rc);
 			goto vreg_fail;
 		}
-		rc = on ? vreg_set_level(vregs_bahama[i], i ? 2900 :
-			1800) : 0;
+		rc = on ? vreg_set_level(bt_vregs[i].vregs,
+				bt_vregs[i].level) : 0;
 
 		if (rc < 0) {
 			pr_err("%s: vreg set level failed (%d)\n",
 					__func__, rc);
 			goto vreg_set_level_fail;
 		}
-
-		rc = on ? vreg_enable(vregs_bahama[i]) :
-			  vreg_disable(vregs_bahama[i]);
+		if (bt_vregs[i].is_pin_controlled == 1) {
+			rc = pmapp_vreg_pincntrl_vote(id,
+					bt_vregs[i].pmapp_id,
+					PMAPP_CLOCK_ID_D1,
+					on ? PMAPP_CLOCK_VOTE_ON :
+					PMAPP_CLOCK_VOTE_OFF);
+		} else {
+		rc = on ? vreg_enable(bt_vregs[i].vregs) :
+			  vreg_disable(bt_vregs[i].vregs);
+		}
 
 		if (rc < 0) {
 			pr_err("%s: vreg %s %s failed(%d)\n",
-				__func__, vregs_bahama_name[i],
-			       on ? "enable" : "disable", rc);
+					__func__, bt_vregs[i].name,
+					on ? "enable" : "disable", rc);
 			goto vreg_fail;
-			}
+		}
 	}
+
 	return rc;
 
 vreg_fail:
 	while (i) {
 		if (on)
-			vreg_disable(vregs_bahama[--i]);
+			vreg_disable(bt_vregs[--i].vregs);
 		}
 vreg_set_level_fail:
-	vreg_put(vregs_bahama[0]);
-	vreg_put(vregs_bahama[1]);
+	vreg_put(bt_vregs[0].vregs);
+	vreg_put(bt_vregs[1].vregs);
 	return rc;
 }
 
@@ -889,14 +904,14 @@ exit:
 static int __init bt_power_init(void)
 {
 	int i, rc = 0;
-	for (i = 0; i < ARRAY_SIZE(vregs_bahama_name); i++) {
-			vregs_bahama[i] = vreg_get(NULL,
-						vregs_bahama_name[i]);
-			if (IS_ERR(vregs_bahama[i])) {
+	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
+			bt_vregs[i].vregs = vreg_get(NULL,
+					bt_vregs[i].name);
+			if (IS_ERR(bt_vregs[i].vregs)) {
 				pr_err("%s: vreg get %s failed (%ld)\n",
-				       __func__, vregs_bahama_name[i],
-				       PTR_ERR(vregs_bahama[i]));
-				rc = PTR_ERR(vregs_bahama[i]);
+				       __func__, bt_vregs[i].name,
+				       PTR_ERR(bt_vregs[i].vregs));
+				rc = PTR_ERR(bt_vregs[i].vregs);
 				goto vreg_get_fail;
 			}
 		}
@@ -907,7 +922,7 @@ static int __init bt_power_init(void)
 
 vreg_get_fail:
 	while (i)
-		vreg_put(vregs_bahama[--i]);
+		vreg_put(bt_vregs[--i].vregs);
 	return rc;
 }
 
