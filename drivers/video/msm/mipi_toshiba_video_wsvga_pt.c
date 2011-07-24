@@ -67,7 +67,7 @@ static int __init mipi_video_toshiba_wsvga_pt_init(void)
 	pinfo.lcdc.border_clr = 0;	/* blk */
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
 	pinfo.lcdc.hsync_skew = 0;
-	pinfo.bl_max = 15;
+	pinfo.bl_max = MIPI_TOSHIBA_PWM_LEVEL;
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
 	pinfo.clk_rate = 384000000;

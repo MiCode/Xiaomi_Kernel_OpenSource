@@ -15,7 +15,9 @@
 #include "mipi_dsi.h"
 #include "mipi_toshiba.h"
 
-static struct msm_panel_common_pdata *mipi_toshiba_pdata;
+static struct pwm_device *bl_lpm;
+static struct mipi_dsi_panel_platform_data *mipi_toshiba_pdata;
+
 
 static struct dsi_buf toshiba_tx_buf;
 static struct dsi_buf toshiba_rx_buf;
@@ -216,12 +218,47 @@ static int mipi_toshiba_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
+static void mipi_toshiba_set_backlight(struct msm_fb_data_type *mfd)
+{
+	int ret;
+
+	pr_debug("%s: back light level %d\n", __func__, mfd->bl_level);
+
+	if (bl_lpm) {
+		ret = pwm_config(bl_lpm, MIPI_TOSHIBA_PWM_DUTY_LEVEL *
+			mfd->bl_level, MIPI_TOSHIBA_PWM_PERIOD_USEC);
+		if (ret) {
+			pr_err("pwm_config on lpm failed %d\n", ret);
+			return;
+		}
+		if (mfd->bl_level) {
+			ret = pwm_enable(bl_lpm);
+			if (ret)
+				pr_err("pwm enable/disable on lpm failed"
+					"for bl %d\n",	mfd->bl_level);
+		} else {
+			pwm_disable(bl_lpm);
+		}
+	}
+}
+
 static int __devinit mipi_toshiba_lcd_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		mipi_toshiba_pdata = pdev->dev.platform_data;
 		return 0;
 	}
+
+	if (mipi_toshiba_pdata != NULL)
+		bl_lpm = pwm_request(mipi_toshiba_pdata->gpio[0],
+			"backlight");
+
+	if (bl_lpm == NULL || IS_ERR(bl_lpm)) {
+		pr_err("%s pwm_request() failed\n", __func__);
+		bl_lpm = NULL;
+	}
+	pr_debug("bl_lpm = %p lpm = %d\n", bl_lpm,
+		mipi_toshiba_pdata->gpio[0]);
 
 	msm_fb_add_device(pdev);
 
@@ -238,6 +275,7 @@ static struct platform_driver this_driver = {
 static struct msm_fb_panel_data toshiba_panel_data = {
 	.on		= mipi_toshiba_lcd_on,
 	.off		= mipi_toshiba_lcd_off,
+	.set_backlight  = mipi_toshiba_set_backlight,
 };
 
 static int ch_used[3];
