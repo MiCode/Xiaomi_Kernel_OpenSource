@@ -145,7 +145,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_DISABLE(7),				 /* Disable NFC */
 	PM8XXX_GPIO_INPUT(16,	    PM_GPIO_PULL_UP_30), /* SD_CARD_WP */
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
-	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_1),	 /* Bl: Off, PWM mode */
+	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
 	PM8XXX_GPIO_OUTPUT(43,	    0),			 /* DISP_RESET_N */
 };
@@ -1026,7 +1026,7 @@ static bool dsi_power_on;
 static int mipi_dsi_panel_power(int on)
 {
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
-	static int gpio24, gpio43;
+	static int gpio43;
 	int rc;
 
 	struct pm_gpio gpio43_param = {
@@ -1037,18 +1037,6 @@ static int mipi_dsi_panel_power(int on)
 		.vin_sel = 2,
 		.out_strength = PM_GPIO_STRENGTH_HIGH,
 		.function = PM_GPIO_FUNC_PAIRED,
-		.inv_int_pol = 0,
-		.disable_pin = 0,
-	};
-
-	struct pm_gpio gpio24_param = {
-		.direction = PM_GPIO_DIR_OUT,
-		.output_buffer = PM_GPIO_OUT_BUF_CMOS,
-		.output_value = 1,
-		.pull = PM_GPIO_PULL_NO,
-		.vin_sel = 2,
-		.out_strength = PM_GPIO_STRENGTH_HIGH,
-		.function = PM_GPIO_FUNC_NORMAL,
 		.inv_int_pol = 0,
 		.disable_pin = 0,
 	};
@@ -1104,12 +1092,6 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 
-		gpio24 = PM8921_GPIO_PM_TO_SYS(24);
-		rc = gpio_request(gpio24, "disp_backlight");
-		if (rc) {
-			pr_err("request gpio 24 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
 		dsi_power_on = true;
 	}
 
@@ -1169,13 +1151,6 @@ static int mipi_dsi_panel_power(int on)
 			pr_err("gpio_config 43 failed (4), rc=%d\n", rc);
 			return -EINVAL;
 		}
-
-		rc = pm8xxx_gpio_config(gpio24, &gpio24_param);
-		if (rc) {
-			pr_err("gpio_config 24 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-
 		gpio_set_value_cansleep(gpio43, 1);
 	} else {
 		rc = regulator_set_optimum_mode(reg_l8, 100);
@@ -1317,9 +1292,19 @@ static struct platform_device mipi_dsi_simulator_panel_device = {
 	.id = 0,
 };
 
+#define LPM_CHANNEL0 0
+static int toshiba_gpio[] = {LPM_CHANNEL0};
+
+static struct mipi_dsi_panel_platform_data toshiba_pdata = {
+	.gpio = toshiba_gpio,
+};
+
 static struct platform_device mipi_dsi_toshiba_panel_device = {
 	.name = "mipi_toshiba",
 	.id = 0,
+	.dev = {
+		.platform_data = &toshiba_pdata,
+	}
 };
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL

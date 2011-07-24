@@ -303,8 +303,9 @@ struct mipi_dsi_platform_data {
 	int target_type;
 };
 
-struct mipi_dsi_novatek_platform_data {
+struct mipi_dsi_panel_platform_data {
 	int fpga_3d_config_addr;
+	int *gpio;
 };
 
 struct msm_fb_platform_data {

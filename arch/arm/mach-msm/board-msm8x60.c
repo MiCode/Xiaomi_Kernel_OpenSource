@@ -2927,7 +2927,7 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 
 #define FPGA_3D_GPIO_CONFIG_ADDR	0x1D00017A
 
-static struct mipi_dsi_novatek_platform_data novatek_pdata = {
+static struct mipi_dsi_panel_platform_data novatek_pdata = {
 	.fpga_3d_config_addr  = FPGA_3D_GPIO_CONFIG_ADDR,
 };
 
