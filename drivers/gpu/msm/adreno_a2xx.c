@@ -619,6 +619,17 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = PM4_REG(REG_RB_COLORCONTROL);
 	*cmds++ = 0x00000c20;
 
+	/* Repartition shaders */
+	*cmds++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
+	*cmds++ = 0x180;
+
+	/* Invalidate Vertex & Pixel instruction code address and sizes */
+	*cmds++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+	*cmds++ = 0x00003F00;
+
+	*cmds++ = pm4_type3_packet(PM4_SET_SHADER_BASES, 1);
+	*cmds++ = (0x80000000) | 0x180;
+
 	/* load the patched vertex shader stream */
 	cmds = program_shader(cmds, 0, gmem2sys_vtx_pgm, GMEM2SYS_VTX_PGM_LEN);
 
@@ -808,6 +819,17 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x1;
 
 	cmds = program_shader(cmds, 0, sys2gmem_vtx_pgm, SYS2GMEM_VTX_PGM_LEN);
+
+	/* Repartition shaders */
+	*cmds++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
+	*cmds++ = 0x180;
+
+	/* Invalidate Vertex & Pixel instruction code address and sizes */
+	*cmds++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+	*cmds++ = 0x00000300; /* 0x100 = Vertex, 0x200 = Pixel */
+
+	*cmds++ = pm4_type3_packet(PM4_SET_SHADER_BASES, 1);
+	*cmds++ = (0x80000000) | 0x180;
 
 	/* Load the patched fragment shader stream */
 	cmds =
