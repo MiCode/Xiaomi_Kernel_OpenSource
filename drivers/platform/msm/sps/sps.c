@@ -449,7 +449,7 @@ struct sps_bam *sps_h2bam(u32 h)
 /**
  * Lock BAM device
  *
- * This function obtains the BAM mutex on the client's connection.
+ * This function obtains the BAM spinlock on the client's connection.
  *
  * @pipe - pointer to client pipe state
  *
@@ -467,7 +467,7 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
 		return NULL;
 	}
 
-	mutex_lock(&bam->lock);
+	spin_lock(&bam->connection_lock);
 
 	/* Verify client owns this pipe */
 	pipe_index = pipe->pipe_index;
@@ -476,7 +476,7 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
 		SPS_ERR("Client not owner of BAM 0x%x pipe: %d (max %d)",
 			bam->props.phys_addr, pipe_index,
 			bam->props.num_pipes);
-		mutex_unlock(&bam->lock);
+		spin_unlock(&bam->connection_lock);
 		return NULL;
 	}
 
@@ -486,14 +486,14 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
 /**
  * Unlock BAM device
  *
- * This function releases the BAM mutex on the client's connection.
+ * This function releases the BAM spinlock on the client's connection.
  *
  * @bam - pointer to BAM device struct
  *
  */
 static inline void sps_bam_unlock(struct sps_bam *bam)
 {
-	mutex_unlock(&bam->lock);
+	spin_unlock(&bam->connection_lock);
 }
 
 /**
