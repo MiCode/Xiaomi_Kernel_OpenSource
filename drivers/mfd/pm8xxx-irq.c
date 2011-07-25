@@ -88,7 +88,30 @@ bail:
 	return rc;
 }
 
-static int pm8xxx_config_irq(struct pm_irq_chip *chip, u8 bp, u8 cp)
+static int pm8xxx_read_config_irq(struct pm_irq_chip *chip, u8 bp, u8 cp, u8 *r)
+{
+	int	rc;
+
+	spin_lock(&chip->pm_irq_lock);
+	rc = pm8xxx_writeb(chip->dev, SSBI_REG_ADDR_IRQ_BLK_SEL, bp);
+	if (rc) {
+		pr_err("Failed Selecting Block %d rc=%d\n", bp, rc);
+		goto bail;
+	}
+
+	rc = pm8xxx_writeb(chip->dev, SSBI_REG_ADDR_IRQ_CONFIG, cp);
+	if (rc)
+		pr_err("Failed Configuring IRQ rc=%d\n", rc);
+
+	rc = pm8xxx_readb(chip->dev, SSBI_REG_ADDR_IRQ_CONFIG, r);
+	if (rc)
+		pr_err("Failed reading IRQ rc=%d\n", rc);
+bail:
+	spin_unlock(&chip->pm_irq_lock);
+	return rc;
+}
+
+static int pm8xxx_write_config_irq(struct pm_irq_chip *chip, u8 bp, u8 cp)
 {
 	int	rc;
 
@@ -193,7 +216,7 @@ static void pm8xxx_irq_mask_ack(struct irq_data *d)
 	irq_bit = pmirq % 8;
 
 	config = chip->config[pmirq] | PM_IRQF_MASK_ALL | PM_IRQF_CLR;
-	pm8xxx_config_irq(chip, block, config);
+	pm8xxx_write_config_irq(chip, block, config);
 }
 
 static void pm8xxx_irq_unmask(struct irq_data *d)
@@ -201,14 +224,18 @@ static void pm8xxx_irq_unmask(struct irq_data *d)
 	struct pm_irq_chip *chip = irq_data_get_irq_chip_data(d);
 	unsigned int pmirq = d->irq - chip->irq_base;
 	int	master, irq_bit;
-	u8	block, config;
+	u8	block, config, hw_conf;
 
 	block = pmirq / 8;
 	master = block / 8;
 	irq_bit = pmirq % 8;
 
 	config = chip->config[pmirq];
-	pm8xxx_config_irq(chip, block, config);
+	pm8xxx_read_config_irq(chip, block, config, &hw_conf);
+	/* check if it is masked */
+	if ((hw_conf & PM_IRQF_MASK_ALL)
+			== PM_IRQF_MASK_ALL)
+		pm8xxx_write_config_irq(chip, block, config);
 }
 
 static int pm8xxx_irq_set_type(struct irq_data *d, unsigned int flow_type)
@@ -239,7 +266,7 @@ static int pm8xxx_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	}
 
 	config = chip->config[pmirq] | PM_IRQF_CLR;
-	return pm8xxx_config_irq(chip, block, config);
+	return pm8xxx_write_config_irq(chip, block, config);
 }
 
 static int pm8xxx_irq_set_wake(struct irq_data *d, unsigned int on)
