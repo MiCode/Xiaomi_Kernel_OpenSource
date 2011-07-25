@@ -8040,10 +8040,6 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[0].vdd_data->reg_name = "8901_l5";
 	sdcc_vreg_data[0].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[0].vdd_data->level = 2850000;
-	sdcc_vreg_data[0].vdd_data->always_on = 1;
-	sdcc_vreg_data[0].vdd_data->op_pwr_mode_sup = 1;
-	sdcc_vreg_data[0].vdd_data->lpm_uA = 9000;
-	sdcc_vreg_data[0].vdd_data->hpm_uA = 200000;
 
 	sdcc_vreg_data[0].vccq_data = &sdcc_vccq_reg_data[0];
 	sdcc_vreg_data[0].vccq_data->reg_name = "8901_lvs0";
