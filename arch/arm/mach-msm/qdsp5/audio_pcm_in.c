@@ -54,6 +54,7 @@
 #define MONO_DATA_SIZE		(2048)
 #define STEREO_DATA_SIZE	(MONO_DATA_SIZE * 2)
 #define DMASZ			(FRAME_SIZE * FRAME_NUM)
+#define MSM_AUD_BUFFER_UPDATE_WAIT_MS 2000
 
 struct buffer {
 	void *data;
@@ -690,10 +691,15 @@ static ssize_t audpcm_in_read(struct file *file,
 
 	mutex_lock(&audio->read_lock);
 	while (count > 0) {
-		rc = wait_event_interruptible(
-			audio->wait, (audio->in_count > 0) || audio->stopped);
-		if (rc < 0)
+		rc = wait_event_interruptible_timeout(
+			audio->wait, (audio->in_count > 0) || audio->stopped,
+			msecs_to_jiffies(MSM_AUD_BUFFER_UPDATE_WAIT_MS));
+		if (rc == 0) {
+			rc = -ETIMEDOUT;
 			break;
+		} else if (rc < 0) {
+			break;
+		}
 
 		if (audio->stopped && !audio->in_count) {
 			rc = 0;/* End of File */
