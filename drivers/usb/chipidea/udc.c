@@ -494,10 +494,23 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	}
 
 	/*  QH configuration */
+	if (!list_empty(&mEp->qh.queue)) {
+		struct ci13xxx_req *mReq = \
+			list_entry(mEp->qh.queue.next,
+				   struct ci13xxx_req, queue);
+
+		if (TD_STATUS_ACTIVE & mReq->ptr->token) {
+			mEp->qh.ptr->td.next   = mReq->dma;
+			mEp->qh.ptr->td.token &= ~TD_STATUS;
+			goto prime;
+		}
+	}
+
 	mEp->qh.ptr->td.next   = cpu_to_le32(mReq->dma);    /* TERMINATE = 0 */
 	mEp->qh.ptr->td.token &=
 		cpu_to_le32(~(TD_STATUS_HALTED|TD_STATUS_ACTIVE));
 
+prime:
 	wmb();   /* synchronize before ep prime */
 
 	ret = hw_ep_prime(ci, mEp->num, mEp->dir,

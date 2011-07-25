@@ -248,6 +248,97 @@ static const struct file_operations ci_role_fops = {
 	.release	= single_release,
 };
 
+/* EP# and Direction */
+static ssize_t ci_prime_write(struct file *file, const char __user *ubuf,
+			     size_t count, loff_t *ppos)
+{
+	struct ci13xxx *ci = file->private;
+	struct ci13xxx_ep *mEp;
+	unsigned int ep_num, dir;
+	int n;
+	struct ci13xxx_req *mReq = NULL;
+
+	if (sscanf(buf, "%u %u", &ep_num, &dir) != 2) {
+		dev_err(dev, "<ep_num> <dir>: prime the ep");
+		goto done;
+	}
+
+	if (dir)
+		mEp = &ci->ci13xxx_ep[ep_num + hw_ep_max/2];
+	else
+		mEp = &ci->ci13xxx_ep[ep_num];
+
+	n = hw_ep_bit(mEp->num, mEp->dir);
+	mReq =  list_entry(mEp->qh.queue.next, struct ci13xxx_req, queue);
+	mEp->qh.ptr->td.next   = mReq->dma;
+	mEp->qh.ptr->td.token &= ~TD_STATUS;
+
+	wmb();
+
+	hw_write(ci, OP_ENDPTPRIME, BIT(n), BIT(n));
+	while (hw_read(ci, OP_ENDPTPRIME, BIT(n)))
+		cpu_relax();
+
+	pr_info("%s: prime:%08x stat:%08x ep#%d dir:%s\n", __func__,
+			hw_read(ci, OP_ENDPTPRIME, ~0),
+			hw_read(ci, OP_ENDPTSTAT, ~0),
+			mEp->num, mEp->dir ? "IN" : "OUT");
+done:
+	return count;
+
+}
+
+static const struct file_operations ci_prime_fops = {
+	.open		= simple_open,
+	.write		= ci_prime_write,
+};
+
+
+/* EP# and Direction */
+static ssize_t ci_dtds_write(struct file *file, const char __user *ubuf,
+			     size_t count, loff_t *ppos)
+{
+	struct ci13xxx *ci = file->private;
+	struct ci13xxx_ep *mEp;
+	unsigned int ep_num, dir;
+	int n;
+	struct list_head   *ptr = NULL;
+	struct ci13xxx_req *req = NULL;
+
+	if (sscanf(buf, "%u %u", &ep_num, &dir) != 2) {
+		dev_err(dev, "<ep_num> <dir>: to print dtds");
+		goto done;
+	}
+
+	if (dir)
+		mEp = &ci->ci13xxx_ep[ep_num + hw_ep_max/2];
+	else
+		mEp = &ci->ci13xxx_ep[ep_num];
+
+	n = hw_ep_bit(mEp->num, mEp->dir);
+
+	pr_info("ep#%d dir:%s\n", mEp->num, mEp->dir ? "IN" : "OUT");
+	pr_info("QH: cap:%08x cur:%08x next:%08x token:%08x\n",
+			mEp->qh.ptr->cap, mEp->qh.ptr->curr,
+			mEp->qh.ptr->td.next, mEp->qh.ptr->td.token);
+
+	list_for_each(ptr, &mEp->qh.queue) {
+		req = list_entry(ptr, struct ci13xxx_req, queue);
+
+		pr_info("\treq:%08x next:%08x token:%08x page0:%08x status:%d\n",
+				req->dma, req->ptr->next, req->ptr->token,
+				req->ptr->page[0], req->req.status);
+	}
+done:
+	return count;
+
+}
+
+static const struct file_operations ci_dtds_fops = {
+	.open		= simple_open,
+	.write		= ci_dtds_write,
+};
+
 static ssize_t ci_wakeup_write(struct file *file, const char __user *ubuf,
 			     size_t count, loff_t *ppos)
 {
@@ -299,6 +390,16 @@ int dbg_create_files(struct ci13xxx *ci)
 
 	retval = debugfs_create_file("wakeup", S_IWUSR, ci->debugfs, ci,
 				   &ci_wakeup_fops);
+	if (retval)
+		goto err;
+
+	retval = debugfs_create_file("prime", S_IWUSR, ci->debugfs, ci,
+				   &ci_prime_fops);
+	if (retval)
+		goto err;
+
+	retval = debugfs_create_file("dtds", S_IWUSR, ci->debugfs, ci,
+				   &ci_dtds_fops);
 	if (retval)
 		goto err;
 
