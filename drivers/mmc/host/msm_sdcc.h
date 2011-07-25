@@ -232,6 +232,7 @@ struct msmsdcc_dma_data {
 	int				num_ents;
 
 	int				channel;
+	int				crci;
 	struct msmsdcc_host		*host;
 	int				busy; /* Set if DM is busy */
 	unsigned int 			result;
@@ -284,6 +285,7 @@ struct msmsdcc_host {
 	struct resource		*bam_memres;
 	struct resource		*dml_memres;
 	struct resource		*dmares;
+	struct resource		*dma_crci_res;
 	void __iomem		*base;
 	void __iomem		*dml_base;
 	void __iomem		*bam_base;

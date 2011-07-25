@@ -655,13 +655,14 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	struct msmsdcc_nc_dmadata *nc;
 	dmov_box *box;
 	uint32_t rows;
-	uint32_t crci;
 	unsigned int n;
 	int i;
 	struct scatterlist *sg = data->sg;
 
-	if (host->dma.channel == -1)
+	if ((host->dma.channel == -1) || (host->dma.crci == -1))
 		return -ENOENT;
+
+	BUG_ON((host->pdev_id < 1) || (host->pdev_id > 5));
 
 	host->dma.sg = data->sg;
 	host->dma.num_ents = data->sg_len;
@@ -669,24 +670,6 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	BUG_ON(host->dma.num_ents > NR_SG); /* Prevent memory corruption */
 
 	nc = host->dma.nc;
-
-	if (host->pdev_id == 1)
-		crci = DMOV_SDC1_CRCI;
-	else if (host->pdev_id == 2)
-		crci = DMOV_SDC2_CRCI;
-	else if (host->pdev_id == 3)
-		crci = DMOV_SDC3_CRCI;
-	else if (host->pdev_id == 4)
-		crci = DMOV_SDC4_CRCI;
-#ifdef DMOV_SDC5_CRCI
-	else if (host->pdev_id == 5)
-		crci = DMOV_SDC5_CRCI;
-#endif
-	else {
-		host->dma.sg = NULL;
-		host->dma.num_ents = 0;
-		return -ENOENT;
-	}
 
 	if (data->flags & MMC_DATA_READ)
 		host->dma.dir = DMA_FROM_DEVICE;
@@ -719,7 +702,7 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 			box->row_offset = MCI_FIFOSIZE;
 
 			box->num_rows = rows * ((1 << 16) + 1);
-			box->cmd |= CMD_SRC_CRCI(crci);
+			box->cmd |= CMD_SRC_CRCI(host->dma.crci);
 		} else {
 			box->src_row_addr = sg_dma_address(sg);
 			box->dst_row_addr = msmsdcc_fifo_addr(host);
@@ -729,7 +712,7 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 			box->row_offset = (MCI_FIFOSIZE << 16);
 
 			box->num_rows = rows * ((1 << 16) + 1);
-			box->cmd |= CMD_DST_CRCI(crci);
+			box->cmd |= CMD_DST_CRCI(host->dma.crci);
 		}
 		box++;
 		sg++;
@@ -742,7 +725,7 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	host->dma.hdr.cmdptr = DMOV_CMD_PTR_LIST |
 			       DMOV_CMD_ADDR(host->dma.cmdptr_busaddr);
 	host->dma.hdr.complete_func = msmsdcc_dma_complete_func;
-	host->dma.hdr.crci_mask = msm_dmov_build_crci_mask(1, crci);
+	host->dma.hdr.crci_mask = msm_dmov_build_crci_mask(1, host->dma.crci);
 
 	n = dma_map_sg(mmc_dev(host->mmc), host->dma.sg,
 			host->dma.num_ents, host->dma.dir);
@@ -2771,6 +2754,7 @@ msmsdcc_init_dma(struct msmsdcc_host *host)
 	memset(&host->dma, 0, sizeof(struct msmsdcc_dma_data));
 	host->dma.host = host;
 	host->dma.channel = -1;
+	host->dma.crci = -1;
 
 	if (!host->dmares)
 		return -ENODEV;
@@ -2788,6 +2772,7 @@ msmsdcc_init_dma(struct msmsdcc_host *host)
 	host->dma.cmdptr_busaddr = host->dma.nc_busaddr +
 				offsetof(struct msmsdcc_nc_dmadata, cmdptr);
 	host->dma.channel = host->dmares->start;
+	host->dma.crci = host->dma_crci_res->start;
 
 	return 0;
 }
@@ -3317,6 +3302,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	struct resource *dml_memres = NULL;
 	struct resource *bam_memres = NULL;
 	struct resource *dmares = NULL;
+	struct resource *dma_crci_res = NULL;
 	int ret;
 	int i;
 
@@ -3358,8 +3344,16 @@ msmsdcc_probe(struct platform_device *pdev)
 			else
 				core_irqres = &pdev->resource[i];
 		}
-		if (pdev->resource[i].flags & IORESOURCE_DMA)
-			dmares = &pdev->resource[i];
+		if (pdev->resource[i].flags & IORESOURCE_DMA) {
+			if (!strncmp(pdev->resource[i].name,
+					"sdcc_dma_chnl",
+					sizeof("sdcc_dma_chnl")))
+				dmares = &pdev->resource[i];
+			else if (!strncmp(pdev->resource[i].name,
+					"sdcc_dma_crci",
+					sizeof("sdcc_dma_crci")))
+				dma_crci_res = &pdev->resource[i];
+		}
 	}
 
 	if (!core_irqres || !core_memres) {
@@ -3410,6 +3404,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->dml_memres = dml_memres;
 	host->bam_memres = bam_memres;
 	host->dmares = dmares;
+	host->dma_crci_res = dma_crci_res;
 	spin_lock_init(&host->lock);
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
@@ -3433,6 +3428,7 @@ msmsdcc_probe(struct platform_device *pdev)
 			goto ioremap_free;
 	} else {
 		host->dma.channel = -1;
+		host->dma.crci = -1;
 	}
 
 	/*
@@ -3679,10 +3675,12 @@ msmsdcc_probe(struct platform_device *pdev)
 	register_early_suspend(&host->early_suspend);
 #endif
 
-	pr_info("%s: Qualcomm MSM SDCC-core at 0x%016llx irq %d,%d dma %d\n",
-	       mmc_hostname(mmc), (unsigned long long)core_memres->start,
-	       (unsigned int) core_irqres->start,
-	       (unsigned int) plat->status_irq, host->dma.channel);
+	pr_info("%s: Qualcomm MSM SDCC-core at 0x%016llx irq %d,%d dma %d"
+		" dmacrcri %d\n", mmc_hostname(mmc),
+		(unsigned long long)core_memres->start,
+		(unsigned int) core_irqres->start,
+		(unsigned int) plat->status_irq, host->dma.channel,
+		host->dma.crci);
 
 	pr_info("%s: 8 bit data mode %s\n", mmc_hostname(mmc),
 		(mmc->caps & MMC_CAP_8_BIT_DATA ? "enabled" : "disabled"));
@@ -3698,7 +3696,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	pr_info("%s: Power save feature enable = %d\n",
 	       mmc_hostname(mmc), msmsdcc_pwrsave);
 
-	if (host->is_dma_mode && host->dma.channel != -1) {
+	if (host->is_dma_mode && host->dma.channel != -1
+			&& host->dma.crci != -1) {
 		pr_info("%s: DM non-cached buffer at %p, dma_addr 0x%.8x\n",
 		       mmc_hostname(mmc), host->dma.nc, host->dma.nc_busaddr);
 		pr_info("%s: DM cmd busaddr 0x%.8x, cmdptr busaddr 0x%.8x\n",
