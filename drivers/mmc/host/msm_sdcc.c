@@ -914,7 +914,7 @@ static void
 msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 			struct mmc_command *cmd, u32 c)
 {
-	unsigned int datactrl, timeout;
+	unsigned int datactrl = 0, timeout;
 	unsigned long long clks;
 	void __iomem *base = host->base;
 	unsigned int pio_irqmask = 0;
@@ -972,7 +972,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	}
 
 	if (data->flags & MMC_DATA_READ)
-		datactrl |= MCI_DPSM_DIRECTION;
+		datactrl |= (MCI_DPSM_DIRECTION | MCI_RX_DATA_PEND);
 
 	clks = (unsigned long long)data->timeout_ns * host->clk_rate;
 	do_div(clks, 1000000000UL);

@@ -77,6 +77,7 @@
 #define MCI_DPSM_DIRECTION	(1 << 1)
 #define MCI_DPSM_MODE		(1 << 2)
 #define MCI_DPSM_DMAENABLE	(1 << 3)
+#define MCI_RX_DATA_PEND	(1 << 20)
 
 #define MMCIDATACNT		0x030
 #define MMCISTATUS		0x034
