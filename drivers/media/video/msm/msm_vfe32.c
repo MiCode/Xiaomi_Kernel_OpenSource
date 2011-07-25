@@ -1308,7 +1308,8 @@ static int vfe32_configure_pingpong_buffers(int id, int path)
 	outch = vfe32_get_ch(path);
 	if (outch->ping.paddr && outch->pong.paddr) {
 		/* Configure Preview Ping Pong */
-		pr_err("%s Configure ping/pong address for %d", __func__, path);
+		pr_info("%s Configure ping/pong address for %d",
+						__func__, path);
 		vfe32_put_ch_ping_addr(outch->ch0,
 			outch->ping.paddr + outch->ping.y_off);
 		vfe32_put_ch_ping_addr(outch->ch1,
@@ -1373,17 +1374,20 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 							VFE_MSG_OUTPUT_S);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
-				   " for preview", __func__);
+				   " for snapshot", __func__);
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
-							VFE_MSG_OUTPUT_T);
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for preview", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
+		if (vfe32_ctrl->operation_mode !=
+				VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
+			rc = vfe32_configure_pingpong_buffers(
+				VFE_MSG_V32_CAPTURE, VFE_MSG_OUTPUT_T);
+			if (rc < 0) {
+				pr_err("%s error configuring pingpong buffers"
+					   " for thumbnail", __func__);
+				rc = -EINVAL;
+				goto proc_general_done;
+			}
 		}
 		rc = vfe32_capture(snapshot_cnt);
 		break;
@@ -1394,7 +1398,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			VFE_MSG_V32_START_RECORDING, VFE_MSG_OUTPUT_V);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
-				" for recording", __func__);
+				" for video", __func__);
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
@@ -2350,8 +2354,6 @@ static void vfe32_process_output_path_irq_0(void)
 	else
 		free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 							VFE_MSG_OUTPUT_P);
-	if (!free_buf)
-		pr_err(" Output IRQ 0: NO FREE BUFF");
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.
@@ -2467,8 +2469,6 @@ static void vfe32_process_output_path_irq_1(void)
 
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 						VFE_MSG_OUTPUT_S);
-	if (!free_buf)
-		pr_err(" Output IRQ 1: NO FREE BUFF");
 
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
@@ -2527,8 +2527,6 @@ static void vfe32_process_output_path_irq_2(void)
 	struct msm_free_buf *free_buf = NULL;
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 						VFE_MSG_OUTPUT_V);
-	if (!free_buf)
-		pr_err(" Output IRQ 2: NO FREE BUFF");
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.

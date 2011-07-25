@@ -610,7 +610,7 @@ int msm_mctl_reserve_free_buf(
 		}
 	}
 	if (rc != 0)
-		pr_err("%s:No free buffer available: inst = 0x%p ",
+		pr_warning("%s:No free buffer available: inst = 0x%p ",
 				__func__, pcam_inst);
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;

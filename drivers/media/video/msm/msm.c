@@ -735,7 +735,7 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	pr_err("%s Inst %p\n", __func__, pcam_inst);
+	D("%s Inst %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	/* first turn of HW (VFE/sensor) streaming so that buffers are
