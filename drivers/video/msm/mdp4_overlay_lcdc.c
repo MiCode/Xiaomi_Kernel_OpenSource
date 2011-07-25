@@ -280,50 +280,6 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	return ret;
 }
 
-
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-int mdp4_lcdc_overlay_blt_offset(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	req->offset = writeback_offset;
-	req->width = lcdc_pipe->src_width;
-	req->height = lcdc_pipe->src_height;
-	req->bpp = lcdc_pipe->bpp;
-
-	return sizeof(*req);
-}
-
-void mdp4_lcdc_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	unsigned long flag;
-	int change = 0;
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (req->enable && lcdc_pipe->blt_addr == 0) {
-		lcdc_pipe->blt_addr = lcdc_pipe->blt_base;
-		change++;
-	} else if (req->enable == 0 && lcdc_pipe->blt_addr) {
-		lcdc_pipe->blt_addr = 0;
-		change++;
-	}
-	pr_debug("%s: blt_addr=%x\n", __func__, (int)lcdc_pipe->blt_addr);
-	lcdc_pipe->blt_cnt = 0;
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-
-	if (!change)
-		return;
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
-	msleep(50);
-	mdp4_overlayproc_cfg(lcdc_pipe);
-	mdp4_overlay_dmap_xy(lcdc_pipe);
-	MDP_OUTP(MDP_BASE + LCDC_BASE, 1);	/* start lcdc */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-}
-#endif
-
 static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd, int dmap)
 {
 	unsigned long flag;
@@ -388,6 +344,84 @@ void mdp4_overlay0_done_lcdc(void)
 {
 	complete_all(&lcdc_comp);
 }
+
+#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
+/*
+ * make sure the MIPI_DSI_WRITEBACK_SIZE defined at boardfile
+ * has enough space h * w * 3 * 2
+ */
+static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
+{
+	unsigned long flag;
+	int change = 0;
+
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	if (enable && lcdc_pipe->blt_addr == 0) {
+		lcdc_pipe->blt_addr = lcdc_pipe->blt_base;
+		change++;
+	} else if (enable == 0 && lcdc_pipe->blt_addr) {
+		lcdc_pipe->blt_addr = 0;
+		change++;
+	}
+	pr_info("%s: blt_addr=%x\n", __func__, (int)lcdc_pipe->blt_addr);
+	lcdc_pipe->blt_cnt = 0;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	if (!change)
+		return;
+
+	mdp4_overlay_lcdc_wait4event(mfd, 1);
+	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
+	msleep(20);
+	mdp4_overlayproc_cfg(lcdc_pipe);
+	mdp4_overlay_dmap_xy(lcdc_pipe);
+	MDP_OUTP(MDP_BASE + LCDC_BASE, 1);	/* start lcdc */
+}
+
+int mdp4_lcdc_overlay_blt_offset(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	req->offset = writeback_offset;
+	req->width = lcdc_pipe->src_width;
+	req->height = lcdc_pipe->src_height;
+	req->bpp = lcdc_pipe->bpp;
+
+	return sizeof(*req);
+}
+
+void mdp4_lcdc_overlay_blt(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	mdp4_lcdc_do_blt(mfd, req->enable);
+}
+
+void mdp4_lcdc_overlay_blt_start(struct msm_fb_data_type *mfd)
+{
+	mdp4_lcdc_do_blt(mfd, 1);
+}
+
+void mdp4_lcdc_overlay_blt_stop(struct msm_fb_data_type *mfd)
+{
+	mdp4_lcdc_do_blt(mfd, 0);
+}
+#else
+int mdp4_lcdc_overlay_blt_offset(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	return 0;
+}
+void mdp4_lcdc_overlay_blt(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	return;
+}
+void mdp4_lcdc_overlay_blt_start(struct msm_fb_data_type *mfd)
+{
+}
+void mdp4_lcdc_overlay_blt_stop(struct msm_fb_data_type *mfd)
+{
+}
+#endif
 
 void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 {

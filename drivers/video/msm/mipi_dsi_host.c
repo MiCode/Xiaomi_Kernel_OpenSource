@@ -816,6 +816,54 @@ void mipi_set_tx_power_mode(int mode)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x38, data);
 }
 
+void mipi_dsi_sw_reset(void)
+{
+	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0x01);
+	wmb();
+	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0x00);
+	wmb();
+}
+
+void mipi_dsi_controller_cfg(int enable)
+{
+
+	uint32 dsi_ctrl;
+	uint32 status;
+	int cnt;
+
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0004);
+		status &= 0x02;		/* CMD_MODE_DMA_BUSY */
+		if (status == 0)
+			break;
+		usleep(1000);
+	}
+	if (cnt == 0)
+		pr_info("%s: DSI status=%x failed\n", __func__, status);
+
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0008);
+		status &= 0x11111000;	/* x_HS_FIFO_EMPTY */
+		if (status == 0x11111000)	/* all empty */
+			break;
+		usleep(1000);
+	}
+
+	if (cnt == 0)
+		pr_info("%s: FIFO status=%x failed\n", __func__, status);
+
+	dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
+	if (enable)
+		dsi_ctrl |= 0x01;
+	else
+		dsi_ctrl &= ~0x01;
+
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl);
+	wmb();
+}
+
 void mipi_dsi_op_mode_config(int mode)
 {
 

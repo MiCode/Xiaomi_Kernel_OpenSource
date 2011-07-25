@@ -30,6 +30,7 @@
 #include "mdp.h"
 #include "msm_fb.h"
 #include "mdp4.h"
+#include "mipi_dsi.h"
 
 #define DSI_VIDEO_BASE	0xE0000
 
@@ -364,61 +365,6 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 	mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
 }
 
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	req->offset = writeback_offset;
-	req->width = dsi_pipe->src_width;
-	req->height = dsi_pipe->src_height;
-	req->bpp = dsi_pipe->bpp;
-
-	return sizeof(*req);
-}
-
-void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	unsigned long flag;
-	int change = 0;
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (req->enable && dsi_pipe->blt_addr == 0) {
-		dsi_pipe->blt_addr = dsi_pipe->blt_base;
-		change++;
-	} else if (req->enable == 0 && dsi_pipe->blt_addr) {
-		dsi_pipe->blt_addr = 0;
-		change++;
-	}
-	pr_debug("%s: blt_addr=%x\n", __func__, (int)dsi_pipe->blt_addr);
-	dsi_pipe->blt_cnt = 0;
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-
-	if (!change)
-		return;
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	/*
-	 * it does not work by turnning dsi video timing enerator off
-	 * and configure new changes and tune it back on like LCDC.
-	 */
-	mdp4_overlayproc_cfg(dsi_pipe);
-	mdp4_overlay_dmap_xy(dsi_pipe);
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-}
-#else
-int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	return 0;
-}
-void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	return;
-}
-#endif
-
 static void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 						int dmap)
 {
@@ -487,6 +433,102 @@ void mdp4_overlay0_done_dsi_video()
 	complete(&dsi_pipe->comp);
 }
 
+#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
+/*
+ * make sure the MIPI_DSI_WRITEBACK_SIZE defined at boardfile
+ * has enough space h * w * 3 * 2
+ */
+static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
+{
+	unsigned long flag;
+	int data;
+	int change = 0;
+
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	if (enable && dsi_pipe->blt_addr == 0) {
+		dsi_pipe->blt_addr = dsi_pipe->blt_base;
+		change++;
+	} else if (enable == 0 && dsi_pipe->blt_addr) {
+		dsi_pipe->blt_addr = 0;
+		change++;
+	}
+	pr_info("%s: enable=%d blt_addr=%x\n", __func__,
+				enable, (int)dsi_pipe->blt_addr);
+	dsi_pipe->blt_cnt = 0;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	if (!change)
+		return;
+
+	/*
+	 * may need mutex here to sync with whom dsiable
+	 * timing generator
+	 */
+	data = inpdw(MDP_BASE + DSI_VIDEO_BASE);
+	if (data) {	/* timing generatore enabled */
+		mdp4_overlay_dsi_video_wait4event(mfd, 1); /* dmap_done */
+		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 0);
+		msleep(20);	/* make sure last frame is finished */
+		mipi_dsi_controller_cfg(0);
+	}
+	mdp4_overlayproc_cfg(dsi_pipe);
+	mdp4_overlay_dmap_xy(dsi_pipe);
+
+	if (data) {	/* timing generatore enabled */
+		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 1);
+		mdp4_overlay_dsi_video_wait4event(mfd, 1);
+		mdp4_overlay_dsi_video_wait4event(mfd, 1);
+		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 0);
+		mipi_dsi_sw_reset();
+		mipi_dsi_controller_cfg(1);
+		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 1);
+	}
+}
+
+int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	req->offset = writeback_offset;
+	req->width = dsi_pipe->src_width;
+	req->height = dsi_pipe->src_height;
+	req->bpp = dsi_pipe->bpp;
+
+	return sizeof(*req);
+}
+
+void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	mdp4_dsi_video_do_blt(mfd, req->enable);
+}
+
+void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd)
+{
+	mdp4_dsi_video_do_blt(mfd, 1);
+}
+
+void mdp4_dsi_video_blt_stop(struct msm_fb_data_type *mfd)
+{
+	mdp4_dsi_video_do_blt(mfd, 0);
+}
+#else
+int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	return 0;
+}
+void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_blt *req)
+{
+	return;
+}
+void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd)
+{
+}
+void mdp4_dsi_video_blt_stop(struct msm_fb_data_type *mfd)
+{
+}
+#endif
 
 void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 {
