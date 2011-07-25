@@ -379,6 +379,10 @@ static int slim_register_controller(struct slim_controller *ctrl)
 	ctrl->dev.type = &slim_ctrl_type;
 	ctrl->dev.parent = &slimbus_dev;
 	ctrl->num_dev = 0;
+	if (!ctrl->min_cg)
+		ctrl->min_cg = SLIM_MIN_CLK_GEAR;
+	if (!ctrl->max_cg)
+		ctrl->max_cg = SLIM_MAX_CLK_GEAR;
 	mutex_init(&ctrl->m_ctrl);
 	mutex_init(&ctrl->sched.m_reconf);
 	ret = device_register(&ctrl->dev);
@@ -2200,7 +2204,7 @@ static int slim_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	dev_dbg(&ctrl->dev, "pending:chan sl:%u, :msg sl:%u, clkgear:%u\n",
 				ctrl->sched.usedslots,
 				ctrl->sched.pending_msgsl, *clkgear);
-	while ((usedsl * 2 <= availsl) && (*clkgear > 1)) {
+	while ((usedsl * 2 <= availsl) && (*clkgear > ctrl->min_cg)) {
 		*clkgear -= 1;
 		usedsl *= 2;
 	}
@@ -2210,14 +2214,14 @@ static int slim_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	 * can be scheduled, or reserved BW can't be satisfied, increase clock
 	 * gear and try again
 	 */
-	for (; *clkgear <= SLIM_MAX_CLK_GEAR; (*clkgear)++) {
+	for (; *clkgear <= ctrl->max_cg; (*clkgear)++) {
 		ret = slim_sched_chans(sb, *clkgear, &ctrlw, &subfrml);
 
 		if (ret == 0) {
 			*subfrmc = getsubfrmcoding(&ctrlw, &subfrml, &msgsl);
-			if ((msgsl >> (SLIM_MAX_CLK_GEAR - *clkgear) <
+			if ((msgsl >> (ctrl->max_cg - *clkgear) <
 				ctrl->sched.pending_msgsl) &&
-				(*clkgear < SLIM_MAX_CLK_GEAR))
+				(*clkgear < ctrl->max_cg))
 				continue;
 			else
 				break;

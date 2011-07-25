@@ -25,6 +25,7 @@ extern struct bus_type slimbus_type;
 #define SLIM_CL_PER_SUPERFRAME		6144
 #define SLIM_CL_PER_SUPERFRAME_DIV8	(SLIM_CL_PER_SUPERFRAME >> 3)
 #define SLIM_MAX_CLK_GEAR		10
+#define SLIM_MIN_CLK_GEAR		1
 #define SLIM_CL_PER_SL			4
 #define SLIM_SL_PER_SUPERFRAME		(SLIM_CL_PER_SUPERFRAME >> 2)
 #define SLIM_FRM_SLOTS_PER_SUPERFRAME	16
@@ -424,6 +425,8 @@ struct slim_sched {
  * @list: Link with other slimbus controllers
  * @name: Name for this controller
  * @clkgear: Current clock gear in which this bus is running
+ * @min_cg: Minimum clock gear supported by this controller (default value: 1)
+ * @max_cg: Maximum clock gear supported by this controller (default value: 10)
  * @a_framer: Active framer which is clocking the bus managed by this controller
  * @m_ctrl: Mutex protecting controller data structures (ports, channels etc)
  * @addrt: Logical address table
@@ -461,6 +464,8 @@ struct slim_controller {
 	struct list_head	list;
 	char			name[SLIMBUS_NAME_SIZE];
 	int			clkgear;
+	int			min_cg;
+	int			max_cg;
 	struct slim_framer	*a_framer;
 	struct mutex		m_ctrl;
 	struct slim_addrt	*addrt;
