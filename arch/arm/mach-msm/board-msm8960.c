@@ -852,7 +852,7 @@ static int msm8960_change_memory_power(unsigned long start_pfn,
 
 #ifdef CONFIG_MSM_CAMERA
 
-static int msm_cam_gpio_tbl[] = {
+static uint16_t msm_cam_gpio_tbl[] = {
 	5, /*CAMIF_MCLK*/
 	20, /*CAMIF_I2C_DATA*/
 	21, /*CAMIF_I2C_CLK*/
@@ -887,58 +887,20 @@ static struct msm_camera_sensor_platform_info sensor_board_info = {
 };
 #endif
 
-static int config_gpio_table(int gpio_en)
-{
-	int rc = 0, i = 0;
-	if (gpio_en) {
-		for (i = 0; i < ARRAY_SIZE(msm_cam_gpio_tbl); i++) {
-			rc = gpio_request(msm_cam_gpio_tbl[i], "CAM_GPIO");
-			if (rc < 0) {
-				pr_err("%s not able to get gpio\n", __func__);
-				for (i--; i >= 0; i--)
-					gpio_free(msm_cam_gpio_tbl[i]);
-					break;
-			}
-		}
-	} else {
-		for (i = 0; i < ARRAY_SIZE(msm_cam_gpio_tbl); i++)
-			gpio_free(msm_cam_gpio_tbl[i]);
-	}
-	return rc;
-}
-
-static int config_camera_on_gpios(void)
-{
-	int rc = 0;
-
-	rc = config_gpio_table(1);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: CAMSENSOR gpio table request"
-			"failed\n", __func__);
-		return rc;
-	}
-	return rc;
-}
-
-static void config_camera_off_gpios(void)
-{
-	config_gpio_table(0);
-}
-
 struct msm_camera_device_platform_data msm_camera_csi0_device_data = {
-	.camera_gpio_on  = config_camera_on_gpios,
-	.camera_gpio_off = config_camera_off_gpios,
 	.ioclk.mclk_clk_rate = 24000000,
 	.ioclk.vfe_clk_rate  = 228570000,
 	.csid_core = 0,
+	.cam_gpio_tbl = msm_cam_gpio_tbl,
+	.cam_gpio_tbl_size = ARRAY_SIZE(msm_cam_gpio_tbl),
 };
 
 struct msm_camera_device_platform_data msm_camera_csi1_device_data = {
-	.camera_gpio_on  = config_camera_on_gpios,
-	.camera_gpio_off = config_camera_off_gpios,
 	.ioclk.mclk_clk_rate = 24000000,
 	.ioclk.vfe_clk_rate  = 228570000,
 	.csid_core = 1,
+	.cam_gpio_tbl = msm_cam_gpio_tbl,
+	.cam_gpio_tbl_size = ARRAY_SIZE(msm_cam_gpio_tbl),
 };
 
 #ifdef CONFIG_IMX074

@@ -1057,6 +1057,34 @@ int msm_camio_vpe_clk_enable(uint32_t clk_rate)
 	return rc;
 }
 
+static int config_gpio_table(int gpio_en)
+{
+	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	int rc = 0, i = 0;
+
+	if (camdev->cam_gpio_tbl == NULL) {
+		pr_err("%s: Invalid NULL cam gpio table\n", __func__);
+		return -EFAULT;
+	}
+
+	if (gpio_en) {
+		for (i = 0; i < camdev->cam_gpio_tbl_size; i++) {
+			rc = gpio_request(camdev->cam_gpio_tbl[i], "CAM_GPIO");
+			if (rc < 0) {
+				pr_err("%s not able to get gpio\n", __func__);
+				for (i--; i >= 0; i--)
+					gpio_free(camdev->cam_gpio_tbl[i]);
+					break;
+			}
+		}
+	} else {
+		for (i = 0; i < camdev->cam_gpio_tbl_size; i++)
+			gpio_free(camdev->cam_gpio_tbl[i]);
+	}
+	return rc;
+}
+
 int msm_camio_enable(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1151,7 +1179,7 @@ csi_busy:
 common_fail:
 	msm_camio_disable_all_clks(csid_core);
 	msm_camera_vreg_disable();
-	camdev->camera_gpio_off();
+	config_gpio_table(0);
 	return rc;
 }
 
@@ -1186,7 +1214,7 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 
 	msm_camera_vreg_enable(pdev);
 	msleep(20);
-	rc = camdev->camera_gpio_on();
+	rc = config_gpio_table(1);
 	if (rc < 0)
 		return rc;
 	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
@@ -1194,10 +1222,11 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 
 int msm_camio_sensor_clk_off(struct platform_device *pdev)
 {
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	int rc = 0;
 	msm_camera_vreg_disable();
-	camdev->camera_gpio_off();
+	rc = config_gpio_table(0);
+	if (rc < 0)
+		return rc;
 	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
 }
 
@@ -1214,7 +1243,7 @@ int msm_camio_probe_on(struct platform_device *pdev)
 	camio_dev = pdev;
 	camio_clk = camdev->ioclk;
 
-	rc = camdev->camera_gpio_on();
+	rc = config_gpio_table(1);
 	if (rc < 0)
 		return rc;
 	msm_camera_vreg_enable(pdev);
@@ -1223,10 +1252,11 @@ int msm_camio_probe_on(struct platform_device *pdev)
 
 int msm_camio_probe_off(struct platform_device *pdev)
 {
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	int rc = 0;
 	msm_camera_vreg_disable();
-	camdev->camera_gpio_off();
+	rc = config_gpio_table(0);
+	if (rc < 0)
+		return rc;
 	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
 }
 

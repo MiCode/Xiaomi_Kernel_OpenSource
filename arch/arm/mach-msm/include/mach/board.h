@@ -75,6 +75,8 @@ struct msm_camera_device_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 #endif
+	uint16_t *cam_gpio_tbl;
+	uint8_t cam_gpio_tbl_size;
 };
 enum msm_camera_csi_data_format {
 	CSI_8BIT,
