@@ -424,9 +424,14 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	int ret = 0;
 
 	if (this_afe.apr == NULL) {
-		pr_err("%s: AFE is not opened\n", __func__);
-		ret = -EPERM;
-		goto fail_cmd;
+		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
+					0xFFFFFFFF, &this_afe);
+		pr_debug("%s: Register AFE\n", __func__);
+		if (this_afe.apr == NULL) {
+			pr_err("%s: Unable to register AFE\n", __func__);
+			ret = -ENODEV;
+			return ret;
+		}
 	}
 
 	if (afe_validate_port(port_id) < 0) {
