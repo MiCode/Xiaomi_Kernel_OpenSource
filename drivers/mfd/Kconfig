@@ -846,7 +846,7 @@ config MFD_PM8XXX_BATT_ALARM
 
 config WCD9310_CODEC
         tristate "WCD9310 Codec"
-        depends on SLIMBUS
+        select SLIMBUS
         select MFD_CORE
         default n
         help
