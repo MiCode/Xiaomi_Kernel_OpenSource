@@ -67,7 +67,7 @@ void clk_disable(struct clk *clk)
 		return;
 
 	spin_lock_irqsave(&clk->lock, flags);
-	if (WARN_ON(clk->count == 0))
+	if (WARN(clk->count == 0, "%s is unbalanced", clk->dbg_name))
 		goto out;
 	if (clk->count == 1) {
 		if (clk->ops->disable)
