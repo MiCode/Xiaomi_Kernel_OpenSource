@@ -2502,6 +2502,13 @@ static int pm8921_vs_pin_control_disable(struct regulator_dev *rdev)
 	return rc;
 }
 
+static int pm8921_enable_time(struct regulator_dev *rdev)
+{
+	struct pm8921_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return vreg->pdata.enable_time;
+}
+
 static const char const *pm8921_print_actions[] = {
 	[PM8921_REGULATOR_ACTION_INIT]		= "initial    ",
 	[PM8921_REGULATOR_ACTION_ENABLE]	= "enable     ",
@@ -2627,6 +2634,7 @@ static struct regulator_ops pm8921_pldo_ops = {
 	.set_mode		= pm8921_ldo_set_mode,
 	.get_mode		= pm8921_ldo_get_mode,
 	.get_optimum_mode	= pm8921_vreg_get_optimum_mode,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_nldo_ops = {
@@ -2639,6 +2647,7 @@ static struct regulator_ops pm8921_nldo_ops = {
 	.set_mode		= pm8921_ldo_set_mode,
 	.get_mode		= pm8921_ldo_get_mode,
 	.get_optimum_mode	= pm8921_vreg_get_optimum_mode,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_nldo1200_ops = {
@@ -2651,6 +2660,7 @@ static struct regulator_ops pm8921_nldo1200_ops = {
 	.set_mode		= pm8921_nldo1200_set_mode,
 	.get_mode		= pm8921_nldo1200_get_mode,
 	.get_optimum_mode	= pm8921_vreg_get_optimum_mode,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_smps_ops = {
@@ -2663,6 +2673,7 @@ static struct regulator_ops pm8921_smps_ops = {
 	.set_mode		= pm8921_smps_set_mode,
 	.get_mode		= pm8921_smps_get_mode,
 	.get_optimum_mode	= pm8921_vreg_get_optimum_mode,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_ftsmps_ops = {
@@ -2675,18 +2686,21 @@ static struct regulator_ops pm8921_ftsmps_ops = {
 	.set_mode		= pm8921_ftsmps_set_mode,
 	.get_mode		= pm8921_ftsmps_get_mode,
 	.get_optimum_mode	= pm8921_vreg_get_optimum_mode,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_vs_ops = {
 	.enable			= pm8921_vs_enable,
 	.disable		= pm8921_vs_disable,
 	.is_enabled		= pm8921_vreg_is_enabled,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_vs300_ops = {
 	.enable			= pm8921_vs300_enable,
 	.disable		= pm8921_vs300_disable,
 	.is_enabled		= pm8921_vreg_is_enabled,
+	.enable_time		= pm8921_enable_time,
 };
 
 static struct regulator_ops pm8921_ncp_ops = {
@@ -2696,6 +2710,7 @@ static struct regulator_ops pm8921_ncp_ops = {
 	.set_voltage		= pm8921_ncp_set_voltage,
 	.get_voltage		= pm8921_ncp_get_voltage,
 	.list_voltage		= pm8921_ncp_list_voltage,
+	.enable_time		= pm8921_enable_time,
 };
 
 /* Pin control regulator operations. */

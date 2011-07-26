@@ -142,6 +142,9 @@ enum pm8921_vreg_pin_function {
  * @pin_fn:		action to perform when pin control pin is active
  * @system_uA:		current drawn from regulator not accounted for by any
  *			regulator framework consumer
+ * @enable_time:	time in us taken to enable a regulator to the maximum
+ *			allowed voltage for the system.  This is dependent upon
+ *			the load and capacitance for a regulator on the board.
  */
 struct pm8921_regulator_platform_data {
 	struct regulator_init_data	init_data;
@@ -150,6 +153,7 @@ struct pm8921_regulator_platform_data {
 	unsigned			pin_ctrl;
 	enum pm8921_vreg_pin_function	pin_fn;
 	int				system_uA;
+	int				enable_time;
 };
 
 #endif
