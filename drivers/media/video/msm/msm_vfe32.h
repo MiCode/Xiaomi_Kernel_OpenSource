@@ -121,8 +121,8 @@
 /* For BPC bit 0,bit 12-17 and bit 26 -20 are set to zero and other's 1 */
 #define BPC_MASK 0xF80C0FFE
 
-/* For BPC bit 1 and 2 are set to zero and other's 1 */
-#define ABF_MASK 0xFFFFFFF9
+/* For ABF bit 4 is set to zero and other's 1 */
+#define ABF_MASK 0xFFFFFFF7
 
 
 /* For DBPC bit 0 is set to zero and other's 1 */
@@ -299,6 +299,7 @@ enum  VFE_STATE {
 #define V32_EZTUNE_CFG                              113
 #define V32_ZSL                                     114
 #define V32_LINEARIZATION_UPDATE                    115
+#define V32_DEMOSAICV3_ABF_UPDATE                   116
 
 #define V32_CLF_CFG               118
 #define V32_CLF_UPDATE            119
@@ -429,8 +430,8 @@ enum  VFE_STATE {
 #define V32_DEMOSAICV3_DBCC_OFF 0x0000060C
 #define V32_DEMOSAICV3_DBCC_LEN 16
 
-#define V32_DEMOSAICV3_ABF_OFF 0x0000029C
-#define V32_DEMOSAICV3_ABF_LEN
+#define V32_DEMOSAICV3_ABF_OFF 0x000002A4
+#define V32_DEMOSAICV3_ABF_LEN 180
 
 #define V32_EZTUNE_CFG_OFF 0x00000010
 #define V32_EZTUNE_CFG_LEN 4
