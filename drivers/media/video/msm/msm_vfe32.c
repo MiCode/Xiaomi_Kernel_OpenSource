@@ -183,8 +183,8 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 /*100*/	{V32_ASYNC_TIMER_SETTING, V32_ASYNC_TIMER_LEN, V32_ASYNC_TIMER_OFF},
 		{V32_LIVESHOT},
 		{V32_LA_SETUP},
-		{V32_LINEARIZATION, V32_LINEARIZATION_LEN1,
-					V32_LINEARIZATION_OFF1},
+		{V32_LINEARIZATION_CFG, V32_LINEARIZATION_LEN1,
+			V32_LINEARIZATION_OFF1},
 		{V32_DEMOSAICV3},
 /*105*/	{V32_DEMOSAICV3_ABCC_CFG},
 		{V32_DEMOSAICV3_DBCC_CFG, V32_DEMOSAICV3_DBCC_LEN,
@@ -192,11 +192,14 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{V32_DEMOSAICV3_DBPC_CFG},
 		{V32_DEMOSAICV3_ABF_CFG},
 		{V32_DEMOSAICV3_ABCC_UPDATE},
-		{V32_DEMOSAICV3_DBCC_UPDATE, V32_DEMOSAICV3_DBCC_LEN,
+/*110*/	{V32_DEMOSAICV3_DBCC_UPDATE, V32_DEMOSAICV3_DBCC_LEN,
 			V32_DEMOSAICV3_DBCC_OFF},
 		{V32_DEMOSAICV3_DBPC_UPDATE},
+		{V32_XBAR_CFG},
 		{V32_EZTUNE_CFG},
 		{V32_ZSL},
+/*115*/	{V32_LINEARIZATION_UPDATE, V32_LINEARIZATION_LEN1,
+			V32_LINEARIZATION_OFF1},
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -313,17 +316,19 @@ static const char * const vfe32_general_cmd[] = {
 	"ASYNC_TIMER_SETTING",  /* 100 */
 	"LIVESHOT",
 	"LA_SETUP",
-	"LINEARIZATION",
+	"LINEARIZATION_CFG",
 	"DEMOSAICV3",
 	"DEMOSAICV3_ABCC_CFG", /* 105 */
 	"DEMOSAICV3_DBCC_CFG",
 	"DEMOSAICV3_DBPC_CFG",
-	"DEMOSAICV3_ABF_CFG", /* 108 */
+	"DEMOSAICV3_ABF_CFG",
 	"DEMOSAICV3_ABCC_UPDATE",
-	"DEMOSAICV3_DBCC_UPDATE",
+	"DEMOSAICV3_DBCC_UPDATE", /* 110 */
 	"DEMOSAICV3_DBPC_UPDATE",
+	"XBAR_CFG",
 	"EZTUNE_CFG",
 	"V32_ZSL",
+	"LINEARIZATION_UPDATE",
 };
 
 static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
@@ -1134,6 +1139,15 @@ static int vfe32_start(void)
 static void vfe32_update(void)
 {
 	unsigned long flags;
+	if (vfe32_ctrl->update_linear) {
+		if (!msm_io_r(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1))
+			msm_io_w(1,
+				vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1);
+		else
+			msm_io_w(0,
+				vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1);
+		vfe32_ctrl->update_linear = false;
+	}
 	spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
 	vfe32_ctrl->update_ack_pending = TRUE;
 	spin_unlock_irqrestore(&vfe32_ctrl->update_ack_lock, flags);
@@ -1328,6 +1342,21 @@ static int vfe32_configure_pingpong_buffers(int id, int path)
 		rc = -EINVAL;
 	}
 	return rc;
+}
+
+static void vfe32_write_linear_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
+	const uint32_t *tbl)
+{
+	uint32_t i;
+
+	vfe32_program_dmi_cfg(channel_sel);
+	/* for loop for configuring LUT. */
+	for (i = 0 ; i < VFE32_LINEARIZATON_TABLE_LENGTH ; i++) {
+		msm_io_w(*tbl, vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+		tbl++;
+	}
+	CDBG("done writing to linearization table\n");
+	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
 
 static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
@@ -1677,26 +1706,57 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		vfe32_liveshot();
 		break;
 
-	case V32_LINEARIZATION:
+	case V32_LINEARIZATION_CFG:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
 			goto proc_general_done;
 		}
-		if (copy_from_user(cmdp,
-			(void __user *)(cmd->value),
+		if (copy_from_user(cmdp, (void __user *)(cmd->value),
 			cmd->length)) {
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
 		cmdp_local = cmdp;
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1,
-				cmdp_local, V32_LINEARIZATION_LEN1);
+			cmdp_local, V32_LINEARIZATION_LEN1);
 		cmdp_local += 4;
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF2,
-						cmdp_local,
-						V32_LINEARIZATION_LEN2);
-		break;
+			cmdp_local, V32_LINEARIZATION_LEN2);
+
+		cmdp_local = cmdp + 17;
+		vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK0, cmdp_local);
+	break;
+
+	case V32_LINEARIZATION_UPDATE:
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp, (void __user *)(cmd->value),
+			cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		cmdp_local++;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1,
+			cmdp_local, (V32_LINEARIZATION_LEN1 - 4));
+		cmdp_local += 3;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF2,
+			cmdp_local, V32_LINEARIZATION_LEN2);
+		cmdp_local = cmdp + 17;
+		/*extracting the bank select*/
+		old_val =
+			msm_io_r(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1);
+
+		if (old_val != 0x0)
+			vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK0, cmdp_local);
+		else
+			vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK1, cmdp_local);
+		vfe32_ctrl->update_linear = true;
+	break;
 
 	case V32_DEMOSAICV3:
 		if (cmd->length !=
@@ -3017,6 +3077,7 @@ static int vfe32_resource_init(struct platform_device *pdev, void *sdata)
 	vfe32_ctrl->syncdata = sdata;
 	vfe32_ctrl->vfemem = vfemem;
 	vfe32_ctrl->vfeio  = vfeio;
+	vfe32_ctrl->update_linear = false;
 	return 0;
 
 cmd_init_failed3:
