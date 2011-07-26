@@ -797,6 +797,7 @@ enum VFE31_MESSAGE_ID {
 };
 
 struct stats_buffer {
+	uint8_t awb_ymin;
 	uint32_t aec;
 	uint32_t awb;
 	uint32_t af;
@@ -1012,6 +1013,7 @@ struct vfe31_frame_extra {
 #define VFE_CLAMP_MIN                    0x00000528
 #define VFE_REALIGN_BUF                  0x0000052C
 #define VFE_STATS_CFG                    0x00000530
+#define VFE_STATS_AWB_SGW_CFG            0x00000554
 #define VFE_DMI_CFG                      0x00000598
 #define VFE_DMI_ADDR                     0x0000059C
 #define VFE_DMI_DATA_LO                  0x000005A4

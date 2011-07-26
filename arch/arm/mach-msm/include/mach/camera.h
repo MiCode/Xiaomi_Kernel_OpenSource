@@ -211,6 +211,7 @@ struct msm_vfe_phy_info {
 };
 
 struct msm_vfe_stats_msg {
+	uint8_t awb_ymin;
 	uint32_t aec_buff;
 	uint32_t awb_buff;
 	uint32_t af_buff;

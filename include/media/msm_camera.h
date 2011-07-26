@@ -568,6 +568,7 @@ struct stats_buff {
 };
 
 struct msm_stats_buf {
+	uint8_t awb_ymin;
 	struct stats_buff aec;
 	struct stats_buff awb;
 	struct stats_buff af;

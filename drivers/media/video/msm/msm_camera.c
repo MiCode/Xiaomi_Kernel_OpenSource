@@ -1248,6 +1248,8 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 
 		if (data->type == VFE_MSG_COMMON) {
 			stats.status_bits = data->stats_msg.status_bits;
+			stats.awb_ymin = data->stats_msg.awb_ymin;
+
 			if (data->stats_msg.aec_buff) {
 				stats.aec.buff =
 				msm_pmem_stats_ptov_lookup(sync,
@@ -1351,6 +1353,7 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 		} else if ((data->type >= VFE_MSG_STATS_AEC) &&
 			(data->type <=  VFE_MSG_STATS_WE)) {
 			/* the check above includes all stats type. */
+			stats.awb_ymin = data->stats_msg.awb_ymin;
 			stats.buffer =
 				msm_pmem_stats_ptov_lookup(sync,
 						data->phy.sbuf_phy,
