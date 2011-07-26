@@ -119,7 +119,7 @@ static int msm_isp_enqueue(struct msm_cam_media_controller *pmctl,
 			data->type == VFE_MSG_OUTPUT_S ||
 			data->type == VFE_MSG_OUTPUT_T) {
 			msm_mctl_buf_done(pmctl, data->type,
-					(u32)data->phy.y_phy);
+				(u32)data->phy.y_phy, data->evt_msg.frame_id);
 		}
 		break;
 	default:

@@ -127,7 +127,8 @@ static struct v4l2_subdev_ops mctl_subdev_ops = {
 	.video  = &mctl_subdev_video_ops,
 };
 
-static int msm_get_sensor_info(struct msm_sync *sync, void __user *arg)
+static int msm_get_sensor_info(struct msm_sync *sync,
+				void __user *arg)
 {
 	int rc = 0;
 	struct msm_camsensor_info info;
@@ -200,8 +201,47 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
+static int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
+				void __user *arg)
+{
+	if (copy_from_user(&p_mctl->pp_key, arg, sizeof(p_mctl->pp_key)))
+		return -EFAULT;
+	return 0;
+}
+
+static int msm_mctl_pp_done(struct msm_cam_media_controller *p_mctl,
+				void __user *arg)
+{
+	struct msm_buffer buf;
+	int msg_type;
+
+	if (copy_from_user(&buf, arg, sizeof(struct msm_buffer)))
+		return -EFAULT;
+
+	switch (buf.path) {
+	case OUTPUT_TYPE_P:
+		if (!(p_mctl->pp_key & PP_PREV))
+			return -EFAULT;
+		msg_type = VFE_MSG_OUTPUT_P;
+		break;
+	case OUTPUT_TYPE_S:
+		if (!(p_mctl->pp_key & (PP_SNAP|PP_RAW_SNAP)))
+			return -EFAULT;
+		msg_type = VFE_MSG_OUTPUT_S;
+		break;
+	case OUTPUT_TYPE_T:
+	case OUTPUT_TYPE_V:
+	default:
+		return -EFAULT;
+	}
+	/* here buf.addr is phy_addr */
+	return msm_mctl_buf_done_pp(p_mctl, msg_type,
+					buf.planes[0].addr,
+					buf.frame_id, &buf.timestamp);
+}
+
 /* called by the server or the config nodes to handle user space
-  commands*/
+	commands*/
 static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			unsigned int cmd, unsigned long arg)
 {
@@ -234,9 +274,13 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		}
 		break;
 	}
-
+	case MSM_CAM_IOCTL_PICT_PP:
+		rc = msm_mctl_set_pp_key(p_mctl, (void __user *)arg);
+		break;
+	case MSM_CAM_IOCTL_PICT_PP_DONE:
+		rc = msm_mctl_pp_done(p_mctl, (void __user *)arg);
+		break;
 			/* ISFIF config*/
-
 	default:
 		/* ISP config*/
 		rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);

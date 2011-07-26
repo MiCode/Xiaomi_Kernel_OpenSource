@@ -179,6 +179,7 @@ struct msm_cam_media_controller {
 	struct msm_ispif_fns *ispif_fns;
 
 	struct pm_qos_request_list pm_qos_req_list;
+	uint32_t pp_key;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -226,6 +227,7 @@ struct msm_cam_v4l2_dev_inst {
 	int buf_count;
 	/* buffer offset, if any */
 	uint32_t buf_offset[VIDEO_MAX_FRAME];
+	struct v4l2_crop crop;
 };
 #define MSM_MAX_IMG_MODE                5
 /* abstract camera device for each sensor successfully probed*/
@@ -283,6 +285,7 @@ struct msm_cam_v4l2_device {
 	struct mutex lock;
 	uint8_t ctrl_data[max_control_command_size];
 	struct msm_ctrl_cmd ctrl;
+	uint32_t event_mask;
 };
 static inline struct msm_cam_v4l2_device *to_pcam(
 	struct v4l2_device *v4l2_dev)
@@ -353,7 +356,11 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
-			int msg_type, uint32_t y_phy);
+			int msg_type, uint32_t y_phy, uint32_t frame_id);
+int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
+					int msg_type, uint32_t y_phy,
+					uint32_t frame_id,
+					struct timeval *timestamp);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 				int path, struct msm_free_buf *free_buf);
 int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
