@@ -112,7 +112,7 @@ static int msm_hsl_loopback_enable_set(void *data, u64 val)
 	unsigned long flags;
 	int ret = 0;
 
-	ret = clk_set_rate(msm_hsl_port->clk, 1843200);
+	ret = clk_set_rate(msm_hsl_port->clk, 7372800);
 	if (!ret)
 		clk_en(port, 1);
 	else {
@@ -144,7 +144,7 @@ static int msm_hsl_loopback_enable_get(void *data, u64 *val)
 	unsigned long flags;
 	int ret = 0;
 
-	ret = clk_set_rate(msm_hsl_port->clk, 1843200);
+	ret = clk_set_rate(msm_hsl_port->clk, 7372800);
 	if (!ret)
 		clk_en(port, 1);
 	else {
@@ -497,52 +497,63 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 
 	switch (baud) {
 	case 300:
-		baud_code = UARTDM_CSR_300;
+		baud_code = UARTDM_CSR_75;
 		rxstale = 1;
 		break;
 	case 600:
-		baud_code = UARTDM_CSR_600;
+		baud_code = UARTDM_CSR_150;
 		rxstale = 1;
 		break;
 	case 1200:
-		baud_code = UARTDM_CSR_1200;
+		baud_code = UARTDM_CSR_300;
 		rxstale = 1;
 		break;
 	case 2400:
-		baud_code = UARTDM_CSR_2400;
+		baud_code = UARTDM_CSR_600;
 		rxstale = 1;
 		break;
 	case 4800:
-		baud_code = UARTDM_CSR_4800;
+		baud_code = UARTDM_CSR_1200;
 		rxstale = 1;
 		break;
 	case 9600:
-		baud_code = UARTDM_CSR_9600;
+		baud_code = UARTDM_CSR_2400;
 		rxstale = 2;
 		break;
 	case 14400:
-		baud_code = UARTDM_CSR_14400;
+		baud_code = UARTDM_CSR_3600;
 		rxstale = 3;
 		break;
 	case 19200:
-		baud_code = UARTDM_CSR_19200;
+		baud_code = UARTDM_CSR_4800;
 		rxstale = 4;
 		break;
 	case 28800:
-		baud_code = UARTDM_CSR_28800;
+		baud_code = UARTDM_CSR_7200;
 		rxstale = 6;
 		break;
 	case 38400:
-		baud_code = UARTDM_CSR_38400;
+		baud_code = UARTDM_CSR_9600;
 		rxstale = 8;
 		break;
 	case 57600:
-		baud_code = UARTDM_CSR_57600;
+		baud_code = UARTDM_CSR_14400;
 		rxstale = 16;
 		break;
 	case 115200:
-	default:
+		baud_code = UARTDM_CSR_28800;
+		rxstale = 31;
+		break;
+	case 230400:
+		baud_code = UARTDM_CSR_57600;
+		rxstale = 31;
+		break;
+	case 460800:
 		baud_code = UARTDM_CSR_115200;
+		rxstale = 31;
+		break;
+	default: /* 115200 baud rate */
+		baud_code = UARTDM_CSR_28800;
 		rxstale = 31;
 		break;
 	}
@@ -700,7 +711,7 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	clk_en(port, 1);
 
 	/* calculate and set baud rate */
-	baud = uart_get_baud_rate(port, termios, old, 300, 115200);
+	baud = uart_get_baud_rate(port, termios, old, 300, 460800);
 
 	msm_hsl_set_baud_rate(port, baud);
 
@@ -888,7 +899,7 @@ static void msm_hsl_power(struct uart_port *port, unsigned int state,
 
 	switch (state) {
 	case 0:
-		ret = clk_set_rate(msm_hsl_port->clk, 1843200);
+		ret = clk_set_rate(msm_hsl_port->clk, 7372800);
 		if (ret)
 			pr_err("%s(): Error setting UART clock rate\n",
 								__func__);
