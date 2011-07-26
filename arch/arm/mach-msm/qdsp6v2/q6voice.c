@@ -1659,13 +1659,13 @@ static int voice_attach_vocproc(struct voice_data *v)
 	mvm_a_vocproc_cmd.hdr.src_port = 0;
 	mvm_a_vocproc_cmd.hdr.dest_port = mvm_handle;
 	mvm_a_vocproc_cmd.hdr.token = 0;
-	mvm_a_vocproc_cmd.hdr.opcode = VSS_IMVM_CMD_ATTACH_VOCPROC;
+	mvm_a_vocproc_cmd.hdr.opcode = VSS_ISTREAM_CMD_ATTACH_VOCPROC;
 	mvm_a_vocproc_cmd.mvm_attach_cvp_handle.handle = cvp_handle;
 
 	v->mvm_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_a_vocproc_cmd);
 	if (ret < 0) {
-		pr_err("Fail in sending VSS_IMVM_CMD_ATTACH_VOCPROC\n");
+		pr_err("Fail in sending VSS_ISTREAM_CMD_ATTACH_VOCPROC\n");
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -1710,13 +1710,13 @@ static int voice_destroy_modem_voice(struct voice_data *v)
 	mvm_d_vocproc_cmd.hdr.src_port = 0;
 	mvm_d_vocproc_cmd.hdr.dest_port = mvm_handle;
 	mvm_d_vocproc_cmd.hdr.token = 0;
-	mvm_d_vocproc_cmd.hdr.opcode = VSS_IMVM_CMD_DETACH_VOCPROC;
+	mvm_d_vocproc_cmd.hdr.opcode = VSS_ISTREAM_CMD_DETACH_VOCPROC;
 	mvm_d_vocproc_cmd.mvm_detach_cvp_handle.handle = cvp_handle;
 
 	v->mvm_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_d_vocproc_cmd);
 	if (ret < 0) {
-		pr_err("Fail in sending VSS_IMVM_CMD_DETACH_VOCPROC\n");
+		pr_err("Fail in sending VSS_ISTREAM_CMD_DETACH_VOCPROC\n");
 		goto fail;
 	}
 	ret = wait_event_timeout(v->mvm_wait,
@@ -2436,14 +2436,14 @@ static int32_t modem_mvm_callback(struct apr_client_data *data, void *priv)
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
-			} else if (ptr[0] == VSS_IMVM_CMD_ATTACH_VOCPROC) {
+			} else if (ptr[0] == VSS_ISTREAM_CMD_ATTACH_VOCPROC) {
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == VSS_IMVM_CMD_STOP_VOICE) {
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
-			} else if (ptr[0] == VSS_IMVM_CMD_DETACH_VOCPROC) {
+			} else if (ptr[0] == VSS_ISTREAM_CMD_DETACH_VOCPROC) {
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == VSS_ISTREAM_CMD_SET_TTY_MODE) {
