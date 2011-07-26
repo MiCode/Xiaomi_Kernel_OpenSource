@@ -26,6 +26,10 @@
 /* 11 general purpose registers (r4-r14), 10 cp15 registers */
 #define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
 #endif
+#ifdef CONFIG_ARCH_MSM_KRAIT
+#define SCM_SVC_BOOT 0x1
+#define SCM_CMD_TERMINATE_PC 0x2
+#endif
 
 ENTRY(msm_arch_idle)
 	stmfd   sp!, {lr}
@@ -95,16 +99,21 @@ ENTRY(msm_pm_collapse)
 #endif
 	bl      v7_flush_dcache_all
 
-	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
-	bic     r0, r1, #(1 << 2)        /* clear dcache bit   */
+	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
+	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 
 	dsb
-
+#ifdef CONFIG_ARCH_MSM_KRAIT
+	ldr	r0, =SCM_SVC_BOOT
+	ldr	r1, =SCM_CMD_TERMINATE_PC
+	ldr	r2, =0
+	bl	scm_call_atomic1
+#else
 	wfi
-
-	mcr     p15, 0, r1, c1, c0, 0    /* restore d/i cache  */
+#endif
+	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
 
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
@@ -249,4 +258,3 @@ saved_state_end:
 
 msm_pm_boot_vector:
 	.space  4 * NR_CPUS
-
