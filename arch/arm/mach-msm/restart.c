@@ -21,6 +21,7 @@
 #include <linux/pm.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/mfd/pmic8901.h>
+#include <linux/mfd/pm8xxx/misc.h>
 
 #include <asm/mach-types.h>
 
@@ -115,6 +116,7 @@ static void msm_power_off(void)
 		pm8058_reset_pwr_off(0);
 		pm8901_reset_pwr_off(0);
 	}
+	pm8xxx_reset_pwr_off(0);
 	__raw_writel(0, PSHOLD_CTL_SU);
 	mdelay(10000);
 	printk(KERN_ERR "Powering off has failed\n");
@@ -145,6 +147,7 @@ void arch_reset(char mode, const char *cmd)
 
 	if (cpu_is_msm8x60())
 		pm8058_reset_pwr_off(1);
+	pm8xxx_reset_pwr_off(1);
 
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
