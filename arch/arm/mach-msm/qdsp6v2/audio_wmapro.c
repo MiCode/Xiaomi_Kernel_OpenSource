@@ -1203,7 +1203,9 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 		}
 		if ((audio->wmapro_config.formattag == 0x162) ||
-		(audio->wmapro_config.formattag == 0x166)) {
+		    (audio->wmapro_config.formattag == 0x163) ||
+		    (audio->wmapro_config.formattag == 0x166) ||
+		(audio->wmapro_config.formattag == 0x167)) {
 			wmapro_cfg.format_tag = audio->wmapro_config.formattag;
 		} else {
 			pr_err("%s:AUDIO_START failed: formattag = %d\n",
