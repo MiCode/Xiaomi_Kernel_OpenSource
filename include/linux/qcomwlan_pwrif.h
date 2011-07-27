@@ -33,6 +33,7 @@
 #define CHIP_POWER_OFF        0
 
 int vos_chip_power_qrf8615(int on);
+int vos_chip_power_qrf8615_dragon(int on);
 int qcomwlan_pmic_xo_core_force_enable(int on);
 int qcomwlan_freq_change_1p3v_supply(enum rpm_vreg_freq freq);
 
