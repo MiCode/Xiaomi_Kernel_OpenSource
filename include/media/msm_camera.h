@@ -135,6 +135,9 @@
 #define MSM_CAM_IOCTL_GET_CONFIG_INFO \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 40, struct msm_cam_config_dev_info *)
 
+#define MSM_CAM_IOCTL_V4L2_EVT_NOTIFY \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct msm_camera_event *)
+
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
 #define MSM_CAMERA_LED_HIGH 2
@@ -236,7 +239,7 @@ struct msm_camera_event_ctrl {
 };
 struct msm_camera_event_stats {
 	uint32_t event_id;
-	uint8_t data[60]; /* to be determined later */
+	uint8_t data[40]; /* to be determined later */
 };
 
 struct msm_camera_event {
@@ -246,14 +249,15 @@ struct msm_camera_event {
 		struct msm_camera_event_stream stream;
 		struct msm_camera_event_ctrl ctrl;
 		struct msm_camera_event_stats stats;
-	};
+	} e;
 };
 
 /* driver event types */
 #define MSM_CAM_EVT_HISTOGRAM_NOTIFY	(V4L2_EVENT_PRIVATE_START+1)
 #define MSM_CAM_EVT_STREAMING_NOTIFY	(V4L2_EVENT_PRIVATE_START+2)
 #define MSM_CAM_EVT_ASYNC_CMD_NOTIFY	(V4L2_EVENT_PRIVATE_START+3)
-#define MSM_CAM_EVT_CNT_MAX				3
+#define MSM_CAM_EVT_AUTO_FOCUS_DONE	(V4L2_EVENT_PRIVATE_START+4)
+#define MSM_CAM_EVT_MAX			(V4L2_EVENT_PRIVATE_START+5)
 
 struct msm_event_histogram {
 	int32_t fd;

@@ -184,7 +184,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		/* TODO: Refactor msm_ctrl_cmd::status field */
 		if (out->status == 0)
 			rc = -1;
-		else if (out->status == 1)
+		else if (out->status == 1 || out->status == 4)
 			rc = 0;
 		else
 			rc = -EINVAL;
@@ -673,21 +673,25 @@ static void msm_streaming_action_notify(
 	struct msm_cam_v4l2_dev_inst *pcam_inst, int streamon, int rc)
 {
 	struct v4l2_event ev;
-	struct msm_camera_event_stream stm;
+	struct msm_camera_event stm;
 
-	if (!(pcam_inst->pcam->event_mask & MSM_CAMERA_EVT_TYPE_STREAM))
+	if (!(pcam_inst->pcam->event_mask &
+			(1 << MSM_CAMERA_EVT_TYPE_STREAM))) {
+		pr_err("%s:Event mask not matching", __func__);
 		return;
+	}
 
 	memset(&ev, 0, sizeof(ev));
-	stm.image_mode = pcam_inst->image_mode;
-	stm.op_mode = pcam_inst->pcam->op_mode;
+	stm.event_type = MSM_CAMERA_EVT_TYPE_STREAM;
+	stm.e.stream.image_mode = pcam_inst->image_mode;
+	stm.e.stream.op_mode = pcam_inst->pcam->op_mode;
 	if (rc == 0) {
 		if (streamon)
-			stm.status = MSM_CAMERA_STREAM_STATUS_ON;
+			stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_ON;
 		else
-			stm.status = MSM_CAMERA_STREAM_STATUS_OFF;
+			stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_OFF;
 	} else
-		stm.status = MSM_CAMERA_STREAM_STATUS_ERR;
+		stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_ERR;
 
 	ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAMERA_EVT_TYPE_STREAM;
 	ktime_get_ts(&ev.timestamp);
@@ -1019,6 +1023,9 @@ static int msm_camera_v4l2_subscribe_event(struct v4l2_fh *fh,
 		if (rc < 0)
 			D("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
+		else
+			pcam_inst->pcam->event_mask |=
+				(1 << (sub->type - V4L2_EVENT_PRIVATE_START));
 	}
 
 	D("%s: rc = %d\n", __func__, rc);
@@ -1397,16 +1404,19 @@ static unsigned int msm_poll(struct file *f, struct poll_table_struct *wait)
 		pr_err("%s NULL pointer of camera device!\n", __func__);
 		return -EINVAL;
 	}
-
-	if (!pcam_inst->vid_bufq.streaming) {
-		D("%s vid_bufq.streaming is off, inst=0x%x\n",
+	if (pcam_inst->my_index == 0) {
+		poll_wait(f, &(pcam_inst->eventHandle.events->wait), wait);
+		if (v4l2_event_pending(&pcam_inst->eventHandle))
+			rc |= POLLPRI;
+	} else {
+		if (!pcam_inst->vid_bufq.streaming) {
+			D("%s vid_bufq.streaming is off, inst=0x%x\n",
 			__func__, (u32)pcam_inst);
-		return -EINVAL;
+			return -EINVAL;
+		}
+		rc |= vb2_poll(&pcam_inst->vid_bufq, f, wait);
 	}
-
-	rc |= vb2_poll(&pcam_inst->vid_bufq, f, wait);
 	D("%s returns, rc  = 0x%x\n", __func__, rc);
-
 	return rc;
 }
 
@@ -1600,6 +1610,22 @@ static unsigned int msm_poll_config(struct file *fp,
 	return rc;
 }
 
+static int msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
+	unsigned int cmd, struct msm_camera_event *ev)
+{
+	struct v4l2_event v4l2_ev;
+	struct msm_cam_v4l2_device *pcam = NULL;
+	if (!mctl) {
+		pr_err("%s: mctl is NULL\n", __func__);
+		return -EINVAL;
+	}
+	pcam = g_server_dev.pcam_active;
+	v4l2_ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAMERA_EVT_TYPE_CTRL;
+	ktime_get_ts(&v4l2_ev.timestamp);
+	memcpy(v4l2_ev.u.data, ev, sizeof(struct msm_camera_event));
+	v4l2_event_queue(pcam->pvdev, &v4l2_ev);
+	return 0;
+}
 static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 	unsigned long arg)
 {
@@ -1697,6 +1723,16 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 
 		break;
 
+	case MSM_CAM_IOCTL_V4L2_EVT_NOTIFY: {
+		struct msm_camera_event event;
+		if (copy_from_user(&event, (void __user *)arg,
+		sizeof(struct msm_camera_event))) {
+			ERR_COPY_FROM_USER();
+			return -EFAULT;
+		}
+		rc = msm_v4l2_evt_notify(config_cam->p_mctl, cmd, &event);
+		break;
+	}
 	default:{
 		/* For the rest of config command, forward to media controller*/
 		struct msm_cam_media_controller *p_mctl = config_cam->p_mctl;
