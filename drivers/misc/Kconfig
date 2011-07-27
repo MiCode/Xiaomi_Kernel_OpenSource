@@ -589,6 +589,14 @@ config PMIC8058_PWM
 	  purposes including software controlled brightness of backlight,
 	  motor control, and waveform generation.
 
+config PMIC8XXX_VIBRATOR
+	tristate "Qualcomm Vibrator support for PMIC8XXX"
+	depends on MFD_PM8XXX && ANDROID_TIMED_OUTPUT
+	help
+	  This option enables device driver support for the vibrator
+	  on the PM8XXX chips. The vibrator is controlled using the
+	  timed output class.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
