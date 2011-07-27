@@ -537,7 +537,12 @@ static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
 
 static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 {
-	return pm8921_bms_get_percent_charge();
+	int percent_soc = pm8921_bms_get_percent_charge();
+
+	if (percent_soc <= 10)
+		pr_warn("low battery charge = %d%%\n", percent_soc);
+
+	return percent_soc;
 }
 
 static int get_prop_batt_health(struct pm8921_chg_chip *chip)
