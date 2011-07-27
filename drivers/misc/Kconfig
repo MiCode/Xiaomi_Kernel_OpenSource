@@ -593,6 +593,14 @@ config PMIC8058_VIBRATOR
 	  This option enables device driver support for the vibrator
 	  on Qualcomm PM8058 chip.
 
+config PMIC8XXX_VIBRATOR
+	tristate "Qualcomm Vibrator support for PMIC8XXX"
+	depends on MFD_PM8XXX && ANDROID_TIMED_OUTPUT
+	help
+	  This option enables device driver support for the vibrator
+	  on the PM8XXX chips. The vibrator is controlled using the
+	  timed output class.
+
 config PMIC8058_NFC
 	tristate "Qualcomm PM8058 support for Near Field Communication"
 	depends on PMIC8058
