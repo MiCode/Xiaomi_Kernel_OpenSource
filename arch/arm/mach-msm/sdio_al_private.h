@@ -29,6 +29,7 @@
 #define PEER_CHANNEL_NAME_SIZE		4
 #define CHANNEL_NAME_SIZE (sizeof(SDIO_PREFIX) + PEER_CHANNEL_NAME_SIZE)
 #define SDIO_TEST_POSTFIX_SIZE 5
+#define MAX_NUM_OF_SDIO_DEVICES	2
 
 struct sdio_al_device; /* Forward Declaration */
 

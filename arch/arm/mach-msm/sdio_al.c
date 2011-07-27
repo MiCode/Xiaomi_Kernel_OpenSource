@@ -254,9 +254,6 @@ struct rx_packet_size {
 
 /* Allow support in old sdio version */
 #define PEER_SDIOC_OLD_VERSION_MAJOR	0x0002
-
-#define MAX_NUM_OF_SDIO_DEVICES		2
-
 #define INVALID_SDIO_CHAN		0xFF
 
 /**
@@ -610,6 +607,11 @@ static void sdio_al_vote_for_sleep(struct sdio_al_device *sdio_al_dev,
 				   int is_vote_for_sleep)
 {
 	pr_debug(MODULE_NAME ": %s()", __func__);
+
+	if (!sdio_al_dev) {
+		pr_err(MODULE_NAME ": %s - sdio_al_dev is NULL\n", __func__);
+		return;
+	}
 
 	if (is_vote_for_sleep) {
 		LPM_DEBUG(MODULE_NAME ": %s - sdio vote for Sleep", __func__);
@@ -2033,7 +2035,6 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 	}
 
 	/* Wake up sequence */
-	sdio_al_vote_for_sleep(sdio_al_dev, 0);
 	if (not_from_int) {
 		LPM_DEBUG(MODULE_NAME ": Wake up card %d (not by interrupt)",
 			sdio_al_dev->card->host->index);
@@ -2048,6 +2049,7 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 			sdio_al_dev->card->host->index);
 		return 0;
 	}
+	sdio_al_vote_for_sleep(sdio_al_dev, 0);
 
 	pr_debug(MODULE_NAME ":Turn clock on for card %d\n",
 		 sdio_al_dev->card->host->index);
@@ -2062,6 +2064,7 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 			break;
 		udelay(TIME_TO_WAIT_US);
 	}
+
 	LPM_DEBUG(MODULE_NAME ":GPIO mdm2ap_status=%d\n",
 		       sdio_al->pdata->get_mdm2ap_status());
 
