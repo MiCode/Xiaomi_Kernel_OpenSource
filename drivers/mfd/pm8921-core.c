@@ -338,6 +338,11 @@ static struct mfd_cell batt_alarm_cell = {
 	.pdata_size	= sizeof(struct pm8xxx_batt_alarm_core_data),
 };
 
+static struct mfd_cell vibrator_cell = {
+	.name           = PM8XXX_VIBRATOR_DEV_NAME,
+	.id             = -1,
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
@@ -542,6 +547,18 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		pr_err("Failed to add battery alarm subdevice ret=%d\n",
 			ret);
 		goto bail;
+	}
+
+	if (pdata->vibrator_pdata) {
+		vibrator_cell.platform_data = pdata->vibrator_pdata;
+		vibrator_cell.pdata_size =
+				sizeof(struct pm8xxx_vibrator_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add vibrator subdevice ret=%d\n",
+									ret);
+			goto bail;
+		}
 	}
 
 	return 0;
