@@ -553,7 +553,10 @@ free_memmap(unsigned long start_pfn, unsigned long end_pfn)
 }
 
 /*
- * The mem_map array can get very big.  Free the unused area of the memory map.
+ * The mem_map array can get very big.  Free as much of the unused portion of
+ * the mem_map that we are allowed to. The page migration code moves pages
+ * in blocks that are rounded per the MAX_ORDER_NR_PAGES definition, so we
+ * can't free mem_map entries that may be dereferenced in this manner.
  */
 static void __init free_unused_memmap(struct meminfo *mi)
 {
@@ -567,7 +570,8 @@ static void __init free_unused_memmap(struct meminfo *mi)
 	for_each_bank(i, mi) {
 		struct membank *bank = &mi->bank[i];
 
-		bank_start = bank_pfn_start(bank);
+		bank_start = round_down(bank_pfn_start(bank),
+					MAX_ORDER_NR_PAGES);
 
 #ifdef CONFIG_SPARSEMEM
 		/*
@@ -591,12 +595,8 @@ static void __init free_unused_memmap(struct meminfo *mi)
 		if (prev_bank_end && prev_bank_end < bank_start)
 			free_memmap(prev_bank_end, bank_start);
 
-		/*
-		 * Align up here since the VM subsystem insists that the
-		 * memmap entries are valid from the bank end aligned to
-		 * MAX_ORDER_NR_PAGES.
-		 */
-		prev_bank_end = ALIGN(bank_pfn_end(bank), MAX_ORDER_NR_PAGES);
+		prev_bank_end = round_up(bank_pfn_end(bank),
+					 MAX_ORDER_NR_PAGES);
 	}
 
 #ifdef CONFIG_SPARSEMEM
