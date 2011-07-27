@@ -232,18 +232,8 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		/* if AFE port is already started, this means
-		 * application wishes to restore hardware to
-		 * fresh state. This logic anticipates prepare is not
-		 * called right after TRIGGER_START before Q6 AFE
-		 * has enough time to respond to port start command.
-		 */
-		rc = afe_close(dai->id); /* can block */
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to close AFE port\n");
-		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
-	} else {
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		/* PORT START should be set if prepare called in active state */
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			rc = adm_open_mixer(dai->id, 1, dai_data->rate,
 				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
