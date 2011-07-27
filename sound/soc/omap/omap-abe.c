@@ -554,7 +554,7 @@ static void capture_trigger(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai, int cmd)
 {
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
-	struct snd_soc_dsp_params *dsp_params;
+	struct snd_soc_dsp_params *dsp_params, *tmp;
 	struct snd_pcm_substream *be_substream;
 	int stream = substream->stream;
 
@@ -564,7 +564,7 @@ static void capture_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 
 		/* mute and enable BE ports */
-		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
+		list_for_each_entry_safe(dsp_params, tmp, &fe->dsp[stream].be_clients, list_be) {
 			struct snd_soc_pcm_runtime *be = dsp_params->be;
 
 			/* does this trigger() apply to this BE and stream ? */
@@ -629,7 +629,7 @@ static void capture_trigger(struct snd_pcm_substream *substream,
 		}
 
 		/* disable BE ports */
-		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
+		list_for_each_entry_safe(dsp_params, tmp, &fe->dsp[stream].be_clients, list_be) {
 			struct snd_soc_pcm_runtime *be = dsp_params->be;
 
 			/* does this trigger() apply to this BE and stream ? */
@@ -662,7 +662,7 @@ static void playback_trigger(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai, int cmd)
 {
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
-	struct snd_soc_dsp_params *dsp_params;
+	struct snd_soc_dsp_params *dsp_params, *tmp;
 	struct snd_pcm_substream *be_substream;
 	int stream = substream->stream;
 
@@ -672,7 +672,7 @@ static void playback_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 
 		/* mute and enable ports */
-		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
+		list_for_each_entry_safe(dsp_params, tmp, &fe->dsp[stream].be_clients, list_be) {
 			struct snd_soc_pcm_runtime *be = dsp_params->be;
 
 			/* does this trigger() apply to the FE ? */
@@ -742,7 +742,7 @@ static void playback_trigger(struct snd_pcm_substream *substream,
 		}
 
 		/* disable BE ports */
-		list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
+		list_for_each_entry_safe(dsp_params, tmp, &fe->dsp[stream].be_clients, list_be) {
 			struct snd_soc_pcm_runtime *be = dsp_params->be;
 
 			/* does this trigger() apply to this BE and stream ? */
