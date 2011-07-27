@@ -38,7 +38,7 @@
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
 #define ERR_COPY_TO_USER() ERR_USER_COPY(1)
 
-#define MSM_FRAME_AXI_MAX_BUF 16
+#define MSM_FRAME_AXI_MAX_BUF 32
 /* This will enqueue ISP events or signal buffer completion */
 static int msm_isp_enqueue(struct msm_cam_media_controller *pmctl,
 				struct msm_vfe_resp *data,
@@ -502,13 +502,17 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 	int rc = -EIO;
 	struct axidata axi_data;
 	void *data = &axi_data;
-	struct msm_pmem_region region[MSM_FRAME_AXI_MAX_BUF];
 	int pmem_type;
 	int i = 0;
 	int idx = 0;
 	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
-
+	struct msm_pmem_region *region = kmalloc((MSM_FRAME_AXI_MAX_BUF *
+				sizeof(struct msm_pmem_region)), GFP_KERNEL);
+	if (!region) {
+		pr_err("%s out of memory", __func__);
+		return -ENOMEM;
+	}
 	memset(&axi_data, 0, sizeof(axi_data));
 
 	switch (cfgcmd->cmd_type) {
@@ -518,15 +522,18 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW];
 		if (pcam_inst)
 			idx = pcam_inst->my_index;
-		else
+		else {
+			kfree(region);
 			return rc;
+		}
 		pmem_type = MSM_PMEM_PREVIEW;
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[0], pmem_type);
+				region, pmem_type);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region 3 lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 		D("%s __func__ axi_data.bufnum2 = %d\n", __func__,
@@ -538,16 +545,19 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW];
 		if (pcam_inst)
 			idx = pcam_inst->my_index;
-		else
+		else {
+			kfree(region);
 			return rc;
+		}
 		pmem_type = MSM_PMEM_PREVIEW;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[0], pmem_type);
+				region, pmem_type);
 		D("%s bufnum1 = %d\n", __func__, axi_data.bufnum1);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 
@@ -558,11 +568,12 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 			pmem_type = MSM_PMEM_VIDEO;
 			axi_data.bufnum2 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[axi_data.bufnum1], pmem_type);
+				region + axi_data.bufnum1, pmem_type);
 		D("%s bufnum2 = %d\n", __func__, axi_data.bufnum2);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 		break;
@@ -573,15 +584,18 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		= pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL];
 		if (pcam_inst)
 			idx = pcam_inst->my_index;
-		else
+		else {
+			kfree(region);
 			return rc;
+		}
 		pmem_type = MSM_PMEM_THUMBNAIL;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[0], pmem_type);
+				region, pmem_type);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 
@@ -589,15 +603,18 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		= pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_MAIN];
 		if (pcam_inst)
 			idx = pcam_inst->my_index;
-		else
+		else {
+			kfree(region);
 			return rc;
+		}
 		pmem_type = MSM_PMEM_MAINIMG;
 		axi_data.bufnum2 =
 		msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[axi_data.bufnum1], pmem_type);
+				region + axi_data.bufnum1, pmem_type);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 		break;
@@ -605,50 +622,59 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_ZSL:
 		pcam_inst =
 		pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW];
-		if (!pcam_inst)
+		if (!pcam_inst) {
+			kfree(region);
 			return -EINVAL;
+		}
 		idx = pcam_inst->my_index;
 		pmem_type = MSM_PMEM_PREVIEW;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[0], pmem_type);
+				region, pmem_type);
 		D("%s bufnum1 = %d\n", __func__, axi_data.bufnum1);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 
 		pcam_inst
 		= pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL];
-		if (!pcam_inst)
+		if (!pcam_inst) {
+			kfree(region);
 			return -EINVAL;
+		}
 		idx = pcam_inst->my_index;
 		pmem_type = MSM_PMEM_THUMBNAIL;
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[axi_data.bufnum1], pmem_type);
+				region + axi_data.bufnum1, pmem_type);
 		D("%s bufnum2 = %d\n", __func__, axi_data.bufnum2);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 
 		pcam_inst
 		= pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_MAIN];
-		if (!pcam_inst)
+		if (!pcam_inst) {
+			kfree(region);
 			return -EINVAL;
+		}
 		idx = pcam_inst->my_index;
 		pmem_type = MSM_PMEM_MAINIMG;
 		axi_data.bufnum3 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[axi_data.bufnum1+axi_data.bufnum2],
+				region + axi_data.bufnum1 + axi_data.bufnum2,
 								pmem_type);
 		D("%s bufnum3 = %d\n", __func__, axi_data.bufnum3);
 		if (!axi_data.bufnum3) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 		break;
@@ -658,15 +684,18 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 		= pcam->dev_inst_map[MSM_V4L2_EXT_CAPTURE_MODE_MAIN];
 		if (pcam_inst)
 			idx = pcam_inst->my_index;
-		else
+		else {
+			kfree(region);
 			return rc;
+		}
 		pmem_type = MSM_PMEM_RAW_MAINIMG;
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup_3(sync->pcam_sync, idx,
-				&region[0], pmem_type);
+				region, pmem_type);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
+			kfree(region);
 			return -EINVAL;
 		}
 		break;
@@ -678,10 +707,11 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 	default:
 		pr_err("%s: unknown command type %d\n",
 			__func__, cfgcmd->cmd_type);
+		kfree(region);
 		return -EINVAL;
 	}
 
-	axi_data.region = &region[0];
+	axi_data.region = region;
 	D("%s bufnum1 = %d, bufnum2 = %d\n", __func__,
 	  axi_data.bufnum1, axi_data.bufnum2);
 	for (i = 0; i < MSM_FRAME_AXI_MAX_BUF; i++) {
@@ -692,6 +722,7 @@ static int msm_frame_axi_cfg(struct v4l2_subdev *sd,
 	}
 	/* send the AXI configuration command to driver */
 	rc = msm_isp_subdev_ioctl(sd, cfgcmd, data);
+	kfree(region);
 	return rc;
 }
 
