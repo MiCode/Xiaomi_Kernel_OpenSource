@@ -17,5 +17,6 @@ void __init msm8x60_init_gpiomux(struct msm_gpiomux_configs *cfgs);
 extern struct msm_gpiomux_configs msm8x60_surf_ffa_gpiomux_cfgs[] __initdata;
 extern struct msm_gpiomux_configs msm8x60_fluid_gpiomux_cfgs[] __initdata;
 extern struct msm_gpiomux_configs msm8x60_charm_gpiomux_cfgs[] __initdata;
+extern struct msm_gpiomux_configs msm8x60_dragon_gpiomux_cfgs[] __initdata;
 
 #endif
