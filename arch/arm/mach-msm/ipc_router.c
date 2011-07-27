@@ -2001,11 +2001,12 @@ int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr)
 
 int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
 				struct msm_ipc_port_addr *srv_addr,
-				int num_entries_in_array)
+				int num_entries_in_array,
+				uint32_t lookup_mask)
 {
 	struct msm_ipc_server *server;
 	struct msm_ipc_server_port *server_port;
-	int i = 0; /*num_entries_found*/
+	int key, i = 0; /*num_entries_found*/
 
 	if (!srv_name) {
 		pr_err("%s: Invalid srv_name\n", __func__);
@@ -2017,18 +2018,27 @@ int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
 		return -EINVAL;
 	}
 
-	server = msm_ipc_router_lookup_server(srv_name->service,
-					srv_name->instance, 0, 0);
-	if (!server)
-		return -ENODEV;
-
 	mutex_lock(&server_list_lock);
-	list_for_each_entry(server_port, &server->server_port_list, list) {
-		if (i < num_entries_in_array) {
-			srv_addr[i].node_id = server_port->server_addr.node_id;
-			srv_addr[i].port_id = server_port->server_addr.port_id;
+	if (!lookup_mask)
+		lookup_mask = 0xFFFFFFFF;
+	for (key = 0; key < SRV_HASH_SIZE; key++) {
+		list_for_each_entry(server, &server_list[key], list) {
+			if ((server->name.service != srv_name->service) ||
+			    ((server->name.instance & lookup_mask) !=
+				srv_name->instance))
+				continue;
+
+			list_for_each_entry(server_port,
+				&server->server_port_list, list) {
+				if (i < num_entries_in_array) {
+					srv_addr[i].node_id =
+					  server_port->server_addr.node_id;
+					srv_addr[i].port_id =
+					  server_port->server_addr.port_id;
+				}
+				i++;
+			}
 		}
-		i++;
 	}
 	mutex_unlock(&server_list_lock);
 

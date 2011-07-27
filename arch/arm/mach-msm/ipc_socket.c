@@ -431,7 +431,8 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 			}
 		}
 		ret = msm_ipc_router_lookup_server_name(&server_arg.port_name,
-				port_addr, server_arg.num_entries_in_array);
+				port_addr, server_arg.num_entries_in_array,
+				server_arg.lookup_mask);
 		if (ret < 0) {
 			pr_err("%s: Server not found\n", __func__);
 			ret = -ENODEV;

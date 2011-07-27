@@ -66,6 +66,7 @@ struct server_lookup_args {
 	struct msm_ipc_port_name port_name;
 	int num_entries_in_array;
 	int num_entries_found;
+	uint32_t lookup_mask;
 	struct msm_ipc_port_addr port_addr[0];
 };
 
