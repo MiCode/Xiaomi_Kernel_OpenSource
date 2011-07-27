@@ -2654,6 +2654,10 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_vidc,
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
+
+#ifdef CONFIG_HW_RANDOM_MSM
+	&msm_device_rng,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
