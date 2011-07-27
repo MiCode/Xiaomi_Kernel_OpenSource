@@ -187,6 +187,10 @@ static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe,
 				continue;
 			}
 
+			/* don't connect if FE is not running */
+			if (!fe->dsp[stream].runtime)
+				continue;
+
 			/* newly connected FE and BE */
 			err = be_connect(fe, be, stream);
 			if (err < 0) {
@@ -1482,6 +1486,8 @@ int soc_dsp_fe_dai_close(struct snd_pcm_substream *fe_substream)
 	ret = soc_dsp_fe_dai_shutdown(fe_substream);
 
 	be_disconnect(fe, fe_substream->stream);
+
+	fe->dsp[fe_substream->stream].runtime = NULL;
 
 	return ret;
 }
