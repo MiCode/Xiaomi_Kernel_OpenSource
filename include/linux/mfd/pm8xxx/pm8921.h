@@ -34,6 +34,7 @@
 #include <linux/mfd/pm8921-adc.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/leds.h>
+#include <linux/mfd/pm8xxx/vibrator.h>
 
 #define PM8921_NR_IRQS		256
 
@@ -125,6 +126,7 @@ struct pm8921_platform_data {
 	int					num_regulators;
 	struct pm8921_adc_platform_data		*adc_pdata;
 	struct led_platform_data		*leds_pdata;
+	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 };
 
 #endif
