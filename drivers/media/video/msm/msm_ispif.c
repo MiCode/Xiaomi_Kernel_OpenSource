@@ -79,11 +79,8 @@ static uint32_t global_intf_cmd_mask = 0xFFFFFFFF;
 #if DBG_ISPIF
 static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
 {
-	uint32_t *temp;
-	memset(out, 0, sizeof(struct ispif_irq_status));
-	temp = (uint32_t *)(ispifbase + ISPIF_IRQ_STATUS_ADDR);
-	out->ispifIrqStatus0 = msm_io_r(temp);
-	pr_err("ispif_irq: Irq_status0 = 0x%x\n",
+	out->ispifIrqStatus0 = msm_io_r(ispifbase + ISPIF_IRQ_STATUS_ADDR);
+	CDBG("ispif_irq: Irq_status0 = 0x%x\n",
 		out->ispifIrqStatus0);
 	msm_io_w(out->ispifIrqStatus0, ispifbase + ISPIF_IRQ_CLEAR_ADDR);
 }

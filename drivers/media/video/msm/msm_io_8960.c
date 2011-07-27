@@ -819,16 +819,6 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	irq = msm_io_r(csidbase + CSID_IRQ_STATUS_ADDR);
 	CDBG("%s CSID_IRQ_STATUS_ADDR = 0x%x\n", __func__, irq);
 	msm_io_w(irq, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
-	irq = msm_io_r(csidbase + 0x7C);
-	CDBG("%s CSID_PIF_MISR_DL0 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csidbase + 0x80);
-	CDBG("%s CSID_PIF_MISR_DL1 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csidbase + 0x84);
-	CDBG("%s CSID_PIF_MISR_DL2 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csidbase + 0x88);
-	CDBG("%s CSID_PIF_MISR_DL3 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csidbase + 0x8C);
-	CDBG("%s PACKET Count = %d\n", __func__, irq);
 	return IRQ_HANDLED;
 }
 #endif
@@ -1175,7 +1165,7 @@ void msm_camio_disable(struct platform_device *pdev)
 	release_mem_region(csiphy_mem->start, resource_size(csiphy_mem));
 
 #if DBG_CSID
-	free_irq(csid_irq, 0);
+	free_irq(csid_irq->start, 0);
 #endif
 	iounmap(csidbase);
 	release_mem_region(csid_mem->start, resource_size(csid_mem));
@@ -1280,8 +1270,8 @@ int msm_camio_csid_config(struct msm_camera_csid_params *csid_params)
 	if (rc < 0)
 		return rc;
 
-	msm_io_w(0xFFFFFFFF, csidbase + CSID_IRQ_MASK_ADDR);
-	msm_io_w(0xFFFFFFFF, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
+	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_MASK_ADDR);
+	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
 
 	msleep(20);
 	return rc;
@@ -1321,10 +1311,15 @@ int msm_camio_csiphy_config(struct msm_camera_csiphy_params *csiphy_params)
 	msm_io_w(0x2, csiphybase + MIPI_CSIPHY_LNCK_CFG5_ADDR);
 	msm_io_w(0x0, csiphybase + 0x128);
 
-	for (i = 0; i <= csiphy_params->lane_cnt; i++) {
-		msm_io_w(0xFFFFFFFF,
+	msm_io_w(0x24,
+		csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR);
+	msm_io_w(0x24,
+		csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
+
+	for (i = 1; i <= csiphy_params->lane_cnt; i++) {
+		msm_io_w(0x6F,
 			csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR + 0x4*i);
-		msm_io_w(0xFFFFFFFF,
+		msm_io_w(0x6F,
 			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
 	}
 	return rc;
