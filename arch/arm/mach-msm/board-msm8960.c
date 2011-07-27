@@ -915,7 +915,7 @@ struct platform_device msm8960_camera_sensor_imx074 = {
 #endif
 #ifdef CONFIG_OV2720
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
-	.flash_type	= MSM_CAMERA_FLASH_LED,
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
