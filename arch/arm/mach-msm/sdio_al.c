@@ -64,7 +64,7 @@
 #define SDIO_AL_ACTIVE_PIPES 8
 
 /** CMD53/CMD54 Block size */
-#define SDIO_AL_BLOCK_SIZE   128
+#define SDIO_AL_BLOCK_SIZE   256
 
 /** Func#1 hardware Mailbox base address	 */
 #define HW_MAILBOX_ADDR			0x1000
