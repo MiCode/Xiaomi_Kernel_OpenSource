@@ -1334,10 +1334,15 @@ static int writeback_offset(void)
 
 #define MDP_VSYNC_GPIO 0
 
-#define TOSHIBA_PANEL_NAME "mipi_video_toshiba_wsvga"
-#define TOSHIBA_PANEL_NAME_LEN 24
-#define CHIMEI_PANEL_NAME "mipi_chimei_wxga"
-#define CHIMEI_PANEL_NAME_LEN 16
+#define PANEL_NAME_MAX_LEN	30
+#define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
+#define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
+#define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME	"mipi_video_toshiba_wsvga"
+#define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME	"mipi_video_chimei_wxga"
+#define MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME	"mipi_video_simulator_vga"
+#define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
+#define HDMI_PANEL_NAME	"hdmi_msm"
+#define TVOUT_PANEL_NAME	"tvout_msm"
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -1345,35 +1350,66 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 static int msm_fb_detect_panel(const char *name)
 {
 	if (machine_is_msm8960_liquid()) {
-		if (!strncmp(name, CHIMEI_PANEL_NAME, CHIMEI_PANEL_NAME_LEN))
+		if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
 	} else {
-		if (!strncmp(name, TOSHIBA_PANEL_NAME, TOSHIBA_PANEL_NAME_LEN))
+		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
+
+#ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+		if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+				strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+#endif
 	}
 
-	pr_warning("%s: not supported '%s'", __func__, name);
+	if (!strncmp(name, HDMI_PANEL_NAME,
+			strnlen(HDMI_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
+	if (!strncmp(name, TVOUT_PANEL_NAME,
+			strnlen(TVOUT_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
+
+	pr_warning("%s: not supported '%s'", __func__, name);
 	return -ENODEV;
 }
 
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
-#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
 
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 	.dev.platform_data = &msm_fb_pdata,
-#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
 };
 
 static bool dsi_power_on;
