@@ -84,7 +84,7 @@ struct kgsl_functable {
 		unsigned int flags);
 	int (*setup_pt)(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable);
-	int (*cleanup_pt)(struct kgsl_device *device,
+	void (*cleanup_pt)(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable);
 	void (*power_stats)(struct kgsl_device *device,
 		struct kgsl_power_stats *stats);

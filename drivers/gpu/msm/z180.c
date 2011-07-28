@@ -156,13 +156,13 @@ static struct z180_device device_2d0 = {
 		.active_cnt = 0,
 		.iomemname = KGSL_2D0_REG_MEMORY,
 		.ftbl = &z180_functable,
-		.display_off = {
 #ifdef CONFIG_HAS_EARLYSUSPEND
+		.display_off = {
 			.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
 			.suspend = kgsl_early_suspend_driver,
 			.resume = kgsl_late_resume_driver,
-#endif
 		},
+#endif
 	},
 };
 
@@ -253,7 +253,7 @@ static irqreturn_t z180_isr(int irq, void *data)
 	return result;
 }
 
-static int z180_cleanup_pt(struct kgsl_device *device,
+static void z180_cleanup_pt(struct kgsl_device *device,
 			       struct kgsl_pagetable *pagetable)
 {
 	struct z180_device *z180_dev = Z180_DEVICE(device);
@@ -263,8 +263,6 @@ static int z180_cleanup_pt(struct kgsl_device *device,
 	kgsl_mmu_unmap(pagetable, &device->memstore);
 
 	kgsl_mmu_unmap(pagetable, &z180_dev->ringbuffer.cmdbufdesc);
-
-	return 0;
 }
 
 static int z180_setup_pt(struct kgsl_device *device,

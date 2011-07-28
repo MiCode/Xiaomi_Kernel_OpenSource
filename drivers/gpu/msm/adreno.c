@@ -102,13 +102,13 @@ static struct adreno_device device_3d0 = {
 		.active_cnt = 0,
 		.iomemname = KGSL_3D0_REG_MEMORY,
 		.ftbl = &adreno_functable,
-		.display_off = {
 #ifdef CONFIG_HAS_EARLYSUSPEND
+		.display_off = {
 			.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
 			.suspend = kgsl_early_suspend_driver,
 			.resume = kgsl_late_resume_driver,
-#endif
 		},
+#endif
 	},
 	.gmemspace = {
 		.gpu_base = 0,
@@ -118,7 +118,7 @@ static struct adreno_device device_3d0 = {
 	.pm4_fw = NULL,
 };
 
-static int adreno_gmeminit(struct adreno_device *adreno_dev)
+static void adreno_gmeminit(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	union reg_rb_edram_info rb_edram_info;
@@ -137,25 +137,15 @@ static int adreno_gmeminit(struct adreno_device *adreno_dev)
 	rb_edram_info.val = 0;
 
 	rb_edram_info.f.edram_size = edram_value;
-	if (!adreno_is_a22x(adreno_dev))
-		rb_edram_info.f.edram_mapping_mode = 0; /* EDRAM_MAP_UPPER */
+	rb_edram_info.f.edram_mapping_mode = 0; /* EDRAM_MAP_UPPER */
 
 	/* must be aligned to size */
 	rb_edram_info.f.edram_range = (adreno_dev->gmemspace.gpu_base >> 14);
 
 	adreno_regwrite(device, REG_RB_EDRAM_INFO, rb_edram_info.val);
-
-	return 0;
 }
 
-static int adreno_gmemclose(struct kgsl_device *device)
-{
-	adreno_regwrite(device, REG_RB_EDRAM_INFO, 0x00000000);
-
-	return 0;
-}
-
-irqreturn_t adreno_isr(int irq, void *data)
+static irqreturn_t adreno_isr(int irq, void *data)
 {
 	irqreturn_t result;
 	struct kgsl_device *device = data;
@@ -178,7 +168,7 @@ irqreturn_t adreno_isr(int irq, void *data)
 	return result;
 }
 
-static int adreno_cleanup_pt(struct kgsl_device *device,
+static void adreno_cleanup_pt(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -191,8 +181,6 @@ static int adreno_cleanup_pt(struct kgsl_device *device,
 	kgsl_mmu_unmap(pagetable, &device->memstore);
 
 	kgsl_mmu_unmap(pagetable, &device->mmu.dummyspace);
-
-	return 0;
 }
 
 static int adreno_setup_pt(struct kgsl_device *device,
@@ -202,12 +190,6 @@ static int adreno_setup_pt(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
-	BUG_ON(rb->buffer_desc.physaddr == 0);
-	BUG_ON(rb->memptrs_desc.physaddr == 0);
-	BUG_ON(device->memstore.physaddr == 0);
-#ifdef CONFIG_MSM_KGSL_MMU
-	BUG_ON(device->mmu.dummyspace.physaddr == 0);
-#endif
 	result = kgsl_mmu_map_global(pagetable, &rb->buffer_desc,
 				     GSL_PT_PAGE_RV);
 	if (result)
@@ -582,8 +564,6 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_dev->drawctxt_active = NULL;
 
 	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
-
-	adreno_gmemclose(device);
 
 	kgsl_mmu_stop(device);
 
