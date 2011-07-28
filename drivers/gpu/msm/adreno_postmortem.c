@@ -452,7 +452,7 @@ static int adreno_dump(struct kgsl_device *device)
 	unsigned int r1, r2, r3, rbbm_status;
 	unsigned int cp_ib1_base, cp_ib1_bufsz, cp_stat;
 	unsigned int cp_ib2_base, cp_ib2_bufsz;
-	unsigned int pt_base;
+	unsigned int pt_base, cur_pt_base;
 	unsigned int cp_rb_base, rb_count;
 	unsigned int cp_rb_wptr, cp_rb_rptr;
 	unsigned int i;
@@ -640,6 +640,7 @@ static int adreno_dump(struct kgsl_device *device)
 	KGSL_LOG_DUMP(device,
 		"        MPU_END    = %08X | VA_RANGE = %08X | PT_BASE  ="
 		" %08X\n", r1, r2, pt_base);
+	cur_pt_base = pt_base;
 
 	KGSL_LOG_DUMP(device, "PAGETABLE SIZE: %08X ", KGSL_PAGETABLE_SIZE);
 
@@ -670,8 +671,8 @@ static int adreno_dump(struct kgsl_device *device)
 
 	KGSL_LOG_DUMP(device, "RB: rd_addr:%8.8x  rb_size:%d  num_item:%d\n",
 		cp_rb_base, rb_count<<2, num_item);
-	rb_vaddr = (const uint32_t *)kgsl_sharedmem_convertaddr(device, pt_base,
-					cp_rb_base, &rb_memsize);
+	rb_vaddr = (const uint32_t *)kgsl_sharedmem_convertaddr(device,
+			cur_pt_base, cp_rb_base, &rb_memsize);
 	if (!rb_vaddr) {
 		KGSL_LOG_POSTMORTEM_WRITE(device,
 			"Can't fetch vaddr for CP_RB_BASE\n");
@@ -703,15 +704,33 @@ static int adreno_dump(struct kgsl_device *device)
 		if (this_cmd == pm4_type3_packet(PM4_INDIRECT_BUFFER_PFD, 2)) {
 			uint32_t ib_addr = rb_copy[read_idx++];
 			uint32_t ib_size = rb_copy[read_idx++];
-			dump_ib1(device, pt_base, (read_idx-3)<<2, ib_addr,
+			dump_ib1(device, cur_pt_base, (read_idx-3)<<2, ib_addr,
 				ib_size, &ib_list, 0);
 			for (; i < ib_list.count; ++i)
-				dump_ib(device, "IB2:", pt_base,
+				dump_ib(device, "IB2:", cur_pt_base,
 					ib_list.offsets[i],
 					ib_list.bases[i],
 					ib_list.sizes[i], 0);
+		} else if (this_cmd == pm4_type0_packet(MH_MMU_PT_BASE, 1)) {
+
+			KGSL_LOG_DUMP(device, "Current pagetable: %x\t"
+				"pagetable base: %x\n",
+				kgsl_get_ptname_from_ptbase(cur_pt_base),
+				cur_pt_base);
+
+			/* Set cur_pt_base to the new pagetable base */
+			cur_pt_base = rb_copy[read_idx++];
+
+			KGSL_LOG_DUMP(device, "New pagetable: %x\t"
+				"pagetable base: %x\n",
+				kgsl_get_ptname_from_ptbase(cur_pt_base),
+				cur_pt_base);
 		}
 	}
+
+	/* Restore cur_pt_base back to the pt_base of
+	   the process in whose context the GPU hung */
+	cur_pt_base = pt_base;
 
 	read_idx = (int)cp_rb_rptr - 64;
 	if (read_idx < 0)
@@ -732,7 +751,7 @@ static int adreno_dump(struct kgsl_device *device)
 					KGSL_LOG_DUMP(device,
 						"IB1: base:%8.8X  "
 						"count:%d\n", ib_addr, ib_size);
-					dump_ib(device, "IB1: ", pt_base,
+					dump_ib(device, "IB1: ", cur_pt_base,
 						read_idx<<2, ib_addr, ib_size,
 						1);
 				}
@@ -745,7 +764,7 @@ static int adreno_dump(struct kgsl_device *device)
 				KGSL_LOG_DUMP(device,
 					"IB2: base:%8.8X  count:%d\n",
 					cp_ib2_base, ib_size);
-				dump_ib(device, "IB2: ", pt_base, ib_offset,
+				dump_ib(device, "IB2: ", cur_pt_base, ib_offset,
 					ib_list.bases[i], ib_size, 1);
 			}
 		}

@@ -178,6 +178,7 @@ void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 void kgsl_setstate(struct kgsl_device *device, uint32_t flags);
 void kgsl_default_setstate(struct kgsl_device *device, uint32_t flags);
+int kgsl_get_ptname_from_ptbase(unsigned int pt_base);
 
 static inline int kgsl_mmu_enabled(void)
 {
@@ -257,6 +258,9 @@ static inline void kgsl_setstate(struct kgsl_device *device, uint32_t flags)
 
 static inline void kgsl_default_setstate(struct kgsl_device *device,
 	uint32_t flags) { }
+
+static inline int kgsl_get_ptname_from_ptbase(unsigned int pt_base) { }
+
 #endif
 
 static inline unsigned int kgsl_pt_get_flags(struct kgsl_pagetable *pt,

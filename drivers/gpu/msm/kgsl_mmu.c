@@ -591,28 +591,36 @@ kgsl_pt_map_getaddr(struct kgsl_pagetable *pt, uint32_t pte)
 	return ret;
 }
 
-void kgsl_mmu_pagefault(struct kgsl_device *device)
+int
+kgsl_get_ptname_from_ptbase(unsigned int pt_base)
 {
-	unsigned int reg;
-	unsigned int ptbase;
 	struct kgsl_pagetable *pt;
 	int ptid = -1;
 
-	kgsl_regread(device, MH_MMU_PAGE_FAULT, &reg);
-	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
-
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (ptbase == pt->base.gpuaddr) {
+		if (pt_base == pt->base.gpuaddr) {
 			ptid = (int) pt->name;
 			break;
 		}
 	}
 	spin_unlock(&kgsl_driver.ptlock);
 
+	return ptid;
+}
+
+void kgsl_mmu_pagefault(struct kgsl_device *device)
+{
+	unsigned int reg;
+	unsigned int ptbase;
+
+	kgsl_regread(device, MH_MMU_PAGE_FAULT, &reg);
+	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
+
 	KGSL_MEM_CRIT(device,
 			"mmu page fault: page=0x%lx pt=%d op=%s axi=%d\n",
-			reg & ~(PAGE_SIZE - 1), ptid,
+			reg & ~(PAGE_SIZE - 1),
+			kgsl_get_ptname_from_ptbase(ptbase),
 			reg & 0x02 ? "WRITE" : "READ", (reg >> 4) & 0xF);
 }
 
