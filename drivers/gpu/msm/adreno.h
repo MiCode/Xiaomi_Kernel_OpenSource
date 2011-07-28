@@ -118,4 +118,10 @@ static inline int adreno_is_a22x(struct adreno_device *adreno_dev)
 		adreno_dev->gpurev == ADRENO_REV_A225);
 }
 
+static inline int adreno_is_a2xx(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev <= ADRENO_REV_A225);
+}
+
+
 #endif /*__ADRENO_H */
