@@ -167,25 +167,15 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 static int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	const char *fwfile;
 	int i, ret = 0;
-
-	if (adreno_is_a220(adreno_dev)) {
-		fwfile =  A220_PM4_470_FW;
-	} else if (adreno_is_a225(adreno_dev)) {
-		fwfile =  A225_PM4_FW;
-	} else if (adreno_is_a20x(adreno_dev)) {
-		fwfile =  A200_PM4_FW;
-	} else {
-		KGSL_DRV_ERR(device, "Could not load PM4 file\n");
-		return -EINVAL;
-	}
 
 	if (adreno_dev->pm4_fw == NULL) {
 		int len;
-		unsigned int *ptr;
+		void *ptr;
 
-		ret = _load_firmware(device, fwfile, (void *) &ptr, &len);
+		ret = _load_firmware(device, adreno_dev->pm4_fwfile,
+			&ptr, &len);
+
 		if (ret)
 			goto err;
 
@@ -215,25 +205,14 @@ err:
 static int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	const char *fwfile;
 	int i, ret = 0;
-
-	if (adreno_is_a220(adreno_dev)) {
-		fwfile =  A220_PFP_470_FW;
-	} else if (adreno_is_a225(adreno_dev)) {
-		fwfile =  A225_PFP_FW;
-	} else if (adreno_is_a20x(adreno_dev)) {
-		fwfile = A200_PFP_FW;
-	} else {
-		KGSL_DRV_ERR(device, "Could not load PFP firmware\n");
-		return -EINVAL;
-	}
 
 	if (adreno_dev->pfp_fw == NULL) {
 		int len;
-		unsigned int *ptr;
+		void *ptr;
 
-		ret = _load_firmware(device, fwfile, (void *) &ptr, &len);
+		ret = _load_firmware(device, adreno_dev->pfp_fwfile,
+			&ptr, &len);
 		if (ret)
 			goto err;
 

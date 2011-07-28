@@ -118,6 +118,30 @@ static struct adreno_device device_3d0 = {
 	.pm4_fw = NULL,
 };
 
+/*
+ * This is the master list of all GPU cores that are supported by this
+ * driver.
+ */
+
+#define ANY_ID (~0)
+
+static const struct {
+	enum adreno_gpurev gpurev;
+	unsigned int core, major, minor;
+	const char *pm4fw;
+	const char *pfpfw;
+	struct adreno_gpudev *gpudev;
+} adreno_gpulist[] = {
+	{ ADRENO_REV_A200, 0, 2, ANY_ID,
+		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev },
+	{ ADRENO_REV_A205, 0, 1, 0,
+		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev },
+	{ ADRENO_REV_A220, 2, 1, ANY_ID,
+		"leia_pm4_470.fw", "leia_pfp_470.fw", &adreno_a2xx_gpudev },
+	{ ADRENO_REV_A225, 2, 2, ANY_ID,
+		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev },
+};
+
 static void adreno_gmeminit(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -353,31 +377,14 @@ adreno_getchipid(struct kgsl_device *device)
 	return chipid;
 }
 
-/* all chipid fields are 8 bits wide so 256 won't occur in a real chipid */
-#define DONT_CARE 256
-static const struct {
-	unsigned int core;
-	unsigned int major;
-	unsigned int minor;
-	enum adreno_gpurev gpurev;
-} gpurev_table[] = {
-	/* major and minor may be DONT_CARE, but core must not be */
-	{0, 2, DONT_CARE, ADRENO_REV_A200},
-	{0, 1, 0, ADRENO_REV_A205},
-	{2, 1, DONT_CARE, ADRENO_REV_A220},
-	{2, 2, DONT_CARE, ADRENO_REV_A225},
-};
-
 static inline bool _rev_match(unsigned int id, unsigned int entry)
 {
-	return (entry == DONT_CARE || entry == id);
+	return (entry == ANY_ID || entry == id);
 }
-#undef DONT_CARE
 
 static void
 adreno_identify_gpu(struct adreno_device *adreno_dev)
 {
-	enum adreno_gpurev gpurev = ADRENO_REV_UNKNOWN;
 	unsigned int i, core, major, minor;
 
 	adreno_dev->chip_id = adreno_getchipid(&adreno_dev->dev);
@@ -386,17 +393,23 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	major = (adreno_dev->chip_id >> 16) & 0xff;
 	minor = (adreno_dev->chip_id >> 8) & 0xff;
 
-	for (i = 0; i < ARRAY_SIZE(gpurev_table); i++) {
-		if (core == gpurev_table[i].core &&
-		    _rev_match(major, gpurev_table[i].major) &&
-		    _rev_match(minor, gpurev_table[i].minor)) {
-			gpurev = gpurev_table[i].gpurev;
+	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
+		if (core == adreno_gpulist[i].core &&
+		    _rev_match(major, adreno_gpulist[i].major) &&
+		    _rev_match(minor, adreno_gpulist[i].minor)) {
 			break;
 		}
 	}
 
-	adreno_dev->gpurev = gpurev;
-	adreno_dev->gpudev = &adreno_a2xx_gpudev;
+	if (i == ARRAY_SIZE(adreno_gpulist)) {
+		adreno_dev->gpurev = ADRENO_REV_UNKNOWN;
+		return;
+	}
+
+	adreno_dev->gpurev = adreno_gpulist[i].gpurev;
+	adreno_dev->gpudev = adreno_gpulist[i].gpudev;
+	adreno_dev->pfp_fwfile = adreno_gpulist[i].pfpfw;
+	adreno_dev->pm4_fwfile = adreno_gpulist[i].pm4fw;
 }
 
 static int __devinit
@@ -466,6 +479,12 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
+
+	if (adreno_dev->gpurev == ADRENO_REV_UNKNOWN) {
+		KGSL_DRV_ERR(device, "Unknown chip ID %x\n",
+			adreno_dev->chip_id);
+		goto error_clk_off;
+	}
 
 	if (adreno_is_a20x(adreno_dev)) {
 		/*

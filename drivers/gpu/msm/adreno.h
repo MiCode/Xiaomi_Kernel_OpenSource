@@ -55,8 +55,10 @@ struct adreno_device {
 	struct kgsl_memregion gmemspace;
 	struct adreno_context *drawctxt_active;
 	wait_queue_head_t ib1_wq;
+	const char *pfp_fwfile;
 	unsigned int *pfp_fw;
 	size_t pfp_fw_size;
+	const char *pm4_fwfile;
 	unsigned int *pm4_fw;
 	size_t pm4_fw_size;
 	struct adreno_ringbuffer ringbuffer;
