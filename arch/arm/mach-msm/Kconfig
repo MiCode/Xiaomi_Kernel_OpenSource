@@ -478,6 +478,12 @@ config MACH_MSM8960_FLUID
 	help
 	  Support for the Qualcomm MSM8960 FLUID device.
 
+config MACH_MSM8960_LIQUID
+	depends on ARCH_MSM8960
+	bool "MSM8960 LIQUID"
+	help
+	  Support for the Qualcomm MSM8960 LIQUID device.
+
 config MSM_USE_TSIF1
 	depends on ARCH_MSM8X60
 	bool "MSM8x60 use TSIF1"

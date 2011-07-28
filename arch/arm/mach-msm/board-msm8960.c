@@ -3514,3 +3514,12 @@ MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
 MACHINE_END
+
+MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
+	.map_io = msm8960_map_io,
+	.reserve = msm8960_reserve,
+	.init_irq = msm8960_init_irq,
+	.timer = &msm_timer,
+	.init_machine = msm8960_cdp_init,
+	.init_early = msm8960_allocate_memory_regions,
+MACHINE_END
