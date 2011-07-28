@@ -703,12 +703,6 @@ static void msm_streaming_action_notify(
 	struct v4l2_event ev;
 	struct msm_camera_event stm;
 
-	if (!(pcam_inst->pcam->event_mask &
-			(1 << MSM_CAMERA_EVT_TYPE_STREAM))) {
-		pr_err("%s:Event mask not matching", __func__);
-		return;
-	}
-
 	memset(&ev, 0, sizeof(ev));
 	stm.event_type = MSM_CAMERA_EVT_TYPE_STREAM;
 	stm.e.stream.image_mode = pcam_inst->image_mode;
@@ -721,7 +715,7 @@ static void msm_streaming_action_notify(
 	} else
 		stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_ERR;
 
-	ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAMERA_EVT_TYPE_STREAM;
+	ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_DONE_EVENT;
 	ktime_get_ts(&ev.timestamp);
 	memcpy(ev.u.data, &stm, sizeof(stm));
 	v4l2_event_queue(pcam_inst->pcam->pvdev, &ev);
@@ -1039,8 +1033,6 @@ static int msm_camera_v4l2_subscribe_event(struct v4l2_fh *fh,
 			} else
 				D("%s: subscribed evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
-			pcam_inst->pcam->event_mask |=
-				(1 << (sub->type - V4L2_EVENT_PRIVATE_START));
 			sub->type++;
 			D("sub->type while = 0x%x\n", sub->type);
 		} while (sub->type !=
@@ -1051,9 +1043,6 @@ static int msm_camera_v4l2_subscribe_event(struct v4l2_fh *fh,
 		if (rc < 0)
 			D("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
-		else
-			pcam_inst->pcam->event_mask |=
-				(1 << (sub->type - V4L2_EVENT_PRIVATE_START));
 	}
 
 	D("%s: rc = %d\n", __func__, rc);
@@ -1074,8 +1063,6 @@ static int msm_camera_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 		return -EINVAL;
 
 	rc = v4l2_event_unsubscribe(fh, sub);
-	pcam_inst->pcam->event_mask &=
-		~(1 << (sub->type - V4L2_EVENT_PRIVATE_START));
 	D("%s: rc = %d\n", __func__, rc);
 	return rc;
 }
@@ -1308,21 +1295,13 @@ static int msm_open(struct file *f)
 				__func__, rc);
 			return rc;
 		}
-		spin_lock_init(&pcam->pvdev->fh_lock);
-		INIT_LIST_HEAD(&pcam->pvdev->fh_list);
-		rc = v4l2_fh_init(&pcam_inst->eventHandle, pcam->pvdev);
-		if (rc < 0)
-			return rc;
 
-		rc = v4l2_event_init(&pcam_inst->eventHandle);
-		if (rc < 0)
+		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
+							pcam->pvdev);
+		if (rc < 0) {
+			mutex_unlock(&pcam->vid_lock);
 			return rc;
-
-		/* queue of max size 30 */
-		rc = v4l2_event_alloc(&pcam_inst->eventHandle, 30);
-		if (rc < 0)
-			return rc;
-		v4l2_fh_add(&pcam_inst->eventHandle);
+		}
 	}
 
 	/* Initialize the video queue */
@@ -1684,22 +1663,29 @@ static unsigned int msm_poll_config(struct file *fp,
 	return rc;
 }
 
-static int msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
-	unsigned int cmd, struct msm_camera_event *ev)
+static long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
+		unsigned int cmd, unsigned long evt)
 {
 	struct v4l2_event v4l2_ev;
 	struct msm_cam_v4l2_device *pcam = NULL;
+
 	if (!mctl) {
 		pr_err("%s: mctl is NULL\n", __func__);
 		return -EINVAL;
 	}
-	pcam = g_server_dev.pcam_active;
-	v4l2_ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAMERA_EVT_TYPE_CTRL;
+
+	if (copy_from_user(&v4l2_ev, (void __user *)evt,
+		sizeof(struct v4l2_event))) {
+		ERR_COPY_FROM_USER();
+		return -EFAULT;
+	}
+
+	pcam = mctl->sync.pcam_sync;
 	ktime_get_ts(&v4l2_ev.timestamp);
-	memcpy(v4l2_ev.u.data, ev, sizeof(struct msm_camera_event));
 	v4l2_event_queue(pcam->pvdev, &v4l2_ev);
 	return 0;
 }
+
 static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 	unsigned long arg)
 {
@@ -1801,16 +1787,10 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 
 		break;
 
-	case MSM_CAM_IOCTL_V4L2_EVT_NOTIFY: {
-		struct msm_camera_event event;
-		if (copy_from_user(&event, (void __user *)arg,
-		sizeof(struct msm_camera_event))) {
-			ERR_COPY_FROM_USER();
-			return -EFAULT;
-		}
-		rc = msm_v4l2_evt_notify(config_cam->p_mctl, cmd, &event);
+	case MSM_CAM_IOCTL_V4L2_EVT_NOTIFY:
+		rc = msm_v4l2_evt_notify(config_cam->p_mctl, cmd, arg);
 		break;
-	}
+
 	default:{
 		/* For the rest of config command, forward to media controller*/
 		struct msm_cam_media_controller *p_mctl = config_cam->p_mctl;

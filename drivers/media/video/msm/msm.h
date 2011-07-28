@@ -174,7 +174,6 @@ struct msm_cam_media_controller {
 						struct vb2_queue *q);
 	int (*mctl_ufmt_init)(struct msm_cam_media_controller *p_mctl);
 
-	struct v4l2_device v4l2_dev;
 	struct v4l2_fh  eventHandle; /* event queue to export events */
 	/* most-frequently accessed manager object*/
 	struct msm_sync sync;

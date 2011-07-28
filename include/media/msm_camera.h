@@ -136,7 +136,7 @@
 	_IOR(MSM_CAM_IOCTL_MAGIC, 40, struct msm_cam_config_dev_info *)
 
 #define MSM_CAM_IOCTL_V4L2_EVT_NOTIFY \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct msm_camera_event *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct v4l2_event *)
 
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
@@ -219,7 +219,8 @@ struct msm_isp_stats_event_ctrl {
 #define MSM_CAM_RESP_STEREO_OP_2  3
 #define MSM_CAM_RESP_V4L2         4
 #define MSM_CAM_RESP_DIV_FRAME_EVT_MSG 5
-#define MSM_CAM_RESP_MAX          6
+#define MSM_CAM_RESP_DONE_EVENT   6
+#define MSM_CAM_RESP_MAX          7
 
 #define MSM_CAMERA_EVT_TYPE_BASE	V4L2_EVENT_PRIVATE_START
 enum msm_camera_event_type {
