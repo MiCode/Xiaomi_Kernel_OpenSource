@@ -139,6 +139,13 @@
 #define LCDC_AUO_SPI_DEVICE_NAME		"lcdc_auo_nt35582"
 #define LCDC_NT35582_PANEL_NAME			"lcdc_nt35582_wvga"
 
+#define PANEL_NAME_MAX_LEN	30
+#define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
+#define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
+#define MIPI_VIDEO_TOSHIBA_WVGA_PANEL_NAME	"mipi_video_toshiba_wvga"
+#define HDMI_PANEL_NAME	"hdmi_msm"
+#define TVOUT_PANEL_NAME	"tvout_msm"
+
 #define DSPS_PIL_GENERIC_NAME		"dsps"
 #define DSPS_PIL_FLUID_NAME		"dsps_fluid"
 
@@ -2663,7 +2670,6 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_LCDC_AUTO_DETECT
 static int msm_fb_detect_panel(const char *name)
 {
 	if (machine_is_msm8x60_fluid()) {
@@ -2671,33 +2677,61 @@ static int msm_fb_detect_panel(const char *name)
 		if (SOCINFO_VERSION_MAJOR(soc_platform_version) < 3) {
 #ifdef CONFIG_FB_MSM_LCDC_SAMSUNG_OLED_PT
 			if (!strncmp(name, LCDC_SAMSUNG_OLED_PANEL_NAME,
-					strlen(LCDC_SAMSUNG_OLED_PANEL_NAME)))
+					strnlen(LCDC_SAMSUNG_OLED_PANEL_NAME,
+						PANEL_NAME_MAX_LEN)))
 				return 0;
 #endif
 		} else { /*P3 and up use AUO panel */
 #ifdef CONFIG_FB_MSM_LCDC_AUO_WVGA
 			if (!strncmp(name, LCDC_AUO_PANEL_NAME,
-					strlen(LCDC_AUO_PANEL_NAME)))
+					strnlen(LCDC_AUO_PANEL_NAME,
+						PANEL_NAME_MAX_LEN)))
 				return 0;
 #endif
 		}
-		if (!strncmp(name, LCDC_SAMSUNG_WSVGA_PANEL_NAME,
-				strlen(LCDC_SAMSUNG_WSVGA_PANEL_NAME)))
-			return -ENODEV;
 #ifdef CONFIG_FB_MSM_LCDC_NT35582_WVGA
 	} else if machine_is_msm8x60_dragon() {
 	    if (!strncmp(name, LCDC_NT35582_PANEL_NAME,
-				sizeof(LCDC_NT35582_PANEL_NAME) - 1))
+				strnlen(LCDC_NT35582_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
 #endif
 	} else {
 		if (!strncmp(name, LCDC_SAMSUNG_WSVGA_PANEL_NAME,
-				strlen(LCDC_SAMSUNG_WSVGA_PANEL_NAME)))
+				strnlen(LCDC_SAMSUNG_WSVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
-		if (!strncmp(name, LCDC_SAMSUNG_OLED_PANEL_NAME,
-				strlen(LCDC_SAMSUNG_OLED_PANEL_NAME)))
-			return -ENODEV;
+
+#if !defined(CONFIG_FB_MSM_LCDC_AUTO_DETECT) && \
+	!defined(CONFIG_FB_MSM_MIPI_PANEL_AUTO_DETECT) && \
+	!defined(CONFIG_FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT)
+		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WVGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_TOSHIBA_WVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+					  PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+#endif
 	}
+
+	if (!strncmp(name, HDMI_PANEL_NAME,
+			strnlen(HDMI_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
+
+	if (!strncmp(name, TVOUT_PANEL_NAME,
+			strnlen(TVOUT_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
+
 	pr_warning("%s: not supported '%s'", __func__, name);
 	return -ENODEV;
 }
@@ -2705,16 +2739,13 @@ static int msm_fb_detect_panel(const char *name)
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
-#endif /* CONFIG_FB_MSM_LCDC_AUTO_DETECT */
 
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
-#ifdef CONFIG_FB_MSM_LCDC_AUTO_DETECT
 	.dev.platform_data = &msm_fb_pdata,
-#endif /* CONFIG_FB_MSM_LCDC_AUTO_DETECT */
 };
 
 #ifdef CONFIG_ANDROID_PMEM
