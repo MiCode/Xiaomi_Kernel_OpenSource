@@ -243,23 +243,23 @@ static void adreno_setstate(struct kgsl_device *device, uint32_t flags)
 	if (adreno_dev->drawctxt_active) {
 		if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 			/* wait for graphics pipe to be idle */
-			*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 			*cmds++ = 0x00000000;
 
 			/* set page table base */
-			*cmds++ = pm4_type0_packet(MH_MMU_PT_BASE, 1);
+			*cmds++ = cp_type0_packet(MH_MMU_PT_BASE, 1);
 			*cmds++ = device->mmu.hwpagetable->base.gpuaddr;
 			sizedwords += 4;
 		}
 
 		if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
 			if (!(flags & KGSL_MMUFLAGS_PTUPDATE)) {
-				*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE,
+				*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE,
 								1);
 				*cmds++ = 0x00000000;
 				sizedwords += 2;
 			}
-			*cmds++ = pm4_type0_packet(MH_MMU_INVALIDATE, 1);
+			*cmds++ = cp_type0_packet(MH_MMU_INVALIDATE, 1);
 			*cmds++ = mh_mmu_invalidate;
 			sizedwords += 2;
 		}
@@ -278,20 +278,20 @@ static void adreno_setstate(struct kgsl_device *device, uint32_t flags)
 			* VGT DMA request fifo and prevent any further
 			* vertex/bin updates from occurring until the wait
 			* has finished. */
-			*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+			*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 			*cmds++ = (0x4 << 16) |
 				(REG_PA_SU_SC_MODE_CNTL - 0x2000);
 			*cmds++ = 0;	  /* disable faceness generation */
-			*cmds++ = pm4_type3_packet(PM4_SET_BIN_BASE_OFFSET, 1);
+			*cmds++ = cp_type3_packet(CP_SET_BIN_BASE_OFFSET, 1);
 			*cmds++ = device->mmu.dummyspace.gpuaddr;
-			*cmds++ = pm4_type3_packet(PM4_DRAW_INDX_BIN, 6);
+			*cmds++ = cp_type3_packet(CP_DRAW_INDX_BIN, 6);
 			*cmds++ = 0;	  /* viz query info */
 			*cmds++ = 0x0003C004; /* draw indicator */
 			*cmds++ = 0;	  /* bin base */
 			*cmds++ = 3;	  /* bin size */
 			*cmds++ = device->mmu.dummyspace.gpuaddr; /* dma base */
 			*cmds++ = 6;	  /* dma size */
-			*cmds++ = pm4_type3_packet(PM4_DRAW_INDX_BIN, 6);
+			*cmds++ = cp_type3_packet(CP_DRAW_INDX_BIN, 6);
 			*cmds++ = 0;	  /* viz query info */
 			*cmds++ = 0x0003C004; /* draw indicator */
 			*cmds++ = 0;	  /* bin base */
@@ -299,13 +299,13 @@ static void adreno_setstate(struct kgsl_device *device, uint32_t flags)
 			/* dma base */
 			*cmds++ = device->mmu.dummyspace.gpuaddr;
 			*cmds++ = 6;	  /* dma size */
-			*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 			*cmds++ = 0x00000000;
 			sizedwords += 21;
 		}
 
 		if (flags & (KGSL_MMUFLAGS_PTUPDATE | KGSL_MMUFLAGS_TLBFLUSH)) {
-			*cmds++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+			*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
 			*cmds++ = 0x7fff; /* invalidate all base pointers */
 			sizedwords += 2;
 		}
@@ -1013,7 +1013,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			/* submit a dummy packet so that even if all
 			* commands upto timestamp get executed we will still
 			* get an interrupt */
-			cmds[0] = pm4_type3_packet(PM4_NOP, 1);
+			cmds[0] = cp_type3_packet(CP_NOP, 1);
 			cmds[1] = 0;
 			adreno_ringbuffer_issuecmds(device, 0, &cmds[0], 2);
 		}

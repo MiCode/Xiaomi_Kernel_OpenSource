@@ -113,7 +113,7 @@ static inline void create_ib1(struct adreno_context *drawctxt,
 			      unsigned int *start,
 			      unsigned int *end)
 {
-	cmd[0] = PM4_HDR_INDIRECT_BUFFER_PFD;
+	cmd[0] = CP_HDR_INDIRECT_BUFFER_PFD;
 	cmd[1] = virt2gpu(start, &drawctxt->gpustate);
 	cmd[2] = end - start;
 }

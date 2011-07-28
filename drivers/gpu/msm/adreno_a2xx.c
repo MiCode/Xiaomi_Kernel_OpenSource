@@ -74,12 +74,8 @@
 #define LOOP_CONSTANTS		56	/* DWORDS */
 #define SHADER_INSTRUCT_LOG2	9U	/* 2^n == SHADER_INSTRUCTIONS */
 
-#if defined(PM4_IM_STORE)
 /* 96-bit instructions */
 #define SHADER_INSTRUCT		(1<<SHADER_INSTRUCT_LOG2)
-#else
-#define SHADER_INSTRUCT		0
-#endif
 
 /* LOAD_CONSTANT_CONTEXT shadow size */
 #define LCC_SHADOW_SIZE		0x2000	/* 8KB */
@@ -111,11 +107,9 @@ static struct tmp_ctx {
 	uint32_t bool_shadow;	/* bool constants */
 	uint32_t loop_shadow;	/* loop constants */
 
-#if defined(PM4_IM_STORE)
 	uint32_t shader_shared;	/* shared shader instruction shadow */
 	uint32_t shader_vertex;	/* vertex shader instruction shadow */
 	uint32_t shader_pixel;	/* pixel shader instruction shadow */
-#endif
 
 	/* Addresses in command buffer where separately handled registers
 	 * are saved
@@ -286,7 +280,7 @@ static unsigned int *program_shader(unsigned int *cmds, int vtxfrag,
 				    unsigned int *shader_pgm, int dwords)
 {
 	/* load the patched vertex shader stream */
-	*cmds++ = pm4_type3_packet(PM4_IM_LOAD_IMMEDIATE, 2 + dwords);
+	*cmds++ = cp_type3_packet(CP_IM_LOAD_IMMEDIATE, 2 + dwords);
 	/* 0=vertex shader, 1=fragment shader */
 	*cmds++ = vtxfrag;
 	/* instruction start & size (in 32-bit words) */
@@ -302,7 +296,7 @@ static unsigned int *reg_to_mem(unsigned int *cmds, uint32_t dst,
 				uint32_t src, int dwords)
 {
 	while (dwords-- > 0) {
-		*cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+		*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 		*cmds++ = src++;
 		*cmds++ = dst;
 		dst += 4;
@@ -320,7 +314,7 @@ static void build_reg_to_mem_range(unsigned int start, unsigned int end,
 	unsigned int i = start;
 
 	for (i = start; i <= end; i++) {
-		*(*cmd)++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+		*(*cmd)++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 		*(*cmd)++ = i;
 		*(*cmd)++ =
 		    ((drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000) +
@@ -337,10 +331,10 @@ static unsigned int *build_chicken_restore_cmds(
 	unsigned int *start = tmp_ctx.cmd;
 	unsigned int *cmds = start;
 
-	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
 
-	*cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
+	*cmds++ = cp_type0_packet(REG_TP0_CHICKEN, 1);
 	tmp_ctx.chicken_restore = virt2gpu(cmds, &drawctxt->gpustate);
 	*cmds++ = 0x00000000;
 
@@ -403,13 +397,13 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	unsigned int *start = tmp_ctx.cmd;
 	unsigned int *cmd = start;
 
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Make sure the HW context has the correct register values
 	 * before reading them. */
-	*cmd++ = pm4_type3_packet(PM4_CONTEXT_UPDATE, 1);
+	*cmd++ = cp_type3_packet(CP_CONTEXT_UPDATE, 1);
 	*cmd++ = 0;
 
 	{
@@ -453,13 +447,13 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	 * register. There is logic in the HW that blocks reading of this
 	 * register when the SQ block is not idle, which we believe is
 	 * contributing to the hang.*/
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
 	/* H/w registers are already shadowed; just need to disable shadowing
 	 * to prevent corruption.
 	 */
-	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
+	*cmd++ = cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = (drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000;
 	*cmd++ = 4 << 16;	/* regs, start=0 */
 	*cmd++ = 0x0;		/* count = 0 */
@@ -467,7 +461,7 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	/* ALU constants are already shadowed; just need to disable shadowing
 	 * to prevent corruption.
 	 */
-	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
+	*cmd++ = cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = drawctxt->gpustate.gpuaddr & 0xFFFFE000;
 	*cmd++ = 0 << 16;	/* ALU, start=0 */
 	*cmd++ = 0x0;		/* count = 0 */
@@ -475,18 +469,18 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	/* Tex constants are already shadowed; just need to disable shadowing
 	 *  to prevent corruption.
 	 */
-	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
+	*cmd++ = cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000;
 	*cmd++ = 1 << 16;	/* Tex, start=0 */
 	*cmd++ = 0x0;		/* count = 0 */
 #endif
 
 	/* Need to handle some of the registers separately */
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmd++ = REG_SQ_GPR_MANAGEMENT;
 	*cmd++ = tmp_ctx.reg_values[0];
 
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmd++ = REG_TP0_CHICKEN;
 	*cmd++ = tmp_ctx.reg_values[1];
 
@@ -495,7 +489,7 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 		unsigned int j = 2;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
 				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
-			*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+			*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 			*cmd++ = i;
 			*cmd++ = tmp_ctx.reg_values[j];
 			j++;
@@ -529,26 +523,26 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	unsigned int offset = (addr - (addr & 0xfffff000)) / bytesperpixel;
 
 	/* Store TP0_CHICKEN register */
-	*cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmds++ = REG_TP0_CHICKEN;
 
 	*cmds++ = tmp_ctx.chicken_restore;
 
-	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
 
 	/* Set TP0_CHICKEN to zero */
-	*cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
+	*cmds++ = cp_type0_packet(REG_TP0_CHICKEN, 1);
 	*cmds++ = 0x00000000;
 
 	/* Set PA_SC_AA_CONFIG to 0 */
-	*cmds++ = pm4_type0_packet(REG_PA_SC_AA_CONFIG, 1);
+	*cmds++ = cp_type0_packet(REG_PA_SC_AA_CONFIG, 1);
 	*cmds++ = 0x00000000;
 
 	/* program shader */
 
 	/* load shader vtx constants ... 5 dwords */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 4);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 4);
 	*cmds++ = (0x1 << 16) | SHADER_CONST_ADDR;
 	*cmds++ = 0;
 	/* valid(?) vtx constant flag & addr */
@@ -557,32 +551,32 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000030;
 
 	/* Invalidate L2 cache to make sure vertices are updated */
-	*cmds++ = pm4_type0_packet(REG_TC_CNTL_STATUS, 1);
+	*cmds++ = cp_type0_packet(REG_TC_CNTL_STATUS, 1);
 	*cmds++ = 0x1;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 4);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 4);
 	*cmds++ = CP_REG(REG_VGT_MAX_VTX_INDX);
 	*cmds++ = 0x00ffffff;	/* REG_VGT_MAX_VTX_INDX */
 	*cmds++ = 0x0;		/* REG_VGT_MIN_VTX_INDX */
 	*cmds++ = 0x00000000;	/* REG_VGT_INDX_OFFSET */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_SC_AA_MASK);
 	*cmds++ = 0x0000ffff;	/* REG_PA_SC_AA_MASK */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLORCONTROL);
 	*cmds++ = 0x00000c20;
 
 	/* Repartition shaders */
-	*cmds++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
+	*cmds++ = cp_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
 	*cmds++ = 0x180;
 
 	/* Invalidate Vertex & Pixel instruction code address and sizes */
-	*cmds++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+	*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
 	*cmds++ = 0x00003F00;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_SHADER_BASES, 1);
+	*cmds++ = cp_type3_packet(CP_SET_SHADER_BASES, 1);
 	*cmds++ = (0x80000000) | 0x180;
 
 	/* load the patched vertex shader stream */
@@ -593,7 +587,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	    program_shader(cmds, 1, gmem2sys_frag_pgm, GMEM2SYS_FRAG_PGM_LEN);
 
 	/* SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_SQ_PROGRAM_CNTL);
 	if (adreno_is_a22x(adreno_dev))
 		*cmds++ = 0x10018001;
@@ -604,13 +598,13 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	/* resolve */
 
 	/* PA_CL_VTE_CNTL */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_CL_VTE_CNTL);
 	/* disable X/Y/Z transforms, X/Y/Z are premultiplied by W */
 	*cmds++ = 0x00000b00;
 
 	/* program surface info */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_RB_SURFACE_INFO);
 	*cmds++ = shadow->gmem_pitch;	/* pitch, MSAA = 1 */
 
@@ -624,7 +618,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	     format << RB_COLOR_INFO__COLOR_FORMAT__SHIFT) | tmp_ctx.gmem_base;
 
 	/* disable Z */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_DEPTHCONTROL);
 	if (adreno_is_a22x(adreno_dev))
 		*cmds++ = 0x08;
@@ -636,17 +630,17 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	 *              Back_ptype = draw triangles
 	 *              Provoking vertex = last
 	 */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_SU_SC_MODE_CNTL);
 	*cmds++ = 0x00080240;
 
 	/* Use maximum scissor values -- quad vertices already have the
 	 * correct bounds */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_SC_SCREEN_SCISSOR_TL);
 	*cmds++ = (0 << 16) | 0;
 	*cmds++ = (0x1fff << 16) | (0x1fff);
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_SC_WINDOW_SCISSOR_TL);
 	*cmds++ = (unsigned int)((1U << 31) | (0 << 16) | 0);
 	*cmds++ = (0x1fff << 16) | (0x1fff);
@@ -654,20 +648,20 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	/* load the viewport so that z scale = clear depth and
 	 *  z offset = 0.0f
 	 */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_CL_VPORT_ZSCALE);
 	*cmds++ = 0xbf800000;	/* -1.0f */
 	*cmds++ = 0x0;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLOR_MASK);
 	*cmds++ = 0x0000000f;	/* R = G = B = 1:enabled */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLOR_DEST_MASK);
 	*cmds++ = 0xffffffff;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_SQ_WRAPPING_0);
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
@@ -677,7 +671,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	 */
 
 	/* load the COPY state */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 6);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 6);
 	*cmds++ = CP_REG(REG_RB_COPY_CONTROL);
 	*cmds++ = 0;		/* RB_COPY_CONTROL */
 	*cmds++ = addr & 0xfffff000;	/* RB_COPY_DEST_BASE */
@@ -692,30 +686,30 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	BUG_ON(offset & 0xfffff000);
 	*cmds++ = offset;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_MODECONTROL);
 	*cmds++ = 0x6;		/* EDRAM copy */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_CL_CLIP_CNTL);
 	*cmds++ = 0x00010000;
 
 	if (adreno_is_a22x(adreno_dev)) {
-		*cmds++ = pm4_type3_packet(PM4_SET_DRAW_INIT_FLAGS, 1);
+		*cmds++ = cp_type3_packet(CP_SET_DRAW_INIT_FLAGS, 1);
 		*cmds++ = 0;
 
-		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 		*cmds++ = CP_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
 
-		*cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 3);
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 3);
 		*cmds++ = 0;           /* viz query info. */
 		/* PrimType=RectList, SrcSel=AutoIndex, VisCullMode=Ignore*/
 		*cmds++ = 0x00004088;
 		*cmds++ = 3;	       /* NumIndices=3 */
 	} else {
 		/* queue the draw packet */
-		*cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 2);
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 2);
 		*cmds++ = 0;		/* viz query info. */
 		/* PrimType=RectList, NumIndices=3, SrcSel=AutoIndex */
 		*cmds++ = 0x00030088;
@@ -738,24 +732,24 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	unsigned int *start = cmds;
 
 	/* Store TP0_CHICKEN register */
-	*cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmds++ = REG_TP0_CHICKEN;
 	*cmds++ = tmp_ctx.chicken_restore;
 
-	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
 
 	/* Set TP0_CHICKEN to zero */
-	*cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
+	*cmds++ = cp_type0_packet(REG_TP0_CHICKEN, 1);
 	*cmds++ = 0x00000000;
 
 	/* Set PA_SC_AA_CONFIG to 0 */
-	*cmds++ = pm4_type0_packet(REG_PA_SC_AA_CONFIG, 1);
+	*cmds++ = cp_type0_packet(REG_PA_SC_AA_CONFIG, 1);
 	*cmds++ = 0x00000000;
 	/* shader constants */
 
 	/* vertex buffer constants */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 7);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 7);
 
 	*cmds++ = (0x1 << 16) | (9 * 6);
 	/* valid(?) vtx constant flag & addr */
@@ -770,20 +764,20 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0;
 
 	/* Invalidate L2 cache to make sure vertices are updated */
-	*cmds++ = pm4_type0_packet(REG_TC_CNTL_STATUS, 1);
+	*cmds++ = cp_type0_packet(REG_TC_CNTL_STATUS, 1);
 	*cmds++ = 0x1;
 
 	cmds = program_shader(cmds, 0, sys2gmem_vtx_pgm, SYS2GMEM_VTX_PGM_LEN);
 
 	/* Repartition shaders */
-	*cmds++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
+	*cmds++ = cp_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
 	*cmds++ = 0x180;
 
 	/* Invalidate Vertex & Pixel instruction code address and sizes */
-	*cmds++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+	*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
 	*cmds++ = 0x00000300; /* 0x100 = Vertex, 0x200 = Pixel */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_SHADER_BASES, 1);
+	*cmds++ = cp_type3_packet(CP_SET_SHADER_BASES, 1);
 	*cmds++ = (0x80000000) | 0x180;
 
 	/* Load the patched fragment shader stream */
@@ -791,43 +785,43 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	    program_shader(cmds, 1, sys2gmem_frag_pgm, SYS2GMEM_FRAG_PGM_LEN);
 
 	/* SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_SQ_PROGRAM_CNTL);
 	*cmds++ = 0x10030002;
 	*cmds++ = 0x00000008;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_SC_AA_MASK);
 	*cmds++ = 0x0000ffff;	/* REG_PA_SC_AA_MASK */
 
 	if (!adreno_is_a22x(adreno_dev)) {
 		/* PA_SC_VIZ_QUERY */
-		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 		*cmds++ = CP_REG(REG_PA_SC_VIZ_QUERY);
 		*cmds++ = 0x0;		/*REG_PA_SC_VIZ_QUERY */
 	}
 
 	/* RB_COLORCONTROL */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLORCONTROL);
 	*cmds++ = 0x00000c20;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 4);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 4);
 	*cmds++ = CP_REG(REG_VGT_MAX_VTX_INDX);
 	*cmds++ = 0x00ffffff;	/* mmVGT_MAX_VTX_INDX */
 	*cmds++ = 0x0;		/* mmVGT_MIN_VTX_INDX */
 	*cmds++ = 0x00000000;	/* mmVGT_INDX_OFFSET */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_VGT_VERTEX_REUSE_BLOCK_CNTL);
 	*cmds++ = 0x00000002;	/* mmVGT_VERTEX_REUSE_BLOCK_CNTL */
 	*cmds++ = 0x00000002;	/* mmVGT_OUT_DEALLOC_CNTL */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_SQ_INTERPOLATOR_CNTL);
 	*cmds++ = 0xffffffff;	/* mmSQ_INTERPOLATOR_CNTL */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_SC_AA_CONFIG);
 	*cmds++ = 0x00000000;	/* REG_PA_SC_AA_CONFIG */
 
@@ -836,13 +830,13 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	 * Back_ptype = draw triangles
 	 * Provoking vertex = last
 	 */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_SU_SC_MODE_CNTL);
 	*cmds++ = 0x00080240;
 
 	/* texture constants */
 	*cmds++ =
-	    pm4_type3_packet(PM4_SET_CONSTANT, (SYS2GMEM_TEX_CONST_LEN + 1));
+	    cp_type3_packet(CP_SET_CONSTANT, (SYS2GMEM_TEX_CONST_LEN + 1));
 	*cmds++ = (0x1 << 16) | (0 * 6);
 	memcpy(cmds, sys2gmem_tex_const, SYS2GMEM_TEX_CONST_LEN << 2);
 	cmds[0] |= (shadow->pitch >> 5) << 22;
@@ -852,7 +846,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	cmds += SYS2GMEM_TEX_CONST_LEN;
 
 	/* program surface info */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_RB_SURFACE_INFO);
 	*cmds++ = shadow->gmem_pitch;	/* pitch, MSAA = 1 */
 
@@ -864,7 +858,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	     format << RB_COLOR_INFO__COLOR_FORMAT__SHIFT) | tmp_ctx.gmem_base;
 
 	/* RB_DEPTHCONTROL */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_DEPTHCONTROL);
 
 	if (adreno_is_a22x(adreno_dev))
@@ -874,35 +868,35 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 
 	/* Use maximum scissor values -- quad vertices already
 	 * have the correct bounds */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_SC_SCREEN_SCISSOR_TL);
 	*cmds++ = (0 << 16) | 0;
 	*cmds++ = ((0x1fff) << 16) | 0x1fff;
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_SC_WINDOW_SCISSOR_TL);
 	*cmds++ = (unsigned int)((1U << 31) | (0 << 16) | 0);
 	*cmds++ = ((0x1fff) << 16) | 0x1fff;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_CL_VTE_CNTL);
 	/* disable X/Y/Z transforms, X/Y/Z are premultiplied by W */
 	*cmds++ = 0x00000b00;
 
 	/*load the viewport so that z scale = clear depth and z offset = 0.0f */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_PA_CL_VPORT_ZSCALE);
 	*cmds++ = 0xbf800000;
 	*cmds++ = 0x0;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLOR_MASK);
 	*cmds++ = 0x0000000f;	/* R = G = B = 1:enabled */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_COLOR_DEST_MASK);
 	*cmds++ = 0xffffffff;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(REG_SQ_WRAPPING_0);
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
@@ -910,31 +904,31 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	/* load the stencil ref value
 	 *  $AAM - do this later
 	 */
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_RB_MODECONTROL);
 	/* draw pixels with color and depth/stencil component */
 	*cmds++ = 0x4;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(REG_PA_CL_CLIP_CNTL);
 	*cmds++ = 0x00010000;
 
 	if (adreno_is_a22x(adreno_dev)) {
-		*cmds++ = pm4_type3_packet(PM4_SET_DRAW_INIT_FLAGS, 1);
+		*cmds++ = cp_type3_packet(CP_SET_DRAW_INIT_FLAGS, 1);
 		*cmds++ = 0;
 
-		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 		*cmds++ = CP_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
 
-		*cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 3);
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 3);
 		*cmds++ = 0;           /* viz query info. */
 		/* PrimType=RectList, SrcSel=AutoIndex, VisCullMode=Ignore*/
 		*cmds++ = 0x00004088;
 		*cmds++ = 3;	       /* NumIndices=3 */
 	} else {
 		/* queue the draw packet */
-		*cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 2);
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 2);
 		*cmds++ = 0;		/* viz query info. */
 		/* PrimType=RectList, NumIndices=3, SrcSel=AutoIndex */
 		*cmds++ = 0x00030088;
@@ -956,11 +950,11 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	unsigned int reg_array_size = 0;
 	const unsigned int *ptr_register_ranges;
 
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
 	/* H/W Registers */
-	/* deferred pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, ???); */
+	/* deferred cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, ???); */
 	cmd++;
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Force mismatch */
@@ -988,7 +982,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	 * length
 	 */
 	start[2] =
-	    pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, (cmd - start) - 3);
+	    cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, (cmd - start) - 3);
 	/* Enable shadowing for the entire register block. */
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	start[4] |= (0 << 24) | (4 << 16);	/* Disable shadowing. */
@@ -997,13 +991,13 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 #endif
 
 	/* Need to handle some of the registers separately */
-	*cmd++ = pm4_type0_packet(REG_SQ_GPR_MANAGEMENT, 1);
+	*cmd++ = cp_type0_packet(REG_SQ_GPR_MANAGEMENT, 1);
 	tmp_ctx.reg_values[0] = virt2gpu(cmd, &drawctxt->gpustate);
 	*cmd++ = 0x00040400;
 
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
-	*cmd++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
+	*cmd++ = cp_type0_packet(REG_TP0_CHICKEN, 1);
 	tmp_ctx.reg_values[1] = virt2gpu(cmd, &drawctxt->gpustate);
 	*cmd++ = 0x00000000;
 
@@ -1012,7 +1006,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 		unsigned int j = 2;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
 				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
-			*cmd++ = pm4_type0_packet(i, 1);
+			*cmd++ = cp_type0_packet(i, 1);
 			tmp_ctx.reg_values[j] = virt2gpu(cmd,
 				&drawctxt->gpustate);
 			*cmd++ = 0x00000000;
@@ -1021,7 +1015,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	}
 
 	/* ALU Constants */
-	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
+	*cmd++ = cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = drawctxt->gpustate.gpuaddr & 0xFFFFE000;
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	*cmd++ = (0 << 24) | (0 << 16) | 0;	/* Disable shadowing */
@@ -1031,7 +1025,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	*cmd++ = ALU_CONSTANTS;
 
 	/* Texture Constants */
-	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
+	*cmd++ = cp_type3_packet(CP_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000;
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Disable shadowing */
@@ -1042,7 +1036,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	*cmd++ = TEX_CONSTANTS;
 
 	/* Boolean Constants */
-	*cmd++ = pm4_type3_packet(PM4_SET_CONSTANT, 1 + BOOL_CONSTANTS);
+	*cmd++ = cp_type3_packet(CP_SET_CONSTANT, 1 + BOOL_CONSTANTS);
 	*cmd++ = (2 << 16) | 0;
 
 	/* the next BOOL_CONSTANT dwords is the shadow area for
@@ -1052,7 +1046,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	cmd += BOOL_CONSTANTS;
 
 	/* Loop Constants */
-	*cmd++ = pm4_type3_packet(PM4_SET_CONSTANT, 1 + LOOP_CONSTANTS);
+	*cmd++ = cp_type3_packet(CP_SET_CONSTANT, 1 + LOOP_CONSTANTS);
 	*cmd++ = (3 << 16) | 0;
 
 	/* the next LOOP_CONSTANTS dwords is the shadow area for
@@ -1072,51 +1066,45 @@ build_shader_save_restore_cmds(struct adreno_context *drawctxt)
 {
 	unsigned int *cmd = tmp_ctx.cmd;
 	unsigned int *save, *restore, *fixup;
-#if defined(PM4_IM_STORE)
 	unsigned int *startSizeVtx, *startSizePix, *startSizeShared;
-#endif
 	unsigned int *partition1;
 	unsigned int *shaderBases, *partition2;
 
-#if defined(PM4_IM_STORE)
 	/* compute vertex, pixel and shared instruction shadow GPU addresses */
 	tmp_ctx.shader_vertex = drawctxt->gpustate.gpuaddr + SHADER_OFFSET;
 	tmp_ctx.shader_pixel = tmp_ctx.shader_vertex + SHADER_SHADOW_SIZE;
 	tmp_ctx.shader_shared = tmp_ctx.shader_pixel + SHADER_SHADOW_SIZE;
-#endif
 
 	/* restore shader partitioning and instructions */
 
 	restore = cmd;		/* start address */
 
 	/* Invalidate Vertex & Pixel instruction code address and sizes */
-	*cmd++ = pm4_type3_packet(PM4_INVALIDATE_STATE, 1);
+	*cmd++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
 	*cmd++ = 0x00000300;	/* 0x100 = Vertex, 0x200 = Pixel */
 
 	/* Restore previous shader vertex & pixel instruction bases. */
-	*cmd++ = pm4_type3_packet(PM4_SET_SHADER_BASES, 1);
+	*cmd++ = cp_type3_packet(CP_SET_SHADER_BASES, 1);
 	shaderBases = cmd++;	/* TBD #5: shader bases (from fixup) */
 
 	/* write the shader partition information to a scratch register */
-	*cmd++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
+	*cmd++ = cp_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
 	partition1 = cmd++;	/* TBD #4a: partition info (from save) */
 
-#if defined(PM4_IM_STORE)
 	/* load vertex shader instructions from the shadow. */
-	*cmd++ = pm4_type3_packet(PM4_IM_LOAD, 2);
+	*cmd++ = cp_type3_packet(CP_IM_LOAD, 2);
 	*cmd++ = tmp_ctx.shader_vertex + 0x0;	/* 0x0 = Vertex */
 	startSizeVtx = cmd++;	/* TBD #1: start/size (from save) */
 
 	/* load pixel shader instructions from the shadow. */
-	*cmd++ = pm4_type3_packet(PM4_IM_LOAD, 2);
+	*cmd++ = cp_type3_packet(CP_IM_LOAD, 2);
 	*cmd++ = tmp_ctx.shader_pixel + 0x1;	/* 0x1 = Pixel */
 	startSizePix = cmd++;	/* TBD #2: start/size (from save) */
 
 	/* load shared shader instructions from the shadow. */
-	*cmd++ = pm4_type3_packet(PM4_IM_LOAD, 2);
+	*cmd++ = cp_type3_packet(CP_IM_LOAD, 2);
 	*cmd++ = tmp_ctx.shader_shared + 0x2;	/* 0x2 = Shared */
 	startSizeShared = cmd++;	/* TBD #3: start/size (from save) */
-#endif
 
 	/* create indirect buffer command for above command sequence */
 	create_ib1(drawctxt, drawctxt->shader_restore, restore, cmd);
@@ -1133,11 +1121,11 @@ build_shader_save_restore_cmds(struct adreno_context *drawctxt)
 	fixup = cmd;		/* start address */
 
 	/* write the shader partition information to a scratch register */
-	*cmd++ = pm4_type0_packet(REG_SCRATCH_REG2, 1);
+	*cmd++ = cp_type0_packet(REG_SCRATCH_REG2, 1);
 	partition2 = cmd++;	/* TBD #4b: partition info (from save) */
 
 	/* mask off unused bits, then OR with shader instruction memory size */
-	*cmd++ = pm4_type3_packet(PM4_REG_RMW, 3);
+	*cmd++ = cp_type3_packet(CP_REG_RMW, 3);
 	*cmd++ = REG_SCRATCH_REG2;
 	/* AND off invalid bits. */
 	*cmd++ = 0x0FFF0FFF;
@@ -1145,7 +1133,7 @@ build_shader_save_restore_cmds(struct adreno_context *drawctxt)
 	*cmd++ = (unsigned int)((SHADER_INSTRUCT_LOG2 - 5U) << 29);
 
 	/* write the computed value to the SET_SHADER_BASES data field */
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmd++ = REG_SCRATCH_REG2;
 	/* TBD #5: shader bases (to restore) */
 	*cmd++ = virt2gpu(shaderBases, &drawctxt->gpustate);
@@ -1157,46 +1145,44 @@ build_shader_save_restore_cmds(struct adreno_context *drawctxt)
 
 	save = cmd;		/* start address */
 
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
 	/* fetch the SQ_INST_STORE_MANAGMENT register value,
 	 *  store the value in the data fields of the SET_CONSTANT commands
 	 *  above.
 	 */
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmd++ = REG_SQ_INST_STORE_MANAGMENT;
 	/* TBD #4a: partition info (to restore) */
 	*cmd++ = virt2gpu(partition1, &drawctxt->gpustate);
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+	*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 	*cmd++ = REG_SQ_INST_STORE_MANAGMENT;
 	/* TBD #4b: partition info (to fixup) */
 	*cmd++ = virt2gpu(partition2, &drawctxt->gpustate);
 
-#if defined(PM4_IM_STORE)
 
 	/* store the vertex shader instructions */
-	*cmd++ = pm4_type3_packet(PM4_IM_STORE, 2);
+	*cmd++ = cp_type3_packet(CP_IM_STORE, 2);
 	*cmd++ = tmp_ctx.shader_vertex + 0x0;	/* 0x0 = Vertex */
 	/* TBD #1: start/size (to restore) */
 	*cmd++ = virt2gpu(startSizeVtx, &drawctxt->gpustate);
 
 	/* store the pixel shader instructions */
-	*cmd++ = pm4_type3_packet(PM4_IM_STORE, 2);
+	*cmd++ = cp_type3_packet(CP_IM_STORE, 2);
 	*cmd++ = tmp_ctx.shader_pixel + 0x1;	/* 0x1 = Pixel */
 	/* TBD #2: start/size (to restore) */
 	*cmd++ = virt2gpu(startSizePix, &drawctxt->gpustate);
 
 	/* store the shared shader instructions if vertex base is nonzero */
 
-	*cmd++ = pm4_type3_packet(PM4_IM_STORE, 2);
+	*cmd++ = cp_type3_packet(CP_IM_STORE, 2);
 	*cmd++ = tmp_ctx.shader_shared + 0x2;	/* 0x2 = Shared */
 	/* TBD #3: start/size (to restore) */
 	*cmd++ = virt2gpu(startSizeShared, &drawctxt->gpustate);
 
-#endif
 
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
 	/* create indirect buffer command for above command sequence */
@@ -1350,9 +1336,9 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
 
 	KGSL_CTXT_INFO(device, "context flags %08x\n", context->flags);
 
-	cmds[0] = pm4_nop_packet(1);
+	cmds[0] = cp_nop_packet(1);
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-	cmds[2] = pm4_type3_packet(PM4_MEM_WRITE, 2);
+	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
 	cmds[3] = device->memstore.gpuaddr +
 		KGSL_DEVICE_MEMSTORE_OFFSET(current_context);
 	cmds[4] = (unsigned int) context;
@@ -1390,7 +1376,7 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
 	}
 
 	if (adreno_is_a20x(adreno_dev)) {
-		cmds[0] = pm4_type3_packet(PM4_SET_BIN_BASE_OFFSET, 1);
+		cmds[0] = cp_type3_packet(CP_SET_BIN_BASE_OFFSET, 1);
 		cmds[1] = context->bin_base_offset;
 		adreno_ringbuffer_issuecmds(device, 0, cmds, 2);
 	}
