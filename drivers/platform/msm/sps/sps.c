@@ -81,7 +81,9 @@ static struct sps_drv *sps;
 static void sps_device_de_init(void);
 
 #ifdef CONFIG_DEBUG_FS
-static int sps_debugfs_enabled;
+#define MAX_OUTPUT_MAGIC_NUM 777
+u32 sps_debugfs_enabled;
+u32 detailed_debug_on;
 static char *debugfs_buf;
 static int debugfs_buf_size;
 static int debugfs_buf_used;
@@ -146,6 +148,7 @@ static ssize_t sps_set_info(struct file *file, const char __user *buf,
 
 	if (sps_debugfs_enabled && (buf_size_kb == 0)) {
 		sps_debugfs_enabled = false;
+		detailed_debug_on = false;
 		kfree(debugfs_buf);
 		debugfs_buf = NULL;
 		debugfs_buf_used = 0;
@@ -162,6 +165,8 @@ static ssize_t sps_set_info(struct file *file, const char __user *buf,
 			return -ENOMEM;
 		}
 
+		if (buf_size_kb == MAX_OUTPUT_MAGIC_NUM)
+			detailed_debug_on = true;
 		sps_debugfs_enabled = true;
 		debugfs_buf_used = 0;
 		wraparound = false;
@@ -182,6 +187,7 @@ struct dentry *dfile;
 static void sps_debugfs_init(void)
 {
 	sps_debugfs_enabled = false;
+	detailed_debug_on = false;
 	debugfs_buf_size = 0;
 	debugfs_buf_used = 0;
 	wraparound = false;
