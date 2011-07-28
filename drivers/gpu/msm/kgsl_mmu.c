@@ -639,6 +639,7 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 	if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT)
 		kgsl_mmu_pagefault(device);
 
+	status &= KGSL_MMU_INT_MASK;
 	kgsl_regwrite(device, MH_INTERRUPT_CLEAR, status);
 }
 EXPORT_SYMBOL(kgsl_mh_intrcallback);

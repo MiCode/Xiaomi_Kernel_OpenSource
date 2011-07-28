@@ -1503,28 +1503,41 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
  * managing the interrupts
  */
 
-#define KGSL_RBBM_INT_MASK \
-	 (RBBM_INT_CNTL__RDERR_INT_MASK |  \
-	  RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK)
+#define RBBM_INT_MASK RBBM_INT_CNTL__RDERR_INT_MASK
 
-#define KGSL_CP_INT_MASK \
-	(CP_INT_CNTL__SW_INT_MASK | \
-	CP_INT_CNTL__T0_PACKET_IN_IB_MASK | \
+#define CP_INT_MASK \
+	(CP_INT_CNTL__T0_PACKET_IN_IB_MASK | \
 	CP_INT_CNTL__OPCODE_ERROR_MASK | \
 	CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK | \
 	CP_INT_CNTL__RESERVED_BIT_ERROR_MASK | \
 	CP_INT_CNTL__IB_ERROR_MASK | \
-	CP_INT_CNTL__IB2_INT_MASK | \
 	CP_INT_CNTL__IB1_INT_MASK | \
 	CP_INT_CNTL__RB_INT_MASK)
 
 #define VALID_STATUS_COUNT_MAX	10
+
+static struct {
+	unsigned int mask;
+	const char *message;
+} kgsl_cp_error_irqs[] = {
+	{ CP_INT_CNTL__T0_PACKET_IN_IB_MASK,
+		"ringbuffer TO packet in IB interrupt" },
+	{ CP_INT_CNTL__OPCODE_ERROR_MASK,
+		"ringbuffer opcode error interrupt" },
+	{ CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK,
+		"ringbuffer protected mode error interrupt" },
+	{ CP_INT_CNTL__RESERVED_BIT_ERROR_MASK,
+		"ringbuffer reserved bit error interrupt" },
+	{ CP_INT_CNTL__IB_ERROR_MASK,
+		"ringbuffer IB error interrupt" },
+};
 
 static void a2xx_cp_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0, num_reads = 0, master_status = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	int i;
 
 	adreno_regread(device, REG_MASTER_INT_SIGNAL, &master_status);
 	while (!status && (num_reads < VALID_STATUS_COUNT_MAX) &&
@@ -1562,43 +1575,22 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
 	}
 
-	if (status & CP_INT_CNTL__T0_PACKET_IN_IB_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer TO packet in IB interrupt\n");
-		kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__OPCODE_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer opcode error interrupt\n");
-		kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer protected mode error interrupt\n");
-		kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__RESERVED_BIT_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer reserved bit error interrupt\n");
-		kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__IB_ERROR_MASK) {
-		KGSL_CMD_CRIT(rb->device,
-			"ringbuffer IB error interrupt\n");
-		kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
-	}
-	if (status & CP_INT_CNTL__SW_INT_MASK)
-		KGSL_CMD_INFO(rb->device, "ringbuffer software interrupt\n");
+	for (i = 0; i < ARRAY_SIZE(kgsl_cp_error_irqs); i++) {
+		if (status & kgsl_cp_error_irqs[i].mask) {
+			KGSL_CMD_CRIT(rb->device, "%s\n",
+				 kgsl_cp_error_irqs[i].message);
+			/*
+			 * on fatal errors, turn off the interrupts to
+			 * avoid storming. This has the side effect of
+			 * forcing a PM dump when the timestamp times out
+			 */
 
-	if (status & CP_INT_CNTL__IB2_INT_MASK)
-		KGSL_CMD_INFO(rb->device, "ringbuffer ib2 interrupt\n");
-
-	if (status & (~KGSL_CP_INT_MASK))
-		KGSL_CMD_WARN(rb->device,
-			"bad bits in REG_CP_INT_STATUS %08x\n", status);
+			kgsl_pwrctrl_irq(rb->device, KGSL_PWRFLAGS_OFF);
+		}
+	}
 
 	/* only ack bits we understand */
-	status &= KGSL_CP_INT_MASK;
+	status &= CP_INT_MASK;
 	adreno_regwrite(device, REG_CP_INT_ACK, status);
 
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
@@ -1629,16 +1621,9 @@ static void a2xx_rbbm_intrcallback(struct kgsl_device *device)
 		else
 			KGSL_DRV_CRIT(device,
 				"rbbm read error interrupt: %08x\n", rderr);
-	} else if (status & RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK) {
-		KGSL_DRV_INFO(device, "rbbm display update interrupt\n");
-	} else if (status & RBBM_INT_CNTL__GUI_IDLE_INT_MASK) {
-		KGSL_DRV_INFO(device, "rbbm gui idle interrupt\n");
-	} else {
-		KGSL_CMD_WARN(device,
-			"bad bits in REG_CP_INT_STATUS %08x\n", status);
 	}
 
-	status &= KGSL_RBBM_INT_MASK;
+	status &= RBBM_INT_MASK;
 	adreno_regwrite(device, REG_RBBM_INT_ACK, status);
 }
 
@@ -1673,8 +1658,8 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (state) {
-		adreno_regwrite(device, REG_RBBM_INT_CNTL, KGSL_RBBM_INT_MASK);
-		adreno_regwrite(device, REG_CP_INT_CNTL, KGSL_CP_INT_MASK);
+		adreno_regwrite(device, REG_RBBM_INT_CNTL, RBBM_INT_MASK);
+		adreno_regwrite(device, REG_CP_INT_CNTL, CP_INT_MASK);
 		adreno_regwrite(device, MH_INTERRUPT_MASK, KGSL_MMU_INT_MASK);
 	} else {
 		adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);
