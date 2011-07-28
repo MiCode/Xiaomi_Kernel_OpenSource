@@ -676,8 +676,8 @@ init_probe_fail:
 	gpio_set_value_cansleep(data->sensor_reset, 0);
 	s5k4e1_probe_init_done(data);
 	if (data->vcm_enable) {
-		rc = gpio_request(data->vcm_pwd, "s5k4e1_af");
-		if (!rc) {
+		int ret = gpio_request(data->vcm_pwd, "s5k4e1_af");
+		if (!ret) {
 			gpio_direction_output(data->vcm_pwd, 0);
 			gpio_free(data->vcm_pwd);
 		}
