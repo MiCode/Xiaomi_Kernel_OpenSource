@@ -538,6 +538,28 @@ static int msm_server_try_fmt(struct msm_cam_v4l2_device *pcam,
 	return rc;
 }
 
+static int msm_camera_get_crop(struct msm_cam_v4l2_device *pcam,
+				int idx, struct v4l2_crop *crop)
+{
+	int rc = 0;
+	struct msm_ctrl_cmd ctrlcmd;
+
+	BUG_ON(crop == NULL);
+
+	ctrlcmd.type = MSM_V4L2_GET_CROP;
+	ctrlcmd.length = sizeof(struct v4l2_crop);
+	ctrlcmd.value = (void *)crop;
+	ctrlcmd.timeout_ms = 1000;
+	ctrlcmd.vnode_id = pcam->vnode_id;
+	ctrlcmd.stream_type = pcam->dev_inst[idx]->image_mode;
+
+	/* send command to config thread in userspace, and get return value */
+	rc = msm_server_control(&g_server_dev, &ctrlcmd);
+	D("%s: rc = %d\n", __func__, rc);
+
+	return rc;
+}
+
 /*
  *
  * implementation of v4l2_ioctl_ops
@@ -940,13 +962,21 @@ static int msm_camera_v4l2_s_jpegcomp(struct file *f, void *pctx,
 
 
 static int msm_camera_v4l2_g_crop(struct file *f, void *pctx,
-					struct v4l2_crop *a)
+					struct v4l2_crop *crop)
 {
 	int rc = -EINVAL;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+
+	pcam_inst = container_of(f->private_data,
+		struct msm_cam_v4l2_dev_inst, eventHandle);
 
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
 
+	mutex_lock(&pcam->vid_lock);
+	rc = msm_camera_get_crop(pcam, pcam_inst->my_index, crop);
+	mutex_unlock(&pcam->vid_lock);
 	return rc;
 }
 
