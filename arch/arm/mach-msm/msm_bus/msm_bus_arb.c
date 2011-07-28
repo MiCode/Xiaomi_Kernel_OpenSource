@@ -29,7 +29,8 @@
 #define SEL_FAB_CLK 1
 #define SEL_SLAVE_CLK 0
 
-#define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)((bw) / (width)))
+#define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)\
+	DIV_ROUND_UP((bw), (width)))
 #define IS_MASTER_VALID(mas) \
 	(((mas >= MSM_BUS_MASTER_FIRST) && (mas <= MSM_BUS_MASTER_LAST)) \
 	 ? 1 : 0)
