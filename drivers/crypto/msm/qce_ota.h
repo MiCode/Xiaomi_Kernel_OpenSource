@@ -18,7 +18,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/qcota.h>
-#include <inc/qce.h>
 
 
 int qce_f8_req(void *handle, struct qce_f8_req *req,

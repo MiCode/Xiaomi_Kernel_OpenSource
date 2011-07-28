@@ -26,14 +26,13 @@
 #include <linux/crypto.h>
 #include <crypto/hash.h>
 #include <crypto/sha.h>
-
+#include <linux/qcedev.h>
 #include <linux/qcota.h>
 #include <mach/dma.h>
 
-#include "inc/qce.h"
-#include "inc/qcedev.h"
-#include "inc/qcryptohw_30.h"
-#include "inc/qce_ota.h"
+#include "qce.h"
+#include "qcryptohw_30.h"
+#include "qce_ota.h"
 
 /* ADM definitions */
 #define LI_SG_CMD  (1 << 31)    /* last index in the scatter gather cmd */

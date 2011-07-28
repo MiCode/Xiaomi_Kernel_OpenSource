@@ -37,7 +37,7 @@
 
 #include <mach/scm.h>
 #include <linux/platform_data/qcom_crypto_device.h>
-#include "inc/qce.h"
+#include "qce.h"
 
 
 #define MAX_CRYPTO_DEVICE 3

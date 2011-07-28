@@ -29,8 +29,8 @@
 
 
 #include <linux/qcota.h>
-#include "inc/qce_ota.h"
-#include "inc/qce.h"
+#include "qce.h"
+#include "qce_ota.h"
 
 enum qce_ota_oper_enum {
 	QCE_OTA_F8_OPER   = 0,

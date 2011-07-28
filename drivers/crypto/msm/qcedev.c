@@ -31,8 +31,8 @@
 #include <crypto/hash.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <mach/scm.h>
-#include "inc/qcedev.h"
-#include "inc/qce.h"
+#include <linux/qcedev.h>
+#include "qce.h"
 
 
 #define CACHE_LINE_SIZE 32
