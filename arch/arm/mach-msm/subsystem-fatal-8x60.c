@@ -36,6 +36,7 @@
 #define Q6SS_SOFT_INTR_WAKEUP		0x288A001C
 #define MODEM_WDOG_ENABLE		0x10020008
 #define Q6SS_WDOG_ENABLE		0x28882024
+#define MODEM_CLEANUP_DELAY_MS		20
 
 #define SUBSYS_FATAL_DEBUG
 
@@ -241,8 +242,8 @@ static int subsys_modem_shutdown(const struct subsys_data *crashed_subsys)
 	mb();
 	iounmap(modem_wdog_addr);
 
-	/* Wait for 5ms to allow the modem to clean up caches etc. */
-	usleep(5000);
+	/* Wait here to allow the modem to clean up caches etc. */
+	msleep(MODEM_CLEANUP_DELAY_MS);
 	pil_force_shutdown("modem");
 	disable_irq_nosync(MARM_WDOG_EXPIRED);
 
