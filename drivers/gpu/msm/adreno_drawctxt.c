@@ -17,6 +17,25 @@
 #include "kgsl_sharedmem.h"
 #include "adreno.h"
 
+/* quad for copying GMEM to context shadow */
+#define QUAD_LEN 12
+
+static unsigned int gmem_copy_quad[QUAD_LEN] = {
+	0x00000000, 0x00000000, 0x3f800000,
+	0x00000000, 0x00000000, 0x3f800000,
+	0x00000000, 0x00000000, 0x3f800000,
+	0x00000000, 0x00000000, 0x3f800000
+};
+
+#define TEXCOORD_LEN 8
+
+static unsigned int gmem_copy_texcoord[TEXCOORD_LEN] = {
+	0x00000000, 0x3f800000,
+	0x3f800000, 0x3f800000,
+	0x00000000, 0x00000000,
+	0x3f800000, 0x00000000
+};
+
 /*
  * Helper functions
  * These are global helper functions used by the GPUs during context switch
@@ -44,6 +63,54 @@ unsigned int uint2float(unsigned int uintval)
 	exp = (exp + 127) << 23;
 
 	return exp | frac;
+}
+
+static void set_gmem_copy_quad(struct gmem_shadow_t *shadow)
+{
+	/* set vertex buffer values */
+	gmem_copy_quad[1] = uint2float(shadow->height);
+	gmem_copy_quad[3] = uint2float(shadow->width);
+	gmem_copy_quad[4] = uint2float(shadow->height);
+	gmem_copy_quad[9] = uint2float(shadow->width);
+
+	gmem_copy_quad[0] = 0;
+	gmem_copy_quad[6] = 0;
+	gmem_copy_quad[7] = 0;
+	gmem_copy_quad[10] = 0;
+
+	memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
+
+	memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord,
+		TEXCOORD_LEN << 2);
+}
+
+/**
+ * build_quad_vtxbuff - Create a quad for saving/restoring GMEM
+ * @ context - Pointer to the context being created
+ * @ shadow - Pointer to the GMEM shadow structure
+ * @ incmd - Pointer to pointer to the temporary command buffer
+ */
+
+/* quad for saving/restoring gmem */
+void build_quad_vtxbuff(struct adreno_context *drawctxt,
+		struct gmem_shadow_t *shadow, unsigned int **incmd)
+{
+	 unsigned int *cmd = *incmd;
+
+	/* quad vertex buffer location (in GPU space) */
+	shadow->quad_vertices.hostptr = cmd;
+	shadow->quad_vertices.gpuaddr = virt2gpu(cmd, &drawctxt->gpustate);
+
+	cmd += QUAD_LEN;
+
+	/* tex coord buffer location (in GPU space) */
+	shadow->quad_texcoords.hostptr = cmd;
+	shadow->quad_texcoords.gpuaddr = virt2gpu(cmd, &drawctxt->gpustate);
+
+	cmd += TEXCOORD_LEN;
+
+	set_gmem_copy_quad(shadow);
+	*incmd = cmd;
 }
 
 /**

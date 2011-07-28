@@ -61,8 +61,6 @@ struct adreno_ringbuffer {
 	uint32_t timestamp;
 };
 
-/* dword base address of the GFX decode space */
-#define GSL_HAL_SUBBLOCK_OFFSET(reg) ((unsigned int)((reg) - (0x2000)))
 
 #define GSL_RB_WRITE(ring, gpuaddr, data) \
 	do { \

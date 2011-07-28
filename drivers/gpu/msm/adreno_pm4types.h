@@ -184,4 +184,10 @@
 #define PM4_HDR_INDIRECT_BUFFER_PFD pm4_type3_packet(PM4_INDIRECT_BUFFER_PFD, 2)
 #define PM4_HDR_INDIRECT_BUFFER	pm4_type3_packet(PM4_INDIRECT_BUFFER, 2)
 
+/* dword base address of the GFX decode space */
+#define SUBBLOCK_OFFSET(reg) ((unsigned int)((reg) - (0x2000)))
+
+/* gmem command buffer length */
+#define CP_REG(reg) ((0x4 << 16) | (SUBBLOCK_OFFSET(reg)))
+
 #endif	/* __ADRENO_PM4TYPES_H */
