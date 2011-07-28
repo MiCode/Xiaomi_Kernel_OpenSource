@@ -1131,6 +1131,7 @@ struct platform_device *msm_footswitch_devices[] = {
 	FS_8X60(FS_GFX3D,  "fs_gfx3d"),
 	FS_8X60(FS_GFX2D0, "fs_gfx2d0"),
 	FS_8X60(FS_GFX2D1, "fs_gfx2d1"),
+	FS_8X60(FS_VED,    "fs_ved"),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
