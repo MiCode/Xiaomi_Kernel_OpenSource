@@ -126,10 +126,8 @@ static int __init mipi_chimei_wxga_init(void)
 
 	pr_info("mipi-dsi chimei wxga (1366x768) driver ver 1.0.\n");
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
-	if (msm_fb_detect_client("mipi_chimei_wxga"))
+	if (msm_fb_detect_client("mipi_video_chimei_wxga"))
 		return 0;
-#endif
 
 	/* Landscape */
 	pinfo->xres = 1366;

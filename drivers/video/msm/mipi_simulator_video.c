@@ -31,10 +31,8 @@ static int __init mipi_video_simulator_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
-	if (msm_fb_detect_client("mipi_video_simulator"))
+	if (msm_fb_detect_client("mipi_video_simulator_vga"))
 		return 0;
-#endif
 	pinfo.xres = 640;
 	pinfo.yres = 480;
 	pinfo.type = MIPI_VIDEO_PANEL;

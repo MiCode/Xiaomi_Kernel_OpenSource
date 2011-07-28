@@ -551,12 +551,10 @@ static int __init lcdc_samsung_panel_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_FB_MSM_LCDC_AUTO_DETECT
 	if (msm_fb_detect_client("lcdc_samsung_oled")) {
 		pr_err("%s: detect failed\n", __func__);
 		return 0;
 	}
-#endif
 
 	ret = platform_driver_register(&this_driver);
 	if (ret) {

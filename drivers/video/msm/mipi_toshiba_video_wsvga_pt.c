@@ -38,10 +38,8 @@ static int __init mipi_video_toshiba_wsvga_pt_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 	if (msm_fb_detect_client("mipi_video_toshiba_wsvga"))
 		return 0;
-#endif
 
 	pinfo.xres = 600;
 	pinfo.yres = 1024;
@@ -96,7 +94,7 @@ static int __init mipi_video_toshiba_wsvga_pt_init(void)
 	pinfo.mipi.tx_eot_append = TRUE;
 
 	ret = mipi_toshiba_device_register(&pinfo, MIPI_DSI_PRIM,
-						MIPI_DSI_PANEL_WVGA_PT);
+						MIPI_DSI_PANEL_WSVGA_PT);
 	if (ret)
 		printk(KERN_ERR "%s: failed to register device!\n", __func__);
 

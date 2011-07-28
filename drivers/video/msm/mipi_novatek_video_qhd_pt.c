@@ -39,10 +39,8 @@ static int __init mipi_video_novatek_qhd_pt_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 	if (msm_fb_detect_client("mipi_video_novatek_qhd"))
 		return 0;
-#endif
 
 	pinfo.xres = 540;
 	pinfo.yres = 960;

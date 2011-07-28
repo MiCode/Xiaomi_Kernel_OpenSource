@@ -18,6 +18,7 @@
 static struct pwm_device *bl_lpm;
 static struct mipi_dsi_panel_platform_data *mipi_toshiba_pdata;
 
+#define TM_GET_PID(id) (((id) & 0xff00)>>8)
 
 static struct dsi_buf toshiba_tx_buf;
 static struct dsi_buf toshiba_rx_buf;
@@ -37,7 +38,6 @@ static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
 static char enter_sleep[2] = {0x10, 0x00};
 
-#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 static char mcap_off[2] = {0xb2, 0x00};
 static char ena_test_reg[3] = {0xEF, 0x01, 0x01};
 static char two_lane[3] = {0xEF, 0x60, 0x63};
@@ -49,7 +49,7 @@ static char hor_addr_2A_wvga[5] = {0x2A, 0x00, 0x00, 0x01, 0xdf};
 static char hor_addr_2B_wvga[5] = {0x2B, 0x00, 0x00, 0x03, 0x55};
 static char if_sel_video[2] = {0x53, 0x01};
 
-static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
+static struct dsi_cmd_desc toshiba_wvga_display_on_cmds[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(mcap_off), mcap_off},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(ena_test_reg), ena_test_reg},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(two_lane), two_lane},
@@ -69,9 +69,6 @@ static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on}
 };
 
-#endif
-
-#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
 static char mcap_start[2] = {0xb0, 0x04};
 static char num_out_pixelform[3] = {0xb3, 0x00, 0x87};
 static char dsi_ctrl[3] = {0xb6, 0x30, 0x83};
@@ -135,7 +132,7 @@ static char set_add_mode[2] = {0x36, 0x0};
 static char set_pixel_format[2] = {0x3a, 0x70};
 
 
-static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
+static struct dsi_cmd_desc toshiba_wsvga_display_on_cmds[] = {
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 10, sizeof(mcap_start), mcap_start},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 10, sizeof(num_out_pixelform),
 		num_out_pixelform},
@@ -177,7 +174,6 @@ static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 50, sizeof(display_on), display_on}
 };
-#endif
 
 static struct dsi_cmd_desc toshiba_display_off_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 50, sizeof(display_off), display_off},
@@ -195,8 +191,16 @@ static int mipi_toshiba_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &toshiba_tx_buf, toshiba_display_on_cmds,
-			ARRAY_SIZE(toshiba_display_on_cmds));
+	if (TM_GET_PID(mfd->panel.id) == MIPI_DSI_PANEL_WVGA_PT)
+		mipi_dsi_cmds_tx(mfd, &toshiba_tx_buf,
+			toshiba_wvga_display_on_cmds,
+			ARRAY_SIZE(toshiba_wvga_display_on_cmds));
+	else if (TM_GET_PID(mfd->panel.id) == MIPI_DSI_PANEL_WSVGA_PT)
+		mipi_dsi_cmds_tx(mfd, &toshiba_tx_buf,
+			toshiba_wsvga_display_on_cmds,
+			ARRAY_SIZE(toshiba_wsvga_display_on_cmds));
+	else
+		return -EINVAL;
 
 	return 0;
 }

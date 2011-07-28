@@ -188,25 +188,42 @@ static struct led_classdev backlight_led = {
 };
 #endif
 
+#define PANEL_NAME_MAX_LEN 30
 static struct msm_fb_platform_data *msm_fb_pdata;
-static char panel_name[128];
-module_param_string(panel_name, panel_name, sizeof(panel_name) , 0);
+static char prim_panel_name[PANEL_NAME_MAX_LEN];
+static char ext_panel_name[PANEL_NAME_MAX_LEN];
+module_param_string(prim_display, prim_panel_name, sizeof(prim_panel_name) , 0);
+module_param_string(ext_display, ext_panel_name, sizeof(ext_panel_name) , 0);
 
 int msm_fb_detect_client(const char *name)
 {
-	int ret = -EPERM;
+	int ret = 0;
+	u32 len;
 #ifdef CONFIG_FB_MSM_MDDI_AUTO_DETECT
 	u32 id;
 #endif
-
-	MSM_FB_DEBUG("\n name = %s, panel_name = %s", name, panel_name);
-	if (strlen(panel_name)) {
-		if (!strcmp((char *)panel_name, name))
+	len = strnlen(name, PANEL_NAME_MAX_LEN);
+	if (strnlen(prim_panel_name, PANEL_NAME_MAX_LEN)) {
+		MSM_FB_DEBUG("\n name = %s, prim_display = %s",
+			name, prim_panel_name);
+		if (!strncmp((char *)prim_panel_name, name, len))
 			return 0;
 		else
-			return -EPERM;
+			ret = -EPERM;
+	}
+	if (strnlen(ext_panel_name, PANEL_NAME_MAX_LEN)) {
+		MSM_FB_DEBUG("\n name = %s, ext_display = %s",
+			name, ext_panel_name);
+		if (!strncmp((char *)ext_panel_name, name, len))
+			return 0;
+		else
+			ret = -EPERM;
 	}
 
+	if (ret)
+		return ret;
+
+	ret = -EPERM;
 	if (msm_fb_pdata && msm_fb_pdata->detect_client) {
 		ret = msm_fb_pdata->detect_client(name);
 
