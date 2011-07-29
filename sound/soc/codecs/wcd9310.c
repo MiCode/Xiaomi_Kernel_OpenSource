@@ -611,7 +611,7 @@ static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 
-		filename = "wcd9310_anc.bin";
+		filename = "wcd9310/wcd9310_anc.bin";
 
 		ret = request_firmware(&fw, filename, codec->dev);
 		if (ret != 0) {
@@ -642,7 +642,8 @@ static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			TABLA_CODEC_UNPACK_ENTRY(tabla->anc_writes[i], reg,
 				mask, val);
 			old_val = snd_soc_read(codec, reg);
-			snd_soc_write(codec, reg, (old_val & ~mask) | val);
+			snd_soc_write(codec, reg, (old_val & ~mask) |
+				(val & mask));
 		}
 		release_firmware(fw);
 		tabla->anc_writes = NULL;

@@ -1069,7 +1069,8 @@
 /* Macros for Packing Register Writes into a U32 */
 #define TABLA_PACKED_REG_SIZE sizeof(u32)
 
-#define TABLA_CODEC_PACK_ENTRY(reg, mask, val) ((val)|(mask << 8)|(reg << 16))
+#define TABLA_CODEC_PACK_ENTRY(reg, mask, val) ((val & 0xff)|\
+	((mask & 0xff) << 8)|((reg & 0xffff) << 16))
 
 #define TABLA_CODEC_UNPACK_ENTRY(packed, reg, mask, val) \
 	do { \
