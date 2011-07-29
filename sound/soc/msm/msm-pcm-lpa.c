@@ -34,9 +34,10 @@
 static struct audio_locks the_locks;
 
 struct snd_msm {
-	struct snd_card *card;
-	struct snd_pcm *pcm;
+	struct msm_audio *prtd;
+	unsigned volume;
 };
+static struct snd_msm lpa_audio;
 
 static struct snd_pcm_hardware msm_pcm_hardware = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -280,8 +281,24 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->dsp_cnt = 0;
 	prtd->pending_buffer = 1;
 	runtime->private_data = prtd;
+	lpa_audio.prtd = prtd;
+	lpa_set_volume(lpa_audio.volume);
 
 	return 0;
+}
+
+int lpa_set_volume(unsigned volume)
+{
+	int rc = 0;
+	if (lpa_audio.prtd && lpa_audio.prtd->audio_client) {
+		rc = q6asm_set_volume(lpa_audio.prtd->audio_client, volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed"
+					" rc=%d\n", __func__, rc);
+		}
+	}
+	lpa_audio.volume = volume;
+	return rc;
 }
 
 static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
@@ -301,6 +318,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 		prtd->cmd_ack, 5 * HZ);
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
+	lpa_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 

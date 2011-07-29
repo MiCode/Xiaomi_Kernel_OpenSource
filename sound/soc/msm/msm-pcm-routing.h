@@ -78,4 +78,5 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id,
 	int stream_type);
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
+int lpa_set_volume(unsigned volume);
 #endif /*_MSM_PCM_H*/
