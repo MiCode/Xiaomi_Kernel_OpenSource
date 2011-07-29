@@ -1031,8 +1031,6 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		tabla_codec_enable_pamp_gain, SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD),
 
-	SND_SOC_DAPM_PGA("EAR PA Input", TABLA_A_CDC_CLSG_CTL, 2, 0, NULL, 0),
-
 	SND_SOC_DAPM_MIXER("DAC1", TABLA_A_RX_EAR_EN, 6, 0, dac1_switch,
 		ARRAY_SIZE(dac1_switch)),
 
@@ -1330,8 +1328,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
-	{"EAR PA", NULL, "EAR PA Input"},
-	{"EAR PA Input", NULL, "DAC1"},
+	{"EAR PA", NULL, "DAC1"},
 	{"DAC1", NULL, "CP"},
 
 	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX1"},
