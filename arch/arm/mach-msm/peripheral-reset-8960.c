@@ -325,6 +325,11 @@ static int reset_q6_untrusted(struct q6_data *q6)
 		pr_err("Failed to set %s regulator's voltage.\n", q6->name);
 		goto out;
 	}
+	err = regulator_set_optimum_mode(q6->vreg, 100000);
+	if (err < 0) {
+		pr_err("Failed to set %s regulator's mode.\n", q6->name);
+		goto out;
+	}
 	err = regulator_enable(q6->vreg);
 	if (err) {
 		pr_err("Failed to enable %s's regulator.\n", q6->name);
