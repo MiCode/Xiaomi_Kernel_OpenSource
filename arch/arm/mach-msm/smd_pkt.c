@@ -523,7 +523,7 @@ static char *smd_pkt_dev_name[] = {
 	"smdcntl7",
 	"smd22",
 	"smd_sns_dsps",
-	"apr_apps_user",
+	"apr_apps2",
 	"smd_pkt_loopback",
 };
 
@@ -538,7 +538,7 @@ static char *smd_ch_name[] = {
 	"DATA14_CNTL",
 	"DATA22",
 	"SENSOR",
-	"apr_apps_user",
+	"apr_apps2",
 	"LOOPBACK",
 };
 
