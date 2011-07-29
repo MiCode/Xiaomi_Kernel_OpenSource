@@ -585,8 +585,7 @@ int msm_mctl_reserve_free_buf(
 		msg_type);
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst->streamon) {
-		pr_err("%s: stream 0x%p is off\n",
-			__func__, pcam_inst);
+		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
@@ -614,7 +613,7 @@ int msm_mctl_reserve_free_buf(
 		}
 	}
 	if (rc != 0)
-		pr_warning("%s:No free buffer available: inst = 0x%p ",
+		D("%s:No free buffer available: inst = 0x%p ",
 				__func__, pcam_inst);
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;

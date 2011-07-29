@@ -2443,7 +2443,7 @@ static void vfe32_process_output_path_irq_0(void)
 		}
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
-		pr_warning("path_irq_0 - no free buffer!\n");
+		CDBG("path_irq_0 - no free buffer!\n");
 	}
 }
 
@@ -2555,7 +2555,7 @@ static void vfe32_process_output_path_irq_1(void)
 		}
 	} else {
 		vfe32_ctrl->outpath.out1.frame_drop_cnt++;
-		pr_warning("path_irq_1 - no free buffer!\n");
+		CDBG("path_irq_1 - no free buffer!\n");
 	}
 }
 
@@ -2603,7 +2603,7 @@ static void vfe32_process_output_path_irq_2(void)
 
 	} else {
 		vfe32_ctrl->outpath.out2.frame_drop_cnt++;
-		pr_warning("path_irq_2 - no free buffer!\n");
+		CDBG("path_irq_2 - no free buffer!\n");
 	}
 }
 
