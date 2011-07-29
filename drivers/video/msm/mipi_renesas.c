@@ -13,6 +13,7 @@
 #include "msm_fb.h"
 #include "mipi_dsi.h"
 #include "mipi_renesas.h"
+#include <mach/socinfo.h>
 
 #define RENESAS_CMD_DELAY 0 /* 50 */
 #define RENESAS_SLEEP_OFF_DELAY 50
@@ -1095,6 +1096,16 @@ static struct dsi_cmd_desc renesas_display_on_cmds[] = {
 
 };
 
+static char config_WRTXHT2[7] = {0x92, 0x15, 0x05, 0x0F, 0x00, 0x01, 0xe0};
+static char config_WRTXVT2[7] = {0x8b, 0x14, 0x01, 0x14, 0x00, 0x03, 0x60};
+
+static struct dsi_cmd_desc renesas_hvga_on_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, RENESAS_CMD_DELAY,
+		sizeof(config_WRTXHT2), config_WRTXHT2},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, RENESAS_CMD_DELAY,
+		sizeof(config_WRTXVT2), config_WRTXVT2},
+};
+
 static struct dsi_cmd_desc renesas_video_on_cmds[] = {
 {DTYPE_DCS_WRITE1, 1, 0, 0, RENESAS_CMD_DELAY,
 		sizeof(config_VIDEO), config_VIDEO}
@@ -1124,6 +1135,11 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 	mipi_set_tx_power_mode(1);
 	mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_display_on_cmds,
 			ARRAY_SIZE(renesas_display_on_cmds));
+
+	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa()) {
+		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_hvga_on_cmds,
+			ARRAY_SIZE(renesas_hvga_on_cmds));
+	}
 
 	if (mipi->mode == DSI_VIDEO_MODE)
 		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_video_on_cmds,
