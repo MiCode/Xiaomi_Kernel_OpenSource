@@ -20,6 +20,7 @@
 #define DIR_RX	1
 
 #define DEVICE_IGNORE	0xffff
+#define COPP_IGNORE	0xffffffff
 #define SESSION_IGNORE 0x0UL
 
 /* 8 concurrent sessions with Q6 possible,  session:0

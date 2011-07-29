@@ -138,7 +138,7 @@ int msm_set_copp_id(int session_id, int copp_id)
 	pr_debug("%s: session[%d] copp_id[%d] index[%d]\n", __func__,
 			session_id, copp_id, index);
 	mutex_lock(&routing_info.copp_list_mutex);
-	if (routing_info.copp_list[session_id][index] == DEVICE_IGNORE)
+	if (routing_info.copp_list[session_id][index] == COPP_IGNORE)
 		routing_info.copp_list[session_id][index] = copp_id;
 	mutex_unlock(&routing_info.copp_list_mutex);
 
@@ -157,7 +157,7 @@ int msm_clear_copp_id(int session_id, int copp_id)
 			session_id, copp_id, index);
 	mutex_lock(&routing_info.copp_list_mutex);
 	if (routing_info.copp_list[session_id][index] == copp_id)
-		routing_info.copp_list[session_id][index] = DEVICE_IGNORE;
+		routing_info.copp_list[session_id][index] = COPP_IGNORE;
 	mutex_unlock(&routing_info.copp_list_mutex);
 
 	return rc;
@@ -174,7 +174,7 @@ int msm_clear_session_id(int session_id)
 	mutex_lock(&routing_info.adm_mutex);
 	mutex_lock(&routing_info.copp_list_mutex);
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
-		if (routing_info.copp_list[session_id][i] != DEVICE_IGNORE) {
+		if (routing_info.copp_list[session_id][i] != COPP_IGNORE) {
 			rc = adm_close(routing_info.copp_list[session_id][i]);
 			if (rc < 0) {
 				pr_err("%s: adm close fail port[%d] rc[%d]\n",
@@ -183,7 +183,7 @@ int msm_clear_session_id(int session_id)
 					rc);
 				continue;
 			}
-			routing_info.copp_list[session_id][i] = DEVICE_IGNORE;
+			routing_info.copp_list[session_id][i] = COPP_IGNORE;
 			rc = 0;
 		}
 	}
@@ -203,7 +203,7 @@ int msm_clear_all_session()
 	mutex_lock(&routing_info.copp_list_mutex);
 	for (j = 1; j < MAX_SESSIONS; j++) {
 		for (i = 0; i < AFE_MAX_PORTS; i++) {
-			if (routing_info.copp_list[j][i] != DEVICE_IGNORE) {
+			if (routing_info.copp_list[j][i] != COPP_IGNORE) {
 				rc = adm_close(
 					routing_info.copp_list[j][i]);
 				if (rc < 0) {
@@ -214,7 +214,7 @@ int msm_clear_all_session()
 					j, rc);
 					continue;
 				}
-				routing_info.copp_list[j][i] = DEVICE_IGNORE;
+				routing_info.copp_list[j][i] = COPP_IGNORE;
 				rc = 0;
 			}
 		}
@@ -328,7 +328,7 @@ int msm_check_multicopp_per_stream(int session_id,
 	pr_debug("%s: session_id=%d\n", __func__, session_id);
 	mutex_lock(&routing_info.copp_list_mutex);
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
-		if (routing_info.copp_list[session_id][i] == DEVICE_IGNORE)
+		if (routing_info.copp_list[session_id][i] == COPP_IGNORE)
 			continue;
 		else {
 			pr_debug("Device enabled\n");
@@ -370,7 +370,7 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 		msm_set_copp_id(popp_id, copp_id);
 		pr_debug("%s:Session id=%d copp_id=%d\n",
 			__func__, popp_id, copp_id);
-		memset(payload.copp_ids, DEVICE_IGNORE,
+		memset(payload.copp_ids, COPP_IGNORE,
 				(sizeof(unsigned int) * AFE_MAX_PORTS));
 		rc = msm_check_multicopp_per_stream(popp_id, &payload);
 		/* Multiple streams per copp is handled, one stream at a time */
@@ -1683,7 +1683,7 @@ static int __init audio_dev_ctrl_init(void)
 	mutex_init(&routing_info.copp_list_mutex);
 	mutex_init(&routing_info.adm_mutex);
 
-	memset(routing_info.copp_list, DEVICE_IGNORE,
+	memset(routing_info.copp_list, COPP_IGNORE,
 		(sizeof(unsigned int) * MAX_SESSIONS * AFE_MAX_PORTS));
 	return misc_register(&audio_dev_ctrl_misc);
 }
