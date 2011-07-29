@@ -35,6 +35,7 @@
 #endif
 
 #define PAD_TO_WORD(a)	  (((a) + 3) & ~3)
+#define CEILING16(a)	(((a) + 15) & ~15)
 
 static int buffer_size(uint32_t *yoffset, uint32_t *cbcroffset,
 						int width, int height,
@@ -47,13 +48,15 @@ static int buffer_size(uint32_t *yoffset, uint32_t *cbcroffset,
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_NV12:
 		if (ext_mode == MSM_V4L2_EXT_CAPTURE_MODE_VIDEO) {
-			size = PAD_TO_2K(width * height, 1)
-				+ PAD_TO_2K(width * height/2, 1);
 			*cbcroffset = PAD_TO_2K(width * height, 1);
-		} else {
-			size = PAD_TO_WORD(width * height)
-				+ PAD_TO_WORD(width * height/2);
+			size = *cbcroffset + PAD_TO_2K(width * height/2, 1);
+		} else if (ext_mode == MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW) {
 			*cbcroffset = PAD_TO_WORD(width * height);
+			size = *cbcroffset + PAD_TO_WORD(width * height/2);
+		} else {
+			*cbcroffset = PAD_TO_WORD(width * CEILING16(height));
+			size = *cbcroffset
+				+ PAD_TO_WORD(width * CEILING16(height)/2);
 		}
 		break;
 	case V4L2_PIX_FMT_SBGGR10:
