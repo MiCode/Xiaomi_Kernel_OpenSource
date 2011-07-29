@@ -20,6 +20,7 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/kthread.h>
+#include <linux/time.h>
 
 #include <asm/current.h>
 
@@ -51,12 +52,20 @@ struct restart_thread_data {
 	int coupled;
 };
 
+struct restart_log {
+	struct timeval time;
+	struct subsys_data *subsys;
+	struct list_head list;
+};
+
 static int restart_level;
 static int enable_ramdumps;
 
+static LIST_HEAD(restart_log_list);
 static LIST_HEAD(subsystem_list);
 static DEFINE_MUTEX(subsystem_list_lock);
 static DEFINE_MUTEX(soc_order_reg_lock);
+static DEFINE_MUTEX(restart_log_mutex);
 
 /* SOC specific restart orders go here */
 
@@ -224,6 +233,67 @@ static void _send_notification_to_order(struct subsys_data
 				restart_list[i]->notif_handle, notif_type);
 }
 
+static int max_restarts;
+module_param(max_restarts, int, 0644);
+
+static long max_history_time = 3600;
+module_param(max_history_time, long, 0644);
+
+static void do_epoch_check(struct subsys_data *subsys)
+{
+	int n = 0;
+	struct timeval *time_first, *curr_time;
+	struct restart_log *r_log, *temp;
+	static int max_restarts_check;
+	static long max_history_time_check;
+
+	mutex_lock(&restart_log_mutex);
+
+	max_restarts_check = max_restarts;
+	max_history_time_check = max_history_time;
+
+	/* Check if epoch checking is enabled */
+	if (!max_restarts_check)
+		return;
+
+	r_log = kmalloc(sizeof(struct restart_log), GFP_KERNEL);
+	r_log->subsys = subsys;
+	do_gettimeofday(&r_log->time);
+	curr_time = &r_log->time;
+	INIT_LIST_HEAD(&r_log->list);
+
+	list_add_tail(&r_log->list, &restart_log_list);
+
+	list_for_each_entry_safe(r_log, temp, &restart_log_list, list) {
+
+		if ((curr_time->tv_sec - r_log->time.tv_sec) >
+				max_history_time_check) {
+
+			pr_debug("Deleted node with restart_time = %ld\n",
+					r_log->time.tv_sec);
+			list_del(&r_log->list);
+			kfree(r_log);
+			continue;
+		}
+		if (!n) {
+			time_first = &r_log->time;
+			pr_debug("time_first: %ld", time_first->tv_sec);
+		}
+		n++;
+		pr_debug("restart_time: %ld\n", r_log->time.tv_sec);
+	}
+
+	if (n >= max_restarts_check) {
+		if ((curr_time->tv_sec - time_first->tv_sec) <
+				max_history_time_check)
+			panic("Subsystems have crashed %d times in less than "
+				"%ld seconds!", max_restarts_check,
+				max_history_time_check);
+	}
+
+	mutex_unlock(&restart_log_mutex);
+}
+
 static int subsystem_restart_thread(void *data)
 {
 	struct restart_thread_data *r_work = data;
@@ -277,6 +347,8 @@ static int subsystem_restart_thread(void *data)
 	 */
 	if (!mutex_trylock(powerup_lock))
 		panic("%s: Subsystem died during powerup!", __func__);
+
+	do_epoch_check(subsys);
 
 	/* Now it is necessary to take the registration lock. This is because
 	 * the subsystem list in the SoC restart order will be traversed
