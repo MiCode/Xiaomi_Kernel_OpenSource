@@ -750,6 +750,8 @@ int adm_close(int port_id)
 
 	int ret = 0;
 	int index = afe_get_port_index(port_id);
+	if (afe_validate_port(port_id) < 0)
+		return -EINVAL;
 
 	pr_info("%s port_id=%d index %d\n", __func__, port_id, index);
 
