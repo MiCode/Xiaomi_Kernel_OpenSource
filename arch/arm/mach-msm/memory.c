@@ -423,3 +423,12 @@ int pmem_kfree(const int32_t physaddr)
 	return 0;
 }
 EXPORT_SYMBOL(pmem_kfree);
+
+unsigned int msm_ttbr0;
+
+void store_ttbr0(void)
+{
+	/* Store TTBR0 for post-mortem debugging purposes. */
+	asm("mrc p15, 0, %0, c2, c0, 0\n"
+		: "=r" (msm_ttbr0));
+}
