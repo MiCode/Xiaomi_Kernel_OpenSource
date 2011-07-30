@@ -44,6 +44,11 @@
 #define MSM_PMIC2_SSBI_CMD_PHYS	0x00C00000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
+/* Address of HS USBOTG1 */
+#define MSM_HSUSB_PHYS		0x12500000
+#define MSM_HSUSB_SIZE		SZ_4K
+
+
 static struct resource msm_dmov_resource[] = {
 	{
 		.start = ADM_0_SCSS_0_IRQ,
