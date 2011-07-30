@@ -30,6 +30,8 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
+#include "board-apq8064.h"
+
 static int __init gpiomux_init(void)
 {
 	int rc;
@@ -89,17 +91,22 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pclk_src_name		= "dfab_usb_hs_clk",
 };
 
+static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
+	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
+};
+
 static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 	.slave	= {
-		.name			= "pm8921-core",
+		.name		= "pm8921-core",
+		.platform_data	= &pm8921_platform_data,
 	},
 };
 
 static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 	.slave	= {
-		.name			= "pm8821-core",
+		.name	= "pm8821-core",
 	},
 };
 
@@ -113,11 +120,13 @@ static void __init apq8064_common_init(void)
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
 	apq8064_device_ssbi_pmic1.dev.platform_data =
-				&apq8064_ssbi_pm8921_pdata;
+						&apq8064_ssbi_pm8921_pdata;
 	apq8064_device_ssbi_pmic2.dev.platform_data =
 				&apq8064_ssbi_pm8821_pdata;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
 	apq8064_device_gadget_peripheral.dev.parent = &apq8064_device_otg.dev;
+	pm8921_platform_data.num_regulators =
+					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
