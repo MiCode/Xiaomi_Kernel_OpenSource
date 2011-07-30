@@ -9,21 +9,22 @@
 	(AUDIO_MAX_COMMON_IOCTL_NUM + 1), unsigned)
 
 /* MVS modes */
-#define MVS_MODE_IS733 1
-#define MVS_MODE_IS127 2
-#define MVS_MODE_4GV_NB 3
-#define MVS_MODE_4GV_WB 4
-#define MVS_MODE_AMR 5
-#define MVS_MODE_EFR 6
-#define MVS_MODE_FR 7
-#define MVS_MODE_HR 8
-#define MVS_MODE_LINEAR_PCM 9
-#define MVS_MODE_G711 10
-#define MVS_MODE_PCM 12
-#define MVS_MODE_AMR_WB 13
-#define MVS_MODE_G729A 14
-#define MVS_MODE_G711A 15
-#define MVS_MODE_G722 16
+#define MVS_MODE_IS733 0x1
+#define MVS_MODE_IS127 0x2
+#define MVS_MODE_4GV_NB 0x3
+#define MVS_MODE_4GV_WB 0x4
+#define MVS_MODE_AMR 0x5
+#define MVS_MODE_EFR 0x6
+#define MVS_MODE_FR 0x7
+#define MVS_MODE_HR 0x8
+#define MVS_MODE_LINEAR_PCM 0x9
+#define MVS_MODE_G711 0xA
+#define MVS_MODE_PCM 0xC
+#define MVS_MODE_AMR_WB 0xD
+#define MVS_MODE_G729A 0xE
+#define MVS_MODE_G711A 0xF
+#define MVS_MODE_G722 0x10
+#define MVS_MODE_PCM_WB 0x80000000
 
 enum msm_audio_amr_mode {
 	MVS_AMR_MODE_0475, /* AMR 4.75 kbps */
@@ -99,7 +100,7 @@ struct msm_audio_mvs_config {
 	uint32_t dtx_mode;
 };
 
-#define MVS_MAX_VOC_PKT_SIZE 320
+#define MVS_MAX_VOC_PKT_SIZE 640
 
 struct msm_audio_mvs_frame {
 	uint32_t frame_type;

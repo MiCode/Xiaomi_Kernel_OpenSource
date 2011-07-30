@@ -24,7 +24,7 @@
 #define VOICE_DEV_ENABLED       0x1
 #define VOICE_DEV_DISABLED      0
 
-#define MAX_VOC_PKT_SIZE 322
+#define MAX_VOC_PKT_SIZE 642
 
 #define SESSION_NAME_LEN 20
 
@@ -529,6 +529,8 @@ struct cvs_start_record_cmd {
 /* 80-VF690-47 UMTS AMR-WB vocoder modem format. */
 #define VSS_MEDIA_ID_PCM_NB		0x00010FCB
 /* Linear PCM (16-bit, little-endian). */
+#define VSS_MEDIA_ID_PCM_WB		0x00010FCC
+/* Linear wideband PCM vocoder modem format (16 bits, little endian). */
 #define VSS_MEDIA_ID_G711_ALAW		0x00010FCD
 /* G.711 a-law (contains two 10ms vocoder frames). */
 #define VSS_MEDIA_ID_G711_MULAW		0x00010FCE

@@ -514,6 +514,10 @@ static uint32_t audio_mvs_get_media_type(uint32_t mvs_mode, uint32_t rate_type)
 			media_type = VSS_MEDIA_ID_G711_ALAW;
 		break;
 
+	case MVS_MODE_PCM_WB:
+		media_type = VSS_MEDIA_ID_PCM_WB;
+		break;
+
 	default:
 		media_type = VSS_MEDIA_ID_PCM_NB;
 	}
@@ -538,6 +542,7 @@ static uint32_t audio_mvs_get_network_type(uint32_t mvs_mode)
 		break;
 
 	case MVS_MODE_AMR_WB:
+	case MVS_MODE_PCM_WB:
 		network_type = VSS_NETWORK_ID_VOIP_WB;
 		break;
 
