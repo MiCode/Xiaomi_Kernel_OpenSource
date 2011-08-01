@@ -27,6 +27,15 @@
 #include <linux/delay.h>
 #include "wcd9310.h"
 
+#define WCD9310_RATES (SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|\
+			SNDRV_PCM_RATE_32000|SNDRV_PCM_RATE_48000)
+
+#define NUM_DECIMATORS 10
+#define NUM_INTERPOLATORS 7
+#define BITS_PER_REG 8
+#define TABLA_RX_DAI_ID 1
+#define TABLA_TX_DAI_ID 2
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -1716,7 +1725,89 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
+	struct snd_soc_codec *codec = dai->codec;
+	u8 path, tx_fs_reg, rx_fs_reg, shift;
+	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
+
 	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
+
+	switch (params_rate(params)) {
+	case 8000:
+		tx_fs_rate = 0x00;
+		rx_fs_rate = 0x00;
+		break;
+	case 16000:
+		tx_fs_rate = 0x01;
+		rx_fs_rate = 0x20;
+		break;
+	case 32000:
+		tx_fs_rate = 0x02;
+		rx_fs_rate = 0x40;
+		break;
+	case 48000:
+		tx_fs_rate = 0x03;
+		rx_fs_rate = 0x60;
+		break;
+	default:
+		pr_err("%s: Invalid sampling rate %d\n", __func__,
+				params_rate(params));
+		return -EINVAL;
+	}
+
+
+	/**
+	 * If current dai is a tx dai, set sample rate to
+	 * all the txfe paths that are currently not active
+	 */
+	if (dai->id == TABLA_TX_DAI_ID) {
+
+		tx_state = snd_soc_read(codec,
+				TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL);
+
+		for (path = 1, shift = 0;
+				path <= NUM_DECIMATORS; path++, shift++) {
+
+			if (path == BITS_PER_REG + 1) {
+				shift = 0;
+				tx_state = snd_soc_read(codec,
+					TABLA_A_CDC_CLK_TX_CLK_EN_B2_CTL);
+			}
+
+			if (!(tx_state & (1 << shift))) {
+				tx_fs_reg = TABLA_A_CDC_TX1_CLK_FS_CTL
+						+ (BITS_PER_REG*(path-1));
+				snd_soc_update_bits(codec, tx_fs_reg,
+							0x03, tx_fs_rate);
+			}
+		}
+	}
+
+	/**
+	 * TODO: Need to handle case where same RX chain takes 2 or more inputs
+	 * with varying sample rates
+	 */
+
+	/**
+	 * If current dai is a rx dai, set sample rate to
+	 * all the rx paths that are currently not active
+	 */
+	if (dai->id == TABLA_RX_DAI_ID) {
+
+		rx_state = snd_soc_read(codec,
+			TABLA_A_CDC_CLK_RX_B1_CTL);
+
+		for (path = 1, shift = 0;
+				path <= NUM_INTERPOLATORS; path++, shift++) {
+
+			if (!(rx_state & (1 << shift))) {
+				rx_fs_reg = TABLA_A_CDC_RX1_B5_CTL
+						+ (BITS_PER_REG*(path-1));
+				snd_soc_update_bits(codec, rx_fs_reg,
+						0xE0, rx_fs_rate);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -1735,7 +1826,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "AIF1 Playback",
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
 			.rate_max = 48000,
 			.rate_min = 8000,
@@ -1749,7 +1840,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 		.id = 2,
 		.capture = {
 			.stream_name = "AIF1 Capture",
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
 			.rate_max = 48000,
 			.rate_min = 8000,
