@@ -58,10 +58,18 @@
 #define INT_BT_A2DP_RX 0x3002		/* index = 27 */
 #define INT_FM_RX 0x3004		/* index = 28 */
 #define INT_FM_TX 0x3005		/* index = 29 */
+#define RT_PROXY_PORT_001_RX	0x2000    /* index = 30 */
+#define RT_PROXY_PORT_001_TX	0x2001    /* index = 31 */
 
 #define AFE_PORT_INVALID 0xFFFF
 
 #define AFE_PORT_CMD_START 0x000100ca
+
+#define AFE_EVENT_RTPORT_START 0
+#define AFE_EVENT_RTPORT_STOP 1
+#define AFE_EVENT_RTPORT_LOW_WM 2
+#define AFE_EVENT_RTPORT_HI_WM 3
+
 struct afe_port_start_command {
 	struct apr_hdr hdr;
 	u16 port_id;
@@ -257,6 +265,17 @@ struct afe_port_slimbus_cfg {
 	u16	reserved;
 } __packed;
 
+struct afe_port_rtproxy_cfg {
+	u16	bitwidth;	/* 16,24,32 */
+	u16	interleaved;    /* interleaved = 1 */
+				/* Noninterleaved = 0 */
+	u16	frame_sz;	/* 5ms buffers = 160bytes */
+	u16	jitter;		/* 10ms of jitter = 320 */
+	u16	lw_mark;	/* Low watermark in bytes for triggering event*/
+	u16	hw_mark;	/* High watermark bytes for triggering event*/
+	u16	rsvd;
+	int	num_ch;		/* 1 to 8 */
+} __packed;
 
 #define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
 
@@ -265,6 +284,7 @@ union afe_port_config {
 	struct afe_port_mi2s_cfg        mi2s;
 	struct afe_port_hdmi_cfg        hdmi;
 	struct afe_port_slimbus_cfg	slimbus;
+	struct afe_port_rtproxy_cfg     rtproxy;
 } __attribute__((packed));
 
 struct afe_audioif_config_command {
@@ -351,6 +371,55 @@ struct afe_get_active_handles_rsp {
 				/* 3, audio tx */
 	u16	handle;
 } __attribute__ ((packed));
+
+#define AFE_SERVICE_CMD_MEMORY_MAP 0x000100DE
+struct afe_cmd_memory_map {
+	struct apr_hdr hdr;
+	u32 phy_addr;
+	u32 mem_sz;
+	u16 mem_id;
+	u16 rsvd;
+} __packed;
+
+#define AFE_SERVICE_CMD_MEMORY_UNMAP 0x000100DF
+struct afe_cmd_memory_unmap {
+	struct apr_hdr hdr;
+	u32 phy_addr;
+} __packed;
+
+#define AFE_SERVICE_CMD_REG_RTPORT 0x000100E0
+struct afe_cmd_reg_rtport {
+	struct apr_hdr hdr;
+	u16 port_id;
+	u16 rsvd;
+} __packed;
+
+#define AFE_SERVICE_CMD_UNREG_RTPORT 0x000100E1
+struct afe_cmd_unreg_rtport {
+	struct apr_hdr hdr;
+	u16 port_id;
+	u16 rsvd;
+} __packed;
+
+#define AFE_SERVICE_CMD_RTPORT_WR 0x000100E2
+struct afe_cmd_rtport_wr {
+	struct apr_hdr hdr;
+	u16 port_id;
+	u16 rsvd;
+	u32 buf_addr;
+	u32 bytes_avail;
+} __packed;
+
+#define AFE_SERVICE_CMD_RTPORT_RD 0x000100E3
+struct afe_cmd_rtport_rd {
+	struct apr_hdr hdr;
+	u16 port_id;
+	u16 rsvd;
+	u32 buf_addr;
+	u32 bytes_avail;
+} __packed;
+
+#define AFE_EVENT_RT_PROXY_PORT_STATUS 0x00010105
 
 #define ADM_MAX_COPPS 5
 

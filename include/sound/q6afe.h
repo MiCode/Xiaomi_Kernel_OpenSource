@@ -21,6 +21,12 @@
 #define MSM_AFE_PORT_TYPE_RX 0
 #define MSM_AFE_PORT_TYPE_TX 1
 
+#define RT_PROXY_DAI_001_RX	0xE0
+#define RT_PROXY_DAI_001_TX	0xF0
+#define RT_PROXY_DAI_002_RX	0xF1
+#define RT_PROXY_DAI_002_TX	0xE1
+#define VIRTUAL_ID_TO_PORTID(val) ((val & 0xF) | 0x2000)
+
 enum {
 	IDX_PRIMARY_I2S_RX = 0,
 	IDX_PRIMARY_I2S_TX = 1,
@@ -52,6 +58,8 @@ enum {
 	IDX_INT_BT_A2DP_RX = 27,
 	IDX_INT_FM_RX = 28,
 	IDX_INT_FM_TX = 29,
+	IDX_RT_PROXY_PORT_001_RX = 30,
+	IDX_RT_PROXY_PORT_001_TX = 31,
 	AFE_MAX_PORTS
 };
 
@@ -64,11 +72,25 @@ int afe_validate_port(u16 port_id);
 int afe_get_port_index(u16 port_id);
 int afe_start_pseudo_port(u16 port_id);
 int afe_stop_pseudo_port(u16 port_id);
+int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
+int afe_cmd_memory_unmap(u32 dma_addr_p);
+
+int afe_register_get_events(u16 port_id,
+		void (*cb) (uint32_t opcode,
+		uint32_t token, uint32_t *payload, void *priv),
+		void *private_data);
+int afe_unregister_get_events(u16 port_id);
+int afe_rt_proxy_port_write(u32 buf_addr_p, int bytes);
+int afe_rt_proxy_port_read(u32 buf_addr_p, int bytes);
 int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	u32 rate);
 int afe_port_stop_nowait(int port_id);
 int afe_apply_gain(u16 port_id, u16 gain);
 int afe_q6_interface_prepare(void);
 int afe_get_port_type(u16 port_id);
+/* if port_id is virtual, convert to physical..
+ * if port_id is already physical, return physical
+ */
+int afe_convert_virtual_to_portid(u16 port_id);
 
 #endif /* __Q6AFE_H__ */

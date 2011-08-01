@@ -281,6 +281,8 @@ int adm_route_session(int port_id, uint session_id, int set)
 	pr_debug("%s: port %x session %x set %x\n", __func__,
 		port_id, session_id, set);
 
+	port_id = afe_convert_virtual_to_portid(port_id);
+
 	index = afe_get_port_index(port_id);
 
 	if (index >= AFE_MAX_PORTS) {
@@ -312,11 +314,12 @@ int adm_open_mixer(int port_id, int path, int rate,
 	pr_debug("%s: port %d path:%d rate:%d mode:%d\n", __func__,
 				port_id, path, rate, channel_mode);
 
+	port_id = afe_convert_virtual_to_portid(port_id);
+
 	if (afe_validate_port(port_id) < 0) {
 		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
 		return -ENODEV;
 	}
-
 	index = afe_get_port_index(port_id);
 	if (this_adm.apr == NULL) {
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
@@ -410,6 +413,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 
 	pr_debug("%s: port %d path:%d rate:%d mode:%d\n", __func__,
 				port_id, path, rate, channel_mode);
+
+	port_id = afe_convert_virtual_to_portid(port_id);
 
 	if (afe_validate_port(port_id) < 0) {
 		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
@@ -529,6 +534,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 
 	for (i = 0; i < num_copps; i++) {
 		int tmp;
+		port_id[i] = afe_convert_virtual_to_portid(port_id[i]);
+
 		tmp = afe_get_port_index(port_id[i]);
 
 		pr_debug("%s: port_id[%d]: %d, index: %d\n", __func__, i,
@@ -746,7 +753,11 @@ int adm_close(int port_id)
 	struct apr_hdr close;
 
 	int ret = 0;
-	int index = afe_get_port_index(port_id);
+	int index = 0;
+
+	port_id = afe_convert_virtual_to_portid(port_id);
+
+	index = afe_get_port_index(port_id);
 	if (afe_validate_port(port_id) < 0)
 		return -EINVAL;
 
