@@ -1675,8 +1675,8 @@ static int msmsdcc_vreg_enable(struct msm_mmc_reg_data *vreg)
 
 	if (!vreg->is_enabled) {
 		/* Set voltage level */
-		rc = msmsdcc_vreg_set_voltage(vreg, vreg->level,
-						vreg->level);
+		rc = msmsdcc_vreg_set_voltage(vreg, vreg->high_vol_level,
+						vreg->high_vol_level);
 		if (rc)
 			goto out;
 
@@ -1712,7 +1712,7 @@ static int msmsdcc_vreg_disable(struct msm_mmc_reg_data *vreg)
 			goto out;
 
 		/* Set min. voltage level to 0 */
-		rc = msmsdcc_vreg_set_voltage(vreg, 0, vreg->level);
+		rc = msmsdcc_vreg_set_voltage(vreg, 0, vreg->high_vol_level);
 		if (rc)
 			goto out;
 	} else if (vreg->is_enabled && vreg->always_on && vreg->lpm_sup) {
@@ -1754,7 +1754,7 @@ out:
 	return rc;
 }
 
-static int msmsdcc_tune_vdd_pad_level(struct msmsdcc_host *host, int level)
+static int msmsdcc_set_vddp_level(struct msmsdcc_host *host, int level)
 {
 	int rc = 0;
 
@@ -1764,6 +1764,42 @@ static int msmsdcc_tune_vdd_pad_level(struct msmsdcc_host *host, int level)
 
 		if (vddp_reg && vddp_reg->is_enabled)
 			rc = msmsdcc_vreg_set_voltage(vddp_reg, level, level);
+	}
+
+	return rc;
+}
+
+static inline int msmsdcc_set_vddp_low_vol(struct msmsdcc_host *host)
+{
+	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
+	int rc = 0;
+
+	if (curr_slot && curr_slot->vddp_data) {
+		rc = msmsdcc_set_vddp_level(host,
+			curr_slot->vddp_data->low_vol_level);
+
+		if (rc)
+			pr_err("%s: %s: failed to change vddp level to %d",
+				mmc_hostname(host->mmc), __func__,
+				curr_slot->vddp_data->low_vol_level);
+	}
+
+	return rc;
+}
+
+static inline int msmsdcc_set_vddp_high_vol(struct msmsdcc_host *host)
+{
+	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
+	int rc = 0;
+
+	if (curr_slot && curr_slot->vddp_data) {
+		rc = msmsdcc_set_vddp_level(host,
+			curr_slot->vddp_data->high_vol_level);
+
+		if (rc)
+			pr_err("%s: %s: failed to change vddp level to %d",
+				mmc_hostname(host->mmc), __func__,
+				curr_slot->vddp_data->high_vol_level);
 	}
 
 	return rc;
@@ -2071,6 +2107,12 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			disable_irq(host->core_irqres->start);
 			host->sdcc_irq_disabled = 1;
 		}
+		/*
+		 * As VDD pad rail is always on, set low voltage for VDD
+		 * pad rail when slot is unused (when card is not present
+		 * or during system suspend).
+		 */
+		msmsdcc_set_vddp_low_vol(host);
 		msmsdcc_setup_pins(host, false);
 		break;
 	case MMC_POWER_UP:
@@ -2082,6 +2124,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			enable_irq(host->core_irqres->start);
 			host->sdcc_irq_disabled = 0;
 		}
+		msmsdcc_set_vddp_high_vol(host);
 		msmsdcc_setup_pins(host, true);
 		break;
 	case MMC_POWER_ON:
@@ -2265,17 +2308,15 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
-	int err = 0;
+	int rc = 0;
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		/* Change voltage level of VDDPX to high voltage */
-		if (msmsdcc_tune_vdd_pad_level(host, 2950000)) {
-			pr_err("%s: %s: failed to change vddp level to %d",
-				mmc_hostname(mmc), __func__, 2950000);
-		}
+		rc = msmsdcc_set_vddp_high_vol(host);
 		goto out;
 	} else if (ios->signal_voltage != MMC_SIGNAL_VOLTAGE_180) {
 		/* invalid selection. don't do anything */
+		rc = -EINVAL;
 		goto out;
 	}
 
@@ -2290,7 +2331,7 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	 * register until they become all zeros.
 	 */
 	if (readl_relaxed(host->base + MCI_TEST_INPUT) & (0xF << 1)) {
-		err = -EAGAIN;
+		rc = -EAGAIN;
 		pr_err("%s: %s: MCIDATIN_3_0 is still not all zeros",
 			mmc_hostname(mmc), __func__);
 		goto out_unlock;
@@ -2306,11 +2347,9 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	 * Switch VDDPX from high voltage to low voltage
 	 * to change the VDD of the SD IO pads.
 	 */
-	if (msmsdcc_tune_vdd_pad_level(host, 1850000)) {
-		pr_err("%s: %s: failed to change vddp level to %d",
-			mmc_hostname(mmc), __func__, 1850000);
+	rc = msmsdcc_set_vddp_low_vol(host);
+	if (rc)
 		goto out;
-	}
 
 	spin_lock_irqsave(&host->lock, flags);
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
@@ -2340,14 +2379,14 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 				!= (0xF << 1)) {
 		pr_err("%s: %s: MCIDATIN_3_0 are still not all ones",
 			mmc_hostname(mmc), __func__);
-		err = -EAGAIN;
+		rc = -EAGAIN;
 		goto out_unlock;
 	}
 
 out_unlock:
 	spin_unlock_irqrestore(&host->lock, flags);
 out:
-	return err;
+	return rc;
 }
 
 static int msmsdcc_config_cm_sdc4_dll_phase(struct msmsdcc_host *host,

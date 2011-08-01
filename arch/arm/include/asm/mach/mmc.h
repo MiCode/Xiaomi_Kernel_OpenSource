@@ -28,7 +28,8 @@ struct msm_mmc_reg_data {
 	/* regulator name */
 	const char *name;
 	/* voltage level to be set */
-	unsigned int level;
+	unsigned int low_vol_level;
+	unsigned int high_vol_level;
 	/* Load values for low power and high power mode */
 	unsigned int lpm_uA;
 	unsigned int hpm_uA;

@@ -1967,14 +1967,16 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.name = "sdc_vdd",
 		.set_voltage_sup = 1,
-		.level = 2950000,
+		.high_vol_level = 2950000,
+		.low_vol_level = 2950000,
 		.hpm_uA = 200000, /* 200mA */
 	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd",
 		.set_voltage_sup = 1,
-		.level = 2950000,
+		.high_vol_level = 2950000,
+		.low_vol_level = 2950000,
 		.hpm_uA = 600000, /* 600mA */
 	}
 };
@@ -1986,7 +1988,8 @@ static struct msm_mmc_reg_data mmc_vccq_reg_data[1] = {
 		.name = "sdc_vccq",
 		.set_voltage_sup = 1,
 		.always_on = 1,
-		.level = 1800000,
+		.high_vol_level = 1800000,
+		.low_vol_level = 1800000,
 		.hpm_uA = 200000, /* 200mA */
 	}
 };
@@ -1997,7 +2000,8 @@ static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC3] = {
 		.name = "sdc_vddp",
 		.set_voltage_sup = 1,
-		.level = 2950000,
+		.high_vol_level = 2950000,
+		.low_vol_level = 1850000,
 		.always_on = 1,
 		.lpm_sup = 1,
 		/* Max. Active current required is 16 mA */
