@@ -2535,6 +2535,7 @@ static struct cyttsp_platform_data cyttsp_pdata = {
 	.regulator_info = regulator_data,
 	.num_regulators = ARRAY_SIZE(regulator_data),
 	.init = cyttsp_platform_init,
+	.correct_fw_ver = 9,
 };
 
 static struct i2c_board_info cyttsp_info[] __initdata = {

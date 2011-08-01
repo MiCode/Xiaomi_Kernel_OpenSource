@@ -419,6 +419,7 @@ static struct cyttsp_platform_data cyttsp_data = {
 	.sleep_gpio = -1,
 	.resout_gpio = -1,
 	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
+	.correct_fw_ver = 2,
 };
 
 static int pm8058_pwm_config(struct pwm_device *pwm, int ch, int on)
