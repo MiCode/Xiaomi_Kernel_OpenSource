@@ -1667,6 +1667,11 @@ static int msmsdcc_vreg_enable(struct msm_mmc_reg_data *vreg)
 {
 	int rc = 0;
 
+	/* Put regulator in HPM (high power mode) */
+	rc = msmsdcc_vreg_set_optimum_mode(vreg, vreg->hpm_uA);
+	if (rc < 0)
+		goto out;
+
 	if (!vreg->is_enabled) {
 		/* Set voltage level */
 		rc = msmsdcc_vreg_set_voltage(vreg, vreg->level,
@@ -1683,16 +1688,6 @@ static int msmsdcc_vreg_enable(struct msm_mmc_reg_data *vreg)
 		vreg->is_enabled = true;
 	}
 
-	/* Put regulator in HPM (high power mode) */
-	rc = msmsdcc_vreg_set_optimum_mode(vreg, vreg->hpm_uA);
-	if (rc < 0)
-		goto vreg_disable;
-
-	goto out;
-
-vreg_disable:
-	regulator_disable(vreg->reg);
-	vreg->is_enabled = false;
 out:
 	return rc;
 }
