@@ -207,6 +207,11 @@ static int msm_hsusb_config_vddcx(int high)
 
 	return ret;
 }
+#else
+static int msm_hsusb_config_vddcx(int high)
+{
+	return 0;
+}
 #endif
 
 static int msm_hsusb_ldo_enable(struct msm_otg *motg, int on)
