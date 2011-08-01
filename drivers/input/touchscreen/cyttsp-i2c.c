@@ -267,6 +267,7 @@ static const struct cmd_record initiate_rec = {
 
 #define BL_REC1_ADDR          0x0780
 #define BL_REC2_ADDR          0x07c0
+#define BL_CHECKSUM_MASK      0x01
 
 #define ID_INFO_REC           ":40078000"
 #define ID_INFO_OFFSET_IN_REC 77
@@ -701,6 +702,9 @@ static void cyttspfw_flash_start(struct cyttsp *ts, const u8 *data,
 	pr_info("New firmware: %d.%d.%d", appid_lo, appver_hi, appver_lo);
 
 	if (force)
+		fw_upgrade = 1;
+	else if (!(g_bl_data.bl_status & BL_CHECKSUM_MASK) &&
+			(appid_lo == ts->platform_data->correct_fw_ver))
 		fw_upgrade = 1;
 	else
 		if ((appid_hi == g_bl_data.appid_hi) &&
@@ -2674,7 +2678,8 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	}
 	if (ts->platform_data->correct_fw_ver) {
 		if (g_bl_data.appid_lo != ts->platform_data->correct_fw_ver)
-			printk(KERN_INFO "Please update touchscreen firmware\n");
+			pr_warn("%s: Invalid firmware version detected;"
+				" Please update.\n", __func__);
 	}
 
 	retval = device_create_file(&client->dev,
