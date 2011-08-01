@@ -333,10 +333,13 @@ static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd, int dmap)
 	if (wait4vsync_cnt == 0) {
 		INIT_COMPLETION(lcdc_comp);
 		mfd->dma->waiting = TRUE;
-		if (dmap)
+		if (dmap) {
+			outp32(MDP_INTR_CLEAR, INTR_DMA_P_DONE);
 			mdp_intr_mask |= INTR_DMA_P_DONE;
-		else
+		} else {
+			outp32(MDP_INTR_CLEAR, INTR_PRIMARY_VSYNC);
 			mdp_intr_mask |= INTR_PRIMARY_VSYNC;
+		}
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 		mdp_enable_irq(MDP_DMA2_TERM);	/* enable intr */
 	}
