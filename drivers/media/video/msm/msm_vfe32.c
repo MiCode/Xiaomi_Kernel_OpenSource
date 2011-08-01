@@ -625,20 +625,9 @@ static void vfe32_subdev_notify(int id, int path)
 	spin_unlock_irqrestore(&vfe32_ctrl->sd_notify_lock, flags);
 }
 
-static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
+static int vfe32_config_axi(int mode, uint32_t *ao)
 {
-	uint32_t *p, *p1;
 	int32_t *ch_info;
-	struct vfe32_output_ch *outp1, *outp2, *outp3;
-	struct msm_pmem_region *regp1 = NULL;
-	struct msm_pmem_region *regp2 = NULL;
-	struct msm_pmem_region *regp3 = NULL;
-
-	outp1 = NULL;
-	outp2 = NULL;
-	outp3 = NULL;
-
-	p = ao + 2;
 
 	/* Update the corresponding write masters for each output*/
 	ch_info = ao + V32_AXI_CFG_LEN;
@@ -652,88 +641,44 @@ static int vfe32_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 	vfe32_ctrl->outpath.out2.ch1 = 0x0000FFFF & (*ch_info++ >> 16);
 	vfe32_ctrl->outpath.out2.ch2 = 0x0000FFFF & *ch_info++;
 
-	CDBG("vfe32_config_axi: mode = %d, bufnum1 = %d, bufnum2 = %d\n",
-		mode, ad->bufnum1, ad->bufnum2);
 	switch (mode) {
 
-	case OUTPUT_2: {
-		if (ad->bufnum2 < 3)
-			return -EINVAL;
-		regp1 = &(ad->region[ad->bufnum1]);
-		outp1 = &(vfe32_ctrl->outpath.out0);
+	case OUTPUT_2:
 		vfe32_ctrl->outpath.output_mode |= VFE32_OUTPUT_MODE_PT;
-
-	}
 		break;
 
 	case OUTPUT_1_AND_2:
 		/* use wm0& 4 for thumbnail, wm1&5 for main image.*/
-		if ((ad->bufnum1 < 1) || (ad->bufnum2 < 1))
-			return -EINVAL;
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_S;  /* main image.*/
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_PT;  /* thumbnail. */
-
-		regp1 = &(ad->region[0]); /* this is thumbnail buffer. */
-		/* this is main image buffer. */
-		regp2 = &(ad->region[ad->bufnum1]);
-		outp1 = &(vfe32_ctrl->outpath.out0);
-		outp2 = &(vfe32_ctrl->outpath.out1); /* snapshot */
 		break;
 
 	case OUTPUT_1_2_AND_3:
 		CDBG("%s: OUTPUT_1_2_AND_3", __func__);
-		CDBG("%s: %d %d %d", __func__, ad->bufnum1, ad->bufnum2,
-			ad->bufnum3);
 		/* use wm0& 4 for postview, wm1&5 for preview.*/
 		/* use wm2& 6 for main img */
-		if ((ad->bufnum1 < 1) || (ad->bufnum2 < 1) || (ad->bufnum3 < 1))
-			return -EINVAL;
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_S;  /* main image.*/
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_P;  /* preview. */
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_T;  /* thumbnail. */
-
-		/* this is preview buffer. */
-		regp1 = &(ad->region[0]);
-		/* this is thumbnail buffer. */
-		regp2 = &(ad->region[ad->bufnum1]);
-		/* this is main image buffer. */
-		regp3 = &(ad->region[ad->bufnum1+ad->bufnum2]);
-		outp1 = &(vfe32_ctrl->outpath.out0);
-		outp2 = &(vfe32_ctrl->outpath.out1);
-		outp3 = &(vfe32_ctrl->outpath.out2);
 		break;
 
 	case OUTPUT_1_AND_3:
 		/* use wm0& 4 for preview, wm1&5 for video.*/
-		if ((ad->bufnum1 < 2) || (ad->bufnum2 < 2))
-			return -EINVAL;
-
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_V;  /* video*/
 		vfe32_ctrl->outpath.output_mode |=
 			VFE32_OUTPUT_MODE_PT;  /* preview */
-
-		regp1 = &(ad->region[0]); /* this is preview buffer. */
-		regp2 = &(ad->region[ad->bufnum1]);/* this is video buffer. */
-		outp1 = &(vfe32_ctrl->outpath.out0); /* preview */
-		outp2 = &(vfe32_ctrl->outpath.out2); /* video */
-
 		break;
-	case CAMIF_TO_AXI_VIA_OUTPUT_2: {  /* use wm0 only */
-		if (ad->bufnum2 < 1)
-			return -EINVAL;
+	case CAMIF_TO_AXI_VIA_OUTPUT_2:
+		/* use wm0 only */
 		CDBG("config axi for raw snapshot.\n");
 		vfe32_ctrl->outpath.out1.ch0 = 0; /* raw */
-		regp1 = &(ad->region[ad->bufnum1]);
 		vfe32_ctrl->outpath.output_mode |= VFE32_OUTPUT_MODE_S;
-		p1 = ao + 6;    /* wm0 for y  */
-		*p1 = (regp1->paddr + regp1->info.y_off);
-		}
 		break;
 	default:
 		break;
@@ -3138,8 +3083,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe_cmd_stats_buf *scfg = NULL;
 	struct msm_pmem_region   *regptr = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
-	if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
-		cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
+	if (cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
 		cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
 		cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR &&
 		cmd->cmd_type != CMD_STATS_AEC_BUF_RELEASE &&
@@ -3157,8 +3101,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 	} else {
 	/* here eith stats release or frame release. */
-		if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
-			cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
+		if (cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
 			cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
 			cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR) {
 			/* then must be stats release. */
@@ -3229,34 +3172,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_GENERAL:
 		rc = vfe32_proc_general(&vfecmd);
 		break;
-	case CMD_FRAME_BUF_RELEASE: {
-		struct msm_frame *b;
-		unsigned long p;
-		struct vfe32_output_ch *outch = NULL;
-		if (!data) {
-			rc = -EFAULT;
-			break;
-		}
-
-		b = (struct msm_frame *)(cmd->value);
-		p = *(unsigned long *)data;
-
-		CDBG("CMD_FRAME_BUF_RELEASE b->path = %d\n", b->path);
-
-		if ((b->path & OUTPUT_TYPE_P) || (b->path & OUTPUT_TYPE_T)) {
-			CDBG("CMD_FRAME_BUF_RELEASE got free buffer\n");
-			outch = &vfe32_ctrl->outpath.out0;
-		} else if (b->path & OUTPUT_TYPE_S) {
-			outch = &vfe32_ctrl->outpath.out1;
-		} else if (b->path & OUTPUT_TYPE_V) {
-			outch = &vfe32_ctrl->outpath.out2;
-		} else {
-			rc = -EFAULT;
-			break;
-		}
-
-	}
-		break;
 
 	case CMD_CONFIG_PING_ADDR: {
 		int path = *((int *)cmd->value);
@@ -3302,15 +3217,8 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 
 	case CMD_AXI_CFG_PREVIEW: {
-		struct axidata *axid;
 		uint32_t *axio = NULL;
-		axid = data;
-		if (!axid) {
-			rc = -EFAULT;
-			break;
-		}
-		axio =
-			kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3323,19 +3231,13 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			rc = -EFAULT;
 			break;
 		}
-		vfe32_config_axi(OUTPUT_2, axid, axio);
+		vfe32_config_axi(OUTPUT_2, axio);
 		kfree(axio);
 	}
 		break;
 
 	case CMD_RAW_PICT_AXI_CFG: {
-		struct axidata *axid;
 		uint32_t *axio = NULL;
-		axid = data;
-		if (!axid) {
-			rc = -EFAULT;
-			break;
-		}
 		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
@@ -3349,71 +3251,13 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			rc = -EFAULT;
 			break;
 		}
-		vfe32_config_axi(CAMIF_TO_AXI_VIA_OUTPUT_2, axid, axio);
+		vfe32_config_axi(CAMIF_TO_AXI_VIA_OUTPUT_2, axio);
 		kfree(axio);
 	}
 		break;
 
 	case CMD_AXI_CFG_SNAP: {
-		struct axidata *axid;
 		uint32_t *axio = NULL;
-		axid = data;
-		if (!axid)
-			return -EFAULT;
-		axio =
-			kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
-
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
-			kfree(axio);
-			rc = -EFAULT;
-			break;
-		}
-		vfe32_config_axi(OUTPUT_1_AND_2, axid, axio);
-		kfree(axio);
-	}
-		break;
-
-	case CMD_AXI_CFG_ZSL: {
-		struct axidata *axid;
-		uint32_t *axio = NULL;
-		CDBG("%s, CMD_AXI_CFG_ZSL\n", __func__);
-		axid = data;
-		if (!axid)
-			return -EFAULT;
-		axio =
-			kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
-
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
-			kfree(axio);
-			rc = -EFAULT;
-			break;
-		}
-		vfe32_config_axi(OUTPUT_1_2_AND_3, axid, axio);
-		kfree(axio);
-	}
-		break;
-
-	case CMD_AXI_CFG_VIDEO: {
-		struct axidata *axid;
-		uint32_t *axio = NULL;
-		axid = data;
-		if (!axid) {
-			rc = -EFAULT;
-			break;
-		}
-
 		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
@@ -3427,7 +3271,48 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			rc = -EFAULT;
 			break;
 		}
-		vfe32_config_axi(OUTPUT_1_AND_3, axid, axio);
+		vfe32_config_axi(OUTPUT_1_AND_2, axio);
+		kfree(axio);
+	}
+		break;
+
+	case CMD_AXI_CFG_ZSL: {
+		uint32_t *axio = NULL;
+		CDBG("%s, CMD_AXI_CFG_ZSL\n", __func__);
+		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+				GFP_ATOMIC);
+		if (!axio) {
+			rc = -ENOMEM;
+			break;
+		}
+
+		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+			kfree(axio);
+			rc = -EFAULT;
+			break;
+		}
+		vfe32_config_axi(OUTPUT_1_2_AND_3, axio);
+		kfree(axio);
+	}
+		break;
+
+	case CMD_AXI_CFG_VIDEO: {
+		uint32_t *axio = NULL;
+		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+				GFP_ATOMIC);
+		if (!axio) {
+			rc = -ENOMEM;
+			break;
+		}
+
+		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+			kfree(axio);
+			rc = -EFAULT;
+			break;
+		}
+		vfe32_config_axi(OUTPUT_1_AND_3, axio);
 		kfree(axio);
 	}
 		break;

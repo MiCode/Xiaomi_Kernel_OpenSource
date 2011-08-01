@@ -315,46 +315,6 @@ uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 	return rc;
 }
 
-uint8_t msm_pmem_region_lookup_3(struct msm_cam_v4l2_device *pcam, int idx,
-						struct msm_pmem_region *reg,
-						int mem_type)
-{
-	struct videobuf2_contig_pmem *mem;
-	struct vb2_queue *q = &pcam->dev_inst[idx]->vid_bufq;
-	int i;
-	uint8_t rc = 0;
-
-	mutex_lock(&hlist_mut);
-	for (i = 0; i < pcam->dev_inst[idx]->buf_count ; i++) {
-		if (q->bufs[i] != NULL) {
-			mem = vb2_plane_cookie(q->bufs[i], 0);
-			if (!mem) {
-				pr_err("%s mem is null. Return ", __func__);
-				continue;
-			}
-			reg->paddr = mem->msm_buffer->iova[0];
-			D("%s paddr for buf %d is 0x%p\n", __func__,
-							i,
-							(void *)reg->paddr);
-			reg->len = sizeof(struct msm_pmem_info);
-			reg->file = NULL;
-			reg->info.len = mem->size;
-			reg->info.vaddr = vb2_plane_vaddr(q->bufs[i], 0);
-			reg->info.type = mem_type;
-			reg->info.offset = 0;
-			reg->info.y_off = mem->y_off;
-			reg->info.cbcr_off = PAD_TO_WORD(mem->cbcr_off);
-			D("%s y_off = %d, cbcr_off = %d\n", __func__,
-			reg->info.y_off, reg->info.cbcr_off);
-			rc += 1;
-			reg++;
-		}
-	}
-	mutex_unlock(&hlist_mut);
-	D("%s returning rc= %d\n", __func__, rc);
-	return rc;
-}
-
 unsigned long msm_pmem_stats_vtop_lookup(
 				struct msm_sync *sync,
 				unsigned long buffer,
