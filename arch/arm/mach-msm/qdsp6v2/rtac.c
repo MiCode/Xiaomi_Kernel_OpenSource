@@ -132,7 +132,7 @@ static int rtac_release(struct inode *inode, struct file *f)
 void rtac_add_dev_ctrl_device(u32 dev_id, struct msm_snddev_info *dev_info)
 {
 	s32 i = 0;
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: dev_id = %d\n", __func__, dev_id);
 
 	mutex_lock(&rtac_dev_ctrl_mutex);
 	if (rtac_dev_ctl_data.num_of_dev == RTAC_MAX_ACTIVE_DEVICES) {
@@ -143,8 +143,11 @@ void rtac_add_dev_ctrl_device(u32 dev_id, struct msm_snddev_info *dev_info)
 	/* Check if device already added */
 	if (rtac_dev_ctl_data.num_of_dev != 0) {
 		for (; i < rtac_dev_ctl_data.num_of_dev; i++) {
-			if (rtac_dev_ctl_data.device[i].dev_id == dev_id)
+			if (rtac_dev_ctl_data.device[i].dev_id == dev_id) {
+				pr_debug("%s, Device = %d already present"
+					 "in list\n", __func__, dev_id);
 				goto done;
+			}
 		}
 	}
 
@@ -159,7 +162,7 @@ done:
 
 void shift_dev_ctrl_devices(u32 dev_idx)
 {
-	for (; dev_idx < rtac_dev_ctl_data.num_of_dev - 1; dev_idx++) {
+	for (; dev_idx < rtac_dev_ctl_data.num_of_dev; dev_idx++) {
 		rtac_dev_ctl_data.device[dev_idx].dev_id =
 			rtac_dev_ctl_data.device[dev_idx + 1].dev_id;
 		rtac_dev_ctl_data.device[dev_idx].afe_port =
@@ -170,7 +173,7 @@ void shift_dev_ctrl_devices(u32 dev_idx)
 void rtac_remove_dev_ctrl_device(u32 dev_id)
 {
 	s32 i;
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: dev_id = %d\n", __func__, dev_id);
 
 	mutex_lock(&rtac_dev_ctrl_mutex);
 	if (rtac_dev_ctl_data.num_of_dev == 0)
@@ -179,11 +182,21 @@ void rtac_remove_dev_ctrl_device(u32 dev_id)
 	/* look for device */
 	for (i = 0; i < rtac_dev_ctl_data.num_of_dev; i++) {
 		if (rtac_dev_ctl_data.device[i].dev_id == dev_id) {
-			shift_dev_ctrl_devices(i);
-			rtac_dev_ctl_data.device[i].dev_id = 0;
-			rtac_dev_ctl_data.device[i].afe_port = 0;
-			rtac_dev_ctl_data.num_of_dev--;
-			break;
+			if (rtac_dev_ctl_data.device[i].afe_port ==
+				rtac_adm_data.device[i].afe_port) {
+				if (rtac_adm_data.device[i].num_of_popp == 0) {
+					shift_dev_ctrl_devices(i);
+					rtac_dev_ctl_data.device[i+1].dev_id
+									= 0;
+					rtac_dev_ctl_data.device[i+1].afe_port
+									= 0;
+					rtac_dev_ctl_data.num_of_dev--;
+					break;
+				} else
+					pr_debug("%s:Device has atleast one"
+						 " POPP associated with it\n",
+						  __func__);
+			}
 		}
 	}
 done:
@@ -193,6 +206,7 @@ done:
 
 void update_rtac(u32 evt_id, u32 dev_id, struct msm_snddev_info *dev_info)
 {
+	pr_debug("%s, evt_id = %d, dev_id = %d\n", __func__, evt_id, dev_id);
 	switch (evt_id) {
 	case AUDDEV_EVT_DEV_RDY:
 		rtac_add_dev_ctrl_device(dev_id, dev_info);
@@ -215,7 +229,6 @@ void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
 		if (rtac_adm_data.device[dev_idx].popp[i] == popp_id)
 			goto done;
 
-
 	if (rtac_adm_data.device[dev_idx].num_of_popp ==
 			RTAC_MAX_ACTIVE_POPP) {
 		pr_err("%s, Max POPP!\n", __func__);
@@ -230,7 +243,8 @@ done:
 void rtac_add_adm_device(u32 port_id, u32 popp_id)
 {
 	u32 i = 0;
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
+		popp_id);
 
 	mutex_lock(&rtac_adm_mutex);
 	if (rtac_adm_data.num_of_dev == RTAC_MAX_ACTIVE_DEVICES) {
@@ -241,15 +255,16 @@ void rtac_add_adm_device(u32 port_id, u32 popp_id)
 	/* Check if device already added */
 	if (rtac_adm_data.num_of_dev != 0) {
 		for (; i < rtac_adm_data.num_of_dev; i++) {
-			if (rtac_adm_data.device[i].afe_port == port_id)
+			if (rtac_adm_data.device[i].afe_port == port_id) {
 				add_popp(i, port_id, popp_id);
 				goto done;
+			}
+			if (rtac_adm_data.device[i].num_of_popp ==
+						RTAC_MAX_ACTIVE_POPP) {
+				pr_err("%s, Max POPP!\n", __func__);
+				goto done;
+			}
 		}
-	}
-
-	if (rtac_adm_data.device[i].num_of_popp == RTAC_MAX_ACTIVE_POPP) {
-		pr_err("%s, Max POPP!\n", __func__);
-		goto done;
 	}
 
 	/* Add device */
@@ -265,29 +280,67 @@ done:
 
 void shift_adm_devices(u32 dev_idx)
 {
-	for (; dev_idx < rtac_adm_data.num_of_dev - 1; dev_idx++) {
+	for (; dev_idx < rtac_adm_data.num_of_dev; dev_idx++) {
 		memcpy(&rtac_adm_data.device[dev_idx],
 			&rtac_adm_data.device[dev_idx + 1],
 			sizeof(rtac_adm_data.device[dev_idx]));
+		memset(&rtac_adm_data.device[dev_idx + 1], 0,
+			   sizeof(rtac_adm_data.device[dev_idx]));
 	}
 }
 
-void rtac_remove_adm_device(u32 port_id)
+void shift_popp(u32 copp_idx, u32 popp_idx)
 {
-	s32 i;
-	pr_debug("%s\n", __func__);
+	for (; popp_idx < rtac_adm_data.device[copp_idx].num_of_popp;
+							popp_idx++) {
+		memcpy(&rtac_adm_data.device[copp_idx].popp[popp_idx],
+			&rtac_adm_data.device[copp_idx].popp[popp_idx + 1],
+			sizeof(uint32_t));
+		memset(&rtac_adm_data.device[copp_idx].popp[popp_idx + 1], 0,
+			   sizeof(uint32_t));
+	}
+}
+
+void rtac_remove_adm_device(u32 port_id, u32 popp_id)
+{
+	s32 i, j;
+	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
+		popp_id);
 
 	mutex_lock(&rtac_adm_mutex);
 	/* look for device */
 	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
 		if (rtac_adm_data.device[i].afe_port == port_id) {
-			shift_adm_devices(i);
-			memset(&rtac_adm_data.device[i], 0,
-				sizeof(rtac_adm_data.device[i]));
-			rtac_adm_data.num_of_dev--;
-			break;
+			if (rtac_adm_data.device[i].num_of_popp == 1) {
+				memset(&rtac_adm_data.device[i], 0,
+					   sizeof(rtac_adm_data.device[i]));
+				rtac_adm_data.num_of_dev--;
+			} else {
+				for (j = 0; j <
+				rtac_adm_data.device[i].num_of_popp; j++) {
+					if (rtac_adm_data.device[i].popp[j] ==
+								popp_id) {
+						rtac_adm_data.device[i].popp[j]
+								= 0;
+					rtac_adm_data.device[i].num_of_popp--;
+						shift_popp(i, j);
+						goto done;
+					}
+				}
+			}
+			if (rtac_adm_data.device[i].num_of_popp == 0) {
+				shift_dev_ctrl_devices(i);
+				rtac_dev_ctl_data.device[i+1].dev_id = 0;
+				rtac_dev_ctl_data.device[i+1].afe_port = 0;
+				rtac_dev_ctl_data.num_of_dev--;
+			}
+			if (rtac_adm_data.num_of_dev >= 1) {
+				shift_adm_devices(i);
+				break;
+			}
 		}
 	}
+done:
 	mutex_unlock(&rtac_adm_mutex);
 	return;
 }
@@ -372,7 +425,7 @@ void rtac_remove_voice(struct voice_data *v)
 /* ADM APR */
 void rtac_set_adm_handle(void *handle)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: handle = %d\n", __func__, (unsigned int)handle);
 
 	mutex_lock(&rtac_adm_apr_mutex);
 	rtac_adm_apr_data.apr_handle = handle;
@@ -381,10 +434,11 @@ void rtac_set_adm_handle(void *handle)
 
 bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size)
 {
+	pr_debug("%s:cmd_state = %d\n", __func__,
+			atomic_read(&rtac_adm_apr_data.cmd_state));
 	if (atomic_read(&rtac_adm_apr_data.cmd_state) != 1)
 		return false;
 
-	pr_debug("%s\n", __func__);
 	/* Offset data for in-band payload */
 	rtac_copy_adm_payload_to_user(payload, payload_size);
 	atomic_set(&rtac_adm_apr_data.cmd_state, 0);

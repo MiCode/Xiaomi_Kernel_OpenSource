@@ -119,7 +119,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			break;
 #ifdef CONFIG_MSM8X60_RTAC
 		case ADM_CMDRSP_GET_PARAMS:
-			pr_debug("ADM_CMDRSP_GET_PARAMS\n");
+			pr_debug("%s: ADM_CMDRSP_GET_PARAMS\n", __func__);
 			rtac_make_adm_callback(payload,
 				data->payload_size);
 			break;
@@ -573,10 +573,6 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	for (i = 0; i < num_copps; i++)
 		send_adm_cal(port_id[i], path);
 
-#ifdef CONFIG_MSM8X60_RTAC
-	for (i = 0; i < num_copps; i++)
-		rtac_add_adm_device(port_id[i], session_id);
-#endif
 	return 0;
 
 fail_cmd:
@@ -802,9 +798,6 @@ int adm_close(int port_id)
 			goto fail_cmd;
 		}
 
-#ifdef CONFIG_MSM8X60_RTAC
-		rtac_remove_adm_device(port_id);
-#endif
 	}
 
 fail_cmd:

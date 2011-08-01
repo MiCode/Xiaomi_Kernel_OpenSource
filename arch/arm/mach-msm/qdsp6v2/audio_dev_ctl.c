@@ -158,6 +158,9 @@ int msm_clear_copp_id(int session_id, int copp_id)
 	mutex_lock(&routing_info.copp_list_mutex);
 	if (routing_info.copp_list[session_id][index] == copp_id)
 		routing_info.copp_list[session_id][index] = COPP_IGNORE;
+#ifdef CONFIG_MSM8X60_RTAC
+	rtac_remove_adm_device(copp_id, session_id);
+#endif
 	mutex_unlock(&routing_info.copp_list_mutex);
 
 	return rc;
@@ -183,6 +186,10 @@ int msm_clear_session_id(int session_id)
 					rc);
 				continue;
 			}
+#ifdef CONFIG_MSM8X60_RTAC
+			rtac_remove_adm_device(
+			routing_info.copp_list[session_id][i], session_id);
+#endif
 			routing_info.copp_list[session_id][i] = COPP_IGNORE;
 			rc = 0;
 		}
@@ -349,7 +356,7 @@ int msm_check_multicopp_per_stream(int session_id,
 int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 					int rate, int mode)
 {
-	int rc = 0, i = 0;
+	int rc = 0, i = 0, num_copps;
 	struct route_payload payload;
 
 	if ((popp_id >= MAX_SESSIONS) || (popp_id <= 0)) {
@@ -372,9 +379,9 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 			__func__, popp_id, copp_id);
 		memset(payload.copp_ids, COPP_IGNORE,
 				(sizeof(unsigned int) * AFE_MAX_PORTS));
-		rc = msm_check_multicopp_per_stream(popp_id, &payload);
+		num_copps = msm_check_multicopp_per_stream(popp_id, &payload);
 		/* Multiple streams per copp is handled, one stream at a time */
-		rc = adm_matrix_map(popp_id, PLAYBACK, rc,
+		rc = adm_matrix_map(popp_id, PLAYBACK, num_copps,
 					payload.copp_ids, copp_id);
 		if (rc < 0) {
 			pr_err("%s: matrix map failed rc[%d]\n",
@@ -384,6 +391,10 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 			mutex_unlock(&routing_info.adm_mutex);
 			return rc;
 		}
+#ifdef CONFIG_MSM8X60_RTAC
+		for (i = 0; i < num_copps; i++)
+			rtac_add_adm_device(payload.copp_ids[i], popp_id);
+#endif
 	} else {
 		for (i = 0; i < AFE_MAX_PORTS; i++) {
 			if (routing_info.copp_list[popp_id][i] == copp_id) {
@@ -523,6 +534,10 @@ int msm_snddev_set_enc(int popp_id, int copp_id, int set,
 			goto fail_cmd;
 		}
 		msm_set_copp_id(popp_id, copp_id);
+#ifdef CONFIG_MSM8X60_RTAC
+	rtac_add_adm_device(copp_id, popp_id);
+#endif
+
 	} else {
 		for (i = 0; i < AFE_MAX_PORTS; i++) {
 			if (routing_info.copp_list[popp_id][i] == copp_id) {

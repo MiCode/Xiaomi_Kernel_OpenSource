@@ -26,7 +26,7 @@
 
 void update_rtac(u32 evt_id, u32 dev_id, struct msm_snddev_info *dev_info);
 void rtac_add_adm_device(u32 port_id, u32 popp_id);
-void rtac_remove_adm_device(u32 port_id);
+void rtac_remove_adm_device(u32 port_id, u32 popp_id);
 void rtac_add_voice(struct voice_data *v);
 void rtac_remove_voice(struct voice_data *v);
 void rtac_set_adm_handle(void *handle);
