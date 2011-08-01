@@ -137,6 +137,11 @@ extern struct platform_device msm_voice;
 extern struct platform_device msm_voip;
 extern struct platform_device msm_lpa_pcm;
 extern struct platform_device msm_pcm_hostless;
+extern struct platform_device msm_cpudai_afe_01_rx;
+extern struct platform_device msm_cpudai_afe_01_tx;
+extern struct platform_device msm_cpudai_afe_02_rx;
+extern struct platform_device msm_cpudai_afe_02_tx;
+extern struct platform_device msm_pcm_afe;
 
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;

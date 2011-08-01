@@ -3067,6 +3067,11 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_voice,
 	&msm_voip,
 	&msm_lpa_pcm,
+	&msm_cpudai_afe_01_rx,
+	&msm_cpudai_afe_01_tx,
+	&msm_cpudai_afe_02_rx,
+	&msm_cpudai_afe_02_tx,
+	&msm_pcm_afe,
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	&hdmi_msm_device,
 #endif

@@ -1148,6 +1148,31 @@ struct platform_device msm_pcm_hostless = {
 	.id	= -1,
 };
 
+struct platform_device msm_cpudai_afe_01_rx = {
+	.name = "msm-dai-q6",
+	.id = 0xE0,
+};
+
+struct platform_device msm_cpudai_afe_01_tx = {
+	.name = "msm-dai-q6",
+	.id = 0xF0,
+};
+
+struct platform_device msm_cpudai_afe_02_rx = {
+	.name = "msm-dai-q6",
+	.id = 0xF1,
+};
+
+struct platform_device msm_cpudai_afe_02_tx = {
+	.name = "msm-dai-q6",
+	.id = 0xE1,
+};
+
+struct platform_device msm_pcm_afe = {
+	.name	= "msm-pcm-afe",
+	.id	= -1,
+};
+
 struct platform_device *msm_footswitch_devices[] = {
 	FS_8X60(FS_MDP,    "fs_mdp"),
 	FS_8X60(FS_ROT,    "fs_rot"),
