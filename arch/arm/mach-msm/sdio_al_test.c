@@ -67,6 +67,8 @@ enum lpm_test_msg_type {
 #define LPM_TEST_CONFIG_SIGNATURE 0xDEADBABE
 #define LPM_MSG_NAME_SIZE 20
 
+#define A2_HEADER_OVERHEAD 8
+
 enum sdio_test_case_type {
 	SDIO_TEST_LOOPBACK_HOST,
 	SDIO_TEST_LOOPBACK_CLIENT,
@@ -74,7 +76,11 @@ enum sdio_test_case_type {
 	SDIO_TEST_LPM_CLIENT_WAKER,
 	SDIO_TEST_LPM_RANDOM,
 	SDIO_TEST_HOST_SENDER_NO_LP,
-	SDIO_TEST_PERF, /* must be last since is not part of the 9k tests */
+	/* The following tests are not part of the 9k tests and should be
+	 * kept last in case new tests are added
+	 */
+	SDIO_TEST_PERF,
+	SDIO_TEST_RTT,
 };
 
 struct lpm_task {
@@ -1423,6 +1429,217 @@ exit_err:
 }
 
 /**
+ * rx_cleanup
+ * This function reads all the messages sent by the modem until
+ * the read_avail is 0 after 1 second of sleep.
+ * The function returns the number of packets that was received.
+ */
+static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
+{
+	int read_avail = 0;
+	int ret = 0;
+
+	read_avail = sdio_read_avail(test_ch->ch);
+	TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
+		 test_ch->name, read_avail);
+
+	/* If no pending messages, wait to see if the modem sends data */
+	if (read_avail == 0) {
+		msleep(1000);
+		read_avail = sdio_read_avail(test_ch->ch);
+	}
+
+	while (read_avail > 0) {
+		TEST_DBG(TEST_MODULE_NAME ": read_avail=%d for ch %s\n",
+			 read_avail, test_ch->name);
+
+		ret = sdio_read(test_ch->ch, test_ch->buf, read_avail);
+		if (ret) {
+			pr_info(TEST_MODULE_NAME ": sdio_read size %d "
+						 " err=%d for chan %s\n",
+				read_avail, -ret, test_ch->name);
+			break;
+		}
+		(*rx_packet_count)++;
+		test_ch->rx_bytes += read_avail;
+		read_avail = sdio_read_avail(test_ch->ch);
+		if (read_avail == 0) {
+			msleep(1000);
+			read_avail = sdio_read_avail(test_ch->ch);
+		}
+	}
+	pr_info(TEST_MODULE_NAME ": finished cleanup for ch %s, "
+				 "rx_packet_count=%d, total rx bytes=%d\n",
+			 test_ch->name, *rx_packet_count, test_ch->rx_bytes);
+}
+
+
+/**
+ * A2 RTT Test
+ * This function sends a packet and calculate the RTT time of
+ * this packet.
+ * The test also calculte Min, Max and Average RTT
+ */
+static void a2_rtt_test(struct test_channel *test_ch)
+{
+	int ret = 0 ;
+	u32 read_avail = 0;
+	u32 write_avail = 0;
+	int tx_packet_count = 0;
+	int rx_packet_count = 0;
+	u16 *buf16 = (u16 *) test_ch->buf;
+	int i;
+	int max_packets = test_ch->config_msg.num_packets;
+	u32 packet_size = test_ch->packet_length;
+	s64 start_time, end_time;
+	int delta_usec = 0;
+	int time_average = 0;
+	int min_delta_usec = 0xFFFF;
+	int max_delta_usec = 0;
+	int total_time = 0;
+	int expected_read_size = 0;
+
+	for (i = 0; i < packet_size / 2; i++)
+		buf16[i] = (u16) (i & 0xFFFF);
+
+	pr_info(TEST_MODULE_NAME ": A2 RTT TEST START for chan %s\n",
+		test_ch->name);
+
+	rx_cleanup(test_ch, &rx_packet_count);
+	rx_packet_count = 0;
+
+	while (tx_packet_count < max_packets) {
+		if (test_ctx->exit_flag) {
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
+			return;
+		}
+		start_time = 0;
+		end_time = 0;
+
+		/* Allow sdio_al to go to sleep to change the read_threshold
+		 *  to 1
+		 */
+		msleep(100);
+
+		/* wait for data ready event */
+		write_avail = sdio_write_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":ch %s: write_avail=%d\n",
+			test_ch->name, write_avail);
+		if (write_avail == 0) {
+			wait_event(test_ch->wait_q,
+				   atomic_read(&test_ch->tx_notify_count));
+			atomic_dec(&test_ch->tx_notify_count);
+		}
+
+		write_avail = sdio_write_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":channel %s, write_avail=%d\n",
+			 test_ch->name, write_avail);
+		if (write_avail > 0) {
+			TEST_DBG(TEST_MODULE_NAME ":tx size = %d for chan %s\n",
+				 packet_size, test_ch->name);
+			test_ch->buf[0] = tx_packet_count;
+
+			start_time = ktime_to_us(ktime_get());
+			ret = sdio_write(test_ch->ch, test_ch->buf,
+					 packet_size);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME ":sdio_write err=%d"
+							 " for chan %s\n",
+					-ret, test_ch->name);
+				goto exit_err;
+			}
+			tx_packet_count++;
+			test_ch->tx_bytes += packet_size;
+		} else {
+				pr_err(TEST_MODULE_NAME ": Invalid write_avail"
+							 " %d for chan %s\n",
+					write_avail, test_ch->name);
+				goto exit_err;
+		}
+
+		expected_read_size = packet_size + A2_HEADER_OVERHEAD;
+
+		read_avail = sdio_read_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
+			 test_ch->name, read_avail);
+		while (read_avail < expected_read_size) {
+			wait_event(test_ch->wait_q,
+				   atomic_read(&test_ch->rx_notify_count));
+			atomic_dec(&test_ch->rx_notify_count);
+			read_avail = sdio_read_avail(test_ch->ch);
+		}
+
+		if (read_avail >= expected_read_size) {
+			pr_debug(TEST_MODULE_NAME ":read_avail=%d for ch %s.\n",
+				 read_avail, test_ch->name);
+			ret = sdio_read(test_ch->ch, test_ch->buf,
+					expected_read_size);
+			if (ret) {
+				pr_info(TEST_MODULE_NAME ": sdio_read size %d "
+					" err=%d for chan %s\n",
+					expected_read_size, -ret,
+					test_ch->name);
+				goto exit_err;
+			}
+			end_time = ktime_to_us(ktime_get());
+			rx_packet_count++;
+			test_ch->rx_bytes += expected_read_size;
+		} else {
+				pr_info(TEST_MODULE_NAME ": Invalid read_avail "
+							 "%d for chan %s\n",
+					read_avail, test_ch->name);
+				goto exit_err;
+		}
+
+		delta_usec = (int)(end_time - start_time);
+		total_time += delta_usec;
+		if (delta_usec < min_delta_usec)
+				min_delta_usec = delta_usec;
+		if (delta_usec > max_delta_usec)
+				max_delta_usec = delta_usec;
+
+		TEST_DBG(TEST_MODULE_NAME
+			 ":RTT time=%d for packet #%d for chan %s\n",
+			 delta_usec, tx_packet_count, test_ch->name);
+
+	} /* while (tx_packet_count < max_packets ) */
+
+
+	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d for"
+				 " chan %s.\n",
+		test_ch->rx_bytes, rx_packet_count, test_ch->name);
+	pr_info(TEST_MODULE_NAME ":total tx bytes = 0x%x , tx_packet#=%d"
+				 " for chan %s.\n",
+		test_ch->tx_bytes, tx_packet_count, test_ch->name);
+
+	time_average = total_time / tx_packet_count;
+
+	pr_info(TEST_MODULE_NAME ":Average RTT time = %d for chan %s\n",
+		   time_average, test_ch->name);
+	pr_info(TEST_MODULE_NAME ":MIN RTT time = %d for chan %s\n",
+		   min_delta_usec, test_ch->name);
+	pr_info(TEST_MODULE_NAME ":MAX RTT time = %d for chan %s\n",
+		   max_delta_usec, test_ch->name);
+
+	pr_info(TEST_MODULE_NAME ": A2 RTT TEST END for chan %s.\n",
+	       test_ch->name);
+
+	pr_info(TEST_MODULE_NAME ": TEST PASS for chan %s\n", test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_PASSED;
+	check_test_completion();
+	return;
+
+exit_err:
+	pr_err(TEST_MODULE_NAME ": TEST FAIL for chan %s\n", test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_FAILED;
+	check_test_completion();
+	return;
+}
+
+
+/**
  * sender No loopback Test
  */
 static void sender_no_loopback_test(struct test_channel *test_ch)
@@ -1563,6 +1780,8 @@ static void worker(struct work_struct *work)
 		break;
 	case SDIO_TEST_LPM_RANDOM:
 		lpm_continuous_rand_test(test_ch);
+	case SDIO_TEST_RTT:
+		a2_rtt_test(test_ch);
 		break;
 	default:
 		pr_err(TEST_MODULE_NAME ":Bad Test type = %d.\n",
@@ -2140,6 +2359,27 @@ static int set_params_a2_perf(struct test_channel *tch)
 	return 0;
 }
 
+static int set_params_rtt(struct test_channel *tch)
+{
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ":NULL channel\n");
+		return -EINVAL;
+	}
+	tch->is_used = 1;
+	tch->test_type = SDIO_TEST_RTT;
+	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
+	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
+	tch->packet_length = 32;
+
+	tch->config_msg.num_packets = 200;
+	tch->config_msg.num_iterations = 1;
+	tch->random_packet_size = 0;
+
+	tch->timer_interval_ms = 0;
+
+	return 0;
+}
+
 static int set_params_a2_small_pkts(struct test_channel *tch)
 {
 	if (!tch) {
@@ -2352,6 +2592,11 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	case 18:
 		pr_info(TEST_MODULE_NAME " -- rmnet small packets (5-128)  --");
 		if (set_params_a2_small_pkts(test_ctx->test_ch_arr[SDIO_RMNT]))
+			return size;
+		break;
+	case 19:
+		pr_info(TEST_MODULE_NAME " -- rmnet RTT --");
+		if (set_params_rtt(test_ctx->test_ch_arr[SDIO_RMNT]))
 			return size;
 		break;
 	case 111:
