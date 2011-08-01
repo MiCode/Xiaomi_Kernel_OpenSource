@@ -1657,6 +1657,15 @@ static void __init msm8960_allocate_memory_regions(void)
 
 #define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
 
+/* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
+ * 4 micbiases are used to power various analog and digital
+ * microphones operating at 1800 mV. Technically, all micbiases
+ * can source from single cfilter since all microphones operate
+ * at the same voltage level. The arrangement below is to make
+ * sure all cfilters are exercised. LDO_H regulator ouput level
+ * does not need to be as high as 2.85V. It is choosen for
+ * microphone sensitivity purpose.
+ */
 static struct tabla_pdata tabla_platform_data = {
 	.slimbus_slave_device = {
 		.name = "tabla-slave",
@@ -1666,6 +1675,16 @@ static struct tabla_pdata tabla_platform_data = {
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	}
 };
 
 static struct slim_device msm_slim_tabla = {
