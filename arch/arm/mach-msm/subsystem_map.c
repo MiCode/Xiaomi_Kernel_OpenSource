@@ -20,15 +20,6 @@
 #include <mach/iommu_domains.h>
 #include <mach/msm_subsystem_map.h>
 
-/*
- * TODO Have this passed in from the board file or convert
- * to whatever API upstream comes up with
- *
- * Listed in decending order as large page sizes should be tried before
- * smaller sizes
- */
-static unsigned int iommu_page_sizes[4] = {SZ_16M, SZ_1M, SZ_64K, SZ_4K};
-
 struct msm_buffer_node {
 	struct rb_node rb_node_all_buffer;
 	struct rb_node rb_node_paddr;
@@ -36,7 +27,6 @@ struct msm_buffer_node {
 	unsigned long length;
 	unsigned int *subsystems;
 	unsigned int nsubsys;
-	unsigned int pg_size;
 	unsigned int phys;
 };
 
@@ -285,7 +275,6 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 	struct msm_buffer_node *node;
 	int i = 0, j = 0, ret;
 	unsigned long iova_start = 0, temp_phys, temp_va = 0;
-	unsigned int order = 0, pg_size = 0;
 	struct iommu_domain *d = NULL;
 
 	if (!((flags & MSM_SUBSYSTEM_MAP_KADDR) ||
@@ -349,27 +338,15 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 	}
 
 	if ((flags & MSM_SUBSYSTEM_MAP_IOVA) && subsys_ids) {
-		unsigned int min_align;
+		int min_align;
 
-		pg_size = SZ_4K;
-
-		for (i = 0; i < ARRAY_SIZE(iommu_page_sizes); i++) {
-			if (IS_ALIGNED(length, iommu_page_sizes[i]) &&
-				IS_ALIGNED(phys, iommu_page_sizes[i])) {
-				pg_size = iommu_page_sizes[i];
-				break;
-			}
-		}
-
-		length = round_up(length, pg_size);
+		length = round_up(length, SZ_4K);
 
 		buf->iova = kzalloc(sizeof(unsigned long)*nsubsys, GFP_ATOMIC);
 		if (!buf->iova) {
 			err = ERR_PTR(-ENOMEM);
 			goto outremovephys;
 		}
-
-		order = get_order(pg_size);
 
 		/*
 		 * The alignment must be specified as the exact value wanted
@@ -387,7 +364,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 			iova_start = allocate_iova_address(length,
 						subsys_ids[i],
-						max(min_align, pg_size));
+						max(min_align, SZ_4K));
 
 			if (!iova_start) {
 				pr_err("%s: could not allocate iova address\n",
@@ -397,11 +374,11 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 			temp_phys = phys;
 			temp_va = iova_start;
-			for (j = length; j > 0; j -= pg_size,
-					temp_phys += pg_size,
-					temp_va += pg_size) {
+			for (j = length; j > 0; j -= SZ_4K,
+					temp_phys += SZ_4K,
+					temp_va += SZ_4K) {
 				ret = iommu_map(d, temp_va, temp_phys,
-						 order, 0);
+						 get_order(SZ_4K), 0);
 				if (ret) {
 					pr_err("%s: could not map iommu for"
 						" domain %p, iova %lx,"
@@ -419,7 +396,6 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 	node->buf = buf;
 	node->subsystems = subsys_ids;
 	node->length = length;
-	node->pg_size = pg_size;
 	node->nsubsys = nsubsys;
 
 	if (add_buffer(node)) {
@@ -431,21 +407,21 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 outiova:
 	if (flags & MSM_SUBSYSTEM_MAP_IOVA)
-		iommu_unmap(d, temp_va, order);
+		iommu_unmap(d, temp_va, get_order(SZ_4K));
 outdomain:
 	if (flags & MSM_SUBSYSTEM_MAP_IOVA) {
-		for (j -= pg_size, temp_va -= pg_size;
-			j > 0; temp_va -= pg_size, j -= pg_size)
-			iommu_unmap(d, temp_va, order);
+		for (j -= SZ_4K, temp_va -= SZ_4K;
+			j > 0; temp_va -= SZ_4K, j -= SZ_4K)
+			iommu_unmap(d, temp_va, get_order(SZ_4K));
 
 		for (i--; i >= 0; i--) {
 			if (!subsys_validate(subsys_ids[i]))
 				continue;
 
 			temp_va = buf->iova[i];
-			for (j = length; j > 0; j -= pg_size,
-						temp_va += pg_size)
-				iommu_unmap(d, temp_va, order);
+			for (j = length; j > 0; j -= SZ_4K,
+						temp_va += SZ_4K)
+				iommu_unmap(d, temp_va, get_order(SZ_4K));
 			free_iova_address(buf->iova[i], length, subsys_ids[i]);
 		}
 
@@ -469,7 +445,6 @@ EXPORT_SYMBOL(msm_subsystem_map_buffer);
 
 int msm_subsystem_unmap_buffer(struct msm_mapped_buffer *buf)
 {
-	unsigned int order;
 	struct msm_buffer_node *node;
 	int i, j, ret;
 	unsigned long temp_va;
@@ -488,8 +463,6 @@ int msm_subsystem_unmap_buffer(struct msm_mapped_buffer *buf)
 		goto out;
 	}
 
-	order = get_order(node->pg_size);
-
 	if (buf->iova) {
 		for (i = 0; i < node->nsubsys; i++) {
 			struct iommu_domain *subsys_domain;
@@ -500,10 +473,10 @@ int msm_subsystem_unmap_buffer(struct msm_mapped_buffer *buf)
 			subsys_domain = msm_subsystem_get_domain(
 							node->subsystems[i]);
 			temp_va = buf->iova[i];
-			for (j = node->length; j > 0; j -= node->pg_size,
-				temp_va += node->pg_size) {
+			for (j = node->length; j > 0; j -= SZ_4K,
+				temp_va += SZ_4K) {
 				ret = iommu_unmap(subsys_domain, temp_va,
-							order);
+							get_order(SZ_4K));
 				WARN(ret, "iommu_unmap returned a non-zero"
 						" value.\n");
 			}
