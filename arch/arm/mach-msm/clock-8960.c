@@ -1165,14 +1165,14 @@ static struct rcg_clk prng_clk = {
 	},
 };
 
-#define CLK_SDC(i, n, h_r, h_b) \
-	struct rcg_clk i##_clk = { \
+#define CLK_SDC(name, n, h_b, f_table) \
+	struct rcg_clk name = { \
 		.b = { \
 			.ctl_reg = SDCn_APPS_CLK_NS_REG(n), \
 			.en_mask = BIT(9), \
 			.reset_reg = SDCn_RESET_REG(n), \
 			.reset_mask = BIT(0), \
-			.halt_reg = h_r, \
+			.halt_reg = CLK_HALT_DFAB_STATE_REG, \
 			.halt_bit = h_b, \
 		}, \
 		.ns_reg = SDCn_APPS_CLK_NS_REG(n), \
@@ -1180,12 +1180,12 @@ static struct rcg_clk prng_clk = {
 		.root_en_mask = BIT(11), \
 		.ns_mask = (BM(23, 16) | BM(6, 0)), \
 		.set_rate = set_rate_mnd, \
-		.freq_tbl = clk_tbl_sdc, \
+		.freq_tbl = f_table, \
 		.current_freq = &local_dummy_freq, \
 		.c = { \
-			.dbg_name = #i "_clk", \
+			.dbg_name = #name, \
 			.ops = &soc_clk_ops_8960, \
-			CLK_INIT(i##_clk.c), \
+			CLK_INIT(name.c), \
 		}, \
 	}
 #define F_SDC(f, s, d, m, n, v) \
@@ -1197,7 +1197,41 @@ static struct rcg_clk prng_clk = {
 		.mnd_en_mask = BIT(8) * !!(n), \
 		.sys_vdd = v, \
 	}
-static struct clk_freq_tbl clk_tbl_sdc[] = {
+static struct clk_freq_tbl clk_tbl_sdc1_2[] = {
+	F_SDC(        0, gnd,   1, 0,   0, NONE),
+	F_SDC(   144000, pxo,   3, 2, 125, LOW),
+	F_SDC(   400000, pll8,  4, 1, 240, LOW),
+	F_SDC( 16000000, pll8,  4, 1,   6, LOW),
+	F_SDC( 17070000, pll8,  1, 2,  45, LOW),
+	F_SDC( 20210000, pll8,  1, 1,  19, LOW),
+	F_SDC( 24000000, pll8,  4, 1,   4, LOW),
+	F_SDC( 48000000, pll8,  4, 1,   2, LOW),
+	F_SDC( 64000000, pll8,  3, 1,   2, NOMINAL),
+	F_SDC( 96000000, pll8,  4, 0,   0, NOMINAL),
+	F_END
+};
+
+static CLK_SDC(sdc1_clk, 1, 6, clk_tbl_sdc1_2);
+static CLK_SDC(sdc2_clk, 2, 5, clk_tbl_sdc1_2);
+
+static struct clk_freq_tbl clk_tbl_sdc3[] = {
+	F_SDC(        0, gnd,   1, 0,   0, NONE),
+	F_SDC(   144000, pxo,   3, 2, 125, LOW),
+	F_SDC(   400000, pll8,  4, 1, 240, LOW),
+	F_SDC( 16000000, pll8,  4, 1,   6, LOW),
+	F_SDC( 17070000, pll8,  1, 2,  45, LOW),
+	F_SDC( 20210000, pll8,  1, 1,  19, LOW),
+	F_SDC( 24000000, pll8,  4, 1,   4, LOW),
+	F_SDC( 48000000, pll8,  4, 1,   2, LOW),
+	F_SDC( 64000000, pll8,  3, 1,   2, LOW),
+	F_SDC( 96000000, pll8,  4, 0,   0, LOW),
+	F_SDC(192000000, pll8,  2, 0,   0, NOMINAL),
+	F_END
+};
+
+static CLK_SDC(sdc3_clk, 3, 4, clk_tbl_sdc3);
+
+static struct clk_freq_tbl clk_tbl_sdc4_5[] = {
 	F_SDC(        0, gnd,   1, 0,   0, NONE),
 	F_SDC(   144000, pxo,   3, 2, 125, LOW),
 	F_SDC(   400000, pll8,  4, 1, 240, LOW),
@@ -1207,16 +1241,11 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_SDC( 24000000, pll8,  4, 1,   4, LOW),
 	F_SDC( 48000000, pll8,  4, 1,   2, NOMINAL),
 	F_SDC( 64000000, pll8,  3, 1,   2, NOMINAL),
-	F_SDC( 96000000, pll8,  4, 0,   0, NOMINAL),
-	F_SDC(192000000, pll8,  2, 0,   0, NOMINAL),
 	F_END
 };
 
-static CLK_SDC(sdc1, 1, CLK_HALT_DFAB_STATE_REG, 6);
-static CLK_SDC(sdc2, 2, CLK_HALT_DFAB_STATE_REG, 5);
-static CLK_SDC(sdc3, 3, CLK_HALT_DFAB_STATE_REG, 4);
-static CLK_SDC(sdc4, 4, CLK_HALT_DFAB_STATE_REG, 3);
-static CLK_SDC(sdc5, 5, CLK_HALT_DFAB_STATE_REG, 2);
+static CLK_SDC(sdc4_clk, 4, 3, clk_tbl_sdc4_5);
+static CLK_SDC(sdc5_clk, 5, 2, clk_tbl_sdc4_5);
 
 #define F_TSIF_REF(f, s, d, m, n, v) \
 	{ \
