@@ -25,6 +25,8 @@
 #include <linux/mutex.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <mach/rpm.h>
@@ -771,6 +773,55 @@ unregister_notification_exit:
 }
 EXPORT_SYMBOL(msm_rpm_unregister_notification);
 
+static uint32_t fw_major, fw_minor, fw_build;
+
+static ssize_t driver_version_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u.%u.%u\n",
+			RPM_MAJOR_VER, RPM_MINOR_VER, RPM_BUILD_VER);
+}
+
+static ssize_t fw_version_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u.%u.%u\n",
+			fw_major, fw_minor, fw_build);
+}
+
+static struct kobj_attribute driver_version_attr = __ATTR_RO(driver_version);
+static struct kobj_attribute fw_version_attr = __ATTR_RO(fw_version);
+
+static struct attribute *driver_attributes[] = {
+	&driver_version_attr.attr,
+	&fw_version_attr.attr,
+	NULL
+};
+
+static struct attribute_group driver_attr_group = {
+	.attrs = driver_attributes,
+};
+
+static int __devinit msm_rpm_probe(struct platform_device *pdev)
+{
+	return sysfs_create_group(&pdev->dev.kobj, &driver_attr_group);
+}
+
+static int __devexit msm_rpm_remove(struct platform_device *pdev)
+{
+	sysfs_remove_group(&pdev->dev.kobj, &driver_attr_group);
+	return 0;
+}
+
+static struct platform_driver msm_rpm_platform_driver = {
+	.probe = msm_rpm_probe,
+	.remove = __devexit_p(msm_rpm_remove),
+	.driver = {
+		.name = "msm_rpm",
+		.owner = THIS_MODULE,
+	},
+};
+
 static void __init msm_rpm_populate_map(void)
 {
 	int i, k;
@@ -788,26 +839,24 @@ static void __init msm_rpm_populate_map(void)
 
 int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 {
-	uint32_t major;
-	uint32_t minor;
-	uint32_t build;
 	unsigned int irq;
 	int rc;
 
 	msm_rpm_platform = data;
 
-	major = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+	fw_major = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 					MSM_RPM_STATUS_ID_VERSION_MAJOR);
-	minor = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+	fw_minor = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 					MSM_RPM_STATUS_ID_VERSION_MINOR);
-	build = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+	fw_build = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 					MSM_RPM_STATUS_ID_VERSION_BUILD);
-	pr_info("%s: RPM firmware %u.%u.%u\n", __func__, major, minor, build);
+	pr_info("%s: RPM firmware %u.%u.%u\n", __func__,
+			fw_major, fw_minor, fw_build);
 
-	if (major != RPM_MAJOR_VER) {
+	if (fw_major != RPM_MAJOR_VER) {
 		pr_err("%s: RPM version %u.%u.%u incompatible with "
 				"this driver version %u.%u.%u\n", __func__,
-				major, minor, build,
+				fw_major, fw_minor, fw_build,
 				RPM_MAJOR_VER, RPM_MINOR_VER, RPM_BUILD_VER);
 		return -EFAULT;
 	}
@@ -838,5 +887,6 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	}
 
 	msm_rpm_populate_map();
-	return 0;
+
+	return platform_driver_register(&msm_rpm_platform_driver);
 }

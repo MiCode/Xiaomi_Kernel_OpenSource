@@ -2628,6 +2628,12 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 	.msm_apps_ipc_rpm_val = 4,
 };
 
+static struct platform_device msm_rpm_device = {
+	.name   = "msm_rpm",
+	.id     = -1,
+};
+
+
 static struct spi_board_info spi_board_info[] __initdata = {
 	{
 		.modalias               = "ks8851",
@@ -2725,6 +2731,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
 #endif
+	&msm_rpm_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -2763,7 +2770,6 @@ static struct platform_device *sim_devices[] __initdata = {
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
 	&qcedev_device,
 #endif
-
 };
 
 static struct platform_device *rumi3_devices[] __initdata = {
