@@ -16,6 +16,8 @@
 #ifndef _BAM_DMUX_H
 #define _BAM_DMUX_H
 
+#define BAM_DMUX_CH_NAME_MAX_LEN	20
+
 enum {
 	BAM_DMUX_DATA_RMNET_0,
 	BAM_DMUX_DATA_RMNET_1,

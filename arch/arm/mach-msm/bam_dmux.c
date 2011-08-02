@@ -90,6 +90,8 @@ struct bam_ch_info {
 	void (*notify)(void *, int, unsigned long);
 	void *priv;
 	spinlock_t lock;
+	struct platform_device *pdev;
+	char name[BAM_DMUX_CH_NAME_MAX_LEN];
 };
 
 struct tx_pkt_info {
@@ -215,6 +217,7 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 	struct bam_mux_hdr *rx_hdr;
 	struct rx_pkt_info *info;
 	struct sk_buff *rx_skb;
+	int ret;
 
 	info = container_of(work, struct rx_pkt_info, work);
 	rx_skb = info->skb;
@@ -246,6 +249,10 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
 		dev_kfree_skb_any(rx_skb);
 		queue_rx();
+		ret = platform_device_add(bam_ch[rx_hdr->ch_id].pdev);
+		if (ret)
+			pr_err("%s: platform_device_add() error: %d\n",
+					__func__, ret);
 		break;
 	case BAM_MUX_HDR_CMD_CLOSE:
 		/* probably should drop pending write */
@@ -254,6 +261,11 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
 		dev_kfree_skb_any(rx_skb);
 		queue_rx();
+		platform_device_unregister(bam_ch[rx_hdr->ch_id].pdev);
+		bam_ch[rx_hdr->ch_id].pdev =
+			platform_device_alloc(bam_ch[rx_hdr->ch_id].name, 2);
+		if (!bam_ch[rx_hdr->ch_id].pdev)
+			pr_err("%s: platform_device_alloc failed\n", __func__);
 		break;
 	default:
 		pr_err("%s: dropping invalid hdr. magic %x reserved %d cmd %d"
@@ -754,8 +766,19 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	for (rc = 0; rc < BAM_DMUX_NUM_CHANNELS; ++rc)
+	for (rc = 0; rc < BAM_DMUX_NUM_CHANNELS; ++rc) {
 		spin_lock_init(&bam_ch[rc].lock);
+		scnprintf(bam_ch[rc].name, BAM_DMUX_CH_NAME_MAX_LEN,
+					"bam_dmux_ch_%d", rc);
+		/* bus 2, ie a2 stream 2 */
+		bam_ch[rc].pdev = platform_device_alloc(bam_ch[rc].name, 2);
+		if (!bam_ch[rc].pdev) {
+			pr_err("%s: platform device alloc failed\n", __func__);
+			destroy_workqueue(bam_mux_rx_workqueue);
+			destroy_workqueue(bam_mux_tx_workqueue);
+			return -ENOMEM;
+		}
+	}
 
 	/* switch over to A2 power status mechanism when avaliable */
 	INIT_DELAYED_WORK(&bam_init_work, bam_init);
