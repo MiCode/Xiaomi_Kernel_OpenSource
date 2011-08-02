@@ -463,7 +463,7 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 		const unsigned int *ptr_register_ranges;
 
 		/* Based on chip id choose the register ranges */
-		if (adreno_is_a220(adreno_dev)) {
+		if (adreno_is_a22x(adreno_dev)) {
 			ptr_register_ranges = register_ranges_a22x;
 			reg_array_size = ARRAY_SIZE(register_ranges_a22x);
 		} else {
@@ -535,7 +535,7 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	*cmd++ = REG_TP0_CHICKEN;
 	*cmd++ = tmp_ctx.reg_values[1];
 
-	if (adreno_is_a220(adreno_dev)) {
+	if (adreno_is_a22x(adreno_dev)) {
 		unsigned int i;
 		unsigned int j = 2;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
@@ -640,7 +640,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	/* SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC */
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
 	*cmds++ = PM4_REG(REG_SQ_PROGRAM_CNTL);
-	if (adreno_is_a220(adreno_dev))
+	if (adreno_is_a22x(adreno_dev))
 		*cmds++ = 0x10018001;
 	else
 		*cmds++ = 0x10010001;
@@ -671,7 +671,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	/* disable Z */
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 	*cmds++ = PM4_REG(REG_RB_DEPTHCONTROL);
-	if (adreno_is_a220(adreno_dev))
+	if (adreno_is_a22x(adreno_dev))
 		*cmds++ = 0x08;
 	else
 		*cmds++ = 0;
@@ -745,7 +745,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = PM4_REG(REG_PA_CL_CLIP_CNTL);
 	*cmds++ = 0x00010000;
 
-	if (adreno_is_a220(adreno_dev)) {
+	if (adreno_is_a22x(adreno_dev)) {
 		*cmds++ = pm4_type3_packet(PM4_SET_DRAW_INIT_FLAGS, 1);
 		*cmds++ = 0;
 
@@ -845,7 +845,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = PM4_REG(REG_PA_SC_AA_MASK);
 	*cmds++ = 0x0000ffff;	/* REG_PA_SC_AA_MASK */
 
-	if (!adreno_is_a220(adreno_dev)) {
+	if (!adreno_is_a22x(adreno_dev)) {
 		/* PA_SC_VIZ_QUERY */
 		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 		*cmds++ = PM4_REG(REG_PA_SC_VIZ_QUERY);
@@ -912,7 +912,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 	*cmds++ = PM4_REG(REG_RB_DEPTHCONTROL);
 
-	if (adreno_is_a220(adreno_dev))
+	if (adreno_is_a22x(adreno_dev))
 		*cmds++ = 8;		/* disable Z */
 	else
 		*cmds++ = 0;		/* disable Z */
@@ -964,7 +964,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = PM4_REG(REG_PA_CL_CLIP_CNTL);
 	*cmds++ = 0x00010000;
 
-	if (adreno_is_a220(adreno_dev)) {
+	if (adreno_is_a22x(adreno_dev)) {
 		*cmds++ = pm4_type3_packet(PM4_SET_DRAW_INIT_FLAGS, 1);
 		*cmds++ = 0;
 
@@ -1024,7 +1024,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 #endif
 
 	/* Based on chip id choose the registers ranges*/
-	if (adreno_is_a220(adreno_dev)) {
+	if (adreno_is_a22x(adreno_dev)) {
 		ptr_register_ranges = register_ranges_a22x;
 		reg_array_size = ARRAY_SIZE(register_ranges_a22x);
 	} else {
@@ -1061,7 +1061,7 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	tmp_ctx.reg_values[1] = virt2gpu(cmd, &drawctxt->gpustate);
 	*cmd++ = 0x00000000;
 
-	if (adreno_is_a220(adreno_dev)) {
+	if (adreno_is_a22x(adreno_dev)) {
 		unsigned int i;
 		unsigned int j = 2;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
@@ -1485,10 +1485,11 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
 			context->shader_restore, 3);
 	}
 
-	cmds[0] = pm4_type3_packet(PM4_SET_BIN_BASE_OFFSET, 1);
-	cmds[1] = context->bin_base_offset;
-	if (!adreno_is_a220(adreno_dev))
+	if (adreno_is_a20x(adreno_dev)) {
+		cmds[0] = pm4_type3_packet(PM4_SET_BIN_BASE_OFFSET, 1);
+		cmds[1] = context->bin_base_offset;
 		adreno_ringbuffer_issuecmds(device, 0, cmds, 2);
+	}
 }
 
 /*

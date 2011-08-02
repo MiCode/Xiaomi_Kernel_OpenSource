@@ -364,6 +364,7 @@ union reg_cp_rb_cntl {
 #define REG_SQ_CF_BOOLEANS               0x4900
 #define REG_SQ_CF_LOOP                   0x4908
 #define REG_SQ_GPR_MANAGEMENT            0x0D00
+#define REG_SQ_FLOW_CONTROL              0x0D01
 #define REG_SQ_INST_STORE_MANAGMENT      0x0D02
 #define REG_SQ_INT_ACK                   0x0D36
 #define REG_SQ_INT_CNTL                  0x0D34

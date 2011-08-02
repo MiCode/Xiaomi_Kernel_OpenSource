@@ -137,7 +137,7 @@ static int adreno_gmeminit(struct adreno_device *adreno_dev)
 	rb_edram_info.val = 0;
 
 	rb_edram_info.f.edram_size = edram_value;
-	if (!adreno_is_a220(adreno_dev))
+	if (!adreno_is_a22x(adreno_dev))
 		rb_edram_info.f.edram_mapping_mode = 0; /* EDRAM_MAP_UPPER */
 
 	/* must be aligned to size */
@@ -283,7 +283,7 @@ static void adreno_setstate(struct kgsl_device *device, uint32_t flags)
 		}
 
 		if (flags & KGSL_MMUFLAGS_PTUPDATE &&
-			!adreno_is_a220(adreno_dev)) {
+			adreno_is_a20x(adreno_dev)) {
 			/* HW workaround: to resolve MMU page fault interrupts
 			* caused by the VGT.It prevents the CP PFP from filling
 			* the VGT DMA request fifo too early,thereby ensuring
@@ -507,7 +507,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 
 	/* Only reset CP block if all blocks have previously been reset */
 	if (!(device->flags & KGSL_FLAGS_SOFT_RESET) ||
-		!adreno_is_a220(adreno_dev)) {
+		!adreno_is_a22x(adreno_dev)) {
 		adreno_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
 		device->flags |= KGSL_FLAGS_SOFT_RESET;
 	} else
@@ -522,11 +522,16 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 
 	adreno_regwrite(device, REG_RBBM_CNTL, 0x00004442);
 
+	if (adreno_is_a225(adreno_dev)) {
+		/* Enable large instruction store for A225 */
+		adreno_regwrite(device, REG_SQ_FLOW_CONTROL, 0x18000000);
+	}
+
 	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
 	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
-	if (!adreno_is_a220(adreno_dev))
+	if (!adreno_is_a22x(adreno_dev))
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
 	else
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
@@ -543,7 +548,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	adreno_regwrite(device, REG_CP_INT_CNTL, 0);
 	adreno_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-	if (adreno_is_a220(adreno_dev))
+	if (adreno_is_a22x(adreno_dev))
 		adreno_dev->gmemspace.sizebytes = SZ_512K;
 	else
 		adreno_dev->gmemspace.sizebytes = SZ_256K;
