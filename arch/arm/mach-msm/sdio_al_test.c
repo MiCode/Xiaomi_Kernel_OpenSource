@@ -57,6 +57,7 @@ enum lpm_test_msg_type {
 #define MAX_XFER_SIZE (16*1024)
 #define SMEM_MAX_XFER_SIZE 0xBC000
 #define A2_MIN_PACKET_SIZE 5
+#define DUN_PACKET_SIZE (2*1024)
 
 #define TEST_DBG(x...) if (test_ctx->runtime_debug) pr_info(x)
 
@@ -2345,10 +2346,13 @@ static int set_params_a2_perf(struct test_channel *tch)
 	tch->test_type = SDIO_TEST_PERF;
 	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
 	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
+	tch->packet_length = MAX_XFER_SIZE;
 	if (tch->ch_id == SDIO_DIAG)
 		tch->packet_length = 512;
-	else
-		tch->packet_length = MAX_XFER_SIZE;
+	else if (tch->ch_id == SDIO_DUN)
+			tch->packet_length = DUN_PACKET_SIZE;
+	pr_info(TEST_MODULE_NAME ": %s: packet_length=%d", __func__,
+			tch->packet_length);
 
 	tch->config_msg.num_packets = 10000;
 	tch->config_msg.num_iterations = 1;
