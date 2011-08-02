@@ -490,15 +490,25 @@ static void gbam_start_io(struct gbam_port *port)
 	gbam_start_rx(port);
 }
 
+static void gbam_notify(void *p, int event, unsigned long data)
+{
+	switch (event) {
+	case BAM_DMUX_RECEIVE:
+		gbam_data_recv_cb(p, (struct sk_buff *)(data));
+		break;
+	case BAM_DMUX_WRITE_DONE:
+		gbam_data_write_done(p, (struct sk_buff *)(data));
+		break;
+	}
+}
+
 static void gbam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
 	struct bam_ch_info *d = &port->data_ch;
 	int ret;
 
-	ret = msm_bam_dmux_open(d->id, port,
-				gbam_data_recv_cb,
-				gbam_data_write_done);
+	ret = msm_bam_dmux_open(d->id, port, gbam_notify);
 	if (ret) {
 		pr_err("%s: unable open bam ch:%d err:%d\n",
 				__func__, d->id, ret);

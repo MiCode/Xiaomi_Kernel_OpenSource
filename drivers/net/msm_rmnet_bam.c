@@ -335,6 +335,18 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 	netif_wake_queue(dev);
 }
 
+static void bam_notify(void *dev, int event, unsigned long data)
+{
+	switch (event) {
+	case BAM_DMUX_RECEIVE:
+		bam_recv_notify(dev, (struct sk_buff *)(data));
+		break;
+	case BAM_DMUX_WRITE_DONE:
+		bam_write_done(dev, (struct sk_buff *)(data));
+		break;
+	}
+}
+
 static int __rmnet_open(struct net_device *dev)
 {
 	int r;
@@ -343,8 +355,7 @@ static int __rmnet_open(struct net_device *dev)
 	DBG0("[%s] __rmnet_open()\n", dev->name);
 
 	if (!p->device_up) {
-		r = msm_bam_dmux_open(p->ch_id, dev,
-				       bam_recv_notify, bam_write_done);
+		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
 
 		if (r < 0)
 			return -ENODEV;
