@@ -1096,10 +1096,9 @@ int soc_dsp_runtime_update(struct snd_soc_dapm_widget *widget)
 		if (!fe->dai_link->dsp_link)
 			continue;
 
-		/* only check active links */
-		if (!fe->cpu_dai->active) {
-			continue;
-		}
+		/* only check active playback links */
+		if (!fe->cpu_dai->playback_active)
+			goto capture;
 
 		/* DAPM sync will call this to update DSP paths */
 		dev_dbg(card->dev, "DSP runtime update for FE %s\n", fe->dai_link->name);
@@ -1123,21 +1122,26 @@ int soc_dsp_runtime_update(struct snd_soc_dapm_widget *widget)
 
 capture:
 		/* update any capture paths */
-		start = dsp_add_new_paths(fe, SNDRV_PCM_STREAM_CAPTURE, 1);
-		stop = dsp_prune_old_paths(fe, SNDRV_PCM_STREAM_CAPTURE, 1);
-		if (!(start || stop))
-			continue;
+		if (fe->cpu_dai->capture_active) {
+			start = dsp_add_new_paths(fe, SNDRV_PCM_STREAM_CAPTURE,
+				1);
+			stop = dsp_prune_old_paths(fe, SNDRV_PCM_STREAM_CAPTURE,
+				1);
+			if (!(start || stop))
+				continue;
 
-		/* run PCM ops on new/old capture paths */
-		ret = dsp_run_update(fe, SNDRV_PCM_STREAM_CAPTURE, start, stop);
-		if (ret < 0) {
-			dev_err(&fe->dev, "failed to update capture FE stream %s\n",
+			/* run PCM ops on new/old capture paths */
+			ret = dsp_run_update(fe, SNDRV_PCM_STREAM_CAPTURE,
+				start, stop);
+			if (ret < 0) {
+				dev_err(&fe->dev, "failed to update capture FE stream %s\n",
 					fe->dai_link->stream_name);
-		}
+			}
 
-		/* free old capture links */
-		be_disconnect(fe, SNDRV_PCM_STREAM_CAPTURE);
-		fe_clear_pending(fe, SNDRV_PCM_STREAM_CAPTURE);
+			/* free old capture links */
+			be_disconnect(fe, SNDRV_PCM_STREAM_CAPTURE);
+			fe_clear_pending(fe, SNDRV_PCM_STREAM_CAPTURE);
+		}
 	}
 
 	mutex_unlock(&widget->dapm->card->dsp_mutex);
