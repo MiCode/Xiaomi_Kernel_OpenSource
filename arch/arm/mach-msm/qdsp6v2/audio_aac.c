@@ -1261,7 +1261,9 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		case AUDIO_AAC_FORMAT_LOAS:
 			aac_cfg.format = 0x01;
 			break;
-		/* ADIF, use it as RAW */
+		case AUDIO_AAC_FORMAT_ADIF:
+			aac_cfg.format = 0x02;
+			break;
 		default:
 		case AUDIO_AAC_FORMAT_RAW:
 			aac_cfg.format = 0x03;
