@@ -244,7 +244,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	}
 
 	mipi_dsi_host_init(mipi);
-	mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 
 	ret = panel_next_on(pdev);
 
