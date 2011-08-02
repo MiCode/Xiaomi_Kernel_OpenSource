@@ -182,6 +182,11 @@ struct msm_camera_csiphy_params {
 	uint8_t settle_cnt;
 };
 
+struct msm_camera_csi2_params {
+	struct msm_camera_csid_params csid_params;
+	struct msm_camera_csiphy_params csiphy_params;
+};
+
 #define VFE31_OUTPUT_MODE_PT (0x1 << 0)
 #define VFE31_OUTPUT_MODE_S (0x1 << 1)
 #define VFE31_OUTPUT_MODE_V (0x1 << 2)

@@ -10,25 +10,21 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/i2c.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/i2c.h>
+#include <linux/miscdevice.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+#include <linux/uaccess.h>
 #include <mach/camera.h>
+#include <mach/gpio.h>
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
+#include "msm.h"
 #define Q8  0x00000100
 #define Q10 0x00000400
-
-enum msm_sensor_resolution_t {
-	MSM_SENSOR_RES_0,
-	MSM_SENSOR_RES_1,
-	MSM_SENSOR_RES_2,
-	MSM_SENSOR_RES_3,
-	MSM_SENSOR_RES_4,
-	MSM_SENSOR_RES_5,
-	MSM_SENSOR_RES_6,
-	MSM_SENSOR_RES_7,
-	MSM_SENSOR_INVALID_RES,
-};
 
 #define MSM_SENSOR_MCLK_8HZ 8000000
 #define MSM_SENSOR_MCLK_16HZ 16000000
@@ -79,6 +75,24 @@ struct msm_sensor_i2c_conf_array {
 	enum msm_sensor_i2c_data_type data_type;
 };
 
+struct msm_sensor_output_reg_addr_t {
+	uint16_t x_output;
+	uint16_t y_output;
+	uint16_t line_length_pclk;
+	uint16_t frame_length_lines;
+};
+
+struct msm_sensor_id_info_t {
+	uint16_t sensor_id_reg_addr;
+	uint16_t sensor_id;
+};
+
+struct msm_sensor_exp_gain_info_t {
+	uint16_t coarse_int_time_addr;
+	uint16_t global_gain_addr;
+	uint16_t vert_offset;
+};
+
 struct msm_sensor_reg_t {
 	enum msm_sensor_i2c_data_type default_data_type;
 	struct msm_sensor_i2c_reg_conf *start_stream_conf;
@@ -91,7 +105,8 @@ struct msm_sensor_reg_t {
 	uint8_t group_hold_off_conf_size;
 	struct msm_sensor_i2c_conf_array *init_settings;
 	uint8_t init_size;
-	struct msm_sensor_i2c_conf_array *res_settings;
+	struct msm_sensor_i2c_conf_array *mode_settings;
+	struct msm_sensor_output_info_t *output_settings;
 	uint8_t num_conf;
 };
 
@@ -102,30 +117,62 @@ struct v4l2_subdev_info {
 	uint16_t order;
 };
 
+struct msm_sensor_ctrl_t;
+struct msm_sensor_fn_t {
+	void (*sensor_start_stream) (struct msm_sensor_ctrl_t *);
+	void (*sensor_stop_stream) (struct msm_sensor_ctrl_t *);
+	void (*sensor_group_hold_on) (struct msm_sensor_ctrl_t *);
+	void (*sensor_group_hold_off) (struct msm_sensor_ctrl_t *);
+
+	uint16_t (*sensor_get_prev_lines_pf)
+		(struct msm_sensor_ctrl_t *);
+	uint16_t (*sensor_get_prev_pixels_pl)
+		(struct msm_sensor_ctrl_t *);
+	uint16_t (*sensor_get_pict_lines_pf)
+		(struct msm_sensor_ctrl_t *);
+	uint16_t (*sensor_get_pict_pixels_pl)
+		(struct msm_sensor_ctrl_t *);
+	uint32_t (*sensor_get_pict_max_exp_lc)
+		(struct msm_sensor_ctrl_t *);
+	void (*sensor_get_pict_fps) (struct msm_sensor_ctrl_t *,
+			uint16_t, uint16_t *);
+	int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
+			struct fps_cfg *);
+	int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
+			uint16_t, uint32_t);
+	int32_t (*sensor_setting) (struct msm_sensor_ctrl_t *,
+			int update_type, int rt);
+	int32_t (*sensor_set_sensor_mode)
+			(struct msm_sensor_ctrl_t *, int, int);
+	int32_t (*sensor_mode_init) (struct msm_sensor_ctrl_t *,
+		int, struct sensor_init_cfg *);
+	int32_t (*sensor_get_output_info) (struct msm_sensor_ctrl_t *,
+		struct sensor_output_info_t *);
+	int (*sensor_config) (void __user *);
+	int (*sensor_open_init) (const struct msm_camera_sensor_info *);
+	int (*sensor_release) (void);
+	int (*sensor_power_down)
+		(const struct msm_camera_sensor_info *);
+	int (*sensor_power_up) (const struct msm_camera_sensor_info *);
+	int (*sensor_probe) (struct msm_sensor_ctrl_t *s_ctrl,
+			const struct msm_camera_sensor_info *info,
+			struct msm_sensor_ctrl *s);
+};
+
 struct msm_sensor_ctrl_t {
 	const struct  msm_camera_sensor_info *sensordata;
 	struct i2c_client *msm_sensor_client;
 	struct i2c_driver *msm_sensor_i2c_driver;
 	struct msm_sensor_i2c_client *sensor_i2c_client;
-	struct msm_sensor_reg_t msm_sensor_reg;
 	uint16_t sensor_i2c_addr;
-	uint16_t sensor_id_addr;
-	uint16_t sensor_id;
-	uint16_t frame_length_lines_addr;
-	uint16_t line_length_pck_addr;
-	uint16_t global_gain_addr;
-	uint16_t coarse_int_time_addr;
 
-	uint8_t frame_length_lines_array_addr;
-	uint8_t line_length_pck_array_addr;
+	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
+	struct msm_sensor_id_info_t *sensor_id_info;
+	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;
+	struct msm_sensor_reg_t *msm_sensor_reg;
 
-	uint16_t curr_line_length_pck;
+	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
-	uint16_t prev_line_length_pck;
-	uint16_t prev_frame_length_lines;
-	uint16_t snap_line_length_pck;
-	uint16_t snap_frame_length_lines;
-	uint16_t vert_offset;
 
 	uint16_t fps;
 	uint32_t fps_divider;
@@ -136,53 +183,15 @@ struct msm_sensor_ctrl_t {
 	enum msm_camera_type camera_type;
 
 	struct mutex *msm_sensor_mutex;
-	bool config_csi_flag;
-	struct msm_camera_csi_params *csi_params;
+	struct msm_camera_csi2_params *curr_csi_params;
+	struct msm_camera_csi2_params **csi_params;
 
 	/*To Do: Changing v4l2_subdev to a pointer according to yupeng*/
 	struct v4l2_subdev *sensor_v4l2_subdev;
 	struct v4l2_subdev_info *sensor_v4l2_subdev_info;
 	uint8_t sensor_v4l2_subdev_info_size;
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
-
-	struct msm_sensor_fn_t {
-		void (*sensor_start_stream) (struct msm_sensor_ctrl_t *);
-		void (*sensor_stop_stream) (struct msm_sensor_ctrl_t *);
-		void (*sensor_group_hold_on) (struct msm_sensor_ctrl_t *);
-		void (*sensor_group_hold_off) (struct msm_sensor_ctrl_t *);
-
-		uint16_t (*sensor_get_prev_lines_pf)
-			(struct msm_sensor_ctrl_t *);
-		uint16_t (*sensor_get_prev_pixels_pl)
-			(struct msm_sensor_ctrl_t *);
-		uint16_t (*sensor_get_pict_lines_pf)
-			(struct msm_sensor_ctrl_t *);
-		uint16_t (*sensor_get_pict_pixels_pl)
-			(struct msm_sensor_ctrl_t *);
-		uint32_t (*sensor_get_pict_max_exp_lc)
-			(struct msm_sensor_ctrl_t *);
-		void (*sensor_get_pict_fps) (struct msm_sensor_ctrl_t *,
-				uint16_t, uint16_t *);
-		int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
-				struct fps_cfg *);
-		int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
-				uint16_t, uint32_t);
-		int32_t (*sensor_setting) (struct msm_sensor_ctrl_t *,
-				int update_type, int rt);
-		int32_t (*sensor_set_sensor_mode)
-				(struct msm_sensor_ctrl_t *, int, int);
-		int32_t (*sensor_mode_init) (struct msm_sensor_ctrl_t *,
-			int, struct sensor_init_cfg *);
-		int (*sensor_config) (void __user *);
-		int (*sensor_open_init) (const struct msm_camera_sensor_info *);
-		int (*sensor_release) (void);
-		int (*sensor_power_down)
-			(const struct msm_camera_sensor_info *);
-		int (*sensor_power_up) (const struct msm_camera_sensor_info *);
-		int (*sensor_probe) (struct msm_sensor_ctrl_t *s_ctrl,
-				const struct msm_camera_sensor_info *info,
-				struct msm_sensor_ctrl *s);
-	} func_tbl;
+	struct msm_sensor_fn_t *func_tbl;
 };
 
 int32_t msm_sensor_i2c_rxdata(struct msm_sensor_i2c_client *client,
@@ -231,14 +240,21 @@ int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 	int mode, int res);
 int32_t msm_sensor_mode_init(struct msm_sensor_ctrl_t *s_ctrl,
 			int mode, struct sensor_init_cfg *init_info);
+int32_t msm_sensor_get_output_info(struct msm_sensor_ctrl_t *,
+		struct sensor_output_info_t *);
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			void __user *argp);
-int16_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
+int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data);
+int32_t msm_sensor_power_down(const struct msm_camera_sensor_info *data);
+
+int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
 			enum msm_sensor_resolution_t res, int8_t array_addr);
 int msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);
-
+int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl);
+int32_t msm_sensor_open_init(struct msm_sensor_ctrl_t *s_ctrl,
+				const struct msm_camera_sensor_info *data);
 int msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 		const struct msm_camera_sensor_info *info,
 		struct msm_sensor_ctrl *s);
@@ -253,5 +269,11 @@ int msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 int msm_sensor_write_init_settings(struct msm_sensor_ctrl_t *s_ctrl);
 int msm_sensor_write_res_settings
 	(struct msm_sensor_ctrl_t *s_ctrl, uint16_t res);
+
+int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
+	uint16_t res);
+
+int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
+			int update_type, int res);
 
 int msm_sensor_enable_debugfs(struct msm_sensor_ctrl_t *s_ctrl);

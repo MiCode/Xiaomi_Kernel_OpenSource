@@ -696,7 +696,8 @@ struct msm_snapshot_pp_status {
 #define CFG_SENSOR_INIT    29
 #define CFG_GET_3D_CALI_DATA 30
 #define CFG_GET_CALIB_DATA		31
-#define CFG_MAX			32
+#define CFG_GET_OUTPUT_INFO		32
+#define CFG_MAX			33
 
 
 #define MOVE_NEAR	0
@@ -803,6 +804,31 @@ struct sensor_calib_data {
 	uint16_t af_pos_inf;
 };
 
+enum msm_sensor_resolution_t {
+	MSM_SENSOR_RES_0,
+	MSM_SENSOR_RES_1,
+	MSM_SENSOR_RES_2,
+	MSM_SENSOR_RES_3,
+	MSM_SENSOR_RES_4,
+	MSM_SENSOR_RES_5,
+	MSM_SENSOR_RES_6,
+	MSM_SENSOR_RES_7,
+	MSM_SENSOR_INVALID_RES,
+};
+
+struct msm_sensor_output_info_t {
+	uint16_t x_output;
+	uint16_t y_output;
+	uint16_t line_length_pclk;
+	uint16_t frame_length_lines;
+	uint32_t pixel_clk;
+};
+
+struct sensor_output_info_t {
+	struct msm_sensor_output_info_t *output_info;
+	uint16_t num_info;
+};
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -826,6 +852,7 @@ struct sensor_cfg_data {
 		struct wb_info_cfg wb_info;
 		struct sensor_3d_exp_cfg sensor_3d_exp;
 		struct sensor_calib_data calib_info;
+		struct sensor_output_info_t output_info;
 	} cfg;
 };
 
