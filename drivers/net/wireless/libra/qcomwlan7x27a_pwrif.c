@@ -40,12 +40,13 @@ struct wlan_vreg_info {
 
 
 static struct wlan_vreg_info vreg_info[] = {
-	{"bt", 3050, 56, 0, NULL},
+	{"bt", 3050, 21, 1, NULL},
 	{"msme1", 1800, 2, 0, NULL},
 	{"wlan_tcx0", 1800, 53, 0, NULL},
-	{"wlan4", 1200, 57, 0, NULL},
-	{"wlan2", 1350, 45, 0, NULL},
-	{"wlan3", 1200, 51, 0, NULL} };
+	{"wlan4", 1200, 23, 0, NULL},
+	{"wlan2", 1350, 9, 1, NULL},
+	{"wlan3", 1200, 10, 1, NULL} };
+
 
 int chip_power_qrf6285(bool on)
 {
@@ -70,6 +71,13 @@ int chip_power_qrf6285(bool on)
 		gpio_free(WLAN_GPIO_EXT_POR_N);
 	}
 
+	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A0,
+				PMAPP_CLOCK_VOTE_ON);
+	if (rc) {
+		pr_err("%s: Configuring A0 to always"
+		" on failed %d\n", __func__, rc);
+		goto vreg_clock_vote_fail;
+	}
 
 	for (index = 0; index < ARRAY_SIZE(vreg_info); index++) {
 		vreg_info[index].vreg = vreg_get(NULL,
@@ -113,15 +121,16 @@ int chip_power_qrf6285(bool on)
 				}
 			}
 
-			if (WLAN_VREG_TCXO_L11 == index) {
+			/*At this point CLK_PWR_REQ is high*/
+			if (WLAN_VREG_L6 == index) {
 				/*
-				 * Configure TCXO to be slave to
+				 * Configure A0 clock to be slave to
 				 * WLAN_CLK_PWR_REQ
 `				 */
 				rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A0,
 						PMAPP_CLOCK_VOTE_PIN_CTRL);
 				if (rc) {
-					pr_err("%s: Configuring TCXO to Pin"
+					pr_err("%s: Configuring A0 to Pin"
 					" controllable failed %d\n",
 							 __func__, rc);
 					goto vreg_clock_vote_fail;
