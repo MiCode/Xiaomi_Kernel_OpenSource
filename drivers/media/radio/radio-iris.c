@@ -83,6 +83,9 @@ struct iris_device {
 	enum iris_region_t region;
 	struct hci_fm_dbg_param_rsp st_dbg_param;
 	struct hci_ev_srch_list_compl srch_st_result;
+	struct hci_fm_riva_poke   riva_data_req;
+	struct hci_fm_ssbi_req    ssbi_data_accs;
+	struct hci_fm_ssbi_peek   ssbi_peek_reg;
 };
 
 static struct video_device *priv_videodev;
@@ -303,6 +306,69 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.name	=	"Stop RT",
 	.minimum	=	0,
 	.maximum	=	1,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_SOFT_MUTE,
+	.type	=	V4L2_CTRL_TYPE_BOOLEAN,
+	.name	=	"Soft Mute",
+	.minimum	=	0,
+	.maximum	=	1,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_ADDR,
+	.type	=	V4L2_CTRL_TYPE_BOOLEAN,
+	.name	=	"Riva addr",
+	.minimum	=	0,
+	.maximum	=	0x31E0004,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_LEN,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Data len",
+	.minimum	=	0,
+	.maximum	=	0xFF,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_PEEK,
+	.type	=	V4L2_CTRL_TYPE_BOOLEAN,
+	.name	=	"Riva peek",
+	.minimum	=	0,
+	.maximum	=	1,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_POKE,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Riva poke",
+	.minimum	=	0,
+	.maximum	=	0x31E0004,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Ssbi addr",
+	.minimum	=	0,
+	.maximum	=	0x37F,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_SSBI_PEEK,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Ssbi peek",
+	.minimum	=	0,
+	.maximum	=	0x37F,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_SSBI_POKE,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"ssbi poke",
+	.minimum	=	0x01,
+	.maximum	=	0xFF,
+	},
+	{
+	.id =	 V4L2_CID_PRIVATE_IRIS_HLSI,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"set hlsi",
+	.minimum	=	0,
+	.maximum	=	2,
 	},
 
 };
@@ -763,9 +829,9 @@ static int hci_read_grp_counters_req(struct radio_hci_dev *hdev,
 static int hci_peek_data_req(struct radio_hci_dev *hdev, unsigned long param)
 {
 	__u16 opcode = 0;
-	struct hci_fm_peek_req *peek_data = (struct hci_fm_peek_req *) param;
+	struct hci_fm_riva_data *peek_data = (struct hci_fm_riva_data *)param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
 		HCI_OCF_FM_PEEK_DATA);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*peek_data)),
 	peek_data);
@@ -774,7 +840,7 @@ static int hci_peek_data_req(struct radio_hci_dev *hdev, unsigned long param)
 static int hci_poke_data_req(struct radio_hci_dev *hdev, unsigned long param)
 {
 	__u16 opcode = 0;
-	struct hci_fm_poke_req *poke_data = (struct hci_fm_poke_req *) param;
+	struct hci_fm_riva_poke *poke_data = (struct hci_fm_riva_poke *) param;
 
 	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_POKE_DATA);
@@ -786,9 +852,9 @@ static int hci_ssbi_peek_reg_req(struct radio_hci_dev *hdev,
 	unsigned long param)
 {
 	__u16 opcode = 0;
-	struct hci_fm_ssbi_req *ssbi_peek = (struct hci_fm_ssbi_req *) param;
+	struct hci_fm_ssbi_peek *ssbi_peek = (struct hci_fm_ssbi_peek *) param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
 		HCI_OCF_FM_SSBI_PEEK_REG);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*ssbi_peek)),
 	ssbi_peek);
@@ -800,7 +866,7 @@ static int hci_ssbi_poke_reg_req(struct radio_hci_dev *hdev,
 	__u16 opcode = 0;
 	struct hci_fm_ssbi_req *ssbi_poke = (struct hci_fm_ssbi_req *) param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
 		HCI_OCF_FM_SSBI_POKE_REG);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*ssbi_poke)),
 	ssbi_poke);
@@ -1065,10 +1131,11 @@ int hci_read_grp_counters(__u8 *arg, struct radio_hci_dev *hdev)
 	return ret;
 }
 
-int hci_peek_data(struct hci_fm_peek_req *arg, struct radio_hci_dev *hdev)
+static int hci_peek_data(struct hci_fm_riva_data *arg,
+				struct radio_hci_dev *hdev)
 {
 	int ret = 0;
-	struct hci_fm_peek_req *peek_data = arg;
+	struct hci_fm_riva_data *peek_data = arg;
 
 	ret = radio_hci_request(hdev, hci_peek_data_req, (unsigned
 		long)peek_data, RADIO_HCI_TIMEOUT);
@@ -1076,10 +1143,11 @@ int hci_peek_data(struct hci_fm_peek_req *arg, struct radio_hci_dev *hdev)
 	return ret;
 }
 
-int hci_poke_data(struct hci_fm_poke_req *arg, struct radio_hci_dev *hdev)
+static int hci_poke_data(struct hci_fm_riva_poke *arg,
+			struct radio_hci_dev *hdev)
 {
 	int ret = 0;
-	struct hci_fm_poke_req *poke_data = arg;
+	struct hci_fm_riva_poke *poke_data = arg;
 
 	ret = radio_hci_request(hdev, hci_poke_data_req, (unsigned
 		long)poke_data, RADIO_HCI_TIMEOUT);
@@ -1087,11 +1155,11 @@ int hci_poke_data(struct hci_fm_poke_req *arg, struct radio_hci_dev *hdev)
 	return ret;
 }
 
-int hci_ssbi_peek_reg(struct hci_fm_ssbi_req *arg,
+static int hci_ssbi_peek_reg(struct hci_fm_ssbi_peek *arg,
 	struct radio_hci_dev *hdev)
 {
 	int ret = 0;
-	struct hci_fm_ssbi_req *ssbi_peek_reg = arg;
+	struct hci_fm_ssbi_peek *ssbi_peek_reg = arg;
 
 	ret = radio_hci_request(hdev, hci_ssbi_peek_reg_req, (unsigned
 		long)ssbi_peek_reg, RADIO_HCI_TIMEOUT);
@@ -1099,7 +1167,8 @@ int hci_ssbi_peek_reg(struct hci_fm_ssbi_req *arg,
 	return ret;
 }
 
-int hci_ssbi_poke_reg(struct hci_fm_ssbi_req *arg, struct radio_hci_dev *hdev)
+static int hci_ssbi_poke_reg(struct hci_fm_ssbi_req *arg,
+			struct radio_hci_dev *hdev)
 {
 	int ret = 0;
 	struct hci_fm_ssbi_req *ssbi_poke_reg = arg;
@@ -1308,16 +1377,6 @@ static void hci_cc_af_list_rsp(struct radio_hci_dev *hdev, struct sk_buff *skb)
 	radio_hci_req_complete(hdev, rsp->status);
 }
 
-static void hci_cc_data_rd_rsp(struct radio_hci_dev *hdev, struct sk_buff *skb)
-{
-	struct hci_fm_data_rd_rsp  *rsp = (void *)skb->data;
-
-	if (rsp->status)
-		return;
-
-	radio_hci_req_complete(hdev, rsp->status);
-}
-
 static void hci_cc_feature_list_rsp(struct radio_hci_dev *hdev,
 	struct sk_buff *skb)
 {
@@ -1344,6 +1403,59 @@ static void hci_cc_dbg_param_rsp(struct radio_hci_dev *hdev,
 		return;
 
 	radio_hci_req_complete(hdev, radio->st_dbg_param.status);
+}
+
+static void iris_q_evt_data(struct iris_device *radio,
+				char *data, int len, int event)
+{
+	struct kfifo *data_b = &radio->data_buf[event];
+	if (kfifo_in_locked(data_b, data, len, &radio->buf_lock[event]))
+		wake_up_interruptible(&radio->event_queue);
+}
+
+static void hci_cc_riva_peek_rsp(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	struct hci_fm_af_list_rsp  *rsp = (void *)skb->data;
+	int len;
+	char *data;
+
+	if (rsp->status)
+		return;
+	len = skb->data[RIVA_PEEK_LEN_OFSET] + RIVA_PEEK_PARAM;
+	data = kmalloc(len, GFP_ATOMIC);
+
+	if (!data) {
+		FMDERR("Memory allocation failed");
+		return;
+	}
+
+	memcpy(data, &skb->data[PEEK_DATA_OFSET], len);
+	iris_q_evt_data(radio, data, len, IRIS_BUF_PEEK);
+	radio_hci_req_complete(hdev, rsp->status);
+
+
+}
+static void hci_cc_ssbi_peek_rsp(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	struct hci_fm_af_list_rsp  *rsp = (void *)skb->data;
+	char *data;
+
+	if (rsp->status)
+		return;
+	data = kmalloc(SSBI_PEEK_LEN, GFP_ATOMIC);
+	if (!data) {
+		FMDERR("Memory allocation failed");
+		return;
+	}
+
+	data[0] = skb->data[PEEK_DATA_OFSET];
+	iris_q_evt_data(radio, data, SSBI_PEEK_LEN, IRIS_BUF_SSBI_PEEK);
+	radio_hci_req_complete(hdev, rsp->status);
+	kfree(data);
 }
 
 static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
@@ -1380,13 +1492,15 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_EN_NOTCH_CTRL):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_DEFAULT_DATA_WRITE):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_RESET):
-	case hci_status_param_op_pack(HCI_OCF_FM_READ_GRP_COUNTERS):
-	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
-	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_PEEK_REG):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_POKE_REG):
+	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
+	case hci_status_param_op_pack(HCI_OCF_FM_READ_GRP_COUNTERS):
 		hci_cc_rsp(hdev, skb);
 		break;
 
+	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_PEEK_REG):
+		hci_cc_ssbi_peek_rsp(hdev, skb);
+		break;
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_GET_SIGNAL_THRESHOLD):
 		hci_cc_sig_threshold_rsp(hdev, skb);
 		break;
@@ -1409,7 +1523,7 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 
 	case hci_common_cmd_op_pack(HCI_OCF_FM_DEFAULT_DATA_READ):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_PEEK_DATA):
-		hci_cc_data_rd_rsp(hdev, skb);
+		hci_cc_riva_peek_rsp(hdev, skb);
 		break;
 
 	case hci_common_cmd_op_pack(HCI_OCF_FM_GET_FEATURE_LIST):
@@ -1477,14 +1591,6 @@ static inline void hci_ev_search_compl(struct radio_hci_dev *hdev,
 	iris_q_event(radio, IRIS_EVT_SEEK_COMPLETE);
 }
 
-
-static void iris_q_evt_data(struct iris_device *radio,
-					char *data, int len, int event)
-{
-	struct kfifo *data_b = &radio->data_buf[event];
-	if (kfifo_in_locked(data_b, data, len, &radio->buf_lock[event]))
-			wake_up_interruptible(&radio->event_queue);
-}
 static inline void hci_ev_srch_st_list_compl(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
@@ -1885,6 +1991,9 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_ANTENNA:
 		ctrl->value = radio->g_antenna;
 		break;
+	case V4L2_CID_PRIVATE_IRIS_SOFT_MUTE:
+		ctrl->value = radio->mute_mode.soft_mute;
+		break;
 	default:
 		retval = -EINVAL;
 	}
@@ -2026,6 +2135,45 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_TUNE_POWER_LEVEL:
 		break;
+	case V4L2_CID_PRIVATE_IRIS_SOFT_MUTE:
+		radio->mute_mode.soft_mute = ctrl->value;
+		retval = hci_set_fm_mute_mode(
+				&radio->mute_mode,
+				radio->fm_hdev);
+		if (retval < 0)
+			FMDERR("Error while setting FM soft mute"" %d\n",
+			retval);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_ADDR:
+		radio->riva_data_req.cmd_params.start_addr = ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_LEN:
+		radio->riva_data_req.cmd_params.length = ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
+		memcpy(radio->riva_data_req.data, (void *)ctrl->value,
+					radio->riva_data_req.cmd_params.length);
+		radio->riva_data_req.cmd_params.subopcode = RIVA_POKE_OPCODE;
+		retval = hci_poke_data(&radio->riva_data_req , radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR:
+		radio->ssbi_data_accs.start_addr = ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_IRIS_SSBI_POKE:
+		radio->ssbi_data_accs.data = ctrl->value;
+		retval = hci_ssbi_poke_reg(&radio->ssbi_data_accs ,
+								radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_RIVA_PEEK:
+		radio->riva_data_req.cmd_params.subopcode = RIVA_PEEK_OPCODE;
+		ctrl->value = hci_peek_data(&radio->riva_data_req.cmd_params ,
+						radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_SSBI_PEEK:
+		radio->ssbi_peek_reg.start_address = ctrl->value;
+		hci_ssbi_peek_reg(&radio->ssbi_peek_reg, radio->fm_hdev);
+		break;
+
 	default:
 		retval = -EINVAL;
 	}
@@ -2238,7 +2386,7 @@ static int __init iris_probe(struct platform_device *pdev)
 		int kfifo_alloc_rc = 0;
 		spin_lock_init(&radio->buf_lock[i]);
 
-		if (i == IRIS_BUF_RAW_RDS)
+		if ((i == IRIS_BUF_RAW_RDS) | (i == IRIS_BUF_PEEK))
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				rds_buf*3, GFP_KERNEL);
 		else

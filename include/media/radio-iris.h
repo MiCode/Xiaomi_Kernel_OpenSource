@@ -39,6 +39,8 @@
 /* HCI data types */
 #define RADIO_HCI_COMMAND_PKT   0x11
 #define RADIO_HCI_EVENT_PKT     0x14
+/*HCI reponce packets*/
+#define MAX_RIVA_PEEK_RSP_SIZE   251
 
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
@@ -239,22 +241,26 @@ struct hci_fm_def_data_rd_req {
 
 struct hci_fm_def_data_wr_req {
 	struct hci_fm_def_data_rd_req data_rd;
-	__u8    data[256];
+	__u8   data[256];
 } __packed;
 
-struct hci_fm_peek_req {
+struct hci_fm_riva_data {
+	__u8 subopcode;
 	__u32   start_addr;
 	__u8    length;
 } __packed;
 
-struct hci_fm_poke_req {
-	struct hci_fm_peek_req peek_req;
-	__u8    data[256];
+struct hci_fm_riva_poke {
+	struct hci_fm_riva_data cmd_params;
+	__u8    data[MAX_RIVA_PEEK_RSP_SIZE];
 } __packed;
 
 struct hci_fm_ssbi_req {
 	__u16   start_addr;
 	__u8    data;
+} __packed;
+struct hci_fm_ssbi_peek {
+	__u16 start_address;
 } __packed;
 
 /*HCI events*/
@@ -451,12 +457,25 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_ANTENNA,
 	V4L2_CID_PRIVATE_IRIS_RDSD_BUF,
 	V4L2_CID_PRIVATE_IRIS_PSALL,
+
 	/*v4l2 Tx controls*/
 	V4L2_CID_PRIVATE_IRIS_TX_SETPSREPEATCOUNT,
 	V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_PS_NAME,
 	V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_RT,
 	V4L2_CID_PRIVATE_IRIS_IOVERC,
 	V4L2_CID_PRIVATE_IRIS_INTDET,
+
+	/*Diagnostic commands*/
+	V4L2_CID_PRIVATE_IRIS_SOFT_MUTE,
+	V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_ADDR,
+	V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_LEN,
+	V4L2_CID_PRIVATE_IRIS_RIVA_PEEK,
+	V4L2_CID_PRIVATE_IRIS_RIVA_POKE,
+	V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR,
+	V4L2_CID_PRIVATE_IRIS_SSBI_PEEK,
+	V4L2_CID_PRIVATE_IRIS_SSBI_POKE,
+	V4L2_CID_PRIVATE_IRIS_HLSI,
+	VL2_CID_PRIVATE_IRIS_TX_TONE,
 };
 
 enum iris_evt_t {
@@ -497,6 +516,8 @@ enum iris_buf_t {
 	IRIS_BUF_PS_RDS,
 	IRIS_BUF_RAW_RDS,
 	IRIS_BUF_AF_LIST,
+	IRIS_BUF_PEEK,
+	IRIS_BUF_SSBI_PEEK,
 	IRIS_BUF_MAX
 };
 
@@ -568,15 +589,20 @@ enum search_t {
 #define CTRL_ON			(1)
 #define CTRL_OFF		(0)
 
+/*Diagnostic commands*/
+
+#define RIVA_PEEK_OPCODE 0x0D
+#define RIVA_POKE_OPCODE 0x0C
+
+#define PEEK_DATA_OFSET 0x1
+#define RIVA_PEEK_PARAM     0x6
+#define RIVA_PEEK_LEN_OFSET  0x6
+#define SSBI_PEEK_LEN    0x01
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_fm_do_calibration(__u8 *arg, struct radio_hci_dev *hdev);
 int hci_fm_do_calibration(__u8 *arg, struct radio_hci_dev *hdev);
-int hci_peek_data(struct hci_fm_peek_req *arg, struct radio_hci_dev *hdev);
-int hci_poke_data(struct hci_fm_poke_req *arg, struct radio_hci_dev *hdev);
-int hci_poke_data(struct hci_fm_poke_req *arg, struct radio_hci_dev *hdev);
-int hci_poke_data(struct hci_fm_poke_req *arg, struct radio_hci_dev *hdev);
 
 #endif /* __RADIO_HCI_CORE_H */
