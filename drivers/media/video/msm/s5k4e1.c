@@ -679,6 +679,7 @@ init_probe_fail:
 		int ret = gpio_request(data->vcm_pwd, "s5k4e1_af");
 		if (!ret) {
 			gpio_direction_output(data->vcm_pwd, 0);
+			msleep(20);
 			gpio_free(data->vcm_pwd);
 		}
 	}
@@ -1063,8 +1064,10 @@ static int s5k4e1_sensor_probe(const struct msm_camera_sensor_info *info,
 		rc = gpio_request(info->vcm_pwd, "s5k4e1_af");
 		if (!rc) {
 			gpio_direction_output(info->vcm_pwd, 0);
+			msleep(20);
 			gpio_free(info->vcm_pwd);
-		}
+		} else
+			return rc;
 	}
 	return rc;
 
