@@ -9077,8 +9077,8 @@ int mdp_core_clk_rate_table[] = {
 #else
 int mdp_core_clk_rate_table[] = {
 	59080000,
-	59080000,
 	85330000,
+	128000000,
 	200000000,
 };
 #endif
