@@ -815,9 +815,19 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 		 , __func__, from_isr, sdio_al_dev->card->host->index);
 
 	pr_debug(MODULE_NAME ":before sdio_memcpy_fromio.\n");
+	memset(mailbox, 0, sizeof(struct sdio_mailbox));
 	ret = sdio_memcpy_fromio(func1, mailbox,
 			HW_MAILBOX_ADDR, sizeof(*mailbox));
 	pr_debug(MODULE_NAME ":after sdio_memcpy_fromio.\n");
+	if (ret) {
+		pr_err(MODULE_NAME ":Fail to read Mailbox for card %d,"
+				    " goto error state\n",
+		       sdio_al_dev->card->host->index);
+		sdio_al_get_into_err_state(sdio_al_dev);
+		/* Stop the timer to stop reading the mailbox */
+		sdio_al_dev->poll_delay_msec = 0;
+		goto exit_err;
+	}
 
 	eot_pipe =	(mailbox->eot_pipe_0_7) |
 			(mailbox->eot_pipe_8_15<<8);
@@ -831,16 +841,6 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 	thresh_intr_mask =
 		(mailbox->mask_thresh_above_limit_pipe_0_7) |
 		(mailbox->mask_thresh_above_limit_pipe_8_15<<8);
-
-	if (ret) {
-		pr_err(MODULE_NAME ":Fail to read Mailbox for card %d,"
-				    " goto error state\n",
-		       sdio_al_dev->card->host->index);
-		sdio_al_get_into_err_state(sdio_al_dev);
-		/* Stop the timer to stop reading the mailbox */
-		sdio_al_dev->poll_delay_msec = 0;
-		goto exit_err;
-	}
 
 	if (overflow_pipe || underflow_pipe)
 		pr_err(MODULE_NAME ":Mailbox ERROR "
