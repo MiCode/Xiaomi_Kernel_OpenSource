@@ -2451,7 +2451,7 @@ static void __init qsd8x50_init(void)
 	if (socinfo_init() < 0)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
-	msm_clock_init(msm_clocks_8x50, msm_num_clocks_8x50);
+	msm_clock_init(&qds8x50_clock_init_data);
 	qsd8x50_cfg_smc91x();
 	msm_acpu_clock_init(&qsd8x50_clock_data);
 

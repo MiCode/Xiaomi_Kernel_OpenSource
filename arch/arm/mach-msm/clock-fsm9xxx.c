@@ -21,11 +21,13 @@
  * Clocks
  */
 
-struct clk_lookup msm_clocks_fsm9xxx[] = {
+static struct clk_lookup msm_clocks_fsm9xxx[] = {
 	CLK_DUMMY("adm_clk",	ADM0_CLK,	NULL, OFF),
 	CLK_DUMMY("uart_clk",	UART1_CLK,	"msm_serial.0", OFF),
 	CLK_DUMMY("ce_clk",	CE_CLK,		NULL, OFF),
 };
 
-unsigned msm_num_clocks_fsm9xxx = ARRAY_SIZE(msm_clocks_fsm9xxx);
-
+struct clock_init_data fsm9xxx_clock_init_data __initdata = {
+	.table = msm_clocks_fsm9xxx,
+	.size = ARRAY_SIZE(msm_clocks_fsm9xxx),
+};

@@ -600,4 +600,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,		NULL, 0),
 };
 
-unsigned msm_num_clocks_8064_dummy = ARRAY_SIZE(msm_clocks_8064_dummy);
+struct clock_init_data apq8064_dummy_clock_init_data __initdata = {
+	.table = msm_clocks_8064_dummy,
+	.size = ARRAY_SIZE(msm_clocks_8064_dummy),
+};

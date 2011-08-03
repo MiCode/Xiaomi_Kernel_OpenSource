@@ -17,7 +17,6 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_H
 
-#include <linux/init.h>
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/clkdev.h>
@@ -74,20 +73,40 @@ struct clk {
 	.children = LIST_HEAD_INIT((name).children), \
 	.siblings = LIST_HEAD_INIT((name).siblings)
 
-void msm_clock_init(struct clk_lookup *clock_tbl, size_t num_clocks);
-void msm7x30_clock_init(void);
-void msm8660_clock_init(void);
-void msm8960_clock_init(void);
-void msm8960_clock_init_dummy(void);
+/**
+ * struct clock_init_data - SoC specific clock initialization data
+ * @table: table of lookups to add
+ * @size: size of @table
+ * @init: called before registering @table
+ * @late_init: called during late init
+ */
+struct clock_init_data {
+	struct clk_lookup *table;
+	size_t size;
+	void (*init)(void);
+	int (*late_init)(void);
+};
+
+extern struct clock_init_data apq8064_dummy_clock_init_data;
+extern struct clock_init_data fsm9xxx_clock_init_data;
+extern struct clock_init_data msm7x01a_clock_init_data;
+extern struct clock_init_data msm7x27_clock_init_data;
+extern struct clock_init_data msm7x27a_clock_init_data;
+extern struct clock_init_data msm7x30_clock_init_data;
+extern struct clock_init_data msm8960_clock_init_data;
+extern struct clock_init_data msm8960_dummy_clock_init_data;
+extern struct clock_init_data msm8x60_clock_init_data;
+extern struct clock_init_data qds8x50_clock_init_data;
+
+void msm_clock_init(struct clock_init_data *data);
 
 #ifdef CONFIG_DEBUG_FS
-int __init clock_debug_init(struct clk_lookup *clocks, unsigned num_clocks);
-int __init clock_debug_add(struct clk *clock);
+int clock_debug_init(struct clock_init_data *data);
+int clock_debug_add(struct clk *clock);
 void clock_debug_print_enabled(void);
 #else
-static inline int __init clock_debug_init(struct clk_lookup *clocks,
-					  unsigned num_clocks) { return 0; }
-static inline int __init clock_debug_add(struct clk *clock) { return 0; }
+static inline int clock_debug_init(struct clk_init_data *data) { return 0; }
+static inline int clock_debug_add(struct clk *clock) { return 0; }
 static inline void clock_debug_print_enabled(void) { return; }
 #endif
 

@@ -6963,7 +6963,7 @@ static void __init msm7x30_init(void)
 
 	soc_version = socinfo_get_version();
 
-	msm7x30_clock_init();
+	msm_clock_init(&msm7x30_clock_init_data);
 #ifdef CONFIG_SERIAL_MSM_CONSOLE
 	msm7x30_init_uart2();
 #endif

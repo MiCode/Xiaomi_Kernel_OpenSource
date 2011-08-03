@@ -1394,7 +1394,7 @@ struct msm_mpm_device_data msm_mpm_dev_data = {
 };
 #endif
 
-struct clk_lookup msm_clocks_8960_dummy[] = {
+static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),
 	CLK_DUMMY("pll8",		PLL8,		NULL, 0),
 	CLK_DUMMY("pll4",		PLL4,		NULL, 0),
@@ -1586,7 +1586,10 @@ struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,		NULL, 0),
 };
 
-unsigned msm_num_clocks_8960_dummy = ARRAY_SIZE(msm_clocks_8960_dummy);
+struct clock_init_data msm8960_dummy_clock_init_data __initdata = {
+	.table = msm_clocks_8960_dummy,
+	.size = ARRAY_SIZE(msm_clocks_8960_dummy),
+};
 
 #define LPASS_SLIMBUS_PHYS	0x28080000
 #define LPASS_SLIMBUS_BAM_PHYS	0x28084000

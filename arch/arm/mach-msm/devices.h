@@ -145,27 +145,6 @@ extern struct platform_device fsm_xo_device;
 
 extern struct platform_device qfec_device;
 
-extern struct clk_lookup msm_clocks_7x01a[];
-extern unsigned msm_num_clocks_7x01a;
-
-extern struct clk_lookup msm_clocks_7x25[];
-extern unsigned msm_num_clocks_7x25;
-
-extern struct clk_lookup msm_clocks_7x27[];
-extern unsigned msm_num_clocks_7x27;
-
-extern struct clk_lookup msm_clocks_7x27a[];
-extern unsigned msm_num_clocks_7x27a;
-
-extern struct clk_lookup msm_clocks_8x50[];
-extern unsigned msm_num_clocks_8x50;
-
-extern struct clk_lookup msm_clocks_8960_dummy[];
-extern unsigned msm_num_clocks_8960_dummy;
-
-extern struct clk_lookup msm_clocks_8064_dummy[];
-extern unsigned msm_num_clocks_8064_dummy;
-
 extern struct platform_device msm_kgsl_3d0;
 extern struct platform_device msm_kgsl_2d0;
 extern struct platform_device msm_kgsl_2d1;

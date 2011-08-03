@@ -4110,15 +4110,8 @@ static int wr_pll_clk_enable(struct clk *clk)
 	return 0;
 }
 
-void __init msm8960_clock_init_dummy(void)
-{
-	soc_update_sys_vdd = msm8960_update_sys_vdd;
-	local_vote_sys_vdd(HIGH);
-	msm_clock_init(msm_clocks_8960_dummy, msm_num_clocks_8960_dummy);
-}
-
 /* Local clock driver initialization. */
-void __init msm8960_clock_init(void)
+static void __init msm8960_clock_init(void)
 {
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8960");
 	if (IS_ERR(xo_pxo)) {
@@ -4166,12 +4159,16 @@ void __init msm8960_clock_init(void)
 		clk_enable(&sdc3_clk.c);
 		clk_enable(&sdc3_p_clk.c);
 	}
-
-	msm_clock_init(msm_clocks_8960, ARRAY_SIZE(msm_clocks_8960));
 }
 
-static int __init msm_clk_soc_late_init(void)
+static int __init msm8960_clock_late_init(void)
 {
 	return local_unvote_sys_vdd(HIGH);
 }
-late_initcall(msm_clk_soc_late_init);
+
+struct clock_init_data msm8960_clock_init_data __initdata = {
+	.table = msm_clocks_8960,
+	.size = ARRAY_SIZE(msm_clocks_8960),
+	.init = msm8960_clock_init,
+	.late_init = msm8960_clock_late_init,
+};

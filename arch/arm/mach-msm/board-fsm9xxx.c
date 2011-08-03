@@ -905,7 +905,7 @@ static void __init fsm9xxx_map_io(void)
 {
 	msm_shared_ram_phys = 0x00100000;
 	msm_map_fsm9xxx_io();
-	msm_clock_init(msm_clocks_fsm9xxx, msm_num_clocks_fsm9xxx);
+	msm_clock_init(&fsm9xxx_clock_init_data);
 }
 
 MACHINE_START(FSM9XXX_SURF, "QCT FSM9XXX")

@@ -164,12 +164,17 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL(clk_set_flags);
 
-static struct clk_lookup *msm_clocks;
-static unsigned msm_num_clocks;
+static struct clock_init_data __initdata *clk_init_data;
 
-void __init msm_clock_init(struct clk_lookup *clock_tbl, size_t num_clocks)
+void __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
+	struct clk_lookup *clock_tbl = data->table;
+	size_t num_clocks = data->size;
+
+	clk_init_data = data;
+	if (clk_init_data->init)
+		clk_init_data->init();
 
 	for (n = 0; n < num_clocks; n++) {
 		struct clk *clk = clock_tbl[n].clk;
@@ -178,8 +183,6 @@ void __init msm_clock_init(struct clk_lookup *clock_tbl, size_t num_clocks)
 	}
 
 	clkdev_add_table(clock_tbl, num_clocks);
-	msm_clocks = clock_tbl;
-	msm_num_clocks = num_clocks;
 }
 
 /*
@@ -189,13 +192,13 @@ void __init msm_clock_init(struct clk_lookup *clock_tbl, size_t num_clocks)
  */
 static int __init clock_late_init(void)
 {
-	unsigned n;
+	unsigned n, count = 0;
 	unsigned long flags;
-	unsigned count = 0;
+	int ret = 0;
 
-	clock_debug_init(msm_clocks, msm_num_clocks);
-	for (n = 0; n < msm_num_clocks; n++) {
-		struct clk *clk = msm_clocks[n].clk;
+	clock_debug_init(clk_init_data);
+	for (n = 0; n < clk_init_data->size; n++) {
+		struct clk *clk = clk_init_data->table[n].clk;
 
 		clock_debug_add(clk);
 		if (!(clk->flags & CLKFLAG_SKIP_AUTO_OFF)) {
@@ -208,6 +211,8 @@ static int __init clock_late_init(void)
 		}
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);
-	return 0;
+	if (clk_init_data->late_init)
+		ret = clk_init_data->late_init();
+	return ret;
 }
 late_initcall(clock_late_init);

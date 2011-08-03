@@ -3770,7 +3770,7 @@ static void __init reg_init(void)
 }
 
 /* Local clock driver initialization. */
-void __init msm8660_clock_init(void)
+static void __init msm8660_clock_init(void)
 {
 	soc_update_sys_vdd = msm8660_update_sys_vdd;
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8x60");
@@ -3804,11 +3804,9 @@ void __init msm8660_clock_init(void)
 	rcg_clk_disable(&pdm_clk.c);
 	rcg_clk_enable(&tssc_clk.c);
 	rcg_clk_disable(&tssc_clk.c);
-
-	msm_clock_init(msm_clocks_8x60, ARRAY_SIZE(msm_clocks_8x60));
 }
 
-static int __init msm_clk_soc_late_init(void)
+static int __init msm8660_clock_late_init(void)
 {
 	int rc;
 
@@ -3830,4 +3828,10 @@ static int __init msm_clk_soc_late_init(void)
 
 	return rc;
 }
-late_initcall(msm_clk_soc_late_init);
+
+struct clock_init_data msm8x60_clock_init_data __initdata = {
+	.table = msm_clocks_8x60,
+	.size = ARRAY_SIZE(msm_clocks_8x60),
+	.init = msm8660_clock_init,
+	.late_init = msm8660_clock_late_init,
+};

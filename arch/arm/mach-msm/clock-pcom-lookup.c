@@ -141,7 +141,7 @@ static DEFINE_CLK_VOTER(ebi_usb_clk,	&ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi_vfe_clk,	&ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi_adm_clk,	&ebi1_clk.c);
 
-struct clk_lookup msm_clocks_7x01a[] = {
+static struct clk_lookup msm_clocks_7x01a[] = {
 	CLK_LOOKUP("adm_clk",		adm_clk.c,	NULL),
 	CLK_LOOKUP("adsp_clk",		adsp_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
@@ -184,9 +184,13 @@ struct clk_lookup msm_clocks_7x01a[] = {
 	CLK_LOOKUP("vfe_clk",		vfe_clk.c,	NULL),
 	CLK_LOOKUP("vfe_mdc_clk",	vfe_mdc_clk.c,	NULL),
 };
-unsigned msm_num_clocks_7x01a = ARRAY_SIZE(msm_clocks_7x01a);
 
-struct clk_lookup msm_clocks_7x27[] = {
+struct clock_init_data msm7x01a_clock_init_data __initdata = {
+	.table = msm_clocks_7x01a,
+	.size = ARRAY_SIZE(msm_clocks_7x01a),
+};
+
+static struct clk_lookup msm_clocks_7x27[] = {
 	CLK_LOOKUP("adm_clk",		adm_clk.c,	NULL),
 	CLK_LOOKUP("adsp_clk",		adsp_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
@@ -239,9 +243,13 @@ struct clk_lookup msm_clocks_7x27[] = {
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi_adm_clk.c,	"msm_dmov"),
 };
-unsigned msm_num_clocks_7x27 = ARRAY_SIZE(msm_clocks_7x27);
 
-struct clk_lookup msm_clocks_7x27a[] = {
+struct clock_init_data msm7x27_clock_init_data __initdata = {
+	.table = msm_clocks_7x27,
+	.size = ARRAY_SIZE(msm_clocks_7x27),
+};
+
+static struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("adm_clk",		adm_clk.c,	NULL),
 	CLK_LOOKUP("adsp_clk",		adsp_clk.c,	NULL),
 	CLK_LOOKUP("ahb_m_clk",		ahb_m_clk.c,	NULL),
@@ -311,9 +319,13 @@ struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi_adm_clk.c,	"msm_dmov"),
 };
-unsigned msm_num_clocks_7x27a = ARRAY_SIZE(msm_clocks_7x27a);
 
-struct clk_lookup msm_clocks_8x50[] = {
+struct clock_init_data msm7x27a_clock_init_data __initdata = {
+	.table = msm_clocks_7x27a,
+	.size = ARRAY_SIZE(msm_clocks_7x27a),
+};
+
+static struct clk_lookup msm_clocks_8x50[] = {
 	CLK_LOOKUP("adm_clk",		adm_clk.c,	NULL),
 	CLK_LOOKUP("ce_clk",		ce_clk.c,		NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
@@ -382,4 +394,8 @@ struct clk_lookup msm_clocks_8x50[] = {
 	CLK_LOOKUP("qup_clk",		gsbi_clk.c,	"qup_i2c.4"),
 	CLK_LOOKUP("qup_pclk",		gsbi_p_clk.c,	"qup_i2c.4"),
 };
-unsigned msm_num_clocks_8x50 = ARRAY_SIZE(msm_clocks_8x50);
+
+struct clock_init_data qds8x50_clock_init_data __initdata = {
+	.table = msm_clocks_8x50,
+	.size = ARRAY_SIZE(msm_clocks_8x50),
+};

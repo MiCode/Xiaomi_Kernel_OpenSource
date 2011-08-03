@@ -1881,7 +1881,7 @@ static void __init msm7x2x_init(void)
 #ifdef CONFIG_ARCH_MSM7X25
 	msm_clock_init(msm_clocks_7x25, msm_num_clocks_7x25);
 #elif defined(CONFIG_ARCH_MSM7X27)
-	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
+	msm_clock_init(&msm7x27_clock_init_data);
 #endif
 
 #if defined(CONFIG_SMC91X)

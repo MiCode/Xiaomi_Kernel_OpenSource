@@ -2919,7 +2919,7 @@ static const struct reg_init {
 };
 
 /* Local clock driver initialization. */
-void __init msm7x30_clock_init(void)
+static void __init msm7x30_clock_init(void)
 {
 	int i;
 	uint32_t val;
@@ -2957,9 +2957,13 @@ void __init msm7x30_clock_init(void)
 	clk_set_rate(&lpa_codec_clk.c, 1);
 	/* Sync the GRP2D clock to AXI */
 	clk_set_rate(&grp_2d_clk.c, 1);
-
-	msm_clock_init(msm_clocks_7x30, ARRAY_SIZE(msm_clocks_7x30));
 }
+
+struct clock_init_data msm7x30_clock_init_data __initdata = {
+	.table = msm_clocks_7x30,
+	.size = ARRAY_SIZE(msm_clocks_7x30),
+	.init = msm7x30_clock_init,
+};
 
 /*
  * Clock operation handler registration

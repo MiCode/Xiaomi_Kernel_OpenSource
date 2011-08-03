@@ -107,7 +107,7 @@ static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
-	msm_clock_init(msm_clocks_8064_dummy, msm_num_clocks_8064_dummy);
+	msm_clock_init(&apq8064_dummy_clock_init_data);
 	gpiomux_init();
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =

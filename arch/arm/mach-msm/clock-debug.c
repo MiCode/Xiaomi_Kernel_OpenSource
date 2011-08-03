@@ -115,9 +115,9 @@ DEFINE_SIMPLE_ATTRIBUTE(clock_local_fops, clock_debug_local_get,
 static struct dentry *debugfs_base;
 static u32 debug_suspend;
 static struct clk_lookup *msm_clocks;
-static unsigned num_msm_clocks;
+static size_t num_msm_clocks;
 
-int __init clock_debug_init(struct clk_lookup *clocks, unsigned num_clocks)
+int __init clock_debug_init(struct clock_init_data *data)
 {
 	int ret = 0;
 
@@ -129,8 +129,8 @@ int __init clock_debug_init(struct clk_lookup *clocks, unsigned num_clocks)
 		debugfs_remove_recursive(debugfs_base);
 		return -ENOMEM;
 	}
-	msm_clocks = clocks;
-	num_msm_clocks = num_clocks;
+	msm_clocks = data->table;
+	num_msm_clocks = data->size;
 
 	measure = clk_get_sys("debug", "measure");
 	if (IS_ERR(measure)) {
