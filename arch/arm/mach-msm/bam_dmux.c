@@ -27,6 +27,7 @@
 
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
+#include <mach/msm_smsm.h>
 
 #define BAM_CH_LOCAL_OPEN       0x1
 #define BAM_CH_REMOTE_OPEN      0x2
@@ -116,7 +117,6 @@ struct rx_pkt_info {
 #define A2_PHYS_SIZE		0x2000
 #define BUFFER_SIZE		2048
 #define NUM_BUFFERS		32
-static struct delayed_work bam_init_work;
 static struct sps_bam_props a2_props;
 static struct sps_pipe *bam_tx_pipe;
 static struct sps_pipe *bam_rx_pipe;
@@ -606,7 +606,7 @@ static void debug_create(const char *name, mode_t mode,
 
 #endif
 
-static void bam_init(struct work_struct *work)
+static void bam_init(void)
 {
 	u32 h;
 	dma_addr_t dma_addr;
@@ -748,6 +748,19 @@ register_bam_failed:
 	/*return ret;*/
 	return;
 }
+
+static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
+{
+	DBG("%s: smsm activity\n", __func__);
+	if (bam_mux_initialized)
+		pr_err("%s: bam_dmux already initialized\n", __func__);
+	else if (new_state & SMSM_A2_POWER_CONTROL)
+		bam_init();
+	else
+		pr_err("%s: unsupported state change\n", __func__);
+
+}
+
 static int bam_dmux_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -780,9 +793,15 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* switch over to A2 power status mechanism when avaliable */
-	INIT_DELAYED_WORK(&bam_init_work, bam_init);
-	schedule_delayed_work(&bam_init_work, msecs_to_jiffies(40000));
+	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
+					bam_dmux_smsm_cb, NULL);
+
+	if (rc) {
+		destroy_workqueue(bam_mux_rx_workqueue);
+		destroy_workqueue(bam_mux_tx_workqueue);
+		pr_err("%s: smsm cb register failed, rc: %d\n", __func__, rc);
+		return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -807,6 +826,6 @@ static int __init bam_dmux_init(void)
 	return platform_driver_register(&bam_dmux_driver);
 }
 
-module_init(bam_dmux_init);
+late_initcall(bam_dmux_init); /* needs to init after SMD */
 MODULE_DESCRIPTION("MSM BAM DMUX");
 MODULE_LICENSE("GPL v2");
