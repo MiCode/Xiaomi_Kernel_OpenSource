@@ -63,8 +63,10 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 	status = radix_tree_preload(GFP_ATOMIC);
 	if (status)
 		goto out;
+
 	status = radix_tree_insert(&fabric->fab_tree, info->node_info->priv_id,
 			info);
+	radix_tree_preload_end();
 	if (IS_SLAVE(info->node_info->priv_id))
 		radix_tree_tag_set(&fabric->fab_tree, info->node_info->priv_id,
 			SLAVE_NODE);
@@ -81,7 +83,7 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 		info->nodeclk[DUAL_CTX].enable = false;
 		info->nodeclk[DUAL_CTX].dirty = false;
 	}
-	radix_tree_preload_end();
+
 out:
 	return status;
 }
