@@ -24,7 +24,6 @@
 #include <linux/interrupt.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
-#include <mach/scm-io.h>
 #include <mach/scm.h>
 #include "msm_watchdog.h"
 
@@ -120,7 +119,6 @@ static int panic_wdog_handler(struct notifier_block *this,
 	if (panic_timeout == 0) {
 		__raw_writel(0, WDT0_EN);
 		mb();
-		secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 	} else {
 		__raw_writel(32768 * (panic_timeout + 4), WDT0_BARK_TIME);
 		__raw_writel(32768 * (panic_timeout + 4), WDT0_BITE_TIME);
@@ -165,7 +163,6 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 			/* may be suspended after the first write above */
 			__raw_writel(0, WDT0_EN);
 			mb();
-			secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 			enable = 0;
 			atomic_notifier_chain_unregister(&panic_notifier_list,
@@ -209,7 +206,6 @@ static void __exit exit_watchdog(void)
 		__raw_writel(0, WDT0_EN); /* In case we got suspended
 					   * mid-exit */
 		mb();
-		secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 		free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 		enable = 0;
 	}
@@ -295,7 +291,6 @@ static void init_watchdog_work(struct work_struct *work)
 			 */
 	}
 #endif
-	secure_writel(1, MSM_TCSR_BASE + TCSR_WDT_CFG);
 	delay_time = msecs_to_jiffies(PET_DELAY);
 
 	/* 32768 ticks = 1 second */

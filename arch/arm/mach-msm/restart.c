@@ -27,10 +27,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/restart.h>
-#include <mach/scm-io.h>
 #include <mach/socinfo.h>
-
-#define TCSR_WDT_CFG 0x30
 
 #define WDT0_RST       (MSM_TMR0_BASE + 0x38)
 #define WDT0_EN        (MSM_TMR0_BASE + 0x40)
@@ -175,7 +172,6 @@ void arch_reset(char mode, const char *cmd)
 	__raw_writel(5*0x31F3, WDT0_BARK_TIME);
 	__raw_writel(0x31F3, WDT0_BITE_TIME);
 	__raw_writel(1, WDT0_EN);
-	secure_writel(3, MSM_TCSR_BASE + TCSR_WDT_CFG);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
