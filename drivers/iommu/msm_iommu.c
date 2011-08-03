@@ -113,6 +113,38 @@ fail:
 	return ret;
 }
 
+static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
+{
+	struct msm_priv *priv = domain->priv;
+	struct msm_iommu_drvdata *iommu_drvdata;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	int ret = 0;
+	int asid;
+
+	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
+		if (!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent)
+			BUG();
+
+		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
+		if (!iommu_drvdata)
+			BUG();
+
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret)
+			goto fail;
+
+		asid = GET_CONTEXTIDR_ASID(iommu_drvdata->base,
+					   ctx_drvdata->num);
+
+		SET_TLBIVA(iommu_drvdata->base, ctx_drvdata->num,
+			   asid | (va & TLBIVA_VA));
+		mb();
+		__disable_clocks(iommu_drvdata);
+	}
+fail:
+	return ret;
+}
+
 static void __reset_context(void __iomem *base, int ctx)
 {
 	SET_BPRCOSH(base, ctx, 0);
@@ -534,7 +566,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		clean_pte(sl_pte, sl_pte + 16);
 	}
 
-	ret = __flush_iotlb(domain);
+	ret = __flush_iotlb_va(domain, va);
 fail:
 	spin_unlock_irqrestore(&msm_iommu_lock, flags);
 	return ret;
@@ -626,8 +658,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 		}
 	}
 
-	ret = __flush_iotlb(domain);
-
+	ret = __flush_iotlb_va(domain, va);
 fail:
 	spin_unlock_irqrestore(&msm_iommu_lock, flags);
 
@@ -665,9 +696,6 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	if (ret)
 		goto fail;
 
-	/* Invalidate context TLB */
-	SET_CTX_TLBIALL(base, ctx, 0);
-	mb();
 	SET_V2PPR(base, ctx, va & V2Pxx_VA);
 
 	mb();
