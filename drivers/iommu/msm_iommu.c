@@ -42,6 +42,15 @@ __asm__ __volatile__ (							\
 #define RCP15_PRRR(reg)		MRC(reg, p15, 0, c10, c2, 0)
 #define RCP15_NMRR(reg)		MRC(reg, p15, 0, c10, c2, 1)
 
+#ifndef CONFIG_IOMMU_PGTABLES_L2
+static inline void clean_pte(unsigned long *start, unsigned long *end)
+{
+	dmac_flush_range(start, end);
+}
+#else
+static inline void clean_pte(unsigned long *start, unsigned long *end) { }
+#endif
+
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
 
@@ -84,23 +93,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
-#ifndef CONFIG_IOMMU_PGTABLES_L2
-	unsigned long *fl_table = priv->pgtable;
-	int i;
 
-	if (!list_empty(&priv->list_attached)) {
-		dmac_flush_range(fl_table, fl_table + SZ_16K);
-
-		for (i = 0; i < NUM_FL_PTE; i++)
-			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
-				void *sl_table = __va(fl_table[i] &
-								FL_BASE_MASK);
-				dmac_flush_range(sl_table, sl_table + SZ_4K);
-			}
-	}
-#endif
-
-	mb();
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
 		if (!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent)
 			BUG();
@@ -113,6 +106,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 			goto fail;
 
 		SET_CTX_TLBIALL(iommu_drvdata->base, ctx_drvdata->num, 0);
+		mb();
 		__disable_clocks(iommu_drvdata);
 	}
 fail:
@@ -466,6 +460,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION |
 				  FL_AP_READ | FL_AP_WRITE | FL_TYPE_SECT |
 				  FL_SHARED | FL_NG | pgprot;
+
+		clean_pte(fl_pte, fl_pte + 16);
 	}
 
 	if (len == SZ_1M) {
@@ -476,6 +472,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 		*fl_pte = (pa & 0xFFF00000) | FL_AP_READ | FL_AP_WRITE | FL_NG |
 					    FL_TYPE_SECT | FL_SHARED | pgprot;
+
+		clean_pte(fl_pte, fl_pte + 1);
 	}
 
 	/* Need a 2nd level table */
@@ -495,6 +493,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 			*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
 						      FL_TYPE_TABLE);
+
+			clean_pte(fl_pte, fl_pte + 1);
 		}
 
 		if (!(*fl_pte & FL_TYPE_TABLE)) {
@@ -515,6 +515,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 		*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_AP0 | SL_AP1 | SL_NG |
 					  SL_SHARED | SL_TYPE_SMALL | pgprot;
+		clean_pte(sl_pte, sl_pte + 1);
 	}
 
 	if (len == SZ_64K) {
@@ -529,6 +530,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		for (i = 0; i < 16; i++)
 			*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_AP0 |
 			    SL_NG | SL_AP1 | SL_SHARED | SL_TYPE_LARGE | pgprot;
+
+		clean_pte(sl_pte, sl_pte + 16);
 	}
 
 	ret = __flush_iotlb(domain);
@@ -579,12 +582,18 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	}
 
 	/* Unmap supersection */
-	if (len == SZ_16M)
+	if (len == SZ_16M) {
 		for (i = 0; i < 16; i++)
 			*(fl_pte+i) = 0;
 
-	if (len == SZ_1M)
+		clean_pte(fl_pte, fl_pte + 16);
+	}
+
+	if (len == SZ_1M) {
 		*fl_pte = 0;
+
+		clean_pte(fl_pte, fl_pte + 1);
+	}
 
 	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
 	sl_offset = SL_OFFSET(va);
@@ -593,10 +602,15 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	if (len == SZ_64K) {
 		for (i = 0; i < 16; i++)
 			*(sl_pte+i) = 0;
+
+		clean_pte(sl_pte, sl_pte + 16);
 	}
 
-	if (len == SZ_4K)
+	if (len == SZ_4K) {
 		*sl_pte = 0;
+
+		clean_pte(sl_pte, sl_pte + 1);
+	}
 
 	if (len == SZ_4K || len == SZ_64K) {
 		int used = 0;
@@ -607,6 +621,8 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 		if (!used) {
 			free_page((unsigned long)sl_table);
 			*fl_pte = 0;
+
+			clean_pte(fl_pte, fl_pte + 1);
 		}
 	}
 
