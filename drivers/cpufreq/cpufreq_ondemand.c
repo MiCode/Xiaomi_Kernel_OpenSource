@@ -658,6 +658,11 @@ static void dbs_refresh_callback(struct work_struct *unused)
 
 	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	policy = this_dbs_info->cur_policy;
+	if (!policy) {
+		/* CPU not using ondemand governor */
+		unlock_policy_rwsem_write(cpu);
+		return;
+	}
 
 	if (policy->cur < policy->max) {
 		policy->cur = policy->max;
