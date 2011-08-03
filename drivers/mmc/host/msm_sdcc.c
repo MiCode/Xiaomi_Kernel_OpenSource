@@ -297,6 +297,8 @@ msmsdcc_stop_data(struct msmsdcc_host *host)
 {
 	host->curr.data = NULL;
 	host->curr.got_dataend = 0;
+	host->curr.wait_for_auto_prog_done = 0;
+	host->curr.got_auto_prog_done = 0;
 	writel_relaxed(readl_relaxed(host->base + MMCIDATACTRL) &
 			(~(MCI_DPSM_ENABLE)), host->base + MMCIDATACTRL);
 	msmsdcc_delay(host);	/* Allow the DPSM to be reset */
@@ -414,8 +416,9 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 	host->dma.sg = NULL;
 	host->dma.busy = 0;
 
-	if (host->curr.got_dataend || mrq->data->error) {
-
+	if ((host->curr.got_dataend && (!host->curr.wait_for_auto_prog_done ||
+		(host->curr.wait_for_auto_prog_done &&
+		host->curr.got_auto_prog_done))) || mrq->data->error) {
 		/*
 		 * If we've already gotten our DATAEND / DATABLKEND
 		 * for this request, then complete it through here.
@@ -566,7 +569,9 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 	host->sps.sg = NULL;
 	host->sps.busy = 0;
 
-	if (host->curr.got_dataend || mrq->data->error) {
+	if ((host->curr.got_dataend && (!host->curr.wait_for_auto_prog_done ||
+		(host->curr.wait_for_auto_prog_done &&
+		host->curr.got_auto_prog_done))) || mrq->data->error) {
 		/*
 		 * If we've already gotten our DATAEND / DATABLKEND
 		 * for this request, then complete it through here.
@@ -928,10 +933,14 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	host->curr.xfer_remain = host->curr.xfer_size;
 	host->curr.data_xfered = 0;
 	host->curr.got_dataend = 0;
+	host->curr.got_auto_prog_done = 0;
 
 	memset(&host->pio, 0, sizeof(host->pio));
 
 	datactrl = MCI_DPSM_ENABLE | (data->blksz << 4);
+
+	if (host->curr.wait_for_auto_prog_done)
+		datactrl |= MCI_AUTO_PROG_DONE;
 
 	if (!msmsdcc_check_dma_op_req(data)) {
 		if (host->is_dma_mode && !msmsdcc_config_dma(host, data)) {
@@ -1436,11 +1445,19 @@ msmsdcc_irq(int irq, void *dev_id)
 				}
 			}
 
+			/* Check for prog done */
+			if (host->curr.wait_for_auto_prog_done &&
+				(status & MCI_PROGDONE))
+				host->curr.got_auto_prog_done = 1;
+
 			/* Check for data done */
 			if (!host->curr.got_dataend && (status & MCI_DATAEND))
 				host->curr.got_dataend = 1;
 
-			if (host->curr.got_dataend) {
+			if (host->curr.got_dataend &&
+				(!host->curr.wait_for_auto_prog_done ||
+				(host->curr.wait_for_auto_prog_done &&
+				host->curr.got_auto_prog_done))) {
 				/*
 				 * If DMA is still in progress, we complete
 				 * via the completion handler
@@ -1541,14 +1558,23 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->curr.mrq = mrq;
 
-	if (!host->plat->sdcc_v4_sup) {
-		if (mrq->data && mrq->data->flags == MMC_DATA_WRITE) {
-			if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
-				mrq->cmd->opcode == 54) {
+	if (mrq->data && mrq->data->flags == MMC_DATA_WRITE) {
+		if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
+			mrq->cmd->opcode == 54) {
+			if (!host->plat->sdcc_v4_sup)
 				host->dummy_52_needed = 1;
-			}
+			else
+				/*
+				 * SDCCv4 supports AUTO_PROG_DONE bit for SDIO
+				 * write operations using CMD53 and CMD54.
+				 * Setting this bit with CMD53 would
+				 * automatically triggers PROG_DONE interrupt
+				 * without the need of sending dummy CMD52.
+				 */
+				host->curr.wait_for_auto_prog_done = 1;
 		}
 	}
+
 	msmsdcc_request_start(host, mrq);
 	spin_unlock_irqrestore(&host->lock, flags);
 }

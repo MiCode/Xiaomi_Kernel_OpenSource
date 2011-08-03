@@ -77,6 +77,7 @@
 #define MCI_DPSM_DIRECTION	(1 << 1)
 #define MCI_DPSM_MODE		(1 << 2)
 #define MCI_DPSM_DMAENABLE	(1 << 3)
+#define MCI_AUTO_PROG_DONE	(1 << 19)
 #define MCI_RX_DATA_PEND	(1 << 20)
 
 #define MMCIDATACNT		0x030
@@ -256,6 +257,8 @@ struct msmsdcc_curr_req {
 	unsigned int		xfer_remain;	/* Bytes remaining to send */
 	unsigned int		data_xfered;	/* Bytes acked by BLKEND irq */
 	int			got_dataend;
+	int			wait_for_auto_prog_done;
+	int			got_auto_prog_done;
 	int			user_pages;
 };
 
