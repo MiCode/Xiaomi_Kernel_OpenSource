@@ -470,6 +470,9 @@ static int shutdown_q6_trusted(int id, struct q6_data *q6)
 	int ret;
 
 	ret = shutdown_trusted(id);
+	if (ret)
+		return ret;
+
 	if (q6->vreg_enabled) {
 		regulator_disable(q6->vreg);
 		q6->vreg_enabled = false;
