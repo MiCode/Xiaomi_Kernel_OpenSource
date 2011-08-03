@@ -126,36 +126,42 @@ static int init_image_trusted(int id, const u8 *metadata, size_t size)
 	return resp.image_valid;
 }
 
-static int init_image_modem_trusted(const u8 *metadata, size_t size)
+static int init_image_modem_trusted(struct pil_device *pil, const u8 *metadata,
+				    size_t size)
 {
 	return init_image_trusted(PAS_MODEM, metadata, size);
 }
 
-static int init_image_modem_untrusted(const u8 *metadata, size_t size)
+static int init_image_modem_untrusted(struct pil_device *pil,
+				      const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	modem_start = ehdr->e_entry;
 	return 0;
 }
 
-static int init_image_q6_trusted(const u8 *metadata, size_t size)
+static int init_image_q6_trusted(struct pil_device *pil,
+				 const u8 *metadata, size_t size)
 {
 	return init_image_trusted(PAS_Q6, metadata, size);
 }
 
-static int init_image_q6_untrusted(const u8 *metadata, size_t size)
+static int init_image_q6_untrusted(struct pil_device *pil, const u8 *metadata,
+				   size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	q6_start = ehdr->e_entry;
 	return 0;
 }
 
-static int init_image_dsps_trusted(const u8 *metadata, size_t size)
+static int init_image_dsps_trusted(struct pil_device *pil, const u8 *metadata,
+				   size_t size)
 {
 	return init_image_trusted(PAS_DSPS, metadata, size);
 }
 
-static int init_image_dsps_untrusted(const u8 *metadata, size_t size)
+static int init_image_dsps_untrusted(struct pil_device *pil, const u8 *metadata,
+				     size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	dsps_start = ehdr->e_entry;
@@ -165,7 +171,7 @@ static int init_image_dsps_untrusted(const u8 *metadata, size_t size)
 	return 0;
 }
 
-static int verify_blob(u32 phy_addr, size_t size)
+static int verify_blob(struct pil_device *pil, u32 phy_addr, size_t size)
 {
 	return 0;
 }
@@ -209,7 +215,7 @@ static void remove_modem_proxy_votes_now(void)
 		remove_modem_proxy_votes(0);
 }
 
-static int reset_modem_untrusted(void)
+static int reset_modem_untrusted(struct pil_device *pil)
 {
 	u32 reg;
 
@@ -288,7 +294,7 @@ static int reset_modem_untrusted(void)
 	return 0;
 }
 
-static int reset_modem_trusted(void)
+static int reset_modem_trusted(struct pil_device *pil)
 {
 	int ret;
 
@@ -316,7 +322,7 @@ static int shutdown_trusted(int id)
 	return resp.success;
 }
 
-static int shutdown_modem_untrusted(void)
+static int shutdown_modem_untrusted(struct pil_device *pil)
 {
 	u32 reg;
 
@@ -357,7 +363,7 @@ static int shutdown_modem_untrusted(void)
 	return 0;
 }
 
-static int shutdown_modem_trusted(void)
+static int shutdown_modem_trusted(struct pil_device *pil)
 {
 	int ret;
 
@@ -425,7 +431,7 @@ static void remove_q6_proxy_votes_now(void)
 		remove_q6_proxy_votes(0);
 }
 
-static int reset_q6_untrusted(void)
+static int reset_q6_untrusted(struct pil_device *pil)
 {
 	u32 reg;
 
@@ -471,14 +477,14 @@ static int reset_q6_untrusted(void)
 	return 0;
 }
 
-static int reset_q6_trusted(void)
+static int reset_q6_trusted(struct pil_device *pil)
 {
 	make_q6_proxy_votes();
 
 	return auth_and_reset_trusted(PAS_Q6);
 }
 
-static int shutdown_q6_untrusted(void)
+static int shutdown_q6_untrusted(struct pil_device *pil)
 {
 	u32 reg;
 
@@ -505,7 +511,7 @@ static int shutdown_q6_untrusted(void)
 	return 0;
 }
 
-static int shutdown_q6_trusted(void)
+static int shutdown_q6_trusted(struct pil_device *pil)
 {
 	int ret;
 
@@ -518,7 +524,7 @@ static int shutdown_q6_trusted(void)
 	return 0;
 }
 
-static int reset_dsps_untrusted(void)
+static int reset_dsps_untrusted(struct pil_device *pil)
 {
 	__raw_writel(0x10, PPSS_PROC_CLK_CTL);
 	while (__raw_readl(CLK_HALT_DFAB_STATE) & BIT(18))
@@ -529,34 +535,35 @@ static int reset_dsps_untrusted(void)
 	return 0;
 }
 
-static int reset_dsps_trusted(void)
+static int reset_dsps_trusted(struct pil_device *pil)
 {
 	return auth_and_reset_trusted(PAS_DSPS);
 }
 
-static int shutdown_dsps_trusted(void)
+static int shutdown_dsps_trusted(struct pil_device *pil)
 {
 	return shutdown_trusted(PAS_DSPS);
 }
 
-static int shutdown_dsps_untrusted(void)
+static int shutdown_dsps_untrusted(struct pil_device *pil)
 {
 	__raw_writel(0x2, PPSS_RESET);
 	__raw_writel(0x0, PPSS_PROC_CLK_CTL);
 	return 0;
 }
 
-static int init_image_playready(const u8 *metadata, size_t size)
+static int init_image_playready(struct pil_device *pil, const u8 *metadata,
+		size_t size)
 {
 	return init_image_trusted(PAS_PLAYREADY, metadata, size);
 }
 
-static int reset_playready(void)
+static int reset_playready(struct pil_device *pil)
 {
 	return auth_and_reset_trusted(PAS_PLAYREADY);
 }
 
-static int shutdown_playready(void)
+static int shutdown_playready(struct pil_device *pil)
 {
 	return shutdown_trusted(PAS_PLAYREADY);
 }

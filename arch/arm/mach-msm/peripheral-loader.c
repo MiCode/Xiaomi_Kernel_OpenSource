@@ -129,7 +129,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		paddr += size;
 	}
 
-	ret = pil->ops->verify_blob(phdr->p_paddr, phdr->p_memsz);
+	ret = pil->ops->verify_blob(pil, phdr->p_paddr, phdr->p_memsz);
 	if (ret)
 		dev_err(&pil->pdev.dev, "Blob %u failed verification\n", num);
 
@@ -185,7 +185,7 @@ static int load_image(struct pil_device *pil)
 		goto release_fw;
 	}
 
-	ret = pil->ops->init_image(fw->data, fw->size);
+	ret = pil->ops->init_image(pil, fw->data, fw->size);
 	if (ret) {
 		dev_err(&pil->pdev.dev, "Invalid firmware metadata\n");
 		goto release_fw;
@@ -204,7 +204,7 @@ static int load_image(struct pil_device *pil)
 		}
 	}
 
-	ret = pil->ops->auth_and_reset();
+	ret = pil->ops->auth_and_reset(pil);
 	if (ret) {
 		dev_err(&pil->pdev.dev, "Failed to bring out of reset\n");
 		goto release_fw;
@@ -284,7 +284,7 @@ void pil_put(void *peripheral_handle)
 	if (pil->count)
 		pil->count--;
 	if (pil->count == 0)
-		pil->ops->shutdown();
+		pil->ops->shutdown(pil);
 unlock:
 	mutex_unlock(&pil->lock);
 
@@ -304,7 +304,7 @@ void pil_force_shutdown(const char *name)
 
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
-		pil->ops->shutdown();
+		pil->ops->shutdown(pil);
 	mutex_unlock(&pil->lock);
 }
 EXPORT_SYMBOL(pil_force_shutdown);
@@ -410,7 +410,7 @@ static int msm_pil_shutdown_at_boot(void)
 
 	mutex_lock(&pil_list_lock);
 	list_for_each_entry(pil, &pil_list, list)
-		pil->ops->shutdown();
+		pil->ops->shutdown(pil);
 	mutex_unlock(&pil_list_lock);
 
 	return 0;

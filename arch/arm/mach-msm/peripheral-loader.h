@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,13 +16,6 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 
-struct pil_reset_ops {
-	int (*init_image)(const u8 *metadata, size_t size);
-	int (*verify_blob)(u32 phy_addr, size_t size);
-	int (*auth_and_reset)(void);
-	int (*shutdown)(void);
-};
-
 struct pil_device {
 	const char *name;
 	const char *depends_on;
@@ -31,6 +24,14 @@ struct pil_device {
 	struct platform_device pdev;
 	struct list_head list;
 	struct pil_reset_ops *ops;
+};
+
+struct pil_reset_ops {
+	int (*init_image)(struct pil_device *pil, const u8 *metadata,
+			  size_t size);
+	int (*verify_blob)(struct pil_device *pil, u32 phy_addr, size_t size);
+	int (*auth_and_reset)(struct pil_device *pil);
+	int (*shutdown)(struct pil_device *pil);
 };
 
 extern int msm_pil_add_device(struct pil_device *pil);
