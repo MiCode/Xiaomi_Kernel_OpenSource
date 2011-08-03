@@ -21,10 +21,13 @@
 #include <linux/err.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/msm_xo.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
 #include "scm-pas.h"
+
+#define PROXY_VOTE_TIMEOUT	10000
 
 #define QDSP6SS_RST_EVB		0x0
 #define QDSP6SS_RESET		0x04
@@ -65,6 +68,8 @@ struct q6v4_data {
 	unsigned long start_addr;
 	struct regulator *vreg;
 	bool vreg_enabled;
+	struct msm_xo_voter *xo;
+	struct timer_list xo_timer;
 };
 
 static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -79,6 +84,29 @@ static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
 {
 	return 0;
+}
+
+static void pil_q6v4_make_xo_proxy_votes(struct device *dev)
+{
+	struct q6v4_data *drv = dev_get_drvdata(dev);
+
+	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_ON);
+	mod_timer(&drv->xo_timer, jiffies+msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+}
+
+static void pil_q6v4_remove_xo_proxy_votes(unsigned long data)
+{
+	struct q6v4_data *drv = (struct q6v4_data *)data;
+
+	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_OFF);
+}
+
+static void pil_q6v4_remove_xo_proxy_votes_now(struct device *dev)
+{
+	struct q6v4_data *drv = dev_get_drvdata(dev);
+
+	if (del_timer(&drv->xo_timer))
+		pil_q6v4_remove_xo_proxy_votes((unsigned long)drv);
 }
 
 static int pil_q6v4_power_up(struct device *dev)
@@ -154,6 +182,8 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 	u32 reg, err = 0;
 	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+
+	pil_q6v4_make_xo_proxy_votes(pil->dev);
 
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
@@ -260,6 +290,8 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 		drv->vreg_enabled = false;
 	}
 
+	pil_q6v4_remove_xo_proxy_votes_now(pil->dev);
+
 	return 0;
 }
 
@@ -282,6 +314,8 @@ static int pil_q6v4_reset_trusted(struct pil_desc *pil)
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
 	int err;
 
+	pil_q6v4_make_xo_proxy_votes(pil->dev);
+
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
 		return err;
@@ -302,6 +336,8 @@ static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 		regulator_disable(drv->vreg);
 		drv->vreg_enabled = false;
 	}
+
+	pil_q6v4_remove_xo_proxy_votes_now(pil->dev);
 
 	return ret;
 }
@@ -360,6 +396,12 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	drv->vreg = regulator_get(&pdev->dev, "core_vdd");
 	if (IS_ERR(drv->vreg))
 		return PTR_ERR(drv->vreg);
+
+	setup_timer(&drv->xo_timer, pil_q6v4_remove_xo_proxy_votes,
+		    (unsigned long)drv);
+	drv->xo = msm_xo_get(pdata->xo_id, pdata->name);
+	if (IS_ERR(drv->xo))
+		return PTR_ERR(drv->xo);
 
 	if (msm_pil_register(desc)) {
 		regulator_put(drv->vreg);

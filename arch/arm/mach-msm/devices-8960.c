@@ -30,6 +30,7 @@
 #include <mach/rpm.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
+#include <mach/msm_xo.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include "clock.h"
@@ -833,6 +834,7 @@ static struct pil_q6v4_pdata msm_8960_q6_lpass_data = {
 	.strap_ahb_upper = 0x00290000,
 	.strap_ahb_lower = 0x00000280,
 	.aclk_reg = SFAB_LPASS_Q6_ACLK_CTL,
+	.xo_id = MSM_XO_PXO,
 	.name = "q6",
 	.pas_id = PAS_Q6,
 };
@@ -869,6 +871,7 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_fw_data = {
 	.strap_ahb_lower = 0x00000080,
 	.aclk_reg = SFAB_MSS_Q6_FW_ACLK_CTL,
 	.jtag_clk_reg = MSS_Q6FW_JTAG_CLK_CTL,
+	.xo_id = MSM_XO_TCXO_D0,
 	.name = "modem_fw",
 	.depends = "q6",
 	.pas_id = PAS_MODEM_FW,
@@ -905,6 +908,7 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_sw_data = {
 	.strap_ahb_lower = 0x00000080,
 	.aclk_reg = SFAB_MSS_Q6_SW_ACLK_CTL,
 	.jtag_clk_reg = MSS_Q6SW_JTAG_CLK_CTL,
+	.xo_id = MSM_XO_TCXO_D0,
 	.name = "modem",
 	.depends = "modem_fw",
 	.pas_id = PAS_MODEM_SW,
