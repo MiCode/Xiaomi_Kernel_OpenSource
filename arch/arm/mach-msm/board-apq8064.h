@@ -19,4 +19,9 @@ extern struct pm8921_regulator_platform_data
 	msm8064_pm8921_regulator_pdata[] __devinitdata;
 
 extern int msm8064_pm8921_regulator_pdata_len __devinitdata;
+
+struct mmc_platform_data;
+int __init apq8064_add_sdcc(unsigned int controller,
+		struct mmc_platform_data *plat);
+
 #endif

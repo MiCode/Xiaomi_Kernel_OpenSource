@@ -19,6 +19,7 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
+#include <asm/mach/mmc.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -43,6 +44,44 @@ static int __init gpiomux_init(void)
 		return rc;
 	}
 	return 0;
+}
+
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+static unsigned int sdc1_sup_clk_rates[] = {
+	400000, 24000000, 48000000, 96000000
+};
+
+static struct mmc_platform_data sdc1_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc1_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
+};
+static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
+#else
+static struct mmc_platform_data *apq8064_sdc1_pdata;
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+static unsigned int sdc3_sup_clk_rates[] = {
+	400000, 24000000, 48000000, 96000000
+};
+
+static struct mmc_platform_data sdc3_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc3_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
+};
+static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
+#else
+static struct mmc_platform_data *apq8064_sdc3_pdata;
+#endif
+
+static void __init apq8064_init_mmc(void)
+{
+	apq8064_add_sdcc(1, apq8064_sdc1_pdata);
+	apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 }
 
 static void __init apq8064_map_io(void)
@@ -144,6 +183,7 @@ static void __init apq8064_common_init(void)
 	pm8921_platform_data.num_regulators =
 					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	apq8064_init_mmc();
 }
 
 static void __init apq8064_sim_init(void)
