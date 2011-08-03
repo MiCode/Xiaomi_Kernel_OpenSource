@@ -47,6 +47,15 @@
 #define L2X0_CLEAN_INV_WAY		0x7FC
 #define L2X0_LOCKDOWN_WAY_D		0x900
 #define L2X0_LOCKDOWN_WAY_I		0x904
+/*
+ * The lockdown registers repeat 8 times for L310, the L210 has only one
+ * D and one I lockdown register at 0x0900 and 0x0904.
+ */
+#define L2X0_LOCKDOWN_WAY_D_BASE	0x900
+#define L2X0_LOCKDOWN_WAY_I_BASE	0x904
+#define L2X0_LOCKDOWN_STRIDE		0x08
+#define L2X0_ADDR_FILTER_START		0xC00
+#define L2X0_ADDR_FILTER_END		0xC04
 #define L2X0_TEST_OPERATION		0xF00
 #define L2X0_LINE_DATA			0xF10
 #define L2X0_LINE_TAG			0xF30
@@ -64,6 +73,14 @@
 #define L2X0_CACHE_ID_PART_L310		(3 << 6)
 
 #define L2X0_AUX_CTRL_MASK			0xc0000fff
+#define L2X0_AUX_CTRL_DATA_RD_LATENCY_SHIFT	0
+#define L2X0_AUX_CTRL_DATA_RD_LATENCY_MASK	0x7
+#define L2X0_AUX_CTRL_DATA_WR_LATENCY_SHIFT	3
+#define L2X0_AUX_CTRL_DATA_WR_LATENCY_MASK	(0x7 << 3)
+#define L2X0_AUX_CTRL_TAG_LATENCY_SHIFT		6
+#define L2X0_AUX_CTRL_TAG_LATENCY_MASK		(0x7 << 6)
+#define L2X0_AUX_CTRL_DIRTY_LATENCY_SHIFT	9
+#define L2X0_AUX_CTRL_DIRTY_LATENCY_MASK	(0x7 << 9)
 #define L2X0_AUX_CTRL_ASSOCIATIVITY_SHIFT	16
 #define L2X0_AUX_CTRL_WAY_SIZE_SHIFT		17
 #define L2X0_AUX_CTRL_WAY_SIZE_MASK		(0x7 << 17)
@@ -75,13 +92,18 @@
 #define L2X0_AUX_CTRL_EARLY_BRESP_SHIFT		30
 #define L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT	20
 
-#define REV_PL310_R2P0				4
+#define L2X0_LATENCY_CTRL_SETUP_SHIFT	0
+#define L2X0_LATENCY_CTRL_RD_SHIFT	4
+#define L2X0_LATENCY_CTRL_WR_SHIFT	8
+
+#define L2X0_ADDR_FILTER_EN		1
 
 #ifndef __ASSEMBLY__
 extern void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask);
 extern void l2x0_suspend(void);
 extern void l2x0_resume(int collapsed);
 extern void l2x0_cache_sync(void);
+extern int l2x0_of_init(__u32 aux_val, __u32 aux_mask);
 #endif
 
 #endif
