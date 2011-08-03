@@ -444,9 +444,12 @@ static int grmnet_ctrl_smd_ch_remove(struct platform_device *pdev)
 static void grmnet_ctrl_smd_port_free(int portno)
 {
 	struct rmnet_ctrl_port	*port = ctrl_smd_ports[portno].port;
+	struct platform_driver *pdrv = &ctrl_smd_ports[portno].pdrv;
 
-	if (!port)
+	if (port) {
 		kfree(port);
+		platform_driver_unregister(pdrv);
+	}
 }
 
 static int grmnet_ctrl_smd_port_alloc(int portno)

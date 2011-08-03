@@ -31,6 +31,8 @@ static struct workqueue_struct *gbam_wq;
 static int n_bam_ports;
 static unsigned bam_ch_ids[] = { 8 };
 
+static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
+
 #define TX_PKT_DROP_THRESHOLD			1000
 #define RX_PKT_FLOW_CTRL_EN_THRESHOLD		1000
 #define RX_PKT_FLOW_CTRL_DISABLE		500
@@ -63,8 +65,10 @@ module_param(rx_q_size, uint, S_IRUGO | S_IWUSR);
 unsigned int rx_req_size = RX_REQ_SIZE;
 module_param(rx_req_size, uint, S_IRUGO | S_IWUSR);
 
+#define BAM_CH_OPENED	BIT(0)
+#define BAM_CH_READY	BIT(1)
 struct bam_ch_info {
-	atomic_t		opened;
+	unsigned long		flags;
 	unsigned		id;
 
 	struct list_head        tx_idle;
@@ -99,7 +103,8 @@ struct gbam_port {
 
 static struct bam_portmaster {
 	struct gbam_port *port;
-} bam_ports[N_PORTS];
+	struct platform_driver pdrv;
+} bam_ports[BAM_N_PORTS];
 
 static void gbam_start_rx(struct gbam_port *port);
 
@@ -508,31 +513,137 @@ static void gbam_connect_work(struct work_struct *w)
 	struct bam_ch_info *d = &port->data_ch;
 	int ret;
 
+	if (!test_bit(BAM_CH_READY, &d->flags))
+		return;
+
 	ret = msm_bam_dmux_open(d->id, port, gbam_notify);
 	if (ret) {
 		pr_err("%s: unable open bam ch:%d err:%d\n",
 				__func__, d->id, ret);
 		return;
 	}
-	atomic_set(&d->opened, 1);
+	set_bit(BAM_CH_OPENED, &d->flags);
 
 	gbam_start_io(port);
 
 	pr_debug("%s: done\n", __func__);
 }
 
+static void gbam_free_buffers(struct gbam_port *port)
+{
+	struct sk_buff		*skb;
+	unsigned long		flags;
+	struct bam_ch_info	*d;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if (!port || !port->port_usb)
+		goto free_buf_out;
+
+	d = &port->data_ch;
+
+	gbam_free_requests(port->port_usb->in, &d->tx_idle);
+	gbam_free_requests(port->port_usb->out, &d->rx_idle);
+
+	while ((skb = __skb_dequeue(&d->tx_skb_q)))
+		dev_kfree_skb_any(skb);
+
+	while ((skb = __skb_dequeue(&d->rx_skb_q)))
+		dev_kfree_skb_any(skb);
+
+free_buf_out:
+	spin_unlock_irqrestore(&port->port_lock, flags);
+}
+
+/* BAM data channel ready, allow attempt to open */
+static int gbam_data_ch_probe(struct platform_device *pdev)
+{
+	struct gbam_port	*port;
+	struct bam_ch_info	*d;
+	int			i;
+	unsigned long		flags;
+
+	pr_debug("%s: name:%s\n", __func__, pdev->name);
+
+	for (i = 0; i < n_bam_ports; i++) {
+		port = bam_ports[i].port;
+		d = &port->data_ch;
+
+		if (!strncmp(bam_ch_names[i], pdev->name,
+					BAM_DMUX_CH_NAME_MAX_LEN)) {
+			set_bit(BAM_CH_READY, &d->flags);
+
+			/* if usb is online, try opening bam_ch */
+			spin_lock_irqsave(&port->port_lock, flags);
+			if (port->port_usb)
+				queue_work(gbam_wq, &port->connect_w);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/* BAM data channel went inactive, so close it */
+static int gbam_data_ch_remove(struct platform_device *pdev)
+{
+	struct gbam_port	*port;
+	struct bam_ch_info	*d;
+	struct usb_ep		*ep_in = NULL;
+	struct usb_ep		*ep_out = NULL;
+	unsigned long		flags;
+	int			i;
+
+	pr_debug("%s: name:%s\n", __func__, pdev->name);
+
+	for (i = 0; i < n_bam_ports; i++) {
+		if (!strncmp(bam_ch_names[i], pdev->name,
+					BAM_DMUX_CH_NAME_MAX_LEN)) {
+			port = bam_ports[i].port;
+			d = &port->data_ch;
+
+			spin_lock_irqsave(&port->port_lock, flags);
+			if (port->port_usb) {
+				ep_in = port->port_usb->in;
+				ep_out = port->port_usb->out;
+			}
+			spin_unlock_irqrestore(&port->port_lock, flags);
+
+			if (ep_in)
+				usb_ep_fifo_flush(ep_in);
+			if (ep_out)
+				usb_ep_fifo_flush(ep_out);
+
+			gbam_free_buffers(port);
+
+			msm_bam_dmux_close(d->id);
+
+			clear_bit(BAM_CH_READY, &d->flags);
+			clear_bit(BAM_CH_OPENED, &d->flags);
+		}
+	}
+
+	return 0;
+}
+
 static void gbam_port_free(int portno)
 {
 	struct gbam_port *port = bam_ports[portno].port;
+	struct platform_driver *pdrv = &bam_ports[portno].pdrv;
 
-	if (!port)
+	if (port) {
 		kfree(port);
+		platform_driver_unregister(pdrv);
+	}
 }
 
 static int gbam_port_alloc(int portno)
 {
 	struct gbam_port	*port;
 	struct bam_ch_info	*d;
+	struct platform_driver	*pdrv;
 
 	port = kzalloc(sizeof(struct gbam_port), GFP_KERNEL);
 	if (!port)
@@ -555,6 +666,14 @@ static int gbam_port_alloc(int portno)
 	d->id = bam_ch_ids[portno];
 
 	bam_ports[portno].port = port;
+
+	pdrv = &bam_ports[portno].pdrv;
+	pdrv->probe = gbam_data_ch_probe;
+	pdrv->remove = gbam_data_ch_remove;
+	pdrv->driver.name = bam_ch_names[portno];
+	pdrv->driver.owner = THIS_MODULE;
+
+	platform_driver_register(pdrv);
 
 	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);
 
@@ -594,12 +713,15 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"to_usbhost_dcnt:  %u\n"
 				"tomodem__dcnt:  %u\n"
 				"tx_buf_len:	 %u\n"
-				"data_ch_opened: %d\n",
+				"data_ch_open:   %d\n"
+				"data_ch_ready:  %d\n",
 				i, port, &port->data_ch,
 				d->to_host, d->to_modem,
 				d->pending_with_bam,
 				d->tohost_drp_cnt, d->tomodem_drp_cnt,
-				d->tx_skb_q.qlen, atomic_read(&d->opened));
+				d->tx_skb_q.qlen,
+				test_bit(BAM_CH_OPENED, &d->flags),
+				test_bit(BAM_CH_READY, &d->flags));
 
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
@@ -662,32 +784,6 @@ static void gbam_debugfs_init(void)
 static void gam_debugfs_init(void) { }
 #endif
 
-static void gbam_free_buffers(struct gbam_port *port)
-{
-	struct sk_buff		*skb;
-	unsigned long		flags;
-	struct bam_ch_info	*d;
-
-	spin_lock_irqsave(&port->port_lock, flags);
-
-	if (!port || !port->port_usb)
-		goto free_buf_out;
-
-	d = &port->data_ch;
-
-	gbam_free_requests(port->port_usb->in, &d->tx_idle);
-	gbam_free_requests(port->port_usb->out, &d->rx_idle);
-
-	while ((skb = __skb_dequeue(&d->tx_skb_q)))
-		dev_kfree_skb_any(skb);
-
-	while ((skb = __skb_dequeue(&d->rx_skb_q)))
-		dev_kfree_skb_any(skb);
-
-free_buf_out:
-	spin_unlock_irqrestore(&port->port_lock, flags);
-}
-
 void gbam_disconnect(struct grmnet *gr, u8 port_num)
 {
 	struct gbam_port	*port;
@@ -719,10 +815,10 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num)
 	usb_ep_disable(gr->out);
 	usb_ep_disable(gr->in);
 
-	if (atomic_read(&d->opened))
+	if (test_bit(BAM_CH_OPENED, &d->flags)) {
 		msm_bam_dmux_close(d->id);
-
-	atomic_set(&d->opened, 0);
+		clear_bit(BAM_CH_OPENED, &d->flags);
+	}
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num)
