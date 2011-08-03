@@ -87,6 +87,8 @@ def scan_configs():
         names[os.path.basename(n)[:-10]] = n
     for n in glob.glob('arch/arm/configs/qsd*_defconfig'):
         names[os.path.basename(n)[:-10]] = n
+    for n in glob.glob('arch/arm/configs/apq*_defconfig'):
+        names[os.path.basename(n)[:-10]] = n
     return names
 
 class Builder:
