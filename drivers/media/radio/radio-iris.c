@@ -2050,14 +2050,33 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		if (ctrl->value == FM_RECV) {
 			retval = hci_cmd(HCI_FM_ENABLE_RECV_CMD,
 							 radio->fm_hdev);
-		} else {
-			if (ctrl->value == FM_OFF) {
-				retval = hci_cmd(
-							HCI_FM_DISABLE_RECV_CMD,
+			if (retval < 0) {
+				FMDERR("Error while enabling FM"
+							" %d\n", retval);
+			} else {
+				radio->mute_mode.soft_mute = CTRL_ON;
+				retval = hci_set_fm_mute_mode(
+							&radio->mute_mode,
 							radio->fm_hdev);
 				if (retval < 0)
-					FMDERR("Error on disable FM"
-							" %d\n", retval);
+					FMDERR("Failed to enable Smute\n");
+				radio->stereo_mode.stereo_mode = CTRL_OFF;
+				radio->stereo_mode.sig_blend = CTRL_ON;
+				radio->stereo_mode.intf_blend = CTRL_ON;
+				radio->stereo_mode.most_switch = CTRL_ON;
+				retval = hci_set_fm_stereo_mode(
+							&radio->stereo_mode,
+							radio->fm_hdev);
+				if (retval < 0)
+					FMDERR("Failed to stereo mode\n");
+			}
+		} else if (ctrl->value == FM_OFF) {
+			retval = hci_cmd(
+							HCI_FM_DISABLE_RECV_CMD,
+							radio->fm_hdev);
+			if (retval < 0) {
+				FMDERR("Error on disable FM"
+						" %d\n", retval);
 			}
 		}
 		break;
