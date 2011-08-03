@@ -109,10 +109,10 @@ static int configure_iris_xo(bool use_48mhz_xo, int on)
 		writel_relaxed(reg, RIVA_PMU_CFG);
 
 		if (!use_48mhz_xo) {
-			wlan_clock = msm_xo_get(MSM_XO_TCXO_A0, id);
+			wlan_clock = msm_xo_get(MSM_XO_TCXO_A2, id);
 			if (IS_ERR(wlan_clock)) {
 				rc = PTR_ERR(wlan_clock);
-				pr_err("Failed to get MSM_XO_TCXO_A0 voter"
+				pr_err("Failed to get MSM_XO_TCXO_A2 voter"
 							" (%d)\n", rc);
 				goto fail;
 			}
