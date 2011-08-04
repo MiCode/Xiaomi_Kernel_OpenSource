@@ -203,8 +203,9 @@ static int msm_send_open_server(int vnode_id)
 	D("%s\n", __func__);
 	ctrlcmd.type	   = MSM_V4L2_OPEN;
 	ctrlcmd.timeout_ms = 10000;
-	ctrlcmd.length	 = 0;
-	ctrlcmd.value    = NULL;
+	ctrlcmd.length	 = strnlen(g_server_dev.config_info.config_dev_name[0],
+				MAX_DEV_NAME_LEN)+1;
+	ctrlcmd.value    = (char *)g_server_dev.config_info.config_dev_name[0];
 	ctrlcmd.vnode_id = vnode_id;
 
 	/* send command to config thread in usersspace, and get return value */
@@ -220,8 +221,9 @@ static int msm_send_close_server(int vnode_id)
 	D("%s\n", __func__);
 	ctrlcmd.type	   = MSM_V4L2_CLOSE;
 	ctrlcmd.timeout_ms = 10000;
-	ctrlcmd.length	 = 0;
-	ctrlcmd.value    = NULL;
+	ctrlcmd.length	 = strnlen(g_server_dev.config_info.config_dev_name[0],
+				MAX_DEV_NAME_LEN)+1;
+	ctrlcmd.value    = (char *)g_server_dev.config_info.config_dev_name[0];
 	ctrlcmd.vnode_id = vnode_id;
 
 	/* send command to config thread in usersspace, and get return value */
