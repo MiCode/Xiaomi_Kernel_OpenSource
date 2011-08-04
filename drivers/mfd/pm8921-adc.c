@@ -837,7 +837,6 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	struct pm8921_adc *adc_pmic;
 	struct pm8921_adc_amux_properties *adc_amux_prop;
 	struct pm8921_adc_chan_properties *adc_pmic_chanprop;
-	struct pm8921_adc_amux *adc_amux;
 	int rc = 0;
 
 	if (!pdata) {
@@ -859,13 +858,6 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	adc_amux = kzalloc(sizeof(struct pm8921_adc_amux),
-						GFP_KERNEL);
-	if (!adc_amux) {
-		dev_err(&pdev->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
-	}
-
 	adc_pmic_chanprop = kzalloc(sizeof(struct pm8921_adc_chan_properties),
 						GFP_KERNEL);
 	if (!adc_pmic_chanprop) {
@@ -879,8 +871,7 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	adc_pmic->conv->chan_prop = adc_pmic_chanprop;
 
 	init_completion(&adc_pmic->adc_rslt_completion);
-	adc_amux = pdata->adc_channel;
-	adc_pmic->adc_channel = adc_amux;
+	adc_pmic->adc_channel = pdata->adc_channel;
 	adc_pmic->adc_num_channel = pdata->adc_num_channel;
 
 	mutex_init(&adc_pmic->adc_lock);
