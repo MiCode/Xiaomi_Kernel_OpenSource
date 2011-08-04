@@ -309,12 +309,32 @@ static inline uint32_t msmsdcc_fifo_addr(struct msmsdcc_host *host)
 
 static inline unsigned int msmsdcc_get_min_sup_clk_rate(
 					struct msmsdcc_host *host);
+
 static inline void msmsdcc_delay(struct msmsdcc_host *host)
 {
+	ktime_t start, diff;
+
 	mb();
 	udelay(1 + ((3 * USEC_PER_SEC) /
 		(host->clk_rate ? host->clk_rate :
 			msmsdcc_get_min_sup_clk_rate(host))));
+
+	if (host->plat->sdcc_v4_sup &&
+		(readl_relaxed(host->base + MCI_STATUS2) &
+			MCI_MCLK_REG_WR_ACTIVE)) {
+		start = ktime_get();
+		while (readl_relaxed(host->base + MCI_STATUS2) &
+			MCI_MCLK_REG_WR_ACTIVE) {
+			diff = ktime_sub(ktime_get(), start);
+			/* poll for max. 1 ms */
+			if (ktime_to_us(diff) > 1000) {
+				pr_warning("%s: previous reg. write is"
+					" still active\n",
+					mmc_hostname(host->mmc));
+				break;
+			}
+		}
+	}
 }
 
 static inline void

@@ -179,6 +179,9 @@
 #define MCI_DLL_STATUS		0x068
 #define MCI_DLL_LOCK		(1 << 7)
 
+#define MCI_STATUS2		0x06C
+#define MCI_MCLK_REG_WR_ACTIVE	(1 << 0)
+
 #define MMCIFIFO		0x080 /* to 0x0bc */
 
 #define MCI_TEST_INPUT		0x0D4
