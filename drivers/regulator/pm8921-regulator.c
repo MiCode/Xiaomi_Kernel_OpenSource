@@ -816,6 +816,18 @@ static int pm8921_pldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EINVAL;
 	}
 
+	/*
+	 * This is a temporary hack to boost LDO 4 voltage from 1.8 V to 2.0 V
+	 * for old PMIC revisions which have register read back issues when
+	 * LDO 4 is set to 1.8 V.
+	 */
+	if (vreg->pdata.id == PM8921_VREG_ID_L4
+		&& pm8xxx_get_revision(vreg->dev->parent)
+			<= PM8XXX_REVISION_8921_1p1) {
+		uV = 2000000;
+		max_uV = 2000000;
+	}
+
 	if (uV > PLDO_NORM_UV_MAX) {
 		vmin = PLDO_HIGH_UV_MIN;
 		fine_step = PLDO_HIGH_UV_FINE_STEP;
