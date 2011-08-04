@@ -1013,8 +1013,13 @@ static u32 check_pending_rx_packet(struct sdio_channel *ch, u32 eot)
 		}
 
 		p = kzalloc(sizeof(*p), GFP_KERNEL);
-		if (p == NULL)
+		if (p == NULL) {
+			pr_err(MODULE_NAME ":failed to allocate item for "
+				   "rx_pending list. rx_avail=%d, rx_pending=%d.\n",
+				   rx_avail, rx_pending);
+			new_packet_size = 0;
 			goto exit_err;
+		}
 		p->size = new_packet_size;
 		/* Add new packet as last */
 		list_add_tail(&p->list, &ch->rx_size_list_head);
@@ -1048,6 +1053,9 @@ static u32 remove_handled_rx_packet(struct sdio_channel *ch)
 			struct rx_packet_size, list);
 		list_del(&p->list);
 		kfree(p);
+	} else {
+		pr_err(MODULE_NAME ":%s: ch %s: unexpected empty list!!\n",
+			__func__, ch->name);
 	}
 
 	if (list_empty(&ch->rx_size_list_head))	{
@@ -2572,8 +2580,11 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 	ret = sdio_memcpy_fromio(ch->func, data, PIPE_RX_FIFO_ADDR, len);
 
 	if (ret) {
-		pr_err(MODULE_NAME ":sdio_read err=%d, len=%d, read_avail=%d\n",
-		       -ret, len, ch->read_avail);
+		pr_err(MODULE_NAME ":ch %s: sdio_read err=%d, len=%d, "
+				"read_avail=%d, last_read_avail=%d, last_old_read_avail=%d\n",
+				ch->name, -ret, len, ch->read_avail,
+				ch->statistics.last_read_avail,
+				ch->statistics.last_old_read_avail);
 		sdio_al_dev->is_err = true;
 		sdio_release_host(sdio_al_dev->card->sdio_func[0]);
 		return ret;
