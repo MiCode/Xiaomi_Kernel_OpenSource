@@ -443,6 +443,8 @@ int sps_bam_device_init(struct sps_bam *dev)
 
 	spin_lock_init(&dev->isr_lock);
 
+	spin_lock_init(&dev->connection_lock);
+
 	if ((dev->props.options & SPS_BAM_OPT_ENABLE_AT_BOOT))
 		if (sps_bam_enable(dev))
 			return SPS_ERROR;
