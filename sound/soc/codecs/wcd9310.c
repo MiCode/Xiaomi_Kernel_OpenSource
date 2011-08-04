@@ -57,9 +57,8 @@ struct tabla_priv {
 	struct snd_soc_jack *headset_jack;
 	struct snd_soc_jack *button_jack;
 
-	u32 anc_writes_size;
-	u32 *anc_writes;
 	struct tabla_pdata *pdata;
+	u32 anc_slot;
 };
 
 static int tabla_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
@@ -88,6 +87,24 @@ static int tabla_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, TABLA_A_CP_STATIC, 0x08, 0x00);
 		break;
 	}
+	return 0;
+}
+
+static int tabla_get_anc_slot(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	ucontrol->value.integer.value[0] = tabla->anc_slot;
+	return 0;
+}
+
+static int tabla_put_anc_slot(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	tabla->anc_slot = ucontrol->value.integer.value[0];
 	return 0;
 }
 
@@ -133,6 +150,9 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch", TABLA_A_MICB_1_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS3 CAPLESS Switch", TABLA_A_MICB_3_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_A_MICB_4_CTL, 4, 1, 1),
+
+	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, tabla_get_anc_slot,
+		tabla_put_anc_slot),
 };
 
 static const char *rx_mix1_text[] = {
@@ -609,7 +629,12 @@ static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	const struct firmware *fw;
 	int i;
 	int ret;
+	int num_anc_slots;
+	struct anc_header *anc_head;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	u32 anc_writes_size = 0;
+	int anc_size_remaining;
+	u32 *anc_ptr;
 	u16 reg;
 	u8 mask, val, old_val;
 
@@ -626,33 +651,64 @@ static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			return -ENODEV;
 		}
 
-		if (fw->size < TABLA_PACKED_REG_SIZE) {
+		if (fw->size < sizeof(struct anc_header)) {
 			dev_err(codec->dev, "Not enough data\n");
 			release_firmware(fw);
 			return -ENOMEM;
 		}
 
 		/* First number is the number of register writes */
-		tabla->anc_writes_size = (u32)(*fw->data);
+		anc_head = (struct anc_header *)(fw->data);
+		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
+		anc_size_remaining = fw->size - sizeof(struct anc_header);
+		num_anc_slots = anc_head->num_anc_slots;
 
-		if (tabla->anc_writes_size >
-			((fw->size/TABLA_PACKED_REG_SIZE) - 1)) {
-			dev_err(codec->dev, "Invalid register format\n");
+		if (tabla->anc_slot >= num_anc_slots) {
+			dev_err(codec->dev, "Invalid ANC slot selected\n");
+			release_firmware(fw);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < num_anc_slots; i++) {
+
+			if (anc_size_remaining < TABLA_PACKED_REG_SIZE) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -EINVAL;
+			}
+			anc_writes_size = (u32)(*anc_ptr);
+			anc_size_remaining -= sizeof(u32);
+			anc_ptr += 1;
+
+			if (anc_writes_size * TABLA_PACKED_REG_SIZE
+				> anc_size_remaining) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -ENOMEM;
+			}
+
+			if (tabla->anc_slot == i)
+				break;
+
+			anc_size_remaining -= (anc_writes_size *
+				TABLA_PACKED_REG_SIZE);
+			anc_ptr += (anc_writes_size *
+				TABLA_PACKED_REG_SIZE);
+		}
+		if (i == num_anc_slots) {
+			dev_err(codec->dev, "Selected ANC slot not present\n");
 			release_firmware(fw);
 			return -ENOMEM;
 		}
 
-		tabla->anc_writes = (u32 *)(fw->data + TABLA_PACKED_REG_SIZE);
-
-		for (i = 0; i < tabla->anc_writes_size; i++) {
-			TABLA_CODEC_UNPACK_ENTRY(tabla->anc_writes[i], reg,
+		for (i = 0; i < anc_writes_size; i++) {
+			TABLA_CODEC_UNPACK_ENTRY(anc_ptr[i], reg,
 				mask, val);
 			old_val = snd_soc_read(codec, reg);
 			snd_soc_write(codec, reg, (old_val & ~mask) |
 				(val & mask));
 		}
 		release_firmware(fw);
-		tabla->anc_writes = NULL;
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
