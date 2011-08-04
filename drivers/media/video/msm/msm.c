@@ -102,7 +102,7 @@ static int msm_ctrl_cmd_done(void __user *arg)
 		return -EINVAL;
 
 	qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
-	atomic_set(&qcmd->on_heap, 0);
+	atomic_set(&qcmd->on_heap, 1);
 	uptr = command->value;
 	qcmd->command = command;
 
@@ -112,10 +112,13 @@ static int msm_ctrl_cmd_done(void __user *arg)
 			pr_err("%s: user data %d is too big (max %d)\n",
 				__func__, command->length,
 				sizeof(g_server_dev.ctrl_data));
+			free_qcmd(qcmd);
 			return -EINVAL;
 		}
-		if (copy_from_user(command->value, uptr, command->length))
+		if (copy_from_user(command->value, uptr, command->length)) {
+			free_qcmd(qcmd);
 			return -EINVAL;
+		}
 	}
 
 	msm_enqueue(&g_server_dev.ctrl_q, &qcmd->list_control);
@@ -1902,10 +1905,11 @@ static int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
 	rc = v4l2_fh_init(eventHandle, pvdev);
 	if (rc < 0)
 		return rc;
-
-	rc = v4l2_event_init(eventHandle);
-	if (rc < 0)
-		return rc;
+	if (eventHandle->events == NULL) {
+		rc = v4l2_event_init(eventHandle);
+		if (rc < 0)
+			return rc;
+	}
 
 	/* queue of max size 30 */
 	rc = v4l2_event_alloc(eventHandle, 30);
