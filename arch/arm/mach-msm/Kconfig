@@ -1,8 +1,6 @@
 if ARCH_MSM
 
-choice
-	prompt "MSM SoC Type"
-	default ARCH_MSM7X00A
+menu "MSM SoC Type"
 
 config ARCH_MSM7X01A
 	bool "MSM7x00A / MSM7x01A"
@@ -152,7 +150,7 @@ config ARCH_FSM9XXX
 	select MSM_REMOTE_SPINLOCK_LDREX
 	select FSM9XXX_TLMM
 
-endchoice
+endmenu
 
 choice
 	prompt "MSM SoC Revision"
