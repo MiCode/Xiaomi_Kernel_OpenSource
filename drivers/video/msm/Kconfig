@@ -223,6 +223,11 @@ config FB_MSM_LCDC_SAMSUNG_OLED_PT
 	select FB_MSM_LCDC_PANEL
 	default n
 
+config FB_MSM_LCDC_NT35582_WVGA
+	bool
+	select FB_MSM_LCDC_PANEL
+	default n
+
 config FB_MSM_LCDC_WXGA
 	bool
 	select FB_MSM_LCDC_PANEL
@@ -332,6 +337,13 @@ config FB_MSM_LCDC_AUO_WVGA_PANEL
 	---help---
 	  Support for LCDC AUO WVGA(480x800) panel
 
+config FB_MSM_LCDC_NT35582_PANEL
+	depends on FB_MSM_LCDC_HW
+	bool "LCDC NT35582 WVGA Panel"
+	select FB_MSM_LCDC_NT35582_WVGA
+	---help---
+	  Support for LCDC NT35582 WVGA(480x800) panel
+
 config FB_MSM_LCDC_SAMSUNG_OLED_PT_PANEL
 	depends on FB_MSM_LCDC_HW
 	bool "LCDC Samsung OLED PT Panel"
@@ -364,6 +376,7 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_LCDC_SAMSUNG_WSVGA
 	select FB_MSM_LCDC_AUO_WVGA
+	select FB_MSM_LCDC_NT35582_WVGA
 	select FB_MSM_LCDC_SAMSUNG_OLED_PT
 
 config FB_MSM_MDDI_PANEL_AUTO_DETECT
@@ -377,6 +390,7 @@ config FB_MSM_LCDC_PANEL_AUTO_DETECT
 	select FB_MSM_LCDC_AUTO_DETECT
 	select FB_MSM_LCDC_SAMSUNG_WSVGA
 	select FB_MSM_LCDC_AUO_WVGA
+	select FB_MSM_LCDC_NT35582_WVGA
 	select FB_MSM_LCDC_SAMSUNG_OLED_PT
 	---help---
 	  Support for LCDC panel auto detect
