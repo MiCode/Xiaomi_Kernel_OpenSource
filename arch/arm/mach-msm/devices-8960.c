@@ -771,7 +771,7 @@ struct platform_device msm_device_bam_dmux = {
 	.id		= -1,
 };
 
-struct resource msm_dmov_resource[] = {
+static struct resource msm_dmov_resource[] = {
 	{
 		.start = ADM_0_SCSS_1_IRQ,
 		.end = (resource_size_t)MSM_DMOV_BASE,
@@ -779,7 +779,7 @@ struct resource msm_dmov_resource[] = {
 	},
 };
 
-struct platform_device msm_device_dmov = {
+struct platform_device msm8960_device_dmov = {
 	.name	= "msm_dmov",
 	.id	= -1,
 	.resource = msm_dmov_resource,

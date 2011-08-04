@@ -57,7 +57,7 @@ static struct resource msm_dmov_resource[] = {
 	},
 };
 
-struct platform_device msm_device_dmov = {
+struct platform_device apq8064_device_dmov = {
 	.name	= "msm_dmov",
 	.id	= -1,
 	.resource = msm_dmov_resource,
