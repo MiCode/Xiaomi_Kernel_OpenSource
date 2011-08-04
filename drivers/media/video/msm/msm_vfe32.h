@@ -183,6 +183,14 @@ enum  VFE_STATE {
 	VFE_STATE_ACTIVE
 };
 
+enum  vfe_recording_state {
+	VFE_REC_STATE_IDLE,
+	VFE_REC_STATE_START_REQUESTED,
+	VFE_REC_STATE_STARTED,
+	VFE_REC_STATE_STOP_REQUESTED,
+	VFE_REC_STATE_STOPPED,
+};
+
 #define V32_DUMMY_0                                 0
 #define V32_SET_CLK                                 1
 #define V32_RESET                                   2
@@ -1061,8 +1069,7 @@ struct vfe32_ctrl_type {
 	int8_t stop_ack_pending;
 	int8_t reset_ack_pending;
 	int8_t update_ack_pending;
-	int8_t req_start_video_rec;
-	int8_t req_stop_video_rec;
+	enum vfe_recording_state recording_state;
 	int8_t update_linear;
 
 	spinlock_t  tasklet_lock;
