@@ -201,6 +201,12 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 #define DMOV_CE_OUT_CHAN       1
 #define DMOV_CE_OUT_CRCI       3
 
+#define DMOV_HSUART_GSBI6_TX_CHAN	7
+#define DMOV_HSUART_GSBI6_TX_CRCI	6
+
+#define DMOV_HSUART_GSBI6_RX_CHAN	8
+#define DMOV_HSUART_GSBI6_RX_CRCI	11
+
 /* SDC doesn't use ADM on 8960. Need these to compile */
 #define DMOV_SDC1_CHAN         13
 #define DMOV_SDC1_CRCI         0

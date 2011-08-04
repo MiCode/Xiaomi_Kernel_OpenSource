@@ -20,6 +20,8 @@
 #include <linux/msm_kgsl.h>
 #include <linux/android_pmem.h>
 #include <mach/irqs-8960.h>
+#include <mach/dma.h>
+#include <linux/dma-mapping.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
@@ -56,6 +58,7 @@
 
 #define MSM_UART2DM_PHYS	(MSM_GSBI2_PHYS + 0x40000)
 #define MSM_UART5DM_PHYS	(MSM_GSBI5_PHYS + 0x40000)
+#define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
 
 /* GSBI QUP devices */
 #define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x80000)
@@ -172,6 +175,49 @@ struct platform_device msm8960_device_uart_gsbi2 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi2),
 	.resource	= resources_uart_gsbi2,
+};
+/* GSBI 6 used into UARTDM Mode */
+static struct resource msm_uart_dm6_resources[] = {
+	{
+		.start	= MSM_UART6DM_PHYS,
+		.end	= MSM_UART6DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= GSBI6_UARTDM_IRQ,
+		.end	= GSBI6_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_GSBI6_PHYS,
+		.end	= MSM_GSBI6_PHYS + 4 - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= DMOV_HSUART_GSBI6_TX_CHAN,
+		.end	= DMOV_HSUART_GSBI6_RX_CHAN,
+		.name	= "uartdm_channels",
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= DMOV_HSUART_GSBI6_TX_CRCI,
+		.end	= DMOV_HSUART_GSBI6_RX_CRCI,
+		.name	= "uartdm_crci",
+		.flags	= IORESOURCE_DMA,
+	},
+};
+static u64 msm_uart_dm6_dma_mask = DMA_BIT_MASK(32);
+struct platform_device msm_device_uart_dm6 = {
+	.name	= "msm_serial_hs",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(msm_uart_dm6_resources),
+	.resource	= msm_uart_dm6_resources,
+	.dev	= {
+		.dma_mask		= &msm_uart_dm6_dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
 };
 
 static struct resource resources_uart_gsbi5[] = {
