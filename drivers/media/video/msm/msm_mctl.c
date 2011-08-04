@@ -165,7 +165,6 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 			unsigned int notification, void *arg)
 {
 	int rc = -EINVAL;
-	struct msm_ispif_params ispif_params;
 	struct msm_camera_sensor_info *sinfo =
 			p_mctl->plat_dev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
@@ -173,25 +172,36 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	switch (notification) {
 	case NOTIFY_CID_CHANGE:
 		/* reconfig the ISPIF*/
-		if (p_mctl->ispif_fns->ispif_config) {
-			ispif_params.intftype = PIX0;
-			ispif_params.cid_mask = 0x0001;
-			ispif_params.csid = csid_core;
+		if (p_mctl->ispif_sdev) {
+			struct msm_ispif_params_list ispif_params;
+			ispif_params.len = 1;
+			ispif_params.params[0].intftype = PIX0;
+			ispif_params.params[0].cid_mask = 0x0001;
+			ispif_params.params[0].csid = csid_core;
 
-			rc = p_mctl->ispif_fns->ispif_config(&ispif_params, 1);
+			rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
+				VIDIOC_MSM_ISPSF_CFG, &ispif_params);
 			if (rc < 0)
 				return rc;
-			rc = p_mctl->ispif_fns->ispif_start_intf_transfer
-					(&ispif_params);
+
+			rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
+				s_stream, ISPIF_STREAM(PIX0,
+					ISPIF_ON_FRAME_BOUNDARY));
 			if (rc < 0)
 				return rc;
-			msleep(20);
 		}
 		break;
-	case NOTIFY_VFE_MSG_EVT:
+	case NOTIFY_ISPIF_STREAM:
+		/* call ISPIF stream on/off */
+		rc = 0;
+		break;
+	case NOTIFY_ISP_MSG_EVT:
+	case NOTIFY_VFE_MSG_OUT:
+	case NOTIFY_VFE_MSG_STATS:
+	case NOTIFY_VFE_BUF_EVT:
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
 			rc = p_mctl->isp_sdev->isp_notify(
-				&p_mctl->isp_sdev->sd, arg);
+				&p_mctl->isp_sdev->sd, notification, arg);
 		}
 		break;
 	default:
@@ -375,6 +385,15 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto msm_open_done;
 		}
 
+		/*This has to be after isp_open, because isp_open initialize
+		 *platform resource. This dependency needs to be removed. */
+		rc = msm_ispif_init(&p_mctl->ispif_sdev, sync->pdev);
+		if (rc < 0) {
+			pr_err("%s: ispif initialization failed %d\n",
+				__func__, rc);
+			goto msm_open_done;
+		}
+
 		/* then sensor - move sub dev later*/
 		if (sync->sctrl.s_init)
 			rc = sync->sctrl.s_init(sync->sdata);
@@ -405,6 +424,8 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	int rc = 0;
 
 	sync = &(p_mctl->sync);
+
+	msm_ispif_release(p_mctl->ispif_sdev);
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(&p_mctl->sync);
@@ -486,7 +507,6 @@ int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam)
 /* this function plug in the implementation of a v4l2_subdev */
 int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 {
-
 	struct msm_cam_media_controller *pmctl = NULL;
 	D("%s\n", __func__);
 	if (!pcam) {

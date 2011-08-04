@@ -23,6 +23,8 @@
 #include "msm.h"
 #include "msm_vfe32.h"
 #include "msm_vpe1.h"
+#include "msm_isp.h"
+#include "msm_ispif.h"
 
 atomic_t irq_cnt;
 
@@ -60,9 +62,6 @@ struct vfe32_isr_queue_cmd {
 	struct list_head list;
 	uint32_t                           vfeInterruptStatus0;
 	uint32_t                           vfeInterruptStatus1;
-	struct vfe_frame_asf_info          vfeAsfFrameInfo;
-	struct vfe_frame_bpc_info          vfeBpcFrameInfo;
-	struct vfe_msg_camif_status        vfeCamifStatusLocal;
 };
 
 static struct vfe32_cmd_type vfe32_cmd[] = {
@@ -343,216 +342,6 @@ static const char * const vfe32_general_cmd[] = {
 	"CLF_CHROMA_UPDATE",
 };
 
-static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
-	enum vfe_resp_msg type, void *data, void **ext, int32_t *elen)
-{
-	uint8_t outid;
-	switch (type) {
-	case VFE_MSG_OUTPUT_T:
-	case VFE_MSG_OUTPUT_P:
-	case VFE_MSG_OUTPUT_S:
-	case VFE_MSG_OUTPUT_V:
-		pinfo->output_id =
-			((struct vfe_message *)data)->_u.msgOut.output_id;
-
-		switch (type) {
-		case VFE_MSG_OUTPUT_P:
-			outid = OUTPUT_TYPE_P;
-			break;
-		case VFE_MSG_OUTPUT_V:
-			outid = OUTPUT_TYPE_V;
-			break;
-		case VFE_MSG_OUTPUT_T:
-			outid = OUTPUT_TYPE_T;
-			break;
-		case VFE_MSG_OUTPUT_S:
-			outid = OUTPUT_TYPE_S;
-			break;
-		default:
-			outid = 0xff;
-			break;
-		}
-		pinfo->output_id = outid;
-		pinfo->y_phy =
-			((struct vfe_message *)data)->_u.msgOut.yBuffer;
-		pinfo->cbcr_phy =
-			((struct vfe_message *)data)->_u.msgOut.cbcrBuffer;
-
-		pinfo->frame_id =
-		((struct vfe_message *)data)->_u.msgOut.frameCounter;
-
-		((struct vfe_msg_output *)(vfe32_ctrl->extdata))->bpcInfo =
-		((struct vfe_message *)data)->_u.msgOut.bpcInfo;
-		((struct vfe_msg_output *)(vfe32_ctrl->extdata))->asfInfo =
-		((struct vfe_message *)data)->_u.msgOut.asfInfo;
-		((struct vfe_msg_output *)(vfe32_ctrl->extdata))->frameCounter =
-		((struct vfe_message *)data)->_u.msgOut.frameCounter;
-		*ext  = vfe32_ctrl->extdata;
-		*elen = vfe32_ctrl->extlen;
-		break;
-	case VFE_MSG_STATS_AF:
-	case VFE_MSG_STATS_AEC:
-	case VFE_MSG_STATS_AWB:
-	case VFE_MSG_STATS_IHIST:
-	case VFE_MSG_STATS_RS:
-	case VFE_MSG_STATS_CS:
-		pinfo->sbuf_phy =
-		((struct vfe_message *)data)->_u.msgStats.buffer;
-
-		pinfo->frame_id =
-		((struct vfe_message *)data)->_u.msgStats.frameCounter;
-
-		break;
-	default:
-		break;
-	} /* switch */
-}
-
-static void vfe32_proc_ops(enum VFE32_MESSAGE_ID id, void *msg, size_t len)
-{
-	struct msm_vfe_resp *rp;
-
-	rp = msm_isp_sync_alloc(sizeof(struct msm_vfe_resp),
-		vfe32_ctrl->syncdata, GFP_ATOMIC);
-	if (!rp) {
-		CDBG("rp: cannot allocate buffer\n");
-		return;
-	}
-	CDBG("vfe32_proc_ops, msgId = %d\n", id);
-	rp->evt_msg.type   = MSM_CAMERA_MSG;
-	rp->evt_msg.msg_id = id;
-	rp->evt_msg.len    = len;
-	rp->evt_msg.data   = msg;
-
-	switch (rp->evt_msg.msg_id) {
-	case MSG_ID_SNAPSHOT_DONE:
-		rp->type = VFE_MSG_SNAPSHOT;
-		break;
-
-	case MSG_ID_OUTPUT_P:
-		rp->type = VFE_MSG_OUTPUT_P;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_OUTPUT_P,
-			rp->evt_msg.data, &(rp->extdata),
-			&(rp->extlen));
-		break;
-
-	case MSG_ID_OUTPUT_T:
-		rp->type = VFE_MSG_OUTPUT_T;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_OUTPUT_T,
-			rp->evt_msg.data, &(rp->extdata),
-			&(rp->extlen));
-		break;
-
-	case MSG_ID_OUTPUT_S:
-		rp->type = VFE_MSG_OUTPUT_S;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_OUTPUT_S,
-			rp->evt_msg.data, &(rp->extdata),
-			&(rp->extlen));
-		break;
-
-	case MSG_ID_OUTPUT_V:
-		rp->type = VFE_MSG_OUTPUT_V;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_OUTPUT_V,
-			rp->evt_msg.data, &(rp->extdata),
-			&(rp->extlen));
-		break;
-
-	case MSG_ID_STATS_AF:
-		rp->type = VFE_MSG_STATS_AF;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_AF,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_AWB:
-		rp->type = VFE_MSG_STATS_AWB;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_AWB,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_AEC:
-		rp->type = VFE_MSG_STATS_AEC;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_AEC,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_SKIN:
-		rp->type = VFE_MSG_STATS_SKIN;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_SKIN,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_IHIST:
-		rp->type = VFE_MSG_STATS_IHIST;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_IHIST,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_RS:
-		rp->type = VFE_MSG_STATS_RS;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_RS,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_STATS_CS:
-		rp->type = VFE_MSG_STATS_CS;
-		vfe_addr_convert(&(rp->phy), VFE_MSG_STATS_CS,
-				rp->evt_msg.data, NULL, NULL);
-		break;
-
-	case MSG_ID_SYNC_TIMER0_DONE:
-		rp->type = VFE_MSG_SYNC_TIMER0;
-		break;
-
-	case MSG_ID_SYNC_TIMER1_DONE:
-		rp->type = VFE_MSG_SYNC_TIMER1;
-		break;
-
-	case MSG_ID_SYNC_TIMER2_DONE:
-		rp->type = VFE_MSG_SYNC_TIMER2;
-		break;
-
-	default:
-		rp->type = VFE_MSG_GENERAL;
-		break;
-	}
-
-	/* save the frame id.*/
-	rp->evt_msg.frame_id = rp->phy.frame_id;
-
-	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_VFE_MSG_EVT, rp);
-}
-
-static void vfe_send_outmsg(uint8_t msgid, uint32_t pyaddr,
-	uint32_t pcbcraddr)
-{
-	struct vfe_message msg;
-	uint8_t outid;
-
-	msg._d = msgid;   /* now the output mode is redundnat. */
-
-	switch (msgid) {
-	case MSG_ID_OUTPUT_P:
-		outid = OUTPUT_TYPE_P;
-		break;
-	case MSG_ID_OUTPUT_V:
-		outid = OUTPUT_TYPE_V;
-		break;
-	case MSG_ID_OUTPUT_T:
-		outid = OUTPUT_TYPE_T;
-		break;
-	case MSG_ID_OUTPUT_S:
-		outid = OUTPUT_TYPE_S;
-		break;
-	default:
-		outid = 0xff;  /* -1 for error condition.*/
-		break;
-	}
-	msg._u.msgOut.output_id   = msgid;
-	msg._u.msgOut.yBuffer     = pyaddr;
-	msg._u.msgOut.cbcrBuffer  = pcbcraddr;
-	vfe32_proc_ops(msgid, &msg, sizeof(struct vfe_message));
-	return;
-}
 
 static void vfe32_stop(void)
 {
@@ -583,10 +372,13 @@ static void vfe32_stop(void)
 		vfe32_ctrl->vfebase + VFE_IRQ_CMD);
 
 	/* in either continuous or snapshot mode, stop command can be issued
-	 * at any time. stop camif immediately. */
+	 * at any time. stop ispif & camif immediately. */
+	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISPIF_STREAM,
+			(void *)ISPIF_STREAM(PIX0, ISPIF_OFF_IMMEDIATELY));
 	msm_io_w(CAMIF_COMMAND_STOP_IMMEDIATELY,
 		vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 	wmb();
+
 	/* axi halt command. */
 	msm_io_w(AXI_HALT,
 		vfe32_ctrl->vfebase + VFE_AXI_CMD);
@@ -619,8 +411,7 @@ static void vfe32_subdev_notify(int id, int path)
 	struct msm_vfe_resp *rp;
 	unsigned long flags = 0;
 	spin_lock_irqsave(&vfe32_ctrl->sd_notify_lock, flags);
-	rp = msm_isp_sync_alloc(sizeof(struct msm_vfe_resp),
-		vfe32_ctrl->syncdata, GFP_ATOMIC);
+	rp = msm_isp_sync_alloc(sizeof(struct msm_vfe_resp), GFP_ATOMIC);
 	if (!rp) {
 		CDBG("rp: cannot allocate buffer\n");
 		return;
@@ -629,7 +420,7 @@ static void vfe32_subdev_notify(int id, int path)
 	rp->evt_msg.type   = MSM_CAMERA_MSG;
 	rp->evt_msg.msg_id = path;
 	rp->type	   = id;
-	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_VFE_MSG_EVT, rp);
+	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_VFE_BUF_EVT, rp);
 	spin_unlock_irqrestore(&vfe32_ctrl->sd_notify_lock, flags);
 }
 
@@ -883,7 +674,6 @@ static uint32_t vfe_stats_cs_buf_init(struct vfe_cmd_stats_buf *in)
 
 static void vfe32_start_common(void)
 {
-
 	vfe32_ctrl->start_ack_pending = TRUE;
 	CDBG("VFE opertaion mode = 0x%x, output mode = 0x%x\n",
 		vfe32_ctrl->operation_mode, vfe32_ctrl->outpath.output_mode);
@@ -896,8 +686,10 @@ static void vfe32_start_common(void)
 	/* Ensure the write order while writing
 	to the command register using the barrier */
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-	msm_io_w(1, vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
-	wmb();
+	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
+
+	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISPIF_STREAM,
+			(void *)ISPIF_STREAM(PIX0, ISPIF_ON_FRAME_BOUNDARY));
 
 	atomic_set(&vfe32_ctrl->vstate, 1);
 }
@@ -2083,18 +1875,9 @@ static inline void vfe32_read_irq_status(struct vfe32_irq_status *out)
 
 }
 
-static void vfe32_send_msg_no_payload(enum VFE32_MESSAGE_ID id)
-{
-	struct vfe_message msg;
-
-	CDBG("vfe32_send_msg_no_payload\n");
-	msg._d = id;
-	vfe32_proc_ops(id, &msg, 0);
-}
-
 static void vfe32_process_reg_update_irq(void)
 {
-	uint32_t  temp, old_val;
+	uint32_t  old_val;
 	unsigned long flags;
 	if (vfe32_ctrl->recording_state == VFE_REC_STATE_START_REQUESTED) {
 		if (vfe32_ctrl->outpath.output_mode & VFE32_OUTPUT_MODE_V) {
@@ -2130,7 +1913,8 @@ static void vfe32_process_reg_update_irq(void)
 		CDBG("stop video triggered .\n");
 	}
 	if (vfe32_ctrl->start_ack_pending == TRUE) {
-		vfe32_send_msg_no_payload(MSG_ID_START_ACK);
+		v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISP_MSG_EVT,
+			(void *)MSG_ID_START_ACK);
 		vfe32_ctrl->start_ack_pending = FALSE;
 	} else {
 		if (vfe32_ctrl->recording_state ==
@@ -2143,7 +1927,9 @@ static void vfe32_process_reg_update_irq(void)
 			vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 		} else if (vfe32_ctrl->recording_state ==
 			VFE_REC_STATE_STOPPED) {
-			vfe32_send_msg_no_payload(MSG_ID_STOP_REC_ACK);
+			v4l2_subdev_notify(vfe32_ctrl->subdev,
+					NOTIFY_ISP_MSG_EVT,
+					(void *)MSG_ID_STOP_REC_ACK);
 			vfe32_ctrl->recording_state = VFE_REC_STATE_IDLE;
 		}
 		spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
@@ -2151,7 +1937,9 @@ static void vfe32_process_reg_update_irq(void)
 			vfe32_ctrl->update_ack_pending = FALSE;
 			spin_unlock_irqrestore(
 				&vfe32_ctrl->update_ack_lock, flags);
-			vfe32_send_msg_no_payload(MSG_ID_UPDATE_ACK);
+			v4l2_subdev_notify(vfe32_ctrl->subdev,
+					NOTIFY_ISP_MSG_EVT,
+					(void *)MSG_ID_UPDATE_ACK);
 		} else {
 			spin_unlock_irqrestore(
 				&vfe32_ctrl->update_ack_lock, flags);
@@ -2183,15 +1971,12 @@ static void vfe32_process_reg_update_irq(void)
 							outpath.out1.ch1]);
 			}
 
-			/* Ensure the write order while writing
-			to the command register using the barrier */
+			v4l2_subdev_notify(vfe32_ctrl->subdev,
+				NOTIFY_ISPIF_STREAM, (void *)
+				ISPIF_STREAM(PIX0, ISPIF_OFF_FRAME_BOUNDARY));
 			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
-			/* Ensure the read order while reading
-			to the command register using the barrier */
-			temp = msm_io_r_mb(vfe32_ctrl->vfebase +
-				VFE_CAMIF_COMMAND);
 			/* then do reg_update. */
 			msm_io_w(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 		}
@@ -2239,7 +2024,9 @@ static void vfe32_process_reset_irq(void)
 	if (vfe32_ctrl->stop_ack_pending) {
 		vfe32_ctrl->stop_ack_pending = FALSE;
 		spin_unlock_irqrestore(&vfe32_ctrl->stop_flag_lock, flags);
-		vfe32_send_msg_no_payload(MSG_ID_STOP_ACK);
+		v4l2_subdev_notify(vfe32_ctrl->subdev,
+					NOTIFY_ISP_MSG_EVT,
+					(void *)MSG_ID_STOP_ACK);
 	} else {
 		spin_unlock_irqrestore(&vfe32_ctrl->stop_flag_lock, flags);
 		/* this is from reset command. */
@@ -2247,33 +2034,39 @@ static void vfe32_process_reset_irq(void)
 
 		/* reload all write masters. (frame & line)*/
 		msm_io_w(0x7FFF, vfe32_ctrl->vfebase + VFE_BUS_CMD);
-		vfe32_send_msg_no_payload(MSG_ID_RESET_ACK);
+		v4l2_subdev_notify(vfe32_ctrl->subdev,
+					NOTIFY_ISP_MSG_EVT,
+					(void *)MSG_ID_RESET_ACK);
 	}
 }
 
 static void vfe32_process_camif_sof_irq(void)
 {
-	uint32_t  temp;
-
 	/* in raw snapshot mode */
 	if (vfe32_ctrl->operation_mode ==
 		VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
 		if (vfe32_ctrl->start_ack_pending) {
-			vfe32_send_msg_no_payload(MSG_ID_START_ACK);
+			v4l2_subdev_notify(vfe32_ctrl->subdev,
+					NOTIFY_ISP_MSG_EVT,
+					(void *)MSG_ID_START_ACK);
 			vfe32_ctrl->start_ack_pending = FALSE;
 		}
 		vfe32_ctrl->vfe_capture_count--;
 		/* if last frame to be captured: */
 		if (vfe32_ctrl->vfe_capture_count == 0) {
 			/* Ensure the write order while writing
-			to the command register using the barrier */
+			 to the command register using the barrier */
+			v4l2_subdev_notify(vfe32_ctrl->subdev,
+				NOTIFY_ISPIF_STREAM, (void *)
+				ISPIF_STREAM(PIX0, ISPIF_OFF_FRAME_BOUNDARY));
 			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
-			temp = msm_io_r_mb(vfe32_ctrl->vfebase +
-				VFE_CAMIF_COMMAND);
 		}
 	} /* if raw snapshot mode. */
-	vfe32_send_msg_no_payload(MSG_ID_SOF_ACK);
+
+	v4l2_subdev_notify(vfe32_ctrl->subdev,
+				NOTIFY_ISP_MSG_EVT,
+				(void *)MSG_ID_SOF_ACK);
 	vfe32_ctrl->vfeFrameId++;
 	CDBG("camif_sof_irq, frameId = %d\n", vfe32_ctrl->vfeFrameId);
 
@@ -2295,7 +2088,9 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 		temp = (uint32_t *)(vfe32_ctrl->vfebase + VFE_CAMIF_STATUS);
 		camifStatus = msm_io_r(temp);
 		pr_err("camifStatus  = 0x%x\n", camifStatus);
-		vfe32_send_msg_no_payload(MSG_ID_CAMIF_ERROR);
+		v4l2_subdev_notify(vfe32_ctrl->subdev,
+				NOTIFY_ISP_MSG_EVT,
+				(void *)MSG_ID_CAMIF_ERROR);
 	}
 
 	if (errStatus & VFE32_IMASK_BHIST_OVWR)
@@ -2365,6 +2160,21 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 		pr_err("vfe32_irq: axi error\n");
 }
 
+static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
+	uint32_t pyaddr, uint32_t pcbcraddr)
+{
+	struct isp_msg_output msg;
+
+	msg.output_id = msgid;
+	msg.yBuffer     = pyaddr;
+	msg.cbcrBuffer  = pcbcraddr;
+	msg.frameCounter = vfe32_ctrl->vfeFrameId;
+
+	v4l2_subdev_notify(vfe32_ctrl->subdev,
+			NOTIFY_VFE_MSG_OUT,
+			&msg);
+	return;
+}
 
 static void vfe32_process_output_path_irq_0(void)
 {
@@ -2419,13 +2229,13 @@ static void vfe32_process_output_path_irq_0(void)
 			VFE_MODE_OF_OPERATION_SNAPSHOT) {
 			/* will add message for multi-shot. */
 			vfe32_ctrl->outpath.out0.capture_cnt--;
-			vfe_send_outmsg(MSG_ID_OUTPUT_T, pyaddr,
-				pcbcraddr);
+			vfe_send_outmsg(vfe32_ctrl->subdev,
+				MSG_ID_OUTPUT_T, pyaddr, pcbcraddr);
 		} else {
 			/* always send message for continous mode. */
 			/* if continuous mode, for display. (preview) */
-			vfe_send_outmsg(MSG_ID_OUTPUT_P, pyaddr,
-				pcbcraddr);
+			vfe_send_outmsg(vfe32_ctrl->subdev,
+				MSG_ID_OUTPUT_P, pyaddr, pcbcraddr);
 		}
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
@@ -2457,7 +2267,8 @@ static void vfe32_process_zsl_frame(void)
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
-		vfe_send_outmsg(MSG_ID_OUTPUT_T, pyaddr, pcbcraddr);
+		vfe_send_outmsg(vfe32_ctrl->subdev,
+			MSG_ID_OUTPUT_T, pyaddr, pcbcraddr);
 	}
 
 	/* Mainimg */
@@ -2475,7 +2286,8 @@ static void vfe32_process_zsl_frame(void)
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
 			free_buf->paddr + free_buf->cbcr_off);
-		vfe_send_outmsg(MSG_ID_OUTPUT_S, pyaddr, pcbcraddr);
+		vfe_send_outmsg(vfe32_ctrl->subdev,
+			MSG_ID_OUTPUT_S, pyaddr, pcbcraddr);
 	}
 }
 
@@ -2536,8 +2348,8 @@ static void vfe32_process_output_path_irq_1(void)
 			vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
 			vfe32_ctrl->outpath.out1.capture_cnt--;
-			vfe_send_outmsg(MSG_ID_OUTPUT_S, pyaddr,
-				pcbcraddr);
+			vfe_send_outmsg(vfe32_ctrl->subdev,
+				MSG_ID_OUTPUT_S, pyaddr, pcbcraddr);
 		}
 	} else {
 		vfe32_ctrl->outpath.out1.frame_drop_cnt++;
@@ -2592,7 +2404,8 @@ static void vfe32_process_output_path_irq_2(void)
 		vfe32_ctrl->outpath.out2.ch1,
 		free_buf->paddr + free_buf->cbcr_off);
 
-		vfe_send_outmsg(MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
+		vfe_send_outmsg(vfe32_ctrl->subdev,
+			MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
 
 	} else {
 		vfe32_ctrl->outpath.out2.frame_drop_cnt++;
@@ -2632,30 +2445,30 @@ static void
 vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 {
 	unsigned long flags;
-	struct  vfe_message msg;
 	/* fill message with right content. */
 	/* @todo This is causing issues, need further investigate */
 	/* spin_lock_irqsave(&ctrl->state_lock, flags); */
-	msg._u.msgStats.frameCounter = vfe32_ctrl->vfeFrameId;
-	msg._u.msgStats.buffer = bufAddress;
+	struct isp_msg_stats msgStats;
+	msgStats.frameCounter = vfe32_ctrl->vfeFrameId;
+	msgStats.buffer = bufAddress;
 
 	switch (statsNum) {
 	case statsAeNum:{
-		msg._d = MSG_ID_STATS_AEC;
+		msgStats.id = MSG_ID_STATS_AEC;
 		spin_lock_irqsave(&vfe32_ctrl->aec_ack_lock, flags);
 		vfe32_ctrl->aecStatsControl.ackPending = TRUE;
 		spin_unlock_irqrestore(&vfe32_ctrl->aec_ack_lock, flags);
 		}
 		break;
 	case statsAfNum:{
-		msg._d = MSG_ID_STATS_AF;
+		msgStats.id = MSG_ID_STATS_AF;
 		spin_lock_irqsave(&vfe32_ctrl->af_ack_lock, flags);
 		vfe32_ctrl->afStatsControl.ackPending = TRUE;
 		spin_unlock_irqrestore(&vfe32_ctrl->af_ack_lock, flags);
 		}
 		break;
 	case statsAwbNum: {
-		msg._d = MSG_ID_STATS_AWB;
+		msgStats.id = MSG_ID_STATS_AWB;
 		spin_lock_irqsave(&vfe32_ctrl->awb_ack_lock, flags);
 		vfe32_ctrl->awbStatsControl.ackPending = TRUE;
 		spin_unlock_irqrestore(&vfe32_ctrl->awb_ack_lock, flags);
@@ -2663,17 +2476,17 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 		break;
 
 	case statsIhistNum: {
-		msg._d = MSG_ID_STATS_IHIST;
+		msgStats.id = MSG_ID_STATS_IHIST;
 		vfe32_ctrl->ihistStatsControl.ackPending = TRUE;
 		}
 		break;
 	case statsRsNum: {
-		msg._d = MSG_ID_STATS_RS;
+		msgStats.id = MSG_ID_STATS_RS;
 		vfe32_ctrl->rsStatsControl.ackPending = TRUE;
 		}
 		break;
 	case statsCsNum: {
-		msg._d = MSG_ID_STATS_CS;
+		msgStats.id = MSG_ID_STATS_CS;
 		vfe32_ctrl->csStatsControl.ackPending = TRUE;
 		}
 		break;
@@ -2682,8 +2495,9 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 		goto stats_done;
 	}
 
-	vfe32_proc_ops(msg._d,
-		&msg, sizeof(struct vfe_message));
+	v4l2_subdev_notify(vfe32_ctrl->subdev,
+				NOTIFY_VFE_MSG_STATS,
+				&msgStats);
 stats_done:
 	/* spin_unlock_irqrestore(&ctrl->state_lock, flags); */
 	return;
@@ -2852,15 +2666,17 @@ static void vfe32_do_tasklet(unsigned long data)
 				if ((vfe32_ctrl->outpath.out0.capture_cnt == 0)
 						&& (vfe32_ctrl->outpath.out1.
 						capture_cnt == 0)) {
-					vfe32_send_msg_no_payload(
-						MSG_ID_SNAPSHOT_DONE);
-
-					/* Ensure the write order while writing
-					to the cmd register using barrier */
+					v4l2_subdev_notify(vfe32_ctrl->subdev,
+						NOTIFY_ISPIF_STREAM, (void *)
+						ISPIF_STREAM(PIX0,
+						ISPIF_OFF_IMMEDIATELY));
 					msm_io_w_mb(
 						CAMIF_COMMAND_STOP_IMMEDIATELY,
 						vfe32_ctrl->vfebase +
 						VFE_CAMIF_COMMAND);
+					v4l2_subdev_notify(vfe32_ctrl->subdev,
+							NOTIFY_ISP_MSG_EVT,
+						(void *)MSG_ID_SNAPSHOT_DONE);
 				}
 			}
 			/* then process stats irq. */
@@ -2907,19 +2723,22 @@ static void vfe32_do_tasklet(unsigned long data)
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER0) {
 					CDBG("SYNC_TIMER 0 irq occured.\n");
-					vfe32_send_msg_no_payload(
+					v4l2_subdev_notify(vfe32_ctrl->subdev,
+						NOTIFY_ISP_MSG_EVT, (void *)
 						MSG_ID_SYNC_TIMER0_DONE);
 				}
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER1) {
 					CDBG("SYNC_TIMER 1 irq occured.\n");
-					vfe32_send_msg_no_payload(
+					v4l2_subdev_notify(vfe32_ctrl->subdev,
+						NOTIFY_ISP_MSG_EVT, (void *)
 						MSG_ID_SYNC_TIMER1_DONE);
 				}
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER2) {
 					CDBG("SYNC_TIMER 2 irq occured.\n");
-					vfe32_send_msg_no_payload(
+					v4l2_subdev_notify(vfe32_ctrl->subdev,
+						NOTIFY_ISP_MSG_EVT, (void *)
 						MSG_ID_SYNC_TIMER2_DONE);
 				}
 			}
@@ -3378,6 +3197,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 	kfree(vfe32_ctrl);
 	vfe32_ctrl = NULL;
 	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
+
 	CDBG("%s, msm_camio_disable\n", __func__);
 	msm_camio_disable(pdev);
 	msm_camio_set_perf_lvl(S_EXIT);

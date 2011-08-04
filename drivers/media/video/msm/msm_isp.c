@@ -27,6 +27,7 @@
 #include <media/v4l2-device.h>
 
 #include "msm.h"
+#include "msm_isp.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_isp: " fmt, ##args)
@@ -39,105 +40,12 @@
 #define ERR_COPY_TO_USER() ERR_USER_COPY(1)
 
 #define MSM_FRAME_AXI_MAX_BUF 32
-/* This will enqueue ISP events or signal buffer completion */
-static int msm_isp_enqueue(struct msm_cam_media_controller *pmctl,
-				struct msm_vfe_resp *data,
-				enum msm_queue qtype)
-{
-	struct v4l2_event v4l2_evt;
-
-	struct msm_stats_buf stats;
-	struct msm_isp_stats_event_ctrl *isp_event;
-	isp_event = (struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
-	if (!data) {
-		pr_err("%s !!!!data = 0x%p\n", __func__, data);
-		return -EINVAL;
-	}
-
-	D("%s data->type = %d\n", __func__, data->type);
-
-	switch (qtype) {
-	case MSM_CAM_Q_VFE_EVT:
-	case MSM_CAM_Q_VFE_MSG:
-		/* adsp event and message */
-		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-					MSM_CAM_RESP_STAT_EVT_MSG;
-
-		isp_event->resptype = MSM_CAM_RESP_STAT_EVT_MSG;
-
-		/* 0 - msg from aDSP, 1 - event from mARM */
-		isp_event->isp_data.isp_msg.type   = data->evt_msg.type;
-		isp_event->isp_data.isp_msg.msg_id = data->evt_msg.msg_id;
-		isp_event->isp_data.isp_msg.len	= 0;
-
-		D("%s: qtype %d length %d msd_id %d\n", __func__,
-					qtype,
-					isp_event->isp_data.isp_msg.len,
-					isp_event->isp_data.isp_msg.msg_id);
-
-		if ((data->type >= VFE_MSG_STATS_AEC) &&
-			(data->type <=  VFE_MSG_STATS_WE)) {
-
-			D("%s data->phy.sbuf_phy = 0x%x\n", __func__,
-						data->phy.sbuf_phy);
-			stats.buffer = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-							data->phy.sbuf_phy,
-							&(stats.fd));
-			if (!stats.buffer) {
-				pr_err("%s: msm_pmem_stats_ptov_lookup error\n",
-								__func__);
-				isp_event->isp_data.isp_msg.len = 0;
-			} else {
-				struct msm_stats_buf *stats_buf =
-					kmalloc(sizeof(struct msm_stats_buf),
-								GFP_ATOMIC);
-				if (!stats_buf) {
-					pr_err("%s: out of memory.\n",
-								__func__);
-					return -ENOMEM;
-				}
-
-				*stats_buf = stats;
-				isp_event->isp_data.isp_msg.len	=
-						sizeof(struct msm_stats_buf);
-				isp_event->isp_data.isp_msg.data = stats_buf;
-			}
-
-		} else if ((data->evt_msg.len > 0) &&
-				(data->type == VFE_MSG_GENERAL)) {
-			isp_event->isp_data.isp_msg.data =
-					kmalloc(data->evt_msg.len, GFP_ATOMIC);
-			if (!isp_event->isp_data.isp_msg.data) {
-				pr_err("%s: out of memory.\n", __func__);
-				return -ENOMEM;
-			}
-			memcpy(isp_event->isp_data.isp_msg.data,
-						data->evt_msg.data,
-						data->evt_msg.len);
-		} else if (data->type == VFE_MSG_OUTPUT_P ||
-			data->type == VFE_MSG_OUTPUT_V ||
-			data->type == VFE_MSG_OUTPUT_S ||
-			data->type == VFE_MSG_OUTPUT_T) {
-			msm_mctl_buf_done(pmctl, data->type,
-				(u32)data->phy.y_phy, data->evt_msg.frame_id);
-		}
-		break;
-	default:
-		break;
-	}
-
-	/* now queue the event */
-	v4l2_event_queue(pmctl->config_device->config_stat_event_queue.pvdev,
-					  &v4l2_evt);
-	return 0;
-}
 
 /*
  * This function executes in interrupt context.
  */
 
 void *msm_isp_sync_alloc(int size,
-	  void *syncdata __attribute__((unused)),
 	  gfp_t gfp)
 {
 	struct msm_queue_cmd *qcmd =
@@ -161,62 +69,20 @@ void msm_isp_sync_free(void *ptr)
 	}
 }
 
-/*
- * This function executes in interrupt context.
- */
-static int msm_isp_notify(struct v4l2_subdev *sd, void *arg)
+static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = -EINVAL;
-	struct msm_queue_cmd *qcmd = NULL;
-	struct msm_sync *sync =
-		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
 	struct msm_free_buf free_buf;
 	struct msm_camvfe_params vfe_params;
 	struct msm_vfe_cfg_cmd cfgcmd;
+	struct msm_sync *sync =
+		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
+
 	int vfe_id = vdata->evt_msg.msg_id;
 
-	if (!sync) {
-		pr_err("%s: no context in dsp callback.\n", __func__);
-		return rc;
-	}
-
-	qcmd = ((struct msm_queue_cmd *)vdata) - 1;
-	qcmd->type = MSM_CAM_Q_VFE_MSG;
-	qcmd->command = vdata;
-
-	D("%s: vdata->type %d\n", __func__, vdata->type);
 	switch (vdata->type) {
-	case VFE_MSG_STATS_AWB:
-		D("%s: qtype %d, AWB stats, enqueue event_q.\n",
-					__func__, vdata->type);
-		break;
-
-	case VFE_MSG_STATS_AEC:
-		D("%s: qtype %d, AEC stats, enqueue event_q.\n",
-					__func__, vdata->type);
-		break;
-
-	case VFE_MSG_STATS_IHIST:
-		D("%s: qtype %d, ihist stats, enqueue event_q.\n",
-					__func__, vdata->type);
-		break;
-
-	case VFE_MSG_STATS_RS:
-		D("%s: qtype %d, rs stats, enqueue event_q.\n",
-					__func__, vdata->type);
-		break;
-
-	case VFE_MSG_STATS_CS:
-		D("%s: qtype %d, cs stats, enqueue event_q.\n",
-					__func__, vdata->type);
-	break;
-
-	case VFE_MSG_GENERAL:
-		D("%s: qtype %d, general msg, enqueue event_q.\n",
-					__func__, vdata->type);
-		break;
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
 		D("%s Got V32_START_*: Getting ping addr id = %d",
@@ -235,7 +101,7 @@ static int msm_isp_notify(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_V32_CAPTURE:
-		D("%s Got V32_CAPTURE: getting buffer for id = %d",
+		pr_err("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
@@ -261,19 +127,118 @@ static int msm_isp_notify(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	default:
-		D("%s: qtype %d not handled\n", __func__, vdata->type);
-		/* fall through, send to config. */
+		pr_err("%s: Invalid vdata type: %d\n", __func__, vdata->type);
+		break;
 	}
-	if (vdata->type != VFE_MSG_V32_START &&
-		vdata->type != VFE_MSG_V32_START_RECORDING &&
-		vdata->type != VFE_MSG_V32_CAPTURE &&
-		vdata->type != VFE_MSG_OUTPUT_IRQ) {
-		D("%s: msm_enqueue event_q\n", __func__);
-		rc = msm_isp_enqueue(&sync->pcam_sync->mctl,
-					vdata, MSM_CAM_Q_VFE_MSG);
+	msm_isp_sync_free(vdata);
+	return rc;
+}
+
+/*
+ * This function executes in interrupt context.
+ */
+static int msm_isp_notify(struct v4l2_subdev *sd,
+	unsigned int notification,  void *arg)
+{
+	int rc = 0;
+	struct v4l2_event v4l2_evt;
+	struct msm_isp_stats_event_ctrl *isp_event;
+	struct msm_sync *sync =
+		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
+	struct msm_cam_media_controller *pmctl = &sync->pcam_sync->mctl;
+
+	if (!sync) {
+		pr_err("%s: no context in dsp callback.\n", __func__);
+		rc = -EINVAL;
+		return rc;
 	}
 
-	msm_isp_sync_free(vdata);
+	if (notification == NOTIFY_VFE_BUF_EVT)
+		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
+
+	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+					MSM_CAM_RESP_STAT_EVT_MSG;
+	isp_event = (struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
+	isp_event->resptype = MSM_CAM_RESP_STAT_EVT_MSG;
+	isp_event->isp_data.isp_msg.type = MSM_CAMERA_MSG;
+	isp_event->isp_data.isp_msg.len = 0;
+
+	switch (notification) {
+	case NOTIFY_ISP_MSG_EVT:
+		isp_event->isp_data.isp_msg.msg_id = (uint32_t)arg;
+		break;
+	case NOTIFY_VFE_MSG_OUT: {
+		uint8_t msgid;
+		struct isp_msg_output *isp_output =
+				(struct isp_msg_output *)arg;
+		switch (isp_output->output_id) {
+		case MSG_ID_OUTPUT_P:
+			msgid = VFE_MSG_OUTPUT_P;
+			break;
+		case MSG_ID_OUTPUT_V:
+			msgid = VFE_MSG_OUTPUT_V;
+			break;
+		case MSG_ID_OUTPUT_T:
+			msgid = VFE_MSG_OUTPUT_T;
+			break;
+		case MSG_ID_OUTPUT_S:
+			msgid = VFE_MSG_OUTPUT_S;
+			break;
+		default:
+			pr_err("%s: Invalid VFE output id: %d\n",
+				__func__, isp_output->output_id);
+			rc = -EINVAL;
+			break;
+		}
+
+		if (!rc) {
+			isp_event->isp_data.isp_msg.msg_id =
+				isp_output->output_id;
+			msm_mctl_buf_done(pmctl, msgid,
+				isp_output->yBuffer,
+				isp_output->frameCounter);
+		}
+		}
+		break;
+	case NOTIFY_VFE_MSG_STATS: {
+		struct msm_stats_buf stats;
+		struct isp_msg_stats *isp_stats = (struct isp_msg_stats *)arg;
+
+		isp_event->isp_data.isp_msg.msg_id = isp_stats->id;
+		stats.buffer = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+						isp_stats->buffer,
+						&(stats.fd));
+		if (!stats.buffer) {
+			pr_err("%s: msm_pmem_stats_ptov_lookup error\n",
+							__func__);
+			isp_event->isp_data.isp_msg.len = 0;
+			rc = -EFAULT;
+		} else {
+			struct msm_stats_buf *stats_buf =
+				kmalloc(sizeof(struct msm_stats_buf),
+							GFP_ATOMIC);
+			if (!stats_buf) {
+				pr_err("%s: out of memory.\n",
+							__func__);
+				rc = -ENOMEM;
+			} else {
+				*stats_buf = stats;
+				isp_event->isp_data.isp_msg.len	=
+					sizeof(struct msm_stats_buf);
+				isp_event->isp_data.isp_msg.data = stats_buf;
+			}
+		}
+		}
+		break;
+	default:
+		pr_err("%s: Unsupport isp notification %d\n",
+			__func__, notification);
+		rc = -EINVAL;
+		break;
+	}
+
+	v4l2_event_queue(pmctl->config_device->config_stat_event_queue.pvdev,
+			 &v4l2_evt);
 
 	return rc;
 }
@@ -288,6 +253,7 @@ static int msm_isp_open(struct v4l2_subdev *sd, struct msm_sync *sync)
 		pr_err("%s: param is NULL", __func__);
 		return -EINVAL;
 	}
+
 
 	rc = msm_vfe_subdev_init(sd, sync, sync->pdev);
 	if (rc < 0) {
@@ -681,7 +647,6 @@ int msm_isp_init_module(int g_num_config_nodes)
 		isp_subdev[i].isp_open = msm_isp_open;
 		isp_subdev[i].isp_config = msm_isp_config;
 		isp_subdev[i].isp_release  = msm_isp_release;
-		isp_subdev[i].isp_enqueue = msm_isp_enqueue;
 		isp_subdev[i].isp_notify = msm_isp_notify;
 	}
 	return 0;

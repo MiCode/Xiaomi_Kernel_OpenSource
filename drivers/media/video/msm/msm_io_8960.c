@@ -22,7 +22,6 @@
 #include <mach/clk.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
-#include "msm_ispif.h"
 
 #define DBG_CSID 0
 #define DBG_CSIPHY 0
@@ -1147,13 +1146,12 @@ int msm_camio_enable(struct platform_device *pdev)
 	if (rc < 0)
 		goto csiphy_irq_fail;
 #endif
-	rc = msm_ispif_init(pdev);
-	if (rc < 0)
-		goto csiphy_irq_fail;
 	CDBG("camio enable done\n");
 	return 0;
+#if DBG_CSIPHY
 csiphy_irq_fail:
 	iounmap(csiphybase);
+#endif
 csiphy_busy:
 	release_mem_region(csiphy_mem->start, resource_size(csiphy_mem));
 csi_irq_fail:
@@ -1185,7 +1183,6 @@ void msm_camio_disable(struct platform_device *pdev)
 	release_mem_region(csid_mem->start, resource_size(csid_mem));
 
 	msm_camio_disable_all_clks(csid_core);
-	msm_ispif_release(pdev);
 }
 
 int msm_camio_sensor_clk_on(struct platform_device *pdev)

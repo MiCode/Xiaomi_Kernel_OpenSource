@@ -29,7 +29,6 @@
 #include <mach/msm_subsystem_map.h>
 
 #include "msm.h"
-#include "msm_vfe31.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_isp: " fmt, ##args)

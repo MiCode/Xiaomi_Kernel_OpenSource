@@ -794,54 +794,6 @@ enum VFE_AXI_RD_UNPACK_HBI_SEL {
 	VFE_AXI_RD_HBI_4096_CLOCK_CYCLES
 };
 
-enum VFE32_MESSAGE_ID {
-	MSG_ID_RESET_ACK, /* 0 */
-	MSG_ID_START_ACK,
-	MSG_ID_STOP_ACK,
-	MSG_ID_UPDATE_ACK,
-	MSG_ID_OUTPUT_P,
-	MSG_ID_OUTPUT_T,
-	MSG_ID_OUTPUT_S,
-	MSG_ID_OUTPUT_V,
-	MSG_ID_SNAPSHOT_DONE,
-	MSG_ID_STATS_AEC,
-	MSG_ID_STATS_AF, /* 10 */
-	MSG_ID_STATS_AWB,
-	MSG_ID_STATS_RS,
-	MSG_ID_STATS_CS,
-	MSG_ID_STATS_IHIST,
-	MSG_ID_STATS_SKIN,
-	MSG_ID_EPOCH1,
-	MSG_ID_EPOCH2,
-	MSG_ID_SYNC_TIMER0_DONE,
-	MSG_ID_SYNC_TIMER1_DONE,
-	MSG_ID_SYNC_TIMER2_DONE, /* 20 */
-	MSG_ID_ASYNC_TIMER0_DONE,
-	MSG_ID_ASYNC_TIMER1_DONE,
-	MSG_ID_ASYNC_TIMER2_DONE,
-	MSG_ID_ASYNC_TIMER3_DONE,
-	MSG_ID_AE_OVERFLOW,
-	MSG_ID_AF_OVERFLOW,
-	MSG_ID_AWB_OVERFLOW,
-	MSG_ID_RS_OVERFLOW,
-	MSG_ID_CS_OVERFLOW,
-	MSG_ID_IHIST_OVERFLOW, /* 30 */
-	MSG_ID_SKIN_OVERFLOW,
-	MSG_ID_AXI_ERROR,
-	MSG_ID_CAMIF_OVERFLOW,
-	MSG_ID_VIOLATION,
-	MSG_ID_CAMIF_ERROR,
-	MSG_ID_BUS_OVERFLOW,
-	MSG_ID_SOF_ACK,
-	MSG_ID_STOP_REC_ACK,
-};
-
-struct vfe_msg_stats {
-	uint32_t    buffer;
-	uint32_t    frameCounter;
-};
-
-
 struct vfe_frame_bpc_info {
 	uint32_t greenDefectPixelCount;
 	uint32_t redBlueDefectPixelCount;
@@ -858,31 +810,12 @@ struct vfe_msg_camif_status {
 	uint32_t lineCount;
 };
 
-
 struct vfe32_irq_status {
 	uint32_t vfeIrqStatus0;
 	uint32_t vfeIrqStatus1;
 	uint32_t camifStatus;
 	uint32_t demosaicStatus;
 	uint32_t asfMaxEdge;
-};
-
-struct vfe_msg_output {
-	uint8_t   output_id;
-	uint32_t  yBuffer;
-	uint32_t  cbcrBuffer;
-	struct vfe_frame_bpc_info bpcInfo;
-	struct vfe_frame_asf_info asfInfo;
-	uint32_t  frameCounter;
-};
-
-struct vfe_message {
-	enum VFE32_MESSAGE_ID _d;
-	union {
-		struct vfe_msg_output              msgOut;
-		struct vfe_msg_stats               msgStats;
-		struct vfe_msg_camif_status        msgCamifError;
-	} _u;
 };
 
 /* New one for 7x30 */

@@ -29,6 +29,7 @@
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-msm-mem.h>
 #include <mach/camera.h>
+#include "msm_isp.h"
 
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
@@ -77,10 +78,27 @@ static inline void free_qcmd(struct msm_queue_cmd *qcmd)
 		kfree(qcmd);
 }
 
+struct isp_msg_stats {
+	enum ISP_MESSAGE_ID id;
+	uint32_t    buffer;
+	uint32_t    frameCounter;
+};
+
+struct isp_msg_output {
+	uint8_t   output_id;
+	uint32_t  yBuffer;
+	uint32_t  cbcrBuffer;
+	uint32_t  frameCounter;
+};
+
 /* message id for v4l2_subdev_notify*/
 enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_CID_CHANGE, /* arg = msm_camera_csid_params */
-	NOTIFY_VFE_MSG_EVT, /* arg = msm_vfe_resp */
+	NOTIFY_ISP_MSG_EVT, /* arg = enum ISP_MESSAGE_ID */
+	NOTIFY_VFE_MSG_OUT, /* arg = struct isp_msg_output */
+	NOTIFY_VFE_MSG_STATS,  /* arg = struct isp_msg_stats */
+	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
+	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
 	NOTIFY_INVALID
 };
 
@@ -115,31 +133,6 @@ struct msm_isp_color_fmt {
 	enum v4l2_mbus_pixelcode pxlcode;
 	enum v4l2_colorspace colorspace;
 };
-
-enum ispif_op_id {
-	/*
-	*Important! Command_ID are arranged in order.
-	*Don't change!*/
-	ISPIF_ENABLE,
-	ISPIF_DISABLE,
-	ISPIF_RESET,
-	ISPIF_CONFIG
-};
-
-struct msm_ispif_ops {
-
-	int (*ispif_op)(struct msm_ispif_ops *p_ispif,
-		enum ispif_op_id ispif_op_id_used, unsigned long arg);
-};
-
-struct msm_ispif_fns {
-	int (*ispif_config)(struct msm_ispif_params *ispif_params,
-						 uint8_t num_of_intf);
-	int (*ispif_start_intf_transfer)
-		(struct msm_ispif_params *ispif_params);
-};
-
-extern int msm_ispif_init_module(struct msm_ispif_ops *p_ispif);
 
 struct msm_free_buf {
 	uint32_t paddr;
@@ -190,7 +183,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *vpe_sdev;    /* vpe sub device : VPE */
 	struct v4l2_subdev *flash_sdev;    /* vpe sub device : VPE */
 	struct msm_cam_config_dev *config_device;
-	struct msm_ispif_fns *ispif_fns;
+	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 
 	struct pm_qos_request_list pm_qos_req_list;
 	struct msm_mctl_pp_info pp_info;
@@ -204,10 +197,8 @@ struct msm_isp_ops {
 	int (*isp_open)(struct v4l2_subdev *sd, struct msm_sync *sync);
 	int (*isp_config)(struct msm_cam_media_controller *pmctl,
 		 unsigned int cmd, unsigned long arg);
-	int (*isp_enqueue)(struct msm_cam_media_controller *pcam,
-		struct msm_vfe_resp *data,
-		enum msm_queue qtype);
-	int (*isp_notify)(struct v4l2_subdev *sd, void *arg);
+	int (*isp_notify)(struct v4l2_subdev *sd,
+		unsigned int notification, void *arg);
 
 	void (*isp_release)(struct msm_sync *psync);
 
@@ -344,7 +335,6 @@ struct msm_cam_server_dev {
 	int use_count;
     /* all the registered ISP subdevice*/
 	struct msm_isp_ops *isp_subdev[MSM_MAX_CAMERA_CONFIGS];
-	struct msm_ispif_fns ispif_fns;
 
 };
 
@@ -358,7 +348,6 @@ int msm_isp_register(struct msm_cam_v4l2_device *pcam);
 */
 int msm_isp_register(struct msm_cam_server_dev *psvr);
 void msm_isp_unregister(struct msm_cam_server_dev *psvr);
-int msm_ispif_register(struct msm_ispif_fns *ispif);
 int msm_sensor_register(struct platform_device *pdev,
 	int (*sensor_probe)(const struct msm_camera_sensor_info *,
 	struct v4l2_subdev *, struct msm_sensor_ctrl *));

@@ -152,6 +152,12 @@ struct msm_ispif_params {
 	uint16_t cid_mask;
 	uint8_t csid;
 };
+
+struct msm_ispif_params_list {
+	uint32_t len;
+	struct msm_ispif_params params[3];
+};
+
 struct msm_vpe_phy_info {
 	uint32_t sbuf_phy;
 	uint32_t y_phy;
@@ -634,8 +640,7 @@ void msm_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 
-void *msm_isp_sync_alloc(int size,
-	void *syncdata __attribute__((unused)), gfp_t gfp);
+void *msm_isp_sync_alloc(int size, gfp_t gfp);
 
 void msm_isp_sync_free(void *ptr);
 #endif

@@ -1155,7 +1155,6 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	pcam->mctl.sensor_sdev = &(pcam->sensor_sdev);
 
 	pcam->mctl.isp_sdev = ps->isp_subdev[0];
-	pcam->mctl.ispif_fns = &ps->ispif_fns;
 
 
 	/*yyan: 8960 bring up - no VPE and flash; populate later*/
@@ -1945,7 +1944,6 @@ static int msm_setup_server_dev(int node, char *device_name)
 	g_server_dev.pcam_active = NULL;
 	g_server_dev.camera_info.num_cameras = 0;
 	atomic_set(&g_server_dev.number_pcam_active, 0);
-	g_server_dev.ispif_fns.ispif_config = NULL;
 
 	/*initialize fake video device and event queue*/
 
@@ -2053,20 +2051,6 @@ static int msm_sync_init(struct msm_sync *sync,
 	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
 	return rc;
 }
-
-int msm_ispif_register(struct msm_ispif_fns *ispif)
-{
-	int rc = -EINVAL;
-	if (ispif != NULL) {
-		/*save ispif into server dev*/
-		g_server_dev.ispif_fns.ispif_config = ispif->ispif_config;
-		g_server_dev.ispif_fns.ispif_start_intf_transfer
-			= ispif->ispif_start_intf_transfer;
-		rc = 0;
-	}
-	return rc;
-}
-EXPORT_SYMBOL(msm_ispif_register);
 
 /* register a msm sensor into the msm device, which will probe the
    sensor HW. if the HW exist then create a video device (/dev/videoX/)
