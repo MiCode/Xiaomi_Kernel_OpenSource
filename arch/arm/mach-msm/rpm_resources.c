@@ -59,6 +59,11 @@ static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits);
 static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits);
 static void msm_rpmrs_restore_vdd_dig(void);
 
+static ssize_t msm_rpmrs_resource_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count);
+
 #ifdef CONFIG_MSM_L2_SPM
 static  void *msm_rpmrs_l2_counter_addr;
 static  int msm_rpmrs_l2_reset_count;
@@ -66,6 +71,10 @@ static  int msm_rpmrs_l2_reset_count;
 #endif
 
 #define MSM_RPMRS_MAX_RS_REGISTER_COUNT 2
+
+#define RPMRS_ATTR(_name) \
+	__ATTR(_name, S_IRUGO|S_IWUSR, \
+		msm_rpmrs_resource_attr_show, msm_rpmrs_resource_attr_store)
 
 struct msm_rpmrs_resource {
 	struct msm_rpm_iv_pair rs[MSM_RPMRS_MAX_RS_REGISTER_COUNT];
@@ -77,6 +86,8 @@ struct msm_rpmrs_resource {
 	bool (*beyond_limits)(struct msm_rpmrs_limits *limits);
 	void (*aggregate)(struct msm_rpmrs_limits *limits);
 	void (*restore)(void);
+
+	struct kobj_attribute ko_attr;
 };
 
 static struct msm_rpmrs_resource msm_rpmrs_pxo = {
@@ -86,6 +97,7 @@ static struct msm_rpmrs_resource msm_rpmrs_pxo = {
 	.beyond_limits = msm_rpmrs_pxo_beyond_limits,
 	.aggregate = msm_rpmrs_aggregate_pxo,
 	.restore = msm_rpmrs_restore_pxo,
+	.ko_attr = RPMRS_ATTR(pxo),
 };
 
 static struct msm_rpmrs_resource msm_rpmrs_l2_cache = {
@@ -95,6 +107,7 @@ static struct msm_rpmrs_resource msm_rpmrs_l2_cache = {
 	.beyond_limits = msm_rpmrs_l2_cache_beyond_limits,
 	.aggregate = msm_rpmrs_aggregate_l2_cache,
 	.restore = msm_rpmrs_restore_l2_cache,
+	.ko_attr = RPMRS_ATTR(L2_cache),
 };
 
 static struct msm_rpmrs_resource msm_rpmrs_vdd_mem = {
@@ -105,6 +118,7 @@ static struct msm_rpmrs_resource msm_rpmrs_vdd_mem = {
 	.beyond_limits = msm_rpmrs_vdd_mem_beyond_limits,
 	.aggregate = msm_rpmrs_aggregate_vdd_mem,
 	.restore = msm_rpmrs_restore_vdd_mem,
+	.ko_attr = RPMRS_ATTR(vdd_mem),
 };
 
 static struct msm_rpmrs_resource msm_rpmrs_vdd_dig = {
@@ -115,6 +129,7 @@ static struct msm_rpmrs_resource msm_rpmrs_vdd_dig = {
 	.beyond_limits = msm_rpmrs_vdd_dig_beyond_limits,
 	.aggregate = msm_rpmrs_aggregate_vdd_dig,
 	.restore = msm_rpmrs_restore_vdd_dig,
+	.ko_attr = RPMRS_ATTR(vdd_dig),
 };
 
 static struct msm_rpmrs_resource msm_rpmrs_rpm_cpu = {
@@ -124,6 +139,7 @@ static struct msm_rpmrs_resource msm_rpmrs_rpm_cpu = {
 	.beyond_limits = NULL,
 	.aggregate = NULL,
 	.restore = NULL,
+	.ko_attr = RPMRS_ATTR(rpm_cpu),
 };
 
 static struct msm_rpmrs_resource *msm_rpmrs_resources[] = {
@@ -145,20 +161,22 @@ static DEFINE_SPINLOCK(msm_rpmrs_lock);
 /******************************************************************************
  * Attribute Definitions
  *****************************************************************************/
+static struct attribute *msm_rpmrs_attributes[] = {
+	&msm_rpmrs_pxo.ko_attr.attr,
+	&msm_rpmrs_l2_cache.ko_attr.attr,
+	&msm_rpmrs_vdd_mem.ko_attr.attr,
+	&msm_rpmrs_vdd_dig.ko_attr.attr,
+	&msm_rpmrs_rpm_cpu.ko_attr.attr,
+	NULL,
+};
 
-struct msm_rpmrs_kboj_attribute {
-	struct msm_rpmrs_resource *rs;
-	struct kobj_attribute ka;
+static struct attribute_group msm_rpmrs_attribute_group = {
+	.attrs = msm_rpmrs_attributes,
 };
 
 #define GET_RS_FROM_ATTR(attr) \
-	(container_of(attr, struct msm_rpmrs_kboj_attribute, ka)->rs)
+	(container_of(attr, struct msm_rpmrs_resource, ko_attr))
 
-struct msm_rpmrs_resource_sysfs {
-	struct attribute_group attr_group;
-	struct attribute *attrs[2];
-	struct msm_rpmrs_kboj_attribute kas;
-};
 
 /******************************************************************************
  * Resource Specific Functions
@@ -693,8 +711,6 @@ static int __init msm_rpmrs_resource_sysfs_add(void)
 {
 	struct kobject *module_kobj;
 	struct kobject *low_power_kboj;
-	struct msm_rpmrs_resource_sysfs *rs;
-	int i;
 	int rc;
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
@@ -713,31 +729,10 @@ static int __init msm_rpmrs_resource_sysfs_add(void)
 		goto resource_sysfs_add_exit;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
-		rs = kzalloc(sizeof(*rs), GFP_KERNEL);
-		if (!rs) {
-			pr_err("%s: cannot allocate memory for attributes\n",
-				__func__);
-			rc = -ENOMEM;
-			goto resource_sysfs_add_exit;
-		}
-
-		rs->kas.rs = msm_rpmrs_resources[i];
-		rs->kas.ka.attr.name = msm_rpmrs_resources[i]->name;
-		rs->kas.ka.attr.mode = 0644;
-		rs->kas.ka.show = msm_rpmrs_resource_attr_show;
-		rs->kas.ka.store = msm_rpmrs_resource_attr_store;
-
-		rs->attrs[0] = &rs->kas.ka.attr;
-		rs->attrs[1] = NULL;
-		rs->attr_group.attrs = rs->attrs;
-
-		rc = sysfs_create_group(low_power_kboj, &rs->attr_group);
-		if (rc) {
-			pr_err("%s: cannot create kobject attribute group\n",
-				__func__);
-			goto resource_sysfs_add_exit;
-		}
+	rc = sysfs_create_group(low_power_kboj, &msm_rpmrs_attribute_group);
+	if (rc) {
+		pr_err("%s: cannot create kobject attribute group\n", __func__);
+		goto resource_sysfs_add_exit;
 	}
 
 	rc = 0;
