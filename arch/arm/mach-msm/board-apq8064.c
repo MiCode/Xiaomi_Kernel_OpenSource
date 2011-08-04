@@ -760,7 +760,6 @@ static void __init apq8064_common_init(void)
 	apq8064_device_ssbi_pmic2.dev.platform_data =
 				&apq8064_ssbi_pm8821_pdata;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
-	apq8064_device_gadget_peripheral.dev.parent = &apq8064_device_otg.dev;
 	apq8064_pm8921_platform_data.num_regulators =
 					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));

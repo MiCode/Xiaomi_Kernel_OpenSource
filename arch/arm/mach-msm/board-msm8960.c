@@ -4739,8 +4739,6 @@ static void __init msm8960_sim_init(void)
 	pm8921_platform_data.keypad_pdata = &keypad_data_sim;
 
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
-	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
 	msm8960_i2c_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
@@ -4817,8 +4815,6 @@ static void __init msm8960_cdp_init(void)
 	if (machine_is_msm8960_liquid())
 		msm_otg_pdata.mhl_enable = true;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
-	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if (machine_is_msm8960_liquid()) {
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
