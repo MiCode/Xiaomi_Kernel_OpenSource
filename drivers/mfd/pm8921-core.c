@@ -527,15 +527,6 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->leds_pdata) {
-		/* PM8921 supports only 4 LED DRVs */
-		for (i = 0; i < pdata->leds_pdata->num_leds; i++) {
-			if (pdata->leds_pdata->leds[i].flags >
-						PM8XXX_ID_LED_2) {
-				pr_err("%s: LED %d not supported\n", __func__,
-					pdata->leds_pdata->leds[i].flags);
-				goto bail;
-			}
-		}
 		leds_cell.platform_data = pdata->leds_pdata;
 		leds_cell.pdata_size = sizeof(struct led_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);

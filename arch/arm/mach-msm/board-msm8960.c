@@ -3083,10 +3083,34 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.batt_data		= &palladium_1500_data,
 };
 
+#define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
+
+/**
+ * 'flag' stores three values; led id, led mode, and max current of led.
+ * The bit packing format is as follow,
+ * reserved (1 byte) | max_current (2 bytes) | led_mode (1 nibble) |
+ * led_id (1 nibble)
+ */
+#define PM8XXX_SET_FLAG(led_id, led_mode, led_max_current)	\
+	(((led_id << PM8XXX_LED_ID_SHIFT) & PM8XXX_LED_ID_MASK) |\
+	((led_mode << PM8XXX_LED_MODE_SHIFT) & PM8XXX_LED_MODE_MASK) |\
+	((led_max_current << PM8XXX_LED_MAX_CURRENT_SHIFT) & \
+			PM8XXX_LED_MAX_CURRENT_MASK))
+
 static struct led_info pm8921_led_info[] = {
 	[0] = {
-		.name		= "led:drv1",
-		.flags		= PM8XXX_ID_LED_1,
+		.name			= "led:usb",
+		.default_trigger	= "usb-online",
+		.flags			= PM8XXX_SET_FLAG(PM8XXX_ID_LED_0,
+						PM8XXX_LED_MODE_MANUAL,
+						PM8921_LC_LED_MAX_CURRENT),
+	},
+	[1] = {
+		.name			= "led:ac",
+		.default_trigger	= "ac-online",
+		.flags			= PM8XXX_SET_FLAG(PM8XXX_ID_LED_1,
+						PM8XXX_LED_MODE_MANUAL,
+						PM8921_LC_LED_MAX_CURRENT),
 	},
 };
 

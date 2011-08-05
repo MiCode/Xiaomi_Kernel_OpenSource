@@ -16,6 +16,13 @@
 
 #define PM8XXX_LEDS_DEV_NAME	"pm8xxx-led"
 
+#define PM8XXX_LED_ID_SHIFT		0
+#define PM8XXX_LED_MODE_SHIFT		4
+#define PM8XXX_LED_MAX_CURRENT_SHIFT	8
+#define PM8XXX_LED_ID_MASK		0xF
+#define PM8XXX_LED_MODE_MASK		0xF0
+#define PM8XXX_LED_MAX_CURRENT_MASK	0xFFFF00
+
 /**
  * enum pm8xxx_leds - PMIC8XXX supported led ids
  * @PM8XXX_ID_LED_KB_LIGHT - keyboard backlight led
@@ -48,6 +55,4 @@ enum pm8xxx_led_modes {
 	PM8XXX_LED_MODE_DTEST4
 };
 
-int pm8xxx_led_config(enum pm8xxx_leds led_id,
-		enum pm8xxx_led_modes led_mode, int max_current);
 #endif /* __LEDS_PM8XXX_H__ */
