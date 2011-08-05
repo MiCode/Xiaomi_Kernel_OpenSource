@@ -157,8 +157,8 @@ static struct scalable scalable[] = {
 		},
 };
 
-struct mutex driver_lock;
-static spinlock_t l2_lock;
+static DEFINE_MUTEX(driver_lock);
+static DEFINE_SPINLOCK(l2_lock);
 
 /* Instantaneous bandwidth requests in MB/s. */
 #define BW_MBPS(_bw) \
@@ -961,7 +961,6 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
-	mutex_init(&driver_lock);
 	regulator_init();
 	bus_init();
 	cpufreq_table_init();
