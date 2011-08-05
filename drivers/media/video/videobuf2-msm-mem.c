@@ -93,7 +93,7 @@ static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 	mem->alloc_ctx = alloc_ctx;
 	mem->is_userptr = 0;
 	mem->phyaddr = msm_mem_allocate(mem->size);
-	if (IS_ERR((void *)mem->phyaddr)) {
+	if (!mem->phyaddr) {
 		pr_err("%s : pmem memory allocation failed\n", __func__);
 		kfree(mem);
 		return ERR_PTR(-ENOMEM);

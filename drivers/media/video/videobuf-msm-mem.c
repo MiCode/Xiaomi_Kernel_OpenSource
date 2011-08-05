@@ -284,7 +284,7 @@ static int __videobuf_mmap_mapper(struct videobuf_queue *q,
 	buf->bsize = mem->size;
 	mem->phyaddr = msm_mem_allocate(mem->size);
 
-	if (IS_ERR((void *)mem->phyaddr)) {
+	if (!mem->phyaddr) {
 		pr_err("%s : pmem memory allocation failed\n", __func__);
 		goto error;
 	}
