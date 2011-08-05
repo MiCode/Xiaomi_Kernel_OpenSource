@@ -442,11 +442,11 @@ static void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 	wait4vsync_cnt++;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	wait_for_completion_killable(&dsi_pipe->comp);
-	spin_lock(&mdp_spin_lock);
+	spin_lock_irqsave(&mdp_spin_lock, flag);
 	wait4vsync_cnt--;
 	if (wait4vsync_cnt == 0)
 		mdp_disable_irq(MDP_DMA2_TERM);
-	spin_unlock(&mdp_spin_lock);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 }
 
 void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
