@@ -1018,12 +1018,6 @@ qup_i2c_probe(struct platform_device *pdev)
 	} else
 		pclk = NULL;
 
-	if (!(pdata->msm_i2c_config_gpio)) {
-		dev_err(&pdev->dev, "config_gpio function not initialized\n");
-		ret = -ENOSYS;
-		goto err_config_failed;
-	}
-
 	/* We support frequencies upto FAST Mode(400KHz) */
 	if (pdata->clk_freq <= 0 ||
 			pdata->clk_freq > 400000) {
@@ -1134,7 +1128,8 @@ qup_i2c_probe(struct platform_device *pdev)
 		"QUP I2C adapter",
 		sizeof(dev->adapter.name));
 	dev->adapter.nr = pdev->id;
-	pdata->msm_i2c_config_gpio(dev->adapter.nr, 1);
+	if (pdata->msm_i2c_config_gpio)
+		pdata->msm_i2c_config_gpio(dev->adapter.nr, 1);
 
 	dev->suspended = 0;
 	mutex_init(&dev->mlock);
