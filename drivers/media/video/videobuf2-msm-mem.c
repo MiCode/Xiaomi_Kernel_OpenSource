@@ -168,7 +168,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	mem->buffer_type = path;
 	flags = MSM_SUBSYSTEM_MAP_IOVA;
 	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
-	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, mem->size,
+	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, len,
 					flags, &(mem->subsys_id), 1);
 	if (IS_ERR((void *)mem->msm_buffer)) {
 		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
