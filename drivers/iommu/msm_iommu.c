@@ -87,32 +87,6 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 	clk_disable(drvdata->pclk);
 }
 
-static int __flush_iotlb(struct iommu_domain *domain)
-{
-	struct msm_priv *priv = domain->priv;
-	struct msm_iommu_drvdata *iommu_drvdata;
-	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	int ret = 0;
-
-	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
-		if (!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent)
-			BUG();
-
-		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
-		BUG_ON(!iommu_drvdata);
-
-		ret = __enable_clocks(iommu_drvdata);
-		if (ret)
-			goto fail;
-
-		SET_CTX_TLBIALL(iommu_drvdata->base, ctx_drvdata->num, 0);
-		mb();
-		__disable_clocks(iommu_drvdata);
-	}
-fail:
-	return ret;
-}
-
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 {
 	struct msm_priv *priv = domain->priv;
@@ -161,7 +135,6 @@ static void __reset_context(void __iomem *base, int ctx)
 	SET_BFBCR(base, ctx, 0);
 	SET_PAR(base, ctx, 0);
 	SET_FAR(base, ctx, 0);
-	SET_CTX_TLBIALL(base, ctx, 0);
 	SET_TLBFLPTER(base, ctx, 0);
 	SET_TLBSLPTER(base, ctx, 0);
 	SET_TLBLKCR(base, ctx, 0);
@@ -186,9 +159,6 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 
 	SET_TTBCR(base, ctx, 0);
 	SET_TTBR0_PA(base, ctx, (pgtable >> TTBR0_PA_SHIFT));
-
-	/* Invalidate the TLB for this context */
-	SET_CTX_TLBIALL(base, ctx, 0);
 
 	/* Set interrupt number to "secure" interrupt */
 	SET_IRPTNDX(base, ctx, 0);
@@ -373,7 +343,6 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	__disable_clocks(iommu_drvdata);
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
-	ret = __flush_iotlb(domain);
 
 fail:
 	spin_unlock_irqrestore(&msm_iommu_lock, flags);
@@ -403,13 +372,12 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	if (!iommu_drvdata || !ctx_drvdata || !ctx_dev)
 		goto fail;
 
-	ret = __flush_iotlb(domain);
-	if (ret)
-		goto fail;
-
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret)
 		goto fail;
+
+	SET_TLBIASID(iommu_drvdata->base, ctx_dev->num,
+		     GET_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_dev->num));
 
 	__reset_context(iommu_drvdata->base, ctx_dev->num);
 	__disable_clocks(iommu_drvdata);
