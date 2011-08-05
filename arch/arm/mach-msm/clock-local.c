@@ -41,7 +41,7 @@
  * When enabling/disabling a clock, check the halt bit up to this number
  * number of times (with a 1 us delay in between) before continuing.
  */
-#define HALT_CHECK_MAX_LOOPS	100
+#define HALT_CHECK_MAX_LOOPS	200
 /* For clock without halt checking, wait this long after enables/disables. */
 #define HALT_CHECK_DELAY_US	10
 
