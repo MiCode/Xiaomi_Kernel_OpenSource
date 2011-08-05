@@ -3205,6 +3205,36 @@ static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.wakeup			= 1,
 };
 
+/* Rotate lock key is not available so use F1 */
+#define KEY_ROTATE_LOCK KEY_F1
+
+static const unsigned int keymap_liquid[] = {
+	KEY(0, 0, KEY_VOLUMEUP),
+	KEY(0, 1, KEY_VOLUMEDOWN),
+	KEY(1, 3, KEY_ROTATE_LOCK),
+	KEY(1, 4, KEY_HOME),
+};
+
+static struct matrix_keymap_data keymap_data_liquid = {
+	.keymap_size    = ARRAY_SIZE(keymap_liquid),
+	.keymap         = keymap_liquid,
+};
+
+static struct pm8xxx_keypad_platform_data keypad_data_liquid = {
+	.input_name             = "keypad_8960_liquid",
+	.input_phys_device      = "keypad_8960/input0",
+	.num_rows               = 2,
+	.num_cols               = 5,
+	.rows_gpio_start	= PM8921_GPIO_PM_TO_SYS(9),
+	.cols_gpio_start	= PM8921_GPIO_PM_TO_SYS(1),
+	.debounce_ms            = 15,
+	.scan_delay_ms          = 32,
+	.row_hold_ns            = 91500,
+	.wakeup                 = 1,
+	.keymap_data            = &keymap_data_liquid,
+};
+
+
 static const unsigned int keymap[] = {
 	KEY(0, 0, KEY_VOLUMEUP),
 	KEY(0, 1, KEY_VOLUMEDOWN),
@@ -3849,6 +3879,8 @@ static void __init msm8960_cdp_init(void)
 	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
 	ethernet_init();
+	if (machine_is_msm8960_liquid())
+		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
