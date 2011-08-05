@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <sound/soc.h>
 
+#define TABLA_SLIM_GLA_MAX_RETRIES 5
 #define TABLA_REGISTER_START_OFFSET 0x800
 static int tabla_read(struct tabla *tabla, unsigned short reg,
 		       int bytes, void *dest, bool interface_reg)
@@ -570,6 +571,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 	struct tabla *tabla;
 	struct tabla_pdata *pdata;
 	int ret = 0;
+	int sgla_retry_cnt;
 
 	pdata = slim->dev.platform_data;
 
@@ -634,13 +636,28 @@ static int tabla_slim_probe(struct slim_device *slim)
 		goto err_reset;
 	}
 
-	ret = slim_get_logical_addr(tabla->slim_slave,
-		tabla->slim_slave->e_addr,
-		ARRAY_SIZE(tabla->slim_slave->e_addr),
+	sgla_retry_cnt = 0;
+
+	while (1) {
+		ret = slim_get_logical_addr(tabla->slim_slave,
+			tabla->slim_slave->e_addr,
+			ARRAY_SIZE(tabla->slim_slave->e_addr),
 			&tabla->slim_slave->laddr);
-	if (ret) {
-		pr_err("fail to get slimbus slave logical address %d\n", ret);
-		goto err_slim_add;
+		if (ret) {
+			if (sgla_retry_cnt++ < TABLA_SLIM_GLA_MAX_RETRIES) {
+				/* Give SLIMBUS slave time to report present
+				   and be ready.
+				 */
+				usleep_range(1000, 1000);
+				pr_debug("%s: retry slim_get_logical_addr()\n",
+					__func__);
+				continue;
+			}
+			pr_err("fail to get slimbus slave logical address"
+				" %d\n", ret);
+			goto err_slim_add;
+		}
+		break;
 	}
 	tabla_inf_la = tabla->slim_slave->laddr;
 
