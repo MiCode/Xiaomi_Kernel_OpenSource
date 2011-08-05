@@ -183,6 +183,24 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	return ret_size;
 }
 
+int afe_q6_interface_prepare(void)
+{
+	int ret = 0;
+
+	pr_debug("%s:", __func__);
+
+	if (this_afe.apr == NULL) {
+		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
+			0xFFFFFFFF, &this_afe);
+		pr_debug("%s: Register AFE\n", __func__);
+		if (this_afe.apr == NULL) {
+			pr_err("%s: Unable to register AFE\n", __func__);
+			ret = -ENODEV;
+		}
+	}
+	return ret;
+}
+
 int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
@@ -199,14 +217,9 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	pr_info("%s: %d %d\n", __func__, port_id, rate);
 
 	if (this_afe.apr == NULL) {
-		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
-					0xFFFFFFFF, &this_afe);
-		pr_info("%s: Register AFE\n", __func__);
-		if (this_afe.apr == NULL) {
-			pr_err("%s: Unable to register AFE\n", __func__);
-			ret = -ENODEV;
-			return ret;
-		}
+		pr_err("%s: AFE APR is not registered\n", __func__);
+		ret = -ENODEV;
+		return ret;
 	}
 
 	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -281,16 +294,9 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 
 	pr_info("%s: %d %d\n", __func__, port_id, rate);
 
-	if (this_afe.apr == NULL) {
-		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
-					0xFFFFFFFF, &this_afe);
-		pr_info("%s: Register AFE\n", __func__);
-		if (this_afe.apr == NULL) {
-			pr_err("%s: Unable to register AFE\n", __func__);
-			ret = -ENODEV;
-			return ret;
-		}
-	}
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
 
 	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -376,16 +382,11 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 {
 	struct afe_loopback_command lb_cmd;
 	int ret = 0;
-	if (this_afe.apr == NULL) {
-		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
-					0xFFFFFFFF, &this_afe);
-		pr_info("%s: Register AFE\n", __func__);
-		if (this_afe.apr == NULL) {
-			pr_err("%s: Unable to register AFE\n", __func__);
-			ret = -ENODEV;
-			return ret;
-		}
-	}
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
 	lb_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(20), APR_PKT_VER);
 	lb_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
@@ -561,16 +562,9 @@ int afe_start_pseudo_port(u16 port_id)
 
 	pr_info("%s: port_id=%d\n", __func__, port_id);
 
-	if (this_afe.apr == NULL) {
-		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
-					0xFFFFFFFF, &this_afe);
-		pr_info("%s: Register AFE\n", __func__);
-		if (this_afe.apr == NULL) {
-			pr_err("%s: Unable to register AFE\n", __func__);
-			ret = -ENODEV;
-			return ret;
-		}
-	}
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
 
 	start.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);

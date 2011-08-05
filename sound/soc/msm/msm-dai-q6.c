@@ -242,6 +242,11 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to open ADM\n");
+		else {
+			rc = afe_q6_interface_prepare();
+			if (IS_ERR_VALUE(rc))
+				dev_err(dai->dev, "fail to open AFE APR\n");
+		}
 	}
 
 	return rc;

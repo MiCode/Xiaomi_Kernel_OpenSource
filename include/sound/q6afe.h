@@ -65,4 +65,6 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	u32 rate);
 int afe_port_stop_nowait(int port_id);
 int afe_apply_gain(u16 port_id, u16 gain);
+int afe_q6_interface_prepare(void);
+
 #endif /* __Q6AFE_H__ */
