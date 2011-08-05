@@ -155,6 +155,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"tabla-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"tabla-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"tabla-slim"),
+	REGULATOR_SUPPLY("vcc_i2c",		"3-005b"),
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8921_s5",		NULL),
@@ -219,6 +220,7 @@ VREG_CONSUMERS(EXT_L2) = {
 };
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
+	REGULATOR_SUPPLY("vdd",			"3-005b"),
 	REGULATOR_SUPPLY("vdd_lvds_3p3v",	"mipi_dsi.1"),
 };
 
