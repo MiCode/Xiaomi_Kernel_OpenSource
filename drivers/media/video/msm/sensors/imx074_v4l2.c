@@ -21,7 +21,7 @@
 #include <mach/gpio.h>
 #include <mach/camera.h>
 #include <asm/mach-types.h>
-#include "imx074.h"
+#include "imx074_v4l2.h"
 #include "msm.h"
 
 /*SENSOR REGISTER DEFINES*/
