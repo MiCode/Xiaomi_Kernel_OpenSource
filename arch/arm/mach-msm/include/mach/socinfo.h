@@ -14,6 +14,7 @@
 #ifndef _ARCH_ARM_MACH_MSM_SOCINFO_H_
 #define _ARCH_ARM_MACH_MSM_SOCINFO_H_
 
+#include <linux/kernel.h>
 #include <linux/init.h>
 
 #include <asm/cputype.h>
