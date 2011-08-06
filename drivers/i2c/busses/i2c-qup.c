@@ -254,6 +254,47 @@ intr_done:
 	return IRQ_HANDLED;
 }
 
+static int
+qup_i2c_poll_state(struct qup_i2c_dev *dev, uint32_t req_state, bool only_valid)
+{
+	uint32_t retries = 0;
+
+	dev_dbg(dev->dev, "Polling for state:0x%x, or valid-only:%d\n",
+				req_state, only_valid);
+
+	while (retries != 2000) {
+		uint32_t status = readl_relaxed(dev->base + QUP_STATE);
+
+		/*
+		 * If only valid bit needs to be checked, requested state is
+		 * 'don't care'
+		 */
+		if (status & QUP_STATE_VALID) {
+			if (only_valid)
+				return 0;
+			else if ((req_state & QUP_I2C_MAST_GEN) &&
+					(status & QUP_I2C_MAST_GEN))
+				return 0;
+			else if ((status & QUP_STATE_MASK) == req_state)
+				return 0;
+		}
+		if (retries++ == 1000)
+			udelay(100);
+	}
+	return -ETIMEDOUT;
+}
+
+static int
+qup_update_state(struct qup_i2c_dev *dev, uint32_t state)
+{
+	if (qup_i2c_poll_state(dev, 0, true) != 0)
+		return -EIO;
+	writel_relaxed(state, dev->base + QUP_STATE);
+	if (qup_i2c_poll_state(dev, state, false) != 0)
+		return -EIO;
+	return 0;
+}
+
 static void
 qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
@@ -263,6 +304,7 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 		if (dev->pclk)
 			clk_enable(dev->pclk);
 	} else {
+		qup_update_state(dev, QUP_RESET_STATE);
 		clk_disable(dev->clk);
 		if (dev->pclk)
 			clk_disable(dev->pclk);
@@ -323,36 +365,6 @@ static int qup_i2c_poll_clock_ready(struct qup_i2c_dev *dev)
 	}
 
 	dev_err(dev->dev, "Error waiting for clk ready\n");
-	return -ETIMEDOUT;
-}
-
-static int
-qup_i2c_poll_state(struct qup_i2c_dev *dev, uint32_t req_state, bool only_valid)
-{
-	uint32_t retries = 0;
-
-	dev_dbg(dev->dev, "Polling for state:0x%x, or valid-only:%d\n",
-				req_state, only_valid);
-
-	while (retries != 2000) {
-		uint32_t status = readl_relaxed(dev->base + QUP_STATE);
-
-		/*
-		 * If only valid bit needs to be checked, requested state is
-		 * 'don't care'
-		 */
-		if (status & QUP_STATE_VALID) {
-			if (only_valid)
-				return 0;
-			else if ((req_state & QUP_I2C_MAST_GEN) &&
-					(status & QUP_I2C_MAST_GEN))
-				return 0;
-			else if ((status & QUP_STATE_MASK) == req_state)
-				return 0;
-		}
-		if (retries++ == 1000)
-			udelay(100);
-	}
 	return -ETIMEDOUT;
 }
 
@@ -557,17 +569,6 @@ qup_issue_write(struct qup_i2c_dev *dev, struct i2c_msg *msg, int rem,
 	*idx += 2;
 	dev->pos++;
 	dev->cnt = msg->len - dev->pos;
-}
-
-static int
-qup_update_state(struct qup_i2c_dev *dev, uint32_t state)
-{
-	if (qup_i2c_poll_state(dev, 0, true) != 0)
-		return -EIO;
-	writel_relaxed(state, dev->base + QUP_STATE);
-	if (qup_i2c_poll_state(dev, state, false) != 0)
-		return -EIO;
-	return 0;
 }
 
 static void
