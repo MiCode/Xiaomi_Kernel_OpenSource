@@ -1,5 +1,4 @@
-/* arch/arm/mach-msm/acpuclock.c
- *
+/*
  * MSM architecture clock driver
  *
  * Copyright (C) 2007 Google, Inc.
