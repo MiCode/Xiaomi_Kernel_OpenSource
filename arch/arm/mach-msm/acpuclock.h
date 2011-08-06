@@ -35,10 +35,5 @@ unsigned long acpuclk_get_rate(int cpu);
 uint32_t acpuclk_get_switch_time(void);
 unsigned long acpuclk_wait_for_irq(void);
 unsigned long acpuclk_power_collapse(void);
-#ifdef CONFIG_ARCH_MSM8960
-void acpuclock_secondary_init(void);
-#else
-static inline void acpuclock_secondary_init(void) { }
-#endif
 
 #endif

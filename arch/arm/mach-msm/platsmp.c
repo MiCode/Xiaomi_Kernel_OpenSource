@@ -26,7 +26,6 @@
 
 #include "pm.h"
 #include "scm-boot.h"
-#include "acpuclock.h"
 
 #define SECONDARY_CPU_WAIT_MS 10
 
@@ -169,7 +168,4 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 		writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 
 	gic_secondary_init(0);
-
-	/* Setup acpuclock for non-primary CPU. */
-	acpuclock_secondary_init();
 }

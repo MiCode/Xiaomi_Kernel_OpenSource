@@ -819,30 +819,11 @@ static void __init init_clock_sources(struct scalable *sc,
 	sc->first_set_call = true;
 }
 
-/* Perform CPU0-specific setup. */
-int __init msm_acpu_clock_early_init(void)
+static void __init per_cpu_init(void *data)
 {
-	init_clock_sources(&scalable[L2],   &l2_freq_tbl[L2_BOOT_IDX].speed);
-	init_clock_sources(&scalable[CPU0], &acpu_freq_tbl[CPU_BOOT_IDX].speed);
-	scalable[CPU0].l2_vote = &l2_freq_tbl[L2_BOOT_IDX];
-
-	return 0;
-}
-early_initcall(msm_acpu_clock_early_init);
-
-/* Perform CPU1-specific setup. */
-void __cpuinit acpuclock_secondary_init(void)
-{
-	static bool warm_boot;
-
-	if (warm_boot)
-		return;
-
-	init_clock_sources(&scalable[CPU1], &acpu_freq_tbl[CPU_BOOT_IDX].speed);
-	scalable[CPU1].l2_vote = &l2_freq_tbl[L2_BOOT_IDX];
-
-	/* Secondary CPU has booted, don't repeat for subsequent warm boots. */
-	warm_boot = true;
+	int cpu = smp_processor_id();
+	init_clock_sources(&scalable[cpu], &acpu_freq_tbl[CPU_BOOT_IDX].speed);
+	scalable[cpu].l2_vote = &l2_freq_tbl[L2_BOOT_IDX];
 }
 
 /* Register with bus driver. */
@@ -961,6 +942,9 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
+	init_clock_sources(&scalable[L2], &l2_freq_tbl[L2_BOOT_IDX].speed);
+	on_each_cpu(&per_cpu_init, NULL, true);
+
 	regulator_init();
 	bus_init();
 	cpufreq_table_init();
