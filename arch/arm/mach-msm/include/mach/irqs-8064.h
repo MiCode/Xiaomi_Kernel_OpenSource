@@ -298,18 +298,6 @@
 /* Backwards compatible IRQ macros. */
 #define INT_ADM_AARM				ADM_0_SCSS_0_IRQ
 
-/*
- * For now, use the maximum number of interrupts until a pending GIC issue
- * is sorted out
- */
-#define NR_MSM_IRQS 256
-#define NR_GPIO_IRQS 150
-#define NR_PM8921_IRQS 256
-#define NR_TABLA_IRQS 49
-#define NR_BOARD_IRQS (NR_PM8921_IRQS + NR_TABLA_IRQS)
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
-#define NR_MSM_GPIOS NR_GPIO_IRQS
-
 /* smd/smsm interrupts */
 #define INT_A9_M2A_0                    MSS_TO_APPS_IRQ_0
 #define INT_A9_M2A_5                    MSS_TO_APPS_IRQ_1

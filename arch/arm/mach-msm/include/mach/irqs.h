@@ -29,6 +29,17 @@
 #include "irqs-8064.h"
 #endif
 
+/* For now, use the maximum number of interrupts until a pending GIC issue
+ * is sorted out */
+#define NR_MSM_IRQS 256
+#define NR_GPIO_IRQS 150
+#define NR_PM8921_IRQS 256
+#define NR_TABLA_IRQS 49
+#define NR_GPIO_EXPANDER_IRQS 8
+#define NR_BOARD_IRQS (NR_PM8921_IRQS + NR_TABLA_IRQS + NR_GPIO_EXPANDER_IRQS)
+#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
+#define NR_MSM_GPIOS NR_GPIO_IRQS
+
 #else
 
 #if defined(CONFIG_ARCH_MSM7X30)
