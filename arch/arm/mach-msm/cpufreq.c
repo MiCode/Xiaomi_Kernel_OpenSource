@@ -26,6 +26,7 @@
 #include <linux/cpumask.h>
 #include <linux/sched.h>
 #include <linux/suspend.h>
+#include <mach/socinfo.h>
 
 #include "acpuclock.h"
 
@@ -171,6 +172,9 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 #ifdef CONFIG_SMP
 	struct cpufreq_work_struct *cpu_work = NULL;
 #endif
+
+	if (cpu_is_apq8064())
+		return -ENODEV;
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
