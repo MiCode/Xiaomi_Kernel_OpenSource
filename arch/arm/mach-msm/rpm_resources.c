@@ -930,6 +930,9 @@ static int __init msm_rpmrs_init(void)
 	struct msm_rpm_iv_pair req;
 	int rc;
 
+	if (cpu_is_apq8064())
+		return -ENODEV;
+
 	BUG_ON(!msm_rpmrs_levels);
 
 	if (cpu_is_msm8x60()) {
