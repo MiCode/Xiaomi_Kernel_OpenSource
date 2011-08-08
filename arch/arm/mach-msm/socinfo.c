@@ -31,7 +31,8 @@ enum {
 	HW_PLATFORM_FLUID   = 3,
 	HW_PLATFORM_SVLTE_FFA	= 4,
 	HW_PLATFORM_SVLTE_SURF	= 5,
-	HW_PLATFORM_DRAGON	= 6,
+	/* Dragonboard platform id is assigned as 10 in CDT */
+	HW_PLATFORM_DRAGON	= 10,
 	HW_PLATFORM_INVALID
 };
 
