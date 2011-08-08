@@ -100,7 +100,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
-			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
+			if (pinfo->lcd.hw_vsync_mode && vsync_gpio >= 0) {
 				if (MDP_REV_303 != mdp_rev)
 					gpio_free(vsync_gpio);
 			}
@@ -251,7 +251,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
-			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
+			if (pinfo->lcd.hw_vsync_mode && vsync_gpio >= 0) {
 				if (mdp_rev >= MDP_REV_41) {
 					if (gpio_request(vsync_gpio,
 						"MDP_VSYNC") == 0)
