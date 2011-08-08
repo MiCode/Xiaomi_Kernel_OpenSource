@@ -153,10 +153,10 @@ static int kgsl_drv_histogram_show(struct device *dev,
 	int i;
 
 	for (i = 0; i < 16; i++)
-		len += sprintf(buf + len, "%d ",
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d ",
 			kgsl_driver.stats.histogram[i]);
 
-	len += sprintf(buf + len, "\n");
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 	return len;
 }
 

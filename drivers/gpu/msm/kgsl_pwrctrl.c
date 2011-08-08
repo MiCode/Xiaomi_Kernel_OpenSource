@@ -151,7 +151,7 @@ static int kgsl_pwrctrl_pwrnap_show(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	return sprintf(buf, "%d\n", pwr->nap_allowed);
+	return snprintf(buf, PAGE_SIZE, "%d\n", pwr->nap_allowed);
 }
 
 
@@ -194,7 +194,7 @@ static int kgsl_pwrctrl_idle_timer_show(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	return sprintf(buf, "%d\n", pwr->interval_timeout);
+	return snprintf(buf, PAGE_SIZE, "%d\n", pwr->interval_timeout);
 }
 
 DEVICE_ATTR(gpuclk, 0644, kgsl_pwrctrl_gpuclk_show, kgsl_pwrctrl_gpuclk_store);
