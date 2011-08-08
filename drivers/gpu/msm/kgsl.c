@@ -540,27 +540,19 @@ unlock:
 static int kgsl_release(struct inode *inodep, struct file *filep)
 {
 	int result = 0;
-	struct kgsl_device_private *dev_priv = NULL;
-	struct kgsl_process_private *private = NULL;
-	struct kgsl_device *device;
+	struct kgsl_device_private *dev_priv = filep->private_data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
 	int next = 0;
 
-	device = kgsl_driver.devp[iminor(inodep)];
-	BUG_ON(device == NULL);
-
-	dev_priv = (struct kgsl_device_private *) filep->private_data;
-	BUG_ON(dev_priv == NULL);
-	BUG_ON(device != dev_priv->device);
-	/* private could be null if kgsl_open is not successful */
-	private = dev_priv->process_priv;
 	filep->private_data = NULL;
 
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
 
 	while (1) {
-		context = idr_get_next(&dev_priv->device->context_idr, &next);
+		context = idr_get_next(&device->context_idr, &next);
 		if (context == NULL)
 			break;
 
@@ -1740,14 +1732,10 @@ static struct vm_operations_struct kgsl_gpumem_vm_ops = {
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
-	struct inode *inodep = file->f_path.dentry->d_inode;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry;
-	struct kgsl_device *device;
-
-	device = kgsl_driver.devp[iminor(inodep)];
-	BUG_ON(device == NULL);
+	struct kgsl_device *device = dev_priv->device;
 
 	/* Handle leagacy behavior for memstore */
 
