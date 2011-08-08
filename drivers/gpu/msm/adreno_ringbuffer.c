@@ -562,16 +562,15 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int *link;
 	unsigned int *cmds;
 	unsigned int i;
-	struct adreno_context *drawctxt = context->devctxt;
+	struct adreno_context *drawctxt;
 
 	if (device->state & KGSL_STATE_HUNG)
 		return -EBUSY;
 	if (!(adreno_dev->ringbuffer.flags & KGSL_FLAGS_STARTED) ||
-	      context == NULL)
+	      context == NULL || ibdesc == 0 || numibs == 0)
 		return -EINVAL;
 
-	BUG_ON(ibdesc == 0);
-	BUG_ON(numibs == 0);
+	drawctxt = context->devctxt;
 
 	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG) {
 		KGSL_CTXT_WARN(device, "Context %p caused a gpu hang.."
