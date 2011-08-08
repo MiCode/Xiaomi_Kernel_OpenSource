@@ -1260,6 +1260,13 @@ config MSM_SMD_LOGGING
 
 	  If in doubt, say yes.
 
+config MSM_IPC_LOGGING
+	bool "MSM Debug Logging for IPC Drivers"
+	help
+	  This option allows the debug logging for IPC Drivers.
+
+	  If in doubt, say no.
+
 config MSM_SMD_NMEA
 	bool "NMEA GPS Driver"
 	depends on MSM_SMD
