@@ -1501,26 +1501,25 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	if (!entry) {
 		KGSL_CORE_ERR("invalid gpuaddr %08x\n", param->gpuaddr);
 		result = -EINVAL;
-	} else {
-		if (!entry->memdesc.hostptr)
-			entry->memdesc.hostptr =
+		goto done;
+	}
+	if (!entry->memdesc.hostptr)
+		entry->memdesc.hostptr =
 				kgsl_gpuaddr_to_vaddr(&entry->memdesc,
 					param->gpuaddr, &entry->memdesc.size);
 
-		if (!entry->memdesc.hostptr) {
-			KGSL_CORE_ERR("invalid hostptr with gpuaddr %08x\n",
-				param->gpuaddr);
+	if (!entry->memdesc.hostptr) {
+		KGSL_CORE_ERR("invalid hostptr with gpuaddr %08x\n",
+			param->gpuaddr);
 			goto done;
-		}
-
-		kgsl_cache_range_op(&entry->memdesc, KGSL_CACHE_OP_CLEAN);
-
-		/* Statistics - keep track of how many flushes each process
-		   does */
-		private->stats.flushes++;
 	}
-	spin_unlock(&private->mem_lock);
+
+	kgsl_cache_range_op(&entry->memdesc, KGSL_CACHE_OP_CLEAN);
+
+	/* Statistics - keep track of how many flushes each process does */
+	private->stats.flushes++;
 done:
+	spin_unlock(&private->mem_lock);
 	return result;
 }
 
