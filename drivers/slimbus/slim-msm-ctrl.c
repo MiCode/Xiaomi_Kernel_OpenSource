@@ -411,6 +411,23 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 			 */
 			mb();
 			complete(&dev->rx_msgq_notify);
+		} else if (mc == SLIM_MSG_MC_REPORT_INFORMATION) {
+			u8 *buf = (u8 *)rx_buf;
+			u8 l_addr = buf[2];
+			u16 ele = (u16)buf[4] << 4;
+			ele |= ((buf[3] & 0xf0) >> 4);
+			dev_err(dev->dev, "Slim-dev:%d report inf element:0x%x",
+					l_addr, ele);
+			for (i = 0; i < len - 5; i++)
+				dev_err(dev->dev, "offset:0x%x:bit mask:%x",
+						i, buf[i+5]);
+			writel_relaxed(MGR_INT_RX_MSG_RCVD, dev->base +
+						MGR_INT_CLR);
+			/*
+			 * Guarantee that CLR bit write goes through
+			 * before exiting
+			 */
+			mb();
 		} else {
 			dev_err(dev->dev, "Unexpected MC,%x MT:%x, len:%d",
 						mc, mt, len);
@@ -742,6 +759,26 @@ static int msm_set_laddr(struct slim_controller *ctrl, const u8 *ea,
 	return timeout ? dev->err : -ETIMEDOUT;
 }
 
+static int msm_clk_pause_wakeup(struct slim_controller *ctrl)
+{
+	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	clk_enable(dev->rclk);
+	writel_relaxed(1, dev->base + FRM_WAKEUP);
+	/* Make sure framer wakeup write goes through before exiting function */
+	mb();
+	/*
+	 * Workaround: Currently, slave is reporting lost-sync messages
+	 * after slimbus comes out of clock pause.
+	 * Transaction with slave fail before slave reports that message
+	 * Give some time for that report to come
+	 * Slimbus wakes up in clock gear 10 at 24.576MHz. With each superframe
+	 * being 250 usecs, we wait for 20 superframes here to ensure
+	 * we get the message
+	 */
+	usleep_range(5000, 5000);
+	return 0;
+}
+
 static int msm_config_port(struct slim_controller *ctrl, u8 pn)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
@@ -890,6 +927,15 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 			dev_dbg(dev->dev, "tid:%d, len:%d\n", tid, len - 4);
 			slim_msg_response(&dev->ctrl, &buf[4], tid,
 						len - 4);
+		} else if (mc == SLIM_MSG_MC_REPORT_INFORMATION) {
+			u8 l_addr = buf[2];
+			u16 ele = (u16)buf[4] << 4;
+			ele |= ((buf[3] & 0xf0) >> 4);
+			dev_err(dev->dev, "Slim-dev:%d report inf element:0x%x",
+					l_addr, ele);
+			for (i = 0; i < len - 5; i++)
+				dev_err(dev->dev, "offset:0x%x:bit mask:%x",
+						i, buf[i+5]);
 		} else {
 			dev_err(dev->dev, "unexpected message:mc:%x, mt:%x",
 					mc, mt);
@@ -1493,6 +1539,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	dev->ctrl.nports = MSM_SLIM_NPORTS;
 	dev->ctrl.set_laddr = msm_set_laddr;
 	dev->ctrl.xfer_msg = msm_xfer_msg;
+	dev->ctrl.wakeup =  msm_clk_pause_wakeup;
 	dev->ctrl.config_port = msm_config_port;
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
@@ -1576,7 +1623,6 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	wmb();
 
 	/* Framer register initialization */
-	writel_relaxed(1, dev->base + FRM_WAKEUP);
 	writel_relaxed((0xA << REF_CLK_GEAR) | (0xA << CLK_GEAR) |
 		(1 << ROOT_FREQ) | (1 << FRM_ACTIVE) | 1,
 		dev->base + FRM_CFG);
@@ -1677,27 +1723,44 @@ static int msm_slim_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
-
-	/* Make sure we are not transmitting anything */
+	int ret = slim_ctrl_clk_pause(&dev->ctrl, false, SLIM_CLK_UNSPECIFIED);
+	/* Make sure clock pause goes through */
 	mutex_lock(&dev->tx_lock);
-	if (dev->reconf_busy) {
+	if (!ret && dev->reconf_busy) {
 		wait_for_completion(&dev->reconf);
 		dev->reconf_busy = false;
 	}
-	dev->suspended = 1;
 	mutex_unlock(&dev->tx_lock);
-	clk_disable(dev->rclk);
-	disable_irq(dev->irq);
-	return 0;
+	if (!ret) {
+		clk_disable(dev->rclk);
+		disable_irq(dev->irq);
+		dev->suspended = 1;
+	} else if (ret == -EBUSY) {
+		/*
+		 * If the clock pause failed due to active channels, there is
+		 * a possibility that some audio stream is active during suspend
+		 * We dont want to return suspend failure in that case so that
+		 * display and relevant components can still go to suspend.
+		 * If there is some other error, then it should be passed-on
+		 * to system level suspend
+		 */
+		ret = 0;
+	}
+	return ret;
 }
 
 static int msm_slim_resume(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
-	enable_irq(dev->irq);
-	clk_enable(dev->rclk);
-	dev->suspended = 0;
+	mutex_lock(&dev->tx_lock);
+	if (dev->suspended) {
+		dev->suspended = 0;
+		mutex_unlock(&dev->tx_lock);
+		enable_irq(dev->irq);
+		return slim_ctrl_clk_pause(&dev->ctrl, true, 0);
+	}
+	mutex_unlock(&dev->tx_lock);
 	return 0;
 }
 #else
