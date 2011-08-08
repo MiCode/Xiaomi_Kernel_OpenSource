@@ -162,7 +162,7 @@ static struct resource resources_otg[] = {
 	},
 };
 
-struct platform_device msm_device_otg = {
+struct platform_device apq8064_device_otg = {
 	.name		= "msm_otg",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(resources_otg),
@@ -185,7 +185,7 @@ static struct resource resources_hsusb[] = {
 	},
 };
 
-struct platform_device msm_device_gadget_peripheral = {
+struct platform_device apq8064_device_gadget_peripheral = {
 	.name		= "msm_hsusb",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(resources_hsusb),

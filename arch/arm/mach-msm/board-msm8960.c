@@ -2223,7 +2223,8 @@ static void msm_hsusb_vbus_power(bool on)
 		return;
 
 	if (on) {
-		mvs_otg_switch = regulator_get(&msm_device_otg.dev, "vbus_otg");
+		mvs_otg_switch = regulator_get(&msm8960_device_otg.dev,
+					       "vbus_otg");
 		if (IS_ERR(mvs_otg_switch)) {
 			pr_err("Unable to get mvs_otg_switch\n");
 			return;
@@ -2326,7 +2327,7 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
-struct platform_device android_usb_device = {
+static struct platform_device android_usb_device = {
 	.name	= "android_usb",
 	.id	= -1,
 	.dev	= {
@@ -2735,8 +2736,8 @@ static struct platform_device *common_devices[] __initdata = {
 };
 
 static struct platform_device *sim_devices[] __initdata = {
-	&msm_device_otg,
-	&msm_device_gadget_peripheral,
+	&msm8960_device_otg,
+	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
 	&android_usb_device,
 	&msm_device_vidc,
@@ -2783,8 +2784,8 @@ static struct platform_device *rumi3_devices[] __initdata = {
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
-	&msm_device_otg,
-	&msm_device_gadget_peripheral,
+	&msm8960_device_otg,
+	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
 	&android_usb_device,
 	&msm_pcm,
@@ -3383,9 +3384,9 @@ static void __init msm8960_sim_init(void)
 	/* Simulator supports a QWERTY keypad */
 	pm8921_platform_data.keypad_pdata = &keypad_data_sim;
 
-	msm_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
-	msm_device_hsusb_host.dev.parent = &msm_device_otg.dev;
+	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
+	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
+	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
 	ethernet_init();
 	msm8960_i2c_init();
@@ -3459,9 +3460,9 @@ static void __init msm8960_cdp_init(void)
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
 	msm8960_clock_init();
-	msm_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
-	msm_device_hsusb_host.dev.parent = &msm_device_otg.dev;
+	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
+	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
+	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
 	ethernet_init();
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
