@@ -66,18 +66,29 @@ int chip_power_qrf6285(bool on)
 			WLAN_GPIO_EXT_POR_N, rc);
 			goto fail_gpio_dir_out;
 		}
+		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A0,
+					PMAPP_CLOCK_VOTE_ON);
+		if (rc) {
+			pr_err("%s: Configuring A0 to always"
+			" on failed %d\n", __func__, rc);
+			goto clock_vote_fail;
+		}
 	} else {
 		gpio_set_value_cansleep(WLAN_GPIO_EXT_POR_N, 0);
+		rc = gpio_direction_input(WLAN_GPIO_EXT_POR_N);
+		if (rc) {
+			pr_err("WLAN reset GPIO %d set direction failed %d\n",
+			WLAN_GPIO_EXT_POR_N, rc);
+		}
 		gpio_free(WLAN_GPIO_EXT_POR_N);
+		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A0,
+					PMAPP_CLOCK_VOTE_OFF);
+		if (rc) {
+			pr_err("%s: Configuring A0 to turn OFF"
+			" failed %d\n", __func__, rc);
+		}
 	}
 
-	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A0,
-				PMAPP_CLOCK_VOTE_ON);
-	if (rc) {
-		pr_err("%s: Configuring A0 to always"
-		" on failed %d\n", __func__, rc);
-		goto vreg_clock_vote_fail;
-	}
 
 	for (index = 0; index < ARRAY_SIZE(vreg_info); index++) {
 		vreg_info[index].vreg = vreg_get(NULL,
@@ -173,6 +184,13 @@ vreg_clock_vote_fail:
 	}
 	if (!on)
 		goto fail;
+clock_vote_fail:
+	gpio_set_value_cansleep(WLAN_GPIO_EXT_POR_N, 0);
+	rc = gpio_direction_input(WLAN_GPIO_EXT_POR_N);
+	if (rc) {
+		pr_err("WLAN reset GPIO %d set direction failed %d\n",
+			WLAN_GPIO_EXT_POR_N, rc);
+	}
 fail_gpio_dir_out:
 	gpio_free(WLAN_GPIO_EXT_POR_N);
 fail:
