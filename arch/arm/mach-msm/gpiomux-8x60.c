@@ -187,7 +187,7 @@ static struct gpiomux_setting sdcc2_clk_actv_cfg = {
 static struct gpiomux_setting sdcc2_suspend_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting sdcc5_dat_0_3_cmd_actv_cfg = {
@@ -205,7 +205,7 @@ static struct gpiomux_setting sdcc5_clk_actv_cfg = {
 static struct gpiomux_setting sdcc5_suspend_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting aux_pcm_active_config = {
