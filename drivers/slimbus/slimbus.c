@@ -429,6 +429,7 @@ static int slim_register_controller(struct slim_controller *ctrl)
 #ifdef DEBUG
 	ctrl->sched.slots = kzalloc(SLIM_SL_PER_SUPERFRAME, GFP_KERNEL);
 #endif
+	init_completion(&ctrl->pause_comp);
 	/*
 	 * If devices on a controller were registered before controller,
 	 * this will make sure that they get probed now that controller is up
@@ -891,6 +892,10 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 	cur = slim_slicecodefromsize(sl);
 	ec = ((sl | (1 << 3)) | ((msg->start_offset & 0xFFF) << 4));
 
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
+
 	if (wbuf)
 		mlen += len;
 	if (rbuf) {
@@ -1107,6 +1112,10 @@ int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc, u32 sinkh,
 	u8 chan = (u8)(chanh & 0xFF);
 	struct slim_ich *slc = &ctrl->chans[chan];
 
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
+
 	mutex_lock(&ctrl->m_ctrl);
 	/* Make sure the channel is not already pending reconf. or active */
 	if (slc->state >= SLIM_CH_PENDING_ACTIVE) {
@@ -1125,6 +1134,7 @@ int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc, u32 sinkh,
 		ret = -ENOMEM;
 		goto connect_port_err;
 	}
+
 	/* connect source */
 	for (j = 0; j < nsrc; j++) {
 		ret = connect_port_ch(ctrl, chan, srch[j], SLIM_SRC);
@@ -1168,8 +1178,13 @@ EXPORT_SYMBOL_GPL(slim_connect_ports);
 int slim_disconnect_ports(struct slim_device *sb, u32 *ph, int nph)
 {
 	struct slim_controller *ctrl = sb->ctrl;
-	int i;
+	int i, ret;
+
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
 	mutex_lock(&ctrl->m_ctrl);
+
 	for (i = 0; i < nph; i++)
 		disconnect_port_ch(ctrl, ph[i]);
 	mutex_unlock(&ctrl->m_ctrl);
@@ -2204,9 +2219,17 @@ static int slim_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	dev_dbg(&ctrl->dev, "pending:chan sl:%u, :msg sl:%u, clkgear:%u\n",
 				ctrl->sched.usedslots,
 				ctrl->sched.pending_msgsl, *clkgear);
-	while ((usedsl * 2 <= availsl) && (*clkgear > ctrl->min_cg)) {
-		*clkgear -= 1;
-		usedsl *= 2;
+	/*
+	 * If number of slots are 0, that means channels are inactive.
+	 * It is very likely that the manager will call clock pause very soon.
+	 * By making sure that bus is in MAX_GEAR, clk pause sequence will take
+	 * minimum amount of time.
+	 */
+	if (ctrl->sched.usedslots != 0) {
+		while ((usedsl * 2 <= availsl) && (*clkgear > ctrl->min_cg)) {
+			*clkgear -= 1;
+			usedsl *= 2;
+		}
 	}
 
 	/*
@@ -2350,6 +2373,10 @@ int slim_reconfigure_now(struct slim_device *sb)
 	u32 expshft;
 	u32 segdist;
 	struct slim_pending_ch *pch;
+
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
 
 	mutex_lock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
@@ -2652,6 +2679,123 @@ int slim_reservemsg_bw(struct slim_device *sb, u32 bw_bps, bool commit)
 }
 EXPORT_SYMBOL_GPL(slim_reservemsg_bw);
 
+/*
+ * slim_ctrl_clk_pause: Called by slimbus controller to request clock to be
+ *	paused or woken up out of clock pause
+ * or woken up from clock pause
+ * @ctrl: controller requesting bus to be paused or woken up
+ * @wakeup: Wakeup this controller from clock pause.
+ * @restart: Restart time value per spec used for clock pause. This value
+ *	isn't used when controller is to be woken up.
+ * This API executes clock pause reconfiguration sequence if wakeup is false.
+ * If wakeup is true, controller's wakeup is called
+ * Slimbus clock is idle and can be disabled by the controller later.
+ */
+int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
+{
+	int ret = 0;
+	int i;
+
+	if (wakeup == false && restart > SLIM_CLK_UNSPECIFIED)
+		return -EINVAL;
+	mutex_lock(&ctrl->m_ctrl);
+	if (wakeup) {
+		if (ctrl->clk_state == SLIM_CLK_ACTIVE) {
+			mutex_unlock(&ctrl->m_ctrl);
+			return 0;
+		}
+		wait_for_completion(&ctrl->pause_comp);
+		/*
+		 * Slimbus framework will call controller wakeup
+		 * Controller should make sure that it sets active framer
+		 * out of clock pause by doing appropriate setting
+		 */
+		if (ctrl->clk_state == SLIM_CLK_PAUSED && ctrl->wakeup)
+			ret = ctrl->wakeup(ctrl);
+		if (!ret)
+			ctrl->clk_state = SLIM_CLK_ACTIVE;
+		mutex_unlock(&ctrl->m_ctrl);
+		return ret;
+	} else {
+		switch (ctrl->clk_state) {
+		case SLIM_CLK_ENTERING_PAUSE:
+		case SLIM_CLK_PAUSE_FAILED:
+			/*
+			 * If controller is already trying to enter clock pause,
+			 * let it finish.
+			 * In case of error, retry
+			 * In both cases, previous clock pause has signalled
+			 * completion.
+			 */
+			wait_for_completion(&ctrl->pause_comp);
+			/* retry upon failure */
+			if (ctrl->clk_state == SLIM_CLK_PAUSE_FAILED) {
+				ctrl->clk_state = SLIM_CLK_ACTIVE;
+				break;
+			} else {
+				mutex_unlock(&ctrl->m_ctrl);
+				/*
+				 * Signal completion so that wakeup can wait on
+				 * it.
+				 */
+				complete(&ctrl->pause_comp);
+				return 0;
+			}
+			break;
+		case SLIM_CLK_PAUSED:
+			/* already paused */
+			mutex_unlock(&ctrl->m_ctrl);
+			return 0;
+		case SLIM_CLK_ACTIVE:
+		default:
+			break;
+		}
+	}
+	/* Pending response for a message */
+	for (i = 0; i < ctrl->last_tid; i++) {
+		if (ctrl->txnt[i]) {
+			ret = -EBUSY;
+			mutex_unlock(&ctrl->m_ctrl);
+			return -EBUSY;
+		}
+	}
+	ctrl->clk_state = SLIM_CLK_ENTERING_PAUSE;
+	mutex_unlock(&ctrl->m_ctrl);
+
+	mutex_lock(&ctrl->sched.m_reconf);
+	/* Data channels active */
+	if (ctrl->sched.usedslots) {
+		ret = -EBUSY;
+		goto clk_pause_ret;
+	}
+
+	ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
+			SLIM_MSG_MC_BEGIN_RECONFIGURATION, 0, SLIM_MSG_MT_CORE,
+			NULL, NULL, 0, 3, NULL, 0, NULL);
+	if (ret)
+		goto clk_pause_ret;
+
+		ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
+			SLIM_MSG_MC_NEXT_PAUSE_CLOCK, 0, SLIM_MSG_MT_CORE,
+			NULL, &restart, 1, 4, NULL, 0, NULL);
+	if (ret)
+		goto clk_pause_ret;
+
+	ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
+			SLIM_MSG_MC_RECONFIGURE_NOW, 0, SLIM_MSG_MT_CORE,
+			NULL, NULL, 0, 3, NULL, 0, NULL);
+	if (ret)
+		goto clk_pause_ret;
+
+clk_pause_ret:
+	if (ret)
+		ctrl->clk_state = SLIM_CLK_PAUSE_FAILED;
+	else
+		ctrl->clk_state = SLIM_CLK_PAUSED;
+	complete(&ctrl->pause_comp);
+	mutex_unlock(&ctrl->sched.m_reconf);
+	return ret;
+}
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.1");

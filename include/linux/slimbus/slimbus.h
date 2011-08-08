@@ -89,6 +89,11 @@ extern struct bus_type slimbus_type;
 #define SLIM_MSG_MC_REPLY_VALUE                  0x64
 #define SLIM_MSG_MC_CHANGE_VALUE                 0x68
 
+/* Clock pause values defined in Table 66 (slimbus spec 1.01.01) */
+#define SLIM_CLK_FAST				0
+#define SLIM_CLK_CONST_PHASE			1
+#define SLIM_CLK_UNSPECIFIED			2
+
 struct slim_controller;
 struct slim_device;
 
@@ -418,6 +423,24 @@ struct slim_sched {
 };
 
 /*
+ * enum slim_clk_state: Slimbus controller's clock state used internally for
+ *	maintaining current clock state.
+ * @SLIM_CLK_ACTIVE: Slimbus clock is active
+ * @SLIM_CLK_PAUSE_FAILED: Slimbus controlled failed to go in clock pause.
+ *	Hardware-wise, this state is same as active but controller will wait on
+ *	completion before making transition to SLIM_CLK_ACTIVE in framework
+ * @SLIM_CLK_ENTERING_PAUSE: Slimbus clock pause sequence is being sent on the
+ *	bus. If this succeeds, state changes to SLIM_CLK_PAUSED. If the
+ *	transition fails, state changes to SLIM_CLK_PAUSE_FAILED
+ * @SLIM_CLK_PAUSED: Slimbus controller clock has paused.
+ */
+enum slim_clk_state {
+	SLIM_CLK_ACTIVE,
+	SLIM_CLK_ENTERING_PAUSE,
+	SLIM_CLK_PAUSE_FAILED,
+	SLIM_CLK_PAUSED,
+};
+/*
  * struct slim_controller: Represents manager for a SlimBUS
  *				(similar to 'master' on I2C)
  * @dev: Device interface to this driver
@@ -427,6 +450,10 @@ struct slim_sched {
  * @clkgear: Current clock gear in which this bus is running
  * @min_cg: Minimum clock gear supported by this controller (default value: 1)
  * @max_cg: Maximum clock gear supported by this controller (default value: 10)
+ * @clk_state: Controller's clock state from enum slim_clk_state
+ * @pause_comp: Signals completion of clock pause sequence. This is useful when
+ *	client tries to call slimbus transaction when controller may be entering
+ *	clock pause.
  * @a_framer: Active framer which is clocking the bus managed by this controller
  * @m_ctrl: Mutex protecting controller data structures (ports, channels etc)
  * @addrt: Logical address table
@@ -446,6 +473,9 @@ struct slim_sched {
  * @set_laddr: Setup logical address at laddr for the slave with elemental
  *	address e_addr. Drivers implementing controller will be expected to
  *	send unicast message to this device with its logical address.
+ * @wakeup: This function pointer implements controller-specific procedure
+ *	to wake it up from clock-pause. Framework will call this to bring
+ *	the controller out of clock pause.
  * @config_port: Configure a port and make it ready for data transfer. This is
  *	called by framework after connect_port message is sent successfully.
  * @framer_handover: If this controller has multiple framers, this API will
@@ -466,6 +496,8 @@ struct slim_controller {
 	int			clkgear;
 	int			min_cg;
 	int			max_cg;
+	enum slim_clk_state	clk_state;
+	struct completion	pause_comp;
 	struct slim_framer	*a_framer;
 	struct mutex		m_ctrl;
 	struct slim_addrt	*addrt;
@@ -482,6 +514,7 @@ struct slim_controller {
 				struct slim_msg_txn *txn);
 	int			(*set_laddr)(struct slim_controller *ctrl,
 				const u8 *ea, u8 elen, u8 laddr);
+	int			(*wakeup)(struct slim_controller *ctrl);
 	int			(*config_port)(struct slim_controller *ctrl,
 				u8 port);
 	int			(*framer_handover)(struct slim_controller *ctrl,
@@ -827,6 +860,20 @@ extern int slim_reservemsg_bw(struct slim_device *sb, u32 bw_bps, bool commit);
  * progress.
  */
 extern int slim_reconfigure_now(struct slim_device *sb);
+
+/*
+ * slim_ctrl_clk_pause: Called by slimbus controller to request clock to be
+ *	paused or woken up out of clock pause
+ * @ctrl: controller requesting bus to be paused or woken up
+ * @wakeup: Wakeup this controller from clock pause.
+ * @restart: Restart time value per spec used for clock pause. This value
+ *	isn't used when controller is to be woken up.
+ * This API executes clock pause reconfiguration sequence if wakeup is false.
+ * If wakeup is true, controller's wakeup is called
+ * Slimbus clock is idle and can be disabled by the controller later.
+ */
+extern int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup,
+		u8 restart);
 
 /*
  * slim_driver_register: Client driver registration with slimbus
