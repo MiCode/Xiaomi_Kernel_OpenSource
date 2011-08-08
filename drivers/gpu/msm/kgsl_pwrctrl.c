@@ -336,7 +336,10 @@ void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
 			KGSL_PWR_INFO(device,
 				"irq off, device %d\n", device->id);
 			device->ftbl->irqctrl(device, 0);
-			disable_irq(pwr->interrupt_num);
+			if (in_interrupt())
+				disable_irq_nosync(pwr->interrupt_num);
+			else
+				disable_irq(pwr->interrupt_num);
 		}
 	}
 }

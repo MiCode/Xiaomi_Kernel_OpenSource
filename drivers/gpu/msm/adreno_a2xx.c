@@ -1556,6 +1556,9 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 		adreno_regwrite(device, REG_CP_INT_CNTL, 0);
 		adreno_regwrite(device, MH_INTERRUPT_MASK, 0);
 	}
+
+	/* Force the writes to post before touching the IRQ line */
+	wmb();
 }
 
 struct adreno_gpudev adreno_a2xx_gpudev = {
