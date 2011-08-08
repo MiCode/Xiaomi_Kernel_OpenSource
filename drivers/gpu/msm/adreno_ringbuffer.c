@@ -183,6 +183,7 @@ static int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 		if (len % ((sizeof(uint32_t) * 3)) != sizeof(uint32_t)) {
 			KGSL_DRV_ERR(device, "Bad firmware size: %d\n", len);
 			ret = -EINVAL;
+			kfree(ptr);
 			goto err;
 		}
 
@@ -220,6 +221,7 @@ static int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 		if (len % sizeof(uint32_t) != 0) {
 			KGSL_DRV_ERR(device, "Bad firmware size: %d\n", len);
 			ret = -EINVAL;
+			kfree(ptr);
 			goto err;
 		}
 
