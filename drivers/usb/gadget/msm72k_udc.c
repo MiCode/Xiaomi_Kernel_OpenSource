@@ -121,11 +121,13 @@ struct msm_endpoint {
 	/* pointers to DMA transfer list area */
 	/* these are allocated from the usb_info dma space */
 	struct ept_queue_head *head;
+	struct timer_list prime_timer;
 };
 
 /* PHY status check timer to monitor phy stuck up on reset */
 static struct timer_list phy_status_timer;
 
+static void ept_prime_timer_func(unsigned long data);
 static void usb_do_work(struct work_struct *w);
 static void usb_do_remote_wakeup(struct work_struct *w);
 
@@ -144,6 +146,7 @@ static void usb_do_remote_wakeup(struct work_struct *w);
 #define USB_CHG_DET_DELAY	msecs_to_jiffies(1000)
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(1000)
 #define PHY_STATUS_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
+#define EPT_PRIME_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 
 struct usb_info {
 	/* lock for register/queue/device state changes */
@@ -191,6 +194,7 @@ struct usb_info {
 	struct work_struct work;
 	unsigned phy_status;
 	unsigned phy_fail_count;
+	unsigned prime_fail_count;
 
 	struct usb_gadget		gadget;
 	struct usb_gadget_driver	*driver;
@@ -471,6 +475,8 @@ static void init_endpoints(struct usb_info *ui)
 			ept->head = ui->head + (ept->num << 1);
 			ept->flags = 0;
 		}
+		setup_timer(&ept->prime_timer, ept_prime_timer_func,
+			(unsigned long) ept);
 
 	}
 }
@@ -569,14 +575,50 @@ static void usb_ept_enable(struct msm_endpoint *ept, int yes,
 	       ept->num, in ? "in" : "out", yes ? "enabled" : "disabled");
 }
 
+static void ept_prime_timer_func(unsigned long data)
+{
+	struct msm_endpoint *ept = (struct msm_endpoint *)data;
+	struct usb_info *ui = ept->ui;
+	unsigned n = 1 << ept->bit;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ui->lock, flags);
+
+	if ((readl_relaxed(USB_ENDPTPRIME) & n)) {
+		/*
+		 * ---- UNLIKELY ---
+		 * May be hardware is taking long time to process the
+		 * prime request. Or could be intermittent priming and
+		 * previous dTD is not fired yet.
+		 */
+		mod_timer(&ept->prime_timer, EPT_PRIME_CHECK_DELAY);
+		goto out;
+	}
+	if (readl_relaxed(USB_ENDPTSTAT) & n)
+		goto out;
+
+	/* clear speculative loads on item->info */
+	rmb();
+	if (ept->req && (ept->req->item->info & INFO_ACTIVE)) {
+		ui->prime_fail_count++;
+		pr_err("%s(): ept%d%s prime failed. ept: config: %x"
+				"active: %x next: %x info: %x\n",
+				__func__, ept->num,
+				ept->flags & EPT_FLAG_IN ? "in" : "out",
+				ept->head->config, ept->head->active,
+				ept->head->next, ept->head->info);
+		writel_relaxed(n, USB_ENDPTPRIME);
+		mod_timer(&ept->prime_timer, EPT_PRIME_CHECK_DELAY);
+	}
+out:
+	spin_unlock_irqrestore(&ui->lock, flags);
+}
+
 static void usb_ept_start(struct msm_endpoint *ept)
 {
 	struct usb_info *ui = ept->ui;
 	struct msm_request *req = ept->req;
-	struct msm_request *f_req = ept->req;
 	unsigned n = 1 << ept->bit;
-	unsigned info;
-	int reprime_cnt = 0;
 
 	BUG_ON(req->live);
 
@@ -603,37 +645,17 @@ static void usb_ept_start(struct msm_endpoint *ept)
 	ept->head->next = ept->req->item_dma;
 	ept->head->info = 0;
 
-reprime_ept:
 	/* flush buffers before priming ept */
 	mb();
 	/* during high throughput testing it is observed that
-	 * ept stat bit is not set even thoguh all the data
+	 * ept stat bit is not set even though all the data
 	 * structures are updated properly and ept prime bit
-	 * is set. To workaround the issue, use dTD INFO bit
-	 * to make decision on re-prime or not.
+	 * is set. To workaround the issue, kick a timer and
+	 * make decision on re-prime. We can do a busy loop here
+	 * but it leads to high cpu usage.
 	 */
 	writel_relaxed(n, USB_ENDPTPRIME);
-	/* busy wait till endptprime gets clear */
-	while ((readl_relaxed(USB_ENDPTPRIME) & n))
-		;
-	if (readl_relaxed(USB_ENDPTSTAT) & n)
-		return;
-
-	rmb();
-	info = f_req->item->info;
-	if (info & INFO_ACTIVE) {
-		if (reprime_cnt++ < 3)
-			goto reprime_ept;
-		else
-			pr_err("%s(): ept%d%s prime failed. ept: config: %x"
-				"active: %x next: %x info: %x\n"
-				" req@ %x next: %x info: %x\n",
-				__func__, ept->num,
-				ept->flags & EPT_FLAG_IN ? "in" : "out",
-				ept->head->config, ept->head->active,
-				ept->head->next, ept->head->info,
-				f_req->item_dma, f_req->item->next, info);
-	}
+	mod_timer(&ept->prime_timer, EPT_PRIME_CHECK_DELAY);
 }
 
 int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
@@ -1081,6 +1103,7 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 		ept->req, ept->req ? ept->req->item_dma : 0);
 	*/
 
+	del_timer(&ept->prime_timer);
 	/* expire all requests that are no longer active */
 	spin_lock_irqsave(&ui->lock, flags);
 	while ((req = ept->req)) {
@@ -1191,6 +1214,7 @@ static void flush_endpoint_sw(struct msm_endpoint *ept)
 
 static void flush_endpoint(struct msm_endpoint *ept)
 {
+	del_timer(&ept->prime_timer);
 	flush_endpoint_hw(ept->ui, (1 << ept->bit));
 	flush_endpoint_sw(ept);
 }
@@ -1845,6 +1869,35 @@ const struct file_operations debug_wlocks_ops = {
 	.read = debug_read_release_wlocks,
 	.write = debug_write_release_wlocks,
 };
+
+static ssize_t debug_prime_fail_read(struct file *file, char __user *ubuf,
+				 size_t count, loff_t *ppos)
+{
+	struct usb_info *ui = file->private_data;
+	char kbuf[10];
+	size_t c = 0;
+
+	memset(kbuf, 0, 10);
+
+	c = scnprintf(kbuf, 10, "%d", ui->prime_fail_count);
+
+	if (copy_to_user(ubuf, kbuf, c))
+		return -EFAULT;
+
+	return c;
+}
+
+static int debug_prime_fail_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+const struct file_operations prime_fail_ops = {
+	.open = debug_prime_fail_open,
+	.read = debug_prime_fail_read,
+};
+
 static void usb_debugfs_init(struct usb_info *ui)
 {
 	struct dentry *dent;
@@ -1857,6 +1910,8 @@ static void usb_debugfs_init(struct usb_info *ui)
 	debugfs_create_file("cycle", 0222, dent, ui, &debug_cycle_ops);
 	debugfs_create_file("release_wlocks", 0666, dent, ui,
 						&debug_wlocks_ops);
+	debugfs_create_file("prime_fail_countt", 0222, dent, ui,
+						&prime_fail_ops);
 }
 #else
 static void usb_debugfs_init(struct usb_info *ui) {}
@@ -1948,6 +2003,7 @@ static int msm72k_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 		spin_unlock_irqrestore(&ui->lock, flags);
 		return -EINVAL;
 	}
+	del_timer(&ep->prime_timer);
 	/* Stop the transfer */
 	do {
 		writel((1 << ep->bit), USB_ENDPTFLUSH);
