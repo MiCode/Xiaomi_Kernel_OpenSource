@@ -330,6 +330,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_COMMSCONFIG_T18:
 	case MXT_SPT_GPIOPWM_T19:
 	case MXT_SPT_SELFTEST_T25:
+	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_CTECONFIG_T28:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
