@@ -138,6 +138,9 @@
 #define MSM_CAM_IOCTL_V4L2_EVT_NOTIFY \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct v4l2_event *)
 
+#define MSM_CAM_IOCTL_SET_MEM_MAP_INFO \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 42, struct msm_mem_map_info *)
+
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
 #define MSM_CAMERA_LED_HIGH 2
@@ -416,6 +419,11 @@ struct msm_mmap_entry {
 	uint32_t vnode_idx;	/* dev node idx */
 	uint32_t phy_addr;	/* phy address: TBD: to be dropped */
 	uint32_t idx;		/* v4l2 buffer index */
+};
+
+struct msm_mem_map_info {
+	uint32_t cookie;
+	uint32_t length;
 };
 
 #define MSM_MEM_MMAP		0

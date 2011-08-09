@@ -310,6 +310,7 @@ struct msm_cam_config_dev {
 	int use_count;
 	/*struct msm_isp_ops* isp_subdev;*/
 	struct msm_cam_media_controller *p_mctl;
+	struct msm_mem_map_info mem_map;
 };
 
 /* abstract camera server device for all sensor successfully probed*/
@@ -333,7 +334,7 @@ struct msm_cam_server_dev {
 	uint8_t ctrl_data[max_control_command_size];
 	struct msm_ctrl_cmd ctrl;
 	int use_count;
-    /* all the registered ISP subdevice*/
+	/* all the registered ISP subdevice*/
 	struct msm_isp_ops *isp_subdev[MSM_MAX_CAMERA_CONFIGS];
 
 };
