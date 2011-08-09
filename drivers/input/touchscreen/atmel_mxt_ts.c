@@ -20,6 +20,7 @@
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <linux/regulator/consumer.h>
 
 /* Version */
 #define MXT_VER_20		20
@@ -166,6 +167,14 @@
 #define MXT_VOLTAGE_DEFAULT	2700000
 #define MXT_VOLTAGE_STEP	10000
 
+#define MXT_VTG_MIN_UV		2700000
+#define MXT_VTG_MAX_UV		3300000
+#define MXT_ACTIVE_LOAD_UA	15000
+
+#define MXT_I2C_VTG_MIN_UV	1800000
+#define MXT_I2C_VTG_MAX_UV	1800000
+#define MXT_I2C_LOAD_UA		10000
+
 /* Define for MXT_GEN_COMMAND */
 #define MXT_BOOT_VALUE		0xa5
 #define MXT_BACKUP_VALUE	0x55
@@ -251,6 +260,8 @@ struct mxt_data {
 	unsigned int irq;
 	unsigned int max_x;
 	unsigned int max_y;
+	struct regulator *vcc;
+	struct regulator *vcc_i2c;
 };
 
 static bool mxt_object_readable(unsigned int type)
@@ -1053,6 +1064,135 @@ static void mxt_input_close(struct input_dev *dev)
 	mxt_stop(data);
 }
 
+static int mxt_power_on(struct mxt_data *data, bool on)
+{
+	int rc;
+
+	if (on == false)
+		goto power_off;
+
+	rc = regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&data->client->dev, "Regulator set_opt failed rc=%d\n",
+									rc);
+		return rc;
+	}
+
+	rc = regulator_enable(data->vcc);
+	if (rc) {
+		dev_err(&data->client->dev, "Regulator enable failed rc=%d\n",
+									rc);
+		goto error_reg_en_vcc;
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		rc = regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator set_opt failed rc=%d\n", rc);
+			goto error_reg_opt_i2c;
+		}
+
+		rc = regulator_enable(data->vcc_i2c);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator enable failed rc=%d\n", rc);
+			goto error_reg_en_vcc_i2c;
+		}
+	}
+
+	msleep(50);
+
+	return 0;
+
+error_reg_en_vcc_i2c:
+	if (data->pdata->i2c_pull_up)
+		regulator_set_optimum_mode(data->vcc_i2c, 0);
+error_reg_opt_i2c:
+	regulator_disable(data->vcc);
+error_reg_en_vcc:
+	regulator_set_optimum_mode(data->vcc, 0);
+	return rc;
+
+power_off:
+	regulator_set_optimum_mode(data->vcc, 0);
+	regulator_disable(data->vcc);
+	if (data->pdata->i2c_pull_up) {
+		regulator_set_optimum_mode(data->vcc_i2c, 0);
+		regulator_disable(data->vcc_i2c);
+	}
+	msleep(50);
+	return 0;
+}
+
+static int mxt_regulator_configure(struct mxt_data *data, bool on)
+{
+	int rc;
+
+	if (on == false)
+		goto hw_shutdown;
+
+	data->vcc = regulator_get(&data->client->dev, "vdd");
+	if (IS_ERR(data->vcc)) {
+		rc = PTR_ERR(data->vcc);
+		dev_err(&data->client->dev, "Regulator get failed rc=%d\n",
+									rc);
+		return rc;
+	}
+
+	if (regulator_count_voltages(data->vcc) > 0) {
+		rc = regulator_set_voltage(data->vcc, MXT_VTG_MIN_UV,
+							MXT_VTG_MAX_UV);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"regulator set_vtg failed rc=%d\n", rc);
+			goto error_set_vtg_vcc;
+		}
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		data->vcc_i2c = regulator_get(&data->client->dev, "vcc_i2c");
+		if (IS_ERR(data->vcc_i2c)) {
+			rc = PTR_ERR(data->vcc_i2c);
+			dev_err(&data->client->dev,
+				"Regulator get failed rc=%d\n",	rc);
+			goto error_get_vtg_i2c;
+		}
+		if (regulator_count_voltages(data->vcc_i2c) > 0) {
+			rc = regulator_set_voltage(data->vcc_i2c,
+				MXT_I2C_VTG_MIN_UV, MXT_I2C_VTG_MAX_UV);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"regulator set_vtg failed rc=%d\n", rc);
+				goto error_set_vtg_i2c;
+			}
+		}
+	}
+
+	return 0;
+
+error_set_vtg_i2c:
+	regulator_put(data->vcc_i2c);
+error_get_vtg_i2c:
+	if (regulator_count_voltages(data->vcc) > 0)
+		regulator_set_voltage(data->vcc, 0, MXT_VTG_MAX_UV);
+error_set_vtg_vcc:
+	regulator_put(data->vcc);
+	return rc;
+
+hw_shutdown:
+	if (regulator_count_voltages(data->vcc) > 0)
+		regulator_set_voltage(data->vcc, 0, MXT_VTG_MAX_UV);
+	regulator_put(data->vcc);
+	if (data->pdata->i2c_pull_up) {
+		if (regulator_count_voltages(data->vcc_i2c) > 0)
+			regulator_set_voltage(data->vcc_i2c, 0,
+						MXT_I2C_VTG_MAX_UV);
+		regulator_put(data->vcc_i2c);
+	}
+	return 0;
+}
+
 static int __devinit mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -1107,15 +1247,33 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
+	if (pdata->init_hw)
+		error = pdata->init_hw(true);
+	else
+		error = mxt_regulator_configure(data, true);
+	if (error) {
+		dev_err(&client->dev, "Failed to intialize hardware\n");
+		goto err_free_object;
+	}
+
+	if (pdata->power_on)
+		error = pdata->power_on(true);
+	else
+		error = mxt_power_on(data, true);
+	if (error) {
+		dev_err(&client->dev, "Failed to power on hardware\n");
+		goto err_regulator_on;
+	}
+
 	error = mxt_initialize(data);
 	if (error)
-		goto err_free_object;
+		goto err_power_on;
 
 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
 			pdata->irqflags, client->dev.driver->name, data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err_free_object;
+		goto err_power_on;
 	}
 
 	error = mxt_make_highchg(data);
@@ -1137,6 +1295,16 @@ err_unregister_device:
 	input_dev = NULL;
 err_free_irq:
 	free_irq(client->irq, data);
+err_power_on:
+	if (pdata->power_on)
+		pdata->power_on(false);
+	else
+		mxt_power_on(data, false);
+err_regulator_on:
+	if (pdata->init_hw)
+		pdata->init_hw(false);
+	else
+		mxt_regulator_configure(data, false);
 err_free_object:
 	kfree(data->object_table);
 err_free_mem:
@@ -1152,6 +1320,17 @@ static int __devexit mxt_remove(struct i2c_client *client)
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
+
+	if (data->pdata->power_on)
+		data->pdata->power_on(false);
+	else
+		mxt_power_on(data, false);
+
+	if (data->pdata->init_hw)
+		data->pdata->init_hw(false);
+	else
+		mxt_regulator_configure(data, false);
+
 	kfree(data->object_table);
 	kfree(data);
 
