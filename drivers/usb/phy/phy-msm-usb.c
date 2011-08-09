@@ -1273,6 +1273,20 @@ static void msm_chg_block_off(struct msm_otg *motg)
 	ulpi_write(phy, func_ctrl, ULPI_FUNC_CTRL);
 }
 
+static const char *chg_to_string(enum usb_chg_type chg_type)
+{
+	switch (chg_type) {
+	case USB_SDP_CHARGER:		return "USB_SDP_CHARGER";
+	case USB_DCP_CHARGER:		return "USB_DCP_CHARGER";
+	case USB_CDP_CHARGER:		return "USB_CDP_CHARGER";
+	case USB_ACA_A_CHARGER:		return "USB_ACA_A_CHARGER";
+	case USB_ACA_B_CHARGER:		return "USB_ACA_B_CHARGER";
+	case USB_ACA_C_CHARGER:		return "USB_ACA_C_CHARGER";
+	case USB_ACA_DOCK_CHARGER:	return "USB_ACA_DOCK_CHARGER";
+	default:			return "INVALID_CHARGER";
+	}
+}
+
 #define MSM_CHG_DCD_POLL_TIME		(100 * HZ/1000) /* 100 msec */
 #define MSM_CHG_DCD_MAX_RETRIES		6 /* Tdcd_tmout = 6 * 100 msec */
 #define MSM_CHG_PRIMARY_DET_TIME	(40 * HZ/1000) /* TVDPSRC_ON */
@@ -1353,7 +1367,8 @@ static void msm_chg_detect_work(struct work_struct *w)
 		msm_chg_block_off(motg);
 		msm_chg_enable_aca_det(motg);
 		msm_chg_enable_aca_intr(motg);
-		dev_dbg(phy->dev, "charger = %d\n", motg->chg_type);
+		dev_dbg(phy->dev, "chg_type = %s\n",
+			chg_to_string(motg->chg_type));
 		schedule_work(&motg->sm_work);
 		return;
 	default:
@@ -1722,21 +1737,61 @@ const struct file_operations msm_otg_mode_fops = {
 	.release = single_release,
 };
 
+static int msm_otg_show_chg_type(struct seq_file *s, void *unused)
+{
+	struct msm_otg *motg = s->private;
+
+	seq_printf(s, chg_to_string(motg->chg_type));
+	return 0;
+}
+
+static int msm_otg_chg_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_otg_show_chg_type, inode->i_private);
+}
+
+const struct file_operations msm_otg_chg_fops = {
+	.open = msm_otg_chg_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static struct dentry *msm_otg_dbg_root;
 static struct dentry *msm_otg_dbg_mode;
+static struct dentry *msm_otg_chg_type;
 
 static int msm_otg_debugfs_init(struct msm_otg *motg)
 {
+
 	msm_otg_dbg_root = debugfs_create_dir("msm_otg", NULL);
 
 	if (!msm_otg_dbg_root || IS_ERR(msm_otg_dbg_root))
 		return -ENODEV;
 
-	msm_otg_dbg_mode = debugfs_create_file("mode", S_IRUGO | S_IWUSR,
-				msm_otg_dbg_root, motg, &msm_otg_mode_fops);
-	if (!msm_otg_dbg_mode) {
+	if (motg->pdata->mode == USB_OTG &&
+		motg->pdata->otg_control == OTG_USER_CONTROL) {
+
+		msm_otg_dbg_mode = debugfs_create_file("mode", S_IRUGO |
+			S_IWUSR, msm_otg_dbg_root, motg,
+			&msm_otg_mode_fops);
+
+		if (!msm_otg_dbg_mode) {
+			debugfs_remove(msm_otg_dbg_root);
+			msm_otg_dbg_root = NULL;
+			return -ENODEV;
+		}
+	}
+
+	msm_otg_chg_type = debugfs_create_file("chg_type", S_IRUGO,
+		msm_otg_dbg_root, motg,
+		&msm_otg_chg_fops);
+
+	if (!msm_otg_chg_type) {
+		debugfs_remove(msm_otg_dbg_mode);
 		debugfs_remove(msm_otg_dbg_root);
 		msm_otg_dbg_root = NULL;
+		msm_otg_dbg_mode = NULL;
 		return -ENODEV;
 	}
 
@@ -1745,8 +1800,7 @@ static int msm_otg_debugfs_init(struct msm_otg *motg)
 
 static void msm_otg_debugfs_cleanup(void)
 {
-	debugfs_remove(msm_otg_dbg_mode);
-	debugfs_remove(msm_otg_dbg_root);
+	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
 static int __init msm_otg_probe(struct platform_device *pdev)
@@ -1931,13 +1985,10 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	motg->mA_port = IUNIT;
 
-	if (motg->pdata->mode == USB_OTG &&
-			motg->pdata->otg_control == OTG_USER_CONTROL) {
-		ret = msm_otg_debugfs_init(motg);
-		if (ret)
-			dev_dbg(&pdev->dev, "mode debugfs file is"
-					"not available\n");
-	}
+	ret = msm_otg_debugfs_init(motg);
+	if (ret)
+		dev_dbg(&pdev->dev, "mode debugfs file is"
+			"not available\n");
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
