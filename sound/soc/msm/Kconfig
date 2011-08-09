@@ -113,6 +113,13 @@ config SND_SOC_MSM_QDSP6_INTF
 	help
 	 To add support for SoC audio on MSM8960.
 
+config SND_SOC_VOICE
+	bool "SoC Q6 voice driver for MSM8960"
+	depends on SND_SOC_MSM_QDSP6_INTF
+	default n
+	help
+	 To add support for SoC voice on MSM8960.
+
 config SND_SOC_QDSP6
 	tristate "SoC ALSA audio driver for QDSP6"
 	select SND_SOC_MSM_QDSP6_INTF
@@ -123,6 +130,7 @@ config SND_SOC_QDSP6
 config SND_SOC_MSM8960
 	tristate "SoC Machine driver for MSM8960 boards"
 	depends on ARCH_MSM8960
+	select SND_SOC_VOICE
 	select SND_SOC_QDSP6
 	select SND_SOC_MSM_STUB
 	select SND_SOC_WCD9310

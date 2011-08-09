@@ -59,7 +59,8 @@ obj-$(CONFIG_SND_SOC_MSM8X60) += snd-soc-msm8660-dma.o
 
 obj-$(CONFIG_SND_SOC_MSM_QDSP6_INTF) += qdsp6/
 
-snd-soc-qdsp6-objs := msm-dai-q6.o msm-pcm-q6.o msm-pcm-routing.o msm-dai-fe.o msm-pcm-voice.o msm-pcm-voip.o
+snd-soc-qdsp6-objs := msm-dai-q6.o msm-pcm-q6.o msm-pcm-routing.o msm-dai-fe.o
+obj-$(CONFIG_SND_SOC_VOICE) += msm-pcm-voice.o msm-pcm-voip.o
 snd-soc-qdsp6-objs += msm-pcm-lpa.o
 obj-$(CONFIG_SND_SOC_QDSP6) += snd-soc-qdsp6.o
 
