@@ -548,6 +548,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		isr = inpdw(MDP_DMA_P_HIST_INTR_STATUS);
 		mask = inpdw(MDP_DMA_P_HIST_INTR_ENABLE);
 		outpdw(MDP_DMA_P_HIST_INTR_CLEAR, isr);
+		mb();
 		isr &= mask;
 		if (isr & INTR_HIST_DONE) {
 			if (mdp_rev <= MDP_REV_41) {
