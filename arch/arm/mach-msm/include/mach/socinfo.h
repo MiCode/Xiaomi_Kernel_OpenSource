@@ -102,89 +102,149 @@ static inline int read_msm_cpu_type(void)
 
 static inline int cpu_is_msm7x01(void)
 {
+#ifdef CONFIG_ARCH_MSM7X01A
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X01;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x25(void)
 {
+#ifdef CONFIG_ARCH_MSM7X25
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X25;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x27(void)
 {
+#ifdef CONFIG_ARCH_MSM7X27
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X27;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x27a(void)
 {
+#ifdef CONFIG_ARCH_MSM7X27A
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X27A;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm7x27aa(void)
+{
+#ifdef CONFIG_ARCH_MSM7X27A
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_7X27AA;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x25a(void)
 {
+#ifdef CONFIG_ARCH_MSM7X27A
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X25A;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x25aa(void)
 {
+#ifdef CONFIG_ARCH_MSM7X27A
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X25AA;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm7x30(void)
 {
+#ifdef CONFIG_ARCH_MSM7X30
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_7X30;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_qsd8x50(void)
 {
+#ifdef CONFIG_ARCH_QSD8X50
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_8X50;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm8x55(void)
 {
+#ifdef CONFIG_ARCH_MSM7X30
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_8X55;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm8x60(void)
 {
+#ifdef CONFIG_ARCH_MSM8X60
 	return read_msm_cpu_type() == MSM_CPU_8X60;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm8960(void)
 {
+#ifdef CONFIG_ARCH_MSM8960
 	return read_msm_cpu_type() == MSM_CPU_8960;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_apq8064(void)
 {
+#ifdef CONFIG_ARCH_APQ8064
 	return read_msm_cpu_type() == MSM_CPU_8064;
+#else
+	return 0;
+#endif
 }
 
 static inline int cpu_is_msm8x30(void)
@@ -194,10 +254,14 @@ static inline int cpu_is_msm8x30(void)
 
 static inline int cpu_is_fsm9xxx(void)
 {
+#ifdef CONFIG_ARCH_FSM9XXX
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == FSM_CPU_9XXX;
+#else
+	return 0;
+#endif
 }
 
 #endif
