@@ -795,6 +795,7 @@ static struct mddi_platform_data mddi_pdata = {
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 98,
+	.mdp_rev = MDP_REV_31,
 };
 
 static void __init msm_fb_add_devices(void)
