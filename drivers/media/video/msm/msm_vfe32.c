@@ -1975,6 +1975,22 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		rc = vfe32_zsl();
 		break;
 
+	case V32_ASF_CFG:
+	case V32_ASF_UPDATE:
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp, (void __user *)(cmd->value),
+			cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
+			cmdp, (vfe32_cmd[cmd->id].length));
+		break;
+
 	default: {
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
