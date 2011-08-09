@@ -30,6 +30,7 @@
 #include <linux/cyttsp.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/platform_data/qcom_wcnss_device.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
 
@@ -1748,11 +1749,16 @@ static struct resource resources_wcnss_wlan[] = {
 	},
 };
 
+static struct qcom_wcnss_opts qcom_wcnss_pdata = {
+	.has_48mhz_xo	= 1,
+};
+
 static struct platform_device msm_device_wcnss_wlan = {
 	.name		= "wcnss_wlan",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(resources_wcnss_wlan),
 	.resource	= resources_wcnss_wlan,
+	.dev		= {.platform_data = &qcom_wcnss_pdata},
 };
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
