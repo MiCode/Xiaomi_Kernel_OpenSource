@@ -97,6 +97,7 @@
 #define PM8921_ADC_ARB_BTM_BAT_WARM_THR0		0x188
 
 #define PM8921_ADC_ARB_ANA_DIG				0xa0
+#define PM8921_ADC_BTM_RSV				0x10
 #define PM8921_ADC_AMUX_MPP_SEL				2
 #define PM8921_ADC_AMUX_SEL				4
 #define PM8921_ADC_RSV_IP_SEL				4
@@ -105,7 +106,8 @@
 #define PM8921_ADC_IRQ_0				0
 #define PM8921_ADC_IRQ_1				1
 #define PM8921_ADC_IRQ_2				2
-#define PM8921_ADC_BTM_INTERVAL_SEL			5
+#define PM8921_ADC_BTM_INTERVAL_SEL_MASK		0xF
+#define PM8921_ADC_BTM_INTERVAL_SEL_SHIFT		2
 #define PM8921_ADC_BTM_DECIMATION_SEL			5
 #define PM8921_ADC_MUL					10
 #define PM8921_ADC_CONV_TIME_MIN			2000
@@ -116,15 +118,17 @@ struct pm8921_adc {
 	struct pm8921_adc_properties		*adc_prop;
 	int					adc_irq;
 	struct mutex				adc_lock;
-	struct mutex				btm_lock;
+	spinlock_t				btm_lock;
 	uint32_t				adc_num_channel;
 	struct completion			adc_rslt_completion;
 	struct pm8921_adc_amux			*adc_channel;
 	struct pm8921_adc_amux_properties	*conv;
-	struct pm8921_adc_arb_btm		*batt;
+	struct pm8921_adc_arb_btm_param		*batt;
 	int					btm_warm_irq;
-	int					btm_cold_irq;
+	int					btm_cool_irq;
 	struct dentry				*dent;
+	struct work_struct			warm_work;
+	struct work_struct			cool_work;
 };
 
 struct pm8921_adc_amux_properties {
@@ -151,7 +155,7 @@ static struct pm8921_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_XTERN_CHGR_CUR] = {pm8921_adc_scale_xtern_chgr_cur},
 };
 
-static bool pm8921_adc_calib_first_adc, pm8921_btm_calib_first_adc;
+static bool pm8921_adc_calib_first_adc;
 static bool pm8921_adc_initialized, pm8921_adc_calib_device_init;
 
 static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
@@ -322,6 +326,34 @@ static uint32_t pm8921_adc_read_adc_code(int32_t *data)
 	return 0;
 }
 
+static void pm8921_adc_btm_warm_scheduler_fn(struct work_struct *work)
+{
+	struct pm8921_adc *adc_pmic = container_of(work, struct pm8921_adc,
+					warm_work);
+	unsigned long flags = 0;
+	bool warm_status;
+
+	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
+	warm_status = irq_read_line(adc_pmic->btm_warm_irq);
+	if (adc_pmic->batt->btm_warm_fn != NULL)
+		adc_pmic->batt->btm_warm_fn(warm_status);
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
+}
+
+static void pm8921_adc_btm_cool_scheduler_fn(struct work_struct *work)
+{
+	struct pm8921_adc *adc_pmic = container_of(work, struct pm8921_adc,
+					cool_work);
+	unsigned long flags = 0;
+	bool cool_status;
+
+	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
+	cool_status = irq_read_line(adc_pmic->btm_cool_irq);
+	if (adc_pmic->batt->btm_cool_fn != NULL)
+		adc_pmic->batt->btm_cool_fn(cool_status);
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
+}
+
 static irqreturn_t pm8921_adc_isr(int irq, void *dev_id)
 {
 	struct pm8921_adc *adc_8921 = dev_id;
@@ -340,28 +372,16 @@ static irqreturn_t pm8921_btm_warm_isr(int irq, void *dev_id)
 {
 	struct pm8921_adc *btm_8921 = dev_id;
 
-	disable_irq_nosync(btm_8921->btm_warm_irq);
-
-	if (pm8921_btm_calib_first_adc)
-		return IRQ_HANDLED;
-
-	if (btm_8921->batt->btm_param->btm_warm_fn != NULL)
-		btm_8921->batt->btm_param->btm_warm_fn();
+	schedule_work(&btm_8921->warm_work);
 
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t pm8921_btm_cold_isr(int irq, void *dev_id)
+static irqreturn_t pm8921_btm_cool_isr(int irq, void *dev_id)
 {
 	struct pm8921_adc *btm_8921 = dev_id;
 
-	disable_irq_nosync(btm_8921->btm_cold_irq);
-
-	if (pm8921_btm_calib_first_adc)
-		return IRQ_HANDLED;
-
-	if (btm_8921->batt->btm_param->btm_cold_fn != NULL)
-		btm_8921->batt->btm_param->btm_cold_fn();
+	schedule_work(&btm_8921->cool_work);
 
 	return IRQ_HANDLED;
 }
@@ -615,50 +635,80 @@ uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *btm_param)
 	u8 data_btm_cool_thr0, data_btm_cool_thr1;
 	u8 data_btm_warm_thr0, data_btm_warm_thr1;
 	u8 arb_btm_cntrl1;
+	unsigned long flags = 0;
 	int rc;
 
-	mutex_lock(&adc_pmic->btm_lock);
+	if (adc_pmic == NULL) {
+		pr_err("PMIC ADC not valid\n");
+		return -EINVAL;
+	}
+
+	if ((btm_param->btm_cool_fn == NULL) &&
+		(btm_param->btm_warm_fn == NULL)) {
+		pr_err("No BTM warm/cool notification??\n");
+		return -EINVAL;
+	}
+
+	rc = pm8921_adc_batt_scaler(btm_param);
+	if (rc < 0) {
+		pr_err("Failed to lookup the BTM thresholds\n");
+		return rc;
+	}
+
+	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
 
 	data_btm_cool_thr0 = ((btm_param->low_thr_voltage << 24) >> 24);
 	data_btm_cool_thr1 = ((btm_param->low_thr_voltage << 16) >> 24);
 	data_btm_warm_thr0 = ((btm_param->high_thr_voltage << 24) >> 24);
 	data_btm_warm_thr1 = ((btm_param->high_thr_voltage << 16) >> 24);
 
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_COOL_THR0,
-						data_btm_cool_thr0);
-	if (rc < 0)
-		goto write_err;
+	if (btm_param->btm_cool_fn != NULL) {
+		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_COOL_THR0,
+							data_btm_cool_thr0);
+		if (rc < 0)
+			goto write_err;
 
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_COOL_THR1,
-						data_btm_cool_thr0);
-	if (rc < 0)
-		goto write_err;
+		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_COOL_THR1,
+							data_btm_cool_thr1);
+		if (rc < 0)
+			goto write_err;
 
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_WARM_THR0,
-						data_btm_warm_thr0);
-	if (rc < 0)
-		goto write_err;
+		adc_pmic->batt->btm_cool_fn = btm_param->btm_cool_fn;
+	}
 
-	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_WARM_THR1,
-						data_btm_warm_thr1);
-	if (rc < 0)
-		goto write_err;
+	if (btm_param->btm_warm_fn != NULL) {
+		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_WARM_THR0,
+							data_btm_warm_thr0);
+		if (rc < 0)
+			goto write_err;
 
-	arb_btm_cntrl1 = btm_param->interval << PM8921_ADC_BTM_INTERVAL_SEL;
+		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_BAT_WARM_THR1,
+							data_btm_warm_thr1);
+		if (rc < 0)
+			goto write_err;
+
+		adc_pmic->batt->btm_warm_fn = btm_param->btm_warm_fn;
+	}
+
+	rc = pm8921_adc_read_reg(PM8921_ADC_ARB_BTM_CNTRL1, &arb_btm_cntrl1);
+	if (rc < 0)
+		goto bail_out;
+
+	btm_param->interval &= PM8921_ADC_BTM_INTERVAL_SEL_MASK;
+	arb_btm_cntrl1 |=
+		btm_param->interval << PM8921_ADC_BTM_INTERVAL_SEL_SHIFT;
 
 	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_CNTRL1, arb_btm_cntrl1);
 	if (rc < 0)
 		goto write_err;
 
-	adc_pmic->batt->btm_param->btm_warm_fn = btm_param->btm_warm_fn;
-	adc_pmic->batt->btm_param->btm_cold_fn = btm_param->btm_cold_fn;
-
-	mutex_unlock(&adc_pmic->btm_lock);
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
 
 	return rc;
-
+bail_out:
 write_err:
-	mutex_unlock(&adc_pmic->btm_lock);
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
+	pr_debug("%s: with error code %d\n", __func__, rc);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_btm_configure);
@@ -668,27 +718,26 @@ static uint32_t pm8921_adc_btm_read(uint32_t channel)
 	struct pm8921_adc *adc_pmic = pmic_adc;
 	int rc, i;
 	u8 arb_btm_dig_param, arb_btm_ana_param, arb_btm_rsv;
-	u8 arb_btm_amux_cntrl, arb_btm_decimation, data_arb_btm_cntrl;
+	u8 arb_btm_amux_cntrl, data_arb_btm_cntrl = 0;
+	unsigned long flags;
 
 	arb_btm_amux_cntrl = channel << PM8921_ADC_BTM_CHANNEL_SEL;
 	arb_btm_rsv = adc_pmic->adc_channel[channel].adc_rsv;
-	arb_btm_decimation =
-		adc_pmic->adc_channel[channel].adc_decimation;
-	arb_btm_ana_param = PM8921_ADC_ARB_ANA_DIG;
+	arb_btm_dig_param = arb_btm_ana_param = PM8921_ADC_ARB_ANA_DIG;
 
-	mutex_lock(&adc_pmic->btm_lock);
+	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
 
 	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_AMUX_CNTRL,
 						arb_btm_amux_cntrl);
 	if (rc < 0)
 		goto write_err;
 
+	arb_btm_rsv = PM8921_ADC_BTM_RSV;
+
 	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_RSV, arb_btm_rsv);
 	if (rc < 0)
 		goto write_err;
 
-	arb_btm_dig_param = arb_btm_decimation <<
-				PM8921_ADC_BTM_DECIMATION_SEL;
 	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_DIG_PARAM,
 						arb_btm_dig_param);
 	if (rc < 0)
@@ -699,11 +748,8 @@ static uint32_t pm8921_adc_btm_read(uint32_t channel)
 	if (rc < 0)
 		goto write_err;
 
-	data_arb_btm_cntrl = PM8921_ADC_ARB_BTM_CNTRL1_EOC |
-				PM8921_ADC_ARB_BTM_CNTRL1_EN_BTM;
+	data_arb_btm_cntrl |= PM8921_ADC_ARB_BTM_CNTRL1_EN_BTM;
 
-	/* Write twice to the CNTRL register for the arbiter settings
-	   to take into effect */
 	for (i = 0; i < 2; i++) {
 		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_CNTRL1,
 						data_arb_btm_cntrl);
@@ -711,21 +757,28 @@ static uint32_t pm8921_adc_btm_read(uint32_t channel)
 			goto write_err;
 	}
 
-	mutex_unlock(&adc_pmic->btm_lock);
+	data_arb_btm_cntrl |= PM8921_ADC_ARB_BTM_CNTRL1_REQ
+				| PM8921_ADC_ARB_BTM_CNTRL1_SEL_OP_MODE;
 
-	return 0;
+	rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_CNTRL1,
+					data_arb_btm_cntrl);
+	if (rc < 0)
+		goto write_err;
+
+	if (pmic_adc->batt->btm_warm_fn != NULL)
+		enable_irq(adc_pmic->btm_warm_irq);
+
+	if (pmic_adc->batt->btm_cool_fn != NULL)
+		enable_irq(adc_pmic->btm_cool_irq);
 
 write_err:
-	mutex_unlock(&adc_pmic->btm_lock);
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
 	return rc;
 }
 
 uint32_t pm8921_adc_btm_start(void)
 {
-	int rc;
-
-	rc = pm8921_adc_btm_read(CHANNEL_BATT_THERM);
-	return rc;
+	return pm8921_adc_btm_read(CHANNEL_BATT_THERM);
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_btm_start);
 
@@ -734,22 +787,33 @@ uint32_t pm8921_adc_btm_end(void)
 	struct pm8921_adc *adc_pmic = pmic_adc;
 	int i, rc;
 	u8 data_arb_btm_cntrl;
+	unsigned long flags;
 
+	disable_irq_nosync(adc_pmic->btm_warm_irq);
+	disable_irq_nosync(adc_pmic->btm_cool_irq);
+
+	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
 	/* Set BTM registers to Disable mode */
-	data_arb_btm_cntrl = PM8921_ADC_ARB_BTM_CNTRL1_EOC;
+	rc = pm8921_adc_read_reg(PM8921_ADC_ARB_BTM_CNTRL1,
+						&data_arb_btm_cntrl);
+	if (rc < 0) {
+		spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
+		return rc;
+	}
 
-	mutex_lock(&adc_pmic->btm_lock);
+	data_arb_btm_cntrl |= ~PM8921_ADC_ARB_BTM_CNTRL1_EN_BTM;
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
 	for (i = 0; i < 2; i++) {
 		rc = pm8921_adc_write_reg(PM8921_ADC_ARB_BTM_CNTRL1,
 							data_arb_btm_cntrl);
 		if (rc < 0) {
-			mutex_unlock(&adc_pmic->btm_lock);
+			spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
 			return rc;
 		}
 	}
-	mutex_unlock(&adc_pmic->btm_lock);
+
+	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
 
 	return rc;
 }
@@ -762,10 +826,10 @@ static int get_adc(void *data, u64 *val)
 	int rc;
 
 	rc = pm8921_adc_read(i, &result);
-
 	pr_info("ADC value raw:%x physical:%lld\n",
 			result.adc_code, result.physical);
 	*val = result.physical;
+
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%llu\n");
@@ -820,11 +884,12 @@ static int __devexit pm8921_adc_teardown(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 	free_irq(adc_pmic->adc_irq, adc_pmic);
 	free_irq(adc_pmic->btm_warm_irq, adc_pmic);
-	free_irq(adc_pmic->btm_cold_irq, adc_pmic);
+	free_irq(adc_pmic->btm_cool_irq, adc_pmic);
 	platform_set_drvdata(pdev, NULL);
 	pmic_adc = NULL;
 	kfree(adc_pmic->conv->chan_prop);
 	kfree(adc_pmic->adc_channel);
+	kfree(adc_pmic->batt);
 	kfree(adc_pmic);
 	pm8921_adc_initialized = false;
 
@@ -837,6 +902,7 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	struct pm8921_adc *adc_pmic;
 	struct pm8921_adc_amux_properties *adc_amux_prop;
 	struct pm8921_adc_chan_properties *adc_pmic_chanprop;
+	struct pm8921_adc_arb_btm_param *adc_btm;
 	int rc = 0;
 
 	if (!pdata) {
@@ -865,17 +931,25 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	adc_btm = kzalloc(sizeof(struct pm8921_adc_arb_btm_param),
+						GFP_KERNEL);
+	if (!adc_btm) {
+		dev_err(&pdev->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
 	adc_pmic->dev = &pdev->dev;
 	adc_pmic->adc_prop = pdata->adc_prop;
 	adc_pmic->conv = adc_amux_prop;
 	adc_pmic->conv->chan_prop = adc_pmic_chanprop;
+	adc_pmic->batt = adc_btm;
 
 	init_completion(&adc_pmic->adc_rslt_completion);
 	adc_pmic->adc_channel = pdata->adc_channel;
 	adc_pmic->adc_num_channel = pdata->adc_num_channel;
 
 	mutex_init(&adc_pmic->adc_lock);
-	mutex_init(&adc_pmic->btm_lock);
+	spin_lock_init(&adc_pmic->btm_lock);
 
 	adc_pmic->adc_irq = platform_get_irq(pdev, PM8921_ADC_IRQ_0);
 	if (adc_pmic->adc_irq < 0) {
@@ -902,7 +976,8 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 
 	rc = request_irq(adc_pmic->btm_warm_irq,
 				pm8921_btm_warm_isr,
-		IRQF_TRIGGER_RISING, "pm8921_btm_warm_interrupt", adc_pmic);
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			"pm8921_btm_warm_interrupt", adc_pmic);
 	if (rc) {
 		pr_err("btm warm irq failed %d with interrupt number %d\n",
 						rc, adc_pmic->btm_warm_irq);
@@ -912,30 +987,32 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 
 	disable_irq_nosync(adc_pmic->btm_warm_irq);
 
-	adc_pmic->btm_cold_irq = platform_get_irq(pdev, PM8921_ADC_IRQ_2);
-	if (adc_pmic->btm_cold_irq < 0) {
+	adc_pmic->btm_cool_irq = platform_get_irq(pdev, PM8921_ADC_IRQ_2);
+	if (adc_pmic->btm_cool_irq < 0) {
 		rc = -ENXIO;
 		goto err_cleanup;
 	}
 
-	rc = request_irq(adc_pmic->btm_cold_irq,
-				pm8921_btm_cold_isr,
-		IRQF_TRIGGER_RISING, "pm8921_btm_cold_interrupt", adc_pmic);
+	rc = request_irq(adc_pmic->btm_cool_irq,
+				pm8921_btm_cool_isr,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			"pm8921_btm_cool_interrupt", adc_pmic);
 	if (rc) {
-		pr_err("btm cold irq failed with return %d and number %d\n",
-						rc, adc_pmic->btm_cold_irq);
+		pr_err("btm cool irq failed with return %d and number %d\n",
+						rc, adc_pmic->btm_cool_irq);
 		dev_err(&pdev->dev, "failed to request btm irq\n");
 		goto err_cleanup;
 	}
 
-	disable_irq_nosync(adc_pmic->btm_cold_irq);
+	disable_irq_nosync(adc_pmic->btm_cool_irq);
 	device_init_wakeup(&pdev->dev, pdata->adc_wakeup);
 	platform_set_drvdata(pdev, adc_pmic);
 	pmic_adc = adc_pmic;
 
+	INIT_WORK(&adc_pmic->warm_work, pm8921_adc_btm_warm_scheduler_fn);
+	INIT_WORK(&adc_pmic->cool_work, pm8921_adc_btm_cool_scheduler_fn);
 	create_debugfs_entries();
 	pm8921_adc_calib_first_adc = false;
-	pm8921_btm_calib_first_adc = false;
 	pm8921_adc_calib_device_init = false;
 	pm8921_adc_initialized = true;
 	return 0;

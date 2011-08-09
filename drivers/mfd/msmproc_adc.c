@@ -20,19 +20,97 @@
 #define PM8921_ADC_CODE_SCALE	24576
 
 static const struct pm8921_adc_map_pt adcmap_batttherm[] = {
-	{2020,	-30},
-	{1923,	-20},
-	{1796,	-10},
-	{1640,	  0},
-	{1459,	 10},
-	{1260,	 20},
-	{1159,	 25},
-	{1059,	 30},
-	{871,	 40},
-	{706,	 50},
-	{567,	 60},
-	{453,	 70},
-	{364,	 80}
+	{41001,	-30},
+	{40017,	-20},
+	{38721,	-10},
+	{37186,	  0},
+	{35554,	 10},
+	{33980,	 20},
+	{33253,	 25},
+	{32580,	 30},
+	{31412,	 40},
+	{30481,	 50},
+	{29759,	 60},
+	{29209,	 70},
+	{28794,	 80}
+};
+
+static const struct pm8921_adc_map_pt adcmap_btm_threshold[] = {
+	{-30,	41001},
+	{-20,	40017},
+	{-10,	38721},
+	{0,	37186},
+	{10,	35554},
+	{11,	35392},
+	{12,	35230},
+	{13,	35070},
+	{14,	34910},
+	{15,	34751},
+	{16,	34594},
+	{17,	34438},
+	{18,	34284},
+	{19,	34131},
+	{20,	33980},
+	{21,	33830},
+	{22,	33683},
+	{23,	33538},
+	{24,	33394},
+	{25,	33253},
+	{26,	33114},
+	{27,	32977},
+	{28,	32842},
+	{29,	32710},
+	{30,	32580},
+	{31,	32452},
+	{32,	32327},
+	{33,	32204},
+	{34,	32084},
+	{35,	31966},
+	{36,	31850},
+	{37,	31737},
+	{38,	31627},
+	{39,	31518},
+	{40,	31412},
+	{41,	31309},
+	{42,	31208},
+	{43,	31109},
+	{44,	31013},
+	{45,	30918},
+	{46,	30827},
+	{47,	30737},
+	{48,	30649},
+	{49,	30564},
+	{50,	30481},
+	{51,	30400},
+	{52,	30321},
+	{53,	30244},
+	{54,	30169},
+	{55,	30096},
+	{56,	30025},
+	{57,	29956},
+	{58,	29889},
+	{59,	29823},
+	{60,	29759},
+	{61,	29697},
+	{62,	29637},
+	{63,	29578},
+	{64,	29521},
+	{65,	29465},
+	{66,	29411},
+	{67,	29359},
+	{68,	29308},
+	{69,	29258},
+	{70,	29209},
+	{71,	29162},
+	{72,	29117},
+	{73,	29072},
+	{74,	29029},
+	{75,	28987},
+	{76,	28946},
+	{77,	28906},
+	{78,	28868},
+	{79,	28830},
+	{80,	28794}
 };
 
 static const struct pm8921_adc_map_pt adcmap_ntcg_104ef_104fb[] = {
@@ -306,19 +384,11 @@ int32_t pm8921_adc_scale_batt_therm(int32_t adc_code,
 		const struct pm8921_adc_chan_properties *chan_properties,
 		struct pm8921_adc_chan_result *adc_chan_result)
 {
-	int rc;
-
-	rc = pm8921_adc_scale_default(adc_code, adc_properties, chan_properties,
-			adc_chan_result);
-	if (rc < 0) {
-		pr_debug("PM8921 ADC scale default error with %d\n", rc);
-		return rc;
-	}
 	/* convert mV ---> degC using the table */
 	return pm8921_adc_map_linear(
 			adcmap_batttherm,
-			sizeof(adcmap_batttherm)/sizeof(adcmap_batttherm[0]),
-			adc_chan_result->physical,
+			ARRAY_SIZE(adcmap_batttherm),
+			adc_code,
 			&adc_chan_result->physical);
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_scale_batt_therm);
@@ -459,10 +529,22 @@ EXPORT_SYMBOL_GPL(pm8921_adc_scale_xtern_chgr_cur);
 
 int32_t pm8921_adc_batt_scaler(struct pm8921_adc_arb_btm_param *btm_param)
 {
-	/* TODO based on the schematics for the batt thermistor
-	parameters and the HW/SW doc for the device. This is the
-	external batt therm */
+	int rc;
 
-	return 0;
+	rc = pm8921_adc_map_linear(
+		adcmap_btm_threshold,
+		ARRAY_SIZE(adcmap_btm_threshold),
+		btm_param->low_thr_temp,
+		&btm_param->low_thr_voltage);
+
+	if (!rc) {
+		rc = pm8921_adc_map_linear(
+			adcmap_btm_threshold,
+			ARRAY_SIZE(adcmap_btm_threshold),
+			btm_param->high_thr_temp,
+			&btm_param->high_thr_voltage);
+	}
+
+	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_batt_scaler);

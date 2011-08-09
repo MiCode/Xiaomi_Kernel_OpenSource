@@ -425,48 +425,6 @@ struct pm8921_adc_amux {
 };
 
 /**
- * struct pm8921_adc_arb_btm - PM8921 ADC BTM parameters
- * @btm_prop: BTM parameters such as input resistance, voltage and Rtherm across
- * the thermistor
- * @btm_param: BTM temperature thresholds and interval to program the BTM
- * @btm_channel_prop: Channel specific properties of the BTM channel
- */
-struct pm8921_adc_arb_btm {
-	struct pm8921_adc_btm_prop			*btm_prop;
-	struct pm8921_adc_arb_btm_param			*btm_param;
-	struct pm8921_adc_btm_channel_properties	*btm_channel_prop;
-};
-
-/**
- * struct pm8921_adc_btm_channel_properties - PM8921 ADC BTM channel properties
- * @btm_channel: Channel name
- * @decimation: Sampling rate
- * @btm_rsv: Input selection of Vref/GND
- * @chan_prop: Channel properties for the BTM channel
- */
-struct pm8921_adc_btm_channel_properties {
-	enum pm8921_adc_channels		btm_channel;
-	enum pm8921_adc_decimation_type		decimation;
-	enum pm8921_adc_amux_input_rsv		btm_rsv;
-	struct pm8921_adc_chan_properties	*chan_prop;
-};
-
-/**
- * struct pm8921_adc_btm_prop - BTM specific resistors, voltage reference to
- *				calcluate the temperature across Rthm
- * @rs1: Resistor of the Vref_therm
- * @rs2: Resistor of BTM
- * @r_thm: Resistance of the thermistor
- * vref_thm: Voltage of vref_therm
- */
-struct pm8921_adc_btm_prop {
-	uint32_t rs_1;
-	uint32_t rs_2;
-	uint32_t r_thm;
-	uint32_t vref_thm;
-};
-
-/**
  * struct pm8921_adc_arb_btm_param - PM8921 ADC BTM parameters to set threshold
  *				     temperature for client notification
  * @low_thr_temp: low temperature threshold request for notification
@@ -474,8 +432,8 @@ struct pm8921_adc_btm_prop {
  * @low_thr_voltage: low temperature converted to voltage by arbiter driver
  * @high_thr_voltage: high temperature converted to voltage by arbiter driver
  * @interval: Interval period to check for temperature notification
- * @btm_warm_fn: Remote function call for warm threshold
- * @btm_cold_fn: Remote function call for cold threshold
+ * @btm_warm_fn: Remote function call for warm threshold.
+ * @btm_cool_fn: Remote function call for cold threshold.
  *
  * BTM client passes the parameters to be set for the
  * temperature threshold notifications. The client is
@@ -485,11 +443,11 @@ struct pm8921_adc_btm_prop {
 struct pm8921_adc_arb_btm_param {
 	uint32_t	low_thr_temp;
 	uint32_t	high_thr_temp;
-	uint32_t	low_thr_voltage;
-	uint32_t	high_thr_voltage;
+	uint64_t	low_thr_voltage;
+	uint64_t	high_thr_voltage;
 	int32_t		interval;
-	void		(*btm_warm_fn) (void);
-	void		(*btm_cold_fn) (void);
+	void		(*btm_warm_fn) (bool);
+	void		(*btm_cool_fn) (bool);
 };
 
 int32_t pm8921_adc_batt_scaler(struct pm8921_adc_arb_btm_param *);
