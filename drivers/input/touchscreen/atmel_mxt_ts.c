@@ -318,6 +318,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_GPIOPWM:
 	case MXT_SPT_SELFTEST:
 	case MXT_SPT_CTECONFIG:
+	case MXT_SPT_USERDATA:
 		return true;
 	default:
 		return false;
