@@ -578,7 +578,7 @@ enum search_t {
 #define SEARCH_RDS_STNS_MODE_OFFSET 4
 
 /*Search Station list */
-#define PARAMS_PER_STATION 0x07
+#define PARAMS_PER_STATION 0x08
 #define STN_NUM_OFFSET     0x01
 #define STN_FREQ_OFFSET    0x02
 #define KHZ_TO_MHZ         1000
