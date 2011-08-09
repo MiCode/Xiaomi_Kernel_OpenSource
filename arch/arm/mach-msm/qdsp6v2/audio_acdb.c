@@ -20,14 +20,9 @@
 #include <mach/qdsp6v2/audio_acdb.h>
 
 
-#define MAX_NETWORKS		9
-#define NUM_ACTIVE_NETWORKS	6
-#define VOCPROC_STREAM_OFFSET	NUM_ACTIVE_NETWORKS
-#define VOCPROC_VOL_OFFSET	(NUM_ACTIVE_NETWORKS * 2)
-#define NUM_VOCPROC_CAL_TYPES	(NUM_ACTIVE_NETWORKS * 3)
-#define NUM_AUDPROC_CAL_TYPES	3
+#define MAX_NETWORKS		12
 #define ACDB_BLOCK_SIZE		4096
-#define NUM_VOCPROC_BLOCKS	18
+#define NUM_VOCPROC_BLOCKS	(3 * MAX_NETWORKS)
 
 struct acdb_data {
 	struct mutex		acdb_mutex;
