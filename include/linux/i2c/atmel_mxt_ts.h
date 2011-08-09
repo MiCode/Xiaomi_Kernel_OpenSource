@@ -44,6 +44,10 @@ struct mxt_platform_data {
 	unsigned long irqflags;
 	bool is_tp;
 	const unsigned int key_map[MXT_NUM_GPIO];
+	bool	i2c_pull_up;
+
+	int (*init_hw) (bool);
+	int (*power_on) (bool);
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */
