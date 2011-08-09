@@ -18,7 +18,7 @@
 #define MAX_BB_L2_CTRS 5
 #define BB_L2CYCLE_CTR_BIT 31
 #define BB_L2CYCLE_CTR_EVENT_IDX 4
-#define BB_L2CYCLE_CTR_RAW_CODE 0xff
+#define BB_L2CYCLE_CTR_RAW_CODE 0xfe
 #define SCORPIONL2_PMNC_E       (1 << 0)	/* Enable all counters */
 
 /*
