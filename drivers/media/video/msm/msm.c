@@ -642,20 +642,19 @@ static int msm_camera_v4l2_s_ctrl(struct file *f, void *pctx,
 	switch (ctrl->id) {
 	case MSM_V4L2_PID_MMAP_INST:
 		D("%s: mmap_inst=(0x%p, %d)\n",
-			 __func__, pcam_inst, pcam->remap_index);
-		pcam->remap_index = pcam_inst->my_index;
+			 __func__, pcam_inst, pcam_inst->my_index);
+		pcam_inst->is_mem_map_inst = 1;
 		break;
 	case MSM_V4L2_PID_MMAP_ENTRY:
-		if (copy_from_user(&pcam->mmap_entry,
-						(void *)ctrl->value,
-						sizeof(pcam->mmap_entry))) {
+		if (copy_from_user(&pcam_inst->mem_map,
+			(void *)ctrl->value,
+			sizeof(struct msm_mem_map_info))) {
 			rc = -EFAULT;
 		} else
-			D("%s:mmap entry:phy=0x%x,image_mode=%d,op_mode=%d\n",
-				__func__, pcam->mmap_entry.phy_addr,
-				pcam->mmap_entry.image_mode,
-				pcam->mmap_entry.op_mode);
-
+			D("%s:mmap entry:cookie=0x%x,mem_type=%d,len=%d\n",
+				__func__, pcam_inst->mem_map.cookie,
+				pcam_inst->mem_map.mem_type,
+				pcam_inst->mem_map.length);
 		break;
 	default:
 		if (ctrl->id == MSM_V4L2_PID_CAM_MODE)
@@ -1308,14 +1307,21 @@ static int msm_open(struct file *f)
 }
 
 static int msm_addr_remap(struct msm_cam_v4l2_dev_inst *pcam_inst,
-						  struct vm_area_struct *vma,
-						  struct msm_mmap_entry *entry)
+				struct vm_area_struct *vma)
 {
 	int phyaddr;
 	int retval;
 	unsigned long size;
+	struct msm_sync *sync = &pcam_inst->pcam->mctl.sync;
+	int rc = 0;
 
-	phyaddr = (int)entry->phy_addr;
+	rc = msm_pmem_region_get_phy_addr(&sync->pmem_stats,
+			&pcam_inst->mem_map,
+			&phyaddr);
+	if (rc) {
+		pr_err("%s: cannot map vaddr", __func__);
+		return -EFAULT;
+	}
 	pr_err("%s: phy_addr=0x%x\n", __func__, (uint32_t)phyaddr);
 	size = vma->vm_end - vma->vm_start;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
@@ -1325,17 +1331,14 @@ static int msm_addr_remap(struct msm_cam_v4l2_dev_inst *pcam_inst,
 	if (retval) {
 		pr_err("%s:mmap: remap failed with error %d. ",
 			   __func__, retval);
-		goto error;
+		memset(&pcam_inst->mem_map, 0, sizeof(pcam_inst->mem_map));
+		return -ENOMEM;
 	}
-	pr_err("%s:mmap: phy_addr=0x%x: %08lx-%08lx, pgoff %08lx\n",
+	D("%s:mmap: phy_addr=0x%x: %08lx-%08lx, pgoff %08lx\n",
 		   __func__, (uint32_t)phyaddr,
 		   vma->vm_start, vma->vm_end, vma->vm_pgoff);
-	memset(entry, 0, sizeof(struct msm_mmap_entry));
+	memset(&pcam_inst->mem_map, 0, sizeof(pcam_inst->mem_map));
 	return 0;
-error:
-	pr_err("%s:ret=%d\n", __func__, retval);
-	memset(entry, 0, sizeof(struct msm_mmap_entry));
-	return -ENOMEM;
 }
 
 static int msm_mmap(struct file *f, struct vm_area_struct *vma)
@@ -1347,13 +1350,11 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 
 	D("mmap called, vma=0x%08lx\n", (unsigned long)vma);
 
-	if (pcam_inst->pcam->remap_index ==
-		pcam_inst->my_index &&
-		pcam_inst->pcam->mmap_entry.phy_addr) {
+	if (pcam_inst->is_mem_map_inst &&
+		pcam_inst->mem_map.cookie) {
 		pr_err("%s: ioremap called, vma=0x%08lx\n",
 			 __func__, (unsigned long)vma);
-		rc = msm_addr_remap(pcam_inst, vma,
-						  &pcam_inst->pcam->mmap_entry);
+		rc = msm_addr_remap(pcam_inst, vma);
 		pr_err("%s: msm_addr_remap ret=%d\n", __func__, rc);
 		return rc;
 	} else
@@ -1383,11 +1384,6 @@ static int msm_close(struct file *f)
 
 	mutex_lock(&pcam->vid_lock);
 	pcam->use_count--;
-	if (pcam_inst->pcam->remap_index ==
-		pcam_inst->my_index) {
-		pcam_inst->pcam->remap_index = 0;
-		memset(&pcam->mmap_entry, 0, sizeof(pcam->mmap_entry));
-	}
 	pcam->dev_inst_map[pcam_inst->image_mode] = NULL;
 	vb2_queue_release(&pcam_inst->vid_bufq);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;

@@ -413,17 +413,10 @@ struct fd_roi_info {
 	int info_len;
 };
 
-struct msm_mmap_entry {
-	uint32_t image_mode;/* extended mode */
-	uint32_t op_mode;	/* operation mode, video, capture */
-	uint32_t vnode_idx;	/* dev node idx */
-	uint32_t phy_addr;	/* phy address: TBD: to be dropped */
-	uint32_t idx;		/* v4l2 buffer index */
-};
-
 struct msm_mem_map_info {
 	uint32_t cookie;
 	uint32_t length;
+	uint32_t mem_type;
 };
 
 #define MSM_MEM_MMAP		0

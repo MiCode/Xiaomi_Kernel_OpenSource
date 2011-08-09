@@ -230,6 +230,8 @@ struct msm_cam_v4l2_dev_inst {
 	uint32_t buf_offset[VIDEO_MAX_FRAME];
 	struct v4l2_crop crop;
 	int streamon;
+	struct msm_mem_map_info mem_map;
+	int is_mem_map_inst;
 };
 /* abstract camera device for each sensor successfully probed*/
 struct msm_cam_v4l2_device {
@@ -287,8 +289,6 @@ struct msm_cam_v4l2_device {
 	uint8_t ctrl_data[max_control_command_size];
 	struct msm_ctrl_cmd ctrl;
 	uint32_t event_mask;
-	struct msm_mmap_entry mmap_entry;
-	int remap_index;
 };
 static inline struct msm_cam_v4l2_device *to_pcam(
 	struct v4l2_device *v4l2_dev)
@@ -368,6 +368,8 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 /*Memory(PMEM) functions*/
 int msm_register_pmem(struct hlist_head *ptype, void __user *arg);
 int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg);
+int msm_pmem_region_get_phy_addr(struct hlist_head *ptype,
+	struct msm_mem_map_info *mem_map, int32_t *phyaddr);
 uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,
 	int pmem_type, struct msm_pmem_region *reg, uint8_t maxcount);
 uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,

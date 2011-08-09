@@ -281,6 +281,30 @@ uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,
 	return rc;
 }
 
+int msm_pmem_region_get_phy_addr(struct hlist_head *ptype,
+	struct msm_mem_map_info *mem_map, int32_t *phyaddr)
+{
+	struct msm_pmem_region *region;
+	struct hlist_node *node, *n;
+	int pmem_type = mem_map->mem_type;
+	int rc = -EFAULT;
+
+	D("%s\n", __func__);
+	*phyaddr = 0;
+	mutex_lock(&hlist_mut);
+	hlist_for_each_entry_safe(region, node, n, ptype, list) {
+		if (region->info.type == pmem_type &&
+			(uint32_t)region->info.vaddr == mem_map->cookie) {
+			*phyaddr = (int32_t)region->paddr;
+			rc = 0;
+			break;
+		}
+	}
+	D("%s finished, phy_addr = 0x%x, rc=%d\n", __func__, *phyaddr, rc);
+	mutex_unlock(&hlist_mut);
+	return rc;
+}
+
 uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 					int pmem_type,
 					struct msm_pmem_region *reg,
