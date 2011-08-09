@@ -499,6 +499,21 @@ static int cy8c_ts_resume(struct device *dev)
 		}
 
 		enable_irq(ts->pen_irq);
+
+		/* Clear the status register of the TS controller */
+		rc = cy8c_ts_write_reg_u8(ts->client,
+			ts->dd->status_reg, ts->dd->update_data);
+		if (rc < 0) {
+			dev_err(&ts->client->dev,
+				"write failed, try once more\n");
+
+			rc = cy8c_ts_write_reg_u8(ts->client,
+				ts->dd->status_reg,
+				ts->dd->update_data);
+			if (rc < 0)
+				dev_err(&ts->client->dev,
+					"write failed, exiting\n");
+		}
 	}
 	return 0;
 err_gpio_free:
