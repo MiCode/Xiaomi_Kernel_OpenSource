@@ -203,7 +203,7 @@ struct pm8058_charger {
 
 static struct pm8058_charger pm8058_chg;
 static struct msm_hardware_charger usb_hw_chg;
-
+static struct pmic8058_charger_data chg_data;
 
 static int msm_battery_gauge_alarm_notify(struct notifier_block *nb,
 					  unsigned long status, void *unused);
@@ -760,6 +760,10 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 	 */
 	if (chg_current == 500)
 		chg_current = 450;
+
+	if (hw_chg->type == CHG_TYPE_AC && chg_data.max_source_current)
+		chg_current = chg_data.max_source_current;
+
 	pm8058_chg.current_charger_current = chg_current;
 	pm8058_chg_enable_irq(FASTCHG_IRQ);
 
@@ -1868,6 +1872,7 @@ static int pm8058_usb_voltage_lower_limit(void)
 static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 {
 	struct pm8058_chip *pm_chip;
+	struct pmic8058_charger_data *pdata;
 	int rc = 0;
 
 	pm_chip = dev_get_drvdata(pdev->dev.parent);
@@ -1879,6 +1884,13 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	pm8058_chg.pm_chip = pm_chip;
 	pm8058_chg.pdata = pdev->dev.platform_data;
 	pm8058_chg.dev = &pdev->dev;
+	pdata = (struct pmic8058_charger_data *) pm8058_chg.pdata;
+
+	if (pdata) {
+		usb_hw_chg.type = pdata->charger_type;
+		chg_data.charger_type = pdata->charger_type;
+		chg_data.max_source_current = pdata->max_source_current;
+	}
 
 	rc = request_irqs(pdev);
 	if (rc) {

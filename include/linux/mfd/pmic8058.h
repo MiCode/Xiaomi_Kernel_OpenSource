@@ -149,6 +149,11 @@ struct pm8058_gpio {
 	int		disable_pin;	/* disable pin and tri-state its pad */
 };
 
+struct pmic8058_charger_data {
+	unsigned int max_source_current;
+	int charger_type;
+};
+
 /* chip revision */
 #define PM_8058_REV_1p0			0xE1
 #define PM_8058_REV_2p0			0xE2
