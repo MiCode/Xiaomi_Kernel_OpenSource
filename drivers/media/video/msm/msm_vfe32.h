@@ -308,9 +308,10 @@ enum  vfe_recording_state {
 #define V32_ZSL                                     114
 #define V32_LINEARIZATION_UPDATE                    115
 #define V32_DEMOSAICV3_ABF_UPDATE                   116
+#define V32_CLF_CFG                                 117
+#define V32_CLF_LUMA_UPDATE                         118
+#define V32_CLF_CHROMA_UPDATE                       119
 
-#define V32_CLF_CFG               118
-#define V32_CLF_UPDATE            119
 #define V32_STATS_IHIST3_2_START  120
 #define V32_STATS_IHIST3_2_UPDATE 121
 #define V32_CAMIF3_2_CONFIG       122
@@ -443,6 +444,15 @@ enum  vfe_recording_state {
 
 #define V32_EZTUNE_CFG_OFF 0x00000010
 #define V32_EZTUNE_CFG_LEN 4
+
+#define V32_CLF_CFG_OFF 0x000006B0
+#define V32_CLF_CFG_LEN 72
+
+#define V32_CLF_LUMA_UPDATE_OFF 0x000006B4
+#define V32_CLF_LUMA_UPDATE_LEN 60
+
+#define V32_CLF_CHROMA_UPDATE_OFF 0x000006F0
+#define V32_CLF_CHROMA_UPDATE_LEN 8
 
 struct vfe_cmd_hw_version {
 	uint32_t minorVersion;

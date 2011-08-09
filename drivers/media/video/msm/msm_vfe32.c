@@ -203,6 +203,11 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 			V32_LINEARIZATION_OFF1},
 		{V32_DEMOSAICV3_ABF_UPDATE, V32_DEMOSAICV3_ABF_LEN,
 			V32_DEMOSAICV3_ABF_OFF},
+		{V32_CLF_CFG, V32_CLF_CFG_LEN, V32_CLF_CFG_OFF},
+		{V32_CLF_LUMA_UPDATE, V32_CLF_LUMA_UPDATE_LEN,
+			V32_CLF_LUMA_UPDATE_OFF},
+		{V32_CLF_CHROMA_UPDATE, V32_CLF_CHROMA_UPDATE_LEN,
+			V32_CLF_CHROMA_UPDATE_OFF},
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -333,6 +338,9 @@ static const char * const vfe32_general_cmd[] = {
 	"V32_ZSL",
 	"LINEARIZATION_UPDATE", /*115*/
 	"DEMOSAICV3_ABF_UPDATE",
+	"CLF_CFG",
+	"CLF_LUMA_UPDATE",
+	"CLF_CHROMA_UPDATE",
 };
 
 static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
