@@ -677,7 +677,7 @@ static struct msm_cam_expander_info cam_expander_info[] = {
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_PMEM_ADSP_SIZE         0x3800000
-#define MSM_PMEM_AUDIO_SIZE        0x279000
+#define MSM_PMEM_AUDIO_SIZE        0x28B000
 #define MSM_PMEM_SIZE 0x1800000 /* 24 Mbytes */
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
