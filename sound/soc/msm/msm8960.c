@@ -39,11 +39,16 @@
 #define msm8960_SLIM_0_RX_MAX_CHANNELS		2
 #define msm8960_SLIM_0_TX_MAX_CHANNELS		4
 
+#define BTSCO_RATE_8KHZ 8000
+#define BTSCO_RATE_16KHZ 16000
 
 static int msm8960_spk_control;
 static int msm8960_pamp_on;
 static int msm8960_slim_0_rx_ch = 1;
 static int msm8960_slim_0_tx_ch = 1;
+
+static int msm8960_btsco_rate = BTSCO_RATE_8KHZ;
+static int msm8960_btsco_ch = 1;
 
 struct tabla_mbhc_calibration tabla_cal = {
 	.bias = TABLA_MICBIAS2,
@@ -246,6 +251,11 @@ static const struct soc_enum msm8960_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 };
 
+static const char *btsco_rate_text[] = {"8000", "16000"};
+static const struct soc_enum msm8960_btsco_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
+};
+
 static int msm8960_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -284,6 +294,33 @@ static int msm8960_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm8960_btsco_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm8960_btsco_rate  = %d", __func__,
+					msm8960_btsco_rate);
+	ucontrol->value.integer.value[0] = msm8960_btsco_rate;
+	return 0;
+}
+
+static int msm8960_btsco_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm8960_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	case 1:
+		msm8960_btsco_rate = BTSCO_RATE_16KHZ;
+		break;
+	default:
+		msm8960_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: msm8960_btsco_rate = %d\n", __func__,
+					msm8960_btsco_rate);
+	return 0;
+}
 
 static const struct snd_kcontrol_new tabla_msm8960_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm8960_enum[0], msm8960_get_spk,
@@ -293,6 +330,24 @@ static const struct snd_kcontrol_new tabla_msm8960_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm8960_enum[2],
 		msm8960_slim_0_tx_ch_get, msm8960_slim_0_tx_ch_put),
 };
+
+static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
+	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm8960_btsco_enum[0],
+		msm8960_btsco_rate_get, msm8960_btsco_rate_put),
+};
+
+static int msm8960_btsco_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int err = 0;
+	struct snd_soc_platform *platform = rtd->platform;
+
+	err = snd_soc_add_platform_controls(platform,
+			int_btsco_rate_mixer_controls,
+		ARRAY_SIZE(int_btsco_rate_mixer_controls));
+	if (err < 0)
+		return err;
+	return 0;
+}
 
 static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -421,6 +476,21 @@ static int msm8960_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	pr_debug("%s()\n", __func__);
 	rate->min = rate->max = 48000;
+
+	return 0;
+}
+
+static int msm8960_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = msm8960_btsco_rate;
+	channels->min = channels->max = msm8960_btsco_ch;
 
 	return 0;
 }
@@ -560,8 +630,10 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name	= "msm-stub-rx",
+		.init = &msm8960_btsco_init,
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_RX,
+		.be_hw_params_fixup = msm8960_btsco_be_hw_params_fixup,
 	},
 	{
 		.name = LPASS_BE_INT_BT_SCO_TX,
@@ -572,6 +644,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.codec_dai_name	= "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_TX,
+		.be_hw_params_fixup = msm8960_btsco_be_hw_params_fixup,
 	},
 	{
 		.name = LPASS_BE_INT_FM_RX,
