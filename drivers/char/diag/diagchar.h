@@ -213,6 +213,7 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_sdio_wq;
 	struct work_struct diag_read_sdio_work;
 	struct work_struct diag_remove_sdio_work;
+	struct work_struct diag_close_sdio_work;
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif
