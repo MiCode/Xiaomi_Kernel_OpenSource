@@ -6608,6 +6608,7 @@ static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 	|| defined(CONFIG_GPIO_SX150X_MODULE))
 
 static struct regulator *vreg_bahama;
+static int msm_bahama_sys_rst = GPIO_MS_SYS_RESET_N;
 
 struct bahama_config_register{
 	u8 reg;
@@ -6655,6 +6656,10 @@ static unsigned int msm_bahama_setup_power(void)
 {
 	int rc = 0;
 	const char *msm_bahama_regulator = "8058_s3";
+
+	if (machine_is_msm8x60_dragon())
+		msm_bahama_sys_rst = GPIO_CDC_RST_N;
+
 	vreg_bahama = regulator_get(NULL, msm_bahama_regulator);
 
 	if (IS_ERR(vreg_bahama)) {
@@ -6679,29 +6684,29 @@ static unsigned int msm_bahama_setup_power(void)
 		goto unget;
 	}
 
-	if (!rc)
-		rc = gpio_request(GPIO_MS_SYS_RESET_N, "bahama sys_rst_n");
-	else {
+	if (!rc) {
+		rc = gpio_request(msm_bahama_sys_rst, "bahama sys_rst_n");
+	} else {
 		pr_err("%s: gpio_request %d = %d\n", __func__,
-			GPIO_MS_SYS_RESET_N, rc);
+			msm_bahama_sys_rst, rc);
 		goto unenable;
 	}
 
 	if (!rc) {
-		gpio_direction_output(GPIO_MS_SYS_RESET_N, 0);
+		gpio_direction_output(msm_bahama_sys_rst, 0);
 		usleep_range(1000, 1050);
-		gpio_direction_output(GPIO_MS_SYS_RESET_N, 1);
+		gpio_set_value_cansleep(msm_bahama_sys_rst, 1);
 		usleep_range(1000, 1050);
 	} else {
 		pr_err("%s: gpio_direction_output %d = %d\n", __func__,
-			GPIO_MS_SYS_RESET_N, rc);
+			msm_bahama_sys_rst, rc);
 		goto unrequest;
 	}
 
 	return rc;
 
 unrequest:
-	gpio_free(GPIO_MS_SYS_RESET_N);
+	gpio_free(msm_bahama_sys_rst);
 unenable:
 	regulator_disable(vreg_bahama);
 unget:
@@ -6712,9 +6717,9 @@ static unsigned int msm_bahama_shutdown_power(int value)
 
 
 {
-	gpio_set_value_cansleep(GPIO_MS_SYS_RESET_N, 0);
+	gpio_set_value_cansleep(msm_bahama_sys_rst, 0);
 
-	gpio_free(GPIO_MS_SYS_RESET_N);
+	gpio_free(msm_bahama_sys_rst);
 
 	regulator_disable(vreg_bahama);
 
@@ -7025,7 +7030,7 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 	},
 #if defined(CONFIG_MARIMBA_CORE)
 	{
-		I2C_SURF | I2C_FFA | I2C_FLUID,
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
 		MSM_GSBI7_QUP_I2C_BUS_ID,
 		msm_marimba_board_info,
 		ARRAY_SIZE(msm_marimba_board_info),
