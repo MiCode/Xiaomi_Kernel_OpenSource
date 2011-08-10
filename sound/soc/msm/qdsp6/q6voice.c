@@ -51,7 +51,7 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v);
 static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v);
 static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v);
 static int voice_send_cvp_deregister_vol_cal_table_cmd(struct voice_data *v);
-
+static int voice_send_set_widevoice_enable_cmd(struct voice_data *v);
 
 
 static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv);
@@ -1685,6 +1685,55 @@ fail:
 	return -EINVAL;
 
 }
+static int voice_send_set_widevoice_enable_cmd(struct voice_data *v)
+{
+	struct mvm_set_widevoice_enable_cmd mvm_set_wv_cmd;
+	int ret = 0;
+	void *apr_mvm;
+	u16 mvm_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_mvm = v->apr_q6_mvm;
+
+	if (!apr_mvm) {
+		pr_err("%s: apr_mvm is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	mvm_handle = voice_get_mvm_handle(v);
+
+	/* fill in the header */
+	mvm_set_wv_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mvm_set_wv_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(mvm_set_wv_cmd) - APR_HDR_SIZE);
+	mvm_set_wv_cmd.hdr.src_port = 0;
+	mvm_set_wv_cmd.hdr.dest_port = mvm_handle;
+	mvm_set_wv_cmd.hdr.token = 0;
+	mvm_set_wv_cmd.hdr.opcode = VSS_IWIDEVOICE_CMD_SET_WIDEVOICE;
+
+	mvm_set_wv_cmd.vss_set_wv.enable = v->wv_enable;
+
+	v->mvm_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_set_wv_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending mvm set widevoice enable,\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->mvm_wait,
+			(v->mvm_state == CMD_STATUS_SUCCESS),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
+	}
+	return 0;
+fail:
+	return -EINVAL;
+}
+
 static int voice_setup_vocproc(struct voice_data *v)
 {
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
@@ -1778,6 +1827,10 @@ static int voice_setup_vocproc(struct voice_data *v)
 
 	/* send tty mode if tty device is used */
 	voice_send_tty_mode_cmd(v);
+
+	/* enable widevoice if wv_enable is set */
+	if (v->wv_enable)
+		voice_send_set_widevoice_enable_cmd(v);
 
 	if (v->voc_path == VOC_PATH_FULL)
 		voice_send_netid_timing_cmd(v);
@@ -2244,6 +2297,10 @@ int voc_enable_cvp(void)
 		/* send tty mode if tty device is used */
 		voice_send_tty_mode_cmd(v);
 
+		/* enable widevoice if wv_enable is set */
+		if (v->wv_enable)
+			voice_send_set_widevoice_enable_cmd(v);
+
 		get_sidetone_cal(&sidetone_cal_data);
 		ret = afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
 						sidetone_cal_data.enable,
@@ -2303,6 +2360,34 @@ uint8_t voc_get_tty_mode(void)
 	mutex_lock(&v->lock);
 
 	ret = v->tty_mode;
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+int voc_set_widevoice_enable(uint32_t wv_enable)
+{
+	struct voice_data *v = &voice;
+	int ret = 0;
+
+	mutex_lock(&v->lock);
+
+	v->wv_enable = wv_enable;
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+uint32_t voc_get_widevoice_enable(void)
+{
+	struct voice_data *v = &voice;
+	int ret = 0;
+
+	mutex_lock(&v->lock);
+
+	ret = v->wv_enable;
 
 	mutex_unlock(&v->lock);
 
@@ -2533,6 +2618,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			case VSS_IMVM_CMD_DETACH_STREAM:
 			case VSS_ICOMMON_CMD_SET_NETWORK:
 			case VSS_ICOMMON_CMD_SET_VOICE_TIMING:
+			case VSS_IWIDEVOICE_CMD_SET_WIDEVOICE:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);

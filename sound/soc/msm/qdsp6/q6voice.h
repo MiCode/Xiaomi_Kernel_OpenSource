@@ -139,6 +139,9 @@ struct vss_unmap_memory_cmd {
 #define VSS_ICOMMON_CMD_SET_VOICE_TIMING		0x000111E0
 /* Set the voice timing parameters. */
 
+#define VSS_IWIDEVOICE_CMD_SET_WIDEVOICE                0x00011243
+/* Enable/disable WideVoice */
+
 struct vss_istream_cmd_set_tty_mode_t {
 	uint32_t mode;
 	/**<
@@ -213,6 +216,13 @@ struct vss_imvm_cmd_create_control_session_t {
 	*/
 } __packed;
 
+struct vss_iwidevoice_cmd_set_widevoice_t {
+	uint32_t enable;
+	/* WideVoice enable/disable; possible values:
+	* - 0 -- WideVoice disabled
+	* - 1 -- WideVoice enabled
+	*/
+} __packed;
 
 struct mvm_attach_vocproc_cmd {
 	struct apr_hdr hdr;
@@ -252,6 +262,11 @@ struct mvm_set_network_cmd {
 struct mvm_set_voice_timing_cmd {
 	struct apr_hdr hdr;
 	struct vss_icommon_cmd_set_voice_timing_t timing;
+} __packed;
+
+struct mvm_set_widevoice_enable_cmd {
+	struct apr_hdr hdr;
+	struct vss_iwidevoice_cmd_set_widevoice_t vss_set_wv;
 } __packed;
 
 /* TO CVS commands */
@@ -764,6 +779,8 @@ struct voice_data {
 	uint16_t sidetone_gain;
 
 	struct voice_dev_route_state voc_route_state;
+	/* widevoice enable value */
+	uint8_t wv_enable;
 };
 
 int voc_set_voc_path_full(uint32_t set);
@@ -787,6 +804,8 @@ enum {
 };
 
 /* called  by alsa driver */
+int voc_set_widevoice_enable(uint32_t wv_enable);
+uint32_t voc_get_widevoice_enable(void);
 uint8_t voc_get_tty_mode(void);
 int voc_set_tty_mode(uint8_t tty_mode);
 int voc_start_voice_call(void);
