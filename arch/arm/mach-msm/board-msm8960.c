@@ -1866,7 +1866,7 @@ static int __init gpiomux_init(void)
 			ARRAY_SIZE(msm8960_cam_configs));
 
 	msm_gpiomux_install(msm8960_gpiomux_configs,
-			ARRAY_SIZE(msm8960_gsbi_configs));
+			ARRAY_SIZE(msm8960_gpiomux_configs));
 
 	msm_gpiomux_install(msm8960_gsbi_configs,
 			ARRAY_SIZE(msm8960_gsbi_configs));
