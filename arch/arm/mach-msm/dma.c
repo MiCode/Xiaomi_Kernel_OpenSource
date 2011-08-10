@@ -771,6 +771,11 @@ static int msm_dmov_probe(struct platform_device *pdev)
 		PRINT_ERROR("Requesting ADM%d clocks failed\n", adm);
 		return -ENOENT;
 	}
+	ret = msm_dmov_clk_toggle(adm, 1);
+	if (ret) {
+		PRINT_ERROR("Enabling ADM%d clocks failed\n", adm);
+		return -ENOENT;
+	}
 
 	config_datamover(adm);
 	for (i = 0; i < MSM_DMOV_CHANNEL_COUNT; i++) {
@@ -782,6 +787,7 @@ static int msm_dmov_probe(struct platform_device *pdev)
 		     DMOV_REG(DMOV_RSLT_CONF(i), adm));
 	}
 	wmb();
+	msm_dmov_clk_toggle(adm, 0);
 	return ret;
 }
 
