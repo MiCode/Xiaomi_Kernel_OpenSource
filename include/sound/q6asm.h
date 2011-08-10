@@ -186,6 +186,9 @@ int q6asm_cmd_nowait(struct audio_client *ac, int cmd);
 void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac,
 				uint32_t *size, uint32_t *idx);
 
+void *q6asm_is_cpu_buf_avail_nolock(int dir, struct audio_client *ac,
+					uint32_t *size, uint32_t *idx);
+
 int q6asm_is_dsp_buf_avail(int dir, struct audio_client *ac);
 
 /* File format specific configurations to be added below */

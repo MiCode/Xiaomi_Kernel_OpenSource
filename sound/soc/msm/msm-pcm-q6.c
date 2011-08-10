@@ -96,12 +96,12 @@ static void event_handler(uint32_t opcode,
 			break;
 		if (!prtd->mmap_flag)
 			break;
-		if (q6asm_is_cpu_buf_avail(IN,
+		if (q6asm_is_cpu_buf_avail_nolock(IN,
 				prtd->audio_client,
 				&size, &idx)) {
 			pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
 					__func__, prtd->pcm_count);
-			q6asm_write(prtd->audio_client,
+			q6asm_write_nolock(prtd->audio_client,
 				prtd->pcm_count, 0, 0, NO_TIMESTAMP);
 		}
 		break;
@@ -126,27 +126,26 @@ static void event_handler(uint32_t opcode,
 			atomic_inc(&prtd->in_count);
 		wake_up(&the_locks.read_wait);
 		if (prtd->mmap_flag
-			&& q6asm_is_cpu_buf_avail(OUT,
+			&& q6asm_is_cpu_buf_avail_nolock(OUT,
 				prtd->audio_client,
 				&size, &idx))
-			q6asm_read(prtd->audio_client);
+			q6asm_read_nolock(prtd->audio_client);
 		break;
 	}
 	case APR_BASIC_RSP_RESULT: {
-		if (!prtd->mmap_flag
-			&& !atomic_read(&prtd->out_needed))
-			break;
 		switch (payload[0]) {
 		case ASM_SESSION_CMD_RUN:
 			if (substream->stream
-				!= SNDRV_PCM_STREAM_PLAYBACK)
+				!= SNDRV_PCM_STREAM_PLAYBACK) {
+				atomic_set(&prtd->start, 1);
 				break;
+			}
 			if (prtd->mmap_flag) {
 				pr_debug("%s:writing %d bytes"
 					" of buffer to dsp\n",
 					__func__,
 					prtd->pcm_count);
-				q6asm_write(prtd->audio_client,
+				q6asm_write_nolock(prtd->audio_client,
 					prtd->pcm_count,
 					0, 0, NO_TIMESTAMP);
 			} else {
@@ -155,13 +154,14 @@ static void event_handler(uint32_t opcode,
 						 " of buffer to dsp\n",
 						__func__,
 						prtd->pcm_count);
-					q6asm_write(prtd->audio_client,
+					q6asm_write_nolock(prtd->audio_client,
 						prtd->pcm_count,
 						0, 0, NO_TIMESTAMP);
 					atomic_dec(&prtd->out_needed);
 					wake_up(&the_locks.write_wait);
 				};
 			}
+			atomic_set(&prtd->start, 1);
 			break;
 		default:
 			break;
@@ -249,7 +249,6 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: Trigger start\n", __func__);
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
-		atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");

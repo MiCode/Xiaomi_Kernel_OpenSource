@@ -919,6 +919,52 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 	return NULL;
 }
 
+void *q6asm_is_cpu_buf_avail_nolock(int dir, struct audio_client *ac,
+					uint32_t *size, uint32_t *index)
+{
+	void *data;
+	unsigned char idx;
+	struct audio_port_data *port;
+
+	if (!ac || ((dir != IN) && (dir != OUT)))
+		return NULL;
+
+	port = &ac->port[dir];
+
+	idx = port->cpu_buf;
+	if (port->buf == NULL) {
+		pr_debug("%s:Buffer pointer null\n", __func__);
+		return NULL;
+	}
+	/*
+	 * dir 0: used = 0 means buf in use
+	 * dir 1: used = 1 means buf in use
+	 */
+	if (port->buf[idx].used == dir) {
+		/*
+		 * To make it more robust, we could loop and get the
+		 * next avail buf, its risky though
+		 */
+		pr_debug("%s:Next buf idx[0x%x] not available,\
+			dir[%d]\n", __func__, idx, dir);
+		return NULL;
+	}
+	*size = port->buf[idx].actual_size;
+	*index = port->cpu_buf;
+	data = port->buf[idx].data;
+	pr_debug("%s:session[%d]index[%d] data[%p]size[%d]\n",
+		__func__, ac->session, port->cpu_buf,
+		data, *size);
+	/*
+	 * By default increase the cpu_buf cnt
+	 * user accesses this function,increase cpu
+	 * buf(to avoid another api)
+	 */
+	port->buf[idx].used = dir;
+	port->cpu_buf = ((port->cpu_buf + 1) & (port->max_buf_cnt - 1));
+	return data;
+}
+
 int q6asm_is_dsp_buf_avail(int dir, struct audio_client *ac)
 {
 	int ret = -1;
