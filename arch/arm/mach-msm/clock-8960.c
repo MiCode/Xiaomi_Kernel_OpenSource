@@ -2438,7 +2438,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 	F_GFX3D( 64000000, pll8, 1,  6, LOW),
 	F_GFX3D( 76800000, pll8, 1,  5, LOW),
 	F_GFX3D( 96000000, pll8, 1,  4, LOW),
-	F_GFX3D(128000000, pll8, 1,  3, NOMINAL),
+	F_GFX3D(128000000, pll8, 1,  3, LOW),
 	F_GFX3D(145455000, pll2, 2, 11, NOMINAL),
 	F_GFX3D(160000000, pll2, 1,  5, NOMINAL),
 	F_GFX3D(177778000, pll2, 2,  9, NOMINAL),
