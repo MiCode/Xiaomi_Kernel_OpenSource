@@ -17,7 +17,7 @@
 extern struct mdp_dma_data dma2_data;
 extern struct mdp_dma_data dma_s_data;
 extern struct mdp_dma_data dma_e_data;
-extern struct mdp_histogram mdp_hist;
+extern unsigned int mdp_hist_frame_cnt;
 extern struct completion mdp_hist_comp;
 extern boolean mdp_is_hist_start;
 extern boolean mdp_is_in_isr;
