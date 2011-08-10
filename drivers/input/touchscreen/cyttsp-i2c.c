@@ -196,7 +196,7 @@ static ssize_t cyttsp_irq_enable(struct device *dev,
 	return err;
 }
 
-static DEVICE_ATTR(irq_enable, 0777, cyttsp_irq_status, cyttsp_irq_enable);
+static DEVICE_ATTR(irq_enable, 0664, cyttsp_irq_status, cyttsp_irq_enable);
 
 static ssize_t cyttsp_fw_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -205,7 +205,7 @@ static ssize_t cyttsp_fw_show(struct device *dev,
 				g_bl_data.appver_hi, g_bl_data.appver_lo);
 }
 
-static DEVICE_ATTR(cyttsp_fw_ver, 0777, cyttsp_fw_show, NULL);
+static DEVICE_ATTR(cyttsp_fw_ver, 0664, cyttsp_fw_show, NULL);
 
 /* firmware flashing block */
 #define BLK_SIZE     16
@@ -848,7 +848,7 @@ static ssize_t cyttsp_force_update_fw_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(cyttsp_force_update_fw, 0777, cyttsp_update_fw_show,
+static DEVICE_ATTR(cyttsp_force_update_fw, 0664, cyttsp_update_fw_show,
 					cyttsp_force_update_fw_store);
 
 static ssize_t cyttsp_update_fw_store(struct device *dev,
@@ -877,7 +877,7 @@ static ssize_t cyttsp_update_fw_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(cyttsp_update_fw, 0777, cyttsp_update_fw_show,
+static DEVICE_ATTR(cyttsp_update_fw, 0664, cyttsp_update_fw_show,
 					cyttsp_update_fw_store);
 
 static ssize_t cyttsp_fw_name_show(struct device *dev,
@@ -903,7 +903,7 @@ static ssize_t cyttsp_fw_name_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(cyttsp_fw_name, 0777, cyttsp_fw_name_show,
+static DEVICE_ATTR(cyttsp_fw_name, 0664, cyttsp_fw_name_show,
 					cyttsp_fw_name_store);
 
 /* The cyttsp_xy_worker function reads the XY coordinates and sends them to
