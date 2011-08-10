@@ -1040,6 +1040,30 @@ static struct resource resources_qup_spi_gsbi1[] = {
 		.end    = MSM8960_GSBI1_QUP_IRQ,
 		.flags  = IORESOURCE_IRQ,
 	},
+	{
+		.name   = "spi_clk",
+		.start  = 9,
+		.end    = 9,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 8,
+		.end    = 8,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_miso",
+		.start  = 7,
+		.end    = 7,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_mosi",
+		.start  = 6,
+		.end    = 6,
+		.flags  = IORESOURCE_IO,
+	},
 };
 
 struct platform_device msm8960_device_qup_spi_gsbi1 = {
