@@ -5279,6 +5279,36 @@ static const unsigned int ffa_keymap[] = {
 	KEY(5, 4, KEY_MENU),	  /* Center switch: MIC */
 };
 
+static const unsigned int dragon_keymap[] = {
+	KEY(0, 0, KEY_MENU),
+	KEY(0, 2, KEY_1),
+	KEY(0, 3, KEY_4),
+	KEY(0, 4, KEY_7),
+
+	KEY(1, 0, KEY_UP),
+	KEY(1, 1, KEY_LEFT),
+	KEY(1, 2, KEY_DOWN),
+	KEY(1, 3, KEY_5),
+	KEY(1, 4, KEY_8),
+
+	KEY(2, 0, KEY_HOME),
+	KEY(2, 1, KEY_REPLY),
+	KEY(2, 2, KEY_2),
+	KEY(2, 3, KEY_6),
+	KEY(2, 4, KEY_0),
+
+	KEY(3, 0, KEY_VOLUMEUP),
+	KEY(3, 1, KEY_RIGHT),
+	KEY(3, 2, KEY_3),
+	KEY(3, 3, KEY_9),
+	KEY(3, 4, KEY_SWITCHVIDEOMODE),
+
+	KEY(4, 0, KEY_VOLUMEDOWN),
+	KEY(4, 1, KEY_BACK),
+	KEY(4, 2, KEY_CAMERA),
+	KEY(4, 3, KEY_KBDILLUMTOGGLE),
+};
+
 static struct resource resources_keypad[] = {
 	{
 		.start	= PM8058_KEYPAD_IRQ(PM8058_IRQ_BASE),
@@ -5311,6 +5341,24 @@ static struct pmic8058_keypad_data ffa_keypad_data = {
 	.keymap_data		= &ffa_keymap_data,
 };
 
+static struct matrix_keymap_data dragon_keymap_data = {
+	.keymap_size = ARRAY_SIZE(dragon_keymap),
+	.keymap = dragon_keymap,
+};
+
+static struct pmic8058_keypad_data dragon_keypad_data = {
+	.input_name = "dragon-keypad",
+	.input_phys_device = "dragon-keypad/input0",
+	.num_rows = 6,
+	.num_cols = 5,
+	.rows_gpio_start = 8,
+	.cols_gpio_start = 0,
+	.debounce_ms = {8, 10},
+	.scan_delay_ms = 32,
+	.row_hold_ns = 91500,
+	.wakeup = 1,
+	.keymap_data = &dragon_keymap_data,
+};
 static const unsigned int fluid_keymap[] = {
 	KEY(0, 0, KEY_FN_F1),	 /* LS - PUSH1 */
 	KEY(0, 1, KEY_UP),	 /* NAV - UP */
@@ -9709,6 +9757,11 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 			platform_data = &fluid_keypad_data;
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
 			= sizeof(fluid_keypad_data);
+	} else if (machine_is_msm8x60_dragon()) {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
+			platform_data = &dragon_keypad_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
+			= sizeof(dragon_keypad_data);
 	} else {
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
 			platform_data = &ffa_keypad_data;
