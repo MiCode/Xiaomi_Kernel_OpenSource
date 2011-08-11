@@ -135,15 +135,36 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pclk_src_name		= "dfab_usb_hs_clk",
 };
 
-static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
+static struct pm8xxx_mpp_platform_data
+apq8064_pm8921_mpp_pdata __devinitdata = {
+	.mpp_base	= PM8921_MPP_PM_TO_SYS(1),
+};
+
+static struct pm8xxx_gpio_platform_data
+apq8064_pm8921_gpio_pdata __devinitdata = {
+	.gpio_base	= PM8921_GPIO_PM_TO_SYS(1),
+};
+
+static struct pm8xxx_irq_platform_data
+apq8064_pm8921_irq_pdata __devinitdata = {
+	.irq_base		= PM8921_IRQ_BASE,
+	.devirq			= MSM_GPIO_TO_INT(74),
+	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
+};
+
+static struct pm8921_platform_data
+apq8064_pm8921_platform_data __devinitdata = {
 	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
+	.irq_pdata		= &apq8064_pm8921_irq_pdata,
+	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
+	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
 };
 
 static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 	.slave	= {
 		.name		= "pm8921-core",
-		.platform_data	= &pm8921_platform_data,
+		.platform_data	= &apq8064_pm8921_platform_data,
 	},
 };
 
@@ -183,7 +204,7 @@ static void __init apq8064_common_init(void)
 				&apq8064_ssbi_pm8821_pdata;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
 	apq8064_device_gadget_peripheral.dev.parent = &apq8064_device_otg.dev;
-	pm8921_platform_data.num_regulators =
+	apq8064_pm8921_platform_data.num_regulators =
 					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_init_mmc();
