@@ -2435,6 +2435,128 @@ done:
 	return rc;
 }
 
+static const struct tabla_reg_mask_val tabla_1_1_reg_defaults[] = {
+
+	/* Tabla 1.1 MICBIAS changes */
+	TABLA_REG_VAL(TABLA_A_MICB_1_INT_RBIAS, 0x24),
+	TABLA_REG_VAL(TABLA_A_MICB_2_INT_RBIAS, 0x24),
+	TABLA_REG_VAL(TABLA_A_MICB_3_INT_RBIAS, 0x24),
+	TABLA_REG_VAL(TABLA_A_MICB_4_INT_RBIAS, 0x24),
+
+	/* Tabla 1.1 HPH changes */
+	TABLA_REG_VAL(TABLA_A_RX_HPH_BIAS_PA, 0x57),
+	TABLA_REG_VAL(TABLA_A_RX_HPH_BIAS_LDO, 0x56),
+
+	/* Tabla 1.1 EAR PA changes */
+	TABLA_REG_VAL(TABLA_A_RX_EAR_BIAS_PA, 0xA6),
+	TABLA_REG_VAL(TABLA_A_RX_EAR_GAIN, 0x02),
+	TABLA_REG_VAL(TABLA_A_RX_EAR_VCM, 0x03),
+
+	/* Tabla 1.1 Lineout_5 Changes */
+	TABLA_REG_VAL(TABLA_A_RX_LINE_5_GAIN, 0x10),
+
+	/* Tabla 1.1 RX Changes */
+	TABLA_REG_VAL(TABLA_A_CDC_RX1_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX2_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX3_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX4_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX5_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX6_B5_CTL, 0x78),
+	TABLA_REG_VAL(TABLA_A_CDC_RX7_B5_CTL, 0x78),
+
+	/* Tabla 1.1 RX1 and RX2 Changes */
+	TABLA_REG_VAL(TABLA_A_CDC_RX1_B6_CTL, 0xA0),
+	TABLA_REG_VAL(TABLA_A_CDC_RX2_B6_CTL, 0xA0),
+
+	/* Tabla 1.1 RX3 to RX7 Changes */
+	TABLA_REG_VAL(TABLA_A_CDC_RX3_B6_CTL, 0x80),
+	TABLA_REG_VAL(TABLA_A_CDC_RX4_B6_CTL, 0x80),
+	TABLA_REG_VAL(TABLA_A_CDC_RX5_B6_CTL, 0x80),
+	TABLA_REG_VAL(TABLA_A_CDC_RX6_B6_CTL, 0x80),
+	TABLA_REG_VAL(TABLA_A_CDC_RX7_B6_CTL, 0x80),
+
+	/* Tabla 1.1 CLASSG Changes */
+	TABLA_REG_VAL(TABLA_A_CDC_CLSG_FREQ_THRESH_B3_CTL, 0x1B),
+};
+
+static const struct tabla_reg_mask_val tabla_2_0_reg_defaults[] = {
+
+	/* Tabla 2.0 MICBIAS changes */
+	TABLA_REG_VAL(TABLA_A_MICB_2_MBHC, 0x02),
+};
+
+static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
+{
+	u32 i;
+
+	for (i = 0; i < ARRAY_SIZE(tabla_1_1_reg_defaults); i++)
+		snd_soc_write(codec, tabla_1_1_reg_defaults[i].reg,
+				tabla_1_1_reg_defaults[i].val);
+
+	for (i = 0; i < ARRAY_SIZE(tabla_2_0_reg_defaults); i++)
+		snd_soc_write(codec, tabla_2_0_reg_defaults[i].reg,
+				tabla_2_0_reg_defaults[i].val);
+}
+
+static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
+
+	/* Initialize gain registers to use register gain */
+	{TABLA_A_RX_HPH_L_GAIN, 0x10, 0x10},
+	{TABLA_A_RX_HPH_R_GAIN, 0x10, 0x10},
+	{TABLA_A_RX_LINE_1_GAIN, 0x10, 0x10},
+	{TABLA_A_RX_LINE_2_GAIN, 0x10, 0x10},
+	{TABLA_A_RX_LINE_3_GAIN, 0x10, 0x10},
+	{TABLA_A_RX_LINE_4_GAIN, 0x10, 0x10},
+
+	/* Initialize mic biases to differential mode */
+	{TABLA_A_MICB_1_INT_RBIAS, 0x24, 0x24},
+	{TABLA_A_MICB_2_INT_RBIAS, 0x24, 0x24},
+	{TABLA_A_MICB_3_INT_RBIAS, 0x24, 0x24},
+	{TABLA_A_MICB_4_INT_RBIAS, 0x24, 0x24},
+
+	{TABLA_A_CDC_CONN_CLSG_CTL, 0x3C, 0x14},
+
+	/* Use 16 bit sample size for TX1 to TX6 */
+	{TABLA_A_CDC_CONN_TX_SB_B1_CTL, 0x30, 0x20},
+	{TABLA_A_CDC_CONN_TX_SB_B2_CTL, 0x30, 0x20},
+	{TABLA_A_CDC_CONN_TX_SB_B3_CTL, 0x30, 0x20},
+	{TABLA_A_CDC_CONN_TX_SB_B4_CTL, 0x30, 0x20},
+	{TABLA_A_CDC_CONN_TX_SB_B5_CTL, 0x30, 0x20},
+	{TABLA_A_CDC_CONN_TX_SB_B6_CTL, 0x30, 0x20},
+
+	/* Use 16 bit sample size for TX7 to TX10 */
+	{TABLA_A_CDC_CONN_TX_SB_B7_CTL, 0x60, 0x40},
+	{TABLA_A_CDC_CONN_TX_SB_B8_CTL, 0x60, 0x40},
+	{TABLA_A_CDC_CONN_TX_SB_B9_CTL, 0x60, 0x40},
+	{TABLA_A_CDC_CONN_TX_SB_B10_CTL, 0x60, 0x40},
+
+	/* Use 16 bit sample size for RX */
+	{TABLA_A_CDC_CONN_RX_SB_B1_CTL, 0xFF, 0xAA},
+	{TABLA_A_CDC_CONN_RX_SB_B2_CTL, 0xFF, 0xAA},
+
+	/*enable HPF filter for TX paths */
+	{TABLA_A_CDC_TX1_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX2_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX3_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX4_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX5_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX6_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX7_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX8_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX9_MUX_CTL, 0x8, 0x0},
+	{TABLA_A_CDC_TX10_MUX_CTL, 0x8, 0x0},
+};
+
+static void tabla_codec_init_reg(struct snd_soc_codec *codec)
+{
+	u32 i;
+
+	for (i = 0; i < ARRAY_SIZE(tabla_codec_reg_init_val); i++)
+		snd_soc_update_bits(codec, tabla_codec_reg_init_val[i].reg,
+				tabla_codec_reg_init_val[i].mask,
+				tabla_codec_reg_init_val[i].val);
+}
+
 static int tabla_codec_probe(struct snd_soc_codec *codec)
 {
 	struct tabla *control;
@@ -2442,7 +2564,6 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
 	int i;
-	int tx_channel;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -2470,43 +2591,12 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		goto err_pdata;
 	}
 
+	tabla_update_reg_defaults(codec);
+	tabla_codec_init_reg(codec);
+
 	/* TODO only enable bandgap when necessary in order to save power */
 	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_AUDIO_MODE);
 	tabla_codec_enable_clock_block(codec, 0);
-
-	/* Initialize gain registers to use register gain */
-	snd_soc_update_bits(codec, TABLA_A_RX_HPH_L_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_HPH_R_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_LINE_1_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_LINE_2_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_LINE_3_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_LINE_4_GAIN, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_RX_LINE_5_GAIN, 0x10, 0x10);
-
-	/* Initialize mic biases to differential mode */
-	snd_soc_update_bits(codec, TABLA_A_MICB_1_INT_RBIAS, 0x24, 0x24);
-	snd_soc_update_bits(codec, TABLA_A_MICB_2_INT_RBIAS, 0x24, 0x24);
-	snd_soc_update_bits(codec, TABLA_A_MICB_3_INT_RBIAS, 0x24, 0x24);
-	snd_soc_update_bits(codec, TABLA_A_MICB_4_INT_RBIAS, 0x24, 0x24);
-
-	snd_soc_update_bits(codec, TABLA_A_CDC_CONN_CLSG_CTL, 0x30, 0x10);
-
-	/* Use 16 bit sample size for now */
-	for (tx_channel = 0; tx_channel < 6; tx_channel++) {
-		snd_soc_update_bits(codec,
-			TABLA_A_CDC_CONN_TX_SB_B1_CTL + tx_channel, 0x30, 0x20);
-		snd_soc_update_bits(codec,
-			TABLA_A_CDC_TX1_MUX_CTL + (tx_channel * 8), 0x8, 0x0);
-
-	}
-	for (tx_channel = 6; tx_channel < 10; tx_channel++) {
-		snd_soc_update_bits(codec,
-			TABLA_A_CDC_CONN_TX_SB_B1_CTL + tx_channel, 0x60, 0x40);
-		snd_soc_update_bits(codec,
-			TABLA_A_CDC_TX1_MUX_CTL + (tx_channel * 8), 0x8, 0x0);
-	}
-	snd_soc_write(codec, TABLA_A_CDC_CONN_RX_SB_B1_CTL, 0xAA);
-	snd_soc_write(codec, TABLA_A_CDC_CONN_RX_SB_B2_CTL, 0xAA);
 
 	snd_soc_add_controls(codec, tabla_snd_controls,
 		ARRAY_SIZE(tabla_snd_controls));
