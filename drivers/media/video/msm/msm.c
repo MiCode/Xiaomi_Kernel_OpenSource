@@ -724,30 +724,6 @@ static int msm_camera_v4l2_dqbuf(struct file *f, void *pctx,
 	return rc;
 }
 
-static void msm_streaming_action_notify(
-	struct msm_cam_v4l2_dev_inst *pcam_inst, int streamon, int rc)
-{
-	struct v4l2_event ev;
-	struct msm_camera_event stm;
-
-	memset(&ev, 0, sizeof(ev));
-	stm.event_type = MSM_CAMERA_EVT_TYPE_STREAM;
-	stm.e.stream.image_mode = pcam_inst->image_mode;
-	stm.e.stream.op_mode = pcam_inst->pcam->op_mode;
-	if (rc == 0) {
-		if (streamon)
-			stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_ON;
-		else
-			stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_OFF;
-	} else
-		stm.e.stream.status = MSM_CAMERA_STREAM_STATUS_ERR;
-
-	ev.type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_DONE_EVENT;
-	ktime_get_ts(&ev.timestamp);
-	memcpy(ev.u.data, &stm, sizeof(stm));
-	v4l2_event_queue(pcam_inst->pcam->pvdev, &ev);
-}
-
 static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 					enum v4l2_buf_type i)
 {
@@ -772,9 +748,6 @@ static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 	rc = msm_server_streamon(pcam, pcam_inst->my_index);
 	mutex_unlock(&pcam->vid_lock);
 	D("%s rc = %d\n", __func__, rc);
-	if (rc < 0)
-		pr_err("%s: hw failed to start streaming\n", __func__);
-	msm_streaming_action_notify(pcam_inst, 1, rc);
 	return rc;
 }
 
@@ -803,8 +776,6 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 	/* stop buffer streaming */
 	rc = vb2_streamoff(&pcam_inst->vid_bufq, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	D("%s, videobuf_streamoff returns %d\n", __func__, rc);
-	msm_streaming_action_notify(pcam_inst, 0, rc);
-
 	return rc;
 }
 
@@ -1042,44 +1013,15 @@ static int msm_camera_v4l2_subscribe_event(struct v4l2_fh *fh,
 		(struct msm_cam_v4l2_dev_inst *)container_of(fh,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s\n", __func__);
-	D("fh = 0x%x\n", (u32)fh);
-
-	/* TBD: need change */
-	D("sub->type = 0x%x\n", sub->type);
+	D("%s:fh = 0x%x, type = 0x%x\n", __func__, (u32)fh, sub->type);
 	if (pcam_inst->my_index != 0)
 		return -EINVAL;
-	if (sub->type == V4L2_EVENT_ALL) {
-		/*sub->type = MSM_ISP_EVENT_START;*/
-		sub->type = V4L2_EVENT_PRIVATE_START +
-					MSM_CAMERA_EVT_TYPE_STREAM;
-
-		D("sub->type start = 0x%x\n", sub->type);
-		do {
-			rc = v4l2_event_subscribe(fh, sub);
-			if (rc < 0) {
-				D("%s: failed for evtType = 0x%x, rc = %d\n",
+	if (sub->type == V4L2_EVENT_ALL)
+		sub->type = V4L2_EVENT_PRIVATE_START+MSM_CAM_APP_NOTIFY_EVENT;
+	rc = v4l2_event_subscribe(fh, sub);
+	if (rc < 0)
+		D("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
-				/* unsubscribe all events here and return */
-				sub->type = V4L2_EVENT_ALL;
-				v4l2_event_unsubscribe(fh, sub);
-				return rc;
-			} else
-				D("%s: subscribed evtType = 0x%x, rc = %d\n",
-						__func__, sub->type, rc);
-			sub->type++;
-			D("sub->type while = 0x%x\n", sub->type);
-		} while (sub->type !=
-			V4L2_EVENT_PRIVATE_START + MSM_CAMERA_EVT_TYPE_MAX);
-	} else {
-		D("sub->type not V4L2_EVENT_ALL = 0x%x\n", sub->type);
-		rc = v4l2_event_subscribe(fh, sub);
-		if (rc < 0)
-			D("%s: failed for evtType = 0x%x, rc = %d\n",
-						__func__, sub->type, rc);
-	}
-
-	D("%s: rc = %d\n", __func__, rc);
 	return rc;
 }
 
@@ -1106,16 +1048,10 @@ static int msm_server_v4l2_subscribe_event(struct v4l2_fh *fh,
 {
 	int rc = 0;
 
-	D("%s\n", __func__);
-	D("fh = 0x%x\n", (u32)fh);
-
-	/* TBD: need change */
-	D("sub->type = 0x%x\n", sub->type);
-
+	D("%s: fh = 0x%x, type = 0x%x", __func__, (u32)fh, sub->type);
 	if (sub->type == V4L2_EVENT_ALL) {
 		/*sub->type = MSM_ISP_EVENT_START;*/
 		sub->type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_CTRL;
-
 		D("sub->type start = 0x%x\n", sub->type);
 		do {
 			rc = v4l2_event_subscribe(fh, sub);
@@ -1150,11 +1086,8 @@ static int msm_server_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 {
 	int rc = 0;
 
-	D("%s\n", __func__);
-	D("fh = 0x%x\n", (u32)fh);
-
+	D("%s: fh = 0x%x\n", __func__, (u32)fh);
 	rc = v4l2_event_unsubscribe(fh, sub);
-
 	D("%s: rc = %d\n", __func__, rc);
 	return rc;
 }
@@ -1360,6 +1293,7 @@ static int msm_open(struct file *f)
 		}
 	}
 	mutex_unlock(&pcam->vid_lock);
+	D("%s: end", __func__);
 	/* rc = msm_cam_server_open_session(g_server_dev, pcam);*/
 	return rc;
 }

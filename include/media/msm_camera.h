@@ -224,73 +224,7 @@ struct msm_isp_stats_event_ctrl {
 #define MSM_CAM_RESP_DONE_EVENT   6
 #define MSM_CAM_RESP_MAX          7
 
-#define MSM_CAMERA_EVT_TYPE_BASE	V4L2_EVENT_PRIVATE_START
-enum msm_camera_event_type {
-	MSM_CAMERA_EVT_TYPE_STREAM,
-	MSM_CAMERA_EVT_TYPE_CTRL,
-	MSM_CAMERA_EVT_TYPE_STATS,
-	MSM_CAMERA_EVT_TYPE_MAX
-};
-
-enum msm_camera_stream_status {
-	MSM_CAMERA_STREAM_STATUS_ON,
-	MSM_CAMERA_STREAM_STATUS_OFF,
-	MSM_CAMERA_STREAM_STATUS_ERR,
-};
-struct msm_camera_event_stream {
-	uint32_t op_mode;
-	uint32_t image_mode;
-	uint32_t status;
-};
-struct msm_camera_event_ctrl {
-	uint32_t event_id;
-	uint32_t status;
-};
-struct msm_camera_event_stats {
-	uint32_t event_id;
-	uint8_t data[40]; /* to be determined later */
-};
-
-struct msm_camera_event {
-	uint32_t event_type;
-	/* the union size cannot go beyond 64 bytes. need RFC */
-	union {
-		struct msm_camera_event_stream stream;
-		struct msm_camera_event_ctrl ctrl;
-		struct msm_camera_event_stats stats;
-	} e;
-};
-
-/* driver event types */
-#define MSM_CAM_EVT_HISTOGRAM_NOTIFY	(V4L2_EVENT_PRIVATE_START+1)
-#define MSM_CAM_EVT_STREAMING_NOTIFY	(V4L2_EVENT_PRIVATE_START+2)
-#define MSM_CAM_EVT_ASYNC_CMD_NOTIFY	(V4L2_EVENT_PRIVATE_START+3)
-#define MSM_CAM_EVT_AUTO_FOCUS_DONE	(V4L2_EVENT_PRIVATE_START+4)
-#define MSM_CAM_EVT_ZOOM_DONE           (V4L2_EVENT_PRIVATE_START+5)
-#define MSM_CAM_EVT_MAX			(V4L2_EVENT_PRIVATE_START+6)
-
-struct msm_event_histogram {
-	int32_t fd;
-	uint32_t size;
-	uint32_t offset;
-};
-struct msm_event_async_cmd_status {
-	uint32_t cmd;
-	int32_t status;
-};
-struct msm_event_streaming_status {
-	uint32_t ext_mode;
-	int32_t	streamon;
-	int32_t status;
-};
-struct msm_event_payload {
-	uint32_t type;
-	union {
-		struct msm_event_histogram hist;
-		struct msm_event_async_cmd_status cmd_status;
-		struct msm_event_streaming_status stream_status;
-	};
-};
+#define MSM_CAM_APP_NOTIFY_EVENT  0
 /* this one is used to send ctrl/status up to config thread */
 struct msm_stats_event_ctrl {
 	/* 0 - ctrl_cmd from control thread,
