@@ -39,7 +39,27 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
-static struct snd_pcm_hardware msm_pcm_hardware = {
+static struct snd_pcm_hardware msm_pcm_hardware_capture = {
+	.info =                 (SNDRV_PCM_INFO_MMAP |
+				SNDRV_PCM_INFO_BLOCK_TRANSFER |
+				SNDRV_PCM_INFO_MMAP_VALID |
+				SNDRV_PCM_INFO_INTERLEAVED |
+				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
+	.rates =                SNDRV_PCM_RATE_8000_48000,
+	.rate_min =             8000,
+	.rate_max =             48000,
+	.channels_min =         1,
+	.channels_max =         2,
+	.buffer_bytes_max =     512 * 8,
+	.period_bytes_min =	512,
+	.period_bytes_max =     512,
+	.periods_min =          8,
+	.periods_max =          8,
+	.fifo_size =            0,
+};
+
+static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				SNDRV_PCM_INFO_MMAP_VALID |
@@ -285,7 +305,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		pr_err("Failed to allocate memory for msm_audio\n");
 		return -ENOMEM;
 	}
-	runtime->hw = msm_pcm_hardware;
 	prtd->substream = substream;
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)event_handler, prtd);
@@ -295,6 +314,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		runtime->hw = msm_pcm_hardware_playback;
 		ret = q6asm_open_write(prtd->audio_client, FORMAT_LINEAR_PCM);
 		if (ret < 0) {
 			pr_err("%s: pcm out open failed\n", __func__);
@@ -305,6 +325,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	}
 	/* Capture path */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		runtime->hw = msm_pcm_hardware_capture;
 		ret = q6asm_open_read(prtd->audio_client, FORMAT_LINEAR_PCM);
 		if (ret < 0) {
 			pr_err("%s: pcm in open failed\n", __func__);
