@@ -26,6 +26,7 @@
 #include <linux/msm_adc.h>
 #include <linux/notifier.h>
 #include <linux/pmic8058-batt-alarm.h>
+#include <linux/pmic8058-charger.h>
 
 #include <mach/msm_xo.h>
 #include <mach/msm_hsusb.h>
@@ -574,6 +575,16 @@ static int get_fsm_status(void *data, u64 * val)
 	return 0;
 }
 
+enum pmic8058_chg_state pmic8058_get_fsm_state(void)
+{
+	if (!pm8058_chg.inited) {
+		pr_err("%s: called when not inited\n", __func__);
+		return -EINVAL;
+	}
+
+	return get_fsm_state();
+}
+
 static int pm_chg_disable(int value)
 {
 	u8 temp;
@@ -720,9 +731,9 @@ static void charging_check_work(struct work_struct *work)
 
 	switch (fsm_state) {
 	/* We're charging, so disarm alarm */
-	case 2:
-	case 7:
-	case 8:
+	case PMIC8058_CHG_STATE_ATC:
+	case PMIC8058_CHG_STATE_FAST_CHG:
+	case PMIC8058_CHG_STATE_TRKL_CHG:
 		rc = pm8058_batt_alarm_state_set(0, 0);
 		if (rc)
 			dev_err(pm8058_chg.dev,
