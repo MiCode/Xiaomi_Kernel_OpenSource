@@ -41,6 +41,8 @@ config BT_L2CAP
 	select CRC16
 	select CRYPTO_BLKCIPHER
 	select CRYPTO_AES
+	select CRYPTO_ECB
+	select CRYPTO_MANAGER
 	help
 	  L2CAP (Logical Link Control and Adaptation Protocol) provides
 	  connection oriented and connection-less data transport.  L2CAP

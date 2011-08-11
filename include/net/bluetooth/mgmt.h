@@ -101,8 +101,9 @@ struct mgmt_key_info {
 	u8 type;
 	u8 val[16];
 	u8 pin_len;
+	u8 auth;
 	u8 dlen;
-	u8 data[0];
+	u8 data[10];
 } __packed;
 
 #define MGMT_OP_LOAD_KEYS		0x000D
@@ -198,6 +199,21 @@ struct mgmt_cp_remove_remote_oob_data {
 	bdaddr_t bdaddr;
 } __packed;
 
+#define MGMT_OP_START_DISCOVERY		0x001B
+
+#define MGMT_OP_STOP_DISCOVERY		0x001C
+
+#define MGMT_OP_USER_PASSKEY_REPLY	0x001D
+struct mgmt_cp_user_passkey_reply {
+	bdaddr_t bdaddr;
+	__le32 passkey;
+} __packed;
+
+#define MGMT_OP_RESOLVE_NAME		0x001E
+struct mgmt_cp_resolve_name {
+	bdaddr_t bdaddr;
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16 opcode;
@@ -229,7 +245,7 @@ struct mgmt_ev_controller_error {
 
 #define MGMT_EV_NEW_KEY			0x000A
 struct mgmt_ev_new_key {
-	__u8 old_key_type;
+	__u8 store_hint;
 	struct mgmt_key_info key;
 } __packed;
 
@@ -252,11 +268,14 @@ struct mgmt_ev_connect_failed {
 #define MGMT_EV_PIN_CODE_REQUEST	0x000E
 struct mgmt_ev_pin_code_request {
 	bdaddr_t bdaddr;
+	__u8 secure;
 } __packed;
 
 #define MGMT_EV_USER_CONFIRM_REQUEST	0x000F
 struct mgmt_ev_user_confirm_request {
 	bdaddr_t bdaddr;
+	__u8 auto_confirm;
+	__u8 event;
 	__le32 value;
 } __packed;
 
@@ -276,11 +295,22 @@ struct mgmt_ev_device_found {
 	bdaddr_t bdaddr;
 	__u8 dev_class[3];
 	__s8 rssi;
+	__u8 le;
+	__u8 type;
 	__u8 eir[HCI_MAX_EIR_LENGTH];
 } __packed;
 
 #define MGMT_EV_REMOTE_NAME		0x0013
 struct mgmt_ev_remote_name {
 	bdaddr_t bdaddr;
+	__u8 status;
 	__u8 name[MGMT_MAX_NAME_LENGTH];
 } __packed;
+
+#define MGMT_EV_DISCOVERING		0x0014
+
+#define MGMT_EV_USER_PASSKEY_REQUEST	0x0015
+struct mgmt_ev_user_passkey_request {
+	bdaddr_t bdaddr;
+} __packed;
+

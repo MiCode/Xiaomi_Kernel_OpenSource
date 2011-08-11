@@ -55,6 +55,13 @@ struct smp_cmd_pairing {
 #define SMP_AUTH_BONDING	0x01
 #define SMP_AUTH_MITM		0x04
 
+#define SMP_JUST_WORKS		0x00
+#define SMP_JUST_CFM		0x01
+#define SMP_REQ_PASSKEY		0x02
+#define SMP_CFM_PASSKEY		0x03
+#define SMP_REQ_OOB		0x04
+#define SMP_OVERLAP		0xFF
+
 #define SMP_CMD_PAIRING_CONFIRM	0x03
 struct smp_cmd_pairing_confirm {
 	__u8	confirm_val[16];
@@ -118,6 +125,6 @@ struct smp_cmd_security_req {
 /* SMP Commands */
 int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level);
 int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb);
-int smp_distribute_keys(struct l2cap_conn *conn, __u8 force);
+int smp_link_encrypt_cmplt(struct l2cap_conn *conn, __u8 status, __u8 encrypt);
 
 #endif /* __SMP_H */

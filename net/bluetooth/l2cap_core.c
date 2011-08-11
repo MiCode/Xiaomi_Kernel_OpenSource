@@ -999,22 +999,27 @@ static void l2cap_conn_ready(struct l2cap_conn *conn)
 
 	read_lock(&l->lock);
 
-	for (sk = l->head; sk; sk = l2cap_pi(sk)->next_c) {
-		bh_lock_sock(sk);
+	if (l->head) {
+		for (sk = l->head; sk; sk = l2cap_pi(sk)->next_c) {
+			bh_lock_sock(sk);
 
-		if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA) {
-			if (smp_conn_security(conn, l2cap_pi(sk)->sec_level))
-				l2cap_chan_ready(sk);
+			if (conn->hcon->type == LE_LINK) {
+				if (smp_conn_security(conn,
+						l2cap_pi(sk)->sec_level))
+					l2cap_chan_ready(sk);
 
-		} else if (sk->sk_type != SOCK_SEQPACKET &&
-				sk->sk_type != SOCK_STREAM) {
-			l2cap_sock_clear_timer(sk);
-			sk->sk_state = BT_CONNECTED;
-			sk->sk_state_change(sk);
-		} else if (sk->sk_state == BT_CONNECT)
-			l2cap_do_start(sk);
+			} else if (sk->sk_type != SOCK_SEQPACKET &&
+					sk->sk_type != SOCK_STREAM) {
+				l2cap_sock_clear_timer(sk);
+				sk->sk_state = BT_CONNECTED;
+				sk->sk_state_change(sk);
+			} else if (sk->sk_state == BT_CONNECT)
+				l2cap_do_start(sk);
 
-		bh_unlock_sock(sk);
+			bh_unlock_sock(sk);
+		}
+	} else if (conn->hcon->type == LE_LINK) {
+		smp_conn_security(conn, BT_SECURITY_HIGH);
 	}
 
 	read_unlock(&l->lock);
@@ -1232,9 +1237,9 @@ int l2cap_do_connect(struct sock *sk)
 
 	l2cap_chan_add(conn, sk);
 
-	BT_DBG("hcon->state %d", (int) hcon->state);
-
-	if (l2cap_pi(sk)->fixed_channel) {
+	if ((l2cap_pi(sk)->fixed_channel) ||
+			(l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA &&
+				hcon->state == BT_CONNECTED)) {
 		sk->sk_state = BT_CONNECTED;
 		sk->sk_state_change(sk);
 	} else {
@@ -7253,12 +7258,12 @@ static int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
 		BT_DBG("sk->scid %d", l2cap_pi(sk)->scid);
 
 		if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA) {
-			if (!status && encrypt) {
+			if (!status && encrypt)
 				l2cap_pi(sk)->sec_level = hcon->sec_level;
-				del_timer(&conn->security_timer);
-				l2cap_chan_ready(sk);
-				smp_distribute_keys(conn, 0);
-			}
+
+			del_timer(&conn->security_timer);
+			l2cap_chan_ready(sk);
+			smp_link_encrypt_cmplt(conn, status, encrypt);
 
 			bh_unlock_sock(sk);
 			continue;

@@ -621,13 +621,14 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 
 		le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
 		if (le)
-			return ERR_PTR(-EBUSY);
+			return le;
 
 		entry = hci_find_adv_entry(hdev, dst);
 		if (!entry)
-			return ERR_PTR(-EHOSTUNREACH);
+			le = hci_le_conn_add(hdev, dst, 0);
+		else
+			le = hci_le_conn_add(hdev, dst, entry->bdaddr_type);
 
-		le = hci_le_conn_add(hdev, dst, entry->bdaddr_type);
 		if (!le)
 			return ERR_PTR(-ENOMEM);
 
@@ -747,8 +748,8 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 
 	/* Make sure we preserve an existing MITM requirement*/
 	auth_type |= (conn->auth_type & 0x01);
-
 	conn->auth_type = auth_type;
+	conn->auth_initiator = 1;
 
 	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
 		struct hci_cp_auth_requested cp;
@@ -763,7 +764,7 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 /* Enable security */
 int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 {
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %p %d %d", conn, sec_level, auth_type);
 
 	if (sec_level == BT_SECURITY_SDP)
 		return 1;

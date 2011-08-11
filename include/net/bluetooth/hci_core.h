@@ -84,15 +84,17 @@ struct key_master_id {
 	u8 rand[8];
 } __packed;
 
-#define KEY_TYPE_LTK	0x11
-#define KEY_TYPE_IRK	0x12
-#define KEY_TYPE_CSRK	0x13
+#define KEY_TYPE_LE_BASE	0x11
+#define KEY_TYPE_LTK		0x11
+#define KEY_TYPE_IRK		0x12
+#define KEY_TYPE_CSRK		0x13
 
 struct link_key_data {
 	bdaddr_t bdaddr;
 	u8 type;
 	u8 val[16];
 	u8 pin_len;
+	u8 auth;
 	u8 dlen;
 	u8 data[0];
 } __packed;
@@ -103,6 +105,7 @@ struct link_key {
 	u8 type;
 	u8 val[16];
 	u8 pin_len;
+	u8 auth;
 	u8 dlen;
 	u8 data[0];
 };
@@ -287,6 +290,7 @@ struct hci_conn {
 	__u8		pin_length;
 	__u8		enc_key_size;
 	__u8		io_capability;
+	__u8		auth_initiator;
 	__u8		power_save;
 	__u16		disc_timeout;
 	unsigned long	pend;
@@ -317,6 +321,20 @@ struct hci_conn {
 	__u8             key_type;
 
 	struct hci_conn	*link;
+
+	/* Low Energy SMP pairing data */
+	__u8		oob; /* OOB pairing supported */
+	__u8		tk_valid; /* TK value is valid */
+	__u8		cfm_pending; /* CONFIRM cmd may be sent */
+	__u8		preq[7]; /* Pairing Request */
+	__u8		prsp[7]; /* Pairing Response */
+	__u8		prnd[16]; /* Pairing Random */
+	__u8		pcnf[16]; /* Pairing Confirm */
+	__u8		tk[16]; /* Temporary Key */
+	__u8		smp_key_size;
+	__u8		sec_req;
+	__u8		auth;
+	void		*smp_conn;
 
 	void (*connect_cfm_cb)	(struct hci_conn *conn, u8 status);
 	void (*security_cfm_cb)	(struct hci_conn *conn, u8 status);
@@ -586,7 +604,7 @@ static inline void hci_conn_put(struct hci_conn *conn)
 {
 	if (atomic_dec_and_test(&conn->refcnt)) {
 		unsigned long timeo;
-		if (conn->type == ACL_LINK) {
+		if (conn->type == ACL_LINK || conn->type == LE_LINK) {
 			del_timer(&conn->idle_timer);
 			if (conn->state == BT_CONNECTED) {
 				timeo = msecs_to_jiffies(conn->disc_timeout);
@@ -667,7 +685,7 @@ struct link_key *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8]);
 struct link_key *hci_find_link_key_type(struct hci_dev *hdev,
 					bdaddr_t *bdaddr, u8 type);
 int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
-			u8 key_size, __le16 ediv, u8 rand[8], u8 ltk[16]);
+		u8 auth, u8 key_size, __le16 ediv, u8 rand[8], u8 ltk[16]);
 int hci_remove_link_key(struct hci_dev *hdev, bdaddr_t *bdaddr);
 
 int hci_remote_oob_data_clear(struct hci_dev *hdev);
@@ -986,7 +1004,7 @@ int mgmt_index_removed(u16 index);
 int mgmt_powered(u16 index, u8 powered);
 int mgmt_discoverable(u16 index, u8 discoverable);
 int mgmt_connectable(u16 index, u8 connectable);
-int mgmt_new_key(u16 index, struct link_key *key, u8 old_key_type);
+int mgmt_new_key(u16 index, struct link_key *key, u8 bonded);
 int mgmt_connected(u16 index, bdaddr_t *bdaddr);
 int mgmt_disconnected(u16 index, bdaddr_t *bdaddr);
 int mgmt_disconnect_failed(u16 index);
@@ -994,7 +1012,9 @@ int mgmt_connect_failed(u16 index, bdaddr_t *bdaddr, u8 status);
 int mgmt_pin_code_request(u16 index, bdaddr_t *bdaddr);
 int mgmt_pin_code_reply_complete(u16 index, bdaddr_t *bdaddr, u8 status);
 int mgmt_pin_code_neg_reply_complete(u16 index, bdaddr_t *bdaddr, u8 status);
-int mgmt_user_confirm_request(u16 index, bdaddr_t *bdaddr, __le32 value);
+int mgmt_user_confirm_request(u16 index, u8 event, bdaddr_t *bdaddr,
+							__le32 value);
+int mgmt_user_oob_request(u16 index, bdaddr_t *bdaddr);
 int mgmt_user_confirm_reply_complete(u16 index, bdaddr_t *bdaddr, u8 status);
 int mgmt_user_confirm_neg_reply_complete(u16 index, bdaddr_t *bdaddr,
 								u8 status);
@@ -1002,9 +1022,14 @@ int mgmt_auth_failed(u16 index, bdaddr_t *bdaddr, u8 status);
 int mgmt_set_local_name_complete(u16 index, u8 *name, u8 status);
 int mgmt_read_local_oob_data_reply_complete(u16 index, u8 *hash, u8 *randomizer,
 								u8 status);
-int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 *dev_class, s8 rssi,
-								u8 *eir);
-int mgmt_remote_name(u16 index, bdaddr_t *bdaddr, u8 *name);
+int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
+				u8 *dev_class, s8 rssi, u8 eir_len, u8 *eir);
+int mgmt_remote_name(u16 index, bdaddr_t *bdaddr, u8 status, u8 *name);
+void mgmt_inquiry_started(u16 index);
+void mgmt_inquiry_complete_evt(u16 index, u8 status);
+
+/* LE SMP Management interface */
+int le_user_confirm_reply(struct hci_conn *conn, u16 mgmt_op, void *cp);
 
 /* HCI info for socket */
 #define hci_pi(sk) ((struct hci_pinfo *) sk)

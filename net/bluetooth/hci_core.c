@@ -60,7 +60,7 @@ static void hci_tx_task(unsigned long arg);
 
 static DEFINE_RWLOCK(hci_task_lock);
 
-static int enable_smp;
+static int enable_smp = 1;
 
 /* HCI device list */
 LIST_HEAD(hci_dev_list);
@@ -962,7 +962,7 @@ static void hci_power_on(struct work_struct *work)
 
 	BT_DBG("%s", hdev->name);
 
-	if (hci_dev_open(hdev->id) < 0)
+	if (hci_dev_open(hdev->id) < 0 && !test_bit(HCI_UP, &hdev->flags))
 		return;
 
 	if (test_bit(HCI_AUTO_OFF, &hdev->flags))
@@ -1097,7 +1097,9 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 						u8 *val, u8 type, u8 pin_len)
 {
 	struct link_key *key, *old_key;
+	struct hci_conn *conn;
 	u8 old_key_type;
+	u8 bonded = 0;
 
 	old_key = hci_find_link_key(hdev, bdaddr);
 	if (old_key) {
@@ -1115,11 +1117,17 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 
 	bacpy(&key->bdaddr, bdaddr);
 	memcpy(key->val, val, 16);
+	key->auth = 0x01;
 	key->type = type;
 	key->pin_len = pin_len;
 
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
+
+	if (conn && (conn->auth_type > 0x01 || conn->remote_auth > 0x01))
+		bonded = 1;
+
 	if (new_key)
-		mgmt_new_key(hdev->id, key, old_key_type);
+		mgmt_new_key(hdev->id, key, bonded);
 
 	if (type == 0x06)
 		key->type = old_key_type;
@@ -1128,24 +1136,22 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 }
 
 int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
-			u8 key_size, __le16 ediv, u8 rand[8], u8 ltk[16])
+			u8 key_size, u8 auth, __le16 ediv, u8 rand[8],
+			u8 ltk[16])
 {
 	struct link_key *key, *old_key;
 	struct key_master_id *id;
-	u8 old_key_type;
 
-	BT_DBG("%s addr %s", hdev->name, batostr(bdaddr));
+	BT_DBG("%s Auth: %2.2X addr %s", hdev->name, auth, batostr(bdaddr));
 
 	old_key = hci_find_link_key_type(hdev, bdaddr, KEY_TYPE_LTK);
 	if (old_key) {
 		key = old_key;
-		old_key_type = old_key->type;
 	} else {
 		key = kzalloc(sizeof(*key) + sizeof(*id), GFP_ATOMIC);
 		if (!key)
 			return -ENOMEM;
 		list_add(&key->list, &hdev->link_keys);
-		old_key_type = 0xff;
 	}
 
 	key->dlen = sizeof(*id);
@@ -1154,13 +1160,14 @@ int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 	memcpy(key->val, ltk, sizeof(key->val));
 	key->type = KEY_TYPE_LTK;
 	key->pin_len = key_size;
+	key->auth = auth;
 
 	id = (void *) &key->data;
 	id->ediv = ediv;
 	memcpy(id->rand, rand, sizeof(id->rand));
 
 	if (new_key)
-		mgmt_new_key(hdev->id, key, old_key_type);
+		mgmt_new_key(hdev->id, key, auth & 0x01);
 
 	return 0;
 }
@@ -1243,6 +1250,7 @@ int hci_adv_entries_clear(struct hci_dev *hdev)
 {
 	struct list_head *p, *n;
 
+	BT_DBG("");
 	write_lock_bh(&hdev->adv_entries_lock);
 
 	list_for_each_safe(p, n, &hdev->adv_entries) {
@@ -1264,6 +1272,7 @@ struct adv_entry *hci_find_adv_entry(struct hci_dev *hdev, bdaddr_t *bdaddr)
 	struct list_head *p;
 	struct adv_entry *res = NULL;
 
+	BT_DBG("");
 	read_lock_bh(&hdev->adv_entries_lock);
 
 	list_for_each(p, &hdev->adv_entries) {
@@ -1317,6 +1326,8 @@ int hci_add_adv_entry(struct hci_dev *hdev,
 					struct hci_ev_le_advertising_info *ev)
 {
 	struct adv_entry *entry;
+
+	BT_DBG("");
 
 	if (!is_connectable_adv(ev->evt_type))
 		return -EINVAL;

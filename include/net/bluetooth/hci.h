@@ -897,7 +897,20 @@ struct hci_rp_le_read_buffer_size {
 	__u8     le_max_pkt;
 } __packed;
 
+#define HCI_OP_LE_SET_SCAN_PARAMETERS	0x200b
+struct hci_cp_le_set_scan_parameters {
+	__u8	type;
+	__le16	interval;
+	__le16	window;
+	__u8	own_bdaddr_type;
+	__u8	filter;
+} __packed;
+
 #define HCI_OP_LE_SET_SCAN_ENABLE	0x200c
+struct hci_cp_le_set_scan_enable {
+	__u8	enable;
+	__u8	filter_dup;
+} __packed;
 
 #define HCI_OP_LE_CREATE_CONN		0x200d
 struct hci_cp_le_create_conn {
@@ -926,6 +939,16 @@ struct hci_cp_le_conn_update {
 	__le16   supervision_timeout;
 	__le16   min_ce_len;
 	__le16   max_ce_len;
+} __packed;
+
+#define HCI_OP_LE_ENCRYPT		0x2017
+struct hci_cp_le_encrypt {
+	__u8	key[16];
+	__u8	data[16];
+} __packed;
+struct hci_cp_le_encrypt_reply {
+	__u8     status;
+	__u8     encrypted[16];
 } __packed;
 
 #define HCI_OP_LE_START_ENC		0x2019
@@ -1209,6 +1232,11 @@ struct hci_ev_user_confirm_req {
 	__le32		passkey;
 } __packed;
 
+#define HCI_EV_USER_PASSKEY_REQUEST	0x34
+struct hci_ev_user_passkey_request {
+	bdaddr_t bdaddr;
+} __packed;
+
 #define HCI_EV_REMOTE_OOB_DATA_REQUEST	0x35
 struct hci_ev_remote_oob_data_request {
 	bdaddr_t bdaddr;
@@ -1218,6 +1246,12 @@ struct hci_ev_remote_oob_data_request {
 struct hci_ev_simple_pair_complete {
 	__u8     status;
 	bdaddr_t bdaddr;
+} __packed;
+
+#define HCI_EV_USER_PASSKEY_NOTIFICATION	0x3b
+struct hci_ev_user_passkey_notification {
+	bdaddr_t	bdaddr;
+	__le32		passkey;
 } __packed;
 
 #define HCI_EV_REMOTE_HOST_FEATURES	0x3d
