@@ -126,6 +126,15 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_EN_WAN_AVD_CTRL          0x0014
 #define HCI_OCF_FM_EN_NOTCH_CTRL            0x0015
 
+/* HCI trans control commans opcode*/
+#define HCI_OCF_FM_ENABLE_TRANS_REQ         0x0001
+#define HCI_OCF_FM_DISABLE_TRANS_REQ        0x0002
+#define HCI_OCF_FM_GET_TRANS_CONF_REQ       0x0003
+#define HCI_OCF_FM_SET_TRANS_CONF_REQ       0x0004
+#define HCI_OCF_FM_RDS_RT_REQ               0x0008
+#define HCI_OCF_FM_RDS_PS_REQ               0x0009
+
+
 /* HCI common control commands opcode */
 #define HCI_OCF_FM_TUNE_STATION_REQ         0x0001
 #define HCI_OCF_FM_DEFAULT_DATA_READ        0x0002
@@ -143,9 +152,11 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_SSBI_PEEK_REG            0x0004
 #define HCI_OCF_FM_SSBI_POKE_REG            0x0005
 #define HCI_OCF_FM_STATION_DBG_PARAM        0x0007
+#define HCI_FM_SET_INTERNAL_TONE_GENRATOR   0x0008
 
 /* Opcode OGF */
 #define HCI_OGF_FM_RECV_CTRL_CMD_REQ            0x0013
+#define HCI_OGF_FM_TRANS_CTRL_CMD_REQ           0x0014
 #define HCI_OGF_FM_COMMON_CTRL_CMD_REQ          0x0015
 #define HCI_OGF_FM_STATUS_PARAMETERS_CMD_REQ    0x0016
 #define HCI_OGF_FM_TEST_CMD_REQ                 0x0017
@@ -157,6 +168,8 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define hci_opcode_ocf(op)		(op & 0x03ff)
 #define hci_recv_ctrl_cmd_op_pack(ocf) \
 	(__u16) hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ, ocf)
+#define hci_trans_ctrl_cmd_op_pack(ocf) \
+	(__u16) hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ, ocf)
 #define hci_common_cmd_op_pack(ocf)	\
 	(__u16) hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ, ocf)
 #define hci_status_param_op_pack(ocf)	\
@@ -178,6 +191,13 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_FM_RESET_CMD 10
 #define HCI_FM_GET_FEATURES_CMD 11
 #define HCI_FM_STATION_DBG_PARAM_CMD 12
+#define HCI_FM_ENABLE_TRANS_CMD 13
+#define HCI_FM_DISABLE_TRANS_CMD 14
+
+
+/* Defines for FM TX*/
+#define TX_PS_DATA_LENGTH 96
+#define TX_RT_DATA_LENGTH 64
 
 /* ----- HCI Command request ----- */
 struct hci_fm_recv_conf_req {
@@ -185,6 +205,41 @@ struct hci_fm_recv_conf_req {
 	__u8	ch_spacing;
 	__u8	rds_std;
 	__u8	hlsi;
+	__u32	band_low_limit;
+	__u32	band_high_limit;
+} __packed;
+
+/* ----- HCI Command request ----- */
+struct hci_fm_trans_conf_req_struct {
+	__u8	emphasis;
+	__u8	rds_std;
+	__u32	band_low_limit;
+	__u32	band_high_limit;
+} __packed;
+
+
+/* ----- HCI Command request ----- */
+struct hci_fm_tx_ps {
+	__u8    ps_control;
+	__u16	pi;
+	__u8	pty;
+	__u8	ps_repeatcount;
+	__u8	ps_len;
+	__u8    ps_data[TX_PS_DATA_LENGTH];
+} __packed;
+
+struct hci_fm_tx_rt {
+	__u8    rt_control;
+	__u16	pi;
+	__u8	pty;
+	__u8	ps_len;
+	__u8    rt_data[TX_RT_DATA_LENGTH];
+} __packed;
+
+struct hci_fm_get_trans_conf_rsp {
+	__u8    status;
+	__u8	emphasis;
+	__u8	rds_std;
 	__u32	band_low_limit;
 	__u32	band_high_limit;
 } __packed;
@@ -479,6 +534,8 @@ enum v4l2_cid_private_iris_t {
 	VL2_CID_PRIVATE_IRIS_TX_TONE,
 };
 
+
+
 enum iris_evt_t {
 	IRIS_EVT_RADIO_READY,
 	IRIS_EVT_TUNE_SUCC,
@@ -498,6 +555,27 @@ enum iris_evt_t {
 	IRIS_EVT_NEW_AF_LIST,
 	IRIS_EVT_TXRDSDAT,
 	IRIS_EVT_TXRDSDONE
+};
+enum emphasis_type {
+	FM_RX_EMP75 = 0x0,
+	FM_RX_EMP50 = 0x1
+};
+
+enum channel_space_type {
+	FM_RX_SPACE_200KHZ = 0x0,
+	FM_RX_SPACE_100KHZ = 0x1,
+	FM_RX_SPACE_50KHZ = 0x2
+};
+
+enum high_low_injection {
+	AUTO_HI_LO_INJECTION = 0x0,
+	LOW_SIDE_INJECTION = 0x1,
+	HIGH_SIDE_INJECTION = 0x2
+};
+
+enum fm_rds_type {
+	FM_RX_RDBS_SYSTEM = 0x0,
+	FM_RX_RDS_SYSTEM = 0x1
 };
 
 enum iris_region_t {
@@ -554,6 +632,15 @@ enum search_t {
 	RDS_AF_JUMP,
 };
 
+
+/* Band limits */
+#define REGION_US_EU_BAND_LOW              87500
+#define REGION_US_EU_BAND_HIGH             107900
+#define REGION_JAPAN_STANDARD_BAND_LOW     76000
+#define REGION_JAPAN_STANDARD_BAND_HIGH    90000
+#define REGION_JAPAN_WIDE_BAND_LOW         90000
+#define REGION_JAPAN_WIDE_BAND_HIGH        108000
+
 #define SRCH_MODE	0x07
 #define SRCH_DIR	0x08 /* 0-up 1-down */
 #define SCAN_DWELL	0x70
@@ -570,6 +657,12 @@ enum search_t {
 /* RDS Control */
 #define RDS_ON		0x01
 #define RDS_BUF_SZ  100
+
+/* constants */
+#define  RDS_BLOCKS_NUM	(4)
+#define BYTES_PER_BLOCK	(3)
+#define MAX_PS_LENGTH	(96)
+#define MAX_RT_LENGTH	(64)
 
 /* Search direction */
 #define SRCH_DIR_UP		(0)

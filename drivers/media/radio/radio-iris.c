@@ -55,6 +55,11 @@ struct iris_device {
 	int xfr_in_progress;
 	struct completion sync_xfr_start;
 	int tune_req;
+	unsigned int mode;
+
+	__u16 pi;
+	__u8 pty;
+	__u8 ps_repeatcount;
 
 	struct video_device *videodev;
 
@@ -75,8 +80,10 @@ struct iris_device {
 	struct hci_fm_search_rds_station_req srch_rds;
 	struct hci_fm_search_station_list_req srch_st_list;
 	struct hci_fm_recv_conf_req recv_conf;
+	struct hci_fm_trans_conf_req_struct trans_conf;
 	struct hci_fm_rds_grp_req rds_grp;
 	unsigned char g_search_mode;
+	unsigned int tone_freq;
 	unsigned char g_scan_time;
 	unsigned int g_antenna;
 	unsigned int g_rds_grp_proc_ps;
@@ -548,6 +555,28 @@ static int hci_fm_enable_recv_req(struct radio_hci_dev *hdev,
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
 
+static int hci_fm_tone_generator(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	__u16 opcode = 0;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
+		HCI_FM_SET_INTERNAL_TONE_GENRATOR);
+	return radio_hci_send_cmd(hdev, opcode,
+			sizeof(radio->tone_freq), &radio->tone_freq);
+}
+
+static int hci_fm_enable_trans_req(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	__u16 opcode = 0;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ,
+		HCI_OCF_FM_ENABLE_TRANS_REQ);
+	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
+}
+
 static int hci_fm_disable_recv_req(struct radio_hci_dev *hdev,
 	unsigned long param)
 {
@@ -555,6 +584,16 @@ static int hci_fm_disable_recv_req(struct radio_hci_dev *hdev,
 
 	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_DISABLE_RECV_REQ);
+	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
+}
+
+static int hci_fm_disable_trans_req(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	__u16 opcode = 0;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ,
+		HCI_OCF_FM_DISABLE_TRANS_REQ);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
 
@@ -582,6 +621,20 @@ static int hci_set_fm_recv_conf_req(struct radio_hci_dev *hdev,
 		recv_conf_req);
 }
 
+static int hci_set_fm_trans_conf_req(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	__u16 opcode = 0;
+
+	struct hci_fm_trans_conf_req_struct *trans_conf_req =
+		(struct hci_fm_trans_conf_req_struct *) param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ,
+		HCI_OCF_FM_SET_TRANS_CONF_REQ);
+	return radio_hci_send_cmd(hdev, opcode, sizeof((*trans_conf_req)),
+		trans_conf_req);
+}
+
 static int hci_fm_get_station_param_req(struct radio_hci_dev *hdev,
 		unsigned long param)
 {
@@ -603,6 +656,35 @@ static int hci_set_fm_mute_mode_req(struct radio_hci_dev *hdev,
 		HCI_OCF_FM_SET_MUTE_MODE_REQ);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*mute_mode_req)),
 		mute_mode_req);
+}
+
+
+static int hci_trans_ps_req(struct radio_hci_dev *hdev,
+		unsigned long param)
+{
+	__u16 opcode = 0;
+	struct hci_fm_tx_ps *tx_ps_req =
+		(struct hci_fm_tx_ps *) param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ,
+		HCI_OCF_FM_RDS_PS_REQ);
+
+	return radio_hci_send_cmd(hdev, opcode, sizeof((*tx_ps_req)),
+		tx_ps_req);
+}
+
+static int hci_trans_rt_req(struct radio_hci_dev *hdev,
+		unsigned long param)
+{
+	__u16 opcode = 0;
+	struct hci_fm_tx_rt *tx_rt_req =
+		(struct hci_fm_tx_rt *) param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ,
+		HCI_OCF_FM_RDS_RT_REQ);
+
+	return radio_hci_send_cmd(hdev, opcode, sizeof((*tx_rt_req)),
+		tx_rt_req);
 }
 
 static int hci_set_fm_stereo_mode_req(struct radio_hci_dev *hdev,
@@ -973,6 +1055,18 @@ static int hci_set_fm_recv_conf(struct hci_fm_recv_conf_req *arg,
 	return ret;
 }
 
+static int hci_set_fm_trans_conf(struct hci_fm_trans_conf_req_struct *arg,
+		struct radio_hci_dev *hdev)
+{
+	int ret = 0;
+	struct hci_fm_trans_conf_req_struct *set_trans_conf = arg;
+
+	ret = radio_hci_request(hdev, hci_set_fm_trans_conf_req, (unsigned
+		long)set_trans_conf, RADIO_HCI_TIMEOUT);
+
+	return ret;
+}
+
 static int hci_fm_tune_station(__u32 *arg, struct radio_hci_dev *hdev)
 {
 	int ret = 0;
@@ -1184,6 +1278,9 @@ static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
 	int ret = 0;
 	unsigned long arg = 0;
 
+	if (!hdev)
+		return -ENODEV;
+
 	switch (cmd) {
 	case HCI_FM_ENABLE_RECV_CMD:
 		ret = radio_hci_request(hdev, hci_fm_enable_recv_req, arg,
@@ -1247,6 +1344,16 @@ static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
 	case HCI_FM_STATION_DBG_PARAM_CMD:
 		ret = radio_hci_request(hdev,
 		hci_fm_get_station_dbg_param_req, arg,
+			msecs_to_jiffies(RADIO_HCI_TIMEOUT));
+		break;
+
+	case HCI_FM_ENABLE_TRANS_CMD:
+		ret = radio_hci_request(hdev, hci_fm_enable_trans_req, arg,
+			msecs_to_jiffies(RADIO_HCI_TIMEOUT));
+		break;
+
+	case HCI_FM_DISABLE_TRANS_CMD:
+		ret = radio_hci_request(hdev, hci_fm_disable_trans_req, arg,
 			msecs_to_jiffies(RADIO_HCI_TIMEOUT));
 		break;
 
@@ -1321,6 +1428,22 @@ static void hci_cc_fm_enable_rsp(struct radio_hci_dev *hdev,
 
 	radio_hci_req_complete(hdev, rsp->status);
 }
+
+
+static void hci_cc_fm_trans_set_conf_rsp(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct hci_fm_conf_rsp  *rsp = (void *)skb->data;
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+
+	if (rsp->status)
+		return;
+
+	iris_q_event(radio, HCI_EV_CMD_COMPLETE);
+
+	radio_hci_req_complete(hdev, rsp->status);
+}
+
 
 static void hci_cc_sig_threshold_rsp(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
@@ -1490,11 +1613,16 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_GRP_PROCESS):
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_EN_WAN_AVD_CTRL):
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_EN_NOTCH_CTRL):
+	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_ENABLE_TRANS_REQ):
+	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_DISABLE_TRANS_REQ):
+	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_RT_REQ):
+	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_PS_REQ):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_DEFAULT_DATA_WRITE):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_RESET):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_POKE_REG):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
 	case hci_status_param_op_pack(HCI_OCF_FM_READ_GRP_COUNTERS):
+	case hci_diagnostic_cmd_op_pack(HCI_FM_SET_INTERNAL_TONE_GENRATOR):
 		hci_cc_rsp(hdev, skb);
 		break;
 
@@ -1532,6 +1660,10 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_STATION_DBG_PARAM):
 		hci_cc_dbg_param_rsp(hdev, skb);
+		break;
+
+	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_SET_TRANS_CONF_REQ):
+		hci_cc_fm_trans_set_conf_rsp(hdev, skb);
 		break;
 
 	default:
@@ -1812,51 +1944,41 @@ static int iris_search(struct iris_device *radio, int on, int dir)
 	return retval;
 }
 
-static int iris_set_region(struct iris_device *radio, int req_region)
+static int iris_recv_set_region(struct iris_device *radio, int req_region)
 {
 	int retval;
 	radio->region = req_region;
 
 	switch (radio->region) {
 	case IRIS_REGION_US:
-		{
-			radio->recv_conf.band_low_limit = 88100;
-			radio->recv_conf.band_high_limit = 108000;
-			radio->recv_conf.emphasis = 0;
-			radio->recv_conf.hlsi = 0;
-			radio->recv_conf.ch_spacing = 0;
-			radio->recv_conf.rds_std = 0;
-		}
+		radio->recv_conf.band_low_limit =
+			REGION_US_EU_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_US_EU_BAND_HIGH;
 		break;
 	case IRIS_REGION_EU:
-		{
-			radio->recv_conf.band_low_limit = 88100;
-			radio->recv_conf.band_high_limit = 108000;
-			radio->recv_conf.emphasis = 0;
-			radio->recv_conf.hlsi = 0;
-			radio->recv_conf.ch_spacing = 0;
-			radio->recv_conf.rds_std = 0;
-		}
+		radio->recv_conf.band_low_limit =
+			REGION_US_EU_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_US_EU_BAND_HIGH;
 		break;
 	case IRIS_REGION_JAPAN:
-		{
-			radio->recv_conf.band_low_limit = 76000;
-			radio->recv_conf.band_high_limit = 108000;
-			radio->recv_conf.emphasis = 0;
-			radio->recv_conf.hlsi = 0;
-			radio->recv_conf.ch_spacing = 0;
-		}
+		radio->recv_conf.band_low_limit =
+			REGION_JAPAN_STANDARD_BAND_HIGH;
+		radio->recv_conf.band_high_limit =
+			REGION_JAPAN_STANDARD_BAND_LOW;
+		break;
+	case IRIS_REGION_JAPAN_WIDE:
+		radio->recv_conf.band_low_limit =
+			REGION_JAPAN_WIDE_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_JAPAN_WIDE_BAND_HIGH;
 		break;
 	default:
-		{
-			radio->recv_conf.emphasis = 0;
-			radio->recv_conf.hlsi = 0;
-			radio->recv_conf.ch_spacing = 0;
-			radio->recv_conf.rds_std = 0;
-		}
+		/* The user specifies the value.
+		   So nothing needs to be done */
 		break;
 	}
-
 
 	retval = hci_set_fm_recv_conf(
 			&radio->recv_conf,
@@ -1864,6 +1986,47 @@ static int iris_set_region(struct iris_device *radio, int req_region)
 
 	return retval;
 }
+
+
+static int iris_trans_set_region(struct iris_device *radio, int req_region)
+{
+	int retval;
+	radio->region = req_region;
+
+	switch (radio->region) {
+	case IRIS_REGION_US:
+		radio->trans_conf.band_low_limit =
+			REGION_US_EU_BAND_LOW;
+		radio->trans_conf.band_high_limit =
+			REGION_US_EU_BAND_HIGH;
+		break;
+	case IRIS_REGION_EU:
+		radio->trans_conf.band_low_limit =
+			REGION_US_EU_BAND_LOW;
+		radio->trans_conf.band_high_limit =
+			REGION_US_EU_BAND_HIGH;
+		break;
+	case IRIS_REGION_JAPAN:
+		radio->trans_conf.band_low_limit =
+			REGION_JAPAN_STANDARD_BAND_HIGH;
+		radio->trans_conf.band_high_limit =
+			REGION_JAPAN_STANDARD_BAND_LOW;
+		break;
+	case IRIS_REGION_JAPAN_WIDE:
+		radio->recv_conf.band_low_limit =
+			REGION_JAPAN_WIDE_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_JAPAN_WIDE_BAND_HIGH;
+	default:
+		break;
+	}
+
+	retval = hci_set_fm_trans_conf(
+			&radio->trans_conf,
+				radio->fm_hdev);
+	return retval;
+}
+
 
 static int iris_set_freq(struct iris_device *radio, unsigned int freq)
 {
@@ -1940,40 +2103,44 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_SRCH_CNT:
 		break;
 	case V4L2_CID_PRIVATE_IRIS_EMPHASIS:
-		retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
-							 radio->fm_hdev);
-		if (retval < 0)
-			FMDERR("Error get FM recv conf"
-				" %d\n", retval);
-		else
+		if (radio->mode == FM_RECV) {
 			ctrl->value = radio->recv_conf.emphasis;
+		} else if (radio->mode == FM_TRANS) {
+			ctrl->value = radio->trans_conf.emphasis;
+		} else {
+			FMDERR("Error in radio mode"
+				" %d\n", retval);
+			return -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDS_STD:
-		retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
-				 radio->fm_hdev);
-		if (retval < 0)
-			FMDERR("Error get FM recv conf"
-				" %d\n", retval);
-		else
+		if (radio->mode == FM_RECV) {
 			ctrl->value = radio->recv_conf.rds_std;
+		} else if (radio->mode == FM_TRANS) {
+			ctrl->value = radio->trans_conf.rds_std;
+		} else {
+			FMDERR("Error in radio mode"
+				" %d\n", retval);
+			return -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SPACING:
-		retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
-				radio->fm_hdev);
-		if (retval < 0)
-			FMDERR("Error get FM recv conf"
-				" %d\n", retval);
-		else
+		if (radio->mode == FM_RECV) {
 			ctrl->value = radio->recv_conf.ch_spacing;
+		} else {
+			FMDERR("Error in radio mode"
+				" %d\n", retval);
+			return -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDSON:
-		retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
-				radio->fm_hdev);
-		if (retval < 0)
-			FMDERR("Error get FM recv conf"
-				" %d\n", retval);
-		else
+		if (radio->mode == FM_RECV) {
 			ctrl->value = radio->recv_conf.rds_std;
+		} else {
+			FMDERR("Error in radio mode"
+				" %d\n", retval);
+			return -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDSGROUP_MASK:
 		ctrl->value = radio->rds_grp.rds_grp_enable_mask;
@@ -2005,7 +2172,60 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 			struct v4l2_ext_controls *ctrl)
 {
-	return -ENOTSUPP;
+	int retval = 0;
+	int bytes_to_copy;
+	struct hci_fm_tx_ps tx_ps;
+	struct hci_fm_tx_rt tx_rt;
+
+	struct iris_device *radio = video_get_drvdata(video_devdata(file));
+	char *data = NULL;
+
+	switch ((ctrl->controls[0]).id) {
+	case V4L2_CID_RDS_TX_PS_NAME:
+		FMDBG("In V4L2_CID_RDS_TX_PS_NAME\n");
+		/*Pass a sample PS string */
+
+		memset(tx_ps.ps_data, 0, MAX_PS_LENGTH);
+		bytes_to_copy = min((int)(ctrl->controls[0]).size,
+			MAX_PS_LENGTH);
+		data = (ctrl->controls[0]).string;
+
+		if (copy_from_user(tx_ps.ps_data,
+				data, bytes_to_copy))
+				return -EFAULT;
+		tx_ps.ps_control =  0x01;
+		tx_ps.pi = radio->pi;
+		tx_ps.pty = radio->pty;
+		tx_ps.ps_repeatcount = radio->ps_repeatcount;
+		tx_ps.ps_len = bytes_to_copy;
+
+		retval = radio_hci_request(radio->fm_hdev, hci_trans_ps_req,
+				(unsigned long)&tx_ps, RADIO_HCI_TIMEOUT);
+		break;
+	case V4L2_CID_RDS_TX_RADIO_TEXT:
+		bytes_to_copy =
+		    min((int)(ctrl->controls[0]).size, MAX_RT_LENGTH);
+		data = (ctrl->controls[0]).string;
+
+		memset(tx_rt.rt_data, 0, MAX_RT_LENGTH);
+
+		if (copy_from_user(tx_rt.rt_data,
+				data, bytes_to_copy))
+				return -EFAULT;
+
+		tx_rt.rt_control =  0x01;
+		tx_rt.pi = radio->pi;
+		tx_rt.pty = radio->pty;
+		tx_rt.ps_len = bytes_to_copy;
+
+		retval = radio_hci_request(radio->fm_hdev, hci_trans_rt_req,
+				(unsigned long)&tx_rt, RADIO_HCI_TIMEOUT);
+		break;
+	default:
+		FMDBG("Shouldn't reach here\n");
+		retval = -1;
+	}
+	return retval;
 }
 
 static int iris_vidioc_s_ctrl(struct file *file, void *priv,
@@ -2015,6 +2235,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	int retval = 0;
 	unsigned int rds_grps_proc = 0;
 	__u8 temp_val = 0;
+	unsigned long arg = 0;
 	radio->recv_conf.emphasis = 0;
 	radio->recv_conf.ch_spacing = 0;
 	radio->recv_conf.hlsi = 0;
@@ -2024,6 +2245,12 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 
 
 	switch (ctrl->id) {
+	case VL2_CID_PRIVATE_IRIS_TX_TONE:
+		radio->tone_freq = ctrl->value;
+		retval = radio_hci_request(radio->fm_hdev,
+				hci_fm_tone_generator, arg,
+				msecs_to_jiffies(RADIO_HCI_TIMEOUT));
+		break;
 	case V4L2_CID_AUDIO_VOLUME:
 		break;
 	case V4L2_CID_AUDIO_MUTE:
@@ -2046,41 +2273,74 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		iris_search(radio, ctrl->value, SRCH_DIR_UP);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STATE:
-		if (ctrl->value == FM_RECV) {
+		switch (ctrl->value) {
+		case FM_RECV:
 			retval = hci_cmd(HCI_FM_ENABLE_RECV_CMD,
 							 radio->fm_hdev);
-			if (retval < 0) {
-				FMDERR("Error while enabling FM"
+
+			radio->mode = FM_RECV;
+
+			if (retval < 0)
+				FMDERR("Error while enabling RECV FM"
 							" %d\n", retval);
-			} else {
-				radio->mute_mode.soft_mute = CTRL_ON;
-				retval = hci_set_fm_mute_mode(
-							&radio->mute_mode,
+			radio->mute_mode.soft_mute = CTRL_ON;
+			retval = hci_set_fm_mute_mode(
+						&radio->mute_mode,
 							radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Failed to enable Smute\n");
+			radio->stereo_mode.stereo_mode = CTRL_OFF;
+			radio->stereo_mode.sig_blend = CTRL_ON;
+			radio->stereo_mode.intf_blend = CTRL_ON;
+			radio->stereo_mode.most_switch = CTRL_ON;
+			retval = hci_set_fm_stereo_mode(
+						&radio->stereo_mode,
+							radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Failed to set stereo mode\n");
+
+		case FM_TRANS:
+			retval = hci_cmd(HCI_FM_ENABLE_TRANS_CMD,
+							 radio->fm_hdev);
+			radio->mode = FM_TRANS;
+
+			if (retval < 0)
+				FMDERR("Error while enabling TRANS FM"
+							" %d\n", retval);
+		case FM_OFF:
+			switch (radio->mode) {
+			case FM_RECV:
+				retval = hci_cmd(HCI_FM_DISABLE_RECV_CMD,
+						radio->fm_hdev);
 				if (retval < 0)
-					FMDERR("Failed to enable Smute\n");
-				radio->stereo_mode.stereo_mode = CTRL_OFF;
-				radio->stereo_mode.sig_blend = CTRL_ON;
-				radio->stereo_mode.intf_blend = CTRL_ON;
-				radio->stereo_mode.most_switch = CTRL_ON;
-				retval = hci_set_fm_stereo_mode(
-							&radio->stereo_mode,
-							radio->fm_hdev);
+					FMDERR("Err on disable recv FM"
+						   " %d\n", retval);
+				break;
+			case FM_TRANS:
+				retval = hci_cmd(HCI_FM_DISABLE_TRANS_CMD,
+						radio->fm_hdev);
+
 				if (retval < 0)
-					FMDERR("Failed to stereo mode\n");
-			}
-		} else if (ctrl->value == FM_OFF) {
-			retval = hci_cmd(
-							HCI_FM_DISABLE_RECV_CMD,
-							radio->fm_hdev);
-			if (retval < 0) {
-				FMDERR("Error on disable FM"
+					FMDERR("Err disabling trans FM"
 						" %d\n", retval);
+				break;
+			default:
+				retval = -EINVAL;
 			}
+		default:
+			retval = -EINVAL;
 		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_REGION:
-		retval = iris_set_region(radio, ctrl->value);
+		if (radio->mode == FM_RECV) {
+			retval = iris_recv_set_region(radio, ctrl->value);
+		} else {
+			if (radio->mode == FM_TRANS)
+				retval = iris_trans_set_region(radio,
+						ctrl->value);
+			else
+				retval = -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SIGNAL_TH:
 		temp_val = ctrl->value;
@@ -2106,13 +2366,23 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_PRIVATE_IRIS_EMPHASIS:
 		radio->recv_conf.emphasis = ctrl->value;
-		retval =
-		hci_set_fm_recv_conf(&radio->recv_conf, radio->fm_hdev);
+		retval = hci_set_fm_recv_conf(
+				&radio->recv_conf,
+					radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Error in setting emphasis");
+			break;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDS_STD:
 		radio->recv_conf.rds_std = ctrl->value;
-		retval =
-		hci_set_fm_recv_conf(&radio->recv_conf, radio->fm_hdev);
+		retval = hci_set_fm_recv_conf(
+				&radio->recv_conf,
+					radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Error in setting RDS_STD");
+			break;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDSON:
 		radio->recv_conf.rds_std = ctrl->value;
@@ -2147,14 +2417,17 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		retval = hci_fm_set_antenna(&temp_val, radio->fm_hdev);
 		break;
 	case V4L2_CID_RDS_TX_PTY:
+		radio->pty = ctrl->value;
 		break;
 	case V4L2_CID_RDS_TX_PI:
+		radio->pi = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_PS_NAME:
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_RT:
 		break;
 	case V4L2_CID_PRIVATE_IRIS_TX_SETPSREPEATCOUNT:
+		radio->ps_repeatcount = ctrl->value;
 		break;
 	case V4L2_CID_TUNE_POWER_LEVEL:
 		break;
@@ -2206,8 +2479,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 static int iris_vidioc_g_tuner(struct file *file, void *priv,
 		struct v4l2_tuner *tuner)
 {
-	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	int retval;
+	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	if (tuner->index > 0)
 		return -EINVAL;
 
@@ -2231,25 +2504,39 @@ static int iris_vidioc_s_tuner(struct file *file, void *priv,
 		struct v4l2_tuner *tuner)
 {
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
-	int retval;
+	int retval = 0;
 	if (tuner->index > 0)
 		return -EINVAL;
 
-	radio->recv_conf.band_low_limit = tuner->rangelow / TUNE_PARAM;
-	radio->recv_conf.band_high_limit = tuner->rangehigh / TUNE_PARAM;
-	if (tuner->audmode == V4L2_TUNER_MODE_MONO) {
-		radio->stereo_mode.stereo_mode = 0x01;
-		retval = hci_set_fm_stereo_mode(
-				&radio->stereo_mode,
-				radio->fm_hdev);
+	if (radio->mode == FM_RECV) {
+		radio->recv_conf.band_low_limit = tuner->rangelow / TUNE_PARAM;
+		radio->recv_conf.band_high_limit =
+			tuner->rangehigh / TUNE_PARAM;
+		if (tuner->audmode == V4L2_TUNER_MODE_MONO) {
+			radio->stereo_mode.stereo_mode = 0x01;
+			retval = hci_set_fm_stereo_mode(
+					&radio->stereo_mode,
+					radio->fm_hdev);
+		} else {
+			radio->stereo_mode.stereo_mode = 0x00;
+			retval = hci_set_fm_stereo_mode(
+					&radio->stereo_mode,
+					radio->fm_hdev);
+		}
+		if (retval < 0)
+			FMDERR(": set tuner failed with %d\n", retval);
+		return retval;
 	} else {
-		radio->stereo_mode.stereo_mode = 0x00;
-		retval = hci_set_fm_stereo_mode(
-				&radio->stereo_mode,
-				radio->fm_hdev);
+		if (radio->mode == FM_TRANS) {
+			radio->trans_conf.band_low_limit =
+				tuner->rangelow / TUNE_PARAM;
+			radio->trans_conf.band_high_limit =
+				tuner->rangehigh / TUNE_PARAM;
+		} else {
+			  return -EINVAL;
+		}
 	}
-	if (retval < 0)
-		FMDERR(": set tuner failed with %d\n", retval);
+
 	return retval;
 }
 
