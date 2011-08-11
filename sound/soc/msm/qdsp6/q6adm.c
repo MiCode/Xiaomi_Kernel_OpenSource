@@ -263,6 +263,8 @@ int adm_cmd_map(int port_id, int session_id)
 		ret = -EINVAL;
 	}
 
+	/* have to convert path to dev ctrl standard */
+	send_adm_cal(port_id, (route.path + 1));
 fail_cmd:
 	return ret;
 }
