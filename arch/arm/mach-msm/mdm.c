@@ -73,17 +73,10 @@ static void charm_disable_irqs(void)
 
 }
 
-static void charm_enable_irqs(void)
-{
-	enable_irq(charm_errfatal_irq);
-	enable_irq(charm_status_irq);
-}
-
 static int charm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
-	charm_disable_irqs();
-	power_down_charm();
 	charm_ready = 0;
+	power_down_charm();
 	return 0;
 }
 
@@ -95,7 +88,6 @@ static int charm_subsys_powerup(const struct subsys_data *crashed_subsys)
 	wait_for_completion(&charm_boot);
 	pr_info("%s: charm modem has been restarted\n", __func__);
 	INIT_COMPLETION(charm_boot);
-	charm_enable_irqs();
 	return charm_boot_status;
 }
 
@@ -240,7 +232,7 @@ static DECLARE_WORK(charm_fatal_work, charm_fatal_fn);
 static irqreturn_t charm_errfatal(int irq, void *dev_id)
 {
 	CHARM_DBG("%s: charm got errfatal interrupt\n", __func__);
-	if (charm_ready) {
+	if (charm_ready && (gpio_get_value(MDM2AP_STATUS) == 1)) {
 		CHARM_DBG("%s: scheduling work now\n", __func__);
 		queue_work(charm_queue, &charm_fatal_work);
 	}
