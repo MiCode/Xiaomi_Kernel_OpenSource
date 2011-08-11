@@ -45,6 +45,10 @@
 #define PERR(fmt, args...) pr_err("%s(%i, %s): " fmt "\n", \
 		__func__, current->pid, current->comm, ## args)
 
+#undef PWARN
+#define PWARN(fmt, args...) pr_warning("%s(%i, %s): " fmt "\n", \
+		__func__, current->pid, current->comm, ## args)
+
 
 static struct class *driver_class;
 static dev_t tzcom_device_no;
@@ -161,7 +165,7 @@ static int tzcom_register_service(struct tzcom_data_t *data, void __user *argp)
 	ret = copy_from_user(&rcvd_svc, argp, sizeof(rcvd_svc));
 
 	if (ret) {
-		PDEBUG("copy_from_user failed");
+		PERR("copy_from_user failed");
 		return ret;
 	}
 
@@ -169,7 +173,7 @@ static int tzcom_register_service(struct tzcom_data_t *data, void __user *argp)
 			rcvd_svc.svc_id, rcvd_svc.cmd_id_low,
 			rcvd_svc.cmd_id_high);
 	if (!__tzcom_is_svc_unique(data, rcvd_svc)) {
-		PDEBUG("Provided service is not unique");
+		PERR("Provided service is not unique");
 		return -EINVAL;
 	}
 
@@ -177,13 +181,13 @@ static int tzcom_register_service(struct tzcom_data_t *data, void __user *argp)
 
 	ret = copy_to_user(argp, &rcvd_svc, sizeof(rcvd_svc));
 	if (ret) {
-		PDEBUG("copy_to_user failed");
+		PERR("copy_to_user failed");
 		return ret;
 	}
 
 	new_entry = kmalloc(sizeof(*new_entry), GFP_KERNEL);
 	if (!new_entry) {
-		pr_err("%s: kmalloc failed\n", __func__);
+		PERR("kmalloc failed");
 		return -ENOMEM;
 	}
 	memcpy(&new_entry->svc, &rcvd_svc, sizeof(rcvd_svc));
@@ -207,7 +211,7 @@ static int tzcom_unregister_service(struct tzcom_data_t *data,
 	struct tzcom_registered_svc_list *ptr;
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
-		PDEBUG("copy_from_user failed");
+		PERR("copy_from_user failed");
 		return ret;
 	}
 
@@ -283,17 +287,17 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
-		PDEBUG("copy_from_user failed");
+		PERR("copy_from_user failed");
 		return ret;
 	}
 
 	if (req.cmd_buf == NULL || req.resp_buf == NULL) {
-		PDEBUG("cmd buffer or response buffer is null");
+		PERR("cmd buffer or response buffer is null");
 		return -EINVAL;
 	}
 
 	if (req.cmd_len <= 0 || req.resp_len <= 0) {
-		PDEBUG("cmd buffer length or "
+		PERR("cmd buffer length or "
 				"response buffer length not valid");
 		return -EINVAL;
 	}
@@ -345,7 +349,7 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		reqd_len_sb_out = sizeof(*next_callback)
 					+ next_callback->sb_out_cb_data_len;
 		if (reqd_len_sb_out > sb_out_length) {
-			PDEBUG("Not enough memory to"
+			PERR("Not enough memory to"
 					" fit tzcom_callback buffer."
 					" Required: %u, Available: %u",
 					reqd_len_sb_out, sb_out_length);
@@ -396,7 +400,7 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 				"waiting for cont_cmd_wq");
 		if (wait_event_interruptible(data->cont_cmd_wq,
 					data->cont_cmd_flag != 0)) {
-			PDEBUG("Interrupted: exiting send_cmd loop");
+			PWARN("Interrupted: exiting send_cmd loop");
 			return -ERESTARTSYS;
 		}
 		data->cont_cmd_flag = 0;
@@ -475,14 +479,14 @@ static int __tzcom_copy_cmd(struct tzcom_data_t *data,
 					(u8 *)cb + cb->sb_out_cb_data_off,
 					cb->sb_out_cb_data_len);
 				if (ret) {
-					PDEBUG("copy_to_user failed");
+					PERR("copy_to_user failed");
 					break;
 				}
 				list_del(&entry->list);
 				kfree(entry);
 				ret = 0;
 			} else {
-				PDEBUG("callback data buffer is "
+				PERR("callback data buffer is "
 					"larger than provided buffer."
 					"Required: %u, Provided: %u",
 					cb->sb_out_cb_data_len,
@@ -505,17 +509,17 @@ static int tzcom_read_next_cmd(struct tzcom_data_t *data, void __user *argp)
 
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
-		PDEBUG("copy_from_user failed");
+		PERR("copy_from_user failed");
 		return ret;
 	}
 
 	if (req.instance_id > atomic_read(&svc_instance_ctr)) {
-		PDEBUG("Invalid instance_id for the request");
+		PERR("Invalid instance_id for the request");
 		return -EINVAL;
 	}
 
 	if (!req.req_buf || req.req_len == 0) {
-		PDEBUG("Invalid request buffer or buffer length");
+		PERR("Invalid request buffer or buffer length");
 		return -EINVAL;
 	}
 
@@ -526,7 +530,7 @@ static int tzcom_read_next_cmd(struct tzcom_data_t *data, void __user *argp)
 		PDEBUG("Before wait_event next_cmd.");
 		if (wait_event_interruptible(this_svc->next_cmd_wq,
 				this_svc->next_cmd_flag != 0)) {
-			PDEBUG("Interrupted: exiting wait_next_cmd loop");
+			PWARN("Interrupted: exiting wait_next_cmd loop");
 			/* woken up for different reason */
 			return -ERESTARTSYS;
 		}
@@ -539,13 +543,13 @@ static int tzcom_read_next_cmd(struct tzcom_data_t *data, void __user *argp)
 			data->handled_cmd_svc_instance_id = req.instance_id;
 			break;
 		} else if (ret == -ENOMEM) {
-			PDEBUG("Not enough memory");
+			PERR("Not enough memory");
 			return ret;
 		}
 	}
 	ret = copy_to_user(argp, &req, sizeof(req));
 	if (ret) {
-		PDEBUG("copy_to_user failed");
+		PERR("copy_to_user failed");
 		return ret;
 	}
 	PDEBUG("copy_to_user is done.");
@@ -558,7 +562,7 @@ static int tzcom_cont_cmd(struct tzcom_data_t *data, void __user *argp)
 	struct tzcom_cont_cmd_op_req req;
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
-		PDEBUG("copy_from_user failed");
+		PERR("copy_from_user failed");
 		return ret;
 	}
 
@@ -567,7 +571,7 @@ static int tzcom_cont_cmd(struct tzcom_data_t *data, void __user *argp)
 	 * can call continue cmd
 	 */
 	if (data->handled_cmd_svc_instance_id != req.instance_id) {
-		PDEBUG("Only the service instance that handled the last "
+		PWARN("Only the service instance that handled the last "
 				"callback can continue cmd. "
 				"Expected: %u, Received: %u",
 				data->handled_cmd_svc_instance_id,
@@ -598,14 +602,14 @@ static long tzcom_ioctl(struct file *file, unsigned cmd,
 		PDEBUG("ioctl register_service_req()");
 		ret = tzcom_register_service(tzcom_data, argp);
 		if (ret)
-			PDEBUG("failed tzcom_register_service: %d", ret);
+			PERR("failed tzcom_register_service: %d", ret);
 		break;
 	}
 	case TZCOM_IOCTL_UNREGISTER_SERVICE_REQ: {
 		PDEBUG("ioctl unregister_service_req()");
 		ret = tzcom_unregister_service(tzcom_data, argp);
 		if (ret)
-			PDEBUG("failed tzcom_unregister_service: %d", ret);
+			PERR("failed tzcom_unregister_service: %d", ret);
 		break;
 	}
 	case TZCOM_IOCTL_SEND_CMD_REQ: {
@@ -615,21 +619,21 @@ static long tzcom_ioctl(struct file *file, unsigned cmd,
 		ret = tzcom_send_cmd(tzcom_data, argp);
 		mutex_unlock(&send_cmd_lock);
 		if (ret)
-			PDEBUG("failed tzcom_send_cmd: %d", ret);
+			PERR("failed tzcom_send_cmd: %d", ret);
 		break;
 	}
 	case TZCOM_IOCTL_READ_NEXT_CMD_REQ: {
 		PDEBUG("ioctl read_next_cmd_req()");
 		ret = tzcom_read_next_cmd(tzcom_data, argp);
 		if (ret)
-			PDEBUG("failed tzcom_read_next: %d", ret);
+			PERR("failed tzcom_read_next: %d", ret);
 		break;
 	}
 	case TZCOM_IOCTL_CONTINUE_CMD_REQ: {
 		PDEBUG("ioctl continue_cmd_req()");
 		ret = tzcom_cont_cmd(tzcom_data, argp);
 		if (ret)
-			PDEBUG("failed tzcom_cont_cmd: %d", ret);
+			PERR("failed tzcom_cont_cmd: %d", ret);
 		break;
 	}
 	default:
