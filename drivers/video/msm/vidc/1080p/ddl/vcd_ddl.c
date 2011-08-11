@@ -268,21 +268,13 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 #ifdef DDL_BUF_LOG
 	ddl_list_buffers(ddl);
 #endif
-	if ((encoder->codec.codec == VCD_CODEC_MPEG4 &&
-		!encoder->short_header.short_header) ||
-		encoder->codec.codec == VCD_CODEC_H264) {
-		ptr = ddl_pmem_alloc(&encoder->seq_header,
-			DDL_ENC_SEQHEADER_SIZE, DDL_LINEAR_BUFFER_ALIGN_BYTES);
-		if (!ptr) {
-			ddl_free_enc_hw_buffers(ddl);
-			DDL_MSG_ERROR("ddl_enc_start:Seq_hdr_alloc_failed");
-			return VCD_ERR_ALLOC_FAIL;
-		}
-	} else {
-		encoder->seq_header.buffer_size = 0;
-		encoder->seq_header.virtual_base_addr = 0;
-		encoder->seq_header.align_physical_addr = 0;
-		encoder->seq_header.align_virtual_addr = 0;
+
+	ptr = ddl_pmem_alloc(&encoder->seq_header,
+		DDL_ENC_SEQHEADER_SIZE, DDL_LINEAR_BUFFER_ALIGN_BYTES);
+	if (!ptr) {
+		ddl_free_enc_hw_buffers(ddl);
+		DDL_MSG_ERROR("ddl_enc_start:Seq_hdr_alloc_failed");
+		return VCD_ERR_ALLOC_FAIL;
 	}
 	if (!ddl_take_command_channel(ddl_context, ddl, client_data))
 		return VCD_ERR_BUSY;
