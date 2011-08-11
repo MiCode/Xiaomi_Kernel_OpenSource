@@ -45,6 +45,8 @@ enum msm_cpu {
 	MSM_CPU_7X25AA,
 	MSM_CPU_8064,
 	MSM_CPU_8X30,
+	MSM_CPU_7X27AA,
+	MSM_CPU_9615,
 };
 
 enum msm_cpu socinfo_get_msm_cpu(void);
@@ -223,4 +225,15 @@ static inline int cpu_is_fsm9xxx(void)
 #endif
 }
 
+static inline int cpu_is_msm9615(void)
+{
+#ifdef CONFIG_ARCH_MSM9615
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_9615;
+#else
+	return 0;
+#endif
+}
 #endif

@@ -206,6 +206,9 @@ static enum msm_cpu cpu_of_id[] = {
 	[102] = MSM_CPU_7X27AA,
 	[103] = MSM_CPU_7X27AA,
 
+	/* 9x15 ID */
+	[104] = MSM_CPU_9615,
+
 	/* 8064 IDs*/
 	[109] = MSM_CPU_8064,
 
@@ -573,6 +576,8 @@ void *setup_dummy_socinfo(void)
 		dummy_socinfo.id = 87;
 	else if (machine_is_apq8064_sim())
 		dummy_socinfo.id = 109;
+	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
+		dummy_socinfo.id = 104;
 	return (void *) &dummy_socinfo;
 }
 
