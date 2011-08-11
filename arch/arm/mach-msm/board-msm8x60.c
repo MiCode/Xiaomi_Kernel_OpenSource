@@ -2580,8 +2580,8 @@ static void __init msm8x60_init_dsps(void)
 
 
 #ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-/* 960 x 540 x 3 x 2 */
-#define MSM_FB_WRITEBACK_SIZE 0x300000
+/* width x height x 3 bpp x 2 frame buffer */
+#define MSM_FB_WRITEBACK_SIZE (1024 * 600 * 3 * 2)
 #else
 #define MSM_FB_WRITEBACK_SIZE 0
 #endif
