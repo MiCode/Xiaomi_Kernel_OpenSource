@@ -48,7 +48,7 @@
 #define MAX_IV_LENGTH			AES_IV_LENGTH
 
 /* Maximum number of bytes per transfer */
-#define QCE_MAX_OPER_DATA		0x8000
+#define QCE_MAX_OPER_DATA		0xFF00
 
 /* Maximum Nonce bytes  */
 #define MAX_NONCE  16
