@@ -426,6 +426,7 @@ struct hci_fm_dbg_param_rsp {
 #define RDS_PS_LENGTH_OFFSET 7
 #define RDS_STRING 8
 #define RDS_PS_DATA_OFFSET 8
+#define RDS_CONFIG_OFFSET  3
 
 /*FM states*/
 
