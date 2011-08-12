@@ -101,6 +101,7 @@ struct vcd_transc {
 	struct vcd_buffer_entry *ip_buf_entry;
 
 	s64 time_stamp;
+	u32 flags;
 	u32 ip_frm_tag;
 	enum vcd_frame frame;
 

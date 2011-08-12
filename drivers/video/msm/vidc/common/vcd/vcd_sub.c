@@ -1375,6 +1375,7 @@ u32 vcd_submit_frame(struct vcd_dev_ctxt *dev_ctxt,
 	transc->op_buf_entry = op_buf_entry;
 	transc->ip_frm_tag = ip_frm_entry->ip_frm_tag;
 	transc->time_stamp = ip_frm_entry->time_stamp;
+	transc->flags = ip_frm_entry->flags;
 	ip_frm_entry->ip_frm_tag = (u32) transc;
 	memset(&ddl_ip_frm, 0, sizeof(ddl_ip_frm));
 	memset(&ddl_op_frm, 0, sizeof(ddl_op_frm));
@@ -2074,6 +2075,12 @@ u32 vcd_handle_frame_done(
 	VCD_FAILED_RETURN(rc, "Bad output buffer pointer");
 	op_frm->vcd_frm.time_stamp = transc->time_stamp;
 	op_frm->vcd_frm.ip_frm_tag = transc->ip_frm_tag;
+
+	if (transc->flags & VCD_FRAME_FLAG_EOSEQ)
+		op_frm->vcd_frm.flags |= VCD_FRAME_FLAG_EOSEQ;
+	else
+		op_frm->vcd_frm.flags &= ~VCD_FRAME_FLAG_EOSEQ;
+
 	if (cctxt->decoding)
 		op_frm->vcd_frm.frame = transc->frame;
 	else
