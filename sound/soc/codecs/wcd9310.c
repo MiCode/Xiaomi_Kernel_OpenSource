@@ -596,32 +596,41 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 tx_mux_ctl_reg, tx_dmic_ctl_reg;
 	u8 dmic_clk_sel, dmic_clk_en;
+	unsigned int dmic;
+	int ret;
 
-	if (!strncmp(w->name, "DMIC1", 5))  {
-
-		tx_mux_ctl_reg = TABLA_A_CDC_TX1_MUX_CTL;
-		tx_dmic_ctl_reg = TABLA_A_CDC_TX1_DMIC_CTL;
-		dmic_clk_sel = 0x2;
-		dmic_clk_en = 0x1;
-
-	} else if (!strncmp(w->name, "DMIC2", 5))  {
-
-		tx_mux_ctl_reg = TABLA_A_CDC_TX2_MUX_CTL;
-		tx_dmic_ctl_reg = TABLA_A_CDC_TX2_DMIC_CTL;
-		dmic_clk_sel = 0x2;
-		dmic_clk_en = 0x1;
-
-	} else if (!strncmp(w->name, "DMIC3", 5))  {
-
-		tx_mux_ctl_reg = TABLA_A_CDC_TX3_MUX_CTL;
-		tx_dmic_ctl_reg = TABLA_A_CDC_TX3_DMIC_CTL;
-		dmic_clk_sel = 0x8;
-		dmic_clk_en = 0x4;
-
-	} else {
-		pr_err("%s: Error, DMIC = %s\n", __func__, w->name);
+	ret = kstrtouint(strpbrk(w->name, "123456"), 10, &dmic);
+	if (ret < 0) {
+		pr_err("%s: Invalid DMIC line on the codec\n", __func__);
 		return -EINVAL;
 	}
+
+	switch (dmic) {
+	case 1:
+	case 2:
+		dmic_clk_sel = 0x02;
+		dmic_clk_en = 0x01;
+		break;
+
+	case 3:
+	case 4:
+		dmic_clk_sel = 0x08;
+		dmic_clk_en = 0x04;
+		break;
+
+	case 5:
+	case 6:
+		dmic_clk_sel = 0x20;
+		dmic_clk_en = 0x10;
+		break;
+
+	default:
+		pr_err("%s: Invalid DMIC Selection\n", __func__);
+		return -EINVAL;
+	}
+
+	tx_mux_ctl_reg = TABLA_A_CDC_TX1_MUX_CTL + 8 * (dmic - 1);
+	tx_dmic_ctl_reg = TABLA_A_CDC_TX1_DMIC_CTL + 8 * (dmic - 1);
 
 	pr_debug("%s %d\n", __func__, event);
 
@@ -1153,9 +1162,29 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 			0, 0),
 
 	/* Digital Mic Inputs */
-	SND_SOC_DAPM_MIC("DMIC1", &tabla_codec_enable_dmic),
-	SND_SOC_DAPM_MIC("DMIC2", &tabla_codec_enable_dmic),
-	SND_SOC_DAPM_MIC("DMIC3", &tabla_codec_enable_dmic),
+	SND_SOC_DAPM_ADC_E("DMIC1", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC2", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC3", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC4", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC5", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC6", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
 
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
@@ -1299,10 +1328,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DEC3 MUX", "DMIC3", "DMIC3"},
 	{"DEC3 MUX", "ADC4", "ADC4"},
 	{"DEC3 MUX", NULL, "CDC_CONN"},
+	{"DEC4 MUX", "DMIC4", "DMIC4"},
 	{"DEC4 MUX", "ADC3", "ADC3"},
 	{"DEC4 MUX", NULL, "CDC_CONN"},
+	{"DEC5 MUX", "DMIC5", "DMIC5"},
 	{"DEC5 MUX", "ADC2", "ADC2"},
 	{"DEC5 MUX", NULL, "CDC_CONN"},
+	{"DEC6 MUX", "DMIC6", "DMIC6"},
 	{"DEC6 MUX", "ADC1", "ADC1"},
 	{"DEC6 MUX", NULL, "CDC_CONN"},
 	{"DEC7 MUX", "DMIC1", "DMIC1"},
