@@ -253,6 +253,8 @@ struct test_context {
 	struct sdio_al_test_debug debug;
 
 	struct wake_lock wake_lock;
+
+	unsigned int lpm_pseudo_random_seed;
 };
 
 /*
@@ -487,7 +489,7 @@ static int pseudo_random_seed(unsigned int *seed_number)
 
 	*seed_number = (unsigned int)(((unsigned long)*seed_number *
 				(unsigned long)1103515367) + 35757);
-	return (int)(*seed_number / (64*1024) % 500);
+	return (int)((*seed_number / (64*1024)) % 500);
 }
 
 /* this function must be locked before accessing it */
@@ -999,9 +1001,11 @@ static void lpm_continuous_rand_test(struct test_channel *test_ch)
 		u32 ret = 0;
 
 		/* sleeping period is dependent on number of open channels */
+		test_ch->config_msg.test_param =
+				test_ctx->lpm_pseudo_random_seed;
 
 		local_ms = test_dev->open_channels_counter_to_send *
-			pseudo_random_seed(&test_ch->config_msg.test_param);
+			test_ctx->lpm_pseudo_random_seed;
 		TEST_DBG(TEST_MODULE_NAME ":%s: SLEEPING for %d ms",
 		       __func__, local_ms);
 		msleep(local_ms);
@@ -1781,6 +1785,7 @@ static void worker(struct work_struct *work)
 		break;
 	case SDIO_TEST_LPM_RANDOM:
 		lpm_continuous_rand_test(test_ch);
+		break;
 	case SDIO_TEST_RTT:
 		a2_rtt_test(test_ch);
 		break;
@@ -2433,14 +2438,6 @@ static int set_params_lpm_test(struct test_channel *tch,
 	tch->config_msg.test_case = test;
 	tch->config_msg.num_packets = LPM_TEST_NUM_OF_PACKETS;
 	tch->config_msg.num_iterations = 1;
-	if (seed != 0)
-		tch->config_msg.test_param = seed;
-	else
-		tch->config_msg.test_param =
-			(unsigned int)(get_jiffies_64() & 0xFFFF);
-	pr_info(TEST_MODULE_NAME ":%s: seed is %d",
-	       __func__, tch->config_msg.test_param);
-
 	tch->timer_interval_ms = timer_interval_ms;
 	tch->timeout_ms = 10000;
 
@@ -2492,6 +2489,23 @@ static int set_params_8k_sender_no_lp(struct test_channel *tch)
 	tch->timer_interval_ms = 0;
 
 	return 0;
+}
+
+static void set_pseudo_random_seed(void)
+{
+	/* Set the seed accoring to the kernel command parameters if any or
+	   get a random value */
+	if (seed != 0) {
+		test_ctx->lpm_pseudo_random_seed = seed;
+	} else {
+		test_ctx->lpm_pseudo_random_seed =
+			(unsigned int)(get_jiffies_64() & 0xFFFF);
+		test_ctx->lpm_pseudo_random_seed =
+			pseudo_random_seed(&test_ctx->lpm_pseudo_random_seed);
+	}
+
+	pr_info(TEST_MODULE_NAME ":%s: seed is %u",
+		   __func__, test_ctx->lpm_pseudo_random_seed);
 }
 
 /**
@@ -2620,6 +2634,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	case 114:
 		pr_info(TEST_MODULE_NAME " --LPM Test RANDOM SINGLE "
 					 "CHANNEL--.\n");
+		set_pseudo_random_seed();
 		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
 					    SDIO_TEST_LPM_RANDOM, 0))
 			return size;
@@ -2627,6 +2642,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	case 115:
 		pr_info(TEST_MODULE_NAME " --LPM Test RANDOM MULTI "
 					 "CHANNEL--.\n");
+		set_pseudo_random_seed();
 		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
 				    SDIO_TEST_LPM_RANDOM, 0) ||
 		    set_params_lpm_test(test_ctx->test_ch_arr[SDIO_CIQ],
