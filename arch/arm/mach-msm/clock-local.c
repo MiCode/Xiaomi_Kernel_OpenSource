@@ -721,6 +721,46 @@ struct clk *rcg_clk_get_parent(struct clk *clk)
 	return to_rcg_clk(clk)->current_freq->src_clk;
 }
 
+void rcg_clk_handoff(struct clk *c)
+{
+	struct rcg_clk *clk = to_rcg_clk(c);
+	uint32_t ctl_val, ns_val, md_val, ns_mask;
+	struct clk_freq_tbl *freq;
+
+	ctl_val = readl_relaxed(clk->b.ctl_reg);
+	if (!(ctl_val & clk->root_en_mask))
+		return;
+
+	if (clk->bank_masks) {
+		const struct bank_mask_info *bank_info;
+		if (!(ctl_val & clk->bank_masks->bank_sel_mask))
+			bank_info = &clk->bank_masks->bank0_mask;
+		else
+			bank_info = &clk->bank_masks->bank1_mask;
+
+		ns_mask = bank_info->ns_mask;
+		md_val = readl_relaxed(bank_info->md_reg);
+	} else {
+		ns_mask = clk->ns_mask;
+		md_val = clk->md_reg ? readl_relaxed(clk->md_reg) : 0;
+	}
+
+	ns_val = readl_relaxed(clk->ns_reg) & ns_mask;
+	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
+		if ((freq->ns_val & ns_mask) == ns_val &&
+		    (freq->mnd_en_mask || freq->md_val == md_val)) {
+			pr_info("%s rate=%d\n", clk->c.dbg_name, freq->freq_hz);
+			break;
+		}
+	}
+	if (freq->freq_hz == FREQ_END)
+		return;
+
+	clk->current_freq = freq;
+	c->flags |= CLKFLAG_HANDOFF_RATE;
+	clk_enable(c);
+}
+
 static int pll_vote_clk_enable(struct clk *clk)
 {
 	u32 ena;

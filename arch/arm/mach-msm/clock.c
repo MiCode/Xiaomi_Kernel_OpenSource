@@ -49,6 +49,15 @@ int clk_enable(struct clk *clk)
 			clk_disable(parent);
 			goto out;
 		}
+	} else if (clk->flags & CLKFLAG_HANDOFF_RATE) {
+		/*
+		 * The clock was already enabled by handoff code so there is no
+		 * need to enable it again here. Clearing the handoff flag will
+		 * prevent the lateinit handoff code from disabling the clock if
+		 * a client driver still has it enabled.
+		 */
+		clk->flags &= ~CLKFLAG_HANDOFF_RATE;
+		goto out;
 	}
 	clk->count++;
 out:
@@ -180,6 +189,8 @@ void __init msm_clock_init(struct clock_init_data *data)
 		struct clk *clk = clock_tbl[n].clk;
 		struct clk *parent = clk_get_parent(clk);
 		clk_set_parent(clk, parent);
+		if (clk->ops->handoff)
+			clk->ops->handoff(clk);
 	}
 
 	clkdev_add_table(clock_tbl, num_clocks);
@@ -199,6 +210,7 @@ static int __init clock_late_init(void)
 	clock_debug_init(clk_init_data);
 	for (n = 0; n < clk_init_data->size; n++) {
 		struct clk *clk = clk_init_data->table[n].clk;
+		bool handoff = false;
 
 		clock_debug_add(clk);
 		if (!(clk->flags & CLKFLAG_SKIP_AUTO_OFF)) {
@@ -207,7 +219,17 @@ static int __init clock_late_init(void)
 				count++;
 				clk->ops->auto_off(clk);
 			}
+			if (clk->flags & CLKFLAG_HANDOFF_RATE) {
+				clk->flags &= ~CLKFLAG_HANDOFF_RATE;
+				handoff = true;
+			}
 			spin_unlock_irqrestore(&clk->lock, flags);
+			/*
+			 * Calling clk_disable() outside the lock is safe since
+			 * it doesn't need to be atomic with the flag change.
+			 */
+			if (handoff)
+				clk_disable(clk);
 		}
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);

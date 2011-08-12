@@ -522,6 +522,7 @@ static struct clk_ops soc_clk_ops_8x60 = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
 	.auto_off = rcg_clk_auto_off,
+	.handoff = rcg_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
 	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
