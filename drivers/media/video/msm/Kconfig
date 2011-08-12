@@ -171,7 +171,6 @@ config MSM_CAMERA_FLASH
 config MSM_CAMERA_SENSOR
 	bool "Qualcomm MSM camera sensor support"
 	depends on MSM_CAMERA
-	default y
 
 config MSM_GEMINI
 	tristate "Qualcomm MSM Gemini Jpeg Engine support"
