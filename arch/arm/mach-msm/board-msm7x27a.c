@@ -103,7 +103,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 		.gpio_base		= GPIO_CORE_EXPANDER_BASE,
 		.oscio_is_gpo		= false,
 		.io_pullup_ena		= 0,
-		.io_pulldn_ena		= 0,
+		.io_pulldn_ena		= 0x02,
 		.io_open_drain_ena	= 0xfef8,
 		.irq_summary		= -1,
 	},
