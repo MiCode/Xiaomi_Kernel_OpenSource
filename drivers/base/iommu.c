@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/iommu.h>
+#include <linux/scatterlist.h>
 
 static struct iommu_ops *iommu_ops;
 
@@ -122,3 +123,21 @@ int iommu_unmap(struct iommu_domain *domain, unsigned long iova, int gfp_order)
 	return iommu_ops->unmap(domain, iova, gfp_order);
 }
 EXPORT_SYMBOL_GPL(iommu_unmap);
+
+int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
+		    struct scatterlist *sg, unsigned int len, int prot)
+{
+	BUG_ON(iova & (~PAGE_MASK));
+
+	return iommu_ops->map_range(domain, iova, sg, len, prot);
+}
+EXPORT_SYMBOL_GPL(iommu_map_range);
+
+int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
+		      unsigned int len)
+{
+	BUG_ON(iova & (~PAGE_MASK));
+
+	return iommu_ops->unmap_range(domain, iova, len);
+}
+EXPORT_SYMBOL_GPL(iommu_unmap_range);
