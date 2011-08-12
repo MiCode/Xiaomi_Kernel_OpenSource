@@ -37,7 +37,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 	return container_of(clk, struct rpm_clk, c);
 }
 
-#define DEFINE_CLK_RPM(name, active, r_id) \
+#define DEFINE_CLK_RPM(name, active, r_id, dep) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_clk_id = MSM_RPM_ID_##r_id##_CLK, \
@@ -48,6 +48,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.flags = CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_MIN, \
 			.dbg_name = #name, \
 			CLK_INIT(name.c), \
+			.depends = dep, \
 		}, \
 	}; \
 	static struct rpm_clk active = { \
@@ -60,6 +61,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.flags = CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_MIN, \
 			.dbg_name = #active, \
 			CLK_INIT(active.c), \
+			.depends = dep, \
 		}, \
 	};
 

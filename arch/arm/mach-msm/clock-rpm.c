@@ -54,6 +54,11 @@ static int rpm_clk_enable(struct clk *clk)
 
 	iv.value = max(this_sleep_khz, peer_sleep_khz);
 	rc = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_SLEEP, &iv, 1);
+	if (rc) {
+		iv.value = peer_khz;
+		msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
+	}
+
 out:
 	if (!rc)
 		r->enabled = true;
