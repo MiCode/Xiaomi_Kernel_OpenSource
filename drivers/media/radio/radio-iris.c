@@ -842,7 +842,7 @@ static int hci_poke_data_req(struct radio_hci_dev *hdev, unsigned long param)
 	__u16 opcode = 0;
 	struct hci_fm_riva_poke *poke_data = (struct hci_fm_riva_poke *) param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
 		HCI_OCF_FM_POKE_DATA);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*poke_data)),
 	poke_data);
@@ -2409,7 +2409,7 @@ static int __init iris_probe(struct platform_device *pdev)
 		int kfifo_alloc_rc = 0;
 		spin_lock_init(&radio->buf_lock[i]);
 
-		if ((i == IRIS_BUF_RAW_RDS) | (i == IRIS_BUF_PEEK))
+		if ((i == IRIS_BUF_RAW_RDS) || (i == IRIS_BUF_PEEK))
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				rds_buf*3, GFP_KERNEL);
 		else
