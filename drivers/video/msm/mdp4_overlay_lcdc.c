@@ -47,6 +47,7 @@ static int writeback_offset;
 static struct mdp4_overlay_pipe *lcdc_pipe;
 static struct completion lcdc_comp;
 static int wait4vsync_cnt;
+static DEFINE_MUTEX(lcdc_mutex);
 
 int mdp_lcdc_on(struct platform_device *pdev)
 {
@@ -302,11 +303,11 @@ static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd, int dmap)
 	wait4vsync_cnt++;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	wait_for_completion(&lcdc_comp);
-	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mutex_lock(&lcdc_mutex);
 	wait4vsync_cnt--;
 	if (wait4vsync_cnt == 0)
 		mdp_disable_irq(MDP_DMA2_TERM);
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	mutex_unlock(&lcdc_mutex);
 }
 
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
