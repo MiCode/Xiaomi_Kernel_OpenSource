@@ -3579,9 +3579,8 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 	disable_irq(hdmi_msm_state->irq);
-	clk_disable(hdmi_msm_state->hdmi_app_clk);
-	clk_disable(hdmi_msm_state->hdmi_m_pclk);
-	clk_disable(hdmi_msm_state->hdmi_s_pclk);
+	if (external_common_state->hpd_feature_on)
+		hdmi_msm_clk(0);
 
 	hdmi_msm_state->pm_suspended = TRUE;
 	mutex_unlock(&hdmi_msm_state_mutex);
@@ -3604,9 +3603,8 @@ static int hdmi_msm_device_pm_resume(struct device *dev)
 
 	hdmi_msm_state->pd->core_power(1, 1);
 	hdmi_msm_state->pd->enable_5v(1);
-	clk_enable(hdmi_msm_state->hdmi_app_clk);
-	clk_enable(hdmi_msm_state->hdmi_m_pclk);
-	clk_enable(hdmi_msm_state->hdmi_s_pclk);
+	if (external_common_state->hpd_feature_on)
+		hdmi_msm_clk(1);
 
 	hdmi_msm_state->pm_suspended = FALSE;
 	mutex_unlock(&hdmi_msm_state_mutex);
