@@ -544,11 +544,11 @@ static struct branch_clk vcodec_axi_a_clk = {
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 26,
 	},
-	.depends = &vcodec_axi_b_clk.c,
 	.c = {
 		.dbg_name = "vcodec_axi_a_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_a_clk.c),
+		.depends = &vcodec_axi_b_clk.c,
 	},
 };
 
@@ -561,11 +561,11 @@ static struct branch_clk vcodec_axi_clk = {
 		.halt_reg = DBG_BUS_VEC_E_REG,
 		.halt_bit = 3,
 	},
-	.depends = &vcodec_axi_a_clk.c,
 	.c = {
 		.dbg_name = "vcodec_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_clk.c),
+		.depends = &vcodec_axi_a_clk.c,
 	},
 };
 
@@ -2481,12 +2481,12 @@ static struct rcg_clk gfx3d_clk = {
 	.set_rate = set_rate_mnd_banked,
 	.freq_tbl = clk_tbl_gfx3d,
 	.bank_masks = &bmnd_info_gfx3d,
-	.depends = &gmem_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "gfx3d_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(gfx3d_clk.c),
+		.depends = &gmem_axi_clk.c,
 	},
 };
 
@@ -2530,12 +2530,12 @@ static struct rcg_clk ijpeg_clk = {
 	.ctl_mask = BM(7, 6),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_ijpeg,
-	.depends = &ijpeg_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "ijpeg_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(ijpeg_clk.c),
+		.depends = &ijpeg_axi_clk.c,
 	},
 };
 
@@ -2570,12 +2570,12 @@ static struct rcg_clk jpegd_clk = {
 	.ns_mask =  (BM(15, 12) | BM(2, 0)),
 	.set_rate = set_rate_nop,
 	.freq_tbl = clk_tbl_jpegd,
-	.depends = &jpegd_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "jpegd_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(jpegd_clk.c),
+		.depends = &jpegd_axi_clk.c,
 	},
 };
 
@@ -2640,12 +2640,12 @@ static struct rcg_clk mdp_clk = {
 	.set_rate = set_rate_mnd_banked,
 	.freq_tbl = clk_tbl_mdp,
 	.bank_masks = &bmnd_info_mdp,
-	.depends = &mdp_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(mdp_clk.c),
+		.depends = &mdp_axi_clk.c,
 	},
 };
 
@@ -2748,11 +2748,11 @@ static struct rcg_clk rot_clk = {
 	.freq_tbl = clk_tbl_rot,
 	.bank_masks = &bdiv_info_rot,
 	.current_freq = &local_dummy_freq,
-	.depends = &rot_axi_clk.c,
 	.c = {
 		.dbg_name = "rot_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(rot_clk.c),
+		.depends = &rot_axi_clk.c,
 	},
 };
 
@@ -2992,12 +2992,12 @@ static struct rcg_clk vcodec_clk = {
 	.set_rate = set_rate_mnd_banked,
 	.bank_masks = &bmnd_info_vcodec,
 	.freq_tbl = clk_tbl_vcodec,
-	.depends = &vcodec_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "vcodec_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(vcodec_clk.c),
+		.depends = &vcodec_axi_clk.c,
 	},
 };
 
@@ -3036,11 +3036,11 @@ static struct rcg_clk vpe_clk = {
 	.set_rate = set_rate_nop,
 	.freq_tbl = clk_tbl_vpe,
 	.current_freq = &local_dummy_freq,
-	.depends = &vpe_axi_clk.c,
 	.c = {
 		.dbg_name = "vpe_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(vpe_clk.c),
+		.depends = &vpe_axi_clk.c,
 	},
 };
 
@@ -3092,12 +3092,12 @@ static struct rcg_clk vfe_clk = {
 	.ctl_mask = BM(7, 6),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_vfe,
-	.depends = &vfe_axi_clk.c,
 	.current_freq = &local_dummy_freq,
 	.c = {
 		.dbg_name = "vfe_clk",
 		.ops = &soc_clk_ops_8960,
 		CLK_INIT(vfe_clk.c),
+		.depends = &vfe_axi_clk.c,
 	},
 };
 

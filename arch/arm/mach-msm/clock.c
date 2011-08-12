@@ -42,10 +42,16 @@ int clk_enable(struct clk *clk)
 		ret = clk_enable(parent);
 		if (ret)
 			goto out;
+		ret = clk_enable(clk->depends);
+		if (ret) {
+			clk_disable(parent);
+			goto out;
+		}
 
 		if (clk->ops->enable)
 			ret = clk->ops->enable(clk);
 		if (ret) {
+			clk_disable(clk->depends);
 			clk_disable(parent);
 			goto out;
 		}
@@ -81,6 +87,7 @@ void clk_disable(struct clk *clk)
 	if (clk->count == 1) {
 		if (clk->ops->disable)
 			clk->ops->disable(clk);
+		clk_disable(clk->depends);
 		parent = clk_get_parent(clk);
 		clk_disable(parent);
 	}

@@ -514,16 +514,8 @@ int rcg_clk_enable(struct clk *c)
 
 	rc = local_vote_sys_vdd(clk->current_freq->sys_vdd);
 	if (rc)
-		goto err_vdd;
-	rc = clk_enable(clk->depends);
-	if (rc)
-		goto err_dep;
+		return rc;
 	_rcg_clk_enable(clk);
-	return rc;
-
-err_dep:
-	local_unvote_sys_vdd(clk->current_freq->sys_vdd);
-err_vdd:
 	return rc;
 }
 
@@ -533,11 +525,10 @@ void rcg_clk_disable(struct clk *c)
 	struct rcg_clk *clk = to_rcg_clk(c);
 
 	_rcg_clk_disable(clk);
-	clk_disable(clk->depends);
 	local_unvote_sys_vdd(clk->current_freq->sys_vdd);
 }
 
-/* Turn off a clock at boot, without checking refcounts or disabling depends. */
+/* Turn off a clock at boot, without checking refcounts. */
 void rcg_clk_auto_off(struct clk *c)
 {
 	_rcg_clk_disable(to_rcg_clk(c));
@@ -911,13 +902,8 @@ struct clk_ops clk_ops_measure = {
 
 int branch_clk_enable(struct clk *clk)
 {
-	int rc;
 	unsigned long flags;
 	struct branch_clk *branch = to_branch_clk(clk);
-
-	rc = clk_enable(branch->depends);
-	if (rc)
-		return rc;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	__branch_clk_enable_reg(&branch->b, branch->c.dbg_name);
@@ -936,8 +922,6 @@ void branch_clk_disable(struct clk *clk)
 	__branch_clk_disable_reg(&branch->b, branch->c.dbg_name);
 	branch->enabled = false;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	clk_disable(branch->depends);
 }
 
 struct clk *branch_clk_get_parent(struct clk *clk)

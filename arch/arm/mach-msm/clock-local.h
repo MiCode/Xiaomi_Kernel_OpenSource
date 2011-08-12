@@ -132,7 +132,6 @@ struct rcg_clk {
 	struct clk_freq_tbl *const freq_tbl;
 	struct clk_freq_tbl *current_freq;
 
-	struct clk *depends;
 	struct branch	b;
 	struct clk	c;
 };
@@ -251,7 +250,6 @@ struct branch_clk {
 	bool enabled;
 	struct branch b;
 	struct clk *parent;
-	struct clk *depends;
 	struct clk c;
 };
 

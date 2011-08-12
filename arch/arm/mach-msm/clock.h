@@ -56,11 +56,13 @@ struct clk_ops {
  * struct clk
  * @count: enable refcount
  * @lock: protects clk_enable()/clk_disable() path and @count
+ * @depends: non-direct parent of clock to enable when this clock is enabled
  */
 struct clk {
 	uint32_t flags;
 	struct clk_ops *ops;
 	const char *dbg_name;
+	struct clk *depends;
 
 	struct list_head children;
 	struct list_head siblings;
