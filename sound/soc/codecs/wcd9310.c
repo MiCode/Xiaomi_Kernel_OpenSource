@@ -1098,8 +1098,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX2 CHAIN", NULL, "ANC"},
 	{"LINEOUT1 DAC", "Switch", "RX3 MIX1"},
 	{"LINEOUT2 DAC", "Switch", "RX4 MIX1"},
-	{"LINEOUT3 DAC", "Switch", "RX5 MIX1"},
-	{"LINEOUT4 DAC", "Switch", "RX6 MIX1"},
+	{"LINEOUT3 DAC", "Switch", "RX3 MIX1"},
+	{"LINEOUT4 DAC", "Switch", "RX4 MIX1"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
