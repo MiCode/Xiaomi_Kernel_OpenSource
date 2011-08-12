@@ -610,7 +610,6 @@ bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
 
 	if (!memdesc->physaddr) {
 		KGSL_CORE_ERR("no physaddr");
-		return true;
 	} else {
 		mb();
 		kgsl_cache_range_op((struct kgsl_memdesc *)memdesc,

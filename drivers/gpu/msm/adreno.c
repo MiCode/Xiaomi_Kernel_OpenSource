@@ -534,6 +534,8 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	else
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 
+	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
+
 	kgsl_sharedmem_writel(&device->memstore,
 			      KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
 			      init_reftimestamp);

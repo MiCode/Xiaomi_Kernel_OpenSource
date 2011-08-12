@@ -1223,6 +1223,9 @@ static int a2xx_ctxt_gpustate_shadow(struct adreno_device *adreno_dev,
 	kgsl_cache_range_op(&drawctxt->gpustate,
 			    KGSL_CACHE_OP_FLUSH);
 
+	kgsl_cffdump_syncmem(NULL, &drawctxt->gpustate,
+			drawctxt->gpustate.gpuaddr,
+			drawctxt->gpustate.size, false);
 	return 0;
 }
 
@@ -1270,6 +1273,11 @@ static int a2xx_ctxt_gmem_shadow(struct adreno_device *adreno_dev,
 
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
 			    KGSL_CACHE_OP_FLUSH);
+
+	kgsl_cffdump_syncmem(NULL,
+			&drawctxt->context_gmem_shadow.gmemshadow,
+			drawctxt->context_gmem_shadow.gmemshadow.gpuaddr,
+			drawctxt->context_gmem_shadow.gmemshadow.size, false);
 
 	return 0;
 }
