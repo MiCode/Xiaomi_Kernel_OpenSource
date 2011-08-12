@@ -909,13 +909,6 @@ static int bb_l2_event_init(struct perf_event *event)
 			atomic_inc(&active_bb_l2_events);
 		else
 			return err;
-	} else {
-		if (atomic_read(&active_bb_l2_events) > (MAX_BB_L2_CTRS - 1)) {
-			pr_err("%s: No space left on PMU for event: %llx\n",
-			       __func__, event->attr.config);
-			atomic_dec(&active_bb_l2_events);
-			return -ENOSPC;
-		}
 	}
 
 	hwc->config_base = event->attr.config & 0xff;
