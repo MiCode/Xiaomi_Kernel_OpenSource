@@ -180,14 +180,13 @@ static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 
-	/* Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP. */
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
-
-	/* Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP. */
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
-
-	/* Digital Mic4. Back Top Digital Mic on Fluid. */
+	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+
 };
 
 static const struct snd_soc_dapm_route common_audio_map[] = {
@@ -204,7 +203,13 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"HEADPHONE", NULL, "LDO_H"},
 
 	/**
+	 * The digital Mic routes are setup considering
+	 * fluid as default device.
+	 */
+
+	/**
 	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
+	 * Digital Mic GM5 on CDP mainboard.
 	 * Conncted to DMIC2 Input on Tabla codec.
 	 */
 	{"DMIC2", NULL, "MIC BIAS1 External"},
@@ -212,17 +217,36 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 
 	/**
 	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
+	 * Digital Mic GM6 on CDP mainboard.
 	 * Conncted to DMIC1 Input on Tabla codec.
 	 */
 	{"DMIC1", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic2"},
 
 	/**
+	 * Digital Mic3. Back Bottom Digital Mic on Fluid.
+	 * Digital Mic GM1 on CDP mainboard.
+	 * Conncted to DMIC4 Input on Tabla codec.
+	 */
+	{"DMIC4", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic3"},
+
+	/**
 	 * Digital Mic4. Back top Digital Mic on Fluid.
+	 * Digital Mic GM2 on CDP mainboard.
 	 * Conncted to DMIC3 Input on Tabla codec.
 	 */
 	{"DMIC3", NULL, "MIC BIAS3 External"},
 	{"MIC BIAS3 External", NULL, "Digital Mic4"},
+
+	/**
+	 * Digital Mic5. Front top Digital Mic on Fluid.
+	 * Digital Mic GM3 on CDP mainboard.
+	 * Conncted to DMIC5 Input on Tabla codec.
+	 */
+	{"DMIC5", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic5"},
+
 };
 
 static const struct snd_soc_dapm_route cdp_audio_map[] = {
@@ -231,6 +255,13 @@ static const struct snd_soc_dapm_route cdp_audio_map[] = {
 
 	{"AMIC4", NULL, "MIC BIAS4 External"},
 	{"MIC BIAS4 External", NULL, "ANCLeft Headset Mic"},
+
+	/** Digital Mic GM4 on CDP mainboard.
+	 * Connected to DMIC6 input on Tabla codec.
+	 */
+	{"DMIC6", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic6"},
+
 };
 
 static const struct snd_soc_dapm_route fluid_audio_map[] = {
