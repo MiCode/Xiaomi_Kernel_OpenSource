@@ -91,6 +91,7 @@
 #define TSIF_CHUNKS_IN_BUF        (tsif_device->chunks_per_buf)
 #define TSIF_PKTS_IN_BUF          (TSIF_PKTS_IN_CHUNK * TSIF_CHUNKS_IN_BUF)
 #define TSIF_BUF_SIZE             (TSIF_PKTS_IN_BUF * TSIF_PKT_SIZE)
+#define TSIF_MAX_ID               1
 
 #define ROW_RESET                 (MSM_CLK_CTL_BASE + 0x214)
 #define GLBL_CLK_ENA              (MSM_CLK_CTL_BASE + 0x000)
@@ -1267,8 +1268,8 @@ static int __devinit msm_tsif_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		goto out;
 	}
-/*TODO macro for max. id*/
-	if ((pdev->id < 0) || (pdev->id > 0)) {
+
+	if ((pdev->id < 0) || (pdev->id > TSIF_MAX_ID)) {
 		dev_err(&pdev->dev, "Invalid device ID %d\n", pdev->id);
 		rc = -EINVAL;
 		goto out;
@@ -1426,9 +1427,21 @@ static void __exit mod_exit(void)
 
 /* public API */
 
+int tsif_get_active(void)
+{
+	struct msm_tsif_device *tsif_device;
+	list_for_each_entry(tsif_device, &tsif_devices, devlist) {
+		return tsif_device->pdev->id;
+	}
+	return -ENODEV;
+}
+EXPORT_SYMBOL(tsif_get_active);
+
 void *tsif_attach(int id, void (*notify)(void *client_data), void *data)
 {
 	struct msm_tsif_device *tsif_device = tsif_find_by_id(id);
+	if (!tsif_device)
+		return ERR_PTR(-ENODEV);
 	if (tsif_device->client_notify || tsif_device->client_data)
 		return ERR_PTR(-EBUSY);
 	tsif_device->client_notify = notify;

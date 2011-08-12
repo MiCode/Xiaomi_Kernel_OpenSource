@@ -4,7 +4,7 @@
  * Character device that, being read
  * returns stream of TSIF packets.
  *
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights
  * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -186,6 +186,7 @@ struct tsif_chrdev the_devices[TSIF_NUM_DEVS];
 static int __init mod_init(void)
 {
 	int rc;
+	int instance;
 	rc = alloc_chrdev_region(&tsif_dev, 0, TSIF_NUM_DEVS, "tsif");
 	if (rc) {
 		pr_err("alloc_chrdev_region failed: %d\n", rc);
@@ -198,7 +199,11 @@ static int __init mod_init(void)
 		pr_err("Error creating tsif class: %d\n", rc);
 		goto err_class;
 	}
-	rc = tsif_init_one(&the_devices[0], 0);
+	instance = tsif_get_active();
+	if (instance >= 0)
+		rc = tsif_init_one(&the_devices[0], instance);
+	else
+		rc = instance;
 	if (rc)
 		goto err_init1;
 	return 0;

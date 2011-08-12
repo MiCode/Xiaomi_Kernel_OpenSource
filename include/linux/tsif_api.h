@@ -105,6 +105,13 @@ enum tsif_state {
 };
 
 /**
+ * tsif_get_active - return active tsif hardware instance
+ *
+ * Return     TSIF instance to use (selected by CONFIG_MSM_USE_TSIF1)
+ */
+int tsif_get_active(void);
+
+/**
  * tsif_attach - Attach to the device.
  * @id:       TSIF device ID, used to identify TSIF instance.
  * @notify:   client callback, called when
