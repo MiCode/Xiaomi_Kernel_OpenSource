@@ -2255,6 +2255,25 @@ static int slim_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 	return ret;
 }
 
+static void slim_change_existing_chans(struct slim_controller *ctrl, int coeff)
+{
+	struct slim_ich **arr;
+	int len, i;
+	if (coeff == SLIM_COEFF_1) {
+		arr = ctrl->sched.chc1;
+		len = ctrl->sched.num_cc1;
+	} else {
+		arr = ctrl->sched.chc3;
+		len = ctrl->sched.num_cc3;
+	}
+	for (i = 0; i < len; i++) {
+		struct slim_ich *slc = arr[i];
+		if (slc->state == SLIM_CH_ACTIVE ||
+			slc->state == SLIM_CH_SUSPENDED)
+			slc->offset = slc->newoff;
+			slc->interval = slc->newintr;
+	}
+}
 static void slim_chan_changes(struct slim_device *sb, bool revert)
 {
 	struct slim_controller *ctrl = sb->ctrl;
@@ -2272,8 +2291,6 @@ static void slim_chan_changes(struct slim_device *sb, bool revert)
 			slim_remove_ch(ctrl, slc);
 			slc->state = SLIM_CH_DEFINED;
 		} else {
-			slc->offset = slc->newoff;
-			slc->interval = slc->newintr;
 			slc->state = SLIM_CH_ACTIVE;
 		}
 		list_del_init(&pch->pending);
@@ -2306,6 +2323,11 @@ static void slim_chan_changes(struct slim_device *sb, bool revert)
 			slc->state = SLIM_CH_ACTIVE;
 		list_del_init(&pch->pending);
 		kfree(pch);
+	}
+	/* Change already active channel if reconfig succeeded */
+	if (!revert) {
+		slim_change_existing_chans(ctrl, SLIM_COEFF_1);
+		slim_change_existing_chans(ctrl, SLIM_COEFF_3);
 	}
 }
 
@@ -2436,6 +2458,10 @@ int slim_reconfigure_now(struct slim_device *sb)
 		curexp = slc->rootexp + expshft;
 		segdist = (slc->newoff << curexp) & 0x1FF;
 		expshft = SLIM_MAX_CLK_GEAR - clkgear;
+		dev_dbg(&ctrl->dev, "new-intr:%d, old-intr:%d, dist:%d\n",
+				slc->newintr, slc->interval, segdist);
+		dev_dbg(&ctrl->dev, "new-off:%d, old-off:%d\n",
+				slc->newoff, slc->offset);
 
 		if (slc->state < SLIM_CH_ACTIVE ||
 			slc->newintr != slc->interval ||
@@ -2465,6 +2491,10 @@ int slim_reconfigure_now(struct slim_device *sb)
 		curexp = slc->rootexp + expshft;
 		segdist = (slc->newoff << curexp) & 0x1FF;
 		expshft = SLIM_MAX_CLK_GEAR - clkgear;
+		dev_dbg(&ctrl->dev, "new-intr:%d, old-intr:%d, dist:%d\n",
+				slc->newintr, slc->interval, segdist);
+		dev_dbg(&ctrl->dev, "new-off:%d, old-off:%d\n",
+				slc->newoff, slc->offset);
 
 		if (slc->state < SLIM_CH_ACTIVE ||
 			slc->newintr != slc->interval ||
