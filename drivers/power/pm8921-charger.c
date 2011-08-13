@@ -766,6 +766,22 @@ void pm8921_charger_vbus_draw(unsigned int mA)
 }
 EXPORT_SYMBOL_GPL(pm8921_charger_vbus_draw);
 
+int pm8921_charger_enable(bool enable)
+{
+	int rc;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+	enable = !!enable;
+	rc = pm_chg_auto_enable(the_chip, enable);
+	if (rc)
+		pr_err("Failed rc=%d\n", rc);
+	return rc;
+}
+EXPORT_SYMBOL(pm8921_charger_enable);
+
 static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 {
 	int usb_present;
@@ -1040,6 +1056,13 @@ static irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/**
+ * set_disable_status_param -
+ *
+ * Internal function to disable battery charging and also disable drawing
+ * any current from the source. The device is forced to run on a battery
+ * after this.
+ */
 static int set_disable_status_param(const char *val, struct kernel_param *kp)
 {
 	int ret;

@@ -52,6 +52,15 @@ struct pm8921_charger_platform_data {
 void pm8921_charger_vbus_draw(unsigned int mA);
 int pm8921_charger_register_vbus_sn(void (*callback)(int));
 void pm8921_charger_unregister_vbus_sn(void (*callback)(int));
+/**
+ * pm8921_charger_enable -
+ *
+ * @enable: 1 means enable charging, 0 means disable
+ *
+ * Enable/Disable battery charging current, the device will still draw current
+ * from the charging source
+ */
+int pm8921_charger_enable(bool enable);
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -62,6 +71,10 @@ static inline int pm8921_charger_register_vbus_sn(void (*callback)(int))
 }
 static inline void pm8921_charger_unregister_vbus_sn(void (*callback)(int))
 {
+}
+static inline int pm8921_charger_enable(bool enable)
+{
+	return -ENXIO;
 }
 #endif
 
