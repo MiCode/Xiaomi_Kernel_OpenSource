@@ -128,12 +128,13 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 	u32 source;
 	unsigned long flags = 0;
 
+
 	spin_lock_irqsave(&dev->isr_lock, flags);
 
 	/* Get BAM interrupt source(s) */
 	if ((dev->state & BAM_STATE_MTI) == 0) {
 		u32 mask = dev->pipe_active_mask;
-		source = bam_get_irq_status(dev->base,
+		source = bam_check_irq_source(dev->base,
 							  dev->props.ee,
 							  mask);
 

@@ -520,14 +520,30 @@ void bam_exit(void *base, u32 ee)
 }
 
 /**
- * Get BAM global IRQ status
+ * Get BAM IRQ source and clear global IRQ status
  */
-u32 bam_get_irq_status(void *base, u32 ee, u32 mask)
+u32 bam_check_irq_source(void *base, u32 ee, u32 mask)
 {
-	u32 status = bam_read_reg(base, IRQ_SRCS_EE(ee));
-	status &= mask;
+	u32 source = bam_read_reg(base, IRQ_SRCS_EE(ee));
+	u32 clr = source & (1UL << 31);
 
-	return status;
+	if (clr) {
+		u32 status = 0;
+		status = bam_read_reg(base, IRQ_STTS);
+		bam_write_reg(base, IRQ_CLR, status);
+		if (printk_ratelimit()) {
+			if (status & IRQ_STTS_BAM_ERROR_IRQ)
+				SPS_ERR("sps:bam 0x%x(va);bam irq status="
+					"0x%x.\nsps: BAM_ERROR_IRQ\n",
+					(u32) base, status);
+			else
+				SPS_INFO("sps:bam 0x%x(va);bam irq status="
+					"0x%x.", (u32) base, status);
+		}
+	}
+
+	source &= mask;
+	return source;
 }
 
 /**
