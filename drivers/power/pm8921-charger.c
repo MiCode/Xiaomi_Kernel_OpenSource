@@ -1545,6 +1545,10 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 		goto unregister_batt;
 	}
 
+	enable_irq_wake(chip->pmic_chg_irq[USBIN_VALID_IRQ]);
+	enable_irq_wake(chip->pmic_chg_irq[USBIN_OV_IRQ]);
+	enable_irq_wake(chip->pmic_chg_irq[USBIN_UV_IRQ]);
+
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
 	create_debugfs_entries(chip);
