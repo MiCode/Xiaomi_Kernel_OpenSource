@@ -382,16 +382,15 @@ static int pm_chg_iterm_set(struct pm8921_chg_chip *chip, int chg_current)
 #define PM8921_CHG_IUSB_MASK 0x1C
 #define PM8921_CHG_IUSB_MAX  7
 #define PM8921_CHG_IUSB_MIN  0
-static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int chg_current)
+static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
 {
 	u8 temp;
 
-	if (chg_current < PM8921_CHG_IUSB_MIN
-			|| chg_current > PM8921_CHG_IUSB_MAX) {
-		pr_err("bad mA=%d asked to set\n", chg_current);
+	if (reg_val < PM8921_CHG_IUSB_MIN || reg_val > PM8921_CHG_IUSB_MAX) {
+		pr_err("bad mA=%d asked to set\n", reg_val);
 		return -EINVAL;
 	}
-	temp = chg_current << 2;
+	temp = reg_val << 2;
 	return pm_chg_masked_write(chip, PBL_ACCESS2, PM8921_CHG_IUSB_MASK,
 					 temp);
 }
@@ -812,6 +811,7 @@ static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 
 static irqreturn_t usbin_ov_irq_handler(int irq, void *data)
 {
+	pr_err("USB OverVoltage\n");
 	handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;
 }
@@ -841,6 +841,7 @@ static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 
 static irqreturn_t usbin_uv_irq_handler(int irq, void *data)
 {
+	pr_err("USB UnderVoltage\n");
 	handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;
 }
