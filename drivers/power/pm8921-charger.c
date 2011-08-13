@@ -359,24 +359,23 @@ static int pm_chg_ibatsafe_set(struct pm8921_chg_chip *chip, int chg_current)
 						PM8921_CHG_I_MASK, temp);
 }
 
-#define PM8921_CHG_ITERM_MIN		50
-#define PM8921_CHG_ITERM_MAX		200
 #define PM8921_CHG_ITERM_MIN_MA		50
+#define PM8921_CHG_ITERM_MAX_MA		200
 #define PM8921_CHG_ITERM_STEP_MA	10
 #define PM8921_CHG_ITERM_MASK		0xF
 static int pm_chg_iterm_set(struct pm8921_chg_chip *chip, int chg_current)
 {
 	u8 temp;
 
-	if (chg_current < PM8921_CHG_ITERM_MIN
-			|| chg_current > PM8921_CHG_ITERM_MAX) {
+	if (chg_current < PM8921_CHG_ITERM_MIN_MA
+			|| chg_current > PM8921_CHG_ITERM_MAX_MA) {
 		pr_err("bad mA=%d asked to set\n", chg_current);
 		return -EINVAL;
 	}
 
 	temp = (chg_current - PM8921_CHG_ITERM_MIN_MA)
 				/ PM8921_CHG_ITERM_STEP_MA;
-	return pm_chg_masked_write(chip, CHG_IBAT_SAFE, PM8921_CHG_ITERM_MASK,
+	return pm_chg_masked_write(chip, CHG_ITERM, PM8921_CHG_ITERM_MASK,
 					 temp);
 }
 
