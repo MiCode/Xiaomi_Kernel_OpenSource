@@ -60,3 +60,5 @@ struct anc_header {
 	u32 reserved[3];
 	u32 num_anc_slots;
 };
+
+extern int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable);
