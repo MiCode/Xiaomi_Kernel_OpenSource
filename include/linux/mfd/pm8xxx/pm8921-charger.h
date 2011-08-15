@@ -28,13 +28,26 @@ struct pm8xxx_charger_core_data {
  * @safety_time:	max charging time in minutes
  * @ttrkl_time:		max trckl charging time in minutes
  * @update_time:	how often the userland be updated of the charging
- * @max_voltage:	the max voltage the battery should be charged up to
- * @min_voltage:	the voltage where charging method switches from trickle
- *			to fast. This is also the minimum voltage the system
- *			operates at
- * @resume_voltage:	the voltage to wait for before resume charging after the
- *			battery has been fully charged
- * @term_current:	the charger current at which EOC happens
+ * @max_voltage:	the max voltage (mV) the battery should be charged up to
+ * @min_voltage:	the voltage (mV) where charging method switches from
+ *			trickle to fast. This is also the minimum voltage the
+ *			system operates at
+ * @resume_voltage:	the voltage (mV) to wait for before resume charging
+ *			after the battery has been fully charged
+ * @term_current:	the charger current (mA) at which EOC happens
+ * @cool_temp:		the temperature (degC) at which the battery is
+ *			considered cool charging current and voltage is reduced
+ * @warm_temp:		the temperature (degC) at which the battery is
+ *			considered warm charging current and voltage is reduced
+ * @temp_check_period:	The polling interval in seconds to check battery
+ *			temeperature if it has gone to cool or warm temperature
+ *			area
+ * @max_bat_chg_current:	Max charge current of the battery in mA
+ *				Usually 70% of full charge capacity
+ * @cool_bat_chg_current:	chg current (mA) when the battery is cool
+ * @warm_bat_chg_current:	chg current (mA)  when the battery is warm
+ * @cool_bat_voltage:		chg voltage (mV) when the battery is cool
+ * @warm_bat_voltage:		chg voltage (mV) when the battery is warm
  * @get_batt_capacity_percent:
  *			a board specific function to return battery
  *			capacity. If null - a default one will be used
@@ -49,6 +62,14 @@ struct pm8921_charger_platform_data {
 	unsigned int			min_voltage;
 	unsigned int			resume_voltage;
 	unsigned int			term_current;
+	unsigned int			cool_temp;
+	unsigned int			warm_temp;
+	unsigned int			temp_check_period;
+	unsigned int			max_bat_chg_current;
+	unsigned int			cool_bat_chg_current;
+	unsigned int			warm_bat_chg_current;
+	unsigned int			cool_bat_voltage;
+	unsigned int			warm_bat_voltage;
 	unsigned int			(*get_batt_capacity_percent) (void);
 	int64_t				batt_id_min;
 	int64_t				batt_id_max;
