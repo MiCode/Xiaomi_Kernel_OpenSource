@@ -307,6 +307,30 @@ void __init msm_map_fsm9xxx_io(void)
 }
 #endif /* CONFIG_ARCH_FSM9XXX */
 
+#ifdef CONFIG_ARCH_MSM9615
+static struct map_desc msm9615_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(QGIC_DIST, MSM9615),
+	MSM_CHIP_DEVICE(QGIC_CPU, MSM9615),
+	MSM_CHIP_DEVICE(ACC0, MSM9615),
+	MSM_CHIP_DEVICE(TMR, MSM9615),
+	MSM_CHIP_DEVICE(DMOV, MSM9615),
+	MSM_CHIP_DEVICE(TLMM, MSM9615),
+	MSM_CHIP_DEVICE(SAW0, MSM9615),
+	MSM_CHIP_DEVICE(APCS_GCC, MSM9615),
+	MSM_CHIP_DEVICE(TCSR, MSM9615),
+	{
+		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
+		.length =   MSM_SHARED_RAM_SIZE,
+		.type =     MT_DEVICE,
+	},
+};
+
+void __init msm_map_msm9615_io(void)
+{
+	msm_map_io(msm9615_io_desc, ARRAY_SIZE(msm9615_io_desc));
+}
+#endif /* CONFIG_ARCH_MSM9615 */
+
 void __iomem *
 __msm_ioremap(unsigned long phys_addr, size_t size, unsigned int mtype)
 {
