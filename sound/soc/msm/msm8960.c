@@ -171,8 +171,66 @@ static int msm8960_spkramp_event(struct snd_soc_dapm_widget *w,
 		codec_poweramp_off();
 	return 0;
 }
+static int msm8960_mclk_enable_event(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s: Event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+
+		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
+
+		if (clk_users++)
+			return 0;
+		codec_clk = clk_get(NULL, "i2s_spkr_osr_clk");
+		if (codec_clk) {
+			clk_set_rate(codec_clk, 12288000);
+			clk_enable(codec_clk);
+			tabla_mclk_enable(w->codec, 1);
+
+		} else {
+			pr_err("%s: Error setting Tabla MCLK\n", __func__);
+			clk_users--;
+			return -EINVAL;
+		}
+		break;
+	}
+	return 0;
+}
+
+static int msm8960_mclk_disable_event(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s: Event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMD:
+		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
+
+		if (clk_users == 0)
+			return 0;
+
+		clk_users--;
+		if (!clk_users) {
+			pr_debug("%s: disabling MCLK. clk_users = %d\n",
+					__func__, clk_users);
+
+			clk_disable(codec_clk);
+			clk_put(codec_clk);
+			tabla_mclk_enable(w->codec, 0);
+		}
+		break;
+	}
+	return 0;
+}
 
 static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
+
+	SND_SOC_DAPM_PRE("CODEC MCLK_ON", msm8960_mclk_enable_event),
+	SND_SOC_DAPM_POST("CODEC MCLK_OFF", msm8960_mclk_disable_event),
+
+
 	SND_SOC_DAPM_SPK("Ext Spk", msm8960_spkramp_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -526,30 +584,17 @@ static int msm8960_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+
 static int msm8960_startup(struct snd_pcm_substream *substream)
 {
-	if (clk_users++)
-		return 0;
-
-	codec_clk = clk_get(NULL, "i2s_spkr_osr_clk");
-	if (codec_clk) {
-		clk_set_rate(codec_clk, 12288000);
-		clk_enable(codec_clk);
-	} else {
-		pr_err("%s: Error setting Tabla MCLK\n", __func__);
-		clk_users--;
-		return -EINVAL;
-	}
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
 	return 0;
 }
 
 static void msm8960_shutdown(struct snd_pcm_substream *substream)
 {
-	clk_users--;
-	if (!clk_users) {
-		clk_disable(codec_clk);
-		clk_put(codec_clk);
-	}
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	return;
 }
 
 static struct snd_soc_ops msm8960_be_ops = {
