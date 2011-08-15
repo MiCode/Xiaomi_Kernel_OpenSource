@@ -225,6 +225,10 @@ static int fsm_xo_probe(struct platform_device *pdev)
 	fsm_xo_priv->a0_enabled = 0;
 	fsm_xo_priv->a1_enabled = 0;
 
+	/* Enable the clock buffers. AMSS depends on this on the FSM. */
+	fsm_xo_enable_a0();
+	fsm_xo_enable_a1();
+
 	mutex_init(&fsm_xo_priv->lock);
 
 	ret = misc_register(&fsm_xo_dev);

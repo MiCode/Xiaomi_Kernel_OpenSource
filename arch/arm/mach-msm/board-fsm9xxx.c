@@ -402,6 +402,7 @@ XO_CONSUMERS(A1) = {
 			.constraints = { \
 				.valid_modes_mask = _modes, \
 				.valid_ops_mask = _ops, \
+				.boot_on = 1, \
 				.always_on = _always_on, \
 			}, \
 			.num_consumer_supplies = \
