@@ -40,13 +40,9 @@
 #define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> PAGE_SHIFT) + \
 				     KGSL_PT_EXTRA_ENTRIES)
 
-#ifdef CONFIG_MSM_KGSL_MMU
 #define KGSL_PAGETABLE_SIZE \
 ALIGN(KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) * \
 KGSL_PAGETABLE_ENTRY_SIZE, PAGE_SIZE)
-#else
-#define KGSL_PAGETABLE_SIZE 0
-#endif
 
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 #define KGSL_PAGETABLE_COUNT (CONFIG_MSM_KGSL_PAGE_TABLE_COUNT)
@@ -66,15 +62,6 @@ KGSL_PAGETABLE_ENTRY_SIZE, PAGE_SIZE)
 	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
 struct kgsl_device;
-
-struct kgsl_ptpool {
-	size_t ptsize;
-	struct mutex lock;
-	struct list_head list;
-	int entries;
-	int static_entries;
-	int chunks;
-};
 
 struct kgsl_driver {
 	struct cdev cdev;
@@ -99,7 +86,7 @@ struct kgsl_driver {
 	/* Mutex for protecting the device list */
 	struct mutex devlock;
 
-	struct kgsl_ptpool ptpool;
+	void *ptpool;
 
 	struct {
 		unsigned int vmalloc;

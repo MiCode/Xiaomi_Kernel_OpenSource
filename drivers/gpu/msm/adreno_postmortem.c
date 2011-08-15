@@ -640,7 +640,7 @@ static int adreno_dump(struct kgsl_device *device)
 
 	kgsl_regread(device, MH_MMU_MPU_END, &r1);
 	kgsl_regread(device, MH_MMU_VA_RANGE, &r2);
-	kgsl_regread(device, MH_MMU_PT_BASE, &pt_base);
+	pt_base = kgsl_mmu_get_current_ptbase(device);
 	KGSL_LOG_DUMP(device,
 		"        MPU_END    = %08X | VA_RANGE = %08X | PT_BASE  ="
 		" %08X\n", r1, r2, pt_base);
@@ -719,7 +719,7 @@ static int adreno_dump(struct kgsl_device *device)
 
 			KGSL_LOG_DUMP(device, "Current pagetable: %x\t"
 				"pagetable base: %x\n",
-				kgsl_get_ptname_from_ptbase(cur_pt_base),
+				kgsl_mmu_get_ptname_from_ptbase(cur_pt_base),
 				cur_pt_base);
 
 			/* Set cur_pt_base to the new pagetable base */
@@ -727,7 +727,7 @@ static int adreno_dump(struct kgsl_device *device)
 
 			KGSL_LOG_DUMP(device, "New pagetable: %x\t"
 				"pagetable base: %x\n",
-				kgsl_get_ptname_from_ptbase(cur_pt_base),
+				kgsl_mmu_get_ptname_from_ptbase(cur_pt_base),
 				cur_pt_base);
 		}
 	}

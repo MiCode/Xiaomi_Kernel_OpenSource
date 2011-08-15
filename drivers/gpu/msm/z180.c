@@ -258,7 +258,7 @@ static void z180_cleanup_pt(struct kgsl_device *device,
 {
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 
-	kgsl_mmu_unmap(pagetable, &device->mmu.dummyspace);
+	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
 
 	kgsl_mmu_unmap(pagetable, &device->memstore);
 
@@ -271,7 +271,7 @@ static int z180_setup_pt(struct kgsl_device *device,
 	int result = 0;
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 
-	result = kgsl_mmu_map_global(pagetable, &device->mmu.dummyspace,
+	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory,
 				     GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
 
 	if (result)
@@ -290,7 +290,7 @@ static int z180_setup_pt(struct kgsl_device *device,
 	return result;
 
 error_unmap_dummy:
-	kgsl_mmu_unmap(pagetable, &device->mmu.dummyspace);
+	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
 
 error_unmap_memstore:
 	kgsl_mmu_unmap(pagetable, &device->memstore);
@@ -387,11 +387,6 @@ static int z180_idle(struct kgsl_device *device, unsigned int timeout)
 	return status;
 }
 
-static void z180_setstate(struct kgsl_device *device, uint32_t flags)
-{
-	kgsl_default_setstate(device, flags);
-}
-
 int
 z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 			struct kgsl_context *context,
@@ -439,7 +434,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 		cnt = PACKETSIZE_STATESTREAM;
 		ofs = 0;
 	}
-	z180_setstate(device, kgsl_pt_get_flags(device->mmu.hwpagetable,
+	kgsl_setstate(device, kgsl_mmu_pt_get_flags(device->mmu.hwpagetable,
 						    device->id));
 
 	result = wait_event_interruptible_timeout(device->wait_queue,
@@ -626,16 +621,12 @@ static int z180_getproperty(struct kgsl_device *device,
 	break;
 	case KGSL_PROP_MMU_ENABLE:
 		{
-#ifdef CONFIG_MSM_KGSL_MMU
-			int mmuProp = 1;
-#else
-			int mmuProp = 0;
-#endif
+			int mmu_prop = kgsl_mmu_enabled();
 			if (sizebytes != sizeof(int)) {
 				status = -EINVAL;
 				break;
 			}
-			if (copy_to_user(value, &mmuProp, sizeof(mmuProp))) {
+			if (copy_to_user(value, &mmu_prop, sizeof(mmu_prop))) {
 				status = -EFAULT;
 				break;
 			}
@@ -910,7 +901,6 @@ static const struct kgsl_functable z180_functable = {
 	.power_stats = z180_power_stats,
 	.irqctrl = z180_irqctrl,
 	/* Optional functions */
-	.setstate = z180_setstate,
 	.drawctxt_create = NULL,
 	.drawctxt_destroy = z180_drawctxt_destroy,
 	.ioctl = NULL,

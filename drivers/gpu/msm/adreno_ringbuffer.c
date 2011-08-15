@@ -601,7 +601,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	kgsl_setstate(device,
-		      kgsl_pt_get_flags(device->mmu.hwpagetable,
+		      kgsl_mmu_pt_get_flags(device->mmu.hwpagetable,
 					device->id));
 
 	adreno_drawctxt_switch(adreno_dev, drawctxt, flags);

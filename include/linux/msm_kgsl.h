@@ -149,6 +149,8 @@ struct kgsl_device_platform_data {
 	struct kgsl_clk_data clk;
 	/* imem_clk_name is for 3d only, not used in 2d devices */
 	struct kgsl_grp_clk_name imem_clk_name;
+	const char *iommu_user_ctx_name;
+	const char *iommu_priv_ctx_name;
 };
 
 #endif

@@ -35,9 +35,13 @@
 #define MODULE_PARAM_PREFIX "kgsl."
 
 static int kgsl_pagetable_count = KGSL_PAGETABLE_COUNT;
+static char *ksgl_mmu_type;
 module_param_named(ptcount, kgsl_pagetable_count, int, 0);
 MODULE_PARM_DESC(kgsl_pagetable_count,
 "Minimum number of pagetables for KGSL to allocate at initialization time");
+module_param_named(mmutype, ksgl_mmu_type, charp, 0);
+MODULE_PARM_DESC(ksgl_mmu_type,
+"Type of MMU to be used for graphics. Valid values are 'iommu' or 'gpummu' or 'nommu'");
 
 static inline struct kgsl_mem_entry *
 kgsl_mem_entry_create(void)
@@ -479,15 +483,11 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 
 	INIT_LIST_HEAD(&private->mem_list);
 
-#ifdef CONFIG_MSM_KGSL_MMU
+	if (kgsl_mmu_enabled())
 	{
 		unsigned long pt_name;
 
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 		pt_name = task_tgid_nr(current);
-#else
-		pt_name = KGSL_MMU_GLOBAL_PT;
-#endif
 		private->pagetable = kgsl_mmu_getpagetable(pt_name);
 		if (private->pagetable == NULL) {
 			kfree(private);
@@ -495,7 +495,6 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 			goto out;
 		}
 	}
-#endif
 
 	list_add(&private->list, &kgsl_driver.process_list);
 
@@ -2065,17 +2064,19 @@ EXPORT_SYMBOL(kgsl_device_platform_remove);
 static int __devinit
 kgsl_ptdata_init(void)
 {
-	INIT_LIST_HEAD(&kgsl_driver.pagetable_list);
-
-	return kgsl_ptpool_init(&kgsl_driver.ptpool, KGSL_PAGETABLE_SIZE,
-		kgsl_pagetable_count);
+	kgsl_driver.ptpool = kgsl_mmu_ptpool_init(KGSL_PAGETABLE_SIZE,
+						kgsl_pagetable_count);
+	if (!kgsl_driver.ptpool)
+		return -ENOMEM;
+	return 0;
 }
 
 static void kgsl_core_exit(void)
 {
 	unregister_chrdev_region(kgsl_driver.major, KGSL_DEVICE_MAX);
 
-	kgsl_ptpool_destroy(&kgsl_driver.ptpool);
+	kgsl_mmu_ptpool_destroy(&kgsl_driver.ptpool);
+	kgsl_driver.ptpool = NULL;
 
 	device_unregister(&kgsl_driver.virtdev);
 
@@ -2091,7 +2092,6 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
-
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0, KGSL_DEVICE_MAX,
 				  KGSL_NAME);
@@ -2147,14 +2147,22 @@ static int __init kgsl_core_init(void)
 
 	INIT_LIST_HEAD(&kgsl_driver.process_list);
 
-	result = kgsl_ptdata_init();
-	if (result)
-		goto err;
+	INIT_LIST_HEAD(&kgsl_driver.pagetable_list);
+
+	kgsl_mmu_set_mmutype(ksgl_mmu_type);
+
+	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype()) {
+		result = kgsl_ptdata_init();
+		if (result)
+			goto err;
+	}
 
 	result = kgsl_drm_init(NULL);
 
 	if (result)
 		goto err;
+
+	kgsl_mmu_set_mmutype(ksgl_mmu_type);
 
 	return 0;
 
