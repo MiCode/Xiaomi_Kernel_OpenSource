@@ -680,6 +680,8 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 				}
 				if (mdp_lut_clk != NULL)
 					clk_disable(mdp_lut_clk);
+				if (footswitch != NULL)
+					regulator_disable(footswitch);
 			} else {
 				/* send workqueue to turn off mdp power */
 				queue_delayed_work(mdp_pipe_ctrl_wq,
@@ -690,6 +692,8 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		} else if ((!mdp_all_blocks_off) && (!mdp_current_clk_on)) {
 			mdp_current_clk_on = TRUE;
 			/* turn on MDP clks */
+			if (footswitch != NULL)
+				regulator_enable(footswitch);
 			for (i = 0; i < pdev_list_cnt; i++) {
 				pdata = (struct msm_fb_panel_data *)
 					pdev_list[i]->dev.platform_data;
@@ -1191,8 +1195,6 @@ static int mdp_irq_clk_setup(void)
 	footswitch = regulator_get(NULL, "fs_mdp");
 	if (IS_ERR(footswitch))
 		footswitch = NULL;
-	else
-		regulator_enable(footswitch);
 
 	mdp_clk = clk_get(NULL, "mdp_clk");
 	if (IS_ERR(mdp_clk)) {
