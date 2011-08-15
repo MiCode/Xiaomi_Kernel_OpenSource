@@ -98,7 +98,7 @@ enum {
 
 #define NR_TIMERS ARRAY_SIZE(msm_clocks)
 
-#if defined(CONFIG_ARCH_QSD8X50)
+#if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_FSM9XXX)
 #define DGT_HZ 4800000	/* Uses TCXO/4 (19.2 MHz / 4) */
 #elif defined(CONFIG_ARCH_MSM7X30)
 #define DGT_HZ 6144000	/* Uses LPXO/4 (24.576 MHz / 4) */
