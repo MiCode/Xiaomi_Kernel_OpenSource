@@ -943,7 +943,7 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
 	init_clock_sources(&scalable[L2], &l2_freq_tbl[L2_BOOT_IDX].speed);
-	on_each_cpu(&per_cpu_init, NULL, true);
+	on_each_cpu(per_cpu_init, NULL, true);
 
 	regulator_init();
 	bus_init();
