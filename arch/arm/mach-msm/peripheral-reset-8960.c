@@ -281,7 +281,7 @@ static int auth_and_reset_trusted(int id)
 	return resp.reset_initiated;
 }
 
-static int reset_q6_trusted(int id, struct q6_data *q6)
+static int power_up_q6(struct q6_data *q6)
 {
 	int err;
 
@@ -290,16 +290,27 @@ static int reset_q6_trusted(int id, struct q6_data *q6)
 		pr_err("Failed to set %s regulator's voltage.\n", q6->name);
 		return err;
 	}
+	err = regulator_set_optimum_mode(q6->vreg, 100000);
+	if (err < 0) {
+		pr_err("Failed to set %s regulator's mode.\n", q6->name);
+		return err;
+	}
 	err = regulator_enable(q6->vreg);
 	if (err) {
 		pr_err("Failed to enable %s's regulator.\n", q6->name);
 		return err;
 	}
 	q6->vreg_enabled = true;
-
-	return auth_and_reset_trusted(id);
+	return 0;
 }
 
+static int reset_q6_trusted(int id, struct q6_data *q6)
+{
+	int err = power_up_q6(q6);
+	if (err)
+		return err;
+	return auth_and_reset_trusted(id);
+}
 
 static int reset_lpass_q6_trusted(void)
 {
@@ -320,23 +331,9 @@ static int reset_q6_untrusted(struct q6_data *q6)
 {
 	u32 reg, err = 0;
 
-	err = regulator_set_voltage(q6->vreg, 1050000, 1050000);
-	if (err) {
-		pr_err("Failed to set %s regulator's voltage.\n", q6->name);
-		goto out;
-	}
-	err = regulator_set_optimum_mode(q6->vreg, 100000);
-	if (err < 0) {
-		pr_err("Failed to set %s regulator's mode.\n", q6->name);
-		goto out;
-	}
-	err = regulator_enable(q6->vreg);
-	if (err) {
-		pr_err("Failed to enable %s's regulator.\n", q6->name);
-		goto out;
-	}
-	q6->vreg_enabled = true;
-
+	err = power_up_q6(q6);
+	if (err)
+		return err;
 	/* Enable Q6 ACLK */
 	writel_relaxed(0x10, q6->aclk_reg);
 
@@ -431,8 +428,7 @@ static int reset_q6_untrusted(struct q6_data *q6)
 	reg &= ~Q6SS_AXIS_ACLK_EN;
 	writel_relaxed(reg, q6->reg_base + QDSP6SS_CGC_OVERRIDE);
 
-out:
-	return err;
+	return 0;
 }
 
 static int reset_lpass_q6_untrusted(void)
