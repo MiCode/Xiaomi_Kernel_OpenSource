@@ -33,6 +33,13 @@
 
 struct sdio_al_device; /* Forward Declaration */
 
+enum sdio_channel_state {
+	SDIO_CHANNEL_STATE_INVALID,	 /* before reading software header */
+	SDIO_CHANNEL_STATE_IDLE,         /* channel valid, not opened    */
+	SDIO_CHANNEL_STATE_CLOSED,       /* was closed */
+	SDIO_CHANNEL_STATE_OPEN,	 /* opened */
+	SDIO_CHANNEL_STATE_CLOSING,      /* during flush, when closing */
+};
 /**
  * Peer SDIO-Client channel configuration.
  *
@@ -57,7 +64,8 @@ struct peer_sdioc_channel_config {
 	u32 max_packet_size;
 	u32 is_host_ok_to_sleep;
 	u32 is_packet_mode;
-	u32 reserved[25];
+	u32 peer_operation;
+	u32 reserved[24];
 };
 
 
@@ -173,8 +181,7 @@ struct sdio_channel {
 	void (*notify)(void *priv, unsigned channel_event);
 	void *priv;
 
-	int is_valid;
-	int is_open;
+	int state;
 
 	struct sdio_func *func;
 
