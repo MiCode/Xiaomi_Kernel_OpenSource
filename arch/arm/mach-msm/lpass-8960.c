@@ -40,11 +40,28 @@ struct lpass_ssr {
 } lpass_ssr;
 
 static struct lpass_ssr lpass_ssr_8960;
+static int q6_crash_shutdown;
 
 static void lpass_fatal_fn(struct work_struct *work)
 {
-	pr_err("%s: Watchdog bite received from Q6!\n", MODULE_NAME);
+	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
+		__func__);
 	subsystem_restart("lpass");
+}
+
+static void lpass_smsm_state_cb(void *data, uint32_t old_state,
+				uint32_t new_state)
+{
+	/* Ignore if we're the one that set SMSM_RESET */
+	if (q6_crash_shutdown)
+		return;
+
+	if (new_state & SMSM_RESET) {
+		pr_err("%s: LPASS SMSM state changed to SMSM_RESET,"
+			" new_state = 0x%x, old_state = 0x%x\n", __func__,
+			new_state, old_state);
+		subsystem_restart("lpass");
+	}
 }
 
 static void send_q6_nmi(void)
@@ -96,6 +113,7 @@ static int lpass_ramdump(int enable, const struct subsys_data *subsys)
 
 static void lpass_crash_shutdown(const struct subsys_data *subsys)
 {
+	q6_crash_shutdown = 1;
 	send_q6_nmi();
 }
 
@@ -126,6 +144,13 @@ static int __init lpass_restart_init(void)
 static int __init lpass_fatal_init(void)
 {
 	int ret;
+
+	ret = smsm_state_cb_register(SMSM_Q6_STATE, SMSM_RESET,
+		lpass_smsm_state_cb, 0);
+
+	if (ret < 0)
+		pr_err("%s: Unable to register SMSM callback! (%d)\n",
+				__func__, ret);
 
 	ret = request_irq(LPASS_Q6SS_WDOG_EXPIRED, lpass_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, "q6_wdog", NULL);
