@@ -25,4 +25,6 @@
 #define DSPS_IOCTL_READ_SLOW_TIMER _IOR(DSPS_IOCTL_MAGIC, 3, unsigned int*)
 #define DSPS_IOCTL_READ_FAST_TIMER _IOR(DSPS_IOCTL_MAGIC, 4, unsigned int*)
 
+#define DSPS_IOCTL_RESET _IO(DSPS_IOCTL_MAGIC, 5)
+
 #endif	/* _DSPS_H_ */

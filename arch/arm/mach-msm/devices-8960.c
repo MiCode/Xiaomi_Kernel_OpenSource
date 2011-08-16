@@ -2133,6 +2133,13 @@ static struct resource msm_dsps_resources[] = {
 		.name  = "ppss_reg",
 		.flags = IORESOURCE_MEM,
 	},
+
+	{
+		.start = PPSS_WDOG_TIMER_IRQ,
+		.end   = PPSS_WDOG_TIMER_IRQ,
+		.name  = "ppss_wdog",
+		.flags = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device msm_dsps_device = {
