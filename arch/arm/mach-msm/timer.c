@@ -43,7 +43,7 @@ module_param_named(debug_mask, msm_timer_debug_mask, int, S_IRUGO | S_IWUSR | S_
 
 #if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60) || \
 	defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_FSM9XXX) || \
-	defined(CONFIG_ARCH_APQ8064)
+	defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM9615)
 #define MSM_GPT_BASE (MSM_TMR_BASE + 0x4)
 #define MSM_DGT_BASE (MSM_TMR_BASE + 0x24)
 #else
@@ -59,7 +59,7 @@ module_param_named(debug_mask, msm_timer_debug_mask, int, S_IRUGO | S_IWUSR | S_
 	#define MSM_GLOBAL_TIMER MSM_CLOCK_DGT
 #endif
 
-#if defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
+#if defined(CONFIG_CPU_V6) || defined(CONFIG_ARCH_MSM7X27A)
 #define MSM_DGT_SHIFT (5)
 #else
 #define MSM_DGT_SHIFT (0)
@@ -103,7 +103,7 @@ enum {
 #elif defined(CONFIG_ARCH_MSM7X30)
 #define DGT_HZ 6144000	/* Uses LPXO/4 (24.576 MHz / 4) */
 #elif defined(CONFIG_ARCH_MSM8X60) || defined(CONFIG_ARCH_MSM8960) || \
-	defined(CONFIG_ARCH_APQ8064)
+	defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM9615)
 /* Uses PXO/4 (24.576 MHz / 4) on V1, (27 MHz / 4) on V2 */
 #define DGT_HZ 6750000
 #else
@@ -210,7 +210,7 @@ static struct msm_clock msm_clocks[] = {
 		.freq = GPT_HZ,
 		.index = MSM_CLOCK_GPT,
 		.flags =
-#if defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
+#if defined(CONFIG_CPU_V6) || defined(CONFIG_ARCH_MSM7X27A)
 			MSM_CLOCK_FLAGS_UNSTABLE_COUNT |
 			MSM_CLOCK_FLAGS_ODD_MATCH_WRITE |
 			MSM_CLOCK_FLAGS_DELAYED_WRITE_POST |
@@ -1011,7 +1011,7 @@ static void __init msm_timer_init(void)
 	int res;
 
 #if defined(CONFIG_ARCH_MSM8X60) || defined(CONFIG_ARCH_MSM8960) || \
-	defined(CONFIG_ARCH_APQ8064)
+	defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM9615)
 	__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
 #endif
 
