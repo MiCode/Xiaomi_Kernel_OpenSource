@@ -208,7 +208,7 @@ static int tzcom_unregister_service(struct tzcom_data_t *data,
 	int ret = 0;
 	unsigned long flags;
 	struct tzcom_unregister_svc_op_req req;
-	struct tzcom_registered_svc_list *ptr;
+	struct tzcom_registered_svc_list *ptr, *next;
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
 		PERR("copy_from_user failed");
@@ -216,7 +216,8 @@ static int tzcom_unregister_service(struct tzcom_data_t *data,
 	}
 
 	spin_lock_irqsave(&data->registered_svc_list_lock, flags);
-	list_for_each_entry(ptr, &data->registered_svc_list_head, list) {
+	list_for_each_entry_safe(ptr, next, &data->registered_svc_list_head,
+			list) {
 		if (req.svc_id == ptr->svc.svc_id &&
 				req.instance_id == ptr->svc.instance_id) {
 			wake_up_all(&ptr->next_cmd_wq);
@@ -296,7 +297,8 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		return -EINVAL;
 	}
 
-	if (req.cmd_len <= 0 || req.resp_len <= 0) {
+	if (req.cmd_len <= 0 || req.resp_len <= 0 ||
+		req.cmd_len > sb_in_length || req.resp_len > sb_in_length) {
 		PERR("cmd buffer length or "
 				"response buffer length not valid");
 		return -EINVAL;
@@ -334,8 +336,14 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 	PDEBUG("before call tzcom_scm_call, cmd_id = : %u", req.cmd_id);
 	PDEBUG("before call tzcom_scm_call, sizeof(cmd) = : %u", sizeof(cmd));
 
-	tzcom_scm_call((const void *) &cmd, sizeof(cmd), &resp, sizeof(resp));
+	ret = tzcom_scm_call((const void *) &cmd, sizeof(cmd),
+			&resp, sizeof(resp));
 	mutex_unlock(&sb_in_lock);
+
+	if (ret) {
+		PERR("tzcom_scm_call failed with err: %d", ret);
+		return ret;
+	}
 
 	while (resp.cmd_status != TZ_SCHED_STATUS_COMPLETE) {
 		/*
@@ -348,11 +356,13 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		mutex_lock(&sb_out_lock);
 		reqd_len_sb_out = sizeof(*next_callback)
 					+ next_callback->sb_out_cb_data_len;
-		if (reqd_len_sb_out > sb_out_length) {
-			PERR("Not enough memory to"
-					" fit tzcom_callback buffer."
-					" Required: %u, Available: %u",
-					reqd_len_sb_out, sb_out_length);
+		if (reqd_len_sb_out > sb_out_length ||
+			reqd_len_sb_out < sizeof(*next_callback) ||
+			next_callback->sb_out_cb_data_len > sb_out_length) {
+			PERR("Incorrect callback data length"
+					" Required: %u, Available: %u, Min: %u",
+					reqd_len_sb_out, sb_out_length,
+					sizeof(*next_callback));
 			mutex_unlock(&sb_out_lock);
 			return -ENOMEM;
 		}
@@ -370,7 +380,7 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		cb = &new_entry->callback;
 		cb->cmd_id = next_callback->cmd_id;
 		cb->sb_out_cb_data_len = next_callback->sb_out_cb_data_len;
-		cb->sb_out_cb_data_off = next_callback->sb_out_cb_data_off;
+		cb->sb_out_cb_data_off = sizeof(*cb);
 
 		cb_data = (u8 *)next_callback
 				+ next_callback->sb_out_cb_data_off;
@@ -406,9 +416,13 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		data->cont_cmd_flag = 0;
 		cmd.cmd_type = TZ_SCHED_CMD_PENDING;
 		mutex_lock(&sb_in_lock);
-		tzcom_scm_call((const void *) &cmd, sizeof(cmd), &resp,
+		ret = tzcom_scm_call((const void *) &cmd, sizeof(cmd), &resp,
 				sizeof(resp));
 		mutex_unlock(&sb_in_lock);
+		if (ret) {
+			PERR("tzcom_scm_call failed with err: %d", ret);
+			return ret;
+		}
 	}
 
 	mutex_lock(&sb_in_lock);
@@ -455,13 +469,13 @@ static int __tzcom_copy_cmd(struct tzcom_data_t *data,
 {
 	int found = 0;
 	int ret = -EAGAIN;
-	struct tzcom_callback_list *entry;
+	struct tzcom_callback_list *entry, *next;
 	struct tzcom_callback *cb;
 
 	PDEBUG("In here");
 	mutex_lock(&data->callback_list_lock);
 	PDEBUG("Before looping through cmd and svc lists.");
-	list_for_each_entry(entry, &data->callback_list_head, list) {
+	list_for_each_entry_safe(entry, next, &data->callback_list_head, list) {
 		cb = &entry->callback;
 		if (req->svc_id == ptr_svc->svc.svc_id &&
 			req->instance_id == ptr_svc->svc.instance_id &&
@@ -644,6 +658,7 @@ static long tzcom_ioctl(struct file *file, unsigned cmd,
 
 static int tzcom_open(struct inode *inode, struct file *file)
 {
+	int ret;
 	long pil_error;
 	struct tz_pr_init_sb_req_s sb_out_init_req;
 	struct tz_pr_init_sb_rsp_s sb_out_init_rsp;
@@ -689,8 +704,13 @@ static int tzcom_open(struct inode *inode, struct file *file)
 	resp.cmd_status = TZ_SCHED_STATUS_INCOMPLETE;
 
 	PDEBUG("Before scm_call for sb_init");
-	tzcom_scm_call(&cmd, sizeof(cmd), &resp, sizeof(resp));
+	ret = tzcom_scm_call(&cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (ret) {
+		PERR("tzcom_scm_call failed with err: %d", ret);
+		return ret;
+	}
 	PDEBUG("After scm_call for sb_init");
+
 	PDEBUG("tzcom_response after scm cmd_status: %u", resp.cmd_status);
 	if (resp.cmd_status == TZ_SCHED_STATUS_COMPLETE) {
 		resp.sb_in_rsp_addr = (u8 *)cmd.sb_in_cmd_addr +
