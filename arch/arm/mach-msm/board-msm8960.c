@@ -261,6 +261,21 @@ static struct gpiomux_setting cdc_mclk = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting audio_auxpcm[] = {
+	/* Suspended state */
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+};
+
 #ifdef CONFIG_KS8851
 static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_NONE,
@@ -412,6 +427,38 @@ static struct msm_gpiomux_config msm8960_audio_codec_configs[] __initdata = {
 		},
 	},
 };
+
+static struct msm_gpiomux_config msm8960_audio_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 63,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 64,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 65,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 66,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+};
+
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -2205,6 +2252,9 @@ static int __init gpiomux_init(void)
 	msm_gpiomux_install(msm8960_audio_codec_configs,
 			ARRAY_SIZE(msm8960_audio_codec_configs));
 
+	msm_gpiomux_install(msm8960_audio_auxpcm_configs,
+			ARRAY_SIZE(msm8960_audio_auxpcm_configs));
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	msm_gpiomux_install(msm8960_hdmi_configs,
 			ARRAY_SIZE(msm8960_hdmi_configs));
@@ -3297,6 +3347,8 @@ static struct platform_device *sim_devices[] __initdata = {
 	&msm_cpudai_bt_tx,
 	&msm_cpudai_fm_rx,
 	&msm_cpudai_fm_tx,
+	&msm_cpudai_auxpcm_rx,
+	&msm_cpudai_auxpcm_tx,
 	&msm_cpu_fe,
 	&msm_stub_codec,
 	&msm_voice,
@@ -3338,6 +3390,8 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_bt_tx,
 	&msm_cpudai_fm_rx,
 	&msm_cpudai_fm_tx,
+	&msm_cpudai_auxpcm_rx,
+	&msm_cpudai_auxpcm_tx,
 	&msm_cpu_fe,
 	&msm_stub_codec,
 	&msm_kgsl_3d0,

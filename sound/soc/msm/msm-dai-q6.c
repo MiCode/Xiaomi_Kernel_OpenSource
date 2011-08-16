@@ -17,12 +17,15 @@
 #include <linux/mfd/wcd9310/core.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
 #include <sound/q6adm.h>
+#include <sound/msm-dai-q6.h>
+#include <mach/clk.h>
 
 enum {
 	STATUS_PORT_STARTED, /* track if AFE port has started */
@@ -35,6 +38,8 @@ struct msm_dai_q6_dai_data {
 	u32 channels;
 	union afe_port_config port_config;
 };
+
+static struct clk *pcm_clk;
 
 static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai, int stream)
@@ -167,6 +172,35 @@ static int msm_dai_q6_bt_fm_hw_params(struct snd_pcm_hw_params *params,
 
 	return 0;
 }
+static int msm_dai_q6_auxpcm_hw_params(
+				struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params,
+				struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
+			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
+
+	if (params_channels(params) != 1) {
+		dev_err(dai->dev, "AUX PCM supports only mono stream\n");
+		return -EINVAL;
+	}
+	dai_data->channels = params_channels(params);
+
+	if (params_rate(params) != 8000) {
+		dev_err(dai->dev, "AUX PCM supports only 8KHz sampling rate\n");
+		return -EINVAL;
+	}
+	dai_data->rate = params_rate(params);
+	dai_data->port_config.pcm.mode = auxpcm_pdata->mode;
+	dai_data->port_config.pcm.sync = auxpcm_pdata->sync;
+	dai_data->port_config.pcm.frame = auxpcm_pdata->frame;
+	dai_data->port_config.pcm.quant = auxpcm_pdata->quant;
+	dai_data->port_config.pcm.slot = auxpcm_pdata->slot;
+	dai_data->port_config.pcm.data = auxpcm_pdata->data;
+
+	return 0;
+}
 
 static int get_frame_size(u16 rate, u16 ch)
 {
@@ -258,6 +292,33 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	return rc;
 }
 
+static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	int rc = 0;
+
+	rc = adm_close(dai->id);
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close ADM COPP\n");
+
+	pr_debug("%s: dai->id = %d", __func__, dai->id);
+
+	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		clk_disable(pcm_clk);
+		rc = afe_close(dai->id); /* can block */
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AFE port\n");
+		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
+			*dai_data->status_mask);
+		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+
+		rc = afe_close(PCM_TX);
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+	}
+}
+
 static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
@@ -279,7 +340,75 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 			*dai_data->status_mask);
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
-};
+}
+
+static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	int rc = 0;
+
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
+			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
+
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		rc = adm_open_mixer(dai->id, 1, dai_data->rate,
+			dai_data->channels, DEFAULT_COPP_TOPOLOGY);
+
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to open ADM\n");
+		else {
+			rc = afe_q6_interface_prepare();
+			if (IS_ERR_VALUE(rc))
+				dev_err(dai->dev, "fail to open AFE APR\n");
+		}
+
+		rc = adm_open_mixer(PCM_TX, 2, dai_data->rate,
+				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
+
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to open ADM\n");
+		else {
+			rc = afe_q6_interface_prepare();
+			if (IS_ERR_VALUE(rc))
+				dev_err(dai->dev, "fail to open AFE APR\n");
+		}
+		pr_debug("%s:dai->id:%d dai_data->status_mask = %ld\n",
+			__func__, dai->id, *dai_data->status_mask);
+
+		/*
+		 * For AUX PCM Interface the below sequence of clk
+		 * settings and afe_open is a strict requirement.
+		 *
+		 * Also using afe_open instead of afe_port_start_nowait
+		 * to make sure the port is open before deasserting the
+		 * clock line. This is required because pcm register is
+		 * not written before clock deassert. Hence the hw does
+		 * not get updated with new setting if the below clock
+		 * assert/deasset and afe_open sequence is not followed.
+		 */
+
+		clk_reset(pcm_clk, CLK_RESET_ASSERT);
+
+		afe_open(dai->id, &dai_data->port_config,
+			dai_data->rate);
+		set_bit(STATUS_PORT_STARTED,
+			dai_data->status_mask);
+
+		afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
+
+		rc = clk_set_rate(pcm_clk, auxpcm_pdata->pcm_clk_rate);
+		if (rc < 0) {
+			pr_err("%s: clk_set_rate failed\n", __func__);
+			return rc;
+		}
+
+		clk_enable(pcm_clk);
+		clk_reset(pcm_clk, CLK_RESET_DEASSERT);
+
+	}
+	return rc;
+}
 
 static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -305,6 +434,45 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 			__func__, dai->id, *dai_data->status_mask);
 	}
 	return rc;
+}
+
+static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
+		int cmd, struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	int rc = 0;
+
+	pr_debug("%s:port:%d  cmd:%d dai_data->status_mask = %ld",
+		__func__, dai->id, cmd, *dai_data->status_mask);
+
+	switch (cmd) {
+
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		/* afe_open will be called from prepare */
+		return 0;
+
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+
+			clk_disable(pcm_clk);
+			afe_port_stop_nowait(dai->id);
+			clear_bit(STATUS_PORT_STARTED,
+				dai_data->status_mask);
+
+			afe_port_stop_nowait(PCM_TX);
+		}
+		break;
+
+	default:
+		rc = -EINVAL;
+	}
+
+	return rc;
+
 }
 
 static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -345,6 +513,64 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 	}
 
 	return rc;
+}
+static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data;
+	int rc = 0;
+
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
+			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
+
+	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data),
+		GFP_KERNEL);
+
+	if (!dai_data) {
+		dev_err(dai->dev, "DAI-%d: fail to allocate dai data\n",
+		dai->id);
+		rc = -ENOMEM;
+	} else
+		dev_set_drvdata(dai->dev, dai_data);
+
+	/*
+	 * The clk name for AUX PCM operation is passed as platform
+	 * data to the cpu driver, since cpu drive is unaware of any
+	 * boarc specific configuration.
+	 */
+	pcm_clk = clk_get(NULL, auxpcm_pdata->clk);
+	if (IS_ERR(pcm_clk)) {
+		pr_err("%s: could not get pcm_clk\n", __func__);
+		return PTR_ERR(pcm_clk);
+		kfree(dai_data);
+	}
+
+	return rc;
+}
+
+static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data;
+	int rc;
+
+	dai_data = dev_get_drvdata(dai->dev);
+
+	/* If AFE port is still up, close it */
+	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		rc = afe_close(dai->id); /* can block */
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AFE port\n");
+		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+
+		rc = afe_close(PCM_TX);
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+	}
+
+
+	kfree(dai_data);
+	snd_soc_unregister_dai(dai->dev);
+
+	return 0;
 }
 
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
@@ -395,6 +621,13 @@ static struct snd_soc_dai_ops msm_dai_q6_ops = {
 	.trigger	= msm_dai_q6_trigger,
 	.hw_params	= msm_dai_q6_hw_params,
 	.shutdown	= msm_dai_q6_shutdown,
+};
+
+static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {
+	.prepare	= msm_dai_q6_auxpcm_prepare,
+	.trigger	= msm_dai_q6_auxpcm_trigger,
+	.hw_params	= msm_dai_q6_auxpcm_hw_params,
+	.shutdown	= msm_dai_q6_auxpcm_shutdown,
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_i2s_rx_dai = {
@@ -559,6 +792,31 @@ static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_8000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 1,
+		.rate_max = 8000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_auxpcm_ops,
+	.probe = msm_dai_q6_dai_auxpcm_probe,
+	.remove = msm_dai_q6_dai_auxpcm_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_8000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 1,
+		.rate_max = 8000,
+		.rate_min = 8000,
+	},
+};
+
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 {
@@ -572,6 +830,14 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		break;
 	case PRIMARY_I2S_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_tx_dai);
+		break;
+	case PCM_RX:
+		rc = snd_soc_register_dai(&pdev->dev,
+				&msm_dai_q6_aux_pcm_rx_dai);
+		break;
+	case PCM_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+				&msm_dai_q6_aux_pcm_tx_dai);
 		break;
 	case HDMI_RX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_hdmi_rx_dai);

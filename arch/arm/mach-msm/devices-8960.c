@@ -29,6 +29,8 @@
 #include <mach/rpm.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
+#include <sound/msm-dai-q6.h>
+#include <sound/apr_audio.h>
 #include "clock.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -1141,6 +1143,34 @@ struct platform_device msm_cpudai_fm_rx = {
 struct platform_device msm_cpudai_fm_tx = {
 	.name   = "msm-dai-q6",
 	.id     = 0x3005,
+};
+
+/*
+ * Machine specific data for AUX PCM Interface
+ * which the driver will  be unware of.
+ */
+struct msm_dai_auxpcm_pdata auxpcm_rx_pdata = {
+	.clk = "pcm_clk",
+	.mode = AFE_PCM_CFG_MODE_PCM,
+	.sync = AFE_PCM_CFG_SYNC_INT,
+	.frame = AFE_PCM_CFG_FRM_256BPF,
+	.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+	.slot = 0,
+	.data = AFE_PCM_CFG_CDATAOE_MASTER,
+	.pcm_clk_rate = 2048000,
+};
+
+struct platform_device msm_cpudai_auxpcm_rx = {
+	.name = "msm-dai-q6",
+	.id = 2,
+	.dev = {
+		.platform_data = &auxpcm_rx_pdata,
+	},
+};
+
+struct platform_device msm_cpudai_auxpcm_tx = {
+	.name = "msm-dai-q6",
+	.id = 3,
 };
 
 struct platform_device msm_cpu_fe = {
