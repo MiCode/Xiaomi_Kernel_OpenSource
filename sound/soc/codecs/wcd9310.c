@@ -2090,7 +2090,7 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 		return -EINVAL;
 	}
 
-	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x00);
+	snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x70, 0x00);
 
 	snd_soc_update_bits(codec, micbias_ctl_reg, 0x1F, 0x16);
 
@@ -2114,7 +2114,7 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	tabla_codec_calibrate_hs_polling(codec);
 
 	bias_value = tabla_codec_measure_micbias_voltage(codec, 0);
-	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x40);
+	snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x40, 0x40);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
 	return bias_value;
