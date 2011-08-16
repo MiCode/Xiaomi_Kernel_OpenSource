@@ -1185,11 +1185,6 @@ static struct msm_rot_clocks rotator_clocks[] = {
 		.clk_type = ROTATOR_PCLK,
 		.clk_rate = 0,
 	},
-	{
-		.clk_name = "rot_axi_clk",
-		.clk_type = ROTATOR_AXI_CLK,
-		.clk_rate = 0,
-	},
 };
 
 static struct msm_rotator_platform_data rotator_pdata = {
