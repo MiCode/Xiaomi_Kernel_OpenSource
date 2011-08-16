@@ -115,7 +115,6 @@ static struct clk *camio_csi_pix_clk;
 static struct clk *camio_csi_rdi_clk;
 static struct clk *camio_csiphy0_timer_clk;
 static struct clk *camio_csiphy1_timer_clk;
-static struct clk *camio_vfe_axi_clk;
 static struct clk *camio_vfe_pclk;
 static struct clk *camio_csi0_phy_clk;
 static struct clk *camio_csiphy_timer_src_clk;
@@ -586,11 +585,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		msm_camio_clk_rate_set_2(clk, camio_clk.vfe_clk_rate);
 		break;
 
-	case CAMIO_VFE_AXI_CLK:
-		camio_vfe_axi_clk =
-		clk = clk_get(NULL, "vfe_axi_clk");
-		break;
-
 	case CAMIO_VFE_PCLK:
 		camio_vfe_pclk =
 		clk = clk_get(NULL, "vfe_pclk");
@@ -712,10 +706,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 
 	case CAMIO_VFE_CLK:
 		clk = camio_vfe_clk;
-		break;
-
-	case CAMIO_VFE_AXI_CLK:
-		clk = camio_vfe_axi_clk;
 		break;
 
 	case CAMIO_VFE_PCLK:
@@ -910,9 +900,6 @@ static int msm_camio_enable_all_clks(uint8_t csid_core)
 	rc = msm_camio_clk_enable(CAMIO_VFE_CLK);
 	if (rc < 0)
 		goto vfe_fail;
-	rc = msm_camio_clk_enable(CAMIO_VFE_AXI_CLK);
-	if (rc < 0)
-		goto axi_fail;
 	rc = msm_camio_clk_enable(CAMIO_VFE_PCLK);
 	if (rc < 0)
 		goto vfep_fail;
@@ -935,8 +922,6 @@ csi_pix_fail:
 csi0_vfe_fail:
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 vfep_fail:
-	msm_camio_clk_disable(CAMIO_VFE_AXI_CLK);
-axi_fail:
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
 vfe_fail:
 	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
@@ -964,7 +949,6 @@ static void msm_camio_disable_all_clks(uint8_t csid_core)
 	msm_camio_clk_disable(CAMIO_CSI_PIX_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
-	msm_camio_clk_disable(CAMIO_VFE_AXI_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
 	if (csid_core == 0)
