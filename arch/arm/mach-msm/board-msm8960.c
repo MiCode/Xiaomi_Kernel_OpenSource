@@ -24,6 +24,7 @@
 #include <linux/spi/spi.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/bootmem.h>
+#include <linux/msm_kgsl.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
@@ -2874,6 +2875,19 @@ static void __init msm8960_i2c_init(void)
 					&msm8960_i2c_qup_gsbi12_pdata;
 }
 
+static void __init msm8960_gfx_init(void)
+{
+	uint32_t soc_platform_version = socinfo_get_platform_version();
+	if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
+		struct kgsl_device_platform_data *kgsl_3d0_pdata =
+				msm_kgsl_3d0.dev.platform_data;
+		kgsl_3d0_pdata->pwr_data.pwrlevel[0].gpu_freq =
+				320000000;
+		kgsl_3d0_pdata->pwr_data.pwrlevel[1].gpu_freq =
+				266667000;
+	}
+}
+
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
 	.irq_base		= PM8921_IRQ_BASE,
 	.devirq			= MSM_GPIO_TO_INT(104),
@@ -3517,6 +3531,7 @@ static void __init msm8960_cdp_init(void)
 				&msm8960_ssbi_pm8921_pdata;
 	pm8921_platform_data.num_regulators = msm_pm8921_regulator_pdata_len;
 	msm8960_i2c_init();
+	msm8960_gfx_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8960_init_buses();
