@@ -277,6 +277,7 @@
 #define INT_ADSP_A11                    LPASS_SCSS_GP_HIGH_IRQ
 #define INT_ADSP_A11_SMSM               LPASS_SCSS_GP_MEDIUM_IRQ
 #define INT_DSPS_A11                    SPS_MTI_31
+#define INT_DSPS_A11_SMSM               SPS_MTI_30
 #define INT_WCNSS_A11                   RIVA_APSS_SPARE_IRQ
 #define INT_WCNSS_A11_SMSM              RIVA_APPS_WLAN_SMSM_IRQ
 

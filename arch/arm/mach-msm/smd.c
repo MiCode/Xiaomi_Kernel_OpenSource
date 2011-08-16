@@ -51,6 +51,7 @@
 
 #if defined(CONFIG_ARCH_MSM8960)
 #define CONFIG_WCNSS 1
+#define CONFIG_DSPS_SMSM 1
 #endif
 
 #define MODULE_NAME "msm_smd"
@@ -150,6 +151,7 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2Q6_SMSM_INT   \
 			(smd_write_intr(1 << 8, MSM_GCC_BASE + 0x8))
 #define MSM_TRIG_A2DSPS_SMD_INT
+#define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
 #elif defined(CONFIG_ARCH_MSM8X60)
@@ -163,6 +165,7 @@ static inline void smd_write_intr(unsigned int val,
 			(smd_write_intr(1 << 14, MSM_GCC_BASE + 0x8))
 #define MSM_TRIG_A2DSPS_SMD_INT  \
 			(smd_write_intr(1, MSM_SIC_NON_SECURE_BASE + 0x4080))
+#define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
 #elif defined(CONFIG_ARCH_MSM8960)
@@ -176,6 +179,8 @@ static inline void smd_write_intr(unsigned int val,
 			(smd_write_intr(1 << 14, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2DSPS_SMD_INT  \
 			(smd_write_intr(1, MSM_SIC_NON_SECURE_BASE + 0x4080))
+#define MSM_TRIG_A2DSPS_SMSM_INT \
+			(smd_write_intr(1, MSM_SIC_NON_SECURE_BASE + 0x4094))
 #define MSM_TRIG_A2WCNSS_SMD_INT  \
 			(smd_write_intr(1 << 25, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2WCNSS_SMSM_INT  \
@@ -190,6 +195,7 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2M_SMSM_INT	\
 			(smd_write_intr(1 << 5, MSM_GCC_BASE + 0x8))
 #define MSM_TRIG_A2DSPS_SMD_INT
+#define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
 #else
@@ -202,6 +208,7 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2Q6_SMSM_INT   \
 			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (8) * 4))
 #define MSM_TRIG_A2DSPS_SMD_INT
+#define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
 #endif
@@ -271,6 +278,12 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 				& notify_mask)) {
 		wakeup_v1_riva();
 		MSM_TRIG_A2WCNSS_SMSM_INT;
+	}
+
+	if (smsm_info.intr_mask &&
+	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_DSPS))
+				& notify_mask)) {
+		MSM_TRIG_A2DSPS_SMSM_INT;
 	}
 
 	schedule_work(&smsm_cb_work);
@@ -610,6 +623,7 @@ void smd_channel_reset(uint32_t restart_pid)
 		smsm_irq_handler(0, 0);
 		MSM_TRIG_A2M_SMSM_INT;
 		MSM_TRIG_A2Q6_SMSM_INT;
+		MSM_TRIG_A2DSPS_SMSM_INT;
 	}
 
 	/* change all remote states to CLOSING */
@@ -2398,6 +2412,26 @@ int smd_core_init(void)
 	if (r < 0)
 		pr_err("smd_core_init: "
 		       "enable_irq_wake failed for INT_WCNSS_A11_SMSM\n");
+#endif
+
+#if defined(CONFIG_DSPS_SMSM)
+	r = request_irq(INT_DSPS_A11_SMSM, smsm_irq_handler,
+			flags, "smsm_dev", smsm_irq_handler);
+	if (r < 0) {
+		free_irq(INT_A9_M2A_0, 0);
+		free_irq(INT_A9_M2A_5, 0);
+		free_irq(INT_ADSP_A11, smd_dsp_irq_handler);
+		free_irq(INT_ADSP_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_DSPS_A11, smd_dsps_irq_handler);
+		free_irq(INT_WCNSS_A11, smd_wcnss_irq_handler);
+		free_irq(INT_WCNSS_A11_SMSM, smsm_irq_handler);
+		return r;
+	}
+
+	r = enable_irq_wake(INT_DSPS_A11_SMSM);
+	if (r < 0)
+		pr_err("smd_core_init: "
+		       "enable_irq_wake failed for INT_DSPS_A11_SMSM\n");
 #endif
 
 	/* we may have missed a signal while booting -- fake
