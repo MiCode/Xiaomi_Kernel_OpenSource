@@ -1925,11 +1925,12 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(tabla_hs_detect);
 
+#define TABLA_BUTTON_MARGIN_ERROR 4
 static irqreturn_t tabla_dce_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	short bias_value;
+	short bias_value, bias_value2;
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
@@ -1937,14 +1938,19 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	bias_value = tabla_codec_read_dce_result(codec);
 	pr_debug("button press interrupt, bias value is %d\n", bias_value);
 
-	if (priv->button_jack)
-		snd_soc_jack_report(priv->button_jack, SND_JACK_BTN_0,
-			SND_JACK_BTN_0);
+	/* Do another DCE to make sure button voltage is the same */
+	bias_value2 = tabla_codec_measure_micbias_voltage(codec, 1);
+	pr_debug("button press part 2, bias value is %d\n", bias_value2);
 
-	priv->buttons_pressed |= SND_JACK_BTN_0;
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL,
-		0x09);
-	usleep_range(100000, 100000);
+	if (abs(bias_value - bias_value2) < TABLA_BUTTON_MARGIN_ERROR) {
+		if (priv->button_jack)
+			snd_soc_jack_report(priv->button_jack, SND_JACK_BTN_0,
+				SND_JACK_BTN_0);
+
+		priv->buttons_pressed |= SND_JACK_BTN_0;
+	}
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x09);
+	msleep(100);
 
 	return IRQ_HANDLED;
 }
@@ -1960,10 +1966,10 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 				SND_JACK_BTN_0);
 
 		priv->buttons_pressed &= ~SND_JACK_BTN_0;
-		snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL,
-			0x08);
-		tabla_codec_start_hs_polling(codec);
 	}
+
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x08);
+	tabla_codec_start_hs_polling(codec);
 
 	return IRQ_HANDLED;
 }
