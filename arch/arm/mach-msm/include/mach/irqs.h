@@ -42,14 +42,17 @@
 
 #else
 
-#if defined(CONFIG_ARCH_MSM7X30)
+#if defined(CONFIG_ARCH_MSM9615)
+#include "irqs-9615.h"
+#elif defined(CONFIG_ARCH_MSM7X30)
 #include "irqs-7x30.h"
 #elif defined(CONFIG_ARCH_QSD8X50)
 #include "irqs-8x50.h"
 #include "sirc.h"
 #elif defined(CONFIG_ARCH_MSM8X60)
 #include "irqs-8x60.h"
-#elif defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
+#elif defined(CONFIG_ARCH_MSM7X01A) || defined(CONFIG_ARCH_MSM7X25) \
+	|| defined(CONFIG_ARCH_MSM7X27)
 #include "irqs-7xxx.h"
 #elif defined(CONFIG_ARCH_FSM9XXX)
 #include "irqs-fsm9xxx.h"
