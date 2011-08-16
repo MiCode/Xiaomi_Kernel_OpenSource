@@ -96,6 +96,17 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 				     unsigned int heap_mask, const char *name);
 
 /**
+ *  msm_ion_client_create - allocate a client using the ion_device specified in
+ *				drivers/gpu/ion/msm/msm_ion.c
+ *
+ * heap_mask and name are the same as ion_client_create, return values
+ * are the same as ion_client_create.
+ */
+
+struct ion_client *msm_ion_client_create(unsigned int heap_mask,
+					const char *name);
+
+/**
  * ion_client_destroy() -  free's a client and all it's handles
  * @client:	the client
  *
