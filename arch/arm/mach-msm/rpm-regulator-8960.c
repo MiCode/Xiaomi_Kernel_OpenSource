@@ -23,6 +23,7 @@
 #include <linux/regulator/driver.h>
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
+#include <mach/socinfo.h>
 
 #include "rpm_resources.h"
 
@@ -667,6 +668,15 @@ int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 		pr_err("invalid regulator id=%d\n", vreg_id);
 		return -EINVAL;
 	}
+
+	/*
+	 * TODO: make this function a no-op for 8064 so that it can be called by
+	 * consumers on 8064 before RPM capabilities are present. (needed for
+	 * acpuclock driver)
+	 */
+	if (cpu_is_apq8064())
+		return 0;
+
 	vreg = &vregs[vreg_id];
 	range = &vreg->set_points->range[0];
 
@@ -743,6 +753,14 @@ int rpm_vreg_set_frequency(enum rpm_vreg_id vreg_id, enum rpm_vreg_freq freq)
 		pr_err("invalid regulator id=%d\n", vreg_id);
 		return -EINVAL;
 	}
+
+	/*
+	 * TODO: make this function a no-op for 8064 so that it can be called by
+	 * consumers on 8064 before RPM capabilities are present.
+	 */
+	if (cpu_is_apq8064())
+		return 0;
+
 	vreg = &vregs[vreg_id];
 
 	if (freq < 0 || freq > RPM_VREG_FREQ_1p20) {
