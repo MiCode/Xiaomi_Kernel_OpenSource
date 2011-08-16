@@ -14,7 +14,7 @@
 
 #include <mach/qdsp6v2/apr.h>
 
-#define MAX_VOC_PKT_SIZE 322
+#define MAX_VOC_PKT_SIZE 642
 #define SESSION_NAME_LEN 20
 
 struct voice_header {
