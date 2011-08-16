@@ -565,8 +565,13 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	watermark |= UARTDM_IPR_STALE_TIMEOUT_MSB_BMSK & (rxstale << 2);
 	msm_hsl_write(port, watermark, UARTDM_IPR_ADDR);
 
-	/* set RX watermark */
-	watermark = (port->fifosize * 3) / 4;
+	/* Set RX watermark
+	 * Configure Rx Watermark as 3/4 size of Rx FIFO.
+	 * RFWR register takes value in Words for UARTDM Core
+	 * whereas it is consider to be in Bytes for UART Core.
+	 * Hence configuring Rx Watermark as 12 Words.
+	 */
+	watermark = (port->fifosize * 3) / (4*4);
 	msm_hsl_write(port, watermark, UARTDM_RFWR_ADDR);
 
 	/* set TX watermark */
