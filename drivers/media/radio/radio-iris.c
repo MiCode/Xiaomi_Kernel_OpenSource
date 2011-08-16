@@ -2298,7 +2298,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 							radio->fm_hdev);
 			if (retval < 0)
 				FMDERR("Failed to set stereo mode\n");
-
+			break;
 		case FM_TRANS:
 			retval = hci_cmd(HCI_FM_ENABLE_TRANS_CMD,
 							 radio->fm_hdev);
@@ -2307,6 +2307,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			if (retval < 0)
 				FMDERR("Error while enabling TRANS FM"
 							" %d\n", retval);
+			break;
 		case FM_OFF:
 			switch (radio->mode) {
 			case FM_RECV:
