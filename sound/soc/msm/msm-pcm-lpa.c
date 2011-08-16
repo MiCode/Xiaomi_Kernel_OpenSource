@@ -205,8 +205,6 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		atomic_set(&prtd->start, 0);
 		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
 			break;
-		prtd->cmd_ack = 0;
-		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
@@ -297,8 +295,10 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	pr_debug("%s\n", __func__);
 
 	dir = IN;
+	prtd->cmd_ack = 0;
+	q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 	ret = wait_event_timeout(the_locks.eos_wait,
-				prtd->cmd_ack, 5 * HZ);
+		prtd->cmd_ack, 5 * HZ);
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
 	q6asm_audio_client_buf_free_contiguous(dir,
@@ -400,11 +400,30 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
+		unsigned int cmd, void *arg)
+{
+	int rc = 0;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+
+	switch (cmd) {
+	case SNDRV_PCM_IOCTL1_RESET:
+		rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
+		if (rc < 0)
+			pr_err("%s: flush cmd failed rc=%d\n", __func__, rc);
+		break;
+	default:
+		break;
+	}
+	return snd_pcm_lib_ioctl(substream, cmd, arg);
+}
+
 static struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.hw_params	= msm_pcm_hw_params,
 	.close          = msm_pcm_close,
-	.ioctl          = snd_pcm_lib_ioctl,
+	.ioctl          = msm_pcm_ioctl,
 	.prepare        = msm_pcm_prepare,
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
