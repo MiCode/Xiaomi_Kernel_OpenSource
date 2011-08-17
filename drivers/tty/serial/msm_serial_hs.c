@@ -1907,11 +1907,11 @@ static int __init msm_hs_probe(struct platform_device *pdev)
 	uport->uartclk = 7372800;
 	msm_uport->imr_reg = 0x0;
 
-	msm_uport->clk = clk_get(&pdev->dev, "uartdm_clk");
+	msm_uport->clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_uport->clk))
 		return PTR_ERR(msm_uport->clk);
 
-	msm_uport->pclk = clk_get(&pdev->dev, "uartdm_pclk");
+	msm_uport->pclk = clk_get(&pdev->dev, "iface_clk");
 	/*
 	 * Some configurations do not require explicit pclk control so
 	 * do not flag error on pclk get failure.

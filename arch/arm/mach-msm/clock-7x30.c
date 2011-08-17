@@ -2739,7 +2739,7 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("ebi1_fixed_clk",	ebi1_fixed_clk.c,	NULL) },
 	{ CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL) },
 	{ CLK_LOOKUP("gp_clk",		gp_clk.c,	NULL) },
-	{ CLK_LOOKUP("uart_clk",	uart3_clk.c,	"msm_serial.2") },
+	{ CLK_LOOKUP("core_clk",	uart3_clk.c,	"msm_serial.2") },
 	{ CLK_LOOKUP("usb_phy_clk",	usb_phy_clk.c,	NULL) },
 
 	/* Voters */
@@ -2813,7 +2813,7 @@ static struct clk_local_ownership {
 	OWN(ROW1, 27, "sdc_pclk",	sdc3_p_clk,	"msm_sdcc.3"),
 	OWN(ROW1, 29, "sdc_clk",	sdc4_clk,	"msm_sdcc.4"),
 	OWN(ROW1, 29, "sdc_pclk",	sdc4_p_clk,	"msm_sdcc.4"),
-	OWN(ROW1,  0, "uart_clk",	uart2_clk,	"msm_serial.1"),
+	OWN(ROW1,  0, "core_clk",	uart2_clk,	"msm_serial.1"),
 	OWN(ROW1,  2, "usb_hs2_clk",	usb_hs2_clk,	NULL),
 	OWN(ROW1,  2, "usb_hs2_core_clk", usb_hs2_core_clk, NULL),
 	OWN(ROW1,  2, "usb_hs2_pclk",	usb_hs2_p_clk,	NULL),
@@ -2824,9 +2824,9 @@ static struct clk_local_ownership {
 	OWN(ROW2,  3, "qup_clk",	qup_i2c_clk,	"qup_i2c.4"),
 	OWN(ROW2,  1, "spi_clk",	spi_clk,	NULL),
 	OWN(ROW2,  1, "spi_pclk",	spi_p_clk,	NULL),
-	OWN(ROW2,  9, "uart_clk",	uart1_clk,	"msm_serial.0"),
-	OWN(ROW2,  6, "uartdm_clk",	uart1dm_clk,	"msm_serial_hs.0"),
-	OWN(ROW2,  8, "uartdm_clk",	uart2dm_clk,	"msm_serial_hs.1"),
+	OWN(ROW2,  9, "core_clk",	uart1_clk,	"msm_serial.0"),
+	OWN(ROW2,  6, "core_clk",	uart1dm_clk,	"msm_serial_hs.0"),
+	OWN(ROW2,  8, "core_clk",	uart2dm_clk,	"msm_serial_hs.1"),
 	OWN(ROW2, 11, "usb_hs_clk",	usb_hs_clk,	NULL),
 	OWN(ROW2, 11, "usb_hs_core_clk", usb_hs_core_clk, NULL),
 	OWN(ROW2, 11, "usb_hs_pclk",	usb_hs_p_clk,	NULL),
@@ -2849,9 +2849,9 @@ static struct clk_local_ownership {
 	OWN(GLBL, 13, "rotator_clk",	axi_rotator_clk, NULL),
 	OWN(GLBL, 13, "rotator_imem_clk", rotator_imem_clk, NULL),
 	OWN(GLBL, 13, "rotator_pclk",	rotator_p_clk,	NULL),
-	{ CLK_LOOKUP("uartdm_pclk",     uart1dm_p_clk.c, "msm_serial_hs.0"),
+	{ CLK_LOOKUP("iface_clk",     uart1dm_p_clk.c, "msm_serial_hs.0"),
 		O(GLBL), BIT(8), &dummy_clk },
-	{ CLK_LOOKUP("uartdm_pclk",     uart2dm_p_clk.c, "msm_serial_hs.1"),
+	{ CLK_LOOKUP("iface_clk",     uart2dm_p_clk.c, "msm_serial_hs.1"),
 		O(GLBL), BIT(8), &dummy_clk },
 };
 

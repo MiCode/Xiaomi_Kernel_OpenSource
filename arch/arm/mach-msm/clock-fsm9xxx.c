@@ -23,7 +23,7 @@
 
 static struct clk_lookup msm_clocks_fsm9xxx[] = {
 	CLK_DUMMY("adm_clk",	ADM0_CLK,	NULL, OFF),
-	CLK_DUMMY("uart_clk",	UART1_CLK,	"msm_serial.0", OFF),
+	CLK_DUMMY("core_clk",	UART1_CLK,	"msm_serial.0", OFF),
 	CLK_DUMMY("ce_clk",	CE_CLK,		NULL, OFF),
 };
 

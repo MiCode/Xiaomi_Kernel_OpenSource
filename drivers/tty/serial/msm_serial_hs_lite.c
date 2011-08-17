@@ -1132,13 +1132,12 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	gsbi_resource =	platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
 						     "gsbi_resource");
+	msm_hsl_port->clk = clk_get(&pdev->dev, "core_clk");
 	if (gsbi_resource) {
 		msm_hsl_port->is_uartdm = 1;
-		msm_hsl_port->clk = clk_get(&pdev->dev, "gsbi_uart_clk");
-		msm_hsl_port->pclk = clk_get(&pdev->dev, "gsbi_pclk");
+		msm_hsl_port->pclk = clk_get(&pdev->dev, "iface_clk");
 	} else {
 		msm_hsl_port->is_uartdm = 0;
-		msm_hsl_port->clk = clk_get(&pdev->dev, "uartdm_clk");
 		msm_hsl_port->pclk = NULL;
 	}
 
