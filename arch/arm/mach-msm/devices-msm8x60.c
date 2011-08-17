@@ -98,10 +98,7 @@
 static void charm_ap2mdm_kpdpwr_on(void)
 {
 	gpio_direction_output(AP2MDM_PMIC_RESET_N, 0);
-	if (machine_is_msm8x60_fusion())
-		gpio_direction_output(AP2MDM_KPDPWR_N, 0);
-	else
-		gpio_direction_output(AP2MDM_KPDPWR_N, 1);
+	gpio_direction_output(AP2MDM_KPDPWR_N, 1);
 }
 
 static void charm_ap2mdm_kpdpwr_off(void)
