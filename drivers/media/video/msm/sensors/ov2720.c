@@ -20,24 +20,24 @@
 DEFINE_MUTEX(ov2720_mut);
 static struct msm_sensor_ctrl_t ov2720_s_ctrl;
 
-static struct msm_sensor_i2c_reg_conf ov2720_start_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_start_settings[] = {
 	{0x0100, 0x01},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_stop_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_stop_settings[] = {
 	{0x0100, 0x00},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_groupon_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_groupon_settings[] = {
 	{0x3208, 0x00},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_groupoff_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_groupoff_settings[] = {
 	{0x3208, 0x10},
 	{0x3208, 0xA0},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_prev_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_prev_settings[] = {
 	{0x3800, 0x00},
 	{0x3801, 0x02},
 	{0x3802, 0x00},
@@ -110,7 +110,7 @@ static struct msm_sensor_i2c_reg_conf ov2720_prev_settings[] = {
 	{0x4800, 0x24},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_720_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_720_settings[] = {
 	{0x3800, 0x01},
 	{0x3801, 0x4a},
 	{0x3802, 0x00},
@@ -183,7 +183,7 @@ static struct msm_sensor_i2c_reg_conf ov2720_720_settings[] = {
 	{0x4800, 0x24},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_vga_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_vga_settings[] = {
 	{0x3800, 0x00},
 	{0x3801, 0x0c},
 	{0x3802, 0x00},
@@ -261,7 +261,7 @@ static struct msm_sensor_i2c_reg_conf ov2720_vga_settings[] = {
 	{0x3509, 0x20},
 };
 
-static struct msm_sensor_i2c_reg_conf ov2720_recommend_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2720_recommend_settings[] = {
 	{0x0103, 0x01},
 	{0x3718, 0x10},
 	{0x3702, 0x24},
@@ -290,18 +290,18 @@ static struct v4l2_subdev_info ov2720_subdev_info[] = {
 	/* more can be supported, to be added later */
 };
 
-static struct msm_sensor_i2c_conf_array ov2720_init_conf[] = {
+static struct msm_camera_i2c_conf_array ov2720_init_conf[] = {
 	{&ov2720_recommend_settings[0],
-	ARRAY_SIZE(ov2720_recommend_settings), 0, MSM_SENSOR_I2C_BYTE_DATA}
+	ARRAY_SIZE(ov2720_recommend_settings), 0, MSM_CAMERA_I2C_BYTE_DATA}
 };
 
-static struct msm_sensor_i2c_conf_array ov2720_confs[] = {
+static struct msm_camera_i2c_conf_array ov2720_confs[] = {
 	{&ov2720_prev_settings[0],
-	ARRAY_SIZE(ov2720_prev_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
+	ARRAY_SIZE(ov2720_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_vga_settings[0],
-	ARRAY_SIZE(ov2720_vga_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
+	ARRAY_SIZE(ov2720_vga_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_720_settings[0],
-	ARRAY_SIZE(ov2720_720_settings), 0, MSM_SENSOR_I2C_BYTE_DATA},
+	ARRAY_SIZE(ov2720_720_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 };
 
 static struct msm_sensor_output_info_t ov2720_dimensions[] = {
@@ -384,18 +384,18 @@ static int32_t ov2720_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		fl_lines = line + offset;
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines, fl_lines,
-		MSM_SENSOR_I2C_WORD_DATA);
+		MSM_CAMERA_I2C_WORD_DATA);
 	int_time[0] = line >> 12;
 	int_time[1] = line >> 4;
 	int_time[2] = line << 4;
-	msm_sensor_i2c_write_seq(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write_seq(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr-1,
 		&int_time[0], 3);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->global_gain_addr, gain,
-		MSM_SENSOR_I2C_WORD_DATA);
+		MSM_CAMERA_I2C_WORD_DATA);
 	s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 	return 0;
 }
@@ -428,8 +428,8 @@ static struct i2c_driver ov2720_i2c_driver = {
 	},
 };
 
-static struct msm_sensor_i2c_client ov2720_sensor_i2c_client = {
-	.addr_type = MSM_SENSOR_I2C_WORD_ADDR,
+static struct msm_camera_i2c_client ov2720_sensor_i2c_client = {
+	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
 static int ov2720_sensor_v4l2_probe(const struct msm_camera_sensor_info *info,
@@ -492,7 +492,7 @@ static struct msm_sensor_fn_t ov2720_func_tbl = {
 };
 
 static struct msm_sensor_reg_t ov2720_regs = {
-	.default_data_type = MSM_SENSOR_I2C_BYTE_DATA,
+	.default_data_type = MSM_CAMERA_I2C_BYTE_DATA,
 	.start_stream_conf = ov2720_start_settings,
 	.start_stream_conf_size = ARRAY_SIZE(ov2720_start_settings),
 	.stop_stream_conf = ov2720_stop_settings,
@@ -520,7 +520,7 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.camera_type = FRONT_CAMERA_2D,
 	.csi_params = &ov2720_csi_params_array[0],
 	.msm_sensor_mutex = &ov2720_mut,
-	.msm_sensor_i2c_driver = &ov2720_i2c_driver,
+	.sensor_i2c_driver = &ov2720_i2c_driver,
 	.sensor_v4l2_subdev_info = ov2720_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov2720_subdev_info),
 	.sensor_v4l2_subdev_ops = &ov2720_subdev_ops,

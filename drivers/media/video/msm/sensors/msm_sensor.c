@@ -12,250 +12,7 @@
 
 #include "msm_sensor.h"
 
-#define CONFIG_MSM_SENSOR_I2C_DBG 0
-
-#if CONFIG_MSM_SENSOR_I2C_DBG
-#define S_I2C_DBG(fmt, args...) printk(fmt, ##args)
-#else
-#define S_I2C_DBG(fmt, args...) CDBG(fmt, ##args)
-#endif
 /*=============================================================*/
-
-int32_t msm_sensor_i2c_rxdata(struct msm_sensor_i2c_client *dev_client,
-	unsigned char *rxdata, int data_length)
-{
-	int32_t rc = 0;
-	uint16_t saddr = dev_client->client->addr >> 1;
-	struct i2c_msg msgs[] = {
-		{
-			.addr  = saddr,
-			.flags = 0,
-			.len   = dev_client->addr_type,
-			.buf   = rxdata,
-		},
-		{
-			.addr  = saddr,
-			.flags = I2C_M_RD,
-			.len   = data_length,
-			.buf   = rxdata,
-		},
-	};
-	rc = i2c_transfer(dev_client->client->adapter, msgs, 2);
-	if (rc < 0)
-		S_I2C_DBG("msm_sensor_i2c_rxdata failed 0x%x\n", saddr);
-	return rc;
-}
-
-int32_t msm_sensor_i2c_txdata(struct msm_sensor_i2c_client *dev_client,
-				unsigned char *txdata, int length)
-{
-	int32_t rc = 0;
-	uint16_t saddr = dev_client->client->addr >> 1;
-	struct i2c_msg msg[] = {
-		{
-			.addr = saddr,
-			.flags = 0,
-			.len = length,
-			.buf = txdata,
-		 },
-	};
-	rc = i2c_transfer(dev_client->client->adapter, msg, 1);
-	if (rc < 0)
-		S_I2C_DBG("msm_sensor_i2c_txdata faild 0x%x\n", saddr);
-	return 0;
-}
-
-int32_t msm_sensor_i2c_write(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint16_t data,
-	enum msm_sensor_i2c_data_type data_type)
-{
-	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+data_type];
-	uint8_t len = 0;
-	if ((client->addr_type != MSM_SENSOR_I2C_BYTE_ADDR
-		&& client->addr_type != MSM_SENSOR_I2C_WORD_ADDR)
-		|| (data_type != MSM_SENSOR_I2C_BYTE_DATA
-		&& data_type != MSM_SENSOR_I2C_WORD_DATA))
-		return rc;
-
-	S_I2C_DBG("%s reg addr = 0x%x data type: %d\n",
-			  __func__, addr, data_type);
-	if (client->addr_type == MSM_SENSOR_I2C_BYTE_ADDR) {
-		buf[0] = addr;
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len, buf[len]);
-		len = 1;
-	} else if (client->addr_type == MSM_SENSOR_I2C_WORD_ADDR) {
-		buf[0] = addr >> BITS_PER_BYTE;
-		buf[1] = addr;
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len, buf[len]);
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len+1, buf[len+1]);
-		len = 2;
-	}
-	S_I2C_DBG("Data: 0x%x\n", data);
-	if (data_type == MSM_SENSOR_I2C_BYTE_DATA) {
-		buf[len] = data;
-		S_I2C_DBG("Byte %d: 0x%x\n", len, buf[len]);
-		len += 1;
-	} else if (data_type == MSM_SENSOR_I2C_WORD_DATA) {
-		buf[len] = data >> BITS_PER_BYTE;
-		buf[len+1] = data;
-		S_I2C_DBG("Byte %d: 0x%x\n", len, buf[len]);
-		S_I2C_DBG("Byte %d: 0x%x\n", len+1, buf[len+1]);
-		len += 2;
-	}
-
-	rc = msm_sensor_i2c_txdata(client, buf, len);
-	if (rc < 0)
-		S_I2C_DBG("%s fail\n", __func__);
-	return rc;
-}
-
-int32_t msm_sensor_i2c_write_seq(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte)
-{
-	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+num_byte];
-	uint8_t len = 0, i = 0;
-
-	if ((client->addr_type != MSM_SENSOR_I2C_BYTE_ADDR
-		&& client->addr_type != MSM_SENSOR_I2C_WORD_ADDR)
-		|| num_byte == 0)
-		return rc;
-
-	S_I2C_DBG("%s reg addr = 0x%x num bytes: %d\n",
-			  __func__, addr, num_byte);
-	if (client->addr_type == MSM_SENSOR_I2C_BYTE_ADDR) {
-		buf[0] = addr;
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len, buf[len]);
-		len = 1;
-	} else if (client->addr_type == MSM_SENSOR_I2C_WORD_ADDR) {
-		buf[0] = addr >> BITS_PER_BYTE;
-		buf[1] = addr;
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len, buf[len]);
-		S_I2C_DBG("%s byte %d: 0x%x\n", __func__, len+1, buf[len+1]);
-		len = 2;
-	}
-	for (i = 0; i < num_byte; i++) {
-		buf[i+len] = data[i];
-		S_I2C_DBG("Byte %d: 0x%x\n", i+len, buf[i+len]);
-		S_I2C_DBG("Data: 0x%x\n", data[i]);
-	}
-
-	rc = msm_sensor_i2c_txdata(client, buf, len+num_byte);
-	if (rc < 0)
-		S_I2C_DBG("%s fail\n", __func__);
-	return rc;
-}
-
-int32_t msm_sensor_i2c_write_tbl(struct msm_sensor_i2c_client *client,
-	struct msm_sensor_i2c_reg_conf *reg_conf_tbl, uint8_t size,
-	enum msm_sensor_i2c_data_type data_type)
-{
-	int i;
-	int32_t rc = -EFAULT;
-	for (i = 0; i < size; i++) {
-		rc = msm_sensor_i2c_write(
-			client,
-			reg_conf_tbl->reg_addr,
-			reg_conf_tbl->reg_data, data_type);
-		if (rc < 0)
-			break;
-		reg_conf_tbl++;
-	}
-	return rc;
-}
-
-int32_t msm_sensor_i2c_read(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint16_t *data,
-	enum msm_sensor_i2c_data_type data_type)
-{
-	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+data_type];
-
-	if ((client->addr_type != MSM_SENSOR_I2C_BYTE_ADDR
-		&& client->addr_type != MSM_SENSOR_I2C_WORD_ADDR)
-		|| (data_type != MSM_SENSOR_I2C_BYTE_DATA
-		&& data_type != MSM_SENSOR_I2C_WORD_DATA))
-		return rc;
-
-	if (client->addr_type == MSM_SENSOR_I2C_BYTE_ADDR) {
-		buf[0] = addr;
-	} else if (client->addr_type == MSM_SENSOR_I2C_WORD_ADDR) {
-		buf[0] = addr >> BITS_PER_BYTE;
-		buf[1] = addr;
-	}
-	rc = msm_sensor_i2c_rxdata(client, buf, data_type);
-	if (rc < 0) {
-		S_I2C_DBG("%s fail\n", __func__);
-		return rc;
-	}
-	if (data_type == MSM_SENSOR_I2C_BYTE_DATA)
-		*data = buf[0];
-	else
-		*data = buf[0] << 8 | buf[1];
-
-	S_I2C_DBG("%s addr = 0x%x data: 0x%x", __func__, addr, *data);
-	return rc;
-}
-
-int32_t msm_sensor_i2c_read_seq(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte)
-{
-	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+num_byte];
-	int i;
-
-	if ((client->addr_type != MSM_SENSOR_I2C_BYTE_ADDR
-		&& client->addr_type != MSM_SENSOR_I2C_WORD_ADDR)
-		|| num_byte == 0)
-		return rc;
-
-	if (client->addr_type == MSM_SENSOR_I2C_BYTE_ADDR) {
-		buf[0] = addr;
-	} else if (client->addr_type == MSM_SENSOR_I2C_WORD_ADDR) {
-		buf[0] = addr >> BITS_PER_BYTE;
-		buf[1] = addr;
-	}
-	rc = msm_sensor_i2c_rxdata(client, buf, num_byte);
-	if (rc < 0) {
-		S_I2C_DBG("%s fail\n", __func__);
-		return rc;
-	}
-
-	S_I2C_DBG("%s addr = 0x%x", __func__, addr);
-	for (i = 0; i < num_byte; i++) {
-		data[i] = buf[i];
-		S_I2C_DBG("Byte %d: 0x%x\n", i, buf[i]);
-		S_I2C_DBG("Data: 0x%x\n", data[i]);
-	}
-	return rc;
-}
-
-int32_t msm_sensor_write_conf_array(struct msm_sensor_i2c_client *client,
-			struct msm_sensor_i2c_conf_array *array, uint16_t index)
-{
-	int32_t rc;
-	rc = msm_sensor_i2c_write_tbl(client, array[index].conf,
-				array[index].size, array[index].data_type);
-	if (array[index].delay > 20)
-		msleep(array[index].delay);
-	else
-		usleep_range(array[index].delay*1000,
-					(array[index].delay+1)*1000);
-	return rc;
-}
-
-int32_t msm_sensor_write_all_conf_array(struct msm_sensor_i2c_client *client,
-			struct msm_sensor_i2c_conf_array *array, uint16_t size)
-{
-	int32_t rc = 0, i;
-	for (i = 0; i < size; i++) {
-		rc = msm_sensor_write_conf_array(client, array, i);
-		if (rc < 0)
-			break;
-	}
-	return rc;
-}
 
 int32_t msm_sensor_write_init_settings(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -285,7 +42,7 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res)
 {
 	int32_t rc = -EFAULT;
-	struct msm_sensor_i2c_reg_conf dim_settings[] = {
+	struct msm_camera_i2c_reg_conf dim_settings[] = {
 		{s_ctrl->sensor_output_reg_addr->x_output,
 			s_ctrl->msm_sensor_reg->
 			output_settings[res].x_output},
@@ -300,8 +57,8 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 			output_settings[res].frame_length_lines},
 	};
 
-	rc = msm_sensor_i2c_write_tbl(s_ctrl->sensor_i2c_client, dim_settings,
-		ARRAY_SIZE(dim_settings), MSM_SENSOR_I2C_WORD_DATA);
+	rc = msm_camera_i2c_write_tbl(s_ctrl->sensor_i2c_client, dim_settings,
+		ARRAY_SIZE(dim_settings), MSM_CAMERA_I2C_WORD_DATA);
 	return rc;
 }
 
@@ -309,14 +66,14 @@ uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
 			enum msm_sensor_resolution_t res, int8_t array_addr)
 {
 	if (s_ctrl->msm_sensor_reg->mode_settings[res].
-		data_type == MSM_SENSOR_I2C_BYTE_DATA)
+		data_type == MSM_CAMERA_I2C_BYTE_DATA)
 		return
 		s_ctrl->msm_sensor_reg->mode_settings[res].
 		conf[array_addr].reg_data << 8 |
 		s_ctrl->msm_sensor_reg->mode_settings[res].
 		conf[array_addr+1].reg_data;
 	else if (s_ctrl->msm_sensor_reg->mode_settings[res].
-			 data_type == MSM_SENSOR_I2C_WORD_DATA)
+			 data_type == MSM_CAMERA_I2C_WORD_DATA)
 		return
 		s_ctrl->msm_sensor_reg->mode_settings[res].
 		conf[array_addr].reg_data;
@@ -326,7 +83,7 @@ uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	msm_sensor_i2c_write_tbl(
+	msm_camera_i2c_write_tbl(
 		s_ctrl->sensor_i2c_client,
 		s_ctrl->msm_sensor_reg->start_stream_conf,
 		s_ctrl->msm_sensor_reg->start_stream_conf_size,
@@ -335,7 +92,7 @@ void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	msm_sensor_i2c_write_tbl(
+	msm_camera_i2c_write_tbl(
 		s_ctrl->sensor_i2c_client,
 		s_ctrl->msm_sensor_reg->stop_stream_conf,
 		s_ctrl->msm_sensor_reg->stop_stream_conf_size,
@@ -344,7 +101,7 @@ void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 void msm_sensor_group_hold_on(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	msm_sensor_i2c_write_tbl(
+	msm_camera_i2c_write_tbl(
 		s_ctrl->sensor_i2c_client,
 		s_ctrl->msm_sensor_reg->group_hold_on_conf,
 		s_ctrl->msm_sensor_reg->group_hold_on_conf_size,
@@ -353,7 +110,7 @@ void msm_sensor_group_hold_on(struct msm_sensor_ctrl_t *s_ctrl)
 
 void msm_sensor_group_hold_off(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	msm_sensor_i2c_write_tbl(
+	msm_camera_i2c_write_tbl(
 		s_ctrl->sensor_i2c_client,
 		s_ctrl->msm_sensor_reg->group_hold_off_conf,
 		s_ctrl->msm_sensor_reg->group_hold_off_conf_size,
@@ -419,9 +176,9 @@ int32_t msm_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 		((s_ctrl->curr_frame_length_lines) *
 		s_ctrl->fps_divider/Q10);
 
-	rc = msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+	rc = msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines,
-			total_lines_per_frame, MSM_SENSOR_I2C_WORD_DATA);
+			total_lines_per_frame, MSM_CAMERA_I2C_WORD_DATA);
 	return rc;
 }
 
@@ -437,15 +194,15 @@ int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 		fl_lines = line + offset;
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines, fl_lines,
-		MSM_SENSOR_I2C_WORD_DATA);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr, line,
-		MSM_SENSOR_I2C_WORD_DATA);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->global_gain_addr, gain,
-		MSM_SENSOR_I2C_WORD_DATA);
+		MSM_CAMERA_I2C_WORD_DATA);
 	s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 	return 0;
 }
@@ -465,15 +222,15 @@ int32_t msm_sensor_write_exp_gain2(struct msm_sensor_ctrl_t *s_ctrl,
 	}
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->line_length_pclk, ll_pclk,
-		MSM_SENSOR_I2C_WORD_DATA);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr, line,
-		MSM_SENSOR_I2C_WORD_DATA);
-	msm_sensor_i2c_write(s_ctrl->sensor_i2c_client,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->global_gain_addr, gain,
-		MSM_SENSOR_I2C_WORD_DATA);
+		MSM_CAMERA_I2C_WORD_DATA);
 	s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 	return 0;
 }
@@ -851,10 +608,10 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t chipid = 0;
-	rc = msm_sensor_i2c_read(
+	rc = msm_camera_i2c_read(
 			s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_id_info->sensor_id_reg_addr, &chipid,
-			MSM_SENSOR_I2C_WORD_DATA);
+			MSM_CAMERA_I2C_WORD_DATA);
 	if (rc < 0) {
 		CDBG("%s: read id failed\n", __func__);
 		return rc;
@@ -918,7 +675,7 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 		struct msm_sensor_ctrl *s)
 {
 	int rc = 0;
-	rc = i2c_add_driver(s_ctrl->msm_sensor_i2c_driver);
+	rc = i2c_add_driver(s_ctrl->sensor_i2c_driver);
 	if (rc < 0 || s_ctrl->sensor_i2c_client->client == NULL) {
 		rc = -ENOTSUPP;
 		CDBG("I2C add driver failed");
@@ -945,7 +702,7 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 
 	return rc;
 probe_fail:
-	i2c_del_driver(s_ctrl->msm_sensor_i2c_driver);
+	i2c_del_driver(s_ctrl->sensor_i2c_driver);
 	return rc;
 }
 

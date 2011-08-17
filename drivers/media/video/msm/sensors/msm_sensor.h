@@ -23,6 +23,7 @@
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
 #include "msm.h"
+#include "msm_camera_i2c.h"
 #define Q8  0x00000100
 #define Q10 0x00000400
 
@@ -48,33 +49,6 @@ enum msm_sensor_cam_mode_t {
 	MSM_SENSOR_MODE_INVALID
 };
 
-enum msm_sensor_i2c_reg_addr_type {
-	MSM_SENSOR_I2C_BYTE_ADDR = 1,
-	MSM_SENSOR_I2C_WORD_ADDR,
-};
-
-struct msm_sensor_i2c_client {
-	struct i2c_client *client;
-	enum msm_sensor_i2c_reg_addr_type addr_type;
-};
-
-struct msm_sensor_i2c_reg_conf {
-	uint16_t reg_addr;
-	uint16_t reg_data;
-};
-
-enum msm_sensor_i2c_data_type {
-	MSM_SENSOR_I2C_BYTE_DATA = 1,
-	MSM_SENSOR_I2C_WORD_DATA,
-};
-
-struct msm_sensor_i2c_conf_array {
-	struct msm_sensor_i2c_reg_conf *conf;
-	uint16_t size;
-	uint16_t delay;
-	enum msm_sensor_i2c_data_type data_type;
-};
-
 struct msm_sensor_output_reg_addr_t {
 	uint16_t x_output;
 	uint16_t y_output;
@@ -94,18 +68,18 @@ struct msm_sensor_exp_gain_info_t {
 };
 
 struct msm_sensor_reg_t {
-	enum msm_sensor_i2c_data_type default_data_type;
-	struct msm_sensor_i2c_reg_conf *start_stream_conf;
+	enum msm_camera_i2c_data_type default_data_type;
+	struct msm_camera_i2c_reg_conf *start_stream_conf;
 	uint8_t start_stream_conf_size;
-	struct msm_sensor_i2c_reg_conf *stop_stream_conf;
+	struct msm_camera_i2c_reg_conf *stop_stream_conf;
 	uint8_t stop_stream_conf_size;
-	struct msm_sensor_i2c_reg_conf *group_hold_on_conf;
+	struct msm_camera_i2c_reg_conf *group_hold_on_conf;
 	uint8_t group_hold_on_conf_size;
-	struct msm_sensor_i2c_reg_conf *group_hold_off_conf;
+	struct msm_camera_i2c_reg_conf *group_hold_off_conf;
 	uint8_t group_hold_off_conf_size;
-	struct msm_sensor_i2c_conf_array *init_settings;
+	struct msm_camera_i2c_conf_array *init_settings;
 	uint8_t init_size;
-	struct msm_sensor_i2c_conf_array *mode_settings;
+	struct msm_camera_i2c_conf_array *mode_settings;
 	struct msm_sensor_output_info_t *output_settings;
 	uint8_t num_conf;
 };
@@ -162,8 +136,8 @@ struct msm_sensor_fn_t {
 struct msm_sensor_ctrl_t {
 	const struct  msm_camera_sensor_info *sensordata;
 	struct i2c_client *msm_sensor_client;
-	struct i2c_driver *msm_sensor_i2c_driver;
-	struct msm_sensor_i2c_client *sensor_i2c_client;
+	struct i2c_driver *sensor_i2c_driver;
+	struct msm_camera_i2c_client *sensor_i2c_client;
 	uint16_t sensor_i2c_addr;
 
 	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
@@ -193,30 +167,6 @@ struct msm_sensor_ctrl_t {
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
 };
-
-int32_t msm_sensor_i2c_rxdata(struct msm_sensor_i2c_client *client,
-	unsigned char *rxdata, int data_length);
-
-int32_t msm_sensor_i2c_txdata(struct msm_sensor_i2c_client *client,
-	unsigned char *txdata, int length);
-
-int32_t msm_sensor_i2c_read(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint16_t *data,
-	enum msm_sensor_i2c_data_type data_type);
-
-int32_t msm_sensor_i2c_read_seq(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte);
-
-int32_t msm_sensor_i2c_write(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint16_t data,
-	enum msm_sensor_i2c_data_type data_type);
-
-int32_t msm_sensor_i2c_write_seq(struct msm_sensor_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte);
-
-int32_t msm_sensor_i2c_write_tbl(struct msm_sensor_i2c_client *client,
-	struct msm_sensor_i2c_reg_conf *reg_conf_tbl, uint8_t size,
-	enum msm_sensor_i2c_data_type data_type);
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl);
