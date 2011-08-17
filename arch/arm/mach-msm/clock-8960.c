@@ -4529,7 +4529,7 @@ static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("core_clk",		gsbi11_qup_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		gsbi12_qup_clk.c,	"qup_i2c.12"),
 	CLK_LOOKUP("pdm_clk",		pdm_clk.c,		NULL),
-	CLK_LOOKUP("pmem_clk",		pmem_clk.c,		NULL),
+	CLK_LOOKUP("mem_clk",		pmem_clk.c,		NULL),
 	CLK_LOOKUP("core_clk",		prng_clk.c,		"msm_rng.0"),
 	CLK_LOOKUP("core_clk",		sdc1_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("core_clk",		sdc2_clk.c,		"msm_sdcc.2"),

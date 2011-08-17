@@ -1466,7 +1466,7 @@ static struct dsps_clk_info dsps_clks[] = {
 		.rate =	0, /* no rate just on/off */
 	},
 	{
-		.name = "pmem_clk",
+		.name = "mem_clk",
 		.rate =	0, /* no rate just on/off */
 	},
 	{

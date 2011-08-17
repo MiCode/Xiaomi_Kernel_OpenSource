@@ -1408,7 +1408,7 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 		}
 	}
 
-	sps->pmem_clk = clk_get(sps->dev, "pmem_clk");
+	sps->pmem_clk = clk_get(sps->dev, "mem_clk");
 	if (IS_ERR(sps->pmem_clk)) {
 		SPS_ERR("sps:fail to get pmem_clk.");
 		goto clk_err;

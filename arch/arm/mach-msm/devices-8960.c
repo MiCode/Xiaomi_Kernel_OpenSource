@@ -1462,7 +1462,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("core_clk",	GSBI11_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",	GSBI12_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("pdm_clk",		PDM_CLK,		NULL, OFF),
-	CLK_DUMMY("pmem_clk",		PMEM_CLK,		NULL, OFF),
+	CLK_DUMMY("mem_clk",		PMEM_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		PRNG_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		SDC1_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		SDC2_CLK,		NULL, OFF),
