@@ -1,0 +1,69 @@
+Introduction
+============
+
+A USB high speed host must pass electrical compliance tests defined
+by the USB-IF. These compliance tests require the host controller to
+support various test modes defined by the USB 2.0 specification.
+
+USB-IF defines a standard method to initiate the test modes on an
+embedded host controller by using a test fixture. During enumeration
+by the USB host, this test fixture provides a Vendor-Id/Product-Id
+(or VID/PID) pair which is used by the host to initiate a particular
+test mode as each VID/PID pair corresponds to a unique test mode.
+
+Hardware description
+====================
+
+The driver doesn't require any new hardware and is like any other
+USB host class driver. It gets notified when a Test Fixture device is
+connected to the host.
+
+The test modes that can be initiated are specific to the high speed
+hosts controllers only.
+
+Software description
+====================
+
+This EHSET (or Embedded High Speed Electrical Test) driver registers
+itself with USB core as the preferred driver for the Test Fixture
+device. During registration it provides the list of the various
+VID/PID pairs which the Test Fixture may present during enumeration.
+The VID is always 0x1A0A, and the PIDs presented by the Test Fixture
+correspond to the following test modes:
+
+__________________________________________________
+	 PID		Test Mode
+--------------------------------------------------
+	0x0101		TEST_SE0_NAK
+	0x0102		TEST_J
+	0x0103		TEST_K
+	0x0104		TEST_PACKET
+	0x0106		HS_HOST_PORT_SUSPEND_RESUME
+	0x0107		SINGLE_STEP_GET_DEV_DESC
+	0x0108		SINGLE_STEP_SET_FEATURE
+--------------------------------------------------
+
+The control flow is as follows:
+
+1. USB core notifies the ehset driver when a device (Test Fixture) is
+attached to the host having the VID/PID pair as one of the specified
+above.
+
+2. EHSET driver checks the PID which the Test Fixture presented during
+enumeration and then initiates the corresponding test mode.
+
+
+Dependencies
+============
+
+The driver depends on the USB EHCI Host support.
+
+Other
+=====
+
+The driver's code shall be added as a new file in the
+/kernel/drivers/usb/misc directory.
+
+Embedded High-speed Electrical Test Procedure document is available
+at:
+http://www.usb.org/developers/onthego/EHSET_v1.01.pdf

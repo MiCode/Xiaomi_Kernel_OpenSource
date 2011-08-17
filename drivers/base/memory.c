@@ -62,6 +62,9 @@ static const struct kset_uevent_ops memory_uevent_ops = {
 
 static BLOCKING_NOTIFIER_HEAD(memory_chain);
 
+unsigned long movable_reserved_start, movable_reserved_size;
+unsigned long low_power_memory_start, low_power_memory_size;
+
 int register_memory_notifier(struct notifier_block *nb)
 {
         return blocking_notifier_chain_register(&memory_chain, nb);
@@ -366,6 +369,64 @@ static int block_size_init(void)
 				&attr_block_size_bytes.attr);
 }
 
+static ssize_t
+print_movable_size(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lx\n", movable_reserved_size);
+}
+
+static CLASS_ATTR(movable_size_bytes, 0444, print_movable_size, NULL);
+
+static int movable_size_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_movable_size_bytes.attr);
+}
+
+static ssize_t
+print_movable_start(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lx\n", movable_reserved_start);
+}
+
+static CLASS_ATTR(movable_start_bytes, 0444, print_movable_start, NULL);
+
+static int movable_start_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_movable_start_bytes.attr);
+}
+
+static ssize_t
+print_low_power_memory_size(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lx\n", low_power_memory_size);
+}
+
+static CLASS_ATTR(low_power_memory_size_bytes, 0444,
+	print_low_power_memory_size, NULL);
+
+static int low_power_memory_size_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_low_power_memory_size_bytes.attr);
+}
+
+static ssize_t
+print_low_power_memory_start(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lx\n", low_power_memory_start);
+}
+
+static CLASS_ATTR(low_power_memory_start_bytes, 0444,
+	print_low_power_memory_start, NULL);
+
+static int low_power_memory_start_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_low_power_memory_start_bytes.attr);
+}
+
 /*
  * Some architectures will have custom drivers to do this, and
  * will not need to do it from userspace.  The fake hot-add code
@@ -468,6 +529,96 @@ static __init int memory_fail_init(void)
 }
 #else
 static inline int memory_fail_init(void)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_ARCH_MEMORY_REMOVE
+static ssize_t
+memory_remove_store(struct class *class, struct class_attribute *attr,
+		    const char *buf, size_t count)
+{
+	u64 phys_addr;
+	int ret;
+
+	phys_addr = simple_strtoull(buf, NULL, 0);
+
+	ret = physical_remove_memory(phys_addr,
+		PAGES_PER_SECTION << PAGE_SHIFT);
+
+	if (ret)
+		count = ret;
+
+	return count;
+}
+static CLASS_ATTR(remove, S_IWUSR, NULL, memory_remove_store);
+
+static int memory_remove_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_remove.attr);
+}
+
+static ssize_t
+memory_active_store(struct class *class, struct class_attribute *attr,
+		    const char *buf, size_t count)
+{
+	u64 phys_addr;
+	int ret;
+
+	phys_addr = simple_strtoull(buf, NULL, 0);
+
+	ret = physical_active_memory(phys_addr,
+		PAGES_PER_SECTION << PAGE_SHIFT);
+
+	if (ret)
+		count = ret;
+
+	return count;
+}
+static CLASS_ATTR(active, S_IWUSR, NULL, memory_active_store);
+
+static int memory_active_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_active.attr);
+}
+
+static ssize_t
+memory_low_power_store(struct class *class, struct class_attribute *attr,
+		       const char *buf, size_t count)
+{
+	u64 phys_addr;
+	int ret;
+
+	phys_addr = simple_strtoull(buf, NULL, 0);
+
+	ret = physical_low_power_memory(phys_addr,
+		PAGES_PER_SECTION << PAGE_SHIFT);
+
+	if (ret)
+		count = ret;
+
+	return count;
+}
+static CLASS_ATTR(low_power, S_IWUSR, NULL, memory_low_power_store);
+
+static int memory_low_power_init(void)
+{
+	return sysfs_create_file(&memory_sysdev_class.kset.kobj,
+				&class_attr_low_power.attr);
+}
+#else
+static inline int memory_remove_init(void)
+{
+	return 0;
+}
+static inline int memory_active_init(void)
+{
+	return 0;
+}
+static inline int memory_low_power_init(void)
 {
 	return 0;
 }
@@ -665,7 +816,28 @@ int __init memory_dev_init(void)
 	err = memory_fail_init();
 	if (!ret)
 		ret = err;
+	err = memory_remove_init();
+	if (!ret)
+		ret = err;
+	err = memory_active_init();
+	if (!ret)
+		ret = err;
+	err = memory_low_power_init();
+	if (!ret)
+		ret = err;
 	err = block_size_init();
+	if (!ret)
+		ret = err;
+	err = movable_size_init();
+	if (!ret)
+		ret = err;
+	err = movable_start_init();
+	if (!ret)
+		ret = err;
+	err = low_power_memory_size_init();
+	if (!ret)
+		ret = err;
+	err = low_power_memory_start_init();
 	if (!ret)
 		ret = err;
 out:

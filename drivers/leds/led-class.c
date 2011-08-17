@@ -20,9 +20,50 @@
 #include <linux/err.h>
 #include <linux/ctype.h>
 #include <linux/leds.h>
+#include <linux/slab.h>
 #include "leds.h"
 
 static struct class *leds_class;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+
+static void change_brightness(struct work_struct *brightness_change_data)
+{
+	struct deferred_brightness_change *brightness_change = container_of(
+			brightness_change_data,
+			struct deferred_brightness_change,
+			brightness_change_work);
+	struct led_classdev *led_cdev = brightness_change->led_cdev;
+	enum led_brightness value = brightness_change->value;
+
+	led_cdev->brightness_set(led_cdev, value);
+
+	/* Free up memory for the brightness_change structure. */
+	kfree(brightness_change);
+}
+
+int queue_brightness_change(struct led_classdev *led_cdev,
+	enum led_brightness value)
+{
+	/* Initialize the brightness_change_work and its super-struct. */
+	struct deferred_brightness_change *brightness_change =
+		kzalloc(sizeof(struct deferred_brightness_change), GFP_KERNEL);
+
+	if (!brightness_change)
+		return -ENOMEM;
+
+	brightness_change->led_cdev = led_cdev;
+	brightness_change->value = value;
+
+	INIT_WORK(&(brightness_change->brightness_change_work),
+		change_brightness);
+	queue_work(suspend_work_queue,
+		&(brightness_change->brightness_change_work));
+
+	return 0;
+}
+
+#endif
 
 static void led_update_brightness(struct led_classdev *led_cdev)
 {
@@ -64,6 +105,25 @@ static ssize_t led_brightness_store(struct device *dev,
 	return ret;
 }
 
+static ssize_t led_max_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long state = 0;
+
+	ret = strict_strtoul(buf, 10, &state);
+	if (!ret) {
+		ret = size;
+		if (state > LED_FULL)
+			state = LED_FULL;
+		led_cdev->max_brightness = state;
+		led_set_brightness(led_cdev, led_cdev->brightness);
+	}
+
+	return ret;
+}
+
 static ssize_t led_max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -74,7 +134,8 @@ static ssize_t led_max_brightness_show(struct device *dev,
 
 static struct device_attribute led_class_attrs[] = {
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
-	__ATTR(max_brightness, 0444, led_max_brightness_show, NULL),
+	__ATTR(max_brightness, 0644, led_max_brightness_show,
+			led_max_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS
 	__ATTR(trigger, 0644, led_trigger_show, led_trigger_store),
 #endif

@@ -8,11 +8,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
@@ -124,13 +119,14 @@ static void msm_iommu_reset(void __iomem *base, int ncb)
 		SET_NMRR(base, ctx, 0);
 		SET_CONTEXTIDR(base, ctx, 0);
 	}
+	mb();
 }
 
 static int msm_iommu_probe(struct platform_device *pdev)
 {
 	struct resource *r, *r2;
-	struct clk *iommu_clk;
-	struct clk *iommu_pclk;
+	struct clk *iommu_clk = NULL;
+	struct clk *iommu_pclk = NULL;
 	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_dev *iommu_dev = pdev->dev.platform_data;
 	void __iomem *regs_base;
@@ -204,7 +200,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_mem;
 	}
 
-	irq = platform_get_irq_byname(pdev, "secure_irq");
+	irq = platform_get_irq_byname(pdev, "nonsecure_irq");
 	if (irq < 0) {
 		ret = -ENODEV;
 		goto fail_io;
@@ -216,9 +212,11 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	SET_PAR(regs_base, 0, 0);
 	SET_V2PCFG(regs_base, 0, 1);
 	SET_V2PPR(regs_base, 0, 0);
+	mb();
 	par = GET_PAR(regs_base, 0);
 	SET_V2PCFG(regs_base, 0, 0);
 	SET_M(regs_base, 0, 0);
+	mb();
 
 	if (!par) {
 		pr_err("%s: Invalid PAR value detected\n", iommu_dev->name);
@@ -239,6 +237,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	drvdata->base = regs_base;
 	drvdata->irq = irq;
 	drvdata->ncb = iommu_dev->ncb;
+	drvdata->name = iommu_dev->name;
 
 	pr_info("device %s mapped at %p, irq %d with %d ctx banks\n",
 		iommu_dev->name, regs_base, irq, iommu_dev->ncb);
@@ -341,15 +340,16 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		/* Set the context number for that MID to this context */
 		SET_CBNDX(drvdata->base, mid, c->num);
 
-		/* Set MID associated with this context bank to 0*/
+		/* Set MID associated with this context bank to 0 */
 		SET_CBVMID(drvdata->base, c->num, 0);
 
-		/* Set the ASID for TLB tagging for this context */
-		SET_CONTEXTIDR_ASID(drvdata->base, c->num, c->num);
+		/* Set the ASID for TLB tagging for this context to 0 */
+		SET_CONTEXTIDR_ASID(drvdata->base, c->num, 0);
 
 		/* Set security bit override to be Non-secure */
 		SET_NSCFG(drvdata->base, mid, 3);
 	}
+	mb();
 
 	if (drvdata->clk)
 		clk_disable(drvdata->clk);

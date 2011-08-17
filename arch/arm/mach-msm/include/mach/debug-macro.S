@@ -19,27 +19,53 @@
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
 
-#if defined(CONFIG_HAS_MSM_DEBUG_UART_PHYS) && !defined(CONFIG_MSM_DEBUG_UART_NONE)
-	.macro	addruart, rp, rv
-	ldr	\rp, =MSM_DEBUG_UART_PHYS
-	ldr	\rv, =MSM_DEBUG_UART_BASE
+#ifdef CONFIG_MSM_DEBUG_UART
+       .macro  addruart, rp, rv
+	ldr     \rp, =MSM_DEBUG_UART_PHYS
+	ldr     \rv, =MSM_DEBUG_UART_BASE
 	.endm
 
 	.macro	senduart,rd,rx
-	teq	\rx, #0
-	strne	\rd, [\rx, #0x0C]
+#ifdef CONFIG_SERIAL_MSM_HSL
+	@ Clear TX_READY by writing to the UARTDM_CR register
+	mov	r12, #0x300
+	str	r12, [\rx, #0x10]
+	@ Write 0x1 to NCF register
+	mov 	r12, #0x1
+	str	r12, [\rx, #0x40]
+	@ UARTDM reg. Read to induce delay
+	ldr	r12, [\rx, #0x08]
+	@ Write the 1 character to UARTDM_TF
+	str	\rd, [\rx, #0x70]
+#else
+	teq     \rx, #0
+	strne   \rd, [\rx, #0x0C]
+#endif
 	.endm
 
 	.macro	waituart,rd,rx
-	@ wait for TX_READY
-1001:	ldr	\rd, [\rx, #0x08]
-	tst	\rd, #0x04
-	beq	1001b
-	.endm
+#ifdef CONFIG_SERIAL_MSM_HSL
+	@ check for TX_EMT in UARTDM_SR
+	ldr	\rd, [\rx, #0x08]
+	tst	\rd, #0x08
+	bne	1002f
+	@ wait for TXREADY in UARTDM_ISR
+1001:	ldreq	\rd, [\rx, #0x14]
+	tst	\rd, #0x80
+	dsb
+	beq 	1001b
 #else
+	@ wait for TX_READY
+1001:   ldr \rd, [\rx, #0x08]
+	tst     \rd, #0x04
+	beq     1001b
+#endif
+1002:
+	.endm
+
+#else
+
 	.macro  addruart, rp, rv
-	mov	\rv, #0xff000000
-	orr	\rv, \rv, #0x00f00000
 	.endm
 
 	.macro	senduart,rd,rx

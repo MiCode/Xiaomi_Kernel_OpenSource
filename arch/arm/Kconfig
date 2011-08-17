@@ -62,7 +62,7 @@ config GENERIC_CLOCKEVENTS
 config GENERIC_CLOCKEVENTS_BROADCAST
 	bool
 	depends on GENERIC_CLOCKEVENTS
-	default y if SMP
+	default y if SMP && !LOCAL_TIMERS
 
 config KTIME_SCALAR
 	bool
@@ -627,6 +627,10 @@ config ARCH_MSM
 	select GENERIC_CLOCKEVENTS
 	select ARCH_REQUIRE_GPIOLIB
 	select CLKDEV_LOOKUP
+	select ARCH_HAS_CPUFREQ
+	select GENERIC_GPIO
+	select GENERIC_TIME
+	select GENERIC_ALLOCATOR
 	help
 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
 	  apps processor of the MSM/QSD and depends on a shared memory
@@ -1033,6 +1037,19 @@ config ARM_TIMER_SP804
 
 source arch/arm/mm/Kconfig
 
+config DONT_RESERVE_FROM_MOVABLE_ZONE
+	def_bool y
+	depends on MEMORY_HOTPLUG
+
+config RESERVE_FIRST_PAGE
+	bool
+	default n
+	help
+	  Reserve the first page at PHYS_OFFSET. The first
+	  physical page is used by many platforms for warm
+	  boot operations. Reserve this page so that it is
+	  not allocated by the kernel.
+
 config IWMMXT
 	bool "Enable iWMMXt support"
 	depends on CPU_XSCALE || CPU_XSC3 || CPU_MOHAWK || CPU_PJ4
@@ -1234,6 +1251,29 @@ config ARM_ERRATA_754327
 	  This workaround defines cpu_relax() as smp_mb(), preventing correctly
 	  written polling loops from denying visibility of updates to memory.
 
+config PL310_ERRATA_727915
+	bool "Background Clean & Invalidate by Way operation can cause data corruption"
+	depends on CACHE_L2X0
+	help
+	  PL310 implements the Clean & Invalidate by Way L2 cache maintenance
+	  operation (offset 0x7FC). This operation runs in background so that
+	  PL310 can handle normal accesses while it is in progress. Under very
+	  rare circumstances, due to this erratum, write data can be lost when
+	  PL310 treats a cacheable write transaction during a Clean &
+	  Invalidate by Way operation.
+
+config KSAPI
+        tristate "KSAPI support (EXPERIMENTAL)"
+	depends on ARCH_MSM_SCORPION || ARCH_MSM_KRAIT
+        default n
+        help
+          KSAPI: Performance monitoring tool for linux.
+          KSAPI records performance statistics for Snapdragon linux platform.
+          It uses the /proc FS as a means to exchange configuration data and
+          counter statistics. It can monitor the counter statistics for
+          Scorpion processor supported hardware performance counters on a per
+          thread basis or AXI counters on an overall system basis.
+
 endmenu
 
 source "arch/arm/common/Kconfig"
@@ -1311,9 +1351,9 @@ config SMP
 	depends on REALVIEW_EB_ARM11MP || REALVIEW_EB_A9MP || \
 		 MACH_REALVIEW_PB11MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || \
 		 ARCH_EXYNOS4 || ARCH_TEGRA || ARCH_U8500 || ARCH_VEXPRESS_CA9X4 || \
-		 ARCH_MSM_SCORPIONMP || ARCH_SHMOBILE
+		 MSM_SMP || ARCH_SHMOBILE
 	select USE_GENERIC_SMP_HELPERS
-	select HAVE_ARM_SCU if !ARCH_MSM_SCORPIONMP
+	select HAVE_ARM_SCU if !MSM_SMP
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If
@@ -1395,9 +1435,11 @@ config HOTPLUG_CPU
 
 config LOCAL_TIMERS
 	bool "Use local timer interrupts"
-	depends on SMP
+	depends on SMP && (REALVIEW_EB_ARM11MP || MACH_REALVIEW_PB11MP || \
+		REALVIEW_EB_A9MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || ARCH_U8500 || \
+		MSM_SMP)
 	default y
-	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT)
+	select HAVE_ARM_TWD if (!MSM_SMP && !EXYNOS4_MCT)
 	help
 	  Enable support for local timers on SMP platforms, rather then the
 	  legacy IPI broadcast method.  Local timers allows the system
@@ -1537,7 +1579,25 @@ config HW_PERF_EVENTS
 	  Enable hardware performance counter support for perf events. If
 	  disabled, perf events will use software events only.
 
+config VMALLOC_RESERVE
+	hex "Reserved vmalloc space"
+	default 0x08000000
+	depends on MMU
+	help
+	  Reserved vmalloc space if not specified on the kernel commandline.
+
 source "mm/Kconfig"
+
+config ARCH_MEMORY_PROBE
+	def_bool n
+	depends on MEMORY_HOTPLUG
+
+config ARCH_MEMORY_REMOVE
+	def_bool n
+	depends on MEMORY_HOTPLUG
+
+config DONT_RESERVE_FROM_MOVABLE_ZONE
+	def_bool n
 
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
@@ -1679,6 +1739,17 @@ config ARM_FLUSH_CONSOLE_ON_RESTART
 	  console drivers. This option forces the console lock to be
 	  released if it failed to be acquired, which will cause all the
 	  pending messages to be flushed.
+
+config CP_ACCESS
+	tristate "CP register access tool"
+	default m
+	help
+	  Provide support for Coprocessor register access using /sys
+	  interface. Read and write to CP registers from userspace
+	  through sysfs interface. A sys file (cp_rw) will be created under
+	  /sys/devices/system/cpaccess/cpaccess0.
+
+	  If unsure, say N.
 
 endmenu
 
@@ -1940,6 +2011,14 @@ source "drivers/cpuidle/Kconfig"
 
 endmenu
 
+config CPU_FREQ_MSM
+        bool
+        depends on CPU_FREQ && ARCH_MSM
+        default y
+        help
+          This enables the CPUFreq driver for Qualcomm CPUs.
+          If in doubt, say Y.
+
 menu "Floating point emulation"
 
 comment "At least one emulation must be selected"
@@ -2029,7 +2108,7 @@ menu "Power management options"
 source "kernel/power/Kconfig"
 
 config ARCH_SUSPEND_POSSIBLE
-	depends on !ARCH_S5P64X0 && !ARCH_S5PC100
+	depends on !ARCH_S5P64X0 && !ARCH_S5PC100 && !ARCH_FSM9XXX
 	depends on CPU_ARM920T || CPU_ARM926T || CPU_SA1100 || \
 		CPU_V6 || CPU_V6K || CPU_V7 || CPU_XSC3 || CPU_XSCALE
 	def_bool y

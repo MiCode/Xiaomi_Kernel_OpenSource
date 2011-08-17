@@ -1,0 +1,28 @@
+#!/bin/bash
+
+bindir="`pwd`/chromeos/scripts"
+confdir="`pwd`/chromeos/config"
+
+get_flavourconfigs() {
+    for file in `find $confdir`; do
+	if echo $file | egrep -q "config\.flavour\..*[^~]$"; then
+            basename $file | awk -F . '{ print $3 }'
+        fi
+    done
+}
+
+get_arch() {
+    if find . -name config.flavour.$1 | grep -q i386; then
+        echo i386
+    else
+        echo arm
+    fi
+}
+
+for flavour in $(get_flavourconfigs); do
+    echo $flavour $(get_arch $flavour)
+    $bindir/prepareconfig $flavour
+    yes "" | make ARCH=$(get_arch $flavour) oldconfig
+    cp .config .config-$flavour
+done
+

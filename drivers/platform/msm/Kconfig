@@ -1,0 +1,36 @@
+menu "Qualcomm MSM specific device drivers"
+	depends on ARCH_MSM
+
+config MSM_SSBI
+	bool "Qualcomm Single-wire Serial Bus Interface (SSBI)"
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in SSBI interface on Qualcomm MSM family processors.
+
+	  This is required for communicating with Qualcomm PMICs and
+	  other devices that have the SSBI interface.
+
+config SPS
+	bool "SPS support"
+	depends on (HAS_IOMEM && (ARCH_MSM8960 || ARCH_MSM8X60))
+	select GENERIC_ALLOCATOR
+	default n
+	help
+	  The SPS (Smart Peripheral Switch) is a DMA engine.
+	  It can move data in the following modes:
+		1. Peripheral-to-Peripheral.
+		2. Peripheral-to-Memory.
+		3. Memory-to-Memory.
+
+config SPS_SUPPORT_BAMDMA
+	bool "SPS support BAM DMA"
+	depends on SPS
+	default n
+	help
+	The BAM-DMA is used for Memory-to-Memory transfers.
+	The main use cases is RPC between processors.
+	The BAM-DMA hardware has 2 registers sets:
+	1. A BAM HW like all the peripherals.
+	2. A DMA channel configuration (i.e. channel priority).
+
+endmenu

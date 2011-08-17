@@ -660,6 +660,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 		/* Erase size depends on CSD and Extended CSD */
 		mmc_set_erase_size(card);
+
+		if (card->ext_csd.sectors && (rocr & MMC_CARD_SECTOR_ADDR))
+			mmc_card_set_blockaddr(card);
 	}
 
 	/*
@@ -864,7 +867,10 @@ static void mmc_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_remove_card(host->card);
+
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*

@@ -4602,7 +4602,7 @@ void complete_all(struct completion *x)
 EXPORT_SYMBOL(complete_all);
 
 static inline long __sched
-do_wait_for_common(struct completion *x, long timeout, int state)
+do_wait_for_common(struct completion *x, long timeout, int state, int iowait)
 {
 	if (!x->done) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -4615,7 +4615,10 @@ do_wait_for_common(struct completion *x, long timeout, int state)
 			}
 			__set_current_state(state);
 			spin_unlock_irq(&x->wait.lock);
-			timeout = schedule_timeout(timeout);
+			if (iowait)
+				timeout = io_schedule_timeout(timeout);
+			else
+				timeout = schedule_timeout(timeout);
 			spin_lock_irq(&x->wait.lock);
 		} while (!x->done && timeout);
 		__remove_wait_queue(&x->wait, &wait);
@@ -4627,12 +4630,12 @@ do_wait_for_common(struct completion *x, long timeout, int state)
 }
 
 static long __sched
-wait_for_common(struct completion *x, long timeout, int state)
+wait_for_common(struct completion *x, long timeout, int state, int iowait)
 {
 	might_sleep();
 
 	spin_lock_irq(&x->wait.lock);
-	timeout = do_wait_for_common(x, timeout, state);
+	timeout = do_wait_for_common(x, timeout, state, iowait);
 	spin_unlock_irq(&x->wait.lock);
 	return timeout;
 }
@@ -4649,9 +4652,22 @@ wait_for_common(struct completion *x, long timeout, int state)
  */
 void __sched wait_for_completion(struct completion *x)
 {
-	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE);
+	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE, 0);
 }
 EXPORT_SYMBOL(wait_for_completion);
+
+/**
+ * wait_for_completion_io: - waits for completion of a task
+ * @x:  holds the state of this particular completion
+ *
+ * This waits for completion of a specific task to be signaled. Treats any
+ * sleeping as waiting for IO for the purposes of process accounting.
+ */
+void __sched wait_for_completion_io(struct completion *x)
+{
+	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE, 1);
+}
+EXPORT_SYMBOL(wait_for_completion_io);
 
 /**
  * wait_for_completion_timeout: - waits for completion of a task (w/timeout)
@@ -4665,7 +4681,7 @@ EXPORT_SYMBOL(wait_for_completion);
 unsigned long __sched
 wait_for_completion_timeout(struct completion *x, unsigned long timeout)
 {
-	return wait_for_common(x, timeout, TASK_UNINTERRUPTIBLE);
+	return wait_for_common(x, timeout, TASK_UNINTERRUPTIBLE, 0);
 }
 EXPORT_SYMBOL(wait_for_completion_timeout);
 
@@ -4678,7 +4694,8 @@ EXPORT_SYMBOL(wait_for_completion_timeout);
  */
 int __sched wait_for_completion_interruptible(struct completion *x)
 {
-	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_INTERRUPTIBLE);
+	long t =
+	  wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_INTERRUPTIBLE, 0);
 	if (t == -ERESTARTSYS)
 		return t;
 	return 0;
@@ -4697,7 +4714,7 @@ long __sched
 wait_for_completion_interruptible_timeout(struct completion *x,
 					  unsigned long timeout)
 {
-	return wait_for_common(x, timeout, TASK_INTERRUPTIBLE);
+	return wait_for_common(x, timeout, TASK_INTERRUPTIBLE, 0);
 }
 EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
 
@@ -4710,7 +4727,7 @@ EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
  */
 int __sched wait_for_completion_killable(struct completion *x)
 {
-	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_KILLABLE);
+	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_KILLABLE, 0);
 	if (t == -ERESTARTSYS)
 		return t;
 	return 0;
@@ -4730,7 +4747,7 @@ long __sched
 wait_for_completion_killable_timeout(struct completion *x,
 				     unsigned long timeout)
 {
-	return wait_for_common(x, timeout, TASK_KILLABLE);
+	return wait_for_common(x, timeout, TASK_KILLABLE, 0);
 }
 EXPORT_SYMBOL(wait_for_completion_killable_timeout);
 
@@ -5723,6 +5740,7 @@ long __sched io_schedule_timeout(long timeout)
 	delayacct_blkio_end();
 	return ret;
 }
+EXPORT_SYMBOL(io_schedule_timeout);
 
 /**
  * sys_sched_get_priority_max - return maximum RT priority.
@@ -7808,6 +7826,9 @@ static int cpuset_cpu_active(struct notifier_block *nfb, unsigned long action,
 {
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
+	case CPU_DOWN_PREPARE:
+	case CPU_DOWN_PREPARE_FROZEN:
 	case CPU_DOWN_FAILED:
 		cpuset_update_active_cpus();
 		return NOTIFY_OK;
@@ -8971,6 +8992,15 @@ cpu_cgroup_allow_attach(struct cgroup *cgrp, struct task_struct *tsk)
 static int
 cpu_cgroup_can_attach_task(struct cgroup *cgrp, struct task_struct *tsk)
 {
+	if ((current != tsk) && (!capable(CAP_SYS_NICE))) {
+		const struct cred *cred = current_cred(), *tcred;
+
+		tcred = __task_cred(tsk);
+
+		if (cred->euid != tcred->uid && cred->euid != tcred->suid)
+			return -EPERM;
+	}
+
 #ifdef CONFIG_RT_GROUP_SCHED
 	if (!sched_rt_can_attach(cgroup_tg(cgrp), tsk))
 		return -EINVAL;

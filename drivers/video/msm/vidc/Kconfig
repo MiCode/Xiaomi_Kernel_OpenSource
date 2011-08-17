@@ -1,0 +1,39 @@
+#
+# VIDEO CORE
+#
+menuconfig MSM_VIDC
+	bool "Video Core Driver"
+	depends on ARCH_MSM8X60 || ARCH_MSM7X30 || ARCH_MSM8960
+	default y
+	---help---
+	Say Y here to see options for video device drivers.
+	If you say N, all options in this submenu will be skipped and disabled.
+
+config MSM_VIDC_720P
+	bool "720P Video Core"
+	depends on MSM_VIDC && ARCH_MSM7X30
+	default y
+	help
+	This option enables support for Video core.
+
+config MSM_VIDC_1080P
+	bool "1080P Video Core"
+	depends on MSM_VIDC && (ARCH_MSM8X60 || ARCH_MSM8960)
+	default y
+	help
+	This option enables support for Video core.
+
+config MSM_VIDC_VENC
+	tristate "Video encoder"
+	depends on MSM_VIDC
+	default y
+	help
+	This option enables support for Video encoder.
+
+config MSM_VIDC_VDEC
+	tristate "Video decoder"
+	depends on MSM_VIDC
+	default y
+	help
+	This option enables support for Video decoder.
+

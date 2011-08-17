@@ -145,6 +145,39 @@ config TPS65010
 	  This driver can also be built as a module.  If so, the module
 	  will be called tps65010.
 
+config TPS65023
+        tristate "TPS65023 Power Management chip"
+        depends on I2C && ARCH_MSM_SCORPION && !MSM_SMP
+        default y if I2C && ARCH_MSM_SCORPION && !MSM_SMP
+        help
+          Say yes here for Qualcomm QSD chips. The TI PMIC is used by the
+          QSD8x50 series of chips for power management.
+
+config PMIC8058
+	tristate "PMIC8058 Power Management chip"
+	depends on I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX)
+	default y if I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX)
+	select MFD_CORE
+	select MSM_SHOW_RESUME_IRQ
+	help
+	  Say yes here for Qualcomm PM8058 chip.
+
+config PMIC8901
+	tristate "PMIC8901 Power Management chip"
+	depends on I2C_SSBI && ARCH_MSM8X60
+	default y if I2C_SSBI && ARCH_MSM8X60
+	select MFD_CORE
+	help
+	  Say yes here for Qualcomm PM8901 chip.
+
+config MARIMBA_TSADC
+	tristate "Support for Marimba Touchscreen ADC"
+	depends on MARIMBA_CORE && ARCH_MSM7X30
+	default y if MARIMBA_CORE
+	help
+	  Say yes here if you want to include support for TSADC in the
+	  Qualcomm Marimba chip.
+
 config TPS6507X
 	tristate "TPS6507x Power Management / Touch Screen chips"
 	select MFD_CORE
@@ -180,6 +213,33 @@ config MENELAUS
 	  regulators, Dual slot memory card transceivers, real-time clock
 	  and other features that are often used in portable devices like
 	  cell phones and PDAs.
+
+config MARIMBA_CORE
+	tristate "Marimba Core"
+	depends on I2C && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM7X27A)
+	default n
+	help
+	  Enables the Marimba Core driver. The core driver provides
+	  read/write capability to registers which are part of the
+	  marimba core.
+	  This driver dynamically detects the SoC and works for both
+	  Marimba and Bahama Chip.
+
+config MARIMBA_CODEC
+	tristate "Marimba Codec"
+	depends on MARIMBA_CORE
+	default n
+	help
+	 This driver programs Marimba Wideband Codec for input/output of
+	 audio signal.
+
+config TIMPANI_CODEC
+	tristate "Timpani Codec"
+	depends on MARIMBA_CORE
+	default n
+	help
+	 This driver programs Timpani Wideband Codec for input/output of
+	 audio signal.
 
 config TWL4030_CORE
 	bool "Texas Instruments TWL4030/TWL5030/TWL6030/TPS659x0 Support"
@@ -736,6 +796,63 @@ config MFD_TPS65910
 
 config TPS65911_COMPARATOR
 	tristate
+
+config MFD_PM8921_ADC
+	tristate "Support for Qualcomm PM8921 ADC"
+	depends on MFD_PM8921_CORE
+	help
+	  This is the ADC arbiter driver for Qualcomm PM8921 Chip.
+
+	  The driver supports reading the HKADC, XOADC and support to set and receive
+	  temperature threshold notifications using the Battery temperature module.
+
+config MFD_PM8XXX_DEBUG
+	tristate "Qualcomm PM8xxx debugfs support"
+	depends on MFD_PM8XXX && DEBUG_FS
+	default y if MFD_PM8XXX
+	help
+	  This driver provides a debugfs interface to the SSBI registers on
+	  Qualcomm PM 8xxx PMIC chips.  It allows for reads and writes to
+	  arbitrary addresses.  Writes are blocking so values are guaranteed to
+	  be set into hardware registers upon return.
+
+config MFD_PM8XXX_PWM
+	tristate "Support for Qualcomm PM8xxx PWM feature"
+	depends on MFD_PM8XXX
+	default y if MFD_PM8XXX
+	help
+	  This is the Pulse Width Modulation (PWM) driver for Qualcomm
+	  PM 8xxx PMIC chips. It can drive 8 channels of PWM output, and
+	  has a lookup table with size of 64 to be shared by any of the
+	  8 channels.
+
+config MFD_PM8XXX_MISC
+	tristate "Support for Qualcomm PM8xxx miscellaneous APIs"
+	depends on MFD_PM8XXX
+	default y if MFD_PM8XXX
+	help
+	  This driver implements several miscellaneous APIs that may be needed
+	  in order to control the PM8XXX PMIC chip.
+
+config MFD_PM8XXX_BATT_ALARM
+	tristate "Support for Qualcomm PM8xxx battery voltage alarm"
+	depends on MFD_PM8XXX
+	help
+	  This driver provides a means monitor battery under and over-voltage
+	  conditions.  An upper and/or lower threshold can be specified for
+	  normal operation.  A wakeable interrupt is triggered when the battery
+	  voltage leaves the accepatable range which then calls a notifier call
+	  chain.
+
+config WCD9310_CODEC
+        tristate "WCD9310 Codec"
+        depends on SLIMBUS
+        select MFD_CORE
+        default n
+        help
+          Enables the WCD9310 core driver. The core driver provides
+          read/write capability to registers which are part of the
+          WCD9310 core and gives the ability to use the WCD9310 codec.
 
 endif # MFD_SUPPORT
 

@@ -42,7 +42,7 @@ static void otg_id_cancel(void)
 
 static void __otg_id_notify(void)
 {
-	int ret;
+	int ret = 0;
 	struct otg_id_notifier_block *otg_id_nb;
 	bool proxy_wait = false;
 	if (plist_head_empty(&otg_id_plist))

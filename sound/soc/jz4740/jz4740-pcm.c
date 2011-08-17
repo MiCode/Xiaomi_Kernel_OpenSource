@@ -3,8 +3,7 @@
  *
  *  This program is free software; you can redistribute	 it and/or modify it
  *  under  the terms of	 the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the	License, or (at your
- *  option) any later version.
+ *  Free Software Foundation;  only version 2 of the License.
  *
  *  You should have received a copy of the  GNU General Public License along
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
@@ -370,4 +369,4 @@ module_exit(jz4740_soc_platform_exit);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Ingenic SoC JZ4740 PCM driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

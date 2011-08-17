@@ -44,5 +44,10 @@ struct ashmem_pin {
 #define ASHMEM_UNPIN		_IOW(__ASHMEMIOC, 8, struct ashmem_pin)
 #define ASHMEM_GET_PIN_STATUS	_IO(__ASHMEMIOC, 9)
 #define ASHMEM_PURGE_ALL_CACHES	_IO(__ASHMEMIOC, 10)
+#define ASHMEM_CACHE_FLUSH_RANGE	_IO(__ASHMEMIOC, 11)
+
+int get_ashmem_file(int fd, struct file **filp, struct file **vm_file,
+			unsigned long *len);
+void put_ashmem_file(struct file *file);
 
 #endif	/* _LINUX_ASHMEM_H */

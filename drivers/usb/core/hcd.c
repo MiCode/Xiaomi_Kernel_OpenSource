@@ -872,6 +872,9 @@ static void usb_bus_init (struct usb_bus *bus)
 	bus->bandwidth_isoc_reqs = 0;
 
 	INIT_LIST_HEAD (&bus->bus_list);
+#ifdef CONFIG_USB_OTG
+	INIT_DELAYED_WORK(&bus->hnp_polling, usb_hnp_polling_work);
+#endif
 }
 
 /*-------------------------------------------------------------------------*/
@@ -901,6 +904,11 @@ static int usb_register_bus(struct usb_bus *bus)
 	/* Add it to the local list of buses */
 	list_add (&bus->bus_list, &usb_bus_list);
 	mutex_unlock(&usb_bus_list_lock);
+#ifdef CONFIG_USB_OTG
+	/* Obvioulsy HNP is supported on B-host */
+	if (bus->is_b_host)
+		bus->hnp_support = 1;
+#endif
 
 	usb_notify_add_bus(bus);
 

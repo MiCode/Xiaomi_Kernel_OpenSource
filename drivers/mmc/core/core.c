@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/wakelock.h>
+#include <linux/pm.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -97,6 +98,9 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 {
 	struct mmc_command *cmd = mrq->cmd;
 	int err = cmd->error;
+#ifdef CONFIG_MMC_PERF_PROFILING
+	ktime_t diff;
+#endif
 
 	if (err && cmd->retries && mmc_host_is_spi(host)) {
 		if (cmd->resp[0] & R1_SPI_ILLEGAL_COMMAND)
@@ -119,6 +123,20 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 			cmd->resp[2], cmd->resp[3]);
 
 		if (mrq->data) {
+#ifdef CONFIG_MMC_PERF_PROFILING
+			diff = ktime_sub(ktime_get(), host->perf.start);
+			if (mrq->data->flags == MMC_DATA_READ) {
+				host->perf.rbytes_drv +=
+						mrq->data->bytes_xfered;
+				host->perf.rtime_drv =
+					ktime_add(host->perf.rtime_drv, diff);
+			} else {
+				host->perf.wbytes_drv +=
+						 mrq->data->bytes_xfered;
+				host->perf.wtime_drv =
+					ktime_add(host->perf.wtime_drv, diff);
+			}
+#endif
 			pr_debug("%s:     %d bytes transferred: %d\n",
 				mmc_hostname(host),
 				mrq->data->bytes_xfered, mrq->data->error);
@@ -193,6 +211,9 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 			mrq->stop->error = 0;
 			mrq->stop->mrq = mrq;
 		}
+#ifdef CONFIG_MMC_PERF_PROFILING
+		host->perf.start = ktime_get();
+#endif
 	}
 	mmc_host_clk_ungate(host);
 	led_trigger_event(host->led, LED_FULL);
@@ -222,7 +243,7 @@ void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 
 	mmc_start_request(host, mrq);
 
-	wait_for_completion(&complete);
+	wait_for_completion_io(&complete);
 }
 
 EXPORT_SYMBOL(mmc_wait_for_req);
@@ -479,6 +500,14 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	might_sleep();
 
 	add_wait_queue(&host->wq, &wait);
+#ifdef CONFIG_PM_RUNTIME
+	while (mmc_dev(host)->power.runtime_status == RPM_SUSPENDING) {
+		if (host->suspend_task == current)
+			break;
+		msleep(15);
+	}
+#endif
+
 	spin_lock_irqsave(&host->lock, flags);
 	while (1) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
@@ -1589,8 +1618,16 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	/* Order's important: probe SDIO, then SD, then MMC */
 	if (!mmc_attach_sdio(host))
 		return 0;
+
+	if (!host->ios.vdd)
+		mmc_power_up(host);
+
 	if (!mmc_attach_sd(host))
 		return 0;
+
+	if (!host->ios.vdd)
+		mmc_power_up(host);
+
 	if (!mmc_attach_mmc(host))
 		return 0;
 

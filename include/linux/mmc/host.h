@@ -221,7 +221,6 @@ struct mmc_host {
 	struct work_struct	clk_gate_work; /* delayed clock gate */
 	unsigned int		clk_old;	/* old clock value cache */
 	spinlock_t		clk_lock;	/* lock for clk fields */
-	struct mutex		clk_gate_mutex;	/* mutex for clock gating */
 #endif
 
 	/* host specific block data */
@@ -258,6 +257,7 @@ struct mmc_host {
 
 	wait_queue_head_t	wq;
 	struct task_struct	*claimer;	/* task that has host claimed */
+	struct task_struct	*suspend_task;
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;
@@ -294,6 +294,20 @@ struct mmc_host {
 	} embedded_sdio_data;
 #endif
 
+#ifdef CONFIG_MMC_PERF_PROFILING
+	struct {
+
+		unsigned long rbytes_mmcq; /* Rd bytes MMC queue */
+		unsigned long wbytes_mmcq; /* Wr bytes MMC queue */
+		unsigned long rbytes_drv;  /* Rd bytes MMC Host  */
+		unsigned long wbytes_drv;  /* Wr bytes MMC Host  */
+		ktime_t rtime_mmcq;	   /* Rd time  MMC queue */
+		ktime_t wtime_mmcq;	   /* Wr time  MMC queue */
+		ktime_t rtime_drv;	   /* Rd time  MMC Host  */
+		ktime_t wtime_drv;	   /* Wr time  MMC Host  */
+		ktime_t start;
+	} perf;
+#endif
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -376,7 +390,12 @@ int mmc_card_can_sleep(struct mmc_host *host);
 int mmc_host_enable(struct mmc_host *host);
 int mmc_host_disable(struct mmc_host *host);
 int mmc_host_lazy_disable(struct mmc_host *host);
-int mmc_pm_notify(struct notifier_block *notify_block, unsigned long, void *);
+#ifdef CONFIG_PM
+int mmc_pm_notify(struct notifier_block *notify_block, unsigned long mode,
+		  void *unused);
+#else
+#define mmc_pm_notify NULL
+#endif
 
 static inline void mmc_set_disable_delay(struct mmc_host *host,
 					 unsigned int disable_delay)

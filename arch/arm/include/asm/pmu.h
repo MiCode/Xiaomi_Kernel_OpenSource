@@ -16,6 +16,7 @@
 
 enum arm_pmu_type {
 	ARM_PMU_DEVICE_CPU	= 0,
+	ARM_PMU_DEVICE_L2	= 1,
 	ARM_NUM_PMU_DEVICES,
 };
 

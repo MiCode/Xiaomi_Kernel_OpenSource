@@ -37,6 +37,15 @@ struct tag_core {
 
 /* it is allowed to have multiple ATAG_MEM nodes */
 #define ATAG_MEM	0x54410002
+/* it is allowed to have multiple ATAG_MEM_RESERVED nodes */
+/* these indicate places where hotpluggable memory is present */
+/* which are not active during boot */
+#define ATAG_MEM_RESERVED	0x5441000A
+/* it is allowed to have multiple ATAG_MEM_LOW_POWER nodes */
+/* these indicate memory which can be put in a low power state */
+#define ATAG_MEM_LOW_POWER	0x5441000B
+/* these indicate memory which can be reclaimed from OSBL memory after bootup */
+#define ATAG_MEM_OSBL		0x5441000C
 
 struct tag_mem32 {
 	__u32	size;
@@ -220,6 +229,18 @@ extern struct meminfo meminfo;
 extern int arm_add_memory(phys_addr_t start, unsigned long size);
 extern void early_print(const char *str, ...);
 extern void dump_machine_table(void);
+
+/*
+ * Early command line parameters.
+ */
+struct early_params {
+	const char *arg;
+	void (*fn)(char **p);
+};
+
+#define __early_param(name,fn)					\
+static struct early_params __early_##fn __used			\
+__attribute__((__section__(".early_param.init"))) = { name, fn }
 
 #endif  /*  __KERNEL__  */
 

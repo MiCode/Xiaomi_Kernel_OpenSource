@@ -146,6 +146,10 @@
 
 #define USB_ENDPOINT_HALT		0	/* IN/OUT will STALL */
 
+#define OTG_STATUS_SELECTOR	0xF000
+#define THOST_REQ_POLL		2000    /* msec */
+#define HOST_REQUEST_FLAG	0
+
 /* Bit array elements as returned by the USB_REQ_GET_STATUS request. */
 #define USB_DEV_STAT_U1_ENABLED		2	/* transition into U1 state */
 #define USB_DEV_STAT_U2_ENABLED		3	/* transition into U2 state */

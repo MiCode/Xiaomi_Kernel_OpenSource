@@ -20,6 +20,9 @@
 #include <linux/gfp.h>
 #include <linux/memblock.h>
 #include <linux/sort.h>
+#ifdef CONFIG_MEMORY_HOTPLUG
+#include <linux/memory_hotplug.h>
+#endif
 
 #include <asm/mach-types.h>
 #include <asm/prom.h>
@@ -362,6 +365,46 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 	memblock_dump_all();
 }
 
+#ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
+int _early_pfn_valid(unsigned long pfn)
+{
+	struct meminfo *mi = &meminfo;
+	unsigned int left = 0, right = mi->nr_banks;
+
+	do {
+		unsigned int mid = (right + left) / 2;
+		struct membank *bank = &mi->bank[mid];
+
+		if (pfn < bank_pfn_start(bank))
+			right = mid;
+		else if (pfn >= bank_pfn_end(bank))
+			left = mid + 1;
+		else
+			return 1;
+	} while (left < right);
+	return 0;
+}
+EXPORT_SYMBOL(_early_pfn_valid);
+#endif
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+static void map_reserved_memory(void)
+{
+	struct map_desc map;
+
+	map.pfn = (movable_reserved_start >> PAGE_SHIFT);
+	map.virtual = __phys_to_virt(movable_reserved_start);
+	map.length = movable_reserved_size;
+#ifdef CONFIG_STRICT_MEMORY_RWX
+	map.type = MT_MEMORY_RW;
+#else
+	map.type = MT_MEMORY;
+#endif
+
+	create_mapping(&map);
+}
+#endif
+
 void __init bootmem_init(void)
 {
 	unsigned long min, max_low, max_high;
@@ -390,6 +433,13 @@ void __init bootmem_init(void)
 	 */
 	arm_bootmem_free(min, max_low, max_high);
 
+#ifdef CONFIG_MEMORY_HOTPLUG
+	if (movable_reserved_size) {
+		max_low = (movable_reserved_start + movable_reserved_size)
+			>> PAGE_SHIFT;
+		map_reserved_memory();
+	}
+#endif
 	high_memory = __va(((phys_addr_t)max_low << PAGE_SHIFT) - 1) + 1;
 
 	/*
@@ -714,6 +764,46 @@ void free_initmem(void)
 					    __phys_to_pfn(__pa(__init_end)),
 					    "init");
 }
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+int arch_add_memory(int nid, u64 start, u64 size)
+{
+	struct pglist_data *pgdata = NODE_DATA(nid);
+	struct zone *zone = pgdata->node_zones + ZONE_MOVABLE;
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+	int ret;
+
+	ret = __add_pages(nid, zone, start_pfn, nr_pages);
+	if (ret)
+		return ret;
+	return platform_physical_active_pages(start_pfn, nr_pages);
+}
+
+int arch_physical_active_memory(u64 start, u64 size)
+{
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+
+	return platform_physical_active_pages(start_pfn, nr_pages);
+}
+
+int arch_physical_remove_memory(u64 start, u64 size)
+{
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+
+	return platform_physical_remove_pages(start_pfn, nr_pages);
+}
+
+int arch_physical_low_power_memory(u64 start, u64 size)
+{
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+
+	return platform_physical_low_power_pages(start_pfn, nr_pages);
+}
+#endif
 
 #ifdef CONFIG_BLK_DEV_INITRD
 

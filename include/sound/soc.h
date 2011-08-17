@@ -202,6 +202,11 @@
 #define SOC_VALUE_ENUM_SINGLE_DECL(name, xreg, xshift, xmask, xtexts, xvalues) \
 	SOC_VALUE_ENUM_DOUBLE_DECL(name, xreg, xshift, xshift, xmask, xtexts, xvalues)
 
+
+/* DAI Link Host Mode Support */
+#define SND_SOC_DAI_LINK_NO_HOST		0x1
+#define SND_SOC_DAI_LINK_OPT_HOST		0x2
+
 /*
  * Component probe and remove ordering levels for components with runtime
  * dependencies.

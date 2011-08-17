@@ -35,6 +35,11 @@ struct mtp_data_header {
 
 #endif /* __KERNEL__ */
 
+/* Constants for MTP_SET_INTERFACE_MODE */
+#define MTP_INTERFACE_MODE_MTP  0
+#define MTP_INTERFACE_MODE_PTP  1
+
+
 struct mtp_file_range {
 	/* file descriptor for file to transfer */
 	int			fd;
@@ -65,6 +70,8 @@ struct mtp_event {
  * The file is created if it does not exist.
  */
 #define MTP_RECEIVE_FILE           _IOW('M', 1, struct mtp_file_range)
+/* Sets the driver mode to either MTP or PTP */
+#define MTP_SET_INTERFACE_MODE     _IOW('M', 2, int)
 /* Sends an event to the host via the interrupt endpoint */
 #define MTP_SEND_EVENT             _IOW('M', 3, struct mtp_event)
 /* Sends the specified file range to the host,

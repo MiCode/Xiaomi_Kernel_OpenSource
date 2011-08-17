@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,11 +8,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <linux/slab.h>
@@ -21,13 +16,11 @@
 #include <linux/mutex.h>
 #include <linux/errno.h>
 #include <linux/err.h>
+#include <linux/init.h>
 
 #include <asm/cacheflush.h>
 
-#include "scm.h"
-
-/* Cache line size for msm8x60 */
-#define CACHELINESIZE 32
+#include <mach/scm.h>
 
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
@@ -207,6 +200,21 @@ static int __scm_call(const struct scm_command *cmd)
 	return ret;
 }
 
+static u32 cacheline_size;
+
+static void scm_inv_range(unsigned long start, unsigned long end)
+{
+	start = round_down(start, cacheline_size);
+	end = round_up(end, cacheline_size);
+	while (start < end) {
+		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
+		     : "memory");
+		start += cacheline_size;
+	}
+	dsb();
+	isb();
+}
+
 /**
  * scm_call() - Send an SCM command
  * @svc_id: service identifier
@@ -224,6 +232,7 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 	int ret;
 	struct scm_command *cmd;
 	struct scm_response *rsp;
+	unsigned long start, end;
 
 	cmd = alloc_scm_command(cmd_len, resp_len);
 	if (!cmd)
@@ -240,16 +249,14 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		goto out;
 
 	rsp = scm_command_to_response(cmd);
+	start = (unsigned long)rsp;
+
 	do {
-		u32 start = (u32)rsp;
-		u32 end = (u32)scm_get_response_buffer(rsp) + resp_len;
-		start &= ~(CACHELINESIZE - 1);
-		while (start < end) {
-			asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
-			     : "memory");
-			start += CACHELINESIZE;
-		}
+		scm_inv_range(start, start + sizeof(*rsp));
 	} while (!rsp->is_complete);
+
+	end = (unsigned long)scm_get_response_buffer(rsp) + resp_len;
+	scm_inv_range(start, end);
 
 	if (resp_buf)
 		memcpy(resp_buf, scm_get_response_buffer(rsp), resp_len);
@@ -291,3 +298,14 @@ u32 scm_get_version(void)
 	return version;
 }
 EXPORT_SYMBOL(scm_get_version);
+
+static int scm_init(void)
+{
+	u32 ctr;
+
+	asm volatile("mrc p15, 0, %0, c0, c0, 1" : "=r" (ctr));
+	cacheline_size =  4 << ((ctr >> 16) & 0xf);
+
+	return 0;
+}
+early_initcall(scm_init);

@@ -45,16 +45,41 @@ static int __devinit pmu_device_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver pmu_driver = {
+static struct platform_driver cpu_pmu_driver = {
 	.driver		= {
-		.name	= "arm-pmu",
+		.name	= "cpu-arm-pmu",
 	},
 	.probe		= pmu_device_probe,
 };
 
+static struct platform_driver l2_pmu_driver = {
+	.driver		= {
+		.name	= "l2-arm-pmu",
+	},
+	.probe		= pmu_device_probe,
+};
+
+static struct platform_driver *pmu_drivers[] __initdata = {
+	&cpu_pmu_driver,
+	&l2_pmu_driver,
+};
+
 static int __init register_pmu_driver(void)
 {
-	return platform_driver_register(&pmu_driver);
+	int i;
+	int err;
+
+	for (i = 0; i < ARM_NUM_PMU_DEVICES; i++) {
+		err = platform_driver_register(pmu_drivers[i]);
+		if (err) {
+			pr_err("%s: failed to register id:%d\n", __func__, i);
+			while (--i >= 0)
+				platform_driver_unregister(pmu_drivers[i]);
+			break;
+		}
+	}
+
+	return err;
 }
 device_initcall(register_pmu_driver);
 

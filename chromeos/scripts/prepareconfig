@@ -1,0 +1,21 @@
+#!/bin/bash
+
+family=chromeos
+
+# The source package name will be the first token in the changelog
+changelog="${family}/changelog"
+package=$(sed -n '1s/\([^ ]*\).*/\1/p' ${changelog})
+
+# Get some version info
+release=$(sed -n "1s/^${package} (\([^-]*\)-.*/\1/p" ${changelog})
+revision=$(sed -n "1s/^${package} (${release}-\([^)]*\).*/\1/p" ${changelog})
+
+flavourconf=$(find ${family} -name config.flavour.$1)
+archconfdir=$(dirname ${flavourconf})
+version="Ubuntu ${release}-${revision}-$1"
+re="s/.*\(CONFIG_VERSION_SIGNATURE\).*/\1=""\"${version}\"""/"
+
+# Generarte .config
+cat ${family}/config/config.common.${family} \
+    ${archconfdir}/config.common.* \
+    ${flavourconf} | sed -e "${re}" > .config

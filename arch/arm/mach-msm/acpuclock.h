@@ -3,7 +3,7 @@
  * MSM architecture clock driver header
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007 QUALCOMM Incorporated
+ * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -20,13 +20,25 @@
 #ifndef __ARCH_ARM_MACH_MSM_ACPUCLOCK_H
 #define __ARCH_ARM_MACH_MSM_ACPUCLOCK_H
 
-int acpuclk_set_rate(unsigned long rate, int for_power_collapse);
-unsigned long acpuclk_get_rate(void);
+#include <linux/list.h>
+
+enum setrate_reason {
+	SETRATE_CPUFREQ = 0,
+	SETRATE_SWFI,
+	SETRATE_PC,
+	SETRATE_HOTPLUG,
+	SETRATE_INIT,
+};
+
+int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason);
+unsigned long acpuclk_get_rate(int cpu);
 uint32_t acpuclk_get_switch_time(void);
 unsigned long acpuclk_wait_for_irq(void);
 unsigned long acpuclk_power_collapse(void);
-unsigned long acpuclk_get_wfi_rate(void);
-
-
+#ifdef CONFIG_ARCH_MSM8960
+void acpuclock_secondary_init(void);
+#else
+static inline void acpuclock_secondary_init(void) { }
 #endif
 
+#endif

@@ -21,7 +21,7 @@
 #include <linux/cache.h>
 #include <linux/crc32.h>
 #include <linux/mii.h>
-
+#include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
 #include "ks8851.h"
@@ -127,6 +127,8 @@ struct ks8851_net {
 	struct spi_message	spi_msg2;
 	struct spi_transfer	spi_xfer1;
 	struct spi_transfer	spi_xfer2[2];
+	struct regulator	*vdd_io;
+	struct regulator	*vdd_phy;
 };
 
 static int msg_enable;
@@ -1592,6 +1594,15 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 
 	ks = netdev_priv(ndev);
 
+	ks->vdd_io = regulator_get(&spi->dev, "vdd_io");
+	ks->vdd_phy = regulator_get(&spi->dev, "vdd_phy");
+
+	if (!IS_ERR(ks->vdd_io))
+		regulator_enable(ks->vdd_io);
+
+	if (!IS_ERR(ks->vdd_phy))
+		regulator_enable(ks->vdd_phy);
+
 	ks->netdev = ndev;
 	ks->spidev = spi;
 	ks->tx_space = 6144;
@@ -1686,6 +1697,16 @@ err_netdev:
 err_id:
 err_irq:
 	free_netdev(ndev);
+
+	if (!IS_ERR(ks->vdd_io)) {
+		regulator_disable(ks->vdd_phy);
+		regulator_put(ks->vdd_io);
+	}
+
+	if (!IS_ERR(ks->vdd_phy)) {
+		regulator_disable(ks->vdd_phy);
+		regulator_put(ks->vdd_phy);
+	}
 	return ret;
 }
 
@@ -1695,6 +1716,16 @@ static int __devexit ks8851_remove(struct spi_device *spi)
 
 	if (netif_msg_drv(priv))
 		dev_info(&spi->dev, "remove\n");
+
+	if (!IS_ERR(priv->vdd_io)) {
+		regulator_disable(priv->vdd_phy);
+		regulator_put(priv->vdd_io);
+	}
+
+	if (!IS_ERR(priv->vdd_phy)) {
+		regulator_disable(priv->vdd_phy);
+		regulator_put(priv->vdd_phy);
+	}
 
 	unregister_netdev(priv->netdev);
 	free_irq(spi->irq, priv);

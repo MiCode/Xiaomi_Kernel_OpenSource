@@ -30,10 +30,12 @@
 /**
  * struct pmic8xxx_pwrkey - pmic8xxx pwrkey information
  * @key_press_irq: key press irq number
+ * @pdata: platform data
  */
 struct pmic8xxx_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
+	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
@@ -107,6 +109,8 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	if (!pwrkey)
 		return -ENOMEM;
 
+	pwrkey->pdata = pdata;
+
 	pwr = input_allocate_device();
 	if (!pwr) {
 		dev_dbg(&pdev->dev, "Can't allocate power button\n");
@@ -153,7 +157,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pwrkey);
 
-	err = request_irq(key_press_irq, pwrkey_press_irq,
+	err = request_threaded_irq(key_press_irq, NULL, pwrkey_press_irq,
 		IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
 	if (err < 0) {
 		dev_dbg(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
@@ -161,7 +165,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto unreg_input_dev;
 	}
 
-	err = request_irq(key_release_irq, pwrkey_release_irq,
+	err = request_threaded_irq(key_release_irq, NULL, pwrkey_release_irq,
 		 IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_release", pwrkey);
 	if (err < 0) {
 		dev_dbg(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",

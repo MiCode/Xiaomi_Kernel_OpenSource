@@ -198,7 +198,8 @@ static int sco_connect(struct sock *sk)
 		pkt_type &= SCO_ESCO_MASK;
 	}
 
-	hcon = hci_connect(hdev, type, pkt_type, dst, BT_SECURITY_LOW, HCI_AT_NO_BONDING);
+	hcon = hci_connect(hdev, type, pkt_type, dst,
+					BT_SECURITY_LOW, HCI_AT_NO_BONDING);
 	if (IS_ERR(hcon)) {
 		err = PTR_ERR(hcon);
 		goto done;
@@ -372,15 +373,6 @@ static void __sco_sock_close(struct sock *sk)
 
 	case BT_CONNECTED:
 	case BT_CONFIG:
-		if (sco_pi(sk)->conn) {
-			sk->sk_state = BT_DISCONN;
-			sco_sock_set_timer(sk, SCO_DISCONN_TIMEOUT);
-			hci_conn_put(sco_pi(sk)->conn->hcon);
-			sco_pi(sk)->conn->hcon = NULL;
-		} else
-			sco_chan_del(sk, ECONNRESET);
-		break;
-
 	case BT_CONNECT:
 	case BT_DISCONN:
 		sco_chan_del(sk, ECONNRESET);
@@ -579,26 +571,30 @@ static int sco_sock_accept(struct socket *sock, struct socket *newsock, int flag
 
 	lock_sock(sk);
 
+	if (sk->sk_state != BT_LISTEN) {
+		err = -EBADFD;
+		goto done;
+	}
+
 	timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
 
 	BT_DBG("sk %p timeo %ld", sk, timeo);
 
 	/* Wait for an incoming connection. (wake-one). */
 	add_wait_queue_exclusive(sk_sleep(sk), &wait);
-	while (1) {
+	while (!(ch = bt_accept_dequeue(sk, newsock))) {
 		set_current_state(TASK_INTERRUPTIBLE);
-
-		if (sk->sk_state != BT_LISTEN) {
-			err = -EBADFD;
+		if (!timeo) {
+			err = -EAGAIN;
 			break;
 		}
 
-		ch = bt_accept_dequeue(sk, newsock);
-		if (ch)
-			break;
+		release_sock(sk);
+		timeo = schedule_timeout(timeo);
+		lock_sock(sk);
 
-		if (!timeo) {
-			err = -EAGAIN;
+		if (sk->sk_state != BT_LISTEN) {
+			err = -EBADFD;
 			break;
 		}
 
@@ -606,12 +602,8 @@ static int sco_sock_accept(struct socket *sock, struct socket *newsock, int flag
 			err = sock_intr_errno(timeo);
 			break;
 		}
-
-		release_sock(sk);
-		timeo = schedule_timeout(timeo);
-		lock_sock(sk);
 	}
-	__set_current_state(TASK_RUNNING);
+	set_current_state(TASK_RUNNING);
 	remove_wait_queue(sk_sleep(sk), &wait);
 
 	if (err)
@@ -844,9 +836,7 @@ static void sco_chan_del(struct sock *sk, int err)
 		conn->sk = NULL;
 		sco_pi(sk)->conn = NULL;
 		sco_conn_unlock(conn);
-
-		if (conn->hcon)
-			hci_conn_put(conn->hcon);
+		hci_conn_put(conn->hcon);
 	}
 
 	sk->sk_state = BT_CLOSED;
@@ -948,7 +938,7 @@ static int sco_connect_cfm(struct hci_conn *hcon, __u8 status)
 		if (conn)
 			sco_conn_ready(conn);
 	} else
-		sco_conn_del(hcon, bt_to_errno(status));
+		sco_conn_del(hcon, bt_err(status));
 
 	return 0;
 }
@@ -960,7 +950,7 @@ static int sco_disconn_cfm(struct hci_conn *hcon, __u8 reason)
 	if (hcon->type != SCO_LINK && hcon->type != ESCO_LINK)
 		return -EINVAL;
 
-	sco_conn_del(hcon, bt_to_errno(reason));
+	sco_conn_del(hcon, bt_err(reason));
 
 	return 0;
 }

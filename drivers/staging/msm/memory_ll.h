@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -47,7 +47,7 @@ extern void l2x0_cache_sync(void);
 
 #endif
 
-#ifdef CONFIG_ARCH_MSM_SCORPION
+#ifdef CONFIG_ARCH_MSM_SCORPION || CONFIG_ARCH_MSM_KRAIT
 #define arch_has_speculative_dfetch()	1
 #endif
 

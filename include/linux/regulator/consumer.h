@@ -237,6 +237,11 @@ static inline void regulator_bulk_free(int num_consumers,
 {
 }
 
+static inline int regulator_count_voltages(struct regulator *regulator)
+{
+	return 0;
+}
+
 static inline int regulator_set_voltage(struct regulator *regulator,
 					int min_uV, int max_uV)
 {

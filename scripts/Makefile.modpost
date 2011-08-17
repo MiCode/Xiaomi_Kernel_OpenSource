@@ -80,6 +80,7 @@ modpost = scripts/mod/modpost                    \
  $(if $(KBUILD_EXTRA_SYMBOLS), $(patsubst %, -e %,$(KBUILD_EXTRA_SYMBOLS))) \
  $(if $(KBUILD_EXTMOD),-o $(modulesymfile))      \
  $(if $(CONFIG_DEBUG_SECTION_MISMATCH),,-S)      \
+ $(if $(CONFIG_NO_ERROR_ON_MISMATCH),,-E)	 \
  $(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w) \
  $(if $(cross_build),-c)
 

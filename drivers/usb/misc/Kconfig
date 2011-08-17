@@ -218,6 +218,21 @@ config USB_TEST
 	  See <http://www.linux-usb.org/usbtest/> for more information,
 	  including sample test device firmware and "how to use it".
 
+config USB_EHSET_TEST_FIXTURE
+	tristate "USB EHSET Test Fixture Driver"
+	depends on USB && USB_EHCI_EHSET
+	default n
+	help
+	  Say Y here if you want to use EHSET Test Fixture device for host
+	  compliance testing.
+
+	  This driver initiates test modes on the downstream port to which the
+	  test fixture is attached.
+
+	  See <http://www.usb.org/developers/onthego/EHSET_v1.01.pdf>
+	  for more information.
+
+
 config USB_ISIGHTFW
 	tristate "iSight firmware loading support"
 	depends on USB

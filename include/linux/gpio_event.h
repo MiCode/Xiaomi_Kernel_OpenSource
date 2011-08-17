@@ -83,10 +83,10 @@ struct gpio_event_matrix_info {
 	unsigned int ninputs;
 	unsigned int noutputs;
 	/* time to wait before reading inputs after driving each output */
-	ktime_t settle_time;
+	struct timespec settle_time;
 	/* time to wait before scanning the keypad a second time */
-	ktime_t debounce_delay;
-	ktime_t poll_time;
+	struct timespec debounce_delay;
+	struct timespec poll_time;
 	unsigned flags;
 };
 

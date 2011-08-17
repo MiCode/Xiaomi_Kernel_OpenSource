@@ -153,12 +153,23 @@ ENTRY(v4wt_flush_kern_dcache_area)
  *	- start  - virtual start address
  *	- end	 - virtual end address
  */
-v4wt_dma_inv_range:
+ENTRY(v4wt_dma_inv_range)
 	bic	r0, r0, #CACHE_DLINESIZE - 1
 1:	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
 	add	r0, r0, #CACHE_DLINESIZE
 	cmp	r0, r1
 	blo	1b
+	/* FALLTHROUGH */
+
+/*
+ *	dma_clean_range(start, end)
+ *
+ *	Clean the specified virtual address range.
+ *
+ *	- start  - virtual start address
+ *	- end	 - virtual end address
+ */
+ENTRY(v4wt_dma_clean_range)
 	mov	pc, lr
 
 /*
@@ -208,5 +219,7 @@ ENTRY(v4wt_cache_fns)
 	.long	v4wt_flush_kern_dcache_area
 	.long	v4wt_dma_map_area
 	.long	v4wt_dma_unmap_area
+	.long	v4wt_dma_inv_range
+	.long	v4wt_dma_clean_range
 	.long	v4wt_dma_flush_range
 	.size	v4wt_cache_fns, . - v4wt_cache_fns

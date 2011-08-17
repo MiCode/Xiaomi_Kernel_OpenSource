@@ -1,0 +1,32 @@
+Introduction
+============
+
+Gadget serial driver is divided into two parts.
+1. f_serial.c : Interacts with USB Gadget Layer
+2. u_serial.c : Interacts with TTY Layer
+
+Gadget sdio driver adds capability to interact with SDIO Layer in
+case modem device is inter-connected with sdio interface.
+
+S/W Description
+===============
+Gadget SDIO driver is a simple bridge driver between usb serial
+gadget and sdio abstraction layer. It registers with sdio
+abstraction layer with read/write call backs and provides
+USB connect/disconnect call backs usb gadget serial driver.
+
+
+S/W Control Flow:
+=================
+Driver maintains two sdio channels, one for data and one for control.
+Data pipe is dedicated sdio channel where as control is a muxed channel.
+Incase of sdio control pipe, driver registers for control information
+chagnes from modem side. Whenever new information is available, it
+would queue a interrupt endpoint w/ new info. Laptop can also send the
+DTR and RTS information as part of SET Encapsulated command.
+
+Data pipe of sdio channel also has notification mechanism to indicate
+the READ/WRITE availability. When READ is available on SDIO pipe,
+driver would read the data and hands it over to USB In ept and when
+it receives the data from USB driver would queue the same to SDIO
+channel(if write buffers are available).

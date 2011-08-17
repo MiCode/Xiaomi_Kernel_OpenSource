@@ -1,3 +1,6 @@
 if X86
 source "drivers/platform/x86/Kconfig"
 endif
+if ARCH_MSM
+source "drivers/platform/msm/Kconfig"
+endif

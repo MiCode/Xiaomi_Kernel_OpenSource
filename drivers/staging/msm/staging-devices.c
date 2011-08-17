@@ -40,7 +40,6 @@
 #define MSM_PMEM_ADSP_SIZE	0x1C00000
 
 #define MSM_FB_SIZE             0x500000
-#define MSM_FB_SIZE_ST15	0x800000
 #define MSM_AUDIO_SIZE		0x80000
 #define MSM_GPU_PHYS_SIZE 	SZ_2M
 
@@ -106,20 +105,14 @@ static int msm_fb_detect_panel(const char *name)
 {
 	int ret = -EPERM;
 
-	if (machine_is_qsd8x50_ffa() || machine_is_qsd8x50a_ffa()) {
+	if (machine_is_qsd8x50_ffa()) {
 		if (!strncmp(name, "mddi_toshiba_wvga_pt", 20))
 			ret = 0;
 		else
 			ret = -ENODEV;
-	} else if ((machine_is_qsd8x50_surf() || machine_is_qsd8x50a_surf())
+	} else if ((machine_is_qsd8x50_surf()) {
 			&& !strcmp(name, "lcdc_external"))
 		ret = 0;
-	else if (machine_is_qsd8x50a_st1_5()) {
-		if (!strcmp(name, "lcdc_st15") ||
-		    !strcmp(name, "hdmi_sii9022"))
-			ret = 0;
-		else
-			ret = -ENODEV;
 	}
 
 	return ret;
@@ -130,8 +123,7 @@ static int msm_fb_detect_panel(const char *name)
 
 static int msm_fb_allow_set_offset(void)
 {
-	return (machine_is_qsd8x50_st1() ||
-		machine_is_qsd8x50a_st1_5()) ? 1 : 0;
+	return 0;
 }
 
 
@@ -154,10 +146,7 @@ static void __init qsd8x50_allocate_memory_regions(void)
 {
 	void *addr;
 	unsigned long size;
-	if (machine_is_qsd8x50a_st1_5())
-		size = MSM_FB_SIZE_ST15;
-	else
-		size = MSM_FB_SIZE;
+	size = MSM_FB_SIZE;
 
 	addr = alloc_bootmem(size); // (void *)MSM_FB_BASE;
 	if (!addr)
@@ -186,25 +175,6 @@ static int msm_fb_lcdc_gpio_config(int on)
 			gpio_set_value(20, 0);
 			mdelay(100);
 			gpio_set_value(32, 0);
-		}
-	} else if (machine_is_qsd8x50a_st1_5()) {
-		if (on) {
-			gpio_set_value(17, 1);
-			gpio_set_value(19, 1);
-			gpio_set_value(20, 1);
-			gpio_set_value(22, 0);
-			gpio_set_value(32, 1);
-			gpio_set_value(155, 1);
-			//st15_hdmi_power(1);
-			gpio_set_value(22, 1);
-
-		} else {
-			gpio_set_value(17, 0);
-			gpio_set_value(19, 0);
-			gpio_set_value(22, 0);
-			gpio_set_value(32, 0);
-			gpio_set_value(155, 0);
-		//	st15_hdmi_power(0);
 		}
 	}
 	return 0;
@@ -276,23 +246,7 @@ static void __init msm_fb_add_devices(void)
 //	msm_fb_register_device("pmdh", &mddi_pdata);
 //	msm_fb_register_device("emdh", &mddi_pdata);
 //	msm_fb_register_device("tvenc", 0);
-
-	if (machine_is_qsd8x50a_st1_5()) {
-/*		rc = st15_hdmi_vreg_init();
-		if (rc)
-			return;
-*/
-		rc = msm_gpios_request_enable(
-			msm_fb_st15_gpio_config_data,
-			ARRAY_SIZE(msm_fb_st15_gpio_config_data));
-		if (rc) {
-			printk(KERN_ERR "%s: unable to init lcdc gpios\n",
-			       __func__);
-			return;
-		}
-		msm_fb_register_device("lcdc", &lcdc_pdata);
-	} else
-		msm_fb_register_device("lcdc", 0);
+	msm_fb_register_device("lcdc", 0);
 }
 
 int __init staging_init_pmem(void)

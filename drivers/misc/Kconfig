@@ -535,6 +535,124 @@ config APANIC_PLABEL
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
 
+config TSIF
+	depends on ARCH_MSM
+	tristate "TSIF (Transport Stream InterFace) support"
+	default n
+	---help---
+	  This driver supports low level TSIF interface. It provides API
+	  for upper layer drivers. If you have a TSIF hardware, say
+	  Y here and read <file:Documentation/arm/msm/tsif.txt>.
+
+	  To compile this driver as module, choose M here: the
+	  module will be called msm_tsif.
+
+config TSIF_CHRDEV
+	tristate "TSIF character device"
+	depends on TSIF
+	default n
+	---help---
+	  This driver uses low level TSIF interface. It provides character
+	  device useable from user space programs: one can read TSIF stream
+	  from this device.
+
+	  This driver may be used as example for TSIF API usage.
+
+	  To compile this driver as module, choose M here: the
+	  module will be called tsif_chrdev.
+
+config TSIF_DEBUG
+	bool "Turn on debugging information for tsif driver"
+	depends on TSIF
+	default n
+	---help---
+	  This turns on debugging information for the tsif driver
+
+config HAPTIC_ISA1200
+	tristate "ISA1200 haptic support"
+	depends on I2C
+	default n
+	help
+	  The ISA1200 is a high performance enhanced haptic driver.
+
+config PMIC8058_PWM
+	tristate "Qualcomm PM8058 PWM support"
+	depends on PMIC8058
+	default y
+	help
+	  This option enables device driver support for the PWM channels
+	  on Qualcomm PM8058 chip. Pulse Width Modulation is used for
+	  purposes including software controlled brightness of backlight,
+	  motor control, and waveform generation.
+
+config PMIC8058_VIBRATOR
+	tristate "Qualcomm PM8058 vibrator support"
+	depends on PMIC8058 && ANDROID_TIMED_OUTPUT
+	default n
+	help
+	  This option enables device driver support for the vibrator
+	  on Qualcomm PM8058 chip.
+
+config PMIC8058_NFC
+	tristate "Qualcomm PM8058 support for Near Field Communication"
+	depends on PMIC8058
+	default y
+	help
+	  Qualcomm PM8058 chip has a module to support NFC (Near Field
+	  Communication). This option enables the driver to support it.
+
+config PMIC8058_UPL
+	tristate "Qualcomm PM8058 support for User Programmable Logic"
+	depends on PMIC8058
+	default n
+	help
+	  This option enables device driver support for User Programmable Logic
+	  on Qualcomm PM8058 chip.  The UPL module provides a means to implement
+	  simple truth table based logic via a set of control registers. I/O may
+	  be routed in and out of the UPL module via GPIO or DTEST pins.
+
+config PMIC8058_XOADC
+	tristate "Qualcomm PM8058 XOADC driver"
+	depends on PMIC8058
+	default n
+	help
+	  Enables User processor ADC reads over the XOADC module of Qualcomm's
+	  PMIC8058. Driver interface to program registers of the ADC over
+	  AMUX channels, devices on programmable MPP's and xotherm.
+
+config PMIC8058_MISC
+	tristate "Qualcomm PM8058 Misc Device driver"
+	depends on PMIC8058
+	default n
+	help
+	  Provides functionality for various small drivers utilizing the
+	  Qualcomm PM8058 chip.  Examples include: signalling when the 32kHz
+	  oscillator malfunctions.
+
+config PMIC8058_BATTALARM
+	tristate "Qualcomm PM8058 Battery Alarm Device driver"
+	depends on PMIC8058
+	help
+	  This option enables support for the battery alarm module on the
+	  Qualcomm PM8058 PMIC chip.  This support allows for configuration of
+	  the alarm module as well as interrupt handling.
+
+config TZCOM
+	tristate "Trustzone Communicator driver"
+	default n
+	help
+	  Provides a communication interface between userspace and
+	  TrustZone Operating Environment (TZBSP) using Secure Channel
+	  Manager (SCM) interface.
+
+config QFP_FUSE
+	tristate "QFPROM Fuse Read/Write support"
+	help
+	  This option enables device driver to read/write QFPROM
+	  fuses. The ioctls provides the necessary interface
+	  to the fuse block. Currently this is supported only
+	  on FSM targets.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

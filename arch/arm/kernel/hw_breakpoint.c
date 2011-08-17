@@ -833,6 +833,18 @@ static int hw_breakpoint_pending(unsigned long addr, unsigned int fsr,
 	return ret;
 }
 
+static void reset_brps_reserved_reg(int n)
+{
+	int i;
+
+	/* we must also reset any reserved registers. */
+	for (i = 0; i < n; ++i) {
+		write_wb_reg(ARM_BASE_BCR + i, 0UL);
+		write_wb_reg(ARM_BASE_BVR + i, 0UL);
+	}
+
+}
+
 /*
  * One-time initialisation.
  */
@@ -880,11 +892,11 @@ static void reset_ctrl_regs(void *info)
 	if (enable_monitor_mode())
 		return;
 
-	/* We must also reset any reserved registers. */
-	for (i = 0; i < core_num_brps + core_num_reserved_brps; ++i) {
-		write_wb_reg(ARM_BASE_BCR + i, 0UL);
-		write_wb_reg(ARM_BASE_BVR + i, 0UL);
-	}
+#ifdef CONFIG_HAVE_HW_BRKPT_RESERVED_RW_ACCESS
+	reset_brps_reserved_reg(core_num_brps);
+#else
+	reset_brps_reserved_reg(core_num_brps + core_num_reserved_brps);
+#endif
 
 	for (i = 0; i < core_num_wrps; ++i) {
 		write_wb_reg(ARM_BASE_WCR + i, 0UL);

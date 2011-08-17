@@ -197,20 +197,6 @@ struct mgmt_cp_remove_remote_oob_data {
 	bdaddr_t bdaddr;
 } __packed;
 
-#define MGMT_OP_START_DISCOVERY		0x001B
-
-#define MGMT_OP_STOP_DISCOVERY		0x001C
-
-#define MGMT_OP_BLOCK_DEVICE		0x001D
-struct mgmt_cp_block_device {
-	bdaddr_t bdaddr;
-} __packed;
-
-#define MGMT_OP_UNBLOCK_DEVICE		0x001E
-struct mgmt_cp_unblock_device {
-	bdaddr_t bdaddr;
-} __packed;
-
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16 opcode;
@@ -242,7 +228,7 @@ struct mgmt_ev_controller_error {
 
 #define MGMT_EV_NEW_KEY			0x000A
 struct mgmt_ev_new_key {
-	__u8 store_hint;
+	__u8 old_key_type;
 	struct mgmt_key_info key;
 } __packed;
 
@@ -265,13 +251,11 @@ struct mgmt_ev_connect_failed {
 #define MGMT_EV_PIN_CODE_REQUEST	0x000E
 struct mgmt_ev_pin_code_request {
 	bdaddr_t bdaddr;
-	__u8 secure;
 } __packed;
 
 #define MGMT_EV_USER_CONFIRM_REQUEST	0x000F
 struct mgmt_ev_user_confirm_request {
 	bdaddr_t bdaddr;
-	__u8 confirm_hint;
 	__le32 value;
 } __packed;
 
@@ -299,5 +283,3 @@ struct mgmt_ev_remote_name {
 	bdaddr_t bdaddr;
 	__u8 name[MGMT_MAX_NAME_LENGTH];
 } __packed;
-
-#define MGMT_EV_DISCOVERING		0x0014

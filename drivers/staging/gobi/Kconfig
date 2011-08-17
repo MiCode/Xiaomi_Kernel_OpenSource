@@ -1,0 +1,5 @@
+config GOBI_USBNET
+        tristate "Qualcomm GOBI2k and QCQMI support"
+        help
+        This module adds network device support for GOBI2k 3G radios.
+~

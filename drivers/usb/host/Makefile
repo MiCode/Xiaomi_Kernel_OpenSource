@@ -15,6 +15,7 @@ xhci-hcd-y := xhci.o xhci-mem.o xhci-pci.o
 xhci-hcd-y += xhci-ring.o xhci-hub.o xhci-dbg.o
 
 obj-$(CONFIG_USB_WHCI_HCD)	+= whci/
+obj-$(CONFIG_USB_PEHCI_HCD)	+= pehci/
 
 obj-$(CONFIG_PCI)		+= pci-quirks.o
 

@@ -1,0 +1,98 @@
+This document lists details for the device specific sysfs attributes
+created by the KGSL GPU driver.
+
+- /sys/devices/platform/kgsl/vmalloc
+  The total amount of vmalloc()ed memory currently allocated by the driver
+  (in bytes)
+
+- /sys/devices/platform/kgsl/vmalloc_max
+  The maximum amount of vmalloc()ed memory allocated at any one
+  time by the driver since the system was booted (in bytes)
+
+- /sys/devices/platform/kgsl/coherent
+  The total amount of coherent DMA memory currently allocated by the driver
+  (in bytes)
+
+- /sys/devices/platform/kgsl/coherent_max
+  The maximum amount of coherent DMA memory allocated at any one
+  time by the driver since the system was booted (in bytes)
+
+
+- /sys/devices/platform/kgsl/histogram
+  A histogram of the sizes of vmalloc allocations by the driver
+  since the system was booted.  The allocations are grouped by the order
+  of the allocation size in pages.  For example, order 0 are 1 page
+  allocations, order 1 are 2 page allocations, order 2 are 4 page allocations,
+  and so forth, up to order 16 (32768) pages.
+
+- /sys/devices/platform/kgsl/proc
+  This directory contains individual entries for each active rendering
+  process.  Rendering instances are created for each unique process that
+  opens the GPU devices, and are named for the id of the creating process.
+  In the driver, memory allocations are owned by the process that allocates
+  them, and outstanding memory is garbage collected when the process closes
+  the device.
+
+  - /sys/devices/platform/kgsl/proc/NN/vmalloc
+    The total amount of vmalloc memory currently allocated by the process
+    (in bytes)
+
+  - /sys/devices/platform/kgsl/proc/NN/vmalloc_max
+    The maximum amount of vmalloc memory allocated at any one
+    time by the process since it was created (in bytes)
+
+  - /sys/devices/platform/kgsl/proc/NN/exmem
+    The total amount of external memory devices currently mapped by the process
+    (in bytes).  This includes PMEM, ASHMEM and external memory pointers from
+    userspace.
+
+  - /sys/devices/platform/kgsl/proc/NN/exmem_max
+    The maximum amount of external memory devices allocated at any one
+    time by the process since it was created (in bytes).  This includes PMEM,
+    ASHMEM and external memory pointers from userspace.
+
+  - /sys/devices/platform/kgsl/proc/NN/flushes
+    The total number of cache flushes performed by this process since it
+    was created.
+
+- /sys/devices/platform/kgsl/pagetables
+  This directory contains individual entries for each active pagetable.
+  There will always be a global pagetable with ID 0.  If per-process
+  pagetables are not enabled, pagetable ID 0 will also be the default
+  pagetable for all processes.  If per-process pagetables are enabled,
+  there will be an entry for each pagetable, named after the ID of the
+  process that created it.
+
+  - /sys/devices/platform/kgsl/pagetables/NN/entries
+    The number of concurrent entries mapped in the GPU MMU.
+
+  - /sys/devices/platform/kgsl/pagetables/NN/mapped
+    The number of bytes currently mapped in the GPU MMU.
+
+  - /sys/devices/platform/kgsl/pagetables/NN/va_range
+    The virtual address size of the MMU pagetable (in bytes).
+
+  - /sys/devices/platform/kgsl/pagetables/NN/max_mapped
+    The maximum number of bytes concurrently mapped in the GPU MMU since
+    the pagetable was created.
+
+  - /sys/devices/platform/kgsl/pagetables/NN/max_entries
+    The maximum number of entries concurrently mapped in the GPU MMU since
+    the pagetable was created.
+
+- /sys/devices/platform/kgsl/msm_kgsl/
+  Each individual GPU device (2D or 3D) will have its own device node in
+  this directory.  All platforms will have kgsl-3d0 (3D device), some
+  devices may have 1 2D device (kgsl-2d0) and others might add a second 2D
+  device (kgsl-2d1).
+
+  - /sys/devices/platform/kgsl/msm_kgsl/kgsl-XXX/pwrnap
+  Controls the system ability to nap (lightly sleep between frames).  1
+  indicates napping is enabled, 0 indicates it is disabled.  Write a 1 or
+  a 0 to the file to control napping.
+
+  - /sys/devices/platform/kgsl/msm_kgsl/kgsl-XXX/gpuclk
+  Shows the last active requested speed of the GPU clock in HZ, does not
+  actually measure the current clock rate. Write a clock speed to the file
+  corresponding to a supported platform power level to change to that power
+  level. The bandwidth vote will also be adjusted.

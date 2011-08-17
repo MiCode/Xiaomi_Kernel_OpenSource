@@ -30,15 +30,69 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
 #include <net/bluetooth/smp.h>
+#include <net/bluetooth/amp.h>
 
-static const struct proto_ops l2cap_sock_ops;
-static void l2cap_sock_init(struct sock *sk, struct sock *parent);
-static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int proto, gfp_t prio);
+/* ---- L2CAP timers ---- */
+static void l2cap_sock_timeout(unsigned long arg)
+{
+	struct sock *sk = (struct sock *) arg;
+	int reason;
+
+	BT_DBG("sock %p state %d", sk, sk->sk_state);
+
+	bh_lock_sock(sk);
+
+	if (sock_owned_by_user(sk)) {
+		/* sk is owned by user. Try again later */
+		l2cap_sock_set_timer(sk, HZ / 5);
+		bh_unlock_sock(sk);
+		sock_put(sk);
+		return;
+	}
+
+	if (sk->sk_state == BT_CONNECTED || sk->sk_state == BT_CONFIG)
+		reason = ECONNREFUSED;
+	else if (sk->sk_state == BT_CONNECT &&
+				l2cap_pi(sk)->sec_level != BT_SECURITY_SDP)
+		reason = ECONNREFUSED;
+	else
+		reason = ETIMEDOUT;
+
+	__l2cap_sock_close(sk, reason);
+
+	bh_unlock_sock(sk);
+
+	l2cap_sock_kill(sk);
+	sock_put(sk);
+}
+
+void l2cap_sock_set_timer(struct sock *sk, long timeout)
+{
+	BT_DBG("sk %p state %d timeout %ld", sk, sk->sk_state, timeout);
+	sk_reset_timer(sk, &sk->sk_timer, jiffies + timeout);
+}
+
+void l2cap_sock_clear_timer(struct sock *sk)
+{
+	BT_DBG("sock %p state %d", sk, sk->sk_state);
+	sk_stop_timer(sk, &sk->sk_timer);
+}
+
+static struct sock *__l2cap_get_sock_by_addr(__le16 psm, bdaddr_t *src)
+{
+	struct sock *sk;
+	struct hlist_node *node;
+	sk_for_each(sk, node, &l2cap_sk_list.head)
+		if (l2cap_pi(sk)->sport == psm && !bacmp(&bt_sk(sk)->src, src))
+			goto found;
+	sk = NULL;
+found:
+	return sk;
+}
 
 static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct sockaddr_l2 la;
 	int len, err = 0;
 
@@ -77,22 +131,26 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
 		}
 	}
 
+	write_lock_bh(&l2cap_sk_list.lock);
+
+	if (la.l2_psm && __l2cap_get_sock_by_addr(la.l2_psm, &la.l2_bdaddr)) {
+		err = -EADDRINUSE;
+	} else {
+		/* Save source address */
+		bacpy(&bt_sk(sk)->src, &la.l2_bdaddr);
+		l2cap_pi(sk)->psm   = la.l2_psm;
+		l2cap_pi(sk)->sport = la.l2_psm;
+		sk->sk_state = BT_BOUND;
+
+		if (__le16_to_cpu(la.l2_psm) == 0x0001 ||
+					__le16_to_cpu(la.l2_psm) == 0x0003)
+			l2cap_pi(sk)->sec_level = BT_SECURITY_SDP;
+	}
+
 	if (la.l2_cid)
-		err = l2cap_add_scid(chan, la.l2_cid);
-	else
-		err = l2cap_add_psm(chan, &la.l2_bdaddr, la.l2_psm);
+		l2cap_pi(sk)->scid = la.l2_cid;
 
-	if (err < 0)
-		goto done;
-
-	if (__le16_to_cpu(la.l2_psm) == 0x0001 ||
-				__le16_to_cpu(la.l2_psm) == 0x0003)
-		chan->sec_level = BT_SECURITY_SDP;
-
-	bacpy(&bt_sk(sk)->src, &la.l2_bdaddr);
-
-	chan->state = BT_BOUND;
-	sk->sk_state = BT_BOUND;
+	write_unlock_bh(&l2cap_sk_list.lock);
 
 done:
 	release_sock(sk);
@@ -102,11 +160,11 @@ done:
 static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr, int alen, int flags)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct sockaddr_l2 la;
 	int len, err = 0;
 
-	BT_DBG("sk %p", sk);
+	BT_DBG("sk %p type %d mode %d state %d", sk, sk->sk_type,
+		l2cap_pi(sk)->mode, sk->sk_state);
 
 	if (!addr || alen < sizeof(addr->sa_family) ||
 	    addr->sa_family != AF_BLUETOOTH)
@@ -121,13 +179,13 @@ static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr, int al
 
 	lock_sock(sk);
 
-	if (chan->chan_type == L2CAP_CHAN_CONN_ORIENTED
-			&& !(la.l2_psm || la.l2_cid)) {
+	if ((sk->sk_type == SOCK_SEQPACKET || sk->sk_type == SOCK_STREAM)
+		&& !(la.l2_psm || la.l2_cid || l2cap_pi(sk)->fixed_channel)) {
 		err = -EINVAL;
 		goto done;
 	}
 
-	switch (chan->mode) {
+	switch (l2cap_pi(sk)->mode) {
 	case L2CAP_MODE_BASIC:
 		break;
 	case L2CAP_MODE_ERTM:
@@ -163,18 +221,20 @@ static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr, int al
 	}
 
 	/* PSM must be odd and lsb of upper byte must be 0 */
-	if ((__le16_to_cpu(la.l2_psm) & 0x0101) != 0x0001 && !la.l2_cid &&
-					chan->chan_type != L2CAP_CHAN_RAW) {
+	if ((__le16_to_cpu(la.l2_psm) & 0x0101) != 0x0001 &&
+		!l2cap_pi(sk)->fixed_channel &&
+				sk->sk_type != SOCK_RAW && !la.l2_cid) {
+		BT_DBG("Bad PSM 0x%x", (int)__le16_to_cpu(la.l2_psm));
 		err = -EINVAL;
 		goto done;
 	}
 
 	/* Set destination address and psm */
 	bacpy(&bt_sk(sk)->dst, &la.l2_bdaddr);
-	chan->psm = la.l2_psm;
-	chan->dcid = la.l2_cid;
+	l2cap_pi(sk)->psm = la.l2_psm;
+	l2cap_pi(sk)->dcid = la.l2_cid;
 
-	err = l2cap_chan_connect(l2cap_pi(sk)->chan);
+	err = l2cap_do_connect(sk);
 	if (err)
 		goto done;
 
@@ -182,6 +242,8 @@ wait:
 	err = bt_sock_wait_state(sk, BT_CONNECTED,
 			sock_sndtimeo(sk, flags & O_NONBLOCK));
 done:
+	if (err)
+		BT_ERR("failed %d", err);
 	release_sock(sk);
 	return err;
 }
@@ -189,7 +251,6 @@ done:
 static int l2cap_sock_listen(struct socket *sock, int backlog)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	int err = 0;
 
 	BT_DBG("sk %p backlog %d", sk, backlog);
@@ -202,7 +263,7 @@ static int l2cap_sock_listen(struct socket *sock, int backlog)
 		goto done;
 	}
 
-	switch (chan->mode) {
+	switch (l2cap_pi(sk)->mode) {
 	case L2CAP_MODE_BASIC:
 		break;
 	case L2CAP_MODE_ERTM:
@@ -215,10 +276,30 @@ static int l2cap_sock_listen(struct socket *sock, int backlog)
 		goto done;
 	}
 
+	if (!l2cap_pi(sk)->psm && !l2cap_pi(sk)->scid) {
+		bdaddr_t *src = &bt_sk(sk)->src;
+		u16 psm;
+
+		err = -EINVAL;
+
+		write_lock_bh(&l2cap_sk_list.lock);
+
+		for (psm = 0x1001; psm < 0x1100; psm += 2)
+			if (!__l2cap_get_sock_by_addr(cpu_to_le16(psm), src)) {
+				l2cap_pi(sk)->psm   = cpu_to_le16(psm);
+				l2cap_pi(sk)->sport = cpu_to_le16(psm);
+				err = 0;
+				break;
+			}
+
+		write_unlock_bh(&l2cap_sk_list.lock);
+
+		if (err < 0)
+			goto done;
+	}
+
 	sk->sk_max_ack_backlog = backlog;
 	sk->sk_ack_backlog = 0;
-
-	chan->state = BT_LISTEN;
 	sk->sk_state = BT_LISTEN;
 
 done:
@@ -235,26 +316,30 @@ static int l2cap_sock_accept(struct socket *sock, struct socket *newsock, int fl
 
 	lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
 
+	if (sk->sk_state != BT_LISTEN) {
+		err = -EBADFD;
+		goto done;
+	}
+
 	timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
 
 	BT_DBG("sk %p timeo %ld", sk, timeo);
 
 	/* Wait for an incoming connection. (wake-one). */
 	add_wait_queue_exclusive(sk_sleep(sk), &wait);
-	while (1) {
+	while (!(nsk = bt_accept_dequeue(sk, newsock))) {
 		set_current_state(TASK_INTERRUPTIBLE);
-
-		if (sk->sk_state != BT_LISTEN) {
-			err = -EBADFD;
+		if (!timeo) {
+			err = -EAGAIN;
 			break;
 		}
 
-		nsk = bt_accept_dequeue(sk, newsock);
-		if (nsk)
-			break;
+		release_sock(sk);
+		timeo = schedule_timeout(timeo);
+		lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
 
-		if (!timeo) {
-			err = -EAGAIN;
+		if (sk->sk_state != BT_LISTEN) {
+			err = -EBADFD;
 			break;
 		}
 
@@ -262,12 +347,8 @@ static int l2cap_sock_accept(struct socket *sock, struct socket *newsock, int fl
 			err = sock_intr_errno(timeo);
 			break;
 		}
-
-		release_sock(sk);
-		timeo = schedule_timeout(timeo);
-		lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
 	}
-	__set_current_state(TASK_RUNNING);
+	set_current_state(TASK_RUNNING);
 	remove_wait_queue(sk_sleep(sk), &wait);
 
 	if (err)
@@ -286,7 +367,6 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
 {
 	struct sockaddr_l2 *la = (struct sockaddr_l2 *) addr;
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
@@ -294,13 +374,13 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
 	*len = sizeof(struct sockaddr_l2);
 
 	if (peer) {
-		la->l2_psm = chan->psm;
+		la->l2_psm = l2cap_pi(sk)->psm;
 		bacpy(&la->l2_bdaddr, &bt_sk(sk)->dst);
-		la->l2_cid = cpu_to_le16(chan->dcid);
+		la->l2_cid = cpu_to_le16(l2cap_pi(sk)->dcid);
 	} else {
-		la->l2_psm = chan->sport;
+		la->l2_psm = l2cap_pi(sk)->sport;
 		bacpy(&la->l2_bdaddr, &bt_sk(sk)->src);
-		la->l2_cid = cpu_to_le16(chan->scid);
+		la->l2_cid = cpu_to_le16(l2cap_pi(sk)->scid);
 	}
 
 	return 0;
@@ -309,7 +389,6 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
 static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __user *optval, int __user *optlen)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct l2cap_options opts;
 	struct l2cap_conninfo cinfo;
 	int len, err = 0;
@@ -325,13 +404,13 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 	switch (optname) {
 	case L2CAP_OPTIONS:
 		memset(&opts, 0, sizeof(opts));
-		opts.imtu     = chan->imtu;
-		opts.omtu     = chan->omtu;
-		opts.flush_to = chan->flush_to;
-		opts.mode     = chan->mode;
-		opts.fcs      = chan->fcs;
-		opts.max_tx   = chan->max_tx;
-		opts.txwin_size = (__u16)chan->tx_win;
+		opts.imtu     = l2cap_pi(sk)->imtu;
+		opts.omtu     = l2cap_pi(sk)->omtu;
+		opts.flush_to = l2cap_pi(sk)->flush_to;
+		opts.mode     = l2cap_pi(sk)->mode;
+		opts.fcs      = l2cap_pi(sk)->fcs;
+		opts.max_tx   = l2cap_pi(sk)->max_tx;
+		opts.txwin_size = l2cap_pi(sk)->tx_win;
 
 		len = min_t(unsigned int, len, sizeof(opts));
 		if (copy_to_user(optval, (char *) &opts, len))
@@ -340,7 +419,7 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 		break;
 
 	case L2CAP_LM:
-		switch (chan->sec_level) {
+		switch (l2cap_pi(sk)->sec_level) {
 		case BT_SECURITY_LOW:
 			opt = L2CAP_LM_AUTH;
 			break;
@@ -356,11 +435,14 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 			break;
 		}
 
-		if (chan->role_switch)
+		if (l2cap_pi(sk)->role_switch)
 			opt |= L2CAP_LM_MASTER;
 
-		if (chan->force_reliable)
+		if (l2cap_pi(sk)->force_reliable)
 			opt |= L2CAP_LM_RELIABLE;
+
+		if (l2cap_pi(sk)->flushable)
+			opt |= L2CAP_LM_FLUSHABLE;
 
 		if (put_user(opt, (u32 __user *) optval))
 			err = -EFAULT;
@@ -374,9 +456,8 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 			break;
 		}
 
-		memset(&cinfo, 0, sizeof(cinfo));
-		cinfo.hci_handle = chan->conn->hcon->handle;
-		memcpy(cinfo.dev_class, chan->conn->hcon->dev_class, 3);
+		cinfo.hci_handle = l2cap_pi(sk)->conn->hcon->handle;
+		memcpy(cinfo.dev_class, l2cap_pi(sk)->conn->hcon->dev_class, 3);
 
 		len = min_t(unsigned int, len, sizeof(cinfo));
 		if (copy_to_user(optval, (char *) &cinfo, len))
@@ -396,7 +477,6 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
 static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct bt_security sec;
 	struct bt_power pwr;
 	int len, err = 0;
@@ -416,17 +496,17 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 
 	switch (optname) {
 	case BT_SECURITY:
-		if (chan->chan_type != L2CAP_CHAN_CONN_ORIENTED &&
-					chan->chan_type != L2CAP_CHAN_RAW) {
+		if (sk->sk_type != SOCK_SEQPACKET && sk->sk_type != SOCK_STREAM
+				&& sk->sk_type != SOCK_RAW) {
 			err = -EINVAL;
 			break;
 		}
 
 		memset(&sec, 0, sizeof(sec));
-		sec.level = chan->sec_level;
+		sec.level = l2cap_pi(sk)->sec_level;
 
 		if (sk->sk_state == BT_CONNECTED)
-			sec.key_size = chan->conn->hcon->enc_key_size;
+			sec.key_size = l2cap_pi(sk)->conn->hcon->enc_key_size;
 
 		len = min_t(unsigned int, len, sizeof(sec));
 		if (copy_to_user(optval, (char *) &sec, len))
@@ -445,12 +525,6 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 
 		break;
 
-	case BT_FLUSHABLE:
-		if (put_user(chan->flushable, (u32 __user *) optval))
-			err = -EFAULT;
-
-		break;
-
 	case BT_POWER:
 		if (sk->sk_type != SOCK_SEQPACKET && sk->sk_type != SOCK_STREAM
 				&& sk->sk_type != SOCK_RAW) {
@@ -458,12 +532,17 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 			break;
 		}
 
-		pwr.force_active = chan->force_active;
+		pwr.force_active = l2cap_pi(sk)->force_active;
 
 		len = min_t(unsigned int, len, sizeof(pwr));
 		if (copy_to_user(optval, (char *) &pwr, len))
 			err = -EFAULT;
 
+		break;
+
+	case BT_AMP_POLICY:
+		if (put_user(l2cap_pi(sk)->amp_pref, (u32 __user *) optval))
+			err = -EFAULT;
 		break;
 
 	default:
@@ -478,29 +557,30 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __user *optval, unsigned int optlen)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct l2cap_options opts;
-	int len, err = 0;
+	int len, le_sock, err = 0;
 	u32 opt;
 
 	BT_DBG("sk %p", sk);
 
 	lock_sock(sk);
 
+	le_sock = l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA;
+
 	switch (optname) {
 	case L2CAP_OPTIONS:
-		if (sk->sk_state == BT_CONNECTED) {
+		if (sk->sk_state == BT_CONNECTED && !le_sock) {
 			err = -EINVAL;
 			break;
 		}
 
-		opts.imtu     = chan->imtu;
-		opts.omtu     = chan->omtu;
-		opts.flush_to = chan->flush_to;
-		opts.mode     = chan->mode;
-		opts.fcs      = chan->fcs;
-		opts.max_tx   = chan->max_tx;
-		opts.txwin_size = (__u16)chan->tx_win;
+		opts.imtu     = l2cap_pi(sk)->imtu;
+		opts.omtu     = l2cap_pi(sk)->omtu;
+		opts.flush_to = l2cap_pi(sk)->flush_to;
+		opts.mode     = l2cap_pi(sk)->mode;
+		opts.fcs      = l2cap_pi(sk)->fcs;
+		opts.max_tx   = l2cap_pi(sk)->max_tx;
+		opts.txwin_size = l2cap_pi(sk)->tx_win;
 
 		len = min_t(unsigned int, sizeof(opts), optlen);
 		if (copy_from_user((char *) &opts, optval, len)) {
@@ -508,15 +588,28 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 			break;
 		}
 
-		if (opts.txwin_size > L2CAP_DEFAULT_TX_WINDOW) {
+		if ((opts.imtu || opts.omtu) && le_sock &&
+				(sk->sk_state == BT_CONNECTED)) {
+			if (opts.imtu >= L2CAP_LE_DEFAULT_MTU)
+				l2cap_pi(sk)->imtu = opts.imtu;
+			if (opts.omtu >= L2CAP_LE_DEFAULT_MTU)
+				l2cap_pi(sk)->omtu = opts.omtu;
+			if (opts.imtu < L2CAP_LE_DEFAULT_MTU ||
+					opts.omtu < L2CAP_LE_DEFAULT_MTU)
+				err = -EINVAL;
+			break;
+		}
+
+		if (opts.txwin_size < 1 ||
+			opts.txwin_size > L2CAP_TX_WIN_MAX_EXTENDED) {
 			err = -EINVAL;
 			break;
 		}
 
-		chan->mode = opts.mode;
-		switch (chan->mode) {
+		l2cap_pi(sk)->mode = opts.mode;
+		switch (l2cap_pi(sk)->mode) {
 		case L2CAP_MODE_BASIC:
-			clear_bit(CONF_STATE2_DEVICE, &chan->conf_state);
+			l2cap_pi(sk)->conf_state &= ~L2CAP_CONF_STATE2_DEVICE;
 			break;
 		case L2CAP_MODE_ERTM:
 		case L2CAP_MODE_STREAMING:
@@ -528,11 +621,11 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 			break;
 		}
 
-		chan->imtu = opts.imtu;
-		chan->omtu = opts.omtu;
-		chan->fcs  = opts.fcs;
-		chan->max_tx = opts.max_tx;
-		chan->tx_win = (__u8)opts.txwin_size;
+		l2cap_pi(sk)->imtu = opts.imtu;
+		l2cap_pi(sk)->omtu = opts.omtu;
+		l2cap_pi(sk)->fcs  = opts.fcs;
+		l2cap_pi(sk)->max_tx = opts.max_tx;
+		l2cap_pi(sk)->tx_win = opts.txwin_size;
 		break;
 
 	case L2CAP_LM:
@@ -542,14 +635,15 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 		}
 
 		if (opt & L2CAP_LM_AUTH)
-			chan->sec_level = BT_SECURITY_LOW;
+			l2cap_pi(sk)->sec_level = BT_SECURITY_LOW;
 		if (opt & L2CAP_LM_ENCRYPT)
-			chan->sec_level = BT_SECURITY_MEDIUM;
+			l2cap_pi(sk)->sec_level = BT_SECURITY_MEDIUM;
 		if (opt & L2CAP_LM_SECURE)
-			chan->sec_level = BT_SECURITY_HIGH;
+			l2cap_pi(sk)->sec_level = BT_SECURITY_HIGH;
 
-		chan->role_switch    = (opt & L2CAP_LM_MASTER);
-		chan->force_reliable = (opt & L2CAP_LM_RELIABLE);
+		l2cap_pi(sk)->role_switch    = (opt & L2CAP_LM_MASTER);
+		l2cap_pi(sk)->force_reliable = (opt & L2CAP_LM_RELIABLE);
+		l2cap_pi(sk)->flushable = (opt & L2CAP_LM_FLUSHABLE);
 		break;
 
 	default:
@@ -564,7 +658,6 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, unsigned int optlen)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct bt_security sec;
 	struct bt_power pwr;
 	struct l2cap_conn *conn;
@@ -583,8 +676,8 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 
 	switch (optname) {
 	case BT_SECURITY:
-		if (chan->chan_type != L2CAP_CHAN_CONN_ORIENTED &&
-					chan->chan_type != L2CAP_CHAN_RAW) {
+		if (sk->sk_type != SOCK_SEQPACKET && sk->sk_type != SOCK_STREAM
+				&& sk->sk_type != SOCK_RAW) {
 			err = -EINVAL;
 			break;
 		}
@@ -603,10 +696,10 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 			break;
 		}
 
-		chan->sec_level = sec.level;
+		l2cap_pi(sk)->sec_level = sec.level;
 
-		conn = chan->conn;
-		if (conn && chan->scid == L2CAP_CID_LE_DATA) {
+		conn = l2cap_pi(sk)->conn;
+		if (conn && l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA) {
 			if (!conn->hcon->out) {
 				err = -EINVAL;
 				break;
@@ -634,45 +727,44 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 		bt_sk(sk)->defer_setup = opt;
 		break;
 
-	case BT_FLUSHABLE:
-		if (get_user(opt, (u32 __user *) optval)) {
-			err = -EFAULT;
-			break;
-		}
-
-		if (opt > BT_FLUSHABLE_ON) {
-			err = -EINVAL;
-			break;
-		}
-
-		if (opt == BT_FLUSHABLE_OFF) {
-			struct l2cap_conn *conn = chan->conn;
-			/* proceed further only when we have l2cap_conn and
-			   No Flush support in the LM */
-			if (!conn || !lmp_no_flush_capable(conn->hcon->hdev)) {
-				err = -EINVAL;
-				break;
-			}
-		}
-
-		chan->flushable = opt;
-		break;
-
 	case BT_POWER:
-		if (chan->chan_type != L2CAP_CHAN_CONN_ORIENTED &&
-					chan->chan_type != L2CAP_CHAN_RAW) {
+		if (sk->sk_type != SOCK_SEQPACKET && sk->sk_type != SOCK_STREAM
+				&& sk->sk_type != SOCK_RAW) {
 			err = -EINVAL;
 			break;
 		}
 
-		pwr.force_active = BT_POWER_FORCE_ACTIVE_ON;
+		pwr.force_active = 1;
 
 		len = min_t(unsigned int, sizeof(pwr), optlen);
 		if (copy_from_user((char *) &pwr, optval, len)) {
 			err = -EFAULT;
 			break;
 		}
-		chan->force_active = pwr.force_active;
+		l2cap_pi(sk)->force_active = pwr.force_active;
+		break;
+
+	case BT_AMP_POLICY:
+		if (get_user(opt, (u32 __user *) optval)) {
+			err = -EFAULT;
+			break;
+		}
+
+		if ((opt > BT_AMP_POLICY_PREFER_BR_EDR) ||
+			((l2cap_pi(sk)->mode != L2CAP_MODE_ERTM) &&
+			 (l2cap_pi(sk)->mode != L2CAP_MODE_STREAMING))) {
+			err = -EINVAL;
+			break;
+		}
+
+		l2cap_pi(sk)->amp_pref = (u8) opt;
+		BT_DBG("BT_AMP_POLICY now %d", opt);
+
+		if ((sk->sk_state == BT_CONNECTED) &&
+			(l2cap_pi(sk)->amp_move_role == L2CAP_AMP_MOVE_NONE) &&
+			(l2cap_pi(sk)->conn->fc_mask & L2CAP_FC_A2MP))
+			l2cap_amp_move_init(sk);
+
 		break;
 
 	default:
@@ -687,8 +779,11 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
+	struct l2cap_pinfo *pi = l2cap_pi(sk);
+	struct sk_buff *skb;
+	struct sk_buff_head seg_queue;
 	int err;
+	u8 amp_id;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
@@ -702,12 +797,102 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct ms
 	lock_sock(sk);
 
 	if (sk->sk_state != BT_CONNECTED) {
-		release_sock(sk);
-		return -ENOTCONN;
+		err = -ENOTCONN;
+		goto done;
 	}
 
-	err = l2cap_chan_send(chan, msg, len);
+	/* Connectionless channel */
+	if (sk->sk_type == SOCK_DGRAM) {
+		skb = l2cap_create_connless_pdu(sk, msg, len);
+		if (IS_ERR(skb)) {
+			err = PTR_ERR(skb);
+		} else {
+			l2cap_do_send(sk, skb);
+			err = len;
+		}
+		goto done;
+	}
 
+	switch (pi->mode) {
+	case L2CAP_MODE_BASIC:
+		/* Check outgoing MTU */
+		if (len > pi->omtu) {
+			err = -EMSGSIZE;
+			goto done;
+		}
+
+		/* Create a basic PDU */
+		skb = l2cap_create_basic_pdu(sk, msg, len);
+		if (IS_ERR(skb)) {
+			err = PTR_ERR(skb);
+			goto done;
+		}
+
+		l2cap_do_send(sk, skb);
+		err = len;
+		break;
+
+	case L2CAP_MODE_ERTM:
+	case L2CAP_MODE_STREAMING:
+
+		/* Check outgoing MTU */
+		if (len > pi->omtu) {
+			err = -EMSGSIZE;
+			goto done;
+		}
+
+		__skb_queue_head_init(&seg_queue);
+
+		/* Do segmentation before calling in to the state machine,
+		 * since it's possible to block while waiting for memory
+		 * allocation.
+		 */
+		amp_id = pi->amp_id;
+		err = l2cap_segment_sdu(sk, &seg_queue, msg, len, 0);
+
+		/* The socket lock is released while segmenting, so check
+		 * that the socket is still connected
+		 */
+		if (sk->sk_state != BT_CONNECTED) {
+			__skb_queue_purge(&seg_queue);
+			err = -ENOTCONN;
+		}
+
+		if (err) {
+			BT_DBG("Error %d, sk_sndbuf %d, sk_wmem_alloc %d",
+				err, sk->sk_sndbuf,
+				atomic_read(&sk->sk_wmem_alloc));
+			break;
+		}
+
+		if (pi->amp_id != amp_id) {
+			/* Channel moved while unlocked. Resegment. */
+			err = l2cap_resegment_queue(sk, &seg_queue);
+
+			if (err)
+				break;
+		}
+
+		if (pi->mode != L2CAP_MODE_STREAMING)
+			err = l2cap_ertm_tx(sk, 0, &seg_queue,
+				L2CAP_ERTM_EVENT_DATA_REQUEST);
+		else
+			err = l2cap_strm_tx(sk, &seg_queue);
+		if (!err)
+			err = len;
+
+		/* If the skbs were not queued for sending, they'll still be in
+		 * seg_queue and need to be purged.
+		 */
+		__skb_queue_purge(&seg_queue);
+		break;
+
+	default:
+		BT_DBG("bad state %1.1x", pi->mode);
+		err = -EBADFD;
+	}
+
+done:
 	release_sock(sk);
 	return err;
 }
@@ -715,15 +900,43 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct ms
 static int l2cap_sock_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg, size_t len, int flags)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_pinfo *pi = l2cap_pi(sk);
 	int err;
 
 	lock_sock(sk);
 
 	if (sk->sk_state == BT_CONNECT2 && bt_sk(sk)->defer_setup) {
+		struct l2cap_conn_rsp rsp;
+		struct l2cap_conn *conn = l2cap_pi(sk)->conn;
+		u8 buf[128];
+
+		if (l2cap_pi(sk)->amp_id) {
+			/* Physical link must be brought up before connection
+			 * completes.
+			 */
+			amp_accept_physical(conn, l2cap_pi(sk)->amp_id, sk);
+			release_sock(sk);
+			return 0;
+		}
+
 		sk->sk_state = BT_CONFIG;
 
-		__l2cap_connect_rsp_defer(pi->chan);
+		rsp.scid   = cpu_to_le16(l2cap_pi(sk)->dcid);
+		rsp.dcid   = cpu_to_le16(l2cap_pi(sk)->scid);
+		rsp.result = cpu_to_le16(L2CAP_CR_SUCCESS);
+		rsp.status = cpu_to_le16(L2CAP_CS_NO_INFO);
+		l2cap_send_cmd(l2cap_pi(sk)->conn, l2cap_pi(sk)->ident,
+					L2CAP_CONN_RSP, sizeof(rsp), &rsp);
+
+		if (l2cap_pi(sk)->conf_state & L2CAP_CONF_REQ_SENT) {
+			release_sock(sk);
+			return 0;
+		}
+
+		l2cap_pi(sk)->conf_state |= L2CAP_CONF_REQ_SENT;
+		l2cap_send_cmd(conn, l2cap_get_ident(conn), L2CAP_CONF_REQ,
+				l2cap_build_conf_req(sk, buf), buf);
+		l2cap_pi(sk)->num_conf_req++;
+
 		release_sock(sk);
 		return 0;
 	}
@@ -735,39 +948,15 @@ static int l2cap_sock_recvmsg(struct kiocb *iocb, struct socket *sock, struct ms
 	else
 		err = bt_sock_recvmsg(iocb, sock, msg, len, flags);
 
-	if (pi->chan->mode != L2CAP_MODE_ERTM)
-		return err;
+	l2cap_ertm_recv_done(sk);
 
-	/* Attempt to put pending rx data in the socket buffer */
-
-	lock_sock(sk);
-
-	if (!test_bit(CONN_LOCAL_BUSY, &pi->chan->conn_state))
-		goto done;
-
-	if (pi->rx_busy_skb) {
-		if (!sock_queue_rcv_skb(sk, pi->rx_busy_skb))
-			pi->rx_busy_skb = NULL;
-		else
-			goto done;
-	}
-
-	/* Restore data flow when half of the receive buffer is
-	 * available.  This avoids resending large numbers of
-	 * frames.
-	 */
-	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf >> 1)
-		l2cap_chan_busy(pi->chan, 0);
-
-done:
-	release_sock(sk);
 	return err;
 }
 
 /* Kill socket (only if zapped and orphan)
  * Must be called on unlocked socket.
  */
-static void l2cap_sock_kill(struct sock *sk)
+void l2cap_sock_kill(struct sock *sk)
 {
 	if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
 		return;
@@ -775,16 +964,95 @@ static void l2cap_sock_kill(struct sock *sk)
 	BT_DBG("sk %p state %d", sk, sk->sk_state);
 
 	/* Kill poor orphan */
-
-	l2cap_chan_destroy(l2cap_pi(sk)->chan);
+	bt_sock_unlink(&l2cap_sk_list, sk);
 	sock_set_flag(sk, SOCK_DEAD);
 	sock_put(sk);
+}
+
+/* Must be called on unlocked socket. */
+static void l2cap_sock_close(struct sock *sk)
+{
+	l2cap_sock_clear_timer(sk);
+	lock_sock(sk);
+	__l2cap_sock_close(sk, ECONNRESET);
+	release_sock(sk);
+	l2cap_sock_kill(sk);
+}
+
+static void l2cap_sock_cleanup_listen(struct sock *parent)
+{
+	struct sock *sk;
+
+	BT_DBG("parent %p", parent);
+
+	/* Close not yet accepted channels */
+	while ((sk = bt_accept_dequeue(parent, NULL)))
+		l2cap_sock_close(sk);
+
+	parent->sk_state = BT_CLOSED;
+	sock_set_flag(parent, SOCK_ZAPPED);
+}
+
+void __l2cap_sock_close(struct sock *sk, int reason)
+{
+	struct l2cap_conn *conn = l2cap_pi(sk)->conn;
+
+	BT_DBG("sk %p state %d socket %p", sk, sk->sk_state, sk->sk_socket);
+
+	switch (sk->sk_state) {
+	case BT_LISTEN:
+		l2cap_sock_cleanup_listen(sk);
+		break;
+
+	case BT_CONNECTED:
+	case BT_CONFIG:
+		if ((sk->sk_type == SOCK_SEQPACKET ||
+					sk->sk_type == SOCK_STREAM) &&
+					conn->hcon->type == ACL_LINK) {
+			l2cap_sock_set_timer(sk, sk->sk_sndtimeo);
+			l2cap_send_disconn_req(conn, sk, reason);
+		} else
+			l2cap_chan_del(sk, reason);
+		break;
+
+	case BT_CONNECT2:
+		if ((sk->sk_type == SOCK_SEQPACKET ||
+					sk->sk_type == SOCK_STREAM) &&
+					conn->hcon->type == ACL_LINK) {
+			struct l2cap_conn_rsp rsp;
+			__u16 result;
+
+			if (bt_sk(sk)->defer_setup)
+				result = L2CAP_CR_SEC_BLOCK;
+			else
+				result = L2CAP_CR_BAD_PSM;
+			sk->sk_state = BT_DISCONN;
+
+			rsp.scid   = cpu_to_le16(l2cap_pi(sk)->dcid);
+			rsp.dcid   = cpu_to_le16(l2cap_pi(sk)->scid);
+			rsp.result = cpu_to_le16(result);
+			rsp.status = cpu_to_le16(L2CAP_CS_NO_INFO);
+			l2cap_send_cmd(conn, l2cap_pi(sk)->ident,
+					L2CAP_CONN_RSP, sizeof(rsp), &rsp);
+		}
+
+		l2cap_chan_del(sk, reason);
+		break;
+
+	case BT_CONNECT:
+	case BT_DISCONN:
+		l2cap_chan_del(sk, reason);
+		break;
+
+	default:
+		sock_set_flag(sk, SOCK_ZAPPED);
+		break;
+	}
 }
 
 static int l2cap_sock_shutdown(struct socket *sock, int how)
 {
 	struct sock *sk = sock->sk;
-	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	int err = 0;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
@@ -794,11 +1062,15 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 
 	lock_sock(sk);
 	if (!sk->sk_shutdown) {
-		if (chan->mode == L2CAP_MODE_ERTM)
+
+		if (l2cap_pi(sk)->mode == L2CAP_MODE_ERTM) {
 			err = __l2cap_wait_ack(sk);
+			l2cap_ertm_shutdown(sk);
+		}
 
 		sk->sk_shutdown = SHUTDOWN_MASK;
-		l2cap_chan_close(chan, 0);
+		l2cap_sock_clear_timer(sk);
+		__l2cap_sock_close(sk, 0);
 
 		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
 			err = bt_sock_wait_state(sk, BT_CLOSED,
@@ -829,149 +1101,96 @@ static int l2cap_sock_release(struct socket *sock)
 	return err;
 }
 
-static struct l2cap_chan *l2cap_sock_new_connection_cb(void *data)
-{
-	struct sock *sk, *parent = data;
-
-	sk = l2cap_sock_alloc(sock_net(parent), NULL, BTPROTO_L2CAP,
-								GFP_ATOMIC);
-	if (!sk)
-		return NULL;
-
-	l2cap_sock_init(sk, parent);
-
-	return l2cap_pi(sk)->chan;
-}
-
-static int l2cap_sock_recv_cb(void *data, struct sk_buff *skb)
-{
-	int err;
-	struct sock *sk = data;
-	struct l2cap_pinfo *pi = l2cap_pi(sk);
-
-	if (pi->rx_busy_skb)
-		return -ENOMEM;
-
-	err = sock_queue_rcv_skb(sk, skb);
-
-	/* For ERTM, handle one skb that doesn't fit into the recv
-	 * buffer.  This is important to do because the data frames
-	 * have already been acked, so the skb cannot be discarded.
-	 *
-	 * Notify the l2cap core that the buffer is full, so the
-	 * LOCAL_BUSY state is entered and no more frames are
-	 * acked and reassembled until there is buffer space
-	 * available.
-	 */
-	if (err < 0 && pi->chan->mode == L2CAP_MODE_ERTM) {
-		pi->rx_busy_skb = skb;
-		l2cap_chan_busy(pi->chan, 1);
-		err = 0;
-	}
-
-	return err;
-}
-
-static void l2cap_sock_close_cb(void *data)
-{
-	struct sock *sk = data;
-
-	l2cap_sock_kill(sk);
-}
-
-static void l2cap_sock_state_change_cb(void *data, int state)
-{
-	struct sock *sk = data;
-
-	sk->sk_state = state;
-}
-
-static struct l2cap_ops l2cap_chan_ops = {
-	.name		= "L2CAP Socket Interface",
-	.new_connection	= l2cap_sock_new_connection_cb,
-	.recv		= l2cap_sock_recv_cb,
-	.close		= l2cap_sock_close_cb,
-	.state_change	= l2cap_sock_state_change_cb,
-};
-
 static void l2cap_sock_destruct(struct sock *sk)
 {
 	BT_DBG("sk %p", sk);
 
-	if (l2cap_pi(sk)->rx_busy_skb) {
-		kfree_skb(l2cap_pi(sk)->rx_busy_skb);
-		l2cap_pi(sk)->rx_busy_skb = NULL;
-	}
-
 	skb_queue_purge(&sk->sk_receive_queue);
 	skb_queue_purge(&sk->sk_write_queue);
+
+	l2cap_ertm_destruct(sk);
 }
 
-static void l2cap_sock_init(struct sock *sk, struct sock *parent)
+static void set_default_config(struct l2cap_conf_prm *conf_prm)
+{
+	conf_prm->fcs = L2CAP_FCS_CRC16;
+	conf_prm->retrans_timeout = 0;
+	conf_prm->monitor_timeout = 0;
+	conf_prm->flush_to = L2CAP_DEFAULT_FLUSH_TO;
+}
+
+void l2cap_sock_init(struct sock *sk, struct sock *parent)
 {
 	struct l2cap_pinfo *pi = l2cap_pi(sk);
-	struct l2cap_chan *chan = pi->chan;
 
-	BT_DBG("sk %p", sk);
+	BT_DBG("sk %p parent %p", sk, parent);
 
 	if (parent) {
-		struct l2cap_chan *pchan = l2cap_pi(parent)->chan;
-
 		sk->sk_type = parent->sk_type;
+		sk->sk_rcvbuf = parent->sk_rcvbuf;
+		sk->sk_sndbuf = parent->sk_sndbuf;
 		bt_sk(sk)->defer_setup = bt_sk(parent)->defer_setup;
 
-		chan->chan_type = pchan->chan_type;
-		chan->imtu = pchan->imtu;
-		chan->omtu = pchan->omtu;
-		chan->conf_state = pchan->conf_state;
-		chan->mode = pchan->mode;
-		chan->fcs  = pchan->fcs;
-		chan->max_tx = pchan->max_tx;
-		chan->tx_win = pchan->tx_win;
-		chan->sec_level = pchan->sec_level;
-		chan->role_switch = pchan->role_switch;
-		chan->force_reliable = pchan->force_reliable;
-		chan->flushable = pchan->flushable;
-		chan->force_active = pchan->force_active;
+		pi->imtu = l2cap_pi(parent)->imtu;
+		pi->omtu = l2cap_pi(parent)->omtu;
+		pi->conf_state = l2cap_pi(parent)->conf_state;
+		pi->mode = l2cap_pi(parent)->mode;
+		pi->fcs  = l2cap_pi(parent)->fcs;
+		pi->max_tx = l2cap_pi(parent)->max_tx;
+		pi->tx_win = l2cap_pi(parent)->tx_win;
+		pi->sec_level = l2cap_pi(parent)->sec_level;
+		pi->role_switch = l2cap_pi(parent)->role_switch;
+		pi->force_reliable = l2cap_pi(parent)->force_reliable;
+		pi->flushable = l2cap_pi(parent)->flushable;
+		pi->force_active = l2cap_pi(parent)->force_active;
+		pi->amp_pref = l2cap_pi(parent)->amp_pref;
 	} else {
-
-		switch (sk->sk_type) {
-		case SOCK_RAW:
-			chan->chan_type = L2CAP_CHAN_RAW;
-			break;
-		case SOCK_DGRAM:
-			chan->chan_type = L2CAP_CHAN_CONN_LESS;
-			break;
-		case SOCK_SEQPACKET:
-		case SOCK_STREAM:
-			chan->chan_type = L2CAP_CHAN_CONN_ORIENTED;
-			break;
-		}
-
-		chan->imtu = L2CAP_DEFAULT_MTU;
-		chan->omtu = 0;
+		pi->imtu = L2CAP_DEFAULT_MTU;
+		pi->omtu = 0;
 		if (!disable_ertm && sk->sk_type == SOCK_STREAM) {
-			chan->mode = L2CAP_MODE_ERTM;
-			set_bit(CONF_STATE2_DEVICE, &chan->conf_state);
+			pi->mode = L2CAP_MODE_ERTM;
+			pi->conf_state |= L2CAP_CONF_STATE2_DEVICE;
 		} else {
-			chan->mode = L2CAP_MODE_BASIC;
+			pi->mode = L2CAP_MODE_BASIC;
 		}
-		chan->max_tx = L2CAP_DEFAULT_MAX_TX;
-		chan->fcs  = L2CAP_FCS_CRC16;
-		chan->tx_win = L2CAP_DEFAULT_TX_WINDOW;
-		chan->sec_level = BT_SECURITY_LOW;
-		chan->role_switch = 0;
-		chan->force_reliable = 0;
-		chan->flushable = BT_FLUSHABLE_OFF;
-		chan->force_active = BT_POWER_FORCE_ACTIVE_ON;
-
+		pi->reconf_state = L2CAP_RECONF_NONE;
+		pi->max_tx = L2CAP_DEFAULT_MAX_TX;
+		pi->fcs = L2CAP_FCS_CRC16;
+		pi->tx_win = L2CAP_DEFAULT_TX_WINDOW;
+		pi->sec_level = BT_SECURITY_LOW;
+		pi->role_switch = 0;
+		pi->force_reliable = 0;
+		pi->flushable = 0;
+		pi->force_active = 1;
+		pi->amp_pref = BT_AMP_POLICY_REQUIRE_BR_EDR;
 	}
 
 	/* Default config options */
-	chan->flush_to = L2CAP_DEFAULT_FLUSH_TO;
+	sk->sk_backlog_rcv = l2cap_data_channel;
+	pi->ampcon = NULL;
+	pi->ampchan = NULL;
+	pi->conf_len = 0;
+	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
+	pi->scid = 0;
+	pi->dcid = 0;
+	pi->tx_win_max = L2CAP_TX_WIN_MAX_ENHANCED;
+	pi->extended_control = 0;
 
-	chan->data = sk;
-	chan->ops = &l2cap_chan_ops;
+	pi->local_conf.fcs = pi->fcs;
+	if (pi->mode == L2CAP_MODE_BASIC) {
+		pi->local_conf.retrans_timeout = 0;
+		pi->local_conf.monitor_timeout = 0;
+	} else {
+		pi->local_conf.retrans_timeout = L2CAP_DEFAULT_RETRANS_TO;
+		pi->local_conf.monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
+	}
+
+	pi->local_conf.flush_to = pi->flush_to;
+
+	set_default_config(&pi->remote_conf);
+
+	skb_queue_head_init(TX_QUEUE(sk));
+	skb_queue_head_init(SREJ_QUEUE(sk));
 }
 
 static struct proto l2cap_proto = {
@@ -980,10 +1199,9 @@ static struct proto l2cap_proto = {
 	.obj_size	= sizeof(struct l2cap_pinfo)
 };
 
-static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int proto, gfp_t prio)
+struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int proto, gfp_t prio)
 {
 	struct sock *sk;
-	struct l2cap_chan *chan;
 
 	sk = sk_alloc(net, PF_BLUETOOTH, prio, &l2cap_proto);
 	if (!sk)
@@ -993,21 +1211,16 @@ static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int p
 	INIT_LIST_HEAD(&bt_sk(sk)->accept_q);
 
 	sk->sk_destruct = l2cap_sock_destruct;
-	sk->sk_sndtimeo = L2CAP_CONN_TIMEOUT;
+	sk->sk_sndtimeo = msecs_to_jiffies(L2CAP_CONN_TIMEOUT);
 
 	sock_reset_flag(sk, SOCK_ZAPPED);
 
 	sk->sk_protocol = proto;
 	sk->sk_state = BT_OPEN;
 
-	chan = l2cap_chan_create(sk);
-	if (!chan) {
-		l2cap_sock_kill(sk);
-		return NULL;
-	}
+	setup_timer(&sk->sk_timer, l2cap_sock_timeout, (unsigned long) sk);
 
-	l2cap_pi(sk)->chan = chan;
-
+	bt_sock_link(&l2cap_sk_list, sk);
 	return sk;
 }
 
@@ -1037,7 +1250,7 @@ static int l2cap_sock_create(struct net *net, struct socket *sock, int protocol,
 	return 0;
 }
 
-static const struct proto_ops l2cap_sock_ops = {
+const struct proto_ops l2cap_sock_ops = {
 	.family		= PF_BLUETOOTH,
 	.owner		= THIS_MODULE,
 	.release	= l2cap_sock_release,

@@ -1,0 +1,4 @@
+header-y += tavarua.h
+
+header-y += msm_camera.h
+header-y += msm_gemini.h

@@ -220,6 +220,9 @@ static int ehci_msm_pm_suspend(struct device *dev)
 
 	dev_dbg(dev, "ehci-msm PM suspend\n");
 
+	if (!hcd->rh_registered)
+		return 0;
+
 	/*
 	 * EHCI helper function has also the same check before manipulating
 	 * port wakeup flags.  We do check here the same condition before
@@ -241,6 +244,10 @@ static int ehci_msm_pm_resume(struct device *dev)
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "ehci-msm PM resume\n");
+
+	if (!hcd->rh_registered)
+		return 0;
+
 	ehci_prepare_ports_for_controller_resume(hcd_to_ehci(hcd));
 
 	return 0;

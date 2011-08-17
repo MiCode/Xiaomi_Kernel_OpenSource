@@ -658,7 +658,7 @@ struct input_keymap_entry {
 #define KEY_NUMERIC_9		0x209
 #define KEY_NUMERIC_STAR	0x20a
 #define KEY_NUMERIC_POUND	0x20b
-
+#define KEY_CAMERA_SNAPSHOT	0x2fe
 #define KEY_CAMERA_FOCUS	0x210
 #define KEY_WPS_BUTTON		0x211	/* WiFi Protected Setup key */
 

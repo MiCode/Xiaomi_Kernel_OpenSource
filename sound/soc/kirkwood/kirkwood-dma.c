@@ -6,8 +6,7 @@
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
- *  option) any later version.
+ *  Free Software Foundation;  only version 2 of the  License.
  */
 
 #include <linux/init.h>
@@ -402,5 +401,5 @@ module_exit(kirkwood_pcm_exit);
 
 MODULE_AUTHOR("Arnaud Patard <arnaud.patard@rtp-net.org>");
 MODULE_DESCRIPTION("Marvell Kirkwood Audio DMA module");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:kirkwood-pcm-audio");

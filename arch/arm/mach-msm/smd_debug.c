@@ -1,6 +1,7 @@
 /* arch/arm/mach-msm/smd_debug.c
  *
  * Copyright (C) 2007 Google, Inc.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -16,6 +17,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/list.h>
+#include <linux/ctype.h>
 
 #include <mach/msm_iomap.h>
 
@@ -45,17 +47,160 @@ static char *chstate(unsigned n)
 	}
 }
 
-
-static int dump_ch(char *buf, int max, struct smd_channel *ch)
+static int debug_f3(char *buf, int max)
 {
-	volatile struct smd_half_channel *s = ch->send;
-	volatile struct smd_half_channel *r = ch->recv;
+	char *x;
+	int size;
+	int i = 0, j = 0;
+	unsigned cols = 0;
+	char str[4*sizeof(unsigned)+1] = {0};
 
+	i += scnprintf(buf + i, max - i,
+		       "Printing to log\n");
+
+	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
+	if (x != 0) {
+		pr_info("smem: F3 TRACE LOG\n");
+		while (size > 0) {
+			if (size >= sizeof(unsigned)) {
+				pr_info("%08x", *((unsigned *) x));
+				for (j = 0; j < sizeof(unsigned); ++j)
+					if (isprint(*(x+j)))
+						str[cols*sizeof(unsigned) + j]
+							= *(x+j);
+					else
+						str[cols*sizeof(unsigned) + j]
+							= '-';
+				x += sizeof(unsigned);
+				size -= sizeof(unsigned);
+			} else {
+				while (size-- > 0)
+					pr_info("%02x", (unsigned) *x++);
+				break;
+			}
+			if (cols == 3) {
+				cols = 0;
+				str[4*sizeof(unsigned)] = 0;
+				pr_info(" %s\n", str);
+				str[0] = 0;
+			} else {
+				cols++;
+				pr_info(" ");
+			}
+		}
+		pr_info("\n");
+	}
+
+	return max;
+}
+
+static int debug_diag(char *buf, int max)
+{
+	int i = 0;
+
+	i += scnprintf(buf + i, max - i,
+		       "Printing to log\n");
+	smd_diag();
+
+	return i;
+}
+
+static int debug_modem_err_f3(char *buf, int max)
+{
+	char *x;
+	int size;
+	int i = 0, j = 0;
+	unsigned cols = 0;
+	char str[4*sizeof(unsigned)+1] = {0};
+
+	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
+	if (x != 0) {
+		pr_info("smem: F3 TRACE LOG\n");
+		while (size > 0 && max - i) {
+			if (size >= sizeof(unsigned)) {
+				i += scnprintf(buf + i, max - i, "%08x",
+					       *((unsigned *) x));
+				for (j = 0; j < sizeof(unsigned); ++j)
+					if (isprint(*(x+j)))
+						str[cols*sizeof(unsigned) + j]
+							= *(x+j);
+					else
+						str[cols*sizeof(unsigned) + j]
+							= '-';
+				x += sizeof(unsigned);
+				size -= sizeof(unsigned);
+			} else {
+				while (size-- > 0 && max - i)
+					i += scnprintf(buf + i, max - i,
+						       "%02x",
+						       (unsigned) *x++);
+				break;
+			}
+			if (cols == 3) {
+				cols = 0;
+				str[4*sizeof(unsigned)] = 0;
+				i += scnprintf(buf + i, max - i, " %s\n",
+					       str);
+				str[0] = 0;
+			} else {
+				cols++;
+				i += scnprintf(buf + i, max - i, " ");
+			}
+		}
+		i += scnprintf(buf + i, max - i, "\n");
+	}
+
+	return i;
+}
+
+static int debug_modem_err(char *buf, int max)
+{
+	char *x;
+	int size;
+	int i = 0;
+
+	x = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
+	if (x != 0) {
+		x[SZ_DIAG_ERR_MSG - 1] = 0;
+		i += scnprintf(buf + i, max - i,
+			       "smem: DIAG '%s'\n", x);
+	}
+
+	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
+	if (x != 0) {
+		x[size - 1] = 0;
+		i += scnprintf(buf + i, max - i,
+			       "smem: CRASH LOG\n'%s'\n", x);
+	}
+	i += scnprintf(buf + i, max - i, "\n");
+
+	return i;
+}
+
+static int debug_read_diag_msg(char *buf, int max)
+{
+	char *msg;
+	int i = 0;
+
+	msg = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
+
+	if (msg) {
+		msg[SZ_DIAG_ERR_MSG - 1] = 0;
+		i += scnprintf(buf + i, max - i, "diag: '%s'\n", msg);
+	}
+	return i;
+}
+
+static int dump_ch(char *buf, int max, int n,
+		  struct smd_half_channel *s,
+		   struct smd_half_channel *r,
+		   unsigned size)
+{
 	return scnprintf(
 		buf, max,
 		"ch%02d:"
-		" %8s(%05d/%05d) %c%c%c%c%c%c%c <->"
-		" %8s(%05d/%05d) %c%c%c%c%c%c%c '%s'\n", ch->n,
+		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c <->"
+		" %8s(%04d/%04d) %c%c%c%c%c%c%c%c : %5x\n", n,
 		chstate(s->state), s->tail, s->head,
 		s->fDSR ? 'D' : 'd',
 		s->fCTS ? 'C' : 'c',
@@ -64,6 +209,7 @@ static int dump_ch(char *buf, int max, struct smd_channel *ch)
 		s->fHEAD ? 'W' : 'w',
 		s->fTAIL ? 'R' : 'r',
 		s->fSTATE ? 'S' : 's',
+		s->fBLOCKREADINTR ? 'B' : 'b',
 		chstate(r->state), r->tail, r->head,
 		r->fDSR ? 'D' : 'd',
 		r->fCTS ? 'R' : 'r',
@@ -72,37 +218,193 @@ static int dump_ch(char *buf, int max, struct smd_channel *ch)
 		r->fHEAD ? 'W' : 'w',
 		r->fTAIL ? 'R' : 'r',
 		r->fSTATE ? 'S' : 's',
-		ch->name
+		r->fBLOCKREADINTR ? 'B' : 'b',
+		size
 		);
 }
 
-static int debug_read_stat(char *buf, int max)
+static int debug_read_smsm_state(char *buf, int max)
 {
-	char *msg;
+	uint32_t *smsm;
+	int n, i = 0;
+
+	smsm = smem_find(ID_SHARED_STATE,
+			 SMSM_NUM_ENTRIES * sizeof(uint32_t));
+
+	if (smsm)
+		for (n = 0; n < SMSM_NUM_ENTRIES; n++)
+			i += scnprintf(buf + i, max - i, "entry %d: 0x%08x\n",
+				       n, smsm[n]);
+
+	return i;
+}
+
+struct SMSM_CB_DATA {
+	int cb_count;
+	void *data;
+	uint32_t old_state;
+	uint32_t new_state;
+};
+static struct SMSM_CB_DATA smsm_cb_data;
+
+static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
+{
+	smsm_cb_data.cb_count++;
+	smsm_cb_data.old_state = old_state;
+	smsm_cb_data.new_state = new_state;
+	smsm_cb_data.data = data;
+}
+
+#define UT_EQ_INT(a, b) \
+	if ((a) != (b)) { \
+		i += scnprintf(buf + i, max - i, \
+			"%s:%d " #a "(%d) != " #b "(%d)\n", \
+				__func__, __LINE__, \
+				a, b); \
+		break; \
+	} \
+	do {} while (0)
+
+#define SMSM_CB_TEST_INIT() \
+	do { \
+		smsm_cb_data.cb_count = 0; \
+		smsm_cb_data.old_state = 0; \
+		smsm_cb_data.new_state = 0; \
+		smsm_cb_data.data = 0; \
+	} while (0)
+
+
+static int debug_test_smsm(char *buf, int max)
+{
 	int i = 0;
+	int test_num = 0;
+	int ret;
 
-	msg = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
+	/* Test case 1 - Register new callback for notification */
+	do {
+		test_num++;
+		SMSM_CB_TEST_INIT();
+		ret = smsm_state_cb_register(SMSM_APPS_STATE, SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 0);
 
-	if (raw_smsm_get_state(SMSM_STATE_MODEM) & SMSM_RESET)
-		i += scnprintf(buf + i, max - i,
-			       "smsm: ARM9 HAS CRASHED\n");
+		/* de-assert SMSM_SMD_INIT to trigger state update */
+		UT_EQ_INT(smsm_cb_data.cb_count, 0);
+		smsm_change_state(SMSM_APPS_STATE, SMSM_SMDINIT, 0x0);
 
-	i += scnprintf(buf + i, max - i, "smsm: a9: %08x a11: %08x\n",
-		       raw_smsm_get_state(SMSM_STATE_MODEM),
-		       raw_smsm_get_state(SMSM_STATE_APPS));
-#ifdef CONFIG_ARCH_MSM_SCORPION
-	i += scnprintf(buf + i, max - i, "smsm dem: apps: %08x modem: %08x "
-		       "qdsp6: %08x power: %08x time: %08x\n",
-		       raw_smsm_get_state(SMSM_STATE_APPS_DEM),
-		       raw_smsm_get_state(SMSM_STATE_MODEM_DEM),
-		       raw_smsm_get_state(SMSM_STATE_QDSP6_DEM),
-		       raw_smsm_get_state(SMSM_STATE_POWER_MASTER_DEM),
-		       raw_smsm_get_state(SMSM_STATE_TIME_MASTER_DEM));
-#endif
-	if (msg) {
-		msg[SZ_DIAG_ERR_MSG - 1] = 0;
-		i += scnprintf(buf + i, max - i, "diag: '%s'\n", msg);
-	}
+		UT_EQ_INT(smsm_cb_data.cb_count, 1);
+		UT_EQ_INT(smsm_cb_data.cb_count, 1);
+		UT_EQ_INT(smsm_cb_data.old_state & SMSM_SMDINIT, SMSM_SMDINIT);
+		UT_EQ_INT(smsm_cb_data.new_state & SMSM_SMDINIT, 0x0);
+		UT_EQ_INT((int)smsm_cb_data.data, 0x1234);
+
+		/* re-assert SMSM_SMD_INIT to trigger state update */
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_SMDINIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 2);
+		UT_EQ_INT(smsm_cb_data.old_state & SMSM_SMDINIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.new_state & SMSM_SMDINIT, SMSM_SMDINIT);
+
+		/* deregister callback */
+		ret = smsm_state_cb_deregister(SMSM_APPS_STATE, SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 2);
+
+		/* make sure state change doesn't cause any more callbacks */
+		smsm_change_state(SMSM_APPS_STATE, SMSM_SMDINIT, 0x0);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_SMDINIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 2);
+
+		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+	} while (0);
+
+	/* Test case 2 - Update already registered callback */
+	do {
+		test_num++;
+		SMSM_CB_TEST_INIT();
+		ret = smsm_state_cb_register(SMSM_APPS_STATE, SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 0);
+		ret = smsm_state_cb_register(SMSM_APPS_STATE, SMSM_INIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 1);
+
+		/* verify both callback bits work */
+		UT_EQ_INT(smsm_cb_data.cb_count, 0);
+		smsm_change_state(SMSM_APPS_STATE, SMSM_SMDINIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.cb_count, 1);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_SMDINIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 2);
+
+		smsm_change_state(SMSM_APPS_STATE, SMSM_INIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.cb_count, 3);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_INIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 4);
+
+		/* deregister 1st callback */
+		ret = smsm_state_cb_deregister(SMSM_APPS_STATE, SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 1);
+		smsm_change_state(SMSM_APPS_STATE, SMSM_SMDINIT, 0x0);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_SMDINIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 4);
+
+		smsm_change_state(SMSM_APPS_STATE, SMSM_INIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.cb_count, 5);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_INIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 6);
+
+		/* deregister 2nd callback */
+		ret = smsm_state_cb_deregister(SMSM_APPS_STATE, SMSM_INIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 2);
+
+		/* make sure state change doesn't cause any more callbacks */
+		smsm_change_state(SMSM_APPS_STATE, SMSM_INIT, 0x0);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_INIT);
+		UT_EQ_INT(smsm_cb_data.cb_count, 6);
+
+		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+	} while (0);
+
+	/* Test case 3 - Two callback registrations with different data */
+	do {
+		test_num++;
+		SMSM_CB_TEST_INIT();
+		ret = smsm_state_cb_register(SMSM_APPS_STATE, SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 0);
+		ret = smsm_state_cb_register(SMSM_APPS_STATE, SMSM_INIT,
+				smsm_state_cb, (void *)0x3456);
+		UT_EQ_INT(ret, 0);
+
+		/* verify both callbacks work */
+		UT_EQ_INT(smsm_cb_data.cb_count, 0);
+		smsm_change_state(SMSM_APPS_STATE, SMSM_SMDINIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.cb_count, 1);
+		UT_EQ_INT((int)smsm_cb_data.data, 0x1234);
+
+		smsm_change_state(SMSM_APPS_STATE, SMSM_INIT, 0x0);
+		UT_EQ_INT(smsm_cb_data.cb_count, 2);
+		UT_EQ_INT((int)smsm_cb_data.data, 0x3456);
+
+		/* cleanup and unregister
+		 * degregister in reverse to verify data field is
+		 * being used
+		 */
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_SMDINIT);
+		smsm_change_state(SMSM_APPS_STATE, 0x0, SMSM_INIT);
+		ret = smsm_state_cb_deregister(SMSM_APPS_STATE,
+				SMSM_INIT,
+				smsm_state_cb, (void *)0x3456);
+		UT_EQ_INT(ret, 2);
+		ret = smsm_state_cb_deregister(SMSM_APPS_STATE,
+				SMSM_SMDINIT,
+				smsm_state_cb, (void *)0x1234);
+		UT_EQ_INT(ret, 2);
+
+		i += scnprintf(buf + i, max - i, "Test %d - PASS\n", test_num);
+	} while (0);
+
 	return i;
 }
 
@@ -129,29 +431,100 @@ static int debug_read_mem(char *buf, int max)
 	return i;
 }
 
-static int debug_read_ch(char *buf, int max)
+static int debug_read_ch_v1(char *buf, int max)
 {
-	struct smd_channel *ch;
-	unsigned long flags;
-	int i = 0;
+	void *shared;
+	int n, i = 0;
 
-	spin_lock_irqsave(&smd_lock, flags);
-	list_for_each_entry(ch, &smd_ch_list_dsp, ch_list)
-		i += dump_ch(buf + i, max - i, ch);
-	list_for_each_entry(ch, &smd_ch_list_modem, ch_list)
-		i += dump_ch(buf + i, max - i, ch);
-	list_for_each_entry(ch, &smd_ch_closed_list, ch_list)
-		i += dump_ch(buf + i, max - i, ch);
-	spin_unlock_irqrestore(&smd_lock, flags);
+	for (n = 0; n < SMD_CHANNELS; n++) {
+		shared = smem_find(ID_SMD_CHANNELS + n,
+				   2 * (sizeof(struct smd_half_channel) +
+					SMD_BUF_SIZE));
+
+		if (shared == 0)
+			continue;
+		i += dump_ch(buf + i, max - i, n, shared,
+			     (shared + sizeof(struct smd_half_channel) +
+			      SMD_BUF_SIZE), SMD_BUF_SIZE);
+	}
 
 	return i;
 }
 
-static int debug_read_version(char *buf, int max)
+static int debug_read_ch_v2(char *buf, int max)
+{
+	void *shared, *buffer;
+	unsigned buffer_sz;
+	int n, i = 0;
+
+	for (n = 0; n < SMD_CHANNELS; n++) {
+		shared = smem_find(ID_SMD_CHANNELS + n,
+				   2 * sizeof(struct smd_half_channel));
+
+		if (shared == 0)
+			continue;
+
+		buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + n, &buffer_sz);
+
+		if (buffer == 0)
+			continue;
+
+		i += dump_ch(buf + i, max - i, n, shared,
+			     (shared + sizeof(struct smd_half_channel)),
+			     buffer_sz / 2);
+	}
+
+	return i;
+}
+
+static int debug_read_ch(char *buf, int max)
+{
+	uint32_t *smd_ver;
+
+	smd_ver = smem_alloc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
+
+	if (smd_ver && (((smd_ver[VERSION_MODEM] >> 16) >= 1) ||
+			((smd_ver[VERSION_QDSP6] >> 16) >= 1) ||
+			((smd_ver[VERSION_DSPS] >> 16) >= 1)))
+		return debug_read_ch_v2(buf, max);
+	else
+		return debug_read_ch_v1(buf, max);
+}
+
+static int debug_read_smem_version(char *buf, int max)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	unsigned version = shared->version[VERSION_MODEM];
-	return sprintf(buf, "%d.%d\n", version >> 16, version & 0xffff);
+	uint32_t n, version, i = 0;
+
+	for (n = 0; n < 32; n++) {
+		version = shared->version[n];
+		i += scnprintf(buf + i, max - i,
+			       "entry %d: smem = %d  proc_comm = %d\n", n,
+			       version >> 16,
+			       version & 0xffff);
+	}
+
+	return i;
+}
+
+/* NNV: revist, it may not be smd version */
+static int debug_read_smd_version(char *buf, int max)
+{
+	uint32_t *smd_ver;
+	uint32_t n, version, i = 0;
+
+	smd_ver = smem_alloc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
+
+	if (smd_ver)
+		for (n = 0; n < 32; n++) {
+			version = smd_ver[n];
+			i += scnprintf(buf + i, max - i,
+				       "entry %d: %d.%d\n", n,
+				       version >> 16,
+				       version & 0xffff);
+		}
+
+	return i;
 }
 
 static int debug_read_build_id(char *buf, int max)
@@ -159,7 +532,7 @@ static int debug_read_build_id(char *buf, int max)
 	unsigned size;
 	void *data;
 
-	data = smem_item(SMEM_HW_SW_BUILD_ID, &size);
+	data = smem_get_entry(SMEM_HW_SW_BUILD_ID, &size);
 	if (!data)
 		return 0;
 
@@ -175,19 +548,58 @@ static int debug_read_alloc_tbl(char *buf, int max)
 	struct smd_alloc_elm *shared;
 	int n, i = 0;
 
-	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
+	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(struct smd_alloc_elm[64]));
+
+	if (!shared)
+		return 0;
 
 	for (n = 0; n < 64; n++) {
-		if (shared[n].ref_count == 0)
-			continue;
 		i += scnprintf(buf + i, max - i,
-			       "%03d: %-20s cid=%02d type=%03d "
-			       "kind=%02d ref_count=%d\n",
-			       n, shared[n].name, shared[n].cid,
-			       shared[n].ctype & 0xff,
-			       (shared[n].ctype >> 8) & 0xf,
-			       shared[n].ref_count);
+				"name=%s cid=%d ch type=%d "
+				"xfer type=%d ref_count=%d\n",
+				shared[n].name,
+				shared[n].cid,
+				SMD_CHANNEL_TYPE(shared[n].type),
+				SMD_XFER_TYPE(shared[n].type),
+				shared[n].ref_count);
 	}
+
+	return i;
+}
+
+static int debug_read_intr_mask(char *buf, int max)
+{
+	uint32_t *smsm;
+	int m, n, i = 0;
+
+	smsm = smem_alloc(SMEM_SMSM_CPU_INTR_MASK,
+			  SMSM_NUM_ENTRIES * SMSM_NUM_HOSTS * sizeof(uint32_t));
+
+	if (smsm)
+		for (m = 0; m < SMSM_NUM_ENTRIES; m++) {
+			i += scnprintf(buf + i, max - i, "entry %d:", m);
+			for (n = 0; n < SMSM_NUM_HOSTS; n++)
+				i += scnprintf(buf + i, max - i,
+					       "   host %d: 0x%08x",
+					       n, smsm[m * SMSM_NUM_HOSTS + n]);
+			i += scnprintf(buf + i, max - i, "\n");
+		}
+
+	return i;
+}
+
+static int debug_read_intr_mux(char *buf, int max)
+{
+	uint32_t *smsm;
+	int n, i = 0;
+
+	smsm = smem_alloc(SMEM_SMD_SMSM_INTR_MUX,
+			  SMSM_NUM_INTR_MUX * sizeof(uint32_t));
+
+	if (smsm)
+		for (n = 0; n < SMSM_NUM_INTR_MUX; n++)
+			i += scnprintf(buf + i, max - i, "entry %d: %d\n",
+				       n, smsm[n]);
 
 	return i;
 }
@@ -212,7 +624,6 @@ static int debug_open(struct inode *inode, struct file *file)
 static const struct file_operations debug_ops = {
 	.read = debug_read,
 	.open = debug_open,
-	.llseek = default_llseek,
 };
 
 static void debug_create(const char *name, mode_t mode,
@@ -222,25 +633,49 @@ static void debug_create(const char *name, mode_t mode,
 	debugfs_create_file(name, mode, dent, fill, &debug_ops);
 }
 
-static int smd_debugfs_init(void)
+static int __init smd_debugfs_init(void)
 {
 	struct dentry *dent;
 
 	dent = debugfs_create_dir("smd", 0);
 	if (IS_ERR(dent))
-		return 1;
+		return PTR_ERR(dent);
 
 	debug_create("ch", 0444, dent, debug_read_ch);
-	debug_create("stat", 0444, dent, debug_read_stat);
+	debug_create("diag", 0444, dent, debug_read_diag_msg);
 	debug_create("mem", 0444, dent, debug_read_mem);
-	debug_create("version", 0444, dent, debug_read_version);
+	debug_create("version", 0444, dent, debug_read_smd_version);
 	debug_create("tbl", 0444, dent, debug_read_alloc_tbl);
+	debug_create("modem_err", 0444, dent, debug_modem_err);
+	debug_create("modem_err_f3", 0444, dent, debug_modem_err_f3);
+	debug_create("print_diag", 0444, dent, debug_diag);
+	debug_create("print_f3", 0444, dent, debug_f3);
+
+	/* NNV: this is google only stuff */
 	debug_create("build", 0444, dent, debug_read_build_id);
 
 	return 0;
 }
 
+static int __init smsm_debugfs_init(void)
+{
+	struct dentry *dent;
+
+	dent = debugfs_create_dir("smsm", 0);
+	if (IS_ERR(dent))
+		return PTR_ERR(dent);
+
+	debug_create("state", 0444, dent, debug_read_smsm_state);
+	debug_create("intr_mask", 0444, dent, debug_read_intr_mask);
+	debug_create("intr_mux", 0444, dent, debug_read_intr_mux);
+	debug_create("version", 0444, dent, debug_read_smem_version);
+	debug_create("smsm_test", 0444, dent, debug_test_smsm);
+
+	return 0;
+}
+
 late_initcall(smd_debugfs_init);
+late_initcall(smsm_debugfs_init);
 #endif
 
 
@@ -265,38 +700,29 @@ struct tramp_gpio_smem {
 	uint32_t polarity[NUM_GPIO_INT_REGISTERS];
 };
 
-
-void smsm_print_sleep_info(void)
+/*
+ * Print debug information on shared memory sleep variables
+ */
+void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
+	uint32_t irq_mask, uint32_t wakeup_reason, uint32_t pending_irqs)
 {
 	unsigned long flags;
 	uint32_t *ptr;
-#ifndef CONFIG_ARCH_MSM_SCORPION
 	struct tramp_gpio_smem *gpio;
-	struct smsm_interrupt_info *int_info;
-#endif
-
 
 	spin_lock_irqsave(&smem_lock, flags);
 
-	ptr = smem_alloc(SMEM_SMSM_SLEEP_DELAY, sizeof(*ptr));
-	if (ptr)
-		pr_info("SMEM_SMSM_SLEEP_DELAY: %x\n", *ptr);
-
-	ptr = smem_alloc(SMEM_SMSM_LIMIT_SLEEP, sizeof(*ptr));
-	if (ptr)
-		pr_info("SMEM_SMSM_LIMIT_SLEEP: %x\n", *ptr);
+	pr_info("SMEM_SMSM_SLEEP_DELAY: %x\n", sleep_delay);
+	pr_info("SMEM_SMSM_LIMIT_SLEEP: %x\n", sleep_limit);
 
 	ptr = smem_alloc(SMEM_SLEEP_POWER_COLLAPSE_DISABLED, sizeof(*ptr));
 	if (ptr)
 		pr_info("SMEM_SLEEP_POWER_COLLAPSE_DISABLED: %x\n", *ptr);
+	else
+		pr_info("SMEM_SLEEP_POWER_COLLAPSE_DISABLED: missing\n");
 
-#ifndef CONFIG_ARCH_MSM_SCORPION
-	int_info = smem_alloc(SMEM_SMSM_INT_INFO, sizeof(*int_info));
-	if (int_info)
-		pr_info("SMEM_SMSM_INT_INFO %x %x %x\n",
-			int_info->interrupt_mask,
-			int_info->pending_interrupts,
-			int_info->wakeup_reason);
+	pr_info("SMEM_SMSM_INT_INFO %x %x %x\n",
+		irq_mask, pending_irqs, wakeup_reason);
 
 	gpio = smem_alloc(SMEM_GPIO_INT, sizeof(*gpio));
 	if (gpio) {
@@ -310,9 +736,8 @@ void smsm_print_sleep_info(void)
 			pr_info("SMEM_GPIO_INT: %d: f %d: %d %d...\n",
 				i, gpio->num_fired[i], gpio->fired[i][0],
 				gpio->fired[i][1]);
-	}
-#else
-#endif
+	} else
+		pr_info("SMEM_GPIO_INT: missing\n");
+
 	spin_unlock_irqrestore(&smem_lock, flags);
 }
-

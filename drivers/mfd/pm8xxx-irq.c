@@ -247,12 +247,20 @@ static int pm8xxx_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
+static int pm8xxx_irq_read_line(struct irq_data *d)
+{
+	struct pm_irq_chip *chip = irq_data_get_irq_chip_data(d);
+
+	return pm8xxx_get_irq_stat(chip, d->irq);
+}
+
 static struct irq_chip pm8xxx_irq_chip = {
 	.name		= "pm8xxx",
 	.irq_mask_ack	= pm8xxx_irq_mask_ack,
 	.irq_unmask	= pm8xxx_irq_unmask,
 	.irq_set_type	= pm8xxx_irq_set_type,
 	.irq_set_wake	= pm8xxx_irq_set_wake,
+	.irq_read_line	= pm8xxx_irq_read_line,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND,
 };
 
@@ -358,7 +366,7 @@ struct pm_irq_chip *  __devinit pm8xxx_irq_init(struct device *dev,
 	irq_set_irq_type(devirq, pdata->irq_trigger_flag);
 	irq_set_handler_data(devirq, chip);
 	irq_set_chained_handler(devirq, pm8xxx_irq_handler);
-	set_irq_wake(devirq, 1);
+	irq_set_irq_wake(devirq, 1);
 
 	return chip;
 }

@@ -27,6 +27,7 @@ struct prio_sched_data {
 	struct tcf_proto *filter_list;
 	u8  prio2band[TC_PRIO_MAX+1];
 	struct Qdisc *queues[TCQ_PRIO_BANDS];
+	u8 enable_flow;
 };
 
 
@@ -96,6 +97,9 @@ static struct sk_buff *prio_peek(struct Qdisc *sch)
 	struct prio_sched_data *q = qdisc_priv(sch);
 	int prio;
 
+	if (!q->enable_flow)
+		return NULL;
+
 	for (prio = 0; prio < q->bands; prio++) {
 		struct Qdisc *qdisc = q->queues[prio];
 		struct sk_buff *skb = qdisc->ops->peek(qdisc);
@@ -109,6 +113,9 @@ static struct sk_buff *prio_dequeue(struct Qdisc *sch)
 {
 	struct prio_sched_data *q = qdisc_priv(sch);
 	int prio;
+
+	if (!q->enable_flow)
+		return NULL;
 
 	for (prio = 0; prio < q->bands; prio++) {
 		struct Qdisc *qdisc = q->queues[prio];
@@ -150,6 +157,7 @@ prio_reset(struct Qdisc *sch)
 	for (prio = 0; prio < q->bands; prio++)
 		qdisc_reset(q->queues[prio]);
 	sch->q.qlen = 0;
+	q->enable_flow = 1;
 }
 
 static void
@@ -182,6 +190,7 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
 	}
 
 	sch_tree_lock(sch);
+	q->enable_flow = qopt->enable_flow;
 	q->bands = qopt->bands;
 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
 
@@ -245,6 +254,7 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 	struct tc_prio_qopt opt;
 
 	opt.bands = q->bands;
+	opt.enable_flow = q->enable_flow;
 	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX + 1);
 
 	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);

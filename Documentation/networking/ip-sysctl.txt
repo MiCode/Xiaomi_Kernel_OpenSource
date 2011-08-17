@@ -1043,8 +1043,14 @@ conf/all/forwarding - BOOLEAN
 
 	This referred to as global forwarding.
 
-proxy_ndp - BOOLEAN
+proxy_ndp - INTEGER
 	Do proxy ndp.
+
+	Possible values are:
+		0 Proxy NDP is disabled
+		1 Proxy NDP is enabled
+		2 NDP packets are sent to userspace, where a userspace proxy
+                  can be implemented
 
 conf/interface/*:
 	Change special settings per interface.

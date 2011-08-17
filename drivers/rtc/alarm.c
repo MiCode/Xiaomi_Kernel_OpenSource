@@ -299,6 +299,30 @@ err:
 	return ret;
 }
 
+
+void
+alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
+{
+	int i;
+	unsigned long flags;
+
+	spin_lock_irqsave(&alarm_slock, flags);
+	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
+		hrtimer_try_to_cancel(&alarms[i].timer);
+		alarms[i].stopped = true;
+		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
+	}
+	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
+		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
+		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
+			timespec_to_ktime(timespec_sub(tmp_time, new_time)));
+	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
+		alarms[i].stopped = false;
+		update_timer_locked(&alarms[i], false);
+	}
+	spin_unlock_irqrestore(&alarm_slock, flags);
+}
+
 /**
  * alarm_get_elapsed_realtime - get the elapsed real time in ktime_t format
  *

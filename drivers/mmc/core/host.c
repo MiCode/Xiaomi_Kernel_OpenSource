@@ -94,7 +94,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 		spin_unlock_irqrestore(&host->clk_lock, flags);
 		return;
 	}
-	mutex_lock(&host->clk_gate_mutex);
+	mmc_claim_host(host);
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (!host->clk_requests) {
 		spin_unlock_irqrestore(&host->clk_lock, flags);
@@ -104,7 +104,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 		pr_debug("%s: gated MCI clock\n", mmc_hostname(host));
 	}
 	spin_unlock_irqrestore(&host->clk_lock, flags);
-	mutex_unlock(&host->clk_gate_mutex);
+	mmc_release_host(host);
 }
 
 /*
@@ -130,7 +130,7 @@ void mmc_host_clk_ungate(struct mmc_host *host)
 {
 	unsigned long flags;
 
-	mutex_lock(&host->clk_gate_mutex);
+	mmc_claim_host(host);
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (host->clk_gated) {
 		spin_unlock_irqrestore(&host->clk_lock, flags);
@@ -140,7 +140,7 @@ void mmc_host_clk_ungate(struct mmc_host *host)
 	}
 	host->clk_requests++;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
-	mutex_unlock(&host->clk_gate_mutex);
+	mmc_release_host(host);
 }
 
 /**
@@ -215,7 +215,6 @@ static inline void mmc_host_clk_init(struct mmc_host *host)
 	host->clk_gated = false;
 	INIT_WORK(&host->clk_gate_work, mmc_host_clk_gate_work);
 	spin_lock_init(&host->clk_lock);
-	mutex_init(&host->clk_gate_mutex);
 }
 
 /**
@@ -309,6 +308,70 @@ free:
 }
 
 EXPORT_SYMBOL(mmc_alloc_host);
+#ifdef CONFIG_MMC_PERF_PROFILING
+static ssize_t
+show_perf(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = dev_get_drvdata(dev);
+	int64_t rtime_mmcq, wtime_mmcq, rtime_drv, wtime_drv;
+	unsigned long rbytes_mmcq, wbytes_mmcq, rbytes_drv, wbytes_drv;
+
+	spin_lock(&host->lock);
+
+	rbytes_mmcq = host->perf.rbytes_mmcq;
+	wbytes_mmcq = host->perf.wbytes_mmcq;
+	rbytes_drv = host->perf.rbytes_drv;
+	wbytes_drv = host->perf.wbytes_drv;
+
+	rtime_mmcq = ktime_to_us(host->perf.rtime_mmcq);
+	wtime_mmcq = ktime_to_us(host->perf.wtime_mmcq);
+	rtime_drv = ktime_to_us(host->perf.rtime_drv);
+	wtime_drv = ktime_to_us(host->perf.wtime_drv);
+
+	spin_unlock(&host->lock);
+
+	return snprintf(buf, PAGE_SIZE, "Write performance at MMCQ Level:"
+					"%lu bytes in %lld microseconds\n"
+					"Read performance at MMCQ Level:"
+					"%lu bytes in %lld microseconds\n"
+					"Write performance at driver Level:"
+					"%lu bytes in %lld microseconds\n"
+					"Read performance at driver Level:"
+					"%lu bytes in %lld microseconds\n",
+					wbytes_mmcq, wtime_mmcq, rbytes_mmcq,
+					rtime_mmcq, wbytes_drv, wtime_drv,
+					rbytes_drv, rtime_drv);
+}
+
+static ssize_t
+set_perf(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int64_t value;
+	struct mmc_host *host = dev_get_drvdata(dev);
+	sscanf(buf, "%lld", &value);
+	if (!value) {
+		spin_lock(&host->lock);
+		memset(&host->perf, 0, sizeof(host->perf));
+		spin_unlock(&host->lock);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(perf, S_IRUGO | S_IWUSR,
+		show_perf, set_perf);
+#endif
+
+static struct attribute *dev_attrs[] = {
+#ifdef CONFIG_MMC_PERF_PROFILING
+	&dev_attr_perf.attr,
+#endif
+	NULL,
+};
+static struct attribute_group dev_attr_grp = {
+	.attrs = dev_attrs,
+};
 
 /**
  *	mmc_add_host - initialise host hardware
@@ -334,6 +397,10 @@ int mmc_add_host(struct mmc_host *host)
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);
 #endif
+	err = sysfs_create_group(&host->parent->kobj, &dev_attr_grp);
+	if (err)
+		pr_err("%s: failed to create sysfs group with err %d\n",
+							 __func__, err);
 
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
@@ -362,6 +429,8 @@ void mmc_remove_host(struct mmc_host *host)
 #ifdef CONFIG_DEBUG_FS
 	mmc_remove_host_debugfs(host);
 #endif
+	sysfs_remove_group(&host->parent->kobj, &dev_attr_grp);
+
 
 	device_del(&host->class_dev);
 

@@ -1,5 +1,6 @@
 config ARM_GIC
 	bool
+	select MSM_SHOW_RESUME_IRQ
 
 config ARM_VIC
 	bool

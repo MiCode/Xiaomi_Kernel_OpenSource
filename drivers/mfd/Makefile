@@ -35,12 +35,26 @@ obj-$(CONFIG_MFD_WM8994)	+= wm8994-core.o wm8994-irq.o
 obj-$(CONFIG_TPS6105X)		+= tps6105x.o
 obj-$(CONFIG_TPS65010)		+= tps65010.o
 obj-$(CONFIG_TPS6507X)		+= tps6507x.o
+obj-$(CONFIG_MARIMBA_CODEC)     += marimba-codec.o
 obj-$(CONFIG_MENELAUS)		+= menelaus.o
 
 obj-$(CONFIG_TWL4030_CORE)	+= twl-core.o twl4030-irq.o twl6030-irq.o
 obj-$(CONFIG_TWL4030_MADC)      += twl4030-madc.o
 obj-$(CONFIG_TWL4030_POWER)    += twl4030-power.o
 obj-$(CONFIG_MFD_TWL4030_AUDIO)	+= twl4030-audio.o
+
+obj-$(CONFIG_MARIMBA_CORE)	+= marimba-core.o
+obj-$(CONFIG_MARIMBA_TSADC)	+= marimba-tsadc.o
+obj-$(CONFIG_TPS65023)		+= tps65023.o
+
+obj-$(CONFIG_TIMPANI_CODEC)	+= timpani-codec.o
+
+ifdef CONFIG_TIMPANI_CODEC
+obj-$(CONFIG_TIMPANI_CODEC) += msm-adie-codec.o
+else ifdef CONFIG_MARIMBA_CODEC
+obj-$(CONFIG_MARIMBA_CODEC) += msm-adie-codec.o
+endif
+
 obj-$(CONFIG_TWL6030_PWM)	+= twl6030-pwm.o
 obj-$(CONFIG_TWL6040_CORE)	+= twl6040-core.o twl6040-irq.o
 
@@ -54,6 +68,8 @@ obj-$(CONFIG_MCP)		+= mcp-core.o
 obj-$(CONFIG_MCP_SA11X0)	+= mcp-sa11x0.o
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-core.o
 obj-$(CONFIG_MCP_UCB1200_TS)	+= ucb1x00-ts.o
+
+obj-$(CONFIG_WCD9310_CODEC)       += wcd9310-core.o wcd9310-irq.o
 
 ifeq ($(CONFIG_SA1100_ASSABET),y)
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-assabet.o
@@ -96,3 +112,12 @@ obj-$(CONFIG_MFD_PM8921_CORE) 	+= pm8921-core.o
 obj-$(CONFIG_MFD_PM8XXX_IRQ) 	+= pm8xxx-irq.o
 obj-$(CONFIG_MFD_TPS65910)	+= tps65910.o tps65910-irq.o
 obj-$(CONFIG_TPS65911_COMPARATOR)	+= tps65911-comparator.o
+obj-$(CONFIG_PMIC8058)		+= pmic8058.o
+obj-$(CONFIG_PMIC8901)		+= pmic8901.o
+obj-$(CONFIG_MFD_PM8921_CORE) 	+= pm8921-core.o
+obj-$(CONFIG_MFD_PM8XXX_IRQ) 	+= pm8xxx-irq.o
+obj-$(CONFIG_MFD_PM8XXX_DEBUG) 	+= pm8xxx-debug.o
+obj-$(CONFIG_MFD_PM8XXX_PWM) 	+= pm8xxx-pwm.o
+obj-$(CONFIG_MFD_PM8XXX_MISC) 	+= pm8xxx-misc.o
+obj-$(CONFIG_MFD_PM8XXX_BATT_ALARM) 	+= pm8xxx-batt-alarm.o
+obj-$(CONFIG_MFD_PM8921_ADC)	+= pm8921-adc.o msmproc_adc.o

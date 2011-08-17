@@ -30,6 +30,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/android.h>
 
 #include "gadget_chips.h"
 
@@ -45,9 +46,10 @@
 #include "epautoconf.c"
 #include "composite.c"
 
+#include "f_diag.c"
 #include "f_mass_storage.c"
-#include "u_serial.c"
-#include "f_acm.c"
+//#include "u_serial.c"
+//#include "f_acm.c"
 #include "f_adb.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
@@ -99,6 +101,7 @@ struct android_dev {
 	struct list_head enabled_functions;
 	struct usb_composite_dev *cdev;
 	struct device *dev;
+	struct android_usb_platform_data *pdata;
 
 	bool enabled;
 	bool connected;
@@ -187,6 +190,68 @@ static void android_work(struct work_struct *data)
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
+char diag_clients[32];	    /* enabled DIAG clients - "diag[,diag_mdm]" */
+static ssize_t clients_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strncpy(diag_clients, buff, sizeof(diag_clients));
+
+	return size;
+}
+
+static DEVICE_ATTR(clients, S_IWUSR, NULL, clients_store);
+static struct device_attribute *diag_function_attributes[] =
+					 { &dev_attr_clients, NULL };
+
+static int diag_function_init(struct android_usb_function *f,
+				 struct usb_composite_dev *cdev)
+{
+	return diag_setup();
+}
+
+static void diag_function_cleanup(struct android_usb_function *f)
+{
+	diag_cleanup();
+}
+
+static int diag_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	char *name;
+	char buf[32], *b;
+	int once = 0, err = -1;
+	int (*notify)(uint32_t, const char *);
+
+	strncpy(buf, diag_clients, sizeof(buf));
+	b = strim(buf);
+
+	while (b) {
+		name = strsep(&b, ",");
+		/* Allow only first diag channel to update pid and serial no */
+		if (!once++)
+			notify = _android_dev->pdata->update_pid_and_serial_num;
+		else
+			notify = NULL;
+
+		if (name) {
+			err = diag_function_add(c, name, notify);
+			if (err)
+				pr_err("diag: Cannot open channel '%s'", name);
+		}
+	}
+
+	return err;
+}
+
+static struct android_usb_function diag_function = {
+	.name		= "diag",
+	.init		= diag_function_init,
+	.cleanup	= diag_function_cleanup,
+	.bind_config	= diag_function_bind_config,
+	.attributes	= diag_function_attributes,
+};
+
 static int adb_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
 	return adb_setup();
@@ -209,7 +274,7 @@ static struct android_usb_function adb_function = {
 	.bind_config	= adb_function_bind_config,
 };
 
-
+#if 0
 #define MAX_ACM_INSTANCES 4
 struct acm_function_config {
 	int instances;
@@ -280,7 +345,7 @@ static struct android_usb_function acm_function = {
 	.bind_config	= acm_function_bind_config,
 	.attributes	= acm_function_attributes,
 };
-
+#endif
 
 static int mtp_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
@@ -644,8 +709,9 @@ static struct android_usb_function accessory_function = {
 
 
 static struct android_usb_function *supported_functions[] = {
+	&diag_function,
 	&adb_function,
-	&acm_function,
+//	&acm_function,
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
@@ -1104,6 +1170,19 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
+static int __devinit android_probe(struct platform_device *pdev)
+{
+	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
+	struct android_dev *dev = _android_dev;
+
+	dev->pdata = pdata;
+	
+	return 0;
+}
+
+static struct platform_driver android_platform_driver = {
+	.driver = { .name = "android_usb"},
+};
 
 static int __init init(void)
 {
@@ -1134,6 +1213,8 @@ static int __init init(void)
 	/* Override composite driver functions */
 	composite_driver.setup = android_setup;
 	composite_driver.disconnect = android_disconnect;
+
+	platform_driver_probe(&android_platform_driver, android_probe);
 
 	return usb_composite_probe(&android_usb_driver, android_bind);
 }

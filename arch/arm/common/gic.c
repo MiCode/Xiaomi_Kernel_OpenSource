@@ -28,10 +28,12 @@
 #include <linux/smp.h>
 #include <linux/cpumask.h>
 #include <linux/io.h>
+#include <linux/syscore_ops.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <asm/system.h>
 
 static DEFINE_SPINLOCK(irq_controller_lock);
 
@@ -42,6 +44,11 @@ struct gic_chip_data {
 	unsigned int irq_offset;
 	void __iomem *dist_base;
 	void __iomem *cpu_base;
+	unsigned int max_irq;
+#ifdef CONFIG_PM
+	unsigned int wakeup_irqs[32];
+	unsigned int enabled_irqs[32];
+#endif
 };
 
 /*
@@ -55,6 +62,7 @@ struct irq_chip gic_arch_extn = {
 	.irq_retrigger	= NULL,
 	.irq_set_type	= NULL,
 	.irq_set_wake	= NULL,
+	.irq_disable	= NULL,
 };
 
 #ifndef MAX_GIC_NR
@@ -93,6 +101,7 @@ static void gic_mask_irq(struct irq_data *d)
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
 	spin_unlock(&irq_controller_lock);
+
 }
 
 static void gic_unmask_irq(struct irq_data *d)
@@ -105,6 +114,104 @@ static void gic_unmask_irq(struct irq_data *d)
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
 }
+
+static void gic_disable_irq(struct irq_data *d)
+{
+	if (gic_arch_extn.irq_disable)
+		gic_arch_extn.irq_disable(d);
+}
+
+#ifdef CONFIG_PM
+static int gic_suspend_one(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	void __iomem *base = gic->dist_base;
+
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		gic->enabled_irqs[i]
+			= readl_relaxed(base + GIC_DIST_ENABLE_SET + i * 4);
+		/* disable all of them */
+		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
+		/* enable the wakeup set */
+		writel_relaxed(gic->wakeup_irqs[i],
+			base + GIC_DIST_ENABLE_SET + i * 4);
+	}
+	mb();
+	return 0;
+}
+
+static int gic_suspend(void)
+{
+	int i;
+	for (i = 0; i < MAX_GIC_NR; i++)
+		gic_suspend_one(&gic_data[i]);
+	return 0;
+}
+
+extern int msm_show_resume_irq_mask;
+
+static void gic_show_resume_irq(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	u32 enabled;
+	unsigned long pending[32];
+	void __iomem *base = gic->dist_base;
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	spin_lock(&irq_controller_lock);
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		enabled = readl_relaxed(base + GIC_DIST_ENABLE_CLEAR + i * 4);
+		pending[i] = readl_relaxed(base + GIC_DIST_PENDING_SET + i * 4);
+		pending[i] &= enabled;
+	}
+	spin_unlock(&irq_controller_lock);
+
+	for (i = find_first_bit(pending, gic->max_irq);
+	     i < gic->max_irq;
+	     i = find_next_bit(pending, gic->max_irq, i+1)) {
+		pr_warning("%s: %d triggered", __func__,
+					i + gic->irq_offset);
+	}
+}
+
+static void gic_resume_one(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	void __iomem *base = gic->dist_base;
+
+	gic_show_resume_irq(gic);
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		/* disable all of them */
+		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
+		/* enable the enabled set */
+		writel_relaxed(gic->enabled_irqs[i],
+			base + GIC_DIST_ENABLE_SET + i * 4);
+	}
+	mb();
+}
+
+static void gic_resume(void)
+{
+	int i;
+	for (i = 0; i < MAX_GIC_NR; i++)
+		gic_resume_one(&gic_data[i]);
+}
+
+static struct syscore_ops gic_syscore_ops = {
+	.suspend = gic_suspend,
+	.resume = gic_resume,
+};
+
+static int __init gic_init_sys(void)
+{
+	register_syscore_ops(&gic_syscore_ops);
+	return 0;
+}
+arch_initcall(gic_init_sys);
+
+#endif
 
 static void gic_eoi_irq(struct irq_data *d)
 {
@@ -202,6 +309,20 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 static int gic_set_wake(struct irq_data *d, unsigned int on)
 {
 	int ret = -ENXIO;
+	unsigned int reg_offset, bit_offset;
+	unsigned int gicirq = gic_irq(d);
+	struct gic_chip_data *gic_data = irq_data_get_irq_chip_data(d);
+
+	/* per-cpu interrupts cannot be wakeup interrupts */
+	WARN_ON(gicirq < 32);
+
+	reg_offset = gicirq / 32;
+	bit_offset = gicirq % 32;
+
+	if (on)
+		gic_data->wakeup_irqs[reg_offset] |=  1 << bit_offset;
+	else
+		gic_data->wakeup_irqs[reg_offset] &=  ~(1 << bit_offset);
 
 	if (gic_arch_extn.irq_set_wake)
 		ret = gic_arch_extn.irq_set_wake(d, on);
@@ -250,6 +371,7 @@ static struct irq_chip gic_chip = {
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= gic_set_affinity,
 #endif
+	.irq_disable		= gic_disable_irq,
 	.irq_set_wake		= gic_set_wake,
 };
 
@@ -324,7 +446,10 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
 	}
 
+	gic->max_irq = gic_irqs;
+
 	writel_relaxed(1, base + GIC_DIST_CTRL);
+	mb();
 }
 
 static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
@@ -348,6 +473,7 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 	writel_relaxed(1, base + GIC_CPU_CTRL);
+    mb();
 }
 
 void __init gic_init(unsigned int gic_nr, unsigned int irq_start,
@@ -399,5 +525,47 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 
 	/* this always happens on GIC0 */
 	writel_relaxed(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
+	mb();
 }
 #endif
+
+/* before calling this function the interrupts should be disabled
+ * and the irq must be disabled at gic to avoid spurious interrupts */
+bool gic_is_spi_pending(unsigned int irq)
+{
+	struct irq_data *d = irq_get_irq_data(irq);
+	struct gic_chip_data *gic_data = &gic_data[0];
+	u32 mask, val;
+
+	WARN_ON(!irqs_disabled());
+	spin_lock(&irq_controller_lock);
+	mask = 1 << (gic_irq(d) % 32);
+	val = readl(gic_dist_base(d) +
+			GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
+	/* warn if the interrupt is enabled */
+	WARN_ON(val & mask);
+	val = readl(gic_dist_base(d) +
+			GIC_DIST_PENDING_SET + (gic_irq(d) / 32) * 4);
+	spin_unlock(&irq_controller_lock);
+	return (bool) (val & mask);
+}
+
+/* before calling this function the interrupts should be disabled
+ * and the irq must be disabled at gic to avoid spurious interrupts */
+void gic_clear_spi_pending(unsigned int irq)
+{
+	struct gic_chip_data *gic_data = &gic_data[0];
+	struct irq_data *d = irq_get_irq_data(irq);
+
+	u32 mask, val;
+	WARN_ON(!irqs_disabled());
+	spin_lock(&irq_controller_lock);
+	mask = 1 << (gic_irq(d) % 32);
+	val = readl(gic_dist_base(d) +
+			GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
+	/* warn if the interrupt is enabled */
+	WARN_ON(val & mask);
+	writel(mask, gic_dist_base(d) +
+			GIC_DIST_PENDING_CLEAR + (gic_irq(d) / 32) * 4);
+	spin_unlock(&irq_controller_lock);
+}

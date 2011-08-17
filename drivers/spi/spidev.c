@@ -83,6 +83,7 @@ struct spidev_data {
 	struct mutex		buf_lock;
 	unsigned		users;
 	u8			*buffer;
+	u8			*bufferrx;
 };
 
 static LIST_HEAD(device_list);
@@ -91,6 +92,30 @@ static DEFINE_MUTEX(device_list_lock);
 static unsigned bufsiz = 4096;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
+
+/*
+ * This can be used for testing the controller, given the busnum and the
+ * cs required to use. If those parameters are used, spidev is
+ * dynamically added as device on the busnum, and messages can be sent
+ * via this interface.
+ */
+static int busnum = -1;
+module_param(busnum, int, S_IRUGO);
+MODULE_PARM_DESC(busnum, "bus num of the controller");
+
+static int chipselect = -1;
+module_param(chipselect, int, S_IRUGO);
+MODULE_PARM_DESC(chipselect, "chip select of the desired device");
+
+static int maxspeed = 10000000;
+module_param(maxspeed, int, S_IRUGO);
+MODULE_PARM_DESC(maxspeed, "max_speed of the desired device");
+
+static int spimode = SPI_MODE_3;
+module_param(spimode, int, S_IRUGO);
+MODULE_PARM_DESC(spimode, "mode of the desired device");
+
+static struct spi_device *spi;
 
 /*-------------------------------------------------------------------------*/
 
@@ -221,7 +246,7 @@ static int spidev_message(struct spidev_data *spidev,
 	struct spi_transfer	*k_tmp;
 	struct spi_ioc_transfer *u_tmp;
 	unsigned		n, total;
-	u8			*buf;
+	u8			*buf, *bufrx;
 	int			status = -EFAULT;
 
 	spi_message_init(&msg);
@@ -234,6 +259,7 @@ static int spidev_message(struct spidev_data *spidev,
 	 * to initialize a kernel version of the same transfer.
 	 */
 	buf = spidev->buffer;
+	bufrx = spidev->bufferrx;
 	total = 0;
 	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers;
 			n;
@@ -247,7 +273,7 @@ static int spidev_message(struct spidev_data *spidev,
 		}
 
 		if (u_tmp->rx_buf) {
-			k_tmp->rx_buf = buf;
+			k_tmp->rx_buf = bufrx;
 			if (!access_ok(VERIFY_WRITE, (u8 __user *)
 						(uintptr_t) u_tmp->rx_buf,
 						u_tmp->len))
@@ -261,6 +287,7 @@ static int spidev_message(struct spidev_data *spidev,
 				goto done;
 		}
 		buf += k_tmp->len;
+		bufrx += k_tmp->len;
 
 		k_tmp->cs_change = !!u_tmp->cs_change;
 		k_tmp->bits_per_word = u_tmp->bits_per_word;
@@ -285,7 +312,7 @@ static int spidev_message(struct spidev_data *spidev,
 		goto done;
 
 	/* copy any rx data out of bounce buffer */
-	buf = spidev->buffer;
+	buf = spidev->bufferrx;
 	for (n = n_xfers, u_tmp = u_xfers; n; n--, u_tmp++) {
 		if (u_tmp->rx_buf) {
 			if (__copy_to_user((u8 __user *)
@@ -503,6 +530,15 @@ static int spidev_open(struct inode *inode, struct file *filp)
 				status = -ENOMEM;
 			}
 		}
+		if (!spidev->bufferrx) {
+			spidev->bufferrx = kmalloc(bufsiz, GFP_KERNEL);
+			if (!spidev->bufferrx) {
+				dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+				kfree(spidev->buffer);
+				spidev->buffer = NULL;
+				status = -ENOMEM;
+			}
+		}
 		if (status == 0) {
 			spidev->users++;
 			filp->private_data = spidev;
@@ -531,6 +567,8 @@ static int spidev_release(struct inode *inode, struct file *filp)
 
 		kfree(spidev->buffer);
 		spidev->buffer = NULL;
+		kfree(spidev->bufferrx);
+		spidev->bufferrx = NULL;
 
 		/* ... after we unbound from the underlying device? */
 		spin_lock_irq(&spidev->spi_lock);
@@ -674,21 +712,58 @@ static int __init spidev_init(void)
 
 	spidev_class = class_create(THIS_MODULE, "spidev");
 	if (IS_ERR(spidev_class)) {
-		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
-		return PTR_ERR(spidev_class);
+		status = PTR_ERR(spidev_class);
+		goto error_class;
 	}
 
 	status = spi_register_driver(&spidev_spi_driver);
-	if (status < 0) {
-		class_destroy(spidev_class);
-		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
+	if (status < 0)
+		goto error_register;
+
+	if (busnum != -1 && chipselect != -1) {
+		struct spi_board_info chip = {
+					.modalias	= "spidev",
+					.mode		= spimode,
+					.bus_num	= busnum,
+					.chip_select	= chipselect,
+					.max_speed_hz	= maxspeed,
+		};
+
+		struct spi_master *master;
+
+		master = spi_busnum_to_master(busnum);
+		if (!master) {
+			status = -ENODEV;
+			goto error_busnum;
+		}
+
+		/* We create a virtual device that will sit on the bus */
+		spi = spi_new_device(master, &chip);
+		if (!spi) {
+			status = -EBUSY;
+			goto error_mem;
+		}
+		dev_dbg(&spi->dev, "busnum=%d cs=%d bufsiz=%d maxspeed=%d",
+			busnum, chipselect, bufsiz, maxspeed);
 	}
+	return 0;
+error_mem:
+error_busnum:
+	spi_unregister_driver(&spidev_spi_driver);
+error_register:
+	class_destroy(spidev_class);
+error_class:
+	unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
 	return status;
 }
 module_init(spidev_init);
 
 static void __exit spidev_exit(void)
 {
+	if (spi) {
+		spi_unregister_device(spi);
+		spi = NULL;
+	}
 	spi_unregister_driver(&spidev_spi_driver);
 	class_destroy(spidev_class);
 	unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);

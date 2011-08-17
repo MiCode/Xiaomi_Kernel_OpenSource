@@ -56,6 +56,22 @@ config TOUCHSCREEN_AD7877
 	  module will be called ad7877.
 
 config TOUCHSCREEN_AD7879
+	tristate
+	default n
+
+config TOUCHSCREEN_ATMEL_MAXTOUCH
+       tristate "Atmel maXTouch based touchscreens"
+       depends on I2C
+       default n
+       help
+         Say Y here if you have an Atmel Maxtouch based touchscreen.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called maXTouch.
+
+config TOUCHSCREEN_AD7879
 	tristate "Analog Devices AD7879-1/AD7889-1 touchscreen interface"
 	help
 	  Say Y here if you want to support a touchscreen interface using
@@ -362,6 +378,15 @@ config TOUCHSCREEN_PENMOUNT
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called penmount.
+
+config TOUCHSCREEN_MSM
+	bool "Qualcomm MSM touchscreen controller"
+	depends on ARCH_MSM7X30 && MARIMBA_TSADC
+	default n
+	help
+	  Say Y here if you have a 4-wire resistive touchscreen panel
+	  connected to the TSSC touchscreen controller on a
+	  Qualcomm MSM/QSD based SoC.
 
 config TOUCHSCREEN_MIGOR
 	tristate "Renesas MIGO-R touchscreen"
@@ -679,6 +704,27 @@ config TOUCHSCREEN_TSC2007
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2007.
 
+config TOUCHSCREEN_MSM_LEGACY
+	default n
+	tristate "MSM Touchscreen"
+	depends on ARCH_MSM && !ARCH_MSM7X30
+	help
+	  Say Y here if you have a touchscreen interface using MSM
+	  touchscreen controller.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called msm_touch.
+
+config ANDROID_TOUCHSCREEN_MSM_HACKS
+	default y
+	depends on TOUCHSCREEN_MSM_LEGACY
+	bool "Android MSM Touchscreen hacks"
+	help
+	  Say Y here if you are running Android framework on Qualcomm
+	  MSM/QSD based Surf or FFAs. These hacks are required inorder
+	  to Android framework to receive adjusted x, y co-ordinates
+	  until proper calibration framework is in place.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on HAVE_CLK
@@ -732,4 +778,31 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_CY8C_TS
+	tristate "Cypress TMA300-TMG200 based touchscreens"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a Cypress TMA300/TMG200 based touchscreen.
+	  TMA300 is a multi-touch screen which can report upto 10
+	  touches at a time. TMG200 supports 2 touches.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cy8c_ts.
+
+config TOUCHSCREEN_CYTTSP_I2C
+       tristate "Cypress TTSP based touchscreens"
+       depends on I2C
+       default n
+       help
+         Say Y here if you have a Cypress TTSP based touchscreen.
+         TMA300 is a multi-touch screen which can report upto 10
+         touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called cyttsp-i2c.
 endif

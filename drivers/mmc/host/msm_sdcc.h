@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/host/msmsdcc.h - QCT MSM7K SDC Controller
  *
  *  Copyright (C) 2008 Google, All Rights Reserved.
+ *  Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,10 +14,23 @@
 #ifndef _MSM_SDCC_H
 #define _MSM_SDCC_H
 
-#define MSMSDCC_CRCI_SDC1	6
-#define MSMSDCC_CRCI_SDC2	7
-#define MSMSDCC_CRCI_SDC3	12
-#define MSMSDCC_CRCI_SDC4	13
+#include <linux/types.h>
+
+#include <linux/ioport.h>
+#include <linux/interrupt.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
+#include <linux/mmc/mmc.h>
+#include <linux/mmc/sdio.h>
+#include <linux/scatterlist.h>
+#include <linux/dma-mapping.h>
+#include <linux/wakelock.h>
+#include <linux/earlysuspend.h>
+#include <mach/sps.h>
+
+#include <asm/sizes.h>
+#include <asm/mach/mmc.h>
+#include <mach/dma.h>
 
 #define MMCIPOWER		0x000
 #define MCI_PWR_OFF		0x00
@@ -27,10 +41,13 @@
 #define MMCICLOCK		0x004
 #define MCI_CLK_ENABLE		(1 << 8)
 #define MCI_CLK_PWRSAVE		(1 << 9)
-#define MCI_CLK_WIDEBUS		(1 << 10)
+#define MCI_CLK_WIDEBUS_1	(0 << 10)
+#define MCI_CLK_WIDEBUS_4	(2 << 10)
+#define MCI_CLK_WIDEBUS_8	(3 << 10)
 #define MCI_CLK_FLOWENA		(1 << 12)
 #define MCI_CLK_INVERTOUT	(1 << 13)
-#define MCI_CLK_SELECTIN	(1 << 14)
+#define MCI_CLK_SELECTIN	(1 << 15)
+#define IO_PAD_PWR_SWITCH	(1 << 21)
 
 #define MMCIARGUMENT		0x008
 #define MMCICOMMAND		0x00c
@@ -44,6 +61,7 @@
 #define MCI_CSPM_MCIABORT	(1 << 13)
 #define MCI_CSPM_CCSENABLE	(1 << 14)
 #define MCI_CSPM_CCSDISABLE	(1 << 15)
+#define MCI_CSPM_AUTO_CMD19	(1 << 16)
 
 
 #define MMCIRESPCMD		0x010
@@ -86,8 +104,9 @@
 #define MCI_SDIOINTR		(1 << 22)
 #define MCI_PROGDONE		(1 << 23)
 #define MCI_ATACMDCOMPL		(1 << 24)
-#define MCI_SDIOINTOPER		(1 << 25)
+#define MCI_SDIOINTROPE		(1 << 25)
 #define MCI_CCSTIMEOUT		(1 << 26)
+#define MCI_AUTOCMD19TIMEOUT	(1 << 30)
 
 #define MMCICLEAR		0x038
 #define MCI_CMDCRCFAILCLR	(1 << 0)
@@ -99,7 +118,22 @@
 #define MCI_CMDRESPENDCLR	(1 << 6)
 #define MCI_CMDSENTCLR		(1 << 7)
 #define MCI_DATAENDCLR		(1 << 8)
+#define MCI_STARTBITERRCLR	(1 << 9)
 #define MCI_DATABLOCKENDCLR	(1 << 10)
+
+#define MCI_SDIOINTRCLR		(1 << 22)
+#define MCI_PROGDONECLR		(1 << 23)
+#define MCI_ATACMDCOMPLCLR	(1 << 24)
+#define MCI_SDIOINTROPECLR	(1 << 25)
+#define MCI_CCSTIMEOUTCLR 	(1 << 26)
+
+#define MCI_CLEAR_STATIC_MASK	\
+	(MCI_CMDCRCFAILCLR|MCI_DATACRCFAILCLR|MCI_CMDTIMEOUTCLR|\
+	MCI_DATATIMEOUTCLR|MCI_TXUNDERRUNCLR|MCI_RXOVERRUNCLR|  \
+	MCI_CMDRESPENDCLR|MCI_CMDSENTCLR|MCI_DATAENDCLR|	\
+	MCI_STARTBITERRCLR|MCI_DATABLOCKENDCLR|MCI_SDIOINTRCLR|	\
+	MCI_SDIOINTROPECLR|MCI_PROGDONECLR|MCI_ATACMDCOMPLCLR|	\
+	MCI_CCSTIMEOUTCLR)
 
 #define MMCIMASK0		0x03c
 #define MCI_CMDCRCFAILMASK	(1 << 0)
@@ -128,17 +162,37 @@
 #define MCI_ATACMDCOMPLMASK	(1 << 24)
 #define MCI_SDIOINTOPERMASK	(1 << 25)
 #define MCI_CCSTIMEOUTMASK	(1 << 26)
+#define MCI_AUTOCMD19TIMEOUTMASK (1 << 30)
 
 #define MMCIMASK1		0x040
 #define MMCIFIFOCNT		0x044
 #define MCICCSTIMER		0x058
+#define MCI_DLL_CONFIG		0x060
+#define MCI_DLL_EN		(1 << 16)
+#define MCI_CDR_EN		(1 << 17)
+#define MCI_CK_OUT_EN		(1 << 18)
+#define MCI_CDR_EXT_EN		(1 << 19)
+#define MCI_DLL_PDN		(1 << 29)
+#define MCI_DLL_RST		(1 << 30)
+
+#define MCI_DLL_STATUS		0x068
+#define MCI_DLL_LOCK		(1 << 7)
 
 #define MMCIFIFO		0x080 /* to 0x0bc */
+
+#define MCI_TEST_INPUT		0x0D4
 
 #define MCI_IRQENABLE	\
 	(MCI_CMDCRCFAILMASK|MCI_DATACRCFAILMASK|MCI_CMDTIMEOUTMASK|	\
 	MCI_DATATIMEOUTMASK|MCI_TXUNDERRUNMASK|MCI_RXOVERRUNMASK|	\
-	MCI_CMDRESPENDMASK|MCI_CMDSENTMASK|MCI_DATAENDMASK|MCI_PROGDONEMASK)
+	MCI_CMDRESPENDMASK|MCI_CMDSENTMASK|MCI_DATAENDMASK|		\
+	MCI_PROGDONEMASK|MCI_AUTOCMD19TIMEOUTMASK)
+
+#define MCI_IRQ_PIO 	\
+	(MCI_RXDATAAVLBLMASK | MCI_TXDATAAVLBLMASK | 	\
+	MCI_RXFIFOEMPTYMASK | MCI_TXFIFOEMPTYMASK | MCI_RXFIFOFULLMASK |\
+	MCI_TXFIFOFULLMASK | MCI_RXFIFOHALFFULLMASK |			\
+	MCI_TXFIFOHALFEMPTYMASK | MCI_RXACTIVEMASK | MCI_TXACTIVEMASK)
 
 /*
  * The size of the FIFO in bytes.
@@ -148,6 +202,14 @@
 #define MCI_FIFOHALFSIZE (MCI_FIFOSIZE / 2)
 
 #define NR_SG		32
+
+#define MSM_MMC_IDLE_TIMEOUT	10000 /* msecs */
+
+/*
+ * Set the request timeout to 10secs to allow
+ * bad cards/controller to respond.
+ */
+#define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
 
 struct clk;
 
@@ -171,8 +233,7 @@ struct msmsdcc_dma_data {
 	int				channel;
 	struct msmsdcc_host		*host;
 	int				busy; /* Set if DM is busy */
-	int				active;
-	unsigned int			result;
+	unsigned int 			result;
 	struct msm_dmov_errdata		err;
 };
 
@@ -193,29 +254,48 @@ struct msmsdcc_curr_req {
 	int			user_pages;
 };
 
-struct msmsdcc_stats {
-	unsigned int reqs;
-	unsigned int cmds;
-	unsigned int cmdpoll_hits;
-	unsigned int cmdpoll_misses;
+struct msmsdcc_sps_ep_conn_data {
+	struct sps_pipe			*pipe_handle;
+	struct sps_connect		config;
+	struct sps_register_event	event;
+};
+
+struct msmsdcc_sps_data {
+	struct msmsdcc_sps_ep_conn_data	prod;
+	struct msmsdcc_sps_ep_conn_data	cons;
+	struct sps_event_notify		notify;
+	enum dma_data_direction		dir;
+	struct scatterlist		*sg;
+	int				num_ents;
+	u32				bam_handle;
+	unsigned int			src_pipe_index;
+	unsigned int			dest_pipe_index;
+	unsigned int			busy;
+	unsigned int			xfer_req_cnt;
+	struct tasklet_struct		tlet;
+
 };
 
 struct msmsdcc_host {
-	struct resource		*cmd_irqres;
-	struct resource		*pio_irqres;
-	struct resource		*memres;
+	struct resource		*core_irqres;
+	struct resource		*bam_irqres;
+	struct resource		*core_memres;
+	struct resource		*bam_memres;
+	struct resource		*dml_memres;
 	struct resource		*dmares;
 	void __iomem		*base;
+	void __iomem		*dml_base;
+	void __iomem		*bam_base;
+
 	int			pdev_id;
-	unsigned int		stat_irq;
 
 	struct msmsdcc_curr_req	curr;
 
 	struct mmc_host		*mmc;
 	struct clk		*clk;		/* main MMC bus clock */
 	struct clk		*pclk;		/* SDCC peripheral bus clock */
+	struct clk		*dfab_pclk;	/* Daytona Fabric SDCC clock */
 	unsigned int		clks_on;	/* set if clocks are enabled */
-	struct timer_list	busclk_timer;
 
 	unsigned int		eject;		/* eject state */
 
@@ -223,30 +303,67 @@ struct msmsdcc_host {
 
 	unsigned int		clk_rate;	/* Current clock rate */
 	unsigned int		pclk_rate;
+	unsigned int		ddr_doubled_clk_rate;
 
 	u32			pwr;
-	u32			saved_irq0mask;	/* MMCIMASK0 reg value */
-	struct msm_mmc_platform_data *plat;
+	struct mmc_platform_data *plat;
 
-	struct timer_list	timer;
 	unsigned int		oldstat;
 
 	struct msmsdcc_dma_data	dma;
+	struct msmsdcc_sps_data sps;
+	bool			is_dma_mode;
+	bool			is_sps_mode;
 	struct msmsdcc_pio_data	pio;
-	int			cmdpoll;
-	struct msmsdcc_stats	stats;
 
-	struct tasklet_struct	dma_tlet;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+	int polling_enabled;
+#endif
+
+	struct tasklet_struct 	dma_tlet;
+
+	unsigned int prog_scan;
+	unsigned int prog_enable;
+
 	/* Command parameters */
 	unsigned int		cmd_timeout;
 	unsigned int		cmd_pio_irqmask;
 	unsigned int		cmd_datactrl;
 	struct mmc_command	*cmd_cmd;
-	u32			cmd_c;
-	bool			gpio_config_status;
+	u32					cmd_c;
 
-	bool prog_scan;
-	bool prog_enable;
+	unsigned int	mci_irqenable;
+	unsigned int	dummy_52_needed;
+	unsigned int	dummy_52_state;
+	unsigned int	sdio_irq_disabled;
+	struct wake_lock	sdio_wlock;
+	struct wake_lock	sdio_suspend_wlock;
+	unsigned int    sdcc_suspending;
+
+	unsigned int sdcc_irq_disabled;
+	struct timer_list req_tout_timer;
+	bool io_pad_pwr_switch;
+	bool cmd19_tuning_in_progress;
+	bool tuning_needed;
+	bool sdio_gpio_lpm;
+	bool irq_wake_enabled;
 };
+
+int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);
+int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable);
+
+#ifdef CONFIG_MSM_SDIO_AL
+
+static inline int msmsdcc_lpm_enable(struct mmc_host *mmc)
+{
+	return msmsdcc_sdio_al_lpm(mmc, true);
+}
+
+static inline int msmsdcc_lpm_disable(struct mmc_host *mmc)
+{
+	return msmsdcc_sdio_al_lpm(mmc, false);
+}
+#endif
 
 #endif

@@ -34,6 +34,8 @@
 #if defined(CONFIG_ARCH_MSM7X30)
 #define MSM_GPIO1_REG(off) (MSM_GPIO1_BASE + (off))
 #define MSM_GPIO2_REG(off) (MSM_GPIO2_BASE + 0x400 + (off))
+#elif defined(CONFIG_ARCH_FSM9XXX)
+#define MSM_GPIO1_REG(off) (MSM_TLMM_BASE + (off))
 #else
 #define MSM_GPIO1_REG(off) (MSM_GPIO1_BASE + 0x800 + (off))
 #define MSM_GPIO2_REG(off) (MSM_GPIO2_BASE + 0xC00 + (off))
@@ -274,5 +276,43 @@
 #define MSM_GPIO_INT_STATUS_7  MSM_GPIO1_REG(0x234)
 
 #endif
+
+#if defined(CONFIG_ARCH_FSM9XXX)
+
+/* output value */
+#define MSM_GPIO_OUT_G(group)  MSM_GPIO1_REG(0x00 + (group) * 4)
+#define MSM_GPIO_OUT_N(gpio)   MSM_GPIO_OUT_G((gpio) / 32)
+#define MSM_GPIO_OUT_0         MSM_GPIO_OUT_G(0)   /* gpio  31-0   */
+#define MSM_GPIO_OUT_1         MSM_GPIO_OUT_G(1)   /* gpio  63-32  */
+#define MSM_GPIO_OUT_2         MSM_GPIO_OUT_G(2)   /* gpio  95-64  */
+#define MSM_GPIO_OUT_3         MSM_GPIO_OUT_G(3)   /* gpio 127-96  */
+#define MSM_GPIO_OUT_4         MSM_GPIO_OUT_G(4)   /* gpio 159-128 */
+#define MSM_GPIO_OUT_5         MSM_GPIO_OUT_G(5)   /* gpio 167-160 */
+
+/* same pin map as above, output enable */
+#define MSM_GPIO_OE_G(group)   MSM_GPIO1_REG(0x20 + (group) * 4)
+#define MSM_GPIO_OE_N(gpio)    MSM_GPIO_OE_G((gpio) / 32)
+#define MSM_GPIO_OE_0          MSM_GPIO_OE_G(0)
+#define MSM_GPIO_OE_1          MSM_GPIO_OE_G(1)
+#define MSM_GPIO_OE_2          MSM_GPIO_OE_G(2)
+#define MSM_GPIO_OE_3          MSM_GPIO_OE_G(3)
+#define MSM_GPIO_OE_4          MSM_GPIO_OE_G(4)
+#define MSM_GPIO_OE_5          MSM_GPIO_OE_G(5)
+
+/* same pin map as above, input read */
+#define MSM_GPIO_IN_G(group)   MSM_GPIO1_REG(0x48 + (group) * 4)
+#define MSM_GPIO_IN_N(gpio)    MSM_GPIO_IN_G((gpio) / 32)
+#define MSM_GPIO_IN_0          MSM_GPIO_IN_G(0)
+#define MSM_GPIO_IN_1          MSM_GPIO_IN_G(1)
+#define MSM_GPIO_IN_2          MSM_GPIO_IN_G(2)
+#define MSM_GPIO_IN_3          MSM_GPIO_IN_G(3)
+#define MSM_GPIO_IN_4          MSM_GPIO_IN_G(4)
+#define MSM_GPIO_IN_5          MSM_GPIO_IN_G(5)
+
+/* configuration */
+#define MSM_GPIO_PAGE          MSM_GPIO1_REG(0x40)
+#define MSM_GPIO_CONFIG        MSM_GPIO1_REG(0x44)
+
+#endif /* CONFIG_ARCH_FSM9XXX */
 
 #endif

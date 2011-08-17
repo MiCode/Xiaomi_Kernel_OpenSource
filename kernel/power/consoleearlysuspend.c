@@ -25,28 +25,23 @@
 static int orig_fgconsole;
 static void console_early_suspend(struct early_suspend *h)
 {
-	acquire_console_sem();
 	orig_fgconsole = fg_console;
 	if (vc_allocate(EARLY_SUSPEND_CONSOLE))
 		goto err;
 	if (set_console(EARLY_SUSPEND_CONSOLE))
 		goto err;
-	release_console_sem();
 
 	if (vt_waitactive(EARLY_SUSPEND_CONSOLE + 1))
 		pr_warning("console_early_suspend: Can't switch VCs.\n");
 	return;
 err:
 	pr_warning("console_early_suspend: Can't set console\n");
-	release_console_sem();
 }
 
 static void console_late_resume(struct early_suspend *h)
 {
 	int ret;
-	acquire_console_sem();
 	ret = set_console(orig_fgconsole);
-	release_console_sem();
 	if (ret) {
 		pr_warning("console_late_resume: Can't set console.\n");
 		return;

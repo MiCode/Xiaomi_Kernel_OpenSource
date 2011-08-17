@@ -172,6 +172,46 @@ static inline void dma_free_noncoherent(struct device *dev, size_t size,
 {
 }
 
+
+/*
+ * dma_coherent_pre_ops - barrier functions for coherent memory before DMA.
+ * A barrier is required to ensure memory operations are complete before the
+ * initiation of a DMA xfer.
+ * If the coherent memory is Strongly Ordered
+ * - pre ARMv7 and 8x50 guarantees ordering wrt other mem accesses
+ * - ARMv7 guarantees ordering only within a 1KB block, so we need a barrier
+ * If coherent memory is normal then we need a barrier to prevent
+ * reordering
+ */
+static inline void dma_coherent_pre_ops(void)
+{
+#if COHERENT_IS_NORMAL == 1
+	dmb();
+#else
+	if (arch_is_coherent())
+		dmb();
+	else
+		barrier();
+#endif
+}
+/*
+ * dma_post_coherent_ops - barrier functions for coherent memory after DMA.
+ * If the coherent memory is Strongly Ordered we dont need a barrier since
+ * there are no speculative fetches to Strongly Ordered memory.
+ * If coherent memory is normal then we need a barrier to prevent reordering
+ */
+static inline void dma_coherent_post_ops(void)
+{
+#if COHERENT_IS_NORMAL == 1
+	dmb();
+#else
+	if (arch_is_coherent())
+		dmb();
+	else
+		barrier();
+#endif
+}
+
 /**
  * dma_alloc_coherent - allocate consistent memory for DMA
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
@@ -383,6 +423,58 @@ static inline dma_addr_t dma_map_single(struct device *dev, void *cpu_addr,
 			dir, addr, true);
 
 	return addr;
+}
+
+/**
+ * dma_cache_pre_ops - clean or invalidate cache before dma transfer is
+ *                     initiated and perform a barrier operation.
+ * @virtual_addr: A kernel logical or kernel virtual address
+ * @size: size of buffer to map
+ * @dir: DMA transfer direction
+ *
+ * Ensure that any data held in the cache is appropriately discarded
+ * or written back.
+ *
+ */
+static inline void dma_cache_pre_ops(void *virtual_addr,
+		size_t size, enum dma_data_direction dir)
+{
+	extern void ___dma_single_cpu_to_dev(const void *, size_t,
+		enum dma_data_direction);
+
+	BUG_ON(!valid_dma_direction(dir));
+
+	if (!arch_is_coherent())
+		___dma_single_cpu_to_dev(virtual_addr, size, dir);
+}
+
+/**
+ * dma_cache_post_ops - clean or invalidate cache after dma transfer is
+ *                     initiated and perform a barrier operation.
+ * @virtual_addr: A kernel logical or kernel virtual address
+ * @size: size of buffer to map
+ * @dir: DMA transfer direction
+ *
+ * Ensure that any data held in the cache is appropriately discarded
+ * or written back.
+ *
+ */
+static inline void dma_cache_post_ops(void *virtual_addr,
+		size_t size, enum dma_data_direction dir)
+{
+	extern void ___dma_single_cpu_to_dev(const void *, size_t,
+		enum dma_data_direction);
+
+	BUG_ON(!valid_dma_direction(dir));
+
+	if (arch_has_speculative_dfetch() && !arch_is_coherent()
+	 && dir != DMA_TO_DEVICE)
+		/*
+		 * Treat DMA_BIDIRECTIONAL and DMA_FROM_DEVICE
+		 * identically: invalidate
+		 */
+		___dma_single_cpu_to_dev(virtual_addr,
+					 size, DMA_FROM_DEVICE);
 }
 
 /**

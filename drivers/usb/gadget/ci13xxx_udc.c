@@ -318,6 +318,17 @@ static int hw_device_reset(struct ci13xxx *udc)
 	hw_cwrite(CAP_USBMODE, USBMODE_CM, USBMODE_CM_DEVICE);
 	hw_cwrite(CAP_USBMODE, USBMODE_SLOM, USBMODE_SLOM);  /* HW >= 2.3 */
 
+	/*
+	 * ITC (Interrupt Threshold Control) field is to set the maximum
+	 * rate at which the device controller will issue interrupts.
+	 * The maximum interrupt interval measured in micro frames.
+	 * Valid values are 0, 1, 2, 4, 8, 16, 32, 64. The default value is
+	 * 8 micro frames. If CPU can handle interrupts at faster rate, ITC
+	 * can be set to lesser value to gain performance.
+	 */
+	if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
+		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(0));
+
 	if (hw_cread(CAP_USBMODE, USBMODE_CM) != USBMODE_CM_DEVICE) {
 		pr_err("cannot enter in device mode");
 		pr_err("lpm = %i", hw_bank.lpm);
@@ -417,6 +428,10 @@ static int hw_ep_enable(int num, int dir, int type)
 		data |= ENDPTCTRL_RXE;
 	}
 	hw_cwrite(CAP_ENDPTCTRL + num * sizeof(u32), mask, data);
+
+	/* make sure endpoint is enabled before returning */
+	mb();
+
 	return 0;
 }
 
@@ -1219,7 +1234,7 @@ static ssize_t show_registers(struct device *dev,
 {
 	struct ci13xxx *udc = container_of(dev, struct ci13xxx, gadget.dev);
 	unsigned long flags;
-	u32 dump[512];
+	u32 *dump;
 	unsigned i, k, n = 0;
 
 	dbg_trace("[%s] %p\n", __func__, buf);
@@ -1227,9 +1242,12 @@ static ssize_t show_registers(struct device *dev,
 		dev_err(dev, "[%s] EINVAL\n", __func__);
 		return 0;
 	}
+	dump = kmalloc(2048, GFP_KERNEL);
+	if (dump == NULL)
+		return -ENOMEM;
 
 	spin_lock_irqsave(udc->lock, flags);
-	k = hw_register_read(dump, sizeof(dump)/sizeof(u32));
+	k = hw_register_read(dump, 512);
 	spin_unlock_irqrestore(udc->lock, flags);
 
 	for (i = 0; i < k; i++) {
@@ -1237,7 +1255,7 @@ static ssize_t show_registers(struct device *dev,
 			       "reg[0x%04X] = 0x%08X\n",
 			       i * (unsigned)sizeof(u32), dump[i]);
 	}
-
+	kfree(dump);
 	return n;
 }
 
@@ -1317,6 +1335,42 @@ static ssize_t show_requests(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(requests, S_IRUSR, show_requests, NULL);
 
+static int ci13xxx_wakeup(struct usb_gadget *_gadget)
+{
+	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
+	unsigned long flags;
+	int ret = 0;
+
+	trace();
+
+	spin_lock_irqsave(udc->lock, flags);
+	if (!udc->remote_wakeup) {
+		ret = -EOPNOTSUPP;
+		dbg_trace("remote wakeup feature is not enabled\n");
+		goto out;
+	}
+	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
+		ret = -EINVAL;
+		dbg_trace("port is not suspended\n");
+		goto out;
+	}
+	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
+out:
+	spin_unlock_irqrestore(udc->lock, flags);
+	return ret;
+}
+
+static ssize_t usb_remote_wakeup(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ci13xxx *udc = container_of(dev, struct ci13xxx, gadget.dev);
+
+	ci13xxx_wakeup(&udc->gadget);
+
+	return count;
+}
+static DEVICE_ATTR(wakeup, S_IWUSR, 0, usb_remote_wakeup);
+
 /**
  * dbg_create_files: initializes the attribute interface
  * @dev: device
@@ -1353,8 +1407,13 @@ __maybe_unused static int dbg_create_files(struct device *dev)
 	retval = device_create_file(dev, &dev_attr_requests);
 	if (retval)
 		goto rm_registers;
+	retval = device_create_file(dev, &dev_attr_wakeup);
+	if (retval)
+		goto rm_remote_wakeup;
 	return 0;
 
+rm_remote_wakeup:
+	device_remove_file(dev, &dev_attr_wakeup);
  rm_registers:
 	device_remove_file(dev, &dev_attr_registers);
  rm_qheads:
@@ -1391,6 +1450,7 @@ __maybe_unused static int dbg_remove_files(struct device *dev)
 	device_remove_file(dev, &dev_attr_events);
 	device_remove_file(dev, &dev_attr_driver);
 	device_remove_file(dev, &dev_attr_device);
+	device_remove_file(dev, &dev_attr_wakeup);
 	return 0;
 }
 
@@ -1619,6 +1679,7 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	udc->gadget.speed = USB_SPEED_UNKNOWN;
 	udc->remote_wakeup = 0;
 	udc->suspended = 0;
+	udc->configured = 0;
 	spin_unlock_irqrestore(udc->lock, flags);
 
 	/* flush all endpoints */
@@ -1930,6 +1991,8 @@ __acquires(udc->lock)
 		do {
 			hw_test_and_set_setup_guard();
 			memcpy(&req, &mEp->qh.ptr->setup, sizeof(req));
+			/* Ensure buffer is read before acknowledging to h/w */
+			mb();
 		} while (!hw_test_and_clear_setup_guard());
 
 		type = req.bRequestType;
@@ -1991,6 +2054,10 @@ __acquires(udc->lock)
 				break;
 			err = isr_setup_status_phase(udc);
 			break;
+		case USB_REQ_SET_CONFIGURATION:
+			if (type == (USB_DIR_OUT|USB_TYPE_STANDARD))
+				udc->configured = !!req.wValue;
+			goto delegate;
 		case USB_REQ_SET_FEATURE:
 			if (type == (USB_DIR_OUT|USB_RECIP_ENDPOINT) &&
 					le16_to_cpu(req.wValue) ==
@@ -2104,11 +2171,14 @@ static int ep_enable(struct usb_ep *ep,
 	else if (mEp->type == USB_ENDPOINT_XFER_ISOC)
 		mEp->qh.ptr->cap &= ~QH_MULT;
 	else
-		mEp->qh.ptr->cap &= ~QH_ZLT;
+		mEp->qh.ptr->cap |= QH_ZLT;
 
 	mEp->qh.ptr->cap |=
 		(mEp->ep.maxpacket << ffs_nr(QH_MAX_PKT)) & QH_MAX_PKT;
 	mEp->qh.ptr->td.next |= TD_TERMINATE;   /* needed? */
+
+	/* complete all the updates to ept->head before enabling endpoint*/
+	mb();
 
 	/*
 	 * Enable endpoints in the HW other than ep0 as ep0
@@ -2467,7 +2537,8 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 		if (is_active) {
 			pm_runtime_get_sync(&_gadget->dev);
 			hw_device_reset(udc);
-			hw_device_state(udc->ep0out.qh.dma);
+			if (udc->softconnect)
+				hw_device_state(udc->ep0out.qh.dma);
 		} else {
 			hw_device_state(0);
 			if (udc->udc_driver->notify_event)
@@ -2481,31 +2552,6 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 	return 0;
 }
 
-static int ci13xxx_wakeup(struct usb_gadget *_gadget)
-{
-	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
-	unsigned long flags;
-	int ret = 0;
-
-	trace();
-
-	spin_lock_irqsave(udc->lock, flags);
-	if (!udc->remote_wakeup) {
-		ret = -EOPNOTSUPP;
-		dbg_trace("remote wakeup feature is not enabled\n");
-		goto out;
-	}
-	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
-		ret = -EINVAL;
-		dbg_trace("port is not suspended\n");
-		goto out;
-	}
-	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
-out:
-	spin_unlock_irqrestore(udc->lock, flags);
-	return ret;
-}
-
 static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
@@ -2514,6 +2560,32 @@ static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 		return otg_set_power(udc->transceiver, mA);
 	return -ENOTSUPP;
 }
+
+static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
+{
+	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
+	unsigned long flags;
+
+	spin_lock_irqsave(udc->lock, flags);
+	udc->softconnect = is_active;
+	if (((udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) &&
+			!udc->vbus_active) || !udc->driver) {
+		spin_unlock_irqrestore(udc->lock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(udc->lock, flags);
+
+	if (is_active) {
+		hw_device_state(udc->ep0out.qh.dma);
+	} else {
+		hw_device_state(0);
+		if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+				CI13XXX_CONTROLLER_STOPPED_EVENT);
+	}
+	return 0;
+}
+
 
 /**
  * Device operations part of the API to the USB controller hardware,
@@ -2524,6 +2596,7 @@ static const struct usb_gadget_ops usb_gadget_ops = {
 	.vbus_session	= ci13xxx_vbus_session,
 	.wakeup		= ci13xxx_wakeup,
 	.vbus_draw	= ci13xxx_vbus_draw,
+	.pullup		= ci13xxx_pullup,
 };
 
 /**
@@ -2627,6 +2700,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	/* bind gadget */
 	driver->driver.bus     = NULL;
 	udc->gadget.dev.driver = &driver->driver;
+	udc->softconnect = 1;
 
 	spin_unlock_irqrestore(udc->lock, flags);
 	retval = bind(&udc->gadget);                /* MAY SLEEP */
@@ -2648,6 +2722,9 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 			goto done;
 		}
 	}
+
+	if (!udc->softconnect)
+		goto done;
 
 	retval = hw_device_state(udc->ep0out.qh.dma);
 	if (retval)

@@ -10,8 +10,8 @@ stkwebcam-objs	:=	stk-webcam.o stk-sensor.o
 
 omap2cam-objs	:=	omap24xxcam.o omap24xxcam-dma.o
 
-videodev-objs	:=	v4l2-dev.o v4l2-ioctl.o v4l2-device.o v4l2-fh.o \
-			v4l2-event.o v4l2-ctrls.o v4l2-subdev.o
+videodev-objs	:=	v4l2-dev.o v4l2-ioctl.o v4l2-device.o   v4l2-fh.o \
+			v4l2-event.o v4l2-ctrls.o v4l2-subdev.o videobuf-core.o videobuf-msm-mem.o videobuf-dma-contig.o
 
 # V4L2 core modules
 
@@ -182,6 +182,7 @@ obj-$(CONFIG_VIDEO_IR_I2C)  += ir-kbd-i2c.o
 
 obj-y	+= davinci/
 
+obj-$(CONFIG_MSM_CAMERA) += msm/
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
 
 EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core

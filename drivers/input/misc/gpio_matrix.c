@@ -181,12 +181,14 @@ static enum hrtimer_restart gpio_keypad_timer_func(struct hrtimer *timer)
 			gpio_set_value(gpio, polarity);
 		else
 			gpio_direction_output(gpio, polarity);
-		hrtimer_start(timer, mi->settle_time, HRTIMER_MODE_REL);
+		hrtimer_start(timer, timespec_to_ktime(mi->settle_time),
+			HRTIMER_MODE_REL);
 		return HRTIMER_NORESTART;
 	}
 	if (gpio_keypad_flags & GPIOKPF_DEBOUNCE) {
 		if (kp->key_state_changed) {
-			hrtimer_start(&kp->timer, mi->debounce_delay,
+			hrtimer_start(&kp->timer,
+				timespec_to_ktime(mi->debounce_delay),
 				      HRTIMER_MODE_REL);
 			return HRTIMER_NORESTART;
 		}
@@ -202,7 +204,8 @@ static enum hrtimer_restart gpio_keypad_timer_func(struct hrtimer *timer)
 		report_sync(kp);
 	}
 	if (!kp->use_irq || kp->some_keys_pressed) {
-		hrtimer_start(timer, mi->poll_time, HRTIMER_MODE_REL);
+		hrtimer_start(timer, timespec_to_ktime(mi->poll_time),
+			HRTIMER_MODE_REL);
 		return HRTIMER_NORESTART;
 	}
 

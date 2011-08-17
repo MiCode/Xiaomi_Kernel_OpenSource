@@ -5,10 +5,9 @@
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *
- *  This program is free software; you can redistribute  it and/or modify it
- *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
- *  option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
  */
 
@@ -1511,4 +1510,4 @@ int soc_dsp_debugfs_add(struct snd_soc_pcm_runtime *rtd)
 /* Module information */
 MODULE_AUTHOR("Liam Girdwood, lrg@slimlogic.co.uk");
 MODULE_DESCRIPTION("ALSA SoC DSP Core");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

@@ -1,0 +1,382 @@
+Introduction
+============
+This driver implements Session Request Protocol (SRP) and Host negotiation
+Protocol (HNP) described in On-The-Go (OTG) Supplement to the USB 2.0
+Specification. It also provides support for Accessory Charger Adapter (ACA)
+defined in the Battery Charging Specification 1.1.
+
+These protocols provide a means for USB host devices to intelligently manage
+power on VBUS and USB peripheral devices to become the host when paired with
+another OTG device.
+
+Hardware description
+====================
+USB hardware found in Qualcomm chipsets like MSM7x27, MSM7x30, QSD8x50 and
+MSM8660 is compliant to USB 2.0 high speed On-The-Go protocol.
+The transceiver, aka PHY is integrated on the chip and ULPI interface is used for
+communication.
+
+USB hardware interfaces to the system memory via AHB BUS. DMA engine is included
+to move all of the data to be transferred over the USB between USB core and
+system memory. Device controller can support 16 endpoints of all types
+(control/bulk/interrupt /isochronous) defined in USB 2.0 specification. The
+host controller is compliant to EHCI specification. Directly connected USB 1.1
+Full/Low speed devices are supported without a companion controller by having
+inbuilt Transaction Translator (TT).
+
+USB_HS_CLK, USB_HS_PCLK and USB_HS_CCLK are required for USB operation.
+Phy feeds 60MHZ HS_CLK to link when ULPI interface is used. This clock needs to
+be turned on only while resetting the link. HS_PCLK (Pbus clock) is required to
+move data to/from hardware FIFO. This clock may not be required on targets like
+MSM8660 where USB is part of smart peripheral subsystem. AXI bus frequency needs
+to be kept at maximum value while USB data transfers are happening. HS_CCLK
+(core clock) is introduced in MSM7x30 to get rid of dependency on AXI bus
+frequency.
+
+The same irq line is  shared across OTG, Device controller and Host controller
+drivers. Phy is integrated on the chip and no gpios are required to connect link
+and PHY.
+
+Phy can monitor VBUS and ID lines while operating in low power mode (LPM). But
+leaving comparators ON in LPM increases power consumption. Hence VBUS line is
+routed to PMIC hardware which can generate interrupt (when accessed by Apps
+processor) or send RPC callback. This is also useful when an External LDO to
+power up 3.3V of PHY is not installed. An internal LDO is turned upon
+receiving notification from PMIC. Id line is not routed to PMIC. Hence OTG mode
+can not be supported with this configuration and External LDO must be present.
+
+Hardware can generate interrupt when voltage on VBUS line is reached
+above/below A-VBUS Valid and B-Session Valid threshold values defined in OTG
+specification. Interrupt is generated when Id line is grounded i.e Micro-A
+cable is connected.
+
+The following hardware features help in meeting the SRP and HNP protocol
+timings.
+
+Hardware Assist Data-pulse (HADP):
+---------------------------------
+When software programs HADP, Hardware start a data pulse of approximately 7ms
+in duration and then automatically ceases the data pulsing. This automation
+relieves software from controlling the data-pulse duration. This assist will
+ensure data pulsing meets the OTG requirement of > 5ms and < 10ms.
+
+Hardware Assist Auto-Reset (HAAR):
+---------------------------------
+When software programs HAAR, Hardware will automatically start a reset after
+a connect event. This shortcuts the normal process where software is notified
+of the connect event and starts the reset. Software will still receive
+notification of the connect event but should not write the reset bit when the
+HAAR is set. Software will be notified again after the reset is complete via
+the enable change bit in the PORTSC register which cause a port change
+interrupt.
+
+Hardware Assist B-Disconnect to A-Connect (HABA):
+------------------------------------------------
+During Host negotiation Protocol(HNP), A-Device must enable pull-up on D+ as
+soon as possible after detecting disconnect from B-device.
+
+When Software programs HABA, the Host Controller port is in suspend mode, and
+the B-device disconnects, then this hardware assist begins.
+1. Reset the OTG core
+2. Write the OTG core into device mode.
+3. Write the device run bit to a '1' and enable necessary interrupts including:
+	* USB Reset Enable (URE) : enables interrupt on usb bus reset to device
+        * Sleep Enable (SLE) : enables interrupt on device suspend
+	* Port Change Detect Enable (PCE) : enables interrupt on device connect
+
+When software has enabled this hardware assist, it must not interfere during the
+transition and should not write any register in the core until it gets an
+interrupt from the device controller signifying that a reset interrupt has
+occurred or at least first verify that the core has entered device mode.
+
+The following hardware feature helps in supporting Accessory Charger Adapter:
+
+PHY Support for ID_A/B/C:
+------------------------
+Accessory Charger Adapter has three ports to attach an OTG, charger and A or
+B-device. So, based on what all device are attached to the ACA, it outputs a
+state on the ID pin (i.e GROUND, ID_A, ID_B, ID_C, FLOAT).
+USB PHY has support for these ID states. Once software enables this support,
+PHY sets corresponding bit in its INTS register based on any changes in the
+ID state.
+
+Software description
+====================
+
+This driver provides OTG functionality when Device controller driver (DCD) and
+Host controller driver (HCD) are enabled. It is enabled even when one of the DCD
+or HCD is enabled to use PHY initialization, clock management, register memory
+mapping, low power mode (LPM) functionalities.
+
+Session Request Protocol (SRP): A-device may turn off power on VBUS upon user
+request or A_WAIT_BCON timeout. SRP detection interrupt is enabled and
+hardware is put into LPM. If Data pulse is detected, A-device starts a new
+session by applying power on VBUS. Hardware Auto Assist Data pulse feature is
+used to program Data pulse
+When acting as a B-device, if SRP initial conditions (SE0 condition for
+TB_SE0_SRP min and previous session was ended before TB_SSEND_SRP) are met, SRP
+is initiated upon user request. Hardware Auto Assist Data pulse feature is
+used to program Data pulse. If remote device does not turn on VBUS before
+TB_SRP_FAIL, an error is reported to user space.
+
+Host Negotiation Protocol (HNP): A-device periodically polls B-device to check
+host request status. When B-device returns true, A-device shall enable HNP and
+suspend the bus with in THOST_REQ_SUSP. HNP polling is implemented in USB core
+software. HCD registers a start_hnp callback method with EHCI framework. This
+method is called after suspending the port if HNP is enabled. HCD notifies OTG
+that B-device is suspended. A_AIDL_BDIS timer is kicked and waits for B-device
+disconnection. If B-device does not signal disconnect within TA_AIDL_BDIS
+timeout, session is closed by powering down VBUS. Otherwise A-device stops HCD
+and starts DCD to enable pull-up. A-device again resumes host role if it had
+observed bus idle for TA_BIDL_ADIS time.
+B-device signals host_request true upon user request. DCD notifies OTG that
+HNP is enabled and bus is idle. OTG driver disable pull-up by stopping DCD and
+kick B_ASE0_BRST timer. If A-device does not signal connect with in
+TB_ASE0_BRST, B-device resumes in peripheral role. Otherwise B-device assert
+the bus reset and enumerate the A-device.
+
+MSM chipsets which have 45nm integrated PHY supports Attach Detection Protocol.
+(A protocol which enables an OTG device to detect when a remote device has been
+attached or detached without supplying VBUS). ADP support needs to be
+implemented to efficiently supply/request power on VBUS. Leakage currents (i.e
+VBUS applied but no peripheral is connected) are very less on MSM hardware. So
+VBUS can be applied when Id becomes false. ADP may be never implemented in
+this driver due to this reason.
+
+The state machine is implemented as described in the OTG specification.
+A few exceptions are mentioned below:
+
+1. Host session request i.e a_bus_request input variable is automatically
+asserted when Id becomes false and SRP is detected.
+It is de-asserted When HCD suspends the bus and asserted again in case of
+remote device remote wakeup.
+2. Output variables like drv_vbus, loc_conn, loc_sof, adp_prb are not
+maintained in the state machine as they serve no purpose.
+3. Bus power down request i.e a_bus_drop is cleared when Micro-A cable is
+connected so that non OTG device can be detected when Micro-A cable is
+connected next time.
+4. Input variables that determine SRP initial condition status b_se0_srp and
+b_ssend_srp are not maintained in state machine processing. When a session is
+ended i.e VBUS falls below B-Session Valid threshold, time stamp is taken and
+is compared against the current time at the time of SRP initiation.
+
+
+Controller gives interrupt for every 1 msec if 1MSIE (1 Msec interrupt enable)
+is set. Timers used in OTG state machine can be implementing using 1MSEC
+timer as a source.  But hrtimer on MSM hardware can give at least 1/32KHZ
+precision. So hrtimer framework is used to implement OTG timers.  No two OTG
+timers run in parallel. Hence one hrtimer is used for all OTG timers.
+
+OTG state machine processing can not be done in atomic context. Hence a worker
+thread is created for processing the state machine events. A separate worker
+thread is created instead of using default worker thread to meet OTG
+specification timings.
+
+OTG supplement Revision 2.0 has made HNP timings less stringent compared to
+Revision 1.3. TA_BDIS_ACON (The time with in A-Device should enable pull-up
+upon B-device signals disconnect) has been changed to 150 msec from 3 msec.
+DCD can be easily activated within 150 msec. Hence HABA is not used.
+TB_ACON_BSE0 (The time with in B-device should reset the A-device) has been
+changed to 150 msec from 1 sec. Host software would easily meet this timing
+given that de-bounce delays and root hub port power stabilization delays are
+not required during HNP.
+
+Accessory Charger Adapter (ACA): To support ACA there must be support in the
+USB hardware (Controller and PHY) for the ID_A/B/C states. It should be able
+to interrupt software for any ID state changes. On receiving this interrupt,
+interrupt handler checks the current ID state and invokes OTG state machine
+for further handling. Even if the USB Controller doesn't support these ID_A/B/C
+states, driver can still detect the ID state transitions by depending on USB
+PHY if the PHY supports these ID states. For this scenario, driver relies
+on polling of PHY register to determine the ID state changes as long as an
+ACA is attached to the system. This polling is implemented by using a timer
+running at a frequency of 1 sec. This timer checks for the current ID state
+and on detecting any change it invokes OTG state machine for further handling.
+
+Following are the actions performed by the driver as per the ID state:
+* ID_FLOAT: Configure device to act as peripheral and allow charging if VBUS
+  is present, else move it to LPM (low power mode).
+* ID_GROUND: Configure device to act as host and supply VBUS.
+* ID_A: Configure device to act as host and don't supply VBUS. In this state
+  the device can charge as well.
+* ID_B: Keep the device in IDLE state and allow charging.
+* ID_C: Configure device to act as peripheral and allow charging.
+
+Design
+======
+
+The following goals are kept in mind while designing OTG state machine.
+
+1. Avoid User intervention when operating as a standard Host or standard
+peripheral
+2. Support host only and peripheral only modes
+3. Put Hardware in LPM when ever possible
+4. Pass OTG compliance tests
+5. Report notification/error messages to user space
+6. With ACA, allow charging in Host mode as well
+7. Disable LPM as long as ID state polling is happening
+
+Power Management
+================
+
+System suspend is negated by acquiring wakelock while processing OTG state
+machine, or while polling for the PHY ID state in case of ACA.
+Wakelock is released:
+1. After activating the DCD/HCD. It is the responsibility of DCD/HCD to
+acquire wakelock if required.
+2. After putting hardware in LPM.
+3. No state machine events and timers are pending. This would cover scenarios
+mentioned in (1) and (2).
+4. After driver stops polling for ID state in case of ACA.
+
+Wake lock is re-acquired when state machine work is scheduled, which can
+happen from interrupt (exiting LPM), sysfs entries (initiate SRP, clear
+error, bus drop, etc), or from ID state polling routine.
+
+OTG driver provides set_suspend method for DCD/HCD to put hardware in LPM. DCD
+can use this method upon bus suspend. HCD can use this method upon suspending
+the root hub.
+
+LPM entering procedure:
+1. Clear PHY interrupt latch registers.
+2. Enable PHY comparators to detect Id, B-Session Valid interrupts while hardware
+is in LPM.
+3. Turn off PLL block on the PHY to achieve maximum power savings.
+4. Put PHY in suspend mode by setting PHCD bit in PORTSC register.
+5. Enable asynchronous interrupt so that PHY can generate interrupt when
+clocks are disabled.
+6. Disable all USB clocks.
+
+LPM exit procedure:
+1. Enable USB clocks.
+2. Disable asynchronous interrupt.
+3. Put PHY out of suspend mode. This is not required when LPM is exited due to
+hardware activity i.e asynchronous interrupt.
+
+SMP/multi-core
+==============
+
+OTG state machine inputs like bus request, bus drop, srp_detect etc accessed
+from interrupt context, and multiple process contexts. Hence atomic bit ops are
+used. ulpi_read and ulpi_write functions can now be accessed from multiple
+context, hence, these are protected using a spin_lock.
+
+Interface
+=========
+This driver provides the following methods to DCD and HCD.
+
+set_peripheral: DCD use this methods to register/unregister USB gadget.
+
+set_host: HCD use this method to register/unregister USB bus. Unlike gadget
+framework, there are no standard methods to start/stop HCD. Hence start_host
+method is introduced and must be initialized by HCD prior to registration.
+
+set_clk: HCD and DCD use this method to turn on/off USB_HS_CLK clk which is
+required only while resetting the controller.
+
+start_srp: DCD use this method to initiate Session Request Protocol (SRP).
+SRP may be initiated when function drivers use remote wakeup facility, when
+B-Device wishes to become host. OTG driver programs Data-Pulsing if initial
+condition of SRP are met. Otherwise proper error code is returned.
+
+set_suspend: DCD call this method when controller generates suspend
+interrupt or generates reset/port change interrupt before HNP and during HNP.
+If device is in B_PERIPHERAL state, HNP is initiated if host had enabled it.
+If device is in A_PERIPHERAL state, A_BIDL_ADIS timer is kicked in case of
+suspend interrupt. If this timer expires, A-device take back it's host role
+and continue previous session. This timer is deleted in case of
+reset/port change interrupts.
+HCD call this method after suspending the root hub. Hardware is put into LPM.
+
+start_hnp: A-device needs to enable pull-up on D+ within TA_BIDL_ADIS after
+suspending the bus i.e putting port in suspend state. EHCI stack can use this
+method to notify OTG right after suspending the OTG port. OTG driver schedule
+a work to stop host and enable pull-up on D+.
+
+send_event: USB core, DCD and HCD can use otg_send_event() API to send OTG
+notification/error messages to user space. send_event method defined in
+otg_transceiver is invoked by otg_send_event() API. An uevent is sent
+with SUBSYSTEM=platform, MODULE=msm_otg and EVENT=<event>, where event could
+be one of the following events.
+
+OTG_EVENT_DEV_CONN_TMOUT: Device connection timeout or device not responding.
+OTG_EVENT_NO_RESP_FOR_HNP_ENABLE: Device is not responding to B_HNP_ENABLE
+	feature request.
+OTG_EVENT_HUB_NOT_SUPPORTED: Host does not support HUB class peripherals.
+OTG_EVENT_DEV_NOT_SUPPORTED: Host does not support the attached peripheral.
+OTG_EVENT_HNP_FAILED: HNP failed due to not meeting protocol timings.
+OTG_EVENT_NO_RESP_FOR_SRP: No Response for B-device SRP request.
+
+set_power: DCD can use otg_set_power() API to specify about the current that
+can be withdrawn from the VBUS for charging. Based on the current OTG state
+and whether ACA is attached or not, OTG driver makes a decision about the
+charging current and calls the charging APIs.
+
+The following sysfs nodes are provided at /sys/devices/platform/msm_otg
+
+pwr_down: This node can be used to control A-device session. a_bus_drop and
+a_bus_req state machine input variables are altered to start/stop session.
+Write to this node is invalid when device operating as a B-device.
+
+start_srp: This node can be used for requesting session. If all initial
+conditions of SRP are met, SRP is initiated. Write to this node is invalid
+when device operating as an A-device.
+
+clr_err: This node can be used to clear over-current condition. Write to this
+node is invalid when operating as an B-device. Error condition is
+automatically cleared when Id becomes false.
+
+The following sysfs nodes are provided at /sys/devices/platform/msm_hsusb/otg
+
+host_request: This node can be used for requesting host role. A-device shall
+select a_hnp_support feature prior to configuration and poll B-device for host
+request. When '1' is written to this node, host request is asserted. This node
+can also be used for taking host role when A-device operating as a peripheral.
+
+hnp_avail: User space can check this node before requesting the host role.
+Gadget controller driver asserts its internal variable hnp_avail when HNP
+polling request is send by the Host.
+
+Dependencies
+============
+
+If USB clocks are controlled by modem processor, proc_comm interface is used
+to turn on/off clocks.
+
+If VBUS power is controlled by modem processor, RPC interface is used to turn
+on/off VBUS power.
+
+Config options
+==============
+
+CONFIG_USB_MSM_ACA: Enable support for Accessory Charger Adapter (ACA)
+CONFIG_ENABLE_MSM_OTG_A_WAIT_BCON_TIMEOUT: Enable A_WAIT_BCON timeout. VBUS
+will be turned off and SRP detection is enabled upon this timeout. If this
+config is not selected, VBUS will not be turned off when Mini/Micro-A cable
+is connected. But hardware is put into LPM.
+
+Other
+=====
+On-The-Go and Embedded Host Supplement to the USB Revision 2.0 Specification
+(Revision 2.0) found at http://www.usb.org/developers/onthego
+
+Known issues
+============
+Phy instability issues are observed when vbus_valid interrupt is enabled.
+Hence a_vbus_vld state machine variable is explicitly asserted after
+a_wait_vrise timer expiration.
+
+Spurious interrupt is seen when trying to put PHY in Low Power Mode with
+ID_A/B/C interrupts enabled in the PHY. As a result of which PHY doesn't stay
+in LPM. Hence, ID_A/B/C interrupts are disabled before entering LPM, and
+enabled while returning.
+
+To do
+=====
+
+Verify SRP detection on all targets.
+
+Phy instability issues are observed when A-Vbus Valid interrupt is enabled.
+But without this interrupt over current condition can not be determined. Root
+cause analysis for PHY instability issue and alternative methods like PMIC
+interrupt are being pursued.

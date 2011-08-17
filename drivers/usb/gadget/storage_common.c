@@ -262,8 +262,13 @@ static struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 #define EP0_BUFSIZE	256
 #define DELAYED_STATUS	(EP0_BUFSIZE + 999)	/* An impossibly large value */
 
-/* Number of buffers we will use.  2 is enough for double-buffering */
-#define FSG_NUM_BUFFERS	2
+/* Number of buffers for CBW, DATA and CSW */
+#ifdef CONFIG_USB_CSW_HACK
+#define FSG_NUM_BUFFERS    4
+#else
+#define FSG_NUM_BUFFERS    2
+#endif
+
 
 /* Default size of buffer length. */
 #define FSG_BUFLEN	((u32)16384)

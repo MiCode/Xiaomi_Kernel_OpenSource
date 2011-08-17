@@ -50,7 +50,7 @@ void resume_device_irqs(void)
 	struct irq_desc *desc;
 	int irq;
 
-	for_each_irq_desc(irq, desc) {
+	for_each_irq_desc_reverse(irq, desc) {
 		unsigned long flags;
 
 		raw_spin_lock_irqsave(&desc->lock, flags);
