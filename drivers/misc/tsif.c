@@ -209,7 +209,8 @@ static int tsif_get_clocks(struct msm_tsif_device *tsif_device)
 	int rc = 0;
 
 	if (pdata->tsif_clk) {
-		tsif_device->tsif_clk = clk_get(NULL, pdata->tsif_clk);
+		tsif_device->tsif_clk = clk_get(&tsif_device->pdev->dev,
+						pdata->tsif_clk);
 		if (IS_ERR(tsif_device->tsif_clk)) {
 			dev_err(&tsif_device->pdev->dev, "failed to get %s\n",
 				pdata->tsif_clk);
@@ -219,7 +220,8 @@ static int tsif_get_clocks(struct msm_tsif_device *tsif_device)
 		}
 	}
 	if (pdata->tsif_pclk) {
-		tsif_device->tsif_pclk = clk_get(NULL, pdata->tsif_pclk);
+		tsif_device->tsif_pclk = clk_get(&tsif_device->pdev->dev,
+						 pdata->tsif_pclk);
 		if (IS_ERR(tsif_device->tsif_pclk)) {
 			dev_err(&tsif_device->pdev->dev, "failed to get %s\n",
 				pdata->tsif_pclk);
@@ -229,7 +231,8 @@ static int tsif_get_clocks(struct msm_tsif_device *tsif_device)
 		}
 	}
 	if (pdata->tsif_ref_clk) {
-		tsif_device->tsif_ref_clk = clk_get(NULL, pdata->tsif_ref_clk);
+		tsif_device->tsif_ref_clk = clk_get(&tsif_device->pdev->dev,
+						    pdata->tsif_ref_clk);
 		if (IS_ERR(tsif_device->tsif_ref_clk)) {
 			dev_err(&tsif_device->pdev->dev, "failed to get %s\n",
 				pdata->tsif_ref_clk);

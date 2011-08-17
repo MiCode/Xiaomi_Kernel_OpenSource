@@ -1205,8 +1205,8 @@ static const struct msm_gpio tsif_gpios[] = {
 static struct msm_tsif_platform_data tsif_platform_data = {
 	.num_gpios = ARRAY_SIZE(tsif_gpios),
 	.gpios = tsif_gpios,
-	.tsif_clk = "tsif_clk",
-	.tsif_ref_clk = "tsif_ref_clk",
+	.tsif_clk = "core_clk",
+	.tsif_ref_clk = "ref_clk",
 };
 
 #endif /* defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE) */

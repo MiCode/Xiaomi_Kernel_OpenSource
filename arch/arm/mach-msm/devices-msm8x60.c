@@ -1729,8 +1729,8 @@ static void tsif_init1(struct msm_tsif_platform_data *data)
 struct msm_tsif_platform_data tsif1_platform_data = {
 	.num_gpios = ARRAY_SIZE(tsif1_gpios),
 	.gpios = tsif1_gpios,
-	.tsif_pclk = "tsif_pclk",
-	.tsif_ref_clk = "tsif_ref_clk",
+	.tsif_pclk = "iface_clk",
+	.tsif_ref_clk = "ref_clk",
 	.init = tsif_init1
 };
 
@@ -1765,8 +1765,8 @@ static void tsif_init0(struct msm_tsif_platform_data *data)
 struct msm_tsif_platform_data tsif0_platform_data = {
 	.num_gpios = ARRAY_SIZE(tsif0_gpios),
 	.gpios = tsif0_gpios,
-	.tsif_pclk = "tsif_pclk",
-	.tsif_ref_clk = "tsif_ref_clk",
+	.tsif_pclk = "iface_clk",
+	.tsif_ref_clk = "ref_clk",
 	.init = tsif_init0
 };
 struct resource tsif0_resources[] = {
