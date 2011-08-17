@@ -1278,8 +1278,12 @@ static void msm_hs_config_port(struct uart_port *uport, int cfg_flags)
 		msm_hs_request_port(uport);
 	}
 	if (is_gsbi_uart(msm_uport)) {
+		if (msm_uport->pclk)
+			clk_enable(msm_uport->pclk);
 		iowrite32(GSBI_PROTOCOL_UART, msm_uport->mapped_gsbi +
 			  GSBI_CONTROL_ADDR);
+		if (msm_uport->pclk)
+			clk_disable(msm_uport->pclk);
 	}
 	spin_unlock_irqrestore(&uport->lock, flags);
 }
