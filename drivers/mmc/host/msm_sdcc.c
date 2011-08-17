@@ -3432,7 +3432,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * fabric core clock.
 	 */
 	if (plat->pclk_src_dfab) {
-		host->dfab_pclk = clk_get(&pdev->dev, "dfab_sdc_clk");
+		host->dfab_pclk = clk_get(&pdev->dev, "bus_clk");
 		if (!IS_ERR(host->dfab_pclk)) {
 			/* Set the clock rate to 64MHz for max. performance */
 			ret = clk_set_rate(host->dfab_pclk, 64000000);
@@ -3448,7 +3448,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	/*
 	 * Setup main peripheral bus clock
 	 */
-	host->pclk = clk_get(&pdev->dev, "sdc_pclk");
+	host->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (!IS_ERR(host->pclk)) {
 		ret = clk_enable(host->pclk);
 		if (ret)
@@ -3460,7 +3460,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	/*
 	 * Setup SDC MMC clock
 	 */
-	host->clk = clk_get(&pdev->dev, "sdc_clk");
+	host->clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(host->clk)) {
 		ret = PTR_ERR(host->clk);
 		goto pclk_disable;
