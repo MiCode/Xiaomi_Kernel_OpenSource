@@ -315,6 +315,21 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008[] = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
 };
 
+/* 7x27aa pll4 at 1008mhz with CDMA capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
+	{ 1, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
+	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 4, 150000 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 0, 504000, ACPU_PLL_4, 6, 1, 63000, 3, 6, 200000 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 7, 200000},
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
+};
+
 /* 7x25a pll2 at 1200mhz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_800_25a[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
@@ -367,6 +382,7 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 	PLL_CONFIG(960, 245, 1200, 800),
 	PLL_CONFIG(960, 196, 1200, 800),
 	PLL_CONFIG(960, 245, 1200, 1008),
+	PLL_CONFIG(960, 196, 1200, 1008),
 	{ 0, 0, 0, 0, 0 }
 };
 
