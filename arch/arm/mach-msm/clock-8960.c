@@ -649,7 +649,7 @@ static struct branch_clk amp_p_clk = {
 	},
 };
 
-static struct branch_clk csi0_p_clk = {
+static struct branch_clk csi_p_clk = {
 	.b = {
 		.ctl_reg = AHB_EN_REG,
 		.en_mask = BIT(7),
@@ -659,9 +659,9 @@ static struct branch_clk csi0_p_clk = {
 		.halt_bit = 16,
 	},
 	.c = {
-		.dbg_name = "csi0_p_clk",
+		.dbg_name = "csi_p_clk",
 		.ops = &clk_ops_branch,
-		CLK_INIT(csi0_p_clk.c),
+		CLK_INIT(csi_p_clk.c),
 	},
 };
 
@@ -3102,7 +3102,7 @@ static struct rcg_clk vfe_clk = {
 	},
 };
 
-static struct branch_clk csi0_vfe_clk = {
+static struct branch_clk csi_vfe_clk = {
 	.b = {
 		.ctl_reg = VFE_CC_REG,
 		.en_mask = BIT(12),
@@ -3113,9 +3113,9 @@ static struct branch_clk csi0_vfe_clk = {
 	},
 	.parent = &vfe_clk.c,
 	.c = {
-		.dbg_name = "csi0_vfe_clk",
+		.dbg_name = "csi_vfe_clk",
 		.ops = &clk_ops_branch,
-		CLK_INIT(csi0_vfe_clk.c),
+		CLK_INIT(csi_vfe_clk.c),
 	},
 };
 
@@ -3516,7 +3516,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_LS(0x01), &dsi2_byte_clk.c },
 	{ TEST_MM_LS(0x02), &cam1_clk.c },
 	{ TEST_MM_LS(0x06), &amp_p_clk.c },
-	{ TEST_MM_LS(0x07), &csi0_p_clk.c },
+	{ TEST_MM_LS(0x07), &csi_p_clk.c },
 	{ TEST_MM_LS(0x08), &dsi2_s_p_clk.c },
 	{ TEST_MM_LS(0x09), &dsi1_m_p_clk.c },
 	{ TEST_MM_LS(0x0A), &dsi1_s_p_clk.c },
@@ -3548,7 +3548,7 @@ static struct measure_sel measure_mux[] = {
 
 	{ TEST_MM_HS(0x00), &csi0_clk.c },
 	{ TEST_MM_HS(0x01), &csi1_clk.c },
-	{ TEST_MM_HS(0x04), &csi0_vfe_clk.c },
+	{ TEST_MM_HS(0x04), &csi_vfe_clk.c },
 	{ TEST_MM_HS(0x05), &ijpeg_clk.c },
 	{ TEST_MM_HS(0x06), &vfe_clk.c },
 	{ TEST_MM_HS(0x07), &gfx2d0_clk.c },
@@ -3913,7 +3913,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("hdmi_app_clk",	hdmi_app_clk.c,		NULL),
 	CLK_LOOKUP("vpe_clk",		vpe_clk.c,		NULL),
 	CLK_LOOKUP("vfe_clk",		vfe_clk.c,		NULL),
-	CLK_LOOKUP("csi_vfe_clk",	csi0_vfe_clk.c,		NULL),
+	CLK_LOOKUP("csi_vfe_clk",	csi_vfe_clk.c,		NULL),
 	CLK_LOOKUP("vfe_axi_clk",	vfe_axi_clk.c,		NULL),
 	CLK_LOOKUP("mdp_axi_clk",	mdp_axi_clk.c,		NULL),
 	CLK_LOOKUP("rot_axi_clk",	rot_axi_clk.c,		NULL),
@@ -3922,7 +3922,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("vcodec_axi_b_clk",	vcodec_axi_b_clk.c,	NULL),
 	CLK_LOOKUP("vpe_axi_clk",	vpe_axi_clk.c,		NULL),
 	CLK_LOOKUP("amp_pclk",		amp_p_clk.c,		NULL),
-	CLK_LOOKUP("csi_pclk",		csi0_p_clk.c,		NULL),
+	CLK_LOOKUP("csi_pclk",		csi_p_clk.c,		NULL),
 	CLK_LOOKUP("dsi_m_pclk",	dsi1_m_p_clk.c,		NULL),
 	CLK_LOOKUP("dsi_s_pclk",	dsi1_s_p_clk.c,		NULL),
 	CLK_LOOKUP("dsi_m_pclk",	dsi2_m_p_clk.c,		NULL),
