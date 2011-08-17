@@ -46,7 +46,7 @@
 #define HALT_CHECK_DELAY_US	10
 
 DEFINE_SPINLOCK(local_clock_reg_lock);
-struct clk_freq_tbl local_dummy_freq = F_END;
+struct clk_freq_tbl rcg_dummy_freq = F_END;
 
 unsigned local_sys_vdd_votes[NUM_SYS_VDD_LEVELS];
 static DEFINE_SPINLOCK(sys_vdd_vote_lock);
@@ -391,7 +391,7 @@ static void __rcg_clk_enable_reg(struct rcg_clk *clk)
 	u32 reg_val;
 	void __iomem *const reg = clk->b.ctl_reg;
 
-	WARN(clk->current_freq == &local_dummy_freq,
+	WARN(clk->current_freq == &rcg_dummy_freq,
 		"Attempting to enable %s before setting its rate. "
 		"Set the rate first!\n", clk->c.dbg_name);
 

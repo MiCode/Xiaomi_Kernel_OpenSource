@@ -141,6 +141,8 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 	return container_of(clk, struct rcg_clk, c);
 }
 
+extern struct clk_freq_tbl rcg_dummy_freq;
+
 int rcg_clk_enable(struct clk *clk);
 void rcg_clk_disable(struct clk *clk);
 void rcg_clk_auto_off(struct clk *clk);
@@ -291,7 +293,6 @@ static inline struct measure_clk *to_measure_clk(struct clk *clk)
  * Variables from clock-local driver
  */
 extern spinlock_t		local_clock_reg_lock;
-extern struct clk_freq_tbl	local_dummy_freq;
 extern struct fixed_clk		gnd_clk;
 
 /*
