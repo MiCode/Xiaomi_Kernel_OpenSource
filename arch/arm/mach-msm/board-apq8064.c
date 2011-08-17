@@ -188,8 +188,6 @@ static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
-	.clk = "gsbi_qup_clk",
-	.pclk = "gsbi_pclk",
 };
 
 static void __init apq8064_i2c_init(void)

@@ -301,13 +301,11 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 	dev->clk_state = state;
 	if (state != 0) {
 		clk_enable(dev->clk);
-		if (dev->pclk)
-			clk_enable(dev->pclk);
+		clk_enable(dev->pclk);
 	} else {
 		qup_update_state(dev, QUP_RESET_STATE);
 		clk_disable(dev->clk);
-		if (dev->pclk)
-			clk_disable(dev->pclk);
+		clk_disable(dev->pclk);
 	}
 }
 
@@ -953,7 +951,6 @@ qup_i2c_probe(struct platform_device *pdev)
 	int ret = 0;
 	int i;
 	struct msm_i2c_platform_data *pdata;
-	const char *qup_apps_clk_name = "qup_clk";
 
 	gsbi_mem = NULL;
 	dev_dbg(&pdev->dev, "qup_i2c_probe\n");
@@ -1009,26 +1006,20 @@ qup_i2c_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdata->clk != NULL)
-		qup_apps_clk_name = pdata->clk;
-
-	clk = clk_get(&pdev->dev, qup_apps_clk_name);
+	clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(clk)) {
-		dev_err(&pdev->dev, "Could not get clock\n");
+		dev_err(&pdev->dev, "Could not get core_clk\n");
 		ret = PTR_ERR(clk);
 		goto err_clk_get_failed;
 	}
 
-	if (pdata->pclk != NULL) {
-		pclk = clk_get(&pdev->dev, pdata->pclk);
-		if (IS_ERR(pclk)) {
-			dev_err(&pdev->dev, "Could not get pclock\n");
-			ret = PTR_ERR(pclk);
-			clk_put(clk);
-			goto err_clk_get_failed;
-		}
-	} else
-		pclk = NULL;
+	pclk = clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(pclk)) {
+		dev_err(&pdev->dev, "Could not get iface_clk\n");
+		ret = PTR_ERR(pclk);
+		clk_put(clk);
+		goto err_clk_get_failed;
+	}
 
 	/* We support frequencies upto FAST Mode(400KHz) */
 	if (pdata->clk_freq <= 0 ||
@@ -1175,8 +1166,7 @@ err_ioremap_failed:
 err_alloc_dev_failed:
 err_config_failed:
 	clk_put(clk);
-	if (pclk)
-		clk_put(pclk);
+	clk_put(pclk);
 err_clk_get_failed:
 	if (gsbi_mem)
 		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
@@ -1206,8 +1196,7 @@ qup_i2c_remove(struct platform_device *pdev)
 	free_irq(dev->err_irq, dev);
 	i2c_del_adapter(&dev->adapter);
 	clk_put(dev->clk);
-	if (dev->pclk)
-		clk_put(dev->pclk);
+	clk_put(dev->pclk);
 	qup_i2c_free_gpios(dev);
 	if (dev->gsbi)
 		iounmap(dev->gsbi);

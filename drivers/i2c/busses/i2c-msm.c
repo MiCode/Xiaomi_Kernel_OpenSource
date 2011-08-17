@@ -590,7 +590,7 @@ msm_i2c_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "I2C region already claimed\n");
 		return -EBUSY;
 	}
-	clk = clk_get(&pdev->dev, "i2c_clk");
+	clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(clk)) {
 		dev_err(&pdev->dev, "Could not get clock\n");
 		ret = PTR_ERR(clk);

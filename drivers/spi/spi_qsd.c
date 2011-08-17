@@ -2302,16 +2302,16 @@ skip_dma_resources:
 	locked = 1;
 
 	dd->dev = &pdev->dev;
-	dd->clk = clk_get(&pdev->dev, "spi_clk");
+	dd->clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(dd->clk)) {
-		dev_err(&pdev->dev, "%s: unable to get spi_clk\n", __func__);
+		dev_err(&pdev->dev, "%s: unable to get core_clk\n", __func__);
 		rc = PTR_ERR(dd->clk);
 		goto err_probe_clk_get;
 	}
 
-	dd->pclk = clk_get(&pdev->dev, "spi_pclk");
+	dd->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(dd->pclk)) {
-		dev_err(&pdev->dev, "%s: unable to get spi_pclk\n", __func__);
+		dev_err(&pdev->dev, "%s: unable to get iface_clk\n", __func__);
 		rc = PTR_ERR(dd->pclk);
 		goto err_probe_pclk_get;
 	}
@@ -2321,7 +2321,7 @@ skip_dma_resources:
 
 	rc = clk_enable(dd->clk);
 	if (rc) {
-		dev_err(&pdev->dev, "%s: unable to enable spi_clk\n",
+		dev_err(&pdev->dev, "%s: unable to enable core_clk\n",
 			__func__);
 		goto err_probe_clk_enable;
 	}
@@ -2329,7 +2329,7 @@ skip_dma_resources:
 
 	rc = clk_enable(dd->pclk);
 	if (rc) {
-		dev_err(&pdev->dev, "%s: unable to enable spi_pclk\n",
+		dev_err(&pdev->dev, "%s: unable to enable iface_clk\n",
 		__func__);
 		goto err_probe_pclk_enable;
 	}

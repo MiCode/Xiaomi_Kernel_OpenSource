@@ -2800,8 +2800,8 @@ static struct clk_local_ownership {
 
 	OWN(ROW1,  7, "emdh_clk",	emdh_clk,	"msm_mddi.1"),
 	OWN(ROW1,  7, "emdh_pclk",	emdh_p_clk,	"msm_mddi.1"),
-	OWN(ROW1, 11, "i2c_clk",	i2c_clk,	"msm_i2c.0"),
-	OWN(ROW1, 12, "i2c_clk",	i2c_2_clk,	"msm_i2c.2"),
+	OWN(ROW1, 11, "core_clk",	i2c_clk,	"msm_i2c.0"),
+	OWN(ROW1, 12, "core_clk",	i2c_2_clk,	"msm_i2c.2"),
 	OWN(ROW1, 17, "mdc_clk",	mdc_clk,	NULL),
 	OWN(ROW1, 19, "mddi_clk",	pmdh_clk,	NULL),
 	OWN(ROW1, 19, "mddi_pclk",	pmdh_p_clk,	NULL),
@@ -2821,9 +2821,9 @@ static struct clk_local_ownership {
 	OWN(ROW1,  4, "usb_hs3_core_clk", usb_hs3_core_clk, NULL),
 	OWN(ROW1,  4, "usb_hs3_pclk",	usb_hs3_p_clk,	NULL),
 
-	OWN(ROW2,  3, "qup_clk",	qup_i2c_clk,	"qup_i2c.4"),
-	OWN(ROW2,  1, "spi_clk",	spi_clk,	NULL),
-	OWN(ROW2,  1, "spi_pclk",	spi_p_clk,	NULL),
+	OWN(ROW2,  3, "core_clk",	qup_i2c_clk,	"qup_i2c.4"),
+	OWN(ROW2,  1, "core_clk",	spi_clk,	"spi_qsd.0"),
+	OWN(ROW2,  1, "iface_clk",	spi_p_clk,	"spi_qsd.0"),
 	OWN(ROW2,  9, "core_clk",	uart1_clk,	"msm_serial.0"),
 	OWN(ROW2,  6, "core_clk",	uart1dm_clk,	"msm_serial_hs.0"),
 	OWN(ROW2,  8, "core_clk",	uart2dm_clk,	"msm_serial_hs.1"),
@@ -2833,6 +2833,7 @@ static struct clk_local_ownership {
 
 	OWN(APPS3,  6, "cam_m_clk",	cam_m_clk,	NULL),
 	OWN(APPS3,  6, "camif_pad_pclk", camif_pad_p_clk, NULL),
+	OWN(APPS3,  6, "iface_clk",	camif_pad_p_clk, "qup_i2c.4"),
 	OWN(APPS3, 11, "csi_clk",	csi0_clk,	NULL),
 	OWN(APPS3, 11, "csi_vfe_clk",	csi0_vfe_clk,	NULL),
 	OWN(APPS3, 11, "csi_pclk",	csi0_p_clk,	NULL),

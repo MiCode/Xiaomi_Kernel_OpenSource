@@ -1024,15 +1024,11 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 
 static struct msm_i2c_platform_data msm_gsbi0_qup_i2c_pdata = {
 	.clk_freq		= 100000,
-	.clk			= "gsbi_qup_clk",
-	.pclk			= "gsbi_qup_pclk",
 	.msm_i2c_config_gpio	= gsbi_qup_i2c_gpio_config,
 };
 
 static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 	.clk_freq		= 100000,
-	.clk			= "gsbi_qup_clk",
-	.pclk			= "gsbi_qup_pclk",
 	.msm_i2c_config_gpio	= gsbi_qup_i2c_gpio_config,
 };
 
