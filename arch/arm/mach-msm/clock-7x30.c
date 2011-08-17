@@ -2846,7 +2846,7 @@ static struct clk_local_ownership {
 	OWN(GLBL,  8, "core_clk",	adm_clk,	"msm_dmov"),
 	{ CLK_LOOKUP("iface_clk",		adm_p_clk.c,	"msm_dmov"),
 		O(GLBL), BIT(13), &dummy_clk },
-	OWN(GLBL,  8, "ce_clk",	ce_clk,		NULL),
+	OWN(GLBL,  8, "core_clk",	ce_clk,		"qce.0"),
 	OWN(GLBL, 13, "rotator_clk",	axi_rotator_clk, NULL),
 	OWN(GLBL, 13, "rotator_imem_clk", rotator_imem_clk, NULL),
 	OWN(GLBL, 13, "rotator_pclk",	rotator_p_clk,	NULL),

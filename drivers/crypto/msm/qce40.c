@@ -1929,14 +1929,14 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	}
 
 	/* Get CE core clk */
-	ce_core_clk = clk_get(pce_dev->pdev, "ce_clk");
+	ce_core_clk = clk_get(pce_dev->pdev, "core_clk");
 	if (IS_ERR(ce_core_clk)) {
 		*rc = PTR_ERR(ce_core_clk);
 		goto err;
 	}
 	pce_dev->ce_core_clk = ce_core_clk;
 	/* Get CE clk */
-	ce_clk = clk_get(pce_dev->pdev, "ce_pclk");
+	ce_clk = clk_get(pce_dev->pdev, "iface_clk");
 	if (IS_ERR(ce_clk)) {
 		*rc = PTR_ERR(ce_clk);
 		clk_put(pce_dev->ce_core_clk);

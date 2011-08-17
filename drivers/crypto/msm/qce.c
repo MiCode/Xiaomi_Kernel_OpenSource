@@ -2315,7 +2315,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		return NULL;
 	}
 	pce_dev->pdev = &pdev->dev;
-	ce_clk = clk_get(pce_dev->pdev, "ce_clk");
+	ce_clk = clk_get(pce_dev->pdev, "core_clk");
 	if (IS_ERR(ce_clk)) {
 		kfree(pce_dev);
 		*rc = PTR_ERR(ce_clk);
