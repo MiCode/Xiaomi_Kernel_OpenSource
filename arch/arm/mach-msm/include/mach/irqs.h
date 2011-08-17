@@ -31,7 +31,7 @@
 
 /* For now, use the maximum number of interrupts until a pending GIC issue
  * is sorted out */
-#define NR_MSM_IRQS 256
+#define NR_MSM_IRQS 288
 #define NR_GPIO_IRQS 150
 #define NR_PM8921_IRQS 256
 #define NR_TABLA_IRQS 49
