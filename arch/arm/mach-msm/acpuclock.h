@@ -31,16 +31,12 @@ enum setrate_reason {
 };
 
 /**
- * struct acpuclk_platform_data - Platform data for acpuclk_init()
+ * struct acpuclk_soc_data - SoC data for acpuclk_init()
  */
-struct acpuclk_platform_data {
-	uint32_t acpu_switch_time_us;
+struct acpuclk_soc_data {
 	unsigned long max_speed_delta_khz;
-	uint32_t vdd_switch_time_us;
 	unsigned int max_axi_khz;
-	unsigned int max_vdd;
-	int (*acpu_set_vdd) (int mvolts);
-	int (*init)(struct acpuclk_platform_data *);
+	int (*init)(struct acpuclk_soc_data *);
 };
 
 /**
@@ -100,14 +96,16 @@ void acpuclk_register(struct acpuclk_data *data);
  *
  * Return 0 for success.
  */
-int acpuclk_init(struct acpuclk_platform_data *);
+int acpuclk_init(struct acpuclk_soc_data *);
 
 /* SoC-specific acpuclock initialization functions. */
-int acpuclk_7201_init(struct acpuclk_platform_data *);
-int acpuclk_7x30_init(struct acpuclk_platform_data *);
-int acpuclk_8x50_init(struct acpuclk_platform_data *);
-int acpuclk_8x60_init(struct acpuclk_platform_data *);
-int acpuclk_8960_init(struct acpuclk_platform_data *);
-int acpuclk_9xxx_init(struct acpuclk_platform_data *);
-
+extern struct acpuclk_soc_data acpuclk_7x27_soc_data;
+extern struct acpuclk_soc_data acpuclk_7x27a_soc_data;
+extern struct acpuclk_soc_data acpuclk_7x27aa_soc_data;
+extern struct acpuclk_soc_data acpuclk_7201_soc_data;
+extern struct acpuclk_soc_data acpuclk_7x30_soc_data;
+extern struct acpuclk_soc_data acpuclk_8x50_soc_data;
+extern struct acpuclk_soc_data acpuclk_8x60_soc_data;
+extern struct acpuclk_soc_data acpuclk_8960_soc_data;
+extern struct acpuclk_soc_data acpuclk_9xxx_soc_data;
 #endif

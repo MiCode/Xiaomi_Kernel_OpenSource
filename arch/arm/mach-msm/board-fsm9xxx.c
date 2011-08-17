@@ -835,12 +835,6 @@ static struct platform_device *devices[] __initdata = {
 	&fsm_xo_device,
 };
 
-static struct acpuclk_platform_data fsm9xxx_clock_data __initdata = {
-	.acpu_switch_time_us = 50,
-	.vdd_switch_time_us = 62,
-	.init = acpuclk_9xxx_init,
-};
-
 static void __init fsm9xxx_init_irq(void)
 {
 	msm_init_irq();
@@ -879,7 +873,7 @@ static void __init fsm9xxx_init(void)
 		pr_err("%s: socinfo_init() failed!\n",
 		       __func__);
 
-	acpuclk_init(&fsm9xxx_clock_data);
+	acpuclk_init(&acpuclk_9xxx_soc_data);
 
 	regulator_has_full_constraints();
 

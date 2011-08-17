@@ -40,9 +40,13 @@ static struct acpuclk_data acpuclk_9xxx_data = {
 	.get_rate = acpuclk_9xxx_get_rate,
 };
 
-int __init acpuclk_9xxx_init(struct acpuclk_platform_data *clkdata)
+static int __init acpuclk_9xxx_init(struct acpuclk_soc_data *soc_data)
 {
 	acpuclk_register(&acpuclk_9xxx_data);
 	pr_info("ACPU running at %lu KHz\n", acpuclk_get_rate(0));
 	return 0;
 }
+
+struct acpuclk_soc_data acpuclk_9xxx_soc_data __initdata = {
+	.init = acpuclk_9xxx_init,
+};

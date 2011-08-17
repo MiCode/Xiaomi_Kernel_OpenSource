@@ -56,7 +56,6 @@
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
 	struct mutex			lock;
-	uint32_t			vdd_switch_time_us;
 	struct clk			*ebi1_clk;
 };
 
@@ -139,7 +138,7 @@ static int acpuclk_set_acpu_vdd(struct clkctl_acpu_speed *s)
 		return ret;
 
 	/* Wait for voltage to stabilize. */
-	udelay(drv_state.vdd_switch_time_us);
+	udelay(62);
 	return 0;
 }
 
@@ -471,15 +470,14 @@ static struct acpuclk_data acpuclk_7x30_data = {
 	.get_rate = acpuclk_7x30_get_rate,
 	.power_collapse_khz = MAX_AXI_KHZ,
 	.wait_for_irq_khz = MAX_AXI_KHZ,
+	.switch_time_us = 50,
 };
 
-int __init acpuclk_7x30_init(struct acpuclk_platform_data *clkdata)
+static int __init acpuclk_7x30_init(struct acpuclk_soc_data *soc_data)
 {
 	pr_info("%s()\n", __func__);
 
 	mutex_init(&drv_state.lock);
-	acpuclk_7x30_data.switch_time_us = clkdata->acpu_switch_time_us;
-	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	pll2_fixup();
 	populate_plls();
 	acpuclk_hw_init();
@@ -489,3 +487,7 @@ int __init acpuclk_7x30_init(struct acpuclk_platform_data *clkdata)
 
 	return 0;
 }
+
+struct acpuclk_soc_data acpuclk_7x30_soc_data __initdata = {
+	.init = acpuclk_7x30_init,
+};

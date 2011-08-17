@@ -75,9 +75,7 @@ static const struct pll {
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
 	struct mutex			lock;
-	uint32_t			acpu_switch_time_us;
 	uint32_t			max_speed_delta_khz;
-	uint32_t			vdd_switch_time_us;
 	unsigned long			max_axi_khz;
 	struct clk			*ebi1_clk;
 };
@@ -502,7 +500,7 @@ static int acpuclk_set_vdd_level(int vdd)
 
 	writel_relaxed((1 << 7) | (vdd << 3), A11S_VDD_SVS_PLEVEL_ADDR);
 	mb();
-	udelay(drv_state.vdd_switch_time_us);
+	udelay(62);
 	if ((readl_relaxed(A11S_VDD_SVS_PLEVEL_ADDR) & 0x7) != vdd) {
 		pr_err("VDD set failed\n");
 		return -EIO;
@@ -690,7 +688,7 @@ static int acpuclk_7201_set_rate(int cpu, unsigned long rate,
 		/* Re-adjust lpj for the new clock speed. */
 		loops_per_jiffy = cur_s->lpj;
 		mb();
-		udelay(drv_state.acpu_switch_time_us);
+		udelay(50);
 	}
 
 	/* Nothing else to do for SWFI. */
@@ -1062,9 +1060,10 @@ static struct acpuclk_data acpuclk_7201_data = {
 	.set_rate = acpuclk_7201_set_rate,
 	.get_rate = acpuclk_7201_get_rate,
 	.power_collapse_khz = POWER_COLLAPSE_KHZ,
+	.switch_time_us = 50,
 };
 
-int __init acpuclk_7201_init(struct acpuclk_platform_data *clkdata)
+static int __init acpuclk_7201_init(struct acpuclk_soc_data *soc_data)
 {
 	pr_info("%s()\n", __func__);
 
@@ -1073,11 +1072,8 @@ int __init acpuclk_7201_init(struct acpuclk_platform_data *clkdata)
 
 	mutex_init(&drv_state.lock);
 	shared_pll_control_init();
-	acpuclk_7201_data.switch_time_us = clkdata->acpu_switch_time_us;
-	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
-	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
-	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
-	drv_state.max_axi_khz = clkdata->max_axi_khz;
+	drv_state.max_speed_delta_khz = soc_data->max_speed_delta_khz;
+	drv_state.max_axi_khz = soc_data->max_axi_khz;
 	acpu_freq_tbl_fixup();
 	acpuclk_7201_data.wait_for_irq_khz = find_wait_for_irq_khz();
 	precompute_stepping();
@@ -1094,3 +1090,27 @@ int __init acpuclk_7201_init(struct acpuclk_platform_data *clkdata)
 #endif
 	return 0;
 }
+
+struct acpuclk_soc_data acpuclk_7201_soc_data __initdata = {
+	.max_speed_delta_khz = 400000,
+	.max_axi_khz = 160000,
+	.init = acpuclk_7201_init,
+};
+
+struct acpuclk_soc_data acpuclk_7x27_soc_data __initdata = {
+	.max_speed_delta_khz = 400000,
+	.max_axi_khz = 200000,
+	.init = acpuclk_7201_init,
+};
+
+struct acpuclk_soc_data acpuclk_7x27a_soc_data __initdata = {
+	.max_speed_delta_khz = 400000,
+	.max_axi_khz = 200000,
+	.init = acpuclk_7201_init,
+};
+
+struct acpuclk_soc_data acpuclk_7x27aa_soc_data __initdata = {
+	.max_speed_delta_khz = 504000,
+	.max_axi_khz = 200000,
+	.init = acpuclk_7201_init,
+};

@@ -1931,12 +1931,6 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
-static struct acpuclk_platform_data msm8960_acpuclk_data __initdata = {
-	.acpu_switch_time_us = 0,
-	.vdd_switch_time_us = 0,
-	.init = acpuclk_8960_init,
-};
-
 #define MSM_SHARED_RAM_PHYS 0x80000000
 
 static struct pm8921_adc_amux pm8921_adc_channels_data[] = {
@@ -3512,7 +3506,7 @@ static void __init msm8960_sim_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	pm8921_gpio_mpp_init();
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
-	acpuclk_init(&msm8960_acpuclk_data);
+	acpuclk_init(&acpuclk_8960_soc_data);
 
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
@@ -3603,7 +3597,7 @@ static void __init msm8960_cdp_init(void)
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	msm8960_init_cam();
 	msm8960_init_mmc();
-	acpuclk_init(&msm8960_acpuclk_data);
+	acpuclk_init(&acpuclk_8960_soc_data);
 	register_i2c_devices();
 	msm8960_wcnss_init();
 	msm_fb_add_devices();

@@ -1489,14 +1489,6 @@ static void __init msm7x2x_init_irq(void)
 	msm_init_irq();
 }
 
-static struct acpuclk_platform_data msm7x2x_clock_data __initdata = {
-	.acpu_switch_time_us = 50,
-	.max_speed_delta_khz = 400000,
-	.vdd_switch_time_us = 62,
-	.max_axi_khz = 160000,
-	.init = acpuclk_7201_init,
-};
-
 void msm_serial_debug_init(unsigned int base, int irq,
 			   struct device *clk_device, int signal_irq);
 
@@ -1892,11 +1884,10 @@ static void __init msm7x2x_init(void)
 		}
 	}
 #endif
-
 	if (cpu_is_msm7x27())
-		msm7x2x_clock_data.max_axi_khz = 200000;
-
-	acpuclk_init(&msm7x2x_clock_data);
+		acpuclk_init(&acpuclk_7x27_soc_data);
+	else
+		acpuclk_init(&acpuclk_7201_soc_data);
 
 	usb_mpp_init();
 

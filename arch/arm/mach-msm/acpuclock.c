@@ -57,14 +57,14 @@ void __init acpuclk_register(struct acpuclk_data *data)
 	acpuclk_data = data;
 }
 
-int __init acpuclk_init(struct acpuclk_platform_data *pdata)
+int __init acpuclk_init(struct acpuclk_soc_data *soc_data)
 {
 	int rc;
 
-	if (!pdata->init)
+	if (!soc_data->init)
 		return -EINVAL;
 
-	rc = pdata->init(pdata);
+	rc = soc_data->init(soc_data);
 	if (rc)
 		return rc;
 

@@ -695,24 +695,17 @@ struct platform_device asoc_msm_dai1 = {
 	.id     = 0,
 };
 
-static struct acpuclk_platform_data msm7x2x_clock_data __initdata = {
-	.acpu_switch_time_us = 50,
-	.max_speed_delta_khz = 400000,
-	.vdd_switch_time_us = 62,
-	.max_axi_khz = 200000,
-	.init = acpuclk_7201_init,
-};
-
 int __init msm7x2x_misc_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n", __func__);
 
-	if (cpu_is_msm7x27aa())
-		msm7x2x_clock_data.max_speed_delta_khz = 504000;
-
 	msm_clock_init(&msm7x27a_clock_init_data);
-	acpuclk_init(&msm7x2x_clock_data);
+	if (cpu_is_msm7x27aa())
+		acpuclk_init(&acpuclk_7x27aa_soc_data);
+	else
+		acpuclk_init(&acpuclk_7x27a_soc_data);
+
 
 	return 0;
 }
