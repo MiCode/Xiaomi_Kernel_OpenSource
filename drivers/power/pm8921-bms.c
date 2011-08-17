@@ -872,7 +872,8 @@ int pm8921_bms_get_battery_current(int *result)
 
 	read_vsense_avg(the_chip, result);
 	pr_debug("vsense=%d\n", *result);
-	*result = *result / the_chip->r_sense;
+	/* cast for signed division */
+	*result = *result / (int)the_chip->r_sense;
 	return 0;
 }
 EXPORT_SYMBOL(pm8921_bms_get_battery_current);
