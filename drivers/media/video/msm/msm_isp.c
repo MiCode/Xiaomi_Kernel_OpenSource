@@ -25,9 +25,9 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
+#include <media/msm_isp.h>
 
 #include "msm.h"
-#include "msm_isp.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_isp: " fmt, ##args)

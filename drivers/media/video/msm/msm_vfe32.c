@@ -19,11 +19,11 @@
 #include <mach/camera.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
+#include <media/msm_isp.h>
 
 #include "msm.h"
 #include "msm_vfe32.h"
 #include "msm_vpe1.h"
-#include "msm_isp.h"
 #include "msm_ispif.h"
 
 atomic_t irq_cnt;
@@ -65,147 +65,150 @@ struct vfe32_isr_queue_cmd {
 };
 
 static struct vfe32_cmd_type vfe32_cmd[] = {
-/* 0*/	{V32_DUMMY_0},
-		{V32_SET_CLK},
-		{V32_RESET},
-		{V32_START},
-		{V32_TEST_GEN_START},
-/* 5*/	{V32_OPERATION_CFG, V32_OPERATION_CFG_LEN},
-		{V32_AXI_OUT_CFG, V32_AXI_OUT_LEN, V32_AXI_OUT_OFF, 0xFF},
-		{V32_CAMIF_CFG, V32_CAMIF_LEN, V32_CAMIF_OFF, 0xFF},
-		{V32_AXI_INPUT_CFG},
-		{V32_BLACK_LEVEL_CFG, V32_BLACK_LEVEL_LEN, V32_BLACK_LEVEL_OFF,
+/* 0*/	{VFE_CMD_DUMMY_0},
+		{VFE_CMD_SET_CLK},
+		{VFE_CMD_RESET},
+		{VFE_CMD_START},
+		{VFE_CMD_TEST_GEN_START},
+/* 5*/	{VFE_CMD_OPERATION_CFG, V32_OPERATION_CFG_LEN},
+		{VFE_CMD_AXI_OUT_CFG, V32_AXI_OUT_LEN, V32_AXI_OUT_OFF, 0xFF},
+		{VFE_CMD_CAMIF_CFG, V32_CAMIF_LEN, V32_CAMIF_OFF, 0xFF},
+		{VFE_CMD_AXI_INPUT_CFG},
+		{VFE_CMD_BLACK_LEVEL_CFG, V32_BLACK_LEVEL_LEN,
+		V32_BLACK_LEVEL_OFF,
 		0xFF},
-/*10*/  {V32_ROLL_OFF_CFG, V32_ROLL_OFF_CFG_LEN, V32_ROLL_OFF_CFG_OFF,
+/*10*/  {VFE_CMD_ROLL_OFF_CFG, V32_ROLL_OFF_CFG_LEN, V32_ROLL_OFF_CFG_OFF,
 		0xFF},
-		{V32_DEMUX_CFG, V32_DEMUX_LEN, V32_DEMUX_OFF, 0xFF},
-		{V32_FOV_CFG, V32_FOV_LEN, V32_FOV_OFF, 0xFF},
-		{V32_MAIN_SCALER_CFG, V32_MAIN_SCALER_LEN, V32_MAIN_SCALER_OFF,
+		{VFE_CMD_DEMUX_CFG, V32_DEMUX_LEN, V32_DEMUX_OFF, 0xFF},
+		{VFE_CMD_FOV_CFG, V32_FOV_LEN, V32_FOV_OFF, 0xFF},
+		{VFE_CMD_MAIN_SCALER_CFG, V32_MAIN_SCALER_LEN,
+		V32_MAIN_SCALER_OFF, 0xFF},
+		{VFE_CMD_WB_CFG, V32_WB_LEN, V32_WB_OFF, 0xFF},
+/*15*/	{VFE_CMD_COLOR_COR_CFG, V32_COLOR_COR_LEN, V32_COLOR_COR_OFF, 0xFF},
+		{VFE_CMD_RGB_G_CFG, V32_RGB_G_LEN, V32_RGB_G_OFF, 0xFF},
+		{VFE_CMD_LA_CFG, V32_LA_LEN, V32_LA_OFF, 0xFF },
+		{VFE_CMD_CHROMA_EN_CFG, V32_CHROMA_EN_LEN, V32_CHROMA_EN_OFF,
 		0xFF},
-		{V32_WB_CFG, V32_WB_LEN, V32_WB_OFF, 0xFF},
-/*15*/	{V32_COLOR_COR_CFG, V32_COLOR_COR_LEN, V32_COLOR_COR_OFF, 0xFF},
-		{V32_RGB_G_CFG, V32_RGB_G_LEN, V32_RGB_G_OFF, 0xFF},
-		{V32_LA_CFG, V32_LA_LEN, V32_LA_OFF, 0xFF },
-		{V32_CHROMA_EN_CFG, V32_CHROMA_EN_LEN, V32_CHROMA_EN_OFF, 0xFF},
-		{V32_CHROMA_SUP_CFG, V32_CHROMA_SUP_LEN, V32_CHROMA_SUP_OFF,
+		{VFE_CMD_CHROMA_SUP_CFG, V32_CHROMA_SUP_LEN, V32_CHROMA_SUP_OFF,
 		0xFF},
-/*20*/	{V32_MCE_CFG, V32_MCE_LEN, V32_MCE_OFF, 0xFF},
-		{V32_SK_ENHAN_CFG, V32_SCE_LEN, V32_SCE_OFF, 0xFF},
-		{V32_ASF_CFG, V32_ASF_LEN, V32_ASF_OFF, 0xFF},
-		{V32_S2Y_CFG, V32_S2Y_LEN, V32_S2Y_OFF, 0xFF},
-		{V32_S2CbCr_CFG, V32_S2CbCr_LEN, V32_S2CbCr_OFF, 0xFF},
-/*25*/	{V32_CHROMA_SUBS_CFG, V32_CHROMA_SUBS_LEN, V32_CHROMA_SUBS_OFF,
+/*20*/	{VFE_CMD_MCE_CFG, V32_MCE_LEN, V32_MCE_OFF, 0xFF},
+		{VFE_CMD_SK_ENHAN_CFG, V32_SCE_LEN, V32_SCE_OFF, 0xFF},
+		{VFE_CMD_ASF_CFG, V32_ASF_LEN, V32_ASF_OFF, 0xFF},
+		{VFE_CMD_S2Y_CFG, V32_S2Y_LEN, V32_S2Y_OFF, 0xFF},
+		{VFE_CMD_S2CbCr_CFG, V32_S2CbCr_LEN, V32_S2CbCr_OFF, 0xFF},
+/*25*/	{VFE_CMD_CHROMA_SUBS_CFG, V32_CHROMA_SUBS_LEN, V32_CHROMA_SUBS_OFF,
 		0xFF},
-		{V32_OUT_CLAMP_CFG, V32_OUT_CLAMP_LEN, V32_OUT_CLAMP_OFF,
+		{VFE_CMD_OUT_CLAMP_CFG, V32_OUT_CLAMP_LEN, V32_OUT_CLAMP_OFF,
 		0xFF},
-		{V32_FRAME_SKIP_CFG, V32_FRAME_SKIP_LEN, V32_FRAME_SKIP_OFF,
+		{VFE_CMD_FRAME_SKIP_CFG, V32_FRAME_SKIP_LEN, V32_FRAME_SKIP_OFF,
 		0xFF},
-		{V32_DUMMY_1},
-		{V32_DUMMY_2},
-/*30*/	{V32_DUMMY_3},
-		{V32_UPDATE},
-		{V32_BL_LVL_UPDATE, V32_BLACK_LEVEL_LEN, V32_BLACK_LEVEL_OFF,
+		{VFE_CMD_DUMMY_1},
+		{VFE_CMD_DUMMY_2},
+/*30*/	{VFE_CMD_DUMMY_3},
+		{VFE_CMD_UPDATE},
+		{VFE_CMD_BL_LVL_UPDATE, V32_BLACK_LEVEL_LEN,
+		V32_BLACK_LEVEL_OFF, 0xFF},
+		{VFE_CMD_DEMUX_UPDATE, V32_DEMUX_LEN, V32_DEMUX_OFF, 0xFF},
+		{VFE_CMD_FOV_UPDATE, V32_FOV_LEN, V32_FOV_OFF, 0xFF},
+/*35*/	{VFE_CMD_MAIN_SCALER_UPDATE, V32_MAIN_SCALER_LEN, V32_MAIN_SCALER_OFF,
 		0xFF},
-		{V32_DEMUX_UPDATE, V32_DEMUX_LEN, V32_DEMUX_OFF, 0xFF},
-		{V32_FOV_UPDATE, V32_FOV_LEN, V32_FOV_OFF, 0xFF},
-/*35*/	{V32_MAIN_SCALER_UPDATE, V32_MAIN_SCALER_LEN, V32_MAIN_SCALER_OFF,
+		{VFE_CMD_WB_UPDATE, V32_WB_LEN, V32_WB_OFF, 0xFF},
+		{VFE_CMD_COLOR_COR_UPDATE, V32_COLOR_COR_LEN, V32_COLOR_COR_OFF,
 		0xFF},
-		{V32_WB_UPDATE, V32_WB_LEN, V32_WB_OFF, 0xFF},
-		{V32_COLOR_COR_UPDATE, V32_COLOR_COR_LEN, V32_COLOR_COR_OFF,
+		{VFE_CMD_RGB_G_UPDATE, V32_RGB_G_LEN, V32_CHROMA_EN_OFF, 0xFF},
+		{VFE_CMD_LA_UPDATE, V32_LA_LEN, V32_LA_OFF, 0xFF },
+/*40*/	{VFE_CMD_CHROMA_EN_UPDATE, V32_CHROMA_EN_LEN, V32_CHROMA_EN_OFF,
 		0xFF},
-		{V32_RGB_G_UPDATE, V32_RGB_G_LEN, V32_CHROMA_EN_OFF, 0xFF},
-		{V32_LA_UPDATE, V32_LA_LEN, V32_LA_OFF, 0xFF },
-/*40*/	{V32_CHROMA_EN_UPDATE, V32_CHROMA_EN_LEN, V32_CHROMA_EN_OFF,
-		0xFF},
-		{V32_CHROMA_SUP_UPDATE, V32_CHROMA_SUP_LEN, V32_CHROMA_SUP_OFF,
-		0xFF},
-		{V32_MCE_UPDATE, V32_MCE_LEN, V32_MCE_OFF, 0xFF},
-		{V32_SK_ENHAN_UPDATE, V32_SCE_LEN, V32_SCE_OFF, 0xFF},
-		{V32_S2CbCr_UPDATE, V32_S2CbCr_LEN, V32_S2CbCr_OFF, 0xFF},
-/*45*/	{V32_S2Y_UPDATE, V32_S2Y_LEN, V32_S2Y_OFF, 0xFF},
-		{V32_ASF_UPDATE, V32_ASF_UPDATE_LEN, V32_ASF_OFF, 0xFF},
-		{V32_FRAME_SKIP_UPDATE},
-		{V32_CAMIF_FRAME_UPDATE},
-		{V32_STATS_AF_UPDATE, V32_STATS_AF_LEN, V32_STATS_AF_OFF},
-/*50*/	{V32_STATS_AE_UPDATE, V32_STATS_AE_LEN, V32_STATS_AE_OFF},
-		{V32_STATS_AWB_UPDATE, V32_STATS_AWB_LEN, V32_STATS_AWB_OFF},
-		{V32_STATS_RS_UPDATE, V32_STATS_RS_LEN, V32_STATS_RS_OFF},
-		{V32_STATS_CS_UPDATE, V32_STATS_CS_LEN, V32_STATS_CS_OFF},
-		{V32_STATS_SKIN_UPDATE},
-/*55*/	{V32_STATS_IHIST_UPDATE, V32_STATS_IHIST_LEN, V32_STATS_IHIST_OFF},
-		{V32_DUMMY_4},
-		{V32_EPOCH1_ACK},
-		{V32_EPOCH2_ACK},
-		{V32_START_RECORDING},
-/*60*/	{V32_STOP_RECORDING},
-		{V32_DUMMY_5},
-		{V32_DUMMY_6},
-		{V32_CAPTURE, V32_CAPTURE_LEN, 0xFF},
-		{V32_DUMMY_7},
-/*65*/	{V32_STOP},
-		{V32_GET_HW_VERSION},
-		{V32_GET_FRAME_SKIP_COUNTS},
-		{V32_OUTPUT1_BUFFER_ENQ},
-		{V32_OUTPUT2_BUFFER_ENQ},
-/*70*/	{V32_OUTPUT3_BUFFER_ENQ},
-		{V32_JPEG_OUT_BUF_ENQ},
-		{V32_RAW_OUT_BUF_ENQ},
-		{V32_RAW_IN_BUF_ENQ},
-		{V32_STATS_AF_ENQ},
-/*75*/	{V32_STATS_AE_ENQ},
-		{V32_STATS_AWB_ENQ},
-		{V32_STATS_RS_ENQ},
-		{V32_STATS_CS_ENQ},
-		{V32_STATS_SKIN_ENQ},
-/*80*/	{V32_STATS_IHIST_ENQ},
-		{V32_DUMMY_8},
-		{V32_JPEG_ENC_CFG},
-		{V32_DUMMY_9},
-		{V32_STATS_AF_START, V32_STATS_AF_LEN, V32_STATS_AF_OFF},
-/*85*/	{V32_STATS_AF_STOP},
-		{V32_STATS_AE_START, V32_STATS_AE_LEN, V32_STATS_AE_OFF},
-		{V32_STATS_AE_STOP},
-		{V32_STATS_AWB_START, V32_STATS_AWB_LEN, V32_STATS_AWB_OFF},
-		{V32_STATS_AWB_STOP},
-/*90*/	{V32_STATS_RS_START, V32_STATS_RS_LEN, V32_STATS_RS_OFF},
-		{V32_STATS_RS_STOP},
-		{V32_STATS_CS_START, V32_STATS_CS_LEN, V32_STATS_CS_OFF},
-		{V32_STATS_CS_STOP},
-		{V32_STATS_SKIN_START},
-/*95*/	{V32_STATS_SKIN_STOP},
-		{V32_STATS_IHIST_START,
+		{VFE_CMD_CHROMA_SUP_UPDATE, V32_CHROMA_SUP_LEN,
+		V32_CHROMA_SUP_OFF, 0xFF},
+		{VFE_CMD_MCE_UPDATE, V32_MCE_LEN, V32_MCE_OFF, 0xFF},
+		{VFE_CMD_SK_ENHAN_UPDATE, V32_SCE_LEN, V32_SCE_OFF, 0xFF},
+		{VFE_CMD_S2CbCr_UPDATE, V32_S2CbCr_LEN, V32_S2CbCr_OFF, 0xFF},
+/*45*/	{VFE_CMD_S2Y_UPDATE, V32_S2Y_LEN, V32_S2Y_OFF, 0xFF},
+		{VFE_CMD_ASF_UPDATE, V32_ASF_UPDATE_LEN, V32_ASF_OFF, 0xFF},
+		{VFE_CMD_FRAME_SKIP_UPDATE},
+		{VFE_CMD_CAMIF_FRAME_UPDATE},
+		{VFE_CMD_STATS_AF_UPDATE, V32_STATS_AF_LEN, V32_STATS_AF_OFF},
+/*50*/	{VFE_CMD_STATS_AE_UPDATE, V32_STATS_AE_LEN, V32_STATS_AE_OFF},
+		{VFE_CMD_STATS_AWB_UPDATE, V32_STATS_AWB_LEN,
+		V32_STATS_AWB_OFF},
+		{VFE_CMD_STATS_RS_UPDATE, V32_STATS_RS_LEN, V32_STATS_RS_OFF},
+		{VFE_CMD_STATS_CS_UPDATE, V32_STATS_CS_LEN, V32_STATS_CS_OFF},
+		{VFE_CMD_STATS_SKIN_UPDATE},
+/*55*/	{VFE_CMD_STATS_IHIST_UPDATE, V32_STATS_IHIST_LEN, V32_STATS_IHIST_OFF},
+		{VFE_CMD_DUMMY_4},
+		{VFE_CMD_EPOCH1_ACK},
+		{VFE_CMD_EPOCH2_ACK},
+		{VFE_CMD_START_RECORDING},
+/*60*/	{VFE_CMD_STOP_RECORDING},
+		{VFE_CMD_DUMMY_5},
+		{VFE_CMD_DUMMY_6},
+		{VFE_CMD_CAPTURE, V32_CAPTURE_LEN, 0xFF},
+		{VFE_CMD_DUMMY_7},
+/*65*/	{VFE_CMD_STOP},
+		{VFE_CMD_GET_HW_VERSION},
+		{VFE_CMD_GET_FRAME_SKIP_COUNTS},
+		{VFE_CMD_OUTPUT1_BUFFER_ENQ},
+		{VFE_CMD_OUTPUT2_BUFFER_ENQ},
+/*70*/	{VFE_CMD_OUTPUT3_BUFFER_ENQ},
+		{VFE_CMD_JPEG_OUT_BUF_ENQ},
+		{VFE_CMD_RAW_OUT_BUF_ENQ},
+		{VFE_CMD_RAW_IN_BUF_ENQ},
+		{VFE_CMD_STATS_AF_ENQ},
+/*75*/	{VFE_CMD_STATS_AE_ENQ},
+		{VFE_CMD_STATS_AWB_ENQ},
+		{VFE_CMD_STATS_RS_ENQ},
+		{VFE_CMD_STATS_CS_ENQ},
+		{VFE_CMD_STATS_SKIN_ENQ},
+/*80*/	{VFE_CMD_STATS_IHIST_ENQ},
+		{VFE_CMD_DUMMY_8},
+		{VFE_CMD_JPEG_ENC_CFG},
+		{VFE_CMD_DUMMY_9},
+		{VFE_CMD_STATS_AF_START, V32_STATS_AF_LEN, V32_STATS_AF_OFF},
+/*85*/	{VFE_CMD_STATS_AF_STOP},
+		{VFE_CMD_STATS_AE_START, V32_STATS_AE_LEN, V32_STATS_AE_OFF},
+		{VFE_CMD_STATS_AE_STOP},
+		{VFE_CMD_STATS_AWB_START, V32_STATS_AWB_LEN, V32_STATS_AWB_OFF},
+		{VFE_CMD_STATS_AWB_STOP},
+/*90*/	{VFE_CMD_STATS_RS_START, V32_STATS_RS_LEN, V32_STATS_RS_OFF},
+		{VFE_CMD_STATS_RS_STOP},
+		{VFE_CMD_STATS_CS_START, V32_STATS_CS_LEN, V32_STATS_CS_OFF},
+		{VFE_CMD_STATS_CS_STOP},
+		{VFE_CMD_STATS_SKIN_START},
+/*95*/	{VFE_CMD_STATS_SKIN_STOP},
+		{VFE_CMD_STATS_IHIST_START,
 		V32_STATS_IHIST_LEN, V32_STATS_IHIST_OFF},
-		{V32_STATS_IHIST_STOP},
-		{V32_DUMMY_10},
-		{V32_SYNC_TIMER_SETTING, V32_SYNC_TIMER_LEN,
+		{VFE_CMD_STATS_IHIST_STOP},
+		{VFE_CMD_DUMMY_10},
+		{VFE_CMD_SYNC_TIMER_SETTING, V32_SYNC_TIMER_LEN,
 			V32_SYNC_TIMER_OFF},
-/*100*/	{V32_ASYNC_TIMER_SETTING, V32_ASYNC_TIMER_LEN, V32_ASYNC_TIMER_OFF},
-		{V32_LIVESHOT},
-		{V32_LA_SETUP},
-		{V32_LINEARIZATION_CFG, V32_LINEARIZATION_LEN1,
+/*100*/	{VFE_CMD_ASYNC_TIMER_SETTING, V32_ASYNC_TIMER_LEN, V32_ASYNC_TIMER_OFF},
+		{VFE_CMD_LIVESHOT},
+		{VFE_CMD_LA_SETUP},
+		{VFE_CMD_LINEARIZATION_CFG, V32_LINEARIZATION_LEN1,
 			V32_LINEARIZATION_OFF1},
-		{V32_DEMOSAICV3},
-/*105*/	{V32_DEMOSAICV3_ABCC_CFG},
-		{V32_DEMOSAICV3_DBCC_CFG, V32_DEMOSAICV3_DBCC_LEN,
+		{VFE_CMD_DEMOSAICV3},
+/*105*/	{VFE_CMD_DEMOSAICV3_ABCC_CFG},
+		{VFE_CMD_DEMOSAICV3_DBCC_CFG, V32_DEMOSAICV3_DBCC_LEN,
 			V32_DEMOSAICV3_DBCC_OFF},
-		{V32_DEMOSAICV3_DBPC_CFG},
-		{V32_DEMOSAICV3_ABF_CFG, V32_DEMOSAICV3_ABF_LEN,
+		{VFE_CMD_DEMOSAICV3_DBPC_CFG},
+		{VFE_CMD_DEMOSAICV3_ABF_CFG, V32_DEMOSAICV3_ABF_LEN,
 			V32_DEMOSAICV3_ABF_OFF},
-		{V32_DEMOSAICV3_ABCC_UPDATE},
-/*110*/	{V32_DEMOSAICV3_DBCC_UPDATE, V32_DEMOSAICV3_DBCC_LEN,
+		{VFE_CMD_DEMOSAICV3_ABCC_UPDATE},
+/*110*/	{VFE_CMD_DEMOSAICV3_DBCC_UPDATE, V32_DEMOSAICV3_DBCC_LEN,
 			V32_DEMOSAICV3_DBCC_OFF},
-		{V32_DEMOSAICV3_DBPC_UPDATE},
-		{V32_XBAR_CFG},
-		{V32_EZTUNE_CFG},
-		{V32_ZSL},
-/*115*/	{V32_LINEARIZATION_UPDATE, V32_LINEARIZATION_LEN1,
+		{VFE_CMD_DEMOSAICV3_DBPC_UPDATE},
+		{VFE_CMD_XBAR_CFG},
+		{VFE_CMD_EZTUNE_CFG},
+		{VFE_CMD_ZSL},
+/*115*/	{VFE_CMD_LINEARIZATION_UPDATE, V32_LINEARIZATION_LEN1,
 			V32_LINEARIZATION_OFF1},
-		{V32_DEMOSAICV3_ABF_UPDATE, V32_DEMOSAICV3_ABF_LEN,
+		{VFE_CMD_DEMOSAICV3_ABF_UPDATE, V32_DEMOSAICV3_ABF_LEN,
 			V32_DEMOSAICV3_ABF_OFF},
-		{V32_CLF_CFG, V32_CLF_CFG_LEN, V32_CLF_CFG_OFF},
-		{V32_CLF_LUMA_UPDATE, V32_CLF_LUMA_UPDATE_LEN,
+		{VFE_CMD_CLF_CFG, V32_CLF_CFG_LEN, V32_CLF_CFG_OFF},
+		{VFE_CMD_CLF_LUMA_UPDATE, V32_CLF_LUMA_UPDATE_LEN,
 			V32_CLF_LUMA_UPDATE_OFF},
-		{V32_CLF_CHROMA_UPDATE, V32_CLF_CHROMA_UPDATE_LEN,
+		{VFE_CMD_CLF_CHROMA_UPDATE, V32_CLF_CHROMA_UPDATE_LEN,
 			V32_CLF_CHROMA_UPDATE_OFF},
 };
 
@@ -482,8 +485,9 @@ static int vfe32_config_axi(int mode, uint32_t *ao)
 	default:
 		break;
 	}
-	msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[V32_AXI_OUT_CFG].offset,
-		ao, vfe32_cmd[V32_AXI_OUT_CFG].length - V32_AXI_CH_INF_LEN);
+	msm_io_memcpy(vfe32_ctrl->vfebase +
+		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].offset, ao,
+		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length - V32_AXI_CH_INF_LEN);
 	return 0;
 }
 
@@ -1094,12 +1098,12 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 	CDBG("vfe32_proc_general: cmdID = %s, length = %d\n",
 		vfe32_general_cmd[cmd->id], cmd->length);
 	switch (cmd->id) {
-	case V32_RESET:
+	case VFE_CMD_RESET:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		vfe32_reset();
 		break;
-	case V32_START:
+	case VFE_CMD_START:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_START,
@@ -1112,10 +1116,10 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		rc = vfe32_start();
 		break;
-	case V32_UPDATE:
+	case VFE_CMD_UPDATE:
 		vfe32_update();
 		break;
-	case V32_CAPTURE:
+	case VFE_CMD_CAPTURE:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
@@ -1144,7 +1148,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		rc = vfe32_capture(snapshot_cnt);
 		break;
-	case V32_START_RECORDING:
+	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		rc = vfe32_configure_pingpong_buffers(
@@ -1157,12 +1161,12 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		rc = vfe32_start_recording();
 		break;
-	case V32_STOP_RECORDING:
+	case VFE_CMD_STOP_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		rc = vfe32_stop_recording();
 		break;
-	case V32_OPERATION_CFG: {
+	case VFE_CMD_OPERATION_CFG: {
 		if (cmd->length != V32_OPERATION_CFG_LEN) {
 			rc = -EINVAL;
 			goto proc_general_done;
@@ -1178,7 +1182,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_AE_START: {
+	case VFE_CMD_STATS_AE_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1198,7 +1202,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		cmdp, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-	case V32_STATS_AF_START: {
+	case VFE_CMD_STATS_AF_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1218,7 +1222,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		cmdp, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-	case V32_STATS_AWB_START: {
+	case VFE_CMD_STATS_AWB_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1239,7 +1243,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_IHIST_START: {
+	case VFE_CMD_STATS_IHIST_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1261,7 +1265,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		break;
 
 
-	case V32_STATS_RS_START: {
+	case VFE_CMD_STATS_RS_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1284,7 +1288,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_CS_START: {
+	case VFE_CMD_STATS_CS_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1307,8 +1311,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_MCE_UPDATE:
-	case V32_MCE_CFG:{
+	case VFE_CMD_MCE_UPDATE:
+	case VFE_CMD_MCE_CFG:{
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		/* Incrementing with 4 so as to point to the 2nd Register as
 		the 2nd register has the mce_enable bit */
@@ -1342,10 +1346,10 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		cmdp_local, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-	case V32_BLACK_LEVEL_CFG:
+	case VFE_CMD_BLACK_LEVEL_CFG:
 		rc = -EFAULT;
 		goto proc_general_done;
-	case V32_ROLL_OFF_CFG: {
+	case VFE_CMD_ROLL_OFF_CFG: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1381,8 +1385,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_LA_CFG:
-	case V32_LA_UPDATE: {
+	case VFE_CMD_LA_CFG:
+	case VFE_CMD_LA_UPDATE: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1408,8 +1412,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_SK_ENHAN_CFG:
-	case V32_SK_ENHAN_UPDATE:{
+	case VFE_CMD_SK_ENHAN_CFG:
+	case VFE_CMD_SK_ENHAN_UPDATE:{
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1426,11 +1430,11 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_LIVESHOT:
+	case VFE_CMD_LIVESHOT:
 		vfe32_liveshot();
 		break;
 
-	case V32_LINEARIZATION_CFG:
+	case VFE_CMD_LINEARIZATION_CFG:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1452,7 +1456,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK0, cmdp_local);
 	break;
 
-	case V32_LINEARIZATION_UPDATE:
+	case VFE_CMD_LINEARIZATION_UPDATE:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1482,7 +1486,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		vfe32_ctrl->update_linear = true;
 	break;
 
-	case V32_DEMOSAICV3:
+	case VFE_CMD_DEMOSAICV3:
 		if (cmd->length !=
 			V32_DEMOSAICV3_0_LEN+V32_DEMOSAICV3_1_LEN) {
 			rc = -EFAULT;
@@ -1508,12 +1512,12 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			cmdp_local, V32_DEMOSAICV3_1_LEN);
 		break;
 
-	case V32_DEMOSAICV3_ABCC_CFG:
+	case VFE_CMD_DEMOSAICV3_ABCC_CFG:
 		rc = -EFAULT;
 		break;
 
-	case V32_DEMOSAICV3_ABF_UPDATE:/* 116 ABF update  */
-	case V32_DEMOSAICV3_ABF_CFG: { /* 108 ABF config  */
+	case VFE_CMD_DEMOSAICV3_ABF_UPDATE:/* 116 ABF update  */
+	case VFE_CMD_DEMOSAICV3_ABF_CFG: { /* 108 ABF config  */
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1542,8 +1546,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_DEMOSAICV3_DBCC_CFG:
-	case V32_DEMOSAICV3_DBCC_UPDATE:
+	case VFE_CMD_DEMOSAICV3_DBCC_CFG:
+	case VFE_CMD_DEMOSAICV3_DBCC_UPDATE:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1570,8 +1574,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			cmdp_local, (vfe32_cmd[cmd->id].length));
 		break;
 
-	case V32_DEMOSAICV3_DBPC_CFG:
-	case V32_DEMOSAICV3_DBPC_UPDATE:
+	case VFE_CMD_DEMOSAICV3_DBPC_CFG:
+	case VFE_CMD_DEMOSAICV3_DBPC_UPDATE:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1612,7 +1616,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			cmdp_local, V32_DEMOSAICV3_DBPC_LEN);
 		break;
 
-	case V32_RGB_G_CFG: {
+	case VFE_CMD_RGB_G_CFG: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1634,7 +1638,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_RGB_G_UPDATE: {
+	case VFE_CMD_RGB_G_UPDATE: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1663,21 +1667,21 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_AWB_STOP: {
+	case VFE_CMD_STATS_AWB_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AWB_ENABLE_MASK;
 		msm_io_w(old_val,
 			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		}
 		break;
-	case V32_STATS_AE_STOP: {
+	case VFE_CMD_STATS_AE_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AE_BG_ENABLE_MASK;
 		msm_io_w(old_val,
 			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		}
 		break;
-	case V32_STATS_AF_STOP: {
+	case VFE_CMD_STATS_AF_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AF_BF_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -1685,7 +1689,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_IHIST_STOP: {
+	case VFE_CMD_STATS_IHIST_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~IHIST_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -1693,7 +1697,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_RS_STOP: {
+	case VFE_CMD_STATS_RS_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~RS_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -1701,20 +1705,20 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_STATS_CS_STOP: {
+	case VFE_CMD_STATS_CS_STOP: {
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~CS_ENABLE_MASK;
 		msm_io_w(old_val,
 			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		}
 		break;
-	case V32_STOP:
+	case VFE_CMD_STOP:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		vfe32_stop();
 		break;
 
-	case V32_SYNC_TIMER_SETTING:
+	case VFE_CMD_SYNC_TIMER_SETTING:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1728,7 +1732,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		vfe32_sync_timer_start(cmdp);
 		break;
 
-	case V32_EZTUNE_CFG: {
+	case VFE_CMD_EZTUNE_CFG: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1750,7 +1754,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		}
 		break;
 
-	case V32_ZSL:
+	case VFE_CMD_ZSL:
 		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_START,
 							VFE_MSG_OUTPUT_P);
 		if (rc < 0)
@@ -1767,8 +1771,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		rc = vfe32_zsl();
 		break;
 
-	case V32_ASF_CFG:
-	case V32_ASF_UPDATE:
+	case VFE_CMD_ASF_CFG:
+	case VFE_CMD_ASF_UPDATE:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -3030,7 +3034,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case CMD_AXI_CFG_PREVIEW: {
 		uint32_t *axio = NULL;
-		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3038,7 +3042,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
 			rc = -EFAULT;
 			break;
@@ -3050,7 +3054,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case CMD_RAW_PICT_AXI_CFG: {
 		uint32_t *axio = NULL;
-		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3058,7 +3062,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
 			rc = -EFAULT;
 			break;
@@ -3070,7 +3074,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case CMD_AXI_CFG_SNAP: {
 		uint32_t *axio = NULL;
-		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3078,7 +3082,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
 			rc = -EFAULT;
 			break;
@@ -3091,7 +3095,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_ZSL: {
 		uint32_t *axio = NULL;
 		CDBG("%s, CMD_AXI_CFG_ZSL\n", __func__);
-		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3099,7 +3103,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
 			rc = -EFAULT;
 			break;
@@ -3111,7 +3115,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case CMD_AXI_CFG_VIDEO: {
 		uint32_t *axio = NULL;
-		axio = kmalloc(vfe32_cmd[V32_AXI_OUT_CFG].length,
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
 		if (!axio) {
 			rc = -ENOMEM;
@@ -3119,7 +3123,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
-				vfe32_cmd[V32_AXI_OUT_CFG].length)) {
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
 			rc = -EFAULT;
 			break;

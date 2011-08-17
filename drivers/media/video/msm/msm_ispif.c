@@ -22,9 +22,9 @@
 #include <mach/clk.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <media/msm_isp.h>
 #include "msm_ispif.h"
 #include "msm.h"
-#include "msm_isp.h"
 
 #define V4L2_IDENT_ISPIF			50001
 

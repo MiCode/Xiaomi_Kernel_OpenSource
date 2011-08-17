@@ -28,8 +28,8 @@
 #include <media/v4l2-mediabus.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-msm-mem.h>
+#include <media/msm_isp.h>
 #include <mach/camera.h>
-#include "msm_isp.h"
 
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
@@ -79,7 +79,7 @@ static inline void free_qcmd(struct msm_queue_cmd *qcmd)
 }
 
 struct isp_msg_stats {
-	enum ISP_MESSAGE_ID id;
+	uint32_t    id;
 	uint32_t    buffer;
 	uint32_t    frameCounter;
 };
