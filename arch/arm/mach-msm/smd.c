@@ -1732,7 +1732,7 @@ static remote_spinlock_t remote_spinlock;
 /* smem_alloc2 returns the pointer to smem item.  If it is not allocated,
  * it allocates it and then returns the pointer to it.
  */
-static void *smem_alloc2(unsigned id, unsigned size_in)
+void *smem_alloc2(unsigned id, unsigned size_in)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	struct smem_heap_entry *toc = shared->heap_toc;
@@ -1776,6 +1776,7 @@ static void *smem_alloc2(unsigned id, unsigned size_in)
 	remote_spin_unlock_irqrestore(&remote_spinlock, flags);
 	return ret;
 }
+EXPORT_SYMBOL(smem_alloc2);
 
 void *smem_get_entry(unsigned id, unsigned *size)
 {

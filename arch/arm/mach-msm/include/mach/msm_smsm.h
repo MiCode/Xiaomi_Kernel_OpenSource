@@ -92,6 +92,7 @@ extern uint32_t SMSM_NUM_HOSTS;
 
 
 void *smem_alloc(unsigned id, unsigned size);
+void *smem_alloc2(unsigned id, unsigned size_in);
 void *smem_get_entry(unsigned id, unsigned *size);
 int smsm_change_state(uint32_t smsm_entry,
 		      uint32_t clear_mask, uint32_t set_mask);
