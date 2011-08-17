@@ -3175,7 +3175,7 @@ static void hdmi_msm_hpd_off(void)
 	hdmi_msm_state->hpd_initialized = FALSE;
 }
 
-static void hdmi_msm_dump_regs(const char *prefex)
+static void hdmi_msm_dump_regs(const char *prefix)
 {
 #ifdef REG_DUMP
 	print_hex_dump(KERN_INFO, prefix, DUMP_PREFIX_OFFSET, 32, 4,
