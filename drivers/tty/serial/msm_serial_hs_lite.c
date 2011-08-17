@@ -651,10 +651,17 @@ static int msm_hsl_startup(struct uart_port *port)
 #endif
 	pm_runtime_get_sync(port->dev);
 
-	if (likely(port->fifosize > 12))
-		rfr_level = port->fifosize - 12;
+	/* Set RFR Level as 3/4 of UARTDM FIFO Size */
+	if (likely(port->fifosize > 48))
+		rfr_level = port->fifosize - 16;
 	else
 		rfr_level = port->fifosize;
+
+	/*
+	 * Use rfr_level value in Words to program
+	 * MR1 register for UARTDM Core.
+	 */
+	rfr_level = (rfr_level / 4);
 
 	spin_lock_irqsave(&port->lock, flags);
 
