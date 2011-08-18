@@ -1977,6 +1977,9 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.set_voltage_sup = 1,
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
+		.always_on = 1,
+		.lpm_sup = 1,
+		.lpm_uA = 9000,
 		.hpm_uA = 200000, /* 200mA */
 	},
 	/* SDCC3 : External card slot connected */
