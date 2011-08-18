@@ -507,6 +507,8 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 		VIDC_SM_FRAME_SKIP_DISABLE;
 	u32 index, luma[4], chroma[4], hdr_ext_control = false;
 	const u32 recon_bufs = 4;
+	u32 h263_cpfc_enable = false;
+	u32 scaled_frame_rate;
 
 	ddl_vidc_encode_set_profile_level(ddl);
 	vidc_1080p_set_encode_frame_size(encoder->frame_size.width,
@@ -520,9 +522,17 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 		hdr_ext_control = true;
 	if (encoder->r_cframe_skip > 0)
 		r_cframe_skip = VIDC_SM_FRAME_SKIP_ENABLE_LEVEL;
+	scaled_frame_rate = DDL_FRAMERATE_SCALE(encoder->\
+			frame_rate.fps_numerator) /
+			encoder->frame_rate.fps_denominator;
+	if ((encoder->codec.codec == VCD_CODEC_H263) &&
+		(DDL_FRAMERATE_SCALE(DDL_INITIAL_FRAME_RATE)
+		 != scaled_frame_rate))
+		h263_cpfc_enable = true;
 	vidc_sm_set_extended_encoder_control(&ddl->shared_mem
 		[ddl->command_channel], hdr_ext_control,
-		r_cframe_skip, false, 0);
+		r_cframe_skip, false, 0,
+		h263_cpfc_enable);
 	vidc_sm_set_encoder_init_rc_value(&ddl->shared_mem
 		[ddl->command_channel],
 		encoder->target_bit_rate.target_bitrate);
@@ -532,10 +542,8 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 			[ddl->command_channel], true,
 			encoder->vop_timing.vop_time_resolution, 0);
 	if (encoder->rc_level.frame_level_rc)
-		vidc_1080p_encode_set_frame_level_rc_params((
-			DDL_FRAMERATE_SCALE(encoder->\
-			frame_rate.fps_numerator) /
-			encoder->frame_rate.fps_denominator),
+		vidc_1080p_encode_set_frame_level_rc_params(
+			scaled_frame_rate,
 			encoder->target_bit_rate.target_bitrate,
 			encoder->frame_level_rc.reaction_coeff);
 	if (encoder->rc_level.mb_level_rc)
