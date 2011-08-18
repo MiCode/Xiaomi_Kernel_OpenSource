@@ -934,7 +934,7 @@ struct clk_lookup msm_clocks_7x25[] = {
 	CLK_LOOKUP("core_clk",		i2c_clk.c,	"msm_i2c.0"),
 	CLK_LOOKUP("icodec_rx_clk",	icodec_rx_clk.c,	NULL),
 	CLK_LOOKUP("icodec_tx_clk",	icodec_tx_clk.c,	NULL),
-	CLK_LOOKUP("imem_clk",		imem_clk.c,	NULL),
+	CLK_LOOKUP("mem_clk",		imem_clk.c,	NULL),
 	CLK_LOOKUP("mdc_clk",		mdc_clk.c,	NULL),
 	CLK_LOOKUP("mddi_clk",		pmdh_clk.c,	NULL),
 	CLK_LOOKUP("mdp_clk",		mdp_clk.c,	NULL),

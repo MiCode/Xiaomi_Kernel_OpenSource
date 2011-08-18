@@ -2359,7 +2359,8 @@ static DEFINE_CLK_PCOM(p_rotator_imem_clk, ROTATOR_IMEM_CLK, 0);
 static DEFINE_CLK_PCOM(p_rotator_p_clk, ROTATOR_P_CLK, 0);
 
 static DEFINE_CLK_VOTER(ebi_dtv_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_kgsl_clk, &ebi1_fixed_clk.c);
+static DEFINE_CLK_VOTER(ebi_grp_3d_clk, &ebi1_fixed_clk.c);
+static DEFINE_CLK_VOTER(ebi_grp_2d_clk, &ebi1_fixed_clk.c);
 static DEFINE_CLK_VOTER(ebi_lcdc_clk, &ebi1_fixed_clk.c);
 static DEFINE_CLK_VOTER(ebi_mddi_clk, &ebi1_fixed_clk.c);
 static DEFINE_CLK_VOTER(ebi_tv_clk, &ebi1_fixed_clk.c);
@@ -2744,7 +2745,8 @@ static struct clk_local_ownership {
 
 	/* Voters */
 	{ CLK_LOOKUP("ebi1_dtv_clk",	ebi_dtv_clk.c,	NULL) },
-	{ CLK_LOOKUP("ebi1_kgsl_clk",	ebi_kgsl_clk.c,	NULL) },
+	{ CLK_LOOKUP("bus_clk",		ebi_grp_2d_clk.c, "kgsl-2d0.0") },
+	{ CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0") },
 	{ CLK_LOOKUP("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL) },
 	{ CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL) },
 	{ CLK_LOOKUP("ebi1_tv_clk",	ebi_tv_clk.c,	NULL) },
@@ -2759,9 +2761,9 @@ static struct clk_local_ownership {
 	 * clocks going into a block by checking the ownership bit of one
 	 * register (usually the ns register).
 	 */
-	OWN(APPS1,  6, "grp_2d_clk",	grp_2d_clk,	NULL),
+	OWN(APPS1,  6, "core_clk",	grp_2d_clk,	"kgsl-2d0.0"),
 	OWN(APPS1,  6, "core_clk",	grp_2d_clk,	"footswitch-pcom.0"),
-	OWN(APPS1,  6, "grp_2d_pclk",	grp_2d_p_clk,	NULL),
+	OWN(APPS1,  6, "iface_clk",	grp_2d_p_clk,	"kgsl-2d0.0"),
 	OWN(APPS1,  6, "iface_clk",	grp_2d_p_clk,	"footswitch-pcom.0"),
 	OWN(APPS1, 31, "hdmi_clk",	hdmi_clk,	NULL),
 	OWN(APPS1,  0, "jpeg_clk",	jpeg_clk,	NULL),
@@ -2786,15 +2788,15 @@ static struct clk_local_ownership {
 	OWN(APPS1,  8, "vfe_pclk",	vfe_p_clk,	NULL),
 	OWN(APPS1,  8, "iface_clk",	vfe_p_clk,	"footswitch-pcom.8"),
 
-	OWN(APPS2,  0, "grp_clk",	grp_3d_clk,	NULL),
+	OWN(APPS2,  0, "core_clk",	grp_3d_clk,	"kgsl-3d0.0"),
 	OWN(APPS2,  0, "core_clk",	grp_3d_clk,	"footswitch-pcom.2"),
-	OWN(APPS2,  0, "grp_pclk",	grp_3d_p_clk,	NULL),
+	OWN(APPS2,  0, "iface_clk",	grp_3d_p_clk,	"kgsl-3d0.0"),
 	OWN(APPS2,  0, "iface_clk",	grp_3d_p_clk,	"footswitch-pcom.2"),
-	{ CLK_LOOKUP("grp_src_clk",     grp_3d_src_clk.c, NULL),
+	{ CLK_LOOKUP("src_clk",     grp_3d_src_clk.c, "kgsl-3d0.0"),
 		O(APPS2), BIT(0), &p_grp_3d_clk.c },
 	{ CLK_LOOKUP("src_clk",     grp_3d_src_clk.c, "footswitch-pcom.2"),
 		O(APPS2), BIT(0), &p_grp_3d_clk.c },
-	OWN(APPS2,  0, "imem_clk",	imem_clk,	NULL),
+	OWN(APPS2,  0, "mem_clk",	imem_clk,	"kgsl-3d0.0"),
 	OWN(APPS2,  4, "mdp_lcdc_pad_pclk_clk", mdp_lcdc_pad_pclk_clk, NULL),
 	OWN(APPS2,  4, "mdp_lcdc_pclk_clk", mdp_lcdc_pclk_clk, NULL),
 	OWN(APPS2,  4, "mdp_pclk",	mdp_p_clk,	NULL),

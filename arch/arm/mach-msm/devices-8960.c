@@ -1579,11 +1579,11 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("dsi_byte_div_clk",	DSI2_BYTE_CLK,	"mipi_dsi.2", OFF),
 	CLK_DUMMY("dsi_esc_clk",	DSI1_ESC_CLK,	"mipi_dsi.1", OFF),
 	CLK_DUMMY("dsi_esc_clk",	DSI2_ESC_CLK,	"mipi_dsi.2", OFF),
-	CLK_DUMMY("gfx2d0_clk",		GFX2D0_CLK,		NULL, OFF),
-	CLK_DUMMY("gfx2d1_clk",		GFX2D1_CLK,		NULL, OFF),
-	CLK_DUMMY("gfx3d_clk",		GFX3D_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		GFX2D0_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		GFX2D1_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		GFX3D_CLK,		NULL, OFF),
 	CLK_DUMMY("ijpeg_clk",		IJPEG_CLK,		NULL, OFF),
-	CLK_DUMMY("imem_clk",		IMEM_CLK,		NULL, OFF),
+	CLK_DUMMY("mem_clk",		IMEM_CLK,		NULL, OFF),
 	CLK_DUMMY("jpegd_clk",		JPEGD_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_clk",		MDP_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_vsync_clk",	MDP_VSYNC_CLK,		NULL, OFF),
@@ -1613,14 +1613,14 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("dsi_s_pclk",		DSI1_S_P_CLK,	"mipi_dsi.1", OFF),
 	CLK_DUMMY("dsi_m_pclk",		DSI2_M_P_CLK,	"mipi_dsi.2", OFF),
 	CLK_DUMMY("dsi_s_pclk",		DSI2_S_P_CLK,	"mipi_dsi.2", OFF),
-	CLK_DUMMY("gfx2d0_pclk",	GFX2D0_P_CLK,		NULL, OFF),
-	CLK_DUMMY("gfx2d1_pclk",	GFX2D1_P_CLK,		NULL, OFF),
-	CLK_DUMMY("gfx3d_pclk",		GFX3D_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		GFX2D0_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		GFX2D1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		GFX3D_P_CLK,		NULL, OFF),
 	CLK_DUMMY("hdmi_m_pclk",	HDMI_M_P_CLK,		NULL, OFF),
 	CLK_DUMMY("hdmi_s_pclk",	HDMI_S_P_CLK,		NULL, OFF),
 	CLK_DUMMY("ijpeg_pclk",		IJPEG_P_CLK,		NULL, OFF),
 	CLK_DUMMY("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
-	CLK_DUMMY("imem_pclk",		IMEM_P_CLK,		NULL, OFF),
+	CLK_DUMMY("mem_iface_clk",	IMEM_P_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
 	CLK_DUMMY("smmu_pclk",		SMMU_P_CLK,		NULL, OFF),
 	CLK_DUMMY("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
@@ -1895,8 +1895,8 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	},
 	.clk = {
 		.name = {
-			.clk = "gfx3d_clk",
-			.pclk = "gfx3d_pclk",
+			.clk = "core_clk",
+			.pclk = "iface_clk",
 		},
 #ifdef CONFIG_MSM_BUS_SCALING
 		.bus_scale_table = &grp3d_bus_scale_pdata,
@@ -1904,7 +1904,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	},
 	.imem_clk_name = {
 		.clk = NULL,
-		.pclk = "imem_pclk",
+		.pclk = "mem_iface_clk",
 	},
 };
 
@@ -1954,8 +1954,8 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 	.clk = {
 		.name = {
 			/* note: 2d clocks disabled on v1 */
-			.clk = "gfx2d0_clk",
-			.pclk = "gfx2d0_pclk",
+			.clk = "core_clk",
+			.pclk = "iface_clk",
 		},
 #ifdef CONFIG_MSM_BUS_SCALING
 		.bus_scale_table = &grp2d0_bus_scale_pdata,
@@ -2008,8 +2008,8 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 	},
 	.clk = {
 		.name = {
-			.clk = "gfx2d1_clk",
-			.pclk = "gfx2d1_pclk",
+			.clk = "core_clk",
+			.pclk = "iface_clk",
 		},
 #ifdef CONFIG_MSM_BUS_SCALING
 		.bus_scale_table = &grp2d1_bus_scale_pdata,

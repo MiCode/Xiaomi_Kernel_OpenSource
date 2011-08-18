@@ -681,8 +681,8 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	},
 	.clk = {
 		.name = {
-			.clk = "gfx3d_clk",
-			.pclk = "gfx3d_pclk",
+			.clk = "core_clk",
+			.pclk = "iface_clk",
 		},
 #ifdef CONFIG_MSM_BUS_SCALING
 		.bus_scale_table = &grp3d_bus_scale_pdata,
@@ -690,7 +690,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	},
 	.imem_clk_name = {
 		.clk = NULL,
-		.pclk = "imem_pclk",
+		.pclk = "mem_iface_clk",
 	},
 };
 
@@ -740,8 +740,8 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 	.clk = {
 		.name = {
 			/* note: 2d clocks disabled on v1 */
-			.clk = "gfx2d0_clk",
-			.pclk = "gfx2d0_pclk",
+			.clk = "core_clk",
+			.pclk = "iface_clk",
 		},
 #ifdef CONFIG_MSM_BUS_SCALING
 		.bus_scale_table = &grp2d0_bus_scale_pdata,

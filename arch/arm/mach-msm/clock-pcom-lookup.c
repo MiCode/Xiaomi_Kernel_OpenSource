@@ -133,7 +133,8 @@ static DEFINE_CLK_PCOM(vfe_clk,		VFE_CLK,	0);
 static DEFINE_CLK_PCOM(vfe_mdc_clk,	VFE_MDC_CLK,	0);
 
 static DEFINE_CLK_VOTER(ebi_acpu_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_kgsl_clk,	&ebi1_clk.c);
+static DEFINE_CLK_VOTER(ebi_grp_3d_clk,	&ebi1_clk.c);
+static DEFINE_CLK_VOTER(ebi_grp_2d_clk,	&ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi_lcdc_clk,	&ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi_mddi_clk,	&ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi_tv_clk,	&ebi1_clk.c);
@@ -149,11 +150,11 @@ static struct clk_lookup msm_clocks_7x01a[] = {
 	CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL),
 	CLK_LOOKUP("emdh_clk",		emdh_clk.c,	NULL),
 	CLK_LOOKUP("gp_clk",		gp_clk.c,		NULL),
-	CLK_LOOKUP("grp_clk",		grp_3d_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		i2c_clk.c,	"msm_i2c.0"),
 	CLK_LOOKUP("icodec_rx_clk",	icodec_rx_clk.c,	NULL),
 	CLK_LOOKUP("icodec_tx_clk",	icodec_tx_clk.c,	NULL),
-	CLK_LOOKUP("imem_clk",		imem_clk.c,	NULL),
+	CLK_LOOKUP("mem_clk",		imem_clk.c,	NULL),
 	CLK_LOOKUP("mdc_clk",		mdc_clk.c,	NULL),
 	CLK_LOOKUP("mddi_clk",		pmdh_clk.c,	NULL),
 	CLK_LOOKUP("mdp_clk",		mdp_clk.c,	NULL),
@@ -197,14 +198,14 @@ static struct clk_lookup msm_clocks_7x27[] = {
 	CLK_LOOKUP("ebi2_clk",		ebi2_clk.c,	NULL),
 	CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL),
 	CLK_LOOKUP("gp_clk",		gp_clk.c,		NULL),
-	CLK_LOOKUP("grp_clk",		grp_3d_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"footswitch-pcom.2"),
-	CLK_LOOKUP("grp_pclk",		grp_3d_p_clk.c,	NULL),
+	CLK_LOOKUP("iface_clk",		grp_3d_p_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		i2c_clk.c,	"msm_i2c.0"),
 	CLK_LOOKUP("iface_clk",		grp_3d_p_clk.c,	"footswitch-pcom.2"),
 	CLK_LOOKUP("icodec_rx_clk",	icodec_rx_clk.c,	NULL),
 	CLK_LOOKUP("icodec_tx_clk",	icodec_tx_clk.c,	NULL),
-	CLK_LOOKUP("imem_clk",		imem_clk.c,	NULL),
+	CLK_LOOKUP("mem_clk",		imem_clk.c,	NULL),
 	CLK_LOOKUP("mdc_clk",		mdc_clk.c,	NULL),
 	CLK_LOOKUP("mddi_clk",		pmdh_clk.c,	NULL),
 	CLK_LOOKUP("mdp_clk",		mdp_clk.c,	NULL),
@@ -240,7 +241,7 @@ static struct clk_lookup msm_clocks_7x27[] = {
 	CLK_LOOKUP("vfe_mdc_clk",	vfe_mdc_clk.c,	NULL),
 
 	CLK_LOOKUP("ebi1_acpu_clk",	ebi_acpu_clk.c,	NULL),
-	CLK_LOOKUP("ebi1_kgsl_clk",	ebi_kgsl_clk.c,	NULL),
+	CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0"),
 	CLK_LOOKUP("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_usb_clk",	ebi_usb_clk.c,	NULL),
@@ -274,9 +275,9 @@ static struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("ebi2_clk",		ebi2_clk.c,	NULL),
 	CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL),
 	CLK_LOOKUP("gp_clk",		gp_clk.c,	NULL),
-	CLK_LOOKUP("grp_clk",		grp_3d_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"footswitch-pcom.2"),
-	CLK_LOOKUP("grp_pclk",		grp_3d_p_clk.c,	NULL),
+	CLK_LOOKUP("iface_clk",		grp_3d_p_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("iface_clk",		grp_3d_p_clk.c,	"footswitch-pcom.2"),
 	CLK_LOOKUP("core_clk",		gsbi1_qup_clk.c, "qup_i2c.0"),
 	CLK_LOOKUP("core_clk",		gsbi2_qup_clk.c, "qup_i2c.1"),
@@ -284,7 +285,7 @@ static struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("iface_clk",		gsbi2_qup_p_clk.c, "qup_i2c.1"),
 	CLK_LOOKUP("icodec_rx_clk",	icodec_rx_clk.c, NULL),
 	CLK_LOOKUP("icodec_tx_clk",	icodec_tx_clk.c, NULL),
-	CLK_LOOKUP("imem_clk",		imem_clk.c,	NULL),
+	CLK_LOOKUP("mem_clk",		imem_clk.c,	NULL),
 	CLK_LOOKUP("mddi_clk",		pmdh_clk.c,	NULL),
 	CLK_LOOKUP("mdp_clk",		mdp_clk.c,	NULL),
 	CLK_LOOKUP("mdp_lcdc_pclk_clk",	mdp_lcdc_pclk_clk.c, NULL),
@@ -320,7 +321,7 @@ static struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("vfe_mdc_clk",	vfe_mdc_clk.c,	NULL),
 
 	CLK_LOOKUP("ebi1_acpu_clk",	ebi_acpu_clk.c,	NULL),
-	CLK_LOOKUP("ebi1_kgsl_clk",	ebi_kgsl_clk.c,	NULL),
+	CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0"),
 	CLK_LOOKUP("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_usb_clk",	ebi_usb_clk.c,	NULL),
@@ -341,11 +342,11 @@ static struct clk_lookup msm_clocks_8x50[] = {
 	CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL),
 	CLK_LOOKUP("emdh_clk",		emdh_clk.c,	NULL),
 	CLK_LOOKUP("gp_clk",		gp_clk.c,		NULL),
-	CLK_LOOKUP("grp_clk",		grp_3d_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		grp_3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		i2c_clk.c,	"msm_i2c.0"),
 	CLK_LOOKUP("icodec_rx_clk",	icodec_rx_clk.c,	NULL),
 	CLK_LOOKUP("icodec_tx_clk",	icodec_tx_clk.c,	NULL),
-	CLK_LOOKUP("imem_clk",		imem_clk.c,	NULL),
+	CLK_LOOKUP("mem_clk",		imem_clk.c,	NULL),
 	CLK_LOOKUP("mdc_clk",		mdc_clk.c,	NULL),
 	CLK_LOOKUP("mddi_clk",		pmdh_clk.c,	NULL),
 	CLK_LOOKUP("mdp_clk",		mdp_clk.c,	NULL),
@@ -388,7 +389,8 @@ static struct clk_lookup msm_clocks_8x50[] = {
 	CLK_LOOKUP("usb_phy_clk",	usb_phy_clk.c,	NULL),
 
 	CLK_LOOKUP("ebi1_acpu_clk",	ebi_acpu_clk.c,	NULL),
-	CLK_LOOKUP("ebi1_kgsl_clk",	ebi_kgsl_clk.c,	NULL),
+	CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0"),
+	CLK_LOOKUP("bus_clk",		ebi_grp_2d_clk.c, "kgsl-2d0.0"),
 	CLK_LOOKUP("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_tv_clk",	ebi_tv_clk.c,	NULL),
@@ -396,9 +398,9 @@ static struct clk_lookup msm_clocks_8x50[] = {
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("mem_clk",		ebi_adm_clk.c,	"msm_dmov"),
 
-	CLK_LOOKUP("grp_pclk",		grp_3d_p_clk.c,	NULL),
-	CLK_LOOKUP("grp_2d_clk",	grp_2d_clk.c,	NULL),
-	CLK_LOOKUP("grp_2d_pclk",	grp_2d_p_clk.c,	NULL),
+	CLK_LOOKUP("iface_clk",		grp_3d_p_clk.c,	"kgsl-3d0.0"),
+	CLK_LOOKUP("core_clk",		grp_2d_clk.c,	"kgsl-2d0.0"),
+	CLK_LOOKUP("iface_clk",		grp_2d_p_clk.c,	"kgsl-2d0.0"),
 	CLK_LOOKUP("core_clk",		gsbi_clk.c,	"qup_i2c.4"),
 	CLK_LOOKUP("iface_clk",		gsbi_p_clk.c,	"qup_i2c.4"),
 };
