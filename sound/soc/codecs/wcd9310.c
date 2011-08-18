@@ -755,12 +755,32 @@ static void tabla_codec_update_cfilt_usage(struct snd_soc_codec *codec,
 	}
 }
 
+static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
+	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
+}
+
+static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
+{
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+}
+
 static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	u16 micb_int_reg;
+	int micb_line;
 	u8 cfilt_sel_val = 0;
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
@@ -771,18 +791,22 @@ static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	case TABLA_A_MICB_1_CTL:
 		micb_int_reg = TABLA_A_MICB_1_INT_RBIAS;
 		cfilt_sel_val = tabla->pdata->micbias.bias1_cfilt_sel;
+		micb_line = TABLA_MICBIAS1;
 		break;
 	case TABLA_A_MICB_2_CTL:
 		micb_int_reg = TABLA_A_MICB_2_INT_RBIAS;
 		cfilt_sel_val = tabla->pdata->micbias.bias2_cfilt_sel;
+		micb_line = TABLA_MICBIAS2;
 		break;
 	case TABLA_A_MICB_3_CTL:
 		micb_int_reg = TABLA_A_MICB_3_INT_RBIAS;
 		cfilt_sel_val = tabla->pdata->micbias.bias3_cfilt_sel;
+		micb_line = TABLA_MICBIAS3;
 		break;
 	case TABLA_A_MICB_4_CTL:
 		micb_int_reg = TABLA_A_MICB_4_INT_RBIAS;
 		cfilt_sel_val = tabla->pdata->micbias.bias4_cfilt_sel;
+		micb_line = TABLA_MICBIAS4;
 		break;
 	default:
 		pr_err("%s: Error, invalid micbias register\n", __func__);
@@ -801,6 +825,13 @@ static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
 
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		if (tabla->mbhc_polling_active &&
+			(tabla->calibration->bias == micb_line)) {
+			tabla_codec_pause_hs_polling(codec);
+			tabla_codec_start_hs_polling(codec);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (strnstr(w->name, internal1_text, 30))
@@ -979,13 +1010,13 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TABLA_A_MICB_1_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal1", TABLA_A_MICB_1_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal2", TABLA_A_MICB_1_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC1", NULL, TABLA_A_TX_1_2_EN, 7, 0,
 		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -1002,7 +1033,7 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_A_MICB_4_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC5"),
 	SND_SOC_DAPM_ADC_E("ADC5", NULL, TABLA_A_TX_5_6_EN, 7, 0,
@@ -1054,25 +1085,25 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("AMIC2"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", TABLA_A_MICB_2_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal1", TABLA_A_MICB_2_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal2", TABLA_A_MICB_2_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal3", TABLA_A_MICB_2_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 External", TABLA_A_MICB_3_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal1", TABLA_A_MICB_3_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal2", TABLA_A_MICB_3_CTL, 7, 0,
 		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC2", NULL, TABLA_A_TX_1_2_EN, 3, 0,
 		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -1469,16 +1500,6 @@ static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
 	tabla->clock_active = false;
 }
 
-static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
-{
-	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
-	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
-}
-
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
 	/* TODO store register values in calibration */
@@ -1497,13 +1518,6 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B6_CTL, 120);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_TIMER_B1_CTL, 0x78, 0x58);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_B2_CTL, 11);
-}
-
-static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
-{
-	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 }
 
 static int tabla_startup(struct snd_pcm_substream *substream,
@@ -1959,6 +1973,8 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
+	pr_debug("%s\n", __func__);
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
 		pr_debug("%s: Button released\n", __func__);
 		if (priv->button_jack)
@@ -2035,6 +2051,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	struct snd_soc_codec *codec = priv->codec;
 	int microphone_present;
 
+	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 
 	usleep_range(priv->calibration->setup_plug_removal_delay,
@@ -2083,6 +2100,7 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
 	usleep_range(priv->calibration->shutdown_plug_removal,
 		priv->calibration->shutdown_plug_removal);
@@ -2346,6 +2364,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
 	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_SLIMBUS,
 		tabla_slimbus_irq, "SLIMBUS Slave", tabla);
