@@ -28,6 +28,7 @@
 #include "mpm.h"
 #include "rpm_resources.h"
 #include "spm.h"
+#include "idle.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -513,6 +514,7 @@ static int msm_rpmrs_flush_L2(struct msm_rpmrs_limits *limits, int notify_rpm)
 		BUG_ON(!msm_rpmrs_l2_counter_addr);
 		writel_relaxed(++msm_rpmrs_l2_reset_count,
 				msm_rpmrs_l2_counter_addr);
+		msm_pm_set_l2_flush_flag(1);
 		break;
 	case MSM_RPMRS_L2_CACHE_GDHS:
 		lpm = MSM_SPM_L2_MODE_GDHS;
@@ -537,6 +539,7 @@ static void msm_rpmrs_L2_restore(struct msm_rpmrs_limits *limits,
 		bool notify_rpm, bool collapsed)
 {
 	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
+	msm_pm_set_l2_flush_flag(0);
 	if (!collapsed && (limits->l2_cache == MSM_RPMRS_L2_CACHE_HSFS_OPEN))
 		writel_relaxed(--msm_rpmrs_l2_reset_count,
 				msm_rpmrs_l2_counter_addr);
@@ -769,6 +772,7 @@ static int __init msm_rpmrs_resource_sysfs_add(void)
 		goto resource_sysfs_add_exit;
 	}
 
+	rc = 0;
 resource_sysfs_add_exit:
 	if (rc) {
 		if (low_power_kobj)
@@ -1062,6 +1066,8 @@ static int __init msm_rpmrs_l2_counter_init(void)
 		writel_relaxed(msm_rpmrs_l2_reset_count,
 				msm_rpmrs_l2_counter_addr);
 		mb();
+
+		msm_pm_set_l2_flush_flag(0);
 
 		msm_rpmrs_l2_cache.beyond_limits =
 			msm_spm_l2_cache_beyond_limits;
