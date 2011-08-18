@@ -155,7 +155,6 @@ static DECLARE_BITMAP(msm_rpmrs_buffered, MSM_RPM_ID_LAST + 1);
 static DECLARE_BITMAP(msm_rpmrs_listed, MSM_RPM_ID_LAST + 1);
 static DEFINE_SPINLOCK(msm_rpmrs_lock);
 
-#define MSM_RPMRS_VDD_MASK  0xfff
 #define MSM_RPMRS_VDD(v)  ((v) & (MSM_RPMRS_VDD_MASK))
 
 /******************************************************************************
