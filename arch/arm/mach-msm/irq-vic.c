@@ -232,6 +232,7 @@ static uint8_t msm_irq_to_smsm[NR_IRQS] = {
 	[INT_GP_TIMER_EXP] = SMSM_FAKE_IRQ,
 	[INT_DEBUG_TIMER_EXP] = SMSM_FAKE_IRQ,
 	[INT_SIRC_0] = 10,
+	[INT_ADSP_A11] = SMSM_FAKE_IRQ,
 };
 #endif /* CONFIG_ARCH_FSM9XXX */
 
