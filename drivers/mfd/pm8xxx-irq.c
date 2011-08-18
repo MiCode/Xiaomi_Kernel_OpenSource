@@ -180,17 +180,16 @@ static int pm8xxx_irq_master_handler(struct pm_irq_chip *chip, int master)
 	return ret;
 }
 
-static void pm8xxx_irq_handler(unsigned int irq, struct irq_desc *desc)
+static irqreturn_t pm8xxx_irq_handler(int irq, void *data)
 {
-	struct pm_irq_chip *chip = irq_desc_get_handler_data(desc);
-	struct irq_chip *irq_chip = irq_desc_get_chip(desc);
+	struct pm_irq_chip *chip = data;
 	u8	root;
 	int	i, ret, masters = 0;
 
 	ret = pm8xxx_read_root_irq(chip, &root);
 	if (ret) {
 		pr_err("Can't read root status ret=%d\n", ret);
-		return;
+		return IRQ_HANDLED;
 	}
 
 	/* on pm8xxx series masters start from bit 1 of the root */
@@ -201,7 +200,7 @@ static void pm8xxx_irq_handler(unsigned int irq, struct irq_desc *desc)
 		if (masters & (1 << i))
 			pm8xxx_irq_master_handler(chip, i);
 
-	irq_chip->irq_ack(&desc->irq_data);
+	return IRQ_HANDLED;
 }
 
 static void pm8xxx_irq_mask_ack(struct irq_data *d)
@@ -233,8 +232,7 @@ static void pm8xxx_irq_unmask(struct irq_data *d)
 	config = chip->config[pmirq];
 	pm8xxx_read_config_irq(chip, block, config, &hw_conf);
 	/* check if it is masked */
-	if ((hw_conf & PM_IRQF_MASK_ALL)
-			== PM_IRQF_MASK_ALL)
+	if ((hw_conf & PM_IRQF_MASK_ALL) == PM_IRQF_MASK_ALL)
 		pm8xxx_write_config_irq(chip, block, config);
 }
 
@@ -390,9 +388,12 @@ struct pm_irq_chip *  __devinit pm8xxx_irq_init(struct device *dev,
 #endif
 	}
 
-	irq_set_irq_type(devirq, pdata->irq_trigger_flag);
-	irq_set_handler_data(devirq, chip);
-	irq_set_chained_handler(devirq, pm8xxx_irq_handler);
+	rc = request_irq(devirq, pm8xxx_irq_handler, pdata->irq_trigger_flag,
+				"pm8xxx_usr_irq", chip);
+	if (rc) {
+		pr_err("failed to request_irq for %d rc=%d\n", devirq, rc);
+		return ERR_PTR(rc);
+	}
 	irq_set_irq_wake(devirq, 1);
 
 	return chip;
