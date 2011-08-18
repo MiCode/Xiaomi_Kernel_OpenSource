@@ -77,6 +77,7 @@ enum sdio_test_case_type {
 	SDIO_TEST_LPM_CLIENT_WAKER,
 	SDIO_TEST_LPM_RANDOM,
 	SDIO_TEST_HOST_SENDER_NO_LP,
+	SDIO_TEST_CLOSE_CHANNEL,
 	/* The following tests are not part of the 9k tests and should be
 	 * kept last in case new tests are added
 	 */
@@ -208,6 +209,7 @@ struct test_channel {
 	int channel_mask_id;
 	int modem_result_per_chan;
 	int notify_counter_per_chan;
+	int max_burst_size;        /* number of writes before close/open */
 };
 
 struct sdio_al_test_debug {
@@ -1132,6 +1134,257 @@ static void lpm_test_host_waker(struct test_channel *test_ch)
 	lpm_test(test_ch);
 }
 
+static void notify(void *priv, unsigned channel_event);
+
+/**
+  * Writes number of packets into test channel
+  * @test_ch: test channel control struct
+  * @burst_size: number of packets to send
+  */
+static int write_packet_burst(struct test_channel *test_ch,
+		int burst_size)
+{
+	int ret = 0;
+	int packet_count = 0;
+	unsigned int random_num = 0;
+	int size = test_ch->packet_length; /* first packet size */
+	u32 write_avail = 0;
+
+	while (packet_count < burst_size) {
+		/* wait for data ready event */
+		write_avail = sdio_write_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":%s write_avail=%d,size=%d on chan"
+				" %s\n", __func__,
+				write_avail, size, test_ch->name);
+		if (write_avail < size) {
+			TEST_DBG(TEST_MODULE_NAME ":%s wait for event on"
+					" chan %s\n", __func__, test_ch->name);
+			wait_event(test_ch->wait_q,
+					atomic_read(&test_ch->tx_notify_count));
+			atomic_dec(&test_ch->tx_notify_count);
+		}
+		write_avail = sdio_write_avail(test_ch->ch);
+		if (write_avail < size) {
+			pr_info(TEST_MODULE_NAME ":%s not enough write"
+					" avail %d, need %d on chan %s\n",
+					__func__, write_avail, size,
+					test_ch->name);
+			continue;
+		}
+		ret = sdio_write(test_ch->ch, test_ch->buf, size);
+		if (ret) {
+			pr_err(TEST_MODULE_NAME ":%s sdio_write "
+					"failed (%d) on chan %s\n", __func__,
+					ret, test_ch->name);
+			break;
+		}
+		udelay(1000); /*low bus usage while running number of channels*/
+		TEST_DBG(TEST_MODULE_NAME ":%s() successfully write %d bytes"
+				", packet_count=%d on chan %s\n", __func__,
+				size, packet_count, test_ch->name);
+		test_ch->tx_bytes += size;
+		packet_count++;
+		/* get next packet size */
+		random_num = get_random_int();
+		size = (random_num % test_ch->packet_length) + 1;
+	}
+	return ret;
+}
+/**
+  * Reads packet from test channel and checks that packet number
+  * encoded into the packet is equal to packet_counter
+  *
+  * @test_ch: test channel
+  * @size: expected packet size
+  * @packet_counter: number to validate readed packet
+  */
+static int read_data_from_channel(struct test_channel *test_ch,
+				unsigned int size,
+				int packet_counter)
+{
+	u32 read_avail = 0;
+	int ret = 0;
+
+	if (!test_ch->ch->is_packet_mode) {
+		pr_err(TEST_MODULE_NAME
+				":%s:not packet mode ch %s\n",
+				__func__, test_ch->name);
+		return -EINVAL;
+	}
+	read_avail = sdio_read_avail(test_ch->ch);
+	/* wait for read data ready event */
+	if (read_avail < size) {
+		TEST_DBG(TEST_MODULE_NAME ":%s() wait for rx data on "
+				"chan %s\n", __func__, test_ch->name);
+		wait_event(test_ch->wait_q,
+				atomic_read(&test_ch->rx_notify_count));
+		atomic_dec(&test_ch->rx_notify_count);
+	}
+	read_avail = sdio_read_avail(test_ch->ch);
+	TEST_DBG(TEST_MODULE_NAME ":%s read_avail=%d bytes on chan %s\n",
+			__func__, read_avail, test_ch->name);
+
+	if (read_avail != size) {
+		pr_err(TEST_MODULE_NAME
+				":read_avail size %d for chan %s not as "
+				"expected size %d\n",
+				read_avail, test_ch->name, size);
+		return -EINVAL;
+	}
+
+	ret = sdio_read(test_ch->ch, test_ch->buf, read_avail);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME ":%s() sdio_read for chan %s (%d)\n",
+				__func__, test_ch->name, -ret);
+		return ret;
+	}
+	if ((test_ch->buf[0] != packet_counter) && (size != 1)) {
+		pr_err(TEST_MODULE_NAME ":Read WRONG DATA"
+				" for chan %s, size=%d\n",
+				test_ch->name, size);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/**
+ *   Test close channel feature:
+ *   1. write random packet number into channel
+ *   2. read some data from channel (do this only for second half of
+ *   requested packets to send).
+ *   3. close && re-open then repeat 1.
+ *
+ *   Total packets to send: test_ch->config_msg.num_packets.
+ *   Burst size is random in [1..test_ch->max_burst_size] range
+ *   Packet size is random in [1..test_ch->packet_length]
+ */
+static void open_close_test(struct test_channel *test_ch)
+{
+	int ret = 0;
+	u32 read_avail = 0;
+	int total_packet_count = 0;
+	int size = test_ch->packet_length;
+	u16 *buf16 = (u16 *) test_ch->buf;
+	int i;
+	int max_packet_count = 0;
+	unsigned int random_num = 0;
+	int curr_burst_size = test_ch->max_burst_size;
+
+	/* the test sends configured number of packets in
+	   2 portions: first without reading between write bursts,
+	   second with it */
+	max_packet_count = test_ch->config_msg.num_packets / 2;
+
+	pr_info(TEST_MODULE_NAME ":%s channel %s, total packets:%d,"
+			" max packet size %d, max burst size:%d\n",
+			__func__, test_ch->name,
+			test_ch->config_msg.num_packets, test_ch->packet_length,
+			test_ch->max_burst_size);
+	for (i = 0 ; i < size / 2 ; i++)
+		buf16[i] = (u16) (i & 0xFFFF);
+
+	for (i = 0; i < 2 ; i++) {
+		total_packet_count = 0;
+		while (total_packet_count < max_packet_count) {
+			if (test_ctx->exit_flag) {
+				pr_info(TEST_MODULE_NAME ":%s exit test\n",
+						__func__);
+				return;
+			}
+			test_ch->buf[0] = total_packet_count;
+			random_num = get_random_int();
+			curr_burst_size = (random_num %
+					test_ch->max_burst_size) + 1;
+
+			/* limit burst size to send
+			 * no more than configured packets */
+			if (curr_burst_size + total_packet_count >
+					max_packet_count) {
+				curr_burst_size = max_packet_count -
+					total_packet_count;
+			}
+			TEST_DBG(TEST_MODULE_NAME ":%s Current burst size:%d"
+					" on chan %s\n", __func__,
+					curr_burst_size, test_ch->name);
+			ret = write_packet_burst(test_ch, curr_burst_size);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME ":%s write burst failed (%d), ch %s\n",
+						__func__, ret, test_ch->name);
+				goto exit_err;
+			}
+			if (i > 0) {
+				/* read from channel */
+				ret = read_data_from_channel(test_ch, size,
+						total_packet_count);
+				if (ret) {
+					pr_err(TEST_MODULE_NAME ":%s read"
+							" failed:%d, chan %s\n",
+							__func__, ret,
+							test_ch->name);
+					goto exit_err;
+				}
+			}
+			TEST_DBG(TEST_MODULE_NAME ":%s before close, ch %s\n",
+					__func__, test_ch->name);
+			ret = sdio_close(test_ch->ch);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME":%s close channel %s"
+						" failed (%d)\n",
+						__func__, test_ch->name, ret);
+				goto exit_err;
+			} else {
+				TEST_DBG(TEST_MODULE_NAME":%s close channel %s"
+						" success\n", __func__,
+						test_ch->name);
+				total_packet_count += curr_burst_size;
+				atomic_set(&test_ch->rx_notify_count, 0);
+				atomic_set(&test_ch->tx_notify_count, 0);
+				atomic_set(&test_ch->any_notify_count, 0);
+			}
+			TEST_DBG(TEST_MODULE_NAME ":%s before open, ch %s\n",
+					__func__, test_ch->name);
+			ret = sdio_open(test_ch->name , &test_ch->ch,
+					test_ch, notify);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME":%s open channel %s"
+						" failed (%d)\n",
+						__func__, test_ch->name, ret);
+				goto exit_err;
+			} else {
+				read_avail = sdio_read_avail(test_ch->ch);
+				if (read_avail > 0) {
+					pr_err(TEST_MODULE_NAME": after open"
+						" ch %s read_availis not zero"
+						" (%d bytes)\n",
+						test_ch->name, read_avail);
+					goto exit_err;
+				}
+			}
+			TEST_DBG(TEST_MODULE_NAME ":%s total tx = %d,"
+					" packet# = %d, size = %d for ch %s\n",
+					__func__, test_ch->tx_bytes,
+					total_packet_count, size,
+					test_ch->name);
+		} /* end of while */
+	}
+	pr_info(TEST_MODULE_NAME ":%s Test end: total rx bytes = 0x%x,"
+			" total tx bytes = 0x%x for chan %s\n", __func__,
+			test_ch->rx_bytes, test_ch->tx_bytes, test_ch->name);
+	pr_info(TEST_MODULE_NAME ":%s TEST PASS for chan %s.\n", __func__,
+			test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_PASSED;
+	check_test_completion();
+	return;
+exit_err:
+	pr_info(TEST_MODULE_NAME ":%s TEST FAIL for chan %s.\n", __func__,
+			test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_FAILED;
+	check_test_completion();
+	return;
+}
+
 /**
  * sender Test
  */
@@ -1656,7 +1909,7 @@ static void sender_no_loopback_test(struct test_channel *test_ch)
 	u16 *buf16 = (u16 *) test_ch->buf;
 	int i;
 	int max_packet_count = 10000;
-	int random_num = 0;
+	unsigned int random_num = 0;
 
 	max_packet_count = test_ch->config_msg.num_packets;
 
@@ -1788,6 +2041,9 @@ static void worker(struct work_struct *work)
 		break;
 	case SDIO_TEST_RTT:
 		a2_rtt_test(test_ch);
+		break;
+	case SDIO_TEST_CLOSE_CHANNEL:
+		open_close_test(test_ch);
 		break;
 	default:
 		pr_err(TEST_MODULE_NAME ":Bad Test type = %d.\n",
@@ -2317,6 +2573,22 @@ static int test_start(void)
 	wait_event(test_ctx->wait_q, test_ctx->test_completed);
 	check_test_result();
 
+	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
+		struct test_channel *tch = test_ctx->test_ch_arr[i];
+
+		if ((!tch) || (!tch->is_used) || (!tch->ch_ready) ||
+		    (tch->ch_id == SDIO_SMEM) || (!tch->ch->is_packet_mode))
+			continue;
+		ret = sdio_close(tch->ch);
+		if (ret) {
+			pr_err(TEST_MODULE_NAME":%s close channel %s"
+					" failed\n", __func__, tch->name);
+		} else {
+			pr_info(TEST_MODULE_NAME":%s close channel %s"
+					" success\n", __func__, tch->name);
+			tch->ch_ready = false;
+		}
+	}
 	return 0;
 }
 
@@ -2340,7 +2612,33 @@ static int set_params_loopback_9k(struct test_channel *tch)
 
 	return 0;
 }
-
+static int set_params_loopback_9k_close(struct test_channel *tch)
+{
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ":NULL channel\n");
+		return -EINVAL;
+	}
+	tch->is_used = 1;
+	tch->test_type = SDIO_TEST_CLOSE_CHANNEL;
+	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
+	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
+	tch->config_msg.num_packets = 5000;
+	tch->config_msg.num_iterations = 1;
+	tch->max_burst_size = 10;
+	switch (tch->ch_id) {
+	case SDIO_DUN:
+	case SDIO_RPC:
+		tch->packet_length = 128; /* max is 2K*/
+		break;
+	case SDIO_CIQ:
+	case SDIO_DIAG:
+	case SDIO_RMNT:
+	default:
+		tch->packet_length = 512; /* max is 4k */
+	}
+	tch->timer_interval_ms = 0;
+	return 0;
+}
 static int set_params_a2_perf(struct test_channel *tch)
 {
 	if (!tch) {
@@ -2508,6 +2806,69 @@ static void set_pseudo_random_seed(void)
 		   __func__, test_ctx->lpm_pseudo_random_seed);
 }
 
+/*
+   for each channel
+   1. open channel
+   2. close channel
+   3. Run lpm Host waker test on packet channel
+*/
+#define MAX_LPM_CH_ARR 4
+static int close_channel_lpm_test(void)
+{
+	int ret = 0;
+	struct test_channel *tch = NULL;
+	int i;
+	int lpm_ch_arr[] = { SDIO_RPC,
+			SDIO_QMI,
+			SDIO_DIAG,
+			SDIO_CIQ};
+
+	for (i = 0; i < MAX_LPM_CH_ARR; i++) {
+		tch = test_ctx->test_ch_arr[lpm_ch_arr[i]];
+
+		/* sdio_close is not implemented for stream ch */
+		if ((!tch) ||
+			(tch->ch_id == SDIO_DUN) ||
+			(tch->ch_id == SDIO_RMNT))
+			continue;
+
+		if (!tch->ch_ready) {
+			ret = sdio_open(tch->name , &tch->ch, tch, notify);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME":%s open channel %s"
+					" failed\n", __func__, tch->name);
+				return ret;
+			} else {
+				pr_info(TEST_MODULE_NAME":%s open channel %s"
+					" success\n", __func__, tch->name);
+			}
+		}
+		ret = sdio_close(tch->ch);
+		if (ret) {
+			pr_err(TEST_MODULE_NAME":%s close channel %s"
+					" failed\n", __func__, tch->name);
+			return ret;
+		} else {
+			pr_info(TEST_MODULE_NAME":%s close channel %s"
+					" success\n", __func__, tch->name);
+			tch->ch_ready = false;
+		}
+		if (tch->ch->is_packet_mode) {
+			set_params_lpm_test(tch, SDIO_TEST_LPM_HOST_WAKER, 120);
+
+			ret = test_start();
+			if (ret) {
+				pr_err(TEST_MODULE_NAME ":test_start failed, ret = %d.\n",
+						ret);
+				return ret;
+			}
+		}
+		tch->is_used = 0;
+
+	}
+	return ret;
+}
+
 /**
  * Write File.
  *
@@ -2520,6 +2881,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 {
 	int ret = 0;
 	int i;
+	struct test_channel **ch_arr = test_ctx->test_ch_arr;
 
 	for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
 			test_ctx->test_dev_arr[i].sdio_al_device = NULL;
@@ -2617,6 +2979,26 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 		if (set_params_rtt(test_ctx->test_ch_arr[SDIO_RMNT]))
 			return size;
 		break;
+	case 27:
+		pr_info(TEST_MODULE_NAME " -- host sender with open/close for "
+				"Diag, CIQ and RPC --");
+		if (set_params_loopback_9k_close(ch_arr[SDIO_DIAG]) ||
+		    set_params_loopback_9k_close(ch_arr[SDIO_CIQ]) ||
+		    set_params_loopback_9k_close(ch_arr[SDIO_RPC]))
+			return size;
+		break;
+	case 28:
+		pr_info(TEST_MODULE_NAME " -- Close channel & LPM Test "
+			"Host wakes the Client --\n");
+		ret = close_channel_lpm_test();
+		if (ret) {
+			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
+					"FAILED: %d --\n", ret);
+		} else {
+			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
+					"PASSED\n");
+		}
+		return size;
 	case 111:
 		pr_info(TEST_MODULE_NAME " --LPM Test For Device 1. Client "
 			"wakes the Host --.\n");
@@ -2670,7 +3052,27 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	if (ret) {
 		pr_err(TEST_MODULE_NAME ":test_start failed, ret = %d.\n",
 			ret);
-
+		return size;
+	}
+	/* combined test cases */
+	switch (test_ctx->testcase) {
+	case 27:
+		pr_info(TEST_MODULE_NAME " -- correctness test for"
+				"DIAG, CIQ and DUN ");
+		if (set_params_loopback_9k(ch_arr[SDIO_DIAG]) ||
+		    set_params_loopback_9k(ch_arr[SDIO_CIQ]) ||
+		    set_params_loopback_9k(ch_arr[SDIO_RPC]))
+			return size;
+		break;
+	default:
+		pr_debug(TEST_MODULE_NAME ":2nd test not defined for %ld\n",
+				test_ctx->testcase);
+		return size;
+	}
+	ret = test_start();
+	if (ret) {
+		pr_err(TEST_MODULE_NAME ":2nd round test failed (%d)\n",
+				ret);
 	}
 	return size;
 }
