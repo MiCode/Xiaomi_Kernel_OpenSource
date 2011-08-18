@@ -864,20 +864,7 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->b_bit = 3;	/* B, 8 bits */
 		pipe->g_bit = 3;	/* G, 8 bits */
 		pipe->alpha_enable = 0;
-		pipe->unpack_tight = 1;
-		pipe->unpack_align_msb = 0;
-		pipe->unpack_count = 1;		/* 2 */
-		pipe->element3 = C0_G_Y;	/* not used */
-		pipe->element2 = C0_G_Y;	/* not used */
-		if (pipe->src_format == MDP_Y_CR_CB_H2V2) {
-			pipe->element1 = C2_R_Cr;	/* R */
-			pipe->element0 = C1_B_Cb;	/* B */
-			pipe->chroma_sample = MDP4_CHROMA_420;
-		} else if (pipe->src_format == MDP_Y_CB_CR_H2V2) {
-			pipe->element1 = C1_B_Cb;	/* B */
-			pipe->element0 = C2_R_Cr;	/* R */
-			pipe->chroma_sample = MDP4_CHROMA_420;
-		}
+		pipe->chroma_sample = MDP4_CHROMA_420;
 		pipe->bpp = 2;	/* 2 bpp */
 		break;
 	default:
@@ -2359,6 +2346,9 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 					(pipe->src_height / 2));
 			pipe->srcp2_addr = addr;
 		}
+		/* mdp planar format expects Cb in srcp1 and Cr in p2 */
+		if (pipe->src_format == MDP_Y_CR_CB_H2V2)
+			swap(pipe->srcp1_addr, pipe->srcp2_addr);
 		pipe->srcp0_ystride = pipe->src_width;
 		pipe->srcp1_ystride = pipe->src_width / 2;
 		pipe->srcp2_ystride = pipe->src_width / 2;
