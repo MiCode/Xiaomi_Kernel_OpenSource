@@ -123,6 +123,7 @@
 #define PAS_DSPS	2
 #define PAS_MODEM_SW	4
 #define PAS_MODEM_FW	5
+#define PAS_RIVA	6
 
 #define PAS_INIT_IMAGE_CMD	1
 #define PAS_MEM_CMD		2
@@ -643,6 +644,21 @@ static int shutdown_riva_untrusted(void)
 	return 0;
 }
 
+static int init_image_riva_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_RIVA, metadata, size);
+}
+
+static int reset_riva_trusted(void)
+{
+	return auth_and_reset_trusted(PAS_RIVA);
+}
+
+static int shutdown_riva_trusted(void)
+{
+	return shutdown_trusted(PAS_RIVA);
+}
+
 static int init_image_dsps_untrusted(const u8 *metadata, size_t size)
 {
 	/* Bring memory and bus interface out of reset */
@@ -820,6 +836,10 @@ static int __init msm_peripheral_reset_init(void)
 		pil_dsps_ops.init_image = init_image_dsps_trusted;
 		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
 		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
+
+		pil_riva_ops.init_image = init_image_riva_trusted;
+		pil_riva_ops.auth_and_reset = reset_riva_trusted;
+		pil_riva_ops.shutdown = shutdown_riva_trusted;
 	}
 
 	err = q6_reset_init(&q6_lpass);
