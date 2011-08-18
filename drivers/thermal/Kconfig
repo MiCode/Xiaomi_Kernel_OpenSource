@@ -114,6 +114,16 @@ config THERMAL_TSENS
 	  Also able to set threshold temperature for both hot and cold and update
 	  when a threshold is reached.
 
+config THERMAL_TSENS8960
+	tristate "Qualcomm 8960 Tsens Temperature Alarm"
+	depends on THERMAL
+	help
+	  This enables the thermal sysfs driver for the Tsens device. It shows
+	  up in Sysfs as a thermal zone with mutiple trip points. Disabling the
+	  thermal zone device via the mode file results in disabling the sensor.
+	  Also able to set threshold temperature for both hot and cold and update
+	  when a threshold is reached.
+
 config THERMAL_PM8XXX
 	tristate "Qualcomm PMIC PM8xxx Temperature Alarm"
 	depends on THERMAL
