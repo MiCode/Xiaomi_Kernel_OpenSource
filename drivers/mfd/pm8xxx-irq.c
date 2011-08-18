@@ -203,6 +203,21 @@ static irqreturn_t pm8xxx_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void pm8xxx_irq_mask(struct irq_data *d)
+{
+	struct pm_irq_chip *chip = irq_data_get_irq_chip_data(d);
+	unsigned int pmirq = d->irq - chip->irq_base;
+	int	master, irq_bit;
+	u8	block, config;
+
+	block = pmirq / 8;
+	master = block / 8;
+	irq_bit = pmirq % 8;
+
+	config = chip->config[pmirq] | PM_IRQF_MASK_ALL;
+	pm8xxx_write_config_irq(chip, block, config);
+}
+
 static void pm8xxx_irq_mask_ack(struct irq_data *d)
 {
 	struct pm_irq_chip *chip = irq_data_get_irq_chip_data(d);
@@ -281,6 +296,7 @@ static int pm8xxx_irq_read_line(struct irq_data *d)
 
 static struct irq_chip pm8xxx_irq_chip = {
 	.name		= "pm8xxx",
+	.irq_mask	= pm8xxx_irq_mask,
 	.irq_mask_ack	= pm8xxx_irq_mask_ack,
 	.irq_unmask	= pm8xxx_irq_unmask,
 	.irq_set_type	= pm8xxx_irq_set_type,
