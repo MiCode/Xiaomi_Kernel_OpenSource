@@ -35,6 +35,7 @@
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
 #include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/msm_tsens.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -3130,6 +3131,21 @@ static struct platform_device msm_device_saw_core1 = {
 	},
 };
 
+static struct tsens_platform_data msm_tsens_pdata  = {
+		.slope			= 910,
+		.tsens_factor		= 1000,
+		.hw_type		= MSM_8960,
+		.tsens_num_sensor	= 5,
+};
+
+static struct platform_device msm_tsens_device = {
+	.name	= "tsens8960-tm",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_tsens_pdata,
+	},
+};
+
 #ifdef CONFIG_MSM_FAKE_BATTERY
 static struct platform_device fish_battery_device = {
 	.name = "fish_battery",
@@ -3339,6 +3355,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_bus_mm_fabric,
 	&msm_bus_sys_fpb,
 	&msm_bus_cpss_fpb,
+	&msm_tsens_device,
 };
 
 static void __init msm8960_i2c_init(void)
