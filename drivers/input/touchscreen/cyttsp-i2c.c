@@ -1060,6 +1060,10 @@ void cyttsp_xy_worker(struct work_struct *work)
 		cyttsp_testdat(&g_xy_data, &tt_gen2_testray, \
 			sizeof(struct cyttsp_gen3_xydata_t));
 
+		if (ts->platform_data->disable_ghost_det &&
+				(cur_tch == CY_GEN2_GHOST))
+			cur_tch = CY_GEN2_2TOUCH;
+
 		if (pxy_gen2_data->evnt_idx == CY_GEN2_NOTOUCH) {
 			cur_tch = 0;
 		} else if (cur_tch == CY_GEN2_GHOST) {
