@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
+#include <linux/debugfs.h>
 #include <linux/mfd/wcd9310/core.h>
 #include <linux/mfd/wcd9310/registers.h>
 #include <linux/mfd/wcd9310/pdata.h>
@@ -67,7 +68,13 @@ struct tabla_priv {
 
 	struct tabla_pdata *pdata;
 	u32 anc_slot;
+
+	bool no_mic_headset_override;
 };
+
+#ifdef CONFIG_DEBUG_FS
+struct tabla_priv *debug_tabla_priv;
+#endif
 
 static int tabla_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
@@ -815,12 +822,24 @@ static void tabla_codec_update_cfilt_usage(struct snd_soc_codec *codec,
 	}
 }
 
+static void tabla_codec_disable_button_presses(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x80);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B3_CTL, 0x00);
+}
+
 static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
 {
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	if (!tabla->no_mic_headset_override) {
+		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	} else {
+		tabla_codec_disable_button_presses(codec);
+	}
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x1);
@@ -828,10 +847,15 @@ static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
 
 static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
 {
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	if (!tabla->no_mic_headset_override) {
+		tabla_disable_irq(codec->control_data,
+			TABLA_IRQ_MBHC_POTENTIAL);
+		tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	}
 }
 
 static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
@@ -2034,7 +2058,8 @@ static int tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 	threshold_no_mic = 0xF7F6;
 
-	if (bias_value < threshold_no_mic) {
+	if ((bias_value < threshold_no_mic) &&
+		!tabla->no_mic_headset_override) {
 		pr_debug("headphone detected, micbias %x\n", bias_value);
 		return 0;
 	} else {
@@ -2621,6 +2646,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->clock_active = false;
 	tabla->config_mode_active = false;
 	tabla->mbhc_polling_active = false;
+	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
 
@@ -2693,6 +2719,10 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		tabla_interface_reg_write(codec->control_data,
 			TABLA_SLIM_PGD_PORT_INT_EN0 + i, 0xFF);
 
+#ifdef CONFIG_DEBUG_FS
+	debug_tabla_priv = tabla;
+#endif
+
 	return ret;
 
 err_slimbus_irq:
@@ -2734,14 +2764,61 @@ static struct snd_soc_codec_driver soc_codec_dev_tabla = {
 	.reg_cache_default = tabla_reg_defaults,
 	.reg_word_size = 1,
 };
+
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *debugfs_poke;
+
+static int codec_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t codec_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char lbuf[32];
+	char *buf;
+	int rc;
+
+	if (cnt > sizeof(lbuf) - 1)
+		return -EINVAL;
+
+	rc = copy_from_user(lbuf, ubuf, cnt);
+	if (rc)
+		return -EFAULT;
+
+	lbuf[cnt] = '\0';
+	buf = (char *)lbuf;
+	debug_tabla_priv->no_mic_headset_override = (*strsep(&buf, " ") == '0')
+		? false : true;
+
+	return rc;
+}
+
+static const struct file_operations codec_debug_ops = {
+	.open = codec_debug_open,
+	.write = codec_debug_write,
+};
+#endif
+
 static int __devinit tabla_probe(struct platform_device *pdev)
 {
+#ifdef CONFIG_DEBUG_FS
+	debugfs_poke = debugfs_create_file("TRRS",
+		S_IFREG | S_IRUGO, NULL, (void *) "TRRS", &codec_debug_ops);
+
+#endif
 	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
 		tabla_dai, ARRAY_SIZE(tabla_dai));
 }
 static int __devexit tabla_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
+
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove(debugfs_poke);
+#endif
 	return 0;
 }
 static struct platform_driver tabla_codec_driver = {
