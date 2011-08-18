@@ -3246,6 +3246,7 @@ static struct cyttsp_platform_data cyttsp_tmg240_pdata = {
 	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
 	.resume = cyttsp_platform_resume,
 	.init = cyttsp_platform_init,
+	.disable_ghost_det = true,
 };
 static void cyttsp_set_params(void)
 {
