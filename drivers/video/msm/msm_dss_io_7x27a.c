@@ -13,6 +13,7 @@
 #include <linux/clk.h>
 #include "msm_fb.h"
 #include "mipi_dsi.h"
+#include <mach/clk.h>
 
 /* multimedia sub system sfpb */
 char *mmss_sfpb_base;
@@ -30,6 +31,7 @@ static struct clk *dsi_ref_clk;
 static struct clk *mdp_dsi_pclk;
 static struct clk *ahb_m_clk;
 static struct clk *ahb_s_clk;
+static struct clk *ebi1_dsi_clk;
 
 void mipi_dsi_clk_init(struct device *dev)
 {
@@ -81,6 +83,12 @@ void mipi_dsi_clk_init(struct device *dev)
 		goto mipi_dsi_clk_err;
 	}
 
+	ebi1_dsi_clk = clk_get(NULL, "ebi1_lcdc_clk");
+	if (IS_ERR(ebi1_dsi_clk)) {
+		pr_err("can't find ebi1_dsi_clk\n");
+		goto mipi_dsi_clk_err;
+	}
+
 	return;
 
 mipi_dsi_clk_err:
@@ -96,6 +104,7 @@ void mipi_dsi_clk_deinit(struct device *dev)
 	clk_put(dsi_ref_clk);
 	clk_put(dsi_byte_div_clk);
 	clk_put(dsi_esc_clk);
+	clk_put(ebi1_dsi_clk);
 }
 
 static void mipi_dsi_clk_ctrl(struct dsi_clk_desc *clk, int clk_en)
@@ -299,6 +308,9 @@ void mipi_dsi_clk_enable(void)
 
 	mipi_dsi_clk_on = 1;
 
+	if (clk_set_min_rate(ebi1_dsi_clk, 65000000)) /* 65 MHz */
+		pr_err("%s: ebi1_dsi_clk set rate failed\n", __func__);
+	clk_enable(ebi1_dsi_clk);
 	clk_enable(dsi_ref_clk);
 	clk_set_rate(dsi_byte_div_clk, data);
 	clk_set_rate(dsi_esc_clk, data);
@@ -330,6 +342,9 @@ void mipi_dsi_clk_disable(void)
 	clk_disable(ahb_m_clk);
 	clk_disable(ahb_s_clk);
 	clk_disable(dsi_ref_clk);
+	if (clk_set_min_rate(ebi1_dsi_clk, 0))
+		pr_err("%s: ebi1_dsi_clk set rate failed\n", __func__);
+	clk_disable(ebi1_dsi_clk);
 }
 
 void mipi_dsi_phy_ctrl(int on)
