@@ -575,10 +575,14 @@ static int diag_function_bind(struct usb_configuration *c,
 	intf_desc.bInterfaceNumber =  usb_interface_id(c, f);
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_bulk_in_desc);
+	if (!ep)
+		goto fail;
 	ctxt->in = ep;
 	ep->driver_data = ctxt;
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_bulk_out_desc);
+	if (!ep)
+		goto fail;
 	ctxt->out = ep;
 	ep->driver_data = ctxt;
 
