@@ -41,14 +41,13 @@
  * @pcom_id: Proc-comm ID of the footswitch
  * @is_enabled: Flag set when footswitch is enabled
  * @is_manual: Flag set when footswitch is in manual proc-comm mode
- * @core_clk_name: String name of core clock for footswitch power domain
- * @set_clk_name: String name of clock used to set the core clocks's rate
- * @ahb_clk_name: String name of AHB clock for footswitch power domain
- * @core_clk: Clock with name core_clk_name
- * @set_clk: Clock with name set_clk_name
- * @abh_clk: Clock with name ahb_clk_name
- * @set_clk_init_rate: Rate to use for set_clk to if one has not yet been set
- * @is_rate_set: Flag set if the core clock's rate has been set
+ * @has_ahb_clk: Flag set if footswitched core has an ahb_clk
+ * @has_src_clk: Flag set if footswitched core has a src_clk
+ * @src_clk: Controls the core clock's rate
+ * @core_clk: Clocks the core
+ * @ahb_clk: Clocks the core's register interface
+ * @src_clk_init_rate: Rate to use for src_clk if it has not been set yet
+ * @is_rate_set: Flag set if core_clk's rate has been set
  */
 struct footswitch {
 	struct regulator_dev			*rdev;
@@ -57,13 +56,12 @@ struct footswitch {
 	unsigned				pcom_id;
 	bool					is_enabled;
 	bool					is_manual;
-	const char				*core_clk_name;
-	const char				*set_clk_name;
-	const char				*ahb_clk_name;
+	struct clk				*src_clk;
 	struct clk				*core_clk;
-	struct clk				*set_clk;
 	struct clk				*ahb_clk;
-	const int				set_clk_init_rate;
+	const bool				has_ahb_clk;
+	const bool				has_src_clk;
+	const int				src_clk_init_rate;
 	bool					is_rate_set;
 };
 
@@ -91,9 +89,9 @@ static inline int set_rail_state(int pcom_id, int state)
 
 static int enable_clocks(struct footswitch *fs)
 {
-	fs->is_rate_set = !!(clk_get_rate(fs->set_clk));
+	fs->is_rate_set = !!(clk_get_rate(fs->src_clk));
 	if (!fs->is_rate_set)
-		clk_set_rate(fs->set_clk, fs->set_clk_init_rate);
+		clk_set_rate(fs->src_clk, fs->src_clk_init_rate);
 	clk_enable(fs->core_clk);
 
 	if (fs->ahb_clk)
@@ -158,7 +156,7 @@ static struct regulator_ops footswitch_ops = {
 	.disable = footswitch_disable,
 };
 
-#define FOOTSWITCH(_id, _pcom_id, _name, _core_clk, _set_clk, _rate, _ahb_clk) \
+#define FOOTSWITCH(_id, _pcom_id, _name, _src_clk, _rate, _ahb_clk) \
 	[_id] = { \
 		.desc = { \
 			.id = _id, \
@@ -168,29 +166,28 @@ static struct regulator_ops footswitch_ops = {
 			.owner = THIS_MODULE, \
 		}, \
 		.pcom_id = _pcom_id, \
-		.core_clk_name = _core_clk, \
-		.set_clk_name = _set_clk, \
-		.set_clk_init_rate = _rate, \
-		.ahb_clk_name = _ahb_clk, \
+		.has_src_clk = _src_clk, \
+		.src_clk_init_rate = _rate, \
+		.has_ahb_clk = _ahb_clk, \
 	}
 static struct footswitch footswitches[] = {
-	FOOTSWITCH(FS_GFX3D,  PCOM_FS_GRP,     "fs_gfx3d",
-		   "grp_clk", "grp_src_clk", 24576000, "grp_pclk"),
-	FOOTSWITCH(FS_GFX2D0, PCOM_FS_GRP_2D,  "fs_gfx2d0",
-		   "grp_2d_clk",       NULL, 24576000, "grp_2d_pclk"),
-	FOOTSWITCH(FS_MDP,    PCOM_FS_MDP,     "fs_mdp",
-		   "mdp_clk",          NULL, 24576000, "mdp_pclk"),
-	FOOTSWITCH(FS_MFC,    PCOM_FS_MFC,     "fs_mfc",
-		   "mfc_clk",          NULL, 24576000, "mfc_pclk"),
-	FOOTSWITCH(FS_ROT,    PCOM_FS_ROTATOR, "fs_rot",
-		   "rotator_clk",      NULL,        0, "rotator_pclk"),
-	FOOTSWITCH(FS_VFE,    PCOM_FS_VFE,     "fs_vfe",
-		   "vfe_clk",          NULL, 24576000, "vfe_pclk"),
-	FOOTSWITCH(FS_VPE,    PCOM_FS_VPE,     "fs_vpe",
-		   "vpe_clk",          NULL, 24576000, NULL),
+	FOOTSWITCH(FS_GFX3D,  PCOM_FS_GRP,
+		"fs_gfx3d",   true, 24576000, true),
+	FOOTSWITCH(FS_GFX2D0, PCOM_FS_GRP_2D,
+		"fs_gfx2d0", false, 24576000, true),
+	FOOTSWITCH(FS_MDP,    PCOM_FS_MDP,
+		"fs_mdp",    false, 24576000, true),
+	FOOTSWITCH(FS_MFC,    PCOM_FS_MFC,
+		"fs_mfc",    false, 24576000, true),
+	FOOTSWITCH(FS_ROT,    PCOM_FS_ROTATOR,
+		"fs_rot",    false,        0, true),
+	FOOTSWITCH(FS_VFE,    PCOM_FS_VFE,
+		"fs_vfe",    false, 24576000, true),
+	FOOTSWITCH(FS_VPE,    PCOM_FS_VPE,
+		"fs_vpe",    false, 24576000, false),
 };
 
-static int get_clocks(struct footswitch *fs)
+static int get_clocks(struct device *dev, struct footswitch *fs)
 {
 	int rc;
 
@@ -199,33 +196,30 @@ static int get_clocks(struct footswitch *fs)
 	 * If one can't be found, try to use the core clock for
 	 * rate-setting instead.
 	 */
-	if (fs->set_clk_name) {
-		fs->set_clk = clk_get(NULL, fs->set_clk_name);
-		if (IS_ERR(fs->set_clk)) {
-			fs->set_clk = clk_get(NULL, fs->core_clk_name);
-			fs->set_clk_name = fs->core_clk_name;
-		}
+	if (fs->has_src_clk) {
+		fs->src_clk = clk_get(dev, "src_clk");
+		if (IS_ERR(fs->src_clk))
+			fs->src_clk = clk_get(dev, "core_clk");
 	} else {
-		fs->set_clk = clk_get(NULL, fs->core_clk_name);
-		fs->set_clk_name = fs->core_clk_name;
+		fs->src_clk = clk_get(dev, "core_clk");
 	}
-	if (IS_ERR(fs->set_clk)) {
-		pr_err("clk_get(%s) failed\n", fs->set_clk_name);
-		rc = PTR_ERR(fs->set_clk);
-		goto err_set_clk;
+	if (IS_ERR(fs->src_clk)) {
+		pr_err("clk_get(src_clk) failed\n");
+		rc = PTR_ERR(fs->src_clk);
+		goto err_src_clk;
 	}
 
-	fs->core_clk = clk_get(NULL, fs->core_clk_name);
+	fs->core_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(fs->core_clk)) {
-		pr_err("clk_get(%s) failed\n", fs->core_clk_name);
+		pr_err("clk_get(core_clk) failed\n");
 		rc = PTR_ERR(fs->core_clk);
 		goto err_core_clk;
 	}
 
-	if (fs->ahb_clk_name) {
-		fs->ahb_clk = clk_get(NULL, fs->ahb_clk_name);
+	if (fs->has_ahb_clk) {
+		fs->ahb_clk = clk_get(dev, "iface_clk");
 		if (IS_ERR(fs->ahb_clk)) {
-			pr_err("clk_get(%s) failed\n", fs->ahb_clk_name);
+			pr_err("clk_get(iface_clk) failed\n");
 			rc = PTR_ERR(fs->ahb_clk);
 			goto err_ahb_clk;
 		}
@@ -236,14 +230,14 @@ static int get_clocks(struct footswitch *fs)
 err_ahb_clk:
 	clk_put(fs->core_clk);
 err_core_clk:
-	clk_put(fs->set_clk);
-err_set_clk:
+	clk_put(fs->src_clk);
+err_src_clk:
 	return rc;
 }
 
 static void put_clocks(struct footswitch *fs)
 {
-	clk_put(fs->set_clk);
+	clk_put(fs->src_clk);
 	clk_put(fs->core_clk);
 	clk_put(fs->ahb_clk);
 }
@@ -267,7 +261,7 @@ static int footswitch_probe(struct platform_device *pdev)
 	}
 	init_data = pdev->dev.platform_data;
 
-	rc = get_clocks(fs);
+	rc = get_clocks(&pdev->dev, fs);
 	if (rc)
 		return rc;
 
