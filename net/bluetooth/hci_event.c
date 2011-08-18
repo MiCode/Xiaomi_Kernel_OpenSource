@@ -3030,6 +3030,7 @@ static inline void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	conn->handle = __le16_to_cpu(ev->handle);
 	conn->state = BT_CONNECTED;
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
+	mgmt_connected(hdev->id, &ev->bdaddr);
 
 	hci_conn_hold_device(conn);
 	hci_conn_add_sysfs(conn);
@@ -3248,6 +3249,8 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_event_hdr *hdr = (void *) skb->data;
 	__u8 event = hdr->evt;
+
+	BT_DBG("");
 
 	skb_pull(skb, HCI_EVENT_HDR_SIZE);
 

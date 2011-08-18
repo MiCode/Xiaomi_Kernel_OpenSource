@@ -1123,8 +1123,12 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
 
-	if (conn && (conn->auth_type > 0x01 || conn->remote_auth > 0x01))
-		bonded = 1;
+	if (conn) {
+		if (conn->remote_auth > 0x01)
+			bonded = 1;
+		else if (conn->auth_initiator && conn->auth_type > 0x01)
+			bonded = 1;
+	}
 
 	if (new_key)
 		mgmt_new_key(hdev->id, key, bonded);

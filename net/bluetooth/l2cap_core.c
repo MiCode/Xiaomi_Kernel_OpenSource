@@ -1212,12 +1212,15 @@ int l2cap_do_connect(struct sock *sk)
 
 		conn = hcon->l2cap_data;
 	} else {
-		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA)
+		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA) {
 			hcon = hci_connect(hdev, LE_LINK, 0, dst,
-					   l2cap_pi(sk)->sec_level, auth_type);
-		else
+					l2cap_pi(sk)->sec_level, auth_type);
+			if (hcon->state == BT_CONNECTED)
+				hci_conn_hold(hcon);
+		} else {
 			hcon = hci_connect(hdev, ACL_LINK, 0, dst,
-					   l2cap_pi(sk)->sec_level, auth_type);
+					l2cap_pi(sk)->sec_level, auth_type);
+		}
 
 		if (IS_ERR(hcon)) {
 			err = PTR_ERR(hcon);
