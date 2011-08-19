@@ -451,7 +451,8 @@ static void ion_handle_kmap_put(struct ion_handle *handle)
 		ion_buffer_kmap_put(buffer);
 }
 
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
+			unsigned long flags)
 {
 	struct ion_buffer *buffer;
 	void *vaddr;
@@ -471,6 +472,19 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 		       __func__);
 		mutex_unlock(&client->lock);
 		return ERR_PTR(-ENODEV);
+	}
+
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			mutex_unlock(&client->lock);
+			return ERR_PTR(-EEXIST);
+		}
+
+	} else {
+		buffer->flags = flags;
 	}
 
 	mutex_lock(&buffer->lock);
@@ -651,6 +665,33 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 }
 
+static void ion_vma_open(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+
+	pr_debug("%s: %d\n", __func__, __LINE__);
+
+	mutex_lock(&buffer->lock);
+	buffer->umap_cnt++;
+	mutex_unlock(&buffer->lock);
+}
+
+static void ion_vma_close(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+
+	pr_debug("%s: %d\n", __func__, __LINE__);
+
+	mutex_lock(&buffer->lock);
+	buffer->umap_cnt--;
+	mutex_unlock(&buffer->lock);
+}
+
+static struct vm_operations_struct ion_vm_ops = {
+	.open = ion_vma_open,
+	.close = ion_vma_close,
+};
+
 static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -665,12 +706,22 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
-	mutex_unlock(&buffer->lock);
 
-	if (ret)
+	if (ret) {
+		mutex_unlock(&buffer->lock);
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
+	} else {
+		buffer->umap_cnt++;
+		mutex_unlock(&buffer->lock);
 
+		vma->vm_ops = &ion_vm_ops;
+		/*
+		 * move the buffer into the vm_private_data so we can access it
+		 * from vma_open/close
+		 */
+		vma->vm_private_data = buffer;
+	}
 	return ret;
 }
 

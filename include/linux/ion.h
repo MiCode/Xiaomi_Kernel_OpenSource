@@ -62,6 +62,13 @@ enum ion_heap_ids {
 #define ION_VMALLOC_HEAP_NAME	"vmalloc"
 #define ION_EBI1_HEAP_NAME	"EBI1"
 
+#define CACHED          1
+#define UNCACHED        0
+
+#define ION_CACHE_SHIFT 0
+
+#define ION_SET_CACHE(__cache)  ((__cache) << ION_CACHE_SHIFT)
+
 #ifdef __KERNEL__
 struct ion_device;
 struct ion_heap;
@@ -205,11 +212,14 @@ struct sg_table *ion_sg_table(struct ion_client *client,
  * ion_map_kernel - create mapping for the given handle
  * @client:	the client
  * @handle:	handle to map
+ * @flags:	flags for this mapping
  *
  * Map the given handle into the kernel and return a kernel address that
- * can be used to access this address.
+ * can be used to access this address. If no flags are specified, this
+ * will return a non-secure uncached mapping.
  */
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
+			unsigned long flags);
 
 /**
  * ion_unmap_kernel() - destroy a kernel mapping for a handle
