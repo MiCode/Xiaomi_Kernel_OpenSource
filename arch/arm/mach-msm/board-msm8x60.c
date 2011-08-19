@@ -55,6 +55,9 @@
 #if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 #include <linux/i2c/smb137b.h>
 #endif
+#ifdef CONFIG_SND_SOC_WM8903
+#include <sound/wm8903.h>
+#endif
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
@@ -4896,6 +4899,29 @@ static struct platform_device *charm_devices[] __initdata = {
 
 };
 
+#ifdef CONFIG_SND_SOC_MSM8660_APQ
+static struct platform_device *dragon_alsa_devices[] __initdata = {
+	&msm_pcm,
+	&msm_pcm_routing,
+	&msm_cpudai0,
+	&msm_cpudai1,
+	&msm_cpudai_hdmi_rx,
+	&msm_cpudai_bt_rx,
+	&msm_cpudai_bt_tx,
+	&msm_cpudai_fm_rx,
+	&msm_cpudai_fm_tx,
+	&msm_cpu_fe,
+	&msm_stub_codec,
+	&msm_lpa_pcm,
+};
+#endif
+
+static struct platform_device *asoc_devices[] __initdata = {
+	&asoc_msm_pcm,
+	&asoc_msm_dai0,
+	&asoc_msm_dai1,
+};
+
 static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_smd,
 	&msm_device_uart_dm12,
@@ -4919,14 +4945,12 @@ static struct platform_device *surf_devices[] __initdata = {
 	&isp1763_device,
 #endif
 
-	&asoc_msm_pcm,
-	&asoc_msm_dai0,
-	&asoc_msm_dai1,
 #if defined (CONFIG_MSM_8x60_VOIP)
 	&asoc_msm_mvs,
 	&asoc_mvs_dai0,
 	&asoc_mvs_dai1,
 #endif
+
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
 	&msm_device_otg,
 #endif
@@ -6663,6 +6687,19 @@ static struct i2c_board_info msm_i2c_gsbi7_timpani_info[] = {
 	},
 };
 
+#ifdef CONFIG_SND_SOC_WM8903
+static struct wm8903_platform_data wm8903_pdata = {
+	.gpio_cfg[2] = 0x3A8,
+};
+
+#define WM8903_I2C_SLAVE_ADDR 0x34
+static struct i2c_board_info wm8903_codec_i2c_info[] = {
+	{
+		I2C_BOARD_INFO("wm8903", WM8903_I2C_SLAVE_ADDR >> 1),
+		.platform_data = &wm8903_pdata,
+	},
+};
+#endif
 #ifdef CONFIG_PMIC8901
 
 #define PM8901_GPIO_INT           91
@@ -7244,6 +7281,14 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		MSM_GSBI8_QUP_I2C_BUS_ID,
 		msm_bq27520_board_info,
 		ARRAY_SIZE(msm_bq27520_board_info),
+	},
+#endif
+#if defined(CONFIG_SND_SOC_WM8903) || defined(CONFIG_SND_SOC_WM8903_MODULE)
+	{
+		I2C_DRAGON,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		wm8903_codec_i2c_info,
+		ARRAY_SIZE(wm8903_codec_i2c_info),
 	},
 #endif
 };
@@ -10147,6 +10192,15 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	}
 		msm_add_host(0, &msm_usb_host_pdata);
 #endif
+
+#ifdef CONFIG_SND_SOC_MSM8660_APQ
+		if (machine_is_msm8x60_dragon())
+			platform_add_devices(dragon_alsa_devices,
+					ARRAY_SIZE(dragon_alsa_devices));
+		else
+#endif
+			platform_add_devices(asoc_devices,
+					ARRAY_SIZE(asoc_devices));
 	} else {
 		msm8x60_configure_smc91x();
 		platform_add_devices(rumi_sim_devices,
