@@ -66,7 +66,24 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 	/* Q6 only supports 16 as now */
 	dai_data->port_config.mi2s.bitwidth = 16;
 	dai_data->port_config.mi2s.line = 1;
-	dai_data->port_config.mi2s.ws = 1; /* I2S master mode for now */
+
+	return 0;
+}
+
+static int msm_dai_q6_cdc_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+	case SND_SOC_DAIFMT_CBS_CFS:
+		dai_data->port_config.mi2s.ws = 1; /* CPU is master */
+		break;
+	case SND_SOC_DAIFMT_CBM_CFM:
+		dai_data->port_config.mi2s.ws = 0; /* CPU is slave */
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -611,16 +628,31 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	int rc = 0;
+
+	dev_dbg(dai->dev, "enter %s, id = %d\n", __func__, dai->id);
+	switch (dai->id) {
+	case PRIMARY_I2S_TX:
+	case PRIMARY_I2S_RX:
+		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
+		break;
+	default:
+		dev_err(dai->dev, "invalid cpu_dai set_fmt\n");
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
 static struct snd_soc_dai_ops msm_dai_q6_ops = {
-	/*
-	 * DSP only handles 16-bit and support only I2S
-	 * master mode for now. leave set_fmt function
-	 * unimplemented for now.
-	 */
 	.prepare	= msm_dai_q6_prepare,
 	.trigger	= msm_dai_q6_trigger,
 	.hw_params	= msm_dai_q6_hw_params,
 	.shutdown	= msm_dai_q6_shutdown,
+	.set_fmt	= msm_dai_q6_set_fmt,
 };
 
 static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {
