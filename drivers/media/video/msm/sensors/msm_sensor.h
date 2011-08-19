@@ -198,8 +198,6 @@ int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data);
 int32_t msm_sensor_power_down(const struct msm_camera_sensor_info *data);
 
 int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
-uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
-			enum msm_sensor_resolution_t res, int8_t array_addr);
 int msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);
 int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl);

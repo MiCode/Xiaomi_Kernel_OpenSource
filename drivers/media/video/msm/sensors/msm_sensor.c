@@ -62,25 +62,6 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
-uint16_t msm_sensor_get_conf_wdata(struct msm_sensor_ctrl_t *s_ctrl,
-			enum msm_sensor_resolution_t res, int8_t array_addr)
-{
-	if (s_ctrl->msm_sensor_reg->mode_settings[res].
-		data_type == MSM_CAMERA_I2C_BYTE_DATA)
-		return
-		s_ctrl->msm_sensor_reg->mode_settings[res].
-		conf[array_addr].reg_data << 8 |
-		s_ctrl->msm_sensor_reg->mode_settings[res].
-		conf[array_addr+1].reg_data;
-	else if (s_ctrl->msm_sensor_reg->mode_settings[res].
-			 data_type == MSM_CAMERA_I2C_WORD_DATA)
-		return
-		s_ctrl->msm_sensor_reg->mode_settings[res].
-		conf[array_addr].reg_data;
-	else
-		return 0;
-}
-
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	msm_camera_i2c_write_tbl(

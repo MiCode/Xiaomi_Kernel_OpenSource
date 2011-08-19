@@ -156,6 +156,23 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 	return rc;
 }
 
+int32_t msm_camera_i2c_write_dt_tbl(struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_dt_conf *reg_conf_tbl, uint16_t size)
+{
+	int i;
+	int32_t rc = -EFAULT;
+	for (i = 0; i < size; i++) {
+		rc = msm_camera_i2c_write(
+			client,
+			reg_conf_tbl->reg_addr,
+			reg_conf_tbl->reg_data, reg_conf_tbl->dt);
+		if (rc < 0)
+			break;
+		reg_conf_tbl++;
+	}
+	return rc;
+}
+
 int32_t msm_camera_i2c_read(struct msm_camera_i2c_client *client,
 	uint16_t addr, uint16_t *data,
 	enum msm_camera_i2c_data_type data_type)
@@ -226,8 +243,15 @@ int32_t msm_sensor_write_conf_array(struct msm_camera_i2c_client *client,
 			struct msm_camera_i2c_conf_array *array, uint16_t index)
 {
 	int32_t rc;
-	rc = msm_camera_i2c_write_tbl(client, array[index].conf,
-				array[index].size, array[index].data_type);
+	if (array[index].data_type != MSM_CAMERA_I2C_HYBRID_DATA) {
+		rc = msm_camera_i2c_write_tbl(client,
+			(struct msm_camera_i2c_reg_conf *) array[index].conf,
+			array[index].size, array[index].data_type);
+	} else {
+		rc = msm_camera_i2c_write_dt_tbl(client,
+			(struct msm_camera_i2c_reg_dt_conf *) array[index].conf,
+			array[index].size);
+	}
 	if (array[index].delay > 20)
 		msleep(array[index].delay);
 	else
