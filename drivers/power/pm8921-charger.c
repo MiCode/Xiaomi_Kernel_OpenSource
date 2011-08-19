@@ -175,12 +175,16 @@ struct pm8921_chg_chip {
 	unsigned int		term_current;
 	unsigned int		vbat_channel;
 	unsigned int		batt_temp_channel;
+	unsigned int		batt_id_channel;
 	struct power_supply	usb_psy;
 	struct power_supply	dc_psy;
 	struct power_supply	batt_psy;
 	struct dentry		*dent;
 	struct bms_notify	bms_notify;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
+	struct work_struct	battery_id_valid_work;
+	int64_t			batt_id_min;
+	int64_t			batt_id_max;
 };
 
 static int charging_disabled;
@@ -439,6 +443,62 @@ static int pm_chg_ttrkl_max_set(struct pm8921_chg_chip *chip, int minutes)
 					 temp);
 }
 
+static int64_t read_battery_id(struct pm8921_chg_chip *chip)
+{
+	int rc;
+	struct pm8921_adc_chan_result result;
+
+	rc = pm8921_adc_read(chip->batt_id_channel, &result);
+	if (rc) {
+		pr_err("error reading batt id channel = %d, rc = %d\n",
+					chip->vbat_channel, rc);
+		return rc;
+	}
+	pr_debug("batt_id phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	return result.physical;
+}
+
+static int is_battery_valid(struct pm8921_chg_chip *chip)
+{
+	int64_t rc;
+
+	if (chip->batt_id_min == 0 && chip->batt_id_max == 0)
+		return 1;
+
+	rc = read_battery_id(chip);
+	if (rc < 0) {
+		pr_err("error reading batt id channel = %d, rc = %lld\n",
+					chip->vbat_channel, rc);
+		/* assume battery id is valid when adc error happens */
+		return 1;
+	}
+
+	if (rc < chip->batt_id_min || rc > chip->batt_id_max) {
+		pr_err("batt_id phy =%lld is not valid\n", rc);
+		return 0;
+	}
+	return 1;
+}
+
+static void check_battery_valid(struct pm8921_chg_chip *chip)
+{
+	if (is_battery_valid(chip) == 0) {
+		pr_err("batt_id not valid, disbling charging\n");
+		pm_chg_auto_enable(chip, 0);
+	} else {
+		pm_chg_auto_enable(chip, !charging_disabled);
+	}
+}
+
+static void battery_id_valid(struct work_struct *work)
+{
+	struct pm8921_chg_chip *chip = container_of(work,
+				struct pm8921_chg_chip, battery_id_valid_work);
+
+	check_battery_valid(chip);
+}
+
 static void pm8921_chg_enable_irq(struct pm8921_chg_chip *chip, int interrupt)
 {
 	if (!__test_and_set_bit(interrupt, chip->enabled_irqs)) {
@@ -568,7 +628,7 @@ static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
 					chip->vbat_channel, rc);
 		return rc;
 	}
-	pr_debug("mvolts phy = %lld meas = 0x%llx", result.physical,
+	pr_debug("mvolts phy = %lld meas = 0x%llx\n", result.physical,
 						result.measurement);
 	return (int)result.physical;
 }
@@ -977,8 +1037,8 @@ static irqreturn_t batt_inserted_irq_handler(int irq, void *data)
 	struct pm8921_chg_chip *chip = data;
 	int status;
 
-	status = pm_chg_get_rt_status(chip,
-				BATT_INSERTED_IRQ);
+	status = pm_chg_get_rt_status(chip, BATT_INSERTED_IRQ);
+	schedule_work(&chip->battery_id_valid_work);
 	pr_debug("battery present=%d", status);
 	power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1284,6 +1344,8 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 		pm8921_bms_charging_began();
 	}
 
+	check_battery_valid(chip);
+
 	pr_debug("usb = %d, dc = %d  batt = %d state=%d\n",
 			chip->usb_present,
 			chip->dc_present,
@@ -1501,6 +1563,15 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xCE);
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xD8);
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xF1);
+
+		/* software workaround for correct battery_id detection */
+		pm8xxx_writeb(chip->dev->parent, PSI_TXRX_SAMPLE_DATA_0, 0xFF);
+		pm8xxx_writeb(chip->dev->parent, PSI_TXRX_SAMPLE_DATA_1, 0xFF);
+		pm8xxx_writeb(chip->dev->parent, PSI_TXRX_SAMPLE_DATA_2, 0xFF);
+		pm8xxx_writeb(chip->dev->parent, PSI_TXRX_SAMPLE_DATA_3, 0xFF);
+		pm8xxx_writeb(chip->dev->parent, PSI_CONFIG_STATUS, 0x0D);
+		udelay(100);
+		pm8xxx_writeb(chip->dev->parent, PSI_CONFIG_STATUS, 0x0C);
 	}
 
 	rc = pm_chg_charge_dis(chip, charging_disabled);
@@ -1674,6 +1745,9 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->term_current = pdata->term_current;
 	chip->vbat_channel = pdata->charger_cdata.vbat_channel;
 	chip->batt_temp_channel = pdata->charger_cdata.batt_temp_channel;
+	chip->batt_id_channel = pdata->charger_cdata.batt_id_channel;
+	chip->batt_id_min = pdata->batt_id_min;
+	chip->batt_id_max = pdata->batt_id_max;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
@@ -1736,6 +1810,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	create_debugfs_entries(chip);
 
 	INIT_WORK(&chip->bms_notify.work, bms_notify);
+	INIT_WORK(&chip->battery_id_valid_work, battery_id_valid);
 	/* determine what state the charger is in */
 	determine_initial_state(chip);
 

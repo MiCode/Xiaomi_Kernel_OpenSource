@@ -20,6 +20,7 @@
 struct pm8xxx_charger_core_data {
 	unsigned int	vbat_channel;
 	unsigned int	batt_temp_channel;
+	unsigned int	batt_id_channel;
 };
 
 /**
@@ -49,6 +50,8 @@ struct pm8921_charger_platform_data {
 	unsigned int			resume_voltage;
 	unsigned int			term_current;
 	unsigned int			(*get_batt_capacity_percent) (void);
+	int64_t				batt_id_min;
+	int64_t				batt_id_max;
 };
 
 enum pm8921_charger_source {

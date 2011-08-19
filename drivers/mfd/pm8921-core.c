@@ -429,6 +429,8 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		pdata->charger_pdata->charger_cdata.vbat_channel = CHANNEL_VBAT;
 		pdata->charger_pdata->charger_cdata.batt_temp_channel
 						= CHANNEL_BATT_THERM;
+		pdata->charger_pdata->charger_cdata.batt_id_channel
+						= CHANNEL_BATT_ID;
 		charger_cell.platform_data = pdata->charger_pdata;
 		charger_cell.pdata_size =
 				sizeof(struct pm8921_charger_platform_data);
