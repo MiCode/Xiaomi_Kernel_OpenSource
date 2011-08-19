@@ -3416,23 +3416,23 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	hdmi_msm_state->hdmi_app_clk = clk_get(NULL, "hdmi_app_clk");
+	hdmi_msm_state->hdmi_app_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_app_clk)) {
-		DEV_ERR("'hdmi_app_clk' clk not found\n");
+		DEV_ERR("'core_clk' clk not found\n");
 		rc = IS_ERR(hdmi_msm_state->hdmi_app_clk);
 		goto error;
 	}
 
-	hdmi_msm_state->hdmi_m_pclk = clk_get(NULL, "hdmi_m_pclk");
+	hdmi_msm_state->hdmi_m_pclk = clk_get(&pdev->dev, "master_iface_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_m_pclk)) {
-		DEV_ERR("'hdmi_m_pclk' clk not found\n");
+		DEV_ERR("'master_iface_clk' clk not found\n");
 		rc = IS_ERR(hdmi_msm_state->hdmi_m_pclk);
 		goto error;
 	}
 
-	hdmi_msm_state->hdmi_s_pclk = clk_get(NULL, "hdmi_s_pclk");
+	hdmi_msm_state->hdmi_s_pclk = clk_get(&pdev->dev, "slave_iface_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_s_pclk)) {
-		DEV_ERR("'hdmi_s_pclk' clk not found\n");
+		DEV_ERR("'slave_iface_clk' clk not found\n");
 		rc = IS_ERR(hdmi_msm_state->hdmi_s_pclk);
 		goto error;
 	}
