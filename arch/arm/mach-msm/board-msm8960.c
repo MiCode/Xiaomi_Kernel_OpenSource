@@ -1005,8 +1005,7 @@ static void __init msm8960_init_cam(void)
 #endif
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
-/* 960 x 540 x 3 x 2 */
-#define MIPI_DSI_WRITEBACK_SIZE 0x300000
+#define MIPI_DSI_WRITEBACK_SIZE (1024 * 600 * 3 * 2)
 #else
 #define MIPI_DSI_WRITEBACK_SIZE 0
 #endif
