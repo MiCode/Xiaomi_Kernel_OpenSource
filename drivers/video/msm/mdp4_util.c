@@ -509,10 +509,10 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			dma->waiting = FALSE;
 			spin_unlock(&mdp_spin_lock);
 			if (panel & MDP4_PANEL_LCDC)
-				mdp4_overlay0_done_lcdc();
+				mdp4_overlay0_done_lcdc(dma);
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 			else if (panel & MDP4_PANEL_DSI_VIDEO)
-				mdp4_overlay0_done_dsi_video();
+				mdp4_overlay0_done_dsi_video(dma);
 #endif
 		} else {        /* MDDI, DSI_CMD  */
 #ifdef CONFIG_FB_MSM_MIPI_DSI
