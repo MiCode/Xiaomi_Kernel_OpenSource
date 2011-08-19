@@ -407,7 +407,8 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	return ret;
 }
 
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
+			unsigned long flags)
 {
 	struct ion_buffer *buffer;
 	void *vaddr;
@@ -431,21 +432,38 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 		return ERR_PTR(-ENODEV);
 	}
 
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			vaddr = ERR_PTR(-EEXIST);
+			goto out;
+		}
+
+	} else {
+		buffer->flags = flags;
+	}
+
 	if (_ion_map(&buffer->kmap_cnt, &handle->kmap_cnt)) {
-		vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer);
+		vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer,
+							flags);
 		if (IS_ERR_OR_NULL(vaddr))
 			_ion_unmap(&buffer->kmap_cnt, &handle->kmap_cnt);
 		buffer->vaddr = vaddr;
 	} else {
 		vaddr = buffer->vaddr;
 	}
+
+out:
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 	return vaddr;
 }
 
 struct scatterlist *ion_map_dma(struct ion_client *client,
-				struct ion_handle *handle)
+				struct ion_handle *handle,
+				unsigned long flags)
 {
 	struct ion_buffer *buffer;
 	struct scatterlist *sglist;
@@ -467,6 +485,20 @@ struct scatterlist *ion_map_dma(struct ion_client *client,
 		mutex_unlock(&client->lock);
 		return ERR_PTR(-ENODEV);
 	}
+
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			sglist = ERR_PTR(-EEXIST);
+			goto out;
+		}
+
+	} else {
+		buffer->flags = flags;
+	}
+
 	if (_ion_map(&buffer->dmap_cnt, &handle->dmap_cnt)) {
 		sglist = buffer->heap->ops->map_dma(buffer->heap, buffer);
 		if (IS_ERR_OR_NULL(sglist))
@@ -475,6 +507,8 @@ struct scatterlist *ion_map_dma(struct ion_client *client,
 	} else {
 		sglist = buffer->sglist;
 	}
+
+out:
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 	return sglist;
@@ -774,6 +808,9 @@ static int ion_share_release(struct inode *inode, struct file* file)
 	struct ion_buffer *buffer = file->private_data;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
+	mutex_lock(&buffer->lock);
+	buffer->umap_cnt--;
+	mutex_unlock(&buffer->lock);
 	/* drop the reference to the buffer -- this prevents the
 	   buffer from going away because the client holding it exited
 	   while it was being passed */
@@ -840,6 +877,10 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	struct ion_client *client;
 	struct ion_handle *handle;
 	int ret;
+	unsigned long flags = file->f_flags & O_DSYNC ?
+				ION_SET_CACHE(UNCACHED) :
+				ION_SET_CACHE(CACHED);
+
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	/* make sure the client still exists, it's possible for the client to
@@ -875,13 +916,28 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	mutex_lock(&buffer->lock);
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			ret = -EEXIST;
+			mutex_unlock(&buffer->lock);
+			goto err1;
+		}
+
+	} else {
+		buffer->flags = flags;
+	}
 	/* now map it to userspace */
-	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
+	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma,
+						flags);
+	buffer->umap_cnt++;
 	mutex_unlock(&buffer->lock);
 	if (ret) {
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
-		goto err1;
+		goto err2;
 	}
 
 	vma->vm_ops = &ion_vm_ops;
@@ -895,8 +951,10 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 		 atomic_read(&buffer->ref.refcount));
 	return 0;
 
-err1:
+err2:
+	buffer->umap_cnt--;
 	/* drop the reference to the handle */
+err1:
 	ion_handle_put(handle);
 err:
 	/* drop the reference to the client */

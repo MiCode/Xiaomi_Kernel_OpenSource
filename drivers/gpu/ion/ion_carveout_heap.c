@@ -97,10 +97,13 @@ void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
 }
 
 void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
-				   struct ion_buffer *buffer)
+				   struct ion_buffer *buffer,
+				   unsigned long flags)
 {
-	return __arch_ioremap(buffer->priv_phys, buffer->size,
-			      MT_MEMORY_NONCACHED);
+	if (flags & ION_SET_CACHE(CACHED))
+		return ioremap(buffer->priv_phys, buffer->size);
+	else
+		return ioremap_cached(buffer->priv_phys, buffer->size);
 }
 
 void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
@@ -112,12 +115,18 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 }
 
 int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
-			       struct vm_area_struct *vma)
+			       struct vm_area_struct *vma, unsigned long flags)
 {
-	return remap_pfn_range(vma, vma->vm_start,
+	if (flags & ION_SET_CACHE(CACHED))
+		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
-			       pgprot_noncached(vma->vm_page_prot));
+			       vma->vm_page_prot);
+	else
+		return remap_pfn_range(vma, vma->vm_start,
+			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
+					buffer->size,
+					pgprot_noncached(vma->vm_page_prot));
 }
 
 static struct ion_heap_ops carveout_heap_ops = {

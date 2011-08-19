@@ -75,9 +75,15 @@ void ion_system_heap_unmap_dma(struct ion_heap *heap,
 }
 
 void *ion_system_heap_map_kernel(struct ion_heap *heap,
-				 struct ion_buffer *buffer)
+				 struct ion_buffer *buffer,
+				 unsigned long flags)
 {
-	return buffer->priv_virt;
+	if (flags & ION_SET_CACHE(CACHED))
+		return buffer->priv_virt;
+	else {
+		pr_err("%s: cannot map system heap uncached\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
 }
 
 void ion_system_heap_unmap_kernel(struct ion_heap *heap,
@@ -86,9 +92,15 @@ void ion_system_heap_unmap_kernel(struct ion_heap *heap,
 }
 
 int ion_system_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
-			     struct vm_area_struct *vma)
+			     struct vm_area_struct *vma, unsigned long flags)
 {
-	return remap_vmalloc_range(vma, buffer->priv_virt, vma->vm_pgoff);
+	if (flags & ION_SET_CACHE(CACHED))
+		return remap_vmalloc_range(vma, buffer->priv_virt,
+						vma->vm_pgoff);
+	else {
+		pr_err("%s: cannot map system heap uncached\n", __func__);
+		return -EINVAL;
+	}
 }
 
 static struct ion_heap_ops vmalloc_ops = {
@@ -159,13 +171,19 @@ struct scatterlist *ion_system_contig_heap_map_dma(struct ion_heap *heap,
 
 int ion_system_contig_heap_map_user(struct ion_heap *heap,
 				    struct ion_buffer *buffer,
-				    struct vm_area_struct *vma)
+				    struct vm_area_struct *vma,
+				    unsigned long flags)
 {
 	unsigned long pfn = __phys_to_pfn(virt_to_phys(buffer->priv_virt));
-	return remap_pfn_range(vma, vma->vm_start, pfn + vma->vm_pgoff,
+
+	if (flags & ION_SET_CACHE(CACHED))
+		return remap_pfn_range(vma, vma->vm_start, pfn + vma->vm_pgoff,
 			       vma->vm_end - vma->vm_start,
 			       vma->vm_page_prot);
-
+	else {
+		pr_err("%s: cannot map system heap uncached\n", __func__);
+		return -EINVAL;
+	}
 }
 
 static struct ion_heap_ops kmalloc_ops = {
