@@ -214,7 +214,7 @@ int pm8xxx_led_config(enum pm8xxx_leds led_id,
 	case PM8XXX_ID_LED_2:
 		led->cdev.max_brightness = max_current /
 						PM8XXX_ID_LED_CURRENT_FACTOR;
-		led->reg |= led_mode;
+		led->reg = led_mode;
 		break;
 	case PM8XXX_ID_LED_KB_LIGHT:
 	case PM8XXX_ID_FLASH_LED_0:
@@ -225,20 +225,16 @@ int pm8xxx_led_config(enum pm8xxx_leds led_id,
 		case PM8XXX_LED_MODE_PWM1:
 		case PM8XXX_LED_MODE_PWM2:
 		case PM8XXX_LED_MODE_PWM3:
-			led->reg |=
-				PM8XXX_FLASH_MODE_PWM;
+			led->reg = PM8XXX_FLASH_MODE_PWM;
 			break;
 		case PM8XXX_LED_MODE_DTEST1:
-			led->reg |=
-				PM8XXX_FLASH_MODE_DBUS1;
+			led->reg = PM8XXX_FLASH_MODE_DBUS1;
 			break;
 		case PM8XXX_LED_MODE_DTEST2:
-			led->reg |=
-				PM8XXX_FLASH_MODE_DBUS2;
+			led->reg = PM8XXX_FLASH_MODE_DBUS2;
 			break;
 		default:
-			led->reg |=
-				PM8XXX_LED_MODE_MANUAL;
+			led->reg = PM8XXX_LED_MODE_MANUAL;
 			break;
 		}
 		break;
@@ -250,7 +246,7 @@ int pm8xxx_led_config(enum pm8xxx_leds led_id,
 
 	mutex_unlock(&led->lock);
 
-	if (!rc)
+	if (!rc && led_mode != PM8XXX_LED_MODE_MANUAL)
 		pm8xxx_led_set(&led->cdev, led->cdev.max_brightness);
 
 	return rc;
