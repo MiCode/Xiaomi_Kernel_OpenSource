@@ -3381,7 +3381,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->plat = plat;
 	host->mmc = mmc;
 	host->curr.cmd = NULL;
-	if (bam_memres && dml_memres && bam_irqres)
+
+	if (!plat->disable_bam && bam_memres && dml_memres && bam_irqres)
 		host->is_sps_mode = 1;
 	else if (dmares)
 		host->is_dma_mode = 1;
