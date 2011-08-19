@@ -67,6 +67,9 @@
 #include <linux/mfd/wcd9310/pdata.h>
 #endif
 
+#include <linux/ion.h>
+#include <mach/ion.h>
+
 #include "timer.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -673,6 +676,8 @@ static struct msm_cam_expander_info cam_expander_info[] = {
 #define MSM_PMEM_AUDIO_SIZE        0x28B000
 #define MSM_PMEM_SIZE 0x1800000 /* 24 Mbytes */
 
+#define MSM_ION_EBI_SIZE	SZ_8M
+
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
 static int __init pmem_kernel_ebi1_size_setup(char *p)
@@ -791,10 +796,48 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 	return MEMTYPE_EBI1;
 }
 
+#ifdef CONFIG_ION_MSM
+struct ion_platform_data ion_pdata = {
+	.nr = 3,
+	.heaps = {
+		{
+			.id	= ION_HEAP_SYSTEM_ID,
+			.type	= ION_HEAP_TYPE_SYSTEM,
+			.name	= ION_KMALLOC_HEAP_NAME,
+		},
+		{
+			.id	= ION_HEAP_SYSTEM_CONTIG_ID,
+			.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
+			.name	= ION_VMALLOC_HEAP_NAME,
+		},
+		{
+			.id	= ION_HEAP_EBI_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_EBI1_HEAP_NAME,
+			.size	= MSM_ION_EBI_SIZE,
+			.memory_type = ION_EBI_TYPE,
+		},
+	}
+};
+
+struct platform_device ion_dev = {
+	.name = "ion-msm",
+	.id = 1,
+	.dev = { .platform_data = &ion_pdata },
+};
+#endif
+
+static void reserve_ion_memory(void)
+{
+#ifdef CONFIG_ION_MSM
+	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_EBI_SIZE;
+#endif
+}
 static void __init msm8960_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
+	reserve_ion_memory();
 }
 
 static struct reserve_info msm8960_reserve_info __initdata = {
@@ -2754,6 +2797,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_rng,
 #endif
 	&msm_rpm_device,
+#ifdef CONFIG_ION_MSM
+	&ion_dev,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
