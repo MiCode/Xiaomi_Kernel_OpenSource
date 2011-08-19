@@ -50,6 +50,7 @@
 #include <mach/mdm.h>
 #include <mach/rpm.h>
 #include <mach/board.h>
+#include <sound/apr_audio.h>
 #include "rpm_stats.h"
 #include "mpm.h"
 
@@ -2235,6 +2236,83 @@ struct platform_device msm_bus_sys_fpb = {
 struct platform_device msm_bus_cpss_fpb = {
 	.name  = "msm_bus_fabric",
 	.id    = MSM_BUS_FAB_CPSS_FPB,
+};
+#endif
+
+#ifdef CONFIG_SND_SOC_MSM8660_APQ
+struct platform_device msm_pcm = {
+	.name   = "msm-pcm-dsp",
+	.id     = -1,
+};
+
+struct platform_device msm_pcm_routing = {
+	.name   = "msm-pcm-routing",
+	.id     = -1,
+};
+
+struct platform_device msm_cpudai0 = {
+	.name   = "msm-dai-q6",
+	.id     = PRIMARY_I2S_RX,
+};
+
+struct platform_device msm_cpudai1 = {
+	.name   = "msm-dai-q6",
+	.id     = PRIMARY_I2S_TX,
+};
+
+struct platform_device msm_cpudai_hdmi_rx = {
+	.name   = "msm-dai-q6",
+	.id     = HDMI_RX,
+};
+
+struct platform_device msm_cpudai_bt_rx = {
+	.name   = "msm-dai-q6",
+	.id     = INT_BT_SCO_RX,
+};
+
+struct platform_device msm_cpudai_bt_tx = {
+	.name   = "msm-dai-q6",
+	.id     = INT_BT_SCO_TX,
+};
+
+struct platform_device msm_cpudai_fm_rx = {
+	.name   = "msm-dai-q6",
+	.id     = INT_FM_RX,
+};
+
+struct platform_device msm_cpudai_fm_tx = {
+	.name   = "msm-dai-q6",
+	.id     = INT_FM_TX,
+};
+
+struct platform_device msm_cpu_fe = {
+	.name   = "msm-dai-fe",
+	.id     = -1,
+};
+
+struct platform_device msm_stub_codec = {
+	.name   = "msm-stub-codec",
+	.id     = 1,
+};
+
+struct platform_device msm_voice = {
+	.name   = "msm-pcm-voice",
+	.id     = -1,
+};
+
+struct platform_device msm_voip = {
+	.name   = "msm-voip-dsp",
+	.id     = -1,
+};
+
+struct platform_device msm_lpa_pcm = {
+	.name   = "msm-pcm-lpa",
+	.id     = -1,
+};
+
+struct platform_device msm_pcm_hostless = {
+	.name   = "msm-pcm-hostless",
+	.id     = -1,
 };
 #endif
 
