@@ -23,6 +23,7 @@
 #include "devices.h"
 
 /* Address of GSBI blocks */
+#define MSM_GSBI1_PHYS		0x12440000
 #define MSM_GSBI3_PHYS		0x16200000
 #define MSM_GSBI4_PHYS		0x16300000
 #define MSM_GSBI5_PHYS		0x1A200000
@@ -30,6 +31,7 @@
 #define MSM_GSBI7_PHYS		0x16600000
 
 /* GSBI UART devices */
+#define MSM_UART1DM_PHYS	(MSM_GSBI1_PHYS + 0x10000)
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
 
 /* GSBI QUP devices */
@@ -63,6 +65,33 @@ struct platform_device apq8064_device_dmov = {
 	.id	= -1,
 	.resource = msm_dmov_resource,
 	.num_resources = ARRAY_SIZE(msm_dmov_resource),
+};
+
+static struct resource resources_uart_gsbi1[] = {
+	{
+		.start	= APQ8064_GSBI1_UARTDM_IRQ,
+		.end	= APQ8064_GSBI1_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART1DM_PHYS,
+		.end	= MSM_UART1DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI1_PHYS,
+		.end	= MSM_GSBI1_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq8064_device_uart_gsbi1 = {
+	.name	= "msm_serial_hsl",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi1),
+	.resource	= resources_uart_gsbi1,
 };
 
 static struct resource resources_uart_gsbi3[] = {
