@@ -165,4 +165,6 @@ extern struct platform_device msm_device_touchscreen;
 
 extern struct pil_device peripheral_dsps;
 extern struct platform_device led_pdev;
+
+extern struct platform_device ion_dev;
 #endif

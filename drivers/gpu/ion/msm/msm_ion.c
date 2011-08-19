@@ -14,6 +14,9 @@
 #include <linux/ion.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/memory_alloc.h>
+#include <mach/ion.h>
+#include <mach/msm_memtypes.h>
 #include "../ion_priv.h"
 
 struct ion_device *idev;
@@ -24,6 +27,22 @@ struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 					const char *name)
 {
 	return ion_client_create(idev, heap_mask, name);
+}
+EXPORT_SYMBOL(msm_ion_client_create);
+
+static unsigned long msm_ion_get_base(unsigned long size, int memory_type)
+{
+	switch (memory_type) {
+	case ION_EBI_TYPE:
+		return allocate_contiguous_ebi_nomap(size, PAGE_SIZE);
+		break;
+	case ION_SMI_TYPE:
+		return allocate_contiguous_memory_nomap(size, MEMTYPE_SMI,
+							PAGE_SIZE);
+		break;
+	default:
+		return 0;
+	}
 }
 
 static int msm_ion_probe(struct platform_device *pdev)
@@ -50,6 +69,17 @@ static int msm_ion_probe(struct platform_device *pdev)
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
+
+		if (heap_data->type == ION_HEAP_TYPE_CARVEOUT) {
+			heap_data->base = msm_ion_get_base(heap_data->size,
+							heap_data->memory_type);
+			if (!heap_data->base) {
+				pr_err("%s: could not get memory for heap %s"
+					" (id %x)\n", __func__, heap_data->name,
+					heap_data->id);
+				continue;
+			}
+		}
 
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {

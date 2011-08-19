@@ -18,6 +18,7 @@
 #define _LINUX_ION_H
 
 #include <linux/types.h>
+#include <mach/ion.h>
 
 struct ion_handle;
 /**
@@ -41,6 +42,25 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
+
+
+/**
+ * These are the only ids that should be used for Ion heap ids.
+ * The ids listed are the order in which allocation will be attempted
+ * if specified. Don't swap the order of heap ids unless you know what
+ * you are doing!
+ */
+
+enum ion_heap_ids {
+	ION_HEAP_SYSTEM_ID,
+	ION_HEAP_SYSTEM_CONTIG_ID,
+	ION_HEAP_EBI_ID,
+	ION_HEAP_SMI_ID,
+};
+
+#define ION_KMALLOC_HEAP_NAME	"kmalloc"
+#define ION_VMALLOC_HEAP_NAME	"vmalloc"
+#define ION_EBI1_HEAP_NAME	"EBI1"
 
 #ifdef __KERNEL__
 struct ion_device;
@@ -72,6 +92,7 @@ struct ion_platform_heap {
 	const char *name;
 	ion_phys_addr_t base;
 	size_t size;
+	enum ion_memory_types memory_type;
 };
 
 /**
