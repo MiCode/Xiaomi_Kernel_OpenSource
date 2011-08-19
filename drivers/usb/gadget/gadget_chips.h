@@ -120,7 +120,11 @@
 #define gadget_is_ci13xxx_pci(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_DWC3
 #define gadget_is_dwc3(g)		(!strcmp("dwc3-gadget", (g)->name))
+#else
+#define gadget_is_dwc3(g)	0
+#endif
 
 #ifdef CONFIG_USB_GADGET_MSM_72K
 #define	gadget_is_msm72k(g)	!strcmp("msm72k_udc", (g)->name)
