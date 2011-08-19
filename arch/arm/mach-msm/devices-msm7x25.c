@@ -925,7 +925,7 @@ static DEFINE_CLK_PCOM(vfe_clk,		VFE_CLK, OFF);
 static DEFINE_CLK_PCOM(vfe_mdc_clk,	VFE_MDC_CLK, OFF);
 
 struct clk_lookup msm_clocks_7x25[] = {
-	CLK_LOOKUP("adm_clk",		adm_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		adm_clk.c,	"msm_dmov"),
 	CLK_LOOKUP("adsp_clk",		adsp_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
 	CLK_LOOKUP("ebi2_clk",		ebi2_clk.c,	NULL),

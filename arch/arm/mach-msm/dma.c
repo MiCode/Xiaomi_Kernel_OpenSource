@@ -690,20 +690,20 @@ static int msm_dmov_init_clocks(struct platform_device *pdev)
 	int adm = (pdev->id >= 0) ? pdev->id : 0;
 	int ret;
 
-	dmov_conf[adm].clk = clk_get(&pdev->dev, "adm_clk");
+	dmov_conf[adm].clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(dmov_conf[adm].clk)) {
 		printk(KERN_ERR "%s: Error getting adm_clk\n", __func__);
 		dmov_conf[adm].clk = NULL;
 		return -ENOENT;
 	}
 
-	dmov_conf[adm].pclk = clk_get(&pdev->dev, "adm_pclk");
+	dmov_conf[adm].pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(dmov_conf[adm].pclk)) {
 		dmov_conf[adm].pclk = NULL;
 		/* pclk not present on all SoCs, don't bail on failure */
 	}
 
-	dmov_conf[adm].ebiclk = clk_get(&pdev->dev, "ebi1_clk");
+	dmov_conf[adm].ebiclk = clk_get(&pdev->dev, "mem_clk");
 	if (IS_ERR(dmov_conf[adm].ebiclk)) {
 		dmov_conf[adm].ebiclk = NULL;
 		/* ebiclk not present on all SoCs, don't bail on failure */
