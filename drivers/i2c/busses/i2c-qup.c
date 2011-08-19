@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
+#include <mach/socinfo.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
@@ -303,6 +304,30 @@ qup_update_state(struct qup_i2c_dev *dev, uint32_t state)
 	return 0;
 }
 
+/*
+ * Before calling qup_config_core_on_en(), please make
+ * sure that QuPE core is in RESET state.
+ *
+ * Configuration of CORE_ON_EN - BIT13 in QUP_CONFIG register
+ * is only required for targets like 7x27a, where it needs
+ * be turned on for disabling the QuPE pclks.
+ */
+static void
+qup_config_core_on_en(struct qup_i2c_dev *dev)
+{
+	uint32_t status;
+
+	if (!(cpu_is_msm7x27a() || cpu_is_msm7x27aa() ||
+		 cpu_is_msm7x25a() || cpu_is_msm7x25aa()))
+		return;
+
+	status = readl_relaxed(dev->base + QUP_CONFIG);
+	status |= BIT(13);
+	writel_relaxed(status, dev->base + QUP_CONFIG);
+	/* making sure that write has really gone through */
+	mb();
+}
+
 static void
 qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
@@ -313,6 +338,7 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 	} else {
 		qup_update_state(dev, QUP_RESET_STATE);
 		clk_disable_unprepare(dev->clk);
+		qup_config_core_on_en(dev);
 		clk_disable_unprepare(dev->pclk);
 	}
 }
