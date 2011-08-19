@@ -527,8 +527,21 @@ static void ehci_stop (struct usb_hcd *hcd)
 
 	/* root hub is shut down separately (first, when possible) */
 	spin_lock_irq (&ehci->lock);
-	if (ehci->async)
+	if (ehci->async) {
+		/*
+		 * TODO: Observed that ehci->async next ptr is not
+		 * NULL sometimes which leads to crash in mem_cleanup.
+		 * Root cause is not yet known why this messup is
+		 * happenning.
+		 * The follwing workaround fixes the crash caused
+		 * by this temporarily.
+		 * check if async next ptr is not NULL and unlink
+		 * explictly.
+		 */
+		if (ehci->async->qh_next.ptr != NULL)
+			start_unlink_async(ehci, ehci->async->qh_next.qh);
 		ehci_work (ehci);
+	}
 	spin_unlock_irq (&ehci->lock);
 	ehci_mem_cleanup (ehci);
 
