@@ -476,6 +476,7 @@ static void bms_notify(struct work_struct *work)
 
 static enum power_supply_property pm_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static char *pm_power_supplied_to[] = {
@@ -490,6 +491,7 @@ static int pm_power_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
+	case POWER_SUPPLY_PROP_ONLINE:
 		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
 			chip = container_of(psy, struct pm8921_chg_chip,
 							dc_psy);
