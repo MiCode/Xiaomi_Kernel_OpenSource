@@ -400,7 +400,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 			uint32_t *timestamp,
 			unsigned int ctrl)
 {
-	unsigned int result = 0;
+	long result = 0;
 	unsigned int ofs        = PACKETSIZE_STATESTREAM * sizeof(unsigned int);
 	unsigned int cnt        = 5;
 	unsigned int nextaddr   = 0;
@@ -447,7 +447,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 				  msecs_to_jiffies(KGSL_TIMEOUT_DEFAULT));
 	if (result < 0) {
 		KGSL_CMD_ERR(device, "wait_event_interruptible_timeout "
-			"failed: %d\n", result);
+			"failed: %ld\n", result);
 		goto error;
 	}
 	result = 0;
@@ -483,7 +483,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, cmd);
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, 0);
 error:
-	return result;
+	return (int)result;
 }
 
 static int z180_ringbuffer_init(struct kgsl_device *device)
