@@ -1417,6 +1417,14 @@ config MSM_LPASS_8960
 	 lpass hardware watchdog interrupt lines and plugs into the subsystem
 	 restart and PIL drivers.
 
+config MSM_WCNSS_SSR_8960
+	tristate "MSM 8960 WCNSS restart module"
+	depends on (ARCH_MSM8960)
+	help
+	 This option enables the WCNSS restart module for MSM8960, which
+	 monitors WCNSS hardware watchdog interrupt lines and plugs WCNSS
+	 into the subsystem restart framework.
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
