@@ -393,6 +393,8 @@ struct sdio_al_device {
 	int ch_close_supported;
 	int state;
 	int (*lpm_callback)(void *, int);
+
+	int print_after_interrupt;
 };
 
 /*
@@ -446,7 +448,7 @@ static u32 remove_handled_rx_packet(struct sdio_channel *ch);
 static int set_pipe_threshold(struct sdio_al_device *sdio_al_dev,
 			      int pipe_index, int threshold);
 static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
-			   u32 not_from_int);
+			   u32 not_from_int, struct sdio_channel *ch);
 static int sdio_al_client_setup(struct sdio_al_device *sdio_al_dev);
 static int enable_mask_irq(struct sdio_al_device *sdio_al_dev,
 			   int func_num, int enable, u8 bit_offset);
@@ -633,10 +635,10 @@ static void sdio_al_vote_for_sleep(struct sdio_al_device *sdio_al_dev,
 	}
 
 	if (is_vote_for_sleep) {
-		LPM_DEBUG(MODULE_NAME ": %s - sdio vote for Sleep", __func__);
+		pr_debug(MODULE_NAME ": %s - sdio vote for Sleep", __func__);
 		wake_unlock(&sdio_al_dev->wake_lock);
 	} else {
-		LPM_DEBUG(MODULE_NAME ": %s - sdio vote against sleep",
+		pr_debug(MODULE_NAME ": %s - sdio vote against sleep",
 			  __func__);
 		wake_lock(&sdio_al_dev->wake_lock);
 	}
@@ -749,7 +751,7 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 	int i;
 
 	/* Go to sleep */
-	LPM_DEBUG(MODULE_NAME  ":Inactivity timer expired."
+	pr_debug(MODULE_NAME  ":Inactivity timer expired."
 		" Going to sleep\n");
 	/* Stop mailbox timer */
 	sdio_al_dev->poll_delay_msec = 0;
@@ -917,8 +919,20 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 		ch->statistics.last_old_read_avail = old_read_avail;
 
 		if (ch->is_packet_mode) {
+			if ((eot_pipe & (1<<ch->rx_pipe_index)) &&
+			    sdio_al_dev->print_after_interrupt) {
+				LPM_DEBUG(MODULE_NAME ":Interrupt on ch %s, "
+					  "card %d", ch->name,
+					  sdio_al_dev->card->host->index);
+			}
 			new_packet_size = check_pending_rx_packet(ch, eot_pipe);
 		} else {
+			if ((thresh_pipe & (1<<ch->rx_pipe_index)) &&
+			    sdio_al_dev->print_after_interrupt) {
+				LPM_DEBUG(MODULE_NAME ":Interrupt on ch %s, "
+					  "card %d", ch->name,
+					  sdio_al_dev->card->host->index);
+			}
 			ch->read_avail = read_avail;
 			/* Restore default thresh for non packet channels */
 			if ((ch->read_threshold != ch->def_read_threshold) &&
@@ -941,6 +955,7 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 			ch->statistics.total_notifs++;
 		}
 	}
+	sdio_al_dev->print_after_interrupt = 0;
 
 	/* Update Write available */
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
@@ -1212,7 +1227,7 @@ static void worker(struct work_struct *work)
 			break;
 		sdio_claim_host(sdio_al_dev->card->sdio_func[0]);
 		if (sdio_al_dev->is_ok_to_sleep) {
-			ret = sdio_al_wake_up(sdio_al_dev, 1);
+			ret = sdio_al_wake_up(sdio_al_dev, 1, NULL);
 			if (ret) {
 				sdio_release_host(
 					sdio_al_dev->card->sdio_func[0]);
@@ -2067,7 +2082,7 @@ static void restart_timer(struct sdio_al_device *sdio_al_dev)
  *  5. Start the mailbox and inactivity timer again
  */
 static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
-			   u32 not_from_int)
+			   u32 not_from_int, struct sdio_channel *ch)
 {
 	int ret = 0;
 	struct sdio_func *wk_func =
@@ -2080,21 +2095,30 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 		return -ENODEV;
 	}
 
-	/* Wake up sequence */
-	if (not_from_int) {
-		LPM_DEBUG(MODULE_NAME ": Wake up card %d (not by interrupt)",
-			sdio_al_dev->card->host->index);
-	} else {
-		LPM_DEBUG(MODULE_NAME ": Wake up card %d by interrupt",
-			sdio_al_dev->card->host->index);
-	}
-
 	if (!sdio_al_dev->is_ok_to_sleep) {
 		LPM_DEBUG(MODULE_NAME ":card %d already awake, "
 					  "no need to wake up\n",
 			sdio_al_dev->card->host->index);
 		return 0;
 	}
+
+	/* Wake up sequence */
+	if (not_from_int) {
+		if (ch) {
+			LPM_DEBUG(MODULE_NAME ": Wake up card %d (not by "
+				  "interrupt), ch %s",
+				  sdio_al_dev->card->host->index, ch->name);
+		} else {
+			LPM_DEBUG(MODULE_NAME ": Wake up card %d (not "
+				  "by interrupt)",
+				  sdio_al_dev->card->host->index);
+		}
+	} else {
+		LPM_DEBUG(MODULE_NAME ": Wake up card %d by interrupt",
+			sdio_al_dev->card->host->index);
+		sdio_al_dev->print_after_interrupt = 1;
+	}
+
 	sdio_al_vote_for_sleep(sdio_al_dev, 0);
 
 	msmsdcc_lpm_disable(host);
@@ -2107,7 +2131,7 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 		udelay(TIME_TO_WAIT_US);
 	}
 
-	LPM_DEBUG(MODULE_NAME ":GPIO mdm2ap_status=%d\n",
+	pr_debug(MODULE_NAME ":GPIO mdm2ap_status=%d\n",
 		       sdio_al->pdata->get_mdm2ap_status());
 
 	/* Here get_mdm2ap_status() returning 0 is not an error condition */
@@ -2181,7 +2205,7 @@ static void sdio_func_irq(struct sdio_func *func)
 	}
 
 	if (sdio_al_dev->is_ok_to_sleep)
-		sdio_al_wake_up(sdio_al_dev, 0);
+		sdio_al_wake_up(sdio_al_dev, 0, NULL);
 	else
 		restart_timer(sdio_al_dev);
 
@@ -2432,7 +2456,7 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 		goto exit_err;
 	}
 
-	ret = sdio_al_wake_up(sdio_al_dev, 1);
+	ret = sdio_al_wake_up(sdio_al_dev, 1, ch);
 	if (ret)
 		goto exit_err;
 
@@ -2496,7 +2520,7 @@ static int peer_set_operation(u32 opcode,
 		sizeof(struct peer_sdioc_channel_config) * ch->num +
 		offsetof(struct peer_sdioc_channel_config, peer_operation);
 
-	ret = sdio_al_wake_up(sdio_al_dev, 1);
+	ret = sdio_al_wake_up(sdio_al_dev, 1, ch);
 	if (ret) {
 		pr_err(MODULE_NAME ":Fail to wake up\n");
 		goto exit;
@@ -2935,7 +2959,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 	}
 
 	if (sdio_al_dev->is_ok_to_sleep) {
-		ret = sdio_al_wake_up(sdio_al_dev, 1);
+		ret = sdio_al_wake_up(sdio_al_dev, 1, ch);
 		if (ret) {
 			sdio_release_host(sdio_al_dev->card->sdio_func[0]);
 			return ret;
@@ -3658,7 +3682,7 @@ static int sdio_al_subsys_notifier_cb(struct notifier_block *this,
 				pr_debug(MODULE_NAME ": %s: wakeup modem for "
 						    "card %d", __func__,
 					sdio_al_dev->card->host->index);
-				ret = sdio_al_wake_up(sdio_al_dev, 1);
+				ret = sdio_al_wake_up(sdio_al_dev, 1, NULL);
 				if (ret == 0) {
 					pr_info(MODULE_NAME ": %s: "
 							    "sdio_release_irq"
