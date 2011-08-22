@@ -1449,7 +1449,7 @@ static int _setup_cmd_template(struct qce_device *pce_dev)
 	pce_dev->ce_out_ignore = (unsigned char *) vaddr;
 	pce_dev->phy_ce_out_ignore  = pce_dev->coh_pmem
 			+ (vaddr - pce_dev->coh_vmem);
-	pce_dev->ce_out_ignore_size = PAGE_SIZE - (vaddr -
+	pce_dev->ce_out_ignore_size = (2 * PAGE_SIZE) - (vaddr -
 			pce_dev->coh_vmem);  /* at least 1.5 K of space */
 	/*
 	 * The first command of command list ce_in is for the input of
@@ -2036,4 +2036,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.04");
+MODULE_VERSION("2.05");
