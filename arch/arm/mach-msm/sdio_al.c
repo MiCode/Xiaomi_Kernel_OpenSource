@@ -2596,7 +2596,7 @@ int sdio_close(struct sdio_channel *ch)
 	if (sdio_al_verify_dev(sdio_al_dev, __func__))
 		return -ENODEV;
 
-	if (!sdio_al_dev->ch_close_supported || !ch->is_packet_mode) {
+	if (!sdio_al_dev->ch_close_supported) {
 		pr_info(MODULE_NAME ":%s: Not supported by mdm, ch %s\n",
 				__func__, ch->name);
 		return -ENOTSUPP;
