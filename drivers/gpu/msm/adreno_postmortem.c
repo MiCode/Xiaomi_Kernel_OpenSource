@@ -25,6 +25,7 @@
 #include "a2xx_reg.h"
 
 #define INVALID_RB_CMD 0xaaaaaaaa
+#define NUM_DWORDS_OF_RINGBUFFER_HISTORY 100
 
 struct pm_id_name {
 	uint32_t id;
@@ -536,7 +537,12 @@ static int adreno_dump(struct kgsl_device *device)
 	kgsl_regread(device, REG_CP_RB_RPTR_ADDR, &r3);
 	KGSL_LOG_DUMP(device,
 		"CP_RB:  BASE = %08X | CNTL   = %08X | RPTR_ADDR = %08X"
-		"\n", cp_rb_base, r2, r3);
+		" | rb_count = %08X\n", cp_rb_base, r2, r3, rb_count);
+	{
+		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+		if (rb->sizedwords != rb_count)
+			rb_count = rb->sizedwords;
+	}
 
 	kgsl_regread(device, REG_CP_RB_RPTR, &cp_rb_rptr);
 	kgsl_regread(device, REG_CP_RB_WPTR, &cp_rb_wptr);
@@ -683,13 +689,13 @@ static int adreno_dump(struct kgsl_device *device)
 		goto error_vfree;
 	}
 
-	read_idx = (int)cp_rb_rptr - 64;
+	read_idx = (int)cp_rb_rptr - NUM_DWORDS_OF_RINGBUFFER_HISTORY;
 	if (read_idx < 0)
 		read_idx += rb_count;
 	write_idx = (int)cp_rb_wptr + 16;
 	if (write_idx > rb_count)
 		write_idx -= rb_count;
-	num_item += 64+16;
+	num_item += NUM_DWORDS_OF_RINGBUFFER_HISTORY+16;
 	if (num_item > rb_count)
 		num_item = rb_count;
 	if (write_idx >= read_idx)
@@ -736,7 +742,7 @@ static int adreno_dump(struct kgsl_device *device)
 	   the process in whose context the GPU hung */
 	cur_pt_base = pt_base;
 
-	read_idx = (int)cp_rb_rptr - 64;
+	read_idx = (int)cp_rb_rptr - NUM_DWORDS_OF_RINGBUFFER_HISTORY;
 	if (read_idx < 0)
 		read_idx += rb_count;
 	KGSL_LOG_DUMP(device,
@@ -745,13 +751,14 @@ static int adreno_dump(struct kgsl_device *device)
 	adreno_dump_rb(device, rb_copy, num_item<<2, read_idx, rb_count);
 
 	if (adreno_ib_dump_enabled()) {
-		for (read_idx = 64; read_idx >= 0; --read_idx) {
+		for (read_idx = NUM_DWORDS_OF_RINGBUFFER_HISTORY;
+			read_idx >= 0; --read_idx) {
 			uint32_t this_cmd = rb_copy[read_idx];
 			if (this_cmd == cp_type3_packet(
 				CP_INDIRECT_BUFFER_PFD, 2)) {
 				uint32_t ib_addr = rb_copy[read_idx+1];
 				uint32_t ib_size = rb_copy[read_idx+2];
-				if (cp_ib1_bufsz && cp_ib1_base == ib_addr) {
+				if (ib_size && cp_ib1_base == ib_addr) {
 					KGSL_LOG_DUMP(device,
 						"IB1: base:%8.8X  "
 						"count:%d\n", ib_addr, ib_size);
@@ -762,9 +769,9 @@ static int adreno_dump(struct kgsl_device *device)
 			}
 		}
 		for (i = 0; i < ib_list.count; ++i) {
-			if (cp_ib2_bufsz && cp_ib2_base == ib_list.bases[i]) {
-				uint32_t ib_size = ib_list.sizes[i];
-				uint32_t ib_offset = ib_list.offsets[i];
+			uint32_t ib_size = ib_list.sizes[i];
+			uint32_t ib_offset = ib_list.offsets[i];
+			if (ib_size && cp_ib2_base == ib_list.bases[i]) {
 				KGSL_LOG_DUMP(device,
 					"IB2: base:%8.8X  count:%d\n",
 					cp_ib2_base, ib_size);
