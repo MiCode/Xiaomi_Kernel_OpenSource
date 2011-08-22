@@ -195,8 +195,10 @@ int marimba_write_bit_mask(struct marimba *marimba, u8 reg, u8 *value,
 		for (i = 0; i < num_bytes; i++)
 			marimba_shadow[marimba->mod_id][reg + i]
 							= mask_value[i];
-	} else
+	} else {
 		dev_err(&marimba->client->dev, "i2c write failed\n");
+		ret = -ENODEV;
+	}
 
 	mutex_unlock(&marimba->xfer_lock);
 
@@ -265,8 +267,10 @@ int marimba_read_bit_mask(struct marimba *marimba, u8 reg, u8 *value,
 			marimba_shadow[marimba->mod_id][reg + i] = value[i];
 			value[i] &= mask;
 		}
-	} else
+	} else {
 		dev_err(&marimba->client->dev, "i2c read failed\n");
+		ret = -ENODEV;
+	}
 
 	mutex_unlock(&marimba->xfer_lock);
 
