@@ -3022,9 +3022,111 @@ static int __devexit msm_sdio_al_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void msm_sdio_al_shutdown(struct platform_device *pdev)
+{
+	int i, j;
+	struct sdio_func *func1 = NULL;
+	int ret;
+
+	pr_info("Initiating msm_sdio_al_shutdown...");
+
+	for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES; i++) {
+		struct sdio_al_device *sdio_al_dev = NULL;
+		if (sdio_al->devices[i] == NULL) {
+			pr_debug(MODULE_NAME ": %s: NULL device in index %d",
+			__func__, i);
+			continue;
+		}
+		sdio_al_dev = sdio_al->devices[i];
+		if (sdio_al_dev->state == CARD_REMOVED) {
+			pr_info(MODULE_NAME ": %s: card %d is already removed",
+				__func__, sdio_al_dev->card->host->index);
+			continue;
+		}
+		if (sdio_al_dev->state == MODEM_RESTART) {
+			pr_info(MODULE_NAME ": %s: card %d was already "
+					    "notified for modem reset",
+				__func__, sdio_al_dev->card->host->index);
+			continue;
+		}
+
+		pr_info(MODULE_NAME ": %s: Set the state to MODEM_RESTART"
+			" for card %d",
+			__func__, sdio_al_dev->card->host->index);
+		sdio_al_dev->state = MODEM_RESTART;
+		sdio_al_dev->is_ready = false;
+
+		/* Stop mailbox timer */
+		if (sdio_al_dev->is_timer_initialized) {
+			pr_debug(MODULE_NAME ": %s: Stop timer for card %d",
+				__func__, sdio_al_dev->card->host->index);
+			sdio_al_dev->poll_delay_msec = 0;
+			del_timer_sync(&sdio_al_dev->timer);
+		}
+	}
+
+	for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES; i++) {
+		struct sdio_al_device *sdio_al_dev;
+		if (sdio_al->devices[i] == NULL) {
+			pr_debug(MODULE_NAME ": %s: NULL device in index %d",
+			__func__, i);
+			continue;
+		}
+		sdio_al_dev = sdio_al->devices[i];
+
+		if (!sdio_al_verify_func1(sdio_al_dev, __func__)) {
+			func1 = sdio_al_dev->card->sdio_func[0];
+			sdio_claim_host(func1);
+
+			if ((sdio_al_dev->is_ok_to_sleep) &&
+			    (!sdio_al_dev->is_err)) {
+				pr_debug(MODULE_NAME ": %s: wakeup modem for "
+						    "card %d", __func__,
+					sdio_al_dev->card->host->index);
+				ret = sdio_al_wake_up(sdio_al_dev, 1, NULL);
+				if (ret == 0) {
+					pr_info(MODULE_NAME ": %s: "
+							    "sdio_release_irq"
+							    " for card %d",
+						__func__,
+						sdio_al_dev->card->host->index);
+					sdio_release_irq(func1);
+				}
+			} else {
+				pr_debug(MODULE_NAME ": %s: sdio_release_irq"
+						    " for card %d",
+					__func__,
+					sdio_al_dev->card->host->index);
+				sdio_release_irq(func1);
+			}
+		}
+
+		pr_debug(MODULE_NAME ": %s: Notifying SDIO clients for card %d",
+				__func__, sdio_al_dev->card->host->index);
+		if (!sdio_al->unittest_mode)
+			for (j = 0; j < SDIO_AL_MAX_CHANNELS; j++) {
+				if (sdio_al_dev->channel[j].state ==
+					SDIO_CHANNEL_STATE_INVALID)
+					continue;
+				platform_device_unregister(
+					sdio_al_dev->channel[j].pdev);
+				sdio_al_dev->channel[i].signature = 0x0;
+			}
+
+		if (!sdio_al_verify_func1(sdio_al_dev, __func__))
+			sdio_release_host(sdio_al_dev->card->sdio_func[0]);
+
+		pr_debug(MODULE_NAME ": %s: Allows sleep for card %d", __func__,
+			sdio_al_dev->card->host->index);
+		sdio_al_vote_for_sleep(sdio_al_dev, 1);
+	}
+	pr_info("msm_sdio_al_shutdown complete.");
+}
+
 static struct platform_driver msm_sdio_al_driver = {
 	.probe          = msm_sdio_al_probe,
 	.remove         = __exit_p(msm_sdio_al_remove),
+	.shutdown	= msm_sdio_al_shutdown,
 	.driver         = {
 		.name   = "msm_sdio_al",
 	},
@@ -3619,107 +3721,14 @@ static int sdio_al_subsys_notifier_cb(struct notifier_block *this,
 				  unsigned long notif_type,
 				  void *data)
 {
-	int i, j;
-	struct sdio_func *func1 = NULL;
-	int ret;
-
 	if (notif_type != SUBSYS_BEFORE_SHUTDOWN) {
 		pr_info(MODULE_NAME ": %s: got notification %ld",
 			__func__, notif_type);
 		return NOTIFY_DONE;
 	}
 
-	for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES; i++) {
-		struct sdio_al_device *sdio_al_dev = NULL;
-		if (sdio_al->devices[i] == NULL) {
-			pr_debug(MODULE_NAME ": %s: NULL device in index %d",
-			__func__, i);
-			continue;
-		}
-		sdio_al_dev = sdio_al->devices[i];
-		if (sdio_al_dev->state == CARD_REMOVED) {
-			pr_info(MODULE_NAME ": %s: card %d is already removed",
-				__func__, sdio_al_dev->card->host->index);
-			continue;
-		}
-		if (sdio_al_dev->state == MODEM_RESTART) {
-			pr_info(MODULE_NAME ": %s: card %d was already "
-					    "notified for modem reset",
-				__func__, sdio_al_dev->card->host->index);
-			continue;
-		}
 
-		pr_info(MODULE_NAME ": %s: Set the state to MODEM_RESTART"
-			" for card %d",
-			__func__, sdio_al_dev->card->host->index);
-		sdio_al_dev->state = MODEM_RESTART;
-		sdio_al_dev->is_ready = false;
-
-		/* Stop mailbox timer */
-		if (sdio_al_dev->is_timer_initialized) {
-			pr_debug(MODULE_NAME ": %s: Stop timer for card %d",
-				__func__, sdio_al_dev->card->host->index);
-			sdio_al_dev->poll_delay_msec = 0;
-			del_timer_sync(&sdio_al_dev->timer);
-		}
-	}
-
-	for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES; i++) {
-		struct sdio_al_device *sdio_al_dev;
-		if (sdio_al->devices[i] == NULL) {
-			pr_debug(MODULE_NAME ": %s: NULL device in index %d",
-			__func__, i);
-			continue;
-		}
-		sdio_al_dev = sdio_al->devices[i];
-
-		if (!sdio_al_verify_func1(sdio_al_dev, __func__)) {
-			func1 = sdio_al_dev->card->sdio_func[0];
-			sdio_claim_host(func1);
-
-			if ((sdio_al_dev->is_ok_to_sleep) &&
-			    (!sdio_al_dev->is_err)) {
-				pr_debug(MODULE_NAME ": %s: wakeup modem for "
-						    "card %d", __func__,
-					sdio_al_dev->card->host->index);
-				ret = sdio_al_wake_up(sdio_al_dev, 1, NULL);
-				if (ret == 0) {
-					pr_info(MODULE_NAME ": %s: "
-							    "sdio_release_irq"
-							    " for card %d",
-						__func__,
-						sdio_al_dev->card->host->index);
-					sdio_release_irq(func1);
-				}
-			} else {
-				pr_debug(MODULE_NAME ": %s: sdio_release_irq"
-						    " for card %d",
-					__func__,
-					sdio_al_dev->card->host->index);
-				sdio_release_irq(func1);
-			}
-		}
-
-		pr_debug(MODULE_NAME ": %s: Notifying SDIO clients for card %d",
-				__func__, sdio_al_dev->card->host->index);
-		if (!sdio_al->unittest_mode)
-			for (j = 0; j < SDIO_AL_MAX_CHANNELS; j++) {
-				if (sdio_al_dev->channel[j].state
-						== SDIO_CHANNEL_STATE_INVALID)
-					continue;
-				platform_device_unregister(
-					sdio_al_dev->channel[j].pdev);
-				sdio_al_dev->channel[i].signature = 0x0;
-			}
-
-		if (!sdio_al_verify_func1(sdio_al_dev, __func__))
-			sdio_release_host(sdio_al_dev->card->sdio_func[0]);
-
-		pr_debug(MODULE_NAME ": %s: Allows sleep for card %d", __func__,
-			sdio_al_dev->card->host->index);
-		sdio_al_vote_for_sleep(sdio_al_dev, 1);
-	}
-
+	msm_sdio_al_shutdown(NULL);
 	return NOTIFY_OK;
 }
 

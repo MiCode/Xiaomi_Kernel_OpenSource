@@ -4887,6 +4887,7 @@ struct platform_device msm_device_sdio_al = {
 	.name = "msm_sdio_al",
 	.id = -1,
 	.dev		= {
+		.parent = &msm_charm_modem.dev,
 		.platform_data	= &sdio_al_pdata,
 	},
 };
@@ -4903,6 +4904,10 @@ static struct platform_device *charm_devices[] __initdata = {
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
+#ifdef CONFIG_MSM_SDIO_AL
+	&msm_device_sdio_al,
+#endif
+
 };
 
 static struct platform_device *surf_devices[] __initdata = {
@@ -5081,9 +5086,6 @@ static struct platform_device *surf_devices[] __initdata = {
 	&qcedev_device,
 #endif
 
-#ifdef CONFIG_MSM_SDIO_AL
-	&msm_device_sdio_al,
-#endif
 
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
 #ifdef CONFIG_MSM_USE_TSIF1
