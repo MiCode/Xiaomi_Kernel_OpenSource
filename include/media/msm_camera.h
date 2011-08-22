@@ -181,6 +181,7 @@ struct msm_ctrl_cmd {
 	int resp_fd; /* FIXME: to be used by the kernel, pass-through for now */
 	int vnode_id;  /* video dev id. Can we overload resp_fd? */
 	uint32_t stream_type; /* used to pass value to qcamera server */
+	int config_ident; /*used as identifier for config node*/
 };
 
 struct msm_cam_evt_msg {
@@ -833,6 +834,7 @@ struct msm_camera_info {
 struct msm_cam_config_dev_info {
 	int num_config_nodes;
 	const char *config_dev_name[MSM_MAX_CAMERA_CONFIGS];
+	int config_dev_id[MSM_MAX_CAMERA_CONFIGS];
 };
 
 struct flash_ctrl_data {

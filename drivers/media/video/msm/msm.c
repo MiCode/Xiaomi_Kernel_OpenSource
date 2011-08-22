@@ -207,6 +207,7 @@ static int msm_send_open_server(int vnode_id)
 				MAX_DEV_NAME_LEN)+1;
 	ctrlcmd.value    = (char *)g_server_dev.config_info.config_dev_name[0];
 	ctrlcmd.vnode_id = vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -225,6 +226,7 @@ static int msm_send_close_server(int vnode_id)
 				MAX_DEV_NAME_LEN)+1;
 	ctrlcmd.value    = (char *)g_server_dev.config_info.config_dev_name[0];
 	ctrlcmd.vnode_id = vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -261,6 +263,7 @@ static int msm_server_set_fmt(struct msm_cam_v4l2_device *pcam, int idx,
 	ctrlcmd.value      = (void *)pfmt->fmt.pix.priv;
 	ctrlcmd.timeout_ms = 10000;
 	ctrlcmd.vnode_id   = pcam->vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -295,6 +298,7 @@ static int msm_server_streamon(struct msm_cam_v4l2_device *pcam, int idx)
 	ctrlcmd.value    = NULL;
 	ctrlcmd.stream_type = pcam->dev_inst[idx]->image_mode;
 	ctrlcmd.vnode_id = pcam->vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 
 	/* send command to config thread in usersspace, and get return value */
@@ -315,6 +319,7 @@ static int msm_server_streamoff(struct msm_cam_v4l2_device *pcam, int idx)
 	ctrlcmd.value    = NULL;
 	ctrlcmd.stream_type = pcam->dev_inst[idx]->image_mode;
 	ctrlcmd.vnode_id = pcam->vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -372,6 +377,7 @@ static int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	ctrlcmd.timeout_ms = 1000;
 	ctrlcmd.vnode_id = pcam->vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
 	pr_err("%s: msm_server_control rc=%d\n", __func__, rc);
@@ -421,6 +427,7 @@ static int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	memcpy(ctrlcmd.value, ctrl, ctrlcmd.length);
 	ctrlcmd.timeout_ms = 1000;
 	ctrlcmd.vnode_id = pcam->vnode_id;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -446,6 +453,7 @@ static int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, ctrl, ctrlcmd.length);
 	ctrlcmd.timeout_ms = 1000;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -470,6 +478,7 @@ static int msm_server_q_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, queryctrl, ctrlcmd.length);
 	ctrlcmd.timeout_ms = 1000;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in userspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -557,6 +566,7 @@ static int msm_camera_get_crop(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.timeout_ms = 1000;
 	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.stream_type = pcam->dev_inst[idx]->image_mode;
+	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in userspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -1896,6 +1906,8 @@ static int msm_setup_config_dev(int node, char *device_name)
 		= dev_name(device_config);
 	D("%s Connected config device %s\n", __func__,
 		g_server_dev.config_info.config_dev_name[dev_num]);
+	g_server_dev.config_info.config_dev_id[dev_num]
+		= dev_num;
 
 	config_cam->config_stat_event_queue.pvdev = video_device_alloc();
 	if (config_cam->config_stat_event_queue.pvdev == NULL) {
