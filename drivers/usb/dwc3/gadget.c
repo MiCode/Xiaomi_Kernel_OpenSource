@@ -1424,7 +1424,7 @@ static void dwc3_process_ep_cmd_complete(struct dwc3_ep *dep,
 			req = next_request(&dep->req_queued);
 			dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
 		}
-		dep->flags &= DWC3_EP_WILL_SHUTDOWN;
+		dep->flags &= ~DWC3_EP_WILL_SHUTDOWN;
 	}
 }
 
