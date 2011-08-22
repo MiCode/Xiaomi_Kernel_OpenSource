@@ -736,13 +736,11 @@ int msm_sdio_dmux_is_ch_full(uint32_t id)
 
 int msm_sdio_dmux_is_ch_low(uint32_t id)
 {
-	unsigned long flags;
 	int ret;
 
 	if (id >= SDIO_DMUX_NUM_CHANNELS)
 		return -EINVAL;
 
-	spin_lock_irqsave(&sdio_ch[id].lock, flags);
 	sdio_ch[id].use_wm = 1;
 	ret = sdio_ch[id].num_tx_pkts <= LOW_WATERMARK;
 	DBG("%s: ch %d num tx pkts=%d, LWM=%d\n", __func__,
@@ -751,7 +749,6 @@ int msm_sdio_dmux_is_ch_low(uint32_t id)
 		ret = -ENODEV;
 		pr_err("%s: port not open: %d\n", __func__, sdio_ch[id].status);
 	}
-	spin_unlock_irqrestore(&sdio_ch[id].lock, flags);
 
 	return ret;
 }
