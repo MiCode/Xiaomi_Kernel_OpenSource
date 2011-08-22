@@ -1519,7 +1519,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->curr.mrq = mrq;
 
-	if (host->plat->dummy52_required) {
+	if (!host->plat->sdcc_v4_sup) {
 		if (mrq->data && mrq->data->flags == MMC_DATA_WRITE) {
 			if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
 				mrq->cmd->opcode == 54) {
