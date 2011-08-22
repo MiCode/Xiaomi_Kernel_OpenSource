@@ -223,6 +223,7 @@ static void notify_smsm_cb_clients_worker(struct work_struct *work);
 static DECLARE_WORK(smsm_cb_work, notify_smsm_cb_clients_worker);
 static DEFINE_SPINLOCK(smsm_lock);
 static struct smsm_state_info *smsm_states;
+static int spinlocks_initialized;
 
 static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr)
@@ -1806,20 +1807,27 @@ void *smem_get_entry(unsigned id, unsigned *size)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	struct smem_heap_entry *toc = shared->heap_toc;
+	int use_spinlocks = spinlocks_initialized;
+	void *ret = 0;
+	unsigned long flags = 0;
 
 	if (id >= SMEM_NUM_ITEMS)
-		return 0;
+		return ret;
 
+	if (use_spinlocks)
+		remote_spin_lock_irqsave(&remote_spinlock, flags);
 	/* toc is in device memory and cannot be speculatively accessed */
 	if (toc[id].allocated) {
 		*size = toc[id].size;
 		barrier();
-		return (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
+		ret = (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
 	} else {
 		*size = 0;
 	}
+	if (use_spinlocks)
+		remote_spin_unlock_irqrestore(&remote_spinlock, flags);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(smem_get_entry);
 
@@ -1880,6 +1888,7 @@ static int smsm_init(void)
 		pr_err("%s: remote spinlock init failed %d\n", __func__, i);
 		return i;
 	}
+	spinlocks_initialized = 1;
 
 	smsm_size_info = smem_alloc(SMEM_SMSM_SIZE_INFO,
 				sizeof(struct smsm_size_info_type));
