@@ -425,8 +425,8 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	if (!prtd->playback_instance && !prtd->capture_instance) {
 		if (prtd->state == VOIP_STARTED) {
 			prtd->state = VOIP_STOPPED;
-			voc_end_voice_call();
-			voc_set_voc_path_full(0);
+			voc_end_voice_call(
+					voc_get_session_id(VOIP_SESSION_NAME));
 			voc_register_mvs_cb(NULL, NULL, prtd);
 		}
 		/* release all buffer */
@@ -513,8 +513,6 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	if (prtd->playback_instance && prtd->capture_instance
 				&& (prtd->state != VOIP_STARTED)) {
 
-		voc_set_voc_path_full(1);
-
 		if ((prtd->play_samp_rate == 8000) &&
 					(prtd->cap_samp_rate == 8000))
 			voc_config_vocoder(VSS_MEDIA_ID_PCM_NB,
@@ -524,16 +522,18 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 			voc_config_vocoder(VSS_MEDIA_ID_PCM_WB,
 						0, VSS_NETWORK_ID_VOIP_WB);
 		else {
-			pr_err(" sample rate are not set properly\n");
-			goto err;
+			pr_debug("%s: Invalid rate playback %d, capture %d\n",
+				 __func__, prtd->play_samp_rate,
+				 prtd->cap_samp_rate);
+			goto done;
 		}
 		voc_register_mvs_cb(voip_process_ul_pkt,
 					voip_process_dl_pkt, prtd);
-		voc_start_voice_call();
+		voc_start_voice_call(voc_get_session_id(VOIP_SESSION_NAME));
 
 		prtd->state = VOIP_STARTED;
 	}
-err:
+done:
 	mutex_unlock(&prtd->lock);
 
 	return ret;

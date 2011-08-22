@@ -464,7 +464,7 @@ struct cvs_create_passive_ctl_session_cmd {
 struct cvs_create_full_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_create_full_control_session_t cvs_session;
-};
+} __packed;
 
 struct cvs_destroy_session_cmd {
 	struct apr_hdr hdr;
@@ -733,23 +733,46 @@ struct incall_music_info {
 
 struct voice_data {
 	int voc_state;/*INIT, CHANGE, RELEASE, RUN */
-	uint32_t voc_path;
 
 	wait_queue_head_t mvm_wait;
 	wait_queue_head_t cvs_wait;
 	wait_queue_head_t cvp_wait;
 
-	uint32_t device_events;
-
 	/* cache the values related to Rx and Tx */
 	struct device_data dev_rx;
 	struct device_data dev_tx;
 
+	u32 mvm_state;
+	u32 cvs_state;
+	u32 cvp_state;
+
+	/* Handle to MVM in the Q6 */
+	u16 mvm_handle;
+	/* Handle to CVS in the Q6 */
+	u16 cvs_handle;
+	/* Handle to CVP in the Q6 */
+	u16 cvp_handle;
+
+	struct mutex lock;
+
+	uint16_t sidetone_gain;
+	uint8_t tty_mode;
+	/* widevoice enable value */
+	uint8_t wv_enable;
+
+	struct voice_dev_route_state voc_route_state;
+
+	u16 session_id;
+};
+
+#define MAX_VOC_SESSIONS 2
+#define SESSION_ID_BASE 0xFFF0
+
+struct common_data {
 	/* these default values are for all devices */
 	uint32_t default_mute_val;
 	uint32_t default_vol_val;
 	uint32_t default_sample_val;
-	uint8_t tty_mode;
 
 	/* APR to MVM in the Q6 */
 	void *apr_q6_mvm;
@@ -758,32 +781,12 @@ struct voice_data {
 	/* APR to CVP in the Q6 */
 	void *apr_q6_cvp;
 
-	u32 mvm_state;
-	u32 cvs_state;
-	u32 cvp_state;
-
-	/* Handle to MVM in the Q6 */
-	u16 mvm_passive_handle;  /* for cs call */
-	u16 mvm_full_handle;     /* for voip */
-	/* Handle to CVS in the Q6 */
-	u16 cvs_passive_handle;
-	u16 cvs_full_handle;
-	/* Handle to CVP in the Q6 */
-	u16 cvp_passive_handle;
-	u16 cvp_full_handle;
-
-	struct mutex lock;
+	struct mutex common_lock;
 
 	struct mvs_driver_info mvs_info;
 
-	uint16_t sidetone_gain;
-
-	struct voice_dev_route_state voc_route_state;
-	/* widevoice enable value */
-	uint8_t wv_enable;
+	struct voice_data voice[MAX_VOC_SESSIONS];
 };
-
-int voc_set_voc_path_full(uint32_t set);
 
 void voc_register_mvs_cb(ul_cb_fn ul_cb,
 			dl_cb_fn dl_cb,
@@ -804,18 +807,24 @@ enum {
 };
 
 /* called  by alsa driver */
-int voc_set_widevoice_enable(uint32_t wv_enable);
-uint32_t voc_get_widevoice_enable(void);
-uint8_t voc_get_tty_mode(void);
-int voc_set_tty_mode(uint8_t tty_mode);
-int voc_start_voice_call(void);
-int voc_end_voice_call(void);
-void voc_set_rxtx_port(uint32_t dev_port_id, uint32_t dev_type);
-int voc_set_rx_vol_index(uint32_t dir, uint32_t voc_idx);
-int voc_set_tx_mute(uint32_t dir, uint32_t mute);
-int voc_disable_cvp(void);
-int voc_enable_cvp(void);
-void voc_set_route_flag(uint8_t path_dir, uint8_t set);
-uint8_t voc_get_route_flag(uint8_t path_dir);
+int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable);
+uint32_t voc_get_widevoice_enable(uint16_t session_id);
+uint8_t voc_get_tty_mode(uint16_t session_id);
+int voc_set_tty_mode(uint16_t session_id, uint8_t tty_mode);
+int voc_start_voice_call(uint16_t session_id);
+int voc_end_voice_call(uint16_t session_id);
+int voc_set_rxtx_port(uint16_t session_id,
+		      uint32_t dev_port_id,
+		      uint32_t dev_type);
+int voc_set_rx_vol_index(uint16_t session_id, uint32_t dir, uint32_t voc_idx);
+int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute);
+int voc_disable_cvp(uint16_t session_id);
+int voc_enable_cvp(uint16_t session_id);
+int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
+uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
+
+#define VOICE_SESSION_NAME "Voice session"
+#define VOIP_SESSION_NAME "VoIP session"
+uint16_t voc_get_session_id(char *name);
 
 #endif
