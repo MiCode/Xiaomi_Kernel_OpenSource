@@ -1964,9 +1964,9 @@ static int iris_recv_set_region(struct iris_device *radio, int req_region)
 		break;
 	case IRIS_REGION_JAPAN:
 		radio->recv_conf.band_low_limit =
-			REGION_JAPAN_STANDARD_BAND_HIGH;
-		radio->recv_conf.band_high_limit =
 			REGION_JAPAN_STANDARD_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_JAPAN_STANDARD_BAND_HIGH;
 		break;
 	case IRIS_REGION_JAPAN_WIDE:
 		radio->recv_conf.band_low_limit =
@@ -2008,9 +2008,9 @@ static int iris_trans_set_region(struct iris_device *radio, int req_region)
 		break;
 	case IRIS_REGION_JAPAN:
 		radio->trans_conf.band_low_limit =
-			REGION_JAPAN_STANDARD_BAND_HIGH;
-		radio->trans_conf.band_high_limit =
 			REGION_JAPAN_STANDARD_BAND_LOW;
+		radio->trans_conf.band_high_limit =
+			REGION_JAPAN_STANDARD_BAND_HIGH;
 		break;
 	case IRIS_REGION_JAPAN_WIDE:
 		radio->recv_conf.band_low_limit =
@@ -2236,13 +2236,6 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	unsigned int rds_grps_proc = 0;
 	__u8 temp_val = 0;
 	unsigned long arg = 0;
-	radio->recv_conf.emphasis = 0;
-	radio->recv_conf.ch_spacing = 0;
-	radio->recv_conf.hlsi = 0;
-	radio->recv_conf.band_low_limit = 87500;
-	radio->recv_conf.band_high_limit = 108000;
-	radio->recv_conf.rds_std = 0;
-
 
 	switch (ctrl->id) {
 	case VL2_CID_PRIVATE_IRIS_TX_TONE:
@@ -2273,6 +2266,14 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		iris_search(radio, ctrl->value, SRCH_DIR_UP);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STATE:
+		radio->recv_conf.emphasis = 0;
+		radio->recv_conf.ch_spacing = 0;
+		radio->recv_conf.hlsi = 0;
+		radio->recv_conf.band_low_limit =
+			REGION_US_EU_BAND_LOW;
+		radio->recv_conf.band_high_limit =
+			REGION_US_EU_BAND_HIGH;
+		radio->recv_conf.rds_std = 0;
 		switch (ctrl->value) {
 		case FM_RECV:
 			retval = hci_cmd(HCI_FM_ENABLE_RECV_CMD,
@@ -2328,6 +2329,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			default:
 				retval = -EINVAL;
 			}
+			break;
 		default:
 			retval = -EINVAL;
 		}
