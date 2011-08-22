@@ -2849,24 +2849,27 @@ static int cyttsp_resume(struct device *dev)
 		(ts->platform_data->power_state != CY_ACTIVE_STATE)) {
 		if (ts->platform_data->resume)
 			retval = ts->platform_data->resume(ts->client);
+		/* take TTSP device out of bootloader mode;
+		 * switch back to TrueTouch operational mode */
 		if (!(retval < CY_OK)) {
-			/* take TTSP device out of bootloader mode;
-			 * switch back to TrueTouch operational mode */
-			if (!(retval < CY_OK)) {
-				int tries;
-				retval = i2c_smbus_write_i2c_block_data(ts->client,
-					CY_REG_BASE,
+			int tries = 0;
+			do {
+				msleep(100);
+				retval = i2c_smbus_write_i2c_block_data(
+					ts->client, CY_REG_BASE,
 					sizeof(bl_cmd), bl_cmd);
-				/* wait for TTSP Device to complete
-				 * switch to Operational mode */
-				tries = 0;
-				do {
-					mdelay(100);
-					cyttsp_putbl(ts, 16, false, false, false);
-				} while (GET_BOOTLOADERMODE(g_bl_data.bl_status) &&
-					tries++ < 100);
-				cyttsp_putbl(ts, 16, true, false, false);
-			}
+				if (retval == CY_OK)
+					break;
+			} while (tries++ < 2);
+			/* wait for TTSP Device to complete
+			 * switch to Operational mode */
+			tries = 0;
+			do {
+				msleep(100);
+				cyttsp_putbl(ts, 16, false, false, false);
+			} while (GET_BOOTLOADERMODE(g_bl_data.bl_status) &&
+				tries++ < 2);
+			cyttsp_putbl(ts, 16, true, false, false);
 		}
 	}
 
