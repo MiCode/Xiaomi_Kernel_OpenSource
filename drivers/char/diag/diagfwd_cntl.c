@@ -21,7 +21,7 @@
 
 static void diag_smd_cntl_send_req(int proc_num)
 {
-	int data_len = 0, type = -1, count_bytes = 0, j, r;
+	int data_len = 0, type = -1, count_bytes = 0, j, r, flag = 0;
 	struct bindpkt_params_per_process *pkt_params =
 		 kzalloc(sizeof(struct bindpkt_params_per_process), GFP_KERNEL);
 	struct diag_ctrl_msg *msg;
@@ -80,6 +80,7 @@ static void diag_smd_cntl_send_req(int proc_num)
 				}
 				temp -= pkt_params->count;
 				pkt_params->params = temp;
+				flag = 1;
 				diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG,
 						 (unsigned long)pkt_params);
 				kfree(temp);
@@ -88,6 +89,14 @@ static void diag_smd_cntl_send_req(int proc_num)
 		}
 	}
 	kfree(pkt_params);
+	if (flag) {
+		/* Poll SMD CNTL channels to check for data */
+		queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
+		queue_work(driver->diag_wq,
+			 &(driver->diag_read_smd_qdsp_cntl_work));
+		queue_work(driver->diag_wq,
+			 &(driver->diag_read_smd_wcnss_cntl_work));
+	}
 }
 
 void diag_read_smd_cntl_work_fn(struct work_struct *work)

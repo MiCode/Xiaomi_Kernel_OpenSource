@@ -959,6 +959,10 @@ int diagfwd_connect(void)
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
+	/* Poll SMD CNTL channels to check for data */
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_cntl_work));
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_cntl_work));
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
 #ifdef CONFIG_DIAG_SDIO_PIPE
