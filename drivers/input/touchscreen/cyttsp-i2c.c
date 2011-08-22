@@ -2173,23 +2173,33 @@ static int cyttsp_power_on(struct cyttsp *ts)
 	/* take TTSP out of bootloader mode; go to TrueTouch operational mode */
 	if (!(retval < CY_OK)) {
 		cyttsp_xdebug1("exit bootloader; go operational\n");
-		retval = i2c_smbus_write_i2c_block_data(ts->client,
-			CY_REG_BASE, sizeof(bl_cmd), bl_cmd);
 		tries = 0;
 		do {
-			mdelay(100);
-			cyttsp_putbl(ts, 4, true, false, false);
-			cyttsp_info("BL%d: f=%02X s=%02X err=%02X bl=%02X%02X bld=%02X%02X\n", \
-				104, \
-				g_bl_data.bl_file, g_bl_data.bl_status, \
-				g_bl_data.bl_error, \
-				g_bl_data.blver_hi, g_bl_data.blver_lo, \
-				g_bl_data.bld_blver_hi, g_bl_data.bld_blver_lo);
-		} while (GET_BOOTLOADERMODE(g_bl_data.bl_status) &&
-			tries++ < 100);
+			msleep(100);
+			retval = i2c_smbus_write_i2c_block_data(ts->client,
+				CY_REG_BASE, sizeof(bl_cmd), bl_cmd);
+			if (retval == CY_OK)
+				break;
+		} while (tries++ < 5);
+
+		if (retval == CY_OK) {
+			tries = 0;
+			do {
+				msleep(100);
+				cyttsp_putbl(ts, 4, true, false, false);
+				cyttsp_info("BL%d: f=%02X s=%02X err=%02X" \
+					"bl=%02X%02X bld=%02X%02X\n", 104, \
+					g_bl_data.bl_file, \
+					g_bl_data.bl_status, \
+					g_bl_data.bl_error, \
+					g_bl_data.blver_hi, \
+					g_bl_data.blver_lo, \
+					g_bl_data.bld_blver_hi, \
+					g_bl_data.bld_blver_lo);
+			} while (GET_BOOTLOADERMODE(g_bl_data.bl_status) &&
+				tries++ < 5);
+		}
 	}
-
-
 
 	if (!(retval < CY_OK) &&
 		cyttsp_app_load()) {
