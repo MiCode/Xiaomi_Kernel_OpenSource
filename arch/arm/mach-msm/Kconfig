@@ -205,6 +205,7 @@ config  ARCH_MSM_CORTEX_A5
 config ARCH_MSM7X27A
 	bool
 	select MSM_DALRPC
+	select MSM_PROC_COMM_REGULATOR
 
 config  MSM_VIC
 	bool

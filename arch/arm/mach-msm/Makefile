@@ -259,4 +259,5 @@ obj-$(CONFIG_MSM_NATIVE_RESTART) += restart.o
 obj-$(CONFIG_MSM_PROC_COMM_REGULATOR) += proccomm-regulator.o
 ifdef CONFIG_MSM_PROC_COMM_REGULATOR
 obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30-regulator.o
+obj-$(CONFIG_ARCH_MSM7X27A) += board-msm7x27a-regulator.o
 endif
