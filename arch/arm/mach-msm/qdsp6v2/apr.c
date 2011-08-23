@@ -264,20 +264,24 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 
 	if ((dest_id == APR_DEST_QDSP6) &&
 				(atomic_read(&dsp_state) == 0)) {
-		rc = wait_event_timeout(dsp_wait,
-				(atomic_read(&dsp_state) == 1), 5*HZ);
-		if (rc == 0) {
-			pr_err("apr: Still dsp is not Up\n");
+		pr_info("%s: Wait for Lpass to bootup\n", __func__);
+		rc = wait_event_interruptible(dsp_wait,
+				(atomic_read(&dsp_state) == 1));
+		if (rc < 0) {
+			pr_err("%s: DSP is not Up\n", __func__);
 			return NULL;
 		}
+		pr_debug("%s: Lpass Up\n", __func__);
 	} else if ((dest_id == APR_DEST_MODEM) &&
 					(atomic_read(&modem_state) == 0)) {
-		rc = wait_event_timeout(modem_wait,
-			(atomic_read(&modem_state) == 1), 5*HZ);
-		if (rc == 0) {
-			pr_err("apr: Still Modem is not Up\n");
+		pr_info("%s: Wait for modem to bootup\n", __func__);
+		rc = wait_event_interruptible(modem_wait,
+			(atomic_read(&modem_state) == 1));
+		if (rc < 0) {
+			pr_err("%s: Modem is not Up\n", __func__);
 			return NULL;
 		}
+		pr_debug("%s: modem Up\n", __func__);
 	}
 
 	if (!strcmp(svc_name, "AFE")) {
