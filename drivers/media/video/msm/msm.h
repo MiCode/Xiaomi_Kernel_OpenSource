@@ -84,10 +84,14 @@ struct isp_msg_stats {
 	uint32_t    frameCounter;
 };
 
+struct msm_free_buf {
+	uint8_t num_planes;
+	uint32_t ch_paddr[VIDEO_MAX_PLANES];
+};
+
 struct isp_msg_output {
 	uint8_t   output_id;
-	uint32_t  yBuffer;
-	uint32_t  cbcrBuffer;
+	struct msm_free_buf buf;
 	uint32_t  frameCounter;
 };
 
@@ -115,14 +119,23 @@ struct msm_cam_v4l2_device;
 struct msm_cam_v4l2_dev_inst;
 #define MSM_MAX_IMG_MODE                8
 
+enum msm_buffer_state {
+	MSM_BUFFER_STATE_UNUSED,
+	MSM_BUFFER_STATE_INITIALIZED,
+	MSM_BUFFER_STATE_PREPARED,
+	MSM_BUFFER_STATE_QUEUED,
+	MSM_BUFFER_STATE_RESERVED,
+	MSM_BUFFER_STATE_DEQUEUED
+};
+
 /* buffer for one video frame */
 struct msm_frame_buffer {
 	/* common v4l buffer stuff -- must be first */
 	struct vb2_buffer         vidbuf;
 	struct list_head		  list;
 	enum v4l2_mbus_pixelcode  pxlcode;
-	int                       inuse;
-	int                       active;
+	enum msm_buffer_state state;
+	int active;
 };
 
 struct msm_isp_color_fmt {
@@ -134,11 +147,6 @@ struct msm_isp_color_fmt {
 	enum v4l2_colorspace colorspace;
 };
 
-struct msm_free_buf {
-	uint32_t paddr;
-	uint32_t y_off;
-	uint32_t cbcr_off;
-};
 
 struct msm_mctl_pp_info {
 	spinlock_t lock;
@@ -164,8 +172,9 @@ struct msm_cam_media_controller {
 	int (*mctl_cmd)(struct msm_cam_media_controller *p_mctl,
 					unsigned int cmd, unsigned long arg);
 	int (*mctl_release)(struct msm_cam_media_controller *p_mctl);
-	int (*mctl_vidbuf_init)(struct msm_cam_v4l2_dev_inst *pcam,
-						struct vb2_queue *q);
+	int (*mctl_buf_init)(struct msm_cam_v4l2_dev_inst *pcam);
+	int (*mctl_vbqueue_init)(struct msm_cam_v4l2_dev_inst *pcam,
+				struct vb2_queue *q, enum v4l2_buf_type type);
 	int (*mctl_ufmt_init)(struct msm_cam_media_controller *p_mctl);
 
 	struct v4l2_fh  eventHandle; /* event queue to export events */
@@ -227,11 +236,13 @@ struct msm_cam_v4l2_dev_inst {
 	int path;
 	int buf_count;
 	/* buffer offset, if any */
-	uint32_t buf_offset[VIDEO_MAX_FRAME];
+	uint32_t **buf_offset;
 	struct v4l2_crop crop;
 	int streamon;
 	struct msm_mem_map_info mem_map;
 	int is_mem_map_inst;
+	struct img_plane_info plane_info;
+	int vbqueue_initialized;
 };
 /* abstract camera device for each sensor successfully probed*/
 struct msm_cam_v4l2_device {
@@ -358,7 +369,8 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
-			int msg_type, uint32_t y_phy, uint32_t frame_id);
+			int msg_type, struct msm_free_buf *buf,
+			uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 			int msg_type, struct msm_free_buf *frame, int dirty);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,

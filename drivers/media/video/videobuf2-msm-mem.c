@@ -109,6 +109,7 @@ static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 		kfree(mem);
 		return ERR_PTR(-ENOMEM);
 	}
+	mem->mapped_phyaddr = mem->msm_buffer->iova[0];
 	return mem;
 }
 static void msm_vb2_mem_ops_put(void *buf_priv)
@@ -123,11 +124,9 @@ static void msm_vb2_mem_ops_put(void *buf_priv)
 	kfree(mem);
 }
 int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
-					uint32_t yoffset,
-					uint32_t cbcroffset, int path)
+					uint32_t offset, int path)
 {
-	mem->y_off = yoffset;
-	mem->cbcr_off = cbcroffset;
+	mem->offset = offset;
 	mem->buffer_type = path;
 	return 0;
 }
@@ -144,7 +143,7 @@ EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
  * Returns 0 if successful.
  */
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
-					uint32_t yoffset, uint32_t cbcroffset,
+					uint32_t offset,
 					uint32_t addr_offset, int path)
 {
 	unsigned long kvstart;
@@ -162,9 +161,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					__func__, (int)mem->vaddr, rc);
 		return rc;
 	}
-	mem->phyaddr += addr_offset;
-	mem->y_off = yoffset;
-	mem->cbcr_off = cbcroffset;
+	mem->offset = offset;
 	mem->buffer_type = path;
 	flags = MSM_SUBSYSTEM_MAP_IOVA;
 	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
@@ -175,6 +172,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		put_pmem_file(mem->file);
 		return PTR_ERR((void *)mem->msm_buffer);
 	}
+	mem->mapped_phyaddr = mem->msm_buffer->iova[0] + addr_offset;
 	return rc;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
@@ -188,6 +186,7 @@ void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem)
 	mem->is_userptr = 0;
 	mem->phyaddr = 0;
 	mem->size = 0;
+	mem->mapped_phyaddr = 0;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_put);
 
@@ -296,7 +295,7 @@ unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *vb,
 	mem = vb2_plane_cookie(vb, plane_no);
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
-	return mem->msm_buffer->iova[0];
+	return mem->mapped_phyaddr;
 }
 EXPORT_SYMBOL_GPL(videobuf2_to_pmem_contig);
 

@@ -345,7 +345,6 @@ static const char * const vfe32_general_cmd[] = {
 	"CLF_CHROMA_UPDATE",
 };
 
-
 static void vfe32_stop(void)
 {
 	uint8_t  axiBusyFlag = true;
@@ -1038,7 +1037,7 @@ static struct msm_free_buf *vfe32_check_free_buffer(int id, int path)
 	struct msm_free_buf *b = NULL;
 	vfe32_subdev_notify(id, path);
 	outch = vfe32_get_ch(path);
-	if (outch->free_buf.paddr)
+	if (outch->free_buf.ch_paddr[0])
 		b = &outch->free_buf;
 	return b;
 }
@@ -1048,23 +1047,29 @@ static int vfe32_configure_pingpong_buffers(int id, int path)
 	int rc = 0;
 	vfe32_subdev_notify(id, path);
 	outch = vfe32_get_ch(path);
-	if (outch->ping.paddr && outch->pong.paddr) {
+	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
 		/* Configure Preview Ping Pong */
 		pr_info("%s Configure ping/pong address for %d",
 						__func__, path);
 		vfe32_put_ch_ping_addr(outch->ch0,
-			outch->ping.paddr + outch->ping.y_off);
+			outch->ping.ch_paddr[0]);
 		vfe32_put_ch_ping_addr(outch->ch1,
-			outch->ping.paddr + outch->ping.cbcr_off);
+			outch->ping.ch_paddr[1]);
+		if (outch->ping.num_planes > 2)
+			vfe32_put_ch_ping_addr(outch->ch2,
+				outch->ping.ch_paddr[2]);
 
 		vfe32_put_ch_pong_addr(outch->ch0,
-			outch->pong.paddr + outch->pong.y_off);
+			outch->pong.ch_paddr[0]);
 		vfe32_put_ch_pong_addr(outch->ch1,
-			outch->pong.paddr + outch->pong.cbcr_off);
+			outch->pong.ch_paddr[1]);
+		if (outch->pong.num_planes > 2)
+			vfe32_put_ch_pong_addr(outch->ch2,
+				outch->pong.ch_paddr[2]);
 
 		/* avoid stale info */
-		outch->ping.paddr = 0;
-		outch->pong.paddr = 0;
+		memset(&outch->ping, 0, sizeof(struct msm_free_buf));
+		memset(&outch->pong, 0, sizeof(struct msm_free_buf));
 	} else {
 		pr_err("%s ping/pong addr is null!!", __func__);
 		rc = -EINVAL;
@@ -2165,13 +2170,14 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 }
 
 static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
-	uint32_t pyaddr, uint32_t pcbcraddr)
+	uint32_t ch0_paddr, uint32_t ch1_paddr, uint32_t ch2_paddr)
 {
 	struct isp_msg_output msg;
 
 	msg.output_id = msgid;
-	msg.yBuffer     = pyaddr;
-	msg.cbcrBuffer  = pcbcraddr;
+	msg.buf.ch_paddr[0]	= ch0_paddr;
+	msg.buf.ch_paddr[1]	= ch1_paddr;
+	msg.buf.ch_paddr[2]	= ch2_paddr;
 	msg.frameCounter = vfe32_ctrl->vfeFrameId;
 
 	v4l2_subdev_notify(vfe32_ctrl->subdev,
@@ -2183,7 +2189,7 @@ static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
 static void vfe32_process_output_path_irq_0(void)
 {
 	uint32_t ping_pong;
-	uint32_t pyaddr, pcbcraddr;
+	uint32_t ch0_paddr, ch1_paddr, ch2_paddr;
 	uint8_t out_bool = 0;
 	struct msm_free_buf *free_buf = NULL;
 	if (vfe32_ctrl->operation_mode ==
@@ -2210,36 +2216,45 @@ static void vfe32_process_output_path_irq_0(void)
 		ping_pong = msm_io_r(vfe32_ctrl->vfebase +
 			VFE_BUS_PING_PONG_STATUS);
 
-		/* Y channel */
-		pyaddr = vfe32_get_ch_addr(ping_pong,
+		/* Channel 0*/
+		ch0_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch0);
-		/* Chroma channel */
-		pcbcraddr = vfe32_get_ch_addr(ping_pong,
+		/* Channel 1*/
+		ch1_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch1);
+		/* Channel 2*/
+		ch2_paddr = vfe32_get_ch_addr(ping_pong,
+			vfe32_ctrl->outpath.out0.ch2);
 
-		CDBG("output path 0, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
-			pyaddr, pcbcraddr);
+		CDBG("output path 0, ch0 = 0x%x, ch1 = 0x%x, ch2 = 0x%x\n",
+			ch0_paddr, ch1_paddr, ch2_paddr);
 		if (free_buf) {
 			/* Y channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch0,
-			free_buf->paddr + free_buf->y_off);
+			free_buf->ch_paddr[0]);
 			/* Chroma channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out0.ch1,
-			free_buf->paddr + free_buf->cbcr_off);
+			free_buf->ch_paddr[1]);
+			if (free_buf->num_planes > 2)
+				vfe32_put_ch_addr(ping_pong,
+					vfe32_ctrl->outpath.out0.ch2,
+					free_buf->ch_paddr[2]);
 		}
 		if (vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_SNAPSHOT) {
 			/* will add message for multi-shot. */
 			vfe32_ctrl->outpath.out0.capture_cnt--;
 			vfe_send_outmsg(vfe32_ctrl->subdev,
-				MSG_ID_OUTPUT_T, pyaddr, pcbcraddr);
+				MSG_ID_OUTPUT_T, ch0_paddr,
+				ch1_paddr, ch2_paddr);
 		} else {
 			/* always send message for continous mode. */
 			/* if continuous mode, for display. (preview) */
 			vfe_send_outmsg(vfe32_ctrl->subdev,
-				MSG_ID_OUTPUT_P, pyaddr, pcbcraddr);
+				MSG_ID_OUTPUT_P, ch0_paddr,
+				ch1_paddr, ch2_paddr);
 		}
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
@@ -2250,7 +2265,7 @@ static void vfe32_process_output_path_irq_0(void)
 static void vfe32_process_zsl_frame(void)
 {
 	uint32_t ping_pong;
-	uint32_t pyaddr, pcbcraddr;
+	uint32_t ch0_paddr, ch1_paddr, ch2_paddr;
 	struct msm_free_buf *free_buf = NULL;
 
 	ping_pong = msm_io_r(vfe32_ctrl->vfebase +
@@ -2260,45 +2275,59 @@ static void vfe32_process_zsl_frame(void)
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 						VFE_MSG_OUTPUT_T);
 	if (free_buf) {
-		pyaddr = vfe32_get_ch_addr(ping_pong,
+		ch0_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch0);
-		pcbcraddr = vfe32_get_ch_addr(ping_pong,
+		ch1_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1);
+		ch2_paddr = vfe32_get_ch_addr(ping_pong,
+			vfe32_ctrl->outpath.out1.ch2);
 
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch0,
-			free_buf->paddr + free_buf->y_off);
+			free_buf->ch_paddr[0]);
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
-			free_buf->paddr + free_buf->cbcr_off);
+			free_buf->ch_paddr[1]);
+		if (free_buf->num_planes > 2)
+			vfe32_put_ch_addr(ping_pong,
+				vfe32_ctrl->outpath.out1.ch2,
+				free_buf->ch_paddr[2]);
 		vfe_send_outmsg(vfe32_ctrl->subdev,
-			MSG_ID_OUTPUT_T, pyaddr, pcbcraddr);
+			MSG_ID_OUTPUT_T, ch0_paddr,
+			ch1_paddr, ch2_paddr);
 	}
 
 	/* Mainimg */
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 						VFE_MSG_OUTPUT_S);
 	if (free_buf) {
-		pyaddr = vfe32_get_ch_addr(ping_pong,
+		ch0_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch0);
-		pcbcraddr = vfe32_get_ch_addr(ping_pong,
+		ch1_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1);
+		ch2_paddr = vfe32_get_ch_addr(ping_pong,
+			vfe32_ctrl->outpath.out2.ch2);
+		if (free_buf->num_planes > 2)
+			vfe32_put_ch_addr(ping_pong,
+				vfe32_ctrl->outpath.out2.ch2,
+				free_buf->ch_paddr[2]);
 
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch0,
-			free_buf->paddr + free_buf->y_off);
+			free_buf->ch_paddr[0]);
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
-			free_buf->paddr + free_buf->cbcr_off);
+			free_buf->ch_paddr[1]);
 		vfe_send_outmsg(vfe32_ctrl->subdev,
-			MSG_ID_OUTPUT_S, pyaddr, pcbcraddr);
+			MSG_ID_OUTPUT_S, ch0_paddr,
+			ch1_paddr, ch2_paddr);
 	}
 }
 
 static void vfe32_process_output_path_irq_1(void)
 {
 	uint32_t ping_pong;
-	uint32_t pyaddr, pcbcraddr;
+	uint32_t ch0_paddr, ch1_paddr, ch2_paddr;
 	/* this must be snapshot main image output. */
 	uint8_t out_bool = 0;
 	struct msm_free_buf *free_buf = NULL;
@@ -2328,23 +2357,29 @@ static void vfe32_process_output_path_irq_1(void)
 			VFE_BUS_PING_PONG_STATUS);
 
 		/* Y channel */
-		pyaddr = vfe32_get_ch_addr(ping_pong,
+		ch0_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch0);
 		/* Chroma channel */
-		pcbcraddr = vfe32_get_ch_addr(ping_pong,
+		ch1_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1);
+		ch2_paddr = vfe32_get_ch_addr(ping_pong,
+			vfe32_ctrl->outpath.out1.ch2);
 
-		CDBG("snapshot main, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
-			pyaddr, pcbcraddr);
+		CDBG("snapshot main, ch0 = 0x%x, ch1 = 0x%x, ch2 = 0x%x\n",
+			ch0_paddr, ch1_paddr, ch2_paddr);
 		if (free_buf) {
 			/* Y channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch0,
-			free_buf->paddr + free_buf->y_off);
+			free_buf->ch_paddr[0]);
 			/* Chroma channel */
 			vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch1,
-			free_buf->paddr + free_buf->cbcr_off);
+			free_buf->ch_paddr[1]);
+			if (free_buf->num_planes > 2)
+				vfe32_put_ch_addr(ping_pong,
+					vfe32_ctrl->outpath.out1.ch2,
+					free_buf->ch_paddr[2]);
 		}
 
 		if (vfe32_ctrl->operation_mode ==
@@ -2353,7 +2388,8 @@ static void vfe32_process_output_path_irq_1(void)
 			VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
 			vfe32_ctrl->outpath.out1.capture_cnt--;
 			vfe_send_outmsg(vfe32_ctrl->subdev,
-				MSG_ID_OUTPUT_S, pyaddr, pcbcraddr);
+				MSG_ID_OUTPUT_S, ch0_paddr,
+				ch1_paddr, ch2_paddr);
 		}
 	} else {
 		vfe32_ctrl->outpath.out1.frame_drop_cnt++;
@@ -2364,7 +2400,7 @@ static void vfe32_process_output_path_irq_1(void)
 static void vfe32_process_output_path_irq_2(void)
 {
 	uint32_t ping_pong;
-	uint32_t pyaddr, pcbcraddr;
+	uint32_t ch0_paddr, ch1_paddr, ch2_paddr;
 	struct msm_free_buf *free_buf = NULL;
 
 	if (vfe32_ctrl->recording_state == VFE_REC_STATE_STOP_REQUESTED) {
@@ -2390,26 +2426,33 @@ static void vfe32_process_output_path_irq_2(void)
 			VFE_BUS_PING_PONG_STATUS);
 
 		/* Y channel */
-		pyaddr = vfe32_get_ch_addr(ping_pong,
+		ch0_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch0);
 		/* Chroma channel */
-		pcbcraddr = vfe32_get_ch_addr(ping_pong,
+		ch1_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1);
+		ch2_paddr = vfe32_get_ch_addr(ping_pong,
+			vfe32_ctrl->outpath.out2.ch2);
 
-		CDBG("video output, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
-			pyaddr, pcbcraddr);
+		CDBG("video output, ch0 = 0x%x,	ch1 = 0x%x, ch2 = 0x%x\n",
+			ch0_paddr, ch1_paddr, ch2_paddr);
 
 		/* Y channel */
 		vfe32_put_ch_addr(ping_pong,
 		vfe32_ctrl->outpath.out2.ch0,
-		free_buf->paddr + free_buf->y_off);
+		free_buf->ch_paddr[0]);
 		/* Chroma channel */
 		vfe32_put_ch_addr(ping_pong,
 		vfe32_ctrl->outpath.out2.ch1,
-		free_buf->paddr + free_buf->cbcr_off);
+		free_buf->ch_paddr[1]);
+		if (free_buf->num_planes > 2)
+			vfe32_put_ch_addr(ping_pong,
+				vfe32_ctrl->outpath.out2.ch2,
+				free_buf->ch_paddr[2]);
 
 		vfe_send_outmsg(vfe32_ctrl->subdev,
-			MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
+			MSG_ID_OUTPUT_V, ch0_paddr,
+			ch1_paddr, ch2_paddr);
 
 	} else {
 		vfe32_ctrl->outpath.out2.frame_drop_cnt++;

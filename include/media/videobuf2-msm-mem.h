@@ -28,8 +28,10 @@ struct videobuf2_contig_pmem {
 	int phyaddr;
 	unsigned long size;
 	int is_userptr;
-	uint32_t y_off;
-	uint32_t cbcr_off;
+	/* Single plane - CbCr offset
+	 * Multi plane - plane offset
+	 */
+	uint32_t offset;
 	int buffer_type;
 	struct file *file;
 	uint32_t addr_offset;
@@ -38,6 +40,7 @@ struct videobuf2_contig_pmem {
 	void *alloc_ctx;
 	struct msm_mapped_buffer *msm_buffer;
 	int subsys_id;
+	unsigned long mapped_phyaddr;
 };
 void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					enum v4l2_buf_type type,
@@ -45,10 +48,9 @@ void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					unsigned int size,
 					void *priv);
 int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
-					uint32_t yoffset,
-					uint32_t cbcroffset, int path);
+					uint32_t offset, int path);
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
-					uint32_t yoffset, uint32_t cbcroffset,
+					uint32_t offset,
 					uint32_t addr_offset, int path);
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem);
 unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *buf,

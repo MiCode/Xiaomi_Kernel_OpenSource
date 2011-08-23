@@ -146,6 +146,7 @@ static int msm_isp_notify(struct v4l2_subdev *sd,
 	struct msm_sync *sync =
 		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_cam_media_controller *pmctl = &sync->pcam_sync->mctl;
+	struct msm_free_buf buf;
 
 	if (!sync) {
 		pr_err("%s: no context in dsp callback.\n", __func__);
@@ -194,9 +195,9 @@ static int msm_isp_notify(struct v4l2_subdev *sd,
 		if (!rc) {
 			isp_event->isp_data.isp_msg.msg_id =
 				isp_output->output_id;
+			buf = isp_output->buf;
 			msm_mctl_buf_done(pmctl, msgid,
-				isp_output->yBuffer,
-				isp_output->frameCounter);
+				&buf, isp_output->frameCounter);
 		}
 		}
 		break;

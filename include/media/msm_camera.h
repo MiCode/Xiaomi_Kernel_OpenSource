@@ -163,6 +163,9 @@
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
 
+/* Should be same as VIDEO_MAX_PLANES in videodev2.h */
+#define MAX_PLANES 8
+
 /*****************************************************
  *  structure
  *****************************************************/
@@ -202,8 +205,7 @@ struct msm_cam_evt_divert_frame {
 	unsigned short node_idx;
 	unsigned long  phy_addr;
 	uint32_t       phy_offset;
-	uint32_t       y_off;
-	uint32_t       cbcr_off;
+	uint32_t       offset;
 	int32_t        fd;
 	uint32_t       frame_id;
 	int            path;
@@ -860,4 +862,29 @@ struct msm_camsensor_info {
 	int8_t total_steps;
 	uint8_t support_3d;
 };
+
+#define V4L2_SINGLE_PLANE	0
+#define V4L2_MULTI_PLANE_Y	0
+#define V4L2_MULTI_PLANE_CBCR	1
+#define V4L2_MULTI_PLANE_CB	1
+#define V4L2_MULTI_PLANE_CR	2
+
+struct plane_data {
+	int plane_id;
+	uint32_t offset;
+	unsigned long size;
+};
+
+struct img_plane_info {
+	uint32_t width;
+	uint32_t height;
+	uint32_t pixelformat;
+	uint8_t buffer_type; /*Single/Multi planar*/
+	uint8_t output_port;
+	uint32_t ext_mode;
+	uint8_t num_planes;
+	struct plane_data plane[MAX_PLANES];
+	uint8_t vpe_can_use;
+};
+
 #endif /* __LINUX_MSM_CAMERA_H */
