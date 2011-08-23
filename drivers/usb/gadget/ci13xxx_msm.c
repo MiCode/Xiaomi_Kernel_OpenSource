@@ -29,24 +29,12 @@ static irqreturn_t msm_udc_irq(int irq, void *data)
 static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 {
 	struct device *dev = udc->gadget.dev.parent;
-	int val;
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
 		dev_dbg(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
 		writel(0, USB_AHBBURST);
 		writel(0, USB_AHBMODE);
-		break;
-	case CI13XXX_CONTROLLER_STOPPED_EVENT:
-		dev_dbg(dev, "CI13XXX_CONTROLLER_STOPPED_EVENT received\n");
-		/*
-		 * Put the transceiver in non-driving mode. Otherwise host
-		 * may not detect soft-disconnection.
-		 */
-		val = otg_io_read(udc->transceiver, ULPI_FUNC_CTRL);
-		val &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
-		val |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
-		otg_io_write(udc->transceiver, val, ULPI_FUNC_CTRL);
 		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");

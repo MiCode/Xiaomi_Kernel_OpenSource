@@ -111,7 +111,6 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_ZERO_ITC		BIT(4)
 
 #define CI13XXX_CONTROLLER_RESET_EVENT		0
-#define CI13XXX_CONTROLLER_STOPPED_EVENT	1
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
 };
 

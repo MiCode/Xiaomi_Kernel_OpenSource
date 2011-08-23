@@ -2664,9 +2664,6 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 				hw_device_state(udc->ep0out.qh.dma);
 		} else {
 			hw_device_state(0);
-			if (udc->udc_driver->notify_event)
-				udc->udc_driver->notify_event(udc,
-				CI13XXX_CONTROLLER_STOPPED_EVENT);
 			_gadget_stop_activity(&udc->gadget);
 			pm_runtime_put_sync(&_gadget->dev);
 		}
@@ -2698,14 +2695,11 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
-	if (is_active) {
+	if (is_active)
 		hw_device_state(udc->ep0out.qh.dma);
-	} else {
+	else
 		hw_device_state(0);
-		if (udc->udc_driver->notify_event)
-			udc->udc_driver->notify_event(udc,
-				CI13XXX_CONTROLLER_STOPPED_EVENT);
-	}
+
 	return 0;
 }
 
@@ -2885,9 +2879,6 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (!(udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) ||
 			udc->vbus_active) {
 		hw_device_state(0);
-		if (udc->udc_driver->notify_event)
-			udc->udc_driver->notify_event(udc,
-			CI13XXX_CONTROLLER_STOPPED_EVENT);
 		_gadget_stop_activity(&udc->gadget);
 		pm_runtime_put(&udc->gadget.dev);
 	}
