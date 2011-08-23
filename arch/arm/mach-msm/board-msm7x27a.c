@@ -1841,10 +1841,16 @@ static struct resource msm_fb_resources[] = {
 
 static int msm_fb_detect_panel(const char *name)
 {
-	if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
-			strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-		return 0;
+	int ret = -ENODEV;
+
+	if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf()) {
+		if (!strncmp(name, "lcdc_toshiba_fwvga_pt", 21) ||
+				!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
+			ret = 0;
+	} else if (machine_is_msm7x27a_ffa()) {
+		if (!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
+			ret = 0;
+	}
 
 #if !defined(CONFIG_FB_MSM_LCDC_AUTO_DETECT) && \
 	!defined(CONFIG_FB_MSM_MIPI_PANEL_AUTO_DETECT) && \
@@ -1857,7 +1863,7 @@ static int msm_fb_detect_panel(const char *name)
 				return 0;
 		}
 #endif
-	return -ENODEV;
+	return ret;
 }
 
 static struct msm_fb_platform_data msm_fb_pdata = {
