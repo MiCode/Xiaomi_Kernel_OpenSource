@@ -3841,6 +3841,7 @@ static struct branch_clk csi_vfe_clk = {
 	}
 static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 	F_AIF_OSR(       0, gnd,  1, 0,   0, NONE),
+	F_AIF_OSR(  512000, pll4, 4, 1, 192, LOW),
 	F_AIF_OSR(  768000, pll4, 4, 1, 128, LOW),
 	F_AIF_OSR( 1024000, pll4, 4, 1,  96, LOW),
 	F_AIF_OSR( 1536000, pll4, 4, 1,  64, LOW),
