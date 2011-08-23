@@ -121,6 +121,12 @@ static void rfcomm_session_del(struct rfcomm_session *s);
 #define __get_rpn_stop_bits(line) (((line) >> 2) & 0x1)
 #define __get_rpn_parity(line)    (((line) >> 3) & 0x7)
 
+struct rfcomm_sock_release_work {
+	struct work_struct work;
+	struct socket *sock;
+	int state;
+};
+
 static inline void rfcomm_schedule(void)
 {
 	if (!rfcomm_thread)
@@ -630,9 +636,25 @@ static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
 	return s;
 }
 
+static void rfcomm_sock_release_worker(struct work_struct *work)
+{
+	struct rfcomm_sock_release_work *release_work =
+		container_of(work, struct rfcomm_sock_release_work, work);
+
+	BT_DBG("sock %p", release_work->sock);
+
+	sock_release(release_work->sock);
+	if (release_work->state != BT_LISTEN)
+		module_put(THIS_MODULE);
+
+	kfree(release_work);
+}
+
 static void rfcomm_session_del(struct rfcomm_session *s)
 {
 	int state = s->state;
+	struct socket *sock = s->sock;
+	struct rfcomm_sock_release_work *release_work;
 
 	BT_DBG("session %p state %ld", s, s->state);
 
@@ -642,11 +664,19 @@ static void rfcomm_session_del(struct rfcomm_session *s)
 		rfcomm_send_disc(s, 0);
 
 	rfcomm_session_clear_timer(s);
-	sock_release(s->sock);
+
 	kfree(s);
 
-	if (state != BT_LISTEN)
-		module_put(THIS_MODULE);
+	release_work = kzalloc(sizeof(*release_work), GFP_ATOMIC);
+	if (release_work) {
+		INIT_WORK(&release_work->work, rfcomm_sock_release_worker);
+		release_work->sock = sock;
+		release_work->state = state;
+
+		if (!schedule_work(&release_work->work))
+			kfree(release_work);
+	}
+
 }
 
 static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)

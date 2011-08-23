@@ -58,6 +58,11 @@ struct pending_cmd {
 	void *user_data;
 };
 
+struct mgmt_pending_free_work {
+	struct work_struct work;
+	struct sock *sk;
+};
+
 LIST_HEAD(cmd_list);
 
 static int cmd_status(struct sock *sk, u16 index, u16 cmd, u8 status)
@@ -238,13 +243,35 @@ static int read_controller_info(struct sock *sk, u16 index)
 	return cmd_complete(sk, index, MGMT_OP_READ_INFO, &rp, sizeof(rp));
 }
 
+static void mgmt_pending_free_worker(struct work_struct *work)
+{
+	struct mgmt_pending_free_work *free_work =
+		container_of(work, struct mgmt_pending_free_work, work);
+
+	BT_DBG("sk %p", free_work->sk);
+
+	sock_put(free_work->sk);
+	kfree(free_work);
+}
+
 static void mgmt_pending_free(struct pending_cmd *cmd)
 {
-	BT_DBG("%d", cmd->opcode);
+	struct mgmt_pending_free_work *free_work;
+	struct sock *sk = cmd->sk;
 
-	sock_put(cmd->sk);
+	BT_DBG("opcode %d, sk %p", cmd->opcode, sk);
+
 	kfree(cmd->param);
 	kfree(cmd);
+
+	free_work = kzalloc(sizeof(*free_work), GFP_ATOMIC);
+	if (free_work) {
+		INIT_WORK(&free_work->work, mgmt_pending_free_worker);
+		free_work->sk = sk;
+
+		if (!schedule_work(&free_work->work))
+			kfree(free_work);
+	}
 }
 
 static struct pending_cmd *mgmt_pending_add(struct sock *sk, u16 opcode,
