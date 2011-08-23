@@ -721,3 +721,16 @@ const int read_msm_cpu_type(void)
 		return MSM_CPU_UNKNOWN;
 	};
 }
+
+const int cpu_is_krait_v1(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x510F04D0:
+	case 0x510F04D1:
+	case 0x510F04D2:
+		return 1;
+
+	default:
+		return 0;
+	};
+}
