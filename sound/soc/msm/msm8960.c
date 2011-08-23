@@ -11,6 +11,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/platform_device.h>
@@ -31,8 +32,8 @@
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 
-#define MSM_CDC_PAMPL (PM8921_GPIO_PM_TO_SYS(18))
-#define MSM_CDC_PAMPR (PM8921_GPIO_PM_TO_SYS(19))
+#define TOP_SPK_PAMP (PM8921_GPIO_PM_TO_SYS(18))
+#define BOTTOM_SPK_PAMP (PM8921_GPIO_PM_TO_SYS(19))
 #define MSM8960_SPK_ON 1
 #define MSM8960_SPK_OFF 0
 
@@ -43,7 +44,8 @@
 #define BTSCO_RATE_16KHZ 16000
 
 static int msm8960_spk_control;
-static int msm8960_pamp_on;
+static int msm8960_bottom_spk_pamp_on;
+static int msm8960_top_spk_pamp_on;
 static int msm8960_slim_0_rx_ch = 1;
 static int msm8960_slim_0_tx_ch = 1;
 
@@ -69,7 +71,7 @@ static int msm8960_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
-static void codec_poweramp_on(void)
+static void codec_poweramp_on(int bottom_spk)
 {
 	int ret = 0;
 
@@ -83,51 +85,71 @@ static void codec_poweramp_on(void)
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
 
-	if (msm8960_pamp_on)
-		return;
+	if (bottom_spk) {
+		if (msm8960_bottom_spk_pamp_on)
+			return;
 
-	pr_debug("%s: enable stereo spkr amp\n", __func__);
-	ret = gpio_request(MSM_CDC_PAMPL, "CDC PAMP1");
-	if (ret) {
-		pr_err("%s: Error requesting GPIO %d\n", __func__,
-			MSM_CDC_PAMPL);
-		return;
+		ret = gpio_request(BOTTOM_SPK_PAMP, "BOTTOM_SPK_AMP");
+		if (ret) {
+			pr_err("%s: Error requesting GPIO %d\n", __func__,
+			BOTTOM_SPK_PAMP);
+			return;
+		}
+		ret = pm8xxx_gpio_config(BOTTOM_SPK_PAMP, &param);
+		if (ret)
+			pr_err("%s: Failed to configure gpio %d\n", __func__,
+				BOTTOM_SPK_PAMP);
+		else {
+			pr_debug("%s: enable Bottom spkr amp\n", __func__);
+			gpio_direction_output(BOTTOM_SPK_PAMP, 1);
+			msm8960_bottom_spk_pamp_on = 1;
+		}
+
+	} else {
+		if (msm8960_top_spk_pamp_on)
+			return;
+
+		ret = gpio_request(TOP_SPK_PAMP, "TOP_SPK_AMP");
+		if (ret) {
+			pr_err("%s: Error requesting GPIO %d\n", __func__,
+				TOP_SPK_PAMP);
+			return;
+		}
+		ret = pm8xxx_gpio_config(TOP_SPK_PAMP, &param);
+		if (ret)
+			pr_err("%s: Failed to configure gpio %d\n", __func__,
+				TOP_SPK_PAMP);
+		else {
+			pr_debug("%s: enable Top spkr amp\n", __func__);
+			gpio_direction_output(TOP_SPK_PAMP, 1);
+			msm8960_top_spk_pamp_on = 1;
+		}
 	}
-	ret = pm8xxx_gpio_config(MSM_CDC_PAMPL, &param);
-	if (ret)
-		pr_err("%s: Failed to configure gpio %d\n", __func__,
-			MSM_CDC_PAMPL);
-	else
-		gpio_direction_output(MSM_CDC_PAMPL, 1);
-
-	ret = gpio_request(MSM_CDC_PAMPR, "CDC PAMPL");
-	if (ret) {
-		pr_err("%s: Error requesting GPIO %d\n", __func__,
-			MSM_CDC_PAMPR);
-		gpio_free(MSM_CDC_PAMPL);
-		return;
-	}
-	ret = pm8xxx_gpio_config(MSM_CDC_PAMPR, &param);
-	if (ret)
-		pr_err("%s: Failed to configure gpio %d\n", __func__,
-			MSM_CDC_PAMPR);
-	else
-		gpio_direction_output(MSM_CDC_PAMPR, 1);
-
-	msm8960_pamp_on = 1;
+	pr_debug("%s: slepping 4 ms", __func__);
+	usleep_range(4000, 4000);
 }
-static void codec_poweramp_off(void)
+
+static void codec_poweramp_off(int bottom_spk)
 {
-	if (!msm8960_pamp_on)
-		return;
-
-	pr_debug("%s: disable stereo spkr amp\n", __func__);
-	gpio_direction_output(MSM_CDC_PAMPL, 0);
-	gpio_free(MSM_CDC_PAMPL);
-	gpio_direction_output(MSM_CDC_PAMPR, 0);
-	gpio_free(MSM_CDC_PAMPR);
-	msm8960_pamp_on = 0;
+	if (bottom_spk) {
+		if (!msm8960_bottom_spk_pamp_on)
+			return;
+		pr_debug("%s: disable Bottom spkr amp\n", __func__);
+		gpio_direction_output(BOTTOM_SPK_PAMP, 0);
+		gpio_free(BOTTOM_SPK_PAMP);
+		msm8960_bottom_spk_pamp_on = 0;
+	} else {
+		if (!msm8960_top_spk_pamp_on)
+			return;
+		pr_debug("%s: disable To spkr amp\n", __func__);
+		gpio_direction_output(TOP_SPK_PAMP, 0);
+		gpio_free(TOP_SPK_PAMP);
+		msm8960_top_spk_pamp_on = 0;
+	}
+	pr_debug("%s: slepping 4 ms", __func__);
+	usleep_range(4000, 4000);
 }
+
 static void msm8960_ext_control(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
@@ -165,10 +187,18 @@ static int msm8960_spkramp_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *k, int event)
 {
 	pr_debug("%s() %x\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
-	if (SND_SOC_DAPM_EVENT_ON(event))
-		codec_poweramp_on();
-	else
-		codec_poweramp_off();
+
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		if (!strncmp(w->name, "Ext Spk Bottom", 14))
+			codec_poweramp_on(1);
+		else
+			codec_poweramp_on(0);
+	} else {
+		if (!strncmp(w->name, "Ext Spk Bottom", 14))
+			codec_poweramp_off(1);
+		else
+			codec_poweramp_off(0);
+	}
 	return 0;
 }
 static int msm8960_mclk_enable_event(struct snd_soc_dapm_widget *w,
@@ -206,7 +236,6 @@ static int msm8960_mclk_disable_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMD:
-		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
 
 		if (clk_users == 0)
 			return 0;
@@ -230,8 +259,9 @@ static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
 	SND_SOC_DAPM_PRE("CODEC MCLK_ON", msm8960_mclk_enable_event),
 	SND_SOC_DAPM_POST("CODEC MCLK_OFF", msm8960_mclk_disable_event),
 
+	SND_SOC_DAPM_SPK("Ext Spk Bottom", msm8960_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Top", msm8960_spkramp_event),
 
-	SND_SOC_DAPM_SPK("Ext Spk", msm8960_spkramp_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
@@ -249,7 +279,12 @@ static const struct snd_soc_dapm_widget msm8960_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route common_audio_map[] = {
 	/* Speaker path */
-	{"Ext Spk", NULL, "LINEOUT"},
+
+	{"Ext Spk Bottom", NULL, "LINEOUT1"},
+	{"Ext Spk Bottom", NULL, "LINEOUT3"},
+
+	{"Ext Spk Top", NULL, "LINEOUT2"},
+	{"Ext Spk Top", NULL, "LINEOUT4"},
 
 	/* Microphone path */
 	{"AMIC1", NULL, "MIC BIAS1 Internal1"},

@@ -576,7 +576,7 @@ static int tabla_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 lineout_gain_reg;
 
-	pr_debug("%s %d\n", __func__, event);
+	pr_debug("%s %d %s\n", __func__, event, w->name);
 
 	switch (w->shift) {
 	case 0:
@@ -605,6 +605,8 @@ static int tabla_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, lineout_gain_reg, 0x40, 0x40);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		pr_debug("%s: sleeping 40 ms after %s PA turn on\n",
+				__func__, w->name);
 		usleep_range(40000, 40000);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1024,21 +1026,25 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		hphr_switch, ARRAY_SIZE(hphr_switch)),
 
 	/* Speaker */
-	SND_SOC_DAPM_OUTPUT("LINEOUT"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT5"),
 
-	SND_SOC_DAPM_PGA_E("LINEOUT1", TABLA_A_RX_LINE_CNP_EN, 0, 0, NULL, 0,
-		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT2", TABLA_A_RX_LINE_CNP_EN, 1, 0, NULL, 0,
-		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT3", TABLA_A_RX_LINE_CNP_EN, 2, 0, NULL, 0,
-		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT4", TABLA_A_RX_LINE_CNP_EN, 3, 0, NULL, 0,
-		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT5", TABLA_A_RX_LINE_CNP_EN, 4, 0, NULL, 0,
+	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", TABLA_A_RX_LINE_CNP_EN, 0, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", TABLA_A_RX_LINE_CNP_EN, 1, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT3 PA", TABLA_A_RX_LINE_CNP_EN, 2, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT4 PA", TABLA_A_RX_LINE_CNP_EN, 3, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT5 PA", TABLA_A_RX_LINE_CNP_EN, 4, 0, NULL, 0,
 		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
@@ -1335,17 +1341,17 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHL DAC", "Switch", "RX1 CHAIN"},
 	{"HPHR DAC", "Switch", "RX2 CHAIN"},
 
-	{"LINEOUT", NULL, "LINEOUT1"},
-	{"LINEOUT", NULL, "LINEOUT2"},
-	{"LINEOUT", NULL, "LINEOUT3"},
-	{"LINEOUT", NULL, "LINEOUT4"},
-	{"LINEOUT", NULL, "LINEOUT5"},
+	{"LINEOUT1", NULL, "LINEOUT1 PA"},
+	{"LINEOUT2", NULL, "LINEOUT2 PA"},
+	{"LINEOUT3", NULL, "LINEOUT3 PA"},
+	{"LINEOUT4", NULL, "LINEOUT4 PA"},
+	{"LINEOUT5", NULL, "LINEOUT5 PA"},
 
-	{"LINEOUT1", NULL, "LINEOUT1 DAC"},
-	{"LINEOUT2", NULL, "LINEOUT2 DAC"},
-	{"LINEOUT3", NULL, "LINEOUT3 DAC"},
-	{"LINEOUT4", NULL, "LINEOUT4 DAC"},
-	{"LINEOUT5", NULL, "LINEOUT5 DAC"},
+	{"LINEOUT1 PA", NULL, "LINEOUT1 DAC"},
+	{"LINEOUT2 PA", NULL, "LINEOUT2 DAC"},
+	{"LINEOUT3 PA", NULL, "LINEOUT3 DAC"},
+	{"LINEOUT4 PA", NULL, "LINEOUT4 DAC"},
+	{"LINEOUT5 PA", NULL, "LINEOUT5 DAC"},
 
 	{"RX1 CHAIN", NULL, "RX1 MIX1"},
 	{"RX2 CHAIN", NULL, "RX2 MIX1"},
@@ -1364,6 +1370,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT3 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT4 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT5 DAC", NULL, "RX_BIAS"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
