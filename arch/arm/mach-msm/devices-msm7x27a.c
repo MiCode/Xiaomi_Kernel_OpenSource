@@ -730,7 +730,7 @@ static int __init msm7x27x_cache_init(void)
 	return 0;
 }
 #else
-static int __init msm_cache_init(void){ return 0; }
+static int __init msm7x27x_cache_init(void){ return 0; }
 #endif
 
 void __init msm_common_io_init(void)
