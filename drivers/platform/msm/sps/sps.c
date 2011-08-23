@@ -473,7 +473,7 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
 		return NULL;
 	}
 
-	spin_lock(&bam->connection_lock);
+	spin_lock_irqsave(&bam->connection_lock, bam->irqsave_flags);
 
 	/* Verify client owns this pipe */
 	pipe_index = pipe->pipe_index;
@@ -482,7 +482,8 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
 		SPS_ERR("Client not owner of BAM 0x%x pipe: %d (max %d)",
 			bam->props.phys_addr, pipe_index,
 			bam->props.num_pipes);
-		spin_unlock(&bam->connection_lock);
+		spin_unlock_irqrestore(&bam->connection_lock,
+						bam->irqsave_flags);
 		return NULL;
 	}
 
@@ -499,7 +500,7 @@ static struct sps_bam *sps_bam_lock(struct sps_pipe *pipe)
  */
 static inline void sps_bam_unlock(struct sps_bam *bam)
 {
-	spin_unlock(&bam->connection_lock);
+	spin_unlock_irqrestore(&bam->connection_lock, bam->irqsave_flags);
 }
 
 /**
