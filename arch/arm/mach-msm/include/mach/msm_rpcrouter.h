@@ -253,7 +253,7 @@ struct msm_rpc_client {
 	int cb_avail;
 
 	atomic_t next_cb_id;
-	struct mutex cb_list_lock;
+	spinlock_t cb_list_lock;
 	struct list_head cb_list;
 
 	uint32_t exit_flag;
