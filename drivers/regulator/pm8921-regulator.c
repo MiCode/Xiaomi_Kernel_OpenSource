@@ -368,7 +368,8 @@ module_param_named(
 #define VS_DISABLE			0x00
 #define VS_ENABLE			0x80
 #define VS_PULL_DOWN_ENABLE_MASK	0x40
-#define VS_PULL_DOWN_ENABLE		0x40
+#define VS_PULL_DOWN_DISABLE		0x40
+#define VS_PULL_DOWN_ENABLE		0x00
 
 #define VS_PIN_CTRL_MASK		0x0F
 #define VS_PIN_CTRL_EN0			0x08
@@ -3062,7 +3063,8 @@ static int pm8921_init_vs(struct pm8921_vreg *vreg, bool is_real)
 	if (is_real) {
 		/* Set pull down enable based on platform data. */
 		rc = pm8921_vreg_masked_write(vreg, vreg->ctrl_addr,
-		       (vreg->pdata.pull_down_enable ? VS_PULL_DOWN_ENABLE : 0),
+		       (vreg->pdata.pull_down_enable ? VS_PULL_DOWN_ENABLE
+						     : VS_PULL_DOWN_DISABLE),
 		       VS_PULL_DOWN_ENABLE_MASK, &vreg->ctrl_reg);
 
 		if (rc)
