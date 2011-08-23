@@ -16,7 +16,6 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
-#include <linux/bitops.h>
 
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/audio_acdb.h>
@@ -28,6 +27,7 @@
 #define TIMEOUT_MS 1000
 #define AUDIO_RX 0x0
 #define AUDIO_TX 0x1
+
 #define ASM_MAX_SESSION 0x8 /* To do: define in a header */
 #define RESET_COPP_ID 99
 #define INVALID_COPP_ID 0xFF
@@ -37,7 +37,6 @@ struct adm_ctl {
 	atomic_t copp_id[AFE_MAX_PORTS];
 	atomic_t copp_cnt[AFE_MAX_PORTS];
 	atomic_t copp_stat[AFE_MAX_PORTS];
-	unsigned long sessions[AFE_MAX_PORTS];
 	wait_queue_head_t wait;
 };
 
@@ -204,205 +203,6 @@ void send_adm_cal(int port_id, int path)
 	send_cal(port_id, &aud_cal);
 done:
 	return;
-}
-
-/* This function issues routing command of ASM stream
- * to ADM mixer associated with a particular AFE port
- */
-int adm_cmd_map(int port_id, int session_id)
-{
-	struct adm_routings_command route;
-	int ret = 0;
-	int index = afe_get_port_index(port_id);
-
-	pr_debug("%s: port %x session %x\n", __func__, port_id, session_id);
-
-	if (!atomic_read(&this_adm.copp_cnt[index]))
-		return 0;
-
-	route.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	route.hdr.pkt_size = sizeof(route);
-	route.hdr.src_svc = 0;
-	route.hdr.src_domain = APR_DOMAIN_APPS;
-	route.hdr.src_port = port_id;
-	route.hdr.dest_svc = APR_SVC_ADM;
-	route.hdr.dest_domain = APR_DOMAIN_ADSP;
-	route.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
-	route.hdr.token = port_id;
-	route.hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS;
-	route.num_sessions = 1;
-	route.session[0].id = session_id;
-	route.session[0].num_copps = 1;
-	route.session[0].copp_id[0] =
-			atomic_read(&this_adm.copp_id[index]);
-
-	/* This rule can change */
-	if ((port_id & 0x1))
-		route.path = AUDIO_TX;
-	else
-		route.path = AUDIO_RX;
-
-	atomic_set(&this_adm.copp_stat[index], 0);
-
-	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&route);
-	if (ret < 0) {
-		pr_err("%s: ADM routing for port %d failed\n",
-					__func__, port_id);
-		ret = -EINVAL;
-		goto fail_cmd;
-	}
-	ret = wait_event_timeout(this_adm.wait,
-				atomic_read(&this_adm.copp_stat[index]),
-				msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: ADM cmd Route failed for port %d\n",
-					__func__, port_id);
-		ret = -EINVAL;
-	}
-
-	/* have to convert path to dev ctrl standard */
-	send_adm_cal(port_id, (route.path + 1));
-	rtac_add_adm_device(port_id, atomic_read(&this_adm.copp_id[index]),
-		(route.path + 1), session_id);
-fail_cmd:
-	return ret;
-}
-
-/* This function establish routing of ASM stream to a particular
- * ADM mixer that is routed to a particular hardware port
- * session id must be in range of 0 ~ 31.
- */
-int adm_route_session(int port_id, uint session_id, int set)
-{
-	int rc = 0;
-	int index;
-
-	pr_debug("%s: port %x session %x set %x\n", __func__,
-		port_id, session_id, set);
-
-	port_id = afe_convert_virtual_to_portid(port_id);
-
-	index = afe_get_port_index(port_id);
-
-	if (index >= AFE_MAX_PORTS) {
-		pr_err("%s port idi[%d] out of limit[%d]\n", __func__,
-						port_id, AFE_MAX_PORTS);
-		return -ENODEV;
-	}
-
-	if (set) {
-		set_bit(session_id, &this_adm.sessions[index]);
-		rc = adm_cmd_map(port_id, session_id); /* not thread safe */
-	} else /* Not sure how to deroute yet */
-		clear_bit(session_id, &this_adm.sessions[index]);
-
-	return rc;
-}
-
-/* This function instantiates a mixer in QDSP6 audio path for
- * given audio hardware port. Topology should be made part
- * of audio calibration
- */
-int adm_open_mixer(int port_id, int path, int rate,
-	int channel_mode, int topology) {
-	struct adm_copp_open_command open;
-	int ret = 0;
-	u32 i;
-	int index;
-
-	pr_debug("%s: port %d path:%d rate:%d mode:%d\n", __func__,
-				port_id, path, rate, channel_mode);
-
-	port_id = afe_convert_virtual_to_portid(port_id);
-
-	if (afe_validate_port(port_id) < 0) {
-		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
-		return -ENODEV;
-	}
-	index = afe_get_port_index(port_id);
-	if (this_adm.apr == NULL) {
-		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
-						0xFFFFFFFF, &this_adm);
-		if (this_adm.apr == NULL) {
-			pr_err("%s: Unable to register ADM\n", __func__);
-			ret = -ENODEV;
-			return ret;
-		}
-		rtac_set_adm_handle(this_adm.apr);
-	}
-
-	if (atomic_read(&this_adm.copp_cnt[index]) == 0) {
-
-		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		open.hdr.pkt_size = sizeof(open);
-		open.hdr.src_svc = APR_SVC_ADM;
-		open.hdr.src_domain = APR_DOMAIN_APPS;
-		open.hdr.src_port = port_id;
-		open.hdr.dest_svc = APR_SVC_ADM;
-		open.hdr.dest_domain = APR_DOMAIN_ADSP;
-		open.hdr.dest_port = port_id;
-		open.hdr.token = port_id;
-		open.hdr.opcode = ADM_CMD_COPP_OPEN;
-
-		open.mode = path;
-		open.endpoint_id1 = port_id;
-		open.endpoint_id2 = 0xFFFF;
-
-		/* convert path to acdb path */
-		if (path == ADM_PATH_PLAYBACK)
-			open.topology_id = get_adm_rx_topology();
-		else {
-			open.topology_id = get_adm_tx_topology();
-			if ((open.topology_id ==
-				VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-			    (open.topology_id ==
-				VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
-				rate = 16000;
-		}
-
-		if (open.topology_id  == 0)
-			open.topology_id = topology;
-
-		open.channel_config = channel_mode & 0x00FF;
-		open.rate  = rate;
-
-		pr_debug("%s: channel_config=%d port_id=%d rate=%d\
-			topology_id=0x%X\n", __func__, open.channel_config,\
-			open.endpoint_id1, open.rate,\
-			open.topology_id);
-
-		atomic_set(&this_adm.copp_stat[index], 0);
-
-		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&open);
-		if (ret < 0) {
-			pr_err("%s:ADM enable for port %d failed\n",
-						__func__, port_id);
-			ret = -EINVAL;
-			goto fail_cmd;
-		}
-		/* Wait for the callback with copp id */
-		ret = wait_event_timeout(this_adm.wait,
-			atomic_read(&this_adm.copp_stat[index]),
-			msecs_to_jiffies(TIMEOUT_MS));
-		if (!ret) {
-			pr_err("%s ADM open failed for port %d\n", __func__,
-								port_id);
-			ret = -EINVAL;
-			goto fail_cmd;
-		}
-	}
-	atomic_inc(&this_adm.copp_cnt[index]);
-
-	/* Set up routing for cached session */
-	for (i = find_first_bit(&this_adm.sessions[index], ASM_MAX_SESSION);
-	     i < ASM_MAX_SESSION; i = find_next_bit(&this_adm.sessions[index],
-	     ASM_MAX_SESSION, i + 1))
-		adm_cmd_map(port_id, i); /* Not thread safe */
-
-fail_cmd:
-	return ret;
 }
 
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology)

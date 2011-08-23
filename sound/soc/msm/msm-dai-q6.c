@@ -342,13 +342,6 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	rc = adm_close(dai->id);
-
-	if (IS_ERR_VALUE(rc))
-		dev_err(dai->dev, "fail to close ADM COPP\n");
-
-	pr_debug("%s: dai->id = %d", __func__, dai->id);
-
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(dai->id); /* can block */
 		if (IS_ERR_VALUE(rc))
@@ -369,27 +362,14 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = adm_open_mixer(dai->id, 1, dai_data->rate,
-			dai_data->channels, DEFAULT_COPP_TOPOLOGY);
-
+		rc = afe_q6_interface_prepare();
 		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open ADM\n");
-		else {
-			rc = afe_q6_interface_prepare();
-			if (IS_ERR_VALUE(rc))
-				dev_err(dai->dev, "fail to open AFE APR\n");
-		}
+			dev_err(dai->dev, "fail to open AFE APR\n");
 
-		rc = adm_open_mixer(PCM_TX, 2, dai_data->rate,
-				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
-
+		rc = afe_q6_interface_prepare();
 		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open ADM\n");
-		else {
-			rc = afe_q6_interface_prepare();
-			if (IS_ERR_VALUE(rc))
-				dev_err(dai->dev, "fail to open AFE APR\n");
-		}
+			dev_err(dai->dev, "fail to open AFE APR\n");
+
 		pr_debug("%s:dai->id:%d dai_data->status_mask = %ld\n",
 			__func__, dai->id, *dai_data->status_mask);
 
@@ -434,21 +414,10 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			rc = adm_open_mixer(dai->id, 1, dai_data->rate,
-				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
-		else
-			rc = adm_open_mixer(dai->id, 2, dai_data->rate,
-				dai_data->channels, DEFAULT_COPP_TOPOLOGY);
+		/* PORT START should be set if prepare called in active state */
+		rc = afe_q6_interface_prepare();
 		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open ADM\n");
-		else {
-			rc = afe_q6_interface_prepare();
-			if (IS_ERR_VALUE(rc))
-				dev_err(dai->dev, "fail to open AFE APR\n");
-		}
-		pr_debug("%s:dai->id:%d dai_data->status_mask = %ld\n",
-			__func__, dai->id, *dai_data->status_mask);
+			dev_err(dai->dev, "fail to open AFE APR\n");
 	}
 	return rc;
 }
