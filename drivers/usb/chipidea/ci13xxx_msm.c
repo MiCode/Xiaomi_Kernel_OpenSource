@@ -20,24 +20,12 @@
 static void ci13xxx_msm_notify_event(struct ci13xxx *ci, unsigned event)
 {
 	struct device *dev = ci->gadget.dev.parent;
-	int val;
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
 		dev_dbg(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
 		writel(0, USB_AHBBURST);
 		writel(0, USB_AHBMODE);
-		break;
-	case CI13XXX_CONTROLLER_STOPPED_EVENT:
-		dev_dbg(dev, "CI13XXX_CONTROLLER_STOPPED_EVENT received\n");
-		/*
-		 * Put the transceiver in non-driving mode. Otherwise host
-		 * may not detect soft-disconnection.
-		 */
-		val = usb_phy_io_read(ci->transceiver, ULPI_FUNC_CTRL);
-		val &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
-		val |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
-		usb_phy_io_write(ci->transceiver, val, ULPI_FUNC_CTRL);
 		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx event\n");
