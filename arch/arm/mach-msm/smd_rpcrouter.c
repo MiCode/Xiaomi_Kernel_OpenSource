@@ -312,6 +312,7 @@ static void modem_reset_cleanup(struct rpcrouter_xprt_info *xprt_info)
 			list_del(&reply->list);
 			kfree(reply);
 		}
+		ept->reply_cnt = 0;
 		spin_unlock(&ept->reply_q_lock);
 
 		/* Set restart state for local ep */
