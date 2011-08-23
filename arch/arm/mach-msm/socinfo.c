@@ -677,3 +677,47 @@ int __init socinfo_init(void)
 
 	return 0;
 }
+
+const int get_core_count(void)
+{
+	if (!(read_cpuid_mpidr() & BIT(31)))
+		return 1;
+
+	if (read_cpuid_mpidr() & BIT(30) &&
+		!machine_is_msm8960_sim() &&
+		!machine_is_apq8064_sim())
+		return 1;
+
+	/* 1 + the PART[1:0] field of MIDR */
+	return ((read_cpuid_id() >> 4) & 3) + 1;
+}
+
+const int read_msm_cpu_type(void)
+{
+	if (machine_is_msm8960_sim())
+		return MSM_CPU_8960;
+
+	switch (read_cpuid_id()) {
+	case 0x510F02D0:
+	case 0x510F02D2:
+	case 0x510F02D4:
+		return MSM_CPU_8X60;
+
+	case 0x510F04D0:
+	case 0x510F04D1:
+	case 0x510F04D2:
+		return MSM_CPU_8960;
+
+	case 0x511F04D0:
+		if (get_core_count() == 2)
+			return MSM_CPU_8960;
+		else
+			return MSM_CPU_8X30;
+
+	case 0x510F06F0:
+		return MSM_CPU_8064;
+
+	default:
+		return MSM_CPU_UNKNOWN;
+	};
+}
