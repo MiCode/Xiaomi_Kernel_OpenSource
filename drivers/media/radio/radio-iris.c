@@ -60,6 +60,7 @@ struct iris_device {
 	__u16 pi;
 	__u8 pty;
 	__u8 ps_repeatcount;
+	__u8 prev_trans_rds;
 
 	struct video_device *videodev;
 
@@ -2368,29 +2369,70 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->recv_conf.ch_spacing = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_EMPHASIS:
-		radio->recv_conf.emphasis = ctrl->value;
-		retval = hci_set_fm_recv_conf(
-				&radio->recv_conf,
-					radio->fm_hdev);
-		if (retval < 0) {
-			FMDERR("Error in setting emphasis");
+		switch (radio->mode) {
+		case FM_RECV:
+			radio->recv_conf.emphasis = ctrl->value;
+			retval = hci_set_fm_recv_conf(
+					&radio->recv_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in setting emphasis");
 			break;
+		case FM_TRANS:
+			radio->trans_conf.emphasis = ctrl->value;
+			retval = hci_set_fm_trans_conf(
+					&radio->trans_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in setting emphasis");
+			break;
+		default:
+			retval = -EINVAL;
 		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDS_STD:
-		radio->recv_conf.rds_std = ctrl->value;
-		retval = hci_set_fm_recv_conf(
-				&radio->recv_conf,
-					radio->fm_hdev);
-		if (retval < 0) {
-			FMDERR("Error in setting RDS_STD");
+		switch (radio->mode) {
+		case FM_RECV:
+			radio->recv_conf.rds_std = ctrl->value;
+			retval = hci_set_fm_recv_conf(
+					&radio->recv_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in rds_std");
 			break;
+		case FM_TRANS:
+			radio->trans_conf.rds_std = ctrl->value;
+			retval = hci_set_fm_trans_conf(
+					&radio->trans_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in rds_Std");
+			break;
+		default:
+			retval = -EINVAL;
 		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDSON:
-		radio->recv_conf.rds_std = ctrl->value;
-		retval =
-		hci_set_fm_recv_conf(&radio->recv_conf, radio->fm_hdev);
+		switch (radio->mode) {
+		case FM_RECV:
+			radio->recv_conf.rds_std = ctrl->value;
+			retval = hci_set_fm_recv_conf(
+					&radio->recv_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in rds_std");
+			break;
+		case FM_TRANS:
+			radio->trans_conf.rds_std = ctrl->value;
+			retval = hci_set_fm_trans_conf(
+					&radio->trans_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in rds_Std");
+			break;
+		default:
+			retval = -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RDSGROUP_MASK:
 		radio->rds_grp.rds_grp_enable_mask = ctrl->value;
@@ -2569,7 +2611,30 @@ static int iris_vidioc_s_frequency(struct file *file, void *priv,
 	if (freq->type != V4L2_TUNER_RADIO)
 		return -EINVAL;
 
+	/* We turn off RDS prior to tuning to a new station.
+	   because of a bug in SoC which prevents tuning
+	   during RDS transmission.
+	 */
+	if (radio->mode == FM_TRANS
+		&& (radio->trans_conf.rds_std == 0 ||
+			radio->trans_conf.rds_std == 1)) {
+		radio->prev_trans_rds = radio->trans_conf.rds_std;
+		radio->trans_conf.rds_std = 2;
+		hci_set_fm_trans_conf(&radio->trans_conf,
+				radio->fm_hdev);
+	}
+
 	retval = iris_set_freq(radio, freq->frequency);
+
+	if (radio->mode == FM_TRANS
+		 && radio->trans_conf.rds_std == 2
+			&& (radio->prev_trans_rds == 1
+				|| radio->prev_trans_rds == 0)) {
+		radio->trans_conf.rds_std = radio->prev_trans_rds;
+		hci_set_fm_trans_conf(&radio->trans_conf,
+				radio->fm_hdev);
+	}
+
 	if (retval < 0)
 		FMDERR(" set frequency failed with %d\n", retval);
 	return retval;
@@ -2720,6 +2785,7 @@ static int __init iris_probe(struct platform_device *pdev)
 	mutex_init(&radio->lock);
 	init_completion(&radio->sync_xfr_start);
 	radio->tune_req = 0;
+	radio->prev_trans_rds = 2;
 	init_waitqueue_head(&radio->event_queue);
 	init_waitqueue_head(&radio->read_queue);
 
