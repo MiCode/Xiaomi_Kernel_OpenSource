@@ -220,22 +220,15 @@ static int diag_function_bind_config(struct android_usb_function *f,
 {
 	char *name;
 	char buf[32], *b;
-	int once = 0, err = -1;
-	int (*notify)(uint32_t, const char *);
+	int err = -1;
 
 	strncpy(buf, diag_clients, sizeof(buf));
 	b = strim(buf);
 
 	while (b) {
 		name = strsep(&b, ",");
-		/* Allow only first diag channel to update pid and serial no */
-		if (!once++)
-			notify = _android_dev->pdata->update_pid_and_serial_num;
-		else
-			notify = NULL;
-
 		if (name) {
-			err = diag_function_add(c, name, notify);
+			err = diag_function_add(c, name);
 			if (err)
 				pr_err("diag: Cannot open channel '%s'", name);
 		}
