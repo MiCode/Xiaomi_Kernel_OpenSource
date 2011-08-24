@@ -41,8 +41,10 @@ static void diag_smd_cntl_send_req(int proc_num)
 		smd_ch = driver->ch_wcnss_cntl;
 	}
 
-	if (!smd_ch || !buf)
+	if (!smd_ch || !buf) {
+		kfree(pkt_params);
 		return;
+	}
 
 	r = smd_read_avail(smd_ch);
 	if (r > IN_BUF_SIZE) {
