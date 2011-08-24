@@ -3103,15 +3103,14 @@ static void msm_sdio_al_shutdown(struct platform_device *pdev)
 
 		pr_debug(MODULE_NAME ": %s: Notifying SDIO clients for card %d",
 				__func__, sdio_al_dev->card->host->index);
-		if (!sdio_al->unittest_mode)
-			for (j = 0; j < SDIO_AL_MAX_CHANNELS; j++) {
-				if (sdio_al_dev->channel[j].state ==
-					SDIO_CHANNEL_STATE_INVALID)
-					continue;
-				platform_device_unregister(
-					sdio_al_dev->channel[j].pdev);
-				sdio_al_dev->channel[i].signature = 0x0;
-			}
+		for (j = 0; j < SDIO_AL_MAX_CHANNELS; j++) {
+			if (sdio_al_dev->channel[j].state ==
+				SDIO_CHANNEL_STATE_INVALID)
+				continue;
+			platform_device_unregister(
+				sdio_al_dev->channel[j].pdev);
+			sdio_al_dev->channel[i].signature = 0x0;
+		}
 
 		if (!sdio_al_verify_func1(sdio_al_dev, __func__))
 			sdio_release_host(sdio_al_dev->card->sdio_func[0]);
@@ -3160,7 +3159,6 @@ static int init_channels(struct sdio_al_device *sdio_al_dev)
 		if (sdio_al_dev->channel[i].state == SDIO_CHANNEL_STATE_INVALID)
 			continue;
 		if (sdio_al->unittest_mode) {
-			test_channel_init(sdio_al_dev->channel[i].name);
 			memset(sdio_al_dev->channel[i].ch_test_name, 0,
 				sizeof(sdio_al_dev->channel[i].ch_test_name));
 			ch_name_size = strnlen(sdio_al_dev->channel[i].name,
@@ -3436,18 +3434,16 @@ static void sdio_al_sdio_remove(struct sdio_func *func)
 			del_timer_sync(&sdio_al_dev->timer);
 		}
 
-		if (!sdio_al->unittest_mode) {
-			pr_info(MODULE_NAME ":%s: notifying clients for "
-					    "card %d\n",
-					 __func__, card->host->index);
-			for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
-				if (sdio_al_dev->channel[i].state ==
-						SDIO_CHANNEL_STATE_INVALID)
-					continue;
-				platform_device_unregister(
-					sdio_al_dev->channel[i].pdev);
-				sdio_al_dev->channel[i].signature = 0x0;
-			}
+		pr_info(MODULE_NAME ":%s: notifying clients for "
+				    "card %d\n",
+				 __func__, card->host->index);
+		for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+			if (sdio_al_dev->channel[i].state ==
+					SDIO_CHANNEL_STATE_INVALID)
+				continue;
+			platform_device_unregister(
+				sdio_al_dev->channel[i].pdev);
+			sdio_al_dev->channel[i].signature = 0x0;
 		}
 	}
 	if (card->sdio_func[0])

@@ -83,6 +83,7 @@ enum sdio_test_case_type {
 	 */
 	SDIO_TEST_PERF,
 	SDIO_TEST_RTT,
+	SDIO_TEST_MODEM_RESET,
 };
 
 struct lpm_task {
@@ -185,6 +186,7 @@ struct test_channel {
 	atomic_t tx_notify_count;
 	atomic_t any_notify_count;
 	atomic_t wakeup_client;
+	atomic_t card_detected_event;
 
 	int wait_counter;
 
@@ -210,6 +212,7 @@ struct test_channel {
 	int modem_result_per_chan;
 	int notify_counter_per_chan;
 	int max_burst_size;        /* number of writes before close/open */
+	int card_removed;
 };
 
 struct sdio_al_test_debug {
@@ -327,25 +330,26 @@ static int channel_name_to_id(char *name)
 	pr_info(TEST_MODULE_NAME "%s: channel name %s\n",
 		__func__, name);
 
-	if (!strncmp(name, "SDIO_RPC", strnlen("SDIO_RPC", CHANNEL_NAME_SIZE)))
+	if (!strncmp(name, "SDIO_RPC_TEST",
+		     strnlen("SDIO_RPC_TEST", CHANNEL_NAME_SIZE)))
 		return SDIO_RPC;
-	else if (!strncmp(name, "SDIO_QMI",
-			  strnlen("SDIO_QMI", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_QMI_TEST",
+			  strnlen("SDIO_QMI_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_QMI;
-	else if (!strncmp(name, "SDIO_RMNT",
-			  strnlen("SDIO_RMNT", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_RMNT_TEST",
+			  strnlen("SDIO_RMNT_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_RMNT;
-	else if (!strncmp(name, "SDIO_DIAG",
-			  strnlen("SDIO_DIAG", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_DIAG_TEST",
+			  strnlen("SDIO_DIAG", TEST_CH_NAME_SIZE)))
 		return SDIO_DIAG;
-	else if (!strncmp(name, "SDIO_DUN",
-			  strnlen("SDIO_DUN", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_DUN_TEST",
+			  strnlen("SDIO_DUN_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_DUN;
-	else if (!strncmp(name, "SDIO_SMEM",
-			  strnlen("SDIO_SMEM", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_SMEM_TEST",
+			  strnlen("SDIO_SMEM_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_SMEM;
-	else if (!strncmp(name, "SDIO_CIQ",
-			  strnlen("SDIO_CIQ", CHANNEL_NAME_SIZE)))
+	else if (!strncmp(name, "SDIO_CIQ_TEST",
+			  strnlen("SDIO_CIQ_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_CIQ;
 	else
 		return SDIO_MAX_CHANNELS;
@@ -513,6 +517,11 @@ static void lpm_test_update_entry(struct test_channel *tch,
 
 	if (!test_device) {
 		pr_err(TEST_MODULE_NAME ": %s - NULL test device\n", __func__);
+		return;
+	}
+
+	if (!test_device->lpm_arr) {
+		pr_err(TEST_MODULE_NAME ": %s - NULL lpm_arr\n", __func__);
 		return;
 	}
 
@@ -1997,6 +2006,177 @@ exit_err:
 	return;
 }
 
+
+/**
+ * Modem reset Test
+ * The test verifies that it finished sending all the packets
+ * while there might be modem reset in the middle
+ */
+static void modem_reset_test(struct test_channel *test_ch)
+{
+	int ret = 0 ;
+	u32 read_avail = 0;
+	u32 write_avail = 0;
+	int tx_packet_count = 0;
+	int rx_packet_count = 0;
+	int size = 0;
+	u16 *buf16 = (u16 *) test_ch->buf;
+	int i;
+	int max_packets = 10000;
+	u32 packet_size = test_ch->buf_size;
+	int is_err = 0;
+
+	max_packets = test_ch->config_msg.num_packets;
+	packet_size = test_ch->packet_length;
+
+	for (i = 0; i < packet_size / 2; i++)
+		buf16[i] = (u16) (i & 0xFFFF);
+
+	pr_info(TEST_MODULE_NAME ": Modem Reset TEST START for chan %s\n",
+		test_ch->name);
+
+	while (tx_packet_count < max_packets) {
+
+		if (test_ctx->exit_flag) {
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
+			return;
+		}
+
+		if (test_ch->card_removed) {
+			pr_info(TEST_MODULE_NAME ": card removal was detected "
+				"for chan %s, tx_total=0x%x\n",
+				test_ch->name, test_ch->tx_bytes);
+			wait_event(test_ch->wait_q,
+				   atomic_read(&test_ch->card_detected_event));
+			atomic_set(&test_ch->card_detected_event, 0);
+			pr_info(TEST_MODULE_NAME ": card_detected_event "
+					"for chan %s\n", test_ch->name);
+			if (test_ch->card_removed)
+				continue;
+			is_err = 0;
+			/* Need to wait for the modem to be ready */
+			msleep(5000);
+			pr_info(TEST_MODULE_NAME ": sending the config message "
+					"for chan %s\n", test_ch->name);
+			send_config_msg(test_ch);
+		}
+
+		/* wait for data ready event */
+		/* use a func to avoid compiler optimizations */
+		write_avail = sdio_write_avail(test_ch->ch);
+		read_avail = sdio_read_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":channel %s, write_avail=%d, "
+					 "read_avail=%d for chan %s\n",
+			test_ch->name, write_avail, read_avail,
+			test_ch->name);
+		if ((write_avail == 0) && (read_avail == 0)) {
+			wait_event(test_ch->wait_q,
+				   atomic_read(&test_ch->any_notify_count));
+			atomic_set(&test_ch->any_notify_count, 0);
+		}
+		if (atomic_read(&test_ch->card_detected_event)) {
+			atomic_set(&test_ch->card_detected_event, 0);
+			pr_info(TEST_MODULE_NAME ": card_detected_event "
+				"for chan %s, tx_total=0x%x\n",
+				test_ch->name,  test_ch->tx_bytes);
+			if (test_ch->card_removed)
+				continue;
+			/* Need to wait for the modem to be ready */
+			msleep(5000);
+			is_err = 0;
+			pr_info(TEST_MODULE_NAME ": sending the config message "
+					"for chan %s\n", test_ch->name);
+			send_config_msg(test_ch);
+		}
+
+		write_avail = sdio_write_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":channel %s, write_avail=%d\n",
+			 test_ch->name, write_avail);
+		if (write_avail > 0) {
+			size = min(packet_size, write_avail) ;
+			pr_debug(TEST_MODULE_NAME ":tx size = %d for chan %s\n",
+				 size, test_ch->name);
+			test_ch->buf[0] = tx_packet_count;
+			test_ch->buf[(size/4)-1] = tx_packet_count;
+
+			TEST_DBG(TEST_MODULE_NAME ":channel %s, sdio_write, "
+				"size=%d\n", test_ch->name, size);
+			if (is_err) {
+				msleep(100);
+				continue;
+			}
+			ret = sdio_write(test_ch->ch, test_ch->buf, size);
+			if (ret) {
+				pr_info(TEST_MODULE_NAME ":sdio_write err=%d"
+							 " for chan %s\n",
+					-ret, test_ch->name);
+				is_err = 1;
+				msleep(20);
+				continue;
+			}
+			tx_packet_count++;
+			test_ch->tx_bytes += size;
+			test_ch->config_msg.num_packets--;
+		}
+
+		read_avail = sdio_read_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
+			 test_ch->name, read_avail);
+		if (read_avail > 0) {
+			size = min(packet_size, read_avail);
+			pr_debug(TEST_MODULE_NAME ":rx size = %d.\n", size);
+			TEST_DBG(TEST_MODULE_NAME ":channel %s, sdio_read, "
+				"size=%d\n", test_ch->name, size);
+			if (is_err) {
+				msleep(100);
+				continue;
+			}
+			ret = sdio_read(test_ch->ch, test_ch->buf, size);
+			if (ret) {
+				pr_info(TEST_MODULE_NAME ": sdio_read size %d "
+							 " err=%d"
+							 " for chan %s\n",
+					size, -ret, test_ch->name);
+				is_err = 1;
+				msleep(20);
+				continue;
+			}
+			rx_packet_count++;
+			test_ch->rx_bytes += size;
+		}
+
+		TEST_DBG(TEST_MODULE_NAME
+			 ":total rx bytes = %d , rx_packet#=%d"
+			 " for chan %s\n",
+			 test_ch->rx_bytes, rx_packet_count, test_ch->name);
+		TEST_DBG(TEST_MODULE_NAME
+			 ":total tx bytes = %d , tx_packet#=%d"
+			 " for chan %s\n",
+			 test_ch->tx_bytes, tx_packet_count, test_ch->name);
+
+		udelay(500);
+
+	} /* while (tx_packet_count < max_packets ) */
+
+	rx_cleanup(test_ch, &rx_packet_count);
+
+	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d for"
+				 " chan %s.\n",
+		test_ch->rx_bytes, rx_packet_count, test_ch->name);
+	pr_info(TEST_MODULE_NAME ":total tx bytes = 0x%x , tx_packet#=%d"
+				 " for chan %s.\n",
+		test_ch->tx_bytes, tx_packet_count, test_ch->name);
+
+	pr_err(TEST_MODULE_NAME ": Modem Reset TEST END for chan %s.\n",
+	       test_ch->name);
+
+	pr_err(TEST_MODULE_NAME ": TEST PASS for chan %s\n", test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_PASSED;
+	check_test_completion();
+	return;
+}
+
 /**
  * Worker thread to handle the tests types
  */
@@ -2044,6 +2224,9 @@ static void worker(struct work_struct *work)
 		break;
 	case SDIO_TEST_CLOSE_CHANNEL:
 		open_close_test(test_ch);
+		break;
+	case SDIO_TEST_MODEM_RESET:
+		modem_reset_test(test_ch);
 		break;
 	default:
 		pr_err(TEST_MODULE_NAME ":Bad Test type = %d.\n",
@@ -2169,7 +2352,7 @@ static int sdio_smem_test_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static struct platform_driver sdio_smem_drv = {
+static struct platform_driver sdio_smem_client_drv = {
 	.probe		= sdio_smem_test_probe,
 	.driver		= {
 		.name	= "SDIO_SMEM_CLIENT",
@@ -2259,7 +2442,6 @@ int sdio_test_wakeup_callback(void *device_handle, int is_vote_for_sleep)
 						  lpm_array_lock,
 						  tch->test_device->
 						  lpm_array_lock_flags);
-
 				if (is_vote_for_sleep == 1)
 					lpm_test_update_entry(tch,
 							      LPM_SLEEP,
@@ -2341,18 +2523,15 @@ static int sdio_test_find_dev(struct test_channel *tch)
 
 		spin_lock_init(&test_dev->
 			       lpm_array_lock);
-		pr_err(MODULE_NAME ": %s - "
-		       "Allocating Msg Array for "
-		       "Maximum open channels for device (%d) "
-		       "Channels. Array has %d entries",
-		       __func__,
-		       LPM_MAX_OPEN_CHAN_PER_DEV,
-		       test_dev->array_size);
-
 
 		if (tch->test_type == SDIO_TEST_LPM_RANDOM) {
-			pr_err(TEST_MODULE_NAME ": %s - initializing the "
-			       "lpm_array", __func__);
+			pr_err(MODULE_NAME ": %s - "
+			       "Allocating Msg Array for "
+			       "Maximum open channels for device (%d) "
+			       "Channels. Array has %d entries",
+			       __func__,
+			       LPM_MAX_OPEN_CHAN_PER_DEV,
+			       test_dev->array_size);
 
 			test_dev->lpm_arr =
 				kzalloc(sizeof(
@@ -2495,6 +2674,7 @@ static int test_start(void)
 						":openning channel %s failed\n",
 					tch->name);
 					tch->ch_ready = false;
+					continue;
 				}
 			}
 		}
@@ -2573,12 +2753,21 @@ static int test_start(void)
 	wait_event(test_ctx->wait_q, test_ctx->test_completed);
 	check_test_result();
 
+	/*
+	 * Close the channels and zero the is_used flag so that if the modem
+	 * will be reset after the test completion we won't re-open
+	 * the channels
+	 */
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 
-		if ((!tch) || (!tch->is_used) || (!tch->ch_ready) ||
-		    (tch->ch_id == SDIO_SMEM) || (!tch->ch->is_packet_mode))
+		if ((!tch) || (!tch->is_used))
 			continue;
+		if ((!tch->ch_ready) ||
+		    (tch->ch_id == SDIO_SMEM) || (!tch->ch->is_packet_mode)) {
+			tch->is_used = 0;
+			continue;
+		}
 		ret = sdio_close(tch->ch);
 		if (ret) {
 			pr_err(TEST_MODULE_NAME":%s close channel %s"
@@ -2588,6 +2777,7 @@ static int test_start(void)
 					" success\n", __func__, tch->name);
 			tch->ch_ready = false;
 		}
+		tch->is_used = 0;
 	}
 	return 0;
 }
@@ -2702,6 +2892,30 @@ static int set_params_a2_small_pkts(struct test_channel *tch)
 	tch->config_msg.num_packets = 1000000;
 	tch->config_msg.num_iterations = 1;
 	tch->random_packet_size = 1;
+
+	tch->timer_interval_ms = 0;
+
+	return 0;
+}
+
+static int set_params_modem_reset(struct test_channel *tch)
+{
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ":NULL channel\n");
+		return -EINVAL;
+	}
+	tch->is_used = 1;
+	tch->test_type = SDIO_TEST_MODEM_RESET;
+	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
+	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
+	tch->packet_length = 512;
+	if (tch->ch_id == SDIO_RPC)
+		tch->packet_length = 128;
+	else if ((tch->ch_id == SDIO_RMNT) || (tch->ch_id == SDIO_DUN))
+		tch->packet_length = MAX_XFER_SIZE;
+
+	tch->config_msg.num_packets = 50000;
+	tch->config_msg.num_iterations = 1;
 
 	tch->timer_interval_ms = 0;
 
@@ -2886,13 +3100,6 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
 			test_ctx->test_dev_arr[i].sdio_al_device = NULL;
 
-	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
-		struct test_channel *tch = test_ctx->test_ch_arr[i];
-		if (!tch)
-			continue;
-		tch->is_used = 0;
-	}
-
 	ret = strict_strtol(buf, 10, &test_ctx->testcase);
 
 	switch (test_ctx->testcase) {
@@ -2979,6 +3186,40 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 		if (set_params_rtt(test_ctx->test_ch_arr[SDIO_RMNT]))
 			return size;
 		break;
+	case 22:
+		pr_info(TEST_MODULE_NAME " -- modem reset - RPC --");
+		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]))
+			return size;
+		break;
+	case 23:
+		pr_info(TEST_MODULE_NAME " -- modem reset - RMNT --");
+		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]))
+			return size;
+		break;
+	case 24:
+		pr_info(TEST_MODULE_NAME " -- modem reset - all chs 4bit device --");
+		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]))
+			return size;
+		break;
+	case 25:
+		pr_info(TEST_MODULE_NAME " -- modem reset - all chs 8bit device--");
+		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]))
+			return size;
+		break;
+	case 26:
+		pr_info(TEST_MODULE_NAME " -- modem reset - all chs --");
+		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]) ||
+		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]))
+			return size;
+		break;
 	case 27:
 		pr_info(TEST_MODULE_NAME " -- host sender with open/close for "
 				"Diag, CIQ and RPC --");
@@ -3046,7 +3287,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	default:
 		pr_info(TEST_MODULE_NAME ":Bad Test number = %d.\n",
 			(int)test_ctx->testcase);
-		return 0;
+		return size;
 	}
 	ret = test_start();
 	if (ret) {
@@ -3084,9 +3325,7 @@ int test_channel_init(char *name)
 {
 	struct test_channel *test_ch;
 	int ch_id = 0;
-#ifdef CONFIG_MSM_SDIO_SMEM
 	int ret;
-#endif
 
 	pr_debug(TEST_MODULE_NAME ":%s.\n", __func__);
 	pr_info(TEST_MODULE_NAME ": init test cahnnel %s.\n", name);
@@ -3105,7 +3344,8 @@ int test_channel_init(char *name)
 
 		test_ch->ch_id = ch_id;
 
-		memcpy(test_ch->name, name, CHANNEL_NAME_SIZE);
+		strncpy(test_ch->name, name,
+		       strnlen(name, TEST_CH_NAME_SIZE)-SDIO_TEST_POSTFIX_SIZE);
 
 		test_ch->buf_size = MAX_XFER_SIZE;
 
@@ -3129,7 +3369,7 @@ int test_channel_init(char *name)
 			}
 
 #ifdef CONFIG_MSM_SDIO_SMEM
-			ret = platform_driver_register(&sdio_smem_drv);
+			ret = platform_driver_register(&sdio_smem_client_drv);
 			if (ret) {
 				pr_err(TEST_MODULE_NAME ":%s: Unable to "
 							"register sdio smem "
@@ -3147,13 +3387,137 @@ int test_channel_init(char *name)
 			init_waitqueue_head(&test_ch->wait_q);
 		}
 	} else {
-		pr_err(TEST_MODULE_NAME ":trying to call test_channel_init "
-					"twice for chan %d\n",
-		       ch_id);
+		test_ch = test_ctx->test_ch_arr[ch_id];
+		pr_info(TEST_MODULE_NAME ":%s: ch %s was detected again\n",
+			__func__, test_ch->name);
+		test_ch->card_removed = 0;
+		if ((test_ch->is_used) &&
+		    (test_ch->test_type == SDIO_TEST_MODEM_RESET)) {
+			if (test_ch->ch_id == SDIO_SMEM) {
+				test_ctx->smem_pdev.name = "SDIO_SMEM";
+				test_ctx->smem_pdev.dev.release =
+					default_sdio_al_test_release;
+				platform_device_register(&test_ctx->smem_pdev);
+			} else {
+				test_ch->ch_ready = true;
+				ret = sdio_open(test_ch->name , &test_ch->ch,
+						test_ch, notify);
+				if (ret) {
+					pr_info(TEST_MODULE_NAME
+						":openning channel %s failed\n",
+					test_ch->name);
+					test_ch->ch_ready = false;
+					return 0;
+				}
+				ret = sdio_test_find_dev(test_ch);
+
+				if (ret) {
+					pr_err(TEST_MODULE_NAME ": %s - "
+					       "sdio_test_find_dev() returned "
+					       "with error", __func__);
+					return -ENODEV;
+				}
+
+				test_ch->sdio_al_device =
+					test_ch->ch->sdio_al_dev;
+			}
+			atomic_set(&test_ch->card_detected_event, 1);
+			wake_up(&test_ch->wait_q);
+		}
 	}
 
 	return 0;
 }
+
+static int sdio_test_channel_probe(struct platform_device *pdev)
+{
+	if (!pdev)
+		return -EIO;
+	return test_channel_init((char *)pdev->name);
+}
+
+static int sdio_test_channel_remove(struct platform_device *pdev)
+{
+	int ch_id;
+
+	if (!pdev)
+		return -EIO;
+
+	ch_id = channel_name_to_id((char *)pdev->name);
+	if (test_ctx->test_ch_arr[ch_id] == NULL)
+		return 0;
+
+	pr_info(TEST_MODULE_NAME "%s: remove ch %s\n",
+		__func__, test_ctx->test_ch_arr[ch_id]->name);
+	test_ctx->test_ch_arr[ch_id]->ch_ready = 0;
+	test_ctx->test_ch_arr[ch_id]->card_removed = 1;
+
+	return 0;
+
+}
+
+static struct platform_driver sdio_rpc_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_RPC_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_qmi_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_QMI_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_diag_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_DIAG_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_smem_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_SMEM_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_rmnt_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_RMNT_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_dun_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_DUN_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static struct platform_driver sdio_ciq_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_CIQ_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
 
 static struct class *test_class;
 
@@ -3217,6 +3581,14 @@ static int __init test_init(void)
 	else
 		pr_debug(TEST_MODULE_NAME ":SDIO-AL-Test init OK..\n");
 
+	platform_driver_register(&sdio_rpc_drv);
+	platform_driver_register(&sdio_qmi_drv);
+	platform_driver_register(&sdio_diag_drv);
+	platform_driver_register(&sdio_smem_drv);
+	platform_driver_register(&sdio_rmnt_drv);
+	platform_driver_register(&sdio_dun_drv);
+	platform_driver_register(&sdio_ciq_drv);
+
 	return ret;
 }
 
@@ -3236,6 +3608,14 @@ static void __exit test_exit(void)
 	cdev_del(test_ctx->cdev);
 	device_destroy(test_class, test_ctx->dev_num);
 	unregister_chrdev_region(test_ctx->dev_num, 1);
+
+	platform_driver_unregister(&sdio_rpc_drv);
+	platform_driver_unregister(&sdio_qmi_drv);
+	platform_driver_unregister(&sdio_diag_drv);
+	platform_driver_unregister(&sdio_smem_drv);
+	platform_driver_unregister(&sdio_rmnt_drv);
+	platform_driver_unregister(&sdio_dun_drv);
+	platform_driver_unregister(&sdio_ciq_drv);
 
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
