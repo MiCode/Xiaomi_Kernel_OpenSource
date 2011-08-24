@@ -46,8 +46,6 @@ static int writeback_offset;
 
 static struct mdp4_overlay_pipe *lcdc_pipe;
 static struct completion lcdc_comp;
-static int wait4vsync_cnt;
-static DEFINE_MUTEX(lcdc_mutex);
 
 int mdp_lcdc_on(struct platform_device *pdev)
 {
@@ -281,33 +279,21 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	return ret;
 }
 
-static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd, int dmap)
+static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd,
+						int intr)
 {
 	unsigned long flag;
 
-	 /* enable irq */
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (wait4vsync_cnt == 0) {
-		INIT_COMPLETION(lcdc_comp);
-		mfd->dma->waiting = TRUE;
-		if (dmap) {
-			outp32(MDP_INTR_CLEAR, INTR_DMA_P_DONE);
-			mdp_intr_mask |= INTR_DMA_P_DONE;
-		} else {
-			outp32(MDP_INTR_CLEAR, INTR_PRIMARY_VSYNC);
-			mdp_intr_mask |= INTR_PRIMARY_VSYNC;
-		}
-		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-		mdp_enable_irq(MDP_DMA2_TERM);	/* enable intr */
-	}
-	wait4vsync_cnt++;
+	INIT_COMPLETION(lcdc_comp);
+	mfd->dma->waiting = TRUE;
+	outp32(MDP_INTR_CLEAR, intr);
+	mdp_intr_mask |= intr;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	mdp_enable_irq(MDP_DMA2_TERM);  /* enable intr */
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	wait_for_completion(&lcdc_comp);
-	mutex_lock(&lcdc_mutex);
-	wait4vsync_cnt--;
-	if (wait4vsync_cnt == 0)
-		mdp_disable_irq(MDP_DMA2_TERM);
-	mutex_unlock(&lcdc_mutex);
+	mdp_disable_irq(MDP_DMA2_TERM);
 }
 
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
@@ -316,7 +302,7 @@ void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
 		return;
 
-	mdp4_overlay_lcdc_wait4event(mfd, 1);
+	mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
 
 	/* change mdp clk while mdp is idle` */
 	mdp4_set_perf_level();
@@ -371,7 +357,7 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 	if (!change)
 		return;
 
-	mdp4_overlay_lcdc_wait4event(mfd, 1);
+	mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
 	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
 	msleep(20);
 	mdp4_overlayproc_cfg(lcdc_pipe);
@@ -446,7 +432,8 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 	pipe->srcp0_addr = (uint32) buf;
 	mdp4_overlay_rgb_setup(pipe);
 	mdp4_overlay_reg_flush(pipe, 1);
-	mutex_unlock(&mfd->dma->ov_mutex);
 	mdp4_overlay_lcdc_vsync_push(mfd, pipe);
+	mutex_unlock(&mfd->dma->ov_mutex);
+	yield();
 	mdp4_stat.kickoff_lcdc++;
 }
