@@ -6876,18 +6876,10 @@ void msm_nand_release(struct mtd_info *mtd)
 {
 	/* struct msm_nand_chip *this = mtd->priv; */
 
-#ifdef CONFIG_MTD_PARTITIONS
-	/* Deregister partitions */
-	del_mtd_partitions(mtd);
-#endif
 	/* Deregister the device */
 	mtd_device_unregister(mtd);
 }
 EXPORT_SYMBOL_GPL(msm_nand_release);
-
-#ifdef CONFIG_MTD_PARTITIONS
-static const char *part_probes[] = { "cmdlinepart", NULL,  };
-#endif
 
 struct msm_nand_info {
 	struct mtd_info		mtd;
@@ -6935,36 +6927,26 @@ static int msm_nand_nc10_xfr_settings(struct mtd_info *mtd)
 	return 0;
 }
 
-#ifdef CONFIG_MTD_PARTITIONS
-static void setup_mtd_device(struct platform_device *pdev,
+static int setup_mtd_device(struct platform_device *pdev,
 			     struct msm_nand_info *info)
 {
-	int i, nr_parts;
+	int i, err;
 	struct flash_platform_data *pdata = pdev->dev.platform_data;
 
-	for (i = 0; i < pdata->nr_parts; i++) {
-		pdata->parts[i].offset = pdata->parts[i].offset
-			* info->mtd.erasesize;
-		pdata->parts[i].size = pdata->parts[i].size
-			* info->mtd.erasesize;
+	if (pdata) {
+		for (i = 0; i < pdata->nr_parts; i++) {
+			pdata->parts[i].offset = pdata->parts[i].offset
+				* info->mtd.erasesize;
+			pdata->parts[i].size = pdata->parts[i].size
+				* info->mtd.erasesize;
+		}
+		err = mtd_device_register(&info->mtd, pdata->parts,
+				pdata->nr_parts);
+	} else {
+		err = mtd_device_register(&info->mtd, NULL, 0);
 	}
-
-	nr_parts = parse_mtd_partitions(&info->mtd, part_probes, &info->parts,
-					0);
-	if (nr_parts > 0)
-		add_mtd_partitions(&info->mtd, info->parts, nr_parts);
-	else if (nr_parts <= 0 && pdata && pdata->parts)
-		add_mtd_partitions(&info->mtd, pdata->parts, pdata->nr_parts);
-	else
-		mtd_device_register(&info->mtd, NULL, 0);
+	return err;
 }
-#else
-static void setup_mtd_device(struct platform_device *pdev,
-			     struct msm_nand_info *info)
-{
-	mtd_device_register(&info->mtd, NULL, 0);
-}
-#endif
 
 static int __devinit msm_nand_probe(struct platform_device *pdev)
 {
@@ -7075,7 +7057,13 @@ no_dual_nand_ctlr_support:
 			goto out_free_dma_buffer;
 		}
 
-	setup_mtd_device(pdev, info);
+	err = setup_mtd_device(pdev, info);
+	if (err < 0) {
+		pr_err("%s: setup_mtd_device failed with err=%d\n",
+				__func__, err);
+		goto out_free_dma_buffer;
+	}
+
 	dev_set_drvdata(&pdev->dev, info);
 
 	return 0;
@@ -7097,13 +7085,6 @@ static int __devexit msm_nand_remove(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, NULL);
 
 	if (info) {
-#ifdef CONFIG_MTD_PARTITIONS
-		if (info->parts)
-			del_mtd_partitions(&info->mtd);
-		else
-#endif
-			mtd_device_unregister(&info->mtd);
-
 		msm_nand_release(&info->mtd);
 		dma_free_coherent(NULL, MSM_NAND_DMA_BUFFER_SIZE,
 				  info->msm_nand.dma_buffer,
