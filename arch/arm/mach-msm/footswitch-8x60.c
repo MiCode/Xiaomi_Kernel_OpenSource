@@ -42,6 +42,7 @@
 #define VED_GFS_CTL_REG		REG(0x0194)
 #define VFE_GFS_CTL_REG		REG(0x0198)
 #define VPE_GFS_CTL_REG		REG(0x019C)
+#define VCAP_GFS_CTL_REG	REG(0x0254)
 
 #define CLAMP_BIT		BIT(5)
 #define ENABLE_BIT		BIT(8)
@@ -469,6 +470,9 @@ static struct footswitch footswitches[] = {
 	FOOTSWITCH(FS_VPE, "fs_vpe", &standard_fs_ops,
 		VPE_GFS_CTL_REG, 31, true, 0,
 		MSM_BUS_MASTER_VPE, 0),
+	FOOTSWITCH(FS_VCAP, "fs_vcap", &standard_fs_ops,
+		VCAP_GFS_CTL_REG, 31, true, 0,
+		MSM_BUS_MASTER_VIDEO_CAP, 0),
 };
 
 static int footswitch_probe(struct platform_device *pdev)

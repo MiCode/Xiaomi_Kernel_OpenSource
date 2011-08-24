@@ -27,7 +27,8 @@
 #define FS_VED		7
 #define FS_VFE		8
 #define FS_VPE		9
-#define MAX_FS		10
+#define FS_VCAP		10
+#define MAX_FS		11
 
 #define FS_GENERIC(_drv_name, _id, _name) (&(struct platform_device){ \
 	.name	= (_drv_name), \
