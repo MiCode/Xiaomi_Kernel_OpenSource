@@ -31,7 +31,7 @@
 #include "qdsp6/q6voice.h"
 
 #define VOIP_MAX_Q_LEN 10
-#define VOIP_MAX_VOC_PKT_SIZE 320
+#define VOIP_MAX_VOC_PKT_SIZE 640
 
 enum voip_state {
 	VOIP_STOPPED,
