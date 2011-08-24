@@ -1171,8 +1171,15 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, port);
 	pm_runtime_enable(port->dev);
 	msm_hsl_debugfs_init(msm_hsl_port, pdev->id);
-	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 
+	/* Temporarily increase the refcount on the GSBI clock to avoid a race
+	 * condition with the earlyprintk handover mechanism.
+	 */
+	if (msm_hsl_port->pclk)
+		clk_enable(msm_hsl_port->pclk);
+	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
+	if (msm_hsl_port->pclk)
+		clk_disable(msm_hsl_port->pclk);
 	return ret;
 }
 
