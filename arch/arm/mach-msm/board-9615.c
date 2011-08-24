@@ -21,6 +21,43 @@
 #include "timer.h"
 #include "devices.h"
 
+static struct platform_device *common_devices[] = {
+	&msm9615_device_uart_gsbi4,
+};
+
+static struct gpiomux_setting gsbi4 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
+	{
+		.gpio      = 12,	/* GSBI4 UART */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4,
+		},
+	},
+	{
+		.gpio      = 13,	/* GSBI4 UART */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4,
+		},
+	},
+	{
+		.gpio      = 14,	/* GSBI4 UART */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4,
+		},
+	},
+	{
+		.gpio      = 15,	/* GSBI4 UART */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4,
+		},
+	},
+};
+
 static int __init gpiomux_init(void)
 {
 	int rc;
@@ -30,6 +67,9 @@ static int __init gpiomux_init(void)
 		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
 		return rc;
 	}
+	msm_gpiomux_install(msm9615_gsbi_configs,
+			ARRAY_SIZE(msm9615_gsbi_configs));
+
 	return 0;
 }
 
@@ -37,6 +77,7 @@ static void __init msm9615_common_init(void)
 {
 	msm9615_device_init();
 	gpiomux_init();
+	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
 static void __init msm9615_cdp_init(void)

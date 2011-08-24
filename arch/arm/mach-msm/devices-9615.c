@@ -22,6 +22,36 @@
 #include <mach/socinfo.h>
 #include "devices.h"
 
+#define MSM_GSBI4_PHYS		0x16300000
+#define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
+
+static struct resource resources_uart_gsbi4[] = {
+	{
+		.start	= GSBI4_UARTDM_IRQ,
+		.end	= GSBI4_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART4DM_PHYS,
+		.end	= MSM_UART4DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI4_PHYS,
+		.end	= MSM_GSBI4_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm9615_device_uart_gsbi4 = {
+	.name	= "msm_serial_hsl",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi4),
+	.resource	= resources_uart_gsbi4,
+};
+
 void __init msm9615_device_init(void)
 {
 	if (socinfo_init() < 0)
