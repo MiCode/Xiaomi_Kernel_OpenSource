@@ -368,9 +368,6 @@ adreno_getchipid(struct kgsl_device *device)
 	/* 8x50 returns 0 for patch release, but it should be 1 */
 	if (cpu_is_qsd8x50())
 		patchid = 1;
-	/* userspace isn't prepared to deal with patch id for these chips yet */
-	else if (cpu_is_msm8960() || cpu_is_msm8x60())
-		patchid = 0;
 
 	chipid |= (minorid << 8) | patchid;
 
