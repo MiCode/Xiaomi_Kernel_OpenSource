@@ -77,8 +77,8 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_BLACK_LEVEL_CFG, V32_BLACK_LEVEL_LEN,
 		V32_BLACK_LEVEL_OFF,
 		0xFF},
-/*10*/  {VFE_CMD_ROLL_OFF_CFG, V32_ROLL_OFF_CFG_LEN, V32_ROLL_OFF_CFG_OFF,
-		0xFF},
+/*10*/  {VFE_CMD_MESH_ROLL_OFF_CFG, V32_MESH_ROLL_OFF_CFG_LEN,
+		V32_MESH_ROLL_OFF_CFG_OFF, 0xFF},
 		{VFE_CMD_DEMUX_CFG, V32_DEMUX_LEN, V32_DEMUX_OFF, 0xFF},
 		{VFE_CMD_FOV_CFG, V32_FOV_LEN, V32_FOV_OFF, 0xFF},
 		{VFE_CMD_MAIN_SCALER_CFG, V32_MAIN_SCALER_LEN,
@@ -866,6 +866,7 @@ static int vfe32_start(void)
 static void vfe32_update(void)
 {
 	unsigned long flags;
+	uint32_t value = 0;
 	if (vfe32_ctrl->update_linear) {
 		if (!msm_io_r(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1))
 			msm_io_w(1,
@@ -875,6 +876,16 @@ static void vfe32_update(void)
 				vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1);
 		vfe32_ctrl->update_linear = false;
 	}
+
+	if (vfe32_ctrl->update_rolloff) {
+		value = msm_io_r(vfe32_ctrl->vfebase +
+			V33_PCA_ROLL_OFF_CFG_OFF1);
+		value ^= V33_PCA_ROLL_OFF_LUT_BANK_SEL_MASK;
+		msm_io_w(value, vfe32_ctrl->vfebase +
+			V33_PCA_ROLL_OFF_CFG_OFF1);
+		vfe32_ctrl->update_rolloff = false;
+	}
+
 	spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
 	vfe32_ctrl->update_ack_pending = TRUE;
 	spin_unlock_irqrestore(&vfe32_ctrl->update_ack_lock, flags);
@@ -1099,6 +1110,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 	uint32_t *cmdp = NULL;
 	uint32_t *cmdp_local = NULL;
 	uint32_t snapshot_cnt = 0;
+	uint32_t temp1 = 0, temp2 = 0;
 
 	CDBG("vfe32_proc_general: cmdID = %s, length = %d\n",
 		vfe32_general_cmd[cmd->id], cmd->length);
@@ -1354,7 +1366,8 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 	case VFE_CMD_BLACK_LEVEL_CFG:
 		rc = -EFAULT;
 		goto proc_general_done;
-	case VFE_CMD_ROLL_OFF_CFG: {
+
+	case VFE_CMD_MESH_ROLL_OFF_CFG: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1369,19 +1382,19 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
 		cmdp_local, 16);
 		cmdp_local += 4;
-		vfe32_program_dmi_cfg(ROLLOFF_RAM);
+		vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
 		/* for loop for extrcting init table. */
-		for (i = 0 ; i < (VFE32_ROLL_OFF_INIT_TABLE_SIZE * 2) ; i++) {
+		for (i = 0; i < (V32_MESH_ROLL_OFF_INIT_TABLE_SIZE * 2); i++) {
 			msm_io_w(*cmdp_local ,
 			vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
 			cmdp_local++;
 		}
 		CDBG("done writing init table\n");
 		/* by default, always starts with offset 0. */
-		msm_io_w(LENS_ROLL_OFF_DELTA_TABLE_OFFSET,
+		msm_io_w(V32_MESH_ROLL_OFF_DELTA_TABLE_OFFSET,
 		vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		/* for loop for extracting delta table. */
-		for (i = 0 ; i < (VFE32_ROLL_OFF_DELTA_TABLE_SIZE * 2) ; i++) {
+		for (i = 0; i < (V32_MESH_ROLL_OFF_DELTA_TABLE_SIZE * 2); i++) {
 			msm_io_w(*cmdp_local,
 			vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
 			cmdp_local++;
@@ -1792,7 +1805,114 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 			cmdp, (vfe32_cmd[cmd->id].length));
 		break;
 
-	default: {
+	case VFE_CMD_PCA_ROLL_OFF_CFG:
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+			(void __user *)(cmd->value) , cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+
+		cmdp_local = cmdp;
+
+		temp1 = *cmdp_local;
+		cmdp_local++;
+
+		msm_io_memcpy(vfe32_ctrl->vfebase + V33_PCA_ROLL_OFF_CFG_OFF1,
+			cmdp_local, V33_PCA_ROLL_OFF_CFG_LEN1);
+		cmdp_local += 4;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V33_PCA_ROLL_OFF_CFG_OFF2,
+			cmdp_local, V33_PCA_ROLL_OFF_CFG_LEN2);
+
+		CDBG("%s: start writing RollOff Ram0 table\n", __func__);
+		vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
+		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_HI);
+			cmdp_local++;
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
+			cmdp_local++;
+		}
+		CDBG("%s: end writing RollOff Ram0 table\n", __func__);
+
+		CDBG("%s: start writing RollOff Ram1 table\n", __func__);
+		vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
+		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
+			cmdp_local++;
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
+			cmdp_local++;
+		}
+		CDBG("%s: end writing RollOff Ram1 table\n", __func__);
+
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		break;
+
+	case VFE_CMD_PCA_ROLL_OFF_UPDATE:
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+			(void __user *)(cmd->value), cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+
+		cmdp_local = cmdp;
+
+		temp1 = *cmdp_local;
+		cmdp_local += 8;
+
+		temp2 = msm_io_r(vfe32_ctrl->vfebase +
+			V33_PCA_ROLL_OFF_CFG_OFF1)
+			& V33_PCA_ROLL_OFF_LUT_BANK_SEL_MASK;
+
+		CDBG("%s: start writing RollOff Ram0 table\n", __func__);
+		if (temp2)
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK1);
+
+		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_HI);
+			cmdp_local++;
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
+			cmdp_local++;
+		}
+		CDBG("%s: end writing RollOff Ram0 table\n", __func__);
+
+		CDBG("%s: start writing RollOff Ram1 table\n", __func__);
+		if (temp2)
+			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
+
+		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
+			cmdp_local++;
+			msm_io_w(*cmdp_local,
+				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
+			cmdp_local++;
+		}
+		CDBG("%s: end writing RollOff Ram1 table\n", __func__);
+
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		vfe32_ctrl->update_rolloff = true;
+		break;
+
+	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
 
@@ -1805,8 +1925,7 @@ static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
 		CHECKED_COPY_FROM_USER(cmdp);
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
 			cmdp, (vfe32_cmd[cmd->id].length));
-	}
-	break;
+		break;
 
 	}
 
@@ -2916,6 +3035,7 @@ static int vfe32_resource_init(struct platform_device *pdev, void *sdata)
 	vfe32_ctrl->vfemem = vfemem;
 	vfe32_ctrl->vfeio  = vfeio;
 	vfe32_ctrl->update_linear = false;
+	vfe32_ctrl->update_rolloff = false;
 	return 0;
 
 cmd_init_failed3:

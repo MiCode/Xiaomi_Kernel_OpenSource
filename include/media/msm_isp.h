@@ -53,7 +53,7 @@
 #define VFE_CMD_CAMIF_CFG                               7
 #define VFE_CMD_AXI_INPUT_CFG                           8
 #define VFE_CMD_BLACK_LEVEL_CFG                         9
-#define VFE_CMD_ROLL_OFF_CFG                            10
+#define VFE_CMD_MESH_ROLL_OFF_CFG                       10
 #define VFE_CMD_DEMUX_CFG                               11
 #define VFE_CMD_FOV_CFG                                 12
 #define VFE_CMD_MAIN_SCALER_CFG                         13
@@ -163,5 +163,7 @@
 #define VFE_CMD_CLF_CFG                                 117
 #define VFE_CMD_CLF_LUMA_UPDATE                         118
 #define VFE_CMD_CLF_CHROMA_UPDATE                       119
+#define VFE_CMD_PCA_ROLL_OFF_CFG                        120
+#define VFE_CMD_PCA_ROLL_OFF_UPDATE                     121
 
 #endif /* __MSM_ISP_H__ */

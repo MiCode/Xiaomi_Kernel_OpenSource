@@ -150,17 +150,15 @@
 #define VFE_REG_UPDATE_TRIGGER           1
 #define VFE_PM_BUF_MAX_CNT_MASK          0xFF
 #define VFE_DMI_CFG_DEFAULT              0x00000100
-#define LENS_ROLL_OFF_DELTA_TABLE_OFFSET 32
 #define VFE_AE_PINGPONG_STATUS_BIT       0x80
 #define VFE_AF_PINGPONG_STATUS_BIT       0x100
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
-
 
 enum VFE32_DMI_RAM_SEL {
 	NO_MEM_SELECTED          = 0,
 	BLACK_LUT_RAM_BANK0      = 0x1,
 	BLACK_LUT_RAM_BANK1      = 0x2,
-	ROLLOFF_RAM              = 0x3,
+	ROLLOFF_RAM0_BANK0       = 0x3,
 	DEMOSAIC_LUT_RAM_BANK0   = 0x4,
 	DEMOSAIC_LUT_RAM_BANK1   = 0x5,
 	STATS_BHIST_RAM0         = 0x6,
@@ -175,7 +173,10 @@ enum VFE32_DMI_RAM_SEL {
 	RGBLUT_CHX_BANK1         = 0xf,
 	STATS_IHIST_RAM          = 0x10,
 	LUMA_ADAPT_LUT_RAM_BANK0 = 0x11,
-	LUMA_ADAPT_LUT_RAM_BANK1 = 0x12
+	LUMA_ADAPT_LUT_RAM_BANK1 = 0x12,
+	ROLLOFF_RAM1_BANK0       = 0x13,
+	ROLLOFF_RAM0_BANK1       = 0x14,
+	ROLLOFF_RAM1_BANK1       = 0x15,
 };
 
 enum  VFE_STATE {
@@ -247,8 +248,18 @@ enum  vfe_recording_state {
 #define V32_BLACK_LEVEL_OFF 0x00000264
 #define V32_BLACK_LEVEL_LEN 16
 
-#define V32_ROLL_OFF_CFG_OFF 0x00000274
-#define V32_ROLL_OFF_CFG_LEN 16
+#define V32_MESH_ROLL_OFF_CFG_OFF             0x00000274
+#define V32_MESH_ROLL_OFF_CFG_LEN             16
+#define V32_MESH_ROLL_OFF_INIT_TABLE_SIZE     13
+#define V32_MESH_ROLL_OFF_DELTA_TABLE_SIZE    208
+#define V32_MESH_ROLL_OFF_DELTA_TABLE_OFFSET  32
+
+#define V33_PCA_ROLL_OFF_CFG_LEN1             16
+#define V33_PCA_ROLL_OFF_CFG_OFF1             0x00000274
+#define V33_PCA_ROLL_OFF_CFG_LEN2             12
+#define V33_PCA_ROLL_OFF_CFG_OFF2             0x000007A8
+#define V33_PCA_ROLL_OFF_TABLE_SIZE           (17 + (13*4))
+#define V33_PCA_ROLL_OFF_LUT_BANK_SEL_MASK    0x00010000
 
 #define V32_COLOR_COR_OFF 0x00000388
 #define V32_COLOR_COR_LEN 52
@@ -467,12 +478,6 @@ enum VFE_YUV_INPUT_COSITING_MODE {
 	VFE_YUV_COSITED,
 	VFE_YUV_INTERPOLATED
 };
-
-
-/* 13*1  */
-#define VFE32_ROLL_OFF_INIT_TABLE_SIZE  13
-/* 13*16 */
-#define VFE32_ROLL_OFF_DELTA_TABLE_SIZE 208
 
 #define VFE32_GAMMA_NUM_ENTRIES  64
 
@@ -852,6 +857,9 @@ struct vfe32_frame_extra {
 #define VFE_BUS_IO_FORMAT_CFG		0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
 
+#define VFE33_DMI_DATA_HI               0x000005A0
+#define VFE33_DMI_DATA_LO               0x000005A4
+
 #define VFE32_OUTPUT_MODE_PT (0x1 << 0)
 #define VFE32_OUTPUT_MODE_S (0x1 << 1)
 #define VFE32_OUTPUT_MODE_V (0x1 << 2)
@@ -889,6 +897,7 @@ struct vfe32_ctrl_type {
 	int8_t update_ack_pending;
 	enum vfe_recording_state recording_state;
 	int8_t update_linear;
+	int8_t update_rolloff;
 
 	spinlock_t  tasklet_lock;
 	struct list_head tasklet_q;
