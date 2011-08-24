@@ -53,7 +53,7 @@ config WEBCAM_OV9726
 #	This uses the CSI interface.
 config VX6953
 	bool "Sensor VX6953 (BAYER 5M)"
-	depends on MSM_CAMERA && (ARCH_MSM7x30 || ARCH_MSM8X60)
+	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
 	default y
 	---help---
 	STM 5M Bayer Sensor with EDOF
