@@ -2296,9 +2296,51 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
 	int microphone_present;
+	int ldo_h_on, micb_cfilt_on;
+	int micbias_cfilt_ctl_reg, cfilt_sel;
 
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+
+	switch (priv->calibration->bias) {
+	case TABLA_MICBIAS1:
+		cfilt_sel = priv->pdata->micbias.bias1_cfilt_sel;
+		break;
+	case TABLA_MICBIAS2:
+		cfilt_sel = priv->pdata->micbias.bias2_cfilt_sel;
+		break;
+	case TABLA_MICBIAS3:
+		cfilt_sel = priv->pdata->micbias.bias3_cfilt_sel;
+		break;
+	default:
+		pr_err("%s: Error, invalid mic bias line, bias value = %d\n",
+			__func__, priv->calibration->bias);
+		return IRQ_HANDLED;
+	}
+
+	switch (cfilt_sel) {
+	case TABLA_CFILT1_SEL:
+		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_1_CTL;
+		break;
+	case TABLA_CFILT2_SEL:
+		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_2_CTL;
+		break;
+	case TABLA_CFILT3_SEL:
+		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_3_CTL;
+		break;
+	default: /* default should not happen as check should have been done */
+		pr_err("%s: Invalid cfilt select, cfilt_sel = %d\n",
+			__func__, cfilt_sel);
+		return IRQ_HANDLED;
+	}
+
+	ldo_h_on = snd_soc_read(codec, TABLA_A_LDO_H_MODE_1) & 0x80;
+	micb_cfilt_on = snd_soc_read(codec, micbias_cfilt_ctl_reg) & 0x80;
+
+	if (!ldo_h_on)
+		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x80);
+	if (!micb_cfilt_on)
+		snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x80, 0x80);
 
 	usleep_range(priv->calibration->setup_plug_removal_delay,
 		priv->calibration->setup_plug_removal_delay);
@@ -2315,6 +2357,12 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	}
 
 	microphone_present = tabla_codec_setup_hs_polling(codec);
+
+	if (!ldo_h_on)
+		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
+	if (!micb_cfilt_on)
+		snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x80, 0x0);
+
 
 	if (microphone_present == 0) {
 		if (priv->headset_jack) {
