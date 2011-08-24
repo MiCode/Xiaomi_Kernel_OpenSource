@@ -132,13 +132,13 @@ static void hci_smd_recv_data(unsigned long arg)
 		goto out_data;
 	}
 	while (len > 0) {
-		skb = bt_skb_alloc(len, GFP_KERNEL);
+		skb = bt_skb_alloc(len, GFP_ATOMIC);
 		if (!skb) {
 			BT_ERR("Error in allocating  socket buffer\n");
 			goto out_data;
 		}
 
-		buf = kmalloc(len, GFP_KERNEL);
+		buf = kmalloc(len, GFP_ATOMIC);
 		if (!buf)  {
 			BT_ERR("Error in allocating  buffer\n");
 			rc = -ENOMEM;
@@ -202,12 +202,12 @@ static void hci_smd_recv_event(unsigned long arg)
 	}
 
 	while (len > 0) {
-		skb = bt_skb_alloc(len, GFP_KERNEL);
+		skb = bt_skb_alloc(len, GFP_ATOMIC);
 		if (!skb) {
 			BT_ERR("Error in allocating  socket buffer\n");
 			goto out_event;
 		}
-		buf = kmalloc(len, GFP_KERNEL);
+		buf = kmalloc(len, GFP_ATOMIC);
 		if (!buf) {
 			BT_ERR("Error in allocating  buffer\n");
 			rc = -ENOMEM;
