@@ -280,6 +280,7 @@ void handle_nested_irq(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	struct irqaction *action;
+	int mask_this_irq = 0;
 	irqreturn_t action_ret;
 
 	might_sleep();
@@ -292,6 +293,7 @@ void handle_nested_irq(unsigned int irq)
 	action = desc->action;
 	if (unlikely(!action || irqd_irq_disabled(&desc->irq_data))) {
 		desc->istate |= IRQS_PENDING;
+		mask_this_irq = 1;
 		goto out_unlock;
 	}
 
@@ -307,6 +309,11 @@ void handle_nested_irq(unsigned int irq)
 
 out_unlock:
 	raw_spin_unlock_irq(&desc->lock);
+	if (unlikely(mask_this_irq)) {
+		chip_bus_lock(desc);
+		mask_irq(desc);
+		chip_bus_sync_unlock(desc);
+	}
 }
 EXPORT_SYMBOL_GPL(handle_nested_irq);
 
