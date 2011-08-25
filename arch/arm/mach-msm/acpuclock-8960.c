@@ -999,19 +999,15 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 	static int prev_pri_src[NR_CPUS];
 	static int prev_sec_src[NR_CPUS];
 	int cpu = (int)hcpu;
-	uint32_t soc_platform_version = socinfo_get_platform_version();
 
 	switch (action) {
 	case CPU_DYING:
 	case CPU_DYING_FROZEN:
 		/*
-		 * 8960 HW versions < 2.1 must set their primary and secondary
-		 * mux source selections to QSB before L2 power collapse and
-		 * restore it after.
+		 * On Krait v1, the primary and secondary muxes must be set
+		 * to QSB before L2 power collapse and restored after.
 		 */
-		if (SOCINFO_VERSION_MAJOR(soc_platform_version) < 2 ||
-		   (SOCINFO_VERSION_MAJOR(soc_platform_version) == 2 &&
-		    SOCINFO_VERSION_MINOR(soc_platform_version) < 1)) {
+		if (cpu_is_krait_v1()) {
 			prev_sec_src[cpu] = get_sec_clk_src(&scalable[cpu]);
 			prev_pri_src[cpu] = get_pri_clk_src(&scalable[cpu]);
 			set_sec_clk_src(&scalable[cpu], SEC_SRC_SEL_QSB);
@@ -1034,9 +1030,7 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 		break;
 	case CPU_STARTING:
 	case CPU_STARTING_FROZEN:
-		if (SOCINFO_VERSION_MAJOR(soc_platform_version) < 2 ||
-		   (SOCINFO_VERSION_MAJOR(soc_platform_version) == 2 &&
-		    SOCINFO_VERSION_MINOR(soc_platform_version) < 1)) {
+		if (cpu_is_krait_v1()) {
 			set_sec_clk_src(&scalable[cpu], prev_sec_src[cpu]);
 			set_pri_clk_src(&scalable[cpu], prev_pri_src[cpu]);
 		}
