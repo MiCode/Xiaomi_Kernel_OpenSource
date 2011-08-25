@@ -1795,10 +1795,8 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	/* Workarounds for die 1.1 and 1.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) < PM8XXX_REVISION_8921_2p0) {
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST2, 0xF1);
-		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x8C);
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xCE);
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xD8);
-		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xF1);
 
 		/* software workaround for correct battery_id detection */
 		pm8xxx_writeb(chip->dev->parent, PSI_TXRX_SAMPLE_DATA_0, 0xFF);
