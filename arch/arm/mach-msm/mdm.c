@@ -171,6 +171,7 @@ static long charm_modem_ioctl(struct file *filp, unsigned int cmd,
 			charm_boot_status = 0;
 		charm_ready = 1;
 
+		gpio_set_value(AP2MDM_KPDPWR_N, 0);
 		if (!first_boot)
 			complete(&charm_boot);
 		else
