@@ -22,11 +22,16 @@
 #include <mach/msm_iomap.h>
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
+#include <mach/rpm.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
 #include "devices.h"
 #include "acpuclock.h"
+#include "mpm.h"
+#include "spm.h"
+#include "pm.h"
+#include "rpm_resources.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS          0x16000000
@@ -389,10 +394,175 @@ static int __init l2x0_cache_init(void)
 static int __init l2x0_cache_init(void){ return 0; }
 #endif
 
+struct msm_rpm_map_data rpm_map_data[] __initdata = {
+	MSM_RPM_MAP(TRIGGER_TIMED_TO, TRIGGER_TIMED, 1),
+	MSM_RPM_MAP(TRIGGER_TIMED_SCLK_COUNT, TRIGGER_TIMED, 1),
+
+	MSM_RPM_MAP(RPM_CTL, RPM_CTL, 1),
+
+	MSM_RPM_MAP(CXO_CLK, CXO_CLK, 1),
+	MSM_RPM_MAP(SYSTEM_FABRIC_CLK, SYSTEM_FABRIC_CLK, 1),
+	MSM_RPM_MAP(DAYTONA_FABRIC_CLK, DAYTONA_FABRIC_CLK, 1),
+	MSM_RPM_MAP(SFPB_CLK, SFPB_CLK, 1),
+	MSM_RPM_MAP(CFPB_CLK, CFPB_CLK, 1),
+	MSM_RPM_MAP(EBI1_CLK, EBI1_CLK, 1),
+
+	MSM_RPM_MAP(SYS_FABRIC_CFG_HALT_0, SYS_FABRIC_CFG_HALT, 2),
+	MSM_RPM_MAP(SYS_FABRIC_CFG_CLKMOD_0, SYS_FABRIC_CFG_CLKMOD, 3),
+	MSM_RPM_MAP(SYS_FABRIC_CFG_IOCTL, SYS_FABRIC_CFG_IOCTL, 1),
+	MSM_RPM_MAP(SYSTEM_FABRIC_ARB_0, SYSTEM_FABRIC_ARB, 27),
+
+	MSM_RPM_MAP(PM8018_S1_0, PM8018_S1, 2),
+	MSM_RPM_MAP(PM8018_S2_0, PM8018_S2, 2),
+	MSM_RPM_MAP(PM8018_S3_0, PM8018_S3, 2),
+	MSM_RPM_MAP(PM8018_S4_0, PM8018_S4, 2),
+	MSM_RPM_MAP(PM8018_S5_0, PM8018_S5, 2),
+	MSM_RPM_MAP(PM8018_L1_0, PM8018_L1, 2),
+	MSM_RPM_MAP(PM8018_L2_0, PM8018_L2, 2),
+	MSM_RPM_MAP(PM8018_L3_0, PM8018_L3, 2),
+	MSM_RPM_MAP(PM8018_L4_0, PM8018_L4, 2),
+	MSM_RPM_MAP(PM8018_L5_0, PM8018_L5, 2),
+	MSM_RPM_MAP(PM8018_L6_0, PM8018_L6, 2),
+	MSM_RPM_MAP(PM8018_L7_0, PM8018_L7, 2),
+	MSM_RPM_MAP(PM8018_L8_0, PM8018_L8, 2),
+	MSM_RPM_MAP(PM8018_L9_0, PM8018_L9, 2),
+	MSM_RPM_MAP(PM8018_L10_0, PM8018_L10, 2),
+	MSM_RPM_MAP(PM8018_L11_0, PM8018_L11, 2),
+	MSM_RPM_MAP(PM8018_L12_0, PM8018_L12, 2),
+	MSM_RPM_MAP(PM8018_L13_0, PM8018_L13, 2),
+	MSM_RPM_MAP(PM8018_L14_0, PM8018_L14, 2),
+	MSM_RPM_MAP(PM8018_LVS1, PM8018_LVS1, 1),
+	MSM_RPM_MAP(NCP_0, NCP, 2),
+	MSM_RPM_MAP(CXO_BUFFERS, CXO_BUFFERS, 1),
+	MSM_RPM_MAP(USB_OTG_SWITCH, USB_OTG_SWITCH, 1),
+	MSM_RPM_MAP(HDMI_SWITCH, HDMI_SWITCH, 1),
+};
+unsigned int rpm_map_data_size = ARRAY_SIZE(rpm_map_data);
+
+static struct msm_rpm_platform_data msm_rpm_data = {
+	.reg_base_addrs = {
+		[MSM_RPM_PAGE_STATUS] = MSM_RPM_BASE,
+		[MSM_RPM_PAGE_CTRL] = MSM_RPM_BASE + 0x400,
+		[MSM_RPM_PAGE_REQ] = MSM_RPM_BASE + 0x600,
+		[MSM_RPM_PAGE_ACK] = MSM_RPM_BASE + 0xa00,
+	},
+
+	.irq_ack = RPM_APCC_CPU0_GP_HIGH_IRQ,
+	.irq_err = RPM_APCC_CPU0_GP_LOW_IRQ,
+	.irq_vmpm = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+	.msm_apps_ipc_rpm_reg = MSM_APCS_GCC_BASE + 0x008,
+	.msm_apps_ipc_rpm_val = 4,
+};
+
+struct platform_device msm_rpm_device = {
+	.name   = "msm_rpm",
+	.id     = -1,
+};
+
+static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] = {
+	[1] = MSM_GPIO_TO_INT(46),
+	[2] = MSM_GPIO_TO_INT(150),
+	[4] = MSM_GPIO_TO_INT(103),
+	[5] = MSM_GPIO_TO_INT(104),
+	[6] = MSM_GPIO_TO_INT(105),
+	[7] = MSM_GPIO_TO_INT(106),
+	[8] = MSM_GPIO_TO_INT(107),
+	[9] = MSM_GPIO_TO_INT(7),
+	[10] = MSM_GPIO_TO_INT(11),
+	[11] = MSM_GPIO_TO_INT(15),
+	[12] = MSM_GPIO_TO_INT(19),
+	[13] = MSM_GPIO_TO_INT(23),
+	[14] = MSM_GPIO_TO_INT(27),
+	[15] = MSM_GPIO_TO_INT(31),
+	[16] = MSM_GPIO_TO_INT(35),
+	[19] = MSM_GPIO_TO_INT(90),
+	[20] = MSM_GPIO_TO_INT(92),
+	[23] = MSM_GPIO_TO_INT(85),
+	[24] = MSM_GPIO_TO_INT(83),
+	[25] = USB1_HS_IRQ,
+	/*[27] = HDMI_IRQ,*/
+	[29] = MSM_GPIO_TO_INT(10),
+	[30] = MSM_GPIO_TO_INT(102),
+	[31] = MSM_GPIO_TO_INT(81),
+	[32] = MSM_GPIO_TO_INT(78),
+	[33] = MSM_GPIO_TO_INT(94),
+	[34] = MSM_GPIO_TO_INT(72),
+	[35] = MSM_GPIO_TO_INT(39),
+	[36] = MSM_GPIO_TO_INT(43),
+	[37] = MSM_GPIO_TO_INT(61),
+	[38] = MSM_GPIO_TO_INT(50),
+	[39] = MSM_GPIO_TO_INT(42),
+	[41] = MSM_GPIO_TO_INT(62),
+	[42] = MSM_GPIO_TO_INT(76),
+	[43] = MSM_GPIO_TO_INT(75),
+	[44] = MSM_GPIO_TO_INT(70),
+	[45] = MSM_GPIO_TO_INT(69),
+	[46] = MSM_GPIO_TO_INT(67),
+	[47] = MSM_GPIO_TO_INT(65),
+	[48] = MSM_GPIO_TO_INT(58),
+	[49] = MSM_GPIO_TO_INT(54),
+	[50] = MSM_GPIO_TO_INT(52),
+	[51] = MSM_GPIO_TO_INT(49),
+	[52] = MSM_GPIO_TO_INT(40),
+	[53] = MSM_GPIO_TO_INT(37),
+	[54] = MSM_GPIO_TO_INT(24),
+	[55] = MSM_GPIO_TO_INT(14),
+};
+
+static uint16_t msm_mpm_bypassed_apps_irqs[] = {
+	TLMM_MSM_SUMMARY_IRQ,
+	RPM_APCC_CPU0_GP_HIGH_IRQ,
+	RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+	RPM_APCC_CPU0_GP_LOW_IRQ,
+	RPM_APCC_CPU0_WAKE_UP_IRQ,
+	LPASS_SCSS_GP_LOW_IRQ,
+	LPASS_SCSS_GP_MEDIUM_IRQ,
+	LPASS_SCSS_GP_HIGH_IRQ,
+	SPS_MTI_31,
+};
+
+struct msm_mpm_device_data msm_mpm_dev_data = {
+	.irqs_m2a = msm_mpm_irqs_m2a,
+	.irqs_m2a_size = ARRAY_SIZE(msm_mpm_irqs_m2a),
+	.bypassed_apps_irqs = msm_mpm_bypassed_apps_irqs,
+	.bypassed_apps_irqs_size = ARRAY_SIZE(msm_mpm_bypassed_apps_irqs),
+	.mpm_request_reg_base = MSM_RPM_BASE + 0x9d8,
+	.mpm_status_reg_base = MSM_RPM_BASE + 0xdf8,
+	.mpm_apps_ipc_reg = MSM_APCS_GCC_BASE + 0x008,
+	.mpm_apps_ipc_val =  BIT(1),
+	.mpm_ipc_irq = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+
+};
+
+static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
+	{
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		true,
+		1, 8000, 100000, 1,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		true,
+		1500, 5000, 60100000, 3000,
+	},
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		false,
+		2800, 5000, 60350000, 3500,
+	},
+};
+
 void __init msm9615_device_init(void)
 {
 	msm_clock_init(&msm9615_clock_init_data);
 	acpuclk_init(&acpuclk_9615_soc_data);
+	BUG_ON(msm_rpm_init(&msm_rpm_data));
+	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
+			ARRAY_SIZE(msm_rpmrs_levels)));
 }
 
 #define MSM_SHARED_RAM_PHYS 0x40000000

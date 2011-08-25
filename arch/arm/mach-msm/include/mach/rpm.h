@@ -20,6 +20,8 @@
 
 #if defined(CONFIG_ARCH_MSM8X60)
 #include <mach/rpm-8660.h>
+#elif defined(CONFIG_ARCH_MSM9615)
+#include <mach/rpm-9615.h>
 #elif defined(CONFIG_ARCH_MSM8960)
 #include <mach/rpm-8960.h>
 #endif
