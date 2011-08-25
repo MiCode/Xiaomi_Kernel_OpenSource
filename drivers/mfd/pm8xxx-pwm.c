@@ -815,6 +815,9 @@ static void dbg_pwm_check_handle(struct pm8xxx_pwm_user *puser)
 		if (PTR_ERR(puser->pwm)) {
 			pr_err("pwm_request: err=%ld\n", PTR_ERR(puser->pwm));
 			puser->pwm = NULL;
+		} else {
+			pr_debug("[id=%d] pwm_request ok\n", puser->pwm_id);
+			puser->pwm = tmp;
 		}
 	}
 }
@@ -870,9 +873,8 @@ static int dbg_pwm_duty_cycle_set(void *data, u64 val)
 		if (puser->pwm) {
 			int     duty_us;
 
-			duty_us = puser->duty_cycle * puser->period;
-			pwm_config(puser->pwm,
-				  puser->duty_cycle, puser->period);
+			duty_us = puser->duty_cycle * puser->period / 100;
+			pwm_config(puser->pwm, duty_us, puser->period);
 		}
 	}
 	mutex_unlock(&dbgdev->dbg_mutex);
