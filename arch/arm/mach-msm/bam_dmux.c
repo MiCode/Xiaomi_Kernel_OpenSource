@@ -107,7 +107,6 @@ struct rx_pkt_info {
 	struct sk_buff *skb;
 	dma_addr_t dma_address;
 	struct work_struct work;
-	struct list_head list_node;
 };
 
 #define A2_NUM_PIPES		6
@@ -125,12 +124,10 @@ static struct sps_connect rx_connection;
 static struct sps_mem_buffer tx_desc_mem_buf;
 static struct sps_mem_buffer rx_desc_mem_buf;
 static struct sps_register_event tx_register_event;
+static struct sps_register_event rx_register_event;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
-
-static LIST_HEAD(bam_rx_pool);
-static DEFINE_MUTEX(bam_rx_pool_lock);
 
 struct bam_mux_hdr {
 	uint16_t magic_num;
@@ -143,10 +140,8 @@ struct bam_mux_hdr {
 
 static void bam_mux_write_done(struct work_struct *work);
 static void handle_bam_mux_cmd(struct work_struct *work);
-static void rx_timer_work_func(struct work_struct *work);
 
 static DEFINE_MUTEX(bam_mux_lock);
-static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 
 static struct workqueue_struct *bam_mux_rx_workqueue;
 static struct workqueue_struct *bam_mux_tx_workqueue;
@@ -173,16 +168,12 @@ static void queue_rx(void)
 
 	info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
 	ptr = skb_put(info->skb, BUFFER_SIZE);
-
-	mutex_lock(&bam_rx_pool_lock);
-	list_add_tail(&info->list_node, &bam_rx_pool);
-	mutex_unlock(&bam_rx_pool_lock);
-
 	/* need a way to handle error case */
 	info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
 						DMA_FROM_DEVICE);
 	sps_transfer_one(bam_rx_pipe, info->dma_address,
-				BUFFER_SIZE, info, 0);
+				BUFFER_SIZE, info,
+				SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 }
 
 static void bam_mux_process_data(struct sk_buff *rx_skb)
@@ -507,28 +498,6 @@ int msm_bam_dmux_close(uint32_t id)
 	return rc;
 }
 
-static void rx_timer_work_func(struct work_struct *work)
-{
-	struct sps_iovec iov;
-	struct list_head *node;
-	struct rx_pkt_info *info;
-
-	while (1) {
-		sps_get_iovec(bam_rx_pipe, &iov);
-		if (iov.addr == 0)
-			break;
-		mutex_lock(&bam_rx_pool_lock);
-		node = bam_rx_pool.next;
-		list_del(node);
-		mutex_unlock(&bam_rx_pool_lock);
-		info = container_of(node, struct rx_pkt_info, list_node);
-		handle_bam_mux_cmd(&info->work);
-	}
-
-	msleep(1);
-	queue_work(bam_mux_rx_workqueue, &rx_timer_work);
-}
-
 static void bam_mux_tx_notify(struct sps_event_notify *notify)
 {
 	struct tx_pkt_info *pkt;
@@ -550,6 +519,26 @@ static void bam_mux_tx_notify(struct sps_event_notify *notify)
 			kfree(pkt->skb);
 			kfree(pkt);
 		}
+		break;
+	default:
+		pr_err("%s: recieved unexpected event id %d\n", __func__,
+			notify->event_id);
+	}
+}
+
+static void bam_mux_rx_notify(struct sps_event_notify *notify)
+{
+	struct rx_pkt_info *info;
+
+	DBG("%s: event %d notified\n", __func__, notify->event_id);
+
+	info = (struct rx_pkt_info *)(notify->data.transfer.user);
+
+	switch (notify->event_id) {
+	case SPS_EVENT_EOT:
+		dma_unmap_single(NULL, info->dma_address,
+				BUFFER_SIZE, DMA_FROM_DEVICE);
+		queue_work(bam_mux_rx_workqueue, &info->work);
 		break;
 	default:
 		pr_err("%s: recieved unexpected event id %d\n", __func__,
@@ -688,8 +677,7 @@ static void bam_init(void)
 	rx_connection.destination = SPS_DEV_HANDLE_MEM;
 	rx_connection.dest_pipe_index = 1;
 	rx_connection.mode = SPS_MODE_SRC;
-	rx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+	rx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	rx_desc_mem_buf.size = 0x800; /* 2k */
 	rx_desc_mem_buf.base = dma_alloc_coherent(NULL, rx_desc_mem_buf.size,
 							&dma_addr, 0);
@@ -720,11 +708,20 @@ static void bam_init(void)
 		goto rx_event_reg_failed;
 	}
 
+	rx_register_event.options = SPS_O_EOT;
+	rx_register_event.mode = SPS_TRIGGER_CALLBACK;
+	rx_register_event.xfer_done = NULL;
+	rx_register_event.callback = bam_mux_rx_notify;
+	rx_register_event.user = NULL;
+	ret = sps_register_event(bam_rx_pipe, &rx_register_event);
+	if (ret < 0) {
+		pr_err("%s: tx register event error %d\n", __func__, ret);
+		goto rx_event_reg_failed;
+	}
+
 	bam_mux_initialized = 1;
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		queue_rx();
-
-	queue_work(bam_mux_rx_workqueue, &rx_timer_work);
 	return;
 
 rx_event_reg_failed:
