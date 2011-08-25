@@ -456,7 +456,8 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 			goto out;
 		}
 		msmsdcc_stop_data(host);
-		if (!mrq->data->stop || mrq->cmd->error) {
+		if (!mrq->data->stop || mrq->cmd->error ||
+			(mrq->sbc && !mrq->data->error)) {
 			host->curr.mrq = NULL;
 			host->curr.cmd = NULL;
 			mrq->data->bytes_xfered = host->curr.data_xfered;
@@ -465,8 +466,10 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 
 			mmc_request_done(host->mmc, mrq);
 			return;
-		} else
+		} else if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
+				|| !mrq->sbc)) {
 			msmsdcc_start_command(host, mrq->data->stop, 0);
+		}
 	}
 
 out:
@@ -609,7 +612,8 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 			return;
 		}
 		msmsdcc_stop_data(host);
-		if (!mrq->data->stop || mrq->cmd->error) {
+		if (!mrq->data->stop || mrq->cmd->error ||
+			(mrq->sbc && !mrq->data->error)) {
 			host->curr.mrq = NULL;
 			host->curr.cmd = NULL;
 			mrq->data->bytes_xfered = host->curr.data_xfered;
@@ -618,7 +622,8 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 
 			mmc_request_done(host->mmc, mrq);
 			return;
-		} else {
+		} else if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
+				|| !mrq->sbc)) {
 			msmsdcc_start_command(host, mrq->data->stop, 0);
 		}
 	}
@@ -656,9 +661,11 @@ static void msmsdcc_sps_exit_curr_xfer(struct msmsdcc_host *host)
 	if (host->curr.data)
 		msmsdcc_stop_data(host);
 
-	if (!mrq->data->stop || mrq->cmd->error)
+	if (!mrq->data->stop || mrq->cmd->error ||
+		(mrq->sbc && !mrq->data->error))
 		msmsdcc_request_end(host, mrq);
-	else
+	else if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
+			|| !mrq->sbc))
 		msmsdcc_start_command(host, mrq->data->stop, 0);
 
 }
@@ -930,13 +937,6 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		       mmc_hostname(host->mmc));
 	}
 	host->curr.cmd = cmd;
-
-	/*
-	 * Kick the software command timeout timer here.
-	 * Timer expires in 10 secs.
-	 */
-	mod_timer(&host->req_tout_timer,
-			(jiffies + msecs_to_jiffies(MSM_MMC_REQ_TIMEOUT)));
 }
 
 static void
@@ -1022,7 +1022,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		host->dma.hdr.exec_func = msmsdcc_dma_exec_func;
 		host->dma.hdr.user = (void *)host;
 		host->dma.busy = 1;
-		if (data->flags & MMC_DATA_WRITE)
+		if ((data->flags & MMC_DATA_WRITE) && !host->curr.mrq->sbc)
 			host->prog_scan = 1;
 
 		if (cmd) {
@@ -1036,7 +1036,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		msm_dmov_enqueue_cmd_ext(host->dma.channel, &host->dma.hdr);
 	} else {
 		/* SPS-BAM mode or PIO mode */
-		if (data->flags & MMC_DATA_WRITE)
+		if ((data->flags & MMC_DATA_WRITE) && !host->curr.mrq->sbc)
 			host->prog_scan = 1;
 		writel_relaxed(timeout, base + MMCIDATATIMER);
 
@@ -1339,6 +1339,8 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 				msmsdcc_request_end(host, cmd->mrq);
 			}
 		}
+	} else if (cmd == host->curr.mrq->sbc) {
+		msmsdcc_request_start(host, host->curr.mrq);
 	} else if (cmd->data) {
 		if (!(cmd->data->flags & MMC_DATA_READ))
 			msmsdcc_start_data(host, cmd->data, NULL, 0);
@@ -1447,16 +1449,18 @@ msmsdcc_irq(int irq, void *dev_id)
 				else if (host->sps.sg && host->is_sps_mode) {
 					/* Stop current SPS transfer */
 					msmsdcc_sps_exit_curr_xfer(host);
-				}
-				else {
+				} else {
 					msmsdcc_reset_and_restore(host);
 					if (host->curr.data)
 						msmsdcc_stop_data(host);
-					if (!data->stop)
+					if (!data->stop || (host->curr.mrq->sbc
+						&& !data->error))
 						timer |=
 						 msmsdcc_request_end(host,
 								    data->mrq);
-					else {
+					else if ((host->curr.mrq->sbc
+						&& data->error) ||
+						!host->curr.mrq->sbc) {
 						msmsdcc_start_command(host,
 								     data->stop,
 								     0);
@@ -1505,11 +1509,15 @@ msmsdcc_irq(int irq, void *dev_id)
 
 					if (!host->dummy_52_needed) {
 						msmsdcc_stop_data(host);
-						if (!data->stop) {
+						if (!data->stop ||
+							(host->curr.mrq->sbc
+							&& !data->error))
 							msmsdcc_request_end(
 								  host,
 								  data->mrq);
-						} else {
+						else if ((host->curr.mrq->sbc
+							&& data->error) ||
+							!host->curr.mrq->sbc) {
 							msmsdcc_start_command(
 								host,
 								data->stop, 0);
@@ -1582,8 +1590,14 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		return;
 	}
 
-	host->curr.mrq = mrq;
+	/*
+	 * Kick the software command timeout timer here.
+	 * Timer expires in 10 secs.
+	 */
+	mod_timer(&host->req_tout_timer,
+			(jiffies + msecs_to_jiffies(MSM_MMC_REQ_TIMEOUT)));
 
+	host->curr.mrq = mrq;
 	if (mrq->data && mrq->data->flags == MMC_DATA_WRITE) {
 		if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
 			mrq->cmd->opcode == 54) {
@@ -1601,7 +1615,16 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		}
 	}
 
-	msmsdcc_request_start(host, mrq);
+	if (mrq->sbc) {
+		mrq->sbc->mrq = mrq;
+		mrq->sbc->data = mrq->data;
+		if (mrq->data->flags == MMC_DATA_WRITE)
+			host->curr.wait_for_auto_prog_done = 1;
+		msmsdcc_start_command(host, mrq->sbc, 0);
+	} else {
+		msmsdcc_request_start(host, mrq);
+	}
+
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
@@ -3587,6 +3610,17 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps |= plat->mmc_bus_width;
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
+
+	/*
+	 * If we send the CMD23 before multi block write/read command
+	 * then we need not to send CMD12 at the end of the transfer.
+	 * If we don't send the CMD12 then only way to detect the PROG_DONE
+	 * status is to use the AUTO_PROG_DONE status provided by SDCC4
+	 * controller. So let's enable the CMD23 for SDCC4 only.
+	 */
+	if (host->plat->sdcc_v4_sup)
+		mmc->caps |= MMC_CAP_CMD23;
+
 	mmc->caps |= plat->uhs_caps;
 	/*
 	 * XPC controls the maximum current in the default speed mode of SDXC
