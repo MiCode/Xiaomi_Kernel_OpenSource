@@ -363,9 +363,10 @@ static void gsmd_read_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	spin_lock(&port->port_lock);
-	if (!test_bit(CH_OPENED, &port->pi->flags)) {
-		gsmd_free_req(ep, req);
+	if (!test_bit(CH_OPENED, &port->pi->flags) ||
+			req->status == -ESHUTDOWN) {
 		spin_unlock(&port->port_lock);
+		gsmd_free_req(ep, req);
 		return;
 	}
 
@@ -388,30 +389,20 @@ static void gsmd_write_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	spin_lock(&port->port_lock);
-	if (!test_bit(CH_OPENED, &port->pi->flags)) {
-		gsmd_free_req(ep, req);
+	if (!test_bit(CH_OPENED, &port->pi->flags) ||
+			req->status == -ESHUTDOWN) {
 		spin_unlock(&port->port_lock);
+		gsmd_free_req(ep, req);
 		return;
 	}
 
-	list_add(&req->list, &port->write_pool);
-
-	switch (req->status) {
-	default:
+	if (req->status)
 		pr_warning("%s: port:%p port#%d unexpected %s status %d\n",
 				__func__, port, port->port_num,
 				ep->name, req->status);
-		/* FALL THROUGH */
-	case 0:
-		queue_work(gsmd_wq, &port->pull);
-		break;
 
-	case -ESHUTDOWN:
-		/* disconnect */
-		pr_debug("%s: %s shutdown\n", __func__, ep->name);
-		gsmd_free_req(ep, req);
-		break;
-	}
+	list_add(&req->list, &port->write_pool);
+	queue_work(gsmd_wq, &port->pull);
 	spin_unlock(&port->port_lock);
 
 	return;
@@ -848,11 +839,15 @@ static ssize_t debug_smd_read_stats(struct file *file, char __user *ubuf,
 				"cbits_to_modem:  %u\n"
 				"cbits_to_laptop: %u\n"
 				"n_read: %u\n"
+				"smd_read_avail: %d\n"
+				"smd_write_avail: %d\n"
 				"CH_OPENED: %d\n"
 				"CH_READY: %d\n",
 				i, port->nbytes_tolaptop, port->nbytes_tomodem,
 				port->cbits_to_modem, port->cbits_to_laptop,
 				port->n_read,
+				smd_read_avail(port->pi->ch),
+				smd_write_avail(port->pi->ch),
 				test_bit(CH_OPENED, &port->pi->flags),
 				test_bit(CH_READY, &port->pi->flags));
 		spin_unlock_irqrestore(&port->port_lock, flags);
