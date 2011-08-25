@@ -182,7 +182,8 @@
 
 #define NR_MSM_IRQS 256
 #define NR_GPIO_IRQS 88
-#define NR_BOARD_IRQS 0
+#define NR_PM8018_IRQS 256
+#define NR_BOARD_IRQS NR_PM8018_IRQS
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
 #define NR_MSM_GPIOS NR_GPIO_IRQS
 

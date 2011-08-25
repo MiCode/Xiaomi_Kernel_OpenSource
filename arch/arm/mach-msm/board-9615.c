@@ -23,6 +23,7 @@
 #include <mach/msm_spi.h>
 #include "timer.h"
 #include "devices.h"
+#include "board-9615.h"
 
 static struct platform_device *common_devices[] = {
 	&msm9615_device_uart_gsbi4,
@@ -31,10 +32,48 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_qup_spi_gsbi3,
 };
 
+static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
+	.irq_base		= PM8018_IRQ_BASE,
+	.devirq			= MSM_GPIO_TO_INT(87),
+	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
+};
+
+static struct pm8xxx_gpio_platform_data pm8xxx_gpio_pdata __devinitdata = {
+	.gpio_base		= PM8018_GPIO_PM_TO_SYS(1),
+};
+
+static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata __devinitdata = {
+	.mpp_base		= PM8018_MPP_PM_TO_SYS(1),
+};
+
+static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata __devinitdata = {
+	.rtc_write_enable	= false,
+};
+
+static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
+	.pull_up		= 1,
+	.kpd_trigger_delay_us	= 970,
+	.wakeup			= 1,
+};
+
+static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
+	.priority		= 0,
+};
+
+static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
+	.irq_pdata		= &pm8xxx_irq_pdata,
+	.gpio_pdata		= &pm8xxx_gpio_pdata,
+	.mpp_pdata		= &pm8xxx_mpp_pdata,
+	.rtc_pdata		= &pm8xxx_rtc_pdata,
+	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
+	.misc_pdata		= &pm8xxx_misc_pdata,
+};
+
 static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 	.slave	= {
-		.name		= "pm8018-core",
+		.name		= PM8018_CORE_DEV_NAME,
+		.platform_data	= &pm8018_platform_data,
 	},
 };
 
