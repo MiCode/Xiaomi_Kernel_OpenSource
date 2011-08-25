@@ -340,6 +340,12 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 		}
 	}
 
+	/* Use higher resolution */
+	if (best_m >= 3 && n == 6) {
+		n += 3;
+		best_m -= 3;
+	}
+
 	pwm_conf->pwm_size = n;
 	pwm_conf->clk = best_clk;
 	pwm_conf->pre_div = best_div;
