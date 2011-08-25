@@ -64,16 +64,6 @@ static void riva_fatal_fn(struct work_struct *work)
 		subsystem_restart("riva");
 }
 
-static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
-{
-	riva_crash = true;
-	pr_debug("%s: rxed irq[0x%x]", MODULE_NAME, irq);
-	disable_irq_nosync(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
-	schedule_work(&riva_fatal_work);
-
-	return IRQ_HANDLED;
-}
-
 /* SMSM reset Riva */
 static void smsm_riva_reset(void)
 {
@@ -144,14 +134,6 @@ static int __init riva_ssr_module_init(void)
 	if (ret < 0) {
 		pr_err("%s: Unable to register smsm callback for Riva Reset!"
 				" (%d)\n", MODULE_NAME, ret);
-		goto out;
-	}
-	ret = request_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
-			riva_wdog_bite_irq_hdlr,
-			IRQF_TRIGGER_HIGH, "riva_wdog", NULL);
-	if (ret < 0) {
-		pr_err("%s: Unable to register RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ irq.",
-			MODULE_NAME);
 		goto out;
 	}
 	ret = riva_restart_init();
