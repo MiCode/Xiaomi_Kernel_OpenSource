@@ -307,17 +307,10 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = runtime->private_data;
 	int dir = 0;
-	int ret = 0;
 
 	pr_debug("%s\n", __func__);
 
 	dir = IN;
-	prtd->cmd_ack = 0;
-	q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
-	ret = wait_event_timeout(the_locks.eos_wait,
-		prtd->cmd_ack, 5 * HZ);
-	if (ret < 0)
-		pr_err("%s: CMD_EOS failed\n", __func__);
 	lpa_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
@@ -430,6 +423,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 		rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
 		if (rc < 0)
 			pr_err("%s: flush cmd failed rc=%d\n", __func__, rc);
+		prtd->cmd_ack = 1;
 		break;
 	default:
 		break;
