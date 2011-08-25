@@ -34,6 +34,50 @@
 #define PM_PWM_LUT_NO_TABLE	0x100
 
 /**
+ * PWM frequency/period control
+ *
+ * PWM Frequency = ClockFrequency / (N * T)
+ *   or
+ * PWM Period = Clock Period * (N * T)
+ *   where
+ * N = 2^9 or 2^6 for 9-bit or 6-bit PWM size
+ * T = Pre-divide * 2^m, m = 0..7 (exponent)
+ *
+ */
+
+enum pm_pwm_size {
+	PM_PWM_SIZE_6BIT =	6,
+	PM_PWM_SIZE_9BIT =	9,
+};
+
+enum pm_pwm_clk {
+	PM_PWM_CLK_1KHZ,
+	PM_PWM_CLK_32KHZ,
+	PM_PWM_CLK_19P2MHZ,
+};
+
+enum pm_pwm_pre_div {
+	PM_PWM_PDIV_2,
+	PM_PWM_PDIV_3,
+	PM_PWM_PDIV_5,
+	PM_PWM_PDIV_6,
+};
+
+/**
+ * struct pm8xxx_pwm_period - PWM period structure
+ * @pwm_size: enum pm_pwm_size
+ * @clk: enum pm_pwm_clk
+ * @pre_div: enum pm_pwm_pre_div
+ * @pre_div_exp: exponent of 2 as part of pre-divider: 0..7
+ */
+struct pm8xxx_pwm_period {
+	enum pm_pwm_size	pwm_size;
+	enum pm_pwm_clk		clk;
+	enum pm_pwm_pre_div	pre_div;
+	int			pre_div_exp;
+};
+
+/**
  * pm8xxx_pwm_lut_config - change a PWM device configuration to use LUT
  * @pwm: the PWM device
  * @period_us: period in micro second

@@ -164,11 +164,14 @@ struct pwm_device {
 	int			pwm_id;		/* = bank/channel id */
 	int			in_use;
 	const char		*label;
+	struct pm8xxx_pwm_period	period;
+	int			pwm_value;
 	int			pwm_period;
 	int			pwm_duty;
 	u8			pwm_ctl[PM8XXX_LPG_CTL_REGS];
 	int			irq;
 	struct pm8xxx_pwm_chip	*chip;
+	int			bypass_lut;
 };
 
 struct pm8xxx_pwm_chip {
@@ -180,15 +183,8 @@ struct pm8xxx_pwm_chip {
 
 static struct pm8xxx_pwm_chip	*pwm_chip;
 
-struct pm8xxx_pwm_config {
-	int	pwm_size;	/* round up to 6 or 9 for 6/9-bit PWM SIZE */
-	int	clk;
-	int	pre_div;
-	int	pre_div_exp;
-	int	pwm_value;
-	int	bypass_lut;
-
-	/* LUT parameters when bypass_lut is 0 */
+struct pm8xxx_pwm_lut {
+	/* LUT parameters */
 	int	lut_duty_ms;
 	int	lut_lo_index;
 	int	lut_hi_index;
@@ -271,7 +267,7 @@ static int pm8xxx_pwm_start(struct pwm_device *pwm, int start, int ramp_start)
 }
 
 static void pm8xxx_pwm_calc_period(unsigned int period_us,
-					   struct pm8xxx_pwm_config *pwm_conf)
+				   struct pm8xxx_pwm_period *period)
 {
 	int	n, m, clk, div;
 	int	best_m, best_div, best_clk;
@@ -346,40 +342,41 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 		best_m -= 3;
 	}
 
-	pwm_conf->pwm_size = n;
-	pwm_conf->clk = best_clk;
-	pwm_conf->pre_div = best_div;
-	pwm_conf->pre_div_exp = best_m;
+	period->pwm_size = n;
+	period->clk = best_clk;
+	period->pre_div = best_div;
+	period->pre_div_exp = best_m;
 }
 
 static int pm8xxx_pwm_configure(struct pwm_device *pwm,
-			 struct pm8xxx_pwm_config *pwm_conf)
+				struct pm8xxx_pwm_lut *lut)
 {
 	int	i, rc, len;
 	u8	reg, ramp_enabled = 0;
+	struct pm8xxx_pwm_period *period = &pwm->period;
 
-	reg = (pwm_conf->pwm_size > 6) ? PM8XXX_PWM_SIZE_9_BIT : 0;
+	reg = (period->pwm_size > 6) ? PM8XXX_PWM_SIZE_9_BIT : 0;
 	pwm->pwm_ctl[5] = reg;
 
-	reg = ((pwm_conf->clk + 1) << PM8XXX_PWM_CLK_SEL_SHIFT)
+	reg = ((period->clk + 1) << PM8XXX_PWM_CLK_SEL_SHIFT)
 		& PM8XXX_PWM_CLK_SEL_MASK;
-	reg |= (pwm_conf->pre_div << PM8XXX_PWM_PREDIVIDE_SHIFT)
+	reg |= (period->pre_div << PM8XXX_PWM_PREDIVIDE_SHIFT)
 		& PM8XXX_PWM_PREDIVIDE_MASK;
-	reg |= pwm_conf->pre_div_exp & PM8XXX_PWM_M_MASK;
+	reg |= period->pre_div_exp & PM8XXX_PWM_M_MASK;
 	pwm->pwm_ctl[4] = reg;
 
-	if (pwm_conf->bypass_lut) {
+	if (pwm->bypass_lut) {
 		pwm->pwm_ctl[0] &= PM8XXX_PWM_PWM_START; /* keep enabled */
 		pwm->pwm_ctl[1] = PM8XXX_PWM_BYPASS_LUT;
 		pwm->pwm_ctl[2] = 0;
 
-		if (pwm_conf->pwm_size > 6) {
-			pwm->pwm_ctl[3] = pwm_conf->pwm_value
+		if (period->pwm_size > 6) {
+			pwm->pwm_ctl[3] = pwm->pwm_value
 						& PM8XXX_PWM_VALUE_BIT7_0;
-			pwm->pwm_ctl[4] |= (pwm_conf->pwm_value >> 1)
+			pwm->pwm_ctl[4] |= (pwm->pwm_value >> 1)
 						& PM8XXX_PWM_VALUE_BIT8;
 		} else {
-			pwm->pwm_ctl[3] = pwm_conf->pwm_value
+			pwm->pwm_ctl[3] = pwm->pwm_value
 						& PM8XXX_PWM_VALUE_BIT5_0;
 		}
 
@@ -389,7 +386,7 @@ static int pm8xxx_pwm_configure(struct pwm_device *pwm,
 
 		/* Linear search for duty time */
 		for (i = 0; i < PM8XXX_PWM_1KHZ_COUNT_MAX; i++) {
-			if (duty_msec[i] >= pwm_conf->lut_duty_ms)
+			if (duty_msec[i] >= lut->lut_duty_ms)
 				break;
 		}
 
@@ -397,22 +394,22 @@ static int pm8xxx_pwm_configure(struct pwm_device *pwm,
 		pwm->pwm_ctl[0] &= PM8XXX_PWM_PWM_START; /* keep enabled */
 		pwm->pwm_ctl[0] |= (i << PM8XXX_PWM_1KHZ_COUNT_SHIFT) &
 					PM8XXX_PWM_1KHZ_COUNT_MASK;
-		pwm->pwm_ctl[1] = pwm_conf->lut_hi_index &
+		pwm->pwm_ctl[1] = lut->lut_hi_index &
 					PM8XXX_PWM_HIGH_INDEX_MASK;
-		pwm->pwm_ctl[2] = pwm_conf->lut_lo_index &
+		pwm->pwm_ctl[2] = lut->lut_lo_index &
 					PM8XXX_PWM_LOW_INDEX_MASK;
 
-		if (pwm_conf->flags & PM_PWM_LUT_REVERSE)
+		if (lut->flags & PM_PWM_LUT_REVERSE)
 			pwm->pwm_ctl[1] |= PM8XXX_PWM_REVERSE_EN;
-		if (pwm_conf->flags & PM_PWM_LUT_RAMP_UP)
+		if (lut->flags & PM_PWM_LUT_RAMP_UP)
 			pwm->pwm_ctl[2] |= PM8XXX_PWM_RAMP_UP;
-		if (pwm_conf->flags & PM_PWM_LUT_LOOP)
+		if (lut->flags & PM_PWM_LUT_LOOP)
 			pwm->pwm_ctl[2] |= PM8XXX_PWM_LOOP_EN;
 
 		/* Pause time */
-		if (pwm_conf->flags & PM_PWM_LUT_PAUSE_HI_EN) {
+		if (lut->flags & PM_PWM_LUT_PAUSE_HI_EN) {
 			/* Linear search for pause time */
-			pause_cnt = (pwm_conf->lut_pause_hi + duty_msec[i] / 2)
+			pause_cnt = (lut->lut_pause_hi + duty_msec[i] / 2)
 					/ duty_msec[i];
 			for (j = 0; j < PM8XXX_PWM_PAUSE_COUNT_MAX; j++) {
 				if (pause_count[j] >= pause_cnt)
@@ -424,9 +421,9 @@ static int pm8xxx_pwm_configure(struct pwm_device *pwm,
 			pwm->pwm_ctl[5] |= PM8XXX_PWM_PAUSE_ENABLE_HIGH;
 		}
 
-		if (pwm_conf->flags & PM_PWM_LUT_PAUSE_LO_EN) {
+		if (lut->flags & PM_PWM_LUT_PAUSE_LO_EN) {
 			/* Linear search for pause time */
-			pause_cnt = (pwm_conf->lut_pause_lo + duty_msec[i] / 2)
+			pause_cnt = (lut->lut_pause_lo + duty_msec[i] / 2)
 					/ duty_msec[i];
 			for (j = 0; j < PM8XXX_PWM_PAUSE_COUNT_MAX; j++) {
 				if (pause_count[j] >= pause_cnt)
@@ -531,7 +528,8 @@ EXPORT_SYMBOL_GPL(pwm_free);
  */
 int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 {
-	struct pm8xxx_pwm_config	pwm_conf;
+	struct pm8xxx_pwm_lut	lut;
+	struct pm8xxx_pwm_period *period;
 	unsigned int max_pwm_value, tmp;
 	int	rc;
 
@@ -547,6 +545,8 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 		return -ENODEV;
 	}
 
+	period = &pwm->period;
+
 	mutex_lock(&pwm->chip->pwm_mutex);
 
 	if (!pwm->in_use) {
@@ -555,25 +555,25 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 		goto out_unlock;
 	}
 
-	pm8xxx_pwm_calc_period(period_us, &pwm_conf);
+	pm8xxx_pwm_calc_period(period_us, period);
 
 	/* Figure out pwm_value with overflow handling */
-	if ((unsigned)period_us > (1 << pwm_conf.pwm_size)) {
+	if ((unsigned)period_us > (1 << period->pwm_size)) {
 		tmp = period_us;
-		tmp >>= pwm_conf.pwm_size;
-		pwm_conf.pwm_value = (unsigned)duty_us / tmp;
+		tmp >>= period->pwm_size;
+		pwm->pwm_value = (unsigned)duty_us / tmp;
 	} else {
 		tmp = duty_us;
-		tmp <<= pwm_conf.pwm_size;
-		pwm_conf.pwm_value = tmp / (unsigned)period_us;
+		tmp <<= period->pwm_size;
+		pwm->pwm_value = tmp / (unsigned)period_us;
 	}
-	max_pwm_value = (1 << pwm_conf.pwm_size) - 1;
-	if (pwm_conf.pwm_value > max_pwm_value)
-		pwm_conf.pwm_value = max_pwm_value;
+	max_pwm_value = (1 << period->pwm_size) - 1;
+	if (pwm->pwm_value > max_pwm_value)
+		pwm->pwm_value = max_pwm_value;
 
-	pwm_conf.bypass_lut = 1;
+	pwm->bypass_lut = 1;
 
-	rc = pm8xxx_pwm_configure(pwm, &pwm_conf);
+	rc = pm8xxx_pwm_configure(pwm, &lut);
 
 out_unlock:
 	mutex_unlock(&pwm->chip->pwm_mutex);
@@ -651,7 +651,8 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int duty_pct[], int duty_time_ms, int start_idx,
 			  int idx_len, int pause_lo, int pause_hi, int flags)
 {
-	struct pm8xxx_pwm_config	pwm_conf;
+	struct pm8xxx_pwm_lut	lut;
+	struct pm8xxx_pwm_period *period;
 	unsigned int pwm_value, max_pwm_value;
 	u8	cfg0, cfg1;
 	int	i, len;
@@ -683,6 +684,7 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		return -EINVAL;
 	}
 
+	period = &pwm->period;
 	mutex_lock(&pwm->chip->pwm_mutex);
 
 	if (!pwm->in_use) {
@@ -691,16 +693,16 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		goto out_unlock;
 	}
 
-	pm8xxx_pwm_calc_period(period_us, &pwm_conf);
+	pm8xxx_pwm_calc_period(period_us, period);
 
 	len = (idx_len > PM_PWM_LUT_SIZE) ? PM_PWM_LUT_SIZE : idx_len;
 
 	if (flags & PM_PWM_LUT_NO_TABLE)
 		goto after_table_write;
 
-	max_pwm_value = (1 << pwm_conf.pwm_size) - 1;
+	max_pwm_value = (1 << period->pwm_size) - 1;
 	for (i = 0; i < len; i++) {
-		pwm_value = (duty_pct[i] << pwm_conf.pwm_size) / 100;
+		pwm_value = (duty_pct[i] << period->pwm_size) / 100;
 		/* Avoid overflow */
 		if (pwm_value > max_pwm_value)
 			pwm_value = max_pwm_value;
@@ -715,15 +717,15 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 	}
 
 after_table_write:
-	pwm_conf.lut_duty_ms = duty_time_ms;
-	pwm_conf.lut_lo_index = start_idx;
-	pwm_conf.lut_hi_index = start_idx + len - 1;
-	pwm_conf.lut_pause_lo = pause_lo;
-	pwm_conf.lut_pause_hi = pause_hi;
-	pwm_conf.flags = flags;
-	pwm_conf.bypass_lut = 0;
+	lut.lut_duty_ms = duty_time_ms;
+	lut.lut_lo_index = start_idx;
+	lut.lut_hi_index = start_idx + len - 1;
+	lut.lut_pause_lo = pause_lo;
+	lut.lut_pause_hi = pause_hi;
+	lut.flags = flags;
+	pwm->bypass_lut = 0;
 
-	rc = pm8xxx_pwm_configure(pwm, &pwm_conf);
+	rc = pm8xxx_pwm_configure(pwm, &lut);
 
 out_unlock:
 	mutex_unlock(&pwm->chip->pwm_mutex);
