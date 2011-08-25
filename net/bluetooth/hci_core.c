@@ -52,7 +52,7 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
-#define AUTO_OFF_TIMEOUT 2000
+#define AUTO_OFF_TIMEOUT 20000
 
 static void hci_cmd_task(unsigned long arg);
 static void hci_rx_task(unsigned long arg);
