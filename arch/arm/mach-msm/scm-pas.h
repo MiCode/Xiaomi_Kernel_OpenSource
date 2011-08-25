@@ -22,6 +22,8 @@ enum pas_id {
 	PAS_RIVA,
 };
 
+#define PAS_TZAPPS PAS_PLAYREADY
+
 extern int pas_init_image(enum pas_id id, const u8 *metadata, size_t size);
 extern int pas_auth_and_reset(enum pas_id id);
 extern int pas_shutdown(enum pas_id id);

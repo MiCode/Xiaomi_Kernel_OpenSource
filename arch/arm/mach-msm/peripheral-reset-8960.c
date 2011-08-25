@@ -618,6 +618,22 @@ static int shutdown_dsps_trusted(struct pil_device *pil)
 	return pas_shutdown(PAS_DSPS);
 }
 
+static int init_image_tzapps(struct pil_device *pil, const u8 *metadata,
+			     size_t size)
+{
+	return pas_init_image(PAS_TZAPPS, metadata, size);
+}
+
+static int reset_tzapps(struct pil_device *pil)
+{
+	return pas_auth_and_reset(PAS_TZAPPS);
+}
+
+static int shutdown_tzapps(struct pil_device *pil)
+{
+	return pas_shutdown(PAS_TZAPPS);
+}
+
 static struct pil_reset_ops pil_modem_fw_q6_ops = {
 	.init_image = init_image_modem_fw_q6_untrusted,
 	.verify_blob = verify_blob,
@@ -651,6 +667,13 @@ struct pil_reset_ops pil_dsps_ops = {
 	.verify_blob = verify_blob,
 	.auth_and_reset = reset_dsps_untrusted,
 	.shutdown = shutdown_dsps_untrusted,
+};
+
+struct pil_reset_ops pil_tzapps_ops = {
+	.init_image = init_image_tzapps,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_tzapps,
+	.shutdown = shutdown_tzapps,
 };
 
 static struct pil_device pil_lpass_q6 = {
@@ -698,6 +721,15 @@ static struct pil_device pil_dsps = {
 		.id = -1,
 	},
 	.ops = &pil_dsps_ops,
+};
+
+static struct pil_device pil_tzapps = {
+	.name = "tzapps",
+	.pdev = {
+		.name = "pil_tzapps",
+		.id = -1,
+	},
+	.ops = &pil_tzapps_ops,
 };
 
 static int __init q6_reset_init(struct q6_data *q6)
@@ -794,6 +826,7 @@ static int __init msm_peripheral_reset_init(void)
 	msm_pil_add_device(&pil_modem_sw_q6);
 
 	msm_pil_add_device(&pil_dsps);
+	msm_pil_add_device(&pil_tzapps);
 
 	msm_riva_base = ioremap(MSM_RIVA_PHYS, SZ_256);
 	if (!msm_riva_base)
