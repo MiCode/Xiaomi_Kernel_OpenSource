@@ -115,11 +115,21 @@ static struct subsys_data charm_subsystem = {
 static int charm_panic_prep(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
+	int i;
+
 	CHARM_DBG("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
 			 __func__);
 	charm_disable_irqs();
 	gpio_set_value(AP2MDM_ERRFATAL, 1);
 	gpio_set_value(AP2MDM_WAKEUP, 1);
+	for (i = CHARM_MODEM_TIMEOUT; i > 0; i -= CHARM_MODEM_DELTA) {
+		pet_watchdog();
+		mdelay(CHARM_MODEM_DELTA);
+		if (gpio_get_value(MDM2AP_STATUS) == 0)
+			break;
+	}
+	if (i <= 0)
+		pr_err("%s: MDM2AP_STATUS never went low\n", __func__);
 	return NOTIFY_DONE;
 }
 
