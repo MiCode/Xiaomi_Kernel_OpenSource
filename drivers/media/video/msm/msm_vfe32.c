@@ -1103,7 +1103,7 @@ static void vfe32_write_linear_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
 
-static int vfe32_proc_general(struct msm_vfe32_cmd *cmd)
+static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 {
 	int i , rc = 0;
 	uint32_t old_val = 0 , new_val = 0;
@@ -3051,7 +3051,7 @@ cmd_init_failed1:
 static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int subdev_cmd, void *arg)
 {
-	struct msm_vfe32_cmd vfecmd;
+	struct msm_isp_cmd vfecmd;
 	struct msm_camvfe_params *vfe_params =
 		(struct msm_camvfe_params *)arg;
 	struct msm_vfe_cfg_cmd *cmd = vfe_params->vfe_cfg;

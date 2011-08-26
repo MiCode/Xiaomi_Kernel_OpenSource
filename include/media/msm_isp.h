@@ -166,4 +166,10 @@
 #define VFE_CMD_PCA_ROLL_OFF_CFG                        120
 #define VFE_CMD_PCA_ROLL_OFF_UPDATE                     121
 
+struct msm_isp_cmd {
+	int32_t  id;
+	uint16_t length;
+	void     *value;
+};
+
 #endif /* __MSM_ISP_H__ */

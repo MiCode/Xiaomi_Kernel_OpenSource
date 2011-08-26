@@ -698,13 +698,6 @@ struct vfe32_irq_status {
 	uint32_t asfMaxEdge;
 };
 
-/* New one for 7x30 */
-struct msm_vfe32_cmd {
-	int32_t  id;
-	uint16_t length;
-	void     *value;
-};
-
 #define V32_PREVIEW_AXI_FLAG  0x00000001
 #define V32_SNAPSHOT_AXI_FLAG (0x00000001<<1)
 
