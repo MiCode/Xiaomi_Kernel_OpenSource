@@ -51,6 +51,12 @@ struct pm8xxx_charger_core_data {
  * @get_batt_capacity_percent:
  *			a board specific function to return battery
  *			capacity. If null - a default one will be used
+ * @trkl_voltage:	the trkl voltage in (mV) below which hw controlled
+ *			 trkl charging happens with linear charger
+ * @weak_voltage:	the weak voltage (mV) below which hw controlled
+ *			trkl charging happens with switching mode charger
+ * @trkl_current:	the trkl current in (mA) to use for trkl charging phase
+ * @weak_current:	the weak current in (mA) to use for weak charging phase
  *
  */
 struct pm8921_charger_platform_data {
@@ -73,6 +79,10 @@ struct pm8921_charger_platform_data {
 	unsigned int			(*get_batt_capacity_percent) (void);
 	int64_t				batt_id_min;
 	int64_t				batt_id_max;
+	int				trkl_voltage;
+	int				weak_voltage;
+	int				trkl_current;
+	int				weak_current;
 };
 
 enum pm8921_charger_source {

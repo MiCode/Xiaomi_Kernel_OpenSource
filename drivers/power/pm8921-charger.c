@@ -193,6 +193,10 @@ struct pm8921_chg_chip {
 	struct work_struct	battery_id_valid_work;
 	int64_t			batt_id_min;
 	int64_t			batt_id_max;
+	int			trkl_voltage;
+	int			weak_voltage;
+	int			trkl_current;
+	int			weak_current;
 };
 
 static int charging_disabled;
@@ -450,6 +454,90 @@ static int pm_chg_ttrkl_max_set(struct pm8921_chg_chip *chip, int minutes)
 
 	temp = minutes - 1;
 	return pm_chg_masked_write(chip, CHG_TTRKL_MAX, PM8921_CHG_TTRKL_MASK,
+					 temp);
+}
+
+#define PM8921_CHG_VTRKL_MIN_MV		2050
+#define PM8921_CHG_VTRKL_MAX_MV		2800
+#define PM8921_CHG_VTRKL_STEP_MV	50
+#define PM8921_CHG_VTRKL_SHIFT		4
+#define PM8921_CHG_VTRKL_MASK		0xF0
+static int pm_chg_vtrkl_low_set(struct pm8921_chg_chip *chip, int millivolts)
+{
+	u8 temp;
+
+	if (millivolts < PM8921_CHG_VTRKL_MIN_MV
+			|| millivolts > PM8921_CHG_VTRKL_MAX_MV) {
+		pr_err("bad voltage = %dmV asked to set\n", millivolts);
+		return -EINVAL;
+	}
+
+	temp = (millivolts - PM8921_CHG_VTRKL_MIN_MV)/PM8921_CHG_VTRKL_STEP_MV;
+	temp = temp << PM8921_CHG_VTRKL_SHIFT;
+	return pm_chg_masked_write(chip, CHG_VTRICKLE, PM8921_CHG_VTRKL_MASK,
+					 temp);
+}
+
+#define PM8921_CHG_VWEAK_MIN_MV		2100
+#define PM8921_CHG_VWEAK_MAX_MV		3600
+#define PM8921_CHG_VWEAK_STEP_MV	100
+#define PM8921_CHG_VWEAK_MASK		0x0F
+static int pm_chg_vweak_set(struct pm8921_chg_chip *chip, int millivolts)
+{
+	u8 temp;
+
+	if (millivolts < PM8921_CHG_VWEAK_MIN_MV
+			|| millivolts > PM8921_CHG_VWEAK_MAX_MV) {
+		pr_err("bad voltage = %dmV asked to set\n", millivolts);
+		return -EINVAL;
+	}
+
+	temp = (millivolts - PM8921_CHG_VWEAK_MIN_MV)/PM8921_CHG_VWEAK_STEP_MV;
+	return pm_chg_masked_write(chip, CHG_VTRICKLE, PM8921_CHG_VWEAK_MASK,
+					 temp);
+}
+
+#define PM8921_CHG_ITRKL_MIN_MA		50
+#define PM8921_CHG_ITRKL_MAX_MA		200
+#define PM8921_CHG_ITRKL_MASK		0x0F
+#define PM8921_CHG_ITRKL_STEP_MA	10
+static int pm_chg_itrkl_set(struct pm8921_chg_chip *chip, int milliamps)
+{
+	u8 temp;
+
+	if (milliamps < PM8921_CHG_ITRKL_MIN_MA
+		|| milliamps > PM8921_CHG_ITRKL_MAX_MA) {
+		pr_err("bad current = %dmA asked to set\n", milliamps);
+		return -EINVAL;
+	}
+
+	temp = (milliamps - PM8921_CHG_ITRKL_MIN_MA)/PM8921_CHG_ITRKL_STEP_MA;
+
+	return pm_chg_masked_write(chip, CHG_ITRICKLE, PM8921_CHG_ITRKL_MASK,
+					 temp);
+}
+
+#define PM8921_CHG_IWEAK_MIN_MA		325
+#define PM8921_CHG_IWEAK_MAX_MA		525
+#define PM8921_CHG_IWEAK_SHIFT		7
+#define PM8921_CHG_IWEAK_MASK		0x80
+static int pm_chg_iweak_set(struct pm8921_chg_chip *chip, int milliamps)
+{
+	u8 temp;
+
+	if (milliamps < PM8921_CHG_IWEAK_MIN_MA
+		|| milliamps > PM8921_CHG_IWEAK_MAX_MA) {
+		pr_err("bad current = %dmA asked to set\n", milliamps);
+		return -EINVAL;
+	}
+
+	if (milliamps < PM8921_CHG_IWEAK_MAX_MA)
+		temp = 0;
+	else
+		temp = 1;
+
+	temp = temp << PM8921_CHG_IWEAK_SHIFT;
+	return pm_chg_masked_write(chip, CHG_ITRICKLE, PM8921_CHG_IWEAK_MASK,
 					 temp);
 }
 
@@ -1629,6 +1717,42 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		return rc;
 	}
 
+	if (chip->trkl_voltage != 0) {
+		rc = pm_chg_vtrkl_low_set(chip, chip->trkl_voltage);
+		if (rc) {
+			pr_err("Failed to set trkl voltage to %dmv  rc=%d\n",
+							chip->trkl_voltage, rc);
+			return rc;
+		}
+	}
+
+	if (chip->weak_voltage != 0) {
+		rc = pm_chg_vweak_set(chip, chip->weak_voltage);
+		if (rc) {
+			pr_err("Failed to set weak voltage to %dmv  rc=%d\n",
+							chip->weak_voltage, rc);
+			return rc;
+		}
+	}
+
+	if (chip->trkl_current != 0) {
+		rc = pm_chg_itrkl_set(chip, chip->trkl_current);
+		if (rc) {
+			pr_err("Failed to set trkl current to %dmA  rc=%d\n",
+							chip->trkl_voltage, rc);
+			return rc;
+		}
+	}
+
+	if (chip->weak_current != 0) {
+		rc = pm_chg_iweak_set(chip, chip->weak_current);
+		if (rc) {
+			pr_err("Failed to set weak current to %dmA  rc=%d\n",
+							chip->weak_current, rc);
+			return rc;
+		}
+	}
+
 	/* Workarounds for die 1.1 and 1.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) < PM8XXX_REVISION_8921_2p0) {
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST2, 0xF1);
@@ -1829,6 +1953,10 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->warm_bat_chg_current = pdata->warm_bat_chg_current;
 	chip->cool_bat_voltage = pdata->cool_bat_voltage;
 	chip->warm_bat_voltage = pdata->warm_bat_voltage;
+	chip->trkl_voltage = pdata->trkl_voltage;
+	chip->weak_voltage = pdata->weak_voltage;
+	chip->trkl_current = pdata->trkl_current;
+	chip->weak_current = pdata->weak_current;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
