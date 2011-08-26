@@ -30,6 +30,7 @@
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_isp.h>
 #include <mach/camera.h>
+#include <media/msm_isp.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
@@ -87,6 +88,7 @@ struct isp_msg_stats {
 struct msm_free_buf {
 	uint8_t num_planes;
 	uint32_t ch_paddr[VIDEO_MAX_PLANES];
+	uint32_t vb;
 };
 
 struct isp_msg_output {
@@ -103,6 +105,7 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_MSG_STATS,  /* arg = struct isp_msg_stats */
 	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
 	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
+	NOTIFY_VPE_MSG_EVT,
 	NOTIFY_INVALID
 };
 
@@ -147,13 +150,26 @@ struct msm_isp_color_fmt {
 	enum v4l2_colorspace colorspace;
 };
 
+struct msm_mctl_pp_frame_info {
+	int user_cmd;
+	struct msm_pp_frame src_frame;
+	struct msm_pp_frame dest_frame;
+	struct msm_mctl_pp_frame_cmd pp_frame_cmd;
+};
 
+struct msm_mctl_pp_ctrl {
+	int pp_msg_type;
+	struct msm_mctl_pp_frame_info *pp_frame_info;
+
+};
 struct msm_mctl_pp_info {
 	spinlock_t lock;
 	uint32_t cnt;
 	uint32_t pp_key;
 	uint32_t cur_frame_id[MSM_MAX_IMG_MODE];
 	struct msm_free_buf div_frame[MSM_MAX_IMG_MODE];
+	struct msm_mctl_pp_ctrl pp_ctrl;
+
 };
 /* "Media Controller" represents a camera steaming session,
  * which consists of a "sensor" device and an "isp" device
@@ -204,16 +220,19 @@ struct msm_isp_ops {
 	char *config_dev_name;
 
 	/*int (*isp_init)(struct msm_cam_v4l2_device *pcam);*/
-	int (*isp_open)(struct v4l2_subdev *sd, struct msm_sync *sync);
+	int (*isp_open)(struct v4l2_subdev *sd, struct v4l2_subdev *sd_vpe,
+					struct msm_sync *sync);
 	int (*isp_config)(struct msm_cam_media_controller *pmctl,
 		 unsigned int cmd, unsigned long arg);
 	int (*isp_notify)(struct v4l2_subdev *sd,
 		unsigned int notification, void *arg);
-
 	void (*isp_release)(struct msm_sync *psync);
+	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
+		 struct msm_mctl_pp_cmd, void *data);
 
 	/* vfe subdevice */
 	struct v4l2_subdev sd;
+	struct v4l2_subdev sd_vpe;
 };
 
 struct msm_isp_buf_info {
@@ -396,6 +415,52 @@ void msm_vfe_subdev_release(struct platform_device *pdev);
 
 int msm_isp_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_vfe_cfg_cmd *cfgcmd, void *data);
+int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
+	struct platform_device *pdev);
+void msm_vpe_subdev_release(struct platform_device *pdev);
+int msm_isp_subdev_ioctl_vpe(struct v4l2_subdev *isp_subdev,
+	struct msm_mctl_pp_cmd *cmd, void *data);
+int msm_mctl_is_pp_msg_type(struct msm_cam_media_controller *p_mctl,
+	int msg_type);
+int msm_mctl_do_pp(struct msm_cam_media_controller *p_mctl,
+			int msg_type, uint32_t y_phy, uint32_t frame_id);
+int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
+			unsigned int cmd, unsigned long arg);
+int msm_mctl_pp_notify(struct msm_cam_media_controller *pmctl,
+			struct msm_mctl_pp_frame_info *pp_frame_info);
+int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
+					int out_type);
+struct msm_frame_buffer *msm_mctl_buf_find(
+	struct msm_cam_media_controller *pmctl,
+	struct msm_cam_v4l2_dev_inst *pcam_inst, int del_buf,
+	int msg_type, struct msm_free_buf *fbuf);
+void msm_mctl_gettimeofday(struct timeval *tv);
+struct msm_frame_buffer *msm_mctl_get_free_buf(
+		struct msm_cam_media_controller *pmctl,
+		int msg_type);
+int msm_mctl_put_free_buf(
+		struct msm_cam_media_controller *pmctl,
+		int msg_type, struct msm_frame_buffer *buf);
+int msm_mctl_check_pp(struct msm_cam_media_controller *p_mctl,
+		int msg_type, int *pp_divert_type, int *pp_type);
+int msm_mctl_do_pp_divert(
+	struct msm_cam_media_controller *p_mctl,
+	int msg_type, struct msm_free_buf *fbuf,
+	uint32_t frame_id, int pp_type);
+int msm_mctl_buf_del(struct msm_cam_media_controller *pmctl,
+	int msg_type,
+	struct msm_frame_buffer *my_buf);
+int msm_mctl_pp_release_free_frame(
+	struct msm_cam_media_controller *p_mctl,
+	void __user *arg);
+int msm_mctl_pp_reserve_free_frame(
+	struct msm_cam_media_controller *p_mctl,
+	void __user *arg);
+int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
+				void __user *arg);
+int msm_mctl_pp_done(
+	struct msm_cam_media_controller *p_mctl,
+	void __user *arg);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

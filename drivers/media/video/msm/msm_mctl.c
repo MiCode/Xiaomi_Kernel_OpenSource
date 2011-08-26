@@ -162,7 +162,7 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 /* called by other subdev to notify any changes*/
 
 static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
-			unsigned int notification, void *arg)
+	unsigned int notification, void *arg)
 {
 	int rc = -EINVAL;
 	struct msm_camera_sensor_info *sinfo =
@@ -204,76 +204,16 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 				&p_mctl->isp_sdev->sd, notification, arg);
 		}
 		break;
-	default:
-		break;
-	}
-
-	return rc;
-}
-
-static int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
-				void __user *arg)
-{
-	int rc = 0;
-	unsigned long flags;
-	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
-	if (copy_from_user(&p_mctl->pp_info.pp_key,
-			arg, sizeof(p_mctl->pp_info.pp_key)))
-		rc = -EFAULT;
-	else
-		D("%s: mctl=0x%p, pp_key_setting=0x%x",
-			__func__, p_mctl, p_mctl->pp_info.pp_key);
-
-	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
-	return rc;
-}
-
-static int msm_mctl_pp_done(struct msm_cam_media_controller *p_mctl,
-				void __user *arg)
-{
-	struct msm_frame frame;
-	int msg_type, image_mode, rc = 0;
-	int dirty = 0;
-	struct msm_free_buf buf;
-	unsigned long flags;
-
-	if (copy_from_user(&frame, arg, sizeof(frame)))
-		return -EFAULT;
-	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
-	switch (frame.path) {
-	case OUTPUT_TYPE_P:
-		if (!(p_mctl->pp_info.pp_key & PP_PREV)) {
-			rc = -EFAULT;
-			goto err;
+	case NOTIFY_VPE_MSG_EVT:
+		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
+			rc = p_mctl->isp_sdev->isp_notify(
+				&p_mctl->isp_sdev->sd_vpe, notification, arg);
 		}
-		msg_type = VFE_MSG_OUTPUT_P;
-		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
 		break;
-	case OUTPUT_TYPE_S:
-		if (!(p_mctl->pp_info.pp_key & PP_SNAP))
-			return -EFAULT;
-		msg_type = VFE_MSG_OUTPUT_S;
-		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
-		break;
-	case OUTPUT_TYPE_T:
-	case OUTPUT_TYPE_V:
 	default:
-		rc = -EFAULT;
-		goto err;
+		break;
 	}
-	memcpy(&buf, &p_mctl->pp_info.div_frame[image_mode], sizeof(buf));
-	memset(&p_mctl->pp_info.div_frame[image_mode], 0, sizeof(buf));
-	if (p_mctl->pp_info.cur_frame_id[image_mode] !=
-					frame.frame_id) {
-		/* dirty frame. should not pass to app */
-		dirty = 1;
-	}
-	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
-	/* here buf.addr is phy_addr */
-	rc = msm_mctl_buf_done_pp(p_mctl, msg_type, &buf, dirty);
-	return rc;
-err:
-	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
+
 	return rc;
 }
 
@@ -288,7 +228,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		pr_err("%s: param is NULL", __func__);
 		return -EINVAL;
 	}
-	D("%s start cmd = %d\n", __func__, _IOC_NR(cmd));
+	D("%s cmd = %d\n", __func__, _IOC_NR(cmd));
 
 	/* ... call sensor, ISPIF or VEF subdev*/
 	switch (cmd) {
@@ -342,13 +282,25 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	case MSM_CAM_IOCTL_PICT_PP_DONE:
 		rc = msm_mctl_pp_done(p_mctl, (void __user *)arg);
 		break;
+	case MSM_CAM_IOCTL_MCTL_POST_PROC:
+		rc = msm_mctl_pp_ioctl(p_mctl, cmd, arg);
+		break;
+	case MSM_CAM_IOCTL_RESERVE_FREE_FRAME:
+		rc = msm_mctl_pp_reserve_free_frame(p_mctl,
+			(void __user *)arg);
+		break;
+	case MSM_CAM_IOCTL_RELEASE_FREE_FRAME:
+		rc = msm_mctl_pp_release_free_frame(p_mctl,
+			(void __user *)arg);
+		break;
 			/* ISFIF config*/
 	default:
 		/* ISP config*/
 		rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
 		break;
 	}
-	D("%s: !!! cmd = %d, rc = %d\n", __func__, _IOC_NR(cmd), rc);
+	D("%s: !!! cmd = %d, rc = %d\n",
+		__func__, _IOC_NR(cmd), rc);
 	return rc;
 }
 
@@ -382,8 +334,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		/* ISP first*/
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_open)
 			rc = p_mctl->isp_sdev->isp_open(
-				&p_mctl->isp_sdev->sd, sync);
-
+				&p_mctl->isp_sdev->sd,
+				&p_mctl->isp_sdev->sd_vpe, sync);
 		if (rc < 0) {
 			pr_err("%s: isp init failed: %d\n", __func__, rc);
 			goto msm_open_done;

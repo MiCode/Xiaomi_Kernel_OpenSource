@@ -172,4 +172,148 @@ struct msm_isp_cmd {
 	void     *value;
 };
 
-#endif /* __MSM_ISP_H__ */
+
+#define VPE_CMD_DUMMY_0                                 0
+#define VPE_CMD_INIT                                    1
+#define VPE_CMD_DEINIT                                  2
+#define VPE_CMD_ENABLE                                  3
+#define VPE_CMD_DISABLE                                 4
+#define VPE_CMD_RESET                                   5
+#define VPE_CMD_FLUSH                                   6
+#define VPE_CMD_OPERATION_MODE_CFG                      7
+#define VPE_CMD_INPUT_PLANE_CFG                         8
+#define VPE_CMD_OUTPUT_PLANE_CFG                        9
+#define VPE_CMD_INPUT_PLANE_UPDATE                      10
+#define VPE_CMD_SCALE_CFG_TYPE                          11
+#define VPE_CMD_DIS_OFFSET_CFG                          12
+#define VPE_CMD_ZOOM                                    13
+
+#define MSM_PP_CMD_TYPE_NOT_USED        0  /* not used */
+#define MSM_PP_CMD_TYPE_VPE             1  /* VPE cmd */
+#define MSM_PP_CMD_TYPE_MCTL            2  /* MCTL cmd */
+
+#define MCTL_CMD_DUMMY_0                0  /* not used */
+#define MCTL_CMD_GET_FRAME_BUFFER       1  /* reserve a free frame buffer */
+#define MCTL_CMD_PUT_FRAME_BUFFER       2  /* return the free frame buffer */
+#define MCTL_CMD_DIVERT_FRAME_PP_PATH   3  /* divert frame for pp */
+#define MCTL_CMD_DIVERT_FRAME_PP_DONE   4  /* pp done. buf send to app */
+
+/* event typese sending to MCTL PP module */
+#define MCTL_PP_EVENT_NOTUSED           0
+#define MCTL_PP_EVENT_CMD_ACK           1
+
+#define VPE_OPERATION_MODE_CFG_LEN      8
+#define VPE_INPUT_PLANE_CFG_LEN         24
+#define VPE_OUTPUT_PLANE_CFG_LEN        24
+#define VPE_INPUT_PLANE_UPDATE_LEN      12
+#define VPE_SCALER_CONFIG_LEN           260
+#define VPE_DIS_OFFSET_CFG_LEN          12
+
+struct msm_vpe_op_mode_cfg {
+	uint8_t op_mode_cfg[VPE_OPERATION_MODE_CFG_LEN];
+};
+
+struct msm_vpe_input_plane_cfg {
+	uint8_t input_plane_cfg[VPE_INPUT_PLANE_CFG_LEN];
+};
+
+struct msm_vpe_output_plane_cfg {
+	uint8_t output_plane_cfg[VPE_OUTPUT_PLANE_CFG_LEN];
+};
+
+struct msm_vpe_input_plane_update_cfg {
+	uint8_t input_plane_update_cfg[VPE_INPUT_PLANE_UPDATE_LEN];
+};
+
+struct msm_vpe_scaler_cfg {
+	uint8_t scaler_cfg[VPE_SCALER_CONFIG_LEN];
+};
+
+struct msm_vpe_dis_offset_cfg {
+	uint8_t dis_offset_cfg[VPE_DIS_OFFSET_CFG_LEN];
+};
+
+struct msm_vpe_flush_frame_buffer {
+	uint32_t src_buf_handle;
+	uint32_t dest_buf_handle;
+	int path;
+};
+
+struct msm_mctl_pp_frame_buffer {
+	uint32_t buf_handle;
+	int path;
+};
+struct msm_mctl_pp_divert_pp {
+	int path;
+};
+struct msm_vpe_clock_rate {
+	uint32_t rate;
+};
+struct msm_pp_crop {
+	uint32_t  src_x;
+	uint32_t  src_y;
+	uint32_t  src_w;
+	uint32_t  src_h;
+	uint32_t  dst_x;
+	uint32_t  dst_y;
+	uint32_t  dst_w;
+	uint32_t  dst_h;
+	uint8_t update_flag;
+};
+#define MSM_MCTL_PP_VPE_FRAME_ACK    (1<<0)
+#define MSM_MCTL_PP_VPE_FRAME_TO_APP (1<<1)
+
+struct msm_mctl_pp_frame_cmd {
+	uint32_t cookie;
+	uint8_t  vpe_output_action;
+	uint32_t src_buf_handle;
+	uint32_t dest_buf_handle;
+	struct msm_pp_crop crop;
+	int path;
+	/* TBD: 3D related */
+};
+
+struct msm_mctl_pp_cmd_ack_event {
+	uint32_t cmd;        /* VPE_CMD_ZOOM? */
+	int      status;     /* 0 done, < 0 err */
+	uint32_t cookie;     /* daemon's cookie */
+};
+
+struct msm_pp_frame_sp {
+	unsigned long  phy_addr;
+	uint32_t       y_off;
+	uint32_t       cbcr_off;
+	uint32_t       length;
+	int32_t        fd;
+	uint32_t       addr_offset;
+};
+
+struct msm_pp_frame_mp {
+	unsigned long  phy_addr;
+	uint32_t       data_offset;
+	uint32_t       length;
+	int32_t        fd;
+	uint32_t       addr_offset;
+};
+
+struct msm_pp_frame {
+	uint32_t       handle;
+	uint32_t       frame_id;
+	unsigned short image_type;
+	unsigned short num_planes; /* 1 for sp */
+	struct timeval timestamp;
+	union {
+		struct msm_pp_frame_sp sp;
+	};
+};
+
+struct msm_mctl_pp_event_info {
+	int32_t  event;
+	union {
+		struct msm_mctl_pp_cmd_ack_event ack;
+	};
+};
+
+
+#endif /*__MSM_ISP_H__*/
+

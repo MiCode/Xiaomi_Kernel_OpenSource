@@ -144,6 +144,26 @@
 #define MSM_CAM_IOCTL_ACTUATOR_IO_CFG \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 43, struct msm_actuator_cfg_data *)
 
+#define MSM_CAM_IOCTL_MCTL_POST_PROC \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 44, struct msm_mctl_post_proc_cmd *)
+
+#define MSM_CAM_IOCTL_RESERVE_FREE_FRAME \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 45, struct msm_cam_evt_divert_frame *)
+
+#define MSM_CAM_IOCTL_RELEASE_FREE_FRAME \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 46, struct msm_cam_evt_divert_frame *)
+
+struct msm_mctl_pp_cmd {
+	int32_t  id;
+	uint16_t length;
+	void     *value;
+};
+
+struct msm_mctl_post_proc_cmd {
+	int32_t type;
+	struct msm_mctl_pp_cmd cmd;
+};
+
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
 #define MSM_CAMERA_LED_HIGH 2
@@ -208,12 +228,15 @@ struct msm_cam_evt_divert_frame {
 	unsigned short node_idx;
 	unsigned long  phy_addr;
 	uint32_t       phy_offset;
-	uint32_t       offset;
+	uint32_t       y_off;
+	uint32_t       cbcr_off;
 	int32_t        fd;
 	uint32_t       frame_id;
 	int            path;
 	uint32_t       length;
 	struct timeval timestamp;
+	int            do_pp;
+	uint32_t       vb;
 };
 
 struct msm_isp_stats_event_ctrl {
@@ -224,17 +247,20 @@ struct msm_isp_stats_event_ctrl {
 	} isp_data;
 };
 
-#define MSM_CAM_RESP_CTRL         0
-#define MSM_CAM_RESP_STAT_EVT_MSG 1
-#define MSM_CAM_RESP_STEREO_OP_1  2
-#define MSM_CAM_RESP_STEREO_OP_2  3
-#define MSM_CAM_RESP_V4L2         4
+#define MSM_CAM_RESP_CTRL              0
+#define MSM_CAM_RESP_STAT_EVT_MSG      1
+#define MSM_CAM_RESP_STEREO_OP_1       2
+#define MSM_CAM_RESP_STEREO_OP_2       3
+#define MSM_CAM_RESP_V4L2              4
 #define MSM_CAM_RESP_DIV_FRAME_EVT_MSG 5
-#define MSM_CAM_RESP_DONE_EVENT   6
-#define MSM_CAM_RESP_MAX          7
+#define MSM_CAM_RESP_DONE_EVENT        6
+#define MSM_CAM_RESP_MCTL_PP_EVENT     7
+#define MSM_CAM_RESP_MAX               8
 
 #define MSM_CAM_APP_NOTIFY_EVENT  0
+
 /* this one is used to send ctrl/status up to config thread */
+
 struct msm_stats_event_ctrl {
 	/* 0 - ctrl_cmd from control thread,
 	 * 1 - stats/event kernel,

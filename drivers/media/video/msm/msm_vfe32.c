@@ -23,7 +23,6 @@
 
 #include "msm.h"
 #include "msm_vfe32.h"
-#include "msm_vpe1.h"
 #include "msm_ispif.h"
 
 atomic_t irq_cnt;
@@ -2015,13 +2014,6 @@ static void vfe32_process_reg_update_irq(void)
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out2.ch1]);
 		}
 		vfe32_ctrl->recording_state = VFE_REC_STATE_STARTED;
-		if (vpe_ctrl && vpe_ctrl->dis_en) {
-			old_val = msm_io_r(
-				vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-			old_val |= RS_CS_ENABLE_MASK;
-			msm_io_w(old_val,
-				vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		}
 		msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 		CDBG("start video triggered .\n");
 	} else if (vfe32_ctrl->recording_state ==
@@ -3372,12 +3364,4 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 	vfe_syncdata = NULL;
 }
 
-void msm_camvpe_fn_init(struct msm_camvpe_fn *fptr, void *data)
-{
-	fptr->vpe_reg		= msm_vpe_reg;
-	fptr->send_frame_to_vpe	= msm_send_frame_to_vpe;
-	fptr->vpe_config	= msm_vpe_config;
-	fptr->vpe_cfg_update	= msm_vpe_cfg_update;
-	fptr->dis		= &(vpe_ctrl->dis_en);
-	vpe_ctrl->syncdata = data;
-}
+

@@ -933,6 +933,18 @@ struct resource msm_camera_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
+		.name	= "vpe",
+		.start	= 0x05300000,
+		.end	= 0x05300000 + SZ_1M - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "vpe",
+		.start	= VPE_IRQ,
+		.end	= VPE_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
 		.name	= "vid_buf",
 		.flags	= IORESOURCE_DMA,
 	},

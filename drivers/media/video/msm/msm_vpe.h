@@ -72,66 +72,18 @@
 #define VPE_HARDWARE_VERSION          0x00080308
 #define VPE_SW_RESET_VALUE            0x00000010  /* bit 4 for PPP*/
 #define VPE_AXI_RD_ARB_CONFIG_VALUE   0x124924
-#define VPE_CMD_MODE_VALUE        0x1
+#define VPE_CMD_MODE_VALUE            0x1
 #define VPE_DEFAULT_OP_MODE_VALUE     0x40FC0004
 #define VPE_CGC_ENABLE_VALUE          0xffff
 #define VPE_DEFAULT_SCALE_CONFIG      0x3c
 
 #define VPE_NORMAL_MODE_CLOCK_RATE   150000000
 #define VPE_TURBO_MODE_CLOCK_RATE   200000000
-/**************************************************/
-/*********** Start of command id ******************/
-/**************************************************/
-enum VPE_CMD_ID_ENUM {
-	VPE_DUMMY_0 = 0,
-	VPE_SET_CLK,
-	VPE_RESET,
-	VPE_START,
-	VPE_ABORT,
-	VPE_OPERATION_MODE_CFG, /* 5 */
-	VPE_INPUT_PLANE_CFG,
-	VPE_OUTPUT_PLANE_CFG,
-	VPE_INPUT_PLANE_UPDATE,
-	VPE_SCALE_CFG_TYPE,
-	VPE_ROTATION_CFG_TYPE, /* 10 */
-	VPE_AXI_OUT_CFG,
-	VPE_CMD_DIS_OFFSET_CFG,
-	VPE_ENABLE,
-	VPE_DISABLE,
-};
 
-/* Length of each command.  In bytes.  (payload only) */
-#define VPE_OPERATION_MODE_CFG_LEN 8
-#define VPE_INPUT_PLANE_CFG_LEN    24
-#define VPE_OUTPUT_PLANE_CFG_LEN   20
-#define VPE_INPUT_PLANE_UPDATE_LEN 12
-#define VPE_SCALER_CONFIG_LEN      260
-#define VPE_DIS_OFFSET_CFG_LEN     12
+
 /**************************************************/
 /*********** End of command id ********************/
 /**************************************************/
-
-struct msm_vpe_cmd {
-	int32_t  id;
-	uint16_t length;
-	void     *value;
-};
-
-struct vpe_cmd_type {
-	uint16_t id;
-	uint32_t length;
-};
-
-struct vpe_isr_queue_cmd_type {
-	struct list_head            list;
-	uint32_t                    irq_status;
-};
-
-enum VPE_MESSAGE_ID {
-	MSG_ID_VPE_OUTPUT_V = 7, /* To match with that of VFE */
-	MSG_ID_VPE_OUTPUT_ST_L,
-	MSG_ID_VPE_OUTPUT_ST_R,
-};
 
 enum vpe_state {
 	VPE_STATE_IDLE,
@@ -155,11 +107,8 @@ struct dis_offset_type {
 };
 
 struct vpe_ctrl_type {
-	spinlock_t        tasklet_lock;
-	spinlock_t        state_lock;
-	spinlock_t        ops_lock;
-
-	struct list_head  tasklet_q;
+	spinlock_t        lock;
+	uint32_t          irq_status;
 	void              *syncdata;
 	uint16_t          op_mode;
 	void              *extdata;
@@ -179,6 +128,9 @@ struct vpe_ctrl_type {
 	enum vpe_state    state;
 	unsigned long     out_y_addr;
 	unsigned long     out_cbcr_addr;
+	struct v4l2_subdev *subdev;
+	struct vpe_device_type device_data;
+	struct msm_mctl_pp_frame_info *pp_frame_info;
 };
 
 /*
@@ -238,28 +190,6 @@ struct phase_val_t {
 	int32_t phase_step_y;
 };
 
-extern struct vpe_ctrl_type *vpe_ctrl;
-
-int msm_vpe_open(void);
-int msm_vpe_release(void);
-int msm_vpe_reg(struct msm_vpe_callback *presp);
-void msm_send_frame_to_vpe(uint32_t pyaddr, uint32_t pcbcraddr,
-	struct timespec *ts, int output_id);
-int msm_vpe_config(struct msm_vpe_cfg_cmd *cmd, void *data);
-int msm_vpe_cfg_update(void *pinfo);
-void msm_vpe_offset_update(int frame_pack, uint32_t pyaddr,
-			uint32_t pcbcraddr,
-			struct timespec *ts, int output_id,
-			struct msm_st_half st_half,
-			int frameid);
-void msm_send_frame_with_crop_and_dis_offset(
-			struct msm_vpe_buf_info *src_buf,
-			struct msm_vpe_buf_info *dest_buf,
-			int output_id,
-			struct dis_offset_type *dis_offset);
-
-typedef void (*msm_vpe_buf_cb_t) (struct msm_vpe_buf_info *out_buf,
-			uint8_t output_id, void *cookie);
 
 #endif /*_MSM_VPE_H_*/
 

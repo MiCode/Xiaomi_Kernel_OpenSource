@@ -1449,6 +1449,14 @@ static int msm_open(struct file *f)
 				__func__, rc);
 			return rc;
 		}
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+					&pcam->mctl.isp_sdev->sd_vpe);
+		if (rc < 0) {
+			mutex_unlock(&pcam->vid_lock);
+			pr_err("%s: vpe v4l2_device_register_subdev failed rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
 
 		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 							pcam->pvdev);
@@ -1501,7 +1509,6 @@ static int msm_addr_remap(struct msm_cam_v4l2_dev_inst *pcam_inst,
 		pr_err("%s: cannot map vaddr", __func__);
 		return -EFAULT;
 	}
-	pr_err("%s: phy_addr=0x%x\n", __func__, (uint32_t)phyaddr);
 	size = vma->vm_end - vma->vm_start;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	retval = remap_pfn_range(vma, vma->vm_start,
@@ -1531,10 +1538,8 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 
 	if (pcam_inst->is_mem_map_inst &&
 		pcam_inst->mem_map.cookie) {
-		pr_err("%s: ioremap called, vma=0x%08lx\n",
-			 __func__, (unsigned long)vma);
 		rc = msm_addr_remap(pcam_inst, vma);
-		pr_err("%s: msm_addr_remap ret=%d\n", __func__, rc);
+		D("%s: msm_addr_remap ret=%d\n", __func__, rc);
 		return rc;
 	} else
 		rc = vb2_mmap(&pcam_inst->vid_bufq, vma);
@@ -1911,7 +1916,9 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 			break;
 		}
 		if (ev.type != (V4L2_EVENT_PRIVATE_START +
-				MSM_CAM_RESP_DIV_FRAME_EVT_MSG)) {
+				MSM_CAM_RESP_DIV_FRAME_EVT_MSG) &&
+				ev.type != (V4L2_EVENT_PRIVATE_START +
+				MSM_CAM_RESP_MCTL_PP_EVENT)) {
 			k_isp_event =
 			(struct msm_isp_stats_event_ctrl *)ev.u.data;
 			if (ev.type == (V4L2_EVENT_PRIVATE_START +

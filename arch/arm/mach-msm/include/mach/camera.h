@@ -293,6 +293,11 @@ struct msm_camvfe_params {
 	void *data;
 };
 
+struct msm_mctl_pp_params {
+	struct msm_mctl_pp_cmd *cmd;
+	void *data;
+};
+
 struct msm_camvpe_fn {
 	int (*vpe_reg)(struct msm_vpe_callback *);
 	int (*vpe_cfg_update) (void *);

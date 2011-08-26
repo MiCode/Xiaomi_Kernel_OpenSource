@@ -137,7 +137,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 /*
  * This function executes in interrupt context.
  */
-static int msm_isp_notify(struct v4l2_subdev *sd,
+static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	unsigned int notification,  void *arg)
 {
 	int rc = 0;
@@ -244,8 +244,30 @@ static int msm_isp_notify(struct v4l2_subdev *sd,
 	return rc;
 }
 
+static int msm_isp_notify_vpe(struct v4l2_subdev *sd, void *arg)
+{
+	struct msm_sync *sync =
+		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
+	struct msm_vpe_resp *vdata = (struct msm_vpe_resp *)arg;
+
+	msm_mctl_pp_notify(&sync->pcam_sync->mctl,
+		(struct msm_mctl_pp_frame_info *)vdata->extdata);
+	return 0;
+}
+
+static int msm_isp_notify(struct v4l2_subdev *sd,
+	unsigned int notification, void *arg)
+{
+	if (notification == NOTIFY_VPE_MSG_EVT)
+		return msm_isp_notify_vpe(sd, arg);
+	else
+		return msm_isp_notify_vfe(sd, notification, arg);
+}
+
 /* This function is called by open() function, so we need to init HW*/
-static int msm_isp_open(struct v4l2_subdev *sd, struct msm_sync *sync)
+static int msm_isp_open(struct v4l2_subdev *sd,
+	struct v4l2_subdev *sd_vpe,
+	struct msm_sync *sync)
 {
 	/* init vfe and senor, register sync callbacks for init*/
 	int rc = 0;
@@ -261,7 +283,12 @@ static int msm_isp_open(struct v4l2_subdev *sd, struct msm_sync *sync)
 		pr_err("%s: vfe_init failed at %d\n",
 					__func__, rc);
 	}
-
+	D("%s: init vpe subdev", __func__);
+	rc = msm_vpe_subdev_init(sd_vpe, sync, sync->pdev);
+	if (rc < 0) {
+		pr_err("%s: vpe_init failed at %d\n",
+					__func__, rc);
+	}
 	return rc;
 }
 
@@ -269,6 +296,7 @@ static void msm_isp_release(struct msm_sync *psync)
 {
 	D("%s\n", __func__);
 	msm_vfe_subdev_release(psync->pdev);
+	msm_vpe_subdev_release(psync->pdev);
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
@@ -688,3 +716,15 @@ int msm_isp_subdev_ioctl(struct v4l2_subdev *isp_subdev,
 	vfe_params.data = data;
 	return v4l2_subdev_call(isp_subdev, core, ioctl, 0, &vfe_params);
 }
+
+int msm_isp_subdev_ioctl_vpe(struct v4l2_subdev *isp_subdev,
+	struct msm_mctl_pp_cmd *cmd, void *data)
+{
+	int rc = 0;
+	struct msm_mctl_pp_params parm;
+	parm.cmd = cmd;
+	parm.data = data;
+	rc = v4l2_subdev_call(isp_subdev, core, ioctl, 0, &parm);
+	return rc;
+}
+
