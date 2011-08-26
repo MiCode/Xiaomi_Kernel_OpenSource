@@ -12,7 +12,7 @@ config MSM_SSBI
 
 config SPS
 	bool "SPS support"
-	depends on (HAS_IOMEM && (ARCH_MSM8960 || ARCH_MSM8X60))
+	depends on (HAS_IOMEM && (ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_APQ8064))
 	select GENERIC_ALLOCATOR
 	default n
 	help

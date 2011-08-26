@@ -19,6 +19,8 @@
 #include <mach/irqs-8064.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/usbdiag.h>
+#include <mach/msm_sps.h>
 #include "clock.h"
 #include "devices.h"
 
@@ -467,6 +469,45 @@ int __init apq8064_add_sdcc(unsigned int controller,
 	pdev->dev.platform_data = plat;
 	return platform_device_register(pdev);
 }
+
+static struct resource resources_sps[] = {
+	{
+		.name	= "pipe_mem",
+		.start	= 0x12800000,
+		.end	= 0x12800000 + 0x4000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_dma",
+		.start	= 0x12240000,
+		.end	= 0x12240000 + 0x1000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_bam",
+		.start	= 0x12244000,
+		.end	= 0x12244000 + 0x4000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_irq",
+		.start	= SPS_BAM_DMA_IRQ,
+		.end	= SPS_BAM_DMA_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct msm_sps_platform_data msm_sps_pdata = {
+	.bamdma_restricted_pipes = 0x06,
+};
+
+struct platform_device msm_device_sps_apq8064 = {
+	.name		= "msm_sps",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_sps),
+	.resource	= resources_sps,
+	.dev.platform_data = &msm_sps_pdata,
+};
 
 static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),

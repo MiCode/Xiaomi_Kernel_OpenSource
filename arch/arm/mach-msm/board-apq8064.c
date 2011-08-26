@@ -298,6 +298,7 @@ static struct platform_device *sim_devices[] __initdata = {
 	&apq8064_device_uart_gsbi3,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
+	&msm_device_sps_apq8064,
 };
 
 static struct platform_device *rumi3_devices[] __initdata = {
