@@ -18,6 +18,8 @@
 #include <linux/parser.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/platform_data/qcom_wcnss_device.h>
+#include <linux/workqueue.h>
+#include <linux/jiffies.h>
 #include <mach/peripheral-loader.h>
 #include "wcnss_riva.h"
 
@@ -41,7 +43,17 @@ static struct {
 	const struct dev_pm_ops *pm_ops;
 	int             smd_channel_ready;
 	struct wcnss_wlan_config wlan_config;
+	struct delayed_work wcnss_work;
 } *penv = NULL;
+
+static void wcnss_post_bootup(struct work_struct *work)
+{
+	pr_info("%s: Cancel APPS vote for Iris & Riva\n", __func__);
+
+	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
+	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
+		WCNSS_WLAN_SWITCH_OFF);
+}
 
 static int __devinit
 wcnss_wlan_ctrl_probe(struct platform_device *pdev)
@@ -50,6 +62,10 @@ wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 		penv->smd_channel_ready = 1;
 
 	pr_info("%s: SMD ctrl channel up\n", __func__);
+
+	/* Schedule a work to do any post boot up activity */
+	INIT_DELAYED_WORK(&penv->wcnss_work, wcnss_post_bootup);
+	schedule_delayed_work(&penv->wcnss_work, msecs_to_jiffies(10000));
 
 	return 0;
 }
@@ -242,8 +258,6 @@ static void __exit wcnss_wlan_exit(void)
 		if (penv->pil)
 			pil_put(penv->pil);
 
-		wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
-					WCNSS_WLAN_SWITCH_OFF);
 
 		kfree(penv);
 		penv = NULL;
