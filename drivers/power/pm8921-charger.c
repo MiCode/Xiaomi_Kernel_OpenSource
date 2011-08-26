@@ -197,6 +197,7 @@ struct pm8921_chg_chip {
 	int			weak_voltage;
 	int			trkl_current;
 	int			weak_current;
+	int			vin_min;
 };
 
 static int charging_disabled;
@@ -343,6 +344,26 @@ static int pm_chg_vbatdet_set(struct pm8921_chg_chip *chip, int voltage)
 	temp = (voltage - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
 	return pm_chg_masked_write(chip, CHG_VBAT_DET, PM8921_CHG_V_MASK, temp);
+}
+
+#define PM8921_CHG_VINMIN_MIN_MV	3800
+#define PM8921_CHG_VINMIN_STEP_MV	100
+#define PM8921_CHG_VINMIN_USABLE_MAX	6500
+#define PM8921_CHG_VINMIN_USABLE_MIN	4300
+#define PM8921_CHG_VINMIN_MASK		0x1F
+static int pm_chg_vinmin_set(struct pm8921_chg_chip *chip, int voltage)
+{
+	u8 temp;
+
+	if (voltage < PM8921_CHG_VINMIN_USABLE_MIN
+			|| voltage > PM8921_CHG_VINMIN_USABLE_MAX) {
+		pr_err("bad mV=%d asked to set\n", voltage);
+		return -EINVAL;
+	}
+	temp = (voltage - PM8921_CHG_VINMIN_MIN_MV) / PM8921_CHG_VINMIN_STEP_MV;
+	pr_debug("voltage=%d setting %02x\n", voltage, temp);
+	return pm_chg_masked_write(chip, CHG_VIN_MIN, PM8921_CHG_VINMIN_MASK,
+									temp);
 }
 
 #define PM8921_CHG_IBATMAX_MIN	325
@@ -1046,6 +1067,15 @@ int pm8921_disable_source_current(bool disable)
 }
 EXPORT_SYMBOL(pm8921_disable_source_current);
 
+int pm8921_regulate_input_voltage(int voltage)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+	return pm_chg_vinmin_set(the_chip, voltage);
+}
+
 bool pm8921_is_battery_charging(int *source)
 {
 	int fsm_state, is_charging, dc_present, usb_present;
@@ -1698,6 +1728,15 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		}
 	}
 
+	if (chip->vin_min != 0) {
+		rc = pm_chg_vinmin_set(chip, chip->vin_min);
+		if (rc) {
+			pr_err("Failed to set vin min to %d mV rc=%d\n",
+							chip->vin_min, rc);
+			return rc;
+		}
+	}
+
 	rc = pm_chg_disable_wd(chip);
 	if (rc) {
 		pr_err("Failed to disable wd rc=%d\n", rc);
@@ -1957,6 +1996,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->weak_voltage = pdata->weak_voltage;
 	chip->trkl_current = pdata->trkl_current;
 	chip->weak_current = pdata->weak_current;
+	chip->vin_min = pdata->vin_min;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {

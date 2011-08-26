@@ -57,6 +57,9 @@ struct pm8xxx_charger_core_data {
  *			trkl charging happens with switching mode charger
  * @trkl_current:	the trkl current in (mA) to use for trkl charging phase
  * @weak_current:	the weak current in (mA) to use for weak charging phase
+ * @vin_min:		the input voltage regulation point (mV) - if the
+ *			voltage falls below this, the charger reduces charge
+ *			current or stop charging temporarily
  *
  */
 struct pm8921_charger_platform_data {
@@ -83,6 +86,7 @@ struct pm8921_charger_platform_data {
 	int				weak_voltage;
 	int				trkl_current;
 	int				weak_current;
+	int				vin_min;
 };
 
 enum pm8921_charger_source {
@@ -143,6 +147,12 @@ int pm8921_set_max_battery_charge_current(int ma);
 int pm8921_disable_source_current(bool disable);
 
 /**
+ * pm8921_regulate_input_voltage -
+ * @voltage: voltage in millivolts to regulate
+ *		allowable values are from 4300mV to 6500mV
+ */
+int pm8921_regulate_input_voltage(int voltage);
+/**
  * pm8921_is_battery_charging -
  * @source: when the battery is charging the source is updated to reflect which
  *		charger, usb or dc, is charging the battery.
@@ -188,6 +198,10 @@ static inline int pm8921_set_max_battery_charge_current(int ma)
 	return -ENXIO;
 }
 static inline int pm8921_disable_source_current(bool disable)
+{
+	return -ENXIO;
+}
+static inline int pm8921_regulate_input_voltage(int voltage)
 {
 	return -ENXIO;
 }
