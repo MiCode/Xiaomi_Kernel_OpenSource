@@ -359,6 +359,11 @@ adreno_getchipid(struct kgsl_device *device)
 	else
 		chipid = (coreid & 0xF) << 24;
 
+	if (cpu_is_msm8960()) {
+		KGSL_DRV_ERR(device, "forcing a220 chipid\n");
+		majorid = 1<<4;
+	}
+
 	chipid |= ((majorid >> 4) & 0xF) << 16;
 
 	minorid = ((revid >> 0)  & 0xFF);
