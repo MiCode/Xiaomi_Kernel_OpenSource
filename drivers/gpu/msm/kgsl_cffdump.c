@@ -491,8 +491,8 @@ static bool kgsl_cffdump_handle_type3(struct kgsl_device_private *dev_priv,
 	static uint size_stack[ADDRESS_STACK_SIZE];
 
 	switch (GET_PM4_TYPE3_OPCODE(hostaddr)) {
-	case PM4_INDIRECT_BUFFER_PFD:
-	case PM4_INDIRECT_BUFFER:
+	case CP_INDIRECT_BUFFER_PFD:
+	case CP_INDIRECT_BUFFER:
 	{
 		/* traverse indirect buffers */
 		int i;
