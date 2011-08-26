@@ -191,7 +191,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_HSUART2_RX_CRCI   14
 
 #elif defined(CONFIG_ARCH_MSM8960)
-#define DMOV_GP_CHAN           13
+#define DMOV_GP_CHAN           9
 
 #define DMOV_CE_IN_CHAN        0
 #define DMOV_CE_IN_CRCI        2
@@ -204,22 +204,6 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #define DMOV_HSUART_GSBI6_RX_CHAN	8
 #define DMOV_HSUART_GSBI6_RX_CRCI	11
-
-/* SDC doesn't use ADM on 8960. Need these to compile */
-#define DMOV_SDC1_CHAN         13
-#define DMOV_SDC1_CRCI         0
-
-#define DMOV_SDC2_CHAN         13
-#define DMOV_SDC2_CRCI         0
-
-#define DMOV_SDC3_CHAN         13
-#define DMOV_SDC3_CRCI         0
-
-#define DMOV_SDC4_CHAN         13
-#define DMOV_SDC4_CRCI         0
-
-#define DMOV_SDC5_CHAN         13
-#define DMOV_SDC5_CRCI         0
 
 #elif defined(CONFIG_ARCH_FSM9XXX)
 /* defined in dma-fsm9xxx.h */
