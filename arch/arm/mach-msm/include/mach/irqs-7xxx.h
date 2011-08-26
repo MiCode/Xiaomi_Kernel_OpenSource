@@ -59,7 +59,7 @@
 #define INT_AXI_MPU_SMI      (32 + 7)
 #define INT_AXI_MPU_EBI1     (32 + 8)
 #define INT_AD_HSSD          (32 + 9)
-#define INT_ARM11_PMU        (32 + 10)
+#define INT_ARMQC_PERFMON    (32 + 10)
 #define INT_ARM11_DMA        (32 + 11)
 #define INT_TSIF_IRQ         (32 + 12)
 #define INT_UART1DM_IRQ      (32 + 13)
