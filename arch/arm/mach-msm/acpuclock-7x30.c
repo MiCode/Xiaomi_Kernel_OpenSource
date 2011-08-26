@@ -56,7 +56,6 @@
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
 	struct mutex			lock;
-	uint32_t			acpu_switch_time_us;
 	uint32_t			vdd_switch_time_us;
 	struct clk			*ebi1_clk;
 };
@@ -133,22 +132,6 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 0 }
 };
 
-#define POWER_COLLAPSE_KHZ MAX_AXI_KHZ
-unsigned long acpuclk_power_collapse(void)
-{
-	int ret = acpuclk_get_rate(smp_processor_id());
-	acpuclk_set_rate(smp_processor_id(), POWER_COLLAPSE_KHZ, SETRATE_PC);
-	return ret;
-}
-
-#define WAIT_FOR_IRQ_KHZ MAX_AXI_KHZ
-unsigned long acpuclk_wait_for_irq(void)
-{
-	int ret = acpuclk_get_rate(smp_processor_id());
-	acpuclk_set_rate(smp_processor_id(), WAIT_FOR_IRQ_KHZ, SETRATE_SWFI);
-	return ret;
-}
-
 static int acpuclk_set_acpu_vdd(struct clkctl_acpu_speed *s)
 {
 	int ret = msm_spm_set_vdd(0, s->vdd_raw);
@@ -207,7 +190,8 @@ static void acpuclk_set_src(const struct clkctl_acpu_speed *s)
 	mb();
 }
 
-int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
+static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
+				 enum setrate_reason reason)
 {
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	int res, rc = 0;
@@ -320,7 +304,7 @@ out:
 	return rc;
 }
 
-unsigned long acpuclk_get_rate(int cpu)
+static unsigned long acpuclk_7x30_get_rate(int cpu)
 {
 	WARN_ONCE(drv_state.current_speed == NULL,
 		  "acpuclk_get_rate: not initialized\n");
@@ -330,16 +314,11 @@ unsigned long acpuclk_get_rate(int cpu)
 		return 0;
 }
 
-uint32_t acpuclk_get_switch_time(void)
-{
-	return drv_state.acpu_switch_time_us;
-}
-
 /*----------------------------------------------------------------------------
  * Clock driver initialization
  *---------------------------------------------------------------------------*/
 
-static void __init acpuclk_init(void)
+static void __init acpuclk_hw_init(void)
 {
 	struct clkctl_acpu_speed *s;
 	uint32_t div, sel, src_num;
@@ -487,16 +466,26 @@ static void __init populate_plls(void)
 	BUG_ON(IS_ERR(acpuclk_sources[PLL_3]));
 }
 
-void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
+static struct acpuclk_data acpuclk_7x30_data = {
+	.set_rate = acpuclk_7x30_set_rate,
+	.get_rate = acpuclk_7x30_get_rate,
+	.power_collapse_khz = MAX_AXI_KHZ,
+	.wait_for_irq_khz = MAX_AXI_KHZ,
+};
+
+int __init acpuclk_7x30_init(struct acpuclk_platform_data *clkdata)
 {
-	pr_info("acpu_clock_init()\n");
+	pr_info("%s()\n", __func__);
 
 	mutex_init(&drv_state.lock);
-	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
+	acpuclk_7x30_data.switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	pll2_fixup();
 	populate_plls();
-	acpuclk_init();
+	acpuclk_hw_init();
 	lpj_init();
 	setup_cpufreq_table();
+	acpuclk_register(&acpuclk_7x30_data);
+
+	return 0;
 }

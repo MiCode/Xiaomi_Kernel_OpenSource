@@ -102,6 +102,7 @@
 #include "peripheral-loader.h"
 #include <linux/platform_data/qcom_crypto_device.h>
 #include "rpm_resources.h"
+#include "acpuclock.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -397,7 +398,8 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 };
 
-static struct msm_acpu_clock_platform_data msm8x60_acpu_clock_data = {
+static struct acpuclk_platform_data msm8x60_acpuclk_data __initdata = {
+	.init = acpuclk_8x60_init,
 };
 
 /*
@@ -10058,7 +10060,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
 	/* CPU frequency control is not supported on simulated targets. */
 	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
-		msm_acpu_clock_init(&msm8x60_acpu_clock_data);
+		acpuclk_init(&msm8x60_acpuclk_data);
 
 	/* No EBI2 on 8660 charm targets */
 	if (!machine_is_msm8x60_fusion() && !machine_is_msm8x60_fusn_ffa())

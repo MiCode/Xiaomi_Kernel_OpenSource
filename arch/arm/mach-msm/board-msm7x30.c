@@ -80,6 +80,7 @@
 #endif
 #include "pm.h"
 #include "spm.h"
+#include "acpuclock.h"
 #include <mach/dal_axi.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/qdsp5v2/mi2s.h>
@@ -5523,9 +5524,10 @@ static struct msm_i2c_ssbi_platform_data msm_i2c_ssbi7_pdata = {
 };
 #endif
 
-static struct msm_acpu_clock_platform_data msm7x30_clock_data = {
+static struct acpuclk_platform_data msm7x30_clock_data __initdata = {
 	.acpu_switch_time_us = 50,
 	.vdd_switch_time_us = 62,
+	.init = acpuclk_7x30_init,
 };
 
 static void __init msm7x30_init_irq(void)
@@ -6953,7 +6955,7 @@ static void __init msm7x30_init(void)
 	msm7x30_init_uart2();
 #endif
 	msm_spm_init(&msm_spm_data, 1);
-	msm_acpu_clock_init(&msm7x30_clock_data);
+	acpuclk_init(&msm7x30_clock_data);
 	if (machine_is_msm7x30_surf() || machine_is_msm7x30_fluid())
 		msm7x30_cfg_smsc911x();
 

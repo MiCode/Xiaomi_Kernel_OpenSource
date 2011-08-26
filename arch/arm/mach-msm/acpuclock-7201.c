@@ -46,6 +46,8 @@
 #define PLL4_MODE	(MSM_CLK_CTL_BASE + 0x374)
 #define PLL4_L_VAL	(MSM_CLK_CTL_BASE + 0x378)
 
+#define POWER_COLLAPSE_KHZ 19200
+
 /* Max CPU frequency allowed by hardware while in standby waiting for an irq. */
 #define MAX_WAIT_FOR_IRQ_KHZ 128000
 
@@ -77,7 +79,6 @@ struct clock_state {
 	uint32_t			max_speed_delta_khz;
 	uint32_t			vdd_switch_time_us;
 	unsigned long			max_axi_khz;
-	unsigned long			wait_for_irq_khz;
 	struct clk			*ebi1_clk;
 };
 
@@ -119,8 +120,6 @@ static remote_spinlock_t pll_lock;
 static struct shared_pll_control *pll_control;
 static struct clock_state drv_state = { 0 };
 static struct clkctl_acpu_speed *acpu_freq_tbl;
-
-static void __init acpuclk_init(void);
 
 /*
  * ACPU freq tables used for different PLLs frequency combinations. The
@@ -484,23 +483,6 @@ static int pc_pll_request(unsigned id, unsigned on)
  * ARM11 'owned' clock control
  *---------------------------------------------------------------------------*/
 
-#define POWER_COLLAPSE_KHZ 19200
-unsigned long acpuclk_power_collapse(void)
-{
-	int ret = acpuclk_get_rate(smp_processor_id());
-	acpuclk_set_rate(smp_processor_id(), POWER_COLLAPSE_KHZ, SETRATE_PC);
-	return ret;
-}
-
-unsigned long acpuclk_wait_for_irq(void)
-{
-	int rate = acpuclk_get_rate(smp_processor_id());
-	if (rate > MAX_WAIT_FOR_IRQ_KHZ)
-		acpuclk_set_rate(smp_processor_id(), drv_state.wait_for_irq_khz,
-				 SETRATE_SWFI);
-	return rate;
-}
-
 static int acpuclk_set_vdd_level(int vdd)
 {
 	uint32_t current_vdd;
@@ -575,7 +557,8 @@ static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s)
 	}
 }
 
-int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
+static int acpuclk_7201_set_rate(int cpu, unsigned long rate,
+				 enum setrate_reason reason)
 {
 	uint32_t reg_clkctl;
 	struct clkctl_acpu_speed *cur_s, *tgt_s, *strt_s;
@@ -587,7 +570,7 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 
 	strt_s = cur_s = drv_state.current_speed;
 
-	WARN_ONCE(cur_s == NULL, "acpuclk_set_rate: not initialized\n");
+	WARN_ONCE(cur_s == NULL, "%s: not initialized\n", __func__);
 	if (cur_s == NULL) {
 		rc = -ENOENT;
 		goto out;
@@ -751,7 +734,7 @@ out:
 	return rc;
 }
 
-static void __init acpuclk_init(void)
+static void __init acpuclk_hw_init(void)
 {
 	struct clkctl_acpu_speed *speed;
 	uint32_t div, sel, reg_clksel;
@@ -811,19 +794,14 @@ static void __init acpuclk_init(void)
 	pr_info("ACPU running at %d KHz\n", speed->a11clk_khz);
 }
 
-unsigned long acpuclk_get_rate(int cpu)
+static unsigned long acpuclk_7201_get_rate(int cpu)
 {
 	WARN_ONCE(drv_state.current_speed == NULL,
-		  "acpuclk_get_rate: not initialized\n");
+		  "%s: not initialized\n", __func__);
 	if (drv_state.current_speed)
 		return drv_state.current_speed->a11clk_khz;
 	else
 		return 0;
-}
-
-uint32_t acpuclk_get_switch_time(void)
-{
-	return drv_state.acpu_switch_time_us;
 }
 
 /*----------------------------------------------------------------------------
@@ -1080,29 +1058,39 @@ static void shared_pll_control_init(void)
 	pr_warning("Falling back to proc_comm PLL control.\n");
 }
 
-void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
+static struct acpuclk_data acpuclk_7201_data = {
+	.set_rate = acpuclk_7201_set_rate,
+	.get_rate = acpuclk_7201_get_rate,
+	.power_collapse_khz = POWER_COLLAPSE_KHZ,
+};
+
+int __init acpuclk_7201_init(struct acpuclk_platform_data *clkdata)
 {
-	pr_info("acpu_clock_init()\n");
+	pr_info("%s()\n", __func__);
 
 	drv_state.ebi1_clk = clk_get(NULL, "ebi1_acpu_clk");
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));
 
 	mutex_init(&drv_state.lock);
 	shared_pll_control_init();
+	acpuclk_7201_data.switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.max_axi_khz = clkdata->max_axi_khz;
 	acpu_freq_tbl_fixup();
-	drv_state.wait_for_irq_khz = find_wait_for_irq_khz();
+	acpuclk_7201_data.wait_for_irq_khz = find_wait_for_irq_khz();
 	precompute_stepping();
 	if (cpu_is_msm7x25())
 		msm7x25_acpu_pll_hw_bug_fix();
-	acpuclk_init();
+	acpuclk_hw_init();
 	lpj_init();
 	print_acpu_freq_tbl();
+	acpuclk_register(&acpuclk_7201_data);
+
 #ifdef CONFIG_CPU_FREQ_MSM
 	cpufreq_table_init();
 	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
 #endif
+	return 0;
 }

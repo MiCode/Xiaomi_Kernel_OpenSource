@@ -79,6 +79,7 @@
 #include "cpuidle.h"
 #include "rpm_resources.h"
 #include "mpm.h"
+#include "acpuclock.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -1930,9 +1931,10 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
-static struct msm_acpu_clock_platform_data msm8960_acpu_clock_data = {
+static struct acpuclk_platform_data msm8960_acpuclk_data __initdata = {
 	.acpu_switch_time_us = 0,
 	.vdd_switch_time_us = 0,
+	.init = acpuclk_8960_init,
 };
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
@@ -3510,7 +3512,7 @@ static void __init msm8960_sim_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	pm8921_gpio_mpp_init();
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
-	msm_acpu_clock_init(&msm8960_acpu_clock_data);
+	acpuclk_init(&msm8960_acpuclk_data);
 
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
@@ -3601,7 +3603,7 @@ static void __init msm8960_cdp_init(void)
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	msm8960_init_cam();
 	msm8960_init_mmc();
-	msm_acpu_clock_init(&msm8960_acpu_clock_data);
+	acpuclk_init(&msm8960_acpuclk_data);
 	register_i2c_devices();
 	msm8960_wcnss_init();
 	msm_fb_add_devices();

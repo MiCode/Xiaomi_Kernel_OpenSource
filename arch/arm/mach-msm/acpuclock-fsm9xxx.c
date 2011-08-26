@@ -20,7 +20,7 @@
 /* Registers */
 #define PLL1_CTL_ADDR		(MSM_CLK_CTL_BASE + 0x604)
 
-unsigned long acpuclk_get_rate(int cpu)
+static unsigned long acpuclk_9xxx_get_rate(int cpu)
 {
 	unsigned int pll1_ctl;
 	unsigned int pll1_l, pll1_div2;
@@ -36,7 +36,13 @@ unsigned long acpuclk_get_rate(int cpu)
 	return pll1_khz;
 }
 
-void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
+static struct acpuclk_data acpuclk_9xxx_data = {
+	.get_rate = acpuclk_9xxx_get_rate,
+};
+
+int __init acpuclk_9xxx_init(struct acpuclk_platform_data *clkdata)
 {
+	acpuclk_register(&acpuclk_9xxx_data);
 	pr_info("ACPU running at %lu KHz\n", acpuclk_get_rate(0));
+	return 0;
 }

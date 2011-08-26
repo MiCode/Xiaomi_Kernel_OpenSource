@@ -39,6 +39,7 @@
 #include <mach/socinfo.h>
 #include "devices.h"
 #include "timer.h"
+#include "acpuclock.h"
 #include "pm.h"
 #include "spm.h"
 #include <linux/regulator/consumer.h>
@@ -834,9 +835,10 @@ static struct platform_device *devices[] __initdata = {
 	&fsm_xo_device,
 };
 
-static struct msm_acpu_clock_platform_data fsm9xxx_clock_data = {
+static struct acpuclk_platform_data fsm9xxx_clock_data __initdata = {
 	.acpu_switch_time_us = 50,
 	.vdd_switch_time_us = 62,
+	.init = acpuclk_9xxx_init,
 };
 
 static void __init fsm9xxx_init_irq(void)
@@ -877,7 +879,7 @@ static void __init fsm9xxx_init(void)
 		pr_err("%s: socinfo_init() failed!\n",
 		       __func__);
 
-	msm_acpu_clock_init(&fsm9xxx_clock_data);
+	acpuclk_init(&fsm9xxx_clock_data);
 
 	regulator_has_full_constraints();
 

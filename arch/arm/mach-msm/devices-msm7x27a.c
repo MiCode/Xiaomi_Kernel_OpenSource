@@ -29,6 +29,7 @@
 #include "devices.h"
 #include "devices-msm7x2xa.h"
 #include "footswitch.h"
+#include "acpuclock.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI0_PHYS		0xA1200000
@@ -694,11 +695,12 @@ struct platform_device asoc_msm_dai1 = {
 	.id     = 0,
 };
 
-static struct msm_acpu_clock_platform_data msm7x2x_clock_data = {
+static struct acpuclk_platform_data msm7x2x_clock_data __initdata = {
 	.acpu_switch_time_us = 50,
 	.max_speed_delta_khz = 400000,
 	.vdd_switch_time_us = 62,
 	.max_axi_khz = 200000,
+	.init = acpuclk_7201_init,
 };
 
 int __init msm7x2x_misc_init(void)
@@ -710,7 +712,7 @@ int __init msm7x2x_misc_init(void)
 		msm7x2x_clock_data.max_speed_delta_khz = 504000;
 
 	msm_clock_init(&msm7x27a_clock_init_data);
-	msm_acpu_clock_init(&msm7x2x_clock_data);
+	acpuclk_init(&msm7x2x_clock_data);
 
 	return 0;
 }

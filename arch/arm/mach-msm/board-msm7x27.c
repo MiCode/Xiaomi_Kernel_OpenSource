@@ -60,6 +60,7 @@
 
 #include "devices.h"
 #include "clock.h"
+#include "acpuclock.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"
 
@@ -1488,11 +1489,12 @@ static void __init msm7x2x_init_irq(void)
 	msm_init_irq();
 }
 
-static struct msm_acpu_clock_platform_data msm7x2x_clock_data = {
+static struct acpuclk_platform_data msm7x2x_clock_data __initdata = {
 	.acpu_switch_time_us = 50,
 	.max_speed_delta_khz = 400000,
 	.vdd_switch_time_us = 62,
 	.max_axi_khz = 160000,
+	.init = acpuclk_7201_init,
 };
 
 void msm_serial_debug_init(unsigned int base, int irq,
@@ -1894,7 +1896,7 @@ static void __init msm7x2x_init(void)
 	if (cpu_is_msm7x27())
 		msm7x2x_clock_data.max_axi_khz = 200000;
 
-	msm_acpu_clock_init(&msm7x2x_clock_data);
+	acpuclk_init(&msm7x2x_clock_data);
 
 	usb_mpp_init();
 

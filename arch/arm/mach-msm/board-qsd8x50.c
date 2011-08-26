@@ -54,6 +54,7 @@
 #include "devices.h"
 #include "timer.h"
 #include "msm-keypad-devices.h"
+#include "acpuclock.h"
 #include "pm.h"
 #include "proc_comm.h"
 #ifdef CONFIG_USB_ANDROID
@@ -1239,12 +1240,13 @@ static int qsd8x50_tps65023_set_dcdc1(int mVolts)
 	return rc;
 }
 
-static struct msm_acpu_clock_platform_data qsd8x50_clock_data = {
+static struct acpuclk_platform_data qsd8x50_clock_data __initdata = {
 	.acpu_switch_time_us = 20,
 	.max_speed_delta_khz = 256000,
 	.vdd_switch_time_us = 62,
 	.max_vdd = TPS65023_MAX_DCDC1,
 	.acpu_set_vdd = qsd8x50_tps65023_set_dcdc1,
+	.init = acpuclk_8x50_init,
 };
 
 
@@ -2442,7 +2444,7 @@ static void __init qsd8x50_init(void)
 		       __func__);
 	msm_clock_init(&qds8x50_clock_init_data);
 	qsd8x50_cfg_smc91x();
-	msm_acpu_clock_init(&qsd8x50_clock_data);
+	acpuclk_init(&qsd8x50_clock_data);
 
 	msm_hsusb_pdata.swfi_latency =
 		msm_pm_data

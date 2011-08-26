@@ -17,6 +17,7 @@ endif
 	endif
 endif
 
+obj-y += acpuclock.o
 obj-$(CONFIG_ARCH_MSM_ARM11) += acpuclock-7201.o
 obj-$(CONFIG_ARCH_MSM_SCORPION) += pmu.o
 obj-$(CONFIG_ARCH_MSM_CORTEX_A5) += acpuclock-7201.o

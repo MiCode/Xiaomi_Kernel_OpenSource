@@ -1,9 +1,8 @@
-/* arch/arm/mach-msm/acpuclock.h
- *
- * MSM architecture clock driver header
+/*
+ * MSM architecture CPU clock driver header
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -20,8 +19,9 @@
 #ifndef __ARCH_ARM_MACH_MSM_ACPUCLOCK_H
 #define __ARCH_ARM_MACH_MSM_ACPUCLOCK_H
 
-#include <linux/list.h>
-
+/**
+ * enum setrate_reason - Reasons for use with acpuclk_set_rate()
+ */
 enum setrate_reason {
 	SETRATE_CPUFREQ = 0,
 	SETRATE_SWFI,
@@ -30,10 +30,84 @@ enum setrate_reason {
 	SETRATE_INIT,
 };
 
-int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason);
+/**
+ * struct acpuclk_platform_data - Platform data for acpuclk_init()
+ */
+struct acpuclk_platform_data {
+	uint32_t acpu_switch_time_us;
+	unsigned long max_speed_delta_khz;
+	uint32_t vdd_switch_time_us;
+	unsigned int max_axi_khz;
+	unsigned int max_vdd;
+	int (*acpu_set_vdd) (int mvolts);
+	int (*init)(struct acpuclk_platform_data *);
+};
+
+/**
+ * struct acpuclk_data - Function pointers and data for function implementations
+ */
+struct acpuclk_data {
+	unsigned long (*get_rate)(int cpu);
+	int (*set_rate)(int cpu, unsigned long rate, enum setrate_reason);
+	uint32_t switch_time_us;
+	unsigned long power_collapse_khz;
+	unsigned long wait_for_irq_khz;
+};
+
+/**
+ * acpulock_get_rate() - Get a CPU's clock rate in KHz
+ * @cpu: CPU to query the rate of
+ */
 unsigned long acpuclk_get_rate(int cpu);
+
+/**
+ * acpuclk_set_rate() - Set a CPU's clock rate
+ * @cpu: CPU to set rate of
+ * @rate: Desired rate in KHz
+ * @setrate_reason: Reason for the rate switch
+ *
+ * Returns 0 for success.
+ */
+int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason);
+
+/**
+ * acpuclk_get_switch_time() - Query estimated time in us for a CPU rate switch
+ */
 uint32_t acpuclk_get_switch_time(void);
-unsigned long acpuclk_wait_for_irq(void);
+
+/**
+ * acpuclk_power_collapse() - Prepare current CPU clocks for power-collapse
+ *
+ * Returns the previous rate of the CPU in KHz.
+ */
 unsigned long acpuclk_power_collapse(void);
+
+/**
+ * acpuclk_wait_for_irq() - Prepare current CPU clocks for SWFI
+ *
+ * Returns the previous rate of the CPU in KHz.
+ */
+unsigned long acpuclk_wait_for_irq(void);
+
+/**
+ * acpuclk_register() - Register acpuclk_data function implementations
+ * @data: acpuclock API implementations and data
+ */
+void acpuclk_register(struct acpuclk_data *data);
+
+/**
+ * acpuclk_init() - acpuclock driver initialization function
+ *
+ * Return 0 for success.
+ */
+int acpuclk_init(struct acpuclk_platform_data *);
+
+/* SoC-specific acpuclock initialization functions. */
+int acpuclk_7201_init(struct acpuclk_platform_data *);
+int acpuclk_7x30_init(struct acpuclk_platform_data *);
+int acpuclk_8x50_init(struct acpuclk_platform_data *);
+int acpuclk_8x60_init(struct acpuclk_platform_data *);
+int acpuclk_8960_init(struct acpuclk_platform_data *);
+int acpuclk_9xxx_init(struct acpuclk_platform_data *);
 
 #endif
