@@ -95,12 +95,6 @@ enum vpe_resp_msg {
 	VPE_MSG_OUTPUT_ST_R,
 };
 
-enum msm_camera_type {
-	BACK_CAMERA_2D,
-	FRONT_CAMERA_2D,
-	BACK_CAMERA_3D,
-};
-
 enum msm_stereo_state {
 	STEREO_VIDEO_IDLE,
 	STEREO_VIDEO_ACTIVE,
@@ -598,12 +592,19 @@ enum msm_bus_perf_setting {
 	S_EXIT
 };
 
+enum msm_cam_mode {
+	MODE_R,
+	MODE_L,
+	MODE_DUAL
+};
+
 int msm_camio_enable(struct platform_device *dev);
 int msm_camio_jpeg_clk_enable(void);
 int msm_camio_jpeg_clk_disable(void);
 int msm_camio_vpe_clk_enable(uint32_t);
 int msm_camio_vpe_clk_disable(void);
 
+void msm_camio_mode_config(enum msm_cam_mode mode);
 int  msm_camio_clk_enable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_disable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_config(uint32_t freq);
@@ -619,6 +620,8 @@ void msm_camio_camif_pad_reg_reset_2(void);
 
 void msm_camio_vfe_blk_reset(void);
 
+int32_t msm_camio_3d_enable(const struct msm_camera_sensor_info *sinfo);
+void msm_camio_3d_disable(void);
 void msm_camio_clk_sel(enum msm_camio_clk_src_type);
 void msm_camio_disable(struct platform_device *);
 int msm_camio_probe_on(struct platform_device *);

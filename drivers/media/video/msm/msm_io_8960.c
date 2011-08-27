@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/regulator/consumer.h>
 #include <mach/gpio.h>
+#include <mach/gpiomux.h>
 #include <mach/board.h>
 #include <mach/camera.h>
 #include <mach/vreg.h>
@@ -134,10 +135,10 @@ static struct regulator *mipi_csi_vdd;
 
 static struct msm_camera_io_clk camio_clk;
 static struct platform_device *camio_dev;
-static struct resource *csidio, *csiphyio;
-static struct resource *csid_mem, *csiphy_mem;
+static struct resource *csidio, *csiphyio, *s3drw_io, *s3dctl_io;
+static struct resource *csid_mem, *csiphy_mem, *s3drw_mem, *s3dctl_mem;
 static struct resource *csid_irq, *csiphy_irq;
-void __iomem *csidbase, *csiphybase;
+void __iomem *csidbase, *csiphybase, *s3d_rw, *s3d_ctl;
 
 static struct msm_bus_vectors cam_init_vectors[] = {
 	{
@@ -1043,27 +1044,32 @@ int msm_camio_vpe_clk_enable(uint32_t clk_rate)
 static int config_gpio_table(int gpio_en)
 {
 	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_camera_gpio_conf *gpio_conf = sinfo->gpio_conf;
 	int rc = 0, i = 0;
 
-	if (camdev->cam_gpio_tbl == NULL) {
-		pr_err("%s: Invalid NULL cam gpio table\n", __func__);
+	if (gpio_conf->cam_gpio_tbl == NULL || gpio_conf->cam_gpiomux_conf_tbl
+		== NULL) {
+		pr_err("%s: Invalid NULL cam gpio config table\n", __func__);
 		return -EFAULT;
 	}
 
 	if (gpio_en) {
-		for (i = 0; i < camdev->cam_gpio_tbl_size; i++) {
-			rc = gpio_request(camdev->cam_gpio_tbl[i], "CAM_GPIO");
+		msm_gpiomux_install((struct msm_gpiomux_config *)gpio_conf->
+			cam_gpiomux_conf_tbl,
+			gpio_conf->cam_gpiomux_conf_tbl_size);
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++) {
+			rc = gpio_request(gpio_conf->cam_gpio_tbl[i],
+				 "CAM_GPIO");
 			if (rc < 0) {
 				pr_err("%s not able to get gpio\n", __func__);
 				for (i--; i >= 0; i--)
-					gpio_free(camdev->cam_gpio_tbl[i]);
+					gpio_free(gpio_conf->cam_gpio_tbl[i]);
 					break;
 			}
 		}
 	} else {
-		for (i = 0; i < camdev->cam_gpio_tbl_size; i++)
-			gpio_free(camdev->cam_gpio_tbl[i]);
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++)
+			gpio_free(gpio_conf->cam_gpio_tbl[i]);
 	}
 	return rc;
 }
@@ -1183,6 +1189,72 @@ void msm_camio_disable(struct platform_device *pdev)
 	release_mem_region(csid_mem->start, resource_size(csid_mem));
 
 	msm_camio_disable_all_clks(csid_core);
+}
+
+int32_t msm_camio_3d_enable(const struct msm_camera_sensor_info *s_info)
+{
+	int32_t val = 0, rc = 0;
+	char s3drw[] = "s3d_rw";
+	char s3dctl[] = "s3d_ctl";
+	struct platform_device *pdev = camio_dev;
+	pdev->resource = s_info->resource;
+	pdev->num_resources = s_info->num_resources;
+
+	s3drw_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, s3drw);
+	if (!s3drw_mem) {
+		pr_err("%s: no mem resource?\n", __func__);
+		return -ENODEV;
+	}
+	s3dctl_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, s3dctl);
+	if (!s3dctl_mem) {
+		pr_err("%s: no mem resource?\n", __func__);
+		return -ENODEV;
+	}
+	s3drw_io = request_mem_region(s3drw_mem->start,
+		resource_size(s3drw_mem), pdev->name);
+	if (!s3drw_io)
+		return -EBUSY;
+
+	s3d_rw = ioremap(s3drw_mem->start,
+		resource_size(s3drw_mem));
+	if (!s3d_rw) {
+		rc = -ENOMEM;
+		goto s3drw_nomem;
+	}
+	s3dctl_io = request_mem_region(s3dctl_mem->start,
+		resource_size(s3dctl_mem), pdev->name);
+	if (!s3dctl_io) {
+		rc = -EBUSY;
+		goto s3dctl_busy;
+	}
+	s3d_ctl = ioremap(s3dctl_mem->start,
+		resource_size(s3dctl_mem));
+	if (!s3d_ctl) {
+		rc = -ENOMEM;
+		goto s3dctl_nomem;
+	}
+
+	val = msm_io_r(s3d_rw);
+	msm_io_w((val | 0x200), s3d_rw);
+	return rc;
+
+s3dctl_nomem:
+	release_mem_region(s3dctl_mem->start, resource_size(s3dctl_mem));
+s3dctl_busy:
+	iounmap(s3d_rw);
+s3drw_nomem:
+	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
+return rc;
+}
+
+void msm_camio_3d_disable(void)
+{
+	int32_t val = 0;
+	msm_io_w((val & ~0x200), s3d_rw);
+	iounmap(s3d_ctl);
+	release_mem_region(s3dctl_mem->start, resource_size(s3dctl_mem));
+	iounmap(s3d_rw);
+	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
 }
 
 int msm_camio_sensor_clk_on(struct platform_device *pdev)
@@ -1336,6 +1408,23 @@ int msm_camio_csiphy_config(struct msm_camera_csiphy_params *csiphy_params)
 			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
 	}
 	return rc;
+}
+
+void msm_camio_mode_config(enum msm_cam_mode mode)
+{
+	uint32_t val;
+	val = msm_io_r(s3d_ctl);
+	if (mode == MODE_DUAL) {
+		msm_io_w(val | 0x3, s3d_ctl);
+	} else if (mode == MODE_L) {
+		msm_io_w(((val | 0x2) & ~(0x1)), s3d_ctl);
+		val = msm_io_r(s3d_ctl);
+		CDBG("the camio mode config left value is %d\n", val);
+	} else {
+		msm_io_w(((val | 0x1) & ~(0x2)), s3d_ctl);
+		val = msm_io_r(s3d_ctl);
+		CDBG("the camio mode config right value is %d\n", val);
+	}
 }
 
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)

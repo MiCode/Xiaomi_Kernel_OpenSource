@@ -996,6 +996,19 @@ struct resource msm_camera_resources[] = {
 		.end	= MSM8960_CSIPHY_2LN_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.name   = "s3d_rw",
+		.start  = 0x008003E0,
+		.end    = 0x008003E0 + SZ_16 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "s3d_ctl",
+		.start  = 0x008020B8,
+		.end    = 0x008020B8 + SZ_16 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+
 };
 
 int __init msm_get_cam_resources(struct msm_camera_sensor_info *s_info)

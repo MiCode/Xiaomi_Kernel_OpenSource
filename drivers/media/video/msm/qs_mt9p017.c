@@ -857,13 +857,16 @@ static int32_t qs_mt9p017_check_id(void){
 static int32_t qs_mt9p017_power_up(const struct msm_camera_sensor_info *data)
 {
 	int32_t rc = 0;
-	rc = gpio_request(data->sensor_reset, "qs_mt9p017");
+	rc = gpio_request(data->sensor_platform_info->sensor_reset,
+		"qs_mt9p017");
 	CDBG("%s\n", __func__);
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
-		gpio_direction_output(data->sensor_reset, 0);
+		gpio_direction_output(data->sensor_platform_info->sensor_reset
+			, 0);
 		msleep(50);
-		gpio_set_value_cansleep(data->sensor_reset, 1);
+		gpio_set_value_cansleep(data->sensor_platform_info->
+			sensor_reset, 1);
 		msleep(20);
 	} else {
 		CDBG("sensor reset fail");
@@ -876,8 +879,8 @@ static int32_t qs_mt9p017_power_up(const struct msm_camera_sensor_info *data)
 
 static int32_t qs_mt9p017_power_down(const struct msm_camera_sensor_info *data)
 {
-	gpio_set_value_cansleep(data->sensor_reset, 0);
-	gpio_free(data->sensor_reset);
+	gpio_set_value_cansleep(data->sensor_platform_info->sensor_reset, 0);
+	gpio_free(data->sensor_platform_info->sensor_reset);
 	return 0;
 }
 
@@ -1154,7 +1157,7 @@ static int qs_mt9p017_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_release = qs_mt9p017_sensor_release;
 	s->s_config  = qs_mt9p017_sensor_config;
 	s->s_mount_angle = 270;
-
+	s->s_camera_type = info->camera_type;
 	qs_mt9p017_power_down(info);
 	return rc;
 

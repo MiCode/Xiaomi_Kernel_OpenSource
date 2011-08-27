@@ -65,8 +65,6 @@ struct msm_camera_device_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 #endif
-	uint16_t *cam_gpio_tbl;
-	uint8_t cam_gpio_tbl_size;
 };
 enum msm_camera_csi_data_format {
 	CSI_8BIT,
@@ -159,8 +157,27 @@ struct msm_camera_sensor_strobe_flash_data {
 	int state;
 };
 
+enum msm_camera_type {
+	BACK_CAMERA_2D,
+	FRONT_CAMERA_2D,
+	BACK_CAMERA_3D,
+	BACK_CAMERA_INT_3D,
+};
+
 struct msm_camera_sensor_platform_info {
 	int mount_angle;
+	int sensor_reset_enable;
+	int sensor_reset;
+	int sensor_pwd;
+	int vcm_pwd;
+	int vcm_enable;
+};
+
+struct msm_camera_gpio_conf {
+	void *cam_gpiomux_conf_tbl;
+	uint8_t cam_gpiomux_conf_tbl_size;
+	uint16_t *cam_gpio_tbl;
+	uint8_t cam_gpio_tbl_size;
 };
 
 struct msm_camera_sensor_info {
@@ -181,6 +198,8 @@ struct msm_camera_sensor_info {
 	struct msm_camera_csi_params csi_params;
 	struct msm_camera_sensor_strobe_flash_data *strobe_flash_data;
 	char *eeprom_data;
+	struct msm_camera_gpio_conf *gpio_conf;
+	enum msm_camera_type camera_type;
 };
 
 int __init msm_get_cam_resources(struct msm_camera_sensor_info *);

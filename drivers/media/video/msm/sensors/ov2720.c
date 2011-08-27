@@ -517,7 +517,6 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.sensor_id_info = &ov2720_id_info,
 	.sensor_exp_gain_info = &ov2720_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.camera_type = FRONT_CAMERA_2D,
 	.csi_params = &ov2720_csi_params_array[0],
 	.msm_sensor_mutex = &ov2720_mut,
 	.sensor_i2c_driver = &ov2720_i2c_driver,

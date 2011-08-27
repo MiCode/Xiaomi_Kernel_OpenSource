@@ -971,9 +971,9 @@ static int32_t imx074_power_down(void)
 }
 static int imx074_probe_init_done(const struct msm_camera_sensor_info *data)
 {
-	gpio_set_value_cansleep(data->sensor_reset, 0);
-	gpio_direction_input(data->sensor_reset);
-	gpio_free(data->sensor_reset);
+	gpio_set_value_cansleep(data->sensor_platform_info->sensor_reset, 0);
+	gpio_direction_input(data->sensor_platform_info->sensor_reset);
+	gpio_free(data->sensor_platform_info->sensor_reset);
 	return 0;
 }
 
@@ -1055,13 +1055,16 @@ static int imx074_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	int32_t rc = 0;
 	unsigned short chipidl, chipidh;
 	CDBG("%s: %d\n", __func__, __LINE__);
-	rc = gpio_request(data->sensor_reset, "imx074");
+	rc = gpio_request(data->sensor_platform_info
+		->sensor_reset, "imx074");
 	CDBG("imx074_probe_init_sensor\n");
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
-		gpio_direction_output(data->sensor_reset, 0);
+		gpio_direction_output(data->sensor_platform_info
+			->sensor_reset, 0);
 		usleep_range(5000, 6000);
-		gpio_set_value_cansleep(data->sensor_reset, 1);
+		gpio_set_value_cansleep(data->sensor_platform_info
+			->sensor_reset, 1);
 		usleep_range(5000, 6000);
 	} else {
 		CDBG("gpio reset fail");
@@ -1099,9 +1102,11 @@ static int32_t imx074_poweron_af(void)
 	int32_t rc = 0;
 	CDBG("imx074 enable AF actuator, gpio = %d\n",
 			imx074_ctrl->sensordata->vcm_pwd);
-	rc = gpio_request(imx074_ctrl->sensordata->vcm_pwd, "imx074");
+	rc = gpio_request(imx074_ctrl->sensordata->sensor_platform_info
+		->vcm_pwd, "imx074");
 	if (!rc) {
-		gpio_direction_output(imx074_ctrl->sensordata->vcm_pwd, 1);
+		gpio_direction_output(imx074_ctrl->sensordata->
+			sensor_platform_info->vcm_pwd, 1);
 		msleep(20);
 		rc = imx074_af_init();
 		if (rc < 0)
@@ -1113,8 +1118,9 @@ static int32_t imx074_poweron_af(void)
 }
 static void imx074_poweroff_af(void)
 {
-	gpio_set_value_cansleep(imx074_ctrl->sensordata->vcm_pwd, 0);
-	gpio_free(imx074_ctrl->sensordata->vcm_pwd);
+	gpio_set_value_cansleep(imx074_ctrl->sensordata->sensor_platform_info
+		->vcm_pwd, 0);
+	gpio_free(imx074_ctrl->sensordata->sensor_platform_info->vcm_pwd);
 }
 /* camsensor_iu060f_imx074_reset */
 int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
@@ -1359,10 +1365,12 @@ static int imx074_sensor_release(void)
 	if (machine_is_msm8x60_fluid())
 		imx074_poweroff_af();
 	imx074_power_down();
-	gpio_set_value_cansleep(imx074_ctrl->sensordata->sensor_reset, 0);
+	gpio_set_value_cansleep(imx074_ctrl->sensordata->sensor_platform_info
+		->sensor_reset, 0);
 	usleep_range(5000, 6000);
-	gpio_direction_input(imx074_ctrl->sensordata->sensor_reset);
-	gpio_free(imx074_ctrl->sensordata->sensor_reset);
+	gpio_direction_input(imx074_ctrl->sensordata->sensor_platform_info
+		->sensor_reset);
+	gpio_free(imx074_ctrl->sensordata->sensor_platform_info->sensor_reset);
 	CDBG("imx074_release completed\n");
 	mutex_unlock(&imx074_mut);
 
@@ -1385,7 +1393,7 @@ static int imx074_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = imx074_sensor_open_init;
 	s->s_release = imx074_sensor_release;
 	s->s_config  = imx074_sensor_config;
-	s->s_camera_type = BACK_CAMERA_2D;
+	s->s_camera_type = info->camera_type;
 	s->s_mount_angle = info->sensor_platform_info->mount_angle;
 	imx074_probe_init_done(info);
 	return rc;

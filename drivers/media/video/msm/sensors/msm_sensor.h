@@ -157,7 +157,6 @@ struct msm_sensor_ctrl_t {
 	enum msm_sensor_resolution_t pict_res;
 	enum msm_sensor_resolution_t curr_res;
 	enum msm_sensor_cam_mode_t cam_mode;
-	enum msm_camera_type camera_type;
 
 	struct mutex *msm_sensor_mutex;
 	struct msm_camera_csi2_params *curr_csi_params;

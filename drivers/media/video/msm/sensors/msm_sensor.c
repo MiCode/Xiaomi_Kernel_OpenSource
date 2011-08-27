@@ -576,12 +576,15 @@ int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data)
 	int32_t rc = 0;
 	CDBG("%s: %d\n", __func__, __LINE__);
 	msm_camio_clk_rate_set(MSM_SENSOR_MCLK_24HZ);
-	rc = gpio_request(data->sensor_reset, "SENSOR_NAME");
+	rc = gpio_request(data->sensor_platform_info->sensor_reset,
+		"SENSOR_NAME");
 	if (!rc) {
 		CDBG("%s: reset sensor\n", __func__);
-		gpio_direction_output(data->sensor_reset, 0);
+		gpio_direction_output(data->sensor_platform_info->sensor_reset,
+			 0);
 		usleep_range(1000, 2000);
-		gpio_set_value_cansleep(data->sensor_reset, 1);
+		gpio_set_value_cansleep(data->sensor_platform_info->
+			sensor_reset, 1);
 		usleep_range(1000, 2000);
 	} else {
 		CDBG("%s: gpio request fail", __func__);
@@ -592,9 +595,9 @@ int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data)
 int32_t msm_sensor_power_down(const struct msm_camera_sensor_info *data)
 {
 	CDBG("%s\n", __func__);
-	gpio_set_value_cansleep(data->sensor_reset, 0);
+	gpio_set_value_cansleep(data->sensor_platform_info->sensor_reset, 0);
 	usleep_range(1000, 2000);
-	gpio_free(data->sensor_reset);
+	gpio_free(data->sensor_platform_info->sensor_reset);
 	return 0;
 }
 
@@ -707,7 +710,7 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 	s->s_init = s_ctrl->func_tbl->sensor_open_init;
 	s->s_release = s_ctrl->func_tbl->sensor_release;
 	s->s_config  = s_ctrl->func_tbl->sensor_config;
-	s->s_camera_type = s_ctrl->camera_type;
+	s->s_camera_type = info->camera_type;
 	if (info->sensor_platform_info != NULL)
 		s->s_mount_angle = info->sensor_platform_info->mount_angle;
 	else
