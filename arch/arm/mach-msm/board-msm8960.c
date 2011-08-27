@@ -3614,6 +3614,7 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 #define I2C_RUMI (1 << 2)
 #define I2C_SIM  (1 << 3)
 #define I2C_FLUID (1 << 4)
+#define I2C_LIQUID (1 << 5)
 
 struct i2c_registry {
 	u8                     machs;
@@ -3666,7 +3667,7 @@ static void __init msm8960_init_dsps(void)
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_MSM_CAMERA
 	{
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_RUMI,
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
 		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
 		msm_camera_boardinfo,
 		ARRAY_SIZE(msm_camera_boardinfo),
@@ -3696,6 +3697,8 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_SIM;
 	else if (machine_is_msm8960_fluid())
 		mach_mask = I2C_FLUID;
+	else if (machine_is_msm8960_liquid())
+		mach_mask = I2C_LIQUID;
 	else if (machine_is_msm8960_mtp())
 		mach_mask = I2C_FFA;
 	else
