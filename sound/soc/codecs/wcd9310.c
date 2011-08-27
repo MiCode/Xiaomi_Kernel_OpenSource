@@ -760,8 +760,7 @@ static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 			anc_size_remaining -= (anc_writes_size *
 				TABLA_PACKED_REG_SIZE);
-			anc_ptr += (anc_writes_size *
-				TABLA_PACKED_REG_SIZE);
+			anc_ptr += anc_writes_size;
 		}
 		if (i == num_anc_slots) {
 			dev_err(codec->dev, "Selected ANC slot not present\n");
