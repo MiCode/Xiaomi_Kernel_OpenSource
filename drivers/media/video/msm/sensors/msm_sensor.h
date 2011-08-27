@@ -24,6 +24,7 @@
 #include <media/v4l2-subdev.h>
 #include "msm.h"
 #include "msm_camera_i2c.h"
+#include "msm_camera_eeprom.h"
 #define Q8  0x00000100
 #define Q10 0x00000400
 
@@ -140,6 +141,8 @@ struct msm_sensor_ctrl_t {
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	uint16_t sensor_i2c_addr;
 
+	struct msm_camera_eeprom_client *sensor_eeprom_client;
+
 	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
 	struct msm_sensor_id_info_t *sensor_id_info;
 	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;
@@ -160,7 +163,6 @@ struct msm_sensor_ctrl_t {
 	struct msm_camera_csi2_params *curr_csi_params;
 	struct msm_camera_csi2_params **csi_params;
 
-	/*To Do: Changing v4l2_subdev to a pointer according to yupeng*/
 	struct v4l2_subdev *sensor_v4l2_subdev;
 	struct v4l2_subdev_info *sensor_v4l2_subdev_info;
 	uint8_t sensor_v4l2_subdev_info_size;

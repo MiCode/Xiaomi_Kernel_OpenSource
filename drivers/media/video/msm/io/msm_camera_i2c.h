@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+#ifndef MSM_CAMERA_I2C_H
+#define MSM_CAMERA_I2C_H
+
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <mach/camera.h>
@@ -88,4 +91,4 @@ int32_t msm_sensor_write_conf_array(struct msm_camera_i2c_client *client,
 
 int32_t msm_sensor_write_all_conf_array(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_conf_array *array, uint16_t size);
-
+#endif

@@ -636,7 +636,8 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_3D_CALI_DATA 30
 #define CFG_GET_CALIB_DATA		31
 #define CFG_GET_OUTPUT_INFO		32
-#define CFG_MAX			33
+#define CFG_GET_EEPROM_DATA		33
+#define CFG_MAX			34
 
 
 #define MOVE_NEAR	0
@@ -768,6 +769,11 @@ struct sensor_output_info_t {
 	uint16_t num_info;
 };
 
+struct sensor_eeprom_data_t {
+	void *eeprom_data;
+	uint16_t index;
+};
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -792,6 +798,7 @@ struct sensor_cfg_data {
 		struct sensor_3d_exp_cfg sensor_3d_exp;
 		struct sensor_calib_data calib_info;
 		struct sensor_output_info_t output_info;
+		struct sensor_eeprom_data_t eeprom_data;
 	} cfg;
 };
 

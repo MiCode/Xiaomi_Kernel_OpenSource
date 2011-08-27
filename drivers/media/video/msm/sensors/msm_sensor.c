@@ -541,7 +541,24 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				&cdata,
 				sizeof(struct sensor_cfg_data)))
 				rc = -EFAULT;
+			break;
 
+		case CFG_GET_EEPROM_DATA:
+			if (s_ctrl->sensor_eeprom_client == NULL ||
+				s_ctrl->sensor_eeprom_client->
+				func_tbl.eeprom_get_data == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->sensor_eeprom_client->
+				func_tbl.eeprom_get_data(
+				s_ctrl->sensor_eeprom_client,
+				&cdata.cfg.eeprom_data);
+
+			if (copy_to_user((void *)argp,
+				&cdata,
+				sizeof(struct sensor_eeprom_data_t)))
+				rc = -EFAULT;
 			break;
 
 		default:
@@ -665,9 +682,27 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 		goto probe_fail;
 
 	rc = msm_sensor_match_id(s_ctrl);
-	s_ctrl->func_tbl->sensor_power_down(info);
 	if (rc < 0)
 		goto probe_fail;
+
+	if (s_ctrl->sensor_eeprom_client != NULL) {
+		struct msm_camera_eeprom_client *eeprom_client =
+			s_ctrl->sensor_eeprom_client;
+		if (eeprom_client->func_tbl.eeprom_init != NULL &&
+			eeprom_client->func_tbl.eeprom_release != NULL) {
+			rc = eeprom_client->func_tbl.eeprom_init(
+				eeprom_client,
+				s_ctrl->sensor_i2c_client->client->adapter);
+			if (rc < 0)
+				goto probe_fail;
+
+			rc = msm_camera_eeprom_read_tbl(eeprom_client,
+			eeprom_client->read_tbl, eeprom_client->read_tbl_size);
+			eeprom_client->func_tbl.eeprom_release(eeprom_client);
+			if (rc < 0)
+				goto probe_fail;
+		}
+	}
 
 	s->s_init = s_ctrl->func_tbl->sensor_open_init;
 	s->s_release = s_ctrl->func_tbl->sensor_release;
@@ -678,9 +713,11 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 	else
 		s->s_mount_angle = 0;
 
-	return rc;
+	goto power_down;
 probe_fail:
 	i2c_del_driver(s_ctrl->sensor_i2c_driver);
+power_down:
+	s_ctrl->func_tbl->sensor_power_down(info);
 	return rc;
 }
 
