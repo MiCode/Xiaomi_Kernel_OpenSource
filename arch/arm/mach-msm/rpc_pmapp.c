@@ -26,6 +26,7 @@
 #define PMAPP_RPC_VER_3_1		0x00030001
 #define PMAPP_RPC_VER_5_1		0x00050001
 #define PMAPP_RPC_VER_6_1		0x00060001
+#define PMAPP_RPC_VER_7_1		0x00070001
 
 #define VBUS_SESS_VALID_CB_PROC			1
 #define PM_VOTE_USB_PWR_SEL_SWITCH_APP__HSUSB 	(1 << 2)
@@ -41,6 +42,7 @@
 #define PMAPP_VREG_PINCNTRL_VOTE_PROC		30
 #define PMAPP_DISP_BACKLIGHT_SET_PROC		31
 #define PMAPP_DISP_BACKLIGHT_INIT_PROC		32
+#define PMAPP_VREG_LPM_PINCNTRL_VOTE_PROC	34
 
 /* Clock voter name max length */
 #define PMAPP_CLOCK_VOTER_ID_LEN		4
@@ -55,6 +57,7 @@ static struct msm_rpc_client *client;
 
 /* Add newer versions at the top of array */
 static const unsigned int rpc_vers[] = {
+	PMAPP_RPC_VER_7_1,
 	PMAPP_RPC_VER_6_1,
 	PMAPP_RPC_VER_5_1,
 	PMAPP_RPC_VER_3_1,
@@ -558,3 +561,16 @@ void pmapp_disp_backlight_init(void)
 	pmapp_rpc_set_only(0, 0, 0, 0, 0, PMAPP_DISP_BACKLIGHT_INIT_PROC);
 }
 EXPORT_SYMBOL(pmapp_disp_backlight_init);
+
+int pmapp_vreg_lpm_pincntrl_vote(const char *voter_id, uint vreg_id,
+						uint clock_id, uint vote)
+{
+	if (strnlen(voter_id, PMAPP_CLOCK_VOTER_ID_LEN)
+			 != PMAPP_CLOCK_VOTER_ID_LEN)
+		return -EINVAL;
+
+	return pmapp_rpc_set_only(*((uint *) voter_id), vreg_id, clock_id,
+					vote, 4,
+					PMAPP_VREG_LPM_PINCNTRL_VOTE_PROC);
+}
+EXPORT_SYMBOL(pmapp_vreg_lpm_pincntrl_vote);
