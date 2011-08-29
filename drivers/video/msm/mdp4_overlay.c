@@ -2059,29 +2059,31 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	}
 
 
-	new_perf_level = perf_level;
+	if (new_perf_level != perf_level) {
+		new_perf_level = perf_level;
 
-	/* change clck base on perf level */
-	flags = pipe->flags;
-	pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
-	if (pipe->mixer_num == MDP4_MIXER0) {
-		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
-			mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
-		} else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
-			mdp4_dsi_cmd_dma_busy_wait(mfd);
-			mdp4_dsi_blt_dmap_busy_wait(mfd);
-			mdp4_set_perf_level();
-		} else if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
-			mdp4_overlay_lcdc_vsync_push(mfd, pipe);
-		} else if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
-			mdp4_mddi_dma_busy_wait(mfd);
-			mdp4_set_perf_level();
+		/* change clck base on perf level */
+		flags = pipe->flags;
+		pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
+		if (pipe->mixer_num == MDP4_MIXER0) {
+			if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
+				mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
+			} else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
+				mdp4_dsi_cmd_dma_busy_wait(mfd);
+				mdp4_dsi_blt_dmap_busy_wait(mfd);
+				mdp4_set_perf_level();
+			} else if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
+				mdp4_overlay_lcdc_vsync_push(mfd, pipe);
+			} else if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
+				mdp4_mddi_dma_busy_wait(mfd);
+				mdp4_set_perf_level();
+			}
+		} else {
+			if (ctrl->panel_mode & MDP4_PANEL_DTV)
+				mdp4_overlay_dtv_vsync_push(mfd, pipe);
 		}
-	} else {
-		if (ctrl->panel_mode & MDP4_PANEL_DTV)
-			mdp4_overlay_dtv_vsync_push(mfd, pipe);
+		pipe->flags = flags;
 	}
-	pipe->flags = flags;
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
