@@ -50,6 +50,7 @@
 struct pm8018 {
 	struct device			*dev;
 	struct pm_irq_chip		*irq_chip;
+	struct mfd_cell			*mfd_regulators;
 	u32				rev_registers;
 };
 
@@ -204,6 +205,8 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 {
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
+	static struct mfd_cell *mfd_regulators;
+	int i;
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8018_NR_IRQS;
@@ -418,6 +421,7 @@ static int __devexit pm8018_remove(struct platform_device *pdev)
 		pmic->irq_chip = NULL;
 	}
 	platform_set_drvdata(pdev, NULL);
+	kfree(pmic->mfd_regulators);
 	kfree(pmic);
 
 	return 0;
