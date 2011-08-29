@@ -642,17 +642,28 @@ static int bluetooth_switch_regulators(int on)
 					__func__, rc);
 			goto vreg_set_level_fail;
 		}
+		rc = on ? vreg_enable(bt_vregs[i].vregs) : 0;
+
+		if (rc < 0) {
+			pr_err("%s: vreg %s %s failed(%d)\n",
+					__func__, bt_vregs[i].name,
+					on ? "enable" : "disable", rc);
+			goto vreg_fail;
+		}
 		if (bt_vregs[i].is_pin_controlled == 1) {
-			rc = pmapp_vreg_pincntrl_vote(id,
+			rc = pmapp_vreg_lpm_pincntrl_vote(id,
 					bt_vregs[i].pmapp_id,
 					PMAPP_CLOCK_ID_D1,
 					on ? PMAPP_CLOCK_VOTE_ON :
 					PMAPP_CLOCK_VOTE_OFF);
-		} else {
-		rc = on ? vreg_enable(bt_vregs[i].vregs) :
-			  vreg_disable(bt_vregs[i].vregs);
+			if (rc < 0) {
+				pr_err("%s: vreg %s pin ctrl failed(%d)\n",
+						__func__, bt_vregs[i].name,
+						rc);
+				goto pincntrl_fail;
+			}
 		}
-
+		rc = on ? 0 : vreg_disable(bt_vregs[i].vregs);
 		if (rc < 0) {
 			pr_err("%s: vreg %s %s failed(%d)\n",
 					__func__, bt_vregs[i].name,
@@ -662,7 +673,9 @@ static int bluetooth_switch_regulators(int on)
 	}
 
 	return rc;
-
+pincntrl_fail:
+	if (on)
+		vreg_disable(bt_vregs[i].vregs);
 vreg_fail:
 	while (i) {
 		if (on)
