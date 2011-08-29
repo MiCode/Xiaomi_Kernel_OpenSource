@@ -159,10 +159,45 @@ static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
 #endif /* CONFIG_MMC_MSM_SPS_SUPPORT */
 
 /**
+ * Apply soft reset to all SDCC BAM pipes
+ *
+ * This function applies soft reset to SDCC BAM pipe.
+ *
+ * This function should be called to recover from error
+ * conditions encountered during CMD/DATA tranfsers with card.
+ *
+ * @host - Pointer to driver's host structure
+ *
+ */
+static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
+{
+	int rc;
+
+	/* Reset all SDCC BAM pipes */
+	rc = msmsdcc_sps_reset_ep(host, &host->sps.prod);
+	if (rc)
+		pr_err("%s:msmsdcc_sps_reset_ep(prod) error=%d\n",
+				mmc_hostname(host->mmc), rc);
+	rc = msmsdcc_sps_reset_ep(host, &host->sps.cons);
+	if (rc)
+		pr_err("%s:msmsdcc_sps_reset_ep(cons) error=%d\n",
+				mmc_hostname(host->mmc), rc);
+
+	/* Restore all BAM pipes connections */
+	rc = msmsdcc_sps_restore_ep(host, &host->sps.prod);
+	if (rc)
+		pr_err("%s:msmsdcc_sps_restore_ep(prod) error=%d\n",
+				mmc_hostname(host->mmc), rc);
+	rc = msmsdcc_sps_restore_ep(host, &host->sps.cons);
+	if (rc)
+		pr_err("%s:msmsdcc_sps_restore_ep(cons) error=%d\n",
+				mmc_hostname(host->mmc), rc);
+}
+
+/**
  * Apply soft reset
  *
- * This function applies soft reset to SDCC core and
- * BAM, DML core.
+ * This function applies soft reset to SDCC core and DML core.
  *
  * This function should be called to recover from error
  * conditions encountered with CMD/DATA tranfsers with card.
@@ -174,20 +209,15 @@ static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
  */
 static void msmsdcc_soft_reset_and_restore(struct msmsdcc_host *host)
 {
-	int rc;
-
 	if (host->is_sps_mode) {
 		/* Reset DML first */
 		msmsdcc_dml_reset(host);
-		/* Now reset all BAM pipes connections */
-		rc = msmsdcc_sps_reset_ep(host, &host->sps.prod);
-		if (rc)
-			pr_err("%s:msmsdcc_sps_reset_ep() error=%d\n",
-					mmc_hostname(host->mmc), rc);
-		rc = msmsdcc_sps_reset_ep(host, &host->sps.cons);
-		if (rc)
-			pr_err("%s:msmsdcc_sps_reset_ep() error=%d\n",
-					mmc_hostname(host->mmc), rc);
+		/*
+		 * delay the SPS pipe reset in thread context as
+		 * sps_connect/sps_disconnect APIs can be called
+		 * only from non-atomic context.
+		 */
+		host->sps.pipe_reset_pending = true;
 	}
 	/*
 	 * Reset SDCC controller's DPSM (data path state machine
@@ -201,18 +231,8 @@ static void msmsdcc_soft_reset_and_restore(struct msmsdcc_host *host)
 	pr_debug("%s: Applied soft reset to Controller\n",
 			mmc_hostname(host->mmc));
 
-	if (host->is_sps_mode) {
-		/* Restore all BAM pipes connections */
-		rc = msmsdcc_sps_restore_ep(host, &host->sps.prod);
-		if (rc)
-			pr_err("%s:msmsdcc_sps_restore_ep() error=%d\n",
-					mmc_hostname(host->mmc), rc);
-		rc = msmsdcc_sps_restore_ep(host, &host->sps.cons);
-		if (rc)
-			pr_err("%s:msmsdcc_sps_restore_ep() error=%d\n",
-					mmc_hostname(host->mmc), rc);
+	if (host->is_sps_mode)
 		msmsdcc_dml_init(host);
-	}
 }
 
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
@@ -1536,6 +1556,12 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	WARN(host->dummy_52_sent, "Dummy CMD52 in progress\n");
 	if (host->plat->is_sdio_al_client)
 		msmsdcc_sdio_al_lpm(mmc, false);
+
+	/* check if sps pipe reset is pending? */
+	if (host->is_sps_mode && host->sps.pipe_reset_pending) {
+		msmsdcc_sps_pipes_reset_and_restore(host);
+		host->sps.pipe_reset_pending = false;
+	}
 
 	spin_lock_irqsave(&host->lock, flags);
 	WARN(host->curr.mrq, "Request in progress\n");

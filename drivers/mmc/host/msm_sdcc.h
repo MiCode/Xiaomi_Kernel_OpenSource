@@ -280,8 +280,8 @@ struct msmsdcc_sps_data {
 	unsigned int			dest_pipe_index;
 	unsigned int			busy;
 	unsigned int			xfer_req_cnt;
+	bool				pipe_reset_pending;
 	struct tasklet_struct		tlet;
-
 };
 
 struct msmsdcc_host {
