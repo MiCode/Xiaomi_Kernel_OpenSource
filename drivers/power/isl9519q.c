@@ -50,6 +50,8 @@ struct isl9519q_struct {
 	int				valid_n_gpio;
 	struct dentry			*dent;
 	struct msm_hardware_charger	adapter_hw_chg;
+	int				suspended;
+	int				charge_at_resume;
 };
 
 static int isl9519q_read_reg(struct i2c_client *client, int reg,
@@ -192,6 +194,11 @@ static int isl9519q_start_charging(struct msm_hardware_charger *hw_chg,
 		/* we are already charging */
 		return 0;
 
+	if (isl_chg->suspended) {
+		isl_chg->charge_at_resume = 1;
+		return 0;
+	}
+
 	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 
 	ret = isl9519q_write_reg(isl_chg->client, CHG_CURRENT_REG,
@@ -221,6 +228,11 @@ static int isl9519q_stop_charging(struct msm_hardware_charger *hw_chg)
 	if (!(isl_chg->charging))
 		/* we arent charging */
 		return 0;
+
+	if (isl_chg->suspended) {
+		isl_chg->charge_at_resume = 0;
+		return 0;
+	}
 
 	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 
@@ -468,6 +480,8 @@ static int isl9519q_suspend(struct device *dev)
 	 */
 	if (isl_chg->charging)
 		return -EBUSY;
+
+	isl_chg->suspended  = 1;
 	return 0;
 }
 
@@ -476,6 +490,11 @@ static int isl9519q_resume(struct device *dev)
 	struct isl9519q_struct *isl_chg = dev_get_drvdata(dev);
 
 	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
+	isl_chg->suspended  = 0;
+	if (isl_chg->charge_at_resume) {
+		isl_chg->charge_at_resume = 0;
+		isl9519q_start_charging(&isl_chg->adapter_hw_chg, 0, 0);
+	}
 	return 0;
 }
 
