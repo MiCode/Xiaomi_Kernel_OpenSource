@@ -170,6 +170,12 @@ static int sdio_tty_write_room(struct tty_struct *tty)
 		return -ENODEV;
 	}
 
+	if (sdio_tty_drv->sdio_tty_state != TTY_OPENED) {
+		pr_err(SDIO_TTY_MODULE_NAME ": %s: sdio_tty_state = %d",
+		       __func__, sdio_tty_drv->sdio_tty_state);
+		return -EPERM;
+	}
+
 	write_avail = sdio_write_avail(sdio_tty_drv->ch);
 	DEBUG_MSG(sdio_tty_drv,
 		  SDIO_TTY_MODULE_NAME ": %s: write_avail=%d",
