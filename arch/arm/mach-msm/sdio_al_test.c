@@ -222,6 +222,30 @@ struct sdio_al_test_debug {
 	struct dentry *debug_test_result;
 	struct dentry *debug_dun_throughput;
 	struct dentry *debug_rmnt_throughput;
+	struct dentry *rpc_sender_test;
+	struct dentry *rpc_qmi_diag_sender_test;
+	struct dentry *smem_test;
+	struct dentry *smem_rpc_test;
+	struct dentry *rmnet_a2_perf_test;
+	struct dentry *dun_a2_perf_test;
+	struct dentry *rmnet_dun_a2_perf_test;
+	struct dentry *rpc_sender_rmnet_a2_perf_test;
+	struct dentry *all_channels_test;
+	struct dentry *host_sender_no_lp_diag_test;
+	struct dentry *host_sender_no_lp_diag_rpc_ciq_test;
+	struct dentry *rmnet_small_packets_test;
+	struct dentry *rmnet_rtt_test;
+	struct dentry *modem_reset_rpc_test;
+	struct dentry *modem_reset_rmnet_test;
+	struct dentry *modem_reset_channels_4bit_dev_test;
+	struct dentry *modem_reset_channels_8bit_dev_test;
+	struct dentry *modem_reset_all_channels_test;
+	struct dentry *open_close_diag_ciq_rpc_test;
+	struct dentry *close_chan_lpm_test;
+	struct dentry *lpm_test_client_wakes_host_test;
+	struct dentry *lpm_test_host_wakes_client_test;
+	struct dentry *lpm_test_random_single_channel_test;
+	struct dentry *lpm_test_random_multi_channel_test;
 };
 
 struct test_context {
@@ -262,6 +286,22 @@ struct test_context {
 	unsigned int lpm_pseudo_random_seed;
 };
 
+/* FORWARD DECLARATIONS */
+static int set_params_loopback_9k(struct test_channel *tch);
+static int set_params_smem_test(struct test_channel *tch);
+static int set_params_a2_perf(struct test_channel *tch);
+static int set_params_8k_sender_no_lp(struct test_channel *tch);
+static int set_params_a2_small_pkts(struct test_channel *tch);
+static int set_params_rtt(struct test_channel *tch);
+static int set_params_loopback_9k_close(struct test_channel *tch);
+static int close_channel_lpm_test(void);
+static int set_params_lpm_test(struct test_channel *tch,
+				enum sdio_test_case_type test,
+				int timer_interval_ms);
+static void set_pseudo_random_seed(void);
+static int set_params_modem_reset(struct test_channel *tch);
+static int test_start(void);
+
 /*
  * Seed for pseudo random time sleeping in Random LPM test.
  * If not set, current time in jiffies is used.
@@ -270,19 +310,1650 @@ static unsigned int seed;
 module_param(seed, int, 0);
 static struct test_context *test_ctx;
 
+static void sdio_al_test_initial_dev_and_chan(struct test_context *test_ctx)
+{
+	 int i = 0;
+
+	 for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
+		test_ctx->test_dev_arr[i].sdio_al_device = NULL;
+
+	 for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
+		struct test_channel *tch = test_ctx->test_ch_arr[i];
+		if (!tch)
+			continue;
+		tch->is_used = 0;
+	}
+}
+
 #ifdef CONFIG_DEBUG_FS
-/*
-*
-* Trigger on/off for debug messages
-* for trigger off the data messages debug level use:
-* echo 0 > /sys/kernel/debugfs/sdio_al/debug_data_on
-* for trigger on the data messages debug level use:
-* echo 1 > /sys/kernel/debugfs/sdio_al/debug_data_on
-* for trigger off the lpm messages debug level use:
-* echo 0 > /sys/kernel/debugfs/sdio_al/debug_lpm_on
-* for trigger on the lpm messages debug level use:
-* echo 1 > /sys/kernel/debugfs/sdio_al/debug_lpm_on
-*/
+
+static int message_repeat;
+
+static int sdio_al_test_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	message_repeat = 1;
+	return 0;
+}
+
+/* RPC SENDER TEST */
+static ssize_t rpc_sender_test_write(struct file *file,
+				      const char __user *buf,
+				      size_t count,
+				      loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RPC SENDER TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rpc_sender_test_read(struct file *file,
+				     char __user *buffer,
+				     size_t count,
+				     loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRPC_SENDER_TEST\n"
+		 "===============\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rpc_sender_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rpc_sender_test_write,
+	.read = rpc_sender_test_read,
+};
+
+/* RPC, QMI & DIAG SENDER TEST */
+static ssize_t rpc_qmi_diag_sender_test_write(struct file *file,
+					       const char __user *buf,
+					       size_t count,
+					       loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RPC, QMI AND DIAG SENDER TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_QMI]);
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_DIAG]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rpc_qmi_diag_sender_test_read(struct file *file,
+					      char __user
+					      *buffer, size_t count,
+					      loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRPC_QMI_DIAG_SENDER_TEST\n"
+		 "========================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rpc_qmi_diag_sender_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rpc_qmi_diag_sender_test_write,
+	.read = rpc_qmi_diag_sender_test_read,
+};
+
+/* SMEM TEST */
+static ssize_t smem_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- SMEM TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t smem_test_read(struct file *file,
+			       char __user *buffer,
+			       size_t count,
+			       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nSMEM_TEST\n"
+		 "=========\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations smem_test_ops = {
+	.open = sdio_al_test_open,
+	.write = smem_test_write,
+	.read = smem_test_read,
+};
+
+/* SMEM & RPC TEST */
+static ssize_t smem_rpc_test_write(struct file *file,
+				    const char __user *buf,
+				    size_t count,
+				    loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- SMEM AND RPC TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t smem_rpc_test_read(struct file *file,
+				   char __user *buffer,
+				   size_t count,
+				   loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nSMEM_RPC_TEST\n"
+		 "=============\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations smem_rpc_test_ops = {
+	.open = sdio_al_test_open,
+	.write = smem_rpc_test_write,
+	.read = smem_rpc_test_read,
+};
+
+/* RMNET A2 PERFORMANCE TEST */
+static ssize_t rmnet_a2_perf_test_write(struct file *file,
+					 const char __user *buf,
+					 size_t count,
+					 loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RMNET A2 PERFORMANCE TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rmnet_a2_perf_test_read(struct file *file,
+					char __user *buffer,
+					size_t count,
+					loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRMNET_A2_PERFORMANCE_TEST\n"
+		 "=========================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rmnet_a2_perf_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rmnet_a2_perf_test_write,
+	.read = rmnet_a2_perf_test_read,
+};
+
+/* DUN A2 PERFORMANCE TEST */
+static ssize_t dun_a2_perf_test_write(struct file *file,
+				       const char __user *buf,
+				       size_t count,
+				       loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- DUN A2 PERFORMANCE TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t dun_a2_perf_test_read(struct file *file,
+				      char __user *buffer,
+				      size_t count,
+				      loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nDUN_A2_PERFORMANCE_TEST\n"
+		 "=======================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations dun_a2_perf_test_ops = {
+	.open = sdio_al_test_open,
+	.write = dun_a2_perf_test_write,
+	.read = dun_a2_perf_test_read,
+};
+
+/* RMNET DUN A2 PERFORMANCE TEST */
+static ssize_t rmnet_dun_a2_perf_test_write(struct file *file,
+					     const char __user *buf,
+					     size_t count,
+					     loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RMNET AND DUN A2 PERFORMANCE TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]);
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rmnet_dun_a2_perf_test_read(struct file *file,
+					    char __user *buffer,
+					    size_t count,
+					    loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRMNET_DUN_A2_PERFORMANCE_TEST\n"
+		 "=============================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rmnet_dun_a2_perf_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rmnet_dun_a2_perf_test_write,
+	.read = rmnet_dun_a2_perf_test_read,
+};
+
+/* RPC SENDER & RMNET A2 PERFORMANCE TEST */
+static ssize_t rpc_sender_rmnet_a2_perf_test_write(struct file *file,
+						    const char __user *buf,
+						    size_t count,
+						    loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "--RPC SENDER AND RMNET A2 "
+		"PERFORMANCE --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rpc_sender_rmnet_a2_perf_test_read(struct file *file,
+						   char __user *buffer,
+						   size_t count,
+						   loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRPC_SENDER_RMNET_A2_PERFORMANCE_TEST\n"
+		 "====================================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rpc_sender_rmnet_a2_perf_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rpc_sender_rmnet_a2_perf_test_write,
+	.read = rpc_sender_rmnet_a2_perf_test_read,
+};
+
+/* ALL CHANNELS TEST */
+static ssize_t all_channels_test_write(struct file *file,
+					const char __user *buf,
+					size_t count,
+					loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- ALL THE CHANNELS TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_QMI]);
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_DIAG]);
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]);
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]);
+		set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]);
+		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_CIQ]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t all_channels_test_read(struct file *file,
+				       char __user *buffer,
+				       size_t count,
+				       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nALL_CHANNELS_TEST\n"
+		 "=================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations all_channels_test_ops = {
+	.open = sdio_al_test_open,
+	.write = all_channels_test_write,
+	.read = all_channels_test_read,
+};
+
+/* HOST SENDER NO LP DIAG TEST */
+static ssize_t host_sender_no_lp_diag_test_write(struct file *file,
+						  const char __user *buf,
+						  size_t count,
+						  loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- HOST SENDER NO LP FOR DIAG TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_DIAG]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t host_sender_no_lp_diag_test_read(struct file *file,
+						 char __user *buffer,
+						 size_t count,
+						 loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nHOST_SENDER_NO_LP_DIAG_TEST\n"
+		 "===========================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations host_sender_no_lp_diag_test_ops = {
+	.open = sdio_al_test_open,
+	.write = host_sender_no_lp_diag_test_write,
+	.read = host_sender_no_lp_diag_test_read,
+};
+
+/* HOST SENDER NO LP DIAG, RPC, CIQ TEST */
+static ssize_t host_sender_no_lp_diag_rpc_ciq_test_write(
+						 struct file *file,
+						 const char __user *buf,
+						 size_t count,
+						 loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- HOST SENDER NO LP FOR DIAG, RPC, "
+		"CIQ TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_DIAG]);
+		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_CIQ]);
+		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_RPC]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t host_sender_no_lp_diag_rpc_ciq_test_read(
+						 struct file *file,
+						 char __user *buffer,
+						 size_t count,
+						 loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nHOST_SENDER_NO_LP_DIAG_RPC_CIQ_TEST\n"
+		 "===================================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations host_sender_no_lp_diag_rpc_ciq_test_ops = {
+	.open = sdio_al_test_open,
+	.write = host_sender_no_lp_diag_rpc_ciq_test_write,
+	.read = host_sender_no_lp_diag_rpc_ciq_test_read,
+};
+
+/* RMNET SMALL PACKETS TEST */
+static ssize_t rmnet_small_packets_test_write(struct file *file,
+					       const char __user *buf,
+					       size_t count,
+					       loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RMNET SMALL PACKETS (5-128) TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_small_pkts(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rmnet_small_packets_test_read(struct file *file,
+					      char __user *buffer,
+					      size_t count,
+					      loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRMNET_SMALL_PACKETS_TEST\n"
+		 "========================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rmnet_small_packets_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rmnet_small_packets_test_write,
+	.read = rmnet_small_packets_test_read,
+};
+
+/* RMNET RTT TEST */
+static ssize_t rmnet_rtt_test_write(struct file *file,
+				     const char __user *buf,
+				     size_t count,
+				     loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RMNET RTT TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_rtt(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rmnet_rtt_test_read(struct file *file,
+				    char __user *buffer,
+				    size_t count,
+				    loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRMNET_RTT_TEST\n"
+		 "==============\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rmnet_rtt_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rmnet_rtt_test_write,
+	.read = rmnet_rtt_test_read,
+};
+
+/* MODEM RESET RPC TEST */
+static ssize_t modem_reset_rpc_test_write(struct file *file,
+					   const char __user *buf,
+					   size_t count,
+					   loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- MODEM RESET - RPC CHANNEL TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t modem_reset_rpc_test_read(struct file *file,
+					  char __user *buffer,
+					  size_t count,
+					  loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nMODEM_RESET_RPC_TEST\n"
+		 "====================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations modem_reset_rpc_test_ops = {
+	.open = sdio_al_test_open,
+	.write = modem_reset_rpc_test_write,
+	.read = modem_reset_rpc_test_read,
+};
+
+/* MODEM RESET RMNET TEST */
+static ssize_t modem_reset_rmnet_test_write(struct file *file,
+					     const char __user *buf,
+					     size_t count,
+					     loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- MODEM RESET - RMNT CHANNEL TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t modem_reset_rmnet_test_read(struct file *file,
+					    char __user *buffer,
+					    size_t count,
+					    loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nMODEM_RESET_RMNET_TEST\n"
+		 "======================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations modem_reset_rmnet_test_ops = {
+	.open = sdio_al_test_open,
+	.write = modem_reset_rmnet_test_write,
+	.read = modem_reset_rmnet_test_read,
+};
+
+/* MODEM RESET - CHANNELS IN 4BIT DEVICE TEST */
+static ssize_t modem_reset_channels_4bit_dev_test_write(
+						struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS IN "
+		"4BIT DEVICE TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t modem_reset_channels_4bit_dev_test_read(
+						struct file *file,
+						char __user *buffer,
+						size_t count,
+						loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nMODEM_RESET_CHANNELS_4BIT_DEV_TEST\n"
+		 "==================================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations modem_reset_channels_4bit_dev_test_ops = {
+	.open = sdio_al_test_open,
+	.write = modem_reset_channels_4bit_dev_test_write,
+	.read = modem_reset_channels_4bit_dev_test_read,
+};
+
+/* MODEM RESET - CHANNELS IN 8BIT DEVICE TEST */
+static ssize_t modem_reset_channels_8bit_dev_test_write(
+						struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS IN "
+		"8BIT DEVICE TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t modem_reset_channels_8bit_dev_test_read(
+						struct file *file,
+						char __user *buffer,
+						size_t count,
+						loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nMODEM_RESET_CHANNELS_8BIT_DEV_TEST\n"
+		 "==================================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations modem_reset_channels_8bit_dev_test_ops = {
+	.open = sdio_al_test_open,
+	.write = modem_reset_channels_8bit_dev_test_write,
+	.read = modem_reset_channels_8bit_dev_test_read,
+};
+
+/* MODEM RESET - ALL CHANNELS TEST */
+static ssize_t modem_reset_all_channels_test_write(struct file *file,
+						    const char __user *buf,
+						    size_t count,
+						    loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]);
+		set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t modem_reset_all_channels_test_read(struct file *file,
+						   char __user *buffer,
+						   size_t count,
+						   loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nMODEM_RESET_ALL_CHANNELS_TEST\n"
+		 "=============================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations modem_reset_all_channels_test_ops = {
+	.open = sdio_al_test_open,
+	.write = modem_reset_all_channels_test_write,
+	.read = modem_reset_all_channels_test_read,
+};
+
+/* HOST SENDER WITH OPEN/CLOSE FOR DIAG, CIQ & RPC TEST */
+static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
+						   const char __user *buf,
+						   size_t count,
+						   loff_t *ppos)
+{
+	int ret = 0;
+	struct test_channel **ch_arr = test_ctx->test_ch_arr;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE FOR "
+		"DIAG, CIQ AND RPC TEST --");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k_close(ch_arr[SDIO_DIAG]);
+		set_params_loopback_9k_close(ch_arr[SDIO_CIQ]);
+		set_params_loopback_9k_close(ch_arr[SDIO_RPC]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+
+		pr_info(TEST_MODULE_NAME " -- correctness test for"
+				"DIAG, CIQ and RPC ");
+		set_params_loopback_9k(ch_arr[SDIO_DIAG]);
+		set_params_loopback_9k(ch_arr[SDIO_CIQ]);
+		set_params_loopback_9k(ch_arr[SDIO_RPC]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t open_close_diag_ciq_rpc_test_read(struct file *file,
+						  char __user *buffer,
+						  size_t count,
+						  loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nOPEN_CLOSE_DIAG_CIQ_RPC_TEST\n"
+		 "============================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations open_close_diag_ciq_rpc_test_ops = {
+	.open = sdio_al_test_open,
+	.write = open_close_diag_ciq_rpc_test_write,
+	.read = open_close_diag_ciq_rpc_test_read,
+};
+
+/* CLOSE CHANNEL & LPM TEST HOST WAKES THE CLIENT TEST */
+static ssize_t close_chan_lpm_test_write(struct file *file,
+					  const char __user *buf,
+					  size_t count,
+					  loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- CLOSE CHANNEL & LPM TEST "
+		"HOST WAKES THE CLIENT TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		ret = close_channel_lpm_test();
+
+		if (ret) {
+			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
+			       "FAILED: %d --\n", ret);
+		} else {
+			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
+			       "PASSED\n");
+		}
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t close_chan_lpm_test_read(struct file *file,
+					 char __user *buffer,
+					 size_t count,
+					 loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nCLOSE_CHAN_LPM_TEST\n"
+		 "===================\n"
+		 "Description:\n"
+		 "TBD\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations close_chan_lpm_test_ops = {
+	.open = sdio_al_test_open,
+	.write = close_chan_lpm_test_write,
+	.read = close_chan_lpm_test_read,
+};
+
+/* LPM TEST FOR DEVICE 1. CLIENT WAKES THE HOST TEST */
+static ssize_t lpm_test_client_wakes_host_test_write(struct file *file,
+						      const char __user *buf,
+						      size_t count,
+						      loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- LPM TEST FOR DEVICE 1. CLIENT "
+		"WAKES THE HOST TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
+				    SDIO_TEST_LPM_CLIENT_WAKER, 90);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t lpm_test_client_wakes_host_test_read(struct file *file,
+						     char __user *buffer,
+						     size_t count,
+						     loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nLPM_TEST_CLIENT_WAKES_HOST_TEST\n"
+		 "===============================\n"
+		 "Description:\n"
+		 "In this test, the HOST is going into LPM mode,\n"
+		 "and the CLIENT is responsible to send it a message\n"
+		 "in order to wake it up\n\n"
+		 "END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations lpm_test_client_wakes_host_test_ops = {
+	.open = sdio_al_test_open,
+	.write = lpm_test_client_wakes_host_test_write,
+	.read = lpm_test_client_wakes_host_test_read,
+};
+
+/* LPM TEST FOR DEVICE 1. HOST WAKES THE CLIENT TEST */
+static ssize_t lpm_test_host_wakes_client_test_write(struct file *file,
+						      const char __user *buf,
+						      size_t count,
+						      loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- LPM TEST FOR DEVICE 1. HOST "
+		"WAKES THE CLIENT TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
+			    SDIO_TEST_LPM_HOST_WAKER, 120);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t lpm_test_host_wakes_client_test_read(struct file *file,
+						     char __user *buffer,
+						     size_t count,
+						     loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nLPM_TEST_HOST_WAKES_CLIENT_TEST\n"
+		 "===============================\n"
+		 "Description:\n"
+		 "In this test, the CLIENT goes into LPM mode, and the\n"
+		 "HOST is responsible to send it a message\n"
+		 "in order to wake it up\n\n"
+		 "END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations lpm_test_host_wakes_client_test_ops = {
+	.open = sdio_al_test_open,
+	.write = lpm_test_host_wakes_client_test_write,
+	.read = lpm_test_host_wakes_client_test_read,
+};
+
+/* LPM TEST RANDOM, SINGLE CHANNEL TEST */
+static ssize_t lpm_test_random_single_channel_test_write(
+						struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- LPM TEST RANDOM SINGLE "
+		"CHANNEL TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_pseudo_random_seed();
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
+				    SDIO_TEST_LPM_RANDOM, 0);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t lpm_test_random_single_channel_test_read(
+						struct file *file,
+						char __user *buffer,
+						size_t count,
+						loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nLPM_TEST_RANDOM_SINGLE_CHANNEL_TEST\n"
+		 "===================================\n"
+		 "Description:\n"
+		 "In this test, the HOST and CLIENT "
+		 "send messages to each other,\n"
+		 "random in time, over RPC channel only.\n"
+		 "All events are being recorded, and later on,\n"
+		 "they are being analysed by the HOST and by the CLIENT\n,"
+		 "in order to check if the LPM mechanism worked properly,\n"
+		 "meaning:"
+		 " When all the relevant conditions are met, a device should:\n"
+		 "1. Go to sleep\n"
+		 "2. Wake up\n"
+		 "3. Stay awake\n\n"
+		 "END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations lpm_test_random_single_channel_test_ops = {
+	.open = sdio_al_test_open,
+	.write = lpm_test_random_single_channel_test_write,
+	.read = lpm_test_random_single_channel_test_read,
+};
+
+/* LPM TEST RANDOM, MULTI CHANNEL TEST */
+static ssize_t lpm_test_random_multi_channel_test_write(
+						struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- LPM TEST RANDOM MULTI CHANNEL TEST --\n");
+
+	ret = kstrtoint(buf, 10, &number);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
+		pr_info(TEST_MODULE_NAME " ===============");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_pseudo_random_seed();
+
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
+				    SDIO_TEST_LPM_RANDOM, 0);
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_CIQ],
+				    SDIO_TEST_LPM_RANDOM, 0);
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_DIAG],
+				    SDIO_TEST_LPM_RANDOM, 0);
+		set_params_lpm_test(test_ctx->test_ch_arr[SDIO_QMI],
+				SDIO_TEST_LPM_RANDOM, 0);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t lpm_test_random_multi_channel_test_read(
+				 struct file *file,
+				 char __user *buffer,
+				 size_t count,
+				 loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nLPM_TEST_RANDOM_MULTI_CHANNEL_TEST\n"
+		 "==================================\n"
+		 "Description:\n"
+		 "In this test, the HOST and CLIENT "
+		 "send messages to each other,\n"
+		 "random in time, over RPC, QMI, DIAG AND CIQ channels\n"
+		 "(i.e, on both SDIO devices).\n"
+		 "All events are being recorded, and later on,\n"
+		 "they are being analysed by the HOST and by the CLIENT,\n"
+		 "in order to check if the LPM mechanism worked properly,\n"
+		 "meaning:"
+		 " When all the relevant conditions are met, a device should:\n"
+		 "1. Go to sleep\n"
+		 "2. Wake up\n"
+		 "3. Stay awake\n\n"
+		 "END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations lpm_test_random_multi_channel_test_ops = {
+	.open = sdio_al_test_open,
+	.write = lpm_test_random_multi_channel_test_write,
+	.read = lpm_test_random_multi_channel_test_read,
+};
+
 static int sdio_al_test_debugfs_init(void)
 {
 	test_ctx->debug.debug_root = debugfs_create_dir("sdio_al_test",
@@ -307,6 +1978,174 @@ static int sdio_al_test_debugfs_init(void)
 					S_IRUGO | S_IWUGO,
 					test_ctx->debug.debug_root,
 					&test_ctx->debug.rmnt_throughput);
+
+	test_ctx->debug.rpc_sender_test =
+		debugfs_create_file("10_rpc_sender_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &rpc_sender_test_ops);
+
+	test_ctx->debug.rpc_qmi_diag_sender_test =
+		debugfs_create_file("20_rpc_qmi_diag_sender_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &rpc_qmi_diag_sender_test_ops);
+
+	test_ctx->debug.smem_test =
+		debugfs_create_file("40_smem_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &smem_test_ops);
+
+	test_ctx->debug.smem_rpc_test =
+		debugfs_create_file("50_smem_rpc_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &smem_rpc_test_ops);
+
+	test_ctx->debug.rmnet_a2_perf_test =
+		debugfs_create_file("60_rmnet_a2_perf_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &rmnet_a2_perf_test_ops);
+
+	test_ctx->debug.dun_a2_perf_test =
+		debugfs_create_file("70_dun_a2_perf_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &dun_a2_perf_test_ops);
+
+	test_ctx->debug.rmnet_dun_a2_perf_test =
+		debugfs_create_file("80_rmnet_dun_a2_perf_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &rmnet_dun_a2_perf_test_ops);
+
+	test_ctx->debug.rpc_sender_rmnet_a2_perf_test =
+		debugfs_create_file("90_rpc_sender_rmnet_a2_perf_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &rpc_sender_rmnet_a2_perf_test_ops);
+
+	test_ctx->debug.all_channels_test =
+		debugfs_create_file("100_all_channels_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &all_channels_test_ops);
+
+	test_ctx->debug.host_sender_no_lp_diag_test =
+		debugfs_create_file("160_host_sender_no_lp_diag_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &host_sender_no_lp_diag_test_ops);
+
+	test_ctx->debug.host_sender_no_lp_diag_rpc_ciq_test =
+		debugfs_create_file("170_host_sender_no_lp_diag_rpc_ciq_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &host_sender_no_lp_diag_rpc_ciq_test_ops);
+
+	test_ctx->debug.rmnet_small_packets_test =
+		debugfs_create_file("180_rmnet_small_packets_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &rmnet_small_packets_test_ops);
+
+	test_ctx->debug.rmnet_rtt_test =
+		debugfs_create_file("190_rmnet_rtt_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &rmnet_rtt_test_ops);
+
+	test_ctx->debug.modem_reset_rpc_test =
+		debugfs_create_file("220_modem_reset_rpc_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &modem_reset_rpc_test_ops);
+
+	test_ctx->debug.modem_reset_rmnet_test =
+		debugfs_create_file("230_modem_reset_rmnet_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &modem_reset_rmnet_test_ops);
+
+	test_ctx->debug.modem_reset_channels_4bit_dev_test =
+		debugfs_create_file("240_modem_reset_channels_4bit_dev_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &modem_reset_channels_4bit_dev_test_ops);
+
+	test_ctx->debug.modem_reset_channels_8bit_dev_test =
+		debugfs_create_file("250_modem_reset_channels_8bit_dev_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &modem_reset_channels_8bit_dev_test_ops);
+
+	test_ctx->debug.modem_reset_all_channels_test =
+		debugfs_create_file("260_modem_reset_all_channels_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &modem_reset_all_channels_test_ops);
+
+	test_ctx->debug.open_close_diag_ciq_rpc_test =
+		debugfs_create_file("270_open_close_diag_ciq_rpc_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &open_close_diag_ciq_rpc_test_ops);
+
+	test_ctx->debug.close_chan_lpm_test =
+		debugfs_create_file("280_close_chan_lpm_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &close_chan_lpm_test_ops);
+
+	test_ctx->debug.lpm_test_client_wakes_host_test =
+		debugfs_create_file("600_lpm_test_client_wakes_host_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &lpm_test_client_wakes_host_test_ops);
+
+	test_ctx->debug.lpm_test_host_wakes_client_test =
+		debugfs_create_file("610_lpm_test_host_wakes_client_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &lpm_test_host_wakes_client_test_ops);
+
+	test_ctx->debug.lpm_test_random_single_channel_test =
+		debugfs_create_file("620_lpm_test_random_single_channel_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &lpm_test_random_single_channel_test_ops);
+
+	test_ctx->debug.lpm_test_random_multi_channel_test =
+		debugfs_create_file("630_lpm_test_random_multi_channel_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &lpm_test_random_multi_channel_test_ops);
 
 	if ((!test_ctx->debug.debug_dun_throughput) &&
 	    (!test_ctx->debug.debug_rmnt_throughput)) {
@@ -3093,189 +4932,12 @@ static int close_channel_lpm_test(void)
 ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 		   loff_t *f_pos)
 {
-	int ret = 0;
-	int i;
-	struct test_channel **ch_arr = test_ctx->test_ch_arr;
+	sdio_al_test_initial_dev_and_chan(test_ctx);
 
-	for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
-			test_ctx->test_dev_arr[i].sdio_al_device = NULL;
-
-	ret = strict_strtol(buf, 10, &test_ctx->testcase);
+	if (strict_strtol(buf, 10, &test_ctx->testcase))
+		return -EINVAL;
 
 	switch (test_ctx->testcase) {
-	case 1:
-		/* RPC */
-		pr_debug(TEST_MODULE_NAME " --RPC sender--.\n");
-		if (set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]))
-			return size;
-		break;
-	case 2:
-		/* RPC, QMI and DIAG */
-		pr_debug(TEST_MODULE_NAME " --RPC, QMI and DIAG sender--.\n");
-		if (set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_QMI]) ||
-		    set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_DIAG]))
-			return size;
-		break;
-	case 4:
-		pr_debug(TEST_MODULE_NAME " --SMEM--.\n");
-		if (set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]))
-			return size;
-		break;
-
-	case 5:
-		pr_debug(TEST_MODULE_NAME " --SMEM and RPC--.\n");
-		if (set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]))
-			return size;
-		break;
-	case 6:
-		pr_debug(TEST_MODULE_NAME " --RmNet A2 Performance--.\n");
-		if (set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]))
-			return size;
-		break;
-
-	case 7:
-		pr_debug(TEST_MODULE_NAME " --DUN A2 Performance--.\n");
-		if (set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]))
-			return size;
-		break;
-	case 8:
-		pr_debug(TEST_MODULE_NAME " --RmNet and DUN A2 Performance--."
-					  "\n");
-		if (set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]) ||
-		    set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]))
-			return size;
-		break;
-	case 9:
-		pr_debug(TEST_MODULE_NAME " --RPC sender and RmNet A2 "
-					  "Performance--.\n");
-		if (set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]))
-			return size;
-		break;
-	case 10:
-		pr_debug(TEST_MODULE_NAME " --All the channels--.\n");
-		if (set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_QMI]) ||
-		    set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_DIAG]) ||
-		    set_params_a2_perf(test_ctx->test_ch_arr[SDIO_RMNT]) ||
-		    set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]) ||
-		    set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]) ||
-		    set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_CIQ]))
-			return size;
-		break;
-	case 16:
-		pr_info(TEST_MODULE_NAME " -- host sender no LP for Diag --");
-		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_DIAG]);
-		break;
-	case 17:
-		pr_info(TEST_MODULE_NAME " -- host sender no LP for Diag, RPC, "
-					 "CIQ  --");
-		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_DIAG]);
-		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_CIQ]);
-		set_params_8k_sender_no_lp(test_ctx->test_ch_arr[SDIO_RPC]);
-		break;
-	case 18:
-		pr_info(TEST_MODULE_NAME " -- rmnet small packets (5-128)  --");
-		if (set_params_a2_small_pkts(test_ctx->test_ch_arr[SDIO_RMNT]))
-			return size;
-		break;
-	case 19:
-		pr_info(TEST_MODULE_NAME " -- rmnet RTT --");
-		if (set_params_rtt(test_ctx->test_ch_arr[SDIO_RMNT]))
-			return size;
-		break;
-	case 22:
-		pr_info(TEST_MODULE_NAME " -- modem reset - RPC --");
-		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]))
-			return size;
-		break;
-	case 23:
-		pr_info(TEST_MODULE_NAME " -- modem reset - RMNT --");
-		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]))
-			return size;
-		break;
-	case 24:
-		pr_info(TEST_MODULE_NAME " -- modem reset - all chs 4bit device --");
-		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]))
-			return size;
-		break;
-	case 25:
-		pr_info(TEST_MODULE_NAME " -- modem reset - all chs 8bit device--");
-		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]))
-			return size;
-		break;
-	case 26:
-		pr_info(TEST_MODULE_NAME " -- modem reset - all chs --");
-		if (set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RPC]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_QMI]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DIAG]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_RMNT]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_DUN]) ||
-		    set_params_modem_reset(test_ctx->test_ch_arr[SDIO_CIQ]))
-			return size;
-		break;
-	case 27:
-		pr_info(TEST_MODULE_NAME " -- host sender with open/close for "
-				"Diag, CIQ and RPC --");
-		if (set_params_loopback_9k_close(ch_arr[SDIO_DIAG]) ||
-		    set_params_loopback_9k_close(ch_arr[SDIO_CIQ]) ||
-		    set_params_loopback_9k_close(ch_arr[SDIO_RPC]))
-			return size;
-		break;
-	case 28:
-		pr_info(TEST_MODULE_NAME " -- Close channel & LPM Test "
-			"Host wakes the Client --\n");
-		ret = close_channel_lpm_test();
-		if (ret) {
-			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
-					"FAILED: %d --\n", ret);
-		} else {
-			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
-					"PASSED\n");
-		}
-		return size;
-	case 111:
-		pr_info(TEST_MODULE_NAME " --LPM Test For Device 1. Client "
-			"wakes the Host --.\n");
-		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
-				    SDIO_TEST_LPM_CLIENT_WAKER, 90))
-			return size;
-		break;
-	case 113:
-		pr_info(TEST_MODULE_NAME " --LPM Test For Device 1. Host "
-			"wakes the Client --.\n");
-		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
-				    SDIO_TEST_LPM_HOST_WAKER, 120))
-			return size;
-		break;
-	case 114:
-		pr_info(TEST_MODULE_NAME " --LPM Test RANDOM SINGLE "
-					 "CHANNEL--.\n");
-		set_pseudo_random_seed();
-		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
-					    SDIO_TEST_LPM_RANDOM, 0))
-			return size;
-		break;
-	case 115:
-		pr_info(TEST_MODULE_NAME " --LPM Test RANDOM MULTI "
-					 "CHANNEL--.\n");
-		set_pseudo_random_seed();
-		if (set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
-				    SDIO_TEST_LPM_RANDOM, 0) ||
-		    set_params_lpm_test(test_ctx->test_ch_arr[SDIO_CIQ],
-					SDIO_TEST_LPM_RANDOM, 0) ||
-		    set_params_lpm_test(test_ctx->test_ch_arr[SDIO_DIAG],
-					SDIO_TEST_LPM_RANDOM, 0) ||
-		    set_params_lpm_test(test_ctx->test_ch_arr[SDIO_QMI],
-				    SDIO_TEST_LPM_RANDOM, 0))
-			return size;
-		break;
 	case 98:
 		pr_info(TEST_MODULE_NAME " set runtime debug on");
 		test_ctx->runtime_debug = 1;
@@ -3289,32 +4951,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 			(int)test_ctx->testcase);
 		return size;
 	}
-	ret = test_start();
-	if (ret) {
-		pr_err(TEST_MODULE_NAME ":test_start failed, ret = %d.\n",
-			ret);
-		return size;
-	}
-	/* combined test cases */
-	switch (test_ctx->testcase) {
-	case 27:
-		pr_info(TEST_MODULE_NAME " -- correctness test for"
-				"DIAG, CIQ and DUN ");
-		if (set_params_loopback_9k(ch_arr[SDIO_DIAG]) ||
-		    set_params_loopback_9k(ch_arr[SDIO_CIQ]) ||
-		    set_params_loopback_9k(ch_arr[SDIO_RPC]))
-			return size;
-		break;
-	default:
-		pr_debug(TEST_MODULE_NAME ":2nd test not defined for %ld\n",
-				test_ctx->testcase);
-		return size;
-	}
-	ret = test_start();
-	if (ret) {
-		pr_err(TEST_MODULE_NAME ":2nd round test failed (%d)\n",
-				ret);
-	}
+
 	return size;
 }
 
