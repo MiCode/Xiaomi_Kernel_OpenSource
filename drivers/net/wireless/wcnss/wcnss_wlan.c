@@ -28,8 +28,8 @@
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
-static bool has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
-module_param(has_48mhz_xo, bool, S_IRUGO);
+static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
+module_param(has_48mhz_xo, int, S_IRUGO);
 MODULE_PARM_DESC(has_48mhz_xo, "Is an external 48 MHz XO present");
 
 static struct {
