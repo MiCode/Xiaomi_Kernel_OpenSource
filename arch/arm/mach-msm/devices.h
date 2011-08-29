@@ -172,6 +172,10 @@ extern struct platform_device msm_cpudai_afe_02_rx;
 extern struct platform_device msm_cpudai_afe_02_tx;
 extern struct platform_device msm_pcm_afe;
 
+extern struct platform_device msm_8960_q6_lpass;
+extern struct platform_device msm_8960_q6_mss_fw;
+extern struct platform_device msm_8960_q6_mss_sw;
+
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;
 

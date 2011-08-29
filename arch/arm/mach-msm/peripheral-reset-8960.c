@@ -28,49 +28,6 @@
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 
-#define MSM_FW_QDSP6SS_PHYS	0x08800000
-#define MSM_SW_QDSP6SS_PHYS	0x08900000
-#define MSM_LPASS_QDSP6SS_PHYS	0x28800000
-#define MSM_MSS_ENABLE_PHYS	0x08B00000
-
-#define QDSP6SS_RST_EVB		0x0
-#define QDSP6SS_RESET		0x04
-#define QDSP6SS_CGC_OVERRIDE	0x18
-#define QDSP6SS_STRAP_TCM	0x1C
-#define QDSP6SS_STRAP_AHB	0x20
-#define QDSP6SS_GFMUX_CTL	0x30
-#define QDSP6SS_PWR_CTL		0x38
-
-#define MSS_S_HCLK_CTL		(MSM_CLK_CTL_BASE + 0x2C70)
-#define MSS_SLP_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C60)
-#define SFAB_MSS_M_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x2340)
-#define SFAB_MSS_S_HCLK_CTL	(MSM_CLK_CTL_BASE + 0x2C00)
-#define SFAB_MSS_Q6_FW_ACLK_CTL (MSM_CLK_CTL_BASE + 0x2044)
-#define SFAB_MSS_Q6_SW_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x2040)
-#define SFAB_LPASS_Q6_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x23A0)
-#define MSS_Q6FW_JTAG_CLK_CTL	(MSM_CLK_CTL_BASE + 0x2C6C)
-#define MSS_Q6SW_JTAG_CLK_CTL	(MSM_CLK_CTL_BASE + 0x2C68)
-#define MSS_RESET		(MSM_CLK_CTL_BASE + 0x2C64)
-
-#define Q6SS_SS_ARES		BIT(0)
-#define Q6SS_CORE_ARES		BIT(1)
-#define Q6SS_ISDB_ARES		BIT(2)
-#define Q6SS_ETM_ARES		BIT(3)
-#define Q6SS_STOP_CORE_ARES	BIT(4)
-#define Q6SS_PRIV_ARES		BIT(5)
-
-#define Q6SS_L2DATA_SLP_NRET_N	BIT(0)
-#define Q6SS_SLP_RET_N		BIT(1)
-#define Q6SS_L1TCM_SLP_NRET_N	BIT(2)
-#define Q6SS_L2TAG_SLP_NRET_N	BIT(3)
-#define Q6SS_ETB_SLEEP_NRET_N	BIT(4)
-#define Q6SS_ARR_STBY_N		BIT(5)
-#define Q6SS_CLAMP_IO		BIT(6)
-
-#define Q6SS_CLK_ENA		BIT(1)
-#define Q6SS_SRC_SWITCH_CLK_OVR	BIT(8)
-#define Q6SS_AXIS_ACLK_EN	BIT(9)
-
 #define MSM_RIVA_PHYS			0x03204000
 #define RIVA_PMU_A2XB_CFG		(msm_riva_base + 0xB8)
 #define RIVA_PMU_A2XB_CFG_EN		BIT(0)
@@ -121,337 +78,12 @@
 #define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
 #define PPSS_HCLK_CTL			(MSM_CLK_CTL_BASE + 0x2580)
 
-struct q6_data {
-	const unsigned strap_tcm_base;
-	const unsigned strap_ahb_upper;
-	const unsigned strap_ahb_lower;
-	const unsigned reg_base_phys;
-	void __iomem *reg_base;
-	void __iomem *aclk_reg;
-	void __iomem *jtag_clk_reg;
-	int start_addr;
-	struct regulator *vreg;
-	bool vreg_enabled;
-	const char *name;
-};
-
-static struct q6_data q6_lpass = {
-	.strap_tcm_base  = (0x146 << 16),
-	.strap_ahb_upper = (0x029 << 16),
-	.strap_ahb_lower = (0x028 << 4),
-	.reg_base_phys = MSM_LPASS_QDSP6SS_PHYS,
-	.aclk_reg = SFAB_LPASS_Q6_ACLK_CTL,
-	.name = "q6_lpass",
-};
-
-static struct q6_data q6_modem_fw = {
-	.strap_tcm_base  = (0x40 << 16),
-	.strap_ahb_upper = (0x09 << 16),
-	.strap_ahb_lower = (0x08 << 4),
-	.reg_base_phys = MSM_FW_QDSP6SS_PHYS,
-	.aclk_reg = SFAB_MSS_Q6_FW_ACLK_CTL,
-	.jtag_clk_reg = MSS_Q6FW_JTAG_CLK_CTL,
-	.name = "q6_modem_fw",
-};
-
-static struct q6_data q6_modem_sw = {
-	.strap_tcm_base  = (0x42 << 16),
-	.strap_ahb_upper = (0x09 << 16),
-	.strap_ahb_lower = (0x08 << 4),
-	.reg_base_phys = MSM_SW_QDSP6SS_PHYS,
-	.aclk_reg = SFAB_MSS_Q6_SW_ACLK_CTL,
-	.jtag_clk_reg = MSS_Q6SW_JTAG_CLK_CTL,
-	.name = "q6_modem_sw",
-};
-
-static void __iomem *mss_enable_reg;
 static void __iomem *msm_riva_base;
 static unsigned long riva_start;
-
-static int init_image_lpass_q6_trusted(struct pil_desc *pil,
-				       const u8 *metadata, size_t size)
-{
-	return pas_init_image(PAS_Q6, metadata, size);
-}
-
-static int init_image_modem_fw_q6_trusted(struct pil_desc *pil,
-					  const u8 *metadata, size_t size)
-{
-	return pas_init_image(PAS_MODEM_FW, metadata, size);
-}
-
-static int init_image_modem_sw_q6_trusted(struct pil_desc *pil,
-					  const u8 *metadata, size_t size)
-{
-	return pas_init_image(PAS_MODEM_SW, metadata, size);
-}
-
-static int init_image_lpass_q6_untrusted(struct pil_desc *pil,
-					 const u8 *metadata, size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	q6_lpass.start_addr = ehdr->e_entry;
-	return 0;
-}
-
-static int init_image_modem_fw_q6_untrusted(struct pil_desc *pil,
-					    const u8 *metadata, size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	q6_modem_fw.start_addr = ehdr->e_entry;
-	return 0;
-}
-
-static int init_image_modem_sw_q6_untrusted(struct pil_desc *pil,
-					    const u8 *metadata, size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	q6_modem_sw.start_addr = ehdr->e_entry;
-	return 0;
-}
 
 static int verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
 {
 	return 0;
-}
-
-static int power_up_q6(struct q6_data *q6)
-{
-	int err;
-
-	err = regulator_set_voltage(q6->vreg, 1050000, 1050000);
-	if (err) {
-		pr_err("Failed to set %s regulator's voltage.\n", q6->name);
-		return err;
-	}
-	err = regulator_set_optimum_mode(q6->vreg, 100000);
-	if (err < 0) {
-		pr_err("Failed to set %s regulator's mode.\n", q6->name);
-		return err;
-	}
-	err = regulator_enable(q6->vreg);
-	if (err) {
-		pr_err("Failed to enable %s's regulator.\n", q6->name);
-		return err;
-	}
-	q6->vreg_enabled = true;
-	return 0;
-}
-
-static int reset_q6_trusted(int id, struct q6_data *q6)
-{
-	int err = power_up_q6(q6);
-	if (err)
-		return err;
-	return pas_auth_and_reset(id);
-}
-
-static int reset_lpass_q6_trusted(struct pil_desc *pil)
-{
-	return reset_q6_trusted(PAS_Q6, &q6_lpass);
-}
-
-static int reset_modem_fw_q6_trusted(struct pil_desc *pil)
-{
-	return reset_q6_trusted(PAS_MODEM_FW, &q6_modem_fw);
-}
-
-static int reset_modem_sw_q6_trusted(struct pil_desc *pil)
-{
-	return reset_q6_trusted(PAS_MODEM_SW, &q6_modem_sw);
-}
-
-static int reset_q6_untrusted(struct q6_data *q6)
-{
-	u32 reg, err = 0;
-
-	err = power_up_q6(q6);
-	if (err)
-		return err;
-	/* Enable Q6 ACLK */
-	writel_relaxed(0x10, q6->aclk_reg);
-
-	if (q6 == &q6_modem_fw || q6 == &q6_modem_sw) {
-		/* Enable MSS clocks */
-		writel_relaxed(0x10, SFAB_MSS_M_ACLK_CTL);
-		writel_relaxed(0x10, SFAB_MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_SLP_CLK_CTL);
-		/* Wait for clocks to enable */
-		mb();
-		udelay(10);
-
-		/* Enable JTAG clocks */
-		/* TODO: Remove if/when Q6 software enables them? */
-		writel_relaxed(0x10, q6->jtag_clk_reg);
-
-		/* De-assert MSS reset */
-		writel_relaxed(0x0,  MSS_RESET);
-		mb();
-		udelay(10);
-
-		/* Enable MSS */
-		writel_relaxed(0x7,  mss_enable_reg);
-	}
-
-	/*
-	 * Assert AXIS_ACLK_EN override to allow for correct updating of the
-	 * QDSP6_CORE_STATE status bit. This is mandatory only for the SW Q6
-	 * in 8960v1 and optional elsewhere.
-	 */
-	reg = readl_relaxed(q6->reg_base + QDSP6SS_CGC_OVERRIDE);
-	reg |= Q6SS_AXIS_ACLK_EN;
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_CGC_OVERRIDE);
-
-	/* Deassert Q6SS_SS_ARES */
-	reg = readl_relaxed(q6->reg_base + QDSP6SS_RESET);
-	reg &= ~(Q6SS_SS_ARES);
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_RESET);
-
-	/* Program boot address */
-	writel_relaxed((q6->start_addr >> 8) & 0xFFFFFF,
-			q6->reg_base + QDSP6SS_RST_EVB);
-
-	/* Program TCM and AHB address ranges */
-	writel_relaxed(q6->strap_tcm_base, q6->reg_base + QDSP6SS_STRAP_TCM);
-	writel_relaxed(q6->strap_ahb_upper | q6->strap_ahb_lower,
-		       q6->reg_base + QDSP6SS_STRAP_AHB);
-
-	/* Turn off Q6 core clock */
-	writel_relaxed(Q6SS_SRC_SWITCH_CLK_OVR,
-		       q6->reg_base + QDSP6SS_GFMUX_CTL);
-
-	/* Put memories to sleep */
-	writel_relaxed(Q6SS_CLAMP_IO, q6->reg_base + QDSP6SS_PWR_CTL);
-
-	/* Assert resets */
-	reg = readl_relaxed(q6->reg_base + QDSP6SS_RESET);
-	reg |= (Q6SS_CORE_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES
-	    | Q6SS_STOP_CORE_ARES);
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_RESET);
-
-	/* Wait 8 AHB cycles for Q6 to be fully reset (AHB = 1.5Mhz) */
-	mb();
-	usleep_range(20, 30);
-
-	/* Turn on Q6 memories */
-	reg = Q6SS_L2DATA_SLP_NRET_N | Q6SS_SLP_RET_N | Q6SS_L1TCM_SLP_NRET_N
-	    | Q6SS_L2TAG_SLP_NRET_N | Q6SS_ETB_SLEEP_NRET_N | Q6SS_ARR_STBY_N
-	    | Q6SS_CLAMP_IO;
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_PWR_CTL);
-
-	/* Turn on Q6 core clock */
-	reg = Q6SS_CLK_ENA | Q6SS_SRC_SWITCH_CLK_OVR;
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_GFMUX_CTL);
-
-	/* Remove Q6SS_CLAMP_IO */
-	reg = readl_relaxed(q6->reg_base + QDSP6SS_PWR_CTL);
-	reg &= ~Q6SS_CLAMP_IO;
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_PWR_CTL);
-
-	/* Bring Q6 core out of reset and start execution. */
-	writel_relaxed(0x0, q6->reg_base + QDSP6SS_RESET);
-
-	/*
-	 * Re-enable auto-gating of AXIS_ACLK at lease one AXI clock cycle
-	 * after resets are de-asserted.
-	 */
-	mb();
-	usleep_range(1, 10);
-	reg = readl_relaxed(q6->reg_base + QDSP6SS_CGC_OVERRIDE);
-	reg &= ~Q6SS_AXIS_ACLK_EN;
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_CGC_OVERRIDE);
-
-	return 0;
-}
-
-static int reset_lpass_q6_untrusted(struct pil_desc *pil)
-{
-	return reset_q6_untrusted(&q6_lpass);
-}
-
-static int reset_modem_fw_q6_untrusted(struct pil_desc *pil)
-{
-	return reset_q6_untrusted(&q6_modem_fw);
-}
-
-static int reset_modem_sw_q6_untrusted(struct pil_desc *pil)
-{
-	return reset_q6_untrusted(&q6_modem_sw);
-}
-
-static int shutdown_q6_trusted(int id, struct q6_data *q6)
-{
-	int ret;
-
-	ret = pas_shutdown(id);
-	if (ret)
-		return ret;
-
-	if (q6->vreg_enabled) {
-		regulator_disable(q6->vreg);
-		q6->vreg_enabled = false;
-	}
-
-	return ret;
-}
-
-static int shutdown_lpass_q6_trusted(struct pil_desc *pil)
-{
-	return shutdown_q6_trusted(PAS_Q6, &q6_lpass);
-}
-
-static int shutdown_modem_fw_q6_trusted(struct pil_desc *pil)
-{
-	return shutdown_q6_trusted(PAS_MODEM_FW, &q6_modem_fw);
-}
-
-static int shutdown_modem_sw_q6_trusted(struct pil_desc *pil)
-{
-	return shutdown_q6_trusted(PAS_MODEM_SW, &q6_modem_sw);
-}
-
-static int shutdown_q6_untrusted(struct q6_data *q6)
-{
-	u32 reg;
-
-	/* Turn off Q6 core clock */
-	writel_relaxed(Q6SS_SRC_SWITCH_CLK_OVR,
-		       q6->reg_base + QDSP6SS_GFMUX_CTL);
-
-	/* Assert resets */
-	reg = (Q6SS_SS_ARES | Q6SS_CORE_ARES | Q6SS_ISDB_ARES
-	     | Q6SS_ETM_ARES | Q6SS_STOP_CORE_ARES | Q6SS_PRIV_ARES);
-	writel_relaxed(reg, q6->reg_base + QDSP6SS_RESET);
-
-	/* Turn off Q6 memories */
-	writel_relaxed(Q6SS_CLAMP_IO, q6->reg_base + QDSP6SS_PWR_CTL);
-
-	/* Put Modem Subsystem back into reset when shutting down FWQ6 */
-	if (q6 == &q6_modem_fw)
-		writel_relaxed(0x1, MSS_RESET);
-
-	if (q6->vreg_enabled) {
-		regulator_disable(q6->vreg);
-		q6->vreg_enabled = false;
-	}
-
-	return 0;
-}
-
-static int shutdown_lpass_q6_untrusted(struct pil_desc *pil)
-{
-	return shutdown_q6_untrusted(&q6_lpass);
-}
-
-static int shutdown_modem_fw_q6_untrusted(struct pil_desc *pil)
-{
-	return shutdown_q6_untrusted(&q6_modem_fw);
-}
-
-static int shutdown_modem_sw_q6_untrusted(struct pil_desc *pil)
-{
-	return shutdown_q6_untrusted(&q6_modem_sw);
 }
 
 static int init_image_riva_untrusted(struct pil_desc *pil, const u8 *metadata,
@@ -635,27 +267,6 @@ static int shutdown_tzapps(struct pil_desc *pil)
 	return pas_shutdown(PAS_TZAPPS);
 }
 
-static struct pil_reset_ops pil_modem_fw_q6_ops = {
-	.init_image = init_image_modem_fw_q6_untrusted,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_modem_fw_q6_untrusted,
-	.shutdown = shutdown_modem_fw_q6_untrusted,
-};
-
-static struct pil_reset_ops pil_modem_sw_q6_ops = {
-	.init_image = init_image_modem_sw_q6_untrusted,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_modem_sw_q6_untrusted,
-	.shutdown = shutdown_modem_sw_q6_untrusted,
-};
-
-static struct pil_reset_ops pil_lpass_q6_ops = {
-	.init_image = init_image_lpass_q6_untrusted,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_lpass_q6_untrusted,
-	.shutdown = shutdown_lpass_q6_untrusted,
-};
-
 static struct pil_reset_ops pil_riva_ops = {
 	.init_image = init_image_riva_untrusted,
 	.verify_blob = verify_blob,
@@ -675,38 +286,6 @@ struct pil_reset_ops pil_tzapps_ops = {
 	.verify_blob = verify_blob,
 	.auth_and_reset = reset_tzapps,
 	.shutdown = shutdown_tzapps,
-};
-
-static struct platform_device pil_lpass_q6 = {
-	.name = "pil_lpass_q6",
-};
-
-static struct pil_desc pil_lpass_q6_desc = {
-	.name = "q6",
-	.dev = &pil_lpass_q6.dev,
-	.ops = &pil_lpass_q6_ops,
-};
-
-static struct platform_device pil_modem_fw_q6 = {
-	.name = "pil_modem_fw_q6",
-};
-
-static struct pil_desc pil_modem_fw_q6_desc = {
-	.name = "modem_fw",
-	.depends_on = "q6",
-	.dev = &pil_modem_fw_q6.dev,
-	.ops = &pil_modem_fw_q6_ops,
-};
-
-static struct platform_device pil_modem_sw_q6 = {
-	.name = "pil_modem_sw_q6",
-};
-
-static struct pil_desc pil_modem_sw_q6_desc = {
-	.name = "modem",
-	.depends_on = "modem_fw",
-	.dev = &pil_modem_sw_q6.dev,
-	.ops = &pil_modem_sw_q6_ops,
 };
 
 static struct platform_device pil_riva = {
@@ -739,51 +318,8 @@ static struct pil_desc pil_tzapps_desc = {
 	.ops = &pil_tzapps_ops,
 };
 
-static int __init q6_reset_init(struct q6_data *q6)
-{
-	int err;
-
-	q6->reg_base = ioremap(q6->reg_base_phys, SZ_256);
-	if (!q6->reg_base) {
-		err = -ENOMEM;
-		goto err_map;
-	}
-
-	q6->vreg = regulator_get(NULL, q6->name);
-	if (IS_ERR(q6->vreg)) {
-		err = PTR_ERR(q6->vreg);
-		goto err_vreg;
-	}
-
-	return 0;
-
-err_vreg:
-	iounmap(q6->reg_base);
-err_map:
-	return err;
-}
-
 static void __init use_secure_pil(void)
 {
-
-	if (pas_supported(PAS_Q6) > 0) {
-		pil_lpass_q6_ops.init_image = init_image_lpass_q6_trusted;
-		pil_lpass_q6_ops.auth_and_reset = reset_lpass_q6_trusted;
-		pil_lpass_q6_ops.shutdown = shutdown_lpass_q6_trusted;
-	}
-
-	if (pas_supported(PAS_MODEM_FW) > 0) {
-		pil_modem_fw_q6_ops.init_image = init_image_modem_fw_q6_trusted;
-		pil_modem_fw_q6_ops.auth_and_reset = reset_modem_fw_q6_trusted;
-		pil_modem_fw_q6_ops.shutdown = shutdown_modem_fw_q6_trusted;
-	}
-
-	if (pas_supported(PAS_MODEM_SW) > 0) {
-		pil_modem_sw_q6_ops.init_image = init_image_modem_sw_q6_trusted;
-		pil_modem_sw_q6_ops.auth_and_reset = reset_modem_sw_q6_trusted;
-		pil_modem_sw_q6_ops.shutdown = shutdown_modem_sw_q6_trusted;
-	}
-
 	if (pas_supported(PAS_DSPS) > 0) {
 		pil_dsps_ops.init_image = init_image_dsps_trusted;
 		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
@@ -797,11 +333,8 @@ static void __init use_secure_pil(void)
 	}
 }
 
-
 static int __init msm_peripheral_reset_init(void)
 {
-	int err;
-
 	/*
 	 * Don't initialize PIL on simulated targets, as some
 	 * subsystems may not be emulated on them.
@@ -810,34 +343,6 @@ static int __init msm_peripheral_reset_init(void)
 		return 0;
 
 	use_secure_pil();
-
-	err = q6_reset_init(&q6_lpass);
-	if (err)
-		return err;
-	BUG_ON(platform_device_register(&pil_lpass_q6));
-	BUG_ON(msm_pil_register(&pil_lpass_q6_desc));
-
-	mss_enable_reg = ioremap(MSM_MSS_ENABLE_PHYS, 4);
-	if (!mss_enable_reg)
-		return -ENOMEM;
-
-	err = q6_reset_init(&q6_modem_fw);
-	if (err) {
-		iounmap(mss_enable_reg);
-		return err;
-	}
-	BUG_ON(platform_device_register(&pil_modem_fw_q6));
-	if (err) {
-		iounmap(mss_enable_reg);
-		return err;
-	}
-	BUG_ON(msm_pil_register(&pil_modem_fw_q6_desc));
-
-	err = q6_reset_init(&q6_modem_sw);
-	if (err)
-		return err;
-	BUG_ON(platform_device_register(&pil_modem_sw_q6));
-	BUG_ON(msm_pil_register(&pil_modem_sw_q6_desc));
 
 	BUG_ON(platform_device_register(&pil_dsps));
 	BUG_ON(msm_pil_register(&pil_dsps_desc));
