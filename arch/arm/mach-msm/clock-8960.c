@@ -3399,6 +3399,7 @@ static struct clk_freq_tbl clk_tbl_rot[] = {
 	F_ROT(114290000, pll2,  7, NOMINAL),
 	F_ROT(133330000, pll2,  6, NOMINAL),
 	F_ROT(160000000, pll2,  5, NOMINAL),
+	F_ROT(200000000, pll2,  4, NOMINAL),
 	F_END
 };
 
