@@ -26,6 +26,7 @@
 #include <mach/msm_xo.h>
 
 #include "peripheral-loader.h"
+#include "scm-pas.h"
 
 #define PROXY_VOTE_TIMEOUT		10000
 
@@ -63,73 +64,14 @@
 #define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
 #define CLK_HALT_DFAB_STATE		(MSM_CLK_CTL_BASE + 0x2FC8)
 
-#define PAS_MODEM	0
-#define PAS_Q6		1
-#define PAS_DSPS	2
-#define PAS_PLAYREADY	3
-
-#define PAS_INIT_IMAGE_CMD	1
-#define PAS_MEM_CMD		2
-#define PAS_AUTH_AND_RESET_CMD	5
-#define PAS_SHUTDOWN_CMD	6
-
-struct pas_init_image_req {
-	u32	proc;
-	u32	image_addr;
-};
-
-struct pas_init_image_resp {
-	u32	image_valid;
-};
-
-struct pas_auth_image_req {
-	u32	proc;
-};
-
-struct pas_auth_image_resp {
-	u32	reset_initiated;
-};
-
-struct pas_shutdown_req {
-	u32	proc;
-};
-
-struct pas_shutdown_resp {
-	u32	success;
-};
-
 static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
 static void __iomem *msm_lpass_qdsp6ss_base;
 
-static int init_image_trusted(int id, const u8 *metadata, size_t size)
-{
-	int ret;
-	struct pas_init_image_req request;
-	struct pas_init_image_resp resp = {0};
-	void *mdata_buf;
-
-	/* Make memory physically contiguous */
-	mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
-	if (!mdata_buf)
-		return -ENOMEM;
-
-	request.proc = id;
-	request.image_addr = virt_to_phys(mdata_buf);
-
-	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
-			sizeof(request), &resp, sizeof(resp));
-	kfree(mdata_buf);
-
-	if (ret)
-		return ret;
-	return resp.image_valid;
-}
-
 static int init_image_modem_trusted(struct pil_device *pil, const u8 *metadata,
 				    size_t size)
 {
-	return init_image_trusted(PAS_MODEM, metadata, size);
+	return pas_init_image(PAS_MODEM, metadata, size);
 }
 
 static int init_image_modem_untrusted(struct pil_device *pil,
@@ -143,7 +85,7 @@ static int init_image_modem_untrusted(struct pil_device *pil,
 static int init_image_q6_trusted(struct pil_device *pil,
 				 const u8 *metadata, size_t size)
 {
-	return init_image_trusted(PAS_Q6, metadata, size);
+	return pas_init_image(PAS_Q6, metadata, size);
 }
 
 static int init_image_q6_untrusted(struct pil_device *pil, const u8 *metadata,
@@ -157,7 +99,7 @@ static int init_image_q6_untrusted(struct pil_device *pil, const u8 *metadata,
 static int init_image_dsps_trusted(struct pil_device *pil, const u8 *metadata,
 				   size_t size)
 {
-	return init_image_trusted(PAS_DSPS, metadata, size);
+	return pas_init_image(PAS_DSPS, metadata, size);
 }
 
 static int init_image_dsps_untrusted(struct pil_device *pil, const u8 *metadata,
@@ -174,21 +116,6 @@ static int init_image_dsps_untrusted(struct pil_device *pil, const u8 *metadata,
 static int verify_blob(struct pil_device *pil, u32 phy_addr, size_t size)
 {
 	return 0;
-}
-
-static int auth_and_reset_trusted(int id)
-{
-	int ret;
-	struct pas_auth_image_req request;
-	struct pas_auth_image_resp resp = {0};
-
-	request.proc = id;
-	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &request,
-			sizeof(request), &resp, sizeof(resp));
-	if (ret)
-		return ret;
-
-	return resp.reset_initiated;
 }
 
 static struct msm_xo_voter *pxo;
@@ -300,26 +227,11 @@ static int reset_modem_trusted(struct pil_device *pil)
 
 	make_modem_proxy_votes();
 
-	ret = auth_and_reset_trusted(PAS_MODEM);
+	ret = pas_auth_and_reset(PAS_MODEM);
 	if (ret)
 		remove_modem_proxy_votes_now();
 
 	return ret;
-}
-
-static int shutdown_trusted(int id)
-{
-	int ret;
-	struct pas_shutdown_req request;
-	struct pas_shutdown_resp resp = {0};
-
-	request.proc = id;
-	ret = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &request, sizeof(request),
-			&resp, sizeof(resp));
-	if (ret)
-		return ret;
-
-	return resp.success;
 }
 
 static int shutdown_modem_untrusted(struct pil_device *pil)
@@ -367,7 +279,7 @@ static int shutdown_modem_trusted(struct pil_device *pil)
 {
 	int ret;
 
-	ret = shutdown_trusted(PAS_MODEM);
+	ret = pas_shutdown(PAS_MODEM);
 	if (ret)
 		return ret;
 
@@ -481,7 +393,7 @@ static int reset_q6_trusted(struct pil_device *pil)
 {
 	make_q6_proxy_votes();
 
-	return auth_and_reset_trusted(PAS_Q6);
+	return pas_auth_and_reset(PAS_Q6);
 }
 
 static int shutdown_q6_untrusted(struct pil_device *pil)
@@ -515,7 +427,7 @@ static int shutdown_q6_trusted(struct pil_device *pil)
 {
 	int ret;
 
-	ret = shutdown_trusted(PAS_Q6);
+	ret = pas_shutdown(PAS_Q6);
 	if (ret)
 		return ret;
 
@@ -537,12 +449,12 @@ static int reset_dsps_untrusted(struct pil_device *pil)
 
 static int reset_dsps_trusted(struct pil_device *pil)
 {
-	return auth_and_reset_trusted(PAS_DSPS);
+	return pas_auth_and_reset(PAS_DSPS);
 }
 
 static int shutdown_dsps_trusted(struct pil_device *pil)
 {
-	return shutdown_trusted(PAS_DSPS);
+	return pas_shutdown(PAS_DSPS);
 }
 
 static int shutdown_dsps_untrusted(struct pil_device *pil)
@@ -555,17 +467,17 @@ static int shutdown_dsps_untrusted(struct pil_device *pil)
 static int init_image_playready(struct pil_device *pil, const u8 *metadata,
 		size_t size)
 {
-	return init_image_trusted(PAS_PLAYREADY, metadata, size);
+	return pas_init_image(PAS_PLAYREADY, metadata, size);
 }
 
 static int reset_playready(struct pil_device *pil)
 {
-	return auth_and_reset_trusted(PAS_PLAYREADY);
+	return pas_auth_and_reset(PAS_PLAYREADY);
 }
 
 static int shutdown_playready(struct pil_device *pil)
 {
-	return shutdown_trusted(PAS_PLAYREADY);
+	return pas_shutdown(PAS_PLAYREADY);
 }
 
 struct pil_reset_ops pil_modem_ops = {
@@ -633,12 +545,6 @@ struct pil_device peripheral_dsps = {
 	.ops = &pil_dsps_ops,
 };
 
-#ifdef CONFIG_MSM_SECURE_PIL
-#define SECURE_PIL 1
-#else
-#define SECURE_PIL 0
-#endif
-
 static int __init msm_peripheral_reset_init(void)
 {
 	unsigned i;
@@ -659,15 +565,19 @@ static int __init msm_peripheral_reset_init(void)
 	if (IS_ERR(pll4))
 		goto err_clk;
 
-	if (SECURE_PIL) {
+	if (pas_supported(PAS_MODEM) > 0) {
 		pil_modem_ops.init_image = init_image_modem_trusted;
 		pil_modem_ops.auth_and_reset = reset_modem_trusted;
 		pil_modem_ops.shutdown = shutdown_modem_trusted;
+	}
 
+	if (pas_supported(PAS_Q6) > 0) {
 		pil_q6_ops.init_image = init_image_q6_trusted;
 		pil_q6_ops.auth_and_reset = reset_q6_trusted;
 		pil_q6_ops.shutdown = shutdown_q6_trusted;
+	}
 
+	if (pas_supported(PAS_DSPS) > 0) {
 		pil_dsps_ops.init_image = init_image_dsps_trusted;
 		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
 		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
