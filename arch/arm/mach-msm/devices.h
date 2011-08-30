@@ -187,7 +187,6 @@ void __init msm_camera_register_device(void *, uint32_t, void *);
 struct platform_device *msm_add_gsbi9_uart(void);
 extern struct platform_device msm_device_touchscreen;
 
-extern struct pil_device peripheral_dsps;
 extern struct platform_device led_pdev;
 
 extern struct platform_device ion_dev;

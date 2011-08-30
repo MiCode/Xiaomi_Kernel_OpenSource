@@ -20,6 +20,9 @@
 #include <linux/clk.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/platform_device.h>
+
+#include <asm/mach-types.h>
 
 #include <mach/scm.h>
 #include <mach/msm_iomap.h>
@@ -68,13 +71,13 @@ static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
 static void __iomem *msm_lpass_qdsp6ss_base;
 
-static int init_image_modem_trusted(struct pil_device *pil, const u8 *metadata,
+static int init_image_modem_trusted(struct pil_desc *pil, const u8 *metadata,
 				    size_t size)
 {
 	return pas_init_image(PAS_MODEM, metadata, size);
 }
 
-static int init_image_modem_untrusted(struct pil_device *pil,
+static int init_image_modem_untrusted(struct pil_desc *pil,
 				      const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
@@ -82,13 +85,13 @@ static int init_image_modem_untrusted(struct pil_device *pil,
 	return 0;
 }
 
-static int init_image_q6_trusted(struct pil_device *pil,
+static int init_image_q6_trusted(struct pil_desc *pil,
 				 const u8 *metadata, size_t size)
 {
 	return pas_init_image(PAS_Q6, metadata, size);
 }
 
-static int init_image_q6_untrusted(struct pil_device *pil, const u8 *metadata,
+static int init_image_q6_untrusted(struct pil_desc *pil, const u8 *metadata,
 				   size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
@@ -96,13 +99,13 @@ static int init_image_q6_untrusted(struct pil_device *pil, const u8 *metadata,
 	return 0;
 }
 
-static int init_image_dsps_trusted(struct pil_device *pil, const u8 *metadata,
+static int init_image_dsps_trusted(struct pil_desc *pil, const u8 *metadata,
 				   size_t size)
 {
 	return pas_init_image(PAS_DSPS, metadata, size);
 }
 
-static int init_image_dsps_untrusted(struct pil_device *pil, const u8 *metadata,
+static int init_image_dsps_untrusted(struct pil_desc *pil, const u8 *metadata,
 				     size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
@@ -113,7 +116,7 @@ static int init_image_dsps_untrusted(struct pil_device *pil, const u8 *metadata,
 	return 0;
 }
 
-static int verify_blob(struct pil_device *pil, u32 phy_addr, size_t size)
+static int verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
 {
 	return 0;
 }
@@ -142,7 +145,7 @@ static void remove_modem_proxy_votes_now(void)
 		remove_modem_proxy_votes(0);
 }
 
-static int reset_modem_untrusted(struct pil_device *pil)
+static int reset_modem_untrusted(struct pil_desc *pil)
 {
 	u32 reg;
 
@@ -221,7 +224,7 @@ static int reset_modem_untrusted(struct pil_device *pil)
 	return 0;
 }
 
-static int reset_modem_trusted(struct pil_device *pil)
+static int reset_modem_trusted(struct pil_desc *pil)
 {
 	int ret;
 
@@ -234,7 +237,7 @@ static int reset_modem_trusted(struct pil_device *pil)
 	return ret;
 }
 
-static int shutdown_modem_untrusted(struct pil_device *pil)
+static int shutdown_modem_untrusted(struct pil_desc *pil)
 {
 	u32 reg;
 
@@ -275,7 +278,7 @@ static int shutdown_modem_untrusted(struct pil_device *pil)
 	return 0;
 }
 
-static int shutdown_modem_trusted(struct pil_device *pil)
+static int shutdown_modem_trusted(struct pil_desc *pil)
 {
 	int ret;
 
@@ -343,7 +346,7 @@ static void remove_q6_proxy_votes_now(void)
 		remove_q6_proxy_votes(0);
 }
 
-static int reset_q6_untrusted(struct pil_device *pil)
+static int reset_q6_untrusted(struct pil_desc *pil)
 {
 	u32 reg;
 
@@ -389,14 +392,14 @@ static int reset_q6_untrusted(struct pil_device *pil)
 	return 0;
 }
 
-static int reset_q6_trusted(struct pil_device *pil)
+static int reset_q6_trusted(struct pil_desc *pil)
 {
 	make_q6_proxy_votes();
 
 	return pas_auth_and_reset(PAS_Q6);
 }
 
-static int shutdown_q6_untrusted(struct pil_device *pil)
+static int shutdown_q6_untrusted(struct pil_desc *pil)
 {
 	u32 reg;
 
@@ -423,7 +426,7 @@ static int shutdown_q6_untrusted(struct pil_device *pil)
 	return 0;
 }
 
-static int shutdown_q6_trusted(struct pil_device *pil)
+static int shutdown_q6_trusted(struct pil_desc *pil)
 {
 	int ret;
 
@@ -436,7 +439,7 @@ static int shutdown_q6_trusted(struct pil_device *pil)
 	return 0;
 }
 
-static int reset_dsps_untrusted(struct pil_device *pil)
+static int reset_dsps_untrusted(struct pil_desc *pil)
 {
 	__raw_writel(0x10, PPSS_PROC_CLK_CTL);
 	while (__raw_readl(CLK_HALT_DFAB_STATE) & BIT(18))
@@ -447,35 +450,35 @@ static int reset_dsps_untrusted(struct pil_device *pil)
 	return 0;
 }
 
-static int reset_dsps_trusted(struct pil_device *pil)
+static int reset_dsps_trusted(struct pil_desc *pil)
 {
 	return pas_auth_and_reset(PAS_DSPS);
 }
 
-static int shutdown_dsps_trusted(struct pil_device *pil)
+static int shutdown_dsps_trusted(struct pil_desc *pil)
 {
 	return pas_shutdown(PAS_DSPS);
 }
 
-static int shutdown_dsps_untrusted(struct pil_device *pil)
+static int shutdown_dsps_untrusted(struct pil_desc *pil)
 {
 	__raw_writel(0x2, PPSS_RESET);
 	__raw_writel(0x0, PPSS_PROC_CLK_CTL);
 	return 0;
 }
 
-static int init_image_playready(struct pil_device *pil, const u8 *metadata,
+static int init_image_playready(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
 	return pas_init_image(PAS_PLAYREADY, metadata, size);
 }
 
-static int reset_playready(struct pil_device *pil)
+static int reset_playready(struct pil_desc *pil)
 {
 	return pas_auth_and_reset(PAS_PLAYREADY);
 }
 
-static int shutdown_playready(struct pil_device *pil)
+static int shutdown_playready(struct pil_desc *pil)
 {
 	return pas_shutdown(PAS_PLAYREADY);
 }
@@ -508,47 +511,49 @@ struct pil_reset_ops pil_playready_ops = {
 	.shutdown = shutdown_playready,
 };
 
-static struct pil_device peripherals[] = {
-	{
-		.name = "modem",
-		.depends_on = "q6",
-		.pdev = {
-			.name = "pil_modem",
-			.id = -1,
-		},
-		.ops = &pil_modem_ops,
-	},
-	{
-		.name = "q6",
-		.pdev = {
-			.name = "pil_q6",
-			.id = -1,
-		},
-		.ops = &pil_q6_ops,
-	},
-	{
-		.name = "tzapps",
-		.pdev = {
-			.name = "pil_playready",
-			.id = -1,
-		},
-		.ops = &pil_playready_ops,
-	},
+static struct platform_device pil_modem = {
+	.name = "pil_modem",
 };
 
-struct pil_device peripheral_dsps = {
+static struct pil_desc pil_modem_desc = {
+	.name = "modem",
+	.depends_on = "q6",
+	.dev = &pil_modem.dev,
+	.ops = &pil_modem_ops,
+};
+
+static struct platform_device pil_q6 = {
+	.name = "pil_q6",
+};
+
+static struct pil_desc pil_q6_desc = {
+	.name = "q6",
+	.dev = &pil_q6.dev,
+	.ops = &pil_q6_ops,
+};
+
+static struct platform_device pil_playready = {
+	.name = "pil_playready",
+};
+
+static struct pil_desc pil_playready_desc = {
+	.name = "tzapps",
+	.dev = &pil_playready.dev,
+	.ops = &pil_playready_ops,
+};
+
+static struct platform_device pil_dsps = {
+	.name = "pil_dsps",
+};
+
+static struct pil_desc pil_dsps_desc = {
 	.name = "dsps",
-	.pdev = {
-		.name = "pil_dsps",
-		.id = -1,
-	},
+	.dev = &pil_dsps.dev,
 	.ops = &pil_dsps_ops,
 };
 
 static int __init msm_peripheral_reset_init(void)
 {
-	unsigned i;
-
 	msm_mms_regs_base = ioremap(MSM_MMS_REGS_BASE, SZ_256);
 	if (!msm_mms_regs_base)
 		goto err;
@@ -583,8 +588,17 @@ static int __init msm_peripheral_reset_init(void)
 		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(peripherals); i++)
-		msm_pil_add_device(&peripherals[i]);
+	BUG_ON(platform_device_register(&pil_q6));
+	BUG_ON(msm_pil_register(&pil_q6_desc));
+	BUG_ON(platform_device_register(&pil_modem));
+	BUG_ON(msm_pil_register(&pil_modem_desc));
+	BUG_ON(platform_device_register(&pil_playready));
+	BUG_ON(msm_pil_register(&pil_playready_desc));
+
+	if (machine_is_msm8x60_fluid())
+		pil_dsps_desc.name = "dsps_fluid";
+	BUG_ON(platform_device_register(&pil_dsps));
+	BUG_ON(msm_pil_register(&pil_dsps_desc));
 
 	return 0;
 
