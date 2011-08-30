@@ -146,6 +146,9 @@ static int read_index_list(struct sock *sk)
 
 	count = 0;
 	list_for_each(p, &hci_dev_list) {
+		struct hci_dev *d = list_entry(p, struct hci_dev, list);
+		if (d->dev_type != HCI_BREDR)
+			continue;
 		count++;
 	}
 
@@ -163,6 +166,9 @@ static int read_index_list(struct sock *sk)
 		struct hci_dev *d = list_entry(p, struct hci_dev, list);
 
 		hci_del_off_timer(d);
+
+		if (d->dev_type != HCI_BREDR)
+			continue;
 
 		set_bit(HCI_MGMT, &d->flags);
 

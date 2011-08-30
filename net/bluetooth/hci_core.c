@@ -579,7 +579,8 @@ int hci_dev_open(__u16 dev)
 		hci_dev_hold(hdev);
 		set_bit(HCI_UP, &hdev->flags);
 		hci_notify(hdev, HCI_DEV_UP);
-		if (!test_bit(HCI_SETUP, &hdev->flags))
+		if (!test_bit(HCI_SETUP, &hdev->flags) &&
+				hdev->dev_type == HCI_BREDR)
 			mgmt_powered(hdev->id, 1);
 	} else {
 		/* Init failed, cleanup */
@@ -664,7 +665,8 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	 * and no tasks are scheduled. */
 	hdev->close(hdev);
 
-	mgmt_powered(hdev->id, 0);
+	if (hdev->dev_type == HCI_BREDR)
+		mgmt_powered(hdev->id, 0);
 
 	/* Clear flags */
 	hdev->flags = 0;
@@ -965,11 +967,13 @@ static void hci_power_on(struct work_struct *work)
 	if (hci_dev_open(hdev->id) < 0 && !test_bit(HCI_UP, &hdev->flags))
 		return;
 
-	if (test_bit(HCI_AUTO_OFF, &hdev->flags))
+	if (test_bit(HCI_AUTO_OFF, &hdev->flags) &&
+				hdev->dev_type == HCI_BREDR)
 		mod_timer(&hdev->off_timer,
 				jiffies + msecs_to_jiffies(AUTO_OFF_TIMEOUT));
 
-	if (test_and_clear_bit(HCI_SETUP, &hdev->flags))
+	if (test_and_clear_bit(HCI_SETUP, &hdev->flags) &&
+				hdev->dev_type == HCI_BREDR)
 		mgmt_index_added(hdev->id);
 }
 
@@ -1499,7 +1503,8 @@ int hci_unregister_dev(struct hci_dev *hdev)
 		kfree_skb(hdev->reassembly[i]);
 
 	if (!test_bit(HCI_INIT, &hdev->flags) &&
-					!test_bit(HCI_SETUP, &hdev->flags))
+				!test_bit(HCI_SETUP, &hdev->flags) &&
+				hdev->dev_type == HCI_BREDR)
 		mgmt_index_removed(hdev->id);
 
 	if (!IS_ERR(hdev->tfm))
