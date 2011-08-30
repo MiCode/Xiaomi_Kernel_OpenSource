@@ -327,27 +327,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
-static int msm_sync_init(struct msm_sync *sync,
-	struct platform_device *pdev, struct msm_sensor_ctrl *sctrl)
-{
-	int rc = 0;
-	if (!sync) {
-		pr_err("%s: param is NULL", __func__);
-		return -EINVAL;
-	}
-
-	sync->sdata = pdev->dev.platform_data;
-
-	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
-
-	sync->pdev = pdev;
-	sync->sctrl = *sctrl;
-	sync->opencnt = 0;
-	mutex_init(&sync->lock);
-	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
-	return rc;
-}
-
 static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 				 const char *const apps_id)
 {
@@ -447,7 +426,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam)
 {
-	struct v4l2_subdev *sd = &pcam->sensor_sdev;
+	struct v4l2_subdev *sd = pcam->mctl.sensor_sdev;
 	enum v4l2_mbus_pixelcode pxlcode;
 	int numfmt_sensor = 0;
 	int numfmt = 0;
@@ -515,8 +494,7 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 	} else
 		pmctl = &pcam->mctl;
 
-	/* init module sync object*/
-	msm_sync_init(&pmctl->sync, pcam->pdev, &pcam->sctrl);
+	pmctl->sync.opencnt = 0;
 
 	/* init module operations*/
 	pmctl->mctl_open = msm_mctl_open;

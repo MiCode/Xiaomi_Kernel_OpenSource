@@ -1342,8 +1342,6 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 
 	/*yyan: for single VFE msms (8660, 8960v1), just populate the session
 	with our VFE devices that registered*/
-	pcam->mctl.sensor_sdev = &(pcam->sensor_sdev);
-
 	pcam->mctl.isp_sdev = ps->isp_subdev[0];
 
 
@@ -2262,12 +2260,14 @@ reg_fail:
 
 static int msm_sync_destroy(struct msm_sync *sync)
 {
-	if (sync)
+	if (sync) {
+		mutex_destroy(&sync->lock);
 		wake_lock_destroy(&sync->wake_lock);
+	}
 	return 0;
 }
 static int msm_sync_init(struct msm_sync *sync,
-	struct platform_device *pdev, struct msm_sensor_ctrl *sctrl)
+	struct platform_device *pdev)
 {
 	int rc = 0;
 
@@ -2276,7 +2276,6 @@ static int msm_sync_init(struct msm_sync *sync,
 	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
 
 	sync->pdev = pdev;
-	sync->sctrl = *sctrl;
 	sync->opencnt = 0;
 	mutex_init(&sync->lock);
 	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
@@ -2294,21 +2293,31 @@ int msm_sensor_register(struct platform_device *pdev,
 	int rc = -EINVAL;
 	struct msm_camera_sensor_info *sdata = pdev->dev.platform_data;
 	struct msm_cam_v4l2_device *pcam;
-	struct v4l2_subdev *sdev;
-	struct msm_sensor_ctrl sctrl;
+	struct v4l2_subdev *sdev = NULL;
+	struct msm_sensor_ctrl *sctrl = NULL;
 
 	D("%s for %s\n", __func__, pdev->name);
 
 	/* allocate the memory for the camera device first */
 	pcam = kzalloc(sizeof(*pcam), GFP_KERNEL);
 	if (!pcam) {
-		pr_err("%s: could not allocate memory for msm_cam_v4l2_device\n",
+		pr_err("%s: could not allocate mem for msm_cam_v4l2_device\n",
 			__func__);
 		return -ENOMEM;
-	} else{
-		sdev = &(pcam->sensor_sdev);
-		snprintf(sdev->name, sizeof(sdev->name), "%s", pdev->name);
 	}
+
+	pcam->mctl.sensor_sdev = kzalloc(sizeof(struct v4l2_subdev),
+					 GFP_KERNEL);
+	if (!pcam->mctl.sensor_sdev) {
+		pr_err("%s: could not allocate mem for sensor v4l2_subdev\n",
+			__func__);
+		kfree(pcam);
+		return -ENOMEM;
+	}
+
+	sdev = pcam->mctl.sensor_sdev;
+	snprintf(sdev->name, sizeof(sdev->name), "%s", pdev->name);
+	sctrl = &pcam->mctl.sync.sctrl;
 
 	/* come sensor probe logic */
 	rc = msm_camio_probe_on(pdev);
@@ -2317,7 +2326,7 @@ int msm_sensor_register(struct platform_device *pdev,
 		return rc;
 	}
 
-	rc = sensor_probe(sdata, sdev, &sctrl);
+	rc = sensor_probe(sdata, sdev, sctrl);
 
 	msm_camio_probe_off(pdev);
 	if (rc < 0) {
@@ -2328,28 +2337,16 @@ int msm_sensor_register(struct platform_device *pdev,
 		return rc;
 	}
 
-	/* if the probe is successfull, allocat the camera driver object
-	   for this sensor */
-
-	pcam->sync = kzalloc(sizeof(struct msm_sync), GFP_ATOMIC);
-	if (!pcam->sync) {
-		pr_err("%s: could not allocate memory for msm_sync object\n",
-			__func__);
-		kzfree(pcam);
-		return -ENOMEM;
-	}
-
 	/* setup a manager object*/
-	rc = msm_sync_init(pcam->sync, pdev, &sctrl);
+	rc = msm_sync_init(&pcam->mctl.sync, pdev);
 	if (rc < 0)
 		goto failure;
 	D("%s: pcam =0x%p\n", __func__, pcam);
-	D("%s: pcam->sync =0x%p\n", __func__, pcam->sync);
+	D("%s: &pcam->mctl.sync =0x%p\n", __func__, &pcam->mctl.sync);
 
-	(pcam->sync)->pcam_sync = pcam;
+	pcam->mctl.sync.pcam_sync = pcam;
 	/* bind the driver device to the sensor device */
 	pcam->pdev = pdev;
-	pcam->sctrl = sctrl;
 
 	/* init the user count and lock*/
 	pcam->use_count = 0;
@@ -2374,11 +2371,11 @@ int msm_sensor_register(struct platform_device *pdev,
 
 	g_server_dev.camera_info.s_mount_angle
 	[g_server_dev.camera_info.num_cameras]
-	= sctrl.s_mount_angle;
+	= sctrl->s_mount_angle;
 
 	g_server_dev.camera_info.is_internal_cam
 	[g_server_dev.camera_info.num_cameras]
-	= sctrl.s_camera_type;
+	= sctrl->s_camera_type;
 
 	g_server_dev.camera_info.num_cameras++;
 
@@ -2400,9 +2397,9 @@ int msm_sensor_register(struct platform_device *pdev,
 failure:
 	/* mutex_destroy not needed at this moment as the associated
 	implemenation of mutex_init is not consuming resources */
-	msm_sync_destroy(pcam->sync);
+	msm_sync_destroy(&pcam->mctl.sync);
 	pcam->pdev = NULL;
-	kzfree(pcam->sync);
+	kfree(sdev);
 	kzfree(pcam);
 	return rc;
 }

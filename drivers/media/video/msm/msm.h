@@ -258,9 +258,6 @@ struct msm_cam_v4l2_device {
 	int use_count;
 	/* will be used to init/release HW */
 	struct msm_cam_media_controller mctl;
-	/* sensor subdevice */
-	struct v4l2_subdev sensor_sdev;
-	struct msm_sensor_ctrl sctrl;
 
 	/* parent device */
 	struct device *parent_dev;
@@ -279,9 +276,6 @@ struct msm_cam_v4l2_device {
 	struct msm_cam_v4l2_dev_inst *dev_inst_map[MSM_MAX_IMG_MODE];
 	/* native config device */
 	struct cdev cdev;
-
-	/* most-frequently accessed manager object*/
-	struct msm_sync *sync;
 
 	/* The message queue is used by the control thread to send commands
 	 * to the config thread, and also by the HW to send messages to the
