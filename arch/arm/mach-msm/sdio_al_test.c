@@ -58,6 +58,7 @@ enum lpm_test_msg_type {
 #define MAX_XFER_SIZE (16*1024)
 #define SMEM_MAX_XFER_SIZE 0xBC000
 #define A2_MIN_PACKET_SIZE 5
+#define RMNT_PACKET_SIZE (4*1024)
 #define DUN_PACKET_SIZE (2*1024)
 
 #define TEST_DBG(x...) if (test_ctx->runtime_debug) pr_info(x)
@@ -72,6 +73,12 @@ enum lpm_test_msg_type {
 
 #define A2_HEADER_OVERHEAD 8
 
+enum rx_process_state {
+	RX_PROCESS_PACKET_INIT,
+	RX_PROCESS_A2_HEADER,
+	RX_PROCESS_PACKET_DATA,
+};
+
 enum sdio_test_case_type {
 	SDIO_TEST_LOOPBACK_HOST,
 	SDIO_TEST_LOOPBACK_CLIENT,
@@ -80,6 +87,7 @@ enum sdio_test_case_type {
 	SDIO_TEST_LPM_RANDOM,
 	SDIO_TEST_HOST_SENDER_NO_LP,
 	SDIO_TEST_CLOSE_CHANNEL,
+	SDIO_TEST_A2_VALIDATION,
 	/* The following tests are not part of the 9k tests and should be
 	 * kept last in case new tests are added
 	 */
@@ -228,6 +236,8 @@ struct sdio_al_test_debug {
 	struct dentry *rpc_qmi_diag_sender_test;
 	struct dentry *smem_test;
 	struct dentry *smem_rpc_test;
+	struct dentry *rmnet_a2_validation_test;
+	struct dentry *dun_a2_validation_test;
 	struct dentry *rmnet_a2_perf_test;
 	struct dentry *dun_a2_perf_test;
 	struct dentry *rmnet_dun_a2_perf_test;
@@ -295,6 +305,7 @@ struct test_context {
 /* FORWARD DECLARATIONS */
 static int set_params_loopback_9k(struct test_channel *tch);
 static int set_params_smem_test(struct test_channel *tch);
+static int set_params_a2_validation(struct test_channel *tch);
 static int set_params_a2_perf(struct test_channel *tch);
 static int set_params_8k_sender_no_lp(struct test_channel *tch);
 static int set_params_a2_small_pkts(struct test_channel *tch);
@@ -662,6 +673,140 @@ const struct file_operations smem_rpc_test_ops = {
 	.open = sdio_al_test_open,
 	.write = smem_rpc_test_write,
 	.read = smem_rpc_test_read,
+};
+
+/* RMNET A2 VALIDATION TEST */
+static ssize_t rmnet_a2_validation_test_write(struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- RMNET A2 VALIDATION TEST --\n");
+
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_validation(test_ctx->test_ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t rmnet_a2_validation_test_read(struct file *file,
+						char __user *buffer,
+						size_t count,
+						loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nRMNET_A2_VALIDATION_TEST\n"
+		 "=========================\n"
+		 "Description:\n"
+		 "In this test, the HOST sends multiple packets to the\n"
+		 "CLIENT and validates the packets loop backed from A2\n"
+		 "for the RMNET channel.\n\n"
+		 "END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations rmnet_a2_validation_test_ops = {
+	.open = sdio_al_test_open,
+	.write = rmnet_a2_validation_test_write,
+	.read = rmnet_a2_validation_test_read,
+};
+
+/* DUN A2 VALIDATION TEST */
+static ssize_t dun_a2_validation_test_write(struct file *file,
+						const char __user *buf,
+						size_t count,
+						loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- DUN A2 VALIDATION TEST --\n");
+
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_validation(test_ctx->test_ch_arr[SDIO_DUN]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t dun_a2_validation_test_read(struct file *file,
+						char __user *buffer,
+						size_t count,
+						loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		"\nDUN_A2_VALIDATION_TEST\n"
+		"=========================\n"
+		"Description:\n"
+		"In this test, the HOST sends multiple packets to the\n"
+		"CLIENT and validates the packets loop backed from A2\n"
+		"for the DUN channel.\n\n"
+		"END OF DESCRIPTION\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations dun_a2_validation_test_ops = {
+	.open = sdio_al_test_open,
+	.write = dun_a2_validation_test_write,
+	.read = dun_a2_validation_test_read,
 };
 
 /* RMNET A2 PERFORMANCE TEST */
@@ -2172,50 +2317,64 @@ static int sdio_al_test_debugfs_init(void)
 				    NULL,
 				    &rpc_qmi_diag_sender_test_ops);
 
-	test_ctx->debug.smem_test =
-		debugfs_create_file("40_smem_test",
+	test_ctx->debug.rmnet_a2_validation_test =
+		debugfs_create_file("30_rmnet_a2_validation_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
-				    &smem_test_ops);
+				    &rmnet_a2_validation_test_ops);
 
-	test_ctx->debug.smem_rpc_test =
-		debugfs_create_file("50_smem_rpc_test",
+	test_ctx->debug.dun_a2_validation_test =
+		debugfs_create_file("40_dun_a2_validation_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
-				    &smem_rpc_test_ops);
+				    &dun_a2_validation_test_ops);
 
 	test_ctx->debug.rmnet_a2_perf_test =
-		debugfs_create_file("60_rmnet_a2_perf_test",
+		debugfs_create_file("50_rmnet_a2_perf_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
 				    &rmnet_a2_perf_test_ops);
 
 	test_ctx->debug.dun_a2_perf_test =
-		debugfs_create_file("70_dun_a2_perf_test",
+		debugfs_create_file("60_dun_a2_perf_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
 				    &dun_a2_perf_test_ops);
 
 	test_ctx->debug.rmnet_dun_a2_perf_test =
-		debugfs_create_file("80_rmnet_dun_a2_perf_test",
+		debugfs_create_file("70_rmnet_dun_a2_perf_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
 				    &rmnet_dun_a2_perf_test_ops);
 
 	test_ctx->debug.rpc_sender_rmnet_a2_perf_test =
-		debugfs_create_file("90_rpc_sender_rmnet_a2_perf_test",
+		debugfs_create_file("80_rpc_sender_rmnet_a2_perf_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
 				    &rpc_sender_rmnet_a2_perf_test_ops);
 
+	test_ctx->debug.smem_test =
+		debugfs_create_file("90_smem_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &smem_test_ops);
+
+	test_ctx->debug.smem_rpc_test =
+		debugfs_create_file("100_smem_rpc_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &smem_rpc_test_ops);
+
 	test_ctx->debug.all_channels_test =
-		debugfs_create_file("100_all_channels_test",
+		debugfs_create_file("150_all_channels_test",
 				    S_IRUGO | S_IWUGO,
 				    test_ctx->debug.debug_root,
 				    NULL,
@@ -4191,6 +4350,285 @@ exit_err:
 
 
 /**
+ * Process Rx Data - Helper for A2 Validation Test
+ * @test_ch(in/out) : Test channel that contains Rx data buffer to process.
+ *
+ * @rx_unprocessed_bytes(in) : Number of bytes to process in the buffer.
+ *
+ * @rx_process_packet_state(in/out) :
+ * Current processing state (used to identify what to process
+ * next in a partial packet)
+ *
+ * @rx_packet_size(in/out) :
+ * Number of bytes remaining in the packet to be processed.
+ *
+ * @rx_packet_count(in/out) :
+ * Number of packets processed.
+ */
+static int process_rx_data(struct test_channel *test_ch,
+			   u32 rx_unprocessed_bytes,
+			   int *rx_process_packet_state,
+			   u16 *rx_packet_size,
+			   int *rx_packet_count)
+{
+	u8 *buf = (u8 *)test_ch->buf;
+	int eop = 0;
+	int i = 0;
+	int ret = 0;
+	u32 *ptr = 0;
+	u16 size = 0;
+
+	/* process rx data */
+	while (rx_unprocessed_bytes) {
+		TEST_DBG(TEST_MODULE_NAME ": unprocessed bytes : %u\n",
+			rx_unprocessed_bytes);
+
+		switch (*rx_process_packet_state) {
+		case RX_PROCESS_PACKET_INIT:
+			/* process the A2 header */
+			TEST_DBG(TEST_MODULE_NAME ": "
+				"RX_PROCESS_PACKET_INIT\n");
+			*rx_process_packet_state = RX_PROCESS_PACKET_INIT;
+			if (rx_unprocessed_bytes < 4)
+				break;
+
+			i += 4;
+			rx_unprocessed_bytes -= 4;
+
+		case RX_PROCESS_A2_HEADER:
+			/* process the rest of A2 header */
+			TEST_DBG(TEST_MODULE_NAME ": RX_PROCESS_A2_HEADER\n");
+			*rx_process_packet_state = RX_PROCESS_A2_HEADER;
+			if (rx_unprocessed_bytes < 4)
+				break;
+
+			ptr = (u32 *)&buf[i];
+			/*
+			 * upper 2 bytes of the last 4 bytes of A2 header
+			 * contains the size of the packet
+			 */
+			*rx_packet_size = *ptr >> 0x10;
+
+			i += 4;
+			rx_unprocessed_bytes -= 4;
+
+		case RX_PROCESS_PACKET_DATA:
+			/* process the2_2_ packet data */
+			TEST_DBG(TEST_MODULE_NAME ": RX_PROCESS_PACKET_DATA "
+				 "- packet size - %u\n", *rx_packet_size);
+			*rx_process_packet_state = RX_PROCESS_PACKET_DATA;
+
+			size = *rx_packet_size;
+			if (*rx_packet_size <= rx_unprocessed_bytes) {
+				eop = *rx_packet_size;
+				*rx_packet_size = 0;
+			} else {
+				eop = rx_unprocessed_bytes;
+				*rx_packet_size = *rx_packet_size -
+						  rx_unprocessed_bytes;
+			}
+
+			/* no more bytes available to process */
+			if (!eop)
+				break;
+			/*
+			 * end of packet is starting from
+			 * the current position
+			 */
+			eop = eop + i;
+			TEST_DBG(TEST_MODULE_NAME ": size - %u, "
+				 "packet size - %u eop - %d\n",
+				 size, *rx_packet_size, eop);
+
+			/* validate the data */
+			for (; i < eop; i++) {
+				if (buf[i] != (test_ch->rx_bytes % 256)) {
+					pr_err(TEST_MODULE_NAME ": "
+					       "Corrupt data. buf:%u, "
+					       "data:%u\n", buf[i],
+					       test_ch->rx_bytes % 256);
+					ret = -EINVAL;
+					goto err;
+				}
+				rx_unprocessed_bytes--;
+				test_ch->rx_bytes++;
+			}
+
+			/* have more data to be processed */
+			if (*rx_packet_size)
+				break;
+
+			/*
+			 * A2 sends data in 4 byte alignment,
+			 * skip the padding
+			 */
+			if (size % 4) {
+				i += 4 - (size % 4);
+				rx_unprocessed_bytes -= 4 - (size % 4);
+			}
+			*rx_packet_count = *rx_packet_count + 1;
+
+			/* re init the state to process new packet */
+			*rx_process_packet_state = RX_PROCESS_PACKET_INIT;
+			break;
+		default:
+			pr_err(TEST_MODULE_NAME ": Invalid case: %d\n",
+			       *rx_process_packet_state);
+			ret = -EINVAL;
+			goto err;
+		}
+		TEST_DBG(TEST_MODULE_NAME ": Continue processing "
+			"if more data is available\n");
+	}
+
+err:
+	return ret;
+}
+
+/**
+ * A2 Validation Test
+ * Send packets and validate the returned packets.
+ * Transmit one packet at a time, while process multiple rx
+ * packets in a single transaction.
+ * A transaction is of size min(random number, write_avail).
+ * A packet consists of a min of 1 byte to channel supported max.
+ */
+static void a2_validation_test(struct test_channel *test_ch)
+{
+	int ret = 0 ;
+	u32 read_avail = 0;
+	u32 write_avail = 0;
+	int tx_packet_count = 0;
+	int rx_packet_count = 0;
+	int initial_rx_packet_count = 0;
+	u32 size = 0;
+	u8 *buf8 = (u8 *)test_ch->buf;
+	int i = 0;
+	int max_packets = test_ch->config_msg.num_packets;
+	u16 tx_packet_size = 0;
+	u16 rx_packet_size = 0;
+	u32 random_num = 0;
+	int rx_process_packet_state = RX_PROCESS_PACKET_INIT;
+
+	pr_info(TEST_MODULE_NAME ": A2 VALIDATION TEST START for chan %s\n",
+		test_ch->name);
+
+	/* Wait for the initial rx messages before starting the test. */
+	rx_cleanup(test_ch, &initial_rx_packet_count);
+
+	test_ch->tx_bytes = 0;
+	test_ch->rx_bytes = 0;
+
+	/* Continue till we have transmitted and received all packets */
+	while ((tx_packet_count < max_packets) ||
+	       (rx_packet_count < max_packets)) {
+
+		if (test_ctx->exit_flag) {
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
+			return;
+		}
+
+		random_num = get_random_int();
+		size = (random_num % test_ch->packet_length) + 1;
+		TEST_DBG(TEST_MODULE_NAME ": Random tx packet size =%u", size);
+
+		/*
+		 * wait for data ready event
+		 * use a func to avoid compiler optimizations
+		 */
+		write_avail = sdio_write_avail(test_ch->ch);
+		read_avail = sdio_read_avail(test_ch->ch);
+		TEST_DBG(TEST_MODULE_NAME ": write_avail=%d, "
+			"read_avail=%d for chan %s\n",
+			write_avail, read_avail, test_ch->name);
+
+		if ((write_avail == 0) && (read_avail == 0)) {
+			wait_event(test_ch->wait_q,
+				   atomic_read(&test_ch->any_notify_count));
+			atomic_set(&test_ch->any_notify_count, 0);
+		}
+
+		/* Transmit data */
+		write_avail = sdio_write_avail(test_ch->ch);
+		if ((tx_packet_count < max_packets) && (write_avail > 0)) {
+			tx_packet_size = min(size, write_avail) ;
+			TEST_DBG(TEST_MODULE_NAME ": tx size = %u, "
+				"write_avail = %u tx_packet# = %d\n",
+				tx_packet_size, write_avail,
+				tx_packet_count);
+			memset(test_ch->buf, 0, test_ch->buf_size);
+			/* populate the buffer */
+			for (i = 0; i < tx_packet_size; i++) {
+				buf8[i] = test_ch->tx_bytes % 256;
+				test_ch->tx_bytes++;
+			}
+
+			ret = sdio_write(test_ch->ch, test_ch->buf,
+					  tx_packet_size);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME ":sdio_write err=%d"
+					" for chan %s\n",
+					-ret, test_ch->name);
+				goto exit_err;
+			}
+			tx_packet_count++;
+		}
+
+		/* Receive data */
+		read_avail = sdio_read_avail(test_ch->ch);
+		if (read_avail > 0) {
+			TEST_DBG(TEST_MODULE_NAME ": rx size = %u, "
+				"rx_packet#=%d.\n",
+				read_avail, rx_packet_count);
+			memset(test_ch->buf, 0, test_ch->buf_size);
+
+			ret = sdio_read(test_ch->ch, test_ch->buf,
+					read_avail);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME ": sdio_read "
+					"size %d err=%d for chan %s\n",
+					size, -ret, test_ch->name);
+				goto exit_err;
+			}
+
+			/* Process data */
+			ret = process_rx_data(test_ch, read_avail,
+					      &rx_process_packet_state,
+					      &rx_packet_size,
+					      &rx_packet_count);
+
+			if (ret != 0)
+				goto exit_err;
+		}
+		TEST_DBG(TEST_MODULE_NAME ": Continue loop ...\n");
+	}
+
+	if (test_ch->tx_bytes != test_ch->rx_bytes) {
+		pr_err(TEST_MODULE_NAME ": Total number of bytes "
+			"transmitted (%u) does not match the total "
+			"number of bytes received (%u).", test_ch->tx_bytes,
+			test_ch->rx_bytes);
+		goto exit_err;
+	}
+
+	pr_info(TEST_MODULE_NAME ": A2 VALIDATION TEST END for chan %s.\n",
+		test_ch->name);
+
+	pr_info(TEST_MODULE_NAME ": TEST PASS for chan %s\n", test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_PASSED;
+	check_test_completion();
+	return;
+
+exit_err:
+	pr_info(TEST_MODULE_NAME ": TEST FAIL for chan %s\n", test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_FAILED;
+	check_test_completion();
+	return;
+}
+
+/**
  * sender No loopback Test
  */
 static void sender_no_loopback_test(struct test_channel *test_ch)
@@ -4510,6 +4948,9 @@ static void worker(struct work_struct *work)
 		break;
 	case SDIO_TEST_MODEM_RESET:
 		modem_reset_test(test_ch);
+		break;
+	case SDIO_TEST_A2_VALIDATION:
+		a2_validation_test(test_ch);
 		break;
 	default:
 		pr_err(TEST_MODULE_NAME ":Bad Test type = %d.\n",
@@ -5231,6 +5672,31 @@ static int set_params_modem_reset(struct test_channel *tch)
 	tch->config_msg.num_packets = 50000;
 	tch->config_msg.num_iterations = 1;
 
+	tch->timer_interval_ms = 0;
+
+	return 0;
+}
+
+static int set_params_a2_validation(struct test_channel *tch)
+{
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ":NULL channel\n");
+		return -EINVAL;
+	}
+	tch->is_used = 1;
+	tch->test_type = SDIO_TEST_A2_VALIDATION;
+	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
+	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
+
+	if (tch->ch_id == SDIO_RMNT)
+		tch->packet_length = RMNT_PACKET_SIZE;
+	else if (tch->ch_id == SDIO_DUN)
+		tch->packet_length = DUN_PACKET_SIZE;
+	else
+		tch->packet_length = MAX_XFER_SIZE;
+
+	tch->config_msg.num_packets = 10000;
+	tch->config_msg.num_iterations = 1;
 	tch->timer_interval_ms = 0;
 
 	return 0;
