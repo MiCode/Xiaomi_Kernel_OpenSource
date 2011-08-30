@@ -18,24 +18,23 @@
 #include <linux/init.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
+#include <mach/socinfo.h>
 
 struct msm_iommu_domain {
-	int domain_idx;
-	int iova_pool_idx;
+	/* iommu domain to map in */
+	struct iommu_domain *domain;
+	/* total number of allocations from this domain */
+	atomic_t allocation_cnt;
+	/* number of iova pools */
+	int npools;
+	/*
+	 * array of gen_pools for allocating iovas.
+	 * behavior is undefined if these overlap
+	 */
+	struct mem_pool *iova_pools;
+
 };
 
-enum {
-	GLOBAL_DOMAIN,
-	VIDEO_DOMAIN,
-	EMPTY_DOMAIN,
-	MAX_DOMAINS
-};
-
-enum {
-	GLOBAL_MEMORY_POOL,
-	VIDEO_FIRMWARE_POOL,
-	VIDEO_ALLOC_POOL,
-};
 
 struct {
 	char *name;
@@ -114,114 +113,175 @@ struct {
 	/* Video */
 	{
 		.name = "vcodec_a_mm1",
-		.domain = VIDEO_DOMAIN,
+		.domain = GLOBAL_DOMAIN,
 	},
 	/* Video */
 	{
 		.name = "vcodec_b_mm2",
-		.domain = VIDEO_DOMAIN,
+		.domain = GLOBAL_DOMAIN,
 	},
 	/* Video */
 	{
 		.name = "vcodec_a_stream",
-		.domain = VIDEO_DOMAIN,
+		.domain = GLOBAL_DOMAIN,
 	},
 };
 
-static struct iommu_domain *msm_iommu_domains[MAX_DOMAINS];
-
-static struct mem_pool msm_iommu_iova_pools[] = {
-	[GLOBAL_MEMORY_POOL] = {
-		.paddr	= SZ_4K,
-		.size	= SZ_2G - SZ_4K,
-	},
+static struct mem_pool global_pools[] =  {
+	[VIDEO_FIRMWARE_POOL] =
+	/* Low addresses, intended for video firmware */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_16M - SZ_128K,
+		},
+	[LOW_256MB_POOL] =
 	/*
-	 * The video hardware has several constraints:
-	 * 1) The start address for firmware must be 128K aligned
-	 * 2) The video firmware must exist at a lower address than
-	 *	all other video allocations
-	 * 3) Video allocations cannot be more than 256MB away from the
-	 *	firmware
-	 *
-	 * Splitting the video pools makes sure that firmware will
-	 * always be lower than regular allocations and the maximum
-	 * size of 256MB will be enforced.
+	 * Video can only access first 256MB of memory
+	 * dedicated pool for such allocations
 	 */
-	[VIDEO_FIRMWARE_POOL] = {
-		.paddr	= SZ_128K,
-		.size	= SZ_16M - SZ_128K,
-	},
-	[VIDEO_ALLOC_POOL] = {
-		.paddr	= SZ_16M,
-		.size	= SZ_256M - SZ_16M - SZ_128K,
+		{
+			.paddr	= SZ_16M,
+			.size	= SZ_256M - SZ_16M,
+		},
+	[HIGH_POOL] =
+	/* Remaining address space up to 2G */
+		{
+			.paddr	= SZ_256M,
+			.size	= SZ_2G - SZ_256M,
+		}
+};
+
+
+static struct msm_iommu_domain msm_iommu_domains[] = {
+	[GLOBAL_DOMAIN] = {
+		.iova_pools = global_pools,
+		.npools = ARRAY_SIZE(global_pools),
 	}
 };
 
-static struct msm_iommu_domain msm_iommu_subsystems[] = {
-	[MSM_SUBSYSTEM_VIDEO]	= {
-		.domain_idx	= VIDEO_DOMAIN,
-		.iova_pool_idx	= VIDEO_ALLOC_POOL,
-	},
-	[MSM_SUBSYSTEM_VIDEO_FWARE]	= {
-		.domain_idx	= VIDEO_DOMAIN,
-		.iova_pool_idx	= VIDEO_FIRMWARE_POOL,
-	},
-	[MSM_SUBSYSTEM_CAMERA]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[MSM_SUBSYSTEM_DISPLAY]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-	[MSM_SUBSYSTEM_ROTATOR]	= {
-		.domain_idx	= GLOBAL_DOMAIN,
-		.iova_pool_idx	= GLOBAL_MEMORY_POOL,
-	},
-};
-
-struct iommu_domain *msm_subsystem_get_domain(int subsys_id)
+struct iommu_domain *msm_get_iommu_domain(int domain_num)
 {
-	int id = msm_iommu_subsystems[subsys_id].domain_idx;
-
-	return msm_iommu_domains[id];
+	if (domain_num >= 0 && domain_num < MAX_DOMAINS)
+		return msm_iommu_domains[domain_num].domain;
+	else
+		return NULL;
 }
 
-struct mem_pool *msm_subsystem_get_pool(int subsys_id)
+unsigned long msm_subsystem_get_domain_no(int subsys_id)
 {
-	int id = msm_iommu_subsystems[subsys_id].iova_pool_idx;
+	return GLOBAL_DOMAIN;
+}
 
-	return &msm_iommu_iova_pools[id];
+unsigned long msm_subsystem_get_partition_no(int subsys_id)
+{
+	switch (subsys_id) {
+	case MSM_SUBSYSTEM_VIDEO_FWARE:
+		return VIDEO_FIRMWARE_POOL;
+	case MSM_SUBSYSTEM_VIDEO:
+		return LOW_256MB_POOL;
+	case MSM_SUBSYSTEM_CAMERA:
+	case MSM_SUBSYSTEM_DISPLAY:
+	case MSM_SUBSYSTEM_ROTATOR:
+		return HIGH_POOL;
+	default:
+		return 0xFFFFFFFF;
+	}
+}
+
+unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
+					unsigned int partition_no,
+					unsigned long size,
+					unsigned long align)
+{
+	struct mem_pool *pool;
+	unsigned long iova;
+
+	if (iommu_domain >= MAX_DOMAINS)
+		return 0;
+
+	if (partition_no >= msm_iommu_domains[iommu_domain].npools)
+		return 0;
+
+	pool = &msm_iommu_domains[iommu_domain].iova_pools[partition_no];
+
+	if (!pool->gpool)
+		return 0;
+
+	iova = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
+	if (iova)
+		pool->free -= size;
+
+	return iova;
+}
+
+void msm_free_iova_address(unsigned long iova,
+			   unsigned int iommu_domain,
+			   unsigned int partition_no,
+			   unsigned long size)
+{
+	struct mem_pool *pool;
+
+	if (iommu_domain >= MAX_DOMAINS) {
+		WARN(1, "Invalid domain %d\n", iommu_domain);
+		return;
+	}
+
+	if (partition_no >= msm_iommu_domains[iommu_domain].npools) {
+		WARN(1, "Invalid partition %d for domain %d\n",
+			partition_no, iommu_domain);
+		return;
+	}
+
+	pool = &msm_iommu_domains[iommu_domain].iova_pools[partition_no];
+
+	if (!pool)
+		return;
+
+	pool->free += size;
+	gen_pool_free(pool->gpool, iova, size);
+}
+
+int msm_use_iommu()
+{
+	/*
+	 * For now, just detect if the iommu is attached.
+	 */
+	return iommu_found();
 }
 
 static int __init msm_subsystem_iommu_init(void)
 {
-	int i;
+	int i, j;
 
-	for (i = 0; i < (ARRAY_SIZE(msm_iommu_domains) - 1); i++)
-		msm_iommu_domains[i] = iommu_domain_alloc(0);
-
-	for (i = 0; i < ARRAY_SIZE(msm_iommu_iova_pools); i++) {
-		mutex_init(&msm_iommu_iova_pools[i].pool_mutex);
-		msm_iommu_iova_pools[i].gpool = gen_pool_create(PAGE_SHIFT, -1);
-
-		if (!msm_iommu_iova_pools[i].gpool) {
-			pr_err("%s: could not allocate iova pool. iommu"
-				" programming will not work with iova space"
-				" %d\n", __func__, i);
+	for (i = 0; i < ARRAY_SIZE(msm_iommu_domains); i++) {
+		msm_iommu_domains[i].domain = iommu_domain_alloc(0);
+		if (!msm_iommu_domains[i].domain)
 			continue;
-		}
 
-		if (gen_pool_add(msm_iommu_iova_pools[i].gpool,
-				msm_iommu_iova_pools[i].paddr,
-				msm_iommu_iova_pools[i].size,
-				-1)) {
-			pr_err("%s: could not add memory to iova pool. iommu"
-				" programming will not work with iova space"
-				" %d\n", __func__, i);
-			gen_pool_destroy(msm_iommu_iova_pools[i].gpool);
-			msm_iommu_iova_pools[i].gpool = NULL;
-			continue;
+		for (j = 0; j < msm_iommu_domains[i].npools; j++) {
+			struct mem_pool *pool = &msm_iommu_domains[i].
+							iova_pools[j];
+			mutex_init(&pool->pool_mutex);
+			pool->gpool = gen_pool_create(PAGE_SHIFT, -1);
+
+			if (!pool->gpool) {
+				pr_err("%s: domain %d: could not allocate iova"
+					" pool. iommu programming will not work"
+					" with iova space %d\n", __func__,
+					i, j);
+				continue;
+			}
+
+			if (gen_pool_add(pool->gpool, pool->paddr, pool->size,
+						-1)) {
+				pr_err("%s: domain %d: could not add memory to"
+					" iova pool. iommu programming will not"
+					" work with iova space %d\n", __func__,
+					i, j);
+				gen_pool_destroy(pool->gpool);
+				pool->gpool = NULL;
+				continue;
+			}
 		}
 	}
 
@@ -235,15 +295,15 @@ static int __init msm_subsystem_iommu_init(void)
 
 		domain_idx = msm_iommu_ctx_names[i].domain;
 
-		if (!msm_iommu_domains[domain_idx])
+		if (!msm_iommu_domains[domain_idx].domain)
 			continue;
 
-		if (iommu_attach_device(msm_iommu_domains[domain_idx], ctx)) {
-			pr_err("%s: could not attach domain %d to context %s."
+		if (iommu_attach_device(msm_iommu_domains[domain_idx].domain,
+					ctx)) {
+			WARN(1, "%s: could not attach domain %d to context %s."
 				" iommu programming will not occur.\n",
 				__func__, domain_idx,
 				msm_iommu_ctx_names[i].name);
-			msm_iommu_subsystems[i].domain_idx = EMPTY_DOMAIN;
 			continue;
 		}
 	}

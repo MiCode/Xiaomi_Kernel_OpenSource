@@ -208,58 +208,18 @@ static int remove_buffer_phys(struct msm_buffer_node *victim_node)
 	return 0;
 }
 
-static unsigned long allocate_iova_address(unsigned long size,
-					int subsys_id,
-					unsigned long align)
-{
-	struct mem_pool *pool = msm_subsystem_get_pool(subsys_id);
-	unsigned long iova;
-
-	iova = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
-	if (iova)
-		pool->free -= size;
-
-	return iova;
-}
-
-static void free_iova_address(unsigned long iova,
-			unsigned long size,
-			int subsys_id)
-{
-	struct mem_pool *pool = msm_subsystem_get_pool(subsys_id);
-
-	pool->free += size;
-	gen_pool_free(pool->gpool, iova, size);
-}
-
-static int subsys_validate(int subsys_id)
-{
-	struct mem_pool *pool;
-	struct iommu_domain *subsys_domain;
-
-	if (!msm_subsystem_check_id(subsys_id)) {
-		WARN(1, "subsystem id is not valid. Caller should check this.");
-		return 0;
-	}
-
-	pool = msm_subsystem_get_pool(subsys_id);
-	subsys_domain = msm_subsystem_get_domain(subsys_id);
-
-	return subsys_domain && pool && pool->gpool;
-}
-
 phys_addr_t msm_subsystem_check_iova_mapping(int subsys_id, unsigned long iova)
 {
 	struct iommu_domain *subsys_domain;
 
-	if (!subsys_validate(subsys_id))
+	if (!msm_use_iommu())
 		/*
-		 * If the subsystem is not valid, assume a phys = iova
-		 * mapping. Just return the iova in this case.
+		 * If there is no iommu, Just return the iova in this case.
 		 */
 		return iova;
 
-	subsys_domain = msm_subsystem_get_domain(subsys_id);
+	subsys_domain = msm_get_iommu_domain(msm_subsystem_get_domain_no
+								(subsys_id));
 
 	return iommu_iova_to_phys(subsys_domain, iova);
 }
@@ -355,15 +315,29 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 		min_align = flags & ~(SZ_4K - 1);
 
 		for (i = 0; i < nsubsys; i++) {
-			if (!subsys_validate(subsys_ids[i])) {
+			unsigned int domain_no, partition_no;
+
+			if (!msm_use_iommu()) {
 				buf->iova[i] = phys;
 				continue;
 			}
 
-			d = msm_subsystem_get_domain(subsys_ids[i]);
+			d = msm_get_iommu_domain(
+				msm_subsystem_get_domain_no(subsys_ids[i]));
 
-			iova_start = allocate_iova_address(length,
-						subsys_ids[i],
+			if (!d) {
+				pr_err("%s: could not get domain for subsystem"
+					" %d\n", __func__, subsys_ids[i]);
+				continue;
+			}
+
+			domain_no = msm_subsystem_get_domain_no(subsys_ids[i]);
+			partition_no = msm_subsystem_get_partition_no(
+								subsys_ids[i]);
+
+			iova_start = msm_allocate_iova_address(domain_no,
+						partition_no,
+						length,
 						max(min_align, SZ_4K));
 
 			if (!iova_start) {
@@ -410,19 +384,26 @@ outiova:
 		iommu_unmap(d, temp_va, get_order(SZ_4K));
 outdomain:
 	if (flags & MSM_SUBSYSTEM_MAP_IOVA) {
+		/* Unmap the rest of the current domain, i */
 		for (j -= SZ_4K, temp_va -= SZ_4K;
 			j > 0; temp_va -= SZ_4K, j -= SZ_4K)
 			iommu_unmap(d, temp_va, get_order(SZ_4K));
 
+		/* Unmap all the other domains */
 		for (i--; i >= 0; i--) {
-			if (!subsys_validate(subsys_ids[i]))
+			unsigned int domain_no, partition_no;
+			if (!msm_use_iommu())
 				continue;
+			domain_no = msm_subsystem_get_domain_no(subsys_ids[i]);
+			partition_no = msm_subsystem_get_partition_no(
+								subsys_ids[i]);
 
 			temp_va = buf->iova[i];
 			for (j = length; j > 0; j -= SZ_4K,
 						temp_va += SZ_4K)
 				iommu_unmap(d, temp_va, get_order(SZ_4K));
-			free_iova_address(buf->iova[i], length, subsys_ids[i]);
+			msm_free_iova_address(buf->iova[i], domain_no,
+					partition_no, length);
 		}
 
 		kfree(buf->iova);
@@ -464,25 +445,32 @@ int msm_subsystem_unmap_buffer(struct msm_mapped_buffer *buf)
 	}
 
 	if (buf->iova) {
-		for (i = 0; i < node->nsubsys; i++) {
-			struct iommu_domain *subsys_domain;
+		if (msm_use_iommu())
+			for (i = 0; i < node->nsubsys; i++) {
+				struct iommu_domain *subsys_domain;
+				unsigned int domain_no, partition_no;
 
-			if (!subsys_validate(node->subsystems[i]))
-				continue;
+				subsys_domain = msm_get_iommu_domain(
+						msm_subsystem_get_domain_no(
+						node->subsystems[i]));
 
-			subsys_domain = msm_subsystem_get_domain(
+				domain_no = msm_subsystem_get_domain_no(
 							node->subsystems[i]);
-			temp_va = buf->iova[i];
-			for (j = node->length; j > 0; j -= SZ_4K,
-				temp_va += SZ_4K) {
-				ret = iommu_unmap(subsys_domain, temp_va,
+				partition_no = msm_subsystem_get_partition_no(
+							node->subsystems[i]);
+
+				temp_va = buf->iova[i];
+				for (j = node->length; j > 0; j -= SZ_4K,
+					temp_va += SZ_4K) {
+					ret = iommu_unmap(subsys_domain,
+							temp_va,
 							get_order(SZ_4K));
-				WARN(ret, "iommu_unmap returned a non-zero"
-						" value.\n");
+					WARN(ret, "iommu_unmap returned a "
+						" non-zero value.\n");
+				}
+				msm_free_iova_address(buf->iova[i], domain_no,
+						partition_no, node->length);
 			}
-			free_iova_address(buf->iova[i], node->length,
-							node->subsystems[i]);
-		}
 		kfree(buf->iova);
 
 	}
