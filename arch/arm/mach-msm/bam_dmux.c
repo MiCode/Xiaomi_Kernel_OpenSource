@@ -38,8 +38,9 @@
 #define BAM_MUX_HDR_CMD_OPEN    1
 #define BAM_MUX_HDR_CMD_CLOSE   2
 
-#define RX_STATE_HDR_QUEUED	0
-#define RX_STATE_DATA_QUEUED	1
+#define POLLING_MIN_SLEEP	950	/* 0.95 ms */
+#define POLLING_MAX_SLEEP	1050	/* 1.05 ms */
+#define POLLING_INACTIVITY	40	/* cycles before switch to intr mode */
 
 
 static int msm_bam_dmux_debug_enable;
@@ -107,6 +108,7 @@ struct rx_pkt_info {
 	struct sk_buff *skb;
 	dma_addr_t dma_address;
 	struct work_struct work;
+	struct list_head list_node;
 };
 
 #define A2_NUM_PIPES		6
@@ -129,6 +131,11 @@ static struct sps_register_event rx_register_event;
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
 
+static int polling_mode;
+
+static LIST_HEAD(bam_rx_pool);
+static DEFINE_MUTEX(bam_rx_pool_lock);
+
 struct bam_mux_hdr {
 	uint16_t magic_num;
 	uint8_t reserved;
@@ -140,8 +147,10 @@ struct bam_mux_hdr {
 
 static void bam_mux_write_done(struct work_struct *work);
 static void handle_bam_mux_cmd(struct work_struct *work);
+static void rx_timer_work_func(struct work_struct *work);
 
 static DEFINE_MUTEX(bam_mux_lock);
+static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 
 static struct workqueue_struct *bam_mux_rx_workqueue;
 static struct workqueue_struct *bam_mux_tx_workqueue;
@@ -168,6 +177,11 @@ static void queue_rx(void)
 
 	info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
 	ptr = skb_put(info->skb, BUFFER_SIZE);
+
+	mutex_lock(&bam_rx_pool_lock);
+	list_add_tail(&info->list_node, &bam_rx_pool);
+	mutex_unlock(&bam_rx_pool_lock);
+
 	/* need a way to handle error case */
 	info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
 						DMA_FROM_DEVICE);
@@ -212,6 +226,7 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 
 	info = container_of(work, struct rx_pkt_info, work);
 	rx_skb = info->skb;
+	dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE, DMA_FROM_DEVICE);
 	kfree(info);
 
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
@@ -498,6 +513,80 @@ int msm_bam_dmux_close(uint32_t id)
 	return rc;
 }
 
+static void rx_timer_work_func(struct work_struct *work)
+{
+	struct sps_iovec iov;
+	struct list_head *node;
+	struct rx_pkt_info *info;
+	int inactive_cycles = 0;
+	int ret;
+	struct sps_connect cur_rx_conn;
+
+	while (1) { /* timer loop */
+		++inactive_cycles;
+		while (1) { /* deplete queue loop */
+			sps_get_iovec(bam_rx_pipe, &iov);
+			if (iov.addr == 0)
+				break;
+			inactive_cycles = 0;
+			mutex_lock(&bam_rx_pool_lock);
+			node = bam_rx_pool.next;
+			list_del(node);
+			mutex_unlock(&bam_rx_pool_lock);
+			info = container_of(node, struct rx_pkt_info,
+							list_node);
+			handle_bam_mux_cmd(&info->work);
+		}
+
+		if (inactive_cycles == POLLING_INACTIVITY) {
+			/*
+			 * attempt to enable interrupts in this pipe
+			 * if enabling interrupts fails, continue polling
+			 */
+			ret = sps_get_config(bam_rx_pipe, &cur_rx_conn);
+			if (ret) {
+				pr_err("%s: sps_get_config() failed, interrupts"
+						" not enabled\n", __func__);
+				queue_work(bam_mux_rx_workqueue,
+						&rx_timer_work);
+				return;
+			} else {
+				rx_register_event.options = SPS_O_EOT;
+				/* should check return value */
+				sps_register_event(bam_rx_pipe,
+							&rx_register_event);
+				cur_rx_conn.options = SPS_O_AUTO_ENABLE |
+					SPS_O_EOT | SPS_O_ACK_TRANSFERS;
+				ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
+				if (ret) {
+					pr_err("%s: sps_set_config() failed, "
+						"interrupts not enabled\n",
+						__func__);
+					queue_work(bam_mux_rx_workqueue,
+							&rx_timer_work);
+					return;
+				}
+				polling_mode = 0;
+			}
+			/* handle race condition - missed packet? */
+			sps_get_iovec(bam_rx_pipe, &iov);
+			if (iov.addr == 0)
+				return;
+			inactive_cycles = 0;
+			mutex_lock(&bam_rx_pool_lock);
+			node = bam_rx_pool.next;
+			list_del(node);
+			mutex_unlock(&bam_rx_pool_lock);
+			info = container_of(node, struct rx_pkt_info,
+							list_node);
+			handle_bam_mux_cmd(&info->work);
+			return;
+		}
+
+		usleep_range(POLLING_MIN_SLEEP, POLLING_MAX_SLEEP);
+	}
+}
+
 static void bam_mux_tx_notify(struct sps_event_notify *notify)
 {
 	struct tx_pkt_info *pkt;
@@ -528,17 +617,40 @@ static void bam_mux_tx_notify(struct sps_event_notify *notify)
 
 static void bam_mux_rx_notify(struct sps_event_notify *notify)
 {
-	struct rx_pkt_info *info;
+	int ret;
+	struct sps_connect cur_rx_conn;
 
 	DBG("%s: event %d notified\n", __func__, notify->event_id);
 
-	info = (struct rx_pkt_info *)(notify->data.transfer.user);
-
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
-		dma_unmap_single(NULL, info->dma_address,
-				BUFFER_SIZE, DMA_FROM_DEVICE);
-		queue_work(bam_mux_rx_workqueue, &info->work);
+		/* attempt to disable interrupts in this pipe */
+		if (!polling_mode) {
+			ret = sps_get_config(bam_rx_pipe, &cur_rx_conn);
+			if (ret) {
+				pr_err("%s: sps_get_config() failed, interrupts"
+					" not disabled\n", __func__);
+				break;
+			}
+			rx_register_event.options = 0;
+			ret = sps_register_event(bam_rx_pipe,
+							&rx_register_event);
+			if (ret) {
+				pr_err("%s: sps_register_event ret = %d\n",
+					__func__, ret);
+				break;
+			}
+			cur_rx_conn.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
+				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+			ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
+			if (ret) {
+				pr_err("%s: sps_set_config() failed, interrupts"
+					" not disabled\n", __func__);
+				break;
+			}
+			polling_mode = 1;
+			queue_work(bam_mux_rx_workqueue, &rx_timer_work);
+		}
 		break;
 	default:
 		pr_err("%s: recieved unexpected event id %d\n", __func__,
@@ -677,7 +789,8 @@ static void bam_init(void)
 	rx_connection.destination = SPS_DEV_HANDLE_MEM;
 	rx_connection.dest_pipe_index = 1;
 	rx_connection.mode = SPS_MODE_SRC;
-	rx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
+	rx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
+					SPS_O_ACK_TRANSFERS;
 	rx_desc_mem_buf.size = 0x800; /* 2k */
 	rx_desc_mem_buf.base = dma_alloc_coherent(NULL, rx_desc_mem_buf.size,
 							&dma_addr, 0);
