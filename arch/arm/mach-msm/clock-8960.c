@@ -1315,6 +1315,7 @@ static struct rcg_clk qdss_at_clk = {
 		.dbg_name = "qdss_at_clk",
 		.ops = &clk_ops_qdss,
 		CLK_INIT(qdss_at_clk.c),
+		.flags = CLKFLAG_SKIP_AUTO_OFF,
 	},
 };
 
