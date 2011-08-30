@@ -48,7 +48,11 @@
 
 #include "f_diag.c"
 #include "f_mass_storage.c"
-//#include "u_serial.c"
+#include "u_serial.c"
+#include "u_sdio.c"
+#include "u_smd.c"
+#include "u_bam.c"
+#include "f_serial.c"
 //#include "f_acm.c"
 #include "f_adb.c"
 #include "f_mtp.c"
@@ -251,6 +255,79 @@ static struct android_usb_function diag_function = {
 	.bind_config	= diag_function_bind_config,
 	.attributes	= diag_function_attributes,
 };
+
+char serial_transports[32];	    /* enabled FSERIAL ports - "tty[,sdio]" */
+static ssize_t serial_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strncpy(serial_transports, buff, sizeof(serial_transports));
+
+	return size;
+}
+
+static DEVICE_ATTR(transports, S_IWUSR, NULL, serial_transports_store);
+static struct device_attribute *serial_function_attributes[] =
+					 { &dev_attr_transports, NULL };
+
+static void serial_function_cleanup(struct android_usb_function *f)
+{
+	gserial_cleanup();
+}
+
+static int serial_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	char *name;
+	char buf[32], *b;
+	int err = -1, i;
+	static int serial_initialized = 0, ports = 0;
+
+	if (serial_initialized)
+		goto bind_config;
+
+	serial_initialized = 1;
+	strncpy(buf, serial_transports, sizeof(buf));
+	b = strim(buf);
+
+	while (b) {
+		name = strsep(&b, ",");
+
+		if (name) {
+			err = gserial_init_port(ports, name);
+			if (err) {
+				pr_err("serial: Cannot open port '%s'", name);
+				goto out;
+			}
+			ports++;
+		}
+	}
+	err = gport_setup(c);
+	if (err) {
+		pr_err("serial: Cannot setup transports");
+		goto out;
+	}
+
+bind_config:
+	for (i = 0; i < ports; i++) { 
+		err = gser_bind_config(c, i);
+		if (err) {
+			pr_err("serial: bind_config failed for port %d", i);
+			goto out;
+		}
+	}
+
+out:
+	return err;
+}
+
+static struct android_usb_function serial_function = {
+	.name		= "serial",
+	.cleanup	= serial_function_cleanup,
+	.bind_config	= serial_function_bind_config,
+	.attributes	= serial_function_attributes,
+};
+
 
 static int adb_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
@@ -710,6 +787,7 @@ static struct android_usb_function accessory_function = {
 
 static struct android_usb_function *supported_functions[] = {
 	&diag_function,
+	&serial_function,
 	&adb_function,
 //	&acm_function,
 	&mtp_function,
