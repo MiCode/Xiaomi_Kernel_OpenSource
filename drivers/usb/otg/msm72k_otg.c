@@ -1505,6 +1505,12 @@ reset_link:
 
 	writel(0x0, USB_AHB_BURST);
 	writel(0x00, USB_AHB_MODE);
+	if (dev->pdata->bam_disable) {
+		writel_relaxed((readl_relaxed(USB_GEN_CONFIG) |
+					USB_BAM_DISABLE), USB_GEN_CONFIG);
+		pr_debug("%s(): USB_GEN_CONFIG = %x\n",
+				__func__, readl_relaxed(USB_GEN_CONFIG));
+	}
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 

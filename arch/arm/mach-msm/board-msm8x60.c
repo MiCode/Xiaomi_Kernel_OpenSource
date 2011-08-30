@@ -1383,6 +1383,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pemp_level		 = PRE_EMPHASIS_WITH_20_PERCENT,
 	.cdr_autoreset		 = CDR_AUTO_RESET_DISABLE,
 	.se1_gating		 = SE1_GATING_DISABLE,
+	.bam_disable		 = 1,
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	.pmic_id_notif_init = msm_hsusb_pmic_id_notif_init,
 #endif
