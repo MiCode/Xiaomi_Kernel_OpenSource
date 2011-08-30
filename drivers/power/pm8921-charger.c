@@ -198,9 +198,12 @@ struct pm8921_chg_chip {
 	int			trkl_current;
 	int			weak_current;
 	int			vin_min;
+	int			*thermal_mitigation;
+	int			thermal_levels;
 };
 
 static int charging_disabled;
+static int thermal_mitigation;
 
 static struct pm8921_chg_chip *the_chip;
 
@@ -1490,6 +1493,47 @@ static int set_disable_status_param(const char *val, struct kernel_param *kp)
 module_param_call(disabled, set_disable_status_param, param_get_uint,
 					&charging_disabled, 0644);
 
+/**
+ * set_thermal_mitigation_level -
+ *
+ * Internal function to control battery charging current to reduce
+ * temperature
+ */
+static int set_therm_mitigation_level(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	struct pm8921_chg_chip *chip = the_chip;
+
+	ret = param_set_int(val, kp);
+	if (ret) {
+		pr_err("error setting value %d\n", ret);
+		return ret;
+	}
+
+	if (!chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (!chip->thermal_mitigation) {
+		pr_err("no thermal mitigation\n");
+		return -EINVAL;
+	}
+
+	if (thermal_mitigation < 0
+		|| thermal_mitigation >= chip->thermal_levels) {
+		pr_err("out of bound level selected\n");
+		return -EINVAL;
+	}
+
+	ret = pm_chg_ibatmax_set(chip,
+			chip->thermal_mitigation[thermal_mitigation]);
+	return ret;
+}
+module_param_call(thermal_mitigation, set_therm_mitigation_level,
+					param_get_uint,
+					&thermal_mitigation, 0644);
+
 static void free_irqs(struct pm8921_chg_chip *chip)
 {
 	int i;
@@ -1995,6 +2039,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->trkl_current = pdata->trkl_current;
 	chip->weak_current = pdata->weak_current;
 	chip->vin_min = pdata->vin_min;
+	chip->thermal_mitigation = pdata->thermal_mitigation;
+	chip->thermal_levels = pdata->thermal_levels;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {

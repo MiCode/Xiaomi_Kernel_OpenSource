@@ -3339,6 +3339,13 @@ static struct pm8xxx_keypad_platform_data keypad_data_sim = {
 	.keymap_data            = &keymap_data_sim,
 };
 
+static int pm8921_therm_mitigation[] = {
+	1100,
+	700,
+	600,
+	325,
+};
+
 static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.safety_time		= 180,
 	.update_time		= 1,
@@ -3349,11 +3356,13 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.cool_temp		= 10,
 	.warm_temp		= 40,
 	.temp_check_period	= 1,
-	.max_bat_chg_current	= 400,
+	.max_bat_chg_current	= 1100,
 	.cool_bat_chg_current	= 350,
 	.warm_bat_chg_current	= 350,
 	.cool_bat_voltage	= 4100,
 	.warm_bat_voltage	= 4100,
+	.thermal_mitigation	= pm8921_therm_mitigation,
+	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 };
 
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {

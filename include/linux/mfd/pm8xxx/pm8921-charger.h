@@ -60,6 +60,9 @@ struct pm8xxx_charger_core_data {
  * @vin_min:		the input voltage regulation point (mV) - if the
  *			voltage falls below this, the charger reduces charge
  *			current or stop charging temporarily
+ * @thermal_mitigation: the array of charge currents to use as temperature
+ *			increases
+ * @thermal_levels:	the number of thermal mitigation levels supported
  *
  */
 struct pm8921_charger_platform_data {
@@ -87,6 +90,8 @@ struct pm8921_charger_platform_data {
 	int				trkl_current;
 	int				weak_current;
 	int				vin_min;
+	int				*thermal_mitigation;
+	int				thermal_levels;
 };
 
 enum pm8921_charger_source {
