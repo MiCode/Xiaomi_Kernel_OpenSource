@@ -240,7 +240,7 @@ static void msm_enqueue_vpe(struct msm_device_queue *queue,
 		qcmd = list_first_entry(&__q->list,		\
 			struct msm_queue_cmd, member);		\
 		if (qcmd) {					\
-			if ((&qcmd->member) && (&qcmd->member.next))	\
+			if (&qcmd->member)	\
 				list_del_init(&qcmd->member);		\
 			free_qcmd(qcmd);				\
 		}							\
