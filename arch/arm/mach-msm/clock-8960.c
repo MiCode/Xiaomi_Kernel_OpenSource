@@ -226,6 +226,7 @@
 #define VPE_NS_REG				REG_MM(0x0118)
 
 /* Low-power Audio clock registers. */
+#define LCC_CLK_HS_DEBUG_CFG_REG		REG_LPA(0x00A4)
 #define LCC_CLK_LS_DEBUG_CFG_REG		REG_LPA(0x00A8)
 #define LCC_CODEC_I2S_MIC_MD_REG		REG_LPA(0x0064)
 #define LCC_CODEC_I2S_MIC_NS_REG		REG_LPA(0x0060)
@@ -284,6 +285,7 @@
 #define TEST_TYPE_MM_HS		4
 #define TEST_TYPE_LPA		5
 #define TEST_TYPE_CPUL2		6
+#define TEST_TYPE_LPA_HS	7
 #define TEST_TYPE_SHIFT		24
 #define TEST_CLK_SEL_MASK	BM(23, 0)
 #define TEST_VECTOR(s, t)	(((t) << TEST_TYPE_SHIFT) | BVAL(23, 0, (s)))
@@ -292,6 +294,7 @@
 #define TEST_MM_LS(s)		TEST_VECTOR((s), TEST_TYPE_MM_LS)
 #define TEST_MM_HS(s)		TEST_VECTOR((s), TEST_TYPE_MM_HS)
 #define TEST_LPA(s)		TEST_VECTOR((s), TEST_TYPE_LPA)
+#define TEST_LPA_HS(s)		TEST_VECTOR((s), TEST_TYPE_LPA_HS)
 #define TEST_CPUL2(s)		TEST_VECTOR((s), TEST_TYPE_CPUL2)
 
 #define MN_MODE_DUAL_EDGE 0x2
@@ -4108,6 +4111,9 @@ struct measure_sel {
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
+static DEFINE_CLK_MEASURE(q6sw_clk);
+static DEFINE_CLK_MEASURE(q6fw_clk);
+static DEFINE_CLK_MEASURE(q6_func_clk);
 
 static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x05), &qdss_p_clk.c },
@@ -4194,6 +4200,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_HS(0x07), &afab_a_clk.c },
 	{ TEST_PER_HS(0x18), &sfab_clk.c },
 	{ TEST_PER_HS(0x18), &sfab_a_clk.c },
+	{ TEST_PER_HS(0x26), &q6sw_clk },
+	{ TEST_PER_HS(0x27), &q6fw_clk },
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_a_clk.c },
@@ -4289,6 +4297,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_LPA(0x14), &pcm_clk.c },
 	{ TEST_LPA(0x1D), &audio_slimbus_clk.c },
 
+	{ TEST_LPA_HS(0x00), &q6_func_clk },
+
 	{ TEST_CPUL2(0x1), &l2_m_clk },
 	{ TEST_CPUL2(0x2), &krait0_m_clk },
 	{ TEST_CPUL2(0x3), &krait1_m_clk },
@@ -4347,6 +4357,11 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(0x4030D98, CLK_TEST_REG);
 		writel_relaxed(BVAL(6, 1, clk_sel)|BIT(0),
 				LCC_CLK_LS_DEBUG_CFG_REG);
+		break;
+	case TEST_TYPE_LPA_HS:
+		writel_relaxed(0x402BC00, CLK_TEST_REG);
+		writel_relaxed(BVAL(2, 1, clk_sel)|BIT(0),
+				LCC_CLK_HS_DEBUG_CFG_REG);
 		break;
 	case TEST_TYPE_CPUL2:
 		writel_relaxed(0x4030400, CLK_TEST_REG);
@@ -4687,6 +4702,9 @@ static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     NULL),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, NULL),
 	CLK_LOOKUP("krait1_mclk",	krait1_m_clk, NULL),
+	CLK_LOOKUP("q6sw_clk",		q6sw_clk, NULL),
+	CLK_LOOKUP("q6fw_clk",		q6fw_clk, NULL),
+	CLK_LOOKUP("q6_func_clk",	q6_func_clk, NULL),
 };
 
 static struct clk_lookup msm_clocks_8960_v2[] __initdata = {
