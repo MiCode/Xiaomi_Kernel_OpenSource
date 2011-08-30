@@ -111,27 +111,27 @@ int chip_power_qrf6285(bool on)
 					__func__, vreg_info[index].vreg_id, rc);
 				goto vreg_fail;
 			}
+
+			rc = vreg_enable(vreg_info[index].vreg);
+			if (rc) {
+				pr_err("%s:%s vreg enable failed %d\n",
+					__func__,
+					vreg_info[index].vreg_id, rc);
+				goto vreg_fail;
+			}
+
 			if (vreg_info[index].is_vreg_pin_controlled) {
-				rc = pmapp_vreg_pincntrl_vote(id,
+				rc = pmapp_vreg_lpm_pincntrl_vote(id,
 					 vreg_info[index].pmapp_id,
 					 PMAPP_CLOCK_ID_A0, 1);
 				if (rc) {
-					pr_err("%s:%s pmapp_vreg_pincntrl_vote"
+					pr_err("%s:%s pmapp_vreg_lpm_pincntrl"
 						" for enable failed %d\n",
 						__func__,
 						vreg_info[index].vreg_id, rc);
-					goto vreg_fail;
-				}
-			} else {
-				rc = vreg_enable(vreg_info[index].vreg);
-				if (rc) {
-					pr_err("%s:%s vreg enable failed %d\n",
-						__func__,
-						vreg_info[index].vreg_id, rc);
-					goto vreg_fail;
+					goto vreg_pin_ctrl_fail;
 				}
 			}
-
 			/*At this point CLK_PWR_REQ is high*/
 			if (WLAN_VREG_L6 == index) {
 				/*
@@ -151,28 +151,28 @@ int chip_power_qrf6285(bool on)
 		} else {
 
 			if (vreg_info[index].is_vreg_pin_controlled) {
-				rc = pmapp_vreg_pincntrl_vote(id,
+				rc = pmapp_vreg_lpm_pincntrl_vote(id,
 						 vreg_info[index].pmapp_id,
 						 PMAPP_CLOCK_ID_A0, 0);
 				if (rc) {
-					pr_err("%s:%s pmapp_vreg_pincntrl_vote"
+					pr_err("%s:%s pmapp_vreg_lpm_pincntrl"
 						" for disable failed %d\n",
 						__func__,
 						vreg_info[index].vreg_id, rc);
 				}
-			} else {
-				rc = vreg_disable(vreg_info[index].vreg);
-				if (rc) {
-					pr_err("%s:%s vreg disable failed %d\n",
-						__func__,
-						vreg_info[index].vreg_id, rc);
-				}
+			}
+			rc = vreg_disable(vreg_info[index].vreg);
+			if (rc) {
+				pr_err("%s:%s vreg disable failed %d\n",
+					__func__,
+					vreg_info[index].vreg_id, rc);
 			}
 		}
 	}
 	return 0;
 vreg_fail:
 	index--;
+vreg_pin_ctrl_fail:
 vreg_clock_vote_fail:
 	while (index > 0) {
 		rc = vreg_disable(vreg_info[index].vreg);
