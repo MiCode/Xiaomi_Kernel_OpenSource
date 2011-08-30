@@ -259,9 +259,6 @@ int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 		case SENSOR_RAW_SNAPSHOT_MODE:
 			s_ctrl->pict_res = res;
 			break;
-		default:
-			rc = -EINVAL;
-			return rc;
 		}
 		s_ctrl->curr_frame_length_lines =
 			s_ctrl->msm_sensor_reg->
