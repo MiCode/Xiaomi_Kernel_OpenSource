@@ -14,46 +14,61 @@
 #include <linux/qcomwlan_pwrif.h>
 
 #define GPIO_WLAN_DEEP_SLEEP_N  230
-#define GPIO_WLAN_DEEP_SLEEP_N_DRAGON  108
 #define WLAN_RESET_OUT          1
 #define WLAN_RESET              0
 
 static const char *id = "WLAN";
 
-static const char *vregs_qwlan_name[] = {
-	"8058_l20",
-	"8058_l8",
-	"8901_s4",
-	"8901_lvs1",
-	"8901_l0",
-	"8058_s2",
-	"8058_s1",
-};
-static const int vregs_qwlan_val_min[] = {
-	1800000,
-	3050000,
-	1225000,
-	0,
-	1200000,
-	1300000,
-	500000,
-};
-static const int vregs_qwlan_val_max[] = {
-	1800000,
-	3050000,
-	1225000,
-	0,
-	1200000,
-	1300000,
-	1250000,
-};
-static struct regulator *vregs_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
-
-int vos_chip_power_qrf8615_work(int on,
-			bool const *vregs_is_pin_controlled,
-			int gpio_deep_sleep)
+/**
+ * vos_chip_power_qrf8615() - WLAN Power Up Seq for WCN1314 rev 2.0 on QRF 8615
+ * @on - Turn WLAN ON/OFF (1 or 0)
+ *
+ * Power up/down WLAN by turning on/off various regs and asserting/deasserting
+ * Power-on-reset pin. Also, put XO A0 buffer as slave to wlan_clk_pwr_req while
+ * turning ON WLAN and vice-versa.
+ *
+ * This function returns 0 on success or a non-zero value on failure.
+ */
+int vos_chip_power_qrf8615(int on)
 {
 	static char wlan_on;
+	static const char *vregs_qwlan_name[] = {
+		"8058_l20",
+		"8058_l8",
+		"8901_s4",
+		"8901_lvs1",
+		"8901_l0",
+		"8058_s2",
+		"8058_s1",
+	};
+	static const int vregs_qwlan_val_min[] = {
+		1800000,
+		3050000,
+		1225000,
+		0,
+		1200000,
+		1300000,
+		500000,
+	};
+	static const int vregs_qwlan_val_max[] = {
+		1800000,
+		3050000,
+		1225000,
+		0,
+		1200000,
+		1300000,
+		1250000,
+	};
+	static const bool vregs_is_pin_controlled[] = {
+		1,
+		1,
+		0,
+		0,
+		1,
+		1,
+		0,
+	};
+	static struct regulator *vregs_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
 	static struct msm_xo_voter *wlan_clock;
 	int ret, i, rc = 0;
 
@@ -63,17 +78,17 @@ int vos_chip_power_qrf8615_work(int on,
 		 * Program U12 GPIO expander pin IO1 to de-assert (drive 0)
 		 * WLAN_EXT_POR_N to put WLAN in reset
 		 */
-		rc = gpio_request(gpio_deep_sleep, "WLAN_DEEP_SLEEP_N");
+		rc = gpio_request(GPIO_WLAN_DEEP_SLEEP_N, "WLAN_DEEP_SLEEP_N");
 		if (rc) {
 			pr_err("WLAN reset GPIO %d request failed\n",
-					gpio_deep_sleep);
+					GPIO_WLAN_DEEP_SLEEP_N);
 			goto fail;
 		}
-		rc = gpio_direction_output(gpio_deep_sleep,
+		rc = gpio_direction_output(GPIO_WLAN_DEEP_SLEEP_N,
 				WLAN_RESET_OUT);
 		if (rc < 0) {
 			pr_err("WLAN reset GPIO %d set output direction failed",
-					gpio_deep_sleep);
+					GPIO_WLAN_DEEP_SLEEP_N);
 			goto fail_gpio_dir_out;
 		}
 
@@ -96,8 +111,8 @@ int vos_chip_power_qrf8615_work(int on,
 	} else if (!on && wlan_on) {
 		if (wlan_clock != NULL)
 			msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_OFF);
-		gpio_set_value_cansleep(gpio_deep_sleep, WLAN_RESET);
-		gpio_free(gpio_deep_sleep);
+		gpio_set_value_cansleep(GPIO_WLAN_DEEP_SLEEP_N, WLAN_RESET);
+		gpio_free(GPIO_WLAN_DEEP_SLEEP_N);
 	}
 
 	/* WLAN VREG settings */
@@ -175,57 +190,12 @@ vreg_get_fail:
 fail_xo_mode_vote:
 	msm_xo_put(wlan_clock);
 fail_gpio_dir_out:
-	gpio_free(gpio_deep_sleep);
+	gpio_free(GPIO_WLAN_DEEP_SLEEP_N);
 fail:
 	return rc;
 }
-
-/**
- * vos_chip_power_qrf8615() - WLAN Power Up Seq for WCN1314 rev 2.0 on QRF 8615
- * @on - Turn WLAN ON/OFF (1 or 0)
- *
- * Power up/down WLAN by turning on/off various regs and asserting/deasserting
- * Power-on-reset pin. Also, put XO A0 buffer as slave to wlan_clk_pwr_req while
- * turning ON WLAN and vice-versa.
- *
- * This function returns 0 on success or a non-zero value on failure.
- */
-
-int vos_chip_power_qrf8615(int on)
-{
-	static const bool vregs_is_pin_controlled[] = {
-		1,
-		1,
-		0,
-		0,
-		1,
-		1,
-		0,
-	};
-
-	return vos_chip_power_qrf8615_work(on,
-			vregs_is_pin_controlled,
-			GPIO_WLAN_DEEP_SLEEP_N);
-}
 EXPORT_SYMBOL(vos_chip_power_qrf8615);
 
-int vos_chip_power_qrf8615_dragon(int on)
-{
-	static const bool vregs_is_pin_controlled[] = {
-		0,
-		0,
-		0,
-		0,
-		0,
-		1,
-		0,
-	};
-
-	return vos_chip_power_qrf8615_work(on,
-			vregs_is_pin_controlled,
-			GPIO_WLAN_DEEP_SLEEP_N_DRAGON);
-}
-EXPORT_SYMBOL(vos_chip_power_qrf8615_dragon);
 /**
  * qcomwlan_pmic_xo_core_force_enable() - Force XO Core of PMIC to be ALWAYS ON
  * @on - Force XO Core  ON/OFF (1 or 0)
