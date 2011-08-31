@@ -241,6 +241,10 @@ int q6asm_set_volume(struct audio_client *ac, int volume);
 int q6asm_set_softpause(struct audio_client *ac,
 			struct asm_softpause_params *param);
 
+/* Set Softvolume Params */
+int q6asm_set_softvolume(struct audio_client *ac,
+			struct asm_softvolume_params *param);
+
 /* Send left-right channel gain */
 int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
 

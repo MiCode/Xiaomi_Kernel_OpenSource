@@ -2217,6 +2217,70 @@ fail_cmd:
 	return rc;
 }
 
+int q6asm_set_softvolume(struct audio_client *ac,
+			struct asm_softvolume_params *softvol_param)
+{
+	void *vol_cmd = NULL;
+	void *payload = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	struct asm_softvolume_params *params = NULL;
+	int sz = 0;
+	int rc  = 0;
+
+	sz = sizeof(struct asm_pp_params_command) +
+		+ sizeof(struct asm_softvolume_params);
+	vol_cmd = kzalloc(sz, GFP_KERNEL);
+	if (vol_cmd == NULL) {
+		pr_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		return rc;
+	}
+	cmd = (struct asm_pp_params_command *)vol_cmd;
+	q6asm_add_hdr_async(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				sizeof(struct asm_softvolume_params);
+	cmd->params.module_id = VOLUME_CONTROL_MODULE_ID;
+	cmd->params.param_id = SOFT_VOLUME_PARAM_ID;
+	cmd->params.param_size = sizeof(struct asm_softvolume_params);
+	cmd->params.reserved = 0;
+
+	payload = (u8 *)(vol_cmd + sizeof(struct asm_pp_params_command));
+	params = (struct asm_softvolume_params *)payload;
+
+	params->period = softvol_param->period;
+	params->step = softvol_param->step;
+	params->rampingcurve = softvol_param->rampingcurve;
+	pr_debug("%s: soft Volume:opcode = %d,payload_sz =%d,module_id =%d,"
+			 "param_id = %d, param_sz = %d\n", __func__,
+			cmd->hdr.opcode, cmd->payload_size,
+			cmd->params.module_id, cmd->params.param_id,
+			cmd->params.param_size);
+	pr_debug("%s: soft Volume Command: period = %d,"
+			 "step = %d, curve = %d\n", __func__, params->period,
+			 params->step, params->rampingcurve);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) vol_cmd);
+	if (rc < 0) {
+		pr_err("%s: Volume Command(soft_volume) failed\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout in sending volume command(soft_volume)"
+		       "to apr\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = 0;
+fail_cmd:
+	kfree(vol_cmd);
+	return rc;
+}
+
 int q6asm_equalizer(struct audio_client *ac, void *eq)
 {
 	void *eq_cmd = NULL;
