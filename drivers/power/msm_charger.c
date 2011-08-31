@@ -193,10 +193,17 @@ static int get_battery_temperature(void)
 
 static int get_prop_batt_capacity(void)
 {
-	if (msm_batt_gauge && msm_batt_gauge->get_batt_remaining_capacity)
-		return msm_batt_gauge->get_batt_remaining_capacity();
+	int capacity;
 
-	return msm_chg.get_batt_capacity_percent();
+	if (msm_batt_gauge && msm_batt_gauge->get_batt_remaining_capacity)
+		capacity = msm_batt_gauge->get_batt_remaining_capacity();
+	else
+		capacity = msm_chg.get_batt_capacity_percent();
+
+	if (capacity <= 10)
+		pr_err("battery capacity very low = %d\n", capacity);
+
+	return capacity;
 }
 
 static int get_prop_batt_health(void)
