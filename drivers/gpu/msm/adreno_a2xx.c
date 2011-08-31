@@ -375,15 +375,15 @@ static const unsigned int register_ranges_a22x[] = {
 	REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
 	REG_RB_SAMPLE_COUNT_CTL, REG_RB_COLOR_DEST_MASK,
 	REG_PA_SU_POLY_OFFSET_FRONT_SCALE, REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
-	/* all the below registers are specific to Leia */
-	REG_LEIA_PC_MAX_VTX_INDX, REG_LEIA_PC_INDX_OFFSET,
+	/* all the below registers are specific to a220 */
+	REG_A220_PC_MAX_VTX_INDX, REG_A220_PC_INDX_OFFSET,
 	REG_RB_COLOR_MASK, REG_RB_FOG_COLOR,
 	REG_RB_DEPTHCONTROL, REG_RB_COLORCONTROL,
 	REG_PA_CL_CLIP_CNTL, REG_PA_CL_VTE_CNTL,
 	REG_RB_MODECONTROL, REG_RB_SAMPLE_POS,
 	REG_PA_SU_POINT_SIZE, REG_PA_SU_LINE_CNTL,
-	REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
-	REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
+	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
+	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
 	REG_RB_COPY_CONTROL, REG_RB_DEPTH_CLEAR
 };
 
@@ -487,8 +487,8 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 	if (adreno_is_a22x(adreno_dev)) {
 		unsigned int i;
 		unsigned int j = 2;
-		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
-				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
+		for (i = REG_A220_VSC_BIN_SIZE; i <=
+				REG_A220_VSC_PIPE_DATA_LENGTH_7; i++) {
 			*cmd++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 			*cmd++ = i;
 			*cmd++ = tmp_ctx.reg_values[j];
@@ -699,7 +699,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 		*cmds++ = 0;
 
 		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
-		*cmds++ = CP_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
+		*cmds++ = CP_REG(REG_A220_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
 
 		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 3);
@@ -918,7 +918,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		*cmds++ = 0;
 
 		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
-		*cmds++ = CP_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
+		*cmds++ = CP_REG(REG_A220_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
 
 		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 3);
@@ -1004,8 +1004,8 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 	if (adreno_is_a22x(adreno_dev)) {
 		unsigned int i;
 		unsigned int j = 2;
-		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
-				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
+		for (i = REG_A220_VSC_BIN_SIZE; i <=
+				REG_A220_VSC_PIPE_DATA_LENGTH_7; i++) {
 			*cmd++ = cp_type0_packet(i, 1);
 			tmp_ctx.reg_values[j] = virt2gpu(cmd,
 				&drawctxt->gpustate);

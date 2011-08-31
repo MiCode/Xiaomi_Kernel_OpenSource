@@ -400,4 +400,13 @@ union reg_cp_rb_cntl {
 #define REG_COHER_STATUS_PM4             0xA2B
 #define REG_COHER_SIZE_PM4               0xA29
 
+/*registers added in adreno220*/
+#define REG_A220_PC_INDX_OFFSET          REG_VGT_INDX_OFFSET
+#define REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL REG_VGT_VERTEX_REUSE_BLOCK_CNTL
+#define REG_A220_PC_MAX_VTX_INDX         REG_VGT_MAX_VTX_INDX
+#define REG_A220_RB_LRZ_VSC_CONTROL	 0x2209
+#define REG_A220_GRAS_CONTROL            0x2210
+#define REG_A220_VSC_BIN_SIZE            0x0C01
+#define REG_A220_VSC_PIPE_DATA_LENGTH_7  0x0C1D
+
 #endif /* __A200_REG_H */

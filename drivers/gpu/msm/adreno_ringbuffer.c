@@ -23,7 +23,7 @@
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 
-#include "a200_reg.h"
+#include "a2xx_reg.h"
 
 #define GSL_RB_NOP_SIZEDWORDS				2
 /* protected mode error checking below register address 0x800

@@ -28,7 +28,7 @@
 #include "adreno_debugfs.h"
 #include "adreno_postmortem.h"
 
-#include "a200_reg.h"
+#include "a2xx_reg.h"
 
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1

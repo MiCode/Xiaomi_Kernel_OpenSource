@@ -14,8 +14,7 @@
 #define __ADRENO_DRAWCTXT_H
 
 #include "adreno_pm4types.h"
-#include "a200_reg.h"
-#include "a220_reg.h"
+#include "a2xx_reg.h"
 
 /* Flags */
 

@@ -22,7 +22,7 @@
 #include "adreno_debugfs.h"
 #include "kgsl_cffdump.h"
 
-#include "a200_reg.h"
+#include "a2xx_reg.h"
 
 #define INVALID_RB_CMD 0xaaaaaaaa
 

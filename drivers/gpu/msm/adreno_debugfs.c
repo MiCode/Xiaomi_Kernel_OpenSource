@@ -20,7 +20,7 @@
 #include "adreno_postmortem.h"
 #include "adreno.h"
 
-#include "a200_reg.h"
+#include "a2xx_reg.h"
 
 unsigned int kgsl_cff_dump_enable;
 int kgsl_pm_regs_enabled;
