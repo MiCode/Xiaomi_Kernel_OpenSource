@@ -744,8 +744,8 @@ struct sensor_calib_data {
 };
 
 enum msm_sensor_resolution_t {
-	MSM_SENSOR_RES_0,
-	MSM_SENSOR_RES_1,
+	MSM_SENSOR_RES_FULL,
+	MSM_SENSOR_RES_QTR,
 	MSM_SENSOR_RES_2,
 	MSM_SENSOR_RES_3,
 	MSM_SENSOR_RES_4,
