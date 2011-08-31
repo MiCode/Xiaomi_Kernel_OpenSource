@@ -301,6 +301,8 @@ static int set_params_lpm_test(struct test_channel *tch,
 static void set_pseudo_random_seed(void);
 static int set_params_modem_reset(struct test_channel *tch);
 static int test_start(void);
+static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count);
+static void sdio_al_test_cleanup_channels(void);
 
 /*
  * Seed for pseudo random time sleeping in Random LPM test.
@@ -312,17 +314,19 @@ static struct test_context *test_ctx;
 
 static void sdio_al_test_initial_dev_and_chan(struct test_context *test_ctx)
 {
-	 int i = 0;
+	int i = 0;
 
-	 for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
+	for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
 		test_ctx->test_dev_arr[i].sdio_al_device = NULL;
 
-	 for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
+	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 		if (!tch)
 			continue;
 		tch->is_used = 0;
 	}
+
+	sdio_al_test_cleanup_channels();
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -334,6 +338,22 @@ static int sdio_al_test_open(struct inode *inode, struct file *file)
 	file->private_data = inode->i_private;
 	message_repeat = 1;
 	return 0;
+}
+
+static void sdio_al_test_cleanup_channels(void)
+{
+	int channel_num;
+	int dummy = 0;
+
+	for (channel_num = 0 ; channel_num < SDIO_MAX_CHANNELS ;
+	      ++channel_num) {
+		if (channel_num == SDIO_SMEM)
+			continue;
+
+		 rx_cleanup(test_ctx->test_ch_arr[channel_num], &dummy);
+	}
+
+	return;
 }
 
 /* RPC SENDER TEST */
@@ -3626,7 +3646,6 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	pr_info(TEST_MODULE_NAME ": A2 RTT TEST START for chan %s\n",
 		test_ch->name);
 
-	rx_cleanup(test_ch, &rx_packet_count);
 	rx_packet_count = 0;
 
 	while (tx_packet_count < max_packets) {
@@ -4011,8 +4030,6 @@ static void modem_reset_test(struct test_channel *test_ch)
 		udelay(500);
 
 	} /* while (tx_packet_count < max_packets ) */
-
-	rx_cleanup(test_ch, &rx_packet_count);
 
 	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d for"
 				 " chan %s.\n",
