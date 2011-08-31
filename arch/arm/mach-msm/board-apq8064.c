@@ -162,8 +162,8 @@ apq8064_pm8921_gpio_pdata __devinitdata = {
 static struct pm8xxx_irq_platform_data
 apq8064_pm8921_irq_pdata __devinitdata = {
 	.irq_base		= PM8921_IRQ_BASE,
-	.devirq			= MSM_GPIO_TO_INT(74),
-	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
+	.devirq			= PM8921_USR_IRQ_N,
+	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
 };
 
 static struct pm8921_platform_data
@@ -172,6 +172,24 @@ apq8064_pm8921_platform_data __devinitdata = {
 	.irq_pdata		= &apq8064_pm8921_irq_pdata,
 	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
 	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
+};
+
+static struct pm8xxx_irq_platform_data
+apq8064_pm8821_irq_pdata __devinitdata = {
+	.irq_base		= PM8821_IRQ_BASE,
+	.devirq			= PM8821_USR_IRQ_N,
+	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
+};
+
+static struct pm8xxx_mpp_platform_data
+apq8064_pm8821_mpp_pdata __devinitdata = {
+	.mpp_base	= PM8821_MPP_PM_TO_SYS(1),
+};
+
+static struct pm8821_platform_data
+apq8064_pm8821_platform_data __devinitdata = {
+	.irq_pdata	= &apq8064_pm8821_irq_pdata,
+	.mpp_pdata	= &apq8064_pm8821_mpp_pdata,
 };
 
 static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
@@ -185,7 +203,8 @@ static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
 static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 	.slave	= {
-		.name	= "pm8821-core",
+		.name		= "pm8821-core",
+		.platform_data	= &apq8064_pm8821_platform_data,
 	},
 };
 
