@@ -3841,35 +3841,73 @@ static struct regulator_consumer_supply vreg_consumers_PM8901_MVS0[] = {
 	REGULATOR_SUPPLY("8901_mvs0",		NULL),
 };
 
+/* Pin control regulators */
+static struct regulator_consumer_supply vreg_consumers_PM8058_L8_PC[] = {
+	REGULATOR_SUPPLY("8058_l8_pc",		NULL),
+};
+static struct regulator_consumer_supply vreg_consumers_PM8058_L20_PC[] = {
+	REGULATOR_SUPPLY("8058_l20_pc",		NULL),
+};
+static struct regulator_consumer_supply vreg_consumers_PM8058_L21_PC[] = {
+	REGULATOR_SUPPLY("8058_l21_pc",		NULL),
+};
+static struct regulator_consumer_supply vreg_consumers_PM8058_S2_PC[] = {
+	REGULATOR_SUPPLY("8058_s2_pc",		NULL),
+};
+static struct regulator_consumer_supply vreg_consumers_PM8901_L0_PC[] = {
+	REGULATOR_SUPPLY("8901_l0_pc",		NULL),
+};
+static struct regulator_consumer_supply vreg_consumers_PM8901_S4_PC[] = {
+	REGULATOR_SUPPLY("8901_s4_pc",		NULL),
+};
+
 #define RPM_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
 		      _default_uV, _peak_uA, _avg_uA, _pull_down, _pin_ctrl, \
-		      _freq, _pin_fn, _rpm_mode, _state, _sleep_selectable, \
+		      _freq, _pin_fn, _force_mode, _state, _sleep_selectable, \
 		      _always_on) \
-	[RPM_VREG_ID_##_id] = { \
+	{ \
 		.init_data = { \
 			.constraints = { \
-				.valid_modes_mask = _modes, \
-				.valid_ops_mask = _ops, \
-				.min_uV = _min_uV, \
-				.max_uV = _max_uV, \
-				.input_uV = _min_uV, \
-				.apply_uV = _apply_uV, \
-				.always_on = _always_on, \
+				.valid_modes_mask	= _modes, \
+				.valid_ops_mask		= _ops, \
+				.min_uV			= _min_uV, \
+				.max_uV			= _max_uV, \
+				.input_uV		= _min_uV, \
+				.apply_uV		= _apply_uV, \
+				.always_on		= _always_on, \
 			}, \
-			.consumer_supplies = vreg_consumers_##_id, \
-			.num_consumer_supplies = \
+			.consumer_supplies	= vreg_consumers_##_id, \
+			.num_consumer_supplies	= \
 				ARRAY_SIZE(vreg_consumers_##_id), \
 		}, \
-		.default_uV = _default_uV, \
-		.peak_uA = _peak_uA, \
-		.avg_uA = _avg_uA, \
-		.pull_down_enable = _pull_down, \
+		.id			= RPM_VREG_ID_##_id, \
+		.default_uV		= _default_uV, \
+		.peak_uA		= _peak_uA, \
+		.avg_uA			= _avg_uA, \
+		.pull_down_enable	= _pull_down, \
+		.pin_ctrl		= _pin_ctrl, \
+		.freq			= RPM_VREG_FREQ_##_freq, \
+		.pin_fn			= _pin_fn, \
+		.force_mode		= _force_mode, \
+		.state			= _state, \
+		.sleep_selectable	= _sleep_selectable, \
+	}
+
+/* Pin control initialization */
+#define RPM_PC(_id, _always_on, _pin_fn, _pin_ctrl) \
+	{ \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+				.always_on	= _always_on, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
+			.consumer_supplies	= vreg_consumers_##_id##_PC, \
+		}, \
+		.id	  = RPM_VREG_ID_##_id##_PC, \
+		.pin_fn	  = RPM_VREG_PIN_FN_8660_##_pin_fn, \
 		.pin_ctrl = _pin_ctrl, \
-		.freq = _freq, \
-		.pin_fn = _pin_fn, \
-		.mode = _rpm_mode, \
-		.state = _state, \
-		.sleep_selectable = _sleep_selectable, \
 	}
 
 /*
@@ -3882,198 +3920,165 @@ static struct regulator_consumer_supply vreg_consumers_PM8901_MVS0[] = {
  * .init_data.constraints.initial_mode.
  */
 
-#define RPM_VREG_INIT_LDO(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
-			  _max_uV, _init_peak_uA, _pin_ctrl) \
+#define RPM_LDO(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		_init_peak_uA) \
 	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_FAST | \
 		      REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE | \
 		      REGULATOR_MODE_STANDBY, REGULATOR_CHANGE_VOLTAGE | \
 		      REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		      REGULATOR_CHANGE_DRMS, 0, _min_uV, _init_peak_uA, \
-		      _init_peak_uA, _pd, _pin_ctrl, RPM_VREG_FREQ_NONE, \
-		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
-		      RPM_VREG_STATE_OFF, _sleep_selectable, _always_on)
-
-#define RPM_VREG_INIT_LDO_PF(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
-			  _max_uV, _init_peak_uA, _pin_ctrl, _pin_fn) \
-	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_FAST | \
-		      REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE | \
-		      REGULATOR_MODE_STANDBY, REGULATOR_CHANGE_VOLTAGE | \
-		      REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
-		      REGULATOR_CHANGE_DRMS, 0, _min_uV, _init_peak_uA, \
-		      _init_peak_uA, _pd, _pin_ctrl, RPM_VREG_FREQ_NONE, \
-		      _pin_fn, RPM_VREG_MODE_NONE, RPM_VREG_STATE_OFF, \
+		      _init_peak_uA, _pd, RPM_VREG_PIN_CTRL_NONE, NONE, \
+		      RPM_VREG_PIN_FN_8660_ENABLE, \
+		      RPM_VREG_FORCE_MODE_8660_NONE, RPM_VREG_STATE_OFF, \
 		      _sleep_selectable, _always_on)
 
-#define RPM_VREG_INIT_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
-			   _max_uV, _init_peak_uA, _pin_ctrl, _freq) \
+#define RPM_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		 _init_peak_uA, _freq) \
 	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_FAST | \
 		      REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE | \
 		      REGULATOR_MODE_STANDBY, REGULATOR_CHANGE_VOLTAGE | \
 		      REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		      REGULATOR_CHANGE_DRMS, 0, _min_uV, _init_peak_uA, \
-		      _init_peak_uA, _pd, _pin_ctrl, _freq, \
-		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
-		      RPM_VREG_STATE_OFF, _sleep_selectable, _always_on)
+		      _init_peak_uA, _pd, RPM_VREG_PIN_CTRL_NONE, _freq, \
+		      RPM_VREG_PIN_FN_8660_ENABLE, \
+		      RPM_VREG_FORCE_MODE_8660_NONE, RPM_VREG_STATE_OFF, \
+		      _sleep_selectable, _always_on)
 
-#define RPM_VREG_INIT_VS(_id, _always_on, _pd, _sleep_selectable, _pin_ctrl) \
+#define RPM_VS(_id, _always_on, _pd, _sleep_selectable) \
 	RPM_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE, \
 		      REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE, 0, 0, \
-		      1000, 1000, _pd, _pin_ctrl, RPM_VREG_FREQ_NONE, \
-		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
-		      RPM_VREG_STATE_OFF, _sleep_selectable, _always_on)
+		      1000, 1000, _pd, RPM_VREG_PIN_CTRL_NONE, NONE, \
+		      RPM_VREG_PIN_FN_8660_ENABLE, \
+		      RPM_VREG_FORCE_MODE_8660_NONE, RPM_VREG_STATE_OFF, \
+		      _sleep_selectable, _always_on)
 
-#define RPM_VREG_INIT_NCP(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
-			  _max_uV, _pin_ctrl) \
+#define RPM_NCP(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV) \
 	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL, \
 		      REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS, 0, \
-		      _min_uV, 1000, 1000, _pd, _pin_ctrl, RPM_VREG_FREQ_NONE, \
-		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
-		      RPM_VREG_STATE_OFF, _sleep_selectable, _always_on)
+		      _min_uV, 1000, 1000, _pd, RPM_VREG_PIN_CTRL_NONE, NONE, \
+		      RPM_VREG_PIN_FN_8660_ENABLE, \
+		      RPM_VREG_FORCE_MODE_8660_NONE, RPM_VREG_STATE_OFF, \
+		      _sleep_selectable, _always_on)
 
-#define LDO50HMIN	RPM_VREG_LDO_50_HPM_MIN_LOAD
-#define LDO150HMIN	RPM_VREG_LDO_150_HPM_MIN_LOAD
-#define LDO300HMIN	RPM_VREG_LDO_300_HPM_MIN_LOAD
-#define SMPS_HMIN	RPM_VREG_SMPS_HPM_MIN_LOAD
-#define FTS_HMIN	RPM_VREG_FTSMPS_HPM_MIN_LOAD
+#define LDO50HMIN	RPM_VREG_8660_LDO_50_HPM_MIN_LOAD
+#define LDO150HMIN	RPM_VREG_8660_LDO_150_HPM_MIN_LOAD
+#define LDO300HMIN	RPM_VREG_8660_LDO_300_HPM_MIN_LOAD
+#define SMPS_HMIN	RPM_VREG_8660_SMPS_HPM_MIN_LOAD
+#define FTS_HMIN	RPM_VREG_8660_FTSMPS_HPM_MIN_LOAD
 
-static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
-	RPM_VREG_INIT_LDO(PM8058_L0,  0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L1,  0, 1, 0, 1200000, 1200000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L2,  0, 1, 0, 1800000, 2600000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L3,  0, 1, 0, 1800000, 1800000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L4,  0, 1, 0, 2850000, 2850000,  LDO50HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L5,  0, 1, 0, 2850000, 2850000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L6,  0, 1, 0, 3000000, 3600000,  LDO50HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L7,  0, 1, 0, 1800000, 1800000,  LDO50HMIN, 0),
-	RPM_VREG_INIT_LDO_PF(PM8058_L8,  0, 1, 0, 2900000, 3050000, LDO300HMIN,
-		RPM_VREG_PIN_CTRL_NONE, RPM_VREG_PIN_FN_SLEEP_B),
-	RPM_VREG_INIT_LDO(PM8058_L9,  0, 1, 0, 1800000, 1800000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L10, 0, 1, 0, 2600000, 2600000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L11, 0, 1, 0, 1500000, 1500000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L12, 0, 1, 0, 2900000, 2900000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L13, 0, 1, 0, 2050000, 2050000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L14, 0, 0, 0, 2850000, 2850000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L15, 0, 1, 0, 2850000, 2850000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L16, 1, 1, 0, 1800000, 1800000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L17, 0, 1, 0, 2600000, 2600000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L18, 0, 1, 0, 2200000, 2200000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L19, 0, 1, 0, 2500000, 2500000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO_PF(PM8058_L20, 0, 1, 0, 1800000, 1800000, LDO150HMIN,
-		RPM_VREG_PIN_CTRL_NONE, RPM_VREG_PIN_FN_SLEEP_B),
-	RPM_VREG_INIT_LDO_PF(PM8058_L21, 1, 1, 0, 1200000, 1200000, LDO150HMIN,
-		RPM_VREG_PIN_CTRL_NONE, RPM_VREG_PIN_FN_SLEEP_B),
-	RPM_VREG_INIT_LDO(PM8058_L22, 0, 1, 0, 1150000, 1150000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L23, 0, 1, 0, 1200000, 1200000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L24, 0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L25, 0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
-
-	RPM_VREG_INIT_SMPS(PM8058_S0, 0, 1, 1,  500000, 1250000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8058_S1, 0, 1, 1,  500000, 1250000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8058_S2, 0, 1, 1, 1200000, 1400000,  SMPS_HMIN,
-		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8058_S3, 1, 1, 0, 1800000, 1800000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8058_S4, 1, 1, 0, 2200000, 2200000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-
-	RPM_VREG_INIT_VS(PM8058_LVS0, 0, 1, 0,				 0),
-	RPM_VREG_INIT_VS(PM8058_LVS1, 0, 1, 0,				 0),
-
-	RPM_VREG_INIT_NCP(PM8058_NCP, 0, 1, 0, 1800000, 1800000,	 0),
-
-	RPM_VREG_INIT_LDO(PM8901_L0,  0, 1, 0, 1200000, 1200000, LDO300HMIN,
-		RPM_VREG_PIN_CTRL_A0),
-	RPM_VREG_INIT_LDO(PM8901_L1,  0, 1, 0, 3300000, 3300000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8901_L2,  0, 1, 0, 2850000, 3300000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8901_L3,  0, 1, 0, 3300000, 3300000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8901_L4,  0, 1, 0, 2600000, 2600000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8901_L5,  0, 1, 0, 2850000, 2850000, LDO300HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8901_L6,  0, 1, 0, 2200000, 2200000, LDO300HMIN, 0),
-
-	RPM_VREG_INIT_SMPS(PM8901_S2, 0, 1, 0, 1300000, 1300000,   FTS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8901_S3, 0, 1, 0, 1100000, 1100000,   FTS_HMIN, 0,
-		RPM_VREG_FREQ_1p60),
-	RPM_VREG_INIT_SMPS(PM8901_S4, 0, 1, 0, 1225000, 1225000,   FTS_HMIN,
-		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p60),
-
-	RPM_VREG_INIT_VS(PM8901_LVS0, 1, 1, 0,				 0),
-	RPM_VREG_INIT_VS(PM8901_LVS1, 0, 1, 0,				 0),
-	RPM_VREG_INIT_VS(PM8901_LVS2, 0, 1, 0,				 0),
-	RPM_VREG_INIT_VS(PM8901_LVS3, 0, 1, 0,				 0),
-	RPM_VREG_INIT_VS(PM8901_MVS0, 0, 1, 0,				 0),
+/* RPM early regulator constraints */
+static struct rpm_regulator_init_data rpm_regulator_early_init_data[] = {
+	/*	 ID       a_on pd ss min_uV   max_uV   init_ip    freq */
+	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p60),
+	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p60),
 };
 
-#define RPM_VREG(_id) \
-	[_id] = { \
-		.name = "rpm-regulator", \
-		.id = _id, \
-		.dev = { \
-			.platform_data = &rpm_vreg_init_pdata[_id], \
-		}, \
-	}
+/* RPM regulator constraints */
+static struct rpm_regulator_init_data rpm_regulator_init_data[] = {
+	/*	ID        a_on pd ss min_uV   max_uV   init_ip */
+	RPM_LDO(PM8058_L0,  0, 1, 0, 1200000, 1200000, LDO150HMIN),
+	RPM_LDO(PM8058_L1,  0, 1, 0, 1200000, 1200000, LDO300HMIN),
+	RPM_LDO(PM8058_L2,  0, 1, 0, 1800000, 2600000, LDO300HMIN),
+	RPM_LDO(PM8058_L3,  0, 1, 0, 1800000, 1800000, LDO150HMIN),
+	RPM_LDO(PM8058_L4,  0, 1, 0, 2850000, 2850000,  LDO50HMIN),
+	RPM_LDO(PM8058_L5,  0, 1, 0, 2850000, 2850000, LDO300HMIN),
+	RPM_LDO(PM8058_L6,  0, 1, 0, 3000000, 3600000,  LDO50HMIN),
+	RPM_LDO(PM8058_L7,  0, 1, 0, 1800000, 1800000,  LDO50HMIN),
+	RPM_LDO(PM8058_L8,  0, 1, 0, 2900000, 3050000, LDO300HMIN),
+	RPM_LDO(PM8058_L9,  0, 1, 0, 1800000, 1800000, LDO300HMIN),
+	RPM_LDO(PM8058_L10, 0, 1, 0, 2600000, 2600000, LDO300HMIN),
+	RPM_LDO(PM8058_L11, 0, 1, 0, 1500000, 1500000, LDO150HMIN),
+	RPM_LDO(PM8058_L12, 0, 1, 0, 2900000, 2900000, LDO150HMIN),
+	RPM_LDO(PM8058_L13, 0, 1, 0, 2050000, 2050000, LDO300HMIN),
+	RPM_LDO(PM8058_L14, 0, 0, 0, 2850000, 2850000, LDO300HMIN),
+	RPM_LDO(PM8058_L15, 0, 1, 0, 2850000, 2850000, LDO300HMIN),
+	RPM_LDO(PM8058_L16, 1, 1, 0, 1800000, 1800000, LDO300HMIN),
+	RPM_LDO(PM8058_L17, 0, 1, 0, 2600000, 2600000, LDO150HMIN),
+	RPM_LDO(PM8058_L18, 0, 1, 0, 2200000, 2200000, LDO150HMIN),
+	RPM_LDO(PM8058_L19, 0, 1, 0, 2500000, 2500000, LDO150HMIN),
+	RPM_LDO(PM8058_L20, 0, 1, 0, 1800000, 1800000, LDO150HMIN),
+	RPM_LDO(PM8058_L21, 1, 1, 0, 1200000, 1200000, LDO150HMIN),
+	RPM_LDO(PM8058_L22, 0, 1, 0, 1150000, 1150000, LDO300HMIN),
+	RPM_LDO(PM8058_L23, 0, 1, 0, 1200000, 1200000, LDO300HMIN),
+	RPM_LDO(PM8058_L24, 0, 1, 0, 1200000, 1200000, LDO150HMIN),
+	RPM_LDO(PM8058_L25, 0, 1, 0, 1200000, 1200000, LDO150HMIN),
 
-static struct platform_device rpm_vreg_device[RPM_VREG_ID_MAX] = {
-	RPM_VREG(RPM_VREG_ID_PM8058_L0),
-	RPM_VREG(RPM_VREG_ID_PM8058_L1),
-	RPM_VREG(RPM_VREG_ID_PM8058_L2),
-	RPM_VREG(RPM_VREG_ID_PM8058_L3),
-	RPM_VREG(RPM_VREG_ID_PM8058_L4),
-	RPM_VREG(RPM_VREG_ID_PM8058_L5),
-	RPM_VREG(RPM_VREG_ID_PM8058_L6),
-	RPM_VREG(RPM_VREG_ID_PM8058_L7),
-	RPM_VREG(RPM_VREG_ID_PM8058_L8),
-	RPM_VREG(RPM_VREG_ID_PM8058_L9),
-	RPM_VREG(RPM_VREG_ID_PM8058_L10),
-	RPM_VREG(RPM_VREG_ID_PM8058_L11),
-	RPM_VREG(RPM_VREG_ID_PM8058_L12),
-	RPM_VREG(RPM_VREG_ID_PM8058_L13),
-	RPM_VREG(RPM_VREG_ID_PM8058_L14),
-	RPM_VREG(RPM_VREG_ID_PM8058_L15),
-	RPM_VREG(RPM_VREG_ID_PM8058_L16),
-	RPM_VREG(RPM_VREG_ID_PM8058_L17),
-	RPM_VREG(RPM_VREG_ID_PM8058_L18),
-	RPM_VREG(RPM_VREG_ID_PM8058_L19),
-	RPM_VREG(RPM_VREG_ID_PM8058_L20),
-	RPM_VREG(RPM_VREG_ID_PM8058_L21),
-	RPM_VREG(RPM_VREG_ID_PM8058_L22),
-	RPM_VREG(RPM_VREG_ID_PM8058_L23),
-	RPM_VREG(RPM_VREG_ID_PM8058_L24),
-	RPM_VREG(RPM_VREG_ID_PM8058_L25),
-	RPM_VREG(RPM_VREG_ID_PM8058_S0),
-	RPM_VREG(RPM_VREG_ID_PM8058_S1),
-	RPM_VREG(RPM_VREG_ID_PM8058_S2),
-	RPM_VREG(RPM_VREG_ID_PM8058_S3),
-	RPM_VREG(RPM_VREG_ID_PM8058_S4),
-	RPM_VREG(RPM_VREG_ID_PM8058_LVS0),
-	RPM_VREG(RPM_VREG_ID_PM8058_LVS1),
-	RPM_VREG(RPM_VREG_ID_PM8058_NCP),
-	RPM_VREG(RPM_VREG_ID_PM8901_L0),
-	RPM_VREG(RPM_VREG_ID_PM8901_L1),
-	RPM_VREG(RPM_VREG_ID_PM8901_L2),
-	RPM_VREG(RPM_VREG_ID_PM8901_L3),
-	RPM_VREG(RPM_VREG_ID_PM8901_L4),
-	RPM_VREG(RPM_VREG_ID_PM8901_L5),
-	RPM_VREG(RPM_VREG_ID_PM8901_L6),
-	RPM_VREG(RPM_VREG_ID_PM8901_S2),
-	RPM_VREG(RPM_VREG_ID_PM8901_S3),
-	RPM_VREG(RPM_VREG_ID_PM8901_S4),
-	RPM_VREG(RPM_VREG_ID_PM8901_LVS0),
-	RPM_VREG(RPM_VREG_ID_PM8901_LVS1),
-	RPM_VREG(RPM_VREG_ID_PM8901_LVS2),
-	RPM_VREG(RPM_VREG_ID_PM8901_LVS3),
-	RPM_VREG(RPM_VREG_ID_PM8901_MVS0),
+	/*	 ID       a_on pd ss min_uV   max_uV   init_ip    freq */
+	RPM_SMPS(PM8058_S2, 0, 1, 1, 1200000, 1400000, SMPS_HMIN, 1p60),
+	RPM_SMPS(PM8058_S3, 1, 1, 0, 1800000, 1800000, SMPS_HMIN, 1p60),
+	RPM_SMPS(PM8058_S4, 1, 1, 0, 2200000, 2200000, SMPS_HMIN, 1p60),
+
+	/*     ID         a_on pd ss */
+	RPM_VS(PM8058_LVS0, 0, 1, 0),
+	RPM_VS(PM8058_LVS1, 0, 1, 0),
+
+	/*	ID        a_on pd ss min_uV   max_uV */
+	RPM_NCP(PM8058_NCP, 0, 1, 0, 1800000, 1800000),
+
+	/*	ID        a_on pd ss min_uV   max_uV   init_ip */
+	RPM_LDO(PM8901_L0,  0, 1, 0, 1200000, 1200000, LDO300HMIN),
+	RPM_LDO(PM8901_L1,  0, 1, 0, 3300000, 3300000, LDO300HMIN),
+	RPM_LDO(PM8901_L2,  0, 1, 0, 2850000, 3300000, LDO300HMIN),
+	RPM_LDO(PM8901_L3,  0, 1, 0, 3300000, 3300000, LDO300HMIN),
+	RPM_LDO(PM8901_L4,  0, 1, 0, 2600000, 2600000, LDO300HMIN),
+	RPM_LDO(PM8901_L5,  0, 1, 0, 2850000, 2850000, LDO300HMIN),
+	RPM_LDO(PM8901_L6,  0, 1, 0, 2200000, 2200000, LDO300HMIN),
+
+	/*	 ID       a_on pd ss min_uV   max_uV   init_ip   freq */
+	RPM_SMPS(PM8901_S2, 0, 1, 0, 1300000, 1300000, FTS_HMIN, 1p60),
+	RPM_SMPS(PM8901_S3, 0, 1, 0, 1100000, 1100000, FTS_HMIN, 1p60),
+	RPM_SMPS(PM8901_S4, 0, 1, 0, 1225000, 1225000, FTS_HMIN, 1p60),
+
+	/*	ID        a_on pd ss */
+	RPM_VS(PM8901_LVS0, 1, 1, 0),
+	RPM_VS(PM8901_LVS1, 0, 1, 0),
+	RPM_VS(PM8901_LVS2, 0, 1, 0),
+	RPM_VS(PM8901_LVS3, 0, 1, 0),
+	RPM_VS(PM8901_MVS0, 0, 1, 0),
+
+	/*     ID         a_on pin_func pin_ctrl */
+	RPM_PC(PM8058_L8,   0, SLEEP_B, RPM_VREG_PIN_CTRL_NONE),
+	RPM_PC(PM8058_L20,  0, SLEEP_B, RPM_VREG_PIN_CTRL_NONE),
+	RPM_PC(PM8058_L21,  1, SLEEP_B, RPM_VREG_PIN_CTRL_NONE),
+	RPM_PC(PM8058_S2,   0, ENABLE,  RPM_VREG_PIN_CTRL_PM8058_A0),
+	RPM_PC(PM8901_L0,   0, ENABLE,  RPM_VREG_PIN_CTRL_PM8901_A0),
+	RPM_PC(PM8901_S4,   0, ENABLE,  RPM_VREG_PIN_CTRL_PM8901_A0),
+};
+
+static struct rpm_regulator_platform_data rpm_regulator_early_pdata = {
+	.init_data		= rpm_regulator_early_init_data,
+	.num_regulators		= ARRAY_SIZE(rpm_regulator_early_init_data),
+	.version		= RPM_VREG_VERSION_8660,
+	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8058_S0,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8058_S1,
+};
+
+static struct rpm_regulator_platform_data rpm_regulator_pdata = {
+	.init_data		= rpm_regulator_init_data,
+	.num_regulators		= ARRAY_SIZE(rpm_regulator_init_data),
+	.version		= RPM_VREG_VERSION_8660,
+};
+
+static struct platform_device rpm_regulator_early_device = {
+	.name	= "rpm-regulator",
+	.id	= 0,
+	.dev	= {
+		.platform_data = &rpm_regulator_early_pdata,
+	},
+};
+
+static struct platform_device rpm_regulator_device = {
+	.name	= "rpm-regulator",
+	.id	= 1,
+	.dev	= {
+		.platform_data = &rpm_regulator_pdata,
+	},
 };
 
 static struct platform_device *early_regulators[] __initdata = {
 	&msm_device_saw_s0,
 	&msm_device_saw_s1,
-#ifdef CONFIG_PMIC8058
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_S0],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_S1],
-#endif
+	&rpm_regulator_early_device,
 };
 
 static struct platform_device *early_devices[] __initdata = {
@@ -5061,57 +5066,7 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_SENSORS_MSM_ADC
 	&msm_adc_device,
 #endif
-#ifdef CONFIG_PMIC8058
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L0],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L1],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L2],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L3],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L4],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L5],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L6],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L7],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L8],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L9],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L10],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L11],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L12],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L13],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L14],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L15],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L16],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L17],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L18],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L19],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L20],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L21],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L22],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L23],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L24],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_L25],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_S2],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_S3],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_S4],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_LVS0],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_LVS1],
-	&rpm_vreg_device[RPM_VREG_ID_PM8058_NCP],
-#endif
-#ifdef CONFIG_PMIC8901
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L0],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L1],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L2],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L3],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L4],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L5],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_L6],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_S2],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_S3],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_S4],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS0],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS1],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS2],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS3],
-	&rpm_vreg_device[RPM_VREG_ID_PM8901_MVS0],
-#endif
+	&rpm_regulator_device,
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
@@ -10118,10 +10073,15 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	 * un-reworked SURF cannot resume from.
 	 */
 	if (machine_is_msm8x60_surf()) {
-		rpm_vreg_init_pdata[RPM_VREG_ID_PM8901_L4]
-			.init_data.constraints.always_on = 1;
-		rpm_vreg_init_pdata[RPM_VREG_ID_PM8901_L6]
-			.init_data.constraints.always_on = 1;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(rpm_regulator_init_data); i++)
+			if (rpm_regulator_init_data[i].id
+				== RPM_VREG_ID_PM8901_L4
+			    || rpm_regulator_init_data[i].id
+				== RPM_VREG_ID_PM8901_L6)
+				rpm_regulator_init_data[i]
+					.init_data.constraints.always_on = 1;
 	}
 
 	/*

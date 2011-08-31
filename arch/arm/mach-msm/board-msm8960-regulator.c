@@ -383,8 +383,8 @@ VREG_CONSUMERS(EXT_3P3V) = {
 		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
 		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _init_peak_uA, 0, _pd, \
-		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_NONE, \
-		 RPM_VREG_FORCE_MODE_NONE, RPM_VREG_POWER_MODE_PWM, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, _system_uA)
 
@@ -394,15 +394,15 @@ VREG_CONSUMERS(EXT_3P3V) = {
 		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
 		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
-		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_NONE, \
-		 RPM_VREG_FORCE_MODE_NONE, RPM_VREG_POWER_MODE_PWM, \
+		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, _system_uA)
 
 #define RPM_VS(_id, _always_on, _pd, _sleep_selectable, _supply_regulator) \
 	RPM_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, 0, 1000, 1000, _pd, \
-		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_NONE, \
-		 RPM_VREG_FORCE_MODE_NONE, RPM_VREG_POWER_MODE_PWM, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
 
@@ -410,8 +410,8 @@ VREG_CONSUMERS(EXT_3P3V) = {
 		_supply_regulator, _freq) \
 	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 1000, 1000, 0, \
-		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_NONE, \
-		 RPM_VREG_FORCE_MODE_NONE, RPM_VREG_POWER_MODE_PWM, \
+		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
 
@@ -429,7 +429,7 @@ VREG_CONSUMERS(EXT_3P3V) = {
 			.supply_regulator	= _supply_regulator, \
 		}, \
 		.id	  = RPM_VREG_ID_PM8921_##_id##_PC, \
-		.pin_fn	  = RPM_VREG_PIN_FN_##_pin_fn, \
+		.pin_fn	  = RPM_VREG_PIN_FN_8960_##_pin_fn, \
 		.pin_ctrl = _pin_ctrl, \
 	}
 
@@ -520,6 +520,9 @@ int msm_pm8921_regulator_pdata_len __devinitdata =
 	ARRAY_SIZE(msm_pm8921_regulator_pdata);
 
 struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata = {
-	.init_data = msm_rpm_regulator_init_data,
-	.num_regulators = ARRAY_SIZE(msm_rpm_regulator_init_data),
+	.init_data		= msm_rpm_regulator_init_data,
+	.num_regulators		= ARRAY_SIZE(msm_rpm_regulator_init_data),
+	.version		= RPM_VREG_VERSION_8960,
+	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8921_L24,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8921_S3,
 };

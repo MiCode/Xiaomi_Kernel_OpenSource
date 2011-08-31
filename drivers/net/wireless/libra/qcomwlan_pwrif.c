@@ -42,6 +42,15 @@ int vos_chip_power_qrf8615(int on)
 		"8058_s2",
 		"8058_s1",
 	};
+	static const char *vregs_qwlan_pc_name[] = {
+		"8058_l20_pc",
+		"8058_l8_pc",
+		NULL,
+		NULL,
+		"8901_l0_pc",
+		"8058_s2_pc",
+		NULL,
+	};
 	static const int vregs_qwlan_val_min[] = {
 		1800000,
 		3050000,
@@ -80,6 +89,7 @@ int vos_chip_power_qrf8615(int on)
 	};
 	bool const *vregs_is_pin_controlled;
 	static struct regulator *vregs_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
+	static struct regulator *vregs_pc_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
 	static struct msm_xo_voter *wlan_clock;
 	int ret, i, rc = 0;
 	unsigned wlan_gpio_deep_sleep = GPIO_WLAN_DEEP_SLEEP_N;
@@ -157,11 +167,14 @@ int vos_chip_power_qrf8615(int on)
 			}
 			/* vote for pin control (if needed) */
 			if (vregs_is_pin_controlled[i]) {
-				rc = regulator_set_mode(vregs_qwlan[i],
-						REGULATOR_MODE_IDLE);
-				if (rc) {
-					pr_err("regulator_set_mode(%s) failed\n",
-							vregs_qwlan_name[i]);
+				vregs_pc_qwlan[i] = regulator_get(NULL,
+							vregs_qwlan_pc_name[i]);
+				if (IS_ERR(vregs_pc_qwlan[i])) {
+					pr_err("regulator get of %s failed "
+						"(%ld)\n",
+						vregs_qwlan_pc_name[i],
+						PTR_ERR(vregs_pc_qwlan[i]));
+					rc = PTR_ERR(vregs_pc_qwlan[i]);
 					goto vreg_fail;
 				}
 			}
@@ -173,7 +186,23 @@ int vos_chip_power_qrf8615(int on)
 						vregs_qwlan_name[i], rc);
 				goto vreg_fail;
 			}
+			if (vregs_is_pin_controlled[i]) {
+				rc = regulator_enable(vregs_pc_qwlan[i]);
+				if (rc < 0) {
+					pr_err("vreg %s enable failed (%d)\n",
+						vregs_qwlan_pc_name[i], rc);
+					goto vreg_fail;
+				}
+			}
 		} else if (!on && wlan_on) {
+			if (vregs_is_pin_controlled[i]) {
+				rc = regulator_disable(vregs_pc_qwlan[i]);
+				if (rc < 0) {
+					pr_err("vreg %s disable failed (%d)\n",
+						vregs_qwlan_pc_name[i], rc);
+					goto vreg_fail;
+				}
+			}
 			rc = regulator_disable(vregs_qwlan[i]);
 			if (rc < 0) {
 				pr_err("vreg %s disable failed (%d)\n",
@@ -192,6 +221,8 @@ int vos_chip_power_qrf8615(int on)
 
 vreg_fail:
 	regulator_put(vregs_qwlan[i]);
+	if (vregs_is_pin_controlled[i])
+		regulator_put(vregs_pc_qwlan[i]);
 vreg_get_fail:
 	i--;
 	while (i >= 0) {
@@ -202,7 +233,18 @@ vreg_get_fail:
 					vregs_qwlan_name[i],
 					!on ? "enable" : "disable", ret);
 		}
+		if (vregs_is_pin_controlled[i]) {
+			ret = !on ? regulator_enable(vregs_pc_qwlan[i]) :
+				regulator_disable(vregs_pc_qwlan[i]);
+			if (ret < 0) {
+				pr_err("vreg %s %s failed (%d) in err path\n",
+					vregs_qwlan_pc_name[i],
+					!on ? "enable" : "disable", ret);
+			}
+		}
 		regulator_put(vregs_qwlan[i]);
+		if (vregs_is_pin_controlled[i])
+			regulator_put(vregs_pc_qwlan[i]);
 		i--;
 	}
 	if (!on)
