@@ -2656,10 +2656,11 @@ int sdio_close(struct sdio_channel *ch)
 						__func__, ret, ch->name);
 				return ret;
 			}
-			if (jiffies > flush_expires) {
+
+			if (time_after(jiffies, flush_expires) != 0) {
 				pr_err(MODULE_NAME ":%s flush rx packets"
-						" timeout: ch %s\n",
-						__func__, ch->name);
+				       " timeout: ch %s\n",
+				       __func__, ch->name);
 				sdio_al_get_into_err_state(sdio_al_dev);
 				return -EBUSY;
 			}
