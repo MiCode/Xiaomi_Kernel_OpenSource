@@ -18,13 +18,16 @@
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
 
+/* #define CEC_COMPLIANCE_TESTING */
 #include "msm_fb.h"
+#include "hdmi_msm.h"
 #include "external_common.h"
 
 struct external_common_state_type *external_common_state;
 EXPORT_SYMBOL(external_common_state);
 DEFINE_MUTEX(external_common_state_hpd_mutex);
 EXPORT_SYMBOL(external_common_state_hpd_mutex);
+
 
 static int atoi(const char *name)
 {
@@ -307,6 +310,132 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+/*
+ * This interface for CEC feature is defined to suit
+ * the current requirements. However, the actual functionality is
+ * added to accommodate different interfaces
+ */
+static ssize_t hdmi_msm_rda_cec(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	/* 0x028C CEC_CTRL */
+	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		(HDMI_INP(0x028C) & BIT(0)));
+	return ret;
+}
+
+static ssize_t hdmi_msm_wta_cec(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int cec = atoi(buf);
+
+	if (cec != 0) {
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->cec_enabled = true;
+		hdmi_msm_state->cec_logical_addr = 4;
+		mutex_unlock(&hdmi_msm_state_mutex);
+		hdmi_msm_cec_init();
+		hdmi_msm_cec_write_logical_addr(
+			hdmi_msm_state->cec_logical_addr);
+		DEV_DBG("CEC enabled\n");
+	} else {
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->cec_enabled = false;
+		hdmi_msm_state->cec_logical_addr = 15;
+		mutex_unlock(&hdmi_msm_state_mutex);
+		hdmi_msm_cec_write_logical_addr(
+			hdmi_msm_state->cec_logical_addr);
+		/* 0x028C CEC_CTRL */
+		HDMI_OUTP(0x028C, 0);
+		DEV_DBG("CEC disabled\n");
+	}
+	return ret;
+}
+
+static ssize_t hdmi_msm_rda_cec_logical_addr(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+
+	mutex_lock(&hdmi_msm_state_mutex);
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		hdmi_msm_state->cec_logical_addr);
+	mutex_unlock(&hdmi_msm_state_mutex);
+	return ret;
+}
+
+static ssize_t hdmi_msm_wta_cec_logical_addr(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+
+#ifdef CEC_COMPLIANCE_TESTING
+	/*
+	 * Only for testing
+	 */
+	hdmi_msm_cec_one_touch_play();
+	return 0;
+#else
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int logical_addr = atoi(buf);
+
+	if (logical_addr < 0 || logical_addr > 15)
+		return -EINVAL;
+
+	mutex_lock(&hdmi_msm_state_mutex);
+	hdmi_msm_state->cec_logical_addr = logical_addr;
+	mutex_unlock(&hdmi_msm_state_mutex);
+
+	hdmi_msm_cec_write_logical_addr(logical_addr);
+
+	return ret;
+#endif
+}
+
+static ssize_t hdmi_msm_rda_cec_frame(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->cec_queue_rd == hdmi_msm_state->cec_queue_wr
+	    && !hdmi_msm_state->cec_queue_full) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_ERR("CEC message queue is empty\n");
+		return -EBUSY;
+	}
+	memcpy(buf, hdmi_msm_state->cec_queue_rd++,
+		sizeof(struct hdmi_msm_cec_msg));
+	hdmi_msm_state->cec_queue_full = false;
+	if (hdmi_msm_state->cec_queue_rd == CEC_QUEUE_END)
+		hdmi_msm_state->cec_queue_rd = hdmi_msm_state->cec_queue_start;
+	mutex_unlock(&hdmi_msm_state_mutex);
+
+	return sizeof(struct hdmi_msm_cec_msg);
+}
+
+static ssize_t hdmi_msm_wta_cec_frame(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retry = ((struct hdmi_msm_cec_msg *) buf)->retransmit;
+
+	if (retry > 15)
+		retry = 15;
+	while (1) {
+		hdmi_msm_cec_msg_send((struct hdmi_msm_cec_msg *) buf);
+		if (hdmi_msm_state->cec_frame_wr_status
+		    & CEC_STATUS_WR_ERROR && retry--)
+			msleep(360);
+		else
+			break;
+	}
+
+	if (hdmi_msm_state->cec_frame_wr_status & CEC_STATUS_WR_DONE)
+		return sizeof(struct hdmi_msm_cec_msg);
+	else
+		return -EINVAL;
+}
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+
 static ssize_t hdmi_common_rda_3d_present(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -363,6 +492,23 @@ static ssize_t hdmi_3d_wta_format_3d(struct device *dev,
 	return ret;
 }
 #endif
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+static DEVICE_ATTR(cec, S_IRUGO | S_IWUSR,
+	hdmi_msm_rda_cec,
+	hdmi_msm_wta_cec);
+
+static DEVICE_ATTR(cec_logical_addr, S_IRUGO | S_IWUSR,
+	hdmi_msm_rda_cec_logical_addr,
+	hdmi_msm_wta_cec_logical_addr);
+
+static DEVICE_ATTR(cec_rd_frame, S_IRUGO,
+	hdmi_msm_rda_cec_frame,	NULL);
+
+static DEVICE_ATTR(cec_wr_frame, S_IWUSR,
+	NULL, hdmi_msm_wta_cec_frame);
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+
 
 static ssize_t external_common_rda_video_mode(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -456,6 +602,12 @@ static struct attribute *external_common_fs_attrs[] = {
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	&dev_attr_format_3d.attr,
 #endif
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	&dev_attr_cec.attr,
+	&dev_attr_cec_logical_addr.attr,
+	&dev_attr_cec_rd_frame.attr,
+	&dev_attr_cec_wr_frame.attr,
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 	NULL,
 };
 static struct attribute_group external_common_fs_attr_group = {

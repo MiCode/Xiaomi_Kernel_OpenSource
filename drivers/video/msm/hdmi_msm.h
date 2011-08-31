@@ -33,7 +33,22 @@ uint32 hdmi_inp(uint32 offset);
 #define HDMI_INP(offset)		inpdw(MSM_HDMI_BASE+(offset))
 #endif
 
+
+/*
+ * Ref. HDMI 1.4a
+ * Supplement-1 CEC Section 6, 7
+ */
+struct hdmi_msm_cec_msg {
+	uint8 sender_id;
+	uint8 recvr_id;
+	uint8 opcode;
+	uint8 operand[15];
+	uint8 frame_size;
+	uint8 retransmit;
+};
+
 #define QFPROM_BASE		((uint32)hdmi_msm_state->qfprom_io)
+#define HDMI_BASE		((uint32)hdmi_msm_state->hdmi_io)
 
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
@@ -57,6 +72,23 @@ struct hdmi_msm_state_type {
 	struct completion hdcp_success_done;
 	struct timer_list hdcp_timer;
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	boolean cec_enabled;
+	int cec_logical_addr;
+	struct completion cec_frame_wr_done;
+#define CEC_STATUS_WR_ERROR	0x0001
+#define CEC_STATUS_WR_DONE	0x0002
+#define CEC_STATUS_WR_TMOUT	0x0004
+	uint32 cec_frame_wr_status;
+
+	struct hdmi_msm_cec_msg *cec_queue_start;
+	struct hdmi_msm_cec_msg *cec_queue_wr;
+	struct hdmi_msm_cec_msg *cec_queue_rd;
+	boolean cec_queue_full;
+#define CEC_QUEUE_SIZE		16
+#define CEC_QUEUE_END	 (hdmi_msm_state->cec_queue_start + CEC_QUEUE_SIZE)
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 	int irq;
 	struct msm_hdmi_platform_data *pd;
@@ -83,5 +115,13 @@ void hdmi_msm_powerdown_phy(void);
 void hdmi_frame_ctrl_cfg(const struct hdmi_disp_mode_timing_type *timing);
 void hdmi_msm_phy_status_poll(void);
 #endif
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+void hdmi_msm_cec_init(void);
+void hdmi_msm_cec_write_logical_addr(int addr);
+void hdmi_msm_cec_msg_recv(void);
+void hdmi_msm_cec_one_touch_play(void);
+void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg);
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 #endif /* __HDMI_MSM_H__ */

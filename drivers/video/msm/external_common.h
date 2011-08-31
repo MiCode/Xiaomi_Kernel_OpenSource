@@ -225,6 +225,7 @@ struct external_common_state_type {
 /* The external interface driver needs to initialize the common state. */
 extern struct external_common_state_type *external_common_state;
 extern struct mutex external_common_state_hpd_mutex;
+extern struct mutex hdmi_msm_state_mutex;
 
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 #define VFRMT_NOT_SUPPORTED(VFRMT) \

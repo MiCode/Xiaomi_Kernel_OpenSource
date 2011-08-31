@@ -15,6 +15,9 @@
 #define DEV_DBG_PREFIX "HDMI: "
 /* #define REG_DUMP */
 
+#define CEC_MSG_PRINT
+/* #define CEC_COMPLIANCE_TESTING */
+
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -49,7 +52,8 @@
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
-static DEFINE_MUTEX(hdmi_msm_state_mutex);
+DEFINE_MUTEX(hdmi_msm_state_mutex);
+EXPORT_SYMBOL(hdmi_msm_state_mutex);
 static DEFINE_MUTEX(hdcp_auth_state_mutex);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
@@ -57,6 +61,478 @@ static void hdmi_msm_hdcp_enable(void);
 #else
 static inline void hdmi_msm_hdcp_enable(void) {}
 #endif
+
+static void hdmi_msm_turn_on(void);
+static int hdmi_msm_audio_off(void);
+static int hdmi_msm_read_edid(void);
+static void hdmi_msm_hpd_off(void);
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+
+#define HDMI_MSM_CEC_REFTIMER_REFTIMER_ENABLE	BIT(16)
+#define HDMI_MSM_CEC_REFTIMER_REFTIMER(___t)	(((___t)&0xFFFF) << 0)
+
+#define HDMI_MSM_CEC_TIME_SIGNAL_FREE_TIME(___t)	(((___t)&0x1FF) << 7)
+#define HDMI_MSM_CEC_TIME_ENABLE			BIT(0)
+
+#define HDMI_MSM_CEC_ADDR_LOGICAL_ADDR(___la)	(((___la)&0xFF) << 0)
+
+#define HDMI_MSM_CEC_CTRL_LINE_OE			BIT(9)
+#define HDMI_MSM_CEC_CTRL_FRAME_SIZE(___sz)		(((___sz)&0x1F) << 4)
+#define HDMI_MSM_CEC_CTRL_SOFT_RESET		BIT(2)
+#define HDMI_MSM_CEC_CTRL_SEND_TRIG			BIT(1)
+#define HDMI_MSM_CEC_CTRL_ENABLE			BIT(0)
+
+#define HDMI_MSM_CEC_INT_FRAME_RD_DONE_MASK		BIT(7)
+#define HDMI_MSM_CEC_INT_FRAME_RD_DONE_ACK		BIT(6)
+#define HDMI_MSM_CEC_INT_FRAME_RD_DONE_INT		BIT(6)
+#define HDMI_MSM_CEC_INT_MONITOR_MASK		BIT(5)
+#define HDMI_MSM_CEC_INT_MONITOR_ACK		BIT(4)
+#define HDMI_MSM_CEC_INT_MONITOR_INT		BIT(4)
+#define HDMI_MSM_CEC_INT_FRAME_ERROR_MASK		BIT(3)
+#define HDMI_MSM_CEC_INT_FRAME_ERROR_ACK		BIT(2)
+#define HDMI_MSM_CEC_INT_FRAME_ERROR_INT		BIT(2)
+#define HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK		BIT(1)
+#define HDMI_MSM_CEC_INT_FRAME_WR_DONE_ACK		BIT(0)
+#define HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT		BIT(0)
+
+#define HDMI_MSM_CEC_FRAME_WR_SUCCESS(___st)         (((___st)&0xF) ==\
+		(HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT &&\
+			HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK &&\
+			(HDMI_MSM_CEC_INT_FRAME_ERROR_MASK &&\
+				!(HDMI_MSM_CEC_INT_FRAME_ERROR_INT))))
+
+#define HDMI_MSM_CEC_RETRANSMIT_NUM(___num)		(((___num)&0xF) << 4)
+#define HDMI_MSM_CEC_RETRANSMIT_ENABLE		BIT(0)
+
+#define HDMI_MSM_CEC_WR_DATA_DATA(___d)		(((___d)&0xFF) << 8)
+
+
+void hdmi_msm_cec_init(void)
+{
+	/* 0x02A8 CEC_REFTIMER */
+	HDMI_OUTP(0x02A8,
+		HDMI_MSM_CEC_REFTIMER_REFTIMER_ENABLE
+		| HDMI_MSM_CEC_REFTIMER_REFTIMER(27 * 50)
+		);
+
+	/* 0x02A4 CEC_TIME */
+	HDMI_OUTP(0x02A4,
+		HDMI_MSM_CEC_TIME_SIGNAL_FREE_TIME(350)
+		| HDMI_MSM_CEC_TIME_ENABLE
+		);
+
+	/*
+	 * 0x02A0 CEC_ADDR
+	 * Starting with a default address of 4
+	 */
+	HDMI_OUTP(0x02A0, HDMI_MSM_CEC_ADDR_LOGICAL_ADDR(4));
+
+	/* 0x028C CEC_CTRL */
+	HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+
+	/* 0x029C CEC_INT */
+	/* Enable CEC interrupts */
+	HDMI_OUTP(0x029C,					\
+		  HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK		\
+		  | HDMI_MSM_CEC_INT_FRAME_ERROR_MASK		\
+		  | HDMI_MSM_CEC_INT_MONITOR_MASK		\
+		  | HDMI_MSM_CEC_INT_FRAME_RD_DONE_MASK);
+
+	HDMI_OUTP(0x02B0, 0x7FF << 4 | 1);
+
+	/*
+	 * Slight adjustment to logic 1 low periods on read,
+	 * CEC Test 8.2-3 was failing, 8 for the
+	 * BIT_1_ERR_RANGE_HI = 8 => 750us, the test used 775us,
+	 * so increased this to 9 which => 800us.
+	 */
+	HDMI_OUTP(0x02E0, 0x889788);
+
+	/*
+	 * Slight adjustment to logic 0 low period on write
+	 */
+	HDMI_OUTP(0x02DC, 0x8888A888);
+
+	/*
+	 * Enable Signal Free Time counter and set to 7 bit periods
+	 */
+	HDMI_OUTP(0x02A4, 0x1 | (7 * 0x30) << 7);
+
+}
+
+void hdmi_msm_cec_write_logical_addr(int addr)
+{
+	/* 0x02A0 CEC_ADDR
+	 *   LOGICAL_ADDR       7:0  NUM
+	 */
+	HDMI_OUTP(0x02A0, addr & 0xFF);
+}
+
+void hdmi_msm_dump_cec_msg(struct hdmi_msm_cec_msg *msg)
+{
+#ifdef CEC_MSG_PRINT
+	int i;
+	DEV_DBG("sender_id     : %d", msg->sender_id);
+	DEV_DBG("recvr_id     : %d", msg->recvr_id);
+	if (msg->frame_size < 2) {
+		DEV_DBG("polling message");
+		return;
+	}
+	DEV_DBG("opcode      : %02x", msg->opcode);
+	for (i = 0; i < msg->frame_size - 2; i++)
+		DEV_DBG("operand(%2d) : %02x", i + 1, msg->operand[i]);
+#endif /* CEC_MSG_PRINT */
+}
+
+void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
+{
+	int i;
+	uint32 timeout_count = 1;
+	int retry = 10;
+
+	boolean frameType = (msg->recvr_id == 15 ? BIT(0) : 0);
+
+	INIT_COMPLETION(hdmi_msm_state->cec_frame_wr_done);
+	hdmi_msm_state->cec_frame_wr_status = 0;
+
+	/* 0x0294 HDMI_MSM_CEC_RETRANSMIT */
+	HDMI_OUTP(0x0294,
+		HDMI_MSM_CEC_RETRANSMIT_NUM(msg->retransmit)
+		| (msg->retransmit > 0) ? HDMI_MSM_CEC_RETRANSMIT_ENABLE : 0);
+
+	/* 0x028C CEC_CTRL */
+	HDMI_OUTP(0x028C, 0x1 | msg->frame_size << 4);
+
+	/* 0x0290 CEC_WR_DATA */
+
+	/* header block */
+	HDMI_OUTP(0x0290,
+		HDMI_MSM_CEC_WR_DATA_DATA(msg->sender_id << 4 | msg->recvr_id)
+		| frameType);
+
+	/* data block 0 : opcode */
+	HDMI_OUTP(0x0290,
+		HDMI_MSM_CEC_WR_DATA_DATA(msg->frame_size < 2 ? 0 : msg->opcode)
+		| frameType);
+
+	/* data block 1-14 : operand 0-13 */
+	for (i = 0; i < msg->frame_size - 1; i++)
+		HDMI_OUTP(0x0290,
+			HDMI_MSM_CEC_WR_DATA_DATA(msg->operand[i])
+			| (msg->recvr_id == 15 ? BIT(0) : 0));
+
+	for (; i < 14; i++)
+		HDMI_OUTP(0x0290,
+			HDMI_MSM_CEC_WR_DATA_DATA(0)
+			| (msg->recvr_id == 15 ? BIT(0) : 0));
+
+	while ((HDMI_INP(0x0298) & 1) && retry--) {
+		DEV_DBG("CEC line is busy(%d)\n", retry);
+		schedule();
+	}
+
+	/* 0x028C CEC_CTRL */
+	HDMI_OUTP(0x028C,
+		  HDMI_MSM_CEC_CTRL_LINE_OE
+		  | HDMI_MSM_CEC_CTRL_FRAME_SIZE(msg->frame_size)
+		  | HDMI_MSM_CEC_CTRL_SEND_TRIG
+		  | HDMI_MSM_CEC_CTRL_ENABLE);
+
+	timeout_count = wait_for_completion_interruptible_timeout(
+		&hdmi_msm_state->cec_frame_wr_done, HZ);
+
+	if (!timeout_count) {
+		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_TMOUT;
+		DEV_ERR("%s: timedout", __func__);
+		hdmi_msm_dump_cec_msg(msg);
+	} else {
+		DEV_DBG("CEC write frame done (frame len=%d)",
+			msg->frame_size);
+		hdmi_msm_dump_cec_msg(msg);
+	}
+}
+
+void hdmi_msm_cec_msg_recv(void)
+{
+	uint32 data;
+	int i;
+#ifdef CEC_COMPLIANCE_TESTING
+	struct hdmi_msm_cec_msg temp_msg;
+#endif
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->cec_queue_wr == hdmi_msm_state->cec_queue_rd
+		&& hdmi_msm_state->cec_queue_full) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_ERR("CEC message queue is overflowing\n");
+#ifdef CEC_COMPLIANCE_TESTING
+		/*
+		 * Without CEC daemon:
+		 * Compliance tests fail once the queue gets filled up.
+		 * so reset the pointers to the start of the queue.
+		 */
+		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
+		hdmi_msm_state->cec_queue_rd = hdmi_msm_state->cec_queue_start;
+		hdmi_msm_state->cec_queue_full = false;
+#else
+		return;
+#endif
+	}
+	if (hdmi_msm_state->cec_queue_wr == NULL) {
+		DEV_ERR("%s: wp is NULL\n", __func__);
+		return;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
+
+	/* 0x02AC CEC_RD_DATA */
+	data = HDMI_INP(0x02AC);
+
+	hdmi_msm_state->cec_queue_wr->sender_id = (data & 0xF0) >> 4;
+	hdmi_msm_state->cec_queue_wr->recvr_id = (data & 0x0F);
+	hdmi_msm_state->cec_queue_wr->frame_size = (data & 0x1F00) >> 8;
+	DEV_DBG("Recvd init=[%u] dest=[%u] size=[%u]\n",
+		hdmi_msm_state->cec_queue_wr->sender_id,
+		hdmi_msm_state->cec_queue_wr->recvr_id,
+		hdmi_msm_state->cec_queue_wr->frame_size);
+
+	if (hdmi_msm_state->cec_queue_wr->frame_size < 1) {
+		DEV_ERR("%s: invalid message (frame length = %d)",
+			__func__, hdmi_msm_state->cec_queue_wr->frame_size);
+		return;
+	} else if (hdmi_msm_state->cec_queue_wr->frame_size == 1) {
+		DEV_DBG("%s: polling message (dest[%x] <- init[%x])",
+			__func__,
+			hdmi_msm_state->cec_queue_wr->recvr_id,
+			hdmi_msm_state->cec_queue_wr->sender_id);
+		return;
+	}
+
+	/* data block 0 : opcode */
+	data = HDMI_INP(0x02AC);
+	hdmi_msm_state->cec_queue_wr->opcode = data & 0xFF;
+
+	/* data block 1-14 : operand 0-13 */
+	for (i = 0; i < hdmi_msm_state->cec_queue_wr->frame_size - 2; i++) {
+		data = HDMI_INP(0x02AC);
+		hdmi_msm_state->cec_queue_wr->operand[i] = data & 0xFF;
+	}
+
+	for (; i < 14; i++)
+		hdmi_msm_state->cec_queue_wr->operand[i] = 0;
+
+	DEV_DBG("CEC read frame done\n");
+	DEV_DBG("=======================================\n");
+	hdmi_msm_dump_cec_msg(hdmi_msm_state->cec_queue_wr);
+	DEV_DBG("=======================================\n");
+
+#ifdef CEC_COMPLIANCE_TESTING
+	switch (hdmi_msm_state->cec_queue_wr->opcode) {
+	case 0x64:
+		/* Set OSD String */
+		DEV_INFO("Recvd OSD Str=[%x]\n",\
+			hdmi_msm_state->cec_queue_wr->operand[3]);
+		break;
+	case 0x83:
+		/* Give Phy Addr */
+		DEV_INFO("Recvd a Give Phy Addr cmd\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		/* Setup a frame for sending out phy addr */
+		temp_msg.sender_id = 0x4;
+
+		/* Broadcast */
+		temp_msg.recvr_id = 0xf;
+		temp_msg.opcode = 0x84;
+		i = 0;
+		temp_msg.operand[i++] = 0x10;
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0xFF:
+		/* Abort */
+		DEV_INFO("Recvd an abort cmd 0xFF\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/*feature abort */
+		temp_msg.opcode = 0x00;
+		temp_msg.operand[i++] =
+			hdmi_msm_state->cec_queue_wr->opcode;
+
+		/*reason for abort = "Refused" */
+		temp_msg.operand[i++] = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_dump_cec_msg(&temp_msg);
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x046:
+		/* Give OSD name */
+		DEV_INFO("Recvd cmd 0x046\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/* OSD Name */
+		temp_msg.opcode = 0x47;
+
+		/* Display control byte */
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x08F:
+		/* Give Device Power status */
+		DEV_INFO("Recvd a Power status message\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/* OSD String */
+		temp_msg.opcode = 0x90;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x080:
+		/* Routing Change cmd */
+	case 0x086:
+		/* Set Stream Path */
+		DEV_INFO("Recvd Set Stream\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+
+		/*Broadcast this message*/
+		temp_msg.recvr_id = 0xf;
+		i = 0;
+		temp_msg.opcode = 0x82; /* Active Source */
+		temp_msg.operand[i++] = 0x10;
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+
+		/*
+		 * sending <Image View On> message
+		 */
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* opcode for Image View On */
+		temp_msg.opcode = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	default:
+		DEV_INFO("Recvd an unknown cmd = [%u]\n",
+			hdmi_msm_state->cec_queue_wr->opcode);
+#ifdef __SEND_ABORT__
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* opcode for feature abort */
+		temp_msg.opcode = 0x00;
+		temp_msg.operand[i++] =
+			hdmi_msm_state->cec_queue_wr->opcode;
+		/*reason for abort = "Unrecognized opcode" */
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+#else
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* OSD String */
+		temp_msg.opcode = 0x64;
+		temp_msg.operand[i++] = 0x0;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+#endif /* __SEND_ABORT__ */
+	}
+
+#endif /* CEC_COMPLIANCE_TESTING */
+	mutex_lock(&hdmi_msm_state_mutex);
+	hdmi_msm_state->cec_queue_wr++;
+	if (hdmi_msm_state->cec_queue_wr == CEC_QUEUE_END)
+		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
+	if (hdmi_msm_state->cec_queue_wr == hdmi_msm_state->cec_queue_rd)
+		hdmi_msm_state->cec_queue_full = true;
+	mutex_unlock(&hdmi_msm_state_mutex);
+	DEV_DBG("Exiting %s()\n", __func__);
+}
+
+void hdmi_msm_cec_one_touch_play(void)
+{
+	struct hdmi_msm_cec_msg temp_msg;
+	uint32 i = 0;
+	memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+	temp_msg.sender_id = 0x4;
+	/*
+	 * Broadcast this message
+	 */
+	temp_msg.recvr_id = 0xf;
+	i = 0;
+	/* Active Source */
+	temp_msg.opcode = 0x82;
+	temp_msg.operand[i++] = 0x10;
+	temp_msg.operand[i++] = 0x00;
+	/*temp_msg.operand[i++] = 0x04;*/
+	temp_msg.frame_size = i + 2;
+	hdmi_msm_cec_msg_send(&temp_msg);
+	/*
+	 * sending <Image View On> message
+	 */
+	memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+	temp_msg.sender_id = 0x4;
+	temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+	i = 0;
+	/* Image View On */
+	temp_msg.opcode = 0x04;
+	temp_msg.frame_size = i + 2;
+	hdmi_msm_cec_msg_send(&temp_msg);
+
+}
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 uint32 hdmi_msm_get_io_base(void)
 {
@@ -397,6 +873,9 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 {
 	uint32 hpd_int_status;
 	uint32 hpd_int_ctrl;
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	uint32 cec_intr_status;
+#endif
 	uint32 ddc_int_ctrl;
 	uint32 audio_int_val;
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
@@ -601,8 +1080,55 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	}
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	/* Process CEC Interrupt */
+	/* HDMI_MSM_CEC_INT[0x029C] */
+	cec_intr_status = HDMI_INP_ND(0x029C);
+
+	DEV_DBG("cec interrupt status is [%u]\n", cec_intr_status);
+
+	if (HDMI_MSM_CEC_FRAME_WR_SUCCESS(cec_intr_status)) {
+		DEV_DBG("CEC_IRQ_FRAME_WR_DONE\n");
+		HDMI_OUTP(0x029C, cec_intr_status |
+			HDMI_MSM_CEC_INT_FRAME_WR_DONE_ACK);
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_DONE;
+		mutex_unlock(&hdmi_msm_state_mutex);
+		complete(&hdmi_msm_state->cec_frame_wr_done);
+		return IRQ_HANDLED;
+	}
+	if ((cec_intr_status & (1 << 2)) && (cec_intr_status & (1 << 3))) {
+		DEV_DBG("CEC_IRQ_FRAME_ERROR\n");
+		/* Toggle CEC hardware FSM */
+		HDMI_OUTP(0x028C, 0x0);
+		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+		HDMI_OUTP(0x029C, cec_intr_status);
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_ERROR;
+		mutex_unlock(&hdmi_msm_state_mutex);
+		complete(&hdmi_msm_state->cec_frame_wr_done);
+		return IRQ_HANDLED;
+	}
+
+	if ((cec_intr_status & (1 << 4)) && (cec_intr_status & (1 << 5)))
+		DEV_DBG("CEC_IRQ_MONITOR\n");
+
+	if ((cec_intr_status & (1 << 6)) && (cec_intr_status & (1 << 7))) {
+		DEV_DBG("CEC_IRQ_FRAME_RD_DONE\n");
+		HDMI_OUTP(0x029C, cec_intr_status |
+			HDMI_MSM_CEC_INT_FRAME_RD_DONE_ACK);
+		hdmi_msm_cec_msg_recv();
+
+		/* Toggle CEC hardware FSM */
+		HDMI_OUTP(0x028C, 0x0);
+		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+
+		return IRQ_HANDLED;
+	}
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+
 	DEV_DBG("%s: HPD<Ctrl=%04x, State=%04x>, ddc_int_ctrl=%04x, "
-		"aud_int=%04x, cec_int=%04x\n", __func__, hpd_int_ctrl,
+		"aud_int=%04x, cec_intr_status=%04x\n", __func__, hpd_int_ctrl,
 		hpd_int_status, ddc_int_ctrl, audio_int_val,
 		HDMI_INP_ND(0x029C));
 
@@ -3130,6 +3656,17 @@ static void hdmi_msm_turn_on(void)
 		hdmi_msm_state->reauth = FALSE ;
 	}
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	/* re-initialize CEC if enabled */
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->cec_enabled == true) {
+		hdmi_msm_cec_init();
+		hdmi_msm_cec_write_logical_addr(
+			hdmi_msm_state->cec_logical_addr);
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 	DEV_INFO("HDMI Core: Initialized\n");
 }
 
@@ -3187,6 +3724,7 @@ static void hdmi_msm_hpd_off(void)
 	hdmi_msm_set_mode(FALSE);
 	HDMI_OUTP_ND(0x0308, 0x7F); /*0b01111111*/
 	hdmi_msm_state->hpd_initialized = FALSE;
+	hdmi_msm_state->pd->cec_power(0);
 	hdmi_msm_state->pd->enable_5v(0);
 	hdmi_msm_state->pd->core_power(0, 1);
 	hdmi_msm_clk(0);
@@ -3208,6 +3746,7 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 	hdmi_msm_clk(1);
 	hdmi_msm_state->pd->core_power(1, 1);
 	hdmi_msm_state->pd->enable_5v(1);
+	hdmi_msm_state->pd->cec_power(1);
 	hdmi_msm_dump_regs("HDMI-INIT: ");
 	hdmi_msm_set_mode(FALSE);
 
@@ -3455,6 +3994,12 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	if (!hdmi_msm_state->pd->cec_power) {
+		DEV_ERR("Init FAILED: cec_power function missing\n");
+		rc = -ENODEV;
+		goto error;
+	}
+
 	rc = request_threaded_irq(hdmi_msm_state->irq, NULL, &hdmi_msm_isr,
 		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "hdmi_msm_isr", NULL);
 	if (rc) {
@@ -3686,6 +4231,21 @@ static int __init hdmi_msm_init(void)
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
 #endif
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	hdmi_msm_state->cec_queue_start =
+		kzalloc(sizeof(struct hdmi_msm_cec_msg)*CEC_QUEUE_SIZE,
+			GFP_KERNEL);
+	if (!hdmi_msm_state->cec_queue_start) {
+		pr_err("hdmi_msm_init FAILED: CEC queue out of memory\n");
+		rc = -ENOMEM;
+		goto init_exit;
+	}
+
+	hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
+	hdmi_msm_state->cec_queue_rd = hdmi_msm_state->cec_queue_start;
+	hdmi_msm_state->cec_queue_full = false;
+#endif
+
 	/*
 	 * Create your work queue
 	 * allocs and returns ptr
@@ -3709,6 +4269,10 @@ static int __init hdmi_msm_init(void)
 	INIT_WORK(&hdmi_msm_state->hdcp_reauth_work, hdmi_msm_hdcp_reauth_work);
 	INIT_WORK(&hdmi_msm_state->hdcp_work, hdmi_msm_hdcp_work);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	init_completion(&hdmi_msm_state->cec_frame_wr_done);
+#endif
 
 	rc = platform_device_register(&this_device);
 	if (rc) {
