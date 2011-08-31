@@ -409,4 +409,10 @@ union reg_cp_rb_cntl {
 #define REG_A220_VSC_BIN_SIZE            0x0C01
 #define REG_A220_VSC_PIPE_DATA_LENGTH_7  0x0C1D
 
+/*registers added in adreno225*/
+#define REG_A225_RB_COLOR_INFO3          0x2005
+#define REG_A225_PC_MULTI_PRIM_IB_RESET_INDX 0x2103
+#define REG_A225_GRAS_UCP0X              0x2340
+#define REG_A225_GRAS_UCP_ENABLED        0x2360
+
 #endif /* __A200_REG_H */

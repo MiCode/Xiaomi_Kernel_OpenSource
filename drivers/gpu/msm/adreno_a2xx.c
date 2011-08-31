@@ -365,7 +365,7 @@ static const unsigned int register_ranges_a20x[] = {
 	REG_VGT_VERTEX_REUSE_BLOCK_CNTL, REG_RB_DEPTH_CLEAR
 };
 
-static const unsigned int register_ranges_a22x[] = {
+static const unsigned int register_ranges_a220[] = {
 	REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO,
 	REG_COHER_DEST_BASE_0, REG_PA_SC_SCREEN_SCISSOR_BR,
 	REG_PA_SC_WINDOW_OFFSET, REG_PA_SC_WINDOW_SCISSOR_BR,
@@ -375,7 +375,6 @@ static const unsigned int register_ranges_a22x[] = {
 	REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
 	REG_RB_SAMPLE_COUNT_CTL, REG_RB_COLOR_DEST_MASK,
 	REG_PA_SU_POLY_OFFSET_FRONT_SCALE, REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
-	/* all the below registers are specific to a220 */
 	REG_A220_PC_MAX_VTX_INDX, REG_A220_PC_INDX_OFFSET,
 	REG_RB_COLOR_MASK, REG_RB_FOG_COLOR,
 	REG_RB_DEPTHCONTROL, REG_RB_COLORCONTROL,
@@ -385,6 +384,28 @@ static const unsigned int register_ranges_a22x[] = {
 	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
 	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
 	REG_RB_COPY_CONTROL, REG_RB_DEPTH_CLEAR
+};
+
+static const unsigned int register_ranges_a225[] = {
+	REG_RB_SURFACE_INFO, REG_A225_RB_COLOR_INFO3,
+	REG_COHER_DEST_BASE_0, REG_PA_SC_SCREEN_SCISSOR_BR,
+	REG_PA_SC_WINDOW_OFFSET, REG_PA_SC_WINDOW_SCISSOR_BR,
+	REG_RB_STENCILREFMASK_BF, REG_PA_CL_VPORT_ZOFFSET,
+	REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1,
+	REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST,
+	REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
+	REG_RB_SAMPLE_COUNT_CTL, REG_RB_COLOR_DEST_MASK,
+	REG_PA_SU_POLY_OFFSET_FRONT_SCALE, REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
+	REG_A220_PC_MAX_VTX_INDX, REG_A225_PC_MULTI_PRIM_IB_RESET_INDX,
+	REG_RB_COLOR_MASK, REG_RB_FOG_COLOR,
+	REG_RB_DEPTHCONTROL, REG_RB_COLORCONTROL,
+	REG_PA_CL_CLIP_CNTL, REG_PA_CL_VTE_CNTL,
+	REG_RB_MODECONTROL, REG_RB_SAMPLE_POS,
+	REG_PA_SU_POINT_SIZE, REG_PA_SU_LINE_CNTL,
+	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
+	REG_A220_PC_VERTEX_REUSE_BLOCK_CNTL,
+	REG_RB_COPY_CONTROL, REG_RB_DEPTH_CLEAR,
+	REG_A225_GRAS_UCP0X, REG_A225_GRAS_UCP_ENABLED
 };
 
 
@@ -412,9 +433,12 @@ static void build_regsave_cmds(struct adreno_device *adreno_dev,
 		const unsigned int *ptr_register_ranges;
 
 		/* Based on chip id choose the register ranges */
-		if (adreno_is_a22x(adreno_dev)) {
-			ptr_register_ranges = register_ranges_a22x;
-			reg_array_size = ARRAY_SIZE(register_ranges_a22x);
+		if (adreno_is_a220(adreno_dev)) {
+			ptr_register_ranges = register_ranges_a220;
+			reg_array_size = ARRAY_SIZE(register_ranges_a220);
+		} else if (adreno_is_a225(adreno_dev)) {
+			ptr_register_ranges = register_ranges_a225;
+			reg_array_size = ARRAY_SIZE(register_ranges_a225);
 		} else {
 			ptr_register_ranges = register_ranges_a20x;
 			reg_array_size = ARRAY_SIZE(register_ranges_a20x);
@@ -964,9 +988,12 @@ static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 #endif
 
 	/* Based on chip id choose the registers ranges*/
-	if (adreno_is_a22x(adreno_dev)) {
-		ptr_register_ranges = register_ranges_a22x;
-		reg_array_size = ARRAY_SIZE(register_ranges_a22x);
+	if (adreno_is_a220(adreno_dev)) {
+		ptr_register_ranges = register_ranges_a220;
+		reg_array_size = ARRAY_SIZE(register_ranges_a220);
+	} else if (adreno_is_a225(adreno_dev)) {
+		ptr_register_ranges = register_ranges_a225;
+		reg_array_size = ARRAY_SIZE(register_ranges_a225);
 	} else {
 		ptr_register_ranges = register_ranges_a20x;
 		reg_array_size = ARRAY_SIZE(register_ranges_a20x);
