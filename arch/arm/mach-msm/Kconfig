@@ -1455,7 +1455,6 @@ config SCORPION_Uni_45nm_BUG
 config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
 	depends on DEBUG_FS
-	depends on ARCH_MSM8X60
 	default n
 	help
 	  This option enables a driver which can read from a circular buffer

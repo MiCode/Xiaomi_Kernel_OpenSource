@@ -80,6 +80,7 @@
 #include "rpm_resources.h"
 #include "mpm.h"
 #include "acpuclock.h"
+#include "rpm_log.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -2987,6 +2988,25 @@ static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
 	},
 };
 
+static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
+	.phys_addr_base = 0x0010C000,
+	.reg_offsets = {
+		[MSM_RPM_LOG_PAGE_INDICES] = 0x00000080,
+		[MSM_RPM_LOG_PAGE_BUFFER]  = 0x000000A0,
+	},
+	.phys_size = SZ_8K,
+	.log_len = 4096,		  /* log's buffer length in bytes */
+	.log_len_mask = (4096 >> 2) - 1,  /* length mask in units of u32 */
+};
+
+static struct platform_device msm_rpm_log_device = {
+	.name	= "msm_rpm_log",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_rpm_log_pdata,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
@@ -3039,6 +3059,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
+	&msm_rpm_log_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
