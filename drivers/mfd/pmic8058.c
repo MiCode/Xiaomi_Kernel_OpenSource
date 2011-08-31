@@ -790,6 +790,12 @@ static void pm8058_irq_unmask(struct irq_data *data)
 	irq_bit = irq % 8;
 
 	old_irqs_allowed = chip->irqs_allowed[block];
+	if (old_irqs_allowed & (1 << irq_bit)) {
+		pr_debug("%s: no need to enable an already enabled irq=%d\n",
+					__func__, irq + chip->pdata.irq_base);
+		return;
+	}
+
 	chip->irqs_allowed[block] |= 1 << irq_bit;
 	if (!old_irqs_allowed) {
 		master = block / 8;
