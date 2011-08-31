@@ -14,6 +14,7 @@
 #include <linux/qcomwlan_pwrif.h>
 
 #define GPIO_WLAN_DEEP_SLEEP_N  230
+#define GPIO_WLAN_DEEP_SLEEP_N_DRAGON  108
 #define WLAN_RESET_OUT          1
 #define WLAN_RESET              0
 
@@ -59,7 +60,7 @@ int vos_chip_power_qrf8615(int on)
 		1300000,
 		1250000,
 	};
-	static const bool vregs_is_pin_controlled[] = {
+	static const bool vregs_is_pin_controlled_default[] = {
 		1,
 		1,
 		0,
@@ -68,27 +69,44 @@ int vos_chip_power_qrf8615(int on)
 		1,
 		0,
 	};
+	static const bool vregs_is_pin_controlled_dragon[] = {
+		0,
+		0,
+		0,
+		0,
+		0,
+		1,
+		0,
+	};
+	bool const *vregs_is_pin_controlled;
 	static struct regulator *vregs_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
 	static struct msm_xo_voter *wlan_clock;
 	int ret, i, rc = 0;
+	unsigned wlan_gpio_deep_sleep = GPIO_WLAN_DEEP_SLEEP_N;
 
+	vregs_is_pin_controlled = vregs_is_pin_controlled_default;
+
+	if (machine_is_msm8x60_dragon()) {
+		wlan_gpio_deep_sleep = GPIO_WLAN_DEEP_SLEEP_N_DRAGON;
+		vregs_is_pin_controlled = vregs_is_pin_controlled_dragon;
+	}
 	/* WLAN RESET and CLK settings */
 	if (on && !wlan_on) {
 		/*
 		 * Program U12 GPIO expander pin IO1 to de-assert (drive 0)
 		 * WLAN_EXT_POR_N to put WLAN in reset
 		 */
-		rc = gpio_request(GPIO_WLAN_DEEP_SLEEP_N, "WLAN_DEEP_SLEEP_N");
+		rc = gpio_request(wlan_gpio_deep_sleep, "WLAN_DEEP_SLEEP_N");
 		if (rc) {
 			pr_err("WLAN reset GPIO %d request failed\n",
-					GPIO_WLAN_DEEP_SLEEP_N);
+					wlan_gpio_deep_sleep);
 			goto fail;
 		}
-		rc = gpio_direction_output(GPIO_WLAN_DEEP_SLEEP_N,
+		rc = gpio_direction_output(wlan_gpio_deep_sleep,
 				WLAN_RESET_OUT);
 		if (rc < 0) {
 			pr_err("WLAN reset GPIO %d set output direction failed",
-					GPIO_WLAN_DEEP_SLEEP_N);
+					wlan_gpio_deep_sleep);
 			goto fail_gpio_dir_out;
 		}
 
@@ -111,8 +129,8 @@ int vos_chip_power_qrf8615(int on)
 	} else if (!on && wlan_on) {
 		if (wlan_clock != NULL)
 			msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_OFF);
-		gpio_set_value_cansleep(GPIO_WLAN_DEEP_SLEEP_N, WLAN_RESET);
-		gpio_free(GPIO_WLAN_DEEP_SLEEP_N);
+		gpio_set_value_cansleep(wlan_gpio_deep_sleep, WLAN_RESET);
+		gpio_free(wlan_gpio_deep_sleep);
 	}
 
 	/* WLAN VREG settings */
@@ -190,7 +208,7 @@ vreg_get_fail:
 fail_xo_mode_vote:
 	msm_xo_put(wlan_clock);
 fail_gpio_dir_out:
-	gpio_free(GPIO_WLAN_DEEP_SLEEP_N);
+	gpio_free(wlan_gpio_deep_sleep);
 fail:
 	return rc;
 }
