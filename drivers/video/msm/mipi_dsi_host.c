@@ -752,6 +752,11 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 		data |= (pinfo->vc & 0x03);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x000c, data);
 
+		if (mdp_rev > MDP_REV_41)
+			pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
+		else
+			pinfo->rgb_swap = DSI_RGB_SWAP_BGR;
+
 		data = 0;
 		data |= ((pinfo->rgb_swap & 0x07) << 12);
 		if (pinfo->b_sel)
