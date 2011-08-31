@@ -4873,9 +4873,7 @@ static void __init msm8960_clock_init(void)
 
 	memcpy(msm_clocks_8960, msm_clocks_8960_v1, sizeof(msm_clocks_8960_v1));
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
-		struct clk_freq_tbl **ptr =
-			(struct clk_freq_tbl **)&gfx3d_clk.freq_tbl;
-		*ptr = clk_tbl_gfx3d_v2;
+		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_v2;
 		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_v1),
 				msm_clocks_8960_v2, sizeof(msm_clocks_8960_v2));
 		num_lookups = ARRAY_SIZE(msm_clocks_8960);

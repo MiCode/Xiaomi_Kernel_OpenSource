@@ -130,7 +130,7 @@ struct rcg_clk {
 	void		*bank_info;
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
 
-	struct clk_freq_tbl *const freq_tbl;
+	struct clk_freq_tbl *freq_tbl;
 	struct clk_freq_tbl *current_freq;
 
 	struct branch	b;
