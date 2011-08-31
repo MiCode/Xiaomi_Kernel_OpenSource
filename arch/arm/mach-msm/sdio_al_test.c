@@ -294,7 +294,7 @@ static int set_params_8k_sender_no_lp(struct test_channel *tch);
 static int set_params_a2_small_pkts(struct test_channel *tch);
 static int set_params_rtt(struct test_channel *tch);
 static int set_params_loopback_9k_close(struct test_channel *tch);
-static int close_channel_lpm_test(void);
+static int close_channel_lpm_test(int channel_num);
 static int set_params_lpm_test(struct test_channel *tch,
 				enum sdio_test_case_type test,
 				int timer_interval_ms);
@@ -1589,6 +1589,7 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 {
 	int ret = 0;
 	int i = 0;
+	int channel_num = 0;
 	int number = -1;
 
 	pr_info(TEST_MODULE_NAME "-- CLOSE CHANNEL & LPM TEST "
@@ -1607,7 +1608,26 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
-		ret = close_channel_lpm_test();
+		for (channel_num = 0 ; channel_num < SDIO_MAX_CHANNELS ;
+		     channel_num++) {
+			if (channel_num == SDIO_SMEM ||
+			    channel_num == SDIO_RMNT ||
+			    channel_num == SDIO_DUN)
+				continue;
+
+			ret = close_channel_lpm_test(channel_num);
+
+			if (ret)
+				break;
+
+			set_params_lpm_test(test_ctx->test_ch_arr[SDIO_RPC],
+					    SDIO_TEST_LPM_HOST_WAKER, 120);
+
+			ret = test_start();
+
+			if (ret)
+				break;
+		}
 
 		if (ret) {
 			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
@@ -1616,11 +1636,6 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 			pr_err(TEST_MODULE_NAME " -- Close channel & LPM Test "
 			       "PASSED\n");
 		}
-
-		ret = test_start();
-
-		if (ret)
-			break;
 	}
 
 	return count;
@@ -4863,62 +4878,37 @@ static void set_pseudo_random_seed(void)
    for each channel
    1. open channel
    2. close channel
-   3. Run lpm Host waker test on packet channel
 */
-#define MAX_LPM_CH_ARR 4
-static int close_channel_lpm_test(void)
+static int close_channel_lpm_test(int channel_num)
 {
 	int ret = 0;
 	struct test_channel *tch = NULL;
-	int i;
-	int lpm_ch_arr[] = { SDIO_RPC,
-			SDIO_QMI,
-			SDIO_DIAG,
-			SDIO_CIQ};
+	tch = test_ctx->test_ch_arr[channel_num];
 
-	for (i = 0; i < MAX_LPM_CH_ARR; i++) {
-		tch = test_ctx->test_ch_arr[lpm_ch_arr[i]];
-
-		/* sdio_close is not implemented for stream ch */
-		if ((!tch) ||
-			(tch->ch_id == SDIO_DUN) ||
-			(tch->ch_id == SDIO_RMNT))
-			continue;
-
-		if (!tch->ch_ready) {
-			ret = sdio_open(tch->name , &tch->ch, tch, notify);
-			if (ret) {
-				pr_err(TEST_MODULE_NAME":%s open channel %s"
-					" failed\n", __func__, tch->name);
-				return ret;
-			} else {
-				pr_info(TEST_MODULE_NAME":%s open channel %s"
-					" success\n", __func__, tch->name);
-			}
-		}
-		ret = sdio_close(tch->ch);
+	if (!tch->ch_ready) {
+		ret = sdio_open(tch->name , &tch->ch, tch, notify);
 		if (ret) {
-			pr_err(TEST_MODULE_NAME":%s close channel %s"
-					" failed\n", __func__, tch->name);
+			pr_err(TEST_MODULE_NAME":%s open channel %s"
+				" failed\n", __func__, tch->name);
 			return ret;
 		} else {
-			pr_info(TEST_MODULE_NAME":%s close channel %s"
-					" success\n", __func__, tch->name);
-			tch->ch_ready = false;
+			pr_info(TEST_MODULE_NAME":%s open channel %s"
+				" success\n", __func__, tch->name);
 		}
-		if (tch->ch->is_packet_mode) {
-			set_params_lpm_test(tch, SDIO_TEST_LPM_HOST_WAKER, 120);
-
-			ret = test_start();
-			if (ret) {
-				pr_err(TEST_MODULE_NAME ":test_start failed, ret = %d.\n",
-						ret);
-				return ret;
-			}
-		}
-		tch->is_used = 0;
-
 	}
+	ret = sdio_close(tch->ch);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME":%s close channel %s"
+				" failed\n", __func__, tch->name);
+		return ret;
+	} else {
+		pr_info(TEST_MODULE_NAME":%s close channel %s"
+				" success\n", __func__, tch->name);
+		tch->ch_ready = false;
+	}
+
+	tch->is_used = 0;
+
 	return ret;
 }
 
