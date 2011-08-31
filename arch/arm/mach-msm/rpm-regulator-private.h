@@ -162,4 +162,13 @@ static inline struct vreg_config *get_config_8960(void)
 }
 #endif
 
+#if defined(CONFIG_ARCH_MSM9615)
+struct vreg_config *get_config_9615(void);
+#else
+static inline struct vreg_config *get_config_9615(void)
+{
+	return NULL;
+}
+#endif
+
 #endif

@@ -45,6 +45,7 @@ module_param_named(
 struct vreg_config *(*get_config[])(void) = {
 	[RPM_VREG_VERSION_8660] = get_config_8660,
 	[RPM_VREG_VERSION_8960] = get_config_8960,
+	[RPM_VREG_VERSION_9615] = get_config_9615,
 };
 
 #define SET_PART(_vreg, _part, _val) \
