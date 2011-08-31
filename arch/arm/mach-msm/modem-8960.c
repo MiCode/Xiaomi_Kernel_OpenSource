@@ -89,13 +89,32 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 static int modem_shutdown(const struct subsys_data *subsys)
 {
-	/* TODO: Call into PIL to shutdown the modem */
+	int smsm_notif_unregistered = 0;
+
+	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
+		smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET,
+			smsm_state_cb, 0);
+		smsm_notif_unregistered = 1;
+		smsm_reset_modem(SMSM_RESET);
+	}
+
+	pil_force_shutdown("modem");
+	disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
+	disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
+
+	if (smsm_notif_unregistered)
+		smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
+			smsm_state_cb, 0);
+
 	return 0;
 }
 
 static int modem_powerup(const struct subsys_data *subsys)
 {
 	/* TODO: Call into PIL to powerup the modem */
+	pil_force_boot("modem");
+	enable_irq(Q6FW_WDOG_EXPIRED_IRQ);
+	enable_irq(Q6SW_WDOG_EXPIRED_IRQ);
 	return 0;
 }
 
@@ -119,9 +138,11 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	case Q6SW_WDOG_EXPIRED_IRQ:
 		ret = schedule_work(&modem_sw_fatal_work);
 		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
+		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 		break;
 	case Q6FW_WDOG_EXPIRED_IRQ:
 		ret = schedule_work(&modem_fw_fatal_work);
+		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
 		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 		break;
 	break;
@@ -148,11 +169,8 @@ static int modem_subsystem_restart_init(void)
 
 static int modem_debug_set(void *data, u64 val)
 {
-	if (val == 1) {
-		pr_info("%s: Intentionally setting the SMSM_RESET bit.\n",
-				__func__);
-		smsm_reset_modem(SMSM_RESET);
-	}
+	if (val == 1)
+		subsystem_restart("modem");
 
 	return 0;
 }
