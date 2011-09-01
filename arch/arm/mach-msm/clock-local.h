@@ -240,6 +240,8 @@ static inline struct pll_clk *to_pll_clk(struct clk *clk)
 	return container_of(clk, struct pll_clk, c);
 }
 
+int sr_pll_clk_enable(struct clk *clk);
+
 /**
  * struct branch_clk - branch
  * @enabled: true if clock is on, false otherwise

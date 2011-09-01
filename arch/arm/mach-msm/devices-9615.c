@@ -27,6 +27,7 @@ void __init msm9615_device_init(void)
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 
+	msm_clock_init(&msm9615_clock_init_data);
 }
 
 void __init msm9615_map_io(void)

@@ -4819,41 +4819,6 @@ static void __init reg_init(void)
 	rmwreg(0x2, DSI2_BYTE_NS_REG, 0x7);
 }
 
-static int wr_pll_clk_enable(struct clk *clk)
-{
-	u32 mode;
-	unsigned long flags;
-	struct pll_clk *pll = to_pll_clk(clk);
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	mode = readl_relaxed(pll->mode_reg);
-	/* De-assert active-low PLL reset. */
-	mode |= BIT(2);
-	writel_relaxed(mode, pll->mode_reg);
-
-	/*
-	 * H/W requires a 5us delay between disabling the bypass and
-	 * de-asserting the reset. Delay 10us just to be safe.
-	 */
-	mb();
-	udelay(10);
-
-	/* Disable PLL bypass mode. */
-	mode |= BIT(1);
-	writel_relaxed(mode, pll->mode_reg);
-
-	/* Wait until PLL is locked. */
-	mb();
-	udelay(60);
-
-	/* Enable PLL output. */
-	mode |= BIT(0);
-	writel_relaxed(mode, pll->mode_reg);
-
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-	return 0;
-}
-
 struct clock_init_data msm8960_clock_init_data __initdata;
 
 /* Local clock driver initialization. */
@@ -4883,7 +4848,7 @@ static void __init msm8960_clock_init(void)
 	soc_update_sys_vdd = msm8960_update_sys_vdd;
 	local_vote_sys_vdd(HIGH);
 
-	clk_ops_pll.enable = wr_pll_clk_enable;
+	clk_ops_pll.enable = sr_pll_clk_enable;
 
 	/* Initialize clock registers. */
 	reg_init();
