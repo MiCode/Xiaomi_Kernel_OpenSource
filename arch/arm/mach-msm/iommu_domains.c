@@ -199,7 +199,7 @@ static int __init msm_subsystem_iommu_init(void)
 	int i;
 
 	for (i = 0; i < (ARRAY_SIZE(msm_iommu_domains) - 1); i++)
-		msm_iommu_domains[i] = iommu_domain_alloc();
+		msm_iommu_domains[i] = iommu_domain_alloc(0);
 
 	for (i = 0; i < ARRAY_SIZE(msm_iommu_iova_pools); i++) {
 		mutex_init(&msm_iommu_iova_pools[i].pool_mutex);

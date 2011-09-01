@@ -40,7 +40,7 @@ bool iommu_found(void)
 }
 EXPORT_SYMBOL_GPL(iommu_found);
 
-struct iommu_domain *iommu_domain_alloc(void)
+struct iommu_domain *iommu_domain_alloc(int flags)
 {
 	struct iommu_domain *domain;
 	int ret;
@@ -49,7 +49,7 @@ struct iommu_domain *iommu_domain_alloc(void)
 	if (!domain)
 		return NULL;
 
-	ret = iommu_ops->domain_init(domain);
+	ret = iommu_ops->domain_init(domain, flags);
 	if (ret)
 		goto out_free;
 
