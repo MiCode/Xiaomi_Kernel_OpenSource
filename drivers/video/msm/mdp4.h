@@ -343,32 +343,6 @@ struct mdp4_statistic {
 	ulong err_format;
 };
 
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-static inline int mdp4_overlay_writeback_setup(struct fb_info *fbi,
-		struct mdp4_overlay_pipe *pipe, uint8 *buf, int bpp)
-{
-	struct msm_fb_data_type *mfd = fbi->par;
-	int off;
-
-	pipe->blt_base = (ulong) buf;
-	off = ALIGN(fbi->var.xres, 32) * fbi->var.yres * bpp * mfd->fb_page;
-	off += (1920 * 1080 * 2 * 1); /* hdmi */
-	pipe->blt_base += off;
-
-	pr_info("%s: base=%x offset=%x\n",
-			__func__, (int) pipe->blt_base, (int)off);
-
-	return off;
-
-}
-#else
-static inline int mdp4_overlay_writeback_setup(struct fb_info *fbi,
-		struct mdp4_overlay_pipe *pipe, uint8 *buf, int bpp)
-{
-	return 0;
-}
-#endif
-
 void mdp4_sw_reset(unsigned long bits);
 void mdp4_display_intf_sel(int output, unsigned long intf);
 void mdp4_overlay_cfg(int layer, int blt_mode, int refresh, int direct_out);
@@ -624,6 +598,7 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
 
 int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info);
+int mdp4_writeback_offset(void);
 
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
