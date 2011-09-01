@@ -92,6 +92,7 @@ struct pm8xxx_bms_core_data {
 	unsigned int	vbat_channel;
 	unsigned int	ref625mv_channel;
 	unsigned int	ref1p25v_channel;
+	unsigned int	batt_id_channel;
 };
 
 /**
@@ -101,7 +102,6 @@ struct pm8xxx_bms_core_data {
  *			calculated or the peak system current (mA)
  * @v_failure:		the voltage at which the battery is considered empty(mV)
  * @calib_delay_ms:	how often should the adc calculate gain and offset
- * @batt_data:		the battery profile data for the one used in the board
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
@@ -109,10 +109,10 @@ struct pm8921_bms_platform_data {
 	unsigned int			i_test;
 	unsigned int			v_failure;
 	unsigned int			calib_delay_ms;
-	struct pm8921_bms_battery_data  *batt_data;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
+extern struct pm8921_bms_battery_data  palladium_1500_data;
 /**
  * pm8921_bms_get_vsense_avg - return the voltage across the sense
  *				resitor in microvolts

@@ -3606,7 +3606,6 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.i_test			= 2500,
 	.v_failure		= 3000,
 	.calib_delay_ms		= 600000,
-	.batt_data		= &palladium_1500_data,
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */

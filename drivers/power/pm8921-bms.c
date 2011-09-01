@@ -84,6 +84,7 @@ struct pm8921_bms_chip {
 	unsigned int		vbat_channel;
 	unsigned int		ref625mv_channel;
 	unsigned int		ref1p25v_channel;
+	unsigned int		batt_id_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
 };
@@ -1102,6 +1103,53 @@ static void check_initial_ocv(struct pm8921_bms_chip *chip)
 	pr_debug("ocv = %d last_ocv_uv = %d\n", ocv, last_ocv_uv);
 }
 
+static int64_t read_battery_id(struct pm8921_bms_chip *chip)
+{
+	int rc;
+	struct pm8921_adc_chan_result result;
+
+	rc = pm8921_adc_read(chip->batt_id_channel, &result);
+	if (rc) {
+		pr_err("error reading batt id channel = %d, rc = %d\n",
+					chip->vbat_channel, rc);
+		return rc;
+	}
+	pr_debug("batt_id phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	return result.physical;
+}
+
+#define PALLADIUM_ID_MIN  2500
+#define PALLADIUM_ID_MAX  4000
+static int set_battery_data(struct pm8921_bms_chip *chip)
+{
+	int64_t battery_id;
+
+	battery_id = read_battery_id(chip);
+
+	if (battery_id < 0) {
+		pr_err("cannot read battery id err = %lld\n", battery_id);
+		return battery_id;
+	}
+
+	if (is_between(PALLADIUM_ID_MIN, PALLADIUM_ID_MAX, battery_id)) {
+		chip->fcc = palladium_1500_data.fcc;
+		chip->fcc_temp_lut = palladium_1500_data.fcc_temp_lut;
+		chip->fcc_sf_lut = palladium_1500_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = palladium_1500_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = palladium_1500_data.pc_sf_lut;
+		return 0;
+	} else {
+		pr_warn("invalid battery id, palladium 1500 assumed\n");
+		chip->fcc = palladium_1500_data.fcc;
+		chip->fcc_temp_lut = palladium_1500_data.fcc_temp_lut;
+		chip->fcc_sf_lut = palladium_1500_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = palladium_1500_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = palladium_1500_data.pc_sf_lut;
+		return 0;
+	}
+}
+
 enum {
 	CALC_RBATT,
 	CALC_FCC,
@@ -1366,17 +1414,17 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->i_test = pdata->i_test;
 	chip->v_failure = pdata->v_failure;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
-	chip->fcc = pdata->batt_data->fcc;
-
-	chip->fcc_temp_lut = pdata->batt_data->fcc_temp_lut;
-	chip->fcc_sf_lut = pdata->batt_data->fcc_sf_lut;
-	chip->pc_temp_ocv_lut = pdata->batt_data->pc_temp_ocv_lut;
-	chip->pc_sf_lut = pdata->batt_data->pc_sf_lut;
+	rc = set_battery_data(chip);
+	if (rc) {
+		pr_err("%s bad battery data %d\n", __func__, rc);
+		return rc;
+	}
 
 	chip->batt_temp_channel = pdata->bms_cdata.batt_temp_channel;
 	chip->vbat_channel = pdata->bms_cdata.vbat_channel;
 	chip->ref625mv_channel = pdata->bms_cdata.ref625mv_channel;
 	chip->ref1p25v_channel = pdata->bms_cdata.ref1p25v_channel;
+	chip->batt_id_channel = pdata->bms_cdata.batt_id_channel;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
 
