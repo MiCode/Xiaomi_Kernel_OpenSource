@@ -204,7 +204,7 @@ obj-$(CONFIG_MACH_MSM8960_MTP) += board-msm8960.o devices-8960.o board-msm8960-r
 obj-$(CONFIG_MACH_MSM8960_FLUID) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_ARCH_MSM8960) += bms-batterydata.o
 obj-$(CONFIG_ARCH_APQ8064) += board-apq8064.o devices-8064.o board-apq8064-regulator.o
-obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o
+obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o

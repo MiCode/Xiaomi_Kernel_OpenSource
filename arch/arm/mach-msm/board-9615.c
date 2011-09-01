@@ -67,6 +67,7 @@ static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
 	.rtc_pdata		= &pm8xxx_rtc_pdata,
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
+	.regulator_pdatas	= msm_pm8018_regulator_pdata,
 };
 
 static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
@@ -206,10 +207,12 @@ static void __init msm9615_common_init(void)
 	msm9615_device_init();
 	gpiomux_init();
 	msm9615_i2c_init();
+	regulator_suppress_info_printing();
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
 	msm9615_device_ssbi_pmic1.dev.platform_data =
 						&msm9615_ssbi_pm8018_pdata;
+	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
