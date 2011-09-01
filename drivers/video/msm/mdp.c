@@ -51,7 +51,7 @@ static struct clk *mdp_pclk;
 static struct clk *mdp_lut_clk;
 int mdp_rev;
 
-struct regulator *footswitch;
+static struct regulator *footswitch;
 
 struct completion mdp_ppp_comp;
 struct semaphore mdp_ppp_mutex;
@@ -706,8 +706,6 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 				}
 				if (mdp_lut_clk != NULL)
 					clk_disable(mdp_lut_clk);
-				if (footswitch != NULL)
-					regulator_disable(footswitch);
 			} else {
 				/* send workqueue to turn off mdp power */
 				queue_delayed_work(mdp_pipe_ctrl_wq,
@@ -718,8 +716,6 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		} else if ((!mdp_all_blocks_off) && (!mdp_current_clk_on)) {
 			mdp_current_clk_on = TRUE;
 			/* turn on MDP clks */
-			if (footswitch != NULL)
-				regulator_enable(footswitch);
 			for (i = 0; i < pdev_list_cnt; i++) {
 				pdata = (struct msm_fb_panel_data *)
 					pdev_list[i]->dev.platform_data;
@@ -1028,9 +1024,13 @@ static int mdp_off(struct platform_device *pdev)
 static int mdp_on(struct platform_device *pdev)
 {
 	int ret = 0;
+
 #ifdef CONFIG_FB_MSM_MDP40
+	struct msm_fb_data_type *mfd;
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	if (is_mdp4_hw_reset()) {
+		mfd = platform_get_drvdata(pdev);
+		mdp_vsync_cfg_regs(mfd, FALSE);
 		mdp4_hw_init();
 		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 	}
@@ -1203,6 +1203,8 @@ static int mdp_irq_clk_setup(void)
 	footswitch = regulator_get(NULL, "fs_mdp");
 	if (IS_ERR(footswitch))
 		footswitch = NULL;
+	else
+		regulator_enable(footswitch);
 
 	mdp_clk = clk_get(NULL, "mdp_clk");
 	if (IS_ERR(mdp_clk)) {
@@ -1290,7 +1292,6 @@ static int mdp_probe(struct platform_device *pdev)
 		/* initializing mdp hw */
 #ifdef CONFIG_FB_MSM_MDP40
 		mdp4_hw_init();
-		mdp4_fetch_cfg(clk_get_rate(mdp_clk));
 #else
 		mdp_hw_init();
 #endif
@@ -1619,10 +1620,15 @@ static int mdp_suspend(struct platform_device *pdev, pm_message_t state)
 static void mdp_early_suspend(struct early_suspend *h)
 {
 	mdp_suspend_sub();
+	if (footswitch && mdp_rev > MDP_REV_40)
+		regulator_disable(footswitch);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
+	if (footswitch && mdp_rev > MDP_REV_40)
+		regulator_enable(footswitch);
+
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
 	mutex_unlock(&mdp_suspend_mutex);

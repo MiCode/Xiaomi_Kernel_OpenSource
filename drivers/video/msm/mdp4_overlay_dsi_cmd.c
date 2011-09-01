@@ -160,18 +160,16 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		src = (uint8 *) iBuf->buf;
 		writeback_offset = mdp4_overlay_writeback_setup(
 						fbi, pipe, src, bpp);
-
-		/*
-		 * configure dsi stream id
-		 * dma_p = 0, dma_s = 1
-		 */
-		MDP_OUTP(MDP_BASE + 0x000a0, 0x10);
-		/* enable dsi trigger on dma_p */
-		MDP_OUTP(MDP_BASE + 0x000a4, 0x01);
 	} else {
 		pipe = dsi_pipe;
 	}
-
+	/*
+	 * configure dsi stream id
+	 * dma_p = 0, dma_s = 1
+	 */
+	MDP_OUTP(MDP_BASE + 0x000a0, 0x10);
+	/* enable dsi trigger on dma_p */
+	MDP_OUTP(MDP_BASE + 0x000a4, 0x01);
 	/* whole screen for base layer */
 	src = (uint8 *) iBuf->buf;
 
