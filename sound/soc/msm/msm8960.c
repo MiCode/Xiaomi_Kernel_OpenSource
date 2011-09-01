@@ -273,73 +273,35 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-/*
- * LPA Needs only RX BE DAI links.
- * Hence define seperate BE list for lpa
- */
-
-static const char *lpa_mm_be[] = {
-	LPASS_BE_SLIMBUS_0_RX,
-};
-
 static struct snd_soc_dsp_link lpa_fe_media = {
-	.supported_be = lpa_mm_be,
-	.num_be = ARRAY_SIZE(lpa_mm_be),
-	.fe_playback_channels = 2,
-	.fe_capture_channels = 1,
+	.playback = true,
 	.trigger = {
 		SND_SOC_DSP_TRIGGER_POST,
 		SND_SOC_DSP_TRIGGER_POST
 	},
-};
-
-static const char *mm_be[] = {
-	LPASS_BE_SLIMBUS_0_RX,
-	LPASS_BE_SLIMBUS_0_TX,
-	LPASS_BE_HDMI,
-	LPASS_BE_INT_BT_SCO_RX,
-	LPASS_BE_INT_BT_SCO_TX,
-	LPASS_BE_INT_FM_RX,
-	LPASS_BE_INT_FM_TX,
 };
 
 static struct snd_soc_dsp_link fe_media = {
-	.supported_be = mm_be,
-	.num_be = ARRAY_SIZE(mm_be),
-	.fe_playback_channels = 2,
-	.fe_capture_channels = 1,
+	.playback = true,
+	.capture = true,
 	.trigger = {
 		SND_SOC_DSP_TRIGGER_POST,
 		SND_SOC_DSP_TRIGGER_POST
 	},
-};
-
-static const char *slimbus0_hl_be[] = {
-	LPASS_BE_SLIMBUS_0_RX,
-	LPASS_BE_SLIMBUS_0_TX,
 };
 
 static struct snd_soc_dsp_link slimbus0_hl_media = {
-	.supported_be = slimbus0_hl_be,
-	.num_be = ARRAY_SIZE(slimbus0_hl_be),
-	.fe_playback_channels = 2,
-	.fe_capture_channels = 2,
+	.playback = true,
+	.capture = true,
 	.trigger = {
 		SND_SOC_DSP_TRIGGER_POST,
 		SND_SOC_DSP_TRIGGER_POST
 	},
 };
 
-static const char *int_fm_hl_be[] = {
-	LPASS_BE_INT_FM_RX,
-	LPASS_BE_INT_FM_TX,
-};
-
 static struct snd_soc_dsp_link int_fm_hl_media = {
-	.supported_be = int_fm_hl_be,
-	.num_be = ARRAY_SIZE(int_fm_hl_be),
-	.fe_playback_channels = 2,
-	.fe_capture_channels = 2,
+	.playback = true,
+	.capture = true,
 	.trigger = {
 		SND_SOC_DSP_TRIGGER_POST,
 		SND_SOC_DSP_TRIGGER_POST
