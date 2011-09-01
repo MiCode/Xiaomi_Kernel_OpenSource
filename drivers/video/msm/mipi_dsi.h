@@ -76,6 +76,11 @@ enum {
 	PORTRAIT = 2,
 };
 
+enum dsi_trigger_type {
+	DSI_CMD_MODE_DMA,
+	DSI_CMD_MODE_MDP,
+};
+
 #define DSI_NON_BURST_SYNCH_PULSE	0
 #define DSI_NON_BURST_SYNCH_EVENT	1
 #define DSI_BURST_MODE			2

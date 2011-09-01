@@ -43,6 +43,7 @@ int mipi_dsi_clk_on;
 static struct completion dsi_dma_comp;
 static struct dsi_buf dsi_tx_buf;
 static int dsi_irq_enabled;
+static int dsi_cmd_trigger;
 static spinlock_t dsi_lock;
 
 static struct list_head pre_kickoff_list;
@@ -58,11 +59,17 @@ void mipi_dsi_init(void)
 	INIT_LIST_HEAD(&post_kickoff_list);
 }
 
-void mipi_dsi_enable_irq(void)
+void mipi_dsi_enable_irq(enum dsi_trigger_type type)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&dsi_lock, flags);
+	if (type == DSI_CMD_MODE_DMA)
+		dsi_cmd_trigger = 1;
+
+	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
+		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
+
 	if (dsi_irq_enabled) {
 		pr_debug("%s: IRQ aleady enabled\n", __func__);
 		spin_unlock_irqrestore(&dsi_lock, flags);
@@ -73,11 +80,17 @@ void mipi_dsi_enable_irq(void)
 	spin_unlock_irqrestore(&dsi_lock, flags);
 }
 
-void mipi_dsi_disable_irq(void)
+void mipi_dsi_disable_irq(enum dsi_trigger_type type)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&dsi_lock, flags);
+	if (type == DSI_CMD_MODE_DMA)
+		dsi_cmd_trigger = 0;
+
+	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
+		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
+
 	if (dsi_irq_enabled == 0) {
 		pr_debug("%s: IRQ already disabled\n", __func__);
 		spin_unlock_irqrestore(&dsi_lock, flags);
@@ -96,8 +109,12 @@ void mipi_dsi_disable_irq(void)
  void mipi_dsi_disable_irq_nosync(void)
 {
 	spin_lock(&dsi_lock);
-	if (dsi_irq_enabled == 0) {
+	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
+		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
+
+	if (dsi_irq_enabled == 0 || dsi_cmd_trigger == 1) {
 		pr_debug("%s: IRQ cannot be disabled\n", __func__);
+		spin_unlock(&dsi_lock);
 		return;
 	}
 
@@ -917,7 +934,7 @@ void mipi_dsi_op_mode_config(int mode)
 void mipi_dsi_cmd_mdp_sw_trigger(void)
 {
 	mipi_dsi_pre_kickoff_action();
-	mipi_dsi_enable_irq();
+	mipi_dsi_enable_irq(DSI_CMD_MODE_MDP);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x090, 0x01);	/* trigger */
 	wmb();
 }
@@ -1028,7 +1045,7 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	mipi_dsi_enable_irq();
+	mipi_dsi_enable_irq(DSI_CMD_MODE_DMA);
 	cm = cmds;
 	mipi_dsi_buf_init(tp);
 	for (i = 0; i < cnt; i++) {
@@ -1039,7 +1056,7 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 			msleep(cm->wait);
 		cm++;
 	}
-	mipi_dsi_disable_irq();
+	mipi_dsi_disable_irq(DSI_CMD_MODE_DMA);
 
 	if (video_mode)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); /* restore */
@@ -1106,7 +1123,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 #endif
 	}
 
-	mipi_dsi_enable_irq();
+	mipi_dsi_enable_irq(DSI_CMD_MODE_DMA);
 	if (pkt_size != len) {
 		/* set new max pkt size */
 		pkt_size = len;
@@ -1129,7 +1146,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	 */
 	mipi_dsi_cmd_dma_rx(rp, cnt);
 
-	mipi_dsi_disable_irq();
+	mipi_dsi_disable_irq(DSI_CMD_MODE_DMA);
 
 	/* strip off dcs header & crc */
 	if (cnt > 4) { /* long response */
