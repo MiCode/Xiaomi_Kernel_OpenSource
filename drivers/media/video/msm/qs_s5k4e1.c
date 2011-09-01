@@ -1488,7 +1488,7 @@ static int qs_s5k4e1_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = qs_s5k4e1_sensor_open_init;
 	s->s_release = qs_s5k4e1_sensor_release;
 	s->s_config  = qs_s5k4e1_sensor_config;
-	s->s_mount_angle = 0;
+	s->s_mount_angle = info->sensor_platform_info->mount_angle;
 	s->s_camera_type = BACK_CAMERA_3D;
 	s->s_video_packing = SIDE_BY_SIDE_HALF;
 	s->s_snap_packing = SIDE_BY_SIDE_FULL;

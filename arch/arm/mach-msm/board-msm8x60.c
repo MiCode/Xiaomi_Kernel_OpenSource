@@ -2323,6 +2323,14 @@ struct platform_device msm_camera_sensor_vx6953 = {
 #endif
 #ifdef CONFIG_QS_S5K4E1
 
+static struct msm_camera_sensor_platform_info qs_s5k4e1_sensor_8660_info = {
+#ifdef CONFIG_FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
+	.mount_angle = 90
+#else
+	.mount_angle = 0
+#endif
+};
+
 static char eeprom_data[864];
 static struct msm_camera_sensor_flash_data flash_qs_s5k4e1 = {
 	.flash_type		= MSM_CAMERA_FLASH_LED,
@@ -2340,6 +2348,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_qs_s5k4e1_data = {
 	.num_resources	= ARRAY_SIZE(msm_camera_resources),
 	.flash_data		= &flash_qs_s5k4e1,
 	.strobe_flash_data	= &strobe_flash_xenon,
+	.sensor_platform_info = &qs_s5k4e1_sensor_8660_info,
 	.csi_if			= 1,
 	.eeprom_data	= eeprom_data,
 };
