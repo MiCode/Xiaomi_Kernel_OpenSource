@@ -909,8 +909,22 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 				mc, ec, SLIM_MSG_MT_CORE, rbuf, wbuf, len, mlen,
 				msg->comp, sbdev->laddr, &tid);
 		/* sync read */
-		if (!ret && !msg->comp)
-			wait_for_completion_timeout(&complete, HZ);
+		if (!ret && !msg->comp) {
+			ret = wait_for_completion_timeout(&complete, HZ);
+			if (!ret) {
+				struct slim_msg_txn *txn;
+				dev_err(&ctrl->dev, "slimbus Read timed out");
+				mutex_lock(&ctrl->m_ctrl);
+				txn = ctrl->txnt[tid];
+				/* Invalidate the transaction */
+				ctrl->txnt[tid] = NULL;
+				mutex_unlock(&ctrl->m_ctrl);
+				kfree(txn);
+				ret = -ETIMEDOUT;
+			} else
+				ret = 0;
+		}
+
 	} else
 		ret = slim_processtxn(ctrl, SLIM_MSG_DEST_LOGICALADDR, mc, ec,
 				SLIM_MSG_MT_CORE, rbuf, wbuf, len, mlen,
