@@ -240,7 +240,7 @@ int kvm_iommu_map_guest(struct kvm *kvm)
 
 	mutex_lock(&kvm->slots_lock);
 
-	kvm->arch.iommu_domain = iommu_domain_alloc(&pci_bus_type);
+	kvm->arch.iommu_domain = iommu_domain_alloc(&pci_bus_type, 0);
 	if (!kvm->arch.iommu_domain) {
 		r = -ENOMEM;
 		goto out_unlock;

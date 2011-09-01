@@ -643,7 +643,7 @@ void iommu_set_fault_handler(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL_GPL(iommu_set_fault_handler);
 
-struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
+struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags)
 {
 	struct iommu_domain *domain;
 	int ret;
@@ -657,7 +657,7 @@ struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
 
 	domain->ops = bus->iommu_ops;
 
-	ret = domain->ops->domain_init(domain);
+	ret = domain->ops->domain_init(domain, flags);
 	if (ret)
 		goto out_free;
 

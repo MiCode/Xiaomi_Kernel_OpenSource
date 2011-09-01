@@ -85,7 +85,7 @@ enum iommu_attr {
  * @pgsize_bitmap: bitmap of supported page sizes
  */
 struct iommu_ops {
-	int (*domain_init)(struct iommu_domain *domain);
+	int (*domain_init)(struct iommu_domain *domain, int flags);
 	void (*domain_destroy)(struct iommu_domain *domain);
 	int (*attach_dev)(struct iommu_domain *domain, struct device *dev);
 	void (*detach_dev)(struct iommu_domain *domain, struct device *dev);
@@ -129,7 +129,7 @@ struct iommu_ops {
 
 extern int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops);
 extern bool iommu_present(struct bus_type *bus);
-extern struct iommu_domain *iommu_domain_alloc(struct bus_type *bus);
+extern struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags);
 extern struct iommu_group *iommu_group_get_by_id(int id);
 extern void iommu_domain_free(struct iommu_domain *domain);
 extern int iommu_attach_device(struct iommu_domain *domain,
@@ -233,7 +233,7 @@ static inline bool iommu_present(struct bus_type *bus)
 	return false;
 }
 
-static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
+static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags)
 {
 	return NULL;
 }

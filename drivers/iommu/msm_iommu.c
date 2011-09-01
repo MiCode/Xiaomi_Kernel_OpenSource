@@ -210,7 +210,7 @@ static void __program_context(void __iomem *base, int ctx, phys_addr_t pgtable)
 	SET_M(base, ctx, 1);
 }
 
-static int msm_iommu_domain_init(struct iommu_domain *domain)
+static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 {
 	struct msm_priv *priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 
