@@ -1068,10 +1068,8 @@ bail_out:
 
 	mutex_unlock(&chip->pm_lock);
 
-	for (i = 0; i < handled; i++)
-		handle_nested_irq(irqs_to_handle[i]);
-
 	for (i = 0; i < handled; i++) {
+		handle_nested_irq(irqs_to_handle[i]);
 		irqs_to_handle[i] -= chip->pdata.irq_base;
 		block  = irqs_to_handle[i] / 8 ;
 		config = PM8058_IRQF_WRITE | chip->config[irqs_to_handle[i]]
