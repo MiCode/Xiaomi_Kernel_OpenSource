@@ -837,14 +837,19 @@ static inline int msm_spi_wait_valid(struct msm_spi *dd)
 	 */
 	if (delay < SPI_DELAY_THRESHOLD)
 		delay = SPI_DELAY_THRESHOLD;
-	timeout = jiffies + msecs_to_jiffies(delay * SPI_DEFAULT_TIMEOUT);
+
+	/* Adding one to round off to the nearest jiffy */
+	timeout = jiffies + msecs_to_jiffies(delay * SPI_DEFAULT_TIMEOUT) + 1;
 	while (!msm_spi_is_valid_state(dd)) {
 		if (time_after(jiffies, timeout)) {
-			if (dd->cur_msg)
-				dd->cur_msg->status = -EIO;
-			dev_err(dd->dev, "%s: SPI operational state not valid"
-				"\n", __func__);
-			return -1;
+			if (!msm_spi_is_valid_state(dd)) {
+				if (dd->cur_msg)
+					dd->cur_msg->status = -EIO;
+				dev_err(dd->dev, "%s: SPI operational state"
+					"not valid\n", __func__);
+				return -ETIMEDOUT;
+			} else
+				return 0;
 		}
 		/*
 		 * For smaller values of delay, context switch time
