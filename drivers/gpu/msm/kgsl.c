@@ -1165,7 +1165,6 @@ static inline int _check_region(unsigned long start, unsigned long size,
 	return (end > len);
 }
 
-#ifdef CONFIG_ANDROID_PMEM
 static int kgsl_get_phys_file(int fd, unsigned long *start, unsigned long *len,
 			      unsigned long *vstart, struct file **filep)
 {
@@ -1175,8 +1174,10 @@ static int kgsl_get_phys_file(int fd, unsigned long *start, unsigned long *len,
 	struct fb_info *info;
 
 	*filep = NULL;
+#ifdef CONFIG_ANDROID_PMEM
 	if (!get_pmem_file(fd, start, vstart, len, filep))
 		return 0;
+#endif
 
 	fbfile = fget(fd);
 	if (fbfile == NULL) {
@@ -1252,18 +1253,11 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 
 	return 0;
 err:
+#ifdef CONFIG_ANDROID_PMEM
 	put_pmem_file(filep);
+#endif
 	return ret;
 }
-#else
-static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
-				struct kgsl_pagetable *pagetable,
-				unsigned int fd, unsigned int offset,
-				size_t size)
-{
-	return -EINVAL;
-}
-#endif
 
 static int kgsl_setup_hostptr(struct kgsl_mem_entry *entry,
 			      struct kgsl_pagetable *pagetable,
