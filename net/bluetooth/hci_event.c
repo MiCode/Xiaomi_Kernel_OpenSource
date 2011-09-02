@@ -546,8 +546,6 @@ static void hci_setup_event_mask(struct hci_dev *hdev)
 
 static void hci_setup(struct hci_dev *hdev)
 {
-	hci_setup_event_mask(hdev);
-
 	if (hdev->lmp_ver > 1)
 		hci_send_cmd(hdev, HCI_OP_READ_LOCAL_COMMANDS, 0, NULL);
 
