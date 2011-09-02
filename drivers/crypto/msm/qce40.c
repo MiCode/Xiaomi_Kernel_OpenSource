@@ -1042,7 +1042,10 @@ static void _ce_in_final(struct qce_device *pce_dev, unsigned total)
 	pdesc = pce_dev->ce_in_src_desc + pce_dev->ce_in_src_desc_index;
 	pdesc->len |= ADM_DESC_LAST;
 	pdesc = pce_dev->ce_in_dst_desc + pce_dev->ce_in_dst_desc_index;
-	pdesc->len |= ADM_DESC_LAST;
+	if (total)
+		pdesc->len = ADM_DESC_LAST | total;
+	else
+		pdesc->len |= ADM_DESC_LAST;
 
 	pcmd = (dmov_sg *) pce_dev->cmd_list_ce_in;
 	pcmd->cmd |= CMD_LC;
@@ -1202,7 +1205,10 @@ static void _ce_out_final(struct qce_device *pce_dev, unsigned total)
 	pdesc = pce_dev->ce_out_dst_desc + pce_dev->ce_out_dst_desc_index;
 	pdesc->len |= ADM_DESC_LAST;
 	pdesc = pce_dev->ce_out_src_desc + pce_dev->ce_out_src_desc_index;
-	pdesc->len |= ADM_DESC_LAST;
+	if (total)
+		pdesc->len = ADM_DESC_LAST | total;
+	else
+		pdesc->len |= ADM_DESC_LAST;
 	pcmd = (dmov_sg *) pce_dev->cmd_list_ce_out;
 	pcmd->cmd |= CMD_LC;
 };
@@ -1748,8 +1754,8 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	}
 
 	/* finalize the ce_in and ce_out channels command lists */
-	_ce_in_final(pce_dev, areq->nbytes + pad_len);
-	_ce_out_final(pce_dev, areq->nbytes + pad_len);
+	_ce_in_final(pce_dev, 0);
+	_ce_out_final(pce_dev, 0);
 
 	_ce_in_dump(pce_dev);
 	_ce_out_dump(pce_dev);
@@ -1819,7 +1825,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 				goto bad;
 			}
 	}
-	 _ce_in_final(pce_dev, sreq->size + pad_len);
+	 _ce_in_final(pce_dev, 0);
 
 	_ce_in_dump(pce_dev);
 
@@ -2034,4 +2040,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.06");
+MODULE_VERSION("2.07");
