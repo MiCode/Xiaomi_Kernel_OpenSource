@@ -328,7 +328,12 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long a
 	case HCIDEVUP:
 		if (!capable(CAP_NET_ADMIN))
 			return -EACCES;
-		return hci_dev_open(arg);
+
+		err =  hci_dev_open(arg);
+		if (!err || err == -EALREADY)
+			return 0;
+		else
+			return err;
 
 	case HCIDEVDOWN:
 		if (!capable(CAP_NET_ADMIN))
