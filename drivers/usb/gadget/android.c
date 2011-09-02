@@ -47,6 +47,7 @@
 #include "composite.c"
 
 #include "f_diag.c"
+#include "f_rmnet_smd.c"
 #include "f_mass_storage.c"
 #include "u_serial.c"
 #include "u_sdio.c"
@@ -193,6 +194,18 @@ static void android_work(struct work_struct *data)
 
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
+
+static int rmnet_smd_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return rmnet_smd_bind_config(c);
+}
+
+static struct android_usb_function rmnet_smd_function = {
+	.name		= "rmnet_smd",
+	.bind_config	= rmnet_smd_function_bind_config,
+};
+
 
 char diag_clients[32];	    /* enabled DIAG clients - "diag[,diag_mdm]" */
 static ssize_t clients_store(
@@ -786,6 +799,7 @@ static struct android_usb_function accessory_function = {
 
 
 static struct android_usb_function *supported_functions[] = {
+	&rmnet_smd_function,
 	&diag_function,
 	&serial_function,
 	&adb_function,
