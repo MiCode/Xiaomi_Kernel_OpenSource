@@ -518,11 +518,19 @@ static int ethernet_init(void)
 }
 #endif
 
+static void __init apq8064_clock_init(void)
+{
+	if (machine_is_apq8064_sim())
+		msm_clock_init(&apq8064_clock_init_data);
+	else
+		msm_clock_init(&apq8064_dummy_clock_init_data);
+}
+
 static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
-	msm_clock_init(&apq8064_dummy_clock_init_data);
+	apq8064_clock_init();
 	gpiomux_init();
 	apq8064_i2c_init();
 

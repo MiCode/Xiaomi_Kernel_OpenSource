@@ -22,6 +22,7 @@
 
 #include <mach/msm_xo.h>
 #include <mach/rpm.h>
+#include <mach/socinfo.h>
 
 #include "rpm_resources.h"
 
@@ -189,6 +190,9 @@ int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes mode)
 {
 	int ret;
 	unsigned long flags;
+	/* TODO: Remove or fix this function for 8064 once xo is in */
+	if (cpu_is_apq8064())
+		return 0;
 
 	if (mode >= NUM_MSM_XO_MODES)
 		return -EINVAL;
@@ -216,6 +220,10 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 	int ret;
 	unsigned long flags;
 	struct msm_xo_voter *xo_voter;
+
+	/* TODO: Remove or fix this function for 8064 once xo is in */
+	if (cpu_is_apq8064())
+		return NULL;
 
 	if (xo_id >= NUM_MSM_XO_IDS) {
 		ret = -EINVAL;

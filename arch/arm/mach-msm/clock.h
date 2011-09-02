@@ -91,6 +91,7 @@ struct clock_init_data {
 };
 
 extern struct clock_init_data msm9615_clock_init_data;
+extern struct clock_init_data apq8064_clock_init_data;
 extern struct clock_init_data apq8064_dummy_clock_init_data;
 extern struct clock_init_data fsm9xxx_clock_init_data;
 extern struct clock_init_data msm7x01a_clock_init_data;

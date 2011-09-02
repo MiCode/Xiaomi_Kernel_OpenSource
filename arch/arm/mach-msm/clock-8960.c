@@ -43,11 +43,16 @@
 /* Peripheral clock registers. */
 #define CE1_HCLK_CTL_REG			REG(0x2720)
 #define CE1_CORE_CLK_CTL_REG			REG(0x2724)
+#define CE3_HCLK_CTL_REG			REG(0x36C4)
+#define CE3_CORE_CLK_CTL_REG			REG(0x36CC)
+#define CE3_CLK_SRC_NS_REG			REG(0x36C0)
 #define DMA_BAM_HCLK_CTL			REG(0x25C0)
+#define CLK_HALT_AFAB_SFAB_STATEB_REG		REG(0x2FC4)
 #define CLK_HALT_CFPB_STATEA_REG		REG(0x2FCC)
 #define CLK_HALT_CFPB_STATEB_REG		REG(0x2FD0)
 #define CLK_HALT_CFPB_STATEC_REG		REG(0x2FD4)
 #define CLK_HALT_DFAB_STATE_REG			REG(0x2FC8)
+/* 8064 name CLK_HALT_GSS_KPSS_MISC_STATE_REG */
 #define CLK_HALT_MSS_SMPSS_MISC_STATE_REG	REG(0x2FDC)
 #define CLK_HALT_SFPB_MISC_STATE_REG		REG(0x2FD8)
 #define CLK_HALT_AFAB_SFAB_STATEB_REG		REG(0x2FC4)
@@ -59,6 +64,7 @@
 #define GSBIn_UART_APPS_MD_REG(n)		REG(0x29D0+(0x20*((n)-1)))
 #define GSBIn_UART_APPS_NS_REG(n)		REG(0x29D4+(0x20*((n)-1)))
 #define PDM_CLK_NS_REG				REG(0x2CC0)
+/* 8064 name BB_PLL_ENA_APCS_REG */
 #define BB_PLL_ENA_SC0_REG			REG(0x34C0)
 #define BB_PLL0_STATUS_REG			REG(0x30D8)
 #define BB_PLL5_STATUS_REG			REG(0x30F8)
@@ -73,6 +79,12 @@
 #define BB_PLL8_TEST_CTL_REG			REG(0x3150)
 #define BB_MMCC_PLL2_MODE_REG			REG(0x3160)
 #define BB_MMCC_PLL2_TEST_CTL_REG		REG(0x3170)
+#define BB_PLL14_MODE_REG			REG(0x31C0)
+#define BB_PLL14_L_VAL_REG			REG(0x31C4)
+#define BB_PLL14_M_VAL_REG			REG(0x31C8)
+#define BB_PLL14_N_VAL_REG			REG(0x31CC)
+#define BB_PLL14_TEST_CTL_REG			REG(0x31D0)
+#define BB_PLL14_CONFIG_REG			REG(0x31D4)
 #define BB_PLL14_STATUS_REG			REG(0x31D8)
 #define PLLTEST_PAD_CFG_REG			REG(0x2FA4)
 #define PMEM_ACLK_CTL_REG			REG(0x25A0)
@@ -105,15 +117,31 @@
 #define TSIF_REF_CLK_MD_REG			REG(0x270C)
 #define TSIF_REF_CLK_NS_REG			REG(0x2710)
 #define TSSC_CLK_CTL_REG			REG(0x2CA0)
+#define SATA_CLK_SRC_NS_REG			REG(0x2C08)
+#define SATA_RXOOB_CLK_CTL_REG			REG(0x2C0C)
+#define SATA_PMALIVE_CLK_CTL_REG		REG(0x2C10)
+#define SATA_PHY_REF_CLK_CTL_REG		REG(0x2C14)
+#define SATA_PHY_CFG_CLK_CTL_REG		REG(0x2C40)
 #define USB_FSn_HCLK_CTL_REG(n)			REG(0x2960+(0x20*((n)-1)))
 #define USB_FSn_RESET_REG(n)			REG(0x2974+(0x20*((n)-1)))
 #define USB_FSn_SYSTEM_CLK_CTL_REG(n)		REG(0x296C+(0x20*((n)-1)))
 #define USB_FSn_XCVR_FS_CLK_MD_REG(n)		REG(0x2964+(0x20*((n)-1)))
 #define USB_FSn_XCVR_FS_CLK_NS_REG(n)		REG(0x2968+(0x20*((n)-1)))
 #define USB_HS1_HCLK_CTL_REG			REG(0x2900)
+#define USB_HS1_HCLK_FS_REG			REG(0x2904)
 #define USB_HS1_RESET_REG			REG(0x2910)
 #define USB_HS1_XCVR_FS_CLK_MD_REG		REG(0x2908)
 #define USB_HS1_XCVR_FS_CLK_NS_REG		REG(0x290C)
+#define USB_HS3_HCLK_CTL_REG			REG(0x3700)
+#define USB_HS3_HCLK_FS_REG			REG(0x3704)
+#define USB_HS3_RESET_REG			REG(0x3710)
+#define USB_HS3_XCVR_FS_CLK_MD_REG		REG(0X3708)
+#define USB_HS3_XCVR_FS_CLK_NS_REG		REG(0X370C)
+#define USB_HS4_HCLK_CTL_REG			REG(0x3720)
+#define USB_HS4_HCLK_FS_REG			REG(0x3724)
+#define USB_HS4_RESET_REG			REG(0x3730)
+#define USB_HS4_XCVR_FS_CLK_MD_REG		REG(0X3728)
+#define USB_HS4_XCVR_FS_CLK_NS_REG		REG(0X372C)
 #define USB_HSIC_HCLK_CTL_REG			REG(0x2920)
 #define USB_HSIC_HSIC_CLK_CTL_REG		REG(0x2B44)
 #define USB_HSIC_HSIC_CLK_SRC_CTL_REG		REG(0x2B40)
@@ -123,10 +151,20 @@
 #define USB_HSIC_XCVR_FS_CLK_MD_REG		REG(0x2924)
 #define USB_HSIC_XCVR_FS_CLK_NS_REG		REG(0x2928)
 #define USB_PHY0_RESET_REG			REG(0x2E20)
+#define PCIE_ALT_REF_CLK_NS_REG			REG(0x3860)
+#define PCIE_HCLK_CTL_REG			REG(0x22CC)
+#define GPLL1_MODE_REG				REG(0x3160)
+#define GPLL1_L_VAL_REG				REG(0x3164)
+#define GPLL1_M_VAL_REG				REG(0x3168)
+#define GPLL1_N_VAL_REG				REG(0x316C)
+#define GPLL1_CONFIG_REG			REG(0x3174)
+#define GPLL1_STATUS_REG			REG(0x3178)
+#define PXO_SRC_CLK_CTL_REG			REG(0x2EA0)
 
 /* Multimedia clock registers. */
 #define AHB_EN_REG				REG_MM(0x0008)
 #define AHB_EN2_REG				REG_MM(0x0038)
+#define AHB_EN3_REG				REG_MM(0x0248)
 #define AHB_NS_REG				REG_MM(0x0004)
 #define AXI_NS_REG				REG_MM(0x0014)
 #define CAMCLK0_NS_REG				REG_MM(0x0148)
@@ -169,6 +207,7 @@
 #define DBG_BUS_VEC_G_REG			REG_MM(0x01E0)
 #define DBG_BUS_VEC_H_REG			REG_MM(0x01E4)
 #define DBG_BUS_VEC_I_REG			REG_MM(0x01E8)
+#define DBG_BUS_VEC_J_REG			REG_MM(0x0240)
 #define DBG_CFG_REG_HS_REG			REG_MM(0x01B4)
 #define DBG_CFG_REG_LS_REG			REG_MM(0x01B8)
 #define GFX2D0_CC_REG				REG_MM(0x0060)
@@ -188,10 +227,15 @@
 #define IJPEG_NS_REG				REG_MM(0x00A0)
 #define JPEGD_CC_REG				REG_MM(0x00A4)
 #define JPEGD_NS_REG				REG_MM(0x00AC)
+#define VCAP_CC_REG				REG_MM(0x0178)
+#define VCAP_NS_REG				REG_MM(0x021C)
+#define VCAP_MD0_REG				REG_MM(0x01EC)
+#define VCAP_MD1_REG				REG_MM(0x0218)
 #define MAXI_EN_REG				REG_MM(0x0018)
 #define MAXI_EN2_REG				REG_MM(0x0020)
 #define MAXI_EN3_REG				REG_MM(0x002C)
 #define MAXI_EN4_REG				REG_MM(0x0114)
+#define MAXI_EN5_REG				REG_MM(0x0244)
 #define MDP_CC_REG				REG_MM(0x00C0)
 #define MDP_LUT_CC_REG				REG_MM(0x016C)
 #define MDP_MD0_REG				REG_MM(0x00C4)
@@ -201,6 +245,13 @@
 #define MISC_CC2_REG				REG_MM(0x005C)
 #define MISC_CC3_REG				REG_MM(0x0238)
 #define MM_PLL1_MODE_REG			REG_MM(0x031C)
+#define MM_PLL1_L_VAL_REG			REG_MM(0x0320)
+#define MM_PLL1_M_VAL_REG			REG_MM(0x0324)
+#define MM_PLL1_N_VAL_REG			REG_MM(0x0328)
+#define MM_PLL1_CONFIG_REG			REG_MM(0x032C)
+#define MM_PLL1_TEST_CTL_REG			REG_MM(0x0330)
+#define MM_PLL1_STATUS_REG			REG_MM(0x0334)
+#define MM_PLL3_MODE_REG			REG_MM(0x0338)
 #define ROT_CC_REG				REG_MM(0x00E0)
 #define ROT_NS_REG				REG_MM(0x00E8)
 #define SAXI_EN_REG				REG_MM(0x0030)
@@ -264,11 +315,12 @@
 #define pll3_to_bb_mux		6
 #define pxo_to_mm_mux		0
 #define pll1_to_mm_mux		1
-#define pll2_to_mm_mux		1
-#define pll8_to_mm_mux		2
+#define pll2_to_mm_mux		1	/* or MMCC_PLL1 */
+#define pll8_to_mm_mux		2	/* or GCC_PERF */
 #define pll0_to_mm_mux		3
+#define pll15_to_mm_mux		3	/* or MM_PLL3 */
 #define gnd_to_mm_mux		4
-#define pll3_to_mm_mux		5
+#define pll3_to_mm_mux		5	/* used in 8960 */
 #define hdmi_pll_to_mm_mux	3
 #define cxo_to_xo_mux		0
 #define pxo_to_xo_mux		1
@@ -277,6 +329,8 @@
 #define cxo_to_lpa_mux		1
 #define pll4_to_lpa_mux		2
 #define gnd_to_lpa_mux		6
+#define pxo_to_pcie_mux		0
+#define pll3_to_pcie_mux	1
 
 /* Test Vector Macros */
 #define TEST_TYPE_PER_LS	1
@@ -373,7 +427,7 @@ static int pxo_clk_enable(struct clk *clk)
 
 static void pxo_clk_disable(struct clk *clk)
 {
-	 msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_OFF);
+	msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_OFF);
 }
 
 static struct clk_ops clk_ops_pxo = {
@@ -476,6 +530,17 @@ static struct pll_vote_clk pll14_clk = {
 		.dbg_name = "pll14_clk",
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll14_clk.c),
+	},
+};
+
+static struct pll_clk pll15_clk = {
+	.rate = 975000000,
+	.mode_reg = MM_PLL3_MODE_REG,
+	.parent = &pxo_clk.c,
+	.c = {
+		.dbg_name = "pll15_clk",
+		.ops = &clk_ops_pll,
+		CLK_INIT(pll15_clk.c),
 	},
 };
 
@@ -702,6 +767,22 @@ static struct branch_clk vpe_axi_clk = {
 		.dbg_name = "vpe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_axi_clk.c),
+	},
+};
+
+static struct branch_clk vcap_axi_clk = {
+	.b = {
+		.ctl_reg = MAXI_EN5_REG,
+		.en_mask = BIT(12),
+		.reset_reg = SW_RESET_AXI_REG,
+		.reset_mask = BIT(16),
+		.halt_reg = DBG_BUS_VEC_J_REG,
+		.halt_bit = 20,
+	},
+	.c = {
+		.dbg_name = "vcap_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(vcap_axi_clk.c),
 	},
 };
 
@@ -1035,6 +1116,22 @@ static struct branch_clk vpe_p_clk = {
 		.dbg_name = "vpe_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_p_clk.c),
+	},
+};
+
+static struct branch_clk vcap_p_clk = {
+	.b = {
+		.ctl_reg = AHB_EN3_REG,
+		.en_mask = BIT(1),
+		.reset_reg = SW_RESET_AHB2_REG,
+		.reset_mask = BIT(2),
+		.halt_reg = DBG_BUS_VEC_J_REG,
+		.halt_bit = 23,
+	},
+	.c = {
+		.dbg_name = "vcap_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(vcap_p_clk.c),
 	},
 };
 
@@ -1664,6 +1761,30 @@ static struct rcg_clk tssc_clk = {
 	},
 };
 
+#define CLK_USB_HS(name, n, h_b) \
+	static struct rcg_clk name = { \
+	.b = { \
+		.ctl_reg = USB_HS##n##_XCVR_FS_CLK_NS_REG, \
+		.en_mask = BIT(9), \
+		.reset_reg = USB_HS##n##_RESET_REG, \
+		.reset_mask = BIT(0), \
+		.halt_reg = CLK_HALT_DFAB_STATE_REG, \
+		.halt_bit = h_b, \
+	}, \
+	.ns_reg = USB_HS##n##_XCVR_FS_CLK_NS_REG, \
+	.md_reg = USB_HS##n##_XCVR_FS_CLK_MD_REG, \
+	.root_en_mask = BIT(11), \
+	.ns_mask = (BM(23, 16) | BM(6, 0)), \
+	.set_rate = set_rate_mnd, \
+	.freq_tbl = clk_tbl_usb, \
+	.current_freq = &rcg_dummy_freq, \
+	.c = { \
+		.dbg_name = #name, \
+		.ops = &clk_ops_rcg_8960, \
+		CLK_INIT(name.c), \
+	}, \
+}
+
 #define F_USB(f, s, d, m, n, v) \
 	{ \
 		.freq_hz = f, \
@@ -1679,28 +1800,9 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 	F_END
 };
 
-static struct rcg_clk usb_hs1_xcvr_clk = {
-	.b = {
-		.ctl_reg = USB_HS1_XCVR_FS_CLK_NS_REG,
-		.en_mask = BIT(9),
-		.reset_reg = USB_HS1_RESET_REG,
-		.reset_mask = BIT(0),
-		.halt_reg = CLK_HALT_DFAB_STATE_REG,
-		.halt_bit = 0,
-	},
-	.ns_reg = USB_HS1_XCVR_FS_CLK_NS_REG,
-	.md_reg = USB_HS1_XCVR_FS_CLK_MD_REG,
-	.root_en_mask = BIT(11),
-	.ns_mask = (BM(23, 16) | BM(6, 0)),
-	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_usb,
-	.current_freq = &rcg_dummy_freq,
-	.c = {
-		.dbg_name = "usb_hs1_xcvr_clk",
-		.ops = &clk_ops_rcg_8960,
-		CLK_INIT(usb_hs1_xcvr_clk.c),
-	},
-};
+CLK_USB_HS(usb_hs1_xcvr_clk, 1, 0);
+CLK_USB_HS(usb_hs3_xcvr_clk, 3, 30);
+CLK_USB_HS(usb_hs4_xcvr_clk, 4, 2);
 
 static struct clk_freq_tbl clk_tbl_usb_hsic[] = {
 	F_USB(       0, gnd,  1, 0,  0, NONE),
@@ -1932,6 +2034,7 @@ static struct branch_clk ce1_core_clk = {
 		CLK_INIT(ce1_core_clk.c),
 	},
 };
+
 static struct branch_clk ce1_p_clk = {
 	.b = {
 		.ctl_reg = CE1_HCLK_CTL_REG,
@@ -1943,6 +2046,102 @@ static struct branch_clk ce1_p_clk = {
 		.dbg_name = "ce1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce1_p_clk.c),
+	},
+};
+
+#define F_CE3(f, s, d, v) \
+	{ \
+		.freq_hz = f, \
+		.src_clk = &s##_clk.c, \
+		.ns_val = NS_DIVSRC(6, 3, d, 2, 0, s##_to_bb_mux), \
+		.sys_vdd = v, \
+	}
+
+static struct clk_freq_tbl clk_tbl_ce3[] = {
+	F_CE3(        0, gnd,  1,  NONE),
+	F_CE3( 48000000, pll8, 8,  LOW),
+	F_CE3(100000000, pll3, 12, NOMINAL),
+	F_END
+};
+
+static struct rcg_clk ce3_src_clk = {
+	.b = {
+		.ctl_reg = CE3_CLK_SRC_NS_REG,
+		.halt_check = NOCHECK,
+	},
+	.ns_reg = CE3_CLK_SRC_NS_REG,
+	.root_en_mask = BIT(7),
+	.ns_mask = BM(6, 0),
+	.set_rate = set_rate_nop,
+	.freq_tbl = clk_tbl_ce3,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "ce3_src_clk",
+		.ops = &clk_ops_rcg_8960,
+		CLK_INIT(ce3_src_clk.c),
+	},
+};
+
+static struct branch_clk ce3_core_clk = {
+	.b = {
+		.ctl_reg = CE3_CORE_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.reset_reg = CE3_CORE_CLK_CTL_REG,
+		.reset_mask = BIT(7),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 5,
+	},
+	.parent = &ce3_src_clk.c,
+	.c = {
+		.dbg_name = "ce3_core_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ce3_core_clk.c),
+	}
+};
+
+static struct branch_clk ce3_p_clk = {
+	.b = {
+		.ctl_reg = CE3_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.reset_reg = CE3_HCLK_CTL_REG,
+		.reset_mask = BIT(7),
+		.halt_reg = CLK_HALT_AFAB_SFAB_STATEB_REG,
+		.halt_bit = 16,
+	},
+	.parent = &ce3_src_clk.c,
+	.c = {
+		.dbg_name = "ce3_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ce3_p_clk.c),
+	}
+};
+
+static struct branch_clk sata_phy_ref_clk = {
+	.b = {
+		.ctl_reg = SATA_PHY_REF_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 24,
+	},
+	.parent = &pxo_clk.c,
+	.c = {
+		.dbg_name = "sata_phy_ref_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_phy_ref_clk.c),
+	},
+};
+
+static struct branch_clk pcie_p_clk = {
+	.b = {
+		.ctl_reg = PCIE_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_CFPB_STATEC_REG,
+		.halt_bit = 8,
+	},
+	.c = {
+		.dbg_name = "pcie_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(pcie_p_clk.c),
 	},
 };
 
@@ -2142,6 +2341,20 @@ static struct branch_clk qdss_p_clk = {
 		.dbg_name = "qdss_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(qdss_p_clk.c),
+	}
+};
+
+static struct branch_clk sata_phy_cfg_clk = {
+	.b = {
+		.ctl_reg = SATA_PHY_CFG_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
+		.halt_bit = 12,
+	},
+	.c = {
+		.dbg_name = "sata_phy_cfg_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_phy_cfg_clk.c),
 	},
 };
 
@@ -2198,6 +2411,34 @@ static struct branch_clk usb_hs1_p_clk = {
 		.dbg_name = "usb_hs1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hs1_p_clk.c),
+	},
+};
+
+static struct branch_clk usb_hs3_p_clk = {
+	.b = {
+		.ctl_reg = USB_HS3_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_DFAB_STATE_REG,
+		.halt_bit = 31,
+	},
+	.c = {
+		.dbg_name = "usb_hs3_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(usb_hs3_p_clk.c),
+	},
+};
+
+static struct branch_clk usb_hs4_p_clk = {
+	.b = {
+		.ctl_reg = USB_HS4_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_DFAB_STATE_REG,
+		.halt_bit = 7,
+	},
+	.c = {
+		.dbg_name = "usb_hs4_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(usb_hs4_p_clk.c),
 	},
 };
 
@@ -3108,7 +3349,8 @@ static struct rcg_clk gfx2d1_clk = {
 		.mnd_en_mask = (BIT(8) | BIT(5)) * !!(n), \
 		.sys_vdd = v, \
 	}
-static struct clk_freq_tbl clk_tbl_gfx3d[] = {
+
+static struct clk_freq_tbl clk_tbl_gfx3d_8960[] = {
 	F_GFX3D(        0, gnd,  0,  0, NONE),
 	F_GFX3D( 27000000, pxo,  0,  0, LOW),
 	F_GFX3D( 48000000, pll8, 1,  8, LOW),
@@ -3127,7 +3369,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 	F_END
 };
 
-static struct clk_freq_tbl clk_tbl_gfx3d_v2[] = {
+static struct clk_freq_tbl clk_tbl_gfx3d_8960_v2[] = {
 	F_GFX3D(        0, gnd,  0,  0, NONE),
 	F_GFX3D( 27000000, pxo,  0,  0, LOW),
 	F_GFX3D( 48000000, pll8, 1,  8, LOW),
@@ -3145,6 +3387,26 @@ static struct clk_freq_tbl clk_tbl_gfx3d_v2[] = {
 	F_GFX3D(300000000, pll3, 1,  4, NOMINAL),
 	F_GFX3D(320000000, pll2, 2,  5, HIGH),
 	F_GFX3D(400000000, pll2, 1,  2, HIGH),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_gfx3d_8064[] = {
+	F_GFX3D(        0, gnd,   0,  0, NONE),
+	F_GFX3D( 27000000, pxo,   0,  0, LOW),
+	F_GFX3D( 48000000, pll8,  1,  8, LOW),
+	F_GFX3D( 54857000, pll8,  1,  7, LOW),
+	F_GFX3D( 64000000, pll8,  1,  6, LOW),
+	F_GFX3D( 76800000, pll8,  1,  5, LOW),
+	F_GFX3D( 96000000, pll8,  1,  4, LOW),
+	F_GFX3D(128000000, pll8,  1,  3, LOW),
+	F_GFX3D(145455000, pll2,  2, 11, NOMINAL),
+	F_GFX3D(160000000, pll2,  1,  5, NOMINAL),
+	F_GFX3D(177778000, pll2,  2,  9, NOMINAL),
+	F_GFX3D(200000000, pll2,  1,  4, NOMINAL),
+	F_GFX3D(228571000, pll2,  2,  7, NOMINAL),
+	F_GFX3D(266667000, pll2,  1,  3, NOMINAL),
+	F_GFX3D(325000000, pll15, 1,  3, NOMINAL),
+	F_GFX3D(400000000, pll2,  1,  2, HIGH),
 	F_END
 };
 
@@ -3178,7 +3440,7 @@ static struct rcg_clk gfx3d_clk = {
 	.ns_reg = GFX3D_NS_REG,
 	.root_en_mask = BIT(2),
 	.set_rate = set_rate_mnd_banked,
-	.freq_tbl = clk_tbl_gfx3d,
+	.freq_tbl = clk_tbl_gfx3d_8960,
 	.bank_info = &bmnd_info_gfx3d,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -3199,7 +3461,8 @@ static struct rcg_clk gfx3d_clk = {
 		.mnd_en_mask = BIT(5) * !!(n), \
 		.sys_vdd = v, \
 	}
-static struct clk_freq_tbl clk_tbl_ijpeg[] = {
+
+static struct clk_freq_tbl clk_tbl_ijpeg_8960[] = {
 	F_IJPEG(        0, gnd,  1, 0,  0, NONE),
 	F_IJPEG( 27000000, pxo,  1, 0,  0, LOW),
 	F_IJPEG( 36570000, pll8, 1, 2, 21, LOW),
@@ -3211,6 +3474,20 @@ static struct clk_freq_tbl clk_tbl_ijpeg[] = {
 	F_IJPEG(200000000, pll2, 4, 0,  0, NOMINAL),
 	F_IJPEG(228571000, pll2, 1, 2,  7, NOMINAL),
 	F_IJPEG(266667000, pll2, 1, 1,  3, NOMINAL),
+	F_IJPEG(320000000, pll2, 1, 2,  5, HIGH),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_ijpeg_8064[] = {
+	F_IJPEG(        0, gnd,  1, 0,  0, NONE),
+	F_IJPEG( 36570000, pll8, 1, 2, 21, LOW),
+	F_IJPEG( 54860000, pll8, 7, 0,  0, LOW),
+	F_IJPEG( 96000000, pll8, 4, 0,  0, LOW),
+	F_IJPEG(109710000, pll8, 1, 2,  7, LOW),
+	F_IJPEG(128000000, pll8, 3, 0,  0, LOW),
+	F_IJPEG(153600000, pll8, 1, 2,  5, NOMINAL),
+	F_IJPEG(200000000, pll2, 4, 0,  0, NOMINAL),
+	F_IJPEG(228000000, pll2, 1, 2,  7, NOMINAL),
 	F_IJPEG(320000000, pll2, 1, 2,  5, HIGH),
 	F_END
 };
@@ -3230,7 +3507,7 @@ static struct rcg_clk ijpeg_clk = {
 	.ns_mask = (BM(23, 16) | BM(15, 12) | BM(2, 0)),
 	.ctl_mask = BM(7, 6),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_ijpeg,
+	.freq_tbl = clk_tbl_ijpeg_8960,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "ijpeg_clk",
@@ -3762,7 +4039,8 @@ static struct rcg_clk vpe_clk = {
 		.mnd_en_mask = BIT(5) * !!(n), \
 		.sys_vdd = v, \
 	}
-static struct clk_freq_tbl clk_tbl_vfe[] = {
+
+static struct clk_freq_tbl clk_tbl_vfe_8960[] = {
 	F_VFE(        0, gnd,   1, 0,  0, NONE),
 	F_VFE( 13960000, pll8,  1, 2, 55, LOW),
 	F_VFE( 27000000, pxo,   1, 0,  0, LOW),
@@ -3784,6 +4062,26 @@ static struct clk_freq_tbl clk_tbl_vfe[] = {
 	F_END
 };
 
+static struct clk_freq_tbl clk_tbl_vfe_8064[] = {
+	F_VFE(        0, gnd,   1, 0,  0, NONE),
+	F_VFE( 13960000, pll8,  1, 2, 55, LOW),
+	F_VFE( 36570000, pll8,  1, 2, 21, LOW),
+	F_VFE( 38400000, pll8,  2, 1,  5, LOW),
+	F_VFE( 45180000, pll8,  1, 2, 17, LOW),
+	F_VFE( 48000000, pll8,  2, 1,  4, LOW),
+	F_VFE( 54860000, pll8,  1, 1,  7, LOW),
+	F_VFE( 64000000, pll8,  2, 1,  3, LOW),
+	F_VFE( 76800000, pll8,  1, 1,  5, LOW),
+	F_VFE( 96000000, pll8,  2, 1,  2, LOW),
+	F_VFE(109710000, pll8,  1, 2,  7, LOW),
+	F_VFE(128000000, pll8,  1, 1,  3, LOW),
+	F_VFE(153600000, pll8,  1, 2,  5, NOMINAL),
+	F_VFE(200000000, pll2,  2, 1,  2, NOMINAL),
+	F_VFE(228570000, pll2,  1, 2,  7, NOMINAL),
+	F_VFE(266667000, pll2,  1, 1,  3, NOMINAL),
+	F_VFE(320000000, pll2,  1, 2,  5, HIGH),
+	F_END
+};
 
 static struct rcg_clk vfe_clk = {
 	.b = {
@@ -3800,7 +4098,7 @@ static struct rcg_clk vfe_clk = {
 	.ns_mask = (BM(23, 16) | BM(11, 10) | BM(2, 0)),
 	.ctl_mask = BM(7, 6),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_vfe,
+	.freq_tbl = clk_tbl_vfe_8960,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vfe_clk",
@@ -4195,6 +4493,15 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x69), &gsbi12_p_clk.c },
 	{ TEST_PER_LS(0x6A), &gsbi12_uart_clk.c },
 	{ TEST_PER_LS(0x6C), &gsbi12_qup_clk.c },
+	{ TEST_PER_LS(0x5E), &pcie_p_clk.c },
+	{ TEST_PER_LS(0x5F), &ce3_p_clk.c },
+	{ TEST_PER_LS(0x60), &ce3_core_clk.c },
+	{ TEST_PER_LS(0x63), &usb_hs3_p_clk.c },
+	{ TEST_PER_LS(0x64), &usb_hs3_xcvr_clk.c },
+	{ TEST_PER_LS(0x65), &usb_hs4_p_clk.c },
+	{ TEST_PER_LS(0x66), &usb_hs4_xcvr_clk.c },
+	{ TEST_PER_LS(0x6B), &sata_phy_ref_clk.c },
+	{ TEST_PER_LS(0x6C), &sata_phy_cfg_clk.c },
 	{ TEST_PER_LS(0x78), &sfpb_clk.c },
 	{ TEST_PER_LS(0x78), &sfpb_a_clk.c },
 	{ TEST_PER_LS(0x7A), &pmic_ssbi2_clk.c },
@@ -4271,6 +4578,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_LS(0x25), &mmfpb_a_clk.c },
 	{ TEST_MM_LS(0x26), &dsi2_m_p_clk.c },
 	{ TEST_MM_LS(0x27), &cam2_clk.c },
+	{ TEST_MM_LS(0x28), &vcap_p_clk.c },
 
 	{ TEST_MM_HS(0x00), &csi0_clk.c },
 	{ TEST_MM_HS(0x01), &csi1_clk.c },
@@ -4313,6 +4621,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_HS(0x30), &csi_pix1_clk.c },
 	{ TEST_MM_HS(0x31), &csi_rdi1_clk.c },
 	{ TEST_MM_HS(0x32), &csi_rdi2_clk.c },
+	{ TEST_MM_HS(0x36), &vcap_axi_clk.c },
 
 	{ TEST_LPA(0x0F), &mi2s_bit_clk.c },
 	{ TEST_LPA(0x10), &codec_i2s_mic_bit_clk.c },
@@ -4502,6 +4811,188 @@ static struct measure_clk measure_clk = {
 		CLK_INIT(measure_clk.c),
 	},
 	.multiplier = 1,
+};
+
+static struct clk_lookup msm_clocks_8064[] __initdata = {
+	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
+	CLK_DUMMY("pll2",		PLL2,		NULL, 0),
+	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
+	CLK_DUMMY("pll4",		PLL4,		NULL, 0),
+	CLK_LOOKUP("measure",		measure_clk.c,		"debug"),
+
+	CLK_DUMMY("afab_clk",		AFAB_CLK,	NULL, 0),
+	CLK_DUMMY("afab_a_clk",		AFAB_A_CLK,	NULL, 0),
+	CLK_DUMMY("cfpb_clk",		CFPB_CLK,	NULL, 0),
+	CLK_DUMMY("cfpb_a_clk",		CFPB_A_CLK,	NULL, 0),
+	CLK_DUMMY("dfab_clk",		DFAB_CLK,	NULL, 0),
+	CLK_DUMMY("dfab_a_clk",		DFAB_A_CLK,	NULL, 0),
+	CLK_DUMMY("ebi1_clk",		EBI1_CLK,	NULL, 0),
+	CLK_DUMMY("ebi1_a_clk",		EBI1_A_CLK,	NULL, 0),
+	CLK_DUMMY("mmfab_clk",		MMFAB_CLK,	NULL, 0),
+	CLK_DUMMY("mmfab_a_clk",	MMFAB_A_CLK,	NULL, 0),
+	CLK_DUMMY("mmfpb_clk",		MMFPB_CLK,	NULL, 0),
+	CLK_DUMMY("mmfpb_a_clk",	MMFPB_A_CLK,	NULL, 0),
+	CLK_DUMMY("sfab_clk",		SFAB_CLK,	NULL, 0),
+	CLK_DUMMY("sfab_a_clk",		SFAB_A_CLK,	NULL, 0),
+	CLK_DUMMY("sfpb_clk",		SFPB_CLK,	NULL, 0),
+	CLK_DUMMY("sfpb_a_clk",		SFPB_A_CLK,	NULL, 0),
+
+	CLK_LOOKUP("core_clk",		gsbi1_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi2_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi3_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi1_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi2_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi3_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi4_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi5_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi6_qup_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		gsbi7_qup_clk.c,	NULL),
+	CLK_LOOKUP("pdm_clk",		pdm_clk.c,		NULL),
+	CLK_LOOKUP("pmem_clk",		pmem_clk.c,		NULL),
+	CLK_DUMMY("core_clk",           PRNG_CLK,               NULL, OFF),
+	CLK_DUMMY("core_clk",		SDC1_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		SDC2_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		SDC3_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		SDC4_CLK,		NULL, OFF),
+	CLK_LOOKUP("tsif_ref_clk",	tsif_ref_clk.c,		NULL),
+	CLK_LOOKUP("tssc_clk",		tssc_clk.c,		NULL),
+	CLK_DUMMY("usb_hs_clk",		USB_HS1_XCVR_CLK,	NULL, OFF),
+	CLK_LOOKUP("core_clk",          usb_hs3_xcvr_clk.c,     NULL),
+	CLK_LOOKUP("core_clk",          usb_hs4_xcvr_clk.c,     NULL),
+	CLK_DUMMY("usb_fs_src_clk",	USB_FS1_SRC_CLK,	NULL, OFF),
+	CLK_DUMMY("usb_fs_clk",		USB_FS1_XCVR_CLK,	NULL, OFF),
+	CLK_DUMMY("usb_fs_sys_clk",	USB_FS1_SYS_CLK,	NULL, OFF),
+	CLK_LOOKUP("ce_pclk",		ce1_p_clk.c,		NULL),
+	CLK_LOOKUP("ce_clk",		ce1_core_clk.c,		NULL),
+	CLK_LOOKUP("sata_phy_ref_clk",  sata_phy_ref_clk.c,     NULL),
+	CLK_LOOKUP("sata_phy_cfg_clk",	sata_phy_cfg_clk.c,	NULL),
+	CLK_LOOKUP("dma_bam_pclk",	dma_bam_p_clk.c,	NULL),
+	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi2_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi3_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		NULL),
+	CLK_LOOKUP("tsif_pclk",		tsif_p_clk.c,		NULL),
+	CLK_DUMMY("usb_fs_pclk",	USB_FS1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("usb_hs_pclk",	USB_HS1_P_CLK,		NULL, OFF),
+	CLK_LOOKUP("iface_clk",         usb_hs3_p_clk.c,        NULL),
+	CLK_LOOKUP("iface_clk",         usb_hs4_p_clk.c,        NULL),
+	CLK_DUMMY("iface_clk",		SDC1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		SDC2_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		SDC3_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		SDC4_P_CLK,		NULL, OFF),
+	CLK_LOOKUP("iface_clk",		pcie_p_clk.c,		NULL),
+	CLK_LOOKUP("core_src_clk",	ce3_src_clk.c,		NULL),
+	CLK_LOOKUP("core_clk",          ce3_core_clk.c,         NULL),
+	CLK_LOOKUP("iface_clk",         ce3_p_clk.c,            NULL),
+	CLK_LOOKUP("core_clk",		adm0_clk.c,		"msm_dmov"),
+	CLK_LOOKUP("iface_clk",		adm0_p_clk.c,		"msm_dmov"),
+	CLK_LOOKUP("pmic_arb_pclk",	pmic_arb0_p_clk.c,	NULL),
+	CLK_LOOKUP("pmic_arb_pclk",	pmic_arb1_p_clk.c,	NULL),
+	CLK_LOOKUP("pmic_ssbi2",	pmic_ssbi2_clk.c,	NULL),
+	CLK_LOOKUP("rpm_msg_ram_pclk",	rpm_msg_ram_p_clk.c,	NULL),
+	CLK_LOOKUP("amp_clk",		amp_clk.c,		NULL),
+	CLK_DUMMY("cam_clk",		CAM0_CLK,		NULL, OFF),
+	CLK_DUMMY("cam_clk",		CAM1_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_src_clk",	CSI0_SRC_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_src_clk",	CSI1_SRC_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_clk",		CSI0_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_clk",		CSI1_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_pix_clk",	CSI_PIX_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_rdi_clk",	CSI_RDI_CLK,		NULL, OFF),
+	CLK_DUMMY("csiphy_timer_src_clk", CSIPHY_TIMER_SRC_CLK,	NULL, OFF),
+	CLK_DUMMY("csi0phy_timer_clk",	CSIPHY0_TIMER_CLK,	NULL, OFF),
+	CLK_DUMMY("csi1phy_timer_clk",	CSIPHY1_TIMER_CLK,	NULL, OFF),
+	CLK_DUMMY("dsi_byte_div_clk",	DSI1_BYTE_CLK,	"mipi_dsi.1", OFF),
+	CLK_DUMMY("dsi_byte_div_clk",	DSI2_BYTE_CLK,	"mipi_dsi.2", OFF),
+	CLK_DUMMY("dsi_esc_clk",	DSI1_ESC_CLK,	"mipi_dsi.1", OFF),
+	CLK_DUMMY("dsi_esc_clk",	DSI2_ESC_CLK,	"mipi_dsi.2", OFF),
+	CLK_DUMMY("gfx3d_clk",		GFX3D_CLK,		NULL, OFF),
+	CLK_DUMMY("ijpeg_clk",		IJPEG_CLK,		NULL, OFF),
+	CLK_DUMMY("imem_axi_clk",	IMEM_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("jpegd_clk",		JPEGD_CLK,		NULL, OFF),
+	CLK_DUMMY("mdp_clk",		MDP_CLK,		NULL, OFF),
+	CLK_DUMMY("mdp_vsync_clk",	MDP_VSYNC_CLK,		NULL, OFF),
+	CLK_DUMMY("lut_mdp",		LUT_MDP_CLK,		NULL, OFF),
+	CLK_DUMMY("rot_clk",		ROT_CLK,		NULL, OFF),
+	CLK_DUMMY("tv_src_clk",		TV_SRC_CLK,		NULL, OFF),
+	CLK_DUMMY("tv_enc_clk",		TV_ENC_CLK,		NULL, OFF),
+	CLK_DUMMY("tv_dac_clk",		TV_DAC_CLK,		NULL, OFF),
+	CLK_DUMMY("vcodec_clk",		VCODEC_CLK,		NULL, OFF),
+	CLK_DUMMY("mdp_tv_clk",		MDP_TV_CLK,		NULL, OFF),
+	CLK_DUMMY("hdmi_clk",		HDMI_TV_CLK,		NULL, OFF),
+	CLK_DUMMY("hdmi_app_clk",	HDMI_APP_CLK,		NULL, OFF),
+	CLK_DUMMY("vpe_clk",		VPE_CLK,		NULL, OFF),
+	CLK_DUMMY("vfe_clk",		VFE_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_vfe_clk",	CSI0_VFE_CLK,		NULL, OFF),
+	CLK_DUMMY("vfe_axi_clk",	VFE_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("ijpeg_axi_clk",	IJPEG_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("mdp_axi_clk",	MDP_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("rot_axi_clk",	ROT_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("vcodec_axi_a_clk",	VCODEC_AXI_A_CLK,	NULL, OFF),
+	CLK_DUMMY("vcodec_axi_b_clk",	VCODEC_AXI_B_CLK,	NULL, OFF),
+	CLK_DUMMY("vpe_axi_clk",	VPE_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("amp_pclk",		AMP_P_CLK,		NULL, OFF),
+	CLK_DUMMY("csi_pclk",		CSI0_P_CLK,		NULL, OFF),
+	CLK_DUMMY("dsi_m_pclk",		DSI1_M_P_CLK,	"mipi_dsi.1", OFF),
+	CLK_DUMMY("dsi_s_pclk",		DSI1_S_P_CLK,	"mipi_dsi.1", OFF),
+	CLK_DUMMY("dsi_m_pclk",		DSI2_M_P_CLK,	"mipi_dsi.2", OFF),
+	CLK_DUMMY("dsi_s_pclk",		DSI2_S_P_CLK,	"mipi_dsi.2", OFF),
+	CLK_DUMMY("gfx3d_pclk",		GFX3D_P_CLK,		NULL, OFF),
+	CLK_DUMMY("hdmi_m_pclk",	HDMI_M_P_CLK,		NULL, OFF),
+	CLK_DUMMY("hdmi_s_pclk",	HDMI_S_P_CLK,		NULL, OFF),
+	CLK_DUMMY("ijpeg_pclk",		IJPEG_P_CLK,		NULL, OFF),
+	CLK_DUMMY("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
+	CLK_DUMMY("imem_pclk",		IMEM_P_CLK,		NULL, OFF),
+	CLK_DUMMY("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
+	CLK_DUMMY("smmu_pclk",		SMMU_P_CLK,		NULL, OFF),
+	CLK_DUMMY("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
+	CLK_DUMMY("tv_enc_pclk",	TV_ENC_P_CLK,		NULL, OFF),
+	CLK_DUMMY("vcodec_pclk",	VCODEC_P_CLK,		NULL, OFF),
+	CLK_DUMMY("vfe_pclk",		VFE_P_CLK,		NULL, OFF),
+	CLK_DUMMY("vpe_pclk",		VPE_P_CLK,		NULL, OFF),
+	CLK_DUMMY("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, OFF),
+	CLK_DUMMY("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, OFF),
+	CLK_DUMMY("i2s_mic_osr_clk",	CODEC_I2S_MIC_OSR_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_mic_bit_clk",	CODEC_I2S_MIC_BIT_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_mic_osr_clk",	SPARE_I2S_MIC_OSR_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_mic_bit_clk",	SPARE_I2S_MIC_BIT_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_spkr_osr_clk",	CODEC_I2S_SPKR_OSR_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_spkr_bit_clk",	CODEC_I2S_SPKR_BIT_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, OFF),
+	CLK_DUMMY("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, OFF),
+	CLK_DUMMY("pcm_clk",		PCM_CLK,		NULL, OFF),
+	CLK_DUMMY("audio_slimbus_clk",	AUDIO_SLIMBUS_CLK,	NULL, OFF),
+	CLK_DUMMY("iommu_clk",		JPEGD_AXI_CLK,		NULL, 0),
+	CLK_DUMMY("iommu_clk",		VFE_AXI_CLK,		NULL, 0),
+	CLK_DUMMY("iommu_clk",		VCODEC_AXI_CLK,	NULL, 0),
+	CLK_DUMMY("iommu_clk",		GFX3D_CLK,	NULL, 0),
+	CLK_DUMMY("dfab_dsps_clk",	DFAB_DSPS_CLK,		NULL, 0),
+	CLK_DUMMY("dfab_usb_hs_clk",	DFAB_USB_HS_CLK,	NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_SDC1_CLK,		NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_SDC2_CLK,		NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_SDC3_CLK,		NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_SDC4_CLK,		NULL, 0),
+	CLK_DUMMY("dfab_clk",		DFAB_CLK,		NULL, 0),
+	CLK_LOOKUP("usb_hsic_xcvr_fs_clk", usb_hsic_xcvr_fs_clk.c,	NULL),
+	CLK_LOOKUP("usb_hsic_hsic_clk", usb_hsic_hsic_clk.c,	NULL),
+	CLK_LOOKUP("usb_hsic_hsio_cal_clk", usb_hsic_hsio_cal_clk.c,	NULL),
+	CLK_LOOKUP("usb_hsic_system_clk", usb_hsic_system_clk.c,	NULL),
+	CLK_LOOKUP("usb_hsic_p_clk",	usb_hsic_p_clk.c,	NULL),
+
+	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
+	CLK_LOOKUP("ebi1_clk",		ebi1_adm_clk.c, "msm_dmov"),
+
+	CLK_LOOKUP("l2_mclk",		l2_m_clk,     NULL),
+	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, NULL),
+	CLK_LOOKUP("krait1_mclk",	krait1_m_clk, NULL),
 };
 
 static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
@@ -4784,6 +5275,24 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 	writel_relaxed(regval, reg);
 }
 
+static void __init set_fsm_mode(void __iomem *mode_reg)
+{
+	u32 regval = readl_relaxed(mode_reg);
+
+	/*De-assert reset to FSM */
+	regval &= ~BIT(21);
+	writel_relaxed(regval, mode_reg);
+
+	/* Program bias count */
+	regval &= ~BM(13, 8);
+	regval |= BVAL(13, 8, 0x8);
+	writel_relaxed(regval, mode_reg);
+
+	/*Enable PLL FSM voting */
+	regval |= BIT(20);
+	writel_relaxed(regval, mode_reg);
+}
+
 static void __init reg_init(void)
 {
 	/* Deassert MM SW_RESET_ALL signal. */
@@ -4795,9 +5304,11 @@ static void __init reg_init(void)
 	 * The sleep and wake-up delays are set to safe values. */
 	rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
 	writel_relaxed(0x000007F9, AHB_EN2_REG);
+	rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
 
 	/* Deassert all locally-owned MM AHB resets. */
 	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
+	rmwreg(0, SW_RESET_AHB2_REG, 0x0000000F);
 
 	/* Initialize MM AXI registers: Enable HW gating for all clocks that
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
@@ -4807,6 +5318,7 @@ static void __init reg_init(void)
 	rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
 	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+	rmwreg(0x009FE4FF, MAXI_EN5_REG, 0x01FFEFFF);
 	rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
 
 	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
@@ -4833,11 +5345,21 @@ static void __init reg_init(void)
 	rmwreg(0x800000FF, VFE_CC2_REG,       0xE00000FF);
 	rmwreg(0x80FF0000, VPE_CC_REG,        0xE0FF0010);
 
+	/*
+	 * Initialize USB_HS_HCLK_FS registers: Set FORCE_C_ON bits so that
+	 * core remain active during halt state of the clk. Also, set sleep
+	 * and wake-up value to max.
+	 */
+	rmwreg(0x0000004F, USB_HS1_HCLK_FS_REG, 0x0000007F);
+	rmwreg(0x0000004F, USB_HS3_HCLK_FS_REG, 0x0000007F);
+	rmwreg(0x0000004F, USB_HS4_HCLK_FS_REG, 0x0000007F);
+
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel_relaxed(0, SW_RESET_AXI_REG);
 
 	/* Deassert all MM core resets. */
 	writel_relaxed(0, SW_RESET_CORE_REG);
+	writel_relaxed(0, SW_RESET_CORE2_REG);
 
 	/* Reset 3D core once more, with its clock enabled. This can
 	 * eventually be done as part of the GDFS footswitch driver. */
@@ -4861,6 +5383,99 @@ static void __init reg_init(void)
 	/* Source the dsi_byte_clks from the DSI PHY PLLs */
 	rmwreg(0x1, DSI1_BYTE_NS_REG, 0x7);
 	rmwreg(0x2, DSI2_BYTE_NS_REG, 0x7);
+
+	/* Source the sata_phy_ref_clk from PXO */
+	if (cpu_is_apq8064())
+		rmwreg(0, SATA_PHY_REF_CLK_CTL_REG, 0x1);
+
+	/*
+	 * TODO: Programming below PLLs is temporary and needs to be removed
+	 *       after bootloaders program them.
+	 */
+	if (cpu_is_apq8064()) {
+		u32 regval, is_pll_enabled;
+
+		/* Program pxo_src_clk to source from PXO */
+		rmwreg(0x1, PXO_SRC_CLK_CTL_REG, 0x7);
+
+		/* Check if PLL8 is active */
+		is_pll_enabled = readl_relaxed(BB_PLL8_STATUS_REG) & BIT(16);
+		if (!is_pll_enabled) {
+			/* Ref clk = 24.5MHz and program pll8 to 384MHz */
+			writel_relaxed(0xF,  BB_PLL8_L_VAL_REG);
+			writel_relaxed(0x21, BB_PLL8_M_VAL_REG);
+			writel_relaxed(0x31, BB_PLL8_N_VAL_REG);
+
+			regval = readl_relaxed(BB_PLL8_CONFIG_REG);
+
+			/* Enable the main output and the MN accumulator */
+			regval |= BIT(23) | BIT(22);
+
+			/* Set pre-divider and post-divider values to 1 and 1 */
+			regval &= ~BIT(19);
+			regval &= ~BM(21, 20);
+
+			writel_relaxed(regval, BB_PLL8_CONFIG_REG);
+
+			/* Set VCO frequency */
+			rmwreg(0x10000, BB_PLL8_CONFIG_REG, 0x30000);
+
+			/* Enable AUX output */
+			regval = readl_relaxed(BB_PLL8_TEST_CTL_REG);
+			regval |= BIT(12);
+			writel_relaxed(regval, BB_PLL8_TEST_CTL_REG);
+
+			set_fsm_mode(BB_PLL8_MODE_REG);
+		}
+		/* Check if PLL3 is active */
+		is_pll_enabled = readl_relaxed(GPLL1_STATUS_REG) & BIT(16);
+		if (!is_pll_enabled) {
+			/* Ref clk = 24.5MHz and program pll3 to 1200MHz */
+			writel_relaxed(0x30, GPLL1_L_VAL_REG);
+			writel_relaxed(0x30, GPLL1_M_VAL_REG);
+			writel_relaxed(0x31, GPLL1_N_VAL_REG);
+
+			regval = readl_relaxed(GPLL1_CONFIG_REG);
+
+			/* Set pre-divider and post-divider values to 1 and 1 */
+			regval &= ~BIT(15);
+			regval |= BIT(16);
+
+			writel_relaxed(regval, GPLL1_CONFIG_REG);
+
+			/* Set VCO frequency */
+			rmwreg(0x180, GPLL1_CONFIG_REG, 0x180);
+		}
+		/* Check if PLL14 is active */
+		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
+		if (!is_pll_enabled) {
+			/* Ref clk = 24.5MHz and program pll14 to 480MHz */
+			writel_relaxed(0x13, BB_PLL14_L_VAL_REG);
+			writel_relaxed(0x1D, BB_PLL14_M_VAL_REG);
+			writel_relaxed(0x31, BB_PLL14_N_VAL_REG);
+
+			regval = readl_relaxed(BB_PLL14_CONFIG_REG);
+
+			/* Enable the main output and the MN accumulator */
+			regval |= BIT(23) | BIT(22);
+
+			/* Set pre-divider and post-divider values to 1 and 1 */
+			regval &= ~BIT(19);
+			regval &= ~BM(21, 20);
+
+			writel_relaxed(regval, BB_PLL14_CONFIG_REG);
+
+			/* Set VCO frequency */
+			rmwreg(0x10000, BB_PLL14_CONFIG_REG, 0x30000);
+
+			/* Enable AUX output */
+			regval = readl_relaxed(BB_PLL14_TEST_CTL_REG);
+			regval |= BIT(12);
+			writel_relaxed(regval, BB_PLL14_TEST_CTL_REG);
+
+			set_fsm_mode(BB_PLL14_MODE_REG);
+		}
+	}
 }
 
 struct clock_init_data msm8960_clock_init_data __initdata;
@@ -4869,6 +5484,7 @@ struct clock_init_data msm8960_clock_init_data __initdata;
 static void __init msm8960_clock_init(void)
 {
 	size_t num_lookups = ARRAY_SIZE(msm_clocks_8960_v1);
+
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8960");
 	if (IS_ERR(xo_pxo)) {
 		pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
@@ -4880,14 +5496,27 @@ static void __init msm8960_clock_init(void)
 		BUG();
 	}
 
-	memcpy(msm_clocks_8960, msm_clocks_8960_v1, sizeof(msm_clocks_8960_v1));
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_v2;
-		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_v1),
+	if (cpu_is_msm8960()) {
+		memcpy(msm_clocks_8960, msm_clocks_8960_v1,
+				sizeof(msm_clocks_8960_v1));
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
+			gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960_v2;
+			memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_v1),
 				msm_clocks_8960_v2, sizeof(msm_clocks_8960_v2));
-		num_lookups = ARRAY_SIZE(msm_clocks_8960);
+			num_lookups = ARRAY_SIZE(msm_clocks_8960);
+		}
+		msm8960_clock_init_data.size = num_lookups;
 	}
-	msm8960_clock_init_data.size = num_lookups;
+
+	/*
+	 * Change the freq tables for gfx3d_clk, ijpeg_clk, mdp_clk,
+	 * tv_src_clk and vfe_clk at runtime.
+	 */
+	if (cpu_is_apq8064()) {
+		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8064;
+		ijpeg_clk.freq_tbl = clk_tbl_ijpeg_8064;
+		vfe_clk.freq_tbl = clk_tbl_vfe_8064;
+	}
 
 	soc_update_sys_vdd = msm8960_update_sys_vdd;
 	local_vote_sys_vdd(HIGH);
@@ -4904,8 +5533,13 @@ static void __init msm8960_clock_init(void)
 	clk_set_rate(&tsif_ref_clk.c, 105000);
 	clk_set_rate(&tssc_clk.c, 27000000);
 	clk_set_rate(&usb_hs1_xcvr_clk.c, 60000000);
+	if (cpu_is_apq8064()) {
+		clk_set_rate(&usb_hs3_xcvr_clk.c, 60000000);
+		clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
+	}
 	clk_set_rate(&usb_fs1_src_clk.c, 60000000);
-	clk_set_rate(&usb_fs2_src_clk.c, 60000000);
+	if (cpu_is_msm8960())
+		clk_set_rate(&usb_fs2_src_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
 	clk_set_rate(&usb_hsic_hsio_cal_clk.c, 9000000);
@@ -4937,6 +5571,13 @@ static int __init msm8960_clock_late_init(void)
 struct clock_init_data msm8960_clock_init_data __initdata = {
 	.table = msm_clocks_8960,
 	.size = ARRAY_SIZE(msm_clocks_8960),
+	.init = msm8960_clock_init,
+	.late_init = msm8960_clock_late_init,
+};
+
+struct clock_init_data apq8064_clock_init_data __initdata = {
+	.table = msm_clocks_8064,
+	.size = ARRAY_SIZE(msm_clocks_8064),
 	.init = msm8960_clock_init,
 	.late_init = msm8960_clock_late_init,
 };
