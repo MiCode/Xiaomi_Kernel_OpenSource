@@ -1140,8 +1140,6 @@ int mdp_set_core_clk(uint16 perf_level)
 			printk(KERN_ERR "%s invalid perf level\n", __func__);
 		else {
 			mutex_lock(&mdp_clk_lock);
-			if (mdp4_extn_disp)
-				perf_level = 1;
 			ret = clk_set_rate(mdp_clk,
 				mdp_pdata->
 				mdp_core_clk_table[mdp_pdata->num_mdp_clk
@@ -1177,8 +1175,6 @@ unsigned long mdp_perf_level2clk_rate(uint32 perf_level)
 			printk(KERN_ERR "%s invalid perf level\n", __func__);
 			clk_rate = mdp_get_core_clk();
 		} else {
-			if (mdp4_extn_disp)
-				perf_level = 1;
 			clk_rate = mdp_pdata->
 				mdp_core_clk_table[mdp_pdata->num_mdp_clk
 					- perf_level];

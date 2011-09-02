@@ -222,7 +222,6 @@ static int tvenc_on(struct platform_device *pdev)
 	if (mfd->ebi1_clk)
 		clk_enable(mfd->ebi1_clk);
 #endif
-	mdp_set_core_clk(1);
 	mdp4_extn_disp = 1;
 	if (tvenc_pdata && tvenc_pdata->pm_vid_en)
 		ret = tvenc_pdata->pm_vid_en(1);

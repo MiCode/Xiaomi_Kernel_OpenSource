@@ -35,6 +35,13 @@ extern uint32 mdp4_extn_disp;
 #define MDP4_RGB_BASE 0x40000
 #define MDP4_RGB_OFF 0x10000
 
+enum {
+	OVERLAY_PERF_LEVEL1 = 1,
+	OVERLAY_PERF_LEVEL2,
+	OVERLAY_PERF_LEVEL3,
+	OVERLAY_PERF_LEVEL4
+};
+
 enum mdp4_overlay_status {
 	MDP4_OVERLAY_TYPE_UNSET,
 	MDP4_OVERLAY_TYPE_SET,
@@ -469,7 +476,7 @@ void mdp4_mddi_overlay_restore(void);
 void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd);
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
-
+void mdp4_update_perf_level(u32 perf_level);
 void mdp4_set_perf_level(void);
 void mdp4_mddi_overlay_dmas_restore(void);
 

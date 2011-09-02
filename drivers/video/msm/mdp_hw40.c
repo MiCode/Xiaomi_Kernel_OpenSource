@@ -68,7 +68,7 @@ int mdp_hw_init(struct mdp_info *mdp)
 
 	/* XXX: why set this? QCT says it should be > mdp_pclk,
 	 * but they never set the clkrate of pclk */
-	mdp_set_core_clk(4);
+	clk_set_rate(mdp->clk, 122880000); /* 122.88 Mhz */
 	pr_info("%s: mdp_clk=%lu\n", __func__, clk_get_rate(mdp->clk));
 
 	/* TODO: Configure the VG/RGB pipes fetch data */
