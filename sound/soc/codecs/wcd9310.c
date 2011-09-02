@@ -1786,7 +1786,8 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
-	u8 path, tx_fs_reg, rx_fs_reg, shift;
+	u8 path, shift;
+	u16 tx_fs_reg, rx_fs_reg;
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
 
 	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
