@@ -2739,6 +2739,15 @@ static struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device msm8960_device_ext_3p3v_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8921_GPIO_PM_TO_SYS(17),
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_3P3V],
+	},
+};
+
 static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
@@ -3585,6 +3594,8 @@ static void __init msm8960_cdp_init(void)
 	msm8960_init_buses();
 	platform_add_devices(msm_footswitch_devices,
 		msm_num_footswitch_devices);
+	if (machine_is_msm8960_liquid())
+		platform_device_register(&msm8960_device_ext_3p3v_vreg);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
