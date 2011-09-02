@@ -22,12 +22,15 @@
 
 struct sdio_channel; /* Forward Declaration */
 
+
 /**
  *  Channel Events.
  *  Available bytes notification.
  */
 #define SDIO_EVENT_DATA_READ_AVAIL      0x01
 #define SDIO_EVENT_DATA_WRITE_AVAIL     0x02
+
+#ifdef CONFIG_MSM_SDIO_AL
 
 struct sdio_al_platform_data {
 	int (*config_mdm2ap_status)(int);
@@ -110,5 +113,41 @@ int sdio_write_avail(struct sdio_channel *ch);
  * @return byte count on success, negative value on error.
  */
 int sdio_read_avail(struct sdio_channel *ch);
+
+#else
+
+static int __maybe_unused sdio_open(const char *name, struct sdio_channel **ch,
+		void *priv, void (*notify)(void *priv, unsigned channel_event))
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused sdio_close(struct sdio_channel *ch)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused sdio_read(struct sdio_channel *ch, void *data,
+						int len)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused sdio_write(struct sdio_channel *ch, const void *data,
+						int len)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused sdio_write_avail(struct sdio_channel *ch)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused sdio_read_avail(struct sdio_channel *ch)
+{
+	return -ENODEV;
+}
+#endif
 
 #endif /* __SDIO_AL__ */
