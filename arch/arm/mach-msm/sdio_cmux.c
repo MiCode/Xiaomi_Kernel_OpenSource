@@ -679,6 +679,7 @@ static void sdio_cmux_fn(struct work_struct *work)
 			while (!(abort_tx) &&
 				((r = sdio_write(sdio_qmi_chl,
 						write_data, write_size)) < 0)
+				&& (r != -ENODEV)
 				&& (write_retry++ < MAX_WRITE_RETRY)) {
 				mutex_unlock(&modem_reset_lock);
 				pr_err("%s: sdio_write failed with rc %d."
@@ -690,6 +691,11 @@ static void sdio_cmux_fn(struct work_struct *work)
 				D("%s: sdio_write_completed %dbytes\n",
 				  __func__, write_size);
 				bytes_written += write_size;
+			} else if (r == -ENODEV) {
+				pr_err("%s: aborting_tx because sdio_write"
+				       " returned %d\n", __func__, r);
+				r = 0;
+				abort_tx = 1;
 			}
 			mutex_unlock(&modem_reset_lock);
 			kfree(list_elem->cmux_pkt.hdr);
