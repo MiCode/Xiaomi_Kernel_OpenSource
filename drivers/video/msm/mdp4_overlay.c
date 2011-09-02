@@ -507,7 +507,7 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	char *vg_base;
 	uint32 frame_size, src_size, src_xy, dst_size, dst_xy;
 	uint32 format, pattern, luma_offset, chroma_offset;
-	int pnum;
+	int pnum, ptype;
 
 	pnum = pipe->pipe_num - OVERLAY_PIPE_VG1; /* start from 0 */
 	vg_base = MDP_BASE + MDP4_VIDEO_BASE;
@@ -519,16 +519,16 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	dst_size = ((pipe->dst_h << 16) | pipe->dst_w);
 	dst_xy = ((pipe->dst_y << 16) | pipe->dst_x);
 
+	ptype = mdp4_overlay_format2type(pipe->src_format);
 	format = mdp4_overlay_format(pipe);
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
 	/* not RGB use VG pipe, pure VG pipe */
-	if (pipe->pipe_type != OVERLAY_TYPE_RGB)
-#ifdef MDP4_IGC_LUT_ENABLE
-		pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR |
-				MDP4_OP_IGC_LUT_EN);
-#else
+	if (ptype != OVERLAY_TYPE_RGB)
 		pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
+
+#ifdef MDP4_IGC_LUT_ENABLE
+	pipe->op_mode |= MDP4_OP_IGC_LUT_EN;
 #endif
 
 	mdp4_scale_setup(pipe);
@@ -548,8 +548,14 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	 * present before the offset. This is required for video
 	 * frames coming with unused green pixels along the left margin
 	 */
-	mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset,
-		&chroma_offset);
+	/* not RGB use VG pipe, pure VG pipe */
+	if (ptype != OVERLAY_TYPE_RGB) {
+		mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset,
+			&chroma_offset);
+	} else {
+		luma_offset = 0;
+		chroma_offset = 0;
+	}
 
 	/* luma component plane */
 	outpdw(vg_base + 0x0010, pipe->srcp0_addr + luma_offset);
