@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/i2c.h>
 #include <linux/msm_ssbi.h>
+#include <linux/spi/spi.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -33,18 +34,6 @@
 #include <mach/gpiomux.h>
 
 #include "board-apq8064.h"
-
-static int __init gpiomux_init(void)
-{
-	int rc;
-
-	rc = msm_gpiomux_init(NR_GPIO_IRQS);
-	if (rc) {
-		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
-		return rc;
-	}
-	return 0;
-}
 
 /* APQ8064 have 4 SDCC controllers */
 enum sdcc_controllers {
@@ -326,6 +315,82 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pclk_src_name		= "dfab_usb_hs_clk",
 };
 
+#define KS8851_IRQ_GPIO		43
+
+static struct spi_board_info spi_board_info[] __initdata = {
+	{
+		.modalias               = "ks8851",
+		.irq                    = MSM_GPIO_TO_INT(KS8851_IRQ_GPIO),
+		.max_speed_hz           = 19200000,
+		.bus_num                = 0,
+		.chip_select            = 2,
+		.mode                   = SPI_MODE_0,
+	},
+};
+
+#ifdef CONFIG_KS8851
+static struct gpiomux_setting gpio_eth_config = {
+	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_8MA,
+	.func = GPIOMUX_FUNC_GPIO,
+};
+
+/* The SPI configurations apply to GSBI 5*/
+static struct gpiomux_setting gpio_spi_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+/* The SPI configurations apply to GSBI 5 chip select 2*/
+static struct gpiomux_setting gpio_spi_cs2_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif
+
+struct msm_gpiomux_config apq8064_ethernet_configs[NR_GPIO_IRQS] = {
+#ifdef CONFIG_KS8851
+	{
+		.gpio = KS8851_IRQ_GPIO,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+			[GPIOMUX_ACTIVE] = &gpio_eth_config,
+		}
+	},
+#endif
+};
+
+static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
+#ifdef CONFIG_KS8851
+	{
+		.gpio      = 51,		/* GSBI5 QUP SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 52,		/* GSBI5 QUP SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 31,		/* GSBI5 QUP SPI_CS2_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs2_config,
+		},
+	},
+	{
+		.gpio      = 54,		/* GSBI5 QUP SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+#endif
+};
+
 static struct pm8xxx_mpp_platform_data
 apq8064_pm8921_mpp_pdata __devinitdata = {
 	.mpp_base	= PM8921_MPP_PM_TO_SYS(1),
@@ -396,6 +461,44 @@ static void __init apq8064_i2c_init(void)
 					&apq8064_i2c_qup_gsbi4_pdata;
 }
 
+static int __init gpiomux_init(void)
+{
+	int rc;
+
+	rc = msm_gpiomux_init(NR_GPIO_IRQS);
+	if (rc) {
+		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
+		return rc;
+	}
+	msm_gpiomux_install(apq8064_ethernet_configs,
+			ARRAY_SIZE(apq8064_ethernet_configs));
+
+	msm_gpiomux_install(apq8064_gsbi_configs,
+			ARRAY_SIZE(apq8064_gsbi_configs));
+	return 0;
+}
+
+#ifdef CONFIG_KS8851
+static int ethernet_init(void)
+{
+	int ret;
+	ret = gpio_request(KS8851_IRQ_GPIO, "ks8851_irq");
+	if (ret) {
+		pr_err("ks8851 gpio_request failed: %d\n", ret);
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return ret;
+}
+#else
+static int ethernet_init(void)
+{
+	return 0;
+}
+#endif
+
 static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
@@ -427,7 +530,9 @@ static void __init apq8064_sim_init(void)
 static void __init apq8064_rumi3_init(void)
 {
 	apq8064_common_init();
+	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
+	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
