@@ -144,6 +144,7 @@ struct mmc_platform_data {
 	unsigned char sup_clk_cnt;
 	struct msm_mmc_pin_data *pin_data;
 	bool disable_bam;
+	bool disable_runtime_pm;
 };
 
 #endif

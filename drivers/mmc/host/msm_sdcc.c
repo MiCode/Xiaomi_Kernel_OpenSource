@@ -2287,7 +2287,10 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 {
 	int rc;
+	struct msmsdcc_host *host = mmc_priv(mmc);
 
+	if (host->plat->disable_runtime_pm)
+		return -ENOTSUPP;
 	if (mmc->card && mmc->card->type == MMC_TYPE_SDIO)
 		return -ENOTSUPP;
 
