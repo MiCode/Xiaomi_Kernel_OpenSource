@@ -1487,9 +1487,6 @@ static int _setup_cmd_template(struct qce_device *pce_dev)
 	pce_dev->chan_ce_in_cmd->exec_func = NULL;
 	pce_dev->chan_ce_in_cmd->cmdptr = DMOV_CMD_ADDR(
 			(unsigned int) pce_dev->phy_cmd_pointer_list_ce_in);
-	pce_dev->chan_ce_in_cmd->crci_mask = msm_dmov_build_crci_mask(1,
-			pce_dev->crci_in);
-
 
 	/*
 	 * The first command in the command list ce_out.
@@ -1527,8 +1524,6 @@ static int _setup_cmd_template(struct qce_device *pce_dev)
 	pce_dev->chan_ce_out_cmd->exec_func = NULL;
 	pce_dev->chan_ce_out_cmd->cmdptr = DMOV_CMD_ADDR(
 			(unsigned int) pce_dev->phy_cmd_pointer_list_ce_out);
-	pce_dev->chan_ce_out_cmd->crci_mask = msm_dmov_build_crci_mask(1,
-			pce_dev->crci_out);
 
 	return 0;
 };

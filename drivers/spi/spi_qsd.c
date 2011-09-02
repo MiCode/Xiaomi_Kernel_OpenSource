@@ -2134,7 +2134,6 @@ static __init int msm_spi_init_dma(struct msm_spi *dd)
 				   DMOV_CMD_ADDR(dd->rx_dmov_cmd_dma +
 				   offsetof(struct spi_dmov_cmd, cmd_ptr));
 	dd->rx_hdr.complete_func = spi_dmov_rx_complete_func;
-	dd->rx_hdr.crci_mask = msm_dmov_build_crci_mask(1, dd->rx_dma_crci);
 
 	box = &(dd->tx_dmov_cmd->box);
 	box->cmd = CMD_MODE_BOX | CMD_DST_CRCI(dd->tx_dma_crci);
@@ -2143,7 +2142,6 @@ static __init int msm_spi_init_dma(struct msm_spi *dd)
 			    DMOV_CMD_ADDR(dd->tx_dmov_cmd_dma +
 			    offsetof(struct spi_dmov_cmd, cmd_ptr));
 	dd->tx_hdr.complete_func = spi_dmov_tx_complete_func;
-	dd->tx_hdr.crci_mask = msm_dmov_build_crci_mask(1, dd->tx_dma_crci);
 
 	dd->tx_dmov_cmd->single_pad.cmd = CMD_MODE_SINGLE | CMD_LC |
 					  CMD_DST_CRCI(dd->tx_dma_crci);
