@@ -166,6 +166,16 @@ config FB_MSM_MIPI_DSI_NOVATEK
         select FB_MSM_MIPI_DSI
         default n
 
+config FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
+	bool
+	select FB_MSM_MIPI_DSI
+	---help---
+	  Support for Toshiba MIPI DSI-to-LVDS bridge.
+	  The chip supports 1366x768 24-bit
+	  using a single LVDS link
+	  and up to WUXGA 1920x1200 18-bit
+	  using a dual LVDS link.
+
 config FB_MSM_LCDC_ST15_WXGA
     bool
     select FB_MSM_LCDC_PANEL
@@ -263,11 +273,19 @@ config FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT
 	select FB_MSM_MIPI_DSI_RENESAS
 	default n
 
+config FB_MSM_MIPI_CHIMEI_WXGA
+	bool "LVDS Chimei WXGA Panel using Toshiba MIPI DSI-to-LVDS bridge."
+	select FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
+	---help---
+	  Support for Chimei WXGA (1366x768) panel.
+	  The panel is using a serial LVDS input.
+	  The panel is connected to the host
+	  via Toshiba DSI-to-LVDS bridge.
+
 config FB_MSM_MIPI_SIMULATOR_VIDEO
 	bool
 	select FB_MSM_MIPI_DSI_SIMULATOR
 	default n
-
 
 config FB_MSM_OVERLAY_WRITEBACK
 	depends on FB_MSM_OVERLAY
@@ -367,17 +385,16 @@ config FB_MSM_TRY_MDDI_CATCH_LCDC_PRISM
 	  If it can't find any MDDI panel, it will load an LCDC panel.
 
 config FB_MSM_MIPI_PANEL_DETECT
-	depends on FB_MSM_LCDC_HW
-	bool "MIPI Panel Detect + LCDC Panel Auto Detect"
-	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
+	bool "MIPI Panel Detect"
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
-	select FB_MSM_LCDC_AUTO_DETECT
 	select FB_MSM_MIPI_RENESAS_VIDEO_FWVGA_PT
+	select FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT
+	select FB_MSM_MIPI_NOVATEK_VIDEO_QHD_PT
+	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
-	select FB_MSM_LCDC_SAMSUNG_WSVGA
-	select FB_MSM_LCDC_AUO_WVGA
-	select FB_MSM_LCDC_NT35582_WVGA
-	select FB_MSM_LCDC_SAMSUNG_OLED_PT
+	select FB_MSM_MIPI_CHIMEI_WXGA
+	---help---
+	  Support for MIPI panel auto detect
 
 config FB_MSM_MDDI_PANEL_AUTO_DETECT
 	bool "MDDI Panel Auto Detect"
@@ -448,6 +465,10 @@ config FB_MSM_MIPI_RENESAS_VIDEO_FWVGA_PT_PANEL
 config FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT_PANEL
 	bool "MIPI Renesas Command FWVGA PT Panel"
 	select FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT
+
+config FB_MSM_MIPI_CHIMEI_WXGA_PANEL
+	bool "MIPI Chimei WXGA PT Panel"
+	select FB_MSM_MIPI_CHIMEI_WXGA
 
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"

@@ -37,7 +37,7 @@ static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
 static char enter_sleep[2] = {0x10, 0x00};
 
-#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT_PANEL
+#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 static char mcap_off[2] = {0xb2, 0x00};
 static char ena_test_reg[3] = {0xEF, 0x01, 0x01};
 static char two_lane[3] = {0xEF, 0x60, 0x63};
@@ -71,7 +71,7 @@ static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
 
 #endif
 
-#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT_PANEL
+#ifdef CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
 static char mcap_start[2] = {0xb0, 0x04};
 static char num_out_pixelform[3] = {0xb3, 0x00, 0x87};
 static char dsi_ctrl[3] = {0xb6, 0x30, 0x83};
@@ -247,6 +247,11 @@ static int __devinit mipi_toshiba_lcd_probe(struct platform_device *pdev)
 	if (pdev->id == 0) {
 		mipi_toshiba_pdata = pdev->dev.platform_data;
 		return 0;
+	}
+
+	if (mipi_toshiba_pdata == NULL) {
+		pr_err("%s.invalid platform data.\n", __func__);
+		return -ENODEV;
 	}
 
 	if (mipi_toshiba_pdata != NULL)

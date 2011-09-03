@@ -130,6 +130,10 @@ struct mipi_panel_info {
 	char mdp_trigger;
 	char dma_trigger;
 	uint32 dsi_pclk_rate;
+	/* The packet-size should not bet changed */
+	char fixed_packet_size;
+	/* Clock required during LP commands */
+	char force_clk_lane_hs;
 	/* Pad width */
 	uint32 xres_pad;
 	/* Pad height */
