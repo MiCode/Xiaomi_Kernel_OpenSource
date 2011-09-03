@@ -2650,6 +2650,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 	uint32_t *ptr = NULL;
 	struct common_data *c = NULL;
 	struct voice_data *v = NULL;
+	int i = 0;
 
 	if ((data == NULL) || (priv == NULL)) {
 		pr_err("%s: data or priv is NULL\n", __func__);
@@ -2669,6 +2670,20 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
 		data->payload_size, data->opcode);
+
+	if (data->opcode == RESET_EVENTS) {
+		pr_debug("%s: Reset event received in Voice service\n",
+			 __func__);
+
+		apr_reset(c->apr_q6_mvm);
+		c->apr_q6_mvm = NULL;
+
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			c->voice[i].mvm_handle = 0;
+
+		return 0;
+	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
@@ -2723,6 +2738,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 	uint32_t *ptr = NULL;
 	struct common_data *c = NULL;
 	struct voice_data *v = NULL;
+	int i = 0;
 
 	if ((data == NULL) || (priv == NULL)) {
 		pr_err("%s: data or priv is NULL\n", __func__);
@@ -2742,6 +2758,20 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
 		data->payload_size, data->opcode);
+
+	if (data->opcode == RESET_EVENTS) {
+		pr_debug("%s: Reset event received in Voice service\n",
+			 __func__);
+
+		apr_reset(c->apr_q6_cvs);
+		c->apr_q6_cvs = NULL;
+
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			c->voice[i].cvs_handle = 0;
+
+		return 0;
+	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
@@ -2856,6 +2886,7 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 	uint32_t *ptr = NULL;
 	struct common_data *c = NULL;
 	struct voice_data *v = NULL;
+	int i = 0;
 
 	if ((data == NULL) || (priv == NULL)) {
 		pr_err("%s: data or priv is NULL\n", __func__);
@@ -2873,6 +2904,20 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
 		data->payload_size, data->opcode);
+
+	if (data->opcode == RESET_EVENTS) {
+		pr_debug("%s: Reset event received in Voice service\n",
+			 __func__);
+
+		apr_reset(c->apr_q6_cvp);
+		c->apr_q6_cvp = NULL;
+
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			c->voice[i].cvp_handle = 0;
+
+		return 0;
+	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
