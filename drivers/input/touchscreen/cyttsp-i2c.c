@@ -127,16 +127,22 @@ static u8 bl_cmd[] = {
 
 MODULE_DEVICE_TABLE(i2c, cyttsp_id);
 
+#ifdef CONFIG_PM
 static const struct dev_pm_ops cyttsp_pm_ops = {
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = cyttsp_suspend,
 	.resume = cyttsp_resume,
+#endif
 };
+#endif
 
 static struct i2c_driver cyttsp_driver = {
 	.driver = {
 		.name = CY_I2C_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
 		.pm = &cyttsp_pm_ops,
+#endif
 	},
 	.probe = cyttsp_probe,
 	.remove = __devexit_p(cyttsp_remove),
@@ -2890,7 +2896,7 @@ static int cyttsp_resume(struct device *dev)
 	return retval;
 }
 
-
+#ifdef CONFIG_PM
 /* Function to manage low power suspend */
 static int cyttsp_suspend(struct device *dev)
 {
@@ -2960,6 +2966,7 @@ static int cyttsp_suspend(struct device *dev)
 
 	return retval;
 }
+#endif
 
 /* registered in driver struct */
 static int __devexit cyttsp_remove(struct i2c_client *client)
