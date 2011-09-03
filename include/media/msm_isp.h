@@ -58,6 +58,7 @@
 #define MSG_ID_STATS_AWB_AEC            39
 #define MSG_ID_OUTPUT_PRIMARY           40
 #define MSG_ID_OUTPUT_SECONDARY         41
+#define MSG_ID_STATS_COMPOSITE          42
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
