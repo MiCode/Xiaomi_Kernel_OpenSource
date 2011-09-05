@@ -2563,6 +2563,15 @@ static int tavarua_vidioc_g_ctrl(struct file *file, void *priv,
 			ctrl->value = radio->registers[ADVCTRL];
 		msleep(TAVARUA_DELAY*5);
 		break;
+	case V4L2_CID_PRIVATE_TAVARUA_RSSI_DELTA:
+		retval = sync_read_xfr(radio, RX_CONFIG, xfr_buf);
+		if (retval < 0) {
+			FMDERR("V4L2_CID_PRIVATE_TAVARUA_RSSI_DELTA]\n");
+			FMDERR("sync_read_xfr [retval=%d]\n", retval);
+			break;
+		}
+		ctrl->value = (unsigned char)xfr_buf[4];
+		break;
 	case V4L2_CID_PRIVATE_TAVARUA_RDSD_BUF:
 		retval = sync_read_xfr(radio, RDS_CONFIG, xfr_buf);
 		if (retval > -1)
