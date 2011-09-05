@@ -767,10 +767,6 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 
 	dev_priv->device->active_cnt++;
 
-	/* Don't wait forever, set a max value for now */
-	if (param->timeout == -1)
-		param->timeout = 10 * MSEC_PER_SEC;
-
 	result = dev_priv->device->ftbl->waittimestamp(dev_priv->device,
 					param->timestamp,
 					param->timeout);
