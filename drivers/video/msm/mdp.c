@@ -541,7 +541,7 @@ void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd)
 #ifdef CONFIG_FB_MSM_MDP303
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
-		mipi_dsi_cmd_mdp_sw_trigger();
+		mipi_dsi_cmd_mdp_start();
 #endif
 
 #endif

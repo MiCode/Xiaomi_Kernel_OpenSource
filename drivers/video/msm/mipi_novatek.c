@@ -445,6 +445,7 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 	/* mdp4_dsi_cmd_busy_wait: will turn on dsi clock also */
 	mdp4_dsi_cmd_dma_busy_wait(mfd);
 	mdp4_dsi_blt_dmap_busy_wait(mfd);
+	mipi_dsi_mdp_busy_wait(mfd);
 
 	led_pwm1[1] = (unsigned char)(mfd->bl_level);
 	mipi_dsi_cmds_tx(mfd, &novatek_tx_buf, novatek_cmd_backlight_cmds,
