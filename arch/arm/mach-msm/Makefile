@@ -76,7 +76,9 @@ obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o
 ifndef CONFIG_ARCH_MSM8960
 ifndef CONFIG_ARCH_MSM8X60
 	obj-$(CONFIG_MSM_SMD) += pmic.o
-	obj-$(CONFIG_MSM_SMD) += nand_partitions.o
+ifndef CONFIG_ARCH_APQ8064
+	obj-y += nand_partitions.o
+endif
 	obj-$(CONFIG_MSM_ONCRPCROUTER) += rpc_hsusb.o rpc_pmapp.o rpc_fsusb.o
 endif
 endif
