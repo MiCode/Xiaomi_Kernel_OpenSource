@@ -85,7 +85,9 @@ static void rfcomm_process_connect(struct rfcomm_session *s);
 static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src,
 							bdaddr_t *dst,
 							u8 sec_level,
-							int *err);
+							int *err,
+							u8 channel,
+							struct rfcomm_dlc *d);
 static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst);
 static void rfcomm_session_del(struct rfcomm_session *s);
 
@@ -408,31 +410,31 @@ static int __rfcomm_dlc_open(struct rfcomm_dlc *d, bdaddr_t *src, bdaddr_t *dst,
 
 	s = rfcomm_session_get(src, dst);
 	if (!s) {
-		s = rfcomm_session_create(src, dst, d->sec_level, &err);
+		s = rfcomm_session_create(src, dst,
+						d->sec_level, &err, channel, d);
 		if (!s)
 			return err;
+	} else {
+		dlci = __dlci(!s->initiator, channel);
+
+		/* Check if DLCI already exists */
+		if (rfcomm_dlc_get(s, dlci))
+			return -EBUSY;
+
+		rfcomm_dlc_clear_state(d);
+
+		d->dlci     = dlci;
+		d->addr     = __addr(s->initiator, dlci);
+		d->priority = 7;
+
+		d->state = BT_CONFIG;
+		rfcomm_dlc_link(s, d);
+
+		d->out = 1;
+
+		d->mtu = s->mtu;
+		d->cfc = (s->cfc == RFCOMM_CFC_UNKNOWN) ? 0 : s->cfc;
 	}
-
-	dlci = __dlci(!s->initiator, channel);
-
-	/* Check if DLCI already exists */
-	if (rfcomm_dlc_get(s, dlci))
-		return -EBUSY;
-
-	rfcomm_dlc_clear_state(d);
-
-	d->dlci     = dlci;
-	d->addr     = __addr(s->initiator, dlci);
-	d->priority = 7;
-
-	d->state = BT_CONFIG;
-	rfcomm_dlc_link(s, d);
-
-	d->out = 1;
-
-	d->mtu = s->mtu;
-	d->cfc = (s->cfc == RFCOMM_CFC_UNKNOWN) ? 0 : s->cfc;
-
 	if (s->state == BT_CONNECTED) {
 		if (rfcomm_check_security(d))
 			rfcomm_send_pn(s, 1, d);
@@ -688,12 +690,15 @@ static void rfcomm_session_close(struct rfcomm_session *s, int err)
 static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src,
 							bdaddr_t *dst,
 							u8 sec_level,
-							int *err)
+							int *err,
+							u8 channel,
+							struct rfcomm_dlc *d)
 {
 	struct rfcomm_session *s = NULL;
 	struct sockaddr_l2 addr;
 	struct socket *sock;
 	struct sock *sk;
+	u8 dlci;
 
 	BT_DBG("%s %s", batostr(src), batostr(dst));
 
@@ -730,11 +735,30 @@ static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src,
 	addr.l2_family = AF_BLUETOOTH;
 	addr.l2_psm    = cpu_to_le16(RFCOMM_PSM);
 	addr.l2_cid    = 0;
+	dlci = __dlci(!s->initiator, channel);
+
+	/* Check if DLCI already exists */
+	if (rfcomm_dlc_get(s, dlci))
+		return NULL;
+
+	rfcomm_dlc_clear_state(d);
+
+	d->dlci     = dlci;
+	d->addr     = __addr(s->initiator, dlci);
+	d->priority = 7;
+
+	d->state = BT_CONFIG;
+	rfcomm_dlc_link(s, d);
+
+	d->out = 1;
+
+	d->mtu = s->mtu;
+	d->cfc = (s->cfc == RFCOMM_CFC_UNKNOWN) ? 0 : s->cfc;
 	*err = kernel_connect(sock, (struct sockaddr *) &addr, sizeof(addr), O_NONBLOCK);
 	if (*err == 0 || *err == -EINPROGRESS)
 		return s;
-
-	rfcomm_session_del(s);
+	BT_ERR("error ret is %d, going to delete session", *err);
+	rfcomm_dlc_unlink(d);
 	return NULL;
 
 failed:
