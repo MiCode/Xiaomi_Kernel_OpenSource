@@ -294,6 +294,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_SELFTEST:
 	case MXT_SPT_CTECONFIG:
 	case MXT_SPT_USERDATA:
+	case MXT_SPT_DIGITIZER:
 		return true;
 	default:
 		return false;
@@ -319,6 +320,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_SELFTEST:
 	case MXT_SPT_CTECONFIG:
 	case MXT_SPT_USERDATA:
+	case MXT_SPT_DIGITIZER:
 		return true;
 	default:
 		return false;
