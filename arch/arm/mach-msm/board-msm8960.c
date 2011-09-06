@@ -82,6 +82,7 @@
 #include "mpm.h"
 #include "acpuclock.h"
 #include "rpm_log.h"
+#include "smd_private.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -4053,6 +4054,9 @@ static void __init msm8960_cdp_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
+
+	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
+		pr_err("meminfo_init() failed!\n");
 
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,

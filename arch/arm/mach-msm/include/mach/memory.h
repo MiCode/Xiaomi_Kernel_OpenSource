@@ -22,6 +22,8 @@
 
 #define MAX_PHYSMEM_BITS 32
 #define SECTION_SIZE_BITS 28
+/* Maximum number of Memory Regions */
+#define MAX_NR_REGIONS 4
 
 /* Certain configurations of MSM7x30 have multiple memory banks.
 *  One or more of these banks can contain holes in the memory map as well.
