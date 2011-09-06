@@ -70,6 +70,8 @@ struct tabla_priv {
 	u32 anc_slot;
 
 	bool no_mic_headset_override;
+	/* Delayed work to report long button press */
+	struct delayed_work btn0_dwork;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -2164,6 +2166,28 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static void btn0_lpress_fn(struct work_struct *work)
+{
+	struct delayed_work *delayed_work;
+	struct tabla_priv *tabla;
+
+	pr_debug("%s:\n", __func__);
+
+	delayed_work = to_delayed_work(work);
+	tabla = container_of(delayed_work, struct tabla_priv, btn0_dwork);
+
+	if (tabla) {
+		if (tabla->button_jack) {
+			pr_debug("%s: Reporting long button press event\n",
+					__func__);
+			snd_soc_jack_report(tabla->button_jack, SND_JACK_BTN_0,
+					SND_JACK_BTN_0);
+		}
+	} else {
+		pr_err("%s: Bad tabla private data\n", __func__);
+	}
+
+}
 int tabla_hs_detect(struct snd_soc_codec *codec,
 	struct snd_soc_jack *headset_jack, struct snd_soc_jack *button_jack,
 	struct tabla_mbhc_calibration *calibration)
@@ -2178,36 +2202,34 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	tabla->button_jack = button_jack;
 	tabla->calibration = calibration;
 
+	INIT_DELAYED_WORK(&tabla->btn0_dwork, btn0_lpress_fn);
 	return tabla_codec_enable_hs_detect(codec, 1);
 }
 EXPORT_SYMBOL_GPL(tabla_hs_detect);
 
-#define TABLA_BUTTON_MARGIN_ERROR 4
 static irqreturn_t tabla_dce_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	short bias_value, bias_value2;
+	short bias_value;
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
 	bias_value = tabla_codec_read_dce_result(codec);
-	pr_debug("button press interrupt, bias value is %d\n", bias_value);
+	pr_debug("%s: button press interrupt, bias value is %d\n",
+			__func__, bias_value);
 
-	/* Do another DCE to make sure button voltage is the same */
-	bias_value2 = tabla_codec_measure_micbias_voltage(codec, 1);
-	pr_debug("button press part 2, bias value is %d\n", bias_value2);
+	/*
+	 * TODO: If button pressed is not button 0,
+	 * report the button press event immediately.
+	 */
+	priv->buttons_pressed |= SND_JACK_BTN_0;
 
-	if (abs(bias_value - bias_value2) < TABLA_BUTTON_MARGIN_ERROR) {
-		if (priv->button_jack)
-			snd_soc_jack_report(priv->button_jack, SND_JACK_BTN_0,
-				SND_JACK_BTN_0);
-
-		priv->buttons_pressed |= SND_JACK_BTN_0;
-	}
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x09);
 	msleep(100);
+
+	schedule_delayed_work(&priv->btn0_dwork, msecs_to_jiffies(400));
 
 	return IRQ_HANDLED;
 }
@@ -2216,13 +2238,46 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
+	int ret, mic_voltage;
+
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
-		pr_debug("%s: Button released\n", __func__);
-		if (priv->button_jack)
-			snd_soc_jack_report(priv->button_jack, 0,
-				SND_JACK_BTN_0);
+		ret = cancel_delayed_work(&priv->btn0_dwork);
+
+		if (ret == 0) {
+
+			pr_debug("%s: Reporting long button release event\n",
+					__func__);
+			if (priv->button_jack) {
+				snd_soc_jack_report(priv->button_jack, 0,
+					SND_JACK_BTN_0);
+			}
+
+		} else {
+
+			mic_voltage =
+				tabla_codec_measure_micbias_voltage(codec, 0);
+			pr_debug("%s: Microphone Voltage on release = %d\n",
+						__func__, mic_voltage);
+
+			if (mic_voltage < -2000 || mic_voltage > -670) {
+				pr_debug("%s: Fake buttton press interrupt\n",
+						__func__);
+			} else {
+
+				if (priv->button_jack) {
+					pr_debug("%s:reporting short button press and release\n",
+							__func__);
+
+					snd_soc_jack_report(priv->button_jack,
+						SND_JACK_BTN_0, SND_JACK_BTN_0);
+					snd_soc_jack_report(priv->button_jack,
+						0, SND_JACK_BTN_0);
+				}
+			}
+		}
 
 		priv->buttons_pressed &= ~SND_JACK_BTN_0;
 	}
