@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <mach/sdio_smem.h>
 #include <linux/wakelock.h>
+#include <linux/uaccess.h>
 
 #include <sdio_al_private.h>
 #include <linux/debugfs.h>
@@ -67,6 +68,7 @@ enum lpm_test_msg_type {
 #define SDIO_LPM_TEST "sdio_lpm_test_reading_task"
 #define LPM_TEST_CONFIG_SIGNATURE 0xDEADBABE
 #define LPM_MSG_NAME_SIZE 20
+#define MAX_STR_SIZE	10
 
 #define A2_HEADER_OVERHEAD 8
 
@@ -333,6 +335,44 @@ static void sdio_al_test_initial_dev_and_chan(struct test_context *test_ctx)
 
 static int message_repeat;
 
+static int sdio_al_test_extract_number(const char __user *buf,
+					size_t count)
+{
+	int ret = 0;
+	int number = -1;
+	char local_buf[MAX_STR_SIZE] = {0};
+	char *start = NULL;
+
+	if (count > MAX_STR_SIZE) {
+		pr_err(TEST_MODULE_NAME ": %s - MAX_STR_SIZE(%d) < count(%d). "
+		       "Please choose smaller number\n",
+		       __func__, MAX_STR_SIZE, (int)count);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(local_buf, buf, count)) {
+		pr_err(TEST_MODULE_NAME ": %s - copy_from_user() failed\n",
+		       __func__);
+		return -EINVAL;
+	}
+
+	/* adding null termination to the string */
+	local_buf[count] = '\0';
+
+	/* stripping leading and trailing white spaces */
+	start = strstrip(local_buf);
+
+	ret = kstrtoint(start, 10, &number);
+
+	if (ret) {
+		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
+		       __func__);
+		return ret;
+	}
+
+	return number;
+}
+
 static int sdio_al_test_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -368,16 +408,17 @@ static ssize_t rpc_sender_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RPC SENDER TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -431,16 +472,17 @@ static ssize_t rpc_qmi_diag_sender_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RPC, QMI AND DIAG SENDER TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -497,16 +539,17 @@ static ssize_t smem_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- SMEM TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -560,16 +603,17 @@ static ssize_t smem_rpc_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- SMEM AND RPC TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -624,16 +668,17 @@ static ssize_t rmnet_a2_perf_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RMNET A2 PERFORMANCE TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -687,16 +732,17 @@ static ssize_t dun_a2_perf_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- DUN A2 PERFORMANCE TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -750,16 +796,17 @@ static ssize_t rmnet_dun_a2_perf_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RMNET AND DUN A2 PERFORMANCE TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -815,16 +862,17 @@ static ssize_t rpc_sender_rmnet_a2_perf_test_write(struct file *file,
 	pr_info(TEST_MODULE_NAME "--RPC SENDER AND RMNET A2 "
 		"PERFORMANCE --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -879,16 +927,17 @@ static ssize_t all_channels_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- ALL THE CHANNELS TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -948,16 +997,17 @@ static ssize_t host_sender_no_lp_diag_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- HOST SENDER NO LP FOR DIAG TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1013,16 +1063,17 @@ static ssize_t host_sender_no_lp_diag_rpc_ciq_test_write(
 	pr_info(TEST_MODULE_NAME "-- HOST SENDER NO LP FOR DIAG, RPC, "
 		"CIQ TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1079,16 +1130,17 @@ static ssize_t rmnet_small_packets_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RMNET SMALL PACKETS (5-128) TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1142,16 +1194,17 @@ static ssize_t rmnet_rtt_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- RMNET RTT TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1205,16 +1258,17 @@ static ssize_t modem_reset_rpc_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- MODEM RESET - RPC CHANNEL TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1268,16 +1322,17 @@ static ssize_t modem_reset_rmnet_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- MODEM RESET - RMNT CHANNEL TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1333,16 +1388,17 @@ static ssize_t modem_reset_channels_4bit_dev_test_write(
 	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS IN "
 		"4BIT DEVICE TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1401,16 +1457,17 @@ static ssize_t modem_reset_channels_8bit_dev_test_write(
 	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS IN "
 		"8BIT DEVICE TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1467,16 +1524,17 @@ static ssize_t modem_reset_all_channels_test_write(struct file *file,
 
 	pr_info(TEST_MODULE_NAME "-- MODEM RESET - ALL CHANNELS TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1537,16 +1595,17 @@ static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
 	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE FOR "
 		"DIAG, CIQ AND RPC TEST --");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1615,16 +1674,17 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 	pr_info(TEST_MODULE_NAME "-- CLOSE CHANNEL & LPM TEST "
 		"HOST WAKES THE CLIENT TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1701,16 +1761,17 @@ static ssize_t lpm_test_client_wakes_host_test_write(struct file *file,
 	pr_info(TEST_MODULE_NAME "-- LPM TEST FOR DEVICE 1. CLIENT "
 		"WAKES THE HOST TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1769,16 +1830,17 @@ static ssize_t lpm_test_host_wakes_client_test_write(struct file *file,
 	pr_info(TEST_MODULE_NAME "-- LPM TEST FOR DEVICE 1. HOST "
 		"WAKES THE CLIENT TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1838,16 +1900,17 @@ static ssize_t lpm_test_random_single_channel_test_write(
 	pr_info(TEST_MODULE_NAME "-- LPM TEST RANDOM SINGLE "
 		"CHANNEL TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
@@ -1916,16 +1979,17 @@ static ssize_t lpm_test_random_multi_channel_test_write(
 
 	pr_info(TEST_MODULE_NAME "-- LPM TEST RANDOM MULTI CHANNEL TEST --\n");
 
-	ret = kstrtoint(buf, 10, &number);
-	if (ret) {
-		pr_err(TEST_MODULE_NAME " : %s - kstrtoint() failed\n",
-		       __func__);
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
 		return count;
 	}
 
 	for (i = 0 ; i < number ; ++i) {
-		pr_info(TEST_MODULE_NAME " - Cycle # %d\n", i+1);
-		pr_info(TEST_MODULE_NAME " ===============");
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
 
 		sdio_al_test_initial_dev_and_chan(test_ctx);
 
