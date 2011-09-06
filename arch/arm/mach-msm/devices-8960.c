@@ -1214,7 +1214,7 @@ static struct resource msm_mipi_dsi1_resources[] = {
 	{
 		.name   = "mipi_dsi",
 		.start  = MIPI_DSI_HW_BASE,
-		.end    = MIPI_DSI_HW_BASE + 0x00100000,
+		.end    = MIPI_DSI_HW_BASE + 0x000F0000 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
@@ -1235,7 +1235,7 @@ static struct resource msm_mdp_resources[] = {
 	{
 		.name   = "mdp",
 		.start  = MDP_HW_BASE,
-		.end    = MDP_HW_BASE + 0x00100000,
+		.end    = MDP_HW_BASE + 0x000F0000 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
