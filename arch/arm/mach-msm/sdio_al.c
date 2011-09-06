@@ -3342,7 +3342,7 @@ static int sdio_al_sdio_probe(struct sdio_func *func,
 	sdio_claim_host(card->sdio_func[0]);
 
 	/* Init Func#1 */
-	ret = sdio_enable_func(card->sdio_func[0]);
+	ret = sdio_al_enable_func_retry(card->sdio_func[0], "Init Func#1");
 	if (ret) {
 		pr_err(MODULE_NAME ":Fail to enable Func#%d\n",
 		       card->sdio_func[0]->num);
