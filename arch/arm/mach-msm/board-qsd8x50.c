@@ -2401,9 +2401,6 @@ early_param("audio_size", audio_size_setup);
 
 static void __init qsd8x50_init(void)
 {
-	if (socinfo_init() < 0)
-		printk(KERN_ERR "%s: socinfo_init() failed!\n",
-		       __func__);
 	msm_clock_init(&qds8x50_clock_init_data);
 	qsd8x50_cfg_smc91x();
 	acpuclk_init(&acpuclk_8x50_soc_data);
@@ -2515,6 +2512,9 @@ static void __init qsd8x50_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_qsd8x50_io();
 	qsd8x50_allocate_memory_regions();
+	if (socinfo_init() < 0)
+		printk(KERN_ERR "%s: socinfo_init() failed!\n",
+		       __func__);
 }
 
 MACHINE_START(QSD8X50_SURF, "QCT QSD8X50 SURF")

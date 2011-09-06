@@ -391,9 +391,6 @@ static int __init l2x0_cache_init(void){ return 0; }
 
 void __init msm9615_device_init(void)
 {
-	if (socinfo_init() < 0)
-		pr_err("socinfo_init() failed!\n");
-
 	msm_clock_init(&msm9615_clock_init_data);
 	acpuclk_init(&acpuclk_9615_soc_data);
 }
@@ -404,6 +401,8 @@ void __init msm9615_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm9615_io();
 	l2x0_cache_init();
+	if (socinfo_init() < 0)
+		pr_err("socinfo_init() failed!\n");
 }
 
 void __init msm9615_init_irq(void)

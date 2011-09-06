@@ -274,6 +274,8 @@ static void __init apq8064_init_mmc(void)
 static void __init apq8064_map_io(void)
 {
 	msm_map_apq8064_io();
+	if (socinfo_init() < 0)
+		pr_err("socinfo_init() failed!\n");
 }
 
 static void __init apq8064_init_irq(void)

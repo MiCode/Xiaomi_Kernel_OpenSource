@@ -697,9 +697,6 @@ struct platform_device asoc_msm_dai1 = {
 
 int __init msm7x2x_misc_init(void)
 {
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed!\n", __func__);
-
 	msm_clock_init(&msm7x27a_clock_init_data);
 	if (cpu_is_msm7x27aa())
 		acpuclk_init(&acpuclk_7x27aa_soc_data);
@@ -732,6 +729,9 @@ void __init msm_common_io_init(void)
 {
 	msm_map_common_io();
 	msm7x27x_cache_init();
+	if (socinfo_init() < 0)
+		pr_err("%s: socinfo_init() failed!\n", __func__);
+
 }
 
 struct platform_device *msm_footswitch_devices[] = {
