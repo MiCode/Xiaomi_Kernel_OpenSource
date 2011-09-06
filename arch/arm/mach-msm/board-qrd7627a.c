@@ -24,6 +24,8 @@
 #include <linux/bootmem.h>
 #include <linux/mfd/marimba.h>
 #include <linux/power_supply.h>
+#include <linux/input/rmi_platformdata.h>
+#include <linux/input/rmi_i2c.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -956,6 +958,136 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #endif
 
 #endif
+
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
+defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
+
+#ifndef CLEARPAD3000_ATTEN_GPIO
+#define CLEARPAD3000_ATTEN_GPIO (48)
+#endif
+
+#ifndef CLEARPAD3000_RESET_GPIO
+#define CLEARPAD3000_RESET_GPIO (26)
+#endif
+
+static int synaptics_touchpad_setup(void);
+
+static struct msm_gpio clearpad3000_cfg_data[] = {
+	{GPIO_CFG(CLEARPAD3000_ATTEN_GPIO, 0, GPIO_CFG_INPUT,
+			GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "rmi4_attn"},
+	{GPIO_CFG(CLEARPAD3000_RESET_GPIO, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA), "rmi4_reset"},
+};
+
+static struct rmi_XY_pair rmi_offset = {.x = 0, .y = 0};
+static struct rmi_range rmi_clipx = {.min = 48, .max = 980};
+static struct rmi_range rmi_clipy = {.min = 7, .max = 1647};
+static struct rmi_f11_functiondata synaptics_f11_data = {
+	.swap_axes = false,
+	.flipX = false,
+	.flipY = false,
+	.offset = &rmi_offset,
+	.button_height = 113,
+	.clipX = &rmi_clipx,
+	.clipY = &rmi_clipy,
+};
+
+#define MAX_LEN		100
+
+static ssize_t clearpad3000_virtual_keys_register(struct kobject *kobj,
+		     struct kobj_attribute *attr, char *buf)
+{
+	char *virtual_keys = __stringify(EV_KEY) ":" __stringify(KEY_MENU) \
+			     ":60:830:120:60" ":" __stringify(EV_KEY) \
+			     ":" __stringify(KEY_HOME)   ":180:830:120:60" \
+				":" __stringify(EV_KEY) ":" \
+				__stringify(KEY_SEARCH) ":300:830:120:60" \
+				":" __stringify(EV_KEY) ":" \
+			__stringify(KEY_BACK)   ":420:830:120:60" "\n";
+
+	return snprintf(buf, strnlen(virtual_keys, MAX_LEN) + 1 , "%s",
+			virtual_keys);
+}
+
+static struct kobj_attribute clearpad3000_virtual_keys_attr = {
+	.attr = {
+		.name = "virtualkeys.sensor00fn11",
+		.mode = S_IRUGO,
+	},
+	.show = &clearpad3000_virtual_keys_register,
+};
+
+static struct attribute *virtual_key_properties_attrs[] = {
+	&clearpad3000_virtual_keys_attr.attr,
+	NULL
+};
+
+static struct attribute_group virtual_key_properties_attr_group = {
+	.attrs = virtual_key_properties_attrs,
+};
+
+struct kobject *virtual_key_properties_kobj;
+
+static struct rmi_functiondata synaptics_functiondata[] = {
+	{
+		.function_index = RMI_F11_INDEX,
+		.data = &synaptics_f11_data,
+	},
+};
+
+static struct rmi_functiondata_list synaptics_perfunctiondata = {
+	.count = ARRAY_SIZE(synaptics_functiondata),
+	.functiondata = synaptics_functiondata,
+};
+
+static struct rmi_sensordata synaptics_sensordata = {
+	.perfunctiondata = &synaptics_perfunctiondata,
+	.rmi_sensor_setup	= synaptics_touchpad_setup,
+};
+
+static struct rmi_i2c_platformdata synaptics_platformdata = {
+	.i2c_address = 0x2c,
+	.irq_type = IORESOURCE_IRQ_LOWLEVEL,
+	.sensordata = &synaptics_sensordata,
+};
+
+static struct i2c_board_info synaptic_i2c_clearpad3k[] = {
+	{
+	I2C_BOARD_INFO("rmi4_ts", 0x2c),
+	.platform_data = &synaptics_platformdata,
+	},
+};
+
+static int synaptics_touchpad_setup(void)
+{
+	int retval = 0;
+
+	virtual_key_properties_kobj =
+		kobject_create_and_add("board_properties", NULL);
+	if (virtual_key_properties_kobj)
+		retval = sysfs_create_group(virtual_key_properties_kobj,
+				&virtual_key_properties_attr_group);
+	if (!virtual_key_properties_kobj || retval)
+		pr_err("failed to create ft5202 board_properties\n");
+
+	retval = msm_gpios_request_enable(clearpad3000_cfg_data,
+		    sizeof(clearpad3000_cfg_data)/sizeof(struct msm_gpio));
+	if (retval) {
+		pr_err("%s:Failed to obtain touchpad GPIO %d. Code: %d.",
+				__func__, CLEARPAD3000_ATTEN_GPIO, retval);
+		retval = 0; /* ignore the err */
+	}
+	synaptics_platformdata.irq = gpio_to_irq(CLEARPAD3000_ATTEN_GPIO);
+
+	gpio_set_value(CLEARPAD3000_RESET_GPIO, 0);
+	usleep(10000);
+	gpio_set_value(CLEARPAD3000_RESET_GPIO, 1);
+	usleep(50000);
+
+	return retval;
+}
+#endif
+
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
@@ -2061,6 +2193,14 @@ static void __init msm_qrd1_init(void)
 				ARRAY_SIZE(bahama_devices));
 	bt_power_init();
 #endif
+
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
+	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
+	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+				synaptic_i2c_clearpad3k,
+				ARRAY_SIZE(synaptic_i2c_clearpad3k));
+#endif
+
 	platform_device_register(&hs_pdev);
 
 #ifdef CONFIG_MSM_RPC_VIBRATOR
