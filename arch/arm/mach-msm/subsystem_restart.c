@@ -497,14 +497,7 @@ int subsystem_restart(const char *subsys_name)
 		break;
 
 	case RESET_SOC:
-
-		mutex_lock(&subsystem_list_lock);
-		list_for_each_entry(subsys, &subsystem_list, list)
-			if (subsys->crash_shutdown)
-				subsys->crash_shutdown(subsys);
-		mutex_unlock(&subsystem_list_lock);
-
-		panic("Resetting the SOC");
+		panic("subsys-restart: Resetting the SoC");
 		break;
 
 	default:
@@ -546,9 +539,27 @@ err:
 }
 EXPORT_SYMBOL(ssr_register_subsystem);
 
+static int ssr_panic_handler(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	struct subsys_data *subsys;
+
+	list_for_each_entry(subsys, &subsystem_list, list)
+		if (subsys->crash_shutdown)
+			subsys->crash_shutdown(subsys);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_nb = {
+	.notifier_call  = ssr_panic_handler,
+};
+
 static int __init ssr_init_soc_restart_orders(void)
 {
 	int i;
+
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&panic_nb);
 
 	if (cpu_is_msm8x60()) {
 		for (i = 0; i < ARRAY_SIZE(orders_8x60_all); i++) {
