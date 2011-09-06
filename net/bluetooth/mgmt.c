@@ -1340,7 +1340,14 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 	hci_dev_lock(hdev);
 
-	if (cp->io_cap == 0x03) {
+	cp = (void *) data;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_PAIR_DEVICE, EINVAL);
+
+	BT_DBG("SSP Cap is %d", cp->ssp_cap);
+	io_cap = cp->io_cap;
+	if ((cp->ssp_cap == 0) || (io_cap == 0x03)) {
 		sec_level = BT_SECURITY_MEDIUM;
 		auth_type = HCI_AT_DEDICATED_BONDING;
 	} else {
