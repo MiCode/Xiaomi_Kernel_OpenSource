@@ -52,6 +52,7 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v);
 static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v);
 static int voice_send_cvp_deregister_vol_cal_table_cmd(struct voice_data *v);
 static int voice_send_set_widevoice_enable_cmd(struct voice_data *v);
+static int voice_send_set_slowtalk_enable_cmd(struct voice_data *v);
 
 
 static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv);
@@ -1754,6 +1755,60 @@ fail:
 	return -EINVAL;
 }
 
+static int voice_send_set_slowtalk_enable_cmd(struct voice_data *v)
+{
+	struct cvs_set_slowtalk_enable_cmd cvs_set_st_cmd;
+	int ret = 0;
+	void *apr_cvs;
+	u16 cvs_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_cvs = common.apr_q6_cvs;
+
+	if (!apr_cvs) {
+		pr_err("%s: apr_cvs is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	cvs_handle = voice_get_cvs_handle(v);
+
+	/* fill in the header */
+	cvs_set_st_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvs_set_st_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(cvs_set_st_cmd) - APR_HDR_SIZE);
+	cvs_set_st_cmd.hdr.src_port = v->session_id;
+	cvs_set_st_cmd.hdr.dest_port = cvs_handle;
+	cvs_set_st_cmd.hdr.token = 0;
+	cvs_set_st_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_UI_PROPERTY;
+
+	cvs_set_st_cmd.vss_set_st.module_id = MODULE_ID_VOICE_MODULE_ST;
+	cvs_set_st_cmd.vss_set_st.param_id = VOICE_PARAM_MOD_ENABLE;
+	cvs_set_st_cmd.vss_set_st.param_size = MOD_ENABLE_PARAM_LEN;
+	cvs_set_st_cmd.vss_set_st.reserved = 0;
+	cvs_set_st_cmd.vss_set_st.enable = v->st_enable;
+	cvs_set_st_cmd.vss_set_st.reserved_field = 0;
+
+	v->cvs_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_st_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending cvs set slowtalk enable,\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->cvs_wait,
+		(v->cvs_state == CMD_STATUS_SUCCESS),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
+	}
+	return 0;
+fail:
+	return -EINVAL;
+}
+
 static int voice_setup_vocproc(struct voice_data *v)
 {
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
@@ -1851,6 +1906,10 @@ static int voice_setup_vocproc(struct voice_data *v)
 	/* enable widevoice if wv_enable is set */
 	if (v->wv_enable)
 		voice_send_set_widevoice_enable_cmd(v);
+
+	/* enable slowtalk if st_enable is set */
+	if (v->st_enable)
+		voice_send_set_slowtalk_enable_cmd(v);
 
 	if (is_voip_session(v->session_id))
 		voice_send_netid_timing_cmd(v);
@@ -2333,6 +2392,10 @@ int voc_enable_cvp(uint16_t session_id)
 		if (v->wv_enable)
 			voice_send_set_widevoice_enable_cmd(v);
 
+		/* enable slowtalk */
+		if (v->st_enable)
+			voice_send_set_slowtalk_enable_cmd(v);
+
 		get_sidetone_cal(&sidetone_cal_data);
 		ret = afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
 						sidetone_cal_data.enable,
@@ -2450,6 +2513,49 @@ uint32_t voc_get_widevoice_enable(uint16_t session_id)
 	mutex_lock(&v->lock);
 
 	ret = v->wv_enable;
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+int voc_set_slowtalk_enable(uint16_t session_id, uint32_t st_enable)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+
+		return -EINVAL;
+	}
+
+	mutex_lock(&v->lock);
+
+	v->st_enable = st_enable;
+
+	if (v->voc_state == VOC_RUN)
+		ret = voice_send_set_slowtalk_enable_cmd(v);
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+uint32_t voc_get_slowtalk_enable(uint16_t session_id)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+
+		return -EINVAL;
+	}
+
+	mutex_lock(&v->lock);
+
+	ret = v->st_enable;
 
 	mutex_unlock(&v->lock);
 
@@ -2803,6 +2909,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA:
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
 			case VSS_ICOMMON_CMD_UNMAP_MEMORY:
+			case VSS_ICOMMON_CMD_SET_UI_PROPERTY:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);

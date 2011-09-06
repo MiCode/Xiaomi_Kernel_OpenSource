@@ -51,6 +51,8 @@ enum {
 };
 
 /* Common */
+#define VSS_ICOMMON_CMD_SET_UI_PROPERTY 0x00011103
+/* Set a UI property */
 #define VSS_ICOMMON_CMD_MAP_MEMORY   0x00011025
 #define VSS_ICOMMON_CMD_UNMAP_MEMORY 0x00011026
 /* General shared memory; byte-accessible, 4 kB-aligned. */
@@ -312,6 +314,10 @@ struct mvm_set_widevoice_enable_cmd {
 #define VSS_ISTREAM_CMD_SET_ENC_DTX_MODE		0x0001101D
 /* Set encoder DTX mode. */
 
+#define MODULE_ID_VOICE_MODULE_ST			0x00010EE3
+#define VOICE_PARAM_MOD_ENABLE				0x00010E00
+#define MOD_ENABLE_PARAM_LEN				4
+
 struct vss_istream_cmd_create_passive_control_session_t {
 	char name[SESSION_NAME_LEN];
 	/**<
@@ -456,6 +462,20 @@ struct vss_istream_cmd_register_calibration_data_t {
 	/* Size of the calibration data in bytes. */
 };
 
+struct vss_icommon_cmd_set_ui_property_st_enable_t {
+	uint32_t module_id;
+	/* Unique ID of the module. */
+	uint32_t param_id;
+	/* Unique ID of the parameter. */
+	uint16_t param_size;
+	/* Size of the parameter in bytes: MOD_ENABLE_PARAM_LEN */
+	uint16_t reserved;
+	/* Reserved; set to 0. */
+	uint16_t enable;
+	uint16_t reserved_field;
+	/* Reserved, set to 0. */
+};
+
 struct cvs_create_passive_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_create_passive_control_session_t cvs_session;
@@ -512,6 +532,11 @@ struct cvs_register_cal_data_cmd {
 
 struct cvs_deregister_cal_data_cmd {
 	struct apr_hdr hdr;
+} __packed;
+
+struct cvs_set_slowtalk_enable_cmd {
+	struct apr_hdr hdr;
+	struct vss_icommon_cmd_set_ui_property_st_enable_t vss_set_st;
 } __packed;
 
 /* TO CVP commands */
@@ -759,6 +784,8 @@ struct voice_data {
 	uint8_t tty_mode;
 	/* widevoice enable value */
 	uint8_t wv_enable;
+	/* slowtalk enable value */
+	uint32_t st_enable;
 
 	struct voice_dev_route_state voc_route_state;
 
@@ -807,6 +834,8 @@ enum {
 };
 
 /* called  by alsa driver */
+int voc_set_slowtalk_enable(uint16_t session_id, uint32_t st_enable);
+uint32_t voc_get_slowtalk_enable(uint16_t session_id);
 int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable);
 uint32_t voc_get_widevoice_enable(uint16_t session_id);
 uint8_t voc_get_tty_mode(uint16_t session_id);
