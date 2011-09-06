@@ -293,7 +293,6 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.maximum	=	1,
 	.default_value	=	0,
 	},
-
 	{
 	.id	=	V4L2_CID_PRIVATE_IRIS_TX_SETPSREPEATCOUNT,
 	.type	=	V4L2_CTRL_TYPE_INTEGER,
@@ -326,7 +325,7 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_ADDR,
 	.type	=	V4L2_CTRL_TYPE_BOOLEAN,
 	.name	=	"Riva addr",
-	.minimum	=	0,
+	.minimum	=	0x3180000,
 	.maximum	=	0x31E0004,
 	},
 	{
@@ -347,14 +346,14 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.id	=	V4L2_CID_PRIVATE_IRIS_RIVA_POKE,
 	.type	=	V4L2_CTRL_TYPE_INTEGER,
 	.name	=	"Riva poke",
-	.minimum	=	0,
+	.minimum	=	0x3180000,
 	.maximum	=	0x31E0004,
 	},
 	{
 	.id	=	V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR,
 	.type	=	V4L2_CTRL_TYPE_INTEGER,
 	.name	=	"Ssbi addr",
-	.minimum	=	0,
+	.minimum	=	0x280,
 	.maximum	=	0x37F,
 	},
 	{
@@ -375,6 +374,20 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.id =	 V4L2_CID_PRIVATE_IRIS_HLSI,
 	.type	=	V4L2_CTRL_TYPE_INTEGER,
 	.name	=	"set hlsi",
+	.minimum	=	0,
+	.maximum	=	2,
+	},
+	{
+	.id =	 V4L2_CID_PRIVATE_IRIS_RDS_GRP_COUNTERS,
+	.type	=	V4L2_CTRL_TYPE_BOOLEAN,
+	.name	=	"RDS grp",
+	.minimum	=	0,
+	.maximum	=	1,
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_SET_NOTCH_FILTER,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Notch filter",
 	.minimum	=	0,
 	.maximum	=	2,
 	},
@@ -865,6 +878,20 @@ static int hci_def_data_write_req(struct radio_hci_dev *hdev,
 	def_data_wr);
 }
 
+static int hci_set_notch_filter_req(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	__u16 opcode = 0;
+	__u8 notch_filter_val = param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+		HCI_OCF_FM_EN_NOTCH_CTRL);
+	return radio_hci_send_cmd(hdev, opcode, sizeof(notch_filter_val),
+	&notch_filter_val);
+}
+
+
+
 static int hci_fm_reset_req(struct radio_hci_dev *hdev, unsigned long param)
 {
 	__u16 opcode = 0;
@@ -902,8 +929,7 @@ static int hci_read_grp_counters_req(struct radio_hci_dev *hdev,
 	__u16 opcode = 0;
 
 	__u8 reset_counters = param;
-
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_STATUS_PARAMETERS_CMD_REQ,
 		HCI_OCF_FM_READ_GRP_COUNTERS);
 	return radio_hci_send_cmd(hdev, opcode, sizeof(reset_counters),
 		&reset_counters);
@@ -1215,13 +1241,22 @@ int hci_fm_do_calibration(__u8 *arg, struct radio_hci_dev *hdev)
 	return ret;
 }
 
-int hci_read_grp_counters(__u8 *arg, struct radio_hci_dev *hdev)
+static int hci_read_grp_counters(__u8 *arg, struct radio_hci_dev *hdev)
 {
 	int ret = 0;
 	__u8 reset_counters = *arg;
-
 	ret = radio_hci_request(hdev, hci_read_grp_counters_req,
 		reset_counters, RADIO_HCI_TIMEOUT);
+
+	return ret;
+}
+
+static int hci_set_notch_filter(__u8 *arg, struct radio_hci_dev *hdev)
+{
+	int ret = 0;
+	__u8 notch_filter = *arg;
+	ret = radio_hci_request(hdev, hci_set_notch_filter_req,
+		notch_filter, RADIO_HCI_TIMEOUT);
 
 	return ret;
 }
@@ -1386,7 +1421,6 @@ static void hci_cc_rsp(struct radio_hci_dev *hdev, struct sk_buff *skb)
 
 	if (status)
 		return;
-
 	radio_hci_req_complete(hdev, status);
 }
 
@@ -1541,11 +1575,11 @@ static void hci_cc_riva_peek_rsp(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
-	struct hci_fm_af_list_rsp  *rsp = (void *)skb->data;
+	__u8 status = *((__u8 *) skb->data);
 	int len;
 	char *data;
 
-	if (rsp->status)
+	if (status)
 		return;
 	len = skb->data[RIVA_PEEK_LEN_OFSET] + RIVA_PEEK_PARAM;
 	data = kmalloc(len, GFP_ATOMIC);
@@ -1557,7 +1591,7 @@ static void hci_cc_riva_peek_rsp(struct radio_hci_dev *hdev,
 
 	memcpy(data, &skb->data[PEEK_DATA_OFSET], len);
 	iris_q_evt_data(radio, data, len, IRIS_BUF_PEEK);
-	radio_hci_req_complete(hdev, rsp->status);
+	radio_hci_req_complete(hdev, status);
 
 
 }
@@ -1565,10 +1599,10 @@ static void hci_cc_ssbi_peek_rsp(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
-	struct hci_fm_af_list_rsp  *rsp = (void *)skb->data;
+	__u8 status = *((__u8 *) skb->data);
 	char *data;
 
-	if (rsp->status)
+	if (status)
 		return;
 	data = kmalloc(SSBI_PEEK_LEN, GFP_ATOMIC);
 	if (!data) {
@@ -1578,8 +1612,28 @@ static void hci_cc_ssbi_peek_rsp(struct radio_hci_dev *hdev,
 
 	data[0] = skb->data[PEEK_DATA_OFSET];
 	iris_q_evt_data(radio, data, SSBI_PEEK_LEN, IRIS_BUF_SSBI_PEEK);
-	radio_hci_req_complete(hdev, rsp->status);
+	radio_hci_req_complete(hdev, status);
 	kfree(data);
+}
+
+static void hci_cc_rds_grp_cntrs_rsp(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	__u8 status = *((__u8 *) skb->data);
+	char *data;
+	if (status)
+		return;
+	data = kmalloc(RDS_GRP_CNTR_LEN, GFP_ATOMIC);
+	if (!data) {
+		FMDERR("memory allocation failed");
+		return;
+	}
+	memcpy(data, &skb->data[1], RDS_GRP_CNTR_LEN);
+	iris_q_evt_data(radio, data, RDS_GRP_CNTR_LEN, IRIS_BUF_RDS_CNTRS);
+	radio_hci_req_complete(hdev, status);
+	kfree(data);
+
 }
 
 static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
@@ -1622,7 +1676,6 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_common_cmd_op_pack(HCI_OCF_FM_RESET):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_POKE_REG):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
-	case hci_status_param_op_pack(HCI_OCF_FM_READ_GRP_COUNTERS):
 	case hci_diagnostic_cmd_op_pack(HCI_FM_SET_INTERNAL_TONE_GENRATOR):
 		hci_cc_rsp(hdev, skb);
 		break;
@@ -1662,9 +1715,12 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_STATION_DBG_PARAM):
 		hci_cc_dbg_param_rsp(hdev, skb);
 		break;
-
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_SET_TRANS_CONF_REQ):
 		hci_cc_fm_trans_set_conf_rsp(hdev, skb);
+		break;
+
+	case hci_status_param_op_pack(HCI_OCF_FM_READ_GRP_COUNTERS):
+		hci_cc_rds_grp_cntrs_rsp(hdev, skb);
 		break;
 
 	default:
@@ -1690,7 +1746,6 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
 
 	len = sizeof(struct hci_fm_station_rsp);
-
 	memcpy(&radio->fm_st_rsp.station_rsp, skb_pull(skb, len), len);
 
 	iris_q_event(radio, IRIS_EVT_TUNE_SUCC);
@@ -1699,7 +1754,6 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 		if (i >= IRIS_BUF_RT_RDS)
 			kfifo_reset(&radio->data_buf[i]);
 	}
-
 	if (radio->fm_st_rsp.station_rsp.rssi)
 		iris_q_event(radio, IRIS_EVT_ABOVE_TH);
 	else
@@ -2239,7 +2293,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	unsigned long arg = 0;
 
 	switch (ctrl->id) {
-	case VL2_CID_PRIVATE_IRIS_TX_TONE:
+	case V4L2_CID_PRIVATE_IRIS_TX_TONE:
 		radio->tone_freq = ctrl->value;
 		retval = radio_hci_request(radio->fm_hdev,
 				hci_fm_tone_generator, arg,
@@ -2513,6 +2567,24 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_SSBI_PEEK:
 		radio->ssbi_peek_reg.start_address = ctrl->value;
 		hci_ssbi_peek_reg(&radio->ssbi_peek_reg, radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_RDS_GRP_COUNTERS:
+		temp_val = ctrl->value;
+		hci_read_grp_counters(&temp_val, radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_HLSI:
+		retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
+						radio->fm_hdev);
+		if (retval)
+			break;
+		radio->recv_conf.hlsi = ctrl->value;
+		retval = hci_set_fm_recv_conf(
+					&radio->recv_conf,
+						radio->fm_hdev);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_SET_NOTCH_FILTER:
+		temp_val = ctrl->value;
+		retval = hci_set_notch_filter(&temp_val, radio->fm_hdev);
 		break;
 
 	default:
