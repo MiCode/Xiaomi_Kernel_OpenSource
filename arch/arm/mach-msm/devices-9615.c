@@ -531,7 +531,51 @@ struct msm_mpm_device_data msm_mpm_dev_data = {
 	.mpm_apps_ipc_reg = MSM_APCS_GCC_BASE + 0x008,
 	.mpm_apps_ipc_val =  BIT(1),
 	.mpm_ipc_irq = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+};
 
+static uint8_t spm_wfi_cmd_sequence[] __initdata = {
+	0x00, 0x03, 0x0B, 0x00,
+	0x0f,
+};
+
+static uint8_t spm_power_collapse_without_rpm[] __initdata = {
+	0x30, 0x20, 0x10, 0x00,
+	0x50, 0x03, 0x50, 0x00,
+	0x10, 0x20, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm[] __initdata = {
+	0x30, 0x20, 0x10, 0x00,
+	0x50, 0x07, 0x50, 0x00,
+	0x10, 0x20, 0x30, 0x0f,
+};
+
+static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
+	[0] = {
+		.mode = MSM_SPM_MODE_CLOCK_GATING,
+		.notify_rpm = false,
+		.cmd = spm_wfi_cmd_sequence,
+	},
+	[1] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = false,
+		.cmd = spm_power_collapse_without_rpm,
+	},
+	[2] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = true,
+		.cmd = spm_power_collapse_with_rpm,
+	},
+};
+
+static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW0_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
 };
 
 static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
@@ -558,6 +602,7 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 
 void __init msm9615_device_init(void)
 {
+	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_clock_init(&msm9615_clock_init_data);
 	acpuclk_init(&acpuclk_9615_soc_data);
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
