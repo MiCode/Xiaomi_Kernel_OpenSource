@@ -60,8 +60,8 @@ static int msm_route_fm_vol_control;
 static const DECLARE_TLV_DB_SCALE(fm_rx_vol_gain, 0,
 			INT_FM_RX_VOL_MAX_STEPS, 0);
 
-#define INT_LPA_RX_VOL_MAX_STEPS 0x100
-#define INT_LPA_RX_VOL_GAIN 0x3FFF
+#define INT_LPA_RX_VOL_MAX_STEPS 100
+#define INT_LPA_RX_VOL_GAIN 0x2000
 
 static int msm_route_lpa_vol_control;
 static const DECLARE_TLV_DB_SCALE(lpa_rx_vol_gain, 0,
