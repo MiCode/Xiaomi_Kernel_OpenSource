@@ -487,7 +487,8 @@ static struct pll_vote_clk pll14_clk = {
 static int msm8960_update_sys_vdd(enum sys_vdd_level level)
 {
 	static const int vdd_uv[] = {
-		[NONE...LOW] =  945000,
+		[NONE]    =       0,
+		[LOW]     =  945000,
 		[NOMINAL] = 1050000,
 		[HIGH]    = 1150000,
 	};
