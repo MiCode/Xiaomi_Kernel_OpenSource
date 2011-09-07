@@ -3349,6 +3349,63 @@ static void msmsdcc_late_resume(struct early_suspend *h)
 };
 #endif
 
+void msmsdcc_print_regs(const char *name, void __iomem *base,
+			unsigned int no_of_regs)
+{
+	unsigned int i;
+
+	if (!base)
+		return;
+	pr_info("===== %s: Register Dumps @base=0x%x =====\n",
+		name, (u32)base);
+	for (i = 0; i < no_of_regs; i = i + 4) {
+		pr_info("Reg=0x%.2x: 0x%.8x, 0x%.8x, 0x%.8x, 0x%.8x.\n", i*4,
+				(u32)readl_relaxed(base + i*4),
+				(u32)readl_relaxed(base + ((i+1)*4)),
+				(u32)readl_relaxed(base + ((i+2)*4)),
+				(u32)readl_relaxed(base + ((i+3)*4)));
+	}
+}
+
+static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
+{
+	/* Dump current state of SDCC clocks, power and irq */
+	pr_info("%s: SDCC PWR is %s\n", mmc_hostname(host->mmc),
+			(host->pwr ? "ON" : "OFF"));
+	pr_info("%s: SDCC clks are %s, MCLK rate=%d\n",
+			mmc_hostname(host->mmc),
+			(host->clks_on ? "ON" : "OFF"),
+			(u32)clk_get_rate(host->clk));
+	pr_info("%s: SDCC irq is %s\n", mmc_hostname(host->mmc),
+		(host->sdcc_irq_disabled ? "disabled" : "enabled"));
+
+	/* Now dump SDCC registers. Don't print FIFO registers */
+	if (host->clks_on)
+		msmsdcc_print_regs("SDCC-CORE", host->base, 28);
+
+	if (host->curr.data) {
+		if (msmsdcc_check_dma_op_req(host->curr.data))
+			pr_info("%s: PIO mode\n", mmc_hostname(host->mmc));
+		else if (host->is_dma_mode)
+			pr_info("%s: ADM mode: busy=%d, chnl=%d, crci=%d\n",
+				mmc_hostname(host->mmc), host->dma.busy,
+				host->dma.channel, host->dma.crci);
+		else if (host->is_sps_mode)
+			pr_info("%s: SPS mode: busy=%d\n",
+				mmc_hostname(host->mmc), host->sps.busy);
+
+		pr_info("%s: xfer_size=%d, data_xfered=%d, xfer_remain=%d\n",
+			mmc_hostname(host->mmc), host->curr.xfer_size,
+			host->curr.data_xfered, host->curr.xfer_remain);
+		pr_info("%s: got_dataend=%d, prog_enable=%d,"
+			" wait_for_auto_prog_done=%d,"
+			" got_auto_prog_done=%d\n",
+			mmc_hostname(host->mmc), host->curr.got_dataend,
+			host->prog_enable, host->curr.wait_for_auto_prog_done,
+			host->curr.got_auto_prog_done);
+	}
+
+}
 static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
@@ -3365,15 +3422,14 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 	mrq = host->curr.mrq;
 
 	if (mrq && mrq->cmd) {
-		pr_info("%s: %s CMD%d\n", mmc_hostname(host->mmc),
-				__func__, mrq->cmd->opcode);
+		pr_info("%s: CMD%d: Request timeout\n", mmc_hostname(host->mmc),
+				mrq->cmd->opcode);
+		msmsdcc_dump_sdcc_state(host);
+
 		if (!mrq->cmd->error)
 			mrq->cmd->error = -ETIMEDOUT;
-		if (host->dummy_52_needed)
-			host->dummy_52_needed = 0;
+		host->dummy_52_needed = 0;
 		if (host->curr.data) {
-			pr_info("%s: %s Request timeout\n",
-					mmc_hostname(host->mmc), __func__);
 			if (mrq->data && !mrq->data->error)
 				mrq->data->error = -ETIMEDOUT;
 			host->curr.data_xfered = 0;
