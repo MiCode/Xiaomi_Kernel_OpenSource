@@ -3193,6 +3193,7 @@ static struct clk_freq_tbl clk_tbl_ijpeg[] = {
 	F_IJPEG(153600000, pll8, 1, 2,  5, NOMINAL),
 	F_IJPEG(200000000, pll2, 4, 0,  0, NOMINAL),
 	F_IJPEG(228571000, pll2, 1, 2,  7, NOMINAL),
+	F_IJPEG(266667000, pll2, 1, 1,  3, NOMINAL),
 	F_IJPEG(320000000, pll2, 1, 2,  5, HIGH),
 	F_END
 };
