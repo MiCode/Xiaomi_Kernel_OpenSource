@@ -137,8 +137,7 @@ static long ioctl_read_stats(struct msm_idle_stats_device *device,
 		device->stats = &device->stats_vector[1];
 	else
 		device->stats = &device->stats_vector[0];
-	device->stats->event = (stats->event &
-			MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED);
+	device->stats->event = 0;
 	device->stats->nr_collected = 0;
 	spin_unlock(&device->lock);
 	if (stats->nr_collected >= MSM_IDLE_STATS_NR_MAX_INTERVALS) {
@@ -217,7 +216,7 @@ void msm_idle_stats_idle_start(struct msm_idle_stats_device *device)
 		device->remaining_time =
 				hrtimer_get_remaining(&device->busy_timer);
 		if (ktime_to_us(device->remaining_time) <= 0)
-			device->remaining_time = us_to_ktime(1);
+			device->remaining_time = us_to_ktime(0);
 	} else {
 		device->remaining_time = us_to_ktime(0);
 	}
