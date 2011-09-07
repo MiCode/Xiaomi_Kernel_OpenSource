@@ -2671,6 +2671,17 @@ int sdio_close(struct sdio_channel *ch)
 					" 0x%x\n", __func__, ch->signature);
 			return -ENODEV;
 		}
+		if (sdio_al_verify_dev(ch->sdio_al_dev, __func__))
+			return -ENODEV;
+		sdio_claim_host(sdio_al_dev->card->sdio_func[0]);
+		ret = read_mailbox(sdio_al_dev, false);
+		if (ret) {
+			pr_err(MODULE_NAME ":%s: failed to read mailbox",
+			       __func__);
+			sdio_release_host(sdio_al_dev->card->sdio_func[0]);
+			return -ENODEV;
+		}
+		sdio_release_host(sdio_al_dev->card->sdio_func[0]);
 	} while (ch->read_avail > 0);
 
 	sdio_claim_host(sdio_al_dev->card->sdio_func[0]);
