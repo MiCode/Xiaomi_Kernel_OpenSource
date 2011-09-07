@@ -409,6 +409,7 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 	unsigned long irq_flags;
 	unsigned int ch_status;
 	unsigned int ch_result;
+	unsigned int valid = 0;
 	struct msm_dmov_cmd *cmd;
 	int adm = DMOV_IRQ_TO_ADM(irq);
 
@@ -430,6 +431,7 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 			continue;
 		}
 		do {
+			valid = 1;
 			ch_result = readl_relaxed(DMOV_REG(DMOV_RSLT(ch), adm));
 			if (list_empty(&dmov_conf[adm].active_commands[ch])) {
 				PRINT_ERROR("msm_datamover_irq_handler id %d, got result "
@@ -504,14 +506,14 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 		PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
 	}
 
-	if (!dmov_conf[adm].channel_active) {
+	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
 		mod_timer(&dmov_conf[adm].timer, jiffies + HZ);
 	}
 
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
-	return IRQ_HANDLED;
+	return valid ? IRQ_HANDLED : IRQ_NONE;
 }
 
 static int msm_dmov_suspend_late(struct device *dev)
