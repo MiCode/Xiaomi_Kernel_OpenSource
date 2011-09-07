@@ -34,6 +34,7 @@
 #include <linux/platform_data/qcom_wcnss_device.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
+#include <linux/i2c/atmel_mxt_ts.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -2887,6 +2888,135 @@ static struct i2c_board_info cyttsp_info[] __initdata = {
 	},
 };
 
+/* configuration data */
+static const u8 mxt_config_data[] = {
+	/* T6 Object */
+	 0, 0, 0, 0, 0, 0,
+	/* T38 Object */
+	 11, 0, 0, 6, 9, 11, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0,
+	/* T7 Object */
+	 10, 10, 50,
+	/* T8 Object */
+	 8, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T9 Object */
+	 131, 0, 0, 26, 42, 0, 32, 60, 2, 5,
+	 0, 5, 5, 34, 10, 10, 10, 10, 85, 5,
+	 255, 2, 8, 9, 9, 9, 0, 0, 5, 20,
+	 0, 5, 45, 46,
+	/* T15 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0,
+	/* T22 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 30, 0,
+	 0, 0, 255, 255, 255, 255, 0,
+	/* T24 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T25 Object */
+	 3, 0, 188, 52, 52, 33, 0, 0, 0, 0,
+	 0, 0, 0, 0,
+	/* T27 Object */
+	 0, 0, 0, 0, 0, 0, 0,
+	/* T28 Object */
+	 0, 0, 0, 8, 8, 8,
+	/* T40 Object */
+	 0, 0, 0, 0, 0,
+	/* T41 Object */
+	 0, 0, 0, 0, 0, 0,
+	/* T43 Object */
+	 0, 0, 0, 0, 0, 0,
+};
+
+#define MXT_TS_GPIO_IRQ		11
+#define MXT_TS_LDO_EN_GPIO	50
+#define MXT_TS_RESET_GPIO	52
+
+static void mxt_init_hw_liquid(void)
+{
+	int rc;
+
+	rc = gpio_request(MXT_TS_GPIO_IRQ, "mxt_ts_irq_gpio");
+	if (rc) {
+		pr_err("%s: unable to request mxt_ts_irq gpio [%d]\n",
+				__func__, MXT_TS_GPIO_IRQ);
+		return;
+	}
+
+	rc = gpio_direction_input(MXT_TS_GPIO_IRQ);
+	if (rc) {
+		pr_err("%s: unable to set_direction for mxt_ts_irq gpio [%d]\n",
+				__func__, MXT_TS_GPIO_IRQ);
+		goto err_irq_gpio_req;
+	}
+
+	rc = gpio_request(MXT_TS_LDO_EN_GPIO, "mxt_ldo_en_gpio");
+	if (rc) {
+		pr_err("%s: unable to request mxt_ldo_en gpio [%d]\n",
+				__func__, MXT_TS_LDO_EN_GPIO);
+		goto err_irq_gpio_req;
+	}
+
+	rc = gpio_direction_output(MXT_TS_LDO_EN_GPIO, 1);
+	if (rc) {
+		pr_err("%s: unable to set_direction for mxt_ldo_en gpio [%d]\n",
+				__func__, MXT_TS_LDO_EN_GPIO);
+		goto err_ldo_gpio_req;
+	}
+
+	rc = gpio_request(MXT_TS_RESET_GPIO, "mxt_reset_gpio");
+	if (rc) {
+		pr_err("%s: unable to request mxt_reset gpio [%d]\n",
+				__func__, MXT_TS_RESET_GPIO);
+		goto err_ldo_gpio_set_dir;
+	}
+
+	rc = gpio_direction_output(MXT_TS_RESET_GPIO, 1);
+	if (rc) {
+		pr_err("%s: unable to set_direction for mxt_reset gpio [%d]\n",
+				__func__, MXT_TS_RESET_GPIO);
+		goto err_reset_gpio_req;
+	}
+
+	return;
+
+err_reset_gpio_req:
+	gpio_free(MXT_TS_RESET_GPIO);
+err_ldo_gpio_set_dir:
+	gpio_set_value(MXT_TS_LDO_EN_GPIO, 0);
+err_ldo_gpio_req:
+	gpio_free(MXT_TS_LDO_EN_GPIO);
+err_irq_gpio_req:
+	gpio_free(MXT_TS_GPIO_IRQ);
+}
+
+static struct mxt_platform_data mxt_platform_data = {
+	.config			= mxt_config_data,
+	.config_length		= ARRAY_SIZE(mxt_config_data),
+	.x_line			= 26,
+	.y_line			= 42,
+	.x_size			= 767,
+	.y_size			= 1365,
+	.blen			= 32,
+	.threshold		= 40,
+	.voltage		= 3300000,		/* 3.3V */
+	.orient			= MXT_ROTATED_90,
+	.irqflags		= IRQF_TRIGGER_FALLING,
+};
+
+static struct i2c_board_info mxt_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
+		.platform_data = &mxt_platform_data,
+		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
+	},
+};
+
 static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 {
 }
@@ -3757,6 +3887,13 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		cyttsp_info,
 		ARRAY_SIZE(cyttsp_info),
 	},
+	{
+		I2C_LIQUID,
+		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
+		mxt_device_info,
+		ARRAY_SIZE(mxt_device_info),
+	},
+
 };
 #endif /* CONFIG_I2C */
 
@@ -3864,7 +4001,6 @@ static void __init msm8960_rumi3_init(void)
 	pm8921_gpio_mpp_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
 	msm8960_init_mmc();
-
 	register_i2c_devices();
 	msm_fb_add_devices();
 	slim_register_board_info(msm_slim_devices,
@@ -3916,6 +4052,8 @@ static void __init msm8960_cdp_init(void)
 	msm8960_init_cam();
 	msm8960_init_mmc();
 	acpuclk_init(&acpuclk_8960_soc_data);
+	if (machine_is_msm8960_liquid())
+		mxt_init_hw_liquid();
 	register_i2c_devices();
 	msm8960_wcnss_init();
 	msm_fb_add_devices();
