@@ -545,7 +545,10 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 			      KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
 			      init_reftimestamp);
 
-	adreno_regwrite(device, REG_RBBM_DEBUG, 0x000C0000);
+	if (adreno_is_a20x(adreno_dev))
+		adreno_regwrite(device, REG_RBBM_DEBUG, 0x000C0000);
+	else
+		adreno_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
 
 	/* Make sure interrupts are disabled */
 
