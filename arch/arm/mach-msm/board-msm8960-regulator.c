@@ -219,6 +219,7 @@ VREG_CONSUMERS(EXT_L2) = {
 };
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
+	REGULATOR_SUPPLY("vdd_lvds_3p3v",	"mipi_dsi.1"),
 };
 
 #define PM8921_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \

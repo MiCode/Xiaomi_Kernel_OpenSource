@@ -150,6 +150,9 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_DISABLE(6),				 /* Disable unused */
 	PM8XXX_GPIO_DISABLE(7),				 /* Disable NFC */
 	PM8XXX_GPIO_INPUT(16,	    PM_GPIO_PULL_UP_30), /* SD_CARD_WP */
+    /* External regulator shared by display and touchscreen on LiQUID */
+	PM8XXX_GPIO_OUTPUT(17,	    0),			 /* DISP 3.3 V Boost */
+	PM8XXX_GPIO_OUTPUT(21,	    1),			 /* Backlight Enable */
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
@@ -1034,11 +1037,11 @@ static void __init msm8960_init_cam(void)
 #endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-/* prim = 608 x 1024 x 4(bpp) x 3(pages) */
-#define MSM_FB_PRIM_BUF_SIZE 0x720000
+/* prim = 1366 x 768 x 3(bpp) x 3(pages) */
+#define MSM_FB_PRIM_BUF_SIZE roundup(1366 * 768 * 3 * 3, 0x10000)
 #else
-/* prim = 608 x 1024 x 4(bpp) x 2(pages) */
-#define MSM_FB_PRIM_BUF_SIZE 0x4C0000
+/* prim = 1366 x 768 x 3(bpp) x 2(pages) */
+#define MSM_FB_PRIM_BUF_SIZE roundup(1366 * 768 * 3 * 2, 0x10000)
 #endif
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
@@ -1062,22 +1065,168 @@ static void __init msm8960_init_cam(void)
 
 #define MDP_VSYNC_GPIO 0
 
+#define TOSHIBA_PANEL_NAME "mipi_video_toshiba_wsvga"
+#define TOSHIBA_PANEL_NAME_LEN 24
+#define CHIMEI_PANEL_NAME "mipi_chimei_wxga"
+#define CHIMEI_PANEL_NAME_LEN 16
+
 static struct resource msm_fb_resources[] = {
 	{
 		.flags = IORESOURCE_DMA,
 	}
 };
 
+#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+static int msm_fb_detect_panel(const char *name)
+{
+	if (machine_is_msm8960_liquid()) {
+		if (!strncmp(name, CHIMEI_PANEL_NAME, CHIMEI_PANEL_NAME_LEN))
+			return 0;
+	} else {
+		if (!strncmp(name, TOSHIBA_PANEL_NAME, TOSHIBA_PANEL_NAME_LEN))
+			return 0;
+	}
+
+	pr_warning("%s: not supported '%s'", __func__, name);
+
+	return -ENODEV;
+}
+
+static struct msm_fb_platform_data msm_fb_pdata = {
+	.detect_client = msm_fb_detect_panel,
+};
+#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
+
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
+#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+	.dev.platform_data = &msm_fb_pdata,
+#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
 };
 
 static bool dsi_power_on;
 
-static int mipi_dsi_panel_power(int on)
+/**
+ * LiQUID panel on/off
+ *
+ * @param on
+ *
+ * @return int
+ */
+static int mipi_dsi_liquid_panel_power(int on)
+{
+	static struct regulator *reg_l2, *reg_ext_3p3v;
+	static int gpio21, gpio24, gpio43;
+	int rc;
+
+	pr_info("%s: on=%d\n", __func__, on);
+
+	gpio21 = PM8921_GPIO_PM_TO_SYS(21); /* disp power enable_n */
+	gpio43 = PM8921_GPIO_PM_TO_SYS(43); /* Displays Enable (rst_n)*/
+	gpio24 = PM8921_GPIO_PM_TO_SYS(24); /* Backlight PWM */
+
+	if (!dsi_power_on) {
+
+		reg_l2 = regulator_get(&msm_mipi_dsi1_device.dev,
+				"dsi_vdda");
+		if (IS_ERR(reg_l2)) {
+			pr_err("could not get 8921_l2, rc = %ld\n",
+				PTR_ERR(reg_l2));
+			return -ENODEV;
+		}
+
+		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
+		if (rc) {
+			pr_err("set_voltage l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+
+		reg_ext_3p3v = regulator_get(&msm_mipi_dsi1_device.dev,
+			"vdd_lvds_3p3v");
+		if (IS_ERR(reg_ext_3p3v)) {
+			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
+			       PTR_ERR(reg_ext_3p3v));
+		    return -ENODEV;
+		}
+
+		rc = gpio_request(gpio21, "disp_pwr_en_n");
+		if (rc) {
+			pr_err("request gpio 21 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		rc = gpio_request(gpio43, "disp_rst_n");
+		if (rc) {
+			pr_err("request gpio 43 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		rc = gpio_request(gpio24, "disp_backlight_pwm");
+		if (rc) {
+			pr_err("request gpio 24 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		dsi_power_on = true;
+	}
+
+	if (on) {
+		rc = regulator_set_optimum_mode(reg_l2, 100000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_enable(reg_l2);
+		if (rc) {
+			pr_err("enable l2 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		rc = regulator_enable(reg_ext_3p3v);
+		if (rc) {
+			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		/* set reset pin before power enable */
+		gpio_set_value_cansleep(gpio43, 0); /* disp disable (resx=0) */
+
+		gpio_set_value_cansleep(gpio21, 0); /* disp power enable_n */
+		msleep(20);
+		gpio_set_value_cansleep(gpio43, 1); /* disp enable */
+		msleep(20);
+		gpio_set_value_cansleep(gpio43, 0); /* disp enable */
+		msleep(20);
+		gpio_set_value_cansleep(gpio43, 1); /* disp enable */
+		msleep(20);
+	} else {
+		gpio_set_value_cansleep(gpio43, 0);
+		gpio_set_value_cansleep(gpio21, 1);
+
+		rc = regulator_disable(reg_l2);
+		if (rc) {
+			pr_err("disable reg_l2 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_ext_3p3v);
+		if (rc) {
+			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_set_optimum_mode(reg_l2, 100);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int mipi_dsi_cdp_panel_power(int on)
 {
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
 	static int gpio43;
@@ -1227,6 +1376,20 @@ static int mipi_dsi_panel_power(int on)
 	return 0;
 }
 
+static int mipi_dsi_panel_power(int on)
+{
+	int ret;
+
+	pr_info("%s: on=%d\n", __func__, on);
+
+	if (machine_is_msm8960_liquid())
+		ret = mipi_dsi_liquid_panel_power(on);
+	else
+		ret = mipi_dsi_cdp_panel_power(on);
+
+	return ret;
+}
+
 static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 	.vsync_gpio = MDP_VSYNC_GPIO,
 	.dsi_power_save = mipi_dsi_panel_power,
@@ -1360,6 +1523,21 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 	}
 };
 
+static int dsi2lvds_gpio[2] = {
+	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
+	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
+	};
+
+static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
+	.gpio_num = dsi2lvds_gpio,
+};
+
+static struct platform_device mipi_dsi2lvds_bridge_device = {
+	.name = "mipi_tc358764",
+	.id = 0,
+	.dev.platform_data = &mipi_dsi2lvds_pdata,
+};
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static struct resource hdmi_msm_resources[] = {
 	{
@@ -1442,6 +1620,14 @@ static struct lcdc_platform_data dtv_pdata = {
 
 static void __init msm_fb_add_devices(void)
 {
+	struct platform_device *ptr = NULL;
+
+	if (machine_is_msm8960_liquid())
+		ptr = &mipi_dsi2lvds_bridge_device;
+	else
+		ptr = &mipi_dsi_toshiba_panel_device;
+	platform_add_devices(&ptr, 1);
+
 	if (machine_is_msm8x60_rumi3()) {
 		msm_fb_register_device("mdp", NULL);
 		mipi_dsi_pdata.target_type = 1;
@@ -2875,7 +3061,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_kgsl_2d0,
 	&msm_kgsl_2d1,
 #endif
-	&mipi_dsi_toshiba_panel_device,
 #ifdef CONFIG_MSM_GEMINI
 	&msm8960_gemini_device,
 #endif
