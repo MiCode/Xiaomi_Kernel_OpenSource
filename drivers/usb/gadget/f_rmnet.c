@@ -60,15 +60,12 @@ struct f_rmnet {
 	unsigned long			cpkts_len;
 };
 
-#define NR_PORTS	1
-static unsigned int nr_ports;
+#define NR_RMNET_PORTS	1
+static unsigned int nr_rmnet_ports;
 static struct rmnet_ports {
 	unsigned			port_num;
 	struct f_rmnet			*port;
-#ifdef CONFIG_USB_ANDROID
-	struct android_usb_function	android_f;
-#endif
-} ports[NR_PORTS];
+} rmnet_ports[NR_RMNET_PORTS];
 
 static struct usb_interface_descriptor rmnet_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
@@ -229,24 +226,24 @@ static void rmnet_free_ctrl_pkt(struct rmnet_ctrl_pkt *pkt)
 
 /* -------------------------------------------*/
 
-static int gport_setup(int no_ports)
+static int rmnet_gport_setup(int no_rmnet_ports)
 {
 	int ret;
 
-	pr_debug("%s: no_ports:%d\n", __func__, no_ports);
+	pr_debug("%s: no_rmnet_ports:%d\n", __func__, no_rmnet_ports);
 
-	ret = gbam_setup(no_ports);
+	ret = gbam_setup(no_rmnet_ports);
 	if (ret)
 		return ret;
 
-	ret = gsmd_ctrl_setup(no_ports);
+	ret = gsmd_ctrl_setup(no_rmnet_ports);
 	if (ret)
 		return ret;
 
 	return 0;
 }
 
-static int gport_connect(struct f_rmnet *dev)
+static int gport_rmnet_connect(struct f_rmnet *dev)
 {
 	int ret;
 
@@ -270,7 +267,7 @@ static int gport_connect(struct f_rmnet *dev)
 	return 0;
 }
 
-static int gport_disconnect(struct f_rmnet *dev)
+static int gport_rmnet_disconnect(struct f_rmnet *dev)
 {
 	pr_debug("%s:dev:%p portno:%d\n",
 			__func__, dev, dev->port_num);
@@ -279,17 +276,6 @@ static int gport_disconnect(struct f_rmnet *dev)
 
 	gsmd_ctrl_disconnect(&dev->port, dev->port_num);
 
-	return 0;
-}
-
-static int frmnet_remove(struct platform_device *dev)
-{
-	/* TBD:
-	 *  1. Unregister android function
-	 *  2. Free name from ports
-	 *  3. Free rmnet device
-	 *  4. Free Copy Descriptors
-	 */
 	return 0;
 }
 
@@ -318,7 +304,7 @@ static void frmnet_disable(struct usb_function *f)
 
 	atomic_set(&dev->online, 0);
 
-	gport_disconnect(dev);
+	gport_rmnet_disconnect(dev);
 }
 
 static int
@@ -347,7 +333,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	if (dev->port.in->driver_data) {
 		pr_debug("%s: reset port:%d\n", __func__, dev->port_num);
-		gport_disconnect(dev);
+		gport_rmnet_disconnect(dev);
 	}
 
 	dev->port.in_desc = ep_choose(cdev->gadget,
@@ -355,7 +341,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	dev->port.out_desc = ep_choose(cdev->gadget,
 			dev->hs.out, dev->fs.out);
 
-	ret = gport_connect(dev);
+	ret = gport_rmnet_connect(dev);
 
 	atomic_set(&dev->online, 1);
 
@@ -682,10 +668,8 @@ ep_auto_out_fail:
 	return ret;
 }
 
-#ifdef CONFIG_USB_ANDROID
-static int frmnet_bind_config(struct usb_configuration *c)
+static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 {
-	static unsigned		portno;
 	int			status;
 	struct f_rmnet		*dev;
 	struct usb_function	*f;
@@ -693,9 +677,9 @@ static int frmnet_bind_config(struct usb_configuration *c)
 
 	pr_debug("%s: usb config:%p\n", __func__, c);
 
-	if (portno >= nr_ports) {
+	if (portno >= nr_rmnet_ports) {
 		pr_err("%s: supporting ports#%u port_id:%u", __func__,
-				nr_ports, portno);
+				nr_rmnet_ports, portno);
 		return -ENODEV;
 	}
 
@@ -709,13 +693,12 @@ static int frmnet_bind_config(struct usb_configuration *c)
 		rmnet_string_defs[0].id = status;
 	}
 
-	dev = ports[portno].port;
+	dev = rmnet_ports[portno].port;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->cdev = c->cdev;
 	f = &dev->port.func;
-	f->name = ports[portno].android_f.name;
-	portno++;
+	f->name = kasprintf(GFP_KERNEL, "rmnet%d", portno);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	f->strings = rmnet_strings;
@@ -730,7 +713,7 @@ static int frmnet_bind_config(struct usb_configuration *c)
 	if (status) {
 		pr_err("%s: usb add function failed: %d\n",
 				__func__, status);
-		kfree(ports[portno].android_f.name);
+		kfree(f->name);
 		kfree(dev);
 		return status;
 	}
@@ -740,25 +723,11 @@ static int frmnet_bind_config(struct usb_configuration *c)
 	return status;
 }
 
-static struct platform_driver usb_rmnet = {
-	.remove = frmnet_remove,
-	.driver = {
-		.name = "usb_rmnet",
-		.owner = THIS_MODULE,
-	},
-};
-
-static int __devinit frmnet_probe(struct platform_device *pdev)
+static int frmnet_init_port(int instances)
 {
-	struct usb_rmnet_pdata *pdata = pdev->dev.platform_data;
 	int i;
 	struct f_rmnet *dev;
 	int ret;
-	int instances;
-
-	instances = 1;
-	if (pdata)
-		instances = pdata->num_instances;
 
 	pr_debug("%s: instances :%d\n", __func__, instances);
 
@@ -775,45 +744,19 @@ static int __devinit frmnet_probe(struct platform_device *pdev)
 		spin_lock_init(&dev->lock);
 		INIT_LIST_HEAD(&dev->cpkt_resp_q);
 
-		ports[i].port = dev;
-		ports[i].port_num = i;
-		ports[i].android_f.name = kasprintf(GFP_KERNEL, "rmnet%d", i);
-		ports[i].android_f.bind_config = frmnet_bind_config;
+		rmnet_ports[i].port = dev;
+		rmnet_ports[i].port_num = i;
 
-		pr_debug("%s: anroid f_name:%s\n", __func__,
-				ports[i].android_f.name);
-
-		nr_ports++;
-
-		android_register_function(&ports[i].android_f);
+		nr_rmnet_ports++;
 	}
 
-	gport_setup(nr_ports);
+	rmnet_gport_setup(nr_rmnet_ports);
 
 	return 0;
 
 fail_probe:
-	for (i = 0; i < nr_ports; i++) {
-		/* android_unregister_function(&ports[i].android_f); */
-		kfree(ports[i].android_f.name);
-		kfree(ports[i].port);
-	}
+	for (i = 0; i < nr_rmnet_ports; i++)
+		kfree(rmnet_ports[i].port);
 
 	return ret;
 }
-
-static int __init frmnet_init(void)
-{
-	return platform_driver_probe(&usb_rmnet, frmnet_probe);
-}
-module_init(frmnet_init);
-
-static void __exit frmnet_exit(void)
-{
-	platform_driver_unregister(&usb_rmnet);
-}
-module_exit(frmnet_exit);
-
-MODULE_DESCRIPTION("rmnet function driver");
-MODULE_LICENSE("GPL v2");
-#endif

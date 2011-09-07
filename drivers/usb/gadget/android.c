@@ -48,11 +48,13 @@
 
 #include "f_diag.c"
 #include "f_rmnet_smd.c"
+#include "f_rmnet.c"
 #include "f_mass_storage.c"
 #include "u_serial.c"
 #include "u_sdio.c"
 #include "u_smd.c"
 #include "u_bam.c"
+#include "u_rmnet_ctrl_smd.c"
 #include "f_serial.c"
 //#include "f_acm.c"
 #include "f_adb.c"
@@ -206,8 +208,63 @@ static struct android_usb_function rmnet_smd_function = {
 	.bind_config	= rmnet_smd_function_bind_config,
 };
 
+#define MAX_RMNET_INSTANCES 1
+static int rmnet_instances;
+static int rmnet_function_init(struct android_usb_function *f,
+					 struct usb_composite_dev *cdev)
+{
+	return frmnet_init_port(MAX_RMNET_INSTANCES);
+}
 
-char diag_clients[32];	    /* enabled DIAG clients - "diag[,diag_mdm]" */
+static int rmnet_function_bind_config(struct android_usb_function *f,
+					 struct usb_configuration *c)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < rmnet_instances; i++) {
+		ret = frmnet_bind_config(c, i);
+		if (ret) {
+			pr_err("Could not bind rmnet%u config\n", i);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static ssize_t rmnet_instances_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", rmnet_instances);
+}
+
+static ssize_t rmnet_instances_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+
+	sscanf(buf, "%d", &value);
+	if (value > MAX_RMNET_INSTANCES)
+		value = MAX_RMNET_INSTANCES;
+	rmnet_instances = value;
+	return size;
+}
+
+static DEVICE_ATTR(instances, S_IRUGO | S_IWUSR, rmnet_instances_show,
+						 rmnet_instances_store);
+static struct device_attribute *rmnet_function_attributes[] = {
+					&dev_attr_instances, NULL };
+
+static struct android_usb_function rmnet_function = {
+	.name		= "rmnet",
+	.init		= rmnet_function_init,
+	.bind_config	= rmnet_function_bind_config,
+	.attributes	= rmnet_function_attributes,
+};
+
+
+static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
 static ssize_t clients_store(
 		struct device *device, struct device_attribute *attr,
 		const char *buff, size_t size)
@@ -269,7 +326,7 @@ static struct android_usb_function diag_function = {
 	.attributes	= diag_function_attributes,
 };
 
-char serial_transports[32];	    /* enabled FSERIAL ports - "tty[,sdio]" */
+static char serial_transports[32];	/*enabled FSERIAL ports - "tty[,sdio]"*/
 static ssize_t serial_transports_store(
 		struct device *device, struct device_attribute *attr,
 		const char *buff, size_t size)
@@ -800,6 +857,7 @@ static struct android_usb_function accessory_function = {
 
 static struct android_usb_function *supported_functions[] = {
 	&rmnet_smd_function,
+	&rmnet_function,
 	&diag_function,
 	&serial_function,
 	&adb_function,
