@@ -49,6 +49,10 @@ static void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 {
 	BUG_ON(rb->wptr == 0);
 
+	/* Let the pwrscale policy know that new commands have
+	 been submitted. */
+	kgsl_pwrscale_busy(rb->device);
+
 	/*synchronize memory before informing the hardware of the
 	 *new commands.
 	 */

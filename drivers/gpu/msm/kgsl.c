@@ -895,11 +895,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		goto free_ibdesc;
 	}
 
-	/* Let the pwrscale policy know that a new command buffer
-	   is being issued */
-
-	kgsl_pwrscale_busy(dev_priv->device);
-
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv,
 					     context,
 					     ibdesc,
