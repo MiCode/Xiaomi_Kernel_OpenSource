@@ -2344,18 +2344,25 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 #ifdef CONFIG_PM_RUNTIME
 static int msmsdcc_enable(struct mmc_host *mmc)
 {
-	int rc = 0;
+	int rc;
 	struct device *dev = mmc->parent;
 
-	if (pm_runtime_suspended(dev))
-		rc = pm_runtime_get_sync(dev);
-	else
-		pm_runtime_get_noresume(dev);
+	if (dev->power.runtime_status == RPM_SUSPENDING) {
+		if (mmc->suspend_task == current) {
+			pm_runtime_get_noresume(dev);
+			goto out;
+		}
+	}
 
-	if (rc < 0)
+	rc = pm_runtime_get_sync(dev);
+
+	if (rc < 0) {
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
-	return rc;
+		return rc;
+	}
+out:
+	return 0;
 }
 
 static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
