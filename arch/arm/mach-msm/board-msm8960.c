@@ -3341,14 +3341,16 @@ static struct cyttsp_regulator regulator_data[] = {
 		.name = "vdd",
 		.min_uV = CY_TMA300_VTG_MIN_UV,
 		.max_uV = CY_TMA300_VTG_MAX_UV,
-		.load_uA = CY_TMA300_CURR_24HZ_UA,
+		.hpm_load_uA = CY_TMA300_CURR_24HZ_UA,
+		.lpm_load_uA = CY_TMA300_SLEEP_CURR_UA,
 	},
 	/* TODO: Remove after runtime PM is enabled in I2C driver */
 	{
 		.name = "vcc_i2c",
 		.min_uV = CY_I2C_VTG_MIN_UV,
 		.max_uV = CY_I2C_VTG_MAX_UV,
-		.load_uA = CY_I2C_CURR_UA,
+		.hpm_load_uA = CY_I2C_CURR_UA,
+		.lpm_load_uA = CY_I2C_SLEEP_CURR_UA,
 	},
 };
 
