@@ -2974,7 +2974,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	struct msm_ce_hw_support *platform_support;
 
 	if (pdev->id >= MAX_CRYPTO_DEVICE) {
-		printk(KERN_ERR "%s: device id %d  exceeds allowed %d\n",
+		pr_err("%s: device id %d  exceeds allowed %d\n",
 				__func__, pdev->id, MAX_CRYPTO_DEVICE);
 		return -ENOENT;
 	}
@@ -3260,7 +3260,7 @@ static int __init _qcrypto_init(void)
 
 static void __exit _qcrypto_exit(void)
 {
-	printk(KERN_ALERT "%s Unregister QCRYPTO\n", __func__);
+	pr_debug("%s Unregister QCRYPTO\n", __func__);
 	debugfs_remove_recursive(_debug_dent);
 	platform_driver_unregister(&_qualcomm_crypto);
 }
@@ -3271,4 +3271,4 @@ module_exit(_qcrypto_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
-MODULE_VERSION("1.18");
+MODULE_VERSION("1.19");

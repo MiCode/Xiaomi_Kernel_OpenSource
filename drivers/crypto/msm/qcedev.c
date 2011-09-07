@@ -288,8 +288,8 @@ static int qcedev_open(struct inode *inode, struct file *file)
 
 	podev = qcedev_minor_to_control(MINOR(inode->i_rdev));
 	if (podev == NULL) {
-		printk(KERN_ERR "%s: no such device %d\n", __func__,
-				MINOR(inode->i_rdev));
+		pr_err("%s: no such device %d\n", __func__,
+					MINOR(inode->i_rdev));
 		return -ENOENT;
 	}
 
@@ -314,8 +314,8 @@ static int qcedev_release(struct inode *inode, struct file *file)
 	handle =  file->private_data;
 	podev =  handle->cntl;
 	if (podev != NULL && podev->magic != QCEDEV_MAGIC) {
-		printk(KERN_ERR "%s: invalid handle %p\n",
-			__func__, podev);
+		pr_err("%s: invalid handle %p\n",
+					__func__, podev);
 	}
 	kzfree(handle);
 	file->private_data = NULL;
@@ -738,8 +738,11 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 
 	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
-	if (k_buf_src == NULL)
+	if (k_buf_src == NULL) {
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
+			__func__, (uint32_t)k_buf_src);
 		return -ENOMEM;
+	}
 
 	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
 							CACHE_LINE_SIZE);
@@ -828,7 +831,7 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 		saved_req =
 			kmalloc(sizeof(struct qcedev_sha_op_req), GFP_KERNEL);
 		if (saved_req == NULL) {
-			printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
+			pr_err("%s:Can't Allocate mem:saved_req 0x%x\n",
 			__func__, (uint32_t)saved_req);
 			return -ENOMEM;
 		}
@@ -930,8 +933,11 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	if (total) {
 		k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 					GFP_KERNEL);
-		if (k_buf_src == NULL)
+		if (k_buf_src == NULL) {
+			pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
+			__func__, (uint32_t)k_buf_src);
 			return -ENOMEM;
+		}
 
 		k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
 							CACHE_LINE_SIZE);
@@ -992,8 +998,11 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 
 
 	k_buf_src = kmalloc(total, GFP_KERNEL);
-	if (k_buf_src == NULL)
+	if (k_buf_src == NULL) {
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
+			__func__, (uint32_t)k_buf_src);
 		return -ENOMEM;
+	}
 
 	k_src = k_buf_src;
 
@@ -1089,8 +1098,11 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 		}
 	}
 	k_src = kmalloc(sha_block_size, GFP_KERNEL);
-	if (k_src == NULL)
+	if (k_src == NULL) {
+		pr_err("%s: Can't Allocate memory: k_src 0x%x\n",
+			__func__, (uint32_t)k_src);
 		return -ENOMEM;
+	}
 
 	/* check for trailing buffer from previous updates and append it */
 	memcpy(k_src, &handle->sha_ctxt.trailing_buf[0],
@@ -1234,7 +1246,7 @@ static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 	sg_src = kmalloc((sizeof(struct scatterlist) *
 				areq->cipher_op_req.entries),	GFP_KERNEL);
 	if (sg_src == NULL) {
-		printk(KERN_ERR "%s: Can't Allocate memory:s g_src 0x%x\n",
+		pr_err("%s: Can't Allocate memory:sg_src 0x%x\n",
 			__func__, (uint32_t)sg_src);
 		return -ENOMEM;
 
@@ -1264,8 +1276,11 @@ static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 	if (areq->cipher_op_req.in_place_op != 1) {
 		sg_dst = kmalloc((sizeof(struct scatterlist) *
 				areq->cipher_op_req.entries), GFP_KERNEL);
-		if (sg_dst == NULL)
+		if (sg_dst == NULL) {
+			pr_err("%s: Can't Allocate memory: sg_dst 0x%x\n",
+			__func__, (uint32_t)sg_dst);
 			return -ENOMEM;
+		}
 		memset(sg_dst, 0, (sizeof(struct scatterlist) *
 					areq->cipher_op_req.entries));
 		areq->cipher_req.creq.dst = sg_dst;
@@ -1323,7 +1338,7 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 
 	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
 	if (saved_req == NULL) {
-		printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
+		pr_err(KERN_ERR "%s:Can't Allocate mem:saved_req 0x%x\n",
 		__func__, (uint32_t)saved_req);
 		return -ENOMEM;
 	}
@@ -1550,7 +1565,7 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 	k_buf_src = kmalloc(QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
 	if (k_buf_src == NULL) {
-		printk(KERN_ERR "%s: Can't Allocate memory: k_buf_src 0x%x\n",
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
 			__func__, (uint32_t)k_buf_src);
 		return -ENOMEM;
 	}
@@ -1560,7 +1575,7 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 
 	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
 	if (saved_req == NULL) {
-		printk(KERN_ERR "%s: Can't Allocate memory:saved_req 0x%x\n",
+		pr_err("%s: Can't Allocate memory:saved_req 0x%x\n",
 			__func__, (uint32_t)saved_req);
 		kfree(k_buf_src);
 		return -ENOMEM;
@@ -1781,7 +1796,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	podev =  handle->cntl;
 	qcedev_areq.handle = handle;
 	if (podev == NULL || podev->magic != QCEDEV_MAGIC) {
-		printk(KERN_ERR "%s: invalid handle %p\n",
+		pr_err("%s: invalid handle %p\n",
 			__func__, podev);
 		return -ENOENT;
 	}
@@ -1957,7 +1972,7 @@ static int qcedev_probe(struct platform_device *pdev)
 	struct msm_ce_hw_support *platform_support;
 
 	if (pdev->id >= MAX_QCE_DEVICE) {
-		printk(KERN_ERR "%s: device id %d  exceeds allowed %d\n",
+		pr_err("%s: device id %d  exceeds allowed %d\n",
 			__func__, pdev->id, MAX_QCE_DEVICE);
 		return -ENOENT;
 	}
@@ -2141,7 +2156,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.22");
+MODULE_VERSION("1.23");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
