@@ -83,14 +83,10 @@ enum {
 #define GLOBAL_TIMER 1
 
 /*
- * MSM_TMR_GLOBAL is added to the regbase of a timer to force the memory access
- * to come from the CPU0 region.
+ * global_timer_offset is added to the regbase of a timer to force the memory
+ * access to come from the CPU0 region.
  */
-#ifdef MSM_TMR0_BASE
-#define MSM_TMR_GLOBAL		(MSM_TMR0_BASE - MSM_TMR_BASE)
-#else
-#define MSM_TMR_GLOBAL		0
-#endif
+static int global_timer_offset;
 
 #if defined(CONFIG_MSM_DIRECT_SCLK_ACCESS)
 #define MPM_SCLK_COUNT_VAL    0x0024
@@ -276,7 +272,7 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 
 	if (global)
 		t1 = __raw_readl(clock->regbase + TIMER_COUNT_VAL +
-				 MSM_TMR_GLOBAL);
+				 global_timer_offset);
 	else
 		t1 = __raw_readl(clock->regbase + TIMER_COUNT_VAL);
 
@@ -285,7 +281,7 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 	while (1) {
 		if (global)
 			t2 = __raw_readl(clock->regbase + TIMER_COUNT_VAL +
-					 MSM_TMR_GLOBAL);
+					 global_timer_offset);
 		else
 			t2 = __raw_readl(clock->regbase + TIMER_COUNT_VAL);
 		if (t1 == t2)
@@ -1079,6 +1075,7 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 	if (!smp_processor_id())
 		return 0;
 
+	global_timer_offset = MSM_TMR0_BASE - MSM_TMR_BASE;
 	__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
 
 	if (first_boot) {
