@@ -226,6 +226,17 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
+	struct asm_softpause_params softpause = {
+		.enable = SOFT_PAUSE_ENABLE,
+		.period = SOFT_PAUSE_PERIOD,
+		.step = SOFT_PAUSE_STEP,
+		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
+	};
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
 	int ret = 0;
 
 	pr_debug("%s\n", __func__);
@@ -283,6 +294,14 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	runtime->private_data = prtd;
 	lpa_audio.prtd = prtd;
 	lpa_set_volume(lpa_audio.volume);
+	ret = q6asm_set_softpause(lpa_audio.prtd->audio_client, &softpause);
+	if (ret < 0)
+		pr_err("%s: Send SoftPause Param failed ret=%d\n",
+			__func__, ret);
+	ret = q6asm_set_softvolume(lpa_audio.prtd->audio_client, &softvol);
+	if (ret < 0)
+		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
 
 	return 0;
 }
