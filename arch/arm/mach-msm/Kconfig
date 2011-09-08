@@ -135,7 +135,7 @@ config ARCH_MSM8960
 config ARCH_APQ8064
 	bool "APQ8064"
 	select ARCH_MSM_KRAITMP
-	select MACH_APQ8064_SIM
+	select MACH_APQ8064_SIM if !MACH_APQ8064_RUMI3
 	select MSM_V2_TLMM
 	select ARM_GIC
 	select CPU_V7
@@ -504,6 +504,12 @@ config MACH_APQ8064_SIM
 	bool "APQ8064 Simulator"
 	help
 	  Support for the Qualcomm APQ8064 simulator.
+
+config MACH_APQ8064_RUMI3
+	depends on ARCH_APQ8064
+	bool "APQ8064 RUMI3"
+	help
+	  Support for the Qualcomm APQ8064 RUMI3 emulator.
 
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
