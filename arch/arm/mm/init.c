@@ -225,6 +225,29 @@ static void __init arm_adjust_dma_zone(unsigned long *size, unsigned long *hole,
 }
 #endif
 
+#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+static void __init arm_bootmem_free_apnm(unsigned long max_low,
+	unsigned long max_high)
+{
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
+	struct memblock_region *reg;
+
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+
+	max_zone_pfns[0] = max_low;
+#ifdef CONFIG_HIGHMEM
+	max_zone_pfns[ZONE_HIGHMEM] = max_high;
+#endif
+	for_each_memblock(memory, reg) {
+		unsigned long start = memblock_region_memory_base_pfn(reg);
+		unsigned long end = memblock_region_memory_end_pfn(reg);
+
+		add_active_range(0, start, end);
+	}
+	free_area_init_nodes(max_zone_pfns);
+}
+
+#else
 static void __init arm_bootmem_free(unsigned long min, unsigned long max_low,
 	unsigned long max_high)
 {
@@ -282,6 +305,7 @@ static void __init arm_bootmem_free(unsigned long min, unsigned long max_low,
 
 	free_area_init_node(0, zone_size, min, zhole_size);
 }
+#endif
 
 #ifdef CONFIG_HAVE_ARCH_PFN_VALID
 int pfn_valid(unsigned long pfn)
@@ -417,12 +441,16 @@ void __init bootmem_init(void)
 	 */
 	sparse_init();
 
+#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+	arm_bootmem_free_apnm(max_low, max_high);
+#else
 	/*
 	 * Now free the memory - free_area_init_node needs
 	 * the sparse mem_map arrays initialized by sparse_init()
 	 * for memmap_init_zone(), otherwise all PFNs are invalid.
 	 */
 	arm_bootmem_free(min, max_low, max_high);
+#endif
 
 	high_memory = __va(((phys_addr_t)max_low << PAGE_SHIFT) - 1) + 1;
 
