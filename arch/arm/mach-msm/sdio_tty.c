@@ -532,6 +532,13 @@ int sdio_tty_uninit_tty(void *sdio_tty_handle)
 		       __func__);
 		return -ENODEV;
 	}
+	if (sdio_tty_drv->sdio_tty_state == TTY_OPENED) {
+		flush_workqueue(sdio_tty_drv->workq);
+		destroy_workqueue(sdio_tty_drv->workq);
+
+		kfree(sdio_tty_drv->read_buf);
+		sdio_tty_drv->read_buf = NULL;
+	}
 
 	if (sdio_tty_drv->sdio_tty_state != TTY_INITIAL) {
 		tty_unregister_device(sdio_tty_drv->tty_drv, 0);
