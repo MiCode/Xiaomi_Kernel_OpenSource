@@ -903,6 +903,29 @@ int pm8921_bms_get_percent_charge(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_percent_charge);
 
+int pm8921_bms_get_fcc(void)
+{
+	int batt_temp, rc;
+	struct pm8921_adc_chan_result result;
+
+	if (!the_chip) {
+		pr_err("called before initialization\n");
+		return -EINVAL;
+	}
+
+	rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					the_chip->batt_temp_channel, rc);
+		return rc;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+	return calculate_fcc(the_chip, batt_temp, last_chargecycles);
+}
+EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
+
 static int start_percent;
 static int end_percent;
 void pm8921_bms_charging_began(void)

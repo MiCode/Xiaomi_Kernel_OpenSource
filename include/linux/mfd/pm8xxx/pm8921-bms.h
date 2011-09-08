@@ -145,6 +145,14 @@ int pm8921_bms_get_battery_current(int *result);
  *
  */
 int pm8921_bms_get_percent_charge(void);
+
+/**
+ * pm8921_bms_get_fcc - returns fcc in mAh of the battery depending on its age
+ *			and temperature
+ *
+ */
+int pm8921_bms_get_fcc(void);
+
 /**
  * pm8921_bms_charging_began - function to notify the bms driver that charging
  *				has started. Used by the bms driver to keep
@@ -167,6 +175,10 @@ static inline int pm8921_bms_get_battery_current(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_bms_get_percent_charge(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_fcc(void)
 {
 	return -ENXIO;
 }

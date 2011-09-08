@@ -737,6 +737,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_ENERGY_FULL,
 };
 
 static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
@@ -776,6 +777,16 @@ static int get_prop_batt_current(struct pm8921_chg_chip *chip)
 	} else {
 		return result_ma;
 	}
+}
+
+static int get_prop_batt_fcc(struct pm8921_chg_chip *chip)
+{
+	int rc;
+
+	rc = pm8921_bms_get_fcc();
+	if (rc < 0)
+		pr_err("unable to get batt fcc rc = %d\n", rc);
+	return rc;
 }
 
 static int get_prop_batt_health(struct pm8921_chg_chip *chip)
@@ -892,6 +903,9 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_prop_batt_temp(chip);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_FULL:
+		val->intval = get_prop_batt_fcc(chip);
 		break;
 	default:
 		return -EINVAL;
