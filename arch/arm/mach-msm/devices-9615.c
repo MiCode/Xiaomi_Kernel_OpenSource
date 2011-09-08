@@ -95,6 +95,34 @@ struct platform_device msm9615_device_qup_i2c_gsbi5 = {
 	.resource	= resources_qup_i2c_gsbi5,
 };
 
+static struct resource resources_qup_spi_gsbi3[] = {
+	{
+		.name   = "spi_base",
+		.start  = MSM_GSBI3_QUP_PHYS,
+		.end    = MSM_GSBI3_QUP_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "gsbi_base",
+		.start  = MSM_GSBI3_PHYS,
+		.end    = MSM_GSBI3_PHYS + 4 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "spi_irq_in",
+		.start  = GSBI3_QUP_IRQ,
+		.end    = GSBI3_QUP_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm9615_device_qup_spi_gsbi3 = {
+	.name		= "spi_qsd",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi3),
+	.resource	= resources_qup_spi_gsbi3,
+};
+
 #ifdef CONFIG_CACHE_L2X0
 static int __init l2x0_cache_init(void)
 {

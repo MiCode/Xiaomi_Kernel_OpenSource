@@ -19,12 +19,14 @@
 #include <mach/msm_iomap.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/msm_spi.h>
 #include "timer.h"
 #include "devices.h"
 
 static struct platform_device *common_devices[] = {
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_qup_i2c_gsbi5,
+	&msm9615_device_qup_spi_gsbi3,
 };
 
 static struct gpiomux_setting gsbi4 = {
@@ -39,7 +41,43 @@ static struct gpiomux_setting gsbi5 = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi3 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi3_cs1_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
+	{
+		.gpio      = 8,		/* GSBI3 QUP SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3,
+		},
+	},
+	{
+		.gpio      = 9,		/* GSBI3 QUP SPI_CS_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3,
+		},
+	},
+	{
+		.gpio      = 10,	/* GSBI3 QUP SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3,
+		},
+	},
+	{
+		.gpio      = 11,	/* GSBI3 QUP SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3,
+		},
+	},
 	{
 		.gpio      = 12,	/* GSBI4 UART */
 		.settings = {
@@ -76,6 +114,13 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi5,
 		},
 	},
+	{
+		/* GPIO 19 can be used for I2C/UART on GSBI5 */
+		.gpio      = 19,	/* GSBI3 QUP SPI_CS_1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi3_cs1_config,
+		},
+	},
 };
 
 static int __init gpiomux_init(void)
@@ -93,6 +138,10 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
+static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
+	.max_clock_speed = 24000000,
+};
+
 static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
@@ -109,6 +158,8 @@ static void __init msm9615_common_init(void)
 	msm9615_device_init();
 	gpiomux_init();
 	msm9615_i2c_init();
+	msm9615_device_qup_spi_gsbi3.dev.platform_data =
+				&msm9615_qup_spi_gsbi3_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
