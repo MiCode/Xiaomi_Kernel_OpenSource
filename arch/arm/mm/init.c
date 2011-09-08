@@ -267,7 +267,7 @@ static void __init arm_bootmem_free_apnm(unsigned long max_low,
 		unsigned long start = memblock_region_memory_base_pfn(reg);
 		unsigned long end = memblock_region_memory_end_pfn(reg);
 
-		memblock_set_node(PFN_PHYS(start), PFN_PHYS(end - start), 0);
+		add_active_range(0, start, end);
 	}
 	free_area_init_nodes(max_zone_pfns);
 }
@@ -491,8 +491,8 @@ void __init bootmem_init(void)
 	 */
 	sparse_init();
 
-#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
-	arm_bootmem_free_hmnm(max_low, max_high);
+#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
+	arm_bootmem_free_apnm(max_low, max_high);
 #else
 	/*
 	 * Now free the memory - free_area_init_node needs
