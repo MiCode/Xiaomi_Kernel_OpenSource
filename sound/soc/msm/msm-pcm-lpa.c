@@ -149,6 +149,11 @@ static void event_handler(uint32_t opcode,
 					& (runtime->periods - 1);
 		}
 			break;
+		case ASM_STREAM_CMD_FLUSH:
+			pr_debug("ASM_STREAM_CMD_FLUSH\n");
+			prtd->cmd_ack = 1;
+			wake_up(&the_locks.eos_wait);
+			break;
 		default:
 			break;
 		}
@@ -173,6 +178,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	/* rate and channels are sent to audio driver */
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
+	prtd->out_head = 0;
 	if (prtd->enabled)
 		return 0;
 
@@ -442,7 +448,11 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 		rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
 		if (rc < 0)
 			pr_err("%s: flush cmd failed rc=%d\n", __func__, rc);
-		prtd->cmd_ack = 1;
+		rc = wait_event_timeout(the_locks.eos_wait,
+			prtd->cmd_ack, 5 * HZ);
+		if (rc < 0)
+			pr_err("Flush cmd timeout\n");
+		prtd->pcm_irq_pos = 0;
 		break;
 	default:
 		break;
