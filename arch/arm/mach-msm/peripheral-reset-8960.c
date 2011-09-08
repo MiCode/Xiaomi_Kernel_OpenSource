@@ -129,6 +129,7 @@
 #define PAS_MEM_CMD		2
 #define PAS_AUTH_AND_RESET_CMD	5
 #define PAS_SHUTDOWN_CMD	6
+#define PAS_IS_SUPPORTED_CMD	7
 
 struct pas_init_image_req {
 	u32	proc;
@@ -803,11 +804,58 @@ err_map:
 	return err;
 }
 
-#ifdef CONFIG_MSM_SECURE_PIL
+static int __init can_secure_boot(int id)
+{
+	int ret;
+	u32 periph = id;
+	u32 ret_val = 0;
+
+	ret = scm_call(SCM_SVC_PIL, PAS_IS_SUPPORTED_CMD, &periph,
+			sizeof(periph), &ret_val, sizeof(ret_val));
+	if (ret)
+		return ret;
+
+	return ret_val;
+}
+
 static bool secure_pil = true;
-#else
-static bool secure_pil;
-#endif
+
+static void __init use_secure_pil(void)
+{
+
+	if (scm_is_call_available(SCM_SVC_PIL, PAS_IS_SUPPORTED_CMD) <= 0)
+		return;
+
+	if (can_secure_boot(PAS_Q6) > 0) {
+		pil_lpass_q6_ops.init_image = init_image_lpass_q6_trusted;
+		pil_lpass_q6_ops.auth_and_reset = reset_lpass_q6_trusted;
+		pil_lpass_q6_ops.shutdown = shutdown_lpass_q6_trusted;
+	}
+
+	if (can_secure_boot(PAS_MODEM_FW) > 0) {
+		pil_modem_fw_q6_ops.init_image = init_image_modem_fw_q6_trusted;
+		pil_modem_fw_q6_ops.auth_and_reset = reset_modem_fw_q6_trusted;
+		pil_modem_fw_q6_ops.shutdown = shutdown_modem_fw_q6_trusted;
+	}
+
+	if (can_secure_boot(PAS_MODEM_SW) > 0) {
+		pil_modem_sw_q6_ops.init_image = init_image_modem_sw_q6_trusted;
+		pil_modem_sw_q6_ops.auth_and_reset = reset_modem_sw_q6_trusted;
+		pil_modem_sw_q6_ops.shutdown = shutdown_modem_sw_q6_trusted;
+	}
+
+	if (can_secure_boot(PAS_DSPS) > 0) {
+		pil_dsps_ops.init_image = init_image_dsps_trusted;
+		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
+		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
+	}
+
+	if (can_secure_boot(PAS_RIVA) > 0) {
+		pil_riva_ops.init_image = init_image_riva_trusted;
+		pil_riva_ops.auth_and_reset = reset_riva_trusted;
+		pil_riva_ops.shutdown = shutdown_riva_trusted;
+	}
+}
 
 static int __init msm_peripheral_reset_init(void)
 {
@@ -820,27 +868,8 @@ static int __init msm_peripheral_reset_init(void)
 	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3())
 		return 0;
 
-	if (secure_pil) {
-		pil_lpass_q6_ops.init_image = init_image_lpass_q6_trusted;
-		pil_lpass_q6_ops.auth_and_reset = reset_lpass_q6_trusted;
-		pil_lpass_q6_ops.shutdown = shutdown_lpass_q6_trusted;
-
-		pil_modem_fw_q6_ops.init_image = init_image_modem_fw_q6_trusted;
-		pil_modem_fw_q6_ops.auth_and_reset = reset_modem_fw_q6_trusted;
-		pil_modem_fw_q6_ops.shutdown = shutdown_modem_fw_q6_trusted;
-
-		pil_modem_sw_q6_ops.init_image = init_image_modem_sw_q6_trusted;
-		pil_modem_sw_q6_ops.auth_and_reset = reset_modem_sw_q6_trusted;
-		pil_modem_sw_q6_ops.shutdown = shutdown_modem_sw_q6_trusted;
-
-		pil_dsps_ops.init_image = init_image_dsps_trusted;
-		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
-		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
-
-		pil_riva_ops.init_image = init_image_riva_trusted;
-		pil_riva_ops.auth_and_reset = reset_riva_trusted;
-		pil_riva_ops.shutdown = shutdown_riva_trusted;
-	}
+	if (secure_pil)
+		use_secure_pil();
 
 	err = q6_reset_init(&q6_lpass);
 	if (err)
