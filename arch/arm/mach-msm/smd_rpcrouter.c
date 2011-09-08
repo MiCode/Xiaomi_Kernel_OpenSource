@@ -1146,6 +1146,8 @@ static void do_read_data(struct work_struct *work)
 			goto done;
 		}
 	}
+	spin_unlock(&ept->incomplete_lock);
+	spin_unlock_irqrestore(&local_endpoints_lock, flags);
 	/* This mid is new -- create a packet for it, and put it on
 	 * the incomplete list if this fragment is not a last fragment,
 	 * otherwise put it on the read queue.
@@ -1156,13 +1158,23 @@ static void do_read_data(struct work_struct *work)
 	memcpy(&pkt->hdr, &hdr, sizeof(hdr));
 	pkt->mid = mid;
 	pkt->length = frag->length;
+
+	spin_lock_irqsave(&local_endpoints_lock, flags);
+	ept = rpcrouter_lookup_local_endpoint(hdr.dst_cid);
+	if (!ept) {
+		spin_unlock_irqrestore(&local_endpoints_lock, flags);
+		DIAG("no local ept for cid %08x\n", hdr.dst_cid);
+		kfree(frag);
+		kfree(pkt);
+		goto done;
+	}
 	if (!PACMARK_LAST(pm)) {
+		spin_lock(&ept->incomplete_lock);
 		list_add_tail(&pkt->list, &ept->incomplete);
 		spin_unlock(&ept->incomplete_lock);
 		spin_unlock_irqrestore(&local_endpoints_lock, flags);
 		goto done;
 	}
-	spin_unlock(&ept->incomplete_lock);
 
 packet_complete:
 	spin_lock(&ept->read_q_lock);
