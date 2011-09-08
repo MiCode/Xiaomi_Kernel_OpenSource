@@ -2075,23 +2075,19 @@ static int msm_otg_pm_suspend(struct device *dev)
 static int msm_otg_pm_resume(struct device *dev)
 {
 	struct msm_otg *motg = dev_get_drvdata(dev);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(dev, "OTG PM resume\n");
 
-	ret = msm_otg_resume(motg);
-	if (ret)
-		return ret;
-
+#ifdef CONFIG_PM_RUNTIME
 	/*
-	 * Runtime PM Documentation recommends bringing the
-	 * device to full powered state upon resume.
+	 * Do not resume hardware as part of system resume,
+	 * rather, wait for the ASYNC INT from the h/w
 	 */
-	pm_runtime_disable(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
+	return ret;
+#endif
 
-	return 0;
+	return msm_otg_resume(motg);
 }
 #endif
 
