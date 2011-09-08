@@ -328,8 +328,15 @@ static void audpp_fake_event(struct audpp_state *audpp, int id,
 			     unsigned event, unsigned arg)
 {
 	uint16_t msg[1];
+	uint16_t n = 0;
 	msg[0] = arg;
 	audpp->func[id] (audpp->private[id], event, msg);
+	if (audpp->enabled == 1) {
+		for (n = 0; n < MAX_EVENT_CALLBACK_CLIENTS; ++n)
+			if (audpp->cb_tbl[n] && audpp->cb_tbl[n]->fn)
+				audpp->cb_tbl[n]->fn(audpp->cb_tbl[n]->private,
+					 AUDPP_MSG_CFG_MSG, msg);
+	}
 }
 
 int audpp_enable(int id, audpp_event_func func, void *private)

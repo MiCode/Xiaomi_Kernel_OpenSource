@@ -1474,7 +1474,7 @@ static u8 check_device_info_already_present(
 		acdb values are not cleaned from node so update node status
 		with acdb value filled*/
 		if ((acdb_cache_free_node->node_status != ACDB_VALUES_FILLED) &&
-			((acdb_data.device_info->dev_type & RX_DEVICE) == 1)) {
+			((audcal_info.dev_type & RX_DEVICE) == 1)) {
 			MM_DBG("device was released earlier\n");
 			acdb_cache_free_node->node_status = ACDB_VALUES_FILLED;
 			return 2; /*node is presnet but status as not filled*/
@@ -2864,13 +2864,10 @@ static u32 free_acdb_cache_node(union auddev_evt_data *evt)
 		acdb_cache_tx[session_id].
 			node_status = ACDB_VALUES_NOT_FILLED;
 	} else {
-		if (--(acdb_cache_rx[evt->audcal_info.dev_id].stream_id) <= 0) {
 			MM_DBG("freeing rx cache node %d\n",
 						evt->audcal_info.dev_id);
 			acdb_cache_rx[evt->audcal_info.dev_id].
 				node_status = ACDB_VALUES_NOT_FILLED;
-			acdb_cache_rx[evt->audcal_info.dev_id].stream_id = 0;
-		}
 	}
 	return 0;
 }
@@ -3020,8 +3017,13 @@ static void audpp_cb(void *private, u32 id, u16 *msg)
 		goto done;
 
 	if (msg[0] == AUDPP_MSG_ENA_DIS) {
-		acdb_data.acdb_state &= ~AUDPP_READY;
-		MM_DBG("AUDPP_MSG_ENA_DIS\n");
+		if (--acdb_cache_rx[acdb_data.\
+				device_info->dev_id].stream_id <= 0) {
+			acdb_data.acdb_state &= ~AUDPP_READY;
+			acdb_cache_rx[acdb_data.device_info->dev_id]\
+					.stream_id = 0;
+			MM_DBG("AUDPP_MSG_ENA_DIS\n");
+		}
 		goto done;
 	}
 
