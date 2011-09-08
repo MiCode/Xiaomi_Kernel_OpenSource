@@ -1408,17 +1408,17 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 	BT_DBG("");
 
+	cp = (void *) data;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_PAIR_DEVICE, EINVAL);
+
 	hdev = hci_dev_get(index);
 
 	if (!hdev)
 		return cmd_status(sk, index, MGMT_OP_PAIR_DEVICE, ENODEV);
 
 	hci_dev_lock(hdev);
-
-	cp = (void *) data;
-
-	if (len != sizeof(*cp))
-		return cmd_status(sk, index, MGMT_OP_PAIR_DEVICE, EINVAL);
 
 	BT_DBG("SSP Cap is %d", cp->ssp_cap);
 	io_cap = cp->io_cap;
@@ -1657,6 +1657,10 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 	BT_DBG("");
 
 	hdev = hci_dev_get(index);
+
+	if (hdev)
+		hci_dev_lock(hdev);
+
 	if (!hdev || !lmp_le_capable(hdev)) {
 		struct mgmt_mode cp = {0};
 
@@ -1664,10 +1668,12 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 						discovery_terminated, NULL);
 
 		mgmt_event(MGMT_EV_DISCOVERING, index, &cp, sizeof(cp), NULL);
-		return;
-	}
 
-	hci_dev_lock(hdev);
+		if (hdev)
+			goto done;
+		else
+			return;
+	}
 
 	cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
 	if (cmd && cmd->param) {
@@ -1687,6 +1693,7 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 		mgmt_pending_foreach(MGMT_OP_STOP_DISCOVERY, index,
 						discovery_terminated, NULL);
 
+done:
 	hci_dev_unlock(hdev);
 	hci_dev_put(hdev);
 }
@@ -1729,6 +1736,7 @@ static void disco_to(unsigned long data)
 		}
 
 		hci_dev_unlock(hdev);
+		hci_dev_put(hdev);
 	}
 }
 
@@ -1765,6 +1773,7 @@ static void disco_le_to(unsigned long data)
 			ilp->mode = SCAN_IDLE;
 
 		hci_dev_unlock(hdev);
+		hci_dev_put(hdev);
 	}
 }
 
@@ -2409,8 +2418,12 @@ int mgmt_user_confirm_request(u16 index, u8 event,
 
 	hdev = hci_dev_get(index);
 
-	if (hdev)
-		conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
+	if (!hdev)
+		return -ENODEV;
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
 
 	ev.auto_confirm = 0;
 
@@ -2433,6 +2446,9 @@ no_auto_confirm:
 	bacpy(&ev.bdaddr, bdaddr);
 	ev.event = event;
 	put_unaligned_le32(value, &ev.value);
+
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
 
 	return mgmt_event(MGMT_EV_USER_CONFIRM_REQUEST, index, &ev, sizeof(ev),
 									NULL);
@@ -2568,7 +2584,6 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 			u8 *dev_class, s8 rssi, u8 eir_len, u8 *eir)
 {
 	struct mgmt_ev_device_found ev;
-	struct hci_dev *hdev = hci_dev_get(index);
 	struct pending_cmd *cmd;
 	int err;
 
@@ -2595,12 +2610,16 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 	cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
 	if (cmd) {
 		struct disco_interleave *ilp = cmd->param;
+		struct hci_dev *hdev = hci_dev_get(index);
 
 		ilp->int_count++;
 		if (hdev && ilp->int_count >= ilp->int_phase) {
 			/* Inquiry scan for General Discovery LAP */
 			struct hci_cp_inquiry cp = {{0x33, 0x8b, 0x9e}, 4, 0};
 			struct hci_cp_le_set_scan_enable le_cp = {0, 0};
+
+			hci_dev_lock(hdev);
+
 			ilp->int_phase *= 2;
 			ilp->int_count = 0;
 			if (ilp->mode == SCAN_LE) {
@@ -2614,7 +2633,11 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 				ilp->mode = SCAN_BR;
 				del_timer_sync(&ilp->le_timer);
 			}
+			hci_dev_unlock(hdev);
 		}
+
+		if (hdev)
+			hci_dev_put(hdev);
 	}
 
 	return 0;
