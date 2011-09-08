@@ -1755,7 +1755,6 @@ static void disco_le_to(unsigned long data)
 	BT_DBG("hci%d", ilp->index);
 
 	hdev = hci_dev_get(ilp->index);
-	del_timer_sync(&ilp->le_timer);
 
 	if (hdev) {
 		hci_dev_lock(hdev);
