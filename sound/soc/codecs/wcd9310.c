@@ -1961,13 +1961,13 @@ static short tabla_codec_measure_micbias_voltage(struct snd_soc_codec *codec,
 	return bias_value;
 }
 
-static int tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
+static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	struct tabla_mbhc_calibration *calibration = tabla->calibration;
 	int micbias_ctl_reg, micbias_cfilt_ctl_reg,
 		micbias_mbhc_reg;
-	short bias_value, threshold_no_mic;
+	short bias_value;
 	unsigned int cfilt_sel;
 
 	if (!calibration) {
@@ -2053,16 +2053,8 @@ static int tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	bias_value = tabla_codec_measure_micbias_voltage(codec, 0);
 	snd_soc_write(codec, micbias_cfilt_ctl_reg, 0x40);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
-	threshold_no_mic = 0xF7F6;
 
-	if ((bias_value < threshold_no_mic) &&
-		!tabla->no_mic_headset_override) {
-		pr_debug("headphone detected, micbias %x\n", bias_value);
-		return 0;
-	} else {
-		pr_debug("headset detected, micbias %x\n", bias_value);
-		return 1;
-	}
+	return bias_value;
 }
 
 static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
@@ -2348,9 +2340,12 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	int microphone_present;
 	int ldo_h_on, micb_cfilt_on;
 	int micbias_cfilt_ctl_reg, cfilt_sel;
+	short mic_voltage;
+	short threshold_no_mic = 0xF7F6;
+	short threshold_fake_insert = 0xFD30;
+
 
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
@@ -2409,15 +2404,21 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	microphone_present = tabla_codec_setup_hs_polling(codec);
-
 	if (!ldo_h_on)
 		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
 	if (!micb_cfilt_on)
 		snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x80, 0x0);
 
+	mic_voltage = tabla_codec_setup_hs_polling(codec);
 
-	if (microphone_present == 0) {
+	if (mic_voltage > threshold_fake_insert) {
+		pr_debug("%s: Fake insertion interrupt, mic_voltage = %x\n",
+			__func__, mic_voltage);
+		tabla_codec_enable_hs_detect(codec, 1);
+	} else if (mic_voltage < threshold_no_mic) {
+		pr_debug("%s: Headphone Detected, mic_voltage = %x\n",
+			__func__, mic_voltage);
+
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
 				SND_JACK_HEADPHONE);
@@ -2426,7 +2427,10 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		}
 		tabla_codec_shutdown_hs_polling(codec);
 		tabla_codec_enable_hs_detect(codec, 0);
-	} else if (microphone_present == 1) {
+
+	} else {
+		pr_debug("%s: Headset detected, mic_voltage = %x\n",
+			__func__, mic_voltage);
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
 				SND_JACK_HEADSET);
