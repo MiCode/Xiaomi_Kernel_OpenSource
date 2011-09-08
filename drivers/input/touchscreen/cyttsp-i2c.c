@@ -2828,6 +2828,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 	return retval;
 }
 
+#ifdef CONFIG_PM
 /* Function to manage power-on resume */
 static int cyttsp_resume(struct device *dev)
 {
@@ -2896,7 +2897,6 @@ static int cyttsp_resume(struct device *dev)
 	return retval;
 }
 
-#ifdef CONFIG_PM
 /* Function to manage low power suspend */
 static int cyttsp_suspend(struct device *dev)
 {
