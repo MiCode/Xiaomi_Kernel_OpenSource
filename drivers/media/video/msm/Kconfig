@@ -37,6 +37,18 @@ config IMX074
 	default y
 	---help---
 	SONY 13.5 MP Bayer Sensor
+config OV5640
+	bool "Sensor OV5640 (YUV 5M)"
+	depends on MSM_CAMERA && !MSM_CAMERA_V4L2
+	default n
+	---help---
+	Omni 5M YUV Sensor
+config WEBCAM_OV7692_QRD
+	bool "Sensor OV7692 QRD(VGA YUV)"
+	depends on MSM_CAMERA && ARCH_MSM7X27A && !MSM_CAMERA_V4L2
+	default n
+	---help---
+	  Omni Vision VGA YUV Sensor for QRD Devices
 config WEBCAM_OV7692
 	bool "Sensor OV7692 (VGA YUV)"
 	depends on MSM_CAMERA && ARCH_MSM8X60 && !MSM_CAMERA_V4L2
