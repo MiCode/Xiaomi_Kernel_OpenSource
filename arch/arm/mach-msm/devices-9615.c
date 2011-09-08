@@ -41,6 +41,10 @@
 #define MSM_GSBI5_QUP_PHYS      (MSM_GSBI5_PHYS + 0x80000)
 #define MSM_QUP_SIZE            SZ_4K
 
+/* Address of SSBI CMD */
+#define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
+#define MSM_PMIC_SSBI_SIZE	SZ_4K
+
 static struct resource resources_uart_gsbi4[] = {
 	{
 		.start	= GSBI4_UARTDM_IRQ,
@@ -122,6 +126,21 @@ struct platform_device msm9615_device_qup_spi_gsbi3 = {
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi3),
 	.resource	= resources_qup_spi_gsbi3,
+};
+
+static struct resource resources_ssbi_pmic1[] = {
+	{
+		.start  = MSM_PMIC1_SSBI_CMD_PHYS,
+		.end    = MSM_PMIC1_SSBI_CMD_PHYS + MSM_PMIC_SSBI_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm9615_device_ssbi_pmic1 = {
+	.name           = "msm_ssbi",
+	.id             = 0,
+	.resource       = resources_ssbi_pmic1,
+	.num_resources  = ARRAY_SIZE(resources_ssbi_pmic1),
 };
 
 #ifdef CONFIG_CACHE_L2X0

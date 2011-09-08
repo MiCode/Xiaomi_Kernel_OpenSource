@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/msm_ssbi.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -25,8 +26,16 @@
 
 static struct platform_device *common_devices[] = {
 	&msm9615_device_uart_gsbi4,
+	&msm9615_device_ssbi_pmic1,
 	&msm9615_device_qup_i2c_gsbi5,
 	&msm9615_device_qup_spi_gsbi3,
+};
+
+static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
+	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
+	.slave	= {
+		.name		= "pm8018-core",
+	},
 };
 
 static struct gpiomux_setting gsbi4 = {
@@ -160,6 +169,8 @@ static void __init msm9615_common_init(void)
 	msm9615_i2c_init();
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
+	msm9615_device_ssbi_pmic1.dev.platform_data =
+						&msm9615_ssbi_pm8018_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
