@@ -22,6 +22,10 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 
+/* Family ID */
+#define MXT224_ID	0x80
+#define MXT1386_ID	0xA0
+
 /* Version */
 #define MXT_VER_20		20
 #define MXT_VER_21		21
@@ -187,6 +191,9 @@
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		50	/* msec */
 #define MXT_RESET_TIME		200	/* msec */
+#define MXT224_RESET_TIME		65	/* msec */
+#define MXT1386_RESET_TIME		200	/* msec */
+#define MXT_RESET_NOCHGREAD		400	/* msec */
 
 #define MXT_FWRESET_TIME	175	/* msec */
 
@@ -829,7 +836,9 @@ static int mxt_initialize(struct mxt_data *data)
 	struct i2c_client *client = data->client;
 	struct mxt_info *info = &data->info;
 	int error;
+	int timeout_counter = 0;
 	u8 val;
+	u8 command_register;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -860,11 +869,45 @@ static int mxt_initialize(struct mxt_data *data)
 			MXT_COMMAND_BACKUPNV,
 			MXT_BACKUP_VALUE);
 	msleep(MXT_BACKUP_TIME);
+	do {
+		error =  mxt_read_object(data, MXT_GEN_COMMAND,
+					MXT_COMMAND_BACKUPNV,
+					&command_register);
+		if (error)
+			return error;
+		msleep(2);
+	} while ((command_register != 0) && (timeout_counter++ <= 100));
+	if (timeout_counter >= 100) {
+		dev_err(&client->dev, "No response after backup!\n");
+		return -EIO;
+	}
+
 
 	/* Soft reset */
 	mxt_write_object(data, MXT_GEN_COMMAND_T6,
 			MXT_COMMAND_RESET, 1);
-	msleep(MXT_RESET_TIME);
+
+	if (data->pdata->read_chg == NULL) {
+		msleep(MXT_RESET_NOCHGREAD);
+	} else {
+		switch (info->family_id) {
+		case MXT224_ID:
+			msleep(MXT224_RESET_TIME);
+			break;
+		case MXT1386_ID:
+			msleep(MXT1386_RESET_TIME);
+			break;
+		default:
+			msleep(MXT_RESET_TIME);
+		}
+		timeout_counter = 0;
+		while ((timeout_counter++ <= 100) && data->pdata->read_chg())
+			msleep(2);
+		if (timeout_counter >= 100) {
+			dev_err(&client->dev, "No response after reset!\n");
+			return -EIO;
+		}
+	}
 
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);

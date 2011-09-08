@@ -45,6 +45,7 @@ struct mxt_platform_data {
 	bool is_tp;
 	const unsigned int key_map[MXT_NUM_GPIO];
 	bool	i2c_pull_up;
+	u8(*read_chg) (void);
 
 	int (*init_hw) (bool);
 	int (*power_on) (bool);
