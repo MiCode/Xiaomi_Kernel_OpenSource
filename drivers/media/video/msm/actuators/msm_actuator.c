@@ -16,8 +16,6 @@
 LDECVAR(a_profstarttime);
 LDECVAR(a_profendtime);
 
-static int msm_actuator_debug_init(struct msm_actuator_ctrl_t *a_ctrl);
-
 int32_t msm_actuator_write_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t curr_lens_pos,
@@ -93,8 +91,8 @@ int32_t msm_actuator_move_focus(
 
 	if (dest_step_pos < 0)
 		dest_step_pos = 0;
-	else if (dest_step_pos > a_ctrl->total_steps)
-		dest_step_pos = a_ctrl->total_steps;
+	else if (dest_step_pos > a_ctrl->set_info.total_steps)
+		dest_step_pos = a_ctrl->set_info.total_steps;
 
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
@@ -167,7 +165,7 @@ int32_t msm_actuator_init_table(
 
 	/* Fill step position table */
 	a_ctrl->step_position_table =
-		kmalloc(sizeof(uint16_t) * (a_ctrl->total_steps + 1),
+		kmalloc(sizeof(uint16_t) * (a_ctrl->set_info.total_steps + 1),
 			GFP_KERNEL);
 	cur_code = a_ctrl->initial_code;
 	a_ctrl->step_position_table[step_index++] = cur_code;
@@ -187,7 +185,9 @@ int32_t msm_actuator_init_table(
 	}
 
 	LINFO("step position table\n");
-	for (step_index = 0; step_index < a_ctrl->total_steps; step_index++) {
+	for (step_index = 0;
+		step_index < a_ctrl->set_info.total_steps;
+		step_index++) {
 		LINFO("spt i %d, val %d\n",
 			step_index,
 			a_ctrl->step_position_table[step_index]);
@@ -227,7 +227,6 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 		LINFO("%s after msm_actuator_set_default_focus\n", __func__);
 	}
 	kfree(a_ctrl->step_position_table);
-	kfree(a_ctrl->debugfs_data);
 	return rc;
 }
 
@@ -244,10 +243,16 @@ int32_t msm_actuator_config(
 	mutex_lock(a_ctrl->actuator_mutex);
 	LINFO("%s called, type %d\n", __func__, cdata.cfgtype);
 	switch (cdata.cfgtype) {
+	case CFG_GET_ACTUATOR_INFO:
+		cdata.is_af_supported = 1;
+		cdata.cfg.get_info = a_ctrl->get_info;
+		if (copy_to_user((void *)argp,
+				 &cdata,
+				 sizeof(struct msm_actuator_cfg_data)))
+			rc = -EFAULT;
+		break;
 	case CFG_SET_ACTUATOR_INFO:
-		a_ctrl->total_steps = cdata.cfg.info.total_steps;
-		a_ctrl->gross_steps = cdata.cfg.info.gross_steps;
-		a_ctrl->fine_steps = cdata.cfg.info.fine_steps;
+		a_ctrl->set_info = cdata.cfg.set_info;
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
 		if (rc < 0)
 			LERROR("%s init table failed %d\n", __func__, rc);
@@ -326,260 +331,5 @@ int32_t msm_actuator_create_subdevice(struct msm_actuator_ctrl_t *a_ctrl,
 		a_ctrl->i2c_client.client,
 		a_ctrl->act_v4l2_subdev_ops);
 
-	/* Initialize debugfs */
-	if (a_ctrl->debugfs_flag) {
-		msm_actuator_debug_init(a_ctrl);
-		a_ctrl->debugfs_flag = 0;
-	}
 	return rc;
-}
-
-static int msm_actuator_set_linear_total_step(void *data, u64 val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-
-	/* Update total steps */
-	a_ctrl->total_steps = val;
-
-	/* Update last region's macro boundary in region params table */
-	a_ctrl->region_params[a_ctrl->region_size-1].step_bound[MOVE_NEAR] =
-		val;
-
-	/* Call init table to re-create step position table
-	   based on updated total steps */
-	a_ctrl->func_tbl.actuator_init_table(a_ctrl);
-
-	LINFO("%s called, total steps = %d\n",
-		__func__,
-		a_ctrl->total_steps);
-
-	return 0;
-}
-
-static int msm_actuator_af_linearity_test(void *data, u64 *val)
-{
-	int16_t index = 0;
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-
-	a_ctrl->func_tbl.actuator_set_default_focus(a_ctrl);
-	msleep(1000);
-
-	for (index = 0; index < a_ctrl->total_steps; index++) {
-		a_ctrl->func_tbl.actuator_move_focus(a_ctrl, MOVE_NEAR, 1);
-		LINFO("debugfs, new loc %d\n", index);
-		msleep(1000);
-	}
-
-	LINFO("debugfs moved to macro boundary\n");
-
-	for (index = 0; index < a_ctrl->total_steps; index++) {
-		a_ctrl->func_tbl.actuator_move_focus(a_ctrl, MOVE_FAR, 1);
-		LINFO("debugfs, new loc %d\n", index);
-		msleep(1000);
-	}
-
-	return 0;
-}
-
-static int msm_actuator_af_ring_config(void *data, u64 val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called val %llu\n",
-		__func__,
-		val);
-	a_ctrl->debugfs_data->step_boundary = val & 0xFF;
-	a_ctrl->debugfs_data->step_value = (val >> 8) & 0xFF;
-	a_ctrl->debugfs_data->step_dir = (val >> 16) & 0x01;
-	LINFO("%s called dir %d, val %d, bound %d\n",
-		__func__,
-		a_ctrl->debugfs_data->step_dir,
-		a_ctrl->debugfs_data->step_value,
-		a_ctrl->debugfs_data->step_boundary);
-
-	return 0;
-}
-
-static int msm_actuator_af_ring(void *data, u64 *val)
-{
-	int i = 0;
-	int dir = MOVE_NEAR;
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called\n", __func__);
-	if (a_ctrl->debugfs_data->step_dir == 1)
-		dir = MOVE_FAR;
-
-	LINFO("%s called curr step %d step val %d, dir %d, bound %d\n",
-		__func__,
-		a_ctrl->curr_step_pos,
-		a_ctrl->debugfs_data->step_value,
-		a_ctrl->debugfs_data->step_dir,
-		a_ctrl->debugfs_data->step_boundary);
-
-	for (i = 0;
-		i < a_ctrl->debugfs_data->step_boundary;
-		i += a_ctrl->debugfs_data->step_value) {
-		LINFO("==================================================\n");
-		LINFO("i %d\n", i);
-		/* Measure start time */
-		LPROFSTART(a_profstarttime);
-
-		msm_actuator_move_focus(a_ctrl,
-			dir,
-			a_ctrl->debugfs_data->step_value);
-
-		/* Measure end time */
-		LPROFEND(a_profstarttime, a_profendtime);
-		LINFO("==================================================\n");
-		LINFO("%s called curr step %d\n",
-			__func__,
-			a_ctrl->curr_step_pos);
-
-		msleep(1000);
-	}
-	*val = a_ctrl->curr_step_pos;
-	return 0;
-}
-
-static int msm_actuator_set_af_codestep(void *data, u64 val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called, val %lld\n", __func__, val);
-
-	/* Update last region's macro boundary in region params table */
-	a_ctrl->region_params[a_ctrl->region_size-1].code_per_step = val;
-
-	/* Call init table to re-create step position table
-	   based on updated total steps */
-	a_ctrl->func_tbl.actuator_init_table(a_ctrl);
-
-	LINFO("%s called, code per step = %d\n",
-		__func__,
-		a_ctrl->region_params[a_ctrl->region_size-1].code_per_step);
-	return 0;
-}
-
-static int msm_actuator_get_af_codestep(void *data, u64 *val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called\n", __func__);
-
-	*val = a_ctrl->region_params[a_ctrl->region_size-1].code_per_step;
-	return 0;
-}
-
-static int msm_actuator_call_init_table(void *data, u64 *val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called\n", __func__);
-	a_ctrl->func_tbl.actuator_init_table(a_ctrl);
-	LINFO("%s end\n", __func__);
-	return 0;
-}
-
-static int msm_actuator_call_default_focus(void *data, u64 *val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called\n", __func__);
-	a_ctrl->func_tbl.actuator_set_default_focus(a_ctrl);
-	msleep(3000);
-	LINFO("%s end\n", __func__);
-	return 0;
-}
-
-static int msm_actuator_getcurstep(void *data, u64 *val)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = (struct msm_actuator_ctrl_t *)data;
-	LINFO("%s called, cur steps %d\n",
-		__func__,
-		a_ctrl->curr_step_pos);
-	*val = a_ctrl->curr_step_pos;
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(af_linear,
-	msm_actuator_af_linearity_test,
-	msm_actuator_set_linear_total_step,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(af_ring,
-	msm_actuator_af_ring,
-	msm_actuator_af_ring_config,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(af_codeperstep,
-	msm_actuator_get_af_codestep,
-	msm_actuator_set_af_codestep,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(af_init,
-	msm_actuator_call_init_table,
-	NULL,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(af_default,
-	msm_actuator_call_default_focus,
-	NULL,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(af_getcurstep,
-	msm_actuator_getcurstep,
-	NULL,
-	"%llu\n");
-
-static int msm_actuator_debug_init(struct msm_actuator_ctrl_t *a_ctrl)
-{
-	struct dentry *debugfs_base = debugfs_create_dir("msm_actuator", NULL);
-	if (!debugfs_base)
-		return -ENOMEM;
-
-	a_ctrl->debugfs_data = kmalloc(sizeof(struct debugfs_params_t),
-				       GFP_KERNEL);
-	if (!a_ctrl->debugfs_data)
-		return -ENOMEM;
-
-	a_ctrl->debugfs_data->step_value = 4;
-	a_ctrl->debugfs_data->step_boundary = a_ctrl->total_steps;
-
-	if (!debugfs_create_file("af_linear",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_linear))
-		return -ENOMEM;
-
-	if (!debugfs_create_file("af_ring",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_ring))
-		return -ENOMEM;
-
-	if (!debugfs_create_file("af_codeperstep",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_codeperstep))
-		return -ENOMEM;
-
-	if (!debugfs_create_file("af_init",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_init))
-		return -ENOMEM;
-
-	if (!debugfs_create_file("af_default",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_default))
-		return -ENOMEM;
-
-	if (!debugfs_create_file("af_getcurstep",
-		S_IRUGO | S_IWUSR,
-		debugfs_base,
-		(void *)a_ctrl,
-		&af_getcurstep))
-		return -ENOMEM;
-	return 0;
 }

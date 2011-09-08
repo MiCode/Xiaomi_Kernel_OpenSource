@@ -641,7 +641,8 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_OUTPUT_INFO		32
 #define CFG_GET_EEPROM_DATA		33
 #define CFG_SET_ACTUATOR_INFO		34
-#define CFG_MAX			35
+#define CFG_GET_ACTUATOR_INFO		35
+#define CFG_MAX			36
 
 
 #define MOVE_NEAR	0
@@ -817,11 +818,24 @@ struct msm_actuator_set_info_t {
 	uint16_t fine_steps;
 };
 
+struct msm_actuator_get_info_t {
+	uint32_t focal_length_num;
+	uint32_t focal_length_den;
+	uint32_t f_number_num;
+	uint32_t f_number_den;
+	uint32_t f_pix_num;
+	uint32_t f_pix_den;
+	uint32_t total_f_dist_num;
+	uint32_t total_f_dist_den;
+};
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
+	uint8_t is_af_supported;
 	union {
 		struct msm_actuator_move_params_t move;
-		struct msm_actuator_set_info_t info;
+		struct msm_actuator_set_info_t set_info;
+		struct msm_actuator_get_info_t get_info;
 	} cfg;
 };
 

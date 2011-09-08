@@ -13,7 +13,6 @@
 #define MSM_ACTUATOR_H
 
 #include <linux/i2c.h>
-#include <linux/debugfs.h>
 #include <mach/camera.h>
 #include <media/v4l2-subdev.h>
 #include <media/msm_camera.h>
@@ -37,12 +36,6 @@ struct damping_params_t {
 
 struct damping_t {
 	struct damping_params_t *ringing_params;
-};
-
-struct debugfs_params_t {
-	uint8_t step_dir;
-	uint16_t step_value;
-	uint16_t step_boundary;
 };
 
 struct msm_actuator_func_tbl {
@@ -74,17 +67,14 @@ struct msm_actuator_ctrl_t {
 	struct mutex *actuator_mutex;
 	struct msm_actuator_ctrl actuator_ext_ctrl;
 	struct msm_actuator_func_tbl func_tbl;
-	struct debugfs_params_t *debugfs_data;
 	struct v4l2_subdev *sdev;
 	struct v4l2_subdev_ops *act_v4l2_subdev_ops;
+	struct msm_actuator_set_info_t set_info;
+	struct msm_actuator_get_info_t get_info;
 
-	uint8_t debugfs_flag;
 	int16_t initial_code;
 	int16_t curr_step_pos;
 	uint16_t curr_region_index;
-	uint32_t total_steps;
-	uint16_t gross_steps;
-	uint16_t fine_steps;
 	uint16_t *step_position_table;
 	uint16_t *ringing_scenario[2];
 	uint16_t scenario_size[2];

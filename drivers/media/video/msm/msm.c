@@ -2276,8 +2276,13 @@ static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
 	void *act_client = NULL;
 	struct msm_actuator_ctrl *a_ext_ctrl = NULL;
 
-	if (!actuator_info)
+	if (!actuator_info) {
+		actctrl->a_init_table = NULL;
+		actctrl->a_power_down = NULL;
+		actctrl->a_config = NULL;
+		actctrl->a_create_subdevice = NULL;
 		return rc;
+	}
 
 	adapter = i2c_get_adapter(actuator_info->bus_id);
 
@@ -2443,11 +2448,13 @@ int msm_sensor_register(struct platform_device *pdev,
 			__func__);
 		goto failure;
 	}
-	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
-	if (rc < 0) {
-		D("%s actuator sub device register failed\n",
-			__func__);
-		goto failure;
+	if (sdata->actuator_info) {
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
+		if (rc < 0) {
+			D("%s actuator sub device register failed\n",
+				__func__);
+			goto failure;
+		}
 	}
 	pcam->vnode_id = vnode_count++;
 	return rc;
