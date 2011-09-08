@@ -3710,6 +3710,8 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	pr_info(TEST_MODULE_NAME ": A2 RTT TEST START for chan %s\n",
 		test_ch->name);
 
+	/* Cleanup the pending RX data (such as loopback of te config msg) */
+	rx_cleanup(test_ch, &rx_packet_count);
 	rx_packet_count = 0;
 
 	while (tx_packet_count < max_packets) {
