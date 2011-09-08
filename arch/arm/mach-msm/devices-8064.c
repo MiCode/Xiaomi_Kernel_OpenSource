@@ -21,6 +21,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/usbdiag.h>
 #include <mach/msm_sps.h>
+#include <mach/dma.h>
 #include "clock.h"
 #include "devices.h"
 
@@ -53,13 +54,21 @@
 #define MSM_HSUSB_PHYS		0x12500000
 #define MSM_HSUSB_SIZE		SZ_4K
 
-
 static struct resource msm_dmov_resource[] = {
 	{
 		.start = ADM_0_SCSS_0_IRQ,
-		.end = (resource_size_t)MSM_DMOV_BASE,
 		.flags = IORESOURCE_IRQ,
 	},
+	{
+		.start = 0x18300000,
+		.end = 0x18300000 + SZ_1M - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct msm_dmov_pdata msm_dmov_pdata = {
+	.sd = 0,
+	.sd_size = 0x800,
 };
 
 struct platform_device apq8064_device_dmov = {
@@ -67,6 +76,9 @@ struct platform_device apq8064_device_dmov = {
 	.id	= -1,
 	.resource = msm_dmov_resource,
 	.num_resources = ARRAY_SIZE(msm_dmov_resource),
+	.dev = {
+		.platform_data = &msm_dmov_pdata,
+	},
 };
 
 static struct resource resources_uart_gsbi1[] = {

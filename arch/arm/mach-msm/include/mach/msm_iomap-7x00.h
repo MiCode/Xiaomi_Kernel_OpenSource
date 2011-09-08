@@ -58,10 +58,6 @@
 #define MSM_GPT_BASE          MSM_TMR_BASE
 #define MSM_DGT_BASE          (MSM_TMR_BASE + 0x10)
 
-#define MSM_DMOV_BASE         IOMEM(0xF8002000)
-#define MSM_DMOV_PHYS         0xA9700000
-#define MSM_DMOV_SIZE         SZ_4K
-
 #define MSM_GPIO1_BASE        IOMEM(0xF8003000)
 #define MSM_GPIO1_PHYS        0xA9200000
 #define MSM_GPIO1_SIZE        SZ_4K

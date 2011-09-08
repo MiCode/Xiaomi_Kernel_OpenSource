@@ -1833,20 +1833,38 @@ struct platform_device msm_device_smd = {
 	.id             = -1,
 };
 
-struct resource msm_dmov_resource_adm0[] = {
+static struct resource msm_dmov_resource_adm0[] = {
 	{
 		.start = INT_ADM0_AARM,
-		.end = (resource_size_t)MSM_DMOV_ADM0_BASE,
 		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = 0x18320000,
+		.end = 0x18320000 + SZ_1M - 1,
+		.flags = IORESOURCE_MEM,
 	},
 };
 
-struct resource msm_dmov_resource_adm1[] = {
+static struct resource msm_dmov_resource_adm1[] = {
 	{
 		.start = INT_ADM1_AARM,
-		.end = (resource_size_t)MSM_DMOV_ADM1_BASE,
 		.flags = IORESOURCE_IRQ,
 	},
+	{
+		.start = 0x18420000,
+		.end = 0x18420000 + SZ_1M - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct msm_dmov_pdata msm_dmov_pdata_adm0 = {
+	.sd = 1,
+	.sd_size = 0x800,
+};
+
+static struct msm_dmov_pdata msm_dmov_pdata_adm1 = {
+	.sd = 1,
+	.sd_size = 0x800,
 };
 
 struct platform_device msm_device_dmov_adm0 = {
@@ -1854,6 +1872,9 @@ struct platform_device msm_device_dmov_adm0 = {
 	.id	= 0,
 	.resource = msm_dmov_resource_adm0,
 	.num_resources = ARRAY_SIZE(msm_dmov_resource_adm0),
+	.dev = {
+		.platform_data = &msm_dmov_pdata_adm0,
+	},
 };
 
 struct platform_device msm_device_dmov_adm1 = {
@@ -1861,6 +1882,9 @@ struct platform_device msm_device_dmov_adm1 = {
 	.id	= 1,
 	.resource = msm_dmov_resource_adm1,
 	.num_resources = ARRAY_SIZE(msm_dmov_resource_adm1),
+	.dev = {
+		.platform_data = &msm_dmov_pdata_adm1,
+	},
 };
 
 /* MSM Video core device */
