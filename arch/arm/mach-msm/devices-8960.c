@@ -1436,7 +1436,10 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	LPASS_SCSS_GP_LOW_IRQ,
 	LPASS_SCSS_GP_MEDIUM_IRQ,
 	LPASS_SCSS_GP_HIGH_IRQ,
+	SPS_MTI_30,
 	SPS_MTI_31,
+	RIVA_APSS_SPARE_IRQ,
+	RIVA_APPS_WLAN_SMSM_IRQ
 };
 
 struct msm_mpm_device_data msm_mpm_dev_data = {
