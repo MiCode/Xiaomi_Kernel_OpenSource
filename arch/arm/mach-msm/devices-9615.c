@@ -23,8 +23,22 @@
 #include <asm/hardware/cache-l2x0.h>
 #include "devices.h"
 
+/* Address of GSBI blocks */
+#define MSM_GSBI1_PHYS          0x16000000
+#define MSM_GSBI2_PHYS          0x16100000
+#define MSM_GSBI3_PHYS          0x16200000
 #define MSM_GSBI4_PHYS		0x16300000
+#define MSM_GSBI5_PHYS          0x16400000
+
 #define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
+
+/* GSBI QUP devices */
+#define MSM_GSBI1_QUP_PHYS      (MSM_GSBI1_PHYS + 0x80000)
+#define MSM_GSBI2_QUP_PHYS      (MSM_GSBI2_PHYS + 0x80000)
+#define MSM_GSBI3_QUP_PHYS      (MSM_GSBI3_PHYS + 0x80000)
+#define MSM_GSBI4_QUP_PHYS      (MSM_GSBI4_PHYS + 0x80000)
+#define MSM_GSBI5_QUP_PHYS      (MSM_GSBI5_PHYS + 0x80000)
+#define MSM_QUP_SIZE            SZ_4K
 
 static struct resource resources_uart_gsbi4[] = {
 	{
@@ -51,6 +65,34 @@ struct platform_device msm9615_device_uart_gsbi4 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi4),
 	.resource	= resources_uart_gsbi4,
+};
+
+static struct resource resources_qup_i2c_gsbi5[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI5_PHYS,
+		.end	= MSM_GSBI5_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI5_QUP_PHYS,
+		.end	= MSM_GSBI5_QUP_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI5_QUP_IRQ,
+		.end	= GSBI5_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm9615_device_qup_i2c_gsbi5 = {
+	.name		= "qup_i2c",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi5),
+	.resource	= resources_qup_i2c_gsbi5,
 };
 
 #ifdef CONFIG_CACHE_L2X0

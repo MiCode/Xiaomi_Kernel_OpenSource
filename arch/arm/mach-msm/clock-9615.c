@@ -1505,7 +1505,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk",	gsbi2_qup_clk.c, NULL),
 	CLK_LOOKUP("core_clk",	gsbi3_qup_clk.c, NULL),
 	CLK_LOOKUP("core_clk",	gsbi4_qup_clk.c, NULL),
-	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, NULL),
+	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, "qup_i2c.0"),
 
 	CLK_LOOKUP("pdm_clk",		pdm_clk.c,		NULL),
 	CLK_LOOKUP("pmem_clk",		pmem_clk.c,		NULL),
@@ -1520,7 +1520,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("iface_clk",	gsbi2_p_clk.c, NULL),
 	CLK_LOOKUP("iface_clk",	gsbi3_p_clk.c, NULL),
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
-	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, NULL),
+	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, "qup_i2c.0"),
 
 	CLK_LOOKUP("usb_hs_pclk",		usb_hs1_p_clk.c,	NULL),
 	CLK_LOOKUP("usb_hs_system_clk",		usb_hs1_sys_clk.c,	NULL),

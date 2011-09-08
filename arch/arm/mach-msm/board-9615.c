@@ -12,6 +12,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -23,9 +24,16 @@
 
 static struct platform_device *common_devices[] = {
 	&msm9615_device_uart_gsbi4,
+	&msm9615_device_qup_i2c_gsbi5,
 };
 
 static struct gpiomux_setting gsbi4 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
@@ -56,6 +64,18 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi4,
 		},
 	},
+	{
+		.gpio      = 16,	/* GSBI5 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5,
+		},
+	},
+	{
+		.gpio      = 17,	/* GSBI5 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5,
+		},
+	},
 };
 
 static int __init gpiomux_init(void)
@@ -73,10 +93,22 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
+static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
+static void __init msm9615_i2c_init(void)
+{
+	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
+					&msm9615_i2c_qup_gsbi5_pdata;
+}
+
 static void __init msm9615_common_init(void)
 {
 	msm9615_device_init();
 	gpiomux_init();
+	msm9615_i2c_init();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 }
 
