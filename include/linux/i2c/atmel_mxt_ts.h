@@ -40,6 +40,7 @@ struct mxt_platform_data {
 	unsigned char orient;
 	unsigned long irqflags;
 	bool	i2c_pull_up;
+	u8(*read_chg) (void);
 
 	int (*init_hw) (bool);
 	int (*power_on) (bool);
