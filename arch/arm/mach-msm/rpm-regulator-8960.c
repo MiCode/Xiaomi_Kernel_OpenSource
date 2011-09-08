@@ -704,7 +704,7 @@ int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 	}
 
 	/* Find the range which uV is inside of. */
-	for (i = vreg->set_points->count - 1; i > 0; i++) {
+	for (i = vreg->set_points->count - 1; i > 0; i--) {
 		if (uV > vreg->set_points->range[i - 1].max_uV) {
 			range = &vreg->set_points->range[i];
 			break;
@@ -1019,7 +1019,7 @@ static int vreg_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV,
 	}
 
 	/* Find the range which uV is inside of. */
-	for (i = vreg->set_points->count - 1; i > 0; i++) {
+	for (i = vreg->set_points->count - 1; i > 0; i--) {
 		if (uV > vreg->set_points->range[i - 1].max_uV) {
 			range = &vreg->set_points->range[i];
 			break;
