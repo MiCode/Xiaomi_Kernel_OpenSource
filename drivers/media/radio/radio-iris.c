@@ -2321,14 +2321,6 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		iris_search(radio, ctrl->value, SRCH_DIR_UP);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STATE:
-		radio->recv_conf.emphasis = 0;
-		radio->recv_conf.ch_spacing = 0;
-		radio->recv_conf.hlsi = 0;
-		radio->recv_conf.band_low_limit =
-			REGION_US_EU_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_US_EU_BAND_HIGH;
-		radio->recv_conf.rds_std = 0;
 		switch (ctrl->value) {
 		case FM_RECV:
 			retval = hci_cmd(HCI_FM_ENABLE_RECV_CMD,
@@ -2354,6 +2346,10 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 							radio->fm_hdev);
 			if (retval < 0)
 				FMDERR("Failed to set stereo mode\n");
+			retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Failed to get the Recv Config\n");
 			break;
 		case FM_TRANS:
 			retval = hci_cmd(HCI_FM_ENABLE_TRANS_CMD,
