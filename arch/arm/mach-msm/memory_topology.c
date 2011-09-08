@@ -18,6 +18,10 @@
 #include <mach/msm_memtypes.h>
 #include "smd_private.h"
 
+#if defined(CONFIG_ARCH_MSM8960)
+#include "rpm_resources.h"
+#endif
+
 
 static struct mem_region_t {
 	u64 start;
@@ -25,10 +29,19 @@ static struct mem_region_t {
 	/* reserved for future use */
 	u64 num_partitions;
 	int state;
+	int mask;
 	struct mutex state_mutex;
 } mem_regions[MAX_NR_REGIONS];
 
 static unsigned int nr_mem_regions;
+
+enum {
+	STATE_POWER_DOWN = 0x0,
+	STATE_ACTIVE,
+	STATE_DEFAULT = STATE_ACTIVE
+};
+
+static int default_mask = ~0x0;
 
 /* Return the number of chipselects populated with a memory bank */
 /* This is 7x30 only and will be re-implemented in the future */
@@ -50,6 +63,106 @@ unsigned int get_num_populated_chipselects()
 	return num_chipselects;
 }
 #endif
+
+#if defined(CONFIG_ARCH_MSM8960)
+static int rpm_change_memory_state(int retention_mask,
+					int active_mask)
+{
+	int ret;
+	struct msm_rpm_iv_pair cmd[2];
+	struct msm_rpm_iv_pair status[2];
+
+	cmd[0].id = MSM_RPM_ID_DDR_DMM_0;
+	cmd[1].id = MSM_RPM_ID_DDR_DMM_1;
+
+	status[0].id = MSM_RPM_STATUS_ID_DDR_DMM_0;
+	status[1].id = MSM_RPM_STATUS_ID_DDR_DMM_1;
+
+	cmd[0].value = retention_mask;
+	cmd[1].value = active_mask;
+
+	ret = msm_rpm_set(MSM_RPM_CTX_SET_0, cmd, 2);
+	if (ret < 0) {
+		pr_err("rpm set failed");
+		return -EINVAL;
+	}
+
+	ret = msm_rpm_get_status(status, 2);
+	if (ret < 0) {
+		pr_err("rpm status failed");
+		return -EINVAL;
+	}
+	if (status[0].value == retention_mask &&
+		status[1].value == active_mask)
+		return 0;
+	else {
+		pr_err("rpm failed to change memory state");
+		return -EINVAL;
+	}
+}
+
+static int switch_memory_state(int id, int new_state)
+{
+	int mask;
+	int disable_masks[MAX_NR_REGIONS] = { 0xFFFFFF00, 0xFFFF00FF,
+						0xFF00FFFF, 0x00FFFFFF };
+	mutex_lock(&mem_regions[id].state_mutex);
+
+	if (new_state == mem_regions[id].state)
+		goto no_change;
+
+	if (new_state == STATE_POWER_DOWN)
+		mask = mem_regions[id].mask & disable_masks[id];
+	else if (new_state == STATE_ACTIVE)
+		mask = mem_regions[id].mask | (~disable_masks[id]);
+
+	/* For now we only support Deep Power Down */
+	/* So set the active and retention states as the same */
+	if (rpm_change_memory_state(mask, mask) == 0) {
+		mem_regions[id].state = new_state;
+		mem_regions[id].mask = mask;
+		mutex_unlock(&mem_regions[id].state_mutex);
+		return 0;
+	}
+
+no_change:
+	mutex_unlock(&mem_regions[id].state_mutex);
+	return -EINVAL;
+}
+#else
+
+static int switch_memory_state(int id, int new_state)
+{
+	return -EINVAL;
+}
+#endif
+
+/* The hotplug code expects the number of bytes that switched state successfully
+ * as the return value, so a return value of zero indicates an error
+*/
+int soc_change_memory_power(u64 start, u64 size, int change)
+{
+
+	int i = 0;
+	int match = 0;
+
+	/* Find the memory region starting just below start */
+	for (i = 0; i < nr_mem_regions; i++) {
+		if (mem_regions[i].start <= start &&
+			mem_regions[i].start >= mem_regions[match].start) {
+				match = i;
+		}
+	}
+
+	if (start + size > mem_regions[match].start + mem_regions[match].size) {
+		pr_info("passed size exceeds size of memory bank\n");
+		return 0;
+	}
+	if (!switch_memory_state(match, change))
+		return size;
+	else
+		return 0;
+}
 
 unsigned int get_num_memory_banks(void)
 {
@@ -93,6 +206,8 @@ int __init meminfo_init(unsigned int type, unsigned int min_bank_size)
 			mem_regions[nr_mem_regions].size =
 				ram_ptable->parts[i].size;
 			mutex_init(&mem_regions[nr_mem_regions].state_mutex);
+			mem_regions[nr_mem_regions].state = STATE_DEFAULT;
+			mem_regions[nr_mem_regions].mask = default_mask;
 			nr_mem_regions++;
 		}
 	}

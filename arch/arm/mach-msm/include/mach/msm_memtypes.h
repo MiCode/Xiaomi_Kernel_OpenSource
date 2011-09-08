@@ -29,6 +29,7 @@ unsigned int get_num_populated_chipselects(void);
 unsigned int get_num_memory_banks(void);
 unsigned int get_memory_bank_size(unsigned int);
 unsigned int get_memory_bank_start(unsigned int);
+int soc_change_memory_power(u64, u64, int);
 
 enum {
 	MEMTYPE_NONE = -1,
