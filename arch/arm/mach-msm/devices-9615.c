@@ -22,6 +22,7 @@
 #include <mach/socinfo.h>
 #include <asm/hardware/cache-l2x0.h>
 #include "devices.h"
+#include "acpuclock.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS          0x16000000
@@ -151,6 +152,7 @@ void __init msm9615_device_init(void)
 		pr_err("socinfo_init() failed!\n");
 
 	msm_clock_init(&msm9615_clock_init_data);
+	acpuclk_init(&acpuclk_9615_soc_data);
 }
 
 void __init msm9615_map_io(void)
