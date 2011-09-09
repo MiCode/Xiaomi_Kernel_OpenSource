@@ -1165,7 +1165,7 @@ msm_rotator_open(struct inode *inode, struct file *filp)
 	if (i == MAX_SESSIONS)
 		return -EBUSY;
 
-	filp->private_data = (void *)task_tgid_nr(current);
+	filp->private_data = (void *)current->pid;
 
 	return 0;
 }
