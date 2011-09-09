@@ -55,7 +55,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #if defined(CONFIG_ARCH_MSM7X30)
 #define DMOV_SD_SIZE 0x400
 #define DMOV_SD_AARM 2
-#elif defined(CONFIG_ARCH_MSM8960)
+#elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM9615)
 #define DMOV_SD_SIZE 0x800
 #define DMOV_SD_AARM 1
 #elif defined(CONFIG_ARCH_APQ8064)
@@ -204,6 +204,20 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #define DMOV_HSUART_GSBI6_RX_CHAN	8
 #define DMOV_HSUART_GSBI6_RX_CRCI	11
+
+#elif defined(CONFIG_ARCH_MSM9615)
+
+#define DMOV_GP_CHAN          4
+
+#define DMOV_CE_IN_CHAN       0
+#define DMOV_CE_IN_CRCI       12
+
+#define DMOV_CE_OUT_CHAN      1
+#define DMOV_CE_OUT_CRCI      13
+
+#define DMOV_NAND_CHAN        3
+#define DMOV_NAND_CRCI_CMD    15
+#define DMOV_NAND_CRCI_DATA   3
 
 #elif defined(CONFIG_ARCH_FSM9XXX)
 /* defined in dma-fsm9xxx.h */

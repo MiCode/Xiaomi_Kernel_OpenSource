@@ -26,6 +26,7 @@
 #include "board-9615.h"
 
 static struct platform_device *common_devices[] = {
+	&msm9615_device_dmov,
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_ssbi_pmic1,
 	&msm9615_device_qup_i2c_gsbi5,

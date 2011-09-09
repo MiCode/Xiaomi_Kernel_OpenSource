@@ -22,6 +22,7 @@
 #include <mach/socinfo.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/msm_sps.h>
+#include <mach/dma.h>
 #include "devices.h"
 #include "acpuclock.h"
 
@@ -45,6 +46,21 @@
 /* Address of SSBI CMD */
 #define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
+
+static struct resource msm_dmov_resource[] = {
+	{
+		.start = ADM_0_SCSS_1_IRQ,
+		.end = (resource_size_t)MSM_DMOV_BASE,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm9615_device_dmov = {
+	.name	= "msm_dmov",
+	.id	= -1,
+	.resource = msm_dmov_resource,
+	.num_resources = ARRAY_SIZE(msm_dmov_resource),
+};
 
 static struct resource resources_uart_gsbi4[] = {
 	{
