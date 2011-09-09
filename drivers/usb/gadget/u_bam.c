@@ -791,12 +791,13 @@ int gbam_setup(unsigned int count)
 	}
 
 	for (i = 0; i < count; i++) {
+		n_bam_ports++;
 		ret = gbam_port_alloc(i);
 		if (ret) {
+			n_bam_ports--;
 			pr_err("%s: Unable to alloc port:%d\n", __func__, i);
 			goto free_bam_ports;
 		}
-		n_bam_ports++;
 	}
 
 	gbam_debugfs_init();
