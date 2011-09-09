@@ -6744,6 +6744,7 @@ static struct isa1200_platform_data isa1200_1_pdata = {
 	.pwm_ch_id = 1, /*channel id*/
 	/*gpio to enable haptic*/
 	.hap_en_gpio = PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
+	.hap_len_gpio = -1,
 	.max_timeout = 15000,
 	.mode_ctrl = PWM_GEN_MODE,
 	.pwm_fd = {
