@@ -893,19 +893,19 @@ static ssize_t smem_log_read_bin(struct file *fp, char __user *buf,
 	unsigned long flags;
 	int ret;
 	int tot_bytes = 0;
-	struct smem_log_inst *inst;
+	struct smem_log_inst *local_inst;
 
-	inst = fp->private_data;
+	local_inst = fp->private_data;
 
-	remote_spin_lock_irqsave(inst->remote_spinlock, flags);
+	remote_spin_lock_irqsave(local_inst->remote_spinlock, flags);
 
-	orig_idx = *inst->idx;
+	orig_idx = *local_inst->idx;
 	idx = orig_idx;
 
 	while (1) {
 		idx--;
 		if (idx < 0)
-			idx = inst->num - 1;
+			idx = local_inst->num - 1;
 		if (idx == orig_idx) {
 			ret = tot_bytes;
 			break;
@@ -916,7 +916,7 @@ static ssize_t smem_log_read_bin(struct file *fp, char __user *buf,
 			break;
 		}
 
-		ret = copy_to_user(buf, &inst[GEN].events[idx],
+		ret = copy_to_user(buf, &local_inst->events[idx],
 				   sizeof(struct smem_log_item));
 		if (ret) {
 			ret = -EIO;
@@ -928,7 +928,7 @@ static ssize_t smem_log_read_bin(struct file *fp, char __user *buf,
 		buf += sizeof(struct smem_log_item);
 	}
 
-	remote_spin_unlock_irqrestore(inst->remote_spinlock, flags);
+	remote_spin_unlock_irqrestore(local_inst->remote_spinlock, flags);
 
 	return ret;
 }
