@@ -242,7 +242,7 @@ module_param(max_history_time, long, 0644);
 static void do_epoch_check(struct subsys_data *subsys)
 {
 	int n = 0;
-	struct timeval *time_first, *curr_time;
+	struct timeval *time_first = NULL, *curr_time;
 	struct restart_log *r_log, *temp;
 	static int max_restarts_check;
 	static long max_history_time_check;
@@ -283,7 +283,7 @@ static void do_epoch_check(struct subsys_data *subsys)
 		pr_debug("restart_time: %ld\n", r_log->time.tv_sec);
 	}
 
-	if (n >= max_restarts_check) {
+	if (time_first && n >= max_restarts_check) {
 		if ((curr_time->tv_sec - time_first->tv_sec) <
 				max_history_time_check)
 			panic("Subsystems have crashed %d times in less than "
