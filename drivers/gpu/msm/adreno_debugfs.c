@@ -223,21 +223,23 @@ static int kgsl_regread_nolock(struct kgsl_device *device,
 	return 0;
 }
 
-#define KGSL_ISTORE_START 0x5000
-#define KGSL_ISTORE_LENGTH 0x600
+#define ADRENO_ISTORE_START 0x5000
 static ssize_t kgsl_istore_read(
 	struct file *file,
 	char __user *buff,
 	size_t buff_count,
 	loff_t *ppos)
 {
-	int i, count = KGSL_ISTORE_LENGTH, remaining, pos = 0, tot = 0;
+	int i, count, remaining, pos = 0, tot = 0;
 	struct kgsl_device *device = file->private_data;
 	const int rowc = 8;
+	struct adreno_device *adreno_dev;
 
 	if (!ppos || !device)
 		return 0;
 
+	adreno_dev = ADRENO_DEVICE(device);
+	count = adreno_dev->istore_size * ADRENO_ISTORE_WORDS;
 	remaining = count;
 	for (i = 0; i < count; i += rowc) {
 		unsigned int vals[rowc];
@@ -248,7 +250,8 @@ static ssize_t kgsl_istore_read(
 		if (pos >= *ppos) {
 			for (j = 0; j < linec; ++j)
 				kgsl_regread_nolock(device,
-					KGSL_ISTORE_START+i+j, vals+j);
+						    ADRENO_ISTORE_START + i + j,
+						    vals + j);
 		} else
 			memset(vals, 0, sizeof(vals));
 
