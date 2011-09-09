@@ -291,6 +291,7 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	frmnet_free_req(dev->notify, dev->notify_req);
 
+	kfree(f->name);
 	kfree(dev);
 }
 
