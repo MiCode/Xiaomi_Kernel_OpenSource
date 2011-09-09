@@ -574,7 +574,7 @@ void *setup_dummy_socinfo(void)
 	if (machine_is_msm8960_rumi3() || machine_is_msm8960_sim() ||
 	    machine_is_msm8960_cdp())
 		dummy_socinfo.id = 87;
-	else if (machine_is_apq8064_sim())
+	else if (machine_is_apq8064_rumi3() || machine_is_apq8064_sim())
 		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
