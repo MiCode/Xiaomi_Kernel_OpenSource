@@ -1118,10 +1118,6 @@ static const struct file_operations smem_log_bin_fops = {
 static long smem_log_ioctl(struct file *fp,
 			  unsigned int cmd, unsigned long arg)
 {
-	struct smem_log_inst *inst;
-
-	inst = fp->private_data;
-
 	switch (cmd) {
 	default:
 		return -ENOTTY;
@@ -1138,12 +1134,19 @@ static long smem_log_ioctl(struct file *fp,
 		}
 		break;
 	case SMIOC_SETLOG:
-		if (arg == SMIOC_LOG)
-			fp->private_data = &inst[GEN];
-		else if (arg == SMIOC_STATIC_LOG)
-			fp->private_data = &inst[STA];
-		else
+		if (arg == SMIOC_LOG) {
+			if (inst[GEN].events)
+				fp->private_data = &inst[GEN];
+			else
+				return -ENODEV;
+		} else if (arg == SMIOC_STATIC_LOG) {
+			if (inst[STA].events)
+				fp->private_data = &inst[STA];
+			else
+				return -ENODEV;
+		} else {
 			return -EINVAL;
+		}
 		break;
 	}
 
