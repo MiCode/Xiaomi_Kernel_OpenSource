@@ -333,6 +333,6 @@ static void __exit footswitch_exit(void)
 }
 module_exit(footswitch_exit);
 
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("proc_comm rail footswitch");
 MODULE_ALIAS("platform:footswitch-pcom");
