@@ -935,7 +935,8 @@ void diag_process_hdlc(void *data, unsigned len)
 }
 
 #ifdef CONFIG_DIAG_OVER_USB
-#define N_LEGACY_WRITE	(driver->poolsize + 5) /* 2+1 for modem ; 2 for q6 */
+/* 2+1 for modem ; 2 for LPASS ; 1 for WCNSS */
+#define N_LEGACY_WRITE	(driver->poolsize + 6)
 #define N_LEGACY_READ	1
 
 int diagfwd_connect(void)
