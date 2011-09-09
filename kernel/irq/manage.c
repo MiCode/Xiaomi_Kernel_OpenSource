@@ -1191,8 +1191,15 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
 #endif
 
 	/* If this was the last handler, shut down the IRQ line: */
-	if (!desc->action)
+	if (!desc->action) {
 		irq_shutdown(desc);
+
+		/* Explicitly mask the interrupt */
+		if (desc->irq_data.chip->irq_mask)
+			desc->irq_data.chip->irq_mask(&desc->irq_data);
+		else if (desc->irq_data.chip->irq_mask_ack)
+			desc->irq_data.chip->irq_mask_ack(&desc->irq_data);
+	}
 
 #ifdef CONFIG_SMP
 	/* make sure affinity_hint is cleaned up */
