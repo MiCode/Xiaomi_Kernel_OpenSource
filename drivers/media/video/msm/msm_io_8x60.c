@@ -73,6 +73,7 @@
 #define	MIPI_PHY_D0_CONTROL_HS_REC_EQ_SHFT				0x1c
 #define	MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT		0x9
 #define	MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT	0x8
+#define	DBG_CSI	0
 
 static struct clk *camio_cam_clk;
 static struct clk *camio_vfe_clk;
@@ -546,6 +547,25 @@ int msm_camio_vpe_clk_enable(uint32_t clk_rate)
 	return rc;
 }
 
+#ifdef DBG_CSI
+static int csi_request_irq(void)
+{
+	return request_irq(camio_ext.csiirq, msm_io_csi_irq,
+		IRQF_TRIGGER_HIGH, "csi", 0);
+}
+#else
+static int csi_request_irq(void) { return 0; }
+#endif
+
+#ifdef DBG_CSI
+static void csi_free_irq(void)
+{
+	free_irq(camio_ext.csiirq, 0);
+}
+#else
+static void csi_free_irq(void) { return 0; }
+#endif
+
 int msm_camio_enable(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -580,8 +600,7 @@ int msm_camio_enable(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto csi_busy;
 	}
-	rc = request_irq(camio_ext.csiirq, msm_io_csi_irq,
-		IRQF_TRIGGER_RISING, "csi", 0);
+	rc = csi_request_irq();
 	if (rc < 0)
 		goto csi_irq_fail;
 
@@ -655,7 +674,9 @@ void msm_camio_disable(struct platform_device *pdev)
 	CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL);
 	usleep_range(5000, 6000);
-	free_irq(camio_ext.csiirq, 0);
+	msm_io_w(0x0, csibase + MIPI_INTERRUPT_MASK);
+	msm_io_w(0x0, csibase + MIPI_INTERRUPT_STATUS);
+	csi_free_irq();
 	iounmap(csibase);
 	release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 	CDBG("disable clocks\n");
@@ -814,9 +835,9 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 
 	/* mask out ID_ERROR[19], DATA_CMM_ERR[11]
 	and CLK_CMM_ERR[10] - de-featured */
-	msm_io_w(0xFFF7F3FF, csibase + MIPI_INTERRUPT_MASK);
+	msm_io_w(0xF017F3C0, csibase + MIPI_INTERRUPT_MASK);
 	/*clear IRQ bits*/
-	msm_io_w(0xFFF7F3FF, csibase + MIPI_INTERRUPT_STATUS);
+	msm_io_w(0xF017F3C0, csibase + MIPI_INTERRUPT_STATUS);
 
 	return rc;
 }
