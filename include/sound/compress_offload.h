@@ -29,17 +29,17 @@
 /**
  * struct snd_compressed_buffer:compressed buffer
  * @fragment_size: size of buffer fragment in bytes
- * @periods: number of such fragments
+ * @fragments: number of such fragments
  */
 struct snd_compressed_buffer {
 	size_t fragment_size;
-	int periods;
+	int fragments;
 };
 
 /* */
 struct snd_compr_params {
 	struct snd_compressed_buffer buffer;
-	struct SndAudioCodecSettings codec;
+	struct snd_codec codec;
 };
 
 /**
@@ -73,8 +73,8 @@ struct snd_compr_avail {
  * @codecs: pointer to array of codecs
  * @min_fragment_size: minimum fragment supported by DSP
  * @max_fragment_size: maximum fragment supported by DSP
- * @min_periods: min periods supported by DSP
- * @max_periods: max periods supported by DSP
+ * @min_fragments: min fragments supported by DSP
+ * @max_fragments: max fragments supported by DSP
  * @num_codecs: number of codecs supported
  * @reserved: reserved field
  */
@@ -82,8 +82,8 @@ struct snd_compr_caps {
 	__u32 num_codecs;
 	__u32 min_fragment_size;
 	__u32 max_fragment_size;
-	__u32 min_periods;
-	__u32 max_periods;
+	__u32 min_fragments;
+	__u32 max_fragments;
 	__u32 codecs[MAX_NUM_CODECS];
 	__u32 reserved[11];
 };
@@ -97,7 +97,7 @@ struct snd_compr_caps {
 struct snd_compr_codec_caps {
 	__u32 codec;
 	__u32 num_descriptors;
-	struct SndAudioCodecDescriptor descriptor[MAX_NUM_CODEC_DESCRIPTORS];
+	struct snd_codec_desc descriptor[MAX_NUM_CODEC_DESCRIPTORS];
 };
 
 /**
@@ -113,8 +113,8 @@ struct snd_compr_codec_caps {
  * SNDRV_COMPRESS_PAUSE: Pause the running stream
  * SNDRV_COMPRESS_RESUME: resume a paused stream
  * SNDRV_COMPRESS_START: Start a stream
- * SNDRV_COMPRESS_STOP: stop a running stream, discarding ring buffer content and
- * buffers current with DSP
+ * SNDRV_COMPRESS_STOP: stop a running stream, discarding ring buffer content
+ * and the buffers currently with DSP
  * SNDRV_COMPRESS_DRAIN: Play till end of buffers and stop after that
  */
 #define SNDRV_COMPRESS_GET_CAPS		_IOWR('C', 0x00, struct snd_compr_caps *)

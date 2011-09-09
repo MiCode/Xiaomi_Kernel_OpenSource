@@ -39,7 +39,7 @@ struct snd_compr_ops;
  *	DSP doesn't implement copy
  * @buffer_size: size of the above buffer
  * @fragment_size: size of buffer fragment in bytes
- * @periods: number of such fragments
+ * @fragments: number of such fragments
  * @hw_pointer: offset of last location in buffer where DSP copied data
  * @app_pointer: offset of last location in buffer where app wrote data
  * @sleep: poll sleep
@@ -50,7 +50,7 @@ struct snd_compr_runtime {
 	void *buffer;
 	size_t buffer_size;
 	size_t fragment_size;
-	unsigned int periods;
+	unsigned int fragments;
 	size_t hw_pointer;
 	size_t app_pointer;
 	wait_queue_head_t sleep;
@@ -77,13 +77,15 @@ struct snd_compr_stream {
 /**
  * struct snd_compr_ops: compressed path DSP operations
  * @open: Open the compressed stream
- * This callback is mandatory and shall keep dsp ready to receive the stream parameter
+ * This callback is mandatory and shall keep dsp ready to receive the stream
+ * parameter
  * @free: Close the compressed stream, mandatory
  * @set_params: Sets the compressed stream parameters, mandatory
  * This can be called in during stream creation only to set codec params
  * and the stream properties
  * @get_params: retrieve the codec parameters, mandatory
- * @trigger: Trigger operations like start, pause, resume, drain, stop. Mandatory
+ * @trigger: Trigger operations like start, pause, resume, drain, stop.
+ * This callback is mandatory
  * @pointer: Retrieve current h/w pointer information. Mandatory
  * @copy: Copy the compressed data to/from userspace, Optional
  * Can't be implemented if DSP supports mmap
@@ -105,7 +107,8 @@ struct snd_compr_ops {
 			struct snd_compr_tstamp *tstamp);
 	int (*copy)(struct snd_compr_stream *stream, const char __user *buf,
 		       size_t count);
-	int (*mmap)(struct snd_compr_stream *stream, struct vm_area_struct *vma);
+	int (*mmap)(struct snd_compr_stream *stream,
+			struct vm_area_struct *vma);
 	int (*ack)(struct snd_compr_stream *stream);
 	int (*get_caps) (struct snd_compr_stream *stream,
 			struct snd_compr_caps *caps);
@@ -130,9 +133,18 @@ struct snd_compr {
 	void *private_data;
 };
 
-
+/* compress device register APIs */
 int snd_compress_register(struct snd_compr *device);
 int snd_compress_deregister(struct snd_compr *device);
-void snd_compr_period_elapsed(struct snd_compr_stream *stream);
+
+/* dsp driver callback apis
+ * For playback: driver should call snd_compress_fragment_elapsed() to let the
+ * framework know that a fragment has been consumed from the ring buffer
+ * For recording: we may want to know when a frame is available or when
+ * at least one frame is available for userspace, a different
+ * snd_compress_frame_elapsed() callback should be used
+ */
+void snd_compr_fragment_elapsed(struct snd_compr_stream *stream);
+void snd_compr_frame_elapsed(struct snd_compr_stream *stream);
 
 #endif

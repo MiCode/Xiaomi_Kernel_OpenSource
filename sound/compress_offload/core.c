@@ -100,8 +100,8 @@ static int snd_compr_open(struct inode *inode, struct file *f)
 		ret = -ENXIO;
 		goto out;
 	}
-	/* curently only encoded playback is supported, above needs to be removed
-	 * once we have recording support */
+	/* curently only encoded playback is supported, above needs to be
+	 * removed once we have recording support */
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data) {
@@ -120,16 +120,16 @@ static int snd_compr_open(struct inode *inode, struct file *f)
 		kfree(data);
 		goto out;
 	}
+	runtime->state = SNDRV_PCM_STATE_OPEN;
+	init_waitqueue_head(&runtime->sleep);
+	data->stream.runtime = runtime;
+	f->private_data = (void *)data;
 	ret = misc->compr->ops->open(&data->stream);
 	if (ret) {
 		kfree(runtime);
 		kfree(data);
 		goto out;
 	}
-	runtime->state = SNDRV_PCM_STATE_OPEN;
-	init_waitqueue_head(&runtime->sleep);
-	data->stream.runtime = runtime;
-	f->private_data = (void *)data;
 out:
 	mutex_unlock(&device_mutex);
 	return ret;
@@ -160,7 +160,7 @@ static size_t snd_compr_calc_avail(struct snd_compr_stream *stream,
 	size_t avail_calc;
 
 	snd_compr_update_tstamp(stream, &avail->tstamp);
-	avail_calc = stream->runtime->app_pointer -  stream->runtime->hw_pointer;
+	avail_calc = stream->runtime->app_pointer - stream->runtime->hw_pointer;
 	if (avail_calc < 0)
 		avail_calc = stream->runtime->buffer_size + avail_calc;
 	avail->avail = avail_calc;
@@ -193,7 +193,7 @@ static int snd_compr_write_data(struct snd_compr_stream *stream,
 	size_t copy;
 
 	dstn = stream->runtime->buffer + stream->runtime->app_pointer;
-	if (count <  stream->runtime->buffer_size - stream->runtime->app_pointer) {
+	if (count < stream->runtime->buffer_size - stream->runtime->app_pointer) {
 		if (copy_from_user(dstn, buf, count))
 			return -EFAULT;
 		stream->runtime->app_pointer += count;
@@ -211,7 +211,7 @@ static int snd_compr_write_data(struct snd_compr_stream *stream,
 	return count;
 }
 
-static int snd_compr_write(struct file *f, const char __user *buf,
+static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 		size_t count, loff_t *offset)
 {
 	struct snd_ioctl_data *data = f->private_data;
@@ -221,11 +221,13 @@ static int snd_compr_write(struct file *f, const char __user *buf,
 
 	BUG_ON(!data);
 	stream = &data->stream;
+	mutex_lock(&stream->device->lock);
 	/* write is allowed when stream is running or has been steup */
 	if (stream->runtime->state != SNDRV_PCM_STATE_SETUP &&
-			stream->runtime->state != SNDRV_PCM_STATE_RUNNING)
+			stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
+		mutex_unlock(&stream->device->lock);
 		return -EPERM;
-	mutex_lock(&stream->device->lock);
+	}
 
 	avail = snd_compr_get_avail(stream);
 	/* calculate how much we can write to buffer */
@@ -237,12 +239,17 @@ static int snd_compr_write(struct file *f, const char __user *buf,
 	else
 		retval = snd_compr_write_data(stream, buf, avail);
 
+	/* while initiating the stream, write should be called before START
+	 * call, so in setup move state */
+	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+		stream->runtime->state = SNDRV_PCM_STATE_PREPARED;
+
 	mutex_unlock(&stream->device->lock);
 	return retval;
 }
 
 
-static int snd_compr_read(struct file *f, char __user *buf,
+static ssize_t snd_compr_read(struct file *f, char __user *buf,
 		size_t count, loff_t *offset)
 {
 	return -ENXIO;
@@ -257,31 +264,50 @@ unsigned int snd_compr_poll(struct file *f, poll_table *wait)
 {
 	struct snd_ioctl_data *data = f->private_data;
 	struct snd_compr_stream *stream;
+	int retval = 0;
 
 	BUG_ON(!data);
 	stream = &data->stream;
 
-	if (stream->runtime->state != SNDRV_PCM_STATE_RUNNING)
-		return -ENXIO;
+	mutex_lock(&stream->device->lock);
+	if (stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
+		retval = -ENXIO;
+		goto out;
+	}
 	poll_wait(f, &stream->runtime->sleep, wait);
 
 	/* this would change after read is implemented, we would need to
 	 * check for direction here */
 	if (stream->runtime->state != SNDRV_PCM_STATE_RUNNING)
-		return POLLOUT | POLLWRNORM;
-
-	return 0;
+		retval = POLLOUT | POLLWRNORM;
+out:
+	mutex_unlock(&stream->device->lock);
+	return retval;
 }
 
-void snd_compr_period_elapsed(struct snd_compr_stream *stream)
+void snd_compr_fragment_elapsed(struct snd_compr_stream *stream)
 {
 	size_t avail;
 
+	if (stream->direction !=  SNDRV_PCM_STREAM_PLAYBACK)
+		return;
 	avail = snd_compr_get_avail(stream);
 	if (avail >= stream->runtime->fragment_size)
 		wake_up(&stream->runtime->sleep);
 }
-EXPORT_SYMBOL_GPL(snd_compr_period_elapsed);
+EXPORT_SYMBOL_GPL(snd_compr_fragment_elapsed);
+
+void snd_compr_frame_elapsed(struct snd_compr_stream *stream)
+{
+	size_t avail;
+
+	if (stream->direction !=  SNDRV_PCM_STREAM_CAPTURE)
+		return;
+	avail = snd_compr_get_avail(stream);
+	if (avail)
+		wake_up(&stream->runtime->sleep);
+}
+EXPORT_SYMBOL_GPL(snd_compr_frame_elapsed);
 
 static int snd_compr_get_caps(struct snd_compr_stream *stream, unsigned long arg)
 {
@@ -330,7 +356,7 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 	unsigned int buffer_size;
 	void *buffer;
 
-	buffer_size = params->buffer.fragment_size * params->buffer.periods;
+	buffer_size = params->buffer.fragment_size * params->buffer.fragments;
 	if (stream->ops->copy) {
 		buffer = NULL;
 		/* if copy is defined the driver will be required to copy
@@ -342,7 +368,7 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 			return -ENOMEM;
 	}
 	stream->runtime->fragment_size = params->buffer.fragment_size;
-	stream->runtime->periods = params->buffer.periods;
+	stream->runtime->fragments = params->buffer.fragments;
 	stream->runtime->buffer = buffer;
 	stream->runtime->buffer_size = buffer_size;
 	return 0;
@@ -361,7 +387,7 @@ static int snd_compr_set_params(struct snd_compr_stream *stream, unsigned long a
 		params = kmalloc(sizeof(*params), GFP_KERNEL);
 		if (!params)
 			return -ENOMEM;
-		if (copy_from_user(&params, (void __user *)arg, sizeof(params)))
+		if (copy_from_user(params, (void __user *)arg, sizeof(*params)))
 			return -EFAULT;
 		retval = snd_compr_allocate_buffer(stream, params);
 		if (retval) {

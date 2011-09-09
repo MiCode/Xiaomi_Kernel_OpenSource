@@ -180,6 +180,7 @@ Instead,
 
 Credits:
 - Mark Brown and Liam Girdwood for discussions on the need for this API
+- Harsha Priya for her work on intel_sst compressed API
 - Rakesh Ughreja for valuable feedback
 - Sing Nallasellan, Sikkandar Madar and Prasanna Samaga for
   demonstrating and quantifying the benefits of audio offload on a

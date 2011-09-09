@@ -3,7 +3,7 @@
  *  streaming interface
  *
  *  Copyright (C) 2011 Intel Corporation
- *  Authors:	Pierre-Louis.Bossart <pierre-louis.bossart@linux.intel.com>
+ *  Authors:	Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
  *              Vinod Koul <vinod.koul@linux.intel.com>
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,7 +53,6 @@
 /* AUDIO CODECS SUPPORTED */
 #define MAX_NUM_CODECS 32
 #define MAX_NUM_CODEC_DESCRIPTORS 32
-#define MAX_NUM_RATES 32
 #define MAX_NUM_BITRATES 32
 
 /* Codecs are listed linearly to allow for extensibility */
@@ -188,8 +187,8 @@
 
 /*
  * IEC modes are mandatory for decoders. Format autodetection
- *  will only happen on the DSP side with mode 0. The PCM mode should
- *  not be used, the PCM codec should be used instead
+ * will only happen on the DSP side with mode 0. The PCM mode should
+ * not be used, the PCM codec should be used instead.
  */
 #define SND_AUDIOMODE_IEC_REF_STREAM_HEADER  ((__u32) 0x00000000)
 #define SND_AUDIOMODE_IEC_LPCM		     ((__u32) 0x00000001)
@@ -220,13 +219,13 @@
 
 /* Encoder options */
 
-struct wmaEncoderOptions {
+struct snd_enc_wma {
 	__u32 super_block_align; /* WMA Type-specific data */
 };
 
 
 /**
- * struct vorbisEncoderOptions
+ * struct snd_enc_vorbis
  * @quality: Sets encoding quality to n, between -1 (low) and 10 (high).
  * In the default mode of operation, the quality level is 3.
  * Normal quality range is 0 - 10.
@@ -234,52 +233,53 @@ struct wmaEncoderOptions {
  * normal VBR encoding, but allows hard or soft bitrate constraints to be
  * enforced by the encoder. This mode can be slower, and may also be
  * lower quality. It is primarily useful for streaming.
- * @maxBitrate: enabled only is managed is TRUE
- * @minBitrate: enabled only is managed is TRUE
+ * @max_bit_rate: Enabled only if managed is TRUE
+ * @min_bit_rate: Enabled only if managed is TRUE
  * @downmix: Boolean. Downmix input from stereo to mono (has no effect on
  * non-stereo streams). Useful for lower-bitrate encoding.
  *
- * These options were extracted from the OpenMAX IL spec and gstreamer vorbisenc
+ * These options were extracted from the OpenMAX IL spec and Gstreamer vorbisenc
  * properties
  *
  * For best quality users should specify VBR mode and set quality levels.
  */
 
-struct vorbisEncoderOptions {
+struct snd_enc_vorbis {
 	int quality;
 	__u32 managed;
-	__u32 maxBitrate;
-	__u32 minBirate;
+	__u32 max_bit_rate;
+	__u32 min_bit_rate;
 	__u32 downmix;
 };
 
 
 /**
- * struct realEncoderOptions
- * @coupling_quant_bits: is the number of coupling quantization bits in the stream
- * @coupling_start_region: is the coupling start region in the stream
- * @num_regions: is the number of regions value
+ * struct snd_enc_real
+ * @quant_bits: number of coupling quantization bits in the stream
+ * @start_region: coupling start region in the stream
+ * @num_regions: number of regions value
  *
  * These options were extracted from the OpenMAX IL spec
  */
 
-struct realEncoderOptions {
-	__u32 coupling_quant_bits;
-	__u32 coupling_start_region;
+struct snd_enc_real {
+	__u32 quant_bits;
+	__u32 start_region;
 	__u32 num_regions;
 };
 
 /**
- * struct flacEncoderOptions
- * @serialNumber: valid only for OGG formats, needs to be set by application
- * @replayGain: Add ReplayGain tags
+ * struct snd_enc_flac
+ * @num: serial number, valid only for OGG formats
+ *	needs to be set by application
+ * @gain: Add replay gain tags
  *
  * These options were extracted from the FLAC online documentation
  * at http://flac.sourceforge.net/documentation_tools_flac.html
  *
  * To make the API simpler, it is assumed that the user will select quality
  * profiles. Additional options that affect encoding quality and speed can
- * be added at a later stage if need be.
+ * be added at a later stage if needed.
  *
  * By default the Subset format is used by encoders.
  *
@@ -287,110 +287,93 @@ struct realEncoderOptions {
  * not supported in this API.
  */
 
-struct flacEncoderOptions {
-	__u32 serialNumber;
-	__u32 replayGain;
+struct snd_enc_flac {
+	__u32 num;
+	__u32 gain;
 };
 
-struct genericEncoderOptions {
-	__u32 encoderBandwidth;
+struct snd_enc_generic {
+	__u32 bw;	/* encoder bandwidth */
 	int reserved[15];
 };
 
-union AudioCodecOptions {
-	struct wmaEncoderOptions wmaSpecificOptions;
-	struct vorbisEncoderOptions vorbisSpecificOptions;
-	struct realEncoderOptions realSpecificOptions;
-	struct flacEncoderOptions flacEncoderOptions;
-	struct genericEncoderOptions genericOptions;
+union snd_codec_options {
+	struct snd_enc_wma wma;
+	struct snd_enc_vorbis vorbis;
+	struct snd_enc_real real;
+	struct snd_enc_flac flac;
+	struct snd_enc_generic generic;
 };
 
-/** struct SndAudioCodecDescriptor - description of codec capabilities
- * @maxChannels: maximum number of audio channels
- * @minBitsPerSample: Minimum bits per sample of PCM data <FIXME: needed?>
- * @maxBitsPerSample: Maximum bits per sample of PCM data <FIXME: needed?>
- * @minSampleRate: Minimum sampling rate supported, unit is Hz
- * @maxSampleRate: Minimum sampling rate supported, unit is Hz
- * @isFreqRangeContinuous: TRUE if the device supports a continuous range of
- *                         sampling rates between minSampleRate and maxSampleRate;
- *                         otherwise FALSE <FIXME: needed?>
- * @SampleRatesSupported: Indexed array containing supported sampling rates in Hz
- * @numSampleRatesSupported: Size of the pSamplesRatesSupported array
- * @minBitRate: Minimum bitrate in bits per second
- * @maxBitRate: Max bitrate in bits per second
- * @isBitrateRangeContinuous: TRUE if the device supports a continuous range of
- *		      bitrates between minBitRate and maxBitRate; otherwise FALSE
- * @BitratesSupported: Indexed array containing supported bit rates
- * @numBitratesSupported: Size of the pBiratesSupported array
- * @rateControlSupported: value is specified by SND_RATECONTROLMODE defines.
- * @profileSetting: Profile supported. See SND_AUDIOPROFILE defines.
- * @modeSetting: Mode supported. See SND_AUDIOMODE defines
- * @streamFormat: Format supported. See SND_AUDIOSTREAMFORMAT defines
+/** struct snd_codec_desc - description of codec capabilities
+ * @max_ch: Maximum number of audio channels
+ * @sample_rates: Sampling rates in Hz, use SNDRV_PCM_RATE_xxx for this
+ * @bit_rate: Indexed array containing supported bit rates
+ * @num_bitrates: Number of valid values in bit_rate array
+ * @rate_control: value is specified by SND_RATECONTROLMODE defines.
+ * @profiles: Supported profiles. See SND_AUDIOPROFILE defines.
+ * @modes: Supported modes. See SND_AUDIOMODE defines
+ * @formats: Supported formats. See SND_AUDIOSTREAMFORMAT defines
  * @reserved: reserved for future use
  *
- * This structure provides a scalar value for profile, mode and stream format fields.
- * If an implementation supports multiple combinations, they will be listed as codecs
- * with different IDs, for example there would be 2 decoders for AAC-RAW and AAC-ADTS.
- * This entails some redundancy but makes it easier to avoid invalid configurations.
+ * This structure provides a scalar value for profiles, modes and stream
+ * format fields.
+ * If an implementation supports multiple combinations, they will be listed as
+ * codecs with different descriptors, for example there would be 2 descriptors
+ * for AAC-RAW and AAC-ADTS.
+ * This entails some redundancy but makes it easier to avoid invalid
+ * configurations.
  *
  */
 
-struct SndAudioCodecDescriptor {
-	__u32 maxChannels;
-	__u32 minBitsPerSample;
-	__u32 maxBitsPerSample;
-	__u32 minSampleRate;
-	__u32 maxSampleRate;
-	__u32 isFreqRangeContinuous;
-	__u32 sampleRatesSupported[MAX_NUM_RATES];
-	__u32 numSampleRatesSupported;
-	__u32 minBitRate;
-	__u32 maxBitRate;
-	__u32 isBitrateRangeContinuous;
-	__u32 bitratesSupported[MAX_NUM_BITRATES];
-	__u32 numBitratesSupported;
-	__u32 rateControlSupported;
-	__u32 profileSetting;
-	__u32 modeSetting;
-	__u32 streamFormat;
+struct snd_codec_desc {
+	__u32 max_ch;
+	__u32 sample_rates;
+	__u32 bit_rate[MAX_NUM_BITRATES];
+	__u32 num_bitrates;
+	__u32 rate_control;
+	__u32 profiles;
+	__u32 modes;
+	__u32 formats;
 	__u32 reserved[16];
 };
 
-/** struct SndAudioCodecSettings -
- * @codecId: Identifies the supported audio encoder/decoder. See SND_AUDIOCODEC	macros.
- * @channelsIn: Number of input audio channels
- * @channelsOut: Number of output channels. In case of contradiction between this field and the
- *		channelMode field, the channelMode field overrides
- * @sampleRate: Audio sample rate of input data
- * @bitRate: Bitrate of encoded data. May be ignored by decoders
- * @bitsPerSample: <FIXME: Needed? DSP implementations can handle their own format>
- * @rateControl: Encoding rate control. See SND_RATECONTROLMODE defines.
+/** struct snd_codec
+ * @id: Identifies the supported audio encoder/decoder.
+ *		See SND_AUDIOCODEC macros.
+ * @ch_in: Number of input audio channels
+ * @ch_out: Number of output channels. In case of contradiction between
+ *		this field and the channelMode field, the channelMode field
+ *		overrides.
+ * @sample_rate: Audio sample rate of input data
+ * @bit_rate: Bitrate of encoded data. May be ignored by decoders
+ * @rate_control: Encoding rate control. See SND_RATECONTROLMODE defines.
  *               Encoders may rely on profiles for quality levels.
  *		 May be ignored by decoders.
- * @profileSetting: Mandatory for encoders, can be mandatory for specific decoders as well.
- *		See SND_AUDIOPROFILE defines
- * @levelSetting: Supported level (Only used by WMA at the moment)
- * @channelMode: Channel mode for encoder. See SND_AUDIOCHANMODE defines
- * @streamFormat: Format of encoded bistream. Mandatory when defined. See SND_AUDIOSTREAMFORMAT
- *		defines
- * @blockAlignment: Block alignment in bytes of an audio sample. Only required for PCM or IEC formats
+ * @profile: Mandatory for encoders, can be mandatory for specific
+ *		decoders as well. See SND_AUDIOPROFILE defines.
+ * @level: Supported level (Only used by WMA at the moment)
+ * @ch_mode: Channel mode for encoder. See SND_AUDIOCHANMODE defines
+ * @format: Format of encoded bistream. Mandatory when defined.
+ *		See SND_AUDIOSTREAMFORMAT defines.
+ * @align: Block alignment in bytes of an audio sample.
+ *		Only required for PCM or IEC formats.
  * @options: encoder-specific settings
  * @reserved: reserved for future use
  */
 
-struct SndAudioCodecSettings {
-	__u32 codecId;
-	__u32 channelsIn;
-	__u32 channelsOut;
-	__u32 sampleRate;
-	__u32 bitRate;
-	__u32 bitsPerSample;
-	__u32 rateControl;
-	__u32 profileSetting;
-	__u32 levelSetting;
-	__u32 channelMode;
-	__u32 streamFormat;
-	__u32 blockAlignment;
-	union AudioCodecOptions options;
+struct snd_codec {
+	__u32 id;
+	__u32 ch_in;
+	__u32 ch_out;
+	__u32 sample_rate;
+	__u32 bit_rate;
+	__u32 rate_control;
+	__u32 profile;
+	__u32 level;
+	__u32 ch_mode;
+	__u32 format;
+	__u32 align;
+	union snd_codec_options options;
 	__u32 reserved[3];
 };
