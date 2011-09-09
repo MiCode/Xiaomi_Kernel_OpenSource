@@ -426,6 +426,23 @@ struct edge_to_pid {
 	uint32_t	remote_pid;
 };
 
+/*
+ * SMD Processor ID's.
+ *
+ * For all processors that have both SMSM and SMD clients,
+ * the SMSM Processor ID and the SMD Processor ID will
+ * be the same.  In cases where a processor only supports
+ * SMD, the entry will only exist in this enum.
+ */
+enum {
+	SMD_APPS = SMSM_APPS,
+	SMD_MODEM = SMSM_MODEM,
+	SMD_Q6 = SMSM_Q6,
+	SMD_WCNSS = SMSM_WCNSS,
+	SMD_DSPS = SMSM_DSPS,
+	SMD_MODEM_Q6_FW,
+};
+
 /**
  * Maps edge type to local and remote processor ID's.
  */
@@ -440,6 +457,11 @@ static struct edge_to_pid edge_to_pids[] = {
 	[SMD_MODEM_WCNSS] = {SMSM_MODEM, SMSM_WCNSS},
 	[SMD_QDSP_WCNSS] = {SMSM_Q6, SMSM_WCNSS},
 	[SMD_DSPS_WCNSS] = {SMSM_DSPS, SMSM_WCNSS},
+	[SMD_APPS_Q6FW] = {SMSM_APPS, SMD_MODEM_Q6_FW},
+	[SMD_MODEM_Q6FW] = {SMSM_MODEM, SMD_MODEM_Q6_FW},
+	[SMD_QDSP_Q6FW] = {SMSM_Q6, SMD_MODEM_Q6_FW},
+	[SMD_DSPS_Q6FW] = {SMSM_DSPS, SMD_MODEM_Q6_FW},
+	[SMD_WCNSS_Q6FW] = {SMSM_WCNSS, SMD_MODEM_Q6_FW},
 };
 
 struct restart_notifier_block {
@@ -572,7 +594,10 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		if (!shared2)
 			continue;
 
-		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch)) {
+		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch) ||
+			(pid == SMSM_MODEM &&
+			 pid_is_on_edge(shared2, type, SMD_MODEM_Q6_FW,
+				 &local_ch, &remote_ch))) {
 
 			/* force remote state for processor being restarted */
 			if (local_ch->state != SMD_SS_CLOSED) {
