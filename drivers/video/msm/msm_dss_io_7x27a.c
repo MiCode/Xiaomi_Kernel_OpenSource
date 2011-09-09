@@ -298,11 +298,13 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 void mipi_dsi_ahb_ctrl(u32 enable)
 {
 	if (enable) {
+		clk_enable(dsi_ref_clk);
 		clk_enable(ahb_m_clk);
 		clk_enable(ahb_s_clk);
 	} else {
 		clk_disable(ahb_m_clk);
 		clk_disable(ahb_s_clk);
+		clk_disable(dsi_ref_clk);
 	}
 }
 
@@ -321,23 +323,20 @@ void mipi_dsi_clk_enable(void)
 
 	clk_set_rate(dsi_byte_div_clk, data);
 	clk_set_rate(dsi_esc_clk, data);
-	mipi_dsi_pclk_ctrl(&dsi_pclk, 1);
-	mipi_dsi_clk_ctrl(&dsicore_clk, 1);
-
-	clk_enable(dsi_ref_clk);
 	clk_enable(mdp_dsi_pclk);
 	clk_enable(dsi_byte_div_clk);
 	clk_enable(dsi_esc_clk);
+	mipi_dsi_pclk_ctrl(&dsi_pclk, 1);
+	mipi_dsi_clk_ctrl(&dsicore_clk, 1);
 }
 
 void mipi_dsi_clk_disable(void)
 {
+	mipi_dsi_pclk_ctrl(&dsi_pclk, 0);
+	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	clk_disable(dsi_esc_clk);
 	clk_disable(dsi_byte_div_clk);
 	clk_disable(mdp_dsi_pclk);
-	clk_disable(dsi_ref_clk);
-	mipi_dsi_pclk_ctrl(&dsi_pclk, 0);
-	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	/* DSIPHY_PLL_CTRL_0, disable dsi pll */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x40);
 	if (clk_set_min_rate(ebi1_dsi_clk, 0))
