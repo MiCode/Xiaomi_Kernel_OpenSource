@@ -133,6 +133,18 @@ void wcnss_wlan_register_pm_ops(struct device *dev,
 }
 EXPORT_SYMBOL(wcnss_wlan_register_pm_ops);
 
+void wcnss_wlan_unregister_pm_ops(struct device *dev,
+				const struct dev_pm_ops *pm_ops)
+{
+	if (penv && dev && (dev == &penv->pdev->dev) && pm_ops) {
+		if (pm_ops->suspend != penv->pm_ops->suspend ||
+				pm_ops->resume != penv->pm_ops->resume)
+			pr_err("PM APIs dont match with registered APIs\n");
+		penv->pm_ops = NULL;
+	}
+}
+EXPORT_SYMBOL(wcnss_wlan_unregister_pm_ops);
+
 static int wcnss_wlan_suspend(struct device *dev)
 {
 	if (penv && dev && (dev == &penv->pdev->dev) &&
