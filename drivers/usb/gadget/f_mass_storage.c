@@ -654,6 +654,9 @@ static int do_read(struct fsg_common *common)
 	loff_t			file_offset, file_offset_tmp;
 	unsigned int		amount;
 	ssize_t			nread;
+#ifdef CONFIG_USB_MSC_PROFILING
+	ktime_t			start, diff;
+#endif
 
 	/*
 	 * Get the starting Logical Block Address and check that it's
@@ -728,11 +731,20 @@ static int do_read(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
+
+#ifdef CONFIG_USB_MSC_PROFILING
+		start = ktime_get();
+#endif
 		nread = vfs_read(curlun->filp,
 				 (char __user *)bh->buf,
 				 amount, &file_offset_tmp);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
-		      (unsigned long long)file_offset, (int)nread);
+		     (unsigned long long) file_offset, (int) nread);
+#ifdef CONFIG_USB_MSC_PROFILING
+		diff = ktime_sub(ktime_get(), start);
+		curlun->perf.rbytes += nread;
+		curlun->perf.rtime = ktime_add(curlun->perf.rtime, diff);
+#endif
 		if (signal_pending(current))
 			return -EINTR;
 
@@ -796,6 +808,9 @@ static int do_write(struct fsg_common *common)
 	ssize_t			nwritten;
 	int			rc;
 
+#ifdef CONFIG_USB_MSC_PROFILING
+	ktime_t			start, diff;
+#endif
 	if (curlun->ro) {
 		curlun->sense_data = SS_WRITE_PROTECTED;
 		return -EINVAL;
@@ -923,11 +938,20 @@ static int do_write(struct fsg_common *common)
 
 			/* Perform the write */
 			file_offset_tmp = file_offset;
+#ifdef CONFIG_USB_MSC_PROFILING
+			start = ktime_get();
+#endif
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
+#ifdef CONFIG_USB_MSC_PROFILING
+			diff = ktime_sub(ktime_get(), start);
+			curlun->perf.wbytes += nwritten;
+			curlun->perf.wtime =
+					ktime_add(curlun->perf.wtime, diff);
+#endif
 			if (signal_pending(current))
 				return -EINTR;		/* Interrupted! */
 
@@ -2628,6 +2652,9 @@ static struct device_attribute dev_attr_ro_cdrom =
 static struct device_attribute dev_attr_file_nonremovable =
 	__ATTR(file, 0444, fsg_show_file, NULL);
 
+#ifdef CONFIG_USB_MSC_PROFILING
+static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
+#endif
 
 /****************************** FSG COMMON ******************************/
 
@@ -2753,7 +2780,12 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
 		if (rc)
 			goto error_luns;
-
+#ifdef CONFIG_USB_MSC_PROFILING
+		rc = device_create_file(&curlun->dev, &dev_attr_perf);
+		if (rc)
+			dev_err(&gadget->dev, "failed to create sysfs entry:"
+				"(dev_attr_perf) error: %d\n", rc);
+#endif
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
 			if (rc)
@@ -2870,6 +2902,9 @@ static void fsg_common_release(struct kref *ref)
 
 		/* In error recovery common->nluns may be zero. */
 		for (; i; --i, ++lun) {
+#ifdef CONFIG_USB_MSC_PROFILING
+			device_remove_file(&lun->dev, &dev_attr_perf);
+#endif
 			device_remove_file(&lun->dev, &dev_attr_nofua);
 			device_remove_file(&lun->dev,
 					   lun->cdrom

@@ -1002,6 +1002,12 @@ config USB_G_WEBCAM
 
 endchoice
 
+config USB_MSC_PROFILING
+	bool "USB MSC performance profiling"
+	help
+	  If you say Y here, support will be added for collecting
+	  Mass-storage performance numbers at the VFS level.
+
 config RMNET_SMD_CTL_CHANNEL
 	string "RMNET control SMD channel name"
 	depends on USB_G_ANDROID && MSM_SMD
