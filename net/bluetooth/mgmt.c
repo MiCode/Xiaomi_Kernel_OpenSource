@@ -1336,8 +1336,6 @@ static void pairing_complete(struct pending_cmd *cmd, u8 status)
 	conn->security_cfm_cb = NULL;
 	conn->disconn_cfm_cb = NULL;
 
-	hci_conn_put(conn);
-
 	mgmt_pending_remove(cmd);
 }
 
@@ -1356,7 +1354,7 @@ static void pairing_complete_cb(struct hci_conn *conn, u8 status)
 	pairing_complete(cmd, status);
 }
 
-static void security_complete_cb(struct hci_conn *conn, u8 status)
+static void pairing_security_complete_cb(struct hci_conn *conn, u8 status)
 {
 	struct pending_cmd *cmd;
 
@@ -1375,7 +1373,7 @@ static void security_complete_cb(struct hci_conn *conn, u8 status)
 		pairing_complete(cmd, status);
 }
 
-static void connect_complete_cb(struct hci_conn *conn, u8 status)
+static void pairing_connect_complete_cb(struct hci_conn *conn, u8 status)
 {
 	struct pending_cmd *cmd;
 
@@ -1386,6 +1384,7 @@ static void connect_complete_cb(struct hci_conn *conn, u8 status)
 		BT_DBG("Unable to find a pending command");
 		return;
 	}
+	hci_conn_put(conn);
 }
 
 static void discovery_terminated(struct pending_cmd *cmd, void *data)
@@ -1465,8 +1464,8 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 		goto unlock;
 	}
 
-	conn->connect_cfm_cb = connect_complete_cb;
-	conn->security_cfm_cb = security_complete_cb;
+	conn->connect_cfm_cb = pairing_connect_complete_cb;
+	conn->security_cfm_cb = pairing_security_complete_cb;
 	conn->disconn_cfm_cb = pairing_complete_cb;
 	conn->io_capability = io_cap;
 	cmd->user_data = conn;

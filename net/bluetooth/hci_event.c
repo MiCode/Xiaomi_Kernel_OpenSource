@@ -3032,6 +3032,7 @@ static inline void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
 	mgmt_connected(hdev->id, &ev->bdaddr);
 
+	hci_conn_hold(conn);
 	hci_conn_hold_device(conn);
 	hci_conn_add_sysfs(conn);
 

@@ -394,17 +394,17 @@ static int send_pairing_confirm(struct l2cap_conn *conn)
 	return 0;
 }
 
-int le_user_confirm_reply(struct hci_conn *hdev, u16 mgmt_op, void *cp)
+int le_user_confirm_reply(struct hci_conn *hcon, u16 mgmt_op, void *cp)
 {
 	struct mgmt_cp_user_passkey_reply *psk_reply = cp;
-	struct l2cap_conn *conn = hdev->smp_conn;
+	struct l2cap_conn *conn = hcon->smp_conn;
 	u8 key[16];
 	u8 reason = 0;
 	int ret = 0;
 
 	BT_DBG("");
 
-	hdev->tk_valid = TRUE;
+	hcon->tk_valid = TRUE;
 
 	switch (mgmt_op) {
 	case MGMT_OP_USER_CONFIRM_NEG_REPLY:
@@ -416,7 +416,7 @@ int le_user_confirm_reply(struct hci_conn *hdev, u16 mgmt_op, void *cp)
 		memset(key, 0, sizeof(key));
 		BT_DBG("PassKey: %d", psk_reply->passkey);
 		put_unaligned_le32(psk_reply->passkey, key);
-		swap128(key, hdev->tk);
+		swap128(key, hcon->tk);
 		break;
 	default:
 		reason = SMP_CONFIRM_FAILED;
@@ -428,7 +428,8 @@ int le_user_confirm_reply(struct hci_conn *hdev, u16 mgmt_op, void *cp)
 		BT_DBG("smp_send_cmd: SMP_CMD_PAIRING_FAIL");
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
-	} else if (hdev->cfm_pending) {
+		hci_conn_put(hcon);
+	} else if (hcon->cfm_pending) {
 		BT_DBG("send_pairing_confirm");
 		ret = send_pairing_confirm(conn);
 	}
@@ -836,6 +837,7 @@ int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb)
 	case SMP_CMD_PAIRING_FAIL:
 		reason = 0;
 		err = -EPERM;
+		hci_conn_put(hcon);
 		break;
 
 	case SMP_CMD_PAIRING_RSP:
@@ -882,6 +884,7 @@ done:
 		BT_ERR("SMP_CMD_PAIRING_FAIL: %d", reason);
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
+		hci_conn_put(hcon);
 	}
 
 	kfree_skb(skb);
@@ -969,8 +972,10 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 		*keydist &= ~SMP_DIST_SIGN;
 	}
 
-	if (hcon->out || rsp->resp_key_dist)
+	if (hcon->out || rsp->resp_key_dist) {
 		hcon->disconn_cfm_cb(hcon, 0);
+		hci_conn_put(hcon);
+	}
 
 	return 0;
 }
