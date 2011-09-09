@@ -388,6 +388,9 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 	unsigned long flags;
 	struct usb_request *req;
 
+	if (!ctxt)
+		return -ENODEV;
+
 	spin_lock_irqsave(&ctxt->lock, flags);
 
 	if (!ctxt->configured) {
@@ -440,6 +443,9 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 	struct diag_context *ctxt = ch->priv_usb;
 	unsigned long flags;
 	struct usb_request *req = NULL;
+
+	if (!ctxt)
+		return -ENODEV;
 
 	spin_lock_irqsave(&ctxt->lock, flags);
 
