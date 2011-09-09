@@ -2786,6 +2786,11 @@ static void vfe32_do_tasklet(unsigned long data)
 		spin_unlock_irqrestore(&vfe32_ctrl->tasklet_lock,
 			flags);
 
+		if (qcmd->vfeInterruptStatus0 &
+				VFE_IRQ_STATUS0_CAMIF_SOF_MASK) {
+			CDBG("irq	camifSofIrq\n");
+			vfe32_process_camif_sof_irq();
+		}
 		/* interrupt to be processed,  *qcmd has the payload.  */
 		if (qcmd->vfeInterruptStatus0 &
 				VFE_IRQ_STATUS0_REG_UPDATE_MASK) {
@@ -2908,11 +2913,6 @@ static void vfe32_do_tasklet(unsigned long data)
 						MSG_ID_SYNC_TIMER2_DONE);
 				}
 			}
-		}
-		if (qcmd->vfeInterruptStatus0 &
-				VFE_IRQ_STATUS0_CAMIF_SOF_MASK) {
-			CDBG("irq	camifSofIrq\n");
-			vfe32_process_camif_sof_irq();
 		}
 		kfree(qcmd);
 	}
