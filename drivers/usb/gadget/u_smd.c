@@ -861,12 +861,13 @@ int gsmd_setup(struct usb_gadget *g, unsigned count)
 
 	for (i = 0; i < count; i++) {
 		mutex_init(&smd_ports[i].lock);
+		n_smd_ports++;
 		ret = gsmd_port_alloc(i, &coding);
 		if (ret) {
+			n_smd_ports--;
 			pr_err("%s: Unable to alloc port:%d\n", __func__, i);
 			goto free_smd_ports;
 		}
-		n_smd_ports++;
 	}
 
 	gsmd_debugfs_init();
