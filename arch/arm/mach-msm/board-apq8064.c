@@ -80,7 +80,7 @@ static struct mmc_platform_data *apq8064_sdc3_pdata;
 
 static void __init apq8064_init_mmc(void)
 {
-	if (machine_is_apq8064_sim()) {
+	if ((machine_is_apq8064_rumi3()) || machine_is_apq8064_sim()) {
 		if (apq8064_sdc1_pdata) {
 			apq8064_sdc1_pdata->disable_bam = true;
 			apq8064_sdc1_pdata->disable_runtime_pm = true;
