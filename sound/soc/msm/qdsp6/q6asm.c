@@ -856,6 +856,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		}
 		break;
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
+	case ASM_DATA_EVENT_ENC_SR_CM_NOTIFY:
 		pr_debug("%s: ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY, "
 				"payload[0] = %d, payload[1] = %d, "
 				"payload[2] = %d, payload[3] = %d\n", __func__,
@@ -1178,8 +1179,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READWRITE;
 
-	open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_NORMAL |
-				 SR_CM_NOTIFY_ENABLE;
+	open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_NORMAL;
 	/* source endpoint : matrix */
 	open.post_proc_top = get_asm_topology();
 	if (open.post_proc_top == 0)

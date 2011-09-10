@@ -1028,7 +1028,7 @@ struct asm_stream_cmd_read{
 } __attribute__((packed));
 
 #define ASM_DATA_CMD_MEDIA_FORMAT_UPDATE                 0x00010BDC
-#define ASM_DATA_EVENT_MEDIA_FORMAT_UPDATE               0x00010BDE
+#define ASM_DATA_EVENT_ENC_SR_CM_NOTIFY                  0x00010BDE
 struct asm_stream_media_format_update{
 	struct apr_hdr hdr;
 	u32            format;
