@@ -837,6 +837,7 @@ static struct pil_q6v4_pdata msm_8960_q6_lpass_data = {
 	.xo_id = MSM_XO_PXO,
 	.name = "q6",
 	.pas_id = PAS_Q6,
+	.bus_port = MSM_BUS_MASTER_LPASS_PROC,
 };
 
 struct platform_device msm_8960_q6_lpass = {
@@ -875,6 +876,7 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_fw_data = {
 	.name = "modem_fw",
 	.depends = "q6",
 	.pas_id = PAS_MODEM_FW,
+	.bus_port = MSM_BUS_MASTER_MSS_FW_PROC,
 };
 
 struct platform_device msm_8960_q6_mss_fw = {
@@ -912,6 +914,7 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_sw_data = {
 	.name = "modem",
 	.depends = "modem_fw",
 	.pas_id = PAS_MODEM_SW,
+	.bus_port = MSM_BUS_MASTER_MSS_SW_PROC,
 };
 
 struct platform_device msm_8960_q6_mss_sw = {

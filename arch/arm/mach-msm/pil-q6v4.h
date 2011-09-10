@@ -22,5 +22,6 @@ struct pil_q6v4_pdata {
 	const char *name;
 	const char *depends;
 	const unsigned pas_id;
+	int bus_port;
 };
 #endif
