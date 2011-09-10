@@ -125,7 +125,65 @@ static int tabla_put_anc_slot(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tabla_pa_gain_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	u8 ear_pa_gain;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	ear_pa_gain = snd_soc_read(codec, TABLA_A_RX_EAR_GAIN);
+
+	ear_pa_gain = ear_pa_gain >> 5;
+
+	if (ear_pa_gain == 0x00) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (ear_pa_gain == 0x04) {
+		ucontrol->value.integer.value[0] = 1;
+	} else  {
+		pr_err("%s: ERROR: Unsupported Ear Gain = 0x%x\n",
+				__func__, ear_pa_gain);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: ear_pa_gain = 0x%x\n", __func__, ear_pa_gain);
+
+	return 0;
+}
+
+static int tabla_pa_gain_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	u8 ear_pa_gain;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	pr_debug("%s: ucontrol->value.integer.value[0]  = %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		ear_pa_gain = 0x00;
+		break;
+	case 1:
+		ear_pa_gain = 0x80;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	snd_soc_update_bits(codec, TABLA_A_RX_EAR_GAIN, 0xE0, ear_pa_gain);
+	return 0;
+}
+
+static const char *tabla_ear_pa_gain_text[] = {"POS_6_DB", "POS_2_DB"};
+static const struct soc_enum tabla_ear_pa_gain_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, tabla_ear_pa_gain_text),
+};
+
 static const struct snd_kcontrol_new tabla_snd_controls[] = {
+
+	SOC_ENUM_EXT("EAR PA Gain", tabla_ear_pa_gain_enum[0],
+		tabla_pa_gain_get, tabla_pa_gain_put),
+
 	SOC_SINGLE_TLV("LINEOUT1 Volume", TABLA_A_RX_LINE_1_GAIN, 0, 12, 1,
 		line_gain),
 	SOC_SINGLE_TLV("LINEOUT2 Volume", TABLA_A_RX_LINE_2_GAIN, 0, 12, 1,
@@ -557,23 +615,6 @@ static int tabla_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tabla_codec_enable_adc_block(codec, 0);
-		break;
-	}
-	return 0;
-}
-
-static int tabla_codec_enable_pamp_gain(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-
-	pr_debug("%s %d\n", __func__, event);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, TABLA_A_RX_EAR_GAIN, 0x80, 0x80);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, TABLA_A_RX_EAR_GAIN, 0x80, 0x00);
 		break;
 	}
 	return 0;
@@ -1028,9 +1069,7 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/*RX stuff */
 	SND_SOC_DAPM_OUTPUT("EAR"),
 
-	SND_SOC_DAPM_PGA_E("EAR PA", TABLA_A_RX_EAR_EN, 4, 0, NULL, 0,
-		tabla_codec_enable_pamp_gain, SND_SOC_DAPM_POST_PMU |
-			SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA("EAR PA", TABLA_A_RX_EAR_EN, 4, 0, NULL, 0),
 
 	SND_SOC_DAPM_MIXER("DAC1", TABLA_A_RX_EAR_EN, 6, 0, dac1_switch,
 		ARRAY_SIZE(dac1_switch)),
