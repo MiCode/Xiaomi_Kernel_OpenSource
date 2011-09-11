@@ -242,7 +242,8 @@ struct sdio_al_test_debug {
 	struct dentry *modem_reset_channels_4bit_dev_test;
 	struct dentry *modem_reset_channels_8bit_dev_test;
 	struct dentry *modem_reset_all_channels_test;
-	struct dentry *open_close_diag_ciq_rpc_test;
+	struct dentry *open_close_diag_ciq_rmnet_test;
+	struct dentry *open_close_dun_rmnet_test;
 	struct dentry *close_chan_lpm_test;
 	struct dentry *lpm_test_client_wakes_host_test;
 	struct dentry *lpm_test_host_wakes_client_test;
@@ -1581,8 +1582,8 @@ const struct file_operations modem_reset_all_channels_test_ops = {
 	.read = modem_reset_all_channels_test_read,
 };
 
-/* HOST SENDER WITH OPEN/CLOSE FOR DIAG, CIQ & RPC TEST */
-static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
+/* HOST SENDER WITH OPEN/CLOSE FOR DIAG, CIQ & RMNET TEST */
+static ssize_t open_close_diag_ciq_rmnet_test_write(struct file *file,
 						   const char __user *buf,
 						   size_t count,
 						   loff_t *ppos)
@@ -1593,7 +1594,7 @@ static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
 	int number = -1;
 
 	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE FOR "
-		"DIAG, CIQ AND RPC TEST --");
+		"DIAG, CIQ AND RMNET TEST --");
 
 	number = sdio_al_test_extract_number(buf, count);
 
@@ -1611,7 +1612,7 @@ static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
 
 		set_params_loopback_9k_close(ch_arr[SDIO_DIAG]);
 		set_params_loopback_9k_close(ch_arr[SDIO_CIQ]);
-		set_params_loopback_9k_close(ch_arr[SDIO_RPC]);
+		set_params_loopback_9k_close(ch_arr[SDIO_RMNT]);
 
 		ret = test_start();
 
@@ -1619,10 +1620,9 @@ static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
 			break;
 
 		pr_info(TEST_MODULE_NAME " -- correctness test for"
-				"DIAG, CIQ and RPC ");
+				"DIAG, CIQ ");
 		set_params_loopback_9k(ch_arr[SDIO_DIAG]);
 		set_params_loopback_9k(ch_arr[SDIO_CIQ]);
-		set_params_loopback_9k(ch_arr[SDIO_RPC]);
 
 		ret = test_start();
 
@@ -1633,7 +1633,7 @@ static ssize_t open_close_diag_ciq_rpc_test_write(struct file *file,
 	return count;
 }
 
-static ssize_t open_close_diag_ciq_rpc_test_read(struct file *file,
+static ssize_t open_close_diag_ciq_rmnet_test_read(struct file *file,
 						  char __user *buffer,
 						  size_t count,
 						  loff_t *offset)
@@ -1641,10 +1641,14 @@ static ssize_t open_close_diag_ciq_rpc_test_read(struct file *file,
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
-		 "\nOPEN_CLOSE_DIAG_CIQ_RPC_TEST\n"
+		 "\nOPEN_CLOSE_DIAG_CIQ_RMNET_TEST\n"
 		 "============================\n"
 		 "Description:\n"
-		 "TBD\n");
+		 "In this test the host sends 5k packets to the modem in the "
+		 "following sequence: Send a random burst of packets on "
+		 "Diag, CIQ and Rmnet channels, read 0 or a random number "
+		 "of packets, close and re-open the channel. At the end of the "
+		 "test, the channel is verified by running a loopback test\n");
 
 	if (message_repeat == 1) {
 		message_repeat = 0;
@@ -1654,10 +1658,81 @@ static ssize_t open_close_diag_ciq_rpc_test_read(struct file *file,
 	}
 }
 
-const struct file_operations open_close_diag_ciq_rpc_test_ops = {
+const struct file_operations open_close_diag_ciq_rmnet_test_ops = {
 	.open = sdio_al_test_open,
-	.write = open_close_diag_ciq_rpc_test_write,
-	.read = open_close_diag_ciq_rpc_test_read,
+	.write = open_close_diag_ciq_rmnet_test_write,
+	.read = open_close_diag_ciq_rmnet_test_read,
+};
+
+
+/* HOST SENDER WITH OPEN/CLOSE FOR DUN & RMNET TEST */
+static ssize_t open_close_dun_rmnet_test_write(struct file *file,
+						   const char __user *buf,
+						   size_t count,
+						   loff_t *ppos)
+{
+	int ret = 0;
+	struct test_channel **ch_arr = test_ctx->test_ch_arr;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE FOR "
+		"DUN AND RMNET TEST --");
+
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_loopback_9k_close(ch_arr[SDIO_DUN]);
+		set_params_loopback_9k_close(ch_arr[SDIO_RMNT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t open_close_dun_rmnet_test_read(struct file *file,
+						  char __user *buffer,
+						  size_t count,
+						  loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nOPEN_CLOSE_DUN_RMNET_TEST\n"
+		 "============================\n"
+		 "Description:\n"
+		 "In this test the host sends 5k packets to the modem in the "
+		 "following sequence: Send a random burst of packets on "
+		 "DUN and Rmnet channels, read 0 or a random number "
+		 "of packets, close and re-open the channel.\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations open_close_dun_rmnet_test_ops = {
+	.open = sdio_al_test_open,
+	.write = open_close_dun_rmnet_test_write,
+	.read = open_close_dun_rmnet_test_read,
 };
 
 /* CLOSE CHANNEL & LPM TEST HOST WAKES THE CLIENT TEST */
@@ -1690,9 +1765,7 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 
 		for (channel_num = 0 ; channel_num < SDIO_MAX_CHANNELS ;
 		     channel_num++) {
-			if (channel_num == SDIO_SMEM ||
-			    channel_num == SDIO_RMNT ||
-			    channel_num == SDIO_DUN)
+			if (channel_num == SDIO_SMEM)
 				continue;
 
 			ret = close_channel_lpm_test(channel_num);
@@ -2204,12 +2277,19 @@ static int sdio_al_test_debugfs_init(void)
 				     NULL,
 				     &modem_reset_all_channels_test_ops);
 
-	test_ctx->debug.open_close_diag_ciq_rpc_test =
-		debugfs_create_file("270_open_close_diag_ciq_rpc_test",
+	test_ctx->debug.open_close_diag_ciq_rmnet_test =
+		debugfs_create_file("270_open_close_diag_ciq_rmnet_test",
 				     S_IRUGO | S_IWUGO,
 				     test_ctx->debug.debug_root,
 				     NULL,
-				     &open_close_diag_ciq_rpc_test_ops);
+				     &open_close_diag_ciq_rmnet_test_ops);
+
+	test_ctx->debug.open_close_dun_rmnet_test =
+		debugfs_create_file("271_open_close_dun_rmnet_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &open_close_dun_rmnet_test_ops);
 
 	test_ctx->debug.close_chan_lpm_test =
 		debugfs_create_file("280_close_chan_lpm_test",
@@ -3137,20 +3217,28 @@ static int write_packet_burst(struct test_channel *test_ch,
 	}
 	return ret;
 }
+
 /**
   * Reads packet from test channel and checks that packet number
   * encoded into the packet is equal to packet_counter
+  * This function is applicable for packet mode channels only
   *
   * @test_ch: test channel
   * @size: expected packet size
   * @packet_counter: number to validate readed packet
   */
-static int read_data_from_channel(struct test_channel *test_ch,
+static int read_data_from_packet_ch(struct test_channel *test_ch,
 				unsigned int size,
 				int packet_counter)
 {
 	u32 read_avail = 0;
 	int ret = 0;
+
+	if (!test_ch || !test_ch->ch) {
+		pr_err(TEST_MODULE_NAME
+				":%s: NULL channel\n", __func__);
+		return -EINVAL;
+	}
 
 	if (!test_ch->ch->is_packet_mode) {
 		pr_err(TEST_MODULE_NAME
@@ -3194,6 +3282,76 @@ static int read_data_from_channel(struct test_channel *test_ch,
 	return 0;
 }
 
+
+/**
+  * Reads packet from test channel and checks that packet number
+  * encoded into the packet is equal to packet_counter
+  * This function is applicable for streaming mode channels only
+  *
+  * @test_ch: test channel
+  * @size: expected packet size
+  * @packet_counter: number to validate readed packet
+  */
+static int read_data_from_stream_ch(struct test_channel *test_ch,
+				unsigned int size,
+				int packet_counter)
+{
+	u32 read_avail = 0;
+	int ret = 0;
+
+	if (!test_ch || !test_ch->ch) {
+		pr_err(TEST_MODULE_NAME
+				":%s: NULL channel\n", __func__);
+		return -EINVAL;
+	}
+
+	if (test_ch->ch->is_packet_mode) {
+		pr_err(TEST_MODULE_NAME
+				":%s:not streaming mode ch %s\n",
+				__func__, test_ch->name);
+		return -EINVAL;
+	}
+	read_avail = sdio_read_avail(test_ch->ch);
+	/* wait for read data ready event */
+	if (read_avail < size) {
+		TEST_DBG(TEST_MODULE_NAME ":%s() wait for rx data on "
+				"chan %s\n", __func__, test_ch->name);
+		wait_event(test_ch->wait_q,
+				atomic_read(&test_ch->rx_notify_count));
+		atomic_dec(&test_ch->rx_notify_count);
+	}
+	read_avail = sdio_read_avail(test_ch->ch);
+	TEST_DBG(TEST_MODULE_NAME ":%s read_avail=%d bytes on chan %s\n",
+			__func__, read_avail, test_ch->name);
+
+	if (read_avail < size) {
+		pr_err(TEST_MODULE_NAME
+				":read_avail size %d for chan %s not as "
+				"expected size %d\n",
+				read_avail, test_ch->name, size);
+		return -EINVAL;
+	}
+
+	ret = sdio_read(test_ch->ch, test_ch->buf, size + A2_HEADER_OVERHEAD);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME ":%s() sdio_read for chan %s (%d)\n",
+				__func__, test_ch->name, -ret);
+		return ret;
+	}
+	if ((test_ch->buf[A2_HEADER_OVERHEAD/4] != packet_counter) &&
+	    (size != 1)) {
+		pr_err(TEST_MODULE_NAME ":Read WRONG DATA"
+				" for chan %s, size=%d, packet_counter=%d\n",
+				test_ch->name, size, packet_counter);
+		print_hex_dump(KERN_INFO, TEST_MODULE_NAME ": rmnet:",
+				0, 32, 2,
+				(void *)test_ch->buf,
+				size + A2_HEADER_OVERHEAD, false);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 /**
  *   Test close channel feature:
  *   1. write random packet number into channel
@@ -3210,12 +3368,22 @@ static void open_close_test(struct test_channel *test_ch)
 	int ret = 0;
 	u32 read_avail = 0;
 	int total_packet_count = 0;
-	int size = test_ch->packet_length;
-	u16 *buf16 = (u16 *) test_ch->buf;
+	int size = 0;
+	u16 *buf16 = NULL;
 	int i;
 	int max_packet_count = 0;
 	unsigned int random_num = 0;
-	int curr_burst_size = test_ch->max_burst_size;
+	int curr_burst_size = 0;
+
+	if (!test_ch || !test_ch->ch) {
+		pr_err(TEST_MODULE_NAME ":%s NULL channel\n",
+				__func__);
+		return;
+	}
+
+	curr_burst_size = test_ch->max_burst_size;
+	size = test_ch->packet_length;
+	buf16 = (u16 *) test_ch->buf;
 
 	/* the test sends configured number of packets in
 	   2 portions: first without reading between write bursts,
@@ -3261,8 +3429,14 @@ static void open_close_test(struct test_channel *test_ch)
 			}
 			if (i > 0) {
 				/* read from channel */
-				ret = read_data_from_channel(test_ch, size,
-						total_packet_count);
+				if (test_ch->ch->is_packet_mode)
+					ret = read_data_from_packet_ch(test_ch,
+							size,
+							total_packet_count);
+				else
+					ret = read_data_from_stream_ch(test_ch,
+							size,
+							total_packet_count);
 				if (ret) {
 					pr_err(TEST_MODULE_NAME ":%s read"
 							" failed:%d, chan %s\n",
@@ -3643,6 +3817,13 @@ static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 {
 	int read_avail = 0;
 	int ret = 0;
+	int counter = 0;
+
+	if (!test_ch || !test_ch->ch) {
+		pr_err(TEST_MODULE_NAME ":%s NULL channel\n",
+				__func__);
+		return;
+	}
 
 	read_avail = sdio_read_avail(test_ch->ch);
 	TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
@@ -3654,7 +3835,7 @@ static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 		read_avail = sdio_read_avail(test_ch->ch);
 	}
 
-	while (read_avail > 0) {
+	while ((read_avail > 0) && (counter < 10)) {
 		TEST_DBG(TEST_MODULE_NAME ": read_avail=%d for ch %s\n",
 			 read_avail, test_ch->name);
 
@@ -3670,6 +3851,7 @@ static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 		read_avail = sdio_read_avail(test_ch->ch);
 		if (read_avail == 0) {
 			msleep(1000);
+			counter++;
 			read_avail = sdio_read_avail(test_ch->ch);
 		}
 	}
@@ -4700,8 +4882,7 @@ static int test_start(void)
 
 		if ((!tch) || (!tch->is_used))
 			continue;
-		if ((!tch->ch_ready) ||
-		    (tch->ch_id == SDIO_SMEM) || (!tch->ch->is_packet_mode)) {
+		if ((!tch->ch_ready) || (tch->ch_id == SDIO_SMEM)) {
 			tch->is_used = 0;
 			continue;
 		}
@@ -4716,7 +4897,11 @@ static int test_start(void)
 		}
 		tch->is_used = 0;
 	}
-	return 0;
+
+	if (test_ctx->test_result == TEST_PASSED)
+		return 0;
+	else
+		return -EINVAL;
 }
 
 static int set_params_loopback_9k(struct test_channel *tch)
