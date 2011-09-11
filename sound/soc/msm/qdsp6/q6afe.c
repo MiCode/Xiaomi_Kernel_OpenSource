@@ -86,6 +86,45 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
+int afe_get_port_type(u16 port_id)
+{
+	int ret;
+
+	switch (port_id) {
+	case PRIMARY_I2S_RX:
+	case PCM_RX:
+	case SECONDARY_I2S_RX:
+	case MI2S_RX:
+	case HDMI_RX:
+	case SLIMBUS_0_RX:
+	case INT_BT_SCO_RX:
+	case INT_BT_A2DP_RX:
+	case INT_FM_RX:
+	case VOICE_PLAYBACK_TX:
+		ret = MSM_AFE_PORT_TYPE_RX;
+		break;
+
+	case PRIMARY_I2S_TX:
+	case PCM_TX:
+	case SECONDARY_I2S_TX:
+	case MI2S_TX:
+	case DIGI_MIC_TX:
+	case VOICE_RECORD_TX:
+	case SLIMBUS_0_TX:
+	case INT_FM_TX:
+	case VOICE_RECORD_RX:
+	case INT_BT_SCO_TX:
+		ret = MSM_AFE_PORT_TYPE_TX;
+		break;
+
+	default:
+		pr_err("%s: invalid port id\n", __func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 int afe_validate_port(u16 port_id)
 {
 	int ret;

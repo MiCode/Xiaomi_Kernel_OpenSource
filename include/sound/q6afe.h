@@ -18,6 +18,9 @@
 #define MSM_AFE_MONO_LEFT	2
 #define MSM_AFE_STEREO		3
 
+#define MSM_AFE_PORT_TYPE_RX 0
+#define MSM_AFE_PORT_TYPE_TX 1
+
 enum {
 	IDX_PRIMARY_I2S_RX = 0,
 	IDX_PRIMARY_I2S_TX = 1,
@@ -66,5 +69,6 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 int afe_port_stop_nowait(int port_id);
 int afe_apply_gain(u16 port_id, u16 gain);
 int afe_q6_interface_prepare(void);
+int afe_get_port_type(u16 port_id);
 
 #endif /* __Q6AFE_H__ */

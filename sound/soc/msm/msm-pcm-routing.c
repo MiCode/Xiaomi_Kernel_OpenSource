@@ -17,6 +17,7 @@
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
+#include <linux/mutex.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -35,7 +36,17 @@ struct audio_mixer_data {
 	u32 mixer_type; /* playback or capture */
 };
 
+struct msm_pcm_routing_bdai_data {
+	u16 port_id; /* AFE port ID */
+	u8 active; /* track if this backend is enabled */
+	struct snd_pcm_hw_params *hw_params; /* to get freq and channel mode */
+	unsigned long fe_sessions; /* Front-end sessions */
+	unsigned long port_sessions; /* track Tx BE ports -> Rx BE */
+};
+
 #define INVALID_SESSION -1
+
+static struct mutex routing_lock;
 
 enum {
 	AUDIO_MIXER_PRI_I2S_RX = 0,
@@ -84,6 +95,22 @@ static int bedai_port_map[MSM_BACKEND_DAI_MAX] = {
 	INT_FM_TX,
 };
 
+/* This array is indexed by back-end DAI ID defined in msm-pcm-routing.h
+ * If new back-end is defined, add new back-end DAI ID at the end of enum
+ */
+static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
+	{ PRIMARY_I2S_RX, 0, NULL, 0, 0},
+	{ PRIMARY_I2S_TX, 0, NULL, 0, 0},
+	{ SLIMBUS_0_RX, 0, NULL, 0, 0},
+	{ SLIMBUS_0_TX, 0, NULL, 0, 0},
+	{ HDMI_RX, 0, NULL,  0, 0},
+	{ INT_BT_SCO_RX, 0, NULL, 0, 0},
+	{ INT_BT_SCO_TX, 0, NULL, 0, 0},
+	{ INT_FM_RX, 0, NULL, 0, 0},
+	{ INT_FM_TX, 0, NULL, 0, 0},
+};
+
+
 /* Track ASM playback & capture sessions of DAI */
 static int fe_dai_map[MSM_FRONTEND_DAI_MAX][2] = {
 	/* MULTIMEDIA1 */
@@ -107,20 +134,6 @@ static struct audio_mixer_data audio_mixers[AUDIO_MIXER_MAX] = {
 	{INT_BT_SCO_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
 	/* AUDIO_MIXER_INT_FM_RX */
 	{INT_FM_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
-};
-static struct voice_mixer_data voice_mixers[VOICE_MIXER_MAX] = {
-	/* VOICE_MIXER_PRI_I2S_RX */
-	{VOICE_PRI_I2S_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
-	/* VOICE_MIXER_SLIMBUS_0_RX */
-	{VOICE_SLIMBUS_0_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
-	/* VOICE_MIXER_PRI_I2S_TX */
-	{VOICE_PRI_I2S_TX, 0, SNDRV_PCM_STREAM_CAPTURE},
-	/* VOICE_MIXER_SLIMBUS_0_TX */
-	{VOICE_SLIMBUS_0_TX, 0, SNDRV_PCM_STREAM_CAPTURE},
-	/* VOICE_MIXER_INT_BT_SCO_RX */
-	{VOICE_INT_BT_SCO_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
-	/* VOICE_MIXER_INT_BT_SCO_TX */
-	{VOICE_INT_BT_SCO_TX, 0, SNDRV_PCM_STREAM_CAPTURE}
 };
 
 /* Reuse audio_mixer_data struct but ignore mixer type field
@@ -255,36 +268,35 @@ static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static void msm_pcm_routing_process_voice(u16 reg, u16 val, u16 invert, int set)
+static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 {
-
-	u32 port_map_id;
 	u16 session_id = 0;
 
-	pr_debug("%s: reg %x val %x invert %x set %x\n",
-			 __func__, reg, val, invert, set);
+	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
-	if (invert == MSM_FRONTEND_DAI_CS_VOICE)
+	if (val == MSM_FRONTEND_DAI_CS_VOICE)
 		session_id = voc_get_session_id(VOICE_SESSION_NAME);
 	else
 		session_id = voc_get_session_id(VOIP_SESSION_NAME);
 
 	pr_debug("%s: FE DAI 0x%x session_id 0x%x\n",
-		 __func__, invert, session_id);
+		 __func__, val, session_id);
 
-	port_map_id = voice_mixers[reg].port_id;
+	mutex_lock(&routing_lock);
 
 	if (set)
-		set_bit(val, &voice_mixers[reg].dai_sessions);
+		set_bit(val, &msm_bedais[reg].fe_sessions);
 	else
-		clear_bit(val, &voice_mixers[reg].dai_sessions);
+		clear_bit(val, &msm_bedais[reg].fe_sessions);
 
-	if (voice_mixers[reg].mixer_type == SNDRV_PCM_STREAM_PLAYBACK) {
+	mutex_unlock(&routing_lock);
+
+	if (afe_get_port_type(msm_bedais[reg].port_id) ==
+						MSM_AFE_PORT_TYPE_RX) {
 		voc_set_route_flag(session_id, RX_PATH, set);
 		if (set) {
 			voc_set_rxtx_port(session_id,
-					  bedai_port_map[port_map_id],
-					  DEV_RX);
+				msm_bedais[reg].port_id, DEV_RX);
 
 			if (voc_get_route_flag(session_id, RX_PATH) &&
 			    voc_get_route_flag(session_id, TX_PATH))
@@ -296,8 +308,7 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, u16 invert, int set)
 		voc_set_route_flag(session_id, TX_PATH, set);
 		if (set) {
 			voc_set_rxtx_port(session_id,
-					  bedai_port_map[port_map_id],
-					  DEV_TX);
+				msm_bedais[reg].port_id, DEV_TX);
 
 			if (voc_get_route_flag(session_id, RX_PATH) &&
 			    voc_get_route_flag(session_id, TX_PATH))
@@ -314,10 +325,14 @@ static int msm_routing_get_voice_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 	(struct soc_mixer_control *)kcontrol->private_value;
 
-	if (test_bit(mc->shift, &voice_mixers[mc->reg].dai_sessions))
+	mutex_lock(&routing_lock);
+
+	if (test_bit(mc->shift, &msm_bedais[mc->reg].fe_sessions))
 		ucontrol->value.integer.value[0] = 1;
 	else
 		ucontrol->value.integer.value[0] = 0;
+
+	mutex_unlock(&routing_lock);
 
 	pr_debug("%s: reg %x shift %x val %ld\n", __func__, mc->reg, mc->shift,
 			ucontrol->value.integer.value[0]);
@@ -334,12 +349,10 @@ static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 
 	if (ucontrol->value.integer.value[0]) {
-		msm_pcm_routing_process_voice(mc->reg, mc->shift,
-					      mc->invert, 1);
+		msm_pcm_routing_process_voice(mc->reg, mc->shift, 1);
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
 	} else {
-		msm_pcm_routing_process_voice(mc->reg, mc->shift,
-					      mc->invert, 0);
+		msm_pcm_routing_process_voice(mc->reg, mc->shift, 0);
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 	}
 
@@ -512,54 +525,54 @@ static const struct snd_kcontrol_new mmul1_mixer_controls[] = {
 };
 
 static const struct snd_kcontrol_new pri_rx_voice_mixer_controls[] = {
-	SOC_SINGLE_EXT("CSVoice", VOICE_MIXER_PRI_I2S_RX,
-	MSM_FRONTEND_DAI_CS_VOICE, 1, MSM_FRONTEND_DAI_CS_VOICE,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("Voip", VOICE_MIXER_PRI_I2S_RX ,
-	MSM_FRONTEND_DAI_VOIP, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("CSVoice", MSM_BACKEND_DAI_PRI_I2S_RX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("Voip", MSM_BACKEND_DAI_PRI_I2S_RX,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new slimbus_rx_voice_mixer_controls[] = {
-	SOC_SINGLE_EXT("CSVoice", VOICE_MIXER_SLIMBUS_0_RX,
-	MSM_FRONTEND_DAI_CS_VOICE, 1, MSM_FRONTEND_DAI_CS_VOICE,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("Voip", VOICE_MIXER_SLIMBUS_0_RX ,
-	MSM_FRONTEND_DAI_VOIP, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("CSVoice", MSM_BACKEND_DAI_SLIMBUS_0_RX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("Voip", MSM_BACKEND_DAI_SLIMBUS_0_RX ,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new bt_sco_rx_voice_mixer_controls[] = {
-	SOC_SINGLE_EXT("CSVoice", VOICE_MIXER_INT_BT_SCO_RX,
-	MSM_FRONTEND_DAI_CS_VOICE, 1, MSM_FRONTEND_DAI_CS_VOICE,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("Voip", VOICE_MIXER_INT_BT_SCO_RX ,
-	MSM_FRONTEND_DAI_VOIP, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("CSVoice", MSM_BACKEND_DAI_INT_BT_SCO_RX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("Voip", MSM_BACKEND_DAI_INT_BT_SCO_RX ,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new tx_voice_mixer_controls[] = {
-	SOC_SINGLE_EXT("PRI_TX_Voice", VOICE_MIXER_PRI_I2S_TX,
-	MSM_BACKEND_DAI_PRI_I2S_TX, 1, MSM_FRONTEND_DAI_CS_VOICE,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("SLIM_0_TX_Voice", VOICE_MIXER_SLIMBUS_0_TX,
-	MSM_BACKEND_DAI_SLIMBUS_0_TX, 1, MSM_FRONTEND_DAI_CS_VOICE,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("INTERNAL_BT_SCO_TX_Voice", VOICE_MIXER_INT_BT_SCO_TX,
-	MSM_BACKEND_DAI_INT_BT_SCO_TX, 1, MSM_FRONTEND_DAI_CS_VOICE,
+	SOC_SINGLE_EXT("PRI_TX_Voice", MSM_BACKEND_DAI_PRI_I2S_TX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("SLIM_0_TX_Voice", MSM_BACKEND_DAI_SLIMBUS_0_TX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("INTERNAL_BT_SCO_TX_Voice",
+	MSM_BACKEND_DAI_INT_BT_SCO_TX, MSM_FRONTEND_DAI_CS_VOICE, 1, 0,
 	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new tx_voip_mixer_controls[] = {
-	SOC_SINGLE_EXT("PRI_TX_Voip", VOICE_MIXER_PRI_I2S_TX,
-	MSM_BACKEND_DAI_PRI_I2S_TX, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("SLIM_0_TX_Voip", VOICE_MIXER_SLIMBUS_0_TX,
-	MSM_BACKEND_DAI_SLIMBUS_0_TX, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
-	SOC_SINGLE_EXT("INTERNAL_BT_SCO_TX_Voip", VOICE_MIXER_INT_BT_SCO_TX,
-	MSM_BACKEND_DAI_INT_BT_SCO_TX, 1, MSM_FRONTEND_DAI_VOIP,
-	msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("PRI_TX_Voip", MSM_BACKEND_DAI_PRI_I2S_TX,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("SLIM_0_TX_Voip", MSM_BACKEND_DAI_SLIMBUS_0_TX,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("INTERNAL_BT_SCO_TX_Voip", MSM_BACKEND_DAI_INT_BT_SCO_TX,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new sbus_0_rx_port_mixer_controls[] = {
@@ -791,6 +804,7 @@ static struct platform_driver msm_routing_pcm_driver = {
 
 static int __init msm_soc_routing_platform_init(void)
 {
+	mutex_init(&routing_lock);
 	return platform_driver_register(&msm_routing_pcm_driver);
 }
 module_init(msm_soc_routing_platform_init);

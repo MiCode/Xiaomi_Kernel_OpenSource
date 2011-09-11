@@ -45,31 +45,6 @@ enum {
 	MSM_BACKEND_DAI_MAX,
 };
 
-struct voice_mixer_data {
-	u32 port_id;
-	unsigned long dai_sessions;
-	u32 mixer_type;
-};
-
-enum {
-	VOICE_MIXER_PRI_I2S_RX = 0,
-	VOICE_MIXER_SLIMBUS_0_RX,
-	VOICE_MIXER_PRI_I2S_TX,
-	VOICE_MIXER_SLIMBUS_0_TX,
-	VOICE_MIXER_INT_BT_SCO_RX,
-	VOICE_MIXER_INT_BT_SCO_TX,
-	VOICE_MIXER_MAX,
-};
-
-enum {
-	VOICE_PRI_I2S_RX = 0,
-	VOICE_PRI_I2S_TX,
-	VOICE_SLIMBUS_0_RX,
-	VOICE_SLIMBUS_0_TX,
-	VOICE_INT_BT_SCO_RX = 5,
-	VOICE_INT_BT_SCO_TX,
-};
-
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
