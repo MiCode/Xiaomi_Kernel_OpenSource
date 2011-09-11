@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/regulator/consumer.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/board.h>
@@ -1257,6 +1258,18 @@ void msm_camio_3d_disable(void)
 	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
 }
 
+static struct pm8xxx_mpp_config_data privacy_light_on_config = {
+	.type		= PM8XXX_MPP_TYPE_SINK,
+	.level		= PM8XXX_MPP_CS_OUT_5MA,
+	.control	= PM8XXX_MPP_CS_CTRL_MPP_LOW_EN,
+};
+
+static struct pm8xxx_mpp_config_data privacy_light_off_config = {
+	.type		= PM8XXX_MPP_TYPE_SINK,
+	.level		= PM8XXX_MPP_CS_OUT_5MA,
+	.control	= PM8XXX_MPP_CS_CTRL_DISABLE,
+};
+
 int msm_camio_sensor_clk_on(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1266,6 +1279,12 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 	camio_clk = camdev->ioclk;
 
 	msm_camera_vreg_enable(pdev);
+	if (sinfo->sensor_platform_info->privacy_light) {
+		struct msm8960_privacy_light_cfg *privacy_light_config =
+			sinfo->sensor_platform_info->privacy_light_info;
+		pm8xxx_mpp_config(privacy_light_config->mpp,
+						  &privacy_light_on_config);
+	}
 	msleep(20);
 	rc = config_gpio_table(1);
 	if (rc < 0)
@@ -1276,7 +1295,14 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 int msm_camio_sensor_clk_off(struct platform_device *pdev)
 {
 	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	msm_camera_vreg_disable();
+	if (sinfo->sensor_platform_info->privacy_light) {
+		struct msm8960_privacy_light_cfg *privacy_light_config =
+			sinfo->sensor_platform_info->privacy_light_info;
+		pm8xxx_mpp_config(privacy_light_config->mpp,
+						  &privacy_light_off_config);
+	}
 	rc = config_gpio_table(0);
 	if (rc < 0)
 		return rc;

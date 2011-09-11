@@ -1064,6 +1064,10 @@ struct platform_device msm8960_camera_sensor_qs_mt9p017 = {
 	},
 };
 
+static struct msm8960_privacy_light_cfg privacy_light_info = {
+	.mpp = PM8921_MPP_PM_TO_SYS(12),
+};
+
 static void __init msm8960_init_cam(void)
 {
 	int i;
@@ -1072,6 +1076,16 @@ static void __init msm8960_init_cam(void)
 		&msm8960_camera_sensor_ov2720,
 		&msm8960_camera_sensor_qs_mt9p017,
 	};
+
+	if (machine_is_msm8960_liquid()) {
+		struct msm_camera_sensor_info *s_info;
+		s_info = msm8960_camera_sensor_imx074.dev.platform_data;
+		s_info->sensor_platform_info->mount_angle = 180;
+		s_info = msm8960_camera_sensor_ov2720.dev.platform_data;
+		s_info->sensor_platform_info->privacy_light = 1;
+		s_info->sensor_platform_info->privacy_light_info =
+			&privacy_light_info;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(cam_dev); i++) {
 		struct msm_camera_sensor_info *s_info;

@@ -164,6 +164,10 @@ enum msm_camera_type {
 	BACK_CAMERA_INT_3D,
 };
 
+struct msm8960_privacy_light_cfg {
+	unsigned mpp;
+};
+
 struct msm_camera_sensor_platform_info {
 	int mount_angle;
 	int sensor_reset_enable;
@@ -171,6 +175,8 @@ struct msm_camera_sensor_platform_info {
 	int sensor_pwd;
 	int vcm_pwd;
 	int vcm_enable;
+	int privacy_light;
+	void *privacy_light_info;
 };
 
 struct msm_camera_gpio_conf {
