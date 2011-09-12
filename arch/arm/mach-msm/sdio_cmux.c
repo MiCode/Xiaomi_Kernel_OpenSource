@@ -531,7 +531,10 @@ static int process_cmux_pkt(void *pkt, int size)
 		D("%s: Received OPEN command for ch%d\n", __func__, id);
 		mutex_lock(&logical_ch[id].lc_lock);
 		logical_ch[id].is_remote_open = 1;
-		logical_ch[id].is_channel_reset = 0;
+		if (logical_ch[id].is_channel_reset) {
+			sdio_cmux_write_cmd(id, OPEN);
+			logical_ch[id].is_channel_reset = 0;
+		}
 		mutex_unlock(&logical_ch[id].lc_lock);
 		wake_up(&logical_ch[id].open_wait_queue);
 		break;
