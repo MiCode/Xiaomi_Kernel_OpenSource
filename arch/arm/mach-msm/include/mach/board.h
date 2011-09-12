@@ -308,6 +308,7 @@ struct msm_panel_common_pdata {
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
 	int mdp_rev;
+	int (*writeback_offset)(void);
 };
 
 struct lcdc_platform_data {
