@@ -441,7 +441,6 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	 * link to the latest pdev
 	 */
 	mfd->pdev = mdp_dev;
-	mfd->dest = DISPLAY_LCD;
 
 	/*
 	 * alloc panel device data
@@ -466,6 +465,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	 */
 	mfd->panel_info = pdata->panel_info;
 	pinfo = &mfd->panel_info;
+
+	if (mfd->panel_info.type == MIPI_VIDEO_PANEL)
+		mfd->dest = DISPLAY_LCDC;
+	else
+		mfd->dest = DISPLAY_LCD;
 
 	if (mdp_rev == MDP_REV_303 &&
 		mipi_dsi_pdata->get_lane_config) {
