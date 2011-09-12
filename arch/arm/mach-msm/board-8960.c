@@ -2120,6 +2120,14 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
 
+#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
+#ifdef CONFIG_MSM_USE_TSIF1
+	&msm_device_tsif[1],
+#else
+	&msm_device_tsif[0],
+#endif
+#endif
+
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
 #endif
