@@ -1107,31 +1107,40 @@ static void __init msm8960_init_cam(void)
 #endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-/* prim = 1366 x 768 x 3(bpp) x 3(pages) */
-#define MSM_FB_PRIM_BUF_SIZE roundup(1366 * 768 * 3 * 3, 0x10000)
+#define MSM_FB_PRIM_BUF_SIZE (1376 * 768 * 4 * 3) /* 4 bpp x 3 pages */
 #else
-/* prim = 1366 x 768 x 3(bpp) x 2(pages) */
-#define MSM_FB_PRIM_BUF_SIZE roundup(1366 * 768 * 3 * 2, 0x10000)
+#define MSM_FB_PRIM_BUF_SIZE (1376 * 768 * 4 * 2) /* 4 bpp x 2 pages */
 #endif
 
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-#define MIPI_DSI_WRITEBACK_SIZE (1024 * 600 * 3 * 2)
-#else
-#define MIPI_DSI_WRITEBACK_SIZE 0
-#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-/* hdmi = 1920 x 1088 x 2(bpp) x 1(page) */
-#define MSM_FB_EXT_BUF_SIZE 0x3FC000
+#define MSM_FB_EXT_BUF_SIZE	(1920 * 1088 * 2 * 1) /* 2 bpp x 1 page */
 #elif defined(CONFIG_FB_MSM_TVOUT)
-/* tvout = 720 x 576 x 2(bpp) x 2(pages) */
-#define MSM_FB_EXT_BUF_SIZE 0x195000
-#else /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
-#define MSM_FB_EXT_BUF_SIZE 0
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
+#define MSM_FB_EXT_BUF_SIZE (720 * 576 * 2 * 2) /* 2 bpp x 2 pages */
+#else
+#define MSM_FB_EXT_BUF_SIZE	0
+#endif
 
-#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE +\
-				MIPI_DSI_WRITEBACK_SIZE, 4096)
+#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
+/* width x height x 3 bpp x 2 frame buffer */
+#define MSM_FB_WRITEBACK_SIZE (1376 * 768 * 3 * 2)
+#define MSM_FB_WRITEBACK_OFFSET  \
+		(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE)
+#else
+#define MSM_FB_WRITEBACK_SIZE   0
+#define MSM_FB_WRITEBACK_OFFSET 0
+#endif
+
+
+/* Note: must be multiple of 4096 */
+#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE + \
+				MSM_FB_WRITEBACK_SIZE, 4096)
+
+static int writeback_offset(void)
+{
+	return MSM_FB_WRITEBACK_OFFSET;
+}
+
 
 #define MDP_VSYNC_GPIO 0
 
@@ -1538,6 +1547,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_42,
+	.writeback_offset = writeback_offset,
 };
 
 static struct platform_device mipi_dsi_renesas_panel_device = {
