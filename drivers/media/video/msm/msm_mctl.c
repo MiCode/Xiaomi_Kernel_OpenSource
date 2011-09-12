@@ -301,6 +301,10 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = p_mctl->sync.sctrl.s_config(argp);
 			break;
 
+	case MSM_CAM_IOCTL_ACTUATOR_IO_CFG:
+			rc = p_mctl->sync.actctrl.a_config(argp);
+			break;
+
 	case MSM_CAM_IOCTL_FLASH_CTRL: {
 		struct flash_ctrl_data flash_info;
 		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
@@ -408,6 +412,9 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(&p_mctl->sync);
+
+	if (p_mctl->sync.actctrl.a_power_down)
+		p_mctl->sync.actctrl.a_power_down();
 
 	if (p_mctl->sync.sctrl.s_release)
 		p_mctl->sync.sctrl.s_release();

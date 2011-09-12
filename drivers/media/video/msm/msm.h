@@ -193,6 +193,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *flash_sdev;    /* vpe sub device : VPE */
 	struct msm_cam_config_dev *config_device;
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
+	struct v4l2_subdev *act_sdev; /* actuator sub device */
 
 	struct pm_qos_request_list pm_qos_req_list;
 	struct msm_mctl_pp_info pp_info;

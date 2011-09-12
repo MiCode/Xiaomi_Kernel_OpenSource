@@ -186,6 +186,13 @@ struct msm_camera_gpio_conf {
 	uint8_t cam_gpio_tbl_size;
 };
 
+struct msm_actuator_info {
+	struct i2c_board_info const *board_info;
+	int bus_id;
+	int vcm_pwd;
+	int vcm_enable;
+};
+
 struct msm_camera_sensor_info {
 	const char *sensor_name;
 	int sensor_reset_enable;
@@ -206,6 +213,7 @@ struct msm_camera_sensor_info {
 	char *eeprom_data;
 	struct msm_camera_gpio_conf *gpio_conf;
 	enum msm_camera_type camera_type;
+	struct msm_actuator_info *actuator_info;
 };
 
 int __init msm_get_cam_resources(struct msm_camera_sensor_info *);

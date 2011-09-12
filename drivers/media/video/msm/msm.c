@@ -2266,6 +2266,31 @@ static int msm_sync_destroy(struct msm_sync *sync)
 	}
 	return 0;
 }
+
+static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
+			      struct v4l2_subdev *act_sdev,
+			      struct msm_actuator_ctrl *actctrl)
+{
+	int rc = 0;
+	struct i2c_adapter *adapter = NULL;
+	void *act_client = NULL;
+	struct msm_actuator_ctrl *a_ext_ctrl = NULL;
+
+	if (!actuator_info)
+		return rc;
+
+	adapter = i2c_get_adapter(actuator_info->bus_id);
+
+	act_client = i2c_new_device(adapter, actuator_info->board_info);
+
+	a_ext_ctrl = (struct msm_actuator_ctrl *)i2c_get_clientdata(act_client);
+
+	*actctrl = *a_ext_ctrl;
+	a_ext_ctrl->a_create_subdevice((void *)actuator_info->board_info,
+				       (void *)act_sdev);
+	return rc;
+}
+
 static int msm_sync_init(struct msm_sync *sync,
 	struct platform_device *pdev)
 {
@@ -2277,6 +2302,7 @@ static int msm_sync_init(struct msm_sync *sync,
 
 	sync->pdev = pdev;
 	sync->opencnt = 0;
+
 	mutex_init(&sync->lock);
 	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
 	return rc;
@@ -2295,6 +2321,8 @@ int msm_sensor_register(struct platform_device *pdev,
 	struct msm_cam_v4l2_device *pcam;
 	struct v4l2_subdev *sdev = NULL;
 	struct msm_sensor_ctrl *sctrl = NULL;
+	struct v4l2_subdev *act_sdev = NULL;
+	struct msm_actuator_ctrl *actctrl = NULL;
 
 	D("%s for %s\n", __func__, pdev->name);
 
@@ -2327,15 +2355,34 @@ int msm_sensor_register(struct platform_device *pdev,
 	}
 
 	rc = sensor_probe(sdata, sdev, sctrl);
-
-	msm_camio_probe_off(pdev);
 	if (rc < 0) {
 		pr_err("%s: failed to detect %s\n",
 			__func__,
-		sdata->sensor_name);
+			sdata->sensor_name);
+		msm_camio_probe_off(pdev);
+		kzfree(sdev);
 		kzfree(pcam);
 		return rc;
 	}
+
+	pcam->mctl.act_sdev = kzalloc(sizeof(struct v4l2_subdev),
+					 GFP_KERNEL);
+	if (!pcam->mctl.act_sdev) {
+		pr_err("%s: could not allocate mem for actuator v4l2_subdev\n",
+			__func__);
+		msm_camio_probe_off(pdev);
+		kzfree(sdev);
+		kfree(pcam);
+		return -ENOMEM;
+	}
+
+	act_sdev = pcam->mctl.act_sdev;
+	actctrl = &pcam->mctl.sync.actctrl;
+
+	msm_actuator_probe(sdata->actuator_info,
+			act_sdev, actctrl);
+
+	msm_camio_probe_off(pdev);
 
 	/* setup a manager object*/
 	rc = msm_sync_init(&pcam->mctl.sync, pdev);
@@ -2391,6 +2438,17 @@ int msm_sensor_register(struct platform_device *pdev,
 */
 	/* register the subdevice, must be done for callbacks */
 	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sdev);
+	if (rc < 0) {
+		D("%s sensor sub device register failed\n",
+			__func__);
+		goto failure;
+	}
+	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
+	if (rc < 0) {
+		D("%s actuator sub device register failed\n",
+			__func__);
+		goto failure;
+	}
 	pcam->vnode_id = vnode_count++;
 	return rc;
 
