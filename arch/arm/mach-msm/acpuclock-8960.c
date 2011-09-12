@@ -606,8 +606,8 @@ static int increase_vdd(int cpu, unsigned int vdd_core, unsigned int vdd_mem,
 	int rc;
 
 	/*
-	 * Increase vdd_mem active-set before vdd_dig and vdd_core.
-	 * vdd_mem should be >= both vdd_core and vdd_dig.
+	 * Increase vdd_mem active-set before vdd_dig.
+	 * vdd_mem should be >= vdd_dig.
 	 */
 	if (vdd_mem > sc->vreg[VREG_MEM].cur_vdd) {
 		rc = rpm_vreg_set_voltage(sc->vreg[VREG_MEM].rpm_vreg_id,
@@ -693,8 +693,8 @@ static void decrease_vdd(int cpu, unsigned int vdd_core, unsigned int vdd_mem,
 	}
 
 	/*
-	 * Decrease vdd_mem active-set after vdd_dig and vdd_core.
-	 * vdd_mem should be >= both vdd_core and vdd_dig.
+	 * Decrease vdd_mem active-set after vdd_dig.
+	 * vdd_mem should be >= vdd_dig.
 	 */
 	if (vdd_mem < sc->vreg[VREG_MEM].cur_vdd) {
 		ret = rpm_vreg_set_voltage(sc->vreg[VREG_MEM].rpm_vreg_id,
@@ -711,7 +711,7 @@ static void decrease_vdd(int cpu, unsigned int vdd_core, unsigned int vdd_mem,
 
 static unsigned int calculate_vdd_mem(struct acpu_level *tgt)
 {
-	return max(tgt->vdd_core, tgt->l2_level->vdd_mem);
+	return tgt->l2_level->vdd_mem;
 }
 
 static unsigned int calculate_vdd_dig(struct acpu_level *tgt)
