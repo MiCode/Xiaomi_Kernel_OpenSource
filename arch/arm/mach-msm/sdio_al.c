@@ -147,6 +147,7 @@
 
 #define TIME_TO_WAIT_US 500
 #define SDIO_CLOSE_FLUSH_TIMEOUT_MSEC   (10000)
+#define RX_FLUSH_BUFFER_SIZE (16*1024)
 
 #define SDIO_TEST_POSTFIX "_TEST"
 
@@ -395,6 +396,8 @@ struct sdio_al_device {
 	int (*lpm_callback)(void *, int);
 
 	int print_after_interrupt;
+
+	u8 *rx_flush_buf;
 };
 
 /*
@@ -455,6 +458,7 @@ static int enable_mask_irq(struct sdio_al_device *sdio_al_dev,
 static int sdio_al_enable_func_retry(struct sdio_func *func, const char *name);
 static void sdio_al_print_info(void);
 static int sdio_read_internal(struct sdio_channel *ch, void *data, int len);
+static int sdio_read_from_closed_ch(struct sdio_channel *ch, int len);
 
 #define SDIO_AL_ERR(func)					\
 	do {							\
@@ -759,7 +763,8 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 	/* Make sure we get interrupt for non-packet-mode right away */
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al_dev->channel[i];
-		if (ch->state != SDIO_CHANNEL_STATE_OPEN) {
+		if ((ch->state != SDIO_CHANNEL_STATE_OPEN) &&
+		    (ch->state != SDIO_CHANNEL_STATE_CLOSED)) {
 			pr_debug(MODULE_NAME  ":continue for channel %s in"
 					" state %d\n", ch->name, ch->state);
 			continue;
@@ -895,13 +900,10 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 
 		if ((ch->state == SDIO_CHANNEL_STATE_CLOSED) &&
 			(read_avail > 0)) {
-			/* Stop the timer to stop reading the mailbox */
-			sdio_al_dev->poll_delay_msec = 0;
-			pr_err(MODULE_NAME
-				 ":Invalid read_avail 0x%x, old_read_avail=0x%x for CLOSED ch %s\n",
-				 read_avail, old_read_avail, ch->name);
-			sdio_al_get_into_err_state(sdio_al_dev);
-			goto exit_err;
+			pr_err(MODULE_NAME ":%s: Invalid read_avail 0x%x, "
+					   "for CLOSED ch %s\n",
+				 __func__, read_avail, ch->name);
+			sdio_read_from_closed_ch(ch, read_avail);
 		}
 		if ((ch->state != SDIO_CHANNEL_STATE_OPEN) &&
 		    (ch->state != SDIO_CHANNEL_STATE_CLOSING))
@@ -2584,7 +2586,6 @@ int sdio_close(struct sdio_channel *ch)
 {
 	int ret;
 	struct sdio_al_device *sdio_al_dev = NULL;
-	void *temp_buf = NULL;
 	int flush_len;
 	ulong flush_expires;
 
@@ -2641,15 +2642,8 @@ int sdio_close(struct sdio_channel *ch)
 	do {
 		while (ch->read_avail > 0) {
 			flush_len = ch->read_avail;
-			temp_buf = kzalloc(flush_len, GFP_KERNEL);
-			if (temp_buf == NULL) {
-				pr_err(MODULE_NAME ":%s failed to allocate"
-						" %d bytes during flush\n",
-						__func__, flush_len);
-				return -ENOMEM;
-			}
-			ret = sdio_read_internal(ch, temp_buf, flush_len);
-			kfree(temp_buf);
+			ret = sdio_read_internal(ch, sdio_al_dev->rx_flush_buf,
+						 flush_len);
 			if (ret) {
 				pr_err(MODULE_NAME ":%s failed to"
 						" sdio_read: %d, ch %s\n",
@@ -2685,12 +2679,6 @@ int sdio_close(struct sdio_channel *ch)
 	} while (ch->read_avail > 0);
 
 	sdio_claim_host(sdio_al_dev->card->sdio_func[0]);
-	/* disable channel interrupts */
-	enable_eot_interrupt(ch->sdio_al_dev, ch->rx_pipe_index, false);
-	enable_eot_interrupt(ch->sdio_al_dev, ch->tx_pipe_index, false);
-	enable_threshold_interrupt(ch->sdio_al_dev, ch->rx_pipe_index, false);
-	enable_threshold_interrupt(ch->sdio_al_dev, ch->tx_pipe_index, false);
-
 	/* disable function to be able to open the channel again */
 	ret = sdio_disable_func(ch->func);
 	if (ret) {
@@ -2758,6 +2746,38 @@ int sdio_read_avail(struct sdio_channel *ch)
 	return ch->read_avail;
 }
 EXPORT_SYMBOL(sdio_read_avail);
+
+static int sdio_read_from_closed_ch(struct sdio_channel *ch, int len)
+{
+	int ret = 0;
+	struct sdio_al_device *sdio_al_dev = NULL;
+
+	if (!ch) {
+		pr_err(MODULE_NAME ":%s: NULL channel\n",  __func__);
+		return -ENODEV;
+	}
+
+	sdio_al_dev = ch->sdio_al_dev;
+
+	sdio_claim_host(sdio_al_dev->card->sdio_func[0]);
+
+	ret = sdio_memcpy_fromio(ch->func, sdio_al_dev->rx_flush_buf,
+				 PIPE_RX_FIFO_ADDR, len);
+
+	if (ret) {
+		pr_err(MODULE_NAME ":ch %s: %s err=%d, len=%d\n",
+				ch->name, __func__, -ret, len);
+		sdio_al_dev->is_err = true;
+		sdio_release_host(sdio_al_dev->card->sdio_func[0]);
+		return ret;
+	}
+
+	restart_inactive_time(sdio_al_dev);
+
+	sdio_release_host(sdio_al_dev->card->sdio_func[0]);
+
+	return 0;
+}
 
 /**
  *  Internal read from SDIO Channel.
@@ -3344,6 +3364,15 @@ static int sdio_al_sdio_probe(struct sdio_func *func,
 	if (sdio_al_dev->sdioc_sw_header == NULL)
 		return -ENOMEM;
 
+
+	sdio_al_dev->rx_flush_buf = kzalloc(RX_FLUSH_BUFFER_SIZE, GFP_KERNEL);
+	if (sdio_al_dev->rx_flush_buf == NULL) {
+		pr_err(MODULE_NAME ":Fail to allocate rx_flush_buf "
+				   "for card %d\n",
+		       card->host->index);
+		return -ENOMEM;
+	}
+
 	sdio_al_dev->timer.data = (unsigned long)sdio_al_dev;
 
 	wake_lock_init(&sdio_al_dev->wake_lock, WAKE_LOCK_SUSPEND, MODULE_NAME);
@@ -3475,6 +3504,7 @@ static void sdio_al_sdio_remove(struct sdio_func *func)
 			 __func__, card->host->index);
 	kfree(sdio_al_dev->sdioc_sw_header);
 	kfree(sdio_al_dev->mailbox);
+	kfree(sdio_al_dev->rx_flush_buf);
 	kfree(sdio_al_dev);
 
 	pr_info(MODULE_NAME ":%s: sdio card %d removed.\n", __func__,
