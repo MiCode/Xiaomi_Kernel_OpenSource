@@ -52,16 +52,6 @@ int arch_io_remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 void *strongly_ordered_page;
 char strongly_ordered_mem[PAGE_SIZE*2-4];
 
-/*
- * The trick of making the zero page strongly ordered no longer
- * works. We no longer want to make a second alias to the zero
- * page that is strongly ordered. Manually changing the bits
- * in the page table for the zero page would have side effects
- * elsewhere that aren't necessary. The result is that we need
- * to get a page from else where. Given when the first call
- * to write_to_strongly_ordered_memory occurs, using bootmem
- * to get a page makes the most sense.
- */
 void map_page_strongly_ordered(void)
 {
 #if defined(CONFIG_ARCH_MSM7X27) && !defined(CONFIG_ARCH_MSM7X27A)
