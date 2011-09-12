@@ -585,7 +585,7 @@ int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data)
 		usleep_range(1000, 2000);
 		gpio_set_value_cansleep(data->sensor_platform_info->
 			sensor_reset, 1);
-		usleep_range(1000, 2000);
+		usleep_range(4000, 5000);
 	} else {
 		CDBG("%s: gpio request fail", __func__);
 	}
