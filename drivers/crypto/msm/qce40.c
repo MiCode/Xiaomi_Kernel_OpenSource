@@ -127,7 +127,8 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	unsigned int rev;
 
 	val = (uint32_t)(*((uint32_t *)pce_dev->ce_dm.buffer.version));
-	if (((val & 0xfffffff) != 0x0000042) &&
+	if (((val & 0xfffffff) != 0x0000043) &&
+			((val & 0xfffffff) != 0x0000042) &&
 			((val & 0xfffffff) != 0x0000040)) {
 		dev_err(pce_dev->pdev,
 				"Unknown Qualcomm crypto device at 0x%x 0x%x\n",
@@ -135,15 +136,17 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 		return -EIO;
 	};
 	rev = (val & CRYPTO_CORE_REV_MASK);
-	if (rev == 0x42) {
+	if (rev >= 0x42) {
 		dev_info(pce_dev->pdev,
 				"Qualcomm Crypto 4.2 device found at 0x%x\n",
 				pce_dev->phy_iobase);
+		pce_dev->ce_dm.ce_block_size = 64;
 	} else {
 		if (rev == 0x40) {
 			dev_info(pce_dev->pdev,
 				"Qualcomm Crypto 4.0 device found at 0x%x\n",
 							pce_dev->phy_iobase);
+			pce_dev->ce_dm.ce_block_size = 16;
 		}
 	}
 
@@ -2066,17 +2069,18 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	uint32_t pad_len_in, pad_len_out;
 	uint32_t pad_mac_len_out, pad_ptx_len_out;
 	int rc = 0;
+	int ce_block_size;
 
+	ce_block_size = pce_dev->ce_dm.ce_block_size;
 	if (q_req->dir == QCE_ENCRYPT) {
 		q_req->cryptlen = areq->cryptlen;
 		totallen_in = q_req->cryptlen + areq->assoclen;
 		totallen_out = q_req->cryptlen + authsize + areq->assoclen;
 		out_len = areq->cryptlen + authsize;
-		pad_len_in = ALIGN(totallen_in, ADM_CE_BLOCK_SIZE) -
-								totallen_in;
-		pad_mac_len_out = ALIGN(authsize, ADM_CE_BLOCK_SIZE) -
+		pad_len_in = ALIGN(totallen_in, ce_block_size) - totallen_in;
+		pad_mac_len_out = ALIGN(authsize, ce_block_size) -
 								authsize;
-		pad_ptx_len_out = ALIGN(q_req->cryptlen, ADM_CE_BLOCK_SIZE) -
+		pad_ptx_len_out = ALIGN(q_req->cryptlen, ce_block_size) -
 							q_req->cryptlen;
 		pad_len_out = pad_ptx_len_out + pad_mac_len_out;
 		totallen_out += pad_len_out;
@@ -2085,7 +2089,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		totallen_in = areq->cryptlen + areq->assoclen;
 		totallen_out = q_req->cryptlen + areq->assoclen;
 		out_len = areq->cryptlen - authsize;
-		pad_len_in = ALIGN(areq->cryptlen, ADM_CE_BLOCK_SIZE) -
+		pad_len_in = ALIGN(areq->cryptlen, ce_block_size) -
 							areq->cryptlen;
 		pad_len_out = pad_len_in + authsize;
 		totallen_out += pad_len_out;
@@ -2152,8 +2156,8 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	}
 
 	/* finalize the ce_in and ce_out channels command lists */
-	_ce_in_final(pce_dev, ALIGN(totallen_in, ADM_CE_BLOCK_SIZE));
-	_ce_out_final(pce_dev, ALIGN(totallen_out, ADM_CE_BLOCK_SIZE));
+	_ce_in_final(pce_dev, ALIGN(totallen_in, ce_block_size));
+	_ce_out_final(pce_dev, ALIGN(totallen_out, ce_block_size));
 
 	/* set up crypto device */
 	rc = _ce_setup_cipher(pce_dev, q_req, totallen_in, areq->assoclen);
@@ -2199,7 +2203,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	struct ablkcipher_request *areq = (struct ablkcipher_request *)
 						c_req->areq;
 
-	uint32_t pad_len = ALIGN(areq->nbytes, ADM_CE_BLOCK_SIZE)
+	uint32_t pad_len = ALIGN(areq->nbytes, pce_dev->ce_dm.ce_block_size)
 						- areq->nbytes;
 
 	_chain_buffer_in_init(pce_dev);
@@ -2305,7 +2309,8 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 {
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc;
-	uint32_t pad_len = ALIGN(sreq->size, ADM_CE_BLOCK_SIZE) - sreq->size;
+	uint32_t pad_len = ALIGN(sreq->size, pce_dev->ce_dm.ce_block_size) -
+								sreq->size;
 	struct ahash_request *areq = (struct ahash_request *)sreq->areq;
 
 	_chain_buffer_in_init(pce_dev);
@@ -2539,4 +2544,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.09");
+MODULE_VERSION("2.10");

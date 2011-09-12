@@ -34,8 +34,8 @@
 		SET_LAST_CMD_PTR((GET_PHYS_ADDR((unsigned char *)x)))
 
 
-/* Data xfer between DM and CE in blocks of 16 bytes */
-#define ADM_CE_BLOCK_SIZE  16
+/* MAX Data xfer block size between DM and CE */
+#define MAX_ADM_CE_BLOCK_SIZE  64
 #define ADM_DESC_LENGTH_MASK 0xffff
 #define ADM_DESC_LENGTH(x)  (x & ADM_DESC_LENGTH_MASK)
 
@@ -111,7 +111,7 @@ struct ce_reg_buffers {
 	unsigned char go_proc[CRYPTO_REG_SIZE];
 	unsigned char status[CRYPTO_REG_SIZE];
 
-	unsigned char pad[2 * ADM_CE_BLOCK_SIZE];
+	unsigned char pad[2 * MAX_ADM_CE_BLOCK_SIZE];
 };
 
 /* CE Command lists */
@@ -224,6 +224,8 @@ struct ce_dm_data {
 	int ce_out_dst_desc_index;
 	int ce_in_src_desc_index;
 	int ce_in_dst_desc_index;
+
+	int ce_block_size;
 
 	dma_addr_t phy_ce_out_ignore;
 	dma_addr_t phy_ce_pad;
