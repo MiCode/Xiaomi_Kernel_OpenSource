@@ -206,7 +206,6 @@ static void __init pm8921_gpio_mpp_init(void)
 	}
 }
 
-#define FPGA_CS_GPIO		14
 #define KS8851_RST_GPIO		89
 #define KS8851_IRQ_GPIO		90
 
@@ -239,6 +238,18 @@ static struct gpiomux_setting spi_suspended_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting spi_active_config2 = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting spi_suspended_config2 = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting gsbi3_suspended_cfg = {
@@ -320,12 +331,6 @@ struct msm_gpiomux_config msm8960_gpiomux_configs[NR_GPIO_IRQS] = {
 			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
 	},
-	{
-		.gpio = FPGA_CS_GPIO,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
-		}
-	},
 #endif
 };
 
@@ -356,6 +361,13 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
 			[GPIOMUX_ACTIVE] = &spi_active,
+		},
+	},
+	{
+		.gpio      = 14,		/* GSBI1 SPI_CS_1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spi_suspended_config2,
+			[GPIOMUX_ACTIVE] = &spi_active_config2,
 		},
 	},
 	{
@@ -1969,6 +1981,7 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 	}
 };
 
+#define FPGA_3D_GPIO_CONFIG_ADDR	0xB5
 static int dsi2lvds_gpio[2] = {
 	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
 	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
@@ -1994,6 +2007,8 @@ static struct mipi_dsi_phy_ctrl dsi_novatek_cmd_mode_phy_db = {
 };
 
 static struct mipi_dsi_panel_platform_data novatek_pdata = {
+	.fpga_3d_config_addr  = FPGA_3D_GPIO_CONFIG_ADDR,
+	.fpga_ctrl_mode = FPGA_SPI_INTF,
 	.phy_ctrl_settings = &dsi_novatek_cmd_mode_phy_db,
 };
 
@@ -3605,6 +3620,13 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.mode                   = SPI_MODE_0,
 		.platform_data		= &spi_eth_pdata
 	},
+	{
+		.modalias               = "dsi_novatek_3d_panel_spi",
+		.max_speed_hz           = 10800000,
+		.bus_num                = 0,
+		.chip_select            = 1,
+		.mode                   = SPI_MODE_0,
+	},
 };
 
 static struct platform_device msm_device_saw_core0 = {
@@ -4226,30 +4248,6 @@ static struct msm_ssbi_platform_data msm8960_ssbi_pm8921_pdata __devinitdata = {
 	},
 };
 
-#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-static int fpga_init(void)
-{
-	int ret;
-
-	ret = gpio_request(FPGA_CS_GPIO, "fpga_cs");
-	if (ret) {
-		pr_err("FPGA CS gpio_request failed: %d\n", ret);
-		goto fail;
-	}
-
-	gpio_direction_output(FPGA_CS_GPIO, 1);
-
-	return 0;
-fail:
-	return ret;
-}
-#else
-static int fpga_init(void)
-{
-	return 0;
-}
-#endif
-
 static struct msm_cpuidle_state msm_cstates[] __initdata = {
 	{0, 0, "C0", "WFI",
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
@@ -4638,8 +4636,6 @@ static void __init msm8960_cdp_init(void)
 #endif
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	gpiomux_init();
-	if (machine_is_msm8960_cdp())
-		fpga_init();
 	if (machine_is_msm8960_liquid())
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
