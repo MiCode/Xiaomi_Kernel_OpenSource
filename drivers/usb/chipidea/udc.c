@@ -561,6 +561,8 @@ static int _ep_nuke(struct ci13xxx_ep *mEp)
 __releases(mEp->lock)
 __acquires(mEp->lock)
 {
+	struct ci13xxx_ep *mEpTemp = mEp;
+
 	if (mEp == NULL)
 		return -EINVAL;
 
@@ -583,7 +585,10 @@ __acquires(mEp->lock)
 
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
-			mReq->req.complete(&mEp->ep, &mReq->req);
+			if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
+				mReq->req.length)
+				mEpTemp = mEp->ci->ep0in;
+			mReq->req.complete(&mEpTemp->ep, &mReq->req);
 			spin_lock(mEp->lock);
 		}
 	}
@@ -1273,6 +1278,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 {
 	struct ci13xxx_ep  *mEp  = container_of(ep,  struct ci13xxx_ep, ep);
+	struct ci13xxx_ep  *mEpTemp = mEp;
 	struct ci13xxx_req *mReq = container_of(req, struct ci13xxx_req, req);
 	unsigned long flags;
 
@@ -1294,7 +1300,10 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 
 	if (mReq->req.complete != NULL) {
 		spin_unlock(mEp->lock);
-		mReq->req.complete(&mEp->ep, &mReq->req);
+		if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
+				mReq->req.length)
+			mEpTemp = mEp->ci->ep0in;
+		mReq->req.complete(&mEpTemp->ep, &mReq->req);
 		spin_lock(mEp->lock);
 	}
 
