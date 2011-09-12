@@ -1771,7 +1771,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
-	struct kgsl_mem_entry *entry;
+	struct kgsl_mem_entry *tmp, *entry = NULL;
 	struct kgsl_device *device = dev_priv->device;
 
 	/* Handle leagacy behavior for memstore */
@@ -1782,9 +1782,10 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	/* Find a chunk of GPU memory */
 
 	spin_lock(&private->mem_lock);
-	list_for_each_entry(entry, &private->mem_list, list) {
-		if (vma_offset == entry->memdesc.gpuaddr) {
-			kgsl_mem_entry_get(entry);
+	list_for_each_entry(tmp, &private->mem_list, list) {
+		if (vma_offset == tmp->memdesc.gpuaddr) {
+			kgsl_mem_entry_get(tmp);
+			entry = tmp;
 			break;
 		}
 	}
