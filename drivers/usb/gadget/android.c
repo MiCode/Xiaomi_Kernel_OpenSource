@@ -216,6 +216,11 @@ static int rmnet_function_init(struct android_usb_function *f,
 	return frmnet_init_port(MAX_RMNET_INSTANCES);
 }
 
+static void rmnet_function_cleanup(struct android_usb_function *f)
+{
+	frmnet_cleanup();
+}
+
 static int rmnet_function_bind_config(struct android_usb_function *f,
 					 struct usb_configuration *c)
 {
@@ -259,6 +264,7 @@ static struct device_attribute *rmnet_function_attributes[] = {
 static struct android_usb_function rmnet_function = {
 	.name		= "rmnet",
 	.init		= rmnet_function_init,
+	.cleanup	= rmnet_function_cleanup,
 	.bind_config	= rmnet_function_bind_config,
 	.attributes	= rmnet_function_attributes,
 };

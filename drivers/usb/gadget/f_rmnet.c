@@ -292,7 +292,6 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	frmnet_free_req(dev->notify, dev->notify_req);
 
 	kfree(f->name);
-	kfree(dev);
 }
 
 static void frmnet_disable(struct usb_function *f)
@@ -715,13 +714,22 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 		pr_err("%s: usb add function failed: %d\n",
 				__func__, status);
 		kfree(f->name);
-		kfree(dev);
 		return status;
 	}
 
 	pr_debug("%s: complete\n", __func__);
 
 	return status;
+}
+
+static void frmnet_cleanup(void)
+{
+	int i;
+
+	for (i = 0; i < nr_rmnet_ports; i++)
+		kfree(rmnet_ports[i].port);
+
+	nr_rmnet_ports = 0;
 }
 
 static int frmnet_init_port(int instances)
@@ -731,6 +739,12 @@ static int frmnet_init_port(int instances)
 	int ret;
 
 	pr_debug("%s: instances :%d\n", __func__, instances);
+
+	if (instances > NR_RMNET_PORTS) {
+		pr_err("%s: Max-%d instances supported\n", __func__,
+						 NR_RMNET_PORTS);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < instances; i++) {
 		dev = kzalloc(sizeof(struct f_rmnet), GFP_KERNEL);
