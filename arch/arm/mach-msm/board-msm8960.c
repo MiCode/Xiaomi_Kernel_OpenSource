@@ -955,7 +955,7 @@ static void __init msm8960_reserve(void)
 static int msm8960_change_memory_power(u64 start, u64 size,
 	int change_type)
 {
-	return size;
+	return soc_change_memory_power(start, size, change_type);
 }
 
 #ifdef CONFIG_MSM_CAMERA
