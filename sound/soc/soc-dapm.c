@@ -1821,9 +1821,11 @@ int snd_soc_dapm_mux_update_power(struct snd_soc_dapm_widget *widget,
 	}
 
 	if (found) {
-		dapm_power_widgets(widget->dapm, SND_SOC_DAPM_STREAM_NOP);
 		if (widget->platform)
 			soc_dsp_runtime_update(widget);
+		else
+			dapm_power_widgets(widget->dapm,
+				SND_SOC_DAPM_STREAM_NOP);
 	}
 
 	return 0;
@@ -1854,9 +1856,11 @@ int snd_soc_dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
 	}
 
 	if (found) {
-		dapm_power_widgets(widget->dapm, SND_SOC_DAPM_STREAM_NOP);
 		if (widget->platform)
 			soc_dsp_runtime_update(widget);
+		else
+			dapm_power_widgets(widget->dapm,
+				SND_SOC_DAPM_STREAM_NOP);
 	}
 
 	return 0;
