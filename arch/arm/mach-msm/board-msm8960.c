@@ -1597,6 +1597,33 @@ static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
 	.gpio_num = dsi2lvds_gpio,
 };
 
+static struct mipi_dsi_phy_ctrl dsi_novatek_cmd_mode_phy_db = {
+
+/* DSI_BIT_CLK at 500MHz, 2 lane, RGB888 */
+	{0x0F, 0x0a, 0x04, 0x00, 0x20},	/* regulator */
+	/* timing   */
+	{0xab, 0x8a, 0x18, 0x00, 0x92, 0x97, 0x1b, 0x8c,
+	0x0c, 0x03, 0x04, 0xa0},
+	{0x5f, 0x00, 0x00, 0x10},	/* phy ctrl */
+	{0xff, 0x00, 0x06, 0x00},	/* strength */
+	/* pll control */
+	{0x40, 0xf9, 0x30, 0xda, 0x00, 0x40, 0x03, 0x62,
+	0x40, 0x07, 0x03,
+	0x00, 0x1a, 0x00, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01},
+};
+
+static struct mipi_dsi_panel_platform_data novatek_pdata = {
+	.phy_ctrl_settings = &dsi_novatek_cmd_mode_phy_db,
+};
+
+static struct platform_device mipi_dsi_novatek_panel_device = {
+	.name = "mipi_novatek",
+	.id = 0,
+	.dev = {
+		.platform_data = &novatek_pdata,
+	}
+};
+
 static struct platform_device mipi_dsi2lvds_bridge_device = {
 	.name = "mipi_tc358764",
 	.id = 0,
@@ -3280,6 +3307,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_kgsl_2d0,
 	&msm_kgsl_2d1,
 #endif
+	&mipi_dsi_novatek_panel_device,
 #ifdef CONFIG_MSM_GEMINI
 	&msm8960_gemini_device,
 #endif

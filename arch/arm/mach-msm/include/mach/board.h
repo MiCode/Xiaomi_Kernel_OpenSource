@@ -341,9 +341,25 @@ struct mipi_dsi_platform_data {
 	int target_type;
 };
 
+enum mipi_dsi_3d_ctrl {
+	FPGA_EBI2_INTF,
+	FPGA_SPI_INTF,
+};
+
+/* DSI PHY configuration */
+struct mipi_dsi_phy_ctrl {
+	uint32_t regulator[5];
+	uint32_t timing[12];
+	uint32_t ctrl[4];
+	uint32_t strength[4];
+	uint32_t pll[21];
+};
+
 struct mipi_dsi_panel_platform_data {
+	int fpga_ctrl_mode;
 	int fpga_3d_config_addr;
 	int *gpio;
+	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
 };
 
 struct msm_fb_platform_data {

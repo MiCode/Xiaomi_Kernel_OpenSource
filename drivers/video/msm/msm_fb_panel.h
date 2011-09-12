@@ -81,15 +81,6 @@ struct mddi_panel_info {
 	__u32 vdopkt;
 };
 
-/* DSI PHY configuration */
-struct mipi_dsi_phy_ctrl {
-	uint32 regulator[5];
-	uint32 timing[12];
-	uint32 ctrl[4];
-	uint32 strength[4];
-	uint32 pll[21];
-};
-
 struct mipi_panel_info {
 	char mode;		/* video/cmd */
 	char interleave_mode;

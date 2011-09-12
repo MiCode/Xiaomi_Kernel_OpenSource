@@ -3001,6 +3001,7 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 
 static struct mipi_dsi_panel_platform_data novatek_pdata = {
 	.fpga_3d_config_addr  = FPGA_3D_GPIO_CONFIG_ADDR,
+	.fpga_ctrl_mode = FPGA_EBI2_INTF,
 };
 
 static struct platform_device mipi_dsi_novatek_panel_device = {
