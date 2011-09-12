@@ -2165,6 +2165,12 @@ struct msm_rpm_map_data rpm_map_data[] __initdata = {
 };
 unsigned int rpm_map_data_size = ARRAY_SIZE(rpm_map_data);
 
+struct platform_device msm_rpm_device = {
+	.name   = "msm_rpm",
+	.id     = -1,
+};
+
+
 struct platform_device msm_bus_sys_fabric = {
 	.name  = "msm_bus_fabric",
 	.id    =  MSM_BUS_FAB_SYSTEM,
