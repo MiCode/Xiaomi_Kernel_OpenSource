@@ -235,12 +235,6 @@ static struct gpiomux_setting gsbi3 = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gsbi4 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
 static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -341,18 +335,6 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		.gpio      = 17,	/* GSBI3 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi3,
-		},
-	},
-	{
-		.gpio      = 20,	/* GSBI4 I2C QUP SDA */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4,
-		},
-	},
-	{
-		.gpio      = 21,	/* GSBI4 I2C QUP SCL */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4,
 		},
 	},
 	{
@@ -499,7 +481,7 @@ static struct gpiomux_setting cam_settings[] = {
 	{
 		.func = GPIOMUX_FUNC_1, /*active 3*/
 		.drv = GPIOMUX_DRV_8MA,
-		.pull = GPIOMUX_PULL_UP,
+		.pull = GPIOMUX_PULL_NONE,
 	},
 
 	{
@@ -524,6 +506,12 @@ static struct gpiomux_setting cam_settings[] = {
 		.func = GPIOMUX_FUNC_3, /*active 7*/
 		.drv = GPIOMUX_DRV_8MA,
 		.pull = GPIOMUX_PULL_UP,
+	},
+
+	{
+		.func = GPIOMUX_FUNC_GPIO, /*i2c suspend*/
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_KEEPER,
 	},
 
 };
@@ -578,28 +566,28 @@ static struct msm_gpiomux_config msm8960_cam_2d_configs[] = {
 		.gpio = 18,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
 	{
 		.gpio = 19,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
 	{
 		.gpio = 20,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
 	{
 		.gpio = 21,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
-			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
 };
