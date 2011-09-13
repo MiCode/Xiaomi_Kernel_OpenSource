@@ -1137,13 +1137,6 @@ static int _chain_sg_buffer_in(struct qce_device *pce_dev,
 	unsigned int dlen;
 	struct dmov_desc *pdesc;
 
-	pdesc = pce_dev->ce_in_dst_desc + pce_dev->ce_in_dst_desc_index;
-	if (nbytes > QCE_FIFO_SIZE)
-		qce_split_and_insert_dm_desc(pdesc, nbytes, 0,
-				&pce_dev->ce_in_dst_desc_index);
-	else
-		pdesc->len = nbytes;
-
 	pdesc = pce_dev->ce_in_src_desc + pce_dev->ce_in_src_desc_index;
 	/*
 	 * Two consective chunks may be handled by the old
@@ -1156,16 +1149,20 @@ static int _chain_sg_buffer_in(struct qce_device *pce_dev,
 		if (dlen == 0) {
 			pdesc->addr  = sg_dma_address(sg);
 			pdesc->len = len;
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-						sg_dma_address(sg),
-						&pce_dev->ce_in_src_desc_index);
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+						pdesc->len, sg_dma_address(sg),
+						&pce_dev->ce_in_src_desc_index))
+					return -EIO;
+			}
 		} else if (sg_dma_address(sg) == (pdesc->addr + dlen)) {
 			pdesc->len  = dlen + len;
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-						pdesc->addr,
-						&pce_dev->ce_in_src_desc_index);
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+						pdesc->len, pdesc->addr,
+						&pce_dev->ce_in_src_desc_index))
+					return -EIO;
+			}
 		} else {
 			pce_dev->ce_in_src_desc_index++;
 			if (pce_dev->ce_in_src_desc_index >= QCE_MAX_NUM_DESC)
@@ -1173,10 +1170,12 @@ static int _chain_sg_buffer_in(struct qce_device *pce_dev,
 			pdesc++;
 			pdesc->len = len;
 			pdesc->addr = sg_dma_address(sg);
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-						sg_dma_address(sg),
-						&pce_dev->ce_in_src_desc_index);
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+						pdesc->len, sg_dma_address(sg),
+						&pce_dev->ce_in_src_desc_index))
+					return -EIO;
+			}
 		}
 		if (nbytes > 0)
 			sg = sg_next(sg);
@@ -1205,9 +1204,6 @@ static int _chain_pm_buffer_in(struct qce_device *pce_dev,
 		pdesc->len = nbytes;
 		pdesc->addr = pmem;
 	}
-	pdesc = pce_dev->ce_in_dst_desc + pce_dev->ce_in_dst_desc_index;
-	pdesc->len += nbytes;
-
 	return 0;
 }
 
@@ -1228,8 +1224,15 @@ static void _ce_in_final(struct qce_device *pce_dev, int ncmd, unsigned total)
 
 	pdesc = pce_dev->ce_in_src_desc + pce_dev->ce_in_src_desc_index;
 	pdesc->len |= ADM_DESC_LAST;
-	pdesc = pce_dev->ce_in_dst_desc + pce_dev->ce_in_dst_desc_index;
-	pdesc->len |= ADM_DESC_LAST;
+
+	pdesc = pce_dev->ce_in_dst_desc;
+	if (total > QCE_FIFO_SIZE) {
+		qce_split_and_insert_dm_desc(pdesc, total, 0,
+				&pce_dev->ce_in_dst_desc_index);
+		pdesc = pce_dev->ce_in_dst_desc + pce_dev->ce_in_dst_desc_index;
+		pdesc->len |= ADM_DESC_LAST;
+	} else
+		pdesc->len = ADM_DESC_LAST | total;
 
 	pcmd = (dmov_sg *) pce_dev->cmd_list_ce_in;
 	if (ncmd == 1)
@@ -1297,13 +1300,6 @@ static int _chain_sg_buffer_out(struct qce_device *pce_dev,
 	unsigned int dlen;
 	struct dmov_desc *pdesc;
 
-	pdesc = pce_dev->ce_out_src_desc + pce_dev->ce_out_src_desc_index;
-	if (nbytes > QCE_FIFO_SIZE)
-		qce_split_and_insert_dm_desc(pdesc, nbytes, 0,
-				&pce_dev->ce_out_src_desc_index);
-	else
-		pdesc->len = nbytes;
-
 	pdesc = pce_dev->ce_out_dst_desc + pce_dev->ce_out_dst_desc_index;
 	/*
 	 * Two consective chunks may be handled by the old
@@ -1316,17 +1312,20 @@ static int _chain_sg_buffer_out(struct qce_device *pce_dev,
 		if (dlen == 0) {
 			pdesc->addr  = sg_dma_address(sg);
 			pdesc->len = len;
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-					sg_dma_address(sg),
-					&pce_dev->ce_out_dst_desc_index);
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+					pdesc->len, sg_dma_address(sg),
+					&pce_dev->ce_out_dst_desc_index))
+					return -EIO;
+			}
 		} else if (sg_dma_address(sg) == (pdesc->addr + dlen)) {
 			pdesc->len  = dlen + len;
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-					pdesc->addr,
-					&pce_dev->ce_out_dst_desc_index);
-
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+					pdesc->len, pdesc->addr,
+					&pce_dev->ce_out_dst_desc_index))
+					return -EIO;
+			}
 		} else {
 			pce_dev->ce_out_dst_desc_index++;
 			if (pce_dev->ce_out_dst_desc_index >= QCE_MAX_NUM_DESC)
@@ -1334,11 +1333,12 @@ static int _chain_sg_buffer_out(struct qce_device *pce_dev,
 			pdesc++;
 			pdesc->len = len;
 			pdesc->addr = sg_dma_address(sg);
-			if (pdesc->len > QCE_FIFO_SIZE)
-				qce_split_and_insert_dm_desc(pdesc, pdesc->len,
-					sg_dma_address(sg),
-					&pce_dev->ce_out_dst_desc_index);
-
+			if (pdesc->len > QCE_FIFO_SIZE) {
+				if (qce_split_and_insert_dm_desc(pdesc,
+					pdesc->len, sg_dma_address(sg),
+					&pce_dev->ce_out_dst_desc_index))
+					return -EIO;
+			}
 		}
 		if (nbytes > 0)
 			sg = sg_next(sg);
@@ -1368,9 +1368,6 @@ static int _chain_pm_buffer_out(struct qce_device *pce_dev,
 		pdesc->len = nbytes;
 		pdesc->addr = pmem;
 	}
-	pdesc = pce_dev->ce_out_src_desc + pce_dev->ce_out_src_desc_index;
-	pdesc->len += nbytes;
-
 	return 0;
 };
 
@@ -1391,8 +1388,17 @@ static void _ce_out_final(struct qce_device *pce_dev, int ncmd, unsigned total)
 
 	pdesc = pce_dev->ce_out_dst_desc + pce_dev->ce_out_dst_desc_index;
 	pdesc->len |= ADM_DESC_LAST;
-	pdesc = pce_dev->ce_out_src_desc + pce_dev->ce_out_src_desc_index;
-	pdesc->len |= ADM_DESC_LAST;
+
+	pdesc = pce_dev->ce_out_src_desc;
+	if (total > QCE_FIFO_SIZE) {
+		qce_split_and_insert_dm_desc(pdesc, total, 0,
+				&pce_dev->ce_out_src_desc_index);
+		pdesc = pce_dev->ce_out_src_desc +
+					pce_dev->ce_out_src_desc_index;
+		pdesc->len |= ADM_DESC_LAST;
+	} else
+		pdesc->len = ADM_DESC_LAST | total;
+
 	pcmd = (dmov_sg *) pce_dev->cmd_list_ce_out;
 	if (ncmd == 1)
 		pcmd->cmd |= CMD_LC;
@@ -2699,5 +2705,5 @@ EXPORT_SYMBOL(qce_f9_req);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.14");
+MODULE_VERSION("1.15");
 
