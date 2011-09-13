@@ -2286,11 +2286,12 @@ int mgmt_new_key(u16 index, struct link_key *key, u8 bonded)
 	return err;
 }
 
-int mgmt_connected(u16 index, bdaddr_t *bdaddr)
+int mgmt_connected(u16 index, bdaddr_t *bdaddr, u8 le)
 {
 	struct mgmt_ev_connected ev;
 
 	bacpy(&ev.bdaddr, bdaddr);
+	ev.le = le;
 
 	return mgmt_event(MGMT_EV_CONNECTED, index, &ev, sizeof(ev), NULL);
 }

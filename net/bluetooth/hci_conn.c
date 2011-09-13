@@ -630,8 +630,10 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 		struct adv_entry *entry;
 
 		le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
-		if (le)
+		if (le) {
+			hci_conn_hold(le);
 			return le;
+		}
 
 		entry = hci_find_adv_entry(hdev, dst);
 		if (!entry)
@@ -783,11 +785,19 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 				(!conn->ssp_mode || !conn->hdev->ssp_mode))
 		return 1;
 
-	if (conn->link_mode & HCI_LM_ENCRYPT)
-		return hci_conn_auth(conn, sec_level, auth_type);
+	if (conn->type == LE_LINK) {
+		if (conn->pending_sec_level > sec_level)
+			sec_level = conn->pending_sec_level;
 
-	if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend))
+		if (sec_level > conn->sec_level)
+			conn->pending_sec_level = sec_level;
+		hci_proto_connect_cfm(conn, 0);
 		return 0;
+	} else if (conn->link_mode & HCI_LM_ENCRYPT) {
+		return hci_conn_auth(conn, sec_level, auth_type);
+	} else if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+		return 0;
+	}
 
 	if (hci_conn_auth(conn, sec_level, auth_type)) {
 		struct hci_cp_set_conn_encrypt cp;

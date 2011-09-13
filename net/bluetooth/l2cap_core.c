@@ -1004,8 +1004,13 @@ static void l2cap_conn_ready(struct l2cap_conn *conn)
 			bh_lock_sock(sk);
 
 			if (conn->hcon->type == LE_LINK) {
-				if (smp_conn_security(conn,
-						l2cap_pi(sk)->sec_level))
+				u8 sec_level = l2cap_pi(sk)->sec_level;
+				u8 pending_sec = conn->hcon->pending_sec_level;
+
+				if (pending_sec > sec_level)
+					sec_level = pending_sec;
+
+				if (smp_conn_security(conn, sec_level))
 					l2cap_chan_ready(sk);
 
 			} else if (sk->sk_type != SOCK_SEQPACKET &&
@@ -1212,15 +1217,12 @@ int l2cap_do_connect(struct sock *sk)
 
 		conn = hcon->l2cap_data;
 	} else {
-		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA) {
+		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA)
 			hcon = hci_connect(hdev, LE_LINK, 0, dst,
 					l2cap_pi(sk)->sec_level, auth_type);
-			if (hcon->state == BT_CONNECTED)
-				hci_conn_hold(hcon);
-		} else {
+		else
 			hcon = hci_connect(hdev, ACL_LINK, 0, dst,
 					l2cap_pi(sk)->sec_level, auth_type);
-		}
 
 		if (IS_ERR(hcon)) {
 			err = PTR_ERR(hcon);
