@@ -25,6 +25,8 @@ static struct clk_lookup msm_clocks_fsm9xxx[] = {
 	CLK_DUMMY("core_clk",	ADM0_CLK,	"msm_dmov", OFF),
 	CLK_DUMMY("core_clk",	UART1_CLK,	"msm_serial.0", OFF),
 	CLK_DUMMY("core_clk",	CE_CLK,		"qce.0", OFF),
+	CLK_DUMMY("core_clk",	CE_CLK,		"qcota.0", OFF),
+	CLK_DUMMY("core_clk",	CE_CLK,		"qcrypto.0", OFF),
 };
 
 struct clock_init_data fsm9xxx_clock_init_data __initdata = {
