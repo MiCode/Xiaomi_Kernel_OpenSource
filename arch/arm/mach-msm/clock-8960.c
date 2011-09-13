@@ -1287,12 +1287,9 @@ static struct qdss_bank bdiv_info_qdss = {
 static struct rcg_clk qdss_at_clk = {
 	.b = {
 		.ctl_reg = QDSS_AT_CLK_NS_REG,
-		.en_mask = BIT(6),
 		.reset_reg = QDSS_RESETS_REG,
 		.reset_mask = BIT(0),
-		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
-		.halt_bit = 10,
-		.halt_check = HALT_VOTED,
+		.halt_check = NOCHECK,
 	},
 	.ns_reg = QDSS_AT_CLK_SRC_CTL_REG,
 	.set_rate = set_rate_qdss,
@@ -1303,7 +1300,6 @@ static struct rcg_clk qdss_at_clk = {
 		.dbg_name = "qdss_at_clk",
 		.ops = &clk_ops_qdss,
 		CLK_INIT(qdss_at_clk.c),
-		.flags = CLKFLAG_SKIP_AUTO_OFF,
 	},
 };
 
