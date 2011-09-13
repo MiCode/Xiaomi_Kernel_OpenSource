@@ -973,7 +973,8 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 	}
 
 	if (hcon->out || rsp->resp_key_dist) {
-		hcon->disconn_cfm_cb(hcon, 0);
+		if (hcon->disconn_cfm_cb)
+			hcon->disconn_cfm_cb(hcon, 0);
 		hci_conn_put(hcon);
 	}
 
