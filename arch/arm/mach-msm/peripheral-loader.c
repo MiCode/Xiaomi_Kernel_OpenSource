@@ -273,10 +273,8 @@ void pil_put(void *peripheral_handle)
 {
 	struct pil_device *pil_d;
 	struct pil_device *pil = peripheral_handle;
-	if (!pil || IS_ERR(pil)) {
-		WARN(1, "Invalid peripheral handle\n");
+	if (!pil || IS_ERR(pil))
 		return;
-	}
 
 	mutex_lock(&pil->lock);
 	WARN(!pil->count, "%s: Reference count mismatch\n", __func__);
