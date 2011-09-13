@@ -1216,8 +1216,6 @@ static void set_rate_qdss(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	udelay(1);
 }
 
-#define QDSS_CLK_ROOT_ENA BIT(1)
-
 static int qdss_clk_enable(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
@@ -1229,16 +1227,9 @@ static int qdss_clk_enable(struct clk *c)
 	reg = readl_relaxed(clk->ns_reg);
 	reg |= bank_sel_mask;
 	writel_relaxed(reg, clk->ns_reg);
-	/* Enable root */
-	reg |= QDSS_CLK_ROOT_ENA;
-	writel_relaxed(reg, clk->ns_reg);
 
 	ret = rcg_clk_enable(c);
 	if (ret) {
-		/* Disable root */
-		reg = readl_relaxed(clk->ns_reg);
-		reg &= ~QDSS_CLK_ROOT_ENA;
-		writel_relaxed(reg, clk->ns_reg);
 		/* Switch to bank 0 */
 		reg &= ~bank_sel_mask;
 		writel_relaxed(reg, clk->ns_reg);
@@ -1253,11 +1244,8 @@ static void qdss_clk_disable(struct clk *c)
 	u32 reg, bank_sel_mask = bank->bank_sel_mask;
 
 	rcg_clk_disable(c);
-	/* Disable root */
-	reg = readl_relaxed(clk->ns_reg);
-	reg &= ~QDSS_CLK_ROOT_ENA;
-	writel_relaxed(reg, clk->ns_reg);
 	/* Switch to bank 0 */
+	reg = readl_relaxed(clk->ns_reg);
 	reg &= ~bank_sel_mask;
 	writel_relaxed(reg, clk->ns_reg);
 }
@@ -1269,11 +1257,8 @@ static void qdss_clk_auto_off(struct clk *c)
 	u32 reg, bank_sel_mask = bank->bank_sel_mask;
 
 	rcg_clk_auto_off(c);
-	/* Disable root */
-	reg = readl_relaxed(clk->ns_reg);
-	reg &= ~QDSS_CLK_ROOT_ENA;
-	writel_relaxed(reg, clk->ns_reg);
 	/* Switch to bank 0 */
+	reg = readl_relaxed(clk->ns_reg);
 	reg &= ~bank_sel_mask;
 	writel_relaxed(reg, clk->ns_reg);
 }
