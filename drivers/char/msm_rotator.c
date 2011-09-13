@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1344,9 +1344,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 		clk_disable(msm_rotator_dev->imem_clk);
 #endif
 	if (ver != pdata->hardware_version_number) {
-		printk(KERN_ALERT "%s: invalid HW version\n", DRIVER_NAME);
-		rc = -ENODEV;
-		goto error_get_resource;
+		pr_info("%s: invalid HW version\n", DRIVER_NAME);
 	}
 	msm_rotator_dev->irq = platform_get_irq(pdev, 0);
 	if (msm_rotator_dev->irq < 0) {
