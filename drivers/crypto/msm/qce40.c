@@ -178,26 +178,9 @@ static void _check_probe_done_call_back(struct msm_dmov_cmd *cmd_ptr,
 
 static int _init_ce_engine(struct qce_device *pce_dev)
 {
-	unsigned int val;
-
 	/* Reset ce */
 	clk_reset(pce_dev->ce_core_clk, CLK_RESET_ASSERT);
 	clk_reset(pce_dev->ce_core_clk, CLK_RESET_DEASSERT);
-	/*
-	 * Ensure previous instruction (any writes to CLK registers)
-	 * to toggle the CLK reset lines was completed.
-	 */
-	dsb();
-	/* configure ce */
-	val = (1 << CRYPTO_MASK_DOUT_INTR) | (1 << CRYPTO_MASK_DIN_INTR) |
-			(1 << CRYPTO_MASK_OP_DONE_INTR) |
-					(1 << CRYPTO_MASK_ERR_INTR);
-	writel_relaxed(val, pce_dev->iobase + CRYPTO_CONFIG_REG);
-	/*
-	 * Ensure previous instruction (writel_relaxed to config register bit)
-	 * was completed.
-	 */
-	dsb();
 
 	pce_dev->ce_dm.chan_ce_in_cmd->complete_func =
 				_check_probe_done_call_back;
@@ -2556,4 +2539,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.08");
+MODULE_VERSION("2.09");
