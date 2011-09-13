@@ -98,4 +98,6 @@ struct tzcom_cont_cmd_op_req {
 #define TZCOM_IOCTL_CONTINUE_CMD_REQ \
 	_IOWR(TZCOM_IOC_MAGIC, 5, struct tzcom_cont_cmd_op_req)
 
+#define TZCOM_IOCTL_ABORT_REQ _IO(TZCOM_IOC_MAGIC, 6)
+
 #endif /* __TZCOM_H_ */
