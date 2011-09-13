@@ -496,7 +496,7 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int iid)
 	if (fabric->pdata->rpm_enabled)
 		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	if (status)
-		MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
+		MSM_BUS_DBG("msm_rpm_set returned: %d\n", status);
 
 	return status;
 }
@@ -539,7 +539,7 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int iid)
 	if (fabric->pdata->rpm_enabled)
 		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	if (status)
-		MSM_BUS_ERR("msm_rpm_set returned: %d\n", status);
+		MSM_BUS_DBG("msm_rpm_set returned: %d\n", status);
 
 	return status;
 }
