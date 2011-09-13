@@ -96,13 +96,14 @@ static void __cpuinit release_secondary(unsigned int cpu)
 	}
 }
 
+DEFINE_PER_CPU(int, cold_boot_done);
+
 /* Executed by primary CPU, brings other CPUs out of reset. Called at boot
    as well as when a CPU is coming out of shutdown induced by echo 0 >
    /sys/devices/.../cpuX.
 */
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
-	static int cold_boot_done;
 	int cnt = 0;
 	int ret;
 
@@ -111,7 +112,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	/* Set preset_lpj to avoid subsequent lpj recalculations */
 	preset_lpj = loops_per_jiffy;
 
-	if (cold_boot_done == false) {
+	if (per_cpu(cold_boot_done, cpu) == false) {
 		ret = scm_set_boot_addr((void *)
 					virt_to_phys(msm_secondary_startup),
 					SCM_FLAG_COLDBOOT_CPU1);
@@ -120,7 +121,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 		else
 			printk(KERN_DEBUG "Failed to set secondary core boot "
 					  "address\n");
-		cold_boot_done = true;
+		per_cpu(cold_boot_done, cpu) = true;
 	}
 
 	pen_release = cpu;
