@@ -1171,6 +1171,7 @@ static CLK_GSBI_QUP(gsbi12_qup, 12, CLK_HALT_CFPB_STATEC_REG, 11);
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_qdss[] = {
+	F_QDSS( 27000000, pxo,  1, LOW),
 	F_QDSS(128000000, pll8, 3, LOW),
 	F_QDSS(300000000, pll3, 4, NOMINAL),
 	F_END
@@ -1181,6 +1182,38 @@ struct qdss_bank {
 	void __iomem *const ns_reg;
 	const u32 ns_mask;
 };
+
+#define QDSS_CLK_ROOT_ENA BIT(1)
+
+static void qdss_clk_handoff(struct clk *c)
+{
+	struct rcg_clk *clk = to_rcg_clk(c);
+	const struct qdss_bank *bank = clk->bank_info;
+	u32 reg, ns_val, bank_sel;
+	struct clk_freq_tbl *freq;
+
+	reg = readl_relaxed(clk->ns_reg);
+	if (!(reg & QDSS_CLK_ROOT_ENA))
+		return;
+
+	bank_sel = reg & bank->bank_sel_mask;
+	/* Force bank 1 to PXO if bank 0 is in use */
+	if (bank_sel == 0)
+		writel_relaxed(0, bank->ns_reg);
+	ns_val = readl_relaxed(bank->ns_reg) & bank->ns_mask;
+	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
+		if ((freq->ns_val & bank->ns_mask) == ns_val) {
+			pr_info("%s rate=%d\n", clk->c.dbg_name, freq->freq_hz);
+			break;
+		}
+	}
+	if (freq->freq_hz == FREQ_END)
+		return;
+
+	clk->current_freq = freq;
+	c->flags |= CLKFLAG_HANDOFF_RATE;
+	clk_enable(c);
+}
 
 static void set_rate_qdss(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 {
@@ -1267,6 +1300,7 @@ static struct clk_ops clk_ops_qdss = {
 	.enable = qdss_clk_enable,
 	.disable = qdss_clk_disable,
 	.auto_off = qdss_clk_auto_off,
+	.handoff = qdss_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
 	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
@@ -1350,6 +1384,7 @@ static struct rcg_clk qdss_traceclkin_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_qdss_tsctr[] = {
+	F_QDSS( 27000000, pxo,  1, LOW),
 	F_QDSS(200000000, pll3, 6, LOW),
 	F_QDSS(400000000, pll3, 3, NOMINAL),
 	F_END
