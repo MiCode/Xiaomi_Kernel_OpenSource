@@ -53,6 +53,8 @@
 #define CLK_HALT_MSS_SMPSS_MISC_STATE_REG	REG(0x2FDC)
 #define CLK_HALT_SFPB_MISC_STATE_REG		REG(0x2FD8)
 #define CLK_TEST_REG				REG(0x2FA0)
+#define EBI2_2X_CLK_CTL_REG			REG(0x2660)
+#define EBI2_CLK_CTL_REG			REG(0x2664)
 #define GSBIn_HCLK_CTL_REG(n)			REG(0x29C0+(0x20*((n)-1)))
 #define GSBIn_QUP_APPS_MD_REG(n)		REG(0x29C8+(0x20*((n)-1)))
 #define GSBIn_QUP_APPS_NS_REG(n)		REG(0x29CC+(0x20*((n)-1)))
@@ -1798,6 +1800,35 @@ static struct branch_clk sdc5_p_clk = {
 	},
 };
 
+static struct branch_clk ebi2_2x_clk = {
+	.b = {
+		.ctl_reg = EBI2_2X_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
+		.halt_bit = 18,
+	},
+	.c = {
+		.dbg_name = "ebi2_2x_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ebi2_2x_clk.c),
+	},
+};
+
+static struct branch_clk ebi2_clk = {
+	.b = {
+		.ctl_reg = EBI2_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
+		.halt_bit = 19,
+	},
+	.c = {
+		.dbg_name = "ebi2_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ebi2_clk.c),
+		.depends = &ebi2_2x_clk.c,
+	},
+};
+
 /* HW-Voteable Clocks */
 static struct branch_clk adm0_clk = {
 	.b = {
@@ -3141,6 +3172,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x19), &sdc4_clk.c },
 	{ TEST_PER_LS(0x1A), &sdc5_p_clk.c },
 	{ TEST_PER_LS(0x1B), &sdc5_clk.c },
+	{ TEST_PER_LS(0x1D), &ebi2_2x_clk.c },
+	{ TEST_PER_LS(0x1E), &ebi2_clk.c },
 	{ TEST_PER_LS(0x25), &dfab_clk.c },
 	{ TEST_PER_LS(0x25), &dfab_a_clk.c },
 	{ TEST_PER_LS(0x26), &pmem_clk.c },
@@ -3565,6 +3598,8 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c, "msm_sdcc.3"),
 	CLK_LOOKUP("iface_clk",		sdc4_p_clk.c, "msm_sdcc.4"),
 	CLK_LOOKUP("iface_clk",		sdc5_p_clk.c, "msm_sdcc.5"),
+	CLK_LOOKUP("mem_clk",		ebi2_2x_clk.c,		NULL),
+	CLK_LOOKUP("mem_clk",		ebi2_clk.c,		NULL),
 	CLK_LOOKUP("core_clk",		adm0_clk.c, "msm_dmov.0"),
 	CLK_LOOKUP("iface_clk",		adm0_p_clk.c, "msm_dmov.0"),
 	CLK_LOOKUP("core_clk",		adm1_clk.c, "msm_dmov.1"),
