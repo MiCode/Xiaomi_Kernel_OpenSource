@@ -959,6 +959,19 @@ struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	},
 };
 
+#ifdef CONFIG_IMX074_ACT
+static struct i2c_board_info imx074_actuator_i2c_info = {
+	I2C_BOARD_INFO("imx074_act", 0x11),
+};
+
+static struct msm_actuator_info imx074_actuator_info = {
+	.board_info     = &imx074_actuator_i2c_info,
+	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+	.vcm_pwd        = 0,
+	.vcm_enable     = 1,
+};
+#endif
+
 #ifdef CONFIG_IMX074
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
@@ -984,6 +997,9 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.gpio_conf = &gpio_conf,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
+#ifdef CONFIG_IMX074_ACT
+	.actuator_info = &imx074_actuator_info
+#endif
 };
 
 struct platform_device msm8960_camera_sensor_imx074 = {

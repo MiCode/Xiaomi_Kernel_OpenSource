@@ -101,6 +101,13 @@ config MT9E013
 	---help---
 	  Aptina 8M Bayer Sensor modules with Autofocus
 
+config IMX074_ACT
+	bool "Actuator IMX074 (BAYER 13.5M)"
+	depends on MSM_CAMERA && ARCH_MSM8960
+	default y
+	---help---
+	Actuator for SONY 13.5 MP Bayer Sensor
+
 config S5K3E2FX
 	bool "Sensor s5k3e2fx (Samsung 5M)"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
