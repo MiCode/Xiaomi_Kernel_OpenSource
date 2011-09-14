@@ -103,7 +103,7 @@ int vos_chip_power_qrf8615(int on)
 			goto fail;
 		}
 		rc = gpio_direction_output(wlan_gpio_deep_sleep,
-				WLAN_RESET_OUT);
+				WLAN_RESET);
 		if (rc < 0) {
 			pr_err("WLAN reset GPIO %d set output direction failed",
 					wlan_gpio_deep_sleep);
@@ -182,8 +182,10 @@ int vos_chip_power_qrf8615(int on)
 			}
 		}
 	}
-	if (on)
+	if (on) {
+		gpio_set_value_cansleep(GPIO_WLAN_DEEP_SLEEP_N, WLAN_RESET_OUT);
 		wlan_on = true;
+	}
 	else
 		wlan_on = false;
 	return 0;
@@ -192,7 +194,7 @@ vreg_fail:
 	regulator_put(vregs_qwlan[i]);
 vreg_get_fail:
 	i--;
-	while (i) {
+	while (i >= 0) {
 		ret = !on ? regulator_enable(vregs_qwlan[i]) :
 			regulator_disable(vregs_qwlan[i]);
 		if (ret < 0) {
