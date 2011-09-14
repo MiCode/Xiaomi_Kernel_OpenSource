@@ -479,6 +479,7 @@ static struct msm_sensor_fn_t ov2720_func_tbl = {
 	.sensor_get_pict_fps = msm_sensor_get_pict_fps,
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain = ov2720_write_exp_gain,
+	.sensor_write_snapshot_exp_gain = ov2720_write_exp_gain,
 	.sensor_setting = msm_sensor_setting,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
