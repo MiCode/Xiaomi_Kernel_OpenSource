@@ -254,7 +254,7 @@ static void do_epoch_check(struct subsys_data *subsys)
 
 	/* Check if epoch checking is enabled */
 	if (!max_restarts_check)
-		return;
+		goto out;
 
 	r_log = kmalloc(sizeof(struct restart_log), GFP_KERNEL);
 	r_log->subsys = subsys;
@@ -291,6 +291,7 @@ static void do_epoch_check(struct subsys_data *subsys)
 				max_history_time_check);
 	}
 
+out:
 	mutex_unlock(&restart_log_mutex);
 }
 
