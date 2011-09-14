@@ -1521,9 +1521,10 @@ static int mdp4_overlay_validate_downscale(struct mdp_overlay *req,
 	panel_clk_khz = pclk_rate/1000;
 	mdp_clk_hz = mdp_perf_level2clk_rate(perf_level);
 
-	if (!mdp_clk_hz) {
+	if (!mdp_clk_hz || !req->dst_rect.w || !req->dst_rect.h) {
 		pr_debug("mdp_perf_level2clk_rate returned 0,"
-				 "Downscale Validation incomplete\n");
+			 "or dst_rect height/width is 0,"
+			 "Downscale Validation incomplete\n");
 		return 0;
 	}
 
