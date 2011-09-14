@@ -132,14 +132,14 @@ static struct msm_rpmrs_resource msm_rpmrs_vdd_dig = {
 	.ko_attr = RPMRS_ATTR(vdd_dig),
 };
 
-static struct msm_rpmrs_resource msm_rpmrs_rpm_cpu = {
+static struct msm_rpmrs_resource msm_rpmrs_rpm_ctl = {
 	.rs[0].id = MSM_RPMRS_ID_RPM_CTL,
 	.size = 1,
-	.name = "rpm_cpu",
+	.name = "rpm_ctl",
 	.beyond_limits = NULL,
 	.aggregate = NULL,
 	.restore = NULL,
-	.ko_attr = RPMRS_ATTR(rpm_cpu),
+	.ko_attr = RPMRS_ATTR(rpm_ctl),
 };
 
 static struct msm_rpmrs_resource *msm_rpmrs_resources[] = {
@@ -147,7 +147,7 @@ static struct msm_rpmrs_resource *msm_rpmrs_resources[] = {
 	&msm_rpmrs_l2_cache,
 	&msm_rpmrs_vdd_mem,
 	&msm_rpmrs_vdd_dig,
-	&msm_rpmrs_rpm_cpu,
+	&msm_rpmrs_rpm_ctl,
 };
 
 static uint32_t msm_rpmrs_buffer[MSM_RPM_ID_LAST + 1];
@@ -165,12 +165,19 @@ static struct attribute *msm_rpmrs_attributes[] = {
 	&msm_rpmrs_l2_cache.ko_attr.attr,
 	&msm_rpmrs_vdd_mem.ko_attr.attr,
 	&msm_rpmrs_vdd_dig.ko_attr.attr,
-	&msm_rpmrs_rpm_cpu.ko_attr.attr,
+	NULL,
+};
+static struct attribute *msm_rpmrs_mode_attributes[] = {
+	&msm_rpmrs_rpm_ctl.ko_attr.attr,
 	NULL,
 };
 
 static struct attribute_group msm_rpmrs_attribute_group = {
 	.attrs = msm_rpmrs_attributes,
+};
+
+static struct attribute_group msm_rpmrs_mode_attribute_group = {
+	.attrs = msm_rpmrs_mode_attributes,
 };
 
 #define GET_RS_FROM_ATTR(attr) \
@@ -669,7 +676,11 @@ static ssize_t msm_rpmrs_resource_attr_show(
 	int rc;
 
 	spin_lock_irqsave(&msm_rpmrs_lock, flags);
-	temp = GET_RS_FROM_ATTR(attr)->enable_low_power;
+	/* special case active-set signal for MSM_RPMRS_ID_RPM_CTL */
+	if (GET_RS_FROM_ATTR(attr)->rs[0].id == MSM_RPMRS_ID_RPM_CTL)
+		temp = GET_RS_FROM_ATTR(attr)->rs[0].value;
+	else
+		temp = GET_RS_FROM_ATTR(attr)->enable_low_power;
 	spin_unlock_irqrestore(&msm_rpmrs_lock, flags);
 
 	kp.arg = &temp;
@@ -703,7 +714,8 @@ static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 	if (GET_RS_FROM_ATTR(attr)->rs[0].id == MSM_RPMRS_ID_RPM_CTL) {
 		struct msm_rpm_iv_pair req;
 		req.id = MSM_RPMRS_ID_RPM_CTL;
-		req.value = GET_RS_FROM_ATTR(attr)->enable_low_power ? 0 : 1;
+		req.value = GET_RS_FROM_ATTR(attr)->enable_low_power;
+		GET_RS_FROM_ATTR(attr)->rs[0].value = req.value;
 
 		rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &req, 1);
 		if (rc) {
@@ -720,9 +732,10 @@ static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 
 static int __init msm_rpmrs_resource_sysfs_add(void)
 {
-	struct kobject *module_kobj;
-	struct kobject *low_power_kboj;
-	int rc;
+	struct kobject *module_kobj = NULL;
+	struct kobject *low_power_kobj = NULL;
+	struct kobject *mode_kobj = NULL;
+	int rc = 0;
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
@@ -732,23 +745,43 @@ static int __init msm_rpmrs_resource_sysfs_add(void)
 		goto resource_sysfs_add_exit;
 	}
 
-	low_power_kboj = kobject_create_and_add(
+	low_power_kobj = kobject_create_and_add(
 				"enable_low_power", module_kobj);
-	if (!low_power_kboj) {
+	if (!low_power_kobj) {
 		pr_err("%s: cannot create kobject\n", __func__);
 		rc = -ENOMEM;
 		goto resource_sysfs_add_exit;
 	}
 
-	rc = sysfs_create_group(low_power_kboj, &msm_rpmrs_attribute_group);
+	mode_kobj = kobject_create_and_add(
+				"mode", module_kobj);
+	if (!mode_kobj) {
+		pr_err("%s: cannot create kobject\n", __func__);
+		rc = -ENOMEM;
+		goto resource_sysfs_add_exit;
+	}
+
+	rc = sysfs_create_group(low_power_kobj, &msm_rpmrs_attribute_group);
 	if (rc) {
 		pr_err("%s: cannot create kobject attribute group\n", __func__);
 		goto resource_sysfs_add_exit;
 	}
 
-	rc = 0;
+	rc = sysfs_create_group(mode_kobj, &msm_rpmrs_mode_attribute_group);
+	if (rc) {
+		pr_err("%s: cannot create kobject attribute group\n", __func__);
+		goto resource_sysfs_add_exit;
+	}
 
 resource_sysfs_add_exit:
+	if (rc) {
+		if (low_power_kobj)
+			sysfs_remove_group(low_power_kobj,
+					&msm_rpmrs_attribute_group);
+		kobject_del(low_power_kobj);
+		kobject_del(mode_kobj);
+	}
+
 	return rc;
 }
 
@@ -767,6 +800,49 @@ int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 		"safely when local irqs are disabled.  Consider using "
 		"msm_rpmrs_set or msm_rpmrs_set_nosleep instead.");
 	return msm_rpmrs_set_common(ctx, req, count, true);
+}
+
+/* Allow individual bits of an rpm resource be set, currently used only for
+ * active context resource viz. RPM_CTL. The API is generic enough to possibly
+ * extend it to other resources as well in the future.
+ */
+int msm_rpmrs_set_bits_noirq(int ctx, struct msm_rpm_iv_pair *req, int count,
+		int *mask)
+{
+	unsigned long flags;
+	int i, j;
+	int rc = -1;
+	struct msm_rpmrs_resource *rs;
+
+	if (ctx != MSM_RPM_CTX_SET_0)
+		return -ENOSYS;
+
+	spin_lock_irqsave(&msm_rpmrs_lock, flags);
+	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
+		rs = msm_rpmrs_resources[i];
+		if (rs->rs[0].id == req[0].id && rs->size == count) {
+			for (j = 0; j < rs->size; j++) {
+				rs->rs[j].value &= ~mask[j];
+				rs->rs[j].value |= req[j].value & mask[j];
+			}
+			break;
+		}
+	}
+
+	if (i != ARRAY_SIZE(msm_rpmrs_resources)) {
+		rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &rs->rs[0], rs->size);
+		if (rc) {
+			for (j = 0; j < rs->size; j++) {
+				pr_err("%s: failed to request %d to %d: %d\n",
+				__func__,
+				rs->rs[j].id, rs->rs[j].value, rc);
+			}
+		}
+	}
+	spin_unlock_irqrestore(&msm_rpmrs_lock, flags);
+
+	return rc;
+
 }
 
 int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req, int count)
@@ -961,17 +1037,6 @@ static int __init msm_rpmrs_init(void)
 				"%d\n", __func__, rc);
 			goto init_exit;
 		}
-	}
-
-	/* Enable RPM SWFI on Apps initialization */
-	req.id = MSM_RPMRS_ID_RPM_CTL;
-	req.value = 0;
-
-	rc = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &req, 1);
-	if (rc) {
-		pr_err("%s: failed to initialize RPM halt: "
-		       "%d\n", __func__, rc);
-		goto init_exit;
 	}
 
 	rc = msm_rpmrs_resource_sysfs_add();

@@ -42,6 +42,11 @@ enum {
 	MSM_RPMRS_L2_CACHE_ACTIVE = 3,
 };
 
+enum {
+	MSM_RPMRS_MASK_RPM_CTL_CPU_HALT = 1,
+	MSM_RPMRS_MASK_RPM_CTL_MULTI_TIER = 2,
+};
+
 #define MSM_RPMRS_LIMITS(_pxo, _l2, _vdd_upper_b, _vdd) { \
 	MSM_RPMRS_PXO_##_pxo, \
 	MSM_RPMRS_L2_CACHE_##_l2, \
@@ -64,6 +69,8 @@ struct msm_rpmrs_level {
 
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+int msm_rpmrs_set_bits_noirq(int ctx, struct msm_rpm_iv_pair *req, int count,
+			int *mask);
 
 static inline int msm_rpmrs_set_nosleep(
 	int ctx, struct msm_rpm_iv_pair *req, int count)
