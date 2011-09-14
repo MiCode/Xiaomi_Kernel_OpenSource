@@ -200,6 +200,7 @@ struct pm8921_chg_chip {
 	int			vin_min;
 	int			*thermal_mitigation;
 	int			thermal_levels;
+	struct delayed_work	update_heartbeat_work;
 };
 
 static int charging_disabled;
@@ -1417,6 +1418,23 @@ static irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/**
+ * update_heartbeat - internal function to update userspace
+ *		per update_time minutes
+ *
+ */
+static void update_heartbeat(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_chg_chip *chip = container_of(dwork,
+				struct pm8921_chg_chip, update_heartbeat_work);
+
+	power_supply_changed(&chip->batt_psy);
+	schedule_delayed_work(&chip->update_heartbeat_work,
+			      round_jiffies_relative(msecs_to_jiffies
+						     (chip->update_time)));
+}
+
 static void btm_configure_work(struct work_struct *work)
 {
 	int rc;
@@ -2132,6 +2150,13 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	/* determine what state the charger is in */
 	determine_initial_state(chip);
 
+	if (chip->update_time) {
+		INIT_DELAYED_WORK(&chip->update_heartbeat_work,
+							update_heartbeat);
+		schedule_delayed_work(&chip->update_heartbeat_work,
+				      round_jiffies_relative(msecs_to_jiffies
+							(chip->update_time)));
+	}
 	return 0;
 
 free_irq:

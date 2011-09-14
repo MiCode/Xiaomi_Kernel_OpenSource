@@ -27,7 +27,7 @@ struct pm8xxx_charger_core_data {
  * struct pm8921_charger_platform_data -
  * @safety_time:	max charging time in minutes
  * @ttrkl_time:		max trckl charging time in minutes
- * @update_time:	how often the userland be updated of the charging
+ * @update_time:	how often the userland be updated of the charging (msec)
  * @max_voltage:	the max voltage (mV) the battery should be charged up to
  * @min_voltage:	the voltage (mV) where charging method switches from
  *			trickle to fast. This is also the minimum voltage the
