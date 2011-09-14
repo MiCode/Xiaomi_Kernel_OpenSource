@@ -59,42 +59,53 @@ enum pm8921_adc_channels {
 	CHANNEL_CHG_TEMP,
 	CHANNEL_MUXOFF,
 	CHANNEL_NONE,
-};
-
-/**
- * enum pm8921_adc_mpp_channels - PM8921 AMUX arbiter MPP channels
- * Yet to be defined, each of the value is representative
- * of the device connected to the MPP
- * %ADC_MPP_AMUX8: Fixed mappaing to PA THERM
- */
-enum pm8921_adc_mpp_channels {
-	ADC_MPP_ATEST_8 = 0,
-	ADC_MPP_USB_SNS_DIV20,
-	ADC_MPP_DCIN_SNS_DIV20,
-	ADC_MPP_AMUX3,
-	ADC_MPP_AMUX4,
-	ADC_MPP_AMUX5,
-	ADC_MPP_AMUX6,
-	ADC_MPP_AMUX7,
-	ADC_MPP_AMUX8,
-	ADC_MPP_ATEST_1,
-	ADC_MPP_ATEST_2,
-	ADC_MPP_ATEST_3,
-	ADC_MPP_ATEST_4,
-	ADC_MPP_ATEST_5,
-	ADC_MPP_ATEST_6,
-	ADC_MPP_ATEST_7,
-	ADC_MPP_CHANNEL_NONE,
+	ADC_MPP_1_ATEST_8 = 20,
+	ADC_MPP_1_USB_SNS_DIV20,
+	ADC_MPP_1_DCIN_SNS_DIV20,
+	ADC_MPP_1_AMUX3,
+	ADC_MPP_1_AMUX4,
+	ADC_MPP_1_AMUX5,
+	ADC_MPP_1_AMUX6,
+	ADC_MPP_1_AMUX7,
+	ADC_MPP_1_AMUX8,
+	ADC_MPP_1_ATEST_1,
+	ADC_MPP_1_ATEST_2,
+	ADC_MPP_1_ATEST_3,
+	ADC_MPP_1_ATEST_4,
+	ADC_MPP_1_ATEST_5,
+	ADC_MPP_1_ATEST_6,
+	ADC_MPP_1_ATEST_7,
+	ADC_MPP_1_CHANNEL_NONE,
+	ADC_MPP_2_ATEST_8 = 40,
+	ADC_MPP_2_USB_SNS_DIV20,
+	ADC_MPP_2_DCIN_SNS_DIV20,
+	ADC_MPP_2_AMUX3,
+	ADC_MPP_2_AMUX4,
+	ADC_MPP_2_AMUX5,
+	ADC_MPP_2_AMUX6,
+	ADC_MPP_2_AMUX7,
+	ADC_MPP_2_AMUX8,
+	ADC_MPP_2_ATEST_1,
+	ADC_MPP_2_ATEST_2,
+	ADC_MPP_2_ATEST_3,
+	ADC_MPP_2_ATEST_4,
+	ADC_MPP_2_ATEST_5,
+	ADC_MPP_2_ATEST_6,
+	ADC_MPP_2_ATEST_7,
+	ADC_MPP_2_CHANNEL_NONE,
 };
 
 #define PM8921_ADC_PMIC_0	0x0
 
 #define PM8921_CHANNEL_ADC_625_MV	625
+#define PM8921_CHANNEL_MPP_SCALE1_IDX	20
+#define PM8921_CHANNEL_MPP_SCALE3_IDX	40
 
 #define PM8921_AMUX_MPP_3	0x3
 #define PM8921_AMUX_MPP_4	0x4
 #define PM8921_AMUX_MPP_5	0x5
 #define PM8921_AMUX_MPP_6	0x6
+#define PM8921_AMUX_MPP_7	0x7
 #define PM8921_AMUX_MPP_8	0x8
 
 #define PM8921_ADC_DEV_NAME	"pm8921-adc"
@@ -130,7 +141,7 @@ enum pm8921_adc_decimation_type {
 enum pm8921_adc_calib_type {
 	ADC_CALIB_ABSOLUTE = 0,
 	ADC_CALIB_RATIOMETRIC,
-	ADC_CALIB_CONFIG_NONE,
+	ADC_CALIB_NONE,
 };
 
 /**
@@ -193,13 +204,15 @@ enum pm8921_adc_premux_mpp_scale_type {
  * %ADC_SCALE_BATT_THERM: Conversion to temperature based on btm parameters
  * %ADC_SCALE_PMIC_THERM: Returns result in milli degree's Centigrade
  * %ADC_SCALE_XTERN_CHGR_CUR: Returns current across 0.1 ohm resistor
+ * %ADC_SCALE_XOTHERM: Returns XO thermistor voltage in degree's Centigrade
  * %ADC_SCALE_NONE: Do not use this scaling type
  */
 enum pm8921_adc_scale_fn_type {
 	ADC_SCALE_DEFAULT = 0,
 	ADC_SCALE_BATT_THERM,
+	ADC_SCALE_PA_THERM,
 	ADC_SCALE_PMIC_THERM,
-	ADC_SCALE_XTERN_CHGR_CUR,
+	ADC_SCALE_XOTHERM,
 	ADC_SCALE_NONE,
 };
 
@@ -331,6 +344,21 @@ int32_t pm8921_adc_scale_batt_therm(int32_t adc_code,
 			const struct pm8921_adc_chan_properties *chan_prop,
 			struct pm8921_adc_chan_result *chan_rslt);
 /**
+ * pm8921_adc_scale_pa_therm() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature in degC.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8921 adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t pm8921_adc_scale_pa_therm(int32_t adc_code,
+			const struct pm8921_adc_properties *adc_prop,
+			const struct pm8921_adc_chan_properties *chan_prop,
+			struct pm8921_adc_chan_result *chan_rslt);
+/**
  * pm8921_adc_scale_pmic_therm() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Performs the AMUX out as 2mv/K and returns
@@ -346,23 +374,6 @@ int32_t pm8921_adc_scale_pmic_therm(int32_t adc_code,
 			const struct pm8921_adc_properties *adc_prop,
 			const struct pm8921_adc_chan_properties *chan_prop,
 			struct pm8921_adc_chan_result *chan_rslt);
-/**
- * pm8921_adc_scale_xtern_chgr_cur() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset. Returns the current across the 10m ohm
- *		resistor.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8921 adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8921_adc_scale_xtern_chgr_cur(int32_t adc_code,
-			const struct pm8921_adc_properties *adc_prop,
-			const struct pm8921_adc_chan_properties *chan_prop,
-			struct pm8921_adc_chan_result *chan_rslt);
-
 #else
 static inline int32_t pm8921_adc_scale_default(int32_t adc_code,
 			const struct pm8921_adc_properties *adc_prop,
@@ -379,12 +390,12 @@ static inline int32_t pm8921_adc_scale_batt_therm(int32_t adc_code,
 			const struct pm8921_adc_chan_properties *chan_prop,
 			struct pm8921_adc_chan_result *chan_rslt)
 { return -ENXIO; }
-static inline int32_t pm8921_adc_scale_pmic_therm(int32_t adc_code,
+static inline int32_t pm8921_adc_scale_pa_therm(int32_t adc_code,
 			const struct pm8921_adc_properties *adc_prop,
 			const struct pm8921_adc_chan_properties *chan_prop,
 			struct pm8921_adc_chan_result *chan_rslt)
 { return -ENXIO; }
-static inline int32_t pm8921_adc_scale_xtern_chgr_cur(int32_t adc_code,
+static inline int32_t pm8921_adc_scale_pmic_therm(int32_t adc_code,
 			const struct pm8921_adc_properties *adc_prop,
 			const struct pm8921_adc_chan_properties *chan_prop,
 			struct pm8921_adc_chan_result *chan_rslt)
@@ -476,17 +487,6 @@ struct pm8921_adc_platform_data {
 uint32_t pm8921_adc_read(enum pm8921_adc_channels channel,
 				struct pm8921_adc_chan_result *result);
 /**
- * pm8921_mpp_adc_read() - Performs ADC read on the channel.
- * @channel:	Input channel to perform the ADC read.
- * @result:	Structure pointer of type adc_chan_result
- *		in which the ADC read results are stored.
- * @mpp_scale:	The pre scale value to be performed to the input signal
- *		passed. Currently the pre-scale support is for 1 and 1/3.
- */
-uint32_t pm8921_adc_mpp_read(enum pm8921_adc_mpp_channels channel,
-			struct pm8921_adc_chan_result *result,
-			enum pm8921_adc_premux_mpp_scale_type);
-/**
  * pm8921_adc_btm_start() - Configure the BTM registers and start
 			monitoring the BATT_THERM channel for
 			threshold warm/cold temperature set
@@ -523,10 +523,6 @@ uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *);
 #else
 static inline uint32_t pm8921_adc_read(uint32_t channel,
 				struct pm8921_adc_chan_result *result)
-{ return -ENXIO; }
-static inline uint32_t pm8921_mpp_adc_read(uint32_t channel,
-		struct pm8921_adc_chan_result *result,
-		enum pm8921_adc_premux_mpp_scale_type scale)
 { return -ENXIO; }
 static inline uint32_t pm8921_adc_btm_start(void)
 { return -ENXIO; }

@@ -16,8 +16,6 @@
 #include <linux/module.h>
 #include <linux/mfd/pm8921-adc.h>
 #define KELVINMIL_DEGMIL	273160
-#define PM8921_ADC_SLOPE	10
-#define PM8921_ADC_CODE_SCALE	24576
 
 static const struct pm8921_adc_map_pt adcmap_batttherm[] = {
 	{41001,	-30},
@@ -111,6 +109,130 @@ static const struct pm8921_adc_map_pt adcmap_btm_threshold[] = {
 	{78,	28868},
 	{79,	28830},
 	{80,	28794}
+};
+
+static const struct pm8921_adc_map_pt adcmap_pa_therm[] = {
+	{41350,	-30},
+	{41282,	-29},
+	{41211,	-28},
+	{41137,	-27},
+	{41060,	-26},
+	{40980,	-25},
+	{40897,	-24},
+	{40811,	-23},
+	{40721,	-22},
+	{40629,	-21},
+	{40533,	-20},
+	{40434,	-19},
+	{40331,	-18},
+	{40226,	-17},
+	{40116,	-16},
+	{40004,	-15},
+	{39888,	-14},
+	{39769,	-13},
+	{39647,	-12},
+	{39521,	-11},
+	{39392,	-10},
+	{39260,	-9},
+	{39124,	-8},
+	{38986,	-7},
+	{38845,	-6},
+	{38700,	-5},
+	{38553,	-4},
+	{38403,	-3},
+	{38250,	-2},
+	{38094,	-1},
+	{37936,	0},
+	{37776,	1},
+	{37613,	2},
+	{37448,	3},
+	{37281,	4},
+	{37112,	5},
+	{36942,	6},
+	{36770,	7},
+	{36596,	8},
+	{36421,	9},
+	{36245,	10},
+	{36068,	11},
+	{35890,	12},
+	{35712,	13},
+	{35532,	14},
+	{35353,	15},
+	{35173,	16},
+	{34993,	17},
+	{34813,	18},
+	{34634,	19},
+	{34455,	20},
+	{34276,	21},
+	{34098,	22},
+	{33921,	23},
+	{33745,	24},
+	{33569,	25},
+	{33395,	26},
+	{33223,	27},
+	{33051,	28},
+	{32881,	29},
+	{32713,	30},
+	{32547,	31},
+	{32382,	32},
+	{32219,	33},
+	{32058,	34},
+	{31899,	35},
+	{31743,	36},
+	{31588,	37},
+	{31436,	38},
+	{31285,	39},
+	{31138,	40},
+	{30992,	41},
+	{30849,	42},
+	{30708,	43},
+	{30570,	44},
+	{30434,	45},
+	{30300,	46},
+	{30169,	47},
+	{30041,	48},
+	{29915,	49},
+	{29791,	50},
+	{29670,	51},
+	{29551,	52},
+	{29435,	53},
+	{29321,	54},
+	{29210,	55},
+	{29101,	56},
+	{28994,	57},
+	{28890,	58},
+	{28788,	59},
+	{28688,	60},
+	{28590,	61},
+	{28495,	62},
+	{28402,	63},
+	{28311,	64},
+	{28222,	65},
+	{28136,	66},
+	{28051,	67},
+	{27968,	68},
+	{27888,	69},
+	{27809,	70},
+	{27732,	71},
+	{27658,	72},
+	{27584,	73},
+	{27513,	74},
+	{27444,	75},
+	{27376,	76},
+	{27310,	77},
+	{27245,	78},
+	{27183,	79},
+	{27121,	80},
+	{27062,	81},
+	{27004,	82},
+	{26947,	83},
+	{26892,	84},
+	{26838,	85},
+	{26785,	86},
+	{26734,	87},
+	{26684,	88},
+	{26636,	89},
+	{26588,	90}
 };
 
 static const struct pm8921_adc_map_pt adcmap_ntcg_104ef_104fb[] = {
@@ -393,6 +515,20 @@ int32_t pm8921_adc_scale_batt_therm(int32_t adc_code,
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_scale_batt_therm);
 
+int32_t pm8921_adc_scale_pa_therm(int32_t adc_code,
+		const struct pm8921_adc_properties *adc_properties,
+		const struct pm8921_adc_chan_properties *chan_properties,
+		struct pm8921_adc_chan_result *adc_chan_result)
+{
+	/* convert mV ---> degC using the table */
+	return pm8921_adc_map_linear(
+			adcmap_pa_therm,
+			ARRAY_SIZE(adcmap_pa_therm),
+			adc_code,
+			&adc_chan_result->physical);
+}
+EXPORT_SYMBOL_GPL(pm8921_adc_scale_pa_therm);
+
 int32_t pm8921_adc_scale_pmic_therm(int32_t adc_code,
 		const struct pm8921_adc_properties *adc_properties,
 		const struct pm8921_adc_chan_properties *chan_properties,
@@ -442,90 +578,18 @@ int32_t pm8921_adc_tdkntcg_therm(int32_t adc_code,
 		const struct pm8921_adc_chan_properties *chan_properties,
 		struct pm8921_adc_chan_result *adc_chan_result)
 {
-	uint32_t num1, num2, denom, rt_r25;
-	int32_t offset = chan_properties->adc_graph->offset,
-		dy = chan_properties->adc_graph->dy,
-		dx = chan_properties->adc_graph->dx,
-		fullscale_calibrated_adc_code;
+	int32_t rt_r25;
+	int32_t offset = chan_properties->adc_graph[ADC_CALIB_ABSOLUTE].offset;
 
-	adc_chan_result->adc_code = adc_code;
-	fullscale_calibrated_adc_code = dy + offset;
-	/* The above is a short cut in math that would reduce a lot of
-	   computation whereas the below expression
-		(adc_properties->adc_reference*dy+dx*offset+(dx>>1))/dx
-	   is a more generic formula when the 2 reference voltages are
-	   different than 0 and full scale voltage. */
+	rt_r25 = adc_code - offset;
 
-	if ((dy == 0) || (dx == 0) ||
-			(offset >= fullscale_calibrated_adc_code)) {
-		return -EINVAL;
-	} else {
-		if (adc_code >= fullscale_calibrated_adc_code) {
-			rt_r25 = (uint32_t)-1;
-		} else if (adc_code <= offset) {
-			rt_r25 = 0;
-		} else {
-		/* The formula used is (adc_code of current reading - offset)/
-		 * (the calibrated fullscale adc code - adc_code of current
-		 * reading). For this channel, at this time, chan_properties->
-		 * offset_gain_numerator = chan_properties->
-		 * offset_gain_denominator = 1, so no need to incorporate into
-		 * the formula even though it could be multiplied/divided by 1
-		 * which yields the same result but
-		 * expensive on computation. */
-		num1 = (adc_code - offset) << 14;
-		num2 = (fullscale_calibrated_adc_code - adc_code) >> 1;
-		denom = fullscale_calibrated_adc_code - adc_code;
-
-			if ((int)denom <= 0)
-				rt_r25 = 0x7FFFFFFF;
-			else
-				rt_r25 = (num1 + num2) / denom;
-		}
-
-		if (rt_r25 > 0x7FFFFFFF)
-			rt_r25 = 0x7FFFFFFF;
-
-		pm8921_adc_map_linear(adcmap_ntcg_104ef_104fb,
-		sizeof(adcmap_ntcg_104ef_104fb)/
-			sizeof(adcmap_ntcg_104ef_104fb[0]),
-		(int32_t)rt_r25, &adc_chan_result->physical);
-	}
+	pm8921_adc_map_linear(adcmap_ntcg_104ef_104fb,
+		ARRAY_SIZE(adcmap_ntcg_104ef_104fb),
+		rt_r25, &adc_chan_result->physical);
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_tdkntcg_therm);
-
-int32_t pm8921_adc_scale_xtern_chgr_cur(int32_t adc_code,
-		const struct pm8921_adc_properties *adc_properties,
-		const struct pm8921_adc_chan_properties *chan_properties,
-		struct pm8921_adc_chan_result *adc_chan_result)
-{
-	int32_t rawfromoffset = (adc_code - PM8921_ADC_CODE_SCALE)
-						/PM8921_ADC_SLOPE;
-
-	if (!chan_properties || !chan_properties->offset_gain_numerator ||
-		!chan_properties->offset_gain_denominator || !adc_properties
-		|| !adc_chan_result)
-		return -EINVAL;
-
-	adc_chan_result->adc_code = adc_code;
-	if (rawfromoffset > 0) {
-		if (rawfromoffset >= 1 << adc_properties->bitresolution)
-			rawfromoffset = (1 << adc_properties->bitresolution)
-									- 1;
-		adc_chan_result->measurement = ((int64_t)rawfromoffset * 5)*
-				chan_properties->offset_gain_denominator;
-		do_div(adc_chan_result->measurement,
-					chan_properties->offset_gain_numerator);
-	} else {
-		adc_chan_result->measurement = 0;
-	}
-	adc_chan_result->physical = (int32_t) adc_chan_result->measurement;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(pm8921_adc_scale_xtern_chgr_cur);
 
 int32_t pm8921_adc_batt_scaler(struct pm8921_adc_arb_btm_param *btm_param)
 {

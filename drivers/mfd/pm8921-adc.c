@@ -28,6 +28,7 @@
 #include <linux/mfd/pm8xxx/mpp.h>
 #include <linux/mfd/pm8921-adc.h>
 #include <linux/debugfs.h>
+#include <linux/regulator/consumer.h>
 
 /* User Bank register set */
 #define PM8921_ADC_ARB_USRP_CNTRL1			0x197
@@ -112,6 +113,9 @@
 #define PM8921_ADC_MUL					10
 #define PM8921_ADC_CONV_TIME_MIN			2000
 #define PM8921_ADC_CONV_TIME_MAX			2100
+#define PM8921_ADC_PA_THERM_VREG_UV_MIN			1800000
+#define PM8921_ADC_PA_THERM_VREG_UV_MAX			1800000
+#define PM8921_ADC_PA_THERM_VREG_UA_LOAD		100000
 
 struct pm8921_adc {
 	struct device				*dev;
@@ -151,8 +155,9 @@ static struct pm8921_adc *pmic_adc;
 static struct pm8921_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_DEFAULT] = {pm8921_adc_scale_default},
 	[ADC_SCALE_BATT_THERM] = {pm8921_adc_scale_batt_therm},
+	[ADC_SCALE_PA_THERM] = {pm8921_adc_scale_pa_therm},
 	[ADC_SCALE_PMIC_THERM] = {pm8921_adc_scale_pmic_therm},
-	[ADC_SCALE_XTERN_CHGR_CUR] = {pm8921_adc_scale_xtern_chgr_cur},
+	[ADC_SCALE_XOTHERM] = {pm8921_adc_tdkntcg_therm},
 };
 
 static bool pm8921_adc_calib_first_adc;
@@ -186,6 +191,69 @@ static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
 
 	return 0;
 }
+
+static int32_t pm8921_adc_patherm_power(bool on)
+{
+	static struct regulator *pa_therm;
+	struct pm8921_adc *adc_pmic = pmic_adc;
+	int rc = 0;
+	if (on) {
+		pa_therm = regulator_get(adc_pmic->dev,
+						"pa_therm");
+		if (IS_ERR(pa_therm)) {
+			rc = PTR_ERR(pa_therm);
+			pr_err("failed to request pa_therm vreg "
+					"with error %d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_set_voltage(pa_therm,
+				PM8921_ADC_PA_THERM_VREG_UV_MIN,
+				PM8921_ADC_PA_THERM_VREG_UV_MAX);
+		if (rc < 0) {
+			pr_err("failed to set the voltage for "
+					"pa_therm with error %d\n", rc);
+			goto fail;
+		}
+
+		rc = regulator_set_optimum_mode(pa_therm,
+				PM8921_ADC_PA_THERM_VREG_UA_LOAD);
+		if (rc < 0) {
+			pr_err("failed to set optimum mode for "
+					"pa_therm with error %d\n", rc);
+			goto fail;
+		}
+
+		if (regulator_enable(pa_therm)) {
+			pr_err("failed to enable pa_therm vreg with "
+						"error %d\n", rc);
+			goto fail;
+		}
+	} else {
+		if (pa_therm != NULL) {
+			regulator_disable(pa_therm);
+			regulator_put(pa_therm);
+		}
+	}
+
+	return rc;
+fail:
+	regulator_put(pa_therm);
+	return rc;
+}
+
+static int32_t pm8921_adc_channel_power_enable(uint32_t channel,
+							bool power_cntrl)
+{
+	int rc = 0;
+
+	switch (channel)
+	case ADC_MPP_1_AMUX8:
+		pm8921_adc_patherm_power(power_cntrl);
+
+	return rc;
+}
+
 
 static uint32_t pm8921_adc_read_reg(uint32_t reg, u8 *data)
 {
@@ -557,16 +625,9 @@ calib_fail:
 uint32_t pm8921_adc_read(enum pm8921_adc_channels channel,
 				struct pm8921_adc_chan_result *result)
 {
-	return pm8921_adc_mpp_read(channel, result, PREMUX_MPP_SCALE_0);
-}
-EXPORT_SYMBOL_GPL(pm8921_adc_read);
-
-uint32_t pm8921_adc_mpp_read(enum pm8921_adc_mpp_channels channel,
-				struct pm8921_adc_chan_result *result,
-				enum pm8921_adc_premux_mpp_scale_type mpp_scale)
-{
 	struct pm8921_adc *adc_pmic = pmic_adc;
-	int i = 0, rc, amux_prescaling, scale_type;
+	int i = 0, rc = 0, rc_fail, amux_prescaling, scale_type;
+	enum pm8921_adc_premux_mpp_scale_type mpp_scale;
 
 	if (!pm8921_adc_initialized)
 		return -ENODEV;
@@ -584,13 +645,24 @@ uint32_t pm8921_adc_mpp_read(enum pm8921_adc_mpp_channels channel,
 	}
 
 	if (i == adc_pmic->adc_num_channel) {
-		mutex_unlock(&adc_pmic->adc_lock);
-		return -EBADF; /* unknown channel */
+		rc = -EBADF;
+		goto fail_unlock;
 	}
 
-	adc_pmic->conv->amux_channel = i;
-	adc_pmic->conv->amux_mpp_channel = mpp_scale;
+	if (channel < PM8921_CHANNEL_MPP_SCALE1_IDX) {
+		mpp_scale = PREMUX_MPP_SCALE_0;
+		adc_pmic->conv->amux_channel = channel;
+	} else if (channel >= PM8921_CHANNEL_MPP_SCALE1_IDX) {
+		mpp_scale = PREMUX_MPP_SCALE_1;
+		adc_pmic->conv->amux_channel = channel %
+				PM8921_CHANNEL_MPP_SCALE1_IDX;
+	} else if (channel >= PM8921_CHANNEL_MPP_SCALE3_IDX) {
+		mpp_scale = PREMUX_MPP_SCALE_1_DIV3;
+		adc_pmic->conv->amux_channel = channel %
+				PM8921_CHANNEL_MPP_SCALE3_IDX;
+	}
 
+	adc_pmic->conv->amux_mpp_channel = mpp_scale;
 	adc_pmic->conv->amux_ip_rsv = adc_pmic->adc_channel[i].adc_rsv;
 	adc_pmic->conv->decimation = adc_pmic->adc_channel[i].adc_decimation;
 	amux_prescaling = adc_pmic->adc_channel[i].chan_path_prescaling;
@@ -600,34 +672,54 @@ uint32_t pm8921_adc_mpp_read(enum pm8921_adc_mpp_channels channel,
 	adc_pmic->conv->chan_prop->offset_gain_denominator =
 		 pm8921_amux_scaling_ratio[amux_prescaling].den;
 
+	rc = pm8921_adc_channel_power_enable(channel, true);
+	if (rc) {
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
+
 	rc = pm8921_adc_configure(adc_pmic->conv);
 	if (rc) {
-		mutex_unlock(&adc_pmic->adc_lock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto fail;
 	}
 
 	wait_for_completion(&adc_pmic->adc_rslt_completion);
 
 	rc = pm8921_adc_read_adc_code(&result->adc_code);
 	if (rc) {
-		mutex_unlock(&adc_pmic->adc_lock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto fail;
 	}
 
 	scale_type = adc_pmic->adc_channel[i].adc_scale_fn;
 	if (scale_type >= ADC_SCALE_NONE) {
-		mutex_unlock(&adc_pmic->adc_lock);
-		return -EBADF;
+		rc = -EBADF;
+		goto fail;
 	}
 
 	adc_scale_fn[scale_type].chan(result->adc_code,
 			adc_pmic->adc_prop, adc_pmic->conv->chan_prop, result);
 
+	rc = pm8921_adc_channel_power_enable(channel, false);
+	if (rc) {
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
+
 	mutex_unlock(&adc_pmic->adc_lock);
 
 	return 0;
+fail:
+	rc_fail = pm8921_adc_channel_power_enable(channel, false);
+	if (rc_fail)
+		pr_err("pm8921 adc power disable failed\n");
+fail_unlock:
+	mutex_unlock(&adc_pmic->adc_lock);
+	pr_err("pm8921 adc error with %d\n", rc);
+	return rc;
 }
-EXPORT_SYMBOL_GPL(pm8921_adc_mpp_read);
+EXPORT_SYMBOL_GPL(pm8921_adc_read);
 
 uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *btm_param)
 {
@@ -870,6 +962,10 @@ static void create_debugfs_entries(void)
 			    (void *)CHANNEL_ICHG, &reg_fops);
 	debugfs_create_file("ibat", 0644, pmic_adc->dent,
 			    (void *)CHANNEL_IBAT, &reg_fops);
+	debugfs_create_file("pa_therm", 0644, pmic_adc->dent,
+			    (void *)ADC_MPP_1_AMUX8, &reg_fops);
+	debugfs_create_file("xo_therm", 0644, pmic_adc->dent,
+			    (void *)CHANNEL_MUXOFF, &reg_fops);
 }
 #else
 static inline void create_debugfs_entries(void)
@@ -946,7 +1042,7 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 
 	init_completion(&adc_pmic->adc_rslt_completion);
 	adc_pmic->adc_channel = pdata->adc_channel;
-	adc_pmic->adc_num_channel = pdata->adc_num_channel;
+	adc_pmic->adc_num_channel = ADC_MPP_2_CHANNEL_NONE;
 
 	mutex_init(&adc_pmic->adc_lock);
 	spin_lock_init(&adc_pmic->btm_lock);
