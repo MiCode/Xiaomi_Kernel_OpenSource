@@ -13,7 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/timer.h>
-#include <mach/idle_stats_device.h>
+#include <linux/idle_stats_device.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"

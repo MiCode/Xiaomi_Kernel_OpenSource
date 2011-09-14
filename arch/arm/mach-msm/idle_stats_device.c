@@ -17,7 +17,7 @@
 #include <linux/miscdevice.h>
 #include <linux/poll.h>
 #include <linux/uaccess.h>
-#include <mach/idle_stats_device.h>
+#include <linux/idle_stats_device.h>
 
 DEFINE_MUTEX(device_list_lock);
 LIST_HEAD(device_list);
