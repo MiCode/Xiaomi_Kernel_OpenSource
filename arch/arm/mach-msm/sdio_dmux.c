@@ -848,6 +848,7 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	fatal_error = 0;
 	sdio_mux_initialized = 1;
 	return 0;
 }
