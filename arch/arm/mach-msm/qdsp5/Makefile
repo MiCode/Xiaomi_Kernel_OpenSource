@@ -6,6 +6,7 @@ obj-y += adsp_vfe_verify_cmd.o adsp_vfe_patch_event.o
 obj-y += adsp_lpm_verify_cmd.o
 ifdef CONFIG_MSM7X27A_AUDIO
 obj-y += audio_pcm_in.o
+obj-$(CONFIG_DEBUG_FS) += audio_voice_lb.o
 else
 obj-y += audio_in.o snd_pcm_client.o
 endif
