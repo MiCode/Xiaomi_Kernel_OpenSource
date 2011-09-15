@@ -125,13 +125,13 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
 		.start	= MSM_GSBI4_PHYS,
-		.end	= MSM_GSBI4_PHYS + MSM_QUP_SIZE - 1,
+		.end	= MSM_GSBI4_PHYS + 4 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "qup_phys_addr",
 		.start	= MSM_GSBI4_QUP_PHYS,
-		.end	= MSM_GSBI4_QUP_PHYS + 4 - 1,
+		.end	= MSM_GSBI4_QUP_PHYS + MSM_QUP_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
