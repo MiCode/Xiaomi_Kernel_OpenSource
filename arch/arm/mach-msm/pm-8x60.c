@@ -1173,7 +1173,7 @@ static int __init msm_pm_init(void)
 		init_completion(&dev->cpu_killed);
 #endif
 	}
-
+#ifdef CONFIG_MSM_SCM
 	ret = scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry),
 			SCM_FLAG_WARMBOOT_CPU0 | SCM_FLAG_WARMBOOT_CPU1);
 	if (ret) {
@@ -1181,6 +1181,7 @@ static int __init msm_pm_init(void)
 			__func__, ret);
 		return ret;
 	}
+#endif
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	for_each_possible_cpu(cpu) {
