@@ -810,13 +810,13 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
 		.start	= MSM_GSBI4_PHYS,
-		.end	= MSM_GSBI4_PHYS + MSM_QUP_SIZE - 1,
+		.end	= MSM_GSBI4_PHYS + 4 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "qup_phys_addr",
 		.start	= MSM_GSBI4_QUP_PHYS,
-		.end	= MSM_GSBI4_QUP_PHYS + 4 - 1,
+		.end	= MSM_GSBI4_QUP_PHYS + MSM_QUP_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -838,13 +838,13 @@ static struct resource resources_qup_i2c_gsbi3[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
 		.start	= MSM_GSBI3_PHYS,
-		.end	= MSM_GSBI3_PHYS + MSM_QUP_SIZE - 1,
+		.end	= MSM_GSBI3_PHYS + 4 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "qup_phys_addr",
 		.start	= MSM_GSBI3_QUP_PHYS,
-		.end	= MSM_GSBI3_QUP_PHYS + 4 - 1,
+		.end	= MSM_GSBI3_QUP_PHYS + MSM_QUP_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -866,13 +866,13 @@ static struct resource resources_qup_i2c_gsbi10[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
 		.start	= MSM_GSBI10_PHYS,
-		.end	= MSM_GSBI10_PHYS + MSM_QUP_SIZE - 1,
+		.end	= MSM_GSBI10_PHYS + 4 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "qup_phys_addr",
 		.start	= MSM_GSBI10_QUP_PHYS,
-		.end	= MSM_GSBI10_QUP_PHYS + 4 - 1,
+		.end	= MSM_GSBI10_QUP_PHYS + MSM_QUP_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -894,13 +894,13 @@ static struct resource resources_qup_i2c_gsbi12[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
 		.start	= MSM_GSBI12_PHYS,
-		.end	= MSM_GSBI12_PHYS + MSM_QUP_SIZE - 1,
+		.end	= MSM_GSBI12_PHYS + 4 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "qup_phys_addr",
 		.start	= MSM_GSBI12_QUP_PHYS,
-		.end	= MSM_GSBI12_QUP_PHYS + 4 - 1,
+		.end	= MSM_GSBI12_QUP_PHYS + MSM_QUP_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
