@@ -2262,6 +2262,12 @@ static struct v4l2_queryctrl tavarua_v4l2_queryctrl[] = {
 		.minimum       = 0,
 		.maximum       = 1,
 	},
+	{	.id	       = V4L2_CID_PRIVATE_TAVARUA_SET_NOTCH_FILTER,
+		.type	       = V4L2_CTRL_TYPE_INTEGER,
+		.name	       = "Notch filter",
+		.minimum       = 0,
+		.maximum       = 2,
+	},
 
 };
 
@@ -2994,7 +3000,11 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		if (retval < 0)
 			FMDBG("write failed");
 	} break;
-
+	/*This IOCTL is a place holder to keep the
+	driver compatible with change in frame works for IRIS */
+	case V4L2_CID_PRIVATE_TAVARUA_SET_NOTCH_FILTER:
+		retval = 0;
+		break;
 	default:
 		retval = -EINVAL;
 	}
