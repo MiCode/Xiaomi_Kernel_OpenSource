@@ -529,6 +529,12 @@ struct qfec_buf_desc {
 # define MAC_ADR_0_HIGH_REG        0x0040
 # define MAC_ADR_0_LOW_REG         0x0044
 /* additional pairs of registers for MAC addresses 1-15 */
+# define MAC_ADR_HIGH_REG_N(n)     (((n) < 16) ? \
+				    (MAC_ADR_0_HIGH_REG + (n) * 8) : \
+				    (MAC_ADR16_HIGH_REG + ((n) - 16) * 8))
+# define MAC_ADR_LOW_REG_N(n)      (((n) < 16) ? \
+				     (MAC_ADR_0_LOW_REG + (n) * 8) : \
+				     (MAC_ADR16_LOW_REG + ((n) - 16) * 8))
 
 # define AN_CONTROL_REG            0x00c0
 
@@ -586,6 +592,7 @@ struct qfec_buf_desc {
 # define MMC_INTR_TX_REG           0x0108
 # define MMC_INTR_MASK_RX_REG      0x010C
 # define MMC_INTR_MASK_TX_REG      0x0110
+# define NUM_MULTCST_FRM_RCVD_G    0x0190
 
 /*     0x0300-0x06fc reserved */
 

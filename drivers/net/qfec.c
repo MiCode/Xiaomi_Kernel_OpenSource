@@ -704,6 +704,56 @@ static void qfec_set_adr_regs(struct qfec_priv *priv, uint8_t *addr)
 }
 
 /*
+ * set up the RX filter
+ */
+static void qfec_set_rx_mode(struct net_device *dev)
+{
+	struct qfec_priv *priv = netdev_priv(dev);
+	uint32_t filter_conf;
+	int index;
+
+	/* Clear address filter entries */
+	for (index = 1; index < MAC_ADR_MAX; ++index) {
+		qfec_reg_write(priv, MAC_ADR_HIGH_REG_N(index), 0);
+		qfec_reg_write(priv, MAC_ADR_LOW_REG_N(index), 0);
+	}
+
+	if (dev->flags & IFF_PROMISC) {
+		/* Receive all frames */
+		filter_conf = MAC_FR_FILTER_RA;
+	} else if ((dev->flags & IFF_MULTICAST) == 0) {
+		/* Unicast filtering only */
+		filter_conf = MAC_FR_FILTER_HPF;
+	} else if ((netdev_mc_count(dev) > MAC_ADR_MAX - 1) ||
+		   (dev->flags & IFF_ALLMULTI)) {
+		/* Unicast filtering is enabled, Pass all multicast frames */
+		filter_conf = MAC_FR_FILTER_HPF | MAC_FR_FILTER_PM;
+	} else {
+		struct netdev_hw_addr *ha;
+
+		/* Both unicast and multicast filtering are enabled */
+		filter_conf = MAC_FR_FILTER_HPF;
+
+		index = 1;
+
+		netdev_for_each_mc_addr(ha, dev) {
+			uint32_t high, low;
+
+			high = (1 << 31) | (ha->addr[5] << 8) | (ha->addr[4]);
+			low = (ha->addr[3] << 24) | (ha->addr[2] << 16) |
+				(ha->addr[1] << 8) | (ha->addr[0]);
+
+			qfec_reg_write(priv, MAC_ADR_HIGH_REG_N(index), high);
+			qfec_reg_write(priv, MAC_ADR_LOW_REG_N(index), low);
+
+			index++;
+		}
+	}
+
+	qfec_reg_write(priv, MAC_FR_FILTER_REG, filter_conf);
+}
+
+/*
  * reset the controller
  */
 
@@ -1782,6 +1832,7 @@ static int qfec_open(struct net_device *dev)
 
 	/* get/set (primary) MAC address */
 	qfec_set_adr_regs(priv, dev->dev_addr);
+	qfec_set_rx_mode(dev);
 
 	/* start phy monitor */
 	QFEC_LOG(QFEC_LOG_DBG, " %s: start timer\n", __func__);
@@ -1955,6 +2006,8 @@ static struct net_device_stats *qfec_get_stats(struct net_device *dev)
 
 	QFEC_LOG(QFEC_LOG_DBG2, "qfec_stats:\n");
 
+	priv->stats.multicast = qfec_reg_read(priv, NUM_MULTCST_FRM_RCVD_G);
+
 	return &priv->stats;
 }
 
@@ -2009,6 +2062,7 @@ static const struct net_device_ops qfec_netdev_ops = {
 	.ndo_do_ioctl           = qfec_do_ioctl,
 	.ndo_tx_timeout         = qfec_tx_timeout,
 	.ndo_set_mac_address    = qfec_set_mac_address,
+	.ndo_set_multicast_list = qfec_set_rx_mode,
 
 	.ndo_change_mtu         = eth_change_mtu,
 	.ndo_validate_addr      = eth_validate_addr,
