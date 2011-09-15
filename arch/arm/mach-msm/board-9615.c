@@ -25,6 +25,8 @@
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
+#include "cpuidle.h"
+#include "pm.h"
 
 static struct platform_device *common_devices[] = {
 	&msm9615_device_dmov,
@@ -415,6 +417,36 @@ static void __init msm9615_init_mmc(void)
 #else
 static void __init msm9615_init_mmc(void) { }
 #endif
+static  struct msm_cpuidle_state msm_cstates[] __initdata = {
+	{0, 0, "C0", "WFI",
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{0, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+
+	{0, 2, "C2", "POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE},
+};
+static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 1,
+		.suspend_enabled = 1,
+	},
+};
 
 static int __init gpiomux_init(void)
 {
@@ -460,6 +492,10 @@ static void __init msm9615_common_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 
 	msm9615_init_mmc();
+	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
+	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
+	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
+						msm_pm_data);
 }
 
 static void __init msm9615_cdp_init(void)
