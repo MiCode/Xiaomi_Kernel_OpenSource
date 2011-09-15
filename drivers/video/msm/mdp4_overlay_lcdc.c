@@ -391,9 +391,6 @@ void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 {
 	unsigned long flag;
 
-	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
-		return;
-
 	if (lcdc_pipe->blt_addr) {
 		mdp4_overlay_lcdc_dma_busy_wait(mfd);
 
@@ -410,13 +407,13 @@ void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 		outpdw(MDP_BASE + 0x0004, 0); /* kickoff overlay engine */
 		mb();
-		mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
-	} else {
-		mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
-
-		/* change mdp clk while mdp is idle` */
-		mdp4_set_perf_level();
 	}
+	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
+		return;
+	mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
+
+	/* change mdp clk while mdp is idle` */
+	mdp4_set_perf_level();
 }
 
 /*
