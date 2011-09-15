@@ -529,7 +529,7 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 
 	if (pdata->leds_pdata) {
 		leds_cell.platform_data = pdata->leds_pdata;
-		leds_cell.pdata_size = sizeof(struct led_platform_data);
+		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
 		if (ret) {
 			pr_err("Failed to add leds subdevice ret=%d\n", ret);
