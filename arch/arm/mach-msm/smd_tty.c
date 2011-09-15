@@ -67,6 +67,7 @@ static char *smd_ch_name[] = {
 	[1] = "APPS_FM",
 	[2] = "APPS_RIVA_BT_ACL",
 	[3] = "APPS_RIVA_BT_CMD",
+	[4] = "MBALBRIDGE",
 	[7] = "DATA1",
 	[21] = "DATA21",
 	[27] = "GPSNMEA",
@@ -78,6 +79,7 @@ static uint32_t smd_ch_edge[] = {
 	[1] = SMD_APPS_WCNSS,
 	[2] = SMD_APPS_WCNSS,
 	[3] = SMD_APPS_WCNSS,
+	[4] = SMD_APPS_MODEM,
 	[7] = SMD_APPS_MODEM,
 	[21] = SMD_APPS_MODEM,
 	[27] = SMD_APPS_MODEM,
@@ -459,6 +461,9 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 	else if (!strncmp(pdev->name, smd_ch_name[3],
 				strnlen(smd_ch_name[3], SMD_MAX_CH_NAME_LEN)))
 		complete_all(&smd_tty[3].ch_allocated);
+	else if (!strncmp(pdev->name, smd_ch_name[4],
+				strnlen(smd_ch_name[4], SMD_MAX_CH_NAME_LEN)))
+		complete_all(&smd_tty[4].ch_allocated);
 	else if (!strncmp(pdev->name, smd_ch_name[7],
 				strnlen(smd_ch_name[7], SMD_MAX_CH_NAME_LEN)))
 		complete_all(&smd_tty[7].ch_allocated);
@@ -510,6 +515,7 @@ static int __init smd_tty_init(void)
 	tty_register_device(smd_tty_driver, 1, 0);
 	tty_register_device(smd_tty_driver, 2, 0);
 	tty_register_device(smd_tty_driver, 3, 0);
+	tty_register_device(smd_tty_driver, 4, 0);
 	tty_register_device(smd_tty_driver, 7, 0);
 	tty_register_device(smd_tty_driver, 21, 0);
 	tty_register_device(smd_tty_driver, 27, 0);
@@ -519,6 +525,7 @@ static int __init smd_tty_init(void)
 	init_completion(&smd_tty[1].ch_allocated);
 	init_completion(&smd_tty[2].ch_allocated);
 	init_completion(&smd_tty[3].ch_allocated);
+	init_completion(&smd_tty[4].ch_allocated);
 	init_completion(&smd_tty[7].ch_allocated);
 	init_completion(&smd_tty[21].ch_allocated);
 	init_completion(&smd_tty[27].ch_allocated);
@@ -572,6 +579,15 @@ static int __init smd_tty_init(void)
 	ret = platform_driver_register(&smd_tty[3].driver);
 	if (ret)
 		goto unreg2;
+	smd_tty[4].driver.probe = smd_tty_dummy_probe;
+	smd_tty[4].driver.driver.name = smd_ch_name[4];
+	smd_tty[4].driver.driver.owner = THIS_MODULE;
+	spin_lock_init(&smd_tty[4].reset_lock);
+	smd_tty[4].is_open = 0;
+	init_waitqueue_head(&smd_tty[4].ch_opened_wait_queue);
+	ret = platform_driver_register(&smd_tty[4].driver);
+	if (ret)
+		goto unreg3;
 	smd_tty[7].driver.probe = smd_tty_dummy_probe;
 	smd_tty[7].driver.driver.name = smd_ch_name[7];
 	smd_tty[7].driver.driver.owner = THIS_MODULE;
@@ -580,7 +596,7 @@ static int __init smd_tty_init(void)
 	init_waitqueue_head(&smd_tty[7].ch_opened_wait_queue);
 	ret = platform_driver_register(&smd_tty[7].driver);
 	if (ret)
-		goto unreg3;
+		goto unreg4;
 	smd_tty[21].driver.probe = smd_tty_dummy_probe;
 	smd_tty[21].driver.driver.name = smd_ch_name[21];
 	smd_tty[21].driver.driver.owner = THIS_MODULE;
@@ -618,6 +634,8 @@ unreg21:
 	platform_driver_unregister(&smd_tty[21].driver);
 unreg7:
 	platform_driver_unregister(&smd_tty[7].driver);
+unreg4:
+	platform_driver_unregister(&smd_tty[4].driver);
 unreg3:
 	platform_driver_unregister(&smd_tty[3].driver);
 unreg2:
