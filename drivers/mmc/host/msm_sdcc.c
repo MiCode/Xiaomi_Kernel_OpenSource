@@ -3624,7 +3624,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * status is to use the AUTO_PROG_DONE status provided by SDCC4
 	 * controller. So let's enable the CMD23 for SDCC4 only.
 	 */
-	if (host->plat->sdcc_v4_sup)
+	if (!plat->disable_cmd23 && host->plat->sdcc_v4_sup)
 		mmc->caps |= MMC_CAP_CMD23;
 
 	mmc->caps |= plat->uhs_caps;

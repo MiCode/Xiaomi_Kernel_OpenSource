@@ -250,10 +250,12 @@ static void __init apq8064_init_mmc(void)
 		if (apq8064_sdc1_pdata) {
 			apq8064_sdc1_pdata->disable_bam = true;
 			apq8064_sdc1_pdata->disable_runtime_pm = true;
+			apq8064_sdc1_pdata->disable_cmd23 = true;
 		}
 		if (apq8064_sdc3_pdata) {
 			apq8064_sdc3_pdata->disable_bam = true;
 			apq8064_sdc3_pdata->disable_runtime_pm = true;
+			apq8064_sdc3_pdata->disable_cmd23 = true;
 		}
 	}
 	apq8064_add_sdcc(1, apq8064_sdc1_pdata);
