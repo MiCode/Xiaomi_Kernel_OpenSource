@@ -2565,6 +2565,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pclk_src_name		= "dfab_usb_hs_clk",
 	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
 	.vbus_power		= msm_hsusb_vbus_power,
+	.power_budget		= 750,
 };
 #endif
 
