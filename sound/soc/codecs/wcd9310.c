@@ -1065,6 +1065,25 @@ static int tabla_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+
+static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+
+	pr_debug("%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMD:
+
+		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
+				w->name);
+		usleep_range(10000, 10000);
+
+		break;
+	}
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/*RX stuff */
 	SND_SOC_DAPM_OUTPUT("EAR"),
@@ -1079,11 +1098,15 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 
 	/* Headphone */
 	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
-	SND_SOC_DAPM_PGA("HPHL", TABLA_A_RX_HPH_CNP_EN, 5, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_E("HPHL", TABLA_A_RX_HPH_CNP_EN, 5, 0, NULL, 0,
+		tabla_hph_pa_event, SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("HPHL DAC", TABLA_A_RX_HPH_L_DAC_CTL, 7, 0,
 		hphl_switch, ARRAY_SIZE(hphl_switch)),
 
-	SND_SOC_DAPM_PGA("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_E("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
+		tabla_hph_pa_event, SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("HPHR DAC", TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
 		hphr_switch, ARRAY_SIZE(hphr_switch)),
 
