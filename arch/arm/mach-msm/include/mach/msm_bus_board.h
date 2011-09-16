@@ -58,6 +58,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 void msm_bus_board_assign_iids(struct msm_bus_fabric_registration
 	*fabreg, int fabid);
 int msm_bus_board_get_iid(int id);
+void msm_bus_rpm_set_mt_mask(void);
 
 /*
  * These macros specify the convention followed for allocating

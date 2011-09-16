@@ -20,6 +20,20 @@
 #include <mach/board.h>
 #include <mach/rpm.h>
 #include "msm_bus_core.h"
+#include "../rpm_resources.h"
+
+
+void msm_bus_rpm_set_mt_mask()
+{
+#ifdef CONFIG_MSM_BUS_RPM_MULTI_TIER_ENABLED
+	struct msm_rpm_iv_pair mt[1];
+	int mask = MSM_RPMRS_MASK_RPM_CTL_MULTI_TIER;
+	mt[0].id = MSM_RPM_ID_RPM_CTL;
+	mt[0].value = 2;
+	msm_rpmrs_set_bits_noirq(MSM_RPM_CTX_SET_0, mt, 1,
+		&mask);
+#endif
+}
 
 #ifndef CONFIG_MSM_BUS_RPM_MULTI_TIER_ENABLED
 struct commit_data {

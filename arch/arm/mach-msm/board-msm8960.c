@@ -2602,6 +2602,7 @@ static void __init msm8960_init_buses(void)
 	msm_bus_mm_fabric.dev.platform_data = &msm_bus_mm_fabric_pdata;
 	msm_bus_sys_fpb.dev.platform_data = &msm_bus_sys_fpb_pdata;
 	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_cpss_fpb_pdata;
+	msm_bus_rpm_set_mt_mask();
 #endif
 }
 
