@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
+#include <linux/slimbus/slimbus.h>
 #include <linux/msm_ssbi.h>
 #include <linux/spi/spi.h>
 #include <asm/mach-types.h>
@@ -293,6 +294,7 @@ static void __init apq8064_init_irq(void)
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
+	&apq8064_slim_ctrl,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
 };
@@ -455,6 +457,10 @@ static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 	},
 };
 
+static struct slim_boardinfo apq8064_slim_devices[] = {
+	/* Add slimbus slaves as needed */
+};
+
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
@@ -524,6 +530,8 @@ static void __init apq8064_common_init(void)
 					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_init_mmc();
+	slim_register_board_info(apq8064_slim_devices,
+		ARRAY_SIZE(apq8064_slim_devices));
 }
 
 static void __init apq8064_sim_init(void)
