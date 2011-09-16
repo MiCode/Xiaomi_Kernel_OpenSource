@@ -2484,6 +2484,7 @@ uint8_t voc_get_tty_mode(uint16_t session_id)
 int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable)
 {
 	struct voice_data *v = voice_get_session(session_id);
+	u16 mvm_handle;
 	int ret = 0;
 
 	if (v == NULL) {
@@ -2495,6 +2496,11 @@ int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable)
 	mutex_lock(&v->lock);
 
 	v->wv_enable = wv_enable;
+
+	mvm_handle = voice_get_mvm_handle(v);
+
+	if (mvm_handle != 0)
+		voice_send_set_widevoice_enable_cmd(v);
 
 	mutex_unlock(&v->lock);
 
