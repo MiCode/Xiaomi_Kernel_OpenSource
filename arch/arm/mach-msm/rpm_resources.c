@@ -530,10 +530,22 @@ static int msm_rpmrs_flush_L2(struct msm_rpmrs_limits *limits, int notify_rpm)
 
 	return rc;
 }
+static void msm_rpmrs_L2_restore(struct msm_rpmrs_limits *limits,
+		bool notify_rpm, bool collapsed)
+{
+	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
+	if (!collapsed && (limits->l2_cache == MSM_RPMRS_L2_CACHE_HSFS_OPEN))
+		writel_relaxed(--msm_rpmrs_l2_reset_count,
+				msm_rpmrs_l2_counter_addr);
+}
 #else
 static int msm_rpmrs_flush_L2(struct msm_rpmrs_limits *limits, int notify_rpm)
 {
 	return 0;
+}
+static void msm_rpmrs_L2_restore(struct msm_rpmrs_limits *limits,
+		bool notify_rpm, bool collapsed)
+{
 }
 #endif
 
@@ -868,12 +880,12 @@ int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 	return rc;
 }
 
-void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
-		bool from_idle, bool notify_rpm)
+void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
+		bool notify_rpm, bool collapsed)
 {
 
 	/* Disable L2 for now, we dont want L2 to do retention by default */
-	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
+	msm_rpmrs_L2_restore(limits, notify_rpm, collapsed);
 
 	if (msm_rpmrs_use_mpm(limits))
 		msm_mpm_exit_sleep(from_idle);

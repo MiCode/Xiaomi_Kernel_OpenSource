@@ -102,8 +102,8 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 
 int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 		bool from_idle, bool notify_rpm);
-void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
-		bool from_idle, bool notify_rpm);
+void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
+		bool notify_rpm, bool collapsed);
 
 int msm_rpmrs_levels_init(struct msm_rpmrs_level *levels, int size);
 

@@ -625,11 +625,11 @@ static void msm_pm_swfi(void)
 	msm_arch_idle();
 }
 
-static void msm_pm_spm_power_collapse(
+static bool msm_pm_spm_power_collapse(
 	struct msm_pm_device *dev, bool from_idle, bool notify_rpm)
 {
 	void *entry;
-	int collapsed = 0;
+	bool collapsed = 0;
 	int ret;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
@@ -670,24 +670,28 @@ static void msm_pm_spm_power_collapse(
 
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
+	return collapsed;
 }
 
-static void msm_pm_power_collapse_standalone(bool from_idle)
+static bool msm_pm_power_collapse_standalone(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
 	unsigned int avsdscr_setting;
+	bool collapsed;
 
 	avsdscr_setting = avs_get_avsdscr();
 	avs_disable();
-	msm_pm_spm_power_collapse(dev, from_idle, false);
+	collapsed = msm_pm_spm_power_collapse(dev, from_idle, false);
 	avs_reset_delays(avsdscr_setting);
+	return collapsed;
 }
 
-static void msm_pm_power_collapse(bool from_idle)
+static bool msm_pm_power_collapse(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
 	unsigned long saved_acpuclk_rate;
 	unsigned int avsdscr_setting;
+	bool collapsed;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: idle %d\n",
@@ -709,7 +713,7 @@ static void msm_pm_power_collapse(bool from_idle)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
 			dev->cpu, __func__, saved_acpuclk_rate);
 
-	msm_pm_spm_power_collapse(dev, from_idle, true);
+	collapsed = msm_pm_spm_power_collapse(dev, from_idle, true);
 
 	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: restore clock rate to %lu\n",
@@ -725,6 +729,7 @@ static void msm_pm_power_collapse(bool from_idle)
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: return\n", dev->cpu, __func__);
+	return collapsed;
 }
 
 static irqreturn_t msm_pm_rpm_wakeup_interrupt(int irq, void *dev_id)
@@ -884,6 +889,7 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		int ret;
 		int notify_rpm =
 			(sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE);
+		int collapsed;
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
 			timer_expiration, MSM_PM_SLEEP_TICK_LIMIT);
@@ -893,11 +899,11 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		ret = msm_rpmrs_enter_sleep(
 			sleep_delay, msm_pm_idle_rs_limits, true, notify_rpm);
 		if (!ret) {
-			msm_pm_power_collapse(true);
+			collapsed = msm_pm_power_collapse(true);
 			timer_halted = true;
 
 			msm_rpmrs_exit_sleep(msm_pm_idle_rs_limits, true,
-					notify_rpm);
+					notify_rpm, collapsed);
 		}
 
 		msm_timer_exit_idle((int) timer_halted);
@@ -986,8 +992,9 @@ static int msm_pm_enter(suspend_state_t state)
 			ret = msm_rpmrs_enter_sleep(
 				msm_pm_max_sleep_time, rs_limits, false, true);
 			if (!ret) {
-				msm_pm_power_collapse(false);
-				msm_rpmrs_exit_sleep(rs_limits, false, true);
+				int collapsed = msm_pm_power_collapse(false);
+				msm_rpmrs_exit_sleep(rs_limits, false, true,
+						collapsed);
 			}
 		} else {
 			pr_err("%s: cannot find the lowest power limit\n",
