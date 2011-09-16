@@ -33,7 +33,7 @@ struct tz_priv {
 #define TZ_RESET_ID		0x3
 #define TZ_UPDATE_ID		0x4
 
-#ifdef CONFIG_MSM_SECURE_IO
+#ifdef CONFIG_MSM_SCM
 /* Trap into the TrustZone, and call funcs there. */
 static int __secure_tz_entry(u32 cmd, u32 val)
 {
@@ -45,7 +45,7 @@ static int __secure_tz_entry(u32 cmd, u32 val)
 {
 	return 0;
 }
-#endif /* CONFIG_MSM_SECURE_IO */
+#endif /* CONFIG_MSM_SCM */
 
 static ssize_t tz_governor_show(struct kgsl_device *device,
 				struct kgsl_pwrscale *pwrscale,
