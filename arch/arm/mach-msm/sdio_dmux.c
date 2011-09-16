@@ -238,6 +238,7 @@ static void *handle_sdio_mux_command(struct sdio_mux_hdr *hdr,
 	case SDIO_MUX_HDR_CMD_OPEN:
 		spin_lock_irqsave(&sdio_ch[hdr->ch_id].lock, flags);
 		sdio_ch[hdr->ch_id].status |= SDIO_CH_REMOTE_OPEN;
+		sdio_ch[hdr->ch_id].num_tx_pkts = 0;
 
 		if (sdio_ch_is_in_reset(hdr->ch_id)) {
 			DBG("%s: in reset - sending open cmd\n", __func__);
@@ -492,9 +493,14 @@ static void sdio_mux_write_data(struct work_struct *work)
 			 * prevent future writes and clean up pending ones
 			 */
 			fatal_error = 1;
-			dev_kfree_skb_any(skb);
-			while ((skb = __skb_dequeue(&sdio_mux_write_pool)))
+			do {
+				ch_id = ((struct sdio_mux_hdr *)
+						skb->data)->ch_id;
+				spin_lock(&sdio_ch[ch_id].lock);
+				sdio_ch[ch_id].num_tx_pkts--;
+				spin_unlock(&sdio_ch[ch_id].lock);
 				dev_kfree_skb_any(skb);
+			} while ((skb = __skb_dequeue(&sdio_mux_write_pool)));
 			spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
 			return;
 		} else {
