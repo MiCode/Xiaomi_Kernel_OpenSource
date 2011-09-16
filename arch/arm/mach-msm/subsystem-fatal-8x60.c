@@ -290,8 +290,8 @@ static void subsys_modem_crash_shutdown(
 		smsm_reset_modem(SMSM_RESET);
 	}
 
-	/* Wait for 5ms to allow the modem to clean up caches etc. */
-	usleep(5000);
+	/* Wait to allow the modem to clean up caches etc. */
+	mdelay(5);
 }
 
 /* Non-subsystem-specific functions */
