@@ -88,6 +88,7 @@
 #include <mach/sdio_al.h>
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
+#include <mach/restart.h>
 
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -9985,6 +9986,8 @@ static struct msm_board_data msm8x60_dragon_board_data __initdata = {
 static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	uint32_t soc_platform_version;
+
+	pmic_reset_irq = PM8058_RESOUT_IRQ(PM8058_IRQ_BASE);
 
 	/*
 	 * Initialize RPM first as other drivers and devices may need

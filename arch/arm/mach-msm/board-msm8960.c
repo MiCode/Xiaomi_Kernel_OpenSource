@@ -62,6 +62,7 @@
 #include <mach/dma.h>
 #include <mach/msm_dsps.h>
 #include <mach/msm_xo.h>
+#include <mach/restart.h>
 
 #ifdef CONFIG_WCD9310_CODEC
 #include <linux/slimbus/slimbus.h>
@@ -4082,6 +4083,8 @@ static void __init msm8960_cdp_init(void)
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
 				ARRAY_SIZE(msm_rpmrs_levels)));
+
+	pmic_reset_irq = PM8921_IRQ_BASE + PM8921_RESOUT_IRQ;
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");

@@ -19,6 +19,8 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
+#include <linux/cpu.h>
+#include <linux/interrupt.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/mfd/pmic8901.h>
 #include <linux/mfd/pm8xxx/misc.h>
@@ -28,6 +30,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
+#include <mach/irqs.h>
 
 #define WDT0_RST       (MSM_TMR0_BASE + 0x38)
 #define WDT0_EN        (MSM_TMR0_BASE + 0x40)
@@ -41,6 +44,8 @@
 
 static int restart_mode;
 void *restart_reason;
+
+int pmic_reset_irq;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 static int in_panic;
@@ -103,9 +108,9 @@ void msm_set_restart_mode(int mode)
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
 
-static void msm_power_off(void)
+static void __msm_power_off(int lower_pshold)
 {
-	printk(KERN_NOTICE "Powering off the SoC\n");
+	printk(KERN_CRIT "Powering off the SoC\n");
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
@@ -114,10 +119,46 @@ static void msm_power_off(void)
 		pm8901_reset_pwr_off(0);
 	}
 	pm8xxx_reset_pwr_off(0);
-	__raw_writel(0, PSHOLD_CTL_SU);
+	if (lower_pshold)
+		__raw_writel(0, PSHOLD_CTL_SU);
 	mdelay(10000);
 	printk(KERN_ERR "Powering off has failed\n");
 	return;
+}
+
+static void msm_power_off(void)
+{
+	/* MSM initiated power off, lower ps_hold */
+	__msm_power_off(1);
+}
+
+static void cpu_power_off(void *data)
+{
+	pr_err("PMIC Initiated shutdown %s cpu=%d\n", __func__,
+						smp_processor_id());
+	if (smp_processor_id() == 0)
+		/*
+		 * PMIC initiated power off, do not lower ps_hold, pmic will
+		 * shut msm down
+		 */
+		__msm_power_off(0);
+
+	preempt_disable();
+	while (1)
+		;
+}
+
+static irqreturn_t resout_irq_handler(int irq, void *dev_id)
+{
+	pr_warn("%s PMIC Initiated shutdown\n", __func__);
+	oops_in_progress = 1;
+	smp_call_function_many(cpu_online_mask, cpu_power_off, NULL, 0);
+	if (smp_processor_id() == 0)
+		cpu_power_off(NULL);
+	preempt_disable();
+	while (1)
+		;
+	return IRQ_HANDLED;
 }
 
 void arch_reset(char mode, const char *cmd)
@@ -179,6 +220,8 @@ void arch_reset(char mode, const char *cmd)
 
 static int __init msm_restart_init(void)
 {
+	int rc;
+
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
@@ -188,6 +231,16 @@ static int __init msm_restart_init(void)
 #endif
 	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
 	pm_power_off = msm_power_off;
+
+	if (pmic_reset_irq != 0) {
+		rc = request_any_context_irq(pmic_reset_irq,
+					resout_irq_handler, IRQF_TRIGGER_HIGH,
+					"restart_from_pmic", NULL);
+		if (rc < 0)
+			pr_err("pmic restart irq fail rc = %d\n", rc);
+	} else {
+		pr_warn("no pmic restart interrupt specified\n");
+	}
 
 	return 0;
 }

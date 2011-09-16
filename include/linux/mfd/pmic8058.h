@@ -73,6 +73,7 @@
 #define PM8058_TEMP_ALARM_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(6, 7))
 #define PM8058_OSCHALT_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(4, 6))
 #define PM8058_BATT_ALARM_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(5, 6))
+#define PM8058_RESOUT_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(6, 4))
 
 struct pm8058_chip;
 

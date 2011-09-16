@@ -23,5 +23,7 @@ void msm_set_restart_mode(int mode);
 #define msm_set_restart_mode(mode)
 #endif
 
+extern int pmic_reset_irq;
+
 #endif
 
