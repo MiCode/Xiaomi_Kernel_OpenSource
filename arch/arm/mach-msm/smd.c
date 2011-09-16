@@ -221,7 +221,7 @@ static void smd_fake_irq_handler(unsigned long arg);
 
 static void notify_smsm_cb_clients_worker(struct work_struct *work);
 static DECLARE_WORK(smsm_cb_work, notify_smsm_cb_clients_worker);
-static DEFINE_SPINLOCK(smsm_lock);
+static DEFINE_MUTEX(smsm_lock);
 static struct smsm_state_info *smsm_states;
 static int spinlocks_initialized;
 
@@ -1878,7 +1878,6 @@ EXPORT_SYMBOL(smem_find);
 
 static int smsm_cb_init(void)
 {
-	unsigned long flags;
 	struct smsm_state_info *state_info;
 	int n;
 	int ret = 0;
@@ -1891,13 +1890,13 @@ static int smsm_cb_init(void)
 		return -ENOMEM;
 	}
 
-	spin_lock_irqsave(&smsm_lock, flags);
+	mutex_lock(&smsm_lock);
 	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
 		state_info = &smsm_states[n];
 		state_info->last_value = __raw_readl(SMSM_STATE_ADDR(n));
 		INIT_LIST_HEAD(&state_info->callbacks);
 	}
-	spin_unlock_irqrestore(&smsm_lock, flags);
+	mutex_unlock(&smsm_lock);
 
 	return ret;
 }
@@ -2176,18 +2175,17 @@ EXPORT_SYMBOL(smsm_get_state);
  */
 void notify_smsm_cb_clients_worker(struct work_struct *work)
 {
-	unsigned long flags;
 	struct smsm_state_cb_info *cb_info;
 	struct smsm_state_info *state_info;
 	int n;
 	uint32_t new_state;
 	uint32_t state_changes;
 
-	spin_lock_irqsave(&smsm_lock, flags);
+	mutex_lock(&smsm_lock);
 
 	if (!smsm_states) {
 		/* smsm not yet initialized */
-		spin_unlock_irqrestore(&smsm_lock, flags);
+		mutex_unlock(&smsm_lock);
 		return;
 	}
 
@@ -2210,7 +2208,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 		}
 	}
 
-	spin_unlock_irqrestore(&smsm_lock, flags);
+	mutex_unlock(&smsm_lock);
 }
 
 
@@ -2231,7 +2229,6 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 		void (*notify)(void *, uint32_t, uint32_t), void *data)
 {
-	unsigned long flags;
 	struct smsm_state_cb_info *cb_info;
 	struct smsm_state_cb_info *cb_found = 0;
 	int ret = 0;
@@ -2239,7 +2236,7 @@ int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 	if (smsm_entry >= SMSM_NUM_ENTRIES)
 		return -EINVAL;
 
-	spin_lock_irqsave(&smsm_lock, flags);
+	mutex_lock(&smsm_lock);
 
 	if (!smsm_states) {
 		/* smsm not yet initialized */
@@ -2275,7 +2272,7 @@ int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 	}
 
 cleanup:
-	spin_unlock_irqrestore(&smsm_lock, flags);
+	mutex_unlock(&smsm_lock);
 	return ret;
 }
 EXPORT_SYMBOL(smsm_state_cb_register);
@@ -2298,18 +2295,17 @@ EXPORT_SYMBOL(smsm_state_cb_register);
 int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 		void (*notify)(void *, uint32_t, uint32_t), void *data)
 {
-	unsigned long flags;
 	struct smsm_state_cb_info *cb_info;
 	int ret = 0;
 
 	if (smsm_entry >= SMSM_NUM_ENTRIES)
 		return -EINVAL;
 
-	spin_lock_irqsave(&smsm_lock, flags);
+	mutex_lock(&smsm_lock);
 
 	if (!smsm_states) {
 		/* smsm not yet initialized */
-		spin_unlock_irqrestore(&smsm_lock, flags);
+		mutex_unlock(&smsm_lock);
 		return -ENODEV;
 	}
 
@@ -2329,7 +2325,7 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 		}
 	}
 
-	spin_unlock_irqrestore(&smsm_lock, flags);
+	mutex_unlock(&smsm_lock);
 	return ret;
 }
 EXPORT_SYMBOL(smsm_state_cb_deregister);
