@@ -78,6 +78,20 @@ struct pm8xxx_pwm_period {
 };
 
 /**
+ * struct pm8xxx_pwm_duty_cycles - PWM duty cycle info
+ * duty_pcts - pointer to an array of duty percentage for a pwm period
+ * num_duty_pcts - total entries in duty_pcts array
+ * duty_ms - duty cycle time in ms
+ * start_idx - index in the LUT
+ */
+struct pm8xxx_pwm_duty_cycles {
+	int *duty_pcts;
+	int num_duty_pcts;
+	int duty_ms;
+	int start_idx;
+};
+
+/**
  * pm8xxx_pwm_config_period - change PWM period
  *
  * @pwm: the PWM device
