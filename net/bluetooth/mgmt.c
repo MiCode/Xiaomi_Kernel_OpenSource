@@ -2426,8 +2426,6 @@ int mgmt_user_confirm_request(u16 index, u8 event,
 	if (!hdev)
 		return -ENODEV;
 
-	hci_dev_lock(hdev);
-
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
 
 	ev.auto_confirm = 0;
@@ -2452,7 +2450,6 @@ no_auto_confirm:
 	ev.event = event;
 	put_unaligned_le32(value, &ev.value);
 
-	hci_dev_unlock(hdev);
 	hci_dev_put(hdev);
 
 	return mgmt_event(MGMT_EV_USER_CONFIRM_REQUEST, index, &ev, sizeof(ev),
@@ -2623,8 +2620,6 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 			struct hci_cp_inquiry cp = {{0x33, 0x8b, 0x9e}, 4, 0};
 			struct hci_cp_le_set_scan_enable le_cp = {0, 0};
 
-			hci_dev_lock(hdev);
-
 			ilp->int_phase *= 2;
 			ilp->int_count = 0;
 			if (ilp->mode == SCAN_LE) {
@@ -2638,7 +2633,6 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 				ilp->mode = SCAN_BR;
 				del_timer_sync(&ilp->le_timer);
 			}
-			hci_dev_unlock(hdev);
 		}
 
 		if (hdev)

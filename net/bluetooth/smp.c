@@ -292,6 +292,7 @@ static int tk_request(struct l2cap_conn *conn, u8 remote_oob, u8 auth,
 	struct hci_conn *hcon = conn->hcon;
 	u8 method;
 	u32 passkey = 0;
+	int ret = 0;
 
 	/* Initialize key to JUST WORKS */
 	memset(hcon->tk, 0, sizeof(hcon->tk));
@@ -356,15 +357,23 @@ static int tk_request(struct l2cap_conn *conn, u8 remote_oob, u8 auth,
 	}
 
 agent_request:
+	hci_dev_lock(hcon->hdev);
+
 	switch (method) {
 	case SMP_REQ_PASSKEY:
-		return mgmt_user_confirm_request(0, HCI_EV_USER_PASSKEY_REQUEST,
-								conn->dst, 0);
+		ret = mgmt_user_confirm_request(hcon->hdev->id,
+				HCI_EV_USER_PASSKEY_REQUEST, conn->dst, 0);
+		break;
 	case SMP_CFM_PASSKEY:
 	default:
-		return mgmt_user_confirm_request(0, HCI_EV_USER_CONFIRM_REQUEST,
-							conn->dst, passkey);
+		ret = mgmt_user_confirm_request(hcon->hdev->id,
+			HCI_EV_USER_CONFIRM_REQUEST, conn->dst, passkey);
+		break;
 	}
+
+	hci_dev_unlock(hcon->hdev);
+
+	return ret;
 }
 
 static int send_pairing_confirm(struct l2cap_conn *conn)
