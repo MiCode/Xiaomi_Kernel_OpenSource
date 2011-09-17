@@ -141,7 +141,6 @@ extern struct clk_freq_tbl rcg_dummy_freq;
 
 int rcg_clk_enable(struct clk *clk);
 void rcg_clk_disable(struct clk *clk);
-void rcg_clk_auto_off(struct clk *clk);
 int rcg_clk_set_rate(struct clk *clk, unsigned rate);
 int rcg_clk_set_min_rate(struct clk *clk, unsigned rate);
 unsigned rcg_clk_get_rate(struct clk *clk);
@@ -252,7 +251,6 @@ void branch_clk_disable(struct clk *clk);
 struct clk *branch_clk_get_parent(struct clk *clk);
 int branch_clk_set_parent(struct clk *clk, struct clk *parent);
 int branch_clk_is_enabled(struct clk *clk);
-void branch_clk_auto_off(struct clk *clk);
 int branch_clk_reset(struct clk *c, enum clk_reset_action action);
 
 /**

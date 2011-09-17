@@ -541,7 +541,7 @@ static int soc_clk_reset(struct clk *clk, enum clk_reset_action action)
 static struct clk_ops clk_ops_rcg_8x60 = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
-	.auto_off = rcg_clk_auto_off,
+	.auto_off = rcg_clk_disable,
 	.handoff = rcg_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
 	.set_min_rate = rcg_clk_set_min_rate,
@@ -557,7 +557,7 @@ static struct clk_ops clk_ops_rcg_8x60 = {
 static struct clk_ops clk_ops_branch = {
 	.enable = branch_clk_enable,
 	.disable = branch_clk_disable,
-	.auto_off = branch_clk_auto_off,
+	.auto_off = branch_clk_disable,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
 	.is_local = local_clk_is_local,

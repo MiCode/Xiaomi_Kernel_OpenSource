@@ -434,12 +434,6 @@ void rcg_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-/* Turn off a clock at boot, without checking refcounts. */
-void rcg_clk_auto_off(struct clk *c)
-{
-	rcg_clk_disable(c);
-}
-
 /*
  * Frequency-related functions
  */
@@ -877,16 +871,6 @@ int branch_clk_is_enabled(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	return branch->enabled;
-}
-
-void branch_clk_auto_off(struct clk *clk)
-{
-	struct branch_clk *branch = to_branch_clk(clk);
-	unsigned long flags;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_disable_reg(&branch->b, branch->c.dbg_name);
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 int branch_reset(struct branch *clk, enum clk_reset_action action)
