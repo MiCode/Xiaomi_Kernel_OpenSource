@@ -338,10 +338,38 @@ struct adc_access_fn {
 
 void msm_adc_wq_work(struct work_struct *work);
 void msm_adc_conv_cb(void *context, u32 param, void *evt_buf, u32 len);
+#ifdef CONFIG_SENSORS_MSM_ADC
 int32_t adc_channel_open(uint32_t channel, void **h);
 int32_t adc_channel_close(void *h);
 int32_t adc_channel_request_conv(void *h, struct completion *conv_complete_evt);
 int32_t adc_channel_read_result(void *h, struct adc_chan_result *chan_result);
 int32_t adc_calib_request(void *h, struct completion *calib_complete_evt);
+#else
+int32_t adc_channel_open(uint32_t channel, void **h)
+{
+	pr_err("%s.not supported.\n", __func__);
+	return -ENODEV;
+}
+int32_t adc_channel_close(void *h)
+{
+	pr_err("%s.not supported.\n", __func__);
+	return -ENODEV;
+}
+int32_t adc_channel_request_conv(void *h, struct completion *conv_complete_evt)
+{
+	pr_err("%s.not supported.\n", __func__);
+	return -ENODEV;
+}
+int32_t adc_channel_read_result(void *h, struct adc_chan_result *chan_result)
+{
+	pr_err("%s.not supported.\n", __func__);
+	return -ENODEV;
+}
+int32_t adc_calib_request(void *h, struct completion *calib_complete_evt)
+{
+	pr_err("%s.not supported.\n", __func__);
+	return -ENODEV;
+}
+#endif /* CONFIG_SENSORS_MSM_ADC */
 #endif
 #endif /* __MSM_ADC_H */
