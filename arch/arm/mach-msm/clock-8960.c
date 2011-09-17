@@ -5159,6 +5159,7 @@ static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("afab_a_clk",	afab_a_clk.c,	NULL),
 	CLK_LOOKUP("cfpb_clk",		cfpb_clk.c,	NULL),
 	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,	NULL),
+	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,	"clock-8960"),
 	CLK_LOOKUP("dfab_clk",		dfab_clk.c,	NULL),
 	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
@@ -5821,6 +5822,7 @@ static int __init msm8960_clock_late_init(void)
 {
 	int rc;
 	struct clk *mmfpb_a_clk = clk_get_sys("clock-8960", "mmfpb_a_clk");
+	struct clk *cfpb_a_clk = clk_get_sys("clock-8960", "cfpb_a_clk");
 
 	/* Vote for MMFPB to be at least 76.8MHz when an Apps CPU is active. */
 	if (WARN(IS_ERR(mmfpb_a_clk), "mmfpb_a_clk not found (%ld)\n",
@@ -5833,6 +5835,16 @@ static int __init msm8960_clock_late_init(void)
 	if (WARN(rc, "mmfpb_a_clk not enabled (%d)\n", rc))
 		return rc;
 
+	/* Vote for CFPB to be at least 64MHz when an Apps CPU is active. */
+	if (WARN(IS_ERR(cfpb_a_clk), "cfpb_a_clk not found (%ld)\n",
+			PTR_ERR(cfpb_a_clk)))
+		return PTR_ERR(cfpb_a_clk);
+	rc = clk_set_min_rate(cfpb_a_clk, 64000000);
+	if (WARN(rc, "cfpb_a_clk rate was not set (%d)\n", rc))
+		return rc;
+	rc = clk_enable(cfpb_a_clk);
+	if (WARN(rc, "cfpb_a_clk not enabled (%d)\n", rc))
+		return rc;
 	return local_unvote_sys_vdd(HIGH);
 }
 
