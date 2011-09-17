@@ -78,6 +78,22 @@ struct pm8xxx_pwm_period {
 };
 
 /**
+ * pm8xxx_pwm_config_period - change PWM period
+ *
+ * @pwm: the PWM device
+ * @pwm_p: period in struct pm8xxx_pwm_period
+ */
+int pm8xxx_pwm_config_period(struct pwm_device *pwm,
+			     struct pm8xxx_pwm_period *pwm_p);
+
+/**
+ * pm8xxx_pwm_config_pwm_value - change a PWM device configuration
+ * @pwm: the PWM device
+ * @pwm_value: the duty cycle in raw PWM value (< 2^pwm_size)
+ */
+int pm8xxx_pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value);
+
+/**
  * pm8xxx_pwm_lut_config - change a PWM device configuration to use LUT
  * @pwm: the PWM device
  * @period_us: period in micro second

@@ -110,6 +110,8 @@
 /* LUT_CFG1 */
 #define PM8XXX_PWM_LUT_READ			0x40
 
+
+
 /*
  * PWM Frequency = Clock Frequency / (N * T)
  *	or
@@ -716,6 +718,86 @@ void pwm_disable(struct pwm_device *pwm)
 	mutex_unlock(&pwm->chip->pwm_mutex);
 }
 EXPORT_SYMBOL_GPL(pwm_disable);
+
+/**
+ * pm8xxx_pwm_config_period - change PWM period
+ *
+ * @pwm: the PWM device
+ * @pwm_p: period in struct pm8xxx_pwm_period
+ */
+int pm8xxx_pwm_config_period(struct pwm_device *pwm,
+			     struct pm8xxx_pwm_period *period)
+{
+	int			rc;
+
+	if (pwm == NULL || IS_ERR(pwm) || period == NULL)
+		return -EINVAL;
+	if (pwm->chip == NULL)
+		return -ENODEV;
+
+	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (!pwm->in_use) {
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	pwm->period.pwm_size = period->pwm_size;
+	pwm->period.clk = period->clk;
+	pwm->period.pre_div = period->pre_div;
+	pwm->period.pre_div_exp = period->pre_div_exp;
+
+	pm8xxx_pwm_save_period(pwm);
+	pm8xxx_pwm_bank_sel(pwm);
+	rc = pm8xxx_pwm_write(pwm, 4, 6);
+
+out_unlock:
+	mutex_unlock(&pwm->chip->pwm_mutex);
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_pwm_config_period);
+
+/**
+ * pm8xxx_pwm_config_pwm_value - change a PWM device configuration
+ * @pwm: the PWM device
+ * @pwm_value: the duty cycle in raw PWM value (< 2^pwm_size)
+ */
+int pm8xxx_pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
+{
+	int	rc = 0;
+
+	if (pwm == NULL || IS_ERR(pwm))
+		return -EINVAL;
+	if (pwm->chip == NULL)
+		return -ENODEV;
+
+	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (!pwm->in_use || !pwm->pwm_period) {
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (pwm->pwm_value == pwm_value)
+		goto out_unlock;
+
+	pwm->pwm_value = pwm_value;
+
+	pm8xxx_pwm_save_pwm_value(pwm);
+	pm8xxx_pwm_save(&pwm->pwm_ctl[1],
+			PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
+
+	pm8xxx_pwm_bank_sel(pwm);
+	rc = pm8xxx_pwm_write(pwm, 1, 6);
+
+	if (rc)
+		pr_err("[%d]: pm8xxx_pwm_write: rc=%d\n", pwm->pwm_id, rc);
+
+out_unlock:
+	mutex_unlock(&pwm->chip->pwm_mutex);
+	return rc;
+}
+EXPORT_SYMBOL_GPL(pm8xxx_pwm_config_pwm_value);
 
 /**
  * pm8xxx_pwm_lut_config - change a PWM device configuration to use LUT
