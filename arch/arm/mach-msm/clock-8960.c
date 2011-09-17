@@ -5160,6 +5160,7 @@ static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("mmfab_a_clk",	mmfab_a_clk.c,	NULL),
 	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,	NULL),
 	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,	NULL),
+	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,	"clock-8960"),
 	CLK_LOOKUP("sfab_clk",		sfab_clk.c,	NULL),
 	CLK_LOOKUP("sfab_a_clk",	sfab_a_clk.c,	NULL),
 	CLK_LOOKUP("sfpb_clk",		sfpb_clk.c,	NULL),
@@ -5763,6 +5764,20 @@ static void __init msm8960_clock_init(void)
 
 static int __init msm8960_clock_late_init(void)
 {
+	int rc;
+	struct clk *mmfpb_a_clk = clk_get_sys("clock-8960", "mmfpb_a_clk");
+
+	/* Vote for MMFPB to be at least 76.8MHz when an Apps CPU is active. */
+	if (WARN(IS_ERR(mmfpb_a_clk), "mmfpb_a_clk not found (%ld)\n",
+			PTR_ERR(mmfpb_a_clk)))
+		return PTR_ERR(mmfpb_a_clk);
+	rc = clk_set_min_rate(mmfpb_a_clk, 76800000);
+	if (WARN(rc, "mmfpb_a_clk rate was not set (%d)\n", rc))
+		return rc;
+	rc = clk_enable(mmfpb_a_clk);
+	if (WARN(rc, "mmfpb_a_clk not enabled (%d)\n", rc))
+		return rc;
+
 	return local_unvote_sys_vdd(HIGH);
 }
 
