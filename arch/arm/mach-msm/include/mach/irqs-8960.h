@@ -267,6 +267,7 @@
 #define TLMM_MSM_DIR_CONN_IRQ_21		(GIC_SPI_START + 224)
 #define PM8921_SEC_IRQ_104			(GIC_SPI_START + 225)
 #define PM8018_SEC_IRQ_107			(GIC_SPI_START + 226)
+#define USB_HSIC_IRQ				(GIC_SPI_START + 229)
 
 /* Backwards compatible IRQ macros. */
 #define INT_ADM_AARM				ADM_0_SCSS_0_IRQ

@@ -140,7 +140,7 @@ static struct resource resources_hsusb_host[] = {
 	},
 };
 
-static u64 dma_mask = 0xffffffffULL;
+static u64 dma_mask = DMA_BIT_MASK(32);
 struct platform_device msm_device_hsusb_host = {
 	.name           = "msm_hsusb_host",
 	.id             = -1,
@@ -149,6 +149,30 @@ struct platform_device msm_device_hsusb_host = {
 	.dev            = {
 		.dma_mask               = &dma_mask,
 		.coherent_dma_mask      = 0xffffffff,
+	},
+};
+
+static struct resource resources_hsic_host[] = {
+	{
+		.start	= MSM_HSIC_PHYS,
+		.end	= MSM_HSIC_PHYS + MSM_HSIC_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= USB_HSIC_IRQ,
+		.end	= USB_HSIC_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_hsic_host = {
+	.name		= "msm_hsic_host",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_hsic_host),
+	.resource	= resources_hsic_host,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
 	},
 };
 
