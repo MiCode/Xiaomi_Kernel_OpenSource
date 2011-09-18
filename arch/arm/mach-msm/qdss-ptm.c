@@ -21,7 +21,6 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/smp.h>
-#include <linux/percpu.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
 #include <linux/clk.h>
@@ -188,7 +187,6 @@ struct ptm_ctx {
 	void __iomem			*base;
 	uint32_t			*state;
 	bool				trace_enabled;
-	int				*cpu_restore;
 	struct wake_lock		wake_lock;
 	struct pm_qos_request_list	qos_req;
 	atomic_t			in_use;
@@ -371,8 +369,12 @@ static int ptm_trace_enable(void)
 		return ret;
 
 	wake_lock(&ptm.wake_lock);
-	/* 1. causes all cpus to come out of idle PC
+	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is enabled atomically
+	 *
+	 * we rely on the user to prevent hotplug on/off racing with this
+	 * operation and to ensure cores where trace is expected to be turned
+	 * on are already hotplugged on
 	 */
 	pm_qos_update_request(&ptm.qos_req, 0);
 
@@ -411,25 +413,22 @@ static void __ptm_trace_disable(void)
 
 static void ptm_trace_disable(void)
 {
-	int cpu;
-
 	wake_lock(&ptm.wake_lock);
-	/* 1. causes all cpus to come out of idle PC
+	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is disabled atomically
+	 *
+	 * we rely on the user to prevent hotplug on/off racing with this
+	 * operation and to ensure cores where trace is expected to be turned
+	 * off are already hotplugged on
 	 */
 	pm_qos_update_request(&ptm.qos_req, 0);
 
-	ptm_os_unlock(NULL);
-	smp_call_function(ptm_os_unlock, NULL, 1);
 	__ptm_trace_disable();
 	etb_dump();
 	etb_disable();
 	funnel_disable(0x0, 0x3);
 
 	ptm.trace_enabled = false;
-
-	for_each_online_cpu(cpu)
-		*per_cpu_ptr(ptm.cpu_restore, cpu) = 0;
 
 	pm_qos_update_request(&ptm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&ptm.wake_lock);
@@ -715,40 +714,24 @@ static void ptm_restore_reg(int cpu)
  *
  * Another assumption is that etm registers won't change after trace_enabled
  * is set. Current usage model guarantees this doesn't happen.
+ *
+ * Also disabling all types of power_collapses when enabling and disabling
+ * trace provides mutual exclusion to be able to safely access
+ * ptm.trace_enabled here.
  */
 void etm_save_reg_check(void)
 {
-	/* Disabling all kinds of power_collapses when enabling and disabling
-	 * trace provides mutual exclusion to be able to safely access
-	 * ptm.trace_enabled here.
-	 */
 	if (ptm.trace_enabled) {
 		int cpu = smp_processor_id();
-
-		/* Don't save the registers if we just got called from per_cpu
-		 * idle thread context of a nonboot cpu after hotplug/suspend
-		 * power collapse. This is to prevent corruption due to saving
-		 * twice since nonboot cpus start out fresh without the
-		 * corresponding restore.
-		 */
-		if (!(*per_cpu_ptr(ptm.cpu_restore, cpu))) {
-			ptm_save_reg(cpu);
-			*per_cpu_ptr(ptm.cpu_restore, cpu) = 1;
-		}
+		ptm_save_reg(cpu);
 	}
 }
 
 void etm_restore_reg_check(void)
 {
-	/* Disabling all kinds of power_collapses when enabling and disabling
-	 * trace provides mutual exclusion to be able to safely access
-	 * ptm.trace_enabled here.
-	 */
 	if (ptm.trace_enabled) {
 		int cpu = smp_processor_id();
-
 		ptm_restore_reg(cpu);
-		*per_cpu_ptr(ptm.cpu_restore, cpu) = 0;
 	}
 }
 
@@ -825,7 +808,7 @@ static void ptm_cfg_ro_init(void)
 
 static int __devinit ptm_probe(struct platform_device *pdev)
 {
-	int ret, cpu;
+	int ret;
 	struct resource *res;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -913,15 +896,6 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 
 	ptm.trace_enabled = false;
 
-	ptm.cpu_restore = alloc_percpu(int);
-	if (!ptm.cpu_restore) {
-		ret = -ENOMEM;
-		goto err_percpu;
-	}
-
-	for_each_possible_cpu(cpu)
-		*per_cpu_ptr(ptm.cpu_restore, cpu) = 0;
-
 	wake_lock_init(&ptm.wake_lock, WAKE_LOCK_SUSPEND, "msm_ptm");
 	pm_qos_add_request(&ptm.qos_req, PM_QOS_CPU_DMA_LATENCY,
 						PM_QOS_DEFAULT_VALUE);
@@ -944,8 +918,6 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_percpu:
-	clk_disable(ptm.qdss_tsctr_clk);
 err_tsctr_enable:
 err_tsctr_rate:
 	clk_put(ptm.qdss_tsctr_clk);
@@ -984,7 +956,6 @@ static int __devexit ptm_remove(struct platform_device *pdev)
 		ptm_trace_disable();
 	pm_qos_remove_request(&ptm.qos_req);
 	wake_lock_destroy(&ptm.wake_lock);
-	free_percpu(ptm.cpu_restore);
 	clk_put(ptm.qdss_tsctr_clk);
 	clk_put(ptm.qdss_traceclkin_clk);
 	clk_put(ptm.qdss_pclk);

@@ -54,4 +54,12 @@ void tpiu_disable(void);
 void funnel_enable(uint8_t id, uint32_t port_mask);
 void funnel_disable(uint8_t id, uint32_t port_mask);
 
+#ifdef CONFIG_MSM_TRACE_ACROSS_PC
+extern void etm_save_reg_check(void);
+extern void etm_restore_reg_check(void);
+#else
+static inline void etm_save_reg_check(void) {}
+static inline void etm_restore_reg_check(void) {}
+#endif
+
 #endif

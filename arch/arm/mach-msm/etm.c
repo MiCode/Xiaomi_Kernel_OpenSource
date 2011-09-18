@@ -70,7 +70,6 @@
 #define PROG_TIMEOUT_MS			500
 
 static int trace_enabled;
-static int *cpu_restore;
 static int cpu_to_dump;
 static int next_cpu_to_dump;
 static struct wake_lock etm_wake_lock;
@@ -389,7 +388,6 @@ static void __cpu_disable_trace(void *unused)
 	etm_control |= ETM_CONTROL_POWERDOWN;
 	etm_write_reg(ETM_REG_CONTROL, etm_control);
 
-	__cpu_enable_etm();
 	__cpu_disable_etb();
 
 	put_cpu();
@@ -412,9 +410,12 @@ static void enable_trace(void)
 	smp_call_function(__cpu_enable_trace, NULL, 1);
 	put_cpu();
 
-	/* When the smp_call returns, we are guaranteed that all online
-	 * cpus are out of wfi/power_collapse and won't be allowed to enter
-	 * again due to the pm_qos latency request above.
+	/* 1. causes all online cpus to come out of idle PC
+	 * 2. prevents idle PC until save restore flag is enabled atomically
+	 *
+	 * we rely on the user to prevent hotplug on/off racing with this
+	 * operation and to ensure cores where trace is expected to be turned
+	 * on are already hotplugged on
 	 */
 	trace_enabled = 1;
 
@@ -424,8 +425,6 @@ static void enable_trace(void)
 
 static void disable_trace(void)
 {
-	int cpu;
-
 	wake_lock(&etm_wake_lock);
 	pm_qos_update_request(&etm_qos_req, 0);
 
@@ -434,14 +433,14 @@ static void disable_trace(void)
 	smp_call_function(__cpu_disable_trace, NULL, 1);
 	put_cpu();
 
-	/* When the smp_call returns, we are guaranteed that all online
-	 * cpus are out of wfi/power_collapse and won't be allowed to enter
-	 * again due to the pm_qos latency request above.
+	/* 1. causes all online cpus to come out of idle PC
+	 * 2. prevents idle PC until save restore flag is disabled atomically
+	 *
+	 * we rely on the user to prevent hotplug on/off racing with this
+	 * operation and to ensure cores where trace is expected to be turned
+	 * off are already hotplugged on
 	 */
 	trace_enabled = 0;
-
-	for_each_possible_cpu(cpu)
-		*per_cpu_ptr(cpu_restore, cpu) = 0;
 
 	cpu_to_dump = next_cpu_to_dump = 0;
 
@@ -904,7 +903,7 @@ static struct miscdevice etm_dev = {
 /* etm_save_reg_check and etm_restore_reg_check should be fast
  *
  * These functions will be called either from:
- * 1. per_cpu idle thread context for idle wfi and power collapses.
+ * 1. per_cpu idle thread context for idle power collapses.
  * 2. per_cpu idle thread context for hotplug/suspend power collapse for
  *    nonboot cpus.
  * 3. suspend thread context for core0.
@@ -914,33 +913,21 @@ static struct miscdevice etm_dev = {
  *
  * Another assumption is that etm registers won't change after trace_enabled
  * is set. Current usage model guarantees this doesn't happen.
+ *
+ * Also disabling all types of power_collapses when enabling and disabling
+ * trace provides mutual exclusion to be able to safely access
+ * ptm.trace_enabled here.
  */
 void etm_save_reg_check(void)
 {
-	if (trace_enabled) {
-		int cpu = smp_processor_id();
-
-		/* Don't save the registers if we just got called from per_cpu
-		 * idle thread context of a nonboot cpu after hotplug/suspend
-		 * power collapse. This is to prevent corruption due to saving
-		 * twice since nonboot cpus start out fresh without the
-		 * corresponding restore.
-		 */
-		if (!(*per_cpu_ptr(cpu_restore, cpu))) {
-			etm_save_reg();
-			*per_cpu_ptr(cpu_restore, cpu) = 1;
-		}
-	}
+	if (trace_enabled)
+		etm_save_reg();
 }
 
 void etm_restore_reg_check(void)
 {
-	if (trace_enabled) {
-		int cpu = smp_processor_id();
-
+	if (trace_enabled)
 		etm_restore_reg();
-		*per_cpu_ptr(cpu_restore, cpu) = 0;
-	}
 }
 
 static int __init etm_init(void)
@@ -958,13 +945,6 @@ static int __init etm_init(void)
 	for_each_possible_cpu(cpu)
 		*per_cpu_ptr(alloc_b, cpu) = &buf[cpu];
 
-	cpu_restore = alloc_percpu(int);
-	if (!cpu_restore)
-		goto err2;
-
-	for_each_possible_cpu(cpu)
-		*per_cpu_ptr(cpu_restore, cpu) = 0;
-
 	wake_lock_init(&etm_wake_lock, WAKE_LOCK_SUSPEND, "msm_etm");
 	pm_qos_add_request(&etm_qos_req, PM_QOS_CPU_DMA_LATENCY,
 						PM_QOS_DEFAULT_VALUE);
@@ -978,24 +958,21 @@ static int __init etm_init(void)
 
 	return 0;
 
-err2:
-	free_percpu(alloc_b);
 err1:
 	misc_deregister(&etm_dev);
 	return -ENOMEM;
 }
+module_init(etm_init);
 
 static void __exit etm_exit(void)
 {
 	disable_trace();
 	pm_qos_remove_request(&etm_qos_req);
 	wake_lock_destroy(&etm_wake_lock);
-	free_percpu(cpu_restore);
 	free_percpu(alloc_b);
 	misc_deregister(&etm_dev);
 }
-
-module_init(etm_init);
 module_exit(etm_exit);
+
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("embedded trace driver");

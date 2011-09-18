@@ -47,6 +47,7 @@
 #include "scm-boot.h"
 #include "spm.h"
 #include "timer.h"
+#include "qdss.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -1100,6 +1101,7 @@ int msm_pm_platform_secondary_init(unsigned int cpu)
 		dev->warm_boot = 1;
 		return 0;
 	}
+	etm_restore_reg_check();
 #ifdef CONFIG_VFP
 	vfp_reinit();
 #endif
