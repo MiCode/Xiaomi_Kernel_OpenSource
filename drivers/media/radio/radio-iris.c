@@ -84,6 +84,7 @@ struct iris_device {
 	struct hci_fm_trans_conf_req_struct trans_conf;
 	struct hci_fm_rds_grp_req rds_grp;
 	unsigned char g_search_mode;
+	int search_on;
 	unsigned int tone_freq;
 	unsigned char g_scan_time;
 	unsigned int g_antenna;
@@ -1896,6 +1897,48 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 	kfree(data);
 }
 
+static void hci_ev_af_list(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	struct hci_ev_af_list ev;
+
+	ev.tune_freq = *((int *) &skb->data[0]);
+	ev.pi_code = *((__le16 *) &skb->data[PI_CODE_OFFSET]);
+	ev.af_size = skb->data[AF_SIZE_OFFSET];
+	memcpy(&ev.af_list[0], &skb->data[AF_LIST_OFFSET], ev.af_size);
+	iris_q_event(radio, IRIS_EVT_NEW_AF_LIST);
+	iris_q_evt_data(radio, (char *)&ev, sizeof(ev), IRIS_BUF_AF_LIST);
+}
+
+static void hci_ev_rds_lock_status(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	__u8 rds_status = skb->data[0];
+
+	if (rds_status)
+		iris_q_event(radio, IRIS_EVT_RDS_AVAIL);
+	else
+		iris_q_event(radio, IRIS_EVT_RDS_NOT_AVAIL);
+}
+
+static void hci_ev_service_available(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	if (radio->fm_st_rsp.station_rsp.serv_avble)
+		iris_q_event(radio, IRIS_EVT_ABOVE_TH);
+	else
+		iris_q_event(radio, IRIS_EVT_BELOW_TH);
+}
+
+static void hci_ev_rds_grp_complete(struct radio_hci_dev *hdev,
+	struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	iris_q_event(radio, IRIS_EVT_TXRDSDONE);
+}
 
 void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 {
@@ -1917,7 +1960,11 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 		hci_ev_stereo_status(hdev, skb);
 		break;
 	case HCI_EV_RDS_LOCK_STATUS:
+		hci_ev_rds_lock_status(hdev, skb);
+		break;
 	case HCI_EV_SERVICE_AVAILABLE:
+		hci_ev_service_available(hdev, skb);
+		break;
 	case HCI_EV_RDS_RX_DATA:
 		break;
 	case HCI_EV_PROGRAM_SERVICE:
@@ -1927,7 +1974,11 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 		hci_ev_radio_text(hdev, skb);
 		break;
 	case HCI_EV_FM_AF_LIST:
+		hci_ev_af_list(hdev, skb);
+		break;
 	case HCI_EV_TX_RDS_GRP_COMPL:
+		hci_ev_rds_grp_complete(hdev, skb);
+		break;
 	case HCI_EV_TX_RDS_CONT_GRP_COMPL:
 		break;
 
@@ -1961,6 +2012,7 @@ static int iris_search(struct iris_device *radio, int on, int dir)
 {
 	int retval = 0;
 	enum search_t srch = radio->g_search_mode & SRCH_MODE;
+	radio->search_on = on;
 
 	if (on) {
 		switch (srch) {
@@ -2130,8 +2182,10 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		ctrl->value = radio->g_scan_time;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SRCHON:
+		ctrl->value = radio->search_on;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STATE:
+		ctrl->value = radio->mode;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_IOVERC:
 		retval = hci_cmd(HCI_FM_STATION_DBG_PARAM_CMD, radio->fm_hdev);
@@ -2152,10 +2206,13 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		retval = hci_cmd(HCI_FM_GET_SIGNAL_TH_CMD, radio->fm_hdev);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SRCH_PTY:
+		ctrl->value = radio->srch_rds.srch_pty;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SRCH_PI:
+		ctrl->value = radio->srch_rds.srch_pi;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SRCH_CNT:
+		ctrl->value = radio->srch_st_result.num_stations_found;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_EMPHASIS:
 		if (radio->mode == FM_RECV) {
@@ -2291,6 +2348,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	unsigned int rds_grps_proc = 0;
 	__u8 temp_val = 0;
 	unsigned long arg = 0;
+	struct hci_fm_tx_ps tx_ps = {0};
+	struct hci_fm_tx_rt tx_rt = {0};
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_IRIS_TX_TONE:
@@ -2505,6 +2564,13 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				&radio->g_rds_grp_proc_ps,
 				radio->fm_hdev);
 		break;
+	case V4L2_CID_PRIVATE_IRIS_AF_JUMP:
+		rds_grps_proc = (ctrl->value << RDS_AF_JUMP_OFFSET);
+		radio->g_rds_grp_proc_ps |= rds_grps_proc;
+		retval = hci_fm_rds_grps_process(
+				&radio->g_rds_grp_proc_ps,
+				radio->fm_hdev);
+		break;
 	case V4L2_CID_PRIVATE_IRIS_LP_MODE:
 		break;
 	case V4L2_CID_PRIVATE_IRIS_ANTENNA:
@@ -2518,8 +2584,14 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->pi = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_PS_NAME:
+		tx_ps.ps_control =  0x00;
+		retval = radio_hci_request(radio->fm_hdev, hci_trans_ps_req,
+				(unsigned long)&tx_ps, RADIO_HCI_TIMEOUT);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_STOP_RDS_TX_RT:
+		tx_rt.rt_control =  0x00;
+		retval = radio_hci_request(radio->fm_hdev, hci_trans_rt_req,
+				(unsigned long)&tx_rt, RADIO_HCI_TIMEOUT);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_TX_SETPSREPEATCOUNT:
 		radio->ps_repeatcount = ctrl->value;

@@ -482,7 +482,10 @@ struct hci_fm_dbg_param_rsp {
 #define RDS_STRING 8
 #define RDS_PS_DATA_OFFSET 8
 #define RDS_CONFIG_OFFSET  3
-
+#define RDS_AF_JUMP_OFFSET 4
+#define PI_CODE_OFFSET 4
+#define AF_SIZE_OFFSET 6
+#define AF_LIST_OFFSET 7
 /*FM states*/
 
 enum radio_state_t {
