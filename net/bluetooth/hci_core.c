@@ -1401,13 +1401,15 @@ static struct crypto_blkcipher *alloc_cypher(void)
 int hci_register_dev(struct hci_dev *hdev)
 {
 	struct list_head *head = &hci_dev_list, *p;
-	int i, id = 0;
+	int i, id;
 
 	BT_DBG("%p name %s bus %d owner %p", hdev, hdev->name,
 						hdev->bus, hdev->owner);
 
 	if (!hdev->open || !hdev->close || !hdev->destruct)
 		return -EINVAL;
+
+	id = (hdev->dev_type == HCI_BREDR) ? 0 : 1;
 
 	write_lock_bh(&hci_dev_list_lock);
 
