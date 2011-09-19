@@ -60,6 +60,7 @@ do {									\
 		driver->write_ptr_1->buf = driver->buf_in_1;		\
 		driver->write_ptr_1->length = (int)(enc.dest - \
 						(void *)(driver->buf_in_1)); \
+		driver->in_busy_1 = 1;					\
 		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
 		memset(driver->apps_rsp_buf, '\0', 500);		\
 	}								\
@@ -226,7 +227,7 @@ void __diag_smd_wcnss_send_req(void)
 	int *in_busy_wcnss_ptr = &(driver->in_busy_wcnss);
 	struct diag_request *write_ptr_wcnss = driver->write_ptr_wcnss;
 
-	if (driver->ch_wcnss && buf) {
+	if ((!driver->in_busy_wcnss) && driver->ch_wcnss && buf) {
 		int r = smd_read_avail(driver->ch_wcnss);
 		if (r > IN_BUF_SIZE) {
 			if (r < MAX_IN_BUF_SIZE) {
