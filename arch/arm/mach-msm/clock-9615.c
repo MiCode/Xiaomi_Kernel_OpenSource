@@ -26,9 +26,11 @@
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
+#include <mach/rpm-9615.h>
 
 #include "clock-local.h"
 #include "clock-voter.h"
+#include "clock-rpm.h"
 #include "devices.h"
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
@@ -1252,11 +1254,17 @@ static struct branch_clk slimbus_xo_src_clk = {
 	},
 };
 
-static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dummy_clk);
-static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dummy_clk);
-static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dummy_clk);
-static DEFINE_CLK_VOTER(dfab_sps_clk, &dummy_clk);
-static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &dummy_clk);
+DEFINE_CLK_RPM(cfpb_clk, cfpb_a_clk, CFPB, NULL);
+DEFINE_CLK_RPM(dfab_clk, dfab_a_clk, DAYTONA_FABRIC, NULL);
+DEFINE_CLK_RPM(ebi1_clk, ebi1_a_clk, EBI1, NULL);
+DEFINE_CLK_RPM(sfab_clk, sfab_a_clk, SYSTEM_FABRIC, NULL);
+DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
+
+static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
 
 /*
  * TODO: replace dummy_clk below with ebi1_clk.c once the
@@ -1277,8 +1285,11 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x14), &sdc2_p_clk.c },
 	{ TEST_PER_LS(0x15), &sdc2_clk.c },
 	{ TEST_PER_LS(0x26), &pmem_clk.c },
+	{ TEST_PER_LS(0x25), &dfab_clk.c },
+	{ TEST_PER_LS(0x25), &dfab_a_clk.c },
 	{ TEST_PER_LS(0x32), &dma_bam_p_clk.c },
-	{ TEST_PER_LS(0x3D), &gsbi1_p_clk.c },
+	{ TEST_PER_LS(0x33), &cfpb_clk.c },
+	{ TEST_PER_LS(0x33), &cfpb_a_clk.c },
 	{ TEST_PER_LS(0x3E), &gsbi1_uart_clk.c },
 	{ TEST_PER_LS(0x3F), &gsbi1_qup_clk.c },
 	{ TEST_PER_LS(0x41), &gsbi2_p_clk.c },
@@ -1293,6 +1304,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x4D), &gsbi5_p_clk.c },
 	{ TEST_PER_LS(0x4E), &gsbi5_uart_clk.c },
 	{ TEST_PER_LS(0x50), &gsbi5_qup_clk.c },
+	{ TEST_PER_LS(0x78), &sfpb_clk.c },
+	{ TEST_PER_LS(0x78), &sfpb_a_clk.c },
 	{ TEST_PER_LS(0x7A), &pmic_ssbi2_clk.c },
 	{ TEST_PER_LS(0x7B), &pmic_arb0_p_clk.c },
 	{ TEST_PER_LS(0x7C), &pmic_arb1_p_clk.c },
@@ -1307,8 +1320,12 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x8B), &usb_hsic_hsio_cal_clk.c },
 	{ TEST_PER_LS(0x8D), &usb_hs1_sys_clk.c },
 	{ TEST_PER_LS(0x92), &ce1_p_clk.c },
+	{ TEST_PER_HS(0x18), &sfab_clk.c },
+	{ TEST_PER_HS(0x18), &sfab_a_clk.c },
 	{ TEST_PER_LS(0xA4), &ce1_core_clk.c },
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
+	{ TEST_PER_HS(0x34), &ebi1_clk.c },
+	{ TEST_PER_HS(0x34), &ebi1_a_clk.c },
 	{ TEST_LPA(0x0F), &mi2s_bit_clk.c },
 	{ TEST_LPA(0x10), &codec_i2s_mic_bit_clk.c },
 	{ TEST_LPA(0x11), &codec_i2s_spkr_bit_clk.c },
@@ -1482,17 +1499,16 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("pll14",	pll14_clk.c,	NULL),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
-	/* TODO: Make these real when the RPM driver's ready. */
-	CLK_DUMMY("cfpb_clk",		cfpb_clk.c,	NULL, OFF),
-	CLK_DUMMY("cfpb_a_clk",		cfpb_a_clk.c,	NULL, OFF),
-	CLK_DUMMY("dfab_clk",		dfab_clk.c,	NULL, OFF),
-	CLK_DUMMY("dfab_a_clk",		dfab_a_clk.c,	NULL, OFF),
-	CLK_DUMMY("ebi1_clk",		ebi1_clk.c,	NULL, OFF),
-	CLK_DUMMY("ebi1_a_clk",		ebi1_a_clk.c,	NULL, OFF),
-	CLK_DUMMY("sfab_clk",		sfab_clk.c,	NULL, OFF),
-	CLK_DUMMY("sfab_a_clk",		sfab_a_clk.c,	NULL, OFF),
-	CLK_DUMMY("sfpb_clk",		sfpb_clk.c,	NULL, OFF),
-	CLK_DUMMY("sfpb_a_clk",		sfpb_a_clk.c,	NULL, OFF),
+	CLK_LOOKUP("cfpb_clk",		cfpb_clk.c,	NULL),
+	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,	NULL),
+	CLK_LOOKUP("dfab_clk",		dfab_clk.c,	NULL),
+	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,	NULL),
+	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
+	CLK_LOOKUP("ebi1_a_clk",	ebi1_a_clk.c,	NULL),
+	CLK_LOOKUP("sfab_clk",		sfab_clk.c,	NULL),
+	CLK_LOOKUP("sfab_a_clk",	sfab_a_clk.c,	NULL),
+	CLK_LOOKUP("sfpb_clk",		sfpb_clk.c,	NULL),
+	CLK_LOOKUP("sfpb_a_clk",	sfpb_a_clk.c,	NULL),
 
 	CLK_LOOKUP("core_clk", gsbi1_uart_clk.c, NULL),
 	CLK_LOOKUP("core_clk", gsbi2_uart_clk.c, NULL),
@@ -1557,9 +1573,8 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("bus_clk",		dfab_sdc2_clk.c,	"msm_sdcc.2"),
 	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,		"msm_sps"),
 
-	/* TODO: Make this real when RPM's ready. */
-	CLK_DUMMY("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL, OFF),
-	CLK_DUMMY("mem_clk",		ebi1_adm_clk.c, "msm_dmov", OFF),
+	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
+	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 
 };
 
