@@ -4711,9 +4711,11 @@ static inline int l2cap_create_channel_req(struct l2cap_conn *conn,
 	sk = l2cap_create_connect(conn, cmd, data, L2CAP_CREATE_CHAN_RSP,
 					req->amp_id);
 
-	l2cap_pi(sk)->conf_state |= L2CAP_CONF_LOCKSTEP;
+	if (sk)
+		l2cap_pi(sk)->conf_state |= L2CAP_CONF_LOCKSTEP;
 
-	if (sk && req->amp_id)
+	if (sk && req->amp_id &&
+			(conn->info_state & L2CAP_INFO_FEAT_MASK_REQ_DONE))
 		amp_accept_physical(conn, req->amp_id, sk);
 
 	return 0;
