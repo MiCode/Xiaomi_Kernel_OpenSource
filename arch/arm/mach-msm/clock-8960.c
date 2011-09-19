@@ -1811,7 +1811,7 @@ static struct rcg_clk usb_hsic_hsio_cal_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hsic_hsio_cal_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_rcg_8960,
 		CLK_INIT(usb_hsic_hsio_cal_clk.c),
 	},
 };
