@@ -1069,12 +1069,16 @@ bail_out:
 	mutex_unlock(&chip->pm_lock);
 
 	for (i = 0; i < handled; i++) {
-		handle_nested_irq(irqs_to_handle[i]);
-		irqs_to_handle[i] -= chip->pdata.irq_base;
-		block  = irqs_to_handle[i] / 8 ;
-		config = PM8058_IRQF_WRITE | chip->config[irqs_to_handle[i]]
+		int pmic_irq = irqs_to_handle[i] - chip->pdata.irq_base;
+
+		/* ack the interrupt first */
+		block  = pmic_irq / 8 ;
+		config = PM8058_IRQF_WRITE | chip->config[pmic_irq]
 				| PM8058_IRQF_CLR;
 		pm8058_config_irq(chip, &block, &config);
+
+		/* calle the action handler */
+		handle_nested_irq(irqs_to_handle[i]);
 	}
 
 	if (spurious) {
