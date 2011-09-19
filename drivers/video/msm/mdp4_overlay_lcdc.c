@@ -553,6 +553,5 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_overlay_lcdc_vsync_push(mfd, pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
-	yield();
 	mdp4_stat.kickoff_lcdc++;
 }
