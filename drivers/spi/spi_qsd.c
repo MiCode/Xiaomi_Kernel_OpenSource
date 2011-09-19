@@ -1247,7 +1247,7 @@ static int msm_spi_map_dma_buffers(struct msm_spi *dd)
 {
 	struct device *dev;
 	struct spi_transfer *first_xfr;
-	struct spi_transfer *nxt_xfr;
+	struct spi_transfer *nxt_xfr = NULL;
 	void *tx_buf, *rx_buf;
 	unsigned tx_len, rx_len;
 	int ret = -EINVAL;
