@@ -53,6 +53,7 @@ enum {
 	AUDIO_MIXER_SLIMBUS_0_RX,
 	AUDIO_MIXER_HDMI_RX,
 	AUDIO_MIXER_MM_UL1,
+	AUDIO_MIXER_MM_UL2,
 	AUDIO_MIXER_INT_BT_SCO_RX,
 	AUDIO_MIXER_INT_FM_RX,
 	AUDIO_MIXER_AFE_PCM_RX,
@@ -135,6 +136,8 @@ static struct audio_mixer_data audio_mixers[AUDIO_MIXER_MAX] = {
 	{HDMI_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
 	/* AUDIO_MIXER_MM_UL1 */
 	{MSM_FRONTEND_DAI_MULTIMEDIA1, 0, SNDRV_PCM_STREAM_CAPTURE},
+	/* AUDIO_MIXER_MM_UL2 */
+	{MSM_FRONTEND_DAI_MULTIMEDIA2, 0, SNDRV_PCM_STREAM_CAPTURE},
 	/* AUDIO_MIXER_INT_BT_SCO_RX */
 	{INT_BT_SCO_RX, 0, SNDRV_PCM_STREAM_PLAYBACK},
 	/* AUDIO_MIXER_INT_FM_RX */
@@ -557,6 +560,12 @@ static const struct snd_kcontrol_new mmul1_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 };
 
+static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
+	SOC_SINGLE_EXT("INTERNAL_FM_TX", AUDIO_MIXER_MM_UL2,
+	MSM_BACKEND_DAI_INT_FM_TX, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+};
+
 static const struct snd_kcontrol_new pri_rx_voice_mixer_controls[] = {
 	SOC_SINGLE_EXT("CSVoice", MSM_BACKEND_DAI_PRI_I2S_RX,
 	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
@@ -659,6 +668,7 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("MM_DL3", "MultiMedia3 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("VOIP_DL", "VoIP Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("MM_UL1", "MultiMedia1 Capture", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("MM_UL2", "MultiMedia2 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("CS-VOICE_DL1", "CS-VOICE Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("CS-VOICE_UL1", "CS-VOICE Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("VOIP_UL", "VoIP Capture", 0, 0, 0, 0),
@@ -702,6 +712,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	hdmi_mixer_controls, ARRAY_SIZE(hdmi_mixer_controls)),
 	SND_SOC_DAPM_MIXER("MultiMedia1 Mixer", SND_SOC_NOPM, 0, 0,
 	mmul1_mixer_controls, ARRAY_SIZE(mmul1_mixer_controls)),
+	SND_SOC_DAPM_MIXER("MultiMedia2 Mixer", SND_SOC_NOPM, 0, 0,
+	mmul2_mixer_controls, ARRAY_SIZE(mmul2_mixer_controls)),
 	/* Voice Mixer */
 	SND_SOC_DAPM_MIXER("PRI_RX_Voice Mixer",
 				SND_SOC_NOPM, 0, 0, pri_rx_voice_mixer_controls,
@@ -774,6 +786,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	{"MultiMedia1 Mixer", "AFE_PCM_TX", "PCM_TX"},
 	{"MM_UL1", NULL, "MultiMedia1 Mixer"},
+	{"MultiMedia2 Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
+	{"MM_UL2", NULL, "MultiMedia2 Mixer"},
 
 	{"PRI_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
 	{"PRI_RX_Voice Mixer", "Voip", "VOIP_DL"},
