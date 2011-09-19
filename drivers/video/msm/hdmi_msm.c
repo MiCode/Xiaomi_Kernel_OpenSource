@@ -1231,8 +1231,12 @@ static void msm_hdmi_init_ddc(void)
 	 * Configure the Threshold */
 	HDMI_OUTP_ND(0x0220, (10 << 16) | (2 << 0));
 
-	/* 0x0224 HDMI_DDC_SETUP */
-	HDMI_OUTP_ND(0x0224, 0);
+	/*
+	 * 0x0224 HDMI_DDC_SETUP
+	 * Setting 31:24 bits : Time units to wait before timeout
+	 * when clock is being stalled by external sink device
+	 */
+	HDMI_OUTP_ND(0x0224, 0xff000000);
 
 	/* 0x027C HDMI_DDC_REF
 	   [6] REFTIMER_ENABLE	Enable the timer
