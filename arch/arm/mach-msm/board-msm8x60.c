@@ -7445,6 +7445,15 @@ static void __init msm8x60_init_ebi2(void)
 {
 	uint32_t ebi2_cfg;
 	void *ebi2_cfg_ptr;
+	struct clk *mem_clk = clk_get_sys("msm_ebi2", "mem_clk");
+
+	if (IS_ERR(mem_clk)) {
+		pr_err("%s: clk_get_sys(%s,%s), failed", __func__,
+					"msm_ebi2", "mem_clk");
+		return;
+	}
+	clk_enable(mem_clk);
+	clk_put(mem_clk);
 
 	ebi2_cfg_ptr = ioremap_nocache(0x1a100000, sizeof(uint32_t));
 	if (ebi2_cfg_ptr != 0) {
@@ -10062,8 +10071,15 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
 		acpuclk_init(&acpuclk_8x60_soc_data);
 
-	/* No EBI2 on 8660 charm targets */
-	if (!machine_is_msm8x60_fusion() && !machine_is_msm8x60_fusn_ffa())
+	/*
+	 * Enable EBI2 only for boards which make use of it. Leave
+	 * it disabled for all others for additional power savings.
+	 */
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+			machine_is_msm8x60_rumi3() ||
+			machine_is_msm8x60_sim() ||
+			machine_is_msm8x60_fluid() ||
+			machine_is_msm8x60_dragon())
 		msm8x60_init_ebi2();
 	msm8x60_init_tlmm();
 	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
