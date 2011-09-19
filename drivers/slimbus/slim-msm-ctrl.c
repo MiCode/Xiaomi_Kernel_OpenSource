@@ -204,6 +204,7 @@ struct msm_slim_ctrl {
 	struct slim_framer	framer;
 	struct device		*dev;
 	void __iomem		*base;
+	struct resource		*slew_mem;
 	u32			curr_bw;
 	u8			msg_cnt;
 	u32			tx_buf[10];
@@ -1463,6 +1464,40 @@ static void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
 	sps_deregister_bam_device(dev->bam.hdl);
 }
 
+static void msm_slim_prg_slew(struct platform_device *pdev,
+				struct msm_slim_ctrl *dev)
+{
+	struct resource *slew_io;
+	void __iomem *slew_reg;
+	/* SLEW RATE register for this slimbus */
+	dev->slew_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"slimbus_slew_reg");
+	if (!dev->slew_mem) {
+		dev_dbg(&pdev->dev, "no slimbus slew resource\n");
+		return;
+	}
+	slew_io = request_mem_region(dev->slew_mem->start,
+				resource_size(dev->slew_mem), pdev->name);
+	if (!slew_io) {
+		dev_dbg(&pdev->dev, "slimbus-slew mem claimed\n");
+		dev->slew_mem = NULL;
+		return;
+	}
+
+	slew_reg = ioremap(dev->slew_mem->start, resource_size(dev->slew_mem));
+	if (!slew_reg) {
+		dev_dbg(dev->dev, "slew register mapping failed");
+		release_mem_region(dev->slew_mem->start,
+					resource_size(dev->slew_mem));
+		dev->slew_mem = NULL;
+		return;
+	}
+	writel_relaxed(1, slew_reg);
+	/* Make sure slimbus-slew rate enabling goes through */
+	wmb();
+	iounmap(slew_reg);
+}
+
 static int __devinit msm_slim_probe(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev;
@@ -1562,10 +1597,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 
 
 	dev->rclk = clk_get(dev->dev, "audio_slimbus_clk");
-	if (dev->rclk) {
-		clk_set_rate(dev->rclk, SLIM_ROOT_FREQ);
-		clk_enable(dev->rclk);
-	} else {
+	if (!dev->rclk) {
 		dev_err(dev->dev, "slimbus clock not found");
 		goto err_clk_get_failed;
 	}
@@ -1592,6 +1624,11 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_sat_failed;
 	}
+
+	msm_slim_prg_slew(pdev, dev);
+	clk_set_rate(dev->rclk, SLIM_ROOT_FREQ);
+	clk_enable(dev->rclk);
+
 	dev->satd->dev = dev;
 	dev->satd->satcl.name  = "msm_sat_dev";
 	spin_lock_init(&dev->satd->lock);
@@ -1695,6 +1732,7 @@ static int __devexit msm_slim_remove(struct platform_device *pdev)
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 	struct resource *bam_mem;
 	struct resource *slim_mem;
+	struct resource *slew_mem = dev->slew_mem;
 	struct msm_slim_sat *sat = dev->satd;
 	slim_remove_device(&sat->satcl);
 	kfree(sat->satch);
@@ -1713,6 +1751,8 @@ static int __devexit msm_slim_remove(struct platform_device *pdev)
 						"slimbus_bam_physical");
 	if (bam_mem)
 		release_mem_region(bam_mem->start, resource_size(bam_mem));
+	if (slew_mem)
+		release_mem_region(slew_mem->start, resource_size(slew_mem));
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
 	if (slim_mem)
