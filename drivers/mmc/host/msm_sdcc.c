@@ -2233,11 +2233,6 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (!host->clks_on) {
 		/* force the clocks to be off */
 		msmsdcc_setup_clocks(host, false);
-		/*
-		 * give atleast 2 MCLK cycles delay for clocks
-		 * and SDCC core to stabilize
-		 */
-		msmsdcc_delay(host);
 	}
 
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
