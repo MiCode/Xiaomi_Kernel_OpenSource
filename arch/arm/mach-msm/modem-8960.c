@@ -27,6 +27,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/irqs-8960.h>
+#include <mach/socinfo.h>
 
 #include "smd_private.h"
 #include "modem_notifier.h"
@@ -200,6 +201,9 @@ static int modem_debugfs_init(void)
 static int __init modem_8960_init(void)
 {
 	int ret;
+
+	if (!cpu_is_msm8960())
+		return -ENODEV;
 
 	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
 		smsm_state_cb, 0);
