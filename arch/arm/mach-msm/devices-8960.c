@@ -953,6 +953,12 @@ struct platform_device msm_pil_tzapps = {
 	.id = -1,
 };
 
+struct platform_device msm_pil_dsps = {
+	.name          = "pil_dsps",
+	.id            = -1,
+	.dev.platform_data = "dsps",
+};
+
 static struct resource smd_resource[] = {
 	{
 		.name   = "a9_m2a_0",
@@ -1100,7 +1106,6 @@ static struct smd_platform smd_platform_data = {
 	.smd_ss_configs = smd_config_list,
 	.smd_ssr_config = &smd_ssr_config,
 };
-
 
 struct platform_device msm_device_smd = {
 	.name		= "msm_smd",

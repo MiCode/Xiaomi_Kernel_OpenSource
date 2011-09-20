@@ -2629,10 +2629,12 @@ static void __init msm8x60_init_dsps(void)
 	if (machine_is_msm8x60_fluid()) {
 		/* fluid has different firmware, gpios */
 		pdata->pil_name = DSPS_PIL_FLUID_NAME;
+		msm_pil_dsps.dev.platform_data = DSPS_PIL_FLUID_NAME;
 		pdata->gpios = dsps_fluid_gpios;
 		pdata->gpios_num = ARRAY_SIZE(dsps_fluid_gpios);
 	} else {
 		pdata->pil_name = DSPS_PIL_GENERIC_NAME;
+		msm_pil_dsps.dev.platform_data = DSPS_PIL_GENERIC_NAME;
 		pdata->gpios = dsps_surf_gpios;
 		pdata->gpios_num = ARRAY_SIZE(dsps_surf_gpios);
 	}
@@ -5142,6 +5144,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_pil_q6v3,
 	&msm_pil_modem,
 	&msm_pil_tzapps,
+	&msm_pil_dsps,
 #ifdef CONFIG_I2C_QUP
 	&msm_gsbi3_qup_i2c_device,
 	&msm_gsbi4_qup_i2c_device,
