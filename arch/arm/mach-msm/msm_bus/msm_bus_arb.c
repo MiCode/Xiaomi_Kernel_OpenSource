@@ -56,7 +56,7 @@ static int add_path_node(struct msm_bus_inode_info *info, int next)
 {
 	struct path_node *pnode;
 	int i;
-	if (!info) {
+	if (ZERO_OR_NULL_PTR(info)) {
 		MSM_BUS_ERR("Cannot find node info!: id :%d\n",
 				info->node_info->priv_id);
 		return -ENXIO;
@@ -82,7 +82,7 @@ static int add_path_node(struct msm_bus_inode_info *info, int next)
 	pnode = krealloc(info->pnode,
 		((info->num_pnodes + 1) * sizeof(struct path_node))
 		, GFP_KERNEL);
-	if (IS_ERR(pnode)) {
+	if (ZERO_OR_NULL_PTR(pnode)) {
 		MSM_BUS_ERR("Error creating path node!\n");
 		info->num_pnodes--;
 		return -ENOMEM;
@@ -439,12 +439,11 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 		struct msm_bus_fabric_device *srcfab;
 		pnode = krealloc(client->src_pnode, ((i + 1) * sizeof(int)),
 			GFP_KERNEL);
-		if (!IS_ERR(pnode))
-			client->src_pnode = pnode;
-		else {
+		if (ZERO_OR_NULL_PTR(pnode)) {
 			MSM_BUS_ERR("Invalid Pnode ptr!\n");
 			continue;
-		}
+		} else
+			client->src_pnode = pnode;
 
 		if (!IS_MASTER_VALID(pdata->usecase->vectors[i].src)) {
 			MSM_BUS_ERR("Invalid Master ID %d in request!\n",
@@ -511,7 +510,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	curr = client->curr;
 	pdata = client->pdata;
 
-	if ((index < 0) || (index >= pdata->num_usecases)) {
+	if (index >= pdata->num_usecases) {
 		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
 			(uint32_t)client, index);
 		ret = -ENXIO;

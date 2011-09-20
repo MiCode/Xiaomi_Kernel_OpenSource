@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,8 +29,8 @@
 	__VA_ARGS__)
 
 #else
-#define MSM_BUS_DBG(msg, ...)
-#define MSM_FAB_DBG(msg, ...)
+#define MSM_BUS_DBG(msg, ...) no_printk("AXI")
+#define MSM_FAB_DBG(msg, ...) no_printk("AXI")
 #endif
 
 #define MSM_BUS_ERR(msg, ...) \

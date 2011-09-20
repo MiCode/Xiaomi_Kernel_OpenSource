@@ -690,15 +690,17 @@ late_initcall(msm_bus_debugfs_init);
 
 static void __exit msm_bus_dbg_teardown(void)
 {
-	struct msm_bus_fab_list *fablist = NULL;
-	struct msm_bus_cldata *cldata = NULL;
+	struct msm_bus_fab_list *fablist = NULL, *fablist_temp;
+	struct msm_bus_cldata *cldata = NULL, *cldata_temp;
 
 	debugfs_remove_recursive(dir);
-	list_for_each_entry(cldata, &cl_list, list) {
+	list_for_each_entry_safe(cldata, cldata_temp, &cl_list, list) {
+		list_del(&cldata->list);
 		kfree(cldata);
 	}
 	mutex_lock(&msm_bus_dbg_fablist_lock);
-	list_for_each_entry(fablist, &fabdata_list, list) {
+	list_for_each_entry_safe(fablist, fablist_temp, &fabdata_list, list) {
+		list_del(&fablist->list);
 		kfree(fablist);
 	}
 	mutex_unlock(&msm_bus_dbg_fablist_lock);

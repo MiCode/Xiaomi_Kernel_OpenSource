@@ -96,22 +96,21 @@ out:
 static int msm_bus_fabric_add_fab(struct msm_bus_fabric *fabric,
 	struct msm_bus_inode_info *info)
 {
-	int status = 0;
 	struct msm_bus_fabnodeinfo *fabnodeinfo;
 	MSM_FAB_DBG("msm_bus_fabric_add_fab: ID %d Gw: %d\n",
 		info->node_info->priv_id, info->node_info->gateway);
 	fabnodeinfo = kzalloc(sizeof(struct msm_bus_fabnodeinfo), GFP_KERNEL);
-	if (!fabnodeinfo) {
+	if (fabnodeinfo == NULL) {
 		MSM_FAB_ERR("msm_bus_fabric_add_fab: "
 			"No Node Info\n");
 		MSM_FAB_ERR("axi: Cannot register fabric!\n");
-		status = -ENOMEM;
+		return -ENOMEM;
 	}
 
 	fabnodeinfo->info = info;
 	fabnodeinfo->info->num_pnodes = -1;
 	list_add_tail(&fabnodeinfo->list, &fabric->gateways);
-	return status;
+	return 0;
 }
 
 /**
@@ -135,6 +134,11 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 		int ctx;
 
 		info = kzalloc(sizeof(struct msm_bus_inode_info), GFP_KERNEL);
+		if (info == NULL) {
+			MSM_BUS_ERR("Error allocating info\n");
+			return -ENOMEM;
+		}
+
 		info->node_info = fabric->pdata->info + i;
 		info->commit_index = -1;
 		info->num_pnodes = -1;
@@ -454,7 +458,6 @@ skip_arb:
 	if (status)
 		MSM_BUS_DBG("Error disabling clocks on fabric: %d\n",
 			fabric->fabdev.id);
-
 	fabric->clk_dirty = false;
 	return status;
 }
@@ -617,7 +620,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	struct msm_bus_fabric_registration *pdata;
 
 	fabric = kzalloc(sizeof(struct msm_bus_fabric), GFP_KERNEL);
-	if (!fabric) {
+	if (ZERO_OR_NULL_PTR(fabric)) {
 		MSM_BUS_ERR("Fabric alloc failed\n");
 		return -ENOMEM;
 	}
@@ -630,7 +633,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 
 	fabric->info.node_info = kzalloc(sizeof(struct msm_bus_node_info),
 				GFP_KERNEL);
-	if (!fabric->info.node_info) {
+	if (ZERO_OR_NULL_PTR(fabric->info.node_info)) {
 		MSM_BUS_ERR("Fabric node info alloc failed\n");
 		kfree(fabric);
 		return -ENOMEM;

@@ -929,6 +929,12 @@ void msm_bus_board_assign_iids(struct msm_bus_fabric_registration *fabreg,
 }
 int msm_bus_board_get_iid(int id)
 {
+	if ((id < SLAVE_ID_KEY && id >= NMASTERS) ||
+		id >= (SLAVE_ID_KEY + NSLAVES)) {
+		MSM_BUS_ERR("Cannot get iid. Invalid id %d passed\n", id);
+		return -EINVAL;
+	}
+
 	return ((id < SLAVE_ID_KEY) ? master_iids[id] : slave_iids[id -
 		SLAVE_ID_KEY]);
 }
