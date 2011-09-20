@@ -37,7 +37,7 @@ struct clk_ops {
 	int (*enable)(struct clk *clk);
 	void (*disable)(struct clk *clk);
 	void (*auto_off)(struct clk *clk);
-	void (*handoff)(struct clk *clk);
+	int (*handoff)(struct clk *clk);
 	int (*reset)(struct clk *clk, enum clk_reset_action action);
 	int (*set_rate)(struct clk *clk, unsigned rate);
 	int (*set_min_rate)(struct clk *clk, unsigned rate);

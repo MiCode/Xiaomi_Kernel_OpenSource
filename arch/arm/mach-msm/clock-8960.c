@@ -1186,7 +1186,7 @@ struct qdss_bank {
 
 #define QDSS_CLK_ROOT_ENA BIT(1)
 
-static void qdss_clk_handoff(struct clk *c)
+static int qdss_clk_handoff(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	const struct qdss_bank *bank = clk->bank_info;
@@ -1195,7 +1195,7 @@ static void qdss_clk_handoff(struct clk *c)
 
 	reg = readl_relaxed(clk->ns_reg);
 	if (!(reg & QDSS_CLK_ROOT_ENA))
-		return;
+		return 0;
 
 	bank_sel = reg & bank->bank_sel_mask;
 	/* Force bank 1 to PXO if bank 0 is in use */
@@ -1209,11 +1209,11 @@ static void qdss_clk_handoff(struct clk *c)
 		}
 	}
 	if (freq->freq_hz == FREQ_END)
-		return;
+		return 0;
 
 	clk->current_freq = freq;
-	c->flags |= CLKFLAG_HANDOFF_RATE;
-	clk_enable(c);
+
+	return 1;
 }
 
 static void set_rate_qdss(struct rcg_clk *clk, struct clk_freq_tbl *nf)

@@ -154,7 +154,7 @@ int rcg_clk_list_rate(struct clk *clk, unsigned n);
 int rcg_clk_is_enabled(struct clk *clk);
 long rcg_clk_round_rate(struct clk *clk, unsigned rate);
 struct clk *rcg_clk_get_parent(struct clk *c);
-void rcg_clk_handoff(struct clk *c);
+int rcg_clk_handoff(struct clk *c);
 
 /*
  * SYS_VDD voltage levels

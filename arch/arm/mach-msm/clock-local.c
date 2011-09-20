@@ -712,7 +712,7 @@ struct clk *rcg_clk_get_parent(struct clk *clk)
 	return to_rcg_clk(clk)->current_freq->src_clk;
 }
 
-void rcg_clk_handoff(struct clk *c)
+int rcg_clk_handoff(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	uint32_t ctl_val, ns_val, md_val, ns_mask;
@@ -720,7 +720,7 @@ void rcg_clk_handoff(struct clk *c)
 
 	ctl_val = readl_relaxed(clk->b.ctl_reg);
 	if (!(ctl_val & clk->root_en_mask))
-		return;
+		return 0;
 
 	if (clk->bank_info) {
 		const struct bank_masks *bank_masks = clk->bank_info;
@@ -746,11 +746,11 @@ void rcg_clk_handoff(struct clk *c)
 		}
 	}
 	if (freq->freq_hz == FREQ_END)
-		return;
+		return 0;
 
 	clk->current_freq = freq;
-	c->flags |= CLKFLAG_HANDOFF_RATE;
-	clk_enable(c);
+
+	return 1;
 }
 
 static int pll_vote_clk_enable(struct clk *clk)
