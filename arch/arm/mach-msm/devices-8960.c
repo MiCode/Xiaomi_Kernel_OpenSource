@@ -926,6 +926,21 @@ struct platform_device msm_8960_q6_mss_sw = {
 	.dev.platform_data = &msm_8960_q6_mss_sw_data,
 };
 
+static struct resource msm_8960_riva_resources[] = {
+	{
+		.start  = 0x03204000,
+		.end    = 0x03204000 + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_8960_riva = {
+	.name = "pil_riva",
+	.id = -1,
+	.num_resources  = ARRAY_SIZE(msm_8960_riva_resources),
+	.resource       = msm_8960_riva_resources,
+};
+
 struct platform_device msm_device_smd = {
 	.name		= "msm_smd",
 	.id		= -1,

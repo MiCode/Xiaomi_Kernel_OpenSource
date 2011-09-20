@@ -178,6 +178,7 @@ extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_8960_q6_lpass;
 extern struct platform_device msm_8960_q6_mss_fw;
 extern struct platform_device msm_8960_q6_mss_sw;
+extern struct platform_device msm_8960_riva;
 
 extern struct platform_device apq_pcm;
 extern struct platform_device apq_pcm_routing;
