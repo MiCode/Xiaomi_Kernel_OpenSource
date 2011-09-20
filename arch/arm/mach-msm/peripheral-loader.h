@@ -9,8 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __MACH_PERIPHERAL_LOADER_H
-#define __MACH_PERIPHERAL_LOADER_H
+#ifndef __MSM_PERIPHERAL_LOADER_H
+#define __MSM_PERIPHERAL_LOADER_H
 
 #include <linux/list.h>
 #include <linux/mutex.h>
