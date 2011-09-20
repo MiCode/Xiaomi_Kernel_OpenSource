@@ -169,8 +169,6 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 static struct pm8xxx_mpp_init pm8921_mpps[] __initdata = {
 	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
 	PM8XXX_MPP_INIT(7, D_INPUT, PM8921_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
-	PM8XXX_MPP_INIT(PM8921_AMUX_MPP_3, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH6,
-								DOUT_CTRL_LOW),
 	PM8XXX_MPP_INIT(PM8921_AMUX_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
 								DOUT_CTRL_LOW),
 };
@@ -2270,6 +2268,7 @@ static struct pm8921_adc_platform_data pm8921_adc_pdata = {
 	.adc_channel		= pm8921_adc_channels_data,
 	.adc_num_channel	= ARRAY_SIZE(pm8921_adc_channels_data),
 	.adc_prop		= &pm8921_adc_data,
+	.adc_mpp_base		= PM8921_MPP_PM_TO_SYS(0),
 };
 
 static void __init msm8960_map_io(void)
