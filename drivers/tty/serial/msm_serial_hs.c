@@ -1272,11 +1272,12 @@ static void msm_hs_config_port(struct uart_port *uport, int cfg_flags)
 	unsigned long flags;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
-	spin_lock_irqsave(&uport->lock, flags);
 	if (cfg_flags & UART_CONFIG_TYPE) {
 		uport->type = PORT_MSM;
 		msm_hs_request_port(uport);
 	}
+
+	spin_lock_irqsave(&uport->lock, flags);
 	if (is_gsbi_uart(msm_uport)) {
 		if (msm_uport->pclk)
 			clk_enable(msm_uport->pclk);
