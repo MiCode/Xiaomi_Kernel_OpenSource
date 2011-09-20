@@ -738,8 +738,10 @@ static void l2cap_do_start(struct sock *sk)
 		if (l2cap_check_security(sk) && __l2cap_no_conn_pending(sk)) {
 			l2cap_pi(sk)->conf_state |= L2CAP_CONF_CONNECT_PEND;
 
-			if (l2cap_pi(sk)->amp_pref == BT_AMP_POLICY_PREFER_AMP)
-				amp_create_physical(l2cap_pi(sk)->conn, sk);
+			if (l2cap_pi(sk)->amp_pref ==
+					BT_AMP_POLICY_PREFER_AMP &&
+					conn->fc_mask & L2CAP_FC_A2MP)
+				amp_create_physical(conn, sk);
 			else
 				l2cap_send_conn_req(sk);
 		}
@@ -843,8 +845,10 @@ static void l2cap_conn_start(struct l2cap_conn *conn)
 
 			l2cap_pi(sk)->conf_state |= L2CAP_CONF_CONNECT_PEND;
 
-			if (l2cap_pi(sk)->amp_pref == BT_AMP_POLICY_PREFER_AMP)
-				amp_create_physical(l2cap_pi(sk)->conn, sk);
+			if (l2cap_pi(sk)->amp_pref ==
+					BT_AMP_POLICY_PREFER_AMP &&
+					conn->fc_mask & L2CAP_FC_A2MP)
+				amp_create_physical(conn, sk);
 			else
 				l2cap_send_conn_req(sk);
 

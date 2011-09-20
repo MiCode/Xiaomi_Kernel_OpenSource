@@ -761,8 +761,7 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 		BT_DBG("BT_AMP_POLICY now %d", opt);
 
 		if ((sk->sk_state == BT_CONNECTED) &&
-			(l2cap_pi(sk)->amp_move_role == L2CAP_AMP_MOVE_NONE) &&
-			(l2cap_pi(sk)->conn->fc_mask & L2CAP_FC_A2MP))
+			(l2cap_pi(sk)->amp_move_role == L2CAP_AMP_MOVE_NONE))
 			l2cap_amp_move_init(sk);
 
 		break;
