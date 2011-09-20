@@ -966,6 +966,7 @@ void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl)
 	} else {
 		DDL_MSG_LOW("%s Resolution change, start realloc\n",
 				 __func__);
+		decoder->reconfig_detected = true;
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_EOS_DONE;
 		ddl->cmd_state = DDL_CMD_EOS;
 		vidc_1080p_frame_start_realloc(ddl->instance_id);

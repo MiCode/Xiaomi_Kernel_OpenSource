@@ -736,6 +736,7 @@ static u32 ddl_eos_frame_done_callback(
 					ddl->input_frame.vcd_frm.physical;
 				decoder->decode_config.sequence_header_len =
 					ddl->input_frame.vcd_frm.data_len;
+				decoder->reconfig_detected = false;
 				ddl_vidc_decode_init_codec(ddl);
 				ret_status = false;
 			} else
@@ -769,6 +770,8 @@ static u32 ddl_eos_frame_done_callback(
 				dec_param.release_dpb_bit_mask =
 					dpb_mask->hw_mask;
 				dec_param.decode =
+					(decoder->reconfig_detected) ?\
+					VIDC_1080P_DEC_TYPE_FRAME_DATA :\
 					VIDC_1080P_DEC_TYPE_LAST_FRAME_DATA;
 
 				ddl_context->vidc_decode_frame_start[ddl->\
