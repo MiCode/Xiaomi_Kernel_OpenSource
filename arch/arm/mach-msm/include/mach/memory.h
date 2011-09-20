@@ -88,6 +88,27 @@ extern void store_ttbr0(void);
 #define finish_arch_switch(prev)	do { store_ttbr0(); } while (0)
 #endif
 
+#ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
+extern unsigned long membank0_size;
+extern unsigned long membank1_start;
+
+#define MEMBANK0_PHYS_OFFSET PHYS_OFFSET
+#define MEMBANK0_PAGE_OFFSET PAGE_OFFSET
+
+#define MEMBANK1_PHYS_OFFSET (membank1_start)
+#define MEMBANK1_PAGE_OFFSET (MEMBANK0_PAGE_OFFSET + (membank0_size))
+
+#define __phys_to_virt(phys)				\
+	((MEMBANK1_PHYS_OFFSET && ((phys) >= MEMBANK1_PHYS_OFFSET)) ?	\
+	(phys) - MEMBANK1_PHYS_OFFSET + MEMBANK1_PAGE_OFFSET :	\
+	(phys) - MEMBANK0_PHYS_OFFSET + MEMBANK0_PAGE_OFFSET)
+
+#define __virt_to_phys(virt)				\
+	((MEMBANK1_PHYS_OFFSET && ((virt) >= MEMBANK1_PAGE_OFFSET)) ?	\
+	(virt) - MEMBANK1_PAGE_OFFSET + MEMBANK1_PHYS_OFFSET :	\
+	(virt) - MEMBANK0_PAGE_OFFSET + MEMBANK0_PHYS_OFFSET)
+#endif
+
 #endif
 
 #if defined CONFIG_ARCH_MSM_SCORPION || defined CONFIG_ARCH_MSM_KRAIT

@@ -1596,6 +1596,10 @@ config DONT_RESERVE_FROM_MOVABLE_ZONE
 	def_bool y
 	depends on MEMORY_HOTPLUG
 
+config DONT_MAP_HOLE_AFTER_MEMBANK0
+	def_bool n
+	depends on SPARSEMEM
+
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
 	range 11 64 if ARCH_SHMOBILE
