@@ -154,7 +154,7 @@ void clock_debug_print_enabled(void)
 	for (i = 0; i < num_msm_clocks; i++) {
 		clk = msm_clocks[i].clk;
 
-		if (clk && clk->ops->is_enabled(clk)) {
+		if (clk && clk->ops->is_enabled && clk->ops->is_enabled(clk)) {
 			pr_info("\t%s\n", clk->dbg_name);
 			cnt++;
 		}
