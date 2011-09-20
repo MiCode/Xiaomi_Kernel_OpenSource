@@ -29,7 +29,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/tm.h>
 #include <linux/completion.h>
-#include <linux/mfd/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
 
 /* Register TEMP_ALARM_CTRL bits */
 #define	TEMP_ALARM_CTRL_ST3_SD		0x80

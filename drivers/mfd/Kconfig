@@ -827,15 +827,6 @@ config MFD_TPS65910
 config TPS65911_COMPARATOR
 	tristate
 
-config MFD_PM8921_ADC
-	tristate "Support for Qualcomm PM8921 ADC"
-	depends on MFD_PM8921_CORE
-	help
-	  This is the ADC arbiter driver for Qualcomm PM8921 Chip.
-
-	  The driver supports reading the HKADC, XOADC and support to set and receive
-	  temperature threshold notifications using the Battery temperature module.
-
 config MFD_PM8XXX_DEBUG
 	tristate "Qualcomm PM8xxx debugfs support"
 	depends on MFD_PM8XXX && DEBUG_FS

@@ -122,4 +122,3 @@ obj-$(CONFIG_MFD_PM8XXX_DEBUG) 	+= pm8xxx-debug.o
 obj-$(CONFIG_MFD_PM8XXX_PWM) 	+= pm8xxx-pwm.o
 obj-$(CONFIG_MFD_PM8XXX_MISC) 	+= pm8xxx-misc.o
 obj-$(CONFIG_MFD_PM8XXX_BATT_ALARM) 	+= pm8xxx-batt-alarm.o
-obj-$(CONFIG_MFD_PM8921_ADC)	+= pm8921-adc.o msmproc_adc.o

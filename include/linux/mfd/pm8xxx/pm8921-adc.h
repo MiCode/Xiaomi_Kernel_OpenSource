@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef __MFD_PM8921_ADC_H
-#define __MFD_PM8921_ADC_H
+#ifndef __PM8921_ADC_H
+#define __PM8921_ADC_H
 
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -296,7 +296,8 @@ struct pm8921_adc_chan_result {
 	int64_t		physical;
 };
 
-#if defined(CONFIG_MFD_PM8921_ADC) || defined(CONFIG_MFD_PM8921_ADC_MODULE)
+#if defined(CONFIG_SENSORS_PM8921_ADC)					\
+			|| defined(CONFIG_SENSORS_PM8921_ADC_MODULE)
 /**
  * pm8921_adc_scale_default() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
@@ -467,18 +468,21 @@ int32_t pm8921_adc_batt_scaler(struct pm8921_adc_arb_btm_param *);
  * struct pm8921_adc_platform_data - PM8921 ADC platform data
  * @adc_prop: ADC specific parameters, voltage and channel setup
  * @adc_channel: Channel properties of the ADC arbiter
- * @adc_num_channel: Total number of chanels supported
+ * @adc_num_board_channel: Number of channels added in the board file
+ * @adc_mpp_base: PM8921 MPP0 base passed from board file. This is used
+ *		  to offset the PM8921 MPP passed to configure the
+ *		  the MPP to AMUX mapping.
  */
 struct pm8921_adc_platform_data {
 	struct pm8921_adc_properties	*adc_prop;
 	struct pm8921_adc_amux		*adc_channel;
-	uint32_t			adc_num_channel;
-	u32				adc_wakeup;
+	uint32_t			adc_num_board_channel;
 	uint32_t			adc_mpp_base;
 };
 
 /* Public API */
-#if defined(CONFIG_MFD_PM8921_ADC) || defined(CONFIG_MFD_PM8921_ADC_MODULE)
+#if defined(CONFIG_SENSORS_PM8921_ADC)				\
+			|| defined(CONFIG_SENSORS_PM8921_ADC_MODULE)
 /**
  * pm8921_adc_read() - Performs ADC read on the channel.
  * @channel:	Input channel to perform the ADC read.
@@ -555,4 +559,4 @@ static inline uint32_t pm8921_adc_btm_configure(
 { return -ENXIO; }
 #endif
 
-#endif /* MFD_PM8921_ADC_H */
+#endif /* PM8921_ADC_H */

@@ -21,6 +21,7 @@
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/slimbus/slimbus.h>
@@ -2284,10 +2285,6 @@ static struct pm8921_adc_amux pm8921_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"ibat", CHANNEL_IBAT, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
-	{"m4", CHANNEL_MPP_1, CHAN_PATH_SCALING1, AMUX_RSV1,
-		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
-	{"m5", CHANNEL_MPP_2, CHAN_PATH_SCALING2, AMUX_RSV1,
-		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"batt_therm", CHANNEL_BATT_THERM, CHAN_PATH_SCALING1, AMUX_RSV2,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
 	{"batt_id", CHANNEL_BATT_ID, CHAN_PATH_SCALING1, AMUX_RSV1,
@@ -2302,10 +2299,12 @@ static struct pm8921_adc_amux pm8921_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"chg_temp", CHANNEL_CHG_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
-	{"pa_therm", ADC_MPP_1_AMUX8, CHAN_PATH_SCALING1, AMUX_RSV1,
+	{"pa_therm1", ADC_MPP_1_AMUX8, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
 };
 
 static struct pm8921_adc_properties pm8921_adc_data = {
@@ -2316,9 +2315,9 @@ static struct pm8921_adc_properties pm8921_adc_data = {
 
 static struct pm8921_adc_platform_data pm8921_adc_pdata = {
 	.adc_channel		= pm8921_adc_channels_data,
-	.adc_num_channel	= ARRAY_SIZE(pm8921_adc_channels_data),
+	.adc_num_board_channel	= ARRAY_SIZE(pm8921_adc_channels_data),
 	.adc_prop		= &pm8921_adc_data,
-	.adc_mpp_base		= PM8921_MPP_PM_TO_SYS(0),
+	.adc_mpp_base		= PM8921_MPP_PM_TO_SYS(1),
 };
 
 static void __init msm8960_map_io(void)

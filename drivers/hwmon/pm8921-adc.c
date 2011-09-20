@@ -26,9 +26,11 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/mpp.h>
-#include <linux/mfd/pm8921-adc.h>
 #include <linux/debugfs.h>
 #include <linux/regulator/consumer.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
 
 /* User Bank register set */
 #define PM8921_ADC_ARB_USRP_CNTRL1			0x197
@@ -127,6 +129,7 @@ struct pm8921_adc {
 	struct mutex				mpp_adc_lock;
 	spinlock_t				btm_lock;
 	uint32_t				adc_num_channel;
+	uint32_t				adc_num_board_channel;
 	struct completion			adc_rslt_completion;
 	struct pm8921_adc_amux			*adc_channel;
 	struct pm8921_adc_amux_properties	*conv;
@@ -137,6 +140,8 @@ struct pm8921_adc {
 	struct work_struct			warm_work;
 	struct work_struct			cool_work;
 	uint32_t				mpp_base;
+	struct sensor_device_attribute		*sens_attr;
+	struct device				*hwmon;
 };
 
 struct pm8921_adc_amux_properties {
@@ -763,7 +768,7 @@ uint32_t pm8921_adc_mpp_config_read(uint32_t mpp_num,
 
 	mutex_lock(&adc_pmic->mpp_adc_lock);
 
-	rc = pm8xxx_mpp_config((mpp_num + adc_pmic->mpp_base),
+	rc = pm8xxx_mpp_config(((mpp_num - 1) + adc_pmic->mpp_base),
 					&pm8921_adc_mpp_config);
 	if (rc < 0) {
 		pr_err("pm8921 adc mpp config error with %d\n", rc);
@@ -777,7 +782,7 @@ uint32_t pm8921_adc_mpp_config_read(uint32_t mpp_num,
 	if (rc < 0)
 		pr_err("pm8921 adc read error with %d\n", rc);
 
-	rc = pm8xxx_mpp_config((mpp_num + adc_pmic->mpp_base),
+	rc = pm8xxx_mpp_config(((mpp_num - 1) + adc_pmic->mpp_base),
 					&pm8921_adc_mpp_unconfig);
 	if (rc < 0)
 		pr_err("pm8921 adc mpp config error with %d\n", rc);
@@ -978,6 +983,25 @@ uint32_t pm8921_adc_btm_end(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_btm_end);
 
+static ssize_t pm8921_adc_show(struct device *dev,
+			struct device_attribute *devattr, char *buf)
+{
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+	struct pm8921_adc *adc_pmic = pmic_adc;
+	struct pm8921_adc_chan_result result;
+	int rc = -1;
+
+	if (attr->index < adc_pmic->adc_num_channel)
+		rc = pm8921_adc_read(attr->index, &result);
+
+	if (rc)
+		return 0;
+
+	return snprintf(buf, sizeof(struct pm8921_adc_chan_result),
+				"Result:%lld Raw:%d\n",
+				result.physical, result.adc_code);
+}
+
 static int get_adc(void *data, u64 *val)
 {
 	struct pm8921_adc_chan_result result;
@@ -1000,8 +1024,8 @@ static int get_mpp_adc(void *data, u64 *val)
 	int i = (int)data;
 	int rc;
 
-	rc = pm8921_adc_mpp_config_read(PM8921_AMUX_MPP_8,
-		i, &result);
+	rc = pm8921_adc_mpp_config_read(i,
+		ADC_MPP_1_AMUX6, &result);
 	if (!rc)
 		pr_info("ADC MPP value raw:%x physical:%lld\n",
 			result.adc_code, result.physical);
@@ -1047,22 +1071,62 @@ static void create_debugfs_entries(void)
 			    (void *)CHANNEL_ICHG, &reg_fops);
 	debugfs_create_file("ibat", 0644, pmic_adc->dent,
 			    (void *)CHANNEL_IBAT, &reg_fops);
-	debugfs_create_file("pa_therm", 0644, pmic_adc->dent,
+	debugfs_create_file("pa_therm1", 0644, pmic_adc->dent,
 			    (void *)ADC_MPP_1_AMUX8, &reg_fops);
 	debugfs_create_file("xo_therm", 0644, pmic_adc->dent,
 			    (void *)CHANNEL_MUXOFF, &reg_fops);
+	debugfs_create_file("pa_therm0", 0644, pmic_adc->dent,
+			    (void *)ADC_MPP_1_AMUX3, &reg_fops);
 }
 #else
 static inline void create_debugfs_entries(void)
 {
 }
 #endif
+static struct sensor_device_attribute pm8921_adc_attr =
+	SENSOR_ATTR(NULL, S_IRUGO, pm8921_adc_show, NULL, 0);
+
+static int32_t pm8921_adc_init_hwmon(struct platform_device *pdev)
+{
+	struct pm8921_adc *adc_pmic = pmic_adc;
+	int rc = 0, i;
+
+	adc_pmic->sens_attr = kzalloc(pmic_adc->adc_num_board_channel *
+		sizeof(struct sensor_device_attribute), GFP_KERNEL);
+
+	if (!adc_pmic->sens_attr) {
+		dev_err(&pdev->dev, "Unable to allocate memory\n");
+		rc = -ENOMEM;
+		goto hwmon_err_sens;
+	}
+
+	for (i = 0; i < pmic_adc->adc_num_board_channel; i++) {
+		pm8921_adc_attr.index = adc_pmic->adc_channel[i].channel_name;
+		pm8921_adc_attr.dev_attr.attr.name =
+						adc_pmic->adc_channel[i].name;
+		memcpy(&adc_pmic->sens_attr[i], &pm8921_adc_attr,
+						sizeof(pm8921_adc_attr));
+		rc = device_create_file(&pdev->dev,
+				&adc_pmic->sens_attr[i].dev_attr);
+		if (rc) {
+			dev_err(&pdev->dev, "device_create_file failed for "
+					    "dev %s\n",
+					    adc_pmic->adc_channel[i].name);
+			goto hwmon_err_sens;
+		}
+	}
+	return 0;
+
+hwmon_err_sens:
+	pr_info("Init HWMON failed for pm8921_adc with %d\n", rc);
+	return rc;
+}
 
 static int __devexit pm8921_adc_teardown(struct platform_device *pdev)
 {
 	struct pm8921_adc *adc_pmic = pmic_adc;
+	int i;
 
-	device_init_wakeup(&pdev->dev, 0);
 	free_irq(adc_pmic->adc_irq, adc_pmic);
 	free_irq(adc_pmic->btm_warm_irq, adc_pmic);
 	free_irq(adc_pmic->btm_cool_irq, adc_pmic);
@@ -1071,6 +1135,10 @@ static int __devexit pm8921_adc_teardown(struct platform_device *pdev)
 	kfree(adc_pmic->conv->chan_prop);
 	kfree(adc_pmic->adc_channel);
 	kfree(adc_pmic->batt);
+	for (i = 0; i < adc_pmic->adc_num_board_channel; i++)
+		device_remove_file(adc_pmic->dev,
+				&adc_pmic->sens_attr[i].dev_attr);
+	kfree(adc_pmic->sens_attr);
 	kfree(adc_pmic);
 	pm8921_adc_initialized = false;
 
@@ -1127,6 +1195,7 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 
 	init_completion(&adc_pmic->adc_rslt_completion);
 	adc_pmic->adc_channel = pdata->adc_channel;
+	adc_pmic->adc_num_board_channel = pdata->adc_num_board_channel;
 	adc_pmic->adc_num_channel = ADC_MPP_2_CHANNEL_NONE;
 	adc_pmic->mpp_base = pdata->adc_mpp_base;
 
@@ -1188,7 +1257,6 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	}
 
 	disable_irq_nosync(adc_pmic->btm_cool_irq);
-	device_init_wakeup(&pdev->dev, pdata->adc_wakeup);
 	platform_set_drvdata(pdev, adc_pmic);
 	pmic_adc = adc_pmic;
 
@@ -1198,6 +1266,13 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	pm8921_adc_calib_first_adc = false;
 	pm8921_adc_calib_device_init = false;
 	pm8921_adc_initialized = true;
+
+	rc = pm8921_adc_init_hwmon(pdev);
+	if (rc) {
+		pr_err("pm8921 adc init hwmon failed with %d\n", rc);
+		goto err_cleanup;
+	}
+	adc_pmic->hwmon = hwmon_device_register(adc_pmic->dev);
 	return 0;
 
 err_cleanup:

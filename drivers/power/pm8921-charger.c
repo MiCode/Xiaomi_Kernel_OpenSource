@@ -18,7 +18,7 @@
 #include <linux/errno.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
-#include <linux/mfd/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>

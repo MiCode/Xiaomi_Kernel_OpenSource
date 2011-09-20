@@ -31,7 +31,7 @@
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8921-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
-#include <linux/mfd/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/leds.h>
 #include <linux/mfd/pm8xxx/vibrator.h>

@@ -14,7 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/module.h>
-#include <linux/mfd/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-adc.h>
 #define KELVINMIL_DEGMIL	273160
 
 static const struct pm8921_adc_map_pt adcmap_batttherm[] = {
