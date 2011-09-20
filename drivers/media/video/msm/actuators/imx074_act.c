@@ -91,7 +91,7 @@ int32_t imx074_act_write_focus(
 	return rc;
 }
 
-static int32_t imx074_act_set_default_focus(struct msm_actuator_ctrl_t *a_ctrl)
+static int32_t imx074_act_init_focus(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc;
 	LINFO("%s called\n",
@@ -207,8 +207,20 @@ static struct msm_actuator_ctrl_t imx074_act_t = {
 		.actuator_init_table = msm_actuator_init_table,
 		.actuator_move_focus = msm_actuator_move_focus,
 		.actuator_write_focus = imx074_act_write_focus,
-		.actuator_set_default_focus = imx074_act_set_default_focus,
+		.actuator_set_default_focus = msm_actuator_set_default_focus,
+		.actuator_init_focus = imx074_act_init_focus,
 		.actuator_i2c_write = imx074_wrapper_i2c_write,
+	},
+
+	.get_info = {
+		.focal_length_num = 46,
+		.focal_length_den = 10,
+		.f_number_num = 265,
+		.f_number_den = 100,
+		.f_pix_num = 14,
+		.f_pix_den = 10,
+		.total_f_dist_num = 197681,
+		.total_f_dist_den = 1000,
 	},
 
 	/* Initialize scenario */
