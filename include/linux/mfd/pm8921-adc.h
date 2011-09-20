@@ -474,6 +474,7 @@ struct pm8921_adc_platform_data {
 	struct pm8921_adc_amux		*adc_channel;
 	uint32_t			adc_num_channel;
 	u32				adc_wakeup;
+	uint32_t			adc_mpp_base;
 };
 
 /* Public API */
@@ -485,6 +486,23 @@ struct pm8921_adc_platform_data {
  *		in which the ADC read results are stored.
  */
 uint32_t pm8921_adc_read(enum pm8921_adc_channels channel,
+				struct pm8921_adc_chan_result *result);
+/**
+ * pm8921_adc_mpp_config_read() - Configure's the PM8921 MPP
+ *		to AMUX6 and performs an ADC read.
+ * @mpp_num	PM8921 MPP number to configure to AMUX6.
+ * @channel:	Input channel to perform the ADC read.
+ *		a) 'ADC_MPP_1_AMUX6' if the input voltage is less than 1.8V
+ *		b) 'ADC_MPP_2_AMUX6' if the input voltage is greater then 1.8V
+ *		the input voltage is pre-divided by 3 and passed to the ADC.
+ *		The appropriate scaling function needs to be selected to let
+ *		the driver know a post scaling is required before returning
+ *		the result.
+ * @result:	Structure pointer of type adc_chan_result
+ *		in which the ADC read results are stored.
+ */
+uint32_t pm8921_adc_mpp_config_read(uint32_t mpp_num,
+				enum pm8921_adc_channels channel,
 				struct pm8921_adc_chan_result *result);
 /**
  * pm8921_adc_btm_start() - Configure the BTM registers and start
@@ -522,6 +540,10 @@ uint32_t pm8921_adc_btm_end(void);
 uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *);
 #else
 static inline uint32_t pm8921_adc_read(uint32_t channel,
+				struct pm8921_adc_chan_result *result)
+{ return -ENXIO; }
+static inline uint32_t pm8921_adc_mpp_config_read(uint32_t mpp_num,
+				enum pm8921_adc_channels channel,
 				struct pm8921_adc_chan_result *result)
 { return -ENXIO; }
 static inline uint32_t pm8921_adc_btm_start(void)

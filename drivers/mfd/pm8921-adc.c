@@ -113,6 +113,8 @@
 #define PM8921_ADC_MUL					10
 #define PM8921_ADC_CONV_TIME_MIN			2000
 #define PM8921_ADC_CONV_TIME_MAX			2100
+#define PM8921_ADC_MPP_SETTLE_TIME_MIN			200
+#define PM8921_ADC_MPP_SETTLE_TIME_MAX			200
 #define PM8921_ADC_PA_THERM_VREG_UV_MIN			1800000
 #define PM8921_ADC_PA_THERM_VREG_UV_MAX			1800000
 #define PM8921_ADC_PA_THERM_VREG_UA_LOAD		100000
@@ -122,6 +124,7 @@ struct pm8921_adc {
 	struct pm8921_adc_properties		*adc_prop;
 	int					adc_irq;
 	struct mutex				adc_lock;
+	struct mutex				mpp_adc_lock;
 	spinlock_t				btm_lock;
 	uint32_t				adc_num_channel;
 	struct completion			adc_rslt_completion;
@@ -133,6 +136,7 @@ struct pm8921_adc {
 	struct dentry				*dent;
 	struct work_struct			warm_work;
 	struct work_struct			cool_work;
+	uint32_t				mpp_base;
 };
 
 struct pm8921_adc_amux_properties {
@@ -158,6 +162,22 @@ static struct pm8921_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_PA_THERM] = {pm8921_adc_scale_pa_therm},
 	[ADC_SCALE_PMIC_THERM] = {pm8921_adc_scale_pmic_therm},
 	[ADC_SCALE_XOTHERM] = {pm8921_adc_tdkntcg_therm},
+};
+
+/* MPP 8 is mapped to AMUX8 and is common between remote processor's */
+
+static struct pm8xxx_mpp_config_data pm8921_adc_mpp_config = {
+	.type		= PM8XXX_MPP_TYPE_A_INPUT,
+	/* AMUX6 is dedicated to be used for apps processor */
+	.level		= PM8XXX_MPP_AIN_AMUX_CH6,
+	.control	= PM8XXX_MPP_AOUT_CTRL_DISABLE,
+};
+
+/* MPP Configuration for default settings */
+static struct pm8xxx_mpp_config_data pm8921_adc_mpp_unconfig = {
+	.type		= PM8XXX_MPP_TYPE_SINK,
+	.level		= PM8XXX_MPP_AIN_AMUX_CH5,
+	.control	= PM8XXX_MPP_AOUT_CTRL_DISABLE,
 };
 
 static bool pm8921_adc_calib_first_adc;
@@ -721,6 +741,53 @@ fail_unlock:
 }
 EXPORT_SYMBOL_GPL(pm8921_adc_read);
 
+uint32_t pm8921_adc_mpp_config_read(uint32_t mpp_num,
+			enum pm8921_adc_channels channel,
+			struct pm8921_adc_chan_result *result)
+{
+	struct pm8921_adc *adc_pmic = pmic_adc;
+	int rc = 0;
+
+	if (!adc_pmic->mpp_base) {
+		rc = -EINVAL;
+		pr_info("PM8921 MPP base invalid with error %d\n", rc);
+		return rc;
+	}
+
+	if (mpp_num == PM8921_AMUX_MPP_8) {
+		rc = -EINVAL;
+		pr_info("PM8921 MPP8 is already configured "
+			"to AMUX8. Use pm8921_adc_read() instead.\n");
+		return rc;
+	}
+
+	mutex_lock(&adc_pmic->mpp_adc_lock);
+
+	rc = pm8xxx_mpp_config((mpp_num + adc_pmic->mpp_base),
+					&pm8921_adc_mpp_config);
+	if (rc < 0) {
+		pr_err("pm8921 adc mpp config error with %d\n", rc);
+		goto fail;
+	}
+
+	usleep_range(PM8921_ADC_MPP_SETTLE_TIME_MIN,
+					PM8921_ADC_MPP_SETTLE_TIME_MAX);
+
+	rc = pm8921_adc_read(channel, result);
+	if (rc < 0)
+		pr_err("pm8921 adc read error with %d\n", rc);
+
+	rc = pm8xxx_mpp_config((mpp_num + adc_pmic->mpp_base),
+					&pm8921_adc_mpp_unconfig);
+	if (rc < 0)
+		pr_err("pm8921 adc mpp config error with %d\n", rc);
+fail:
+	mutex_unlock(&adc_pmic->mpp_adc_lock);
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(pm8921_adc_mpp_config_read);
+
 uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *btm_param)
 {
 	struct pm8921_adc *adc_pmic = pmic_adc;
@@ -918,13 +985,31 @@ static int get_adc(void *data, u64 *val)
 	int rc;
 
 	rc = pm8921_adc_read(i, &result);
-	pr_info("ADC value raw:%x physical:%lld\n",
+	if (!rc)
+		pr_info("ADC value raw:%x physical:%lld\n",
 			result.adc_code, result.physical);
 	*val = result.physical;
 
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%llu\n");
+
+static int get_mpp_adc(void *data, u64 *val)
+{
+	struct pm8921_adc_chan_result result;
+	int i = (int)data;
+	int rc;
+
+	rc = pm8921_adc_mpp_config_read(PM8921_AMUX_MPP_8,
+		i, &result);
+	if (!rc)
+		pr_info("ADC MPP value raw:%x physical:%lld\n",
+			result.adc_code, result.physical);
+	*val = result.physical;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(reg_mpp_fops, get_mpp_adc, NULL, "%llu\n");
 
 #ifdef CONFIG_DEBUG_FS
 static void create_debugfs_entries(void)
@@ -1043,8 +1128,10 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 	init_completion(&adc_pmic->adc_rslt_completion);
 	adc_pmic->adc_channel = pdata->adc_channel;
 	adc_pmic->adc_num_channel = ADC_MPP_2_CHANNEL_NONE;
+	adc_pmic->mpp_base = pdata->adc_mpp_base;
 
 	mutex_init(&adc_pmic->adc_lock);
+	mutex_init(&adc_pmic->mpp_adc_lock);
 	spin_lock_init(&adc_pmic->btm_lock);
 
 	adc_pmic->adc_irq = platform_get_irq(pdev, PM8921_ADC_IRQ_0);
