@@ -998,16 +998,159 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 };
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+
+static struct msm_bus_vectors cam_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors cam_preview_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 27648000,
+		.ib  = 110592000,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors cam_video_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 140451840,
+		.ib  = 561807360,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 206807040,
+		.ib  = 488816640,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors cam_snapshot_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 274423680,
+		.ib  = 1097694720,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 540000000,
+		.ib  = 1350000000,
+	},
+};
+
+static struct msm_bus_vectors cam_zsl_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 302071680,
+		.ib  = 1208286720,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 540000000,
+		.ib  = 1350000000,
+	},
+};
+
+static struct msm_bus_paths cam_bus_client_config[] = {
+	{
+		ARRAY_SIZE(cam_init_vectors),
+		cam_init_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_preview_vectors),
+		cam_preview_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_video_vectors),
+		cam_video_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_snapshot_vectors),
+		cam_snapshot_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_zsl_vectors),
+		cam_zsl_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata cam_bus_client_pdata = {
+		cam_bus_client_config,
+		ARRAY_SIZE(cam_bus_client_config),
+		.name = "msm_camera",
+};
+#endif
+
 struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
 		.ioclk.mclk_clk_rate = 24000000,
 		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 0,
+#ifdef CONFIG_MSM_BUS_SCALING
+		.cam_bus_scale_table = &cam_bus_client_pdata,
+#endif
 	},
 	{
 		.ioclk.mclk_clk_rate = 24000000,
 		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 1,
+#ifdef CONFIG_MSM_BUS_SCALING
+		.cam_bus_scale_table = &cam_bus_client_pdata,
+#endif
 	},
 };
 

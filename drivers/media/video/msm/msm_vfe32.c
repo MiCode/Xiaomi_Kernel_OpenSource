@@ -691,6 +691,7 @@ static void vfe32_start_common(void)
 
 static int vfe32_start_recording(void)
 {
+	msm_camio_set_perf_lvl(S_VIDEO);
 	vfe32_ctrl->recording_state = VFE_REC_STATE_START_REQUESTED;
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	return 0;
@@ -700,6 +701,7 @@ static int vfe32_stop_recording(void)
 {
 	vfe32_ctrl->recording_state = VFE_REC_STATE_STOP_REQUESTED;
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+	msm_camio_set_perf_lvl(S_PREVIEW);
 	return 0;
 }
 
@@ -815,6 +817,7 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	}
 	msm_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
+	msm_camio_set_perf_lvl(S_CAPTURE);
 	vfe32_start_common();
 	msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	/* for debug */
@@ -851,6 +854,7 @@ static int vfe32_start(void)
 		msm_io_w(1, vfe32_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
 	}
+	msm_camio_set_perf_lvl(S_PREVIEW);
 	vfe32_start_common();
 	return 0;
 }

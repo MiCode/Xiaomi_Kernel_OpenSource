@@ -140,140 +140,7 @@ static struct resource *csidio, *csiphyio, *s3drw_io, *s3dctl_io;
 static struct resource *csid_mem, *csiphy_mem, *s3drw_mem, *s3dctl_mem;
 static struct resource *csid_irq, *csiphy_irq;
 void __iomem *csidbase, *csiphybase, *s3d_rw, *s3d_ctl;
-
-static struct msm_bus_vectors cam_init_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_VPE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-};
-
-static struct msm_bus_vectors cam_preview_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-	{
-		.src = MSM_BUS_MASTER_VPE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-};
-
-static struct msm_bus_vectors cam_video_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-	{
-		.src = MSM_BUS_MASTER_VPE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-	{
-		.src = MSM_BUS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-};
-
-static struct msm_bus_vectors cam_snapshot_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-	{
-		.src = MSM_BUS_MASTER_VPE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-};
-
-static struct msm_bus_vectors cam_zsl_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-	{
-		.src = MSM_BUS_MASTER_VPE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1521190000,
-		.ib  = 1521190000,
-	},
-};
-
-static struct msm_bus_paths cam_bus_client_config[] = {
-	{
-		ARRAY_SIZE(cam_init_vectors),
-		cam_init_vectors,
-	},
-	{
-		ARRAY_SIZE(cam_preview_vectors),
-		cam_preview_vectors,
-	},
-	{
-		ARRAY_SIZE(cam_video_vectors),
-		cam_video_vectors,
-	},
-	{
-		ARRAY_SIZE(cam_snapshot_vectors),
-		cam_snapshot_vectors,
-	},
-	{
-		ARRAY_SIZE(cam_zsl_vectors),
-		cam_zsl_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata cam_bus_client_pdata = {
-		cam_bus_client_config,
-		ARRAY_SIZE(cam_bus_client_config),
-		.name = "msm_camera",
-};
+struct msm_bus_scale_pdata *cam_bus_scale_table;
 
 
 void msm_io_w(u32 data, void __iomem *addr)
@@ -1104,6 +971,7 @@ int msm_camio_enable(struct platform_device *pdev)
 
 	camio_dev = pdev;
 	camio_clk = camdev->ioclk;
+	cam_bus_scale_table = camdev->cam_bus_scale_table;
 
 	rc = msm_camio_enable_all_clks(csid_core);
 	if (rc < 0)
@@ -1473,7 +1341,7 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 	switch (perf_setting) {
 	case S_INIT:
 		bus_perf_client =
-			msm_bus_scale_register_client(&cam_bus_client_pdata);
+			msm_bus_scale_register_client(cam_bus_scale_table);
 		if (!bus_perf_client) {
 			CDBG("%s: Registration Failed!!!\n", __func__);
 			bus_perf_client = 0;
