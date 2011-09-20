@@ -267,14 +267,14 @@ struct msm_spi {
 	u32                      rx_bytes_remaining;
 	u32                      tx_bytes_remaining;
 	u32                      clock_speed;
-	u32                      irq_in;
+	int                      irq_in;
 	int                      read_xfr_cnt;
 	int                      write_xfr_cnt;
 	int                      write_len;
 	int                      read_len;
 #if defined(CONFIG_SPI_QSD) || defined(CONFIG_SPI_QSD_MODULE)
-	u32                      irq_out;
-	u32                      irq_err;
+	int                      irq_out;
+	int                      irq_err;
 #endif
 	int                      bytes_per_word;
 	bool                     suspended;
