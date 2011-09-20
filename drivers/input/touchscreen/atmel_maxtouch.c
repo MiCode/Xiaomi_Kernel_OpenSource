@@ -1288,7 +1288,6 @@ static void mxt_worker(struct work_struct *work)
 
 	message = NULL;
 	mxt = container_of(work, struct mxt_data, dwork.work);
-	disable_irq(mxt->irq);
 	client = mxt->client;
 	message_addr = 	mxt->msg_proc_addr;
 	message_length = mxt->message_size;
@@ -1297,15 +1296,15 @@ static void mxt_worker(struct work_struct *work)
 		message = kmalloc(message_length, GFP_KERNEL);
 		if (message == NULL) {
 			dev_err(&client->dev, "Error allocating memory\n");
-			return;
+			goto fail_worker;
 		}
 	} else {
 		dev_err(&client->dev,
 			"Message length larger than 256 bytes not supported\n");
-		return;
+		goto fail_worker;
 	}
 
-	mxt_debug(DEBUG_TRACE, "maXTouch worker active: \n");
+	mxt_debug(DEBUG_TRACE, "maXTouch worker active:\n");
 	
 	do {
 		/* Read next message, reread on failure. */
@@ -1324,7 +1323,7 @@ static void mxt_worker(struct work_struct *work)
 		}
 		if (error < 0) {
 			kfree(message);
-			return;
+			goto fail_worker;
 		}
 		
 		if (mxt->address_pointer != message_addr)
@@ -1343,7 +1342,7 @@ static void mxt_worker(struct work_struct *work)
 				dev_err(&client->dev, 
 					"Error allocating memory\n");
 				kfree(message);
-				return;
+				goto fail_worker;
 			}
 			message_start = message_string;
 			for (i = 0; i < message_length; i++) {
@@ -1371,14 +1370,15 @@ static void mxt_worker(struct work_struct *work)
 	/* All messages processed, send the events) */
 	process_T9_message(NULL, mxt, 1);
 
-
 	kfree(message);
+
+fail_worker:
 	enable_irq(mxt->irq);
 	/* Make sure we just didn't miss a interrupt. */
 	if (mxt->read_chg() == 0){
+		disable_irq(mxt->irq);
 		schedule_delayed_work(&mxt->dwork, 0);
 	}
-
 }
 
 
@@ -1395,7 +1395,7 @@ static irqreturn_t mxt_irq_handler(int irq, void *_mxt)
 	mxt->irq_counter++;
 	if (mxt->valid_interrupt()) {
 		/* Send the signal only if falling edge generated the irq. */
-		cancel_delayed_work(&mxt->dwork);
+		disable_irq_nosync(mxt->irq);
 		schedule_delayed_work(&mxt->dwork, 0);
 		mxt->valid_irq_counter++;
 	} else {
@@ -1837,8 +1837,10 @@ static int mxt_resume(struct device *dev)
 	mxt->is_suspended = false;
 
 	/* Make sure we just didn't miss a interrupt. */
-	if (mxt->read_chg() == 0)
+	if (mxt->read_chg() == 0) {
+		disable_irq(mxt->irq);
 		schedule_delayed_work(&mxt->dwork, 0);
+	}
 
 	return 0;
 
@@ -2186,6 +2188,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	/* Schedule a worker routine to read any messages that might have
 	 * been sent before interrupts were enabled. */
 	cancel_delayed_work(&mxt->dwork);
+	disable_irq(mxt->irq);
 	schedule_delayed_work(&mxt->dwork, 0);
 	kfree(t38_data);
 	kfree(id_data);
