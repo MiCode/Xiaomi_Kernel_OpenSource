@@ -21,6 +21,7 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <mach/msm_sps.h>
 #include "devices.h"
 #include "acpuclock.h"
 
@@ -141,6 +142,45 @@ struct platform_device msm9615_device_ssbi_pmic1 = {
 	.id             = 0,
 	.resource       = resources_ssbi_pmic1,
 	.num_resources  = ARRAY_SIZE(resources_ssbi_pmic1),
+};
+
+static struct resource resources_sps[] = {
+	{
+		.name	= "pipe_mem",
+		.start	= 0x12800000,
+		.end	= 0x12800000 + 0x4000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_dma",
+		.start	= 0x12240000,
+		.end	= 0x12240000 + 0x1000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_bam",
+		.start	= 0x12244000,
+		.end	= 0x12244000 + 0x4000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "bamdma_irq",
+		.start	= SPS_BAM_DMA_IRQ,
+		.end	= SPS_BAM_DMA_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct msm_sps_platform_data msm_sps_pdata = {
+	.bamdma_restricted_pipes = 0x06,
+};
+
+struct platform_device msm_device_sps = {
+	.name		= "msm_sps",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_sps),
+	.resource	= resources_sps,
+	.dev.platform_data = &msm_sps_pdata,
 };
 
 #ifdef CONFIG_CACHE_L2X0

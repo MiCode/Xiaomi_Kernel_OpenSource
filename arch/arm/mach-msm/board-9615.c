@@ -30,6 +30,7 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_ssbi_pmic1,
 	&msm9615_device_qup_i2c_gsbi5,
 	&msm9615_device_qup_spi_gsbi3,
+	&msm_device_sps,
 };
 
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
