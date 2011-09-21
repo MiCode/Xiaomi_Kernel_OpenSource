@@ -1050,15 +1050,18 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 }
 
 /*
- wait_io_event_interruptible_timeout checks for the exit condition before
+ wait_event_interruptible_timeout checks for the exit condition before
  placing a process in wait q. For conditional interrupts we expect the
  process to already be in its wait q when its exit condition checking
  function is called.
 */
-#define kgsl_wait_io_event_interruptible_timeout(wq, condition, timeout)\
+#define kgsl_wait_event_interruptible_timeout(wq, condition, timeout, io)\
 ({									\
 	long __ret = timeout;						\
-	__wait_io_event_interruptible_timeout(wq, condition, __ret);	\
+	if (io)						\
+		__wait_io_event_interruptible_timeout(wq, condition, __ret);\
+	else						\
+		__wait_event_interruptible_timeout(wq, condition, __ret);\
 	__ret;								\
 })
 
@@ -1068,7 +1071,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 				unsigned int msecs)
 {
 	long status = 0;
+	uint io = 1;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	if (timestamp != adreno_dev->ringbuffer.timestamp &&
 		timestamp_cmp(timestamp,
@@ -1080,13 +1085,20 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		goto done;
 	}
 	if (!kgsl_check_timestamp(device, timestamp)) {
+		if (pwr->active_pwrlevel) {
+			int low_pwrlevel = pwr->num_pwrlevels -
+					KGSL_PWRLEVEL_LOW_OFFSET;
+			if (pwr->active_pwrlevel == low_pwrlevel)
+				io = 0;
+		}
 		mutex_unlock(&device->mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
-		status = kgsl_wait_io_event_interruptible_timeout(
+		status = kgsl_wait_event_interruptible_timeout(
 				device->wait_queue,
 				kgsl_check_interrupt_timestamp(device,
-					timestamp), msecs_to_jiffies(msecs));
+					timestamp),
+				msecs_to_jiffies(msecs), io);
 		mutex_lock(&device->mutex);
 
 		if (status > 0)
