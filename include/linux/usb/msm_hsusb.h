@@ -184,6 +184,7 @@ struct msm_otg_platform_data {
  * @pclk_src: pclk source for voting.
  * @phy_reset_clk: clock struct of usb_phy_clk.
  * @core_clk: clock struct of usb_hs_core_clk.
+ * @system_clk: clock struct of usb_system_clk.
  * @regs: ioremapped register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
@@ -211,6 +212,7 @@ struct msm_otg {
 	struct clk *pclk_src;
 	struct clk *phy_reset_clk;
 	struct clk *core_clk;
+	struct clk *system_clk;
 	void __iomem *regs;
 #define ID		0
 #define B_SESS_VLD	1
