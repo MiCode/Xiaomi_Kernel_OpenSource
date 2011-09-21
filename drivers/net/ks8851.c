@@ -372,19 +372,26 @@ static int ks8851_write_mac_addr(struct net_device *dev)
  * @ks: The device structure
  *
  * Get or create the initial mac address for the device and then set that
- * into the station address register. Currently we assume that the device
- * does not have a valid mac address in it, and so we use random_ether_addr()
- * to create a new one.
- *
- * In future, the driver should check to see if the device has an EEPROM
- * attached and whether that has a valid ethernet address in it.
+ * into the station address register. The device will try to read a MAC address
+ * from the EEPROM and program it into the MARs. We use random_ether_addr()
+ * if the EEPROM is not present or if the address in the MARs appears invalid.
  */
 static void ks8851_init_mac(struct ks8851_net *ks)
 {
 	struct net_device *dev = ks->netdev;
+	int i;
 
-	random_ether_addr(dev->dev_addr);
-	ks8851_write_mac_addr(dev);
+	mutex_lock(&ks->lock);
+
+	for (i = 0; i < ETH_ALEN; i++)
+		dev->dev_addr[i] = ks8851_rdreg8(ks, KS_MAR(i));
+
+	mutex_unlock(&ks->lock);
+
+	if (!(ks->rc_ccr & CCR_EEPROM) || !is_valid_ether_addr(dev->dev_addr)) {
+		random_ether_addr(dev->dev_addr);
+		ks8851_write_mac_addr(dev);
+	}
 }
 
 /**
