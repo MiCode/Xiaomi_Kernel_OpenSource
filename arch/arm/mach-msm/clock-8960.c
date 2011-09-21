@@ -3481,11 +3481,17 @@ static unsigned hdmi_pll_clk_get_rate(struct clk *clk)
 	return hdmi_pll_get_rate();
 }
 
+static struct clk *hdmi_pll_clk_get_parent(struct clk *clk)
+{
+	return &pxo_clk.c;
+}
+
 static struct clk_ops clk_ops_hdmi_pll = {
 	.enable = hdmi_pll_clk_enable,
 	.disable = hdmi_pll_clk_disable,
 	.get_rate = hdmi_pll_clk_get_rate,
 	.is_local = local_clk_is_local,
+	.get_parent = hdmi_pll_clk_get_parent,
 };
 
 static struct clk hdmi_pll_clk = {
