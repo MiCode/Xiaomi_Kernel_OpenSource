@@ -995,14 +995,16 @@ qup_i2c_probe(struct platform_device *pdev)
 							"gsbi_qup_i2c_addr");
 		if (!gsbi_mem) {
 			dev_err(&pdev->dev, "no gsbi mem resource?\n");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto err_res_failed;
 		}
 		gsbi_io = request_mem_region(gsbi_mem->start,
 						resource_size(gsbi_mem),
 						pdev->name);
 		if (!gsbi_io) {
 			dev_err(&pdev->dev, "GSBI region already claimed\n");
-			return -EBUSY;
+			ret = -EBUSY;
+			goto err_res_failed;
 		}
 	}
 
@@ -1170,6 +1172,7 @@ err_config_failed:
 err_clk_get_failed:
 	if (gsbi_mem)
 		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
+err_res_failed:
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
 	return ret;
 }
@@ -1204,7 +1207,6 @@ qup_i2c_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 
-	kfree(dev);
 	if (!(dev->pdata->use_gsbi_shared_mode)) {
 		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"gsbi_qup_i2c_addr");
@@ -1213,6 +1215,7 @@ qup_i2c_remove(struct platform_device *pdev)
 	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qup_phys_addr");
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
+	kfree(dev);
 	return 0;
 }
 
