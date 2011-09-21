@@ -67,6 +67,8 @@
 #define SND_AUDIOCODEC_VORBIS                ((__u32) 0x00000009)
 #define SND_AUDIOCODEC_FLAC                  ((__u32) 0x0000000A)
 #define SND_AUDIOCODEC_IEC61937              ((__u32) 0x0000000B)
+#define SND_AUDIOCODEC_G723_1                ((__u32) 0x0000000C)
+#define SND_AUDIOCODEC_G729                  ((__u32) 0x0000000D)
 
 /*
  * Profile and modes are listed with bit masks. This allows for a
@@ -209,6 +211,17 @@
 #define SND_AUDIOMODE_IEC_HE_AAC	     ((__u32) 0x00008000)
 #define SND_AUDIOMODE_IEC_HE_AAC2	     ((__u32) 0x00010000)
 #define SND_AUDIOMODE_IEC_MPEG_SURROUND	     ((__u32) 0x00020000)
+
+#define SND_AUDIOPROFILE_G723_1              ((__u32) 0x00000001)
+
+#define SND_AUDIOMODE_G723_1_ANNEX_A         ((__u32) 0x00000001)
+#define SND_AUDIOMODE_G723_1_ANNEX_B         ((__u32) 0x00000002)
+#define SND_AUDIOMODE_G723_1_ANNEX_C         ((__u32) 0x00000004)
+
+#define SND_AUDIOPROFILE_G729                ((__u32) 0x00000001)
+
+#define SND_AUDIOMODE_G729_ANNEX_A           ((__u32) 0x00000001)
+#define SND_AUDIOMODE_G729_ANNEX_B           ((__u32) 0x00000002)
 
 /* <FIXME: multichannel encoders aren't supported for now. Would need
    an additional definition of channel arrangement> */
