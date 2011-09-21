@@ -382,6 +382,9 @@ static int msm_otg_phy_clk_reset(struct msm_otg *motg)
 {
 	int ret;
 
+	if (IS_ERR(motg->phy_reset_clk))
+		return 0;
+
 	ret = clk_reset(motg->phy_reset_clk, CLK_RESET_ASSERT);
 	if (ret) {
 		dev_err(motg->otg.dev, "usb phy clk assert failed\n");
@@ -1813,12 +1816,10 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	otg = &motg->otg;
 	otg->dev = &pdev->dev;
 
+	/* Some targets don't support PHY clock. */
 	motg->phy_reset_clk = clk_get(&pdev->dev, "usb_phy_clk");
-	if (IS_ERR(motg->phy_reset_clk)) {
+	if (IS_ERR(motg->phy_reset_clk))
 		dev_err(&pdev->dev, "failed to get usb_phy_clk\n");
-		ret = PTR_ERR(motg->phy_reset_clk);
-		goto free_motg;
-	}
 
 	motg->clk = clk_get(&pdev->dev, "usb_hs_clk");
 	if (IS_ERR(motg->clk)) {
@@ -1845,13 +1846,16 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	} else
 		motg->pclk_src = ERR_PTR(-ENOENT);
 
-
 	motg->pclk = clk_get(&pdev->dev, "usb_hs_pclk");
 	if (IS_ERR(motg->pclk)) {
 		dev_err(&pdev->dev, "failed to get usb_hs_pclk\n");
 		ret = PTR_ERR(motg->pclk);
 		goto put_pclk_src;
 	}
+
+	motg->system_clk = clk_get(&pdev->dev, "usb_hs_system_clk");
+	if (!IS_ERR(motg->system_clk))
+		clk_enable(motg->system_clk);
 
 	/*
 	 * USB core clock is not present on all MSM chips. This
@@ -2001,6 +2005,11 @@ free_regs:
 put_core_clk:
 	if (motg->core_clk)
 		clk_put(motg->core_clk);
+
+	if (!IS_ERR(motg->system_clk)) {
+		clk_disable(motg->system_clk);
+		clk_put(motg->system_clk);
+	}
 put_pclk_src:
 	if (!IS_ERR(motg->pclk_src)) {
 		clk_disable(motg->pclk_src);
@@ -2009,8 +2018,9 @@ put_pclk_src:
 put_clk:
 	clk_put(motg->clk);
 put_phy_reset_clk:
-	clk_put(motg->phy_reset_clk);
-free_motg:
+	if (!IS_ERR(motg->phy_reset_clk))
+		clk_put(motg->phy_reset_clk);
+
 	kfree(motg);
 	return ret;
 }
@@ -2071,11 +2081,14 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	iounmap(motg->regs);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	clk_put(motg->phy_reset_clk);
+	if (!IS_ERR(motg->phy_reset_clk))
+		clk_put(motg->phy_reset_clk);
 	clk_put(motg->pclk);
 	clk_put(motg->clk);
 	if (motg->core_clk)
 		clk_put(motg->core_clk);
+	if (!IS_ERR(motg->system_clk))
+		clk_put(motg->system_clk);
 
 	kfree(motg);
 
