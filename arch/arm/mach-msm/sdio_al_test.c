@@ -242,7 +242,7 @@ struct sdio_al_test_debug {
 	struct dentry *modem_reset_channels_4bit_dev_test;
 	struct dentry *modem_reset_channels_8bit_dev_test;
 	struct dentry *modem_reset_all_channels_test;
-	struct dentry *open_close_diag_ciq_rmnet_test;
+	struct dentry *open_close_test;
 	struct dentry *open_close_dun_rmnet_test;
 	struct dentry *close_chan_lpm_test;
 	struct dentry *lpm_test_client_wakes_host_test;
@@ -274,10 +274,11 @@ struct test_context {
 
 	int runtime_debug;
 
-	struct platform_device smem_pdev;
+	struct platform_device *smem_pdev;
 	struct sdio_smem_client *sdio_smem;
 	int smem_was_init;
 	u8 *smem_buf;
+	uint32_t smem_counter;
 
 	wait_queue_head_t   wait_q;
 	int test_completed;
@@ -306,6 +307,10 @@ static int set_params_modem_reset(struct test_channel *tch);
 static int test_start(void);
 static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count);
 static void sdio_al_test_cleanup_channels(void);
+static void notify(void *priv, unsigned channel_event);
+#ifdef CONFIG_MSM_SDIO_SMEM
+static int sdio_smem_open(struct sdio_smem_client *sdio_smem);
+#endif
 
 /*
  * Seed for pseudo random time sleeping in Random LPM test.
@@ -1582,8 +1587,8 @@ const struct file_operations modem_reset_all_channels_test_ops = {
 	.read = modem_reset_all_channels_test_read,
 };
 
-/* HOST SENDER WITH OPEN/CLOSE FOR DIAG, CIQ & RMNET TEST */
-static ssize_t open_close_diag_ciq_rmnet_test_write(struct file *file,
+/* HOST SENDER WITH OPEN/CLOSE TEST */
+static ssize_t open_close_test_write(struct file *file,
 						   const char __user *buf,
 						   size_t count,
 						   loff_t *ppos)
@@ -1593,8 +1598,7 @@ static ssize_t open_close_diag_ciq_rmnet_test_write(struct file *file,
 	int i = 0;
 	int number = -1;
 
-	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE FOR "
-		"DIAG, CIQ AND RMNET TEST --");
+	pr_info(TEST_MODULE_NAME "-- HOST SENDER WITH OPEN/CLOSE TEST --");
 
 	number = sdio_al_test_extract_number(buf, count);
 
@@ -1612,7 +1616,11 @@ static ssize_t open_close_diag_ciq_rmnet_test_write(struct file *file,
 
 		set_params_loopback_9k_close(ch_arr[SDIO_DIAG]);
 		set_params_loopback_9k_close(ch_arr[SDIO_CIQ]);
+		set_params_loopback_9k_close(ch_arr[SDIO_RPC]);
+		set_params_loopback_9k_close(ch_arr[SDIO_SMEM]);
+		set_params_loopback_9k_close(ch_arr[SDIO_QMI]);
 		set_params_loopback_9k_close(ch_arr[SDIO_RMNT]);
+		set_params_loopback_9k_close(ch_arr[SDIO_DUN]);
 
 		ret = test_start();
 
@@ -1633,7 +1641,7 @@ static ssize_t open_close_diag_ciq_rmnet_test_write(struct file *file,
 	return count;
 }
 
-static ssize_t open_close_diag_ciq_rmnet_test_read(struct file *file,
+static ssize_t open_close_test_read(struct file *file,
 						  char __user *buffer,
 						  size_t count,
 						  loff_t *offset)
@@ -1641,7 +1649,7 @@ static ssize_t open_close_diag_ciq_rmnet_test_read(struct file *file,
 	memset((void *)buffer, 0, count);
 
 	snprintf(buffer, count,
-		 "\nOPEN_CLOSE_DIAG_CIQ_RMNET_TEST\n"
+		 "\nOPEN_CLOSE_TEST\n"
 		 "============================\n"
 		 "Description:\n"
 		 "In this test the host sends 5k packets to the modem in the "
@@ -1658,12 +1666,11 @@ static ssize_t open_close_diag_ciq_rmnet_test_read(struct file *file,
 	}
 }
 
-const struct file_operations open_close_diag_ciq_rmnet_test_ops = {
+const struct file_operations open_close_test_ops = {
 	.open = sdio_al_test_open,
-	.write = open_close_diag_ciq_rmnet_test_write,
-	.read = open_close_diag_ciq_rmnet_test_read,
+	.write = open_close_test_write,
+	.read = open_close_test_read,
 };
-
 
 /* HOST SENDER WITH OPEN/CLOSE FOR DUN & RMNET TEST */
 static ssize_t open_close_dun_rmnet_test_write(struct file *file,
@@ -1765,8 +1772,6 @@ static ssize_t close_chan_lpm_test_write(struct file *file,
 
 		for (channel_num = 0 ; channel_num < SDIO_MAX_CHANNELS ;
 		     channel_num++) {
-			if (channel_num == SDIO_SMEM)
-				continue;
 
 			ret = close_channel_lpm_test(channel_num);
 
@@ -2277,12 +2282,12 @@ static int sdio_al_test_debugfs_init(void)
 				     NULL,
 				     &modem_reset_all_channels_test_ops);
 
-	test_ctx->debug.open_close_diag_ciq_rmnet_test =
-		debugfs_create_file("270_open_close_diag_ciq_rmnet_test",
+	test_ctx->debug.open_close_test =
+		debugfs_create_file("270_open_close_test",
 				     S_IRUGO | S_IWUGO,
 				     test_ctx->debug.debug_root,
 				     NULL,
-				     &open_close_diag_ciq_rmnet_test_ops);
+				     &open_close_test_ops);
 
 	test_ctx->debug.open_close_dun_rmnet_test =
 		debugfs_create_file("271_open_close_dun_rmnet_test",
@@ -2373,6 +2378,98 @@ static int channel_name_to_id(char *name)
 		return SDIO_MAX_CHANNELS;
 
 	return SDIO_MAX_CHANNELS;
+}
+
+/**
+ * Allocate and add SDIO_SMEM platform device
+ */
+#ifdef CONFIG_MSM_SDIO_SMEM
+static int add_sdio_smem(void)
+{
+	int ret = 0;
+
+	test_ctx->smem_pdev = platform_device_alloc("SDIO_SMEM", -1);
+	ret = platform_device_add(test_ctx->smem_pdev);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME ": platform_device_add failed, "
+				   "ret=%d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+#endif
+
+static int open_sdio_ch(struct test_channel *tch)
+{
+	int ret = 0;
+
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ": %s NULL tch\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!tch->ch_ready) {
+		TEST_DBG(TEST_MODULE_NAME ":openning channel %s\n",
+			tch->name);
+		if (tch->ch_id == SDIO_SMEM) {
+#ifdef CONFIG_MSM_SDIO_SMEM
+			if (!test_ctx->smem_pdev)
+				ret = add_sdio_smem();
+			else
+				ret = sdio_smem_open(test_ctx->sdio_smem);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME
+					":openning channel %s failed\n",
+				tch->name);
+				tch->ch_ready = false;
+				return -EINVAL;
+			}
+#endif
+		} else {
+			tch->ch_ready = true;
+			ret = sdio_open(tch->name , &tch->ch, tch,
+					notify);
+			if (ret) {
+				pr_err(TEST_MODULE_NAME
+					":openning channel %s failed\n",
+				tch->name);
+				tch->ch_ready = false;
+				return -EINVAL;
+			}
+		}
+	}
+	return ret;
+}
+
+static int close_sdio_ch(struct test_channel *tch)
+{
+	int ret = 0;
+
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ": %s NULL tch\n", __func__);
+		return -EINVAL;
+	}
+
+	if (tch->ch_id == SDIO_SMEM) {
+#ifdef CONFIG_MSM_SDIO_SMEM
+		TEST_DBG(TEST_MODULE_NAME":%s closing channel %s",
+		       __func__, tch->name);
+		ret = sdio_smem_unregister_client();
+		test_ctx->smem_counter = 0;
+#endif
+	} else {
+		ret = sdio_close(tch->ch);
+	}
+
+	if (ret) {
+		pr_err(TEST_MODULE_NAME":%s close channel %s"
+				" failed\n", __func__, tch->name);
+	} else {
+		TEST_DBG(TEST_MODULE_NAME":%s close channel %s"
+				" success\n", __func__, tch->name);
+		tch->ch_ready = false;
+	}
+	return ret;
 }
 
 /**
@@ -3161,8 +3258,6 @@ static void lpm_test_host_waker(struct test_channel *test_ch)
 	lpm_test(test_ch);
 }
 
-static void notify(void *priv, unsigned channel_event);
-
 /**
   * Writes number of packets into test channel
   * @test_ch: test channel control struct
@@ -3353,6 +3448,51 @@ static int read_data_from_stream_ch(struct test_channel *test_ch,
 }
 
 /**
+ *   Test close channel feature for SDIO_SMEM channel:
+ *   close && re-open the SDIO_SMEM channel.
+ */
+#ifdef CONFIG_MSM_SDIO_SMEM
+static void open_close_smem_test(struct test_channel *test_ch)
+{
+	int i = 0;
+	int ret = 0;
+
+	pr_info(TEST_MODULE_NAME ":%s\n", __func__);
+
+	for (i = 0; i < 100 ; ++i) {
+		ret = close_sdio_ch(test_ch);
+		if (ret) {
+			pr_err(TEST_MODULE_NAME ":%s close_sdio_ch for ch %s"
+						" failed\n",
+						__func__, test_ch->name);
+			goto exit_err;
+		}
+		ret = open_sdio_ch(test_ch);
+		if (ret) {
+			pr_err(TEST_MODULE_NAME ":%s open_sdio_ch for ch %s "
+						" failed\n",
+						__func__, test_ch->name);
+			goto exit_err;
+		}
+	}
+
+	pr_info(TEST_MODULE_NAME ":%s TEST PASS for chan %s.\n", __func__,
+			test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_PASSED;
+	check_test_completion();
+	return;
+exit_err:
+	pr_info(TEST_MODULE_NAME ":%s TEST FAIL for chan %s.\n", __func__,
+			test_ch->name);
+	test_ch->test_completed = 1;
+	test_ch->test_result = TEST_FAILED;
+	check_test_completion();
+	return;
+}
+#endif
+
+/**
  *   Test close channel feature:
  *   1. write random packet number into channel
  *   2. read some data from channel (do this only for second half of
@@ -3447,7 +3587,7 @@ static void open_close_test(struct test_channel *test_ch)
 			}
 			TEST_DBG(TEST_MODULE_NAME ":%s before close, ch %s\n",
 					__func__, test_ch->name);
-			ret = sdio_close(test_ch->ch);
+			ret = close_sdio_ch(test_ch);
 			if (ret) {
 				pr_err(TEST_MODULE_NAME":%s close channel %s"
 						" failed (%d)\n",
@@ -3464,8 +3604,7 @@ static void open_close_test(struct test_channel *test_ch)
 			}
 			TEST_DBG(TEST_MODULE_NAME ":%s before open, ch %s\n",
 					__func__, test_ch->name);
-			ret = sdio_open(test_ch->name , &test_ch->ch,
-					test_ch, notify);
+			ret = open_sdio_ch(test_ch);
 			if (ret) {
 				pr_err(TEST_MODULE_NAME":%s open channel %s"
 						" failed (%d)\n",
@@ -4342,7 +4481,8 @@ static void worker(struct work_struct *work)
 		a2_rtt_test(test_ch);
 		break;
 	case SDIO_TEST_CLOSE_CHANNEL:
-		open_close_test(test_ch);
+		if (test_ch->ch_id != SDIO_SMEM)
+			open_close_test(test_ch);
 		break;
 	case SDIO_TEST_MODEM_RESET:
 		modem_reset_test(test_ch);
@@ -4425,50 +4565,102 @@ static void notify(void *priv, unsigned channel_event)
 static int sdio_smem_test_cb(int event)
 {
 	struct test_channel *tch = test_ctx->test_ch_arr[SDIO_SMEM];
+	int i;
+	int *smem_buf = (int *)test_ctx->smem_buf;
+	uint32_t val = 0;
+	int ret = 0;
+
 	pr_debug(TEST_MODULE_NAME ":%s: Received event %d\n", __func__, event);
+
+	if (!tch) {
+		pr_err(TEST_MODULE_NAME ": %s NULL tch\n", __func__);
+		return -EINVAL;
+	}
 
 	switch (event) {
 	case SDIO_SMEM_EVENT_READ_DONE:
 		tch->rx_bytes += SMEM_MAX_XFER_SIZE;
+		for (i = 0; i < SMEM_MAX_XFER_SIZE;) {
+			val = (int)*smem_buf;
+			if ((val != test_ctx->smem_counter) && tch->is_used) {
+				pr_err(TEST_MODULE_NAME ":%s: Invalid value %d "
+				"expected %d in smem arr",
+				__func__, val, test_ctx->smem_counter);
+				pr_err(TEST_MODULE_NAME ":SMEM test FAILED\n");
+				tch->test_completed = 1;
+				tch->test_result = TEST_FAILED;
+				check_test_completion();
+				ret = -EINVAL;
+				goto exit;
+			}
+			i += 4;
+			smem_buf++;
+			test_ctx->smem_counter++;
+		}
 		if (tch->rx_bytes >= 40000000) {
-			if (!tch->test_completed) {
+			if ((!tch->test_completed) && tch->is_used) {
 				pr_info(TEST_MODULE_NAME ":SMEM test PASSED\n");
 				tch->test_completed = 1;
 				tch->test_result = TEST_PASSED;
 				check_test_completion();
 			}
-
 		}
 		break;
 	case SDIO_SMEM_EVENT_READ_ERR:
-		pr_err(TEST_MODULE_NAME ":Read overflow, SMEM test FAILED\n");
-		tch->test_completed = 1;
-		tch->test_result = TEST_FAILED;
-		check_test_completion();
-		return -EIO;
+		if (tch->is_used) {
+			pr_err(TEST_MODULE_NAME ":Read overflow, "
+						"SMEM test FAILED\n");
+			tch->test_completed = 1;
+			tch->test_result = TEST_FAILED;
+			ret = -EIO;
+		}
+		break;
 	default:
-		pr_err(TEST_MODULE_NAME ":Unhandled event\n");
-		return -EINVAL;
+		if (tch->is_used) {
+			pr_err(TEST_MODULE_NAME ":Unhandled event %d\n", event);
+			ret = -EINVAL;
+		}
+		break;
 	}
-	return 0;
+exit:
+	return ret;
 }
 
-static int sdio_smem_test_probe(struct platform_device *pdev)
+static int sdio_smem_open(struct sdio_smem_client *sdio_smem)
 {
 	int ret = 0;
 
-	test_ctx->sdio_smem = container_of(pdev, struct sdio_smem_client,
-					   plat_dev);
+	if (!sdio_smem) {
+		pr_info(TEST_MODULE_NAME "%s: NULL sdio_smem_client\n",
+			__func__);
+		return -EINVAL;
+	}
 
-	test_ctx->sdio_smem->buf = test_ctx->smem_buf;
-	test_ctx->sdio_smem->size = SMEM_MAX_XFER_SIZE;
-	test_ctx->sdio_smem->cb_func = sdio_smem_test_cb;
+	if (test_ctx->test_ch_arr[SDIO_SMEM]->ch_ready) {
+		pr_info(TEST_MODULE_NAME "%s: SDIO_SMEM channel is already opened\n",
+			__func__);
+		return 0;
+	}
+
+	test_ctx->test_ch_arr[SDIO_SMEM]->ch_ready = 1;
+	sdio_smem->buf = test_ctx->smem_buf;
+	sdio_smem->size = SMEM_MAX_XFER_SIZE;
+	sdio_smem->cb_func = sdio_smem_test_cb;
 	ret = sdio_smem_register_client();
 	if (ret)
 		pr_info(TEST_MODULE_NAME "%s: Error (%d) registering sdio_smem "
 					 "test client\n",
 			__func__, ret);
+
 	return ret;
+}
+
+static int sdio_smem_test_probe(struct platform_device *pdev)
+{
+	test_ctx->sdio_smem = container_of(pdev, struct sdio_smem_client,
+					   plat_dev);
+
+	return sdio_smem_open(test_ctx->sdio_smem);
 }
 
 static struct platform_driver sdio_smem_client_drv = {
@@ -4479,12 +4671,6 @@ static struct platform_driver sdio_smem_client_drv = {
 	},
 };
 #endif
-
-
-static void default_sdio_al_test_release(struct device *dev)
-{
-	pr_info(MODULE_NAME ":platform device released.\n");
-}
 
 static void sdio_test_lpm_timeout_handler(unsigned long data)
 {
@@ -4776,27 +4962,9 @@ static int test_start(void)
 
 		tch->test_completed = 0;
 
-		if (!tch->ch_ready) {
-			pr_info(TEST_MODULE_NAME ":openning channel %s\n",
-				tch->name);
-			tch->ch_ready = true;
-			if (tch->ch_id == SDIO_SMEM) {
-				test_ctx->smem_pdev.name = "SDIO_SMEM";
-				test_ctx->smem_pdev.dev.release =
-					default_sdio_al_test_release;
-				platform_device_register(&test_ctx->smem_pdev);
-			} else {
-				ret = sdio_open(tch->name , &tch->ch, tch,
-						notify);
-				if (ret) {
-					pr_info(TEST_MODULE_NAME
-						":openning channel %s failed\n",
-					tch->name);
-					tch->ch_ready = false;
-					continue;
-				}
-			}
-		}
+		ret = open_sdio_ch(tch);
+		if (ret)
+			continue;
 
 		if (tch->ch_id != SDIO_SMEM) {
 			ret = sdio_test_find_dev(tch);
@@ -4859,11 +5027,18 @@ static int test_start(void)
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 
-		if ((!tch) || (!tch->is_used) || (!tch->ch_ready) ||
-		    (tch->ch_id == SDIO_SMEM))
+		if ((!tch) || (!tch->is_used) || (!tch->ch_ready))
 			continue;
 
-		queue_work(tch->workqueue, &tch->test_work.work);
+		if (tch->ch_id == SDIO_SMEM) {
+#ifdef CONFIG_MSM_SDIO_SMEM
+			if (tch->test_type == SDIO_TEST_CLOSE_CHANNEL)
+				open_close_smem_test(tch);
+#endif
+		} else {
+			queue_work(tch->workqueue, &tch->test_work.work);
+		}
+
 	}
 
 	pr_info(TEST_MODULE_NAME ": %s - Waiting for the test completion\n",
@@ -4882,19 +5057,12 @@ static int test_start(void)
 
 		if ((!tch) || (!tch->is_used))
 			continue;
-		if ((!tch->ch_ready) || (tch->ch_id == SDIO_SMEM)) {
+		if (!tch->ch_ready) {
 			tch->is_used = 0;
 			continue;
 		}
-		ret = sdio_close(tch->ch);
-		if (ret) {
-			pr_err(TEST_MODULE_NAME":%s close channel %s"
-					" failed\n", __func__, tch->name);
-		} else {
-			pr_info(TEST_MODULE_NAME":%s close channel %s"
-					" success\n", __func__, tch->name);
-			tch->ch_ready = false;
-		}
+
+		close_sdio_ch(tch);
 		tch->is_used = 0;
 	}
 
@@ -5153,18 +5321,16 @@ static int close_channel_lpm_test(int channel_num)
 	struct test_channel *tch = NULL;
 	tch = test_ctx->test_ch_arr[channel_num];
 
-	if (!tch->ch_ready) {
-		ret = sdio_open(tch->name , &tch->ch, tch, notify);
-		if (ret) {
-			pr_err(TEST_MODULE_NAME":%s open channel %s"
-				" failed\n", __func__, tch->name);
-			return ret;
-		} else {
-			pr_info(TEST_MODULE_NAME":%s open channel %s"
-				" success\n", __func__, tch->name);
-		}
+	ret = open_sdio_ch(tch);
+	if (ret) {
+		pr_err(TEST_MODULE_NAME":%s open channel %s"
+			" failed\n", __func__, tch->name);
+		return ret;
+	} else {
+		pr_info(TEST_MODULE_NAME":%s open channel %s"
+			" success\n", __func__, tch->name);
 	}
-	ret = sdio_close(tch->ch);
+	ret = close_sdio_ch(tch);
 	if (ret) {
 		pr_err(TEST_MODULE_NAME":%s close channel %s"
 				" failed\n", __func__, tch->name);
@@ -5172,7 +5338,6 @@ static int close_channel_lpm_test(int channel_num)
 	} else {
 		pr_info(TEST_MODULE_NAME":%s close channel %s"
 				" success\n", __func__, tch->name);
-		tch->ch_ready = false;
 	}
 
 	tch->is_used = 0;
@@ -5289,19 +5454,19 @@ int test_channel_init(char *name)
 		if ((test_ch->is_used) &&
 		    (test_ch->test_type == SDIO_TEST_MODEM_RESET)) {
 			if (test_ch->ch_id == SDIO_SMEM) {
-				test_ctx->smem_pdev.name = "SDIO_SMEM";
-				test_ctx->smem_pdev.dev.release =
-					default_sdio_al_test_release;
-				platform_device_register(&test_ctx->smem_pdev);
+#ifdef CONFIG_MSM_SDIO_SMEM
+				ret = add_sdio_smem();
+				if (ret) {
+					test_ch->ch_ready = false;
+					return 0;
+				}
+#endif
 			} else {
-				test_ch->ch_ready = true;
-				ret = sdio_open(test_ch->name , &test_ch->ch,
-						test_ch, notify);
+				ret = open_sdio_ch(test_ch);
 				if (ret) {
 					pr_info(TEST_MODULE_NAME
-						":openning channel %s failed\n",
-					test_ch->name);
-					test_ch->ch_ready = false;
+						":%s: open channel %s failed\n",
+					__func__, test_ch->name);
 					return 0;
 				}
 				ret = sdio_test_find_dev(test_ch);
@@ -5344,6 +5509,12 @@ static int sdio_test_channel_remove(struct platform_device *pdev)
 
 	pr_info(TEST_MODULE_NAME "%s: remove ch %s\n",
 		__func__, test_ctx->test_ch_arr[ch_id]->name);
+
+	if ((ch_id == SDIO_SMEM) && (test_ctx->smem_pdev)) {
+		platform_device_unregister(test_ctx->smem_pdev);
+		test_ctx->smem_pdev = NULL;
+	}
+
 	test_ctx->test_ch_arr[ch_id]->ch_ready = 0;
 	test_ctx->test_ch_arr[ch_id]->card_removed = 1;
 
