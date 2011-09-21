@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/io.h>
+#include <linux/msm_tsens.h>
 #include <asm/hardware/gic.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -197,6 +198,21 @@ struct platform_device msm_device_sps = {
 	.num_resources	= ARRAY_SIZE(resources_sps),
 	.resource	= resources_sps,
 	.dev.platform_data = &msm_sps_pdata,
+};
+
+static struct tsens_platform_data msm_tsens_pdata = {
+	.slope			= 910,
+	.tsens_factor		= 1000,
+	.hw_type		= MSM_9615,
+	.tsens_num_sensor	= 5,
+};
+
+struct platform_device	msm9615_device_tsens = {
+	.name		= "tsens8960-tm",
+	.id		= -1,
+	.dev		= {
+			.platform_data = &msm_tsens_pdata,
+	},
 };
 
 #ifdef CONFIG_CACHE_L2X0

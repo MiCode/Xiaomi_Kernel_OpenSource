@@ -332,6 +332,7 @@ static struct map_desc msm9615_io_desc[] __initdata = {
 		.length =   MSM_SHARED_RAM_SIZE,
 		.type =     MT_DEVICE,
 	},
+	MSM_CHIP_DEVICE(QFPROM, MSM9615),
 };
 
 void __init msm_map_msm9615_io(void)
