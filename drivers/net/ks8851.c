@@ -1706,7 +1706,7 @@ err_irq:
 	free_netdev(ndev);
 
 	if (!IS_ERR(ks->vdd_io)) {
-		regulator_disable(ks->vdd_phy);
+		regulator_disable(ks->vdd_io);
 		regulator_put(ks->vdd_io);
 	}
 
@@ -1725,7 +1725,7 @@ static int __devexit ks8851_remove(struct spi_device *spi)
 		dev_info(&spi->dev, "remove\n");
 
 	if (!IS_ERR(priv->vdd_io)) {
-		regulator_disable(priv->vdd_phy);
+		regulator_disable(priv->vdd_io);
 		regulator_put(priv->vdd_io);
 	}
 
