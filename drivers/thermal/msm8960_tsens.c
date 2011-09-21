@@ -25,6 +25,7 @@
 #include <linux/io.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
 
 /* Trips: from very hot to very cold */
 enum tsens_trip_type {
@@ -715,6 +716,16 @@ static int tsens_calib_sensors8960(void)
 	return 0;
 }
 
+static int tsens_check_version_support(void)
+{
+	int rc = 0;
+
+	if (tmdev->hw_type == MSM_8960)
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1)
+			rc = -ENODEV;
+	return rc;
+}
+
 static int tsens_calib_sensors(void)
 {
 	int rc;
@@ -751,6 +762,12 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 	tmdev->tsens_factor = pdata->tsens_factor;
 	tmdev->tsens_num_sensor = pdata->tsens_num_sensor;
 	tmdev->hw_type = pdata->hw_type;
+
+	rc = tsens_check_version_support();
+	if (rc < 0) {
+		kfree(tmdev);
+		return rc;
+	}
 
 	rc = tsens_calib_sensors();
 	if (rc < 0) {
