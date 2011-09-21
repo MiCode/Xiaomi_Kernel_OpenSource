@@ -134,6 +134,15 @@ config GENERIC_LOCKBREAK
 	default y
 	depends on SMP && PREEMPT
 
+config ARM_TICKET_LOCKS
+	bool
+	help
+	  Enable ticket locks, which help preserve fairness among
+	  contended locks and prevent livelock in multicore systems.
+	  Say 'y' if system stability is important.
+	default y if ARCH_MSM_SCORPIONMP
+	depends on SMP
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
