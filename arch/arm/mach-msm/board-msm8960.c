@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
+#include <linux/i2c/isl9519.h>
 #include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/gpio-regulator.h>
@@ -677,6 +678,7 @@ static struct sx150x_platform_data sx150x_data[] = {
 
 #define MSM_8960_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8960_GSBI3_QUP_I2C_BUS_ID 3
+#define MSM_8960_GSBI10_QUP_I2C_BUS_ID 10
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 
@@ -3932,6 +3934,26 @@ static void __init msm8960_init_dsps(void)
 #endif /* CONFIG_MSM_DSPS */
 }
 
+#ifdef CONFIG_ISL9519_CHARGER
+static struct isl_platform_data isl_data __initdata = {
+	.valid_n_gpio		= 0,	/* Not required when notify-by-pmic */
+	.chg_detection_config	= NULL,	/* Not required when notify-by-pmic */
+	.max_system_voltage	= 4200,
+	.min_system_voltage	= 3200,
+	.chgcurrent		= 1000, /* 1900, */
+	.term_current		= 400,	/* Need fine tuning */
+	.input_current		= 2048,
+};
+
+static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("isl9519q", 0x9),
+		.irq		= 0,	/* Not required when notify-by-pmic */
+		.platform_data	= &isl_data,
+	},
+};
+#endif /* CONFIG_ISL9519_CHARGER */
+
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_MSM_CAMERA
 	{
@@ -3941,6 +3963,14 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(msm_camera_boardinfo),
 	},
 #endif
+#ifdef CONFIG_ISL9519_CHARGER
+	{
+		I2C_LIQUID,
+		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
+		isl_charger_i2c_info,
+		ARRAY_SIZE(isl_charger_i2c_info),
+	},
+#endif /* CONFIG_ISL9519_CHARGER */
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
