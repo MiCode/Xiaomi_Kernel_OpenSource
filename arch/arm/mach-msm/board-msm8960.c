@@ -2500,7 +2500,9 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc3_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
+#ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
+#endif
 	.sdcc_v4_sup	= true,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
