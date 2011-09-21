@@ -88,8 +88,12 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	}
 }
 
+#define Q6_FW_WDOG_ENABLE		0x08882024
+#define Q6_SW_WDOG_ENABLE		0x08982024
 static int modem_shutdown(const struct subsys_data *subsys)
 {
+	void __iomem *q6_fw_wdog_addr;
+	void __iomem *q6_sw_wdog_addr;
 	int smsm_notif_unregistered = 0;
 
 	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
@@ -98,6 +102,26 @@ static int modem_shutdown(const struct subsys_data *subsys)
 		smsm_notif_unregistered = 1;
 		smsm_reset_modem(SMSM_RESET);
 	}
+
+	/*
+	 * Disable the modem watchdog since it keeps running even after the
+	 * modem is shutdown.
+	 */
+	q6_fw_wdog_addr = ioremap_nocache(Q6_FW_WDOG_ENABLE, 4);
+	if (!q6_fw_wdog_addr)
+		return -ENOMEM;
+
+	q6_sw_wdog_addr = ioremap_nocache(Q6_SW_WDOG_ENABLE, 4);
+	if (!q6_sw_wdog_addr) {
+		iounmap(q6_fw_wdog_addr);
+		return -ENOMEM;
+	}
+
+	writel_relaxed(0x0, q6_fw_wdog_addr);
+	writel_relaxed(0x0, q6_sw_wdog_addr);
+	mb();
+	iounmap(q6_sw_wdog_addr);
+	iounmap(q6_fw_wdog_addr);
 
 	pil_force_shutdown("modem");
 	pil_force_shutdown("modem_fw");
