@@ -23,6 +23,8 @@
 #include <linux/mii.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/ks8851.h>
+#include <linux/gpio.h>
 
 #include "ks8851.h"
 
@@ -1587,6 +1589,7 @@ static int ks8851_resume(struct spi_device *spi)
 
 static int __devinit ks8851_probe(struct spi_device *spi)
 {
+	struct ks8851_pdata *pdata = spi->dev.platform_data;
 	struct net_device *ndev;
 	struct ks8851_net *ks;
 	int ret;
@@ -1609,6 +1612,23 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 
 	if (!IS_ERR(ks->vdd_phy))
 		regulator_enable(ks->vdd_phy);
+
+	if (pdata && gpio_is_valid(pdata->irq_gpio)) {
+		ret = gpio_request(pdata->irq_gpio, "ks8851_irq");
+		if (ret) {
+			pr_err("ks8851 gpio_request failed: %d\n", ret);
+			goto err_irq_gpio;
+		}
+	}
+
+	if (pdata && gpio_is_valid(pdata->rst_gpio)) {
+		ret = gpio_request(pdata->rst_gpio, "ks8851_rst");
+		if (ret) {
+			pr_err("ks8851 gpio_request failed: %d\n", ret);
+			goto err_rst_gpio;
+		}
+		gpio_direction_output(pdata->rst_gpio, 1);
+	}
 
 	ks->netdev = ndev;
 	ks->spidev = spi;
@@ -1714,12 +1734,22 @@ err_irq:
 		regulator_disable(ks->vdd_phy);
 		regulator_put(ks->vdd_phy);
 	}
+
+	if (pdata && gpio_is_valid(pdata->rst_gpio))
+		gpio_free(pdata->rst_gpio);
+
+err_rst_gpio:
+	if (pdata && gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
+
+err_irq_gpio:
 	return ret;
 }
 
 static int __devexit ks8851_remove(struct spi_device *spi)
 {
 	struct ks8851_net *priv = dev_get_drvdata(&spi->dev);
+	struct ks8851_pdata *pdata = spi->dev.platform_data;
 
 	if (netif_msg_drv(priv))
 		dev_info(&spi->dev, "remove\n");
@@ -1736,6 +1766,13 @@ static int __devexit ks8851_remove(struct spi_device *spi)
 
 	unregister_netdev(priv->netdev);
 	free_irq(spi->irq, priv);
+
+	if (pdata && gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
+
+	if (pdata && gpio_is_valid(pdata->rst_gpio))
+		gpio_free(pdata->rst_gpio);
+
 	free_netdev(priv->netdev);
 
 	return 0;

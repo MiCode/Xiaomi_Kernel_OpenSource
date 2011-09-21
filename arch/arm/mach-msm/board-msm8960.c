@@ -38,6 +38,7 @@
 #include <linux/leds-pm8xxx.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/msm_tsens.h>
+#include <linux/ks8851.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -277,7 +278,7 @@ static struct gpiomux_setting audio_auxpcm[] = {
 	},
 };
 
-#ifdef CONFIG_KS8851
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_NONE,
 	.drv = GPIOMUX_DRV_8MA,
@@ -292,7 +293,7 @@ static struct gpiomux_setting slimbus = {
 };
 
 struct msm_gpiomux_config msm8960_gpiomux_configs[NR_GPIO_IRQS] = {
-#ifdef CONFIG_KS8851
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
 		.gpio = KS8851_IRQ_GPIO,
 		.settings = {
@@ -3170,6 +3171,10 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 	.msm_apps_ipc_rpm_val = 4,
 };
 
+static struct ks8851_pdata spi_eth_pdata = {
+	.irq_gpio = KS8851_IRQ_GPIO,
+	.rst_gpio = KS8851_RST_GPIO,
+};
 
 static struct spi_board_info spi_board_info[] __initdata = {
 	{
@@ -3179,6 +3184,7 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.bus_num                = 0,
 		.chip_select            = 0,
 		.mode                   = SPI_MODE_0,
+		.platform_data		= &spi_eth_pdata
 	},
 };
 
@@ -3768,40 +3774,25 @@ static struct msm_ssbi_platform_data msm8960_ssbi_pm8921_pdata __devinitdata = {
 	},
 };
 
-#ifdef CONFIG_KS8851
-static int ethernet_init(void)
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+static int fpga_init(void)
 {
 	int ret;
-	ret = gpio_request(KS8851_IRQ_GPIO, "ks8851_irq");
-	if (ret) {
-		pr_err("ks8851 gpio_request failed: %d\n", ret);
-		goto fail;
-	}
-
-	ret = gpio_request(KS8851_RST_GPIO, "ks8851_rst");
-	if (ret) {
-		pr_err("ks8851 gpio_request failed: %d\n", ret);
-		goto fail_rst;
-	}
 
 	ret = gpio_request(FPGA_CS_GPIO, "fpga_cs");
 	if (ret) {
-		pr_err("ks8851 gpio_request failed: %d\n", ret);
-		goto fail_cs;
+		pr_err("FPGA CS gpio_request failed: %d\n", ret);
+		goto fail;
 	}
 
 	gpio_direction_output(FPGA_CS_GPIO, 1);
-	gpio_direction_output(KS8851_RST_GPIO, 1);
+
 	return 0;
-fail_cs:
-	gpio_free(KS8851_RST_GPIO);
-fail_rst:
-	gpio_free(KS8851_IRQ_GPIO);
 fail:
 	return ret;
 }
 #else
-static int ethernet_init(void)
+static int fpga_init(void)
 {
 	return 0;
 }
@@ -4086,7 +4077,6 @@ static void __init msm8960_sim_init(void)
 	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
 	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
-	ethernet_init();
 	msm8960_i2c_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
@@ -4119,7 +4109,6 @@ static void __init msm8960_rumi3_init(void)
 	platform_device_register(&msm8960_device_rpm_regulator);
 	msm_clock_init(&msm8960_dummy_clock_init_data);
 	gpiomux_init();
-	ethernet_init();
 	msm8960_device_ssbi_pm8921.dev.platform_data =
 				&msm8960_ssbi_pm8921_pdata;
 	pm8921_platform_data.num_regulators = msm_pm8921_regulator_pdata_len;
@@ -4162,7 +4151,8 @@ static void __init msm8960_cdp_init(void)
 	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
 	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
 	gpiomux_init();
-	ethernet_init();
+	if (machine_is_msm8960_cdp())
+		fpga_init();
 	if (machine_is_msm8960_liquid())
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
