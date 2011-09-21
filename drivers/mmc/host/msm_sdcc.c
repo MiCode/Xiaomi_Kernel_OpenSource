@@ -917,10 +917,20 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		*c |= MCI_CSPM_DATCMD;
 
 	/* Check if AUTO CMD19 is required or not? */
-	if (((cmd->opcode == 17) || (cmd->opcode == 18)) &&
-		host->tuning_needed) {
-		msmsdcc_enable_cdr_cm_sdc4_dll(host);
-		*c |= MCI_CSPM_AUTO_CMD19;
+	if (host->tuning_needed) {
+		/*
+		 * For open ended block read operation (without CMD23),
+		 * AUTO_CMD19 bit should be set while sending the READ command.
+		 * For close ended block read operation (with CMD23),
+		 * AUTO_CMD19 bit should be set while sending CMD23.
+		 */
+		if ((cmd->opcode == 23 && (host->curr.mrq->cmd->opcode == 17 ||
+			host->curr.mrq->cmd->opcode == 18)) ||
+			(!host->curr.mrq->sbc &&
+			(cmd->opcode == 17 || cmd->opcode == 18))) {
+			msmsdcc_enable_cdr_cm_sdc4_dll(host);
+			*c |= MCI_CSPM_AUTO_CMD19;
+		}
 	}
 
 	if (host->prog_scan && (cmd->opcode == 12)) {
@@ -1338,8 +1348,11 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 				msmsdcc_request_end(host, cmd->mrq);
 			}
 		}
-	} else if (cmd == host->curr.mrq->sbc) {
-		msmsdcc_request_start(host, host->curr.mrq);
+	} else if ((cmd == host->curr.mrq->sbc) && cmd->data) {
+		if (cmd->data->flags & MMC_DATA_READ)
+			msmsdcc_start_command(host, host->curr.mrq->cmd, 0);
+		else
+			msmsdcc_request_start(host, host->curr.mrq);
 	} else if (cmd->data) {
 		if (!(cmd->data->flags & MMC_DATA_READ))
 			msmsdcc_start_data(host, cmd->data, NULL, 0);
@@ -1545,7 +1558,10 @@ msmsdcc_request_start(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
 	if (mrq->data && mrq->data->flags & MMC_DATA_READ) {
 		/* Queue/read data, daisy-chain command when data starts */
-		msmsdcc_start_data(host, mrq->data, mrq->cmd, 0);
+		if (mrq->sbc)
+			msmsdcc_start_data(host, mrq->data, mrq->sbc, 0);
+		else
+			msmsdcc_start_data(host, mrq->data, mrq->cmd, 0);
 	} else {
 		msmsdcc_start_command(host, mrq->cmd, 0);
 	}
@@ -1597,7 +1613,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			(jiffies + msecs_to_jiffies(MSM_MMC_REQ_TIMEOUT)));
 
 	host->curr.mrq = mrq;
-	if (mrq->data && mrq->data->flags == MMC_DATA_WRITE) {
+	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
 		if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
 			mrq->cmd->opcode == 54) {
 			if (!host->plat->sdcc_v4_sup)
@@ -1617,9 +1633,12 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (mrq->sbc) {
 		mrq->sbc->mrq = mrq;
 		mrq->sbc->data = mrq->data;
-		if (mrq->data->flags == MMC_DATA_WRITE)
+		if (mrq->data->flags & MMC_DATA_WRITE) {
 			host->curr.wait_for_auto_prog_done = 1;
-		msmsdcc_start_command(host, mrq->sbc, 0);
+			msmsdcc_start_command(host, mrq->sbc, 0);
+		} else {
+			msmsdcc_request_start(host, mrq);
+		}
 	} else {
 		msmsdcc_request_start(host, mrq);
 	}
