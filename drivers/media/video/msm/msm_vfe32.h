@@ -306,6 +306,9 @@ enum  vfe_recording_state {
 
 #define V32_CAPTURE_LEN 4
 
+#define V32_GET_HW_VERSION_OFF 0
+#define V32_GET_HW_VERSION_LEN 4
+
 #define V32_LINEARIZATION_OFF1 0x00000264
 #define V32_LINEARIZATION_LEN1 16
 

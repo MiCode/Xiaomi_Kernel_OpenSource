@@ -145,7 +145,8 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_CAPTURE, V32_CAPTURE_LEN, 0xFF},
 		{VFE_CMD_DUMMY_7},
 /*65*/	{VFE_CMD_STOP},
-		{VFE_CMD_GET_HW_VERSION},
+		{VFE_CMD_GET_HW_VERSION, V32_GET_HW_VERSION_LEN,
+		V32_GET_HW_VERSION_OFF},
 		{VFE_CMD_GET_FRAME_SKIP_COUNTS},
 		{VFE_CMD_OUTPUT1_BUFFER_ENQ},
 		{VFE_CMD_OUTPUT2_BUFFER_ENQ},
@@ -537,10 +538,7 @@ static void vfe32_reset_internal_variables(void)
 
 static void vfe32_reset(void)
 {
-	uint32_t vfe_version;
 	vfe32_reset_internal_variables();
-	vfe_version = msm_io_r(vfe32_ctrl->vfebase);
-	CDBG("vfe_version = 0x%x\n", vfe_version);
 	/* disable all interrupts.  vfeImaskLocal is also reset to 0
 	* to begin with. */
 	msm_io_w(VFE_DISABLE_ALL_IRQS,
@@ -1162,6 +1160,23 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			}
 		}
 		rc = vfe32_capture(snapshot_cnt);
+		break;
+	case VFE_CMD_GET_HW_VERSION:
+		if (cmd->length != V32_GET_HW_VERSION_LEN) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kmalloc(V32_GET_HW_VERSION_LEN, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		*cmdp = msm_io_r(vfe32_ctrl->vfebase+V32_GET_HW_VERSION_OFF);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			V32_GET_HW_VERSION_LEN)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		break;
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
