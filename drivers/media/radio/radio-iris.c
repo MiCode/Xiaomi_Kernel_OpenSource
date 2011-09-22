@@ -525,7 +525,7 @@ int radio_hci_recv_frame(struct sk_buff *skb)
 	__net_timestamp(skb);
 
 	radio_hci_event_packet(hdev, skb);
-
+	kfree_skb(skb);
 	return 0;
 }
 EXPORT_SYMBOL(radio_hci_recv_frame);
