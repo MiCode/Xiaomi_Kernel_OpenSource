@@ -1620,13 +1620,13 @@ static int mdp_suspend(struct platform_device *pdev, pm_message_t state)
 static void mdp_early_suspend(struct early_suspend *h)
 {
 	mdp_suspend_sub();
-	if (footswitch && mdp_rev > MDP_REV_40)
+	if (footswitch && mdp_rev > MDP_REV_42)
 		regulator_disable(footswitch);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
-	if (footswitch && mdp_rev > MDP_REV_40)
+	if (footswitch && mdp_rev > MDP_REV_42)
 		regulator_enable(footswitch);
 
 	mutex_lock(&mdp_suspend_mutex);
