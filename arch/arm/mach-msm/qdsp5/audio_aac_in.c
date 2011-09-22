@@ -1243,15 +1243,15 @@ static int audaac_in_release(struct inode *inode, struct file *file)
 
 	if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) && \
 	   (audio->out_data)) {
-		msm_subsystem_unmap_buffer(audio->map_v_read);
-		free_contiguous_memory_by_paddr(audio->phys);
-		audio->data = NULL;
-	}
-
-	if (audio->data) {
 		msm_subsystem_unmap_buffer(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->out_phys);
 		audio->out_data = NULL;
+	}
+
+	if (audio->data) {
+		msm_subsystem_unmap_buffer(audio->map_v_read);
+		free_contiguous_memory_by_paddr(audio->phys);
+		audio->data = NULL;
 	}
 	mutex_unlock(&audio->lock);
 	return 0;
@@ -1356,13 +1356,13 @@ static int audaac_in_open(struct inode *inode, struct file *file)
 			MM_ERR("could not map DMA buffers\n");
 			rc = -ENOMEM;
 			free_contiguous_memory_by_paddr(audio->phys);
-			goto done;
+			goto evt_error;
 		}
 		audio->data = audio->map_v_read->vaddr;
 	} else {
-		MM_ERR("could not allocate DMA buffers\n");
+		MM_ERR("could not allocate read buffers\n");
 		rc = -ENOMEM;
-		goto done;
+		goto evt_error;
 	}
 	MM_DBG("Memory addr = 0x%8x  phy addr = 0x%8x\n",\
 		(int) audio->data, (int) audio->phys);

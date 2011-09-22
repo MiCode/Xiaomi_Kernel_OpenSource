@@ -31,13 +31,17 @@
 
 #include <linux/msm_audio_qcp.h>
 
-#include <mach/msm_memtypes.h>
+
 #include <linux/memory_alloc.h>
 
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
+#include <mach/msm_memtypes.h>
 #include <mach/msm_adsp.h>
 #include <mach/msm_rpcrouter.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
 
 #include "audmgr.h"
 
@@ -139,6 +143,9 @@ struct audio_evrc_in {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
+
+	struct msm_mapped_buffer *map_v_read;
+	struct msm_mapped_buffer *map_v_write;
 
 	int opened;
 	int enabled;
@@ -1175,11 +1182,13 @@ static int audevrc_in_release(struct inode *inode, struct file *file)
 	audio->opened = 0;
 	if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) && \
 	   (audio->out_data)) {
-		free_contiguous_memory(audio->out_data);
+		msm_subsystem_unmap_buffer(audio->map_v_write);
+		free_contiguous_memory_by_paddr(audio->out_phys);
 		audio->out_data = NULL;
 	}
 	if (audio->data) {
-		free_contiguous_memory(audio->data);
+		msm_subsystem_unmap_buffer(audio->map_v_read);
+		free_contiguous_memory_by_paddr(audio->phys);
 		audio->data = NULL;
 	}
 	mutex_unlock(&audio->lock);
@@ -1273,44 +1282,53 @@ static int audevrc_in_open(struct inode *inode, struct file *file)
 	audevrc_in_flush(audio);
 	audevrc_out_flush(audio);
 
-	audio->data = allocate_contiguous_memory(dma_size, MEMTYPE_EBI1,
-				SZ_4K, 0);
-	if (!audio->data) {
-		MM_ERR("could not allocate read buffers\n");
+	audio->phys = allocate_contiguous_ebi_nomap(dma_size, SZ_4K);
+	if (!audio->phys) {
+		MM_ERR("could not allocate physical read buffers\n");
 		rc = -ENOMEM;
 		goto evt_error;
 	} else {
-		audio->phys = memory_pool_node_paddr(audio->data);
-		if (!audio->phys) {
-			MM_ERR("could not get physical address\n");
+		audio->map_v_read = msm_subsystem_map_buffer(
+						audio->phys, dma_size,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+		if (IS_ERR(audio->map_v_read)) {
+			MM_ERR("could not map physical address\n");
 			rc = -ENOMEM;
-			free_contiguous_memory(audio->data);
+			free_contiguous_memory_by_paddr(audio->phys);
 			goto evt_error;
 		}
+		audio->data = audio->map_v_read->vaddr;
 		MM_DBG("read buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->phys, (int)audio->data);
 	}
 	audio->out_data = NULL;
 	if (audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) {
-		audio->out_data = allocate_contiguous_memory(BUFFER_SIZE,
-				MEMTYPE_EBI1,
-				SZ_4K, 0);
-		if (!audio->out_data) {
-			MM_ERR("could not allocate read buffers\n");
+		audio->out_phys = allocate_contiguous_ebi_nomap(BUFFER_SIZE,
+						SZ_4K);
+		if (!audio->out_phys) {
+			MM_ERR("could not allocate physical write buffers\n");
 			rc = -ENOMEM;
-			free_contiguous_memory(audio->data);
+			msm_subsystem_unmap_buffer(audio->map_v_read);
+			free_contiguous_memory_by_paddr(audio->phys);
 			goto evt_error;
 		} else {
-			audio->out_phys = memory_pool_node_paddr(
-						audio->out_data);
-			if (!audio->out_phys) {
-				MM_ERR("could not get physical address\n");
+			audio->map_v_write = msm_subsystem_map_buffer(
+						audio->out_phys, BUFFER_SIZE,
+						MSM_SUBSYSTEM_MAP_KADDR,
+						NULL, 0);
+
+			if (IS_ERR(audio->map_v_write)) {
+				MM_ERR("could not map write phys address\n");
 				rc = -ENOMEM;
-				free_contiguous_memory(audio->data);
-				free_contiguous_memory(audio->out_data);
+				msm_subsystem_unmap_buffer(audio->map_v_read);
+				free_contiguous_memory_by_paddr(audio->phys);
+				free_contiguous_memory_by_paddr(\
+							audio->out_phys);
 				goto evt_error;
 			}
-			MM_DBG("write buf:phy addr 0x%08x kernel addr 0x%08x\n",
+			audio->out_data = audio->map_v_write->vaddr;
+			MM_DBG("wr buf: phy addr 0x%08x kernel addr 0x%08x\n",
 					audio->out_phys, (int)audio->out_data);
 		}
 
