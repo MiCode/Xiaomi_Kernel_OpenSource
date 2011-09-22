@@ -4955,11 +4955,6 @@ static inline int l2cap_move_channel_rsp(struct l2cap_conn *conn,
 				l2cap_amp_move_revert(sk);
 				pi->amp_move_role = L2CAP_AMP_MOVE_NONE;
 			}
-		} else {
-			/* State is STABLE so the confirm response is
-			 * ignored.
-			 */
-			pi->amp_move_state = L2CAP_AMP_STATE_STABLE;
 		}
 
 		l2cap_send_move_chan_cfm(conn, pi, pi->scid,
