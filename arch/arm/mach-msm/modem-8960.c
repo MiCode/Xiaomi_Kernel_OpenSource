@@ -100,6 +100,7 @@ static int modem_shutdown(const struct subsys_data *subsys)
 	}
 
 	pil_force_shutdown("modem");
+	pil_force_shutdown("modem_fw");
 	disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 	disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
 
@@ -112,7 +113,7 @@ static int modem_shutdown(const struct subsys_data *subsys)
 
 static int modem_powerup(const struct subsys_data *subsys)
 {
-	/* TODO: Call into PIL to powerup the modem */
+	pil_force_boot("modem_fw");
 	pil_force_boot("modem");
 	enable_irq(Q6FW_WDOG_EXPIRED_IRQ);
 	enable_irq(Q6SW_WDOG_EXPIRED_IRQ);
