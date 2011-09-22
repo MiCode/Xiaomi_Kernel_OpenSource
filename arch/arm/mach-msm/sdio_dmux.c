@@ -25,6 +25,8 @@
 #include <linux/skbuff.h>
 #include <linux/wakelock.h>
 #include <linux/debugfs.h>
+#include <linux/smp.h>
+#include <linux/cpumask.h>
 
 #include <mach/sdio_al.h>
 #include <mach/sdio_dmux.h>
@@ -304,6 +306,19 @@ static void sdio_mux_read_data(struct work_struct *work)
 	void *ptr = 0;
 	int sz, rc, len = 0;
 	struct sdio_mux_hdr *hdr;
+	static int workqueue_pinned;
+
+	if (!workqueue_pinned) {
+		struct cpumask cpus;
+
+		cpumask_clear(&cpus);
+		cpumask_set_cpu(0, &cpus);
+
+		if (sched_setaffinity(current->pid, &cpus))
+			pr_err("%s: sdio_dmux set CPU affinity failed\n",
+					__func__);
+		workqueue_pinned = 1;
+	}
 
 	DBG("%s: reading\n", __func__);
 	/* should probably have a separate read lock */
