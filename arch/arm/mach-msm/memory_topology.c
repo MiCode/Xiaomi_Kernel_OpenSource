@@ -22,7 +22,6 @@
 #include "rpm_resources.h"
 #endif
 
-
 static struct mem_region_t {
 	u64 start;
 	u64 size;
@@ -37,7 +36,7 @@ static unsigned int nr_mem_regions;
 
 enum {
 	STATE_POWER_DOWN = 0x0,
-	STATE_ACTIVE,
+	STATE_ACTIVE = 0x2,
 	STATE_DEFAULT = STATE_ACTIVE
 };
 
@@ -158,6 +157,12 @@ int soc_change_memory_power(u64 start, u64 size, int change)
 		pr_info("passed size exceeds size of memory bank\n");
 		return 0;
 	}
+
+	if (change != STATE_ACTIVE && change != STATE_POWER_DOWN) {
+		pr_info("requested state transition invalid\n");
+		return 0;
+	}
+
 	if (!switch_memory_state(match, change))
 		return size;
 	else
