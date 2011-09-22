@@ -678,6 +678,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, OFF),
 	CLK_DUMMY("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, OFF),
 	CLK_DUMMY("pcm_clk",		PCM_CLK,		NULL, OFF),
+	CLK_DUMMY("audio_slimbus_clk",  AUDIO_SLIMBUS_CLK,      NULL, OFF),
 	CLK_DUMMY("iommu_clk",		JPEGD_AXI_CLK,		NULL, 0),
 	CLK_DUMMY("iommu_clk",		VFE_AXI_CLK,		NULL, 0),
 	CLK_DUMMY("iommu_clk",		VCODEC_AXI_CLK,		NULL, 0),
