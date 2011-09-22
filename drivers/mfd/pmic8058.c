@@ -1456,6 +1456,11 @@ static int pm8058_probe(struct i2c_client *client,
 	if (rc < 0)
 		pr_err("%s: could not set up debugfs: %d\n", __func__, rc);
 
+	rc = pm8058_hard_reset_config(SHUTDOWN_ON_HARD_RESET);
+	if (rc < 0)
+		pr_err("%s: failed to config shutdown on hard reset: %d\n",
+								__func__, rc);
+
 	register_syscore_ops(&pm8058_pm);
 
 	return 0;
