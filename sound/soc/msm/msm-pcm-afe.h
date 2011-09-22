@@ -29,7 +29,7 @@ struct pcm_afe_info {
 	int32_t mmap_flag;
 	int prepared;
 	struct hrtimer hrt;
-	int poll_time_ns;
+	int poll_time;
 };
 
 

@@ -64,8 +64,8 @@ static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	if (prtd->start) {
 		snd_pcm_period_elapsed(prtd->substream);
-		pr_debug("sending frame to DSP: poll_time_ns: %d\n",
-				prtd->poll_time_ns);
+		pr_debug("sending frame to DSP: poll_time: %d\n",
+				prtd->poll_time);
 		if (prtd->dsp_cnt == runtime->periods)
 			prtd->dsp_cnt = 0;
 		afe_rt_proxy_port_write(
@@ -74,12 +74,12 @@ static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 				snd_pcm_lib_period_bytes(prtd->substream))),
 				snd_pcm_lib_period_bytes(prtd->substream));
 		prtd->dsp_cnt++;
-		prtd->poll_time_ns = ((unsigned long)((
+		prtd->poll_time = ((unsigned long)((
 				snd_pcm_lib_period_bytes(prtd->substream)
-				 * 1000)/(runtime->rate
+				 * 1000 * 1000)/(runtime->rate
 				* runtime->channels * 2)));
-		hrtimer_forward_now(hrt, ns_to_ktime(prtd->poll_time_ns
-					* 1000 * 1000));
+		hrtimer_forward_now(hrt, ns_to_ktime(prtd->poll_time
+					* 1000));
 
 		return HRTIMER_RESTART;
 	} else
@@ -99,14 +99,14 @@ static enum hrtimer_restart afe_hrtimer_rec_callback(struct hrtimer *hrt)
 			* snd_pcm_lib_period_bytes(prtd->substream))),
 			snd_pcm_lib_period_bytes(prtd->substream));
 		prtd->dsp_cnt++;
-		prtd->poll_time_ns = ((unsigned long)((
+		prtd->poll_time = ((unsigned long)((
 				snd_pcm_lib_period_bytes(prtd->substream)
-					* 1000)/(runtime->rate
+					* 1000 * 1000)/(runtime->rate
 					* runtime->channels * 2)));
-		pr_debug("sending frame rec to DSP: poll_time_ns: %d\n",
-				prtd->poll_time_ns);
-		hrtimer_forward_now(hrt, ns_to_ktime(prtd->poll_time_ns
-				* 1000 * 1000));
+		pr_debug("sending frame rec to DSP: poll_time: %d\n",
+				prtd->poll_time);
+		hrtimer_forward_now(hrt, ns_to_ktime(prtd->poll_time
+				* 1000));
 
 		return HRTIMER_RESTART;
 	} else
@@ -134,15 +134,16 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 			switch (event) {
 			case AFE_EVENT_RTPORT_START: {
 				prtd->dsp_cnt = 0;
-				prtd->poll_time_ns = ((unsigned long)((
+				prtd->poll_time = ((unsigned long)((
 						snd_pcm_lib_period_bytes
-						(prtd->substream) * 1000)/
+						(prtd->substream) *
+						1000 * 1000)/
 						(runtime->rate *
 						runtime->channels * 2)));
-				pr_info("prtd->poll_time_ns : %d",
-						prtd->poll_time_ns);
+				pr_info("prtd->poll_time: %d",
+						prtd->poll_time);
 				hrtimer_start(&prtd->hrt,
-				ns_to_ktime(prtd->poll_time_ns * 1000 * 1000),
+				ns_to_ktime(prtd->poll_time * 1000),
 				      HRTIMER_MODE_REL);
 				break;
 			}
@@ -202,14 +203,14 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 		switch (event) {
 		case AFE_EVENT_RTPORT_START: {
 			prtd->dsp_cnt = 0;
-			prtd->poll_time_ns = ((unsigned long)((
+			prtd->poll_time = ((unsigned long)((
 				snd_pcm_lib_period_bytes(prtd->substream)
-					* 1000)/(runtime->rate
+					* 1000 * 1000)/(runtime->rate
 					* runtime->channels * 2)));
 			hrtimer_start(&prtd->hrt,
-			ns_to_ktime(prtd->poll_time_ns * 1000 * 1000),
+			ns_to_ktime(prtd->poll_time * 1000),
 			      HRTIMER_MODE_REL);
-			pr_info("prtd->poll_time_ns : %d", prtd->poll_time_ns);
+			pr_info("prtd->poll_time : %d", prtd->poll_time);
 			break;
 		}
 		case AFE_EVENT_RTPORT_STOP:
