@@ -459,9 +459,6 @@ static int msm_stats_axi_cfg(struct v4l2_subdev *sd,
 	memset(&axi_data, 0, sizeof(axi_data));
 
 	switch (cfgcmd->cmd_type) {
-	case CMD_STATS_AXI_CFG:
-		pmem_type = MSM_PMEM_AEC_AWB;
-		break;
 	case CMD_STATS_AF_AXI_CFG:
 		pmem_type = MSM_PMEM_AF;
 		break;

@@ -196,7 +196,6 @@ static int __msm_register_pmem(struct hlist_head *ptype,
 	int rc = 0;
 
 	switch (pinfo->type) {
-	case MSM_PMEM_AEC_AWB:
 	case MSM_PMEM_AF:
 	case MSM_PMEM_AEC:
 	case MSM_PMEM_AWB:
@@ -223,8 +222,13 @@ static int __msm_pmem_table_del(struct hlist_head *ptype,
 	struct hlist_node *node, *n;
 
 	switch (pinfo->type) {
-	case MSM_PMEM_AEC_AWB:
 	case MSM_PMEM_AF:
+	case MSM_PMEM_AEC:
+	case MSM_PMEM_AWB:
+	case MSM_PMEM_RS:
+	case MSM_PMEM_CS:
+	case MSM_PMEM_IHIST:
+	case MSM_PMEM_SKIN:
 		hlist_for_each_entry_safe(region, node, n,
 				ptype, list) {
 
