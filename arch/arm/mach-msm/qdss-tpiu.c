@@ -12,6 +12,8 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
@@ -56,7 +58,6 @@ do {									\
 struct tpiu_ctx {
 	void __iomem	*base;
 	bool		enabled;
-	atomic_t	in_use;
 	struct device	*dev;
 };
 

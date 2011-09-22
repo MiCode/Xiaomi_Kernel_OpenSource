@@ -13,6 +13,8 @@
 #ifndef _ARCH_ARM_MACH_MSM_QDSS_H_
 #define _ARCH_ARM_MACH_MSM_QDSS_H_
 
+#include <linux/bitops.h>
+
 /* Coresight management registers (0xF00-0xFCC) */
 #define CS_ITCTRL		(0xF00)
 #define CS_CLAIMSET		(0xFA0)
