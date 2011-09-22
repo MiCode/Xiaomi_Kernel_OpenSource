@@ -337,6 +337,8 @@ struct hci_conn {
 	__u8		sec_req;
 	__u8		auth;
 	void		*smp_conn;
+	struct timer_list smp_timer;
+
 
 	void (*connect_cfm_cb)	(struct hci_conn *conn, u8 status);
 	void (*security_cfm_cb)	(struct hci_conn *conn, u8 status);

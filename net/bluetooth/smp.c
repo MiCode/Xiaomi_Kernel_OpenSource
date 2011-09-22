@@ -437,6 +437,7 @@ int le_user_confirm_reply(struct hci_conn *hcon, u16 mgmt_op, void *cp)
 		BT_DBG("smp_send_cmd: SMP_CMD_PAIRING_FAIL");
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
+		del_timer(&hcon->smp_timer);
 		hci_conn_put(hcon);
 	} else if (hcon->cfm_pending) {
 		BT_DBG("send_pairing_confirm");
@@ -490,8 +491,7 @@ static u8 smp_cmd_pairing_req(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	smp_send_cmd(conn, SMP_CMD_PAIRING_RSP, sizeof(rsp), &rsp);
 
-	mod_timer(&conn->security_timer, jiffies +
-					msecs_to_jiffies(SMP_TIMEOUT));
+	mod_timer(&hcon->smp_timer, jiffies + msecs_to_jiffies(SMP_TIMEOUT));
 
 	return 0;
 }
@@ -569,8 +569,7 @@ static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 		hcon->cfm_pending = TRUE;
 
 
-	mod_timer(&conn->security_timer, jiffies +
-					msecs_to_jiffies(SMP_TIMEOUT));
+	mod_timer(&hcon->smp_timer, jiffies + msecs_to_jiffies(SMP_TIMEOUT));
 
 	return 0;
 }
@@ -682,8 +681,7 @@ static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	smp_send_cmd(conn, SMP_CMD_PAIRING_REQ, sizeof(cp), &cp);
 
-	mod_timer(&conn->security_timer, jiffies +
-			msecs_to_jiffies(SMP_TIMEOUT));
+	mod_timer(&hcon->smp_timer, jiffies + msecs_to_jiffies(SMP_TIMEOUT));
 
 	set_bit(HCI_CONN_ENCRYPT_PEND, &hcon->pend);
 
@@ -750,7 +748,7 @@ int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level)
 		hcon->preq[0] = SMP_CMD_PAIRING_REQ;
 		memcpy(&hcon->preq[1], &cp, sizeof(cp));
 
-		mod_timer(&conn->security_timer, jiffies +
+		mod_timer(&hcon->smp_timer, jiffies +
 					msecs_to_jiffies(SMP_TIMEOUT));
 
 		smp_send_cmd(conn, SMP_CMD_PAIRING_REQ, sizeof(cp), &cp);
@@ -846,6 +844,7 @@ int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb)
 	case SMP_CMD_PAIRING_FAIL:
 		reason = 0;
 		err = -EPERM;
+		del_timer(&hcon->smp_timer);
 		hci_conn_put(hcon);
 		break;
 
@@ -893,6 +892,7 @@ done:
 		BT_ERR("SMP_CMD_PAIRING_FAIL: %d", reason);
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
+		del_timer(&hcon->smp_timer);
 		hci_conn_put(hcon);
 	}
 
@@ -984,6 +984,8 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 	if (hcon->out || rsp->resp_key_dist) {
 		if (hcon->disconn_cfm_cb)
 			hcon->disconn_cfm_cb(hcon, 0);
+
+		del_timer(&hcon->smp_timer);
 		hci_conn_put(hcon);
 	}
 
@@ -1004,4 +1006,15 @@ int smp_link_encrypt_cmplt(struct l2cap_conn *conn, u8 status, u8 encrypt)
 		smp_conn_security(conn, hcon->sec_level);
 
 	return 0;
+}
+
+void smp_timeout(unsigned long arg)
+{
+	struct l2cap_conn *conn = (void *) arg;
+	u8 reason = SMP_UNSPECIFIED;
+
+	BT_DBG("%p", conn);
+
+	smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason), &reason);
+	hci_conn_put(conn->hcon);
 }

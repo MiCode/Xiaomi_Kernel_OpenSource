@@ -1724,6 +1724,9 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	if (conn->type == ACL_LINK || conn->type == LE_LINK)
 		mgmt_disconnected(hdev->id, &conn->dst);
 
+	if (conn->type == LE_LINK)
+		del_timer(&conn->smp_timer);
+
 	hci_proto_disconn_cfm(conn, ev->reason);
 	hci_conn_del(conn);
 

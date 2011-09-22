@@ -452,8 +452,6 @@ struct l2cap_conn {
 
 	__u8		disc_reason;
 
-	struct timer_list security_timer;
-
 	struct l2cap_chan_list chan_list;
 };
 

@@ -1058,13 +1058,6 @@ static void l2cap_info_timeout(unsigned long arg)
 	l2cap_conn_start(conn);
 }
 
-static void security_timeout(unsigned long arg)
-{
-	struct l2cap_conn *conn = (void *) arg;
-
-	l2cap_conn_del(conn->hcon, ETIMEDOUT);
-}
-
 static struct l2cap_conn *l2cap_conn_add(struct hci_conn *hcon, u8 status)
 {
 	struct l2cap_conn *conn = hcon->l2cap_data;
@@ -1095,7 +1088,7 @@ static struct l2cap_conn *l2cap_conn_add(struct hci_conn *hcon, u8 status)
 	rwlock_init(&conn->chan_list.lock);
 
 	if (hcon->type == LE_LINK)
-		setup_timer(&conn->security_timer, security_timeout,
+		setup_timer(&hcon->smp_timer, smp_timeout,
 						(unsigned long) conn);
 	else
 		setup_timer(&conn->info_timer, l2cap_info_timeout,
@@ -7263,7 +7256,7 @@ static int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
 			if (!status && encrypt)
 				l2cap_pi(sk)->sec_level = hcon->sec_level;
 
-			del_timer(&conn->security_timer);
+			del_timer(&hcon->smp_timer);
 			l2cap_chan_ready(sk);
 			smp_link_encrypt_cmplt(conn, status, encrypt);
 
