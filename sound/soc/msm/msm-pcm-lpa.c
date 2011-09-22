@@ -133,12 +133,12 @@ static void event_handler(uint32_t opcode,
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
 				__func__, prtd->pcm_count);
-			param.paddr = (unsigned long)buf[prtd->out_head].data;
+			param.paddr = (unsigned long)buf[prtd->out_head].phys;
 			param.len = prtd->pcm_count;
 			param.msw_ts = 0;
 			param.lsw_ts = 0;
 			param.flags = NO_TIMESTAMP;
-			param.uid =  (unsigned long)buf[prtd->out_head].data;
+			param.uid =  (unsigned long)buf[prtd->out_head].phys;
 			if (q6asm_async_write(prtd->audio_client,
 						&param) < 0)
 				pr_err("%s:q6asm_async_write failed\n",
