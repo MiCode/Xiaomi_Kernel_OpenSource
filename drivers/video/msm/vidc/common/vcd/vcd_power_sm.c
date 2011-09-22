@@ -304,8 +304,8 @@ u32 vcd_update_clnt_perf_lvl(
 	u32 rc = VCD_S_SUCCESS;
 	struct vcd_dev_ctxt *dev_ctxt = cctxt->dev_ctxt;
 	u32 new_perf_lvl;
-	new_perf_lvl =
-	    frm_p_units * fps->fps_numerator / fps->fps_denominator;
+	new_perf_lvl = frm_p_units *\
+		(fps->fps_numerator / fps->fps_denominator);
 	if (cctxt->status.req_perf_lvl) {
 		dev_ctxt->reqd_perf_lvl =
 		    dev_ctxt->reqd_perf_lvl - cctxt->reqd_perf_lvl +
