@@ -757,6 +757,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.dsp_link = &fe_media,
 		.be_id = MSM_FRONTEND_DAI_CS_VOICE,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = "MSM VoIP",
@@ -785,6 +786,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.dynamic = 1,
 		.dsp_link = &slimbus0_hl_media,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
 		/* .be_id = do not care */
 	},
 	{
@@ -795,6 +797,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.dynamic = 1,
 		.dsp_link = &int_fm_hl_media,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
 		/* .be_id = do not care */
 	},
 	{
@@ -804,6 +807,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 		.platform_name  = "msm-pcm-afe",
+		.ignore_suspend = 1,
 	},
 	{
 		.name = "MSM AFE-PCM TX",
@@ -812,6 +816,7 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
 		.platform_name  = "msm-pcm-afe",
+		.ignore_suspend = 1,
 	},
 	/* Backend DAI Links */
 	{
