@@ -34,6 +34,7 @@ enum ion_heap_type {
 	ION_HEAP_TYPE_SYSTEM,
 	ION_HEAP_TYPE_SYSTEM_CONTIG,
 	ION_HEAP_TYPE_CARVEOUT,
+	ION_HEAP_TYPE_IOMMU,
 	ION_HEAP_TYPE_CUSTOM, /* must be last so device specific heaps always
 				 are at the end of this enum */
 	ION_NUM_HEAPS,
@@ -58,6 +59,7 @@ enum ion_heap_ids {
 	ION_HEAP_SMI_ID,
 	ION_HEAP_ADSP_ID,
 	ION_HEAP_AUDIO_ID,
+	ION_HEAP_IOMMU_ID,
 };
 
 #define ION_KMALLOC_HEAP_NAME	"kmalloc"
@@ -65,6 +67,7 @@ enum ion_heap_ids {
 #define ION_EBI1_HEAP_NAME	"EBI1"
 #define ION_ADSP_HEAP_NAME	"adsp"
 #define ION_SMI_HEAP_NAME	"smi"
+#define ION_IOMMU_HEAP_NAME	"iommu"
 
 #define CACHED          1
 #define UNCACHED        0

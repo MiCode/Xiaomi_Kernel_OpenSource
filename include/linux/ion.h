@@ -228,6 +228,65 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 				unsigned long *flags);
 
+
+/**
+ * ion_map_iommu - map the given handle into an iommu
+ *
+ * @client - client who allocated the handle
+ * @handle - handle to map
+ * @domain_num - domain number to map to
+ * @partition_num - partition number to allocate iova from
+ * @align - alignment for the iova
+ * @iova_length - length of iova to map. If the iova length is
+ *		greater than the handle length, the remaining
+ *		address space will be mapped to a dummy buffer.
+ * @iova - pointer to store the iova address
+ * @buffer_size - pointer to store the size of the buffer
+ * @flags - flags for options to map
+ *
+ * Maps the handle into the iova space specified via domain number. Iova
+ * will be allocated from the partition specified via partition_num.
+ * Returns 0 on success, negative value on error.
+ */
+int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, unsigned long *iova,
+			unsigned long *buffer_size,
+			unsigned long flags);
+
+
+/**
+ * ion_handle_get_size - get the allocated size of a given handle
+ *
+ * @client - client who allocated the handle
+ * @handle - handle to get the size
+ * @size - pointer to store the size
+ *
+ * gives the allocated size of a handle. returns 0 on success, negative
+ * value on error
+ *
+ * NOTE: This is intended to be used only to get a size to pass to map_iommu.
+ * You should *NOT* rely on this for any other usage.
+ */
+
+int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
+			unsigned long *size);
+
+/**
+ * ion_unmap_iommu - unmap the handle from an iommu
+ *
+ * @client - client who allocated the handle
+ * @handle - handle to unmap
+ * @domain_num - domain to unmap from
+ * @partition_num - partition to unmap from
+ *
+ * Decrement the reference count on the iommu mapping. If the count is
+ * 0, the mapping will be removed from the iommu.
+ */
+void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
+			int domain_num, int partition_num);
+
+
 #else
 static inline void ion_reserve(struct ion_platform_data *data)
 {
@@ -294,5 +353,23 @@ static inline int ion_handle_get_flags(struct ion_client *client,
 {
 	return -ENODEV;
 }
+
+static inline int ion_map_iommu(struct ion_client *client,
+			struct ion_handle *handle, int domain_num,
+			int partition_num, unsigned long align,
+			unsigned long iova_length, unsigned long *iova,
+			unsigned long flags)
+{
+	return -ENODEV;
+}
+
+static inline void ion_unmap_iommu(struct ion_client *client,
+			struct ion_handle *handle, int domain_num,
+			int partition_num)
+{
+	return;
+}
+
+
 #endif /* CONFIG_ION */
 #endif /* _LINUX_ION_H */
