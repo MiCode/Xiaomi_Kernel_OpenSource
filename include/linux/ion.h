@@ -19,7 +19,6 @@
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
-#include <mach/ion.h>
 
 
 struct ion_handle;
@@ -74,6 +73,7 @@ enum ion_heap_ids {
 #define ION_IS_CACHED(__flags)	((__flags) & (1 << ION_CACHE_SHIFT))
 
 #ifdef __KERNEL__
+#include <mach/ion.h>
 struct ion_device;
 struct ion_heap;
 struct ion_mapper;
