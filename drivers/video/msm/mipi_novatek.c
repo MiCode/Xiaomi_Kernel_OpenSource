@@ -27,11 +27,12 @@ static struct dsi_buf novatek_rx_buf;
 
 
 #define MIPI_DSI_NOVATEK_SPI_DEVICE_NAME	"dsi_novatek_3d_panel_spi"
-static struct spi_device *panel_3d_spi_client;
 #define HPCI_FPGA_READ_CMD	0x84
 #define HPCI_FPGA_WRITE_CMD	0x04
 
 #ifdef CONFIG_SPI_QUP
+static struct spi_device *panel_3d_spi_client;
+
 static void novatek_fpga_write(uint8 addr, uint16 value)
 {
 	char tx_buf[32];
@@ -105,6 +106,25 @@ static void novatek_fpga_read(uint8 addr)
 	return;
 }
 
+static int __devinit panel_3d_spi_probe(struct spi_device *spi)
+{
+	panel_3d_spi_client = spi;
+	return 0;
+}
+static int __devexit panel_3d_spi_remove(struct spi_device *spi)
+{
+	panel_3d_spi_client = NULL;
+	return 0;
+}
+static struct spi_driver panel_3d_spi_driver = {
+	.probe         = panel_3d_spi_probe,
+	.remove        = __devexit_p(panel_3d_spi_remove),
+	.driver		   = {
+		.name = "dsi_novatek_3d_panel_spi",
+		.owner  = THIS_MODULE,
+	}
+};
+
 #else
 
 static void novatek_fpga_write(uint8 addr, uint16 value)
@@ -119,23 +139,6 @@ static void novatek_fpga_read(uint8 addr)
 
 #endif
 
-
-static int __devinit panel_3d_spi_probe(struct spi_device *spi)
-{
-	panel_3d_spi_client = spi;
-	return 0;
-}
-static int __devexit panel_3d_spi_remove(struct spi_device *spi)
-{
-	panel_3d_spi_client = NULL;
-	return 0;
-}
-static struct spi_driver panel_3d_spi_driver = {
-	.driver.name   = "dsi_novatek_3d_panel_spi",
-	.driver.owner  = THIS_MODULE,
-	.probe         = panel_3d_spi_probe,
-	.remove        = __devexit_p(panel_3d_spi_remove),
-};
 
 /* novatek blue panel */
 
