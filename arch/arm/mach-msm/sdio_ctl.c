@@ -35,7 +35,7 @@
 
 #define MAX_WRITE_RETRY 5
 #define MAGIC_NO_V1 0x33FC
-#define NUM_SDIO_CTL_PORTS 9
+#define NUM_SDIO_CTL_PORTS 10
 #define DEVICE_NAME "sdioctl"
 #define MAX_BUF_SIZE 2048
 #define DEBUG
@@ -111,7 +111,8 @@ static uint32_t cmux_ch_id[] = {
 	SDIO_CMUX_DATA_CTL_5,
 	SDIO_CMUX_DATA_CTL_6,
 	SDIO_CMUX_DATA_CTL_7,
-	SDIO_CMUX_USB_CTL_0
+	SDIO_CMUX_USB_CTL_0,
+	SDIO_CMUX_CSVT_CTL_0
 };
 
 static int get_ctl_dev_index(int id)
