@@ -27,6 +27,7 @@
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
+#include <mach/msm_bus_board.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -602,6 +603,17 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
+static void __init msm9615_init_buses(void)
+{
+#ifdef CONFIG_MSM_BUS_SCALING
+	msm_bus_rpm_set_mt_mask();
+	msm_bus_9615_sys_fabric_pdata.rpm_enabled = 1;
+	msm_bus_9615_sys_fabric.dev.platform_data =
+		&msm_bus_9615_sys_fabric_pdata;
+	msm_bus_def_fab.dev.platform_data = &msm_bus_9615_def_fab_pdata;
+#endif
+}
+
 static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
 	.max_clock_speed = 24000000,
 };
@@ -675,6 +687,8 @@ static struct platform_device *common_devices[] = {
 	&msm9615_qcedev_device,
 #endif
 	&msm9615_device_watchdog,
+	&msm_bus_9615_sys_fabric,
+	&msm_bus_def_fab,
 };
 
 static void __init msm9615_i2c_init(void)
@@ -690,6 +704,8 @@ static void __init msm9615_common_init(void)
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
 	platform_device_register(&msm9615_device_rpm_regulator);
+	msm_clock_init(&msm9615_clock_init_data);
+	msm9615_init_buses();
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
 	msm9615_device_ssbi_pmic1.dev.platform_data =
@@ -699,7 +715,6 @@ static void __init msm9615_common_init(void)
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 
-	msm_clock_init(&msm9615_clock_init_data);
 	acpuclk_init(&acpuclk_9615_soc_data);
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
