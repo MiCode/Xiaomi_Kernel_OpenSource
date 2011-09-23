@@ -2010,10 +2010,10 @@ static int msmsdcc_setup_pad(struct msmsdcc_host *host, bool enable)
 
 	for (i = 0; i < curr->pull->size; i++) {
 		if (enable)
-			msm_tlmm_set_hdrive(curr->pull->on[i].no,
+			msm_tlmm_set_pull(curr->pull->on[i].no,
 				curr->pull->on[i].val);
 		else
-			msm_tlmm_set_hdrive(curr->pull->off[i].no,
+			msm_tlmm_set_pull(curr->pull->off[i].no,
 				curr->pull->off[i].val);
 	}
 
