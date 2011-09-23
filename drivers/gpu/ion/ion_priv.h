@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/rbtree.h>
 #include <linux/ion.h>
+#include <linux/iommu.h>
 
 struct ion_mapping;
 
@@ -33,6 +34,34 @@ struct ion_dma_mapping {
 struct ion_kernel_mapping {
 	struct kref ref;
 	void *vaddr;
+};
+
+/**
+ * struct ion_iommu_map - represents a mapping of an ion buffer to an iommu
+ * @iova_addr - iommu virtual address
+ * @node - rb node to exist in the buffer's tree of iommu mappings
+ * @domain_info - contains the partition number and domain number
+ *		domain_info[1] = domain number
+ *		domain_info[0] = partition number
+ * @ref - for reference counting this mapping
+ * @mapped_size - size of the iova space mapped
+ *		(may not be the same as the buffer size)
+ *
+ * Represents a mapping of one ion buffer to a particular iommu domain
+ * and address range. There may exist other mappings of this buffer in
+ * different domains or address ranges. All mappings will have the same
+ * cacheability and security.
+ */
+struct ion_iommu_map {
+	unsigned long iova_addr;
+	struct rb_node node;
+	union {
+		int domain_info[2];
+		uint64_t key;
+	};
+	struct ion_buffer *buffer;
+	struct kref ref;
+	int mapped_size;
 };
 
 struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
@@ -72,6 +101,8 @@ struct ion_buffer {
 	int dmap_cnt;
 	struct scatterlist *sglist;
 	int umap_cnt;
+	unsigned int iommu_map_cnt;
+	struct rb_root iommu_maps;
 	int marked;
 };
 
@@ -109,6 +140,15 @@ struct ion_heap_ops {
 			unsigned int length, unsigned int cmd);
 	unsigned long (*get_allocated)(struct ion_heap *heap);
 	unsigned long (*get_total)(struct ion_heap *heap);
+	int (*map_iommu)(struct ion_buffer *buffer,
+				struct ion_iommu_map *map_data,
+				unsigned int domain_num,
+				unsigned int partition_num,
+				unsigned long align,
+				unsigned long iova_length,
+				unsigned long flags);
+	void (*unmap_iommu)(struct ion_iommu_map *data);
+
 };
 
 /**
@@ -135,6 +175,11 @@ struct ion_heap {
 	int id;
 	const char *name;
 };
+
+
+
+#define iommu_map_domain(__m)		((__m)->domain_info[1])
+#define iommu_map_partition(__m)	((__m)->domain_info[0])
 
 /**
  * ion_device_create - allocates and returns an ion device
@@ -177,6 +222,10 @@ void ion_system_contig_heap_destroy(struct ion_heap *);
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *);
 void ion_carveout_heap_destroy(struct ion_heap *);
+
+struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *);
+void ion_iommu_heap_destroy(struct ion_heap *);
+
 /**
  * kernel api to allocate/free from carveout -- used when carveout is
  * used to back an architecture specific custom heap
@@ -185,6 +234,9 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap, unsigned long size,
 				      unsigned long align);
 void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		       unsigned long size);
+
+
+struct ion_heap *msm_get_contiguous_heap(void);
 /**
  * The carveout heap returns physical addresses, since 0 may be a valid
  * physical address, this is used to indicate allocation failed
