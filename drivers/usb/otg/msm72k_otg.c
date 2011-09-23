@@ -2367,15 +2367,15 @@ static ssize_t otg_mode_write(struct file *file, const char __user *buf,
 
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->pdata->otg_mode = OTG_USER_CONTROL;
-	if (!memcmp(buf, "none", count - 1)) {
+	if (!memcmp(buf, "none", 4)) {
 		clear_bit(B_SESS_VLD, &dev->inputs);
 		set_bit(ID, &dev->inputs);
 		work = 1;
-	} else if (!memcmp(buf, "peripheral", count - 1)) {
+	} else if (!memcmp(buf, "peripheral", 10)) {
 		set_bit(B_SESS_VLD, &dev->inputs);
 		set_bit(ID, &dev->inputs);
 		work = 1;
-	} else if (!memcmp(buf, "host", count - 1)) {
+	} else if (!memcmp(buf, "host", 4)) {
 		clear_bit(B_SESS_VLD, &dev->inputs);
 		clear_bit(ID, &dev->inputs);
 		set_bit(A_BUS_REQ, &dev->inputs);
@@ -2896,13 +2896,16 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 		clk_put(dev->phy_reset_clk);
 	if (dev->pdata->rpc_connect)
 		dev->pdata->rpc_connect(0);
+	if (dev->pclk_src) {
+		msm_otg_vote_for_pclk_source(dev, 0);
+		clk_put(dev->pclk_src);
+	}
 	msm_xo_put(dev->xo_handle);
+	pm_qos_remove_request(&dev->pdata->pm_qos_req_dma);
 
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	kfree(dev);
-	pm_qos_remove_request(&dev->pdata->pm_qos_req_dma);
-	clk_put(dev->pclk_src);
 	return 0;
 }
 

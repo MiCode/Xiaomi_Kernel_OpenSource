@@ -722,6 +722,9 @@ gser_bind(struct usb_configuration *c, struct usb_function *f)
 	/* copy descriptors, and track endpoint copies */
 	f->descriptors = usb_copy_descriptors(gser_fs_function);
 
+	if (!f->descriptors)
+		goto fail;
+
 	gser->fs.in = usb_find_endpoint(gser_fs_function,
 			f->descriptors, &gser_fs_in_desc);
 	gser->fs.out = usb_find_endpoint(gser_fs_function,
@@ -749,6 +752,9 @@ gser_bind(struct usb_configuration *c, struct usb_function *f)
 		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(gser_hs_function);
 
+		if (!f->hs_descriptors)
+			goto fail;
+
 		gser->hs.in = usb_find_endpoint(gser_hs_function,
 				f->hs_descriptors, &gser_hs_in_desc);
 		gser->hs.out = usb_find_endpoint(gser_hs_function,
@@ -766,6 +772,8 @@ gser_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
+	if (f->descriptors)
+		usb_free_descriptors(f->descriptors);
 #ifdef CONFIG_MODEM_SUPPORT
 	if (gser->notify_req)
 		gs_free_req(gser->notify, gser->notify_req);

@@ -275,12 +275,13 @@ static enum usb_device_state msm_hsusb_get_state(void)
 
 static ssize_t print_switch_name(struct switch_dev *sdev, char *buf)
 {
-	return sprintf(buf, "%s\n", DRIVER_NAME);
+	return snprintf(buf, PAGE_SIZE, "%s\n", DRIVER_NAME);
 }
 
 static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 {
-	return sprintf(buf, "%s\n", sdev->state ? "online" : "offline");
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+		sdev->state ? "online" : "offline");
 }
 
 static inline enum chg_type usb_get_chg_type(struct usb_info *ui)
@@ -1299,11 +1300,9 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 			/* XXX: we can't seem to detect going offline,
 			 * XXX:  so deconfigure on reset for the time being
 			 */
-			if (ui->driver) {
-				dev_dbg(&ui->pdev->dev,
+			dev_dbg(&ui->pdev->dev,
 					"usb: notify offline\n");
-				ui->driver->disconnect(&ui->gadget);
-			}
+			ui->driver->disconnect(&ui->gadget);
 			/* cancel pending ep0 transactions */
 			flush_endpoint(&ui->ep0out);
 			flush_endpoint(&ui->ep0in);
@@ -2374,7 +2373,7 @@ static ssize_t show_usb_chg_current(struct device *dev,
 	struct usb_info *ui = the_usb_info;
 	size_t count;
 
-	count = sprintf(buf, "%d", ui->chg_current);
+	count = snprintf(buf, PAGE_SIZE, "%d", ui->chg_current);
 
 	return count;
 }
@@ -2390,7 +2389,7 @@ static ssize_t show_usb_chg_type(struct device *dev,
 			"DEDICATED CHARGER",
 			"INVALID"};
 
-	count = sprintf(buf, "%s",
+	count = snprintf(buf, PAGE_SIZE, "%s",
 			chg_type[atomic_read(&otg->chg_type)]);
 
 	return count;
@@ -2438,7 +2437,7 @@ static ssize_t show_host_avail(struct device *dev,
 	unsigned long flags;
 
 	spin_lock_irqsave(&ui->lock, flags);
-	count = sprintf(buf, "%d\n", ui->hnp_avail);
+	count = snprintf(buf, PAGE_SIZE, "%d\n", ui->hnp_avail);
 	spin_unlock_irqrestore(&ui->lock, flags);
 
 	return count;

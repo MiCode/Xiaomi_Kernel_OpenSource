@@ -1423,7 +1423,8 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 fail:
 	while (count--)
 		kfree(ports[count].port);
-	destroy_workqueue(gserial_wq);
+	if (gserial_wq)
+		destroy_workqueue(gserial_wq);
 	put_tty_driver(gs_tty_driver);
 	gs_tty_driver = NULL;
 	return status;
