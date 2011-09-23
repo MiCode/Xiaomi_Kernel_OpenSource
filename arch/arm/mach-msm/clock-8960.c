@@ -4408,7 +4408,6 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 static u32 run_measurement(unsigned ticks)
 {
 	/* Stop counters and set the XO4 counter start value. */
-	writel_relaxed(0x0, RINGOSC_TCXO_CTL_REG);
 	writel_relaxed(ticks, RINGOSC_TCXO_CTL_REG);
 
 	/* Wait for timer to become ready. */
