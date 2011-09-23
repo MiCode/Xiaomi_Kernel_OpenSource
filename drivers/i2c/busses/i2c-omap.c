@@ -838,8 +838,9 @@ complete:
 
 		if (stat & OMAP_I2C_STAT_NACK) {
 			err |= OMAP_I2C_STAT_NACK;
-			omap_i2c_write_reg(dev, OMAP_I2C_CON_REG,
-					   OMAP_I2C_CON_STP);
+			w = omap_i2c_read_reg(dev, OMAP_I2C_CON_REG);
+			w |= OMAP_I2C_CON_STP;
+			omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, w);
 		}
 		if (stat & OMAP_I2C_STAT_AL) {
 			dev_err(dev->dev, "Arbitration lost\n");
