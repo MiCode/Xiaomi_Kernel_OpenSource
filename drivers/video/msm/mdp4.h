@@ -476,6 +476,7 @@ void mdp4_mddi_overlay_restore(void);
 void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd);
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
+void mdp4_overlay_lcdc_set_perf(struct msm_fb_data_type *mfd);
 void mdp4_update_perf_level(u32 perf_level);
 void mdp4_set_perf_level(void);
 void mdp4_mddi_overlay_dmas_restore(void);
@@ -585,6 +586,7 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
+void mdp4_overlay_dsi_video_set_perf(struct msm_fb_data_type *mfd);
 #else
 static inline void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
@@ -596,6 +598,11 @@ static inline void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd)
 }
 static inline void mdp4_overlay_dsi_video_vsync_push(
 	struct msm_fb_data_type *mfd, struct mdp4_overlay_pipe *pipe)
+{
+	/* empty */
+}
+static inline void mdp4_overlay_dsi_video_set_perf(
+				struct msm_fb_data_type *mfd)
 {
 	/* empty */
 }

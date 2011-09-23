@@ -466,6 +466,13 @@ static void mdp4_overlay_dsi_video_dma_busy_wait(struct msm_fb_data_type *mfd)
 	pr_debug("%s: done pid=%d\n", __func__, current->pid);
 }
 
+void mdp4_overlay_dsi_video_set_perf(struct msm_fb_data_type *mfd)
+{
+	mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
+	/* change mdp clk while mdp is idle */
+	mdp4_set_perf_level();
+}
+
 void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe)
 {
@@ -493,9 +500,7 @@ void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 		mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
 	} else {
 
-		mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
-		/* change mdp clk while mdp is idle */
-		mdp4_set_perf_level();
+		mdp4_overlay_dsi_video_wait4event(mfd, INTR_PRIMARY_VSYNC);
 	}
 }
 
