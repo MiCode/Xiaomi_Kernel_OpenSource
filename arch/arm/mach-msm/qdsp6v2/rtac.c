@@ -36,7 +36,7 @@ void rtac_set_asm_handle(u32 session_id, void *handle) {}
 bool rtac_make_asm_callback(u32 session_id, uint32_t *payload,
 	u32 payload_size) {return false; }
 void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
-	u32 tx_afe_port) {}
+	u32 tx_afe_port, u32 session_id) {}
 void rtac_remove_voice(u32 cvs_handle) {}
 void rtac_set_voice_handle(u32 mode, void *handle) {}
 bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
@@ -113,7 +113,7 @@ static struct rtac_voice	rtac_voice_data;
 static u32			rtac_voice_payload_size;
 static u32			rtac_voice_user_buf_size;
 static u8			*rtac_voice_buffer;
-
+static u32			voice_session_id[RTAC_MAX_ACTIVE_VOICE_COMBOS];
 
 
 struct mutex			rtac_adm_mutex;
@@ -263,7 +263,8 @@ done:
 
 /* Voice Info */
 static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
-					u32 rx_afe_port, u32 tx_afe_port)
+					u32 rx_afe_port, u32 tx_afe_port,
+					u32 session_id)
 {
 	rtac_voice_data.voice[idx].tx_topology_id = get_voice_tx_topology();
 	rtac_voice_data.voice[idx].rx_topology_id = get_voice_rx_topology();
@@ -272,10 +273,12 @@ static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
 	rtac_voice_data.voice[idx].cvs_handle = cvs_handle;
 	rtac_voice_data.voice[idx].cvp_handle = cvp_handle;
 
+	/* Store session ID for voice RTAC */
+	voice_session_id[idx] = session_id;
 }
 
 void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
-			u32 tx_afe_port)
+			u32 tx_afe_port, u32 session_id)
 {
 	u32 i = 0;
 	pr_debug("%s\n", __func__);
@@ -293,7 +296,8 @@ void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
 			if (rtac_voice_data.voice[i].cvs_handle ==
 							cvs_handle) {
 				set_rtac_voice_data(i, cvs_handle, cvp_handle,
-					rx_afe_port, tx_afe_port);
+					rx_afe_port, tx_afe_port,
+					session_id);
 				goto done;
 			}
 		}
@@ -302,7 +306,8 @@ void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
 	/* Add device */
 	rtac_voice_data.num_of_voice_combos++;
 	set_rtac_voice_data(i, cvs_handle, cvp_handle,
-				rx_afe_port, tx_afe_port);
+				rx_afe_port, tx_afe_port,
+				session_id);
 done:
 	mutex_unlock(&rtac_voice_mutex);
 	return;
@@ -314,6 +319,7 @@ static void shift_voice_devices(u32 idx)
 		memcpy(&rtac_voice_data.voice[idx],
 			&rtac_voice_data.voice[idx + 1],
 			sizeof(rtac_voice_data.voice[idx]));
+		voice_session_id[idx] = voice_session_id[idx + 1];
 	}
 }
 
@@ -332,6 +338,8 @@ void rtac_remove_voice(u32 cvs_handle)
 				rtac_voice_data.num_of_voice_combos], 0,
 				sizeof(rtac_voice_data.voice
 				[rtac_voice_data.num_of_voice_combos]));
+			voice_session_id[rtac_voice_data.num_of_voice_combos]
+				= 0;
 			break;
 		}
 	}
@@ -339,6 +347,19 @@ void rtac_remove_voice(u32 cvs_handle)
 	return;
 }
 
+static int get_voice_index(u32 cvs_handle)
+{
+	u32 i;
+
+	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
+		if (rtac_voice_data.voice[i].cvs_handle == cvs_handle)
+			return i;
+	}
+
+	pr_err("%s: No voice index for CVS handle %d found returning 0\n",
+	       __func__, cvs_handle);
+	return 0;
+}
 
 
 /* ADM APR */
@@ -799,7 +820,8 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		payload_size);
 	voice_params.src_svc = 0;
 	voice_params.src_domain = APR_DOMAIN_APPS;
-	voice_params.src_port = 0;
+	voice_params.src_port = voice_session_id[
+					get_voice_index(dest_port)];
 	voice_params.dest_svc = 0;
 	voice_params.dest_domain = APR_DOMAIN_MODEM;
 	voice_params.dest_port = dest_port;

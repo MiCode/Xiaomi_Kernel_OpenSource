@@ -1423,7 +1423,8 @@ static int voice_set_device(struct voice_data *v)
 		voice_send_netid_timing_cmd(v);
 
 	rtac_add_voice(v->cvs_handle, v->cvp_handle,
-		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id);
+		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id,
+		v->session_id);
 
 	return 0;
 fail:
@@ -1718,7 +1719,8 @@ static int voice_attach_vocproc(struct voice_data *v)
 		voice_send_netid_timing_cmd(v);
 
 	rtac_add_voice(v->cvs_handle, v->cvp_handle,
-		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id);
+		v->dev_rx.dev_port_id, v->dev_tx.dev_port_id,
+		v->session_id);
 
 	return 0;
 fail:

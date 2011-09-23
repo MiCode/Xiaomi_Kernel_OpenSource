@@ -1916,7 +1916,8 @@ static int voice_setup_vocproc(struct voice_data *v)
 
 	rtac_add_voice(voice_get_cvs_handle(v),
 		voice_get_cvp_handle(v),
-		v->dev_rx.port_id, v->dev_tx.port_id);
+		v->dev_rx.port_id, v->dev_tx.port_id,
+		v->session_id);
 
 	return 0;
 
@@ -2406,7 +2407,8 @@ int voc_enable_cvp(uint16_t session_id)
 
 		rtac_add_voice(voice_get_cvs_handle(v),
 			voice_get_cvp_handle(v),
-			v->dev_rx.port_id, v->dev_tx.port_id);
+			v->dev_rx.port_id, v->dev_tx.port_id,
+			v->session_id);
 		v->voc_state = VOC_RUN;
 	}
 
