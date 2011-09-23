@@ -482,6 +482,7 @@ static void ddl_vidc_encode_set_multi_slice_info(
 	case VCD_MSLICE_OFF:
 		m_slice_sel = VIDC_1080P_MSLICE_DISABLE;
 	break;
+	case VCD_MSLICE_BY_GOB:
 	case VCD_MSLICE_BY_MB_COUNT:
 		m_slice_sel = VIDC_1080P_MSLICE_BY_MB_COUNT;
 		i_multi_slice_size = encoder->multi_slice.m_slice_size;
