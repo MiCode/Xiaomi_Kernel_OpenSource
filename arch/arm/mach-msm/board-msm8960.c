@@ -161,7 +161,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
-	PM8XXX_GPIO_OUTPUT(43,	    0),			 /* DISP_RESET_N */
+	PM8XXX_GPIO_OUTPUT(43,	    PM_GPIO_PULL_UP_30), /* DISP_RESET_N */
 };
 
 /* Initial PM8921 MPP configurations */
@@ -1300,18 +1300,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 	static int gpio43;
 	int rc;
 
-	struct pm_gpio gpio43_param = {
-		.direction = PM_GPIO_DIR_OUT,
-		.output_buffer = PM_GPIO_OUT_BUF_CMOS,
-		.output_value = 0,
-		.pull = PM_GPIO_PULL_NO,
-		.vin_sel = 2,
-		.out_strength = PM_GPIO_STRENGTH_HIGH,
-		.function = PM_GPIO_FUNC_PAIRED,
-		.inv_int_pol = 0,
-		.disable_pin = 0,
-	};
-
 	pr_info("%s: state : %d\n", __func__, on);
 
 	if (!dsi_power_on) {
@@ -1323,7 +1311,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 				PTR_ERR(reg_l8));
 			return -ENODEV;
 		}
-
 		reg_l23 = regulator_get(&msm_mipi_dsi1_device.dev,
 				"dsi_vddio");
 		if (IS_ERR(reg_l23)) {
@@ -1331,7 +1318,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 				PTR_ERR(reg_l23));
 			return -ENODEV;
 		}
-
 		reg_l2 = regulator_get(&msm_mipi_dsi1_device.dev,
 				"dsi_vdda");
 		if (IS_ERR(reg_l2)) {
@@ -1339,7 +1325,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 				PTR_ERR(reg_l2));
 			return -ENODEV;
 		}
-
 		rc = regulator_set_voltage(reg_l8, 2800000, 3000000);
 		if (rc) {
 			pr_err("set_voltage l8 failed, rc=%d\n", rc);
@@ -1355,17 +1340,14 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("set_voltage l2 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
-
 		gpio43 = PM8921_GPIO_PM_TO_SYS(43);
 		rc = gpio_request(gpio43, "disp_rst_n");
 		if (rc) {
 			pr_err("request gpio 43 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-
 		dsi_power_on = true;
 	}
-
 	if (on) {
 		rc = regulator_set_optimum_mode(reg_l8, 100000);
 		if (rc < 0) {
@@ -1397,33 +1379,23 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("enable l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-
-		gpio43_param.pull = PM_GPIO_PULL_NO;
-		rc = pm8xxx_gpio_config(gpio43, &gpio43_param);
-		if (rc) {
-			pr_err("gpio_config 43 failed (1), rc=%d\n", rc);
-			return -EINVAL;
-		}
-		gpio43_param.pull = PM_GPIO_PULL_UP_30;
-		rc = pm8xxx_gpio_config(gpio43, &gpio43_param);
-		if (rc) {
-			pr_err("gpio_config 43 failed (2), rc=%d\n", rc);
-			return -EINVAL;
-		}
-		gpio43_param.pull = PM_GPIO_PULL_NO;
-		rc = pm8xxx_gpio_config(gpio43, &gpio43_param);
-		if (rc) {
-			pr_err("gpio_config 43 failed (3), rc=%d\n", rc);
-			return -EINVAL;
-		}
-		gpio43_param.pull = PM_GPIO_PULL_UP_30;
-		rc = pm8xxx_gpio_config(gpio43, &gpio43_param);
-		if (rc) {
-			pr_err("gpio_config 43 failed (4), rc=%d\n", rc);
-			return -EINVAL;
-		}
 		gpio_set_value_cansleep(gpio43, 1);
 	} else {
+		rc = regulator_disable(reg_l2);
+		if (rc) {
+			pr_err("disable reg_l2 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_l8);
+		if (rc) {
+			pr_err("disable reg_l8 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_l23);
+		if (rc) {
+			pr_err("disable reg_l23 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
 		rc = regulator_set_optimum_mode(reg_l8, 100);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l8 failed, rc=%d\n", rc);
@@ -1851,11 +1823,32 @@ static int hdmi_core_power(int on, int show)
 		return 0;
 
 	/* TBD: PM8921 regulator instead of 8901 */
-	if (!reg_8921_l23)
+	if (!reg_8921_l23) {
 		reg_8921_l23 = regulator_get(&hdmi_msm_device.dev, "hdmi_avdd");
-
-	if (!reg_8921_s4)
+		if (IS_ERR(reg_8921_l23)) {
+			pr_err("could not get reg_8921_l23, rc = %ld\n",
+				PTR_ERR(reg_8921_l23));
+			return -ENODEV;
+		}
+		rc = regulator_set_voltage(reg_8921_l23, 1800000, 1800000);
+		if (rc) {
+			pr_err("set_voltage failed for 8921_l23, rc=%d\n", rc);
+			return -EINVAL;
+		}
+	}
+	if (!reg_8921_s4) {
 		reg_8921_s4 = regulator_get(&hdmi_msm_device.dev, "hdmi_vcc");
+		if (IS_ERR(reg_8921_s4)) {
+			pr_err("could not get reg_8921_s4, rc = %ld\n",
+				PTR_ERR(reg_8921_s4));
+			return -ENODEV;
+		}
+		rc = regulator_set_voltage(reg_8921_s4, 1800000, 1800000);
+		if (rc) {
+			pr_err("set_voltage failed for 8921_s4, rc=%d\n", rc);
+			return -EINVAL;
+		}
+	}
 
 	if (on) {
 		rc = regulator_set_optimum_mode(reg_8921_l23, 100000);
@@ -1863,24 +1856,18 @@ static int hdmi_core_power(int on, int show)
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
-
-		rc = regulator_set_voltage(reg_8921_l23, 1800000, 1800000);
-		if (!rc)
-			rc = regulator_enable(reg_8921_l23);
+		rc = regulator_enable(reg_8921_l23);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"hdmi_avdd", rc);
 			return rc;
 		}
-		rc = regulator_set_voltage(reg_8921_s4, 1800000, 1800000);
-		if (!rc)
-			rc = regulator_enable(reg_8921_s4);
+		rc = regulator_enable(reg_8921_s4);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"hdmi_vcc", rc);
 			return rc;
 		}
-
 		rc = gpio_request(100, "HDMI_DDC_CLK");
 		if (rc) {
 			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
@@ -1905,12 +1892,21 @@ static int hdmi_core_power(int on, int show)
 		gpio_free(101);
 		gpio_free(102);
 
+		rc = regulator_disable(reg_8921_l23);
+		if (rc) {
+			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_8921_s4);
+		if (rc) {
+			pr_err("disable reg_8921_s4 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
 		rc = regulator_set_optimum_mode(reg_8921_l23, 100);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
-
 		pr_debug("%s(off): success\n", __func__);
 	}
 
@@ -1924,6 +1920,7 @@ error2:
 	gpio_free(100);
 error1:
 	regulator_disable(reg_8921_l23);
+	regulator_disable(reg_8921_s4);
 	return rc;
 }
 
