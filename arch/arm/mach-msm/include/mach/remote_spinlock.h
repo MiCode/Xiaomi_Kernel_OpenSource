@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009, 2011 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #ifndef __ASM__ARCH_QC_REMOTE_SPINLOCK_H
 #define __ASM__ARCH_QC_REMOTE_SPINLOCK_H
 
+#include <linux/io.h>
 #include <linux/types.h>
 
 /* Remote spinlock definitions. */
@@ -38,6 +39,7 @@ typedef union {
 typedef raw_remote_spinlock_t *_remote_spinlock_t;
 
 #define remote_spinlock_id_t const char *
+#define SMEM_SPINLOCK_PID_APPS 1
 
 static inline void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 {
@@ -173,14 +175,63 @@ static inline void __raw_remote_dek_spin_unlock(raw_remote_spinlock_t *lock)
 	lock->dek.self_lock = DEK_LOCK_YIELD;
 }
 
-#ifdef CONFIG_MSM_SMD
+static inline int __raw_remote_dek_spin_release(raw_remote_spinlock_t *lock,
+		uint32_t pid)
+{
+	return -EINVAL;
+}
+
+static inline void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
+{
+	do {
+		writel_relaxed(SMEM_SPINLOCK_PID_APPS, lock);
+		smp_mb();
+	} while (readl_relaxed(lock) != SMEM_SPINLOCK_PID_APPS);
+}
+
+static inline int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
+{
+	return 1;
+}
+
+static inline void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
+{
+	writel_relaxed(0, lock);
+	smp_mb();
+}
+
+/**
+ * Release spinlock if it is owned by @pid.
+ *
+ * This is only to be used for situations where the processor owning
+ * the spinlock has crashed and the spinlock must be released.
+ *
+ * @lock - lock structure
+ * @pid - processor ID of processor to release
+ */
+static inline int __raw_remote_gen_spin_release(raw_remote_spinlock_t *lock,
+		uint32_t pid)
+{
+	int ret = 1;
+
+	if (readl_relaxed(&lock->lock) == pid) {
+		writel_relaxed(0, &lock->lock);
+		wmb();
+		ret = 0;
+	}
+	return ret;
+}
+
+#if defined(CONFIG_MSM_SMD) || defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
 int _remote_spin_lock_init(remote_spinlock_id_t, _remote_spinlock_t *lock);
+void _remote_spin_release_all(uint32_t pid);
 #else
 static inline
 int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
 {
 	return -EINVAL;
 }
+static inline void _remote_spin_release_all(uint32_t pid) {}
 #endif
 
 #if defined(CONFIG_MSM_REMOTE_SPINLOCK_DEKKERS)
@@ -189,16 +240,29 @@ int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
 #define _remote_spin_lock(lock)		__raw_remote_dek_spin_lock(*lock)
 #define _remote_spin_unlock(lock)	__raw_remote_dek_spin_unlock(*lock)
 #define _remote_spin_trylock(lock)	__raw_remote_dek_spin_trylock(*lock)
+#define _remote_spin_release(lock, pid)	__raw_remote_dek_spin_release(*lock,\
+		pid)
 #elif defined(CONFIG_MSM_REMOTE_SPINLOCK_SWP)
 /* Use SWP-based locks when LDREX/STREX are unavailable for shared memory. */
 #define _remote_spin_lock(lock)		__raw_remote_swp_spin_lock(*lock)
 #define _remote_spin_unlock(lock)	__raw_remote_swp_spin_unlock(*lock)
 #define _remote_spin_trylock(lock)	__raw_remote_swp_spin_trylock(*lock)
+#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock,\
+		pid)
+#elif defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
+/* Use SFPB Hardware Mutex Registers */
+#define _remote_spin_lock(lock)		__raw_remote_sfpb_spin_lock(*lock)
+#define _remote_spin_unlock(lock)	__raw_remote_sfpb_spin_unlock(*lock)
+#define _remote_spin_trylock(lock)	__raw_remote_sfpb_spin_trylock(*lock)
+#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock,\
+		pid)
 #else
 /* Use LDREX/STREX for shared memory locking, when available */
 #define _remote_spin_lock(lock)		__raw_remote_ex_spin_lock(*lock)
 #define _remote_spin_unlock(lock)	__raw_remote_ex_spin_unlock(*lock)
 #define _remote_spin_trylock(lock)	__raw_remote_ex_spin_trylock(*lock)
+#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock, \
+		pid)
 #endif
 
 /* Remote mutex definitions. */

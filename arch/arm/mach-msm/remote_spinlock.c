@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,15 +18,50 @@
 
 #include <asm/system.h>
 
+#include <mach/msm_iomap.h>
 #include <mach/remote_spinlock.h>
 #include <mach/dal.h>
 #include "smd_private.h"
 #include <linux/module.h>
 
+static void remote_spin_release_all_locks(uint32_t pid, int count);
+
+#if defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
+#define SFPB_SPINLOCK_COUNT 8
+#define MSM_SFPB_MUTEX_REG_BASE 0x01200600
+#define MSM_SFPB_MUTEX_REG_SIZE	(33 * 4)
+
+static void *hw_mutex_reg_base;
+static DEFINE_MUTEX(hw_map_init_lock);
+
+static int remote_spinlock_init_address(int id, _remote_spinlock_t *lock)
+{
+	if (id >= SFPB_SPINLOCK_COUNT)
+		return -EINVAL;
+
+	if (!hw_mutex_reg_base) {
+		mutex_lock(&hw_map_init_lock);
+		if (!hw_mutex_reg_base)
+			hw_mutex_reg_base = ioremap(MSM_SFPB_MUTEX_REG_BASE,
+				   MSM_SFPB_MUTEX_REG_SIZE);
+		mutex_unlock(&hw_map_init_lock);
+		BUG_ON(hw_mutex_reg_base == NULL);
+	}
+
+	*lock = hw_mutex_reg_base + 0x4 + id * 4;
+	return 0;
+}
+
+void _remote_spin_release_all(uint32_t pid)
+{
+	remote_spin_release_all_locks(pid, SFPB_SPINLOCK_COUNT);
+}
+
+#else
 #define SMEM_SPINLOCK_COUNT 8
 #define SMEM_SPINLOCK_ARRAY_SIZE (SMEM_SPINLOCK_COUNT * sizeof(uint32_t))
 
-static int remote_spinlock_smem_init(int id, _remote_spinlock_t *lock)
+static int remote_spinlock_init_address(int id, _remote_spinlock_t *lock)
 {
 	_remote_spinlock_t spinlock_start;
 
@@ -41,6 +76,32 @@ static int remote_spinlock_smem_init(int id, _remote_spinlock_t *lock)
 	*lock = spinlock_start + id;
 
 	return 0;
+}
+
+void _remote_spin_release_all(uint32_t pid)
+{
+	remote_spin_release_all_locks(pid, SMEM_SPINLOCK_COUNT);
+}
+
+#endif
+
+/**
+ * Release all spinlocks owned by @pid.
+ *
+ * This is only to be used for situations where the processor owning
+ * spinlocks has crashed and the spinlocks must be released.
+ *
+ * @pid - processor ID of processor to release
+ */
+static void remote_spin_release_all_locks(uint32_t pid, int count)
+{
+	int n;
+	 _remote_spinlock_t lock;
+
+	for (n = 0; n < count; ++n) {
+		if (remote_spinlock_init_address(n, &lock) == 0)
+			_remote_spin_release(&lock, pid);
+	}
 }
 
 static int
@@ -88,11 +149,14 @@ int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
 		/* DAL chunk name starts after "D:" */
 		return remote_spinlock_dal_init(&id[2], lock);
 	} else if (id[0] == 'S' && id[1] == ':') {
-		/* Single-digit SMEM lock ID follows "S:" */
+		/* Single-digit lock ID follows "S:" */
 		BUG_ON(id[3] != '\0');
-		return remote_spinlock_smem_init((((uint8_t)id[2])-'0'), lock);
-	} else
+
+		return remote_spinlock_init_address((((uint8_t)id[2])-'0'),
+				lock);
+	} else {
 		return -EINVAL;
+	}
 }
 
 int _remote_mutex_init(struct remote_mutex_id *id, _remote_mutex_t *lock)
