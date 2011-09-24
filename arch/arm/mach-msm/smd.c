@@ -216,6 +216,9 @@ static inline void smd_write_intr(unsigned int val,
 
 #define SMD_LOOPBACK_CID 100
 
+#define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
+static remote_spinlock_t remote_spinlock;
+
 static LIST_HEAD(smd_ch_list_loopback);
 static irqreturn_t smsm_irq_handler(int irq, void *data);
 static void smd_fake_irq_handler(unsigned long arg);
@@ -616,8 +619,6 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 void smd_channel_reset(uint32_t restart_pid)
 {
 	struct smd_alloc_elm *shared;
-	unsigned n;
-	uint32_t *smem_lock;
 	unsigned long flags;
 
 	SMD_DBG("%s: starting reset\n", __func__);
@@ -627,16 +628,9 @@ void smd_channel_reset(uint32_t restart_pid)
 		return;
 	}
 
-	smem_lock = smem_alloc(SMEM_SPINLOCK_ARRAY, 8 * sizeof(uint32_t));
-	if (smem_lock) {
-		SMD_DBG("%s: releasing locks\n", __func__);
-		for (n = 0; n < 8; n++) {
-			uint32_t pid = readl_relaxed(smem_lock);
-			if (pid == (restart_pid + 1))
-				writel_relaxed(0, smem_lock);
-			smem_lock++;
-		}
-	}
+	/* release any held spinlocks */
+	remote_spin_release(&remote_spinlock, restart_pid);
+	remote_spin_release_all(restart_pid);
 
 	/* reset SMSM entry */
 	if (smsm_info.state) {
@@ -1776,9 +1770,6 @@ void *smem_alloc(unsigned id, unsigned size)
 	return smem_find(id, size);
 }
 EXPORT_SYMBOL(smem_alloc);
-
-#define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
-static remote_spinlock_t remote_spinlock;
 
 /* smem_alloc2 returns the pointer to smem item.  If it is not allocated,
  * it allocates it and then returns the pointer to it.
