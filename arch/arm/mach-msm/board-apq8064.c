@@ -293,13 +293,13 @@ static void __init apq8064_init_irq(void)
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
+	&apq8064_device_ssbi_pmic1,
+	&apq8064_device_ssbi_pmic2,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_uart_gsbi3,
-	&apq8064_device_ssbi_pmic1,
-	&apq8064_device_ssbi_pmic2,
 	&msm_device_sps_apq8064,
 };
 
@@ -532,6 +532,8 @@ static void __init apq8064_sim_init(void)
 
 static void __init apq8064_rumi3_init(void)
 {
+	apq8064_pm8921_irq_pdata.devirq = 0;
+	apq8064_pm8821_irq_pdata.devirq = 0;
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
