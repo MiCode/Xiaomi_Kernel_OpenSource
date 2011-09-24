@@ -533,7 +533,11 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
+	if (cpu_is_msm8960())
+		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x200);
+	else
+		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
+
 	if (!adreno_is_a22x(adreno_dev))
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
 	else
