@@ -1386,6 +1386,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX8 MUX", "DEC1", "DEC1 MUX"},
 	{"SLIM TX8 MUX", "DEC2", "DEC2 MUX"},
 	{"SLIM TX8 MUX", "DEC3", "DEC3 MUX"},
+	{"SLIM TX8 MUX", "DEC4", "DEC4 MUX"},
 	{"SLIM TX8 MUX", "DEC5", "DEC5 MUX"},
 	{"SLIM TX8 MUX", "DEC6", "DEC6 MUX"},
 
