@@ -717,6 +717,43 @@ int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	return len;
 }
 
+/*
+ * mipi_dsi_short_read1_resp: 1 parameter
+ */
+static int mipi_dsi_short_read1_resp(struct dsi_buf *rp)
+{
+	/* strip out dcs type */
+	rp->data++;
+	rp->len = 1;
+	return rp->len;
+}
+
+/*
+ * mipi_dsi_short_read2_resp: 2 parameter
+ */
+static int mipi_dsi_short_read2_resp(struct dsi_buf *rp)
+{
+	/* strip out dcs type */
+	rp->data++;
+	rp->len = 2;
+	return rp->len;
+}
+
+static int mipi_dsi_long_read_resp(struct dsi_buf *rp)
+{
+	short len;
+
+	len = rp->data[2];
+	len <<= 8;
+	len |= rp->data[1];
+	/* strip out dcs header */
+	rp->data += 4;
+	rp->len -= 4;
+	/* strip out 2 bytes of checksum */
+	rp->len -= 2;
+	return len;
+}
+
 void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 {
 	uint32 dsi_ctrl, intr_ctrl;
@@ -1120,11 +1157,14 @@ static struct dsi_cmd_desc pkt_size_cmd[] = {
  */
 int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			struct dsi_buf *tp, struct dsi_buf *rp,
-			struct dsi_cmd_desc *cmds, int len)
+			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int cnt;
-	static int pkt_size;
+	int cnt, len, diff, pkt_size;
 	unsigned long flag;
+	char cmd;
+
+	len = rlen;
+	diff = 0;
 
 	if (len <= 2)
 		cnt = 4;	/* short read */
@@ -1138,6 +1178,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			len = MIPI_DSI_LEN;	/* 8 bytes at most */
 
 		len = (len + 3) & ~0x03; /* len 4 bytes align */
+		diff = len - rlen;
 		/*
 		 * add extra 2 bytes to len to have overall
 		 * packet size is multipe by 4. This also make
@@ -1163,15 +1204,12 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	dsi_mdp_busy = TRUE;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	if (pkt_size != len) {
-		/* set new max pkt size */
-		pkt_size = len;
-		max_pktsize[0] = pkt_size;
-
-		mipi_dsi_buf_init(tp);
-		mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
-		mipi_dsi_cmd_dma_tx(tp);
-	}
+	/* packet size need to be set at every read */
+	pkt_size = len;
+	max_pktsize[0] = pkt_size;
+	mipi_dsi_buf_init(tp);
+	mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
+	mipi_dsi_cmd_dma_tx(tp);
 
 	mipi_dsi_buf_init(tp);
 	mipi_dsi_cmd_dma_add(tp, cmds);
@@ -1183,6 +1221,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	 * return data from client is ready and stored
 	 * at RDBK_DATA register already
 	 */
+	mipi_dsi_buf_init(rp);
 	mipi_dsi_cmd_dma_rx(rp, cnt);
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
@@ -1191,17 +1230,27 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	complete(&dsi_mdp_comp);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	/* strip off dcs header & crc */
-	if (cnt > 4) { /* long response */
-		if (mfd->panel_info.mipi.fixed_packet_size)
-			rp->data += (cnt - len - 6); /* skip padding */
-
-		rp->data += 4; /* skip dcs header */
-		rp->len -= 6; /* deduct 4 bytes header + 2 bytes crc */
+	cmd = rp->data[0];
+	switch (cmd) {
+	case DTYPE_ACK_ERR_RESP:
+		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
+		break;
+	case DTYPE_GEN_READ1_RESP:
+	case DTYPE_DCS_READ1_RESP:
+		mipi_dsi_short_read1_resp(rp);
+		break;
+	case DTYPE_GEN_READ2_RESP:
+	case DTYPE_DCS_READ2_RESP:
+		mipi_dsi_short_read2_resp(rp);
+		break;
+	case DTYPE_GEN_LREAD_RESP:
+	case DTYPE_DCS_LREAD_RESP:
+		mipi_dsi_long_read_resp(rp);
 		rp->len -= 2; /* extra 2 bytes added */
-	} else {
-		rp->data += 1; /* skip dcs short header */
-		rp->len -= 2; /* deduct 1 byte header + 1 byte ecc */
+		rp->len -= diff; /* align bytes */
+		break;
+	default:
+		break;
 	}
 
 	return rp->len;

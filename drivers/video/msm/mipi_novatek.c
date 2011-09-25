@@ -312,9 +312,6 @@ static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 
 	tp = &novatek_tx_buf;
 	rp = &novatek_rx_buf;
-	mipi_dsi_buf_init(rp);
-	mipi_dsi_buf_init(tp);
-
 	cmd = &novatek_manufacture_id_cmd;
 	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
 	lp = (uint32 *)rp->data;
