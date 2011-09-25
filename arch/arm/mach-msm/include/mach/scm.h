@@ -18,6 +18,9 @@
 #define SCM_SVC_TZ			0x4
 #define SCM_SVC_IO			0x5
 #define SCM_SVC_INFO			0x6
+#define SCM_SVC_SSD			0x7
+#define SCM_SVC_FUSE			0x8
+#define SCM_SVC_PWR			0x9
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #ifdef CONFIG_MSM_SCM

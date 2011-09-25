@@ -31,6 +31,8 @@
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/irqs.h>
+#include <mach/scm.h>
+#include "msm_watchdog.h"
 
 #define WDT0_RST       (MSM_TMR0_BASE + 0x38)
 #define WDT0_EN        (MSM_TMR0_BASE + 0x40)
@@ -41,6 +43,8 @@
 
 #define RESTART_REASON_ADDR 0x65C
 #define DLOAD_MODE_ADDR     0x0
+
+#define SCM_IO_DISABLE_PMIC_ARBITER	1
 
 static int restart_mode;
 void *restart_reason;
@@ -119,10 +123,11 @@ static void __msm_power_off(int lower_pshold)
 		pm8901_reset_pwr_off(0);
 	}
 	pm8xxx_reset_pwr_off(0);
-	if (lower_pshold)
+	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
-	mdelay(10000);
-	printk(KERN_ERR "Powering off has failed\n");
+		mdelay(10000);
+		printk(KERN_ERR "Powering off has failed\n");
+	}
 	return;
 }
 
@@ -134,14 +139,26 @@ static void msm_power_off(void)
 
 static void cpu_power_off(void *data)
 {
+	int rc;
+
 	pr_err("PMIC Initiated shutdown %s cpu=%d\n", __func__,
 						smp_processor_id());
-	if (smp_processor_id() == 0)
+	if (smp_processor_id() == 0) {
 		/*
 		 * PMIC initiated power off, do not lower ps_hold, pmic will
 		 * shut msm down
 		 */
 		__msm_power_off(0);
+
+		pet_watchdog();
+		pr_err("Calling scm to disable arbiter\n");
+		/* call secure manager to disable arbiter and never return */
+		rc = scm_call_atomic1(SCM_SVC_PWR,
+						SCM_IO_DISABLE_PMIC_ARBITER, 1);
+
+		pr_err("SCM returned even when asked to busy loop rc=%d\n", rc);
+		pr_err("waiting on pmic to shut msm down\n");
+	}
 
 	preempt_disable();
 	while (1)
