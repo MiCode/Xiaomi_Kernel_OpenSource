@@ -115,10 +115,11 @@ static void msm_iommu_reset(void __iomem *base, int ncb)
 		SET_BFBCR(base, ctx, 0);
 		SET_PAR(base, ctx, 0);
 		SET_FAR(base, ctx, 0);
-		SET_CTX_TLBIALL(base, ctx, 0);
 		SET_TLBFLPTER(base, ctx, 0);
 		SET_TLBSLPTER(base, ctx, 0);
 		SET_TLBLKCR(base, ctx, 0);
+		SET_CTX_TLBIALL(base, ctx, 0);
+		SET_TLBIVA(base, ctx, 0);
 		SET_PRRR(base, ctx, 0);
 		SET_NMRR(base, ctx, 0);
 		SET_CONTEXTIDR(base, ctx, 0);
