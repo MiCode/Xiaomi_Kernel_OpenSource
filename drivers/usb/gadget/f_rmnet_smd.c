@@ -457,7 +457,8 @@ static void rmnet_control_rx_tlet(unsigned long arg)
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
-static void rmnet_smd_command_complete(struct usb_ep *ep, struct usb_request *req)
+static void rmnet_smd_command_complete(struct usb_ep *ep,
+					struct usb_request *req)
 {
 	struct rmnet_smd_dev *dev = req->context;
 	struct usb_composite_dev *cdev = dev->cdev;
@@ -515,7 +516,8 @@ static void rmnet_txcommand_complete(struct usb_ep *ep, struct usb_request *req)
 static int
 rmnet_smd_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 {
-	struct rmnet_smd_dev *dev = container_of(f, struct rmnet_smd_dev, function);
+	struct rmnet_smd_dev *dev = container_of(f, struct rmnet_smd_dev,
+								function);
 	struct usb_composite_dev *cdev = f->config->cdev;
 	struct usb_request	*req = cdev->req;
 	int			ret = -EOPNOTSUPP;
@@ -1096,7 +1098,8 @@ static int rmnet_smd_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	for (i = 0; i < RMNET_TX_REQ_MAX; i++) {
-		req = rmnet_smd_alloc_req(dev->epin, RMNET_TX_REQ_SIZE, GFP_KERNEL);
+		req = rmnet_smd_alloc_req(dev->epin, RMNET_TX_REQ_SIZE,
+							GFP_KERNEL);
 		if (IS_ERR(req)) {
 			ret = PTR_ERR(req);
 			goto free_buf;
@@ -1174,8 +1177,9 @@ static ssize_t rmnet_smd_debug_read_stats(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-static ssize_t rmnet_smd_debug_reset_stats(struct file *file, const char __user *buf,
-				size_t count, loff_t *ppos)
+static ssize_t rmnet_smd_debug_reset_stats(struct file *file,
+					const char __user *buf,
+					size_t count, loff_t *ppos)
 {
 	struct rmnet_smd_dev *dev = file->private_data;
 	unsigned long flags;
