@@ -3183,10 +3183,12 @@ static void __init msm7x2x_init(void)
 		atmel_ts_i2c_info,
 		ARRAY_SIZE(atmel_ts_i2c_info));
 
+#if defined(CONFIG_MSM_CAMERA)
 	msm_camera_vreg_init();
 	i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 			i2c_camera_devices,
 			ARRAY_SIZE(i2c_camera_devices));
+#endif
 	platform_device_register(&kp_pdev);
 	platform_device_register(&hs_pdev);
 
