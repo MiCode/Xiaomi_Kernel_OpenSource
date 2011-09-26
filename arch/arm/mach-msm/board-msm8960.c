@@ -463,7 +463,7 @@ static struct msm_gpiomux_config msm8960_audio_auxpcm_configs[] __initdata = {
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting wcnss_5wire_active_cfg = {
@@ -2098,6 +2098,12 @@ static struct resource resources_wcnss_wlan[] = {
 		.end	= MSM_WCNSS_PHYS + MSM_WCNSS_SIZE - 1,
 		.name	= "wcnss_mmio",
 		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= 84,
+		.end	= 88,
+		.name	= "wcnss_gpios_5wire",
+		.flags	= IORESOURCE_IO,
 	},
 };
 
@@ -3762,29 +3768,6 @@ static struct msm_ssbi_platform_data msm8960_ssbi_pm8921_pdata __devinitdata = {
 	},
 };
 
-static void msm8960_wcnss_init(void)
-{
-	int i, ret, j;
-
-	for (i = 0; i < ARRAY_SIZE(wcnss_5wire_interface); i++) {
-		ret = gpio_request(wcnss_5wire_interface[i].gpio,
-				"wcnss_5_wire");
-		if (ret) {
-			pr_err("wcnss_5_wire gpio %d failed: %d\n",
-				wcnss_5wire_interface[i].gpio, ret);
-			goto fail;
-		}
-	}
-
-	pr_info("%s: Iris 5-wire gpios configured\n", __func__);
-
-	return;
-
-fail:
-	for (j = 0; j < i; j++)
-		gpio_free(wcnss_5wire_interface[j].gpio);
-}
-
 #ifdef CONFIG_KS8851
 static int ethernet_init(void)
 {
@@ -4206,7 +4189,6 @@ static void __init msm8960_cdp_init(void)
 	if (machine_is_msm8960_liquid())
 		mxt_init_hw_liquid();
 	register_i2c_devices();
-	msm8960_wcnss_init();
 	msm_fb_add_devices();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));

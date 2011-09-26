@@ -20,6 +20,7 @@
 #include <linux/platform_data/qcom_wcnss_device.h>
 #include <linux/workqueue.h>
 #include <linux/jiffies.h>
+#include <linux/gpio.h>
 #include <mach/peripheral-loader.h>
 #include "wcnss_riva.h"
 
@@ -40,6 +41,7 @@ static struct {
 	struct resource	*mmio_res;
 	struct resource	*tx_irq_res;
 	struct resource	*rx_irq_res;
+	struct resource	*gpios_5wire;
 	const struct dev_pm_ops *pm_ops;
 	int             smd_channel_ready;
 	struct wcnss_wlan_config wlan_config;
@@ -53,6 +55,31 @@ static void wcnss_post_bootup(struct work_struct *work)
 	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
 		WCNSS_WLAN_SWITCH_OFF);
+}
+
+static int
+wcnss_gpios_config(struct resource *gpios_5wire, bool enable)
+{
+	int i, j;
+	int rc = 0;
+
+	for (i = gpios_5wire->start; i <= gpios_5wire->end; i++) {
+		if (enable) {
+			rc = gpio_request(i, gpios_5wire->name);
+			if (rc) {
+				pr_err("WCNSS gpio_request %d err %d\n", i, rc);
+				goto fail;
+			}
+		} else
+			gpio_free(i);
+	}
+
+	return rc;
+
+fail:
+	for (j = i-1; j >= gpios_5wire->start; j--)
+		gpio_free(j);
+	return rc;
 }
 
 static int __devinit
@@ -189,6 +216,23 @@ wcnss_wlan_probe(struct platform_device *pdev)
 		has_48mhz_xo = pdata->has_48mhz_xo;
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
 
+	penv->gpios_5wire = platform_get_resource_byname(pdev, IORESOURCE_IO,
+							"wcnss_gpios_5wire");
+
+	/* allocate 5-wire GPIO resources */
+	if (!penv->gpios_5wire) {
+		dev_err(&pdev->dev, "insufficient IO resources\n");
+		ret = -ENOENT;
+		goto fail_gpio_res;
+	}
+
+	/* Configure 5 wire GPIOs */
+	ret = wcnss_gpios_config(penv->gpios_5wire, true);
+	if (ret) {
+		dev_err(&pdev->dev, "WCNSS gpios config failed.\n");
+		goto fail_gpio_res;
+	}
+
 	/* power up the WCNSS */
 	ret = wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
 					WCNSS_WLAN_SWITCH_ON);
@@ -229,6 +273,8 @@ fail_pil:
 	wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
 				WCNSS_WLAN_SWITCH_OFF);
 fail_power:
+	wcnss_gpios_config(penv->gpios_5wire, false);
+fail_gpio_res:
 	kfree(penv);
 	penv = NULL;
 	return ret;
