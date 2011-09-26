@@ -381,6 +381,16 @@ struct slim_ch {
  * @srch: Source ports used by this channel.
  * @nsrc: number of source ports used by this channel.
  * @sinkh: Sink port used by this channel.
+ * @chan: Channel number sent on hardware lines for this channel. May not be
+ *	equal to array-index into chans if client requested to use number beyond
+ *	channel-array for the controller.
+ * @ref: Reference number to keep track of how many clients (upto 2) are using
+ *	this channel.
+ * @def: Used to keep track of how many times the channel definition is sent
+ *	to hardware and this will decide if channel-remove can be sent for the
+ *	channel. Channel definition may be sent upto twice (once per producer
+ *	and once per consumer). Channel removal should be sent only once to
+ *	avoid clients getting underflow/overflow errors.
  */
 struct slim_ich {
 	struct slim_ch		prop;
@@ -397,6 +407,9 @@ struct slim_ich {
 	u32			*srch;
 	int			nsrc;
 	u32			sinkh;
+	u8			chan;
+	int			ref;
+	int			def;
 };
 
 /*
@@ -472,6 +485,8 @@ enum slim_clk_state {
  * @nports: Number of ports supported by the controller
  * @chans: Channels associated with this controller
  * @nchans: Number of channels supported
+ * @reserved: Reserved channels that controller wants to use internally
+ *		Clients will be assigned channel numbers after this number
  * @sched: scheduler structure used by the controller
  * @dev_released: completion used to signal when sysfs has released this
  *	controller so that it can be deleted during shutdown
@@ -516,6 +531,7 @@ struct slim_controller {
 	int			nports;
 	struct slim_ich		*chans;
 	int			nchans;
+	u8			reserved;
 	struct slim_sched	sched;
 	struct completion	dev_released;
 	int			(*xfer_msg)(struct slim_controller *ctrl,
@@ -784,18 +800,32 @@ extern int slim_get_slaveport(u8 la, int idx, u32 *rh, enum slim_port_flow flw);
  * slim_alloc_ch: Allocate a slimbus channel and return its handle.
  * @sb: client handle.
  * @chanh: return channel handle
- * Slimbus channels are limited to 256 per specification. LSB of the handle
- * indicates channel number and MSB of the handle is used by the slimbus
- * framework. -EXFULL is returned if all channels are in use.
+ * Slimbus channels are limited to 256 per specification.
+ * -EXFULL is returned if all channels are in use.
  * Although slimbus specification supports 256 channels, a controller may not
  * support that many channels.
  */
 extern int slim_alloc_ch(struct slim_device *sb, u16 *chanh);
 
 /*
+ * slim_query_ch: Get reference-counted handle for a channel number. Every
+ * channel is reference counted by one as producer and the others as
+ * consumer)
+ * @sb: client handle
+ * @chan: slimbus channel number
+ * @chanh: return channel handle
+ * If request channel number is not in use, it is allocated, and reference
+ * count is set to one. If the channel was was already allocated, this API
+ * will return handle to that channel and reference count is incremented.
+ * -EXFULL is returned if all channels are in use
+ */
+extern int slim_query_ch(struct slim_device *sb, u8 chan, u16 *chanh);
+/*
  * slim_dealloc_ch: Deallocate channel allocated using the API above
  * -EISCONN is returned if the channel is tried to be deallocated without
  *  being removed first.
+ *  -ENOTCONN is returned if deallocation is tried on a channel that's not
+ *  allocated.
  */
 extern int slim_dealloc_ch(struct slim_device *sb, u16 chanh);
 
@@ -813,8 +843,8 @@ extern int slim_dealloc_ch(struct slim_device *sb, u16 chanh);
  *	(e.g. 5.1 audio has 6 channels with same parameters. They will all be
  *	grouped and given 1 handle for simplicity and avoid repeatedly calling
  *	the API)
- * -EISCONN is returned if the channel is already connected. -EBUSY is
- * returned if the channel is already allocated to some other client.
+ * -EISCONN is returned if channel is already used with different parameters.
+ * -ENXIO is returned if the channel is not yet allocated.
  */
 extern int slim_define_ch(struct slim_device *sb, struct slim_ch *prop,
 				u16 *chanh, u8 nchan, bool grp, u16 *grph);
