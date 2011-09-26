@@ -373,12 +373,9 @@ static void vfe32_stop(void)
 		vfe32_ctrl->vfebase + VFE_IRQ_CMD);
 
 	/* in either continuous or snapshot mode, stop command can be issued
-	 * at any time. stop ispif & camif immediately. */
-	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISPIF_STREAM,
-			(void *)ISPIF_STREAM(PIX0, ISPIF_OFF_IMMEDIATELY));
+	 * at any time. stop camif immediately. */
 	msm_io_w(CAMIF_COMMAND_STOP_IMMEDIATELY,
 		vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
-	wmb();
 
 	/* axi halt command. */
 	msm_io_w(AXI_HALT,
@@ -690,8 +687,6 @@ static void vfe32_start_common(void)
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
-	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISPIF_STREAM,
-			(void *)ISPIF_STREAM(PIX0, ISPIF_ON_FRAME_BOUNDARY));
 
 	atomic_set(&vfe32_ctrl->vstate, 1);
 }
@@ -2094,10 +2089,6 @@ static void vfe32_process_reg_update_irq(void)
 					vfe32_AXI_WM_CFG[vfe32_ctrl->
 							outpath.out1.ch1]);
 			}
-
-			v4l2_subdev_notify(vfe32_ctrl->subdev,
-				NOTIFY_ISPIF_STREAM, (void *)
-				ISPIF_STREAM(PIX0, ISPIF_OFF_FRAME_BOUNDARY));
 			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
@@ -2180,9 +2171,6 @@ static void vfe32_process_camif_sof_irq(void)
 		if (vfe32_ctrl->vfe_capture_count == 0) {
 			/* Ensure the write order while writing
 			 to the command register using the barrier */
-			v4l2_subdev_notify(vfe32_ctrl->subdev,
-				NOTIFY_ISPIF_STREAM, (void *)
-				ISPIF_STREAM(PIX0, ISPIF_OFF_FRAME_BOUNDARY));
 			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 		}
@@ -2833,10 +2821,6 @@ static void vfe32_do_tasklet(unsigned long data)
 				if ((vfe32_ctrl->outpath.out0.capture_cnt == 0)
 						&& (vfe32_ctrl->outpath.out1.
 						capture_cnt == 0)) {
-					v4l2_subdev_notify(vfe32_ctrl->subdev,
-						NOTIFY_ISPIF_STREAM, (void *)
-						ISPIF_STREAM(PIX0,
-						ISPIF_OFF_IMMEDIATELY));
 					msm_io_w_mb(
 						CAMIF_COMMAND_STOP_IMMEDIATELY,
 						vfe32_ctrl->vfebase +

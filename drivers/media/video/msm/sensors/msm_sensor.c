@@ -11,6 +11,8 @@
  */
 
 #include "msm_sensor.h"
+#include "msm.h"
+#include "msm_ispif.h"
 
 /*=============================================================*/
 
@@ -220,6 +222,10 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
+
+	v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+		NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(
+		PIX0, ISPIF_OFF_IMMEDIATELY));
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 	msleep(30);
 	if (update_type == MSM_SENSOR_REG_INIT) {
@@ -240,6 +246,10 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			mb();
 			msleep(20);
 		}
+
+		v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+			NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(
+			PIX0, ISPIF_ON_FRAME_BOUNDARY));
 		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
 		msleep(30);
 	}

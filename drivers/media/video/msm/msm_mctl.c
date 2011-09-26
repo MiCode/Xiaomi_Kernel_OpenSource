@@ -183,17 +183,15 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 				VIDIOC_MSM_ISPSF_CFG, &ispif_params);
 			if (rc < 0)
 				return rc;
-
-			rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
-				s_stream, ISPIF_STREAM(PIX0,
-					ISPIF_ON_FRAME_BOUNDARY));
-			if (rc < 0)
-				return rc;
 		}
 		break;
 	case NOTIFY_ISPIF_STREAM:
 		/* call ISPIF stream on/off */
-		rc = 0;
+		rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
+				s_stream, (int)arg);
+		if (rc < 0)
+			return rc;
+
 		break;
 	case NOTIFY_ISP_MSG_EVT:
 	case NOTIFY_VFE_MSG_OUT:

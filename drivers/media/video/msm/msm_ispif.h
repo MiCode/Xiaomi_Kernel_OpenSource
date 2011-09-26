@@ -41,6 +41,7 @@ struct ispif_device {
 	void __iomem *base;
 	struct mutex mutex;
 	uint8_t start_ack_pending;
+	struct completion reset_complete;
 };
 
 #define VIDIOC_MSM_ISPSF_CFG \

@@ -70,8 +70,8 @@
 #define RAW_INTF_1_OVERFLOW_IRQ      25
 #define RESET_DONE_IRQ               27
 
-#define ISPIF_IRQ_STATUS_MASK        0x2493000
-#define ISPIF_IRQ_1_STATUS_MASK      0x2493000
+#define ISPIF_IRQ_STATUS_MASK        0xA493000
+#define ISPIF_IRQ_1_STATUS_MASK      0xA493000
 #define ISPIF_IRQ_STATUS_RDI_SOF_MASK	0x492000
 
 #define MAX_CID 15
@@ -80,61 +80,57 @@ static struct ispif_device *ispif;
 
 static uint32_t global_intf_cmd_mask = 0xFFFFFFFF;
 
-static void msm_ispif_swreg_misc_reset(void)
+static int msm_ispif_intf_reset(uint8_t intftype)
 {
-	uint32_t data = 0x01, data1 = 0x01;
+	int rc = 0;
+	uint32_t data;
 
-	data |= 0x1 << SW_REG_RST_STB;
-	msm_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-	usleep_range(11000, 12000);
-	data1 |= 0x1 << MISC_LOGIC_RST_STB;
-	msm_io_w(data1, ispif->base + ISPIF_RST_CMD_ADDR);
-	usleep_range(11000, 12000);
-}
-
-static void msm_ispif_intf_reset(uint8_t intftype)
-{
-	uint32_t data = 0x01 , data1 = 0x01;
-
-	msm_io_w(0x1<<STROBED_RST_EN, ispif->base + ISPIF_RST_CMD_ADDR);
 	switch (intftype) {
 	case PIX0:
-		data |= 0x1 << PIX_VFE_RST_STB;
+		data = (0x1 << STROBED_RST_EN) +
+			(0x1 << PIX_VFE_RST_STB) +
+			(0x1 << PIX_CSID_RST_STB);
 		msm_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
-		data1 |= 0x1 << PIX_CSID_RST_STB;
-		msm_io_w(data1, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
 		break;
 
 	case RDI0:
-		data |= 0x1 << RDI_VFE_RST_STB;
+		data = (0x1 << STROBED_RST_EN) +
+			(0x1 << RDI_VFE_RST_STB)  +
+			(0x1 << RDI_CSID_RST_STB);
 		msm_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
-		data1 |= 0x1 << RDI_CSID_RST_STB;
-		msm_io_w(data1, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
 		break;
 
 	case RDI1:
-		data |= 0x1 << RDI_1_VFE_RST_STB;
+		data = (0x1 << STROBED_RST_EN) +
+			(0x1 << RDI_1_VFE_RST_STB) +
+			(0x1 << RDI_1_CSID_RST_STB);
 		msm_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
-		data1 |= 0x1 << RDI_1_CSID_RST_STB;
-		msm_io_w(data1, ispif->base + ISPIF_RST_CMD_ADDR);
-		usleep_range(11000, 12000);
 		break;
 
 	default:
+		rc = -EINVAL;
 		break;
 	}
+	if (rc >= 0)
+		rc = wait_for_completion_interruptible(
+				&ispif->reset_complete);
+
+	return rc;
 }
 
-static void msm_ispif_reset(void)
+static int msm_ispif_reset(void)
 {
-	msm_ispif_swreg_misc_reset();
-	msm_ispif_intf_reset(PIX0);
-	msm_ispif_intf_reset(RDI0);
+	uint32_t data = (0x1 << STROBED_RST_EN) +
+		(0x1 << SW_REG_RST_STB) +
+		(0x1 << MISC_LOGIC_RST_STB) +
+		(0x1 << PIX_VFE_RST_STB) +
+		(0x1 << PIX_CSID_RST_STB) +
+		(0x1 << RDI_VFE_RST_STB) +
+		(0x1 << RDI_CSID_RST_STB) +
+		(0x1 << RDI_1_VFE_RST_STB) +
+		(0x1 << RDI_1_CSID_RST_STB);
+	msm_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
+	return wait_for_completion_interruptible(&ispif->reset_complete);
 }
 
 static int msm_ispif_subdev_g_chip_ident(struct v4l2_subdev *sd,
@@ -279,7 +275,7 @@ static int msm_ispif_abort_intf_transfer(uint8_t intf)
 	CDBG("abort stream request\n");
 	mutex_lock(&ispif->mutex);
 	msm_ispif_intf_cmd(intf, intf_cmd_mask);
-	msm_ispif_intf_reset(intf);
+	rc = msm_ispif_intf_reset(intf);
 	global_intf_cmd_mask |= 0xFF<<(intf * 8);
 	mutex_unlock(&ispif->mutex);
 	return rc;
@@ -393,6 +389,8 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
 	CDBG("ispif->irq: Irq_status0 = 0x%x\n",
 		out->ispifIrqStatus0);
 	if (out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK) {
+		if (out->ispifIrqStatus0 & (0x1 << RESET_DONE_IRQ))
+			complete(&ispif->reset_complete);
 		if (out->ispifIrqStatus0 & (0x1 << PIX_INTF_0_OVERFLOW_IRQ))
 			pr_err("%s: pix intf 0 overflow.\n", __func__);
 		if (out->ispifIrqStatus0 & (0x1 << RAW_INTF_0_OVERFLOW_IRQ))
@@ -471,10 +469,11 @@ int msm_ispif_init(struct v4l2_subdev **sd, struct platform_device *pdev)
 		goto ispif_irq_fail;
 
 	global_intf_cmd_mask = 0xFFFFFFFF;
+	init_completion(&ispif->reset_complete);
 
-	msm_ispif_reset();
+	rc = msm_ispif_reset();
 	*sd = &(ispif->subdev);
-	return 0;
+	return rc;
 
 ispif_irq_fail:
 	iounmap(ispif->base);
