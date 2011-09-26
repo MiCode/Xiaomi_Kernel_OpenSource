@@ -2621,10 +2621,13 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_rev = MDP_REV_303,
 };
 
+
+#ifdef CONFIG_FB_MSM
 #define GPIO_LCDC_BRDG_PD	128
 #define GPIO_LCDC_BRDG_RESET_N	129
 
 #define LCDC_RESET_PHYS		0x90008014
+
 static	void __iomem *lcdc_reset_ptr;
 
 static unsigned mipi_dsi_gpio[] = {
@@ -2833,6 +2836,7 @@ fail_gpio1:
 	dsi_gpio_initialized = 0;
 	return rc;
 }
+#endif
 
 #define MDP_303_VSYNC_GPIO 97
 
@@ -2849,7 +2853,9 @@ static void __init msm_fb_add_devices(void)
 {
 	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("lcdc", &lcdc_pdata);
+#ifdef CONFIG_FB_MSM_MDP303
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
+#endif
 }
 
 #define MSM_EBI2_PHYS			0xa0d00000
