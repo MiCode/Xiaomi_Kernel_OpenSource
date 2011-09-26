@@ -100,54 +100,6 @@ void msm_sensor_group_hold_off(struct msm_sensor_ctrl_t *s_ctrl)
 		s_ctrl->msm_sensor_reg->default_data_type);
 }
 
-uint16_t msm_sensor_get_prev_lines_pf(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	return s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->prev_res].frame_length_lines;
-}
-
-uint16_t msm_sensor_get_prev_pixels_pl(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	return s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->prev_res].line_length_pclk;
-}
-
-uint16_t msm_sensor_get_pict_lines_pf(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	return s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->pict_res].frame_length_lines;
-}
-
-uint16_t msm_sensor_get_pict_pixels_pl(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	return s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->pict_res].line_length_pclk;
-}
-
-uint32_t msm_sensor_get_pict_max_exp_lc(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	return s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->prev_res].frame_length_lines * 24;
-}
-
-void msm_sensor_get_pict_fps(struct msm_sensor_ctrl_t *s_ctrl,
-			uint16_t fps, uint16_t *pfps)
-{
-	uint32_t divider, d1, d2;
-	d1 = s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->prev_res].frame_length_lines * Q10 /
-		s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->pict_res].frame_length_lines;
-
-	d2 = s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->prev_res].line_length_pclk * Q10 /
-		s_ctrl->msm_sensor_reg->
-		output_settings[s_ctrl->pict_res].line_length_pclk;
-
-	divider = d1 * d2 / Q10;
-	*pfps = (uint16_t) (fps * divider / Q10);
-}
-
 int32_t msm_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 						struct fps_cfg *fps)
 {
@@ -268,15 +220,6 @@ int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 {
 	int32_t rc = 0;
 	if (s_ctrl->curr_res != res) {
-		switch (mode) {
-		case SENSOR_PREVIEW_MODE:
-			s_ctrl->prev_res = res;
-			break;
-		case SENSOR_SNAPSHOT_MODE:
-		case SENSOR_RAW_SNAPSHOT_MODE:
-			s_ctrl->pict_res = res;
-			break;
-		}
 		s_ctrl->curr_frame_length_lines =
 			s_ctrl->msm_sensor_reg->
 			output_settings[res].frame_length_lines;
@@ -298,27 +241,16 @@ int32_t msm_sensor_mode_init(struct msm_sensor_ctrl_t *s_ctrl,
 			int mode, struct sensor_init_cfg *init_info)
 {
 	int32_t rc = 0;
-	s_ctrl->fps = 30*Q8;
 	s_ctrl->fps_divider = Q10;
 	s_ctrl->cam_mode = MSM_SENSOR_MODE_INVALID;
 
 	CDBG("%s: %d\n", __func__, __LINE__);
 	if (mode != s_ctrl->cam_mode) {
-		if (init_info->prev_res >=
-			s_ctrl->msm_sensor_reg->num_conf ||
-			init_info->pict_res >=
-			s_ctrl->msm_sensor_reg->num_conf) {
-			CDBG("Resolution does not exist");
-			return -EINVAL;
-		}
-
-		s_ctrl->prev_res = init_info->prev_res;
-		s_ctrl->pict_res = init_info->pict_res;
 		s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
 		s_ctrl->cam_mode = mode;
 
 		rc = s_ctrl->func_tbl->sensor_setting(s_ctrl,
-			MSM_SENSOR_REG_INIT, s_ctrl->prev_res);
+			MSM_SENSOR_REG_INIT, 0);
 	}
 	return rc;
 }
@@ -349,109 +281,6 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	CDBG("msm_sensor_config: cfgtype = %d\n",
 	cdata.cfgtype);
 		switch (cdata.cfgtype) {
-		case CFG_GET_PICT_FPS:
-			if (s_ctrl->func_tbl->
-			sensor_get_pict_fps == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			s_ctrl->func_tbl->
-			sensor_get_pict_fps(
-				s_ctrl,
-				cdata.cfg.gfps.prevfps,
-				&(cdata.cfg.gfps.pictfps));
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
-		case CFG_GET_PREV_L_PF:
-			if (s_ctrl->func_tbl->
-			sensor_get_prev_lines_pf == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			cdata.cfg.prevl_pf =
-				s_ctrl->func_tbl->
-				sensor_get_prev_lines_pf
-				(s_ctrl);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
-		case CFG_GET_PREV_P_PL:
-			if (s_ctrl->func_tbl->
-			sensor_get_prev_pixels_pl == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			cdata.cfg.prevp_pl =
-				s_ctrl->func_tbl->
-				sensor_get_prev_pixels_pl
-				(s_ctrl);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
-		case CFG_GET_PICT_L_PF:
-			if (s_ctrl->func_tbl->
-			sensor_get_pict_lines_pf == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			cdata.cfg.pictl_pf =
-				s_ctrl->func_tbl->
-				sensor_get_pict_lines_pf
-				(s_ctrl);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
-		case CFG_GET_PICT_P_PL:
-			if (s_ctrl->func_tbl->
-			sensor_get_pict_pixels_pl == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			cdata.cfg.pictp_pl =
-				s_ctrl->func_tbl->
-				sensor_get_pict_pixels_pl
-				(s_ctrl);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
-		case CFG_GET_PICT_MAX_EXP_LC:
-			if (s_ctrl->func_tbl->
-			sensor_get_pict_max_exp_lc == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			cdata.cfg.pict_max_exp_lc =
-				s_ctrl->func_tbl->
-				sensor_get_pict_max_exp_lc
-				(s_ctrl);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
 		case CFG_SET_FPS:
 		case CFG_SET_PICT_FPS:
 			if (s_ctrl->func_tbl->
@@ -506,28 +335,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 					cdata.rs);
 			break;
 
-		case CFG_PWR_DOWN:
-			break;
-
-		case CFG_MOVE_FOCUS:
-			break;
-
-		case CFG_SET_DEFAULT_FOCUS:
-			break;
-
-		case CFG_GET_AF_MAX_STEPS:
-			cdata.max_steps = 32;
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_cfg_data)))
-				rc = -EFAULT;
-			break;
-
 		case CFG_SET_EFFECT:
-			break;
-
-
-		case CFG_SEND_WB_INFO:
 			break;
 
 		case CFG_SENSOR_INIT:
