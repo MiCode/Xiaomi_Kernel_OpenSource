@@ -1520,6 +1520,69 @@ static struct mmc_platform_data sdc4_plat_data = {
 	.msmsdcc_fmax	= 49152000,
 };
 #endif
+
+static int __init mmc_regulator_init(int sdcc_no, const char *supply, int uV)
+{
+	int rc;
+
+	BUG_ON(sdcc_no < 1 || sdcc_no > 4);
+
+	sdcc_no--;
+
+	sdcc_vreg_data[sdcc_no] = regulator_get(NULL, supply);
+
+	if (IS_ERR(sdcc_vreg_data[sdcc_no])) {
+		rc = PTR_ERR(sdcc_vreg_data[sdcc_no]);
+		pr_err("%s: could not get regulator \"%s\": %d\n",
+				__func__, supply, rc);
+		goto out;
+	}
+
+	rc = regulator_set_voltage(sdcc_vreg_data[sdcc_no], uV, uV);
+
+	if (rc) {
+		pr_err("%s: could not set voltage for \"%s\" to %d uV: %d\n",
+				__func__, supply, uV, rc);
+		goto reg_free;
+	}
+
+	return rc;
+
+reg_free:
+	regulator_put(sdcc_vreg_data[sdcc_no]);
+out:
+	sdcc_vreg_data[sdcc_no] = NULL;
+	return rc;
+}
+
+static void __init msm7x27a_init_mmc(void)
+{
+	/* eMMC slot */
+#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+	if (mmc_regulator_init(3, "emmc", 3000000))
+		return;
+	msm_add_sdcc(3, &sdc3_plat_data);
+#endif
+	/* Micro-SD slot */
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+	if (mmc_regulator_init(1, "mmc", 2850000))
+		return;
+	msm_add_sdcc(1, &sdc1_plat_data);
+#endif
+	/* SDIO WLAN slot */
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	if (mmc_regulator_init(2, "mmc", 2850000))
+		return;
+	msm_add_sdcc(2, &sdc2_plat_data);
+#endif
+	/* Not Used */
+#if (defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
+		&& !defined(CONFIG_MMC_MSM_SDC3_8_BIT_SUPPORT))
+	if (mmc_regulator_init(4, "mmc", 2850000))
+		return;
+	msm_add_sdcc(4, &sdc4_plat_data);
+#endif
+}
 #endif
 
 #ifdef CONFIG_SERIAL_MSM_HS
@@ -1824,68 +1887,6 @@ static struct platform_device mipi_dsi_renesas_panel_device = {
 };
 #endif
 
-static int __init mmc_regulator_init(int sdcc_no, const char *supply, int uV)
-{
-	int rc;
-
-	BUG_ON(sdcc_no < 1 || sdcc_no > 4);
-
-	sdcc_no--;
-
-	sdcc_vreg_data[sdcc_no] = regulator_get(NULL, supply);
-
-	if (IS_ERR(sdcc_vreg_data[sdcc_no])) {
-		rc = PTR_ERR(sdcc_vreg_data[sdcc_no]);
-		pr_err("%s: could not get regulator \"%s\": %d\n",
-				__func__, supply, rc);
-		goto out;
-	}
-
-	rc = regulator_set_voltage(sdcc_vreg_data[sdcc_no], uV, uV);
-
-	if (rc) {
-		pr_err("%s: could not set voltage for \"%s\" to %d uV: %d\n",
-				__func__, supply, uV, rc);
-		goto reg_free;
-	}
-
-	return rc;
-
-reg_free:
-	regulator_put(sdcc_vreg_data[sdcc_no]);
-out:
-	sdcc_vreg_data[sdcc_no] = NULL;
-	return rc;
-}
-
-static void __init msm7x27a_init_mmc(void)
-{
-	/* eMMC slot */
-#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-	if (mmc_regulator_init(3, "emmc", 3000000))
-		return;
-	msm_add_sdcc(3, &sdc3_plat_data);
-#endif
-	/* Micro-SD slot */
-#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-	if (mmc_regulator_init(1, "mmc", 2850000))
-		return;
-	msm_add_sdcc(1, &sdc1_plat_data);
-#endif
-	/* SDIO WLAN slot */
-#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-	if (mmc_regulator_init(2, "mmc", 2850000))
-		return;
-	msm_add_sdcc(2, &sdc2_plat_data);
-#endif
-	/* Not Used */
-#if (defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
-		&& !defined(CONFIG_MMC_MSM_SDC3_8_BIT_SUPPORT))
-	if (mmc_regulator_init(4, "mmc", 2850000))
-		return;
-	msm_add_sdcc(4, &sdc4_plat_data);
-#endif
-}
 #define SND(desc, num) { .name = #desc, .id = num }
 static struct snd_endpoint snd_endpoints_list[] = {
 	SND(HANDSET, 0),
@@ -3141,7 +3142,9 @@ static void __init msm7x2x_init(void)
 	msm_device_i2c_init();
 	/* Ensure ar6000pm device is registered before MMC/SDC */
 	msm7x27a_init_ar6000pm();
+#ifdef CONFIG_MMC_MSM
 	msm7x27a_init_mmc();
+#endif
 	msm7x27a_init_ebi2();
 	msm7x27a_cfg_uart2dm_serial();
 #ifdef CONFIG_SERIAL_MSM_HS
