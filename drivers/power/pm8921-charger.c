@@ -363,6 +363,7 @@ static int pm_chg_vddmax_get(struct pm8921_chg_chip *chip, int *voltage)
 	rc = pm8xxx_readb(chip->dev->parent, CHG_VDD_MAX, &temp);
 	if (rc) {
 		pr_err("rc = %d while reading vdd max\n", rc);
+		*voltage = 0;
 		return rc;
 	}
 	temp &= PM8921_CHG_V_MASK;
@@ -484,6 +485,7 @@ static int pm_chg_iterm_get(struct pm8921_chg_chip *chip, int *chg_current)
 	rc = pm8xxx_readb(chip->dev->parent, CHG_ITERM, &temp);
 	if (rc) {
 		pr_err("err=%d reading CHG_ITEM\n", rc);
+		*chg_current = 0;
 		return rc;
 	}
 	temp &= PM8921_CHG_ITERM_MASK;
