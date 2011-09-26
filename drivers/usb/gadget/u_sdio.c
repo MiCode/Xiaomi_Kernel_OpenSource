@@ -1060,12 +1060,13 @@ int gsdio_setup(struct usb_gadget *g, unsigned count)
 	for (i = 0; i < count; i++) {
 		mutex_init(&sdio_ports[i].lock);
 		ret = gsdio_port_alloc(i, &coding, sport_info + i);
+		n_sdio_ports++;
 		if (ret) {
+			n_sdio_ports--;
 			pr_err("%s: sdio logical port allocation failed\n",
 					__func__);
 			goto free_sdio_ports;
 		}
-		n_sdio_ports++;
 		port_info++;
 
 #ifdef DEBUG
