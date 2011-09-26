@@ -259,3 +259,24 @@ config USB_YUREX
 	  To compile this driver as a module, choose M here: the
 	  module will be called yurex.
 
+config USB_QCOM_DIAG
+	tristate "USB Qualcomm diag port driver"
+	depends on USB && !USB_SERIAL_QUALCOMM
+	default n
+	help
+	  Say Y here if you want to use the diag ports provided
+	  by many Qualcomm chipsets.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qcaux.  If unsure, choose N.
+
+config USB_QCOM_DIAG_TEST
+	tristate "USB Qualcomm diag port unit test driver"
+	depends on USB && USB_QCOM_DIAG
+	default n
+	help
+	  Say Y here if you want to use unit test diag port provided
+	  by many Qualcomm chipsets.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qcaux.  If unsure, choose N.

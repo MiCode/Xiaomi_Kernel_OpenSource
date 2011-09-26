@@ -28,3 +28,6 @@ obj-$(CONFIG_USB_SEVSEG)		+= usbsevseg.o
 obj-$(CONFIG_USB_YUREX)			+= yurex.o
 
 obj-$(CONFIG_USB_SISUSBVGA)		+= sisusbvga/
+
+obj-$(CONFIG_USB_QCOM_DIAG)		+= diag_usb.o
+obj-$(CONFIG_USB_QCOM_DIAG_TEST)	+= diag_bridge_test.o
