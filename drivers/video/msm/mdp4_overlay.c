@@ -1164,6 +1164,14 @@ int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info)
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe)
 {
 	uint32 data, mask, snum, stage, mixer, pnum;
+	struct mdp4_overlay_pipe *spipe;
+
+	spipe = mdp4_overlay_stage_pipe(pipe->mixer_num, pipe->mixer_stage);
+	if ((spipe != NULL) && (spipe != pipe)) {
+		pr_err("%s: unable to stage pipe=%d at mixer_stage=%d\n",
+				__func__, pipe->pipe_ndx, pipe->mixer_stage);
+		return;
+	}
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
