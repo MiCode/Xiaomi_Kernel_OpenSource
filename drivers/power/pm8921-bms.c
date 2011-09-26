@@ -101,6 +101,7 @@ static struct pm8921_bms_chip *the_chip;
 static int last_rbatt = -EINVAL;
 static int last_ocv_uv = -EINVAL;
 static int last_soc = -EINVAL;
+static int last_real_fcc = -EINVAL;
 
 static int last_chargecycles = DEFAULT_CHARGE_CYCLES;
 static int last_charge_increase;
@@ -109,6 +110,7 @@ module_param(last_rbatt, int, 0644);
 module_param(last_ocv_uv, int, 0644);
 module_param(last_chargecycles, int, 0644);
 module_param(last_charge_increase, int, 0644);
+module_param(last_real_fcc, int, 0644);
 
 static int pm_bms_get_rt_status(struct pm8921_bms_chip *chip, int irq_id)
 {
@@ -742,31 +744,71 @@ static int calculate_remaining_charge_mah(struct pm8921_bms_chip *chip, int fcc,
 	return (fcc * pc) / 100;
 }
 
+static void calculate_charging_params(struct pm8921_bms_chip *chip,
+						int batt_temp, int chargecycles,
+						int *fcc,
+						int *unusable_charge,
+						int *remaining_charge,
+						int64_t *cc_mah)
+{
+	int coulumb_counter;
+
+	*fcc = calculate_fcc(chip, batt_temp, chargecycles);
+	pr_debug("FCC = %umAh batt_temp = %d, cycles = %d",
+					*fcc, batt_temp, chargecycles);
+
+	*unusable_charge = calculate_unusable_charge_mah(chip, *fcc,
+						batt_temp, chargecycles);
+
+	pr_debug("UUC = %umAh", *unusable_charge);
+
+	/* calculate remainging charge */
+	*remaining_charge = calculate_remaining_charge_mah(chip, *fcc,
+						batt_temp, chargecycles);
+	pr_debug("RC = %umAh\n", *remaining_charge);
+
+	/* calculate cc milli_volt_hour */
+	calculate_cc_mah(chip, cc_mah, &coulumb_counter);
+	pr_debug("cc_mah = %lldmAh cc = %d\n", *cc_mah, coulumb_counter);
+}
+
+static int calculate_real_fcc(struct pm8921_bms_chip *chip,
+						int batt_temp, int chargecycles)
+{
+	int fcc, unusable_charge;
+	int remaining_charge;
+	int64_t cc_mah;
+	int real_fcc;
+
+	calculate_charging_params(chip, batt_temp, chargecycles,
+						&fcc,
+						&unusable_charge,
+						&remaining_charge,
+						&cc_mah);
+
+	real_fcc = remaining_charge - cc_mah;
+
+	return real_fcc;
+}
+/*
+ * Remaining Usable Charge = remaining_charge (charge at ocv instance)
+ *				- coloumb counter charge
+ *				- unusable charge (due to battery resistance)
+ * SOC% = (remaining usable charge/ fcc - usable_charge);
+ */
 static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						int batt_temp, int chargecycles)
 {
 	int remaining_usable_charge, fcc, unusable_charge;
-	int remaining_charge, soc, coulumb_counter;
+	int remaining_charge, soc;
 	int update_userspace = 1;
 	int64_t cc_mah;
 
-	fcc = calculate_fcc(chip, batt_temp, chargecycles);
-	pr_debug("FCC = %umAh batt_temp = %d, cycles = %d",
-					fcc, batt_temp, chargecycles);
-
-	unusable_charge = calculate_unusable_charge_mah(chip, fcc,
-						batt_temp, chargecycles);
-
-	pr_debug("UUC = %umAh", unusable_charge);
-
-	/* calculate remainging charge */
-	remaining_charge = calculate_remaining_charge_mah(chip, fcc, batt_temp,
-								chargecycles);
-	pr_debug("RC = %umAh\n", remaining_charge);
-
-	/* calculate cc milli_volt_hour */
-	calculate_cc_mah(chip, &cc_mah, &coulumb_counter);
-	pr_debug("cc_mah = %lldmAh cc = %d\n", cc_mah, coulumb_counter);
+	calculate_charging_params(chip, batt_temp, chargecycles,
+						&fcc,
+						&unusable_charge,
+						&remaining_charge,
+						&cc_mah);
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge = remaining_charge - cc_mah - unusable_charge;
@@ -935,8 +977,26 @@ void pm8921_bms_charging_began(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
-void pm8921_bms_charging_end(void)
+void pm8921_bms_charging_end(int is_battery_full)
 {
+	if (is_battery_full && the_chip != NULL) {
+		int batt_temp, rc;
+		struct pm8921_adc_chan_result result;
+
+		rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+		if (rc) {
+			pr_err("error reading adc channel = %d, rc = %d\n",
+					the_chip->batt_temp_channel, rc);
+			goto charge_cycle_calculation;
+		}
+		pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
+							result.measurement);
+		batt_temp = (int)result.physical;
+		last_real_fcc = calculate_real_fcc(the_chip,
+						batt_temp, last_chargecycles);
+	}
+
+charge_cycle_calculation:
 	end_percent = pm8921_bms_get_percent_charge();
 	if (end_percent > start_percent) {
 		last_charge_increase = end_percent - start_percent;

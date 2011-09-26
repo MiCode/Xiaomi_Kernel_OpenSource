@@ -150,6 +150,7 @@ enum pmic_chg_interrupts {
 };
 
 struct bms_notify {
+	int			is_battery_full;
 	int			is_charging;
 	struct	work_struct	work;
 };
@@ -755,10 +756,12 @@ static void bms_notify(struct work_struct *work)
 {
 	struct bms_notify *n = container_of(work, struct bms_notify, work);
 
-	if (n->is_charging)
+	if (n->is_charging) {
 		pm8921_bms_charging_began();
-	else
-		pm8921_bms_charging_end();
+	} else {
+		pm8921_bms_charging_end(n->is_battery_full);
+		n->is_battery_full = 0;
+	}
 }
 
 static void bms_notify_check(struct pm8921_chg_chip *chip)
@@ -1339,6 +1342,9 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
+
+	chip->bms_notify.is_battery_full = 1;
+	bms_notify_check(chip);
 
 	/*
 	 * since charging is now done, start monitoring for
