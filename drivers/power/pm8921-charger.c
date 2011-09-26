@@ -761,6 +761,19 @@ static void bms_notify(struct work_struct *work)
 		pm8921_bms_charging_end();
 }
 
+static void bms_notify_check(struct pm8921_chg_chip *chip)
+{
+	int fsm_state, new_is_charging;
+
+	fsm_state = pm_chg_get_fsm_state(chip);
+	new_is_charging = is_battery_charging(fsm_state);
+
+	if (chip->bms_notify.is_charging ^ new_is_charging) {
+		chip->bms_notify.is_charging = new_is_charging;
+		schedule_work(&(chip->bms_notify.work));
+	}
+}
+
 static enum power_supply_property pm_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
@@ -1222,6 +1235,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 		chip->usb_present = usb_present;
 		power_supply_changed(&chip->usb_psy);
 	}
+	bms_notify_check(chip);
 }
 
 static void handle_dc_removal_insertion(struct pm8921_chg_chip *chip)
@@ -1233,6 +1247,7 @@ static void handle_dc_removal_insertion(struct pm8921_chg_chip *chip)
 		chip->dc_present = dc_present;
 		power_supply_changed(&chip->dc_psy);
 	}
+	bms_notify_check(chip);
 }
 
 static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
@@ -1348,20 +1363,14 @@ static irqreturn_t chgfail_irq_handler(int irq, void *data)
 static irqreturn_t chgstate_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
-	int new_is_charging = 0, fsm_state;
 
 	pr_debug("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
 
-	fsm_state = pm_chg_get_fsm_state(chip);
-	new_is_charging = is_battery_charging(fsm_state);
+	bms_notify_check(chip);
 
-	if (chip->bms_notify.is_charging ^ new_is_charging) {
-		chip->bms_notify.is_charging = new_is_charging;
-		schedule_work(&(chip->bms_notify.work));
-	}
 	return IRQ_HANDLED;
 }
 
@@ -1454,6 +1463,7 @@ static irqreturn_t bat_temp_ok_irq_handler(int irq, void *data)
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
+	bms_notify_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -1806,7 +1816,6 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	pm8921_chg_enable_irq(chip, USBIN_UV_IRQ);
 	pm8921_chg_enable_irq(chip, DCIN_OV_IRQ);
 	pm8921_chg_enable_irq(chip, DCIN_UV_IRQ);
-	pm8921_chg_enable_irq(chip, CHGSTATE_IRQ);
 	pm8921_chg_enable_irq(chip, FASTCHG_IRQ);
 	pm8921_chg_enable_irq(chip, VBATDET_LOW_IRQ);
 
@@ -1875,7 +1884,8 @@ struct pm_chg_irq_init_data chg_irq_data[] = {
 	CHG_IRQ(BATTTEMP_COLD_IRQ, IRQF_TRIGGER_RISING,
 						batttemp_cold_irq_handler),
 	CHG_IRQ(CHG_GONE_IRQ, IRQF_TRIGGER_RISING, chg_gone_irq_handler),
-	CHG_IRQ(BAT_TEMP_OK_IRQ, IRQF_TRIGGER_RISING, bat_temp_ok_irq_handler),
+	CHG_IRQ(BAT_TEMP_OK_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						bat_temp_ok_irq_handler),
 	CHG_IRQ(COARSE_DET_LOW_IRQ, IRQF_TRIGGER_RISING,
 						coarse_det_low_irq_handler),
 	CHG_IRQ(VDD_LOOP_IRQ, IRQF_TRIGGER_RISING, vdd_loop_irq_handler),
