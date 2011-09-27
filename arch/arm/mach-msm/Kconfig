@@ -152,6 +152,7 @@ config ARCH_APQ8064
 	select CPU_V7
 	select MSM_SCM if SMP
 	select MSM_GPIOMUX
+	select MSM_REMOTE_SPINLOCK_SFPB
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
