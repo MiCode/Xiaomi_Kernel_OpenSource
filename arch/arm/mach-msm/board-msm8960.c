@@ -2545,6 +2545,7 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 #endif
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 	.nonremovable	= 1,
 	.sdcc_v4_sup	= true,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
@@ -2558,6 +2559,7 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc3_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 #ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
 #endif
