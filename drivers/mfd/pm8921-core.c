@@ -659,15 +659,15 @@ static int pm8921_remove(struct platform_device *pdev)
 	drvdata = platform_get_drvdata(pdev);
 	if (drvdata)
 		pmic = drvdata->pm_chip_data;
-	if (pmic)
-		mfd_remove_devices(pmic->dev);
-	if (pmic->irq_chip) {
-		pm8xxx_irq_exit(pmic->irq_chip);
-		pmic->irq_chip = NULL;
+	if (pmic) {
+		if (pmic->dev)
+			mfd_remove_devices(pmic->dev);
+		if (pmic->irq_chip)
+			pm8xxx_irq_exit(pmic->irq_chip);
+		kfree(pmic->mfd_regulators);
+		kfree(pmic);
 	}
 	platform_set_drvdata(pdev, NULL);
-	kfree(pmic->mfd_regulators);
-	kfree(pmic);
 
 	return 0;
 }
