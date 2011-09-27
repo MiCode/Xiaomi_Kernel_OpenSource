@@ -414,7 +414,9 @@ static int interpolate_scalingfactor_fcc(struct pm8921_bms_chip *chip,
 static int interpolate_scalingfactor_pc(struct pm8921_bms_chip *chip,
 				int cycles, int pc)
 {
-	int i, scalefactorrow1, scalefactorrow2, scalefactor, row1, row2;
+	int i, scalefactorrow1, scalefactorrow2, scalefactor;
+	int row1 = 0;
+	int row2 = 0;
 	int rows = chip->pc_sf_lut->rows;
 	int cols = chip->pc_sf_lut->cols;
 
@@ -1500,7 +1502,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("%s bad battery data %d\n", __func__, rc);
-		return rc;
+		goto free_chip;
 	}
 
 	chip->batt_temp_channel = pdata->bms_cdata.batt_temp_channel;
