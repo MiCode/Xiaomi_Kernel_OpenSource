@@ -936,6 +936,7 @@ static int __init tzcom_init(void)
 			PMEM_ALIGNMENT_4K);
 	if (IS_ERR((void *)sb_in_phys)) {
 		PERR("could not allocte in kernel pmem buffers for sb_in");
+		sb_in_phys = 0;
 		rc = -ENOMEM;
 		goto class_device_destroy;
 	}
@@ -955,6 +956,7 @@ static int __init tzcom_init(void)
 			PMEM_ALIGNMENT_4K);
 	if (IS_ERR((void *)sb_out_phys)) {
 		PERR("could not allocte in kernel pmem buffers for sb_out");
+		sb_out_phys = 0;
 		rc = -ENOMEM;
 		goto class_device_destroy;
 	}
