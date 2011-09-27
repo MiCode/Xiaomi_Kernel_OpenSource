@@ -825,7 +825,7 @@ static int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
 	struct sps_register_event sreg;
 	int ret;
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	if (pn > 7)
+	if (pn >= 7)
 		return -ENODEV;
 
 
@@ -1711,10 +1711,12 @@ static int __devexit msm_slim_remove(struct platform_device *pdev)
 	kfree(dev);
 	bam_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_bam_physical");
-	release_mem_region(bam_mem->start, resource_size(bam_mem));
+	if (bam_mem)
+		release_mem_region(bam_mem->start, resource_size(bam_mem));
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
-	release_mem_region(slim_mem->start, resource_size(slim_mem));
+	if (slim_mem)
+		release_mem_region(slim_mem->start, resource_size(slim_mem));
 	return 0;
 }
 
