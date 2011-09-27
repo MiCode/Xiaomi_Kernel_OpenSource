@@ -86,6 +86,7 @@ struct riva_data {
 	bool use_cxo;
 	struct delayed_work work;
 	struct regulator *pll_supply;
+	struct pil_device *pil;
 };
 
 static int pil_riva_make_proxy_votes(struct device *dev)
@@ -390,6 +391,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 
 	desc->name = "wcnss";
 	desc->dev = &pdev->dev;
+	desc->owner = THIS_MODULE;
 
 	if (pas_supported(PAS_RIVA) > 0) {
 		desc->ops = &pil_riva_ops_trusted;
@@ -406,9 +408,11 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	}
 	INIT_DELAYED_WORK(&drv->work, pil_riva_remove_proxy_votes);
 
-	ret = msm_pil_register(desc);
-	if (ret)
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil)) {
+		ret = PTR_ERR(drv->pil);
 		goto err_register;
+	}
 	return 0;
 err_register:
 	flush_delayed_work_sync(&drv->work);
@@ -421,6 +425,7 @@ err:
 static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
+	msm_pil_unregister(drv->pil);
 	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 	regulator_put(drv->pll_supply);

@@ -66,6 +66,7 @@
 struct q6v3_data {
 	void __iomem *base;
 	unsigned long start_addr;
+	struct pil_device *pil;
 	struct clk *pll;
 	struct delayed_work work;
 };
@@ -260,6 +261,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 
 	desc->name = "q6";
 	desc->dev = &pdev->dev;
+	desc->owner = THIS_MODULE;
 
 	if (pas_supported(PAS_Q6) > 0) {
 		desc->ops = &pil_q6v3_ops_trusted;
@@ -271,9 +273,10 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&drv->work, q6v3_remove_proxy_votes);
 
-	if (msm_pil_register(desc)) {
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil)) {
 		flush_delayed_work_sync(&drv->work);
-		return -EINVAL;
+		return PTR_ERR(drv->pil);
 	}
 	return 0;
 }
@@ -281,6 +284,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 static int __devexit pil_q6v3_driver_exit(struct platform_device *pdev)
 {
 	struct q6v3_data *drv = platform_get_drvdata(pdev);
+	msm_pil_unregister(drv->pil);
 	flush_delayed_work_sync(&drv->work);
 	return 0;
 }

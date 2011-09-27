@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,7 @@ static struct pil_reset_ops pil_tzapps_ops = {
 static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
+	struct pil_device *pil;
 
 	if (pas_supported(PAS_TZAPPS) < 0)
 		return -ENOSYS;
@@ -61,13 +62,18 @@ static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 	desc->name = "tzapps";
 	desc->dev = &pdev->dev;
 	desc->ops = &pil_tzapps_ops;
-	if (msm_pil_register(desc))
-		return -EINVAL;
+	desc->owner = THIS_MODULE;
+	pil = msm_pil_register(desc);
+	if (IS_ERR(pil))
+		return PTR_ERR(pil);
+	platform_set_drvdata(pdev, pil);
 	return 0;
 }
 
 static int __devexit pil_tzapps_driver_exit(struct platform_device *pdev)
 {
+	struct pil_device *pil = platform_get_drvdata(pdev);
+	msm_pil_unregister(pil);
 	return 0;
 }
 

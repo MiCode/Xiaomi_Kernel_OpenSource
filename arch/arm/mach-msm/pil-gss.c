@@ -64,6 +64,7 @@ struct gss_data {
 	unsigned long start_addr;
 	struct delayed_work work;
 	struct clk *xo;
+	struct pil_device *pil;
 };
 
 static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
@@ -329,7 +330,6 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	struct gss_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
-	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -363,6 +363,7 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 
 	desc->name = "gss";
 	desc->dev = &pdev->dev;
+	desc->owner = THIS_MODULE;
 
 	if (pas_supported(PAS_GSS) > 0) {
 		desc->ops = &pil_gss_ops_trusted;
@@ -374,17 +375,19 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&drv->work, remove_gss_proxy_votes);
 
-	ret = msm_pil_register(desc);
-	if (ret) {
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil)) {
 		flush_delayed_work_sync(&drv->work);
 		clk_put(drv->xo);
+		return PTR_ERR(drv->pil);
 	}
-	return ret;
+	return 0;
 }
 
 static int __devexit pil_gss_remove(struct platform_device *pdev)
 {
 	struct gss_data *drv = platform_get_drvdata(pdev);
+	msm_pil_unregister(drv->pil);
 	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 	return 0;
