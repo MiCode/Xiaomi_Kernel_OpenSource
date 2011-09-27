@@ -631,6 +631,7 @@ config ARCH_MSM
 	select GENERIC_GPIO
 	select GENERIC_TIME
 	select GENERIC_ALLOCATOR
+	select HAVE_SCHED_CLOCK
 	help
 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
 	  apps processor of the MSM/QSD and depends on a shared memory

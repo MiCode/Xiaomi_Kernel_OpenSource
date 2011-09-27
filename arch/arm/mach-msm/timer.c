@@ -26,6 +26,7 @@
 
 #include <asm/mach/time.h>
 #include <asm/hardware/gic.h>
+#include <asm/sched_clock.h>
 #include <mach/msm_iomap.h>
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
@@ -968,34 +969,22 @@ int __init msm_timer_init_time_sync(void (*timeout)(void))
 
 #endif
 
-unsigned long long sched_clock(void)
+static DEFINE_CLOCK_DATA(cd);
+
+unsigned long long notrace sched_clock(void)
 {
-	static cycle_t last_ticks;
-	static unsigned long long last_ns;
-	static DEFINE_SPINLOCK(msm_timer_sched_clock_lock);
+	struct msm_clock *clock = &msm_clocks[MSM_GLOBAL_TIMER];
+	struct clocksource *cs = &clock->clocksource;
+	u32 cyc = cs->read(cs);
+	return cyc_to_sched_clock(&cd, cyc, ((u32)~0 >> clock->shift));
+}
 
-	struct msm_clock *clock;
-	struct clocksource *cs;
-	cycle_t ticks, delta;
-	unsigned long irq_flags;
-
-	clock = &msm_clocks[MSM_GLOBAL_TIMER];
-	cs = &clock->clocksource;
-
-	ticks  = cs->read(cs);
-
-	spin_lock_irqsave(&msm_timer_sched_clock_lock, irq_flags);
-	delta = (ticks - last_ticks) & cs->mask;
-
-	if (delta < cs->mask/2) {
-		last_ticks += delta;
-		last_ns += clocksource_cyc2ns(delta, cs->mult, cs->shift);
-	}
-
-	ticks = last_ticks;
-	spin_unlock_irqrestore(&msm_timer_sched_clock_lock, irq_flags);
-
-	return last_ns;
+static void notrace msm_update_sched_clock(void)
+{
+	struct msm_clock *clock = &msm_clocks[MSM_GLOBAL_TIMER];
+	struct clocksource *cs = &clock->clocksource;
+	u32 cyc = cs->read(cs);
+	update_sched_clock(&cd, cyc, ((u32)~0) >> clock->shift);
 }
 
 #ifdef CONFIG_MSM_SMP
@@ -1007,6 +996,13 @@ int read_current_timer(unsigned long *timer_val)
 }
 #endif
 
+static void __init msm_sched_clock_init(void)
+{
+	struct msm_clock *clock = &msm_clocks[MSM_GLOBAL_TIMER];
+
+	init_sched_clock(&cd, msm_update_sched_clock, 32 - clock->shift,
+			 clock->freq);
+}
 static void __init msm_timer_init(void)
 {
 	int i;
@@ -1063,6 +1059,7 @@ static void __init msm_timer_init(void)
 
 		clockevents_register_device(ce);
 	}
+	msm_sched_clock_init();
 #ifdef CONFIG_MSM_SMP
 	__raw_writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
 	set_delay_fn(read_current_timer_delay_loop);
