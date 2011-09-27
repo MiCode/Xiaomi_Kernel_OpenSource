@@ -1265,6 +1265,9 @@ static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 	struct pm8921_chg_chip *chip = data;
 
 	pm8921_chg_disable_irq(chip, VBATDET_LOW_IRQ);
+
+	/* enable auto charging */
+	pm_chg_auto_enable(chip, !charging_disabled);
 	pr_debug("fsm_state=%d\n", pm_chg_get_fsm_state(data));
 
 	power_supply_changed(&chip->batt_psy);
@@ -1560,7 +1563,7 @@ static void eoc_work(struct work_struct *work)
 
 	vcp = pm_chg_get_rt_status(chip, VCP_IRQ);
 	pr_debug("vcp = %d\n", vcp);
-	if (vcp == 0)
+	if (vcp == 1)
 		goto reset_and_reschedule;
 
 	/* reset count if battery is hot/cold */
@@ -1614,7 +1617,8 @@ static void eoc_work(struct work_struct *work)
 		goto reset_and_reschedule;
 	}
 	pr_debug("regulation_loop=%d\n", regulation_loop);
-	if (regulation_loop != VDD_LOOP)
+
+	if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
 		goto reset_and_reschedule;
 
 	count++;
@@ -1623,8 +1627,6 @@ static void eoc_work(struct work_struct *work)
 		pr_info("End of Charging\n");
 
 		pm_chg_auto_enable(chip, 0);
-		msleep(CHG_DISABLE_MSLEEP);
-		pm_chg_auto_enable(chip, !charging_disabled);
 
 		/* declare end of charging by invoking chgdone interrupt */
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
