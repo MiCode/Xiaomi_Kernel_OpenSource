@@ -1063,16 +1063,20 @@ static int vfe32_configure_pingpong_buffers(int id, int path)
 						__func__, path);
 		vfe32_put_ch_ping_addr(outch->ch0,
 			outch->ping.ch_paddr[0]);
-		vfe32_put_ch_ping_addr(outch->ch1,
-			outch->ping.ch_paddr[1]);
+		vfe32_put_ch_pong_addr(outch->ch0,
+			outch->pong.ch_paddr[0]);
+
+		if (vfe32_ctrl->operation_mode !=
+			VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
+			vfe32_put_ch_ping_addr(outch->ch1,
+				outch->ping.ch_paddr[1]);
+			vfe32_put_ch_pong_addr(outch->ch1,
+				outch->pong.ch_paddr[1]);
+		}
+
 		if (outch->ping.num_planes > 2)
 			vfe32_put_ch_ping_addr(outch->ch2,
 				outch->ping.ch_paddr[2]);
-
-		vfe32_put_ch_pong_addr(outch->ch0,
-			outch->pong.ch_paddr[0]);
-		vfe32_put_ch_pong_addr(outch->ch1,
-			outch->pong.ch_paddr[1]);
 		if (outch->pong.num_planes > 2)
 			vfe32_put_ch_pong_addr(outch->ch2,
 				outch->pong.ch_paddr[2]);
