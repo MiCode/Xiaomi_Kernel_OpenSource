@@ -128,18 +128,24 @@ static struct adreno_device device_3d0 = {
 
 static const struct {
 	enum adreno_gpurev gpurev;
-	unsigned int core, major, minor;
+	unsigned int core, major, minor, patchid;
 	const char *pm4fw;
 	const char *pfpfw;
 	struct adreno_gpudev *gpudev;
 } adreno_gpulist[] = {
-	{ ADRENO_REV_A200, 0, 2, ANY_ID,
+	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev },
-	{ ADRENO_REV_A205, 0, 1, 0,
+	{ ADRENO_REV_A205, 0, 1, 0, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev },
-	{ ADRENO_REV_A220, 2, 1, ANY_ID,
+	{ ADRENO_REV_A220, 2, 1, ANY_ID, ANY_ID,
 		"leia_pm4_470.fw", "leia_pfp_470.fw", &adreno_a2xx_gpudev },
-	{ ADRENO_REV_A225, 2, 2, ANY_ID,
+	/*
+	 * patchlevel 5 (8960v2) needs special pm4 firmware to work around
+	 * a hardware problem.
+	 */
+	{ ADRENO_REV_A225, 2, 2, 0, 5,
+		"a225p5_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev },
+	{ ADRENO_REV_A225, 2, 2, ANY_ID, ANY_ID,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev },
 };
 
@@ -389,20 +395,21 @@ static inline bool _rev_match(unsigned int id, unsigned int entry)
 static void
 adreno_identify_gpu(struct adreno_device *adreno_dev)
 {
-	unsigned int i, core, major, minor;
+	unsigned int i, core, major, minor, patchid;
 
 	adreno_dev->chip_id = adreno_getchipid(&adreno_dev->dev);
 
 	core = (adreno_dev->chip_id >> 24) & 0xff;
 	major = (adreno_dev->chip_id >> 16) & 0xff;
 	minor = (adreno_dev->chip_id >> 8) & 0xff;
+	patchid = (adreno_dev->chip_id & 0xff);
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
 		if (core == adreno_gpulist[i].core &&
 		    _rev_match(major, adreno_gpulist[i].major) &&
-		    _rev_match(minor, adreno_gpulist[i].minor)) {
+		    _rev_match(minor, adreno_gpulist[i].minor) &&
+		    _rev_match(patchid, adreno_gpulist[i].patchid))
 			break;
-		}
 	}
 
 	if (i == ARRAY_SIZE(adreno_gpulist)) {
