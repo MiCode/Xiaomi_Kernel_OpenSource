@@ -1352,6 +1352,10 @@ static void hci_cs_le_create_conn(struct hci_dev *hdev, __u8 status)
 			else
 				BT_ERR("No memory for new connection");
 		}
+
+		if (conn)
+			mod_timer(&conn->disc_timer,
+					jiffies + msecs_to_jiffies(5000));
 	}
 
 	hci_dev_unlock(hdev);

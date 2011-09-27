@@ -50,10 +50,13 @@ static void hci_le_connect(struct hci_conn *conn)
 	struct hci_dev *hdev = conn->hdev;
 	struct hci_cp_le_create_conn cp;
 
+	BT_DBG("%p", conn);
+
 	conn->state = BT_CONNECT;
 	conn->out = 1;
 	conn->link_mode |= HCI_LM_MASTER;
 	conn->sec_level = BT_SECURITY_LOW;
+	conn->type = LE_LINK;
 
 	memset(&cp, 0, sizeof(cp));
 	cp.scan_interval = cpu_to_le16(0x0004);
@@ -300,9 +303,6 @@ static void hci_conn_timeout(unsigned long arg)
 
 	BT_DBG("conn %p state %d", conn, conn->state);
 
-	if (atomic_read(&conn->refcnt))
-		return;
-
 	hci_dev_lock(hdev);
 
 	switch (conn->state) {
@@ -317,11 +317,14 @@ static void hci_conn_timeout(unsigned long arg)
 		break;
 	case BT_CONFIG:
 	case BT_CONNECTED:
-		reason = hci_proto_disconn_ind(conn);
-		hci_acl_disconn(conn, reason);
+		if (!atomic_read(&conn->refcnt)) {
+			reason = hci_proto_disconn_ind(conn);
+			hci_acl_disconn(conn, reason);
+		}
 		break;
 	default:
-		conn->state = BT_CLOSED;
+		if (!atomic_read(&conn->refcnt))
+			conn->state = BT_CLOSED;
 		break;
 	}
 
