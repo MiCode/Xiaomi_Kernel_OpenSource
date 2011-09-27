@@ -1084,9 +1084,6 @@ static void hci_cs_auth_requested(struct hci_dev *hdev, __u8 status)
 
 	BT_DBG("%s status 0x%x", hdev->name, status);
 
-	if (!status)
-		return;
-
 	cp = hci_sent_cmd_data(hdev, HCI_OP_AUTH_REQUESTED);
 	if (!cp)
 		return;
@@ -1095,10 +1092,11 @@ static void hci_cs_auth_requested(struct hci_dev *hdev, __u8 status)
 
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(cp->handle));
 	if (conn) {
-		if (conn->state == BT_CONFIG) {
+		if (status && conn->state == BT_CONFIG) {
 			hci_proto_connect_cfm(conn, status);
 			hci_conn_put(conn);
 		}
+		conn->auth_initiator = 1;
 	}
 
 	hci_dev_unlock(hdev);

@@ -1128,11 +1128,22 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 	key->pin_len = pin_len;
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
+	/* Store the link key persistently if one of the following is true:
+	 * 1. the remote side is using dedicated bonding since in that case
+	 *    also the local requirements are set to dedicated bonding
+	 * 2. the local side had dedicated bonding as a requirement
+	 * 3. this is a legacy link key
+	 * 4. this is a changed combination key and there was a previously
+	 *    stored one
+	 * If none of the above match only keep the link key around for
+	 * this connection and set the temporary flag for the device.
+	*/
 
 	if (conn) {
-		if (conn->remote_auth > 0x01)
-			bonded = 1;
-		else if (conn->auth_initiator && conn->auth_type > 0x01)
+		if ((conn->remote_auth > 0x01) ||
+			(conn->auth_initiator && conn->auth_type > 0x01) ||
+			(key->type < 0x03) ||
+			(key->type == 0x06 && old_key_type != 0xff))
 			bonded = 1;
 	}
 
