@@ -545,7 +545,7 @@ static int increase_vdd(int cpu, unsigned int vdd_core, unsigned int vdd_mem,
 			unsigned int vdd_dig, enum setrate_reason reason)
 {
 	struct scalable *sc = &scalable[cpu];
-	int rc;
+	int rc = 0;
 
 	/*
 	 * Increase vdd_mem active-set before vdd_dig.
