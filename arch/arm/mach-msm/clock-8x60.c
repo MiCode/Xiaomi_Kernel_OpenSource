@@ -3576,8 +3576,7 @@ static struct measure_clk measure_clk = {
 
 static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
-	CLK_LOOKUP("pll4",		pll4_clk.c,	NULL),
-	CLK_LOOKUP("pll4",		pll4_clk.c,	"peripheral-reset"),
+	CLK_LOOKUP("pll4",		pll4_clk.c,	"pil_qdsp6v3"),
 	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("bus_clk",		afab_clk.c,	"msm_apps_fab"),

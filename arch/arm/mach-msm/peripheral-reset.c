@@ -34,7 +34,6 @@
 #define PROXY_VOTE_TIMEOUT		10000
 
 #define MSM_MMS_REGS_BASE		0x10200000
-#define MSM_LPASS_QDSP6SS_BASE		0x28800000
 
 #define MARM_RESET			(MSM_CLK_CTL_BASE + 0x2BD4)
 #define MARM_BOOT_CONTROL		(msm_mms_regs_base + 0x0010)
@@ -58,18 +57,12 @@
 #define PLL8_STATUS			(MSM_CLK_CTL_BASE + 0x3158)
 #define CLK_HALT_MSS_SMPSS_MISC_STATE	(MSM_CLK_CTL_BASE + 0x2FDC)
 
-#define LCC_Q6_FUNC			(MSM_LPASS_CLK_CTL_BASE + 0x001C)
-#define QDSP6SS_RST_EVB			(msm_lpass_qdsp6ss_base + 0x0000)
-#define QDSP6SS_STRAP_TCM		(msm_lpass_qdsp6ss_base + 0x001C)
-#define QDSP6SS_STRAP_AHB		(msm_lpass_qdsp6ss_base + 0x0020)
-
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
 #define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
 #define CLK_HALT_DFAB_STATE		(MSM_CLK_CTL_BASE + 0x2FC8)
 
-static int modem_start, q6_start, dsps_start;
+static int modem_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
-static void __iomem *msm_lpass_qdsp6ss_base;
 
 static int init_image_modem_trusted(struct pil_desc *pil, const u8 *metadata,
 				    size_t size)
@@ -82,20 +75,6 @@ static int init_image_modem_untrusted(struct pil_desc *pil,
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	modem_start = ehdr->e_entry;
-	return 0;
-}
-
-static int init_image_q6_trusted(struct pil_desc *pil,
-				 const u8 *metadata, size_t size)
-{
-	return pas_init_image(PAS_Q6, metadata, size);
-}
-
-static int init_image_q6_untrusted(struct pil_desc *pil, const u8 *metadata,
-				   size_t size)
-{
-	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	q6_start = ehdr->e_entry;
 	return 0;
 }
 
@@ -291,154 +270,6 @@ static int shutdown_modem_trusted(struct pil_desc *pil)
 	return 0;
 }
 
-#define LV_EN 			BIT(27)
-#define STOP_CORE		BIT(26)
-#define CLAMP_IO 		BIT(25)
-#define Q6SS_PRIV_ARES		BIT(24)
-#define Q6SS_SS_ARES		BIT(23)
-#define Q6SS_ISDB_ARES		BIT(22)
-#define Q6SS_ETM_ARES		BIT(21)
-#define Q6_JTAG_CRC_EN		BIT(20)
-#define Q6_JTAG_INV_EN		BIT(19)
-#define Q6_JTAG_CXC_EN		BIT(18)
-#define Q6_PXO_CRC_EN		BIT(17)
-#define Q6_PXO_INV_EN		BIT(16)
-#define Q6_PXO_CXC_EN		BIT(15)
-#define Q6_PXO_SLEEP_EN		BIT(14)
-#define Q6_SLP_CRC_EN		BIT(13)
-#define Q6_SLP_INV_EN		BIT(12)
-#define Q6_SLP_CXC_EN		BIT(11)
-#define CORE_ARES		BIT(10)
-#define CORE_L1_MEM_CORE_EN	BIT(9)
-#define CORE_TCM_MEM_CORE_EN	BIT(8)
-#define CORE_TCM_MEM_PERPH_EN	BIT(7)
-#define CORE_GFM4_CLK_EN	BIT(2)
-#define CORE_GFM4_RES		BIT(1)
-#define RAMP_PLL_SRC_SEL	BIT(0)
-
-#define Q6_STRAP_AHB_UPPER	(0x290 << 12)
-#define Q6_STRAP_AHB_LOWER	0x280
-#define Q6_STRAP_TCM_BASE	(0x28C << 15)
-#define Q6_STRAP_TCM_CONFIG	0x28B
-
-static struct clk *pll4;
-
-static void remove_q6_proxy_votes(unsigned long data)
-{
-	clk_disable(pll4);
-}
-static DEFINE_TIMER(q6_timer, remove_q6_proxy_votes, 0, 0);
-
-static void make_q6_proxy_votes(void)
-{
-	/* Make proxy votes for Q6 and set up timer to disable it. */
-	clk_enable(pll4);
-	mod_timer(&q6_timer, jiffies + msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
-}
-
-static void remove_q6_proxy_votes_now(void)
-{
-	/*
-	 * If the Q6 proxy vote hasn't been removed yet, them remove the
-	 * votes immediately.
-	 */
-	if (del_timer(&q6_timer))
-		remove_q6_proxy_votes(0);
-}
-
-static int reset_q6_untrusted(struct pil_desc *pil)
-{
-	u32 reg;
-
-	make_q6_proxy_votes();
-
-	/* Put Q6 into reset */
-	reg = __raw_readl(LCC_Q6_FUNC);
-	reg |= Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES | STOP_CORE |
-		CORE_ARES;
-	reg &= ~CORE_GFM4_CLK_EN;
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	/* Wait 8 AHB cycles for Q6 to be fully reset (AHB = 1.5Mhz) */
-	usleep_range(20, 30);
-
-	/* Turn on Q6 memory */
-	reg |= CORE_GFM4_CLK_EN | CORE_L1_MEM_CORE_EN | CORE_TCM_MEM_CORE_EN |
-		CORE_TCM_MEM_PERPH_EN;
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	/* Turn on Q6 core clocks and take core out of reset */
-	reg &= ~(CLAMP_IO | Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES |
-			CORE_ARES);
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	/* Wait for clocks to be enabled */
-	mb();
-	/* Program boot address */
-	__raw_writel((q6_start >> 12) & 0xFFFFF, QDSP6SS_RST_EVB);
-
-	__raw_writel(Q6_STRAP_TCM_CONFIG | Q6_STRAP_TCM_BASE,
-			QDSP6SS_STRAP_TCM);
-	__raw_writel(Q6_STRAP_AHB_UPPER | Q6_STRAP_AHB_LOWER,
-			QDSP6SS_STRAP_AHB);
-
-	/* Wait for addresses to be programmed before starting Q6 */
-	mb();
-
-	/* Start Q6 instruction execution */
-	reg &= ~STOP_CORE;
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	return 0;
-}
-
-static int reset_q6_trusted(struct pil_desc *pil)
-{
-	make_q6_proxy_votes();
-
-	return pas_auth_and_reset(PAS_Q6);
-}
-
-static int shutdown_q6_untrusted(struct pil_desc *pil)
-{
-	u32 reg;
-
-	/* Put Q6 into reset */
-	reg = __raw_readl(LCC_Q6_FUNC);
-	reg |= Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES | STOP_CORE |
-		CORE_ARES;
-	reg &= ~CORE_GFM4_CLK_EN;
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	/* Wait 8 AHB cycles for Q6 to be fully reset (AHB = 1.5Mhz) */
-	usleep_range(20, 30);
-
-	/* Turn off Q6 memory */
-	reg &= ~(CORE_L1_MEM_CORE_EN | CORE_TCM_MEM_CORE_EN |
-		CORE_TCM_MEM_PERPH_EN);
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	reg |= CLAMP_IO;
-	__raw_writel(reg, LCC_Q6_FUNC);
-
-	remove_q6_proxy_votes_now();
-
-	return 0;
-}
-
-static int shutdown_q6_trusted(struct pil_desc *pil)
-{
-	int ret;
-
-	ret = pas_shutdown(PAS_Q6);
-	if (ret)
-		return ret;
-
-	remove_q6_proxy_votes_now();
-
-	return 0;
-}
-
 static int reset_dsps_untrusted(struct pil_desc *pil)
 {
 	__raw_writel(0x10, PPSS_PROC_CLK_CTL);
@@ -490,13 +321,6 @@ struct pil_reset_ops pil_modem_ops = {
 	.shutdown = shutdown_modem_untrusted,
 };
 
-struct pil_reset_ops pil_q6_ops = {
-	.init_image = init_image_q6_untrusted,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_q6_untrusted,
-	.shutdown = shutdown_q6_untrusted,
-};
-
 struct pil_reset_ops pil_dsps_ops = {
 	.init_image = init_image_dsps_untrusted,
 	.verify_blob = verify_blob,
@@ -520,16 +344,6 @@ static struct pil_desc pil_modem_desc = {
 	.depends_on = "q6",
 	.dev = &pil_modem.dev,
 	.ops = &pil_modem_ops,
-};
-
-static struct platform_device pil_q6 = {
-	.name = "pil_q6",
-};
-
-static struct pil_desc pil_q6_desc = {
-	.name = "q6",
-	.dev = &pil_q6.dev,
-	.ops = &pil_q6_ops,
 };
 
 static struct platform_device pil_playready = {
@@ -558,28 +372,14 @@ static int __init msm_peripheral_reset_init(void)
 	if (!msm_mms_regs_base)
 		goto err;
 
-	msm_lpass_qdsp6ss_base = ioremap(MSM_LPASS_QDSP6SS_BASE, SZ_256);
-	if (!msm_lpass_qdsp6ss_base)
-		goto err_lpass;
-
 	pxo = msm_xo_get(MSM_XO_PXO, "pil");
 	if (IS_ERR(pxo))
 		goto err_pxo;
-
-	pll4 = clk_get_sys("peripheral-reset", "pll4");
-	if (IS_ERR(pll4))
-		goto err_clk;
 
 	if (pas_supported(PAS_MODEM) > 0) {
 		pil_modem_ops.init_image = init_image_modem_trusted;
 		pil_modem_ops.auth_and_reset = reset_modem_trusted;
 		pil_modem_ops.shutdown = shutdown_modem_trusted;
-	}
-
-	if (pas_supported(PAS_Q6) > 0) {
-		pil_q6_ops.init_image = init_image_q6_trusted;
-		pil_q6_ops.auth_and_reset = reset_q6_trusted;
-		pil_q6_ops.shutdown = shutdown_q6_trusted;
 	}
 
 	if (pas_supported(PAS_DSPS) > 0) {
@@ -588,8 +388,6 @@ static int __init msm_peripheral_reset_init(void)
 		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
 	}
 
-	BUG_ON(platform_device_register(&pil_q6));
-	BUG_ON(msm_pil_register(&pil_q6_desc));
 	BUG_ON(platform_device_register(&pil_modem));
 	BUG_ON(msm_pil_register(&pil_modem_desc));
 	BUG_ON(platform_device_register(&pil_playready));
@@ -602,11 +400,7 @@ static int __init msm_peripheral_reset_init(void)
 
 	return 0;
 
-err_clk:
-	msm_xo_put(pxo);
 err_pxo:
-	iounmap(msm_lpass_qdsp6ss_base);
-err_lpass:
 	iounmap(msm_mms_regs_base);
 err:
 	return -ENOMEM;
@@ -615,7 +409,6 @@ err:
 static void __exit msm_peripheral_reset_exit(void)
 {
 	iounmap(msm_mms_regs_base);
-	iounmap(msm_lpass_qdsp6ss_base);
 }
 
 arch_initcall(msm_peripheral_reset_init);
