@@ -101,9 +101,9 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 				   unsigned long flags)
 {
 	if (flags & ION_SET_CACHE(CACHED))
-		return ioremap(buffer->priv_phys, buffer->size);
-	else
 		return ioremap_cached(buffer->priv_phys, buffer->size);
+	else
+		return ioremap(buffer->priv_phys, buffer->size);
 }
 
 void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
