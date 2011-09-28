@@ -81,7 +81,11 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
 
 	int vfe_id = vdata->evt_msg.msg_id;
-
+	if (!pcam) {
+		pr_err("%s pcam is null. return\n", __func__);
+		msm_isp_sync_free(vdata);
+		return rc;
+	}
 	switch (vdata->type) {
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
