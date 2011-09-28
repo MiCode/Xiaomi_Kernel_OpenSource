@@ -22,6 +22,7 @@
 #include <linux/completion.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/delay.h>
 
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/dal.h>
@@ -34,7 +35,6 @@
 
 #define TIMEOUT_MS 3000
 #define SNDDEV_CAP_TTY 0x20
-
 #define CMD_STATUS_SUCCESS 0
 #define CMD_STATUS_FAIL 1
 
@@ -2141,6 +2141,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 
 	struct sidetone_cal sidetone_cal_data;
 	int rc = 0, i = 0;
+	int rc1 = 0;
+
 	pr_info("auddev_cb_function, evt_id=%d,\n", evt_id);
 
 	if (evt_payload == NULL) {
@@ -2170,7 +2172,27 @@ static void voice_auddev_cb_function(u32 evt_id,
 					mutex_unlock(&v->lock);
 					return;
 				}
-				voice_create_mvm_cvs_session(v);
+				rc1 = voice_create_mvm_cvs_session(v);
+				if (rc1 < 0) {
+					pr_err("%s: create mvm-cvs failed\n",
+								__func__);
+					msleep(100);
+					rc = voice_apr_register();
+					if (rc < 0) {
+						mutex_unlock(&v->lock);
+						pr_err("%s: voice apr regn"
+							"failed\n", __func__);
+						return;
+					}
+					rc1 = voice_create_mvm_cvs_session(v);
+					if (rc1 < 0) {
+						mutex_unlock(&v->lock);
+						pr_err("%s:Retry mvmcvs "
+								"failed\n",
+								__func__);
+						return;
+					}
+				}
 				voice_setup_modem_voice(v);
 				voice_attach_vocproc(v);
 				voice_send_start_voice_cmd(v);

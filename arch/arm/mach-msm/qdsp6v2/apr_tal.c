@@ -165,7 +165,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t svc, uint32_t dest,
 			apr_svc_ch[dl][dest][svc].dest_state,
 				msecs_to_jiffies(APR_OPEN_TIMEOUT_MS));
 		if (rc == 0) {
-			pr_debug("apr_tal:Open timeout\n");
+			pr_err("apr_tal:open timeout\n");
 			mutex_unlock(&apr_svc_ch[dl][dest][svc].m_lock);
 			return NULL;
 		}
@@ -187,6 +187,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t svc, uint32_t dest,
 	if (rc == 0) {
 		pr_err("apr_tal:TIMEOUT for OPEN event\n");
 		mutex_unlock(&apr_svc_ch[dl][dest][svc].m_lock);
+		apr_tal_close(&apr_svc_ch[dl][dest][svc]);
 		return NULL;
 	}
 	if (!apr_svc_ch[dl][dest][svc].dest_state) {
