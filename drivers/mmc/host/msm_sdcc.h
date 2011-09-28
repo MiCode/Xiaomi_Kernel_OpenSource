@@ -353,6 +353,7 @@ struct msmsdcc_host {
 
 	unsigned int sdcc_irq_disabled;
 	struct timer_list req_tout_timer;
+	unsigned long reg_write_delay;
 	bool io_pad_pwr_switch;
 	bool cmd19_tuning_in_progress;
 	bool tuning_needed;
