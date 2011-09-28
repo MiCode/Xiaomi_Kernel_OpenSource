@@ -253,6 +253,7 @@ enum  vfe_recording_state {
 #define V32_MESH_ROLL_OFF_INIT_TABLE_SIZE     13
 #define V32_MESH_ROLL_OFF_DELTA_TABLE_SIZE    208
 #define V32_MESH_ROLL_OFF_DELTA_TABLE_OFFSET  32
+#define V32_GAMMA_LUT_BANK_SEL_MASK           0x00000007
 
 #define V33_PCA_ROLL_OFF_CFG_LEN1             16
 #define V33_PCA_ROLL_OFF_CFG_OFF1             0x00000274
@@ -279,7 +280,7 @@ enum  vfe_recording_state {
 #define V32_CHROMA_SUP_OFF 0x000003E8
 #define V32_CHROMA_SUP_LEN 12
 
-#define V32_MCE_OFF 0x000003E8
+#define V32_MCE_OFF 0x000003F4
 #define V32_MCE_LEN 36
 #define V32_STATS_AF_OFF 0x0000053c
 #define V32_STATS_AF_LEN 16
@@ -894,6 +895,8 @@ struct vfe32_ctrl_type {
 	enum vfe_recording_state recording_state;
 	int8_t update_linear;
 	int8_t update_rolloff;
+	int8_t update_la;
+	int8_t update_gamma;
 
 	spinlock_t  tasklet_lock;
 	struct list_head tasklet_q;
