@@ -1041,7 +1041,7 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 static int __init msm_hsl_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
-	int baud, flow, bits, parity;
+	int baud = 0, flow, bits, parity;
 	int ret;
 
 	if (unlikely(co->index >= UART_NR || co->index < 0))
@@ -1161,7 +1161,7 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	port->mapbase = uart_resource->start;
 
 	port->irq = platform_get_irq(pdev, 0);
-	if (unlikely(port->irq < 0)) {
+	if (unlikely((int)port->irq < 0)) {
 		printk(KERN_ERR "%s: getting irq failed\n", __func__);
 		return -ENXIO;
 	}
