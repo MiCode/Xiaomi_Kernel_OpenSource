@@ -131,6 +131,6 @@ static void __exit msm_ion_exit(void)
 	platform_driver_unregister(&msm_ion_driver);
 }
 
-module_init(msm_ion_init);
+subsys_initcall(msm_ion_init);
 module_exit(msm_ion_exit);
 
