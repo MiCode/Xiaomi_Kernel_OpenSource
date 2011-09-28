@@ -247,6 +247,11 @@ struct platform_device msm_device_nand = {
 	},
 };
 
+struct platform_device msm_device_smd = {
+	.name		= "msm_smd",
+	.id		= -1,
+};
+
 #ifdef CONFIG_CACHE_L2X0
 static int __init l2x0_cache_init(void)
 {
@@ -278,8 +283,10 @@ void __init msm9615_device_init(void)
 	acpuclk_init(&acpuclk_9615_soc_data);
 }
 
+#define MSM_SHARED_RAM_PHYS 0x40000000
 void __init msm9615_map_io(void)
 {
+	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm9615_io();
 	l2x0_cache_init();
 }

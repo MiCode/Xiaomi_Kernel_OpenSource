@@ -76,7 +76,11 @@
 #define MSM_L2CC_BASE		IOMEM(0xFA701000)	/* 4K */
 #define MSM_APCS_GLB_BASE	IOMEM(0xFA702000)	/* 4K */
 
+#if defined(CONFIG_ARCH_MSM9615)
+#define MSM_SHARED_RAM_SIZE	SZ_1M
+#else
 #define MSM_SHARED_RAM_SIZE	SZ_2M
+#endif
 
 #include "msm_iomap-8960.h"
 #include "msm_iomap-8064.h"

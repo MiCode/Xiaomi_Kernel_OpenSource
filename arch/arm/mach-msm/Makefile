@@ -73,6 +73,7 @@ obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log.o
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o
         obj-y += socinfo.o
+ifndef CONFIG_ARCH_MSM9615
 ifndef CONFIG_ARCH_MSM8960
 ifndef CONFIG_ARCH_MSM8X60
 	obj-$(CONFIG_MSM_SMD) += pmic.o
@@ -80,6 +81,7 @@ ifndef CONFIG_ARCH_APQ8064
 	obj-y += nand_partitions.o
 endif
 	obj-$(CONFIG_MSM_ONCRPCROUTER) += rpc_hsusb.o rpc_pmapp.o rpc_fsusb.o
+endif
 endif
 endif
 obj-$(CONFIG_MSM_SDIO_TTY) += sdio_tty.o sdio_tty_ciq.o
