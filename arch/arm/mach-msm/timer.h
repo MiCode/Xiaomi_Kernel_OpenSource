@@ -16,6 +16,7 @@
 
 extern struct sys_timer msm_timer;
 
+void __iomem *msm_timer_get_timer0_base(void);
 int64_t msm_timer_enter_idle(void);
 void msm_timer_exit_idle(int low_power);
 int64_t msm_timer_get_sclk_time(int64_t *period);

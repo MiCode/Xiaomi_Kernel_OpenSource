@@ -446,6 +446,12 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 	local_irq_restore(irq_flags);
 }
 
+/* Call this after SMP init */
+void __iomem *msm_timer_get_timer0_base(void)
+{
+	return MSM_TMR_BASE + global_timer_offset;
+}
+
 #ifdef CONFIG_PM
 /*
  * Retrieve the cycle count from sclk and optionally synchronize local clock
