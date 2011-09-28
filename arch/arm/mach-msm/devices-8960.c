@@ -1481,7 +1481,9 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	SPS_MTI_30,
 	SPS_MTI_31,
 	RIVA_APSS_SPARE_IRQ,
-	RIVA_APPS_WLAN_SMSM_IRQ
+	RIVA_APPS_WLAN_SMSM_IRQ,
+	RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
 };
 
 struct msm_mpm_device_data msm_mpm_dev_data = {
