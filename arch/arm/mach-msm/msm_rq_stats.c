@@ -160,20 +160,20 @@ static int init_rq_attribs(void)
 
 	for (i = 0; i < attr_count - 1 ; i++) {
 		if (!attribs[i])
-			goto rel;
+			goto rel2;
 	}
 
 	rq_info.attr_group = kzalloc(sizeof(struct attribute_group),
 						GFP_KERNEL);
 	if (!rq_info.attr_group)
-		goto rel;
+		goto rel3;
 	rq_info.attr_group->attrs = attribs;
 
 	/* Create /sys/devices/system/cpu/cpu0/rq-stats/... */
 	rq_info.kobj = kobject_create_and_add("rq-stats",
 			&get_cpu_sysdev(0)->kobj);
 	if (!rq_info.kobj)
-		goto rel;
+		goto rel3;
 
 	err = sysfs_create_group(rq_info.kobj, rq_info.attr_group);
 	if (err)
@@ -184,12 +184,14 @@ static int init_rq_attribs(void)
 	if (!err)
 		return err;
 
-rel:
-	for (i = 0; i < attr_count - 1 ; i++)
-		kfree(attribs[i]);
-	kfree(attribs);
+rel3:
 	kfree(rq_info.attr_group);
 	kfree(rq_info.kobj);
+rel2:
+	for (i = 0; i < attr_count - 1; i++)
+		kfree(attribs[i]);
+rel:
+	kfree(attribs);
 
 	return -ENOMEM;
 }

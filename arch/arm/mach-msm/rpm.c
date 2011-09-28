@@ -264,7 +264,7 @@ static int msm_rpm_set_exclusive(int ctx,
 	DECLARE_COMPLETION_ONSTACK(ack);
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
-	uint32_t ctx_mask_ack;
+	uint32_t ctx_mask_ack = 0;
 	uint32_t sel_masks_ack[MSM_RPM_SEL_MASK_SIZE];
 	int i;
 
@@ -320,8 +320,9 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	unsigned int irq = msm_rpm_platform->irq_ack;
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
-	uint32_t ctx_mask_ack;
+	uint32_t ctx_mask_ack = 0;
 	uint32_t sel_masks_ack[MSM_RPM_SEL_MASK_SIZE];
+	struct irq_chip *irq_chip = NULL;
 	int i;
 
 	msm_rpm_request_poll_mode.req = req;
@@ -331,7 +332,12 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_request_poll_mode.done = NULL;
 
 	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
-	irq_get_chip(irq)->irq_mask(irq_get_irq_data(irq));
+	irq_chip = irq_get_chip(irq);
+	if (!irq_chip) {
+		spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
+		return -ENOSPC;
+	}
+	irq_chip->irq_mask(irq_get_irq_data(irq));
 
 	if (msm_rpm_request) {
 		msm_rpm_busy_wait_for_request_completion(true);
@@ -356,7 +362,7 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_busy_wait_for_request_completion(false);
 	BUG_ON(msm_rpm_request);
 
-	irq_get_chip(irq)->irq_unmask(irq_get_irq_data(irq));
+	irq_chip->irq_unmask(irq_get_irq_data(irq));
 	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 
 	BUG_ON((ctx_mask_ack & ~(msm_rpm_get_ctx_mask(MSM_RPM_CTX_REJECTED)))

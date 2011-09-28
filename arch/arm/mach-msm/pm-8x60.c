@@ -384,6 +384,9 @@ static void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
 	else
 		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
 
+	if (i >= CONFIG_MSM_IDLE_STATS_BUCKET_COUNT)
+		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
+
 	stats[id].bucket[i]++;
 
 	if (t < stats[id].min_time[i] || !stats[id].max_time[i])
