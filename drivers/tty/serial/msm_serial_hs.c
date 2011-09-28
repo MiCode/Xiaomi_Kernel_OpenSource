@@ -196,7 +196,7 @@ static ssize_t show_clock(struct device *dev, struct device_attribute *attr,
 	if (clk_state <= MSM_HS_CLK_OFF)
 		state = 0;
 
-	return sprintf(buf, "%d\n", state);
+	return snprintf(buf, PAGE_SIZE, "%d\n", state);
 }
 
 static ssize_t set_clock(struct device *dev, struct device_attribute *attr,
@@ -1861,7 +1861,7 @@ static int __init msm_hs_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	uport->irq = platform_get_irq(pdev, 0);
-	if (unlikely(uport->irq < 0))
+	if (unlikely((int)uport->irq < 0))
 		return -ENXIO;
 
 	if (pdata == NULL)
