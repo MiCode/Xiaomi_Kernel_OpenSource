@@ -939,7 +939,7 @@ static void msm_console_write(struct console *co, const char *s,
 static int __init msm_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
-	int baud, flow, bits, parity;
+	int baud = 0, flow, bits, parity;
 
 	if (unlikely(co->index >= UART_NR || co->index < 0))
 		return -ENXIO;
