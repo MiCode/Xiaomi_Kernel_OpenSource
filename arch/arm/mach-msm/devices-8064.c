@@ -549,6 +549,11 @@ struct platform_device msm_device_sps_apq8064 = {
 	.dev.platform_data = &msm_sps_pdata,
 };
 
+struct platform_device msm_device_smd_apq8064 = {
+	.name		= "msm_smd",
+	.id		= -1,
+};
+
 static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),
 	CLK_DUMMY("pll8",		PLL8,		NULL, 0),

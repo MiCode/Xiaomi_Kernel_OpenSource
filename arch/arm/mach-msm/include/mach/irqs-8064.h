@@ -299,13 +299,14 @@
 #define INT_ADM_AARM				ADM_0_SCSS_0_IRQ
 
 /* smd/smsm interrupts */
-#define INT_A9_M2A_0                    MSS_TO_APPS_IRQ_0
-#define INT_A9_M2A_5                    MSS_TO_APPS_IRQ_1
-#define INT_ADSP_A11                    LPASS_SCSS_GP_HIGH_IRQ
-#define INT_ADSP_A11_SMSM               LPASS_SCSS_GP_MEDIUM_IRQ
-#define INT_DSPS_A11                    SPS_MTI_31
-#define INT_WCNSS_A11                   RIVA_APSS_SPARE_IRQ
-#define INT_WCNSS_A11_SMSM              RIVA_APPS_WLAN_SMSM_IRQ
+#define INT_A9_M2A_0		(GIC_SPI_START + 37) /*GSS_TO_APPS_IRQ_0*/
+#define INT_A9_M2A_5		(GIC_SPI_START + 38) /*GSS_TO_APPS_IRQ_1*/
+#define INT_ADSP_A11		LPASS_SCSS_GP_HIGH_IRQ
+#define INT_ADSP_A11_SMSM	LPASS_SCSS_GP_MEDIUM_IRQ
+#define INT_DSPS_A11		SPS_MTI_31
+#define INT_DSPS_A11_SMSM	SPS_MTI_30
+#define INT_WCNSS_A11		RIVA_APSS_SPARE_IRQ
+#define INT_WCNSS_A11_SMSM	RIVA_APPS_WLAN_SMSM_IRQ
 
 #endif
 

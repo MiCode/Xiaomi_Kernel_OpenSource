@@ -271,8 +271,10 @@ static void __init apq8064_init_mmc(void)
 	apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 }
 
+#define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
 {
+	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_apq8064_io();
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
@@ -307,6 +309,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_slim_ctrl,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
+	&msm_device_smd_apq8064,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
