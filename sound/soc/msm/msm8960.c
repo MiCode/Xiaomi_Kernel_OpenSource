@@ -388,6 +388,18 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"AMIC2", NULL, "MIC BIAS2 External"},
 	{"MIC BIAS2 External", NULL, "Headset Mic"},
 
+	/**
+	 * AMIC3 and AMIC4 inputs are connected to ANC microphones
+	 * These mics are biased differently on CDP and FLUID
+	 * routing entries below are based on bias arrangement
+	 * on FLUID.
+	 */
+	{"AMIC3", NULL, "MIC BIAS3 Internal1"},
+	{"MIC BIAS3 Internal1", NULL, "ANCRight Headset Mic"},
+
+	{"AMIC4", NULL, "MIC BIAS1 Internal2"},
+	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
+
 	{"HEADPHONE", NULL, "LDO_H"},
 
 	/**
@@ -438,26 +450,11 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 };
 
 static const struct snd_soc_dapm_route cdp_audio_map[] = {
-	{"AMIC3", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "ANCRight Headset Mic"},
-
-	{"AMIC4", NULL, "MIC BIAS4 External"},
-	{"MIC BIAS4 External", NULL, "ANCLeft Headset Mic"},
-
 	/** Digital Mic GM4 on CDP mainboard.
 	 * Connected to DMIC6 input on Tabla codec.
 	 */
 	{"DMIC6", NULL, "MIC BIAS4 External"},
 	{"MIC BIAS4 External", NULL, "Digital Mic6"},
-
-};
-
-static const struct snd_soc_dapm_route fluid_audio_map[] = {
-	{"AMIC3", NULL, "MIC BIAS3 Internal1"},
-	{"MIC BIAS3 Internal1", NULL, "ANCRight Headset Mic"},
-
-	{"AMIC4", NULL, "MIC BIAS1 Internal2"},
-	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
@@ -594,8 +591,8 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_add_routes(dapm, cdp_audio_map,
 			ARRAY_SIZE(cdp_audio_map));
 	else if (machine_is_msm8960_fluid())
-		snd_soc_dapm_add_routes(dapm, fluid_audio_map,
-			ARRAY_SIZE(fluid_audio_map));
+		snd_soc_dapm_add_routes(dapm, cdp_audio_map,
+			ARRAY_SIZE(cdp_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk");
 
