@@ -1436,6 +1436,7 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 	struct pending_cmd *cmd;
 	u8 sec_level, auth_type, io_cap;
 	struct hci_conn *conn;
+	struct adv_entry *entry;
 	int err;
 
 	BT_DBG("");
@@ -1462,7 +1463,8 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 		auth_type = HCI_AT_DEDICATED_BONDING_MITM;
 	}
 
-	if (hci_find_adv_entry(hdev, &cp->bdaddr)) {
+	entry = hci_find_adv_entry(hdev, &cp->bdaddr);
+	if (entry && entry->flags & 0x04) {
 		conn = hci_connect(hdev, LE_LINK, 0, &cp->bdaddr, sec_level,
 								auth_type);
 	} else {

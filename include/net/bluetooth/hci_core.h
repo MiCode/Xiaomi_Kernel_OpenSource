@@ -121,6 +121,7 @@ struct adv_entry {
 	struct list_head list;
 	bdaddr_t bdaddr;
 	u8 bdaddr_type;
+	u8 flags;
 };
 
 #define NUM_REASSEMBLY 4

@@ -1347,17 +1347,32 @@ int hci_add_adv_entry(struct hci_dev *hdev,
 					struct hci_ev_le_advertising_info *ev)
 {
 	struct adv_entry *entry;
+	u8 flags = 0;
+	int i;
 
 	BT_DBG("");
 
 	if (!is_connectable_adv(ev->evt_type))
 		return -EINVAL;
 
+	if (ev->data && ev->length) {
+		for (i = 0; (i + 2) < ev->length; i++)
+			if (ev->data[i+1] == 0x01) {
+				flags = ev->data[i+2];
+				BT_DBG("flags: %2.2x", flags);
+				break;
+			} else {
+				i += ev->data[i];
+			}
+	}
+
 	entry = hci_find_adv_entry(hdev, &ev->bdaddr);
 	/* Only new entries should be added to adv_entries. So, if
 	 * bdaddr was found, don't add it. */
-	if (entry)
+	if (entry) {
+		entry->flags = flags;
 		return 0;
+	}
 
 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
 	if (!entry)
@@ -1365,6 +1380,7 @@ int hci_add_adv_entry(struct hci_dev *hdev,
 
 	bacpy(&entry->bdaddr, &ev->bdaddr);
 	entry->bdaddr_type = ev->bdaddr_type;
+	entry->flags = flags;
 
 	write_lock(&hdev->adv_entries_lock);
 	list_add(&entry->list, &hdev->adv_entries);
