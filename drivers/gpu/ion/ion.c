@@ -981,6 +981,10 @@ static int ion_ioctl_share(struct file *parent, struct ion_client *client,
 				  handle->buffer, O_RDWR);
 	if (IS_ERR_OR_NULL(file))
 		goto err;
+
+	if (parent->f_flags & O_DSYNC)
+		file->f_flags |= O_DSYNC;
+
 	ion_buffer_get(handle->buffer);
 	fd_install(fd, file);
 
