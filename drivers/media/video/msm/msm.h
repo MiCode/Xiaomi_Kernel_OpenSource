@@ -106,6 +106,7 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
 	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
 	NOTIFY_VPE_MSG_EVT,
+	NOTIFY_PCLK_CHANGE, /* arg = pclk */
 	NOTIFY_INVALID
 };
 

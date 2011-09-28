@@ -437,11 +437,13 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	return rc;
 }
 
-void msm_camio_vfe_clk_rate_set(int rate)
+int msm_camio_vfe_clk_rate_set(int rate)
 {
+	int rc = 0;
 	struct clk *clk = camio_vfe_clk;
 	if (rate > clk_get_rate(clk))
-		clk_set_rate(clk, rate);
+		rc = clk_set_rate(clk, rate);
+	return rc;
 }
 
 void msm_camio_clk_rate_set(int rate)

@@ -248,6 +248,9 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+			NOTIFY_PCLK_CHANGE, &s_ctrl->msm_sensor_reg->
+			output_settings[res].pixel_clk);
+		v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
 			NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(
 			PIX0, ISPIF_ON_FRAME_BOUNDARY));
 		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);

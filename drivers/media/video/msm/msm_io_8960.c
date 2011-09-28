@@ -781,11 +781,24 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	return rc;
 }
 
-void msm_camio_vfe_clk_rate_set(int rate)
+int msm_camio_vfe_clk_rate_set(int rate)
 {
+	int rc = 0;
+	int round_rate;
 	struct clk *clk = camio_vfe_clk;
-	if (rate > clk_get_rate(clk))
-		clk_set_rate(clk, rate);
+	round_rate = clk_round_rate(clk, rate);
+	if (rc < 0) {
+		pr_err("%s: clk_round_rate failed %d\n",
+					__func__, rc);
+		return rc;
+	}
+
+	rc = clk_set_rate(clk, round_rate);
+	if (rc < 0)
+		pr_err("%s: clk_set_rate failed %d\n",
+					__func__, rc);
+
+	return rc;
 }
 
 void msm_camio_clk_rate_set(int rate)

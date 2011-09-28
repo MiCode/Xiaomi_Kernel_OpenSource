@@ -167,11 +167,13 @@ u32 msm_io_r(void __iomem *addr)
 	return data;
 }
 
-void msm_camio_vfe_clk_rate_set(int rate)
+int msm_camio_vfe_clk_rate_set(int rate)
 {
+	int rc = 0;
 	struct clk *clk = camio_vfe_clk;
 	if (rate > clk_get_rate(clk))
-		clk_set_rate(clk, rate);
+		rc = clk_set_rate(clk, rate);
+	return rc;
 }
 
 int msm_camio_clk_enable(enum msm_camio_clk_type clktype)

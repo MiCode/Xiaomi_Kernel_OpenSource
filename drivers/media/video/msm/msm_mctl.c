@@ -208,6 +208,9 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 				&p_mctl->isp_sdev->sd_vpe, notification, arg);
 		}
 		break;
+	case NOTIFY_PCLK_CHANGE:
+		rc = msm_camio_vfe_clk_rate_set(*(uint32_t *)arg);
+		break;
 	default:
 		break;
 	}
