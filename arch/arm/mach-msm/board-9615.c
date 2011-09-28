@@ -97,6 +97,14 @@ static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
 	},
 };
 
+static struct platform_device msm9615_device_rpm_regulator __devinitdata = {
+	.name	= "rpm-regulator",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_rpm_regulator_9615_pdata,
+	},
+};
+
 static struct gpiomux_setting ps_hold = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -622,6 +630,7 @@ static void __init msm9615_common_init(void)
 	gpiomux_init();
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
+	platform_device_register(&msm9615_device_rpm_regulator);
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
 	msm9615_device_ssbi_pmic1.dev.platform_data =

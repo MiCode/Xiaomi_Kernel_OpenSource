@@ -29,4 +29,7 @@ extern struct pm8018_regulator_platform_data
 
 extern int msm_pm8018_regulator_pdata_len __devinitdata;
 
+extern struct rpm_regulator_platform_data
+msm_rpm_regulator_9615_pdata __devinitdata;
+
 #endif
