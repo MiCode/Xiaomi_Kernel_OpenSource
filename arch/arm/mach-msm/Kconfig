@@ -528,6 +528,18 @@ config MACH_MSM8960_LIQUID
 	help
 	  Support for the Qualcomm MSM8960 LIQUID device.
 
+config MACH_MSM9615_CDP
+	depends on ARCH_MSM9615
+	bool "MSM9615 CDP"
+	help
+	  Support for the Qualcomm MSM9615 CDP device.
+
+config MACH_MSM9615_MTP
+	depends on ARCH_MSM9615
+	bool "MSM9615 MTP"
+	help
+	  Support for the Qualcomm MSM9615 MTP device.
+
 config MSM_USE_TSIF1
 	depends on ARCH_MSM8X60
 	bool "MSM8x60 use TSIF1"
