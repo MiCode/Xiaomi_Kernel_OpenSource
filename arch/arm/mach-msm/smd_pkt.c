@@ -134,7 +134,8 @@ static ssize_t open_timeout_show(struct device *d,
 		if (smd_pkt_devp[i]->devicep == d)
 			break;
 	}
-	return sprintf(buf, "%d\n", smd_pkt_devp[i]->open_modem_wait);
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			smd_pkt_devp[i]->open_modem_wait);
 }
 
 static DEVICE_ATTR(open_timeout, 0664, open_timeout_show, open_timeout_store);
