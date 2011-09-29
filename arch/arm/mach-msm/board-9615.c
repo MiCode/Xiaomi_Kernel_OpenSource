@@ -25,6 +25,8 @@
 #include <linux/usb/android.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#include <linux/leds.h>
+#include <linux/leds-pm8xxx.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -94,6 +96,42 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 	.priority		= 0,
 };
 
+#define PM8018_LED_KB_MAX_CURRENT	20	/* I = 20mA */
+#define PM8XXX_LED_PWM_PERIOD_US	1000
+
+/**
+ * PM8XXX_PWM_CHANNEL_NONE shall be used when LED shall not be
+ * driven using PWM feature.
+ */
+#define PM8XXX_PWM_CHANNEL_NONE		-1
+
+static struct led_info pm8018_led_info[] = {
+	[0] = {
+		.name	= "led:kb",
+	},
+};
+
+static struct led_platform_data pm8018_led_core_pdata = {
+	.num_leds = ARRAY_SIZE(pm8018_led_info),
+	.leds = pm8018_led_info,
+};
+
+static struct pm8xxx_led_config pm8018_led_configs[] = {
+	[0] = {
+		.id = PM8XXX_ID_LED_KB_LIGHT,
+		.mode = PM8XXX_LED_MODE_PWM3,
+		.max_current = PM8018_LED_KB_MAX_CURRENT,
+		.pwm_channel = 2,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD_US,
+	},
+};
+
+static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
+		.led_core = &pm8018_led_core_pdata,
+		.configs = pm8018_led_configs,
+		.num_configs = ARRAY_SIZE(pm8018_led_configs),
+};
+
 static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
 	.gpio_pdata		= &pm8xxx_gpio_pdata,
@@ -103,6 +141,7 @@ static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
 	.misc_pdata		= &pm8xxx_misc_pdata,
 	.regulator_pdatas	= msm_pm8018_regulator_pdata,
 	.adc_pdata		= &pm8018_adc_pdata,
+	.leds_pdata		= &pm8xxx_leds_pdata,
 };
 
 static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
