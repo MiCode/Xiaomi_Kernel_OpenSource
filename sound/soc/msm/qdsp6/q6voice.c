@@ -137,9 +137,10 @@ uint16_t voc_get_session_id(char *name)
 			session_id = common.voice[VOC_PATH_PASSIVE].session_id;
 		else
 			session_id = common.voice[VOC_PATH_FULL].session_id;
-	}
 
-	pr_debug("%s: %s has session id 0x%x\n", __func__, name, session_id);
+		pr_debug("%s: %s has session id 0x%x\n", __func__, name,
+				session_id);
+	}
 
 	return session_id;
 }
