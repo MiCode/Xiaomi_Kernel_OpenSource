@@ -816,8 +816,13 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	remaining_usable_charge = remaining_charge - cc_mah - unusable_charge;
 	pr_debug("RUC = %dmAh\n", remaining_usable_charge);
 	if (remaining_usable_charge < 0) {
-		pr_err("bad rem_usb_chg cc_mah %lld, rem_chg %d unusb_chg %d\n",
-				cc_mah, remaining_charge, unusable_charge);
+		pr_err("bad rem_usb_chg = %d rem_chg %d,"
+				"cc_mah %lld, unusb_chg %d\n",
+				remaining_usable_charge, remaining_charge,
+				cc_mah, unusable_charge);
+		pr_err("for bad rem_usb_chg last_ocv_uv = %d"
+				"chargecycles = %d, batt_temp = %d\n",
+				last_ocv_uv, chargecycles, batt_temp);
 		update_userspace = 0;
 	}
 
@@ -1534,6 +1539,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
 	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
+
+	pr_info("OK battery_capacity_at_boot=%d\n",
+				pm8921_bms_get_percent_charge());
 	return 0;
 
 free_chip:
