@@ -228,6 +228,8 @@
 
 #define MXT_MAX_FINGER		10
 
+#define MXT_BUFF_SIZE		100
+
 struct mxt_info {
 	u8 family_id;
 	u8 variant_id;
@@ -942,12 +944,12 @@ static ssize_t mxt_object_show(struct device *dev,
 	for (i = 0; i < data->info.object_num; i++) {
 		object = data->object_table + i;
 
-		count += sprintf(buf + count,
+		count += snprintf(buf + count, MXT_BUFF_SIZE,
 				"Object Table Element %d(Type %d)\n",
 				i + 1, object->type);
 
 		if (!mxt_object_readable(object->type)) {
-			count += sprintf(buf + count, "\n");
+			count += snprintf(buf + count, MXT_BUFF_SIZE, "\n");
 			continue;
 		}
 
@@ -957,11 +959,11 @@ static ssize_t mxt_object_show(struct device *dev,
 			if (error)
 				return error;
 
-			count += sprintf(buf + count,
+			count += snprintf(buf + count, MXT_BUFF_SIZE,
 					"  Byte %d: 0x%x (%d)\n", j, val, val);
 		}
 
-		count += sprintf(buf + count, "\n");
+		count += snprintf(buf + count, MXT_BUFF_SIZE, "\n");
 	}
 
 	return count;
