@@ -17,7 +17,7 @@
 struct msm_spm_driver_data {
 	void __iomem *reg_base_addr;
 	uint32_t vctl_timeout_us;
-	uint32_t reg_shadow[MSM_SPM_REG_NR_INITIALIZE];
+	uint32_t reg_shadow[MSM_SPM_REG_NR];
 	uint32_t *reg_seq_entry_shadow;
 };
 
