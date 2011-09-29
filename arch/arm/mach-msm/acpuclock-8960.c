@@ -32,6 +32,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
+#include <mach/msm-krait-l2-accessors.h>
 
 #include "acpuclock.h"
 
@@ -364,53 +365,12 @@ static unsigned long acpuclk_8960_get_rate(int cpu)
 	return scalable[cpu].current_speed->khz;
 }
 
-/* Read an 'indirectly' addressed L2 CP15 register. */
-static uint32_t readl_cp15_l2ind(uint32_t addr)
-{
-	uint32_t regval;
-
-	/*
-	 * TODO: CP15 registers are not emulated on RUMI3.
-	 * Remove this check if/when they are.
-	 */
-	if (machine_is_msm8960_rumi3())
-		return 0;
-
-	asm volatile ("mcr     p15, 3, %[l2cpsler], c15, c0, 6\n\t"
-		      "mrc     p15, 3, %[l2cpdr],   c15, c0, 7\n\t"
-			: [l2cpdr]"=r" (regval)
-			: [l2cpsler]"r" (addr)
-			: "cc"
-	);
-	return regval;
-}
-
-/* Write an 'indirectly' addressed L2 CP15 register. */
-static void writel_cp15_l2ind(uint32_t regval, uint32_t addr)
-{
-	/*
-	 * TODO: CP15 registers are not emulated on RUMI3.
-	 * Remove this check if/when they are.
-	 */
-	if (machine_is_msm8960_rumi3())
-		return;
-
-	mb();
-	asm volatile ("mcr     p15, 3, %[l2cpsler], c15, c0, 6\n\t"
-		      "mcr     p15, 3, %[l2cpdr],   c15, c0, 7\n\t"
-			:
-			: [l2cpsler]"r" (addr), [l2cpdr]"r" (regval)
-			: "cc"
-	);
-	isb();
-}
-
 /* Get the selected source on primary MUX. */
 static int get_pri_clk_src(struct scalable *sc)
 {
 	uint32_t regval;
 
-	regval = readl_cp15_l2ind(sc->l2cpmr_iaddr);
+	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	return regval & 0x3;
 }
 
@@ -419,10 +379,10 @@ static void set_pri_clk_src(struct scalable *sc, uint32_t pri_src_sel)
 {
 	uint32_t regval;
 
-	regval = readl_cp15_l2ind(sc->l2cpmr_iaddr);
+	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~0x3;
 	regval |= (pri_src_sel & 0x3);
-	writel_cp15_l2ind(regval, sc->l2cpmr_iaddr);
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
@@ -433,7 +393,7 @@ static int get_sec_clk_src(struct scalable *sc)
 {
 	uint32_t regval;
 
-	regval = readl_cp15_l2ind(sc->l2cpmr_iaddr);
+	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	return (regval >> 2) & 0x3;
 }
 
@@ -443,14 +403,14 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 	uint32_t regval;
 
 	/* Disable secondary source clock gating during switch. */
-	regval = readl_cp15_l2ind(sc->l2cpmr_iaddr);
+	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval |= SECCLKAGD;
-	writel_cp15_l2ind(regval, sc->l2cpmr_iaddr);
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
 	/* Program the MUX. */
 	regval &= ~(0x3 << 2);
 	regval |= ((sec_src_sel & 0x3) << 2);
-	writel_cp15_l2ind(regval, sc->l2cpmr_iaddr);
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
 	/* Wait for switch to complete. */
 	mb();
@@ -458,7 +418,7 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 
 	/* Re-enable secondary source clock gating. */
 	regval &= ~SECCLKAGD;
-	writel_cp15_l2ind(regval, sc->l2cpmr_iaddr);
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 }
 
 /* Enable an already-configured HFPLL. */
@@ -896,9 +856,9 @@ static void __init init_clock_sources(struct scalable *sc,
 	hfpll_init(sc, tgt_s);
 
 	/* Set PRI_SRC_SEL_HFPLL_DIV2 divider to div-2. */
-	regval = readl_cp15_l2ind(sc->l2cpmr_iaddr);
+	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~(0x3 << 6);
-	writel_cp15_l2ind(regval, sc->l2cpmr_iaddr);
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
 	/* Select PLL8 as AUX source input to the secondary MUX. */
 	writel_relaxed(0x3, sc->aux_clk_sel);
