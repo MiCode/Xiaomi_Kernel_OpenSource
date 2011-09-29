@@ -23,6 +23,8 @@
 #include <linux/slab.h>
 #include "leds.h"
 
+#define LED_BUFF_SIZE 50
+
 static struct class *leds_class;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -79,7 +81,7 @@ static ssize_t led_brightness_show(struct device *dev,
 	/* no lock needed for this */
 	led_update_brightness(led_cdev);
 
-	return sprintf(buf, "%u\n", led_cdev->brightness);
+	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->brightness);
 }
 
 static ssize_t led_brightness_store(struct device *dev,
@@ -129,7 +131,7 @@ static ssize_t led_max_brightness_show(struct device *dev,
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%u\n", led_cdev->max_brightness);
+	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->max_brightness);
 }
 
 static struct device_attribute led_class_attrs[] = {
