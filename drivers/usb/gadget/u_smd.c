@@ -166,6 +166,7 @@ static void gsmd_start_rx(struct gsmd_port *port)
 {
 	struct list_head	*pool;
 	struct usb_ep		*out;
+	unsigned long	flags;
 	int ret;
 
 	if (!port) {
@@ -173,7 +174,7 @@ static void gsmd_start_rx(struct gsmd_port *port)
 		return;
 	}
 
-	spin_lock_irq(&port->port_lock);
+	spin_lock_irqsave(&port->port_lock, flags);
 
 	if (!port->port_usb) {
 		pr_debug("%s: USB disconnected\n", __func__);
@@ -190,9 +191,9 @@ static void gsmd_start_rx(struct gsmd_port *port)
 		list_del(&req->list);
 		req->length = SMD_RX_BUF_SIZE;
 
-		spin_unlock_irq(&port->port_lock);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		ret = usb_ep_queue(out, req, GFP_KERNEL);
-		spin_lock_irq(&port->port_lock);
+		spin_lock_irqsave(&port->port_lock, flags);
 		if (ret) {
 			pr_err("%s: usb ep out queue failed"
 					"port:%p, port#%d\n",
@@ -202,7 +203,7 @@ static void gsmd_start_rx(struct gsmd_port *port)
 		}
 	}
 start_rx_end:
-	spin_unlock_irq(&port->port_lock);
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void gsmd_rx_push(struct work_struct *w)
