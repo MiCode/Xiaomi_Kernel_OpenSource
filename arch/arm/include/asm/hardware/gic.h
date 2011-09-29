@@ -33,6 +33,9 @@
 #define GIC_DIST_SOFTINT		0xf00
 
 #ifndef __ASSEMBLY__
+#include <linux/irqdomain.h>
+struct device_node;
+
 extern void __iomem *gic_cpu_base_addr;
 extern struct irq_chip gic_arch_extn;
 
@@ -59,6 +62,9 @@ struct gic_chip_data {
 	u32 saved_spi_target[DIV_ROUND_UP(1020, 4)];
 	u32 __percpu *saved_ppi_enable;
 	u32 __percpu *saved_ppi_conf;
+#endif
+#ifdef CONFIG_IRQ_DOMAIN
+	struct irq_domain domain;
 #endif
 	unsigned int gic_irqs;
 };

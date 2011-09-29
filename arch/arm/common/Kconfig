@@ -1,4 +1,5 @@
 config ARM_GIC
+	select IRQ_DOMAIN
 	bool
 	select MSM_SHOW_RESUME_IRQ
 
