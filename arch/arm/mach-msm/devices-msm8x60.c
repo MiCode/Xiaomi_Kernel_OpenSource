@@ -194,6 +194,11 @@ struct platform_device msm_pil_q6v3 = {
 	.resource       = msm_8660_q6_resources,
 };
 
+struct platform_device msm_pil_tzapps = {
+	.name = "pil_tzapps",
+	.id = -1,
+};
+
 static struct resource msm_uart1_dm_resources[] = {
 	{
 		.start = MSM_UART1DM_PHYS,

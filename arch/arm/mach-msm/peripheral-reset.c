@@ -298,22 +298,6 @@ static int shutdown_dsps_untrusted(struct pil_desc *pil)
 	return 0;
 }
 
-static int init_image_playready(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	return pas_init_image(PAS_PLAYREADY, metadata, size);
-}
-
-static int reset_playready(struct pil_desc *pil)
-{
-	return pas_auth_and_reset(PAS_PLAYREADY);
-}
-
-static int shutdown_playready(struct pil_desc *pil)
-{
-	return pas_shutdown(PAS_PLAYREADY);
-}
-
 struct pil_reset_ops pil_modem_ops = {
 	.init_image = init_image_modem_untrusted,
 	.verify_blob = verify_blob,
@@ -328,13 +312,6 @@ struct pil_reset_ops pil_dsps_ops = {
 	.shutdown = shutdown_dsps_untrusted,
 };
 
-struct pil_reset_ops pil_playready_ops = {
-	.init_image = init_image_playready,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_playready,
-	.shutdown = shutdown_playready,
-};
-
 static struct platform_device pil_modem = {
 	.name = "pil_modem",
 };
@@ -344,16 +321,6 @@ static struct pil_desc pil_modem_desc = {
 	.depends_on = "q6",
 	.dev = &pil_modem.dev,
 	.ops = &pil_modem_ops,
-};
-
-static struct platform_device pil_playready = {
-	.name = "pil_playready",
-};
-
-static struct pil_desc pil_playready_desc = {
-	.name = "tzapps",
-	.dev = &pil_playready.dev,
-	.ops = &pil_playready_ops,
 };
 
 static struct platform_device pil_dsps = {
@@ -390,8 +357,6 @@ static int __init msm_peripheral_reset_init(void)
 
 	BUG_ON(platform_device_register(&pil_modem));
 	BUG_ON(msm_pil_register(&pil_modem_desc));
-	BUG_ON(platform_device_register(&pil_playready));
-	BUG_ON(msm_pil_register(&pil_playready_desc));
 
 	if (machine_is_msm8x60_fluid())
 		pil_dsps_desc.name = "dsps_fluid";

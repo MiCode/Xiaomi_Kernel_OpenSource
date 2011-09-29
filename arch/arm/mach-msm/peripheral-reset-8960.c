@@ -76,34 +76,11 @@ static int shutdown_dsps_trusted(struct pil_desc *pil)
 	return pas_shutdown(PAS_DSPS);
 }
 
-static int init_image_tzapps(struct pil_desc *pil, const u8 *metadata,
-			     size_t size)
-{
-	return pas_init_image(PAS_TZAPPS, metadata, size);
-}
-
-static int reset_tzapps(struct pil_desc *pil)
-{
-	return pas_auth_and_reset(PAS_TZAPPS);
-}
-
-static int shutdown_tzapps(struct pil_desc *pil)
-{
-	return pas_shutdown(PAS_TZAPPS);
-}
-
 struct pil_reset_ops pil_dsps_ops = {
 	.init_image = init_image_dsps_untrusted,
 	.verify_blob = verify_blob,
 	.auth_and_reset = reset_dsps_untrusted,
 	.shutdown = shutdown_dsps_untrusted,
-};
-
-struct pil_reset_ops pil_tzapps_ops = {
-	.init_image = init_image_tzapps,
-	.verify_blob = verify_blob,
-	.auth_and_reset = reset_tzapps,
-	.shutdown = shutdown_tzapps,
 };
 
 static struct platform_device pil_dsps = {
@@ -114,16 +91,6 @@ static struct pil_desc pil_dsps_desc = {
 	.name = "dsps",
 	.dev = &pil_dsps.dev,
 	.ops = &pil_dsps_ops,
-};
-
-static struct platform_device pil_tzapps = {
-	.name = "pil_tzapps",
-};
-
-static struct pil_desc pil_tzapps_desc = {
-	.name = "tzapps",
-	.dev = &pil_tzapps.dev,
-	.ops = &pil_tzapps_ops,
 };
 
 static void __init use_secure_pil(void)
@@ -148,8 +115,6 @@ static int __init msm_peripheral_reset_init(void)
 
 	BUG_ON(platform_device_register(&pil_dsps));
 	BUG_ON(msm_pil_register(&pil_dsps_desc));
-	BUG_ON(platform_device_register(&pil_tzapps));
-	BUG_ON(msm_pil_register(&pil_tzapps_desc));
 
 	return 0;
 }

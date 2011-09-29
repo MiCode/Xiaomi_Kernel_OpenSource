@@ -16,13 +16,11 @@ enum pas_id {
 	PAS_MODEM,
 	PAS_Q6,
 	PAS_DSPS,
-	PAS_PLAYREADY,
+	PAS_TZAPPS,
 	PAS_MODEM_SW,
 	PAS_MODEM_FW,
 	PAS_RIVA,
 };
-
-#define PAS_TZAPPS PAS_PLAYREADY
 
 extern int pas_init_image(enum pas_id id, const u8 *metadata, size_t size);
 extern int pas_auth_and_reset(enum pas_id id);

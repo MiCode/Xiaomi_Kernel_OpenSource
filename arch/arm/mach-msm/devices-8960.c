@@ -947,6 +947,11 @@ struct platform_device msm_8960_riva = {
 	.resource       = msm_8960_riva_resources,
 };
 
+struct platform_device msm_pil_tzapps = {
+	.name = "pil_tzapps",
+	.id = -1,
+};
+
 struct platform_device msm_device_smd = {
 	.name		= "msm_smd",
 	.id		= -1,
