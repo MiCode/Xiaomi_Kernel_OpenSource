@@ -29,7 +29,7 @@
 #include <mach/msm_iomap-8x60.h>
 #include <mach/audio_dma_msm8k.h>
 #include <sound/dai.h>
-#include "msm8660-pcm.h"
+#include "lpass-pcm.h"
 
 struct dai_baseinfo {
 	void __iomem *base;

@@ -19,7 +19,7 @@
 #include <sound/soc.h>
 #include <mach/audio_dma_msm8k.h>
 #include <sound/dai.h>
-#include "msm8660-pcm.h"
+#include "lpass-pcm.h"
 
 static const struct snd_pcm_hardware msm_pcm_hardware = {
 	.info			=	SNDRV_PCM_INFO_MMAP |

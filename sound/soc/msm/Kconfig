@@ -71,26 +71,11 @@ config SND_SOC_MSM8X60
 config SND_SOC_MSM_HOSTLESS_PCM
 	tristate
 
-config SND_SOC_MSM8660_PCM
+config SND_SOC_LPASS_PCM
 	tristate
 
 config SND_SOC_MSM8660_LPAIF
 	tristate
-
-config SND_SOC_MSM8660
-	tristate "SoC Machine driver for MSM8660"
-	depends on !SND_SOC_MSM8X60 && ARCH_MSM8X60
-	select SND_SOC_MSM8660_PCM
-	select SND_SOC_MSM8660_LPAIF
-	select SND_SOC_TIMPANI
-	select MARIMBA_CORE
-	select SND_SOC_MSM_QDSP6_INTF
-	default n
-	help
-	 To add support for SoC audio on MSM8660 for direct playback
-	 to LPA buffer over DMA.The interface bypasses DSP and hence
-	 does not support any post/pre processing features.The driver
-	 would support full duplex playback/record sessions.
 
 config SND_VOIP_PCM
 	tristate
