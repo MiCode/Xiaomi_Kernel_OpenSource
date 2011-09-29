@@ -99,7 +99,7 @@ void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
 void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 				   struct ion_buffer *buffer)
 {
-	if (buffer->flags & ION_SET_CACHE(CACHED))
+	if (ION_IS_CACHED(buffer->flags))
 		return ioremap_cached(buffer->priv_phys, buffer->size);
 	else
 		return ioremap(buffer->priv_phys, buffer->size);
@@ -116,7 +116,7 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			       struct vm_area_struct *vma)
 {
-	if (buffer->flags & ION_SET_CACHE(CACHED))
+	if (ION_IS_CACHED(buffer->flags))
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
