@@ -1572,7 +1572,7 @@ config MSM_BUS_RPM_MULTI_TIER_ENABLED
 
 config MSM_WATCHDOG
 	bool "MSM Watchdog Support"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615
 	help
 		This enables the watchdog as is present on 8x60. Currently we use
 		core 0's watchdog, and reset the entire SoC if it times out. It does
