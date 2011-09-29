@@ -31,6 +31,9 @@
 #include <linux/cpumask.h>
 #include <linux/io.h>
 #include <linux/syscore_ops.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/interrupt.h>
 #include <linux/percpu.h>
@@ -655,7 +658,33 @@ static void __init gic_pm_init(struct gic_chip_data *gic)
 }
 #endif
 
+#ifdef CONFIG_OF
+static int gic_irq_domain_dt_translate(struct irq_domain *d,
+				       struct device_node *controller,
+				       const u32 *intspec, unsigned int intsize,
+				       unsigned long *out_hwirq, unsigned int *out_type)
+{
+	if (d->of_node != controller)
+		return -EINVAL;
+	if (intsize < 3)
+		return -EINVAL;
+
+	/* Get the interrupt number and add 16 to skip over SGIs */
+	*out_hwirq = intspec[1] + 16;
+
+	/* For SPIs, we need to add 16 more to get the GIC irq ID number */
+	if (!intspec[0])
+		*out_hwirq += 16;
+
+	*out_type = intspec[2] & IRQ_TYPE_SENSE_MASK;
+	return 0;
+}
+#endif
+
 const struct irq_domain_ops gic_irq_domain_ops = {
+#ifdef CONFIG_OF
+	.dt_translate = gic_irq_domain_dt_translate,
+#endif
 };
 
 void __init gic_init(unsigned int gic_nr, unsigned int irq_start,
@@ -775,3 +804,34 @@ void gic_clear_spi_pending(unsigned int irq)
 			GIC_DIST_PENDING_CLEAR + (gic_irq(d) / 32) * 4);
 	raw_spin_unlock(&irq_controller_lock);
 }
+#ifdef CONFIG_OF
+static int gic_cnt __initdata = 0;
+
+int __init gic_of_init(struct device_node *node, struct device_node *parent)
+{
+	void __iomem *cpu_base;
+	void __iomem *dist_base;
+	int irq;
+	struct irq_domain *domain = &gic_data[gic_cnt].domain;
+
+	if (WARN_ON(!node))
+		return -ENODEV;
+
+	dist_base = of_iomap(node, 0);
+	WARN(!dist_base, "unable to map gic dist registers\n");
+
+	cpu_base = of_iomap(node, 1);
+	WARN(!cpu_base, "unable to map gic cpu registers\n");
+
+	domain->of_node = of_node_get(node);
+
+	gic_init(gic_cnt, 16, dist_base, cpu_base);
+
+	if (parent) {
+		irq = irq_of_parse_and_map(node, 0);
+		gic_cascade_irq(gic_cnt, irq);
+	}
+	gic_cnt++;
+	return 0;
+}
+#endif
