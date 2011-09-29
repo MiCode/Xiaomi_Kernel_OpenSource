@@ -55,6 +55,7 @@ uint32_t cyttsp_tsdebug1 = 0xff;
 module_param_named(tsdebug1, cyttsp_tsdebug1, uint, 0664);
 
 #define FW_FNAME_LEN 40
+#define TTSP_BUFF_SIZE 50
 
 /* CY TTSP I2C Driver private data */
 struct cyttsp {
@@ -158,7 +159,8 @@ static ssize_t cyttsp_irq_status(struct device *dev,
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct cyttsp *ts = i2c_get_clientdata(client);
-	return sprintf(buf, "%u\n", atomic_read(&ts->irq_enabled));
+	return snprintf(buf, TTSP_BUFF_SIZE, "%u\n",
+				atomic_read(&ts->irq_enabled));
 }
 
 static ssize_t cyttsp_irq_enable(struct device *dev,
@@ -207,7 +209,7 @@ static DEVICE_ATTR(irq_enable, 0664, cyttsp_irq_status, cyttsp_irq_enable);
 static ssize_t cyttsp_fw_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d.%d.%d\n", g_bl_data.appid_lo,
+	return snprintf(buf, TTSP_BUFF_SIZE, "%d.%d.%d\n", g_bl_data.appid_lo,
 				g_bl_data.appver_hi, g_bl_data.appver_lo);
 }
 
@@ -393,7 +395,7 @@ static int flash_block(struct cyttsp *ts, u8 *blk, int len)
 	char *p = buf;
 
 	for (i = 0; i < len; i++, p += 2)
-		sprintf(p, "%02x", blk[i]);
+		snprintf(p, TTSP_BUFF_SIZE, "%02x", blk[i]);
 	pr_debug("%s: size %d, pos %ld payload %s\n",
 		       __func__, len, (long)0, buf);
 
@@ -902,7 +904,7 @@ static ssize_t cyttsp_fw_name_store(struct device *dev,
 	if (size > FW_FNAME_LEN - 1)
 		return -EINVAL;
 
-	strncpy(ts->fw_fname, buf, size);
+	strlcpy(ts->fw_fname, buf, size);
 	if (ts->fw_fname[size-1] == '\n')
 		ts->fw_fname[size-1] = 0;
 
@@ -2779,10 +2781,10 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 		ts->platform_data = client->dev.platform_data;
 
 		if (ts->platform_data->fw_fname)
-			strncpy(ts->fw_fname, ts->platform_data->fw_fname,
+			strlcpy(ts->fw_fname, ts->platform_data->fw_fname,
 							FW_FNAME_LEN - 1);
 		else
-			strncpy(ts->fw_fname, "cyttsp.hex", FW_FNAME_LEN - 1);
+			strlcpy(ts->fw_fname, "cyttsp.hex", FW_FNAME_LEN - 1);
 
 		if (ts->platform_data->gen == CY_GEN3) {
 			ts->fw_start_addr = 0x0b00;
