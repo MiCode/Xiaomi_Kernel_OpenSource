@@ -194,6 +194,23 @@ struct platform_device msm_pil_q6v3 = {
 	.resource       = msm_8660_q6_resources,
 };
 
+#define MSM_MSS_REGS_PHYS 0x10200000
+
+static struct resource msm_8660_modem_resources[] = {
+	{
+		.start  = MSM_MSS_REGS_PHYS,
+		.end    = MSM_MSS_REGS_PHYS + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_pil_modem = {
+	.name = "pil_modem",
+	.id = -1,
+	.num_resources  = ARRAY_SIZE(msm_8660_modem_resources),
+	.resource       = msm_8660_modem_resources,
+};
+
 struct platform_device msm_pil_tzapps = {
 	.name = "pil_tzapps",
 	.id = -1,
