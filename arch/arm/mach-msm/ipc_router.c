@@ -176,6 +176,8 @@ static LIST_HEAD(xprt_info_list);
 static DEFINE_MUTEX(xprt_info_list_lock);
 
 DECLARE_COMPLETION(msm_ipc_remote_router_up);
+static DECLARE_COMPLETION(msm_ipc_local_router_up);
+#define IPC_ROUTER_INIT_TIMEOUT (10 * HZ)
 
 static uint32_t next_port_id;
 static DEFINE_MUTEX(next_port_id_lock);
@@ -2399,8 +2401,16 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 	struct msm_ipc_router_xprt_info *xprt_info = xprt->priv;
 	struct msm_ipc_router_xprt_work *xprt_work;
 	struct rr_packet *pkt;
+	unsigned long ret;
 
-	BUG_ON(!msm_ipc_router_workqueue);
+	if (!msm_ipc_router_workqueue) {
+		ret = wait_for_completion_timeout(&msm_ipc_local_router_up,
+						  IPC_ROUTER_INIT_TIMEOUT);
+		if (!ret || !msm_ipc_router_workqueue) {
+			pr_err("%s: IPC Router not initialized\n", __func__);
+			return;
+		}
+	}
 
 	switch (event) {
 	case IPC_ROUTER_XPRT_EVENT_OPEN:
@@ -2515,6 +2525,7 @@ static int __init msm_ipc_router_init(void)
 	if (ret < 0)
 		pr_err("%s: Init sockets failed\n", __func__);
 
+	complete_all(&msm_ipc_local_router_up);
 	return ret;
 }
 
