@@ -46,7 +46,14 @@ struct msm_ipc_router_smd_xprt {
 
 static struct msm_ipc_router_smd_xprt smd_remote_xprt;
 
+struct msm_ipc_router_smd_xprt_work {
+	struct msm_ipc_router_xprt *xprt;
+	struct work_struct work;
+};
+
 static void smd_xprt_read_data(struct work_struct *work);
+static void smd_xprt_open_event(struct work_struct *work);
+static void smd_xprt_close_event(struct work_struct *work);
 static DECLARE_DELAYED_WORK(work_read_data, smd_xprt_read_data);
 static struct workqueue_struct *smd_xprt_workqueue;
 
@@ -251,9 +258,32 @@ static void smd_xprt_read_data(struct work_struct *work)
 	}
 }
 
+static void smd_xprt_open_event(struct work_struct *work)
+{
+	struct msm_ipc_router_smd_xprt_work *xprt_work =
+		container_of(work, struct msm_ipc_router_smd_xprt_work, work);
+
+	msm_ipc_router_xprt_notify(xprt_work->xprt,
+				IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
+	D("%s: Notified IPC Router of OPEN Event\n", __func__);
+	kfree(xprt_work);
+}
+
+static void smd_xprt_close_event(struct work_struct *work)
+{
+	struct msm_ipc_router_smd_xprt_work *xprt_work =
+		container_of(work, struct msm_ipc_router_smd_xprt_work, work);
+
+	msm_ipc_router_xprt_notify(xprt_work->xprt,
+				IPC_ROUTER_XPRT_EVENT_CLOSE, NULL);
+	D("%s: Notified IPC Router of CLOSE Event\n", __func__);
+	kfree(xprt_work);
+}
+
 static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 {
 	unsigned long flags;
+	struct msm_ipc_router_smd_xprt_work *xprt_work;
 
 	switch (event) {
 	case SMD_EVENT_DATA:
@@ -268,9 +298,16 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		spin_lock_irqsave(&modem_reset_lock, flags);
 		modem_reset = 0;
 		spin_unlock_irqrestore(&modem_reset_lock, flags);
-		msm_ipc_router_xprt_notify(&smd_remote_xprt.xprt,
-					IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
-		D("%s: Notified IPC Router of OPEN Event\n", __func__);
+		xprt_work = kmalloc(sizeof(struct msm_ipc_router_smd_xprt_work),
+				    GFP_ATOMIC);
+		if (!xprt_work) {
+			pr_err("%s: Couldn't notify %d event to IPC Router\n",
+				__func__, event);
+			return;
+		}
+		xprt_work->xprt = &smd_remote_xprt.xprt;
+		INIT_WORK(&xprt_work->work, smd_xprt_open_event);
+		queue_work(smd_xprt_workqueue, &xprt_work->work);
 		break;
 
 	case SMD_EVENT_CLOSE:
@@ -278,9 +315,16 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		modem_reset = 1;
 		spin_unlock_irqrestore(&modem_reset_lock, flags);
 		wake_up(&write_avail_wait_q);
-		msm_ipc_router_xprt_notify(&smd_remote_xprt.xprt,
-					IPC_ROUTER_XPRT_EVENT_CLOSE, NULL);
-		D("%s: Notified IPC Router of CLOSE Event\n", __func__);
+		xprt_work = kmalloc(sizeof(struct msm_ipc_router_smd_xprt_work),
+				    GFP_ATOMIC);
+		if (!xprt_work) {
+			pr_err("%s: Couldn't notify %d event to IPC Router\n",
+				__func__, event);
+			return;
+		}
+		xprt_work->xprt = &smd_remote_xprt.xprt;
+		INIT_WORK(&xprt_work->work, smd_xprt_close_event);
+		queue_work(smd_xprt_workqueue, &xprt_work->work);
 		break;
 	}
 }
