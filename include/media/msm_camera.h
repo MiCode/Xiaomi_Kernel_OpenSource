@@ -695,7 +695,10 @@ struct msm_snapshot_pp_status {
 #define CAMERA_EFFECT_WHITEBOARD	6
 #define CAMERA_EFFECT_BLACKBOARD	7
 #define CAMERA_EFFECT_AQUA		8
-#define CAMERA_EFFECT_MAX		9
+#define CAMERA_EFFECT_EMBOSS		9
+#define CAMERA_EFFECT_SKETCH		10
+#define CAMERA_EFFECT_NEON		11
+#define CAMERA_EFFECT_MAX		12
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
