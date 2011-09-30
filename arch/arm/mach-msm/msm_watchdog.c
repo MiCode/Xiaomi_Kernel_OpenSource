@@ -121,14 +121,14 @@ static int panic_wdog_handler(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
 	if (panic_timeout == 0) {
-		__raw_writel(0, WDT0_EN);
+		__raw_writel(0, msm_tmr0_base + WDT0_EN);
 		mb();
 	} else {
 		__raw_writel(32768 * (panic_timeout + 4),
 				msm_tmr0_base + WDT0_BARK_TIME);
 		__raw_writel(32768 * (panic_timeout + 4),
 				msm_tmr0_base + WDT0_BITE_TIME);
-		__raw_writel(1, WDT0_RST);
+		__raw_writel(1, msm_tmr0_base + WDT0_RST);
 	}
 	return NOTIFY_DONE;
 }
@@ -163,11 +163,11 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 
 	case 1:
 		if (!old_val) {
-			__raw_writel(0, WDT0_EN);
+			__raw_writel(0, msm_tmr0_base + WDT0_EN);
 			unregister_pm_notifier(&msm_watchdog_power_notifier);
 
 			/* may be suspended after the first write above */
-			__raw_writel(0, WDT0_EN);
+			__raw_writel(0, msm_tmr0_base + WDT0_EN);
 			mb();
 			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 			enable = 0;
