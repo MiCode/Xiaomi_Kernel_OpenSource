@@ -63,4 +63,4 @@ obj-$(CONFIG_BCM4329)	+= bcm4329/
 obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 
 obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
-obj-$(CONFIG_WCNSS_WLAN)	+= wcnss/
+obj-$(CONFIG_WCNSS_CORE)	+= wcnss/

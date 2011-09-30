@@ -283,15 +283,15 @@ config LIBRA_SDIOIF
 	---help---
 	  A driver for Qualcomm WLAN SDIO Libra chipset.
 
-config WCNSS_WLAN
-	tristate "Qualcomm WCNSS WLAN driver"
+config WCNSS_CORE
+	tristate "Qualcomm WCNSS CORE driver"
 	depends on ARCH_MSM8960
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	select WEXT_CORE
 	select WEXT_SPY
 	---help---
-	  A driver for Qualcomm WCNSS WLAN feature
+	  Core driver for the Qualcomm WCNSS triple play connectivity subsystem
 
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
