@@ -48,6 +48,7 @@
 #include "u_data_hsic.c"
 #include "u_ctrl_hsuart.c"
 #include "u_data_hsuart.c"
+#include "f_ccid.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
@@ -812,6 +813,31 @@ static struct android_usb_function diag_function = {
 	.attributes	= diag_function_attributes,
 };
 
+/* CCID */
+static int ccid_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	return ccid_setup();
+}
+
+static void ccid_function_cleanup(struct android_usb_function *f)
+{
+	ccid_cleanup();
+}
+
+static int ccid_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return ccid_bind_config(c);
+}
+
+static struct android_usb_function ccid_function = {
+	.name		= "ccid",
+	.init		= ccid_function_init,
+	.cleanup	= ccid_function_cleanup,
+	.bind_config	= ccid_function_bind_config,
+};
+
 static int
 mtp_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
@@ -1259,6 +1285,7 @@ static struct android_usb_function *supported_functions[] = {
 	&rmnet_smd_sdio_function,
 	&rmnet_function,
 	&diag_function,
+	&ccid_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
