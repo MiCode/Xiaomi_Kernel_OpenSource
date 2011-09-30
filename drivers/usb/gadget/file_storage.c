@@ -1346,9 +1346,7 @@ static int do_write(struct fsg_dev *fsg)
 			 * equal to the buffer size, which is divisible by
 			 * the bulk-out maxpacket size.
 			 */
-			bh->outreq->length = bh->bulk_out_intended_length =
-					amount;
-			bh->outreq->short_not_ok = 1;
+			set_bulk_out_req_length(fsg, bh, amount);
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -1380,6 +1378,11 @@ static int do_write(struct fsg_dev *fsg)
 	(unsigned long long) curlun->file_length);
 				amount = curlun->file_length - file_offset;
 			}
+
+			/* Don't accept excess data.  The spec doesn't say
+			 * what to do in this case.  We'll ignore the error.
+			 */
+			amount = min(amount, bh->bulk_out_intended_length);
 
 			/* Don't write a partial block */
 			amount = round_down(amount, curlun->blksize);
@@ -1420,7 +1423,7 @@ static int do_write(struct fsg_dev *fsg)
 
  empty_write:
 			/* Did the host decide to stop early? */
-			if (bh->outreq->actual != bh->outreq->length) {
+			if (bh->outreq->actual < bh->bulk_out_intended_length) {
 				fsg->short_packet_received = 1;
 				break;
 			}
@@ -1964,7 +1967,7 @@ static int throw_away_data(struct fsg_dev *fsg)
 			fsg->next_buffhd_to_drain = bh->next;
 
 			/* A short packet or an error ends everything */
-			if (bh->outreq->actual != bh->outreq->length ||
+			if (bh->outreq->actual < bh->bulk_out_intended_length ||
 					bh->outreq->status != 0) {
 				raise_exception(fsg, FSG_STATE_ABORT_BULK_OUT);
 				return -EINTR;
@@ -1982,9 +1985,7 @@ static int throw_away_data(struct fsg_dev *fsg)
 			 * equal to the buffer size, which is divisible by
 			 * the bulk-out maxpacket size.
 			 */
-			bh->outreq->length = bh->bulk_out_intended_length =
-					amount;
-			bh->outreq->short_not_ok = 1;
+			set_bulk_out_req_length(fsg, bh, amount);
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -2663,7 +2664,6 @@ static int get_next_command(struct fsg_dev *fsg)
 
 		/* Queue a request to read a Bulk-only CBW */
 		set_bulk_out_req_length(fsg, bh, USB_BULK_CB_WRAP_LEN);
-		bh->outreq->short_not_ok = 1;
 		start_transfer(fsg, fsg->bulk_out, bh->outreq,
 				&bh->outreq_busy, &bh->state);
 
