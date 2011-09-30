@@ -354,7 +354,7 @@ config LEDS_BD2802
 
 config LEDS_MSM_PMIC
         tristate "LED Support for Qualcomm PMIC connected LEDs"
-        default y
+        default n
         depends on ARCH_MSM
         help
           This option enables support for LEDs connected over PMIC
