@@ -1269,6 +1269,7 @@ static int smd_packet_read_from_cb(smd_channel_t *ch, void *data, int len,
 	return r;
 }
 
+#if (defined(CONFIG_MSM_SMD_PKG4) || defined(CONFIG_MSM_SMD_PKG3))
 static int smd_alloc_v2(struct smd_channel *ch)
 {
 	struct smd_shared_v2 *shared2;
@@ -1278,18 +1279,19 @@ static int smd_alloc_v2(struct smd_channel *ch)
 	shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n, sizeof(*shared2));
 	if (!shared2) {
 		SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
-		return -1;
+		return -EINVAL;
 	}
 	buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + ch->n, &buffer_sz);
 	if (!buffer) {
-		SMD_INFO("smem_get_entry failed \n");
-		return -1;
+		SMD_INFO("smem_get_entry failed\n");
+		return -EINVAL;
 	}
 
 	/* buffer must be a power-of-two size */
-	if (buffer_sz & (buffer_sz - 1))
-		return -1;
-
+	if (buffer_sz & (buffer_sz - 1)) {
+		SMD_INFO("Buffer size: %u not power of two\n", buffer_sz);
+		return -EINVAL;
+	}
 	buffer_sz /= 2;
 	ch->send = &shared2->ch0;
 	ch->recv = &shared2->ch1;
@@ -1301,11 +1303,22 @@ static int smd_alloc_v2(struct smd_channel *ch)
 
 static int smd_alloc_v1(struct smd_channel *ch)
 {
+	return -EINVAL;
+}
+
+#else /* define v1 for older targets */
+static int smd_alloc_v2(struct smd_channel *ch)
+{
+	return -EINVAL;
+}
+
+static int smd_alloc_v1(struct smd_channel *ch)
+{
 	struct smd_shared_v1 *shared1;
 	shared1 = smem_alloc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1));
 	if (!shared1) {
 		pr_err("smd_alloc_channel() cid %d does not exist\n", ch->n);
-		return -1;
+		return -EINVAL;
 	}
 	ch->send = &shared1->ch0;
 	ch->recv = &shared1->ch1;
@@ -1314,6 +1327,8 @@ static int smd_alloc_v1(struct smd_channel *ch)
 	ch->fifo_size = SMD_BUF_SIZE;
 	return 0;
 }
+
+#endif
 
 static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 {
