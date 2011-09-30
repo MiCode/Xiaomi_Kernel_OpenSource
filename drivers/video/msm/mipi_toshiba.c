@@ -22,6 +22,7 @@ static struct mipi_dsi_panel_platform_data *mipi_toshiba_pdata;
 
 static struct dsi_buf toshiba_tx_buf;
 static struct dsi_buf toshiba_rx_buf;
+static int mipi_toshiba_lcd_init(void);
 
 #ifdef TOSHIBA_CMDS_UNUSED
 static char one_lane[3] = {0xEF, 0x60, 0x62};
@@ -300,6 +301,12 @@ int mipi_toshiba_device_register(struct msm_panel_info *pinfo,
 
 	ch_used[channel] = TRUE;
 
+	ret = mipi_toshiba_lcd_init();
+	if (ret) {
+		pr_err("mipi_toshiba_lcd_init() failed with ret %u\n", ret);
+		return ret;
+	}
+
 	pdev = platform_device_alloc("mipi_toshiba", (panel << 8)|channel);
 	if (!pdev)
 		return -ENOMEM;
@@ -328,12 +335,10 @@ err_device_put:
 	return ret;
 }
 
-static int __init mipi_toshiba_lcd_init(void)
+static int mipi_toshiba_lcd_init(void)
 {
 	mipi_dsi_buf_alloc(&toshiba_tx_buf, DSI_BUF_SIZE);
 	mipi_dsi_buf_alloc(&toshiba_rx_buf, DSI_BUF_SIZE);
 
 	return platform_driver_register(&this_driver);
 }
-
-module_init(mipi_toshiba_lcd_init);

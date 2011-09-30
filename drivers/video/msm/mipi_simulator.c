@@ -18,6 +18,8 @@ static struct dsi_buf simulator_tx_buf;
 static struct dsi_buf simulator_rx_buf;
 static struct msm_panel_common_pdata *mipi_simulator_pdata;
 
+static int mipi_simulator_lcd_init(void);
+
 static char display_on[2]  = {0x00, 0x00};
 static char display_off[2] = {0x00, 0x00};
 
@@ -122,6 +124,11 @@ int mipi_simulator_device_register(struct msm_panel_info *pinfo,
 	ch_used[channel] = TRUE;
 
 	pr_debug("%s:%d, debug info", __func__, __LINE__);
+	ret = mipi_simulator_lcd_init();
+	if (ret) {
+		pr_err("mipi_simulator_lcd_init() failed with ret %u\n", ret);
+		return ret;
+	}
 
 	pdev = platform_device_alloc("mipi_simulator", (panel << 8)|channel);
 	if (!pdev)
@@ -151,12 +158,10 @@ err_device_put:
 	return ret;
 }
 
-static int __init mipi_simulator_lcd_init(void)
+static int mipi_simulator_lcd_init(void)
 {
 	mipi_dsi_buf_alloc(&simulator_tx_buf, DSI_BUF_SIZE);
 	mipi_dsi_buf_alloc(&simulator_rx_buf, DSI_BUF_SIZE);
 
 	return platform_driver_register(&this_driver);
 }
-
-module_init(mipi_simulator_lcd_init);

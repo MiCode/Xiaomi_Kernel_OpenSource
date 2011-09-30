@@ -70,6 +70,7 @@
 #include <linux/pwm.h>
 #include "msm_fb.h"
 #include "mipi_dsi.h"
+#include "mipi_tc358764_dsi2lvds.h"
 
 /* Registers definition */
 
@@ -215,6 +216,7 @@ static struct pwm_device *bl_pwm;
 static int bl_level;
 static u32 d2l_gpio_out_mask;
 static u32 d2l_gpio_out_val;
+static int mipi_d2l_init(void);
 
 /**
  * Read a bridge register
@@ -607,6 +609,50 @@ static int __devexit mipi_d2l_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/**
+ * Register the panel device.
+ *
+ * @param pinfo
+ * @param channel_id
+ * @param panel_id
+ *
+ * @return int
+ */
+int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
+					   u32 channel_id, u32 panel_id)
+{
+	struct platform_device *pdev = NULL;
+	int ret;
+	/* Use DSI-to-LVDS bridge */
+	const char driver_name[] = "mipi_tc358764";
+
+	pr_debug("%s.\n", __func__);
+	ret = mipi_d2l_init();
+	if (ret) {
+		pr_err("mipi_d2l_init() failed with ret %u\n", ret);
+		return ret;
+	}
+
+	/* Note: the device id should be non-zero */
+	pdev = platform_device_alloc(driver_name, (panel_id << 8)|channel_id);
+	if (pdev == NULL)
+		return -ENOMEM;
+
+	pdev->dev.platform_data = pinfo;
+
+	ret = platform_device_add(pdev);
+	if (ret) {
+		pr_err("%s: platform_device_register failed!\n", __func__);
+		goto err_device_put;
+	}
+
+	return 0;
+
+err_device_put:
+	platform_device_put(pdev);
+	return ret;
+}
+
 static struct platform_driver d2l_driver = {
 	.probe  = mipi_d2l_probe,
 	.remove = __devexit_p(mipi_d2l_remove),
@@ -620,28 +666,11 @@ static struct platform_driver d2l_driver = {
  *
  * @return int
  */
-static int __init mipi_d2l_init(void)
+static int mipi_d2l_init(void)
 {
 	pr_debug("%s.\n", __func__);
-
-	d2l_common_pdata = NULL;
-
 	return platform_driver_register(&d2l_driver);
 }
-
-/**
- * Module Exit.
- *
- */
-static void __exit mipi_d2l_exit(void)
-{
-	pr_debug("%s.\n", __func__);
-
-	platform_driver_unregister(&d2l_driver);
-}
-
-module_init(mipi_d2l_init);
-module_exit(mipi_d2l_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Toshiba MIPI-DSI-to-LVDS bridge driver");

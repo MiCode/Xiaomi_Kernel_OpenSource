@@ -24,7 +24,7 @@ static struct mipi_dsi_panel_platform_data *mipi_novatek_pdata;
 
 static struct dsi_buf novatek_tx_buf;
 static struct dsi_buf novatek_rx_buf;
-
+static int mipi_novatek_lcd_init(void);
 
 #define MIPI_DSI_NOVATEK_SPI_DEVICE_NAME	"dsi_novatek_3d_panel_spi"
 #define HPCI_FPGA_READ_CMD	0x84
@@ -585,6 +585,12 @@ int mipi_novatek_device_register(struct msm_panel_info *pinfo,
 
 	ch_used[channel] = TRUE;
 
+	ret = mipi_novatek_lcd_init();
+	if (ret) {
+		pr_err("mipi_novatek_lcd_init() failed with ret %u\n", ret);
+		return ret;
+	}
+
 	pdev = platform_device_alloc("mipi_novatek", (panel << 8)|channel);
 	if (!pdev)
 		return -ENOMEM;
@@ -613,7 +619,7 @@ err_device_put:
 	return ret;
 }
 
-static int __init mipi_novatek_lcd_init(void)
+static int mipi_novatek_lcd_init(void)
 {
 #ifdef CONFIG_SPI_QUP
 	int ret;
@@ -631,5 +637,3 @@ static int __init mipi_novatek_lcd_init(void)
 
 	return platform_driver_register(&this_driver);
 }
-
-module_init(mipi_novatek_lcd_init);

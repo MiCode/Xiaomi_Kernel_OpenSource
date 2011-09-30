@@ -33,6 +33,7 @@
 #include "msm_fb.h"
 #include "msm_fb_panel.h"
 #include "mipi_dsi.h"
+#include "mipi_tc358764_dsi2lvds.h"
 
 #define MHZ (1000*1000)
 
@@ -40,7 +41,7 @@
  * Panel info parameters.
  * The panel info is passed to the mipi framebuffer driver.
  */
-static struct msm_panel_info chimei_waga_pinfo;
+static struct msm_panel_info chimei_wxga_pinfo;
 
 /**
  * The mipi_dsi_phy_ctrl is calculated according to the
@@ -70,45 +71,6 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 };
 
 /**
- * Register the panel device.
- *
- * @param pinfo
- * @param channel_id
- * @param panel_id
- *
- * @return int
- */
-static int mipi_chimei_wxga_register_panel(struct msm_panel_info *pinfo,
-					   u32 channel_id, u32 panel_id)
-{
-	struct platform_device *pdev = NULL;
-	int ret;
-	/* Use DSI-to-LVDS bridge */
-	const char driver_name[] = "mipi_tc358764";
-
-	pr_debug("%s.\n", __func__);
-
-	/* Note: the device id should be non-zero */
-	pdev = platform_device_alloc(driver_name, (panel_id << 8)|channel_id);
-	if (pdev == NULL)
-		return -ENOMEM;
-
-	pdev->dev.platform_data = pinfo;
-
-	ret = platform_device_add(pdev);
-	if (ret) {
-		pr_err("%s: platform_device_register failed!\n", __func__);
-		goto err_device_put;
-	}
-
-	return 0;
-
-err_device_put:
-	platform_device_put(pdev);
-	return ret;
-}
-
-/**
  * Module init.
  *
  * Register the panel-info.
@@ -122,13 +84,12 @@ err_device_put:
 static int __init mipi_chimei_wxga_init(void)
 {
 	int ret;
-	struct msm_panel_info *pinfo = &chimei_waga_pinfo;
-
-	pr_info("mipi-dsi chimei wxga (1366x768) driver ver 1.0.\n");
+	struct msm_panel_info *pinfo = &chimei_wxga_pinfo;
 
 	if (msm_fb_detect_client("mipi_video_chimei_wxga"))
 		return 0;
 
+	pr_debug("mipi-dsi chimei wxga (1366x768) driver ver 1.0.\n");
 	/* Landscape */
 	pinfo->xres = 1366;
 	pinfo->yres = 768;
@@ -210,7 +171,7 @@ static int __init mipi_chimei_wxga_init(void)
 	pinfo->mipi.fixed_packet_size = 4;
 	pinfo->mipi.force_clk_lane_hs = 1;
 
-	ret = mipi_chimei_wxga_register_panel(pinfo, MIPI_DSI_PRIM,
+	ret = mipi_tc358764_dsi2lvds_register(pinfo, MIPI_DSI_PRIM,
 					      MIPI_DSI_PANEL_WXGA);
 	if (ret)
 		pr_err("%s: failed to register device!\n", __func__);
