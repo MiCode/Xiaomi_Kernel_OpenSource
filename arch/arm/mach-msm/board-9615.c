@@ -240,11 +240,106 @@ static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 };
 #endif
 
-struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static struct gpiomux_setting sdcc2_clk_actv_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdcc2_cmd_data_0_3_actv_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdcc2_suspend_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
+	{
+		/* SDC2_DATA_0 */
+		.gpio      = 25,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+	{
+		/* SDC2_DATA_1 */
+		.gpio      = 26,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+	{
+		/* SDC2_DATA_2 */
+		.gpio      = 27,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+	{
+		/* SDC2_DATA_3 */
+		.gpio      = 28,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+	{
+		/* SDC2_CMD GSBI1 */
+		.gpio      = 29,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+	{
+		/* SDC2_CLK GSBI1 */
+		.gpio      = 30,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc2_clk_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+		},
+	},
+};
+
+static struct msm_mmc_gpio sdc2_gpio_cfg[] = {
+	{25, "sdc2_dat_0"},
+	{26, "sdc2_dat_1"},
+	{27, "sdc2_dat_2"},
+	{28, "sdc2_dat_3"},
+	{29, "sdc2_cmd"},
+	{30, "sdc2_clk"},
+};
+
+static struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC2] = {
+		.gpio = sdc2_gpio_cfg,
+		.size = ARRAY_SIZE(sdc2_gpio_cfg),
+	},
+};
+#else
+static struct msm_gpiomux_config msm9615_sdcc2_configs[0];
+#endif
+
+static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 	[SDCC1] = {
 		.is_gpio = 0,
 		.pad_data = &mmc_pad_data[SDCC1],
+	},
+#endif
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	[SDCC2] = {
+		.is_gpio = 1,
+		.gpio_data = &mmc_gpio_data[SDCC2],
 	},
 #endif
 };
@@ -265,6 +360,24 @@ static struct mmc_platform_data sdc1_data = {
 static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
 #else
 static struct mmc_platform_data *msm9615_sdc1_pdata;
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static unsigned int sdc2_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data sdc2_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc2_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
+	.sdcc_v4_sup    = true,
+	.pin_data	= &mmc_slot_pin_data[SDCC2],
+};
+static struct mmc_platform_data *msm9615_sdc2_pdata = &sdc2_data;
+#else
+static struct mmc_platform_data *msm9615_sdc2_pdata;
 #endif
 
 static void __init msm9615_init_mmc(void)
@@ -288,6 +401,14 @@ static void __init msm9615_init_mmc(void)
 				msm_add_sdcc(1, msm9615_sdc1_pdata);
 			}
 		}
+	}
+
+	if (msm9615_sdc2_pdata) {
+		msm_gpiomux_install(msm9615_sdcc2_configs,
+			ARRAY_SIZE(msm9615_sdcc2_configs));
+
+		/* SDC2: External card slot */
+		msm_add_sdcc(2, msm9615_sdc2_pdata);
 	}
 }
 #else
