@@ -16,6 +16,7 @@
 #include <linux/msm_ssbi.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/mach/mmc.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/gpio.h>
@@ -177,6 +178,122 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 	},
 };
 
+#if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
+	|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))
+
+#define GPIO_SDCARD_PWR_EN 18
+
+/* MDM9x15 have 2 SDCC controllers */
+enum sdcc_controllers {
+	SDCC1,
+	SDCC2,
+	MAX_SDCC_CONTROLLER
+};
+
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+/* SDC1 pad data */
+static struct msm_mmc_pad_drv sdc1_pad_drv_on_cfg[] = {
+	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_16MA},
+	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_10MA},
+	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_10MA}
+};
+
+static struct msm_mmc_pad_drv sdc1_pad_drv_off_cfg[] = {
+	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_2MA},
+	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_2MA},
+	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_2MA}
+};
+
+static struct msm_mmc_pad_pull sdc1_pad_pull_on_cfg[] = {
+	{TLMM_PULL_SDC1_CLK, GPIO_CFG_NO_PULL},
+	{TLMM_PULL_SDC1_CMD, GPIO_CFG_PULL_UP},
+	{TLMM_PULL_SDC1_DATA, GPIO_CFG_PULL_UP}
+};
+
+static struct msm_mmc_pad_pull sdc1_pad_pull_off_cfg[] = {
+	{TLMM_PULL_SDC1_CLK, GPIO_CFG_NO_PULL},
+	{TLMM_PULL_SDC1_CMD, GPIO_CFG_PULL_DOWN},
+	{TLMM_PULL_SDC1_DATA, GPIO_CFG_PULL_DOWN}
+};
+
+static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC1] = {
+		.on = sdc1_pad_pull_on_cfg,
+		.off = sdc1_pad_pull_off_cfg,
+		.size = ARRAY_SIZE(sdc1_pad_pull_on_cfg)
+	},
+};
+
+static struct msm_mmc_pad_drv_data mmc_pad_drv_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC1] = {
+		.on = sdc1_pad_drv_on_cfg,
+		.off = sdc1_pad_drv_off_cfg,
+		.size = ARRAY_SIZE(sdc1_pad_drv_on_cfg)
+	},
+};
+
+static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC1] = {
+		.pull = &mmc_pad_pull_data[SDCC1],
+		.drv = &mmc_pad_drv_data[SDCC1]
+	},
+};
+#endif
+
+struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+	[SDCC1] = {
+		.is_gpio = 0,
+		.pad_data = &mmc_pad_data[SDCC1],
+	},
+#endif
+};
+
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+static unsigned int sdc1_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data sdc1_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc1_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
+	.sdcc_v4_sup    = true,
+	.pin_data	= &mmc_slot_pin_data[SDCC1],
+};
+static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
+#else
+static struct mmc_platform_data *msm9615_sdc1_pdata;
+#endif
+
+static void __init msm9615_init_mmc(void)
+{
+	int ret;
+
+	if (msm9615_sdc1_pdata) {
+		ret = gpio_request(GPIO_SDCARD_PWR_EN, "SDCARD_PWR_EN");
+
+		if (ret) {
+			pr_err("%s: sdcc1: Error requesting GPIO "
+				"SDCARD_PWR_EN:%d\n", __func__, ret);
+		} else {
+			ret = gpio_direction_output(GPIO_SDCARD_PWR_EN, 1);
+			if (ret) {
+				pr_err("%s: sdcc1: Error setting o/p direction"
+					" for GPIO SDCARD_PWR_EN:%d\n",
+					__func__, ret);
+				gpio_free(GPIO_SDCARD_PWR_EN);
+			} else {
+				msm_add_sdcc(1, msm9615_sdc1_pdata);
+			}
+		}
+	}
+}
+#else
+static void __init msm9615_init_mmc(void) { }
+#endif
+
 static int __init gpiomux_init(void)
 {
 	int rc;
@@ -219,6 +336,8 @@ static void __init msm9615_common_init(void)
 						&msm9615_ssbi_pm8018_pdata;
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+
+	msm9615_init_mmc();
 }
 
 static void __init msm9615_cdp_init(void)
