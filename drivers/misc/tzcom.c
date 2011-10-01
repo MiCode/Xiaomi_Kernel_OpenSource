@@ -759,14 +759,14 @@ static int tzcom_open(struct inode *inode, struct file *file)
 
 	PDEBUG("In here");
 	if (pil == NULL) {
-		pil = pil_get("playrdy");
+		pil = pil_get("tzapps");
 		if (IS_ERR(pil)) {
 			PERR("Playready PIL image load failed");
 			pil_error = PTR_ERR(pil);
 			pil = NULL;
 			return pil_error;
 		}
-		PDEBUG("playrdy image loaded successfully");
+		PDEBUG("tzapps image loaded successfully");
 	}
 
 	sb_out_init_req.pr_cmd = TZ_SCHED_CMD_ID_INIT_SB_OUT;
@@ -1006,7 +1006,7 @@ static void __exit tzcom_exit(void)
 	if (sb_out_phys)
 		pmem_kfree(sb_out_phys);
 	if (pil != NULL) {
-		pil_put("playrdy");
+		pil_put(pil);
 		pil = NULL;
 	}
 	device_destroy(driver_class, tzcom_device_no);

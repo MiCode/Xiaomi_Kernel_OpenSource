@@ -527,7 +527,7 @@ static struct pil_device peripherals[] = {
 		.ops = &pil_q6_ops,
 	},
 	{
-		.name = "playrdy",
+		.name = "tzapps",
 		.pdev = {
 			.name = "pil_playready",
 			.id = -1,
