@@ -830,6 +830,26 @@ static struct platform_device android_pmem_audio_device = {
 };
 #endif
 
+#define DSP_RAM_BASE_8960 0x8da00000
+#define DSP_RAM_SIZE_8960 0x1800000
+static int dspcrashd_pdata_8960 = 0xDEADDEAD;
+
+static struct resource resources_dspcrashd_8960[] = {
+	{
+		.name   = "msm_dspcrashd",
+		.start  = DSP_RAM_BASE_8960,
+		.end    = DSP_RAM_BASE_8960 + DSP_RAM_SIZE_8960,
+		.flags  = IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm_device_dspcrashd_8960 = {
+	.name           = "msm_dspcrashd",
+	.num_resources  = ARRAY_SIZE(resources_dspcrashd_8960),
+	.resource       = resources_dspcrashd_8960,
+	.dev = { .platform_data = &dspcrashd_pdata_8960 },
+};
+
 static struct memtype_reserve msm8960_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -3515,6 +3535,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_funnel_device,
 	&msm_ptm_device,
 #endif
+	&msm_device_dspcrashd_8960,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

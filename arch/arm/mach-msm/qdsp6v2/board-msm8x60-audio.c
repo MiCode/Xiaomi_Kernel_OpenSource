@@ -54,6 +54,26 @@ static void snddev_hsed_config_restore_setting(void);
 #define SNDDEV_GPIO_MIC1_ANCL_SEL 295
 #define SNDDEV_GPIO_HS_MIC4_SEL 296
 
+#define DSP_RAM_BASE_8x60 0x46700000
+#define DSP_RAM_SIZE_8x60 0x2000000
+static int dspcrashd_pdata_8x60 = 0xDEADDEAD;
+
+static struct resource resources_dspcrashd_8x60[] = {
+	{
+		.name   = "msm_dspcrashd",
+		.start  = DSP_RAM_BASE_8x60,
+		.end    = DSP_RAM_BASE_8x60 + DSP_RAM_SIZE_8x60,
+		.flags  = IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm_device_dspcrashd_8x60 = {
+	.name           = "msm_dspcrashd",
+	.num_resources  = ARRAY_SIZE(resources_dspcrashd_8x60),
+	.resource       = resources_dspcrashd_8x60,
+	.dev = { .platform_data = &dspcrashd_pdata_8x60 },
+};
+
 static struct resource msm_cdcclk_ctl_resources[] = {
 	{
 		.name   = "msm_snddev_tx_mclk",
@@ -2571,6 +2591,7 @@ static struct platform_device *snd_devices_common[] __initdata = {
 	&msm_cdcclk_ctl_device,
 	&msm_mi2s_device,
 	&msm_uplink_rx_device,
+	&msm_device_dspcrashd_8x60,
 };
 
 #ifdef CONFIG_MSM8X60_FTM_AUDIO_DEVICES
