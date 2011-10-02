@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@
 #define SLIM_HDL_TO_LA(hdl)	((u32)((hdl) & 0xFF000000) >> 24)
 #define SLIM_HDL_TO_FLOW(hdl)	(((u32)(hdl) & 0xFF0000) >> 16)
 #define SLIM_HDL_TO_PORT(hdl)	((u32)(hdl) & 0xFF)
+
+#define SLIM_HDL_TO_CHIDX(hdl)	((u16)(hdl) & 0xFF)
 
 #define SLIM_SLAVE_PORT(p, la)	(((la)<<16) | (p))
 #define SLIM_MGR_PORT(p)	((0xFF << 16) | (p))
@@ -1104,75 +1106,117 @@ static int disconnect_port_ch(struct slim_controller *ctrl, u32 ph)
 }
 
 /*
- * slim_connect_ports: Connect port(s) to channel.
+ * slim_connect_src: Connect source port to channel.
  * @sb: client handle
- * @srch: source handles to be connected to this channel
- * @nrsc: number of source ports
- * @sinkh: sink handle to be connected to this channel
+ * @srch: source handle to be connected to this channel
  * @chanh: Channel with which the ports need to be associated with.
- * Per slimbus specification, a channel may have multiple source-ports and 1
- * sink port.Channel specified in chanh needs to be allocated first.
+ * Per slimbus specification, a channel may have 1 source port.
+ * Channel specified in chanh needs to be allocated first.
+ * Returns -EALREADY if source is already configured for this channel.
+ * Returns -ENOTCONN if channel is not allocated
  */
-int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc, u32 sinkh,
-			u16 chanh)
+int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
+{
+	struct slim_controller *ctrl = sb->ctrl;
+	int ret;
+	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
+	struct slim_ich *slc = &ctrl->chans[chan];
+	enum slim_port_flow flow = SLIM_HDL_TO_FLOW(srch);
+
+	if (flow != SLIM_SRC)
+		return -EINVAL;
+
+	mutex_lock(&ctrl->m_ctrl);
+
+	if (slc->state == SLIM_CH_FREE) {
+		ret = -ENOTCONN;
+		goto connect_src_err;
+	}
+	/*
+	 * Once channel is removed, its ports can be considered disconnected
+	 * So its ports can be reassigned. Source port is zeroed
+	 * when channel is deallocated.
+	 */
+	if (slc->srch) {
+		ret = -EALREADY;
+		goto connect_src_err;
+	}
+
+	ret = connect_port_ch(ctrl, chan, srch, SLIM_SRC);
+
+	if (!ret)
+		slc->srch = srch;
+
+connect_src_err:
+	mutex_unlock(&ctrl->m_ctrl);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(slim_connect_src);
+
+/*
+ * slim_connect_sink: Connect sink port(s) to channel.
+ * @sb: client handle
+ * @sinkh: sink handle(s) to be connected to this channel
+ * @nsink: number of sinks
+ * @chanh: Channel with which the ports need to be associated with.
+ * Per slimbus specification, a channel may have multiple sink-ports.
+ * Channel specified in chanh needs to be allocated first.
+ * Returns -EALREADY if sink is already configured for this channel.
+ * Returns -ENOTCONN if channel is not allocated
+ */
+int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 {
 	struct slim_controller *ctrl = sb->ctrl;
 	int j;
 	int ret = 0;
-	u8 chan = (u8)(chanh & 0xFF);
+	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
 	struct slim_ich *slc = &ctrl->chans[chan];
 
+	if (!sinkh || !nsink)
+		return -EINVAL;
+
 	mutex_lock(&ctrl->m_ctrl);
-	/* Make sure the channel is not already pending reconf. or active */
-	if (slc->state >= SLIM_CH_PENDING_ACTIVE) {
-		dev_err(&ctrl->dev, "Channel %d  already active", chan);
-		ret = -EISCONN;
-		goto connect_port_err;
-	}
 
 	/*
 	 * Once channel is removed, its ports can be considered disconnected
-	 * So its ports can be reassigned. Source port array is freed
-	 * when channel is deallocated.
+	 * So its ports can be reassigned. Sink ports are freed when channel
+	 * is deallocated.
 	 */
-	slc->srch = krealloc(slc->srch, (sizeof(u32) * nsrc), GFP_KERNEL);
-	if (!slc->srch) {
-		ret = -ENOMEM;
-		goto connect_port_err;
+	if (slc->state == SLIM_CH_FREE) {
+		ret = -ENOTCONN;
+		goto connect_sink_err;
 	}
 
-	/* connect source */
-	for (j = 0; j < nsrc; j++) {
-		ret = connect_port_ch(ctrl, chan, srch[j], SLIM_SRC);
+	for (j = 0; j < nsink; j++) {
+		enum slim_port_flow flow = SLIM_HDL_TO_FLOW(sinkh[j]);
+		if (flow != SLIM_SINK)
+			ret = -EINVAL;
+		else
+			ret = connect_port_ch(ctrl, chan, sinkh[j], SLIM_SINK);
 		if (ret) {
-			for ( ; j >= 0 ; j--)
-				disconnect_port_ch(ctrl,
-						srch[j]);
-			kfree(slc->srch);
-			slc->srch = NULL;
-			goto connect_port_err;
+			for (j = j - 1; j >= 0; j--)
+				disconnect_port_ch(ctrl, sinkh[j]);
+			goto connect_sink_err;
 		}
 	}
-	/* connect sink */
-	ret = connect_port_ch(ctrl, chan, sinkh, SLIM_SINK);
-	if (ret) {
-		for (j = 0; j < nsrc; j++)
-			disconnect_port_ch(ctrl, srch[j]);
-		kfree(slc->srch);
-		slc->srch = NULL;
-		goto connect_port_err;
+
+	slc->sinkh = krealloc(slc->sinkh, (sizeof(u32) * (slc->nsink + nsink)),
+				GFP_KERNEL);
+	if (!slc->sinkh) {
+		ret = -ENOMEM;
+		for (j = 0; j < nsink; j++)
+			disconnect_port_ch(ctrl, sinkh[j]);
+		goto connect_sink_err;
 	}
 
-	memcpy(slc->srch, srch, (sizeof(u32) * nsrc));
-	slc->nsrc = nsrc;
-	if (sinkh)
-		slc->sinkh = sinkh;
+	memcpy(slc->sinkh + slc->nsink, sinkh, (sizeof(u32) * nsink));
+	slc->nsink += nsink;
 
-connect_port_err:
+connect_sink_err:
 	mutex_unlock(&ctrl->m_ctrl);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(slim_connect_ports);
+EXPORT_SYMBOL_GPL(slim_connect_sink);
 
 /*
  * slim_disconnect_ports: Disconnect port(s) from channel
@@ -1332,8 +1376,8 @@ static int slim_remove_ch(struct slim_controller *ctrl, struct slim_ich *slc)
 	slc->state = SLIM_CH_ALLOCATED;
 	slc->newintr = 0;
 	slc->newoff = 0;
-	for (i = 0; i < slc->nsrc; i++) {
-		ph = slc->srch[i];
+	for (i = 0; i < slc->nsink; i++) {
+		ph = slc->sinkh[i];
 		la = SLIM_HDL_TO_LA(ph);
 		/*
 		 * For ports managed by manager's ported device, no need to send
@@ -1344,11 +1388,15 @@ static int slim_remove_ch(struct slim_controller *ctrl, struct slim_ich *slc)
 			ctrl->ports[SLIM_HDL_TO_PORT(ph)].state = SLIM_P_UNCFG;
 	}
 
-	ph = slc->sinkh;
+	ph = slc->srch;
 	la = SLIM_HDL_TO_LA(ph);
 	if (la == SLIM_LA_MANAGER)
 		ctrl->ports[SLIM_HDL_TO_PORT(ph)].state = SLIM_P_UNCFG;
 
+	kfree(slc->sinkh);
+	slc->sinkh = NULL;
+	slc->srch = 0;
+	slc->nsink = 0;
 	return 0;
 }
 
@@ -1608,7 +1656,7 @@ EXPORT_SYMBOL_GPL(slim_query_ch);
 int slim_dealloc_ch(struct slim_device *sb, u16 chanh)
 {
 	struct slim_controller *ctrl = sb->ctrl;
-	u8 chan = (u8)(chanh & 0xFF);
+	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
 	struct slim_ich *slc = &ctrl->chans[chan];
 	if (!ctrl)
 		return -EINVAL;
@@ -1631,8 +1679,6 @@ int slim_dealloc_ch(struct slim_device *sb, u16 chanh)
 		return -EISCONN;
 	}
 	slc->ref--;
-	kfree(slc->srch);
-	slc->srch = NULL;
 	slc->state = SLIM_CH_FREE;
 	mutex_unlock(&ctrl->m_ctrl);
 	dev_dbg(&ctrl->dev, "remove chan:%d,hdl:%d,ref:%d",
@@ -1647,7 +1693,7 @@ EXPORT_SYMBOL_GPL(slim_dealloc_ch);
  */
 enum slim_ch_state slim_get_ch_state(struct slim_device *sb, u16 chanh)
 {
-	u8 chan = (u8)(chanh & 0xFF);
+	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
 	struct slim_ich *slc = &sb->ctrl->chans[chan];
 	return slc->state;
 }
@@ -1678,7 +1724,7 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 		return -EINVAL;
 	mutex_lock(&ctrl->m_ctrl);
 	for (i = 0; i < nchan; i++) {
-		u8 chan = (u8)(chanh[i] & 0xFF);
+		u8 chan = SLIM_HDL_TO_CHIDX(chanh[i]);
 		struct slim_ich *slc = &ctrl->chans[chan];
 		dev_dbg(&ctrl->dev, "define_ch: ch:%d, state:%d", chan,
 				(int)ctrl->chans[chan].state);
@@ -1713,7 +1759,7 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 	if (grp)
 		*grph = chanh[0];
 	for (i = 0; i < nchan; i++) {
-		u8 chan = (u8)(chanh[i] & 0xFF);
+		u8 chan = SLIM_HDL_TO_CHIDX(chanh[i]);
 		struct slim_ich *slc = &ctrl->chans[chan];
 		if (slc->state == SLIM_CH_ALLOCATED)
 			slc->state = SLIM_CH_DEFINED;
@@ -2265,7 +2311,7 @@ static void slim_sort_chan_grp(struct slim_controller *ctrl,
 	for (; last > 0; last--) {
 		struct slim_ich *slc1 = slc;
 		struct slim_ich *slc2;
-		u8 next = (u8)(slc1->nextgrp & 0xFF);
+		u8 next = SLIM_HDL_TO_CHIDX(slc1->nextgrp);
 		slc2 = &ctrl->chans[next];
 		for (second = 1; second <= last && slc2 &&
 			(slc2->state == SLIM_CH_ACTIVE ||
@@ -2280,7 +2326,7 @@ static void slim_sort_chan_grp(struct slim_controller *ctrl,
 				break;
 			}
 			slc1 = slc2;
-			next = (u8)(slc1->nextgrp & 0xFF);
+			next = SLIM_HDL_TO_CHIDX(slc1->nextgrp);
 			slc2 = &ctrl->chans[next];
 		}
 		if (slc2 == NULL)
@@ -2692,7 +2738,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 	struct slim_ich *slc;
 	int ret = 0;
 	/* Get rid of the group flag in MSB if any */
-	u8 chan = (u8)(chanh & 0xFF);
+	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
 	mutex_lock(&sb->sldev_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	do {
@@ -2729,7 +2775,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		}
 
 		if (!(slc->nextgrp & SLIM_END_GRP))
-			chan = (u8)(slc->nextgrp & 0xFF);
+			chan = SLIM_HDL_TO_CHIDX(slc->nextgrp);
 	} while (!(slc->nextgrp & SLIM_END_GRP));
 	mutex_unlock(&ctrl->m_ctrl);
 	if (!ret && commit == true)

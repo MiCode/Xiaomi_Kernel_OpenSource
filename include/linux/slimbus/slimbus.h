@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -378,9 +378,9 @@ struct slim_ch {
  * @seglen: Segment length of this channel.
  * @rootexp: root exponent of this channel. Rate can be found using rootexp and
  *	coefficient. Used during scheduling.
- * @srch: Source ports used by this channel.
- * @nsrc: number of source ports used by this channel.
- * @sinkh: Sink port used by this channel.
+ * @srch: Source port used by this channel.
+ * @sinkh: Sink ports used by this channel.
+ * @nsink: number of sink ports used by this channel.
  * @chan: Channel number sent on hardware lines for this channel. May not be
  *	equal to array-index into chans if client requested to use number beyond
  *	channel-array for the controller.
@@ -404,9 +404,9 @@ struct slim_ich {
 	u32			newintr;
 	u32			seglen;
 	u8			rootexp;
-	u32			*srch;
-	int			nsrc;
-	u32			sinkh;
+	u32			srch;
+	u32			*sinkh;
+	int			nsink;
 	u8			chan;
 	int			ref;
 	int			def;
@@ -760,18 +760,30 @@ extern enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb,
 			u32 ph, u8 **done_buf, u32 *done_len);
 
 /*
- * slim_connect_ports: Connect port(s) to channel.
+ * slim_connect_src: Connect source port to channel.
  * @sb: client handle
- * @srch: source handles to be connected to this channel
- * @nrsc: number of source ports
- * @sinkh: sink handle to be connected to this channel
+ * @srch: source handle to be connected to this channel
  * @chanh: Channel with which the ports need to be associated with.
- * Per slimbus specification, a channel may have multiple source-ports and 1
- * sink port.Channel specified in chanh needs to be allocated first.
+ * Per slimbus specification, a channel may have 1 source port.
+ * Channel specified in chanh needs to be allocated first.
+ * Returns -EALREADY if source is already configured for this channel.
+ * Returns -ENOTCONN if channel is not allocated
  */
-extern int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc,
-				u32 sinkh, u16 chanh);
+extern int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh);
 
+/*
+ * slim_connect_sink: Connect sink port(s) to channel.
+ * @sb: client handle
+ * @sinkh: sink handle(s) to be connected to this channel
+ * @nsink: number of sinks
+ * @chanh: Channel with which the ports need to be associated with.
+ * Per slimbus specification, a channel may have multiple sink-ports.
+ * Channel specified in chanh needs to be allocated first.
+ * Returns -EALREADY if sink is already configured for this channel.
+ * Returns -ENOTCONN if channel is not allocated
+ */
+extern int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink,
+				u16 chanh);
 /*
  * slim_disconnect_ports: Disconnect port(s) from channel
  * @sb: client handle
