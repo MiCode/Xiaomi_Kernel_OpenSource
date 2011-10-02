@@ -179,6 +179,13 @@
 		sdio_al_log(x, y);					\
 	} while (0)
 
+#define CLOSE_DEBUG(x, y...)						\
+	do {								\
+		if (sdio_al->debug.debug_close_on)			\
+			pr_info(y);					\
+		sdio_al_log(x, y);					\
+	} while (0)
+
 /* The index of the SDIO card used for the sdio_al_dloader */
 #define SDIO_BOOTLOADER_CARD_INDEX 1
 
@@ -193,9 +200,11 @@ enum sdio_al_device_state {
 struct sdio_al_debug {
 	u8 debug_lpm_on;
 	u8 debug_data_on;
+	u8 debug_close_on;
 	struct dentry *sdio_al_debug_root;
 	struct dentry *sdio_al_debug_lpm_on;
 	struct dentry *sdio_al_debug_data_on;
+	struct dentry *sdio_al_debug_close_on;
 	struct dentry *sdio_al_debug_info;
 	struct dentry *sdio_al_debug_log_buffers[MAX_NUM_OF_SDIO_DEVICES + 1];
 };
@@ -472,6 +481,12 @@ module_param(debug_lpm_on, int, 0);
 static int debug_data_on;
 module_param(debug_data_on, int, 0);
 
+/*
+ * Enables / disables open close debug messages
+ */
+static int debug_close_on = 1;
+module_param(debug_close_on, int, 0);
+
 /** The driver context */
 static struct sdio_al *sdio_al;
 
@@ -557,6 +572,12 @@ static int sdio_al_debugfs_init(void)
 					sdio_al->debug.sdio_al_debug_root,
 					&sdio_al->debug.debug_data_on);
 
+	sdio_al->debug.sdio_al_debug_close_on = debugfs_create_u8(
+					"debug_close_on",
+					S_IRUGO | S_IWUGO,
+					sdio_al->debug.sdio_al_debug_root,
+					&sdio_al->debug.debug_close_on);
+
 	sdio_al->debug.sdio_al_debug_info = debugfs_create_file(
 					"sdio_debug_info",
 					S_IRUGO | S_IWUGO,
@@ -602,6 +623,7 @@ static int sdio_al_debugfs_init(void)
 
 	if ((!sdio_al->debug.sdio_al_debug_data_on) &&
 	    (!sdio_al->debug.sdio_al_debug_lpm_on) &&
+	    (!sdio_al->debug.sdio_al_debug_close_on) &&
 	    (!sdio_al->debug.sdio_al_debug_info) &&
 		blob_errs) {
 		debugfs_remove(sdio_al->debug.sdio_al_debug_root);
@@ -623,6 +645,7 @@ static void sdio_al_debugfs_cleanup(void)
 
 	debugfs_remove(sdio_al->debug.sdio_al_debug_lpm_on);
 	debugfs_remove(sdio_al->debug.sdio_al_debug_data_on);
+	debugfs_remove(sdio_al->debug.sdio_al_debug_close_on);
 	debugfs_remove(sdio_al->debug.sdio_al_debug_info);
 
 	for (i = 0; i < (MAX_NUM_OF_SDIO_DEVICES + 1); ++i)
@@ -1911,7 +1934,7 @@ static int read_sdioc_channel_config(struct sdio_channel *ch)
 	if (ch->min_write_avail > ch->write_threshold)
 		ch->min_write_avail = ch->write_threshold;
 
-	sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME ":ch %s "
+	CLOSE_DEBUG(sdio_al_dev->dev_log, MODULE_NAME ":ch %s "
 			"read_threshold=%d, write_threshold=%d,"
 			" min_write_avail=%d, max_rx_threshold=%d,"
 			" max_tx_threshold=%d\n", ch->name, ch->read_threshold,
@@ -2677,8 +2700,8 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 		goto exit_err;
 	}
 
-	sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME ":sdio_open %s "
-			"completed OK\n", name);
+	CLOSE_DEBUG(sdio_al_dev->dev_log, MODULE_NAME ":sdio_open %s "
+							"completed OK\n", name);
 	if (sdio_al_dev->lpm_chan == INVALID_SDIO_CHAN) {
 		if (sdio_al->sdioc_major == PEER_SDIOC_OLD_VERSION_MAJOR) {
 			if (!ch->is_packet_mode) {
@@ -2908,6 +2931,8 @@ int sdio_close(struct sdio_channel *ch)
 		return ret;
 	}
 	ch->state = SDIO_CHANNEL_STATE_CLOSED;
+	CLOSE_DEBUG(sdio_al_dev->dev_log, MODULE_NAME ":%s: Ch %s closed "
+				"successfully\n", __func__, ch->name);
 	sdio_release_host(sdio_al_dev->card->sdio_func[0]);
 
 	return ret;
@@ -4071,6 +4096,7 @@ static int __init sdio_al_init(void)
 
 	sdio_al->debug.debug_lpm_on = debug_lpm_on;
 	sdio_al->debug.debug_data_on = debug_data_on;
+	sdio_al->debug.debug_close_on = debug_close_on;
 
 #ifdef CONFIG_DEBUG_FS
 	sdio_al_debugfs_init();
