@@ -2316,12 +2316,10 @@ static int tabla_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
 	int ret;
-	pr_debug("%s: write reg %x val %x\n", __func__, reg, value);
 
 	BUG_ON(reg > TABLA_MAX_REGISTER);
 
 	if (!tabla_volatile(codec, reg)) {
-		pr_debug("writing to cache\n");
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret != 0)
 			dev_err(codec->dev, "Cache write to %x failed: %d\n",
@@ -2340,10 +2338,8 @@ static unsigned int tabla_read(struct snd_soc_codec *codec,
 
 	if (!tabla_volatile(codec, reg) && tabla_readable(codec, reg) &&
 		reg < codec->driver->reg_cache_size) {
-		pr_debug("reading from cache\n");
 		ret = snd_soc_cache_read(codec, reg, &val);
 		if (ret >= 0) {
-			pr_debug("register %x, value %x\n", reg, val);
 			return val;
 		} else
 			dev_err(codec->dev, "Cache read from %x failed: %d\n",
@@ -2351,7 +2347,6 @@ static unsigned int tabla_read(struct snd_soc_codec *codec,
 	}
 
 	val = tabla_reg_read(codec->control_data, reg);
-	pr_debug("%s: read reg %x val %x\n", __func__, reg, val);
 	return val;
 }
 
