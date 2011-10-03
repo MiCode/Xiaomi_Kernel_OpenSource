@@ -23,6 +23,16 @@ struct pm8xxx_charger_core_data {
 	unsigned int	batt_id_channel;
 };
 
+enum pm8921_chg_cold_thr {
+	PM_SMBC_BATT_TEMP_COLD_THR__LOW,
+	PM_SMBC_BATT_TEMP_COLD_THR__HIGH
+};
+
+enum pm8921_chg_hot_thr	{
+	PM_SMBC_BATT_TEMP_HOT_THR__LOW,
+	PM_SMBC_BATT_TEMP_HOT_THR__HIGH
+};
+
 /**
  * struct pm8921_charger_platform_data -
  * @safety_time:	max charging time in minutes
@@ -63,7 +73,14 @@ struct pm8xxx_charger_core_data {
  * @thermal_mitigation: the array of charge currents to use as temperature
  *			increases
  * @thermal_levels:	the number of thermal mitigation levels supported
- *
+ * @cold_thr:		if high battery will be cold when VBAT_THERM goes above
+ *			80% of VREF_THERM (typically 1.8volts), if low the
+ *			battery will be considered cold if VBAT_THERM goes above
+ *			70% of VREF_THERM. Hardware defaults to low.
+ * @hot_thr:		if high the battery will be considered hot when the
+ *			VBAT_THERM goes below 35% of VREF_THERM, if low the
+ *			battery will be considered hot when VBAT_THERM goes
+ *			below 25% of VREF_THERM. Hardware defaults to low.
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
@@ -92,6 +109,8 @@ struct pm8921_charger_platform_data {
 	int				vin_min;
 	int				*thermal_mitigation;
 	int				thermal_levels;
+	enum pm8921_chg_cold_thr	cold_thr;
+	enum pm8921_chg_hot_thr		hot_thr;
 };
 
 enum pm8921_charger_source {

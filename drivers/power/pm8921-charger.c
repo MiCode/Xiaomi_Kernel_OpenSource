@@ -174,48 +174,50 @@ struct bms_notify {
  *
  */
 struct pm8921_chg_chip {
-	struct device		*dev;
-	unsigned int		usb_present;
-	unsigned int		dc_present;
-	unsigned int		usb_charger_current;
-	unsigned int		max_bat_chg_current;
-	unsigned int		pmic_chg_irq[PM_CHG_MAX_INTS];
-	unsigned int		safety_time;
-	unsigned int		ttrkl_time;
-	unsigned int		update_time;
-	unsigned int		max_voltage;
-	unsigned int		min_voltage;
-	unsigned int		cool_temp;
-	unsigned int		warm_temp;
-	unsigned int		temp_check_period;
-	unsigned int		cool_bat_chg_current;
-	unsigned int		warm_bat_chg_current;
-	unsigned int		cool_bat_voltage;
-	unsigned int		warm_bat_voltage;
-	unsigned int		resume_voltage;
-	unsigned int		term_current;
-	unsigned int		vbat_channel;
-	unsigned int		batt_temp_channel;
-	unsigned int		batt_id_channel;
-	struct power_supply	usb_psy;
-	struct power_supply	dc_psy;
-	struct power_supply	batt_psy;
-	struct dentry		*dent;
-	struct bms_notify	bms_notify;
+	struct device			*dev;
+	unsigned int			usb_present;
+	unsigned int			dc_present;
+	unsigned int			usb_charger_current;
+	unsigned int			max_bat_chg_current;
+	unsigned int			pmic_chg_irq[PM_CHG_MAX_INTS];
+	unsigned int			safety_time;
+	unsigned int			ttrkl_time;
+	unsigned int			update_time;
+	unsigned int			max_voltage;
+	unsigned int			min_voltage;
+	unsigned int			cool_temp;
+	unsigned int			warm_temp;
+	unsigned int			temp_check_period;
+	unsigned int			cool_bat_chg_current;
+	unsigned int			warm_bat_chg_current;
+	unsigned int			cool_bat_voltage;
+	unsigned int			warm_bat_voltage;
+	unsigned int			resume_voltage;
+	unsigned int			term_current;
+	unsigned int			vbat_channel;
+	unsigned int			batt_temp_channel;
+	unsigned int			batt_id_channel;
+	struct power_supply		usb_psy;
+	struct power_supply		dc_psy;
+	struct power_supply		batt_psy;
+	struct dentry			*dent;
+	struct bms_notify		bms_notify;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
-	struct work_struct	battery_id_valid_work;
-	int64_t			batt_id_min;
-	int64_t			batt_id_max;
-	int			trkl_voltage;
-	int			weak_voltage;
-	int			trkl_current;
-	int			weak_current;
-	int			vin_min;
-	int			*thermal_mitigation;
-	int			thermal_levels;
-	struct delayed_work	update_heartbeat_work;
-	struct delayed_work	eoc_work;
-	struct wake_lock	eoc_wake_lock;
+	struct work_struct		battery_id_valid_work;
+	int64_t				batt_id_min;
+	int64_t				batt_id_max;
+	int				trkl_voltage;
+	int				weak_voltage;
+	int				trkl_current;
+	int				weak_current;
+	int				vin_min;
+	int				*thermal_mitigation;
+	int				thermal_levels;
+	struct delayed_work		update_heartbeat_work;
+	struct delayed_work		eoc_work;
+	struct wake_lock		eoc_wake_lock;
+	enum pm8921_chg_cold_thr	cold_thr;
+	enum pm8921_chg_hot_thr		hot_thr;
 };
 
 static int charging_disabled;
@@ -634,6 +636,34 @@ static int pm_chg_iweak_set(struct pm8921_chg_chip *chip, int milliamps)
 
 	temp = temp << PM8921_CHG_IWEAK_SHIFT;
 	return pm_chg_masked_write(chip, CHG_ITRICKLE, PM8921_CHG_IWEAK_MASK,
+					 temp);
+}
+
+#define PM8921_CHG_BATT_TEMP_THR_COLD	BIT(1)
+#define PM8921_CHG_BATT_TEMP_THR_COLD_SHIFT	1
+static int pm_chg_batt_cold_temp_config(struct pm8921_chg_chip *chip,
+					enum pm8921_chg_cold_thr cold_thr)
+{
+	u8 temp;
+
+	temp = cold_thr << PM8921_CHG_BATT_TEMP_THR_COLD_SHIFT;
+	temp = temp & PM8921_CHG_BATT_TEMP_THR_COLD;
+	return pm_chg_masked_write(chip, CHG_CNTRL_2,
+					PM8921_CHG_BATT_TEMP_THR_COLD,
+					 temp);
+}
+
+#define PM8921_CHG_BATT_TEMP_THR_HOT		BIT(0)
+#define PM8921_CHG_BATT_TEMP_THR_HOT_SHIFT	0
+static int pm_chg_batt_hot_temp_config(struct pm8921_chg_chip *chip,
+					enum pm8921_chg_hot_thr hot_thr)
+{
+	u8 temp;
+
+	temp = hot_thr << PM8921_CHG_BATT_TEMP_THR_HOT_SHIFT;
+	temp = temp & PM8921_CHG_BATT_TEMP_THR_HOT;
+	return pm_chg_masked_write(chip, CHG_CNTRL_2,
+					PM8921_CHG_BATT_TEMP_THR_HOT,
 					 temp);
 }
 
@@ -2097,6 +2127,18 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		}
 	}
 
+	rc = pm_chg_batt_cold_temp_config(chip, chip->cold_thr);
+	if (rc) {
+		pr_err("Failed to set cold config %d  rc=%d\n",
+						chip->cold_thr, rc);
+	}
+
+	rc = pm_chg_batt_hot_temp_config(chip, chip->hot_thr);
+	if (rc) {
+		pr_err("Failed to set hot config %d  rc=%d\n",
+						chip->hot_thr, rc);
+	}
+
 	/* Workarounds for die 1.1 and 1.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) < PM8XXX_REVISION_8921_2p0) {
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST2, 0xF1);
@@ -2319,6 +2361,9 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->vin_min = pdata->vin_min;
 	chip->thermal_mitigation = pdata->thermal_mitigation;
 	chip->thermal_levels = pdata->thermal_levels;
+
+	chip->cold_thr = pdata->cold_thr;
+	chip->hot_thr = pdata->hot_thr;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
