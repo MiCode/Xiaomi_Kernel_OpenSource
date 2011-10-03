@@ -134,7 +134,7 @@ int msm_mctl_do_pp_divert(
 		videobuf2_to_pmem_contig(&vb->vidbuf, 0);
 	div.phy_offset = mem->addr_offset;
 	div.y_off      = 0;
-	div.cbcr_off   = mem->offset;
+	div.cbcr_off   = mem->offset.sp_off.cbcr_off;
 	div.fd         = (int)mem->vaddr;
 	div.vb = (uint32_t)vb;
 	p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode]++;
@@ -142,7 +142,7 @@ int msm_mctl_do_pp_divert(
 		p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode]++;
 	div.frame_id   =
 		p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode];
-	div.path       = mem->buffer_type;
+	div.path       = mem->path;
 	div.length     = mem->size;
 	msm_mctl_gettimeofday(&div.timestamp);
 	vb->vidbuf.v4l2_buf.timestamp = div.timestamp;
@@ -167,14 +167,14 @@ static int msm_mctl_pp_get_phy_addr(
 	memset(pp_frame, 0, sizeof(struct msm_pp_frame));
 	pp_frame->handle = (uint32_t)vb;
 	pp_frame->frame_id = vb->vidbuf.v4l2_buf.sequence;
-	pp_frame->image_type = (unsigned short)mem->buffer_type;
+	pp_frame->image_type = (unsigned short)mem->path;
 	pp_frame->timestamp = vb->vidbuf.v4l2_buf.timestamp;
 	/* hard coded for now. Will need to expand to MP case */
 	pp_frame->num_planes = 1;
 	pp_frame->sp.addr_offset = mem->addr_offset;
 	pp_frame->sp.phy_addr = videobuf2_to_pmem_contig(&vb->vidbuf, 0);
 	pp_frame->sp.y_off = 0;
-	pp_frame->sp.cbcr_off = mem->offset;
+	pp_frame->sp.cbcr_off = mem->offset.sp_off.cbcr_off;
 	pp_frame->sp.length = mem->size;
 	pp_frame->sp.fd = (int)mem->vaddr;
 	return 0;

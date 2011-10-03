@@ -770,25 +770,26 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 	}
 	if (!pb->count) {
 		/* Deallocation. free buf_offset array */
-		D("%s freeing buf_offset information ", __func__);
+		D("%s freeing buffer offsets array ", __func__);
 		for (j = 0 ; j < pcam_inst->buf_count ; j++)
 			kfree(pcam_inst->buf_offset[j]);
 		kfree(pcam_inst->buf_offset);
 	} else {
 		/* Allocation. allocate buf_offset array */
-		pcam_inst->buf_offset = (uint32_t **)
-			kzalloc(pb->count * sizeof(uint32_t *),
+		pcam_inst->buf_offset = (struct msm_cam_buf_offset **)
+			kzalloc(pb->count * sizeof(struct msm_cam_buf_offset *),
 							GFP_KERNEL);
 		if (!pcam_inst->buf_offset) {
 			pr_err("%s out of memory ", __func__);
 			return -ENOMEM;
 		}
 		for (i = 0; i < pb->count; i++) {
-			pcam_inst->buf_offset[i] = kzalloc(sizeof(uint32_t) *
+			pcam_inst->buf_offset[i] =
+				kzalloc(sizeof(struct msm_cam_buf_offset) *
 				pcam_inst->plane_info.num_planes, GFP_KERNEL);
 			if (!pcam_inst->buf_offset[i]) {
 				pr_err("%s out of memory ", __func__);
-				for (j = i ; j >= 0; j--)
+				for (j = i-1 ; j >= 0; j--)
 					kfree(pcam_inst->buf_offset[j]);
 				kfree(pcam_inst->buf_offset);
 				return -ENOMEM;
@@ -825,14 +826,18 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	WARN_ON(pctx != f->private_data);
 	if (pb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		for (i = 0; i < pcam_inst->plane_info.num_planes; i++) {
-			D("%s storing buf_offset for plane %d as %d",
-				__func__, i, pb->m.planes[i].reserved[0]);
-			pcam_inst->buf_offset[pb->index][i] =
+			D("%s stored offsets for plane %d as"
+				"addr offset %d, data offset %d",
+				__func__, i, pb->m.planes[i].reserved[0],
+				pb->m.planes[i].data_offset);
+			pcam_inst->buf_offset[pb->index][i].data_offset =
+				pb->m.planes[i].data_offset;
+			pcam_inst->buf_offset[pb->index][i].addr_offset =
 				pb->m.planes[i].reserved[0];
 		}
 	} else {
 		D("%s stored reserved info %d", __func__, pb->reserved);
-		pcam_inst->buf_offset[pb->index][0] = pb->reserved;
+		pcam_inst->buf_offset[pb->index][0].addr_offset = pb->reserved;
 	}
 
 	rc = vb2_qbuf(&pcam_inst->vid_bufq, pb);

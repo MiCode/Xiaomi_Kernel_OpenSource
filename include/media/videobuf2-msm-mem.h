@@ -22,18 +22,35 @@ struct videobuf2_mapping {
 	unsigned int count;
 };
 
+enum videobuf2_buffer_type {
+	VIDEOBUF2_SINGLE_PLANE,
+	VIDEOBUF2_MULTIPLE_PLANES
+};
+
+struct videobuf2_sp_offset {
+	uint32_t y_off;
+	uint32_t cbcr_off;
+};
+
+struct videobuf2_msm_offset {
+	union {
+		struct videobuf2_sp_offset sp_off;
+		uint32_t data_offset;
+	};
+};
+
 struct videobuf2_contig_pmem {
 	u32 magic;
 	void *vaddr;
 	int phyaddr;
 	unsigned long size;
 	int is_userptr;
-	/* Single plane - CbCr offset
-	 * Multi plane - plane offset
-	 */
-	uint32_t offset;
-	int buffer_type;
+	/* Offset of the plane inside the buffer */
+	struct videobuf2_msm_offset offset;
+	enum videobuf2_buffer_type buffer_type;
+	int path;
 	struct file *file;
+	/* Offset of the buffer */
 	uint32_t addr_offset;
 	int dirty;
 	unsigned int count;
@@ -48,9 +65,11 @@ void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					unsigned int size,
 					void *priv);
 int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
-					uint32_t offset, int path);
+					struct videobuf2_msm_offset *offset,
+					enum videobuf2_buffer_type, int path);
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
-					uint32_t offset,
+					struct videobuf2_msm_offset *offset,
+					enum videobuf2_buffer_type,
 					uint32_t addr_offset, int path);
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem);
 unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *buf,

@@ -77,9 +77,11 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_device *pcam;
 	struct videobuf2_contig_pmem *mem;
 	struct vb2_queue	*vq;
-	uint32_t offset;
+	uint32_t buf_idx;
 	struct msm_frame_buffer *buf;
 	int rc = 0, i;
+	enum videobuf2_buffer_type buf_type;
+	struct videobuf2_msm_offset offset;
 	vq = vb->vb2_queue;
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
@@ -95,17 +97,28 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	if (buf->state == MSM_BUFFER_STATE_INITIALIZED)
 		return rc;
 
+	buf_type = (vb->num_planes == 1) ? VIDEOBUF2_SINGLE_PLANE
+					: VIDEOBUF2_MULTIPLE_PLANES;
+	if (buf_type == VIDEOBUF2_SINGLE_PLANE) {
+		offset.sp_off.y_off = 0;
+		offset.sp_off.cbcr_off =
+			pcam_inst->plane_info.plane[0].offset;
+	}
+	buf_idx = vb->v4l2_buf.index;
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
-		offset = pcam_inst->plane_info.plane[i].offset;
+		if (buf_type == VIDEOBUF2_MULTIPLE_PLANES)
+			offset.data_offset =
+				pcam_inst->plane_info.plane[i].offset;
 
 		if (vb->v4l2_buf.memory == V4L2_MEMORY_USERPTR)
-			rc = videobuf2_pmem_contig_user_get(mem, offset,
-				pcam_inst->buf_offset[vb->v4l2_buf.index][i],
+			rc = videobuf2_pmem_contig_user_get(mem, &offset,
+				buf_type,
+				pcam_inst->buf_offset[buf_idx][i].addr_offset,
 				pcam_inst->path);
 		else
-			rc = videobuf2_pmem_contig_mmap_get(mem, offset,
-				pcam_inst->path);
+			rc = videobuf2_pmem_contig_mmap_get(mem, &offset,
+				buf_type, pcam_inst->path);
 		if (rc < 0) {
 			pr_err("%s error initializing buffer ",
 				__func__);
@@ -393,13 +406,23 @@ struct msm_frame_buffer *msm_mctl_buf_find(
 	struct msm_frame_buffer *buf = NULL, *tmp;
 	uint32_t buf_phyaddr = 0;
 	unsigned long flags = 0;
+	uint32_t buf_idx, offset = 0;
+	struct videobuf2_contig_pmem *mem;
 
 	/* we actually need a list, not a queue */
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	list_for_each_entry_safe(buf, tmp,
 			&pcam_inst->free_vq, list) {
+		buf_idx = buf->vidbuf.v4l2_buf.index;
+		mem = vb2_plane_cookie(&buf->vidbuf, 0);
+		if (mem->buffer_type ==	VIDEOBUF2_MULTIPLE_PLANES)
+			offset = mem->offset.data_offset +
+				pcam_inst->buf_offset[buf_idx][0].data_offset;
+		else
+			offset = mem->offset.sp_off.y_off;
 		buf_phyaddr = (unsigned long)
-				videobuf2_to_pmem_contig(&buf->vidbuf, 0);
+				videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
+				offset;
 		D("%s vb_idx=%d,vb_paddr=0x%x ch0=0x%x\n",
 			__func__, buf->vidbuf.v4l2_buf.index,
 			buf_phyaddr, fbuf->ch_paddr[0]);
@@ -483,6 +506,7 @@ int msm_mctl_reserve_free_buf(
 	struct videobuf2_contig_pmem *mem;
 	struct msm_frame_buffer *buf = NULL;
 	int rc = -EINVAL, idx, i;
+	uint32_t buf_idx, plane_offset = 0;
 
 	if (!free_buf) {
 		pr_err("%s: free_buf= null\n", __func__);
@@ -498,33 +522,45 @@ int msm_mctl_reserve_free_buf(
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
-		if (buf->state == MSM_BUFFER_STATE_QUEUED) {
-			if (pcam_inst->vid_fmt.type ==
+		if (buf->state != MSM_BUFFER_STATE_QUEUED)
+			continue;
+
+		buf_idx = buf->vidbuf.v4l2_buf.index;
+		if (pcam_inst->vid_fmt.type ==
 				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				free_buf->num_planes =
-					pcam_inst->plane_info.num_planes;
-				for (i = 0; i < free_buf->num_planes; i++)
-					free_buf->ch_paddr[i] =	(uint32_t)
-					videobuf2_to_pmem_contig(
-						&buf->vidbuf, i);
-			} else {
-				mem = vb2_plane_cookie(&buf->vidbuf, 0);
-				free_buf->ch_paddr[0] = (uint32_t)
-				videobuf2_to_pmem_contig(&buf->vidbuf, 0);
-				free_buf->ch_paddr[1] =
-					free_buf->ch_paddr[0] + mem->offset;
+			free_buf->num_planes =
+				pcam_inst->plane_info.num_planes;
+			for (i = 0; i < free_buf->num_planes; i++) {
+				mem = vb2_plane_cookie(&buf->vidbuf, i);
+				if (mem->buffer_type ==
+						VIDEOBUF2_MULTIPLE_PLANES)
+					plane_offset =
+					mem->offset.data_offset;
+				else
+					plane_offset =
+					mem->offset.sp_off.cbcr_off;
+
+				free_buf->ch_paddr[i] =	(uint32_t)
+				videobuf2_to_pmem_contig(&buf->vidbuf, i) +
+				pcam_inst->buf_offset[buf_idx][i].data_offset +
+				plane_offset;
 			}
-			free_buf->vb = (uint32_t)buf;
-			buf->state = MSM_BUFFER_STATE_RESERVED;
-			D("%s idx=%d,inst=0x%p,idx=%d,paddr=0x%x, "
-				"ch1 addr=0x%x\n", __func__,
-				idx, pcam_inst,
-				buf->vidbuf.v4l2_buf.index,
-				free_buf->ch_paddr[0],
-				free_buf->ch_paddr[1]);
-			rc = 0;
-			break;
+		} else {
+			mem = vb2_plane_cookie(&buf->vidbuf, 0);
+			free_buf->ch_paddr[0] = (uint32_t)
+				videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
+				mem->offset.sp_off.y_off;
+			free_buf->ch_paddr[1] =	free_buf->ch_paddr[0] +
+				mem->offset.sp_off.cbcr_off;
 		}
+		free_buf->vb = (uint32_t)buf;
+		buf->state = MSM_BUFFER_STATE_RESERVED;
+		D("%s idx=%d,inst=0x%p,idx=%d,paddr=0x%x, "
+			"ch1 addr=0x%x\n", __func__,
+			idx, pcam_inst,	buf->vidbuf.v4l2_buf.index,
+			free_buf->ch_paddr[0], free_buf->ch_paddr[1]);
+		rc = 0;
+		break;
 	}
 	if (rc != 0)
 		D("%s:No free buffer available: inst = 0x%p ",

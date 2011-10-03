@@ -240,6 +240,10 @@ struct msm_isp_buf_info {
 	unsigned long buffer;
 	int fd;
 };
+struct msm_cam_buf_offset {
+	uint32_t addr_offset;
+	uint32_t data_offset;
+};
 
 #define MSM_DEV_INST_MAX                    16
 struct msm_cam_v4l2_dev_inst {
@@ -255,8 +259,8 @@ struct msm_cam_v4l2_dev_inst {
 	int image_mode;
 	int path;
 	int buf_count;
-	/* buffer offset, if any */
-	uint32_t **buf_offset;
+	/* buffer offsets, if any */
+	struct msm_cam_buf_offset **buf_offset;
 	struct v4l2_crop crop;
 	int streamon;
 	struct msm_mem_map_info mem_map;

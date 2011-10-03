@@ -124,10 +124,16 @@ static void msm_vb2_mem_ops_put(void *buf_priv)
 	kfree(mem);
 }
 int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
-					uint32_t offset, int path)
+				struct videobuf2_msm_offset *offset,
+				enum videobuf2_buffer_type buffer_type,
+				int path)
 {
-	mem->offset = offset;
-	mem->buffer_type = path;
+	if (offset)
+		mem->offset = *offset;
+	else
+		memset(&mem->offset, 0, sizeof(struct videobuf2_msm_offset));
+	mem->buffer_type = buffer_type;
+	mem->path = path;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
@@ -143,7 +149,8 @@ EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
  * Returns 0 if successful.
  */
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
-					uint32_t offset,
+					struct videobuf2_msm_offset *offset,
+					enum videobuf2_buffer_type buffer_type,
 					uint32_t addr_offset, int path)
 {
 	unsigned long kvstart;
@@ -161,8 +168,12 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					__func__, (int)mem->vaddr, rc);
 		return rc;
 	}
-	mem->offset = offset;
-	mem->buffer_type = path;
+	if (offset)
+		mem->offset = *offset;
+	else
+		memset(&mem->offset, 0, sizeof(struct videobuf2_msm_offset));
+	mem->path = path;
+	mem->buffer_type = buffer_type;
 	flags = MSM_SUBSYSTEM_MAP_IOVA;
 	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
 	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, len,
