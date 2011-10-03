@@ -706,7 +706,14 @@ void __init mem_init(void)
 			else if (!page_count(page))
 				free_pages++;
 			page++;
+#ifdef CONFIG_SPARSEMEM
+			pfn1++;
+			if (!(pfn1 % PAGES_PER_SECTION))
+				page = pfn_to_page(pfn1);
+		} while (pfn1 < pfn2);
+#else
 		} while (page < end);
+#endif
 	}
 
 #ifdef CONFIG_FIX_MOVABLE_ZONE
