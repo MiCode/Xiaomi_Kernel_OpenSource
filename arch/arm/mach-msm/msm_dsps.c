@@ -763,12 +763,6 @@ static int __devinit dsps_probe(struct platform_device *pdev)
 	}
 	drv->pdata = pdev->dev.platform_data;
 
-	ret = dsps_alloc_resources(pdev);
-	if (ret) {
-		pr_err("%s: failed to allocate dsps resources.\n", __func__);
-		goto res_err;
-	}
-
 	drv->dev_class = class_create(THIS_MODULE, DRV_NAME);
 	if (drv->dev_class == NULL) {
 		pr_err("%s: class_create fail.\n", __func__);
@@ -800,6 +794,12 @@ static int __devinit dsps_probe(struct platform_device *pdev)
 	ret = cdev_add(drv->cdev, drv->dev_num, 1);
 	if (ret) {
 		pr_err("%s: cdev_add fail.\n", __func__);
+		goto cdev_add_err;
+	}
+
+	ret = dsps_alloc_resources(pdev);
+	if (ret) {
+		pr_err("%s: failed to allocate dsps resources.\n", __func__);
 		goto cdev_add_err;
 	}
 
