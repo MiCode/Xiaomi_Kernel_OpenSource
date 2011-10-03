@@ -218,7 +218,11 @@ static unsigned int sdc1_sup_clk_rates[] = {
 
 static struct mmc_platform_data sdc1_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+#ifdef CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT
+	.mmc_bus_width  = MMC_CAP_8_BIT_DATA,
+#else
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+#endif
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
