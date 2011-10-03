@@ -1388,7 +1388,9 @@ msmsdcc_irq(int irq, void *dev_id)
 				wake_lock(&host->sdio_wlock);
 			/* only ansyc interrupt can come when clocks are off */
 			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCICLEAR);
-			msmsdcc_delay(host);
+			if (host->clk_rate <=
+					msmsdcc_get_min_sup_clk_rate(host))
+				msmsdcc_delay(host);
 		}
 
 		status = readl_relaxed(host->base + MMCISTATUS);
@@ -1403,7 +1405,9 @@ msmsdcc_irq(int irq, void *dev_id)
 		status &= readl_relaxed(host->base + MMCIMASK0);
 		writel_relaxed(status, host->base + MMCICLEAR);
 		/* Allow clear to take effect*/
-		msmsdcc_delay(host);
+		if (host->clk_rate <=
+				msmsdcc_get_min_sup_clk_rate(host))
+			msmsdcc_delay(host);
 #if IRQ_DEBUG
 		msmsdcc_print_status(host, "irq0-p", status);
 #endif
