@@ -160,10 +160,33 @@ static int hsusb_rpc_connect(int connect)
 #endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
-struct vreg *vreg_3p3;
 static int msm_hsusb_ldo_init(int init)
 {
+	static struct regulator *reg_hsusb;
+	int rc;
 	if (init) {
+		reg_hsusb = regulator_get(NULL, "usb");
+		if (IS_ERR(reg_hsusb)) {
+			rc = PTR_ERR(reg_hsusb);
+			pr_err("%s: could not get regulator: %d\n",
+					__func__, rc);
+			goto out;
+		}
+
+		rc = regulator_set_voltage(reg_hsusb, 3300000, 3300000);
+		if (rc < 0) {
+			pr_err("%s: could not set voltage: %d\n",
+					 __func__, rc);
+			goto usb_reg_fail;
+		}
+
+		rc = regulator_enable(reg_hsusb);
+		if (rc < 0) {
+			pr_err("%s: could not enable regulator: %d\n",
+					__func__, rc);
+			goto usb_reg_fail;
+		}
+
 		/*
 		 * PHY 3.3V analog domain(VDDA33) is powered up by
 		 * an always enabled power supply (LP5900TL-3.3).
@@ -172,15 +195,22 @@ static int msm_hsusb_ldo_init(int init)
 		 * current. Hence USB VREG is explicitly turned
 		 * off here.
 		 */
-		vreg_3p3 = vreg_get(NULL, "usb");
-		if (IS_ERR(vreg_3p3))
-			return PTR_ERR(vreg_3p3);
-		vreg_enable(vreg_3p3);
-		vreg_disable(vreg_3p3);
-		vreg_put(vreg_3p3);
+
+		rc = regulator_disable(reg_hsusb);
+		if (rc < 0) {
+			pr_err("%s: could not disable regulator: %d\n",
+					__func__, rc);
+			goto usb_reg_fail;
+		}
+
+		regulator_put(reg_hsusb);
 	}
 
 	return 0;
+usb_reg_fail:
+	regulator_put(reg_hsusb);
+out:
+	return rc;
 }
 
 static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
@@ -548,38 +578,56 @@ static char *msm_fb_lcdc_vreg[] = {
 
 static int msm_fb_lcdc_power_save(int on)
 {
-	struct vreg *vreg[ARRAY_SIZE(msm_fb_lcdc_vreg)];
 	int i, rc = 0;
+	static struct regulator *vreg[ARRAY_SIZE(msm_fb_lcdc_vreg)];
+
+	if (on) {
+		for (i = 0; i < ARRAY_SIZE(msm_fb_lcdc_vreg); i++) {
+			vreg[i] = regulator_get(NULL, msm_fb_lcdc_vreg[i]);
+			if (IS_ERR(vreg[i])) {
+				rc = PTR_ERR(vreg[i]);
+				pr_err("%s: could get not regulator: %d\n",
+						__func__, rc);
+				goto reg_get_fail;
+			}
+
+			rc = regulator_set_voltage(vreg[i], 2850000, 3000000);
+			if (rc < 0) {
+				pr_err("%s: could not set voltage: %d\n",
+						__func__, rc);
+				goto reg_get_fail;
+			}
+		}
+	}
 
 	for (i = 0; i < ARRAY_SIZE(msm_fb_lcdc_vreg); i++) {
 		if (on) {
-			vreg[i] = vreg_get(0, msm_fb_lcdc_vreg[i]);
-			rc = vreg_enable(vreg[i]);
+			rc = regulator_enable(vreg[i]);
 			if (rc) {
-				printk(KERN_ERR "vreg_enable: %s vreg"
-						"operation failed \n",
-						msm_fb_lcdc_vreg[i]);
-				goto bail;
+				pr_err("%s: could not enable regulator %s:"
+					"%d\n", __func__,
+						msm_fb_lcdc_vreg[i], rc);
+				goto vreg_lcdc_fail;
 			}
 		} else {
-			int tmp;
-			vreg[i] = vreg_get(0, msm_fb_lcdc_vreg[i]);
-			tmp = vreg_disable(vreg[i]);
-			if (tmp) {
-				printk(KERN_ERR "vreg_disable: %s vreg "
-						"operation failed \n",
-						msm_fb_lcdc_vreg[i]);
-				if (!rc)
-					rc = tmp;
+			rc = regulator_disable(vreg[i]);
+			if (rc) {
+				pr_err("%s: could not disable regulator %s:"
+					"%d\n", __func__,
+					 msm_fb_lcdc_vreg[i], rc);
+
+				regulator_put(vreg[i]);
+				goto vreg_lcdc_fail;
+
 			}
-			tmp = gpio_tlmm_config(GPIO_CFG(GPIO_OUT_88, 0,
+
+			regulator_put(vreg[i]);
+			rc = gpio_tlmm_config(GPIO_CFG(GPIO_OUT_88, 0,
 						GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
 						GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-			if (tmp) {
+			if (rc)
 				printk(KERN_ERR "gpio_tlmm_config failed\n");
-				if (!rc)
-					rc = tmp;
-			}
+
 			gpio_set_value(88, 0);
 			mdelay(15);
 			gpio_set_value(88, 1);
@@ -589,14 +637,23 @@ static int msm_fb_lcdc_power_save(int on)
 
 	return rc;
 
-bail:
+reg_get_fail:
+	for (; i > 0; i--)
+		regulator_put(vreg[i - 1]);
+	return rc;
+
+vreg_lcdc_fail:
 	if (on) {
 		for (; i > 0; i--)
-			vreg_disable(vreg[i - 1]);
+			regulator_disable(vreg[i - 1]);
+	} else {
+		for (; i > 0; i--)
+			regulator_enable(vreg[i - 1]);
 	}
 
 	return rc;
 }
+
 static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_gpio_config = msm_fb_lcdc_config,
 	.lcdc_power_save   = msm_fb_lcdc_power_save,
@@ -695,20 +752,13 @@ static unsigned bt_config_power_off[] = {
 
 static int bluetooth_power(int on)
 {
-	struct vreg *vreg_bt;
 	int pin, rc;
+	static struct regulator *vreg_bt;
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
 	/* do not have vreg bt defined, gp6 is the same */
 	/* vreg_get parameter 1 (struct device *) is ignored */
-	vreg_bt = vreg_get(NULL, "gp6");
-
-	if (IS_ERR(vreg_bt)) {
-		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-		       __func__, PTR_ERR(vreg_bt));
-		return PTR_ERR(vreg_bt);
-	}
 
 	if (on) {
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_on); pin++) {
@@ -721,27 +771,35 @@ static int bluetooth_power(int on)
 				return -EIO;
 			}
 		}
+		vreg_bt = regulator_get(NULL, "gp6");
+
+		if (IS_ERR(vreg_bt)) {
+			rc = PTR_ERR(vreg_bt);
+			pr_err("%s: could get not regulator: %d\n",
+					__func__, rc);
+			goto out;
+		}
 
 		/* units of mV, steps of 50 mV */
-		rc = vreg_set_level(vreg_bt, 2600);
-		if (rc) {
-			printk(KERN_ERR "%s: vreg set level failed (%d)\n",
-			       __func__, rc);
-			return -EIO;
+		rc = regulator_set_voltage(vreg_bt, 2600000, 2600000);
+		if (rc < 0) {
+			pr_err("%s: could not set voltage: %d\n", __func__, rc);
+			goto bt_vreg_fail;
 		}
-		rc = vreg_enable(vreg_bt);
-		if (rc) {
-			printk(KERN_ERR "%s: vreg enable failed (%d)\n",
-			       __func__, rc);
-			return -EIO;
+		rc = regulator_enable(vreg_bt);
+		if (rc < 0) {
+			pr_err("%s: could not enable regulator: %d\n",
+					 __func__, rc);
+			goto bt_vreg_fail;
 		}
 	} else {
-		rc = vreg_disable(vreg_bt);
-		if (rc) {
-			printk(KERN_ERR "%s: vreg disable failed (%d)\n",
-			       __func__, rc);
-			return -EIO;
+		rc = regulator_disable(vreg_bt);
+		if (rc < 0) {
+			pr_err("%s: could not disable regulator: %d\n",
+					 __func__, rc);
+			goto bt_vreg_fail;
 		}
+		regulator_put(vreg_bt);
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
 			rc = gpio_tlmm_config(bt_config_power_off[pin],
 					      GPIO_CFG_ENABLE);
@@ -754,6 +812,11 @@ static int bluetooth_power(int on)
 		}
 	}
 	return 0;
+
+bt_vreg_fail:
+	regulator_put(vreg_bt);
+out:
+	return rc;
 }
 
 static void __init bt_power_init(void)
@@ -884,68 +947,93 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 
-static struct vreg *vreg_gp2;
-static struct vreg *vreg_gp3;
-
 static void msm_camera_vreg_config(int vreg_en)
 {
 	int rc;
+	static struct regulator *vreg_gp2;
+	static struct regulator *vreg_gp3;
 
-	if (vreg_gp2 == NULL) {
-		vreg_gp2 = vreg_get(NULL, "gp2");
+	if (vreg_gp2 == NULL && vreg_gp3 == NULL) {
+		vreg_gp2 = regulator_get(NULL, "gp2");
 		if (IS_ERR(vreg_gp2)) {
-			printk(KERN_ERR "%s: vreg_get(%s) failed (%ld)\n",
-				__func__, "gp2", PTR_ERR(vreg_gp2));
+			rc = PTR_ERR(vreg_gp2);
+			pr_err("%s: could not get regulator: %d\n",
+					__func__, rc);
 			return;
 		}
 
-		rc = vreg_set_level(vreg_gp2, 1800);
-		if (rc) {
-			printk(KERN_ERR "%s: GP2 set_level failed (%d)\n",
-				__func__, rc);
+		rc = regulator_set_voltage(vreg_gp2, 1800000, 1800000);
+		if (rc < 0) {
+			pr_err("%s: could not set voltage: %d\n",
+					__func__, rc);
+			goto cam_vreg_fail;
 		}
+
+		vreg_gp3 = regulator_get(NULL, "gp3");
+		if (IS_ERR(vreg_gp3)) {
+			rc = PTR_ERR(vreg_gp3);
+			pr_err("%s: could not get regulator: %d\n",
+					__func__, rc);
+			goto cam_vreg_fail;
+		}
+
+		rc = regulator_set_voltage(vreg_gp3, 2850000, 2850000);
+		if (rc < 0) {
+			pr_err("%s: could not set voltage: %d\n", __func__, rc);
+			goto cam_vreg2_fail;
+		}
+
+		return;
+
 	}
 
-	if (vreg_gp3 == NULL) {
-		vreg_gp3 = vreg_get(NULL, "gp3");
-		if (IS_ERR(vreg_gp3)) {
-			printk(KERN_ERR "%s: vreg_get(%s) failed (%ld)\n",
-				__func__, "gp3", PTR_ERR(vreg_gp3));
-			return;
-		}
-
-		rc = vreg_set_level(vreg_gp3, 2850);
-		if (rc) {
-			printk(KERN_ERR "%s: GP3 set level failed (%d)\n",
-				__func__, rc);
-		}
+	if (vreg_gp2 == NULL || vreg_gp3 == NULL) {
+		pr_err("Camera Regulators are not initialized\n");
+		return;
 	}
 
 	if (vreg_en) {
-		rc = vreg_enable(vreg_gp2);
+		rc = regulator_enable(vreg_gp2);
 		if (rc) {
-			printk(KERN_ERR "%s: GP2 enable failed (%d)\n",
-				 __func__, rc);
+			pr_err("%s: could not enable regulator: %d\n",
+					__func__, rc);
+			goto cam_vreg2_fail;
 		}
 
-		rc = vreg_enable(vreg_gp3);
+		rc = regulator_enable(vreg_gp3);
 		if (rc) {
-			printk(KERN_ERR "%s: GP3 enable failed (%d)\n",
-				__func__, rc);
+			pr_err("%s: could not enable regulator: %d\n",
+					__func__, rc);
+			goto vreg_gp3_fail;
 		}
 	} else {
-		rc = vreg_disable(vreg_gp2);
+		rc = regulator_disable(vreg_gp2);
 		if (rc) {
-			printk(KERN_ERR "%s: GP2 disable failed (%d)\n",
-				 __func__, rc);
+			pr_err("%s: could not disable regulator: %d\n",
+					__func__, rc);
+			return;
 		}
 
-		rc = vreg_disable(vreg_gp3);
+		rc = regulator_disable(vreg_gp3);
 		if (rc) {
-			printk(KERN_ERR "%s: GP3 disable failed (%d)\n",
-				__func__, rc);
+			pr_err("%s: could not disable regulator: %d\n",
+					__func__, rc);
+			goto cam_vreg2_fail;
 		}
 	}
+
+	return;
+
+vreg_gp3_fail:
+	if (vreg_en)
+		regulator_disable(vreg_gp2);
+
+cam_vreg2_fail:
+	regulator_put(vreg_gp3);
+cam_vreg_fail:
+	regulator_put(vreg_gp2);
+	vreg_gp3 = NULL;
+	vreg_gp2 = NULL;
 }
 
 static int config_camera_on_gpios(void)
@@ -1262,7 +1350,7 @@ void msm_serial_debug_init(unsigned int base, int irq,
 	|| defined(CONFIG_MMC_MSM_SDC4_SUPPORT))
 
 static unsigned long vreg_sts, gpio_sts;
-static struct vreg *vreg_mmc;
+static struct regulator *vreg_mmc;
 static unsigned mpp_mmc = 2;
 
 struct sdcc_gpio {
@@ -1385,10 +1473,11 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 				     MPP_CFG(MPP_DLOGIC_LVL_MSMP,
 				     MPP_DLOGIC_OUT_CTRL_LOW));
 			} else
-				rc = vreg_disable(vreg_mmc);
-			if (rc)
-				printk(KERN_ERR "%s: return val: %d \n",
+				rc = regulator_disable(vreg_mmc);
+			if (rc) {
+				pr_err("%s: return val: %d\n",
 					__func__, rc);
+			}
 		}
 		return 0;
 	}
@@ -1399,13 +1488,14 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 			     MPP_CFG(MPP_DLOGIC_LVL_MSMP,
 			     MPP_DLOGIC_OUT_CTRL_HIGH));
 		} else {
-			rc = vreg_set_level(vreg_mmc, 2850);
+			rc = regulator_set_voltage(vreg_mmc, 2850000, 2850000);
 			if (!rc)
-				rc = vreg_enable(vreg_mmc);
+				rc = regulator_enable(vreg_mmc);
 		}
-		if (rc)
-			printk(KERN_ERR "%s: return val: %d \n",
+		if (rc) {
+			pr_err("%s: return val: %d\n",
 					__func__, rc);
+		}
 	}
 	set_bit(pdev->id, &vreg_sts);
 	return 0;
@@ -1465,11 +1555,10 @@ static struct mmc_platform_data msm7x2x_sdc4_data = {
 static void __init msm7x2x_init_mmc(void)
 {
 	if (!machine_is_msm7x25_ffa() && !machine_is_msm7x27_ffa()) {
-		vreg_mmc = vreg_get(NULL, "mmc");
+		vreg_mmc = regulator_get(NULL, "mmc");
 		if (IS_ERR(vreg_mmc)) {
-			printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-			       __func__, PTR_ERR(vreg_mmc));
-			return;
+			pr_err("%s: could not get regulator: %ld\n",
+					__func__, PTR_ERR(vreg_mmc));
 		}
 	}
 
