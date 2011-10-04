@@ -82,6 +82,13 @@ static void idlestats_idle(struct kgsl_device *device,
 	msm_idle_stats_idle_start(&priv->idledev);
 }
 
+static void idlestats_sleep(struct kgsl_device *device,
+			struct kgsl_pwrscale *pwrscale)
+{
+	struct idlestats_priv *priv = pwrscale->priv;
+	priv->idledev.stats->event |= MSM_IDLE_STATS_EVENT_IDLE_TIMER_EXPIRED;
+}
+
 static int idlestats_init(struct kgsl_device *device,
 		     struct kgsl_pwrscale *pwrscale)
 {
@@ -130,5 +137,6 @@ struct kgsl_pwrscale_policy kgsl_pwrscale_policy_idlestats = {
 	.init = idlestats_init,
 	.idle = idlestats_idle,
 	.busy = idlestats_busy,
+	.sleep = idlestats_sleep,
 	.close = idlestats_close
 };
