@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include "ion_priv.h"
+#include <mach/memory.h>
 
 static int ion_system_heap_allocate(struct ion_heap *heap,
 				     struct ion_buffer *buffer,
@@ -103,6 +104,51 @@ int ion_system_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 }
 
+int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
+			void *vaddr, unsigned int offset, unsigned int length,
+			unsigned int cmd)
+{
+	unsigned long vstart, pstart;
+	void *vtemp;
+	unsigned long ln = 0;
+	void (*op)(unsigned long, unsigned long, unsigned long);
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		op = clean_caches;
+		break;
+	case ION_IOC_INV_CACHES:
+		op = invalidate_caches;
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		op = clean_and_invalidate_caches;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (vtemp = buffer->priv_virt + offset,
+	     vstart = (unsigned long) vaddr;
+			ln < length;
+			vtemp += PAGE_SIZE, ln += PAGE_SIZE,
+			vstart += PAGE_SIZE) {
+		pstart = page_to_phys(vmalloc_to_page(vtemp));
+		/*
+		 * If vmalloc -> page -> phys is returning NULL, something
+		 * has really gone wrong...
+		 */
+		if (!pstart) {
+			WARN(1, "Could not translate %p to physical address\n",
+				vtemp);
+			return -EINVAL;
+		}
+
+		op(vstart, PAGE_SIZE, pstart);
+	}
+
+	return 0;
+}
+
 static struct ion_heap_ops vmalloc_ops = {
 	.allocate = ion_system_heap_allocate,
 	.free = ion_system_heap_free,
@@ -111,6 +157,7 @@ static struct ion_heap_ops vmalloc_ops = {
 	.map_kernel = ion_system_heap_map_kernel,
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_heap_map_user,
+	.cache_op = ion_system_heap_cache_ops,
 };
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
@@ -186,6 +233,39 @@ int ion_system_contig_heap_map_user(struct ion_heap *heap,
 	}
 }
 
+int ion_system_contig_heap_cache_ops(struct ion_heap *heap,
+			struct ion_buffer *buffer, void *vaddr,
+			unsigned int offset, unsigned int length,
+			unsigned int cmd)
+{
+	unsigned long vstart, pstart;
+
+	pstart = virt_to_phys(buffer->priv_virt) + offset;
+	if (!pstart) {
+		WARN(1, "Could not do virt to phys translation on %p\n",
+			buffer->priv_virt);
+		return -EINVAL;
+	}
+
+	vstart = (unsigned long) vaddr;
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		clean_caches(vstart, length, pstart);
+		break;
+	case ION_IOC_INV_CACHES:
+		invalidate_caches(vstart, length, pstart);
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		clean_and_invalidate_caches(vstart, length, pstart);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct ion_heap_ops kmalloc_ops = {
 	.allocate = ion_system_contig_heap_allocate,
 	.free = ion_system_contig_heap_free,
@@ -195,6 +275,7 @@ static struct ion_heap_ops kmalloc_ops = {
 	.map_kernel = ion_system_heap_map_kernel,
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
+	.cache_op = ion_system_contig_heap_cache_ops,
 };
 
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *unused)

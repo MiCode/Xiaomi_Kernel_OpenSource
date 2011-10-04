@@ -587,6 +587,80 @@ end:
 	return handle;
 }
 
+static int check_vaddr_bounds(unsigned long start, unsigned long end)
+{
+	struct mm_struct *mm = current->active_mm;
+	struct vm_area_struct *vma;
+	int ret = 1;
+
+	if (end < start)
+		goto out;
+
+	down_read(&mm->mmap_sem);
+	vma = find_vma(mm, start);
+	if (vma && vma->vm_start < end) {
+		if (start < vma->vm_start)
+			goto out_up;
+		if (end > vma->vm_end)
+			goto out_up;
+		ret = 0;
+	}
+
+out_up:
+	up_read(&mm->mmap_sem);
+out:
+	return ret;
+}
+
+int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+			void *uaddr, unsigned long offset, unsigned long len,
+			unsigned int cmd)
+{
+	struct ion_buffer *buffer;
+	unsigned long start, end;
+	int ret = -EINVAL;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to do_cache_op.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+	buffer = handle->buffer;
+	mutex_lock(&buffer->lock);
+
+	if (ION_IS_CACHED(buffer->flags)) {
+		ret = 0;
+		goto out;
+	}
+
+	if (!handle->buffer->heap->ops->cache_op) {
+		pr_err("%s: cache_op is not implemented by this heap.\n",
+		       __func__);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	start = (unsigned long) uaddr;
+	end = (unsigned long) uaddr + len;
+
+	if (check_vaddr_bounds(start, end)) {
+		pr_err("%s: virtual address %p is out of bounds\n",
+			__func__, uaddr);
+		goto out;
+	}
+
+	ret = buffer->heap->ops->cache_op(buffer->heap, buffer, uaddr,
+						offset, len, cmd);
+
+out:
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+	return ret;
+
+}
+
 static const struct file_operations ion_share_fops;
 
 struct ion_handle *ion_import_fd(struct ion_client *client, int fd)
@@ -1074,6 +1148,20 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				sizeof(struct ion_custom_data)))
 			return -EFAULT;
 		return dev->custom_ioctl(client, data.cmd, data.arg);
+	}
+	case ION_IOC_CLEAN_CACHES:
+	case ION_IOC_INV_CACHES:
+	case ION_IOC_CLEAN_INV_CACHES:
+	{
+		struct ion_flush_data data;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(struct ion_flush_data)))
+			return -EFAULT;
+
+		return ion_do_cache_op(client, data.handle, data.vaddr,
+					data.offset, data.length, cmd);
+
 	}
 	default:
 		return -ENOTTY;
