@@ -88,6 +88,9 @@ struct ion_heap_ops {
 	void (*unmap_kernel) (struct ion_heap *heap, struct ion_buffer *buffer);
 	int (*map_user) (struct ion_heap *mapper, struct ion_buffer *buffer,
 			 struct vm_area_struct *vma);
+	int (*cache_op)(struct ion_heap *heap, struct ion_buffer *buffer,
+			void *vaddr, unsigned int offset,
+			unsigned int length, unsigned int cmd);
 };
 
 /**
