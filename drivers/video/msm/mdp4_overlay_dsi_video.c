@@ -555,6 +555,10 @@ void mdp4_dma_p_done_dsi_video(void)
 void mdp4_overlay0_done_dsi_video(struct mdp_dma_data *dma)
 {
 	spin_lock(&mdp_spin_lock);
+	if (dsi_pipe->blt_addr == 0) {
+		spin_unlock(&mdp_spin_lock);
+		return;
+	}
 	dma->busy = FALSE;
 	mdp4_dsi_video_blt_dmap_update(dsi_pipe);
 	dsi_pipe->dmap_cnt++;
