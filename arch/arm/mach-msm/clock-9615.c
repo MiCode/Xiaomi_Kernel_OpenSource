@@ -27,6 +27,7 @@
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/rpm-9615.h>
+#include <mach/rpm-regulator.h>
 
 #include "clock-local.h"
 #include "clock-voter.h"
@@ -290,17 +291,14 @@ static struct pll_vote_clk pll14_clk = {
 /* Update the sys_vdd voltage given a level. */
 static int msm9615_update_sys_vdd(enum sys_vdd_level level)
 {
-	/* TODO: Implement when rpm-regulator is ready.
 	static const int vdd_uv[] = {
-		[NONE...LOW] =  945000,
-		[NOMINAL]    = 1050000,
+		[NONE...LOW] = 1150000,
+		[NOMINAL]    = 1150000,
 		[HIGH]       = 1150000,
 	};
 
-	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S3, RPM_VREG_VOTER3,
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER3,
 				    vdd_uv[level], vdd_uv[HIGH], 1);
-	*/
-	return 0;
 }
 
 static int soc_clk_reset(struct clk *clk, enum clk_reset_action action)

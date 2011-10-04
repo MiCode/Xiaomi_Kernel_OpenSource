@@ -29,6 +29,7 @@
 #include "board-9615.h"
 #include "cpuidle.h"
 #include "pm.h"
+#include "acpuclock.h"
 
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
 	.irq_base		= PM8018_IRQ_BASE,
@@ -562,6 +563,9 @@ static void __init msm9615_common_init(void)
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+
+	msm_clock_init(&msm9615_clock_init_data);
+	acpuclk_init(&acpuclk_9615_soc_data);
 
 	msm9615_init_mmc();
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));

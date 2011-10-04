@@ -30,7 +30,6 @@
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
 #include "devices.h"
-#include "acpuclock.h"
 #include "mpm.h"
 #include "spm.h"
 #include "pm.h"
@@ -791,8 +790,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 void __init msm9615_device_init(void)
 {
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
-	msm_clock_init(&msm9615_clock_init_data);
-	acpuclk_init(&acpuclk_9615_soc_data);
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
 			ARRAY_SIZE(msm_rpmrs_levels)));
