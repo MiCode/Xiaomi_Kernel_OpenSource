@@ -837,6 +837,12 @@ static int adreno_getproperty(struct kgsl_device *device,
 	return status;
 }
 
+static inline void adreno_poke(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	adreno_regwrite(device, REG_CP_RB_WPTR, adreno_dev->ringbuffer.wptr);
+}
+
 /* Caller must hold the device mutex. */
 int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 {
@@ -855,6 +861,7 @@ int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 retry:
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		do {
+			adreno_poke(device);
 			GSL_RB_GET_READPTR(rb, &rb->rptr);
 			if (time_after(jiffies, wait_time)) {
 				KGSL_DRV_ERR(device, "rptr: %x, wptr: %x\n",
@@ -1083,6 +1090,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	static uint io_cnt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int retries;
+	unsigned int msecs_first;
+	unsigned int msecs_part;
 
 	/* Don't wait forever, set a max value for now */
 	if (msecs == -1)
@@ -1097,42 +1107,58 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		status = -EINVAL;
 		goto done;
 	}
-	if (!kgsl_check_timestamp(device, timestamp)) {
-		io_cnt = (io_cnt + 1) % 100;
-		if (io_cnt < pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
-			io = 0;
-		mutex_unlock(&device->mutex);
-		/* We need to make sure that the process is placed in wait-q
-		 * before its condition is called */
-		status = kgsl_wait_event_interruptible_timeout(
-				device->wait_queue,
-				kgsl_check_interrupt_timestamp(device,
-					timestamp),
-				msecs_to_jiffies(msecs), io);
-		mutex_lock(&device->mutex);
 
-		if (status > 0)
-			status = 0;
-		else if (status == 0) {
-			if (!kgsl_check_timestamp(device, timestamp)) {
-				status = -ETIMEDOUT;
-				KGSL_DRV_ERR(device,
-					"Device hang detected while waiting "
-					"for timestamp: %x, last "
-					"submitted(rb->timestamp): %x, wptr: "
-					"%x\n", timestamp,
-					adreno_dev->ringbuffer.timestamp,
-					adreno_dev->ringbuffer.wptr);
-				if (!adreno_dump_and_recover(device)) {
-					/* wait for idle after recovery as the
-					 * timestamp that this process wanted
-					 * to wait on may be invalid */
-					if (!adreno_idle(device,
-						KGSL_TIMEOUT_DEFAULT))
-						status = 0;
-				}
+	/* Keep the first timeout as 100msecs before rewriting
+	 * the WPTR. Less visible impact if the WPTR has not
+	 * been updated properly.
+	 */
+	msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
+	msecs_part = (msecs - msecs_first + 3) / 4;
+	for (retries = 0; retries < 5; retries++) {
+		if (!kgsl_check_timestamp(device, timestamp)) {
+			adreno_poke(device);
+			io_cnt = (io_cnt + 1) % 100;
+			if (io_cnt <
+				pwr->pwrlevels[pwr->active_pwrlevel].
+					io_fraction)
+				io = 0;
+			mutex_unlock(&device->mutex);
+			/* We need to make sure that the process is
+			 * placed in wait-q before its condition is called
+			 */
+			status = kgsl_wait_event_interruptible_timeout(
+					device->wait_queue,
+					kgsl_check_interrupt_timestamp(device,
+						timestamp),
+					msecs_to_jiffies(retries ?
+						msecs_part : msecs_first), io);
+			mutex_lock(&device->mutex);
+
+			if (status > 0) {
+				status = 0;
+				goto done;
 			}
 		}
+	}
+	if (!kgsl_check_timestamp(device, timestamp)) {
+		status = -ETIMEDOUT;
+		KGSL_DRV_ERR(device,
+			"Device hang detected while waiting "
+			"for timestamp: %x, last "
+			"submitted(rb->timestamp): %x, wptr: "
+			"%x\n", timestamp,
+			adreno_dev->ringbuffer.timestamp,
+			adreno_dev->ringbuffer.wptr);
+		if (!adreno_dump_and_recover(device)) {
+			/* wait for idle after recovery as the
+			 * timestamp that this process wanted
+			 * to wait on may be invalid */
+			if (!adreno_idle(device,
+				KGSL_TIMEOUT_DEFAULT))
+				status = 0;
+		}
+	} else {
+		status = 0;
 	}
 
 done:
