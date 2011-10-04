@@ -2087,6 +2087,8 @@ static void kgsl_core_exit(void)
 
 	kgsl_drm_exit();
 	kgsl_cffdump_destroy();
+	kgsl_core_debugfs_close();
+	kgsl_sharedmem_uninit_sysfs();
 }
 
 static int __init kgsl_core_init(void)

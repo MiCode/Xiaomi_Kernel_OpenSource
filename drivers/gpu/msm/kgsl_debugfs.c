@@ -80,3 +80,8 @@ void kgsl_core_debugfs_init(void)
 {
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", 0);
 }
+
+void kgsl_core_debugfs_close(void)
+{
+	debugfs_remove_recursive(kgsl_debugfs_dir);
+}

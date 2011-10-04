@@ -18,6 +18,8 @@ struct kgsl_device;
 
 #ifdef CONFIG_DEBUG_FS
 void kgsl_core_debugfs_init(void);
+void kgsl_core_debugfs_close(void);
+
 void kgsl_device_debugfs_init(struct kgsl_device *device);
 
 extern struct dentry *kgsl_debugfs_dir;
@@ -29,7 +31,7 @@ static inline struct dentry *kgsl_get_debugfs_dir(void)
 #else
 static inline void kgsl_core_debugfs_init(void) { }
 static inline void kgsl_device_debugfs_init(struct kgsl_device *device) { }
-
+static inline void kgsl_core_debugfs_close(void) { }
 static inline struct dentry *kgsl_get_debugfs_dir(void) { return NULL; }
 
 #endif
