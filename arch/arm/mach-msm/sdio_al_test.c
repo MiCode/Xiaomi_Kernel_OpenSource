@@ -2721,7 +2721,8 @@ static int wait_for_result_msg(struct test_channel *test_ch)
 			continue;
 		} else {
 			pr_info(TEST_MODULE_NAME ": Signature is "
-				"TEST_CONFIG_SIGNATURE as expected\n");
+				"TEST_CONFIG_SIGNATURE as expected for"
+				"channel %s\n", test_ch->name);
 			break;
 		}
 	}
@@ -2732,20 +2733,13 @@ exit_err:
 	return 0;
 }
 
-static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
+static void print_random_lpm_test_array(struct sdio_test_device *test_dev)
 {
-	int i = 0, j = 0;
-	unsigned int delta_ms = 0;
-	int arr_ind = 0;
-	int ret = 1;
-	int notify_counter = 0;
-	int sleep_counter = 0;
-	int wakeup_counter = 0;
-	int lpm_activity_counter = 0;
+	int i;
 
 	if (!test_dev) {
 		pr_err(TEST_MODULE_NAME ": %s - NULL test device\n", __func__);
-		return -ENODEV;
+		return;
 	}
 
 	for (i = 0 ; i < test_dev->next_avail_entry_in_array ; ++i) {
@@ -2773,6 +2767,25 @@ static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
 			       test_dev->lpm_arr[i-1].current_ms,
 			       test_dev->lpm_arr[i].read_avail_mask,
 			       test_dev->lpm_arr[i].current_ms);
+
+		udelay(1000);
+	}
+}
+
+static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
+{
+	int i = 0, j = 0;
+	unsigned int delta_ms = 0;
+	int arr_ind = 0;
+	int ret = 0;
+	int notify_counter = 0;
+	int sleep_counter = 0;
+	int wakeup_counter = 0;
+	int lpm_activity_counter = 0;
+
+	if (!test_dev) {
+		pr_err(TEST_MODULE_NAME ": %s - NULL test device\n", __func__);
+		return -ENODEV;
 	}
 
 	for (i = 0; i < test_dev->next_avail_entry_in_array; i++) {
@@ -2800,7 +2813,7 @@ static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
 					wakeup_counter++;
 			}
 			if (j == arr_ind) {
-				ret = 1;
+				ret = 0;
 				break;
 			}
 
@@ -2818,7 +2831,7 @@ static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
 						"wakeup_counter=%d",
 					       __func__, i, j,
 					       sleep_counter, wakeup_counter);
-					ret = 0;
+					ret = -ENODEV;
 					break;
 				}
 			} else {
@@ -2837,7 +2850,7 @@ static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
 						       "=%d",
 						       __func__, i, j,
 						       notify_counter);
-						ret = 0;
+						ret = -ENODEV;
 						break;
 					}
 					lpm_activity_counter++;
@@ -2999,6 +3012,10 @@ static int lpm_test_main_task(void *ptr)
 		msleep(60);
 	}
 
+	/*
+	 * if device has still open channels to test, then the test on the
+	 * device is still running but the test on current channel is completed
+	 */
 	if (test_dev->open_channels_counter_to_recv != 0 ||
 	    test_dev->open_channels_counter_to_send != 0) {
 		test_ch->test_completed = 1;
@@ -3011,12 +3028,17 @@ static int lpm_test_main_task(void *ptr)
 		if (test_ch->test_type == SDIO_TEST_LPM_RANDOM)
 			host_result = check_random_lpm_test_array(test_dev);
 
-		pr_info(TEST_MODULE_NAME ": %s - host_result=%d. "
-			"device_modem_result=%d",
+		if (host_result ||
+		    !test_dev->modem_result_per_dev ||
+		    test_ctx->runtime_debug)
+			print_random_lpm_test_array(test_dev);
+
+		pr_info(TEST_MODULE_NAME ": %s - host_result=%d.(0 for "
+			"SUCCESS) device_modem_result=%d (1 for SUCCESS)",
 			__func__, host_result, test_dev->modem_result_per_dev);
 
 		test_ch->test_completed = 1;
-		if (test_dev->modem_result_per_dev && host_result) {
+		if (test_dev->modem_result_per_dev && !host_result) {
 			pr_info(TEST_MODULE_NAME ": %s - Random LPM "
 				"TEST_PASSED for device %d of %d\n",
 				__func__,
