@@ -953,7 +953,8 @@ EXPORT_SYMBOL_GPL(slim_xfer_msg);
 int slim_alloc_mgrports(struct slim_device *sb, enum slim_port_req req,
 				int nports, u32 *rh, int hsz)
 {
-	int i, j, ret;
+	int i, j;
+	int ret = -EINVAL;
 	int nphysp = nports;
 	struct slim_controller *ctrl = sb->ctrl;
 
