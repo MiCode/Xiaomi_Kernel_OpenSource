@@ -41,6 +41,7 @@ struct f_rmnet {
 	int				ifc_id;
 	u8				port_num;
 	atomic_t			online;
+	atomic_t			ctrl_online;
 	struct usb_composite_dev	*cdev;
 
 	spinlock_t			lock;
@@ -297,12 +298,25 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
+	unsigned long flags;
+	struct rmnet_ctrl_pkt *cpkt;
 
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
 	usb_ep_disable(dev->notify);
 
 	atomic_set(&dev->online, 0);
+
+	spin_lock_irqsave(&dev->lock, flags);
+	while (!list_empty(&dev->cpkt_resp_q)) {
+		cpkt = list_first_entry(&dev->cpkt_resp_q,
+				struct rmnet_ctrl_pkt, list);
+
+		list_del(&cpkt->list);
+		rmnet_free_ctrl_pkt(cpkt);
+	}
+	atomic_set(&dev->notify_count, 0);
+	spin_unlock_irqrestore(&dev->lock, flags);
 
 	gport_rmnet_disconnect(dev);
 }
@@ -384,6 +398,73 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 	}
 }
 
+static void frmnet_connect(struct grmnet *gr)
+{
+	struct f_rmnet			*dev;
+
+	if (!gr) {
+		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		return;
+	}
+
+	dev = port_to_rmnet(gr);
+
+	atomic_set(&dev->ctrl_online, 1);
+}
+
+static void frmnet_disconnect(struct grmnet *gr)
+{
+	struct f_rmnet			*dev;
+	unsigned long			flags;
+	struct usb_cdc_notification	*event;
+	int				status;
+	struct rmnet_ctrl_pkt		*cpkt;
+
+	if (!gr) {
+		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		return;
+	}
+
+	dev = port_to_rmnet(gr);
+
+	atomic_set(&dev->ctrl_online, 0);
+
+	if (!atomic_read(&dev->online)) {
+		pr_debug("%s: nothing to do\n", __func__);
+		return;
+	}
+
+	usb_ep_fifo_flush(dev->notify);
+
+	event = dev->notify_req->buf;
+	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
+			| USB_RECIP_INTERFACE;
+	event->bNotificationType = USB_CDC_NOTIFY_NETWORK_CONNECTION;
+	event->wValue = cpu_to_le16(0);
+	event->wIndex = cpu_to_le16(dev->ifc_id);
+	event->wLength = cpu_to_le16(0);
+
+	status = usb_ep_queue(dev->notify, dev->notify_req, GFP_KERNEL);
+	if (status < 0) {
+		if (!atomic_read(&dev->online))
+			return;
+		pr_err("%s: rmnet notify ep enqueue error %d\n",
+				__func__, status);
+	}
+
+	spin_lock_irqsave(&dev->lock, flags);
+	while (!list_empty(&dev->cpkt_resp_q)) {
+		cpkt = list_first_entry(&dev->cpkt_resp_q,
+				struct rmnet_ctrl_pkt, list);
+
+		list_del(&cpkt->list);
+		rmnet_free_ctrl_pkt(cpkt);
+	}
+	atomic_set(&dev->notify_count, 0);
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+}
+
 static int
 frmnet_send_cpkt_response(struct grmnet *gr, struct rmnet_ctrl_pkt *cpkt)
 {
@@ -400,7 +481,7 @@ frmnet_send_cpkt_response(struct grmnet *gr, struct rmnet_ctrl_pkt *cpkt)
 
 	pr_debug("%s: dev:%p port#%d\n", __func__, dev, dev->port_num);
 
-	if (!atomic_read(&dev->online)) {
+	if (!atomic_read(&dev->online) || !atomic_read(&dev->ctrl_online)) {
 		rmnet_free_ctrl_pkt(cpkt);
 		return 0;
 	}
@@ -459,6 +540,9 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_err("rmnet notify ep error %d\n", status);
 		/* FALLTHROUGH */
 	case 0:
+		if (!atomic_read(&dev->ctrl_online))
+			break;
+
 		if (atomic_dec_and_test(&dev->notify_count))
 			break;
 
@@ -706,6 +790,8 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	f->set_alt = frmnet_set_alt;
 	f->setup = frmnet_setup;
 	dev->port.send_cpkt_response = frmnet_send_cpkt_response;
+	dev->port.disconnect = frmnet_disconnect;
+	dev->port.connect = frmnet_connect;
 
 	status = usb_add_function(c, f);
 	if (status) {

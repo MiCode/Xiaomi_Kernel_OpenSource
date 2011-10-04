@@ -273,6 +273,8 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 {
 	struct rmnet_ctrl_port	*port = p;
 	struct smd_ch_info	*c = &port->ctrl_ch;
+	struct rmnet_ctrl_pkt	*cpkt;
+	unsigned long		flags;
 
 	pr_debug("%s: EVENT_(%s)\n", __func__, get_smd_event(event));
 
@@ -285,10 +287,27 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 		break;
 	case SMD_EVENT_OPEN:
 		set_bit(CH_OPENED, &c->flags);
-		wake_up(&c->wait);
+
+		if (port && port->port_usb && port->port_usb->connect)
+			port->port_usb->connect(port->port_usb);
+
 		break;
 	case SMD_EVENT_CLOSE:
 		clear_bit(CH_OPENED, &c->flags);
+
+		if (port && port->port_usb && port->port_usb->disconnect)
+			port->port_usb->disconnect(port->port_usb);
+
+		spin_lock_irqsave(&port->port_lock, flags);
+		while (!list_empty(&c->tx_q)) {
+			cpkt = list_first_entry(&c->tx_q,
+					struct rmnet_ctrl_pkt, list);
+
+			list_del(&cpkt->list);
+			free_rmnet_ctrl_pkt(cpkt);
+		}
+		spin_unlock_irqrestore(&port->port_lock, flags);
+
 		break;
 	}
 }
@@ -357,6 +376,7 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	struct rmnet_ctrl_port	*port;
 	unsigned long		flags;
 	struct smd_ch_info	*c;
+	struct rmnet_ctrl_pkt	*cpkt;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
 
@@ -378,6 +398,14 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	gr->send_cpkt_request = 0;
 	gr->send_cbits_tomodem = 0;
 	c->cbits_tomodem = 0;
+
+	while (!list_empty(&c->tx_q)) {
+		cpkt = list_first_entry(&c->tx_q, struct rmnet_ctrl_pkt, list);
+
+		list_del(&cpkt->list);
+		free_rmnet_ctrl_pkt(cpkt);
+	}
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (test_bit(CH_OPENED, &c->flags)) {
