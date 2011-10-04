@@ -447,11 +447,8 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"DMIC5", NULL, "MIC BIAS4 External"},
 	{"MIC BIAS4 External", NULL, "Digital Mic5"},
 
-};
-
-static const struct snd_soc_dapm_route cdp_audio_map[] = {
-	/** Digital Mic GM4 on CDP mainboard.
-	 * Connected to DMIC6 input on Tabla codec.
+	/* Tabla digital Mic6 - back bottom digital Mic on Liquid and
+	 * bottom mic on CDP. FLUID/MTP do not have dmic6 installed.
 	 */
 	{"DMIC6", NULL, "MIC BIAS4 External"},
 	{"MIC BIAS4 External", NULL, "Digital Mic6"},
@@ -583,16 +580,6 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
-
-	if (machine_is_msm8960_cdp())
-		snd_soc_dapm_add_routes(dapm, cdp_audio_map,
-			ARRAY_SIZE(cdp_audio_map));
-	else if (machine_is_msm8960_mtp())
-		snd_soc_dapm_add_routes(dapm, cdp_audio_map,
-			ARRAY_SIZE(cdp_audio_map));
-	else if (machine_is_msm8960_fluid())
-		snd_soc_dapm_add_routes(dapm, cdp_audio_map,
-			ARRAY_SIZE(cdp_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk");
 
