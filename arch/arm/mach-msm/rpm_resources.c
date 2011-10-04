@@ -914,9 +914,9 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 		} else if ((sleep_us >> 10) > level->time_overhead_us) {
 			power = level->steady_state_power;
 		} else {
-			power = (sleep_us - level->time_overhead_us);
-			power *= level->steady_state_power;
-			power /= sleep_us;
+			power = level->steady_state_power;
+			power -= (level->time_overhead_us *
+					level->steady_state_power)/sleep_us;
 			power += level->energy_overhead / sleep_us;
 		}
 
