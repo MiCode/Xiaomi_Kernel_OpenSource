@@ -41,14 +41,22 @@ static int msm_mctl_pp_buf_divert(
 			struct msm_cam_evt_divert_frame *div)
 {
 	struct v4l2_event v4l2_evt;
-
+	struct msm_isp_event_ctrl *isp_event;
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl),
+						GFP_KERNEL);
+	if (!isp_event) {
+		pr_err("%s Insufficient memory. return", __func__);
+		return -ENOMEM;
+	}
 	D("%s: msm_cam_evt_divert_frame=%d",
 		   __func__, sizeof(struct msm_cam_evt_divert_frame));
 	memset(&v4l2_evt, 0, sizeof(v4l2_evt));
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			MSM_CAM_RESP_DIV_FRAME_EVT_MSG;
-	memcpy(&v4l2_evt.u.data[0], div,
-			sizeof(struct msm_cam_evt_divert_frame));
+	*((uint32_t *)v4l2_evt.u.data) = (uint32_t)isp_event;
+	/* Copy the divert frame struct into event ctrl struct. */
+	isp_event->isp_data.div_frame = *div;
+
 	D("%s inst=%p, img_mode=%d, frame_id=%d,phy=0x%x,len=%d\n",
 		__func__, pcam_inst, pcam_inst->image_mode, div->frame_id,
 		(uint32_t)div->phy_addr, div->length);
@@ -563,7 +571,7 @@ int msm_mctl_pp_notify(struct msm_cam_media_controller *p_mctl,
 				pp_frame_info->dest_frame.handle;
 			msm_mctl_buf_done_pp(
 				p_mctl, msg_type, &done_frame, 0);
-			pr_err("%s: vpe done to app, vb=0x%x, path=%d, phy=0x%x",
+			pr_info("%s: vpe done to app, vb=0x%x, path=%d, phy=0x%x",
 				__func__, done_frame.vb,
 				pp_frame_cmd->path, done_frame.ch_paddr[0]);
 		}
@@ -571,21 +579,31 @@ int msm_mctl_pp_notify(struct msm_cam_media_controller *p_mctl,
 			pp_frame_cmd->vpe_output_action)) {
 			struct v4l2_event v4l2_evt;
 			struct msm_mctl_pp_event_info *pp_event_info;
+			struct msm_isp_event_ctrl *isp_event;
+			isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl),
+								GFP_KERNEL);
+			if (!isp_event) {
+				pr_err("%s Insufficient memory.", __func__);
+				return -ENOMEM;
+			}
 			memset(&v4l2_evt, 0, sizeof(v4l2_evt));
-			pp_event_info =
-				(struct msm_mctl_pp_event_info *)v4l2_evt.
-					u.data;
+			*((uint32_t *)v4l2_evt.u.data) = (uint32_t)isp_event;
+
+			/* Get hold of pp event info struct inside event ctrl.*/
+			pp_event_info = &(isp_event->isp_data.pp_event_info);
+
 			pp_event_info->event = MCTL_PP_EVENT_CMD_ACK;
 			pp_event_info->ack.cmd = pp_frame_info->user_cmd;
 			pp_event_info->ack.status = 0;
 			pp_event_info->ack.cookie = pp_frame_cmd->cookie;
 			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 						MSM_CAM_RESP_MCTL_PP_EVENT;
+
 			v4l2_event_queue(
 				p_mctl->config_device->
 					config_stat_event_queue.pvdev,
 				&v4l2_evt);
-			pr_err("%s: ack to daemon, cookie=0x%x, event = 0x%x",
+			D("%s: ack to daemon, cookie=0x%x, event = 0x%x",
 				__func__, pp_frame_info->pp_frame_cmd.cookie,
 				v4l2_evt.type);
 		}
