@@ -974,6 +974,7 @@ static struct platform_device isp1763_device = {
 #endif
 
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM_72K)
+static struct msm_otg_platform_data msm_otg_pdata;
 static struct regulator *ldo6_3p3;
 static struct regulator *ldo7_1p8;
 static struct regulator *vdd_cx;
@@ -1062,8 +1063,10 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 		}
 		/* Notify the initial Id status */
 		pmic_id_detect(&pmic_id_det.work);
+		msm_otg_pdata.pmic_id_irq = PMICID_INT;
 	} else {
 		free_irq(PMICID_INT, 0);
+		msm_otg_pdata.pmic_id_irq = 0;
 		cancel_delayed_work_sync(&pmic_id_det);
 		notify_vbus_state_func_ptr = NULL;
 		ret = pm8901_mpp_config_digital_out(1,

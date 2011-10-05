@@ -126,6 +126,7 @@ struct msm_otg {
 
 	int			irq;
 	int			vbus_on_irq;
+	int			id_irq;
 	void __iomem		*regs;
 	atomic_t		in_lpm;
 	/* charger-type is modified by gadget for legacy chargers

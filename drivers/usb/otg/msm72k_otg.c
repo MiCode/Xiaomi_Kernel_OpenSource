@@ -742,6 +742,8 @@ static int msm_otg_suspend(struct msm_otg *dev)
 		enable_irq_wake(dev->irq);
 		if (dev->vbus_on_irq)
 			enable_irq_wake(dev->vbus_on_irq);
+		if (dev->id_irq)
+			enable_irq_wake(dev->id_irq);
 	}
 
 	msm_otg_vote_for_pclk_source(dev, 0);
@@ -810,6 +812,8 @@ static int msm_otg_resume(struct msm_otg *dev)
 		disable_irq_wake(dev->irq);
 		if (dev->vbus_on_irq)
 			disable_irq_wake(dev->vbus_on_irq);
+		if (dev->id_irq)
+			disable_irq_wake(dev->id_irq);
 	}
 
 	atomic_set(&dev->in_lpm, 0);
@@ -2683,6 +2687,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (dev->pdata->pmic_vbus_irq)
 		dev->vbus_on_irq = dev->pdata->pmic_vbus_irq;
+	if (dev->pdata->pmic_id_irq)
+		dev->id_irq = dev->pdata->pmic_id_irq;
 
 	/* vote for vddcx, as PHY cannot tolerate vddcx below 1.0V */
 	if (dev->pdata->init_vddcx) {
