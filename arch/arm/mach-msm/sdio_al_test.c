@@ -280,6 +280,8 @@ struct test_context {
 	u8 *smem_buf;
 	uint32_t smem_counter;
 
+	struct platform_device *ciq_app_pdev;
+
 	wait_queue_head_t   wait_q;
 	int test_completed;
 	int test_result;
@@ -5544,6 +5546,34 @@ static int sdio_test_channel_remove(struct platform_device *pdev)
 
 }
 
+static int sdio_test_channel_ciq_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if (!pdev)
+		return -ENODEV;
+
+	test_ctx->ciq_app_pdev = platform_device_alloc("SDIO_CIQ_TEST_APP", -1);
+	ret = platform_device_add(test_ctx->ciq_app_pdev);
+		if (ret) {
+			pr_err(MODULE_NAME ":platform_device_add failed, "
+					   "ret=%d\n", ret);
+			return ret;
+		}
+
+	return sdio_test_channel_probe(pdev);
+}
+
+static int sdio_test_channel_ciq_remove(struct platform_device *pdev)
+{
+	if (!pdev)
+		return -ENODEV;
+
+	platform_device_unregister(test_ctx->ciq_app_pdev);
+
+	return sdio_test_channel_remove(pdev);
+}
+
 static struct platform_driver sdio_rpc_drv = {
 	.probe		= sdio_test_channel_probe,
 	.remove		= sdio_test_channel_remove,
@@ -5599,8 +5629,8 @@ static struct platform_driver sdio_dun_drv = {
 };
 
 static struct platform_driver sdio_ciq_drv = {
-	.probe		= sdio_test_channel_probe,
-	.remove		= sdio_test_channel_remove,
+	.probe		= sdio_test_channel_ciq_probe,
+	.remove		= sdio_test_channel_ciq_remove,
 	.driver		= {
 		.name	= "SDIO_CIQ_TEST",
 		.owner	= THIS_MODULE,
