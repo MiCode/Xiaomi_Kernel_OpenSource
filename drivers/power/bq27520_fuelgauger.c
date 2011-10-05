@@ -458,6 +458,7 @@ static void bq27520_hw_config(struct work_struct *work)
 	 */
 	if_notify_msm_charger(&status);
 	update_current_battery_status(status);
+	msm_battery_gauge_register(&bq27520_batt_gauge);
 	msm_charger_notify_event(NULL, CHG_BATT_STATUS_CHANGE);
 
 	enable_irq(di->irq);
@@ -938,7 +939,6 @@ static int __init bq27520_battery_init(void)
 
 	/* initialize current_battery_status, and register with msm-charger */
 	init_battery_status();
-	msm_battery_gauge_register(&bq27520_batt_gauge);
 
 	ret = i2c_add_driver(&bq27520_battery_driver);
 	if (ret)
