@@ -678,7 +678,7 @@ static void vfe32_start_common(void)
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
 
-	msm_io_dump(vfe32_ctrl->vfebase, 0x740);
+	msm_io_dump(vfe32_ctrl->vfebase, 0x7B4);
 
 	/* Ensure the write order while writing
 	to the command register using the barrier */
@@ -1885,16 +1885,16 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		msm_io_memcpy(vfe32_ctrl->vfebase + V33_PCA_ROLL_OFF_CFG_OFF2,
 			cmdp_local, V33_PCA_ROLL_OFF_CFG_LEN2);
 
+		cmdp_local += 3;
 		CDBG("%s: start writing RollOff Ram0 table\n", __func__);
 		vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
-			msm_io_w(*cmdp_local,
+			msm_io_w(*(cmdp_local + 1),
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_HI);
-			cmdp_local++;
 			msm_io_w(*cmdp_local,
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
-			cmdp_local++;
+			cmdp_local += 2;
 		}
 		CDBG("%s: end writing RollOff Ram0 table\n", __func__);
 
@@ -1902,10 +1902,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
-			cmdp_local++;
 			msm_io_w(*cmdp_local,
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
-			cmdp_local++;
+			cmdp_local += 2;
 		}
 		CDBG("%s: end writing RollOff Ram1 table\n", __func__);
 
@@ -1941,12 +1940,11 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
-			msm_io_w(*cmdp_local,
+			msm_io_w(*(cmdp_local + 1),
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_HI);
-			cmdp_local++;
 			msm_io_w(*cmdp_local,
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
-			cmdp_local++;
+			cmdp_local += 2;
 		}
 		CDBG("%s: end writing RollOff Ram0 table\n", __func__);
 
@@ -1958,10 +1956,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
-			cmdp_local++;
 			msm_io_w(*cmdp_local,
 				vfe32_ctrl->vfebase + VFE33_DMI_DATA_LO);
-			cmdp_local++;
+			cmdp_local += 2;
 		}
 		CDBG("%s: end writing RollOff Ram1 table\n", __func__);
 
