@@ -74,22 +74,17 @@ struct bank_masks {
 	const struct bank_mask_info	bank1_mask;
 };
 
-#define F_RAW(f, sc, m_v, n_v, c_v, m_m, v, e) { \
+#define F_RAW(f, sc, m_v, n_v, c_v, m_m, e) { \
 	.freq_hz = f, \
 	.src_clk = sc, \
 	.md_val = m_v, \
 	.ns_val = n_v, \
 	.ctl_val = c_v, \
 	.mnd_en_mask = m_m, \
-	.sys_vdd = v, \
 	.extra_freq_data = e, \
 	}
 #define FREQ_END	(UINT_MAX-1)
-#define F_END \
-	{ \
-		.freq_hz = FREQ_END, \
-		.sys_vdd = LOW, \
-	}
+#define F_END { .freq_hz = FREQ_END }
 
 /**
  * struct branch - branch on/off
@@ -155,17 +150,6 @@ int rcg_clk_is_enabled(struct clk *clk);
 long rcg_clk_round_rate(struct clk *clk, unsigned rate);
 struct clk *rcg_clk_get_parent(struct clk *c);
 int rcg_clk_handoff(struct clk *c);
-
-/*
- * SYS_VDD voltage levels
- */
-enum sys_vdd_level {
-	NONE,
-	LOW,
-	NOMINAL,
-	HIGH,
-	NUM_SYS_VDD_LEVELS
-};
 
 /**
  * struct fixed_clk - fixed rate clock (used for crystal oscillators)
@@ -301,14 +285,7 @@ extern struct fixed_clk		gnd_clk;
 /*
  * Local-clock APIs
  */
-int local_vote_sys_vdd(enum sys_vdd_level level);
-int local_unvote_sys_vdd(enum sys_vdd_level level);
 bool local_clk_is_local(struct clk *clk);
-
-/*
- * Required SoC-specific functions, implemented for every supported SoC
- */
-extern int (*soc_update_sys_vdd)(enum sys_vdd_level level);
 
 /*
  * Generic set-rate implementations

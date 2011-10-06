@@ -33,6 +33,32 @@
 #define CLKFLAG_MIN			0x00000400
 #define CLKFLAG_MAX			0x00000800
 
+#define MAX_VDD_LEVELS			4
+
+/**
+ * struct clk_vdd_class - Voltage scaling class
+ * @class_name: name of the class
+ * @set_vdd: function to call when applying a new voltage setting
+ * @level_votes: array of votes for each level
+ * @cur_level: the currently set voltage level
+ * @lock: lock to protect this struct
+ */
+struct clk_vdd_class {
+	const char *class_name;
+	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
+	int level_votes[MAX_VDD_LEVELS];
+	unsigned cur_level;
+	spinlock_t lock;
+};
+
+#define DEFINE_VDD_CLASS(_name, _set_vdd) \
+	struct clk_vdd_class _name = { \
+		.class_name = #_name, \
+		.set_vdd = _set_vdd, \
+		.cur_level = ARRAY_SIZE(_name.level_votes), \
+		.lock = __SPIN_LOCK_UNLOCKED(lock) \
+	}
+
 struct clk_ops {
 	int (*enable)(struct clk *clk);
 	void (*disable)(struct clk *clk);
@@ -57,12 +83,16 @@ struct clk_ops {
  * @count: enable refcount
  * @lock: protects clk_enable()/clk_disable() path and @count
  * @depends: non-direct parent of clock to enable when this clock is enabled
+ * @vdd_class: voltage scaling requirement class
+ * @fmax: maximum frequency in Hz supported at each voltage level
  */
 struct clk {
 	uint32_t flags;
 	struct clk_ops *ops;
 	const char *dbg_name;
 	struct clk *depends;
+	struct clk_vdd_class *vdd_class;
+	unsigned long fmax[MAX_VDD_LEVELS];
 
 	struct list_head children;
 	struct list_head siblings;
@@ -104,6 +134,8 @@ extern struct clock_init_data msm8x60_clock_init_data;
 extern struct clock_init_data qds8x50_clock_init_data;
 
 void msm_clock_init(struct clock_init_data *data);
+int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);
+int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 
 #ifdef CONFIG_DEBUG_FS
 int clock_debug_init(struct clock_init_data *data);
