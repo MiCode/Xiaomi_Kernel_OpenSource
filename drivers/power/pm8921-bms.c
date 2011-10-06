@@ -87,6 +87,7 @@ struct pm8921_bms_chip {
 	unsigned int		batt_id_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
+	spinlock_t		bms_output_lock;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -156,6 +157,32 @@ static int pm_bms_masked_write(struct pm8921_bms_chip *chip, u16 addr,
 	return 0;
 }
 
+#define HOLD_OREG_DATA		BIT(1)
+static int pm_bms_lock_output_data(struct pm8921_bms_chip *chip)
+{
+	int rc;
+
+	rc = pm_bms_masked_write(chip, BMS_CONTROL, HOLD_OREG_DATA,
+					HOLD_OREG_DATA);
+	if (rc) {
+		pr_err("couldnt lock bms output rc = %d\n", rc);
+		return rc;
+	}
+	return 0;
+}
+
+static int pm_bms_unlock_output_data(struct pm8921_bms_chip *chip)
+{
+	int rc;
+
+	rc = pm_bms_masked_write(chip, BMS_CONTROL, HOLD_OREG_DATA, 0);
+	if (rc) {
+		pr_err("fail to unlock BMS_CONTROL rc = %d\n", rc);
+		return rc;
+	}
+	return 0;
+}
+
 #define SELECT_OUTPUT_DATA	0x1C
 #define SELECT_OUTPUT_TYPE_SHIFT	2
 #define OCV_FOR_RBATT		0x0
@@ -182,6 +209,18 @@ static int pm_bms_read_output_data(struct pm8921_bms_chip *chip, int type,
 		pr_err("invalid type %d asked to read\n", type);
 		return -EINVAL;
 	}
+
+	/* make sure the bms registers are locked */
+	rc = pm8xxx_readb(chip->dev->parent, BMS_CONTROL, &reg);
+	if (rc) {
+		pr_err("fail to read BMS_OUTPUT0 for type %d rc = %d\n",
+			type, rc);
+		return rc;
+	}
+
+	/* Output register data must be held (locked) while reading output */
+	WARN_ON(!(reg && HOLD_OREG_DATA));
+
 	rc = pm_bms_masked_write(chip, BMS_CONTROL, SELECT_OUTPUT_DATA,
 					type << SELECT_OUTPUT_TYPE_SHIFT);
 	if (rc) {
@@ -779,10 +818,15 @@ static void calculate_charging_params(struct pm8921_bms_chip *chip,
 						int64_t *cc_mah)
 {
 	int coulumb_counter;
+	unsigned long flags;
 
 	*fcc = calculate_fcc(chip, batt_temp, chargecycles);
 	pr_debug("FCC = %umAh batt_temp = %d, cycles = %d",
 					*fcc, batt_temp, chargecycles);
+
+	/* fcc doesnt need to be read from hardware, lock the bms now */
+	spin_lock_irqsave(&chip->bms_output_lock, flags);
+	pm_bms_lock_output_data(chip);
 
 	*unusable_charge = calculate_unusable_charge_mah(chip, *fcc,
 						batt_temp, chargecycles);
@@ -796,6 +840,9 @@ static void calculate_charging_params(struct pm8921_bms_chip *chip,
 
 	/* calculate cc milli_volt_hour */
 	calculate_cc_mah(chip, cc_mah, &coulumb_counter);
+
+	pm_bms_unlock_output_data(chip);
+	spin_unlock_irqrestore(&chip->bms_output_lock, flags);
 	pr_debug("cc_mah = %lldmAh cc = %d\n", *cc_mah, coulumb_counter);
 }
 
@@ -862,8 +909,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 			 * shutdown for low battery
 			 */
 			soc = BATTERY_POWER_SUPPLY_SOC;
-			pr_debug("Adjusting SOC to %d\n",
-						BATTERY_POWER_SUPPLY_SOC);
+			pr_debug("Adjusting SOC to %d\n", soc);
 		}
 	}
 
@@ -947,16 +993,26 @@ static void calibrate_hkadc_work(struct work_struct *work)
 
 int pm8921_bms_get_vsense_avg(int *result)
 {
-	if (the_chip)
-		return read_vsense_avg(the_chip, result);
+	int rc = -EINVAL;
+	unsigned long flags;
+
+	if (the_chip) {
+		spin_lock_irqsave(&the_chip->bms_output_lock, flags);
+		pm_bms_lock_output_data(the_chip);
+		rc = read_vsense_avg(the_chip, result);
+		pm_bms_unlock_output_data(the_chip);
+		spin_unlock_irqrestore(&the_chip->bms_output_lock, flags);
+	}
 
 	pr_err("called before initialization\n");
-	return -EINVAL;
+	return rc;
 }
 EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
 
 int pm8921_bms_get_battery_current(int *result)
 {
+	unsigned long flags;
+
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
@@ -966,7 +1022,11 @@ int pm8921_bms_get_battery_current(int *result)
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&the_chip->bms_output_lock, flags);
+	pm_bms_lock_output_data(the_chip);
 	read_vsense_avg(the_chip, result);
+	pm_bms_unlock_output_data(the_chip);
+	spin_unlock_irqrestore(&the_chip->bms_output_lock, flags);
 	pr_debug("vsense=%d\n", *result);
 	/* cast for signed division */
 	*result = *result / (int)the_chip->r_sense;
@@ -1528,7 +1588,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		pr_err("Cannot allocate pm_bms_chip\n");
 		return -ENOMEM;
 	}
-
+	spin_lock_init(&chip->bms_output_lock);
 	chip->dev = &pdev->dev;
 	chip->r_sense = pdata->r_sense;
 	chip->i_test = pdata->i_test;
