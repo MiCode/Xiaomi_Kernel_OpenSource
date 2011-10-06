@@ -39,7 +39,7 @@
 static void __iomem *msm_tmr0_base;
 
 /* Watchdog pet interval in ms */
-#define PET_DELAY 3000
+#define PET_DELAY 10000
 static unsigned long delay_time;
 static unsigned long long last_pet;
 
@@ -317,11 +317,11 @@ static void init_watchdog_work(struct work_struct *work)
 
 	/* 32768 ticks = 1 second */
 	if (machine_is_msm8960_sim()) {
-		__raw_writel(32768*8, msm_tmr0_base + WDT0_BARK_TIME);
-		__raw_writel(32768*10, msm_tmr0_base + WDT0_BITE_TIME);
+		__raw_writel(32768*15, msm_tmr0_base + WDT0_BARK_TIME);
+		__raw_writel(32768*17, msm_tmr0_base + WDT0_BITE_TIME);
 	} else {
-		__raw_writel(32768*4, msm_tmr0_base + WDT0_BARK_TIME);
-		__raw_writel(32768*5, msm_tmr0_base + WDT0_BITE_TIME);
+		__raw_writel(32768*11, msm_tmr0_base + WDT0_BARK_TIME);
+		__raw_writel(32768*12, msm_tmr0_base + WDT0_BITE_TIME);
 	}
 
 	ret = register_pm_notifier(&msm_watchdog_power_notifier);
