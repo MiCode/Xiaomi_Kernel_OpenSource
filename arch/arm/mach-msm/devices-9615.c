@@ -34,6 +34,7 @@
 #include "spm.h"
 #include "pm.h"
 #include "rpm_resources.h"
+#include "msm_watchdog.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS          0x16000000
@@ -55,6 +56,20 @@
 /* Address of SSBI CMD */
 #define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
+
+static struct msm_watchdog_pdata msm_watchdog_pdata = {
+	.pet_time = 10000,
+	.bark_time = 11000,
+	.has_secure = true,
+};
+
+struct platform_device msm9615_device_watchdog = {
+	.name = "msm_watchdog",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_watchdog_pdata,
+	},
+};
 
 static struct resource msm_dmov_resource[] = {
 	{

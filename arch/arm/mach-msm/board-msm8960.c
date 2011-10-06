@@ -89,6 +89,7 @@
 #include "rpm_log.h"
 #include "smd_private.h"
 #include "pm-boot.h"
+#include "msm_watchdog.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -3757,6 +3758,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_ptm_device,
 #endif
 	&msm_device_dspcrashd_8960,
+	&msm8960_device_watchdog,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -4532,6 +4534,10 @@ static void __init register_i2c_devices(void)
 
 static void __init msm8960_sim_init(void)
 {
+	struct msm_watchdog_pdata *wdog_pdata = (struct msm_watchdog_pdata *)
+		&msm8960_device_watchdog.dev.platform_data;
+
+	wdog_pdata->bark_time = 15000;
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
 				ARRAY_SIZE(msm_rpmrs_levels)));

@@ -5131,6 +5131,7 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
+	&msm8660_device_watchdog,
 };
 
 #ifdef CONFIG_ION_MSM

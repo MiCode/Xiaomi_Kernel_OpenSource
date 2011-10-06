@@ -664,6 +664,7 @@ static struct platform_device *common_devices[] = {
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
 	&msm9615_qcedev_device,
 #endif
+	&msm9615_device_watchdog,
 };
 
 static void __init msm9615_i2c_init(void)

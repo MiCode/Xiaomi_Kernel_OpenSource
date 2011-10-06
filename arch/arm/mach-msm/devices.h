@@ -202,4 +202,8 @@ extern struct platform_device msm9615_qcrypto_device;
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
 extern struct platform_device msm9615_qcedev_device;
 #endif
+extern struct platform_device msm8960_device_watchdog;
+extern struct platform_device msm8660_device_watchdog;
+extern struct platform_device msm8064_device_watchdog;
+extern struct platform_device msm9615_device_watchdog;
 #endif

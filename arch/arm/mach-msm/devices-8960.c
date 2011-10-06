@@ -35,6 +35,7 @@
 #include "devices.h"
 #include "devices-msm8x60.h"
 #include "footswitch.h"
+#include "msm_watchdog.h"
 
 #ifdef CONFIG_MSM_MPM
 #include "mpm.h"
@@ -798,6 +799,20 @@ struct platform_device msm_device_smd = {
 struct platform_device msm_device_bam_dmux = {
 	.name		= "BAM_RMNT",
 	.id		= -1,
+};
+
+static struct msm_watchdog_pdata msm_watchdog_pdata = {
+	.pet_time = 10000,
+	.bark_time = 11000,
+	.has_secure = true,
+};
+
+struct platform_device msm8960_device_watchdog = {
+	.name = "msm_watchdog",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_watchdog_pdata,
+	},
 };
 
 static struct resource msm_dmov_resource[] = {

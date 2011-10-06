@@ -24,6 +24,7 @@
 #include <mach/dma.h>
 #include "clock.h"
 #include "devices.h"
+#include "msm_watchdog.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
@@ -53,6 +54,20 @@
 /* Address of HS USBOTG1 */
 #define MSM_HSUSB_PHYS		0x12500000
 #define MSM_HSUSB_SIZE		SZ_4K
+
+static struct msm_watchdog_pdata msm_watchdog_pdata = {
+	.pet_time = 10000,
+	.bark_time = 11000,
+	.has_secure = true,
+};
+
+struct platform_device msm8064_device_watchdog = {
+	.name = "msm_watchdog",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_watchdog_pdata,
+	},
+};
 
 static struct resource msm_dmov_resource[] = {
 	{

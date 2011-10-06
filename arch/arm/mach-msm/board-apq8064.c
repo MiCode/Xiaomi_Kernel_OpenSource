@@ -38,6 +38,7 @@
 #include <linux/bootmem.h>
 #include <asm/setup.h>
 
+#include "msm_watchdog.h"
 #include "board-apq8064.h"
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
@@ -493,6 +494,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&android_pmem_device,
 	&android_pmem_adsp_device,
 	&android_pmem_audio_device,
+	&msm8064_device_watchdog,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -733,6 +735,10 @@ static void __init apq8064_common_init(void)
 
 static void __init apq8064_sim_init(void)
 {
+	struct msm_watchdog_pdata *wdog_pdata = (struct msm_watchdog_pdata *)
+		&msm8064_device_watchdog.dev.platform_data;
+
+	wdog_pdata->bark_time = 15000;
 	apq8064_common_init();
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
 }

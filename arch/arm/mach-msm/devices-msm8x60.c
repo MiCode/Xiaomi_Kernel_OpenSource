@@ -53,6 +53,7 @@
 #include <sound/apr_audio.h>
 #include "rpm_stats.h"
 #include "mpm.h"
+#include "msm_watchdog.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -1831,6 +1832,20 @@ struct platform_device msm_device_tsif[2] = {
 struct platform_device msm_device_smd = {
 	.name           = "msm_smd",
 	.id             = -1,
+};
+
+static struct msm_watchdog_pdata msm_watchdog_pdata = {
+	.pet_time = 10000,
+	.bark_time = 11000,
+	.has_secure = true,
+};
+
+struct platform_device msm8660_device_watchdog = {
+	.name = "msm_watchdog",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_watchdog_pdata,
+	},
 };
 
 static struct resource msm_dmov_resource_adm0[] = {
