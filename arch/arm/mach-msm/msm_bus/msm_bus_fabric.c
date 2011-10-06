@@ -653,7 +653,9 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	pdata->il_flag = msm_bus_rpm_is_mem_interleaved();
 	fabric->ahb = pdata->ahb;
 	fabric->pdata = pdata;
-	msm_bus_board_assign_iids(fabric->pdata, fabric->fabdev.id);
+	fabric->pdata->board_algo->assign_iids(fabric->pdata,
+		fabric->fabdev.id);
+	fabric->fabdev.board_algo = fabric->pdata->board_algo;
 
 	for (ctx = 0; ctx < NUM_CTX; ctx++) {
 		if (pdata->fabclk[ctx]) {

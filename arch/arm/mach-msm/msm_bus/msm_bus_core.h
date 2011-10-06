@@ -107,6 +107,7 @@ struct msm_bus_fabric_device {
 	const char *name;
 	struct device dev;
 	const struct msm_bus_fab_algorithm *algo;
+	const struct msm_bus_board_algorithm *board_algo;
 	int visited;
 };
 #define to_msm_bus_fabric_device(d) container_of(d, \
@@ -131,6 +132,12 @@ struct msm_bus_fab_algorithm {
 	void (*update_bw)(struct msm_bus_fabric_device *fabdev, struct
 		msm_bus_inode_info * hop, struct msm_bus_inode_info *info,
 		long int add_bw, int *master_tiers, int ctx);
+};
+
+struct msm_bus_board_algorithm {
+	void (*assign_iids)(struct msm_bus_fabric_registration *fabreg,
+		int fabid);
+	int (*get_iid)(int id);
 };
 
 /**

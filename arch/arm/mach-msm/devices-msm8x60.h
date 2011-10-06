@@ -51,6 +51,7 @@ extern struct platform_device msm_bus_sys_fabric;
 extern struct platform_device msm_bus_mm_fabric;
 extern struct platform_device msm_bus_sys_fpb;
 extern struct platform_device msm_bus_cpss_fpb;
+extern struct platform_device msm_bus_def_fab;
 
 extern struct platform_device msm_device_smd;
 extern struct platform_device msm_device_gpio;

@@ -36,6 +36,7 @@ struct msm_bus_fabric_registration {
 	const unsigned int nslaves;
 	const unsigned int ntieredslaves;
 	bool il_flag;
+	const struct msm_bus_board_algorithm *board_algo;
 };
 
 enum msm_bus_bw_tier_type {
@@ -55,12 +56,23 @@ extern struct msm_bus_fabric_registration msm_bus_sys_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_mm_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_sys_fpb_pdata;
 extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
+extern struct msm_bus_fabric_registration msm_bus_def_fab_pdata;
 
-void msm_bus_board_assign_iids(struct msm_bus_fabric_registration
-	*fabreg, int fabid);
-int msm_bus_board_get_iid(int id);
+extern struct msm_bus_fabric_registration msm_bus_8960_apps_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8960_sys_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8960_mm_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8960_sys_fpb_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8960_cpss_fpb_pdata;
+
+extern struct msm_bus_fabric_registration msm_bus_8064_apps_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8064_sys_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8064_mm_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8064_sys_fpb_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8064_cpss_fpb_pdata;
+
 void msm_bus_rpm_set_mt_mask(void);
 int msm_bus_board_rpm_get_il_ids(uint16_t *id);
+int msm_bus_board_get_iid(int id);
 
 /*
  * These macros specify the convention followed for allocating
@@ -124,6 +136,7 @@ int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 
 /* Topology related enums */
 enum msm_bus_fabric_type {
+	MSM_BUS_FAB_DEFAULT = 0,
 	MSM_BUS_FAB_APPSS = 0,
 	MSM_BUS_FAB_SYSTEM = 1024,
 	MSM_BUS_FAB_MMSS = 2048,
@@ -180,7 +193,15 @@ enum msm_bus_fabric_master_type {
 	MSM_BUS_MASTER_MSS_SW_PROC,
 	MSM_BUS_MASTER_MSS_FW_PROC,
 	MSM_BUS_MMSS_MASTER_UNUSED_2,
+	MSM_BUS_MASTER_GSS_NAV,
+	MSM_BUS_MASTER_PCIE,
+	MSM_BUS_MASTER_SATA,
+	MSM_BUS_MASTER_CRYPTO,
 
+	MSM_BUS_MASTER_VIDEO_CAP,
+	MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+	MSM_BUS_MASTER_VIDEO_ENC,
+	MSM_BUS_MASTER_VIDEO_DEC,
 	MSM_BUS_MASTER_LAST = MSM_BUS_MMSS_MASTER_UNUSED_2,
 
 	MSM_BUS_SYSTEM_FPB_MASTER_SYSTEM =
@@ -263,6 +284,8 @@ enum msm_bus_fabric_slave_type {
 	MSM_BUS_SLAVE_MSM_DIMEM,
 	MSM_BUS_SLAVE_MSM_TCSR,
 	MSM_BUS_SLAVE_MSM_PRNG,
+	MSM_BUS_SLAVE_GSS,
+	MSM_BUS_SLAVE_SATA,
 	MSM_BUS_SLAVE_LAST = MSM_BUS_SLAVE_MSM_PRNG,
 
 	MSM_BUS_SYSTEM_FPB_SLAVE_SYSTEM =

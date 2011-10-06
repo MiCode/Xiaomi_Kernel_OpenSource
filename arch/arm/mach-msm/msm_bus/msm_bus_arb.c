@@ -613,6 +613,19 @@ int reset_pnodes(int curr, int pnode)
 	return 0;
 }
 
+int msm_bus_board_get_iid(int id)
+{
+	struct msm_bus_fabric_device *deffab;
+
+	deffab = msm_bus_get_fabric_device(MSM_BUS_FAB_DEFAULT);
+	if (!deffab) {
+		MSM_BUS_ERR("Error finding default fabric\n");
+		return -ENXIO;
+	}
+
+	return deffab->board_algo->get_iid(id);
+}
+
 void msm_bus_scale_client_reset_pnodes(uint32_t cl)
 {
 	int i, src, pnode, index;
