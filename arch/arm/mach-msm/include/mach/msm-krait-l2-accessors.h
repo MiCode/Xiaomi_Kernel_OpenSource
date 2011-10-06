@@ -13,24 +13,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_ARCH_MSM_KRAIT
 extern void set_l2_indirect_reg(u32 reg_addr, u32 val);
 extern u32 get_l2_indirect_reg(u32 reg_addr);
 extern u32 set_get_l2_indirect_reg(u32 reg_addr, u32 val);
-#else
 
-void set_l2_indirect_reg(u32 reg_addr, u32 val)
-{
-}
-
-u32 set_get_l2_indirect_reg(u32 reg_addr, u32 val)
-{
-	return 0;
-}
-
-u32 get_l2_indirect_reg(u32 reg_addr)
-{
-	return 0;
-}
-#endif
 #endif

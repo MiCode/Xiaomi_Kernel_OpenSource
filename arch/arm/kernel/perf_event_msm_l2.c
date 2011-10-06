@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_CPU_HAS_L2_PMU
+#ifdef CONFIG_ARCH_MSM8x60
 
 #include <linux/irq.h>
 
