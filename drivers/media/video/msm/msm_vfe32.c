@@ -199,7 +199,7 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 			V32_DEMOSAICV3_DBCC_OFF},
 		{VFE_CMD_DEMOSAICV3_DBPC_UPDATE},
 		{VFE_CMD_XBAR_CFG},
-		{VFE_CMD_EZTUNE_CFG},
+		{VFE_CMD_MODULE_CFG, V32_MODULE_CFG_LEN, V32_MODULE_CFG_OFF},
 		{VFE_CMD_ZSL},
 /*115*/	{VFE_CMD_LINEARIZATION_UPDATE, V32_LINEARIZATION_LEN1,
 			V32_LINEARIZATION_OFF1},
@@ -1807,7 +1807,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		vfe32_sync_timer_start(cmdp);
 		break;
 
-	case VFE_CMD_EZTUNE_CFG: {
+	case VFE_CMD_MODULE_CFG: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
