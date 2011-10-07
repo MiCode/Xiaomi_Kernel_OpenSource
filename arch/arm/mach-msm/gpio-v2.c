@@ -245,6 +245,7 @@ static void msm_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 static struct msm_gpio_dev msm_gpio = {
 	.gpio_chip = {
+		.label		  = "msmgpio",
 		.base             = 0,
 		.ngpio            = NR_MSM_GPIOS,
 		.direction_input  = msm_gpio_direction_input,
