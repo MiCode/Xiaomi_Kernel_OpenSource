@@ -461,6 +461,42 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 	.fmax[VDD_DIG_##l2] = (f2), \
 	.fmax[VDD_DIG_##l3] = (f3)
 
+enum vdd_l23_levels {
+	VDD_L23_OFF,
+	VDD_L23_ON
+};
+
+static int set_vdd_l23(struct clk_vdd_class *vdd_class, int level)
+{
+	int rc;
+
+	if (level == VDD_L23_OFF) {
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
+	} else {
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
+				RPM_VREG_VOTER3, 2200000, 2200000, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
+				RPM_VREG_VOTER3, 0, 0, 1);
+	}
+
+	return rc;
+}
+
+static DEFINE_VDD_CLASS(vdd_l23, set_vdd_l23);
+
 /*
  * Clock Descriptions
  */
@@ -537,6 +573,8 @@ static struct pll_clk pll3_clk = {
 	.c = {
 		.dbg_name = "pll3_clk",
 		.ops = &clk_ops_pll,
+		.vdd_class = &vdd_l23,
+		.fmax[VDD_L23_ON] = ULONG_MAX,
 		CLK_INIT(pll3_clk.c),
 	},
 };
