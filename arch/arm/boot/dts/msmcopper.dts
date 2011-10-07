@@ -1,0 +1,17 @@
+/dts-v1/;
+
+/include/ "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm MSM Copper";
+	compatible = "qcom,msmcopper-sim", "qcom,msmcopper";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@F9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		reg = <0xF9000000 0x1000>,
+		      <0xF9002000 0x1000>;
+	};
+};
