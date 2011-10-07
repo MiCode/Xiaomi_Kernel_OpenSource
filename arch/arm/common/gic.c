@@ -331,7 +331,10 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 }
 
 #else
-#define gic_set_wake	NULL
+static int gic_set_wake(struct irq_data *d, unsigned int on)
+{
+	return 0;
+}
 #endif
 
 static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
