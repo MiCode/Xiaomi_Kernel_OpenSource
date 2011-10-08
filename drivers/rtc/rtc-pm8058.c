@@ -390,7 +390,7 @@ static int __devinit pm8058_rtc_probe(struct platform_device *pdev)
 	struct pm8058_rtc *rtc_dd;
 	struct pm8058_chip *pm_chip;
 
-	pm_chip = platform_get_drvdata(pdev);
+	pm_chip = dev_get_drvdata(pdev->dev.parent);
 	if (pm_chip == NULL) {
 		pr_err("%s: Invalid driver information\n", __func__);
 		return -ENXIO;
@@ -456,6 +456,8 @@ static int __devinit pm8058_rtc_probe(struct platform_device *pdev)
 	pm8058_rtc0_ops.set_time	= pm8058_rtc0_set_time;
 #endif
 
+	platform_set_drvdata(pdev, rtc_dd);
+
 	/* Register the RTC device */
 	rtc_dd->rtc0 = rtc_device_register("pm8058_rtc0", &pdev->dev,
 				&pm8058_rtc0_ops, THIS_MODULE);
@@ -465,8 +467,6 @@ static int __devinit pm8058_rtc_probe(struct platform_device *pdev)
 		rc = PTR_ERR(rtc_dd->rtc0);
 		goto fail_rtc_enable;
 	}
-
-	platform_set_drvdata(pdev, rtc_dd);
 
 	/* Request the alarm IRQ */
 	rc = request_threaded_irq(rtc_dd->rtc_alarm_irq, NULL,
