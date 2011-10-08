@@ -62,13 +62,6 @@
 
 #include <asm/outercache.h>
 
-#define __exception	__attribute__((section(".exception.text")))
-#ifdef CONFIG_FUNCTION_GRAPH_TRACER
-#define __exception_irq_entry	__irq_entry
-#else
-#define __exception_irq_entry	__exception
-#endif
-
 void cpu_idle_wait(void);
 
 struct thread_info;
