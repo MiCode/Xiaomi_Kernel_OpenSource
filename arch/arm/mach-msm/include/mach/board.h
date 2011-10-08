@@ -24,9 +24,7 @@
 #include <linux/leds-pmic8058.h>
 #include <linux/clkdev.h>
 #include <linux/msm_ssbi.h>
-#ifdef CONFIG_MSM_BUS_SCALING
 #include <mach/msm_bus.h>
-#endif
 
 struct msm_camera_io_ext {
 	uint32_t mdcphy;
@@ -62,9 +60,7 @@ struct msm_camera_device_platform_data {
 	struct msm_camera_io_ext ioext;
 	struct msm_camera_io_clk ioclk;
 	uint8_t csid_core;
-#ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
-#endif
 };
 enum msm_camera_csi_data_format {
 	CSI_8BIT,

@@ -1018,8 +1018,6 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 };
 #endif
 
-#ifdef CONFIG_MSM_BUS_SCALING
-
 static struct msm_bus_vectors cam_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
@@ -1153,24 +1151,19 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 		ARRAY_SIZE(cam_bus_client_config),
 		.name = "msm_camera",
 };
-#endif
 
 struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
 		.ioclk.mclk_clk_rate = 24000000,
 		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 0,
-#ifdef CONFIG_MSM_BUS_SCALING
 		.cam_bus_scale_table = &cam_bus_client_pdata,
-#endif
 	},
 	{
 		.ioclk.mclk_clk_rate = 24000000,
 		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 1,
-#ifdef CONFIG_MSM_BUS_SCALING
 		.cam_bus_scale_table = &cam_bus_client_pdata,
-#endif
 	},
 };
 
