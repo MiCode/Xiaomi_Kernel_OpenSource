@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/err.h>
 
 #include <mach/irqs.h>
 #include <mach/scm.h>
@@ -26,6 +27,7 @@
 
 #include "smd_private.h"
 #include "ramdump.h"
+#include "sysmon.h"
 
 #define SCM_Q6_NMI_CMD                  0x1
 #define MODULE_NAME			"lpass_8960"
@@ -41,6 +43,28 @@ struct lpass_ssr {
 
 static struct lpass_ssr lpass_ssr_8960;
 static int q6_crash_shutdown;
+
+static int riva_notifier_cb(struct notifier_block *this, unsigned long code,
+								void *ss_handle)
+{
+	int ret;
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		pr_debug("%s: R-Notify: Shutdown started\n", __func__);
+		ret = sysmon_send_event(SYSMON_SS_LPASS, "wcnss",
+				SUBSYS_BEFORE_SHUTDOWN);
+		if (ret < 0)
+			pr_err("%s: sysmon_send_event error %d", __func__,
+				ret);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static void *ssr_notif_hdle;
+static struct notifier_block rnb = {
+	.notifier_call = riva_notifier_cb,
+};
 
 static void lpass_fatal_fn(struct work_struct *work)
 {
@@ -178,6 +202,17 @@ static int __init lpass_fatal_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
+	ssr_notif_hdle = subsys_notif_register_notifier("riva",
+							&rnb);
+	if (IS_ERR(ssr_notif_hdle) < 0) {
+		ret = PTR_ERR(ssr_notif_hdle);
+		pr_err("%s: subsys_register_notifier for Riva: err = %d\n",
+			__func__, ret);
+		iounmap(q6_wakeup_intr);
+		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
+		goto out;
+	}
+
 	pr_info("%s: lpass SSR driver init'ed.\n", __func__);
 out:
 	return ret;
@@ -185,6 +220,7 @@ out:
 
 static void __exit lpass_fatal_exit(void)
 {
+	subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
 	iounmap(q6_wakeup_intr);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
