@@ -767,3 +767,4 @@ static void __exit msm_hsic_peripheral_exit(void)
 module_init(msm_hsic_peripheral_init);
 module_exit(msm_hsic_peripheral_exit);
 
+MODULE_LICENSE("GPL v2");
