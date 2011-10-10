@@ -824,14 +824,6 @@ static struct pm8058_platform_data pm8058_7x30_data = {
 	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
-static struct i2c_board_info pm8058_boardinfo[] __initdata = {
-	{
-		I2C_BOARD_INFO("pm8058-core", 0x55),
-		.irq = MSM_GPIO_TO_INT(PMIC_GPIO_INT),
-		.platform_data = &pm8058_7x30_data,
-	},
-};
-
 #ifdef CONFIG_MSM_SSBI
 static struct msm_ssbi_platform_data msm7x30_ssbi_pm8058_pdata = {
 	.controller_type = MSM_SBI_CTRL_SSBI2,
@@ -1618,9 +1610,6 @@ static int __init buses_init(void)
 		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
                         = sizeof(surf_keypad_data);
 	}
-
-	i2c_register_board_info(6 /* I2C_SSBI ID */, pm8058_boardinfo,
-				ARRAY_SIZE(pm8058_boardinfo));
 
 	return 0;
 }
@@ -5323,7 +5312,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_ssbi_pmic1,
 #endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi6,
 	&msm_device_ssbi7,
 #endif
 	&android_pmem_device,
@@ -5529,11 +5517,6 @@ static void __init qup_device_i2c_init(void)
 }
 
 #ifdef CONFIG_I2C_SSBI
-static struct msm_i2c_ssbi_platform_data msm_i2c_ssbi6_pdata = {
-	.rsl_id = "D:PMIC_SSBI",
-	.controller_type = MSM_SBI_CTRL_SSBI2,
-};
-
 static struct msm_i2c_ssbi_platform_data msm_i2c_ssbi7_pdata = {
 	.rsl_id = "D:CODEC_SSBI",
 	.controller_type = MSM_SBI_CTRL_SSBI,
@@ -7055,7 +7038,6 @@ static void __init msm7x30_init(void)
 
 	bt_power_init();
 #ifdef CONFIG_I2C_SSBI
-	msm_device_ssbi6.dev.platform_data = &msm_i2c_ssbi6_pdata;
 	msm_device_ssbi7.dev.platform_data = &msm_i2c_ssbi7_pdata;
 #endif
 	if (machine_is_msm7x30_fluid())

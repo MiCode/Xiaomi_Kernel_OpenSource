@@ -471,14 +471,6 @@ static struct pm8058_platform_data pm8058_fsm9xxx_data = {
 	.sub_devices = pm8058_subdevs,
 };
 
-static struct i2c_board_info pm8058_boardinfo[] __initdata = {
-	{
-		I2C_BOARD_INFO("pm8058-core", 0x55),
-		.irq = MSM_GPIO_TO_INT(47),
-		.platform_data = &pm8058_fsm9xxx_data,
-	},
-};
-
 #ifdef CONFIG_MSM_SSBI
 static struct msm_ssbi_platform_data fsm9xxx_ssbi_pm8058_pdata = {
 	.controller_type = FSM_SBI_CTRL_SSBI,
@@ -495,9 +487,6 @@ static int __init buses_init(void)
 			GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE))
 		pr_err("%s: gpio_tlmm_config (gpio=%d) failed\n",
 			__func__, PMIC_GPIO_INT);
-
-	i2c_register_board_info(0 /* I2C_SSBI ID */, pm8058_boardinfo,
-				ARRAY_SIZE(pm8058_boardinfo));
 
 	return 0;
 }
@@ -615,10 +604,6 @@ static void fsm9xxx_init_uart1(void)
  */
 
 #ifdef CONFIG_I2C_SSBI
-static struct msm_i2c_ssbi_platform_data msm_i2c_ssbi1_pdata = {
-	.controller_type = FSM_SBI_CTRL_SSBI,
-};
-
 static struct msm_i2c_ssbi_platform_data msm_i2c_ssbi2_pdata = {
 	.controller_type = FSM_SBI_CTRL_SSBI,
 };
@@ -830,7 +815,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_ssbi_pmic1,
 #endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi1,
 	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
@@ -913,7 +897,6 @@ static void __init fsm9xxx_init(void)
 	fsm9xxx_init_uart1();
 #endif
 #ifdef CONFIG_I2C_SSBI
-	msm_device_ssbi1.dev.platform_data = &msm_i2c_ssbi1_pdata;
 	msm_device_ssbi2.dev.platform_data = &msm_i2c_ssbi2_pdata;
 	msm_device_ssbi3.dev.platform_data = &msm_i2c_ssbi3_pdata;
 #endif

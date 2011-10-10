@@ -94,26 +94,6 @@ struct platform_device msm_device_ssbi_pmic1 = {
 #endif
 
 #ifdef CONFIG_I2C_SSBI
-
-#define MSM_SSBI1_PHYS		0x94080000
-#define MSM_SSBI1_SIZE		SZ_4K
-
-static struct resource msm_ssbi1_resources[] = {
-	{
-		.name   = "ssbi_base",
-		.start	= MSM_SSBI1_PHYS,
-		.end	= MSM_SSBI1_PHYS + MSM_SSBI1_SIZE - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-struct platform_device msm_device_ssbi1 = {
-	.name		= "i2c_ssbi",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(msm_ssbi1_resources),
-	.resource	= msm_ssbi1_resources,
-};
-
 #define MSM_SSBI2_PHYS		0x94090000
 #define MSM_SSBI2_SIZE		SZ_4K
 
