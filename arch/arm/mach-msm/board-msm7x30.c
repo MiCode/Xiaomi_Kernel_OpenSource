@@ -21,6 +21,7 @@
 #ifdef CONFIG_SPI_QSD
 #include <linux/spi/spi.h>
 #endif
+#include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/mfd/marimba.h>
 #include <linux/i2c.h>
@@ -816,6 +817,7 @@ static struct pmic8058_leds_platform_data pm8058_fluid_leds_data = {
 
 static struct pm8058_platform_data pm8058_7x30_data = {
 	.irq_base = PMIC8058_IRQ_BASE,
+	.irq = MSM_GPIO_TO_INT(PMIC_GPIO_INT),
 
 	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
 	.sub_devices = pm8058_subdevs,
@@ -829,6 +831,16 @@ static struct i2c_board_info pm8058_boardinfo[] __initdata = {
 		.platform_data = &pm8058_7x30_data,
 	},
 };
+
+#ifdef CONFIG_MSM_SSBI
+static struct msm_ssbi_platform_data msm7x30_ssbi_pm8058_pdata = {
+	.controller_type = MSM_SBI_CTRL_SSBI2,
+	.slave	= {
+		.name			= "pm8058-core",
+		.platform_data		= &pm8058_7x30_data,
+	},
+};
+#endif
 
 static struct i2c_board_info cy8info[] __initdata = {
 	{
@@ -5306,6 +5318,10 @@ static struct platform_device *devices[] __initdata = {
 	&android_usb_device,
 #endif
 	&qsd_device_spi,
+
+#ifdef CONFIG_MSM_SSBI
+	&msm_device_ssbi_pmic1,
+#endif
 #ifdef CONFIG_I2C_SSBI
 	&msm_device_ssbi6,
 	&msm_device_ssbi7,
@@ -6976,6 +6992,11 @@ static void __init msm7x30_init(void)
 		msm_adc_pdata.dev_names = msm_adc_surf_device_names;
 		msm_adc_pdata.num_adc = ARRAY_SIZE(msm_adc_surf_device_names);
 	}
+
+#ifdef CONFIG_MSM_SSBI
+	msm_device_ssbi_pmic1.dev.platform_data =
+				&msm7x30_ssbi_pm8058_pdata;
+#endif
 
 	platform_add_devices(msm_footswitch_devices,
 			     msm_num_footswitch_devices);
