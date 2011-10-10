@@ -5447,13 +5447,19 @@ static void __init reg_init(void)
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel_relaxed(0, SW_RESET_ALL_REG);
 
+	/*
+	 * Some bits are only used on either 8960 or 8064 and are marked as
+	 * reserved bits on the other SoC. Writing to these reserved bits
+	 * should have no effect.
+	 */
 	/* Initialize MM AHB registers: Enable the FPB clock and disable HW
 	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
 	 * prevent its memory from being collapsed when the clock is halted.
 	 * The sleep and wake-up delays are set to safe values. */
 	rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
 	writel_relaxed(0x000007F9, AHB_EN2_REG);
-	rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
+	if (cpu_is_apq8064())
+		rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
 
 	/* Deassert all locally-owned MM AHB resets. */
 	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
@@ -5467,7 +5473,8 @@ static void __init reg_init(void)
 	rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
 	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
-	rmwreg(0x009FE4FF, MAXI_EN5_REG, 0x01FFEFFF);
+	if (cpu_is_apq8064())
+		rmwreg(0x009FE4FF, MAXI_EN5_REG, 0x01FFEFFF);
 	rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
 
 	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
@@ -5479,22 +5486,26 @@ static void __init reg_init(void)
 	rmwreg(0x80FF0000, DSI2_BYTE_CC_REG,  0xE0FF0010);
 	rmwreg(0x80FF0000, DSI_PIXEL_CC_REG,  0xE0FF0010);
 	rmwreg(0x80FF0000, DSI2_PIXEL_CC_REG, 0xE0FF0010);
-	rmwreg(0x80FF0000, GFX2D0_CC_REG,     0xE0FF0010);
-	rmwreg(0x80FF0000, GFX2D1_CC_REG,     0xE0FF0010);
 	rmwreg(0x80FF0000, GFX3D_CC_REG,      0xE0FF0010);
 	rmwreg(0x80FF0000, IJPEG_CC_REG,      0xE0FF0010);
 	rmwreg(0x80FF0000, JPEGD_CC_REG,      0xE0FF0010);
 	rmwreg(0x80FF0000, MDP_CC_REG,        0xE1FF0010);
 	rmwreg(0x80FF0000, MDP_LUT_CC_REG,    0xE0FF0010);
 	rmwreg(0x80FF0000, ROT_CC_REG,        0xE0FF0010);
-	rmwreg(0x80FF0000, TV_CC_REG,         0xE1FFC010);
 	rmwreg(0x000004FF, TV_CC2_REG,        0x000007FF);
 	rmwreg(0xC0FF0000, VCODEC_CC_REG,     0xE0FF0010);
 	rmwreg(0x80FF0000, VFE_CC_REG,        0xE0FF4010);
 	rmwreg(0x800000FF, VFE_CC2_REG,       0xE00000FF);
 	rmwreg(0x80FF0000, VPE_CC_REG,        0xE0FF0010);
-	if (cpu_is_apq8064())
+	if (cpu_is_msm8960()) {
+		rmwreg(0x80FF0000, GFX2D0_CC_REG,     0xE0FF0010);
+		rmwreg(0x80FF0000, GFX2D1_CC_REG,     0xE0FF0010);
+		rmwreg(0x80FF0000, TV_CC_REG,         0xE1FFC010);
+	}
+	if (cpu_is_apq8064()) {
+		rmwreg(0x00000000, TV_CC_REG,         0x00004010);
 		rmwreg(0x80FF0000, VCAP_CC_REG,       0xE0FF1010);
+	}
 
 	/*
 	 * Initialize USB_HS_HCLK_FS registers: Set FORCE_C_ON bits so that
@@ -5502,8 +5513,10 @@ static void __init reg_init(void)
 	 * and wake-up value to max.
 	 */
 	rmwreg(0x0000004F, USB_HS1_HCLK_FS_REG, 0x0000007F);
-	rmwreg(0x0000004F, USB_HS3_HCLK_FS_REG, 0x0000007F);
-	rmwreg(0x0000004F, USB_HS4_HCLK_FS_REG, 0x0000007F);
+	if (cpu_is_apq8064()) {
+		rmwreg(0x0000004F, USB_HS3_HCLK_FS_REG, 0x0000007F);
+		rmwreg(0x0000004F, USB_HS4_HCLK_FS_REG, 0x0000007F);
+	}
 
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel_relaxed(0, SW_RESET_AXI_REG);
@@ -5529,7 +5542,8 @@ static void __init reg_init(void)
 	writel_relaxed(BIT(15), PDM_CLK_NS_REG);
 
 	/* Source SLIMBus xo src from slimbus reference clock */
-	writel_relaxed(0x3, SLIMBUS_XO_SRC_CLK_CTL_REG);
+	if (cpu_is_msm8960())
+		writel_relaxed(0x3, SLIMBUS_XO_SRC_CLK_CTL_REG);
 
 	/* Source the dsi_byte_clks from the DSI PHY PLLs */
 	rmwreg(0x1, DSI1_BYTE_NS_REG, 0x7);
