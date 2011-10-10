@@ -155,8 +155,7 @@ config TPS65023
 
 config PMIC8058
 	tristate "PMIC8058 Power Management chip"
-	depends on I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX)
-	default y if I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX)
+	depends on MSM_SSBI
 	select MFD_CORE
 	select MSM_SHOW_RESUME_IRQ
 	help
