@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/msm_ssbi.h>
+#include <linux/platform_data/qcom_crypto_device.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/mmc.h>
@@ -39,6 +40,9 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_tsens,
 	&msm_device_nand,
 	&msm_rpm_device,
+#ifdef CONFIG_HW_RANDOM_MSM
+	&msm_device_rng,
+#endif
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)

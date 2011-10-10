@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/types.h>
+#include <mach/socinfo.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -78,11 +79,11 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	/* read random data from h/w */
 	do {
 		/* check status bit if data is available */
-		if (!(readl(base + PRNG_STATUS_OFFSET) & 0x00000001))
+		if (!(readl_relaxed(base + PRNG_STATUS_OFFSET) & 0x00000001))
 			break;	/* no data to read so just bail */
 
 		/* read FIFO */
-		val = readl(base + PRNG_DATA_OUT_OFFSET);
+		val = readl_relaxed(base + PRNG_DATA_OUT_OFFSET);
 		if (!val)
 			break;	/* no data to read so just bail */
 
@@ -105,6 +106,45 @@ static struct hwrng msm_rng = {
 	.name = DRIVER_NAME,
 	.read = msm_rng_read,
 };
+
+static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
+{
+	unsigned long val = 0;
+	int ret = 0;
+	int error = 0;
+
+	ret = clk_enable(msm_rng_dev->prng_clk);
+	if (ret) {
+		dev_err(&(msm_rng_dev->pdev)->dev,
+				"failed to enable clock in probe\n");
+		error = -EPERM;
+		return error;
+	}
+
+	/* enable PRNG h/w*/
+	val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET) &
+			PRNG_LFSR_CFG_MASK;
+	val |= PRNG_LFSR_CFG_MASK;
+	writel_relaxed(val, msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
+
+	/* The PRNG CONFIG register should be read after writing to the
+	* PRNG_LFSR_CFG register.
+	*/
+	mb();
+	val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET) &
+			PRNG_CONFIG_MASK;
+	val |= PRNG_CONFIG_ENABLE;
+	writel_relaxed(val, msm_rng_dev->base + PRNG_CONFIG_OFFSET);
+
+	/* The PRNG clk should be disabled only after we have enabled the
+	* PRNG H/W by writting to the PRNG_CONFIG register.
+	*/
+	mb();
+
+	clk_disable(msm_rng_dev->prng_clk);
+
+	return error;
+}
 
 static int __devinit msm_rng_probe(struct platform_device *pdev)
 {
@@ -147,18 +187,25 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	msm_rng_dev->pdev = pdev;
 	platform_set_drvdata(pdev, msm_rng_dev);
 
+	/* Enable rng h/w */
+	if (cpu_is_msm9615())
+		error = msm_rng_enable_hw(msm_rng_dev);
+
+	if (error)
+		goto rollback_clk;
+
 	/* register with hwrng framework */
 	msm_rng.priv = (unsigned long) msm_rng_dev;
 	error = hwrng_register(&msm_rng);
 	if (error) {
 		dev_err(&pdev->dev, "failed to register hwrng\n");
 		error = -EPERM;
-		goto err_hw_register;
+		goto rollback_clk;
 	}
 
 	return 0;
 
-err_hw_register:
+rollback_clk:
 	clk_put(msm_rng_dev->prng_clk);
 err_clk_get:
 	iounmap(msm_rng_dev->base);

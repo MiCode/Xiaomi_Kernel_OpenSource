@@ -192,4 +192,5 @@ extern struct platform_device led_pdev;
 
 extern struct platform_device ion_dev;
 extern struct platform_device msm_rpm_device;
+extern struct platform_device msm_device_rng;
 #endif

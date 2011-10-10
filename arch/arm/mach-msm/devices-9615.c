@@ -257,6 +257,22 @@ struct platform_device msm_device_smd = {
 	.id		= -1,
 };
 
+#ifdef CONFIG_HW_RANDOM_MSM
+/* PRNG device */
+#define MSM_PRNG_PHYS		0x1A500000
+static struct resource rng_resources = {
+	.flags = IORESOURCE_MEM,
+	.start = MSM_PRNG_PHYS,
+	.end   = MSM_PRNG_PHYS + SZ_512 - 1,
+};
+
+struct platform_device msm_device_rng = {
+	.name          = "msm_rng",
+	.id            = 0,
+	.num_resources = 1,
+	.resource      = &rng_resources,
+};
+#endif
 
 #define MSM_SDC1_BASE         0x12180000
 #define MSM_SDC1_DML_BASE     (MSM_SDC1_BASE + 0x800)
