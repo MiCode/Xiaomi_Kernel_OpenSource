@@ -156,6 +156,15 @@ config ARCH_APQ8064
 	select MSM_GPIOMUX
 	select MSM_REMOTE_SPINLOCK_SFPB
 
+config ARCH_MSMCOPPER
+	bool "MSM Copper"
+	select ARCH_MSM_KRAITMP
+	select MSM_V2_TLMM
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
 	select ARCH_MSM_SCORPION
@@ -599,6 +608,7 @@ config PHYS_OFFSET
 	default "0x40800000" if ARCH_MSM9615
 	default "0x80200000" if ARCH_APQ8064
 	default "0x80200000" if ARCH_MSM8960
+	default "0x80200000" if ARCH_MSMCOPPER
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x00000000" if ARCH_QSD8X50 && MSM_SOC_REV_A
@@ -1654,7 +1664,7 @@ config MSM_SHARED_GPIO_FOR_UART2DM
 
 config MSM_SHOW_RESUME_IRQ
 	bool "Enable logging of interrupts that could have caused resume"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960)
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSMCOPPER)
 	default n
 	help
 		This option logs wake up interrupts that have triggered just before
