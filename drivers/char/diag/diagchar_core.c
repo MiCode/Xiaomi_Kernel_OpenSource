@@ -355,6 +355,8 @@ long diagchar_ioctl(struct file *filp,
 		mutex_lock(&driver->diagchar_mutex);
 		temp = driver->logging_mode;
 		driver->logging_mode = (int)ioarg;
+		if (driver->logging_mode == UART_MODE)
+			driver->logging_mode = MEMORY_DEVICE_MODE;
 		driver->logging_process_id = current->tgid;
 		mutex_unlock(&driver->diagchar_mutex);
 		if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
@@ -363,12 +365,14 @@ long diagchar_ioctl(struct file *filp,
 			driver->in_busy_2 = 1;
 			driver->in_busy_qdsp_1 = 1;
 			driver->in_busy_qdsp_2 = 1;
+			driver->in_busy_wcnss = 1;
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			driver->in_busy_1 = 0;
 			driver->in_busy_2 = 0;
 			driver->in_busy_qdsp_1 = 0;
 			driver->in_busy_qdsp_2 = 0;
+			driver->in_busy_wcnss = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -376,6 +380,9 @@ long diagchar_ioctl(struct file *filp,
 			if (driver->chqdsp)
 				queue_work(driver->diag_wq,
 					&(driver->diag_read_smd_qdsp_work));
+			if (driver->ch_wcnss)
+				queue_work(driver->diag_wq,
+					&(driver->diag_read_smd_wcnss_work));
 		}
 #ifdef CONFIG_DIAG_OVER_USB
 		else if (temp == USB_MODE && driver->logging_mode
@@ -391,6 +398,7 @@ long diagchar_ioctl(struct file *filp,
 			driver->in_busy_2 = 0;
 			driver->in_busy_qdsp_2 = 0;
 			driver->in_busy_qdsp_2 = 0;
+			driver->in_busy_wcnss = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -398,6 +406,9 @@ long diagchar_ioctl(struct file *filp,
 			if (driver->chqdsp)
 				queue_work(driver->diag_wq,
 					&(driver->diag_read_smd_qdsp_work));
+			if (driver->ch_wcnss)
+				queue_work(driver->diag_wq,
+					&(driver->diag_read_smd_wcnss_work));
 		} else if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 								== USB_MODE)
 			diagfwd_connect();
@@ -426,10 +437,10 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 				  driver->data_ready[index]);
 	mutex_lock(&driver->diagchar_mutex);
 
-	if ((driver->data_ready[index] & MEMORY_DEVICE_LOG_TYPE) && (driver->
+	if ((driver->data_ready[index] & USER_SPACE_LOG_TYPE) && (driver->
 					logging_mode == MEMORY_DEVICE_MODE)) {
 		/*Copy the type of data being passed*/
-		data_type = driver->data_ready[index] & MEMORY_DEVICE_LOG_TYPE;
+		data_type = driver->data_ready[index] & USER_SPACE_LOG_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* place holder for number of data field */
 		ret += 4;
@@ -496,8 +507,7 @@ drop:
 					 driver->write_ptr_2->length);
 			driver->in_busy_2 = 0;
 		}
-
-		/* copy q6 data */
+		/* copy lpass data */
 		if (driver->in_busy_qdsp_1 == 1) {
 			num_data++;
 			/*Copy the length of data being passed*/
@@ -520,23 +530,37 @@ drop:
 					write_ptr_qdsp_2->length);
 			driver->in_busy_qdsp_2 = 0;
 		}
-
+		/* copy wncss data */
+		if (driver->in_busy_wcnss == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+				 (driver->write_ptr_wcnss->length), 4);
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
+							buf_in_wcnss),
+					 driver->write_ptr_wcnss->length);
+			driver->in_busy_wcnss = 0;
+		}
 		/* copy number of data fields */
 		COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 		ret -= 4;
-		driver->data_ready[index] ^= MEMORY_DEVICE_LOG_TYPE;
+		driver->data_ready[index] ^= USER_SPACE_LOG_TYPE;
 		if (driver->ch)
 			queue_work(driver->diag_wq,
 					 &(driver->diag_read_smd_work));
 		if (driver->chqdsp)
 			queue_work(driver->diag_wq,
 					 &(driver->diag_read_smd_qdsp_work));
+		if (driver->ch_wcnss)
+			queue_work(driver->diag_wq,
+					 &(driver->diag_read_smd_wcnss_work));
 		APPEND_DEBUG('n');
 		goto exit;
-	} else if (driver->data_ready[index] & MEMORY_DEVICE_LOG_TYPE) {
+	} else if (driver->data_ready[index] & USER_SPACE_LOG_TYPE) {
 		/* In case, the thread wakes up and the logging mode is
 		not memory device any more, the condition needs to be cleared */
-		driver->data_ready[index] ^= MEMORY_DEVICE_LOG_TYPE;
+		driver->data_ready[index] ^= USER_SPACE_LOG_TYPE;
 	}
 
 	if (driver->data_ready[index] & DEINIT_TYPE) {
@@ -612,21 +636,27 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #endif /* DIAG over USB */
 	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
-	/*First 4 bytes indicate the type of payload - ignore these */
+	/* First 4 bytes indicate the type of payload - ignore these */
 	payload_size = count - 4;
 
-	if (pkt_type == MEMORY_DEVICE_LOG_TYPE) {
-		if (!mask_request_validate((unsigned char *)buf)) {
-			printk(KERN_ALERT "mask request Invalid ..cannot send to modem \n");
-			return -EFAULT;
+	if (pkt_type == USER_SPACE_LOG_TYPE) {
+		err = copy_from_user(driver->user_space_data, buf + 4,
+							 payload_size);
+		/* Check masks for On-Device logging */
+		if (pkt_type == USER_SPACE_LOG_TYPE) {
+			if (!mask_request_validate((unsigned char *)buf)) {
+				pr_alert("diag: mask request Invalid\n");
+				return -EFAULT;
+			}
 		}
 		buf = buf + 4;
 #ifdef DIAG_DEBUG
-		pr_debug("diag: masks: %d\n", payload_size);
+		pr_debug("diag: user space data %d\n", payload_size);
 		for (i = 0; i < payload_size; i++)
 			printk(KERN_DEBUG "\t %x", *(((unsigned char *)buf)+i));
 #endif
-		diag_process_hdlc((void *)buf, payload_size);
+		diag_process_hdlc((void *)(driver->user_space_data),
+							 payload_size);
 		return 0;
 	}
 
