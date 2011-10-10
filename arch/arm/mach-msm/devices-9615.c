@@ -578,6 +578,8 @@ void __init msm9615_map_io(void)
 void __init msm9615_init_irq(void)
 {
 	unsigned int i;
+
+	msm_mpm_irq_extn_init();
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
 
