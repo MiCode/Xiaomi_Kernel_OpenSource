@@ -85,8 +85,10 @@ fail:
 static int __devinit
 wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 {
-	if (penv)
-		penv->smd_channel_ready = 1;
+	if (!penv)
+		return -ENODEV;
+
+	penv->smd_channel_ready = 1;
 
 	pr_info("%s: SMD ctrl channel up\n", __func__);
 
