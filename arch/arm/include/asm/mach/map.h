@@ -10,6 +10,7 @@
  *  Page table mapping constructs and function prototypes
  */
 #include <asm/io.h>
+#include <asm/page.h>
 
 struct map_desc {
 	unsigned long virtual;
