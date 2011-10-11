@@ -24,15 +24,26 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/skbuff.h>
+#include <linux/wakelock.h>
+#include <linux/uaccess.h>
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/hci.h>
 #include <mach/msm_smd.h>
-#include <linux/wakelock.h>
 
 #define EVENT_CHANNEL		"APPS_RIVA_BT_CMD"
 #define DATA_CHANNEL		"APPS_RIVA_BT_ACL"
 #define RX_Q_MONITOR		(1)	/* 1 milli second */
+
+
+static unsigned int driver_state;
+
+static int hcismd_set;
+static DEFINE_MUTEX(hci_smd_enable);
+
+static int hcismd_set_enable(const char *val, struct kernel_param *kp);
+module_param_call(hcismd_set, hcismd_set_enable, NULL, &hcismd_set, 0644);
+
 
 struct hci_smd_data {
 	struct hci_dev *hdev;
@@ -45,7 +56,7 @@ struct hci_smd_data {
 	struct tasklet_struct hci_event_task;
 	struct tasklet_struct hci_data_task;
 };
-struct hci_smd_data hs;
+static struct hci_smd_data hs;
 
 /* Rx queue monitor timer function */
 static int is_rx_q_empty(unsigned long arg)
@@ -358,32 +369,37 @@ static void hci_smd_notify_data(void *data, unsigned int event)
 
 static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 {
-	struct hci_dev *hdev;
+	static struct hci_dev *hdev;
 	int rc;
 
 	/* Initialize and register HCI device */
-	hdev = hci_alloc_dev();
-	if (!hdev) {
-		BT_ERR("Can't allocate HCI device");
-		return -ENOMEM;
-	}
+	if (!driver_state) {
+		hdev = hci_alloc_dev();
+		if (!hdev) {
+			BT_ERR("Can't allocate HCI device");
+			return -ENOMEM;
+		}
 
-	hsmd->hdev = hdev;
-	hdev->bus = HCI_SMD;
-	hdev->driver_data = hsmd;
-	hdev->open  = hci_smd_open;
-	hdev->close = hci_smd_close;
-	hdev->send  = hci_smd_send_frame;
-	hdev->destruct = hci_smd_destruct;
-	hdev->owner = THIS_MODULE;
+		hsmd->hdev = hdev;
+		hdev->bus = HCI_SMD;
+		hdev->driver_data = hsmd;
+		hdev->open  = hci_smd_open;
+		hdev->close = hci_smd_close;
+		hdev->send  = hci_smd_send_frame;
+		hdev->destruct = hci_smd_destruct;
+		hdev->owner = THIS_MODULE;
+	}
 
 	tasklet_init(&hsmd->hci_event_task,
 			hci_smd_recv_event, (unsigned long) hsmd);
 	tasklet_init(&hsmd->hci_data_task,
 			hci_smd_recv_data, (unsigned long) hsmd);
-
-	wake_lock_init(&hs.wake_lock_rx, WAKE_LOCK_SUSPEND, "msm_smd_Rx");
-	wake_lock_init(&hs.wake_lock_tx, WAKE_LOCK_SUSPEND, "msm_smd_Tx");
+	if (!driver_state) {
+		wake_lock_init(&hs.wake_lock_rx, WAKE_LOCK_SUSPEND,
+				 "msm_smd_Rx");
+		wake_lock_init(&hs.wake_lock_tx, WAKE_LOCK_SUSPEND,
+				 "msm_smd_Tx");
+	}
 	/*
 	 * Setup the timer to monitor whether the Rx queue is empty,
 	 * to control the wake lock release
@@ -411,24 +427,21 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 	/* Disable the read interrupts on the channel */
 	smd_disable_read_intr(hsmd->event_channel);
 	smd_disable_read_intr(hsmd->data_channel);
-
-	if (hci_register_dev(hdev) < 0) {
-		BT_ERR("Can't register HCI device");
-		hci_free_dev(hdev);
-		return -ENODEV;
+	if (!driver_state) {
+		if (hci_register_dev(hdev) < 0) {
+			BT_ERR("Can't register HCI device");
+			hci_free_dev(hdev);
+			return -ENODEV;
+		}
+		driver_state = 1;
 	}
-
 	return 0;
 }
 
-static void hci_smd_deregister(void)
+static void hci_smd_deregister_dev(void)
 {
 	smd_close(hs.event_channel);
-	hs.event_channel = 0;
 	smd_close(hs.data_channel);
-	hs.data_channel = 0;
-	wake_lock_destroy(&hs.wake_lock_rx);
-	wake_lock_destroy(&hs.wake_lock_tx);
 
 	/*Destroy the timer used to monitor the Rx queue for emptiness */
 	del_timer_sync(&hs.rx_q_timer);
@@ -436,17 +449,34 @@ static void hci_smd_deregister(void)
 	tasklet_kill(&hs.hci_data_task);
 }
 
-static int hci_smd_init(void)
+static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 {
-	return hci_smd_register_dev(&hs);
-}
-module_init(hci_smd_init);
+	int ret = 0;
 
-static void __exit hci_smd_exit(void)
-{
-	hci_smd_deregister();
+	mutex_lock(&hci_smd_enable);
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		goto done;
+
+	switch (hcismd_set) {
+
+	case 1:
+		hci_smd_register_dev(&hs);
+	break;
+	case 0:
+		hci_smd_deregister_dev();
+	break;
+	default:
+		ret = -EFAULT;
+	}
+
+done:
+	mutex_unlock(&hci_smd_enable);
+	return ret;
 }
-module_exit(hci_smd_exit);
+
 
 MODULE_AUTHOR("Ankur Nandwani <ankurn@codeaurora.org>");
 MODULE_DESCRIPTION("Bluetooth SMD driver");
