@@ -137,7 +137,7 @@ static struct mfd_cell debugfs_cell __devinitdata = {
 	.name		= "pm8xxx-debug",
 	.id		= 1,
 	.platform_data	= "pm8821-dbg",
-	.data_size	= sizeof("pm8821-dbg"),
+	.pdata_size	= sizeof("pm8821-dbg"),
 };
 
 
@@ -165,7 +165,7 @@ pm8821_add_subdevices(const struct pm8821_platform_data *pdata,
 		pdata->mpp_pdata->core_data.nmpps = PM8821_NR_MPPS;
 		pdata->mpp_pdata->core_data.base_addr = REG_MPP_BASE;
 		mpp_cell.platform_data = pdata->mpp_pdata;
-		mpp_cell.data_size = sizeof(struct pm8xxx_mpp_platform_data);
+		mpp_cell.pdata_size = sizeof(struct pm8xxx_mpp_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &mpp_cell, 1, NULL,
 					irq_base);
 		if (ret) {
