@@ -186,7 +186,7 @@
 #define DEBUG01		0x05A4	/* LVDS Data */
 
 /* PWM */
-#define PWM_FREQ_HZ 210
+#define PWM_FREQ_HZ	(66*1000)	/* 66 KHZ */
 #define PWM_LEVEL 15
 #define PWM_PERIOD_USEC (USEC_PER_SEC / PWM_FREQ_HZ)
 #define PWM_DUTY_LEVEL (PWM_PERIOD_USEC / PWM_LEVEL)
