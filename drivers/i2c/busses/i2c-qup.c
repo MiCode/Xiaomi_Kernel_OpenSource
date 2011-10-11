@@ -527,7 +527,7 @@ qup_issue_write(struct qup_i2c_dev *dev, struct i2c_msg *msg, int rem,
 		 */
 		if (rem > 1) {
 			struct i2c_msg *next = msg + 1;
-			if (next->addr == msg->addr && (next->flags | I2C_M_RD)
+			if (next->addr == msg->addr && (next->flags & I2C_M_RD)
 				&& *idx == ((dev->wr_sz*2) - 4)) {
 				writel_relaxed(((last_entry |
 					msg->buf[dev->pos]) |
