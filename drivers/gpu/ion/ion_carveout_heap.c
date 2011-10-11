@@ -39,7 +39,8 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 {
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
-	unsigned long offset = gen_pool_alloc(carveout_heap->pool, size);
+	unsigned long offset = gen_pool_alloc_aligned(carveout_heap->pool,
+							size, ilog2(align));
 
 	if (!offset)
 		return ION_CARVEOUT_ALLOCATE_FAIL;
