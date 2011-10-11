@@ -64,6 +64,7 @@ enum ion_heap_ids {
 #define ION_VMALLOC_HEAP_NAME	"vmalloc"
 #define ION_EBI1_HEAP_NAME	"EBI1"
 #define ION_ADSP_HEAP_NAME	"adsp"
+#define ION_SMI_HEAP_NAME	"smi"
 
 #define CACHED          1
 #define UNCACHED        0
