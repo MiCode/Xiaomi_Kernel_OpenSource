@@ -993,7 +993,7 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 	}
 	/* Prevent modem to go to sleep until we get the PROG_DONE on
 	   the dummy CMD52 */
-	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 0);
+	msmsdcc_set_pwrsave(sdio_al_dev->host, 0);
 	/* Mark HOST_OK_TOSLEEP */
 	sdio_al_dev->is_ok_to_sleep = 1;
 	write_lpm_info(sdio_al_dev);
@@ -2359,10 +2359,9 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 			   u32 not_from_int, struct sdio_channel *ch)
 {
 	int ret = 0;
-	struct sdio_func *wk_func =
-		sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
+	struct sdio_func *wk_func = NULL;
 	unsigned long time_to_wait;
-	struct mmc_host *host = wk_func->card->host;
+	struct mmc_host *host = sdio_al_dev->host;
 
 	if (sdio_al_dev->is_err) {
 		SDIO_AL_ERR(__func__);
@@ -2398,7 +2397,7 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 	sdio_al_vote_for_sleep(sdio_al_dev, 0);
 
 	msmsdcc_lpm_disable(host);
-	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 0);
+	msmsdcc_set_pwrsave(host, 0);
 	/* Poll the GPIO */
 	time_to_wait = jiffies + msecs_to_jiffies(1000);
 	while (time_before(jiffies, time_to_wait)) {
@@ -2416,6 +2415,13 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 				"get_mdm2ap_status() is 0\n");
 
 	/* Enable Wake up Function */
+	if (!sdio_al_dev->card ||
+	    !sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1]) {
+		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME
+				": NULL card or wk_func\n");
+		return -ENODEV;
+	}
+	wk_func = sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
 	ret = sdio_al_enable_func_retry(wk_func, "wakeup func");
 	if (ret) {
 		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME ": "
@@ -2442,13 +2448,13 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 	LPM_DEBUG(sdio_al_dev->dev_log, MODULE_NAME "Finished Wake up sequence"
 			" for card %d", sdio_al_dev->host->index);
 
-	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 1);
+	msmsdcc_set_pwrsave(host, 1);
 	pr_debug(MODULE_NAME ":Turn clock off\n");
 
 	return ret;
 error_exit:
 	sdio_al_vote_for_sleep(sdio_al_dev, 1);
-	msmsdcc_set_pwrsave(sdio_al_dev->card->host, 1);
+	msmsdcc_set_pwrsave(host, 1);
 	WARN_ON(ret);
 	sdio_al_get_into_err_state(sdio_al_dev);
 	return ret;
@@ -2476,8 +2482,7 @@ static void sdio_func_irq(struct sdio_func *func)
 	pr_debug(MODULE_NAME ":start %s.\n", __func__);
 
 	if (sdio_al_dev == NULL) {
-		sdio_al_loge(&sdio_al->gen_log, MODULE_NAME ": NULL sdio_al_dev"
-				" for card %d\n", func->card->host->index);
+		sdio_al_loge(&sdio_al->gen_log, MODULE_NAME ": NULL device");
 		return;
 	}
 
@@ -2527,17 +2532,12 @@ static int sdio_al_setup(struct sdio_al_device *sdio_al_dev)
 	int i = 0;
 	int fn = 0;
 
-	if (card == NULL) {
-		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME ": "
-				"sdio_al_setup: No Card detected\n");
+	if (sdio_al_verify_func1(sdio_al_dev, __func__))
 		return -ENODEV;
-	}
-
+	func1 = card->sdio_func[0];
 
 	sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME ":sdio_al_setup for "
 			"card %d\n", sdio_al_dev->host->index);
-
-	func1 = card->sdio_func[0];
 
 	ret = sdio_al->pdata->config_mdm2ap_status(1);
 	if (ret) {
@@ -2560,13 +2560,13 @@ static int sdio_al_setup(struct sdio_al_device *sdio_al_dev)
 
 	sdio_set_drvdata(func1, sdio_al_dev);
 	sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME ":claim IRQ for card "
-			"%d\n",	card->host->index);
+			"%d\n",	sdio_al_dev->host->index);
 
 	ret = sdio_claim_irq(func1, sdio_func_irq);
 	if (ret) {
 		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME ":Fail to claim"
 				" IRQ for card %d\n",
-				card->host->index);
+				sdio_al_dev->host->index);
 		return ret;
 	}
 
