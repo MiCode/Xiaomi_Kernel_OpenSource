@@ -61,7 +61,6 @@ static void evdev_pass_event(struct evdev_client *client,
 {
 	/* Interrupts are disabled, just acquire the lock. */
 	spin_lock(&client->buffer_lock);
-	wake_lock_timeout(&client->wake_lock, 5 * HZ);
 
 	wake_lock_timeout(&client->wake_lock, 5 * HZ);
 	client->buffer[client->head++] = *event;
