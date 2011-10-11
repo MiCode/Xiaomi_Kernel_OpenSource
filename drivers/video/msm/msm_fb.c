@@ -2936,6 +2936,9 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case MSMFB_HISTOGRAM:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+
 		if (!mfd->do_histogram)
 			return -ENODEV;
 
