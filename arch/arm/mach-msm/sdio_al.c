@@ -351,6 +351,7 @@ struct sdio_al {
 	struct sdio_al_device *bootloader_dev;
 	void *subsys_notif_handle;
 	int sdioc_major;
+	int skip_print_info;
 };
 
 struct sdio_al_work {
@@ -3797,6 +3798,7 @@ static int sdio_al_sdio_probe(struct sdio_func *func,
 	}
 
 	dev_info(&card->dev, "SDIO Card claimed.\n");
+	sdio_al->skip_print_info = 0;
 
 	sdio_al_dev->state = CARD_INSERTED;
 
@@ -4018,13 +4020,12 @@ static void sdio_al_print_info(void)
 	struct sdio_func *lpm_func = NULL;
 	int offset = 0;
 	int is_ok_to_sleep = 0;
-	static atomic_t first_time;
 	char buf[50];
 
-	if (atomic_read(&first_time) == 1)
+	if (sdio_al->skip_print_info == 1)
 		return;
 
-	atomic_set(&first_time, 1);
+	sdio_al->skip_print_info = 1;
 
 	sdio_al_loge(&sdio_al->gen_log, MODULE_NAME ": %s - SDIO DEBUG INFO\n",
 			__func__);
