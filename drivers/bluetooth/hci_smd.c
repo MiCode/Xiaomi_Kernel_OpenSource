@@ -162,6 +162,11 @@ static void hci_smd_recv_data(unsigned long arg)
 		rc = hci_recv_frame(skb);
 		if (rc < 0) {
 			BT_ERR("Error in passing the packet to HCI Layer");
+			/*
+			 * skb is getting freed in hci_recv_frame, making it
+			 * to null to avoid multiple access
+			 */
+			skb = NULL;
 			goto out_data;
 		}
 
@@ -230,6 +235,11 @@ static void hci_smd_recv_event(unsigned long arg)
 		rc = hci_recv_frame(skb);
 		if (rc < 0) {
 			BT_ERR("Error in passing the packet to HCI Layer");
+			/*
+			 * skb is getting freed in hci_recv_frame, making it
+			 *  to null to avoid multiple access
+			 */
+			skb = NULL;
 			goto out_event;
 		}
 
