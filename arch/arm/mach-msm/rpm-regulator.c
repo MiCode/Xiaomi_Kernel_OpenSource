@@ -416,6 +416,9 @@ static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
  *
  * This function may only be called for regulators which have the sleep flag
  * specified in their private data.
+ *
+ * Consumers can vote to disable a regulator with this function by passing
+ * min_uV = 0 and max_uV = 0.
  */
 int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 			 int max_uV, int sleep_also)
@@ -452,38 +455,41 @@ int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 		return -EINVAL;
 	}
 
-	/*
-	 * Check if request voltage is outside of allowed range. The regulator
-	 * core has already checked that constraint range is inside of the
-	 * physically allowed range.
-	 */
-	lim_min_uV = vreg->pdata.init_data.constraints.min_uV;
-	lim_max_uV = vreg->pdata.init_data.constraints.max_uV;
+	/* Allow min_uV == max_uV == 0 to represent a disable request. */
+	if (min_uV != 0 || max_uV != 0) {
+		/*
+		 * Check if request voltage is outside of allowed range. The
+		 * regulator core has already checked that constraint range
+		 * is inside of the physically allowed range.
+		 */
+		lim_min_uV = vreg->pdata.init_data.constraints.min_uV;
+		lim_max_uV = vreg->pdata.init_data.constraints.max_uV;
 
-	if (uV < lim_min_uV && max_uV >= lim_min_uV)
-		uV = lim_min_uV;
+		if (uV < lim_min_uV && max_uV >= lim_min_uV)
+			uV = lim_min_uV;
 
-	if (uV < lim_min_uV || uV > lim_max_uV) {
-		vreg_err(vreg,
-			"request v=[%d, %d] is outside allowed v=[%d, %d]\n",
-			 min_uV, max_uV, lim_min_uV, lim_max_uV);
-		return -EINVAL;
-	}
-
-	/* Find the range which uV is inside of. */
-	for (i = vreg->set_points->count - 1; i > 0; i--) {
-		if (uV > vreg->set_points->range[i - 1].max_uV) {
-			range = &vreg->set_points->range[i];
-			break;
+		if (uV < lim_min_uV || uV > lim_max_uV) {
+			vreg_err(vreg, "request v=[%d, %d] is outside allowed "
+				"v=[%d, %d]\n", min_uV, max_uV, lim_min_uV,
+				lim_max_uV);
+			return -EINVAL;
 		}
-	}
 
-	/*
-	 * Force uV to be an allowed set point and apply a ceiling function
-	 * to non-set point values.
-	 */
-	uV = (uV - range->min_uV + range->step_uV - 1) / range->step_uV;
-	uV = uV * range->step_uV + range->min_uV;
+		/* Find the range which uV is inside of. */
+		for (i = vreg->set_points->count - 1; i > 0; i--) {
+			if (uV > vreg->set_points->range[i - 1].max_uV) {
+				range = &vreg->set_points->range[i];
+				break;
+			}
+		}
+
+		/*
+		 * Force uV to be an allowed set point and apply a ceiling
+		 * function to non-set point values.
+		 */
+		uV = (uV - range->min_uV + range->step_uV - 1) / range->step_uV;
+		uV = uV * range->step_uV + range->min_uV;
+	}
 
 	if (vreg->part->uV.mask) {
 		val[vreg->part->uV.word] = uV << vreg->part->uV.shift;
