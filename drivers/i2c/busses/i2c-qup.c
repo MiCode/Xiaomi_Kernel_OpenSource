@@ -335,8 +335,15 @@ qup_i2c_poll_writeready(struct qup_i2c_dev *dev, int rem)
 			else /* 1-bit delay before we check for bus busy */
 				udelay(dev->one_bit_t);
 		}
-		if (retries++ == 1000)
-			udelay(100);
+		if (retries++ == 1000) {
+			/*
+			 * Wait for FIFO number of bytes to be absolutely sure
+			 * that I2C write state machine is not idle. Each byte
+			 * takes 9 clock cycles. (8 bits + 1 ack)
+			 */
+			usleep_range((dev->one_bit_t * (dev->out_fifo_sz * 9)),
+				(dev->one_bit_t * (dev->out_fifo_sz * 9)));
+		}
 	}
 	qup_print_status(dev);
 	return -ETIMEDOUT;
@@ -1076,7 +1083,7 @@ qup_i2c_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	dev->one_bit_t = USEC_PER_SEC/pdata->clk_freq;
+	dev->one_bit_t = (USEC_PER_SEC/pdata->clk_freq) + 1;
 	dev->pdata = pdata;
 	dev->clk_ctl = 0;
 	dev->pos = 0;
