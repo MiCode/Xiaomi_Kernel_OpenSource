@@ -878,8 +878,7 @@ static void sdio_al_vote_for_sleep(struct sdio_al_device *sdio_al_dev,
  */
 static int write_lpm_info(struct sdio_al_device *sdio_al_dev)
 {
-	struct sdio_func *lpm_func =
-		sdio_al_dev->card->sdio_func[sdio_al_dev->lpm_chan+1];
+	struct sdio_func *lpm_func = NULL;
 	int offset = offsetof(struct peer_sdioc_sw_mailbox, ch_config)+
 		sizeof(struct peer_sdioc_channel_config) *
 		sdio_al_dev->lpm_chan+
@@ -892,6 +891,14 @@ static int write_lpm_info(struct sdio_al_device *sdio_al_dev)
 				sdio_al_dev->host->index);
 		return -EINVAL;
 	}
+
+	if (!sdio_al_dev->card ||
+		!sdio_al_dev->card->sdio_func[sdio_al_dev->lpm_chan+1]) {
+		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME
+				": NULL card or lpm_func\n");
+		return -ENODEV;
+	}
+	lpm_func = sdio_al_dev->card->sdio_func[sdio_al_dev->lpm_chan+1];
 
 	pr_debug(MODULE_NAME ":write_lpm_info is_ok_to_sleep=%d, device %d\n",
 		 sdio_al_dev->is_ok_to_sleep,
@@ -1900,8 +1907,7 @@ static int read_sdioc_software_header(struct sdio_al_device *sdio_al_dev,
 		ch->poll_delay_msec = 0;
 
 		ch->num = i;
-
-		ch->func = sdio_al_dev->card->sdio_func[ch->num+1];
+		ch->func = NULL;
 		ch->rx_pipe_index = ch->num*2;
 		ch->tx_pipe_index = ch->num*2+1;
 
@@ -1916,6 +1922,15 @@ static int read_sdioc_software_header(struct sdio_al_device *sdio_al_dev,
 
 			ch->state = SDIO_CHANNEL_STATE_IDLE;
 			ch->sdio_al_dev = sdio_al_dev;
+			if (sdio_al_dev->card->sdio_func[ch->num+1]) {
+				ch->func =
+				sdio_al_dev->card->sdio_func[ch->num+1];
+			} else {
+				sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME
+					": NULL func for channel %s\n",
+					ch->name);
+				goto exit_err;
+			}
 		} else {
 			ch->state = SDIO_CHANNEL_STATE_INVALID;
 		}
@@ -2802,18 +2817,19 @@ static int peer_set_operation(u32 opcode,
 {
 	int ret;
 	int offset;
-	struct sdio_func *wk_func;
+	struct sdio_func *wk_func = NULL;
 	u32 peer_operation;
 	int loop_count = 0;
 
-	wk_func = sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
-	if (!wk_func) {
-		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME ":%s: NULL "
-				"wakeup func:%d\n", __func__,
-				SDIO_AL_WAKEUP_FUNC);
+	if (!sdio_al_dev->card ||
+	    !sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1]) {
+		sdio_al_loge(sdio_al_dev->dev_log, MODULE_NAME
+				": NULL card or wk_func\n");
 		ret = -ENODEV;
 		goto exit;
 	}
+	wk_func = sdio_al_dev->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
+
 	/* calculate offset of peer_operation field in sw mailbox struct */
 	offset = offsetof(struct peer_sdioc_sw_mailbox, ch_config) +
 		sizeof(struct peer_sdioc_channel_config) * ch->num +
@@ -3440,7 +3456,6 @@ static void sdio_al_modem_reset_operations(struct sdio_al_device
 							*sdio_al_dev)
 {
 	int ret = 0;
-	struct sdio_func *func1 = NULL;
 	struct platform_device *pdev_arr[SDIO_AL_MAX_CHANNELS];
 	int j;
 
@@ -3448,13 +3463,6 @@ static void sdio_al_modem_reset_operations(struct sdio_al_device
 
 	if (sdio_al_claim_mutex_and_verify_dev(sdio_al_dev, __func__))
 		return;
-
-	if (!sdio_al_dev->card || !sdio_al_dev->card->sdio_func[0]) {
-		sdio_al_loge(&sdio_al->gen_log, MODULE_NAME ": %s: "
-			"NULL func1 for card %d", __func__,
-			sdio_al_dev->host->index);
-		goto exit_err;
-	}
 
 	if (sdio_al_dev->state == CARD_REMOVED) {
 		sdio_al_logi(&sdio_al->gen_log, MODULE_NAME ": %s: "
@@ -3487,13 +3495,13 @@ static void sdio_al_modem_reset_operations(struct sdio_al_device
 		ret = sdio_al_wake_up(sdio_al_dev, 1, NULL);
 	}
 
-	if (!ret && (!sdio_al_dev->is_err)) {
-		sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME
+	if (!ret && (!sdio_al_dev->is_err) && sdio_al_dev->card &&
+		sdio_al_dev->card->sdio_func[0]) {
+			sdio_al_logi(sdio_al_dev->dev_log, MODULE_NAME
 			": %s: sdio_release_irq for card %d",
 			__func__,
 			sdio_al_dev->host->index);
-		func1 = sdio_al_dev->card->sdio_func[0];
-		sdio_release_irq(sdio_al_dev->card->sdio_func[0]);
+			sdio_release_irq(sdio_al_dev->card->sdio_func[0]);
 	}
 
 	memset(pdev_arr, 0, sizeof(pdev_arr));
