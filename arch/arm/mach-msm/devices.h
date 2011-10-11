@@ -209,4 +209,10 @@ extern struct platform_device msm8960_device_watchdog;
 extern struct platform_device msm8660_device_watchdog;
 extern struct platform_device msm8064_device_watchdog;
 extern struct platform_device msm9615_device_watchdog;
+
+extern struct platform_device msm_etb_device;
+extern struct platform_device msm_tpiu_device;
+extern struct platform_device msm_funnel_device;
+extern struct platform_device msm_debug_device;
+extern struct platform_device msm_ptm_device;
 #endif

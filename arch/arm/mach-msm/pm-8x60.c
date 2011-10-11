@@ -1111,6 +1111,7 @@ int msm_pm_platform_secondary_init(unsigned int cpu)
 		return 0;
 	}
 	etm_restore_reg_check();
+	msm_restore_jtag_debug();
 #ifdef CONFIG_VFP
 	vfp_reinit();
 #endif
