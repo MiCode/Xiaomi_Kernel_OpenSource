@@ -939,3 +939,9 @@ int msm_bus_board_get_iid(int id)
 		SLAVE_ID_KEY]);
 }
 
+int msm_bus_board_rpm_get_il_ids(uint16_t id[])
+{
+	id[0] = MSM_RPM_STATUS_ID_EBI1_CH0_RANGE;
+	id[1] = MSM_RPM_STATUS_ID_EBI1_CH1_RANGE;
+	return 0;
+}
