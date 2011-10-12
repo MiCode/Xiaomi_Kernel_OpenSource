@@ -101,9 +101,6 @@ struct kgsl_driver {
 
 extern struct kgsl_driver kgsl_driver;
 
-#define KGSL_USER_MEMORY 1
-#define KGSL_MAPPED_MEMORY 2
-
 struct kgsl_pagetable;
 struct kgsl_memdesc_ops;
 
@@ -120,11 +117,19 @@ struct kgsl_memdesc {
 	struct kgsl_memdesc_ops *ops;
 };
 
+/* List of different memory entry types */
+
+#define KGSL_MEM_ENTRY_KERNEL 0
+#define KGSL_MEM_ENTRY_PMEM   1
+#define KGSL_MEM_ENTRY_ASHMEM 2
+#define KGSL_MEM_ENTRY_USER   3
+#define KGSL_MEM_ENTRY_MAX    4
+
 struct kgsl_mem_entry {
 	struct kref refcount;
 	struct kgsl_memdesc memdesc;
 	int memtype;
-	struct file *file_ptr;
+	void *priv_data;
 	struct list_head list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this

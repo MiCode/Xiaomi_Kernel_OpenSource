@@ -19,6 +19,52 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_device.h"
 
+/* An attribute for showing per-process memory statistics */
+struct kgsl_mem_entry_attribute {
+	struct attribute attr;
+	int memtype;
+	ssize_t (*show)(struct kgsl_process_private *priv,
+		int type, char *buf);
+};
+
+#define to_mem_entry_attr(a) \
+container_of(a, struct kgsl_mem_entry_attribute, attr)
+
+#define __MEM_ENTRY_ATTR(_type, _name, _show) \
+{ \
+	.attr = { .name = __stringify(_name), .mode = 0444 }, \
+	.memtype = _type, \
+	.show = _show, \
+}
+
+/*
+ * A structure to hold the attributes for a particular memory type.
+ * For each memory type in each process we store the current and maximum
+ * memory usage and display the counts in sysfs.  This structure and
+ * the following macro allow us to simplify the definition for those
+ * adding new memory types
+ */
+
+struct mem_entry_stats {
+	int memtype;
+	struct kgsl_mem_entry_attribute attr;
+	struct kgsl_mem_entry_attribute max_attr;
+};
+
+
+#define MEM_ENTRY_STAT(_type, _name) \
+{ \
+	.memtype = _type, \
+	.attr = __MEM_ENTRY_ATTR(_type, _name, mem_entry_show), \
+	.max_attr = __MEM_ENTRY_ATTR(_type, _name##_max, \
+		mem_entry_max_show), \
+}
+
+
+/**
+ * Given a kobj, find the process structure attached to it
+ */
+
 static struct kgsl_process_private *
 _get_priv_from_kobj(struct kobject *kobj)
 {
@@ -39,87 +85,106 @@ _get_priv_from_kobj(struct kobject *kobj)
 	return NULL;
 }
 
-/* sharedmem / memory sysfs files */
+/**
+ * Show the current amount of memory allocated for the given memtype
+ */
 
 static ssize_t
-process_show(struct kobject *kobj,
-	     struct kobj_attribute *attr,
-	     char *buf)
+mem_entry_show(struct kgsl_process_private *priv, int type, char *buf)
 {
+	return snprintf(buf, PAGE_SIZE, "%d\n", priv->stats[type].cur);
+}
+
+/**
+ * Show the maximum memory allocated for the given memtype through the life of
+ * the process
+ */
+
+static ssize_t
+mem_entry_max_show(struct kgsl_process_private *priv, int type, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", priv->stats[type].max);
+}
+
+
+static void mem_entry_sysfs_release(struct kobject *kobj)
+{
+}
+
+static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
+	struct attribute *attr, char *buf)
+{
+	struct kgsl_mem_entry_attribute *pattr = to_mem_entry_attr(attr);
 	struct kgsl_process_private *priv;
-	unsigned int val = 0;
+	ssize_t ret;
 
 	mutex_lock(&kgsl_driver.process_mutex);
 	priv = _get_priv_from_kobj(kobj);
 
-	if (priv == NULL) {
-		mutex_unlock(&kgsl_driver.process_mutex);
-		return 0;
-	}
-
-	if (!strncmp(attr->attr.name, "user", 4))
-		val = priv->stats.user;
-	if (!strncmp(attr->attr.name, "user_max", 8))
-		val = priv->stats.user_max;
-	if (!strncmp(attr->attr.name, "mapped", 6))
-		val = priv->stats.mapped;
-	if (!strncmp(attr->attr.name, "mapped_max", 10))
-		val = priv->stats.mapped_max;
-	if (!strncmp(attr->attr.name, "flushes", 7))
-		val = priv->stats.flushes;
+	if (priv && pattr->show)
+		ret = pattr->show(priv, pattr->memtype, buf);
+	else
+		ret = -EIO;
 
 	mutex_unlock(&kgsl_driver.process_mutex);
-	return snprintf(buf, PAGE_SIZE, "%u\n", val);
+	return ret;
 }
 
-#define KGSL_MEMSTAT_ATTR(_name, _show) \
-	static struct kobj_attribute attr_##_name = \
-	__ATTR(_name, 0444, _show, NULL)
-
-KGSL_MEMSTAT_ATTR(user, process_show);
-KGSL_MEMSTAT_ATTR(user_max, process_show);
-KGSL_MEMSTAT_ATTR(mapped, process_show);
-KGSL_MEMSTAT_ATTR(mapped_max, process_show);
-KGSL_MEMSTAT_ATTR(flushes, process_show);
-
-static struct attribute *process_attrs[] = {
-	&attr_user.attr,
-	&attr_user_max.attr,
-	&attr_mapped.attr,
-	&attr_mapped_max.attr,
-	&attr_flushes.attr,
-	NULL
+static const struct sysfs_ops mem_entry_sysfs_ops = {
+	.show = mem_entry_sysfs_show,
 };
 
-static struct attribute_group process_attr_group = {
-	.attrs = process_attrs,
+static struct kobj_type ktype_mem_entry = {
+	.sysfs_ops = &mem_entry_sysfs_ops,
+	.default_attrs = NULL,
+	.release = mem_entry_sysfs_release
+};
+
+static struct mem_entry_stats mem_stats[] = {
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_KERNEL, kernel),
+#ifdef CONFIG_ANDROID_PMEM
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_PMEM, pmem),
+#endif
+#ifdef CONFIG_ASHMEM
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_ASHMEM, ashmem),
+#endif
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, user),
 };
 
 void
 kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
 {
-	/* Remove the sysfs entry */
-	if (private->kobj) {
-		sysfs_remove_group(private->kobj, &process_attr_group);
-		kobject_put(private->kobj);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mem_stats); i++) {
+		sysfs_remove_file(&private->kobj, &mem_stats[i].attr.attr);
+		sysfs_remove_file(&private->kobj,
+			&mem_stats[i].max_attr.attr);
 	}
+
+	kobject_put(&private->kobj);
 }
 
 void
 kgsl_process_init_sysfs(struct kgsl_process_private *private)
 {
 	unsigned char name[16];
+	int i, ret;
 
-	/* Add a entry to the sysfs device */
 	snprintf(name, sizeof(name), "%d", private->pid);
-	private->kobj = kobject_create_and_add(name, kgsl_driver.prockobj);
 
-	/* sysfs failure isn't fatal, just annoying */
-	if (private->kobj != NULL) {
-		if (sysfs_create_group(private->kobj, &process_attr_group)) {
-			kobject_put(private->kobj);
-			private->kobj = NULL;
-		}
+	if (kobject_init_and_add(&private->kobj, &ktype_mem_entry,
+		kgsl_driver.prockobj, name))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(mem_stats); i++) {
+		/* We need to check the value of sysfs_create_file, but we
+		 * don't really care if it passed or not */
+
+		ret = sysfs_create_file(&private->kobj,
+			&mem_stats[i].attr.attr);
+		ret = sysfs_create_file(&private->kobj,
+			&mem_stats[i].max_attr.attr);
 	}
 }
 

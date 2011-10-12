@@ -185,15 +185,12 @@ struct kgsl_process_private {
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
-	struct kobject *kobj;
+	struct kobject kobj;
 
 	struct {
-		unsigned int user;
-		unsigned int user_max;
-		unsigned int mapped;
-		unsigned int mapped_max;
-		unsigned int flushes;
-	} stats;
+		unsigned int cur;
+		unsigned int max;
+	} stats[KGSL_MEM_ENTRY_MAX];
 };
 
 struct kgsl_device_private {
@@ -207,6 +204,14 @@ struct kgsl_power_stats {
 };
 
 struct kgsl_device *kgsl_get_device(int dev_idx);
+
+static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
+	unsigned int type, size_t size)
+{
+	priv->stats[type].cur += size;
+	if (priv->stats[type].max < priv->stats[type].cur)
+		priv->stats[type].max = priv->stats[type].cur;
+}
 
 static inline void kgsl_regread(struct kgsl_device *device,
 				unsigned int offsetwords,

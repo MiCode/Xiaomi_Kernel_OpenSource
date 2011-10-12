@@ -62,18 +62,20 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	struct kgsl_mem_entry *entry = container_of(kref,
 						    struct kgsl_mem_entry,
 						    refcount);
-	size_t size = entry->memdesc.size;
+
+	entry->priv->stats[entry->memtype].cur -= entry->memdesc.size;
+
+	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL)
+		kgsl_driver.stats.mapped -= entry->memdesc.size;
 
 	kgsl_sharedmem_free(&entry->memdesc);
 
-	if (entry->memtype == KGSL_USER_MEMORY)
-		entry->priv->stats.user -= size;
-	else if (entry->memtype == KGSL_MAPPED_MEMORY) {
-		if (entry->file_ptr)
-			fput(entry->file_ptr);
-
-		kgsl_driver.stats.mapped -= size;
-		entry->priv->stats.mapped -= size;
+	switch (entry->memtype) {
+	case KGSL_MEM_ENTRY_PMEM:
+	case KGSL_MEM_ENTRY_ASHMEM:
+		if (entry->priv_data)
+			fput(entry->priv_data);
+		break;
 	}
 
 	kfree(entry);
@@ -512,11 +514,6 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	if (--private->refcnt)
 		goto unlock;
-
-	KGSL_MEM_INFO(device,
-			"Memory usage: user (%d/%d) mapped (%d/%d)\n",
-			private->stats.user, private->stats.user_max,
-			private->stats.mapped, private->stats.mapped_max);
 
 	kgsl_process_uninit_sysfs(private);
 
@@ -1113,13 +1110,12 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 
 	param->gpuaddr = entry->memdesc.gpuaddr;
 
-	entry->memtype = KGSL_USER_MEMORY;
+	entry->memtype = KGSL_MEM_ENTRY_KERNEL;
 
 	kgsl_mem_entry_attach_process(entry, private);
 
 	/* Process specific statistics */
-	KGSL_STATS_ADD(len, private->stats.user,
-		       private->stats.user_max);
+	kgsl_process_add_stats(private, entry->memtype, len);
 
 	kgsl_check_idle(dev_priv->device);
 	return 0;
@@ -1220,7 +1216,7 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 
 	}
 
-	entry->file_ptr = filep;
+	entry->priv_data = filep;
 
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = size;
@@ -1392,7 +1388,7 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 		goto err;
 	}
 
-	entry->file_ptr = filep;
+	entry->priv_data = filep;
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = ALIGN(size, PAGE_SIZE);
 	entry->memdesc.hostptr = hostptr;
@@ -1443,6 +1439,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		result = kgsl_setup_phys_file(entry, private->pagetable,
 					      param->fd, param->offset,
 					      param->len);
+		entry->memtype = KGSL_MEM_ENTRY_PMEM;
 		break;
 
 	case KGSL_USER_MEM_TYPE_ADDR:
@@ -1459,6 +1456,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		result = kgsl_setup_hostptr(entry, private->pagetable,
 					    (void *) param->hostptr,
 					    param->offset, param->len);
+		entry->memtype = KGSL_MEM_ENTRY_USER;
 		break;
 
 	case KGSL_USER_MEM_TYPE_ASHMEM:
@@ -1475,6 +1473,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		result = kgsl_setup_ashmem(entry, private->pagetable,
 					   param->fd, (void *) param->hostptr,
 					   param->len);
+
+		entry->memtype = KGSL_MEM_ENTRY_ASHMEM;
 		break;
 	default:
 		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
@@ -1494,14 +1494,10 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	/* Adjust the returned value for a non 4k aligned offset */
 	param->gpuaddr = entry->memdesc.gpuaddr + (param->offset & ~PAGE_MASK);
 
-	entry->memtype = KGSL_MAPPED_MEMORY;
-
 	KGSL_STATS_ADD(param->len, kgsl_driver.stats.mapped,
-		       kgsl_driver.stats.mapped_max);
+		kgsl_driver.stats.mapped_max);
 
-	/* Statistics */
-	KGSL_STATS_ADD(param->len, private->stats.mapped,
-		       private->stats.mapped_max);
+	kgsl_process_add_stats(private, entry->memtype, param->len);
 
 	kgsl_mem_entry_attach_process(entry, private);
 
@@ -1509,8 +1505,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	return result;
 
  error_put_file_ptr:
-	if (entry->file_ptr)
-		fput(entry->file_ptr);
+	if (entry->priv_data)
+		fput(entry->priv_data);
 
 error:
 	kfree(entry);
@@ -1548,9 +1544,6 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	}
 
 	kgsl_cache_range_op(&entry->memdesc, KGSL_CACHE_OP_CLEAN);
-
-	/* Statistics - keep track of how many flushes each process does */
-	private->stats.flushes++;
 done:
 	spin_unlock(&private->mem_lock);
 	return result;
@@ -1573,12 +1566,11 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		param->size, param->flags);
 
 	if (result == 0) {
-		entry->memtype = KGSL_USER_MEMORY;
+		entry->memtype = KGSL_MEM_ENTRY_KERNEL;
 		kgsl_mem_entry_attach_process(entry, private);
 		param->gpuaddr = entry->memdesc.gpuaddr;
 
-		KGSL_STATS_ADD(entry->memdesc.size, private->stats.user,
-		       private->stats.user_max);
+		kgsl_process_add_stats(private, entry->memtype, param->size);
 	} else
 		kfree(entry);
 
