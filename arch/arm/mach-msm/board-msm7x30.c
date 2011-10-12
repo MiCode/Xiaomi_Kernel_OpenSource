@@ -7229,6 +7229,7 @@ MACHINE_START(MSM7X30_SURF, "QCT MSM7X30 SURF")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 
 MACHINE_START(MSM7X30_FFA, "QCT MSM7X30 FFA")
@@ -7239,6 +7240,7 @@ MACHINE_START(MSM7X30_FFA, "QCT MSM7X30 FFA")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 
 MACHINE_START(MSM7X30_FLUID, "QCT MSM7X30 FLUID")
@@ -7249,6 +7251,7 @@ MACHINE_START(MSM7X30_FLUID, "QCT MSM7X30 FLUID")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 
 MACHINE_START(MSM8X55_SURF, "QCT MSM8X55 SURF")
@@ -7259,6 +7262,7 @@ MACHINE_START(MSM8X55_SURF, "QCT MSM8X55 SURF")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 
 MACHINE_START(MSM8X55_FFA, "QCT MSM8X55 FFA")
@@ -7269,6 +7273,7 @@ MACHINE_START(MSM8X55_FFA, "QCT MSM8X55 FFA")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM8X55_SVLTE_SURF, "QCT MSM8X55 SVLTE SURF")
 	.boot_params = PHYS_OFFSET + 0x100,
@@ -7278,6 +7283,7 @@ MACHINE_START(MSM8X55_SVLTE_SURF, "QCT MSM8X55 SVLTE SURF")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM8X55_SVLTE_FFA, "QCT MSM8X55 SVLTE FFA")
 	.boot_params = PHYS_OFFSET + 0x100,
@@ -7287,4 +7293,5 @@ MACHINE_START(MSM8X55_SVLTE_FFA, "QCT MSM8X55 SVLTE FFA")
 	.init_machine = msm7x30_init,
 	.timer = &msm_timer,
 	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
 MACHINE_END
