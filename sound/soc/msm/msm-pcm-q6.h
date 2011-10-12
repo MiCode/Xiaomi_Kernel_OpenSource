@@ -43,6 +43,7 @@ struct buffer_rec {
 };
 
 struct audio_locks {
+	spinlock_t event_lock;
 	wait_queue_head_t read_wait;
 	wait_queue_head_t write_wait;
 	wait_queue_head_t eos_wait;
