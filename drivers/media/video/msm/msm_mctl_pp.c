@@ -57,9 +57,8 @@ static int msm_mctl_pp_buf_divert(
 	/* Copy the divert frame struct into event ctrl struct. */
 	isp_event->isp_data.div_frame = *div;
 
-	D("%s inst=%p, img_mode=%d, frame_id=%d,phy=0x%x,len=%d\n",
-		__func__, pcam_inst, pcam_inst->image_mode, div->frame_id,
-		(uint32_t)div->phy_addr, div->length);
+	D("%s inst=%p, img_mode=%d, frame_id=%d\n", __func__,
+		pcam_inst, pcam_inst->image_mode, div->frame.frame_id);
 	v4l2_event_queue(
 		pmctl->config_device->config_stat_event_queue.pvdev,
 		&v4l2_evt);
@@ -119,7 +118,7 @@ int msm_mctl_do_pp_divert(
 	uint32_t frame_id, int pp_type)
 {
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
-	int idx, rc = 0;
+	int idx, rc = 0, i, buf_idx;
 	int del_buf = 0; /* delete from free queue */
 	struct msm_cam_evt_divert_frame div;
 	struct msm_frame_buffer *vb = NULL;
@@ -132,32 +131,61 @@ int msm_mctl_do_pp_divert(
 		  del_buf, msg_type, fbuf);
 	if (!vb)
 		return -EINVAL;
+
 	vb->vidbuf.v4l2_buf.sequence = frame_id;
-	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	buf_idx = vb->vidbuf.v4l2_buf.index;
 	div.image_mode = pcam_inst->image_mode;
 	div.op_mode    = pcam_inst->pcam->op_mode;
 	div.inst_idx   = pcam_inst->my_index;
 	div.node_idx   = pcam_inst->pcam->vnode_id;
-	div.phy_addr   =
-		videobuf2_to_pmem_contig(&vb->vidbuf, 0);
-	div.phy_offset = mem->addr_offset;
-	div.y_off      = 0;
-	div.cbcr_off   = mem->offset.sp_off.cbcr_off;
-	div.fd         = (int)mem->vaddr;
-	div.vb = (uint32_t)vb;
 	p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode]++;
 	if (p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode] == 0)
 		p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode]++;
-	div.frame_id   =
+	div.frame.frame_id   =
 		p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode];
-	div.path       = mem->path;
-	div.length     = mem->size;
-	msm_mctl_gettimeofday(&div.timestamp);
-	vb->vidbuf.v4l2_buf.timestamp = div.timestamp;
+	div.frame.handle = (uint32_t)vb;
+	msm_mctl_gettimeofday(&div.frame.timestamp);
+	vb->vidbuf.v4l2_buf.timestamp = div.frame.timestamp;
 	div.do_pp = pp_type;
-	if (!pp_type) {
-		p_mctl->pp_info.div_frame[pcam_inst->image_mode].ch_paddr[0] =
-			div.phy_addr;
+	/* Get the cookie for 1st plane and store the path.
+	 * Also use this to check the number of planes in
+	 * this buffer.*/
+	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	div.frame.path = mem->path;
+	if (mem->buffer_type == VIDEOBUF2_SINGLE_PLANE) {
+		/* This buffer contains only 1 plane. Use the
+		 * single planar structure to store the info.*/
+		div.frame.num_planes	= 1;
+		div.frame.sp.phy_addr   =
+			videobuf2_to_pmem_contig(&vb->vidbuf, 0);
+		div.frame.sp.addr_offset = mem->addr_offset;
+		div.frame.sp.y_off      = 0;
+		div.frame.sp.cbcr_off   = mem->offset.sp_off.cbcr_off;
+		div.frame.sp.fd         = (int)mem->vaddr;
+		div.frame.sp.length     = mem->size;
+		if (!pp_type)
+			p_mctl->pp_info.div_frame[pcam_inst->image_mode].
+			ch_paddr[0] = div.frame.sp.phy_addr;
+	} else {
+		/* This buffer contains multiple planes. Use the mutliplanar
+		 * structure to store the info. */
+		div.frame.num_planes	= pcam_inst->plane_info.num_planes;
+		/* Now traverse through all the planes of the buffer to
+		 * fill out the plane info. */
+		for (i = 0; i < div.frame.num_planes; i++) {
+			mem = vb2_plane_cookie(&vb->vidbuf, i);
+			div.frame.mp[i].phy_addr =
+				videobuf2_to_pmem_contig(&vb->vidbuf, i);
+			div.frame.mp[i].data_offset =
+			pcam_inst->buf_offset[buf_idx][i].data_offset;
+			div.frame.mp[i].addr_offset =
+				mem->addr_offset;
+			div.frame.mp[i].fd = (int)mem->vaddr;
+			div.frame.mp[i].length = mem->size;
+		}
+		if (!pp_type)
+			p_mctl->pp_info.div_frame[pcam_inst->image_mode].
+			ch_paddr[0] = div.frame.mp[0].phy_addr;
 	}
 	rc = msm_mctl_pp_buf_divert(p_mctl, pcam_inst, &div);
 	return rc;
@@ -622,7 +650,7 @@ int msm_mctl_pp_reserve_free_frame(
 	if (copy_from_user(&frame, arg,
 		sizeof(struct msm_cam_evt_divert_frame)))
 		return -EFAULT;
-	switch (frame.path) {
+	switch (frame.frame.path) {
 	case OUTPUT_TYPE_P:
 		msg_type = VFE_MSG_OUTPUT_P;
 		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
@@ -642,8 +670,8 @@ int msm_mctl_pp_reserve_free_frame(
 	}
 	rc = msm_mctl_reserve_free_buf(p_mctl, msg_type, &free_buf);
 	if (rc == 0) {
-		frame.phy_addr = free_buf.ch_paddr[0];
-		frame.vb = free_buf.vb;
+		frame.frame.sp.phy_addr = free_buf.ch_paddr[0];
+		frame.frame.handle = free_buf.vb;
 		if (copy_to_user((void *)arg,
 				&frame,
 				sizeof(frame))) {
@@ -667,7 +695,7 @@ int msm_mctl_pp_release_free_frame(
 	if (copy_from_user(&frame, arg,
 		sizeof(struct msm_cam_evt_divert_frame)))
 		return -EFAULT;
-	switch (frame.path) {
+	switch (frame.frame.path) {
 	case OUTPUT_TYPE_P:
 		msg_type = VFE_MSG_OUTPUT_P;
 		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
@@ -685,7 +713,7 @@ int msm_mctl_pp_release_free_frame(
 		rc = -EFAULT;
 		return rc;
 	}
-	free_buf.ch_paddr[0] = frame.phy_addr;
+	free_buf.ch_paddr[0] = frame.frame.sp.phy_addr;
 	rc = msm_mctl_release_free_buf(p_mctl, msg_type, &free_buf);
 	D("%s: release free buf, rc = %d, phy = 0x%x",
 		__func__, rc, free_buf.ch_paddr[0]);
@@ -713,7 +741,7 @@ int msm_mctl_pp_done(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg)
 {
-	struct msm_frame frame;
+	struct msm_pp_frame frame;
 	int msg_type, image_mode, rc = 0;
 	int dirty = 0;
 	struct msm_free_buf buf;
@@ -721,6 +749,7 @@ int msm_mctl_pp_done(
 
 	if (copy_from_user(&frame, arg, sizeof(frame)))
 		return -EFAULT;
+
 	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
 	switch (frame.path) {
 	case OUTPUT_TYPE_P:
@@ -751,8 +780,12 @@ int msm_mctl_pp_done(
 			/* dirty frame. should not pass to app */
 			dirty = 1;
 		}
-	} else
-		buf.ch_paddr[0] = frame.buffer;
+	} else {
+		if (frame.num_planes > 1)
+			buf.ch_paddr[0] = frame.mp[0].phy_addr;
+		else
+			buf.ch_paddr[0] = frame.sp.phy_addr;
+	}
 	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
 	/* here buf.addr is phy_addr */
 	rc = msm_mctl_buf_done_pp(p_mctl, msg_type, &buf, dirty);

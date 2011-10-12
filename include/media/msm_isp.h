@@ -273,33 +273,5 @@ struct msm_mctl_pp_frame_cmd {
 	/* TBD: 3D related */
 };
 
-struct msm_pp_frame_sp {
-	unsigned long  phy_addr;
-	uint32_t       y_off;
-	uint32_t       cbcr_off;
-	uint32_t       length;
-	int32_t        fd;
-	uint32_t       addr_offset;
-};
-
-struct msm_pp_frame_mp {
-	unsigned long  phy_addr;
-	uint32_t       data_offset;
-	uint32_t       length;
-	int32_t        fd;
-	uint32_t       addr_offset;
-};
-
-struct msm_pp_frame {
-	uint32_t       handle;
-	uint32_t       frame_id;
-	unsigned short image_type;
-	unsigned short num_planes; /* 1 for sp */
-	struct timeval timestamp;
-	union {
-		struct msm_pp_frame_sp sp;
-	};
-};
-
 #endif /*__MSM_ISP_H__*/
 
