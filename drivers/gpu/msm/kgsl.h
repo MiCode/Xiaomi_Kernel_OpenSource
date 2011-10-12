@@ -115,6 +115,8 @@ struct kgsl_memdesc {
 	unsigned int physaddr;
 	unsigned int size;
 	unsigned int priv;
+	struct scatterlist *sg;
+	unsigned int sglen;
 	struct kgsl_memdesc_ops *ops;
 };
 

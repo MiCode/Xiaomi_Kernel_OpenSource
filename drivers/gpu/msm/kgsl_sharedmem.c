@@ -207,28 +207,21 @@ static void _outer_cache_range_op(int op, unsigned long addr, size_t size)
 		break;
 	}
 }
-#endif
 
-static unsigned long kgsl_vmalloc_physaddr(struct kgsl_memdesc *memdesc,
-					   unsigned int offset)
+static void outer_cache_range_op_sg(struct scatterlist *sg, int sglen, int op)
 {
-	unsigned int addr;
+	struct scatterlist *s;
+	int i;
 
-	if (offset > memdesc->size)
-		return 0;
-
-	addr = vmalloc_to_pfn(memdesc->hostptr + offset);
-	return addr << PAGE_SHIFT;
+	for_each_sg(sg, s, sglen, i) {
+		unsigned int paddr = sg_phys(s);
+		_outer_cache_range_op(op, paddr, s->length);
+	}
 }
 
-#ifdef CONFIG_OUTER_CACHE
-static void kgsl_vmalloc_outer_cache(struct kgsl_memdesc *memdesc, int op)
+#else
+static void outer_cache_range_op_sg(struct scatterlist *sg, int sglen, int op)
 {
-	void *vaddr = memdesc->hostptr;
-	for (; vaddr < (memdesc->hostptr + memdesc->size); vaddr += PAGE_SIZE) {
-		unsigned long paddr = page_to_phys(vmalloc_to_page(vaddr));
-		_outer_cache_range_op(op, paddr, PAGE_SIZE);
-	}
 }
 #endif
 
@@ -306,87 +299,23 @@ static void kgsl_coherent_free(struct kgsl_memdesc *memdesc)
 			  memdesc->hostptr, memdesc->physaddr);
 }
 
-static unsigned long kgsl_contiguous_physaddr(struct kgsl_memdesc *memdesc,
-					unsigned int offset)
-{
-	if (offset > memdesc->size)
-		return 0;
-
-	return memdesc->physaddr + offset;
-}
-
-#ifdef CONFIG_OUTER_CACHE
-static void kgsl_contiguous_outer_cache(struct kgsl_memdesc *memdesc, int op)
-{
-	_outer_cache_range_op(op, memdesc->physaddr, memdesc->size);
-}
-#endif
-
-#ifdef CONFIG_OUTER_CACHE
-static void kgsl_userptr_outer_cache(struct kgsl_memdesc *memdesc, int op)
-{
-	void *vaddr = memdesc->hostptr;
-	for (; vaddr < (memdesc->hostptr + memdesc->size); vaddr += PAGE_SIZE) {
-		unsigned long paddr = kgsl_virtaddr_to_physaddr(vaddr);
-		if (paddr)
-			_outer_cache_range_op(op, paddr, PAGE_SIZE);
-	}
-}
-#endif
-
-static unsigned long kgsl_userptr_physaddr(struct kgsl_memdesc *memdesc,
-					   unsigned int offset)
-{
-	return kgsl_virtaddr_to_physaddr(memdesc->hostptr + offset);
-}
-
 /* Global - also used by kgsl_drm.c */
 struct kgsl_memdesc_ops kgsl_vmalloc_ops = {
-	.physaddr = kgsl_vmalloc_physaddr,
 	.free = kgsl_vmalloc_free,
 	.vmflags = kgsl_vmalloc_vmflags,
 	.vmfault = kgsl_vmalloc_vmfault,
-#ifdef CONFIG_OUTER_CACHE
-	.outer_cache = kgsl_vmalloc_outer_cache,
-#endif
 };
 EXPORT_SYMBOL(kgsl_vmalloc_ops);
 
 static struct kgsl_memdesc_ops kgsl_ebimem_ops = {
-	.physaddr = kgsl_contiguous_physaddr,
 	.free = kgsl_ebimem_free,
 	.vmflags = kgsl_contiguous_vmflags,
 	.vmfault = kgsl_contiguous_vmfault,
-#ifdef CONFIG_OUTER_CACHE
-	.outer_cache = kgsl_contiguous_outer_cache,
-#endif
 };
 
 static struct kgsl_memdesc_ops kgsl_coherent_ops = {
-	.physaddr = kgsl_contiguous_physaddr,
 	.free = kgsl_coherent_free,
-#ifdef CONFIG_OUTER_CACHE
-	.outer_cache = kgsl_contiguous_outer_cache,
-#endif
 };
-
-/* Global - also used by kgsl.c and kgsl_drm.c */
-struct kgsl_memdesc_ops kgsl_contiguous_ops = {
-	.physaddr = kgsl_contiguous_physaddr,
-#ifdef CONFIG_OUTER_CACHE
-	.outer_cache = kgsl_contiguous_outer_cache
-#endif
-};
-EXPORT_SYMBOL(kgsl_contiguous_ops);
-
-/* Global - also used by kgsl.c */
-struct kgsl_memdesc_ops kgsl_userptr_ops = {
-	.physaddr = kgsl_userptr_physaddr,
-#ifdef CONFIG_OUTER_CACHE
-	.outer_cache = kgsl_userptr_outer_cache,
-#endif
-};
-EXPORT_SYMBOL(kgsl_userptr_ops);
 
 void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 {
@@ -405,8 +334,7 @@ void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 		break;
 	}
 
-	if (memdesc->ops->outer_cache)
-		memdesc->ops->outer_cache(memdesc, op);
+	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen, op);
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
@@ -415,7 +343,9 @@ _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
 			void *ptr, size_t size, unsigned int protflags)
 {
-	int result;
+	int order, ret = 0;
+	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
+	int i;
 
 	memdesc->size = size;
 	memdesc->pagetable = pagetable;
@@ -423,25 +353,44 @@ _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 	memdesc->ops = &kgsl_vmalloc_ops;
 	memdesc->hostptr = (void *) ptr;
 
-	kgsl_cache_range_op(memdesc, KGSL_CACHE_OP_INV);
-
-	result = kgsl_mmu_map(pagetable, memdesc, protflags);
-
-	if (result) {
-		kgsl_sharedmem_free(memdesc);
-	} else {
-		int order;
-
-		KGSL_STATS_ADD(size, kgsl_driver.stats.vmalloc,
-			kgsl_driver.stats.vmalloc_max);
-
-		order = get_order(size);
-
-		if (order < 16)
-			kgsl_driver.stats.histogram[order]++;
+	memdesc->sg = kmalloc(sglen * sizeof(struct scatterlist), GFP_KERNEL);
+	if (memdesc->sg == NULL) {
+		ret = -ENOMEM;
+		goto done;
 	}
 
-	return result;
+	memdesc->sglen = sglen;
+	sg_init_table(memdesc->sg, sglen);
+
+	for (i = 0; i < memdesc->sglen; i++, ptr += PAGE_SIZE) {
+		struct page *page = vmalloc_to_page(ptr);
+		if (!page) {
+			ret = -EINVAL;
+			goto done;
+		}
+		sg_set_page(&memdesc->sg[i], page, PAGE_SIZE, 0);
+	}
+
+	kgsl_cache_range_op(memdesc, KGSL_CACHE_OP_INV);
+
+	ret = kgsl_mmu_map(pagetable, memdesc, protflags);
+
+	if (ret)
+		goto done;
+
+	KGSL_STATS_ADD(size, kgsl_driver.stats.vmalloc,
+		kgsl_driver.stats.vmalloc_max);
+
+	order = get_order(size);
+
+	if (order < 16)
+		kgsl_driver.stats.histogram[order]++;
+
+done:
+	if (ret)
+		kgsl_sharedmem_free(memdesc);
+
+	return ret;
 }
 
 int
@@ -494,24 +443,35 @@ EXPORT_SYMBOL(kgsl_sharedmem_vmalloc_user);
 int
 kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
 {
+	int result = 0;
+
 	size = ALIGN(size, PAGE_SIZE);
+
+	memdesc->size = size;
+	memdesc->ops = &kgsl_coherent_ops;
 
 	memdesc->hostptr = dma_alloc_coherent(NULL, size, &memdesc->physaddr,
 					      GFP_KERNEL);
 	if (memdesc->hostptr == NULL) {
 		KGSL_CORE_ERR("dma_alloc_coherent(%d) failed\n", size);
-		return -ENOMEM;
+		result = -ENOMEM;
+		goto err;
 	}
 
-	memdesc->size = size;
-	memdesc->ops = &kgsl_coherent_ops;
+	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
+	if (result)
+		goto err;
 
 	/* Record statistics */
 
 	KGSL_STATS_ADD(size, kgsl_driver.stats.coherent,
 		       kgsl_driver.stats.coherent_max);
 
-	return 0;
+err:
+	if (result)
+		kgsl_sharedmem_free(memdesc);
+
+	return result;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_alloc_coherent);
 
@@ -523,8 +483,10 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (memdesc->gpuaddr)
 		kgsl_mmu_unmap(memdesc->pagetable, memdesc);
 
-	if (memdesc->ops->free)
+	if (memdesc->ops && memdesc->ops->free)
 		memdesc->ops->free(memdesc);
+
+	kfree(memdesc->sg);
 
 	memset(memdesc, 0, sizeof(*memdesc));
 }
@@ -534,8 +496,11 @@ static int
 _kgsl_sharedmem_ebimem(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable, size_t size)
 {
-	int result;
+	int result = 0;
 
+	memdesc->size = size;
+	memdesc->pagetable = pagetable;
+	memdesc->ops = &kgsl_ebimem_ops;
 	memdesc->physaddr = allocate_contiguous_ebi_nomap(size, SZ_8K);
 
 	if (memdesc->physaddr == 0) {
@@ -544,18 +509,23 @@ _kgsl_sharedmem_ebimem(struct kgsl_memdesc *memdesc,
 		return -ENOMEM;
 	}
 
-	memdesc->size = size;
-	memdesc->pagetable = pagetable;
-	memdesc->ops = &kgsl_ebimem_ops;
+	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
+
+	if (result)
+		goto err;
 
 	result = kgsl_mmu_map(pagetable, memdesc,
 		GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
 
 	if (result)
-		kgsl_sharedmem_free(memdesc);
+		goto err;
 
 	KGSL_STATS_ADD(size, kgsl_driver.stats.coherent,
 		kgsl_driver.stats.coherent_max);
+
+err:
+	if (result)
+		kgsl_sharedmem_free(memdesc);
 
 	return result;
 }

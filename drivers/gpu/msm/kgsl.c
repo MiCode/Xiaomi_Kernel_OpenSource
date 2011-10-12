@@ -1226,7 +1226,11 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 	entry->memdesc.size = size;
 	entry->memdesc.physaddr = phys + (offset & PAGE_MASK);
 	entry->memdesc.hostptr = (void *) (virt + (offset & PAGE_MASK));
-	entry->memdesc.ops = &kgsl_contiguous_ops;
+
+	ret = memdesc_sg_phys(&entry->memdesc,
+		phys + (offset & PAGE_MASK), size);
+	if (ret)
+		goto err;
 
 	return 0;
 err:
@@ -1234,6 +1238,60 @@ err:
 	put_pmem_file(filep);
 #endif
 	return ret;
+}
+
+static int memdesc_sg_virt(struct kgsl_memdesc *memdesc,
+	void *addr, int size)
+{
+	int i;
+	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
+	unsigned long paddr = (unsigned long) addr;
+
+	memdesc->sg = kmalloc(sglen * sizeof(struct scatterlist),
+		GFP_KERNEL);
+	if (memdesc->sg == NULL)
+		return -ENOMEM;
+
+	memdesc->sglen = sglen;
+	sg_init_table(memdesc->sg, sglen);
+
+	spin_lock(&current->mm->page_table_lock);
+
+	for (i = 0; i < sglen; i++, paddr += PAGE_SIZE) {
+		struct page *page;
+		pmd_t *ppmd;
+		pte_t *ppte;
+		pgd_t *ppgd = pgd_offset(current->mm, paddr);
+
+		if (pgd_none(*ppgd) || pgd_bad(*ppgd))
+			goto err;
+
+		ppmd = pmd_offset(ppgd, paddr);
+		if (pmd_none(*ppmd) || pmd_bad(*ppmd))
+			goto err;
+
+		ppte = pte_offset_map(ppmd, paddr);
+		if (ppte == NULL)
+			goto err;
+
+		page = pfn_to_page(pte_pfn(*ppte));
+		if (!page)
+			goto err;
+
+		sg_set_page(&memdesc->sg[i], page, PAGE_SIZE, 0);
+		pte_unmap(ppte);
+	}
+
+	spin_unlock(&current->mm->page_table_lock);
+
+	return 0;
+
+err:
+	spin_unlock(&current->mm->page_table_lock);
+	kfree(memdesc->sg);
+	memdesc->sg = NULL;
+
+	return -EINVAL;
 }
 
 static int kgsl_setup_hostptr(struct kgsl_mem_entry *entry,
@@ -1285,9 +1343,9 @@ static int kgsl_setup_hostptr(struct kgsl_mem_entry *entry,
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = size;
 	entry->memdesc.hostptr = hostptr + (offset & PAGE_MASK);
-	entry->memdesc.ops = &kgsl_userptr_ops;
 
-	return 0;
+	return memdesc_sg_virt(&entry->memdesc,
+		hostptr + (offset & PAGE_MASK), size);
 }
 
 #ifdef CONFIG_ASHMEM
@@ -1335,11 +1393,13 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 	}
 
 	entry->file_ptr = filep;
-
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = ALIGN(size, PAGE_SIZE);
 	entry->memdesc.hostptr = hostptr;
-	entry->memdesc.ops = &kgsl_userptr_ops;
+
+	ret = memdesc_sg_virt(&entry->memdesc, hostptr, size);
+	if (ret)
+		goto err;
 
 	return 0;
 
@@ -1725,7 +1785,7 @@ kgsl_gpumem_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vma->vm_private_data;
 
-	if (!entry->memdesc.ops->vmfault)
+	if (!entry->memdesc.ops || !entry->memdesc.ops->vmfault)
 		return VM_FAULT_SIGBUS;
 
 	return entry->memdesc.ops->vmfault(&entry->memdesc, vma, vmf);
@@ -1772,7 +1832,9 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	if (entry == NULL)
 		return -EINVAL;
 
-	if (!entry->memdesc.ops->vmflags || !entry->memdesc.ops->vmfault)
+	if (!entry->memdesc.ops ||
+		!entry->memdesc.ops->vmflags ||
+		!entry->memdesc.ops->vmfault)
 		return -EINVAL;
 
 	vma->vm_flags |= entry->memdesc.ops->vmflags(&entry->memdesc);

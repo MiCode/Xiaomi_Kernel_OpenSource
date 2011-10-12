@@ -13,6 +13,7 @@
 #ifndef __KGSL_SHAREDMEM_H
 #define __KGSL_SHAREDMEM_H
 
+#include <linux/slab.h>
 #include <linux/dma-mapping.h>
 
 struct kgsl_device;
@@ -26,8 +27,6 @@ struct kgsl_process_private;
 #define KGSL_MEMFLAGS_CACHED    0x00000001
 
 struct kgsl_memdesc_ops {
-	unsigned long (*physaddr)(struct kgsl_memdesc *, unsigned int);
-	void (*outer_cache)(struct kgsl_memdesc *, int);
 	int (*vmflags)(struct kgsl_memdesc *);
 	int (*vmfault)(struct kgsl_memdesc *, struct vm_area_struct *,
 		       struct vm_fault *);
@@ -35,8 +34,6 @@ struct kgsl_memdesc_ops {
 };
 
 extern struct kgsl_memdesc_ops kgsl_vmalloc_ops;
-extern struct kgsl_memdesc_ops kgsl_contiguous_ops;
-extern struct kgsl_memdesc_ops kgsl_userptr_ops;
 
 int kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 			   struct kgsl_pagetable *pagetable, size_t size);
@@ -76,6 +73,22 @@ void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
+
+static inline int
+memdesc_sg_phys(struct kgsl_memdesc *memdesc,
+		unsigned int physaddr, unsigned int size)
+{
+	struct page *page = phys_to_page(physaddr);
+
+	memdesc->sg = kmalloc(sizeof(struct scatterlist) * 1, GFP_KERNEL);
+	if (memdesc->sg == NULL)
+		return -ENOMEM;
+
+	memdesc->sglen = 1;
+	sg_init_table(memdesc->sg, 1);
+	sg_set_page(&memdesc->sg[0], page, size, 0);
+	return 0;
+}
 
 static inline int
 kgsl_allocate(struct kgsl_memdesc *memdesc,
