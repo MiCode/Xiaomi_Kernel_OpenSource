@@ -25,6 +25,14 @@
 #define KGSL_FLAGS_RESERVED2   0x00000080
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
 
+/* Clock flags to show which clocks should be controled by a given platform */
+#define KGSL_CLK_SRC	0x00000001
+#define KGSL_CLK_CORE	0x00000002
+#define KGSL_CLK_IFACE	0x00000004
+#define KGSL_CLK_MEM	0x00000008
+#define KGSL_CLK_MEM_IFACE 0x00000010
+#define KGSL_CLK_AXI	0x00000020
+
 #define KGSL_MAX_PWRLEVELS 5
 
 #define KGSL_CONVERT_TO_MBPS(val) \
@@ -130,30 +138,15 @@ struct kgsl_version {
 #define KGSL_2D1_REG_MEMORY	"kgsl_2d1_reg_memory"
 #define KGSL_2D1_IRQ		"kgsl_2d1_irq"
 
-struct kgsl_grp_clk_name {
-	const char *clk;
-	const char *pclk;
-};
-
-struct kgsl_device_pwr_data {
+struct kgsl_device_platform_data {
 	struct kgsl_pwrlevel pwrlevel[KGSL_MAX_PWRLEVELS];
 	int init_level;
 	int num_levels;
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	unsigned int nap_allowed;
-};
-
-struct kgsl_clk_data {
-	struct kgsl_grp_clk_name name;
+	unsigned int clk_map;
 	struct msm_bus_scale_pdata *bus_scale_table;
-};
-
-struct kgsl_device_platform_data {
-	struct kgsl_device_pwr_data pwr_data;
-	struct kgsl_clk_data clk;
-	/* imem_clk_name is for 3d only, not used in 2d devices */
-	struct kgsl_grp_clk_name imem_clk_name;
 	const char *iommu_user_ctx_name;
 	const char *iommu_priv_ctx_name;
 };

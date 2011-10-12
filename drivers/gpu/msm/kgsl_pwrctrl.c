@@ -27,6 +27,34 @@
 #define UPDATE_BUSY_VAL		1000000
 #define UPDATE_BUSY		50
 
+struct clk_pair {
+	const char *name;
+	uint map;
+};
+
+struct clk_pair clks[KGSL_MAX_CLKS] = {
+	{
+		.name = "src_clk",
+		.map = KGSL_CLK_SRC,
+	},
+	{
+		.name = "core_clk",
+		.map = KGSL_CLK_CORE,
+	},
+	{
+		.name = "iface_clk",
+		.map = KGSL_CLK_IFACE,
+	},
+	{
+		.name = "mem_clk",
+		.map = KGSL_CLK_MEM,
+	},
+	{
+		.name = "mem_iface_clk",
+		.map = KGSL_CLK_MEM_IFACE,
+	},
+};
+
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 				unsigned int new_level)
 {
@@ -434,49 +462,43 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
-	struct kgsl_device_pwr_data *pdata_pwr = &pdata_dev->pwr_data;
-	const char *clk_names[KGSL_MAX_CLKS] = {pwr->src_clk_name,
-						pdata_dev->clk.name.clk,
-						pdata_dev->clk.name.pclk,
-						pdata_dev->imem_clk_name.clk,
-						pdata_dev->imem_clk_name.pclk};
+	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
 
 	/*acquire clocks */
-	for (i = 1; i < KGSL_MAX_CLKS; i++) {
-		if (clk_names[i]) {
-			clk = clk_get(&pdev->dev, clk_names[i]);
+	for (i = 0; i < KGSL_MAX_CLKS; i++) {
+		if (pdata->clk_map & clks[i].map) {
+			clk = clk_get(&pdev->dev, clks[i].name);
 			if (IS_ERR(clk))
 				goto clk_err;
 			pwr->grp_clks[i] = clk;
 		}
 	}
 	/* Make sure we have a source clk for freq setting */
-	clk = clk_get(&pdev->dev, clk_names[0]);
-	pwr->grp_clks[0] = (IS_ERR(clk)) ? pwr->grp_clks[1] : clk;
+	if (pwr->grp_clks[0] == NULL)
+		pwr->grp_clks[0] = pwr->grp_clks[1];
 
 	/* put the AXI bus into asynchronous mode with the graphics cores */
-	if (pdata_pwr->set_grp_async != NULL)
-		pdata_pwr->set_grp_async();
+	if (pdata->set_grp_async != NULL)
+		pdata->set_grp_async();
 
-	if (pdata_pwr->num_levels > KGSL_MAX_PWRLEVELS) {
+	if (pdata->num_levels > KGSL_MAX_PWRLEVELS) {
 		KGSL_PWR_ERR(device, "invalid power level count: %d\n",
-					 pdata_pwr->num_levels);
+					 pdata->num_levels);
 		result = -EINVAL;
 		goto done;
 	}
-	pwr->num_pwrlevels = pdata_pwr->num_levels;
-	pwr->active_pwrlevel = pdata_pwr->init_level;
-	for (i = 0; i < pdata_pwr->num_levels; i++) {
+	pwr->num_pwrlevels = pdata->num_levels;
+	pwr->active_pwrlevel = pdata->init_level;
+	for (i = 0; i < pdata->num_levels; i++) {
 		pwr->pwrlevels[i].gpu_freq =
-		(pdata_pwr->pwrlevel[i].gpu_freq > 0) ?
+		(pdata->pwrlevel[i].gpu_freq > 0) ?
 		clk_round_rate(pwr->grp_clks[0],
-					   pdata_pwr->pwrlevel[i].
+					   pdata->pwrlevel[i].
 					   gpu_freq) : 0;
 		pwr->pwrlevels[i].bus_freq =
-			pdata_pwr->pwrlevel[i].bus_freq;
+			pdata->pwrlevel[i].bus_freq;
 		pwr->pwrlevels[i].io_fraction =
-			pdata_pwr->pwrlevel[i].io_fraction;
+			pdata->pwrlevel[i].io_fraction;
 	}
 	/* Do not set_rate for targets in sync with AXI */
 	if (pwr->pwrlevels[0].gpu_freq > 0)
@@ -489,8 +511,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = 0;
 
-	pwr->nap_allowed = pdata_pwr->nap_allowed;
-	pwr->interval_timeout = pdata_pwr->idle_timeout;
+	pwr->nap_allowed = pdata->nap_allowed;
+	pwr->interval_timeout = pdata->idle_timeout;
 	pwr->ebi1_clk = clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(pwr->ebi1_clk))
 		pwr->ebi1_clk = NULL;
@@ -498,15 +520,14 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		clk_set_rate(pwr->ebi1_clk,
 					 pwr->pwrlevels[pwr->active_pwrlevel].
 						bus_freq);
-	if (pdata_dev->clk.bus_scale_table != NULL) {
-		pwr->pcl =
-			msm_bus_scale_register_client(pdata_dev->clk.
+	if (pdata->bus_scale_table != NULL) {
+		pwr->pcl = msm_bus_scale_register_client(pdata->
 							bus_scale_table);
 		if (!pwr->pcl) {
 			KGSL_PWR_ERR(device,
 					"msm_bus_scale_register_client failed: "
 					"id %d table %p", device->id,
-					pdata_dev->clk.bus_scale_table);
+					pdata->bus_scale_table);
 			result = -EINVAL;
 			goto done;
 		}
@@ -529,7 +550,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 clk_err:
 	result = PTR_ERR(clk);
 	KGSL_PWR_ERR(device, "clk_get(%s) failed: %d\n",
-				 clk_names[i], result);
+				 clks[i].name, result);
 
 done:
 	return result;
