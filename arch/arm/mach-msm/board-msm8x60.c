@@ -4893,10 +4893,6 @@ static struct platform_device *charm_devices[] __initdata = {
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
-#ifdef CONFIG_MSM_SDIO_AL
-	&msm_device_sdio_al,
-#endif
-
 };
 
 #ifdef CONFIG_SND_SOC_MSM8660_APQ
