@@ -246,6 +246,10 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 		vidc_sm_set_mpeg4_profile_override(
 			&ddl->shared_mem[ddl->command_channel],
 			VIDC_SM_PROFILE_INFO_ASP);
+	if (VCD_CODEC_H264 == decoder->codec.codec)
+		vidc_sm_set_decoder_sei_enable(
+			&ddl->shared_mem[ddl->command_channel],
+			VIDC_SM_RECOVERY_POINT_SEI);
 	ddl_context->vidc_decode_seq_start[ddl->command_channel](
 		&seq_start_param);
 }

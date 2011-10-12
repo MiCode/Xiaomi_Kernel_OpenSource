@@ -270,6 +270,12 @@ enum vidc_1080p_decode_frame{
 	VIDC_1080P_DECODE_FRAMETYPE_OTHERS     = 4,
 	VIDC_1080P_DECODE_FRAMETYPE_32BIT      = 0x7FFFFFFF
 };
+enum vidc_1080P_decode_frame_correct_type {
+	VIDC_1080P_DECODE_NOT_CORRECT = 0,
+	VIDC_1080P_DECODE_CORRECT = 1,
+	VIDC_1080P_DECODE_APPROX_CORRECT = 2,
+	VIDC_1080P_DECODE_CORRECTTYPE_32BIT = 0x7FFFFFFF
+};
 enum vidc_1080p_encode_frame{
 	VIDC_1080P_ENCODE_FRAMETYPE_NOT_CODED  = 0,
 	VIDC_1080P_ENCODE_FRAMETYPE_I          = 1,
@@ -417,6 +423,8 @@ struct vidc_1080p_dec_disp_info{
 	enum vidc_1080p_display_status decode_status;
 	enum vidc_1080p_display_coding display_coding;
 	enum vidc_1080p_display_coding decode_coding;
+	enum vidc_1080P_decode_frame_correct_type display_correct;
+	enum vidc_1080P_decode_frame_correct_type decode_correct;
 	enum vidc_1080p_decode_frame input_frame;
 };
 void vidc_1080p_do_sw_reset(enum vidc_1080p_reset init_flag);
