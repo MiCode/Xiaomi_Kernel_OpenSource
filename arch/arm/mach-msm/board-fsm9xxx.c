@@ -247,6 +247,7 @@ static struct pm8058_vreg_pdata pm8058_vreg_init[PM8058_VREG_MAX] = {
 	.name = "pm8058-regulator", \
 	.id = _id, \
 	.platform_data = &pm8058_vreg_init[_id], \
+	.pdata_size    = sizeof(pm8058_vreg_init[_id]), \
 }
 
 #ifdef CONFIG_SENSORS_MSM_ADC
