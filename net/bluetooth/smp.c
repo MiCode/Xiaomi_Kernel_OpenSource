@@ -438,6 +438,7 @@ int le_user_confirm_reply(struct hci_conn *hcon, u16 mgmt_op, void *cp)
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
 		del_timer(&hcon->smp_timer);
+		mgmt_auth_failed(hcon->hdev->id, conn->dst, reason);
 		hci_conn_put(hcon);
 	} else if (hcon->cfm_pending) {
 		BT_DBG("send_pairing_confirm");
@@ -845,6 +846,7 @@ int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb)
 		reason = 0;
 		err = -EPERM;
 		del_timer(&hcon->smp_timer);
+		mgmt_auth_failed(hcon->hdev->id, conn->dst, skb->data[1]);
 		hci_conn_put(hcon);
 		break;
 
@@ -893,6 +895,7 @@ done:
 		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
 								&reason);
 		del_timer(&hcon->smp_timer);
+		mgmt_auth_failed(hcon->hdev->id, conn->dst, reason);
 		hci_conn_put(hcon);
 	}
 
@@ -986,6 +989,7 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 			hcon->disconn_cfm_cb(hcon, 0);
 
 		del_timer(&hcon->smp_timer);
+		mgmt_auth_failed(hcon->hdev->id, conn->dst, SMP_UNSPECIFIED);
 		hci_conn_put(hcon);
 	}
 
@@ -1016,5 +1020,6 @@ void smp_timeout(unsigned long arg)
 	BT_DBG("%p", conn);
 
 	smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason), &reason);
+	mgmt_auth_failed(conn->hcon->hdev->id, conn->dst, SMP_UNSPECIFIED);
 	hci_conn_put(conn->hcon);
 }

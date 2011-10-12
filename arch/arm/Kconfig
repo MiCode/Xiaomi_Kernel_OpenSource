@@ -134,6 +134,15 @@ config GENERIC_LOCKBREAK
 	default y
 	depends on SMP && PREEMPT
 
+config ARM_TICKET_LOCKS
+	bool
+	help
+	  Enable ticket locks, which help preserve fairness among
+	  contended locks and prevent livelock in multicore systems.
+	  Say 'y' if system stability is important.
+	default y if ARCH_MSM_SCORPIONMP
+	depends on SMP
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -2146,7 +2155,7 @@ menu "Power management options"
 source "kernel/power/Kconfig"
 
 config ARCH_SUSPEND_POSSIBLE
-	depends on !ARCH_S5P64X0 && !ARCH_S5PC100 && !ARCH_FSM9XXX && !ARCH_MSM9615
+	depends on !ARCH_S5P64X0 && !ARCH_S5PC100 && !ARCH_FSM9XXX
 	depends on CPU_ARM920T || CPU_ARM926T || CPU_SA1100 || \
 		CPU_V6 || CPU_V6K || CPU_V7 || CPU_XSC3 || CPU_XSCALE
 	def_bool y

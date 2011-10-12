@@ -28,6 +28,7 @@
 
 static void __iomem *l2x0_base;
 static uint32_t aux_ctrl_save;
+static uint32_t data_latency_ctrl;
 static DEFINE_SPINLOCK(l2x0_lock);
 static uint32_t l2x0_way_mask;	/* Bitmask of active ways */
 static uint32_t l2x0_size;
@@ -413,6 +414,7 @@ void l2x0_suspend(void)
 {
 	/* Save aux control register value */
 	aux_ctrl_save = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
+	data_latency_ctrl = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
 	/* Flush all cache */
 	l2x0_flush_all();
 	/* Disable the cache */
@@ -430,6 +432,8 @@ void l2x0_resume(int collapsed)
 
 		/* Restore aux control register value */
 		writel_relaxed(aux_ctrl_save, l2x0_base + L2X0_AUX_CTRL);
+		writel_relaxed(data_latency_ctrl, l2x0_base +
+				L2X0_DATA_LATENCY_CTRL);
 
 		/* Invalidate the cache */
 		l2x0_inv_all();

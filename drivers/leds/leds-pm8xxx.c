@@ -54,13 +54,6 @@
 
 #define PM8XXX_LED_OFFSET(id) ((id) - PM8XXX_ID_LED_0)
 
-#define PM8XXX_GET_LED_ID(flag) (flag & PM8XXX_LED_ID_MASK >>	\
-						PM8XXX_LED_ID_SHIFT)
-#define PM8XXX_GET_LED_MODE(flag) ((flag & PM8XXX_LED_MODE_MASK) >>	\
-						PM8XXX_LED_MODE_SHIFT)
-#define PM8XXX_GET_LED_MAX_CURRENT(flag) ((flag & PM8XXX_LED_MAX_CURRENT_MASK)\
-						>> PM8XXX_LED_MAX_CURRENT_SHIFT)
-
 /**
  * struct pm8xxx_led_data - internal led data structure
  * @led_classdev - led class device
@@ -279,30 +272,38 @@ static int __devinit get_init_value(struct pm8xxx_led_data *led, u8 *val)
 
 static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 {
-	const struct led_platform_data *pdata = pdev->dev.platform_data;
+	const struct pm8xxx_led_platform_data *pdata = pdev->dev.platform_data;
+	const struct led_platform_data *pcore_data;
 	struct led_info *curr_led;
 	struct pm8xxx_led_data *led, *led_dat;
-	int rc, i, led_mode;
+	struct pm8xxx_led_config *led_cfg;
+	int rc, i;
 
 	if (pdata == NULL) {
 		dev_err(&pdev->dev, "platform data not supplied\n");
 		return -EINVAL;
 	}
 
-	/* Let the last member of the list be zero to
-	 * mark the end of the list.
-	 */
-	led = kcalloc(pdata->num_leds + 1, sizeof(*led), GFP_KERNEL);
+	pcore_data = pdata->led_core;
+
+	if (pcore_data->num_leds != pdata->num_configs) {
+		dev_err(&pdev->dev, "#no. of led configs and #no. of led"
+				"entries are not equal\n");
+		return -EINVAL;
+	}
+
+	led = kcalloc(pcore_data->num_leds, sizeof(*led), GFP_KERNEL);
 	if (led == NULL) {
 		dev_err(&pdev->dev, "failed to alloc memory\n");
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < pdata->num_leds; i++) {
-		curr_led	= &pdata->leds[i];
+	for (i = 0; i < pcore_data->num_leds; i++) {
+		curr_led	= &pcore_data->leds[i];
 		led_dat		= &led[i];
-		/* the flags variable is used for led-id */
-		led_dat->id     = PM8XXX_GET_LED_ID(curr_led->flags);
+		led_cfg		= &pdata->configs[i];
+
+		led_dat->id     = led_cfg->id;
 
 		if (!((led_dat->id >= PM8XXX_ID_LED_KB_LIGHT) &&
 				(led_dat->id <= PM8XXX_ID_FLASH_LED_1))) {
@@ -317,17 +318,15 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		led_dat->cdev.brightness_set    = pm8xxx_led_set;
 		led_dat->cdev.brightness_get    = pm8xxx_led_get;
 		led_dat->cdev.brightness	= LED_OFF;
-		led_dat->cdev.flags		= LED_CORE_SUSPENDRESUME;
+		led_dat->cdev.flags		= curr_led->flags;
 		led_dat->dev			= &pdev->dev;
 
 		rc =  get_init_value(led_dat, &led_dat->reg);
 		if (rc < 0)
 			goto fail_id_check;
 
-		led_mode = PM8XXX_GET_LED_MODE(curr_led->flags);
-
-		rc = pm8xxx_set_led_mode_and_max_brightness(led_dat, led_mode,
-				PM8XXX_GET_LED_MAX_CURRENT(curr_led->flags));
+		rc = pm8xxx_set_led_mode_and_max_brightness(led_dat,
+					led_cfg->mode, led_cfg->max_current);
 		if (rc < 0)
 			goto fail_id_check;
 
@@ -341,7 +340,7 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 			goto fail_id_check;
 		}
 
-		if (led_mode != PM8XXX_LED_MODE_MANUAL)
+		if (led_cfg->mode != PM8XXX_LED_MODE_MANUAL)
 			__pm8xxx_led_work(led_dat,
 					led_dat->cdev.max_brightness);
 		else

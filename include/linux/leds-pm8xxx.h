@@ -13,15 +13,9 @@
 #ifndef __LEDS_PM8XXX_H__
 #define __LEDS_PM8XXX_H__
 
+#include <linux/kernel.h>
 
 #define PM8XXX_LEDS_DEV_NAME	"pm8xxx-led"
-
-#define PM8XXX_LED_ID_SHIFT		0
-#define PM8XXX_LED_MODE_SHIFT		4
-#define PM8XXX_LED_MAX_CURRENT_SHIFT	8
-#define PM8XXX_LED_ID_MASK		0xF
-#define PM8XXX_LED_MODE_MASK		0xF0
-#define PM8XXX_LED_MAX_CURRENT_MASK	0xFFFF00
 
 /**
  * enum pm8xxx_leds - PMIC8XXX supported led ids
@@ -55,4 +49,30 @@ enum pm8xxx_led_modes {
 	PM8XXX_LED_MODE_DTEST4
 };
 
+/**
+ * pm8xxx_led_config - led configuration parameters
+ * id - LED id
+ * mode - LED mode
+ * max_current - maximum current that LED can sustain
+ */
+struct pm8xxx_led_config {
+	u8	id;
+	u8	mode;
+	u16	max_current;
+};
+
+/**
+ * pm8xxx_led_platform_data - platform data for LED
+ * led_core - array of LEDs. Each datum in array contains
+ *	core data for the LED
+ * configs - array of platform configuration parameters
+ *	for each LED. It maps one-to-one with
+ *	array of LEDs
+ * num_configs - count of members of configs array
+ */
+struct pm8xxx_led_platform_data {
+	struct	led_platform_data	*led_core;
+	struct	pm8xxx_led_config	*configs;
+	u32				num_configs;
+};
 #endif /* __LEDS_PM8XXX_H__ */

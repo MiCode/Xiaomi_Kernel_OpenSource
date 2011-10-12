@@ -1461,6 +1461,22 @@ struct platform_device msm_rotator_device = {
 
 #define MHZ (1000*1000)
 
+#define TCSR_GSBI_IRQ_MUX_SEL	0x0044
+
+#define GSBI_IRQ_MUX_SEL_MASK	0xF
+#define GSBI_IRQ_MUX_SEL_DSPS	0xB
+
+static void dsps_init1(struct msm_dsps_platform_data *data)
+{
+	int val;
+
+	/* route GSBI12 interrutps to DSPS */
+	val = secure_readl(MSM_TCSR_BASE +  TCSR_GSBI_IRQ_MUX_SEL);
+	val &= ~GSBI_IRQ_MUX_SEL_MASK;
+	val |= GSBI_IRQ_MUX_SEL_DSPS;
+	secure_writel(val, MSM_TCSR_BASE + TCSR_GSBI_IRQ_MUX_SEL);
+}
+
 static struct dsps_clk_info dsps_clks[] = {
 	{
 		.name = "ppss_pclk",
@@ -1503,6 +1519,7 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.gpios_num = 0,
 	.regs = dsps_regs,
 	.regs_num = ARRAY_SIZE(dsps_regs),
+	.init = dsps_init1,
 	.signature = DSPS_SIGNATURE,
 };
 

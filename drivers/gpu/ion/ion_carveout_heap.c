@@ -100,7 +100,7 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 				   struct ion_buffer *buffer,
 				   unsigned long flags)
 {
-	if (flags & ION_SET_CACHE(CACHED))
+	if (ION_IS_CACHED(flags))
 		return ioremap_cached(buffer->priv_phys, buffer->size);
 	else
 		return ioremap(buffer->priv_phys, buffer->size);
@@ -117,7 +117,7 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			       struct vm_area_struct *vma, unsigned long flags)
 {
-	if (flags & ION_SET_CACHE(CACHED))
+	if (ION_IS_CACHED(flags))
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
@@ -129,6 +129,32 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 					pgprot_noncached(vma->vm_page_prot));
 }
 
+int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
+			void *vaddr, unsigned int offset, unsigned int length,
+			unsigned int cmd)
+{
+	unsigned long vstart, pstart;
+
+	pstart = buffer->priv_phys + offset;
+	vstart = (unsigned long)vaddr;
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		clean_caches(vstart, length, pstart);
+		break;
+	case ION_IOC_INV_CACHES:
+		invalidate_caches(vstart, length, pstart);
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		clean_and_invalidate_caches(vstart, length, pstart);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
@@ -136,6 +162,7 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.map_user = ion_carveout_heap_map_user,
 	.map_kernel = ion_carveout_heap_map_kernel,
 	.unmap_kernel = ion_carveout_heap_unmap_kernel,
+	.cache_op = ion_carveout_cache_ops,
 };
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)

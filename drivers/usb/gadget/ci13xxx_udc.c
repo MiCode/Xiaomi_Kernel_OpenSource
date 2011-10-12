@@ -2074,6 +2074,7 @@ __acquires(udc->lock)
 			continue;   /* not configured */
 
 		if (hw_test_and_clear_complete(i)) {
+			udelay(200);
 			err = isr_tr_complete_low(mEp);
 			if (mEp->type == USB_ENDPOINT_XFER_CONTROL) {
 				if (err > 0)   /* needs status phase */

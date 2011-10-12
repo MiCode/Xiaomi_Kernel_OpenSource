@@ -806,6 +806,11 @@ static int z180_waittimestamp(struct kgsl_device *device,
 				unsigned int msecs)
 {
 	int status = -EINVAL;
+
+	/* Don't wait forever, set a max (10 sec) value for now */
+	if (msecs == -1)
+		msecs = 10 * MSEC_PER_SEC;
+
 	mutex_unlock(&device->mutex);
 	status = z180_wait(device, timestamp, msecs);
 	mutex_lock(&device->mutex);

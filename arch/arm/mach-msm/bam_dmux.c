@@ -201,6 +201,7 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	rx_skb->data = (unsigned char *)(rx_hdr + 1);
 	rx_skb->tail = rx_skb->data + rx_hdr->pkt_len;
 	rx_skb->len = rx_hdr->pkt_len;
+	rx_skb->truesize = rx_hdr->pkt_len + sizeof(struct sk_buff);
 
 	event_data = (unsigned long)(rx_skb);
 

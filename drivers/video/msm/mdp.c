@@ -1085,6 +1085,18 @@ void mdp_hw_version(void)
 				__func__, mdp_hw_revision);
 }
 
+int mdp4_writeback_offset(void)
+{
+	int off = 0;
+
+	if (mdp_pdata->writeback_offset)
+		off = mdp_pdata->writeback_offset();
+
+	pr_debug("%s: writeback_offset=%d %x\n", __func__, off, off);
+
+	return off;
+}
+
 #ifdef CONFIG_FB_MSM_MDP40
 static void configure_mdp_core_clk_table(uint32 min_clk_rate)
 {

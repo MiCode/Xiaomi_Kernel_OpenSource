@@ -993,8 +993,6 @@ void msm_charger_vbus_draw(unsigned int mA)
 
 static int __init determine_initial_batt_status(void)
 {
-	int rc;
-
 	if (is_battery_present())
 		if (is_battery_id_valid())
 			if (is_battery_temp_within_range())
@@ -1009,13 +1007,6 @@ static int __init determine_initial_batt_status(void)
 
 	if (is_batt_status_capable_of_charging())
 		handle_battery_inserted();
-
-	rc = power_supply_register(msm_chg.dev, &msm_psy_batt);
-	if (rc < 0) {
-		dev_err(msm_chg.dev, "%s: power_supply_register failed"
-			" rc=%d\n", __func__, rc);
-		return rc;
-	}
 
 	/* start updaing the battery powersupply every msm_chg.update_time
 	 * milliseconds */
@@ -1156,11 +1147,20 @@ EXPORT_SYMBOL(msm_charger_register);
 
 void msm_battery_gauge_register(struct msm_battery_gauge *batt_gauge)
 {
+	int rc;
+
 	if (msm_batt_gauge) {
 		msm_batt_gauge = batt_gauge;
 		pr_err("msm-charger %s multiple battery gauge called\n",
 								__func__);
 	} else {
+		rc = power_supply_register(msm_chg.dev, &msm_psy_batt);
+		if (rc < 0) {
+			dev_err(msm_chg.dev, "%s: power_supply_register failed"
+					" rc=%d\n", __func__, rc);
+			return;
+		}
+
 		msm_batt_gauge = batt_gauge;
 		determine_initial_batt_status();
 	}

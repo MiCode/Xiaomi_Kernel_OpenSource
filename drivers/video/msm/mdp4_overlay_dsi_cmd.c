@@ -115,7 +115,7 @@ void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
 void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 {
 	MDPIBUF *iBuf = &mfd->ibuf;
-	struct fb_info *fbi;
+	struct fb_info *fbi = mfd->fbi;
 	uint8 *src;
 	int ptype;
 	struct mdp4_overlay_pipe *pipe;
@@ -155,11 +155,14 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 
 		dsi_pipe = pipe; /* keep it */
 
-		fbi = mfd->fbi;
-		bpp = fbi->var.bits_per_pixel / 8;
-		src = (uint8 *) iBuf->buf;
-		writeback_offset = mdp4_overlay_writeback_setup(
-						fbi, pipe, src, bpp);
+		writeback_offset = mdp4_writeback_offset();
+
+		if (writeback_offset > 0) {
+			pipe->blt_base = (ulong)fbi->fix.smem_start;
+			pipe->blt_base += writeback_offset;
+		} else {
+			pipe->blt_base  = 0;
+		}
 	} else {
 		pipe = dsi_pipe;
 	}
@@ -303,6 +306,11 @@ int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd)
 
 	pr_debug("%s: blt_end=%d blt_addr=%x pid=%d\n",
 	__func__, dsi_pipe->blt_end, (int)dsi_pipe->blt_addr, current->pid);
+
+	if (dsi_pipe->blt_base == 0) {
+		pr_info("%s: no blt_base assigned\n", __func__);
+		return -EBUSY;
+	}
 
 	if (dsi_pipe->blt_addr == 0) {
 		mdp4_dsi_cmd_dma_busy_wait(mfd);

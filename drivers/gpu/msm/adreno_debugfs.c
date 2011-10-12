@@ -421,6 +421,8 @@ static const struct file_operations kgsl_mh_debug_fops = {
 
 void adreno_debugfs_init(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;
 
@@ -436,6 +438,8 @@ void adreno_debugfs_init(struct kgsl_device *device)
 			    &kgsl_mh_debug_fops);
 	debugfs_create_file("cff_dump", 0644, device->d_debugfs, device,
 			    &kgsl_cff_dump_enable_fops);
+	debugfs_create_u32("wait_timeout", 0644, device->d_debugfs,
+		&adreno_dev->wait_timeout);
 
 	/* Create post mortem control files */
 

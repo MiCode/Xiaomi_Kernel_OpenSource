@@ -141,8 +141,14 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 		dsi_pipe = pipe; /* keep it */
 		init_completion(&dsi_video_comp);
 
-		writeback_offset = mdp4_overlay_writeback_setup(
-						fbi, pipe, buf, bpp);
+		writeback_offset = mdp4_writeback_offset();
+
+		if (writeback_offset > 0) {
+			pipe->blt_base = (ulong)fbi->fix.smem_start;
+			pipe->blt_base += writeback_offset;
+		} else {
+			pipe->blt_base  = 0;
+		}
 	} else {
 		pipe = dsi_pipe;
 	}
@@ -567,6 +573,11 @@ static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
 	unsigned long flag;
 	int data;
 	int change = 0;
+
+	if (dsi_pipe->blt_base == 0) {
+		pr_info("%s: no blt_base assigned\n", __func__);
+		return;
+	}
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	if (enable && dsi_pipe->blt_addr == 0) {

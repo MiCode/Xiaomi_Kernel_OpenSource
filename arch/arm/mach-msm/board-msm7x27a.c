@@ -1832,18 +1832,29 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
+#define PANEL_NAME_MAX_LEN	30
+#define LCDC_TOSHIBA_FWVGA_PANEL_NAME	"lcdc_toshiba_fwvga_pt"
+#define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
+
 static int msm_fb_detect_panel(const char *name)
 {
-	int ret = -EPERM;
+	if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+			strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
-	if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf()) {
-		if (!strncmp(name, "lcdc_toshiba_fwvga_pt", 21))
-			ret = 0;
-	} else {
-		ret = -ENODEV;
-	}
-
-	return ret;
+#if !defined(CONFIG_FB_MSM_LCDC_AUTO_DETECT) && \
+	!defined(CONFIG_FB_MSM_MIPI_PANEL_AUTO_DETECT) && \
+	!defined(CONFIG_FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT)
+		if (machine_is_msm7x27a_surf() ||
+			machine_is_msm7625a_surf()) {
+			if (!strncmp(name, LCDC_TOSHIBA_FWVGA_PANEL_NAME,
+				strnlen(LCDC_TOSHIBA_FWVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+				return 0;
+		}
+#endif
+	return -ENODEV;
 }
 
 static struct msm_fb_platform_data msm_fb_pdata = {

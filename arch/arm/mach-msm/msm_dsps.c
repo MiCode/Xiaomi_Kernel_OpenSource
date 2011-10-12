@@ -505,6 +505,10 @@ static int dsps_alloc_resources(struct platform_device *pdev)
 	} else {
 		pr_debug("%s: ppss_wdog not supported.\n", __func__);
 	}
+
+	if (drv->pdata->init)
+		drv->pdata->init(drv->pdata);
+
 	return 0;
 
 request_irq_err:

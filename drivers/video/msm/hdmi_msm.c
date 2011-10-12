@@ -3668,6 +3668,9 @@ static int __init hdmi_msm_init(void)
 {
 	int rc;
 
+	if (msm_fb_detect_client("hdmi_msm"))
+		return 0;
+
 	hdmi_msm_setup_video_mode_lut();
 	hdmi_msm_state = kzalloc(sizeof(*hdmi_msm_state), GFP_KERNEL);
 	if (!hdmi_msm_state) {

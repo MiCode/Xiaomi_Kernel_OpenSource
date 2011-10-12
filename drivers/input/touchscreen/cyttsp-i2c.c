@@ -288,6 +288,9 @@ static const struct cmd_record initiate_rec = {
 #define REC_DATA_OFFSET    9
 #define REC_LINE_SIZE	141
 
+#define NUM_CHAR_IN_HEX 2
+#define ID_INFO_REC_LEN 9
+
 static int cyttsp_soft_reset(struct cyttsp *ts)
 {
 	int retval = 0, tries = 0;
@@ -372,7 +375,10 @@ static int str2uc(char *str, u8 *val)
 	unsigned long ulval;
 	int rc;
 
-	if (!str && strlen(str) < 2)
+	if (!str)
+		return -EINVAL;
+
+	if (strnlen(str, NUM_CHAR_IN_HEX) < 2)
 		return -EINVAL;
 
 	substr[0] = str[0];
@@ -776,7 +782,8 @@ static void cyttspfw_upgrade_start(struct cyttsp *ts, const u8 *data,
 		if ((data[i] == REC_START_CHR) && j) {
 			buf[j] = 0;
 			j = 0;
-			if (!strncmp(buf, ID_INFO_REC, strlen(ID_INFO_REC))) {
+			if (!strncmp(buf, ID_INFO_REC,
+				strnlen(ID_INFO_REC, ID_INFO_REC_LEN))) {
 				cyttspfw_flash_start(ts, data, data_len,
 							buf, force);
 				break;
@@ -788,7 +795,8 @@ static void cyttspfw_upgrade_start(struct cyttsp *ts, const u8 *data,
 	/* check in the last record of firmware */
 	if (j) {
 		buf[j] = 0;
-		if (!strncmp(buf, ID_INFO_REC, strlen(ID_INFO_REC))) {
+		if (!strncmp(buf, ID_INFO_REC,
+			strnlen(ID_INFO_REC, ID_INFO_REC_LEN))) {
 			cyttspfw_flash_start(ts, data, data_len,
 						buf, force);
 		}
@@ -2808,9 +2816,8 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 /*
 			i2c_del_driver(&cyttsp_driver);
 */
-			retval = -ENODEV;
-		} else
-			cyttsp_openlog();
+			return -ENODEV;
+		}
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

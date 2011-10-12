@@ -130,6 +130,7 @@ obj-$(CONFIG_MSM_HW3D) += hw3d.o
 ifdef CONFIG_PM
 	obj-$(CONFIG_ARCH_MSM8960) += pm-8x60.o
 	obj-$(CONFIG_ARCH_MSM8X60) += pm-8x60.o
+	obj-$(CONFIG_ARCH_MSM9615) += pm-8x60.o
 	obj-$(CONFIG_ARCH_QSD8X50) += pm2.o
 	obj-$(CONFIG_ARCH_MSM7X30) += pm2.o
 	obj-$(CONFIG_ARCH_MSM7X27) += pm2.o
@@ -174,6 +175,7 @@ obj-$(CONFIG_MSM_WCNSS_SSR_8960) += wcnss-ssr-8960.o
 ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_MSM8960) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM8X60) += cpuidle.o
+	obj-$(CONFIG_ARCH_MSM9615) += cpuidle.o
 endif
 
 obj-$(CONFIG_ARCH_FSM9XXX) += devices-fsm9xxx.o
@@ -216,7 +218,7 @@ obj-$(CONFIG_MACH_MSM8960_FLUID) += board-msm8960.o devices-8960.o board-msm8960
 obj-$(CONFIG_ARCH_MSM8960) += bms-batterydata.o
 obj-$(CONFIG_ARCH_APQ8064) += board-apq8064.o devices-8064.o board-apq8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
-obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o
+obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire-keypad.o board-sapphire-panel.o

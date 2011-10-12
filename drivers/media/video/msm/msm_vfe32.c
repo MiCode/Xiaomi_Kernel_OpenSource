@@ -882,6 +882,23 @@ static void vfe32_update(void)
 		vfe32_ctrl->update_rolloff = false;
 	}
 
+	if (vfe32_ctrl->update_la) {
+		if (!msm_io_r(vfe32_ctrl->vfebase + V32_LA_OFF))
+			msm_io_w(1,
+				vfe32_ctrl->vfebase + V32_LA_OFF);
+		else
+			msm_io_w(0,
+				vfe32_ctrl->vfebase + V32_LA_OFF);
+		vfe32_ctrl->update_la = false;
+	}
+
+	if (vfe32_ctrl->update_gamma) {
+		value = msm_io_r(vfe32_ctrl->vfebase + V32_RGB_G_OFF);
+		value ^= V32_GAMMA_LUT_BANK_SEL_MASK;
+		msm_io_w(value, vfe32_ctrl->vfebase + V32_RGB_G_OFF);
+		vfe32_ctrl->update_gamma = false;
+	}
+
 	spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
 	vfe32_ctrl->update_ack_pending = TRUE;
 	spin_unlock_irqrestore(&vfe32_ctrl->update_ack_lock, flags);
@@ -997,6 +1014,7 @@ static void vfe32_write_la_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	}
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
+
 static struct vfe32_output_ch *vfe32_get_ch(int path)
 {
 	struct vfe32_output_ch *ch = NULL;
@@ -1350,7 +1368,8 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		/* Incrementing with 4 so as to point to the 2nd Register as
 		the 2nd register has the mce_enable bit */
-		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_CHROMA_EN_OFF + 4);
+		old_val = msm_io_r(vfe32_ctrl->vfebase +
+			V32_CHROMA_SUP_OFF + 4);
 		if (!cmdp) {
 			rc = -ENOMEM;
 			goto proc_general_done;
@@ -1365,15 +1384,16 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		new_val = *cmdp_local;
 		old_val &= MCE_EN_MASK;
 		new_val = new_val | old_val;
-		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_EN_OFF + 4,
-					&new_val, 4);
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_SUP_OFF + 4,
+			&new_val, 4);
 		cmdp_local += 1;
 
-		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_CHROMA_EN_OFF + 8);
+		old_val = msm_io_r(vfe32_ctrl->vfebase +
+			V32_CHROMA_SUP_OFF + 8);
 		new_val = *cmdp_local;
 		old_val &= MCE_Q_K_MASK;
 		new_val = new_val | old_val;
-		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_EN_OFF + 8,
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_SUP_OFF + 8,
 		&new_val, 4);
 		cmdp_local += 1;
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
@@ -1421,6 +1441,26 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		break;
 
 	case VFE_CMD_LA_CFG:
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+			(void __user *)(cmd->value),
+			cmd->length)) {
+
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
+			cmdp_local, (vfe32_cmd[cmd->id].length));
+
+		cmdp_local += 1;
+		vfe32_write_la_cfg(LUMA_ADAPT_LUT_RAM_BANK0, cmdp_local);
+		break;
+
 	case VFE_CMD_LA_UPDATE: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
@@ -1434,17 +1474,17 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
-				cmdp, (vfe32_cmd[cmd->id].length));
 
-		old_val = *cmdp;
-		cmdp += 1;
-		if (old_val == 0x0)
-			vfe32_write_la_cfg(LUMA_ADAPT_LUT_RAM_BANK0 , cmdp);
+		cmdp_local = cmdp + 1;
+		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_LA_OFF);
+		if (old_val != 0x0)
+			vfe32_write_la_cfg(LUMA_ADAPT_LUT_RAM_BANK0,
+				cmdp_local);
 		else
-			vfe32_write_la_cfg(LUMA_ADAPT_LUT_RAM_BANK1 , cmdp);
-		cmdp -= 1;
+			vfe32_write_la_cfg(LUMA_ADAPT_LUT_RAM_BANK1,
+				cmdp_local);
 		}
+		vfe32_ctrl->update_la = true;
 		break;
 
 	case VFE_CMD_SK_ENHAN_CFG:
@@ -1504,7 +1544,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		cmdp_local = cmdp;
 		cmdp_local++;
-		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1,
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1 + 4,
 			cmdp_local, (V32_LINEARIZATION_LEN1 - 4));
 		cmdp_local += 3;
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF2,
@@ -1664,13 +1704,14 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			goto proc_general_done;
 		}
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_RGB_G_OFF,
-				cmdp, 4);
+			cmdp, 4);
 		cmdp += 1;
-		vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK0 , cmdp);
-		vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK0 , cmdp);
-		vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK0 , cmdp);
-		cmdp -= 1;
+
+		vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK0, cmdp);
+		vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK0, cmdp);
+		vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK0, cmdp);
 		}
+	    cmdp -= 1;
 		break;
 
 	case VFE_CMD_RGB_G_UPDATE: {
@@ -1685,21 +1726,20 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			goto proc_general_done;
 		}
 
-		msm_io_memcpy(vfe32_ctrl->vfebase + V32_RGB_G_OFF, cmdp, 4);
-		old_val = *cmdp;
+		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_RGB_G_OFF);
 		cmdp += 1;
-
-		if (old_val) {
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK1 , cmdp);
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK1 , cmdp);
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK1 , cmdp);
+		if (old_val != 0x0) {
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK0, cmdp);
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK0, cmdp);
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK0, cmdp);
 		} else {
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK0 , cmdp);
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK0 , cmdp);
-			vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK0 , cmdp);
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH0_BANK1, cmdp);
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH1_BANK1, cmdp);
+			vfe32_write_gamma_cfg(RGBLUT_RAM_CH2_BANK1, cmdp);
 		}
+		}
+		vfe32_ctrl->update_gamma = TRUE;
 		cmdp -= 1;
-		}
 		break;
 
 	case VFE_CMD_STATS_AWB_STOP: {
@@ -3035,6 +3075,8 @@ static int vfe32_resource_init(struct platform_device *pdev, void *sdata)
 	vfe32_ctrl->vfeio  = vfeio;
 	vfe32_ctrl->update_linear = false;
 	vfe32_ctrl->update_rolloff = false;
+	vfe32_ctrl->update_la = false;
+	vfe32_ctrl->update_gamma = false;
 	return 0;
 
 cmd_init_failed3:

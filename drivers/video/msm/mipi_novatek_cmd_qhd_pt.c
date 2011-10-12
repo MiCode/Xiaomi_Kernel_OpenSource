@@ -39,10 +39,8 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 	if (msm_fb_detect_client("mipi_cmd_novatek_qhd"))
 		return 0;
-#endif
 
 	pinfo.xres = 540;
 	pinfo.yres = 960;
@@ -91,7 +89,7 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.mipi.dsi_phy_db = &dsi_cmd_mode_phy_db;
 
 	ret = mipi_novatek_device_register(&pinfo, MIPI_DSI_PRIM,
-						MIPI_DSI_PANEL_WVGA_PT);
+						MIPI_DSI_PANEL_QHD_PT);
 	if (ret)
 		pr_err("%s: failed to register device!\n", __func__);
 

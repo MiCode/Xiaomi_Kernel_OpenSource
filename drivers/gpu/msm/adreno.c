@@ -66,9 +66,6 @@
 	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
 	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
 
-/* max msecs to wait for gpu to finish its operation(s) */
-#define MAX_WAITGPU_SECS (HZ + HZ/2)
-
 static const struct kgsl_functable adreno_functable;
 
 static struct adreno_device device_3d0 = {
@@ -428,6 +425,8 @@ adreno_probe(struct platform_device *pdev)
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 	adreno_dev = ADRENO_DEVICE(device);
 	device->parentdev = &pdev->dev;
+
+	adreno_dev->wait_timeout = 10000; /* default value in milliseconds */
 
 	init_completion(&device->recovery_gate);
 
@@ -835,7 +834,9 @@ int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int rbbm_status;
-	unsigned long wait_time = jiffies + MAX_WAITGPU_SECS;
+	unsigned long wait_timeout =
+		msecs_to_jiffies(adreno_dev->wait_timeout);
+	unsigned long wait_time = jiffies + wait_timeout;
 
 	kgsl_cffdump_regpoll(device->id, REG_RBBM_STATUS << 2,
 		0x00000000, 0x80000000);
@@ -855,7 +856,7 @@ retry:
 	}
 
 	/* now, wait for the GPU to finish its operations */
-	wait_time = jiffies + MAX_WAITGPU_SECS;
+	wait_time = jiffies + wait_timeout;
 	while (time_before(jiffies, wait_time)) {
 		adreno_regread(device, REG_RBBM_STATUS, &rbbm_status);
 		if (rbbm_status == 0x110)
@@ -865,7 +866,7 @@ retry:
 err:
 	KGSL_DRV_ERR(device, "spun too long waiting for RB to idle\n");
 	if (!adreno_dump_and_recover(device)) {
-		wait_time = jiffies + MAX_WAITGPU_SECS;
+		wait_time = jiffies + wait_timeout;
 		goto retry;
 	}
 	return -ETIMEDOUT;
@@ -1072,6 +1073,10 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	uint io = 1;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	/* Don't wait forever, set a max value for now */
+	if (msecs == -1)
+		msecs = adreno_dev->wait_timeout;
 
 	if (timestamp != adreno_dev->ringbuffer.timestamp &&
 		timestamp_cmp(timestamp,

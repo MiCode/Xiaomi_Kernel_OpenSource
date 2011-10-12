@@ -591,6 +591,16 @@ static int pid_is_on_edge(struct smd_shared_v2 *shared2,
 	return ret;
 }
 
+static void smd_reset_edge(struct smd_half_channel *ch, unsigned new_state)
+{
+	if (ch->state != SMD_SS_CLOSED) {
+		ch->state = new_state;
+		ch->fDSR = 0;
+		ch->fCTS = 0;
+		ch->fCD = 0;
+		ch->fSTATE = 1;
+	}
+}
 
 static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		unsigned new_state, unsigned pid)
@@ -612,20 +622,17 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		if (!shared2)
 			continue;
 
-		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch) ||
-			(pid == SMSM_MODEM &&
-			 pid_is_on_edge(shared2, type, SMD_MODEM_Q6_FW,
-				 &local_ch, &remote_ch))) {
+		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch))
+			smd_reset_edge(local_ch, new_state);
 
-			/* force remote state for processor being restarted */
-			if (local_ch->state != SMD_SS_CLOSED) {
-				local_ch->state = new_state;
-				local_ch->fDSR = 0;
-				local_ch->fCTS = 0;
-				local_ch->fCD = 0;
-				local_ch->fSTATE = 1;
-			}
-		}
+		/*
+		 * ModemFW is in the same subsystem as ModemSW, but has
+		 * separate SMD edges that need to be reset.
+		 */
+		if (pid == SMSM_MODEM &&
+				pid_is_on_edge(shared2, type, SMD_MODEM_Q6_FW,
+				 &local_ch, &remote_ch))
+			smd_reset_edge(local_ch, new_state);
 	}
 }
 

@@ -96,7 +96,7 @@ static struct platform_driver sdio_tty_test_pdrv = {
 	.probe		= sdio_tty_test_probe,
 	.remove		= sdio_tty_remove,
 	.driver		= {
-		.name	= "SDIO_CIQ_TEST",
+		.name	= "SDIO_CIQ_TEST_APP",
 		.owner	= THIS_MODULE,
 	},
 };

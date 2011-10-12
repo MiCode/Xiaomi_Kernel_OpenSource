@@ -830,6 +830,26 @@ static struct platform_device android_pmem_audio_device = {
 };
 #endif
 
+#define DSP_RAM_BASE_8960 0x8da00000
+#define DSP_RAM_SIZE_8960 0x1800000
+static int dspcrashd_pdata_8960 = 0xDEADDEAD;
+
+static struct resource resources_dspcrashd_8960[] = {
+	{
+		.name   = "msm_dspcrashd",
+		.start  = DSP_RAM_BASE_8960,
+		.end    = DSP_RAM_BASE_8960 + DSP_RAM_SIZE_8960,
+		.flags  = IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm_device_dspcrashd_8960 = {
+	.name           = "msm_dspcrashd",
+	.num_resources  = ARRAY_SIZE(resources_dspcrashd_8960),
+	.resource       = resources_dspcrashd_8960,
+	.dev = { .platform_data = &dspcrashd_pdata_8960 },
+};
+
 static struct memtype_reserve msm8960_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -1334,10 +1354,15 @@ static int writeback_offset(void)
 
 #define MDP_VSYNC_GPIO 0
 
-#define TOSHIBA_PANEL_NAME "mipi_video_toshiba_wsvga"
-#define TOSHIBA_PANEL_NAME_LEN 24
-#define CHIMEI_PANEL_NAME "mipi_chimei_wxga"
-#define CHIMEI_PANEL_NAME_LEN 16
+#define PANEL_NAME_MAX_LEN	30
+#define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
+#define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
+#define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME	"mipi_video_toshiba_wsvga"
+#define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME	"mipi_video_chimei_wxga"
+#define MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME	"mipi_video_simulator_vga"
+#define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
+#define HDMI_PANEL_NAME	"hdmi_msm"
+#define TVOUT_PANEL_NAME	"tvout_msm"
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -1345,35 +1370,66 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 static int msm_fb_detect_panel(const char *name)
 {
 	if (machine_is_msm8960_liquid()) {
-		if (!strncmp(name, CHIMEI_PANEL_NAME, CHIMEI_PANEL_NAME_LEN))
+		if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
 	} else {
-		if (!strncmp(name, TOSHIBA_PANEL_NAME, TOSHIBA_PANEL_NAME_LEN))
+		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
 			return 0;
+
+#ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+		if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+				strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+#endif
 	}
 
-	pr_warning("%s: not supported '%s'", __func__, name);
+	if (!strncmp(name, HDMI_PANEL_NAME,
+			strnlen(HDMI_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
+	if (!strncmp(name, TVOUT_PANEL_NAME,
+			strnlen(TVOUT_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
+
+	pr_warning("%s: not supported '%s'", __func__, name);
 	return -ENODEV;
 }
 
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
-#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
 
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 	.dev.platform_data = &msm_fb_pdata,
-#endif /* CONFIG_FB_MSM_MIPI_PANEL_DETECT */
 };
 
 static bool dsi_power_on;
@@ -3479,6 +3535,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_funnel_device,
 	&msm_ptm_device,
 #endif
+	&msm_device_dspcrashd_8960,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -3860,38 +3917,39 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
 
-/**
- * 'flag' stores three values; led id, led mode, and max current of led.
- * The bit packing format is as follow,
- * reserved (1 byte) | max_current (2 bytes) | led_mode (1 nibble) |
- * led_id (1 nibble)
- */
-#define PM8XXX_SET_FLAG(led_id, led_mode, led_max_current)	\
-	(((led_id << PM8XXX_LED_ID_SHIFT) & PM8XXX_LED_ID_MASK) |\
-	((led_mode << PM8XXX_LED_MODE_SHIFT) & PM8XXX_LED_MODE_MASK) |\
-	((led_max_current << PM8XXX_LED_MAX_CURRENT_SHIFT) & \
-			PM8XXX_LED_MAX_CURRENT_MASK))
-
 static struct led_info pm8921_led_info[] = {
 	[0] = {
 		.name			= "led:usb",
 		.default_trigger	= "usb-online",
-		.flags			= PM8XXX_SET_FLAG(PM8XXX_ID_LED_0,
-						PM8XXX_LED_MODE_MANUAL,
-						PM8921_LC_LED_MAX_CURRENT),
 	},
 	[1] = {
 		.name			= "led:ac",
 		.default_trigger	= "ac-online",
-		.flags			= PM8XXX_SET_FLAG(PM8XXX_ID_LED_1,
-						PM8XXX_LED_MODE_MANUAL,
-						PM8921_LC_LED_MAX_CURRENT),
 	},
 };
 
-static struct led_platform_data pm8xxx_leds_pdata = {
+static struct led_platform_data pm8921_led_core_pdata = {
 	.num_leds = ARRAY_SIZE(pm8921_led_info),
 	.leds = pm8921_led_info,
+};
+
+static struct pm8xxx_led_config pm8921_led_configs[] = {
+	[0] = {
+		.id = PM8XXX_ID_LED_0,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8921_LC_LED_MAX_CURRENT,
+	},
+	[1] = {
+		.id = PM8XXX_ID_LED_1,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8921_LC_LED_MAX_CURRENT,
+	},
+};
+
+static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
+		.led_core = &pm8921_led_core_pdata,
+		.configs = pm8921_led_configs,
+		.num_configs = ARRAY_SIZE(pm8921_led_configs),
 };
 
 static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
