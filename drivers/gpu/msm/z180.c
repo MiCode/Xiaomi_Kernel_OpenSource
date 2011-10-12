@@ -234,6 +234,7 @@ static irqreturn_t z180_isr(int irq, void *data)
 			count &= 255;
 			z180_dev->timestamp += count;
 
+			queue_work(device->work_queue, &device->ts_expired_ws);
 			wake_up_interruptible(&device->wait_queue);
 
 			atomic_notifier_call_chain(
