@@ -196,4 +196,17 @@ int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle);
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
+/**
+ * ion_handle_get_flags - get the flags for a given handle
+ *
+ * @client - client who allocated the handle
+ * @handle - handle to get the flags
+ * @flags - pointer to store the flags
+ *
+ * Gets the current flags for a handle. These flags indicate various options
+ * of the buffer (caching, security, etc.)
+ */
+int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
+				unsigned long *flags);
+
 #endif /* _LINUX_ION_H */

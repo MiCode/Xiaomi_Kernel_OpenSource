@@ -150,6 +150,20 @@ struct ion_flush_data {
 	unsigned int offset;
 	unsigned int length;
 };
+
+/* struct ion_flag_data - information about flags for this buffer
+ *
+ * @handle:	handle to get flags from
+ * @flags:	flags of this handle
+ *
+ * Takes handle as an input and outputs the flags from the handle
+ * in the flag field.
+ */
+struct ion_flag_data {
+	struct ion_handle *handle;
+	unsigned long flags;
+};
+
 #define ION_IOC_MAGIC		'I'
 
 /**
@@ -228,4 +242,13 @@ struct ion_flush_data {
  */
 #define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MAGIC, 9, \
 						struct ion_flush_data)
+
+/**
+ * DOC: ION_IOC_GET_FLAGS - get the flags of the handle
+ *
+ * Gets the flags of the current handle which indicate cachability,
+ * secure state etc.
+ */
+#define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MAGIC, 10, \
+						struct ion_flag_data)
 #endif /* _UAPI_ION_H */
