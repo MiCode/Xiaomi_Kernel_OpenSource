@@ -666,14 +666,14 @@ static struct resource resources_sdc3[] = {
 	},
 	{
 		.name	= "sdcc_dma_chnl",
-		.start	= DMOV_SDC4_CHAN,
-		.end	= DMOV_SDC4_CHAN,
+		.start	= DMOV_SDC3_CHAN,
+		.end	= DMOV_SDC3_CHAN,
 		.flags	= IORESOURCE_DMA,
 	},
 	{
 		.name	= "sdcc_dma_crci",
-		.start	= DMOV_SDC4_CRCI,
-		.end	= DMOV_SDC4_CRCI,
+		.start	= DMOV_SDC3_CRCI,
+		.end	= DMOV_SDC3_CRCI,
 		.flags	= IORESOURCE_DMA,
 	},
 };
@@ -691,14 +691,14 @@ static struct resource resources_sdc4[] = {
 	},
 	{
 		.name	= "sdcc_dma_chnl",
-		.start	= DMOV_SDC3_CHAN,
-		.end	= DMOV_SDC3_CHAN,
+		.start	= DMOV_SDC4_CHAN,
+		.end	= DMOV_SDC4_CHAN,
 		.flags	= IORESOURCE_DMA,
 	},
 	{
 		.name	= "sdcc_dma_crci",
-		.start	= DMOV_SDC3_CRCI,
-		.end	= DMOV_SDC3_CRCI,
+		.start	= DMOV_SDC4_CRCI,
+		.end	= DMOV_SDC4_CRCI,
 		.flags	= IORESOURCE_DMA,
 	},
 };
