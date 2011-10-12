@@ -2678,8 +2678,18 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_on_cfg[] = {
 
 static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_CLK, GPIO_CFG_NO_PULL},
-	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_DOWN},
-	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_DOWN}
+	/*
+	 * SDC3 CMD line should be PULLed UP otherwise fluid platform will
+	 * see transitions (1 -> 0 and 0 -> 1) on card detection line,
+	 * which would result in false card detection interrupts.
+	 */
+	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_UP},
+	/*
+	 * Keeping DATA lines status to PULL UP will make sure that
+	 * there is no current leak during sleep if external pull up
+	 * is connected to DATA lines.
+	 */
+	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
 };
 
 struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
