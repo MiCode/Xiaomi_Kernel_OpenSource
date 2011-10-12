@@ -534,8 +534,6 @@ rmnet_smd_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_SEND_ENCAPSULATED_COMMAND:
-		if (w_length > req->length)
-			goto invalid;
 		ret = w_length;
 		req->complete = rmnet_smd_command_complete;
 		req->context = dev;
