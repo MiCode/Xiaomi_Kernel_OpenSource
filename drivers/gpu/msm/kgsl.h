@@ -123,7 +123,8 @@ struct kgsl_memdesc {
 #define KGSL_MEM_ENTRY_PMEM   1
 #define KGSL_MEM_ENTRY_ASHMEM 2
 #define KGSL_MEM_ENTRY_USER   3
-#define KGSL_MEM_ENTRY_MAX    4
+#define KGSL_MEM_ENTRY_ION    4
+#define KGSL_MEM_ENTRY_MAX    5
 
 struct kgsl_mem_entry {
 	struct kref refcount;

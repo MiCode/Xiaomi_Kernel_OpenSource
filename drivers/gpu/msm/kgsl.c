@@ -23,6 +23,7 @@
 
 #include <linux/ashmem.h>
 #include <linux/major.h>
+#include <linux/ion.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -42,6 +43,8 @@ MODULE_PARM_DESC(kgsl_pagetable_count,
 module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'gpummu' or 'nommu'");
+
+static struct ion_client *kgsl_ion_client;
 
 static inline struct kgsl_mem_entry *
 kgsl_mem_entry_create(void)
@@ -68,6 +71,17 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL)
 		kgsl_driver.stats.mapped -= entry->memdesc.size;
 
+	/*
+	 * Ion takes care of freeing the sglist for us (how nice </sarcasm>) so
+	 * unmap the dma before freeing the sharedmem so kgsl_sharedmem_free
+	 * doesn't try to free it again
+	 */
+
+	if (entry->memtype == KGSL_MEM_ENTRY_ION) {
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+		entry->memdesc.sg = NULL;
+	}
+
 	kgsl_sharedmem_free(&entry->memdesc);
 
 	switch (entry->memtype) {
@@ -75,6 +89,9 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	case KGSL_MEM_ENTRY_ASHMEM:
 		if (entry->priv_data)
 			fput(entry->priv_data);
+		break;
+	case KGSL_MEM_ENTRY_ION:
+		ion_free(kgsl_ion_client, entry->priv_data);
 		break;
 	}
 
@@ -1412,6 +1429,51 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 }
 #endif
 
+static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
+		struct kgsl_pagetable *pagetable, int fd)
+{
+	struct ion_handle *handle;
+	struct scatterlist *s;
+	unsigned long flags;
+
+	if (kgsl_ion_client == NULL) {
+		kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
+		if (kgsl_ion_client == NULL)
+			return -ENODEV;
+	}
+
+	handle = ion_import_fd(kgsl_ion_client, fd);
+	if (IS_ERR_OR_NULL(handle))
+		return PTR_ERR(handle);
+
+	entry->memtype = KGSL_MEM_ENTRY_ION;
+	entry->priv_data = handle;
+	entry->memdesc.pagetable = pagetable;
+	entry->memdesc.size = 0;
+
+	if (ion_handle_get_flags(kgsl_ion_client, handle, &flags))
+		goto err;
+
+	entry->memdesc.sg = ion_map_dma(kgsl_ion_client, handle, flags);
+
+	if (IS_ERR_OR_NULL(entry->memdesc.sg))
+		goto err;
+
+	/* Calculate the size of the memdesc from the sglist */
+
+	entry->memdesc.sglen = 0;
+
+	for (s = entry->memdesc.sg; s != NULL; s = sg_next(s)) {
+		entry->memdesc.size += s->length;
+		entry->memdesc.sglen++;
+	}
+
+	return 0;
+err:
+	ion_free(kgsl_ion_client, handle);
+	return -ENOMEM;
+}
+
 static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				     unsigned int cmd, void *data)
 {
@@ -1475,6 +1537,10 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 					   param->len);
 
 		entry->memtype = KGSL_MEM_ENTRY_ASHMEM;
+		break;
+	case KGSL_USER_MEM_TYPE_ION:
+		result = kgsl_setup_ion(entry, private->pagetable,
+			param->fd);
 		break;
 	default:
 		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
