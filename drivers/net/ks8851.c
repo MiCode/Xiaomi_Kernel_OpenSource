@@ -1723,8 +1723,6 @@ err_netdev:
 
 err_id:
 err_irq:
-	free_netdev(ndev);
-
 	if (!IS_ERR(ks->vdd_io)) {
 		regulator_disable(ks->vdd_io);
 		regulator_put(ks->vdd_io);
@@ -1734,6 +1732,8 @@ err_irq:
 		regulator_disable(ks->vdd_phy);
 		regulator_put(ks->vdd_phy);
 	}
+
+	free_netdev(ndev);
 
 	if (pdata && gpio_is_valid(pdata->rst_gpio))
 		gpio_free(pdata->rst_gpio);
