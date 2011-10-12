@@ -1167,6 +1167,8 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 
 	if (data->flags & MMC_DATA_READ)
 		datactrl |= (MCI_DPSM_DIRECTION | MCI_RX_DATA_PEND);
+	else if (host->curr.use_wr_data_pend)
+		datactrl |= MCI_DATA_PEND;
 
 	clks = (unsigned long long)data->timeout_ns * host->clk_rate;
 	do_div(clks, 1000000000UL);
@@ -1642,13 +1644,11 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 				msmsdcc_request_end(host, cmd->mrq);
 			}
 		}
-	} else if ((cmd == host->curr.mrq->sbc) && cmd->data) {
-		if (cmd->data->flags & MMC_DATA_READ)
-			msmsdcc_start_command(host, host->curr.mrq->cmd, 0);
-		else
-			msmsdcc_request_start(host, host->curr.mrq);
 	} else if (cmd->data) {
-		if (!(cmd->data->flags & MMC_DATA_READ))
+		if (cmd == host->curr.mrq->sbc)
+			msmsdcc_start_command(host, host->curr.mrq->cmd, 0);
+		else if ((cmd->data->flags & MMC_DATA_WRITE) &&
+			   !host->curr.use_wr_data_pend)
 			msmsdcc_start_data(host, cmd->data, NULL, 0);
 	}
 }
@@ -1924,12 +1924,17 @@ msmsdcc_post_req(struct mmc_host *mmc, struct mmc_request *mrq, int err)
 static void
 msmsdcc_request_start(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
-	if (mrq->data && mrq->data->flags & MMC_DATA_READ) {
+	if (mrq->data) {
 		/* Queue/read data, daisy-chain command when data starts */
-		if (mrq->sbc)
-			msmsdcc_start_data(host, mrq->data, mrq->sbc, 0);
+		if ((mrq->data->flags & MMC_DATA_READ) ||
+		    host->curr.use_wr_data_pend)
+			msmsdcc_start_data(host, mrq->data,
+					   mrq->sbc ? mrq->sbc : mrq->cmd,
+					   0);
 		else
-			msmsdcc_start_data(host, mrq->data, mrq->cmd, 0);
+			msmsdcc_start_command(host,
+					      mrq->sbc ? mrq->sbc : mrq->cmd,
+					      0);
 	} else {
 		msmsdcc_start_command(host, mrq->cmd, 0);
 	}
@@ -2025,20 +2030,18 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				host->sdcc_version) {
 			host->curr.wait_for_auto_prog_done = 1;
 		}
+		if ((mrq->cmd->opcode == MMC_WRITE_BLOCK) ||
+		    (mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK))
+			host->curr.use_wr_data_pend = true;
 	}
 
 	if (mrq->data && mrq->sbc) {
 		mrq->sbc->mrq = mrq;
 		mrq->sbc->data = mrq->data;
-		if (mrq->data->flags & MMC_DATA_WRITE) {
+		if (mrq->data->flags & MMC_DATA_WRITE)
 			host->curr.wait_for_auto_prog_done = 1;
-			msmsdcc_start_command(host, mrq->sbc, 0);
-		} else {
-			msmsdcc_request_start(host, mrq);
-		}
-	} else {
-		msmsdcc_request_start(host, mrq);
 	}
+	msmsdcc_request_start(host, mrq);
 
 	spin_unlock_irqrestore(&host->lock, flags);
 }
