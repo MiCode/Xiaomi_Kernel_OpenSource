@@ -871,7 +871,8 @@ static int ion_client_put(struct ion_client *client)
 
 void ion_client_destroy(struct ion_client *client)
 {
-	ion_client_put(client);
+	if (client)
+		ion_client_put(client);
 }
 
 int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
