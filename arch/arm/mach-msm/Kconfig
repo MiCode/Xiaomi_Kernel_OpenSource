@@ -15,6 +15,7 @@ config ARCH_MSM7X25
 	select MSM_VIC
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSM7X27
 	bool "MSM7x27"
@@ -27,6 +28,7 @@ config ARCH_MSM7X27
 	select MSM_REMOTE_SPINLOCK_SWP if MSM_SOC_REV_NONE
 	select MSM_GPIOMUX
 	select REGULATOR
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
