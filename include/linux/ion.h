@@ -118,6 +118,8 @@ struct ion_platform_data {
 	struct ion_platform_heap heaps[];
 };
 
+#ifdef CONFIG_ION
+
 /**
  * ion_client_create() -  allocate a client and returns it
  * @dev:	the global ion device
@@ -270,7 +272,6 @@ struct ion_handle *ion_import(struct ion_client *client,
  */
 struct ion_handle *ion_import_fd(struct ion_client *client, int fd);
 
-
 /**
  * ion_handle_get_flags - get the flags for a given handle
  *
@@ -284,7 +285,79 @@ struct ion_handle *ion_import_fd(struct ion_client *client, int fd);
 int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 				unsigned long *flags);
 
+#else
+static inline struct ion_client *ion_client_create(struct ion_device *dev,
+				     unsigned int heap_mask, const char *name)
+{
+	return ERR_PTR(-ENODEV);
+}
 
+static inline struct ion_client *msm_ion_client_create(unsigned int heap_mask,
+					const char *name)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline void ion_client_destroy(struct ion_client *client) { }
+
+static inline struct ion_handle *ion_alloc(struct ion_client *client,
+			size_t len, size_t align, unsigned int flags)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline void ion_free(struct ion_client *client,
+	struct ion_handle *handle) { }
+
+
+static inline int ion_phys(struct ion_client *client,
+	struct ion_handle *handle, ion_phys_addr_t *addr, size_t *len)
+{
+	return -ENODEV;
+}
+
+static inline void *ion_map_kernel(struct ion_client *client,
+	struct ion_handle *handle, unsigned long flags)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline void ion_unmap_kernel(struct ion_client *client,
+	struct ion_handle *handle) { }
+
+static inline struct scatterlist *ion_map_dma(struct ion_client *client,
+	struct ion_handle *handle, unsigned long flags)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline void ion_unmap_dma(struct ion_client *client,
+	struct ion_handle *handle) { }
+
+static inline struct ion_buffer *ion_share(struct ion_client *client,
+	struct ion_handle *handle)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct ion_handle *ion_import(struct ion_client *client,
+	struct ion_buffer *buffer)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct ion_handle *ion_import_fd(struct ion_client *client,
+	int fd)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int ion_handle_get_flags(struct ion_client *client,
+	struct ion_handle *handle, unsigned long *flags)
+{
+	return -ENODEV;
+}
+#endif /* CONFIG_ION */
 #endif /* __KERNEL__ */
 
 /**
