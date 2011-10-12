@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,6 +104,10 @@ struct platform_device *msm_fb_device_alloc(struct msm_fb_panel_data *pdata,
 	case HDMI_PANEL:
 	case LCDC_PANEL:
 		snprintf(dev_name, sizeof(dev_name), "lcdc");
+		break;
+
+	case LVDS_PANEL:
+		snprintf(dev_name, sizeof(dev_name), "lvds");
 		break;
 
 	case DTV_PANEL:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ typedef struct panel_id_s {
 #define MIPI_VIDEO_PANEL	8	/* MIPI */
 #define MIPI_CMD_PANEL		9	/* MIPI */
 #define WRITEBACK_PANEL		10	/* Wifi display */
+#define LVDS_PANEL		11	/* LVDS */
 
 /* panel class */
 typedef enum {
@@ -77,6 +78,10 @@ struct lcdc_panel_info {
 	__u32 border_clr;
 	__u32 underflow_clr;
 	__u32 hsync_skew;
+	/* Pad width */
+	uint32 xres_pad;
+	/* Pad height */
+	uint32 yres_pad;
 };
 
 struct mddi_panel_info {
@@ -127,10 +132,17 @@ struct mipi_panel_info {
 	char no_max_pkt_size;
 	/* Clock required during LP commands */
 	char force_clk_lane_hs;
-	/* Pad width */
-	uint32 xres_pad;
-	/* Pad height */
-	uint32 yres_pad;
+};
+
+enum lvds_mode {
+	LVDS_SINGLE_CHANNEL_MODE,
+	LVDS_DUAL_CHANNEL_MODE,
+};
+
+struct lvds_panel_info {
+	enum lvds_mode channel_mode;
+	/* Channel swap in dual mode */
+	char channel_swap;
 };
 
 struct msm_panel_info {
@@ -156,8 +168,8 @@ struct msm_panel_info {
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
-
 	struct mipi_panel_info mipi;
+	struct lvds_panel_info lvds;
 };
 
 #define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\
