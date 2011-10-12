@@ -466,13 +466,14 @@ struct bahama_config_register {
 struct bt_vreg_info {
 	const char *name;
 	unsigned int pmapp_id;
-	unsigned int level;
+	unsigned int min_level;
+	unsigned int max_level;
 	unsigned int is_pin_controlled;
 	struct regulator *reg;
 };
 static struct bt_vreg_info bt_vregs[] = {
-	{"msme1", 2, 1800000, 0, NULL},
-	{"bt", 21, 2900000, 1, NULL}
+	{"msme1", 2, 1800000, 1800000, 0, NULL},
+	{"bt", 21, 2900000, 3050000, 1, NULL}
 };
 
 static int bahama_bt(int on)
@@ -640,7 +641,8 @@ static int bluetooth_switch_regulators(int on)
 		}
 
 		rc = on ? regulator_set_voltage(bt_vregs[i].reg,
-				bt_vregs[i].level, bt_vregs[i].level) : 0;
+				bt_vregs[i].min_level,
+					bt_vregs[i].max_level) : 0;
 		if (rc) {
 			dev_err(&msm_bt_power_device.dev,
 				"%s: could not set voltage for %s: %d\n",
