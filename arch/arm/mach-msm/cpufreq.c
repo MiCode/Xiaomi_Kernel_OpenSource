@@ -190,7 +190,9 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 
 	cur_freq = acpuclk_get_rate(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, cur_freq,
-				CPUFREQ_RELATION_H, &index)) {
+	    CPUFREQ_RELATION_H, &index) &&
+	    cpufreq_frequency_table_target(policy, table, cur_freq,
+	    CPUFREQ_RELATION_L, &index)) {
 		pr_info("cpufreq: cpu%d at invalid freq: %d\n",
 				policy->cpu, cur_freq);
 		return -EINVAL;
