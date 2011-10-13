@@ -2144,7 +2144,6 @@ static int msm_otg_pm_suspend(struct device *dev)
 static int msm_otg_pm_resume(struct device *dev)
 {
 	struct msm_otg *motg = dev_get_drvdata(dev);
-	int ret = 0;
 
 	dev_dbg(dev, "OTG PM resume\n");
 
@@ -2153,7 +2152,7 @@ static int msm_otg_pm_resume(struct device *dev)
 	 * Do not resume hardware as part of system resume,
 	 * rather, wait for the ASYNC INT from the h/w
 	 */
-	return ret;
+	return 0;
 #endif
 
 	return msm_otg_resume(motg);
