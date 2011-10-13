@@ -20,6 +20,7 @@
  */
 struct pm8xxx_rtc_platform_data {
 	bool rtc_write_enable;
+	bool rtc_alarm_powerup;
 };
 
 #endif /* __RTC_PM8XXX_H__ */

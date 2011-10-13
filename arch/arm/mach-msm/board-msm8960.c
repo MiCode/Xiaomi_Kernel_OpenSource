@@ -3755,6 +3755,7 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata __devinitdata = {
 
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata __devinitdata = {
 	.rtc_write_enable       = false,
+	.rtc_alarm_powerup	= false,
 };
 
 static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
