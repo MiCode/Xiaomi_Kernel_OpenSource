@@ -33,7 +33,6 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_hsusb.h>
 #include <mach/usbdiag.h>
-#include <mach/usb_gadget_fserial.h>
 #include <mach/rpc_hsusb.h>
 
 static struct resource resources_uart1[] = {
@@ -298,35 +297,6 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 	pdev->dev.platform_data = plat;
 	return platform_device_register(pdev);
 }
-
-#ifdef CONFIG_USB_ANDROID_DIAG
-struct usb_diag_platform_data usb_diag_pdata = {
-	.ch_name = DIAG_LEGACY,
-	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
-};
-
-struct platform_device usb_diag_device = {
-	.name	= "usb_diag",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &usb_diag_pdata,
-	},
-};
-#endif
-
-#ifdef CONFIG_USB_F_SERIAL
-static struct usb_gadget_fserial_platform_data fserial_pdata = {
-	.no_ports	= 2,
-};
-
-struct platform_device usb_gadget_fserial_device = {
-	.name	= "usb_fserial",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &fserial_pdata,
-	},
-};
-#endif
 
 struct platform_device asoc_msm_pcm = {
 	.name   = "msm-dsp-audio",
