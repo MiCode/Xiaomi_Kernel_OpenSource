@@ -60,6 +60,7 @@
 #define MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR       0x01D0
 
 /* MIPI	CSID registers */
+#define CSID_HW_VERSION_ADDR                    0x0
 #define CSID_CORE_CTRL_ADDR                     0x4
 #define CSID_RST_CMD_ADDR                       0x8
 #define CSID_CID_LUT_VC_0_ADDR                  0xc
@@ -105,6 +106,9 @@
 #define CAM_VANA_LOAD_UA                  85600
 #define CAM_CSI_LOAD_UA                    20000
 
+#define CSID_VERSION_V2              0x2000011
+
+static uint32_t csid_hw_version;
 static struct clk *camio_cam_clk;
 static struct clk *camio_vfe_clk;
 static struct clk *camio_csi_src_clk;
@@ -113,7 +117,10 @@ static struct clk *camio_csi0_vfe_clk;
 static struct clk *camio_csi0_clk;
 static struct clk *camio_csi0_pclk;
 static struct clk *camio_csi_pix_clk;
+static struct clk *camio_csi_pix1_clk;
 static struct clk *camio_csi_rdi_clk;
+static struct clk *camio_csi_rdi1_clk;
+static struct clk *camio_csi_rdi2_clk;
 static struct clk *camio_csiphy0_timer_clk;
 static struct clk *camio_csiphy1_timer_clk;
 static struct clk *camio_vfe_pclk;
@@ -497,9 +504,30 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		msm_camio_clk_rate_set_2(clk, csid_core);
 		break;
 
+	case CAMIO_CSI_PIX1_CLK:
+		camio_csi_pix1_clk =
+		clk = clk_get(NULL, "csi_pix1_clk");
+		/* mux to select between csid0 and csid1 */
+		msm_camio_clk_rate_set_2(clk, csid_core);
+		break;
+
 	case CAMIO_CSI_RDI_CLK:
 		camio_csi_rdi_clk =
 		clk = clk_get(NULL, "csi_rdi_clk");
+		/* mux to select between csid0 and csid1 */
+		msm_camio_clk_rate_set_2(clk, csid_core);
+		break;
+
+	case CAMIO_CSI_RDI1_CLK:
+		camio_csi_rdi1_clk =
+		clk = clk_get(NULL, "csi_rdi1_clk");
+		/* mux to select between csid0 and csid1 */
+		msm_camio_clk_rate_set_2(clk, csid_core);
+		break;
+
+	case CAMIO_CSI_RDI2_CLK:
+		camio_csi_rdi2_clk =
+		clk = clk_get(NULL, "csi_rdi2_clk");
 		/* mux to select between csid0 and csid1 */
 		msm_camio_clk_rate_set_2(clk, csid_core);
 		break;
@@ -596,8 +624,20 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_csi0_phy_clk;
 		break;
 
+	case CAMIO_CSI_PIX1_CLK:
+		clk = camio_csi_pix1_clk;
+		break;
+
 	case CAMIO_CSI_PIX_CLK:
 		clk = camio_csi_pix_clk;
+		break;
+
+	case CAMIO_CSI_RDI1_CLK:
+		clk = camio_csi_rdi1_clk;
+		break;
+
+	case CAMIO_CSI_RDI2_CLK:
+		clk = camio_csi_rdi2_clk;
 		break;
 
 	case CAMIO_CSI_RDI_CLK:
@@ -744,6 +784,40 @@ static irqreturn_t msm_io_csiphy_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 #endif
+
+static int msm_camio_enable_v2_clks(void)
+{
+	int rc = 0;
+	csid_hw_version = msm_io_r(csidbase +
+				CSID_HW_VERSION_ADDR);
+	CDBG("%s csid_hw_version %d\n",
+		__func__,
+		csid_hw_version);
+
+	if (csid_hw_version == CSID_VERSION_V2) {
+		rc = msm_camio_clk_enable(CAMIO_CSI_PIX1_CLK);
+		if (rc < 0)
+			goto csi_pix1_fail;
+
+		rc = msm_camio_clk_enable(CAMIO_CSI_RDI1_CLK);
+		if (rc < 0)
+			goto csi_rdi1_fail;
+
+		rc = msm_camio_clk_enable(CAMIO_CSI_RDI2_CLK);
+		if (rc < 0)
+			goto csi_rdi2_fail;
+	}
+
+	return rc;
+
+csi_rdi2_fail:
+	msm_camio_clk_disable(CAMIO_CSI_RDI1_CLK);
+csi_rdi1_fail:
+	msm_camio_clk_disable(CAMIO_CSI_PIX1_CLK);
+csi_pix1_fail:
+	return rc;
+}
+
 static int msm_camio_enable_all_clks(uint8_t csid_core)
 {
 	int rc = 0;
@@ -824,8 +898,18 @@ csi_src_fail:
 	return rc;
 }
 
+static void msm_camio_disable_v2_clks(void)
+{
+	if (csid_hw_version == CSID_VERSION_V2) {
+		msm_camio_clk_disable(CAMIO_CSI_RDI2_CLK);
+		msm_camio_clk_disable(CAMIO_CSI_RDI1_CLK);
+		msm_camio_clk_disable(CAMIO_CSI_PIX1_CLK);
+	}
+}
+
 static void msm_camio_disable_all_clks(uint8_t csid_core)
 {
+	msm_camio_disable_v2_clks();
 	msm_camio_clk_disable(CAMIO_CSI_RDI_CLK);
 	msm_camio_clk_disable(CAMIO_CSI_PIX_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
@@ -1034,6 +1118,7 @@ int msm_camio_enable(struct platform_device *pdev)
 	if (rc < 0)
 		goto csiphy_irq_fail;
 #endif
+	msm_camio_enable_v2_clks();
 	CDBG("camio enable done\n");
 	return 0;
 #if DBG_CSIPHY

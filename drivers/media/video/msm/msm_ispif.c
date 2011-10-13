@@ -47,6 +47,7 @@
 #define ISPIF_IRQ_MASK_1_ADDR                   0X010C
 #define ISPIF_IRQ_CLEAR_1_ADDR                  0X0110
 #define ISPIF_IRQ_STATUS_1_ADDR                 0X0114
+#define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR         0x0124
 
 /*ISPIF RESET BITS*/
 
@@ -73,8 +74,10 @@
 #define ISPIF_IRQ_STATUS_MASK        0xA493000
 #define ISPIF_IRQ_1_STATUS_MASK      0xA493000
 #define ISPIF_IRQ_STATUS_RDI_SOF_MASK	0x492000
+#define ISPIF_IRQ_GLOBAL_CLEAR_CMD     0x1
 
 #define MAX_CID 15
+
 
 static struct ispif_device *ispif;
 
@@ -207,6 +210,8 @@ static int msm_ispif_config(struct msm_ispif_params_list *params_list)
 					ISPIF_IRQ_MASK_ADDR);
 	msm_io_w(ISPIF_IRQ_STATUS_MASK, ispif->base +
 					ISPIF_IRQ_CLEAR_ADDR);
+	msm_io_w(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
+		 ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	return rc;
 }
 
@@ -410,6 +415,8 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
 	}
 	msm_io_w(out->ispifIrqStatus0,
 			ispif->base + ISPIF_IRQ_CLEAR_ADDR);
+	msm_io_w(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
+		 ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 }
 
 static irqreturn_t msm_io_ispif_irq(int irq_num, void *data)
