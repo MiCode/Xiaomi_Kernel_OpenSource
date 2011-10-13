@@ -51,6 +51,7 @@
 
 #define BYTES_PER_WORD		4
 #define ETB_SIZE_WORDS		4096
+#define FRAME_SIZE_WORDS	4
 
 #define ETB_LOCK()							\
 do {									\
@@ -136,11 +137,23 @@ static void __etb_dump(void)
 	uint32_t read_data;
 	uint32_t read_ptr;
 	uint32_t write_ptr;
+	uint32_t frame_off;
+	uint32_t frame_endoff;
 
 	ETB_UNLOCK();
 
 	read_ptr = etb_readl(etb, ETB_RAM_READ_POINTER);
 	write_ptr = etb_readl(etb, ETB_RAM_WRITE_POINTER);
+
+	frame_off = write_ptr % FRAME_SIZE_WORDS;
+	frame_endoff = FRAME_SIZE_WORDS - frame_off;
+	if (frame_off) {
+		dev_err(etb.dev, "write_ptr: %lu not aligned to formatter "
+				"frame size\n", (unsigned long)write_ptr);
+		dev_err(etb.dev, "frameoff: %lu, frame_endoff: %lu\n",
+			(unsigned long)frame_off, (unsigned long)frame_endoff);
+		write_ptr += frame_endoff;
+	}
 
 	if ((etb_readl(etb, ETB_STATUS_REG) & BIT(0)) == 0)
 		etb_writel(etb, 0x0, ETB_RAM_READ_POINTER);
@@ -150,14 +163,20 @@ static void __etb_dump(void)
 	buf_ptr = etb.buf;
 	for (i = 0; i < ETB_SIZE_WORDS; i++) {
 		read_data = etb_readl(etb, ETB_RAM_READ_DATA_REG);
-		*buf_ptr = read_data >> 0;
-		buf_ptr++;
-		*buf_ptr = read_data >> 8;
-		buf_ptr++;
-		*buf_ptr = read_data >> 16;
-		buf_ptr++;
-		*buf_ptr = read_data >> 24;
-		buf_ptr++;
+		*buf_ptr++ = read_data >> 0;
+		*buf_ptr++ = read_data >> 8;
+		*buf_ptr++ = read_data >> 16;
+		*buf_ptr++ = read_data >> 24;
+	}
+
+	if (frame_off) {
+		buf_ptr -= (frame_endoff * BYTES_PER_WORD);
+		for (i = 0; i < frame_endoff; i++) {
+			*buf_ptr++ = 0x0;
+			*buf_ptr++ = 0x0;
+			*buf_ptr++ = 0x0;
+			*buf_ptr++ = 0x0;
+		}
 	}
 
 	etb_writel(etb, read_ptr, ETB_RAM_READ_POINTER);
