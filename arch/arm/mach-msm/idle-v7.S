@@ -115,7 +115,8 @@ skip:	ldr	r0, =saved_state
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	ldr	r0, =SCM_SVC_BOOT
 	ldr	r1, =SCM_CMD_TERMINATE_PC
-	ldr	r2, =0
+	ldr	r2, =msm_pm_flush_l2_flag
+	ldr	r2, [r2]
 	bl	scm_call_atomic1
 #else
 	wfi
