@@ -17,7 +17,7 @@
 #include <linux/firmware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/atmel_mxt_ts.h>
-#include <linux/input/mt.h>
+#include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
@@ -539,21 +539,19 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 		if (!finger[id].status)
 			continue;
 
-		input_mt_slot(input_dev, id);
-		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER,
-				finger[id].status != MXT_RELEASE);
+		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR,
+				finger[id].status != MXT_RELEASE ?
+				finger[id].area : 0);
+		input_report_abs(input_dev, ABS_MT_POSITION_X,
+				finger[id].x);
+		input_report_abs(input_dev, ABS_MT_POSITION_Y,
+				finger[id].y);
+		input_mt_sync(input_dev);
 
-		if (finger[id].status != MXT_RELEASE) {
-			finger_num++;
-			input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR,
-					finger[id].area);
-			input_report_abs(input_dev, ABS_MT_POSITION_X,
-					finger[id].x);
-			input_report_abs(input_dev, ABS_MT_POSITION_Y,
-					finger[id].y);
-		} else {
+		if (finger[id].status == MXT_RELEASE)
 			finger[id].status = 0;
-		}
+		else
+			finger_num++;
 	}
 
 	input_report_key(input_dev, BTN_TOUCH, finger_num > 0);
@@ -1429,7 +1427,6 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			     0, data->max_y, 0, 0);
 
 	/* For multi touch */
-	input_mt_init_slots(input_dev, MXT_MAX_FINGER);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, MXT_MAX_AREA, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
