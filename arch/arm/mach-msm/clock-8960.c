@@ -297,6 +297,11 @@
 #define LCC_PCM_MD_REG				REG_LPA(0x0058)
 #define LCC_PCM_NS_REG				REG_LPA(0x0054)
 #define LCC_PCM_STATUS_REG			REG_LPA(0x005C)
+#define LCC_PLL0_MODE_REG			REG_LPA(0x0000)
+#define LCC_PLL0_L_VAL_REG			REG_LPA(0x0004)
+#define LCC_PLL0_M_VAL_REG			REG_LPA(0x0008)
+#define LCC_PLL0_N_VAL_REG			REG_LPA(0x000C)
+#define LCC_PLL0_CONFIG_REG			REG_LPA(0x0014)
 #define LCC_PLL0_STATUS_REG			REG_LPA(0x0018)
 #define LCC_SPARE_I2S_MIC_MD_REG		REG_LPA(0x007C)
 #define LCC_SPARE_I2S_MIC_NS_REG		REG_LPA(0x0078)
@@ -308,6 +313,7 @@
 #define LCC_SLIMBUS_MD_REG			REG_LPA(0x00D0)
 #define LCC_SLIMBUS_STATUS_REG			REG_LPA(0x00D4)
 #define LCC_AHBEX_BRANCH_CTL_REG		REG_LPA(0x00E4)
+#define LCC_PRI_PLL_CLK_CTL_REG			REG_LPA(0x00C4)
 
 #define GCC_APCS_CLK_DIAG			REG_GCC(0x001C)
 
@@ -4939,7 +4945,7 @@ static struct clk_lookup msm_clocks_8064[] __initdata = {
 	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
 	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
 	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
-	CLK_DUMMY("pll4",		PLL4,		NULL, 0),
+	CLK_LOOKUP("pll4",		pll4_clk.c,		NULL),
 	CLK_LOOKUP("measure",		measure_clk.c,		"debug"),
 
 	CLK_DUMMY("afab_clk",		AFAB_CLK,	NULL, 0),
@@ -5098,17 +5104,18 @@ static struct clk_lookup msm_clocks_8064[] __initdata = {
 	CLK_LOOKUP("iface_clk",		vcodec_p_clk.c,		NULL),
 	CLK_LOOKUP("vfe_pclk",		vfe_p_clk.c,		NULL),
 	CLK_LOOKUP("vpe_pclk",		vpe_p_clk.c,		NULL),
-	CLK_DUMMY("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, OFF),
-	CLK_DUMMY("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, OFF),
-	CLK_DUMMY("i2s_mic_osr_clk",	CODEC_I2S_MIC_OSR_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_mic_bit_clk",	CODEC_I2S_MIC_BIT_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_mic_osr_clk",	SPARE_I2S_MIC_OSR_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_mic_bit_clk",	SPARE_I2S_MIC_BIT_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_spkr_osr_clk",	CODEC_I2S_SPKR_OSR_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_spkr_bit_clk",	CODEC_I2S_SPKR_BIT_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, OFF),
-	CLK_DUMMY("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, OFF),
-	CLK_DUMMY("pcm_clk",		PCM_CLK,		NULL, OFF),
+	CLK_LOOKUP("mi2s_bit_clk",	mi2s_bit_clk.c,		NULL),
+	CLK_LOOKUP("mi2s_osr_clk",	mi2s_osr_clk.c,		NULL),
+	CLK_LOOKUP("i2s_mic_bit_clk",	codec_i2s_mic_bit_clk.c,	NULL),
+	CLK_LOOKUP("i2s_mic_osr_clk",	codec_i2s_mic_osr_clk.c,	NULL),
+	CLK_LOOKUP("i2s_mic_bit_clk",	spare_i2s_mic_bit_clk.c,	NULL),
+	CLK_LOOKUP("i2s_mic_osr_clk",	spare_i2s_mic_osr_clk.c,	NULL),
+	CLK_LOOKUP("i2s_spkr_bit_clk",	codec_i2s_spkr_bit_clk.c,	NULL),
+	CLK_LOOKUP("i2s_spkr_osr_clk",	codec_i2s_spkr_osr_clk.c,	NULL),
+	CLK_LOOKUP("i2s_spkr_bit_clk",	spare_i2s_spkr_bit_clk.c,	NULL),
+	CLK_LOOKUP("i2s_spkr_osr_clk",	spare_i2s_spkr_osr_clk.c,	NULL),
+	CLK_LOOKUP("pcm_clk",		pcm_clk.c,		NULL),
+	CLK_DUMMY("sps_slimbus_clk",	SPS_SLIMBUS_CLK,	NULL, OFF),
 	CLK_DUMMY("audio_slimbus_clk",	AUDIO_SLIMBUS_CLK,	NULL, OFF),
 	CLK_LOOKUP("core_clk",		jpegd_axi_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		vpe_axi_clk.c,		NULL),
@@ -5687,6 +5694,33 @@ static void __init reg_init(void)
 		regval = readl_relaxed(MM_PLL3_TEST_CTL_REG);
 		regval |= BIT(12);
 		writel_relaxed(regval, MM_PLL3_TEST_CTL_REG);
+
+		/* Check if PLL4 is active */
+		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
+		if (!is_pll_enabled) {
+			/* Ref clk = 24.5MHz and program pll4 to 393.2160MHz */
+			writel_relaxed(0x10,   LCC_PLL0_L_VAL_REG);
+			writel_relaxed(0x130,  LCC_PLL0_M_VAL_REG);
+			writel_relaxed(0x17ED, LCC_PLL0_N_VAL_REG);
+
+			regval = readl_relaxed(LCC_PLL0_CONFIG_REG);
+
+			/* Enable the main output and the MN accumulator */
+			regval |= BIT(23) | BIT(22);
+
+			/* Set pre-divider and post-divider values to 1 and 1 */
+			regval &= ~BIT(19);
+			regval &= ~BM(21, 20);
+
+			/* Set VCO frequency */
+			regval &= ~BM(17, 16);
+			writel_relaxed(regval, LCC_PLL0_CONFIG_REG);
+
+			set_fsm_mode(LCC_PLL0_MODE_REG);
+		}
+
+		/* Enable PLL4 source on the LPASS Primary PLL Mux */
+		writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG);
 	}
 }
 
