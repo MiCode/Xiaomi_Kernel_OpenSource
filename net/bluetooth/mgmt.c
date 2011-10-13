@@ -1411,6 +1411,10 @@ static void pairing_connect_complete_cb(struct hci_conn *conn, u8 status)
 		BT_DBG("Unable to find a pending command");
 		return;
 	}
+
+	if (status)
+		pairing_complete(cmd, status);
+
 	hci_conn_put(conn);
 }
 
