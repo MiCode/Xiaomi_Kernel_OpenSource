@@ -65,19 +65,11 @@ static int qrf6285_init_regs(void)
 		goto out;
 	}
 
-	rc = regulator_bulk_set_voltage(ARRAY_SIZE(regs), regs);
-	if (rc) {
-		pr_err("%s: could not set voltages: %d\n", __func__, rc);
-		goto reg_free;
-	}
-
 	for (i = 0; i < ARRAY_SIZE(regs); i++)
 		vreg_info[i].reg = regs[i].consumer;
 
 	return 0;
 
-reg_free:
-	regulator_bulk_free(ARRAY_SIZE(regs), regs);
 out:
 	return rc;
 }
@@ -134,6 +126,25 @@ int chip_power_qrf6285(bool on)
 
 	for (index = 0; index < ARRAY_SIZE(vreg_info); index++) {
 		if (on) {
+
+			rc = regulator_set_voltage(vreg_info[index].reg,
+						vreg_info[index].vreg_level,
+						vreg_info[index].vreg_level);
+			if (rc) {
+				pr_err("%s:%s set voltage failed %d\n",
+					__func__, vreg_info[index].vreg_id, rc);
+
+				goto vreg_fail;
+			}
+
+			rc = regulator_enable(vreg_info[index].reg);
+			if (rc) {
+				pr_err("%s:%s vreg enable failed %d\n",
+					__func__, vreg_info[index].vreg_id, rc);
+
+				goto vreg_fail;
+			}
+
 			if (vreg_info[index].is_vreg_pin_controlled) {
 				rc = pmapp_vreg_lpm_pincntrl_vote(id,
 					 vreg_info[index].pmapp_id,
@@ -143,17 +154,10 @@ int chip_power_qrf6285(bool on)
 						" for enable failed %d\n",
 						__func__,
 						vreg_info[index].vreg_id, rc);
-					goto vreg_fail;
-				}
-			} else {
-				rc = regulator_enable(vreg_info[index].reg);
-				if (rc) {
-					pr_err("%s:%s vreg enable failed %d\n",
-						__func__,
-						vreg_info[index].vreg_id, rc);
-					goto vreg_fail;
+					goto vreg_clock_vote_fail;
 				}
 			}
+
 			/*At this point CLK_PWR_REQ is high*/
 			if (WLAN_VREG_L6 == index) {
 				/*
@@ -182,13 +186,11 @@ int chip_power_qrf6285(bool on)
 						__func__,
 						vreg_info[index].vreg_id, rc);
 				}
-			} else {
-				rc = regulator_disable(vreg_info[index].reg);
-				if (rc) {
-					pr_err("%s:%s vreg disable failed %d\n",
-						__func__,
-						vreg_info[index].vreg_id, rc);
-				}
+			}
+			rc = regulator_disable(vreg_info[index].reg);
+			if (rc) {
+				pr_err("%s:%s vreg disable failed %d\n",
+					__func__, vreg_info[index].vreg_id, rc);
 			}
 		}
 	}
@@ -196,7 +198,7 @@ int chip_power_qrf6285(bool on)
 vreg_fail:
 	index--;
 vreg_clock_vote_fail:
-	while (index > 0) {
+	while (index >= 0) {
 		rc = regulator_disable(vreg_info[index].reg);
 		if (rc) {
 			pr_err("%s:%s vreg disable failed %d\n",

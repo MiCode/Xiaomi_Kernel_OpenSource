@@ -638,65 +638,80 @@ static int bluetooth_switch_regulators(int on)
 			goto reg_disable;
 		}
 
+		rc = on ? regulator_set_voltage(bt_vregs[i].reg,
+				bt_vregs[i].level, bt_vregs[i].level) : 0;
+		if (rc) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: could not set voltage for %s: %d\n",
+					__func__, bt_vregs[i].name, rc);
+			goto reg_disable;
+		}
+
+		rc = on ? regulator_enable(bt_vregs[i].reg) : 0;
+		if (rc) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: could not %sable regulator %s: %d\n",
+					__func__, "en", bt_vregs[i].name, rc);
+			goto reg_disable;
+		}
+
 		if (bt_vregs[i].is_pin_controlled) {
-			rc = pmapp_vreg_pincntrl_vote(id,
+			rc = pmapp_vreg_lpm_pincntrl_vote(id,
 					bt_vregs[i].pmapp_id,
 					PMAPP_CLOCK_ID_D1,
 					on ? PMAPP_CLOCK_VOTE_ON :
 						PMAPP_CLOCK_VOTE_OFF);
-		} else {
-			rc = on ? regulator_enable(bt_vregs[i].reg) :
-				regulator_disable(bt_vregs[i].reg);
+			if (rc) {
+				dev_err(&msm_bt_power_device.dev,
+					"%s: pin control failed for %s: %d\n",
+					__func__, bt_vregs[i].name, rc);
+				goto pin_cnt_fail;
+			}
 		}
+		rc = on ? 0 : regulator_disable(bt_vregs[i].reg);
 
 		if (rc) {
 			dev_err(&msm_bt_power_device.dev,
 				"%s: could not %sable regulator %s: %d\n",
-				__func__, on ? "en" : "dis",
-				bt_vregs[i].name, rc);
-			i++;
+				__func__, "dis", bt_vregs[i].name, rc);
 			goto reg_disable;
 		}
 	}
 
 	return rc;
-
+pin_cnt_fail:
+	if (on)
+		regulator_disable(bt_vregs[i].reg);
 reg_disable:
-	while (i--) {
-		if (bt_vregs[i].is_pin_controlled) {
-			pmapp_vreg_pincntrl_vote(id, bt_vregs[i].pmapp_id,
-					PMAPP_CLOCK_ID_D1,
-					on ? PMAPP_CLOCK_VOTE_OFF :
-						PMAPP_CLOCK_VOTE_ON);
-		} else {
-			if (on)
-				regulator_disable(bt_vregs[i].reg);
-			else
-				regulator_enable(bt_vregs[i].reg);
+	while (i) {
+		if (on) {
+			i--;
+			regulator_disable(bt_vregs[i].reg);
+			regulator_put(bt_vregs[i].reg);
 		}
 	}
 	return rc;
 }
 
-static struct regulator *reg_bahama;
+static struct regulator *reg_s3;
 static unsigned int msm_bahama_setup_power(void)
 {
 	int rc = 0;
 
-	reg_bahama = regulator_get(NULL, "msme1");
-	if (IS_ERR(reg_bahama)) {
-		rc = PTR_ERR(reg_bahama);
+	reg_s3 = regulator_get(NULL, "msme1");
+	if (IS_ERR(reg_s3)) {
+		rc = PTR_ERR(reg_s3);
 		pr_err("%s: could not get regulator: %d\n", __func__, rc);
 		goto out;
 	}
 
-	rc = regulator_set_voltage(reg_bahama, 1800000, 1800000);
+	rc = regulator_set_voltage(reg_s3, 1800000, 1800000);
 	if (rc) {
 		pr_err("%s: could not set voltage: %d\n", __func__, rc);
 		goto reg_fail;
 	}
 
-	rc = regulator_enable(reg_bahama);
+	rc = regulator_enable(reg_s3);
 	if (rc < 0) {
 		pr_err("%s: could not enable regulator: %d\n", __func__, rc);
 		goto reg_fail;
@@ -722,11 +737,11 @@ static unsigned int msm_bahama_setup_power(void)
 gpio_fail:
 	gpio_free(GPIO_BT_SYS_REST_EN);
 reg_disable:
-	regulator_disable(reg_bahama);
+	regulator_disable(reg_s3);
 reg_fail:
-	regulator_put(reg_bahama);
+	regulator_put(reg_s3);
 out:
-	reg_bahama = NULL;
+	reg_s3 = NULL;
 	return rc;
 }
 
@@ -734,12 +749,12 @@ static unsigned int msm_bahama_shutdown_power(int value)
 {
 	int rc = 0;
 
-	if (IS_ERR_OR_NULL(reg_bahama)) {
-		rc = reg_bahama ? PTR_ERR(reg_bahama) : -ENODEV;
+	if (IS_ERR_OR_NULL(reg_s3)) {
+		rc = reg_s3 ? PTR_ERR(reg_s3) : -ENODEV;
 		goto out;
 	}
 
-	rc = regulator_disable(reg_bahama);
+	rc = regulator_disable(reg_s3);
 	if (rc) {
 		pr_err("%s: could not disable regulator: %d\n", __func__, rc);
 		goto out;
@@ -750,18 +765,15 @@ static unsigned int msm_bahama_shutdown_power(int value)
 		if (rc) {
 			pr_err("%s: bt_set_gpio = %d\n",
 					__func__, rc);
-			goto reg_enable;
 		}
 		gpio_free(GPIO_BT_SYS_REST_EN);
 	}
 
-	regulator_put(reg_bahama);
-	reg_bahama = NULL;
+	regulator_put(reg_s3);
+	reg_s3 = NULL;
 
 	return 0;
 
-reg_enable:
-	regulator_enable(reg_bahama);
 out:
 	return rc;
 }
@@ -933,21 +945,12 @@ static int __init bt_power_init(void)
 					__func__, bt_vregs[i].name, rc);
 			goto reg_get_fail;
 		}
-		rc = regulator_set_voltage(bt_vregs[i].reg,
-				bt_vregs[i].level, bt_vregs[i].level);
-		if (rc) {
-			dev_err(dev, "%s: could not set voltage for %s: %d\n",
-					__func__, bt_vregs[i].name, rc);
-			goto reg_set_fail;
-		}
 	}
 
 	dev->platform_data = &bluetooth_power;
 
 	return rc;
 
-reg_set_fail:
-	i++;
 reg_get_fail:
 	while (i--) {
 		regulator_put(bt_vregs[i].reg);
