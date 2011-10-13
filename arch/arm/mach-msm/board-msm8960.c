@@ -3657,7 +3657,7 @@ static void __init msm8960_i2c_init(void)
 
 static void __init msm8960_gfx_init(void)
 {
-	uint32_t soc_platform_version = socinfo_get_platform_version();
+	uint32_t soc_platform_version = socinfo_get_version();
 	if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
 		struct kgsl_device_platform_data *kgsl_3d0_pdata =
 				msm_kgsl_3d0.dev.platform_data;
