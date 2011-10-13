@@ -48,6 +48,9 @@ struct grmnet {
 	void (*send_cbits_tomodem)(struct grmnet *g,
 				u8 port_num,
 				int cbits);
+
+	void (*disconnect)(struct grmnet *g);
+	void (*connect)(struct grmnet *g);
 };
 
 int gbam_setup(unsigned int count);
