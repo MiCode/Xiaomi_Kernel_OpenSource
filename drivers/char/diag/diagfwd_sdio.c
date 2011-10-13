@@ -124,10 +124,11 @@ int diagfwd_connect_sdio(void)
 
 int diagfwd_disconnect_sdio(void)
 {
-	driver->in_busy_sdio = 1;
 	usb_diag_free_req(driver->mdm_ch);
-	if (driver->sdio_ch && (driver->logging_mode == USB_MODE))
+	if (driver->sdio_ch && (driver->logging_mode == USB_MODE)) {
+		driver->in_busy_sdio = 1;
 		diag_sdio_close();
+	}
 	return 0;
 }
 

@@ -61,7 +61,8 @@ do {									\
 		driver->write_ptr_1->length = (int)(enc.dest - \
 						(void *)(driver->buf_in_1)); \
 		driver->in_busy_1 = 1;					\
-		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
+		diag_device_write(driver->buf_in_1, MODEM_DATA, \
+						 driver->write_ptr_1); \
 		memset(driver->apps_rsp_buf, '\0', 500);		\
 	}								\
 } while (0)
@@ -153,7 +154,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 						 driver->logging_process_id)
 				break;
 		if (i < driver->num_clients) {
-			driver->data_ready[i] |= MEMORY_DEVICE_LOG_TYPE;
+			driver->data_ready[i] |= USER_SPACE_LOG_TYPE;
 			wake_up_interruptible(&driver->wait_q);
 		} else
 			return -EINVAL;
@@ -982,13 +983,15 @@ int diagfwd_disconnect(void)
 {
 	printk(KERN_DEBUG "diag: USB disconnected\n");
 	driver->usb_connected = 0;
-	driver->in_busy_1 = 1;
-	driver->in_busy_2 = 1;
-	driver->in_busy_qdsp_1 = 1;
-	driver->in_busy_qdsp_2 = 1;
-	driver->in_busy_wcnss = 1;
 	driver->debug_flag = 1;
 	usb_diag_free_req(driver->legacy_ch);
+	if (driver->logging_mode == USB_MODE) {
+		driver->in_busy_1 = 1;
+		driver->in_busy_2 = 1;
+		driver->in_busy_qdsp_1 = 1;
+		driver->in_busy_qdsp_2 = 1;
+		driver->in_busy_wcnss = 1;
+	}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
@@ -1235,6 +1238,10 @@ void diagfwd_init(void)
 	if (driver->hdlc_buf == NULL
 	    && (driver->hdlc_buf = kzalloc(HDLC_MAX, GFP_KERNEL)) == NULL)
 		goto err;
+	if (driver->user_space_data == NULL)
+		driver->user_space_data = kzalloc(USER_SPACE_DATA, GFP_KERNEL);
+		if (driver->user_space_data == NULL)
+			goto err;
 	if (driver->msg_masks == NULL
 	    && (driver->msg_masks = kzalloc(MSG_MASK_SIZE,
 					     GFP_KERNEL)) == NULL)
@@ -1350,6 +1357,7 @@ err:
 		kfree(driver->write_ptr_wcnss);
 		kfree(driver->usb_read_ptr);
 		kfree(driver->apps_rsp_buf);
+		kfree(driver->user_space_data);
 		if (driver->diag_wq)
 			destroy_workqueue(driver->diag_wq);
 }
@@ -1391,5 +1399,6 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_wcnss);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
+	kfree(driver->user_space_data);
 	destroy_workqueue(driver->diag_wq);
 }

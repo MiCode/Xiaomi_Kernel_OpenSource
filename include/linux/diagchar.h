@@ -18,10 +18,11 @@
 #define EVENT_MASKS_TYPE		4
 #define PKT_TYPE			8
 #define DEINIT_TYPE			16
-#define MEMORY_DEVICE_LOG_TYPE		32
+#define USER_SPACE_LOG_TYPE		32
 #define USB_MODE			1
 #define MEMORY_DEVICE_MODE		2
 #define NO_LOGGING_MODE			3
+#define UART_MODE			4
 
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT         	0
