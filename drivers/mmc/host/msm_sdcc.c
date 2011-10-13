@@ -132,6 +132,8 @@ msmsdcc_print_status(struct msmsdcc_host *host, char *hdr, uint32_t status)
 static void
 msmsdcc_start_command(struct msmsdcc_host *host, struct mmc_command *cmd,
 		      u32 c);
+static inline void msmsdcc_delay(struct msmsdcc_host *host);
+
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 static int msmsdcc_sps_reset_ep(struct msmsdcc_host *host,
@@ -207,77 +209,83 @@ static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
  * @host - Pointer to driver's host structure
  *
  */
-static void msmsdcc_soft_reset_and_restore(struct msmsdcc_host *host)
+static void msmsdcc_soft_reset(struct msmsdcc_host *host)
 {
-	if (host->is_sps_mode) {
-		/* Reset DML first */
-		msmsdcc_dml_reset(host);
-		/*
-		 * delay the SPS pipe reset in thread context as
-		 * sps_connect/sps_disconnect APIs can be called
-		 * only from non-atomic context.
-		 */
-		host->sps.pipe_reset_pending = true;
-	}
 	/*
 	 * Reset SDCC controller's DPSM (data path state machine
 	 * and CPSM (command path state machine).
 	 */
-	mb();
 	writel_relaxed(0, host->base + MMCICOMMAND);
+	msmsdcc_delay(host);
 	writel_relaxed(0, host->base + MMCIDATACTRL);
-	mb();
+	msmsdcc_delay(host);
+}
 
-	pr_debug("%s: Applied soft reset to Controller\n",
-			mmc_hostname(host->mmc));
+static void msmsdcc_hard_reset(struct msmsdcc_host *host)
+{
+	int ret;
 
-	if (host->is_sps_mode)
-		msmsdcc_dml_init(host);
+	/* Reset the controller */
+	ret = clk_reset(host->clk, CLK_RESET_ASSERT);
+	if (ret)
+		pr_err("%s: Clock assert failed at %u Hz"
+			" with err %d\n", mmc_hostname(host->mmc),
+				host->clk_rate, ret);
+
+	ret = clk_reset(host->clk, CLK_RESET_DEASSERT);
+	if (ret)
+		pr_err("%s: Clock deassert failed at %u Hz"
+			" with err %d\n", mmc_hostname(host->mmc),
+			host->clk_rate, ret);
+
+	/* Give some delay for clock reset to propogate to controller */
+	msmsdcc_delay(host);
 }
 
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
 	if (host->plat->sdcc_v4_sup) {
-		msmsdcc_soft_reset_and_restore(host);
+		if (host->is_sps_mode) {
+			/* Reset DML first */
+			msmsdcc_dml_reset(host);
+			/*
+			 * delay the SPS pipe reset in thread context as
+			 * sps_connect/sps_disconnect APIs can be called
+			 * only from non-atomic context.
+			 */
+			host->sps.pipe_reset_pending = true;
+		}
+		mb();
+		msmsdcc_soft_reset(host);
+
+		pr_debug("%s: Applied soft reset to Controller\n",
+				mmc_hostname(host->mmc));
+
+		if (host->is_sps_mode)
+			msmsdcc_dml_init(host);
 	} else {
 		/* Give Clock reset (hard reset) to controller */
 		u32	mci_clk = 0;
 		u32	mci_mask0 = 0;
-		int ret;
 
 		/* Save the controller state */
 		mci_clk = readl_relaxed(host->base + MMCICLOCK);
 		mci_mask0 = readl_relaxed(host->base + MMCIMASK0);
-
 		mb();
-		/* Reset the controller */
-		ret = clk_reset(host->clk, CLK_RESET_ASSERT);
-		if (ret)
-			pr_err("%s: Clock assert failed at %u Hz"
-				" with err %d\n", mmc_hostname(host->mmc),
-					host->clk_rate, ret);
 
-		ret = clk_reset(host->clk, CLK_RESET_DEASSERT);
-		if (ret)
-			pr_err("%s: Clock deassert failed at %u Hz"
-				" with err %d\n", mmc_hostname(host->mmc),
-					host->clk_rate, ret);
-
+		msmsdcc_hard_reset(host);
 		pr_debug("%s: Controller has been reinitialized\n",
 				mmc_hostname(host->mmc));
 
-		mb();
 		/* Restore the contoller state */
 		writel_relaxed(host->pwr, host->base + MMCIPOWER);
+		msmsdcc_delay(host);
 		writel_relaxed(mci_clk, host->base + MMCICLOCK);
+		msmsdcc_delay(host);
 		writel_relaxed(mci_mask0, host->base + MMCIMASK0);
-		ret = clk_set_rate(host->clk, host->clk_rate);
-		if (ret)
-			pr_err("%s: Failed to set clk rate %u Hz. err %d\n",
-					mmc_hostname(host->mmc),
-					host->clk_rate, ret);
-		mb();
+		mb(); /* no delay required after writing to MASK0 register */
 	}
+
 	if (host->dummy_52_needed)
 		host->dummy_52_needed = 0;
 }
@@ -309,8 +317,6 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 
 	return retval;
 }
-
-static inline void msmsdcc_delay(struct msmsdcc_host *host);
 
 static void
 msmsdcc_stop_data(struct msmsdcc_host *host)
@@ -361,8 +367,13 @@ static inline void
 msmsdcc_start_command_exec(struct msmsdcc_host *host, u32 arg, u32 c)
 {
 	writel_relaxed(arg, host->base + MMCIARGUMENT);
-	msmsdcc_delay(host);
 	writel_relaxed(c, host->base + MMCICOMMAND);
+	/*
+	 * As after sending the command, we don't write any of the
+	 * controller registers and just wait for the
+	 * CMD_RESPOND_END/CMD_SENT/Command failure notication
+	 * from Controller.
+	 */
 	mb();
 }
 
@@ -374,7 +385,6 @@ msmsdcc_dma_exec_func(struct msm_dmov_cmd *cmd)
 	writel_relaxed(host->cmd_timeout, host->base + MMCIDATATIMER);
 	writel_relaxed((unsigned int)host->curr.xfer_size,
 			host->base + MMCIDATALENGTH);
-	msmsdcc_delay(host);	/* Allow data parms to be applied */
 	writel_relaxed(host->cmd_datactrl, host->base + MMCIDATACTRL);
 	msmsdcc_delay(host);	/* Force delay prior to ADM or command */
 
@@ -1050,8 +1060,14 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		writel_relaxed((readl_relaxed(host->base + MMCIMASK0) &
 				(~(MCI_IRQ_PIO))) | pio_irqmask,
 				host->base + MMCIMASK0);
-		msmsdcc_delay(host);	/* Allow parms to be applied */
 		writel_relaxed(datactrl, base + MMCIDATACTRL);
+		/*
+		 * We don't need delay after writing to DATA_CTRL register
+		 * if we are not writing to CMD register immediately after
+		 * this. As we already have delay before sending the
+		 * command, we just need mb() here.
+		 */
+		mb();
 
 		if (cmd) {
 			msmsdcc_delay(host); /* Delay between data/command */
@@ -1237,8 +1253,10 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 				(~(MCI_IRQ_PIO))) | MCI_RXDATAAVLBLMASK,
 				host->base + MMCIMASK0);
 		if (!host->curr.xfer_remain) {
-			/* Delay needed (same port was just written) */
-			msmsdcc_delay(host);
+			/*
+			 * back to back write to MASK0 register don't need
+			 * synchronization delay.
+			 */
 			writel_relaxed((readl_relaxed(host->base + MMCIMASK0) &
 				(~(MCI_IRQ_PIO))) | 0, host->base + MMCIMASK0);
 		}
@@ -1913,7 +1931,9 @@ static inline void msmsdcc_setup_clocks(struct msmsdcc_host *host, bool enable)
 		if (!IS_ERR(host->pclk))
 			clk_enable(host->pclk);
 		clk_enable(host->clk);
+		msmsdcc_delay(host);
 	} else {
+		msmsdcc_delay(host);
 		clk_disable(host->clk);
 		if (!IS_ERR(host->pclk))
 			clk_disable(host->pclk);
@@ -2217,6 +2237,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		msmsdcc_setup_pins(host, false);
 		break;
 	case MMC_POWER_UP:
+		/* writing PWR_UP bit is redundant */
 		pwr |= MCI_PWR_UP;
 		if (host->sdcc_irq_disabled) {
 			if (host->plat->cfg_mpm_sdiowakeup)
@@ -2250,7 +2271,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->pwr != pwr) {
 		host->pwr = pwr;
 		writel_relaxed(pwr, host->base + MMCIPOWER);
-		mb();
+		msmsdcc_delay(host);
 	}
 	if (!host->clks_on) {
 		/* force the clocks to be off */
@@ -2274,7 +2295,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				writel_relaxed(MCI_SDIOINTMASK,
 						host->base + MMCIMASK0);
 			}
-			msmsdcc_delay(host);
+			mb();
 		}
 		msmsdcc_setup_clocks(host, false);
 		host->clks_on = 0;
@@ -2294,7 +2315,7 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 	else
 		clk &= ~MCI_CLK_PWRSAVE;
 	writel_relaxed(clk, host->base + MMCICLOCK);
-	mb();
+	msmsdcc_delay(host);
 
 	return 0;
 }
@@ -2441,7 +2462,7 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	/* Stop SD CLK output. */
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
 			MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
-
+	msmsdcc_delay(host);
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/*
@@ -2455,6 +2476,7 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	spin_lock_irqsave(&host->lock, flags);
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
 			IO_PAD_PWR_SWITCH), host->base + MMCICLOCK);
+	msmsdcc_delay(host);
 	host->io_pad_pwr_switch = 1;
 	spin_unlock_irqrestore(&host->lock, flags);
 
@@ -2465,6 +2487,7 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	/* Start SD CLK output. */
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK)
 			& ~MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
+	msmsdcc_delay(host);
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/*
@@ -2678,6 +2701,7 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc)
 	 */
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK)
 			& ~MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
+	msmsdcc_delay(host);
 	/* first of all reset the tuning block */
 	rc = msmsdcc_init_cm_sdc4_dll(host);
 	if (rc)
@@ -2752,6 +2776,7 @@ out:
 	/* re-enable PWESAVE */
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
 			MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
+	msmsdcc_delay(host);
 	host->cmd19_tuning_in_progress = 0;
 	return rc;
 }
@@ -3670,6 +3695,8 @@ msmsdcc_probe(struct platform_device *pdev)
 		      msmsdcc_get_min_sup_clk_rate(host)));
 
 	host->clks_on = 1;
+	/* Apply Hard reset to SDCC to put it in power on default state */
+	msmsdcc_hard_reset(host);
 
 	ret = msmsdcc_vreg_init(host, true);
 	if (ret) {
@@ -3742,8 +3769,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	writel_relaxed(0, host->base + MMCIMASK0);
 	writel_relaxed(MCI_CLEAR_STATIC_MASK, host->base + MMCICLEAR);
 
-	/* Delay needed (MMCIMASK0 was just written above) */
-	msmsdcc_delay(host);
 	writel_relaxed(MCI_IRQENABLE, host->base + MMCIMASK0);
 	mb();
 	host->mci_irqenable = MCI_IRQENABLE;
