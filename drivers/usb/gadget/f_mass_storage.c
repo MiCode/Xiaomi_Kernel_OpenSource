@@ -2649,7 +2649,6 @@ static void handle_exception(struct fsg_common *common)
 		 */
 		if (!fsg_is_set(common))
 			break;
-		common->ep0req->length = 0;
 		if (test_and_clear_bit(IGNORE_BULK_OUT,
 				       &common->fsg->atomic_bitflags))
 			usb_ep_clear_halt(common->fsg->bulk_in);
