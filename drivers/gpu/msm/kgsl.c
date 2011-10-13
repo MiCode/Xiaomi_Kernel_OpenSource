@@ -180,35 +180,28 @@ static void kgsl_memqueue_freememontimestamp(struct kgsl_device *device,
 	list_add_tail(&entry->list, &device->memqueue);
 }
 
-static void kgsl_memqueue_drain(struct kgsl_device *device)
+static void kgsl_timestamp_expired(struct work_struct *work)
 {
+	struct kgsl_device *device = container_of(work, struct kgsl_device,
+		ts_expired_ws);
 	struct kgsl_mem_entry *entry, *entry_tmp;
 	uint32_t ts_processed;
 
-	BUG_ON(!mutex_is_locked(&device->mutex));
+	mutex_lock(&device->mutex);
 
 	/* get current EOP timestamp */
 	ts_processed = device->ftbl->readtimestamp(device,
 		KGSL_TIMESTAMP_RETIRED);
 
+	/* Flush the freememontimestamp queue */
 	list_for_each_entry_safe(entry, entry_tmp, &device->memqueue, list) {
-		KGSL_MEM_INFO(device,
-			"ts_processed %d ts_free %d gpuaddr %x)\n",
-			ts_processed, entry->free_timestamp,
-			entry->memdesc.gpuaddr);
 		if (!timestamp_cmp(ts_processed, entry->free_timestamp))
 			break;
 
 		list_del(&entry->list);
 		kgsl_mem_entry_put(entry);
 	}
-}
 
-static void kgsl_memqueue_drain_unlocked(struct kgsl_device *device)
-{
-	mutex_lock(&device->mutex);
-	kgsl_check_suspended(device);
-	kgsl_memqueue_drain(device);
 	mutex_unlock(&device->mutex);
 }
 
@@ -771,8 +764,6 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 					param->timestamp,
 					param->timeout);
 
-	kgsl_memqueue_drain(dev_priv->device);
-
 	/* Fire off any pending suspend operations that are in flight */
 
 	INIT_COMPLETION(dev_priv->device->suspend_gate);
@@ -950,7 +941,6 @@ static long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
 	if (entry) {
 		kgsl_memqueue_freememontimestamp(dev_priv->device, entry,
 					param->timestamp, param->type);
-		kgsl_memqueue_drain(dev_priv->device);
 	} else {
 		KGSL_DRV_ERR(dev_priv->device,
 			"invalid gpuaddr %08x\n", param->gpuaddr);
@@ -1061,9 +1051,6 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 
 	if (!kgsl_mmu_enabled())
 		return -ENODEV;
-
-	/* Make sure all pending freed memory is collected */
-	kgsl_memqueue_drain_unlocked(dev_priv->device);
 
 	if (!param->hostptr) {
 		KGSL_CORE_ERR("invalid hostptr %x\n", param->hostptr);
@@ -1383,8 +1370,6 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -ENOMEM;
 
-	kgsl_memqueue_drain_unlocked(dev_priv->device);
-
 	if (_IOC_SIZE(cmd) == sizeof(struct kgsl_sharedmem_from_pmem))
 		memtype = KGSL_USER_MEM_TYPE_PMEM;
 	else
@@ -1523,9 +1508,6 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
 		return -ENOMEM;
-
-	/* Make sure all pending freed memory is collected */
-	kgsl_memqueue_drain_unlocked(dev_priv->device);
 
 	result = kgsl_allocate_user(&entry->memdesc, private->pagetable,
 		param->size, param->flags);
@@ -1914,6 +1896,7 @@ kgsl_register_device(struct kgsl_device *device)
 		goto err_devlist;
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
+	INIT_WORK(&device->ts_expired_ws, kgsl_timestamp_expired);
 
 	INIT_LIST_HEAD(&device->memqueue);
 
