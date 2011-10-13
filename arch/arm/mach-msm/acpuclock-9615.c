@@ -122,7 +122,7 @@ static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
 		goto out;
 	}
 
-	pr_info("Switching from CPU rate %u KHz -> %u KHz\n",
+	pr_debug("Switching from CPU rate %u KHz -> %u KHz\n",
 		strt_s->khz, tgt_s->khz);
 
 	/* Switch CPU speed. */
@@ -131,7 +131,7 @@ static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
 	clk_disable(clocks[strt_s->src].clk);
 
 	drv_state.current_speed = tgt_s;
-	pr_info("CPU speed change complete\n");
+	pr_debug("CPU speed change complete\n");
 
 out:
 	if (reason == SETRATE_CPUFREQ)
