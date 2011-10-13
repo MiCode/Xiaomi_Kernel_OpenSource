@@ -850,7 +850,7 @@ int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb)
 		err = -EPERM;
 		del_timer(&hcon->smp_timer);
 		clear_bit(HCI_CONN_ENCRYPT_PEND, &hcon->pend);
-		mgmt_auth_failed(hcon->hdev->id, conn->dst, skb->data[1]);
+		mgmt_auth_failed(hcon->hdev->id, conn->dst, skb->data[0]);
 		hci_conn_put(hcon);
 		break;
 
