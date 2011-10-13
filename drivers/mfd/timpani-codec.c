@@ -48,6 +48,7 @@ enum refcnt {
 	IGNORE = 2,
 };
 #define TIMPANI_ARRAY_SIZE	(TIMPANI_A_CDC_COMP_HALT + 1)
+#define MAX_SHADOW_RIGISTERS	TIMPANI_A_CDC_COMP_HALT
 
 static u8 timpani_shadow[TIMPANI_ARRAY_SIZE];
 
@@ -2765,6 +2766,19 @@ static int adie_codec_write(u8 reg, u8 mask, u8 val)
 	int rc = 0;
 	u8 new_val;
 
+	if (reg > MAX_SHADOW_RIGISTERS) {
+		pr_debug("register number is out of bound for shadow"
+					" registers reg = %d\n", reg);
+		new_val = (val & mask);
+		rc = marimba_write_bit_mask(adie_codec.pdrv_ptr, reg,  &new_val,
+			1, 0xFF);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("%s: fail to write reg %x\n", __func__, reg);
+			rc = -EIO;
+			goto error;
+		}
+		return rc;
+	}
 	new_val = (val & mask) | (timpani_shadow[reg] & ~mask);
 	if (!(timpani_register_is_cacheable(reg) &&
 		(new_val == timpani_shadow[reg]))) {
