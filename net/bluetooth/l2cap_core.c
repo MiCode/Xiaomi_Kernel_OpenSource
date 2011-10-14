@@ -909,6 +909,37 @@ static void l2cap_conn_start(struct l2cap_conn *conn)
 	}
 }
 
+/* Find socket with fixed cid with given source and destination bdaddrs.
+ * Returns closest match, locked.
+ */
+static struct sock *l2cap_get_sock_by_fixed_scid(int state,
+				__le16 cid, bdaddr_t *src, bdaddr_t *dst)
+{
+	struct sock *sk = NULL, *sk1 = NULL;
+	struct hlist_node *node;
+
+	read_lock(&l2cap_sk_list.lock);
+
+	sk_for_each(sk, node, &l2cap_sk_list.head) {
+		if (state && sk->sk_state != state)
+			continue;
+
+		if (l2cap_pi(sk)->scid == cid && !bacmp(&bt_sk(sk)->dst, dst)) {
+			/* Exact match. */
+			if (!bacmp(&bt_sk(sk)->src, src))
+				break;
+
+			/* Closest match */
+			if (!bacmp(&bt_sk(sk)->src, BDADDR_ANY))
+				sk1 = sk;
+		}
+	}
+
+	read_unlock(&l2cap_sk_list.lock);
+
+	return node ? sk : sk1;
+}
+
 /* Find socket with cid and source bdaddr.
  * Returns closest match, locked.
  */
@@ -7051,7 +7082,7 @@ static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid, struct 
 {
 	struct sock *sk;
 
-	sk = l2cap_get_sock_by_scid(0, cid, conn->src);
+	sk = l2cap_get_sock_by_fixed_scid(0, cid, conn->src, conn->dst);
 	if (!sk)
 		goto drop;
 
