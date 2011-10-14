@@ -45,6 +45,7 @@ struct machine_desc {
 					 struct meminfo *);
 	void			(*reserve)(void);/* reserve mem blocks	*/
 	void			(*map_io)(void);/* IO mapping function	*/
+	void			(*init_very_early)(void);
 	void			(*init_early)(void);
 	void			(*init_irq)(void);
 	void			(*init_time)(void);
