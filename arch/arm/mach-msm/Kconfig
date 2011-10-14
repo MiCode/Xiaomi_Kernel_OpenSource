@@ -896,13 +896,6 @@ choice
 	    prompt "Package 4"
 endchoice
 
-config MSM_IPC_ROUTER_SMD_XPRT
-	depends on MSM_SMD
-	default n
-	bool "MSM SMD XPRT Layer"
-	help
-	  SMD Transport Layer for IPC Router
-
 config MSM_RPC_SDIO_XPRT
 	depends on MSM_SDIO_AL
 	default y
@@ -1064,12 +1057,20 @@ config MSM_ONCRPCROUTER
 	  the ARM9 and ARM11
 
 config MSM_IPC_ROUTER
-	depends on MSM_IPC_ROUTER_SMD_XPRT
+	depends on NET
 	default n
 	bool "MSM IPC Router support"
 	help
 	  Support for the MSM IPC Router for communication between
 	  the APPs and the MODEM
+
+config MSM_IPC_ROUTER_SMD_XPRT
+	depends on MSM_SMD
+	depends on MSM_IPC_ROUTER
+	default n
+	bool "MSM SMD XPRT Layer"
+	help
+	  SMD Transport Layer for IPC Router
 
 config MSM_ONCRPCROUTER_DEBUG
 	depends on MSM_ONCRPCROUTER
