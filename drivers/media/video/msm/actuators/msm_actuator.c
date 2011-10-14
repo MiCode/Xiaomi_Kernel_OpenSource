@@ -40,14 +40,16 @@ int32_t msm_actuator_write_focus(
 			(next_lens_pos +
 				(sign_direction * damping_code_step))) {
 		rc = a_ctrl->func_tbl.
-			actuator_i2c_write(a_ctrl, next_lens_pos);
+			actuator_i2c_write(a_ctrl, next_lens_pos,
+				damping_params->hw_params);
 		curr_lens_pos = next_lens_pos;
 		usleep(wait_time);
 	}
 
 	if (curr_lens_pos != code_boundary) {
 		rc = a_ctrl->func_tbl.
-			actuator_i2c_write(a_ctrl, code_boundary);
+			actuator_i2c_write(a_ctrl, code_boundary,
+				damping_params->hw_params);
 		usleep(wait_time);
 	}
 	return rc;
@@ -107,6 +109,8 @@ int32_t msm_actuator_move_focus(
 	}
 
 	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
+	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
+		a_ctrl->curr_step_pos, dest_step_pos, curr_lens_pos);
 
 	while (a_ctrl->curr_step_pos != dest_step_pos) {
 		step_boundary =
@@ -183,12 +187,10 @@ int32_t msm_actuator_init_table(
 			a_ctrl->step_position_table[step_index] = cur_code;
 		}
 	}
-
-	LINFO("step position table\n");
 	for (step_index = 0;
 		step_index < a_ctrl->set_info.total_steps;
 		step_index++) {
-		LINFO("spt i %d, val %d\n",
+		CDBG("step_position_table[%d]= %d\n",
 			step_index,
 			a_ctrl->step_position_table[step_index]);
 	}
