@@ -638,30 +638,52 @@ static long audpcm_in_ioctl(struct file *file,
 			rc = -EFAULT;
 			break;
 		}
-		if (cfg.channel_count == 1) {
-			cfg.channel_count = AUDREC_CMD_MODE_MONO;
-			if ((cfg.buffer_size == MONO_DATA_SIZE_256) ||
-			    (cfg.buffer_size == MONO_DATA_SIZE_512) ||
-			    (cfg.buffer_size == MONO_DATA_SIZE_1024)) {
-				audio->buffer_size = cfg.buffer_size;
+		MM_ERR("build_id[17] = %c\n", audio->build_id[17]);
+		if (audio->build_id[17] == '1') {
+			audio->enc_type = ENC_TYPE_EXT_WAV | audio->mode;
+			if (cfg.channel_count == 1) {
+				cfg.channel_count = AUDREC_CMD_MODE_MONO;
+				if ((cfg.buffer_size == MONO_DATA_SIZE_256) ||
+					(cfg.buffer_size ==
+						MONO_DATA_SIZE_512) ||
+					(cfg.buffer_size ==
+						MONO_DATA_SIZE_1024)) {
+					audio->buffer_size = cfg.buffer_size;
+				} else {
+					rc = -EINVAL;
+					break;
+				}
+			} else if (cfg.channel_count == 2) {
+				cfg.channel_count = AUDREC_CMD_MODE_STEREO;
+				if ((cfg.buffer_size ==
+						STEREO_DATA_SIZE_256) ||
+					(cfg.buffer_size ==
+						STEREO_DATA_SIZE_512) ||
+					(cfg.buffer_size ==
+						STEREO_DATA_SIZE_1024)) {
+					audio->buffer_size = cfg.buffer_size;
+				} else {
+					rc = -EINVAL;
+					break;
+				}
 			} else {
 				rc = -EINVAL;
 				break;
 			}
-		} else if (cfg.channel_count == 2) {
-			cfg.channel_count = AUDREC_CMD_MODE_STEREO;
-			if ((cfg.buffer_size == STEREO_DATA_SIZE_256) ||
-			    (cfg.buffer_size == STEREO_DATA_SIZE_512) ||
-			    (cfg.buffer_size == STEREO_DATA_SIZE_1024)) {
-				audio->buffer_size = cfg.buffer_size;
-			} else {
-				rc = -EINVAL;
-				break;
+		} else if (audio->build_id[17] == '0') {
+			audio->enc_type = ENC_TYPE_WAV | audio->mode;
+			if (cfg.channel_count == 1) {
+				cfg.channel_count = AUDREC_CMD_MODE_MONO;
+				audio->buffer_size = MONO_DATA_SIZE_1024;
+			} else if (cfg.channel_count == 2) {
+				cfg.channel_count = AUDREC_CMD_MODE_STEREO;
+				audio->buffer_size = STEREO_DATA_SIZE_1024;
 			}
 		} else {
-			rc = -EINVAL;
-			break;
+			MM_ERR("wrong build_id = %s\n", audio->build_id);
+			return -ENODEV;
 		}
+		MM_ERR("buffer size configured is = %d\n", audio->buffer_size);
 		audio->samp_rate = cfg.sample_rate;
 		audio->channel_mode = cfg.channel_count;
 		break;
