@@ -48,6 +48,7 @@
 struct secondary_data secondary_data;
 
 enum ipi_msg_type {
+	IPI_CPU_START = 1,
 	IPI_TIMER = 2,
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
@@ -399,7 +400,8 @@ void arch_send_call_function_single_ipi(int cpu)
 }
 
 static const char *ipi_types[NR_IPI] = {
-#define S(x,s)	[x - IPI_TIMER] = s
+#define S(x,s)	[x - IPI_CPU_START] = s
+	S(IPI_CPU_START, "CPU start interrupts"),
 	S(IPI_TIMER, "Timer broadcast interrupts"),
 	S(IPI_RESCHEDULE, "Rescheduling interrupts"),
 	S(IPI_CALL_FUNC, "Function call interrupts"),
@@ -563,10 +565,13 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 	unsigned int cpu = smp_processor_id();
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
-	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
-		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
+	if (ipinr >= IPI_CPU_START && ipinr < IPI_CPU_START + NR_IPI)
+		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_CPU_START]);
 
 	switch (ipinr) {
+	case IPI_CPU_START:
+		/* Wake up from WFI/WFE using SGI */
+		break;
 	case IPI_TIMER:
 		ipi_timer();
 		break;
