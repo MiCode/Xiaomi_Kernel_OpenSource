@@ -87,6 +87,12 @@ static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
 	},
 };
 
+static struct gpiomux_setting ps_hold = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting gsbi4 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -109,6 +115,15 @@ static struct gpiomux_setting gsbi3_cs1_config = {
 	.func = GPIOMUX_FUNC_4,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
+};
+
+struct msm_gpiomux_config msm9615_ps_hold_config[] __initdata = {
+	{
+		.gpio = 83,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ps_hold,
+		},
+	},
 };
 
 struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
@@ -460,6 +475,8 @@ static int __init gpiomux_init(void)
 	msm_gpiomux_install(msm9615_gsbi_configs,
 			ARRAY_SIZE(msm9615_gsbi_configs));
 
+	msm_gpiomux_install(msm9615_ps_hold_config,
+			ARRAY_SIZE(msm9615_ps_hold_config));
 	return 0;
 }
 
