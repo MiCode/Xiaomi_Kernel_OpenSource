@@ -61,6 +61,10 @@
 #define MSM_ROTATOR_MAX_H	0x1fff
 #define MSM_ROTATOR_MAX_W	0x1fff
 
+#define IS_NONPLANAR		0x0
+#define IS_PLANAR		0x1
+#define IS_PLANAR_16ALIGNED	0x2
+
 /* from lsb to msb */
 #define GET_PACK_PATTERN(a, x, y, z, bit) \
 			(((a)<<((bit)*3))|((x)<<((bit)*2))|((y)<<(bit))|(z))
@@ -260,6 +264,7 @@ static int get_bpp(int format)
 	case MDP_Y_CRCB_H2V2:
 	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
 		return 1;
@@ -375,7 +380,7 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 				  int new_session,
 				  unsigned int in_chroma_paddr,
 				  unsigned int out_chroma_paddr,
-				  int is_planar)
+				  int planar_mode)
 {
 	int bpp;
 	unsigned int in_chr_addr, out_chr_addr;
@@ -385,7 +390,13 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 		return -ENOTTY;
 
 	if (!in_chroma_paddr) {
-		in_chr_addr = chroma_addr(in_paddr, info->src.width,
+		if (planar_mode & IS_PLANAR_16ALIGNED)
+			in_chr_addr = chroma_addr(in_paddr,
+				ALIGN(info->src.width, 16),
+				info->src.height,
+				bpp);
+		else
+			in_chr_addr = chroma_addr(in_paddr, info->src.width,
 				info->src.height,
 				bpp);
 	} else
@@ -408,19 +419,33 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 			((info->dst_y * info->dst.width)/2 + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
-	if (is_planar) {
-		iowrite32(in_chr_addr +
+	if (planar_mode & IS_PLANAR) {
+		if (planar_mode & IS_PLANAR_16ALIGNED)
+			iowrite32(in_chr_addr +
+				ALIGN((info->src.width / 2), 16) *
+				(info->src.height / 2),
+				MSM_ROTATOR_SRCP2_ADDR);
+		else
+			iowrite32(in_chr_addr +
 				(info->src.width / 2) * (info->src.height / 2),
 				MSM_ROTATOR_SRCP2_ADDR);
 	}
 
 	if (new_session) {
-		if (is_planar) {
-			iowrite32(info->src.width |
+		if (planar_mode & IS_PLANAR) {
+			if (planar_mode & IS_PLANAR_16ALIGNED) {
+				iowrite32(ALIGN(info->src.width, 16) |
+					ALIGN((info->src.width / 2), 16) << 16,
+					MSM_ROTATOR_SRC_YSTRIDE1);
+				iowrite32(ALIGN((info->src.width / 2), 16),
+					MSM_ROTATOR_SRC_YSTRIDE2);
+			} else {
+				iowrite32(info->src.width |
 					(info->src.width / 2) << 16,
 					MSM_ROTATOR_SRC_YSTRIDE1);
-			iowrite32((info->src.width / 2),
+				iowrite32((info->src.width / 2),
 					MSM_ROTATOR_SRC_YSTRIDE2);
+			}
 		} else {
 			iowrite32(info->src.width |
 					info->src.width << 16,
@@ -448,7 +473,8 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 			  MSM_ROTATOR_SUB_BLOCK_CFG);
 		iowrite32(0 << 29 | 		/* frame format 0 = linear */
 			  (use_imem ? 0 : 1) << 22 | /* tile size */
-			  (is_planar ? 1 : 2) << 19 | /* fetch planes */
+			  ((planar_mode & IS_PLANAR) ?
+				1 : 2) << 19 |  /* fetch planes */
 			  0 << 18 | 		/* unpack align */
 			  1 << 17 | 		/* unpack tight */
 			  1 << 13 | 		/* unpack count 0=1 component */
@@ -911,7 +937,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 								!= s,
 					    in_chroma_paddr,
 					    out_chroma_paddr,
-						0);
+					    IS_NONPLANAR);
 		break;
 	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CR_CB_H2V2:
@@ -921,7 +947,16 @@ static int msm_rotator_do_rotate(unsigned long arg)
 								!= s,
 					    in_chroma_paddr,
 					    out_chroma_paddr,
-						1);
+					    IS_PLANAR);
+		break;
+	case MDP_Y_CR_CB_GH2V2:
+		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
+					    in_paddr, out_paddr, use_imem,
+					    msm_rotator_dev->last_session_idx
+								!= s,
+					    in_chroma_paddr,
+					    out_chroma_paddr,
+					    IS_PLANAR | IS_PLANAR_16ALIGNED);
 		break;
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
@@ -1033,6 +1068,7 @@ static int msm_rotator_start(unsigned long arg, int pid)
 	case MDP_Y_CRCB_H2V2:
 	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H2V1:
 	case MDP_YCRYCB_H2V1:
