@@ -1034,10 +1034,23 @@ static void __init locate_unstable_memory(void)
 		msm8960_reserve_info.bank_size);
 }
 
-static void __init msm8960_reserve(void)
+static void __init place_movable_zone(void)
+{
+	movable_reserved_start = msm8960_reserve_info.low_unstable_address;
+	movable_reserved_size = msm8960_reserve_info.max_unstable_size;
+	pr_info("movable zone start %lx size %lx\n",
+		movable_reserved_start, movable_reserved_size);
+}
+
+static void __init msm8960_early_memory(void)
 {
 	reserve_info = &msm8960_reserve_info;
 	locate_unstable_memory();
+	place_movable_zone();
+}
+
+static void __init msm8960_reserve(void)
+{
 	msm_reserve();
 }
 
@@ -4590,6 +4603,7 @@ MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")
 	.timer = &msm_timer,
 	.init_machine = msm8960_sim_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
@@ -4599,6 +4613,7 @@ MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
 	.timer = &msm_timer,
 	.init_machine = msm8960_rumi3_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
@@ -4608,6 +4623,7 @@ MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8960_MTP, "QCT MSM8960 MTP")
@@ -4617,6 +4633,7 @@ MACHINE_START(MSM8960_MTP, "QCT MSM8960 MTP")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
@@ -4626,6 +4643,7 @@ MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
@@ -4635,6 +4653,7 @@ MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 #ifdef CONFIG_ARCH_MSM8930
