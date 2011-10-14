@@ -327,6 +327,7 @@ static struct map_desc msm9615_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(RPM, MSM9615),
 	MSM_CHIP_DEVICE(RPM_MPM, MSM9615),
 	MSM_CHIP_DEVICE(APCS_GLB, MSM9615),
+	MSM_CHIP_DEVICE(IMEM, MSM9615),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
