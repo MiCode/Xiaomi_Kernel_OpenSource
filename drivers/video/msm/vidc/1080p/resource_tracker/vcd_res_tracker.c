@@ -47,16 +47,16 @@ static u32 res_trk_get_clk()
 		goto bail_out;
 	}
 	resource_context.vcodec_clk = clk_get(resource_context.device,
-		"vcodec_clk");
+		"core_clk");
 	if (IS_ERR(resource_context.vcodec_clk)) {
-		VCDRES_MSG_ERROR("%s(): vcodec_clk get failed\n",
+		VCDRES_MSG_ERROR("%s(): core_clk get failed\n",
 						__func__);
 		goto bail_out;
 	}
 	 resource_context.vcodec_pclk = clk_get(resource_context.device,
-			"vcodec_pclk");
+		"iface_clk");
 	if (IS_ERR(resource_context.vcodec_pclk)) {
-		VCDRES_MSG_ERROR("%s(): vcodec_pclk get failed\n",
+		VCDRES_MSG_ERROR("%s(): iface_clk get failed\n",
 						__func__);
 		goto release_vcodec_clk;
 	}
