@@ -1666,8 +1666,35 @@ static void __init reg_init(void)
 
 		set_fsm_mode(SC_PLL0_MODE_REG);
 
-	} else if (readl_relaxed(SC_PLL0_MODE_REG) & BIT(20))
+	} else if (!(readl_relaxed(SC_PLL0_MODE_REG) & BIT(20)))
 		WARN(1, "PLL9 enabled in non-FSM mode!\n");
+
+	/* Check if PLL14 is enabled in FSM mode */
+	is_pll_enabled  = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
+
+	if (!is_pll_enabled) {
+		writel_relaxed(0x19, BB_PLL14_L_VAL_REG);
+		writel_relaxed(0x0, BB_PLL14_M_VAL_REG);
+		writel_relaxed(0x1, BB_PLL14_N_VAL_REG);
+
+		regval = readl_relaxed(BB_PLL14_CONFIG_REG);
+
+		/* Enable main output and the MN accumulator */
+		regval |= BIT(23) | BIT(22);
+
+		/* Set pre-divider and post-divider values to 1 and 1 */
+		regval &= ~BIT(19);
+		regval &= ~BM(21, 20);
+
+		/* Set VCO frequency */
+		regval &= ~BM(17, 16);
+
+		writel_relaxed(regval, BB_PLL14_CONFIG_REG);
+
+		set_fsm_mode(BB_PLL14_MODE_REG);
+
+	} else if (!(readl_relaxed(BB_PLL14_MODE_REG) & BIT(20)))
+		WARN(1, "PLL14 enabled in non-FSM mode!\n");
 
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);
