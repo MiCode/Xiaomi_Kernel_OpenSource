@@ -1425,6 +1425,16 @@ struct platform_device msm_cpudai_incall_music_rx = {
 	.id     = 0x8005,
 };
 
+struct platform_device msm_cpudai_incall_record_rx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8004,
+};
+
+struct platform_device msm_cpudai_incall_record_tx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8003,
+};
+
 /*
  * Machine specific data for AUX PCM Interface
  * which the driver will  be unware of.

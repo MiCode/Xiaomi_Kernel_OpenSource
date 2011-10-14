@@ -27,6 +27,9 @@
 #define LPASS_BE_AUXPCM_RX "(Backend) AUX_PCM_RX"
 #define LPASS_BE_AUXPCM_TX "(Backend) AUX_PCM_TX"
 #define LPASS_BE_VOICE_PLAYBACK_TX "(Backend) VOICE_PLAYBACK_TX"
+#define LPASS_BE_INCALL_RECORD_RX "(Backend) INCALL_RECORD_TX"
+#define LPASS_BE_INCALL_RECORD_TX "(Backend) INCALL_RECORD_RX"
+
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -64,6 +67,8 @@ enum {
 	MSM_BACKEND_DAI_AUXPCM_RX,
 	MSM_BACKEND_DAI_AUXPCM_TX,
 	MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+	MSM_BACKEND_DAI_INCALL_RECORD_RX,
+	MSM_BACKEND_DAI_INCALL_RECORD_TX,
 	MSM_BACKEND_DAI_MAX,
 };
 

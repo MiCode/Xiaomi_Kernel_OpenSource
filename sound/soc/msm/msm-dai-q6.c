@@ -301,6 +301,8 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
 	case VOICE_PLAYBACK_TX:
+	case VOICE_RECORD_RX:
+	case VOICE_RECORD_TX:
 		rc = 0;
 		break;
 	default:
@@ -348,6 +350,8 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
+		case VOICE_RECORD_TX:
+		case VOICE_RECORD_RX:
 			pr_debug("%s, stop pseudo port:%d\n",
 						__func__,  dai->id);
 			rc = afe_stop_pseudo_port(dai->id);
@@ -492,6 +496,8 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 			switch (dai->id) {
 			case VOICE_PLAYBACK_TX:
+			case VOICE_RECORD_TX:
+			case VOICE_RECORD_RX:
 				afe_pseudo_port_start_nowait(dai->id);
 				break;
 			default:
@@ -509,6 +515,8 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 			switch (dai->id) {
 			case VOICE_PLAYBACK_TX:
+			case VOICE_RECORD_TX:
+			case VOICE_RECORD_RX:
 				afe_pseudo_port_stop_nowait(dai->id);
 				break;
 			default:
@@ -614,6 +622,8 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
+		case VOICE_RECORD_TX:
+		case VOICE_RECORD_RX:
 			pr_debug("%s, stop pseudo port:%d\n",
 						__func__,  dai->id);
 			rc = afe_stop_pseudo_port(dai->id);
@@ -784,6 +794,21 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_incall_record_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min =     8000,
+		.rate_max =     48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_bt_sco_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
@@ -924,6 +949,11 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case VOICE_PLAYBACK_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_voice_playback_tx_dai);
+		break;
+	case VOICE_RECORD_RX:
+	case VOICE_RECORD_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+						&msm_dai_q6_incall_record_dai);
 		break;
 	default:
 		rc = -ENODEV;
