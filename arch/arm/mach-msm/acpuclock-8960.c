@@ -223,8 +223,6 @@ static struct scalable *scalable;
 static struct l2_level *l2_freq_tbl;
 static struct acpu_level *acpu_freq_tbl;
 static int l2_freq_tbl_size;
-static int cpu_boot_idx;
-static int l2_boot_idx;
 
 /* Instantaneous bandwidth requests in MB/s. */
 #define BW_MBPS(_bw) \
@@ -871,9 +869,11 @@ static void __init init_clock_sources(struct scalable *sc,
 
 static void __init per_cpu_init(void *data)
 {
+	struct acpu_level *max_acpu_level = data;
 	int cpu = smp_processor_id();
-	init_clock_sources(&scalable[cpu], &acpu_freq_tbl[cpu_boot_idx].speed);
-	scalable[cpu].l2_vote = &l2_freq_tbl[l2_boot_idx];
+
+	init_clock_sources(&scalable[cpu], &max_acpu_level->speed);
+	scalable[cpu].l2_vote = max_acpu_level->l2_level;
 }
 
 /* Register with bus driver. */
@@ -984,6 +984,35 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 	.notifier_call = acpuclock_cpu_callback,
 };
 
+static struct acpu_level * __init select_freq_plan(void)
+{
+	struct acpu_level *l, *max_acpu_level = NULL;
+
+	/* Select frequency tables. */
+	if (cpu_is_msm8960()) {
+		scalable = scalable_8960;
+		acpu_freq_tbl = acpu_freq_tbl_8960;
+		l2_freq_tbl = l2_freq_tbl_8960;
+		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960);
+	} else if (cpu_is_apq8064()) {
+		scalable = scalable_8064;
+		acpu_freq_tbl = acpu_freq_tbl_8064;
+		l2_freq_tbl = l2_freq_tbl_8064;
+		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8064);
+	} else {
+		BUG();
+	}
+
+	/* Find the max supported scaling frequency. */
+	for (l = acpu_freq_tbl; l->speed.khz != 0; l++)
+		if (l->use_for_scaling)
+			max_acpu_level = l;
+	BUG_ON(!max_acpu_level);
+	pr_info("Max ACPU freq: %u KHz\n", max_acpu_level->speed.khz);
+
+	return max_acpu_level;
+}
+
 static struct acpuclk_data acpuclk_8960_data = {
 	.set_rate = acpuclk_8960_set_rate,
 	.get_rate = acpuclk_8960_get_rate,
@@ -993,24 +1022,9 @@ static struct acpuclk_data acpuclk_8960_data = {
 
 static int __init acpuclk_8960_init(struct acpuclk_soc_data *soc_data)
 {
-	if (cpu_is_msm8960()) {
-		scalable = scalable_8960;
-		acpu_freq_tbl = acpu_freq_tbl_8960;
-		l2_freq_tbl = l2_freq_tbl_8960;
-		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960);
-		l2_boot_idx = 11;
-		cpu_boot_idx = 11;
-	} else if (cpu_is_apq8064()) {
-		scalable = scalable_8064;
-		acpu_freq_tbl = acpu_freq_tbl_8064;
-		l2_freq_tbl = l2_freq_tbl_8064;
-		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8064);
-		l2_boot_idx = 11;
-		cpu_boot_idx = 11;
-	}
-
-	init_clock_sources(&scalable[L2], &l2_freq_tbl[l2_boot_idx].speed);
-	on_each_cpu(per_cpu_init, NULL, true);
+	struct acpu_level *max_acpu_level = select_freq_plan();
+	init_clock_sources(&scalable[L2], &max_acpu_level->l2_level->speed);
+	on_each_cpu(per_cpu_init, max_acpu_level, true);
 
 	regulator_init();
 	bus_init();
