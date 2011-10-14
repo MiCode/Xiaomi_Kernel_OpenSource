@@ -2262,10 +2262,6 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x6);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 
-	snd_soc_update_bits(codec,
-		tabla->mbhc_bias_regs.mbhc_reg, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x01);
-
 	tabla_codec_calibrate_hs_polling(codec);
 
 	bias_value = tabla_codec_measure_micbias_voltage(codec, 0);
@@ -2290,10 +2286,45 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0);
 
-	if (insertion)
+	if (insertion) {
+		/* Make sure mic bias and Mic line schmitt trigger
+		 * are turned OFF
+		 */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg,
+			0x81, 0x01);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x90, 0x00);
+
+		/* Enable HPH Schmitt Trigger */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x0C,
+			calibration->hph_current << 2);
+
+		/* Turn off HPH PAs during insertion detection to avoid false
+		 * insertion interrupts
+		 */
+		if (tabla->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
+
+		/* setup for insetion detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
-	else
+	} else {
+		/* Make sure the HPH schmitt trigger is OFF */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12, 0x00);
+
+		/* enable the mic line schmitt trigger */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x60,
+			calibration->mic_current << 5);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x80, 0x80);
+		usleep_range(calibration->mic_pid, calibration->mic_pid);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x10, 0x10);
+
+		/* Setup for low power removal detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0x2);
+	}
 
 	if (snd_soc_read(codec, TABLA_A_CDC_MBHC_B1_CTL) & 0x4) {
 		if (!(tabla->clock_active)) {
@@ -2308,19 +2339,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 				0x06, 0);
 	}
 
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0xC,
-		calibration->hph_current << 2);
-
-	/* Turn off HPH PAs during insertion detection to avoid false
-	 * insertion interrupts
-	 */
-	if (tabla->mbhc_micbias_switched)
-		tabla_codec_switch_micbias(codec, 0);
-	snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
-
 	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.int_rbias, 0x80, 0);
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg, 0x1, 0);
 
 	/* If central bandgap disabled */
 	if (!(snd_soc_read(codec, TABLA_A_PIN_CTL_OE1) & 1)) {
@@ -2340,12 +2359,6 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 		if (central_bias_enabled)
 			snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE1, 0x1, 0);
 	}
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x60,
-		calibration->mic_current << 5);
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x80, 0x80);
-	usleep_range(calibration->mic_pid, calibration->mic_pid);
-
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x10, 0x10);
 
 	snd_soc_update_bits(codec, TABLA_A_MICB_4_MBHC, 0x3, calibration->bias);
 
@@ -2524,10 +2537,18 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	short mic_voltage;
 	short threshold_no_mic = 0xF7F6;
 	short threshold_fake_insert = 0xFD30;
+	u8 is_removal;
 
 
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	is_removal = snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02;
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
+
+	/* Turn off both HPH and MIC line schmitt triggers */
+	snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
+			0x90, 0x00);
+	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
 	ldo_h_on = snd_soc_read(codec, TABLA_A_LDO_H_MODE_1) & 0x80;
 	micb_cfilt_on = snd_soc_read(codec,
@@ -2542,7 +2563,13 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	usleep_range(priv->calibration->setup_plug_removal_delay,
 		priv->calibration->setup_plug_removal_delay);
 
-	if (snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02) {
+	if (!ldo_h_on)
+		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
+	if (!micb_cfilt_on)
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.cfilt_ctl,
+							0x80, 0x0);
+
+	if (is_removal) {
 		/*
 		 * If headphone is removed while playback is in progress,
 		 * it is possible that micbias will be switched to VDDIO.
@@ -2558,12 +2585,6 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		tabla_codec_enable_hs_detect(codec, 1);
 		return IRQ_HANDLED;
 	}
-
-	if (!ldo_h_on)
-		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
-	if (!micb_cfilt_on)
-		snd_soc_update_bits(codec, priv->mbhc_bias_regs.cfilt_ctl,
-							0x80, 0x0);
 
 	mic_voltage = tabla_codec_setup_hs_polling(codec);
 
