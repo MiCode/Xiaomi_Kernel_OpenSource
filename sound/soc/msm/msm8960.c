@@ -1095,7 +1095,7 @@ static int msm8960_configure_headset_mic_gpios(void)
 		pr_err("%s: Failed to configure gpio %d\n", __func__,
 			PM8921_GPIO_PM_TO_SYS(35));
 	else
-		gpio_direction_output(PM8921_GPIO_PM_TO_SYS(35), 1);
+		gpio_direction_output(PM8921_GPIO_PM_TO_SYS(35), 0);
 
 	return 0;
 }
