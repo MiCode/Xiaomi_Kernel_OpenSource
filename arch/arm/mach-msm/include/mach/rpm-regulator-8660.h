@@ -11,67 +11,61 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ARCH_ARM_MACH_MSM_RPM_REGULATOR_8660_H
-#define __ARCH_ARM_MACH_MSM_RPM_REGULATOR_8660_H
+#ifndef __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_8660_H
+#define __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_8660_H
 
-#define RPM_VREG_PIN_CTRL_NONE	0x00
-#define RPM_VREG_PIN_CTRL_A0	0x01
-#define RPM_VREG_PIN_CTRL_A1	0x02
-#define RPM_VREG_PIN_CTRL_D0	0x04
-#define RPM_VREG_PIN_CTRL_D1	0x08
+#define RPM_VREG_PIN_CTRL_PM8058_A0	0x01
+#define RPM_VREG_PIN_CTRL_PM8058_A1	0x02
+#define RPM_VREG_PIN_CTRL_PM8058_D0	0x04
+#define RPM_VREG_PIN_CTRL_PM8058_D1	0x08
 
-/*
- * Pin Function
- * ENABLE  - pin control switches between disable and enable
- * MODE    - pin control switches between LPM and HPM
- * SLEEP_B - regulator is forced into LPM by asserting sleep_b signal
- * NONE    - do not use pin control
+#define RPM_VREG_PIN_CTRL_PM8901_A0	0x01
+#define RPM_VREG_PIN_CTRL_PM8901_A1	0x02
+#define RPM_VREG_PIN_CTRL_PM8901_D0	0x04
+#define RPM_VREG_PIN_CTRL_PM8901_D1	0x08
+
+
+/**
+ * enum rpm_vreg_pin_fn_8660 - RPM regulator pin function choices
+ * %RPM_VREG_PIN_FN_8660_ENABLE:	pin control switches between disable and
+ *					enable
+ * %RPM_VREG_PIN_FN_8660_MODE:		pin control switches between LPM and HPM
+ * %RPM_VREG_PIN_FN_8660_SLEEP_B:	regulator is forced into LPM when
+ *					sleep_b signal is asserted
+ * %RPM_VREG_PIN_FN_8660_NONE:		do not use pin control for the regulator
+ *					and do not allow another master to
+ *					request pin control
  *
  * The pin function specified in platform data corresponds to the active state
  * pin function value.  Pin function will be NONE until a consumer requests
- * pin control with regulator_set_mode(vreg, REGULATOR_MODE_IDLE).
+ * pin control to be enabled.
  */
-enum rpm_vreg_pin_fn {
-	RPM_VREG_PIN_FN_ENABLE = 0,
-	RPM_VREG_PIN_FN_MODE,
-	RPM_VREG_PIN_FN_SLEEP_B,
-	RPM_VREG_PIN_FN_NONE,
+enum rpm_vreg_pin_fn_8660 {
+	RPM_VREG_PIN_FN_8660_ENABLE = 0,
+	RPM_VREG_PIN_FN_8660_MODE,
+	RPM_VREG_PIN_FN_8660_SLEEP_B,
+	RPM_VREG_PIN_FN_8660_NONE,
 };
 
-enum rpm_vreg_mode {
-	RPM_VREG_MODE_PIN_CTRL = 0,
-	RPM_VREG_MODE_NONE = 0,
-	RPM_VREG_MODE_LPM,
-	RPM_VREG_MODE_HPM,
+/**
+ * enum rpm_vreg_force_mode_8660 - RPM regulator force mode choices
+ * %RPM_VREG_FORCE_MODE_8660_PIN_CTRL:	allow pin control usage
+ * %RPM_VREG_FORCE_MODE_8660_NONE:	do not force any mode
+ * %RPM_VREG_FORCE_MODE_8660_LPM:	force into low power mode
+ * %RPM_VREG_FORCE_MODE_8660_HPM:	force into high power mode
+ *
+ * Force mode is used to override aggregation with other masters and to set
+ * special operating modes.
+ */
+enum rpm_vreg_force_mode_8660 {
+	RPM_VREG_FORCE_MODE_8660_PIN_CTRL = 0,
+	RPM_VREG_FORCE_MODE_8660_NONE = 0,
+	RPM_VREG_FORCE_MODE_8660_LPM,
+	RPM_VREG_FORCE_MODE_8660_HPM,
 };
 
-enum rpm_vreg_state {
-	RPM_VREG_STATE_OFF = 0,
-	RPM_VREG_STATE_ON,
-};
-
-enum rpm_vreg_freq {
-	RPM_VREG_FREQ_NONE,
-	RPM_VREG_FREQ_19p20,
-	RPM_VREG_FREQ_9p60,
-	RPM_VREG_FREQ_6p40,
-	RPM_VREG_FREQ_4p80,
-	RPM_VREG_FREQ_3p84,
-	RPM_VREG_FREQ_3p20,
-	RPM_VREG_FREQ_2p74,
-	RPM_VREG_FREQ_2p40,
-	RPM_VREG_FREQ_2p13,
-	RPM_VREG_FREQ_1p92,
-	RPM_VREG_FREQ_1p75,
-	RPM_VREG_FREQ_1p60,
-	RPM_VREG_FREQ_1p48,
-	RPM_VREG_FREQ_1p37,
-	RPM_VREG_FREQ_1p28,
-	RPM_VREG_FREQ_1p20,
-};
-
-enum rpm_vreg_id {
-	RPM_VREG_ID_PM8058_L0 = 0,
+enum rpm_vreg_id_8660 {
+	RPM_VREG_ID_PM8058_L0,
 	RPM_VREG_ID_PM8058_L1,
 	RPM_VREG_ID_PM8058_L2,
 	RPM_VREG_ID_PM8058_L3,
@@ -122,55 +116,68 @@ enum rpm_vreg_id {
 	RPM_VREG_ID_PM8901_LVS2,
 	RPM_VREG_ID_PM8901_LVS3,
 	RPM_VREG_ID_PM8901_MVS0,
-	RPM_VREG_ID_MAX,
+	RPM_VREG_ID_8660_MAX_REAL = RPM_VREG_ID_PM8901_MVS0,
+
+	/* The following are IDs for regulator devices to enable pin control. */
+	RPM_VREG_ID_PM8058_L0_PC,
+	RPM_VREG_ID_PM8058_L1_PC,
+	RPM_VREG_ID_PM8058_L2_PC,
+	RPM_VREG_ID_PM8058_L3_PC,
+	RPM_VREG_ID_PM8058_L4_PC,
+	RPM_VREG_ID_PM8058_L5_PC,
+	RPM_VREG_ID_PM8058_L6_PC,
+	RPM_VREG_ID_PM8058_L7_PC,
+	RPM_VREG_ID_PM8058_L8_PC,
+	RPM_VREG_ID_PM8058_L9_PC,
+	RPM_VREG_ID_PM8058_L10_PC,
+	RPM_VREG_ID_PM8058_L11_PC,
+	RPM_VREG_ID_PM8058_L12_PC,
+	RPM_VREG_ID_PM8058_L13_PC,
+	RPM_VREG_ID_PM8058_L14_PC,
+	RPM_VREG_ID_PM8058_L15_PC,
+	RPM_VREG_ID_PM8058_L16_PC,
+	RPM_VREG_ID_PM8058_L17_PC,
+	RPM_VREG_ID_PM8058_L18_PC,
+	RPM_VREG_ID_PM8058_L19_PC,
+	RPM_VREG_ID_PM8058_L20_PC,
+	RPM_VREG_ID_PM8058_L21_PC,
+	RPM_VREG_ID_PM8058_L22_PC,
+	RPM_VREG_ID_PM8058_L23_PC,
+	RPM_VREG_ID_PM8058_L24_PC,
+	RPM_VREG_ID_PM8058_L25_PC,
+	RPM_VREG_ID_PM8058_S0_PC,
+	RPM_VREG_ID_PM8058_S1_PC,
+	RPM_VREG_ID_PM8058_S2_PC,
+	RPM_VREG_ID_PM8058_S3_PC,
+	RPM_VREG_ID_PM8058_S4_PC,
+	RPM_VREG_ID_PM8058_LVS0_PC,
+	RPM_VREG_ID_PM8058_LVS1_PC,
+
+	RPM_VREG_ID_PM8901_L0_PC,
+	RPM_VREG_ID_PM8901_L1_PC,
+	RPM_VREG_ID_PM8901_L2_PC,
+	RPM_VREG_ID_PM8901_L3_PC,
+	RPM_VREG_ID_PM8901_L4_PC,
+	RPM_VREG_ID_PM8901_L5_PC,
+	RPM_VREG_ID_PM8901_L6_PC,
+	RPM_VREG_ID_PM8901_S0_PC,
+	RPM_VREG_ID_PM8901_S1_PC,
+	RPM_VREG_ID_PM8901_S2_PC,
+	RPM_VREG_ID_PM8901_S3_PC,
+	RPM_VREG_ID_PM8901_S4_PC,
+	RPM_VREG_ID_PM8901_LVS0_PC,
+	RPM_VREG_ID_PM8901_LVS1_PC,
+	RPM_VREG_ID_PM8901_LVS2_PC,
+	RPM_VREG_ID_PM8901_LVS3_PC,
+	RPM_VREG_ID_PM8901_MVS0_PC,
+	RPM_VREG_ID_8660_MAX = RPM_VREG_ID_PM8901_MVS0_PC,
 };
 
 /* Minimum high power mode loads in uA. */
-#define RPM_VREG_LDO_50_HPM_MIN_LOAD	5000
-#define RPM_VREG_LDO_150_HPM_MIN_LOAD	10000
-#define RPM_VREG_LDO_300_HPM_MIN_LOAD	10000
-#define RPM_VREG_SMPS_HPM_MIN_LOAD	50000
-#define RPM_VREG_FTSMPS_HPM_MIN_LOAD	100000
-
-/*
- * default_uV = initial voltage to set the regulator to if enable is called
- *		before set_voltage (e.g. when boot_on or always_on is set).
- * peak_uA    = initial load requirement sent in RPM request; used to determine
- *		initial mode.
- * avg_uA     = initial avg load requirement sent in RPM request; overwritten
- *		along with peak_uA when regulator_set_mode or
- *		regulator_set_optimum_mode is called.
- * pin_fn     = RPM_VREG_PIN_FN_ENABLE  - pin control ON/OFF
- *	      = RPM_VREG_PIN_FN_MODE    - pin control LPM/HPM
- *	      = RPM_VREG_PIN_FN_SLEEP_B - regulator is forced into LPM by
- *					  asserting sleep_b signal
- *	      = RPM_VREG_PIN_FN_NONE    - do not use pin control
- * mode	      = used to specify a force mode which overrides the votes of other
- *		RPM masters.
- * state      = initial state sent in RPM request.
- * sleep_selectable = flag which indicates that regulator should be accessable
- *		by external private API and that spinlocks should be used.
- */
-struct rpm_vreg_pdata {
-	struct regulator_init_data	init_data;
-	int				default_uV;
-	unsigned			peak_uA;
-	unsigned			avg_uA;
-	unsigned			pull_down_enable;
-	unsigned			pin_ctrl;
-	enum rpm_vreg_freq		freq;
-	enum rpm_vreg_pin_fn		pin_fn;
-	enum rpm_vreg_mode		mode;
-	enum rpm_vreg_state		state;
-	int				sleep_selectable;
-};
-
-enum rpm_vreg_voter {
-	RPM_VREG_VOTER_REG_FRAMEWORK = 0, /* for internal use only */
-	RPM_VREG_VOTER1,		  /* for use by the acpu-clock driver */
-	RPM_VREG_VOTER2,		  /* for use by the acpu-clock driver */
-	RPM_VREG_VOTER3,		  /* for use by other drivers */
-	RPM_VREG_VOTER_COUNT,
-};
+#define RPM_VREG_8660_LDO_50_HPM_MIN_LOAD	5000
+#define RPM_VREG_8660_LDO_150_HPM_MIN_LOAD	10000
+#define RPM_VREG_8660_LDO_300_HPM_MIN_LOAD	10000
+#define RPM_VREG_8660_SMPS_HPM_MIN_LOAD		50000
+#define RPM_VREG_8660_FTSMPS_HPM_MIN_LOAD	100000
 
 #endif

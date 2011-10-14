@@ -158,7 +158,7 @@ obj-$(CONFIG_MACH_QSD8X50_FFA) += board-qsd8x50.o
 obj-$(CONFIG_ARCH_MSM8X60) += devices-msm8x60.o clock-local.o clock-8x60.o acpuclock-8x60.o
 obj-$(CONFIG_ARCH_MSM8X60) += clock-rpm.o
 obj-$(CONFIG_ARCH_MSM8X60) += saw-regulator.o
-obj-$(CONFIG_ARCH_MSM8X60) += rpm-regulator.o
+obj-$(CONFIG_ARCH_MSM8X60) += rpm-regulator.o rpm-regulator-8660.o
 obj-$(CONFIG_ARCH_MSM8X60) += footswitch-8x60.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
@@ -209,7 +209,8 @@ obj-$(CONFIG_MACH_MSM7X25_FFA) += board-msm7x27.o devices-msm7x25.o
 obj-$(CONFIG_ARCH_MSM8960) += clock-local.o clock-dss-8960.o clock-8960.o clock-rpm.o
 obj-$(CONFIG_ARCH_MSM8960) += footswitch-8x60.o
 obj-$(CONFIG_ARCH_MSM8960) += acpuclock-8960.o
-obj-$(CONFIG_ARCH_MSM8960) += saw-regulator.o rpm-regulator-8960.o memory_topology.o
+obj-$(CONFIG_ARCH_MSM8960) += memory_topology.o
+obj-$(CONFIG_ARCH_MSM8960) += saw-regulator.o rpm-regulator.o rpm-regulator-8960.o
 obj-$(CONFIG_MACH_MSM8960_SIM) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_MACH_MSM8960_RUMI3) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_MACH_MSM8960_CDP) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
@@ -219,6 +220,7 @@ obj-$(CONFIG_ARCH_MSM8960) += bms-batterydata.o
 obj-$(CONFIG_ARCH_APQ8064) += board-apq8064.o devices-8064.o board-apq8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o
+obj-$(CONFIG_ARCH_MSM9615) += rpm-regulator.o rpm-regulator-9615.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire-keypad.o board-sapphire-panel.o
