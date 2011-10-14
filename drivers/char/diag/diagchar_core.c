@@ -253,7 +253,18 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	return -ENOMEM;
 }
 
-void diag_fill_reg_table(int j, struct bindpkt_params *params,
+void diag_clear_reg(int proc_num)
+{
+	int i;
+
+	for (i = 0; i < diag_max_registration; i++) {
+		if (driver->table[i].client_id == proc_num) {
+			driver->table[i].process_id = 0;
+		}
+	}
+}
+
+void diag_add_reg(int j, struct bindpkt_params *params,
 					  int *success, int *count_entries)
 {
 	*success = 1;
@@ -284,7 +295,7 @@ long diagchar_ioctl(struct file *filp,
 		mutex_lock(&driver->diagchar_mutex);
 		for (i = 0; i < diag_max_registration; i++) {
 			if (driver->table[i].process_id == 0) {
-				diag_fill_reg_table(i, pkt_params->params,
+				diag_add_reg(i, pkt_params->params,
 						&success, &count_entries);
 				if (pkt_params->count > count_entries) {
 					pkt_params->params++;
@@ -315,7 +326,7 @@ long diagchar_ioctl(struct file *filp,
 				driver->table = temp_buf;
 			}
 			for (j = i; j < diag_max_registration; j++) {
-				diag_fill_reg_table(j, pkt_params->params,
+				diag_add_reg(j, pkt_params->params,
 						&success, &count_entries);
 				if (pkt_params->count > count_entries) {
 					pkt_params->params++;

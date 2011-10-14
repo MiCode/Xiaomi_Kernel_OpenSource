@@ -1129,7 +1129,11 @@ void diag_usb_legacy_notifier(void *priv, unsigned event,
 
 static void diag_smd_notify(void *ctxt, unsigned event)
 {
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
+	if (event == SMD_EVENT_CLOSE) {
+		pr_info("diag: clean modem registration\n");
+		diag_clear_reg(MODEM_PROC);
+	} else
+		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 }
 
 #if defined(CONFIG_MSM_N_WAY_SMD)
