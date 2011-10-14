@@ -42,6 +42,8 @@ struct hci_smd_data {
 	struct wake_lock wake_lock_tx;
 	struct wake_lock wake_lock_rx;
 	struct timer_list rx_q_timer;
+	struct tasklet_struct hci_event_task;
+	struct tasklet_struct hci_data_task;
 };
 struct hci_smd_data hs;
 
@@ -306,7 +308,7 @@ static void hci_smd_notify_event(void *data, unsigned int event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		hci_smd_recv_event(event);
+		tasklet_hi_schedule(&hs.hci_event_task);
 		break;
 	case SMD_EVENT_OPEN:
 		hci_smd_open(hdev);
@@ -329,7 +331,7 @@ static void hci_smd_notify_data(void *data, unsigned int event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		hci_smd_recv_data(event);
+		tasklet_hi_schedule(&hs.hci_data_task);
 		break;
 	case SMD_EVENT_OPEN:
 		hci_smd_open(hdev);
@@ -363,6 +365,11 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 	hdev->send  = hci_smd_send_frame;
 	hdev->destruct = hci_smd_destruct;
 	hdev->owner = THIS_MODULE;
+
+	tasklet_init(&hsmd->hci_event_task,
+			hci_smd_recv_event, (unsigned long) hsmd);
+	tasklet_init(&hsmd->hci_data_task,
+			hci_smd_recv_data, (unsigned long) hsmd);
 
 	wake_lock_init(&hs.wake_lock_rx, WAKE_LOCK_SUSPEND, "msm_smd_Rx");
 	wake_lock_init(&hs.wake_lock_tx, WAKE_LOCK_SUSPEND, "msm_smd_Tx");
@@ -414,6 +421,8 @@ static void hci_smd_deregister(void)
 
 	/*Destroy the timer used to monitor the Rx queue for emptiness */
 	del_timer_sync(&hs.rx_q_timer);
+	tasklet_kill(&hs.hci_event_task);
+	tasklet_kill(&hs.hci_data_task);
 }
 
 static int hci_smd_init(void)
