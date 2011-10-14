@@ -810,7 +810,8 @@ struct msm_sensor_output_info_t {
 	uint16_t y_output;
 	uint16_t line_length_pclk;
 	uint16_t frame_length_lines;
-	uint32_t pixel_clk;
+	uint32_t vt_pixel_clk;
+	uint32_t op_pixel_clk;
 };
 
 struct sensor_output_info_t {
