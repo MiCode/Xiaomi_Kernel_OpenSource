@@ -196,7 +196,7 @@ static struct regulator_ops proccomm_regulator_ops = {
 static struct regulator_dev *__devinit create_proccomm_rdev(
 	struct proccomm_regulator_info *info, struct device *parent)
 {
-	char *name;
+	const char *name;
 	struct proccomm_regulator_drvdata *d;
 	struct regulator_dev *rdev;
 	int rc = 0;
