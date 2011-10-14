@@ -791,6 +791,19 @@ void __init sanity_check_meminfo(void)
 {
 	int i, j, highmem = 0;
 
+#if (defined CONFIG_HIGHMEM) && (defined CONFIG_FIX_MOVABLE_ZONE)
+
+/* For now, we must ensure that a small highmem zone exists
+ * after most of it is transformed into the movable zone.
+ */
+#define MIN_HIGHMEM_SIZE (5 * SECTION_SIZE)
+	void *v_movable_start;
+
+	v_movable_start = __va(movable_reserved_start) - MIN_HIGHMEM_SIZE;
+
+	if (vmalloc_min > v_movable_start)
+		vmalloc_min = v_movable_start;
+#endif
 	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
 		struct membank *bank = &meminfo.bank[j];
 		*bank = meminfo.bank[i];
