@@ -16,11 +16,6 @@
 /*****************************************************************************
 ** power flags
 *****************************************************************************/
-#define KGSL_PWRFLAGS_POWER_ON 0
-#define KGSL_PWRFLAGS_CLK_ON   1
-#define KGSL_PWRFLAGS_AXI_ON   2
-#define KGSL_PWRFLAGS_IRQ_ON   3
-
 #define KGSL_PWRFLAGS_ON   1
 #define KGSL_PWRFLAGS_OFF  0
 

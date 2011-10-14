@@ -565,7 +565,7 @@ static int z180_start(struct kgsl_device *device, unsigned int init_ram)
 	z180_cmdstream_start(device);
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	return 0;
 
 error_clk_off:
