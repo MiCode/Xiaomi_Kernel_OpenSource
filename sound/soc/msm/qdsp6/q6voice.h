@@ -318,6 +318,12 @@ struct mvm_set_widevoice_enable_cmd {
 #define VOICE_PARAM_MOD_ENABLE				0x00010E00
 #define MOD_ENABLE_PARAM_LEN				4
 
+#define VSS_ISTREAM_CMD_START_PLAYBACK                  0x00011238
+/* Start in-call music delivery on the Tx voice path. */
+
+#define VSS_ISTREAM_CMD_STOP_PLAYBACK                   0x00011239
+/* Stop the in-call music delivery on the Tx voice path. */
+
 struct vss_istream_cmd_create_passive_control_session_t {
 	char name[SESSION_NAME_LEN];
 	/**<
@@ -752,8 +758,10 @@ struct incall_rec_info {
 };
 
 struct incall_music_info {
-	uint32_t pending;
+	uint32_t play_enable;
 	uint32_t playing;
+	int count;
+	int force;
 };
 
 struct voice_data {
@@ -790,6 +798,7 @@ struct voice_data {
 	struct voice_dev_route_state voc_route_state;
 
 	u16 session_id;
+	struct incall_music_info music_info;
 };
 
 #define MAX_VOC_SESSIONS 2
@@ -856,4 +865,5 @@ uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 #define VOIP_SESSION_NAME "VoIP session"
 uint16_t voc_get_session_id(char *name);
 
+int voc_start_playback(uint32_t set);
 #endif

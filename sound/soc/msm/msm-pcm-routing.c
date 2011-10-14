@@ -114,6 +114,7 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ RT_PROXY_PORT_001_TX, 0, NULL, 0, 0},
 	{ PCM_RX, 0, NULL, 0, 0},
 	{ PCM_TX, 0, NULL, 0, 0},
+	{ VOICE_PLAYBACK_TX, 0, NULL, 0, 0},
 };
 
 
@@ -259,6 +260,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	mutex_lock(&routing_lock);
 
 	if (set) {
+		if (!test_bit(val, &msm_bedais[reg].fe_sessions) &&
+			(msm_bedais[reg].port_id == VOICE_PLAYBACK_TX))
+			voc_start_playback(set);
+
 		set_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
@@ -270,6 +275,9 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				fe_dai_map[val][session_type], path_type);
 		}
 	} else {
+		if (test_bit(val, &msm_bedais[reg].fe_sessions) &&
+			(msm_bedais[reg].port_id == VOICE_PLAYBACK_TX))
+			voc_start_playback(set);
 		clear_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
@@ -681,6 +689,15 @@ static const struct snd_kcontrol_new hdmi_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("MultiMedia4", MSM_BACKEND_DAI_HDMI_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+};
+	/* incall music delivery mixer */
+static const struct snd_kcontrol_new incall_music_delivery_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia2", MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 };
 
@@ -1103,7 +1120,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("PCM_RX", "AFE Playback",
 				0, 0, 0 , 0),
 	SND_SOC_DAPM_AIF_IN("PCM_TX", "AFE Capture",
-				0, 0, 0, 0),
+				0, 0, 0 , 0),
+	/* incall */
+	SND_SOC_DAPM_AIF_OUT("VOICE_PLAYBACK_TX", "Voice Farend Playback",
+				0, 0, 0 , 0),
 	SND_SOC_DAPM_AIF_OUT("AUX_PCM_RX", "AUX PCM Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("AUX_PCM_TX", "AUX PCM Capture", 0, 0, 0, 0),
 	/* Switch Definitions */
@@ -1122,6 +1142,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	mmul2_mixer_controls, ARRAY_SIZE(mmul2_mixer_controls)),
 	SND_SOC_DAPM_MIXER("AUX_PCM_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	auxpcm_rx_mixer_controls, ARRAY_SIZE(auxpcm_rx_mixer_controls)),
+	/* incall */
+	SND_SOC_DAPM_MIXER("Incall_Music Audio Mixer", SND_SOC_NOPM, 0, 0,
+			incall_music_delivery_mixer_controls,
+			ARRAY_SIZE(incall_music_delivery_mixer_controls)),
 	/* Voice Mixer */
 	SND_SOC_DAPM_MIXER("PRI_RX_Voice Mixer",
 				SND_SOC_NOPM, 0, 0, pri_rx_voice_mixer_controls,
@@ -1182,6 +1206,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"HDMI Mixer", "MultiMedia4", "MM_DL4"},
 	{"HDMI", NULL, "HDMI Mixer"},
 
+		/* incall */
+	{"Incall_Music Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"Incall_Music Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"VOICE_PLAYBACK_TX", NULL, "Incall_Music Audio Mixer"},
 	{"MultiMedia1 Mixer", "PRI_TX", "PRI_I2S_TX"},
 	{"MultiMedia1 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia1 Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},

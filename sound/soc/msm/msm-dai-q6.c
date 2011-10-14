@@ -300,6 +300,9 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case RT_PROXY_DAI_002_RX:
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
+	case VOICE_PLAYBACK_TX:
+		rc = 0;
+		break;
 	default:
 		dev_err(dai->dev, "invalid AFE port ID\n");
 		rc = -EINVAL;
@@ -343,7 +346,16 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_close(dai->id); /* can block */
+		switch (dai->id) {
+		case VOICE_PLAYBACK_TX:
+			pr_debug("%s, stop pseudo port:%d\n",
+						__func__,  dai->id);
+			rc = afe_stop_pseudo_port(dai->id);
+			break;
+		default:
+			rc = afe_close(dai->id); /* can block */
+			break;
+		}
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
 		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
@@ -478,8 +490,15 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			afe_port_start_nowait(dai->id, &dai_data->port_config,
-				dai_data->rate);
+			switch (dai->id) {
+			case VOICE_PLAYBACK_TX:
+				afe_pseudo_port_start_nowait(dai->id);
+				break;
+			default:
+				afe_port_start_nowait(dai->id,
+					&dai_data->port_config, dai_data->rate);
+				break;
+			}
 			set_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
 		}
@@ -488,7 +507,14 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			afe_port_stop_nowait(dai->id);
+			switch (dai->id) {
+			case VOICE_PLAYBACK_TX:
+				afe_pseudo_port_stop_nowait(dai->id);
+				break;
+			default:
+				afe_port_stop_nowait(dai->id);
+				break;
+			}
 			clear_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
 		}
@@ -586,7 +612,15 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 
 	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_close(dai->id); /* can block */
+		switch (dai->id) {
+		case VOICE_PLAYBACK_TX:
+			pr_debug("%s, stop pseudo port:%d\n",
+						__func__,  dai->id);
+			rc = afe_stop_pseudo_port(dai->id);
+			break;
+		default:
+			rc = afe_close(dai->id); /* can block */
+		}
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
@@ -699,6 +733,21 @@ static struct snd_soc_dai_driver msm_dai_q6_hdmi_rx_dai = {
 		.channels_max = 2,
 		.rate_max =     48000,
 		.rate_min =	48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_voice_playback_tx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_max =     48000,
+		.rate_min =     8000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -871,6 +920,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case RT_PROXY_DAI_001_TX:
 	case RT_PROXY_DAI_002_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
+		break;
+	case VOICE_PLAYBACK_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_voice_playback_tx_dai);
 		break;
 	default:
 		rc = -ENODEV;

@@ -1061,6 +1061,19 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = msm8960_auxpcm_be_params_fixup,
 	},
+	/* Incall Music BACK END DAI Link */
+	{
+		.name = LPASS_BE_VOICE_PLAYBACK_TX,
+		.stream_name = "Voice Farend Playback",
+		.cpu_dai_name = "msm-dai-q6.32773",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.no_codec = 1,
+		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+		.be_hw_params_fixup = msm8960_be_hw_params_fixup,
+	},
 };
 
 struct snd_soc_card snd_soc_card_msm8960 = {

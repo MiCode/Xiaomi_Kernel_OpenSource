@@ -1771,6 +1771,7 @@ static struct platform_device *sim_devices[] __initdata = {
 	&msm_voip,
 	&msm_lpa_pcm,
 	&msm_compr_dsp,
+	&msm_cpudai_incall_music_rx,
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
@@ -1831,6 +1832,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_afe_02_tx,
 	&msm_pcm_afe,
 	&msm_compr_dsp,
+	&msm_cpudai_incall_music_rx,
 	&msm_pcm_hostless,
 	&msm_bus_apps_fabric,
 	&msm_bus_sys_fabric,
