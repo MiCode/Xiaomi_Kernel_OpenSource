@@ -201,8 +201,10 @@ static void smd_xprt_read_data(struct work_struct *work)
 			D("%s: Allocated rr_packet\n", __func__);
 		}
 
-		if ((pkt_size >= MIN_FRAG_SZ) &&
-		    (smd_read_avail(smd_remote_xprt.channel) < MIN_FRAG_SZ))
+		if (((pkt_size >= MIN_FRAG_SZ) &&
+		     (smd_read_avail(smd_remote_xprt.channel) < MIN_FRAG_SZ)) ||
+		    ((pkt_size < MIN_FRAG_SZ) &&
+		     (smd_read_avail(smd_remote_xprt.channel) < pkt_size)))
 			return;
 
 		sz = smd_read_avail(smd_remote_xprt.channel);
