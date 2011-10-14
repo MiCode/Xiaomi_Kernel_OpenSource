@@ -87,6 +87,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		if (mdp_rev >= MDP_REV_41) {
 			mdp4_dsi_cmd_dma_busy_wait(mfd);
 			mdp4_dsi_blt_dmap_busy_wait(mfd);
+			mipi_dsi_mdp_busy_wait(mfd);
 		} else {
 			mdp3_dsi_cmd_dma_busy_wait(mfd);
 		}

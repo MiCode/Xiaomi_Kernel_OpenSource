@@ -79,7 +79,7 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.mipi.t_clk_post = 0x22;
 	pinfo.mipi.t_clk_pre = 0x3f;
 	pinfo.mipi.stream = 0;	/* dma_p */
-	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
+	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
 	pinfo.mipi.te_sel = 1; /* TE from vsycn gpio */
 	pinfo.mipi.interleave_max = 1;

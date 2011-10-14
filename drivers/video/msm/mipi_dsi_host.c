@@ -41,10 +41,12 @@
 
 int mipi_dsi_clk_on;
 static struct completion dsi_dma_comp;
+static struct completion dsi_mdp_comp;
 static struct dsi_buf dsi_tx_buf;
 static int dsi_irq_enabled;
-static int dsi_cmd_trigger;
-static spinlock_t dsi_lock;
+static spinlock_t dsi_irq_lock;
+static spinlock_t dsi_mdp_lock;
+static int dsi_mdp_busy;
 
 static struct list_head pre_kickoff_list;
 static struct list_head post_kickoff_list;
@@ -52,54 +54,44 @@ static struct list_head post_kickoff_list;
 void mipi_dsi_init(void)
 {
 	init_completion(&dsi_dma_comp);
+	init_completion(&dsi_mdp_comp);
 	mipi_dsi_buf_alloc(&dsi_tx_buf, DSI_BUF_SIZE);
-	spin_lock_init(&dsi_lock);
+	spin_lock_init(&dsi_irq_lock);
+	spin_lock_init(&dsi_mdp_lock);
 
 	INIT_LIST_HEAD(&pre_kickoff_list);
 	INIT_LIST_HEAD(&post_kickoff_list);
 }
 
-void mipi_dsi_enable_irq(enum dsi_trigger_type type)
+void mipi_dsi_enable_irq(void)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&dsi_lock, flags);
-	if (type == DSI_CMD_MODE_DMA)
-		dsi_cmd_trigger = 1;
-
-	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
-		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
-
+	spin_lock_irqsave(&dsi_irq_lock, flags);
 	if (dsi_irq_enabled) {
 		pr_debug("%s: IRQ aleady enabled\n", __func__);
-		spin_unlock_irqrestore(&dsi_lock, flags);
+		spin_unlock_irqrestore(&dsi_irq_lock, flags);
 		return;
 	}
 	dsi_irq_enabled = 1;
 	enable_irq(dsi_irq);
-	spin_unlock_irqrestore(&dsi_lock, flags);
+	spin_unlock_irqrestore(&dsi_irq_lock, flags);
 }
 
-void mipi_dsi_disable_irq(enum dsi_trigger_type type)
+void mipi_dsi_disable_irq(void)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&dsi_lock, flags);
-	if (type == DSI_CMD_MODE_DMA)
-		dsi_cmd_trigger = 0;
-
-	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
-		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
-
+	spin_lock_irqsave(&dsi_irq_lock, flags);
 	if (dsi_irq_enabled == 0) {
 		pr_debug("%s: IRQ already disabled\n", __func__);
-		spin_unlock_irqrestore(&dsi_lock, flags);
+		spin_unlock_irqrestore(&dsi_irq_lock, flags);
 		return;
 	}
 
 	dsi_irq_enabled = 0;
 	disable_irq(dsi_irq);
-	spin_unlock_irqrestore(&dsi_lock, flags);
+	spin_unlock_irqrestore(&dsi_irq_lock, flags);
 }
 
 /*
@@ -108,19 +100,16 @@ void mipi_dsi_disable_irq(enum dsi_trigger_type type)
  */
  void mipi_dsi_disable_irq_nosync(void)
 {
-	spin_lock(&dsi_lock);
-	pr_debug("%s(): dsi_irq_enabled %u, dsi_cmd_trigger %u\n",
-		   __func__, dsi_irq_enabled, dsi_cmd_trigger);
-
-	if (dsi_irq_enabled == 0 || dsi_cmd_trigger == 1) {
+	spin_lock(&dsi_irq_lock);
+	if (dsi_irq_enabled == 0) {
 		pr_debug("%s: IRQ cannot be disabled\n", __func__);
-		spin_unlock(&dsi_lock);
+		spin_unlock(&dsi_irq_lock);
 		return;
 	}
 
 	dsi_irq_enabled = 0;
 	disable_irq_nosync(dsi_irq);
-	spin_unlock(&dsi_lock);
+	spin_unlock(&dsi_irq_lock);
 }
 
 void mipi_dsi_turn_on_clks(void)
@@ -728,6 +717,43 @@ int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	return len;
 }
 
+/*
+ * mipi_dsi_short_read1_resp: 1 parameter
+ */
+static int mipi_dsi_short_read1_resp(struct dsi_buf *rp)
+{
+	/* strip out dcs type */
+	rp->data++;
+	rp->len = 1;
+	return rp->len;
+}
+
+/*
+ * mipi_dsi_short_read2_resp: 2 parameter
+ */
+static int mipi_dsi_short_read2_resp(struct dsi_buf *rp)
+{
+	/* strip out dcs type */
+	rp->data++;
+	rp->len = 2;
+	return rp->len;
+}
+
+static int mipi_dsi_long_read_resp(struct dsi_buf *rp)
+{
+	short len;
+
+	len = rp->data[2];
+	len <<= 8;
+	len |= rp->data[1];
+	/* strip out dcs header */
+	rp->data += 4;
+	rp->len -= 4;
+	/* strip out 2 bytes of checksum */
+	rp->len -= 2;
+	return len;
+}
+
 void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 {
 	uint32 dsi_ctrl, intr_ctrl;
@@ -936,12 +962,42 @@ void mipi_dsi_op_mode_config(int mode)
 	wmb();
 }
 
-void mipi_dsi_cmd_mdp_sw_trigger(void)
+void mipi_dsi_mdp_busy_wait(struct msm_fb_data_type *mfd)
 {
-	mipi_dsi_pre_kickoff_action();
-	mipi_dsi_enable_irq(DSI_CMD_MODE_MDP);
-	MIPI_OUTP(MIPI_DSI_BASE + 0x090, 0x01);	/* trigger */
-	wmb();
+	unsigned long flag;
+	int need_wait = 0;
+
+	pr_debug("%s: start pid=%d\n",
+				__func__, current->pid);
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	if (dsi_mdp_busy == TRUE) {
+		INIT_COMPLETION(dsi_mdp_comp);
+		need_wait++;
+	}
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
+
+	if (need_wait) {
+		/* wait until DMA finishes the current job */
+		pr_debug("%s: pending pid=%d\n",
+				__func__, current->pid);
+		wait_for_completion(&dsi_mdp_comp);
+	}
+	pr_debug("%s: done pid=%d\n",
+				__func__, current->pid);
+}
+
+void mipi_dsi_cmd_mdp_start(void)
+{
+	unsigned long flag;
+
+
+	if (!in_interrupt())
+		mipi_dsi_pre_kickoff_action();
+
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	mipi_dsi_enable_irq();
+	dsi_mdp_busy = TRUE;
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 }
 
 
@@ -1024,6 +1080,7 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 	struct dsi_cmd_desc *cm;
 	uint32 dsi_ctrl, ctrl;
 	int i, video_mode;
+	unsigned long flag;
 
 	/* turn on cmd mode
 	* for video mode, do not send cmds more than
@@ -1050,7 +1107,11 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	mipi_dsi_enable_irq(DSI_CMD_MODE_DMA);
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	mipi_dsi_enable_irq();
+	dsi_mdp_busy = TRUE;
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
+
 	cm = cmds;
 	mipi_dsi_buf_init(tp);
 	for (i = 0; i < cnt; i++) {
@@ -1061,7 +1122,12 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 			msleep(cm->wait);
 		cm++;
 	}
-	mipi_dsi_disable_irq(DSI_CMD_MODE_DMA);
+
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	dsi_mdp_busy = FALSE;
+	mipi_dsi_disable_irq();
+	complete(&dsi_mdp_comp);
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (video_mode)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); /* restore */
@@ -1091,10 +1157,14 @@ static struct dsi_cmd_desc pkt_size_cmd[] = {
  */
 int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			struct dsi_buf *tp, struct dsi_buf *rp,
-			struct dsi_cmd_desc *cmds, int len)
+			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int cnt;
-	static int pkt_size;
+	int cnt, len, diff, pkt_size;
+	unsigned long flag;
+	char cmd;
+
+	len = rlen;
+	diff = 0;
 
 	if (len <= 2)
 		cnt = 4;	/* short read */
@@ -1108,6 +1178,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			len = MIPI_DSI_LEN;	/* 8 bytes at most */
 
 		len = (len + 3) & ~0x03; /* len 4 bytes align */
+		diff = len - rlen;
 		/*
 		 * add extra 2 bytes to len to have overall
 		 * packet size is multipe by 4. This also make
@@ -1128,16 +1199,17 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 #endif
 	}
 
-	mipi_dsi_enable_irq(DSI_CMD_MODE_DMA);
-	if (pkt_size != len) {
-		/* set new max pkt size */
-		pkt_size = len;
-		max_pktsize[0] = pkt_size;
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	mipi_dsi_enable_irq();
+	dsi_mdp_busy = TRUE;
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-		mipi_dsi_buf_init(tp);
-		mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
-		mipi_dsi_cmd_dma_tx(tp);
-	}
+	/* packet size need to be set at every read */
+	pkt_size = len;
+	max_pktsize[0] = pkt_size;
+	mipi_dsi_buf_init(tp);
+	mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
+	mipi_dsi_cmd_dma_tx(tp);
 
 	mipi_dsi_buf_init(tp);
 	mipi_dsi_cmd_dma_add(tp, cmds);
@@ -1149,21 +1221,36 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	 * return data from client is ready and stored
 	 * at RDBK_DATA register already
 	 */
+	mipi_dsi_buf_init(rp);
 	mipi_dsi_cmd_dma_rx(rp, cnt);
 
-	mipi_dsi_disable_irq(DSI_CMD_MODE_DMA);
+	spin_lock_irqsave(&dsi_mdp_lock, flag);
+	dsi_mdp_busy = FALSE;
+	mipi_dsi_disable_irq();
+	complete(&dsi_mdp_comp);
+	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	/* strip off dcs header & crc */
-	if (cnt > 4) { /* long response */
-		if (mfd->panel_info.mipi.fixed_packet_size)
-			rp->data += (cnt - len - 6); /* skip padding */
-
-		rp->data += 4; /* skip dcs header */
-		rp->len -= 6; /* deduct 4 bytes header + 2 bytes crc */
+	cmd = rp->data[0];
+	switch (cmd) {
+	case DTYPE_ACK_ERR_RESP:
+		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
+		break;
+	case DTYPE_GEN_READ1_RESP:
+	case DTYPE_DCS_READ1_RESP:
+		mipi_dsi_short_read1_resp(rp);
+		break;
+	case DTYPE_GEN_READ2_RESP:
+	case DTYPE_DCS_READ2_RESP:
+		mipi_dsi_short_read2_resp(rp);
+		break;
+	case DTYPE_GEN_LREAD_RESP:
+	case DTYPE_DCS_LREAD_RESP:
+		mipi_dsi_long_read_resp(rp);
 		rp->len -= 2; /* extra 2 bytes added */
-	} else {
-		rp->data += 1; /* skip dcs short header */
-		rp->len -= 2; /* deduct 1 byte header + 1 byte ecc */
+		rp->len -= diff; /* align bytes */
+		break;
+	default:
+		break;
 	}
 
 	return rp->len;
@@ -1343,6 +1430,10 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 	}
 
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
+		spin_lock(&dsi_mdp_lock);
+		dsi_mdp_busy = FALSE;
+		spin_unlock(&dsi_mdp_lock);
+		complete(&dsi_mdp_comp);
 		mipi_dsi_disable_irq_nosync();
 		mipi_dsi_post_kickoff_action();
 	}
