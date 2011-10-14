@@ -516,8 +516,8 @@ int msm_mctl_reserve_free_buf(
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync,
 		msg_type);
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
-	if (!pcam_inst->streamon) {
-		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
+	if (!pcam_inst || !pcam_inst->streamon) {
+		D("%s: stream is turned off\n", __func__);
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
