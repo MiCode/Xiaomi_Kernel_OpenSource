@@ -273,12 +273,6 @@ struct msm_mctl_pp_frame_cmd {
 	/* TBD: 3D related */
 };
 
-struct msm_mctl_pp_cmd_ack_event {
-	uint32_t cmd;        /* VPE_CMD_ZOOM? */
-	int      status;     /* 0 done, < 0 err */
-	uint32_t cookie;     /* daemon's cookie */
-};
-
 struct msm_pp_frame_sp {
 	unsigned long  phy_addr;
 	uint32_t       y_off;
@@ -306,14 +300,6 @@ struct msm_pp_frame {
 		struct msm_pp_frame_sp sp;
 	};
 };
-
-struct msm_mctl_pp_event_info {
-	int32_t  event;
-	union {
-		struct msm_mctl_pp_cmd_ack_event ack;
-	};
-};
-
 
 #endif /*__MSM_ISP_H__*/
 

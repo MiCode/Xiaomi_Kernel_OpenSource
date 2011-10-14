@@ -142,7 +142,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 {
 	int rc = 0;
 	struct v4l2_event v4l2_evt;
-	struct msm_isp_stats_event_ctrl *isp_event;
+	struct msm_isp_event_ctrl *isp_event;
 	struct msm_sync *sync =
 		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_cam_media_controller *pmctl = &sync->pcam_sync->mctl;
@@ -157,9 +157,16 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
 
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
+	if (!isp_event) {
+		pr_err("%s Insufficient memory. return", __func__);
+		return -ENOMEM;
+	}
+
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 					MSM_CAM_RESP_STAT_EVT_MSG;
-	isp_event = (struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
+	*((uint32_t *)v4l2_evt.u.data) = (uint32_t)isp_event;
+
 	isp_event->resptype = MSM_CAM_RESP_STAT_EVT_MSG;
 	isp_event->isp_data.isp_msg.type = MSM_CAMERA_MSG;
 	isp_event->isp_data.isp_msg.len = 0;

@@ -136,17 +136,20 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	struct msm_device_queue *queue =  &server_dev->ctrl_q;
 
 	struct v4l2_event v4l2_evt;
-	struct msm_isp_stats_event_ctrl *isp_event;
+	struct msm_isp_event_ctrl *isp_event;
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
+	if (!isp_event) {
+		pr_err("%s Insufficient memory. return", __func__);
+		return -ENOMEM;
+	}
 	D("%s\n", __func__);
 
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_V4L2;
-
 	/* setup event object to transfer the command; */
-	isp_event = (struct msm_isp_stats_event_ctrl *)v4l2_evt.u.data;
+	*((uint32_t *)v4l2_evt.u.data) = (uint32_t)isp_event;
 	isp_event->resptype = MSM_CAM_RESP_V4L2;
 	isp_event->isp_data.ctrl = *out;
-
-	/* now send command to config thread in usersspace,
+	/* now send command to config thread in userspace,
 	 * and wait for results */
 	v4l2_event_queue(server_dev->server_command_queue.pvdev,
 					  &v4l2_evt);
@@ -181,6 +184,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	out->value = value;
 
 	free_qcmd(rcmd);
+	kfree(isp_event);
 	D("%s: rc %d\n", __func__, rc);
 	/* rc is the time elapsed. */
 	if (rc >= 0) {
@@ -1739,45 +1743,80 @@ static long msm_ioctl_server(struct file *fp, unsigned int cmd,
 		break;
 
 	case VIDIOC_DQEVENT: {
-		void __user *u_ctrl_value = NULL;
-		struct msm_isp_stats_event_ctrl *u_isp_event;
-		struct msm_isp_stats_event_ctrl *k_isp_event;
+		void __user *u_ctrl_value = NULL, *user_ptr = NULL;
+		struct msm_isp_event_ctrl u_isp_event;
+		struct msm_isp_event_ctrl *k_isp_event;
 
-		/* Make a copy of control value and event data pointer */
+		/* First, copy the event structure from userspace */
 		D("%s: VIDIOC_DQEVENT\n", __func__);
 		if (copy_from_user(&ev, (void __user *)arg,
-				sizeof(struct v4l2_event)))
+				sizeof(struct v4l2_event))) {
 			break;
-		u_isp_event = (struct msm_isp_stats_event_ctrl *)ev.u.data;
-		u_ctrl_value = u_isp_event->isp_data.ctrl.value;
+		}
+		/* Next, get the pointer to event_ctrl structure
+		 * embedded inside the v4l2_event.u.data array. */
+		user_ptr = (void __user *)(*((uint32_t *)ev.u.data));
 
+		/* Next, copy the userspace event ctrl structure */
+		if (copy_from_user((void *)&u_isp_event, user_ptr,
+				sizeof(struct msm_isp_event_ctrl))) {
+			break;
+		}
+
+		/* Save the pointer of the user allocated command buffer*/
+		u_ctrl_value = u_isp_event.isp_data.ctrl.value;
+
+		/* Dequeue the event queued into the v4l2 queue*/
 		rc = v4l2_event_dequeue(
 			&g_server_dev.server_command_queue.eventHandle,
-			 &ev, fp->f_flags & O_NONBLOCK);
+			&ev, fp->f_flags & O_NONBLOCK);
 		if (rc < 0) {
 			pr_err("no pending events?");
 			break;
 		}
 
-		k_isp_event = (struct msm_isp_stats_event_ctrl *)ev.u.data;
-		if (ev.type == V4L2_EVENT_PRIVATE_START+MSM_CAM_RESP_V4L2 &&
-				k_isp_event->isp_data.ctrl.length > 0) {
-			void *k_ctrl_value = k_isp_event->isp_data.ctrl.value;
-			if (copy_to_user(u_ctrl_value, k_ctrl_value,
-				u_isp_event->isp_data.ctrl.length)) {
+		/* Use k_isp_event to point to the event_ctrl structure
+		 * embedded inside v4l2_event.u.data */
+		k_isp_event = (struct msm_isp_event_ctrl *)
+				(*((uint32_t *)ev.u.data));
+		if (!k_isp_event) {
+			pr_err("%s Invalid event ctrl structure. ", __func__);
+			break;
+		}
+
+		/* Copy the event structure into user struct*/
+		u_isp_event = *k_isp_event;
+
+		/* Restore the saved pointer of the user
+		 * allocated command buffer. */
+		u_isp_event.isp_data.ctrl.value = u_ctrl_value;
+		if (ev.type == V4L2_EVENT_PRIVATE_START+MSM_CAM_RESP_V4L2) {
+			/* Copy the ctrl cmd, if present*/
+			if (k_isp_event->isp_data.ctrl.length > 0) {
+				void *k_ctrl_value =
+					k_isp_event->isp_data.ctrl.value;
+				if (copy_to_user(u_ctrl_value, k_ctrl_value,
+					 k_isp_event->isp_data.ctrl.length)) {
+					rc = -EINVAL;
+					break;
+				}
+			}
+			/* Copy the event ctrl structure back into
+			 * user's structure. */
+			if (copy_to_user(user_ptr, (void *)&u_isp_event,
+					 sizeof(struct msm_isp_event_ctrl))) {
 				rc = -EINVAL;
 				break;
 			}
 		}
-		k_isp_event->isp_data.ctrl.value = u_ctrl_value;
 
+		/* Copy the v4l2_event structure back to the user*/
 		if (copy_to_user((void __user *)arg, &ev,
 				sizeof(struct v4l2_event))) {
 			rc = -EINVAL;
 			break;
 		}
 		}
-
 		break;
 
 	case MSM_CAM_IOCTL_CTRL_CMD_DONE:
@@ -1900,46 +1939,77 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 		break;
 
 	case VIDIOC_DQEVENT: {
-		void __user *u_msg_value = NULL;
-		struct msm_isp_stats_event_ctrl *u_isp_event;
-		struct msm_isp_stats_event_ctrl *k_isp_event;
+		void __user *u_msg_value = NULL, *user_ptr = NULL;
+		struct msm_isp_event_ctrl u_isp_event;
+		struct msm_isp_event_ctrl *k_isp_event;
 
-		/* Make a copy of control value and event data pointer */
+		/* First, copy the v4l2 event structure from userspace */
 		D("%s: VIDIOC_DQEVENT\n", __func__);
 		if (copy_from_user(&ev, (void __user *)arg,
 				sizeof(struct v4l2_event)))
 			break;
-		u_isp_event =
-			(struct msm_isp_stats_event_ctrl *)ev.u.data;
-		u_msg_value = u_isp_event->isp_data.isp_msg.data;
+		/* Next, get the pointer to event_ctrl structure
+		 * embedded inside the v4l2_event.u.data array. */
+		user_ptr = (void __user *)(*((uint32_t *)ev.u.data));
 
+		/* Next, copy the userspace event ctrl structure */
+		if (copy_from_user((void *)&u_isp_event, user_ptr,
+				   sizeof(struct msm_isp_event_ctrl))) {
+			break;
+		}
+		/* Save the pointer of the user allocated command buffer*/
+		u_msg_value = u_isp_event.isp_data.isp_msg.data;
+
+		/* Dequeue the event queued into the v4l2 queue*/
 		rc = v4l2_event_dequeue(
-		&config_cam->config_stat_event_queue.eventHandle,
-			 &ev, fp->f_flags & O_NONBLOCK);
+			&config_cam->config_stat_event_queue.eventHandle,
+			&ev, fp->f_flags & O_NONBLOCK);
 		if (rc < 0) {
 			pr_err("no pending events?");
 			break;
 		}
+		/* Use k_isp_event to point to the event_ctrl structure
+		 * embedded inside v4l2_event.u.data */
+		k_isp_event = (struct msm_isp_event_ctrl *)
+				(*((uint32_t *)ev.u.data));
+		/* Copy the event structure into user struct. */
+		u_isp_event = *k_isp_event;
+
 		if (ev.type != (V4L2_EVENT_PRIVATE_START +
 				MSM_CAM_RESP_DIV_FRAME_EVT_MSG) &&
 				ev.type != (V4L2_EVENT_PRIVATE_START +
 				MSM_CAM_RESP_MCTL_PP_EVENT)) {
-			k_isp_event =
-			(struct msm_isp_stats_event_ctrl *)ev.u.data;
+
+			/* Restore the saved pointer of the
+			 * user allocated command buffer. */
+			u_isp_event.isp_data.isp_msg.data = u_msg_value;
+
 			if (ev.type == (V4L2_EVENT_PRIVATE_START +
-				MSM_CAM_RESP_STAT_EVT_MSG) &&
-				k_isp_event->isp_data.isp_msg.len > 0) {
-				void *k_msg_value =
+					MSM_CAM_RESP_STAT_EVT_MSG)) {
+				if (k_isp_event->isp_data.isp_msg.len > 0) {
+					void *k_msg_value =
 					k_isp_event->isp_data.isp_msg.data;
-				if (copy_to_user(u_msg_value, k_msg_value,
-					k_isp_event->isp_data.isp_msg.len)) {
-					rc = -EINVAL;
-					break;
+					if (copy_to_user(u_msg_value,
+							k_msg_value,
+					 k_isp_event->isp_data.isp_msg.len)) {
+						rc = -EINVAL;
+						break;
+					}
+					kfree(k_msg_value);
 				}
-				kfree(k_msg_value);
 			}
-			k_isp_event->isp_data.isp_msg.data = u_msg_value;
 		}
+		/* Copy the event ctrl structure back
+		 * into user's structure. */
+		if (copy_to_user(user_ptr,
+				(void *)&u_isp_event, sizeof(
+				struct msm_isp_event_ctrl))) {
+			rc = -EINVAL;
+			break;
+		}
+		kfree(k_isp_event);
+
+		/* Copy the v4l2_event structure back to the user*/
 		if (copy_to_user((void __user *)arg, &ev,
 				sizeof(struct v4l2_event))) {
 			rc = -EINVAL;

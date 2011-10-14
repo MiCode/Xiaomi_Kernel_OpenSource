@@ -239,11 +239,26 @@ struct msm_cam_evt_divert_frame {
 	uint32_t       vb;
 };
 
-struct msm_isp_stats_event_ctrl {
+struct msm_mctl_pp_cmd_ack_event {
+	uint32_t cmd;        /* VPE_CMD_ZOOM? */
+	int      status;     /* 0 done, < 0 err */
+	uint32_t cookie;     /* daemon's cookie */
+};
+
+struct msm_mctl_pp_event_info {
+	int32_t  event;
+	union {
+		struct msm_mctl_pp_cmd_ack_event ack;
+	};
+};
+
+struct msm_isp_event_ctrl {
 	unsigned short resptype;
 	union {
 		struct msm_cam_evt_msg isp_msg;
 		struct msm_ctrl_cmd ctrl;
+		struct msm_cam_evt_divert_frame div_frame;
+		struct msm_mctl_pp_event_info pp_event_info;
 	} isp_data;
 };
 
