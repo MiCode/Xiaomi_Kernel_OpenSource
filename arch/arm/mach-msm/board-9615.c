@@ -39,6 +39,16 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_tsens,
 	&msm_device_nand,
 	&msm_rpm_device,
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+		&qcrypto_device,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+	&qcedev_device,
+#endif
 };
 
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
@@ -195,6 +205,117 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 		},
 	},
 };
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+#define QCE_SIZE		0x10000
+#define QCE_0_BASE		0x18500000
+
+#define QCE_HW_KEY_SUPPORT	0
+#define QCE_SHA_HMAC_SUPPORT	1
+#define QCE_SHARE_CE_RESOURCE	1
+#define QCE_CE_SHARED		0
+
+static struct resource qcrypto_resources[] = {
+	[0] = {
+		.start = QCE_0_BASE,
+		.end = QCE_0_BASE + QCE_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "crypto_channels",
+		.start = DMOV_CE_IN_CHAN,
+		.end = DMOV_CE_OUT_CHAN,
+		.flags = IORESOURCE_DMA,
+	},
+	[2] = {
+		.name = "crypto_crci_in",
+		.start = DMOV_CE_IN_CRCI,
+		.end = DMOV_CE_IN_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+	[3] = {
+		.name = "crypto_crci_out",
+		.start = DMOV_CE_OUT_CRCI,
+		.end = DMOV_CE_OUT_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+static struct resource qcedev_resources[] = {
+	[0] = {
+		.start = QCE_0_BASE,
+		.end = QCE_0_BASE + QCE_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "crypto_channels",
+		.start = DMOV_CE_IN_CHAN,
+		.end = DMOV_CE_OUT_CHAN,
+		.flags = IORESOURCE_DMA,
+	},
+	[2] = {
+		.name = "crypto_crci_in",
+		.start = DMOV_CE_IN_CRCI,
+		.end = DMOV_CE_IN_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+	[3] = {
+		.name = "crypto_crci_out",
+		.start = DMOV_CE_OUT_CRCI,
+		.end = DMOV_CE_OUT_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+
+static struct msm_ce_hw_support qcrypto_ce_hw_suppport = {
+	.ce_shared = QCE_CE_SHARED,
+	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
+	.hw_key_support = QCE_HW_KEY_SUPPORT,
+	.sha_hmac = QCE_SHA_HMAC_SUPPORT,
+};
+
+static struct platform_device qcrypto_device = {
+	.name		= "qcrypto",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qcrypto_resources),
+	.resource	= qcrypto_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &qcrypto_ce_hw_suppport,
+	},
+};
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
+	.ce_shared = QCE_CE_SHARED,
+	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
+	.hw_key_support = QCE_HW_KEY_SUPPORT,
+	.sha_hmac = QCE_SHA_HMAC_SUPPORT,
+};
+
+static struct platform_device qcedev_device = {
+	.name		= "qce",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qcedev_resources),
+	.resource	= qcedev_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &qcedev_ce_hw_suppport,
+	},
+};
+#endif
 
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))

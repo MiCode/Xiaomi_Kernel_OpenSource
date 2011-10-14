@@ -1229,6 +1229,7 @@ static int qcedev_hash_final(struct qcedev_async_req *areq,
 		return qcedev_hmac_final(areq, handle);
 }
 
+#ifdef CONFIG_ANDROID_PMEM
 static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 						struct qcedev_handle *handle)
 {
@@ -1438,6 +1439,18 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 	return err;
 
 }
+#else
+static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
+						struct qcedev_handle *handle)
+{
+	return -EPERM;
+}
+static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
+						struct qcedev_handle *handle)
+{
+	return -EPERM;
+}
+#endif/*CONFIG_ANDROID_PMEM*/
 
 static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 				int *di, struct qcedev_handle *handle,
@@ -1837,7 +1850,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				podev))
 			return -EINVAL;
 
-		if (qcedev_areq.cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
+		if ((qcedev_areq.cipher_op_req.use_pmem) && (QCEDEV_USE_PMEM))
 			err = qcedev_pmem_ablk_cipher(&qcedev_areq, handle);
 		else
 			err = qcedev_vbuf_ablk_cipher(&qcedev_areq, handle);
@@ -2156,7 +2169,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.23");
+MODULE_VERSION("1.24");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);

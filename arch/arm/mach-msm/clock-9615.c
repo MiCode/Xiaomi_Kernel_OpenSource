@@ -1576,6 +1576,15 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 
+	CLK_LOOKUP("iface_clk",		ce1_p_clk.c,		"qce.0"),
+	CLK_LOOKUP("iface_clk",		ce1_p_clk.c,		"qcrypto.0"),
+	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qce.0"),
+	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qcrypto.0"),
+
+	/* TODO: Make this real when RPM's ready. */
+	CLK_DUMMY("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL, OFF),
+	CLK_DUMMY("mem_clk",		ebi1_adm_clk.c, "msm_dmov", OFF),
+
 };
 
 static void set_fsm_mode(void __iomem *mode_reg)

@@ -29,6 +29,7 @@
 #include <crypto/sha.h>
 #include <mach/dma.h>
 #include <mach/clk.h>
+#include <mach/socinfo.h>
 
 #include "qce.h"
 #include "qce40.h"
@@ -149,6 +150,12 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 			pce_dev->ce_dm.ce_block_size = 16;
 		}
 	}
+	/*
+	* This is a temporary change - until Data Mover changes its
+	* configuration from 16 byte crci to 64 byte crci.
+	*/
+	if (cpu_is_msm9615())
+		pce_dev->ce_dm.ce_block_size = 16;
 
 	dev_info(pce_dev->pdev,
 			"IO base 0x%x\n, ce_in channel %d     , "
@@ -161,6 +168,23 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	return 0;
 };
 
+#ifdef CONFIG_ARCH_MSM9615
+static void config_ce_engine(struct qce_device *pce_dev)
+{
+	unsigned int val = 0;
+
+	val = (1 << CRYPTO_MASK_DOUT_INTR) | (1 << CRYPTO_MASK_DIN_INTR) |
+			(1 << CRYPTO_MASK_OP_DONE_INTR) |
+				(1 << CRYPTO_MASK_ERR_INTR);
+
+	writel_relaxed(val, pce_dev->iobase + CRYPTO_CONFIG_REG);
+}
+#else
+static void config_ce_engine(struct qce_device *pce_dev)
+{
+
+}
+#endif
 
 static void _check_probe_done_call_back(struct msm_dmov_cmd *cmd_ptr,
 		unsigned int result, struct msm_dmov_errdata *err)
@@ -184,6 +208,22 @@ static int _init_ce_engine(struct qce_device *pce_dev)
 	/* Reset ce */
 	clk_reset(pce_dev->ce_core_clk, CLK_RESET_ASSERT);
 	clk_reset(pce_dev->ce_core_clk, CLK_RESET_DEASSERT);
+
+	/*
+	* Ensure previous instruction (any writes to CLK registers)
+	* to toggle the CLK reset lines was completed before configuring
+	* ce engine. The ce engine configuration settings should not be lost
+	* becasue of clk reset.
+	*/
+	mb();
+
+	/* Configure the CE Engine */
+	config_ce_engine(pce_dev);
+
+	/*
+	* Ensure ce configuration is completed.
+	*/
+	mb();
 
 	pce_dev->ce_dm.chan_ce_in_cmd->complete_func =
 				_check_probe_done_call_back;
@@ -2529,4 +2569,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.11");
+MODULE_VERSION("2.12");
