@@ -276,17 +276,18 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	} else {
 		hdmi_msm_state->hpd_cable_chg_detected = FALSE;
 		mutex_unlock(&hdmi_msm_state_mutex);
+		/* QDSP OFF preceding the HPD event notification */
+		envp[0] = "HDCP_STATE=FAIL";
+		envp[1] = NULL;
+		DEV_INFO("HDMI HPD: QDSP OFF\n");
+		kobject_uevent_env(external_common_state->uevent_kobj,
+				   KOBJ_CHANGE, envp);
 		if (hpd_state) {
 			hdmi_msm_read_edid();
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 			hdmi_msm_state->reauth = FALSE ;
 #endif
 			/* Build EDID table */
-			envp[0] = "HDCP_STATE=FAIL";
-			envp[1] = NULL;
-			DEV_INFO("HDMI HPD: QDSP OFF\n");
-			kobject_uevent_env(external_common_state->uevent_kobj,
-				KOBJ_CHANGE, envp);
 			hdmi_msm_turn_on();
 			DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
 			kobject_uevent(external_common_state->uevent_kobj,
@@ -3351,7 +3352,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	hdmi_msm_hpd_off();
 	hdmi_msm_powerdown_phy();
 	hdmi_msm_dump_regs("HDMI-OFF: ");
-	hdmi_msm_hpd_on(false);
+	hdmi_msm_hpd_on(true);
 
 	mutex_lock(&external_common_state_hpd_mutex);
 	if (!external_common_state->hpd_feature_on)
