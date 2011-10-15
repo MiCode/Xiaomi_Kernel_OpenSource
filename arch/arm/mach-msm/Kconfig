@@ -172,6 +172,7 @@ config ARCH_MSM9615
 	select MSM_GPIOMUX
 	select MSM_RPM
 	select MSM_SPM_V2
+	select MSM_NATIVE_RESTART
 endmenu
 
 choice

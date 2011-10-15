@@ -33,11 +33,12 @@
 #include <mach/irqs.h>
 #include <mach/scm.h>
 #include "msm_watchdog.h"
+#include "timer.h"
 
-#define WDT0_RST       (MSM_TMR0_BASE + 0x38)
-#define WDT0_EN        (MSM_TMR0_BASE + 0x40)
-#define WDT0_BARK_TIME (MSM_TMR0_BASE + 0x4C)
-#define WDT0_BITE_TIME (MSM_TMR0_BASE + 0x5C)
+#define WDT0_RST	0x38
+#define WDT0_EN		0x40
+#define WDT0_BARK_TIME	0x4C
+#define WDT0_BITE_TIME	0x5C
 
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
@@ -50,6 +51,7 @@ static int restart_mode;
 void *restart_reason;
 
 int pmic_reset_irq;
+static void __iomem *msm_tmr0_base;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 static int in_panic;
@@ -218,7 +220,7 @@ void arch_reset(char mode, const char *cmd)
 		}
 	}
 
-	__raw_writel(0, WDT0_EN);
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
 	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
 		mb();
 		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
@@ -226,10 +228,10 @@ void arch_reset(char mode, const char *cmd)
 		pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
 	}
 
-	__raw_writel(1, WDT0_RST);
-	__raw_writel(5*0x31F3, WDT0_BARK_TIME);
-	__raw_writel(0x31F3, WDT0_BITE_TIME);
-	__raw_writel(1, WDT0_EN);
+	__raw_writel(1, msm_tmr0_base + WDT0_RST);
+	__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
+	__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
+	__raw_writel(1, msm_tmr0_base + WDT0_EN);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
@@ -246,6 +248,7 @@ static int __init msm_restart_init(void)
 	/* Reset detection is switched on below.*/
 	set_dload_mode(1);
 #endif
+	msm_tmr0_base = msm_timer_get_timer0_base();
 	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
 	pm_power_off = msm_power_off;
 
