@@ -1442,6 +1442,10 @@ static int mdp_probe(struct platform_device *pdev)
 		}
 
 #endif
+		if (mdp_rev >= MDP_REV_40)
+			mfd->cursor_update = mdp_hw_cursor_sync_update;
+		else
+			mfd->cursor_update = mdp_hw_cursor_update;
 		break;
 
 	case MIPI_CMD_PANEL:
