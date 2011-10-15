@@ -20,6 +20,8 @@
 #include <linux/mutex.h>
 #include <linux/memblock.h>
 
+#include <mach/socinfo.h>
+
 #include <asm/uaccess.h>
 #include <asm/setup.h>
 
@@ -231,6 +233,10 @@ void *pil_get(const char *name)
 	struct pil_device *pil;
 	struct pil_device *pil_d;
 	void *retval;
+
+	/* PIL is not yet supported on 8064. */
+	if (cpu_is_apq8064())
+		return NULL;
 
 	pil = retval = find_peripheral(name);
 	if (!pil)
