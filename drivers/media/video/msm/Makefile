@@ -44,3 +44,4 @@ obj-$(CONFIG_OV5640) += ov5640.o
 obj-$(CONFIG_MT9D112) += mt9d112.o mt9d112_reg.o
 
 obj-$(CONFIG_MT9D113) += mt9d113.o mt9d113_reg.o
+obj-$(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL) += wfd/
