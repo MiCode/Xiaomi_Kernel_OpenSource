@@ -9,6 +9,7 @@
 #define MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED_RESET 2
 #define MSM_IDLE_STATS_EVENT_COLLECTION_NEARLY_FULL   4
 #define MSM_IDLE_STATS_EVENT_COLLECTION_FULL          8
+#define MSM_IDLE_STATS_EVENT_IDLE_TIMER_EXPIRED      16
 
 /*
  * All time, timer, and time interval values are in units of
