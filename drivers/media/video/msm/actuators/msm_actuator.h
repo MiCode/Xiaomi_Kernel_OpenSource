@@ -52,7 +52,7 @@ struct msm_actuator_func_tbl {
 	int (*actuator_power_down) (struct msm_actuator_ctrl_t *);
 	int32_t (*actuator_config)(void __user *);
 	int32_t (*actuator_i2c_write)(struct msm_actuator_ctrl_t *,
-			int16_t);
+			int16_t, void *);
 	int32_t (*actuator_write_focus)(struct msm_actuator_ctrl_t *,
 			uint16_t,
 			struct damping_params_t *,

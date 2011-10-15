@@ -53,7 +53,7 @@ static struct damping_t g_damping_params[] = {
 };
 
 static int32_t imx074_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
-	int16_t next_lens_position)
+	int16_t next_lens_position, void *params)
 {
 	msm_camera_i2c_write(&a_ctrl->i2c_client,
 			     0x00,
@@ -86,7 +86,7 @@ int32_t imx074_act_write_focus(
 	      __func__,
 	      dac_value);
 
-	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, dac_value);
+	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, dac_value, NULL);
 
 	return rc;
 }
@@ -122,8 +122,8 @@ static int32_t imx074_act_init_focus(struct msm_actuator_ctrl_t *a_ctrl)
 		0x4F,
 		MSM_CAMERA_I2C_BYTE_DATA);
 
-	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F);
-	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F);
+	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F, NULL);
+	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F, NULL);
 	a_ctrl->curr_step_pos = 0;
 	return rc;
 }
