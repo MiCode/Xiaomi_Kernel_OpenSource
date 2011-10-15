@@ -556,8 +556,17 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		outpdw(MDP_DMA_P_HIST_INTR_CLEAR, isr);
 		mb();
 		isr &= mask;
-		if (isr & INTR_HIST_DONE)
-			complete(&mdp_hist_comp);
+		if (isr & INTR_HIST_DONE) {
+			if (waitqueue_active(&(mdp_hist_comp.wait))) {
+				complete(&mdp_hist_comp);
+			} else {
+				if (mdp_is_hist_start == TRUE) {
+					MDP_OUTP(MDP_BASE + 0x95004,
+							mdp_hist_frame_cnt);
+					MDP_OUTP(MDP_BASE + 0x95000, 1);
+				}
+			}
+		}
 	}
 
 out:
