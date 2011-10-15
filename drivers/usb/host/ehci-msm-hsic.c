@@ -30,7 +30,8 @@
 #include <linux/regulator/consumer.h>
 
 #include <linux/usb/msm_hsusb_hw.h>
-
+#include <linux/usb/msm_hsusb.h>
+#include <linux/gpio.h>
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
 
@@ -144,6 +145,44 @@ static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 	return 0;
 }
 
+static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
+{
+	int rc = 0;
+	struct msm_hsic_host_platform_data *pdata;
+
+	pdata = mehci->dev->platform_data;
+	/*
+	 * In future versions, dedicated lines might be used for HSIC
+	 * strobe and data instead of gpios. Hence returning zero value.
+	 */
+	if (!pdata->strobe || !pdata->data)
+		return rc;
+
+	if (!gpio_en)
+		goto free_gpio;
+
+	rc = gpio_request(pdata->strobe, "HSIC_STROBE_GPIO");
+	if (rc < 0) {
+		dev_err(mehci->dev, "gpio request failed for HSIC STROBE\n");
+		return rc;
+	}
+
+	rc = gpio_request(pdata->data, "HSIC_DATA_GPIO");
+	if (rc < 0) {
+		dev_err(mehci->dev, "gpio request failed for HSIC DATA\n");
+		goto free_strobe;
+		}
+
+	return 0;
+
+free_gpio:
+	gpio_free(pdata->data);
+free_strobe:
+	gpio_free(pdata->strobe);
+
+	return rc;
+}
+
 static int msm_hsic_phy_clk_reset(struct msm_hsic_hcd *mehci)
 {
 	int ret;
@@ -186,6 +225,12 @@ static int msm_hsic_phy_reset(struct msm_hsic_hcd *mehci)
 	return 0;
 }
 
+#define HSIC_GPIO150_PAD_CTL   (MSM_TLMM_BASE+0x20C0)
+#define HSIC_GPIO151_PAD_CTL   (MSM_TLMM_BASE+0x20C4)
+#define HSIC_CAL_PAD_CTL       (MSM_TLMM_BASE+0x20C8)
+#define HSIC_LV_MODE		0x04
+#define HSIC_PAD_CALIBRATION	0xA8
+#define HSIC_GPIO_PAD_VAL	0x0A0AAA10
 #define LINK_RESET_TIMEOUT_USEC		(250 * 1000)
 static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 {
@@ -216,10 +261,28 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 	msleep(100);
 
 	/* HSIC PHY Initialization */
+	/* Enable LV_MODE in HSIC_CAL_PAD_CTL register */
+	writel_relaxed(HSIC_LV_MODE, HSIC_CAL_PAD_CTL);
+
 	/*set periodic calibration interval to ~2.048sec in HSIC_IO_CAL_REG */
 	ulpi_write(mehci, 0xFF, 0x33);
-	/*enable periodic IO calibration,HSIC host mode in HSIC_CFG register*/
-	ulpi_write(mehci, 0xA9, 0x30);
+
+	/* Enable periodic IO calibration in HSIC_CFG register */
+	ulpi_write(mehci, HSIC_PAD_CALIBRATION, 0x30);
+
+	/* Configure GPIO 150/151 pins for HSIC functionality mode */
+	ret = msm_hsic_config_gpios(mehci, 1);
+	if (ret) {
+		dev_err(mehci->dev, " gpio configuarion failed\n");
+		return ret;
+	}
+
+	/* Set LV_MODE=0x1 and DCC=0x2 in HSIC_GPIO150/151_PAD_CTL register */
+	writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO150_PAD_CTL);
+	writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO151_PAD_CTL);
+
+	/* Enable HSIC mode in HSIC_CFG register */
+	ulpi_write(mehci, 0x01, 0x31);
 
 	return 0;
 }
@@ -256,6 +319,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 
 	if (cnt >= PHY_SUSPEND_TIMEOUT_USEC) {
 		dev_err(mehci->dev, "Unable to suspend PHY\n");
+		msm_hsic_config_gpios(mehci, 0);
 		msm_hsic_reset(mehci);
 		enable_irq(hcd->irq);
 		return -ETIMEDOUT;
@@ -333,6 +397,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		 * PHY to make hsic working.
 		 */
 		dev_err(mehci->dev, "Unable to resume USB. Reset the hsic\n");
+		msm_hsic_config_gpios(mehci, 0);
 		msm_hsic_reset(mehci);
 	}
 
@@ -593,7 +658,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to register HCD\n");
-		goto deinit_vddcx;
+		goto unconfig_gpio;
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
@@ -609,6 +674,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
+unconfig_gpio:
+	msm_hsic_config_gpios(mehci, 0);
 deinit_vddcx:
 	msm_hsic_init_vddcx(mehci, 0);
 deinit_clocks:
@@ -631,6 +698,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
+	msm_hsic_config_gpios(mehci, 0);
 	msm_hsic_init_vddcx(mehci, 0);
 
 	msm_hsic_init_clocks(mehci, 0);
