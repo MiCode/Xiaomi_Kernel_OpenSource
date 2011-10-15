@@ -223,8 +223,11 @@ static int dtv_probe(struct platform_device *pdev)
 	 * get/set panel specific fb info
 	 */
 	mfd->panel_info = pdata->panel_info;
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+	mfd->fb_imgType = MSMFB_DEFAULT_TYPE;
+#else
 	mfd->fb_imgType = MDP_RGB_565;
-
+#endif
 	fbi = mfd->fbi;
 	fbi->var.pixclock = mfd->panel_info.clk_rate;
 	fbi->var.left_margin = mfd->panel_info.lcdc.h_back_porch;

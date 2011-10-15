@@ -280,8 +280,11 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+	int hpd = 1;
+#else
 	int hpd = atoi(buf);
-
+#endif
 	if (external_common_state->hpd_feature) {
 		if (hpd == 0 && external_common_state->hpd_feature_on) {
 			external_common_state->hpd_feature(0);
@@ -1283,7 +1286,11 @@ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 	pinfo->pdest = DISPLAY_2;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+	pinfo->fb_num = 2;
+#else
 	pinfo->fb_num = 1;
+#endif
 
 	/* blk */
 	pinfo->lcdc.border_clr = 0;
