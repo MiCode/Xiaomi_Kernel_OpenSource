@@ -88,6 +88,7 @@ enum {
 #define MDP4_PANEL_ATV		BIT(3)
 #define MDP4_PANEL_DSI_VIDEO	BIT(4)
 #define MDP4_PANEL_DSI_CMD	BIT(5)
+#define MDP4_PANEL_WRITEBACK		BIT(6)
 
 enum {
 	OVERLAY_MODE_NONE,
@@ -325,6 +326,7 @@ struct mdp4_statistic {
 	ulong kickoff_dtv;
 	ulong kickoff_atv;
 	ulong kickoff_dsi;
+	ulong kickoff_writeback;
 	ulong writeback;	/* blt */
 	ulong overlay_set[MDP4_MIXER_MAX];
 	ulong overlay_unset[MDP4_MIXER_MAX];
@@ -615,4 +617,25 @@ void mdp4_primary_vsync_dsi_video(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
 void mdp4_overlay_status_write(enum mdp4_overlay_status type, bool val);
 bool mdp4_overlay_status_read(enum mdp4_overlay_status type);
+
+int mdp4_overlay_writeback_on(struct platform_device *pdev);
+int mdp4_overlay_writeback_off(struct platform_device *pdev);
+void mdp4_writeback_overlay(struct msm_fb_data_type *mfd);
+void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
+		struct mdp4_overlay_pipe *pipe);
+void mdp4_writeback_dma_busy_wait(struct msm_fb_data_type *mfd);
+void mdp4_overlay1_done_writeback(struct mdp_dma_data *dma);
+
+int mdp4_writeback_register_buffer(struct fb_info *info,
+		struct msmfb_writeback_data *data);
+int mdp4_writeback_unregister_buffer(struct fb_info *info,
+		struct msmfb_writeback_data *data);
+int mdp4_writeback_dequeue_buffer(struct fb_info *info,
+		struct msmfb_data *data);
+int mdp4_writeback_queue_buffer(struct fb_info *info,
+		struct msmfb_data *data);
+void mdp4_writeback_dma_stop(struct msm_fb_data_type *mfd);
+int mdp4_writeback_init(struct fb_info *info);
+int mdp4_writeback_terminate(struct fb_info *info);
+
 #endif /* MDP_H */

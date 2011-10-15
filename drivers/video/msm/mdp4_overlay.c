@@ -1065,7 +1065,7 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 	/*
 	 * BLT only siupport at primary display
 	 */
-	if (pipe->mixer_num == MDP4_MIXER0 && pipe->blt_addr) {
+	if (pipe->blt_addr) {
 		int off, bpp;
 #ifdef BLT_RGB565
 		bpp = 2;  /* overlay ouput is RGB565 */
@@ -1076,21 +1076,42 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 		data <<= 16;
 		data |= pipe->src_width;
 		outpdw(overlay_base + 0x0008, data); /* ROI, height + width */
-		off = 0;
-		if (pipe->ov_cnt & 0x01)
-			off = pipe->src_height * pipe->src_width * bpp;
+		if (pipe->mixer_num == MDP4_MIXER0) {
+			off = 0;
+			if (pipe->ov_cnt & 0x01)
+				off = pipe->src_height * pipe->src_width * bpp;
 
-		outpdw(overlay_base + 0x000c, pipe->blt_addr + off);
-		/* overlay ouput is RGB888 */
-		outpdw(overlay_base + 0x0010, pipe->src_width * bpp);
-		outpdw(overlay_base + 0x001c, pipe->blt_addr + off);
-		/* MDDI - BLT + on demand */
-		outpdw(overlay_base + 0x0004, 0x08);
+			outpdw(overlay_base + 0x000c, pipe->blt_addr + off);
+			/* overlay ouput is RGB888 */
+			outpdw(overlay_base + 0x0010, pipe->src_width * bpp);
+			outpdw(overlay_base + 0x001c, pipe->blt_addr + off);
+			/* MDDI - BLT + on demand */
+			outpdw(overlay_base + 0x0004, 0x08);
 #ifdef BLT_RGB565
-		outpdw(overlay_base + 0x0014, 0x1); /* RGB565 */
+			outpdw(overlay_base + 0x0014, 0x1); /* RGB565 */
 #else
-		outpdw(overlay_base + 0x0014, 0x0); /* RGB888 */
+			outpdw(overlay_base + 0x0014, 0x0); /* RGB888 */
 #endif
+		} else {
+			if (ctrl->panel_mode & MDP4_PANEL_WRITEBACK) {
+				off = 0;
+				bpp = 2;
+				if (pipe->ov_cnt & 0x01)
+					off = pipe->src_height *
+							pipe->src_width * bpp;
+
+				outpdw(overlay_base + 0x000c,
+						pipe->blt_addr + off);
+				/* overlay ouput is RGB888 */
+				outpdw(overlay_base + 0x0010,
+						pipe->src_width * bpp);
+				outpdw(overlay_base + 0x001c,
+						pipe->blt_addr + off);
+				/* MDDI - BLT + on demand */
+				outpdw(overlay_base + 0x0004, 0x08);
+				outpdw(overlay_base + 0x0014, 0x1); /* RGB565 */
+			}
+		}
 	} else {
 		data = pipe->src_height;
 		data <<= 16;
@@ -2450,6 +2471,12 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 #endif
 		else if (ctrl->panel_mode & MDP4_PANEL_ATV)
 			mdp4_overlay_reg_flush(pipe, 1);
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+		else if (ctrl->panel_mode & MDP4_PANEL_WRITEBACK) {
+			mdp4_writeback_dma_busy_wait(mfd);
+			mdp4_writeback_kickoff_video(mfd, pipe);
+		}
+#endif
 	} else {
 		/* primary interface */
 		ctrl->mixer0_played++;

@@ -35,7 +35,10 @@
 #include <linux/hrtimer.h>
 
 #include <linux/fb.h>
+#include <linux/list.h>
+#include <linux/types.h>
 
+#include <linux/msm_mdp.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -52,6 +55,17 @@ struct disp_info_type_suspend {
 	boolean sw_refreshing_enable;
 	boolean panel_power_on;
 };
+
+struct msmfb_writeback_data_list {
+	struct list_head registered_entry;
+	struct list_head active_entry;
+	void *addr;
+	struct file *pmem_file;
+	struct msmfb_data buf_info;
+	struct msmfb_img img;
+	int state;
+};
+
 
 struct msm_fb_data_type {
 	__u32 key;
@@ -151,6 +165,13 @@ struct msm_fb_data_type {
 	struct completion msmfb_update_notify;
 	struct completion msmfb_no_update_notify;
 	u32 ov_start, ov_end;
+
+	struct mutex writeback_mutex;
+	struct mutex unregister_mutex;
+	struct list_head writeback_busy_queue;
+	struct list_head writeback_free_queue;
+	struct list_head writeback_register_queue;
+	wait_queue_head_t		wait_q;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);
@@ -159,7 +180,17 @@ void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
 void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl);
 
 struct platform_device *msm_fb_add_device(struct platform_device *pdev);
-
+struct fb_info *msm_fb_get_writeback_fb(void);
+int msm_fb_writeback_init(struct fb_info *info);
+int msm_fb_writeback_register_buffer(struct fb_info *info,
+		struct msmfb_writeback_data *data);
+int msm_fb_writeback_queue_buffer(struct fb_info *info,
+		struct msmfb_data *data);
+int msm_fb_writeback_dequeue_buffer(struct fb_info *info,
+		struct msmfb_data *data);
+int msm_fb_writeback_unregister_buffer(struct fb_info *info,
+		struct msmfb_writeback_data *data);
+int msm_fb_writeback_terminate(struct fb_info *info);
 int msm_fb_detect_client(const char *name);
 
 #ifdef CONFIG_FB_BACKLIGHT

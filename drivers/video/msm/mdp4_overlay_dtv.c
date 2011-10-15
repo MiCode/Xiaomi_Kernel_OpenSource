@@ -299,6 +299,10 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	 * rgb2 dis-engaged
 	*/
 	msleep(20);
+	if (dtv_pipe) {
+		mdp4_overlay_pipe_free(dtv_pipe);
+		dtv_pipe = NULL;
+	}
 
 	return ret;
 }

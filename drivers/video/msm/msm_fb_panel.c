@@ -114,6 +114,9 @@ struct platform_device *msm_fb_device_alloc(struct msm_fb_panel_data *pdata,
 	case MIPI_CMD_PANEL:
 		snprintf(dev_name, sizeof(dev_name), "mipi_dsi");
 		break;
+	case WRITEBACK_PANEL:
+		snprintf(dev_name, sizeof(dev_name), "writeback");
+		break;
 
 	default:
 		return NULL;

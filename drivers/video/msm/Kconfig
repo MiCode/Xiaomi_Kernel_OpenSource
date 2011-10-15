@@ -301,6 +301,11 @@ config FB_MSM_OVERLAY_WRITEBACK
 	---help---
 	  Support for MDP4 OVERLAY write back mode
 
+config FB_MSM_WRITEBACK_MSM_PANEL
+	depends on FB_MSM_OVERLAY
+        bool "MDP overlay write back panel enable"
+	---help---
+	  Support for MDP4 OVERLAY write back mode
 choice
 	prompt "LCD Panel"
 	default FB_MSM_MDDI_AUTO_DETECT

@@ -1550,6 +1550,15 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 		break;
 
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+	case WRITEBACK_PANEL:
+		pdata->on = mdp4_overlay_writeback_on;
+		pdata->off = mdp4_overlay_writeback_off;
+		mfd->dma_fnc = mdp4_writeback_overlay;
+		mfd->dma = &dma_e_data;
+		mdp4_display_intf_sel(EXTERNAL_INTF_SEL, DTV_INTF);
+		break;
+#endif
 	default:
 		printk(KERN_ERR "mdp_probe: unknown device type!\n");
 		rc = -ENODEV;

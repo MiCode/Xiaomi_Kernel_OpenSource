@@ -465,6 +465,10 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		if (panel & MDP4_PANEL_ATV)
 			mdp4_overlay1_done_atv();
 #endif
+#if defined(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL)
+		if (panel & MDP4_PANEL_WRITEBACK)
+			mdp4_overlay1_done_writeback(dma);
+#endif
 	}
 #endif	/* OVERLAY */
 
