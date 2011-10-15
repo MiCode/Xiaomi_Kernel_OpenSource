@@ -37,6 +37,7 @@
 #define ULPI_RUN              (1 << 30)
 #define ULPI_WRITE            (1 << 29)
 #define ULPI_READ             (0 << 29)
+#define ULPI_SYNC_STATE       (1 << 27)
 #define ULPI_ADDR(n)          (((n) & 255) << 16)
 #define ULPI_DATA(n)          ((n) & 255)
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)

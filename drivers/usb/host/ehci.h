@@ -798,6 +798,12 @@ static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
 struct ehci_driver_overrides {
 	size_t		extra_priv_size;
 	int		(*reset)(struct usb_hcd *hcd);
+	irqreturn_t	(*irq) (struct usb_hcd *hcd);
+	int	(*urb_enqueue)(struct usb_hcd *hcd,
+				struct urb *urb, gfp_t mem_flags);
+	int	(*bus_suspend)(struct usb_hcd *);
+	int	(*bus_resume)(struct usb_hcd *);
+	.log_urb_complete	= dbg_log_event,
 };
 
 extern void	ehci_init_driver(struct hc_driver *drv,
