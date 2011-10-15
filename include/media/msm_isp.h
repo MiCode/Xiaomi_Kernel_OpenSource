@@ -156,7 +156,7 @@
 #define VFE_CMD_DEMOSAICV3_DBCC_UPDATE                  110
 #define VFE_CMD_DEMOSAICV3_DBPC_UPDATE                  111
 #define VFE_CMD_XBAR_CFG                                112
-#define VFE_CMD_EZTUNE_CFG                              113
+#define VFE_CMD_MODULE_CFG                              113
 #define VFE_CMD_ZSL                                     114
 #define VFE_CMD_LINEARIZATION_UPDATE                    115
 #define VFE_CMD_DEMOSAICV3_ABF_UPDATE                   116
