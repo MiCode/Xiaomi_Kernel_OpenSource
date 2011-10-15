@@ -91,6 +91,11 @@ struct msm_free_buf {
 	uint32_t vb;
 };
 
+struct isp_msg_event {
+	uint32_t msg_id;
+	uint32_t sof_count;
+};
+
 struct isp_msg_output {
 	uint8_t   output_id;
 	struct msm_free_buf buf;

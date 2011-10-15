@@ -172,9 +172,13 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	isp_event->isp_data.isp_msg.len = 0;
 
 	switch (notification) {
-	case NOTIFY_ISP_MSG_EVT:
-		isp_event->isp_data.isp_msg.msg_id = (uint32_t)arg;
+	case NOTIFY_ISP_MSG_EVT: {
+		struct isp_msg_event *isp_msg = (struct isp_msg_event *)arg;
+
+		isp_event->isp_data.isp_msg.msg_id = isp_msg->msg_id;
+		isp_event->isp_data.isp_msg.frame_id = isp_msg->sof_count;
 		break;
+	}
 	case NOTIFY_VFE_MSG_OUT: {
 		uint8_t msgid;
 		struct isp_msg_output *isp_output =
@@ -202,6 +206,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		if (!rc) {
 			isp_event->isp_data.isp_msg.msg_id =
 				isp_output->output_id;
+			isp_event->isp_data.isp_msg.frame_id =
+				isp_output->frameCounter;
 			buf = isp_output->buf;
 			msm_mctl_buf_done(pmctl, msgid,
 				&buf, isp_output->frameCounter);
@@ -213,6 +219,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		struct isp_msg_stats *isp_stats = (struct isp_msg_stats *)arg;
 
 		isp_event->isp_data.isp_msg.msg_id = isp_stats->id;
+		isp_event->isp_data.isp_msg.frame_id =
+			isp_stats->frameCounter;
 		stats.buffer = msm_pmem_stats_ptov_lookup(&pmctl->sync,
 						isp_stats->buffer,
 						&(stats.fd));

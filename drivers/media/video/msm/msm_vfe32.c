@@ -1121,6 +1121,19 @@ static void vfe32_write_linear_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
 
+static void vfe32_send_isp_msg(
+	struct vfe32_ctrl_type *vctrl,
+	uint32_t isp_msg_id)
+{
+	struct isp_msg_event isp_msg_evt;
+
+	isp_msg_evt.msg_id = isp_msg_id;
+	isp_msg_evt.sof_count = vfe32_ctrl->vfeFrameId;
+	v4l2_subdev_notify(vctrl->subdev,
+			NOTIFY_ISP_MSG_EVT,
+			(void *)&isp_msg_evt);
+}
+
 static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 {
 	int i , rc = 0;
@@ -2088,8 +2101,7 @@ static void vfe32_process_reg_update_irq(void)
 		CDBG("stop video triggered .\n");
 	}
 	if (vfe32_ctrl->start_ack_pending == TRUE) {
-		v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_ISP_MSG_EVT,
-			(void *)MSG_ID_START_ACK);
+		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_START_ACK);
 		vfe32_ctrl->start_ack_pending = FALSE;
 	} else {
 		if (vfe32_ctrl->recording_state ==
@@ -2102,9 +2114,7 @@ static void vfe32_process_reg_update_irq(void)
 			vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 		} else if (vfe32_ctrl->recording_state ==
 			VFE_REC_STATE_STOPPED) {
-			v4l2_subdev_notify(vfe32_ctrl->subdev,
-					NOTIFY_ISP_MSG_EVT,
-					(void *)MSG_ID_STOP_REC_ACK);
+			vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_STOP_REC_ACK);
 			vfe32_ctrl->recording_state = VFE_REC_STATE_IDLE;
 		}
 		spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
@@ -2112,9 +2122,7 @@ static void vfe32_process_reg_update_irq(void)
 			vfe32_ctrl->update_ack_pending = FALSE;
 			spin_unlock_irqrestore(
 				&vfe32_ctrl->update_ack_lock, flags);
-			v4l2_subdev_notify(vfe32_ctrl->subdev,
-					NOTIFY_ISP_MSG_EVT,
-					(void *)MSG_ID_UPDATE_ACK);
+			vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_UPDATE_ACK);
 		} else {
 			spin_unlock_irqrestore(
 				&vfe32_ctrl->update_ack_lock, flags);
@@ -2195,9 +2203,7 @@ static void vfe32_process_reset_irq(void)
 	if (vfe32_ctrl->stop_ack_pending) {
 		vfe32_ctrl->stop_ack_pending = FALSE;
 		spin_unlock_irqrestore(&vfe32_ctrl->stop_flag_lock, flags);
-		v4l2_subdev_notify(vfe32_ctrl->subdev,
-					NOTIFY_ISP_MSG_EVT,
-					(void *)MSG_ID_STOP_ACK);
+		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_STOP_ACK);
 	} else {
 		spin_unlock_irqrestore(&vfe32_ctrl->stop_flag_lock, flags);
 		/* this is from reset command. */
@@ -2205,9 +2211,7 @@ static void vfe32_process_reset_irq(void)
 
 		/* reload all write masters. (frame & line)*/
 		msm_io_w(0x7FFF, vfe32_ctrl->vfebase + VFE_BUS_CMD);
-		v4l2_subdev_notify(vfe32_ctrl->subdev,
-					NOTIFY_ISP_MSG_EVT,
-					(void *)MSG_ID_RESET_ACK);
+		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_RESET_ACK);
 	}
 }
 
@@ -2217,9 +2221,7 @@ static void vfe32_process_camif_sof_irq(void)
 	if (vfe32_ctrl->operation_mode ==
 		VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
 		if (vfe32_ctrl->start_ack_pending) {
-			v4l2_subdev_notify(vfe32_ctrl->subdev,
-					NOTIFY_ISP_MSG_EVT,
-					(void *)MSG_ID_START_ACK);
+			vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_START_ACK);
 			vfe32_ctrl->start_ack_pending = FALSE;
 		}
 		vfe32_ctrl->vfe_capture_count--;
@@ -2231,11 +2233,10 @@ static void vfe32_process_camif_sof_irq(void)
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 		}
 	} /* if raw snapshot mode. */
-
-	v4l2_subdev_notify(vfe32_ctrl->subdev,
-				NOTIFY_ISP_MSG_EVT,
-				(void *)MSG_ID_SOF_ACK);
 	vfe32_ctrl->vfeFrameId++;
+	if (vfe32_ctrl->vfeFrameId == 0)
+		vfe32_ctrl->vfeFrameId = 1; /* wrapped back */
+	vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_SOF_ACK);
 	CDBG("camif_sof_irq, frameId = %d\n", vfe32_ctrl->vfeFrameId);
 
 	if (vfe32_ctrl->sync_timer_state) {
@@ -2256,9 +2257,7 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 		temp = (uint32_t *)(vfe32_ctrl->vfebase + VFE_CAMIF_STATUS);
 		camifStatus = msm_io_r(temp);
 		pr_err("camifStatus  = 0x%x\n", camifStatus);
-		v4l2_subdev_notify(vfe32_ctrl->subdev,
-				NOTIFY_ISP_MSG_EVT,
-				(void *)MSG_ID_CAMIF_ERROR);
+		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_CAMIF_ERROR);
 	}
 
 	if (errStatus & VFE32_IMASK_BHIST_OVWR)
@@ -2881,9 +2880,8 @@ static void vfe32_do_tasklet(unsigned long data)
 						CAMIF_COMMAND_STOP_IMMEDIATELY,
 						vfe32_ctrl->vfebase +
 						VFE_CAMIF_COMMAND);
-					v4l2_subdev_notify(vfe32_ctrl->subdev,
-							NOTIFY_ISP_MSG_EVT,
-						(void *)MSG_ID_SNAPSHOT_DONE);
+					vfe32_send_isp_msg(vfe32_ctrl,
+						MSG_ID_SNAPSHOT_DONE);
 				}
 			}
 			/* then process stats irq. */
@@ -2930,22 +2928,19 @@ static void vfe32_do_tasklet(unsigned long data)
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER0) {
 					CDBG("SYNC_TIMER 0 irq occured.\n");
-					v4l2_subdev_notify(vfe32_ctrl->subdev,
-						NOTIFY_ISP_MSG_EVT, (void *)
+					vfe32_send_isp_msg(vfe32_ctrl,
 						MSG_ID_SYNC_TIMER0_DONE);
 				}
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER1) {
 					CDBG("SYNC_TIMER 1 irq occured.\n");
-					v4l2_subdev_notify(vfe32_ctrl->subdev,
-						NOTIFY_ISP_MSG_EVT, (void *)
+					vfe32_send_isp_msg(vfe32_ctrl,
 						MSG_ID_SYNC_TIMER1_DONE);
 				}
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER2) {
 					CDBG("SYNC_TIMER 2 irq occured.\n");
-					v4l2_subdev_notify(vfe32_ctrl->subdev,
-						NOTIFY_ISP_MSG_EVT, (void *)
+					vfe32_send_isp_msg(vfe32_ctrl,
 						MSG_ID_SYNC_TIMER2_DONE);
 				}
 			}
