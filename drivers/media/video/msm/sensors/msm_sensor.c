@@ -477,13 +477,13 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 
 		case CFG_SET_PICT_EXP_GAIN:
 			if (s_ctrl->func_tbl->
-			sensor_write_exp_gain == NULL) {
+			sensor_write_snapshot_exp_gain == NULL) {
 				rc = -EFAULT;
 				break;
 			}
 			rc =
 				s_ctrl->func_tbl->
-				sensor_write_exp_gain(
+				sensor_write_snapshot_exp_gain(
 					s_ctrl,
 					cdata.cfg.exp_gain.gain,
 					cdata.cfg.exp_gain.line);
