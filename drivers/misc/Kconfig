@@ -561,6 +561,14 @@ config TSIF_DEBUG
 	---help---
 	  This turns on debugging information for the tsif driver
 
+config TSPP
+	depends on ARCH_MSM
+	tristate "TSPP (Transport Stream Packet Processor) Support"
+	---help---
+	Transport Stream Packet Processor is used to offload the
+	processing of MPEG transport streams from the main processor.
+	This can also be compiled as a loadable module.
+
 config HAPTIC_ISA1200
 	tristate "ISA1200 haptic support"
 	depends on I2C

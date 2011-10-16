@@ -368,6 +368,7 @@ header-y += tiocl.h
 header-y += tipc.h
 header-y += tipc_config.h
 header-y += toshiba.h
+header-y += tspp.h
 header-y += tty.h
 header-y += types.h
 header-y += udf_fs_i.h
