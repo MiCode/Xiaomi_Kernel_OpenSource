@@ -5794,13 +5794,18 @@ static void __init msm8960_clock_init(void)
 	clk_set_rate(&usb_hsic_hsio_cal_clk.c, 9000000);
 
 	/*
-	 * The halt status bits for PDM and TSSC may be incorrect at boot.
+	 * The halt status bits for these clocks may be incorrect at boot.
 	 * Toggle these clocks on and off to refresh them.
 	 */
 	rcg_clk_enable(&pdm_clk.c);
 	rcg_clk_disable(&pdm_clk.c);
 	rcg_clk_enable(&tssc_clk.c);
 	rcg_clk_disable(&tssc_clk.c);
+	if (cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
+		clk_enable(&usb_hsic_hsic_clk.c);
+		clk_disable(&usb_hsic_hsic_clk.c);
+	}
 
 	if (machine_is_msm8960_sim()) {
 		clk_set_rate(&sdc1_clk.c, 48000000);
