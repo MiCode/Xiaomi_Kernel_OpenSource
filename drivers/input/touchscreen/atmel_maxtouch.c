@@ -1373,12 +1373,11 @@ static void mxt_worker(struct work_struct *work)
 	kfree(message);
 
 fail_worker:
-	enable_irq(mxt->irq);
 	/* Make sure we just didn't miss a interrupt. */
 	if (mxt->read_chg() == 0){
-		disable_irq(mxt->irq);
 		schedule_delayed_work(&mxt->dwork, 0);
-	}
+	} else
+		enable_irq(mxt->irq);
 }
 
 
