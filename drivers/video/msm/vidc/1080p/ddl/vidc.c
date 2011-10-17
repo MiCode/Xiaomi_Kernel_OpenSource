@@ -36,6 +36,8 @@
 #define VIDC_1080P_SI_RG7_DISPLAY_CROP_MASK      0x00000040
 #define VIDC_1080P_SI_RG7_DISPLAY_CROP_SHIFT     6
 
+#define VIDC_1080P_SI_RG7_DISPLAY_CORRECT_MASK    0x00000180
+#define VIDC_1080P_SI_RG7_DISPLAY_CORRECT_SHIFT   7
 #define VIDC_1080P_SI_RG8_DECODE_FRAMETYPE_MASK  0x00000007
 
 #define VIDC_1080P_SI_RG10_NUM_DPB_BMSK      0x00003fff
@@ -54,6 +56,8 @@
 #define VIDC_1080P_SI_RG11_DECODE_CROPP_MASK     0x00000100
 #define VIDC_1080P_SI_RG11_DECODE_CROPP_SHIFT    8
 
+#define VIDC_1080P_SI_RG11_DECODE_CORRECT_MASK    0x00000600
+#define VIDC_1080P_SI_RG11_DECODE_CORRECT_SHIFT   9
 #define VIDC_1080P_BASE_OFFSET_SHIFT         11
 
 
@@ -501,6 +505,9 @@ void vidc_1080p_get_display_frame_result(
 	dec_disp_info->disp_crop_exists = VIDC_GETFIELD(display_result,
 		VIDC_1080P_SI_RG7_DISPLAY_CROP_MASK,
 		VIDC_1080P_SI_RG7_DISPLAY_CROP_SHIFT);
+	dec_disp_info->display_correct = VIDC_GETFIELD(display_result,
+		VIDC_1080P_SI_RG7_DISPLAY_CORRECT_MASK,
+		VIDC_1080P_SI_RG7_DISPLAY_CORRECT_SHIFT);
 }
 
 void vidc_1080p_get_decode_frame(
@@ -535,6 +542,9 @@ void vidc_1080p_get_decode_frame_result(
 	dec_disp_info->dec_crop_exists = VIDC_GETFIELD(decode_result,
 		VIDC_1080P_SI_RG11_DECODE_CROPP_MASK,
 		VIDC_1080P_SI_RG11_DECODE_CROPP_SHIFT);
+	dec_disp_info->decode_correct = VIDC_GETFIELD(decode_result,
+		VIDC_1080P_SI_RG11_DECODE_CORRECT_MASK,
+		VIDC_1080P_SI_RG11_DECODE_CORRECT_SHIFT);
 }
 
 void vidc_1080p_decode_seq_start_ch0(

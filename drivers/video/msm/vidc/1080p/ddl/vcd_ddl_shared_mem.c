@@ -200,6 +200,10 @@
 #define VIDC_SM_CHROMA_ADDR_CHANGE_BMASK  0x00000001
 #define VIDC_SM_CHROMA_ADDR_CHANGE_SHFT   0
 
+#define VIDC_SM_SEI_ENABLE_ADDR                     0x0180
+#define VIDC_SM_SEI_ENABLE_RECOVERY_POINT_SEI_BMSK  0x00000001
+#define VIDC_SM_SEI_ENABLE_RECOVERY_POINT_SEI_SHFT  0
+
 #define DDL_MEM_WRITE_32(base, offset, val) ddl_mem_write_32(\
 	(u32 *) ((u8 *) (base)->align_virtual_addr + (offset)), (val))
 #define DDL_MEM_READ_32(base, offset) ddl_mem_read_32(\
@@ -702,4 +706,15 @@ void vidc_sm_set_mpeg4_profile_override(struct ddl_buf_addr *shared_mem,
 		}
 	}
 	DDL_MEM_WRITE_32(shared_mem, 0x15c, profile_enforce);
+}
+void vidc_sm_set_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
+	u32 sei_enable)
+{
+	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_SEI_ENABLE_ADDR, sei_enable);
+}
+
+void vidc_sm_get_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
+	u32 *sei_enable)
+{
+	*sei_enable = DDL_MEM_READ_32(shared_mem, VIDC_SM_SEI_ENABLE_ADDR);
 }

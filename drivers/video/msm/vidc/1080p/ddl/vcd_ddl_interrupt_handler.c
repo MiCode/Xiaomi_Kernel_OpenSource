@@ -1133,11 +1133,25 @@ static u32 ddl_decoder_output_done_callback(
 		vidc_sm_get_metadata_status(&ddl->shared_mem
 			[ddl->command_channel],
 			&decoder->meta_data_exists);
-		if (decoder->output_order == VCD_DEC_ORDER_DISPLAY)
+		if (decoder->output_order == VCD_DEC_ORDER_DISPLAY) {
 			vidc_sm_get_frame_tags(&ddl->shared_mem
 				[ddl->command_channel],
 				&dec_disp_info->tag_top,
 				&dec_disp_info->tag_bottom);
+			if (dec_disp_info->display_correct ==
+				VIDC_1080P_DECODE_NOT_CORRECT ||
+				dec_disp_info->display_correct ==
+				VIDC_1080P_DECODE_APPROX_CORRECT)
+				output_vcd_frm->flags |=
+					VCD_FRAME_FLAG_DATACORRUPT;
+		} else {
+			if (dec_disp_info->decode_correct ==
+				VIDC_1080P_DECODE_NOT_CORRECT ||
+				dec_disp_info->decode_correct ==
+				VIDC_1080P_DECODE_APPROX_CORRECT)
+				output_vcd_frm->flags |=
+					VCD_FRAME_FLAG_DATACORRUPT;
+		}
 		output_vcd_frm->ip_frm_tag = dec_disp_info->tag_top;
 		vidc_sm_get_picture_times(&ddl->shared_mem
 			[ddl->command_channel],
