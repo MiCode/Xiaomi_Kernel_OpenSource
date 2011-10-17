@@ -73,6 +73,14 @@ static struct msm_isp_color_fmt msm_isp_formats[] = {
 	.colorspace = V4L2_COLORSPACE_JPEG,
 	},
 	{
+	.name	   = "YU12BAYER",
+	.depth	  = 8,
+	.bitsperpxl = 8,
+	.fourcc	 = V4L2_PIX_FMT_YUV420M,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* Bayer sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
 	.name	   = "RAWBAYER",
 	.depth	  = 10,
 	.bitsperpxl = 10,

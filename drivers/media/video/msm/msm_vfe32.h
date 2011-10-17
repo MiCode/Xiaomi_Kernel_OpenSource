@@ -871,6 +871,7 @@ struct vfe32_frame_extra {
 #define VFE32_OUTPUT_MODE_V (0x1 << 2)
 #define VFE32_OUTPUT_MODE_P (0x1 << 3)
 #define VFE32_OUTPUT_MODE_T (0x1 << 4)
+#define VFE32_OUTPUT_MODE_P_ALL_CHNLS (0x1 << 5)
 
 struct vfe_stats_control {
 	uint8_t  ackPending;
