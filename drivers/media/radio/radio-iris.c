@@ -84,11 +84,13 @@ struct iris_device {
 	struct hci_fm_trans_conf_req_struct trans_conf;
 	struct hci_fm_rds_grp_req rds_grp;
 	unsigned char g_search_mode;
+	unsigned char power_mode;
 	int search_on;
 	unsigned int tone_freq;
 	unsigned char g_scan_time;
 	unsigned int g_antenna;
 	unsigned int g_rds_grp_proc_ps;
+	unsigned char event_mask;
 	enum iris_region_t region;
 	struct hci_fm_dbg_param_rsp st_dbg_param;
 	struct hci_ev_srch_list_compl srch_st_result;
@@ -763,6 +765,17 @@ static int hci_fm_set_sig_threshold_req(struct radio_hci_dev *hdev,
 		&sig_threshold);
 }
 
+static int hci_fm_set_event_mask(struct radio_hci_dev *hdev,
+		unsigned long param)
+{
+	u16 opcode = 0;
+	u8 event_mask = param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+		HCI_OCF_FM_SET_EVENT_MASK);
+	return radio_hci_send_cmd(hdev, opcode, sizeof(event_mask),
+		&event_mask);
+}
 static int hci_fm_get_sig_threshold_req(struct radio_hci_dev *hdev,
 		unsigned long param)
 {
@@ -1095,6 +1108,13 @@ static inline int radio_hci_request(struct radio_hci_dev *hdev,
 	return ret;
 }
 
+static inline int hci_conf_event_mask(__u8 *arg,
+		struct radio_hci_dev *hdev)
+{
+	u8 event_mask = *arg;
+	return  radio_hci_request(hdev, hci_fm_set_event_mask,
+				event_mask, RADIO_HCI_TIMEOUT);
+}
 static int hci_set_fm_recv_conf(struct hci_fm_recv_conf_req *arg,
 		struct radio_hci_dev *hdev)
 {
@@ -1778,8 +1798,10 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
 	case hci_diagnostic_cmd_op_pack(HCI_FM_SET_INTERNAL_TONE_GENRATOR):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_SET_CALIBRATION):
+	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_SET_EVENT_MASK):
 		hci_cc_rsp(hdev, skb);
 		break;
+
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_PEEK_REG):
 		hci_cc_ssbi_peek_rsp(hdev, skb);
 		break;
@@ -2156,6 +2178,43 @@ static int iris_search(struct iris_device *radio, int on, int dir)
 	return retval;
 }
 
+static int set_low_power_mode(struct iris_device *radio, int power_mode)
+{
+
+	int rds_grps_proc = 0x00;
+	int retval = 0;
+	if (radio->power_mode != power_mode) {
+
+		if (power_mode) {
+			radio->event_mask = 0x00;
+			rds_grps_proc = 0x00 | AF_JUMP_ENABLE ;
+			retval = hci_fm_rds_grps_process(
+				&rds_grps_proc,
+				radio->fm_hdev);
+			if (retval < 0) {
+				FMDERR("Disable RDS failed");
+				return retval;
+			}
+			retval = hci_conf_event_mask(&radio->event_mask,
+				radio->fm_hdev);
+		} else {
+
+			radio->event_mask = SIG_LEVEL_INTR |
+					RDS_SYNC_INTR | AUDIO_CTRL_INTR;
+			retval = hci_conf_event_mask(&radio->event_mask,
+				radio->fm_hdev);
+			if (retval < 0) {
+				FMDERR("Enable Async events failed");
+				return retval;
+			}
+			retval = hci_fm_rds_grps_process(
+				&radio->g_rds_grp_proc_ps,
+				radio->fm_hdev);
+		}
+		radio->power_mode = power_mode;
+	}
+	return retval;
+}
 static int iris_recv_set_region(struct iris_device *radio, int req_region)
 {
 	int retval;
@@ -2401,6 +2460,7 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		ctrl->value = radio->rds_grp.rds_buf_size;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_LP_MODE:
+		ctrl->value = radio->power_mode;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_ANTENNA:
 		ctrl->value = radio->g_antenna;
@@ -2770,6 +2830,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				radio->fm_hdev);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_LP_MODE:
+		set_low_power_mode(radio, ctrl->value);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_ANTENNA:
 		temp_val = ctrl->value;

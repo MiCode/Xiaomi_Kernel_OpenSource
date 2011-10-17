@@ -128,6 +128,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_RDS_GRP_PROCESS          0x0013
 #define HCI_OCF_FM_EN_WAN_AVD_CTRL          0x0014
 #define HCI_OCF_FM_EN_NOTCH_CTRL            0x0015
+#define HCI_OCF_FM_SET_EVENT_MASK           0x0016
 
 /* HCI trans control commans opcode*/
 #define HCI_OCF_FM_ENABLE_TRANS_REQ         0x0001
@@ -738,6 +739,12 @@ struct hci_cc_do_calibration_rsp {
 	__u8 mode;
 	__u8 data[MAX_CALIB_SIZE];
 } __packed;
+
+/* Low Power mode*/
+#define SIG_LEVEL_INTR  (1 << 0)
+#define RDS_SYNC_INTR   (1 << 1)
+#define AUDIO_CTRL_INTR (1 << 2)
+#define AF_JUMP_ENABLE  (1 << 4)
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
