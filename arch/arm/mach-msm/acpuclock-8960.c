@@ -71,6 +71,9 @@
 
 #define SECCLKAGD		BIT(4)
 
+/* PTE EFUSE register. */
+#define QFPROM_PTE_EFUSE_ADDR	(MSM_QFPROM_BASE + 0x00C0)
+
 enum scalables {
 	CPU0 = 0,
 	CPU1,
@@ -975,6 +978,30 @@ static struct acpu_level * __init select_freq_plan(void)
 
 	/* Select frequency tables. */
 	if (cpu_is_msm8960()) {
+		uint32_t pte_efuse, pvs;
+
+		pte_efuse = readl_relaxed(QFPROM_PTE_EFUSE_ADDR);
+		pvs = (pte_efuse >> 10) & 0x7;
+		if (pvs == 0x7)
+			pvs = (pte_efuse >> 13) & 0x7;
+
+		switch (pvs) {
+		case 0x0:
+		case 0x7:
+			pr_info("ACPU PVS: Slow\n");
+			break;
+		case 0x1:
+			pr_info("ACPU PVS: Nominal\n");
+			break;
+		case 0x3:
+			pr_info("ACPU PVS: Fast\n");
+			break;
+		default:
+			pr_warn("ACPU PVS: Unknown. Defaulting to slow.\n");
+			break;
+		}
+
+		/* TODO: Select tables based on PVS data. */
 		scalable = scalable_8960;
 		acpu_freq_tbl = acpu_freq_tbl_8960;
 		l2_freq_tbl = l2_freq_tbl_8960;
