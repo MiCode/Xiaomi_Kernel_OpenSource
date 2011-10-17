@@ -1159,7 +1159,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int cnt, len, diff, pkt_size;
+	int i , cnt, len, diff, pkt_size;
 	unsigned long flag;
 	char cmd;
 
@@ -1172,8 +1172,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 		len = mfd->panel_info.mipi.fixed_packet_size;
 		pkt_size = len; /* Avoid command to the device */
 		cnt = (len + 6 + 3) & ~0x03; /* Add padding for align */
-	}
-	else {
+	} else {
 		if (len > MIPI_DSI_LEN)
 			len = MIPI_DSI_LEN;	/* 8 bytes at most */
 
@@ -1204,12 +1203,14 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	dsi_mdp_busy = TRUE;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	/* packet size need to be set at every read */
-	pkt_size = len;
-	max_pktsize[0] = pkt_size;
-	mipi_dsi_buf_init(tp);
-	mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
-	mipi_dsi_cmd_dma_tx(tp);
+	if (!mfd->panel_info.mipi.fixed_packet_size) {
+		/* packet size need to be set at every read */
+		pkt_size = len;
+		max_pktsize[0] = pkt_size;
+		mipi_dsi_buf_init(tp);
+		mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
+		mipi_dsi_cmd_dma_tx(tp);
+	}
 
 	mipi_dsi_buf_init(tp);
 	mipi_dsi_cmd_dma_add(tp, cmds);
@@ -1224,11 +1225,21 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	mipi_dsi_buf_init(rp);
 	mipi_dsi_cmd_dma_rx(rp, cnt);
 
+	for (i = 0; i < cnt ; i++)
+		pr_debug("%s.rp->data[%d]=0x%x.\n", __func__, i, rp->data[i]);
+
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = FALSE;
 	mipi_dsi_disable_irq();
 	complete(&dsi_mdp_comp);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
+
+	/* Remove leading padding zeros if exist */
+	for (i = 0; i < cnt ; i++)
+		if (rp->data[0] == 0)
+			rp->data++;
+		else
+			break;
 
 	cmd = rp->data[0];
 	switch (cmd) {
