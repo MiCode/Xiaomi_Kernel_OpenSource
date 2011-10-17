@@ -733,7 +733,7 @@ static int hci_fm_set_sig_threshold_req(struct radio_hci_dev *hdev,
 
 	__u8 sig_threshold = param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_SET_SIGNAL_THRESHOLD);
 	return radio_hci_send_cmd(hdev, opcode, sizeof(sig_threshold),
 		&sig_threshold);
@@ -744,7 +744,7 @@ static int hci_fm_get_sig_threshold_req(struct radio_hci_dev *hdev,
 {
 	__u16 opcode = 0;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_GET_SIGNAL_THRESHOLD);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
@@ -754,7 +754,7 @@ static int hci_fm_get_program_service_req(struct radio_hci_dev *hdev,
 {
 	__u16 opcode = 0;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_GET_PROGRAM_SERVICE_REQ);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
@@ -764,7 +764,7 @@ static int hci_fm_get_radio_text_req(struct radio_hci_dev *hdev,
 {
 	__u16 opcode = 0;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_GET_RADIO_TEXT_REQ);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
@@ -774,7 +774,7 @@ static int hci_fm_get_af_list_req(struct radio_hci_dev *hdev,
 {
 	__u16 opcode = 0;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
 		HCI_OCF_FM_GET_AF_LIST_REQ);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
@@ -987,7 +987,7 @@ static int hci_fm_get_station_dbg_param_req(struct radio_hci_dev *hdev,
 {
 	__u16 opcode = 0;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ,
 		HCI_OCF_FM_STATION_DBG_PARAM);
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
