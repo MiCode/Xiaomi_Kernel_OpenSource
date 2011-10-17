@@ -62,6 +62,15 @@
 
 #define SSBI_TIMEOUT_US			100
 
+/* SSBI_FSM Read and Write commands for the FSM9xxx SSBI implementation */
+#define SSBI_FSM_CMD_REG_ADDR_SHFT  (0x08)
+
+#define SSBI_FSM_CMD_READ(AD) \
+	(SSBI_CMD_RDWRN | (((AD) & 0xFFFF) << SSBI_FSM_CMD_REG_ADDR_SHFT))
+
+#define SSBI_FSM_CMD_WRITE(AD, DT) \
+	((((AD) & 0xFFFF) << SSBI_FSM_CMD_REG_ADDR_SHFT) | ((DT) & 0xFF))
+
 struct msm_ssbi {
 	struct device		*dev;
 	struct device		*slave;
@@ -113,6 +122,11 @@ msm_ssbi_read_bytes(struct msm_ssbi *ssbi, u16 addr, u8 *buf, int len)
 		ssbi_writel(ssbi, mode2, SSBI2_MODE2);
 	}
 
+	if (ssbi->controller_type == FSM_SBI_CTRL_SSBI)
+		cmd = SSBI_FSM_CMD_READ(addr);
+	else
+		cmd = SSBI_CMD_RDWRN | ((addr & 0xff) << 16);
+
 	while (len) {
 		ret = ssbi_wait_mask(ssbi, SSBI_STATUS_READY, 0);
 		if (ret)
@@ -146,7 +160,13 @@ msm_ssbi_write_bytes(struct msm_ssbi *ssbi, u16 addr, u8 *buf, int len)
 		if (ret)
 			goto err;
 
-		ssbi_writel(ssbi, ((addr & 0xff) << 16) | *buf, SSBI2_CMD);
+		if (ssbi->controller_type == FSM_SBI_CTRL_SSBI)
+			ssbi_writel(ssbi, SSBI_FSM_CMD_WRITE(addr, *buf),
+				SSBI2_CMD);
+		else
+			ssbi_writel(ssbi, ((addr & 0xff) << 16) | *buf,
+				SSBI2_CMD);
+
 		ret = ssbi_wait_mask(ssbi, 0, SSBI_STATUS_MCHN_BUSY);
 		if (ret)
 			goto err;

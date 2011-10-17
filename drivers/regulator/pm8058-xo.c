@@ -154,7 +154,7 @@ static int __devinit pm8058_xo_buffer_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (pdev->id >= 0 && pdev->id < PM8058_XO_ID_MAX) {
-		chip = platform_get_drvdata(pdev);
+		chip = dev_get_drvdata(pdev->dev.parent);
 		rdesc = &pm8058_xo_buffer_desc[pdev->id];
 		xo = &pm8058_xo_buffer[pdev->id];
 		xo->pdata = pdev->dev.platform_data;
@@ -163,6 +163,7 @@ static int __devinit pm8058_xo_buffer_probe(struct platform_device *pdev)
 		if (rc)
 			goto bail;
 
+		platform_set_drvdata(pdev, chip);
 		xo->rdev = regulator_register(rdesc, &pdev->dev,
 					&xo->pdata->init_data, xo);
 		if (IS_ERR(xo->rdev)) {

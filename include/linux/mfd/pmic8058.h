@@ -80,6 +80,7 @@ struct pm8058_chip;
 struct pm8058_platform_data {
 	/* This table is only needed for misc interrupts. */
 	int		irq_base;
+	int		irq;
 	int 		(*init)(struct pm8058_chip *pm_chip);
 
 	int		num_subdevs;

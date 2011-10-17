@@ -1690,7 +1690,7 @@ static int __devinit pm8058_vreg_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (pdev->id >= 0 && pdev->id < PM8058_VREG_MAX) {
-		chip = platform_get_drvdata(pdev);
+		chip = dev_get_drvdata(pdev->dev.parent);
 		rdesc = &pm8058_vreg_descrip[pdev->id];
 		vreg = &pm8058_vreg[pdev->id];
 		vreg->pdata = pdev->dev.platform_data;
@@ -1705,6 +1705,7 @@ static int __devinit pm8058_vreg_probe(struct platform_device *pdev)
 			vreg->pdata->init_data.constraints.valid_modes_mask
 			      &= ~(REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE);
 
+		platform_set_drvdata(pdev, chip);
 		vreg->rdev = regulator_register(rdesc, &pdev->dev,
 				&vreg->pdata->init_data, vreg);
 		if (IS_ERR(vreg->rdev)) {

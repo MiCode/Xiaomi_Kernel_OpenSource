@@ -16,6 +16,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/io.h>
+#include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8058.h>
 
 #include <linux/input/pmic8058-keypad.h>
@@ -2477,11 +2478,6 @@ static struct msm_spi_platform_data msm_gsbi10_qup_spi_pdata = {
 
 #ifdef CONFIG_I2C_SSBI
 /* PMIC SSBI */
-static struct msm_i2c_ssbi_platform_data msm_ssbi1_pdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-};
-
-/* PMIC SSBI */
 static struct msm_i2c_ssbi_platform_data msm_ssbi2_pdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
 };
@@ -4131,7 +4127,6 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_gsbi12_qup_i2c_device,
 #endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi1,
 	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
@@ -4976,8 +4971,10 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_SERIAL_MSM_HS
 	&msm_device_uart_dm1,
 #endif
+#ifdef CONFIG_MSM_SSBI
+	&msm_device_ssbi_pmic1,
+#endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi1,
 	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
@@ -6324,20 +6321,23 @@ static struct mfd_cell pm8058_charger_sub_dev = {
 
 static struct pm8058_platform_data pm8058_platform_data = {
 	.irq_base = PM8058_IRQ_BASE,
+	.irq = MSM_GPIO_TO_INT(PM8058_GPIO_INT),
 
 	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
 	.sub_devices = pm8058_subdevs,
 	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
-static struct i2c_board_info pm8058_boardinfo[] __initdata = {
-	{
-		I2C_BOARD_INFO("pm8058-core", 0x55),
-		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_INT),
-		.platform_data = &pm8058_platform_data,
+#ifdef CONFIG_MSM_SSBI
+static struct msm_ssbi_platform_data msm8x60_ssbi_pm8058_pdata __devinitdata = {
+	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
+	.slave	= {
+		.name			= "pm8058-core",
+		.platform_data		= &pm8058_platform_data,
 	},
 };
-#endif /* CONFIG_PMIC8058 */
+#endif
+#endif  /* CONFIG_PMIC8058 */
 
 #if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
 		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
@@ -7121,14 +7121,6 @@ struct i2c_registry {
 };
 
 static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
-#ifdef CONFIG_PMIC8058
-	{
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
-		MSM_SSBI1_I2C_BUS_ID,
-		pm8058_boardinfo,
-		ARRAY_SIZE(pm8058_boardinfo),
-	},
-#endif
 #ifdef CONFIG_PMIC8901
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
@@ -7399,9 +7391,13 @@ static void __init msm8x60_init_buses(void)
 	msm_gsbi1_qup_spi_device.dev.platform_data = &msm_gsbi1_qup_spi_pdata;
 #endif
 #ifdef CONFIG_I2C_SSBI
-	msm_device_ssbi1.dev.platform_data = &msm_ssbi1_pdata;
 	msm_device_ssbi2.dev.platform_data = &msm_ssbi2_pdata;
 	msm_device_ssbi3.dev.platform_data = &msm_ssbi3_pdata;
+#endif
+
+#ifdef CONFIG_MSM_SSBI
+	msm_device_ssbi_pmic1.dev.platform_data =
+				&msm8x60_ssbi_pm8058_pdata;
 #endif
 
 	if (machine_is_msm8x60_fluid()) {

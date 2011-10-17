@@ -878,25 +878,25 @@ struct platform_device msm_gsbi12_qup_i2c_device = {
 	.resource	= gsbi12_qup_i2c_resources,
 };
 
-#ifdef CONFIG_I2C_SSBI
-/* 8058 PMIC SSBI on /dev/i2c-6 */
-#define MSM_SSBI1_PMIC1C_PHYS	0x00500000
-static struct resource msm_ssbi1_resources[] = {
+#ifdef CONFIG_MSM_SSBI
+#define MSM_SSBI_PMIC1_PHYS	0x00500000
+static struct resource resources_ssbi_pmic1_resource[] = {
 	{
-		.name   = "ssbi_base",
-		.start	= MSM_SSBI1_PMIC1C_PHYS,
-		.end	= MSM_SSBI1_PMIC1C_PHYS + SZ_4K - 1,
-		.flags	= IORESOURCE_MEM,
+		.start  = MSM_SSBI_PMIC1_PHYS,
+		.end    = MSM_SSBI_PMIC1_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
 	},
 };
 
-struct platform_device msm_device_ssbi1 = {
-	.name		= "i2c_ssbi",
-	.id		= MSM_SSBI1_I2C_BUS_ID,
-	.num_resources	= ARRAY_SIZE(msm_ssbi1_resources),
-	.resource	= msm_ssbi1_resources,
+struct platform_device msm_device_ssbi_pmic1 = {
+	.name           = "msm_ssbi",
+	.id             = 0,
+	.resource       = resources_ssbi_pmic1_resource,
+	.num_resources  = ARRAY_SIZE(resources_ssbi_pmic1_resource),
 };
+#endif
 
+#ifdef CONFIG_I2C_SSBI
 /* 8901 PMIC SSBI on /dev/i2c-7 */
 #define MSM_SSBI2_PMIC2B_PHYS	0x00C00000
 static struct resource msm_ssbi2_resources[] = {
