@@ -945,7 +945,7 @@ config MSM_BAM_DMUX
 	  via muxing than BAM could without muxing.
 
 config MSM_N_WAY_SMD
-	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM8960 || ARCH_MSM7X27 || ARCH_MSM7X25 || ARCH_MSM9615))
+	depends on (MSM_SMD && !(ARCH_MSM7X01A))
 	default y
 	bool "MSM N-WAY SMD support"
 	help
@@ -953,7 +953,7 @@ config MSM_N_WAY_SMD
 	  normal APPS-MODEM SMD communication.
 
 config MSM_N_WAY_SMSM
-	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM8960 || ARCH_MSM7X27 || ARCH_MSM7X25 || ARCH_MSM9615))
+	depends on (MSM_SMD && !(ARCH_MSM7X01A))
 	default y
 	bool "MSM N-WAY SMSM support"
 	help
