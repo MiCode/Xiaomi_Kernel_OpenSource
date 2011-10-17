@@ -797,6 +797,14 @@ config SENSORS_PM8XXX_ADC
 	  The driver supports reading the HKADC, XOADC and support to set and receive
 	  temperature threshold notifications using the Battery temperature module.
 
+config SENSORS_EPM_ADC
+	tristate "EPM ADC Driver for power measurement"
+	depends on I2C && SPI_MASTER
+	default n
+	help
+	  Provides interface for measuring the current on specific power rails
+	  through the channels on ADC1158 ADC
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	select HWMON_VID
