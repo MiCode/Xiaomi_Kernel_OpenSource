@@ -1280,7 +1280,7 @@ static int mxt_power_on(struct mxt_data *data, bool on)
 		}
 	}
 
-	msleep(100);
+	msleep(130);
 
 	return 0;
 
