@@ -523,6 +523,10 @@ struct cvs_start_record_cmd {
 /* Media types */
 #define VSS_MEDIA_ID_EVRC_MODEM		0x00010FC2
 /* 80-VF690-47 CDMA enhanced variable rate vocoder modem format. */
+#define VSS_MEDIA_ID_4GV_NB_MODEM  0x00010FC3
+/* 4GV Narrowband modem format */
+#define VSS_MEDIA_ID_4GV_WB_MODEM  0x00010FC4
+/* 4GV Wideband modem format */
 #define VSS_MEDIA_ID_AMR_NB_MODEM	0x00010FC6
 /* 80-VF690-47 UMTS AMR-NB vocoder modem format. */
 #define VSS_MEDIA_ID_AMR_WB_MODEM	0x00010FC7
@@ -652,12 +656,17 @@ typedef void (*dl_cb_fn)(uint8_t *voc_pkt,
 			 uint32_t *pkt_len,
 			 void *private_data);
 
+struct q_min_max_rate {
+	uint32_t min_rate;
+	uint32_t max_rate;
+};
 
 struct mvs_driver_info {
 	uint32_t media_type;
 	uint32_t rate;
 	uint32_t network_type;
 	uint32_t dtx_mode;
+	struct q_min_max_rate q_min_max_rate;
 	ul_cb_fn ul_cb;
 	dl_cb_fn dl_cb;
 	void *private_data;
@@ -750,7 +759,8 @@ void voice_register_mvs_cb(ul_cb_fn ul_cb,
 void voice_config_vocoder(uint32_t media_type,
 			  uint32_t rate,
 			  uint32_t network_type,
-			  uint32_t dtx_mode);
+			  uint32_t dtx_mode,
+			  struct q_min_max_rate q_min_max_rate);
 
 int voice_start_record(uint32_t rec_mode, uint32_t set);
 

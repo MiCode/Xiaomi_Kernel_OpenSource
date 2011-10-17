@@ -1117,10 +1117,12 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 
 	/* Set encoder properties. */
 	switch (common.mvs_info.media_type) {
+	case VSS_MEDIA_ID_4GV_NB_MODEM:
+	case VSS_MEDIA_ID_4GV_WB_MODEM:
 	case VSS_MEDIA_ID_EVRC_MODEM: {
 		struct cvs_set_cdma_enc_minmax_rate_cmd cvs_set_cdma_rate;
 
-		pr_info("%s: Setting EVRC min-max rate\n", __func__);
+		pr_info("%s: Setting CDMA min-max rate\n", __func__);
 
 		cvs_set_cdma_rate.hdr.hdr_field =
 				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1133,14 +1135,16 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 		cvs_set_cdma_rate.hdr.token = 0;
 		cvs_set_cdma_rate.hdr.opcode =
 				VSS_ISTREAM_CMD_CDMA_SET_ENC_MINMAX_RATE;
-		cvs_set_cdma_rate.cdma_rate.min_rate = common.mvs_info.rate;
-		cvs_set_cdma_rate.cdma_rate.max_rate = common.mvs_info.rate;
+		cvs_set_cdma_rate.cdma_rate.min_rate =
+				common.mvs_info.q_min_max_rate.min_rate;
+		cvs_set_cdma_rate.cdma_rate.max_rate =
+				common.mvs_info.q_min_max_rate.max_rate;
 
 		v->cvs_state = CMD_STATUS_FAIL;
 
 		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_cdma_rate);
 		if (ret < 0) {
-			pr_err("%s: Error %d sending SET_EVRC_MINMAX_RATE\n",
+			pr_err("%s: Error %d sending CDMA_SET_ENC_MINMAX_RATE\n",
 			       __func__, ret);
 
 			goto done;
@@ -1155,6 +1159,10 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 			ret = -EINVAL;
 			goto done;
 		}
+
+		if ((common.mvs_info.media_type == VSS_MEDIA_ID_4GV_NB_MODEM) ||
+		(common.mvs_info.media_type == VSS_MEDIA_ID_4GV_WB_MODEM))
+			ret = voice_set_dtx(v);
 
 		break;
 	}
@@ -2472,12 +2480,14 @@ void voice_register_mvs_cb(ul_cb_fn ul_cb,
 void voice_config_vocoder(uint32_t media_type,
 			  uint32_t rate,
 			  uint32_t network_type,
-			  uint32_t dtx_mode)
+			  uint32_t dtx_mode,
+			  struct q_min_max_rate q_min_max_rate)
 {
 	common.mvs_info.media_type = media_type;
 	common.mvs_info.rate = rate;
 	common.mvs_info.network_type = network_type;
 	common.mvs_info.dtx_mode = dtx_mode;
+	common.mvs_info.q_min_max_rate = q_min_max_rate;
 }
 
 static int32_t modem_mvm_callback(struct apr_client_data *data, void *priv)
