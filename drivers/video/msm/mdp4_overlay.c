@@ -1821,39 +1821,57 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 }
 
 static int get_img(struct msmfb_data *img, struct fb_info *info,
-	unsigned long *start, unsigned long *len, struct file **pp_file)
+	unsigned long *start, unsigned long *len, struct file **srcp_file,
+	struct ion_handle **srcp_ihdl)
 {
-	int put_needed, ret = 0, fb_num;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+#endif
 	struct file *file;
+	int put_needed, ret = 0, fb_num;
 #ifdef CONFIG_ANDROID_PMEM
 	unsigned long vstart;
 #endif
-
 	if (img->flags & MDP_BLIT_SRC_GEM) {
-		*pp_file = NULL;
+		*srcp_file = NULL;
 		return kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
 					 start, len);
 	}
 
-#ifdef CONFIG_ANDROID_PMEM
-	if (!get_pmem_file(img->memory_id, start, &vstart, len, pp_file))
-		return 0;
-#endif
-	file = fget_light(img->memory_id, &put_needed);
-	if (file == NULL)
-		return -1;
+	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+		file = fget_light(img->memory_id, &put_needed);
+		if (file == NULL)
+			return -EINVAL;
 
-	if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-		fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
-		if (get_fb_phys_info(start, len, fb_num))
+		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+			if (get_fb_phys_info(start, len, fb_num))
+				ret = -1;
+			else
+				*srcp_file = file;
+		} else
 			ret = -1;
-		else
-			*pp_file = file;
-	} else
-		ret = -1;
-	if (ret)
-		fput_light(file, put_needed);
-	return ret;
+		if (ret)
+			fput_light(file, put_needed);
+		return ret;
+	}
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	*srcp_ihdl = ion_import_fd(mfd->client, img->memory_id);
+	if (IS_ERR_OR_NULL(*srcp_ihdl))
+		return PTR_ERR(*srcp_ihdl);
+	if (!ion_phys(mfd->client, *srcp_ihdl, start, (size_t *) len))
+		return 0;
+	else
+		return -EINVAL;
+#endif
+#ifdef CONFIG_ANDROID_PMEM
+	if (!get_pmem_file(img->memory_id, start, &vstart,
+					    len, srcp_file))
+		return 0;
+	else
+		return -EINVAL;
+#endif
 }
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
@@ -2306,9 +2324,7 @@ int mdp4_overlay_play_wait(struct fb_info *info, struct msmfb_overlay_data *req)
 	return 0;
 }
 
-int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
-		struct file **pp_src_file, struct file **pp_src_plane1_file,
-		struct file **pp_src_plane2_file)
+int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct msmfb_data *img;
@@ -2316,9 +2332,12 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 	struct mdp4_pipe_desc *pd;
 	ulong start, addr;
 	ulong len = 0;
-	struct file *p_src_file = 0;
-	struct file *p_src_plane1_file = 0, *p_src_plane2_file = 0;
+	struct file *srcp0_file = NULL;
+	struct file *srcp1_file = NULL, *srcp2_file = NULL;
+	struct ion_handle *srcp0_ihdl = NULL;
+	struct ion_handle *srcp1_ihdl = NULL, *srcp2_ihdl = NULL;
 	uint32_t overlay_version = 0;
+	int ret = 0;
 
 	if (mfd == NULL)
 		return -ENODEV;
@@ -2346,13 +2365,13 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 	pd->player = pipe;	/* keep */
 
 	img = &req->data;
-	get_img(img, info, &start, &len, &p_src_file);
+	get_img(img, info, &start, &len, &srcp0_file, &srcp0_ihdl);
 	if (len == 0) {
 		mutex_unlock(&mfd->dma->ov_mutex);
 		pr_err("%s: pmem Error\n", __func__);
-		return -1;
+		ret = -1;
+		goto end;
 	}
-	*pp_src_file = p_src_file;
 
 	addr = start + img->offset;
 	pipe->srcp0_addr = addr;
@@ -2364,14 +2383,15 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
 		if (overlay_version > 0) {
 			img = &req->plane1_data;
-			get_img(img, info, &start, &len, &p_src_plane1_file);
+			get_img(img, info, &start, &len, &srcp1_file,
+				&srcp1_ihdl);
 			if (len == 0) {
 				mutex_unlock(&mfd->dma->ov_mutex);
 				pr_err("%s: Error to get plane1\n", __func__);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			pipe->srcp1_addr = start + img->offset;
-			*pp_src_plane1_file = p_src_plane1_file;
 		} else if (pipe->frame_format ==
 				MDP4_FRAME_FORMAT_VIDEO_SUPERTILE) {
 			struct tile_desc tile;
@@ -2395,24 +2415,26 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 	} else if (pipe->fetch_plane == OVERLAY_PLANE_PLANAR) {
 		if (overlay_version > 0) {
 			img = &req->plane1_data;
-			get_img(img, info, &start, &len, &p_src_plane1_file);
+			get_img(img, info, &start, &len, &srcp1_file,
+				&srcp1_ihdl);
 			if (len == 0) {
 				mutex_unlock(&mfd->dma->ov_mutex);
 				pr_err("%s: Error to get plane1\n", __func__);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			pipe->srcp1_addr = start + img->offset;
-			*pp_src_plane1_file = p_src_plane1_file;
 
 			img = &req->plane2_data;
-			get_img(img, info, &start, &len, &p_src_plane2_file);
+			get_img(img, info, &start, &len, &srcp2_file,
+				&srcp2_ihdl);
 			if (len == 0) {
 				mutex_unlock(&mfd->dma->ov_mutex);
 				pr_err("%s: Error to get plane2\n", __func__);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			pipe->srcp2_addr = start + img->offset;
-			*pp_src_plane2_file = p_src_plane2_file;
 		} else {
 			if (pipe->src_format == MDP_Y_CR_CB_GH2V2) {
 				addr += (ALIGN(pipe->src_width, 16) *
@@ -2495,7 +2517,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 			if (pipe->flags & MDP_OV_PLAY_NOWAIT) {
 				mdp4_stat.overlay_play[pipe->mixer_num]++;
 				mutex_unlock(&mfd->dma->ov_mutex);
-				return 0;
+				goto end;
 			}
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 			if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
@@ -2512,8 +2534,23 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 	}
 
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
-
 	mutex_unlock(&mfd->dma->ov_mutex);
-
-	return 0;
+end:
+#ifdef CONFIG_ANDROID_PMEM
+	if (srcp0_file)
+		put_pmem_file(srcp0_file);
+	if (srcp1_file)
+		put_pmem_file(srcp1_file);
+	if (srcp2_file)
+		put_pmem_file(srcp2_file);
+#endif
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	if (!IS_ERR_OR_NULL(srcp0_ihdl))
+		ion_free(mfd->client, srcp0_ihdl);
+	if (!IS_ERR_OR_NULL(srcp1_ihdl))
+		ion_free(mfd->client, srcp1_ihdl);
+	if (!IS_ERR_OR_NULL(srcp2_ihdl))
+		ion_free(mfd->client, srcp2_ihdl);
+#endif
+	return ret;
 }
