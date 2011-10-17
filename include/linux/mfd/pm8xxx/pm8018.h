@@ -27,6 +27,8 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/regulator/pm8018-regulator.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#include <linux/mfd/pm8xxx/pwm.h>
+#include <linux/leds-pm8xxx.h>
 
 #define PM8018_CORE_DEV_NAME "pm8018-core"
 
@@ -65,6 +67,7 @@ struct pm8018_platform_data {
 	struct pm8018_regulator_platform_data	*regulator_pdatas;
 	struct pm8xxx_adc_platform_data		*adc_pdata;
 	int					num_regulators;
+	struct pm8xxx_led_platform_data		*leds_pdata;
 };
 
 #endif
