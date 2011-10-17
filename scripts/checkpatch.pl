@@ -1229,7 +1229,6 @@ sub process {
 	my @setup_docs = ();
 	my $setup_docs = 0;
 
-	my $in_code_block = 0;
 	my $exec_file = "";
 
 	my $shorttext = BEFORE_SHORTTEXT;
@@ -1375,6 +1374,7 @@ sub process {
 		if ($line =~ /^diff --git.*?(\S+)$/) {
 			$realfile = $1;
 			$realfile =~ s@^([^/]*)/@@;
+			$exec_file = $realfile;
 
 		} elsif ($line =~ /^\+\+\+\s+(\S+)/) {
 			$realfile = $1;
@@ -1389,16 +1389,14 @@ sub process {
 			if ($realfile =~ m@^include/asm/@) {
 				ERROR("do not modify files in include/asm, change architecture specific files in include/asm-<architecture>\n" . "$here$rawline\n");
 			}
-			$in_code_block = 1;
+			$exec_file = "";
 			next;
 		}
 		elsif ($rawline =~ /^diff.+a\/(.+)\sb\/.+$/) {
 			$exec_file = $1;
-			$in_code_block = 0;
 		}
 		#Check state to make sure we aren't in code block.
-		elsif  (!$in_code_block			   &&
-			($exec_file =~ /^.+\.[chS]$/ or
+		elsif  (($exec_file =~ /^.+\.[chS]$/ or
 			 $exec_file =~ /^.+\.txt$/ or
 			 $exec_file =~ /^.+\.ihex$/ or
 			 $exec_file =~ /^.+\.hex$/ or
