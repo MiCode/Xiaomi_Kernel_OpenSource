@@ -812,6 +812,7 @@ struct msm_sensor_output_info_t {
 	uint16_t frame_length_lines;
 	uint32_t vt_pixel_clk;
 	uint32_t op_pixel_clk;
+	uint16_t binning_factor;
 };
 
 struct sensor_output_info_t {

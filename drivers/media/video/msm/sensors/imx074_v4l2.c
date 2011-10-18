@@ -155,6 +155,7 @@ static struct msm_sensor_output_info_t imx074_dimensions[] = {
 		.frame_length_lines = 0xC90,
 		.vt_pixel_clk = 182400000,
 		.op_pixel_clk = 182400000,
+		.binning_factor = 1,
 	},
 	{
 		.x_output = 0x838,
@@ -163,6 +164,7 @@ static struct msm_sensor_output_info_t imx074_dimensions[] = {
 		.frame_length_lines = 0x62D,
 		.vt_pixel_clk = 216000000,
 		.op_pixel_clk = 216000000,
+		.binning_factor = 1,
 	},
 };
 
