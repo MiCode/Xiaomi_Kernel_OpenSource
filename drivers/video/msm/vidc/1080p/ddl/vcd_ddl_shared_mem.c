@@ -690,7 +690,7 @@ void vidc_sm_set_mpeg4_profile_override(struct ddl_buf_addr *shared_mem,
 	enum vidc_sm_mpeg4_profileinfo profile_info)
 {
 	u32 profile_enforce = 0;
-	if (shared_mem) {
+	if (shared_mem != NULL) {
 		profile_enforce = 1;
 		switch (profile_info) {
 		case VIDC_SM_PROFILE_INFO_ASP:
@@ -704,8 +704,8 @@ void vidc_sm_set_mpeg4_profile_override(struct ddl_buf_addr *shared_mem,
 			profile_enforce = 0;
 			break;
 		}
+		DDL_MEM_WRITE_32(shared_mem, 0x15c, profile_enforce);
 	}
-	DDL_MEM_WRITE_32(shared_mem, 0x15c, profile_enforce);
 }
 void vidc_sm_set_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
 	u32 sei_enable)
