@@ -154,8 +154,8 @@ struct platform_device msm_device_hsusb_host = {
 
 static struct resource resources_hsic_host[] = {
 	{
-		.start	= MSM_HSIC_PHYS,
-		.end	= MSM_HSIC_PHYS + MSM_HSIC_SIZE - 1,
+		.start	= 0x12520000,
+		.end	= 0x12520000 + SZ_4K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
