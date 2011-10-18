@@ -931,7 +931,7 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		}
 	}
 
-	if (host->prog_scan && (cmd->opcode == 12)) {
+	if ((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) {
 		*c |= MCI_CPSM_PROGENA;
 		host->prog_enable = 1;
 	}
@@ -1031,8 +1031,6 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		host->dma.hdr.exec_func = msmsdcc_dma_exec_func;
 		host->dma.hdr.user = (void *)host;
 		host->dma.busy = 1;
-		if ((data->flags & MMC_DATA_WRITE) && !host->curr.mrq->sbc)
-			host->prog_scan = 1;
 
 		if (cmd) {
 			msmsdcc_start_command_deferred(host, cmd, &c);
@@ -1045,8 +1043,6 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		msm_dmov_enqueue_cmd_ext(host->dma.channel, &host->dma.hdr);
 	} else {
 		/* SPS-BAM mode or PIO mode */
-		if ((data->flags & MMC_DATA_WRITE) && !host->curr.mrq->sbc)
-			host->prog_scan = 1;
 		writel_relaxed(timeout, base + MMCIDATATIMER);
 
 		writel_relaxed(host->curr.xfer_size, base + MMCIDATALENGTH);
@@ -1331,16 +1327,12 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 		} else { /* host->data == NULL */
 			if (!cmd->error && host->prog_enable) {
 				if (status & MCI_PROGDONE) {
-					host->prog_scan = 0;
 					host->prog_enable = 0;
-					 msmsdcc_request_end(host, cmd->mrq);
+					msmsdcc_request_end(host, cmd->mrq);
 				} else
 					host->curr.cmd = cmd;
 			} else {
-				if (host->prog_enable) {
-					host->prog_scan = 0;
-					host->prog_enable = 0;
-				}
+				host->prog_enable = 0;
 				if (host->dummy_52_needed)
 					host->dummy_52_needed = 0;
 				if (cmd->data && cmd->error)
@@ -3466,10 +3458,7 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 					msmsdcc_request_end(host, mrq);
 			}
 		} else {
-			if (host->prog_enable) {
-				host->prog_scan = 0;
-				host->prog_enable = 0;
-			}
+			host->prog_enable = 0;
 			msmsdcc_reset_and_restore(host);
 			msmsdcc_request_end(host, mrq);
 		}
@@ -3712,6 +3701,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps |= plat->mmc_bus_width;
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
+	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 
 	/*
 	 * If we send the CMD23 before multi block write/read command
