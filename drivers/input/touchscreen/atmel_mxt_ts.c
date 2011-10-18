@@ -198,6 +198,8 @@
 
 #define MXT_FWRESET_TIME	175	/* msec */
 
+#define MXT_WAKE_TIME		25
+
 /* MXT_SPT_GPIOPWM_T19 field */
 #define MXT_GPIO0_MASK		0x04
 #define MXT_GPIO1_MASK		0x08
@@ -238,7 +240,9 @@
 #define MXT_PIXELS_PER_MM	20
 
 #define MXT_BUFF_SIZE		100
-#define T7_DATA_SIZE 3
+#define T7_DATA_SIZE		3
+#define MXT_MAX_RW_TRIES	3
+#define MXT_BLOCK_SIZE		256
 
 struct mxt_info {
 	u8 family_id;
@@ -282,7 +286,9 @@ struct mxt_data {
 	u8 T9_reportid_min;
 	u8 T9_reportid_max;
 	u8 T19_reportid;
+
 	u8 t7_data[T7_DATA_SIZE];
+	u16 t7_start_addr;
 	u8 t9_ctrl;
 };
 
@@ -422,6 +428,7 @@ static int __mxt_read_reg(struct i2c_client *client,
 	struct i2c_msg xfer[2];
 	u8 buf[2];
 	int ret;
+	int i = 0;
 
 	buf[0] = reg & 0xff;
 	buf[1] = (reg >> 8) & 0xff;
@@ -438,16 +445,20 @@ static int __mxt_read_reg(struct i2c_client *client,
 	xfer[1].len = len;
 	xfer[1].buf = val;
 
-	ret = i2c_transfer(client->adapter, xfer, 2);
-	if (ret == 2) {
-		ret = 0;
-	} else {
-		if (ret >= 0)
-			ret = -EIO;
-		dev_err(&client->dev, "%s: i2c transfer failed (%d)\n",
-			__func__, ret);
-	}
+	do {
+		ret = i2c_transfer(client->adapter, xfer, 2);
+		if (ret == 2) {
+			return 0;
+		} else {
+			if (ret >= 0)
+				ret = -EIO;
+			dev_err(&client->dev, "%s: i2c transfer failed (%d)\n",
+				__func__, ret);
+		}
+		msleep(MXT_WAKE_TIME);
+	} while (++i < MXT_MAX_RW_TRIES);
 
+	dev_err(&client->dev, "%s: i2c transfer failed\n", __func__);
 	return ret;
 }
 
@@ -461,7 +472,7 @@ static int __mxt_write_reg(struct i2c_client *client, u16 reg, u16 len,
 {
 	u8 *buf;
 	size_t count;
-	int ret;
+	int ret, tries = 0;
 
 	count = len + 2;
 	buf = kmalloc(count, GFP_KERNEL);
@@ -472,15 +483,21 @@ static int __mxt_write_reg(struct i2c_client *client, u16 reg, u16 len,
 	buf[1] = (reg >> 8) & 0xff;
 	memcpy(&buf[2], val, len);
 
-	ret = i2c_master_send(client, buf, count);
-	if (ret == count) {
-		ret = 0;
-	} else {
-		if (ret >= 0)
-			ret = -EIO;
-		dev_err(&client->dev, "%s: i2c send failed (%d)\n",
-			__func__, ret);
-	}
+	do {
+		ret = i2c_master_send(client, buf, count);
+		if (ret == count) {
+			ret = 0;
+		} else {
+			if (ret >= 0)
+				ret = -EIO;
+			dev_err(&client->dev, "%s: i2c send failed (%d)\n",
+				__func__, ret);
+		}
+		msleep(MXT_WAKE_TIME);
+	} while (ret && ++tries < MXT_MAX_RW_TRIES);
+
+	if (ret)
+		dev_err(&client->dev, "%s: i2c send failed\n", __func__);
 
 	kfree(buf);
 	return ret;
@@ -807,10 +824,11 @@ static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
 	struct mxt_info *info = &data->info;
-	int error, i;
+	int error;
 	int timeout_counter = 0;
 	u8 val;
 	u8 command_register;
+	struct mxt_object *t7_object;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -835,14 +853,19 @@ static int mxt_initialize(struct mxt_data *data)
 		goto err_free_object_table;
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_read_object(data, MXT_GEN_POWER_T7, i,
-				&data->t7_data[i]);
-		if (error < 0) {
-			dev_err(&client->dev,
-				"failed to save current power state\n");
-			return error;
-		}
+	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
+	if (!t7_object) {
+		dev_err(&client->dev, "Failed to get T7 object\n");
+		return -EINVAL;
+	}
+
+	data->t7_start_addr = t7_object->start_address;
+	error = __mxt_read_reg(client, data->t7_start_addr,
+				T7_DATA_SIZE, data->t7_data);
+	if (error < 0) {
+		dev_err(&client->dev,
+			"failed to save current power state\n");
+		return error;
 	}
 	error = mxt_read_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
 			&data->t9_ctrl);
@@ -1108,17 +1131,17 @@ static const struct attribute_group mxt_attr_group = {
 
 static int mxt_start(struct mxt_data *data)
 {
-	int i, error;
+	int error;
+
 	/* restore the old power state values and reenable touch */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_write_object(data, MXT_GEN_POWER, i,
-			data->t7_data[i]);
-		if (error < 0) {
-			dev_err(&data->client->dev,
-				"failed to restore old power state\n");
-			return error;
-		}
+	error = __mxt_write_reg(data->client, data->t7_start_addr,
+				T7_DATA_SIZE, data->t7_data);
+	if (error < 0) {
+		dev_err(&data->client->dev,
+			"failed to restore old power state\n");
+		return error;
 	}
+
 	error = mxt_write_object(data,
 			MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL, data->t9_ctrl);
 	if (error < 0) {
@@ -1131,22 +1154,21 @@ static int mxt_start(struct mxt_data *data)
 
 static int mxt_stop(struct mxt_data *data)
 {
-	int i, error;
-	/* configure deep sleep mode and disable touch */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_write_object(data, MXT_GEN_POWER_T7, i, 0);
-		if (error < 0) {
-			dev_err(&data->client->dev,
-				"failed to configure deep sleep mode\n");
-			return error;
-		}
+	int error;
+	u8 t7_data[T7_DATA_SIZE] = {0};
+
+	/* disable touch and configure deep sleep mode */
+	error = mxt_write_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL, 0);
+	if (error < 0) {
+		dev_err(&data->client->dev, "failed to disable touch\n");
+		return error;
 	}
 
-	error = mxt_write_object(data,
-			MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL, 0);
+	error = __mxt_write_reg(data->client, data->t7_start_addr,
+				T7_DATA_SIZE, t7_data);
 	if (error < 0) {
 		dev_err(&data->client->dev,
-			"failed to disable touch\n");
+			"failed to configure deep sleep mode\n");
 		return error;
 	}
 
@@ -1502,7 +1524,7 @@ static int mxt_suspend(struct device *dev)
 	if (input_dev->users) {
 		error = mxt_stop(data);
 		if (error < 0) {
-			dev_err(&client->dev, "mxt_stop failed in suspend\n");
+			dev_err(dev, "mxt_stop failed in suspend\n");
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
@@ -1521,18 +1543,12 @@ static int mxt_resume(struct device *dev)
 	struct input_dev *input_dev = data->input_dev;
 	int error;
 
-	/* Soft reset */
-	mxt_write_object(data, MXT_GEN_COMMAND_T6,
-			MXT_COMMAND_RESET, 1);
-
-	mxt_reset_delay(data);
-
 	mutex_lock(&input_dev->mutex);
 
 	if (input_dev->users) {
 		error = mxt_start(data);
 		if (error < 0) {
-			dev_err(&client->dev, "mxt_start failed in resume\n");
+			dev_err(dev, "mxt_start failed in resume\n");
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
