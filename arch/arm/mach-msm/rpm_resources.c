@@ -64,11 +64,9 @@ static ssize_t msm_rpmrs_resource_attr_show(
 static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count);
 
-#ifdef CONFIG_MSM_L2_SPM
 static  void *msm_rpmrs_l2_counter_addr;
 static  int msm_rpmrs_l2_reset_count;
 #define L2_PC_COUNTER_ADDR 0x660
-#endif
 
 #define MSM_RPMRS_MAX_RS_REGISTER_COUNT 2
 
@@ -267,7 +265,6 @@ static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits)
 	}
 }
 
-#ifdef CONFIG_MSM_L2_SPM
 static bool msm_spm_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_l2_cache;
@@ -278,7 +275,6 @@ static bool msm_spm_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits)
 
 	return l2_cache > limits->l2_cache;
 }
-#endif
 
 static void msm_rpmrs_restore_l2_cache(void)
 {
@@ -967,7 +963,6 @@ void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
 		msm_mpm_exit_sleep(from_idle);
 }
 
-#ifdef CONFIG_MSM_L2_SPM
 static int rpmrs_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
@@ -993,7 +988,6 @@ static int rpmrs_cpu_callback(struct notifier_block *nfb,
 static struct notifier_block __refdata rpmrs_cpu_notifier = {
 	.notifier_call = rpmrs_cpu_callback,
 };
-#endif
 
 int __init msm_rpmrs_levels_init(struct msm_rpmrs_level *levels, int size)
 {
@@ -1061,20 +1055,25 @@ static int __init msm_rpmrs_early_init(void)
 }
 early_initcall(msm_rpmrs_early_init);
 
-#ifdef CONFIG_MSM_L2_SPM
 static int __init msm_rpmrs_l2_counter_init(void)
 {
-	msm_rpmrs_l2_counter_addr = MSM_IMEM_BASE + L2_PC_COUNTER_ADDR;
-	writel_relaxed(msm_rpmrs_l2_reset_count, msm_rpmrs_l2_counter_addr);
-	mb();
+	if (cpu_is_msm8960()) {
+		msm_rpmrs_l2_counter_addr = MSM_IMEM_BASE + L2_PC_COUNTER_ADDR;
+		writel_relaxed(msm_rpmrs_l2_reset_count,
+				msm_rpmrs_l2_counter_addr);
+		mb();
 
-	msm_rpmrs_l2_cache.beyond_limits = msm_spm_l2_cache_beyond_limits;
-	msm_rpmrs_l2_cache.aggregate = NULL;
-	msm_rpmrs_l2_cache.restore = NULL;
+		msm_rpmrs_l2_cache.beyond_limits =
+			msm_spm_l2_cache_beyond_limits;
+		msm_rpmrs_l2_cache.aggregate = NULL;
+		msm_rpmrs_l2_cache.restore = NULL;
+		register_hotcpu_notifier(&rpmrs_cpu_notifier);
 
-	register_hotcpu_notifier(&rpmrs_cpu_notifier);
-
+	} else if (cpu_is_msm9615()) {
+		msm_rpmrs_l2_cache.beyond_limits = NULL;
+		msm_rpmrs_l2_cache.aggregate = NULL;
+		msm_rpmrs_l2_cache.restore = NULL;
+	}
 	return 0;
 }
 early_initcall(msm_rpmrs_l2_counter_init);
-#endif
