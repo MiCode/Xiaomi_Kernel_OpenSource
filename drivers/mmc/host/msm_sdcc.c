@@ -1634,7 +1634,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		}
 	}
 
-	if (mrq->sbc) {
+	if (mrq->data && mrq->sbc) {
 		mrq->sbc->mrq = mrq;
 		mrq->sbc->data = mrq->data;
 		if (mrq->data->flags & MMC_DATA_WRITE) {
@@ -3000,6 +3000,12 @@ static int msmsdcc_sps_init_ep_conn(struct msmsdcc_host *host,
 						&sps_config->desc.phys_base,
 						GFP_KERNEL);
 
+	if (!sps_config->desc.base) {
+		rc = -ENOMEM;
+		pr_err("%s: dma_alloc_coherent() failed!!! Can't allocate buffer\n"
+			, mmc_hostname(host->mmc));
+		goto get_config_err;
+	}
 	memset(sps_config->desc.base, 0x00, sps_config->desc.size);
 
 	/* Establish connection between peripheral and memory endpoint */
@@ -3482,7 +3488,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	struct resource *bam_memres = NULL;
 	struct resource *dmares = NULL;
 	struct resource *dma_crci_res = NULL;
-	int ret;
+	int ret = 0;
 	int i;
 
 	/* must have platform data */
