@@ -527,7 +527,7 @@ static struct msm_bus_paths grp3d_bus_scale_usecases[] = {
 	},
 	{
 		ARRAY_SIZE(grp3d_low_vectors),
-		grp3d_init_vectors,
+		grp3d_low_vectors,
 	},
 	{
 		ARRAY_SIZE(grp3d_nominal_low_vectors),
