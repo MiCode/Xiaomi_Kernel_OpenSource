@@ -27,6 +27,8 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
@@ -68,6 +70,7 @@ struct clkctl_acpu_speed {
 	unsigned int	src_div;
 	unsigned int	vdd_cpu;
 	unsigned int	vdd_mem;
+	unsigned int	bw_level;
 };
 
 struct acpuclk_state {
@@ -79,12 +82,40 @@ static struct acpuclk_state drv_state = {
 	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 };
 
+/* Instantaneous bandwidth requests in MB/s. */
+#define BW_MBPS(_bw) \
+	{ \
+		.vectors = &(struct msm_bus_vectors){ \
+			.src = MSM_BUS_MASTER_AMPSS_M0, \
+			.dst = MSM_BUS_SLAVE_EBI_CH0, \
+			.ib = (_bw) * 1000000UL, \
+			.ab = 0, \
+		}, \
+		.num_paths = 1, \
+	}
+static struct msm_bus_paths bw_level_tbl[] = {
+	[0] =  BW_MBPS(152), /* At least  19 MHz on bus. */
+	[1] =  BW_MBPS(368), /* At least  46 MHz on bus. */
+	[2] =  BW_MBPS(552), /* At least  69 MHz on bus. */
+	[3] =  BW_MBPS(736), /* At least  92 MHz on bus. */
+	[4] = BW_MBPS(1064), /* At least 133 MHz on bus. */
+};
+
+static struct msm_bus_scale_pdata bus_client_pdata = {
+	.usecase = bw_level_tbl,
+	.num_usecases = ARRAY_SIZE(bw_level_tbl),
+	.active_only = 1,
+	.name = "acpuclock",
+};
+
+static uint32_t bus_perf_client;
+
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,  19200, SRC_CXO,  0, 0,  950000, 1050000 },
-	{ 1, 138000, SRC_PLL0, 6, 1,  950000, 1050000 },
-	{ 1, 276000, SRC_PLL0, 6, 0, 1050000, 1050000 },
-	{ 1, 384000, SRC_PLL8, 3, 0, 1150000, 1150000 },
-	{ 1, 440000, SRC_PLL9, 2, 0, 1150000, 1150000 },
+	{ 0,  19200, SRC_CXO,  0, 0,  950000, 1050000, 0 },
+	{ 1, 138000, SRC_PLL0, 6, 1,  950000, 1050000, 2 },
+	{ 1, 276000, SRC_PLL0, 6, 0, 1050000, 1050000, 2 },
+	{ 1, 384000, SRC_PLL8, 3, 0, 1150000, 1150000, 4 },
+	{ 1, 440000, SRC_PLL9, 2, 0, 1150000, 1150000, 4 },
 	{ 0 }
 };
 
@@ -102,6 +133,25 @@ static void select_clk_source_div(struct clkctl_acpu_speed *s)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
+}
+
+/* Update the bus bandwidth request. */
+static void set_bus_bw(unsigned int bw)
+{
+	int ret;
+
+	/* Bounds check. */
+	if (bw >= ARRAY_SIZE(bw_level_tbl)) {
+		pr_err("invalid bandwidth request (%d)\n", bw);
+		return;
+	}
+
+	/* Update bandwidth if request has changed. This may sleep. */
+	ret = msm_bus_scale_client_update_request(bus_perf_client, bw);
+	if (ret)
+		pr_err("bandwidth request failed (%d)\n", ret);
+
+	return;
 }
 
 /* Apply any per-cpu voltage increases. */
@@ -198,6 +248,9 @@ static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
 	if (reason == SETRATE_SWFI || reason == SETRATE_PC)
 		goto out;
 
+	/* Update bus bandwith request. */
+	set_bus_bw(tgt_s->bw_level);
+
 	/* Drop VDD levels if we can. */
 	if (tgt_s->khz < strt_s->khz)
 		decrease_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
@@ -258,6 +311,13 @@ static int __init acpuclk_9615_init(struct acpuclk_soc_data *soc_data)
 	int i;
 
 	mutex_init(&drv_state.lock);
+
+	bus_perf_client = msm_bus_scale_register_client(&bus_client_pdata);
+	if (!bus_perf_client) {
+		pr_err("Unable to register bus client\n");
+		BUG();
+	}
+
 	for (i = 0; i < NUM_SRC; i++) {
 		if (clocks[i].name) {
 			clocks[i].clk = clk_get_sys(NULL, clocks[i].name);
