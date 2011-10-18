@@ -81,6 +81,9 @@
 #define MSM_PMIC2_SSBI_CMD_PHYS	0x00C00000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
+#define MSM8960_HSUSB_PHYS		0x12500000
+#define MSM8960_HSUSB_SIZE		SZ_4K
+
 static struct resource resources_otg[] = {
 	{
 		.start	= MSM8960_HSUSB_PHYS,
