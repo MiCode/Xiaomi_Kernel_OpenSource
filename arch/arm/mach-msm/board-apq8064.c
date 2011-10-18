@@ -36,6 +36,18 @@
 
 #include "board-apq8064.h"
 
+static struct platform_device android_usb_device = {
+	.name = "android_usb",
+	.id = -1,
+};
+
+static struct msm_otg_platform_data msm_otg_pdata = {
+	.mode			= USB_PERIPHERAL,
+	.otg_control		= OTG_PHY_CONTROL,
+	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
+	.pclk_src_name		= "dfab_usb_hs_clk",
+};
+
 /* APQ8064 have 4 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
@@ -310,6 +322,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
 	&msm_device_smd_apq8064,
+	&apq8064_device_otg,
+	&apq8064_device_gadget_peripheral,
+	&android_usb_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -324,13 +339,6 @@ static struct platform_device *rumi3_devices[] __initdata = {
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 	.max_clock_speed = 26000000,
-};
-
-static struct msm_otg_platform_data msm_otg_pdata = {
-	.mode			= USB_PERIPHERAL,
-	.otg_control		= OTG_PHY_CONTROL,
-	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
-	.pclk_src_name		= "dfab_usb_hs_clk",
 };
 
 #define KS8851_IRQ_GPIO		43
