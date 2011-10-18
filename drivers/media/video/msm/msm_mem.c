@@ -36,13 +36,6 @@
 #define D(fmt, args...) do {} while (0)
 #endif
 
-
-#define ERR_USER_COPY(to) pr_err("%s(%d): copy %s user\n", \
-				__func__, __LINE__, ((to) ? "to" : "from"))
-#define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
-#define ERR_COPY_TO_USER() ERR_USER_COPY(1)
-
-
 #define PAD_TO_WORD(a)	  (((a) + 3) & ~3)
 
 #define __CONTAINS(r, v, l, field) ({			   \

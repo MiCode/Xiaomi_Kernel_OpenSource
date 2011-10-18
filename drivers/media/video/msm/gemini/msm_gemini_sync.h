@@ -17,6 +17,8 @@
 #include <linux/list.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-subdev.h>
 #include "msm_gemini_core.h"
 
 struct msm_gemini_q {
@@ -63,6 +65,8 @@ struct msm_gemini_device {
 	/* input buf queue
 	 */
 	struct msm_gemini_q input_buf_q;
+
+	struct v4l2_subdev subdev;
 };
 
 int __msm_gemini_open(struct msm_gemini_device *pgmn_dev);

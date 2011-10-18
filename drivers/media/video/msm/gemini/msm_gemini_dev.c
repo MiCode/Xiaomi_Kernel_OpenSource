@@ -20,8 +20,11 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/uaccess.h>
-
 #include <media/msm_gemini.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-subdev.h>
+
+#include "msm.h"
 #include "msm_gemini_sync.h"
 #include "msm_gemini_common.h"
 
@@ -66,8 +69,8 @@ static long msm_gemini_ioctl(struct file *filp, unsigned int cmd,
 	int rc;
 	struct msm_gemini_device *pgmn_dev = filp->private_data;
 
-	GMN_DBG(KERN_INFO "%s:%d] cmd = %d\n", __func__, __LINE__,
-		_IOC_NR(cmd));
+	GMN_DBG("%s:%d] cmd=%d pgmn_dev=0x%x arg=0x%x\n", __func__,
+		__LINE__, _IOC_NR(cmd), (uint32_t)pgmn_dev, (uint32_t)arg);
 
 	rc = __msm_gemini_ioctl(pgmn_dev, cmd, arg);
 
@@ -84,20 +87,77 @@ static const struct file_operations msm_gemini_fops = {
 
 static struct class *msm_gemini_class;
 static dev_t msm_gemini_devno;
-static struct msm_gemini_device *msm_gemini_device_p;
+struct msm_gemini_device *msm_gemini_device_p;
+
+int msm_gemini_subdev_init(struct v4l2_subdev *gemini_sd)
+{
+	int rc;
+	struct msm_gemini_device *pgmn_dev =
+		(struct msm_gemini_device *)gemini_sd->host_priv;
+
+	GMN_DBG("%s:%d: gemini_sd=0x%x pgmn_dev=0x%x\n",
+		__func__, __LINE__, (uint32_t)gemini_sd, (uint32_t)pgmn_dev);
+	rc = __msm_gemini_open(pgmn_dev);
+	GMN_DBG("%s:%d: rc=%d\n",
+		__func__, __LINE__, rc);
+	return rc;
+}
+
+static long msm_gemini_subdev_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg)
+{
+	long rc;
+	struct msm_gemini_device *pgmn_dev =
+		(struct msm_gemini_device *)sd->host_priv;
+
+	GMN_DBG("%s: cmd=%d\n", __func__, cmd);
+
+	GMN_DBG("%s: pgmn_dev 0x%x", __func__, (uint32_t)pgmn_dev);
+
+	GMN_DBG("%s: Calling __msm_gemini_ioctl\n", __func__);
+
+	rc = __msm_gemini_ioctl(pgmn_dev, cmd, (unsigned long)arg);
+	pr_debug("%s: X\n", __func__);
+	return rc;
+}
+
+void msm_gemini_subdev_release(struct v4l2_subdev *gemini_sd)
+{
+	int rc;
+	struct msm_gemini_device *pgmn_dev =
+		(struct msm_gemini_device *)gemini_sd->host_priv;
+	GMN_DBG("%s:pgmn_dev=0x%x", __func__, (uint32_t)pgmn_dev);
+	rc = __msm_gemini_release(pgmn_dev);
+	GMN_DBG("%s:rc=%d", __func__, rc);
+}
+
+static const struct v4l2_subdev_core_ops msm_gemini_subdev_core_ops = {
+	.ioctl = msm_gemini_subdev_ioctl,
+};
+
+static const struct v4l2_subdev_ops msm_gemini_subdev_ops = {
+	.core = &msm_gemini_subdev_core_ops,
+};
 
 static int msm_gemini_init(struct platform_device *pdev)
 {
 	int rc = -1;
 	struct device *dev;
 
-	GMN_DBG("%s:%d]\n", __func__, __LINE__);
-
+	GMN_DBG("%s:\n", __func__);
 	msm_gemini_device_p = __msm_gemini_init(pdev);
 	if (msm_gemini_device_p == NULL) {
 		GMN_PR_ERR("%s: initialization failed\n", __func__);
 		goto fail;
 	}
+
+	v4l2_subdev_init(&msm_gemini_device_p->subdev, &msm_gemini_subdev_ops);
+	v4l2_set_subdev_hostdata(&msm_gemini_device_p->subdev,
+		msm_gemini_device_p);
+	pr_debug("%s: msm_gemini_device_p 0x%x", __func__,
+			(uint32_t)msm_gemini_device_p);
+	GMN_DBG("%s:gemini: platform_set_drvdata\n", __func__);
+	platform_set_drvdata(pdev, &msm_gemini_device_p->subdev);
 
 	rc = alloc_chrdev_region(&msm_gemini_devno, 0, 1, MSM_GEMINI_NAME);
 	if (rc < 0) {
@@ -168,9 +228,7 @@ static void msm_gemini_exit(void)
 
 static int __msm_gemini_probe(struct platform_device *pdev)
 {
-	int rc;
-	rc = msm_gemini_init(pdev);
-	return rc;
+	return msm_gemini_init(pdev);
 }
 
 static int __msm_gemini_remove(struct platform_device *pdev)
@@ -183,7 +241,7 @@ static struct platform_driver msm_gemini_driver = {
 	.probe  = __msm_gemini_probe,
 	.remove = __msm_gemini_remove,
 	.driver = {
-		.name = "msm_gemini",
+		.name = MSM_GEMINI_DRV_NAME,
 		.owner = THIS_MODULE,
 	},
 };
