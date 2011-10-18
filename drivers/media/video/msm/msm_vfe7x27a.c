@@ -287,8 +287,7 @@ static void vfe_7x_release(struct platform_device *pdev)
 	kfree(extdata);
 	extlen = 0;
 
-	/* set back the AXI frequency to default */
-	/* TODO msm_camio_set_perf_lvl(S_DEFAULT); */
+	msm_camio_set_perf_lvl(S_EXIT);
 }
 
 static int vfe_7x_init(struct msm_vfe_callback *presp,
