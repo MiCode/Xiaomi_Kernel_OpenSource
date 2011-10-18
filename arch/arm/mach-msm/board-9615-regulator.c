@@ -12,6 +12,7 @@
  */
 
 #include <linux/regulator/pm8018-regulator.h>
+#include <mach/rpm-regulator.h>
 
 #include "board-9615.h"
 
@@ -155,34 +156,130 @@ VREG_CONSUMERS(LVS1) = {
 		.pin_ctrl = _pin_ctrl, \
 	}
 
+#define RPM_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, _default_uV, \
+		 _peak_uA, _avg_uA, _pull_down, _pin_ctrl, _freq, _pin_fn, \
+		 _force_mode, _power_mode, _state, _sleep_selectable, \
+		 _always_on, _supply_regulator, _system_uA) \
+	{ \
+		.init_data = { \
+			.constraints = { \
+				.valid_modes_mask	= _modes, \
+				.valid_ops_mask		= _ops, \
+				.min_uV			= _min_uV, \
+				.max_uV			= _max_uV, \
+				.input_uV		= _min_uV, \
+				.apply_uV		= _apply_uV, \
+				.always_on		= _always_on, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id), \
+			.consumer_supplies	= vreg_consumers_##_id, \
+			.supply_regulator	= _supply_regulator, \
+		}, \
+		.id			= RPM_VREG_ID_PM8018_##_id, \
+		.default_uV		= _default_uV, \
+		.peak_uA		= _peak_uA, \
+		.avg_uA			= _avg_uA, \
+		.pull_down_enable	= _pull_down, \
+		.pin_ctrl		= _pin_ctrl, \
+		.freq			= RPM_VREG_FREQ_##_freq, \
+		.pin_fn			= _pin_fn, \
+		.force_mode		= _force_mode, \
+		.power_mode		= _power_mode, \
+		.state			= _state, \
+		.sleep_selectable	= _sleep_selectable, \
+		.system_uA		= _system_uA, \
+	}
+
+#define RPM_LDO(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		_supply_regulator, _system_uA, _init_peak_uA) \
+	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
+		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _init_peak_uA, 0, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_9615_NONE, \
+		 RPM_VREG_FORCE_MODE_9615_NONE, RPM_VREG_POWER_MODE_9615_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, _system_uA)
+
+#define RPM_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		 _supply_regulator, _system_uA, _freq) \
+	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
+		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_9615_NONE, \
+		 RPM_VREG_FORCE_MODE_9615_NONE, RPM_VREG_POWER_MODE_9615_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, _system_uA)
+
+#define RPM_VS(_id, _always_on, _pd, _sleep_selectable, _supply_regulator) \
+	RPM_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, 0, 1000, 1000, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_9615_NONE, \
+		 RPM_VREG_FORCE_MODE_9615_NONE, RPM_VREG_POWER_MODE_9615_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, 0)
+
+/* Pin control initialization */
+#define RPM_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
+	{ \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+				.always_on	= _always_on, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
+			.consumer_supplies	= vreg_consumers_##_id##_PC, \
+			.supply_regulator	= _supply_regulator, \
+		}, \
+		.id	  = RPM_VREG_ID_PM8018_##_id##_PC, \
+		.pin_fn	  = RPM_VREG_PIN_FN_9615_##_pin_fn, \
+		.pin_ctrl = _pin_ctrl, \
+	}
+
+
 /* PM8018 regulator constraints */
 struct pm8018_regulator_platform_data
 msm_pm8018_regulator_pdata[] __devinitdata = {
-	/*		      ID  a_on  pd min_uV   max_uV en_t supply sys_uA */
-	PM8018_VREG_INIT_SMPS(S1,    1, 1, 1150000, 1150000, 500, NULL, 100000),
-	PM8018_VREG_INIT_SMPS(S2,    0, 1, 1225000, 1300000, 500, NULL, 0),
-	PM8018_VREG_INIT_SMPS(S3,    1, 1, 1800000, 1800000, 500, NULL, 100000),
-	PM8018_VREG_INIT_SMPS(S4,    0, 1, 2100000, 2200000, 500, NULL, 0),
-	PM8018_VREG_INIT_SMPS(S5,    1, 1, 1350000, 1350000, 500, NULL, 100000),
+};
 
-	PM8018_VREG_INIT_LDO(L2,     1, 1, 1800000, 1800000, 200, NULL, 10000),
-	PM8018_VREG_INIT_LDO(L3,     0, 1, 1800000, 1800000, 200, NULL, 0),
-	PM8018_VREG_INIT_LDO(L4,     0, 1, 3075000, 3075000, 200, NULL, 0),
-	PM8018_VREG_INIT_LDO(L5,     0, 1, 2850000, 2850000, 200, NULL, 0),
-	PM8018_VREG_INIT_LDO(L6,     0, 1, 1800000, 2850000, 200, NULL, 0),
-	PM8018_VREG_INIT_LDO(L7,     0, 1, 1850000, 1900000, 200, "8018_s4", 0),
-	PM8018_VREG_INIT_LDO(L8,     0, 1, 1200000, 1200000, 200, "8018_s3", 0),
-	PM8018_VREG_INIT_LDO(L9,     1, 1, 1150000, 1150000, 200, "8018_s5",
-			     10000),
-	PM8018_VREG_INIT_LDO(L10,    0, 1, 1050000, 1050000, 200, "8018_s5", 0),
-	PM8018_VREG_INIT_LDO(L11,    0, 1, 1050000, 1050000, 200, "8018_s5", 0),
-	PM8018_VREG_INIT_LDO(L12,    0, 1, 1050000, 1050000, 200, "8018_s5", 0),
-	PM8018_VREG_INIT_LDO(L13,    0, 1, 2950000, 2950000, 200, NULL, 0),
-	PM8018_VREG_INIT_LDO(L14,    0, 1, 2850000, 2850000, 200, NULL, 0),
+static struct rpm_regulator_init_data
+msm_rpm_regulator_init_data[] __devinitdata = {
+	/*	 ID    a_on pd ss min_uV   max_uV  supply sys_uA  freq */
+	RPM_SMPS(S1,     1, 1, 1, 1150000, 1150000, NULL, 100000, 1p60),
+	RPM_SMPS(S2,     0, 1, 0, 1225000, 1300000, NULL, 0,	  1p60),
+	RPM_SMPS(S3,     1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60),
+	RPM_SMPS(S4,     0, 1, 0, 2100000, 2200000, NULL, 0,	  1p60),
+	RPM_SMPS(S5,     1, 1, 0, 1350000, 1350000, NULL, 100000, 1p60),
 
-	/*                  ID    a_on  pd                  en_t  supply */
-	PM8018_VREG_INIT_VS(LVS1,    0, 1,                     0, "8018_s3"),
+	/*	 ID    a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
+	RPM_LDO(L2,      1, 1, 0, 1800000, 1800000, NULL,      0, 10000),
+	RPM_LDO(L3,      0, 1, 0, 1800000, 1800000, NULL,      0, 0),
+	RPM_LDO(L4,      0, 1, 0, 3075000, 3075000, NULL,      0, 0),
+	RPM_LDO(L5,      0, 1, 0, 2850000, 2850000, NULL,      0, 0),
+	RPM_LDO(L6,      0, 1, 0, 1800000, 2850000, NULL,      0, 0),
+	RPM_LDO(L7,      0, 1, 0, 1850000, 1900000, "8018_s4", 0, 0),
+	RPM_LDO(L8,      0, 1, 0, 1200000, 1200000, "8018_s3", 0, 0),
+	RPM_LDO(L9,      1, 1, 1, 1150000, 1150000, "8018_s5", 10000, 10000),
+	RPM_LDO(L10,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
+	RPM_LDO(L11,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
+	RPM_LDO(L12,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
+	RPM_LDO(L13,     0, 1, 0, 2950000, 2950000, NULL,      0, 0),
+	RPM_LDO(L14,     0, 1, 0, 2850000, 2850000, NULL,      0, 0),
+
+	/*	ID    a_on pd ss		    supply */
+	RPM_VS(LVS1,    0, 1, 0,		    "8018_s3"),
 };
 
 int msm_pm8018_regulator_pdata_len __devinitdata =
 	ARRAY_SIZE(msm_pm8018_regulator_pdata);
+
+struct rpm_regulator_platform_data
+msm_rpm_regulator_9615_pdata __devinitdata = {
+	.init_data		= msm_rpm_regulator_init_data,
+	.num_regulators		= ARRAY_SIZE(msm_rpm_regulator_init_data),
+	.version		= RPM_VREG_VERSION_9615,
+	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8018_L9,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8018_S1,
+};
