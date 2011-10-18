@@ -59,6 +59,18 @@ static const char *isa_modes[] __maybe_unused = {
   "ARM" , "Thumb" , "Jazelle", "ThumbEE"
 };
 
+#ifdef CONFIG_SMP
+void arch_trigger_all_cpu_backtrace(void)
+{
+	smp_send_all_cpu_backtrace();
+}
+#else
+void arch_trigger_all_cpu_backtrace(void)
+{
+	dump_stack();
+}
+#endif
+
 extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
 typedef void (*phys_reset_t)(unsigned long);
 
