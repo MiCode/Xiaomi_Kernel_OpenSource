@@ -205,6 +205,7 @@ static void audio_mvs_process_ul_pkt(uint8_t *voc_pkt,
 			break;
 		}
 
+		case MVS_MODE_G711:
 		case MVS_MODE_G711A: {
 			/* G711 frames are 10ms each, but the DSP works with
 			 * 20ms frames and sends two 10ms frames per buffer.
@@ -212,11 +213,16 @@ static void audio_mvs_process_ul_pkt(uint8_t *voc_pkt,
 			 * buffers.
 			 */
 			/* Remove the first DSP frame info header.
-			 * Header format:
+			 * Header format: G711A
 			 * Bits 0-1: Frame type
 			 * Bits 2-3: Frame rate
+			 *
+			 * Header format: G711
+			 * Bits 2-3: Frame rate
 			 */
-			buf_node->frame.header.frame_type = (*voc_pkt) & 0x03;
+			if (audio->mvs_mode == MVS_MODE_G711A)
+				buf_node->frame.header.frame_type =
+							(*voc_pkt) & 0x03;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 
 			/* There are two frames in the buffer. Length of the
@@ -247,7 +253,8 @@ static void audio_mvs_process_ul_pkt(uint8_t *voc_pkt,
 				 * Bits 0-1: Frame type
 				 * Bits 2-3: Frame rate
 				 */
-				buf_node->frame.header.frame_type =
+				if (audio->mvs_mode == MVS_MODE_G711A)
+					buf_node->frame.header.frame_type =
 							(*voc_pkt) & 0x03;
 				voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 
@@ -271,6 +278,7 @@ static void audio_mvs_process_ul_pkt(uint8_t *voc_pkt,
 			break;
 		}
 
+		case MVS_MODE_IS733:
 		case MVS_MODE_4GV_NB:
 		case MVS_MODE_4GV_WB: {
 			/* Remove the DSP frame info header.
@@ -284,6 +292,32 @@ static void audio_mvs_process_ul_pkt(uint8_t *voc_pkt,
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
 				buf_node->frame.len);
+
+			list_add_tail(&buf_node->list, &audio->out_queue);
+			break;
+		}
+
+		case MVS_MODE_EFR:
+		case MVS_MODE_FR:
+		case MVS_MODE_HR: {
+			/*
+			 * Remove the DSP frame info header
+			 * Header Format
+			 * Bit 0: bfi unused for uplink
+			 * Bit 1-2: sid applies to both uplink and downlink
+			 * Bit 3: taf unused for uplink
+			 * MVS_MODE_HR
+			 * Bit 4: ufi unused for uplink
+			 */
+			buf_node->frame.header.gsm_frame_type.sid =
+						((*voc_pkt) & 0x06) >> 1;
+			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
+			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+
+			memcpy(&buf_node->frame.voc_pkt[0],
+			voc_pkt,
+			buf_node->frame.len);
+
 			list_add_tail(&buf_node->list, &audio->out_queue);
 			break;
 		}
@@ -353,7 +387,6 @@ static void audio_mvs_process_dl_pkt(uint8_t *voc_pkt,
 		case MVS_MODE_IS127: {
 			/* Add the DSP frame info header. Header format:
 			 * Bits 0-3: Frame rate
-			 * Bits 4-7: Frame type
 			 */
 			*voc_pkt = buf_node->frame.header.packet_rate & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
@@ -423,6 +456,7 @@ static void audio_mvs_process_dl_pkt(uint8_t *voc_pkt,
 			break;
 		}
 
+		case MVS_MODE_G711:
 		case MVS_MODE_G711A: {
 			/* G711 frames are 10ms each but the DSP expects 20ms
 			 * worth of data, so send two 10ms frames per buffer.
@@ -481,6 +515,7 @@ static void audio_mvs_process_dl_pkt(uint8_t *voc_pkt,
 			break;
 		}
 
+		case MVS_MODE_IS733:
 		case MVS_MODE_4GV_NB:
 		case MVS_MODE_4GV_WB: {
 			/* Add the DSP frame info header. Header format:
@@ -495,6 +530,48 @@ static void audio_mvs_process_dl_pkt(uint8_t *voc_pkt,
 				buf_node->frame.len);
 
 			list_add_tail(&buf_node->list, &audio->free_in_queue);
+			break;
+		}
+
+		case MVS_MODE_EFR:
+		case MVS_MODE_FR:
+		case MVS_MODE_HR: {
+			/*
+			 * Remove the DSP frame info header
+			 * Header Format
+			 * Bit 0: bfi applies only for downlink
+			 * Bit 1-2: sid applies for downlink and uplink
+			 * Bit 3: taf applies only for downlink
+			 * MVS_MODE_HR
+			 * Bit 4: ufi applies only for downlink
+			 */
+			*voc_pkt =
+				((buf_node->frame.header.gsm_frame_type.bfi
+					& 0x01) |
+				((buf_node->frame.header.gsm_frame_type.sid
+					& 0x03) << 1) |
+				((buf_node->frame.header.gsm_frame_type.taf
+					& 0x01) << 3));
+
+			if (audio->mvs_mode == MVS_MODE_HR) {
+				*voc_pkt = (*voc_pkt |
+				((buf_node->frame.header.gsm_frame_type.ufi
+				& 0x01) << 4) |
+				((0 & 0x07) << 5));
+			} else {
+				*voc_pkt = (*voc_pkt |
+				((0 & 0x0F) << 4));
+			}
+
+			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
+			*pkt_len = buf_node->frame.len + DSP_FRAME_HDR_LEN;
+
+			memcpy(voc_pkt,
+				&buf_node->frame.voc_pkt[0],
+				buf_node->frame.len);
+
+			list_add_tail(&buf_node->list, &audio->free_in_queue);
+
 			break;
 		}
 
@@ -523,6 +600,10 @@ static uint32_t audio_mvs_get_media_type(uint32_t mvs_mode, uint32_t rate_type)
 	uint32_t media_type;
 
 	switch (mvs_mode) {
+	case MVS_MODE_IS733:
+		media_type = VSS_MEDIA_ID_13K_MODEM;
+		break;
+
 	case MVS_MODE_IS127:
 		media_type = VSS_MEDIA_ID_EVRC_MODEM;
 		break;
@@ -537,6 +618,18 @@ static uint32_t audio_mvs_get_media_type(uint32_t mvs_mode, uint32_t rate_type)
 
 	case MVS_MODE_AMR:
 		media_type = VSS_MEDIA_ID_AMR_NB_MODEM;
+		break;
+
+	case MVS_MODE_EFR:
+		media_type = VSS_MEDIA_ID_EFR_MODEM;
+		break;
+
+	case MVS_MODE_FR:
+		media_type = VSS_MEDIA_ID_FR_MODEM;
+		break;
+
+	case MVS_MODE_HR:
+		media_type = VSS_MEDIA_ID_HR_MODEM;
 		break;
 
 	case MVS_MODE_LINEAR_PCM:
@@ -555,6 +648,7 @@ static uint32_t audio_mvs_get_media_type(uint32_t mvs_mode, uint32_t rate_type)
 		media_type = VSS_MEDIA_ID_G729;
 		break;
 
+	case MVS_MODE_G711:
 	case MVS_MODE_G711A:
 		if (rate_type == MVS_G711A_MODE_MULAW)
 			media_type = VSS_MEDIA_ID_G711_MULAW;
@@ -580,10 +674,15 @@ static uint32_t audio_mvs_get_network_type(uint32_t mvs_mode)
 	uint32_t network_type;
 
 	switch (mvs_mode) {
+	case MVS_MODE_IS733:
 	case MVS_MODE_IS127:
 	case MVS_MODE_4GV_NB:
 	case MVS_MODE_AMR:
+	case MVS_MODE_EFR:
+	case MVS_MODE_FR:
+	case MVS_MODE_HR:
 	case MVS_MODE_LINEAR_PCM:
+	case MVS_MODE_G711:
 	case MVS_MODE_PCM:
 	case MVS_MODE_G729A:
 	case MVS_MODE_G711A:

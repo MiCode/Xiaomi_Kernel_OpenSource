@@ -1117,6 +1117,7 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 
 	/* Set encoder properties. */
 	switch (common.mvs_info.media_type) {
+	case VSS_MEDIA_ID_13K_MODEM:
 	case VSS_MEDIA_ID_4GV_NB_MODEM:
 	case VSS_MEDIA_ID_4GV_WB_MODEM:
 	case VSS_MEDIA_ID_EVRC_MODEM: {
@@ -1253,6 +1254,9 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 		break;
 	}
 
+	case VSS_MEDIA_ID_EFR_MODEM:
+	case VSS_MEDIA_ID_FR_MODEM:
+	case VSS_MEDIA_ID_HR_MODEM:
 	case VSS_MEDIA_ID_G729:
 	case VSS_MEDIA_ID_G711_ALAW:
 	case VSS_MEDIA_ID_G711_MULAW: {

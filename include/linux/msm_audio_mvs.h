@@ -108,10 +108,18 @@ struct msm_audio_mvs_config {
 
 #define MVS_MAX_VOC_PKT_SIZE 640
 
+struct gsm_header {
+	uint8_t bfi;
+	uint8_t sid;
+	uint8_t taf;
+	uint8_t ufi;
+};
+
 struct q6_msm_audio_mvs_frame {
 	union {
 	uint32_t frame_type;
 	uint32_t packet_rate;
+	struct gsm_header gsm_frame_type;
 	} header;
 	uint32_t len;
 	uint8_t voc_pkt[MVS_MAX_VOC_PKT_SIZE];
