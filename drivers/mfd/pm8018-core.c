@@ -39,6 +39,9 @@
 #define PM8018_VERSION_VALUE	0x08F0
 #define PM8018_REVISION_MASK	0x000F
 
+#define REG_PM8018_PON_CNTRL_3	0x01D
+#define PM8018_RESTART_REASON_MASK	0x07
+
 #define SINGLE_IRQ_RESOURCE(_name, _irq) \
 { \
 	.name	= _name, \
@@ -325,6 +328,17 @@ bail:
 	return ret;
 }
 
+static const char * const pm8018_restart_reason[] = {
+	[0] = "Unknown",
+	[1] = "Triggered from CBL (external charger)",
+	[2] = "Triggered from KPD (power key press)",
+	[3] = "Triggered from CHG (usb charger insertion)",
+	[4] = "Triggered from SMPL (sudden momentary power loss)",
+	[5] = "Triggered from RTC (real time clock)",
+	[6] = "Triggered by Hard Reset",
+	[7] = "Triggered by General Purpose Trigger",
+};
+
 static const char * const pm8018_rev_names[] = {
 	[PM8XXX_REVISION_8018_TEST]	= "test",
 	[PM8XXX_REVISION_8018_1p0]	= "1.0",
@@ -386,6 +400,14 @@ static int __devinit pm8018_probe(struct platform_device *pdev)
 	} else {
 		WARN_ON(version != PM8XXX_VERSION_8018);
 	}
+	/* Log human readable restart reason */
+	rc = msm_ssbi_read(pdev->dev.parent, REG_PM8018_PON_CNTRL_3, &val, 1);
+	if (rc) {
+		pr_err("Cannot read restart reason rc=%d\n", rc);
+		goto err_read_rev;
+	}
+	val &= PM8018_RESTART_REASON_MASK;
+	pr_info("PMIC Restart Reason: %s\n", pm8018_restart_reason[val]);
 
 	rc = pm8018_add_subdevices(pdata, pmic);
 	if (rc) {
