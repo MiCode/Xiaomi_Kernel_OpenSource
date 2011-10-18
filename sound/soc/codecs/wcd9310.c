@@ -1935,9 +1935,11 @@ static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
 	/* TODO store register values in calibration */
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B5_CTL, 0x20);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B6_CTL, 0xFF);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B10_CTL, 0xFF);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B9_CTL, 0x00);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B9_CTL, 0x20);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x08);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B3_CTL, 0xEE);
@@ -2420,9 +2422,12 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
 	bias_value = tabla_codec_read_dce_result(codec);
-	pr_debug("%s: button press interrupt, bias value is %d\n",
+	pr_debug("%s: button press interrupt, bias value(DCE Read)=%d\n",
 			__func__, bias_value);
 
+	bias_value = tabla_codec_read_sta_result(codec);
+	pr_debug("%s: button press interrupt, bias value(STA Read)=%d\n",
+			__func__, bias_value);
 	/*
 	 * TODO: If button pressed is not button 0,
 	 * report the button press event immediately.
@@ -2446,6 +2451,10 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
+	mic_voltage = tabla_codec_read_dce_result(codec);
+	pr_debug("%s: Microphone Voltage on release(DCE Read) = %d\n",
+		__func__, mic_voltage);
+
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
 		ret = cancel_delayed_work(&priv->btn0_dwork);
 
@@ -2462,7 +2471,7 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 
 			mic_voltage =
 				tabla_codec_measure_micbias_voltage(codec, 0);
-			pr_debug("%s: Microphone Voltage on release = %d\n",
+			pr_debug("%s: Mic Voltage on release(new STA) = %d\n",
 						__func__, mic_voltage);
 
 			if (mic_voltage < -2000 || mic_voltage > -670) {
