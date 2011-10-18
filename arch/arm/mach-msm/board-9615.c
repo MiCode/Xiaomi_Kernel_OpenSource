@@ -372,6 +372,7 @@ static struct mmc_platform_data sdc1_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
@@ -395,6 +396,7 @@ static struct mmc_platform_data sdc2_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc2_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
 };
