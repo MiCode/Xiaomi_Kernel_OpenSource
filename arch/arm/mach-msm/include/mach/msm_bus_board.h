@@ -35,6 +35,7 @@ struct msm_bus_fabric_registration {
 	const unsigned int nmasters;
 	const unsigned int nslaves;
 	const unsigned int ntieredslaves;
+	bool il_flag;
 };
 
 enum msm_bus_bw_tier_type {
@@ -59,6 +60,7 @@ void msm_bus_board_assign_iids(struct msm_bus_fabric_registration
 	*fabreg, int fabid);
 int msm_bus_board_get_iid(int id);
 void msm_bus_rpm_set_mt_mask(void);
+int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 
 /*
  * These macros specify the convention followed for allocating

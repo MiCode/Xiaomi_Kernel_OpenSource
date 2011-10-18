@@ -22,6 +22,10 @@
 #include "msm_bus_core.h"
 #include "../rpm_resources.h"
 
+#define INTERLEAVED_BW(fab_pdata, bw, ports) \
+	((fab_pdata->il_flag) ? ((bw) / (ports)) : (bw))
+#define INTERLEAVED_VAL(fab_pdata, n) \
+	((fab_pdata->il_flag) ? (n) : 1)
 
 void msm_bus_rpm_set_mt_mask()
 {
@@ -33,6 +37,47 @@ void msm_bus_rpm_set_mt_mask()
 	msm_rpmrs_set_bits_noirq(MSM_RPM_CTX_SET_0, mt, 1,
 		&mask);
 #endif
+}
+
+bool msm_bus_rpm_is_mem_interleaved(void)
+{
+	int status = 0;
+	struct msm_rpm_iv_pair il[2];
+	uint16_t id[2];
+
+	il[0].value = 0;
+	il[1].value = 0;
+	status = msm_bus_board_rpm_get_il_ids(id);
+	if (status) {
+		MSM_BUS_DBG("Dynamic check not supported, "
+			"default: Interleaved memory\n");
+		goto inter;
+	}
+
+	il[0].id = id[0];
+	il[1].id = id[1];
+	status = msm_rpm_get_status(il, ARRAY_SIZE(il));
+	if (status) {
+		MSM_BUS_ERR("Status read for interleaving returned: %d\n"
+			"Using interleaved memory by default\n",
+			status);
+		goto inter;
+	}
+
+	/*
+	 * If the start address of EBI1-CH0 is the same as
+	 * the start address of EBI1-CH1, the memory is interleaved.
+	 * The start addresses are stored in the 16 MSBs of the status
+	 * register
+	 */
+	if ((il[0].value & 0xFFFF0000) != (il[1].value & 0xFFFF0000)) {
+		MSM_BUS_DBG("Non-interleaved memory\n");
+		return false;
+	}
+
+inter:
+	MSM_BUS_DBG("Interleaved memory\n");
+	return true;
 }
 
 #ifndef CONFIG_MSM_BUS_RPM_MULTI_TIER_ENABLED
@@ -198,13 +243,14 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	void *sel_cdata, int *master_tiers,
 	long int add_bw)
 {
-	int index, i, j;
+	int index, i, j, tiers, ports;
 	struct commit_data *sel_cd = (struct commit_data *)sel_cdata;
 
-	add_bw /= info->node_info->num_mports;
-	for (i = 0; i < hop->node_info->num_tiers; i++) {
-		for (j = 0; j < info->node_info->num_mports; j++) {
-
+	add_bw = INTERLEAVED_BW(fab_pdata, add_bw, info->node_info->num_mports);
+	ports = INTERLEAVED_VAL(fab_pdata, info->node_info->num_mports);
+	tiers = INTERLEAVED_VAL(fab_pdata, hop->node_info->num_tiers);
+	for (i = 0; i < tiers; i++) {
+		for (j = 0; j < ports; j++) {
 			uint16_t hop_tier;
 			/*
 			 * For interleaved gateway ports and slave ports,
@@ -246,8 +292,9 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 					&& hop->node_info->num_sports > 1)
 					tieredbw += add_bw;
 				else
-					tieredbw += add_bw/
-						hop->node_info->num_sports;
+					tieredbw += INTERLEAVED_BW(fab_pdata,
+						add_bw, hop->node_info->
+						num_sports);
 
 				/* If bw is 0, update tier to default */
 				if (!tieredbw)
@@ -265,7 +312,8 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	}
 
 	/* Update bwsum for slaves on fabric */
-	for (i = 0; i < hop->node_info->num_sports; i++) {
+	ports = INTERLEAVED_VAL(fab_pdata, hop->node_info->num_sports);
+	for (i = 0; i < ports; i++) {
 		sel_cd->bwsum[hop->node_info->slavep[i]]
 			= (uint16_t)msm_bus_create_bw_tier_pair_bytes(0,
 			(*hop->link_info.sel_bw/hop->node_info->num_sports));
@@ -627,13 +675,14 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	void *sel_cdata, int *master_tiers,
 	long int add_bw)
 {
-	int index, i, j;
+	int index, i, j, tiers, ports;
 	struct commit_data *sel_cd = (struct commit_data *)sel_cdata;
 
-	add_bw /= info->node_info->num_mports;
-	for (i = 0; i < hop->node_info->num_tiers; i++) {
-		for (j = 0; j < info->node_info->num_mports; j++) {
-
+	add_bw = INTERLEAVED_BW(fab_pdata, add_bw, info->node_info->num_mports);
+	ports = INTERLEAVED_VAL(fab_pdata, info->node_info->num_mports);
+	tiers = INTERLEAVED_VAL(fab_pdata, hop->node_info->num_tiers);
+	for (i = 0; i < tiers; i++) {
+		for (j = 0; j < ports; j++) {
 			uint16_t hop_tier;
 			/*
 			 * For interleaved gateway ports and slave ports,
@@ -668,8 +717,9 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 					&& hop->node_info->num_sports > 1)
 					tieredbw += add_bw;
 				else
-					tieredbw += add_bw/
-						hop->node_info->num_sports;
+					tieredbw += INTERLEAVED_BW(fab_pdata,
+						add_bw, hop->node_info->
+						num_sports);
 
 				/* Update Arb for fab,get HW Mport from enum */
 				sel_cd->arb[tier][index] =
@@ -683,7 +733,9 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	}
 
 	/* Update bwsum for slaves on fabric */
-	for (i = 0; i < hop->node_info->num_sports; i++) {
+
+	ports = INTERLEAVED_VAL(fab_pdata, hop->node_info->num_sports);
+	for (i = 0; i < ports; i++) {
 		sel_cd->bwsum[hop->node_info->slavep[i]]
 			= msm_bus_pack_bwsum_bytes((*hop->link_info.
 			sel_bw/hop->node_info->num_sports));

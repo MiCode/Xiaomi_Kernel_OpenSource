@@ -170,6 +170,7 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	long int add_bw);
 void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf, const int max_size,
 	void *cdata, int nmasters, int nslaves, int ntslaves);
+bool msm_bus_rpm_is_mem_interleaved(void);
 
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_MSM_BUS_SCALING)
 void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata, int index,

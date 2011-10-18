@@ -650,6 +650,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	pdata = (struct msm_bus_fabric_registration *)pdev->dev.platform_data;
 	fabric->fabdev.name = pdata->name;
 	fabric->fabdev.algo = &msm_bus_algo;
+	pdata->il_flag = msm_bus_rpm_is_mem_interleaved();
 	fabric->ahb = pdata->ahb;
 	fabric->pdata = pdata;
 	msm_bus_board_assign_iids(fabric->pdata, fabric->fabdev.id);

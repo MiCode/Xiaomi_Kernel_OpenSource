@@ -906,3 +906,7 @@ int msm_bus_board_get_iid(int id)
 		SLAVE_ID_KEY]);
 }
 
+int msm_bus_board_rpm_get_il_ids(uint16_t id[])
+{
+	return -ENXIO;
+}
