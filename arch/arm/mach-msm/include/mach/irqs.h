@@ -19,10 +19,15 @@
 
 #define MSM_IRQ_BIT(irq)     (1 << ((irq) & 31))
 
-#if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064)
+#if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
+	defined(CONFIG_ARCH_MSM8930)
 
 #ifdef CONFIG_ARCH_MSM8960
 #include "irqs-8960.h"
+#endif
+
+#ifdef CONFIG_ARCH_MSM8930
+#include "irqs-8930.h"
 #endif
 
 #ifdef CONFIG_ARCH_APQ8064
