@@ -134,7 +134,38 @@ config ARCH_MSM8960
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
-        select DONT_MAP_HOLE_AFTER_MEMBANK0
+	select DONT_MAP_HOLE_AFTER_MEMBANK0
+	select MSM_REMOTE_SPINLOCK_SFPB
+	select ARCH_POPULATES_NODE_MAP
+	select ARCH_SPARSEMEM_ENABLE
+	select ARCH_HAS_HOLES_MEMORYMODEL
+	select MEMORY_HOTPLUG
+	select MEMORY_HOTREMOVE
+	select MIGRATION
+	select ARCH_MEMORY_PROBE
+	select ARCH_MEMORY_REMOVE
+	select DONT_RESERVE_FROM_MOVABLE_ZONE
+
+config ARCH_MSM8930
+	bool "MSM8930"
+	select ARCH_MSM_KRAITMP
+	select ARM_GIC
+	select CPU_V7
+	select MSM_V2_TLMM
+	select MSM_GPIOMUX
+	select MSM_SCM if SMP
+	select MSM_DIRECT_SCLK_ACCESS
+	select REGULATOR
+	select MSM_RPM
+	select MSM_XO
+	select MSM_QDSP6_APR
+	select MSM_PIL
+	select MSM_AUDIO_QDSP6 if SND_SOC
+	select CPU_HAS_L2_PMU
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_NATIVE_RESTART
+	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select MSM_REMOTE_SPINLOCK_SFPB
 	select ARCH_POPULATES_NODE_MAP
 	select ARCH_SPARSEMEM_ENABLE
@@ -551,6 +582,24 @@ config MACH_MSM8960_LIQUID
 	help
 	  Support for the Qualcomm MSM8960 LIQUID device.
 
+config MACH_MSM8930_CDP
+	depends on ARCH_MSM8930
+	bool "MSM8930 CDP"
+	help
+	  Support for the Qualcomm MSM8930 CDP device.
+
+config MACH_MSM8930_MTP
+	depends on ARCH_MSM8930
+	bool "MSM8930 MTP"
+	help
+	  Support for the Qualcomm MSM8930 MTP device.
+
+config MACH_MSM8930_FLUID
+	depends on ARCH_MSM8930
+	bool "MSM8930 FLUID"
+	help
+	  Support for the Qualcomm MSM8930 FLUID device.
+
 config MACH_MSM9615_CDP
 	depends on ARCH_MSM9615
 	bool "MSM9615 CDP"
@@ -608,6 +657,7 @@ config PHYS_OFFSET
 	default "0x40800000" if ARCH_MSM9615
 	default "0x80200000" if ARCH_APQ8064
 	default "0x80200000" if ARCH_MSM8960
+	default "0x80200000" if ARCH_MSM8930
 	default "0x80200000" if ARCH_MSMCOPPER
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x00200000" if !MSM_STACKED_MEMORY
