@@ -3492,7 +3492,6 @@ static unsigned long fmax_gfx3d_8960_v2[MAX_VDD_LEVELS] __initdata = {
 	[VDD_DIG_HIGH]    = 400000000
 };
 
-/* TODO: need to add 325MHz back once it is fixed in the simulation model */
 static struct clk_freq_tbl clk_tbl_gfx3d_8064[] = {
 	F_GFX3D(        0, gnd,   0,  0),
 	F_GFX3D( 27000000, pxo,   0,  0),
@@ -3508,6 +3507,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d_8064[] = {
 	F_GFX3D(200000000, pll2,  1,  4),
 	F_GFX3D(228571000, pll2,  2,  7),
 	F_GFX3D(266667000, pll2,  1,  3),
+	F_GFX3D(325000000, pll15, 1,  3),
 	F_GFX3D(400000000, pll2,  1,  2),
 	F_END
 };
@@ -5096,23 +5096,23 @@ static struct clk_lookup msm_clocks_8064[] __initdata = {
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,		NULL),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,		NULL),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,		NULL),
-	CLK_DUMMY("csi_src_clk",	CSI0_SRC_CLK,		NULL, OFF),
+	CLK_LOOKUP("csi_src_clk",	csi0_src_clk.c,		NULL),
 	CLK_LOOKUP("csi_src_clk",	csi1_src_clk.c,		NULL),
 	CLK_LOOKUP("csi_src_clk",	csi1_src_clk.c,		NULL),
 	CLK_LOOKUP("csi_src_clk",	csi2_src_clk.c,		NULL),
-	CLK_DUMMY("csi_clk",		CSI0_CLK,		NULL, OFF),
+	CLK_LOOKUP("csi_clk",		csi0_clk.c,		NULL),
 	CLK_LOOKUP("csi_clk",		csi1_clk.c,		NULL),
 	CLK_LOOKUP("csi_clk",		csi1_clk.c,		NULL),
 	CLK_LOOKUP("csi_clk",		csi2_clk.c,		NULL),
-	CLK_DUMMY("csi_phy_clk",	CSI0_PHY_CLK,		NULL, OFF),
+	CLK_LOOKUP("csi_phy_clk",	csi0_phy_clk.c,		NULL),
 	CLK_LOOKUP("csi_phy_clk",	csi1_phy_clk.c,		NULL),
 	CLK_LOOKUP("csi_phy_clk",	csi1_phy_clk.c,		NULL),
 	CLK_LOOKUP("csi_phy_clk",	csi2_phy_clk.c,		NULL),
-	CLK_DUMMY("csi_pix_clk",	CSI_PIX_CLK,		NULL, OFF),
-	CLK_DUMMY("csi_rdi_clk",	CSI_RDI_CLK,		NULL, OFF),
-	CLK_DUMMY("csi_pix_clk",	CSI_PIX1_CLK,		NULL, OFF),
-	CLK_DUMMY("csi_rdi_clk",	CSI_RDI1_CLK,		NULL, OFF),
-	CLK_DUMMY("csi_rdi_clk",	CSI_RDI2_CLK,		NULL, OFF),
+	CLK_LOOKUP("csi_pix_clk",	csi_pix_clk.c,		NULL),
+	CLK_LOOKUP("csi_pix_clk",	csi_pix1_clk.c,		NULL),
+	CLK_LOOKUP("csi_rdi_clk",	csi_rdi_clk.c,		NULL),
+	CLK_LOOKUP("csi_rdi_clk",	csi_rdi1_clk.c,		NULL),
+	CLK_LOOKUP("csi_rdi_clk",	csi_rdi2_clk.c,		NULL),
 	CLK_LOOKUP("csiphy_timer_src_clk", csiphy_timer_src_clk.c, NULL),
 	CLK_LOOKUP("csiphy_timer_clk",	csi0phy_timer_clk.c,	NULL),
 	CLK_LOOKUP("csiphy_timer_clk",	csi1phy_timer_clk.c,	NULL),
@@ -5190,7 +5190,7 @@ static struct clk_lookup msm_clocks_8064[] __initdata = {
 	CLK_LOOKUP("core_clk",		vfe_axi_clk.c,		NULL),
 	CLK_LOOKUP("core_clk",		vcodec_axi_a_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		vcodec_axi_b_clk.c,	NULL),
-	CLK_DUMMY("core_clk",		GFX3D_AXI_CLK,		NULL, 0),
+	CLK_LOOKUP("core_clk",		gfx3d_axi_clk.c,	NULL),
 	CLK_DUMMY("dfab_dsps_clk",	DFAB_DSPS_CLK,		NULL, 0),
 	CLK_DUMMY("dfab_usb_hs_clk",	DFAB_USB_HS_CLK,	NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC1_CLK,		NULL, 0),
