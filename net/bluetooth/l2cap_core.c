@@ -7081,6 +7081,10 @@ done:
 static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid, struct sk_buff *skb)
 {
 	struct sock *sk;
+	struct sk_buff *skb_rsp;
+	struct l2cap_hdr *lh;
+	u8 err_rsp[] = {L2CAP_ATT_ERROR, 0x00, 0x00, 0x00,
+						L2CAP_ATT_NOT_SUPPORTED};
 
 	sk = l2cap_get_sock_by_fixed_scid(0, cid, conn->src, conn->dst);
 	if (!sk)
@@ -7100,6 +7104,25 @@ static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid, struct 
 		goto done;
 
 drop:
+	if (skb->data[0] & L2CAP_ATT_RESPONSE_BIT &&
+			skb->data[0] != L2CAP_ATT_INDICATE)
+		goto free_skb;
+
+	/* If this is an incoming PDU that requires a response, respond with
+	 * a generic error so remote device doesn't hang */
+
+	skb_rsp = bt_skb_alloc(sizeof(err_rsp) + L2CAP_HDR_SIZE, GFP_ATOMIC);
+	if (!skb_rsp)
+		goto free_skb;
+
+	lh = (struct l2cap_hdr *) skb_put(skb_rsp, L2CAP_HDR_SIZE);
+	lh->len = cpu_to_le16(sizeof(err_rsp));
+	lh->cid = cpu_to_le16(L2CAP_CID_LE_DATA);
+	err_rsp[1] = skb->data[0];
+	memcpy(skb_put(skb_rsp, sizeof(err_rsp)), err_rsp, sizeof(err_rsp));
+	hci_send_acl(conn->hcon, NULL, skb_rsp, 0);
+
+free_skb:
 	kfree_skb(skb);
 
 done:
