@@ -630,7 +630,7 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 	buffer = handle->buffer;
 	mutex_lock(&buffer->lock);
 
-	if (ION_IS_CACHED(buffer->flags)) {
+	if (!ION_IS_CACHED(buffer->flags)) {
 		ret = 0;
 		goto out;
 	}
