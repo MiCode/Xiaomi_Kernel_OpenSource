@@ -536,6 +536,9 @@ static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	if (mReq->req.status != -EALREADY)
 		return -EINVAL;
 
+	/* clean speculative fetches on req->ptr->token */
+	mb();
+
 	if ((TD_STATUS_ACTIVE & tmptoken) != 0)
 		return -EBUSY;
 
