@@ -33,6 +33,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
 #include <mach/msm-krait-l2-accessors.h>
+#include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
 
@@ -87,6 +88,8 @@ enum vregs {
 	VREG_CORE,
 	VREG_MEM,
 	VREG_DIG,
+	VREG_HFPLL_A,
+	VREG_HFPLL_B,
 	NUM_VREG
 };
 
@@ -143,6 +146,12 @@ static struct scalable scalable_8960[] = {
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER1,
 					     RPM_VREG_ID_PM8921_S3 },
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER1,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER1,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 	[CPU1] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x300,
@@ -155,11 +164,23 @@ static struct scalable scalable_8960[] = {
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER2,
 					     RPM_VREG_ID_PM8921_S3 },
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER2,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER2,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 	[L2] = {
 			.hfpll_base   = MSM_HFPLL_BASE    + 0x400,
 			.aux_clk_sel  = MSM_APCS_GCC_BASE + 0x028,
 			.l2cpmr_iaddr = L2CPMR_IADDR,
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER6,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER6,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 };
 
@@ -410,6 +431,23 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 /* Enable an already-configured HFPLL. */
 static void hfpll_enable(struct scalable *sc)
 {
+	int rc;
+
+	if (cpu_is_msm8960()) {
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2200000,
+				2200000, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_A].name, rc);
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
+				1800000, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_B].name, rc);
+	}
+
 	/* Disable PLL bypass mode. */
 	writel_relaxed(0x2, sc->hfpll_base + HFPLL_MODE);
 
@@ -434,11 +472,28 @@ static void hfpll_enable(struct scalable *sc)
 /* Disable a HFPLL for power-savings or while its being reprogrammed. */
 static void hfpll_disable(struct scalable *sc)
 {
+	int rc;
+
 	/*
 	 * Disable the PLL output, disable test mode, enable
 	 * the bypass mode, and assert the reset.
 	 */
 	writel_relaxed(0, sc->hfpll_base + HFPLL_MODE);
+
+	if (cpu_is_msm8960()) {
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
+				0, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_B].name, rc);
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
+				0, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_A].name, rc);
+	}
 }
 
 /* Program the HFPLL rate. Assumes HFPLL is already disabled. */
