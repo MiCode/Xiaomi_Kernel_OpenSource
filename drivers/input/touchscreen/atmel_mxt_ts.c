@@ -182,10 +182,12 @@
 #define MXT_VTG_MIN_UV		2700000
 #define MXT_VTG_MAX_UV		3300000
 #define MXT_ACTIVE_LOAD_UA	15000
+#define MXT_LPM_LOAD_UA		10
 
 #define MXT_I2C_VTG_MIN_UV	1800000
 #define MXT_I2C_VTG_MAX_UV	1800000
 #define MXT_I2C_LOAD_UA		10000
+#define MXT_I2C_LPM_LOAD_UA	10
 
 /* Define for MXT_GEN_COMMAND_T6 */
 #define MXT_BOOT_VALUE		0xa5
@@ -1512,6 +1514,68 @@ static int mxt_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int mxt_regulator_lpm(struct mxt_data *data, bool on)
+{
+
+	int rc;
+
+	if (on == false)
+		goto regulator_hpm;
+
+	rc = regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&data->client->dev,
+			"Regulator set_opt failed rc=%d\n", rc);
+		goto fail_regulator_lpm;
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		rc = regulator_set_optimum_mode(data->vcc_i2c,
+						MXT_I2C_LPM_LOAD_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator set_opt failed rc=%d\n", rc);
+			goto fail_regulator_lpm;
+		}
+	}
+
+	return 0;
+
+regulator_hpm:
+
+	rc = regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&data->client->dev,
+			"Regulator set_opt failed rc=%d\n", rc);
+		goto fail_regulator_hpm;
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		rc = regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator set_opt failed rc=%d\n", rc);
+			goto fail_regulator_hpm;
+		}
+	}
+
+	return 0;
+
+fail_regulator_lpm:
+	regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	if (data->pdata->i2c_pull_up)
+		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
+
+	return rc;
+
+fail_regulator_hpm:
+	regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	if (data->pdata->i2c_pull_up)
+		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LPM_LOAD_UA);
+
+	return rc;
+}
+
 static int mxt_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -1533,6 +1597,13 @@ static int mxt_suspend(struct device *dev)
 
 	mutex_unlock(&input_dev->mutex);
 
+	/* put regulators in low power mode */
+	error = mxt_regulator_lpm(data, true);
+	if (error < 0) {
+		dev_err(dev, "failed to enter low power mode\n");
+		return error;
+	}
+
 	return 0;
 }
 
@@ -1542,6 +1613,13 @@ static int mxt_resume(struct device *dev)
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
 	int error;
+
+	/* put regulators in high power mode */
+	error = mxt_regulator_lpm(data, false);
+	if (error < 0) {
+		dev_err(dev, "failed to enter high power mode\n");
+		return error;
+	}
 
 	mutex_lock(&input_dev->mutex);
 
