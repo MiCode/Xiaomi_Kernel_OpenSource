@@ -2119,6 +2119,10 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 					writel_relaxed(host->mci_irqenable,
 							host->base + MMCIMASK0);
 				}
+			} else {
+				writel_relaxed(host->mci_irqenable,
+						host->base + MMCIMASK0);
+				mb();
 			}
 		}
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -4142,12 +4146,14 @@ msmsdcc_runtime_suspend(struct device *dev)
 		 * part of LPM), then clocks should be turned on before
 		 * calling mmc_suspend_host() because mmc_suspend_host might
 		 * send some commands to the card. The clocks will be turned
-		 * off again after mmc_suspend_host. Thus for SD/MMC/SDIO
+		 * off again after mmc_suspend_host. Thus for SDIO
 		 * cards, clocks will be turned on before mmc_suspend_host
 		 * and turned off after mmc_suspend_host.
 		 */
-		mmc->ios.clock = host->clk_rate;
-		mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+		if (mmc->card && mmc_card_sdio(mmc->card)) {
+			mmc->ios.clock = host->clk_rate;
+			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+		}
 
 		/*
 		 * MMC core thinks that host is disabled by now since
@@ -4216,26 +4222,26 @@ msmsdcc_runtime_resume(struct device *dev)
 				enable_irq(host->core_irqres->start);
 				host->sdcc_irq_disabled = 0;
 			}
-		}
-		mmc->ios.clock = host->clk_rate;
-		mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+			mmc->ios.clock = host->clk_rate;
+			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 
-		spin_lock_irqsave(&host->lock, flags);
-		writel_relaxed(host->mci_irqenable, host->base + MMCIMASK0);
-		mb();
+			spin_lock_irqsave(&host->lock, flags);
+			writel_relaxed(host->mci_irqenable,
+					host->base + MMCIMASK0);
+			mb();
 
-		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
-				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
-				!host->sdio_irq_disabled) {
+			if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+					!host->sdio_irq_disabled) {
 				if (host->plat->sdiowakeup_irq) {
 					disable_irq_nosync(
 						host->plat->sdiowakeup_irq);
 					msmsdcc_disable_irq_wake(host);
 					host->sdio_irq_disabled = 1;
 				}
-		}
+			}
 
-		spin_unlock_irqrestore(&host->lock, flags);
+			spin_unlock_irqrestore(&host->lock, flags);
+		}
 
 		mmc_resume_host(mmc);
 
