@@ -272,8 +272,11 @@ void kgsl_pwrscale_policy_remove_files(struct kgsl_device *device,
 
 static void _kgsl_pwrscale_detach_policy(struct kgsl_device *device)
 {
-	if (device->pwrscale.policy != NULL)
+	if (device->pwrscale.policy != NULL) {
 		device->pwrscale.policy->close(device, &device->pwrscale);
+		kgsl_pwrctrl_pwrlevel_change(device,
+				device->pwrctrl.thermal_pwrlevel);
+	}
 	device->pwrscale.policy = NULL;
 }
 
