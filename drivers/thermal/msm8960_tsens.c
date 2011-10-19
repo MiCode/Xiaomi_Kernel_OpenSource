@@ -41,13 +41,7 @@ enum tsens_trip_type {
 #define TSENS_MAIN_SENSOR				0
 
 #define TSENS_8960_QFPROM_ADDR0		(MSM_QFPROM_BASE + 0x00000404)
-#define TSENS_8960_QFPROM_RED_TEMP_SENSOR0_SHIFT	8
-#define TSENS_8960_QFPROM_TEMP_SENSOR0_SHIFT		0
-#define TSENS_8960_QFPROM_TEMP_SENSOR0_MASK		\
-			(255 << TSENS_QFPROM_TEMP_SENSOR0_SHIFT)
-#define TSENS_8960_QFPROM_RED_TEMP_SENSOR0_MASK		\
-			(255 << TSENS_8960_QFPROM_RED_TEMP_SENSOR0_SHIFT)
-
+#define TSENS_8960_QFPROM_SPARE_ADDR0	(MSM_QFPROM_BASE + 0x00000414)
 #define TSENS_8960_CONFIG				0x9b
 #define TSENS_8960_CONFIG_SHIFT				0
 #define TSENS_8960_CONFIG_MASK		(0xf << TSENS_8960_CONFIG_SHIFT)
@@ -679,29 +673,26 @@ static int tsens_calib_sensors8660(void)
 
 static int tsens_calib_sensors8960(void)
 {
-	uint32_t *main_sensor_addr, sensor_shift, red_sensor_shift;
-	uint32_t sensor_mask, red_sensor_mask, i;
+	uint32_t *main_sensor_addr, sensor_shift, *backup_sensor_addr;
+	uint32_t sensor_mask, i;
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 		main_sensor_addr = TSENS_8960_QFPROM_ADDR0 +
-			(TSENS_8960_QFPROM_SHIFT * (i >> TSENS_MASK1));
-		sensor_shift = (i & TSENS_MASK1) * TSENS_SENSOR_SHIFT;
-		red_sensor_shift = sensor_shift + TSENS_RED_SHIFT;
+			(TSENS_8960_QFPROM_SHIFT *
+			(i & TSENS_8960_QFPROM_SHIFT >> TSENS_SENSOR0_SHIFT));
+		sensor_shift = (i % TSENS_8960_QFPROM_SHIFT) * TSENS_RED_SHIFT;
 		sensor_mask = TSENS_THRESHOLD_MAX_CODE << sensor_shift;
-		red_sensor_mask = TSENS_THRESHOLD_MAX_CODE <<
-							red_sensor_shift;
+		backup_sensor_addr = TSENS_8960_QFPROM_SPARE_ADDR0 +
+			(TSENS_8960_QFPROM_SHIFT *
+		(i & TSENS_8960_QFPROM_SHIFT >> TSENS_SENSOR0_SHIFT));
 
 		tmdev->sensor[i].calib_data = (readl_relaxed(main_sensor_addr)
 			& sensor_mask) >> sensor_shift;
 		tmdev->sensor[i].calib_data_backup =
-			(readl_relaxed(main_sensor_addr) &
-				red_sensor_mask) >> red_sensor_shift;
+			(readl_relaxed(backup_sensor_addr) &
+				sensor_mask) >> sensor_shift;
 		if (tmdev->sensor[i].calib_data_backup)
 			tmdev->sensor[i].calib_data =
 				tmdev->sensor[i].calib_data_backup;
-
-		/* Hardcoded calibration data based on pervious
-		 * chip. Remove once we obtain the data. */
-		tmdev->sensor[i].calib_data = 91;
 
 		if (!tmdev->sensor[i].calib_data) {
 			pr_err("%s: No temperature sensor:%d data for"
