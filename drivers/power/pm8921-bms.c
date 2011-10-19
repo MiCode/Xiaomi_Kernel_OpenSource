@@ -88,30 +88,122 @@ struct pm8921_bms_chip {
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
 	spinlock_t		bms_output_lock;
+	struct single_row_lut	*adjusted_fcc_temp_lut;
 };
 
 static struct pm8921_bms_chip *the_chip;
 
 #define DEFAULT_RBATT_MOHMS		128
-#define DEFAULT_UNUSABLE_CHARGE_MAH	10
 #define DEFAULT_OCV_MICROVOLTS		3900000
-#define DEFAULT_REMAINING_CHARGE_MAH	990
-#define DEFAULT_COULUMB_COUNTER		0
 #define DEFAULT_CHARGE_CYCLES		0
+
+static int last_chargecycles = DEFAULT_CHARGE_CYCLES;
+static int last_charge_increase;
+module_param(last_chargecycles, int, 0644);
+module_param(last_charge_increase, int, 0644);
 
 static int last_rbatt = -EINVAL;
 static int last_ocv_uv = -EINVAL;
 static int last_soc = -EINVAL;
 static int last_real_fcc = -EINVAL;
+static int last_real_fcc_batt_temp = -EINVAL;
 
-static int last_chargecycles = DEFAULT_CHARGE_CYCLES;
-static int last_charge_increase;
+static int bms_ops_set(const char *val, const struct kernel_param *kp)
+{
+	if (*(int *)kp->arg == -EINVAL)
+		return param_set_int(val, kp);
+	else
+		return 0;
+}
 
-module_param(last_rbatt, int, 0644);
-module_param(last_ocv_uv, int, 0644);
-module_param(last_chargecycles, int, 0644);
-module_param(last_charge_increase, int, 0644);
-module_param(last_real_fcc, int, 0644);
+static struct kernel_param_ops bms_param_ops = {
+	.set = bms_ops_set,
+	.get = param_get_int,
+};
+
+module_param_cb(last_rbatt, &bms_param_ops, &last_rbatt, 0644);
+module_param_cb(last_ocv_uv, &bms_param_ops, &last_ocv_uv, 0644);
+module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
+
+static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp);
+static void readjust_fcc_table(void)
+{
+	struct single_row_lut *temp, *old;
+	int i, fcc, ratio;
+
+	if (!the_chip->fcc_temp_lut) {
+		pr_err("The static fcc lut table is NULL\n");
+		return;
+	}
+
+	temp = kzalloc(sizeof(struct single_row_lut), GFP_KERNEL);
+	if (!temp) {
+		pr_err("Cannot allocate memory for adjusted fcc table\n");
+		return;
+	}
+
+	fcc = interpolate_fcc(the_chip, last_real_fcc_batt_temp);
+
+	temp->cols = the_chip->fcc_temp_lut->cols;
+	for (i = 0; i < the_chip->fcc_temp_lut->cols; i++) {
+		temp->x[i] = the_chip->fcc_temp_lut->x[i];
+		ratio = div_u64(the_chip->fcc_temp_lut->y[i] * 1000, fcc);
+		temp->y[i] =  (ratio * last_real_fcc);
+		temp->y[i] /= 1000;
+		pr_debug("temp=%d, staticfcc=%d, adjfcc=%d, ratio=%d\n",
+				temp->x[i], the_chip->fcc_temp_lut->y[i],
+				temp->y[i], ratio);
+	}
+
+	old = the_chip->adjusted_fcc_temp_lut;
+	the_chip->adjusted_fcc_temp_lut = temp;
+	kfree(old);
+}
+
+static int bms_last_real_fcc_set(const char *val,
+				const struct kernel_param *kp)
+{
+	int rc = 0;
+
+	if (last_real_fcc == -EINVAL)
+		rc = param_set_int(val, kp);
+	if (rc) {
+		pr_err("Failed to set last_real_fcc rc=%d\n", rc);
+		return rc;
+	}
+	if (last_real_fcc_batt_temp != -EINVAL)
+		readjust_fcc_table();
+	return rc;
+}
+static struct kernel_param_ops bms_last_real_fcc_param_ops = {
+	.set = bms_last_real_fcc_set,
+	.get = param_get_int,
+};
+module_param_cb(last_real_fcc, &bms_last_real_fcc_param_ops,
+					&last_real_fcc, 0644);
+
+static int bms_last_real_fcc_batt_temp_set(const char *val,
+				const struct kernel_param *kp)
+{
+	int rc = 0;
+
+	if (last_real_fcc_batt_temp == -EINVAL)
+		rc = param_set_int(val, kp);
+	if (rc) {
+		pr_err("Failed to set last_real_fcc_batt_temp rc=%d\n", rc);
+		return rc;
+	}
+	if (last_real_fcc != -EINVAL)
+		readjust_fcc_table();
+	return rc;
+}
+
+static struct kernel_param_ops bms_last_real_fcc_batt_temp_param_ops = {
+	.set = bms_last_real_fcc_batt_temp_set,
+	.get = param_get_int,
+};
+module_param_cb(last_real_fcc_batt_temp, &bms_last_real_fcc_batt_temp_param_ops,
+					&last_real_fcc_batt_temp, 0644);
 
 static int pm_bms_get_rt_status(struct pm8921_bms_chip *chip, int irq_id)
 {
@@ -335,6 +427,8 @@ static int read_last_good_ocv(struct pm8921_bms_chip *chip, uint *result)
 	}
 	*result = vbatt_to_microvolt(reading);
 	pr_debug("raw = %04x ocv_microV = %u\n", reading, *result);
+	if (*result != 0)
+		last_ocv_uv = *result;
 	return 0;
 }
 
@@ -442,6 +536,11 @@ static int interpolate_single_lut(struct single_row_lut *lut, int x)
 static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp)
 {
 	return interpolate_single_lut(chip->fcc_temp_lut, batt_temp);
+}
+
+static int interpolate_fcc_adjusted(struct pm8921_bms_chip *chip, int batt_temp)
+{
+	return interpolate_single_lut(chip->adjusted_fcc_temp_lut, batt_temp);
 }
 
 static int interpolate_scalingfactor_fcc(struct pm8921_bms_chip *chip,
@@ -665,6 +764,7 @@ static int calculate_rbatt(struct pm8921_bms_chip *chip)
 		return -EINVAL;
 	}
 	r_batt = ((ocv - vbatt) * chip->r_sense) / vsense;
+	last_rbatt = r_batt;
 	pr_debug("r_batt = %umilliOhms", r_batt);
 	return r_batt;
 }
@@ -674,16 +774,18 @@ static int calculate_fcc(struct pm8921_bms_chip *chip, int batt_temp,
 {
 	int initfcc, result, scalefactor = 0;
 
-	initfcc = interpolate_fcc(chip, batt_temp);
-	pr_debug("intfcc = %umAh batt_temp = %d\n", initfcc, batt_temp);
+	if (chip->adjusted_fcc_temp_lut == NULL) {
+		initfcc = interpolate_fcc(chip, batt_temp);
 
-	scalefactor = interpolate_scalingfactor_fcc(chip, chargecycles);
-	pr_debug("scalefactor = %d batt_temp = %d\n", scalefactor, batt_temp);
+		scalefactor = interpolate_scalingfactor_fcc(chip, chargecycles);
 
-	/* Multiply the initial FCC value by the scale factor. */
-	result = (initfcc * scalefactor) / 100;
-	pr_debug("fcc mAh = %d\n", result);
-	return result;
+		/* Multiply the initial FCC value by the scale factor. */
+		result = (initfcc * scalefactor) / 100;
+		pr_debug("fcc mAh = %d\n", result);
+		return result;
+	} else {
+		return interpolate_fcc_adjusted(chip, batt_temp);
+	}
 }
 
 static int get_battery_uvolts(struct pm8921_bms_chip *chip, int *uvolts)
@@ -711,20 +813,18 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 	rc = get_battery_uvolts(chip, &vbatt);
 	if (rc) {
 		pr_err("failed to read vbatt from adc rc = %d\n", rc);
-		last_ocv_uv = DEFAULT_OCV_MICROVOLTS;
 		return rc;
 	}
 
 	rc =  pm8921_bms_get_battery_current(&ibatt);
 	if (rc) {
 		pr_err("failed to read batt current rc = %d\n", rc);
-		last_ocv_uv = DEFAULT_OCV_MICROVOLTS;
 		return rc;
 	}
 
 	rbatt = calculate_rbatt(the_chip);
 	if (rbatt < 0)
-		rbatt = DEFAULT_RBATT_MOHMS;
+		rbatt = (last_rbatt < 0) ? DEFAULT_RBATT_MOHMS : last_rbatt;
 	*ocv = vbatt + ibatt * rbatt;
 	return 0;
 }
@@ -771,8 +871,6 @@ static int calculate_unusable_charge_mah(struct pm8921_bms_chip *chip,
 	if (rbatt < 0) {
 		rbatt = (last_rbatt < 0) ? DEFAULT_RBATT_MOHMS : last_rbatt;
 		pr_debug("rbatt unavailable assuming %d\n", rbatt);
-	} else {
-		last_rbatt = rbatt;
 	}
 
 	/* calculate unusable charge */
@@ -800,9 +898,6 @@ static int calculate_remaining_charge_mah(struct pm8921_bms_chip *chip, int fcc,
 	if (ocv == 0) {
 		ocv = last_ocv_uv;
 		pr_debug("ocv not available using last_ocv_uv=%d\n", ocv);
-	} else {
-		/* update the usespace param since a good ocv is available */
-		last_ocv_uv = ocv;
 	}
 
 	pc = calculate_pc(chip, ocv, batt_temp, chargecycles);
@@ -1107,6 +1202,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 		batt_temp = (int)result.physical;
 		last_real_fcc = calculate_real_fcc(the_chip,
 						batt_temp, last_chargecycles);
+		last_real_fcc_batt_temp = batt_temp;
+		readjust_fcc_table();
 	}
 
 charge_cycle_calculation:
@@ -1272,13 +1369,18 @@ static void check_initial_ocv(struct pm8921_bms_chip *chip)
 	int ocv, rc;
 
 	/*
-	 * Check if a last_good_ocv is available,
-	 * if not compute it here at boot time.
+	 * Check if a ocv is available in bms hw,
+	 * if not compute it here at boot time and save it
+	 * in the last_ocv_uv.
 	 */
 	rc = read_last_good_ocv(chip, &ocv);
 	if (rc || ocv == 0) {
-		rc = adc_based_ocv(chip, &last_ocv_uv);
-		pr_err("failed to read ocv from adc and bms rc = %d\n", rc);
+		rc = adc_based_ocv(chip, &ocv);
+		if (rc) {
+			pr_err("failed to read adc based ocv rc = %d\n", rc);
+			ocv = DEFAULT_OCV_MICROVOLTS;
+		}
+		last_ocv_uv = ocv;
 	}
 	pr_debug("ocv = %d last_ocv_uv = %d\n", ocv, last_ocv_uv);
 }
@@ -1644,6 +1746,7 @@ static int __devexit pm8921_bms_remove(struct platform_device *pdev)
 	struct pm8921_bms_chip *chip = platform_get_drvdata(pdev);
 
 	free_irqs(chip);
+	kfree(chip->adjusted_fcc_temp_lut);
 	platform_set_drvdata(pdev, NULL);
 	the_chip = NULL;
 	kfree(chip);
