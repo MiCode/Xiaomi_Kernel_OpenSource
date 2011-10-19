@@ -748,25 +748,13 @@ static int pm_chg_get_rt_status(struct pm8921_chg_chip *chip, int irq_id)
 /* Treat OverVoltage/UnderVoltage as source missing */
 static int is_usb_chg_plugged_in(struct pm8921_chg_chip *chip)
 {
-	int pres, ov, uv;
-
-	pres = pm_chg_get_rt_status(chip, USBIN_VALID_IRQ);
-	ov = pm_chg_get_rt_status(chip, USBIN_OV_IRQ);
-	uv = pm_chg_get_rt_status(chip, USBIN_UV_IRQ);
-
-	return pres && !ov && !uv;
+	return pm_chg_get_rt_status(chip, USBIN_VALID_IRQ);
 }
 
 /* Treat OverVoltage/UnderVoltage as source missing */
 static int is_dc_chg_plugged_in(struct pm8921_chg_chip *chip)
 {
-	int pres, ov, uv;
-
-	pres = pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
-	ov = pm_chg_get_rt_status(chip, DCIN_OV_IRQ);
-	uv = pm_chg_get_rt_status(chip, DCIN_UV_IRQ);
-
-	return pres && !ov && !uv;
+	return pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
 }
 
 static int is_battery_charging(int fsm_state)
@@ -1292,7 +1280,6 @@ static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 static irqreturn_t usbin_ov_irq_handler(int irq, void *data)
 {
 	pr_err("USB OverVoltage\n");
-	handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;
 }
 
@@ -1329,7 +1316,6 @@ static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 static irqreturn_t usbin_uv_irq_handler(int irq, void *data)
 {
 	pr_err("USB UnderVoltage\n");
-	handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;
 }
 
@@ -1544,13 +1530,11 @@ static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 
 static irqreturn_t dcin_ov_irq_handler(int irq, void *data)
 {
-	handle_dc_removal_insertion(data);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 {
-	handle_dc_removal_insertion(data);
 	return IRQ_HANDLED;
 }
 
@@ -1894,8 +1878,7 @@ struct pm_chg_irq_init_data {
 struct pm_chg_irq_init_data chg_irq_data[] = {
 	CHG_IRQ(USBIN_VALID_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 						usbin_valid_irq_handler),
-	CHG_IRQ(USBIN_OV_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-						usbin_ov_irq_handler),
+	CHG_IRQ(USBIN_OV_IRQ, IRQF_TRIGGER_RISING, usbin_ov_irq_handler),
 	CHG_IRQ(BATT_INSERTED_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 						batt_inserted_irq_handler),
 	CHG_IRQ(VBATDET_LOW_IRQ, IRQF_TRIGGER_HIGH, vbatdet_low_irq_handler),
@@ -1933,8 +1916,7 @@ struct pm_chg_irq_init_data chg_irq_data[] = {
 						dcin_valid_irq_handler),
 	CHG_IRQ(DCIN_OV_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 						dcin_ov_irq_handler),
-	CHG_IRQ(DCIN_UV_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-						dcin_uv_irq_handler),
+	CHG_IRQ(DCIN_UV_IRQ, IRQF_TRIGGER_RISING, dcin_uv_irq_handler),
 };
 
 static int __devinit request_irqs(struct pm8921_chg_chip *chip,
