@@ -3249,6 +3249,7 @@ MACHINE_START(MSM7X27A_RUMI3, "QCT MSM7x27a RUMI3")
 	.init_machine	= msm7627a_rumi3_init,
 	.timer		= &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM7X27A_SURF, "QCT MSM7x27a SURF")
 	.boot_params	= PHYS_OFFSET + 0x100,
@@ -3258,6 +3259,7 @@ MACHINE_START(MSM7X27A_SURF, "QCT MSM7x27a SURF")
 	.init_machine	= msm7x2x_init,
 	.timer		= &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM7X27A_FFA, "QCT MSM7x27a FFA")
 	.boot_params	= PHYS_OFFSET + 0x100,
@@ -3267,6 +3269,7 @@ MACHINE_START(MSM7X27A_FFA, "QCT MSM7x27a FFA")
 	.init_machine	= msm7x2x_init,
 	.timer		= &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM7625A_SURF, "QCT MSM7625a SURF")
 	.boot_params    = PHYS_OFFSET + 0x100,
@@ -3276,6 +3279,7 @@ MACHINE_START(MSM7625A_SURF, "QCT MSM7625a SURF")
 	.init_machine   = msm7x2x_init,
 	.timer          = &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM7625A_FFA, "QCT MSM7625a FFA")
 	.boot_params    = PHYS_OFFSET + 0x100,
@@ -3285,4 +3289,5 @@ MACHINE_START(MSM7625A_FFA, "QCT MSM7625a FFA")
 	.init_machine   = msm7x2x_init,
 	.timer          = &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END

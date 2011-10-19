@@ -610,6 +610,33 @@ void __init msm_init_irq(void)
 	mb();
 }
 
+static inline void msm_vic_handle_irq(void __iomem *base_addr, struct pt_regs
+		*regs)
+{
+	u32 irqnr;
+
+	do {
+		/* 0xD0 has irq# or old irq# if the irq has been handled
+		 * 0xD4 has irq# or -1 if none pending *but* if you just
+		 * read 0xD4 you never get the first irq for some reason
+		 */
+		irqnr = readl_relaxed(base_addr + 0xD0);
+		irqnr = readl_relaxed(base_addr + 0xD4);
+		if (irqnr == -1)
+			break;
+		handle_IRQ(irqnr, regs);
+	} while (1);
+}
+
+/* enable imprecise aborts */
+#define local_cpsie_enable()  __asm__ __volatile__("cpsie a    @ enable")
+
+asmlinkage void __exception_irq_entry vic_handle_irq(struct pt_regs *regs)
+{
+	local_cpsie_enable();
+	msm_vic_handle_irq((void __iomem *)MSM_VIC_BASE, regs);
+}
+
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
 void msm_trigger_irq(int irq)
 {

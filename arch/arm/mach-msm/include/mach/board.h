@@ -419,6 +419,7 @@ void __init msm_map_apq8064_io(void);
 void __init msm_map_msm7x30_io(void);
 void __init msm_map_fsm9xxx_io(void);
 void __init msm_init_irq(void);
+void vic_handle_irq(struct pt_regs *regs);
 
 struct mmc_platform_data;
 int __init msm_add_sdcc(unsigned int controller,

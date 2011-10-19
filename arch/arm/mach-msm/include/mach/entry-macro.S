@@ -10,11 +10,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#if defined(CONFIG_MSM_VIC)
+#if defined(CONFIG_MSM_VIC) && !defined(CONFIG_MULTI_IRQ_HANDLER)
 #include <mach/entry-macro-vic.S>
 #elif defined(CONFIG_ARM_GIC)
 #include <mach/entry-macro-qgic.S>
 #else
-#error "No interrupt controller selected!"
+	.macro	disable_fiq
+	.endm
+
+	.macro	arch_ret_to_user, tmp1, tmp2
+	.endm
+
 #endif
