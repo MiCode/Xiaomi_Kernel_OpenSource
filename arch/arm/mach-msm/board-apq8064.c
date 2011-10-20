@@ -33,8 +33,173 @@
 #include "devices.h"
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <linux/android_pmem.h>
+#include <mach/msm_memtypes.h>
+#include <linux/bootmem.h>
+#include <asm/setup.h>
 
 #include "board-apq8064.h"
+
+#define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
+#define MSM_PMEM_ADSP_SIZE         0x3800000
+#define MSM_PMEM_AUDIO_SIZE        0x28B000
+#define MSM_PMEM_SIZE 0x1800000 /* 24 Mbytes */
+
+static struct memtype_reserve apq8064_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int apq8064_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static unsigned pmem_size = MSM_PMEM_SIZE;
+static int __init pmem_size_setup(char *p)
+{
+	pmem_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_size", pmem_size_setup);
+
+static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
+
+static int __init pmem_adsp_size_setup(char *p)
+{
+	pmem_adsp_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_adsp_size", pmem_adsp_size_setup);
+
+static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
+
+static int __init pmem_audio_size_setup(char *p)
+{
+	pmem_audio_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_audio_size", pmem_audio_size_setup);
+
+static struct android_pmem_platform_data android_pmem_pdata = {
+	.name = "pmem",
+	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
+	.cached = 1,
+	.memory_type = MEMTYPE_EBI1,
+};
+
+static struct platform_device android_pmem_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = {.platform_data = &android_pmem_pdata},
+};
+
+static struct android_pmem_platform_data android_pmem_adsp_pdata = {
+	.name = "pmem_adsp",
+	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
+	.cached = 0,
+	.memory_type = MEMTYPE_EBI1,
+};
+
+static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
+static int __init pmem_kernel_ebi1_size_setup(char *p)
+{
+	pmem_kernel_ebi1_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
+
+static struct platform_device android_pmem_adsp_device = {
+	.name = "android_pmem",
+	.id = 2,
+	.dev = { .platform_data = &android_pmem_adsp_pdata },
+};
+
+static struct android_pmem_platform_data android_pmem_audio_pdata = {
+	.name = "pmem_audio",
+	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
+	.cached = 0,
+	.memory_type = MEMTYPE_EBI1,
+};
+
+static struct platform_device android_pmem_audio_device = {
+	.name = "android_pmem",
+	.id = 4,
+	.dev = { .platform_data = &android_pmem_audio_pdata },
+};
+
+static void __init size_pmem_devices(void)
+{
+	android_pmem_adsp_pdata.size = pmem_adsp_size;
+	android_pmem_pdata.size = pmem_size;
+	android_pmem_audio_pdata.size = MSM_PMEM_AUDIO_SIZE;
+}
+
+static void __init reserve_memory_for(struct android_pmem_platform_data *p)
+{
+	apq8064_reserve_table[p->memory_type].size += p->size;
+}
+
+
+static void __init reserve_pmem_memory(void)
+{
+	reserve_memory_for(&android_pmem_adsp_pdata);
+	reserve_memory_for(&android_pmem_pdata);
+	reserve_memory_for(&android_pmem_audio_pdata);
+	apq8064_reserve_table[MEMTYPE_EBI1].size += pmem_kernel_ebi1_size;
+}
+
+static void __init apq8064_calculate_reserve_sizes(void)
+{
+	size_pmem_devices();
+	reserve_pmem_memory();
+}
+
+static struct reserve_info apq8064_reserve_info __initdata = {
+	.memtype_reserve_table = apq8064_reserve_table,
+	.calculate_reserve_sizes = apq8064_calculate_reserve_sizes,
+	.paddr_to_memtype = apq8064_paddr_to_memtype,
+};
+
+static int apq8064_memory_bank_size(void)
+{
+	return 1<<29;
+}
+
+static void __init locate_unstable_memory(void)
+{
+	struct membank *mb = &meminfo.bank[meminfo.nr_banks - 1];
+	unsigned long bank_size;
+	unsigned long low, high;
+
+	bank_size = apq8064_memory_bank_size();
+	low = meminfo.bank[0].start;
+	high = mb->start + mb->size;
+	low &= ~(bank_size - 1);
+
+	if (high - low <= bank_size)
+		return;
+	apq8064_reserve_info.low_unstable_address = low + bank_size;
+	apq8064_reserve_info.max_unstable_size = high - low - bank_size;
+	apq8064_reserve_info.bank_size = bank_size;
+	pr_info("low unstable address %lx max size %lx bank size %lx\n",
+		apq8064_reserve_info.low_unstable_address,
+		apq8064_reserve_info.max_unstable_size,
+		apq8064_reserve_info.bank_size);
+}
+
+static void __init apq8064_reserve(void)
+{
+	reserve_info = &apq8064_reserve_info;
+	locate_unstable_memory();
+	msm_reserve();
+}
 
 static struct platform_device android_usb_device = {
 	.name = "android_usb",
@@ -325,6 +490,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_otg,
 	&apq8064_device_gadget_peripheral,
 	&android_usb_device,
+	&android_pmem_device,
+	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -581,6 +749,7 @@ static void __init apq8064_rumi3_init(void)
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
 	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
 	.init_irq = apq8064_init_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_sim_init,
@@ -588,6 +757,7 @@ MACHINE_END
 
 MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
 	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
 	.init_irq = apq8064_init_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_rumi3_init,
