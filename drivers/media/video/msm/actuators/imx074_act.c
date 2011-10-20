@@ -15,7 +15,7 @@
 #include "msm_logging.h"
 #include "msm_camera_i2c.h"
 
-#define	IMX074_TOTAL_STEPS_NEAR_TO_FAR			52
+#define	IMX074_TOTAL_STEPS_NEAR_TO_FAR			41
 DEFINE_MUTEX(imx074_act_mutex);
 static struct msm_actuator_ctrl_t imx074_act_t;
 
@@ -39,7 +39,7 @@ static struct damping_params_t g_damping[] = {
 	/* MOVE_NEAR Dir */
 	/* Scene 1 => Damping params */
 	{
-		.damping_step = 2,
+		.damping_step = 0xFF,
 		.damping_delay = 0,
 	},
 };
@@ -88,6 +88,23 @@ int32_t imx074_act_write_focus(
 
 	rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, dac_value, NULL);
 
+	return rc;
+}
+
+static int32_t imx074_set_default_focus(
+	struct msm_actuator_ctrl_t *a_ctrl)
+{
+	int32_t rc = 0;
+
+	if (!a_ctrl->step_position_table)
+		a_ctrl->func_tbl.actuator_init_table(a_ctrl);
+
+	if (a_ctrl->curr_step_pos != 0) {
+		rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F, NULL);
+		rc = a_ctrl->func_tbl.actuator_i2c_write(a_ctrl, 0x7F, NULL);
+		a_ctrl->curr_step_pos = 0;
+	} else if (a_ctrl->func_tbl.actuator_init_focus)
+		rc = a_ctrl->func_tbl.actuator_init_focus(a_ctrl);
 	return rc;
 }
 
@@ -207,7 +224,7 @@ static struct msm_actuator_ctrl_t imx074_act_t = {
 		.actuator_init_table = msm_actuator_init_table,
 		.actuator_move_focus = msm_actuator_move_focus,
 		.actuator_write_focus = imx074_act_write_focus,
-		.actuator_set_default_focus = msm_actuator_set_default_focus,
+		.actuator_set_default_focus = imx074_set_default_focus,
 		.actuator_init_focus = imx074_act_init_focus,
 		.actuator_i2c_write = imx074_wrapper_i2c_write,
 	},
