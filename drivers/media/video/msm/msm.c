@@ -2356,23 +2356,38 @@ static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
 	void *act_client = NULL;
 	struct msm_actuator_ctrl *a_ext_ctrl = NULL;
 
-	if (!actuator_info) {
-		actctrl->a_init_table = NULL;
-		actctrl->a_power_down = NULL;
-		actctrl->a_config = NULL;
-		actctrl->a_create_subdevice = NULL;
-		return rc;
-	}
+	D("%s called\n", __func__);
+
+	if (!actuator_info)
+		goto probe_fail;
 
 	adapter = i2c_get_adapter(actuator_info->bus_id);
+	if (!adapter)
+		goto probe_fail;
 
 	act_client = i2c_new_device(adapter, actuator_info->board_info);
+	if (!act_client)
+		goto device_fail;
 
 	a_ext_ctrl = (struct msm_actuator_ctrl *)i2c_get_clientdata(act_client);
+	if (!a_ext_ctrl)
+		goto client_fail;
 
 	*actctrl = *a_ext_ctrl;
 	a_ext_ctrl->a_create_subdevice((void *)actuator_info->board_info,
 				       (void *)act_sdev);
+	return rc;
+
+client_fail:
+	i2c_unregister_device(act_client);
+device_fail:
+	i2c_put_adapter(adapter);
+	adapter = NULL;
+probe_fail:
+	actctrl->a_init_table = NULL;
+	actctrl->a_power_down = NULL;
+	actctrl->a_config = NULL;
+	actctrl->a_create_subdevice = NULL;
 	return rc;
 }
 
@@ -2544,6 +2559,7 @@ failure:
 	implemenation of mutex_init is not consuming resources */
 	msm_sync_destroy(&pcam->mctl.sync);
 	pcam->pdev = NULL;
+	kfree(act_sdev);
 	kfree(sdev);
 	kzfree(pcam);
 	return rc;
