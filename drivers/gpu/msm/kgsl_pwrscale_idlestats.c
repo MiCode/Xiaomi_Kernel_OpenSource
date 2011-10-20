@@ -14,17 +14,51 @@
 #include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/idle_stats_device.h>
+#include <linux/cpufreq.h>
+#include <linux/notifier.h>
+#include <linux/cpumask.h>
+#include <linux/tick.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+
+#define MAX_CORES 4
+struct _cpu_info {
+	spinlock_t lock;
+	struct notifier_block cpu_nb;
+	u64 start[MAX_CORES];
+	u64 end[MAX_CORES];
+	int curr_freq[MAX_CORES];
+	int max_freq[MAX_CORES];
+};
 
 struct idlestats_priv {
 	char name[32];
 	struct msm_idle_stats_device idledev;
 	struct kgsl_device *device;
 	struct msm_idle_pulse pulse;
+	struct _cpu_info cpu_info;
 };
+
+static int idlestats_cpufreq_notifier(
+				struct notifier_block *nb,
+				unsigned long val, void *data)
+{
+	struct _cpu_info *cpu = container_of(nb,
+						struct _cpu_info, cpu_nb);
+	struct cpufreq_freqs *freq = data;
+
+	if (val != CPUFREQ_POSTCHANGE)
+		return 0;
+
+	spin_lock(&cpu->lock);
+	if (freq->cpu < num_possible_cpus())
+		cpu->curr_freq[freq->cpu] = freq->new / 1000;
+	spin_unlock(&cpu->lock);
+
+	return 0;
+}
 
 static void idlestats_get_sample(struct msm_idle_stats_device *idledev,
 	struct msm_idle_pulse *pulse)
@@ -55,14 +89,37 @@ static void idlestats_busy(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
 	struct idlestats_priv *priv = pwrscale->priv;
-	if (priv->pulse.busy_start_time != 0)
+	int i, busy, nr_cpu = 1;
+
+	if (priv->pulse.busy_start_time != 0) {
+		priv->pulse.wait_interval = 0;
+		/* Calculate the total CPU busy time for this GPU pulse */
+		for (i = 0; i < num_possible_cpus(); i++) {
+			spin_lock(&priv->cpu_info.lock);
+			if (cpu_online(i)) {
+				priv->cpu_info.end[i] =
+						(u64)ktime_to_us(ktime_get()) -
+						get_cpu_idle_time_us(i, NULL);
+				busy = priv->cpu_info.end[i] -
+						priv->cpu_info.start[i];
+				/* Normalize the busy time by frequency */
+				busy = priv->cpu_info.curr_freq[i] *
+					(busy / priv->cpu_info.max_freq[i]);
+				priv->pulse.wait_interval += busy;
+				nr_cpu++;
+			}
+			spin_unlock(&priv->cpu_info.lock);
+		}
+		priv->pulse.wait_interval /= nr_cpu;
 		msm_idle_stats_idle_end(&priv->idledev, &priv->pulse);
+	}
 	priv->pulse.busy_start_time = ktime_to_us(ktime_get());
 }
 
 static void idlestats_idle(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
+	int i, nr_cpu;
 	struct kgsl_power_stats stats;
 	struct idlestats_priv *priv = pwrscale->priv;
 
@@ -78,7 +135,13 @@ static void idlestats_idle(struct kgsl_device *device,
 	}
 
 	priv->pulse.busy_interval   = stats.busy_time;
-	priv->pulse.wait_interval   = 0;
+	nr_cpu = num_possible_cpus();
+	for (i = 0; i < nr_cpu; i++)
+		if (cpu_online(i))
+			priv->cpu_info.start[i] =
+					(u64)ktime_to_us(ktime_get()) -
+					get_cpu_idle_time_us(i, NULL);
+
 	msm_idle_stats_idle_start(&priv->idledev);
 }
 
@@ -93,7 +156,8 @@ static int idlestats_init(struct kgsl_device *device,
 		     struct kgsl_pwrscale *pwrscale)
 {
 	struct idlestats_priv *priv;
-	int ret;
+	struct cpufreq_policy cpu_policy;
+	int ret, i;
 
 	priv = pwrscale->priv = kzalloc(sizeof(struct idlestats_priv),
 		GFP_KERNEL);
@@ -108,8 +172,21 @@ static int idlestats_init(struct kgsl_device *device,
 	priv->idledev.name = (const char *) priv->name;
 	priv->idledev.get_sample = idlestats_get_sample;
 
+	spin_lock_init(&priv->cpu_info.lock);
+	priv->cpu_info.cpu_nb.notifier_call =
+			idlestats_cpufreq_notifier;
+	ret = cpufreq_register_notifier(&priv->cpu_info.cpu_nb,
+				CPUFREQ_TRANSITION_NOTIFIER);
+	if (ret)
+		goto err;
+	for (i = 0; i < num_possible_cpus(); i++) {
+		cpufreq_frequency_table_cpuinfo(&cpu_policy,
+					cpufreq_frequency_get_table(i));
+		priv->cpu_info.max_freq[i] = cpu_policy.max / 1000;
+		priv->cpu_info.curr_freq[i] = cpu_policy.max / 1000;
+	}
 	ret = msm_idle_stats_register_device(&priv->idledev);
-
+err:
 	if (ret) {
 		kfree(pwrscale->priv);
 		pwrscale->priv = NULL;
@@ -126,6 +203,8 @@ static void idlestats_close(struct kgsl_device *device,
 	if (pwrscale->priv == NULL)
 		return;
 
+	cpufreq_unregister_notifier(&priv->cpu_info.cpu_nb,
+						CPUFREQ_TRANSITION_NOTIFIER);
 	msm_idle_stats_deregister_device(&priv->idledev);
 
 	kfree(pwrscale->priv);
