@@ -418,13 +418,10 @@ out:
  * msm_bus_fabric_rpm_commit() - Commit the arbitration data to RPM
  * @fabric: Fabric for which the data should be committed
  * */
-static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
-	int ctx)
-
+static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 {
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
-	void *cdata;
 
 	/*
 	 * For a non-zero bandwidth request, clocks should be enabled before
@@ -441,9 +438,8 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 		goto skip_arb;
 	}
 
-	cdata = fabric->cdata[ctx];
-	status = msm_bus_rpm_commit(fabric->pdata, ctx,
-		fabric->rpm_data, cdata);
+	status = msm_bus_rpm_commit(fabric->pdata, fabric->rpm_data,
+		(void **)fabric->cdata);
 	if (status)
 		MSM_BUS_DBG("Error committing arb data for fabric: %d\n",
 			fabric->fabdev.id);

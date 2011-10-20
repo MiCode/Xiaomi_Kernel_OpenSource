@@ -325,16 +325,35 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 
 #define RPM_SHIFT_VAL 16
 #define RPM_SHIFT(n) ((n) << RPM_SHIFT_VAL)
-/**
- * msm_bus_rpm_commit() - Commit the arbitration data to RPM
- * @fabric: Fabric for which the data should be committed
- * */
-int msm_bus_rpm_commit(struct msm_bus_fabric_registration
+static int msm_bus_rpm_compare_cdata(
+	struct msm_bus_fabric_registration *fab_pdata,
+	struct commit_data *cd1, struct commit_data *cd2)
+{
+	size_t n;
+	int ret;
+	n = sizeof(uint16_t) * fab_pdata->nslaves;
+	ret = memcmp(cd1->bwsum, cd2->bwsum, n);
+	if (ret) {
+		MSM_BUS_DBG("Commit Data bwsum not equal\n");
+		return ret;
+	}
+
+	n = sizeof(uint16_t *) * ((fab_pdata->ntieredslaves *
+		fab_pdata->nmasters) + 1);
+	ret = memcmp(cd1->arb, cd2->arb, n);
+	if (ret) {
+		MSM_BUS_DBG("Commit Data arb[%d] not equal\n", i);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
 	*fab_pdata, int ctx, struct msm_rpm_iv_pair *rpm_data,
-	void *cdata)
+	struct commit_data *cd, bool valid)
 {
 	int i, j, offset = 0, status = 0, count, index = 0;
-	struct commit_data *cd = (struct commit_data *)cdata;
 	/*
 	 * count is the number of 2-byte words required to commit the
 	 * data to rpm. This is calculated by the following formula.
@@ -398,12 +417,33 @@ int msm_bus_rpm_commit(struct msm_bus_fabric_registration
 		nmasters, fab_pdata->nslaves, fab_pdata->ntieredslaves,
 		MSM_BUS_DBG_OP);
 	if (fab_pdata->rpm_enabled) {
-		if (ctx == ACTIVE_CTX)
-			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data,
-				count);
+		if (valid) {
+			if (ctx == ACTIVE_CTX) {
+				status = msm_rpm_set(MSM_RPM_CTX_SET_0,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_set returned: %d\n",
+					status);
+			} else if (ctx == DUAL_CTX) {
+				status = msm_rpm_set(MSM_RPM_CTX_SET_SLEEP,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_set returned: %d\n",
+					status);
+			}
+		} else {
+			if (ctx == ACTIVE_CTX) {
+				status = msm_rpm_clear(MSM_RPM_CTX_SET_0,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_clear returned: %d\n",
+					status);
+			} else if (ctx == DUAL_CTX) {
+				status = msm_rpm_clear(MSM_RPM_CTX_SET_SLEEP,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_clear returned: %d\n",
+					status);
+			}
+		}
 	}
 
-	MSM_BUS_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
 
@@ -571,14 +611,37 @@ struct msm_rpm_iv_pair *allocate_rpm_data(struct msm_bus_fabric_registration
 	return rpm_data;
 }
 
-int msm_bus_rpm_commit(struct msm_bus_fabric_registration
-	*fab_pdata, int ctx, struct msm_rpm_iv_pair *rpm_data,
-	void *cdata)
+static int msm_bus_rpm_compare_cdata(
+	struct msm_bus_fabric_registration *fab_pdata,
+	struct commit_data *cd1, struct commit_data *cd2)
 {
+	size_t n;
+	int i, ret;
+	n = sizeof(uint16_t) * fab_pdata->nslaves;
+	ret = memcmp(cd1->bwsum, cd2->bwsum, n);
+	if (ret) {
+		MSM_BUS_DBG("Commit Data bwsum not equal\n");
+		return ret;
+	}
 
+	n = sizeof(uint8_t *) * ((fab_pdata->ntieredslaves *
+		fab_pdata->nmasters) + 1);
+	for (i = 0; i < NUM_TIERS; i++) {
+		ret = memcmp(cd1->arb[i], cd2->arb[i], n);
+		if (ret) {
+			MSM_BUS_DBG("Commit Data arb[%d] not equal\n", i);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
+	*fab_pdata, int ctx, struct msm_rpm_iv_pair *rpm_data,
+	struct commit_data *cd, bool valid)
+{
 	int i, j, k, offset = 0, status = 0, count, index = 0;
-	struct commit_data *cd = (struct commit_data *)cdata;
-
 	/*
 	 * count is the number of 2-byte words required to commit the
 	 * data to rpm. This is calculated by the following formula.
@@ -646,16 +709,37 @@ int msm_bus_rpm_commit(struct msm_bus_fabric_registration
 	}
 
 	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
-	msm_bus_dbg_commit_data(fab_pdata->name, cdata, fab_pdata->
+	msm_bus_dbg_commit_data(fab_pdata->name, (void *)cd, fab_pdata->
 		nmasters, fab_pdata->nslaves, fab_pdata->ntieredslaves,
 		MSM_BUS_DBG_OP);
 	if (fab_pdata->rpm_enabled) {
-		if (ctx == ACTIVE_CTX)
-			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data,
-				count);
+		if (valid) {
+			if (ctx == ACTIVE_CTX) {
+				status = msm_rpm_set(MSM_RPM_CTX_SET_0,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_set returned: %d\n",
+					status);
+			} else if (ctx == DUAL_CTX) {
+				status = msm_rpm_set(MSM_RPM_CTX_SET_SLEEP,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_set returned: %d\n",
+					status);
+			}
+		} else {
+			if (ctx == ACTIVE_CTX) {
+				status = msm_rpm_clear(MSM_RPM_CTX_SET_0,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_clear returned: %d\n",
+					status);
+			} else if (ctx == DUAL_CTX) {
+				status = msm_rpm_clear(MSM_RPM_CTX_SET_SLEEP,
+					rpm_data, count);
+				MSM_BUS_DBG("msm_rpm_clear returned: %d\n",
+					status);
+			}
+		}
 	}
 
-	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
 
@@ -771,3 +855,47 @@ void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf, const int max_size,
 	}
 }
 #endif
+
+/**
+* msm_bus_rpm_commit() - Commit the arbitration data to RPM
+* @fabric: Fabric for which the data should be committed
+**/
+int msm_bus_rpm_commit(struct msm_bus_fabric_registration
+	*fab_pdata, struct msm_rpm_iv_pair *rpm_data,
+	void **cdata)
+{
+
+	int ret;
+	bool valid;
+	struct commit_data *dual_cd, *act_cd;
+	dual_cd = (struct commit_data *)cdata[DUAL_CTX];
+	act_cd = (struct commit_data *)cdata[ACTIVE_CTX];
+
+	/*
+	 * If the arb data for active set and sleep set is
+	 * different, commit both sets.
+	 * If the arb data for active set and sleep set is
+	 * the same, invalidate the sleep set.
+	 */
+	ret = msm_bus_rpm_compare_cdata(fab_pdata, act_cd, dual_cd);
+	if (!ret)
+		/* Invalidate sleep set.*/
+		valid = false;
+	else
+		valid = true;
+
+	ret = msm_bus_rpm_commit_arb(fab_pdata, DUAL_CTX, rpm_data,
+		dual_cd, valid);
+	if (ret)
+		MSM_BUS_ERR("Error comiting fabric:%d in %d ctx\n",
+			fab_pdata->id, DUAL_CTX);
+
+	valid = true;
+	ret = msm_bus_rpm_commit_arb(fab_pdata, ACTIVE_CTX, rpm_data, act_cd,
+		valid);
+	if (ret)
+		MSM_BUS_ERR("Error comiting fabric:%d in %d ctx\n",
+			fab_pdata->id, ACTIVE_CTX);
+
+	return ret;
+}

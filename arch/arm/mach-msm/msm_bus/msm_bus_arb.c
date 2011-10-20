@@ -394,7 +394,7 @@ static int msm_bus_commit_fn(struct device *dev, void *data)
 	int ret = 0;
 	struct msm_bus_fabric_device *fabdev = to_msm_bus_fabric_device(dev);
 	MSM_BUS_DBG("Committing: fabid: %d\n", fabdev->id);
-	ret = fabdev->algo->commit(fabdev, (int)data);
+	ret = fabdev->algo->commit(fabdev);
 	return ret;
 }
 
@@ -556,7 +556,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	client->curr = index;
 	ctx = ACTIVE_CTX;
 	msm_bus_dbg_client_data(client->pdata, index, cl);
-	bus_for_each_dev(&msm_bus_type, NULL, (void *)ctx, msm_bus_commit_fn);
+	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_commit_fn);
 
 err:
 	mutex_unlock(&msm_bus_lock);

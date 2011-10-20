@@ -122,8 +122,7 @@ struct msm_bus_fab_algorithm {
 		unsigned int cl_active_flag);
 	int (*port_halt)(struct msm_bus_fabric_device *fabdev, int portid);
 	int (*port_unhalt)(struct msm_bus_fabric_device *fabdev, int portid);
-	int (*commit)(struct msm_bus_fabric_device *fabdev,
-		int active_only);
+	int (*commit)(struct msm_bus_fabric_device *fabdev);
 	struct msm_bus_inode_info *(*find_node)(struct msm_bus_fabric_device
 		*fabdev, int id);
 	struct msm_bus_inode_info *(*find_gw_node)(struct msm_bus_fabric_device
@@ -167,8 +166,7 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 struct msm_rpm_iv_pair *allocate_rpm_data(struct msm_bus_fabric_registration
 	*fab_pdata);
 int msm_bus_rpm_commit(struct msm_bus_fabric_registration
-	*fab_pdata, int ctx, struct msm_rpm_iv_pair *rpm_data,
-	void *cdata);
+	*fab_pdata, struct msm_rpm_iv_pair *rpm_data, void **cdata);
 void free_commit_data(void *cdata);
 void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_inode_info *info,
