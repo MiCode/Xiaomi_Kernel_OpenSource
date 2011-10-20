@@ -14,7 +14,7 @@
 #include <linux/qcomwlan_pwrif.h>
 
 #define GPIO_WLAN_DEEP_SLEEP_N  230
-#define GPIO_WLAN_DEEP_SLEEP_N_DRAGON  108
+#define GPIO_WLAN_DEEP_SLEEP_N_DRAGON  82
 #define WLAN_RESET_OUT          1
 #define WLAN_RESET              0
 
@@ -212,7 +212,7 @@ int vos_chip_power_qrf8615(int on)
 		}
 	}
 	if (on) {
-		gpio_set_value_cansleep(GPIO_WLAN_DEEP_SLEEP_N, WLAN_RESET_OUT);
+		gpio_set_value_cansleep(wlan_gpio_deep_sleep, WLAN_RESET_OUT);
 		wlan_on = true;
 	}
 	else
