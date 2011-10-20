@@ -378,6 +378,36 @@ void mdp4_overlay1_done_dtv()
 	complete(&dtv_pipe->comp);
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+void mdp4_dtv_set_black_screen(void)
+{
+	char *rgb_base;
+	/*Black color*/
+	uint32 color = 0x00000000;
+	uint32 temp_src_format;
+
+	if (!dtv_pipe) {
+		pr_err("dtv_pipe is not configured yet\n");
+		return;
+	}
+	rgb_base = MDP_BASE + MDP4_RGB_BASE;
+	rgb_base += (MDP4_RGB_OFF * dtv_pipe->pipe_num);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	/*
+	* RGB Constant Color
+	*/
+	MDP_OUTP(rgb_base + 0x1008, color);
+	/*
+	* MDP_RGB_SRC_FORMAT
+	*/
+	temp_src_format = inpdw(rgb_base + 0x0050);
+	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
+	mdp4_overlay_reg_flush(dtv_pipe, 1);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+#endif
+
 void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 {
 	struct fb_info *fbi = mfd->fbi;
