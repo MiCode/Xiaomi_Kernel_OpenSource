@@ -90,6 +90,8 @@ struct mgmt_cp_set_dev_class {
 	__u8 major;
 	__u8 minor;
 } __packed;
+#define MGMT_MAJOR_CLASS_MASK		0x1F
+#define MGMT_MAJOR_CLASS_LIMITED	0x20
 
 #define MGMT_OP_SET_SERVICE_CACHE	0x000C
 struct mgmt_cp_set_service_cache {
@@ -213,6 +215,8 @@ struct mgmt_cp_user_passkey_reply {
 struct mgmt_cp_resolve_name {
 	bdaddr_t bdaddr;
 } __packed;
+
+#define MGMT_OP_SET_LIMIT_DISCOVERABLE	0x001F
 
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
