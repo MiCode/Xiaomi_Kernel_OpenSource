@@ -1065,7 +1065,7 @@ struct link_key *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8])
 
 		k = list_entry(p, struct link_key, list);
 
-		if (k->type != KEY_TYPE_LTK)
+		if (k->key_type != KEY_TYPE_LTK)
 			continue;
 
 		if (k->dlen != sizeof(*id))
@@ -1091,7 +1091,7 @@ struct link_key *hci_find_link_key_type(struct hci_dev *hdev,
 
 		k = list_entry(p, struct link_key, list);
 
-		if ((k->type == type) && (bacmp(bdaddr, &k->bdaddr) == 0))
+		if ((k->key_type == type) && (bacmp(bdaddr, &k->bdaddr) == 0))
 			return k;
 	}
 
@@ -1109,7 +1109,7 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 
 	old_key = hci_find_link_key(hdev, bdaddr);
 	if (old_key) {
-		old_key_type = old_key->type;
+		old_key_type = old_key->key_type;
 		key = old_key;
 	} else {
 		old_key_type = 0xff;
@@ -1124,7 +1124,7 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 	bacpy(&key->bdaddr, bdaddr);
 	memcpy(key->val, val, 16);
 	key->auth = 0x01;
-	key->type = type;
+	key->key_type = type;
 	key->pin_len = pin_len;
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
@@ -1142,8 +1142,8 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 	if (conn) {
 		if ((conn->remote_auth > 0x01) ||
 			(conn->auth_initiator && conn->auth_type > 0x01) ||
-			(key->type < 0x03) ||
-			(key->type == 0x06 && old_key_type != 0xff))
+			(key->key_type < 0x03) ||
+			(key->key_type == 0x06 && old_key_type != 0xff))
 			bonded = 1;
 	}
 
@@ -1151,19 +1151,20 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 		mgmt_new_key(hdev->id, key, bonded);
 
 	if (type == 0x06)
-		key->type = old_key_type;
+		key->key_type = old_key_type;
 
 	return 0;
 }
 
 int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
-			u8 key_size, u8 auth, __le16 ediv, u8 rand[8],
-			u8 ltk[16])
+			u8 addr_type, u8 key_size, u8 auth,
+			__le16 ediv, u8 rand[8], u8 ltk[16])
 {
 	struct link_key *key, *old_key;
 	struct key_master_id *id;
 
-	BT_DBG("%s Auth: %2.2X addr %s", hdev->name, auth, batostr(bdaddr));
+	BT_DBG("%s Auth: %2.2X addr %s type: %d", hdev->name, auth,
+						batostr(bdaddr), addr_type);
 
 	old_key = hci_find_link_key_type(hdev, bdaddr, KEY_TYPE_LTK);
 	if (old_key) {
@@ -1178,8 +1179,9 @@ int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 	key->dlen = sizeof(*id);
 
 	bacpy(&key->bdaddr, bdaddr);
+	key->addr_type = addr_type;
 	memcpy(key->val, ltk, sizeof(key->val));
-	key->type = KEY_TYPE_LTK;
+	key->key_type = KEY_TYPE_LTK;
 	key->pin_len = key_size;
 	key->auth = auth;
 

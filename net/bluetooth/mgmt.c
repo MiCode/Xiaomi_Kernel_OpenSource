@@ -1099,19 +1099,20 @@ static int load_keys(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 		i += sizeof(*key);
 
-		if (key->type == KEY_TYPE_LTK) {
+		if (key->key_type == KEY_TYPE_LTK) {
 			struct key_master_id *id = (void *) key->data;
 
 			if (key->dlen != sizeof(struct key_master_id))
 				continue;
 
-			hci_add_ltk(hdev, 0, &key->bdaddr, key->pin_len,
-				key->auth, id->ediv, id->rand, key->val);
+			hci_add_ltk(hdev, 0, &key->bdaddr, key->addr_type,
+					key->pin_len, key->auth, id->ediv,
+					id->rand, key->val);
 
 			continue;
 		}
 
-		hci_add_link_key(hdev, 0, &key->bdaddr, key->val, key->type,
+		hci_add_link_key(hdev, 0, &key->bdaddr, key->val, key->key_type,
 								key->pin_len);
 	}
 
@@ -2393,7 +2394,8 @@ int mgmt_new_key(u16 index, struct link_key *key, u8 bonded)
 		return -ENOMEM;
 
 	bacpy(&ev->key.bdaddr, &key->bdaddr);
-	ev->key.type = key->type;
+	ev->key.addr_type = key->addr_type;
+	ev->key.key_type = key->key_type;
 	memcpy(ev->key.val, key->val, 16);
 	ev->key.pin_len = key->pin_len;
 	ev->key.auth = key->auth;

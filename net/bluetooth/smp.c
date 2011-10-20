@@ -637,8 +637,8 @@ static u8 smp_cmd_pairing_random(struct l2cap_conn *conn, struct sk_buff *skb)
 		memset(stk + hcon->smp_key_size, 0,
 				SMP_MAX_ENC_KEY_SIZE - hcon->smp_key_size);
 
-		hci_add_ltk(conn->hcon->hdev, 0, conn->dst, hcon->smp_key_size,
-						hcon->auth, ediv, rand, stk);
+		hci_add_ltk(conn->hcon->hdev, 0, conn->dst, hcon->dst_type,
+			hcon->smp_key_size, hcon->auth, ediv, rand, stk);
 	}
 
 	return 0;
@@ -797,8 +797,8 @@ static int smp_cmd_encrypt_info(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	memset(rand, 0, sizeof(rand));
 
-	err = hci_add_ltk(hcon->hdev, 0, conn->dst, 0, 0, 0,
-							rand, rp->ltk);
+	err = hci_add_ltk(hcon->hdev, 0, conn->dst, hcon->dst_type,
+						0, 0, 0, rand, rp->ltk);
 	if (err)
 		return SMP_UNSPECIFIED;
 
@@ -826,8 +826,9 @@ static int smp_cmd_master_ident(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	BT_DBG("keydist 0x%x", *keydist);
 
-	hci_add_ltk(hcon->hdev, 1, conn->dst, hcon->smp_key_size,
-				hcon->auth, rp->ediv, rp->rand, key->val);
+	hci_add_ltk(hcon->hdev, 1, conn->dst, hcon->dst_type,
+			hcon->smp_key_size, hcon->auth, rp->ediv,
+			rp->rand, key->val);
 
 	*keydist &= ~SMP_DIST_ENC_KEY;
 	if (hcon->out) {
@@ -964,8 +965,9 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 
 		smp_send_cmd(conn, SMP_CMD_ENCRYPT_INFO, sizeof(enc), &enc);
 
-		hci_add_ltk(hcon->hdev, 1, conn->dst, hcon->smp_key_size,
-					hcon->auth, ediv, ident.rand, enc.ltk);
+		hci_add_ltk(hcon->hdev, 1, conn->dst, hcon->dst_type,
+				hcon->smp_key_size, hcon->auth, ediv,
+				ident.rand, enc.ltk);
 
 		ident.ediv = cpu_to_le16(ediv);
 

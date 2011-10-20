@@ -91,7 +91,8 @@ struct key_master_id {
 
 struct link_key_data {
 	bdaddr_t bdaddr;
-	u8 type;
+	u8 addr_type;
+	u8 key_type;
 	u8 val[16];
 	u8 pin_len;
 	u8 auth;
@@ -102,7 +103,8 @@ struct link_key_data {
 struct link_key {
 	struct list_head list;
 	bdaddr_t bdaddr;
-	u8 type;
+	u8 addr_type;
+	u8 key_type;
 	u8 val[16];
 	u8 pin_len;
 	u8 auth;
@@ -689,7 +691,7 @@ int hci_add_link_key(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
 struct link_key *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8]);
 struct link_key *hci_find_link_key_type(struct hci_dev *hdev,
 					bdaddr_t *bdaddr, u8 type);
-int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr,
+int hci_add_ltk(struct hci_dev *hdev, int new_key, bdaddr_t *bdaddr, u8 type,
 		u8 auth, u8 key_size, __le16 ediv, u8 rand[8], u8 ltk[16]);
 int hci_remove_link_key(struct hci_dev *hdev, bdaddr_t *bdaddr);
 

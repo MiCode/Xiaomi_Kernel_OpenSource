@@ -631,6 +631,7 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 
 	if (type == LE_LINK) {
 		struct adv_entry *entry;
+		struct link_key *key;
 
 		le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
 		if (le) {
@@ -638,11 +639,17 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 			return le;
 		}
 
-		entry = hci_find_adv_entry(hdev, dst);
-		if (!entry)
-			le = hci_le_conn_add(hdev, dst, 0);
-		else
-			le = hci_le_conn_add(hdev, dst, entry->bdaddr_type);
+		key = hci_find_link_key_type(hdev, dst, KEY_TYPE_LTK);
+		if (!key) {
+			entry = hci_find_adv_entry(hdev, dst);
+			if (entry)
+				le = hci_le_conn_add(hdev, dst,
+						entry->bdaddr_type);
+			else
+				le = hci_le_conn_add(hdev, dst, 0);
+		} else {
+			le = hci_le_conn_add(hdev, dst, key->addr_type);
+		}
 
 		if (!le)
 			return ERR_PTR(-ENOMEM);

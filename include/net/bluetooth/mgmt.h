@@ -100,7 +100,8 @@ struct mgmt_cp_set_service_cache {
 
 struct mgmt_key_info {
 	bdaddr_t bdaddr;
-	u8 type;
+	u8 addr_type;
+	u8 key_type;
 	u8 val[16];
 	u8 pin_len;
 	u8 auth;
