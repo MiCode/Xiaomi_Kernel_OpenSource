@@ -302,6 +302,7 @@ static int hci_smd_send_frame(struct sk_buff *skb)
 		break;
 	}
 
+	kfree_skb(skb);
 	wake_unlock(&hs.wake_lock_tx);
 	return ret;
 }
