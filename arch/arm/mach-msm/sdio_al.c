@@ -108,6 +108,7 @@
  *  packet) rx data.
  */
 #define DEFAULT_READ_THRESHOLD  	(1024)
+#define LOW_LATENCY_THRESHOLD		(1)
 
 /* Extra bytes to ensure getting the rx threshold interrupt on stream channels
    when restoring the threshold after sleep */
@@ -118,7 +119,6 @@
 #define DEFAULT_MIN_WRITE_THRESHOLD_STREAMING	(1600)
 
 #define THRESHOLD_DISABLE_VAL  		(0xFFFFFFFF)
-
 
 /** Mailbox polling time for packet channels */
 #define DEFAULT_POLL_DELAY_MSEC		10
@@ -986,7 +986,7 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 			continue;
 		}
 		if (ch->is_packet_mode == false) {
-			ch->read_threshold = 1;
+			ch->read_threshold = LOW_LATENCY_THRESHOLD;
 			set_pipe_threshold(sdio_al_dev,
 					   ch->rx_pipe_index,
 					   ch->read_threshold);
@@ -1156,13 +1156,22 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 					sdio_al_dev->host->index);
 			}
 			ch->read_avail = read_avail;
-			/* Restore default thresh for non packet channels */
+
+			/*
+			 * Restore default thresh for non packet channels.
+			 * in case it IS low latency channel then read_threshold
+			 * and def_read_threshold are both
+			 * LOW_LATENCY_THRESHOLD
+			 */
 			if ((ch->read_threshold != ch->def_read_threshold) &&
 			    (read_avail >= ch->threshold_change_cnt)) {
-				ch->read_threshold = ch->def_read_threshold;
-				set_pipe_threshold(sdio_al_dev,
-						   ch->rx_pipe_index,
-						   ch->read_threshold);
+				if (!ch->is_low_latency_ch) {
+					ch->read_threshold =
+						ch->def_read_threshold;
+					set_pipe_threshold(sdio_al_dev,
+							   ch->rx_pipe_index,
+							   ch->read_threshold);
+				}
 			}
 		}
 
@@ -1968,14 +1977,18 @@ static int read_sdioc_channel_config(struct sdio_channel *ch)
 		goto exit_err;
 	}
 
-	/* Aggregation up to 90% of the maximum size */
-	ch->read_threshold = (ch_config->max_rx_threshold * 9) / 10;
+	ch->read_threshold = LOW_LATENCY_THRESHOLD;
+	ch->is_low_latency_ch = ch_config->is_low_latency_ch;
 	/* Threshold on 50% of the maximum size , sdioc uses double-buffer */
 	ch->write_threshold = (ch_config->max_tx_threshold * 5) / 10;
 	ch->threshold_change_cnt = ch->ch_config.max_rx_threshold -
 			ch->read_threshold + THRESHOLD_CHANGE_EXTRA_BYTES;
 
-	ch->def_read_threshold = ch->read_threshold;
+	if (ch->is_low_latency_ch)
+		ch->def_read_threshold = LOW_LATENCY_THRESHOLD;
+	else /* Aggregation up to 90% of the maximum size */
+		ch->def_read_threshold = (ch_config->max_rx_threshold * 9) / 10;
+
 	ch->is_packet_mode = ch_config->is_packet_mode;
 	if (!ch->is_packet_mode) {
 		ch->poll_delay_msec = DEFAULT_POLL_DELAY_NOPACKET_MSEC;

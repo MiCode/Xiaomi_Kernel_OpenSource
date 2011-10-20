@@ -66,7 +66,8 @@ struct peer_sdioc_channel_config {
 	u32 is_host_ok_to_sleep;
 	u32 is_packet_mode;
 	u32 peer_operation;
-	u32 reserved[24];
+	u32 is_low_latency_ch;
+	u32 reserved[23];
 };
 
 
@@ -173,6 +174,7 @@ struct sdio_channel {
 	int min_write_avail;
 	int poll_delay_msec;
 	int is_packet_mode;
+	int is_low_latency_ch;
 
 	struct peer_sdioc_channel_config ch_config;
 
