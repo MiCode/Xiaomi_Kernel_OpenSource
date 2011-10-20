@@ -1440,11 +1440,6 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 
 }
 #else
-static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
-						struct qcedev_handle *handle)
-{
-	return -EPERM;
-}
 static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 						struct qcedev_handle *handle)
 {
@@ -1850,7 +1845,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				podev))
 			return -EINVAL;
 
-		if ((qcedev_areq.cipher_op_req.use_pmem) && (QCEDEV_USE_PMEM))
+		if (qcedev_areq.cipher_op_req.use_pmem)
 			err = qcedev_pmem_ablk_cipher(&qcedev_areq, handle);
 		else
 			err = qcedev_vbuf_ablk_cipher(&qcedev_areq, handle);
