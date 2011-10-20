@@ -609,6 +609,8 @@ int adm_close(int port_id)
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
+
+		rtac_remove_adm_device(port_id);
 	}
 
 fail_cmd:
