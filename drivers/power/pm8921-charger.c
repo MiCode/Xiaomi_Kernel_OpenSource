@@ -2229,7 +2229,7 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	}
 
 	if (chip->ttrkl_time != 0) {
-		rc = pm_chg_ttrkl_max_set(chip, chip->safety_time);
+		rc = pm_chg_ttrkl_max_set(chip, chip->ttrkl_time);
 		if (rc) {
 			pr_err("Failed to set trkl time to %d minutes rc=%d\n",
 							chip->safety_time, rc);
