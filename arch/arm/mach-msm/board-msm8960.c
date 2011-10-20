@@ -21,7 +21,7 @@
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
-#include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/slimbus/slimbus.h>
@@ -187,7 +187,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 static struct pm8xxx_mpp_init pm8921_mpps[] __initdata = {
 	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
 	PM8XXX_MPP_INIT(7, D_INPUT, PM8921_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
-	PM8XXX_MPP_INIT(PM8921_AMUX_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
+	PM8XXX_MPP_INIT(PM8XXX_AMUX_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
 								DOUT_CTRL_LOW),
 };
 
@@ -2858,7 +2858,7 @@ static int __init gpiomux_init(void)
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
 
-static struct pm8921_adc_amux pm8921_adc_channels_data[] = {
+static struct pm8xxx_adc_amux pm8xxx_adc_channels_data[] = {
 	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"vbat", CHANNEL_VBAT, CHAN_PATH_SCALING2, AMUX_RSV1,
@@ -2893,16 +2893,16 @@ static struct pm8921_adc_amux pm8921_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
 };
 
-static struct pm8921_adc_properties pm8921_adc_data = {
+static struct pm8xxx_adc_properties pm8xxx_adc_data = {
 	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
 	.bitresolution		= 15,
 	.bipolar                = 0,
 };
 
-static struct pm8921_adc_platform_data pm8921_adc_pdata = {
-	.adc_channel		= pm8921_adc_channels_data,
-	.adc_num_board_channel	= ARRAY_SIZE(pm8921_adc_channels_data),
-	.adc_prop		= &pm8921_adc_data,
+static struct pm8xxx_adc_platform_data pm8xxx_adc_pdata = {
+	.adc_channel		= pm8xxx_adc_channels_data,
+	.adc_num_board_channel	= ARRAY_SIZE(pm8xxx_adc_channels_data),
+	.adc_prop		= &pm8xxx_adc_data,
 	.adc_mpp_base		= PM8921_MPP_PM_TO_SYS(1),
 };
 
@@ -4537,7 +4537,7 @@ static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
 	.regulator_pdatas	= msm_pm8921_regulator_pdata,
 	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
-	.adc_pdata		= &pm8921_adc_pdata,
+	.adc_pdata		= &pm8xxx_adc_pdata,
 	.leds_pdata		= &pm8xxx_leds_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
 };

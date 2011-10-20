@@ -29,7 +29,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/tm.h>
 #include <linux/completion.h>
-#include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/msm_adc.h>
 
 /* Register TEMP_ALARM_CTRL bits */
@@ -264,11 +264,11 @@ static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int pm8xxx_tz_get_temp_pm8921_adc(struct thermal_zone_device *thermal,
+static int pm8xxx_tz_get_temp_pm8xxx_adc(struct thermal_zone_device *thermal,
 				      unsigned long *temp)
 {
 	struct pm8xxx_tm_chip *chip = thermal->devdata;
-	struct pm8921_adc_chan_result result = {
+	struct pm8xxx_adc_chan_result result = {
 		.physical = 0lu,
 	};
 	int rc;
@@ -278,7 +278,7 @@ static int pm8xxx_tz_get_temp_pm8921_adc(struct thermal_zone_device *thermal,
 
 	*temp = chip->temp;
 
-	rc = pm8921_adc_read(chip->cdata.adc_channel, &result);
+	rc = pm8xxx_adc_read(chip->cdata.adc_channel, &result);
 	if (rc < 0) {
 		pr_err("%s: adc_channel_read_result() failed, rc = %d\n",
 			chip->cdata.tm_name, rc);
@@ -401,8 +401,8 @@ static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_no_adc = {
 	.get_crit_temp = pm8xxx_tz_get_crit_temp,
 };
 
-static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_pm8921_adc = {
-	.get_temp = pm8xxx_tz_get_temp_pm8921_adc,
+static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_pm8xxx_adc = {
+	.get_temp = pm8xxx_tz_get_temp_pm8xxx_adc,
 	.get_mode = pm8xxx_tz_get_mode,
 	.set_mode = pm8xxx_tz_set_mode,
 	.get_trip_type = pm8xxx_tz_get_trip_type,
@@ -577,8 +577,8 @@ static int __devinit pm8xxx_tm_probe(struct platform_device *pdev)
 	}
 
 	/* Select proper thermal zone ops functions based on ADC type. */
-	if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8921_ADC)
-		tz_ops = &pm8xxx_thermal_zone_ops_pm8921_adc;
+	if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8XXX_ADC)
+		tz_ops = &pm8xxx_thermal_zone_ops_pm8xxx_adc;
 	else if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8058_ADC)
 		tz_ops = &pm8xxx_thermal_zone_ops_pm8058_adc;
 	else
