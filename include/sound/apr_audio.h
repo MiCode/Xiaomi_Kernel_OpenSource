@@ -847,7 +847,7 @@ struct asm_stream_cmd_open_read {
 #define ADPCM        0x00010BE7
 #define YADPCM       0x00010BE8
 #define MP3          0x00010BE9
-#define MPEG4_AAC    0x00010BEA
+#define MPEG4_AAC    0x00010D86
 #define AMRNB_FS     0x00010BEB
 #define V13K_FS      0x00010BED
 #define EVRC_FS      0x00010BEE
