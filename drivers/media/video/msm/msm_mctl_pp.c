@@ -43,7 +43,7 @@ static int msm_mctl_pp_buf_divert(
 	struct v4l2_event v4l2_evt;
 	struct msm_isp_event_ctrl *isp_event;
 	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl),
-						GFP_KERNEL);
+						GFP_ATOMIC);
 	if (!isp_event) {
 		pr_err("%s Insufficient memory. return", __func__);
 		return -ENOMEM;
@@ -581,7 +581,7 @@ int msm_mctl_pp_notify(struct msm_cam_media_controller *p_mctl,
 			struct msm_mctl_pp_event_info *pp_event_info;
 			struct msm_isp_event_ctrl *isp_event;
 			isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 			if (!isp_event) {
 				pr_err("%s Insufficient memory.", __func__);
 				return -ENOMEM;
