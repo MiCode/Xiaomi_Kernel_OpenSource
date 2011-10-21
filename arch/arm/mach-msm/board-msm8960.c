@@ -711,6 +711,37 @@ static struct msm_gpiomux_config msm8960_cyts_configs[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+static struct gpiomux_setting hsic_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting hsic_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm8960_hsic_configs[] = {
+	{
+		.gpio = 150,               /*HSIC_STROBE */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+	{
+		.gpio = 151,               /* HSIC_DATA */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+};
+#endif
+
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 enum {
 	SX150X_CAM,
@@ -2545,6 +2576,11 @@ static int __init gpiomux_init(void)
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+	msm_gpiomux_install(msm8960_hsic_configs,
+			ARRAY_SIZE(msm8960_hsic_configs));
+#endif
+
 	return 0;
 }
 
@@ -2970,6 +3006,15 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
 };
+#endif
+
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+static struct msm_hsic_host_platform_data msm_hsic_pdata = {
+	.strobe		= 150,
+	.data		= 151,
+};
+#else
+static struct msm_hsic_host_platform_data msm_hsic_pdata;
 #endif
 
 #define PID_MAGIC_ID		0x71432909
@@ -4434,6 +4479,7 @@ static void __init msm8960_cdp_init(void)
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
 	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
+	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	gpiomux_init();
 	if (machine_is_msm8960_cdp())
 		fpga_init();

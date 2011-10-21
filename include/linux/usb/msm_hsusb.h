@@ -237,4 +237,9 @@ struct msm_otg {
 #define PHY_OTG_COMP_DISABLED		BIT(2)
 };
 
+struct msm_hsic_host_platform_data {
+	unsigned strobe;
+	unsigned data;
+};
+
 #endif
