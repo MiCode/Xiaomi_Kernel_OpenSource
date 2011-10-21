@@ -790,7 +790,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				do_gettimeofday(&in_cont_tv);
 				pr_err("In_CONT:previous read buffer done \
 				at %ld sec %ld microsec\n",\
-				out_cont_tv.tv_sec, out_cont_tv.tv_usec);
+				in_cont_tv.tv_sec, in_cont_tv.tv_usec);
 			}
 		}
 #endif
