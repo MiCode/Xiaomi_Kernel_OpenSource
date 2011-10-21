@@ -145,7 +145,9 @@ enum v4l2_cid_private_tavarua_t {
 	* Here We have IOCTl's that are specifici to IRIS
 	* (V4L2_CID_PRIVATE_BASE+0x1D--V4L2_CID_PRIVATE_BASE+0x27)
 	*/
-	V4L2_CID_PRIVATE_TAVARUA_SET_NOTCH_FILTER = V4L2_CID_PRIVATE_BASE + 0x28
+	V4L2_CID_PRIVATE_TAVARUA_SET_NOTCH_FILTER =
+		V4L2_CID_PRIVATE_BASE + 0x28,
+	V4L2_CID_PRIVATE_TAVARUA_SET_AUDIO_PATH
 };
 
 enum tavarua_buf_t {
@@ -305,6 +307,10 @@ enum search_t {
 	RDS_AF_JUMP,
 };
 
+enum audio_path {
+	FM_DIGITAL_PATH,
+	FM_ANALOG_PATH
+};
 #define SRCH_MODE	0x07
 #define SRCH_DIR	0x08 /* 0-up 1-down */
 #define SCAN_DWELL	0x70

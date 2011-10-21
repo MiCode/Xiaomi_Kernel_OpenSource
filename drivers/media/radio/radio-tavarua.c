@@ -2786,20 +2786,14 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 			FMDBG("turning on ..\n");
 			retval = tavarua_start(radio, ctrl->value);
 			if (retval >= 0) {
-				FMDBG("Setting audio path ...\n");
-				retval = tavarua_set_audio_path(
-					TAVARUA_AUDIO_OUT_DIGITAL_ON,
-					TAVARUA_AUDIO_OUT_ANALOG_OFF);
-				if (retval < 0) {
-					FMDERR("Error in tavarua_set_audio_path"
-						" %d\n", retval);
-				}
-			 /* Enabling 'SoftMute' and 'SignalBlending' features */
-			value = (radio->registers[IOCTRL] |
+				/* Enabling 'SoftMute' & 'SignalBlending' */
+				value = (radio->registers[IOCTRL] |
 				    IOC_SFT_MUTE | IOC_SIG_BLND);
-			retval = tavarua_write_register(radio, IOCTRL, value);
-			if (retval < 0)
-				FMDBG("SMute and SBlending not enabled\n");
+				retval = tavarua_write_register(radio,
+					IOCTRL, value);
+				if (retval < 0)
+					FMDBG("SMute and SBlending"
+						"not enabled\n");
 			}
 		}
 		/* check if off */
@@ -2819,6 +2813,28 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 					&radio->sync_req_done,
 					msecs_to_jiffies(wait_timeout)))
 					FMDBG("turning off timedout...\n");
+			}
+		}
+		break;
+	case V4L2_CID_PRIVATE_TAVARUA_SET_AUDIO_PATH:
+		FMDBG("Setting audio path ...\n");
+		if (ctrl->value == FM_DIGITAL_PATH) {
+			FMDBG("Digital audio path enabled ...\n");
+			retval = tavarua_set_audio_path(
+				TAVARUA_AUDIO_OUT_DIGITAL_ON,
+				TAVARUA_AUDIO_OUT_ANALOG_OFF);
+			if (retval < 0) {
+				FMDERR("Error in tavarua_set_audio_path"
+					" %d\n", retval);
+			}
+		} else if (ctrl->value == FM_ANALOG_PATH) {
+			FMDBG("Analog audio path enabled ...\n");
+			retval = tavarua_set_audio_path(
+				TAVARUA_AUDIO_OUT_ANALOG_ON,
+				TAVARUA_AUDIO_OUT_DIGITAL_OFF);
+			if (retval < 0) {
+				FMDERR("Error in tavarua_set_audio_path"
+					" %d\n", retval);
 			}
 		}
 		break;
