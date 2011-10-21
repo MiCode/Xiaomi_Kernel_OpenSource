@@ -184,9 +184,6 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 	SET_TTBCR(base, ctx, 0);
 	SET_TTBR0_PA(base, ctx, (pgtable >> TTBR0_PA_SHIFT));
 
-	/* Set interrupt number to "secure" interrupt */
-	SET_IRPTNDX(base, ctx, 0);
-
 	/* Enable context fault interrupt */
 	SET_CFEIE(base, ctx, 1);
 
