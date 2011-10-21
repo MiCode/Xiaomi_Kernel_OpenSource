@@ -339,6 +339,9 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		SET_M2VCBR_N(drvdata->base, mid, 0);
 		SET_CBACR_N(drvdata->base, c->num, 0);
 
+		/* Route page faults to the non-secure interrupt */
+		SET_IRPTNDX(drvdata->base, c->num, 1);
+
 		/* Set VMID = 0 */
 		SET_VMID(drvdata->base, mid, 0);
 
