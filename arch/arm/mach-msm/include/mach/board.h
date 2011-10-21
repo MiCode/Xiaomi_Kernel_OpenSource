@@ -212,7 +212,7 @@ struct msm_camera_sensor_info {
 	struct msm_actuator_info *actuator_info;
 };
 
-int __init msm_get_cam_resources(struct msm_camera_sensor_info *);
+int msm_get_cam_resources(struct msm_camera_sensor_info *);
 
 struct clk_lookup;
 
@@ -410,24 +410,24 @@ struct isp1763_platform_data {
 #endif
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 
-void __init msm_add_devices(void);
-void __init msm_map_common_io(void);
-void __init msm_map_qsd8x50_io(void);
-void __init msm_map_msm8x60_io(void);
-void __init msm_map_msm8960_io(void);
-void __init msm_map_msm8930_io(void);
-void __init msm_map_apq8064_io(void);
-void __init msm_map_msm7x30_io(void);
-void __init msm_map_fsm9xxx_io(void);
-void __init msm_init_irq(void);
+void msm_add_devices(void);
+void msm_map_common_io(void);
+void msm_map_qsd8x50_io(void);
+void msm_map_msm8x60_io(void);
+void msm_map_msm8960_io(void);
+void msm_map_msm8930_io(void);
+void msm_map_apq8064_io(void);
+void msm_map_msm7x30_io(void);
+void msm_map_fsm9xxx_io(void);
+void msm_init_irq(void);
 void vic_handle_irq(struct pt_regs *regs);
 
 struct mmc_platform_data;
-int __init msm_add_sdcc(unsigned int controller,
+int msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
 
 struct msm_usb_host_platform_data;
-int __init msm_add_host(unsigned int host,
+int msm_add_host(unsigned int host,
 		struct msm_usb_host_platform_data *plat);
 #if defined(CONFIG_USB_FUNCTION_MSM_HSUSB) \
 	|| defined(CONFIG_USB_MSM_72K) || defined(CONFIG_USB_MSM_72K_MODULE)
@@ -436,8 +436,8 @@ void msm_hsusb_set_vbus_state(int online);
 static inline void msm_hsusb_set_vbus_state(int online) {}
 #endif
 
-void __init msm_snddev_init(void);
-void __init msm_snddev_init_timpani(void);
+void msm_snddev_init(void);
+void msm_snddev_init_timpani(void);
 void msm_snddev_poweramp_on(void);
 void msm_snddev_poweramp_off(void);
 void msm_snddev_hsed_voltage_on(void);
