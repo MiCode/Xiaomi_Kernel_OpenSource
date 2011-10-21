@@ -834,38 +834,55 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 	break;
 	case VCD_I_RECON_BUFFERS:
 	{
-		int index;
+		int index, index_hw_bufs = -1;
 		struct vcd_property_enc_recon_buffer *recon_buffers =
 			(struct vcd_property_enc_recon_buffer *)property_value;
 		for (index = 0; index < 4; index++) {
-			if (!encoder->hw_bufs.dpb_y[index].align_physical_addr)
+			if (!encoder->hw_bufs.dpb_y[index].
+				align_physical_addr) {
+					index_hw_bufs = index;
 				break;
-			else
+			} else
 				continue;
-			}
-		if (property_hdr->sz == sizeof(struct
-			vcd_property_enc_recon_buffer)) {
-			encoder->hw_bufs.dpb_y[index].align_physical_addr =
-				recon_buffers->physical_addr;
-			encoder->hw_bufs.dpb_y[index].align_virtual_addr =
-				recon_buffers->kernel_virtual_addr;
-			encoder->hw_bufs.dpb_y[index].buffer_size =
-				recon_buffers->buffer_size;
-			encoder->hw_bufs.dpb_c[index].align_physical_addr =
-			recon_buffers->physical_addr + ddl_get_yuv_buf_size(
-				encoder->frame_size.width, encoder->frame_size.
-				height, DDL_YUV_BUF_TYPE_TILE);
-			encoder->hw_bufs.dpb_c[index].align_virtual_addr =
-				recon_buffers->kernel_virtual_addr +
-				recon_buffers->ysize;
-			DDL_MSG_LOW("Y::KVirt: %p,KPhys: %p"
-						"UV::KVirt: %p,KPhys: %p\n",
-			encoder->hw_bufs.dpb_y[index].align_virtual_addr,
-			encoder->hw_bufs.dpb_y[index].align_physical_addr,
-			encoder->hw_bufs.dpb_c[index].align_virtual_addr,
-			encoder->hw_bufs.dpb_c[index].align_physical_addr);
-			vcd_status = VCD_S_SUCCESS;
-			}
+		}
+		if (index_hw_bufs == -1) {
+			DDL_MSG_HIGH("ERROR: value of index_hw_bufs");
+			vcd_status = VCD_ERR_ILLEGAL_PARM;
+		} else {
+			if (property_hdr->sz == sizeof(struct
+				vcd_property_enc_recon_buffer)) {
+				encoder->hw_bufs.dpb_y[index_hw_bufs].
+				align_physical_addr =
+					recon_buffers->physical_addr;
+				encoder->hw_bufs.dpb_y[index_hw_bufs].
+				align_virtual_addr =
+					recon_buffers->kernel_virtual_addr;
+				encoder->hw_bufs.dpb_y[index_hw_bufs].
+				buffer_size = recon_buffers->buffer_size;
+				encoder->hw_bufs.dpb_c[index_hw_bufs].
+				align_physical_addr =
+				recon_buffers->physical_addr +
+					ddl_get_yuv_buf_size(
+						encoder->frame_size.width,
+						encoder->frame_size.height,
+						DDL_YUV_BUF_TYPE_TILE);
+				encoder->hw_bufs.dpb_c[index_hw_bufs].
+					align_virtual_addr =
+					recon_buffers->kernel_virtual_addr +
+					recon_buffers->ysize;
+				DDL_MSG_LOW("Y::KVirt: %p,KPhys: %p"
+							"UV::KVirt: %p,KPhys: %p\n",
+				encoder->hw_bufs.dpb_y[index_hw_bufs].
+				align_virtual_addr,
+				encoder->hw_bufs.dpb_y[index_hw_bufs].
+				align_physical_addr,
+				encoder->hw_bufs.dpb_c[index_hw_bufs].
+				align_virtual_addr,
+				encoder->hw_bufs.dpb_c[index_hw_bufs].
+				align_physical_addr);
+				vcd_status = VCD_S_SUCCESS;
+				}
+		}
 	}
 	break;
 	case VCD_I_FREE_RECON_BUFFERS:

@@ -877,25 +877,31 @@ static void ddl_encoder_eos_done(struct ddl_context *ddl_context)
 	vidc_1080p_clear_returned_channel_inst_id();
 	ddl = ddl_get_current_ddl_client_for_channel_id(ddl_context,
 			ddl_context->response_cmd_ch_id);
-	if (!ddl || (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE))) {
-		DDL_MSG_ERROR("STATE-CRITICAL-EOSFRMDONE");
-		ddl_client_fatal_cb(ddl);
+	if (ddl == NULL) {
+		DDL_MSG_ERROR("NO_DDL_CONTEXT");
 	} else {
-		struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
-		vidc_1080p_get_encode_frame_info(&encoder->enc_frame_info);
-		ddl_handle_enc_frame_done(ddl);
-		DDL_MSG_LOW("encoder_eos_done");
-		ddl->cmd_state = DDL_CMD_INVALID;
-		DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+		if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
+			DDL_MSG_ERROR("STATE-CRITICAL-EOSFRMDONE");
+			ddl_client_fatal_cb(ddl);
+		} else {
+			struct ddl_encoder_data *encoder =
+				&(ddl->codec_data.encoder);
+			vidc_1080p_get_encode_frame_info(
+				&encoder->enc_frame_info);
+			ddl_handle_enc_frame_done(ddl);
+			DDL_MSG_LOW("encoder_eos_done");
+			ddl->cmd_state = DDL_CMD_INVALID;
+			DDL_MSG_LOW("ddl_state_transition: %s ~~>"
 				"DDL_CLIENT_WAIT_FOR_FRAME",
 				ddl_get_state_string(ddl->client_state));
-		ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
-		DDL_MSG_LOW("eos_done");
-		ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
-				VCD_S_SUCCESS, NULL, 0,
-				(u32 *)ddl, ddl->client_data);
-		ddl_release_command_channel(ddl_context,
-			ddl->command_channel);
+			ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
+			DDL_MSG_LOW("eos_done");
+			ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
+					VCD_S_SUCCESS, NULL, 0,
+					(u32 *)ddl, ddl->client_data);
+			ddl_release_command_channel(ddl_context,
+				ddl->command_channel);
+		}
 	}
 }
 
