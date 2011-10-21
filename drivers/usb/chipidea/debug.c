@@ -316,8 +316,15 @@ static ssize_t ci_dtds_write(struct file *file, const char __user *ubuf,
 		mEp = &ci->ci13xxx_ep[ep_num];
 
 	n = hw_ep_bit(mEp->num, mEp->dir);
+	pr_info("%s: prime:%08x stat:%08x ep#%d dir:%s"
+			"dTD_update_fail_count: %lu "
+			"mEp->dTD_update_fail_count: %lu\n", __func__,
+			hw_read(ci, OP_ENDPTPRIME, ~0),
+			hw_read(ci, OP_ENDPTSTAT, ~0),
+			mEp->num, mEp->dir ? "IN" : "OUT",
+			udc->dTD_update_fail_count,
+			mEp->dTD_update_fail_count);
 
-	pr_info("ep#%d dir:%s\n", mEp->num, mEp->dir ? "IN" : "OUT");
 	pr_info("QH: cap:%08x cur:%08x next:%08x token:%08x\n",
 			mEp->qh.ptr->cap, mEp->qh.ptr->curr,
 			mEp->qh.ptr->td.next, mEp->qh.ptr->td.token);

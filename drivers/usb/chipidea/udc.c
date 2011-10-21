@@ -896,12 +896,30 @@ __acquires(mEp->lock)
 	struct ci13xxx_req *mReq, *mReqTemp;
 	struct ci13xxx_ep *mEpTemp = mEp;
 	int retval = 0;
+	int req_dequeue = 1;
+	struct ci13xxx *ci = mEp->ci;
 
 	list_for_each_entry_safe(mReq, mReqTemp, &mEp->qh.queue,
 			queue) {
+dequeue:
 		retval = _hardware_dequeue(mEp, mReq);
-		if (retval < 0)
+		if (retval < 0) {
+			/*
+			 * FIXME: don't know exact delay
+			 * required for HW to update dTD status
+			 * bits. This is a temporary workaround till
+			 * HW designers come back on this.
+			 */
+			if (retval == -EBUSY && req_dequeue && mEp->dir == 0) {
+				req_dequeue = 0;
+				ci->dTD_update_fail_count++;
+				mEp->dTD_update_fail_count++;
+				udelay(10);
+				goto dequeue;
+			}
 			break;
+		}
+		req_dequeue = 0;
 		list_del_init(&mReq->queue);
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
