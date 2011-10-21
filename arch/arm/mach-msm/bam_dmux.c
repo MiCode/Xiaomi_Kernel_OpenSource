@@ -24,6 +24,7 @@
 #include <linux/sched.h>
 #include <linux/skbuff.h>
 #include <linux/debugfs.h>
+#include <linux/clk.h>
 
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
@@ -119,6 +120,7 @@ struct rx_pkt_info {
 #define BUFFER_SIZE		2048
 #define NUM_BUFFERS		32
 static struct sps_bam_props a2_props;
+static u32 a2_device_handle;
 static struct sps_pipe *bam_tx_pipe;
 static struct sps_pipe *bam_rx_pipe;
 static struct sps_connect tx_connection;
@@ -154,6 +156,26 @@ static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 
 static struct workqueue_struct *bam_mux_rx_workqueue;
 static struct workqueue_struct *bam_mux_tx_workqueue;
+
+/* A2 power collaspe */
+#define UL_TIMEOUT_DELAY 1000	/* in ms */
+static void toggle_apps_ack(void);
+static void reconnect_to_bam(void);
+static void disconnect_to_bam(void);
+static void ul_wakeup(void);
+static void ul_timeout(struct work_struct *work);
+static void vote_dfab(void);
+static void unvote_dfab(void);
+
+static int bam_is_connected;
+static DEFINE_MUTEX(wakeup_lock);
+static struct completion ul_wakeup_ack_completion;
+static struct completion bam_connection_completion;
+static struct delayed_work ul_timeout_work;
+static int ul_packet_written;
+static struct clk *dfab_clk;
+static DEFINE_RWLOCK(ul_wakeup_lock);
+/* End A2 power collaspe */
 
 #define bam_ch_is_open(x)						\
 	(bam_ch[(x)].status == (BAM_CH_LOCAL_OPEN | BAM_CH_REMOTE_OPEN))
@@ -316,6 +338,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 
 	mutex_unlock(&bam_mux_lock);
+	ul_packet_written = 1;
 	return rc;
 }
 
@@ -364,6 +387,10 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		return -ENODEV;
 	}
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
+
+	read_lock(&ul_wakeup_lock);
+	if (!bam_is_connected)
+		ul_wakeup();
 
 	/* if skb do not have any tailroom for padding,
 	   copy the skb into a new expanded skb */
@@ -421,6 +448,8 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	INIT_WORK(&pkt->work, bam_mux_write_done);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+	ul_packet_written = 1;
+	read_unlock(&ul_wakeup_lock);
 	return rc;
 }
 
@@ -464,6 +493,10 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	bam_ch[id].status |= BAM_CH_LOCAL_OPEN;
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 
+	read_lock(&ul_wakeup_lock);
+	if (!bam_is_connected)
+		ul_wakeup();
+
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
 	hdr->cmd = BAM_MUX_HDR_CMD_OPEN;
 	hdr->reserved = 0;
@@ -472,6 +505,7 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	hdr->pad_len = 0;
 
 	rc = bam_mux_write_cmd((void *)hdr, sizeof(struct bam_mux_hdr));
+	read_unlock(&ul_wakeup_lock);
 
 open_done:
 	DBG("%s: opened ch %d\n", __func__, id);
@@ -491,6 +525,10 @@ int msm_bam_dmux_close(uint32_t id)
 		return -ENODEV;
 	spin_lock_irqsave(&bam_ch[id].lock, flags);
 
+	read_lock(&ul_wakeup_lock);
+	if (!bam_is_connected)
+		ul_wakeup();
+
 	bam_ch[id].notify = NULL;
 	bam_ch[id].priv = NULL;
 	bam_ch[id].status &= ~BAM_CH_LOCAL_OPEN;
@@ -509,6 +547,7 @@ int msm_bam_dmux_close(uint32_t id)
 	hdr->pad_len = 0;
 
 	rc = bam_mux_write_cmd((void *)hdr, sizeof(struct bam_mux_hdr));
+	read_unlock(&ul_wakeup_lock);
 
 	DBG("%s: closed ch %d\n", __func__, id);
 	return rc;
@@ -708,6 +747,101 @@ static void debug_create(const char *name, mode_t mode,
 
 #endif
 
+static void ul_timeout(struct work_struct *work)
+{
+	write_lock(&ul_wakeup_lock);
+	if (ul_packet_written) {
+		ul_packet_written = 0;
+		schedule_delayed_work(&ul_timeout_work,
+				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+	} else {
+		smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
+		bam_is_connected = 0;
+	}
+	write_unlock(&ul_wakeup_lock);
+}
+static void ul_wakeup(void)
+{
+	mutex_lock(&wakeup_lock);
+	if (bam_is_connected) { /* bam got connected before lock grabbed */
+		mutex_unlock(&wakeup_lock);
+		return;
+	}
+	INIT_COMPLETION(ul_wakeup_ack_completion);
+	smsm_change_state(SMSM_APPS_STATE, 0, SMSM_A2_POWER_CONTROL);
+	wait_for_completion_interruptible_timeout(&ul_wakeup_ack_completion,
+							HZ);
+	wait_for_completion_interruptible_timeout(&bam_connection_completion,
+							HZ);
+
+	bam_is_connected = 1;
+	schedule_delayed_work(&ul_timeout_work,
+				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+	mutex_unlock(&wakeup_lock);
+}
+
+static void reconnect_to_bam(void)
+{
+	int i;
+
+	vote_dfab();
+	i = sps_device_reset(a2_device_handle);
+	if (i)
+		pr_err("%s: device reset failed rc = %d\n", __func__, i);
+	i = sps_connect(bam_tx_pipe, &tx_connection);
+	if (i)
+		pr_err("%s: tx connection failed rc = %d\n", __func__, i);
+	i = sps_connect(bam_rx_pipe, &rx_connection);
+	if (i)
+		pr_err("%s: rx connection failed rc = %d\n", __func__, i);
+	i = sps_register_event(bam_tx_pipe, &tx_register_event);
+	if (i)
+		pr_err("%s: tx event reg failed rc = %d\n", __func__, i);
+	i = sps_register_event(bam_rx_pipe, &rx_register_event);
+	if (i)
+		pr_err("%s: rx event reg failed rc = %d\n", __func__, i);
+	for (i = 0; i < NUM_BUFFERS; ++i)
+		queue_rx();
+	toggle_apps_ack();
+	complete_all(&bam_connection_completion);
+}
+
+static void disconnect_to_bam(void)
+{
+	struct list_head *node;
+	struct rx_pkt_info *info;
+
+	INIT_COMPLETION(bam_connection_completion);
+	sps_disconnect(bam_tx_pipe);
+	sps_disconnect(bam_rx_pipe);
+	unvote_dfab();
+	__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
+	__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+	while (!list_empty(&bam_rx_pool)) {
+		node = bam_rx_pool.next;
+		list_del(node);
+		info = container_of(node, struct rx_pkt_info, list_node);
+		dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+							DMA_FROM_DEVICE);
+		dev_kfree_skb_any(info->skb);
+		kfree(info);
+	}
+}
+
+static void vote_dfab(void)
+{
+	int rc;
+
+	rc = clk_enable(dfab_clk);
+	if (rc)
+		pr_err("bam_dmux vote for dfab failed rc = %d\n", rc);
+}
+
+static void unvote_dfab(void)
+{
+	clk_disable(dfab_clk);
+}
+
 static void bam_init(void)
 {
 	u32 h;
@@ -716,6 +850,7 @@ static void bam_init(void)
 	void *a2_virt_addr;
 	int i;
 
+	vote_dfab();
 	/* init BAM */
 	a2_virt_addr = ioremap_nocache(A2_PHYS_BASE, A2_PHYS_SIZE);
 	if (!a2_virt_addr) {
@@ -735,6 +870,7 @@ static void bam_init(void)
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		goto register_bam_failed;
 	}
+	a2_device_handle = h;
 
 	bam_tx_pipe = sps_alloc_endpoint();
 	if (bam_tx_pipe == NULL) {
@@ -836,6 +972,8 @@ static void bam_init(void)
 	bam_mux_initialized = 1;
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		queue_rx();
+	toggle_apps_ack();
+	complete_all(&bam_connection_completion);
 	return;
 
 rx_event_reg_failed:
@@ -860,16 +998,33 @@ register_bam_failed:
 	return;
 }
 
+static void toggle_apps_ack(void)
+{
+	static unsigned int clear_bit; /* 0 = set the bit, else clear bit */
+	smsm_change_state(SMSM_APPS_STATE,
+				clear_bit & SMSM_A2_POWER_CONTROL_ACK,
+				~clear_bit & SMSM_A2_POWER_CONTROL_ACK);
+	clear_bit = ~clear_bit;
+}
+
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
 	DBG("%s: smsm activity\n", __func__);
-	if (bam_mux_initialized)
-		pr_err("%s: bam_dmux already initialized\n", __func__);
+	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL)
+		reconnect_to_bam();
+	else if (bam_mux_initialized && !(new_state & SMSM_A2_POWER_CONTROL))
+		disconnect_to_bam();
 	else if (new_state & SMSM_A2_POWER_CONTROL)
 		bam_init();
 	else
 		pr_err("%s: unsupported state change\n", __func__);
 
+}
+
+static void bam_dmux_smsm_ack_cb(void *priv, uint32_t old_state,
+						uint32_t new_state)
+{
+	complete_all(&ul_wakeup_ack_completion);
 }
 
 static int bam_dmux_probe(struct platform_device *pdev)
@@ -879,6 +1034,16 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	DBG("%s probe called\n", __func__);
 	if (bam_mux_initialized)
 		return 0;
+
+	dfab_clk = clk_get(&pdev->dev, "dfab_clk");
+	if (IS_ERR(dfab_clk)) {
+		pr_err("%s: did not get dfab clock\n", __func__);
+		return -EFAULT;
+	}
+
+	rc = clk_set_rate(dfab_clk, 64000000);
+	if (rc)
+		pr_err("%s: unable to set dfab clock rate\n", __func__);
 
 	bam_mux_rx_workqueue = create_singlethread_workqueue("bam_dmux_rx");
 	if (!bam_mux_rx_workqueue)
@@ -904,6 +1069,10 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		}
 	}
 
+	init_completion(&ul_wakeup_ack_completion);
+	init_completion(&bam_connection_completion);
+	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
+
 	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
 					bam_dmux_smsm_cb, NULL);
 
@@ -911,6 +1080,22 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		destroy_workqueue(bam_mux_rx_workqueue);
 		destroy_workqueue(bam_mux_tx_workqueue);
 		pr_err("%s: smsm cb register failed, rc: %d\n", __func__, rc);
+		return -ENOMEM;
+	}
+
+	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL_ACK,
+					bam_dmux_smsm_ack_cb, NULL);
+
+	if (rc) {
+		destroy_workqueue(bam_mux_rx_workqueue);
+		destroy_workqueue(bam_mux_tx_workqueue);
+		smsm_state_cb_deregister(SMSM_MODEM_STATE,
+					SMSM_A2_POWER_CONTROL,
+					bam_dmux_smsm_cb, NULL);
+		pr_err("%s: smsm ack cb register failed, rc: %d\n", __func__,
+				rc);
+		for (rc = 0; rc < BAM_DMUX_NUM_CHANNELS; ++rc)
+			platform_device_put(bam_ch[rc].pdev);
 		return -ENOMEM;
 	}
 
