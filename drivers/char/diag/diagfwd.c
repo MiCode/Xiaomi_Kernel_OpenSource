@@ -70,7 +70,7 @@ do {									\
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
 
-int chk_config_get_id()
+int chk_config_get_id(void)
 {
 	switch (socinfo_get_id()) {
 	case APQ8060_MACHINE_ID:
@@ -78,6 +78,23 @@ int chk_config_get_id()
 		return APQ8060_TOOLS_ID;
 	case AO8960_MACHINE_ID:
 		return AO8960_TOOLS_ID;
+	case APQ8064_MACHINE_ID:
+		return APQ8064_TOOLS_ID;
+	default:
+		return 0;
+	}
+}
+
+/*
+ * This will return TRUE for targets which support apps only mode.
+ * This applies to 8960 and newer targets.
+ */
+int chk_apps_only(void)
+{
+	switch (socinfo_get_id()) {
+	case AO8960_MACHINE_ID:
+	case APQ8064_MACHINE_ID:
+		return 1;
 	default:
 		return 0;
 	}
@@ -576,8 +593,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		diag_update_event_mask(buf+1, 0, 0);
 		diag_update_userspace_clients(EVENT_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
-		/* Check for Apps Only 8960 */
-		if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)) {
+		/* Check for Apps Only */
+		if (!(driver->ch) && chk_apps_only()) {
 			/* echo response back for apps only DIAG */
 			driver->apps_rsp_buf[0] = 0x60;
 			driver->apps_rsp_buf[1] = 0x0;
@@ -594,8 +611,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		diag_update_log_mask(*(int *)buf, buf+8, *(int *)(buf+4));
 		diag_update_userspace_clients(LOG_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
-		/* Check for Apps Only 8960 */
-		if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)) {
+		/* Check for Apps Only */
+		if (!(driver->ch) && chk_apps_only()) {
 			/* echo response back for Apps only DIAG */
 			driver->apps_rsp_buf[0] = 0x73;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x3; /* op. ID */
@@ -617,7 +634,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		diag_update_msg_mask(ssid_first, ssid_last , buf + 8);
 		diag_update_userspace_clients(MSG_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
-		if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)) {
+		if (!(driver->ch) && chk_apps_only()) {
 			/* echo response back for apps only DIAG */
 			for (i = 0; i < 8 + ssid_range; i++)
 				*(driver->apps_rsp_buf + i) = *(buf+i);
@@ -627,9 +644,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 #endif
 	}
 #if defined(CONFIG_DIAG_OVER_USB)
-	/* Check for Apps Only 8960 & get event mask request */
-	else if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)
-			  && *buf == 0x81) {
+	/* Check for Apps Only & get event mask request */
+	else if (!(driver->ch) && chk_apps_only() && *buf == 0x81) {
 		driver->apps_rsp_buf[0] = 0x81;
 		driver->apps_rsp_buf[1] = 0x0;
 		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
@@ -639,8 +655,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		ENCODE_RSP_AND_SEND(6 + EVENT_LAST_ID/8);
 		return 0;
 	}
-	/* Get log ID range & Check for Apps Only 8960 */
-	else if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)
+	/* Get log ID range & Check for Apps Only */
+	else if (!(driver->ch) && chk_apps_only()
 			  && (*buf == 0x73) && *(int *)(buf+4) == 1) {
 		driver->apps_rsp_buf[0] = 0x73;
 		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
@@ -665,7 +681,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Respond to Get SSID Range request message */
-	else if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)
+	else if (!(driver->ch) && chk_apps_only()
 			 && (*buf == 0x7d) && (*(buf+1) == 0x1)) {
 		driver->apps_rsp_buf[0] = 0x7d;
 		driver->apps_rsp_buf[1] = 0x1;
@@ -713,8 +729,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		ENCODE_RSP_AND_SEND(83);
 		return 0;
 	}
-	/* Check for AO8960 Respond to Get Subsys Build mask */
-	else if (!(driver->ch) && (chk_config_get_id() == AO8960_TOOLS_ID)
+	/* Check for Apps Only Respond to Get Subsys Build mask */
+	else if (!(driver->ch) && chk_apps_only()
 			 && (*buf == 0x7d) && (*(buf+1) == 0x2)) {
 		ssid_first = *(uint16_t *)(buf + 2);
 		ssid_last = *(uint16_t *)(buf + 4);
@@ -901,13 +917,13 @@ void diag_process_hdlc(void *data, unsigned len)
 		driver->debug_flag = 0;
 	}
 	/* send error responses from APPS for Central Routing */
-	if (type == 1 && chk_config_get_id() == AO8960_TOOLS_ID) {
+	if (type == 1 && chk_apps_only()) {
 		diag_send_error_rsp(hdlc.dest_idx);
 		type = 0;
 	}
 	/* implies this packet is NOT meant for apps */
 	if (!(driver->ch) && type == 1) {
-		if (chk_config_get_id() == AO8960_TOOLS_ID) {
+		if (chk_apps_only()) {
 			diag_send_error_rsp(hdlc.dest_idx);
 		} else { /* APQ 8060, Let Q6 respond */
 			if (driver->chqdsp)

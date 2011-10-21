@@ -138,7 +138,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 	int r = 0;
 
 	/* open control ports only on 8960 */
-	if (chk_config_get_id() == AO8960_TOOLS_ID) {
+	if (chk_apps_only()) {
 		if (pdev->id == SMD_APPS_MODEM)
 			r = smd_open("DIAG_CNTL", &driver->ch_cntl, driver,
 							diag_smd_cntl_notify);
