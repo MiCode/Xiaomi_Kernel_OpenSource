@@ -36,7 +36,6 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/timer.h>
-#include <linux/workqueue.h>
 #include <linux/byteorder/generic.h>
 #include <linux/bitops.h>
 #include <linux/pm_runtime.h>
@@ -61,7 +60,6 @@ module_param_named(tsdebug1, cyttsp_tsdebug1, uint, 0664);
 struct cyttsp {
 	struct i2c_client *client;
 	struct input_dev *input;
-	struct work_struct work;
 	struct timer_list timer;
 	struct mutex mutex;
 	char phys[32];
@@ -93,13 +91,10 @@ static void cyttsp_early_suspend(struct early_suspend *handler);
 static void cyttsp_late_resume(struct early_suspend *handler);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
-static struct workqueue_struct *cyttsp_ts_wq;
-
 
 /* ****************************************************************************
  * Prototypes for static functions
  * ************************************************************************** */
-static void cyttsp_xy_worker(struct work_struct *work);
 static irqreturn_t cyttsp_irq(int irq, void *handle);
 static int cyttsp_inlist(u16 prev_track[],
 			u8 cur_trk_id, u8 *prev_loc, u8 num_touches);
@@ -690,11 +685,6 @@ static void cyttspfw_flash_start(struct cyttsp *ts, const u8 *data,
 	else
 		disable_irq(ts->client->irq);
 
-	rc = cancel_work_sync(&ts->work);
-
-	if (rc && ts->client->irq)
-		enable_irq(ts->client->irq);
-
 	/* enter bootloader idle mode */
 	rc = cyttsp_soft_reset(ts);
 
@@ -922,12 +912,8 @@ static ssize_t cyttsp_fw_name_store(struct device *dev,
 static DEVICE_ATTR(cyttsp_fw_name, 0664, cyttsp_fw_name_show,
 					cyttsp_fw_name_store);
 
-/* The cyttsp_xy_worker function reads the XY coordinates and sends them to
- * the input layer.  It is scheduled from the interrupt (or timer).
- */
-void cyttsp_xy_worker(struct work_struct *work)
+static void cyttsp_xy_handler(struct cyttsp *ts)
 {
-	struct cyttsp *ts = container_of(work, struct cyttsp, work);
 	u8 id, tilt, rev_x, rev_y;
 	u8 i, loc;
 	u8 prv_tch;		/* number of previous touches */
@@ -950,7 +936,7 @@ void cyttsp_xy_worker(struct work_struct *work)
 	u8 st_z2;
 	s32 retval;
 
-	cyttsp_xdebug("TTSP worker start 1:\n");
+	cyttsp_xdebug("TTSP handler start 1:\n");
 
 	/* get event data from CYTTSP device */
 	i = CY_NUM_RETRY;
@@ -963,10 +949,10 @@ void cyttsp_xy_worker(struct work_struct *work)
 	if (retval < CY_OK) {
 		/* return immediately on
 		 * failure to read device on the i2c bus */
-		goto exit_xy_worker;
+		goto exit_xy_handler;
 	}
 
-	cyttsp_xdebug("TTSP worker start 2:\n");
+	cyttsp_xdebug("TTSP handler start 2:\n");
 
 	/* compare own irq counter with the device irq counter */
 	if (ts->client->irq) {
@@ -1043,7 +1029,7 @@ void cyttsp_xy_worker(struct work_struct *work)
 				tries++ < 100);
 			cyttsp_putbl(ts, 2, true, false, false);
 		}
-		goto exit_xy_worker;
+		goto exit_xy_handler;
 	} else {
 		cur_tch = GET_NUM_TOUCHES(g_xy_data.tt_stat);
 		if (IS_LARGE_AREA(g_xy_data.tt_stat)) {
@@ -1126,7 +1112,7 @@ void cyttsp_xy_worker(struct work_struct *work)
 	if ((prv_tch == CY_NTCH) &&
 		((cur_tch == CY_NTCH) ||
 		(cur_tch > CY_NUM_MT_TCH_ID))) {
-		goto exit_xy_worker;
+		goto exit_xy_handler;
 	}
 
 	cyttsp_debug("prev=%d  curr=%d\n", prv_tch, cur_tch);
@@ -1816,19 +1802,10 @@ void cyttsp_xy_worker(struct work_struct *work)
 		ts->act_trk[id] = cur_trk[id];
 	}
 
-exit_xy_worker:
-	if (cyttsp_disable_touch) {
-		/* Turn off the touch interrupts */
-		cyttsp_debug("Not enabling touch\n");
-	} else {
-		if (ts->client->irq == 0) {
-			/* restart event timer */
-			mod_timer(&ts->timer, jiffies + TOUCHSCREEN_TIMEOUT);
-		} else {
-			/* re-enable the interrupt after processing */
-			enable_irq(ts->client->irq);
-		}
-	}
+exit_xy_handler:
+	/* restart event timer */
+	if (ts->client->irq == 0)
+		mod_timer(&ts->timer, jiffies + TOUCHSCREEN_TIMEOUT);
 	return;
 }
 
@@ -1882,7 +1859,7 @@ static void cyttsp_timer(unsigned long handle)
 	cyttsp_xdebug("TTSP Device timer event\n");
 
 	/* schedule motion signal handling */
-	queue_work(cyttsp_ts_wq, &ts->work);
+	cyttsp_xy_handler(ts);
 
 	return;
 }
@@ -1899,11 +1876,8 @@ static irqreturn_t cyttsp_irq(int irq, void *handle)
 
 	cyttsp_xdebug("%s: Got IRQ\n", CY_I2C_NAME);
 
-	/* disable further interrupts until this interrupt is processed */
-	disable_irq_nosync(ts->client->irq);
+	cyttsp_xy_handler(ts);
 
-	/* schedule motion signal handling */
-	queue_work(cyttsp_ts_wq, &ts->work);
 	return IRQ_HANDLED;
 }
 
@@ -2565,9 +2539,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_free_device;
 	}
 
-	/* Prepare our worker structure prior to setting up the timer/ISR */
-	INIT_WORK(&ts->work, cyttsp_xy_worker);
-
 	if (gpio_is_valid(ts->platform_data->resout_gpio)) {
 		/* configure touchscreen reset out gpio */
 		retval = gpio_request(ts->platform_data->resout_gpio,
@@ -2664,9 +2635,8 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		mod_timer(&ts->timer, jiffies + TOUCHSCREEN_TIMEOUT);
 	} else {
 		cyttsp_info("Setting up interrupt\n");
-		/* request_irq() will also call enable_irq() */
-		error = request_irq(client->irq, cyttsp_irq,
-			IRQF_TRIGGER_FALLING,
+		error = request_threaded_irq(client->irq, NULL, cyttsp_irq,
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 			client->dev.driver->name, ts);
 		if (error) {
 			cyttsp_alert("error: could not request irq\n");
@@ -2988,15 +2958,10 @@ static int cyttsp_suspend(struct device *dev)
 		return 0;
 	}
 
-	/* disable worker */
 	if (ts->client->irq == 0)
 		del_timer(&ts->timer);
 	else
-		disable_irq_nosync(ts->client->irq);
-	retval = cancel_work_sync(&ts->work);
-
-	if (retval)
-		enable_irq(ts->client->irq);
+		disable_irq(ts->client->irq);
 
 	if (!(retval < CY_OK)) {
 		if (ts->platform_data->use_sleep &&
@@ -3057,10 +3022,6 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	device_remove_file(&client->dev, &dev_attr_cyttsp_update_fw);
 	device_remove_file(&client->dev, &dev_attr_cyttsp_force_update_fw);
 	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_name);
-
-	/* Start cleaning up by removing any delayed work and the timer */
-	if (cancel_delayed_work((struct delayed_work *)&ts->work) < CY_OK)
-		cyttsp_alert("error: could not remove work from workqueue\n");
 
 	/* free up timer or irq */
 	if (ts->client->irq == 0) {
@@ -3127,12 +3088,6 @@ static int cyttsp_init(void)
 	cyttsp_info("I2C Touchscreen Driver (Built %s @ %s)\n", \
 		__DATE__, __TIME__);
 
-	cyttsp_ts_wq = create_singlethread_workqueue("cyttsp_ts_wq");
-	if (cyttsp_ts_wq == NULL) {
-		cyttsp_debug("No memory for cyttsp_ts_wq\n");
-		return -ENOMEM;
-	}
-
 	ret = i2c_add_driver(&cyttsp_driver);
 
 	return ret;
@@ -3140,8 +3095,6 @@ static int cyttsp_init(void)
 
 static void cyttsp_exit(void)
 {
-	if (cyttsp_ts_wq)
-		destroy_workqueue(cyttsp_ts_wq);
 	return i2c_del_driver(&cyttsp_driver);
 }
 
