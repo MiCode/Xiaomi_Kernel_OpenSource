@@ -153,14 +153,18 @@ static struct msm_sensor_output_info_t imx074_dimensions[] = {
 		.y_output = 0xC30,
 		.line_length_pclk = 0x1178,
 		.frame_length_lines = 0xC90,
-		.pixel_clk = 182400000,
+		.vt_pixel_clk = 182400000,
+		.op_pixel_clk = 182400000,
+		.binning_factor = 1,
 	},
 	{
 		.x_output = 0x838,
 		.y_output = 0x618,
 		.line_length_pclk = 0x1178,
 		.frame_length_lines = 0x62D,
-		.pixel_clk = 216000000,
+		.vt_pixel_clk = 216000000,
+		.op_pixel_clk = 216000000,
+		.binning_factor = 1,
 	},
 };
 
