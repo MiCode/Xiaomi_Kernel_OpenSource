@@ -26,6 +26,7 @@
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/regulator/pm8018-regulator.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 
 #define PM8018_CORE_DEV_NAME "pm8018-core"
 
@@ -50,6 +51,9 @@
 
 #define PM8018_PWRKEY_REL_IRQ		PM8018_IRQ_BLOCK_BIT(6, 2)
 #define PM8018_PWRKEY_PRESS_IRQ		PM8018_IRQ_BLOCK_BIT(6, 3)
+#define PM8018_ADC_EOC_USR_IRQ		PM8018_IRQ_BLOCK_BIT(9, 6)
+#define PM8018_ADC_BATT_TEMP_WARM_IRQ	PM8018_IRQ_BLOCK_BIT(9, 1)
+#define PM8018_ADC_BATT_TEMP_COLD_IRQ	PM8018_IRQ_BLOCK_BIT(9, 0)
 
 struct pm8018_platform_data {
 	struct pm8xxx_irq_platform_data		*irq_pdata;
@@ -59,6 +63,7 @@ struct pm8018_platform_data {
 	struct pm8xxx_pwrkey_platform_data	*pwrkey_pdata;
 	struct pm8xxx_misc_platform_data	*misc_pdata;
 	struct pm8018_regulator_platform_data	*regulator_pdatas;
+	struct pm8xxx_adc_platform_data		*adc_pdata;
 	int					num_regulators;
 };
 
