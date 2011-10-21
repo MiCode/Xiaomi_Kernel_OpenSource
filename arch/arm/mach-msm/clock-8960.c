@@ -332,7 +332,7 @@
 #define pll0_to_mm_mux		3
 #define pll15_to_mm_mux		3	/* or MM_PLL3 */
 #define gnd_to_mm_mux		4
-#define pll3_to_mm_mux		5	/* used in 8960 */
+#define pll3_to_mm_mux		3	/* or MMCC_PLL2 */
 #define hdmi_pll_to_mm_mux	3
 #define cxo_to_xo_mux		0
 #define pxo_to_xo_mux		1
