@@ -12,6 +12,7 @@
  */
 
 #include <linux/spinlock.h>
+#include <linux/module.h>
 #include <asm/mach-types.h>
 
 DEFINE_RAW_SPINLOCK(l2_access_lock);
@@ -40,6 +41,7 @@ u32 set_get_l2_indirect_reg(u32 reg_addr, u32 val)
 
 	return ret_val;
 }
+EXPORT_SYMBOL(set_get_l2_indirect_reg);
 
 void set_l2_indirect_reg(u32 reg_addr, u32 val)
 {
@@ -58,6 +60,7 @@ void set_l2_indirect_reg(u32 reg_addr, u32 val)
 	isb();
 	raw_spin_unlock_irqrestore(&l2_access_lock, flags);
 }
+EXPORT_SYMBOL(set_l2_indirect_reg);
 
 u32 get_l2_indirect_reg(u32 reg_addr)
 {
@@ -77,3 +80,4 @@ u32 get_l2_indirect_reg(u32 reg_addr)
 
 	return val;
 }
+EXPORT_SYMBOL(get_l2_indirect_reg);
