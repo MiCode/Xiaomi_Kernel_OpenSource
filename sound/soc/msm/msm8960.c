@@ -25,7 +25,7 @@
 #include <sound/jack.h>
 #include <asm/mach-types.h>
 #include "msm-pcm-routing.h"
-#include <../codecs/wcd9310.h>
+#include "../codecs/wcd9310.h"
 
 /* 8960 machine driver */
 
