@@ -18,6 +18,8 @@
 #include <linux/msm_audio_aac.h>
 #include "audio_utils_aio.h"
 
+#define AUDIO_AAC_DUAL_MONO_INVALID -1
+
 
 /* Default number of pre-allocated event packets */
 #define PCM_BUFSZ_MIN_AACM	((8*1024) + sizeof(struct dec_meta_out))
@@ -146,10 +148,52 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case AUDIO_SET_AAC_CONFIG: {
+		struct msm_audio_aac_config *aac_config;
 		if (copy_from_user(audio->codec_cfg, (void *)arg,
 			sizeof(struct msm_audio_aac_config))) {
 			rc = -EFAULT;
-			break;
+		} else {
+			uint16_t sce_left = 1, sce_right = 2;
+			aac_config = audio->codec_cfg;
+			if ((aac_config->dual_mono_mode <
+				AUDIO_AAC_DUAL_MONO_PL_PR) ||
+				(aac_config->dual_mono_mode >
+				AUDIO_AAC_DUAL_MONO_PL_SR)) {
+				pr_err("%s:AUDIO_SET_AAC_CONFIG: Invalid"
+					"dual_mono mode =%d\n", __func__,
+					aac_config->dual_mono_mode);
+			} else {
+				/* convert the data from user into sce_left
+				 * and sce_right based on the definitions
+				 */
+				pr_debug("%s: AUDIO_SET_AAC_CONFIG: modify"
+					 "dual_mono mode =%d\n", __func__,
+					 aac_config->dual_mono_mode);
+				switch (aac_config->dual_mono_mode) {
+				case AUDIO_AAC_DUAL_MONO_PL_PR:
+					sce_left = 1;
+					sce_right = 1;
+					break;
+				case AUDIO_AAC_DUAL_MONO_SL_SR:
+					sce_left = 2;
+					sce_right = 2;
+					break;
+				case AUDIO_AAC_DUAL_MONO_SL_PR:
+					sce_left = 2;
+					sce_right = 1;
+					break;
+				case AUDIO_AAC_DUAL_MONO_PL_SR:
+				default:
+					sce_left = 1;
+					sce_right = 2;
+					break;
+				}
+				rc = q6asm_cfg_dual_mono_aac(audio->ac,
+							sce_left, sce_right);
+				if (rc < 0)
+					pr_err("%s: asm cmd dualmono failed"
+						" rc=%d\n", __func__, rc);
+			}			break;
 		}
 		break;
 	}
@@ -165,6 +209,7 @@ static int audio_open(struct inode *inode, struct file *file)
 {
 	struct q6audio_aio *audio = NULL;
 	int rc = 0;
+	struct msm_audio_aac_config *aac_config = NULL;
 
 #ifdef CONFIG_DEBUG_FS
 	/* 4 bytes represents decoder number, 1 byte for terminate string */
@@ -186,7 +231,10 @@ static int audio_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 	}
 
+	aac_config = audio->codec_cfg;
+
 	audio->pcm_cfg.buffer_size = PCM_BUFSZ_MIN_AACM;
+	aac_config->dual_mono_mode = AUDIO_AAC_DUAL_MONO_INVALID;
 
 	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_aac_cb,
 					     (void *)audio);
