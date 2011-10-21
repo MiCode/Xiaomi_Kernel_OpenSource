@@ -79,9 +79,11 @@ static void event_handler(uint32_t opcode,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct audio_aio_write_param param;
 	struct audio_buffer *buf = prtd->audio_client->port[IN].buf;
+	unsigned long flag = 0;
 	int i = 0;
 
 	pr_debug("%s\n", __func__);
+	spin_lock_irqsave(&the_locks.event_lock, flag);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE: {
 		uint32_t *ptrmem = (uint32_t *)&param;
@@ -163,6 +165,7 @@ static void event_handler(uint32_t opcode,
 		pr_debug("Not Supported Event opcode[0x%x]\n", opcode);
 		break;
 	}
+	spin_unlock_irqrestore(&the_locks.event_lock, flag);
 }
 
 static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
@@ -201,6 +204,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	pr_debug("%s\n", __func__);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
+		prtd->pcm_irq_pos = 0;
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("SNDRV_PCM_TRIGGER_START\n");
@@ -511,6 +515,7 @@ static struct platform_driver msm_pcm_driver = {
 
 static int __init msm_soc_platform_init(void)
 {
+	spin_lock_init(&the_locks.event_lock);
 	init_waitqueue_head(&the_locks.enable_wait);
 	init_waitqueue_head(&the_locks.eos_wait);
 	init_waitqueue_head(&the_locks.write_wait);
