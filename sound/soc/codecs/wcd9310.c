@@ -2012,21 +2012,6 @@ int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
 	return 0;
 }
 
-static int tabla_digital_mute(struct snd_soc_dai *codec_dai, int mute)
-{
-	struct snd_soc_codec *codec = codec_dai->codec;
-
-	pr_debug("%s %d\n", __func__, mute);
-
-	/* TODO mute TX */
-	if (mute)
-		snd_soc_update_bits(codec, TABLA_A_CDC_RX1_B6_CTL, 0x01, 0x01);
-	else
-		snd_soc_update_bits(codec, TABLA_A_CDC_RX1_B6_CTL, 0x01, 0x00);
-
-	return 0;
-}
-
 static int tabla_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
@@ -2137,7 +2122,6 @@ static struct snd_soc_dai_ops tabla_dai_ops = {
 	.hw_params = tabla_hw_params,
 	.set_sysclk = tabla_set_dai_sysclk,
 	.set_fmt = tabla_set_dai_fmt,
-	.digital_mute = tabla_digital_mute,
 };
 
 static struct snd_soc_dai_driver tabla_dai[] = {
