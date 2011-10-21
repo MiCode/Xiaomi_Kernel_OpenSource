@@ -602,6 +602,14 @@ config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	  Support for HDCP mode for MSM HDMI 1080p Panel
 	  Choose to enable HDCP
 
+config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	depends on FB_MSM_HDMI_MSM_PANEL
+	bool "Enable CEC"
+	default n
+	---help---
+	  Support for HDMI CEC Feature
+	  Choose to enable CEC
+
 choice
 	depends on  (FB_MSM_MDP22 || FB_MSM_MDP31 || FB_MSM_MDP40)
 	prompt "TVOut Region"
