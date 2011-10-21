@@ -648,6 +648,11 @@ struct l2cap_pinfo {
 #define L2CAP_AMP_STATE_WAIT_PREPARE		11
 #define L2CAP_AMP_STATE_RESEGMENT		12
 
+#define L2CAP_ATT_ERROR				0x01
+#define L2CAP_ATT_RESPONSE_BIT			0x01
+#define L2CAP_ATT_INDICATE			0x1D
+#define L2CAP_ATT_NOT_SUPPORTED			0x06
+
 #define __delta_seq(x, y, pi) ((x) >= (y) ? (x) - (y) : \
 				(pi)->tx_win_max + 1 - (y) + (x))
 #define __next_seq(x, pi) ((x + 1) & ((pi)->tx_win_max))
