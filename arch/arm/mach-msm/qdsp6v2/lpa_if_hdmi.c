@@ -28,17 +28,6 @@
 #include <sound/dai.h>
 #include "q6core.h"
 
-#define NUM_FRA_IN_BLOCK		192
-#define NUM_SAMP_PER_CH_PER_AC3_FRAME	1536
-#define AC3_REP_PER			1536	/* num of 60958 Frames */
-#define FRAME_60958_SZ			8	/* bytes */
-#define PREABLE_61937_SZ_16_BIT		4	/* in 16 bit words */
-
-
-#define MAX_AC3_FRA_SZ_16_BIT		1920  /* in 16 bit words */
-#define DMA_PERIOD_SZ			(AC3_REP_PER * FRAME_60958_SZ)
-#define DMA_BUF_SZ			(DMA_PERIOD_SZ * 2)
-#define USER_BUF_SZ			DMA_PERIOD_SZ
 #define DMA_ALLOC_BUF_SZ		(SZ_4K * 6)
 
 #define HDMI_AUDIO_FIFO_WATER_MARK	4
@@ -62,6 +51,7 @@ struct lpa_if {
 	u32 dma_ch;
 	wait_queue_head_t wait;
 	u32 config;
+	u32 dma_period_sz;
 };
 
 static struct lpa_if  *lpa_if_ptr;
@@ -127,12 +117,11 @@ int lpa_if_config(struct lpa_if *lpa_if)
 
 	dma_params.src_start = lpa_if->buffer_phys;
 	dma_params.buffer = lpa_if->buffer;
-	dma_params.buffer_size = DMA_BUF_SZ;
-	dma_params.period_size = DMA_PERIOD_SZ;
+	dma_params.buffer_size = lpa_if->dma_period_sz * 2;
+	dma_params.period_size = lpa_if->dma_period_sz;
 	dma_params.channels = 2;
 
 	lpa_if->dma_ch = 0;
-
 	dai_set_params(lpa_if->dma_ch, &dma_params);
 
 	register_dma_irq_handler(lpa_if->dma_ch, lpa_if_irq, (void *)lpa_if);
@@ -195,7 +184,33 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 		}
 		break;
+	case AUDIO_SET_CONFIG:
+		pr_debug("AUDIO_SET_CONFIG\n");
+		if (copy_from_user(&lpa_if->dma_period_sz, (void *) arg,
+				sizeof(unsigned int))) {
+			pr_debug("%s:failed to copy from user\n", __func__);
+			rc = -EFAULT;
+		}
+		if (lpa_if->dma_period_sz > DMA_ALLOC_BUF_SZ) {
+			pr_err("Dma buffer size greater than allocated size\n");
+			return -EINVAL;
+		}
+		pr_debug("Dma_period_sz %d\n", lpa_if->dma_period_sz);
+		lpa_if->cfg.buffer_count = 2;
+		lpa_if->cfg.buffer_size = lpa_if->dma_period_sz * 2;
 
+		lpa_if->audio_buf[0].phys = lpa_if->buffer_phys;
+		lpa_if->audio_buf[0].data = lpa_if->buffer;
+		lpa_if->audio_buf[0].size = lpa_if->dma_period_sz;
+		lpa_if->audio_buf[0].used = 0;
+
+		lpa_if->audio_buf[1].phys =
+				lpa_if->buffer_phys + lpa_if->dma_period_sz;
+		lpa_if->audio_buf[1].data =
+				lpa_if->buffer + lpa_if->dma_period_sz;
+		lpa_if->audio_buf[1].size = lpa_if->dma_period_sz;
+		lpa_if->audio_buf[1].used = 0;
+		break;
 	default:
 		pr_err("UnKnown Ioctl\n");
 		rc = -EINVAL;
@@ -209,26 +224,9 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int lpa_if_open(struct inode *inode, struct file *file)
 {
-	struct lpa_if *lpa_if;
-
 	pr_debug("\n");
 
 	file->private_data = lpa_if_ptr;
-	lpa_if = lpa_if_ptr;
-
-	lpa_if->cfg.buffer_count = 2;
-	lpa_if->cfg.buffer_size = USER_BUF_SZ;
-
-	lpa_if->audio_buf[0].phys = lpa_if->buffer_phys;
-	lpa_if->audio_buf[0].data = lpa_if->buffer;
-	lpa_if->audio_buf[0].size = DMA_PERIOD_SZ;
-	lpa_if->audio_buf[0].used = 0;
-
-	lpa_if->audio_buf[1].phys = lpa_if->buffer_phys + DMA_PERIOD_SZ;
-	lpa_if->audio_buf[1].data = lpa_if->buffer + DMA_PERIOD_SZ;
-	lpa_if->audio_buf[1].size = DMA_PERIOD_SZ;
-	lpa_if->audio_buf[1].used = 0;
-
 	dma_buf_index = 0;
 
 	core_req_bus_bandwith(AUDIO_IF_BUS_ID, 100000, 0);
@@ -287,8 +285,8 @@ static ssize_t lpa_if_write(struct file *file, const char __user *buf,
 
 		xfer = count;
 
-		if (xfer > USER_BUF_SZ)
-			xfer = USER_BUF_SZ;
+		if (xfer > lpa_if->dma_period_sz)
+			xfer = lpa_if->dma_period_sz;
 
 		if (copy_from_user(ab->data, buf, xfer)) {
 			pr_err("copy from user failed\n");
