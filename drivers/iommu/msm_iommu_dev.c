@@ -155,7 +155,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	iommu_pclk = clk_get(NULL, "smmu_pclk");
+	iommu_pclk = clk_get_sys("msm_iommu", "iface_clk");
 	if (IS_ERR(iommu_pclk)) {
 		ret = -ENODEV;
 		goto fail;
@@ -165,7 +165,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail_enable;
 
-	iommu_clk = clk_get(&pdev->dev, "iommu_clk");
+	iommu_clk = clk_get(&pdev->dev, "core_clk");
 
 	if (!IS_ERR(iommu_clk))	{
 		if (clk_get_rate(iommu_clk) == 0) {
