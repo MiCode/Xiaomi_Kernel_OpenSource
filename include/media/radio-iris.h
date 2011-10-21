@@ -41,6 +41,9 @@
 #define RADIO_HCI_EVENT_PKT     0x14
 /*HCI reponce packets*/
 #define MAX_RIVA_PEEK_RSP_SIZE   251
+/* default data access */
+#define DEFAULT_DATA_OFFSET 2
+#define DEFAULT_DATA_SIZE 249
 
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
@@ -292,11 +295,14 @@ struct hci_fm_en_avd_ctrl_req {
 struct hci_fm_def_data_rd_req {
 	__u8    mode;
 	__u8    length;
+	__u8    param_len;
+	__u8    param;
 } __packed;
 
 struct hci_fm_def_data_wr_req {
-	struct hci_fm_def_data_rd_req data_rd;
-	__u8   data[256];
+	__u8    mode;
+	__u8    length;
+	__u8   data[DEFAULT_DATA_SIZE];
 } __packed;
 
 struct hci_fm_riva_data {
@@ -447,7 +453,7 @@ struct hci_fm_af_list_rsp {
 struct hci_fm_data_rd_rsp {
 	__u8    status;
 	__u8    ret_data_len;
-	__u8    data[256];
+	__u8    data[DEFAULT_DATA_SIZE];
 } __packed;
 
 struct hci_fm_feature_list_rsp {
@@ -540,6 +546,9 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_TX_TONE,
 	V4L2_CID_PRIVATE_IRIS_RDS_GRP_COUNTERS,
 	V4L2_CID_PRIVATE_IRIS_SET_NOTCH_FILTER,/*0x8000028*/
+	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,/*using private CIDs
+							under userclass*/
+	V4L2_CID_PRIVATE_IRIS_WRITE_DEFAULT,
 };
 
 
@@ -606,6 +615,7 @@ enum iris_buf_t {
 	IRIS_BUF_PEEK,
 	IRIS_BUF_SSBI_PEEK,
 	IRIS_BUF_RDS_CNTRS,
+	IRIS_BUF_RD_DEFAULT,
 	IRIS_BUF_MAX
 };
 
@@ -702,6 +712,7 @@ enum search_t {
 #define RIVA_PEEK_PARAM     0x6
 #define RIVA_PEEK_LEN_OFSET  0x6
 #define SSBI_PEEK_LEN    0x01
+
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,

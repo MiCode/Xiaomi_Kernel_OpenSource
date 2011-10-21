@@ -392,7 +392,16 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.minimum	=	0,
 	.maximum	=	2,
 	},
-
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Read default",
+	},
+	{
+	.id	=	V4L2_CID_PRIVATE_IRIS_WRITE_DEFAULT,
+	.type	=	V4L2_CTRL_TYPE_INTEGER,
+	.name	=	"Write default",
+	},
 };
 
 static void iris_q_event(struct iris_device *radio,
@@ -860,7 +869,7 @@ static int hci_def_data_read_req(struct radio_hci_dev *hdev,
 	struct hci_fm_def_data_rd_req *def_data_rd =
 		(struct hci_fm_def_data_rd_req *) param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
 		HCI_OCF_FM_DEFAULT_DATA_READ);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*def_data_rd)),
 	def_data_rd);
@@ -873,7 +882,7 @@ static int hci_def_data_write_req(struct radio_hci_dev *hdev,
 	struct hci_fm_def_data_wr_req *def_data_wr =
 		(struct hci_fm_def_data_wr_req *) param;
 
-	opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
 		HCI_OCF_FM_DEFAULT_DATA_WRITE);
 	return radio_hci_send_cmd(hdev, opcode, sizeof((*def_data_wr)),
 	def_data_wr);
@@ -1212,7 +1221,6 @@ int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 {
 	int ret = 0;
 	struct hci_fm_def_data_rd_req *def_data_rd = arg;
-
 	ret = radio_hci_request(hdev, hci_def_data_read_req, (unsigned
 		long)def_data_rd, RADIO_HCI_TIMEOUT);
 
@@ -1224,7 +1232,6 @@ int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
 {
 	int ret = 0;
 	struct hci_fm_def_data_wr_req *def_data_wr = arg;
-
 	ret = radio_hci_request(hdev, hci_def_data_write_req, (unsigned
 		long)def_data_wr, RADIO_HCI_TIMEOUT);
 
@@ -1596,6 +1603,32 @@ static void hci_cc_riva_peek_rsp(struct radio_hci_dev *hdev,
 
 
 }
+
+static void hci_cc_riva_read_default_rsp(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	__u8 status = *((__u8 *) skb->data);
+	__u8 len;
+	char *data;
+
+	if (status)
+		return;
+	len = skb->data[1];
+	data = kmalloc(len+2, GFP_ATOMIC);
+	if (!data) {
+		FMDERR("Memory allocation failed");
+		return;
+	}
+
+	data[0] = status;
+	data[1] = len;
+	memcpy(&data[2], &skb->data[DEFAULT_DATA_OFFSET], len);
+	iris_q_evt_data(radio, data, len+2, IRIS_BUF_RD_DEFAULT);
+	radio_hci_req_complete(hdev, status);
+	kfree(data);
+}
+
 static void hci_cc_ssbi_peek_rsp(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
@@ -1674,6 +1707,8 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_RT_REQ):
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_PS_REQ):
 	case hci_common_cmd_op_pack(HCI_OCF_FM_DEFAULT_DATA_WRITE):
+		hci_cc_rsp(hdev, skb);
+		break;
 	case hci_common_cmd_op_pack(HCI_OCF_FM_RESET):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_SSBI_POKE_REG):
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_POKE_DATA):
@@ -1705,6 +1740,9 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 		break;
 
 	case hci_common_cmd_op_pack(HCI_OCF_FM_DEFAULT_DATA_READ):
+		hci_cc_riva_read_default_rsp(hdev, skb);
+		break;
+
 	case hci_diagnostic_cmd_op_pack(HCI_OCF_FM_PEEK_DATA):
 		hci_cc_riva_peek_rsp(hdev, skb);
 		break;
@@ -2281,6 +2319,30 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	return retval;
 }
 
+static int iris_vidioc_g_ext_ctrls(struct file *file, void *priv,
+			struct v4l2_ext_controls *ctrl)
+{
+	int retval = 0;
+	char *data = NULL;
+	struct iris_device *radio = video_get_drvdata(video_devdata(file));
+	struct hci_fm_def_data_rd_req default_data_rd;
+
+	switch ((ctrl->controls[0]).id) {
+	case V4L2_CID_PRIVATE_IRIS_READ_DEFAULT:
+		data = (ctrl->controls[0]).string;
+		memset(&default_data_rd, 0, sizeof(default_data_rd));
+		if (copy_from_user(&default_data_rd.mode, data,
+					sizeof(default_data_rd)))
+			return -EFAULT;
+		retval = hci_def_data_read(&default_data_rd, radio->fm_hdev);
+		break;
+	default:
+		retval = -EINVAL;
+	}
+
+	return retval;
+}
+
 static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 			struct v4l2_ext_controls *ctrl)
 {
@@ -2288,6 +2350,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	int bytes_to_copy;
 	struct hci_fm_tx_ps tx_ps;
 	struct hci_fm_tx_rt tx_rt;
+	struct hci_fm_def_data_wr_req default_data;
 
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
@@ -2332,6 +2395,13 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 
 		retval = radio_hci_request(radio->fm_hdev, hci_trans_rt_req,
 				(unsigned long)&tx_rt, RADIO_HCI_TIMEOUT);
+		break;
+	case V4L2_CID_PRIVATE_IRIS_WRITE_DEFAULT:
+		data = (ctrl->controls[0]).string;
+		memset(&default_data, 0, sizeof(default_data));
+		if (copy_from_user(&default_data, data, sizeof(default_data)))
+			return -EFAULT;
+		retval = hci_def_data_write(&default_data, radio->fm_hdev);
 		break;
 	default:
 		FMDBG("Shouldn't reach here\n");
@@ -2850,6 +2920,7 @@ static const struct v4l2_ioctl_ops iris_ioctl_ops = {
 	.vidioc_dqbuf                 = iris_vidioc_dqbuf,
 	.vidioc_g_fmt_type_private    = iris_vidioc_g_fmt_type_private,
 	.vidioc_s_ext_ctrls           = iris_vidioc_s_ext_ctrls,
+	.vidioc_g_ext_ctrls           = iris_vidioc_g_ext_ctrls,
 };
 
 static const struct v4l2_file_operations iris_fops = {
