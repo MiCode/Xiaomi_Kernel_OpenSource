@@ -165,6 +165,15 @@ struct mdp_ccs {
 	uint16_t bv[MDP_BV_SIZE];	/* 1x3 bias vector */
 };
 
+struct mdp_csc {
+	int id;
+	uint32_t csc_mv[9];
+	uint32_t csc_pre_bv[3];
+	uint32_t csc_post_bv[3];
+	uint32_t csc_pre_lv[6];
+	uint32_t csc_post_lv[6];
+};
+
 /* The version of the mdp_blit_req structure so that
  * user applications can selectively decide which functionality
  * to include
