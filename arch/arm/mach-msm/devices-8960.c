@@ -81,6 +81,9 @@
 #define MSM_PMIC2_SSBI_CMD_PHYS	0x00C00000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
+#define MSM8960_HSUSB_PHYS		0x12500000
+#define MSM8960_HSUSB_SIZE		SZ_4K
+
 static struct resource resources_otg[] = {
 	{
 		.start	= MSM8960_HSUSB_PHYS,
@@ -154,8 +157,8 @@ struct platform_device msm_device_hsusb_host = {
 
 static struct resource resources_hsic_host[] = {
 	{
-		.start	= MSM_HSIC_PHYS,
-		.end	= MSM_HSIC_PHYS + MSM_HSIC_SIZE - 1,
+		.start	= 0x12520000,
+		.end	= 0x12520000 + SZ_4K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
