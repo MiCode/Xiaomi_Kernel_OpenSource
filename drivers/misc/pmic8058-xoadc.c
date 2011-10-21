@@ -223,7 +223,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_arb_rsv = 0x20;
 		slot->chan_properties.gain_numerator = 1;
 		slot->chan_properties.gain_denominator = 1;
-		slot->chan_properties.adc_graph = &adc_pmic->adc_graph[0];
+		slot->chan_properties.adc_graph = &adc_pmic->adc_graph[1];
 		break;
 
 	case CHAN_PATH_TYPE7:
