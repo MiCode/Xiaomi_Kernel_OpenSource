@@ -23,37 +23,13 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_spi.h>
+#include <linux/usb/android.h>
+#include <linux/usb/msm_hsusb.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
 #include "cpuidle.h"
 #include "pm.h"
-
-static struct platform_device *common_devices[] = {
-	&msm9615_device_dmov,
-	&msm_device_smd,
-	&msm9615_device_uart_gsbi4,
-	&msm9615_device_ssbi_pmic1,
-	&msm9615_device_qup_i2c_gsbi5,
-	&msm9615_device_qup_spi_gsbi3,
-	&msm_device_sps,
-	&msm9615_device_tsens,
-	&msm_device_nand,
-	&msm_rpm_device,
-#ifdef CONFIG_HW_RANDOM_MSM
-	&msm_device_rng,
-#endif
-
-#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
-		&qcrypto_device,
-#endif
-
-#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
-	&qcedev_device,
-#endif
-};
 
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
 	.irq_base		= PM8018_IRQ_BASE,
@@ -622,6 +598,59 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+static struct msm_otg_platform_data msm_otg_pdata = {
+	.mode			= USB_PERIPHERAL,
+	.otg_control		= OTG_NO_CONTROL,
+	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
+	.pclk_src_name		= "dfab_usb_hs_clk",
+};
+
+static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
+{
+	return 0;
+}
+
+static struct android_usb_platform_data android_usb_pdata = {
+	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+};
+
+static struct platform_device android_usb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &android_usb_pdata,
+	},
+};
+
+static struct platform_device *common_devices[] = {
+	&msm9615_device_dmov,
+	&msm_device_smd,
+	&msm_device_otg,
+	&msm_device_gadget_peripheral,
+	&android_usb_device,
+	&msm9615_device_uart_gsbi4,
+	&msm9615_device_ssbi_pmic1,
+	&msm9615_device_qup_i2c_gsbi5,
+	&msm9615_device_qup_spi_gsbi3,
+	&msm_device_sps,
+	&msm9615_device_tsens,
+	&msm_device_nand,
+	&msm_rpm_device,
+#ifdef CONFIG_HW_RANDOM_MSM
+	&msm_device_rng,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+	&qcrypto_device,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+	&qcedev_device,
+#endif
+};
+
 static void __init msm9615_i2c_init(void)
 {
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
@@ -640,6 +669,9 @@ static void __init msm9615_common_init(void)
 	msm9615_device_ssbi_pmic1.dev.platform_data =
 						&msm9615_ssbi_pm8018_pdata;
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
+
+	msm_device_otg.dev.platform_data = &msm_otg_pdata;
+	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 
 	msm9615_init_mmc();
