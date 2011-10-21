@@ -389,8 +389,11 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 
 	read_lock(&ul_wakeup_lock);
-	if (!bam_is_connected)
+	if (!bam_is_connected) {
+		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		read_lock(&ul_wakeup_lock);
+	}
 
 	/* if skb do not have any tailroom for padding,
 	   copy the skb into a new expanded skb */
@@ -494,8 +497,11 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 
 	read_lock(&ul_wakeup_lock);
-	if (!bam_is_connected)
+	if (!bam_is_connected) {
+		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		read_lock(&ul_wakeup_lock);
+	}
 
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
 	hdr->cmd = BAM_MUX_HDR_CMD_OPEN;
@@ -523,12 +529,15 @@ int msm_bam_dmux_close(uint32_t id)
 	DBG("%s: closing ch %d\n", __func__, id);
 	if (!bam_mux_initialized)
 		return -ENODEV;
-	spin_lock_irqsave(&bam_ch[id].lock, flags);
 
 	read_lock(&ul_wakeup_lock);
-	if (!bam_is_connected)
+	if (!bam_is_connected) {
+		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		read_lock(&ul_wakeup_lock);
+	}
 
+	spin_lock_irqsave(&bam_ch[id].lock, flags);
 	bam_ch[id].notify = NULL;
 	bam_ch[id].priv = NULL;
 	bam_ch[id].status &= ~BAM_CH_LOCAL_OPEN;
