@@ -47,6 +47,14 @@ enum tabla_bandgap_type {
 	TABLA_BANDGAP_MBHC_MODE,
 };
 
+struct mbhc_micbias_regs {
+	u16 cfilt_val;
+	u16 cfilt_ctl;
+	u16 mbhc_reg;
+	u16 int_rbias;
+	u16 ctl_reg;
+};
+
 struct tabla_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -72,6 +80,10 @@ struct tabla_priv {
 	bool no_mic_headset_override;
 	/* Delayed work to report long button press */
 	struct delayed_work btn0_dwork;
+
+	struct mbhc_micbias_regs mbhc_bias_regs;
+	u8 cfilt_k_value;
+	bool mbhc_micbias_switched;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -907,6 +919,103 @@ static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
 	}
 }
 
+static int tabla_find_k_value(unsigned int ldoh_v, unsigned int cfilt_mv)
+{
+	int rc = -EINVAL;
+	unsigned min_mv, max_mv;
+
+	switch (ldoh_v) {
+	case TABLA_LDOH_1P95_V:
+		min_mv = 160;
+		max_mv = 1800;
+		break;
+	case TABLA_LDOH_2P35_V:
+		min_mv = 200;
+		max_mv = 2200;
+		break;
+	case TABLA_LDOH_2P75_V:
+		min_mv = 240;
+		max_mv = 2600;
+		break;
+	case TABLA_LDOH_2P85_V:
+		min_mv = 250;
+		max_mv = 2700;
+		break;
+	default:
+		goto done;
+	}
+
+	if (cfilt_mv < min_mv || cfilt_mv > max_mv)
+		goto done;
+
+	for (rc = 4; rc <= 44; rc++) {
+		min_mv = max_mv * (rc) / 44;
+		if (min_mv >= cfilt_mv) {
+			rc -= 4;
+			break;
+		}
+	}
+done:
+	return rc;
+}
+
+static bool tabla_is_hph_pa_on(struct snd_soc_codec *codec)
+{
+	u8 hph_reg_val = 0;
+	hph_reg_val = snd_soc_read(codec, TABLA_A_RX_HPH_CNP_EN);
+
+	return (hph_reg_val & 0x30) ? true : false;
+}
+
+static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
+	int vddio_switch)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	int cfilt_k_val;
+
+	switch (vddio_switch) {
+	case 1:
+		if (tabla->mbhc_polling_active) {
+			/* Enable Mic Bias switch to VDDIO */
+			tabla->cfilt_k_value = snd_soc_read(codec,
+					tabla->mbhc_bias_regs.cfilt_val);
+			cfilt_k_val = tabla_find_k_value(
+					tabla->pdata->micbias.ldoh_v, 1800);
+			snd_soc_update_bits(codec,
+				tabla->mbhc_bias_regs.cfilt_val,
+				0xFC, (cfilt_k_val << 2));
+
+			snd_soc_update_bits(codec,
+				tabla->mbhc_bias_regs.mbhc_reg,	0x80, 0x80);
+			snd_soc_update_bits(codec,
+				tabla->mbhc_bias_regs.mbhc_reg,	0x10, 0x00);
+
+			tabla->mbhc_micbias_switched = true;
+			pr_debug("%s: Enabled MBHC Mic bias to VDDIO Switch\n",
+				__func__);
+		}
+		break;
+
+	case 0:
+		if (tabla->mbhc_micbias_switched) {
+			/* Disable Mic Bias switch to VDDIO */
+			if (tabla->cfilt_k_value != 0)
+				snd_soc_update_bits(codec,
+					tabla->mbhc_bias_regs.cfilt_val, 0XFC,
+					tabla->cfilt_k_value);
+			snd_soc_update_bits(codec,
+				tabla->mbhc_bias_regs.mbhc_reg,	0x80, 0x00);
+			snd_soc_update_bits(codec,
+				tabla->mbhc_bias_regs.mbhc_reg,	0x10, 0x00);
+
+			tabla->mbhc_micbias_switched = false;
+			pr_debug("%s: Disabled MBHC Mic bias to VDDIO Switch\n",
+				__func__);
+		}
+		break;
+	}
+}
+
 static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -948,6 +1057,11 @@ static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Decide whether to switch the micbias for MBHC */
+		if ((w->reg == tabla->mbhc_bias_regs.ctl_reg)
+				&& tabla->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
+
 		snd_soc_update_bits(codec, w->reg, 0x0E, 0x0A);
 		tabla_codec_update_cfilt_usage(codec, cfilt_sel_val, 1);
 
@@ -966,7 +1080,13 @@ static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			tabla_codec_start_hs_polling(codec);
 		}
 		break;
+
 	case SND_SOC_DAPM_POST_PMD:
+
+		if ((w->reg == tabla->mbhc_bias_regs.ctl_reg)
+				&& tabla_is_hph_pa_on(codec))
+			tabla_codec_switch_micbias(codec, 1);
+
 		if (strnstr(w->name, internal1_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x00);
 		else if (strnstr(w->name, internal2_text, 30))
@@ -1072,15 +1192,29 @@ static int tabla_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-
 static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
-
+	struct snd_soc_codec *codec = w->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	u8 mbhc_micb_ctl_val;
 	pr_debug("%s: event = %d\n", __func__, event);
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mbhc_micb_ctl_val = snd_soc_read(codec,
+				tabla->mbhc_bias_regs.ctl_reg);
+
+		if (!(mbhc_micb_ctl_val & 0x80)
+				&& !tabla->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 1);
+
+		break;
+
 	case SND_SOC_DAPM_POST_PMD:
+
+		if (tabla->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
 
 		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
 				w->name);
@@ -1089,6 +1223,59 @@ static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 	}
 	return 0;
+}
+
+static void tabla_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
+		struct mbhc_micbias_regs *micbias_regs)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	struct tabla_mbhc_calibration *calibration = tabla->calibration;
+	unsigned int cfilt;
+
+	switch (calibration->bias) {
+	case TABLA_MICBIAS1:
+		cfilt = tabla->pdata->micbias.bias1_cfilt_sel;
+		micbias_regs->mbhc_reg = TABLA_A_MICB_1_MBHC;
+		micbias_regs->int_rbias = TABLA_A_MICB_1_INT_RBIAS;
+		micbias_regs->ctl_reg = TABLA_A_MICB_1_CTL;
+		break;
+	case TABLA_MICBIAS2:
+		cfilt = tabla->pdata->micbias.bias2_cfilt_sel;
+		micbias_regs->mbhc_reg = TABLA_A_MICB_2_MBHC;
+		micbias_regs->int_rbias = TABLA_A_MICB_2_INT_RBIAS;
+		micbias_regs->ctl_reg = TABLA_A_MICB_2_CTL;
+		break;
+	case TABLA_MICBIAS3:
+		cfilt = tabla->pdata->micbias.bias3_cfilt_sel;
+		micbias_regs->mbhc_reg = TABLA_A_MICB_3_MBHC;
+		micbias_regs->int_rbias = TABLA_A_MICB_3_INT_RBIAS;
+		micbias_regs->ctl_reg = TABLA_A_MICB_3_CTL;
+		break;
+	case TABLA_MICBIAS4:
+		cfilt = tabla->pdata->micbias.bias4_cfilt_sel;
+		micbias_regs->mbhc_reg = TABLA_A_MICB_4_MBHC;
+		micbias_regs->int_rbias = TABLA_A_MICB_4_INT_RBIAS;
+		micbias_regs->ctl_reg = TABLA_A_MICB_4_CTL;
+		break;
+	default:
+		/* Should never reach here */
+		pr_err("%s: Invalid MIC BIAS for MBHC\n", __func__);
+	}
+
+	switch (cfilt) {
+	case TABLA_CFILT1_SEL:
+		micbias_regs->cfilt_val = TABLA_A_MICB_CFILT_1_VAL;
+		micbias_regs->cfilt_ctl = TABLA_A_MICB_CFILT_1_CTL;
+		break;
+	case TABLA_CFILT2_SEL:
+		micbias_regs->cfilt_val = TABLA_A_MICB_CFILT_2_VAL;
+		micbias_regs->cfilt_ctl = TABLA_A_MICB_CFILT_2_CTL;
+		break;
+	case TABLA_CFILT3_SEL:
+		micbias_regs->cfilt_val = TABLA_A_MICB_CFILT_3_VAL;
+		micbias_regs->cfilt_ctl = TABLA_A_MICB_CFILT_3_CTL;
+		break;
+	}
 }
 
 static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
@@ -1106,14 +1293,14 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/* Headphone */
 	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
 	SND_SOC_DAPM_PGA_E("HPHL", TABLA_A_RX_HPH_CNP_EN, 5, 0, NULL, 0,
-		tabla_hph_pa_event, SND_SOC_DAPM_POST_PMD),
-
+		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER("HPHL DAC", TABLA_A_RX_HPH_L_DAC_CTL, 7, 0,
 		hphl_switch, ARRAY_SIZE(hphl_switch)),
 
 	SND_SOC_DAPM_PGA_E("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
-		tabla_hph_pa_event, SND_SOC_DAPM_POST_PMD),
-
+		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER("HPHR DAC", TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
 		hphr_switch, ARRAY_SIZE(hphr_switch)),
 
@@ -1748,9 +1935,11 @@ static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
 	/* TODO store register values in calibration */
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B5_CTL, 0x20);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B6_CTL, 0xFF);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B10_CTL, 0xFF);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B9_CTL, 0x00);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B9_CTL, 0x20);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x08);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B3_CTL, 0xEE);
@@ -2035,10 +2224,7 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	struct tabla_mbhc_calibration *calibration = tabla->calibration;
-	int micbias_ctl_reg, micbias_cfilt_ctl_reg,
-		micbias_mbhc_reg;
 	short bias_value;
-	unsigned int cfilt_sel;
 
 	if (!calibration) {
 		pr_err("Error, no tabla calibration\n");
@@ -2057,49 +2243,12 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 
 	snd_soc_update_bits(codec, TABLA_A_TX_COM_BIAS, 0xE0, 0xE0);
 
-	/* select cfilt separately from the micbias line in the platform data */
-	switch (calibration->bias) {
-	case TABLA_MICBIAS1:
-		micbias_ctl_reg = TABLA_A_MICB_1_CTL;
-		cfilt_sel = tabla->pdata->micbias.bias1_cfilt_sel;
-		micbias_mbhc_reg = TABLA_A_MICB_1_MBHC;
-		break;
-	case TABLA_MICBIAS2:
-		micbias_ctl_reg = TABLA_A_MICB_2_CTL;
-		cfilt_sel = tabla->pdata->micbias.bias2_cfilt_sel;
-		micbias_mbhc_reg = TABLA_A_MICB_2_MBHC;
-		break;
-	case TABLA_MICBIAS3:
-		micbias_ctl_reg = TABLA_A_MICB_3_CTL;
-		cfilt_sel = tabla->pdata->micbias.bias3_cfilt_sel;
-		micbias_mbhc_reg = TABLA_A_MICB_3_MBHC;
-		break;
-	case TABLA_MICBIAS4:
-		pr_err("%s: Error, microphone bias 4 not supported\n",
-			__func__);
-		return -EINVAL;
-	default:
-		pr_err("Error, invalid mic bias line\n");
-		return -EINVAL;
-	}
 
-	switch (cfilt_sel) {
-	case TABLA_CFILT1_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_1_CTL;
-		break;
-	case TABLA_CFILT2_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_2_CTL;
-		break;
-	case TABLA_CFILT3_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_3_CTL;
-		break;
-	default: /* default should not happen as check should have been done */
-		return -EINVAL;
-	}
+	snd_soc_update_bits(codec,
+		tabla->mbhc_bias_regs.cfilt_ctl, 0x70, 0x00);
 
-	snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x70, 0x00);
-
-	snd_soc_update_bits(codec, micbias_ctl_reg, 0x1F, 0x16);
+	snd_soc_update_bits(codec,
+		tabla->mbhc_bias_regs.ctl_reg, 0x1F, 0x16);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
@@ -2115,13 +2264,11 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x6);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x10);
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x01);
-
 	tabla_codec_calibrate_hs_polling(codec);
 
 	bias_value = tabla_codec_measure_micbias_voltage(codec, 0);
-	snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x40, 0x40);
+	snd_soc_update_bits(codec,
+		tabla->mbhc_bias_regs.cfilt_ctl, 0x40, 0x40);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
 	return bias_value;
@@ -2133,7 +2280,6 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	struct tabla_mbhc_calibration *calibration = tabla->calibration;
 	int central_bias_enabled = 0;
-	int micbias_int_reg, micbias_ctl_reg, micbias_mbhc_reg;
 
 	if (!calibration) {
 		pr_err("Error, no tabla calibration\n");
@@ -2142,10 +2288,45 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0);
 
-	if (insertion)
+	if (insertion) {
+		/* Make sure mic bias and Mic line schmitt trigger
+		 * are turned OFF
+		 */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg,
+			0x81, 0x01);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x90, 0x00);
+
+		/* Enable HPH Schmitt Trigger */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x0C,
+			calibration->hph_current << 2);
+
+		/* Turn off HPH PAs during insertion detection to avoid false
+		 * insertion interrupts
+		 */
+		if (tabla->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
+
+		/* setup for insetion detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
-	else
+	} else {
+		/* Make sure the HPH schmitt trigger is OFF */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12, 0x00);
+
+		/* enable the mic line schmitt trigger */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x60,
+			calibration->mic_current << 5);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x80, 0x80);
+		usleep_range(calibration->mic_pid, calibration->mic_pid);
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+			0x10, 0x10);
+
+		/* Setup for low power removal detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0x2);
+	}
 
 	if (snd_soc_read(codec, TABLA_A_CDC_MBHC_B1_CTL) & 0x4) {
 		if (!(tabla->clock_active)) {
@@ -2160,42 +2341,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 				0x06, 0);
 	}
 
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0xC,
-		calibration->hph_current << 2);
-
-	/* Turn off HPH PAs during insertion detection to avoid false
-	 * insertion interrupts
-	 */
-	snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
-	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
-
-	switch (calibration->bias) {
-	case TABLA_MICBIAS1:
-		micbias_mbhc_reg = TABLA_A_MICB_1_MBHC;
-		micbias_int_reg = TABLA_A_MICB_1_INT_RBIAS;
-		micbias_ctl_reg = TABLA_A_MICB_1_CTL;
-		break;
-	case TABLA_MICBIAS2:
-		micbias_mbhc_reg = TABLA_A_MICB_2_MBHC;
-		micbias_int_reg = TABLA_A_MICB_2_INT_RBIAS;
-		micbias_ctl_reg = TABLA_A_MICB_2_CTL;
-		break;
-	case TABLA_MICBIAS3:
-		micbias_mbhc_reg = TABLA_A_MICB_3_MBHC;
-		micbias_int_reg = TABLA_A_MICB_3_INT_RBIAS;
-		micbias_ctl_reg = TABLA_A_MICB_3_CTL;
-		break;
-	case TABLA_MICBIAS4:
-		micbias_mbhc_reg = TABLA_A_MICB_4_MBHC;
-		micbias_int_reg = TABLA_A_MICB_4_INT_RBIAS;
-		micbias_ctl_reg = TABLA_A_MICB_4_CTL;
-		break;
-	default:
-		pr_err("Error, invalid mic bias line\n");
-		return -EINVAL;
-	}
-	snd_soc_update_bits(codec, micbias_int_reg, 0x80, 0);
-	snd_soc_update_bits(codec, micbias_ctl_reg, 0x1, 0);
+	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.int_rbias, 0x80, 0);
 
 	/* If central bandgap disabled */
 	if (!(snd_soc_read(codec, TABLA_A_PIN_CTL_OE1) & 1)) {
@@ -2215,12 +2361,6 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 		if (central_bias_enabled)
 			snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE1, 0x1, 0);
 	}
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x60,
-		calibration->mic_current << 5);
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x80, 0x80);
-	usleep_range(calibration->mic_pid, calibration->mic_pid);
-
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x10, 0x10);
 
 	snd_soc_update_bits(codec, TABLA_A_MICB_4_MBHC, 0x3, calibration->bias);
 
@@ -2251,6 +2391,7 @@ static void btn0_lpress_fn(struct work_struct *work)
 	}
 
 }
+
 int tabla_hs_detect(struct snd_soc_codec *codec,
 	struct snd_soc_jack *headset_jack, struct snd_soc_jack *button_jack,
 	struct tabla_mbhc_calibration *calibration)
@@ -2264,6 +2405,7 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	tabla->headset_jack = headset_jack;
 	tabla->button_jack = button_jack;
 	tabla->calibration = calibration;
+	tabla_get_mbhc_micbias_regs(codec, &tabla->mbhc_bias_regs);
 
 	INIT_DELAYED_WORK(&tabla->btn0_dwork, btn0_lpress_fn);
 	return tabla_codec_enable_hs_detect(codec, 1);
@@ -2280,9 +2422,12 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
 	bias_value = tabla_codec_read_dce_result(codec);
-	pr_debug("%s: button press interrupt, bias value is %d\n",
+	pr_debug("%s: button press interrupt, bias value(DCE Read)=%d\n",
 			__func__, bias_value);
 
+	bias_value = tabla_codec_read_sta_result(codec);
+	pr_debug("%s: button press interrupt, bias value(STA Read)=%d\n",
+			__func__, bias_value);
 	/*
 	 * TODO: If button pressed is not button 0,
 	 * report the button press event immediately.
@@ -2306,6 +2451,10 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
+	mic_voltage = tabla_codec_read_dce_result(codec);
+	pr_debug("%s: Microphone Voltage on release(DCE Read) = %d\n",
+		__func__, mic_voltage);
+
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
 		ret = cancel_delayed_work(&priv->btn0_dwork);
 
@@ -2322,7 +2471,7 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 
 			mic_voltage =
 				tabla_codec_measure_micbias_voltage(codec, 0);
-			pr_debug("%s: Microphone Voltage on release = %d\n",
+			pr_debug("%s: Mic Voltage on release(new STA) = %d\n",
 						__func__, mic_voltage);
 
 			if (mic_voltage < -2000 || mic_voltage > -670) {
@@ -2355,7 +2504,6 @@ static void tabla_codec_shutdown_hs_removal_detect(struct snd_soc_codec *codec)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	struct tabla_mbhc_calibration *calibration = tabla->calibration;
-	int micbias_mbhc_reg;
 
 	if (!tabla->mclk_enabled && !tabla->mbhc_polling_active)
 		tabla_codec_enable_config_mode(codec, 1);
@@ -2363,24 +2511,8 @@ static void tabla_codec_shutdown_hs_removal_detect(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x0);
 
-	switch (calibration->bias) {
-	case TABLA_MICBIAS1:
-		micbias_mbhc_reg = TABLA_A_MICB_1_MBHC;
-		break;
-	case TABLA_MICBIAS2:
-		micbias_mbhc_reg = TABLA_A_MICB_2_MBHC;
-		break;
-	case TABLA_MICBIAS3:
-		micbias_mbhc_reg = TABLA_A_MICB_3_MBHC;
-		break;
-	case TABLA_MICBIAS4:
-		micbias_mbhc_reg = TABLA_A_MICB_4_MBHC;
-		break;
-	default:
-		pr_err("Error, invalid mic bias line\n");
-		return;
-	}
-	snd_soc_update_bits(codec, micbias_mbhc_reg, 0x80, 0x00);
+	snd_soc_update_bits(codec,
+		tabla->mbhc_bias_regs.mbhc_reg, 0x80, 0x00);
 	usleep_range(calibration->shutdown_plug_removal,
 		calibration->shutdown_plug_removal);
 
@@ -2411,59 +2543,48 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
 	int ldo_h_on, micb_cfilt_on;
-	int micbias_cfilt_ctl_reg, cfilt_sel;
 	short mic_voltage;
 	short threshold_no_mic = 0xF7F6;
 	short threshold_fake_insert = 0xFD30;
+	u8 is_removal;
 
 
 	pr_debug("%s\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	is_removal = snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02;
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
 
-	switch (priv->calibration->bias) {
-	case TABLA_MICBIAS1:
-		cfilt_sel = priv->pdata->micbias.bias1_cfilt_sel;
-		break;
-	case TABLA_MICBIAS2:
-		cfilt_sel = priv->pdata->micbias.bias2_cfilt_sel;
-		break;
-	case TABLA_MICBIAS3:
-		cfilt_sel = priv->pdata->micbias.bias3_cfilt_sel;
-		break;
-	default:
-		pr_err("%s: Error, invalid mic bias line, bias value = %d\n",
-			__func__, priv->calibration->bias);
-		return IRQ_HANDLED;
-	}
-
-	switch (cfilt_sel) {
-	case TABLA_CFILT1_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_1_CTL;
-		break;
-	case TABLA_CFILT2_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_2_CTL;
-		break;
-	case TABLA_CFILT3_SEL:
-		micbias_cfilt_ctl_reg = TABLA_A_MICB_CFILT_3_CTL;
-		break;
-	default: /* default should not happen as check should have been done */
-		pr_err("%s: Invalid cfilt select, cfilt_sel = %d\n",
-			__func__, cfilt_sel);
-		return IRQ_HANDLED;
-	}
+	/* Turn off both HPH and MIC line schmitt triggers */
+	snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
+			0x90, 0x00);
+	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
 	ldo_h_on = snd_soc_read(codec, TABLA_A_LDO_H_MODE_1) & 0x80;
-	micb_cfilt_on = snd_soc_read(codec, micbias_cfilt_ctl_reg) & 0x80;
+	micb_cfilt_on = snd_soc_read(codec,
+					priv->mbhc_bias_regs.cfilt_ctl) & 0x80;
 
 	if (!ldo_h_on)
 		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x80);
 	if (!micb_cfilt_on)
-		snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x80, 0x80);
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.cfilt_ctl,
+							0x80, 0x80);
 
 	usleep_range(priv->calibration->setup_plug_removal_delay,
 		priv->calibration->setup_plug_removal_delay);
 
-	if (snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02) {
+	if (!ldo_h_on)
+		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
+	if (!micb_cfilt_on)
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.cfilt_ctl,
+							0x80, 0x0);
+
+	if (is_removal) {
+		/*
+		 * If headphone is removed while playback is in progress,
+		 * it is possible that micbias will be switched to VDDIO.
+		 */
+		if (priv->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
 			snd_soc_jack_report(priv->headset_jack, 0,
@@ -2473,11 +2594,6 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		tabla_codec_enable_hs_detect(codec, 1);
 		return IRQ_HANDLED;
 	}
-
-	if (!ldo_h_on)
-		snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x80, 0x0);
-	if (!micb_cfilt_on)
-		snd_soc_update_bits(codec, micbias_cfilt_ctl_reg, 0x80, 0x0);
 
 	mic_voltage = tabla_codec_setup_hs_polling(codec);
 
@@ -2533,6 +2649,13 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 		pr_debug("False alarm, headset not actually removed\n");
 		tabla_codec_start_hs_polling(codec);
 	} else {
+		/*
+		 * If this removal is not false, first check the micbias
+		 * switch status and switch it to LDOH if it is already
+		 * switched to VDDIO.
+		 */
+		if (priv->mbhc_micbias_switched)
+			tabla_codec_switch_micbias(codec, 0);
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
 			snd_soc_jack_report(priv->headset_jack, 0,
@@ -2574,45 +2697,6 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int tabla_find_k_value(unsigned int ldoh_v, unsigned int cfilt_mv)
-{
-	int rc = -EINVAL;
-	unsigned min_mv, max_mv;
-
-	switch (ldoh_v) {
-	case TABLA_LDOH_1P95_V:
-		min_mv = 160;
-		max_mv = 1800;
-		break;
-	case TABLA_LDOH_2P35_V:
-		min_mv = 200;
-		max_mv = 2200;
-		break;
-	case TABLA_LDOH_2P75_V:
-		min_mv = 240;
-		max_mv = 2600;
-		break;
-	case TABLA_LDOH_2P85_V:
-		min_mv = 250;
-		max_mv = 2700;
-		break;
-	default:
-		goto done;
-	}
-
-	if (cfilt_mv < min_mv || cfilt_mv > max_mv)
-		goto done;
-
-	for (rc = 4; rc <= 44; rc++) {
-		min_mv = max_mv * (rc) / 44;
-		if (min_mv >= cfilt_mv) {
-			rc -= 4;
-			break;
-		}
-	}
-done:
-	return rc;
-}
 
 static int tabla_handle_pdata(struct tabla_priv *tabla)
 {
@@ -2810,6 +2894,12 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
 	}
+
+	/* Make sure mbhc micbias register addresses are zeroed out */
+	memset(&tabla->mbhc_bias_regs, 0,
+		sizeof(struct mbhc_micbias_regs));
+	tabla->cfilt_k_value = 0;
+	tabla->mbhc_micbias_switched = false;
 
 	snd_soc_codec_set_drvdata(codec, tabla);
 
