@@ -1865,4 +1865,5 @@ MACHINE_START(MSM7627A_QRD1, "QRD MSM7627a QRD1")
 	.init_machine	= msm_qrd1_init,
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
+	.handle_irq	= vic_handle_irq,
 MACHINE_END
