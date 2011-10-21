@@ -401,6 +401,10 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
+
+	/* Re-enable secondary source clock gating. */
+	regval &= ~SECCLKAGD;
+	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 }
 
 /* Enable an already-configured HFPLL. */
