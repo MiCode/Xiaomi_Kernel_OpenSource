@@ -41,6 +41,15 @@ u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 	}
 	memset(ddl_context, 0, sizeof(struct ddl_context));
 	DDL_BUSY(ddl_context);
+	if (res_trk_get_enable_ion()) {
+		DDL_MSG_LOW("ddl_dev_init:ION framework enabled");
+		ddl_context->video_ion_client  =
+			res_trk_get_ion_client();
+		if (!ddl_context->video_ion_client) {
+			DDL_MSG_ERROR("ION client create failed");
+			return VCD_ERR_ILLEGAL_OP;
+		}
+	}
 	ddl_context->ddl_callback = ddl_init_config->ddl_callback;
 	if (ddl_init_config->interrupt_clr)
 		ddl_context->interrupt_clr =
@@ -127,6 +136,7 @@ u32 ddl_device_release(void *client_data)
 	DDL_MSG_LOW("FW_ENDDONE");
 	ddl_context->core_virtual_base_addr = NULL;
 	ddl_release_context_buffers(ddl_context);
+	ddl_context->video_ion_client = NULL;
 	DDL_IDLE(ddl_context);
 	return VCD_S_SUCCESS;
 }

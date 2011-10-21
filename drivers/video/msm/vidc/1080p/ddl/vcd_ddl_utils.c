@@ -37,13 +37,15 @@ static void ddl_print_port(struct ddl_context *ddl_context,
 static void ddl_print_buffer_port(struct ddl_context *ddl_context,
 	struct ddl_buf_addr *buf, u32 idx, u8 *str);
 #endif
-
 void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 {
 	u32 alloc_size, offset = 0, flags = 0;
 	u32 index = 0;
 	struct ddl_context *ddl_context;
 	struct msm_mapped_buffer *mapped_buffer = NULL;
+	int rc = -EINVAL;
+	ion_phys_addr_t phyaddr = 0;
+	size_t len = 0;
 	DBG_PMEM("\n%s() IN: Requested alloc size(%u)", __func__, (u32)sz);
 	if (!addr) {
 		DDL_MSG_ERROR("\n%s() Invalid Parameters", __func__);
@@ -51,13 +53,41 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 	}
 	ddl_context = ddl_get_context();
 	alloc_size = (sz + alignment);
-	addr->alloced_phys_addr = (phys_addr_t)
-	allocate_contiguous_memory_nomap(alloc_size,
-		res_trk_get_mem_type(), SZ_4K);
-	if (!addr->alloced_phys_addr) {
-		DDL_MSG_ERROR("%s() : acm alloc failed (%d)\n", __func__,
-			alloc_size);
-		goto bail_out;
+	if (res_trk_get_enable_ion()) {
+		if (!ddl_context->video_ion_client)
+			ddl_context->video_ion_client =
+				res_trk_get_ion_client();
+		if (!ddl_context->video_ion_client) {
+			DDL_MSG_ERROR("%s() :DDL ION Client Invalid handle\n",
+						 __func__);
+			goto bail_out;
+		}
+		addr->alloc_handle = ion_alloc(
+		ddl_context->video_ion_client, alloc_size, SZ_4K,
+			(1<<ION_HEAP_EBI_ID));
+		if (!addr->alloc_handle) {
+			DDL_MSG_ERROR("%s() :DDL ION alloc failed\n",
+						 __func__);
+			goto bail_out;
+		}
+		rc = ion_phys(ddl_context->video_ion_client,
+				addr->alloc_handle, &phyaddr,
+				 &len);
+		if (rc || !phyaddr) {
+			DDL_MSG_ERROR("%s():DDL ION client physical failed\n",
+						 __func__);
+			goto free_acm_ion_alloc;
+		}
+		addr->alloced_phys_addr = phyaddr;
+	} else {
+		addr->alloced_phys_addr = (phys_addr_t)
+		allocate_contiguous_memory_nomap(alloc_size,
+			res_trk_get_mem_type(), SZ_4K);
+		if (!addr->alloced_phys_addr) {
+			DDL_MSG_ERROR("%s() : acm alloc failed (%d)\n",
+					 __func__, alloc_size);
+			goto bail_out;
+		}
 	}
 	flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
 	if (alignment == DDL_KILO_BYTE(128))
@@ -71,7 +101,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 	sizeof(vidc_mmu_subsystem[index])/sizeof(unsigned int));
 	if (IS_ERR(addr->mapped_buffer)) {
 		pr_err(" %s() buffer map failed", __func__);
-		goto free_acm_alloc;
+		goto free_acm_ion_alloc;
 	}
 	mapped_buffer = addr->mapped_buffer;
 	if (!mapped_buffer->vaddr || !mapped_buffer->iova[0]) {
@@ -91,9 +121,16 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 free_map_buffers:
 	msm_subsystem_unmap_buffer(addr->mapped_buffer);
 	addr->mapped_buffer = NULL;
-free_acm_alloc:
-	free_contiguous_memory_by_paddr(
-		(unsigned long)addr->alloced_phys_addr);
+free_acm_ion_alloc:
+	if (ddl_context->video_ion_client) {
+		if (addr->alloc_handle) {
+			ion_free(ddl_context->video_ion_client,
+				addr->alloc_handle);
+		}
+	} else
+		free_contiguous_memory_by_paddr(
+			(unsigned long)addr->alloced_phys_addr);
+	addr->alloc_handle = NULL;
 	addr->alloced_phys_addr = (phys_addr_t)NULL;
 bail_out:
 	return NULL;
@@ -101,13 +138,22 @@ bail_out:
 
 void ddl_pmem_free(struct ddl_buf_addr *addr)
 {
+	struct ddl_context *ddl_context;
+	ddl_context = ddl_get_context();
 	if (!addr) {
 		pr_err("%s() invalid args\n", __func__);
 		return;
 	}
-	if (addr->alloced_phys_addr)
-		free_contiguous_memory_by_paddr(
-			(unsigned long)addr->alloced_phys_addr);
+	if (ddl_context->video_ion_client) {
+		if (addr->alloc_handle) {
+			ion_free(ddl_context->video_ion_client,
+				addr->alloc_handle);
+		}
+	} else {
+		if (addr->alloced_phys_addr)
+			free_contiguous_memory_by_paddr(
+				(unsigned long)addr->alloced_phys_addr);
+	}
 	if (addr->mapped_buffer)
 		msm_subsystem_unmap_buffer(addr->mapped_buffer);
 	memset(addr, 0, sizeof(struct ddl_buf_addr));

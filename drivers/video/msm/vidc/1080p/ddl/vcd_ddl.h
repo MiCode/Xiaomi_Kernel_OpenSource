@@ -91,6 +91,7 @@ struct ddl_buf_addr{
 	u8  *align_virtual_addr;
 	phys_addr_t alloced_phys_addr;
 	struct msm_mapped_buffer *mapped_buffer;
+	struct ion_handle *alloc_handle;
 	u32 buffer_size;
 };
 enum ddl_cmd_state{
@@ -317,6 +318,7 @@ struct ddl_context{
 	struct ddl_buf_addr dram_base_a;
 	struct ddl_buf_addr dram_base_b;
 	struct ddl_hw_interface ddl_hw_response;
+	struct ion_client *video_ion_client;
 	void (*ddl_callback) (u32 event, u32 status, void *payload,
 		size_t sz, u32 *ddl_handle, void *const client_data);
 	void (*interrupt_clr) (void);

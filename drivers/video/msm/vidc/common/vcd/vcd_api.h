@@ -139,5 +139,6 @@ u32 vcd_set_device_power(s32 driver_handle,
 void vcd_read_and_clear_interrupt(void);
 void vcd_response_handler(void);
 u8 vcd_get_num_of_clients(void);
-
+u32 vcd_get_ion_status(void);
+struct ion_client *vcd_get_ion_client(void);
 #endif

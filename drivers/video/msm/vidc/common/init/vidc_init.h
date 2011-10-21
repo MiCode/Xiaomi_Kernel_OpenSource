@@ -13,7 +13,7 @@
 
 #ifndef VIDC_INIT_H
 #define VIDC_INIT_H
-
+#include <linux/ion.h>
 #include "vidc_type.h"
 
 #define VIDC_MAX_NUM_CLIENTS 4
@@ -28,6 +28,7 @@ struct buf_addr_table {
 	unsigned long user_vaddr;
 	unsigned long kernel_vaddr;
 	unsigned long phy_addr;
+	struct ion_handle *buff_ion_handle;
 	int pmem_fd;
 	struct file *file;
 	unsigned long dev_addr;
@@ -51,6 +52,10 @@ struct video_client_ctx {
 	u32 stop_msg;
 	u32 stop_called;
 	u32 stop_sync_cb;
+	struct ion_client *user_ion_client;
+	struct ion_handle *seq_hdr_ion_handle;
+	struct ion_handle *h264_mv_ion_handle;
+	struct ion_handle *recon_buffer_ion_handle[4];
 };
 
 void __iomem *vidc_get_ioaddr(void);
