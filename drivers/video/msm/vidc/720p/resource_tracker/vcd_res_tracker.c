@@ -407,7 +407,7 @@ u32 res_trk_power_up(void)
 {
 	VCDRES_MSG_MED("\n res_trk_power_up():: "
 		"Calling AXI add requirement\n");
-	ebi1_clk = clk_get(NULL, "mem_clk");
+	ebi1_clk = clk_get(resource_context.device, "mem_clk");
 	if (IS_ERR(ebi1_clk)) {
 		VCDRES_MSG_ERROR("Request AXI bus QOS fails.");
 		return false;
