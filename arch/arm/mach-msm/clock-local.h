@@ -109,6 +109,8 @@ struct branch {
 };
 
 int branch_reset(struct branch *clk, enum clk_reset_action action);
+void __branch_clk_enable_reg(const struct branch *clk, const char *name);
+u32 __branch_clk_disable_reg(const struct branch *clk, const char *name);
 
 /*
  * Generic clock-definition struct and macros

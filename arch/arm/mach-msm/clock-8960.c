@@ -2716,6 +2716,7 @@ static CLK_CAM(cam2_clk, 2, 31);
 	}
 static struct clk_freq_tbl clk_tbl_csi[] = {
 	F_CSI(        0, gnd,  1, 0, 0),
+	F_CSI( 27000000, pxo,  1, 0, 0),
 	F_CSI( 85330000, pll8, 1, 2, 9),
 	F_CSI(177780000, pll2, 1, 2, 9),
 	F_END
@@ -2886,37 +2887,166 @@ static struct branch_clk csi2_phy_clk = {
 	},
 };
 
-/*
- * The csi pix and csi rdi clocks have two bits in two registers to control a
- * three input mux. So we have the generic rcg_clk_enable() path handle the
- * first bit, and this function handle the second bit.
- */
-static void set_rate_pix_rdi(struct rcg_clk *clk, struct clk_freq_tbl *nf)
-{
-	u32 reg = readl_relaxed(MISC_CC3_REG);
-	u32 bit = (u32)nf->extra_freq_data;
-	if (nf->freq_hz == 2)
-		reg |= bit;
-	else
-		reg &= ~bit;
-	writel_relaxed(reg, MISC_CC3_REG);
-}
-
-#define F_CSI_PIX(s) \
-	{ \
-		.src_clk = &csi##s##_clk.c, \
-		.freq_hz = s, \
-		.ns_val = BVAL(25, 25, s), \
-		.extra_freq_data = (void *)BIT(13), \
-	}
-static struct clk_freq_tbl clk_tbl_csi_pix[] = {
-	F_CSI_PIX(0), /* CSI0 source */
-	F_CSI_PIX(1), /* CSI1 source */
-	F_CSI_PIX(2), /* CSI2 source */
-	F_END
+static struct clk *pix_rdi_mux_map[] = {
+	[0] = &csi0_clk.c,
+	[1] = &csi1_clk.c,
+	[2] = &csi2_clk.c,
+	NULL,
 };
 
-static struct rcg_clk csi_pix_clk = {
+struct pix_rdi_clk {
+	bool enabled;
+	unsigned cur_rate;
+
+	void __iomem *const s_reg;
+	u32 s_mask;
+
+	void __iomem *const s2_reg;
+	u32 s2_mask;
+
+	struct branch b;
+	struct clk c;
+};
+
+static inline struct pix_rdi_clk *to_pix_rdi_clk(struct clk *clk)
+{
+	return container_of(clk, struct pix_rdi_clk, c);
+}
+
+static int pix_rdi_clk_set_rate(struct clk *c, unsigned rate)
+{
+	int ret, i;
+	u32 reg;
+	unsigned long flags;
+	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+	struct clk **mux_map = pix_rdi_mux_map;
+
+	/*
+	 * These clocks select three inputs via two muxes. One mux selects
+	 * between csi0 and csi1 and the second mux selects between that mux's
+	 * output and csi2. The source and destination selections for each
+	 * mux must be clocking for the switch to succeed so just turn on
+	 * all three sources because it's easier than figuring out what source
+	 * needs to be on at what time.
+	 */
+	for (i = 0; mux_map[i]; i++) {
+		ret = clk_enable(mux_map[i]);
+		if (ret)
+			goto err;
+	}
+	if (rate >= i) {
+		ret = -EINVAL;
+		goto err;
+	}
+	/* Keep the new source on when switching inputs of an enabled clock */
+	if (clk->enabled) {
+		clk_disable(mux_map[clk->cur_rate]);
+		clk_enable(mux_map[rate]);
+	}
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	reg = readl_relaxed(clk->s2_reg);
+	reg &= ~clk->s2_mask;
+	reg |= rate == 2 ? clk->s2_mask : 0;
+	writel_relaxed(reg, clk->s2_reg);
+	/*
+	 * Wait at least 6 cycles of slowest clock
+	 * for the glitch-free MUX to fully switch sources.
+	 */
+	mb();
+	udelay(1);
+	reg = readl_relaxed(clk->s_reg);
+	reg &= ~clk->s_mask;
+	reg |= rate == 1 ? clk->s_mask : 0;
+	writel_relaxed(reg, clk->s_reg);
+	/*
+	 * Wait at least 6 cycles of slowest clock
+	 * for the glitch-free MUX to fully switch sources.
+	 */
+	mb();
+	udelay(1);
+	clk->cur_rate = rate;
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+err:
+	for (i--; i >= 0; i--)
+		clk_disable(mux_map[i]);
+
+	return 0;
+}
+
+static unsigned pix_rdi_clk_get_rate(struct clk *c)
+{
+	return to_pix_rdi_clk(c)->cur_rate;
+}
+
+static int pix_rdi_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__branch_clk_enable_reg(&clk->b, clk->c.dbg_name);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	clk->enabled = true;
+
+	return 0;
+}
+
+static void pix_rdi_clk_disable(struct clk *c)
+{
+	unsigned long flags;
+	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__branch_clk_disable_reg(&clk->b, clk->c.dbg_name);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	clk->enabled = false;
+}
+
+static int pix_rdi_clk_reset(struct clk *clk, enum clk_reset_action action)
+{
+	return branch_reset(&to_pix_rdi_clk(clk)->b, action);
+}
+
+static struct clk *pix_rdi_clk_get_parent(struct clk *c)
+{
+	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+
+	return pix_rdi_mux_map[clk->cur_rate];
+}
+
+static int pix_rdi_clk_list_rate(struct clk *c, unsigned n)
+{
+	if (pix_rdi_mux_map[n])
+		return n;
+	return -ENXIO;
+}
+
+static int pix_rdi_clk_handoff(struct clk *c)
+{
+	u32 reg;
+	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+
+	reg = readl_relaxed(clk->s_reg);
+	clk->cur_rate = reg & clk->s_mask ? 1 : 0;
+	reg = readl_relaxed(clk->s2_reg);
+	clk->cur_rate = reg & clk->s2_mask ? 2 : clk->cur_rate;
+	return 0;
+}
+
+static struct clk_ops clk_ops_pix_rdi_8960 = {
+	.enable = pix_rdi_clk_enable,
+	.disable = pix_rdi_clk_disable,
+	.auto_off = pix_rdi_clk_disable,
+	.handoff = pix_rdi_clk_handoff,
+	.set_rate = pix_rdi_clk_set_rate,
+	.get_rate = pix_rdi_clk_get_rate,
+	.list_rate = pix_rdi_clk_list_rate,
+	.reset = pix_rdi_clk_reset,
+	.is_local = local_clk_is_local,
+	.get_parent = pix_rdi_clk_get_parent,
+};
+
+static struct pix_rdi_clk csi_pix_clk = {
 	.b = {
 		.ctl_reg = MISC_CC_REG,
 		.en_mask = BIT(26),
@@ -2924,32 +3054,18 @@ static struct rcg_clk csi_pix_clk = {
 		.reset_reg = SW_RESET_CORE_REG,
 		.reset_mask = BIT(26),
 	},
-	.ns_reg = MISC_CC_REG,
-	.ns_mask = BIT(25),
-	.set_rate = set_rate_pix_rdi,
-	.freq_tbl = clk_tbl_csi_pix,
-	.current_freq = &rcg_dummy_freq,
+	.s_reg = MISC_CC_REG,
+	.s_mask = BIT(25),
+	.s2_reg = MISC_CC3_REG,
+	.s2_mask = BIT(13),
 	.c = {
 		.dbg_name = "csi_pix_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_pix_clk.c),
 	},
 };
 
-#define F_CSI_PIX1(s) \
-	{ \
-		.src_clk = &csi##s##_clk.c, \
-		.freq_hz = s, \
-		.ns_val = BVAL(9, 8, s), \
-	}
-static struct clk_freq_tbl clk_tbl_csi_pix1[] = {
-	F_CSI_PIX1(0), /* CSI0 source */
-	F_CSI_PIX1(1), /* CSI1 source */
-	F_CSI_PIX1(2), /* CSI2 source */
-	F_END
-};
-
-static struct rcg_clk csi_pix1_clk = {
+static struct pix_rdi_clk csi_pix1_clk = {
 	.b = {
 		.ctl_reg = MISC_CC3_REG,
 		.en_mask = BIT(10),
@@ -2957,33 +3073,18 @@ static struct rcg_clk csi_pix1_clk = {
 		.reset_reg = SW_RESET_CORE_REG,
 		.reset_mask = BIT(30),
 	},
-	.ns_reg = MISC_CC3_REG,
-	.ns_mask = BM(9, 8),
-	.set_rate = set_rate_nop,
-	.freq_tbl = clk_tbl_csi_pix1,
-	.current_freq = &rcg_dummy_freq,
+	.s_reg = MISC_CC3_REG,
+	.s_mask = BIT(8),
+	.s2_reg = MISC_CC3_REG,
+	.s2_mask = BIT(9),
 	.c = {
 		.dbg_name = "csi_pix1_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_pix1_clk.c),
 	},
 };
 
-#define F_CSI_RDI(s) \
-	{ \
-		.src_clk = &csi##s##_clk.c, \
-		.freq_hz = s, \
-		.ns_val = BVAL(12, 12, s), \
-		.extra_freq_data = (void *)BIT(12), \
-	}
-static struct clk_freq_tbl clk_tbl_csi_rdi[] = {
-	F_CSI_RDI(0), /* CSI0 source */
-	F_CSI_RDI(1), /* CSI1 source */
-	F_CSI_RDI(2), /* CSI2 source */
-	F_END
-};
-
-static struct rcg_clk csi_rdi_clk = {
+static struct pix_rdi_clk csi_rdi_clk = {
 	.b = {
 		.ctl_reg = MISC_CC_REG,
 		.en_mask = BIT(13),
@@ -2991,32 +3092,18 @@ static struct rcg_clk csi_rdi_clk = {
 		.reset_reg = SW_RESET_CORE_REG,
 		.reset_mask = BIT(27),
 	},
-	.ns_reg = MISC_CC_REG,
-	.ns_mask = BIT(12),
-	.set_rate = set_rate_pix_rdi,
-	.freq_tbl = clk_tbl_csi_rdi,
-	.current_freq = &rcg_dummy_freq,
+	.s_reg = MISC_CC_REG,
+	.s_mask = BIT(12),
+	.s2_reg = MISC_CC3_REG,
+	.s2_mask = BIT(12),
 	.c = {
 		.dbg_name = "csi_rdi_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi_clk.c),
 	},
 };
 
-#define F_CSI_RDI1(s) \
-	{ \
-		.src_clk = &csi##s##_clk.c, \
-		.freq_hz = s, \
-		.ns_val = BVAL(1, 0, s), \
-	}
-static struct clk_freq_tbl clk_tbl_csi_rdi1[] = {
-	F_CSI_RDI1(0), /* CSI0 source */
-	F_CSI_RDI1(1), /* CSI1 source */
-	F_CSI_RDI1(2), /* CSI2 source */
-	F_END
-};
-
-static struct rcg_clk csi_rdi1_clk = {
+static struct pix_rdi_clk csi_rdi1_clk = {
 	.b = {
 		.ctl_reg = MISC_CC3_REG,
 		.en_mask = BIT(2),
@@ -3024,32 +3111,18 @@ static struct rcg_clk csi_rdi1_clk = {
 		.reset_reg = SW_RESET_CORE2_REG,
 		.reset_mask = BIT(1),
 	},
-	.ns_reg = MISC_CC3_REG,
-	.ns_mask = BM(1, 0),
-	.set_rate = set_rate_nop,
-	.freq_tbl = clk_tbl_csi_rdi1,
-	.current_freq = &rcg_dummy_freq,
+	.s_reg = MISC_CC3_REG,
+	.s_mask = BIT(0),
+	.s2_reg = MISC_CC3_REG,
+	.s2_mask = BIT(1),
 	.c = {
 		.dbg_name = "csi_rdi1_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi1_clk.c),
 	},
 };
 
-#define F_CSI_RDI2(s) \
-	{ \
-		.src_clk = &csi##s##_clk.c, \
-		.freq_hz = s, \
-		.ns_val = BVAL(5, 4, s), \
-	}
-static struct clk_freq_tbl clk_tbl_csi_rdi2[] = {
-	F_CSI_RDI2(0), /* CSI0 source */
-	F_CSI_RDI2(1), /* CSI1 source */
-	F_CSI_RDI2(2), /* CSI2 source */
-	F_END
-};
-
-static struct rcg_clk csi_rdi2_clk = {
+static struct pix_rdi_clk csi_rdi2_clk = {
 	.b = {
 		.ctl_reg = MISC_CC3_REG,
 		.en_mask = BIT(6),
@@ -3057,14 +3130,13 @@ static struct rcg_clk csi_rdi2_clk = {
 		.reset_reg = SW_RESET_CORE2_REG,
 		.reset_mask = BIT(0),
 	},
-	.ns_reg = MISC_CC3_REG,
-	.ns_mask = BM(5, 4),
-	.set_rate = set_rate_nop,
-	.freq_tbl = clk_tbl_csi_rdi2,
-	.current_freq = &rcg_dummy_freq,
+	.s_reg = MISC_CC3_REG,
+	.s_mask = BIT(4),
+	.s2_reg = MISC_CC3_REG,
+	.s2_mask = BIT(5),
 	.c = {
 		.dbg_name = "csi_rdi2_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi2_clk.c),
 	},
 };
@@ -5792,6 +5864,13 @@ static void __init msm8960_clock_init(void)
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
 	clk_set_rate(&usb_hsic_hsio_cal_clk.c, 9000000);
+	/*
+	 * Set the CSI rates to a safe default to avoid warnings when
+	 * switching csi pix and rdi clocks.
+	 */
+	clk_set_rate(&csi0_src_clk.c, 27000000);
+	clk_set_rate(&csi1_src_clk.c, 27000000);
+	clk_set_rate(&csi2_src_clk.c, 27000000);
 
 	/*
 	 * The halt status bits for these clocks may be incorrect at boot.
@@ -5805,7 +5884,9 @@ static void __init msm8960_clock_init(void)
 			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
 		clk_enable(&usb_hsic_hsic_clk.c);
 		clk_disable(&usb_hsic_hsic_clk.c);
-	}
+	} else
+		/* CSI2 hardware not present on 8960v1 devices */
+		pix_rdi_mux_map[2] = NULL;
 
 	if (machine_is_msm8960_sim()) {
 		clk_set_rate(&sdc1_clk.c, 48000000);
