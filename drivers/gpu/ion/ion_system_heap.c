@@ -23,6 +23,9 @@
 #include "ion_priv.h"
 #include <mach/memory.h>
 
+static atomic_t system_heap_allocated;
+static atomic_t system_contig_heap_allocated;
+
 static int ion_system_heap_allocate(struct ion_heap *heap,
 				     struct ion_buffer *buffer,
 				     unsigned long size, unsigned long align,
@@ -47,6 +50,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		sg_set_page(sg, page, PAGE_SIZE, 0);
 	}
 	buffer->priv_virt = table;
+	atomic_add(size, &system_heap_allocated);
 	return 0;
 err1:
 	for_each_sg(table->sgl, sg, i, j)
@@ -68,6 +72,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 	if (buffer->sg_table)
 		sg_free_table(buffer->sg_table);
 	kfree(buffer->sg_table);
+	atomic_sub(buffer->size, &system_heap_allocated);
 }
 
 struct sg_table *ion_system_heap_map_dma(struct ion_heap *heap,
@@ -179,6 +184,11 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
+static unsigned long ion_system_heap_get_allocated(struct ion_heap *heap)
+{
+	return atomic_read(&system_heap_allocated);
+}
+
 static struct ion_heap_ops vmalloc_ops = {
 	.allocate = ion_system_heap_allocate,
 	.free = ion_system_heap_free,
@@ -188,6 +198,7 @@ static struct ion_heap_ops vmalloc_ops = {
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_heap_map_user,
 	.cache_op = ion_system_heap_cache_ops,
+	.get_allocated = ion_system_heap_get_allocated,
 };
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
@@ -216,12 +227,14 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 	buffer->priv_virt = kzalloc(len, GFP_KERNEL);
 	if (!buffer->priv_virt)
 		return -ENOMEM;
+	atomic_add(len, &system_contig_heap_allocated);
 	return 0;
 }
 
 void ion_system_contig_heap_free(struct ion_buffer *buffer)
 {
 	kfree(buffer->priv_virt);
+	atomic_sub(buffer->size, &system_contig_heap_allocated);
 }
 
 static int ion_system_contig_heap_phys(struct ion_heap *heap,
@@ -301,6 +314,11 @@ int ion_system_contig_heap_cache_ops(struct ion_heap *heap,
 	return 0;
 }
 
+static unsigned long ion_system_contig_heap_get_allocated(struct ion_heap *heap)
+{
+	return atomic_read(&system_contig_heap_allocated);
+}
+
 static struct ion_heap_ops kmalloc_ops = {
 	.allocate = ion_system_contig_heap_allocate,
 	.free = ion_system_contig_heap_free,
@@ -311,6 +329,7 @@ static struct ion_heap_ops kmalloc_ops = {
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
 	.cache_op = ion_system_contig_heap_cache_ops,
+	.get_allocated = ion_system_contig_heap_get_allocated,
 };
 
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *unused)
