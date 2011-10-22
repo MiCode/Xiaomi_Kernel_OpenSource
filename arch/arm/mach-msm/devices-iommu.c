@@ -1066,6 +1066,12 @@ static int __init iommu_init(void)
 {
 	int ret;
 
+	if (cpu_is_msm8960() &&
+	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2) {
+		pr_err("IOMMU is not supported on this SoC version.\n");
+		return -ENODEV;
+	}
+
 	ret = platform_device_register(&msm_root_iommu_dev);
 	if (ret != 0) {
 		pr_err("Failed to register root IOMMU device!\n");
