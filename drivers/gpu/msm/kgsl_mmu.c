@@ -525,37 +525,6 @@ void kgsl_mh_start(struct kgsl_device *device)
 	 */
 }
 
-unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr)
-{
-	unsigned int physaddr = 0;
-	pgd_t *pgd_ptr = NULL;
-	pmd_t *pmd_ptr = NULL;
-	pte_t *pte_ptr = NULL, pte;
-
-	pgd_ptr = pgd_offset(current->mm, (unsigned long) virtaddr);
-	if (pgd_none(*pgd) || pgd_bad(*pgd)) {
-		KGSL_CORE_ERR("Invalid pgd entry\n");
-		return 0;
-	}
-
-	pmd_ptr = pmd_offset(pgd_ptr, (unsigned long) virtaddr);
-	if (pmd_none(*pmd_ptr) || pmd_bad(*pmd_ptr)) {
-		KGSL_CORE_ERR("Invalid pmd entry\n");
-		return 0;
-	}
-
-	pte_ptr = pte_offset_map(pmd_ptr, (unsigned long) virtaddr);
-	if (!pte_ptr) {
-		KGSL_CORE_ERR("pt_offset_map failed\n");
-		return 0;
-	}
-	pte = *pte_ptr;
-	physaddr = pte_pfn(pte);
-	pte_unmap(pte_ptr);
-	physaddr <<= PAGE_SHIFT;
-	return physaddr;
-}
-
 int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc,

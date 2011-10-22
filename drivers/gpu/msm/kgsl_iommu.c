@@ -257,37 +257,33 @@ kgsl_iommu_map(void *mmu_specific_pt,
 			struct kgsl_memdesc *memdesc,
 			unsigned int protflags)
 {
-	int ret = 0;
-	unsigned int physaddr;
+	int ret, i;
+	struct scatterlist *s;
 	unsigned int iommu_virt_addr;
-	unsigned int offset = 0;
 	int map_order;
-	struct iommu_domain *domain = (struct iommu_domain *)
-					mmu_specific_pt;
+	struct iommu_domain *domain = mmu_specific_pt;
 
 	BUG_ON(NULL == domain);
 
 	map_order = get_order(SZ_4K);
 
-	for (iommu_virt_addr = memdesc->gpuaddr;
-		iommu_virt_addr < (memdesc->gpuaddr + memdesc->size);
-		iommu_virt_addr += SZ_4K, offset += PAGE_SIZE) {
-		physaddr = memdesc->ops->physaddr(memdesc, offset);
-		if (!physaddr) {
-			KGSL_CORE_ERR("Failed to convert %x address to "
-			"physical\n", (unsigned int)memdesc->hostptr + offset);
-			kgsl_iommu_unmap(mmu_specific_pt, memdesc);
-			return -EFAULT;
-		}
-		ret = iommu_map(domain, iommu_virt_addr, physaddr,
+	iommu_virt_addr = memdesc->gpuaddr;
+
+	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
+		unsigned int paddr = sg_phys(s), j;
+		for (j = paddr; j < paddr + s->length; j += PAGE_SIZE) {
+			ret = iommu_map(domain, iommu_virt_addr, j,
 				map_order, MSM_IOMMU_ATTR_NONCACHED);
-		if (ret) {
-			KGSL_CORE_ERR("iommu_map(%p, %x, %x, %d, %d) "
-			"failed with err: %d\n", domain,
-			iommu_virt_addr, physaddr, map_order,
-			MSM_IOMMU_ATTR_NONCACHED, ret);
-			kgsl_iommu_unmap(mmu_specific_pt, memdesc);
-			return ret;
+			if (ret) {
+				KGSL_CORE_ERR("iommu_map(%p, %x, %x, %d, %d) "
+					"failed with err: %d\n", domain,
+					iommu_virt_addr, j, map_order,
+					MSM_IOMMU_ATTR_NONCACHED, ret);
+				kgsl_iommu_unmap(mmu_specific_pt, memdesc);
+				return ret;
+			}
+
+			iommu_virt_addr += SZ_4K;
 		}
 	}
 
