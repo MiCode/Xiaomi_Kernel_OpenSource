@@ -60,6 +60,7 @@ enum lpm_test_msg_type {
 #define A2_MIN_PACKET_SIZE 5
 #define RMNT_PACKET_SIZE (4*1024)
 #define DUN_PACKET_SIZE (2*1024)
+#define CSVT_PACKET_SIZE 1700
 
 #define TEST_DBG(x...) if (test_ctx->runtime_debug) pr_info(x)
 
@@ -70,6 +71,9 @@ enum lpm_test_msg_type {
 #define LPM_TEST_CONFIG_SIGNATURE 0xDEADBABE
 #define LPM_MSG_NAME_SIZE 20
 #define MAX_STR_SIZE	10
+#define MAX_AVG_RTT_TIME_USEC	2500
+#define SDIO_RMNT_RTT_PACKET_SIZE	32
+#define SDIO_CSVT_RTT_PACKET_SIZE	1900
 
 #define A2_HEADER_OVERHEAD 8
 
@@ -143,6 +147,7 @@ enum sdio_channels_ids {
 	SDIO_DUN,
 	SDIO_SMEM,
 	SDIO_CIQ,
+	SDIO_CSVT,
 	SDIO_MAX_CHANNELS
 };
 
@@ -240,6 +245,7 @@ struct sdio_al_test_debug {
 	struct dentry *dun_a2_validation_test;
 	struct dentry *rmnet_a2_perf_test;
 	struct dentry *dun_a2_perf_test;
+	struct dentry *csvt_a2_perf_test;
 	struct dentry *rmnet_dun_a2_perf_test;
 	struct dentry *rpc_sender_rmnet_a2_perf_test;
 	struct dentry *all_channels_test;
@@ -247,6 +253,7 @@ struct sdio_al_test_debug {
 	struct dentry *host_sender_no_lp_diag_rpc_ciq_test;
 	struct dentry *rmnet_small_packets_test;
 	struct dentry *rmnet_rtt_test;
+	struct dentry *csvt_rtt_test;
 	struct dentry *modem_reset_rpc_test;
 	struct dentry *modem_reset_rmnet_test;
 	struct dentry *modem_reset_channels_4bit_dev_test;
@@ -336,6 +343,11 @@ static struct test_context *test_ctx;
 static void sdio_al_test_initial_dev_and_chan(struct test_context *test_ctx)
 {
 	int i = 0;
+
+	if (!test_ctx) {
+		pr_err(TEST_MODULE_NAME ":%s - test_ctx is NULL.\n", __func__);
+		return;
+	}
 
 	for (i = 0 ; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
 		test_ctx->test_dev_arr[i].sdio_al_device = NULL;
@@ -937,6 +949,74 @@ const struct file_operations dun_a2_perf_test_ops = {
 	.read = dun_a2_perf_test_read,
 };
 
+/* CSVT A2 PERFORMANCE TEST */
+static ssize_t csvt_a2_perf_test_write(struct file *file,
+					const char __user *buf,
+					size_t count,
+					loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- CSVT A2 PERFORMANCE TEST --\n");
+
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_CSVT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t csvt_a2_perf_test_read(struct file *file,
+				       char __user *buffer,
+				       size_t count,
+				       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nCSVT_A2_PERFORMANCE_TEST\n"
+		 "========================\n"
+		 "Description:\n"
+		 "Loopback test on the CSVT Channel, in order to check "
+		 "throughput performance.\n"
+		 "Packet size that are sent on the CSVT channel in this "
+		 "test is %d.bytes\n\n"
+		 "END OF DESCRIPTION\n", CSVT_PACKET_SIZE);
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations csvt_a2_perf_test_ops = {
+	.open = sdio_al_test_open,
+	.write = csvt_a2_perf_test_write,
+	.read = csvt_a2_perf_test_read,
+};
+
 /* RMNET DUN A2 PERFORMANCE TEST */
 static ssize_t rmnet_dun_a2_perf_test_write(struct file *file,
 					     const char __user *buf,
@@ -1101,6 +1181,7 @@ static ssize_t all_channels_test_write(struct file *file,
 		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_DUN]);
 		set_params_smem_test(test_ctx->test_ch_arr[SDIO_SMEM]);
 		set_params_loopback_9k(test_ctx->test_ch_arr[SDIO_CIQ]);
+		set_params_a2_perf(test_ctx->test_ch_arr[SDIO_CSVT]);
 
 		ret = test_start();
 
@@ -1397,6 +1478,72 @@ const struct file_operations rmnet_rtt_test_ops = {
 	.open = sdio_al_test_open,
 	.write = rmnet_rtt_test_write,
 	.read = rmnet_rtt_test_read,
+};
+
+/* CSVT RTT TEST */
+static ssize_t csvt_rtt_test_write(struct file *file,
+				    const char __user *buf,
+				    size_t count,
+				    loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	pr_info(TEST_MODULE_NAME "-- CSVT RTT TEST --");
+
+	number = sdio_al_test_extract_number(buf, count);
+
+	if (number < 0) {
+		pr_err(TEST_MODULE_NAME " : %s - sdio_al_test_extract_number() "
+		       "failed. number = %d\n", __func__, number);
+		return count;
+	}
+
+	for (i = 0 ; i < number ; ++i) {
+		pr_info(TEST_MODULE_NAME " - Cycle # %d / %d\n", i+1, number);
+		pr_info(TEST_MODULE_NAME " ===================");
+
+		sdio_al_test_initial_dev_and_chan(test_ctx);
+
+		set_params_rtt(test_ctx->test_ch_arr[SDIO_CSVT]);
+
+		ret = test_start();
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+static ssize_t csvt_rtt_test_read(struct file *file,
+				   char __user *buffer,
+				   size_t count,
+				   loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nCSVT_RTT_TEST\n"
+		 "==============\n"
+		 "Description:\n"
+		 "In this test the HOST send a message of %d bytes "
+		 "to the CLIENT\n\n"
+		 "END OF DESCRIPTION\n", SDIO_CSVT_RTT_PACKET_SIZE);
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else {
+		return 0;
+	}
+}
+
+const struct file_operations csvt_rtt_test_ops = {
+	.open = sdio_al_test_open,
+	.write = csvt_rtt_test_write,
+	.read = csvt_rtt_test_read,
 };
 
 /* MODEM RESET RPC TEST */
@@ -1768,6 +1915,7 @@ static ssize_t open_close_test_write(struct file *file,
 		set_params_loopback_9k_close(ch_arr[SDIO_QMI]);
 		set_params_loopback_9k_close(ch_arr[SDIO_RMNT]);
 		set_params_loopback_9k_close(ch_arr[SDIO_DUN]);
+		set_params_loopback_9k_close(ch_arr[SDIO_CSVT]);
 
 		ret = test_start();
 
@@ -1803,7 +1951,8 @@ static ssize_t open_close_test_read(struct file *file,
 		 "following sequence: Send a random burst of packets on "
 		 "Diag, CIQ and Rmnet channels, read 0 or a random number "
 		 "of packets, close and re-open the channel. At the end of the "
-		 "test, the channel is verified by running a loopback test\n");
+		 "test, the channel is verified by running a loopback test\n\n"
+		 "END OF DESCRIPTION\n");
 
 	if (message_repeat == 1) {
 		message_repeat = 0;
@@ -1873,7 +2022,8 @@ static ssize_t open_close_dun_rmnet_test_read(struct file *file,
 		 "In this test the host sends 5k packets to the modem in the "
 		 "following sequence: Send a random burst of packets on "
 		 "DUN and Rmnet channels, read 0 or a random number "
-		 "of packets, close and re-open the channel.\n");
+		 "of packets, close and re-open the channel.\n\n"
+		 "END OF DESCRIPTION\n");
 
 	if (message_repeat == 1) {
 		message_repeat = 0;
@@ -2345,6 +2495,13 @@ static int sdio_al_test_debugfs_init(void)
 				    NULL,
 				    &dun_a2_perf_test_ops);
 
+	test_ctx->debug.csvt_a2_perf_test =
+		debugfs_create_file("71_csvt_a2_perf_test",
+				    S_IRUGO | S_IWUGO,
+				    test_ctx->debug.debug_root,
+				    NULL,
+				    &csvt_a2_perf_test_ops);
+
 	test_ctx->debug.rmnet_dun_a2_perf_test =
 		debugfs_create_file("70_rmnet_dun_a2_perf_test",
 				    S_IRUGO | S_IWUGO,
@@ -2407,6 +2564,13 @@ static int sdio_al_test_debugfs_init(void)
 				     test_ctx->debug.debug_root,
 				     NULL,
 				     &rmnet_rtt_test_ops);
+
+	test_ctx->debug.csvt_rtt_test =
+		debugfs_create_file("191_csvt_rtt_test",
+				     S_IRUGO | S_IWUGO,
+				     test_ctx->debug.debug_root,
+				     NULL,
+				     &csvt_rtt_test_ops);
 
 	test_ctx->debug.modem_reset_rpc_test =
 		debugfs_create_file("220_modem_reset_rpc_test",
@@ -2535,6 +2699,9 @@ static int channel_name_to_id(char *name)
 	else if (!strncmp(name, "SDIO_CIQ_TEST",
 			  strnlen("SDIO_CIQ_TEST", TEST_CH_NAME_SIZE)))
 		return SDIO_CIQ;
+	else if (!strncmp(name, "SDIO_CSVT_TEST",
+			  strnlen("SDIO_CSVT_TEST", TEST_CH_NAME_SIZE)))
+		return SDIO_CSVT;
 	else
 		return SDIO_MAX_CHANNELS;
 
@@ -4095,10 +4262,17 @@ static void a2_performance_test(struct test_channel *test_ch)
 		   total_bytes , (int) time_msec, test_ch->name);
 
 	if (!test_ch->random_packet_size) {
-		throughput = (total_bytes / time_msec) * 8 / 1000;
-		pr_err(TEST_MODULE_NAME ":Performance = %d Mbit/sec for "
-					"chan %s\n",
-		       throughput, test_ch->name);
+		if (time_msec) {
+			throughput = (total_bytes / time_msec) * 8 / 1000;
+			pr_err(TEST_MODULE_NAME ": %s - Performance = "
+			       "%d Mbit/sec for chan %s\n",
+			       __func__, throughput, test_ch->name);
+		} else {
+			pr_err(TEST_MODULE_NAME ": %s - time_msec = 0 Couldn't "
+			       "calculate performence for chan %s\n",
+			   __func__, test_ch->name);
+		}
+
 	}
 
 #ifdef CONFIG_DEBUG_FS
@@ -4199,10 +4373,10 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	u32 write_avail = 0;
 	int tx_packet_count = 0;
 	int rx_packet_count = 0;
-	u16 *buf16 = (u16 *) test_ch->buf;
+	u16 *buf16 = NULL;
 	int i;
-	int max_packets = test_ch->config_msg.num_packets;
-	u32 packet_size = test_ch->packet_length;
+	int max_packets = 0;
+	u32 packet_size = 0;
 	s64 start_time, end_time;
 	int delta_usec = 0;
 	int time_average = 0;
@@ -4210,6 +4384,24 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	int max_delta_usec = 0;
 	int total_time = 0;
 	int expected_read_size = 0;
+	int delay_ms = 0;
+	int slow_rtt_counter = 0;
+	int read_avail_so_far = 0;
+
+	if (test_ch) {
+		/*
+		 * Cleanup the pending RX data (such as loopback of the
+		 * config msg)
+		 */
+		rx_cleanup(test_ch, &rx_packet_count);
+		rx_packet_count = 0;
+	} else {
+		return;
+	}
+
+	max_packets = test_ch->config_msg.num_packets;
+	packet_size = test_ch->packet_length;
+	buf16 = (u16 *) test_ch->buf;
 
 	for (i = 0; i < packet_size / 2; i++)
 		buf16[i] = (u16) (i & 0xFFFF);
@@ -4217,9 +4409,18 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	pr_info(TEST_MODULE_NAME ": A2 RTT TEST START for chan %s\n",
 		test_ch->name);
 
-	/* Cleanup the pending RX data (such as loopback of te config msg) */
-	rx_cleanup(test_ch, &rx_packet_count);
-	rx_packet_count = 0;
+	switch (test_ch->ch_id) {
+	case SDIO_RMNT:
+		delay_ms = 100;
+		break;
+	case SDIO_CSVT:
+		delay_ms = 0;
+		break;
+	default:
+		pr_err(TEST_MODULE_NAME ": %s - ch_id invalid.\n",
+		       __func__);
+		return;
+	}
 
 	while (tx_packet_count < max_packets) {
 		if (test_ctx->exit_flag) {
@@ -4228,11 +4429,10 @@ static void a2_rtt_test(struct test_channel *test_ch)
 		}
 		start_time = 0;
 		end_time = 0;
+		read_avail_so_far = 0;
 
-		/* Allow sdio_al to go to sleep to change the read_threshold
-		 *  to 1
-		 */
-		msleep(100);
+		if (delay_ms)
+			msleep(delay_ms);
 
 		/* wait for data ready event */
 		write_avail = sdio_write_avail(test_ch->ch);
@@ -4272,37 +4472,52 @@ static void a2_rtt_test(struct test_channel *test_ch)
 
 		expected_read_size = packet_size + A2_HEADER_OVERHEAD;
 
-		read_avail = sdio_read_avail(test_ch->ch);
-		TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
-			 test_ch->name, read_avail);
-		while (read_avail < expected_read_size) {
-			wait_event(test_ch->wait_q,
-				   atomic_read(&test_ch->rx_notify_count));
-			atomic_dec(&test_ch->rx_notify_count);
-			read_avail = sdio_read_avail(test_ch->ch);
-		}
+		while (read_avail_so_far < expected_read_size) {
 
-		if (read_avail >= expected_read_size) {
-			pr_debug(TEST_MODULE_NAME ":read_avail=%d for ch %s.\n",
-				 read_avail, test_ch->name);
+			read_avail = sdio_read_avail(test_ch->ch);
+
+			if (!read_avail) {
+				wait_event(test_ch->wait_q,
+					   atomic_read(&test_ch->
+						       rx_notify_count));
+
+				atomic_dec(&test_ch->rx_notify_count);
+				continue;
+			}
+
+			read_avail_so_far += read_avail;
+
+			if (read_avail_so_far > expected_read_size) {
+				pr_err(TEST_MODULE_NAME ": %s - Invalid "
+				       "read_avail(%d)  read_avail_so_far(%d) "
+				       "can't be larger than "
+				       "expected_read_size(%d).",
+				       __func__,
+				       read_avail,
+				       read_avail_so_far,
+				       expected_read_size);
+				goto exit_err;
+			}
+
+			/*
+			 * must read entire pending bytes, so later, we will
+			 * get a notification when more data arrives
+			 */
 			ret = sdio_read(test_ch->ch, test_ch->buf,
-					expected_read_size);
+					read_avail);
+
 			if (ret) {
 				pr_info(TEST_MODULE_NAME ": sdio_read size %d "
 					" err=%d for chan %s\n",
-					expected_read_size, -ret,
+					read_avail, -ret,
 					test_ch->name);
 				goto exit_err;
 			}
-			end_time = ktime_to_us(ktime_get());
-			rx_packet_count++;
-			test_ch->rx_bytes += expected_read_size;
-		} else {
-				pr_info(TEST_MODULE_NAME ": Invalid read_avail "
-							 "%d for chan %s\n",
-					read_avail, test_ch->name);
-				goto exit_err;
 		}
+
+		end_time = ktime_to_us(ktime_get());
+		rx_packet_count++;
+		test_ch->rx_bytes += expected_read_size;
 
 		delta_usec = (int)(end_time - start_time);
 		total_time += delta_usec;
@@ -4311,24 +4526,47 @@ static void a2_rtt_test(struct test_channel *test_ch)
 		if (delta_usec > max_delta_usec)
 				max_delta_usec = delta_usec;
 
+		/* checking the RTT per channel criteria */
+		if (delta_usec > MAX_AVG_RTT_TIME_USEC) {
+			pr_err(TEST_MODULE_NAME ": %s - "
+			       "msg # %d - rtt time (%d usec) is "
+			       "longer than %d usec\n",
+			       __func__,
+			       tx_packet_count,
+			       delta_usec,
+			       MAX_AVG_RTT_TIME_USEC);
+			slow_rtt_counter++;
+		}
+
 		TEST_DBG(TEST_MODULE_NAME
 			 ":RTT time=%d for packet #%d for chan %s\n",
 			 delta_usec, tx_packet_count, test_ch->name);
-
 	} /* while (tx_packet_count < max_packets ) */
 
+	pr_info(TEST_MODULE_NAME ": %s - tx_packet_count = %d\n",
+		__func__, tx_packet_count);
 
-	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d for"
-				 " chan %s.\n",
-		test_ch->rx_bytes, rx_packet_count, test_ch->name);
-	pr_info(TEST_MODULE_NAME ":total tx bytes = 0x%x , tx_packet#=%d"
-				 " for chan %s.\n",
-		test_ch->tx_bytes, tx_packet_count, test_ch->name);
+	pr_info(TEST_MODULE_NAME ": %s - total rx bytes = 0x%x, "
+		"rx_packet# = %d for chan %s.\n",
+		__func__, test_ch->rx_bytes, rx_packet_count, test_ch->name);
 
-	time_average = total_time / tx_packet_count;
+	pr_info(TEST_MODULE_NAME ": %s - total tx bytes = 0x%x, "
+		"tx_packet# = %d for chan %s.\n",
+		__func__, test_ch->tx_bytes, tx_packet_count, test_ch->name);
 
-	pr_info(TEST_MODULE_NAME ":Average RTT time = %d for chan %s\n",
+	pr_info(TEST_MODULE_NAME ": %s - slow_rtt_counter = %d for "
+		"chan %s.\n",
+		__func__, slow_rtt_counter, test_ch->name);
+
+	if (tx_packet_count) {
+		time_average = total_time / tx_packet_count;
+		pr_info(TEST_MODULE_NAME ":Average RTT time = %d for chan %s\n",
 		   time_average, test_ch->name);
+	} else {
+		pr_err(TEST_MODULE_NAME ": %s - tx_packet_count=0. couldn't "
+		       "calculate average rtt time", __func__);
+	}
+
 	pr_info(TEST_MODULE_NAME ":MIN RTT time = %d for chan %s\n",
 		   min_delta_usec, test_ch->name);
 	pr_info(TEST_MODULE_NAME ":MAX RTT time = %d for chan %s\n",
@@ -4336,6 +4574,17 @@ static void a2_rtt_test(struct test_channel *test_ch)
 
 	pr_info(TEST_MODULE_NAME ": A2 RTT TEST END for chan %s.\n",
 	       test_ch->name);
+
+	if (ret)
+		goto exit_err;
+
+	if (time_average == 0 || time_average > MAX_AVG_RTT_TIME_USEC) {
+		pr_err(TEST_MODULE_NAME ": %s - average_time = %d. Invalid "
+		       "value",
+		       __func__, time_average);
+		goto exit_err;
+
+	}
 
 	pr_info(TEST_MODULE_NAME ": TEST PASS for chan %s\n", test_ch->name);
 	test_ch->test_completed = 1;
@@ -4350,7 +4599,6 @@ exit_err:
 	check_test_completion();
 	return;
 }
-
 
 /**
  * Process Rx Data - Helper for A2 Validation Test
@@ -5599,11 +5847,22 @@ static int set_params_a2_perf(struct test_channel *tch)
 	tch->test_type = SDIO_TEST_PERF;
 	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
 	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
-	tch->packet_length = MAX_XFER_SIZE;
-	if (tch->ch_id == SDIO_DIAG)
+
+	switch (tch->ch_id) {
+	case SDIO_DIAG:
 		tch->packet_length = 512;
-	else if (tch->ch_id == SDIO_DUN)
-			tch->packet_length = DUN_PACKET_SIZE;
+		break;
+	case SDIO_DUN:
+		tch->packet_length = DUN_PACKET_SIZE;
+		break;
+	case SDIO_CSVT:
+		tch->packet_length = CSVT_PACKET_SIZE;
+		break;
+	default:
+		tch->packet_length = MAX_XFER_SIZE;
+		break;
+	}
+
 	pr_info(TEST_MODULE_NAME ": %s: packet_length=%d", __func__,
 			tch->packet_length);
 
@@ -5626,7 +5885,21 @@ static int set_params_rtt(struct test_channel *tch)
 	tch->test_type = SDIO_TEST_RTT;
 	tch->config_msg.signature = TEST_CONFIG_SIGNATURE;
 	tch->config_msg.test_case = SDIO_TEST_LOOPBACK_CLIENT;
-	tch->packet_length = 32;
+
+	switch (tch->ch_id) {
+	case SDIO_RMNT:
+		tch->packet_length = SDIO_RMNT_RTT_PACKET_SIZE;
+		break;
+	case SDIO_CSVT:
+		tch->packet_length = SDIO_CSVT_RTT_PACKET_SIZE;
+		break;
+	default:
+		pr_err(TEST_MODULE_NAME ": %s - ch_id invalid.\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info(TEST_MODULE_NAME ": %s: packet_length=%d", __func__,
+			tch->packet_length);
 
 	tch->config_msg.num_packets = 200;
 	tch->config_msg.num_iterations = 1;
@@ -5815,6 +6088,12 @@ static int close_channel_lpm_test(int channel_num)
 	int ret = 0;
 	struct test_channel *tch = NULL;
 	tch = test_ctx->test_ch_arr[channel_num];
+
+	if (!tch) {
+		pr_info(TEST_MODULE_NAME ":%s ch#%d is NULL\n",
+			__func__, channel_num);
+		return 0;
+	}
 
 	ret = open_sdio_ch(tch);
 	if (ret) {
@@ -6108,6 +6387,15 @@ static struct platform_driver sdio_ciq_drv = {
 	},
 };
 
+static struct platform_driver sdio_csvt_drv = {
+	.probe		= sdio_test_channel_probe,
+	.remove		= sdio_test_channel_remove,
+	.driver		= {
+		.name	= "SDIO_CSVT_TEST",
+		.owner	= THIS_MODULE,
+	},
+};
+
 static struct class *test_class;
 
 const struct file_operations test_fops = {
@@ -6177,6 +6465,7 @@ static int __init test_init(void)
 	platform_driver_register(&sdio_rmnt_drv);
 	platform_driver_register(&sdio_dun_drv);
 	platform_driver_register(&sdio_ciq_drv);
+	platform_driver_register(&sdio_csvt_drv);
 
 	return ret;
 }
@@ -6205,6 +6494,7 @@ static void __exit test_exit(void)
 	platform_driver_unregister(&sdio_rmnt_drv);
 	platform_driver_unregister(&sdio_dun_drv);
 	platform_driver_unregister(&sdio_ciq_drv);
+	platform_driver_unregister(&sdio_csvt_drv);
 
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
