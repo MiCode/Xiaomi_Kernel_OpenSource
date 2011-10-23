@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -180,10 +181,12 @@
 #define MXT_VTG_MIN_UV		2700000
 #define MXT_VTG_MAX_UV		3300000
 #define MXT_ACTIVE_LOAD_UA	15000
+#define MXT_LPM_LOAD_UA		10
 
 #define MXT_I2C_VTG_MIN_UV	1800000
 #define MXT_I2C_VTG_MAX_UV	1800000
 #define MXT_I2C_LOAD_UA		10000
+#define MXT_I2C_LPM_LOAD_UA	10
 
 /* Define for MXT_GEN_COMMAND */
 #define MXT_BOOT_VALUE		0xa5
@@ -195,6 +198,8 @@
 #define MXT_RESET_NOCHGREAD		400	/* msec */
 
 #define MXT_FWRESET_TIME	175	/* msec */
+
+#define MXT_WAKE_TIME		25
 
 /* Command to unlock bootloader */
 #define MXT_UNLOCK_CMD_MSB	0xaa
@@ -229,7 +234,9 @@
 #define MXT_MAX_FINGER		10
 
 #define MXT_BUFF_SIZE		100
-#define T7_DATA_SIZE 3
+#define T7_DATA_SIZE		3
+#define MXT_MAX_RW_TRIES	3
+#define MXT_BLOCK_SIZE		256
 
 struct mxt_info {
 	u8 family_id;
@@ -274,14 +281,14 @@ struct mxt_data {
 	struct mxt_info info;
 	struct mxt_finger finger[MXT_MAX_FINGER];
 	unsigned int irq;
-	unsigned int max_x;
-	unsigned int max_y;
 	struct regulator *vcc;
 	struct regulator *vcc_i2c;
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
+
 	u8 t7_data[T7_DATA_SIZE];
+	u16 t7_start_addr;
 	u8 t9_ctrl;
 };
 
@@ -416,6 +423,7 @@ static int __mxt_read_reg(struct i2c_client *client,
 {
 	struct i2c_msg xfer[2];
 	u8 buf[2];
+	int i = 0;
 
 	buf[0] = reg & 0xff;
 	buf[1] = (reg >> 8) & 0xff;
@@ -432,12 +440,14 @@ static int __mxt_read_reg(struct i2c_client *client,
 	xfer[1].len = len;
 	xfer[1].buf = val;
 
-	if (i2c_transfer(client->adapter, xfer, 2) != 2) {
-		dev_err(&client->dev, "%s: i2c transfer failed\n", __func__);
-		return -EIO;
-	}
+	do {
+		if (i2c_transfer(client->adapter, xfer, 2) == 2)
+			return 0;
+		msleep(MXT_WAKE_TIME);
+	} while (++i < MXT_MAX_RW_TRIES);
 
-	return 0;
+	dev_err(&client->dev, "%s: i2c transfer failed\n", __func__);
+	return -EIO;
 }
 
 static int mxt_read_reg(struct i2c_client *client, u16 reg, u8 *val)
@@ -445,20 +455,33 @@ static int mxt_read_reg(struct i2c_client *client, u16 reg, u8 *val)
 	return __mxt_read_reg(client, reg, 1, val);
 }
 
+static int __mxt_write_reg(struct i2c_client *client,
+		    u16 addr, u16 length, u8 *value)
+{
+	u8 buf[MXT_BLOCK_SIZE + 2];
+	int i, tries = 0;
+
+	if (length > MXT_BLOCK_SIZE)
+		return -EINVAL;
+
+	buf[0] = addr & 0xff;
+	buf[1] = (addr >> 8) & 0xff;
+	for (i = 0; i < length; i++)
+		buf[i + 2] = *value++;
+
+	do {
+		if (i2c_master_send(client, buf, length + 2) == (length + 2))
+			return 0;
+		msleep(MXT_WAKE_TIME);
+	} while (++tries < MXT_MAX_RW_TRIES);
+
+	dev_err(&client->dev, "%s: i2c send failed\n", __func__);
+	return -EIO;
+}
+
 static int mxt_write_reg(struct i2c_client *client, u16 reg, u8 val)
 {
-	u8 buf[3];
-
-	buf[0] = reg & 0xff;
-	buf[1] = (reg >> 8) & 0xff;
-	buf[2] = val;
-
-	if (i2c_master_send(client, buf, 3) != 3) {
-		dev_err(&client->dev, "%s: i2c send failed\n", __func__);
-		return -EIO;
-	}
-
-	return 0;
+	return __mxt_write_reg(client, reg, 1, &val);
 }
 
 static int mxt_read_object_table(struct i2c_client *client,
@@ -591,9 +614,9 @@ static void mxt_input_touchevent(struct mxt_data *data,
 
 	x = (message->message[1] << 4) | ((message->message[3] >> 4) & 0xf);
 	y = (message->message[2] << 4) | ((message->message[3] & 0xf));
-	if (data->max_x < 1024)
+	if (data->pdata->x_size < 1024)
 		x = x >> 2;
-	if (data->max_y < 1024)
+	if (data->pdata->y_size < 1024)
 		y = y >> 2;
 
 	area = message->message[4];
@@ -705,54 +728,6 @@ static int mxt_make_highchg(struct mxt_data *data)
 	return 0;
 }
 
-static void mxt_handle_pdata(struct mxt_data *data)
-{
-	const struct mxt_platform_data *pdata = data->pdata;
-	u8 voltage;
-
-	/* Set touchscreen lines */
-	mxt_write_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_XSIZE,
-			pdata->x_line);
-	mxt_write_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_YSIZE,
-			pdata->y_line);
-
-	/* Set touchscreen orient */
-	mxt_write_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_ORIENT,
-			pdata->orient);
-
-	/* Set touchscreen burst length */
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_BLEN, pdata->blen);
-
-	/* Set touchscreen threshold */
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_TCHTHR, pdata->threshold);
-
-	/* Set touchscreen resolution */
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_XRANGE_LSB, (pdata->x_size - 1) & 0xff);
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_XRANGE_MSB, (pdata->x_size - 1) >> 8);
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_YRANGE_LSB, (pdata->y_size - 1) & 0xff);
-	mxt_write_object(data, MXT_TOUCH_MULTI,
-			MXT_TOUCH_YRANGE_MSB, (pdata->y_size - 1) >> 8);
-
-	/* Set touchscreen voltage */
-	if (pdata->voltage) {
-		if (pdata->voltage < MXT_VOLTAGE_DEFAULT) {
-			voltage = (MXT_VOLTAGE_DEFAULT - pdata->voltage) /
-				MXT_VOLTAGE_STEP;
-			voltage = 0xff - voltage + 1;
-		} else
-			voltage = (pdata->voltage - MXT_VOLTAGE_DEFAULT) /
-				MXT_VOLTAGE_STEP;
-
-		mxt_write_object(data, MXT_SPT_CTECONFIG,
-				MXT_CTE_VOLTAGE, voltage);
-	}
-}
-
 static int mxt_get_info(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -840,10 +815,11 @@ static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
 	struct mxt_info *info = &data->info;
-	int error, i;
+	int error;
 	int timeout_counter = 0;
 	u8 val;
 	u8 command_register;
+	struct mxt_object *t7_object;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -868,14 +844,19 @@ static int mxt_initialize(struct mxt_data *data)
 		return error;
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_read_object(data, MXT_GEN_POWER, i,
-				&data->t7_data[i]);
-		if (error < 0) {
-			dev_err(&client->dev,
-				"failed to save current power state\n");
-			return error;
-		}
+	t7_object = mxt_get_object(data, MXT_GEN_POWER);
+	if (!t7_object) {
+		dev_err(&client->dev, "Failed to get T7 object\n");
+		return -EINVAL;
+	}
+
+	data->t7_start_addr = t7_object->start_address;
+	error = __mxt_read_reg(client, data->t7_start_addr,
+				T7_DATA_SIZE, data->t7_data);
+	if (error < 0) {
+		dev_err(&client->dev,
+			"failed to save current power state\n");
+		return error;
 	}
 	error = mxt_read_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_CTRL,
 			&data->t9_ctrl);
@@ -883,8 +864,6 @@ static int mxt_initialize(struct mxt_data *data)
 		dev_err(&client->dev, "failed to save current touch object\n");
 		return error;
 	}
-
-	mxt_handle_pdata(data);
 
 	/* Backup to memory */
 	mxt_write_object(data, MXT_GEN_COMMAND,
@@ -933,20 +912,6 @@ static int mxt_initialize(struct mxt_data *data)
 			info->object_num);
 
 	return 0;
-}
-
-static void mxt_calc_resolution(struct mxt_data *data)
-{
-	unsigned int max_x = data->pdata->x_size - 1;
-	unsigned int max_y = data->pdata->y_size - 1;
-
-	if (data->pdata->orient & MXT_XY_SWITCH) {
-		data->max_x = max_y;
-		data->max_y = max_x;
-	} else {
-		data->max_x = max_x;
-		data->max_y = max_y;
-	}
 }
 
 static ssize_t mxt_object_show(struct device *dev,
@@ -1108,17 +1073,17 @@ static const struct attribute_group mxt_attr_group = {
 
 static int mxt_start(struct mxt_data *data)
 {
-	int i, error;
+	int error;
+
 	/* restore the old power state values and reenable touch */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_write_object(data, MXT_GEN_POWER, i,
-			data->t7_data[i]);
-		if (error < 0) {
-			dev_err(&data->client->dev,
-				"failed to restore old power state\n");
-			return error;
-		}
+	error = __mxt_write_reg(data->client, data->t7_start_addr,
+				T7_DATA_SIZE, data->t7_data);
+	if (error < 0) {
+		dev_err(&data->client->dev,
+			"failed to restore old power state\n");
+		return error;
 	}
+
 	error = mxt_write_object(data,
 			MXT_TOUCH_MULTI, MXT_TOUCH_CTRL, data->t9_ctrl);
 	if (error < 0) {
@@ -1131,22 +1096,21 @@ static int mxt_start(struct mxt_data *data)
 
 static int mxt_stop(struct mxt_data *data)
 {
-	int i, error;
-	/* configure deep sleep mode and disable touch */
-	for (i = 0; i < T7_DATA_SIZE; i++) {
-		error = mxt_write_object(data, MXT_GEN_POWER, i, 0);
-		if (error < 0) {
-			dev_err(&data->client->dev,
-				"failed to configure deep sleep mode\n");
-			return error;
-		}
+	int error;
+	u8 t7_data[T7_DATA_SIZE] = {0};
+
+	/* disable touch and configure deep sleep mode */
+	error = mxt_write_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_CTRL, 0);
+	if (error < 0) {
+		dev_err(&data->client->dev, "failed to disable touch\n");
+		return error;
 	}
 
-	error = mxt_write_object(data,
-			MXT_TOUCH_MULTI, MXT_TOUCH_CTRL, 0);
+	error = __mxt_write_reg(data->client, data->t7_start_addr,
+				T7_DATA_SIZE, t7_data);
 	if (error < 0) {
 		dev_err(&data->client->dev,
-			"failed to disable touch\n");
+			"failed to configure deep sleep mode\n");
 		return error;
 	}
 
@@ -1308,6 +1272,68 @@ hw_shutdown:
 }
 
 #ifdef CONFIG_PM
+static int mxt_regulator_lpm(struct mxt_data *data, bool on)
+{
+
+	int rc;
+
+	if (on == false)
+		goto regulator_hpm;
+
+	rc = regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&data->client->dev,
+			"Regulator set_opt failed rc=%d\n", rc);
+		goto fail_regulator_lpm;
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		rc = regulator_set_optimum_mode(data->vcc_i2c,
+						MXT_I2C_LPM_LOAD_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator set_opt failed rc=%d\n", rc);
+			goto fail_regulator_lpm;
+		}
+	}
+
+	return 0;
+
+regulator_hpm:
+
+	rc = regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&data->client->dev,
+			"Regulator set_opt failed rc=%d\n", rc);
+		goto fail_regulator_hpm;
+	}
+
+	if (data->pdata->i2c_pull_up) {
+		rc = regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator set_opt failed rc=%d\n", rc);
+			goto fail_regulator_hpm;
+		}
+	}
+
+	return 0;
+
+fail_regulator_lpm:
+	regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	if (data->pdata->i2c_pull_up)
+		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
+
+	return rc;
+
+fail_regulator_hpm:
+	regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	if (data->pdata->i2c_pull_up)
+		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LPM_LOAD_UA);
+
+	return rc;
+}
+
 static int mxt_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -1320,7 +1346,7 @@ static int mxt_suspend(struct device *dev)
 	if (input_dev->users) {
 		error = mxt_stop(data);
 		if (error < 0) {
-			dev_err(&client->dev, "mxt_stop failed in suspend\n");
+			dev_err(dev, "mxt_stop failed in suspend\n");
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
@@ -1328,6 +1354,13 @@ static int mxt_suspend(struct device *dev)
 	}
 
 	mutex_unlock(&input_dev->mutex);
+
+	/* put regulators in low power mode */
+	error = mxt_regulator_lpm(data, true);
+	if (error < 0) {
+		dev_err(dev, "failed to enter low power mode\n");
+		return error;
+	}
 
 	return 0;
 }
@@ -1338,18 +1371,20 @@ static int mxt_resume(struct device *dev)
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
 	int error;
-	/* Soft reset */
-	mxt_write_object(data, MXT_GEN_COMMAND,
-			MXT_COMMAND_RESET, 1);
 
-	mxt_reset_delay(data);
+	/* put regulators in high power mode */
+	error = mxt_regulator_lpm(data, false);
+	if (error < 0) {
+		dev_err(dev, "failed to enter high power mode\n");
+		return error;
+	}
 
 	mutex_lock(&input_dev->mutex);
 
 	if (input_dev->users) {
 		error = mxt_start(data);
 		if (error < 0) {
-			dev_err(&client->dev, "mxt_start failed in resume\n");
+			dev_err(dev, "mxt_start failed in resume\n");
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
@@ -1414,25 +1449,23 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	data->pdata = pdata;
 	data->irq = client->irq;
 
-	mxt_calc_resolution(data);
-
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 
 	/* For single touch */
 	input_set_abs_params(input_dev, ABS_X,
-			     0, data->max_x, 0, 0);
+			     0, data->pdata->x_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y,
-			     0, data->max_y, 0, 0);
+			     0, data->pdata->y_size, 0, 0);
 
 	/* For multi touch */
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, MXT_MAX_AREA, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			     0, data->max_x, 0, 0);
+			     0, data->pdata->x_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			     0, data->max_y, 0, 0);
+			     0, data->pdata->y_size, 0, 0);
 
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
