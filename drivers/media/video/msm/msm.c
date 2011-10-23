@@ -1398,10 +1398,8 @@ static int msm_open(struct file *f)
 	}
 	mutex_lock(&pcam->vid_lock);
 	for (i = 0; i < MSM_DEV_INST_MAX; i++) {
-		if (pcam->dev_inst[i] == NULL) {
-			mutex_unlock(&pcam->vid_lock);
+		if (pcam->dev_inst[i] == NULL)
 			break;
-		}
 	}
 	/* if no instance is available, return error */
 	if (i == MSM_DEV_INST_MAX) {

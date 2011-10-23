@@ -157,7 +157,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
 
-	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_ATOMIC);
 	if (!isp_event) {
 		pr_err("%s Insufficient memory. return", __func__);
 		return -ENOMEM;
