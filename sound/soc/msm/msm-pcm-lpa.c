@@ -78,7 +78,7 @@ static void event_handler(uint32_t opcode,
 	struct snd_pcm_substream *substream = prtd->substream;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct audio_aio_write_param param;
-	struct audio_buffer *buf = prtd->audio_client->port[IN].buf;
+	struct audio_buffer *buf = NULL;
 	unsigned long flag = 0;
 	int i = 0;
 
@@ -102,6 +102,7 @@ static void event_handler(uint32_t opcode,
 		pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
 				__func__, prtd->pcm_count);
 
+		buf = prtd->audio_client->port[IN].buf;
 		param.paddr = (unsigned long)buf[0].phys
 				+ (prtd->out_head * prtd->pcm_count);
 		param.len = prtd->pcm_count;
@@ -135,6 +136,7 @@ static void event_handler(uint32_t opcode,
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
 				__func__, prtd->pcm_count);
+			buf = prtd->audio_client->port[IN].buf;
 			param.paddr = (unsigned long)buf[prtd->out_head].phys;
 			param.len = prtd->pcm_count;
 			param.msw_ts = 0;
@@ -341,6 +343,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 
 	dir = IN;
 	lpa_audio.prtd = NULL;
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 
@@ -348,7 +351,6 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 		SNDRV_PCM_STREAM_PLAYBACK);
 	pr_debug("%s\n", __func__);
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 
