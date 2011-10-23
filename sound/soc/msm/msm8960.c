@@ -229,10 +229,17 @@ static void msm8960_ext_control(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
 	pr_debug("%s: msm8960_spk_control = %d", __func__, msm8960_spk_control);
-	if (msm8960_spk_control == MSM8960_SPK_ON)
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk");
-	else
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk");
+	if (msm8960_spk_control == MSM8960_SPK_ON) {
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	} else {
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Pos");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Neg");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Pos");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Neg");
+	}
 
 	snd_soc_dapm_sync(dapm);
 }
@@ -581,7 +588,10 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
 
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
 
 	snd_soc_dapm_sync(dapm);
 
