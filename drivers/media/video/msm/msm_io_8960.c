@@ -27,6 +27,7 @@
 
 #define DBG_CSID 0
 #define DBG_CSIPHY 0
+#define BUFF_SIZE_128 128
 
 /* MIPI	CSI	PHY registers */
 #define MIPI_CSIPHY_LNn_CFG1_ADDR                0x0
@@ -194,7 +195,7 @@ void msm_io_memcpy_toio(void __iomem *dest_addr,
 
 void msm_io_dump(void __iomem *addr, int size)
 {
-	char line_str[128], *p_str;
+	char line_str[BUFF_SIZE_128], *p_str;
 	int i;
 	u32 *p = (u32 *) addr;
 	u32 data;
@@ -203,11 +204,11 @@ void msm_io_dump(void __iomem *addr, int size)
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
 		if (i % 4 == 0) {
-			sprintf(p_str, "%08x: ", (u32) p);
+			snprintf(p_str, 12, "%08x: ", (u32) p);
 			p_str += 10;
 		}
 		data = readl_relaxed(p++);
-		sprintf(p_str, "%08x ", data);
+		snprintf(p_str, 12, "%08x ", data);
 		p_str += 9;
 		if ((i + 1) % 4 == 0) {
 			CDBG("%s\n", line_str);
