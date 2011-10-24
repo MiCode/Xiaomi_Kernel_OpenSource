@@ -53,6 +53,12 @@
 #define PM8901_REGULATOR_PMR_STATE_MASK		0x60
 #define PM8901_REGULATOR_PMR_STATE_OFF		0x20
 
+/* GPIO UART MUX CTRL registers */
+#define REG_PM8XXX_GPIO_MUX_CTRL		0x1CC
+
+#define UART_PATH_SEL_MASK			0x60
+#define UART_PATH_SEL_SHIFT			0x5
+
 struct pm8xxx_misc_chip {
 	struct list_head			link;
 	struct pm8xxx_misc_platform_data	pdata;
@@ -259,6 +265,47 @@ int pm8xxx_reset_pwr_off(int reset)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_reset_pwr_off);
+
+/**
+ * pm8xxx_uart_gpio_mux_ctrl - Mux configuration to select the UART
+ *
+ * @uart_path_sel: Input argument to select either UART1/2/3
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8XXX_GPIO_MUX_CTRL, UART_PATH_SEL_MASK,
+				uart_path_sel << UART_PATH_SEL_SHIFT);
+			break;
+		default:
+			/* Functionality not supported */
+			break;
+		}
+		if (rc) {
+			pr_err("uart_gpio_mux_ctrl failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_uart_gpio_mux_ctrl);
 
 static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 {

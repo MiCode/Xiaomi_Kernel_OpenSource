@@ -28,6 +28,13 @@ struct pm8xxx_misc_platform_data {
 	int	priority;
 };
 
+enum pm8xxx_uart_path_sel {
+	UART_NONE,
+	UART_TX1_RX1,
+	UART_TX2_RX2,
+	UART_TX3_RX3,
+};
+
 #if defined(CONFIG_MFD_PM8XXX_MISC) || defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
 
 /**
@@ -39,9 +46,17 @@ struct pm8xxx_misc_platform_data {
  */
 int pm8xxx_reset_pwr_off(int reset);
 
+int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
+{
+	return -ENODEV;
+}
+
+static inline int
+pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 {
 	return -ENODEV;
 }
