@@ -847,7 +847,7 @@ struct asm_stream_cmd_open_read {
 #define ADPCM        0x00010BE7
 #define YADPCM       0x00010BE8
 #define MP3          0x00010BE9
-#define MPEG4_AAC    0x00010D86
+#define MPEG4_AAC    0x00010BEA
 #define AMRNB_FS     0x00010BEB
 #define V13K_FS      0x00010BED
 #define EVRC_FS      0x00010BEE
@@ -862,6 +862,7 @@ struct asm_stream_cmd_open_read {
 #define G711_ALAW_FS 0x00010BF7
 #define G711_MLAW_FS 0x00010BF8
 #define G711_PCM_FS  0x00010BF9
+#define MPEG4_MULTI_AAC 0x00010D86
 
 #define ASM_ENCDEC_SBCRATE         0x00010C13
 #define ASM_ENCDEC_IMMDIATE_DECODE 0x00010C14

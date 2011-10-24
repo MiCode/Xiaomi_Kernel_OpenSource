@@ -38,6 +38,7 @@
 #define FORMAT_WMA_V10PRO   0x000e
 #define FORMAT_WMA_V9	    0x000f
 #define FORMAT_AMR_WB_PLUS  0x0010
+#define FORMAT_MPEG4_MULTI_AAC 0x0011
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -239,6 +240,9 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
 
 int q6asm_media_format_block_aac(struct audio_client *ac,
+			struct asm_aac_cfg *cfg);
+
+int q6asm_media_format_block_multi_aac(struct audio_client *ac,
 			struct asm_aac_cfg *cfg);
 
 int q6asm_media_format_block_wma(struct audio_client *ac,
