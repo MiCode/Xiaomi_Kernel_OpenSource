@@ -701,6 +701,9 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 
 	f->descriptors = usb_copy_descriptors(rmnet_fs_function);
 
+	if (!f->descriptors)
+		goto fail;
+
 	dev->fs.in = usb_find_endpoint(rmnet_fs_function,
 					f->descriptors,
 					&rmnet_fs_in_desc);
@@ -722,6 +725,9 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(rmnet_hs_function);
 
+		if (!f->hs_descriptors)
+			goto fail;
+
 		dev->hs.in = usb_find_endpoint(rmnet_hs_function,
 				f->hs_descriptors, &rmnet_hs_in_desc);
 		dev->hs.out = usb_find_endpoint(rmnet_hs_function,
@@ -737,6 +743,9 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 
 	return 0;
 
+fail:
+	if (f->descriptors)
+		usb_free_descriptors(f->descriptors);
 ep_notify_alloc_fail:
 	dev->notify->driver_data = NULL;
 	dev->notify = NULL;
