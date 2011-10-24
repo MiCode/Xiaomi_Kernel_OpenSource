@@ -61,10 +61,6 @@
 #define MSM_ROTATOR_MAX_H	0x1fff
 #define MSM_ROTATOR_MAX_W	0x1fff
 
-#define IS_NONPLANAR		0x0
-#define IS_PLANAR		0x1
-#define IS_PLANAR_16ALIGNED	0x2
-
 /* from lsb to msb */
 #define GET_PACK_PATTERN(a, x, y, z, bit) \
 			(((a)<<((bit)*3))|((x)<<((bit)*2))|((y)<<(bit))|(z))
@@ -94,6 +90,15 @@ struct tile_parm {
 	unsigned int row_tile_h; /* tiles per row's height */
 };
 
+struct msm_rotator_mem_planes {
+	unsigned int num_planes;
+	unsigned int plane_size[4];
+	unsigned int total_size;
+};
+
+#define checkoffset(offset, size, max_size) \
+	((size) > (max_size) || (offset) > ((max_size) - (size)))
+
 struct msm_rotator_dev {
 	void __iomem *io_base;
 	int irq;
@@ -119,8 +124,6 @@ struct msm_rotator_dev {
 	int imem_owner;
 	wait_queue_head_t wq;
 };
-
-#define chroma_addr(start, w, h, bpp) ((start) + ((h) * (w) * (bpp)))
 
 #define COMPONENT_5BITS 1
 #define COMPONENT_6BITS 2
@@ -246,6 +249,19 @@ static irqreturn_t msm_rotator_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static unsigned int tile_size(unsigned int src_width,
+		unsigned int src_height,
+		const struct tile_parm *tp)
+{
+	unsigned int tile_w, tile_h;
+	unsigned int row_num_w, row_num_h;
+	tile_w = tp->width * tp->row_tile_w;
+	tile_h = tp->height * tp->row_tile_h;
+	row_num_w = (src_width + tile_w - 1) / tile_w;
+	row_num_h = (src_height + tile_h - 1) / tile_h;
+	return ((row_num_w * row_num_h * tile_w * tile_h) + 8191) & ~8191;
+}
+
 static int get_bpp(int format)
 {
 	switch (format) {
@@ -285,6 +301,81 @@ static int get_bpp(int format)
 
 }
 
+static int msm_rotator_get_plane_sizes(uint32_t format,	uint32_t w, uint32_t h,
+				       struct msm_rotator_mem_planes *p)
+{
+	/*
+	 * each row of samsung tile consists of two tiles in height
+	 * and two tiles in width which means width should align to
+	 * 64 x 2 bytes and height should align to 32 x 2 bytes.
+	 * video decoder generate two tiles in width and one tile
+	 * in height which ends up height align to 32 X 1 bytes.
+	 */
+	const struct tile_parm tile = {64, 32, 2, 1};
+	int i;
+
+	if (p == NULL)
+		return -EINVAL;
+
+	if ((w > MSM_ROTATOR_MAX_W) || (h > MSM_ROTATOR_MAX_H))
+		return -ERANGE;
+
+	memset(p, 0, sizeof(*p));
+
+	switch (format) {
+	case MDP_XRGB_8888:
+	case MDP_ARGB_8888:
+	case MDP_RGBA_8888:
+	case MDP_BGRA_8888:
+	case MDP_RGBX_8888:
+	case MDP_RGB_888:
+	case MDP_RGB_565:
+	case MDP_BGR_565:
+	case MDP_YCRYCB_H2V1:
+		p->num_planes = 1;
+		p->plane_size[0] = w * h * get_bpp(format);
+		break;
+	case MDP_Y_CRCB_H2V1:
+	case MDP_Y_CBCR_H2V1:
+		p->num_planes = 2;
+		p->plane_size[0] = w * h;
+		p->plane_size[1] = w * h;
+		break;
+	case MDP_Y_CBCR_H2V2:
+	case MDP_Y_CRCB_H2V2:
+		p->num_planes = 2;
+		p->plane_size[0] = w * h;
+		p->plane_size[1] = w * h / 2;
+		break;
+	case MDP_Y_CRCB_H2V2_TILE:
+	case MDP_Y_CBCR_H2V2_TILE:
+		p->num_planes = 2;
+		p->plane_size[0] = tile_size(w, h, &tile);
+		p->plane_size[1] = tile_size(w, h/2, &tile);
+		break;
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_H2V2:
+		p->num_planes = 3;
+		p->plane_size[0] = w * h;
+		p->plane_size[1] = (w / 2) * (h / 2);
+		p->plane_size[2] = (w / 2) * (h / 2);
+		break;
+	case MDP_Y_CR_CB_GH2V2:
+		p->num_planes = 3;
+		p->plane_size[0] = ALIGN(w, 16) * h;
+		p->plane_size[1] = ALIGN(w / 2, 16) * (h / 2);
+		p->plane_size[2] = ALIGN(w / 2, 16) * (h / 2);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (i = 0; i < p->num_planes; i++)
+		p->total_size += p->plane_size[i];
+
+	return 0;
+}
+
 static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 				  unsigned int in_paddr,
 				  unsigned int out_paddr,
@@ -294,7 +385,6 @@ static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 				  unsigned int out_chroma_paddr)
 {
 	int bpp;
-	unsigned int in_chr_addr, out_chr_addr;
 
 	if (info->src.format != info->dst.format)
 		return -EINVAL;
@@ -303,28 +393,12 @@ static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 	if (bpp < 0)
 		return -ENOTTY;
 
-	if (!in_chroma_paddr) {
-		in_chr_addr = chroma_addr(in_paddr, info->src.width,
-				info->src.height,
-				bpp);
-	} else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
-
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-
-	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-	iowrite32(in_chr_addr, MSM_ROTATOR_SRCP1_ADDR);
+	iowrite32(in_chroma_paddr, MSM_ROTATOR_SRCP1_ADDR);
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
+	iowrite32(out_chroma_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
@@ -380,60 +454,45 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 				  int new_session,
 				  unsigned int in_chroma_paddr,
 				  unsigned int out_chroma_paddr,
-				  int planar_mode)
+				  unsigned int in_chroma2_paddr)
 {
-	int bpp;
-	unsigned int in_chr_addr, out_chr_addr;
+	uint32_t dst_format;
+	int is_tile = 0;
 
-	bpp = get_bpp(info->src.format);
-	if (bpp < 0)
-		return -ENOTTY;
-
-	if (!in_chroma_paddr) {
-		if (planar_mode & IS_PLANAR_16ALIGNED)
-			in_chr_addr = chroma_addr(in_paddr,
-				ALIGN(info->src.width, 16),
-				info->src.height,
-				bpp);
-		else
-			in_chr_addr = chroma_addr(in_paddr, info->src.width,
-				info->src.height,
-				bpp);
-	} else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
+	switch (info->src.format) {
+	case MDP_Y_CRCB_H2V2_TILE:
+		is_tile = 1;
+	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
+	case MDP_Y_CRCB_H2V2:
+		dst_format = MDP_Y_CRCB_H2V2;
+		break;
+	case MDP_Y_CBCR_H2V2_TILE:
+		is_tile = 1;
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CBCR_H2V2:
+		dst_format = MDP_Y_CBCR_H2V2;
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (info->dst.format  != dst_format)
+		return -EINVAL;
 
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-	iowrite32(in_chr_addr,
-		  MSM_ROTATOR_SRCP1_ADDR);
+	iowrite32(in_chroma_paddr, MSM_ROTATOR_SRCP1_ADDR);
+	iowrite32(in_chroma2_paddr, MSM_ROTATOR_SRCP2_ADDR);
+
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
+	iowrite32(out_chroma_paddr +
 			((info->dst_y * info->dst.width)/2 + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
-	if (planar_mode & IS_PLANAR) {
-		if (planar_mode & IS_PLANAR_16ALIGNED)
-			iowrite32(in_chr_addr +
-				ALIGN((info->src.width / 2), 16) *
-				(info->src.height / 2),
-				MSM_ROTATOR_SRCP2_ADDR);
-		else
-			iowrite32(in_chr_addr +
-				(info->src.width / 2) * (info->src.height / 2),
-				MSM_ROTATOR_SRCP2_ADDR);
-	}
-
 	if (new_session) {
-		if (planar_mode & IS_PLANAR) {
-			if (planar_mode & IS_PLANAR_16ALIGNED) {
+		if (in_chroma2_paddr) {
+			if (info->src.format == MDP_Y_CR_CB_GH2V2) {
 				iowrite32(ALIGN(info->src.width, 16) |
 					ALIGN((info->src.width / 2), 16) << 16,
 					MSM_ROTATOR_SRC_YSTRIDE1);
@@ -455,8 +514,7 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 				info->dst.width << 16,
 				MSM_ROTATOR_OUT_YSTRIDE1);
 
-		if ((info->src.format == MDP_Y_CBCR_H2V2) ||
-		    (info->src.format == MDP_Y_CB_CR_H2V2)) {
+		if (dst_format == MDP_Y_CBCR_H2V2) {
 			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
 				  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
 			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
@@ -471,118 +529,14 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 			  (ROTATIONS_TO_BITMASK(info->rotations) << 9) |
 			  1 << 8,      		/* ROT_EN */
 			  MSM_ROTATOR_SUB_BLOCK_CFG);
-		iowrite32(0 << 29 | 		/* frame format 0 = linear */
+
+		iowrite32((is_tile ? 2 : 0) << 29 |  /* frame format */
 			  (use_imem ? 0 : 1) << 22 | /* tile size */
-			  ((planar_mode & IS_PLANAR) ?
-				1 : 2) << 19 |  /* fetch planes */
+			  (in_chroma2_paddr ? 1 : 2) << 19 | /* fetch planes */
 			  0 << 18 | 		/* unpack align */
 			  1 << 17 | 		/* unpack tight */
 			  1 << 13 | 		/* unpack count 0=1 component */
-			  (bpp-1) << 9  |	/* src Bpp 0=1 byte ... */
-			  0 << 8  | 		/* has alpha */
-			  0 << 6  | 		/* alpha bits 3=8bits */
-			  3 << 4  | 		/* R/Cr bits 1=5 2=6 3=8 */
-			  3 << 2  | 		/* B/Cb bits 1=5 2=6 3=8 */
-			  3 << 0,   		/* G/Y  bits 1=5 2=6 3=8 */
-			  MSM_ROTATOR_SRC_FORMAT);
-	}
-	return 0;
-}
-
-static unsigned int tile_size(unsigned int src_width,
-		unsigned int src_height,
-		const struct tile_parm *tp)
-{
-	unsigned int tile_w, tile_h;
-	unsigned int row_num_w, row_num_h;
-	tile_w = tp->width * tp->row_tile_w;
-	tile_h = tp->height * tp->row_tile_h;
-	row_num_w = (src_width + tile_w - 1) / tile_w;
-	row_num_h = (src_height + tile_h - 1) / tile_h;
-	return ((row_num_w * row_num_h * tile_w * tile_h) + 8191) & ~8191;
-}
-
-static int msm_rotator_ycxcx_h2v2_tile(struct msm_rotator_img_info *info,
-				  unsigned int in_paddr,
-				  unsigned int out_paddr,
-				  unsigned int use_imem,
-				  int new_session,
-				  unsigned in_chroma_paddr,
-				  unsigned out_chroma_paddr)
-{
-	int bpp;
-	unsigned int offset = 0;
-	unsigned int in_chr_addr, out_chr_addr;
-	/*
-	 * each row of samsung tile consists of two tiles in height
-	 * and two tiles in width which means width should align to
-	 * 64 x 2 bytes and height should align to 32 x 2 bytes.
-	 * video decoder generate two tiles in width and one tile
-	 * in height which ends up height align to 32 X 1 bytes.
-	 */
-	const struct tile_parm tile = {64, 32, 2, 1};
-	if ((info->src.format == MDP_Y_CRCB_H2V2_TILE &&
-		info->dst.format != MDP_Y_CRCB_H2V2) ||
-		(info->src.format == MDP_Y_CBCR_H2V2_TILE &&
-		info->dst.format != MDP_Y_CBCR_H2V2))
-		return -EINVAL;
-
-	bpp = get_bpp(info->src.format);
-	if (bpp < 0)
-		return -ENOTTY;
-
-	offset = tile_size(info->src.width, info->src.height, &tile);
-	if (!in_chroma_paddr)
-		in_chr_addr = in_paddr + offset;
-	else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
-
-	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-	iowrite32(in_paddr + offset, MSM_ROTATOR_SRCP1_ADDR);
-	iowrite32(out_paddr +
-			((info->dst_y * info->dst.width) + info->dst_x),
-		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
-			((info->dst_y * info->dst.width)/2 + info->dst_x),
-		  MSM_ROTATOR_OUTP1_ADDR);
-
-	if (new_session) {
-		iowrite32(info->src.width |
-			  info->src.width << 16,
-			  MSM_ROTATOR_SRC_YSTRIDE1);
-
-		iowrite32(info->dst.width |
-			  info->dst.width << 16,
-			  MSM_ROTATOR_OUT_YSTRIDE1);
-		if (info->src.format == MDP_Y_CBCR_H2V2_TILE) {
-			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
-				  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
-			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
-				  MSM_ROTATOR_OUT_PACK_PATTERN1);
-		} else {
-			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
-				  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
-			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
-				  MSM_ROTATOR_OUT_PACK_PATTERN1);
-		}
-		iowrite32((3  << 18) | 		/* chroma sampling 3=4:2:0 */
-			  (ROTATIONS_TO_BITMASK(info->rotations) << 9) |
-			  1 << 8,      		/* ROT_EN */
-			  MSM_ROTATOR_SUB_BLOCK_CFG);
-		iowrite32(2 << 29 | 		/* frame format 2 = supertile */
-			  (use_imem ? 0 : 1) << 22 | /* tile size */
-			  2 << 19 | 		/* fetch planes 2 = pseudo */
-			  0 << 18 | 		/* unpack align */
-			  1 << 17 | 		/* unpack tight */
-			  1 << 13 | 		/* unpack count 0=1 component */
-			  (bpp-1) << 9  |	/* src Bpp 0=1 byte ... */
+			  0 << 9  |		/* src Bpp 0=1 byte ... */
 			  0 << 8  | 		/* has alpha */
 			  0 << 6  | 		/* alpha bits 3=8bits */
 			  3 << 4  | 		/* R/Cr bits 1=5 2=6 3=8 */
@@ -796,7 +750,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	unsigned int status;
 	struct msm_rotator_data_info info;
 	unsigned int in_paddr, out_paddr;
-	unsigned long len;
+	unsigned long src_len, dst_len;
 	struct file *src_file = 0;
 	struct file *dst_file = 0;
 	int use_imem = 0;
@@ -804,28 +758,13 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	struct file *src_chroma_file = 0;
 	struct file *dst_chroma_file = 0;
 	unsigned int in_chroma_paddr = 0, out_chroma_paddr = 0;
+	unsigned int in_chroma2_paddr = 0;
 	uint32_t format;
+	struct msm_rotator_img_info *img_info;
+	struct msm_rotator_mem_planes src_planes, dst_planes;
 
 	if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
 		return -EFAULT;
-
-	rc = get_img(info.src.memory_id, (unsigned long *)&in_paddr,
-			(unsigned long *)&len, &src_file);
-	if (rc) {
-		printk(KERN_ERR "%s: in get_img() failed id=0x%08x\n",
-		       DRIVER_NAME, info.src.memory_id);
-		return rc;
-	}
-	in_paddr += info.src.offset;
-
-	rc = get_img(info.dst.memory_id, (unsigned long *)&out_paddr,
-			(unsigned long *)&len, &dst_file);
-	if (rc) {
-		printk(KERN_ERR "%s: out get_img() failed id=0x%08x\n",
-		       DRIVER_NAME, info.dst.memory_id);
-		goto do_rotate_fail_dst_img;
-	}
-	out_paddr += info.dst.offset;
 
 	mutex_lock(&msm_rotator_dev->rotator_lock);
 	for (s = 0; s < MAX_SESSIONS; s++)
@@ -851,35 +790,127 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		goto do_rotate_unlock_mutex;
 	}
 
+	img_info = msm_rotator_dev->img_info[s];
+	if (msm_rotator_get_plane_sizes(img_info->src.format,
+					img_info->src.width,
+					img_info->src.height,
+					&src_planes)) {
+		pr_err("%s: invalid src format\n", __func__);
+		rc = -EINVAL;
+		goto do_rotate_unlock_mutex;
+	}
+	if (msm_rotator_get_plane_sizes(img_info->dst.format,
+					img_info->dst.width,
+					img_info->dst.height,
+					&dst_planes)) {
+		pr_err("%s: invalid dst format\n", __func__);
+		rc = -EINVAL;
+		goto do_rotate_unlock_mutex;
+	}
+
+	rc = get_img(info.src.memory_id, (unsigned long *)&in_paddr,
+			(unsigned long *)&src_len, &src_file);
+	if (rc) {
+		pr_err("%s: in get_img() failed id=0x%08x\n",
+			DRIVER_NAME, info.src.memory_id);
+		goto do_rotate_unlock_mutex;
+	}
+
+	rc = get_img(info.dst.memory_id, (unsigned long *)&out_paddr,
+			(unsigned long *)&dst_len, &dst_file);
+	if (rc) {
+		pr_err("%s: out get_img() failed id=0x%08x\n",
+		       DRIVER_NAME, info.dst.memory_id);
+		goto do_rotate_unlock_mutex;
+	}
+
 	format = msm_rotator_dev->img_info[s]->src.format;
 	if (((info.version_key & VERSION_KEY_MASK) == 0xA5B4C300) &&
-		((info.version_key & ~VERSION_KEY_MASK) > 0) &&
-		 (format == MDP_Y_CBCR_H2V2 ||
-		  format == MDP_Y_CRCB_H2V2 ||
-		  format == MDP_Y_CRCB_H2V2_TILE ||
-		  format == MDP_Y_CBCR_H2V2_TILE ||
-		  format == MDP_Y_CBCR_H2V1 ||
-		  format == MDP_Y_CRCB_H2V1)) {
+			((info.version_key & ~VERSION_KEY_MASK) > 0) &&
+			(src_planes.num_planes == 2)) {
+		if (checkoffset(info.src.offset,
+				src_planes.plane_size[0],
+				src_len)) {
+			pr_err("%s: invalid src buffer (len=%lu offset=%x)\n",
+			       __func__, src_len, info.src.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
+		if (checkoffset(info.dst.offset,
+				dst_planes.plane_size[0],
+				dst_len)) {
+			pr_err("%s: invalid dst buffer (len=%lu offset=%x)\n",
+			       __func__, dst_len, info.dst.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
+
 		rc = get_img(info.src_chroma.memory_id,
 				(unsigned long *)&in_chroma_paddr,
-				(unsigned long *)&len, &src_chroma_file);
+				(unsigned long *)&src_len, &src_chroma_file);
 		if (rc) {
-			printk(KERN_ERR "%s: in chroma get_img() failed id=0x%08x\n",
+			pr_err("%s: in chroma get_img() failed id=0x%08x\n",
 				DRIVER_NAME, info.src_chroma.memory_id);
 			goto do_rotate_unlock_mutex;
 		}
-		in_chroma_paddr += info.src_chroma.offset;
 
 		rc = get_img(info.dst_chroma.memory_id,
 				(unsigned long *)&out_chroma_paddr,
-				(unsigned long *)&len, &dst_chroma_file);
+				(unsigned long *)&dst_len, &dst_chroma_file);
 		if (rc) {
-			printk(KERN_ERR "%s: out chroma get_img() failed id=0x%08x\n",
+			pr_err("%s: out chroma get_img() failed id=0x%08x\n",
 				DRIVER_NAME, info.dst_chroma.memory_id);
-			goto do_rotate_fail_dst_chr_img;
+			goto do_rotate_unlock_mutex;
 		}
+
+		if (checkoffset(info.src_chroma.offset,
+				src_planes.plane_size[1],
+				src_len)) {
+			pr_err("%s: invalid chr src buf len=%lu offset=%x\n",
+			       __func__, src_len, info.src_chroma.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
+
+		if (checkoffset(info.dst_chroma.offset,
+				src_planes.plane_size[1],
+				dst_len)) {
+			pr_err("%s: invalid chr dst buf len=%lu offset=%x\n",
+			       __func__, dst_len, info.dst_chroma.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
+
+		in_chroma_paddr += info.src_chroma.offset;
 		out_chroma_paddr += info.dst_chroma.offset;
+	} else {
+		if (checkoffset(info.src.offset,
+				src_planes.total_size,
+				src_len)) {
+			pr_err("%s: invalid src buffer (len=%lu offset=%x)\n",
+			       __func__, src_len, info.src.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
+		if (checkoffset(info.dst.offset,
+				dst_planes.total_size,
+				dst_len)) {
+			pr_err("%s: invalid dst buffer (len=%lu offset=%x)\n",
+			       __func__, dst_len, info.dst.offset);
+			rc = -ERANGE;
+			goto do_rotate_unlock_mutex;
+		}
 	}
+
+	in_paddr += info.src.offset;
+	out_paddr += info.dst.offset;
+
+	if (!in_chroma_paddr && src_planes.num_planes >= 2)
+		in_chroma_paddr = in_paddr + src_planes.plane_size[0];
+	if (!out_chroma_paddr && dst_planes.num_planes >= 2)
+		out_chroma_paddr = out_paddr + dst_planes.plane_size[0];
+	if (src_planes.num_planes >= 3)
+		in_chroma2_paddr = in_chroma_paddr + src_planes.plane_size[1];
 
 	cancel_delayed_work(&msm_rotator_dev->rot_clk_work);
 	if (msm_rotator_dev->rot_clk_state != CLK_EN) {
@@ -931,43 +962,19 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		break;
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
-		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
-					    in_paddr, out_paddr, use_imem,
-					    msm_rotator_dev->last_session_idx
-								!= s,
-					    in_chroma_paddr,
-					    out_chroma_paddr,
-					    IS_NONPLANAR);
-		break;
 	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CR_CB_H2V2:
-		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
-					    in_paddr, out_paddr, use_imem,
-					    msm_rotator_dev->last_session_idx
-								!= s,
-					    in_chroma_paddr,
-					    out_chroma_paddr,
-					    IS_PLANAR);
-		break;
 	case MDP_Y_CR_CB_GH2V2:
-		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
-					    in_paddr, out_paddr, use_imem,
-					    msm_rotator_dev->last_session_idx
-								!= s,
-					    in_chroma_paddr,
-					    out_chroma_paddr,
-					    IS_PLANAR | IS_PLANAR_16ALIGNED);
-		break;
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
-		rc = msm_rotator_ycxcx_h2v2_tile(msm_rotator_dev->img_info[s],
-				in_paddr, out_paddr, use_imem,
-				msm_rotator_dev->last_session_idx
-				!= s,
-				in_chroma_paddr,
-				out_chroma_paddr);
-	break;
-
+		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
+					    in_paddr, out_paddr, use_imem,
+					    msm_rotator_dev->last_session_idx
+								!= s,
+					    in_chroma_paddr,
+					    out_chroma_paddr,
+					    in_chroma2_paddr);
+		break;
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H2V1:
 		rc = msm_rotator_ycxcx_h2v1(msm_rotator_dev->img_info[s],
@@ -1011,18 +1018,16 @@ do_rotate_exit:
 	msm_rotator_imem_free(ROTATOR_REQUEST);
 #endif
 	schedule_delayed_work(&msm_rotator_dev->rot_clk_work, HZ);
+do_rotate_unlock_mutex:
 	if (dst_chroma_file)
 		put_pmem_file(dst_chroma_file);
-do_rotate_fail_dst_chr_img:
 	if (src_chroma_file)
 		put_pmem_file(src_chroma_file);
-do_rotate_unlock_mutex:
-	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	if (dst_file)
 		put_pmem_file(dst_file);
-do_rotate_fail_dst_img:
 	if (src_file)
 		put_pmem_file(src_file);
+	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	dev_dbg(msm_rotator_dev->device, "%s() returning rc = %d\n",
 		__func__, rc);
 	return rc;
@@ -1034,25 +1039,28 @@ static int msm_rotator_start(unsigned long arg, int pid)
 	int rc = 0;
 	int s;
 	int first_free_index = INVALID_SESSION;
+	unsigned int dst_w, dst_h;
 
 	if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
 		return -EFAULT;
+
+	if (info.rotations & MDP_ROT_90) {
+		dst_w = info.src_rect.h;
+		dst_h = info.src_rect.w;
+	} else {
+		dst_w = info.src_rect.w;
+		dst_h = info.src_rect.h;
+	}
 
 	if ((info.rotations > MSM_ROTATOR_MAX_ROT) ||
 	    (info.src.height > MSM_ROTATOR_MAX_H) ||
 	    (info.src.width > MSM_ROTATOR_MAX_W) ||
 	    (info.dst.height > MSM_ROTATOR_MAX_H) ||
 	    (info.dst.width > MSM_ROTATOR_MAX_W) ||
-	    ((info.src_rect.x + info.src_rect.w) > info.src.width) ||
-	    ((info.src_rect.y + info.src_rect.h) > info.src.height) ||
-	    ((info.rotations & MDP_ROT_90) &&
-		((info.dst_x + info.src_rect.h) > info.dst.width)) ||
-	    ((info.rotations & MDP_ROT_90) &&
-		((info.dst_y + info.src_rect.w) > info.dst.height)) ||
-	    (!(info.rotations & MDP_ROT_90) &&
-		((info.dst_x + info.src_rect.w) > info.dst.width)) ||
-	    (!(info.rotations & MDP_ROT_90) &&
-		((info.dst_y + info.src_rect.h) > info.dst.height)))
+	    checkoffset(info.src_rect.x, info.src_rect.w, info.src.width) ||
+	    checkoffset(info.src_rect.y, info.src_rect.h, info.src.height) ||
+	    checkoffset(info.dst_x, dst_w, info.dst.width) ||
+	    checkoffset(info.dst_y, dst_h, info.dst.height))
 		return -EINVAL;
 
 	switch (info.src.format) {
