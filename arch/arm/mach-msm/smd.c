@@ -2548,6 +2548,8 @@ static int __devinit msm_smd_probe(struct platform_device *pdev)
 	smd_initialized = 1;
 
 	smd_alloc_loopback_channel();
+	smsm_irq_handler(0, 0);
+	tasklet_schedule(&smd_fake_irq_tasklet);
 
 	return 0;
 }
