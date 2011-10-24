@@ -57,6 +57,8 @@ struct msm_dmov_conf {
 	struct msm_dmov_crci_conf *crci_conf;
 	struct msm_dmov_chan_conf *chan_conf;
 	int channel_active;
+	int sd;
+	size_t sd_size;
 	struct list_head ready_commands[MSM_DMOV_CHANNEL_COUNT];
 	struct list_head active_commands[MSM_DMOV_CHANNEL_COUNT];
 	spinlock_t lock;
@@ -185,7 +187,8 @@ static struct msm_dmov_conf dmov_conf[] = {
 #endif
 
 #define MSM_DMOV_ID_COUNT (MSM_DMOV_CHANNEL_COUNT * ARRAY_SIZE(dmov_conf))
-#define DMOV_REG(name, adm)    ((name) + (dmov_conf[adm].base))
+#define DMOV_REG(name, adm)    ((name) + (dmov_conf[adm].base) +\
+	(dmov_conf[adm].sd * dmov_conf[adm].sd_size))
 #define DMOV_ID_TO_ADM(id)   ((id) / MSM_DMOV_CHANNEL_COUNT)
 #define DMOV_ID_TO_CHAN(id)   ((id) % MSM_DMOV_CHANNEL_COUNT)
 #define DMOV_CHAN_ADM_TO_ID(ch, adm) ((ch) + (adm) * MSM_DMOV_CHANNEL_COUNT)
@@ -620,33 +623,46 @@ static int msm_dmov_probe(struct platform_device *pdev)
 	int adm = (pdev->id >= 0) ? pdev->id : 0;
 	int i;
 	int ret;
-	struct resource *res =
+	struct msm_dmov_pdata *pdata = pdev->dev.platform_data;
+	struct resource *irqres =
 		platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	struct resource *mres =
+		platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	if (res) {
-		dmov_conf[adm].irq = res->start;
-		dmov_conf[adm].base = (void *)res->end;
+	if (pdata) {
+		dmov_conf[adm].sd = pdata->sd;
+		dmov_conf[adm].sd_size = pdata->sd_size;
 	}
-	if (!dmov_conf[adm].base || !dmov_conf[adm].irq)
+	if (!dmov_conf[adm].sd_size)
 		return -ENXIO;
+
+	if (!irqres || !irqres->start)
+		return -ENXIO;
+	dmov_conf[adm].irq = irqres->start;
+
+	if (!mres || !mres->start)
+		return -ENXIO;
+	dmov_conf[adm].base = ioremap_nocache(mres->start, resource_size(mres));
+	if (!dmov_conf[adm].base)
+		return -ENOMEM;
 
 	ret = request_irq(dmov_conf[adm].irq, msm_datamover_irq_handler,
 		0, "msmdatamover", NULL);
 	if (ret) {
 		PRINT_ERROR("Requesting ADM%d irq %d failed\n", adm,
 			dmov_conf[adm].irq);
-		return ret;
+		goto out_map;
 	}
 	disable_irq(dmov_conf[adm].irq);
 	ret = msm_dmov_init_clocks(pdev);
 	if (ret) {
 		PRINT_ERROR("Requesting ADM%d clocks failed\n", adm);
-		return -ENOENT;
+		goto out_irq;
 	}
 	ret = msm_dmov_clk_toggle(adm, 1);
 	if (ret) {
 		PRINT_ERROR("Enabling ADM%d clocks failed\n", adm);
-		return -ENOENT;
+		goto out_irq;
 	}
 
 	config_datamover(adm);
@@ -660,6 +676,11 @@ static int msm_dmov_probe(struct platform_device *pdev)
 	}
 	wmb();
 	msm_dmov_clk_toggle(adm, 0);
+	return ret;
+out_irq:
+	free_irq(dmov_conf[adm].irq, NULL);
+out_map:
+	iounmap(dmov_conf[adm].base);
 	return ret;
 }
 

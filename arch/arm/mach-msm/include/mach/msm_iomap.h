@@ -43,8 +43,8 @@
 #define IOMEM(x)	((void __force __iomem *)(x))
 #endif
 
-#if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) \
-	|| defined(CONFIG_ARCH_MSM9615)
+#if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
+	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615)
 /* Unified iomap */
 
 #define MSM_TMR_BASE		IOMEM(0xFA000000)	/*  4K	*/
@@ -67,7 +67,6 @@
 #define MSM_HFPLL_BASE		IOMEM(0xFA016000)	/*  4K	*/
 #define MSM_TLMM_BASE		IOMEM(0xFA017000)	/* 16K	*/
 #define MSM_SHARED_RAM_BASE	IOMEM(0xFA300000)	/*  2M  */
-#define MSM_DMOV_BASE		IOMEM(0xFA500000)	/*  1M	*/
 #define MSM_SIC_NON_SECURE_BASE	IOMEM(0xFA600000)	/* 64K	*/
 #define MSM_HDMI_BASE		IOMEM(0xFA800000)	/*  4K  */
 #define MSM_RPM_BASE		IOMEM(0xFA801000)	/*  4K	*/
@@ -83,6 +82,7 @@
 #endif
 
 #include "msm_iomap-8960.h"
+#include "msm_iomap-8930.h"
 #include "msm_iomap-8064.h"
 #include "msm_iomap-9615.h"
 

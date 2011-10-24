@@ -803,9 +803,18 @@ struct platform_device msm_device_bam_dmux = {
 static struct resource msm_dmov_resource[] = {
 	{
 		.start = ADM_0_SCSS_1_IRQ,
-		.end = (resource_size_t)MSM_DMOV_BASE,
 		.flags = IORESOURCE_IRQ,
 	},
+	{
+		.start = 0x18320000,
+		.end = 0x18320000 + SZ_1M - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct msm_dmov_pdata msm_dmov_pdata = {
+	.sd = 1,
+	.sd_size = 0x800,
 };
 
 struct platform_device msm8960_device_dmov = {
@@ -813,6 +822,9 @@ struct platform_device msm8960_device_dmov = {
 	.id	= -1,
 	.resource = msm_dmov_resource,
 	.num_resources = ARRAY_SIZE(msm_dmov_resource),
+	.dev = {
+		.platform_data = &msm_dmov_pdata,
+	},
 };
 
 static struct platform_device *msm_sdcc_devices[] __initdata = {
