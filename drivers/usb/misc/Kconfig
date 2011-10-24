@@ -283,7 +283,7 @@ config USB_QCOM_DIAG_TEST
 
 config USB_QCOM_DUN_BRIDGE
 	tristate "USB Qualcomm modem DUN bridge driver"
-	depends on USB && !USB_SERIAL_QUALCOMM
+	depends on USB
 	help
 	  Say Y here if you have a Qualcomm modem device connected via USB that
 	  will be bridged in kernel space. This driver will enable bridging

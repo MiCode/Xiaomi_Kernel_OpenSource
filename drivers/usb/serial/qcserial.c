@@ -39,7 +39,6 @@ static const struct usb_device_id id_table[] = {
 	{USB_DEVICE(0x19d2, 0xfff3)},	/* ONDA Gobi Modem device */
 	{USB_DEVICE(0x19d2, 0xfff2)},	/* ONDA Gobi QDL device */
 	{USB_DEVICE(0x1557, 0x0a80)},	/* OQO Gobi QDL device */
-	{USB_DEVICE(0x05c6, 0x9001)},   /* Generic Gobi Modem device */
 	{USB_DEVICE(0x05c6, 0x9002)},	/* Generic Gobi Modem device */
 	{USB_DEVICE(0x05c6, 0x9202)},	/* Generic Gobi Modem device */
 	{USB_DEVICE(0x05c6, 0x9203)},	/* Generic Gobi Modem device */
