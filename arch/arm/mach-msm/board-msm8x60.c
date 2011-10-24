@@ -2548,18 +2548,14 @@ static void __init msm8x60_init_dsps(void)
 	 */
 	if (machine_is_msm8x60_fluid()) {
 		/* fluid has different firmware, gpios */
-		peripheral_dsps.name = DSPS_PIL_FLUID_NAME;
 		pdata->pil_name = DSPS_PIL_FLUID_NAME;
 		pdata->gpios = dsps_fluid_gpios;
 		pdata->gpios_num = ARRAY_SIZE(dsps_fluid_gpios);
 	} else {
-		peripheral_dsps.name = DSPS_PIL_GENERIC_NAME;
 		pdata->pil_name = DSPS_PIL_GENERIC_NAME;
 		pdata->gpios = dsps_surf_gpios;
 		pdata->gpios_num = ARRAY_SIZE(dsps_surf_gpios);
 	}
-
-	msm_pil_add_device(&peripheral_dsps);
 
 	platform_device_register(&msm_dsps_device);
 }
