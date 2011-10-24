@@ -147,6 +147,7 @@ struct bam_mux_hdr {
 	uint16_t pkt_len;
 };
 
+static void notify_all(int event, unsigned long data);
 static void bam_mux_write_done(struct work_struct *work);
 static void handle_bam_mux_cmd(struct work_struct *work);
 static void rx_timer_work_func(struct work_struct *work);
@@ -166,6 +167,7 @@ static void ul_wakeup(void);
 static void ul_timeout(struct work_struct *work);
 static void vote_dfab(void);
 static void unvote_dfab(void);
+static void kickoff_ul_wakeup_func(struct work_struct *work);
 
 static int bam_is_connected;
 static DEFINE_MUTEX(wakeup_lock);
@@ -175,6 +177,7 @@ static struct delayed_work ul_timeout_work;
 static int ul_packet_written;
 static struct clk *dfab_clk;
 static DEFINE_RWLOCK(ul_wakeup_lock);
+static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
 /* End A2 power collaspe */
 
 #define bam_ch_is_open(x)						\
@@ -393,6 +396,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
 		read_lock(&ul_wakeup_lock);
+		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
 
 	/* if skb do not have any tailroom for padding,
@@ -501,6 +505,7 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
 		read_lock(&ul_wakeup_lock);
+		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
 
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
@@ -535,6 +540,7 @@ int msm_bam_dmux_close(uint32_t id)
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
 		read_lock(&ul_wakeup_lock);
+		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
 
 	spin_lock_irqsave(&bam_ch[id].lock, flags);
@@ -756,6 +762,34 @@ static void debug_create(const char *name, mode_t mode,
 
 #endif
 
+static void notify_all(int event, unsigned long data)
+{
+	int i;
+
+	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		if (bam_ch_is_open(i))
+			bam_ch[i].notify(bam_ch[i].priv, event, data);
+	}
+}
+
+static void kickoff_ul_wakeup_func(struct work_struct *work)
+{
+	read_lock(&ul_wakeup_lock);
+	if (!bam_is_connected) {
+		read_unlock(&ul_wakeup_lock);
+		ul_wakeup();
+		read_lock(&ul_wakeup_lock);
+		ul_packet_written = 1;
+		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
+	}
+	read_unlock(&ul_wakeup_lock);
+}
+
+void msm_bam_dmux_kickoff_ul_wakeup(void)
+{
+	queue_work(bam_mux_tx_workqueue, &kickoff_ul_wakeup);
+}
+
 static void ul_timeout(struct work_struct *work)
 {
 	write_lock(&ul_wakeup_lock);
@@ -766,6 +800,7 @@ static void ul_timeout(struct work_struct *work)
 	} else {
 		smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
 		bam_is_connected = 0;
+		notify_all(BAM_DMUX_UL_DISCONNECTED, (unsigned long)(NULL));
 	}
 	write_unlock(&ul_wakeup_lock);
 }
