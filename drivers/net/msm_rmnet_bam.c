@@ -81,7 +81,10 @@ struct rmnet_private {
 	struct tasklet_struct tsklt;
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
+	uint8_t waiting_for_ul;
 };
+
+static uint8_t ul_is_connected;
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 static unsigned long timeout_us;
@@ -337,12 +340,24 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 
 static void bam_notify(void *dev, int event, unsigned long data)
 {
+	struct rmnet_private *p = netdev_priv(dev);
+
 	switch (event) {
 	case BAM_DMUX_RECEIVE:
 		bam_recv_notify(dev, (struct sk_buff *)(data));
 		break;
 	case BAM_DMUX_WRITE_DONE:
 		bam_write_done(dev, (struct sk_buff *)(data));
+		break;
+	case BAM_DMUX_UL_CONNECTED:
+		ul_is_connected = 1;
+		if (p->waiting_for_ul) {
+			netif_wake_queue(dev);
+			p->waiting_for_ul = 0;
+		}
+		break;
+	case BAM_DMUX_UL_DISCONNECTED:
+		ul_is_connected = 0;
 		break;
 	}
 }
@@ -419,6 +434,8 @@ static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
 
 static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
+	struct rmnet_private *p = netdev_priv(dev);
+
 	if (netif_queue_stopped(dev)) {
 		pr_err("[%s]fatal: rmnet_xmit called when "
 			"netif_queue is stopped", dev->name);
@@ -426,6 +443,11 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	netif_stop_queue(dev);
+	if (!ul_is_connected) {
+		p->waiting_for_ul = 1;
+		msm_bam_dmux_kickoff_ul_wakeup();
+		return NETDEV_TX_BUSY;
+	}
 	_rmnet_xmit(skb, dev);
 
 	return 0;
@@ -626,6 +648,7 @@ static int __init rmnet_init(void)
 		/* Initial config uses Ethernet */
 		p->operation_mode = RMNET_MODE_LLP_ETH;
 		p->ch_id = n;
+		p->waiting_for_ul = 0;
 		spin_lock_init(&p->lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
 		p->timeout_us = timeout_us;
