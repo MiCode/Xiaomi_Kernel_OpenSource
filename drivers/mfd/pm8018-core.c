@@ -21,6 +21,7 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/pm8xxx/pm8018.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/leds-pm8xxx.h>
 
 
 /* PMIC PM8018 SSBI Addresses */
@@ -215,6 +216,16 @@ static struct mfd_cell debugfs_cell __devinitdata = {
 	.pdata_size	= sizeof("pm8018-dbg"),
 };
 
+static struct mfd_cell pwm_cell __devinitdata = {
+	.name           = PM8XXX_PWM_DEV_NAME,
+	.id             = -1,
+};
+
+static struct mfd_cell leds_cell __devinitdata = {
+	.name		= PM8XXX_LEDS_DEV_NAME,
+	.id		= -1,
+};
+
 static int __devinit
 pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		      struct pm8018 *pmic)
@@ -303,6 +314,15 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 				      irq_base);
 		if (ret) {
 			pr_err("Failed to add adc subdevice ret=%d\n", ret);
+		}
+	}
+
+	if (pdata->leds_pdata) {
+		leds_cell.platform_data = pdata->leds_pdata;
+		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
@@ -310,6 +330,12 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base);
 	if (ret) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
+		goto bail;
+	}
+
+	ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
+	if (ret) {
+		pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 		goto bail;
 	}
 
