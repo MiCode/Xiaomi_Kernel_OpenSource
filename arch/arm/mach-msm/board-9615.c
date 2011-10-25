@@ -198,7 +198,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))
 
-#define GPIO_SDCARD_PWR_EN 18
+#define GPIO_SDCARD_PWR_EN	18
+#define GPIO_SDC1_HW_DET	80
 
 /* MDM9x15 have 2 SDCC controllers */
 enum sdcc_controllers {
@@ -371,8 +372,14 @@ static struct mmc_platform_data sdc1_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
+#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
+	.status_gpio	= GPIO_SDC1_HW_DET,
+	.status_irq	= MSM_GPIO_TO_INT(GPIO_SDC1_HW_DET),
+	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+#endif
 };
 static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
 #else
@@ -389,6 +396,7 @@ static struct mmc_platform_data sdc2_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc2_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
+	.pclk_src_dfab	= 1,
 	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
 };
