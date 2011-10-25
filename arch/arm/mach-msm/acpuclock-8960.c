@@ -977,7 +977,7 @@ static struct acpu_level * __init select_freq_plan(void)
 	struct acpu_level *l, *max_acpu_level = NULL;
 
 	/* Select frequency tables. */
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930()) {
 		uint32_t pte_efuse, pvs;
 
 		pte_efuse = readl_relaxed(QFPROM_PTE_EFUSE_ADDR);
