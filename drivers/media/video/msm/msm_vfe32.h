@@ -16,6 +16,15 @@
 #define TRUE  1
 #define FALSE 0
 
+#define VFE32_HW_NUMBER 0x3030B
+#define VFE33_HW_NUMBER 0x30408
+
+/* This defines total number registers in VFE.
+ * Each register is 4 bytes so to get the range,
+ * multiply this number with 4. */
+#define VFE32_REGISTER_TOTAL 0x000001CD
+#define VFE33_REGISTER_TOTAL 0x000001EE
+
 /* at start of camif,  bit 1:0 = 0x01:enable
  * image data capture at frame boundary. */
 #define CAMIF_COMMAND_START  0x00000005
@@ -903,6 +912,7 @@ struct vfe32_ctrl_type {
 	int vfeirq;
 	void __iomem *vfebase;
 	void *syncdata;
+	uint32_t register_total;
 
 	struct resource	*vfemem;
 	struct resource *vfeio;
