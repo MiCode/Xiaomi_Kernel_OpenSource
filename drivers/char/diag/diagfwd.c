@@ -503,7 +503,7 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	} else {
 		if (len > 0) {
 			if (entry.client_id == MODEM_PROC && driver->ch) {
-				if (cpu_is_msm8960() &&
+				if ((cpu_is_msm8960() || cpu_is_msm8930()) &&
 					 (int)(*(char *)buf) == MODE_CMD)
 					if ((int)(*(char *)(buf+1)) == RESET_ID)
 						return;
@@ -542,7 +542,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	temp += 2;
 	data_type = APPS_DATA;
 	/* Dont send any command other than mode reset */
-	if (cpu_is_msm8960() && cmd_code == MODE_CMD) {
+	if ((cpu_is_msm8960() || cpu_is_msm8930()) && cmd_code == MODE_CMD) {
 		if (subsys_id != RESET_ID)
 			data_type = MODEM_DATA;
 	}
@@ -826,7 +826,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Check for download command */
-	else if ((cpu_is_msm8x60() || cpu_is_msm8960()) && (*buf == 0x3A)) {
+	else if ((cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_msm8930())
+							 && (*buf == 0x3A)) {
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
 		ENCODE_RSP_AND_SEND(0);
