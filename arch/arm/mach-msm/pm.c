@@ -45,6 +45,7 @@
 #include "gpio.h"
 #include "timer.h"
 #include "pm.h"
+#include "pm-boot.h"
 
 enum {
 	MSM_PM_DEBUG_SUSPEND = 1U << 0,
@@ -100,7 +101,6 @@ static struct msm_pm_smem_addr_t {
 	struct smsm_interrupt_info_ext *int_info_ext;
 } msm_pm_sma;
 
-static uint32_t *msm_pm_reset_vector;
 static uint32_t msm_pm_max_sleep_time;
 static struct msm_pm_platform_data *msm_pm_modes;
 
@@ -238,7 +238,6 @@ static void msm_pm_timeout(void)
 static int msm_sleep(int sleep_mode, uint32_t sleep_delay,
 	uint32_t sleep_limit, int from_idle)
 {
-	uint32_t saved_vector[2];
 	int collapsed;
 	uint32_t enter_state;
 	uint32_t enter_wait_set = 0;
@@ -344,17 +343,10 @@ static int msm_sleep(int sleep_mode, uint32_t sleep_delay,
 				msm_pm_sma.int_info->aArm_en_mask,
 				msm_pm_sma.int_info->aArm_wakeup_reason,
 				msm_pm_sma.int_info->aArm_interrupts_pending);
-		saved_vector[0] = msm_pm_reset_vector[0];
-		saved_vector[1] = msm_pm_reset_vector[1];
-		msm_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
-		msm_pm_reset_vector[1] = virt_to_phys(msm_pm_collapse_exit);
-		if (msm_pm_debug_mask & MSM_PM_DEBUG_RESET_VECTOR)
-			printk(KERN_INFO "msm_sleep(): vector %x %x -> "
-			       "%x %x\n", saved_vector[0], saved_vector[1],
-			       msm_pm_reset_vector[0], msm_pm_reset_vector[1]);
+		msm_pm_boot_config_before_pc(smp_processor_id(),
+				virt_to_phys(msm_pm_collapse_exit));
 		collapsed = msm_pm_collapse();
-		msm_pm_reset_vector[0] = saved_vector[0];
-		msm_pm_reset_vector[1] = saved_vector[1];
+		msm_pm_boot_config_after_pc(smp_processor_id());
 		if (collapsed) {
 			cpu_init();
 			local_fiq_enable();
@@ -870,22 +862,6 @@ static int __init msm_pm_init(void)
 		printk(KERN_ERR "msm_pm_init: failed get INT_INFO\n");
 		return -ENODEV;
 	}
-
-#if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
-	/* The bootloader is responsible for initializing many of Scorpion's
-	 * coprocessor registers for things like cache timing. The state of
-	 * these coprocessor registers is lost on reset, so part of the
-	 * bootloader must be re-executed. Do not overwrite the reset vector
-	 * or bootloader area.
-	 */
-	msm_pm_reset_vector = (uint32_t *) PAGE_OFFSET;
-#else
-	msm_pm_reset_vector = ioremap(0, PAGE_SIZE);
-	if (msm_pm_reset_vector == NULL) {
-		printk(KERN_ERR "msm_pm_init: failed to map reset vector\n");
-		return -ENODEV;
-	}
-#endif /* CONFIG_ARCH_MSM_SCORPION */
 
 	ret = msm_timer_init_time_sync(msm_pm_timeout);
 	if (ret)

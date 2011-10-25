@@ -139,6 +139,7 @@ ifdef CONFIG_PM
 	obj-$(CONFIG_ARCH_MSM7X27A) += pm2.o
 	obj-$(CONFIG_ARCH_MSM7X25) += pm.o
 	obj-$(CONFIG_ARCH_MSM7X01A) += pm.o
+	obj-y += pm-boot.o
 else
 	obj-y += no-pm.o
 endif

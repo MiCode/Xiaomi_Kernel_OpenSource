@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,19 +10,16 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef _ARCH_ARM_MACH_MSM_PM_BOOT_H
+#define _ARCH_ARM_MACH_MSM_PM_BOOT_H
 
-#ifndef _ARCH_ARM_MACH_MSM_IDLE_H_
-#define _ARCH_ARM_MACH_MSM_IDLE_H_
+enum {
+	MSM_PM_BOOT_CONFIG_TZ		= 0,
+	MSM_PM_BOOT_CONFIG_RESET_VECTOR	= 1,
+};
 
-int msm_arch_idle(void);
-int msm_pm_collapse(void);
-void msm_pm_collapse_exit(void);
-void msm_warmboot_entry(void);
-
-#ifdef CONFIG_CPU_V7
-void msm_pm_boot_entry(void);
-void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address);
-extern unsigned long msm_pm_pc_pgd;
-#endif
+int __init msm_pm_boot_init(int boot_config, uint32_t* address);
+void msm_pm_boot_config_before_pc(unsigned int cpu, unsigned long entry);
+void msm_pm_boot_config_after_pc(unsigned int cpu);
 
 #endif
