@@ -817,6 +817,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 				&common->luns[0].dev.kobj,
 				"lun");
 	if (err) {
+		fsg_common_release(&common->ref);
 		kfree(config);
 		return err;
 	}

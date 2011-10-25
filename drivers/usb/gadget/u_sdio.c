@@ -1107,7 +1107,6 @@ int gsdio_setup(struct usb_gadget *g, unsigned count)
 	struct usb_cdc_line_coding	coding;
 	int i;
 	int ret = 0;
-	struct sdio_port_info *port_info;
 
 	pr_debug("%s: gadget:(%p) count:%d\n", __func__, g, count);
 
@@ -1139,7 +1138,6 @@ int gsdio_setup(struct usb_gadget *g, unsigned count)
 					__func__);
 			goto free_sdio_ports;
 		}
-		port_info++;
 
 #ifdef DEBUG
 		/* REVISIT: create one file per port
