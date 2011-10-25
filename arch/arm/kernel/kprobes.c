@@ -27,6 +27,7 @@
 #include <linux/stringify.h>
 #include <asm/traps.h>
 #include <asm/cacheflush.h>
+#include <asm/mmu_writeable.h>
 
 #define MIN_STACK_SIZE(addr) 				\
 	min((unsigned long)MAX_STACK_SIZE,		\
@@ -81,8 +82,14 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 
 void __kprobes arch_arm_kprobe(struct kprobe *p)
 {
+	unsigned long flags;
+
+	mem_text_writeable_spinlock(&flags);
+	mem_text_address_writeable((unsigned long)p->addr);
 	*p->addr = KPROBE_BREAKPOINT_INSTRUCTION;
 	flush_insns(p->addr, 1);
+	mem_text_address_restore();
+	mem_text_writeable_spinunlock(&flags);
 }
 
 /*
@@ -94,9 +101,14 @@ void __kprobes arch_arm_kprobe(struct kprobe *p)
  */
 int __kprobes __arch_disarm_kprobe(void *p)
 {
+	unsigned long flags;
 	struct kprobe *kp = p;
+	mem_text_writeable_spinlock(&flags);
+	mem_text_address_writeable((unsigned long)kp->addr);
 	*kp->addr = kp->opcode;
 	flush_insns(kp->addr, 1);
+	mem_text_address_restore();
+	mem_text_writeable_spinunlock(&flags);
 	return 0;
 }
 
