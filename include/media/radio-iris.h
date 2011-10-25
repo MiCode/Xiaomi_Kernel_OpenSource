@@ -145,6 +145,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_RESET                    0x0004
 #define HCI_OCF_FM_GET_FEATURE_LIST         0x0005
 #define HCI_OCF_FM_DO_CALIBRATION           0x0006
+#define HCI_OCF_FM_SET_CALIBRATION          0x0007
 
 /*HCI Status parameters commands*/
 #define HCI_OCF_FM_READ_GRP_COUNTERS        0x0001
@@ -546,9 +547,12 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_TX_TONE,
 	V4L2_CID_PRIVATE_IRIS_RDS_GRP_COUNTERS,
 	V4L2_CID_PRIVATE_IRIS_SET_NOTCH_FILTER,/*0x8000028*/
+	/*0x8000029 is used for tavarua specific ioctl*/
+	V4L2_CID_PRIVATE_IRIS_DO_CALIBRATION = 0x800002a,
 	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,/*using private CIDs
 							under userclass*/
 	V4L2_CID_PRIVATE_IRIS_WRITE_DEFAULT,
+	V4L2_CID_PRIVATE_IRIS_SET_CALIBRATION,
 };
 
 
@@ -616,6 +620,7 @@ enum iris_buf_t {
 	IRIS_BUF_SSBI_PEEK,
 	IRIS_BUF_RDS_CNTRS,
 	IRIS_BUF_RD_DEFAULT,
+	IRIS_BUF_CAL_DATA,
 	IRIS_BUF_MAX
 };
 
@@ -712,7 +717,27 @@ enum search_t {
 #define RIVA_PEEK_PARAM     0x6
 #define RIVA_PEEK_LEN_OFSET  0x6
 #define SSBI_PEEK_LEN    0x01
+/*Calibration data*/
+#define PROCS_CALIB_MODE  1
+#define PROCS_CALIB_SIZE  23
+#define DC_CALIB_MODE     2
+#define DC_CALIB_SIZE     48
+#define RSB_CALIB_MODE    3
+#define RSB_CALIB_SIZE    4
+#define CALIB_DATA_OFSET  2
+#define CALIB_MODE_OFSET  1
 
+#define MAX_CALIB_SIZE 75
+struct hci_fm_set_cal_req {
+	__u8    mode;
+	/*Max calibration data size*/
+	__u8    data[MAX_CALIB_SIZE];
+} __packed;
+struct hci_cc_do_calibration_rsp {
+	__u8 status;
+	__u8 mode;
+	__u8 data[MAX_CALIB_SIZE];
+} __packed;
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
