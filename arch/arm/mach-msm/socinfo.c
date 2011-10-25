@@ -210,8 +210,11 @@ static enum msm_cpu cpu_of_id[] = {
 	[104] = MSM_CPU_9615,
 	[105] = MSM_CPU_9615,
 
-	/* 8064 IDs*/
+	/* 8064 IDs */
 	[109] = MSM_CPU_8064,
+
+	/* 8930 IDs */
+	[116] = MSM_CPU_8930,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -700,8 +703,11 @@ const int get_core_count(void)
 
 const int read_msm_cpu_type(void)
 {
-	if (machine_is_msm8960_sim())
+	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3())
 		return MSM_CPU_8960;
+
+	if (socinfo_get_msm_cpu() != MSM_CPU_UNKNOWN)
+		return socinfo_get_msm_cpu();
 
 	switch (read_cpuid_id()) {
 	case 0x510F02D0:
@@ -712,13 +718,12 @@ const int read_msm_cpu_type(void)
 	case 0x510F04D0:
 	case 0x510F04D1:
 	case 0x510F04D2:
+	case 0x511F04D0:
+	case 0x512F04D0:
 		return MSM_CPU_8960;
 
-	case 0x511F04D0:
-		if (get_core_count() == 2)
-			return MSM_CPU_8960;
-		else
-			return MSM_CPU_8930;
+	case 0x51404D11: /* We can't get here unless we are in bringup */
+		return MSM_CPU_8930;
 
 	case 0x510F06F0:
 		return MSM_CPU_8064;
