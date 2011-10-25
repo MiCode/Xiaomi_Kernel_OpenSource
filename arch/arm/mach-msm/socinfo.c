@@ -718,7 +718,7 @@ const int read_msm_cpu_type(void)
 		if (get_core_count() == 2)
 			return MSM_CPU_8960;
 		else
-			return MSM_CPU_8X30;
+			return MSM_CPU_8930;
 
 	case 0x510F06F0:
 		return MSM_CPU_8064;

@@ -44,7 +44,7 @@ enum msm_cpu {
 	MSM_CPU_7X25A,
 	MSM_CPU_7X25AA,
 	MSM_CPU_8064,
-	MSM_CPU_8X30,
+	MSM_CPU_8930,
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 };
@@ -208,9 +208,9 @@ static inline int cpu_is_apq8064(void)
 #endif
 }
 
-static inline int cpu_is_msm8x30(void)
+static inline int cpu_is_msm8930(void)
 {
-	return read_msm_cpu_type() == MSM_CPU_8X30;
+	return read_msm_cpu_type() == MSM_CPU_8930;
 }
 
 static inline int cpu_is_fsm9xxx(void)

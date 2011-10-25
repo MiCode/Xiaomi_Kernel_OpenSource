@@ -996,7 +996,7 @@ static void __init msm_timer_init(void)
 	else if (cpu_is_msm8x60()) {
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
-	} else if (cpu_is_msm8960() || cpu_is_apq8064() || cpu_is_msm8x30()
+	} else if (cpu_is_msm8960() || cpu_is_apq8064() || cpu_is_msm8930()
 		|| cpu_is_msm9615()) {
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
