@@ -27,7 +27,7 @@
 #include <linux/spinlock.h>
 #include <linux/rq_stats.h>
 
-#define MAX_LONG_SIZE 16
+#define MAX_LONG_SIZE 24
 #define DEFAULT_RQ_POLL_JIFFIES 1
 #define DEFAULT_DEF_TIMER_JIFFIES 5
 
@@ -95,8 +95,10 @@ static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, MAX_LONG_SIZE, "%lu\n",
-			rq_info.def_timer_jiffies);
+	int64_t diff_ms;
+	diff_ms = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
+	do_div(diff_ms, 1000 * 1000);
+	return snprintf(buf, MAX_LONG_SIZE, "%lld\n", diff_ms);
 }
 
 static ssize_t store_def_timer_ms(struct kobject *kobj,
