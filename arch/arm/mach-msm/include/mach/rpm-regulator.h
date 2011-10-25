@@ -155,6 +155,9 @@ enum rpm_vreg_voter {
  *
  * This function may only be called for regulators which have the sleep flag
  * specified in their private data.
+ *
+ * Consumers can vote to disable a regulator with this function by passing
+ * min_uV = 0 and max_uV = 0.
  */
 int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 			 int max_uV, int sleep_also);
