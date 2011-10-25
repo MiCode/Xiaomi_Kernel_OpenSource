@@ -2073,7 +2073,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			/* If we get an interrupt and the apps SMSM_RESET
 			   bit is already set, the modem is acking the
 			   app's reset ack. */
-			if (!cpu_is_msm8960())
+			if (!cpu_is_msm8960() && !cpu_is_msm8930())
 				apps &= ~SMSM_RESET;
 			/* Issue a fake irq to handle any
 			 * smd state changes during reset
@@ -2084,7 +2084,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			modem_queue_start_reset_notify();
 
 		} else if (modm & SMSM_RESET) {
-			if (!cpu_is_msm8960())
+			if (!cpu_is_msm8960() && !cpu_is_msm8930())
 				apps |= SMSM_RESET;
 
 			pr_err("\nSMSM: Modem SMSM state changed to SMSM_RESET.");
