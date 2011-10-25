@@ -221,22 +221,52 @@ struct msm_cam_evt_msg {
 	void *data;
 };
 
+struct msm_pp_frame_sp {
+	/* phy addr of the buffer */
+	unsigned long  phy_addr;
+	uint32_t       y_off;
+	uint32_t       cbcr_off;
+	/* buffer length */
+	uint32_t       length;
+	int32_t        fd;
+	uint32_t       addr_offset;
+	/* mapped addr */
+	unsigned long  vaddr;
+};
+
+struct msm_pp_frame_mp {
+	/* phy addr of the plane */
+	unsigned long  phy_addr;
+	/* offset of plane data */
+	uint32_t       data_offset;
+	/* plane length */
+	uint32_t       length;
+	int32_t        fd;
+	uint32_t       addr_offset;
+	/* mapped addr */
+	unsigned long  vaddr;
+};
+
+struct msm_pp_frame {
+	uint32_t       handle; /* stores vb cookie */
+	uint32_t       frame_id;
+	int            path;
+	unsigned short image_type;
+	unsigned short num_planes; /* 1 for sp */
+	struct timeval timestamp;
+	union {
+		struct msm_pp_frame_sp sp;
+		struct msm_pp_frame_mp mp[MAX_PLANES];
+	};
+};
+
 struct msm_cam_evt_divert_frame {
 	unsigned short image_mode;
 	unsigned short op_mode;
 	unsigned short inst_idx;
 	unsigned short node_idx;
-	unsigned long  phy_addr;
-	uint32_t       phy_offset;
-	uint32_t       y_off;
-	uint32_t       cbcr_off;
-	int32_t        fd;
-	uint32_t       frame_id;
-	int            path;
-	uint32_t       length;
-	struct timeval timestamp;
+	struct msm_pp_frame frame;
 	int            do_pp;
-	uint32_t       vb;
 };
 
 struct msm_mctl_pp_cmd_ack_event {
@@ -470,25 +500,6 @@ struct msm_mem_map_info {
 #define MSM_PLANE_MAX		8
 #define MSM_PLANE_Y			0
 #define MSM_PLANE_UV		1
-
-struct msm_buffer_plane {
-	int				type;
-	uint32_t		offset;
-	uint32_t		length;
-	uint32_t		error;
-	unsigned long	buffer;
-	unsigned long	addr;
-	uint32_t		addr_offset;
-	int				fd;
-};
-struct msm_buffer {
-	struct timeval	timestamp;
-	int				memory_type;
-	uint32_t		frame_id;
-	int				path;
-	int				num;
-	struct			msm_buffer_plane planes[MSM_PLANE_MAX];
-};
 
 struct msm_frame {
 	struct timespec ts;
