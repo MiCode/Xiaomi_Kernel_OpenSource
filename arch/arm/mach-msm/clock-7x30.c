@@ -2739,7 +2739,7 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("ebi1_clk",	ebi1_clk.c,	NULL) },
 	{ CLK_LOOKUP("ebi1_fixed_clk",	ebi1_fixed_clk.c,	NULL) },
 	{ CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL) },
-	{ CLK_LOOKUP("gp_clk",		gp_clk.c,	NULL) },
+	{ CLK_LOOKUP("core_clk",	gp_clk.c,	NULL) },
 	{ CLK_LOOKUP("core_clk",	uart3_clk.c,	"msm_serial.2") },
 	{ CLK_LOOKUP("usb_phy_clk",	usb_phy_clk.c,	NULL) },
 
