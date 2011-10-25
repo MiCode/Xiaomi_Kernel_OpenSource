@@ -20,6 +20,9 @@
 #include <mach/iommu_domains.h>
 #include <mach/socinfo.h>
 
+/* dummy 4k for overmapping */
+char iommu_dummy[2*PAGE_SIZE-4];
+
 struct msm_iommu_domain {
 	/* iommu domain to map in */
 	struct iommu_domain *domain;
@@ -158,6 +161,41 @@ static struct msm_iommu_domain msm_iommu_domains[] = {
 		.npools = ARRAY_SIZE(global_pools),
 	}
 };
+
+int msm_iommu_map_extra(struct iommu_domain *domain,
+				unsigned long start_iova,
+				unsigned long size,
+				int cached)
+{
+	int i, ret;
+	unsigned long temp_iova;
+
+	for (i = size, temp_iova = start_iova; i > 0; i -= SZ_4K,
+						temp_iova += SZ_4K) {
+		ret = iommu_map(domain, temp_iova,
+				PFN_ALIGN(virt_to_phys(iommu_dummy)),
+				get_order(SZ_4K),
+				0);
+
+		if (ret) {
+			pr_err("%s: could not map %lx to dummy page in domain"
+				" %p\n",
+				__func__, temp_iova, domain);
+			goto out;
+		}
+	}
+
+	return 0;
+
+out:
+
+	for ( ; i < size; i += SZ_4K, temp_iova -= SZ_4K)
+		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
+
+	return -EINVAL;
+
+}
+
 
 struct iommu_domain *msm_get_iommu_domain(int domain_num)
 {

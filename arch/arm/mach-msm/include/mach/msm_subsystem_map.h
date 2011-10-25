@@ -25,6 +25,11 @@
 /* ioremaps in the kernel address space are uncached */
 #define MSM_SUBSYSTEM_MAP_UNCACHED	0x8
 /*
+ * Will map 2x the length requested.
+ */
+#define MSM_SUBSYSTEM_MAP_IOMMU_2X 0x10
+
+/*
  * Shortcut flags for alignment.
  * The flag must be equal to the alignment requested.
  * e.g. for 8k alignment the flags must be (0x2000 | other flags)
