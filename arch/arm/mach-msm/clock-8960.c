@@ -5441,6 +5441,11 @@ static void __init set_fsm_mode(void __iomem *mode_reg)
 	writel_relaxed(regval, mode_reg);
 
 	/* Program bias count */
+	regval &= ~BM(19, 14);
+	regval |= BVAL(19, 14, 0x1);
+	writel_relaxed(regval, mode_reg);
+
+	/* Program lock count */
 	regval &= ~BM(13, 8);
 	regval |= BVAL(13, 8, 0x8);
 	writel_relaxed(regval, mode_reg);
@@ -5641,11 +5646,6 @@ static void __init reg_init(void)
 			/* Set VCO frequency */
 			rmwreg(0x10000, BB_PLL14_CONFIG_REG, 0x30000);
 
-			/* Enable AUX output */
-			regval = readl_relaxed(BB_PLL14_TEST_CTL_REG);
-			regval |= BIT(12);
-			writel_relaxed(regval, BB_PLL14_TEST_CTL_REG);
-
 			set_fsm_mode(BB_PLL14_MODE_REG);
 		}
 		/* Program PLL2 to 800MHz with ref clk = 27MHz */
@@ -5666,11 +5666,6 @@ static void __init reg_init(void)
 
 		/* Set VCO frequency */
 		rmwreg(0x20000, MM_PLL1_CONFIG_REG, 0x30000);
-
-		/* Enable AUX output */
-		regval = readl_relaxed(MM_PLL1_TEST_CTL_REG);
-		regval |= BIT(12);
-		writel_relaxed(regval, MM_PLL1_TEST_CTL_REG);
 
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
 		writel_relaxed(0x24, MM_PLL3_L_VAL_REG);
