@@ -1057,7 +1057,7 @@ early_initcall(msm_rpmrs_early_init);
 
 static int __init msm_rpmrs_l2_counter_init(void)
 {
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930()) {
 		msm_rpmrs_l2_counter_addr = MSM_IMEM_BASE + L2_PC_COUNTER_ADDR;
 		writel_relaxed(msm_rpmrs_l2_reset_count,
 				msm_rpmrs_l2_counter_addr);
