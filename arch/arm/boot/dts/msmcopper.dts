@@ -14,4 +14,10 @@
 		reg = <0xF9000000 0x1000>,
 		      <0xF9002000 0x1000>;
 	};
+
+	serial@F9684000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xF9684000 0x1000>;
+		interrupts = <109>;
+	};
 };

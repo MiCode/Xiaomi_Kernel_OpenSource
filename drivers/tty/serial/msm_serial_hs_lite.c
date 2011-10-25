@@ -22,6 +22,7 @@
 #define SUPPORT_SYSRQ
 #endif
 
+#include <linux/atomic.h>
 #include <linux/hrtimer.h>
 #include <linux/module.h>
 #include <linux/io.h>
@@ -40,6 +41,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
 #include <linux/debugfs.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include <mach/board.h>
 #include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
@@ -62,6 +65,10 @@ struct msm_hsl_port {
 #define UART_TO_MSM(uart_port)	((struct msm_hsl_port *) uart_port)
 #define is_console(port)	((port)->cons && \
 				(port)->cons->index == (port)->line)
+static struct of_device_id msm_hsl_match_table[] = {
+	{ .compatible = "qcom,msm-lsuart-v14" },
+	{}
+};
 static struct dentry *debug_base;
 static inline void wait_for_xmitr(struct uart_port *port, int bits);
 static inline void msm_hsl_write(struct uart_port *port,
@@ -803,6 +810,8 @@ static void msm_hsl_release_port(struct uart_port *port)
 
 	uart_resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						     "uartdm_resource");
+	if (!uart_resource)
+		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!uart_resource))
 		return;
 	size = uart_resource->end - uart_resource->start + 1;
@@ -829,6 +838,8 @@ static int msm_hsl_request_port(struct uart_port *port)
 
 	uart_resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						     "uartdm_resource");
+	if (!uart_resource)
+		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!uart_resource)) {
 		pr_err("%s: can't get uartdm resource\n", __func__);
 		return -ENXIO;
@@ -851,6 +862,9 @@ static int msm_hsl_request_port(struct uart_port *port)
 		gsbi_resource = platform_get_resource_byname(pdev,
 							     IORESOURCE_MEM,
 							     "gsbi_resource");
+		if (!gsbi_resource)
+			gsbi_resource = platform_get_resource(pdev,
+						IORESOURCE_MEM, 1);
 		if (unlikely(!gsbi_resource)) {
 			pr_err("%s: can't get gsbi resource\n", __func__);
 			return -ENXIO;
@@ -1106,6 +1120,8 @@ static struct uart_driver msm_hsl_uart_driver = {
 	.cons = MSM_HSL_CONSOLE,
 };
 
+static atomic_t msm_serial_hsl_next_id = ATOMIC_INIT(0);
+
 static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 {
 	struct msm_hsl_port *msm_hsl_port;
@@ -1113,6 +1129,9 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	struct resource *gsbi_resource;
 	struct uart_port *port;
 	int ret;
+
+	if (pdev->id == -1)
+		pdev->id = atomic_inc_return(&msm_serial_hsl_next_id) - 1;
 
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR))
 		return -ENXIO;
@@ -1126,6 +1145,8 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	gsbi_resource =	platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
 						     "gsbi_resource");
+	if (!gsbi_resource)
+		gsbi_resource = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	msm_hsl_port->clk = clk_get(&pdev->dev, "core_clk");
 	if (gsbi_resource) {
 		msm_hsl_port->is_uartdm = 1;
@@ -1144,10 +1165,11 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 		return PTR_ERR(msm_hsl_port->pclk);
 	}
 
-
 	uart_resource = platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
 						     "uartdm_resource");
+	if (!uart_resource)
+		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!uart_resource)) {
 		printk(KERN_ERR "getting uartdm_resource failed\n");
 		return -ENXIO;
@@ -1275,6 +1297,7 @@ static struct platform_driver msm_hsl_platform_driver = {
 		.name = "msm_serial_hsl",
 		.owner = THIS_MODULE,
 		.pm = &msm_hsl_dev_pm_ops,
+		.of_match_table = msm_hsl_match_table,
 	},
 };
 

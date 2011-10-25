@@ -1,0 +1,15 @@
+* Qualcomm MSM HSUART
+
+Required properties:
+- compatible : one of:
+	- "qcom,msm-lsuart-v14"
+- reg : offset and length of the register set for the device.
+- interrupts : should contain the uart interrupt.
+
+Example:
+
+	serial@19c400000 {
+		compatible = "qcom,msm-lsuart-v14"
+		reg = <0x19c40000 0x1000">;
+		interrupts = <195>;
+	};
