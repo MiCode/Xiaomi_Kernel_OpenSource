@@ -44,6 +44,12 @@ extern unsigned long msm_subsystem_get_domain_no(int subsys_id);
 extern unsigned long msm_subsystem_get_partition_no(int subsys_id);
 
 extern int msm_use_iommu(void);
+
+extern int msm_iommu_map_extra(struct iommu_domain *domain,
+						unsigned long start_iova,
+						unsigned long size,
+						int cached);
+
 #else
 static inline struct iommu_domain
 	*msm_get_iommu_domain(int subsys_id) { return NULL; }
@@ -73,6 +79,14 @@ static inline unsigned long msm_subsystem_get_partition_no(int subsys_id)
 static inline int msm_use_iommu(void)
 {
 	return 0;
+}
+
+static inline int msm_iommu_map_extra(struct iommu_domain *domain,
+						unsigned long start_iova,
+						unsigned long size,
+						int cached)
+{
+	return -ENODEV;
 }
 #endif
 
