@@ -117,7 +117,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			aac_cfg.sample_rate);
 
 		/* Configure Media format block */
-		rc = q6asm_media_format_block_aac(audio->ac, &aac_cfg);
+		rc = q6asm_media_format_block_multi_aac(audio->ac, &aac_cfg);
 		if (rc < 0) {
 			pr_err("cmd media format block failed\n");
 			break;
@@ -249,7 +249,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	/* open in T/NT mode */
 	if ((file->f_mode & FMODE_WRITE) && (file->f_mode & FMODE_READ)) {
 		rc = q6asm_open_read_write(audio->ac, FORMAT_LINEAR_PCM,
-					   FORMAT_MPEG4_AAC);
+					   FORMAT_MPEG4_MULTI_AAC);
 		if (rc < 0) {
 			pr_err("NT mode Open failed rc=%d\n", rc);
 			rc = -ENODEV;
@@ -261,7 +261,7 @@ static int audio_open(struct inode *inode, struct file *file)
 		audio->buf_cfg.meta_info_enable = 0x01;
 	} else if ((file->f_mode & FMODE_WRITE) &&
 			!(file->f_mode & FMODE_READ)) {
-		rc = q6asm_open_write(audio->ac, FORMAT_MPEG4_AAC);
+		rc = q6asm_open_write(audio->ac, FORMAT_MPEG4_MULTI_AAC);
 		if (rc < 0) {
 			pr_err("T mode Open failed rc=%d\n", rc);
 			rc = -ENODEV;
