@@ -167,7 +167,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
 	obj-y += subsystem_restart.o
 	obj-y += ramdump.o
-	obj-$(CONFIG_ARCH_MSM8X60) += subsystem-fatal-8x60.o
+	obj-$(CONFIG_ARCH_MSM8X60) += modem-8660.o lpass-8660.o
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 obj-$(CONFIG_MSM_MODEM_8960) += modem-8960.o
