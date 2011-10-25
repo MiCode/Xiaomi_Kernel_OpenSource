@@ -33,6 +33,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
+#include <asm/hardware/cache-l2x0.h>
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
@@ -636,6 +637,24 @@ static void msm_pm_swfi(void)
 	msm_arch_idle();
 }
 
+#ifdef CONFIG_CACHE_L2X0
+static inline bool msm_pm_l2x0_power_collapse(void)
+{
+	bool collapsed = 0;
+
+	l2x0_suspend();
+	collapsed = msm_pm_collapse();
+	l2x0_resume(collapsed);
+
+	return collapsed;
+}
+#else
+static inline bool msm_pm_l2x0_power_collapse(void)
+{
+	return msm_pm_collapse();
+}
+#endif
+
 static bool msm_pm_spm_power_collapse(
 	struct msm_pm_device *dev, bool from_idle, bool notify_rpm)
 {
@@ -663,7 +682,7 @@ static bool msm_pm_spm_power_collapse(
 	vfp_flush_context();
 #endif
 
-	collapsed = msm_pm_collapse();
+	collapsed = msm_pm_l2x0_power_collapse();
 
 	msm_pm_boot_config_after_pc(dev->cpu);
 

@@ -2297,6 +2297,11 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	},
 };
 
+static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
+	.mode = MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
+	.v_addr = (unsigned int *)PAGE_OFFSET,
+};
+
 static void
 msm_i2c_gpio_config(int iface, int config_type)
 {
@@ -2437,8 +2442,7 @@ static void __init qsd8x50_init(void)
 	spi_register_board_info(msm_spi_board_info,
 				ARRAY_SIZE(msm_spi_board_info));
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
-	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR,
-				(uint32_t *)PAGE_OFFSET));
+	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 
 #ifdef CONFIG_SURF_FFA_GPIO_KEYPAD
 	if (machine_is_qsd8x50_ffa())

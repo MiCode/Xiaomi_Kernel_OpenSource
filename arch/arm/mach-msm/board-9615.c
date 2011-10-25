@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/msm_ssbi.h>
+#include <linux/memblock.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/mmc.h>
@@ -35,6 +36,7 @@
 #include "pm.h"
 #include "acpuclock.h"
 #include <linux/power/ltc4088-charger.h>
+#include "pm-boot.h"
 
 static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
@@ -627,6 +629,11 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	},
 };
 
+static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
+	.mode = MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR,
+	.v_addr = MSM_APCS_GLB_BASE +  0x24,
+};
+
 static int __init gpiomux_init(void)
 {
 	int rc;
@@ -850,6 +857,11 @@ static void __init msm9615_i2c_init(void)
 					&msm9615_i2c_qup_gsbi5_pdata;
 }
 
+static void __init msm9615_reserve(void)
+{
+	msm_pm_boot_pdata.p_addr = memblock_alloc(SZ_8, SZ_64K);
+}
+
 static void __init msm9615_common_init(void)
 {
 	msm9615_device_init();
@@ -880,6 +892,7 @@ static void __init msm9615_common_init(void)
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 						msm_pm_data);
+	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 }
 
 static void __init msm9615_cdp_init(void)
@@ -897,6 +910,7 @@ MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.init_irq = msm9615_init_irq,
 	.timer = &msm_timer,
 	.init_machine = msm9615_cdp_init,
+	.reserve = msm9615_reserve,
 MACHINE_END
 
 MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
@@ -904,4 +918,5 @@ MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
 	.init_irq = msm9615_init_irq,
 	.timer = &msm_timer,
 	.init_machine = msm9615_mtp_init,
+	.reserve = msm9615_reserve,
 MACHINE_END

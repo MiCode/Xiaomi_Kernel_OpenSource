@@ -15,6 +15,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
+#include <asm/mach-types.h>
+#include <asm/sizes.h>
 #include "scm-boot.h"
 #include "idle.h"
 #include "pm-boot.h"
@@ -55,7 +59,8 @@ static inline void msm_pm_config_tz_before_pc(unsigned int cpu,
 
 static int __init msm_pm_boot_reset_vector_init(uint32_t *reset_vector)
 {
-	WARN_ON(!reset_vector);
+	if (!reset_vector)
+		return -ENODEV;
 	msm_pm_reset_vector = reset_vector;
 	mb();
 
@@ -88,19 +93,47 @@ void msm_pm_boot_config_after_pc(unsigned int cpu)
 	if (msm_pm_boot_after_pc)
 		msm_pm_boot_after_pc(cpu);
 }
+#define BOOT_REMAP_ENABLE  BIT(0)
 
-int __init msm_pm_boot_init(int tz_available, uint32_t* address)
+int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 {
 	int ret = 0;
 
-	switch (tz_available) {
+	switch (pdata->mode) {
 	case MSM_PM_BOOT_CONFIG_TZ:
 		ret = msm_pm_tz_boot_init();
 		msm_pm_boot_before_pc = msm_pm_config_tz_before_pc;
 		msm_pm_boot_after_pc = NULL;
 		break;
-	case MSM_PM_BOOT_CONFIG_RESET_VECTOR:
-		ret = msm_pm_boot_reset_vector_init(address);
+	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS:
+		if (!pdata->p_addr)
+			return -ENODEV;
+		pdata->v_addr = ioremap(pdata->p_addr, PAGE_SIZE);
+		/* Fall through */
+	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT:
+
+		if (!pdata->v_addr)
+			return -ENODEV;
+
+		ret = msm_pm_boot_reset_vector_init(pdata->v_addr);
+		msm_pm_boot_before_pc
+			= msm_pm_config_rst_vector_before_pc;
+		msm_pm_boot_after_pc
+			= msm_pm_config_rst_vector_after_pc;
+		break;
+	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
+		/*
+		 * Set the boot remap address and enable remapping of
+		 * reset vector
+		 */
+		if (!pdata->p_addr || !pdata->v_addr)
+			return -ENODEV;
+
+		__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
+				pdata->v_addr);
+
+		ret = msm_pm_boot_reset_vector_init(__va(pdata->p_addr));
+
 		msm_pm_boot_before_pc
 			= msm_pm_config_rst_vector_before_pc;
 		msm_pm_boot_after_pc

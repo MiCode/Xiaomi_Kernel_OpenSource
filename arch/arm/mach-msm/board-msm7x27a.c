@@ -1720,6 +1720,11 @@ static struct msm_pm_platform_data msm7x27a_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	},
 };
 
+static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
+	.mode = MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
+	.v_addr = (uint32_t *)PAGE_OFFSET,
+};
+
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.name = "pmem_adsp",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
@@ -3303,8 +3308,7 @@ static void __init msm7x2x_init(void)
 
 	msm_pm_set_platform_data(msm7x27a_pm_data,
 				ARRAY_SIZE(msm7x27a_pm_data));
-	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR,
-				ioremap(0, PAGE_SIZE)));
+	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 
 #if defined(CONFIG_I2C) && defined(CONFIG_GPIO_SX150X)
 	register_i2c_devices();

@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2007-2009,2011 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,6 @@
 int msm_arch_idle(void);
 int msm_pm_collapse(void);
 void msm_pm_collapse_exit(void);
-void msm_warmboot_entry(void);
 
 #ifdef CONFIG_CPU_V7
 void msm_pm_boot_entry(void);
@@ -30,6 +29,5 @@ static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
 	/* empty */
 }
 #endif
-
 
 #endif
