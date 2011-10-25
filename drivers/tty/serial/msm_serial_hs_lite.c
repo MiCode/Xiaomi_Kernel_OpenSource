@@ -60,13 +60,61 @@ struct msm_hsl_port {
 	unsigned int            *mapped_gsbi;
 	int			is_uartdm;
 	unsigned int            old_snap_state;
+	unsigned int		ver_id;
 };
+
+#define UARTDM_VERSION_11_13	0
+#define UARTDM_VERSION_14	1
 
 #define UART_TO_MSM(uart_port)	((struct msm_hsl_port *) uart_port)
 #define is_console(port)	((port)->cons && \
 				(port)->cons->index == (port)->line)
+
+static const unsigned int regmap[][UARTDM_LAST] = {
+	[UARTDM_VERSION_11_13] = {
+		[UARTDM_MR1] = UARTDM_MR1_ADDR,
+		[UARTDM_MR2] = UARTDM_MR2_ADDR,
+		[UARTDM_IMR] = UARTDM_IMR_ADDR,
+		[UARTDM_SR] = UARTDM_SR_ADDR,
+		[UARTDM_CR] = UARTDM_CR_ADDR,
+		[UARTDM_CSR] = UARTDM_CSR_ADDR,
+		[UARTDM_IPR] = UARTDM_IPR_ADDR,
+		[UARTDM_ISR] = UARTDM_ISR_ADDR,
+		[UARTDM_RX_TOTAL_SNAP] = UARTDM_RX_TOTAL_SNAP_ADDR,
+		[UARTDM_TFWR] = UARTDM_TFWR_ADDR,
+		[UARTDM_RFWR] = UARTDM_RFWR_ADDR,
+		[UARTDM_RF] = UARTDM_RF_ADDR,
+		[UARTDM_TF] = UARTDM_TF_ADDR,
+		[UARTDM_MISR] = UARTDM_MISR_ADDR,
+		[UARTDM_DMRX] = UARTDM_DMRX_ADDR,
+		[UARTDM_NCF_TX] = UARTDM_NCF_TX_ADDR,
+		[UARTDM_DMEN] = UARTDM_DMEN_ADDR,
+	},
+	[UARTDM_VERSION_14] = {
+		[UARTDM_MR1] = 0x0,
+		[UARTDM_MR2] = 0x4,
+		[UARTDM_IMR] = 0xb0,
+		[UARTDM_SR] = 0xa4,
+		[UARTDM_CR] = 0xa8,
+		[UARTDM_CSR] = 0xa0,
+		[UARTDM_IPR] = 0x18,
+		[UARTDM_ISR] = 0xb4,
+		[UARTDM_RX_TOTAL_SNAP] = 0xbc,
+		[UARTDM_TFWR] = 0x1c,
+		[UARTDM_RFWR] = 0x20,
+		[UARTDM_RF] = 0x140,
+		[UARTDM_TF] = 0x100,
+		[UARTDM_MISR] = 0xac,
+		[UARTDM_DMRX] = 0x34,
+		[UARTDM_NCF_TX] = 0x40,
+		[UARTDM_DMEN] = 0x3c,
+	},
+};
+
 static struct of_device_id msm_hsl_match_table[] = {
-	{ .compatible = "qcom,msm-lsuart-v14" },
+	{	.compatible = "qcom,msm-lsuart-v14",
+		.data = (void *)UARTDM_VERSION_14
+	},
 	{}
 };
 static struct dentry *debug_base;
@@ -116,6 +164,7 @@ static int msm_hsl_loopback_enable_set(void *data, u64 val)
 {
 	struct msm_hsl_port *msm_hsl_port = data;
 	struct uart_port *port = &(msm_hsl_port->uart);
+	unsigned int vid;
 	unsigned long flags;
 	int ret = 0;
 
@@ -127,17 +176,18 @@ static int msm_hsl_loopback_enable_set(void *data, u64 val)
 		return -EINVAL;
 	}
 
+	vid = msm_hsl_port->ver_id;
 	if (val) {
 		spin_lock_irqsave(&port->lock, flags);
-		ret = msm_hsl_read(port, UARTDM_MR2_ADDR);
+		ret = msm_hsl_read(port, regmap[vid][UARTDM_MR2]);
 		ret |= UARTDM_MR2_LOOP_MODE_BMSK;
-		msm_hsl_write(port, ret, UARTDM_MR2_ADDR);
+		msm_hsl_write(port, ret, regmap[vid][UARTDM_MR2]);
 		spin_unlock_irqrestore(&port->lock, flags);
 	} else {
 		spin_lock_irqsave(&port->lock, flags);
-		ret = msm_hsl_read(port, UARTDM_MR2_ADDR);
+		ret = msm_hsl_read(port, regmap[vid][UARTDM_MR2]);
 		ret &= ~UARTDM_MR2_LOOP_MODE_BMSK;
-		msm_hsl_write(port, ret, UARTDM_MR2_ADDR);
+		msm_hsl_write(port, ret, regmap[vid][UARTDM_MR2]);
 		spin_unlock_irqrestore(&port->lock, flags);
 	}
 
@@ -160,7 +210,7 @@ static int msm_hsl_loopback_enable_get(void *data, u64 *val)
 	}
 
 	spin_lock_irqsave(&port->lock, flags);
-	ret = msm_hsl_read(port, UARTDM_MR2_ADDR);
+	ret = msm_hsl_read(port, regmap[msm_hsl_port->ver_id][UARTDM_MR2]);
 	spin_unlock_irqrestore(&port->lock, flags);
 	clk_en(port, 0);
 
@@ -198,7 +248,8 @@ static void msm_hsl_stop_tx(struct uart_port *port)
 	clk_en(port, 1);
 
 	msm_hsl_port->imr &= ~UARTDM_ISR_TXLEV_BMSK;
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr,
+		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	clk_en(port, 0);
 }
@@ -210,7 +261,8 @@ static void msm_hsl_start_tx(struct uart_port *port)
 	clk_en(port, 1);
 
 	msm_hsl_port->imr |= UARTDM_ISR_TXLEV_BMSK;
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr,
+		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	clk_en(port, 0);
 }
@@ -223,7 +275,8 @@ static void msm_hsl_stop_rx(struct uart_port *port)
 
 	msm_hsl_port->imr &= ~(UARTDM_ISR_RXLEV_BMSK |
 			       UARTDM_ISR_RXSTALE_BMSK);
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr,
+		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	clk_en(port, 0);
 }
@@ -235,7 +288,8 @@ static void msm_hsl_enable_ms(struct uart_port *port)
 	clk_en(port, 1);
 
 	msm_hsl_port->imr |= UARTDM_ISR_DELTA_CTS_BMSK;
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr,
+		regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	clk_en(port, 0);
 }
@@ -243,26 +297,31 @@ static void msm_hsl_enable_ms(struct uart_port *port)
 static void handle_rx(struct uart_port *port, unsigned int misr)
 {
 	struct tty_struct *tty = port->state->port.tty;
+	unsigned int vid;
 	unsigned int sr;
 	int count = 0;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 
+	vid = msm_hsl_port->ver_id;
 	/*
 	 * Handle overrun. My understanding of the hardware is that overrun
 	 * is not tied to the RX buffer, so we handle the case out of band.
 	 */
-	if ((msm_hsl_read(port, UARTDM_SR_ADDR) & UARTDM_SR_OVERRUN_BMSK)) {
+	if ((msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
+				UARTDM_SR_OVERRUN_BMSK)) {
 		port->icount.overrun++;
 		tty_insert_flip_char(tty, 0, TTY_OVERRUN);
-		msm_hsl_write(port, RESET_ERROR_STATUS, UARTDM_CR_ADDR);
+		msm_hsl_write(port, RESET_ERROR_STATUS,
+			regmap[vid][UARTDM_CR]);
 	}
 
 	if (misr & UARTDM_ISR_RXSTALE_BMSK) {
-		count = msm_hsl_read(port, UARTDM_RX_TOTAL_SNAP_ADDR) -
+		count = msm_hsl_read(port,
+			regmap[vid][UARTDM_RX_TOTAL_SNAP]) -
 			msm_hsl_port->old_snap_state;
 		msm_hsl_port->old_snap_state = 0;
 	} else {
-		count = 4 * (msm_hsl_read(port, UARTDM_RFWR_ADDR));
+		count = 4 * (msm_hsl_read(port, regmap[vid][UARTDM_RFWR]));
 		msm_hsl_port->old_snap_state += count;
 	}
 
@@ -271,13 +330,12 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 		unsigned int c;
 		char flag = TTY_NORMAL;
 
-		sr = msm_hsl_read(port, UARTDM_SR_ADDR);
-		if ((sr &
-		     UARTDM_SR_RXRDY_BMSK) == 0) {
+		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+		if ((sr & UARTDM_SR_RXRDY_BMSK) == 0) {
 			msm_hsl_port->old_snap_state -= count;
 			break;
 		}
-		c = msm_hsl_read(port, UARTDM_RF_ADDR);
+		c = msm_hsl_read(port, regmap[vid][UARTDM_RF]);
 		if (sr & UARTDM_SR_RX_BREAK_BMSK) {
 			port->icount.brk++;
 			if (uart_handle_break(port))
@@ -312,7 +370,9 @@ static void handle_tx(struct uart_port *port)
 	int tx_count;
 	int x;
 	unsigned int tf_pointer = 0;
+	unsigned int vid;
 
+	vid = UART_TO_MSM(port)->ver_id;
 	tx_count = uart_circ_chars_pending(xmit);
 
 	if (tx_count > (UART_XMIT_SIZE - xmit->tail))
@@ -323,13 +383,14 @@ static void handle_tx(struct uart_port *port)
 	/* Handle x_char */
 	if (port->x_char) {
 		wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
-		msm_hsl_write(port, tx_count + 1, UARTDM_NCF_TX_ADDR);
-		msm_hsl_write(port, port->x_char, UARTDM_TF_ADDR);
+		msm_hsl_write(port, tx_count + 1,
+			regmap[vid][UARTDM_NCF_TX]);
+		msm_hsl_write(port, port->x_char, regmap[vid][UARTDM_TF]);
 		port->icount.tx++;
 		port->x_char = 0;
 	} else if (tx_count) {
 		wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
-		msm_hsl_write(port, tx_count, UARTDM_NCF_TX_ADDR);
+		msm_hsl_write(port, tx_count, regmap[vid][UARTDM_NCF_TX]);
 	}
 	if (!tx_count) {
 		msm_hsl_stop_tx(port);
@@ -337,7 +398,7 @@ static void handle_tx(struct uart_port *port)
 	}
 
 	while (tf_pointer < tx_count)  {
-		if (unlikely(!(msm_hsl_read(port, UARTDM_SR_ADDR) &
+		if (unlikely(!(msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
 			       UARTDM_SR_TXRDY_BMSK)))
 			continue;
 		switch (tx_count - tf_pointer) {
@@ -365,7 +426,7 @@ static void handle_tx(struct uart_port *port)
 			break;
 		}
 		}
-		msm_hsl_write(port, x, UARTDM_TF_ADDR);
+		msm_hsl_write(port, x, regmap[vid][UARTDM_TF]);
 		xmit->tail = ((tx_count - tf_pointer < 4) ?
 			      (tx_count - tf_pointer + xmit->tail) :
 			      (xmit->tail + 4)) & (UART_XMIT_SIZE - 1);
@@ -383,7 +444,9 @@ static void handle_tx(struct uart_port *port)
 
 static void handle_delta_cts(struct uart_port *port)
 {
-	msm_hsl_write(port, RESET_CTS, UARTDM_CR_ADDR);
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
+
+	msm_hsl_write(port, RESET_CTS, regmap[vid][UARTDM_CR]);
 	port->icount.cts++;
 	wake_up_interruptible(&port->state->port.delta_msr_wait);
 }
@@ -392,20 +455,24 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	unsigned int vid;
 	unsigned int misr;
 	unsigned long flags;
 
 	spin_lock_irqsave(&port->lock, flags);
 	clk_en(port, 1);
-	misr = msm_hsl_read(port, UARTDM_MISR_ADDR);
-	msm_hsl_write(port, 0, UARTDM_IMR_ADDR); /* disable interrupt */
+	vid = msm_hsl_port->ver_id;
+	misr = msm_hsl_read(port, regmap[vid][UARTDM_MISR]);
+	/* disable interrupt */
+	msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
 
 	if (misr & (UARTDM_ISR_RXSTALE_BMSK | UARTDM_ISR_RXLEV_BMSK)) {
 		handle_rx(port, misr);
 		if (misr & (UARTDM_ISR_RXSTALE_BMSK))
-			msm_hsl_write(port, RESET_STALE_INT, UARTDM_CR_ADDR);
-		msm_hsl_write(port, 6500, UARTDM_DMRX_ADDR);
-		msm_hsl_write(port, STALE_EVENT_ENABLE, UARTDM_CR_ADDR);
+			msm_hsl_write(port, RESET_STALE_INT,
+					regmap[vid][UARTDM_CR]);
+		msm_hsl_write(port, 6500, regmap[vid][UARTDM_DMRX]);
+		msm_hsl_write(port, STALE_EVENT_ENABLE, regmap[vid][UARTDM_CR]);
 	}
 	if (misr & UARTDM_ISR_TXLEV_BMSK)
 		handle_tx(port);
@@ -414,7 +481,7 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 		handle_delta_cts(port);
 
 	/* restore interrupt */
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
 	clk_en(port, 0);
 	spin_unlock_irqrestore(&port->lock, flags);
 
@@ -423,10 +490,11 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 
 static unsigned int msm_hsl_tx_empty(struct uart_port *port)
 {
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
 	unsigned int ret;
 
 	clk_en(port, 1);
-	ret = (msm_hsl_read(port, UARTDM_SR_ADDR) &
+	ret = (msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
 	       UARTDM_SR_TXEMT_BMSK) ? TIOCSER_TEMT : 0;
 	clk_en(port, 0);
 
@@ -435,13 +503,15 @@ static unsigned int msm_hsl_tx_empty(struct uart_port *port)
 
 static void msm_hsl_reset(struct uart_port *port)
 {
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
+
 	/* reset everything */
-	msm_hsl_write(port, RESET_RX, UARTDM_CR_ADDR);
-	msm_hsl_write(port, RESET_TX, UARTDM_CR_ADDR);
-	msm_hsl_write(port, RESET_ERROR_STATUS, UARTDM_CR_ADDR);
-	msm_hsl_write(port, RESET_BREAK_INT, UARTDM_CR_ADDR);
-	msm_hsl_write(port, RESET_CTS, UARTDM_CR_ADDR);
-	msm_hsl_write(port, RFR_LOW, UARTDM_CR_ADDR);
+	msm_hsl_write(port, RESET_RX, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, RESET_TX, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, RESET_ERROR_STATUS, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, RESET_BREAK_INT, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, RESET_CTS, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, RFR_LOW, regmap[vid][UARTDM_CR]);
 }
 
 static unsigned int msm_hsl_get_mctrl(struct uart_port *port)
@@ -451,34 +521,35 @@ static unsigned int msm_hsl_get_mctrl(struct uart_port *port)
 
 static void msm_hsl_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
 	unsigned int mr;
 	unsigned int loop_mode;
 
 	clk_en(port, 1);
 
-	mr = msm_hsl_read(port, UARTDM_MR1_ADDR);
+	mr = msm_hsl_read(port, regmap[vid][UARTDM_MR1]);
 
 	if (!(mctrl & TIOCM_RTS)) {
 		mr &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
-		msm_hsl_write(port, mr, UARTDM_MR1_ADDR);
-		msm_hsl_write(port, RFR_HIGH, UARTDM_CR_ADDR);
+		msm_hsl_write(port, mr, regmap[vid][UARTDM_MR1]);
+		msm_hsl_write(port, RFR_HIGH, regmap[vid][UARTDM_CR]);
 	} else {
 		mr |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-		msm_hsl_write(port, mr, UARTDM_MR1_ADDR);
+		msm_hsl_write(port, mr, regmap[vid][UARTDM_MR1]);
 	}
 
 	loop_mode = TIOCM_LOOP & mctrl;
 	if (loop_mode) {
-		mr = msm_hsl_read(port, UARTDM_MR2_ADDR);
+		mr = msm_hsl_read(port, regmap[vid][UARTDM_MR2]);
 		mr |= UARTDM_MR2_LOOP_MODE_BMSK;
-		msm_hsl_write(port, mr, UARTDM_MR2_ADDR);
+		msm_hsl_write(port, mr, regmap[vid][UARTDM_MR2]);
 
 		/* Reset TX */
 		msm_hsl_reset(port);
 
 		/* Turn on Uart Receiver & Transmitter*/
 		msm_hsl_write(port, UARTDM_CR_RX_EN_BMSK
-			      | UARTDM_CR_TX_EN_BMSK, UARTDM_CR_ADDR);
+		      | UARTDM_CR_TX_EN_BMSK, regmap[vid][UARTDM_CR]);
 	}
 
 	clk_en(port, 0);
@@ -486,12 +557,14 @@ static void msm_hsl_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static void msm_hsl_break_ctl(struct uart_port *port, int break_ctl)
 {
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
+
 	clk_en(port, 1);
 
 	if (break_ctl)
-		msm_hsl_write(port, START_BREAK, UARTDM_CR_ADDR);
+		msm_hsl_write(port, START_BREAK, regmap[vid][UARTDM_CR]);
 	else
-		msm_hsl_write(port, STOP_BREAK, UARTDM_CR_ADDR);
+		msm_hsl_write(port, STOP_BREAK, regmap[vid][UARTDM_CR]);
 
 	clk_en(port, 0);
 }
@@ -500,6 +573,7 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 {
 	unsigned int baud_code, rxstale, watermark;
 	unsigned int data;
+	unsigned int vid;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 
 	switch (baud) {
@@ -565,12 +639,13 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 		break;
 	}
 
-	msm_hsl_write(port, baud_code, UARTDM_CSR_ADDR);
+	vid = msm_hsl_port->ver_id;
+	msm_hsl_write(port, baud_code, regmap[vid][UARTDM_CSR]);
 
 	/* RX stale watermark */
 	watermark = UARTDM_IPR_STALE_LSB_BMSK & rxstale;
 	watermark |= UARTDM_IPR_STALE_TIMEOUT_MSB_BMSK & (rxstale << 2);
-	msm_hsl_write(port, watermark, UARTDM_IPR_ADDR);
+	msm_hsl_write(port, watermark, regmap[vid][UARTDM_IPR]);
 
 	/* Set RX watermark
 	 * Configure Rx Watermark as 3/4 size of Rx FIFO.
@@ -579,26 +654,26 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	 * Hence configuring Rx Watermark as 12 Words.
 	 */
 	watermark = (port->fifosize * 3) / (4*4);
-	msm_hsl_write(port, watermark, UARTDM_RFWR_ADDR);
+	msm_hsl_write(port, watermark, regmap[vid][UARTDM_RFWR]);
 
 	/* set TX watermark */
-	msm_hsl_write(port, 0, UARTDM_TFWR_ADDR);
+	msm_hsl_write(port, 0, regmap[vid][UARTDM_TFWR]);
 
-	msm_hsl_write(port, CR_PROTECTION_EN, UARTDM_CR_ADDR);
+	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
 	msm_hsl_reset(port);
 
 	data = UARTDM_CR_TX_EN_BMSK;
 	data |= UARTDM_CR_RX_EN_BMSK;
 	/* enable TX & RX */
-	msm_hsl_write(port, data, UARTDM_CR_ADDR);
+	msm_hsl_write(port, data, regmap[vid][UARTDM_CR]);
 
 	msm_hsl_write(port, RESET_STALE_INT, UARTDM_CR_ADDR);
 	/* turn on RX and CTS interrupts */
 	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
 		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
-	msm_hsl_write(port, 6500, UARTDM_DMRX_ADDR);
-	msm_hsl_write(port, STALE_EVENT_ENABLE, UARTDM_CR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
+	msm_hsl_write(port, 6500, regmap[vid][UARTDM_DMRX]);
+	msm_hsl_write(port, STALE_EVENT_ENABLE, regmap[vid][UARTDM_CR]);
 }
 
 static void msm_hsl_init_clock(struct uart_port *port)
@@ -618,6 +693,7 @@ static int msm_hsl_startup(struct uart_port *port)
 	const struct msm_serial_hslite_platform_data *pdata =
 					pdev->dev.platform_data;
 	unsigned int data, rfr_level;
+	unsigned int vid;
 	int ret;
 	unsigned long flags;
 
@@ -672,13 +748,14 @@ static int msm_hsl_startup(struct uart_port *port)
 
 	spin_lock_irqsave(&port->lock, flags);
 
+	vid = msm_hsl_port->ver_id;
 	/* set automatic RFR level */
-	data = msm_hsl_read(port, UARTDM_MR1_ADDR);
+	data = msm_hsl_read(port, regmap[vid][UARTDM_MR1]);
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK;
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL0_BMSK;
 	data |= UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK & (rfr_level << 2);
 	data |= UARTDM_MR1_AUTO_RFR_LEVEL0_BMSK & rfr_level;
-	msm_hsl_write(port, data, UARTDM_MR1_ADDR);
+	msm_hsl_write(port, data, regmap[vid][UARTDM_MR1]);
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	ret = request_irq(port->irq, msm_hsl_irq, IRQF_TRIGGER_HIGH,
@@ -700,7 +777,8 @@ static void msm_hsl_shutdown(struct uart_port *port)
 	clk_en(port, 1);
 
 	msm_hsl_port->imr = 0;
-	msm_hsl_write(port, 0, UARTDM_IMR_ADDR); /* disable interrupts */
+	/* disable interrupts */
+	msm_hsl_write(port, 0, regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	clk_en(port, 0);
 
@@ -725,6 +803,7 @@ static void msm_hsl_set_termios(struct uart_port *port,
 {
 	unsigned long flags;
 	unsigned int baud, mr;
+	unsigned int vid;
 
 	spin_lock_irqsave(&port->lock, flags);
 	clk_en(port, 1);
@@ -734,8 +813,9 @@ static void msm_hsl_set_termios(struct uart_port *port,
 
 	msm_hsl_set_baud_rate(port, baud);
 
+	vid = UART_TO_MSM(port)->ver_id;
 	/* calculate parity */
-	mr = msm_hsl_read(port, UARTDM_MR2_ADDR);
+	mr = msm_hsl_read(port, regmap[vid][UARTDM_MR2]);
 	mr &= ~UARTDM_MR2_PARITY_MODE_BMSK;
 	if (termios->c_cflag & PARENB) {
 		if (termios->c_cflag & PARODD)
@@ -772,16 +852,16 @@ static void msm_hsl_set_termios(struct uart_port *port,
 		mr |= STOP_BIT_ONE;
 
 	/* set parity, bits per char, and stop bit */
-	msm_hsl_write(port, mr, UARTDM_MR2_ADDR);
+	msm_hsl_write(port, mr, regmap[vid][UARTDM_MR2]);
 
 	/* calculate and set hardware flow control */
-	mr = msm_hsl_read(port, UARTDM_MR1_ADDR);
+	mr = msm_hsl_read(port, regmap[vid][UARTDM_MR1]);
 	mr &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
 	if (termios->c_cflag & CRTSCTS) {
 		mr |= UARTDM_MR1_CTS_CTL_BMSK;
 		mr |= UARTDM_MR1_RX_RDY_CTL_BMSK;
 	}
-	msm_hsl_write(port, mr, UARTDM_MR1_ADDR);
+	msm_hsl_write(port, mr, regmap[vid][UARTDM_MR1]);
 
 	/* Configure status bits to ignore based on termio flags. */
 	port->read_status_mask = 0;
@@ -996,28 +1076,35 @@ static inline struct uart_port *get_port_from_line(unsigned int line)
  *  Derived from wait_for_xmitr in 8250 serial driver by Russell King  */
 void wait_for_xmitr(struct uart_port *port, int bits)
 {
-	if (!(msm_hsl_read(port, UARTDM_SR_ADDR) & UARTDM_SR_TXEMT_BMSK)) {
-		while ((msm_hsl_read(port, UARTDM_ISR_ADDR) & bits) != bits) {
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
+
+	if (!(msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
+			UARTDM_SR_TXEMT_BMSK)) {
+		while ((msm_hsl_read(port, regmap[vid][UARTDM_ISR]) &
+					bits) != bits) {
 			udelay(1);
 			touch_nmi_watchdog();
 			cpu_relax();
 		}
-		msm_hsl_write(port, CLEAR_TX_READY, UARTDM_CR_ADDR);
+		msm_hsl_write(port, CLEAR_TX_READY, regmap[vid][UARTDM_CR]);
 	}
 }
 
 #ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
 static void msm_hsl_console_putchar(struct uart_port *port, int ch)
 {
-	wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
-	msm_hsl_write(port, 1, UARTDM_NCF_TX_ADDR);
+	unsigned int vid = UART_TO_MSM(port)->ver_id;
 
-	while (!(msm_hsl_read(port, UARTDM_SR_ADDR) & UARTDM_SR_TXRDY_BMSK)) {
+	wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
+	msm_hsl_write(port, 1, regmap[vid][UARTDM_NCF_TX]);
+
+	while (!(msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
+				UARTDM_SR_TXRDY_BMSK)) {
 		udelay(1);
 		touch_nmi_watchdog();
 	}
 
-	msm_hsl_write(port, ch, UARTDM_TF_ADDR);
+	msm_hsl_write(port, ch, regmap[vid][UARTDM_TF]);
 }
 
 static void msm_hsl_console_write(struct console *co, const char *s,
@@ -1025,12 +1112,14 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 {
 	struct uart_port *port;
 	struct msm_hsl_port *msm_hsl_port;
+	unsigned int vid;
 	int locked;
 
 	BUG_ON(co->index < 0 || co->index >= UART_NR);
 
 	port = get_port_from_line(co->index);
 	msm_hsl_port = UART_TO_MSM(port);
+	vid = msm_hsl_port->ver_id;
 
 	/* not pretty, but we can end up here via various convoluted paths */
 	if (port->sysrq || oops_in_progress)
@@ -1039,9 +1128,9 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 		locked = 1;
 		spin_lock(&port->lock);
 	}
-	msm_hsl_write(port, 0, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
 	uart_console_write(port, s, count, msm_hsl_console_putchar);
-	msm_hsl_write(port, msm_hsl_port->imr, UARTDM_IMR_ADDR);
+	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
 	if (locked == 1)
 		spin_unlock(&port->lock);
 }
@@ -1049,6 +1138,7 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 static int __init msm_hsl_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
+	unsigned int vid;
 	int baud = 0, flow, bits, parity;
 	int ret;
 
@@ -1056,6 +1146,7 @@ static int __init msm_hsl_console_setup(struct console *co, char *options)
 		return -ENXIO;
 
 	port = get_port_from_line(co->index);
+	vid = UART_TO_MSM(port)->ver_id;
 
 	if (unlikely(!port->membase))
 		return -ENXIO;
@@ -1076,7 +1167,7 @@ static int __init msm_hsl_console_setup(struct console *co, char *options)
 	parity = 'n';
 	flow = 'n';
 	msm_hsl_write(port, UARTDM_MR2_BITS_PER_CHAR_8 | STOP_BIT_ONE,
-		      UARTDM_MR2_ADDR);	/* 8N1 */
+		      regmap[vid][UARTDM_MR2]);	/* 8N1 */
 
 	if (baud < 300 || baud > 115200)
 		baud = 115200;
@@ -1085,8 +1176,8 @@ static int __init msm_hsl_console_setup(struct console *co, char *options)
 	ret = uart_set_options(port, co, baud, parity, bits, flow);
 	msm_hsl_reset(port);
 	/* Enable transmitter */
-	msm_hsl_write(port, CR_PROTECTION_EN, UARTDM_CR_ADDR);
-	msm_hsl_write(port, UARTDM_CR_TX_EN_BMSK, UARTDM_CR_ADDR);
+	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
+	msm_hsl_write(port, UARTDM_CR_TX_EN_BMSK, regmap[vid][UARTDM_CR]);
 
 	printk(KERN_INFO "msm_serial_hsl: console setup on port #%d\n",
 	       port->line);
@@ -1128,6 +1219,7 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	struct resource *uart_resource;
 	struct resource *gsbi_resource;
 	struct uart_port *port;
+	const struct of_device_id *match;
 	int ret;
 
 	if (pdev->id == -1)
@@ -1141,6 +1233,12 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	port = get_port_from_line(pdev->id);
 	port->dev = &pdev->dev;
 	msm_hsl_port = UART_TO_MSM(port);
+
+	match = of_match_device(msm_hsl_match_table, &pdev->dev);
+	if (!match)
+		msm_hsl_port->ver_id = UARTDM_VERSION_11_13;
+	else
+		msm_hsl_port->ver_id = (unsigned int)match->data;
 
 	gsbi_resource =	platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
