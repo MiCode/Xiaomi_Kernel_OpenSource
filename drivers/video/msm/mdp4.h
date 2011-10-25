@@ -389,6 +389,16 @@ static inline void mdp4_overlay_dtv_vsync_push(struct msm_fb_data_type *mfd,
 	/* empty */
 }
 #endif
+
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+void mdp4_dtv_set_black_screen(void);
+#else
+static inline void mdp4_dtv_set_black_screen(void)
+{
+    /* empty */
+}
+#endif
+
 void mdp4_dtv_overlay(struct msm_fb_data_type *mfd);
 int mdp4_dtv_on(struct platform_device *pdev);
 int mdp4_dtv_off(struct platform_device *pdev);
