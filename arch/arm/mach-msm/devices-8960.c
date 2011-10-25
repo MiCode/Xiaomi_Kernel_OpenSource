@@ -1297,12 +1297,12 @@ static struct resource resources_msm_rotator[] = {
 
 static struct msm_rot_clocks rotator_clocks[] = {
 	{
-		.clk_name = "rot_clk",
+		.clk_name = "core_clk",
 		.clk_type = ROTATOR_CORE_CLK,
 		.clk_rate = 200 * 1000 * 1000,
 	},
 	{
-		.clk_name = "rotator_pclk",
+		.clk_name = "iface_clk",
 		.clk_type = ROTATOR_PCLK,
 		.clk_rate = 0,
 	},
@@ -1659,7 +1659,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("mdp_clk",		MDP_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_vsync_clk",	MDP_VSYNC_CLK,		NULL, OFF),
 	CLK_DUMMY("lut_mdp",		LUT_MDP_CLK,		NULL, OFF),
-	CLK_DUMMY("rot_clk",		ROT_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		ROT_CLK,		NULL, OFF),
 	CLK_DUMMY("tv_src_clk",		TV_SRC_CLK,		NULL, OFF),
 	CLK_DUMMY("tv_enc_clk",		TV_ENC_CLK,		NULL, OFF),
 	CLK_DUMMY("tv_dac_clk",		TV_DAC_CLK,		NULL, OFF),
@@ -1673,7 +1673,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("vfe_axi_clk",	VFE_AXI_CLK,		NULL, OFF),
 	CLK_DUMMY("ijpeg_axi_clk",	IJPEG_AXI_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_axi_clk",	MDP_AXI_CLK,		NULL, OFF),
-	CLK_DUMMY("rot_axi_clk",	ROT_AXI_CLK,		NULL, OFF),
+	CLK_DUMMY("bus_clk",		ROT_AXI_CLK,		NULL, OFF),
 	CLK_DUMMY("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, OFF),
 	CLK_DUMMY("vcodec_axi_a_clk",	VCODEC_AXI_A_CLK,	NULL, OFF),
 	CLK_DUMMY("vcodec_axi_b_clk",	VCODEC_AXI_B_CLK,	NULL, OFF),
@@ -1694,7 +1694,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("mem_iface_clk",	IMEM_P_CLK,		NULL, OFF),
 	CLK_DUMMY("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		SMMU_P_CLK,		NULL, OFF),
-	CLK_DUMMY("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		ROT_P_CLK,		NULL, OFF),
 	CLK_DUMMY("tv_enc_pclk",	TV_ENC_P_CLK,		NULL, OFF),
 	CLK_DUMMY("vcodec_pclk",	VCODEC_P_CLK,		NULL, OFF),
 	CLK_DUMMY("vfe_pclk",		VFE_P_CLK,		NULL, OFF),
