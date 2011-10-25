@@ -98,6 +98,7 @@ struct ci13xxx_ep {
 	spinlock_t                            *lock;
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
+	unsigned long dTD_update_fail_count;
 };
 
 struct ci13xxx;
@@ -139,6 +140,7 @@ struct ci13xxx {
 	int                        vbus_active; /* is VBUS active */
 	int                        softconnect; /* is pull-up enable allowed */
 	struct otg_transceiver    *transceiver; /* Transceiver struct */
+	unsigned long dTD_update_fail_count;
 };
 
 /******************************************************************************
