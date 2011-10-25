@@ -38,8 +38,7 @@ static int ss_restart_inprogress;
 
 static void riva_smsm_cb_fn(struct work_struct *work)
 {
-	pr_err("%s: Initiating subsytem restart\n", MODULE_NAME);
-	subsystem_restart("riva");
+	panic(MODULE_NAME ": SMSM reset request received from Riva");
 }
 
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
@@ -59,9 +58,8 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 
 static void riva_fatal_fn(struct work_struct *work)
 {
-	pr_err("%s: Watchdog bite received from Riva\n", MODULE_NAME);
 	if (!ss_restart_inprogress)
-		subsystem_restart("riva");
+		panic(MODULE_NAME ": Watchdog bite received from Riva");
 }
 
 /* SMSM reset Riva */
