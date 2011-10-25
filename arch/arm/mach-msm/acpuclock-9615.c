@@ -27,6 +27,7 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
 
@@ -35,6 +36,9 @@
 #define REG_CLKSEL_1	(MSM_APCS_GLB_BASE + 0x10)
 #define REG_CLKDIV_1	(MSM_APCS_GLB_BASE + 0x14)
 #define REG_CLKOUTSEL	(MSM_APCS_GLB_BASE + 0x18)
+
+#define MAX_VDD_CPU	1150000
+#define MAX_VDD_MEM	1150000
 
 enum clk_src {
 	SRC_CXO,
@@ -62,6 +66,8 @@ struct clkctl_acpu_speed {
 	int		src;
 	unsigned int	src_sel;
 	unsigned int	src_div;
+	unsigned int	vdd_cpu;
+	unsigned int	vdd_mem;
 };
 
 struct acpuclk_state {
@@ -74,11 +80,11 @@ static struct acpuclk_state drv_state = {
 };
 
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,  19200, SRC_CXO,  0, 0 },
-	{ 1, 138000, SRC_PLL0, 6, 1 },
-	{ 1, 276000, SRC_PLL0, 6, 0 },
-	{ 1, 384000, SRC_PLL8, 3, 0 },
-	{ 1, 440000, SRC_PLL9, 2, 0 },
+	{ 0,  19200, SRC_CXO,  0, 0,  950000, 1050000 },
+	{ 1, 138000, SRC_PLL0, 6, 1,  950000, 1050000 },
+	{ 1, 276000, SRC_PLL0, 6, 0, 1050000, 1050000 },
+	{ 1, 384000, SRC_PLL8, 3, 0, 1150000, 1150000 },
+	{ 1, 440000, SRC_PLL9, 2, 0, 1150000, 1150000 },
 	{ 0 }
 };
 
@@ -96,6 +102,53 @@ static void select_clk_source_div(struct clkctl_acpu_speed *s)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
+}
+
+/* Apply any per-cpu voltage increases. */
+static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
+{
+	int rc = 0;
+
+	/*
+	 * Increase vdd_mem active-set before vdd_cpu.
+	 * vdd_mem should be >= vdd_cpu.
+	 */
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L9, RPM_VREG_VOTER1,
+				  vdd_mem, MAX_VDD_MEM, 0);
+	if (rc) {
+		pr_err("vdd_mem increase failed (%d)\n", rc);
+		return rc;
+	}
+
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER1,
+				  vdd_cpu, MAX_VDD_CPU, 0);
+	if (rc)
+		pr_err("vdd_cpu increase failed (%d)\n", rc);
+
+	return rc;
+}
+
+/* Apply any per-cpu voltage decreases. */
+static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
+{
+	int ret;
+
+	/* Update CPU voltage. */
+	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER1,
+				  vdd_cpu, MAX_VDD_CPU, 0);
+	if (ret) {
+		pr_err("vdd_cpu decrease failed (%d)\n", ret);
+		return;
+	}
+
+	/*
+	 * Decrease vdd_mem active-set after vdd_cpu.
+	 * vdd_mem should be >= vdd_cpu.
+	 */
+	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L9, RPM_VREG_VOTER1,
+				  vdd_mem, MAX_VDD_MEM, 0);
+	if (ret)
+		pr_err("vdd_mem decrease failed (%d)\n", ret);
 }
 
 static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
@@ -122,6 +175,14 @@ static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
 		goto out;
 	}
 
+	/* Increase VDD levels if needed. */
+	if ((reason == SETRATE_CPUFREQ || reason == SETRATE_INIT)
+			&& (tgt_s->khz > strt_s->khz)) {
+		rc = increase_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
+		if (rc)
+			goto out;
+	}
+
 	pr_debug("Switching from CPU rate %u KHz -> %u KHz\n",
 		strt_s->khz, tgt_s->khz);
 
@@ -132,6 +193,14 @@ static int acpuclk_9615_set_rate(int cpu, unsigned long rate,
 
 	drv_state.current_speed = tgt_s;
 	pr_debug("CPU speed change complete\n");
+
+	/* Nothing else to do for SWFI or power-collapse. */
+	if (reason == SETRATE_SWFI || reason == SETRATE_PC)
+		goto out;
+
+	/* Drop VDD levels if we can. */
+	if (tgt_s->khz < strt_s->khz)
+		decrease_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
 
 out:
 	if (reason == SETRATE_CPUFREQ)

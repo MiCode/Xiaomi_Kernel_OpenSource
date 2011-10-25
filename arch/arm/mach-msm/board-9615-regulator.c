@@ -247,7 +247,7 @@ msm_pm8018_regulator_pdata[] __devinitdata = {
 static struct rpm_regulator_init_data
 msm_rpm_regulator_init_data[] __devinitdata = {
 	/*	 ID    a_on pd ss min_uV   max_uV  supply sys_uA  freq */
-	RPM_SMPS(S1,     1, 1, 1, 1150000, 1150000, NULL, 100000, 1p60),
+	RPM_SMPS(S1,     1, 1, 1,  950000, 1150000, NULL, 100000, 1p60),
 	RPM_SMPS(S2,     0, 1, 0, 1225000, 1300000, NULL, 0,	  1p60),
 	RPM_SMPS(S3,     1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60),
 	RPM_SMPS(S4,     0, 1, 0, 2100000, 2200000, NULL, 0,	  1p60),
@@ -261,7 +261,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L6,      0, 1, 0, 1800000, 2850000, NULL,      0, 0),
 	RPM_LDO(L7,      0, 1, 0, 1850000, 1900000, "8018_s4", 0, 0),
 	RPM_LDO(L8,      0, 1, 0, 1200000, 1200000, "8018_s3", 0, 0),
-	RPM_LDO(L9,      1, 1, 1, 1150000, 1150000, "8018_s5", 10000, 10000),
+	RPM_LDO(L9,      1, 1, 1, 1050000, 1150000, "8018_s5", 10000, 10000),
 	RPM_LDO(L10,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
 	RPM_LDO(L11,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
 	RPM_LDO(L12,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
