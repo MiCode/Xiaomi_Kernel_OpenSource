@@ -5573,7 +5573,7 @@ static void __init reg_init(void)
 	rmwreg(0x80FF0000, VFE_CC_REG,        0xE0FF4010);
 	rmwreg(0x800000FF, VFE_CC2_REG,       0xE00000FF);
 	rmwreg(0x80FF0000, VPE_CC_REG,        0xE0FF0010);
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930()) {
 		rmwreg(0x80FF0000, GFX2D0_CC_REG,     0xE0FF0010);
 		rmwreg(0x80FF0000, GFX2D1_CC_REG,     0xE0FF0010);
 		rmwreg(0x80FF0000, TV_CC_REG,         0xE1FFC010);
@@ -5618,7 +5618,7 @@ static void __init reg_init(void)
 	writel_relaxed(BIT(15), PDM_CLK_NS_REG);
 
 	/* Source SLIMBus xo src from slimbus reference clock */
-	if (cpu_is_msm8960())
+	if (cpu_is_msm8960() || cpu_is_msm8930())
 		writel_relaxed(0x3, SLIMBUS_XO_SRC_CLK_CTL_REG);
 
 	/* Source the dsi_byte_clks from the DSI PHY PLLs */
@@ -5801,7 +5801,7 @@ static void __init msm8960_clock_init(void)
 		BUG();
 	}
 
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930()) {
 		memcpy(msm_clocks_8960, msm_clocks_8960_v1,
 				sizeof(msm_clocks_8960_v1));
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
@@ -5861,7 +5861,7 @@ static void __init msm8960_clock_init(void)
 		clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
 	}
 	clk_set_rate(&usb_fs1_src_clk.c, 60000000);
-	if (cpu_is_msm8960())
+	if (cpu_is_msm8960() || cpu_is_msm8930())
 		clk_set_rate(&usb_fs2_src_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
