@@ -24,12 +24,46 @@
 #include <mach/msm_spi.h>
 #include <linux/usb/android.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
 #include "cpuidle.h"
 #include "pm.h"
 #include "acpuclock.h"
+
+static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
+	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vbat", CHANNEL_VBAT, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vph_pwr", CHANNEL_VPH_PWR, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"batt_therm", CHANNEL_BATT_THERM, CHAN_PATH_SCALING1, AMUX_RSV2,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+	{"batt_id", CHANNEL_BATT_ID, CHAN_PATH_SCALING1, AMUX_RSV2,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
+	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"125v", CHANNEL_125V, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+};
+
+static struct pm8xxx_adc_properties pm8018_adc_data = {
+	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
+	.bitresolution		= 15,
+	.bipolar                = 0,
+};
+
+static struct pm8xxx_adc_platform_data pm8018_adc_pdata = {
+	.adc_channel		= pm8018_adc_channels_data,
+	.adc_num_board_channel	= ARRAY_SIZE(pm8018_adc_channels_data),
+	.adc_prop		= &pm8018_adc_data,
+};
 
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
 	.irq_base		= PM8018_IRQ_BASE,
@@ -68,6 +102,7 @@ static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
 	.regulator_pdatas	= msm_pm8018_regulator_pdata,
+	.adc_pdata		= &pm8018_adc_pdata,
 };
 
 static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata __devinitdata = {
