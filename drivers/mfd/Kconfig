@@ -805,6 +805,21 @@ config MFD_PM8018_CORE
 	  Say M here if you want to include support for PM8018 chip as a module.
 	  This will build a module called "pm8018-core".
 
+config MFD_PM8038_CORE
+	tristate "Qualcomm PM8038 PMIC chip"
+	depends on MSM_SSBI
+	select MFD_CORE
+	select MFD_PM8XXX
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in PM8038 PMIC chip.
+
+	  This is required if your board has a PM8038 and uses its features,
+	  such as: MPPs, GPIOs, regulators, interrupts, and PWM.
+
+	  Say M here if you want to include support for PM8038 chip as a module.
+	  This will build a module called "pm8038-core".
+
 config MFD_PM8XXX_IRQ
 	bool "Support for Qualcomm PM8xxx IRQ features"
 	depends on MFD_PM8XXX
