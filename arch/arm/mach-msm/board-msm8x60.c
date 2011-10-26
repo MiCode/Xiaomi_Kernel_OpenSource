@@ -6845,6 +6845,7 @@ static u8 read_bahama_ver(void)
 	}
 }
 
+static int msm_bahama_setup_power_enable;
 static unsigned int msm_bahama_setup_power(void)
 {
 	int rc = 0;
@@ -6859,64 +6860,53 @@ static unsigned int msm_bahama_setup_power(void)
 		rc = PTR_ERR(vreg_bahama);
 		pr_err("%s: regulator_get %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
+		return rc;
 	}
 
-	if (!rc)
-		rc = regulator_set_voltage(vreg_bahama, 1800000, 1800000);
-	else {
+	rc = regulator_set_voltage(vreg_bahama, 1800000, 1800000);
+	if (rc) {
 		pr_err("%s: regulator_set_voltage %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
 		goto unget;
 	}
 
-	if (!rc)
-		rc = regulator_enable(vreg_bahama);
-	else {
+	rc = regulator_enable(vreg_bahama);
+	if (rc) {
 		pr_err("%s: regulator_enable %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
 		goto unget;
 	}
 
-	if (!rc) {
-		rc = gpio_request(msm_bahama_sys_rst, "bahama sys_rst_n");
-	} else {
+	rc = gpio_request(msm_bahama_sys_rst, "bahama sys_rst_n");
+	if (rc) {
 		pr_err("%s: gpio_request %d = %d\n", __func__,
 			msm_bahama_sys_rst, rc);
 		goto unenable;
 	}
 
-	if (!rc) {
-		gpio_direction_output(msm_bahama_sys_rst, 0);
-		usleep_range(1000, 1050);
-		gpio_set_value_cansleep(msm_bahama_sys_rst, 1);
-		usleep_range(1000, 1050);
-	} else {
-		pr_err("%s: gpio_direction_output %d = %d\n", __func__,
-			msm_bahama_sys_rst, rc);
-		goto unrequest;
-	}
-
+	gpio_direction_output(msm_bahama_sys_rst, 0);
+	usleep_range(1000, 1050);
+	gpio_set_value_cansleep(msm_bahama_sys_rst, 1);
+	usleep_range(1000, 1050);
+	msm_bahama_setup_power_enable = 1;
 	return rc;
 
-unrequest:
-	gpio_free(msm_bahama_sys_rst);
 unenable:
 	regulator_disable(vreg_bahama);
 unget:
 	regulator_put(vreg_bahama);
 	return rc;
 };
+
 static unsigned int msm_bahama_shutdown_power(int value)
-
-
 {
-	gpio_set_value_cansleep(msm_bahama_sys_rst, 0);
-
-	gpio_free(msm_bahama_sys_rst);
-
-	regulator_disable(vreg_bahama);
-
-	regulator_put(vreg_bahama);
+	if (msm_bahama_setup_power_enable) {
+		gpio_set_value_cansleep(msm_bahama_sys_rst, 0);
+		gpio_free(msm_bahama_sys_rst);
+		regulator_disable(vreg_bahama);
+		regulator_put(vreg_bahama);
+		msm_bahama_setup_power_enable = 0;
+	}
 
 	return 0;
 };
