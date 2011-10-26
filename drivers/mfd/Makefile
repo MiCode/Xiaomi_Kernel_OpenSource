@@ -168,4 +168,5 @@ obj-$(CONFIG_MFD_RETU)		+= retu-mfd.o
 obj-$(CONFIG_MFD_AS3711)	+= as3711.o
 obj-$(CONFIG_PMIC8058)		+= pmic8058.o
 obj-$(CONFIG_PMIC8901)		+= pmic8901.o
+obj-$(CONFIG_MFD_PM8038_CORE) 	+= pm8038-core.o
 obj-$(CONFIG_MFD_PM8XXX_DEBUG) 	+= pm8xxx-debug.o
