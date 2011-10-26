@@ -235,6 +235,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 
 #define GPIO_SDCARD_PWR_EN	18
 #define GPIO_SDC1_HW_DET	80
+#define GPIO_SDC2_DAT1_WAKEUP	26
 
 /* MDM9x15 have 2 SDCC controllers */
 enum sdcc_controllers {
@@ -434,6 +435,9 @@ static struct mmc_platform_data sdc2_data = {
 	.pclk_src_dfab	= 1,
 	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
+#ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(GPIO_SDC2_DAT1_WAKEUP),
+#endif
 };
 static struct mmc_platform_data *msm9615_sdc2_pdata = &sdc2_data;
 #else
