@@ -28,6 +28,7 @@
 #include <linux/android_pmem.h>
 
 #include "msm.h"
+#include "msm_csiphy.h"
 #include "msm_ispif.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
@@ -219,6 +220,10 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	case NOTIFY_PCLK_CHANGE:
 		rc = msm_camio_vfe_clk_rate_set(*(uint32_t *)arg);
 		break;
+	case NOTIFY_CSIPHY_CFG:
+		rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
+			core, ioctl, VIDIOC_MSM_CSIPHY_CFG, arg);
+		break;
 	default:
 		break;
 	}
@@ -313,11 +318,53 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
+static int msm_mctl_subdev_match_core(struct device *dev, void *data)
+{
+	int core_index = (int)data;
+	struct platform_device *pdev = to_platform_device(dev);
+
+	if (pdev->id == core_index)
+		return 1;
+	else
+		return 0;
+}
+
+static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
+	int core_index)
+{
+	struct device_driver *driver;
+	struct device *dev;
+	int rc = -ENODEV;
+
+	/* register csiphy subdev */
+	driver = driver_find(MSM_CSIPHY_DRV_NAME, &platform_bus_type);
+	if (!driver)
+		goto out;
+
+	dev = driver_find_device(driver, NULL, (void *)core_index,
+				msm_mctl_subdev_match_core);
+	if (!dev)
+		goto out_put_driver;
+
+	p_mctl->csiphy_sdev = dev_get_drvdata(dev);
+	put_driver(driver);
+
+	rc = 0;
+	return rc;
+out_put_driver:
+	put_driver(driver);
+out:
+	return rc;
+}
+
 static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 				 const char *const apps_id)
 {
 	int rc = 0;
 	struct msm_sync *sync = NULL;
+	struct msm_camera_sensor_info *sinfo;
+	struct msm_camera_device_platform_data *camdev;
+	uint8_t csid_core;
 	D("%s\n", __func__);
 	if (!p_mctl) {
 		pr_err("%s: param is NULL", __func__);
@@ -331,6 +378,16 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	/* open sub devices - once only*/
 	if (!sync->opencnt) {
 		wake_lock(&sync->wake_lock);
+
+		sinfo = sync->pdev->dev.platform_data;
+		camdev = sinfo->pdata;
+		csid_core = camdev->csid_core;
+		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
+		if (rc < 0) {
+			pr_err("%s: msm_mctl_register_subdevs failed:%d\n",
+				__func__, rc);
+			goto msm_open_done;
+		}
 
 		/* turn on clock */
 		rc = msm_camio_sensor_clk_on(sync->pdev);
@@ -347,6 +404,14 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 				&p_mctl->isp_sdev->sd_vpe, sync);
 		if (rc < 0) {
 			pr_err("%s: isp init failed: %d\n", __func__, rc);
+			goto msm_open_done;
+		}
+
+		rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
+			VIDIOC_MSM_CSIPHY_INIT, NULL);
+		if (rc < 0) {
+			pr_err("%s: csiphy initialization failed %d\n",
+				__func__, rc);
 			goto msm_open_done;
 		}
 
@@ -385,12 +450,12 @@ msm_open_done:
 
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
-	struct msm_sync *sync = NULL;
 	int rc = 0;
-
-	sync = &(p_mctl->sync);
-
+	struct msm_sync *sync = &(p_mctl->sync);
 	msm_ispif_release(p_mctl->ispif_sdev);
+
+	v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
+		VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(&p_mctl->sync);

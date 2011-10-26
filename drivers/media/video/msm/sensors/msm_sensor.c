@@ -243,7 +243,8 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
 						NOTIFY_CID_CHANGE, NULL);
 			mb();
-			rc = msm_camio_csiphy_config(
+			v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_CSIPHY_CFG,
 				&s_ctrl->curr_csi_params->csiphy_params);
 			mb();
 			msleep(20);
