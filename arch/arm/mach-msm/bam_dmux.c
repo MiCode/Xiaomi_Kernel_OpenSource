@@ -1190,7 +1190,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	if (bam_mux_initialized)
 		return 0;
 
-	dfab_clk = clk_get(&pdev->dev, "dfab_clk");
+	dfab_clk = clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(dfab_clk)) {
 		pr_err("%s: did not get dfab clock\n", __func__);
 		return -EFAULT;
