@@ -58,7 +58,7 @@ extern struct platform_device msm_device_gpio;
 extern struct platform_device msm_device_vidc;
 
 extern struct platform_device msm_charm_modem;
-
+extern struct platform_device msm_device_tz_log;
 #ifdef CONFIG_HW_RANDOM_MSM
 extern struct platform_device msm_device_rng;
 #endif

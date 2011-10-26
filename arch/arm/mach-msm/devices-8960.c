@@ -182,6 +182,22 @@ struct platform_device msm_device_hsic_host = {
 	},
 };
 
+#define SHARED_IMEM_TZ_BASE 0x2a03f720
+static struct resource tzlog_resources[] = {
+	{
+		.start = SHARED_IMEM_TZ_BASE,
+		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_tz_log = {
+	.name		= "tz_log",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(tzlog_resources),
+	.resource	= tzlog_resources,
+};
+
 static struct resource resources_uart_gsbi2[] = {
 	{
 		.start	= MSM8960_GSBI2_UARTDM_IRQ,
