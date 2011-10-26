@@ -1422,6 +1422,8 @@ static void __init msm8960_init_cam(void)
 
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
+	platform_device_register(&msm8960_device_csid0);
+	platform_device_register(&msm8960_device_csid1);
 }
 #endif
 

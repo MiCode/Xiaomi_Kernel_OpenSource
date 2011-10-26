@@ -25,41 +25,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 
-#define DBG_CSID 0
 #define BUFF_SIZE_128 128
-
-/* MIPI	CSID registers */
-#define CSID_HW_VERSION_ADDR                    0x0
-#define CSID_CORE_CTRL_ADDR                     0x4
-#define CSID_RST_CMD_ADDR                       0x8
-#define CSID_CID_LUT_VC_0_ADDR                  0xc
-#define CSID_CID_LUT_VC_1_ADDR                  0x10
-#define CSID_CID_LUT_VC_2_ADDR                  0x14
-#define CSID_CID_LUT_VC_3_ADDR                  0x18
-#define CSID_CID_n_CFG_ADDR                     0x1C
-#define CSID_IRQ_CLEAR_CMD_ADDR                 0x5c
-#define CSID_IRQ_MASK_ADDR                      0x60
-#define CSID_IRQ_STATUS_ADDR                    0x64
-#define CSID_CAPTURED_UNMAPPED_LONG_PKT_HDR_ADDR    0x68
-#define CSID_CAPTURED_MMAPPED_LONG_PKT_HDR_ADDR     0x6c
-#define CSID_CAPTURED_SHORT_PKT_ADDR                0x70
-#define CSID_CAPTURED_LONG_PKT_HDR_ADDR             0x74
-#define CSID_CAPTURED_LONG_PKT_FTR_ADDR             0x78
-#define CSID_PIF_MISR_DL0_ADDR                      0x7C
-#define CSID_PIF_MISR_DL1_ADDR                      0x80
-#define CSID_PIF_MISR_DL2_ADDR                      0x84
-#define CSID_PIF_MISR_DL3_ADDR                      0x88
-#define CSID_STATS_TOTAL_PKTS_RCVD_ADDR             0x8C
-#define CSID_STATS_ECC_ADDR                         0x90
-#define CSID_STATS_CRC_ADDR                         0x94
-#define CSID_TG_CTRL_ADDR                           0x9C
-#define CSID_TG_VC_CFG_ADDR                         0xA0
-#define CSID_TG_DT_n_CFG_0_ADDR                     0xA8
-#define CSID_TG_DT_n_CFG_1_ADDR                     0xAC
-#define CSID_TG_DT_n_CFG_2_ADDR                     0xB0
-#define CSID_TG_DT_n_CFG_3_ADDR                     0xD8
-
-/* Regulator Voltage and Current */
 
 #define CAM_VAF_MINUV                 2800000
 #define CAM_VAF_MAXUV                 2800000
@@ -75,23 +41,15 @@
 #define CAM_VANA_LOAD_UA                  85600
 #define CAM_CSI_LOAD_UA                    20000
 
-#define CSID_VERSION_V2              0x2000011
-
-static uint32_t csid_hw_version;
 static struct clk *camio_cam_clk;
 static struct clk *camio_vfe_clk;
-static struct clk *camio_csi_src_clk;
-static struct clk *camio_csi1_src_clk;
 static struct clk *camio_csi0_vfe_clk;
-static struct clk *camio_csi0_clk;
-static struct clk *camio_csi0_pclk;
 static struct clk *camio_csi_pix_clk;
 static struct clk *camio_csi_pix1_clk;
 static struct clk *camio_csi_rdi_clk;
 static struct clk *camio_csi_rdi1_clk;
 static struct clk *camio_csi_rdi2_clk;
 static struct clk *camio_vfe_pclk;
-static struct clk *camio_csi0_phy_clk;
 
 /*static struct clk *camio_vfe_pclk;*/
 static struct clk *camio_jpeg_clk;
@@ -109,10 +67,9 @@ static struct regulator *mipi_csi_vdd;
 
 static struct msm_camera_io_clk camio_clk;
 static struct platform_device *camio_dev;
-static struct resource *csidio, *s3drw_io, *s3dctl_io;
-static struct resource *csid_mem, *s3drw_mem, *s3dctl_mem;
-static struct resource *csid_irq;
-void __iomem *csidbase, *s3d_rw, *s3d_ctl;
+static struct resource *s3drw_io, *s3dctl_io;
+static struct resource *s3drw_mem, *s3dctl_mem;
+void __iomem *s3d_rw, *s3d_ctl;
 struct msm_bus_scale_pdata *cam_bus_scale_table;
 
 
@@ -441,28 +398,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(&camio_dev->dev, "csi_vfe_clk");
 		break;
 */
-	case CAMIO_CSI_SRC_CLK:
-		camio_csi_src_clk =
-		clk = clk_get(NULL, "csi_src_clk");
-		msm_camio_clk_rate_set_2(clk, 177780000);
-		break;
-
-	case CAMIO_CSI1_SRC_CLK:
-		camio_csi1_src_clk =
-		clk = clk_get(&camio_dev->dev, "csi_src_clk");
-		msm_camio_clk_rate_set_2(clk, 177780000);
-		break;
-
-	case CAMIO_CSI0_CLK:
-		camio_csi0_clk =
-		clk = clk_get(&camio_dev->dev, "csi_clk");
-		break;
-
-	case CAMIO_CSI0_PHY_CLK:
-		camio_csi0_phy_clk =
-		clk = clk_get(&camio_dev->dev, "csi_phy_clk");
-		break;
-
 	case CAMIO_CSI_PIX_CLK:
 		camio_csi_pix_clk =
 		clk = clk_get(NULL, "csi_pix_clk");
@@ -496,11 +431,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(NULL, "csi_rdi2_clk");
 		/* mux to select between csid0 and csid1 */
 		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
-	case CAMIO_CSI0_PCLK:
-		camio_csi0_pclk =
-		clk = clk_get(NULL, "csi_pclk");
 		break;
 
 	case CAMIO_JPEG_CLK:
@@ -562,18 +492,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_csi0_vfe_clk;
 		break;
 
-	case CAMIO_CSI_SRC_CLK:
-		clk = camio_csi_src_clk;
-		break;
-
-	case CAMIO_CSI0_CLK:
-		clk = camio_csi0_clk;
-		break;
-
-	case CAMIO_CSI0_PHY_CLK:
-		clk = camio_csi0_phy_clk;
-		break;
-
 	case CAMIO_CSI_PIX1_CLK:
 		clk = camio_csi_pix1_clk;
 		break;
@@ -592,10 +510,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 
 	case CAMIO_CSI_RDI_CLK:
 		clk = camio_csi_rdi_clk;
-		break;
-
-	case CAMIO_CSI0_PCLK:
-		clk = camio_csi0_pclk;
 		break;
 
 	case CAMIO_JPEG_CLK:
@@ -666,72 +580,9 @@ void msm_camio_clk_set_min_rate(struct clk *clk, int rate)
 	clk_set_min_rate(clk, rate);
 }
 
-#if DBG_CSID
-static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
-{
-	uint32_t irq;
-	irq = msm_io_r(csidbase + CSID_IRQ_STATUS_ADDR);
-	CDBG("%s CSID_IRQ_STATUS_ADDR = 0x%x\n", __func__, irq);
-	msm_io_w(irq, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
-	return IRQ_HANDLED;
-}
-#endif
-
-static int msm_camio_enable_v2_clks(void)
-{
-	int rc = 0;
-	csid_hw_version = msm_io_r(csidbase +
-				CSID_HW_VERSION_ADDR);
-	CDBG("%s csid_hw_version %d\n",
-		__func__,
-		csid_hw_version);
-
-	if (csid_hw_version == CSID_VERSION_V2) {
-		rc = msm_camio_clk_enable(CAMIO_CSI_PIX1_CLK);
-		if (rc < 0)
-			goto csi_pix1_fail;
-
-		rc = msm_camio_clk_enable(CAMIO_CSI_RDI1_CLK);
-		if (rc < 0)
-			goto csi_rdi1_fail;
-
-		rc = msm_camio_clk_enable(CAMIO_CSI_RDI2_CLK);
-		if (rc < 0)
-			goto csi_rdi2_fail;
-	}
-
-	return rc;
-
-csi_rdi2_fail:
-	msm_camio_clk_disable(CAMIO_CSI_RDI1_CLK);
-csi_rdi1_fail:
-	msm_camio_clk_disable(CAMIO_CSI_PIX1_CLK);
-csi_pix1_fail:
-	return rc;
-}
-
 static int msm_camio_enable_all_clks(uint8_t csid_core)
 {
 	int rc = 0;
-
-	rc = msm_camio_clk_enable(CAMIO_CSI_SRC_CLK);
-	if (rc < 0)
-		goto csi_src_fail;
-	if (csid_core == 1) {
-		rc = msm_camio_clk_enable(CAMIO_CSI1_SRC_CLK);
-		if (rc < 0)
-			goto csi1_src_fail;
-	}
-	rc = msm_camio_clk_enable(CAMIO_CSI0_CLK);
-	if (rc < 0)
-		goto csi0_fail;
-	rc = msm_camio_clk_enable(CAMIO_CSI0_PHY_CLK);
-	if (rc < 0)
-		goto csi0_phy_fail;
-
-	rc = msm_camio_clk_enable(CAMIO_CSI0_PCLK);
-	if (rc < 0)
-		goto csi0p_fail;
 
 	rc = msm_camio_clk_enable(CAMIO_VFE_CLK);
 	if (rc < 0)
@@ -760,42 +611,16 @@ csi0_vfe_fail:
 vfep_fail:
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
 vfe_fail:
-	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
-csi0p_fail:
-	msm_camio_clk_disable(CAMIO_CSI0_PHY_CLK);
-csi0_phy_fail:
-	msm_camio_clk_disable(CAMIO_CSI0_CLK);
-csi0_fail:
-	msm_camio_clk_disable(CAMIO_CSI1_SRC_CLK);
-csi1_src_fail:
-	msm_camio_clk_disable(CAMIO_CSI_SRC_CLK);
-csi_src_fail:
 	return rc;
-}
-
-static void msm_camio_disable_v2_clks(void)
-{
-	if (csid_hw_version == CSID_VERSION_V2) {
-		msm_camio_clk_disable(CAMIO_CSI_RDI2_CLK);
-		msm_camio_clk_disable(CAMIO_CSI_RDI1_CLK);
-		msm_camio_clk_disable(CAMIO_CSI_PIX1_CLK);
-	}
 }
 
 static void msm_camio_disable_all_clks(uint8_t csid_core)
 {
-	msm_camio_disable_v2_clks();
 	msm_camio_clk_disable(CAMIO_CSI_RDI_CLK);
 	msm_camio_clk_disable(CAMIO_CSI_PIX_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
-	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
-	msm_camio_clk_disable(CAMIO_CSI0_PHY_CLK);
-	msm_camio_clk_disable(CAMIO_CSI0_CLK);
-	if (csid_core == 1)
-		msm_camio_clk_disable(CAMIO_CSI1_SRC_CLK);
-	msm_camio_clk_disable(CAMIO_CSI_SRC_CLK);
 }
 
 int msm_camio_jpeg_clk_disable(void)
@@ -915,11 +740,6 @@ int msm_camio_enable(struct platform_device *pdev)
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core = camdev->csid_core;
-	char csid[] = "csid0";
-	if (csid_core < 0 || csid_core > 2)
-		return -ENODEV;
-
-	csid[4] = '0' + csid_core;
 
 	camio_dev = pdev;
 	camio_clk = camdev->ioclk;
@@ -927,48 +747,12 @@ int msm_camio_enable(struct platform_device *pdev)
 
 	rc = msm_camio_enable_all_clks(csid_core);
 	if (rc < 0)
-		return rc;
-
-	csid_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, csid);
-	if (!csid_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-	csid_irq = platform_get_resource_byname(pdev, IORESOURCE_IRQ, csid);
-	if (!csid_irq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		return -ENODEV;
-	}
-
-	csidio = request_mem_region(csid_mem->start,
-		resource_size(csid_mem), pdev->name);
-	if (!csidio) {
-		rc = -EBUSY;
 		goto common_fail;
-	}
-	csidbase = ioremap(csid_mem->start,
-		resource_size(csid_mem));
-	if (!csidbase) {
-		rc = -ENOMEM;
-		goto csi_busy;
-	}
-#if DBG_CSID
-	rc = request_irq(csid_irq->start, msm_io_csi_irq,
-		IRQF_TRIGGER_RISING, "csid", 0);
-	if (rc < 0)
-		goto csi_irq_fail;
-#endif
-	msm_camio_enable_v2_clks();
+
 	CDBG("camio enable done\n");
 	return 0;
-#if DBG_CSID
-csi_irq_fail:
-	iounmap(csidbase);
-#endif
-csi_busy:
-	release_mem_region(csid_mem->start, resource_size(csid_mem));
+
 common_fail:
-	msm_camio_disable_all_clks(csid_core);
 	msm_camera_vreg_disable();
 	config_gpio_table(0);
 	return rc;
@@ -979,12 +763,6 @@ void msm_camio_disable(struct platform_device *pdev)
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core = camdev->csid_core;
-#if DBG_CSID
-	free_irq(csid_irq->start, 0);
-#endif
-	iounmap(csidbase);
-	release_mem_region(csid_mem->start, resource_size(csid_mem));
-
 	msm_camio_disable_all_clks(csid_core);
 }
 
@@ -1133,55 +911,6 @@ int msm_camio_probe_off(struct platform_device *pdev)
 	if (rc < 0)
 		return rc;
 	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-}
-
-int msm_camio_csid_cid_lut(struct msm_camera_csid_lut_params *csid_lut_params)
-{
-	int rc = 0, i = 0;
-	uint32_t val = 0;
-
-	for (i = 0; i < csid_lut_params->num_cid && i < 4; i++)	{
-		if (csid_lut_params->vc_cfg[i].dt < 0x12 ||
-			csid_lut_params->vc_cfg[i].dt > 0x37) {
-			CDBG("%s: unsupported data type 0x%x\n",
-				 __func__, csid_lut_params->vc_cfg[i].dt);
-			return rc;
-		}
-		val = msm_io_r(csidbase + CSID_CID_LUT_VC_0_ADDR +
-		(csid_lut_params->vc_cfg[i].cid >> 2) * 4)
-		& ~(0xFF << csid_lut_params->vc_cfg[i].cid * 8);
-		val |= csid_lut_params->vc_cfg[i].dt <<
-			csid_lut_params->vc_cfg[i].cid * 8;
-		msm_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
-			(csid_lut_params->vc_cfg[i].cid >> 2) * 4);
-		val = csid_lut_params->vc_cfg[i].decode_format << 4 | 0x3;
-		msm_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
-			(csid_lut_params->vc_cfg[i].cid * 4));
-	}
-	return rc;
-}
-
-int msm_camio_csid_config(struct msm_camera_csid_params *csid_params)
-{
-	int rc = 0;
-	uint32_t val = 0;
-	val = csid_params->lane_cnt - 1;
-	val |= csid_params->lane_assign << 2;
-	val |= 0x1 << 10;
-	val |= 0x1 << 11;
-	val |= 0x1 << 12;
-	val |= 0x1 << 28;
-	msm_io_w(val, csidbase + CSID_CORE_CTRL_ADDR);
-
-	rc = msm_camio_csid_cid_lut(&csid_params->lut_params);
-	if (rc < 0)
-		return rc;
-
-	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_MASK_ADDR);
-	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
-
-	msleep(20);
-	return rc;
 }
 
 void msm_camio_mode_config(enum msm_cam_mode mode)
