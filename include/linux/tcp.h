@@ -17,7 +17,6 @@
 #ifndef _LINUX_TCP_H
 #define _LINUX_TCP_H
 
-
 #include <linux/skbuff.h>
 #include <linux/dmaengine.h>
 #include <net/sock.h>

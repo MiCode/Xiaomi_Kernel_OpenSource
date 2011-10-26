@@ -68,18 +68,18 @@ union tcp_word_hdr {
 
 #define tcp_flag_word(tp) ( ((union tcp_word_hdr *)(tp))->words [3]) 
 
-enum { 
-	TCP_FLAG_CWR = __constant_cpu_to_be32(0x00800000),
-	TCP_FLAG_ECE = __constant_cpu_to_be32(0x00400000),
-	TCP_FLAG_URG = __constant_cpu_to_be32(0x00200000),
-	TCP_FLAG_ACK = __constant_cpu_to_be32(0x00100000),
-	TCP_FLAG_PSH = __constant_cpu_to_be32(0x00080000),
-	TCP_FLAG_RST = __constant_cpu_to_be32(0x00040000),
-	TCP_FLAG_SYN = __constant_cpu_to_be32(0x00020000),
-	TCP_FLAG_FIN = __constant_cpu_to_be32(0x00010000),
-	TCP_RESERVED_BITS = __constant_cpu_to_be32(0x0F000000),
-	TCP_DATA_OFFSET = __constant_cpu_to_be32(0xF0000000)
-}; 
+enum {
+	TCP_FLAG_CWR = __constant_htonl(0x00800000),
+	TCP_FLAG_ECE = __constant_htonl(0x00400000),
+	TCP_FLAG_URG = __constant_htonl(0x00200000),
+	TCP_FLAG_ACK = __constant_htonl(0x00100000),
+	TCP_FLAG_PSH = __constant_htonl(0x00080000),
+	TCP_FLAG_RST = __constant_htonl(0x00040000),
+	TCP_FLAG_SYN = __constant_htonl(0x00020000),
+	TCP_FLAG_FIN = __constant_htonl(0x00010000),
+	TCP_RESERVED_BITS = __constant_htonl(0x0F000000),
+	TCP_DATA_OFFSET = __constant_htonl(0xF0000000)
+};
 
 /*
  * TCP general constants
@@ -153,6 +153,7 @@ struct tcp_info {
 	__u8	tcpi_backoff;
 	__u8	tcpi_options;
 	__u8	tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
+	__u8    tcpi_count;
 
 	__u32	tcpi_rto;
 	__u32	tcpi_ato;
