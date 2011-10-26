@@ -20,52 +20,11 @@
 #include <linux/err.h>
 #include <linux/ctype.h>
 #include <linux/leds.h>
-#include <linux/slab.h>
 #include "leds.h"
 
 #define LED_BUFF_SIZE 50
 
 static struct class *leds_class;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-
-static void change_brightness(struct work_struct *brightness_change_data)
-{
-	struct deferred_brightness_change *brightness_change = container_of(
-			brightness_change_data,
-			struct deferred_brightness_change,
-			brightness_change_work);
-	struct led_classdev *led_cdev = brightness_change->led_cdev;
-	enum led_brightness value = brightness_change->value;
-
-	led_cdev->brightness_set(led_cdev, value);
-
-	/* Free up memory for the brightness_change structure. */
-	kfree(brightness_change);
-}
-
-int queue_brightness_change(struct led_classdev *led_cdev,
-	enum led_brightness value)
-{
-	/* Initialize the brightness_change_work and its super-struct. */
-	struct deferred_brightness_change *brightness_change =
-		kzalloc(sizeof(struct deferred_brightness_change), GFP_KERNEL);
-
-	if (!brightness_change)
-		return -ENOMEM;
-
-	brightness_change->led_cdev = led_cdev;
-	brightness_change->value = value;
-
-	INIT_WORK(&(brightness_change->brightness_change_work),
-		change_brightness);
-	queue_work(suspend_work_queue,
-		&(brightness_change->brightness_change_work));
-
-	return 0;
-}
-
-#endif
 
 static void led_update_brightness(struct led_classdev *led_cdev)
 {
