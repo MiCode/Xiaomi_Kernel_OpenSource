@@ -14,6 +14,7 @@
 #define __LEDS_PM8XXX_H__
 
 #include <linux/kernel.h>
+#include <linux/mfd/pm8xxx/pwm.h>
 
 #define PM8XXX_LEDS_DEV_NAME	"pm8xxx-led"
 
@@ -51,24 +52,30 @@ enum pm8xxx_led_modes {
 
 /**
  * pm8xxx_led_config - led configuration parameters
- * id - LED id
- * mode - LED mode
- * max_current - maximum current that LED can sustain
+ * @id - LED id
+ * @mode - LED mode
+ * @max_current - maximum current that LED can sustain
+ * @pwm_channel - PWM channel ID the LED is driven to
+ * @pwm_period_us - PWM period value in micro seconds
+ * @pwm_duty_cycles - PWM duty cycle information
  */
 struct pm8xxx_led_config {
 	u8	id;
 	u8	mode;
 	u16	max_current;
+	int	pwm_channel;
+	u32	pwm_period_us;
+	struct pm8xxx_pwm_duty_cycles *pwm_duty_cycles;
 };
 
 /**
  * pm8xxx_led_platform_data - platform data for LED
- * led_core - array of LEDs. Each datum in array contains
+ * @led_core - array of LEDs. Each datum in array contains
  *	core data for the LED
- * configs - array of platform configuration parameters
+ * @configs - array of platform configuration parameters
  *	for each LED. It maps one-to-one with
  *	array of LEDs
- * num_configs - count of members of configs array
+ * @num_configs - count of members of configs array
  */
 struct pm8xxx_led_platform_data {
 	struct	led_platform_data	*led_core;
