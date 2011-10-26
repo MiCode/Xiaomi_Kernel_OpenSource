@@ -285,7 +285,7 @@ static int hci_smd_send_frame(struct sk_buff *skb)
 		break;
 	case HCI_ACLDATA_PKT:
 	case HCI_SCODATA_PKT:
-		avail = smd_write_avail(hs.event_channel);
+		avail = smd_write_avail(hs.data_channel);
 		if (!avail) {
 			BT_ERR("No space available for smd frame");
 			ret = -ENOSPC;
