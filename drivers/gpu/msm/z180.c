@@ -411,7 +411,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int sizedwords;
 
 	if (device->state & KGSL_STATE_HUNG) {
-		return -EINVAL;
+		result = -EINVAL;
 		goto error;
 	}
 	if (numibs != 1) {
