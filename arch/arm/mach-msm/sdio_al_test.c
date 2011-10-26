@@ -30,7 +30,7 @@
 #include <linux/wakelock.h>
 #include <linux/uaccess.h>
 
-#include <sdio_al_private.h>
+#include "sdio_al_private.h"
 #include <linux/debugfs.h>
 
 #include <linux/kthread.h>
