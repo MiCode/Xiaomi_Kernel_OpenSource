@@ -205,6 +205,7 @@ static int q6asm_session_alloc(struct audio_client *ac)
 static void q6asm_session_free(struct audio_client *ac)
 {
 	pr_debug("%s: sessionid[%d]\n", __func__, ac->session);
+	rtac_remove_popp_from_adm_devices(ac->session);
 	mutex_lock(&session_lock);
 	session[ac->session] = 0;
 	mutex_unlock(&session_lock);

@@ -28,7 +28,8 @@
 #ifndef CONFIG_RTAC
 
 void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id) {}
-void rtac_remove_adm_device(u32 port_id, u32 popp_id) {}
+void rtac_remove_adm_device(u32 port_id) {}
+void rtac_remove_popp_from_adm_devices(u32 popp_id) {}
 void rtac_set_adm_handle(void *handle) {}
 bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size)
 	{return false; }
@@ -222,44 +223,49 @@ static void shift_popp(u32 copp_idx, u32 popp_idx)
 	}
 }
 
-void rtac_remove_adm_device(u32 port_id, u32 popp_id)
+void rtac_remove_adm_device(u32 port_id)
 {
-	s32 i, j;
-	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
-		popp_id);
+	s32 i;
+	pr_debug("%s: port_id = %d\n", __func__, port_id);
 
 	mutex_lock(&rtac_adm_mutex);
 	/* look for device */
 	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
 		if (rtac_adm_data.device[i].afe_port == port_id) {
-			if (rtac_adm_data.device[i].num_of_popp == 1) {
-				memset(&rtac_adm_data.device[i], 0,
-					   sizeof(rtac_adm_data.device[i]));
-				rtac_adm_data.num_of_dev--;
-			} else {
-				for (j = 0; j <
-				rtac_adm_data.device[i].num_of_popp; j++) {
-					if (rtac_adm_data.device[i].popp[j] ==
-								popp_id) {
-						rtac_adm_data.device[i].popp[j]
-								= 0;
-					rtac_adm_data.device[i].num_of_popp--;
-						shift_popp(i, j);
-						goto done;
-					}
-				}
-			}
+			memset(&rtac_adm_data.device[i], 0,
+				   sizeof(rtac_adm_data.device[i]));
+			rtac_adm_data.num_of_dev--;
+
 			if (rtac_adm_data.num_of_dev >= 1) {
 				shift_adm_devices(i);
 				break;
 			}
 		}
 	}
-done:
+
 	mutex_unlock(&rtac_adm_mutex);
 	return;
 }
 
+void rtac_remove_popp_from_adm_devices(u32 popp_id)
+{
+	s32 i, j;
+	pr_debug("%s: popp_id = %d\n", __func__, popp_id);
+
+	mutex_lock(&rtac_adm_mutex);
+
+	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
+		for (j = 0; j < rtac_adm_data.device[i].num_of_popp; j++) {
+			if (rtac_adm_data.device[i].popp[j] == popp_id) {
+				rtac_adm_data.device[i].popp[j] = 0;
+				rtac_adm_data.device[i].num_of_popp--;
+				shift_popp(i, j);
+			}
+		}
+	}
+
+	mutex_unlock(&rtac_adm_mutex);
+}
 
 /* Voice Info */
 static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
