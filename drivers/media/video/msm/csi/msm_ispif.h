@@ -13,20 +13,9 @@
 #ifndef MSM_ISPIF_H
 #define MSM_ISPIF_H
 
-#include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/regulator/consumer.h>
-#include <mach/gpio.h>
-#include <mach/board.h>
-#include <mach/camera.h>
-#include <mach/vreg.h>
-#include <mach/camera.h>
-#include <mach/clk.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
 #include <media/v4l2-subdev.h>
-
 
 struct ispif_irq_status {
 	uint32_t ispifIrqStatus0;
@@ -34,6 +23,7 @@ struct ispif_irq_status {
 };
 
 struct ispif_device {
+	struct platform_device *pdev;
 	struct v4l2_subdev subdev;
 	struct resource *mem;
 	struct resource *irq;
@@ -42,10 +32,18 @@ struct ispif_device {
 	struct mutex mutex;
 	uint8_t start_ack_pending;
 	struct completion reset_complete;
+	uint32_t csid_version;
+	struct clk *ispif_clk[5];
 };
 
-#define VIDIOC_MSM_ISPSF_CFG \
+#define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_ispif_params)
+
+#define VIDIOC_MSM_ISPIF_INIT \
+	_IO('V', BASE_VIDIOC_PRIVATE + 2)
+
+#define VIDIOC_MSM_ISPIF_RELEASE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct v4l2_subdev*)
 
 #define ISPIF_STREAM(intf, action) (((intf)<<ISPIF_S_STREAM_SHIFT)+(action))
 #define ISPIF_ON_FRAME_BOUNDARY	(0x01 << 0)
@@ -53,8 +51,6 @@ struct ispif_device {
 #define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
 #define ISPIF_S_STREAM_SHIFT	4
 
-int msm_ispif_init(struct v4l2_subdev **sd, struct platform_device *pdev);
-void msm_ispif_release(struct v4l2_subdev *sd);
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
 
 #endif

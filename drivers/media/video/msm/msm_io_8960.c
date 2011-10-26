@@ -44,11 +44,6 @@
 static struct clk *camio_cam_clk;
 static struct clk *camio_vfe_clk;
 static struct clk *camio_csi0_vfe_clk;
-static struct clk *camio_csi_pix_clk;
-static struct clk *camio_csi_pix1_clk;
-static struct clk *camio_csi_rdi_clk;
-static struct clk *camio_csi_rdi1_clk;
-static struct clk *camio_csi_rdi2_clk;
 static struct clk *camio_vfe_pclk;
 
 /*static struct clk *camio_vfe_pclk;*/
@@ -366,9 +361,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 {
 	int rc = 0;
 	struct clk *clk = NULL;
-	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	uint8_t csid_core = camdev->csid_core;
 
 	switch (clktype) {
 	case CAMIO_CAM_MCLK_CLK:
@@ -398,41 +390,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(&camio_dev->dev, "csi_vfe_clk");
 		break;
 */
-	case CAMIO_CSI_PIX_CLK:
-		camio_csi_pix_clk =
-		clk = clk_get(NULL, "csi_pix_clk");
-		/* mux to select between csid0 and csid1 */
-		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
-	case CAMIO_CSI_PIX1_CLK:
-		camio_csi_pix1_clk =
-		clk = clk_get(NULL, "csi_pix1_clk");
-		/* mux to select between csid0 and csid1 */
-		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
-	case CAMIO_CSI_RDI_CLK:
-		camio_csi_rdi_clk =
-		clk = clk_get(NULL, "csi_rdi_clk");
-		/* mux to select between csid0 and csid1 */
-		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
-	case CAMIO_CSI_RDI1_CLK:
-		camio_csi_rdi1_clk =
-		clk = clk_get(NULL, "csi_rdi1_clk");
-		/* mux to select between csid0 and csid1 */
-		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
-	case CAMIO_CSI_RDI2_CLK:
-		camio_csi_rdi2_clk =
-		clk = clk_get(NULL, "csi_rdi2_clk");
-		/* mux to select between csid0 and csid1 */
-		msm_camio_clk_rate_set_2(clk, csid_core);
-		break;
-
 	case CAMIO_JPEG_CLK:
 		camio_jpeg_clk =
 		clk = clk_get(NULL, "ijpeg_clk");
@@ -490,26 +447,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 
 	case CAMIO_CSI0_VFE_CLK:
 		clk = camio_csi0_vfe_clk;
-		break;
-
-	case CAMIO_CSI_PIX1_CLK:
-		clk = camio_csi_pix1_clk;
-		break;
-
-	case CAMIO_CSI_PIX_CLK:
-		clk = camio_csi_pix_clk;
-		break;
-
-	case CAMIO_CSI_RDI1_CLK:
-		clk = camio_csi_rdi1_clk;
-		break;
-
-	case CAMIO_CSI_RDI2_CLK:
-		clk = camio_csi_rdi2_clk;
-		break;
-
-	case CAMIO_CSI_RDI_CLK:
-		clk = camio_csi_rdi_clk;
 		break;
 
 	case CAMIO_JPEG_CLK:
@@ -594,18 +531,8 @@ static int msm_camio_enable_all_clks(uint8_t csid_core)
 	rc = msm_camio_clk_enable(CAMIO_CSI0_VFE_CLK);
 	if (rc < 0)
 		goto csi0_vfe_fail;
-	rc = msm_camio_clk_enable(CAMIO_CSI_PIX_CLK);
-	if (rc < 0)
-		goto csi_pix_fail;
-	rc = msm_camio_clk_enable(CAMIO_CSI_RDI_CLK);
-	if (rc < 0)
-		goto csi_rdi_fail;
-	return rc;
 
-csi_rdi_fail:
-	msm_camio_clk_disable(CAMIO_CSI_PIX_CLK);
-csi_pix_fail:
-	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
+	return rc;
 csi0_vfe_fail:
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 vfep_fail:
@@ -616,8 +543,6 @@ vfe_fail:
 
 static void msm_camio_disable_all_clks(uint8_t csid_core)
 {
-	msm_camio_clk_disable(CAMIO_CSI_RDI_CLK);
-	msm_camio_clk_disable(CAMIO_CSI_PIX_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 	msm_camio_clk_disable(CAMIO_VFE_CLK);

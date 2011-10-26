@@ -13,20 +13,13 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/regulator/consumer.h>
 #include <mach/gpio.h>
-#include <mach/board.h>
 #include <mach/camera.h>
-#include <mach/vreg.h>
-#include <mach/camera.h>
-#include <mach/clk.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
-#include <media/msm_isp.h>
 #include "msm_ispif.h"
 #include "msm.h"
 
 #define V4L2_IDENT_ISPIF			50001
+#define CSID_VERSION_V2                      0x2000011
 
 /* ISPIF registers */
 
@@ -147,7 +140,17 @@ static int msm_ispif_subdev_g_chip_ident(struct v4l2_subdev *sd,
 
 static void msm_ispif_sel_csid_core(uint8_t intftype, uint8_t csid)
 {
+	int rc = 0;
 	uint32_t data;
+	if (ispif->ispif_clk[intftype] == NULL) {
+		pr_err("%s: ispif NULL clk\n", __func__);
+		return;
+	}
+
+	rc = clk_set_rate(ispif->ispif_clk[intftype], csid);
+	if (rc < 0)
+		pr_err("%s: clk_set_rate failed %d\n", __func__, rc);
+
 	data = msm_io_r(ispif->base + ISPIF_INPUT_SEL_ADDR);
 	data |= csid<<(intftype*4);
 	msm_io_w(data, ispif->base + ISPIF_INPUT_SEL_ADDR);
@@ -214,18 +217,6 @@ static int msm_ispif_config(struct msm_ispif_params_list *params_list)
 		 ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	return rc;
 }
-
-static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
-								void *arg)
-{
-	switch (cmd) {
-	case VIDIOC_MSM_ISPSF_CFG:
-		return msm_ispif_config((struct msm_ispif_params_list *)arg);
-	default:
-		return -ENOIOCTLCMD;
-	}
-}
-
 
 static uint32_t msm_ispif_get_cid_mask(uint8_t intftype)
 {
@@ -373,20 +364,6 @@ static int msm_ispif_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 	return rc;
 }
 
-static struct v4l2_subdev_core_ops msm_ispif_subdev_core_ops = {
-	.g_chip_ident = &msm_ispif_subdev_g_chip_ident,
-	.ioctl = &msm_ispif_subdev_ioctl,
-};
-
-static struct v4l2_subdev_video_ops msm_ispif_subdev_video_ops = {
-	.s_stream = &msm_ispif_subdev_video_s_stream,
-};
-
-static const struct v4l2_subdev_ops msm_ispif_subdev_ops = {
-	.core = &msm_ispif_subdev_core_ops,
-	.video = &msm_ispif_subdev_video_ops,
-};
-
 static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
 {
 	out->ispifIrqStatus0 = msm_io_r(ispif->base +
@@ -426,84 +403,54 @@ static irqreturn_t msm_io_ispif_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
-int msm_ispif_init(struct v4l2_subdev **sd, struct platform_device *pdev)
+static struct msm_cam_clk_info ispif_clk_info[] = {
+	{"csi_pix_clk", 0},
+	{"csi_rdi_clk", 0},
+	{"csi_pix1_clk", 0},
+	{"csi_rdi1_clk", 0},
+	{"csi_rdi2_clk", 0},
+};
+
+static int msm_ispif_init(const uint32_t *csid_version)
 {
 	int rc = 0;
-
-	ispif = kzalloc(sizeof(struct ispif_device), GFP_KERNEL);
-	if (!ispif) {
-		pr_err("%s: no enough memory\n", __func__);
-		return -ENOMEM;
-	}
-
-	v4l2_subdev_init(&ispif->subdev, &msm_ispif_subdev_ops);
-	v4l2_set_subdevdata(&ispif->subdev, ispif);
-	snprintf(ispif->subdev.name, sizeof(ispif->subdev.name),
-								"ispif");
-	mutex_init(&ispif->mutex);
-
-	ispif->mem = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "ispif");
-	if (!ispif->mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		rc = -ENODEV;
-		goto ispif_no_resource;
-	}
-	ispif->irq = platform_get_resource_byname(pdev,
-					IORESOURCE_IRQ, "ispif");
-	if (!ispif->irq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		rc = -ENODEV;
-		goto ispif_no_resource;
-	}
-	ispif->io = request_mem_region(ispif->mem->start,
-		resource_size(ispif->mem), pdev->name);
-	if (!ispif->io) {
-		pr_err("%s: no valid mem region\n", __func__);
-		rc = -EBUSY;
-		goto ispif_no_resource;
-	}
-	ispif->base = ioremap(ispif->mem->start,
-		resource_size(ispif->mem));
-	if (!ispif->base) {
-		rc = -ENOMEM;
-		goto ispif_no_mem;
-	}
-
 	rc = request_irq(ispif->irq->start, msm_io_ispif_irq,
 		IRQF_TRIGGER_RISING, "ispif", 0);
-	if (rc < 0)
-		goto ispif_irq_fail;
 
 	global_intf_cmd_mask = 0xFFFFFFFF;
 	init_completion(&ispif->reset_complete);
 
-	rc = msm_ispif_reset();
-	*sd = &(ispif->subdev);
-	return rc;
+	ispif->csid_version = *csid_version;
+	if (ispif->csid_version == CSID_VERSION_V2) {
+		rc = msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
+			ispif->ispif_clk, ARRAY_SIZE(ispif_clk_info), 1);
+		if (rc < 0)
+			return rc;
+	} else {
+		rc = msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
+			ispif->ispif_clk, 2, 1);
+		if (rc < 0)
+			return rc;
+	}
 
-ispif_irq_fail:
-	iounmap(ispif->base);
-ispif_no_mem:
-	release_mem_region(ispif->mem->start,
-			resource_size(ispif->mem));
-ispif_no_resource:
-	mutex_destroy(&ispif->mutex);
-	kfree(ispif);
+	rc = msm_ispif_reset();
 	return rc;
 }
 
-void msm_ispif_release(struct v4l2_subdev *sd)
+static void msm_ispif_release(struct v4l2_subdev *sd)
 {
 	struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);
 
+	if (ispif->csid_version == CSID_VERSION_V2)
+		msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
+			ispif->ispif_clk, ARRAY_SIZE(ispif_clk_info), 0);
+	else
+		msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
+			ispif->ispif_clk, 2, 0);
+
 	CDBG("%s, free_irq\n", __func__);
 	free_irq(ispif->irq->start, 0);
-	iounmap(ispif->base);
-	release_mem_region(ispif->mem->start,
-		resource_size(ispif->mem));
-	kfree(ispif);
 }
 
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num)
@@ -537,3 +484,112 @@ void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num)
 		data >>= 1;
 	}
 }
+
+static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+								void *arg)
+{
+	switch (cmd) {
+	case VIDIOC_MSM_ISPIF_CFG:
+		return msm_ispif_config((struct msm_ispif_params_list *)arg);
+	case VIDIOC_MSM_ISPIF_INIT:
+		return msm_ispif_init((uint32_t *)arg);
+	case VIDIOC_MSM_ISPIF_RELEASE:
+		msm_ispif_release(sd);
+	default:
+		return -ENOIOCTLCMD;
+	}
+}
+
+static struct v4l2_subdev_core_ops msm_ispif_subdev_core_ops = {
+	.g_chip_ident = &msm_ispif_subdev_g_chip_ident,
+	.ioctl = &msm_ispif_subdev_ioctl,
+};
+
+static struct v4l2_subdev_video_ops msm_ispif_subdev_video_ops = {
+	.s_stream = &msm_ispif_subdev_video_s_stream,
+};
+
+static const struct v4l2_subdev_ops msm_ispif_subdev_ops = {
+	.core = &msm_ispif_subdev_core_ops,
+	.video = &msm_ispif_subdev_video_ops,
+};
+
+static int __devinit ispif_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	CDBG("%s\n", __func__);
+	ispif = kzalloc(sizeof(struct ispif_device), GFP_KERNEL);
+	if (!ispif) {
+		pr_err("%s: no enough memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	v4l2_subdev_init(&ispif->subdev, &msm_ispif_subdev_ops);
+	v4l2_set_subdevdata(&ispif->subdev, ispif);
+	platform_set_drvdata(pdev, &ispif->subdev);
+	snprintf(ispif->subdev.name, sizeof(ispif->subdev.name),
+								"ispif");
+	mutex_init(&ispif->mutex);
+
+	ispif->mem = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "ispif");
+	if (!ispif->mem) {
+		pr_err("%s: no mem resource?\n", __func__);
+		rc = -ENODEV;
+		goto ispif_no_resource;
+	}
+	ispif->irq = platform_get_resource_byname(pdev,
+					IORESOURCE_IRQ, "ispif");
+	if (!ispif->irq) {
+		pr_err("%s: no irq resource?\n", __func__);
+		rc = -ENODEV;
+		goto ispif_no_resource;
+	}
+	ispif->io = request_mem_region(ispif->mem->start,
+		resource_size(ispif->mem), pdev->name);
+	if (!ispif->io) {
+		pr_err("%s: no valid mem region\n", __func__);
+		rc = -EBUSY;
+		goto ispif_no_resource;
+	}
+	ispif->base = ioremap(ispif->mem->start,
+		resource_size(ispif->mem));
+	if (!ispif->base) {
+		rc = -ENOMEM;
+		goto ispif_no_mem;
+	}
+
+	ispif->pdev = pdev;
+	return 0;
+
+ispif_no_mem:
+	release_mem_region(ispif->mem->start,
+		resource_size(ispif->mem));
+ispif_no_resource:
+	mutex_destroy(&ispif->mutex);
+	kfree(ispif);
+	return rc;
+}
+
+static struct platform_driver ispif_driver = {
+	.probe = ispif_probe,
+	.driver = {
+		.name = MSM_ISPIF_DRV_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_ispif_init_module(void)
+{
+	return platform_driver_register(&ispif_driver);
+}
+
+static void __exit msm_ispif_exit_module(void)
+{
+	platform_driver_unregister(&ispif_driver);
+}
+
+module_init(msm_ispif_init_module);
+module_exit(msm_ispif_exit_module);
+MODULE_DESCRIPTION("MSM ISP Interface driver");
+MODULE_LICENSE("GPL v2");

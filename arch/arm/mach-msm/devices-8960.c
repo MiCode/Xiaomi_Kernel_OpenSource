@@ -1011,18 +1011,6 @@ struct resource msm_camera_resources[] = {
 		.flags	= IORESOURCE_DMA,
 	},
 	{
-		.name	= "ispif",
-		.start	= 0x04800800,
-		.end	= 0x04800800 + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "ispif",
-		.start	= ISPIF_IRQ,
-		.end	= ISPIF_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
 		.name   = "s3d_rw",
 		.start  = 0x008003E0,
 		.end    = 0x008003E0 + SZ_16 - 1,
@@ -1129,6 +1117,28 @@ struct platform_device msm8960_device_csid1 = {
 	.id             = 1,
 	.resource       = msm_csid1_resources,
 	.num_resources  = ARRAY_SIZE(msm_csid1_resources),
+};
+
+struct resource msm_ispif_resources[] = {
+	{
+		.name	= "ispif",
+		.start	= 0x04800800,
+		.end	= 0x04800800 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "ispif",
+		.start	= ISPIF_IRQ,
+		.end	= ISPIF_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_ispif = {
+	.name           = "msm_ispif",
+	.id             = 0,
+	.resource       = msm_ispif_resources,
+	.num_resources  = ARRAY_SIZE(msm_ispif_resources),
 };
 #endif
 

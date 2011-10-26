@@ -43,6 +43,7 @@
 
 #define MSM_CSIPHY_DRV_NAME "msm_csiphy"
 #define MSM_CSID_DRV_NAME "msm_csid"
+#define MSM_ISPIF_DRV_NAME "msm_ispif"
 
 /* msm queue management APIs*/
 

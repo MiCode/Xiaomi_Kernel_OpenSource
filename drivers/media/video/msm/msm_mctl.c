@@ -190,7 +190,7 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 			ispif_params.params[0].csid = csid_core;
 
 			rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
-				VIDIOC_MSM_ISPSF_CFG, &ispif_params);
+				VIDIOC_MSM_ISPIF_CFG, &ispif_params);
 			if (rc < 0)
 				return rc;
 		}
@@ -367,6 +367,19 @@ static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
 	p_mctl->csid_sdev = dev_get_drvdata(dev);
 	put_driver(driver);
 
+	/* register ispif subdev */
+	driver = driver_find(MSM_ISPIF_DRV_NAME, &platform_bus_type);
+	if (!driver)
+		goto out;
+
+	dev = driver_find_device(driver, NULL, 0,
+				msm_mctl_subdev_match_core);
+	if (!dev)
+		goto out_put_driver;
+
+	p_mctl->ispif_sdev = dev_get_drvdata(dev);
+	put_driver(driver);
+
 	rc = 0;
 	return rc;
 out_put_driver:
@@ -442,9 +455,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto msm_open_done;
 		}
 
-		/*This has to be after isp_open, because isp_open initialize
-		 *platform resource. This dependency needs to be removed. */
-		rc = msm_ispif_init(&p_mctl->ispif_sdev, sync->pdev);
+		rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
+			VIDIOC_MSM_ISPIF_INIT, &csid_version);
 		if (rc < 0) {
 			pr_err("%s: ispif initialization failed %d\n",
 				__func__, rc);
@@ -479,7 +491,9 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
 	struct msm_sync *sync = &(p_mctl->sync);
-	msm_ispif_release(p_mctl->ispif_sdev);
+
+	v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
+		VIDIOC_MSM_ISPIF_RELEASE, NULL);
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(&p_mctl->sync);
