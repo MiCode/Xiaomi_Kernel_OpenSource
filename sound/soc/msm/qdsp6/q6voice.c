@@ -287,8 +287,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			mvm_session_cmd.hdr.token = 0;
 			mvm_session_cmd.hdr.opcode =
 				VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
-			strncpy(mvm_session_cmd.mvm_session.name,
-				"default modem voice", SESSION_NAME_LEN);
+			strlcpy(mvm_session_cmd.mvm_session.name,
+				"default modem voice",
+				sizeof(mvm_session_cmd.mvm_session.name));
 
 			v->mvm_state = CMD_STATUS_FAIL;
 
@@ -320,8 +321,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			mvm_session_cmd.hdr.token = 0;
 			mvm_session_cmd.hdr.opcode =
 				VSS_IMVM_CMD_CREATE_FULL_CONTROL_SESSION;
-			strncpy(mvm_session_cmd.mvm_session.name,
-				"default voip", SESSION_NAME_LEN);
+			strlcpy(mvm_session_cmd.mvm_session.name,
+				"default voip",
+				sizeof(mvm_session_cmd.mvm_session.name));
 
 			v->mvm_state = CMD_STATUS_FAIL;
 
@@ -361,8 +363,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			cvs_session_cmd.hdr.token = 0;
 			cvs_session_cmd.hdr.opcode =
 				VSS_ISTREAM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
-			strncpy(cvs_session_cmd.cvs_session.name,
-				"default modem voice", SESSION_NAME_LEN);
+			strlcpy(cvs_session_cmd.cvs_session.name,
+				"default modem voice",
+				sizeof(cvs_session_cmd.cvs_session.name));
 
 			v->cvs_state = CMD_STATUS_FAIL;
 
@@ -407,8 +410,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 						common.mvs_info.media_type;
 			cvs_full_ctl_cmd.cvs_session.network_id =
 					       common.mvs_info.network_type;
-			strncpy(cvs_full_ctl_cmd.cvs_session.name,
-			       "default q6 voice", 16);
+			strlcpy(cvs_full_ctl_cmd.cvs_session.name,
+				"default q6 voice",
+				sizeof(cvs_full_ctl_cmd.cvs_session.name));
 
 			v->cvs_state = CMD_STATUS_FAIL;
 
