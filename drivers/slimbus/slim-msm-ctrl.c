@@ -82,6 +82,7 @@
 #define QC_DEVID_SAT1	0x3
 #define QC_DEVID_SAT2	0x4
 #define QC_DEVID_PGD	0x5
+#define QC_MSM_DEVS	5
 
 /* Component registers */
 enum comp_reg {
@@ -239,6 +240,7 @@ struct msm_slim_ctrl {
 	bool			reconf_busy;
 	bool			chan_active;
 	enum msm_ctrl_state	state;
+	int			numdevs;
 };
 
 struct msm_slim_sat {
@@ -965,7 +967,6 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 			u8 e_addr[6];
 			for (i = 0; i < 6; i++)
 				e_addr[i] = buf[7-i];
-			pm_runtime_get_sync(dev->dev);
 
 			ret = slim_assign_laddr(&dev->ctrl, e_addr, 6, &laddr);
 			/* Is this Qualcomm ported generic device? */
@@ -974,7 +975,9 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 				e_addr[1] == QC_DEVID_PGD &&
 				e_addr[2] != QC_CHIPID_SL)
 				dev->pgdla = laddr;
-			pm_runtime_put(dev->dev);
+			dev->numdevs++;
+			if (!ret && dev->numdevs == QC_MSM_DEVS)
+				pm_runtime_enable(dev->dev);
 
 		} else if (mc == SLIM_MSG_MC_REPLY_INFORMATION ||
 				mc == SLIM_MSG_MC_REPLY_VALUE) {
@@ -1772,7 +1775,6 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, MSM_SLIM_AUTOSUSPEND);
 	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
 	dev_dbg(dev->dev, "MSM SB controller is up!\n");
 	return 0;
 
