@@ -49,7 +49,9 @@
 
 #else
 
-#if defined(CONFIG_ARCH_MSM9615)
+#if defined(CONFIG_ARCH_MSMCOPPER)
+#include "irqs-copper.h"
+#elif defined(CONFIG_ARCH_MSM9615)
 #include "irqs-9615.h"
 #elif defined(CONFIG_ARCH_MSM7X30)
 #include "irqs-7x30.h"
