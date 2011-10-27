@@ -223,7 +223,7 @@ enum {
 /* The SPI configurations apply to GSBI 1*/
 static struct gpiomux_setting spi_active = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
