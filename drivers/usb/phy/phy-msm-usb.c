@@ -218,12 +218,12 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg, int on)
 {
 	int ret = 0;
 
-	if (!hsusb_1p8 || IS_ERR(hsusb_1p8)) {
+	if (IS_ERR(hsusb_1p8)) {
 		pr_err("%s: HSUSB_1p8 is not initialized\n", __func__);
 		return -ENODEV;
 	}
 
-	if (!hsusb_3p3 || IS_ERR(hsusb_3p3)) {
+	if (IS_ERR(hsusb_3p3)) {
 		pr_err("%s: HSUSB_3p3 is not initialized\n", __func__);
 		return -ENODEV;
 	}
