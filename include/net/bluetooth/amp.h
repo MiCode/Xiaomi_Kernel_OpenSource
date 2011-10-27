@@ -16,7 +16,7 @@
 
 /* AMP defaults */
 
-#define A2MP_RSP_TIMEOUT        (20000)  /*  20 seconds */
+#define A2MP_RSP_TIMEOUT        (8000)  /*  8 seconds */
 
 /* A2MP Protocol */
 
