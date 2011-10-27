@@ -58,8 +58,9 @@ struct qce_device {
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
 
-	struct clk *ce_core_clk;	    /* Handle to CE clk */
-	struct clk *ce_clk;	    /* Handle to CE clk */
+	struct clk *ce_core_src_clk;	/* Handle to CE src clk*/
+	struct clk *ce_core_clk;	/* Handle to CE clk */
+	struct clk *ce_clk;		/* Handle to CE clk */
 
 	qce_comp_func_ptr_t qce_cb;	/* qce callback function pointer */
 
@@ -2391,6 +2392,8 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	struct resource *resource;
 	struct clk *ce_core_clk;
 	struct clk *ce_clk;
+	struct clk *ce_core_src_clk;
+	int ret = 0;
 
 	pce_dev = kzalloc(sizeof(struct qce_device), GFP_KERNEL);
 	if (!pce_dev) {
@@ -2461,10 +2464,26 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		goto err;
 	}
 
+	/* Get CE3 src core clk. */
+	ce_core_src_clk = clk_get(pce_dev->pdev, "ce3_core_src_clk");
+	if (!IS_ERR(ce_core_src_clk)) {
+		pce_dev->ce_core_src_clk = ce_core_src_clk;
+
+		/* Set the core src clk @100Mhz */
+		ret = clk_set_rate(pce_dev->ce_core_src_clk, 100000000);
+		if (ret) {
+			clk_put(pce_dev->ce_core_src_clk);
+			goto err;
+		}
+	} else
+		pce_dev->ce_core_src_clk = NULL;
+
 	/* Get CE core clk */
 	ce_core_clk = clk_get(pce_dev->pdev, "core_clk");
 	if (IS_ERR(ce_core_clk)) {
 		*rc = PTR_ERR(ce_core_clk);
+		if (pce_dev->ce_core_src_clk != NULL)
+			clk_put(pce_dev->ce_core_src_clk);
 		goto err;
 	}
 	pce_dev->ce_core_clk = ce_core_clk;
@@ -2472,6 +2491,8 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	ce_clk = clk_get(pce_dev->pdev, "iface_clk");
 	if (IS_ERR(ce_clk)) {
 		*rc = PTR_ERR(ce_clk);
+		if (pce_dev->ce_core_src_clk != NULL)
+			clk_put(pce_dev->ce_core_src_clk);
 		clk_put(pce_dev->ce_core_clk);
 		goto err;
 	}
@@ -2480,6 +2501,8 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	/* Enable CE core clk */
 	*rc = clk_enable(pce_dev->ce_core_clk);
 	if (*rc) {
+		if (pce_dev->ce_core_src_clk != NULL)
+			clk_put(pce_dev->ce_core_src_clk);
 		clk_put(pce_dev->ce_core_clk);
 		clk_put(pce_dev->ce_clk);
 		goto err;
@@ -2488,6 +2511,8 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		*rc = clk_enable(pce_dev->ce_clk);
 		if (*rc) {
 			clk_disable(pce_dev->ce_core_clk);
+			if (pce_dev->ce_core_src_clk != NULL)
+				clk_put(pce_dev->ce_core_src_clk);
 			clk_put(pce_dev->ce_core_clk);
 			clk_put(pce_dev->ce_clk);
 			goto err;
@@ -2539,6 +2564,9 @@ int qce_close(void *handle)
 	clk_disable(pce_dev->ce_clk);
 	clk_disable(pce_dev->ce_core_clk);
 
+	if (pce_dev->ce_core_src_clk != NULL)
+		clk_put(pce_dev->ce_core_src_clk);
+
 	clk_put(pce_dev->ce_clk);
 	clk_put(pce_dev->ce_core_clk);
 
@@ -2571,4 +2599,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.13");
+MODULE_VERSION("2.14");

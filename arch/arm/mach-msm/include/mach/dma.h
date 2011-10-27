@@ -245,6 +245,13 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_HSUART2_RX_CRCI   15
 #endif
 
+/* channels for APQ8064 */
+#define DMOV8064_CE_IN_CHAN        2
+#define DMOV8064_CE_IN_CRCI       14
+
+#define DMOV8064_CE_OUT_CHAN       3
+#define DMOV8064_CE_OUT_CRCI       15
+
 
 /* no client rate control ifc (eg, ram) */
 #define DMOV_NONE_CRCI        0
