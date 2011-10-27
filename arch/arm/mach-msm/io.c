@@ -277,6 +277,19 @@ void __init msm_map_apq8064_io(void)
 }
 #endif /* CONFIG_ARCH_APQ8064 */
 
+#ifdef CONFIG_ARCH_MSMCOPPER
+static struct map_desc msm_copper_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(QGIC_DIST, COPPER),
+	MSM_CHIP_DEVICE(QGIC_CPU, COPPER),
+	MSM_CHIP_DEVICE(TLMM, COPPER),
+};
+
+void __init msm_map_copper_io(void)
+{
+	msm_map_io(msm_copper_io_desc, ARRAY_SIZE(msm_copper_io_desc));
+}
+#endif /* CONFIG_ARCH_MSMCOPPER */
+
 #ifdef CONFIG_ARCH_MSM7X30
 static struct map_desc msm7x30_io_desc[] __initdata = {
 	MSM_DEVICE(VIC),
