@@ -242,6 +242,7 @@ int mdp_histogram_ctrl(boolean en)
 {
 	unsigned long flag;
 	unsigned long hist_base;
+	uint32_t status;
 
 	if (mdp_rev >= MDP_REV_40)
 		hist_base = 0x95000;
@@ -262,6 +263,17 @@ int mdp_histogram_ctrl(boolean en)
 		MDP_OUTP(MDP_BASE + hist_base, 1);
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	} else {
+		if (mdp_rev >= MDP_REV_40) {
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+			status = inpdw(MDP_BASE + hist_base + 0x1C);
+			status &= ~INTR_HIST_DONE;
+			MDP_OUTP(MDP_BASE + hist_base + 0x1C, status);
+
+			MDP_OUTP(MDP_BASE + hist_base + 0x18, INTR_HIST_DONE);
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
+									FALSE);
+		}
+
 		mdp_disable_irq(MDP_HISTOGRAM_TERM);
 	}
 
