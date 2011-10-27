@@ -76,9 +76,8 @@ static int msm_global_timer;
 
 #define NR_TIMERS ARRAY_SIZE(msm_clocks)
 
-#define GPT_HZ 32768
-#define SCLK_HZ 32768
-
+unsigned int gpt_hz = 32768;
+unsigned int sclk_hz = 32768;
 
 static struct msm_clock *clockevent_to_clock(struct clock_event_device *evt);
 static irqreturn_t msm_timer_interrupt(int irq, void *dev_id);
@@ -160,7 +159,7 @@ static struct msm_clock msm_clocks[] = {
 			.irq     = INT_GP_TIMER_EXP
 		},
 		.regbase = MSM_TMR_BASE + 0x4,
-		.freq = GPT_HZ,
+		.freq = 32768,
 		.index = MSM_CLOCK_GPT,
 		.flags =
 #if defined(CONFIG_CPU_V6) || defined(CONFIG_ARCH_MSM7X27A)
@@ -429,7 +428,9 @@ static uint32_t msm_timer_do_sync_to_sclk(
 	uint32_t t1, t2;
 	int loop_count = 10;
 	int loop_zero_count = 3;
-	int tmp = USEC_PER_SEC/SCLK_HZ/(loop_zero_count-1);
+	int tmp = USEC_PER_SEC;
+	do_div(tmp, sclk_hz);
+	tmp /= (loop_zero_count-1);
 
 	while (loop_zero_count--) {
 		t1 = __raw_readl(MSM_RPM_MPM_BASE + MPM_SCLK_COUNT_VAL);
@@ -456,7 +457,7 @@ static uint32_t msm_timer_do_sync_to_sclk(
 	}
 
 	if (update != NULL)
-		update(data, t1, SCLK_HZ);
+		update(data, t1, sclk_hz);
 	return t1;
 }
 #elif defined(CONFIG_MSM_N_WAY_SMSM)
@@ -527,7 +528,7 @@ static uint32_t msm_timer_do_sync_to_sclk(
 
 	if (smem_clock_val) {
 		if (update != NULL)
-			update(data, smem_clock_val, SCLK_HZ);
+			update(data, smem_clock_val, sclk_hz);
 
 		if (msm_timer_debug_mask & MSM_TIMER_DEBUG_SYNC)
 			printk(KERN_INFO
@@ -601,7 +602,7 @@ static uint32_t msm_timer_do_sync_to_sclk(
 
 	if (smem_clock_val) {
 		if (update != NULL)
-			update(data, smem_clock_val, SCLK_HZ);
+			update(data, smem_clock_val, sclk_hz);
 	} else {
 		printk(KERN_EMERG
 			"get_smem_clock: timeout state %x clock %u\n",
@@ -721,8 +722,10 @@ static void msm_timer_sync_to_gpt(struct msm_clock *clock, int exit_sleep)
 		&__get_cpu_var(msm_clocks_percpu)[clock->index];
 	struct msm_timer_sync_data_t data;
 	uint32_t gpt_clk_val;
-	u64 gpt_period = (1ULL << 32) * HZ / GPT_HZ;
+	u64 gpt_period = (1ULL << 32) * HZ;
 	u64 now = get_jiffies_64();
+
+	do_div(gpt_period, gpt_hz);
 
 	BUG_ON(clock == gpt_clk);
 
@@ -740,7 +743,7 @@ static void msm_timer_sync_to_gpt(struct msm_clock *clock, int exit_sleep)
 	data.timeout = 0;
 	data.exit_sleep = exit_sleep;
 
-	msm_timer_sync_update(&data, gpt_clk_val, GPT_HZ);
+	msm_timer_sync_update(&data, gpt_clk_val, gpt_hz);
 
 	clock_state->in_sync = 1;
 	clock_state->last_sync_gpt = gpt_clk_val;
@@ -897,12 +900,14 @@ int64_t msm_timer_get_sclk_time(int64_t *period)
 
 	if (period) {
 		tmp = 1LL << 32;
-		tmp = tmp * NSEC_PER_SEC / SCLK_HZ;
+		tmp *= NSEC_PER_SEC;
+		do_div(tmp, sclk_hz);
 		*period = tmp;
 	}
 
 	tmp = (int64_t)clock_value;
-	tmp = tmp * NSEC_PER_SEC / SCLK_HZ;
+	tmp *= NSEC_PER_SEC;
+	do_div(tmp, sclk_hz);
 	return tmp;
 }
 
@@ -988,10 +993,16 @@ static void __init msm_timer_init(void)
 		dgt->freq = 4800000;
 	else if (cpu_is_msm7x30() || cpu_is_msm8x55())
 		dgt->freq = 6144000;
-	else if (cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_msm9615() ||
-		 cpu_is_apq8064() || cpu_is_msm8x30()) {
+	else if (cpu_is_msm8x60()) {
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+	} else if (cpu_is_msm8960() || cpu_is_apq8064() || cpu_is_msm8930()
+		|| cpu_is_msm9615()) {
+		dgt->freq = 6750000;
+		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+		gpt->freq = 32765;
+		gpt_hz = 32765;
+		sclk_hz = 32765;
 	} else {
 		WARN_ON("Timer running on unknown hardware. Configure this! "
 			"Assuming default configuration.\n");
@@ -1012,14 +1023,14 @@ static void __init msm_timer_init(void)
 		__raw_writel(0, clock->regbase + TIMER_COUNT_VAL);
 		__raw_writel(~0, clock->regbase + TIMER_MATCH_VAL);
 
-		if ((clock->freq << clock->shift) == GPT_HZ) {
+		if ((clock->freq << clock->shift) == gpt_hz) {
 			clock->rollover_offset = 0;
 		} else {
 			uint64_t temp;
 
 			temp = clock->freq << clock->shift;
 			temp <<= 32;
-			temp /= GPT_HZ;
+			do_div(temp, gpt_hz);
 
 			clock->rollover_offset = (uint32_t) temp;
 		}
