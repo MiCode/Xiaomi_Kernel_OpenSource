@@ -2262,6 +2262,29 @@ uint32 tile_mem_size(struct mdp4_overlay_pipe *pipe, struct tile_desc *tp)
 	return ((row_num_w * row_num_h * tile_w * tile_h) + 8191) & ~8191;
 }
 
+int mdp4_overlay_play_wait(struct fb_info *info, struct msmfb_overlay_data *req)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdp4_overlay_pipe *pipe;
+
+	if (mfd == NULL)
+		return -ENODEV;
+
+	if (!mfd->panel_power_on) /* suspended */
+		return -EPERM;
+
+	pipe = mdp4_overlay_ndx2pipe(req->id);
+
+	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
+		return -EINTR;
+
+	mdp4_overlay_dtv_wait_for_ov(mfd, pipe);
+
+	mutex_unlock(&mfd->dma->ov_mutex);
+
+	return 0;
+}
+
 int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 		struct file **pp_src_file, struct file **pp_src_plane1_file,
 		struct file **pp_src_plane2_file)
