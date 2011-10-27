@@ -61,7 +61,7 @@ static void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 	adreno_regwrite(rb->device, REG_CP_RB_WPTR, rb->wptr);
 }
 
-static int
+static void
 adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 			  int wptr_ahead)
 {
@@ -102,8 +102,6 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 		freecmds = rb->rptr - rb->wptr;
 
 	} while ((freecmds != 0) && (freecmds <= numcmds));
-
-	return 0;
 }
 
 
@@ -111,7 +109,6 @@ static unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 					     unsigned int numcmds)
 {
 	unsigned int	*ptr = NULL;
-	int				status = 0;
 
 	BUG_ON(numcmds >= rb->sizedwords);
 
@@ -122,22 +119,20 @@ static unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 		/* reserve dwords for nop packet */
 		if ((rb->wptr + numcmds) > (rb->sizedwords -
 				GSL_RB_NOP_SIZEDWORDS))
-			status = adreno_ringbuffer_waitspace(rb, numcmds, 1);
+			adreno_ringbuffer_waitspace(rb, numcmds, 1);
 	} else {
 		/* wptr behind rptr */
 		if ((rb->wptr + numcmds) >= rb->rptr)
-			status  = adreno_ringbuffer_waitspace(rb, numcmds, 0);
+			adreno_ringbuffer_waitspace(rb, numcmds, 0);
 		/* check for remaining space */
 		/* reserve dwords for nop packet */
 		if ((rb->wptr + numcmds) > (rb->sizedwords -
 				GSL_RB_NOP_SIZEDWORDS))
-			status = adreno_ringbuffer_waitspace(rb, numcmds, 1);
+			adreno_ringbuffer_waitspace(rb, numcmds, 1);
 	}
 
-	if (status == 0) {
-		ptr = (unsigned int *)rb->buffer_desc.hostptr + rb->wptr;
-		rb->wptr += numcmds;
-	}
+	ptr = (unsigned int *)rb->buffer_desc.hostptr + rb->wptr;
+	rb->wptr += numcmds;
 
 	return ptr;
 }
@@ -391,7 +386,7 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 	return status;
 }
 
-int adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
+void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
 {
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		/* ME_HALT */
@@ -399,8 +394,6 @@ int adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
 
 		rb->flags &= ~KGSL_FLAGS_STARTED;
 	}
-
-	return 0;
 }
 
 int adreno_ringbuffer_init(struct kgsl_device *device)
@@ -443,7 +436,7 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 	return 0;
 }
 
-int adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
+void adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
@@ -457,8 +450,6 @@ int adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 	adreno_dev->pm4_fw = NULL;
 
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
-
-	return 0;
 }
 
 static uint32_t
