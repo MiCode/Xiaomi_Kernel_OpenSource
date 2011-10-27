@@ -509,7 +509,6 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		/* Move CPU to HFPLL source. */
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	} else if (strt_s->src == HFPLL && tgt_s->src != HFPLL) {
-		/* TODO: Enable source. */
 		/*
 		 * If responding to CPU_DEAD we must be running on another
 		 * CPU.  Therefore, we can't access the downed CPU's CP15
@@ -533,12 +532,9 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		 */
 		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2])
 			set_pri_clk_src(sc, tgt_s->pri_src_sel);
-		/* TODO: Disable source. */
 	} else {
-		/* TODO: Enable source. */
 		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2])
 			set_sec_clk_src(sc, tgt_s->sec_src_sel);
-		/* TODO: Disable source. */
 	}
 
 	sc->current_speed = tgt_s;
