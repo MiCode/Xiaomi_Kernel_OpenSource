@@ -51,6 +51,7 @@
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 #define SEC_SRC_SEL_QSB		0
+#define SEC_SRC_SEL_AUX		2
 
 /* HFPLL registers offsets. */
 #define HFPLL_MODE		0x00
@@ -548,12 +549,11 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		return;
 
 	if (strt_s->src == HFPLL && tgt_s->src == HFPLL) {
-		/* Move CPU to QSB source. */
 		/*
-		 * TODO: If using QSB here requires elevating voltages,
-		 * consider using PLL8 instead.
+		 * Move to an always-on source running at a frequency that does
+		 * not require an elevated CPU voltage. PLL8 is used here.
 		 */
-		set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
+		set_sec_clk_src(sc, SEC_SRC_SEL_AUX);
 		set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 
 		/* Program CPU HFPLL. */
@@ -882,7 +882,7 @@ static void __init init_clock_sources(struct scalable *sc,
 	writel_relaxed(0x3, sc->aux_clk_sel);
 
 	/* Switch away from the HFPLL while it's re-initialized. */
-	set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
+	set_sec_clk_src(sc, SEC_SRC_SEL_AUX);
 	set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 	hfpll_init(sc, tgt_s);
 
