@@ -121,12 +121,10 @@ static void diag_smd_cntl_notify(void *ctxt, unsigned event)
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
 }
 
-#if defined(CONFIG_MSM_N_WAY_SMD)
 static void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
 {
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_cntl_work));
 }
-#endif
 
 static void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
 {
