@@ -601,9 +601,18 @@ qup_set_wr_mode(struct qup_i2c_dev *dev, int rem)
 {
 	int total_len = 0;
 	int ret = 0;
-	if (dev->msg->len >= (dev->out_fifo_sz - 1)) {
-		total_len = dev->msg->len + 1 +
-				(dev->msg->len/(dev->out_blk_sz-1));
+	int len = dev->msg->len;
+	struct i2c_msg *next = NULL;
+	if (rem > 1)
+		next = dev->msg + 1;
+	while (rem > 1 && next->flags == 0) {
+		len += next->len + 1;
+		next = next + 1;
+		rem--;
+	}
+	if (len >= (dev->out_fifo_sz - 1)) {
+		total_len = len + 1 + (len/(dev->out_blk_sz-1));
+
 		writel_relaxed(QUP_WR_BLK_MODE | QUP_PACK_EN | QUP_UNPACK_EN,
 			dev->base + QUP_IO_MODE);
 		dev->wr_sz = dev->out_blk_sz;
@@ -612,7 +621,6 @@ qup_set_wr_mode(struct qup_i2c_dev *dev, int rem)
 			dev->base + QUP_IO_MODE);
 
 	if (rem > 1) {
-		struct i2c_msg *next = dev->msg + 1;
 		if (next->addr == dev->msg->addr &&
 			next->flags == I2C_M_RD) {
 			qup_set_read_mode(dev, next->len);
