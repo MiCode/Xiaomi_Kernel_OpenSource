@@ -556,7 +556,7 @@ static int pm_chg_disable_wd(struct pm8921_chg_chip *chip)
 	return pm_chg_masked_write(chip, CHG_TWDOG, PM8921_CHG_WD_MASK, 0);
 }
 
-#define PM8921_CHG_TCHG_MASK	0x3F
+#define PM8921_CHG_TCHG_MASK	0x7F
 #define PM8921_CHG_TCHG_MIN	4
 #define PM8921_CHG_TCHG_MAX	512
 #define PM8921_CHG_TCHG_STEP	4
