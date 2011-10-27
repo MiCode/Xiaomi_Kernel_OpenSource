@@ -1,0 +1,51 @@
+MSM SoC HSUSB controllers
+
+OTG:
+
+Required properties :
+- compatible : should be "qcom,hsusb-otg"
+- regs : offset and length of the register set in the memory map
+- interrupts: IRQ line
+- qcom,hsusb-otg-phy-type: PHY type can be one of
+            1 - Chipidea 45nm PHY
+	    2 - Synopsis 28nm PHY
+- qcom,hsusb-otg-mode: Operational mode. Can be one of
+            1 - Peripheral only mode
+	    2 - Host only mode
+	    3 - OTG mode
+	    Based on the mode, OTG driver registers platform devices for
+	    gadget and host.
+- qcom,hsusb-otg-control: OTG control (VBUS and ID notifications)
+  can be one of
+            1 - PHY control
+	    2 - PMIC control
+	    3 - User control (via debugfs)
+
+Optional properties :
+- qcom,hsusb-otg-default-mode: The default USB mode after boot-up.
+  Applicable only when OTG is controlled by user. Can be one of
+            0 - None. Low power mode
+            1 - Peripheral
+	    2 - Host
+- qcom,hsusb-otg-phy-init-seq: PHY configuration sequence. val, reg pairs
+  terminate with -1
+- qcom,hsusb-otg-power-budget: VBUS power budget in mA
+  0 will be treated as 500mA
+- qcom,hsusb-otg-pclk-src-name: The source of pclk
+- qcom,hsusb-otg-pmic-id-irq: ID, routed to PMIC IRQ number
+
+Example HSUSB OTG controller device node :
+	usb@F9690000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xF9690000 0x400>;
+		interrupts = <134>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-default-mode = <2>;
+		qcom,hsusb-otg-phy-init-seq = <0x01 0x90 0xFFFFFFFF>;
+		qcom,hsusb-otg-power-budget = <500>;
+		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
+		qcom,hsusb-otg-pmic-id-irq = <47>
+	};

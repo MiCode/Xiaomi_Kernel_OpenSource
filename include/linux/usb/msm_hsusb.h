@@ -174,7 +174,7 @@ struct msm_otg_platform_data {
 	enum usb_mode_type default_mode;
 	enum msm_usb_phy_type phy_type;
 	void (*setup_gpio)(enum usb_otg_state state);
-	char *pclk_src_name;
+	const char *pclk_src_name;
 	int pmic_id_irq;
 	bool mhl_enable;
 };
