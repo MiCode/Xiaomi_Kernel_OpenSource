@@ -277,8 +277,10 @@ static inline void wakeup_v1_riva(void)
 	 * trigger GPIO 40 to wake up RIVA from power collaspe
 	 * not to be sent to customers
 	 */
-	__raw_writel(0x0, MSM_TLMM_BASE + 0x1284);
-	__raw_writel(0x2, MSM_TLMM_BASE + 0x1284);
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+		__raw_writel(0x0, MSM_TLMM_BASE + 0x1284);
+		__raw_writel(0x2, MSM_TLMM_BASE + 0x1284);
+	}
 	/* end workaround */
 }
 #else
