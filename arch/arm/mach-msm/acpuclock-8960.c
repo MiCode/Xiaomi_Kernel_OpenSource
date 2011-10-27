@@ -872,24 +872,18 @@ static void __init regulator_init(void)
 	}
 }
 
-#define INIT_QSB_ID	0
-#define INIT_HFPLL_ID	1
 /* Set initial rate for a given core. */
 static void __init init_clock_sources(struct scalable *sc,
 				      struct core_speed *tgt_s)
 {
-	uint32_t pri_src, regval;
+	uint32_t regval;
 
-	/*
-	 * If the HFPLL is in use, program AUX source for QSB, switch to it,
-	 * re-initialize the HFPLL, and switch back to the HFPLL. Otherwise,
-	 * the HFPLL is not in use, so we can switch directly to it.
-	 */
-	pri_src = get_pri_clk_src(scalable);
-	if (pri_src == PRI_SRC_SEL_HFPLL || pri_src == PRI_SRC_SEL_HFPLL_DIV2) {
-		set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
-		set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
-	}
+	/* Select PLL8 as AUX source input to the secondary MUX. */
+	writel_relaxed(0x3, sc->aux_clk_sel);
+
+	/* Switch away from the HFPLL while it's re-initialized. */
+	set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
+	set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 	hfpll_init(sc, tgt_s);
 
 	/* Set PRI_SRC_SEL_HFPLL_DIV2 divider to div-2. */
@@ -897,9 +891,8 @@ static void __init init_clock_sources(struct scalable *sc,
 	regval &= ~(0x3 << 6);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
-	/* Select PLL8 as AUX source input to the secondary MUX. */
-	writel_relaxed(0x3, sc->aux_clk_sel);
-
+	/* Switch to the target clock source. */
+	set_sec_clk_src(sc, tgt_s->sec_src_sel);
 	set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	sc->current_speed = tgt_s;
 
