@@ -1847,7 +1847,7 @@ static int msm_fb_detect_panel(const char *name)
 		if (!strncmp(name, "lcdc_toshiba_fwvga_pt", 21) ||
 				!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
 			ret = 0;
-	} else if (machine_is_msm7x27a_ffa()) {
+	} else if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()) {
 		if (!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
 			ret = 0;
 	}
