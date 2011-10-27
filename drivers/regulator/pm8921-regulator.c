@@ -1448,7 +1448,7 @@ static int pm8921_ftsmps_list_voltage(struct regulator_dev *rdev,
 static int _pm8921_ftsmps_set_voltage(struct pm8921_vreg *vreg, int min_uV,
 				      int max_uV, int force_on)
 {
-	int rc;
+	int rc = 0;
 	u8 vprog, band;
 	int uV = min_uV;
 
