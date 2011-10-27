@@ -25,6 +25,8 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/pm_runtime.h>
+#include <linux/of.h>
+#include <linux/dma-mapping.h>
 
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
@@ -2031,17 +2033,147 @@ static void msm_otg_debugfs_cleanup(void)
 	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
+static u64 msm_otg_dma_mask = DMA_BIT_MASK(64);
+static struct platform_device *msm_otg_add_pdev(
+		struct platform_device *ofdev, const char *name)
+{
+	struct platform_device *pdev;
+	const struct resource *res = ofdev->resource;
+	unsigned int num = ofdev->num_resources;
+	int retval;
+
+	pdev = platform_device_alloc(name, -1);
+	if (!pdev) {
+		retval = -ENOMEM;
+		goto error;
+	}
+
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &msm_otg_dma_mask;
+
+	if (num) {
+		retval = platform_device_add_resources(pdev, res, num);
+		if (retval)
+			goto error;
+	}
+
+	retval = platform_device_add(pdev);
+	if (retval)
+		goto error;
+
+	return pdev;
+
+error:
+	platform_device_put(pdev);
+	return ERR_PTR(retval);
+}
+
+static int msm_otg_setup_devices(struct platform_device *ofdev,
+		enum usb_mode_type mode, bool init)
+{
+	const char *gadget_name = "msm_hsusb";
+	const char *host_name = "msm_hsusb_host";
+	static struct platform_device *gadget_pdev;
+	static struct platform_device *host_pdev;
+	int retval = 0;
+
+	if (!init) {
+		if (gadget_pdev)
+			platform_device_unregister(gadget_pdev);
+		if (host_pdev)
+			platform_device_unregister(host_pdev);
+		return 0;
+	}
+
+	switch (mode) {
+	case USB_OTG:
+		/* fall through */
+	case USB_PERIPHERAL:
+		gadget_pdev = msm_otg_add_pdev(ofdev, gadget_name);
+		if (IS_ERR(gadget_pdev)) {
+			retval = PTR_ERR(gadget_pdev);
+			break;
+		}
+		if (mode == USB_PERIPHERAL)
+			break;
+		/* fall through */
+	case USB_HOST:
+		host_pdev = msm_otg_add_pdev(ofdev, host_name);
+		if (IS_ERR(host_pdev)) {
+			retval = PTR_ERR(host_pdev);
+			if (mode == USB_OTG)
+				platform_device_unregister(gadget_pdev);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return retval;
+}
+
+struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct msm_otg_platform_data *pdata;
+	int len = 0;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		pr_err("unable to allocate platform data\n");
+		return NULL;
+	}
+	of_get_property(node, "qcom,hsusb-otg-phy-init-seq", &len);
+	if (len) {
+		pdata->phy_init_seq = devm_kzalloc(&pdev->dev, len, GFP_KERNEL);
+		if (!pdata->phy_init_seq)
+			return NULL;
+		of_property_read_u32_array(node, "qcom,hsusb-otg-phy-init-seq",
+				pdata->phy_init_seq,
+				len/sizeof(*pdata->phy_init_seq));
+	}
+	of_property_read_u32(node, "qcom,hsusb-otg-power-budget",
+				&pdata->power_budget);
+	of_property_read_u32(node, "qcom,hsusb-otg-mode",
+				&pdata->mode);
+	of_property_read_u32(node, "qcom,hsusb-otg-otg-control",
+				&pdata->otg_control);
+	of_property_read_u32(node, "qcom,hsusb-otg-default-mode",
+				&pdata->default_mode);
+	of_property_read_u32(node, "qcom,hsusb-otg-phy-type",
+				&pdata->phy_type);
+	of_property_read_u32(node, "qcom,hsusb-otg-pmic-id-irq",
+				&pdata->pmic_id_irq);
+	of_property_read_string(node, "qcom,hsusb-otg-pclk-src-name",
+				&pdata->pclk_src_name);
+	return pdata;
+}
+
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct resource *res;
 	struct msm_otg *motg;
 	struct otg_transceiver *otg;
+	struct msm_otg_platform_data *pdata;
 
 	dev_info(&pdev->dev, "msm_otg probe\n");
-	if (!pdev->dev.platform_data) {
+
+	if (pdev->dev.of_node) {
+		dev_dbg(&pdev->dev, "device tree enabled\n");
+		pdata = msm_otg_dt_to_pdata(pdev);
+		if (!pdata)
+			return -ENOMEM;
+		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
+		if (ret) {
+			dev_err(&pdev->dev, "devices setup failed\n");
+			return ret;
+		}
+	} else if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		return -ENODEV;
+	} else {
+		pdata = pdev->dev.platform_data;
 	}
 
 	motg = kzalloc(sizeof(struct msm_otg), GFP_KERNEL);
@@ -2051,7 +2183,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	the_msm_otg = motg;
-	motg->pdata = pdev->dev.platform_data;
+	motg->pdata = pdata;
 	otg = &motg->otg;
 	otg->dev = &pdev->dev;
 
@@ -2289,6 +2421,8 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	if (otg->host || otg->gadget)
 		return -EBUSY;
 
+	if (pdev->dev.of_node)
+		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_unregister_vbus_sn(0);
 	msm_otg_debugfs_cleanup();
@@ -2428,6 +2562,12 @@ static const struct dev_pm_ops msm_otg_dev_pm_ops = {
 };
 #endif
 
+static struct of_device_id msm_otg_dt_match[] = {
+	{	.compatible = "qcom,hsusb-otg",
+	},
+	{}
+};
+
 static struct platform_driver msm_otg_driver = {
 	.remove = __devexit_p(msm_otg_remove),
 	.driver = {
@@ -2436,6 +2576,7 @@ static struct platform_driver msm_otg_driver = {
 #ifdef CONFIG_PM
 		.pm = &msm_otg_dev_pm_ops,
 #endif
+		.of_match_table = msm_otg_dt_match,
 	},
 };
 

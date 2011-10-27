@@ -20,4 +20,14 @@
 		reg = <0xF9684000 0x1000>;
 		interrupts = <109>;
 	};
+
+	usb@F9690000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xF9690000 0x400>;
+		interrupts = <134>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+	};
 };
