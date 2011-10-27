@@ -347,11 +347,12 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-	int hpd = 1;
-#else
-	int hpd = atoi(buf);
-#endif
+	int hpd;
+	if (hdmi_prim_display)
+		hpd = 1;
+	else
+		hpd = atoi(buf);
+
 	if (external_common_state->hpd_feature) {
 		if (hpd == 0 && external_common_state->hpd_feature_on) {
 			external_common_state->hpd_feature(0);
@@ -652,6 +653,14 @@ static ssize_t external_common_rda_hdmi_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_common_rda_hdmi_primary(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		hdmi_prim_display);
+	DEV_DBG("%s: '%d'\n", __func__,	hdmi_prim_display);
+	return ret;
+}
 
 static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO,
 	external_common_rda_video_mode, external_common_wta_video_mode);
@@ -671,6 +680,7 @@ static DEVICE_ATTR(hdcp_present, S_IRUGO, hdmi_common_rda_hdcp_present, NULL);
 static DEVICE_ATTR(format_3d, S_IRUGO | S_IWUGO, hdmi_3d_rda_format_3d,
 	hdmi_3d_wta_format_3d);
 #endif
+static DEVICE_ATTR(hdmi_primary, S_IRUGO, hdmi_common_rda_hdmi_primary, NULL);
 
 static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
@@ -693,6 +703,7 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_cec_rd_frame.attr,
 	&dev_attr_cec_wr_frame.attr,
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+	&dev_attr_hdmi_primary.attr,
 	NULL,
 };
 static struct attribute_group external_common_fs_attr_group = {
@@ -1567,11 +1578,10 @@ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 	pinfo->pdest = DISPLAY_2;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-	pinfo->fb_num = 2;
-#else
-	pinfo->fb_num = 1;
-#endif
+	if (hdmi_prim_display)
+		pinfo->fb_num = 2;
+	else
+		pinfo->fb_num = 1;
 
 	/* blk */
 	pinfo->lcdc.border_clr = 0;
