@@ -502,15 +502,16 @@ static void pm8xxx_batt_alarm_isr_work(struct work_struct *work)
 		= container_of(work, struct pm8xxx_batt_alarm_chip, irq_work);
 	int status;
 
-	if (chip) {
-		status = pm8xxx_batt_alarm_status_read();
+	if (!chip)
+		return;
 
-		if (status < 0)
-			pr_err("failed to read status, rc=%d\n", status);
-		else
-			srcu_notifier_call_chain(&chip->irq_notifier_list,
-						 status, NULL);
-	}
+	status = pm8xxx_batt_alarm_status_read();
+
+	if (status < 0)
+		pr_err("failed to read status, rc=%d\n", status);
+	else
+		srcu_notifier_call_chain(&chip->irq_notifier_list,
+						status, NULL);
 
 	enable_irq(chip->irq);
 }
