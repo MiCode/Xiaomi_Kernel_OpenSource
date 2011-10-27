@@ -4049,15 +4049,22 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
+#define PM8XXX_LED_PWM_PERIOD		1000
+#define PM8XXX_LED_PWM_DUTY_MS		20
+/**
+ * PM8XXX_PWM_CHANNEL_NONE shall be used when LED shall not be
+ * driven using PWM feature.
+ */
+#define PM8XXX_PWM_CHANNEL_NONE		-1
 
 static struct led_info pm8921_led_info[] = {
 	[0] = {
-		.name			= "led:usb",
-		.default_trigger	= "usb-online",
+		.name			= "led:battery_charging",
+		.default_trigger	= "battery-charging",
 	},
 	[1] = {
-		.name			= "led:ac",
-		.default_trigger	= "ac-online",
+		.name			= "led:battery_full",
+		.default_trigger	= "battery-full",
 	},
 };
 
@@ -4066,16 +4073,37 @@ static struct led_platform_data pm8921_led_core_pdata = {
 	.leds = pm8921_led_info,
 };
 
+static int pm8921_led0_pwm_duty_pcts[56] = {
+		1, 4, 8, 12, 16, 20, 24, 28, 32, 36,
+		40, 44, 46, 52, 56, 60, 64, 68, 72, 76,
+		80, 84, 88, 92, 96, 100, 100, 100, 98, 95,
+		92, 88, 84, 82, 78, 74, 70, 66, 62, 58,
+		58, 54, 50, 48, 42, 38, 34, 30, 26, 22,
+		14, 10, 6, 4, 1
+};
+
+static struct pm8xxx_pwm_duty_cycles pm8921_led0_pwm_duty_cycles = {
+	.duty_pcts = (int *)&pm8921_led0_pwm_duty_pcts,
+	.num_duty_pcts = ARRAY_SIZE(pm8921_led0_pwm_duty_pcts),
+	.duty_ms = PM8XXX_LED_PWM_DUTY_MS,
+	.start_idx = 0,
+};
+
 static struct pm8xxx_led_config pm8921_led_configs[] = {
 	[0] = {
 		.id = PM8XXX_ID_LED_0,
-		.mode = PM8XXX_LED_MODE_MANUAL,
+		.mode = PM8XXX_LED_MODE_PWM2,
 		.max_current = PM8921_LC_LED_MAX_CURRENT,
+		.pwm_channel = 5,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
+		.pwm_duty_cycles = &pm8921_led0_pwm_duty_cycles,
 	},
 	[1] = {
 		.id = PM8XXX_ID_LED_1,
-		.mode = PM8XXX_LED_MODE_MANUAL,
+		.mode = PM8XXX_LED_MODE_PWM1,
 		.max_current = PM8921_LC_LED_MAX_CURRENT,
+		.pwm_channel = 4,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
 	},
 };
 
