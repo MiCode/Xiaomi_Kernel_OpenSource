@@ -201,8 +201,8 @@ struct bms_notify {
  * @update_time:		how frequently the userland needs to be updated
  * @max_voltage:		the max volts the batt should be charged up to
  * @min_voltage:		the min battery voltage before turning the FETon
- * @resume_voltage:		the voltage at which the battery should resume
- *				charging
+ * @resume_voltage_delta:	the voltage delta from vdd max at which the
+ *				battery should resume charging
  * @term_current:		The charging based term current
  *
  */
@@ -225,7 +225,9 @@ struct pm8921_chg_chip {
 	unsigned int			warm_bat_chg_current;
 	unsigned int			cool_bat_voltage;
 	unsigned int			warm_bat_voltage;
-	unsigned int			resume_voltage;
+	unsigned int			is_bat_cool;
+	unsigned int			is_bat_warm;
+	unsigned int			resume_voltage_delta;
 	unsigned int			term_current;
 	unsigned int			vbat_channel;
 	unsigned int			batt_temp_channel;
@@ -1898,11 +1900,17 @@ static void battery_cool(bool enter)
 			the_chip->cool_temp + TEMP_HYSTERISIS_DEGC;
 		pm_chg_ibatmax_set(the_chip, the_chip->cool_bat_chg_current);
 		pm_chg_vddmax_set(the_chip, the_chip->cool_bat_voltage);
+		pm_chg_vbatdet_set(the_chip,
+			the_chip->cool_bat_voltage
+			- the_chip->resume_voltage_delta);
 	} else {
 		btm_config.low_thr_temp = the_chip->cool_temp;
 		pm_chg_ibatmax_set(the_chip, the_chip->max_bat_chg_current);
 		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
+		pm_chg_vbatdet_set(the_chip,
+			the_chip->max_voltage - the_chip->resume_voltage_delta);
 	}
+	the_chip->is_bat_cool = enter;
 	schedule_work(&btm_config_work);
 }
 
@@ -1914,11 +1922,17 @@ static void battery_warm(bool enter)
 			the_chip->warm_temp - TEMP_HYSTERISIS_DEGC;
 		pm_chg_ibatmax_set(the_chip, the_chip->warm_bat_chg_current);
 		pm_chg_vddmax_set(the_chip, the_chip->warm_bat_voltage);
+		pm_chg_vbatdet_set(the_chip,
+			the_chip->warm_bat_voltage
+			- the_chip->resume_voltage_delta);
 	} else {
 		btm_config.high_thr_temp = the_chip->warm_temp;
 		pm_chg_ibatmax_set(the_chip, the_chip->max_bat_chg_current);
 		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
+		pm_chg_vbatdet_set(the_chip,
+			the_chip->max_voltage - the_chip->resume_voltage_delta);
 	}
+	the_chip->is_bat_warm = enter;
 	schedule_work(&btm_config_work);
 }
 
@@ -2211,10 +2225,11 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 						chip->max_voltage, rc);
 		return rc;
 	}
-	rc = pm_chg_vbatdet_set(chip, chip->resume_voltage);
+	rc = pm_chg_vbatdet_set(chip,
+				chip->max_voltage - chip->resume_voltage_delta);
 	if (rc) {
 		pr_err("Failed to set vbatdet comprator voltage to %d rc=%d\n",
-						chip->resume_voltage, rc);
+			chip->max_voltage - chip->resume_voltage_delta, rc);
 		return rc;
 	}
 
@@ -2458,6 +2473,24 @@ static int set_reg(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_reg, set_reg, "0x%02llx\n");
 
+enum {
+	BAT_WARM_ZONE,
+	BAT_COOL_ZONE,
+};
+static int get_warm_cool(void *data, u64 * val)
+{
+	if (!the_chip) {
+		pr_err("%s called before init\n", __func__);
+		return -EINVAL;
+	}
+	if ((int)data == BAT_WARM_ZONE)
+		*val = the_chip->is_bat_warm;
+	if ((int)data == BAT_COOL_ZONE)
+		*val = the_chip->is_bat_cool;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(warm_cool_fops, get_warm_cool, NULL, "0x%lld\n");
+
 static void create_debugfs_entries(struct pm8921_chg_chip *chip)
 {
 	int i;
@@ -2524,6 +2557,11 @@ static void create_debugfs_entries(struct pm8921_chg_chip *chip)
 	debugfs_create_file("REGULATION_LOOP_CONTROL", 0644, chip->dent, NULL,
 			    &reg_loop_fops);
 
+	debugfs_create_file("BAT_WARM_ZONE", 0644, chip->dent,
+				(void *)BAT_WARM_ZONE, &warm_cool_fops);
+	debugfs_create_file("BAT_COOL_ZONE", 0644, chip->dent,
+				(void *)BAT_COOL_ZONE, &warm_cool_fops);
+
 	for (i = 0; i < ARRAY_SIZE(chg_irq_data); i++) {
 		if (chip->pmic_chg_irq[chg_irq_data[i].irq_id])
 			debugfs_create_file(chg_irq_data[i].name, 0444,
@@ -2558,7 +2596,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->update_time = pdata->update_time;
 	chip->max_voltage = pdata->max_voltage;
 	chip->min_voltage = pdata->min_voltage;
-	chip->resume_voltage = pdata->resume_voltage;
+	chip->resume_voltage_delta = pdata->resume_voltage_delta;
 	chip->term_current = pdata->term_current;
 	chip->vbat_channel = pdata->charger_cdata.vbat_channel;
 	chip->batt_temp_channel = pdata->charger_cdata.batt_temp_channel;
