@@ -242,35 +242,29 @@ int mdp_histogram_ctrl(boolean en)
 {
 	unsigned long flag;
 	unsigned long hist_base;
-	boolean hist_start;
 
 	if (mdp_rev >= MDP_REV_40)
 		hist_base = 0x95000;
 	else
 		hist_base = 0x94000;
 
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	hist_start = mdp_is_hist_start;
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-
-	if (hist_start == TRUE) {
-		if (en == TRUE) {
-			mdp_enable_irq(MDP_HISTOGRAM_TERM);
-			mdp_hist_frame_cnt = 1;
-			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-			if (mdp_rev >= MDP_REV_40) {
-				MDP_OUTP(MDP_BASE + hist_base + 0x10, 1);
-				MDP_OUTP(MDP_BASE + hist_base + 0x1c,
-								INTR_HIST_DONE);
-			}
-			MDP_OUTP(MDP_BASE + hist_base + 0x4,
-							mdp_hist_frame_cnt);
-			MDP_OUTP(MDP_BASE + hist_base, 1);
-			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
-					FALSE);
-		} else
-			mdp_disable_irq(MDP_HISTOGRAM_TERM);
+	if (en == TRUE) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		mdp_hist_frame_cnt = 1;
+		mdp_enable_irq(MDP_HISTOGRAM_TERM);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		if (mdp_is_hist_start == FALSE && mdp_rev >= MDP_REV_40) {
+			MDP_OUTP(MDP_BASE + hist_base + 0x10, 1);
+			MDP_OUTP(MDP_BASE + hist_base + 0x1c, INTR_HIST_DONE);
+		}
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		MDP_OUTP(MDP_BASE + hist_base + 0x4, mdp_hist_frame_cnt);
+		MDP_OUTP(MDP_BASE + hist_base, 1);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	} else {
+		mdp_disable_irq(MDP_HISTOGRAM_TERM);
 	}
+
 	return 0;
 }
 
@@ -286,26 +280,18 @@ int mdp_start_histogram(struct fb_info *info)
 		goto mdp_hist_start_err;
 	}
 
+	ret = mdp_histogram_ctrl(TRUE);
+
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_is_hist_start = TRUE;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-	mdp_enable_irq(MDP_HISTOGRAM_TERM);
-	mdp_hist_frame_cnt = 1;
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-#ifdef CONFIG_FB_MSM_MDP40
-	MDP_OUTP(MDP_BASE + 0x95004, 1);
-	MDP_OUTP(MDP_BASE + 0x95000, 1);
-#else
-	MDP_OUTP(MDP_BASE + 0x94004, 1);
-	MDP_OUTP(MDP_BASE + 0x94000, 1);
-#endif
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 mdp_hist_start_err:
 	mutex_unlock(&mdp_hist_mutex);
 	return ret;
 
 }
+
 int mdp_stop_histogram(struct fb_info *info)
 {
 	unsigned long flag;
@@ -316,12 +302,12 @@ int mdp_stop_histogram(struct fb_info *info)
 		ret = -EPERM;
 		goto mdp_hist_stop_err;
 	}
+
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_is_hist_start = FALSE;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-	/* disable the irq for histogram since we handled it
-	   when the control reaches here */
-	mdp_disable_irq(MDP_HISTOGRAM_TERM);
+
+	ret = mdp_histogram_ctrl(FALSE);
 
 mdp_hist_stop_err:
 	mutex_unlock(&mdp_hist_mutex);
