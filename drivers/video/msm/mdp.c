@@ -237,8 +237,10 @@ static struct completion mdp_hist_comp;
 static boolean mdp_is_hist_start = FALSE;
 #endif
 static DEFINE_MUTEX(mdp_hist_mutex);
+static boolean mdp_is_hist_data = FALSE;
 
-int mdp_histogram_ctrl(boolean en)
+/*should hold mdp_hist_mutex before calling this function*/
+int _mdp_histogram_ctrl(boolean en)
 {
 	unsigned long flag;
 	unsigned long hist_base;
@@ -250,6 +252,9 @@ int mdp_histogram_ctrl(boolean en)
 		hist_base = 0x94000;
 
 	if (en == TRUE) {
+		if (mdp_is_hist_start)
+			return -EINVAL;
+
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		mdp_hist_frame_cnt = 1;
 		mdp_enable_irq(MDP_HISTOGRAM_TERM);
@@ -262,7 +267,14 @@ int mdp_histogram_ctrl(boolean en)
 		MDP_OUTP(MDP_BASE + hist_base + 0x4, mdp_hist_frame_cnt);
 		MDP_OUTP(MDP_BASE + hist_base, 1);
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		mdp_is_hist_data = TRUE;
 	} else {
+		if (!mdp_is_hist_start && !mdp_is_hist_data)
+			return -EINVAL;
+
+		mdp_is_hist_data = FALSE;
+		complete(&mdp_hist_comp);
+
 		if (mdp_rev >= MDP_REV_40) {
 			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 			status = inpdw(MDP_BASE + hist_base + 0x1C);
@@ -280,6 +292,15 @@ int mdp_histogram_ctrl(boolean en)
 	return 0;
 }
 
+int mdp_histogram_ctrl(boolean en)
+{
+	int ret = 0;
+	mutex_lock(&mdp_hist_mutex);
+	ret = _mdp_histogram_ctrl(en);
+	mutex_unlock(&mdp_hist_mutex);
+	return ret;
+}
+
 int mdp_start_histogram(struct fb_info *info)
 {
 	unsigned long flag;
@@ -292,7 +313,7 @@ int mdp_start_histogram(struct fb_info *info)
 		goto mdp_hist_start_err;
 	}
 
-	ret = mdp_histogram_ctrl(TRUE);
+	ret = _mdp_histogram_ctrl(TRUE);
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_is_hist_start = TRUE;
@@ -319,21 +340,21 @@ int mdp_stop_histogram(struct fb_info *info)
 	mdp_is_hist_start = FALSE;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	ret = mdp_histogram_ctrl(FALSE);
+	ret = _mdp_histogram_ctrl(FALSE);
 
 mdp_hist_stop_err:
 	mutex_unlock(&mdp_hist_mutex);
 	return ret;
 }
 
-static int mdp_copy_hist_data(struct mdp_histogram *hist)
+/*call from within mdp_hist_mutex*/
+static int _mdp_copy_hist_data(struct mdp_histogram *hist)
 {
 	char *mdp_hist_base;
 	uint32 r_data_offset = 0x100, g_data_offset = 0x200;
 	uint32 b_data_offset = 0x300;
 	int ret = 0;
 
-	mutex_lock(&mdp_hist_mutex);
 	if (mdp_rev >= MDP_REV_42) {
 		mdp_hist_base = MDP_BASE + 0x95000;
 		r_data_offset = 0x400;
@@ -374,7 +395,6 @@ static int mdp_copy_hist_data(struct mdp_histogram *hist)
 		MDP_OUTP(mdp_hist_base, 1);
 	}
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	mutex_unlock(&mdp_hist_mutex);
 	return 0;
 
 hist_err:
@@ -384,6 +404,8 @@ hist_err:
 
 static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 {
+	int ret = 0;
+
 	if (!hist->frame_cnt || (hist->bin_cnt == 0))
 		return -EINVAL;
 
@@ -393,18 +415,29 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 		return -EINVAL;
 
 	mutex_lock(&mdp_hist_mutex);
+	if (!mdp_is_hist_data) {
+		ret = -EINVAL;
+		goto error;
+	}
+
 	if (!mdp_is_hist_start) {
 		printk(KERN_ERR "%s histogram not started\n", __func__);
-		mutex_unlock(&mdp_hist_mutex);
-		return -EPERM;
+		ret = -EPERM;
+		goto error;
 	}
-	mutex_unlock(&mdp_hist_mutex);
 
 	INIT_COMPLETION(mdp_hist_comp);
 	mdp_hist_frame_cnt = hist->frame_cnt;
+	mutex_unlock(&mdp_hist_mutex);
+
 	wait_for_completion_killable(&mdp_hist_comp);
 
-	return mdp_copy_hist_data(hist);
+	mutex_lock(&mdp_hist_mutex);
+	if (mdp_is_hist_data)
+		ret =  _mdp_copy_hist_data(hist);
+error:
+	mutex_unlock(&mdp_hist_mutex);
+	return ret;
 }
 #endif
 
