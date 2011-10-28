@@ -193,6 +193,7 @@ static void hci_reset_req(struct hci_dev *hdev, unsigned long opt)
 
 	/* Reset device */
 	set_bit(HCI_RESET, &hdev->flags);
+	memset(&hdev->features, 0, sizeof(hdev->features));
 	hci_send_cmd(hdev, HCI_OP_RESET, 0, NULL);
 }
 
