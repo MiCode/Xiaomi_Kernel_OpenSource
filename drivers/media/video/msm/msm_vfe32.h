@@ -211,6 +211,8 @@ enum  vfe_recording_state {
 #define V32_DEMOSAICV3_0_LEN      4
 #define V32_DEMOSAICV3_1_OFF      0x0000061C
 #define V32_DEMOSAICV3_1_LEN      88
+#define V32_DEMOSAICV3_2_OFF      0x0000066C
+#define V32_DEMOSAICV3_UP_REG_CNT 5
 /* BPC     */
 #define V32_DEMOSAIC_2_OFF        0x0000029C
 #define V32_DEMOSAIC_2_LEN        8
