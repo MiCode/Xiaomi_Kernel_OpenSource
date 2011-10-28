@@ -190,11 +190,11 @@ int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes mode)
 {
 	int ret;
 	unsigned long flags;
-	/* TODO: Remove or fix this function for 8064 once xo is in */
-	if (cpu_is_apq8064())
+
+	if (!xo_voter)
 		return 0;
 
-	if (mode >= NUM_MSM_XO_MODES)
+	if (mode >= NUM_MSM_XO_MODES || IS_ERR(xo_voter))
 		return -EINVAL;
 
 	spin_lock_irqsave(&msm_xo_lock, flags);
@@ -221,7 +221,10 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 	unsigned long flags;
 	struct msm_xo_voter *xo_voter;
 
-	/* TODO: Remove or fix this function for 8064 once xo is in */
+	/*
+	 * TODO: Remove early return for 8064 once RPM XO voting support
+	 * is available.
+	 */
 	if (cpu_is_apq8064())
 		return NULL;
 
@@ -270,6 +273,9 @@ EXPORT_SYMBOL(msm_xo_get);
 void msm_xo_put(struct msm_xo_voter *xo_voter)
 {
 	unsigned long flags;
+
+	if (!xo_voter || IS_ERR(xo_voter))
+		return;
 
 	spin_lock_irqsave(&msm_xo_lock, flags);
 	__msm_xo_mode_vote(xo_voter, MSM_XO_MODE_OFF);
