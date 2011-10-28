@@ -16,8 +16,6 @@
 #include <mach/irqs.h>
 #include <mach/iommu.h>
 #include <mach/socinfo.h>
-#include <mach/irqs-8960.h>
-#include <mach/irqs-8064.h>
 
 static struct resource msm_iommu_jpegd_resources[] = {
 	{
@@ -28,14 +26,14 @@ static struct resource msm_iommu_jpegd_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_JPEGD_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_JPEGD_CB_SC_NON_SECURE_IRQ,
+		.start = 98,
+		.end   = 98,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_JPEGD_CB_SC_SECURE_IRQ,
-		.end   = SMMU_JPEGD_CB_SC_SECURE_IRQ,
+		.start = 97,
+		.end   = 97,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -49,14 +47,14 @@ static struct resource msm_iommu_vpe_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_VPE_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_VPE_CB_SC_NON_SECURE_IRQ,
+		.start = 84,
+		.end   = 84,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_VPE_CB_SC_SECURE_IRQ,
-		.end   = SMMU_VPE_CB_SC_SECURE_IRQ,
+		.start = 83,
+		.end   = 83,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -70,14 +68,14 @@ static struct resource msm_iommu_mdp0_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_MDP0_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_MDP0_CB_SC_NON_SECURE_IRQ,
+		.start = 96,
+		.end   = 96,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_MDP0_CB_SC_SECURE_IRQ,
-		.end   = SMMU_MDP0_CB_SC_SECURE_IRQ,
+		.start = 95,
+		.end   = 95,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -91,14 +89,14 @@ static struct resource msm_iommu_mdp1_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_MDP1_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_MDP1_CB_SC_NON_SECURE_IRQ,
+		.start = 94,
+		.end   = 94,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_MDP1_CB_SC_SECURE_IRQ,
-		.end   = SMMU_MDP1_CB_SC_SECURE_IRQ,
+		.start = 93,
+		.end   = 93,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -112,14 +110,14 @@ static struct resource msm_iommu_rot_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_ROT_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_ROT_CB_SC_NON_SECURE_IRQ,
+		.start = 92,
+		.end   = 92,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_ROT_CB_SC_SECURE_IRQ,
-		.end   = SMMU_ROT_CB_SC_SECURE_IRQ,
+		.start = 91,
+		.end   = 91,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -133,14 +131,14 @@ static struct resource msm_iommu_ijpeg_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_IJPEG_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_IJPEG_CB_SC_NON_SECURE_IRQ,
+		.start = 100,
+		.end   = 100,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_IJPEG_CB_SC_SECURE_IRQ,
-		.end   = SMMU_IJPEG_CB_SC_SECURE_IRQ,
+		.start = 99,
+		.end   = 99,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -154,14 +152,14 @@ static struct resource msm_iommu_vfe_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_VFE_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_VFE_CB_SC_NON_SECURE_IRQ,
+		.start = 86,
+		.end   = 86,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_VFE_CB_SC_SECURE_IRQ,
-		.end   = SMMU_VFE_CB_SC_SECURE_IRQ,
+		.start = 85,
+		.end   = 85,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -175,14 +173,14 @@ static struct resource msm_iommu_vcodec_a_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_VCODEC_A_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_VCODEC_A_CB_SC_NON_SECURE_IRQ,
+		.start = 90,
+		.end   = 90,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_VCODEC_A_CB_SC_SECURE_IRQ,
-		.end   = SMMU_VCODEC_A_CB_SC_SECURE_IRQ,
+		.start = 89,
+		.end   = 89,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -196,14 +194,14 @@ static struct resource msm_iommu_vcodec_b_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_VCODEC_B_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_VCODEC_B_CB_SC_NON_SECURE_IRQ,
+		.start = 88,
+		.end   = 88,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_VCODEC_B_CB_SC_SECURE_IRQ,
-		.end   = SMMU_VCODEC_B_CB_SC_SECURE_IRQ,
+		.start = 87,
+		.end   = 87,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -217,14 +215,14 @@ static struct resource msm_iommu_gfx3d_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_GFX3D_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_GFX3D_CB_SC_NON_SECURE_IRQ,
+		.start = 102,
+		.end   = 102,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_GFX3D_CB_SC_SECURE_IRQ,
-		.end   = SMMU_GFX3D_CB_SC_SECURE_IRQ,
+		.start = 101,
+		.end   = 101,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -238,14 +236,14 @@ static struct resource msm_iommu_gfx3d1_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_GFX3D1_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_GFX3D1_CB_SC_NON_SECURE_IRQ,
+		.start = 243,
+		.end   = 243,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_GFX3D1_CB_SC_SECURE_IRQ,
-		.end   = SMMU_GFX3D1_CB_SC_SECURE_IRQ,
+		.start = 242,
+		.end   = 242,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -259,14 +257,14 @@ static struct resource msm_iommu_gfx2d0_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_GFX2D0_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_GFX2D0_CB_SC_NON_SECURE_IRQ,
+		.start = 104,
+		.end   = 104,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_GFX2D0_CB_SC_SECURE_IRQ,
-		.end   = SMMU_GFX2D0_CB_SC_SECURE_IRQ,
+		.start = 103,
+		.end   = 103,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -280,14 +278,14 @@ static struct resource msm_iommu_gfx2d1_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ,
+		.start = 243,
+		.end   = 243,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_GFX2D1_CB_SC_SECURE_IRQ,
-		.end   = SMMU_GFX2D1_CB_SC_SECURE_IRQ,
+		.start = 242,
+		.end   = 242,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -301,14 +299,14 @@ static struct resource msm_iommu_vcap_resources[] = {
 	},
 	{
 		.name = "nonsecure_irq",
-		.start = SMMU_VCAP_CB_SC_NON_SECURE_IRQ,
-		.end   = SMMU_VCAP_CB_SC_NON_SECURE_IRQ,
+		.start = 269,
+		.end   = 269,
 		.flags = IORESOURCE_IRQ,
 	},
 	{
 		.name = "secure_irq",
-		.start = SMMU_VCAP_CB_SC_SECURE_IRQ,
-		.end   = SMMU_VCAP_CB_SC_SECURE_IRQ,
+		.start = 268,
+		.end   = 268,
 		.flags = IORESOURCE_IRQ,
 	},
 };
