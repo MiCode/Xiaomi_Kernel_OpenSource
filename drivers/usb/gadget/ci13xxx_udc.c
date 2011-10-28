@@ -1857,6 +1857,11 @@ __acquires(udc->lock)
 	dbg_event(0xFF, "BUS RST", 0);
 
 	spin_unlock(udc->lock);
+
+	/*stop charging upon reset */
+	if (udc->transceiver)
+		otg_set_power(udc->transceiver, 0);
+
 	retval = _gadget_stop_activity(&udc->gadget);
 	if (retval)
 		goto done;
