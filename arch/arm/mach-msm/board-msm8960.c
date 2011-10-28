@@ -1080,12 +1080,22 @@ static void __init locate_unstable_memory(void)
 	bank_size = msm8960_memory_bank_size();
 	low = meminfo.bank[0].start;
 	high = mb->start + mb->size;
+
+	/* Check if 32 bit overflow occured */
+	if (high < mb->start)
+		high = ~0UL;
+
 	low &= ~(bank_size - 1);
 
 	if (high - low <= bank_size)
 		return;
 	msm8960_reserve_info.low_unstable_address = low + bank_size;
-	msm8960_reserve_info.max_unstable_size = high - low - bank_size;
+	/* To avoid overflow of u32 compute max_unstable_size
+	 * by first subtracting low from mb->start)
+	 * */
+	msm8960_reserve_info.max_unstable_size = (mb->start - low) +
+						mb->size - bank_size;
+
 	msm8960_reserve_info.bank_size = bank_size;
 	pr_info("low unstable address %lx max size %lx bank size %lx\n",
 		msm8960_reserve_info.low_unstable_address,
