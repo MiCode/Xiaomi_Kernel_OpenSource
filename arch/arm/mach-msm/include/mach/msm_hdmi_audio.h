@@ -14,5 +14,6 @@
 #define __MSM_HDMI_AUDIO_H
 
 int hdmi_audio_enable(bool on , u32 fifo_water_mark);
+int hdmi_audio_packet_enable(bool on);
 
 #endif /* __MSM_HDMI_AUDIO_H*/
