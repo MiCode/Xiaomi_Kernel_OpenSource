@@ -1587,6 +1587,7 @@ config MSM_BUSPM_DEV
 config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
 	depends on DEBUG_FS
+	depends on MSM_RPM
 	default n
 	help
 	  This option enables a driver which can read from a circular buffer
@@ -1597,7 +1598,7 @@ config MSM_RPM_LOG
 config MSM_RPM_STATS_LOG
 	tristate "MSM Resource Power Manager Stat Driver"
 	depends on DEBUG_FS
-	depends on ARCH_MSM8X60
+	depends on MSM_RPM
 	default n
 	  help
 	  This option enables a driver which reads RPM messages from a shared

@@ -36,6 +36,7 @@
 #include "devices-msm8x60.h"
 #include "footswitch.h"
 #include "msm_watchdog.h"
+#include "rpm_stats.h"
 
 #ifdef CONFIG_MSM_MPM
 #include "mpm.h"
@@ -2245,6 +2246,18 @@ struct platform_device msm_rpm_device = {
 	.id     = -1,
 };
 
+static struct msm_rpmstats_platform_data msm_rpm_stat_pdata = {
+	.phys_addr_base = 0x0010D204,
+	.phys_size = SZ_8K,
+};
+
+struct platform_device msm_rpm_stat_device = {
+	.name = "msm_rpm_stat",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_rpm_stat_pdata,
+	},
+};
 
 struct platform_device msm_bus_sys_fabric = {
 	.name  = "msm_bus_fabric",
