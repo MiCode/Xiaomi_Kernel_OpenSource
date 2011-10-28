@@ -683,7 +683,7 @@ static ssize_t msm_rpmrs_resource_attr_show(
 	rc = param_get_uint(buf, &kp);
 
 	if (rc > 0) {
-		strcat(buf, "\n");
+		strlcat(buf, "\n", PAGE_SIZE);
 		rc++;
 	}
 
