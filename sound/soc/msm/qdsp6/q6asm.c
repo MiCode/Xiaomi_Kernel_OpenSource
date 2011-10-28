@@ -1081,6 +1081,10 @@ int q6asm_open_read(struct audio_client *ac,
 		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
 		open.format = AMRNB_FS;
 		break;
+	case FORMAT_AMRWB:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = AMRWB_FS;
+		break;
 	default:
 		pr_err("Invalid format[%d]\n", format);
 		goto fail_cmd;
@@ -1205,6 +1209,27 @@ int q6asm_open_read_write(struct audio_client *ac,
 	case FORMAT_WMA_V10PRO:
 		open.write_format = WMA_V10PRO;
 		break;
+	case FORMAT_AMRNB:
+		open.write_format = AMRNB_FS;
+		break;
+	case FORMAT_AMRWB:
+		open.write_format = AMRWB_FS;
+		break;
+	case FORMAT_V13K:
+		open.write_format = V13K_FS;
+		break;
+	case FORMAT_EVRC:
+		open.write_format = EVRC_FS;
+		break;
+	case FORMAT_EVRCB:
+		open.write_format = EVRCB_FS;
+		break;
+	case FORMAT_EVRCWB:
+		open.write_format = EVRCWB_FS;
+		break;
+	case FORMAT_MP3:
+		open.write_format = MP3;
+		break;
 	default:
 		pr_err("Invalid format[%d]\n", wr_format);
 		goto fail_cmd;
@@ -1225,6 +1250,9 @@ int q6asm_open_read_write(struct audio_client *ac,
 		break;
 	case FORMAT_AMRNB:
 		open.read_format = AMRNB_FS;
+		break;
+	case FORMAT_AMRWB:
+		open.read_format = AMRWB_FS;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", rd_format);
@@ -1597,6 +1625,44 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_enc_cfg_blk_amrwb(struct audio_client *ac, uint32_t frames_per_buf,
+			uint16_t band_mode, uint16_t dtx_enable)
+{
+	struct asm_stream_cmd_encdec_cfg_blk enc_cfg;
+	int rc = 0;
+
+	pr_debug("%s:session[%d]frames[%d]band_mode[0x%4x]dtx_enable[0x%4x]",
+		__func__, ac->session, frames_per_buf, band_mode, dtx_enable);
+
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
+
+	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+
+	enc_cfg.param_id = ASM_ENCDEC_CFG_BLK_ID;
+	enc_cfg.param_size = sizeof(struct asm_encode_cfg_blk);
+
+	enc_cfg.enc_blk.frames_per_buf = frames_per_buf;
+	enc_cfg.enc_blk.format_id = AMRWB_FS;
+	enc_cfg.enc_blk.cfg_size  = sizeof(struct asm_amrwb_read_cfg);
+	enc_cfg.enc_blk.cfg.amrwb.mode = band_mode;
+	enc_cfg.enc_blk.cfg.amrwb.dtx_mode = dtx_enable;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
+	if (rc < 0) {
+		pr_err("Comamnd %d failed\n", ASM_STREAM_CMD_SET_ENCDEC_PARAM);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("timeout. waited for FORMAT_UPDATE\n");
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
 int q6asm_media_format_block_pcm(struct audio_client *ac,
 				uint32_t rate, uint32_t channels)
 {
@@ -1731,6 +1797,37 @@ fail_cmd:
 	return -EINVAL;
 }
 
+
+
+int q6asm_media_format_block(struct audio_client *ac, uint32_t format)
+{
+
+	struct asm_stream_media_format_update fmt;
+	int rc = 0;
+
+	pr_debug("%s:session[%d] format[0x%x]\n", __func__,
+			ac->session, format);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+	fmt.format = format;
+	fmt.cfg_size = 0;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd open failed\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+		(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
 
 int q6asm_media_format_block_wma(struct audio_client *ac,
 				void *cfg)

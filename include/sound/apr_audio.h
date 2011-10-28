@@ -768,6 +768,11 @@ struct asm_amrnb_read_cfg {
 	u16 dtx_mode;
 };
 
+struct asm_amrwb_read_cfg {
+	u16 mode;
+	u16 dtx_mode;
+};
+
 struct asm_evrc_read_cfg {
 	u16 max_rate;
 	u16 min_rate;
@@ -819,6 +824,7 @@ struct asm_encode_cfg_blk {
 		struct asm_evrc_read_cfg    evrc;
 		struct asm_qcelp13_read_cfg qcelp13;
 		struct asm_sbc_read_cfg     sbc;
+		struct asm_amrwb_read_cfg   amrwb;
 	} __attribute__((packed)) cfg;
 };
 
@@ -849,6 +855,7 @@ struct asm_stream_cmd_open_read {
 #define MP3          0x00010BE9
 #define MPEG4_AAC    0x00010BEA
 #define AMRNB_FS     0x00010BEB
+#define AMRWB_FS     0x00010BEC
 #define V13K_FS      0x00010BED
 #define EVRC_FS      0x00010BEE
 #define EVRCB_FS     0x00010BEF
