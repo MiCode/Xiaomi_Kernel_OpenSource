@@ -94,7 +94,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 		spin_unlock_irqrestore(&host->clk_lock, flags);
 		return;
 	}
-	mmc_claim_host(host);
+	mutex_lock(&host->clk_gate_mutex);
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (!host->clk_requests) {
 		spin_unlock_irqrestore(&host->clk_lock, flags);
@@ -104,7 +104,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 		pr_debug("%s: gated MCI clock\n", mmc_hostname(host));
 	}
 	spin_unlock_irqrestore(&host->clk_lock, flags);
-	mmc_release_host(host);
+	mutex_unlock(&host->clk_gate_mutex);
 }
 
 /*
@@ -119,18 +119,18 @@ static void mmc_host_clk_gate_work(struct work_struct *work)
 }
 
 /**
- *	mmc_host_clk_ungate - ungate hardware MCI clocks
+ *	mmc_host_clk_hold - ungate hardware MCI clocks
  *	@host: host to ungate.
  *
  *	Makes sure the host ios.clock is restored to a non-zero value
  *	past this call.	Increase clock reference count and ungate clock
  *	if we're the first user.
  */
-void mmc_host_clk_ungate(struct mmc_host *host)
+void mmc_host_clk_hold(struct mmc_host *host)
 {
 	unsigned long flags;
 
-	mmc_claim_host(host);
+	mutex_lock(&host->clk_gate_mutex);
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (host->clk_gated) {
 		spin_unlock_irqrestore(&host->clk_lock, flags);
@@ -140,7 +140,7 @@ void mmc_host_clk_ungate(struct mmc_host *host)
 	}
 	host->clk_requests++;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
-	mmc_release_host(host);
+	mutex_unlock(&host->clk_gate_mutex);
 }
 
 /**
@@ -164,14 +164,14 @@ static bool mmc_host_may_gate_card(struct mmc_card *card)
 }
 
 /**
- *	mmc_host_clk_gate - gate off hardware MCI clocks
+ *	mmc_host_clk_release - gate off hardware MCI clocks
  *	@host: host to gate.
  *
  *	Calls the host driver with ios.clock set to zero as often as possible
  *	in order to gate off hardware MCI clocks. Decrease clock reference
  *	count and schedule disabling of clock.
  */
-void mmc_host_clk_gate(struct mmc_host *host)
+void mmc_host_clk_release(struct mmc_host *host)
 {
 	unsigned long flags;
 
@@ -179,7 +179,7 @@ void mmc_host_clk_gate(struct mmc_host *host)
 	host->clk_requests--;
 	if (mmc_host_may_gate_card(host->card) &&
 	    !host->clk_requests)
-		schedule_work(&host->clk_gate_work);
+		queue_work(system_nrt_wq, &host->clk_gate_work);
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 }
 
@@ -215,6 +215,7 @@ static inline void mmc_host_clk_init(struct mmc_host *host)
 	host->clk_gated = false;
 	INIT_WORK(&host->clk_gate_work, mmc_host_clk_gate_work);
 	spin_lock_init(&host->clk_lock);
+	mutex_init(&host->clk_gate_mutex);
 }
 
 /**
@@ -230,7 +231,7 @@ static inline void mmc_host_clk_exit(struct mmc_host *host)
 	if (cancel_work_sync(&host->clk_gate_work))
 		mmc_host_clk_gate_delayed(host);
 	if (host->clk_gated)
-		mmc_host_clk_ungate(host);
+		mmc_host_clk_hold(host);
 	/* There should be only one user now */
 	WARN_ON(host->clk_requests > 1);
 }
