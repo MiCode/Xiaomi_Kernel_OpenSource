@@ -5223,7 +5223,7 @@ static struct clk_lookup msm_clocks_8064[] __initdata = {
 	CLK_LOOKUP("usb_hsic_p_clk",	usb_hsic_p_clk.c,	NULL),
 
 	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
-	CLK_LOOKUP("ebi1_clk",		ebi1_adm_clk.c, "msm_dmov"),
+	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     NULL),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, NULL),
