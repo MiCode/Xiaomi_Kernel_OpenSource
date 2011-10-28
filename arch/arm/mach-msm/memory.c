@@ -219,8 +219,18 @@ struct reserve_info *reserve_info;
 static unsigned long stable_size(struct membank *mb,
 	unsigned long unstable_limit)
 {
-	if (!unstable_limit || mb->start + mb->size <= unstable_limit)
+	unsigned long upper_limit = mb->start + mb->size;
+
+	if (!unstable_limit)
 		return mb->size;
+
+	/* Check for 32 bit roll-over */
+	if (upper_limit >= mb->start) {
+		/* If we didn't roll over we can safely make the check below */
+		if (upper_limit <= unstable_limit)
+			return mb->size;
+	}
+
 	if (mb->start >= unstable_limit)
 		return 0;
 	return unstable_limit - mb->start;
@@ -296,7 +306,7 @@ static void __init reserve_memory_for_mempools(void)
 			size = stable_size(mb,
 				reserve_info->low_unstable_address);
 			if (size >= mt->size) {
-				mt->start = mb->start + size - mt->size;
+				mt->start = mb->start + (size - mt->size);
 				ret = memblock_remove(mt->start, mt->size);
 				BUG_ON(ret);
 				break;
