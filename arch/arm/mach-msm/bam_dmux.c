@@ -29,9 +29,11 @@
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
 #include <mach/msm_smsm.h>
+#include <mach/subsystem_notif.h>
 
 #define BAM_CH_LOCAL_OPEN       0x1
 #define BAM_CH_REMOTE_OPEN      0x2
+#define BAM_CH_IN_RESET         0x4
 
 #define BAM_MUX_HDR_MAGIC_NO    0x33fc
 
@@ -103,6 +105,7 @@ struct tx_pkt_info {
 	char is_cmd;
 	uint32_t len;
 	struct work_struct work;
+	struct list_head list_node;
 };
 
 struct rx_pkt_info {
@@ -137,6 +140,8 @@ static int polling_mode;
 
 static LIST_HEAD(bam_rx_pool);
 static DEFINE_MUTEX(bam_rx_pool_lock);
+static LIST_HEAD(bam_tx_pool);
+static DEFINE_MUTEX(bam_tx_pool_lock);
 
 struct bam_mux_hdr {
 	uint16_t magic_num;
@@ -178,7 +183,19 @@ static int ul_packet_written;
 static struct clk *dfab_clk;
 static DEFINE_RWLOCK(ul_wakeup_lock);
 static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
+static int bam_connection_is_active;
 /* End A2 power collaspe */
+
+/* subsystem restart */
+static int restart_notifier_cb(struct notifier_block *this,
+				unsigned long code,
+				void *data);
+
+static struct notifier_block restart_notifier = {
+	.notifier_call = restart_notifier_cb,
+};
+static int in_global_reset;
+/* end subsystem restart */
 
 #define bam_ch_is_open(x)						\
 	(bam_ch[(x)].status == (BAM_CH_LOCAL_OPEN | BAM_CH_REMOTE_OPEN))
@@ -189,10 +206,16 @@ static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
 #define bam_ch_is_remote_open(x)			\
 	(bam_ch[(x)].status & BAM_CH_REMOTE_OPEN)
 
+#define bam_ch_is_in_reset(x)			\
+	(bam_ch[(x)].status & BAM_CH_IN_RESET)
+
 static void queue_rx(void)
 {
 	void *ptr;
 	struct rx_pkt_info *info;
+
+	if (in_global_reset)
+		return;
 
 	info = kmalloc(sizeof(struct rx_pkt_info), GFP_KERNEL);
 	if (!info)
@@ -337,6 +360,10 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	pkt->len = len;
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 1;
+	INIT_WORK(&pkt->work, bam_mux_write_done);
+	mutex_lock(&bam_tx_pool_lock);
+	list_add_tail(&pkt->list_node, &bam_tx_pool);
+	mutex_unlock(&bam_tx_pool_lock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 
@@ -351,8 +378,20 @@ static void bam_mux_write_done(struct work_struct *work)
 	struct bam_mux_hdr *hdr;
 	struct tx_pkt_info *info;
 	unsigned long event_data;
+	struct list_head *node;
 
+	if (in_global_reset)
+		return;
+	mutex_lock(&bam_tx_pool_lock);
+	node = bam_tx_pool.next;
+	list_del(node);
+	mutex_unlock(&bam_tx_pool_lock);
 	info = container_of(work, struct tx_pkt_info, work);
+	if (info->is_cmd) {
+		kfree(info->skb);
+		kfree(info);
+		return;
+	}
 	skb = info->skb;
 	kfree(info);
 	hdr = (struct bam_mux_hdr *)skb->data;
@@ -453,6 +492,9 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 0;
 	INIT_WORK(&pkt->work, bam_mux_write_done);
+	mutex_lock(&bam_tx_pool_lock);
+	list_add_tail(&pkt->list_node, &bam_tx_pool);
+	mutex_unlock(&bam_tx_pool_lock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	ul_packet_written = 1;
@@ -536,7 +578,7 @@ int msm_bam_dmux_close(uint32_t id)
 		return -ENODEV;
 
 	read_lock(&ul_wakeup_lock);
-	if (!bam_is_connected) {
+	if (!bam_is_connected && !bam_ch_is_in_reset(id)) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
 		read_lock(&ul_wakeup_lock);
@@ -548,6 +590,12 @@ int msm_bam_dmux_close(uint32_t id)
 	bam_ch[id].priv = NULL;
 	bam_ch[id].status &= ~BAM_CH_LOCAL_OPEN;
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
+
+	if (bam_ch_is_in_reset(id)) {
+		read_unlock(&ul_wakeup_lock);
+		bam_ch[id].status &= ~BAM_CH_IN_RESET;
+		return 0;
+	}
 
 	hdr = kmalloc(sizeof(struct bam_mux_hdr), GFP_KERNEL);
 	if (hdr == NULL) {
@@ -580,6 +628,8 @@ static void rx_timer_work_func(struct work_struct *work)
 	while (1) { /* timer loop */
 		++inactive_cycles;
 		while (1) { /* deplete queue loop */
+			if (in_global_reset)
+				return;
 			sps_get_iovec(bam_rx_pipe, &iov);
 			if (iov.addr == 0)
 				break;
@@ -623,6 +673,8 @@ static void rx_timer_work_func(struct work_struct *work)
 				}
 				polling_mode = 0;
 			}
+			if (in_global_reset)
+				return;
 			/* handle race condition - missed packet? */
 			sps_get_iovec(bam_rx_pipe, &iov);
 			if (iov.addr == 0)
@@ -648,21 +700,21 @@ static void bam_mux_tx_notify(struct sps_event_notify *notify)
 
 	DBG("%s: event %d notified\n", __func__, notify->event_id);
 
+	if (in_global_reset)
+		return;
+
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		pkt = notify->data.transfer.user;
-		if (!pkt->is_cmd) {
+		if (!pkt->is_cmd)
 			dma_unmap_single(NULL, pkt->dma_address,
 						pkt->skb->len,
 						DMA_TO_DEVICE);
-			queue_work(bam_mux_tx_workqueue, &pkt->work);
-		} else {
+		else
 			dma_unmap_single(NULL, pkt->dma_address,
 						pkt->len,
 						DMA_TO_DEVICE);
-			kfree(pkt->skb);
-			kfree(pkt);
-		}
+		queue_work(bam_mux_tx_workqueue, &pkt->work);
 		break;
 	default:
 		pr_err("%s: recieved unexpected event id %d\n", __func__,
@@ -676,6 +728,9 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 	struct sps_connect cur_rx_conn;
 
 	DBG("%s: event %d notified\n", __func__, notify->event_id);
+
+	if (in_global_reset)
+		return;
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
@@ -792,6 +847,8 @@ void msm_bam_dmux_kickoff_ul_wakeup(void)
 
 static void ul_timeout(struct work_struct *work)
 {
+	if (in_global_reset)
+		return;
 	write_lock(&ul_wakeup_lock);
 	if (ul_packet_written) {
 		ul_packet_written = 0;
@@ -828,6 +885,7 @@ static void reconnect_to_bam(void)
 {
 	int i;
 
+	in_global_reset = 0;
 	vote_dfab();
 	i = sps_device_reset(a2_device_handle);
 	if (i)
@@ -847,6 +905,7 @@ static void reconnect_to_bam(void)
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		queue_rx();
 	toggle_apps_ack();
+	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
 }
 
@@ -855,6 +914,7 @@ static void disconnect_to_bam(void)
 	struct list_head *node;
 	struct rx_pkt_info *info;
 
+	bam_connection_is_active = 0;
 	INIT_COMPLETION(bam_connection_completion);
 	sps_disconnect(bam_tx_pipe);
 	sps_disconnect(bam_rx_pipe);
@@ -884,6 +944,56 @@ static void vote_dfab(void)
 static void unvote_dfab(void)
 {
 	clk_disable(dfab_clk);
+}
+
+static int restart_notifier_cb(struct notifier_block *this,
+				unsigned long code,
+				void *data)
+{
+	int i;
+	struct list_head *node;
+	struct tx_pkt_info *info;
+	int temp_remote_status;
+
+	if (code != SUBSYS_AFTER_SHUTDOWN)
+		return NOTIFY_DONE;
+
+	in_global_reset = 1;
+	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		temp_remote_status = bam_ch_is_remote_open(i);
+		bam_ch[i].status &= ~BAM_CH_REMOTE_OPEN;
+		if (bam_ch_is_local_open(i))
+			bam_ch[i].status |= BAM_CH_IN_RESET;
+		if (temp_remote_status) {
+			platform_device_unregister(bam_ch[i].pdev);
+			bam_ch[i].pdev = platform_device_alloc(
+						bam_ch[i].name, 2);
+		}
+	}
+	/*cleanup UL*/
+	mutex_lock(&bam_tx_pool_lock);
+	while (!list_empty(&bam_tx_pool)) {
+		node = bam_tx_pool.next;
+		list_del(node);
+		info = container_of(node, struct tx_pkt_info,
+							list_node);
+		if (!info->is_cmd) {
+			dma_unmap_single(NULL, info->dma_address,
+						info->skb->len,
+						DMA_TO_DEVICE);
+			dev_kfree_skb_any(info->skb);
+		} else {
+			dma_unmap_single(NULL, info->dma_address,
+						info->len,
+						DMA_TO_DEVICE);
+			kfree(info->skb);
+		}
+		kfree(info);
+	}
+	mutex_unlock(&bam_tx_pool_lock);
+	smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
+
+	return NOTIFY_DONE;
 }
 
 static void bam_init(void)
@@ -1017,6 +1127,7 @@ static void bam_init(void)
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		queue_rx();
 	toggle_apps_ack();
+	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
 	return;
 
@@ -1163,6 +1274,7 @@ static int __init bam_dmux_init(void)
 	if (!IS_ERR(dent))
 		debug_create("tbl", 0444, dent, debug_tbl);
 #endif
+	subsys_notif_register_notifier("modem", &restart_notifier);
 	return platform_driver_register(&bam_dmux_driver);
 }
 
