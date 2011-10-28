@@ -165,6 +165,12 @@
 #define VFE_CMD_CLF_CHROMA_UPDATE                       119
 #define VFE_CMD_PCA_ROLL_OFF_CFG                        120
 #define VFE_CMD_PCA_ROLL_OFF_UPDATE                     121
+#define VFE_CMD_GET_REG_DUMP                            122
+#define VFE_CMD_GET_LINEARIZATON_TABLE                  123
+#define VFE_CMD_GET_MESH_ROLLOFF_TABLE                  124
+#define VFE_CMD_GET_PCA_ROLLOFF_TABLE                   125
+#define VFE_CMD_GET_RGB_G_TABLE                         126
+#define VFE_CMD_GET_LA_TABLE                            127
 
 struct msm_isp_cmd {
 	int32_t  id;

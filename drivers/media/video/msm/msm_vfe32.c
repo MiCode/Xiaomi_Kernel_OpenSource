@@ -678,7 +678,7 @@ static void vfe32_start_common(void)
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
 
-	msm_io_dump(vfe32_ctrl->vfebase, 0x7B4);
+	msm_io_dump(vfe32_ctrl->vfebase, vfe32_ctrl->register_total * 4);
 
 	/* Ensure the write order while writing
 	to the command register using the barrier */
@@ -986,13 +986,26 @@ static void vfe32_write_gamma_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	int i;
 	uint32_t value, value1, value2;
 	vfe32_program_dmi_cfg(channel_sel);
-	/* for loop for extracting init table. */
 	for (i = 0 ; i < (VFE32_GAMMA_NUM_ENTRIES/2) ; i++) {
 		value = *tbl++;
 		value1 = value & 0x0000FFFF;
 		value2 = (value & 0xFFFF0000)>>16;
 		msm_io_w((value1), vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
 		msm_io_w((value2), vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+	}
+	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+}
+
+static void vfe32_read_gamma_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
+	uint32_t *tbl)
+{
+	int i;
+	vfe32_program_dmi_cfg(channel_sel);
+	CDBG("%s: Gamma table channel: %d\n", __func__, channel_sel);
+	for (i = 0 ; i < VFE32_GAMMA_NUM_ENTRIES ; i++) {
+		*tbl = msm_io_r(vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+		CDBG("%s: %08x\n", __func__, *tbl);
+		tbl++;
 	}
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
@@ -1004,7 +1017,6 @@ static void vfe32_write_la_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 	uint32_t value, value1, value2;
 
 	vfe32_program_dmi_cfg(channel_sel);
-	/* for loop for extracting init table. */
 	for (i = 0 ; i < (VFE32_LA_TABLE_LENGTH/2) ; i++) {
 		value = *tbl++;
 		value1 = value & 0x0000FFFF;
@@ -1196,23 +1208,6 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		rc = vfe32_capture(snapshot_cnt);
 		break;
-	case VFE_CMD_GET_HW_VERSION:
-		if (cmd->length != V32_GET_HW_VERSION_LEN) {
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
-		cmdp = kmalloc(V32_GET_HW_VERSION_LEN, GFP_ATOMIC);
-		if (!cmdp) {
-			rc = -ENOMEM;
-			goto proc_general_done;
-		}
-		*cmdp = msm_io_r(vfe32_ctrl->vfebase+V32_GET_HW_VERSION_OFF);
-		if (copy_to_user((void __user *)(cmd->value), cmdp,
-			V32_GET_HW_VERSION_LEN)) {
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
-		break;
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
@@ -1342,12 +1337,6 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		/*
-		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		old_val |= RS_ENABLE_MASK;
-		msm_io_w(old_val,
-			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		*/
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
 				cmdp, (vfe32_cmd[cmd->id].length));
 		}
@@ -1365,12 +1354,6 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		/*
-		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		old_val |= CS_ENABLE_MASK;
-		msm_io_w(old_val,
-			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		*/
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
 				cmdp, (vfe32_cmd[cmd->id].length));
 		}
@@ -1453,6 +1436,44 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		break;
 
+	case VFE_CMD_GET_MESH_ROLLOFF_TABLE:
+		temp1 = sizeof(uint32_t) * ((V32_MESH_ROLL_OFF_INIT_TABLE_SIZE *
+			2) + (V32_MESH_ROLL_OFF_DELTA_TABLE_SIZE * 2));
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kzalloc(temp1, GFP_KERNEL);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
+		CDBG("%s: Mesh Rolloff init Table\n", __func__);
+		for (i = 0; i < (V32_MESH_ROLL_OFF_INIT_TABLE_SIZE * 2); i++) {
+			*cmdp_local =
+				msm_io_r(vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+			CDBG("%s: %08x\n", __func__, *cmdp_local);
+			cmdp_local++;
+		}
+		msm_io_w(V32_MESH_ROLL_OFF_DELTA_TABLE_OFFSET,
+			vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+		CDBG("%s: Mesh Rolloff Delta Table\n", __func__);
+		for (i = 0; i < (V32_MESH_ROLL_OFF_DELTA_TABLE_SIZE * 2); i++) {
+			*cmdp_local =
+				msm_io_r(vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+			CDBG("%s: %08x\n", __func__, *cmdp_local);
+			cmdp_local++;
+		}
+		CDBG("done reading delta table\n");
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
 	case VFE_CMD_LA_CFG:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
@@ -1500,6 +1521,36 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		vfe32_ctrl->update_la = true;
 		break;
 
+	case VFE_CMD_GET_LA_TABLE:
+		temp1 = sizeof(uint32_t) * VFE32_LA_TABLE_LENGTH / 2;
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kzalloc(temp1, GFP_KERNEL);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		if (msm_io_r(vfe32_ctrl->vfebase + V32_LA_OFF))
+			vfe32_program_dmi_cfg(LUMA_ADAPT_LUT_RAM_BANK1);
+		else
+			vfe32_program_dmi_cfg(LUMA_ADAPT_LUT_RAM_BANK0);
+		for (i = 0 ; i < (VFE32_LA_TABLE_LENGTH / 2) ; i++) {
+			*cmdp_local =
+				msm_io_r(vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+			*cmdp_local |= (msm_io_r(vfe32_ctrl->vfebase +
+				VFE_DMI_DATA_LO)) << 16;
+			cmdp_local++;
+		}
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
 	case VFE_CMD_SK_ENHAN_CFG:
 	case VFE_CMD_SK_ENHAN_UPDATE:{
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
@@ -1542,7 +1593,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		cmdp_local = cmdp + 17;
 		vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK0, cmdp_local);
-	break;
+		break;
 
 	case VFE_CMD_LINEARIZATION_UPDATE:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
@@ -1572,8 +1623,38 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		else
 			vfe32_write_linear_cfg(BLACK_LUT_RAM_BANK1, cmdp_local);
 		vfe32_ctrl->update_linear = true;
-	break;
+		break;
 
+	case VFE_CMD_GET_LINEARIZATON_TABLE:
+		temp1 = sizeof(uint32_t) * VFE32_LINEARIZATON_TABLE_LENGTH;
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kzalloc(temp1, GFP_KERNEL);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		if (msm_io_r(vfe32_ctrl->vfebase + V32_LINEARIZATION_OFF1))
+			vfe32_program_dmi_cfg(BLACK_LUT_RAM_BANK1);
+		else
+			vfe32_program_dmi_cfg(BLACK_LUT_RAM_BANK0);
+		CDBG("%s: Linearization Table\n", __func__);
+		for (i = 0 ; i < VFE32_LINEARIZATON_TABLE_LENGTH ; i++) {
+			*cmdp_local =
+				msm_io_r(vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+			CDBG("%s: %08x\n", __func__, *cmdp_local);
+			cmdp_local++;
+		}
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
 	case VFE_CMD_DEMOSAICV3:
 		if (cmd->length !=
 			V32_DEMOSAICV3_0_LEN+V32_DEMOSAICV3_1_LEN) {
@@ -1753,6 +1834,34 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		vfe32_ctrl->update_gamma = TRUE;
 		cmdp -= 1;
+		break;
+
+	case VFE_CMD_GET_RGB_G_TABLE:
+		temp1 = sizeof(uint32_t) * VFE32_GAMMA_NUM_ENTRIES * 3;
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kzalloc(temp1, GFP_KERNEL);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+
+		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_RGB_G_OFF);
+		temp2 = old_val ? RGBLUT_RAM_CH0_BANK1 :
+			RGBLUT_RAM_CH0_BANK0;
+		for (i = 0; i < 3; i++) {
+			vfe32_read_gamma_cfg(temp2,
+				cmdp_local + (VFE32_GAMMA_NUM_ENTRIES * i));
+			temp2 += 2;
+		}
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		break;
 
 	case VFE_CMD_STATS_AWB_STOP: {
@@ -1947,9 +2056,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		CDBG("%s: start writing RollOff Ram0 table\n", __func__);
 		if (temp2)
-			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
-		else
 			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK1);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
@@ -1963,9 +2072,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		CDBG("%s: start writing RollOff Ram1 table\n", __func__);
 		if (temp2)
-			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
-		else
 			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
@@ -1978,7 +2087,88 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 		vfe32_ctrl->update_rolloff = true;
 		break;
+	case VFE_CMD_GET_PCA_ROLLOFF_TABLE:
+		temp1 = sizeof(uint64_t) * V33_PCA_ROLL_OFF_TABLE_SIZE * 2;
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kzalloc(temp1, GFP_KERNEL);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		old_val = msm_io_r(vfe32_ctrl->vfebase +
+			V33_PCA_ROLL_OFF_CFG_OFF1) &
+			V33_PCA_ROLL_OFF_LUT_BANK_SEL_MASK;
 
+		if (old_val)
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK1);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
+
+		CDBG("%s: PCA Rolloff Ram0\n", __func__);
+		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE * 2; i++) {
+			temp2 = (i == (V33_PCA_ROLL_OFF_TABLE_SIZE - 1));
+			if (old_val && temp2)
+				vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
+			else if (!old_val && temp2)
+				vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
+
+			*(cmdp_local + 1) =
+				msm_io_r(vfe32_ctrl->vfebase +
+				VFE33_DMI_DATA_HI);
+			*cmdp_local = msm_io_r(vfe32_ctrl->vfebase +
+				VFE33_DMI_DATA_LO);
+			CDBG("%s: %08x%08x\n", __func__,
+				*(cmdp_local + 1), *cmdp_local);
+			cmdp_local += 2;
+		}
+		vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
+	case VFE_CMD_GET_HW_VERSION:
+		if (cmd->length != V32_GET_HW_VERSION_LEN) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kmalloc(V32_GET_HW_VERSION_LEN, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		*cmdp = msm_io_r(vfe32_ctrl->vfebase+V32_GET_HW_VERSION_OFF);
+		if (copy_to_user((void __user *)(cmd->value), cmdp,
+			V32_GET_HW_VERSION_LEN)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
+	case VFE_CMD_GET_REG_DUMP:
+		temp1 = sizeof(uint32_t) * vfe32_ctrl->register_total;
+		if (cmd->length != temp1) {
+			rc = -EINVAL;
+			goto proc_general_done;
+		}
+		cmdp = kmalloc(temp1, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		msm_io_dump(vfe32_ctrl->vfebase, vfe32_ctrl->register_total*4);
+		CDBG("%s: %p %p %d\n", __func__, (void *)cmdp,
+			vfe32_ctrl->vfebase, temp1);
+		memcpy_fromio((void *)cmdp, vfe32_ctrl->vfebase, temp1);
+		if (copy_to_user((void __user *)(cmd->value), cmdp, temp1)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		break;
 	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
@@ -3370,6 +3560,12 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	rc = msm_camio_enable(pdev);
 	msm_camio_set_perf_lvl(S_INIT);
 	msm_camio_set_perf_lvl(S_PREVIEW);
+
+	if (msm_io_r(vfe32_ctrl->vfebase + V32_GET_HW_VERSION_OFF) ==
+		VFE32_HW_NUMBER)
+		vfe32_ctrl->register_total = VFE32_REGISTER_TOTAL;
+	else
+		vfe32_ctrl->register_total = VFE33_REGISTER_TOTAL;
 
 	/* TO DO: Need to release the VFE resources */
 	rc = request_irq(vfe32_ctrl->vfeirq, vfe32_parse_irq,
