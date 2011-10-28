@@ -1411,7 +1411,7 @@ out:
 	return rc;
 }
 
-#define GPIO_SDC1_HW_DET 85
+#define GPIO_SDC1_HW_DET 42
 
 #if defined(CONFIG_MMC_MSM_SDC1_SUPPORT) \
 	&& defined(CONFIG_MMC_MSM_CARD_HW_DETECTION)
@@ -1432,7 +1432,7 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 	} else {
 		status = gpio_direction_input(GPIO_SDC1_HW_DET);
 		if (!status)
-			status = gpio_get_value(GPIO_SDC1_HW_DET);
+			status = !gpio_get_value(GPIO_SDC1_HW_DET);
 		gpio_free(GPIO_SDC1_HW_DET);
 	}
 	return status;
