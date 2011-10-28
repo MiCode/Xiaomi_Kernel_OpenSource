@@ -2919,6 +2919,8 @@ static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 
 static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 
+	{TABLA_A_QFUSE_CTL, 0xFF, 0x03},
+
 	/* Initialize gain registers to use register gain */
 	{TABLA_A_RX_HPH_L_GAIN, 0x10, 0x10},
 	{TABLA_A_RX_HPH_R_GAIN, 0x10, 0x10},

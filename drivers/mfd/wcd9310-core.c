@@ -573,6 +573,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 	int ret = 0;
 	int sgla_retry_cnt;
 
+	dev_info(&slim->dev, "Initialized slim device %s\n", slim->name);
 	pdata = slim->dev.platform_data;
 
 	if (!pdata) {
@@ -727,17 +728,35 @@ static struct slim_driver tabla_slim_driver = {
 	.remove = tabla_slim_remove,
 	.id_table = slimtest_id,
 };
+
+static const struct slim_device_id slimtest2x_id[] = {
+	{"tabla2x-slim", 0},
+	{}
+};
+
+static struct slim_driver tabla2x_slim_driver = {
+	.driver = {
+		.name = "tabla2x-slim",
+		.owner = THIS_MODULE,
+	},
+	.probe = tabla_slim_probe,
+	.remove = tabla_slim_remove,
+	.id_table = slimtest2x_id,
+};
+
 static int __init tabla_init(void)
 {
-	int ret;
+	int ret1, ret2;
 
-	ret = slim_driver_register(&tabla_slim_driver);
-	if (ret != 0) {
-		pr_err("Failed to register tabla SB driver: %d\n", ret);
-		goto err;
-	}
-err:
-	return ret;
+	ret1 = slim_driver_register(&tabla_slim_driver);
+	if (ret1 != 0)
+		pr_err("Failed to register tabla SB driver: %d\n", ret1);
+
+	ret2 = slim_driver_register(&tabla2x_slim_driver);
+	if (ret2 != 0)
+		pr_err("Failed to register tabla2x SB driver: %d\n", ret2);
+
+	return (ret1 && ret2) ? -1 : 0;
 }
 module_init(tabla_init);
 
