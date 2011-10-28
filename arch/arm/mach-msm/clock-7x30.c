@@ -68,7 +68,6 @@
 #define MI2S_NS_REG		REG(0x02E0)
 #define MI2S_RX_NS_REG		REG(0x0070)
 #define MI2S_TX_NS_REG		REG(0x0078)
-#define MIDI_NS_REG		REG(0x02D0)
 #define PLL_ENA_REG		REG(0x0264)
 #define PMDH_NS_REG		REG(0x008C)
 #define SDAC_NS_REG		REG(0x009C)
@@ -1693,34 +1692,6 @@ static struct branch_clk mi2s_s_clk = {
 	},
 };
 
-static struct clk_freq_tbl clk_tbl_midi[] = {
-	F_MND8(       0,  0,  0, gnd,  1,  0,  0),
-	F_MND8(98304000, 19, 12, pll3, 3,  2,  5),
-	F_END,
-};
-
-static struct rcg_clk midi_clk = {
-	.b = {
-		.ctl_reg = MIDI_NS_REG,
-		.en_mask = BIT(9),
-		.halt_reg = CLK_HALT_STATEC_REG,
-		.halt_bit = 1,
-	},
-	.ns_reg = MIDI_NS_REG,
-	.md_reg = MIDI_NS_REG - 4,
-	.ns_mask = F_MASK_MND8(19, 12),
-	.root_en_mask = BIT(11),
-	.freq_tbl = clk_tbl_midi,
-	.current_freq = &rcg_dummy_freq,
-	.set_rate = set_rate_mnd,
-	.c = {
-		.dbg_name = "midi_clk",
-		.ops = &clk_ops_rcg_7x30,
-		VDD_DIG_FMAX_MAP1(NOMINAL, 98304000),
-		CLK_INIT(midi_clk.c),
-	},
-};
-
 #define F_SDAC(f, s, div, m, n) \
 	{ \
 		.freq_hz = f, \
@@ -2454,7 +2425,6 @@ static struct measure_sel measure_mux[] = {
 	{ CLK_TEST_2(0x07), &lpa_p_clk.c },
 	{ CLK_TEST_2(0x08), &usb_hs2_p_clk.c },
 	{ CLK_TEST_2(0x09), &spi_clk.c },
-	{ CLK_TEST_2(0x0A), &midi_clk.c },
 	{ CLK_TEST_2(0x0B), &i2c_2_clk.c },
 	{ CLK_TEST_2(0x0D), &mi2s_m_clk.c },
 	{ CLK_TEST_2(0x0E), &lpa_core_clk.c },
@@ -2819,8 +2789,6 @@ static struct clk_local_ownership {
 	OWN(APPS1, 12, "mi2s_codec_rx_s_clk", mi2s_codec_rx_s_clk, NULL),
 	OWN(APPS1, 14, "mi2s_codec_tx_m_clk", mi2s_codec_tx_m_clk, NULL),
 	OWN(APPS1, 14, "mi2s_codec_tx_s_clk", mi2s_codec_tx_s_clk, NULL),
-	{ CLK_LOOKUP("midi_clk",        midi_clk.c,     NULL),
-		O(APPS1), BIT(22) },
 	OWN(APPS1, 26, "sdac_clk",	sdac_clk,	NULL),
 	OWN(APPS1, 26, "sdac_m_clk",	sdac_m_clk,	NULL),
 	OWN(APPS1,  8, "vfe_clk",	vfe_clk,	NULL),
@@ -3008,7 +2976,6 @@ static void __init msm7x30_clock_init(void)
 	clk_set_rate(&uart1_clk.c, 19200000);
 	clk_set_rate(&uart2_clk.c, 19200000);
 	clk_set_rate(&mi2s_m_clk.c, 12288000);
-	clk_set_rate(&midi_clk.c, 98304000);
 	clk_set_rate(&mdp_vsync_clk.c, 24576000);
 	clk_set_rate(&glbl_root_clk.c, 1);
 	clk_set_rate(&mdc_clk.c, 1);
