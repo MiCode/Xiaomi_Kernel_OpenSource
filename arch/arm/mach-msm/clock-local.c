@@ -273,7 +273,7 @@ static int branch_clk_is_halted(const struct branch *clk)
 	return invert ? !status_bit : status_bit;
 }
 
-static void __branch_clk_enable_reg(const struct branch *clk, const char *name)
+void __branch_clk_enable_reg(const struct branch *clk, const char *name)
 {
 	u32 reg_val;
 
@@ -344,7 +344,7 @@ static void __rcg_clk_enable_reg(struct rcg_clk *clk)
 }
 
 /* Perform any register operations required to disable the branch. */
-static u32 __branch_clk_disable_reg(const struct branch *clk, const char *name)
+u32 __branch_clk_disable_reg(const struct branch *clk, const char *name)
 {
 	u32 reg_val;
 
