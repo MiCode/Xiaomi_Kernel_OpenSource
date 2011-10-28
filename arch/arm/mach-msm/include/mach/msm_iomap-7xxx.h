@@ -47,6 +47,10 @@
 #define MSM_TMR_BASE          MSM_CSR_BASE
 #define MSM_TMR_SIZE          SZ_4K
 
+#define MSM_TMR0_BASE         MSM_TMR_BASE
+
+#define MSM_QGIC_DIST_BASE    MSM_VIC_BASE
+
 #define MSM_GPIO1_BASE        IOMEM(0xFA003000)
 #define MSM_GPIO1_PHYS        0xA9200000
 #define MSM_GPIO1_SIZE        SZ_4K
