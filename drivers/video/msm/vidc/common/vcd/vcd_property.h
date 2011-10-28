@@ -315,12 +315,15 @@ enum vcd_output_order {
 };
 
 struct vcd_property_enc_recon_buffer{
+	u8 *user_virtual_addr;
 	u8 *kernel_virtual_addr;
 	u8 *physical_addr;
+	u8 *dev_addr;
 	u32 buffer_size;
 	u32 ysize;
 	int pmem_fd;
 	u32 offset;
+	void *client_data;
 };
 
 struct vcd_property_h264_mv_buffer{
@@ -330,6 +333,8 @@ struct vcd_property_h264_mv_buffer{
 	u32 count;
 	int pmem_fd;
 	u32 offset;
+	u8 *dev_addr;
+	void *client_data;
 };
 
 struct vcd_property_buffer_size{

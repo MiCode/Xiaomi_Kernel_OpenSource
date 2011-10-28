@@ -30,7 +30,7 @@
 #include <linux/debugfs.h>
 #include <mach/clk.h>
 #include <linux/pm_runtime.h>
-
+#include <mach/msm_subsystem_map.h>
 #include "vcd_api.h"
 #include "vidc_init_internal.h"
 #include "vidc_init.h"
@@ -49,6 +49,7 @@
 static struct vidc_dev *vidc_device_p;
 static dev_t vidc_dev_num;
 static struct class *vidc_class;
+static unsigned int vidc_mmu_subsystem[] = {MSM_SUBSYSTEM_VIDEO};
 
 static const struct file_operations vidc_fops = {
 	.owner = THIS_MODULE,
@@ -78,7 +79,7 @@ void vidc_debugfs_file_create(struct dentry *root, const char *name,
 				u32 *var)
 {
 	struct dentry *vidc_debugfs_file =
-	    debugfs_create_u32(name, S_IRUGO | S_IWUSR, root, var);
+		debugfs_create_u32(name, S_IRUGO | S_IWUSR, root, var);
 	if (!vidc_debugfs_file)
 		ERR("%s(): Error creating/opening file %s\n", __func__, name);
 }
@@ -413,7 +414,7 @@ u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 	}
 
 	if (found) {
-		*phy_addr = buf_addr_table[i].phy_addr;
+		*phy_addr = buf_addr_table[i].dev_addr;
 		*pmem_fd = buf_addr_table[i].pmem_fd;
 		*file = buf_addr_table[i].file;
 		*buffer_index = i;
@@ -445,15 +446,17 @@ EXPORT_SYMBOL(vidc_lookup_addr_table);
 u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer, unsigned long user_vaddr,
 	unsigned long *kernel_vaddr, int pmem_fd,
-	unsigned long buffer_addr_offset, unsigned int max_num_buffers)
+	unsigned long buffer_addr_offset, unsigned int max_num_buffers,
+	unsigned long length)
 {
 	unsigned long len, phys_addr;
 	struct file *file;
 	u32 *num_of_buffers = NULL;
-	u32 i;
+	u32 i, flags;
 	struct buf_addr_table *buf_addr_table;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
 
-	if (!client_ctx)
+	if (!client_ctx || !length)
 		return false;
 
 	if (buffer == BUFFER_TYPE_INPUT) {
@@ -493,6 +496,18 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		put_pmem_file(file);
 		phys_addr += buffer_addr_offset;
 		(*kernel_vaddr) += buffer_addr_offset;
+		flags = MSM_SUBSYSTEM_MAP_IOVA;
+		mapped_buffer = msm_subsystem_map_buffer(phys_addr, length,
+		flags, vidc_mmu_subsystem,
+		sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
+		if (IS_ERR(mapped_buffer)) {
+			pr_err("buffer map failed");
+			return false;
+		}
+		buf_addr_table[*num_of_buffers].client_data = (void *)
+			mapped_buffer;
+		buf_addr_table[*num_of_buffers].dev_addr =
+			mapped_buffer->iova[0];
 		buf_addr_table[*num_of_buffers].user_vaddr = user_vaddr;
 		buf_addr_table[*num_of_buffers].kernel_vaddr = *kernel_vaddr;
 		buf_addr_table[*num_of_buffers].pmem_fd = pmem_fd;
@@ -500,7 +515,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		*num_of_buffers = *num_of_buffers + 1;
 		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
-			"kernel_vaddr = 0x%08lx inserted!",	__func__,
+			"kernel_vaddr = 0x%08lx inserted!", __func__,
 			client_ctx, user_vaddr, *kernel_vaddr);
 	}
 	return true;
@@ -522,12 +537,10 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	if (buffer == BUFFER_TYPE_INPUT) {
 		buf_addr_table = client_ctx->input_buf_addr_table;
 		num_of_buffers = &client_ctx->num_of_input_buffers;
-		DBG("%s(): buffer = INPUT\n", __func__);
 
 	} else {
 		buf_addr_table = client_ctx->output_buf_addr_table;
 		num_of_buffers = &client_ctx->num_of_output_buffers;
-		DBG("%s(): buffer = OUTPUT\n", __func__);
 	}
 
 	if (!*num_of_buffers)
@@ -538,13 +551,19 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 		user_vaddr != buf_addr_table[i].user_vaddr)
 		i++;
 	if (i == *num_of_buffers) {
-		DBG("%s() : client_ctx = %p."
+		pr_err("%s() : client_ctx = %p."
 			" user_virt_addr = 0x%08lx NOT found",
 			__func__, client_ctx, user_vaddr);
 		return false;
 	}
+	msm_subsystem_unmap_buffer(
+	(struct msm_mapped_buffer *)buf_addr_table[i].client_data);
 	*kernel_vaddr = buf_addr_table[i].kernel_vaddr;
 	if (i < (*num_of_buffers - 1)) {
+		buf_addr_table[i].client_data =
+			buf_addr_table[*num_of_buffers - 1].client_data;
+		buf_addr_table[i].dev_addr =
+			buf_addr_table[*num_of_buffers - 1].dev_addr;
 		buf_addr_table[i].user_vaddr =
 			buf_addr_table[*num_of_buffers - 1].user_vaddr;
 		buf_addr_table[i].kernel_vaddr =

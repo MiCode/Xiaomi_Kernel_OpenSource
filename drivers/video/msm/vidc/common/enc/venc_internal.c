@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <linux/workqueue.h>
 #include <linux/android_pmem.h>
 #include <linux/clk.h>
-
+#include <mach/msm_subsystem_map.h>
 #include "vidc_type.h"
 #include "vcd_api.h"
 #include "venc_internal.h"
@@ -40,6 +40,9 @@
 #endif
 
 #define ERR(x...) printk(KERN_ERR x)
+static unsigned int vidc_mmu_subsystem[] = {
+	MSM_SUBSYSTEM_VIDEO};
+
 
 u32 vid_enc_set_get_base_cfg(struct video_client_ctx *client_ctx,
 		struct venc_basecfg *base_config, u32 set_flag)
@@ -1530,7 +1533,7 @@ u32 vid_enc_set_buffer(struct video_client_ctx *client_ctx,
 	enum vcd_buffer_type vcd_buffer_t = VCD_BUFFER_INPUT;
 	enum buffer_dir dir_buffer = BUFFER_TYPE_INPUT;
 	u32 vcd_status = VCD_ERR_FAIL;
-	unsigned long kernel_vaddr;
+	unsigned long kernel_vaddr, length = 0;
 
 	if (!client_ctx || !buffer_info)
 		return false;
@@ -1539,14 +1542,14 @@ u32 vid_enc_set_buffer(struct video_client_ctx *client_ctx,
 		dir_buffer = BUFFER_TYPE_OUTPUT;
 		vcd_buffer_t = VCD_BUFFER_OUTPUT;
 	}
-
+	length = buffer_info->sz;
 	/*If buffer cannot be set, ignore */
 	if (!vidc_insert_addr_table(client_ctx, dir_buffer,
 					(unsigned long)buffer_info->pbuffer,
 					&kernel_vaddr,
 					buffer_info->fd,
 					(unsigned long)buffer_info->offset,
-					VID_ENC_MAX_NUM_OF_BUFF)) {
+					VID_ENC_MAX_NUM_OF_BUFF, length)) {
 		DBG("%s() : user_virt_addr = %p cannot be set.",
 		    __func__, buffer_info->pbuffer);
 		return false;
@@ -1697,34 +1700,58 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 		struct venc_recon_addr *venc_recon)
 {
 	u32 vcd_status = VCD_ERR_FAIL;
-	u32 len;
+	u32 len, i, flags = 0;
 	struct file *file;
 	struct vcd_property_hdr vcd_property_hdr;
-	struct vcd_property_enc_recon_buffer control;
-
-	control.buffer_size = venc_recon->buffer_size;
-	control.kernel_virtual_addr = NULL;
-	control.physical_addr = NULL;
-	control.pmem_fd = venc_recon->pmem_fd;
-	control.offset = venc_recon->offset;
-
-	if (get_pmem_file(control.pmem_fd, (unsigned long *)
-		(&(control.physical_addr)), (unsigned long *)
-		(&control.kernel_virtual_addr),
+	struct vcd_property_enc_recon_buffer *control = NULL;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
+	if (!client_ctx || !venc_recon) {
+		pr_err("%s() Invalid params", __func__);
+		return false;
+	}
+	len = sizeof(client_ctx->recon_buffer)/
+		sizeof(struct vcd_property_enc_recon_buffer);
+	for (i = 0; i < len; i++) {
+		if (!client_ctx->recon_buffer[i].kernel_virtual_addr) {
+			control = &client_ctx->recon_buffer[i];
+			break;
+		}
+	}
+	if (!control) {
+		pr_err("Exceeded max recon buffer setting");
+		return false;
+	}
+	control->buffer_size = venc_recon->buffer_size;
+	control->kernel_virtual_addr = NULL;
+	control->physical_addr = NULL;
+	control->pmem_fd = venc_recon->pmem_fd;
+	control->offset = venc_recon->offset;
+	control->user_virtual_addr = venc_recon->pbuffer;
+	if (get_pmem_file(control->pmem_fd, (unsigned long *)
+		(&(control->physical_addr)), (unsigned long *)
+		(&control->kernel_virtual_addr),
 		(unsigned long *) (&len), &file)) {
 			ERR("%s(): get_pmem_file failed\n", __func__);
 			return false;
 		}
 		put_pmem_file(file);
-		DBG("Virt: %p, Phys %p, fd: %d", control.kernel_virtual_addr,
-			control.physical_addr, control.pmem_fd);
-
+		flags = MSM_SUBSYSTEM_MAP_IOVA;
+		mapped_buffer = msm_subsystem_map_buffer(
+		(unsigned long)control->physical_addr, len,
+		flags, vidc_mmu_subsystem,
+		sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
+		if (IS_ERR(mapped_buffer)) {
+			pr_err("buffer map failed");
+			return false;
+		}
+		control->client_data = (void *) mapped_buffer;
+		control->dev_addr = (u8 *)mapped_buffer->iova[0];
 		vcd_property_hdr.prop_id = VCD_I_RECON_BUFFERS;
 		vcd_property_hdr.sz =
 			sizeof(struct vcd_property_enc_recon_buffer);
 
 		vcd_status = vcd_set_property(client_ctx->vcd_handle,
-						&vcd_property_hdr, &control);
+						&vcd_property_hdr, control);
 		if (!vcd_status) {
 			DBG("vcd_set_property returned success\n");
 			return true;
@@ -1735,17 +1762,43 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 		}
 }
 
-u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx)
+u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
+			struct venc_recon_addr *venc_recon)
 {
 	u32 vcd_status = VCD_ERR_FAIL;
 	struct vcd_property_hdr vcd_property_hdr;
-	struct vcd_property_enc_recon_buffer control;
+	struct vcd_property_enc_recon_buffer *control = NULL;
+	u32 len = 0, i;
+
+	if (!client_ctx || !venc_recon) {
+		pr_err("%s() Invalid params", __func__);
+		return false;
+	}
+	len = sizeof(client_ctx->recon_buffer)/
+		sizeof(struct vcd_property_enc_recon_buffer);
+	pr_err(" %s() address  %p", __func__,
+	venc_recon->pbuffer);
+	for (i = 0; i < len; i++) {
+		if (client_ctx->recon_buffer[i].user_virtual_addr
+			== venc_recon->pbuffer) {
+			control = &client_ctx->recon_buffer[i];
+			break;
+		}
+	}
+	if (!control) {
+		pr_err(" %s() address not found %p", __func__,
+			venc_recon->pbuffer);
+		return false;
+	}
+	if (control->client_data)
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		control->client_data);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_RECON_BUFFERS;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
-
 	vcd_status = vcd_set_property(client_ctx->vcd_handle,
-						&vcd_property_hdr, &control);
+						&vcd_property_hdr, control);
+	memset(control, 0, sizeof(struct vcd_property_enc_recon_buffer));
 	return true;
 }
 
