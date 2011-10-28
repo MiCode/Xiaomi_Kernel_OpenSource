@@ -31,6 +31,7 @@
 #include <linux/mfd/pm8xxx/pm8921-adc.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
+#include <linux/wakelock.h>
 
 /* User Bank register set */
 #define PM8921_ADC_ARB_USRP_CNTRL1			0x197
@@ -142,6 +143,8 @@ struct pm8921_adc {
 	uint32_t				mpp_base;
 	struct sensor_device_attribute		*sens_attr;
 	struct device				*hwmon;
+	struct wake_lock			adc_wakelock;
+	int					msm_suspend_check;
 };
 
 struct pm8921_adc_amux_properties {
@@ -188,14 +191,18 @@ static struct pm8xxx_mpp_config_data pm8921_adc_mpp_unconfig = {
 static bool pm8921_adc_calib_first_adc;
 static bool pm8921_adc_initialized, pm8921_adc_calib_device_init;
 
-static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
+static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl, uint32_t channel)
 {
 	struct pm8921_adc *adc_pmic = pmic_adc;
 	int i, rc;
 	u8 data_arb_cntrl = 0;
 
-	if (arb_cntrl)
+	if (arb_cntrl) {
+		if (adc_pmic->msm_suspend_check)
+			pr_err("PM8921 ADC request being made after suspend "
+				 "irq with channel id:%d\n", channel);
 		data_arb_cntrl |= PM8921_ADC_ARB_USRP_CNTRL1_EN_ARB;
+	}
 
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
@@ -212,6 +219,13 @@ static int32_t pm8921_adc_arb_cntrl(uint32_t arb_cntrl)
 		data_arb_cntrl |= PM8921_ADC_ARB_USRP_CNTRL1_REQ;
 		rc = pm8xxx_writeb(adc_pmic->dev->parent,
 			PM8921_ADC_ARB_USRP_CNTRL1, data_arb_cntrl);
+		if (rc < 0) {
+			pr_err("PM8921 arb cntrl write failed with %d\n", rc);
+			return rc;
+		}
+		wake_lock(&adc_pmic->adc_wakelock);
+	} else {
+		wake_unlock(&adc_pmic->adc_wakelock);
 	}
 
 	return 0;
@@ -369,7 +383,7 @@ static int32_t pm8921_adc_configure(
 	if (!pm8921_adc_calib_first_adc)
 		enable_irq(adc_pmic->adc_irq);
 
-	rc = pm8921_adc_arb_cntrl(1);
+	rc = pm8921_adc_arb_cntrl(1, chan_prop->amux_mpp_channel);
 	if (rc < 0) {
 		pr_err("Configuring ADC Arbiter"
 				"enable failed with %d\n", rc);
@@ -409,7 +423,7 @@ static uint32_t pm8921_adc_read_adc_code(int32_t *data)
 
 	/* Default value for switching off the arbiter after reading
 	   the ADC value. Bit 0 set to 0. */
-	rc = pm8921_adc_arb_cntrl(0);
+	rc = pm8921_adc_arb_cntrl(0, CHANNEL_MUXOFF);
 	if (rc < 0) {
 		pr_err("%s: Configuring ADC Arbiter disable"
 					"failed\n", __func__);
@@ -558,7 +572,7 @@ static uint32_t pm8921_adc_calib_device(void)
 					(calib_read_1 - calib_read_2);
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].dx
 						= PM8921_CHANNEL_ADC_625_MV;
-	rc = pm8921_adc_arb_cntrl(0);
+	rc = pm8921_adc_arb_cntrl(0, CHANNEL_MUXOFF);
 	if (rc < 0) {
 		pr_err("%s: Configuring ADC Arbiter disable"
 					"failed\n", __func__);
@@ -638,7 +652,7 @@ static uint32_t pm8921_adc_calib_device(void)
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dx =
 					adc_pmic->adc_prop->adc_vdd_reference;
 calib_fail:
-	rc = pm8921_adc_arb_cntrl(0);
+	rc = pm8921_adc_arb_cntrl(0, CHANNEL_MUXOFF);
 	if (rc < 0) {
 		pr_err("%s: Configuring ADC Arbiter disable"
 					"failed\n", __func__);
@@ -1122,11 +1136,43 @@ hwmon_err_sens:
 	return rc;
 }
 
+#ifdef CONFIG_PM
+static int pm8921_adc_suspend_noirq(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pm8921_adc *adc_pmic = platform_get_drvdata(pdev);
+
+	adc_pmic->msm_suspend_check = 1;
+
+	return 0;
+}
+
+static int pm8921_adc_resume_noirq(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pm8921_adc *adc_pmic = platform_get_drvdata(pdev);
+
+	adc_pmic->msm_suspend_check = 0;
+
+	return 0;
+}
+
+static const struct dev_pm_ops pm8921_adc_dev_pm_ops = {
+	.suspend_noirq = pm8921_adc_suspend_noirq,
+	.resume_noirq = pm8921_adc_resume_noirq,
+};
+
+#define PM8921_ADC_DEV_PM_OPS	(&pm8921_adc_dev_pm_ops)
+#else
+#define PM8921_ADC_DEV_PM_OPS	NULL
+#endif
+
 static int __devexit pm8921_adc_teardown(struct platform_device *pdev)
 {
 	struct pm8921_adc *adc_pmic = pmic_adc;
 	int i;
 
+	wake_lock_destroy(&adc_pmic->adc_wakelock);
 	free_irq(adc_pmic->adc_irq, adc_pmic);
 	free_irq(adc_pmic->btm_warm_irq, adc_pmic);
 	free_irq(adc_pmic->btm_cool_irq, adc_pmic);
@@ -1262,6 +1308,8 @@ static int __devinit pm8921_adc_probe(struct platform_device *pdev)
 
 	INIT_WORK(&adc_pmic->warm_work, pm8921_adc_btm_warm_scheduler_fn);
 	INIT_WORK(&adc_pmic->cool_work, pm8921_adc_btm_cool_scheduler_fn);
+	wake_lock_init(&adc_pmic->adc_wakelock, WAKE_LOCK_SUSPEND,
+					"pm8921_adc_wakelock");
 	create_debugfs_entries();
 	pm8921_adc_calib_first_adc = false;
 	pm8921_adc_calib_device_init = false;
@@ -1286,6 +1334,7 @@ static struct platform_driver pm8921_adc_driver = {
 	.driver	= {
 		.name	= PM8921_ADC_DEV_NAME,
 		.owner	= THIS_MODULE,
+		.pm	= PM8921_ADC_DEV_PM_OPS,
 	},
 };
 
