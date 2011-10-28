@@ -170,10 +170,25 @@ void clock_debug_print_enabled(void)
 static int list_rates_show(struct seq_file *m, void *unused)
 {
 	struct clk *clock = m->private;
-	int rate, i = 0;
+	int rate, level, fmax = 0, i = 0;
 
-	while ((rate = clock->ops->list_rate(clock, i++)) >= 0)
-		seq_printf(m, "%d\n", rate);
+	/* Find max frequency supported within voltage constraints. */
+	if (!clock->vdd_class) {
+		fmax = ULONG_MAX;
+	} else {
+		for (level = 0; level < ARRAY_SIZE(clock->fmax); level++)
+			if (clock->fmax[level])
+				fmax = clock->fmax[level];
+	}
+
+	/*
+	 * List supported frequencies <= fmax. Higher frequencies may appear in
+	 * the frequency table, but are not valid and should not be listed.
+	 */
+	while ((rate = clock->ops->list_rate(clock, i++)) >= 0) {
+		if (rate <= fmax)
+			seq_printf(m, "%u\n", rate);
+	}
 
 	return 0;
 }

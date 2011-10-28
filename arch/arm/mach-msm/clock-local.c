@@ -48,9 +48,6 @@
 DEFINE_SPINLOCK(local_clock_reg_lock);
 struct clk_freq_tbl rcg_dummy_freq = F_END;
 
-unsigned local_sys_vdd_votes[NUM_SYS_VDD_LEVELS];
-static DEFINE_SPINLOCK(sys_vdd_vote_lock);
-
 /*
  * Common Set-Rate Functions
  */
@@ -264,81 +261,6 @@ void set_rate_div_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	clk->ns_mask = new_bank_masks->ns_mask;
 }
 
-int (*soc_update_sys_vdd)(enum sys_vdd_level level);
-
-/*
- * SYS_VDD voting functions
- */
-
-/* Update system voltage level given the current votes. */
-static int local_update_sys_vdd(void)
-{
-	static int cur_level = NUM_SYS_VDD_LEVELS;
-	int level, rc = 0;
-
-	if (local_sys_vdd_votes[HIGH])
-		level = HIGH;
-	else if (local_sys_vdd_votes[NOMINAL])
-		level = NOMINAL;
-	else if (local_sys_vdd_votes[LOW])
-		level = LOW;
-	else
-		level = NONE;
-
-	if (level == cur_level)
-		return rc;
-
-	rc = soc_update_sys_vdd(level);
-	if (!rc)
-		cur_level = level;
-
-	return rc;
-}
-
-/* Vote for a system voltage level. */
-int local_vote_sys_vdd(unsigned level)
-{
-	int rc = 0;
-	unsigned long flags;
-
-	/* Bounds checking. */
-	if (level >= ARRAY_SIZE(local_sys_vdd_votes))
-		return -EINVAL;
-
-	spin_lock_irqsave(&sys_vdd_vote_lock, flags);
-	local_sys_vdd_votes[level]++;
-	rc = local_update_sys_vdd();
-	if (rc)
-		local_sys_vdd_votes[level]--;
-	spin_unlock_irqrestore(&sys_vdd_vote_lock, flags);
-
-	return rc;
-}
-
-/* Remove vote for a system voltage level. */
-int local_unvote_sys_vdd(unsigned level)
-{
-	int rc = 0;
-	unsigned long flags;
-
-	/* Bounds checking. */
-	if (level >= ARRAY_SIZE(local_sys_vdd_votes))
-		return -EINVAL;
-
-	spin_lock_irqsave(&sys_vdd_vote_lock, flags);
-
-	if (WARN(!local_sys_vdd_votes[level],
-		"Reference counts are incorrect for level %d!\n", level))
-		goto out;
-
-	local_sys_vdd_votes[level]--;
-	rc = local_update_sys_vdd();
-	if (rc)
-		local_sys_vdd_votes[level]++;
-out:
-	spin_unlock_irqrestore(&sys_vdd_vote_lock, flags);
-	return rc;
-}
 /*
  * Clock enable/disable functions
  */
@@ -486,52 +408,30 @@ static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 	}
 }
 
-static void _rcg_clk_enable(struct rcg_clk *clk)
+/* Enable a rate-settable clock. */
+int rcg_clk_enable(struct clk *c)
 {
 	unsigned long flags;
+	struct rcg_clk *clk = to_rcg_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	__rcg_clk_enable_reg(clk);
 	clk->enabled = true;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	return 0;
 }
 
-static void _rcg_clk_disable(struct rcg_clk *clk)
+/* Disable a rate-settable clock. */
+void rcg_clk_disable(struct clk *c)
 {
 	unsigned long flags;
+	struct rcg_clk *clk = to_rcg_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	__rcg_clk_disable_reg(clk);
 	clk->enabled = false;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-}
-
-/* Enable a clock and any related power rail. */
-int rcg_clk_enable(struct clk *c)
-{
-	int rc;
-	struct rcg_clk *clk = to_rcg_clk(c);
-
-	rc = local_vote_sys_vdd(clk->current_freq->sys_vdd);
-	if (rc)
-		return rc;
-	_rcg_clk_enable(clk);
-	return rc;
-}
-
-/* Disable a clock and any related power rail. */
-void rcg_clk_disable(struct clk *c)
-{
-	struct rcg_clk *clk = to_rcg_clk(c);
-
-	_rcg_clk_disable(clk);
-	local_unvote_sys_vdd(clk->current_freq->sys_vdd);
-}
-
-/* Turn off a clock at boot, without checking refcounts. */
-void rcg_clk_auto_off(struct clk *c)
-{
-	_rcg_clk_disable(to_rcg_clk(c));
 }
 
 /*
@@ -544,25 +444,17 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	struct clk_freq_tbl *cf;
 	int rc = 0;
 	struct clk *chld;
-	unsigned long flags;
-
-	spin_lock_irqsave(&clk->c.lock, flags);
 
 	/* Check if frequency is actually changed. */
 	cf = clk->current_freq;
 	if (nf == cf)
-		goto unlock;
+		return 0;
 
 	if (clk->enabled) {
-		/* Vote for voltage and source for new freq. */
-		rc = local_vote_sys_vdd(nf->sys_vdd);
-		if (rc)
-			goto unlock;
+		/* Enable source clock dependency for the new freq. */
 		rc = clk_enable(nf->src_clk);
-		if (rc) {
-			local_unvote_sys_vdd(nf->sys_vdd);
-			goto unlock;
-		}
+		if (rc)
+			return rc;
 	}
 
 	spin_lock(&local_clock_reg_lock);
@@ -608,13 +500,9 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 
 	spin_unlock(&local_clock_reg_lock);
 
-	/* Release requirements of the old freq. */
-	if (clk->enabled) {
+	/* Release source requirements of the old freq. */
+	if (clk->enabled)
 		clk_disable(cf->src_clk);
-		local_unvote_sys_vdd(cf->sys_vdd);
-	}
-unlock:
-	spin_unlock_irqrestore(&clk->c.lock, flags);
 
 	return rc;
 }
@@ -983,16 +871,6 @@ int branch_clk_is_enabled(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	return branch->enabled;
-}
-
-void branch_clk_auto_off(struct clk *clk)
-{
-	struct branch_clk *branch = to_branch_clk(clk);
-	unsigned long flags;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_disable_reg(&branch->b, branch->c.dbg_name);
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 int branch_reset(struct branch *clk, enum clk_reset_action action)

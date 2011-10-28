@@ -185,6 +185,36 @@
 #define NS_SRC_SEL(s_msb, s_lsb, s) \
 		BVAL(s_msb, s_lsb, s)
 
+enum vdd_dig_levels {
+	VDD_DIG_NONE,
+	VDD_DIG_LOW,
+	VDD_DIG_NOMINAL,
+	VDD_DIG_HIGH
+};
+
+static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
+{
+	/* TODO: Update these voltages when info becomes available. */
+	static const int vdd_uv[] = {
+		[VDD_DIG_NONE]    = 1150000,
+		[VDD_DIG_LOW]     = 1150000,
+		[VDD_DIG_NOMINAL] = 1150000,
+		[VDD_DIG_HIGH]    = 1150000
+	};
+
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER3,
+				    vdd_uv[level], vdd_uv[VDD_DIG_HIGH], 1);
+}
+
+static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
+
+#define VDD_DIG_FMAX_MAP1(l1, f1) \
+	.vdd_class = &vdd_dig, \
+	.fmax[VDD_DIG_##l1] = (f1)
+#define VDD_DIG_FMAX_MAP2(l1, f1, l2, f2) \
+	.vdd_class = &vdd_dig, \
+	.fmax[VDD_DIG_##l1] = (f1), \
+	.fmax[VDD_DIG_##l2] = (f2)
 
 /*
  * Clock Descriptions
@@ -283,24 +313,6 @@ static struct pll_vote_clk pll14_clk = {
 	},
 };
 
-/*
- * SoC-specific functions required by clock-local driver
- */
-
-/* TODO: Update these voltages when info becomes available. */
-/* Update the sys_vdd voltage given a level. */
-static int msm9615_update_sys_vdd(enum sys_vdd_level level)
-{
-	static const int vdd_uv[] = {
-		[NONE...LOW] = 1150000,
-		[NOMINAL]    = 1150000,
-		[HIGH]       = 1150000,
-	};
-
-	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER3,
-				    vdd_uv[level], vdd_uv[HIGH], 1);
-}
-
 static int soc_clk_reset(struct clk *clk, enum clk_reset_action action)
 {
 	return branch_reset(&to_rcg_clk(clk)->b, action);
@@ -309,7 +321,7 @@ static int soc_clk_reset(struct clk *clk, enum clk_reset_action action)
 static struct clk_ops clk_ops_rcg_9615 = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
-	.auto_off = rcg_clk_auto_off,
+	.auto_off = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate,
 	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
@@ -324,7 +336,7 @@ static struct clk_ops clk_ops_rcg_9615 = {
 static struct clk_ops clk_ops_branch = {
 	.enable = branch_clk_enable,
 	.disable = branch_clk_disable,
-	.auto_off = branch_clk_auto_off,
+	.auto_off = branch_clk_disable,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
 	.is_local = local_clk_is_local,
@@ -355,33 +367,33 @@ static struct clk_ops clk_ops_branch = {
 		.c = { \
 			.dbg_name = #i "_clk", \
 			.ops = &clk_ops_rcg_9615, \
+			VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 64000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
 	}
-#define F_GSBI_UART(f, s, d, m, n, v) \
+#define F_GSBI_UART(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD16(m, n), \
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_uart[] = {
-	F_GSBI_UART(       0, gnd,  1,  0,   0, NONE),
-	F_GSBI_UART( 3686400, pll8, 1,  6, 625, LOW),
-	F_GSBI_UART( 7372800, pll8, 1, 12, 625, LOW),
-	F_GSBI_UART(14745600, pll8, 1, 24, 625, LOW),
-	F_GSBI_UART(16000000, pll8, 4,  1,   6, LOW),
-	F_GSBI_UART(24000000, pll8, 4,  1,   4, LOW),
-	F_GSBI_UART(32000000, pll8, 4,  1,   3, LOW),
-	F_GSBI_UART(40000000, pll8, 1,  5,  48, NOMINAL),
-	F_GSBI_UART(46400000, pll8, 1, 29, 240, NOMINAL),
-	F_GSBI_UART(48000000, pll8, 4,  1,   2, NOMINAL),
-	F_GSBI_UART(51200000, pll8, 1,  2,  15, NOMINAL),
-	F_GSBI_UART(56000000, pll8, 1,  7,  48, NOMINAL),
-	F_GSBI_UART(58982400, pll8, 1, 96, 625, NOMINAL),
-	F_GSBI_UART(64000000, pll8, 2,  1,   3, NOMINAL),
+	F_GSBI_UART(       0, gnd,  1,  0,   0),
+	F_GSBI_UART( 3686400, pll8, 1,  6, 625),
+	F_GSBI_UART( 7372800, pll8, 1, 12, 625),
+	F_GSBI_UART(14745600, pll8, 1, 24, 625),
+	F_GSBI_UART(16000000, pll8, 4,  1,   6),
+	F_GSBI_UART(24000000, pll8, 4,  1,   4),
+	F_GSBI_UART(32000000, pll8, 4,  1,   3),
+	F_GSBI_UART(40000000, pll8, 1,  5,  48),
+	F_GSBI_UART(46400000, pll8, 1, 29, 240),
+	F_GSBI_UART(48000000, pll8, 4,  1,   2),
+	F_GSBI_UART(51200000, pll8, 1,  2,  15),
+	F_GSBI_UART(56000000, pll8, 1,  7,  48),
+	F_GSBI_UART(58982400, pll8, 1, 96, 625),
+	F_GSBI_UART(64000000, pll8, 2,  1,   3),
 	F_END
 };
 
@@ -411,28 +423,28 @@ static CLK_GSBI_UART(gsbi5_uart,   5, CLK_HALT_CFPB_STATEB_REG, 22);
 		.c = { \
 			.dbg_name = #i "_clk", \
 			.ops = &clk_ops_rcg_9615, \
+			VDD_DIG_FMAX_MAP2(LOW, 24000000, NOMINAL, 52000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
 	}
-#define F_GSBI_QUP(f, s, d, m, n, v) \
+#define F_GSBI_QUP(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
-	F_GSBI_QUP(       0, gnd,  1, 0,  0, NONE),
-	F_GSBI_QUP(  960000, cxo,  4, 1,  5, LOW),
-	F_GSBI_QUP( 4800000, cxo,  4, 0,  1, LOW),
-	F_GSBI_QUP( 9600000, cxo,  2, 0,  1, LOW),
-	F_GSBI_QUP(15058800, pll8, 1, 2, 51, LOW),
-	F_GSBI_QUP(24000000, pll8, 4, 1,  4, LOW),
-	F_GSBI_QUP(25600000, pll8, 1, 1, 15, NOMINAL),
-	F_GSBI_QUP(48000000, pll8, 4, 1,  2, NOMINAL),
-	F_GSBI_QUP(51200000, pll8, 1, 2, 15, NOMINAL),
+	F_GSBI_QUP(       0, gnd,  1, 0,  0),
+	F_GSBI_QUP(  960000, cxo,  4, 1,  5),
+	F_GSBI_QUP( 4800000, cxo,  4, 0,  1),
+	F_GSBI_QUP( 9600000, cxo,  2, 0,  1),
+	F_GSBI_QUP(15058800, pll8, 1, 2, 51),
+	F_GSBI_QUP(24000000, pll8, 4, 1,  4),
+	F_GSBI_QUP(25600000, pll8, 1, 1, 15),
+	F_GSBI_QUP(48000000, pll8, 4, 1,  2),
+	F_GSBI_QUP(51200000, pll8, 1, 2, 15),
 	F_END
 };
 
@@ -442,16 +454,15 @@ static CLK_GSBI_QUP(gsbi3_qup,   3, CLK_HALT_CFPB_STATEA_REG,  0);
 static CLK_GSBI_QUP(gsbi4_qup,   4, CLK_HALT_CFPB_STATEB_REG, 24);
 static CLK_GSBI_QUP(gsbi5_qup,   5, CLK_HALT_CFPB_STATEB_REG, 20);
 
-#define F_PDM(f, s, d, v) \
+#define F_PDM(f, s, d) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.ns_val = NS_SRC_SEL(1, 0, s##_to_xo_mux), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_pdm[] = {
-	F_PDM(       0, gnd, 1, NONE),
-	F_PDM(19200000, cxo, 1, LOW),
+	F_PDM(       0, gnd, 1),
+	F_PDM(19200000, cxo, 1),
 	F_END
 };
 
@@ -473,6 +484,7 @@ static struct rcg_clk pdm_clk = {
 	.c = {
 		.dbg_name = "pdm_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(LOW, 19200000),
 		CLK_INIT(pdm_clk.c),
 	},
 };
@@ -491,14 +503,13 @@ static struct branch_clk pmem_clk = {
 	},
 };
 
-#define F_PRNG(f, s, v) \
+#define F_PRNG(f, s) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_prng[] = {
-	F_PRNG(32000000, pll8, LOW),
+	F_PRNG(32000000, pll8),
 	F_END
 };
 
@@ -516,6 +527,7 @@ static struct rcg_clk prng_clk = {
 	.c = {
 		.dbg_name = "prng_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 65000000),
 		CLK_INIT(prng_clk.c),
 	},
 };
@@ -540,45 +552,44 @@ static struct rcg_clk prng_clk = {
 		.c = { \
 			.dbg_name = #name, \
 			.ops = &clk_ops_rcg_9615, \
+			VDD_DIG_FMAX_MAP2(LOW, 25000000, NOMINAL, 50000000), \
 			CLK_INIT(name.c), \
 		}, \
 	}
-#define F_SDC(f, s, d, m, n, v) \
+#define F_SDC(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_sdc1_2[] = {
-	F_SDC(        0, gnd,   1, 0,   0, NONE),
-	F_SDC(   144300, cxo,   1, 1, 133, LOW),
-	F_SDC(   400000, pll8,  4, 1, 240, LOW),
-	F_SDC( 16000000, pll8,  4, 1,   6, LOW),
-	F_SDC( 17070000, pll8,  1, 2,  45, LOW),
-	F_SDC( 20210000, pll8,  1, 1,  19, LOW),
-	F_SDC( 24000000, pll8,  4, 1,   4, LOW),
-	F_SDC( 48000000, pll8,  4, 1,   2, NOMINAL),
+	F_SDC(        0, gnd,   1, 0,   0),
+	F_SDC(   144300, cxo,   1, 1, 133),
+	F_SDC(   400000, pll8,  4, 1, 240),
+	F_SDC( 16000000, pll8,  4, 1,   6),
+	F_SDC( 17070000, pll8,  1, 2,  45),
+	F_SDC( 20210000, pll8,  1, 1,  19),
+	F_SDC( 24000000, pll8,  4, 1,   4),
+	F_SDC( 48000000, pll8,  4, 1,   2),
 	F_END
 };
 
 static CLK_SDC(sdc1_clk, 1, 6, clk_tbl_sdc1_2);
 static CLK_SDC(sdc2_clk, 2, 5, clk_tbl_sdc1_2);
 
-#define F_USB(f, s, d, m, n, v) \
+#define F_USB(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_usb[] = {
-	F_USB(       0, gnd,  1, 0,  0, NONE),
-	F_USB(60000000, pll8, 1, 5, 32, NOMINAL),
+	F_USB(       0, gnd,  1, 0,  0),
+	F_USB(60000000, pll8, 1, 5, 32),
 	F_END
 };
 
@@ -601,6 +612,7 @@ static struct rcg_clk usb_hs1_xcvr_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_xcvr_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 		CLK_INIT(usb_hs1_xcvr_clk.c),
 	},
 };
@@ -624,6 +636,7 @@ static struct rcg_clk usb_hs1_sys_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_sys_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 		CLK_INIT(usb_hs1_sys_clk.c),
 	},
 };
@@ -647,6 +660,7 @@ static struct rcg_clk usb_hsic_xcvr_clk = {
 	.c = {
 		.dbg_name = "usb_hsic_xcvr_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 		CLK_INIT(usb_hsic_xcvr_clk.c),
 	},
 };
@@ -670,13 +684,14 @@ static struct rcg_clk usb_hsic_sys_clk = {
 	.c = {
 		.dbg_name = "usb_hsic_sys_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 		CLK_INIT(usb_hsic_sys_clk.c),
 	},
 };
 
 static struct clk_freq_tbl clk_tbl_usb_hsic[] = {
-	F_USB(        0, gnd,   1, 0, 0, NONE),
-	F_USB(480000000, pll14, 1, 0, 1, NOMINAL),
+	F_USB(        0, gnd,   1, 0, 0),
+	F_USB(480000000, pll14, 1, 0, 1),
 	F_END
 };
 
@@ -699,6 +714,7 @@ static struct rcg_clk usb_hsic_clk = {
 	.c = {
 		.dbg_name = "usb_hsic_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 480000000),
 		CLK_INIT(usb_hsic_clk.c),
 	},
 };
@@ -980,28 +996,27 @@ static struct branch_clk rpm_msg_ram_p_clk = {
 /*
  * Low Power Audio Clocks
  */
-#define F_AIF_OSR(f, s, d, m, n, v) \
+#define F_AIF_OSR(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(8, m, 0, n), \
 		.ns_val = NS(31, 24, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_aif_osr[] = {
-	F_AIF_OSR(       0, gnd,  1, 0,   0, NONE),
-	F_AIF_OSR(  512000, pll4, 4, 1, 192, LOW),
-	F_AIF_OSR(  768000, pll4, 4, 1, 128, LOW),
-	F_AIF_OSR( 1024000, pll4, 4, 1,  96, LOW),
-	F_AIF_OSR( 1536000, pll4, 4, 1,  64, LOW),
-	F_AIF_OSR( 2048000, pll4, 4, 1,  48, LOW),
-	F_AIF_OSR( 3072000, pll4, 4, 1,  32, LOW),
-	F_AIF_OSR( 4096000, pll4, 4, 1,  24, LOW),
-	F_AIF_OSR( 6144000, pll4, 4, 1,  16, LOW),
-	F_AIF_OSR( 8192000, pll4, 4, 1,  12, LOW),
-	F_AIF_OSR(12288000, pll4, 4, 1,   8, LOW),
-	F_AIF_OSR(24576000, pll4, 4, 1,   4, LOW),
+	F_AIF_OSR(       0, gnd,  1, 0,   0),
+	F_AIF_OSR(  512000, pll4, 4, 1, 192),
+	F_AIF_OSR(  768000, pll4, 4, 1, 128),
+	F_AIF_OSR( 1024000, pll4, 4, 1,  96),
+	F_AIF_OSR( 1536000, pll4, 4, 1,  64),
+	F_AIF_OSR( 2048000, pll4, 4, 1,  48),
+	F_AIF_OSR( 3072000, pll4, 4, 1,  32),
+	F_AIF_OSR( 4096000, pll4, 4, 1,  24),
+	F_AIF_OSR( 6144000, pll4, 4, 1,  16),
+	F_AIF_OSR( 8192000, pll4, 4, 1,  12),
+	F_AIF_OSR(12288000, pll4, 4, 1,   8),
+	F_AIF_OSR(24576000, pll4, 4, 1,   4),
 	F_END
 };
 
@@ -1148,28 +1163,27 @@ static CLK_AIF_OSR_DIV(spare_i2s_spkr_osr, LCC_SPARE_I2S_SPKR_NS_REG,
 static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 		LCC_SPARE_I2S_SPKR_STATUS_REG);
 
-#define F_PCM(f, s, d, m, n, v) \
+#define F_PCM(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 		.md_val = MD16(m, n), \
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
 		.mnd_en_mask = BIT(8) * !!(n), \
-		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
-	F_PCM(       0, gnd,  1, 0,   0, NONE),
-	F_PCM(  512000, pll4, 4, 1, 192, LOW),
-	F_PCM(  768000, pll4, 4, 1, 128, LOW),
-	F_PCM( 1024000, pll4, 4, 1,  96, LOW),
-	F_PCM( 1536000, pll4, 4, 1,  64, LOW),
-	F_PCM( 2048000, pll4, 4, 1,  48, LOW),
-	F_PCM( 3072000, pll4, 4, 1,  32, LOW),
-	F_PCM( 4096000, pll4, 4, 1,  24, LOW),
-	F_PCM( 6144000, pll4, 4, 1,  16, LOW),
-	F_PCM( 8192000, pll4, 4, 1,  12, LOW),
-	F_PCM(12288000, pll4, 4, 1,   8, LOW),
-	F_PCM(24576000, pll4, 4, 1,   4, LOW),
+	F_PCM(       0, gnd,  1, 0,   0),
+	F_PCM(  512000, pll4, 4, 1, 192),
+	F_PCM(  768000, pll4, 4, 1, 128),
+	F_PCM( 1024000, pll4, 4, 1,  96),
+	F_PCM( 1536000, pll4, 4, 1,  64),
+	F_PCM( 2048000, pll4, 4, 1,  48),
+	F_PCM( 3072000, pll4, 4, 1,  32),
+	F_PCM( 4096000, pll4, 4, 1,  24),
+	F_PCM( 6144000, pll4, 4, 1,  16),
+	F_PCM( 8192000, pll4, 4, 1,  12),
+	F_PCM(12288000, pll4, 4, 1,   8),
+	F_PCM(24576000, pll4, 4, 1,   4),
 	F_END
 };
 
@@ -1193,6 +1207,7 @@ static struct rcg_clk pcm_clk = {
 	.c = {
 		.dbg_name = "pcm_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(LOW, 24576000),
 		CLK_INIT(pcm_clk.c),
 	},
 };
@@ -1217,6 +1232,7 @@ static struct rcg_clk audio_slimbus_clk = {
 	.c = {
 		.dbg_name = "audio_slimbus_clk",
 		.ops = &clk_ops_rcg_9615,
+		VDD_DIG_FMAX_MAP1(LOW, 24576000),
 		CLK_INIT(audio_slimbus_clk.c),
 	},
 };
@@ -1717,8 +1733,7 @@ static void __init msm9615_clock_init(void)
 		BUG();
 	}
 
-	soc_update_sys_vdd = msm9615_update_sys_vdd;
-	local_vote_sys_vdd(HIGH);
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 
 	clk_ops_pll.enable = sr_pll_clk_enable;
 
@@ -1744,7 +1759,7 @@ static void __init msm9615_clock_init(void)
 
 static int __init msm9615_clock_late_init(void)
 {
-	return local_unvote_sys_vdd(HIGH);
+	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 }
 
 struct clock_init_data msm9615_clock_init_data __initdata = {
