@@ -688,29 +688,25 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
 	struct rb_node *n;
-	size_t sizes[ION_NUM_HEAPS] = {0};
-	const char *names[ION_NUM_HEAPS] = {0};
-	int i;
 
+	seq_printf(s, "%16.16s: %16.16s : %16.16s : %16.16s\n", "heap_name",
+			"size_in_bytes", "handle refcount", "buffer");
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
-		enum ion_heap_type type = handle->buffer->heap->type;
 
-		if (!names[type])
-			names[type] = handle->buffer->heap->name;
-		sizes[type] += handle->buffer->size;
+		seq_printf(s, "%16.16s: %16u : %16d : %16p\n",
+				handle->buffer->heap->name,
+				handle->buffer->size,
+				atomic_read(&handle->ref.refcount),
+				handle->buffer);
 	}
+
+	seq_printf(s, "%16.16s %d\n", "client refcount:",
+			atomic_read(&client->ref.refcount));
 	mutex_unlock(&client->lock);
 
-	seq_printf(s, "%16.16s: %16.16s\n", "heap_name", "size_in_bytes");
-	for (i = 0; i < ION_NUM_HEAPS; i++) {
-		if (!names[i])
-			continue;
-		seq_printf(s, "%16.16s: %16u %d\n", names[i], sizes[i],
-			   atomic_read(&client->ref.refcount));
-	}
 	return 0;
 }
 
@@ -1246,6 +1242,14 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			continue;
 		seq_printf(s, "%16.s %16u %16u\n", client->name, client->pid,
 			   size);
+	}
+	if (heap->ops->get_allocated) {
+		seq_printf(s, "total bytes currently allocated: %lx\n",
+			heap->ops->get_allocated(heap));
+	}
+	if (heap->ops->get_total) {
+		seq_printf(s, "total heap size: %lx\n",
+			heap->ops->get_total(heap));
 	}
 	return 0;
 }

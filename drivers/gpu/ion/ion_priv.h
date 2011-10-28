@@ -104,6 +104,8 @@ struct ion_heap_ops {
 	int (*cache_op)(struct ion_heap *heap, struct ion_buffer *buffer,
 			void *vaddr, unsigned int offset,
 			unsigned int length, unsigned int cmd);
+	unsigned long (*get_allocated)(struct ion_heap *heap);
+	unsigned long (*get_total)(struct ion_heap *heap);
 };
 
 /**

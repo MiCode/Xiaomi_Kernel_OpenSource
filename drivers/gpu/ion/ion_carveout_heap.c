@@ -31,6 +31,8 @@ struct ion_carveout_heap {
 	struct ion_heap heap;
 	struct gen_pool *pool;
 	ion_phys_addr_t base;
+	unsigned long allocated_bytes;
+	unsigned long total_size;
 };
 
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
@@ -45,6 +47,7 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 	if (!offset)
 		return ION_CARVEOUT_ALLOCATE_FAIL;
 
+	carveout_heap->allocated_bytes += size;
 	return offset;
 }
 
@@ -57,6 +60,7 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
 		return;
 	gen_pool_free(carveout_heap->pool, addr, size);
+	carveout_heap->allocated_bytes -= size;
 }
 
 static int ion_carveout_heap_phys(struct ion_heap *heap,
@@ -156,6 +160,22 @@ int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
+static unsigned long ion_carveout_get_allocated(struct ion_heap *heap)
+{
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
+	return carveout_heap->allocated_bytes;
+}
+
+static unsigned long ion_carveout_get_total(struct ion_heap *heap)
+{
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
+	return carveout_heap->total_size;
+}
+
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
@@ -164,6 +184,8 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.map_kernel = ion_carveout_heap_map_kernel,
 	.unmap_kernel = ion_carveout_heap_unmap_kernel,
 	.cache_op = ion_carveout_cache_ops,
+	.get_allocated = ion_carveout_get_allocated,
+	.get_total = ion_carveout_get_total,
 };
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
@@ -189,6 +211,8 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	}
 	carveout_heap->heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
+	carveout_heap->allocated_bytes = 0;
+	carveout_heap->total_size = heap_data->size;
 
 	return &carveout_heap->heap;
 }
