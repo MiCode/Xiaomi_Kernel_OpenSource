@@ -168,12 +168,6 @@ config OV2720
 	depends on MSM_CAMERA && ARCH_MSM8960
 	default y
 
-config QS_MT9P017
-	bool "Sensor qs_mt9p017 (Aptina 3D 5M)"
-	depends on MSM_CAMERA
-	---help---
-	  Aptina 3D 5M with Autofocus
-
 config VB6801
 	bool "Sensor vb6801"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
