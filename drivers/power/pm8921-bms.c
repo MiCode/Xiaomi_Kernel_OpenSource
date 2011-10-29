@@ -57,6 +57,7 @@ enum pmic_bms_interrupts {
 	PM8921_BMS_OCV_FOR_R,
 	PM8921_BMS_GOOD_OCV,
 	PM8921_BMS_VSENSE_AVG,
+	PM8921_BMS_CCADC_EOC,
 	PM_BMS_MAX_INTS,
 };
 
@@ -75,6 +76,7 @@ struct pm8921_bms_chip {
 	struct delayed_work	calib_ccadc_work;
 	unsigned int		calib_delay_ms;
 	int			ccadc_gain_uv;
+	u16			ccadc_result_offset;
 	unsigned int		revision;
 	unsigned int		xoadc_v0625;
 	unsigned int		xoadc_v125;
@@ -1318,21 +1320,24 @@ static int calib_ccadc_read_gain_uv(struct pm8921_bms_chip *chip)
 	return gain;
 }
 
-#define CCADC_PROGRAM_TRIM_COUNT	10
+#define CCADC_PROGRAM_TRIM_COUNT	2
 #define ADC_ARB_BMS_CNTRL_CCADC_SHIFT	4
 #define ADC_ARB_BMS_CNTRL_CONV_MASK	0x03
 #define BMS_CONV_IN_PROGRESS		0x2
 
 static int calib_ccadc_program_trim(struct pm8921_bms_chip *chip,
-					int addr, u8 data_msb, u8 data_lsb)
+					int addr, u8 data_msb, u8 data_lsb,
+					int wait)
 {
-	int rc, i;
+	int i, rc, loop;
 	u8 cntrl, sbi_config;
-	bool in_progress;
+	bool in_progress = 0;
+
+	loop = wait ? CCADC_PROGRAM_TRIM_COUNT : 0;
 
 	calib_ccadc_enable_trim_access(chip, &sbi_config);
 
-	for (i = 0; i < CCADC_PROGRAM_TRIM_COUNT; i++) {
+	for (i = 0; i < loop; i++) {
 		rc = pm8xxx_readb(chip->dev->parent, ADC_ARB_BMS_CNTRL, &cntrl);
 		if (rc < 0) {
 			pr_err("error = %d reading ADC_ARB_BMS_CNTRL\n", rc);
@@ -1348,7 +1353,7 @@ static int calib_ccadc_program_trim(struct pm8921_bms_chip *chip,
 	}
 
 	if (in_progress) {
-		pr_err("conv in progress cannot write trim,returing EBUSY\n");
+		pr_debug("conv in progress cannot write trim,returing EBUSY\n");
 		return -EBUSY;
 	}
 
@@ -1428,7 +1433,7 @@ static void calib_ccadc(struct pm8921_bms_chip *chip)
 	voltage_offset = ccadc_reading_to_microvolt(chip,
 			((s64)result_offset - CCADC_INTRINSIC_OFFSET));
 
-	pr_err("offset result_offset = 0x%x, voltage = %d microVolts\n",
+	pr_debug("offset result_offset = 0x%x, voltage = %d microVolts\n",
 				result_offset, voltage_offset);
 
 	/* Sanity Check */
@@ -1444,14 +1449,17 @@ static void calib_ccadc(struct pm8921_bms_chip *chip)
 			+ microvolt_to_ccadc_reading(chip, (s64)CCADC_MIN_0UV);
 	}
 
-	data_msb = result_offset >> 8;
-	data_lsb = result_offset;
+	chip->ccadc_result_offset = result_offset;
+	data_msb = chip->ccadc_result_offset >> 8;
+	data_lsb = chip->ccadc_result_offset;
 
 	rc = calib_ccadc_program_trim(chip, CCADC_OFFSET_TRIM1,
-						data_msb, data_lsb);
+						data_msb, data_lsb, 1);
 	if (rc) {
-		pr_err("error = %d programming offset trim\n", rc);
-		goto bail;
+		pr_debug("error = %d programming offset trim 0x%02x 0x%02x\n",
+					rc, data_msb, data_lsb);
+		/* enable the interrupt and write it when it fires */
+		pm8921_bms_enable_irq(chip, PM8921_BMS_CCADC_EOC);
 	}
 
 	rc = calib_ccadc_enable_arbiter(chip);
@@ -1527,9 +1535,9 @@ static void calib_ccadc(struct pm8921_bms_chip *chip)
 	data_msb = result_gain >> 8;
 	data_lsb = result_gain;
 	rc = calib_ccadc_program_trim(chip, CCADC_FULLSCALE_TRIM1,
-						data_msb, data_lsb);
+						data_msb, data_lsb, 0);
 	if (rc)
-		pr_err("error = %d programming gain trim\n", rc);
+		pr_debug("error = %d programming gain trim\n", rc);
 bail:
 	pm8xxx_writeb(chip->dev->parent, ADC_ARB_SECP_CNTRL, sec_cntrl);
 }
@@ -1732,6 +1740,23 @@ static irqreturn_t pm8921_bms_vsense_avg_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t pm8921_bms_ccadc_eoc_handler(int irq, void *data)
+{
+	u8 data_msb, data_lsb;
+	struct pm8921_bms_chip *chip = data;
+	int rc;
+
+	pr_debug("irq = %d triggered\n", irq);
+	data_msb = chip->ccadc_result_offset >> 8;
+	data_lsb = chip->ccadc_result_offset;
+
+	rc = calib_ccadc_program_trim(chip, CCADC_OFFSET_TRIM1,
+						data_msb, data_lsb, 0);
+	pm8921_bms_disable_irq(chip, PM8921_BMS_CCADC_EOC);
+
+	return IRQ_HANDLED;
+}
+
 struct pm_bms_irq_init_data {
 	unsigned int	irq_id;
 	char		*name;
@@ -1762,6 +1787,8 @@ struct pm_bms_irq_init_data bms_irq_data[] = {
 				pm8921_bms_good_ocv_handler),
 	BMS_IRQ(PM8921_BMS_VSENSE_AVG, IRQF_TRIGGER_RISING,
 				pm8921_bms_vsense_avg_handler),
+	BMS_IRQ(PM8921_BMS_CCADC_EOC, IRQF_TRIGGER_RISING,
+				pm8921_bms_ccadc_eoc_handler),
 };
 
 static void free_irqs(struct pm8921_bms_chip *chip)
