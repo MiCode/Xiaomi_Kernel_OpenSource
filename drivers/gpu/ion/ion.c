@@ -674,8 +674,8 @@ struct ion_handle *ion_import_fd(struct ion_client *client, int fd)
 		return ERR_PTR(-EINVAL);
 	}
 	if (file->f_op != &ion_share_fops) {
-		pr_err("%s: imported file is not a shared ion file.\n",
-		       __func__);
+		pr_err("%s: imported file %s is not a shared ion"
+			" file.", __func__, file->f_dentry->d_name.name);
 		handle = ERR_PTR(-EINVAL);
 		goto end;
 	}
