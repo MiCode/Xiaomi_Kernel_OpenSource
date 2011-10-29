@@ -142,7 +142,7 @@ void diag_add_client(int i, struct file *file)
 	if (diagpriv_data)
 		diagpriv_data->pid = current->tgid;
 	file->private_data = diagpriv_data;
-	strncpy(driver->client_map[i].name, current->comm, 20);
+	strlcpy(driver->client_map[i].name, current->comm, 20);
 	driver->client_map[i].name[19] = '\0';
 }
 
