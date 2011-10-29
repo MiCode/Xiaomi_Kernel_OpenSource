@@ -48,6 +48,7 @@
 #include "spm.h"
 #include "timer.h"
 #include "qdss.h"
+#include "pm-boot.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -649,7 +650,7 @@ static bool msm_pm_spm_power_collapse(
 
 	entry = (!dev->cpu || from_idle) ?
 		msm_pm_collapse_exit : msm_secondary_startup;
-	msm_pm_write_boot_vector(dev->cpu, virt_to_phys(entry));
+	msm_pm_boot_config_before_pc(dev->cpu, virt_to_phys(entry));
 
 	if (MSM_PM_DEBUG_RESET_VECTOR & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: program vector to %p\n",
@@ -660,6 +661,8 @@ static bool msm_pm_spm_power_collapse(
 #endif
 
 	collapsed = msm_pm_collapse();
+
+	msm_pm_boot_config_after_pc(dev->cpu);
 
 	if (collapsed) {
 #ifdef CONFIG_VFP
@@ -1179,15 +1182,6 @@ static int __init msm_pm_init(void)
 		init_completion(&dev->cpu_killed);
 #endif
 	}
-#ifdef CONFIG_MSM_SCM
-	ret = scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry),
-			SCM_FLAG_WARMBOOT_CPU0 | SCM_FLAG_WARMBOOT_CPU1);
-	if (ret) {
-		pr_err("%s: failed to set up scm boot addr: %d\n",
-			__func__, ret);
-		return ret;
-	}
-#endif
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	for_each_possible_cpu(cpu) {

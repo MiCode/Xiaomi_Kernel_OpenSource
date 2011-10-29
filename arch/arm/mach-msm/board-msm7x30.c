@@ -80,6 +80,7 @@
 #include <mach/usbdiag.h>
 #endif
 #include "pm.h"
+#include "pm-boot.h"
 #include "spm.h"
 #include "acpuclock.h"
 #include <mach/dal_axi.h>
@@ -7002,6 +7003,8 @@ static void __init msm7x30_init(void)
 
 	msm_fb_add_devices();
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
+	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR,
+				(uint32_t *)PAGE_OFFSET));
 	msm_device_i2c_init();
 	msm_device_i2c_2_init();
 	qup_device_i2c_init();

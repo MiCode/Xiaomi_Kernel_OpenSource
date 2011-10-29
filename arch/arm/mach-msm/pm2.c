@@ -61,6 +61,7 @@
 #include "pm.h"
 #include "spm.h"
 #include "sirc.h"
+#include "pm-boot.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -962,7 +963,6 @@ struct msm_pm_smem_t {
  *
  *****************************************************************************/
 static struct msm_pm_smem_t *msm_pm_smem_data;
-static uint32_t *msm_pm_reset_vector;
 static atomic_t msm_pm_init_done = ATOMIC_INIT(0);
 
 static int msm_pm_modem_busy(void)
@@ -991,7 +991,6 @@ static int msm_pm_power_collapse
 {
 	struct msm_pm_polled_group state_grps[2];
 	unsigned long saved_acpuclk_rate;
-	uint32_t saved_vector[2];
 	int collapsed = 0;
 	int ret;
 
@@ -1078,15 +1077,8 @@ static int msm_pm_power_collapse
 		goto power_collapse_early_exit;
 	}
 
-	saved_vector[0] = msm_pm_reset_vector[0];
-	saved_vector[1] = msm_pm_reset_vector[1];
-	msm_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
-	msm_pm_reset_vector[1] = virt_to_phys(msm_pm_collapse_exit);
-
-	MSM_PM_DPRINTK(MSM_PM_DEBUG_RESET_VECTOR, KERN_INFO,
-		"%s(): vector %x %x -> %x %x\n", __func__,
-		saved_vector[0], saved_vector[1],
-		msm_pm_reset_vector[0], msm_pm_reset_vector[1]);
+	msm_pm_boot_config_before_pc(smp_processor_id(),
+			virt_to_phys(msm_pm_collapse_exit));
 
 #ifdef CONFIG_VFP
 	if (from_idle)
@@ -1103,8 +1095,7 @@ static int msm_pm_power_collapse
 	l2x0_resume(collapsed);
 #endif
 
-	msm_pm_reset_vector[0] = saved_vector[0];
-	msm_pm_reset_vector[1] = saved_vector[1];
+	msm_pm_boot_config_after_pc(smp_processor_id());
 
 	if (collapsed) {
 #ifdef CONFIG_VFP
@@ -1283,7 +1274,6 @@ power_collapse_bail:
  */
 static int msm_pm_power_collapse_standalone(void)
 {
-	uint32_t saved_vector[2];
 	int collapsed = 0;
 	int ret;
 
@@ -1293,15 +1283,8 @@ static int msm_pm_power_collapse_standalone(void)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE, false);
 	WARN_ON(ret);
 
-	saved_vector[0] = msm_pm_reset_vector[0];
-	saved_vector[1] = msm_pm_reset_vector[1];
-	msm_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
-	msm_pm_reset_vector[1] = virt_to_phys(msm_pm_collapse_exit);
-
-	MSM_PM_DPRINTK(MSM_PM_DEBUG_RESET_VECTOR, KERN_INFO,
-		"%s(): vector %x %x -> %x %x\n", __func__,
-		saved_vector[0], saved_vector[1],
-		msm_pm_reset_vector[0], msm_pm_reset_vector[1]);
+	msm_pm_boot_config_before_pc(smp_processor_id(),
+			virt_to_phys(msm_pm_collapse_exit));
 
 #ifdef CONFIG_VFP
 	vfp_flush_context();
@@ -1317,8 +1300,7 @@ static int msm_pm_power_collapse_standalone(void)
 	l2x0_resume(collapsed);
 #endif
 
-	msm_pm_reset_vector[0] = saved_vector[0];
-	msm_pm_reset_vector[1] = saved_vector[1];
+	msm_pm_boot_config_after_pc(smp_processor_id());
 
 	if (collapsed) {
 #ifdef CONFIG_VFP
@@ -1836,21 +1818,6 @@ static int __init msm_pm_init(void)
 		printk(KERN_ERR "%s: failed to get smsm_data\n", __func__);
 		return -ENODEV;
 	}
-#if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
-	/* The bootloader is responsible for initializing many of Scorpion's
-	 * coprocessor registers for things like cache timing. The state of
-	 * these coprocessor registers is lost on reset, so part of the
-	 * bootloader must be re-executed. Do not overwrite the reset vector
-	 * or bootloader area.
-	 */
-	msm_pm_reset_vector = (uint32_t *) PAGE_OFFSET;
-#else
-	msm_pm_reset_vector = ioremap(0, PAGE_SIZE);
-	if (msm_pm_reset_vector == NULL) {
-		printk(KERN_ERR "%s: failed to map reset vector\n", __func__);
-		return -ENODEV;
-	}
-#endif /* CONFIG_ARCH_MSM_SCORPION */
 
 	ret = msm_timer_init_time_sync(msm_pm_timeout);
 	if (ret)

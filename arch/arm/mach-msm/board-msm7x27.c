@@ -68,6 +68,7 @@
 #include "acpuclock.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"
+#include "pm-boot.h"
 
 #ifdef CONFIG_ARCH_MSM7X25
 #define MSM_PMEM_MDP_SIZE	0xb21000
@@ -1711,6 +1712,9 @@ static void __init msm7x2x_init(void)
 	else
 		msm_pm_set_platform_data(msm7x25_pm_data,
 					ARRAY_SIZE(msm7x25_pm_data));
+
+	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR,
+				ioremap(0, PAGE_SIZE)));
 	msm7x27_wlan_init();
 }
 

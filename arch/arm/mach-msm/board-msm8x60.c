@@ -108,7 +108,7 @@
 #include <linux/platform_data/qcom_crypto_device.h>
 #include "rpm_resources.h"
 #include "acpuclock.h"
-
+#include "pm-boot.h"
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
 /* Macros assume PMIC GPIOs start at 0 */
@@ -10321,6 +10321,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm_pm_set_rpm_wakeup_irq(RPM_SCSS_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
+	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_TZ, NULL));
 
 #ifdef CONFIG_SENSORS_MSM_ADC
 	if (machine_is_msm8x60_fluid()) {
