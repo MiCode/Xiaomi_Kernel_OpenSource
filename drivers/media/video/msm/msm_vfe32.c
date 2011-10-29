@@ -15,6 +15,8 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/atomic.h>
+#include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 #include <mach/irqs.h>
 #include <mach/camera.h>
 #include <media/v4l2-device.h>
@@ -23,7 +25,6 @@
 
 #include "msm.h"
 #include "msm_vfe32.h"
-#include "msm_ispif.h"
 
 atomic_t irq_cnt;
 
@@ -54,8 +55,8 @@ atomic_t irq_cnt;
 	vfe32_put_ch_ping_addr((chn), (addr)))
 
 static struct vfe32_ctrl_type *vfe32_ctrl;
-static struct msm_camera_io_clk camio_clk;
 static void  *vfe_syncdata;
+static uint32_t vfe_clk_rate;
 
 struct vfe32_isr_queue_cmd {
 	struct list_head list;
@@ -437,7 +438,7 @@ static void vfe32_subdev_notify(int id, int path)
 	rp->evt_msg.type   = MSM_CAMERA_MSG;
 	rp->evt_msg.msg_id = path;
 	rp->type	   = id;
-	v4l2_subdev_notify(vfe32_ctrl->subdev, NOTIFY_VFE_BUF_EVT, rp);
+	v4l2_subdev_notify(&vfe32_ctrl->subdev, NOTIFY_VFE_BUF_EVT, rp);
 	spin_unlock_irqrestore(&vfe32_ctrl->sd_notify_lock, flags);
 }
 
@@ -1019,7 +1020,7 @@ static void vfe32_sync_timer_start(const uint32_t *tbl)
 			 8 + ((vfe32_ctrl->sync_timer_number) * 12));
 	/* Sync Timer Pixel Duration */
 	value = *tbl++;
-	val = camio_clk.vfe_clk_rate / 10000;
+	val = vfe_clk_rate / 10000;
 	val = 10000000 / val;
 	val = value * 10000 / val;
 	CDBG("%s: Pixel Clk Cycles!!! %d\n", __func__, val);
@@ -1205,7 +1206,7 @@ static void vfe32_send_isp_msg(
 
 	isp_msg_evt.msg_id = isp_msg_id;
 	isp_msg_evt.sof_count = vfe32_ctrl->vfeFrameId;
-	v4l2_subdev_notify(vctrl->subdev,
+	v4l2_subdev_notify(&vctrl->subdev,
 			NOTIFY_ISP_MSG_EVT,
 			(void *)&isp_msg_evt);
 }
@@ -2637,7 +2638,7 @@ static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
 	msg.buf.ch_paddr[2]	= ch2_paddr;
 	msg.frameCounter = vfe32_ctrl->vfeFrameId;
 
-	v4l2_subdev_notify(vfe32_ctrl->subdev,
+	v4l2_subdev_notify(&vfe32_ctrl->subdev,
 			NOTIFY_VFE_MSG_OUT,
 			&msg);
 	return;
@@ -2703,13 +2704,13 @@ static void vfe32_process_output_path_irq_0(void)
 			VFE_MODE_OF_OPERATION_SNAPSHOT) {
 			/* will add message for multi-shot. */
 			vfe32_ctrl->outpath.out0.capture_cnt--;
-			vfe_send_outmsg(vfe32_ctrl->subdev,
+			vfe_send_outmsg(&vfe32_ctrl->subdev,
 				MSG_ID_OUTPUT_T, ch0_paddr,
 				ch1_paddr, ch2_paddr);
 		} else {
 			/* always send message for continous mode. */
 			/* if continuous mode, for display. (preview) */
-			vfe_send_outmsg(vfe32_ctrl->subdev,
+			vfe_send_outmsg(&vfe32_ctrl->subdev,
 				MSG_ID_OUTPUT_P, ch0_paddr,
 				ch1_paddr, ch2_paddr);
 		}
@@ -2749,7 +2750,7 @@ static void vfe32_process_zsl_frame(void)
 			vfe32_put_ch_addr(ping_pong,
 				vfe32_ctrl->outpath.out1.ch2,
 				free_buf->ch_paddr[2]);
-		vfe_send_outmsg(vfe32_ctrl->subdev,
+		vfe_send_outmsg(&vfe32_ctrl->subdev,
 			MSG_ID_OUTPUT_T, ch0_paddr,
 			ch1_paddr, ch2_paddr);
 	}
@@ -2775,7 +2776,7 @@ static void vfe32_process_zsl_frame(void)
 		vfe32_put_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out2.ch1,
 			free_buf->ch_paddr[1]);
-		vfe_send_outmsg(vfe32_ctrl->subdev,
+		vfe_send_outmsg(&vfe32_ctrl->subdev,
 			MSG_ID_OUTPUT_S, ch0_paddr,
 			ch1_paddr, ch2_paddr);
 	}
@@ -2844,7 +2845,7 @@ static void vfe32_process_output_path_irq_1(void)
 			vfe32_ctrl->operation_mode ==
 			VFE_MODE_OF_OPERATION_RAW_SNAPSHOT) {
 			vfe32_ctrl->outpath.out1.capture_cnt--;
-			vfe_send_outmsg(vfe32_ctrl->subdev,
+			vfe_send_outmsg(&vfe32_ctrl->subdev,
 				MSG_ID_OUTPUT_S, ch0_paddr,
 				ch1_paddr, ch2_paddr);
 		}
@@ -2907,7 +2908,7 @@ static void vfe32_process_output_path_irq_2(void)
 				vfe32_ctrl->outpath.out2.ch2,
 				free_buf->ch_paddr[2]);
 
-		vfe_send_outmsg(vfe32_ctrl->subdev,
+		vfe_send_outmsg(&vfe32_ctrl->subdev,
 			MSG_ID_OUTPUT_V, ch0_paddr,
 			ch1_paddr, ch2_paddr);
 
@@ -2999,7 +3000,7 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 		goto stats_done;
 	}
 
-	v4l2_subdev_notify(vfe32_ctrl->subdev,
+	v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_MSG_STATS,
 				&msgStats);
 stats_done:
@@ -3293,91 +3294,6 @@ static irqreturn_t vfe32_parse_irq(int irq_num, void *data)
 	spin_unlock_irqrestore(&vfe32_ctrl->tasklet_lock, flags);
 	tasklet_schedule(&vfe32_tasklet);
 	return IRQ_HANDLED;
-}
-
-static int vfe32_resource_init(struct platform_device *pdev, void *sdata)
-{
-	struct resource	*vfemem, *vfeirq, *vfeio;
-	int rc;
-	struct msm_camera_sensor_info *s_info;
-	s_info = pdev->dev.platform_data;
-
-	pdev->resource = s_info->resource;
-	pdev->num_resources = s_info->num_resources;
-
-	vfemem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!vfemem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-
-	vfeirq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!vfeirq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		return -ENODEV;
-	}
-
-	vfeio = request_mem_region(vfemem->start,
-		resource_size(vfemem), pdev->name);
-	if (!vfeio) {
-		pr_err("%s: VFE region already claimed\n", __func__);
-		return -EBUSY;
-	}
-
-	vfe32_ctrl = kzalloc(sizeof(struct vfe32_ctrl_type), GFP_KERNEL);
-	if (!vfe32_ctrl) {
-		rc = -ENOMEM;
-		goto cmd_init_failed1;
-	}
-
-	vfe32_ctrl->vfeirq = vfeirq->start;
-
-	vfe32_ctrl->vfebase =
-		ioremap(vfemem->start, (vfemem->end - vfemem->start) + 1);
-	if (!vfe32_ctrl->vfebase) {
-		rc = -ENOMEM;
-		pr_err("%s: vfe ioremap failed\n", __func__);
-		goto cmd_init_failed2;
-	}
-
-	vfe32_ctrl->extdata =
-		kmalloc(sizeof(struct vfe32_frame_extra), GFP_KERNEL);
-	if (!vfe32_ctrl->extdata) {
-		rc = -ENOMEM;
-		goto cmd_init_failed3;
-	}
-
-	vfe32_ctrl->extlen = sizeof(struct vfe32_frame_extra);
-
-	spin_lock_init(&vfe32_ctrl->stop_flag_lock);
-	spin_lock_init(&vfe32_ctrl->state_lock);
-	spin_lock_init(&vfe32_ctrl->io_lock);
-	spin_lock_init(&vfe32_ctrl->update_ack_lock);
-	spin_lock_init(&vfe32_ctrl->tasklet_lock);
-
-	spin_lock_init(&vfe32_ctrl->aec_ack_lock);
-	spin_lock_init(&vfe32_ctrl->awb_ack_lock);
-	spin_lock_init(&vfe32_ctrl->af_ack_lock);
-	spin_lock_init(&vfe32_ctrl->sd_notify_lock);
-	INIT_LIST_HEAD(&vfe32_ctrl->tasklet_q);
-
-	vfe32_ctrl->syncdata = sdata;
-	vfe32_ctrl->vfemem = vfemem;
-	vfe32_ctrl->vfeio  = vfeio;
-	vfe32_ctrl->update_linear = false;
-	vfe32_ctrl->update_rolloff = false;
-	vfe32_ctrl->update_la = false;
-	vfe32_ctrl->update_gamma = false;
-	return 0;
-
-cmd_init_failed3:
-	free_irq(vfe32_ctrl->vfeirq, 0);
-	iounmap(vfe32_ctrl->vfebase);
-cmd_init_failed2:
-	kfree(vfe32_ctrl);
-cmd_init_failed1:
-	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
-	return rc;
 }
 
 static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
@@ -3678,36 +3594,103 @@ vfe32_config_done:
 	return rc;
 }
 
+static struct msm_cam_clk_info vfe32_clk_info[] = {
+	{"vfe_clk", 228570000},
+	{"vfe_pclk", -1},
+	{"csi_vfe_clk", -1},
+};
+
+static int msm_vfe_subdev_s_crystal_freq(struct v4l2_subdev *sd,
+						u32 freq, u32 flags)
+{
+	int rc = 0;
+	int round_rate;
+
+	round_rate = clk_round_rate(vfe32_ctrl->vfe_clk[0], freq);
+	if (rc < 0) {
+		pr_err("%s: clk_round_rate failed %d\n",
+					__func__, rc);
+		return rc;
+	}
+
+	vfe_clk_rate = round_rate;
+	rc = clk_set_rate(vfe32_ctrl->vfe_clk[0], round_rate);
+	if (rc < 0)
+		pr_err("%s: clk_set_rate failed %d\n",
+					__func__, rc);
+
+	return rc;
+}
+
+static const struct v4l2_subdev_video_ops msm_vfe_subdev_video_ops = {
+	.s_crystal_freq = msm_vfe_subdev_s_crystal_freq,
+};
+
 static const struct v4l2_subdev_core_ops msm_vfe_subdev_core_ops = {
 	.ioctl = msm_vfe_subdev_ioctl,
 };
 
 static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 	.core = &msm_vfe_subdev_core_ops,
+	.video = &msm_vfe_subdev_video_ops,
 };
 
 int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	struct platform_device *pdev)
 {
 	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
-	v4l2_subdev_init(sd, &msm_vfe_subdev_ops);
 	v4l2_set_subdev_hostdata(sd, data);
-	snprintf(sd->name, sizeof(sd->name), "vfe3.2");
-
 	vfe_syncdata = data;
 
-	camio_clk = camdev->ioclk;
+	spin_lock_init(&vfe32_ctrl->stop_flag_lock);
+	spin_lock_init(&vfe32_ctrl->state_lock);
+	spin_lock_init(&vfe32_ctrl->io_lock);
+	spin_lock_init(&vfe32_ctrl->update_ack_lock);
+	spin_lock_init(&vfe32_ctrl->tasklet_lock);
 
-	rc = vfe32_resource_init(pdev, vfe_syncdata);
+	spin_lock_init(&vfe32_ctrl->aec_ack_lock);
+	spin_lock_init(&vfe32_ctrl->awb_ack_lock);
+	spin_lock_init(&vfe32_ctrl->af_ack_lock);
+	spin_lock_init(&vfe32_ctrl->sd_notify_lock);
+	INIT_LIST_HEAD(&vfe32_ctrl->tasklet_q);
+
+	vfe32_ctrl->update_linear = false;
+	vfe32_ctrl->update_rolloff = false;
+	vfe32_ctrl->update_la = false;
+	vfe32_ctrl->update_gamma = false;
+
+	enable_irq(vfe32_ctrl->vfeirq->start);
+
+	vfe32_ctrl->vfebase = ioremap(vfe32_ctrl->vfemem->start,
+		resource_size(vfe32_ctrl->vfemem));
+	if (!vfe32_ctrl->vfebase) {
+		rc = -ENOMEM;
+		pr_err("%s: vfe ioremap failed\n", __func__);
+		goto vfe_remap_failed;
+	}
+
+	if (vfe32_ctrl->fs_vfe == NULL) {
+		vfe32_ctrl->fs_vfe =
+			regulator_get(&vfe32_ctrl->pdev->dev, "fs_vfe");
+		if (IS_ERR(vfe32_ctrl->fs_vfe)) {
+			pr_err("%s: Regulator FS_VFE get failed %ld\n",
+				__func__, PTR_ERR(vfe32_ctrl->fs_vfe));
+			vfe32_ctrl->fs_vfe = NULL;
+			goto vfe_fs_failed;
+		} else if (regulator_enable(vfe32_ctrl->fs_vfe)) {
+			pr_err("%s: Regulator FS_VFE enable failed\n",
+							__func__);
+			regulator_put(vfe32_ctrl->fs_vfe);
+			vfe32_ctrl->fs_vfe = NULL;
+			goto vfe_fs_failed;
+		}
+	}
+
+	rc = msm_cam_clk_enable(&vfe32_ctrl->pdev->dev, vfe32_clk_info,
+			vfe32_ctrl->vfe_clk, ARRAY_SIZE(vfe32_clk_info), 1);
 	if (rc < 0)
-		return rc;
+		goto vfe_clk_enable_failed;
 
-	vfe32_ctrl->subdev = sd;
-	/* Bring up all the required GPIOs and Clocks */
-	rc = msm_camio_enable(pdev);
 	msm_camio_set_perf_lvl(S_INIT);
 	msm_camio_set_perf_lvl(S_PREVIEW);
 
@@ -3717,38 +3700,118 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	else
 		vfe32_ctrl->register_total = VFE33_REGISTER_TOTAL;
 
-	/* TO DO: Need to release the VFE resources */
-	rc = request_irq(vfe32_ctrl->vfeirq, vfe32_parse_irq,
-			IRQF_TRIGGER_RISING, "vfe", 0);
+	return rc;
 
+vfe_clk_enable_failed:
+	regulator_disable(vfe32_ctrl->fs_vfe);
+	regulator_put(vfe32_ctrl->fs_vfe);
+	vfe32_ctrl->fs_vfe = NULL;
+vfe_fs_failed:
+	iounmap(vfe32_ctrl->vfebase);
+vfe_remap_failed:
+	disable_irq(vfe32_ctrl->vfeirq->start);
 	return rc;
 }
 
 void msm_vfe_subdev_release(struct platform_device *pdev)
 {
-	struct resource	*vfemem, *vfeio;
-
+	msm_cam_clk_enable(&vfe32_ctrl->pdev->dev, vfe32_clk_info,
+			vfe32_ctrl->vfe_clk, ARRAY_SIZE(vfe32_clk_info), 0);
+	if (vfe32_ctrl->fs_vfe) {
+		regulator_disable(vfe32_ctrl->fs_vfe);
+		regulator_put(vfe32_ctrl->fs_vfe);
+		vfe32_ctrl->fs_vfe = NULL;
+	}
 	CDBG("%s, free_irq\n", __func__);
-	free_irq(vfe32_ctrl->vfeirq, 0);
+	disable_irq(vfe32_ctrl->vfeirq->start);
 	tasklet_kill(&vfe32_tasklet);
+	iounmap(vfe32_ctrl->vfebase);
 
 	if (atomic_read(&irq_cnt))
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);
 
-	vfemem = vfe32_ctrl->vfemem;
-	vfeio  = vfe32_ctrl->vfeio;
-
-	kfree(vfe32_ctrl->extdata);
-	iounmap(vfe32_ctrl->vfebase);
-	kfree(vfe32_ctrl);
-	vfe32_ctrl = NULL;
-	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
-
-	CDBG("%s, msm_camio_disable\n", __func__);
-	msm_camio_disable(pdev);
 	msm_camio_set_perf_lvl(S_EXIT);
-
 	vfe_syncdata = NULL;
 }
 
+static int __devinit vfe32_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	CDBG("%s: device id = %d\n", __func__, pdev->id);
+	vfe32_ctrl = kzalloc(sizeof(struct vfe32_ctrl_type), GFP_KERNEL);
+	if (!vfe32_ctrl) {
+		pr_err("%s: no enough memory\n", __func__);
+		return -ENOMEM;
+	}
 
+	v4l2_subdev_init(&vfe32_ctrl->subdev, &msm_vfe_subdev_ops);
+	snprintf(vfe32_ctrl->subdev.name,
+			 sizeof(vfe32_ctrl->subdev.name), "vfe3.2");
+	v4l2_set_subdevdata(&vfe32_ctrl->subdev, vfe32_ctrl);
+	platform_set_drvdata(pdev, &vfe32_ctrl->subdev);
+
+	vfe32_ctrl->vfemem = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "vfe32");
+	if (!vfe32_ctrl->vfemem) {
+		pr_err("%s: no mem resource?\n", __func__);
+		rc = -ENODEV;
+		goto vfe32_no_resource;
+	}
+	vfe32_ctrl->vfeirq = platform_get_resource_byname(pdev,
+					IORESOURCE_IRQ, "vfe32");
+	if (!vfe32_ctrl->vfeirq) {
+		pr_err("%s: no irq resource?\n", __func__);
+		rc = -ENODEV;
+		goto vfe32_no_resource;
+	}
+
+	vfe32_ctrl->vfeio = request_mem_region(vfe32_ctrl->vfemem->start,
+		resource_size(vfe32_ctrl->vfemem), pdev->name);
+	if (!vfe32_ctrl->vfeio) {
+		pr_err("%s: no valid mem region\n", __func__);
+		rc = -EBUSY;
+		goto vfe32_no_resource;
+	}
+
+	rc = request_irq(vfe32_ctrl->vfeirq->start, vfe32_parse_irq,
+		IRQF_TRIGGER_RISING, "vfe", 0);
+	if (rc < 0) {
+		release_mem_region(vfe32_ctrl->vfemem->start,
+			resource_size(vfe32_ctrl->vfemem));
+		pr_err("%s: irq request fail\n", __func__);
+		rc = -EBUSY;
+		goto vfe32_no_resource;
+	}
+
+	disable_irq(vfe32_ctrl->vfeirq->start);
+
+	vfe32_ctrl->pdev = pdev;
+	return 0;
+
+vfe32_no_resource:
+	kfree(vfe32_ctrl);
+	return 0;
+}
+
+static struct platform_driver vfe32_driver = {
+	.probe = vfe32_probe,
+	.driver = {
+		.name = MSM_VFE_DRV_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_vfe32_init_module(void)
+{
+	return platform_driver_register(&vfe32_driver);
+}
+
+static void __exit msm_vfe32_exit_module(void)
+{
+	platform_driver_unregister(&vfe32_driver);
+}
+
+module_init(msm_vfe32_init_module);
+module_exit(msm_vfe32_exit_module);
+MODULE_DESCRIPTION("VFE 3.2 driver");
+MODULE_LICENSE("GPL v2");

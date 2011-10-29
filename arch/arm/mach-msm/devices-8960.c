@@ -983,18 +983,6 @@ struct platform_device msm8960_device_qup_i2c_gsbi12 = {
 #ifdef CONFIG_MSM_CAMERA
 struct resource msm_camera_resources[] = {
 	{
-		.name	= "vfe",
-		.start	= 0x04500000,
-		.end	= 0x04500000 + SZ_1M - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "vfe",
-		.start	= VFE_IRQ,
-		.end	= VFE_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
 		.name	= "vpe",
 		.start	= 0x05300000,
 		.end	= 0x05300000 + SZ_1M - 1,
@@ -1139,6 +1127,28 @@ struct platform_device msm8960_device_ispif = {
 	.id             = 0,
 	.resource       = msm_ispif_resources,
 	.num_resources  = ARRAY_SIZE(msm_ispif_resources),
+};
+
+static struct resource msm_vfe_resources[] = {
+	{
+		.name	= "vfe32",
+		.start	= 0x04500000,
+		.end	= 0x04500000 + SZ_1M - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "vfe32",
+		.start	= VFE_IRQ,
+		.end	= VFE_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_vfe = {
+	.name           = "msm_vfe",
+	.id             = 0,
+	.resource       = msm_vfe_resources,
+	.num_resources  = ARRAY_SIZE(msm_vfe_resources),
 };
 #endif
 

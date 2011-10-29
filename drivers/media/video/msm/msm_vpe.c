@@ -670,13 +670,13 @@ static int msm_vpe_resource_init(struct platform_device *pdev,
 	}
 	vpe_device = &vpe_ctrl->device_data;
 	/* does the device exist? */
-	vpeirq = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+	vpeirq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!vpeirq) {
 		pr_err("%s: no vpe irq resource.\n", __func__);
 		rc = -ENODEV;
 		goto vpe_free_device;
 	}
-	vpemem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	vpemem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!vpemem) {
 		pr_err("%s: no vpe mem resource!\n", __func__);
 		rc = -ENODEV;

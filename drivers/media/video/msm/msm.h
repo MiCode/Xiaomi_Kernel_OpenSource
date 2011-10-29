@@ -44,6 +44,7 @@
 #define MSM_CSIPHY_DRV_NAME "msm_csiphy"
 #define MSM_CSID_DRV_NAME "msm_csid"
 #define MSM_ISPIF_DRV_NAME "msm_ispif"
+#define MSM_VFE_DRV_NAME "msm_vfe"
 
 /* msm queue management APIs*/
 
@@ -247,7 +248,7 @@ struct msm_isp_ops {
 		 struct msm_mctl_pp_cmd, void *data);
 
 	/* vfe subdevice */
-	struct v4l2_subdev sd;
+	struct v4l2_subdev *sd;
 	struct v4l2_subdev sd_vpe;
 };
 

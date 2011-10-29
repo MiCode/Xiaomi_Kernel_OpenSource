@@ -638,7 +638,7 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 
 	int rc = -EINVAL;
 	void __user *argp = (void __user *)arg;
-	struct v4l2_subdev *sd = &pmctl->isp_sdev->sd;
+	struct v4l2_subdev *sd = pmctl->isp_sdev->sd;
 
 	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
 	switch (cmd) {

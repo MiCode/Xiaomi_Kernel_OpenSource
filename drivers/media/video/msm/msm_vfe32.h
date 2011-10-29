@@ -915,13 +915,14 @@ struct vfe32_ctrl_type {
 
 	spinlock_t  tasklet_lock;
 	struct list_head tasklet_q;
-	int vfeirq;
 	void __iomem *vfebase;
 	void *syncdata;
 	uint32_t register_total;
 
 	struct resource	*vfemem;
 	struct resource *vfeio;
+	struct resource *vfeirq;
+	struct regulator *fs_vfe;
 
 	uint32_t stats_comp;
 	atomic_t vstate;
@@ -945,7 +946,9 @@ struct vfe32_ctrl_type {
 	struct vfe_stats_control csStatsControl;
 
 	/* v4l2 subdev */
-	struct v4l2_subdev *subdev;
+	struct v4l2_subdev subdev;
+	struct platform_device *pdev;
+	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
 };
 

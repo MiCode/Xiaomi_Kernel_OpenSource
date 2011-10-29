@@ -209,7 +209,7 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	case NOTIFY_VFE_BUF_EVT:
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
 			rc = p_mctl->isp_sdev->isp_notify(
-				&p_mctl->isp_sdev->sd, notification, arg);
+				p_mctl->isp_sdev->sd, notification, arg);
 		}
 		break;
 	case NOTIFY_VPE_MSG_EVT:
@@ -219,7 +219,8 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 		}
 		break;
 	case NOTIFY_PCLK_CHANGE:
-		rc = msm_camio_vfe_clk_rate_set(*(uint32_t *)arg);
+		rc = v4l2_subdev_call(p_mctl->isp_sdev->sd, video,
+			s_crystal_freq, *(uint32_t *)arg, 0);
 		break;
 	case NOTIFY_CSIPHY_CFG:
 		rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
@@ -380,6 +381,19 @@ static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
 	p_mctl->ispif_sdev = dev_get_drvdata(dev);
 	put_driver(driver);
 
+	/* register vfe subdev */
+	driver = driver_find(MSM_VFE_DRV_NAME, &platform_bus_type);
+	if (!driver)
+		goto out;
+
+	dev = driver_find_device(driver, NULL, 0,
+				msm_mctl_subdev_match_core);
+	if (!dev)
+		goto out_put_driver;
+
+	p_mctl->isp_sdev->sd = dev_get_drvdata(dev);
+	put_driver(driver);
+
 	rc = 0;
 	return rc;
 out_put_driver:
@@ -412,6 +426,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		wake_lock(&sync->wake_lock);
 
 		sinfo = sync->pdev->dev.platform_data;
+		sync->pdev->resource = sinfo->resource;
+		sync->pdev->num_resources = sinfo->num_resources;
 		camdev = sinfo->pdata;
 		csid_core = camdev->csid_core;
 		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
@@ -448,7 +464,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		/* ISP first*/
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_open)
 			rc = p_mctl->isp_sdev->isp_open(
-				&p_mctl->isp_sdev->sd,
+				p_mctl->isp_sdev->sd,
 				&p_mctl->isp_sdev->sd_vpe, sync);
 		if (rc < 0) {
 			pr_err("%s: isp init failed: %d\n", __func__, rc);
