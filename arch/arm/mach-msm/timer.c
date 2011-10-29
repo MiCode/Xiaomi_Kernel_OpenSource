@@ -27,6 +27,7 @@
 #include <asm/mach/time.h>
 #include <asm/hardware/gic.h>
 #include <asm/sched_clock.h>
+#include <asm/smp_plat.h>
 #include <mach/msm_iomap.h>
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
@@ -278,14 +279,15 @@ static cycle_t msm_dgt_read(struct clocksource *cs)
 
 static struct msm_clock *clockevent_to_clock(struct clock_event_device *evt)
 {
-#ifdef CONFIG_SMP
 	int i;
+
+	if (!is_smp())
+		return container_of(evt, struct msm_clock, clockevent);
+
 	for (i = 0; i < NR_TIMERS; i++)
 		if (evt == &(msm_clocks[i].clockevent))
 			return &msm_clocks[i];
 	return &msm_clocks[msm_global_timer];
-#endif
-	return container_of(evt, struct msm_clock, clockevent);
 }
 
 static int msm_timer_set_next_event(unsigned long cycles,
@@ -378,10 +380,11 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 			irq_get_chip(clock->irq.irq)->irq_mask(
 				irq_get_irq_data(clock->irq.irq));
 		}
-#ifdef CONFIG_MSM_SMP
-		if (clock != &msm_clocks[MSM_CLOCK_DGT] || smp_processor_id())
-#endif
+
+		if (!is_smp() || clock != &msm_clocks[MSM_CLOCK_DGT]
+				|| smp_processor_id())
 			__raw_writel(0, clock->regbase + TIMER_ENABLE);
+
 		if (clock != &msm_clocks[MSM_CLOCK_GPT]) {
 			gpt_state->in_sync = 0;
 			__raw_writel(0, msm_clocks[MSM_CLOCK_GPT].regbase +
@@ -952,14 +955,12 @@ static void notrace msm_update_sched_clock(void)
 	update_sched_clock(&cd, cyc, ((u32)~0) >> clock->shift);
 }
 
-#ifdef CONFIG_MSM_SMP
 int read_current_timer(unsigned long *timer_val)
 {
 	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
 	*timer_val = msm_read_timer_count(dgt, GLOBAL_TIMER);
 	return 0;
 }
-#endif
 
 static void __init msm_sched_clock_init(void)
 {
@@ -1061,10 +1062,12 @@ static void __init msm_timer_init(void)
 		clockevents_register_device(ce);
 	}
 	msm_sched_clock_init();
-#ifdef CONFIG_MSM_SMP
-	__raw_writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
-	set_delay_fn(read_current_timer_delay_loop);
-#endif
+
+	if (is_smp()) {
+		__raw_writel(1,
+			msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
+		set_delay_fn(read_current_timer_delay_loop);
+	}
 }
 
 #ifdef CONFIG_SMP
@@ -1080,7 +1083,9 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 		return 0;
 
 	global_timer_offset = MSM_TMR0_BASE - MSM_TMR_BASE;
-	__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+	if (cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_apq8064()
+			|| cpu_is_msm8930())
+		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
 
 	if (__get_cpu_var(first_boot)) {
 		__raw_writel(0, clock->regbase  + TIMER_ENABLE);
