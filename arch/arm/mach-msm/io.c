@@ -282,6 +282,8 @@ static struct map_desc msm_copper_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, COPPER),
 	MSM_CHIP_DEVICE(QGIC_CPU, COPPER),
 	MSM_CHIP_DEVICE(TLMM, COPPER),
+	MSM_CHIP_DEVICE(TMR, COPPER),
+	MSM_CHIP_DEVICE(TMR0, COPPER),
 };
 
 void __init msm_map_copper_io(void)

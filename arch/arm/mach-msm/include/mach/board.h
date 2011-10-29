@@ -23,6 +23,7 @@
 #include <linux/usb.h>
 #include <linux/leds-pmic8058.h>
 #include <linux/clkdev.h>
+#include <linux/of_platform.h>
 #include <linux/msm_ssbi.h>
 #include <mach/msm_bus.h>
 
@@ -410,7 +411,11 @@ struct isp1763_platform_data {
 #endif
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 
+#ifdef CONFIG_OF_DEVICE
+void msm_copper_init(struct of_dev_auxdata **);
+#endif
 void msm_add_devices(void);
+void msm_copper_add_devices(void);
 void msm_map_common_io(void);
 void msm_map_qsd8x50_io(void);
 void msm_map_msm8x60_io(void);
@@ -419,7 +424,9 @@ void msm_map_msm8930_io(void);
 void msm_map_apq8064_io(void);
 void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
+void msm_map_copper_io(void);
 void msm_init_irq(void);
+void msm_copper_init_irq(void);
 void vic_handle_irq(struct pt_regs *regs);
 
 struct mmc_platform_data;
