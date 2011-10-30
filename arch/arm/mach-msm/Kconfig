@@ -1745,4 +1745,12 @@ config MSM_L2_SPM
 	  Enabling this driver allows configuring L2 SPM for low power modes
 	  on supported chipsets.
 
+config MSM_MULTIMEDIA_USE_ION
+	bool "Multimedia suport using Ion"
+	depends on ION_MSM
+	help
+	  Enable support for multimedia drivers using Ion for buffer management
+	  instead of pmem. Selecting this may also involve userspace
+	  dependencies as well.
+
 endif
