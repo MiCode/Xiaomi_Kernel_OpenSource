@@ -297,17 +297,15 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 	if (smsm_info.intr_mask &&
 	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_Q6))
 				& notify_mask)) {
-#if !defined(CONFIG_ARCH_MSM8X60) && !defined(MCONFIG_ARCH_MSM8960)
 		uint32_t mux_val;
 
-		if (smsm_info.intr_mux) {
+		if (cpu_is_qsd8x50() && smsm_info.intr_mux) {
 			mux_val = __raw_readl(
 					SMSM_INTR_MUX_ADDR(SMEM_APPS_Q6_SMSM));
 			mux_val++;
 			__raw_writel(mux_val,
 					SMSM_INTR_MUX_ADDR(SMEM_APPS_Q6_SMSM));
 		}
-#endif
 		MSM_TRIG_A2Q6_SMSM_INT;
 	}
 
@@ -2041,23 +2039,20 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 {
 	unsigned long flags;
 
-#if !defined(CONFIG_ARCH_MSM8X60)
-	uint32_t mux_val;
-	static uint32_t prev_smem_q6_apps_smsm;
-
 	if (irq == INT_ADSP_A11_SMSM) {
-		if (!smsm_info.intr_mux)
-			return IRQ_HANDLED;
-		mux_val = __raw_readl(SMSM_INTR_MUX_ADDR(SMEM_Q6_APPS_SMSM));
-		if (mux_val != prev_smem_q6_apps_smsm)
-			prev_smem_q6_apps_smsm = mux_val;
+		uint32_t mux_val;
+		static uint32_t prev_smem_q6_apps_smsm;
+
+		if (smsm_info.intr_mux && cpu_is_qsd8x50()) {
+			mux_val = __raw_readl(
+					SMSM_INTR_MUX_ADDR(SMEM_Q6_APPS_SMSM));
+			if (mux_val != prev_smem_q6_apps_smsm)
+				prev_smem_q6_apps_smsm = mux_val;
+		}
+
+		schedule_work(&smsm_cb_work);
 		return IRQ_HANDLED;
 	}
-#else
-	if (irq == INT_ADSP_A11_SMSM)
-		return IRQ_HANDLED;
-#endif
-
 
 	spin_lock_irqsave(&smem_lock, flags);
 	if (!smsm_info.state) {
