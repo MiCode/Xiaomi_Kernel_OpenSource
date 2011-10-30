@@ -363,7 +363,7 @@ void kgsl_cffdump_open(enum kgsl_deviceid device_id)
 	/*TODO: move this to where we can report correct gmemsize*/
 	unsigned int va_base;
 
-	if (cpu_is_msm8x60() || cpu_is_msm8960())
+	if (cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_msm8930())
 		va_base = 0x40000000;
 	else
 		va_base = 0x20000000;
