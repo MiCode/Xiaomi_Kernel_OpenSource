@@ -644,6 +644,28 @@ static u8 smp_cmd_pairing_random(struct l2cap_conn *conn, struct sk_buff *skb)
 	return 0;
 }
 
+static int smp_encrypt_link(struct hci_conn *hcon, struct link_key *key)
+{
+	struct key_master_id *master;
+	u8 zerobuf[8];
+
+	if (!hcon || !key || !key->data)
+		return -EINVAL;
+
+	memset(zerobuf, 0, sizeof(zerobuf));
+
+	master = (void *) key->data;
+
+	if (!master->ediv && !memcmp(master->rand, zerobuf, sizeof(zerobuf)))
+		return -EINVAL;
+
+	hcon->enc_key_size = key->pin_len;
+	hcon->sec_req = TRUE;
+	hci_le_start_enc(hcon, master->ediv, master->rand, key->val);
+
+	return 0;
+}
+
 static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 {
 	struct hci_conn *hcon = conn->hcon;
@@ -659,18 +681,19 @@ static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	key = hci_find_link_key_type(hcon->hdev, conn->dst, KEY_TYPE_LTK);
 	if (key && ((key->auth & SMP_AUTH_MITM) ||
 					!(rp->auth_req & SMP_AUTH_MITM))) {
-		struct key_master_id *master = (void *) key->data;
 
-		hci_le_start_enc(hcon, master->ediv, master->rand,
-				key->val);
-		hcon->enc_key_size = key->pin_len;
+		if (smp_encrypt_link(hcon, key) < 0)
+			goto invalid_key;
 
-		hcon->sec_req = TRUE;
-		hcon->sec_level = authreq_to_seclevel(rp->auth_req);
+		hcon->sec_level = authreq_to_seclevel(key->auth);
+
+		if (!(hcon->link_mode & HCI_LM_ENCRYPT))
+			hci_conn_hold(hcon);
 
 		return 0;
 	}
 
+invalid_key:
 	hcon->sec_req = FALSE;
 
 	skb_pull(skb, sizeof(*rp));
@@ -730,17 +753,9 @@ int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level)
 
 		key = hci_find_link_key_type(hcon->hdev, conn->dst,
 							KEY_TYPE_LTK);
-		if (key) {
-			struct key_master_id *master = (void *) key->data;
 
-			hci_le_start_enc(hcon, master->ediv, master->rand,
-								key->val);
-			hcon->enc_key_size = key->pin_len;
-
-			hcon->sec_req = TRUE;
-
+		if (smp_encrypt_link(hcon, key) == 0)
 			goto done;
-		}
 	}
 
 	hcon->sec_req = FALSE;
