@@ -1491,6 +1491,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
 		mipi_dsi_mdp_stat_inc(STAT_DSI_MDP);
+		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, TRUE);
 		spin_lock(&dsi_mdp_lock);
 		dsi_mdp_busy = FALSE;
 		spin_unlock(&dsi_mdp_lock);
