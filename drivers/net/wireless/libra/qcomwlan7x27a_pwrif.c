@@ -32,7 +32,8 @@ enum {
 
 struct wlan_vreg_info {
 	const char *vreg_id;
-	unsigned int vreg_level;
+	unsigned int level_min;
+	unsigned int level_max;
 	unsigned int pmapp_id;
 	unsigned int is_vreg_pin_controlled;
 	struct regulator *reg;
@@ -40,12 +41,12 @@ struct wlan_vreg_info {
 
 
 static struct wlan_vreg_info vreg_info[] = {
-	{"bt",        3050000, 21, 1, NULL},
-	{"msme1",     1800000, 2,  0, NULL},
-	{"wlan_tcx0", 1800000, 53, 0, NULL},
-	{"wlan4",     1200000, 23, 0, NULL},
-	{"wlan2",     1350000, 9,  1, NULL},
-	{"wlan3",     1200000, 10, 1, NULL},
+	{"bt",        3050000, 3050000, 21, 1, NULL},
+	{"msme1",     1800000, 1800000, 2,  0, NULL},
+	{"wlan_tcx0", 1800000, 1800000, 53, 0, NULL},
+	{"wlan4",     1200000, 1200000, 23, 0, NULL},
+	{"wlan2",     1350000, 1350000, 9,  1, NULL},
+	{"wlan3",     1200000, 1200000, 10, 1, NULL},
 };
 
 static int qrf6285_init_regs(void)
@@ -55,8 +56,8 @@ static int qrf6285_init_regs(void)
 
 	for (i = 0; i < ARRAY_SIZE(regs); i++) {
 		regs[i].supply = vreg_info[i].vreg_id;
-		regs[i].min_uV = vreg_info[i].vreg_level;
-		regs[i].max_uV = vreg_info[i].vreg_level;
+		regs[i].min_uV = vreg_info[i].level_min;
+		regs[i].max_uV = vreg_info[i].level_max;
 	}
 
 	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs), regs);
@@ -128,8 +129,8 @@ int chip_power_qrf6285(bool on)
 		if (on) {
 
 			rc = regulator_set_voltage(vreg_info[index].reg,
-						vreg_info[index].vreg_level,
-						vreg_info[index].vreg_level);
+						vreg_info[index].level_min,
+						vreg_info[index].level_max);
 			if (rc) {
 				pr_err("%s:%s set voltage failed %d\n",
 					__func__, vreg_info[index].vreg_id, rc);

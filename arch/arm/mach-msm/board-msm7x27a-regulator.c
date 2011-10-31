@@ -205,7 +205,7 @@ static struct proccomm_regulator_info msm7x27a_pcom_vreg_info[] = {
 	PCOM_VREG_LDO(ldo02, 13, NULL,  2850000,  2850000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo03, 49, NULL,  1200000,  1200000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo04, 50, NULL,  1100000,  1100000, 0, -1, 0, 0, 0, 0),
-	PCOM_VREG_LDO(ldo05, 45, NULL,  1300000,  1300000, 0, -1, 0, 0, 0, 0),
+	PCOM_VREG_LDO(ldo05, 45, NULL,  1300000,  1350000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo06, 51, NULL,  1200000,  1200000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo07,  0, NULL,  2600000,  2600000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo08,  9, NULL,  2850000,  2850000, 0, -1, 0, 0, 0, 0),
@@ -217,9 +217,9 @@ static struct proccomm_regulator_info msm7x27a_pcom_vreg_info[] = {
 	PCOM_VREG_LDO(ldo14, 16, NULL,  3300000,  3300000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo15, 54, NULL,  1800000,  2850000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo16, 19, NULL,  1800000,  2850000, 0, -1, 0, 0, 0, 0),
-	PCOM_VREG_LDO(ldo17, 56, NULL,  2900000,  3000000, 0, -1, 0, 0, 0, 0),
+	PCOM_VREG_LDO(ldo17, 56, NULL,  2900000,  3300000, 0, -1, 0, 0, 0, 0),
 	PCOM_VREG_LDO(ldo18, 11, NULL,  2700000,  2700000, 0, -1, 0, 0, 0, 0),
-	PCOM_VREG_LDO(ldo19, 57, NULL,  1200000,  1200000, 0, -1, 0, 0, 0, 0),
+	PCOM_VREG_LDO(ldo19, 57, NULL,  1200000,  1800000, 0, -1, 0, 0, 0, 0),
 
 	PCOM_VREG_NCP(ncp,   31, NULL, -1800000, -1800000, 0,     0, 0, 0, 0),
 };
