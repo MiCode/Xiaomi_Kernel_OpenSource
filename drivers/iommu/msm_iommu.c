@@ -1024,6 +1024,9 @@ static void __init setup_iommu_tex_classes(void)
 
 static int __init msm_iommu_init(void)
 {
+	if (!msm_soc_version_supports_iommu())
+		return -ENODEV;
+
 	setup_iommu_tex_classes();
 	bus_set_iommu(&platform_bus_type, &msm_iommu_ops);
 	return 0;
