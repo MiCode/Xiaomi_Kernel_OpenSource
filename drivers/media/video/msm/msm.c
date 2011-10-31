@@ -1574,10 +1574,12 @@ static int msm_close(struct file *f)
 
 
 	mutex_lock(&pcam->vid_lock);
+	pcam_inst->streamon = 0;
 	pcam->use_count--;
 	pcam->dev_inst_map[pcam_inst->image_mode] = NULL;
 	if (pcam_inst->vbqueue_initialized)
 		vb2_queue_release(&pcam_inst->vid_bufq);
+	D("%s Closing down instance %p ", __func__, pcam_inst);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;
 	if (pcam_inst->my_index == 0) {
 		v4l2_fh_del(&pcam_inst->eventHandle);

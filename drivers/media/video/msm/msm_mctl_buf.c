@@ -368,23 +368,28 @@ static int msm_buf_init(struct msm_cam_v4l2_dev_inst *pcam_inst)
 int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
 					int out_type)
 {
+	int image_mode;
 	switch (out_type) {
 	case VFE_MSG_OUTPUT_P:
-		return pcam->dev_inst_map
-			[MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW]->my_index;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+		break;
 	case VFE_MSG_OUTPUT_V:
-		return pcam->dev_inst_map
-			[MSM_V4L2_EXT_CAPTURE_MODE_VIDEO]->my_index;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_VIDEO;
+		break;
 	case VFE_MSG_OUTPUT_S:
-		return pcam->dev_inst_map
-			[MSM_V4L2_EXT_CAPTURE_MODE_MAIN]->my_index;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
+		break;
 	case VFE_MSG_OUTPUT_T:
-		return pcam->dev_inst_map
-			[MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL]->my_index;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
+		break;
 	default:
-		return 0;
+		image_mode = -1;
+		break;
 	}
-	return 0;
+	if ((image_mode >= 0) && pcam->dev_inst_map[image_mode])
+		return pcam->dev_inst_map[image_mode]->my_index;
+	else
+		return -EINVAL;
 }
 
 void msm_mctl_gettimeofday(struct timeval *tv)
@@ -482,6 +487,11 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 	else {
 		idx = msm_mctl_out_type_to_inst_index(
 				p_mctl->sync.pcam_sync, msg_type);
+		if (idx < 0) {
+			pr_err("%s Invalid instance, dropping buffer\n",
+				__func__);
+			return idx;
+		}
 		pcam_inst = p_mctl->sync.pcam_sync->dev_inst[idx];
 		rc = msm_mctl_buf_done_proc(p_mctl, pcam_inst,
 				msg_type, fbuf,
@@ -508,16 +518,20 @@ int msm_mctl_reserve_free_buf(
 	int rc = -EINVAL, idx, i;
 	uint32_t buf_idx, plane_offset = 0;
 
-	if (!free_buf) {
-		pr_err("%s: free_buf= null\n", __func__);
+	if (!free_buf || !pmctl) {
+		pr_err("%s: free_buf/pmctl is null\n", __func__);
 		return rc;
 	}
 	memset(free_buf, 0, sizeof(struct msm_free_buf));
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync,
 		msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, returning\n", __func__);
+		return idx;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst || !pcam_inst->streamon) {
-		D("%s: stream is turned off\n", __func__);
+		pr_err("%s: stream is turned off\n", __func__);
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
@@ -582,6 +596,10 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 		return rc;
 
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync, msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, buffer not released\n", __func__);
+		return idx;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
@@ -611,6 +629,10 @@ int msm_mctl_buf_done_pp(
 
 	idx = msm_mctl_out_type_to_inst_index(
 		pmctl->sync.pcam_sync, msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, buffer dropped\n", __func__);
+		return idx;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	D("%s:inst=0x%p, paddr=0x%x, dirty=%d",
 		__func__, pcam_inst, frame->ch_paddr[0], dirty);
@@ -634,6 +656,10 @@ struct msm_frame_buffer *msm_mctl_get_free_buf(
 
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync,
 		msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, cant get buffer\n", __func__);
+		return NULL;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst->streamon) {
 		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
@@ -669,6 +695,10 @@ int msm_mctl_put_free_buf(
 
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync,
 		msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, cant put buffer\n", __func__);
+		return idx;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst->streamon) {
 		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
@@ -700,6 +730,10 @@ int msm_mctl_buf_del(struct msm_cam_media_controller *pmctl,
 
 	idx = msm_mctl_out_type_to_inst_index(pmctl->sync.pcam_sync,
 		msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, cant delete buffer\n", __func__);
+		return idx;
+	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	D("%s: idx = %d, pinst=0x%p", __func__, idx, pcam_inst);
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
