@@ -673,7 +673,9 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	 * use their own slots
 	 * This "get" votes for messaging bandwidth
 	 */
-	if (dev->state != MSM_CTRL_SLEEPING)
+	if (txn->mc < SLIM_MSG_MC_BEGIN_RECONFIGURATION ||
+		txn->mc > SLIM_MSG_MC_RECONFIGURE_NOW ||
+		dev->state != MSM_CTRL_SLEEPING)
 		pm_runtime_get_sync(dev->dev);
 	mutex_lock(&dev->tx_lock);
 	if (dev->state == MSM_CTRL_ASLEEP) {
@@ -692,8 +694,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		if (dev->ctrl.sched.usedslots != 0 &&
 			!dev->chan_active) {
 			dev->chan_active = true;
-			if (dev->state != MSM_CTRL_SLEEPING)
-				pm_runtime_get(dev->dev);
+			pm_runtime_get(dev->dev);
 		}
 	}
 	txn->rl--;
@@ -703,7 +704,9 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 
 	if (txn->dt == SLIM_MSG_DEST_ENUMADDR) {
 		mutex_unlock(&dev->tx_lock);
-		if (dev->state != MSM_CTRL_SLEEPING)
+		if (txn->mc < SLIM_MSG_MC_BEGIN_RECONFIGURATION ||
+			txn->mc > SLIM_MSG_MC_RECONFIGURE_NOW ||
+			dev->state != MSM_CTRL_SLEEPING)
 			pm_runtime_put(dev->dev);
 		return -EPROTONOSUPPORT;
 	}
@@ -776,11 +779,26 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			txn->mc == SLIM_MSG_MC_RECONFIGURE_NOW &&
 			txn->mt == SLIM_MSG_MT_CORE && timeout) {
 		timeout = wait_for_completion_timeout(&dev->reconf, HZ);
-		if (timeout)
-			dev->reconf_busy = false;
+		dev->reconf_busy = false;
+		if (timeout) {
+			clk_disable(dev->rclk);
+			disable_irq(dev->irq);
+			dev->state = MSM_CTRL_ASLEEP;
+		}
 	}
+	if (!timeout && dev->state == MSM_CTRL_SLEEPING &&
+			txn->mc >= SLIM_MSG_MC_BEGIN_RECONFIGURATION &&
+			txn->mc <= SLIM_MSG_MC_RECONFIGURE_NOW &&
+			txn->mt == SLIM_MSG_MT_CORE) {
+		dev->reconf_busy = false;
+		dev->state = MSM_CTRL_AWAKE;
+		dev_err(dev->dev, "clock pause failed");
+		mutex_unlock(&dev->tx_lock);
+		return -ETIMEDOUT;
+	}
+
 	mutex_unlock(&dev->tx_lock);
-	if (!txn->rbuf && dev->state != MSM_CTRL_SLEEPING)
+	if (!txn->rbuf && dev->state == MSM_CTRL_AWAKE)
 		pm_runtime_put(dev->dev);
 
 	if (!timeout)
@@ -831,6 +849,7 @@ static int msm_clk_pause_wakeup(struct slim_controller *ctrl)
 	 * we get the message
 	 */
 	usleep_range(5000, 5000);
+	dev->state = MSM_CTRL_AWAKE;
 	return 0;
 }
 
@@ -1855,36 +1874,23 @@ static int msm_slim_runtime_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
-	int ret;
 	dev_dbg(device, "pm_runtime: suspending...\n");
 	dev->state = MSM_CTRL_SLEEPING;
-	ret = slim_ctrl_clk_pause(&dev->ctrl, false, SLIM_CLK_UNSPECIFIED);
-	/* Make sure clock pause goes through */
-	if (!ret) {
-		clk_disable(dev->rclk);
-		disable_irq(dev->irq);
-		dev->state = MSM_CTRL_ASLEEP;
-	} else
-		dev->state = MSM_CTRL_AWAKE;
-	return ret;
+	return slim_ctrl_clk_pause(&dev->ctrl, false, SLIM_CLK_UNSPECIFIED);
 }
 
 static int msm_slim_runtime_resume(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
-	int ret = 0;
 	dev_dbg(device, "pm_runtime: resuming...\n");
 	mutex_lock(&dev->tx_lock);
 	if (dev->state == MSM_CTRL_ASLEEP) {
 		mutex_unlock(&dev->tx_lock);
-		ret = slim_ctrl_clk_pause(&dev->ctrl, true, 0);
-		if (!ret)
-			dev->state = MSM_CTRL_AWAKE;
-		return ret;
+		return slim_ctrl_clk_pause(&dev->ctrl, true, 0);
 	}
 	mutex_unlock(&dev->tx_lock);
-	return ret;
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
