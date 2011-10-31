@@ -121,6 +121,15 @@ static struct platform_device msm9615_device_rpm_regulator __devinitdata = {
 	},
 };
 
+static struct platform_device msm9615_device_ext_2p95v_vreg = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 18,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_2P95V],
+	},
+};
+
 static struct gpiomux_setting ps_hold = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -566,6 +575,7 @@ static struct platform_device *common_devices[] = {
 	&msm_device_gadget_peripheral,
 	&android_usb_device,
 	&msm9615_device_uart_gsbi4,
+	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
 	&msm9615_device_qup_i2c_gsbi5,
 	&msm9615_device_qup_spi_gsbi3,
