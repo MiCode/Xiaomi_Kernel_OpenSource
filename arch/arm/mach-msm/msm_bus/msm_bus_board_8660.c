@@ -22,7 +22,7 @@
 #include "msm_bus_core.h"
 
 #define NMASTERS 39
-#define NSLAVES 67
+#define NSLAVES 68
 #define NFAB_8660 5
 
 enum msm_bus_fabric_tiered_slave_type {
