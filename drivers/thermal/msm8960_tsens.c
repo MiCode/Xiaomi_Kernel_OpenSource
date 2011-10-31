@@ -722,7 +722,7 @@ static int tsens_check_version_support(void)
 
 static int tsens_calib_sensors(void)
 {
-	int rc;
+	int rc = -ENODEV;
 
 	if (tmdev->hw_type == MSM_8660)
 		rc = tsens_calib_sensors8660();
