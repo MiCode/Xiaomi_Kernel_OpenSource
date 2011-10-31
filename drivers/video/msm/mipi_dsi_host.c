@@ -51,6 +51,39 @@ static int dsi_mdp_busy;
 static struct list_head pre_kickoff_list;
 static struct list_head post_kickoff_list;
 
+enum {
+	STAT_DSI_START,
+	STAT_DSI_ERROR,
+	STAT_DSI_CMD,
+	STAT_DSI_MDP
+};
+
+#ifdef CONFIG_FB_MSM_MDP40
+void mipi_dsi_mdp_stat_inc(int which)
+{
+	switch (which) {
+	case STAT_DSI_START:
+		mdp4_stat.dsi_mdp_start++;
+		break;
+	case STAT_DSI_ERROR:
+		mdp4_stat.intr_dsi_err++;
+		break;
+	case STAT_DSI_CMD:
+		mdp4_stat.intr_dsi_cmd++;
+		break;
+	case STAT_DSI_MDP:
+		mdp4_stat.intr_dsi_mdp++;
+		break;
+	default:
+		break;
+	}
+}
+#else
+void mipi_dsi_mdp_stat_inc(int which)
+{
+}
+#endif
+
 void mipi_dsi_init(void)
 {
 	init_completion(&dsi_dma_comp);
@@ -986,6 +1019,7 @@ void mipi_dsi_mdp_busy_wait(struct msm_fb_data_type *mfd)
 				__func__, current->pid);
 }
 
+
 void mipi_dsi_cmd_mdp_start(void)
 {
 	unsigned long flag;
@@ -993,6 +1027,8 @@ void mipi_dsi_cmd_mdp_start(void)
 
 	if (!in_interrupt())
 		mipi_dsi_pre_kickoff_action();
+
+	mipi_dsi_mdp_stat_inc(STAT_DSI_START);
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	mipi_dsi_enable_irq();
@@ -1438,6 +1474,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 #endif
 
 	if (isr & DSI_INTR_ERROR) {
+		mipi_dsi_mdp_stat_inc(STAT_DSI_ERROR);
 		mipi_dsi_error();
 	}
 
@@ -1448,10 +1485,12 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 	}
 
 	if (isr & DSI_INTR_CMD_DMA_DONE) {
+		mipi_dsi_mdp_stat_inc(STAT_DSI_CMD);
 		complete(&dsi_dma_comp);
 	}
 
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
+		mipi_dsi_mdp_stat_inc(STAT_DSI_MDP);
 		spin_lock(&dsi_mdp_lock);
 		dsi_mdp_busy = FALSE;
 		spin_unlock(&dsi_mdp_lock);

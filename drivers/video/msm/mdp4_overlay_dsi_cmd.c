@@ -65,7 +65,6 @@ static void dsi_clock_tout(unsigned long data)
 {
 	if (mipi_dsi_clk_on) {
 		if (dsi_state == ST_DSI_PLAYING) {
-			mdp4_stat.dsi_clkoff++;
 			mipi_dsi_turn_off_clks();
 			mdp4_overlay_dsi_state_set(ST_DSI_CLK_OFF);
 		}
@@ -325,7 +324,7 @@ int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd)
 		dsi_pipe->ov_cnt = 0;
 		dsi_pipe->dmap_cnt = 0;
 		dsi_pipe->blt_addr = dsi_pipe->blt_base;
-		mdp4_stat.writeback++;
+		mdp4_stat.blt_dsi_cmd++;
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 		return 0;
 	}
@@ -465,6 +464,7 @@ void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma)
 	mdp4_blt_xy_update(dsi_pipe);
 	/* kick off dmap */
 	outpdw(MDP_BASE + 0x000c, 0x0);
+	mdp4_stat.kickoff_dmap++;
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_start();
 
@@ -525,6 +525,7 @@ void mdp4_overlay0_done_dsi_cmd(struct mdp_dma_data *dma)
 	mdp_enable_irq(MDP_DMA2_TERM);	/* enable intr */
 	/* kick off dmap */
 	outpdw(MDP_BASE + 0x000c, 0x0);
+	mdp4_stat.kickoff_dmap++;
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_start();
 	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
@@ -670,6 +671,7 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 	/* start OVERLAY pipe */
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
+	mdp4_stat.kickoff_ov0++;
 }
 
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
@@ -685,9 +687,6 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 		mdp4_overlay_update_dsi_cmd(mfd);
 
 		mdp4_dsi_cmd_kickoff_ui(mfd, dsi_pipe);
-
-
-		mdp4_stat.kickoff_dsi++;
 
 	/* signal if pan function is waiting for the update completion */
 		if (mfd->pan_waiting) {

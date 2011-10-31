@@ -464,7 +464,5 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 		mfd->ov_end = true;
 	}
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
-
-	mdp4_stat.kickoff_dtv++;
 	mutex_unlock(&mfd->dma->ov_mutex);
 }

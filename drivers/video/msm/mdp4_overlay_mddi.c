@@ -475,6 +475,7 @@ void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mfd->dma->busy = TRUE;
 	/* start OVERLAY pipe */
 	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
+	mdp4_stat.kickoff_ov0++;
 }
 
 void mdp4_dma_s_update_lcd(struct msm_fb_data_type *mfd,
@@ -557,6 +558,7 @@ void mdp4_mddi_dma_s_kickoff(struct msm_fb_data_type *mfd,
 	mfd->ibuf_flushed = TRUE;
 	/* start dma_s pipe */
 	mdp_pipe_kickoff(MDP_DMA_S_TERM, mfd);
+	mdp4_stat.kickoff_dmas++;
 
 	/* wait until DMA finishes the current job */
 	wait_for_completion(&mfd->dma->comp);
@@ -592,8 +594,6 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 				mdp4_mddi_kickoff_ui(mfd, mddi_pipe);
 		} else	/* no dams dmap switch  */
 			mdp4_mddi_kickoff_ui(mfd, mddi_pipe);
-
-		mdp4_stat.kickoff_mddi++;
 
 	/* signal if pan function is waiting for the update completion */
 		if (mfd->pan_waiting) {

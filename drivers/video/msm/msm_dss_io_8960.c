@@ -12,6 +12,8 @@
  */
 #include <linux/clk.h>
 #include "msm_fb.h"
+#include "mdp.h"
+#include "mdp4.h"
 #include "mipi_dsi.h"
 #include "hdmi_msm.h"
 #include <mach/msm_iomap.h>
@@ -555,6 +557,7 @@ void mipi_dsi_clk_enable(void)
 	mipi_dsi_clk_ctrl(&dsicore_clk, 1);
 	clk_enable(dsi_byte_div_clk);
 	clk_enable(dsi_esc_clk);
+	mdp4_stat.dsi_clk_on++;
 }
 
 void mipi_dsi_clk_disable(void)
@@ -565,6 +568,7 @@ void mipi_dsi_clk_disable(void)
 	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	/* DSIPHY_PLL_CTRL_0, disable dsi pll */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x0);
+	mdp4_stat.dsi_clk_off++;
 }
 
 void mipi_dsi_phy_ctrl(int on)
