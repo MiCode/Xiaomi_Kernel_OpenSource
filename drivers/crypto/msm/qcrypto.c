@@ -889,6 +889,9 @@ static int qccrypto_set_aead_ccm_nonce(struct qce_req *qreq)
 	if (areq->assoclen)
 		qreq->nonce[0] |= 64;
 
+	if (i > MAX_NONCE)
+		return -EINVAL;
+
 	return aead_ccm_set_msg_len(qreq->nonce + 16 - i, qreq->cryptlen, i);
 }
 

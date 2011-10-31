@@ -439,7 +439,7 @@ static int start_cipher_req(struct qcedev_control *podev)
 		creq.alg = CIPHER_ALG_AES;
 		break;
 	default:
-		break;
+		return -EINVAL;
 	};
 
 	switch (qcedev_areq->cipher_op_req.mode) {
@@ -458,7 +458,7 @@ static int start_cipher_req(struct qcedev_control *podev)
 		creq.mode = QCE_MODE_XTS;
 		break;
 	default:
-		break;
+		return -EINVAL;
 	};
 
 	if ((creq.alg == CIPHER_ALG_AES) &&
