@@ -60,6 +60,8 @@ struct isl9519q_struct {
 	bool				trickle;
 };
 
+static struct isl9519q_struct *the_isl_chg;
+
 static int isl9519q_read_reg(struct i2c_client *client, int reg,
 	u16 *val)
 {
@@ -485,6 +487,71 @@ static int __devinit isl9519q_init_ext_chg(struct isl9519q_struct *isl_chg)
 
 	return 0;
 }
+static int set_reg(void *data, u64 val)
+{
+	int addr = (int)data;
+	int ret;
+	u16 temp;
+
+	temp = (u16) val;
+	ret = isl9519q_write_reg(the_isl_chg->client, addr, temp);
+
+	if (ret) {
+		pr_err("isl9519q_write_reg to %x value =%d errored = %d\n",
+			addr, temp, ret);
+		return -EAGAIN;
+	}
+	return 0;
+}
+static int get_reg(void *data, u64 *val)
+{
+	int addr = (int)data;
+	int ret;
+	u16 temp;
+
+	ret = isl9519q_read_reg(the_isl_chg->client, addr, &temp);
+	if (ret) {
+		pr_err("isl9519q_read_reg to %x value =%d errored = %d\n",
+			addr, temp, ret);
+		return -EAGAIN;
+	}
+
+	*val = temp;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_reg, set_reg, "0x%02llx\n");
+
+static void create_debugfs_entries(struct isl9519q_struct *isl_chg)
+{
+	isl_chg->dent = debugfs_create_dir("isl9519q", NULL);
+
+	if (IS_ERR(isl_chg->dent)) {
+		pr_err("isl9519q driver couldn't create debugfs dir\n");
+		return;
+	}
+
+	debugfs_create_file("CHG_CURRENT_REG", 0644, isl_chg->dent,
+				(void *) CHG_CURRENT_REG, &reg_fops);
+	debugfs_create_file("MAX_SYS_VOLTAGE_REG", 0644, isl_chg->dent,
+				(void *) MAX_SYS_VOLTAGE_REG, &reg_fops);
+	debugfs_create_file("CONTROL_REG", 0644, isl_chg->dent,
+				(void *) CONTROL_REG, &reg_fops);
+	debugfs_create_file("MIN_SYS_VOLTAGE_REG", 0644, isl_chg->dent,
+				(void *) MIN_SYS_VOLTAGE_REG, &reg_fops);
+	debugfs_create_file("INPUT_CURRENT_REG", 0644, isl_chg->dent,
+				(void *) INPUT_CURRENT_REG, &reg_fops);
+	debugfs_create_file("MANUFACTURER_ID_REG", 0644, isl_chg->dent,
+				(void *) MANUFACTURER_ID_REG, &reg_fops);
+	debugfs_create_file("DEVICE_ID_REG", 0644, isl_chg->dent,
+				(void *) DEVICE_ID_REG, &reg_fops);
+}
+
+static void remove_debugfs_entries(struct isl9519q_struct *isl_chg)
+{
+	if (isl_chg->dent)
+		debugfs_remove_recursive(isl_chg->dent);
+}
 
 static int __devinit isl9519q_probe(struct i2c_client *client,
 				    const struct i2c_device_id *id)
@@ -582,6 +649,9 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 	if (ret)
 		goto free_isl_chg;
 
+	the_isl_chg = isl_chg;
+	create_debugfs_entries(isl_chg);
+
 	pr_info("%s OK.\n", __func__);
 
 	return 0;
@@ -603,6 +673,9 @@ static int __devexit isl9519q_remove(struct i2c_client *client)
 	cancel_delayed_work_sync(&isl_chg->charge_work);
 	msm_charger_notify_event(&isl_chg->adapter_hw_chg, CHG_REMOVED_EVENT);
 	msm_charger_unregister(&isl_chg->adapter_hw_chg);
+	remove_debugfs_entries(isl_chg);
+	the_isl_chg = NULL;
+	kfree(isl_chg);
 	return 0;
 }
 
