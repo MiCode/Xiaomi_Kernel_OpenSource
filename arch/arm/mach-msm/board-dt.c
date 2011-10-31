@@ -21,11 +21,6 @@
 #include <mach/board.h>
 #include "timer.h"
 
-#define early_machine_is_copper()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmcopper")
-#define machine_is_copper()		\
-	of_machine_is_compatible("qcom,msmcopper")
-
 static void __init msm_dt_init_irq(void)
 {
 	if (machine_is_copper())
