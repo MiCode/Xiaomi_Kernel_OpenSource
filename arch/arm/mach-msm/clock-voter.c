@@ -75,7 +75,7 @@ unlock:
 
 static int voter_clk_enable(struct clk *clk)
 {
-	int ret;
+	int ret = 0;
 	unsigned long flags;
 	unsigned cur_rate;
 	struct clk *parent;
