@@ -44,8 +44,17 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 	unsigned long offset = gen_pool_alloc_aligned(carveout_heap->pool,
 							size, ilog2(align));
 
-	if (!offset)
+	if (!offset) {
+		if ((carveout_heap->total_size -
+		      carveout_heap->allocated_bytes) > size)
+			pr_debug("%s: heap %s has enough memory (%lx) but"
+				" the allocation of size %lx still failed."
+				" Memory is probably fragmented.",
+				__func__, heap->name,
+				carveout_heap->total_size -
+				carveout_heap->allocated_bytes, size);
 		return ION_CARVEOUT_ALLOCATE_FAIL;
+	}
 
 	carveout_heap->allocated_bytes += size;
 	return offset;
