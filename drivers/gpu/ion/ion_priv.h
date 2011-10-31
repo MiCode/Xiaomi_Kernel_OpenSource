@@ -60,6 +60,7 @@ struct ion_buffer {
 	int dmap_cnt;
 	struct sg_table *sg_table;
 	int umap_cnt;
+	int marked;
 };
 
 /**
