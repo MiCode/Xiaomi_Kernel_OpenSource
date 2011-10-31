@@ -697,7 +697,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 
-		seq_printf(s, "%16.16s: %16u : %16d : %16p\n",
+		seq_printf(s, "%16.16s: %16x : %16d : %16p\n",
 				handle->buffer->heap->name,
 				handle->buffer->size,
 				atomic_read(&handle->ref.refcount),
@@ -1270,7 +1270,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			continue;
 
 		get_task_comm(task_comm, client->task);
-		seq_printf(s, "%16.s %16u %16u\n", task_comm, client->pid,
+		seq_printf(s, "%16.s %16u %16x\n", task_comm, client->pid,
 			   size);
 	}
 
@@ -1280,7 +1280,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		size_t size = ion_debug_heap_total(client, heap->id);
 		if (!size)
 			continue;
-		seq_printf(s, "%16.s %16u %16u\n", client->name, client->pid,
+		seq_printf(s, "%16.s %16u %16x\n", client->name, client->pid,
 			   size);
 	}
 	if (heap->ops->get_allocated) {
