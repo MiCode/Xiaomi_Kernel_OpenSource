@@ -168,7 +168,12 @@ static int __init mipi_chimei_wxga_init(void)
 	pinfo->mipi.stream = false; /* dma_p */
 	pinfo->mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;
 	pinfo->mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
-	pinfo->mipi.fixed_packet_size = 4;
+	/*
+	 * toshiba d2l chip does not need max_pkt_szie dcs cmd
+	 * client reply len is directly configure through
+	 * RDPKTLN register (0x0404)
+	 */
+	pinfo->mipi.no_max_pkt_size = 1;
 	pinfo->mipi.force_clk_lane_hs = 1;
 
 	ret = mipi_tc358764_dsi2lvds_register(pinfo, MIPI_DSI_PRIM,

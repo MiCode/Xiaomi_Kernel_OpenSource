@@ -1159,20 +1159,22 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 			struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dsi_cmd_desc *cmds, int rlen)
 {
-	int i , cnt, len, diff, pkt_size;
+	int cnt, len, diff, pkt_size;
 	unsigned long flag;
 	char cmd;
+
+	if (mfd->panel_info.mipi.no_max_pkt_size) {
+		/* Only support rlen = 4*n */
+		rlen += 3;
+		rlen &= 0x03;
+	}
 
 	len = rlen;
 	diff = 0;
 
 	if (len <= 2)
 		cnt = 4;	/* short read */
-	else if (mfd->panel_info.mipi.fixed_packet_size) {
-		len = mfd->panel_info.mipi.fixed_packet_size;
-		pkt_size = len; /* Avoid command to the device */
-		cnt = (len + 6 + 3) & ~0x03; /* Add padding for align */
-	} else {
+	else {
 		if (len > MIPI_DSI_LEN)
 			len = MIPI_DSI_LEN;	/* 8 bytes at most */
 
@@ -1203,7 +1205,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	dsi_mdp_busy = TRUE;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	if (!mfd->panel_info.mipi.fixed_packet_size) {
+	if (!mfd->panel_info.mipi.no_max_pkt_size) {
 		/* packet size need to be set at every read */
 		pkt_size = len;
 		max_pktsize[0] = pkt_size;
@@ -1223,10 +1225,15 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	 * at RDBK_DATA register already
 	 */
 	mipi_dsi_buf_init(rp);
-	mipi_dsi_cmd_dma_rx(rp, cnt);
+	if (mfd->panel_info.mipi.no_max_pkt_size) {
+		/*
+		 * expect rlen = n * 4
+		 * short alignement for start addr
+		 */
+		rp->data += 2;
+	}
 
-	for (i = 0; i < cnt ; i++)
-		pr_debug("%s.rp->data[%d]=0x%x.\n", __func__, i, rp->data[i]);
+	mipi_dsi_cmd_dma_rx(rp, cnt);
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = FALSE;
@@ -1234,12 +1241,16 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	complete(&dsi_mdp_comp);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
-	/* Remove leading padding zeros if exist */
-	for (i = 0; i < cnt ; i++)
-		if (rp->data[0] == 0)
-			rp->data++;
-		else
-			break;
+	if (mfd->panel_info.mipi.no_max_pkt_size) {
+		/*
+		 * remove extra 2 bytes from previous
+		 * rx transaction at shift register
+		 * which was inserted during copy
+		 * shift registers to rx buffer
+		 * rx payload start from long alignment addr
+		 */
+		rp->data += 2;
+	}
 
 	cmd = rp->data[0];
 	switch (cmd) {
