@@ -537,7 +537,12 @@ struct msm_vidc_platform_data vidc_platform_data = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.vidc_bus_client_pdata = &vidc_bus_client_data,
 #endif
-	.memtype = MEMTYPE_EBI1
+	.memtype = MEMTYPE_EBI1,
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	.enable_ion = 1,
+#else
+	.enable_ion = 0,
+#endif
 };
 
 struct platform_device msm_device_vidc = {

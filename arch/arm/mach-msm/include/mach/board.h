@@ -404,6 +404,7 @@ struct msm_i2c_ssbi_platform_data {
 
 struct msm_vidc_platform_data {
 	int memtype;
+	u32 enable_ion;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 #endif
