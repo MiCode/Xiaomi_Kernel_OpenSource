@@ -45,6 +45,9 @@ struct iommu_domain *iommu_domain_alloc(int flags)
 	struct iommu_domain *domain;
 	int ret;
 
+	if (!iommu_found())
+		return NULL;
+
 	domain = kmalloc(sizeof(*domain), GFP_KERNEL);
 	if (!domain)
 		return NULL;
@@ -64,6 +67,9 @@ EXPORT_SYMBOL_GPL(iommu_domain_alloc);
 
 void iommu_domain_free(struct iommu_domain *domain)
 {
+	if (!iommu_found())
+		return;
+
 	iommu_ops->domain_destroy(domain);
 	kfree(domain);
 }
@@ -71,12 +77,18 @@ EXPORT_SYMBOL_GPL(iommu_domain_free);
 
 int iommu_attach_device(struct iommu_domain *domain, struct device *dev)
 {
+	if (!iommu_found())
+		return -ENODEV;
+
 	return iommu_ops->attach_dev(domain, dev);
 }
 EXPORT_SYMBOL_GPL(iommu_attach_device);
 
 void iommu_detach_device(struct iommu_domain *domain, struct device *dev)
 {
+	if (!iommu_found())
+		return;
+
 	iommu_ops->detach_dev(domain, dev);
 }
 EXPORT_SYMBOL_GPL(iommu_detach_device);
@@ -84,6 +96,9 @@ EXPORT_SYMBOL_GPL(iommu_detach_device);
 phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain,
 			       unsigned long iova)
 {
+	if (!iommu_found())
+		return 0;
+
 	return iommu_ops->iova_to_phys(domain, iova);
 }
 EXPORT_SYMBOL_GPL(iommu_iova_to_phys);
@@ -91,6 +106,9 @@ EXPORT_SYMBOL_GPL(iommu_iova_to_phys);
 int iommu_domain_has_cap(struct iommu_domain *domain,
 			 unsigned long cap)
 {
+	if (!iommu_found())
+		return -ENODEV;
+
 	return iommu_ops->domain_has_cap(domain, cap);
 }
 EXPORT_SYMBOL_GPL(iommu_domain_has_cap);
@@ -100,6 +118,9 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	unsigned long invalid_mask;
 	size_t size;
+
+	if (!iommu_found())
+		return -ENODEV;
 
 	size         = 0x1000UL << gfp_order;
 	invalid_mask = size - 1;
@@ -115,6 +136,9 @@ int iommu_unmap(struct iommu_domain *domain, unsigned long iova, int gfp_order)
 	unsigned long invalid_mask;
 	size_t size;
 
+	if (!iommu_found())
+		return -ENODEV;
+
 	size         = 0x1000UL << gfp_order;
 	invalid_mask = size - 1;
 
@@ -127,6 +151,9 @@ EXPORT_SYMBOL_GPL(iommu_unmap);
 int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
 		    struct scatterlist *sg, unsigned int len, int prot)
 {
+	if (!iommu_found())
+		return -ENODEV;
+
 	BUG_ON(iova & (~PAGE_MASK));
 
 	return iommu_ops->map_range(domain, iova, sg, len, prot);
@@ -136,6 +163,9 @@ EXPORT_SYMBOL_GPL(iommu_map_range);
 int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
 		      unsigned int len)
 {
+	if (!iommu_found())
+		return -ENODEV;
+
 	BUG_ON(iova & (~PAGE_MASK));
 
 	return iommu_ops->unmap_range(domain, iova, len);
