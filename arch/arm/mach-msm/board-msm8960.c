@@ -3111,8 +3111,7 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 	}
 
 	dload->magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
-	strncpy(dload->serial_number, snum, SERIAL_NUMBER_LENGTH);
-	dload->serial_number[SERIAL_NUMBER_LENGTH - 1] = '\0';
+	strlcpy(dload->serial_number, snum, SERIAL_NUMBER_LENGTH);
 out:
 	iounmap(dload);
 	return 0;
