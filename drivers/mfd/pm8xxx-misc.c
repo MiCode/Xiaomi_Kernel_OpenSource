@@ -93,6 +93,13 @@
 #define PM8901_REGULATOR_PMR_STATE_MASK		0x60
 #define PM8901_REGULATOR_PMR_STATE_OFF		0x20
 
+/* COINCELL CHG registers */
+#define REG_PM8058_COIN_CHG			0x02F
+#define REG_PM8921_COIN_CHG			0x09C
+#define REG_PM8018_COIN_CHG			0x09C
+
+#define COINCELL_RESISTOR_SHIFT			0x2
+
 /* GPIO UART MUX CTRL registers */
 #define REG_PM8XXX_GPIO_MUX_CTRL		0x1CC
 
@@ -472,6 +479,84 @@ int pm8xxx_reset_pwr_off(int reset)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_reset_pwr_off);
+
+/**
+ * pm8xxx_coincell_chg_config - Disables or enables the coincell charger, and
+ *				configures its voltage and resistor settings.
+ * @chg_config:			Holds both voltage and resistor values, and a
+ *				switch to change the state of charger.
+ *				If state is to disable the charger then
+ *				both voltage and resistor are disregarded.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	u8 reg = 0, voltage, resistor;
+	int rc = 0;
+
+	if (chg_config == NULL) {
+		pr_err("chg_config is NULL\n");
+		return -EINVAL;
+	}
+
+	voltage = chg_config->voltage;
+	resistor = chg_config->resistor;
+
+	if (resistor < PM8XXX_COINCELL_RESISTOR_2100_OHMS ||
+			resistor > PM8XXX_COINCELL_RESISTOR_800_OHMS) {
+		pr_err("Invalid resistor value provided\n");
+		return -EINVAL;
+	}
+
+	if (voltage < PM8XXX_COINCELL_VOLTAGE_3p2V ||
+		(voltage > PM8XXX_COINCELL_VOLTAGE_3p0V &&
+			voltage != PM8XXX_COINCELL_VOLTAGE_2p5V)) {
+		pr_err("Invalid voltage value provided\n");
+		return -EINVAL;
+	}
+
+	if (chg_config->state == PM8XXX_COINCELL_CHG_DISABLE) {
+		reg = 0;
+	} else {
+		reg |= voltage;
+		reg |= (resistor << COINCELL_RESISTOR_SHIFT);
+	}
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8018_COIN_CHG, reg);
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8058_COIN_CHG, reg);
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8921_COIN_CHG, reg);
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("coincell chg. config failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_coincell_chg_config);
 
 /* Handle the OSC_HALT interrupt: 32 kHz XTAL oscillator has stopped. */
 static irqreturn_t pm8xxx_osc_halt_isr(int irq, void *data)

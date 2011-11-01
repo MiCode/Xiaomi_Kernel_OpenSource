@@ -35,6 +35,31 @@ enum pm8xxx_uart_path_sel {
 	UART_TX3_RX3,
 };
 
+enum pm8xxx_coincell_chg_voltage {
+	PM8XXX_COINCELL_VOLTAGE_3p2V = 1,
+	PM8XXX_COINCELL_VOLTAGE_3p1V,
+	PM8XXX_COINCELL_VOLTAGE_3p0V,
+	PM8XXX_COINCELL_VOLTAGE_2p5V = 16
+};
+
+enum pm8xxx_coincell_chg_resistor {
+	PM8XXX_COINCELL_RESISTOR_2100_OHMS,
+	PM8XXX_COINCELL_RESISTOR_1700_OHMS,
+	PM8XXX_COINCELL_RESISTOR_1200_OHMS,
+	PM8XXX_COINCELL_RESISTOR_800_OHMS
+};
+
+enum pm8xxx_coincell_chg_state {
+	PM8XXX_COINCELL_CHG_DISABLE,
+	PM8XXX_COINCELL_CHG_ENABLE
+};
+
+struct pm8xxx_coincell_chg {
+	enum pm8xxx_coincell_chg_state		state;
+	enum pm8xxx_coincell_chg_voltage	voltage;
+	enum pm8xxx_coincell_chg_resistor	resistor;
+};
+
 #if defined(CONFIG_MFD_PM8XXX_MISC) || defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
 
 /**
@@ -48,19 +73,34 @@ int pm8xxx_reset_pwr_off(int reset);
 
 int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel);
 
+/**
+ * pm8xxx_coincell_chg_config - Disables or enables the coincell charger, and
+ *				configures its voltage and resistor settings.
+ * @chg_config:			Holds both voltage and resistor values, and a
+ *				switch to change the state of charger.
+ *				If state is to disable the charger then
+ *				both voltage and resistor are disregarded.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
 {
 	return -ENODEV;
 }
-
 static inline int
 pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 {
 	return -ENODEV;
 }
-
+static inline int
+pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
+{
+	return -ENODEV;
+}
 #endif
 
 #endif
