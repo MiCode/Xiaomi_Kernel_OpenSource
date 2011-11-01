@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/types.h>
+#include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 
 #define DRIVER_NAME "msm_rng"
@@ -36,10 +37,11 @@
 #define PRNG_LFSR_CFG_MASK	0xFFFF0000
 #define PRNG_LFSR_CFG_CLOCKS	0x0000DDDD
 #define PRNG_CONFIG_MASK	0xFFFFFFFD
-#define PRNG_CONFIG_ENABLE	0x00000002
+#define PRNG_HW_ENABLE		0x00000002
 
 #define MAX_HW_FIFO_DEPTH 16                     /* FIFO is 16 words deep */
 #define MAX_HW_FIFO_SIZE (MAX_HW_FIFO_DEPTH * 4) /* FIFO is 32 bits wide  */
+
 
 struct msm_rng_device {
 	struct platform_device *pdev;
@@ -110,40 +112,43 @@ static struct hwrng msm_rng = {
 static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 {
 	unsigned long val = 0;
+	unsigned long reg_val = 0;
 	int ret = 0;
-	int error = 0;
 
+	/* Enable the PRNG CLK */
 	ret = clk_enable(msm_rng_dev->prng_clk);
 	if (ret) {
 		dev_err(&(msm_rng_dev->pdev)->dev,
 				"failed to enable clock in probe\n");
-		error = -EPERM;
-		return error;
+		return -EPERM;
 	}
-
-	/* enable PRNG h/w*/
 	val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET) &
-			PRNG_LFSR_CFG_MASK;
+					PRNG_LFSR_CFG_MASK;
 	val |= PRNG_LFSR_CFG_MASK;
 	writel_relaxed(val, msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
 
-	/* The PRNG CONFIG register should be read after writing to the
-	* PRNG_LFSR_CFG register.
-	*/
+	/* The PRNG CONFIG register should be first written before reading */
 	mb();
-	val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET) &
-			PRNG_CONFIG_MASK;
-	val |= PRNG_CONFIG_ENABLE;
-	writel_relaxed(val, msm_rng_dev->base + PRNG_CONFIG_OFFSET);
 
-	/* The PRNG clk should be disabled only after we have enabled the
-	* PRNG H/W by writting to the PRNG_CONFIG register.
-	*/
-	mb();
+	/* Enable PRNG h/w only if it is NOT ON */
+	val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET) &
+					PRNG_HW_ENABLE;
+	/* PRNG H/W is not ON */
+	if (val != PRNG_HW_ENABLE) {
+		reg_val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET)
+						& PRNG_CONFIG_MASK;
+		reg_val |= PRNG_HW_ENABLE;
+		writel_relaxed(reg_val, msm_rng_dev->base + PRNG_CONFIG_OFFSET);
+
+		/* The PRNG clk should be disabled only after we enable the
+		* PRNG h/w by writing to the PRNG CONFIG register.
+		*/
+		mb();
+	}
 
 	clk_disable(msm_rng_dev->prng_clk);
 
-	return error;
+	return 0;
 }
 
 static int __devinit msm_rng_probe(struct platform_device *pdev)
@@ -188,8 +193,7 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, msm_rng_dev);
 
 	/* Enable rng h/w */
-	if (cpu_is_msm9615())
-		error = msm_rng_enable_hw(msm_rng_dev);
+	error = msm_rng_enable_hw(msm_rng_dev);
 
 	if (error)
 		goto rollback_clk;
