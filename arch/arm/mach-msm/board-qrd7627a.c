@@ -64,10 +64,13 @@ enum {
 	GPIO_BT_SYS_REST_EN	= 114,
 	GPIO_WAKE_ON_WIRELESS,
 	GPIO_BACKLIGHT_EN,
-	GPIO_CAM_3MP_PWDN,
+	GPIO_NC,
+	GPIO_CAM_3MP_PWDN,	/* CAM_VGA */
 	GPIO_WLAN_EN,
 	GPIO_CAM_5MP_SHDN_EN,
 	GPIO_CAM_5MP_RESET,
+	GPIO_TP,
+	GPIO_CAM_GP_CAMIF_RESET,
 };
 
 	/* FM Platform power and shutdown routines */
@@ -1872,6 +1875,334 @@ static struct platform_device msm_batt_device = {
 	.dev.platform_data  = &msm_psy_batt_data,
 };
 
+#ifdef CONFIG_MSM_CAMERA
+static uint32_t camera_off_gpio_table[] = {
+	GPIO_CFG(15, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+};
+
+static uint32_t camera_on_gpio_table[] = {
+	GPIO_CFG(15, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+};
+
+static void qrd1_camera_gpio_cfg(void)
+{
+
+	int rc = 0;
+
+	rc = gpio_request(GPIO_CAM_5MP_SHDN_EN, "ov5640");
+	if (rc < 0)
+		pr_err("%s: gpio_request---GPIO_CAM_5MP_SHDN_EN failed!",
+				__func__);
+
+
+	rc = gpio_tlmm_config(GPIO_CFG(GPIO_CAM_5MP_SHDN_EN, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	if (rc < 0) {
+		pr_err("%s: unable to enable Power Down gpio for main"
+				"camera!\n", __func__);
+		gpio_free(GPIO_CAM_5MP_SHDN_EN);
+	}
+
+
+	rc = gpio_request(GPIO_CAM_5MP_RESET, "ov5640");
+	if (rc < 0) {
+		pr_err("%s: gpio_request---GPIO_CAM_5MP_RESET failed!",
+				__func__);
+		gpio_free(GPIO_CAM_5MP_SHDN_EN);
+	}
+
+
+	rc = gpio_tlmm_config(GPIO_CFG(GPIO_CAM_5MP_RESET, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	if (rc < 0) {
+		pr_err("%s: unable to enable reset gpio for main camera!\n",
+				__func__);
+		gpio_free(GPIO_CAM_5MP_RESET);
+	}
+
+	rc = gpio_request(GPIO_CAM_3MP_PWDN, "ov7692");
+	if (rc < 0)
+		pr_err("%s: gpio_request---GPIO_CAM_3MP_PWDN failed!",
+				__func__);
+
+	rc = gpio_tlmm_config(GPIO_CFG(GPIO_CAM_3MP_PWDN, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	if (rc < 0) {
+		pr_err("%s: unable to enable Power Down gpio for front"
+				"camera!\n", __func__);
+		gpio_free(GPIO_CAM_3MP_PWDN);
+	}
+
+	gpio_direction_output(GPIO_CAM_5MP_SHDN_EN, 1);
+	gpio_direction_output(GPIO_CAM_5MP_RESET, 1);
+	gpio_direction_output(GPIO_CAM_3MP_PWDN, 1);
+}
+
+#endif
+static struct vreg *vreg_gp1;
+static struct vreg *vreg_gp2;
+static struct vreg *vreg_gp3;
+static void msm_camera_vreg_config(int vreg_en)
+{
+	int rc;
+
+	if (vreg_gp1 == NULL) {
+		vreg_gp1 = vreg_get(NULL, "msme1");
+		if (IS_ERR(vreg_gp1)) {
+			pr_err("%s: vreg_get(%s) failed (%ld)\n",
+				__func__, "msme1", PTR_ERR(vreg_gp1));
+			return;
+		}
+
+		rc = vreg_set_level(vreg_gp1, 1800);
+		if (rc) {
+			pr_err("%s: GP1 set_level failed (%d)\n",
+				__func__, rc);
+			return;
+		}
+	}
+
+	if (vreg_gp2 == NULL) {
+		vreg_gp2 = vreg_get(NULL, "gp2");
+		if (IS_ERR(vreg_gp2)) {
+			pr_err("%s: vreg_get(%s) failed (%ld)\n",
+				__func__, "gp2", PTR_ERR(vreg_gp2));
+			return;
+		}
+
+		rc = vreg_set_level(vreg_gp2, 2850);
+		if (rc) {
+			pr_err("%s: GP2 set_level failed (%d)\n",
+				__func__, rc);
+		}
+	}
+
+	if (vreg_gp3 == NULL) {
+		vreg_gp3 = vreg_get(NULL, "usb2");
+		if (IS_ERR(vreg_gp3)) {
+			pr_err("%s: vreg_get(%s) failed (%ld)\n",
+				__func__, "gp3", PTR_ERR(vreg_gp3));
+			return;
+		}
+
+		rc = vreg_set_level(vreg_gp3, 1800);
+		if (rc) {
+			pr_err("%s: GP3 set level failed (%d)\n",
+				__func__, rc);
+		}
+	}
+
+	if (vreg_en) {
+		rc = vreg_enable(vreg_gp1);
+		if (rc) {
+			pr_err("%s: GP1 enable failed (%d)\n",
+				__func__, rc);
+			return;
+		}
+
+		rc = vreg_enable(vreg_gp2);
+		if (rc) {
+			pr_err("%s: GP2 enable failed (%d)\n",
+				__func__, rc);
+		}
+
+		rc = vreg_enable(vreg_gp3);
+		if (rc) {
+			pr_err("%s: GP3 enable failed (%d)\n",
+				__func__, rc);
+		}
+	} else {
+		rc = vreg_disable(vreg_gp1);
+		if (rc)
+			pr_err("%s: GP1 disable failed (%d)\n",
+				__func__, rc);
+
+		rc = vreg_disable(vreg_gp2);
+		if (rc) {
+			pr_err("%s: GP2 disable failed (%d)\n",
+				__func__, rc);
+		}
+
+		rc = vreg_disable(vreg_gp3);
+		if (rc) {
+			pr_err("%s: GP3 disable failed (%d)\n",
+				__func__, rc);
+		}
+	}
+}
+
+static int config_gpio_table(uint32_t *table, int len)
+{
+	int rc = 0, i = 0;
+
+	for (i = 0; i < len; i++) {
+		rc = gpio_tlmm_config(table[i], GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s not able to get gpio\n", __func__);
+			for (i--; i >= 0; i--)
+				gpio_tlmm_config(camera_off_gpio_table[i],
+							GPIO_CFG_ENABLE);
+			break;
+		}
+	}
+	return rc;
+}
+
+static int config_camera_on_gpios_rear(void)
+{
+	int rc = 0;
+
+	msm_camera_vreg_config(1);
+
+	rc = config_gpio_table(camera_on_gpio_table,
+			ARRAY_SIZE(camera_on_gpio_table));
+	if (rc < 0) {
+		pr_err("%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static void config_camera_off_gpios_rear(void)
+{
+	msm_camera_vreg_config(0);
+	config_gpio_table(camera_off_gpio_table,
+			ARRAY_SIZE(camera_off_gpio_table));
+}
+
+static int config_camera_on_gpios_front(void)
+{
+	int rc = 0;
+
+	msm_camera_vreg_config(1);
+
+	rc = config_gpio_table(camera_on_gpio_table,
+			ARRAY_SIZE(camera_on_gpio_table));
+	if (rc < 0) {
+		pr_err("%s: CAMSENSOR gpio table request"
+			"failed\n", __func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static void config_camera_off_gpios_front(void)
+{
+	msm_camera_vreg_config(0);
+
+	config_gpio_table(camera_off_gpio_table,
+			ARRAY_SIZE(camera_off_gpio_table));
+}
+
+struct msm_camera_device_platform_data msm_camera_data_rear = {
+	.camera_gpio_on		= config_camera_on_gpios_rear,
+	.camera_gpio_off	= config_camera_off_gpios_rear,
+	.ioext.csiphy		= 0xA1000000,
+	.ioext.csisz		= 0x00100000,
+	.ioext.csiirq		= INT_CSI_IRQ_1,
+	.ioclk.mclk_clk_rate	= 24000000,
+	.ioclk.vfe_clk_rate	= 192000000,
+	.ioext.appphy		= MSM_CLK_CTL_PHYS,
+	.ioext.appsz		= MSM_CLK_CTL_SIZE,
+};
+
+struct msm_camera_device_platform_data msm_camera_data_front = {
+	.camera_gpio_on		= config_camera_on_gpios_front,
+	.camera_gpio_off	= config_camera_off_gpios_front,
+	.ioext.csiphy		= 0xA0F00000,
+	.ioext.csisz		= 0x00100000,
+	.ioext.csiirq		= INT_CSI_IRQ_0,
+	.ioclk.mclk_clk_rate	= 24000000,
+	.ioclk.vfe_clk_rate	= 192000000,
+	.ioext.appphy		= MSM_CLK_CTL_PHYS,
+	.ioext.appsz		= MSM_CLK_CTL_SIZE,
+};
+
+#ifdef CONFIG_OV5640
+static struct msm_camera_sensor_platform_info ov5640_sensor_info = {
+	.mount_angle	= 90
+};
+
+static struct msm_camera_sensor_flash_src msm_flash_src_ov5640 = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_LED,
+	._fsrc.led_src.led_name = "flashlight",
+	._fsrc.led_src.led_name_len = 10,
+};
+
+static struct msm_camera_sensor_flash_data flash_ov5640 = {
+	.flash_type	= MSM_CAMERA_FLASH_LED,
+	.flash_src	= &msm_flash_src_ov5640,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_ov5640_data = {
+	.sensor_name		= "ov5640",
+	.sensor_reset_enable	= 1,
+	.sensor_reset		= GPIO_CAM_5MP_RESET,
+	.sensor_pwd		= GPIO_CAM_5MP_SHDN_EN,
+	.vcm_pwd		= 0,
+	.vcm_enable		= 0,
+	.pdata			= &msm_camera_data_rear,
+	.flash_data		= &flash_ov5640,
+	.sensor_platform_info	= &ov5640_sensor_info,
+	.csi_if			= 1,
+};
+
+static struct platform_device msm_camera_sensor_ov5640 = {
+	.name	= "msm_camera_ov5640",
+	.dev	= {
+		.platform_data = &msm_camera_sensor_ov5640_data,
+	},
+};
+#endif
+
+#ifdef CONFIG_WEBCAM_OV7692_QRD
+static struct msm_camera_sensor_platform_info ov7692_sensor_7627a_info = {
+	.mount_angle = 90
+};
+
+static struct msm_camera_sensor_flash_data flash_ov7692 = {
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
+	.sensor_name		= "ov7692",
+	.sensor_reset_enable	= 0,
+	.sensor_reset		= 0,
+	.sensor_pwd		= GPIO_CAM_3MP_PWDN,
+	.vcm_pwd		= 0,
+	.vcm_enable		= 0,
+	.pdata			= &msm_camera_data_front,
+	.flash_data		= &flash_ov7692,
+	.sensor_platform_info   = &ov7692_sensor_7627a_info,
+	.csi_if			= 1,
+};
+
+static struct platform_device msm_camera_sensor_ov7692 = {
+	.name	= "msm_camera_ov7692",
+	.dev	= {
+		.platform_data = &msm_camera_sensor_ov7692_data,
+	},
+};
+#endif
+
+static struct i2c_board_info i2c_camera_devices[] = {
+	#ifdef CONFIG_OV5640
+	{
+		I2C_BOARD_INFO("ov5640", 0x78 >> 1),
+	},
+	#endif
+	#ifdef CONFIG_WEBCAM_OV7692_QRD
+	{
+		I2C_BOARD_INFO("ov7692", 0x78),
+	},
+	#endif
+};
 static struct platform_device *qrd1_devices[] __initdata = {
 	&msm_device_dmov,
 	&msm_device_smd,
@@ -1889,6 +2220,12 @@ static struct platform_device *qrd1_devices[] __initdata = {
 	&msm_device_snd,
 	&msm_device_adspdec,
 	&msm_batt_device,
+#ifdef CONFIG_OV5640
+	&msm_camera_sensor_ov5640,
+#endif
+#ifdef CONFIG_WEBCAM_OV7692_QRD
+	&msm_camera_sensor_ov7692,
+#endif
 	&msm_kgsl_3d0,
 #ifdef CONFIG_BT
 	&msm_bt_power_device,
@@ -2166,6 +2503,7 @@ static void __init msm_qrd1_init(void)
 	msm_device_i2c_init();
 	msm7627a_init_mmc();
 
+	qrd1_camera_gpio_cfg();
 #ifdef CONFIG_SERIAL_MSM_HS
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(UART1DM_RX_GPIO);
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
@@ -2177,9 +2515,9 @@ static void __init msm_qrd1_init(void)
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 #endif
 	msm_device_gadget_peripheral.dev.platform_data =
-						&msm_gadget_pdata;
+		&msm_gadget_pdata;
 	platform_add_devices(qrd1_devices,
-				ARRAY_SIZE(qrd1_devices));
+			ARRAY_SIZE(qrd1_devices));
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	msm7627a_init_host();
 #endif
@@ -2189,10 +2527,13 @@ static void __init msm_qrd1_init(void)
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
-				bahama_devices,
-				ARRAY_SIZE(bahama_devices));
+			bahama_devices,
+			ARRAY_SIZE(bahama_devices));
 	bt_power_init();
 #endif
+
+	i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID, i2c_camera_devices,
+			ARRAY_SIZE(i2c_camera_devices));
 
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
 	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
@@ -2200,7 +2541,6 @@ static void __init msm_qrd1_init(void)
 				synaptic_i2c_clearpad3k,
 				ARRAY_SIZE(synaptic_i2c_clearpad3k));
 #endif
-
 	platform_device_register(&hs_pdev);
 
 #ifdef CONFIG_MSM_RPC_VIBRATOR
