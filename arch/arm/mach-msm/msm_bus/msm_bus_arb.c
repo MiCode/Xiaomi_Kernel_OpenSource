@@ -412,8 +412,16 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 	struct msm_bus_client *client = NULL;
 	int i;
 	int src, dest, nfab;
+	struct msm_bus_fabric_device *deffab;
+
+	deffab = msm_bus_get_fabric_device(MSM_BUS_FAB_DEFAULT);
+	if (!deffab) {
+		MSM_BUS_ERR("Error finding default fabric\n");
+		return -ENXIO;
+	}
+
 	nfab = msm_bus_get_num_fab();
-	if (nfab < NUM_FAB) {
+	if (nfab < deffab->board_algo->board_nfab) {
 		MSM_BUS_ERR("Can't register client!\n"
 				"Num of fabrics up: %d\n",
 				nfab);
