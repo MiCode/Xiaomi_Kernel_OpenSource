@@ -16,6 +16,11 @@
 #include "../vfp/vfpinstr.h"
 
 #ifdef CONFIG_CPU_V7
+#define SCORPION_EVT_PREFIX 1
+#define SCORPION_MAX_L1_REG 4
+
+static u32 scorpion_evt_type_base[] = {0x4c, 0x50, 0x54, 0x58, 0x5c};
+
 enum scorpion_perf_common {
 	SCORPION_EVT_START_IDX			= 0x4c,
 	SCORPION_ICACHE_EXPL_INV		= 0x4c,
@@ -356,6 +361,25 @@ static unsigned int get_scorpion_evtinfo(unsigned int scorpion_evt_type,
 					struct scorpion_evt *evtinfo)
 {
 	u32 idx;
+	u8 prefix;
+	u8 reg;
+	u8 code;
+	u8 group;
+
+	prefix = (scorpion_evt_type & 0xF0000) >> 16;
+	if (prefix == SCORPION_EVT_PREFIX) {
+		reg   = (scorpion_evt_type & 0x0F000) >> 12;
+		code  = (scorpion_evt_type & 0x00FF0) >> 4;
+		group =  scorpion_evt_type & 0x0000F;
+
+		if ((group > 3) || (reg > SCORPION_MAX_L1_REG))
+			return -EINVAL;
+
+		evtinfo->group_setval = 0x80000000 | (code << (group * 8));
+		evtinfo->groupcode = reg;
+		evtinfo->armv7_evt_type = scorpion_evt_type_base[reg] | group;
+		return evtinfo->armv7_evt_type;
+	}
 
 	if (scorpion_evt_type < SCORPION_EVT_START_IDX || scorpion_evt_type >=
 		(ARRAY_SIZE(scorpion_event) + SCORPION_EVT_START_IDX))
@@ -561,7 +585,6 @@ static void scorpion_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
-		val &= ARMV7_EVTSEL_MASK;
 		if (val > 0x40) {
 			event = get_scorpion_evtinfo(val, &evtinfo);
 			if (event == -EINVAL)
@@ -601,7 +624,6 @@ static void scorpion_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
-		val &= ARMV7_EVTSEL_MASK;
 		if (val < 0x40) {
 			armv7_pmnc_write_evtsel(idx, hwc->config_base);
 		} else {
@@ -670,7 +692,7 @@ static struct arm_pmu scorpion_pmu = {
 	.disable		= scorpion_pmu_disable_event,
 	.read_counter		= armv7pmu_read_counter,
 	.write_counter		= armv7pmu_write_counter,
-	.raw_event_mask		= 0xFF,
+	.raw_event_mask		= 0xFFFFF,
 	.get_event_idx		= armv7pmu_get_event_idx,
 	.start			= armv7pmu_start,
 	.stop			= armv7pmu_stop,
