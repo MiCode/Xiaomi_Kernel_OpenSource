@@ -1661,7 +1661,7 @@ static void hci_cc_riva_peek_rsp(struct radio_hci_dev *hdev,
 	memcpy(data, &skb->data[PEEK_DATA_OFSET], len);
 	iris_q_evt_data(radio, data, len, IRIS_BUF_PEEK);
 	radio_hci_req_complete(hdev, status);
-
+	kfree(data);
 
 }
 
@@ -1872,9 +1872,13 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 	int len;
 
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	struct hci_fm_station_rsp *rsp;
 
 	len = sizeof(struct hci_fm_station_rsp);
-	memcpy(&radio->fm_st_rsp.station_rsp, skb_pull(skb, len), len);
+	rsp = (struct hci_fm_station_rsp *)skb_pull(skb, len);
+	if (rsp == NULL)
+		return;
+	memcpy(&radio->fm_st_rsp.station_rsp, rsp, len);
 
 	iris_q_event(radio, IRIS_EVT_TUNE_SUCC);
 
@@ -1927,7 +1931,8 @@ static inline void hci_ev_srch_st_list_compl(struct radio_hci_dev *hdev,
 	len = ev->num_stations_found * PARAMS_PER_STATION + STN_FREQ_OFFSET;
 
 	for (cnt = STN_FREQ_OFFSET, stn_num = 0;
-		(cnt < len) && (stn_num < ev->num_stations_found);
+		(cnt < len) && (stn_num < ev->num_stations_found)
+		&& (stn_num < ARRAY_SIZE(ev->rel_freq));
 		cnt += PARAMS_PER_STATION, stn_num++) {
 		abs_freq = *((int *)&skb->data[cnt]);
 		rel_freq = abs_freq - radio->recv_conf.band_low_limit;
@@ -2069,8 +2074,16 @@ static void hci_ev_rds_grp_complete(struct radio_hci_dev *hdev,
 
 void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 {
-	struct radio_hci_event_hdr *hdr = (void *) skb->data;
-	__u8 event = hdr->evt;
+	struct radio_hci_event_hdr *hdr;
+	u8 event;
+
+	if (skb == NULL) {
+		FMDERR("Socket buffer is NULL");
+		return;
+	}
+
+	hdr = (void *) skb->data;
+	event = hdr->evt;
 
 	skb_pull(skb, RADIO_HCI_EVENT_HDR_SIZE);
 
