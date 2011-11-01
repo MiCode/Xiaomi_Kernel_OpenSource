@@ -281,7 +281,6 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))
 
-#define GPIO_SDCARD_PWR_EN	18
 #define GPIO_SDC1_HW_DET	80
 #define GPIO_SDC2_DAT1_WAKEUP	26
 
@@ -293,6 +292,51 @@ enum sdcc_controllers {
 };
 
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+/* All SDCC controllers requires VDD/VCC voltage */
+static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
+	/* SDCC1 : External card slot connected */
+	[SDCC1] = {
+		.name = "sdc_vdd",
+		/*
+		 * This is a gpio-regulator and does not support
+		 * regulator_set_voltage and regulator_set_optimum_mode
+		 */
+		.set_voltage_sup = false,
+		.high_vol_level = 2950000,
+		.low_vol_level = 2950000,
+		.hpm_uA = 600000, /* 600mA */
+	}
+};
+
+/* All SDCC controllers may require voting for VDD PAD voltage */
+static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
+	/* SDCC1 : External card slot connected */
+	[SDCC1] = {
+		.name = "sdc_vddp",
+		.set_voltage_sup = true,
+		.high_vol_level = 2950000,
+		.low_vol_level = 1850000,
+		.always_on = true,
+		.lpm_sup = true,
+		/* Max. Active current required is 16 mA */
+		.hpm_uA = 16000,
+		/*
+		 * Sleep current required is ~300 uA. But min. vote can be
+		 * in terms of mA (min. 1 mA). So let's vote for 2 mA
+		 * during sleep.
+		 */
+		.lpm_uA = 2000,
+	}
+};
+
+static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
+	/* SDCC1 : External card slot connected */
+	[SDCC1] = {
+		.vdd_data = &mmc_vdd_reg_data[SDCC1],
+		.vddp_data = &mmc_vddp_reg_data[SDCC1],
+	}
+};
+
 /* SDC1 pad data */
 static struct msm_mmc_pad_drv sdc1_pad_drv_on_cfg[] = {
 	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_16MA},
@@ -456,8 +500,9 @@ static struct mmc_platform_data sdc1_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
-	.pclk_src_dfab	= 1,
+	.pclk_src_dfab	= true,
 	.sdcc_v4_sup    = true,
+	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.status_gpio	= GPIO_SDC1_HW_DET,
@@ -494,32 +539,16 @@ static struct mmc_platform_data *msm9615_sdc2_pdata;
 
 static void __init msm9615_init_mmc(void)
 {
-	int ret;
-
 	if (msm9615_sdc1_pdata) {
-		ret = gpio_request(GPIO_SDCARD_PWR_EN, "SDCARD_PWR_EN");
-
-		if (ret) {
-			pr_err("%s: sdcc1: Error requesting GPIO "
-				"SDCARD_PWR_EN:%d\n", __func__, ret);
-		} else {
-			ret = gpio_direction_output(GPIO_SDCARD_PWR_EN, 1);
-			if (ret) {
-				pr_err("%s: sdcc1: Error setting o/p direction"
-					" for GPIO SDCARD_PWR_EN:%d\n",
-					__func__, ret);
-				gpio_free(GPIO_SDCARD_PWR_EN);
-			} else {
-				msm_add_sdcc(1, msm9615_sdc1_pdata);
-			}
-		}
+		/* SDC1: External card slot for SD/MMC cards */
+		msm_add_sdcc(1, msm9615_sdc1_pdata);
 	}
 
 	if (msm9615_sdc2_pdata) {
 		msm_gpiomux_install(msm9615_sdcc2_configs,
 			ARRAY_SIZE(msm9615_sdcc2_configs));
 
-		/* SDC2: External card slot */
+		/* SDC2: External card slot used for WLAN */
 		msm_add_sdcc(2, msm9615_sdc2_pdata);
 	}
 }

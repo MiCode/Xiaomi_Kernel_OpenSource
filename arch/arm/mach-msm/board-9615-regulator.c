@@ -61,6 +61,7 @@ VREG_CONSUMERS(L12) = {
 };
 VREG_CONSUMERS(L13) = {
 	REGULATOR_SUPPLY("8018_l13",		NULL),
+	REGULATOR_SUPPLY("sdc_vddp",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8018_l14",		NULL),
@@ -86,6 +87,7 @@ VREG_CONSUMERS(LVS1) = {
 };
 VREG_CONSUMERS(EXT_2P95V) = {
 	REGULATOR_SUPPLY("ext_2p95v",		NULL),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
 
 #define PM8018_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
