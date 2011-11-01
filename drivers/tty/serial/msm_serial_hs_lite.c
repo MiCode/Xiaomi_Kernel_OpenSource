@@ -799,7 +799,6 @@ static void msm_hsl_release_port(struct uart_port *port)
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 	struct platform_device *pdev = to_platform_device(port->dev);
 	struct resource *uart_resource;
-	struct resource *gsbi_resource;
 	resource_size_t size;
 
 	uart_resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -815,11 +814,6 @@ static void msm_hsl_release_port(struct uart_port *port)
 	if (msm_serial_hsl_has_gsbi(port)) {
 		iowrite32(GSBI_PROTOCOL_IDLE, msm_hsl_port->mapped_gsbi +
 			  GSBI_CONTROL_ADDR);
-		gsbi_resource = platform_get_resource_byname(pdev,
-							     IORESOURCE_MEM,
-							     "gsbi_resource");
-
-		size = gsbi_resource->end - gsbi_resource->start + 1;
 		iounmap(msm_hsl_port->mapped_gsbi);
 		msm_hsl_port->mapped_gsbi = NULL;
 	}
