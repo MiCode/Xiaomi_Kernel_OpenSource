@@ -617,6 +617,7 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 			host->dummy_52_sent = 1;
 			msmsdcc_start_command(host, &dummy52cmd,
 					      MCI_CPSM_PROGENA);
+			spin_unlock_irqrestore(&host->lock, flags);
 			return;
 		}
 		msmsdcc_stop_data(host);
