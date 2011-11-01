@@ -84,6 +84,10 @@
 #define SLEEP_CTRL_SMPL_EN_RESET		0x04
 #define SLEEP_CTRL_SMPL_EN_PWR_OFF		0x00
 
+#define SLEEP_CTRL_SMPL_SEL_MASK		0x03
+#define SLEEP_CTRL_SMPL_SEL_MIN			0
+#define SLEEP_CTRL_SMPL_SEL_MAX			3
+
 /* FTS regulator PMR registers */
 #define REG_PM8901_REGULATOR_S1_PMR		0xA7
 #define REG_PM8901_REGULATOR_S2_PMR		0xA8
@@ -479,6 +483,121 @@ int pm8xxx_reset_pwr_off(int reset)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_reset_pwr_off);
+
+/**
+ * pm8xxx_smpl_control - enables/disables SMPL detection
+ * @enable: 0 = shutdown PMIC on power loss, 1 = reset PMIC on power loss
+ *
+ * This function enables or disables the Sudden Momentary Power Loss detection
+ * module.  If SMPL detection is enabled, then when a sufficiently long power
+ * loss event occurs, the PMIC will automatically reset itself.  If SMPL
+ * detection is disabled, then the PMIC will shutdown when power loss occurs.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_smpl_control(int enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8018_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8058_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_RESET
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("setting smpl control failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_smpl_control);
+
+
+/**
+ * pm8xxx_smpl_set_delay - sets the SMPL detection time delay
+ * @delay: enum value corresponding to delay time
+ *
+ * This function sets the time delay of the SMPL detection module.  If power
+ * is reapplied within this interval, then the PMIC reset automatically.  The
+ * SMPL detection module must be enabled for this delay time to take effect.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	if (delay < SLEEP_CTRL_SMPL_SEL_MIN
+	    || delay > SLEEP_CTRL_SMPL_SEL_MAX) {
+		pr_err("%s: invalid delay specified: %d\n", __func__, delay);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8018_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8058_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("setting smpl delay failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_smpl_set_delay);
 
 /**
  * pm8xxx_coincell_chg_config - Disables or enables the coincell charger, and
