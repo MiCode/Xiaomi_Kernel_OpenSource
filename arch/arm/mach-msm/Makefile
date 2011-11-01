@@ -73,7 +73,7 @@ obj-$(CONFIG_MSM_SDIO_DMUX) += sdio_dmux.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log.o
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o
-        obj-y += socinfo.o
+obj-y += socinfo.o
 ifndef CONFIG_ARCH_MSM9615
 ifndef CONFIG_ARCH_APQ8064
 ifndef CONFIG_ARCH_MSM8960
@@ -222,6 +222,9 @@ obj-$(CONFIG_MACH_MSM8960_RUMI3) += board-msm8960.o devices-8960.o board-msm8960
 obj-$(CONFIG_MACH_MSM8960_CDP) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_MACH_MSM8960_MTP) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_MACH_MSM8960_FLUID) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
+obj-$(CONFIG_MACH_MSM8930_CDP) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
+obj-$(CONFIG_MACH_MSM8930_MTP) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
+obj-$(CONFIG_MACH_MSM8930_FLUID) += board-msm8960.o devices-8960.o board-msm8960-regulator.o
 obj-$(CONFIG_ARCH_MSM8960) += bms-batterydata.o
 obj-$(CONFIG_ARCH_APQ8064) += board-apq8064.o devices-8064.o board-apq8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
