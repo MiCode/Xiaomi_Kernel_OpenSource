@@ -583,8 +583,7 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 	if (device->state & (KGSL_STATE_ACTIVE | KGSL_STATE_NAP)) {
-		if (device->ftbl->isidle(device) &&
-			(device->requested_state != KGSL_STATE_SLEEP))
+		if (device->requested_state != KGSL_STATE_SLEEP)
 			kgsl_pwrscale_idle(device);
 
 		if (kgsl_pwrctrl_sleep(device) != 0) {
