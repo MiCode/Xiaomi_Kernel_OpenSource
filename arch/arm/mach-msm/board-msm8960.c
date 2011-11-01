@@ -4696,6 +4696,7 @@ MACHINE_START(MSM8930_CDP, "QCT MSM8930 CDP")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8930_MTP, "QCT MSM8930 MTP")
@@ -4705,6 +4706,7 @@ MACHINE_START(MSM8930_MTP, "QCT MSM8930 MTP")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 
 MACHINE_START(MSM8930_FLUID, "QCT MSM8930 FLUID")
@@ -4714,5 +4716,6 @@ MACHINE_START(MSM8930_FLUID, "QCT MSM8930 FLUID")
 	.timer = &msm_timer,
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
 MACHINE_END
 #endif
