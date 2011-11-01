@@ -1718,6 +1718,12 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			goto proc_general_done;
 		}
 		cmdp_local = cmdp;
+		new_val = *cmdp_local;
+
+		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_DEMOSAICV3_0_OFF);
+		old_val &= DEMOSAIC_MASK;
+		new_val = new_val | old_val;
+		*cmdp_local = new_val;
 
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_DEMOSAICV3_0_OFF,
 			cmdp_local, V32_DEMOSAICV3_0_LEN);
@@ -1744,6 +1750,12 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			goto proc_general_done;
 		}
 		cmdp_local = cmdp;
+		new_val = *cmdp_local;
+
+		old_val = msm_io_r(vfe32_ctrl->vfebase + V32_DEMOSAICV3_0_OFF);
+		old_val &= DEMOSAIC_MASK;
+		new_val = new_val | old_val;
+		*cmdp_local = new_val;
 
 		msm_io_memcpy(vfe32_ctrl->vfebase + V32_DEMOSAICV3_0_OFF,
 			cmdp_local, V32_DEMOSAICV3_0_LEN);
