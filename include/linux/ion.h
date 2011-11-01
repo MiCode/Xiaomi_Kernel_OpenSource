@@ -76,6 +76,7 @@ enum ion_heap_ids {
 #define ION_IS_CACHED(__flags)	((__flags) & (1 << ION_CACHE_SHIFT))
 
 #ifdef __KERNEL__
+#include <linux/err.h>
 #include <mach/ion.h>
 struct ion_device;
 struct ion_heap;
