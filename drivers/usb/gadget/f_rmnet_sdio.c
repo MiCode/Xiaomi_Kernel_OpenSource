@@ -1358,17 +1358,20 @@ rmnet_sdio_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct rmnet_sdio_dev *dev = container_of(f, struct rmnet_sdio_dev,
 								function);
 
+	cancel_delayed_work_sync(&dev->sdio_open_work);
 	destroy_workqueue(dev->wq);
 
-	rmnet_sdio_free_buf(dev);
 	dev->epout = dev->epin = dev->epnotify = NULL; /* release endpoints */
 
-	msm_sdio_dmux_close(rmnet_sdio_data_ch);
-	sdio_cmux_close(rmnet_sdio_ctl_ch);
+	if (test_bit(RMNET_SDIO_CH_OPEN, &dev->data_ch_status)) {
+		msm_sdio_dmux_close(rmnet_sdio_data_ch);
+		clear_bit(RMNET_SDIO_CH_OPEN, &dev->data_ch_status);
+	}
 
-
-	clear_bit(RMNET_SDIO_CH_OPEN, &dev->data_ch_status);
-	clear_bit(RMNET_SDIO_CH_OPEN, &dev->ctrl_ch_status);
+	if (test_bit(RMNET_SDIO_CH_OPEN, &dev->ctrl_ch_status)) {
+		sdio_cmux_close(rmnet_sdio_ctl_ch);
+		clear_bit(RMNET_SDIO_CH_OPEN, &dev->ctrl_ch_status);
+	}
 
 	debugfs_remove_recursive(dev->dent);
 
@@ -1454,7 +1457,7 @@ const struct file_operations debug_rmnet_sdio_stats_ops = {
 
 static void rmnet_sdio_debugfs_init(struct rmnet_sdio_dev *dev)
 {
-	dev->dent = debugfs_create_dir("usb_rmnet", 0);
+	dev->dent = debugfs_create_dir("usb_rmnet_sdio", 0);
 	if (IS_ERR(dev->dent))
 		return;
 
