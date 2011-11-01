@@ -31,6 +31,7 @@
 #include <media/msm_isp.h>
 #include <mach/camera.h>
 #include <media/msm_isp.h>
+#include <linux/ion.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
@@ -219,6 +220,7 @@ struct msm_cam_media_controller {
 
 	struct pm_qos_request_list pm_qos_req_list;
 	struct msm_mctl_pp_info pp_info;
+	struct ion_client *client;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -402,8 +404,10 @@ int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 				int path, struct msm_free_buf *free_buf);
 /*Memory(PMEM) functions*/
-int msm_register_pmem(struct hlist_head *ptype, void __user *arg);
-int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg);
+int msm_register_pmem(struct hlist_head *ptype, void __user *arg,
+				struct ion_client *client);
+int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg,
+				struct ion_client *client);
 int msm_pmem_region_get_phy_addr(struct hlist_head *ptype,
 	struct msm_mem_map_info *mem_map, int32_t *phyaddr);
 uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,

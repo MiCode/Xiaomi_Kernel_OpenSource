@@ -1427,7 +1427,9 @@ static int msm_open(struct file *f)
 			mutex_unlock(&pcam->vid_lock);
 			return rc;
 		}
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		pcam->mctl.client = msm_ion_client_create(-1, "camera");
+#endif
 		/* Should be set to sensor ops if any but right now its OK!! */
 		if (!pcam->mctl.mctl_open) {
 			D("%s: media contoller is not inited\n",
@@ -1603,7 +1605,9 @@ static int msm_close(struct file *f)
 			if (rc < 0)
 				pr_err("mctl_release fails %d\n", rc);
 		}
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_client_destroy(pcam->mctl.client);
+#endif
 		dma_release_declared_memory(&pcam->pdev->dev);
 	}
 	mutex_unlock(&pcam->vid_lock);
@@ -1903,13 +1907,13 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 	case MSM_CAM_IOCTL_REGISTER_PMEM:
 		return msm_register_pmem(
 			&config_cam->p_mctl->sync.pmem_stats,
-			(void __user *)arg);
+			(void __user *)arg, config_cam->p_mctl->client);
 		break;
 
 	case MSM_CAM_IOCTL_UNREGISTER_PMEM:
 		return msm_pmem_table_del(
 			&config_cam->p_mctl->sync.pmem_stats,
-			(void __user *)arg);
+			(void __user *)arg, config_cam->p_mctl->client);
 		break;
 	case VIDIOC_SUBSCRIBE_EVENT:
 		if (copy_from_user(&temp_sub,

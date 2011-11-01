@@ -17,6 +17,7 @@
 
 #include <media/videobuf2-core.h>
 #include <mach/msm_subsystem_map.h>
+#include <linux/ion.h>
 
 struct videobuf2_mapping {
 	unsigned int count;
@@ -58,6 +59,7 @@ struct videobuf2_contig_pmem {
 	struct msm_mapped_buffer *msm_buffer;
 	int subsys_id;
 	unsigned long mapped_phyaddr;
+	struct ion_handle *ion_handle;
 };
 void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					enum v4l2_buf_type type,
@@ -70,8 +72,10 @@ int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct videobuf2_msm_offset *offset,
 					enum videobuf2_buffer_type,
-					uint32_t addr_offset, int path);
-void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem);
+					uint32_t addr_offset, int path,
+					struct ion_client *client);
+void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
+					struct ion_client *client);
 unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *buf,
 					unsigned int plane_no);
 
