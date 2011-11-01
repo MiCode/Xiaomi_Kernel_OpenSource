@@ -213,7 +213,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pclk_src_name		= "dfab_usb_hs_clk",
 };
 
-/* APQ8064 have 4 SDCC controllers */
+/* APQ8064 has 4 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
 	SDCC2,
@@ -222,7 +222,7 @@ enum sdcc_controllers {
 	MAX_SDCC_CONTROLLER
 };
 
-/* All SDCC controllers requires VDD/VCC voltage */
+/* All SDCC controllers require VDD/VCC voltage */
 static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {

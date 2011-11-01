@@ -246,7 +246,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 #define GPIO_SDC1_HW_DET	80
 #define GPIO_SDC2_DAT1_WAKEUP	26
 
-/* MDM9x15 have 2 SDCC controllers */
+/* MDM9x15 has 2 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
 	SDCC2,
