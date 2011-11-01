@@ -1345,16 +1345,21 @@ static void l2cap_ertm_tx_worker(struct work_struct *work)
 	lock_sock(sk);
 	l2cap_ertm_send(sk);
 	release_sock(sk);
+	sock_put(sk);
 }
 
 static void l2cap_skb_destructor(struct sk_buff *skb)
 {
 	struct sock *sk = skb->sk;
 	int queued;
+	int keep_sk = 0;
 
 	queued = atomic_sub_return(1, &l2cap_pi(sk)->ertm_queued);
 	if (queued < L2CAP_MIN_ERTM_QUEUED)
-		queue_work(_l2cap_wq, &l2cap_pi(sk)->tx_work);
+		keep_sk = queue_work(_l2cap_wq, &l2cap_pi(sk)->tx_work);
+
+	if (!keep_sk)
+		sock_put(sk);
 }
 
 void l2cap_do_send(struct sock *sk, struct sk_buff *skb)
@@ -1440,6 +1445,7 @@ int l2cap_ertm_send(struct sock *sk)
 		 */
 		tx_skb = skb_clone(skb, GFP_ATOMIC);
 
+		sock_hold(sk);
 		tx_skb->sk = sk;
 		tx_skb->destructor = l2cap_skb_destructor;
 		atomic_inc(&pi->ertm_queued);
@@ -2604,6 +2610,7 @@ static void l2cap_resegment_worker(struct work_struct *work)
 
 	if (l2cap_pi(sk)->amp_move_state != L2CAP_AMP_STATE_RESEGMENT) {
 		release_sock(sk);
+		sock_put(sk);
 		return;
 	}
 
@@ -2622,6 +2629,7 @@ static void l2cap_resegment_worker(struct work_struct *work)
 		l2cap_ertm_send(sk);
 
 	release_sock(sk);
+	sock_put(sk);
 }
 
 static int l2cap_setup_resegment(struct sock *sk)
@@ -2638,10 +2646,12 @@ static int l2cap_setup_resegment(struct sock *sk)
 		return -ENOMEM;
 
 	INIT_WORK(&seg_work->work, l2cap_resegment_worker);
+	sock_hold(sk);
 	seg_work->sk = sk;
 
 	if (!queue_work(_l2cap_wq, &seg_work->work)) {
 		kfree(seg_work);
+		sock_put(sk);
 		return -ENOMEM;
 	}
 
@@ -5815,6 +5825,7 @@ static void l2cap_ertm_resend(struct sock *sk)
 		if (pi->fcs == L2CAP_FCS_CRC16)
 			apply_fcs(tx_skb);
 
+		sock_hold(sk);
 		tx_skb->sk = sk;
 		tx_skb->destructor = l2cap_skb_destructor;
 		atomic_inc(&pi->ertm_queued);
