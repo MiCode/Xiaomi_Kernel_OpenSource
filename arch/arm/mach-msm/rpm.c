@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/spinlock.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <mach/rpm.h>
@@ -45,14 +46,15 @@ struct msm_rpm_request {
 };
 
 struct msm_rpm_notif_config {
-	struct msm_rpm_iv_pair iv[MSM_RPM_SEL_MASK_SIZE * 2];
+	struct msm_rpm_iv_pair iv[SEL_MASK_SIZE * 2];
 };
 
 #define configured_iv(notif_cfg) ((notif_cfg)->iv)
-#define registered_iv(notif_cfg) ((notif_cfg)->iv + MSM_RPM_SEL_MASK_SIZE)
+#define registered_iv(notif_cfg) ((notif_cfg)->iv + msm_rpm_sel_mask_size)
 
-static struct msm_rpm_platform_data *msm_rpm_platform;
-static uint32_t msm_rpm_map[MSM_RPM_ID_LAST + 1];
+static uint32_t msm_rpm_sel_mask_size;
+static struct msm_rpm_platform_data msm_rpm_data;
+
 
 static DEFINE_MUTEX(msm_rpm_mutex);
 static DEFINE_SPINLOCK(msm_rpm_lock);
@@ -69,15 +71,34 @@ static bool msm_rpm_init_notif_done;
  * Internal functions
  *****************************************************************************/
 
+static inline unsigned int target_enum(unsigned int id)
+{
+	BUG_ON(id >= MSM_RPM_ID_LAST);
+	return msm_rpm_data.target_id[id].id;
+}
+
+static inline unsigned int target_status(unsigned int id)
+{
+	BUG_ON(id >= MSM_RPM_STATUS_ID_LAST);
+	return msm_rpm_data.target_status[id];
+}
+
+static inline unsigned int target_ctrl(unsigned int id)
+{
+	BUG_ON(id >= MSM_RPM_CTRL_LAST);
+	return msm_rpm_data.target_ctrl_id[id];
+}
+
 static inline uint32_t msm_rpm_read(unsigned int page, unsigned int reg)
 {
-	return __raw_readl(msm_rpm_platform->reg_base_addrs[page] + reg * 4);
+	return __raw_readl(msm_rpm_data.reg_base_addrs[page] + reg * 4);
 }
 
 static inline void msm_rpm_write(
 	unsigned int page, unsigned int reg, uint32_t value)
 {
-	__raw_writel(value, msm_rpm_platform->reg_base_addrs[page] + reg * 4);
+	__raw_writel(value,
+		msm_rpm_data.reg_base_addrs[page] + reg * 4);
 }
 
 static inline void msm_rpm_read_contiguous(
@@ -109,7 +130,8 @@ static inline void msm_rpm_write_contiguous_zeros(
 
 static inline uint32_t msm_rpm_map_id_to_sel(uint32_t id)
 {
-	return (id > MSM_RPM_ID_LAST) ? MSM_RPM_SEL_LAST + 1 : msm_rpm_map[id];
+	return (id >= MSM_RPM_ID_LAST) ? msm_rpm_data.sel_last + 1 :
+		msm_rpm_data.target_id[id].sel;
 }
 
 /*
@@ -128,8 +150,11 @@ static int msm_rpm_fill_sel_masks(
 	for (i = 0; i < count; i++) {
 		sel = msm_rpm_map_id_to_sel(req[i].id);
 
-		if (sel > MSM_RPM_SEL_LAST)
+		if (sel > msm_rpm_data.sel_last) {
+			pr_err("%s(): RPM ID %d not defined for target\n",
+					__func__, req[i].id);
 			return -EINVAL;
+		}
 
 		sel_masks[msm_rpm_get_sel_mask_reg(sel)] |=
 			msm_rpm_get_sel_mask(sel);
@@ -140,8 +165,8 @@ static int msm_rpm_fill_sel_masks(
 
 static inline void msm_rpm_send_req_interrupt(void)
 {
-	__raw_writel(msm_rpm_platform->msm_apps_ipc_rpm_val,
-			msm_rpm_platform->msm_apps_ipc_rpm_reg);
+	__raw_writel(msm_rpm_data.ipc_rpm_val,
+			msm_rpm_data.ipc_rpm_reg);
 }
 
 /*
@@ -155,26 +180,30 @@ static inline void msm_rpm_send_req_interrupt(void)
 static int msm_rpm_process_ack_interrupt(void)
 {
 	uint32_t ctx_mask_ack;
-	uint32_t sel_masks_ack[MSM_RPM_SEL_MASK_SIZE];
+	uint32_t sel_masks_ack[SEL_MASK_SIZE] = {0};
 
-	ctx_mask_ack = msm_rpm_read(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_ACK_CTX_0);
+	ctx_mask_ack = msm_rpm_read(MSM_RPM_PAGE_CTRL,
+			target_ctrl(MSM_RPM_CTRL_ACK_CTX_0));
 	msm_rpm_read_contiguous(MSM_RPM_PAGE_CTRL,
-		MSM_RPM_CTRL_ACK_SEL_0, sel_masks_ack, MSM_RPM_SEL_MASK_SIZE);
+		target_ctrl(MSM_RPM_CTRL_ACK_SEL_0),
+		sel_masks_ack, msm_rpm_sel_mask_size);
 
 	if (ctx_mask_ack & msm_rpm_get_ctx_mask(MSM_RPM_CTX_NOTIFICATION)) {
 		struct msm_rpm_notification *n;
 		int i;
 
 		list_for_each_entry(n, &msm_rpm_notifications, list)
-			for (i = 0; i < MSM_RPM_SEL_MASK_SIZE; i++)
+			for (i = 0; i < msm_rpm_sel_mask_size; i++)
 				if (sel_masks_ack[i] & n->sel_masks[i]) {
 					up(&n->sem);
 					break;
 				}
 
 		msm_rpm_write_contiguous_zeros(MSM_RPM_PAGE_CTRL,
-			MSM_RPM_CTRL_ACK_SEL_0, MSM_RPM_SEL_MASK_SIZE);
-		msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_ACK_CTX_0, 0);
+			target_ctrl(MSM_RPM_CTRL_ACK_SEL_0),
+			msm_rpm_sel_mask_size);
+		msm_rpm_write(MSM_RPM_PAGE_CTRL,
+			target_ctrl(MSM_RPM_CTRL_ACK_CTX_0), 0);
 		/* Ensure the write is complete before return */
 		mb();
 
@@ -191,11 +220,13 @@ static int msm_rpm_process_ack_interrupt(void)
 		for (i = 0; i < msm_rpm_request->count; i++)
 			msm_rpm_request->req[i].value =
 				msm_rpm_read(MSM_RPM_PAGE_ACK,
-						msm_rpm_request->req[i].id);
+				target_enum(msm_rpm_request->req[i].id));
 
 		msm_rpm_write_contiguous_zeros(MSM_RPM_PAGE_CTRL,
-			MSM_RPM_CTRL_ACK_SEL_0, MSM_RPM_SEL_MASK_SIZE);
-		msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_ACK_CTX_0, 0);
+			target_ctrl(MSM_RPM_CTRL_ACK_SEL_0),
+			msm_rpm_sel_mask_size);
+		msm_rpm_write(MSM_RPM_PAGE_CTRL,
+			target_ctrl(MSM_RPM_CTRL_ACK_CTX_0), 0);
 		/* Ensure the write is complete before return */
 		mb();
 
@@ -233,7 +264,7 @@ static void msm_rpm_busy_wait_for_request_completion(
 	int rc;
 
 	do {
-		while (!gic_is_spi_pending(msm_rpm_platform->irq_ack) &&
+		while (!gic_is_spi_pending(msm_rpm_data.irq_ack) &&
 				msm_rpm_request) {
 			if (allow_async_completion)
 				spin_unlock(&msm_rpm_irq_lock);
@@ -246,7 +277,7 @@ static void msm_rpm_busy_wait_for_request_completion(
 			break;
 
 		rc = msm_rpm_process_ack_interrupt();
-		gic_clear_spi_pending(msm_rpm_platform->irq_ack);
+		gic_clear_spi_pending(msm_rpm_data.irq_ack);
 	} while (rc);
 }
 
@@ -265,7 +296,7 @@ static int msm_rpm_set_exclusive(int ctx,
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
 	uint32_t ctx_mask_ack = 0;
-	uint32_t sel_masks_ack[MSM_RPM_SEL_MASK_SIZE];
+	uint32_t sel_masks_ack[SEL_MASK_SIZE];
 	int i;
 
 	msm_rpm_request_irq_mode.req = req;
@@ -281,13 +312,16 @@ static int msm_rpm_set_exclusive(int ctx,
 	msm_rpm_request = &msm_rpm_request_irq_mode;
 
 	for (i = 0; i < count; i++) {
-		BUG_ON(req[i].id > MSM_RPM_ID_LAST);
-		msm_rpm_write(MSM_RPM_PAGE_REQ, req[i].id, req[i].value);
+		BUG_ON(target_enum(req[i].id) >= MSM_RPM_ID_LAST);
+		msm_rpm_write(MSM_RPM_PAGE_REQ,
+				target_enum(req[i].id), req[i].value);
 	}
 
 	msm_rpm_write_contiguous(MSM_RPM_PAGE_CTRL,
-		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
+		target_ctrl(MSM_RPM_CTRL_REQ_SEL_0),
+		sel_masks, msm_rpm_sel_mask_size);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL,
+		target_ctrl(MSM_RPM_CTRL_REQ_CTX_0), ctx_mask);
 
 	/* Ensure RPM data is written before sending the interrupt */
 	mb();
@@ -317,11 +351,11 @@ static int msm_rpm_set_exclusive(int ctx,
 static int msm_rpm_set_exclusive_noirq(int ctx,
 	uint32_t *sel_masks, struct msm_rpm_iv_pair *req, int count)
 {
-	unsigned int irq = msm_rpm_platform->irq_ack;
+	unsigned int irq = msm_rpm_data.irq_ack;
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
 	uint32_t ctx_mask_ack = 0;
-	uint32_t sel_masks_ack[MSM_RPM_SEL_MASK_SIZE];
+	uint32_t sel_masks_ack[SEL_MASK_SIZE];
 	struct irq_chip *irq_chip = NULL;
 	int i;
 
@@ -347,13 +381,16 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_request = &msm_rpm_request_poll_mode;
 
 	for (i = 0; i < count; i++) {
-		BUG_ON(req[i].id > MSM_RPM_ID_LAST);
-		msm_rpm_write(MSM_RPM_PAGE_REQ, req[i].id, req[i].value);
+		BUG_ON(target_enum(req[i].id) >= MSM_RPM_ID_LAST);
+		msm_rpm_write(MSM_RPM_PAGE_REQ,
+				target_enum(req[i].id), req[i].value);
 	}
 
 	msm_rpm_write_contiguous(MSM_RPM_PAGE_CTRL,
-		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
+		target_ctrl(MSM_RPM_CTRL_REQ_SEL_0),
+		sel_masks, msm_rpm_sel_mask_size);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL,
+		target_ctrl(MSM_RPM_CTRL_REQ_CTX_0), ctx_mask);
 
 	/* Ensure RPM data is written before sending the interrupt */
 	mb();
@@ -385,15 +422,11 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 static int msm_rpm_set_common(
 	int ctx, struct msm_rpm_iv_pair *req, int count, bool noirq)
 {
-	uint32_t sel_masks[MSM_RPM_SEL_MASK_SIZE] = {};
+	uint32_t sel_masks[SEL_MASK_SIZE] = {};
 	int rc;
 
-	if (!msm_rpm_platform) {
-		if (cpu_is_apq8064())
-			return 0;
-		else
-			return -ENODEV;
-	}
+	if (cpu_is_apq8064())
+		return 0;
 
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
@@ -433,17 +466,13 @@ set_common_exit:
 static int msm_rpm_clear_common(
 	int ctx, struct msm_rpm_iv_pair *req, int count, bool noirq)
 {
-	uint32_t sel_masks[MSM_RPM_SEL_MASK_SIZE] = {};
-	struct msm_rpm_iv_pair r[MSM_RPM_SEL_MASK_SIZE];
+	uint32_t sel_masks[SEL_MASK_SIZE] = {};
+	struct msm_rpm_iv_pair r[SEL_MASK_SIZE];
 	int rc;
 	int i;
 
-	if (!msm_rpm_platform) {
-		if (cpu_is_apq8064())
-			return 0;
-		else
-			return -ENODEV;
-	}
+	if (cpu_is_apq8064())
+		return 0;
 
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
@@ -460,8 +489,8 @@ static int msm_rpm_clear_common(
 	}
 
 	memset(sel_masks, 0, sizeof(sel_masks));
-	sel_masks[msm_rpm_get_sel_mask_reg(MSM_RPM_SEL_INVALIDATE)] |=
-		msm_rpm_get_sel_mask(MSM_RPM_SEL_INVALIDATE);
+	sel_masks[msm_rpm_get_sel_mask_reg(msm_rpm_data.sel_invalidate)] |=
+		msm_rpm_get_sel_mask(msm_rpm_data.sel_invalidate);
 
 	if (noirq) {
 		unsigned long flags;
@@ -492,12 +521,14 @@ static void msm_rpm_update_notification(uint32_t ctx,
 	struct msm_rpm_notif_config *curr_cfg,
 	struct msm_rpm_notif_config *new_cfg)
 {
+	unsigned int sel_notif = msm_rpm_data.sel_notification;
+
 	if (memcmp(curr_cfg, new_cfg, sizeof(*new_cfg))) {
-		uint32_t sel_masks[MSM_RPM_SEL_MASK_SIZE] = {};
+		uint32_t sel_masks[SEL_MASK_SIZE] = {};
 		int rc;
 
-		sel_masks[msm_rpm_get_sel_mask_reg(MSM_RPM_SEL_NOTIFICATION)]
-			|= msm_rpm_get_sel_mask(MSM_RPM_SEL_NOTIFICATION);
+		sel_masks[msm_rpm_get_sel_mask_reg(sel_notif)]
+			|= msm_rpm_get_sel_mask(sel_notif);
 
 		rc = msm_rpm_set_exclusive(ctx,
 			sel_masks, new_cfg->iv, ARRAY_SIZE(new_cfg->iv));
@@ -519,7 +550,7 @@ static void msm_rpm_initialize_notification(void)
 	for (ctx = MSM_RPM_CTX_SET_0; ctx <= MSM_RPM_CTX_SET_SLEEP; ctx++) {
 		cfg = msm_rpm_notif_cfgs[ctx];
 
-		for (i = 0; i < MSM_RPM_SEL_MASK_SIZE; i++) {
+		for (i = 0; i < msm_rpm_sel_mask_size; i++) {
 			configured_iv(&cfg)[i].id =
 				MSM_RPM_ID_NOTIFICATION_CONFIGURED_0 + i;
 			configured_iv(&cfg)[i].value = ~0UL;
@@ -581,28 +612,36 @@ int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
 	int rc;
 	int i;
 
-	if (!msm_rpm_platform) {
-		if (cpu_is_apq8064())
-			return 0;
-		else
-			return -ENODEV;
-	}
+	if (cpu_is_apq8064())
+		return 0;
 
 	seq_begin = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-				MSM_RPM_STATUS_ID_SEQUENCE);
+				target_status(MSM_RPM_STATUS_ID_SEQUENCE));
 
 	for (i = 0; i < count; i++) {
-		if (status[i].id > MSM_RPM_STATUS_ID_LAST) {
+		int target_status_id;
+
+		if (status[i].id >= MSM_RPM_STATUS_ID_LAST) {
+			pr_err("%s(): Status ID beyond limits\n", __func__);
+			rc = -EINVAL;
+			goto get_status_exit;
+		}
+
+		target_status_id = target_status(status[i].id);
+		if (target_status_id >= MSM_RPM_STATUS_ID_LAST) {
+			pr_err("%s(): Status id %d not defined for target\n",
+					__func__,
+					target_status_id);
 			rc = -EINVAL;
 			goto get_status_exit;
 		}
 
 		status[i].value = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-						status[i].id);
+				target_status_id);
 	}
 
 	seq_end = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-				MSM_RPM_STATUS_ID_SEQUENCE);
+				target_status(MSM_RPM_STATUS_ID_SEQUENCE));
 
 	rc = (seq_begin != seq_end || (seq_begin & 0x01)) ? -EBUSY : 0;
 
@@ -729,12 +768,8 @@ int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	int rc;
 	int i;
 
-	if (!msm_rpm_platform) {
-		if (cpu_is_apq8064())
-			return 0;
-		else
-			return -ENODEV;
-	}
+	if (cpu_is_apq8064())
+		return 0;
 
 	INIT_LIST_HEAD(&n->list);
 	rc = msm_rpm_fill_sel_masks(n->sel_masks, req, count);
@@ -757,7 +792,7 @@ int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	ctx = MSM_RPM_CTX_SET_0;
 	cfg = msm_rpm_notif_cfgs[ctx];
 
-	for (i = 0; i < MSM_RPM_SEL_MASK_SIZE; i++)
+	for (i = 0; i < msm_rpm_sel_mask_size; i++)
 		registered_iv(&cfg)[i].value |= n->sel_masks[i];
 
 	msm_rpm_update_notification(ctx, &msm_rpm_notif_cfgs[ctx], &cfg);
@@ -788,12 +823,8 @@ int msm_rpm_unregister_notification(struct msm_rpm_notification *n)
 	int rc;
 	int i;
 
-	if (!msm_rpm_platform) {
-		if (cpu_is_apq8064())
-			return 0;
-		else
-			return -ENODEV;
-	}
+	if (cpu_is_apq8064())
+		return 0;
 
 	rc = mutex_lock_interruptible(&msm_rpm_mutex);
 	if (rc)
@@ -802,13 +833,13 @@ int msm_rpm_unregister_notification(struct msm_rpm_notification *n)
 	ctx = MSM_RPM_CTX_SET_0;
 	cfg = msm_rpm_notif_cfgs[ctx];
 
-	for (i = 0; i < MSM_RPM_SEL_MASK_SIZE; i++)
+	for (i = 0; i < msm_rpm_sel_mask_size; i++)
 		registered_iv(&cfg)[i].value = 0;
 
 	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
 	list_del(&n->list);
 	list_for_each_entry(n, &msm_rpm_notifications, list)
-		for (i = 0; i < MSM_RPM_SEL_MASK_SIZE; i++)
+		for (i = 0; i < msm_rpm_sel_mask_size; i++)
 			registered_iv(&cfg)[i].value |= n->sel_masks[i];
 	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 
@@ -826,7 +857,7 @@ static ssize_t driver_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u.%u.%u\n",
-			RPM_MAJOR_VER, RPM_MINOR_VER, RPM_BUILD_VER);
+		msm_rpm_data.ver[0], msm_rpm_data.ver[1], msm_rpm_data.ver[2]);
 }
 
 static ssize_t fw_version_show(struct kobject *kobj,
@@ -869,18 +900,49 @@ static struct platform_driver msm_rpm_platform_driver = {
 	},
 };
 
-static void __init msm_rpm_populate_map(void)
+static void __init msm_rpm_populate_map(struct msm_rpm_platform_data *data)
 {
-	int i, k;
+	int i, j;
+	struct msm_rpm_map_data *src = NULL;
+	struct msm_rpm_map_data *dst = NULL;
 
-	for (i = 0; i < ARRAY_SIZE(msm_rpm_map); i++)
-		msm_rpm_map[i] = MSM_RPM_SEL_LAST + 1;
+	for (i = 0; i < MSM_RPM_ID_LAST;) {
+		src = &data->target_id[i];
+		dst = &msm_rpm_data.target_id[i];
 
-	for (i = 0; i < rpm_map_data_size; i++) {
-		struct msm_rpm_map_data *raw_data = &rpm_map_data[i];
+		dst->id = MSM_RPM_ID_LAST;
+		dst->sel = msm_rpm_data.sel_last + 1;
 
-		for (k = 0; k < raw_data->count; k++)
-			msm_rpm_map[raw_data->id + k] = raw_data->sel;
+		/*
+		 * copy the target specific id of the current and also of
+		 * all the #count id's that follow the current.
+		 * [MSM_RPM_ID_PM8921_S1_0] = { MSM_RPM_8960_ID_PM8921_S1_0,
+		 *				MSM_RPM_8960_SEL_PM8921_S1,
+		 *				2},
+		 * [MSM_RPM_ID_PM8921_S1_1] = { 0, 0, 0 },
+		 * should translate to
+		 * [MSM_RPM_ID_PM8921_S1_0] = { MSM_RPM_8960_ID_PM8921_S1_0,
+		 *				MSM_RPM_8960_SEL_PM8921,
+		 *				2 },
+		 * [MSM_RPM_ID_PM8921_S1_1] = { MSM_RPM_8960_ID_PM8921_S1_0 + 1,
+		 *				MSM_RPM_8960_SEL_PM8921,
+		 *				0 },
+		 */
+		for (j = 0; j < src->count; j++) {
+			dst = &msm_rpm_data.target_id[i + j];
+			dst->id = src->id + j;
+			dst->sel = src->sel;
+		}
+
+		i += (src->count) ? src->count : 1;
+	}
+
+	for (i = 0; i < MSM_RPM_STATUS_ID_LAST; i++) {
+		if (data->target_status[i] & MSM_RPM_STATUS_ID_VALID)
+			msm_rpm_data.target_status[i] &=
+				~MSM_RPM_STATUS_ID_VALID;
+		else
+			msm_rpm_data.target_status[i] = MSM_RPM_STATUS_ID_LAST;
 	}
 }
 
@@ -892,33 +954,37 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	if (cpu_is_apq8064())
 		return 0;
 
-	msm_rpm_platform = data;
+	memcpy(&msm_rpm_data, data, sizeof(struct msm_rpm_platform_data));
+	msm_rpm_sel_mask_size = msm_rpm_data.sel_last / 32 + 1;
+	BUG_ON(SEL_MASK_SIZE < msm_rpm_sel_mask_size);
 
 	fw_major = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-					MSM_RPM_STATUS_ID_VERSION_MAJOR);
+				target_status(MSM_RPM_STATUS_ID_VERSION_MAJOR));
 	fw_minor = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-					MSM_RPM_STATUS_ID_VERSION_MINOR);
+				target_status(MSM_RPM_STATUS_ID_VERSION_MINOR));
 	fw_build = msm_rpm_read(MSM_RPM_PAGE_STATUS,
-					MSM_RPM_STATUS_ID_VERSION_BUILD);
+				target_status(MSM_RPM_STATUS_ID_VERSION_BUILD));
 	pr_info("%s: RPM firmware %u.%u.%u\n", __func__,
 			fw_major, fw_minor, fw_build);
 
-	if (fw_major != RPM_MAJOR_VER) {
+	if (fw_major != msm_rpm_data.ver[0]) {
 		pr_err("%s: RPM version %u.%u.%u incompatible with "
 				"this driver version %u.%u.%u\n", __func__,
 				fw_major, fw_minor, fw_build,
-				RPM_MAJOR_VER, RPM_MINOR_VER, RPM_BUILD_VER);
+				msm_rpm_data.ver[0],
+				msm_rpm_data.ver[1],
+				msm_rpm_data.ver[2]);
 		return -EFAULT;
 	}
 
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MAJOR,
-			RPM_MAJOR_VER);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MINOR,
-			RPM_MINOR_VER);
-	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_BUILD,
-			RPM_BUILD_VER);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL,
+		target_ctrl(MSM_RPM_CTRL_VERSION_MAJOR), msm_rpm_data.ver[0]);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL,
+		target_ctrl(MSM_RPM_CTRL_VERSION_MINOR), msm_rpm_data.ver[1]);
+	msm_rpm_write(MSM_RPM_PAGE_CTRL,
+		target_ctrl(MSM_RPM_CTRL_VERSION_BUILD), msm_rpm_data.ver[2]);
 
-	irq = msm_rpm_platform->irq_ack;
+	irq = data->irq_ack;
 
 	rc = request_irq(irq, msm_rpm_ack_interrupt,
 			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
@@ -936,7 +1002,7 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 		return rc;
 	}
 
-	msm_rpm_populate_map();
+	msm_rpm_populate_map(data);
 
 	return platform_driver_register(&msm_rpm_platform_driver);
 }
