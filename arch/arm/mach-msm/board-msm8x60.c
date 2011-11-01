@@ -2210,6 +2210,10 @@ struct platform_device msm_camera_sensor_mt9e013 = {
 #endif
 
 #ifdef CONFIG_IMX074
+static struct msm_camera_sensor_platform_info imx074_sensor_board_info = {
+	.mount_angle = 180
+};
+
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type		= MSM_CAMERA_FLASH_LED,
 	.flash_src		= &msm_flash_src
@@ -2226,7 +2230,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.num_resources		= ARRAY_SIZE(msm_camera_resources),
 	.flash_data		= &flash_imx074,
 	.strobe_flash_data	= &strobe_flash_xenon,
-	.sensor_platform_info = &sensor_board_info,
+	.sensor_platform_info = &imx074_sensor_board_info,
 	.csi_if			= 1
 };
 struct platform_device msm_camera_sensor_imx074 = {
