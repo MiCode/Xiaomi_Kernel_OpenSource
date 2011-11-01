@@ -147,7 +147,7 @@ static void hci_smd_recv_data(unsigned long arg)
 			goto out_data;
 		}
 
-		rc = smd_read_from_cb(hsmd->data_channel, (void *)buf, len);
+		rc = smd_read(hsmd->data_channel, (void *)buf, len);
 		if (rc < len) {
 			BT_ERR("Error in reading from the channel");
 			goto out_data;
@@ -220,7 +220,7 @@ static void hci_smd_recv_event(unsigned long arg)
 			rc = -ENOMEM;
 			goto out_event;
 		}
-		rc = smd_read_from_cb(hsmd->event_channel, (void *)buf, len);
+		rc = smd_read(hsmd->event_channel, (void *)buf, len);
 		if (rc < len) {
 			BT_ERR("Error in reading from the event channel");
 			goto out_event;
