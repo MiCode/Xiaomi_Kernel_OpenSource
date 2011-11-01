@@ -16,7 +16,7 @@
 /* #define REG_DUMP */
 
 #define CEC_MSG_PRINT
-/* #define CEC_COMPLIANCE_TESTING */
+#define TOGGLE_CEC_HARDWARE_FSM
 
 #include <linux/types.h>
 #include <linux/bitops.h>
@@ -69,6 +69,11 @@ static void hdmi_msm_hpd_off(void);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 
+#ifdef TOGGLE_CEC_HARDWARE_FSM
+static boolean msg_send_complete = TRUE;
+static boolean msg_recv_complete = TRUE;
+#endif
+
 #define HDMI_MSM_CEC_REFTIMER_REFTIMER_ENABLE	BIT(16)
 #define HDMI_MSM_CEC_REFTIMER_REFTIMER(___t)	(((___t)&0xFFFF) << 0)
 
@@ -97,10 +102,9 @@ static void hdmi_msm_hpd_off(void);
 #define HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT		BIT(0)
 
 #define HDMI_MSM_CEC_FRAME_WR_SUCCESS(___st)         (((___st)&0xF) ==\
-		(HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT &&\
-			HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK &&\
-			(HDMI_MSM_CEC_INT_FRAME_ERROR_MASK &&\
-				!(HDMI_MSM_CEC_INT_FRAME_ERROR_INT))))
+		(HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT |\
+			HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK |\
+			HDMI_MSM_CEC_INT_FRAME_ERROR_MASK))
 
 #define HDMI_MSM_CEC_RETRANSMIT_NUM(___num)		(((___num)&0xF) << 4)
 #define HDMI_MSM_CEC_RETRANSMIT_ENABLE		BIT(0)
@@ -193,6 +197,10 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 
 	boolean frameType = (msg->recvr_id == 15 ? BIT(0) : 0);
 
+#ifdef TOGGLE_CEC_HARDWARE_FSM
+	msg_send_complete = FALSE;
+#endif
+
 	INIT_COMPLETION(hdmi_msm_state->cec_frame_wr_done);
 	hdmi_msm_state->cec_frame_wr_status = 0;
 
@@ -251,13 +259,23 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 			msg->frame_size);
 		hdmi_msm_dump_cec_msg(msg);
 	}
+
+#ifdef TOGGLE_CEC_HARDWARE_FSM
+	if (!msg_recv_complete) {
+		/* Toggle CEC hardware FSM */
+		HDMI_OUTP(0x028C, 0x0);
+		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+		msg_recv_complete = TRUE;
+	}
+	msg_send_complete = TRUE;
+#endif
 }
 
 void hdmi_msm_cec_msg_recv(void)
 {
 	uint32 data;
 	int i;
-#ifdef CEC_COMPLIANCE_TESTING
+#ifdef DRVR_ONLY_CECT_NO_DAEMON
 	struct hdmi_msm_cec_msg temp_msg;
 #endif
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -265,7 +283,7 @@ void hdmi_msm_cec_msg_recv(void)
 		&& hdmi_msm_state->cec_queue_full) {
 		mutex_unlock(&hdmi_msm_state_mutex);
 		DEV_ERR("CEC message queue is overflowing\n");
-#ifdef CEC_COMPLIANCE_TESTING
+#ifdef DRVR_ONLY_CECT_NO_DAEMON
 		/*
 		 * Without CEC daemon:
 		 * Compliance tests fail once the queue gets filled up.
@@ -325,7 +343,7 @@ void hdmi_msm_cec_msg_recv(void)
 	hdmi_msm_dump_cec_msg(hdmi_msm_state->cec_queue_wr);
 	DEV_DBG("=======================================\n");
 
-#ifdef CEC_COMPLIANCE_TESTING
+#ifdef DRVR_ONLY_CECT_NO_DAEMON
 	switch (hdmi_msm_state->cec_queue_wr->opcode) {
 	case 0x64:
 		/* Set OSD String */
@@ -490,7 +508,7 @@ void hdmi_msm_cec_msg_recv(void)
 #endif /* __SEND_ABORT__ */
 	}
 
-#endif /* CEC_COMPLIANCE_TESTING */
+#endif /* DRVR_ONLY_CECT_NO_DAEMON */
 	mutex_lock(&hdmi_msm_state_mutex);
 	hdmi_msm_state->cec_queue_wr++;
 	if (hdmi_msm_state->cec_queue_wr == CEC_QUEUE_END)
@@ -1099,9 +1117,11 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	}
 	if ((cec_intr_status & (1 << 2)) && (cec_intr_status & (1 << 3))) {
 		DEV_DBG("CEC_IRQ_FRAME_ERROR\n");
+#ifdef TOGGLE_CEC_HARDWARE_FSM
 		/* Toggle CEC hardware FSM */
 		HDMI_OUTP(0x028C, 0x0);
 		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+#endif
 		HDMI_OUTP(0x029C, cec_intr_status);
 		mutex_lock(&hdmi_msm_state_mutex);
 		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_ERROR;
@@ -1119,9 +1139,15 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 			HDMI_MSM_CEC_INT_FRAME_RD_DONE_ACK);
 		hdmi_msm_cec_msg_recv();
 
-		/* Toggle CEC hardware FSM */
-		HDMI_OUTP(0x028C, 0x0);
-		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+#ifdef TOGGLE_CEC_HARDWARE_FSM
+		if (!msg_send_complete)
+			msg_recv_complete = FALSE;
+		else {
+			/* Toggle CEC hardware FSM */
+			HDMI_OUTP(0x028C, 0x0);
+			HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+		}
+#endif
 
 		return IRQ_HANDLED;
 	}
