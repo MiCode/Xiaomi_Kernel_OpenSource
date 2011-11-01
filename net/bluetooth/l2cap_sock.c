@@ -750,7 +750,7 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 			break;
 		}
 
-		if ((opt > BT_AMP_POLICY_PREFER_BR_EDR) ||
+		if ((opt > BT_AMP_POLICY_PREFER_AMP) ||
 			((l2cap_pi(sk)->mode != L2CAP_MODE_ERTM) &&
 			 (l2cap_pi(sk)->mode != L2CAP_MODE_STREAMING))) {
 			err = -EINVAL;
