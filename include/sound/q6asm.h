@@ -147,6 +147,8 @@ void q6asm_audio_client_free(struct audio_client *ac);
 
 struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv);
 
+struct audio_client *q6asm_get_audio_client(int session_id);
+
 int q6asm_audio_client_buf_alloc(unsigned int dir/* 1:Out,0:In */,
 				struct audio_client *ac,
 				unsigned int bufsz,
