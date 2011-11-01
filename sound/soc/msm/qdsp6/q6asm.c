@@ -1202,6 +1202,9 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	case FORMAT_WMA_V10PRO:
 		open.format = WMA_V10PRO;
 		break;
+	case FORMAT_MP3:
+		open.format = MP3;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
@@ -1865,7 +1868,26 @@ int q6asm_media_format_block(struct audio_client *ac, uint32_t format)
 
 	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
 	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
-	fmt.format = format;
+	switch (format) {
+	case FORMAT_V13K:
+		fmt.format = V13K_FS;
+		break;
+	case FORMAT_EVRC:
+		fmt.format = EVRC_FS;
+		break;
+	case FORMAT_AMRWB:
+		fmt.format = AMRWB_FS;
+		break;
+	case FORMAT_AMRNB:
+		fmt.format = AMRNB_FS;
+		break;
+	case FORMAT_MP3:
+		fmt.format = MP3;
+		break;
+	default:
+		pr_err("Invalid format[%d]\n", format);
+		goto fail_cmd;
+	}
 	fmt.cfg_size = 0;
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
