@@ -444,7 +444,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 	event->wIndex = cpu_to_le16(dev->ifc_id);
 	event->wLength = cpu_to_le16(0);
 
-	status = usb_ep_queue(dev->notify, dev->notify_req, GFP_KERNEL);
+	status = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
 	if (status < 0) {
 		if (!atomic_read(&dev->online))
 			return;
@@ -789,8 +789,12 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->cdev = c->cdev;
 	f = &dev->port.func;
-	f->name = kasprintf(GFP_KERNEL, "rmnet%d", portno);
+	f->name = kasprintf(GFP_ATOMIC, "rmnet%d", portno);
 	spin_unlock_irqrestore(&dev->lock, flags);
+	if (!f->name) {
+		pr_err("%s: cannot allocate memory for name\n", __func__);
+		return -ENOMEM;
+	}
 
 	f->strings = rmnet_strings;
 	f->bind = frmnet_bind;
