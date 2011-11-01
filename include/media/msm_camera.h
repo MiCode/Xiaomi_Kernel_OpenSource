@@ -726,6 +726,89 @@ struct msm_snapshot_pp_status {
 #define CAMERA_EFFECT_NEON		11
 #define CAMERA_EFFECT_MAX		12
 
+/* QRD */
+#define CAMERA_EFFECT_BW		10
+#define CAMERA_EFFECT_BLUISH	12
+#define CAMERA_EFFECT_REDDISH	13
+#define CAMERA_EFFECT_GREENISH	14
+
+/* QRD */
+#define CAMERA_ANTIBANDING_OFF		0
+#define CAMERA_ANTIBANDING_50HZ		2
+#define CAMERA_ANTIBANDING_60HZ		1
+#define CAMERA_ANTIBANDING_AUTO		3
+
+#define CAMERA_CONTRAST_LV0			0
+#define CAMERA_CONTRAST_LV1			1
+#define CAMERA_CONTRAST_LV2			2
+#define CAMERA_CONTRAST_LV3			3
+#define CAMERA_CONTRAST_LV4			4
+#define CAMERA_CONTRAST_LV5			5
+#define CAMERA_CONTRAST_LV6			6
+#define CAMERA_CONTRAST_LV7			7
+#define CAMERA_CONTRAST_LV8			8
+#define CAMERA_CONTRAST_LV9			9
+
+#define CAMERA_BRIGHTNESS_LV0			0
+#define CAMERA_BRIGHTNESS_LV1			1
+#define CAMERA_BRIGHTNESS_LV2			2
+#define CAMERA_BRIGHTNESS_LV3			3
+#define CAMERA_BRIGHTNESS_LV4			4
+#define CAMERA_BRIGHTNESS_LV5			5
+#define CAMERA_BRIGHTNESS_LV6			6
+#define CAMERA_BRIGHTNESS_LV7			7
+#define CAMERA_BRIGHTNESS_LV8			8
+
+
+#define CAMERA_SATURATION_LV0			0
+#define CAMERA_SATURATION_LV1			1
+#define CAMERA_SATURATION_LV2			2
+#define CAMERA_SATURATION_LV3			3
+#define CAMERA_SATURATION_LV4			4
+#define CAMERA_SATURATION_LV5			5
+#define CAMERA_SATURATION_LV6			6
+#define CAMERA_SATURATION_LV7			7
+#define CAMERA_SATURATION_LV8			8
+
+#define CAMERA_SHARPNESS_LV0		0
+#define CAMERA_SHARPNESS_LV1		3
+#define CAMERA_SHARPNESS_LV2		6
+#define CAMERA_SHARPNESS_LV3		9
+#define CAMERA_SHARPNESS_LV4		12
+#define CAMERA_SHARPNESS_LV5		15
+#define CAMERA_SHARPNESS_LV6		18
+#define CAMERA_SHARPNESS_LV7		21
+#define CAMERA_SHARPNESS_LV8		24
+#define CAMERA_SHARPNESS_LV9		27
+#define CAMERA_SHARPNESS_LV10		30
+
+#define CAMERA_SETAE_AVERAGE		0
+#define CAMERA_SETAE_CENWEIGHT	1
+
+#define CFG_SET_SATURATION		30
+#define CFG_SET_SHARPNESS			31
+#define CFG_SET_TOUCHAEC            32
+#define CFG_SET_AUTO_FOCUS          33
+#define CFG_SET_AUTOFLASH 34
+/* QRD */
+#define CFG_SET_EXPOSURE_COMPENSATION 35
+
+#define  CAMERA_WB_AUTO               1 /* This list must match aeecamera.h */
+#define  CAMERA_WB_CUSTOM             2
+#define  CAMERA_WB_INCANDESCENT       3
+#define  CAMERA_WB_FLUORESCENT        4
+#define  CAMERA_WB_DAYLIGHT           5
+#define  CAMERA_WB_CLOUDY_DAYLIGHT    6
+#define  CAMERA_WB_TWILIGHT           7
+#define  CAMERA_WB_SHADE              8
+
+#define CAMERA_EXPOSURE_COMPENSATION_LV0			12
+#define CAMERA_EXPOSURE_COMPENSATION_LV1			6
+#define CAMERA_EXPOSURE_COMPENSATION_LV2			0
+#define CAMERA_EXPOSURE_COMPENSATION_LV3			-6
+#define CAMERA_EXPOSURE_COMPENSATION_LV4			-12
+
+
 struct sensor_pict_fps {
 	uint16_t prevfps;
 	uint16_t pictfps;
@@ -836,6 +919,16 @@ struct sensor_eeprom_data_t {
 	uint16_t index;
 };
 
+struct mirror_flip {
+	int32_t x_mirror;
+	int32_t y_flip;
+};
+
+struct cord {
+	uint32_t x;
+	uint32_t y;
+};
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -861,6 +954,18 @@ struct sensor_cfg_data {
 		struct sensor_calib_data calib_info;
 		struct sensor_output_info_t output_info;
 		struct sensor_eeprom_data_t eeprom_data;
+		/* QRD */
+		uint16_t antibanding;
+		uint8_t contrast;
+		uint8_t saturation;
+		uint8_t sharpness;
+		int8_t brightness;
+		int ae_mode;
+		uint8_t wb_val;
+		int8_t exp_compensation;
+		struct cord aec_cord;
+		int is_autoflash;
+		struct mirror_flip mirror_flip;
 	} cfg;
 };
 
