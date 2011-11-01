@@ -22,9 +22,7 @@
 #include <linux/mfd/pm8xxx/misc.h>
 
 /* PON CTRL 1 register */
-#define REG_PM8058_PON_CTRL_1			0x01C
-#define REG_PM8921_PON_CTRL_1			0x01C
-#define REG_PM8018_PON_CTRL_1			0x01C
+#define REG_PM8XXX_PON_CTRL_1			0x01C
 
 #define PON_CTRL_1_PULL_UP_MASK			0xE0
 #define PON_CTRL_1_USB_PWR_EN			0x10
@@ -307,7 +305,7 @@ static int __pm8018_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8018_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -364,7 +362,7 @@ static int __pm8058_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8058_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -424,7 +422,7 @@ static int __pm8921_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8921_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -676,6 +674,52 @@ int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
 	return rc;
 }
 EXPORT_SYMBOL(pm8xxx_coincell_chg_config);
+
+/**
+ * pm8xxx_watchdog_reset_control - enables/disables watchdog reset detection
+ * @enable: 0 = shutdown when PS_HOLD goes low, 1 = reset when PS_HOLD goes low
+ *
+ * This function enables or disables the PMIC watchdog reset detection feature.
+ * If watchdog reset detection is enabled, then the PMIC will reset itself
+ * when PS_HOLD goes low.  If it is not enabled, then the PMIC will shutdown
+ * when PS_HOLD goes low.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_watchdog_reset_control(int enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_WD_EN_MASK,
+				(enable ? PON_CTRL_1_WD_EN_RESET
+					   : PON_CTRL_1_WD_EN_PWR_OFF));
+			break;
+		default:
+			/* WD reset control not supported */
+			break;
+		}
+		if (rc) {
+			pr_err("setting WD reset control failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_watchdog_reset_control);
 
 /* Handle the OSC_HALT interrupt: 32 kHz XTAL oscillator has stopped. */
 static irqreturn_t pm8xxx_osc_halt_isr(int irq, void *data)

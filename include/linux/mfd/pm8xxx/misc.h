@@ -117,6 +117,19 @@ int pm8xxx_smpl_control(int enable);
  */
 int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay);
 
+/**
+ * pm8xxx_watchdog_reset_control - enables/disables watchdog reset detection
+ * @enable: 0 = shutdown when PS_HOLD goes low, 1 = reset when PS_HOLD goes low
+ *
+ * This function enables or disables the PMIC watchdog reset detection feature.
+ * If watchdog reset detection is enabled, then the PMIC will reset itself
+ * when PS_HOLD goes low.  If it is not enabled, then the PMIC will shutdown
+ * when PS_HOLD goes low.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_watchdog_reset_control(int enable);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -138,6 +151,10 @@ static inline int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
 	return -ENODEV;
 }
 static inline int pm8xxx_smpl_control(int enable)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_watchdog_reset_control(int enable)
 {
 	return -ENODEV;
 }
