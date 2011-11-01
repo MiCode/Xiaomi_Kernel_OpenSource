@@ -7563,7 +7563,7 @@ static void __init msm8x60_init_tlmm(void)
 	|| defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC5_SUPPORT))
 
-/* 8x60 is having 5 SDCC controllers */
+/* 8x60 has 5 SDCC controllers */
 #define MAX_SDCC_CONTROLLER	5
 
 struct msm_sdcc_gpio {
@@ -7887,7 +7887,7 @@ struct sdcc_reg {
 	unsigned int lpm_uA;
 	unsigned int hpm_uA;
 };
-/* all SDCC controllers requires VDD/VCC voltage */
+/* all SDCC controllers require VDD/VCC voltage */
 static struct sdcc_reg sdcc_vdd_reg_data[MAX_SDCC_CONTROLLER];
 /* only SDCC1 requires VCCQ voltage */
 static struct sdcc_reg sdcc_vccq_reg_data[1];
@@ -7900,7 +7900,7 @@ struct sdcc_reg_data {
 	struct sdcc_reg *vddp_data; /* keeps VDD Pad regulator info */
 	unsigned char sts; /* regulator enable/disable status */
 };
-/* msm8x60 have 5 SDCC controllers */
+/* msm8x60 has 5 SDCC controllers */
 static struct sdcc_reg_data sdcc_vreg_data[MAX_SDCC_CONTROLLER];
 
 static int msm_sdcc_vreg_init_reg(struct sdcc_reg *vreg)

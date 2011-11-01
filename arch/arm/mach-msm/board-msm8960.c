@@ -2716,7 +2716,7 @@ static void __init msm8960_init_irq(void)
 	}
 }
 
-/* MSM8960 have 5 SDCC controllers */
+/* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
 	SDCC2,
@@ -2726,7 +2726,7 @@ enum sdcc_controllers {
 	MAX_SDCC_CONTROLLER
 };
 
-/* All SDCC controllers requires VDD/VCC voltage */
+/* All SDCC controllers require VDD/VCC voltage */
 static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
