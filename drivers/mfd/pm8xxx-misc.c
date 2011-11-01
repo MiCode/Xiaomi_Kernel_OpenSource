@@ -119,6 +119,12 @@
 
 #define COINCELL_RESISTOR_SHIFT			0x2
 
+/* GP TEST register */
+#define REG_PM8XXX_GP_TEST_1			0x07A
+
+/* Stay on configuration */
+#define PM8XXX_STAY_ON_CFG			0x92
+
 /* GPIO UART MUX CTRL registers */
 #define REG_PM8XXX_GPIO_MUX_CTRL		0x1CC
 
@@ -737,6 +743,50 @@ int pm8xxx_watchdog_reset_control(int enable)
 	return rc;
 }
 EXPORT_SYMBOL(pm8xxx_watchdog_reset_control);
+
+/**
+ * pm8xxx_stay_on - enables stay_on feature
+ *
+ * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
+ * signal so that some special functions like debugging could be
+ * performed.
+ *
+ * This feature should not be used in any product release.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_stay_on(void)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_writeb(chip->dev->parent,
+				REG_PM8XXX_GP_TEST_1, PM8XXX_STAY_ON_CFG);
+			break;
+		default:
+			/* stay on not supported */
+			break;
+		}
+		if (rc) {
+			pr_err("stay_on failed failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_stay_on);
 
 static int
 __pm8xxx_hard_reset_config(struct pm8xxx_misc_chip *chip,

@@ -147,6 +147,19 @@ int pm8xxx_watchdog_reset_control(int enable);
  */
 int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config);
 
+/**
+ * pm8xxx_stay_on - enables stay_on feature
+ *
+ * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
+ * signal so that some special functions like debugging could be
+ * performed.
+ *
+ * This feature should not be used in any product release.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_stay_on(void);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -176,6 +189,10 @@ static inline int pm8xxx_watchdog_reset_control(int enable)
 	return -ENODEV;
 }
 static inline int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_stay_on(void)
 {
 	return -ENODEV;
 }
