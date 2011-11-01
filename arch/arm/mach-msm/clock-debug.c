@@ -174,7 +174,7 @@ static int list_rates_show(struct seq_file *m, void *unused)
 
 	/* Find max frequency supported within voltage constraints. */
 	if (!clock->vdd_class) {
-		fmax = ULONG_MAX;
+		fmax = INT_MAX;
 	} else {
 		for (level = 0; level < ARRAY_SIZE(clock->fmax); level++)
 			if (clock->fmax[level])
