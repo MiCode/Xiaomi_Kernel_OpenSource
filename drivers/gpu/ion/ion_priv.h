@@ -72,6 +72,7 @@ struct ion_buffer {
 	int dmap_cnt;
 	struct scatterlist *sglist;
 	int umap_cnt;
+	int marked;
 };
 
 /**
