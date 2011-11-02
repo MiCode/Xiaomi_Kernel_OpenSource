@@ -262,7 +262,10 @@ static void msm_hs_release_port(struct uart_port *port)
 		gsbi_resource = platform_get_resource_byname(pdev,
 							     IORESOURCE_MEM,
 							     "gsbi_resource");
-		size = gsbi_resource->end - gsbi_resource->start + 1;
+		if (unlikely(!gsbi_resource))
+			return;
+
+		size = resource_size(gsbi_resource);
 		release_mem_region(gsbi_resource->start, size);
 		iounmap(msm_uport->mapped_gsbi);
 		msm_uport->mapped_gsbi = NULL;
@@ -280,7 +283,7 @@ static int msm_hs_request_port(struct uart_port *port)
 						     IORESOURCE_MEM,
 						     "gsbi_resource");
 	if (gsbi_resource) {
-		size = gsbi_resource->end - gsbi_resource->start + 1;
+		size = resource_size(gsbi_resource);
 		if (unlikely(!request_mem_region(gsbi_resource->start, size,
 						 "msm_serial_hs")))
 			return -EBUSY;
