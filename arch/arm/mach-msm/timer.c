@@ -336,6 +336,7 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 	struct msm_clock *clock;
 	struct msm_clock_percpu_data *clock_state, *gpt_state;
 	unsigned long irq_flags;
+	struct irq_chip *chip;
 
 	clock = clockevent_to_clock(evt);
 	clock_state = &__get_cpu_var(msm_clocks_percpu)[clock->index];
@@ -355,11 +356,9 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		get_cpu_var(msm_active_clock) = clock;
 		put_cpu_var(msm_active_clock);
 		__raw_writel(TIMER_ENABLE_EN, clock->regbase + TIMER_ENABLE);
-		if (irq_get_chip(clock->irq.irq) &&
-		   irq_get_chip(clock->irq.irq)->irq_unmask) {
-			irq_get_chip(clock->irq.irq)->irq_unmask(
-				irq_get_irq_data(clock->irq.irq));
-		}
+		chip = irq_get_chip(clock->irq.irq);
+		if (chip && chip->irq_unmask)
+			chip->irq_unmask(irq_get_irq_data(clock->irq.irq));
 		if (clock != &msm_clocks[MSM_CLOCK_GPT])
 			__raw_writel(TIMER_ENABLE_EN,
 				msm_clocks[MSM_CLOCK_GPT].regbase +
@@ -375,11 +374,9 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 			msm_read_timer_count(clock, LOCAL_TIMER) +
 			clock_state->sleep_offset;
 		__raw_writel(0, clock->regbase + TIMER_MATCH_VAL);
-		if (irq_get_chip(clock->irq.irq) &&
-		   irq_get_chip(clock->irq.irq)->irq_mask) {
-			irq_get_chip(clock->irq.irq)->irq_mask(
-				irq_get_irq_data(clock->irq.irq));
-		}
+		chip = irq_get_chip(clock->irq.irq);
+		if (chip && chip->irq_mask)
+			chip->irq_mask(irq_get_irq_data(clock->irq.irq));
 
 		if (!is_smp() || clock != &msm_clocks[MSM_CLOCK_DGT]
 				|| smp_processor_id())
@@ -973,6 +970,7 @@ static void __init msm_timer_init(void)
 {
 	int i;
 	int res;
+	struct irq_chip *chip;
 	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
 	struct msm_clock *gpt = &msm_clocks[MSM_CLOCK_GPT];
 
@@ -1056,8 +1054,9 @@ static void __init msm_timer_init(void)
 			printk(KERN_ERR "msm_timer_init: setup_irq "
 			       "failed for %s\n", cs->name);
 
-		irq_get_chip(clock->irq.irq)->irq_mask(irq_get_irq_data(
-							       clock->irq.irq));
+		chip = irq_get_chip(clock->irq.irq);
+		if (chip && chip->irq_mask)
+			chip->irq_mask(irq_get_irq_data(clock->irq.irq));
 
 		clockevents_register_device(ce);
 	}
