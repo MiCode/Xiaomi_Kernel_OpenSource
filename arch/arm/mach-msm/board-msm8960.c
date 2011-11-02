@@ -3653,6 +3653,13 @@ static struct platform_device msm_device_saw_core1 = {
 	},
 };
 
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+static struct platform_device wfd_device = {
+	.name          = "msm_wfd",
+	.id            = -1,
+};
+#endif
+
 static struct tsens_platform_data msm_tsens_pdata  = {
 		.slope			= 910,
 		.tsens_factor		= 1000,
@@ -3792,6 +3799,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_watchdog,
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 	&wfd_panel_device,
+	&wfd_device,
 #endif
 };
 
