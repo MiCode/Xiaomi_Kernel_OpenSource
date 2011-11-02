@@ -19,9 +19,11 @@
 #include <linux/crc-ccitt.h>
 #include <mach/diag_bridge.h>
 
+#define DRIVER_DESC	"USB host diag bridge driver test"
+#define DRIVER_VERSION	"1.0"
+
 #define RD_BUF_SIZE	2048
 #define DIAG_TEST_CONNECTED	0
-
 
 struct diag_test_dev {
 	char *read_buf;
@@ -49,7 +51,7 @@ static void diag_test_read_work(struct work_struct *w)
 		container_of(w, struct diag_test_dev, read_w);
 
 	memset(dev->read_buf, 0, RD_BUF_SIZE);
-	diag_read(dev->read_buf, RD_BUF_SIZE);
+	diag_bridge_read(dev->read_buf, RD_BUF_SIZE);
 }
 
 static void
@@ -86,7 +88,7 @@ static ssize_t send_ping_cmd(struct file *file, const char __user *ubuf,
 	buf[2] = 0x3A;
 	buf[3] = 0x7E;
 
-	diag_write(buf, temp);
+	diag_bridge_write(buf, temp);
 
 	return count;
 }
@@ -114,7 +116,7 @@ static void diag_test_debug_init(void) { }
 
 static int diag_test_remove(struct platform_device *pdev)
 {
-	diag_close();
+	diag_bridge_close();
 
 	if (dent) {
 		debugfs_remove_recursive(dent);
@@ -131,7 +133,7 @@ static int diag_test_probe(struct platform_device *pdev)
 
 	pr_info("%s:\n", __func__);
 
-	ret = diag_open(&dev->ops);
+	ret = diag_bridge_open(&dev->ops);
 	if (ret)
 		pr_err("diag open failed: %d", ret);
 
@@ -190,7 +192,7 @@ static void __exit diag_test_exit(void)
 	pr_info("%s:\n", __func__);
 
 	if (test_bit(DIAG_TEST_CONNECTED, &dev->flags))
-		diag_close();
+		diag_bridge_close();
 
 	kfree(dev->read_buf);
 	kfree(dev);
@@ -201,4 +203,5 @@ module_init(diag_test_init);
 module_exit(diag_test_exit);
 
 MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("GPL V2");
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_LICENSE("GPL v2");

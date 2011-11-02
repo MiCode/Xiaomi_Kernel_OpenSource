@@ -23,7 +23,7 @@
 #include <mach/diag_bridge.h>
 
 #define DRIVER_DESC	"USB host diag bridge driver"
-#define DRIVER_VERSION	"0.1"
+#define DRIVER_VERSION	"1.0"
 
 struct diag_bridge {
 	struct usb_device	*udev;
@@ -37,7 +37,7 @@ struct diag_bridge {
 };
 struct diag_bridge *__dev;
 
-int diag_open(struct diag_bridge_ops *ops)
+int diag_bridge_open(struct diag_bridge_ops *ops)
 {
 	struct diag_bridge	*dev = __dev;
 
@@ -50,9 +50,9 @@ int diag_open(struct diag_bridge_ops *ops)
 
 	return 0;
 }
-EXPORT_SYMBOL(diag_open);
+EXPORT_SYMBOL(diag_bridge_open);
 
-void diag_close(void)
+void diag_bridge_close(void)
 {
 	struct diag_bridge	*dev = __dev;
 
@@ -62,25 +62,23 @@ void diag_close(void)
 
 	dev->ops = 0;
 }
-EXPORT_SYMBOL(diag_close);
+EXPORT_SYMBOL(diag_bridge_close);
 
-static void diag_read_cb(struct urb *urb)
+static void diag_bridge_read_cb(struct urb *urb)
 {
 	struct diag_bridge	*dev = urb->context;
 	struct diag_bridge_ops	*cbs = dev->ops;
 
 	dev_dbg(&dev->udev->dev, "%s: status:%d actual:%d\n", __func__,
 			urb->status, urb->actual_length);
-	if (urb->status)
-		urb->actual_length = urb->status;
 
 	cbs->read_complete_cb(cbs->ctxt,
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
-			urb->actual_length);
+			urb->status < 0 ? urb->status : urb->actual_length);
 }
 
-int diag_read(char *data, size_t size)
+int diag_bridge_read(char *data, size_t size)
 {
 	struct urb		*urb = NULL;
 	unsigned int		pipe;
@@ -107,7 +105,7 @@ int diag_read(char *data, size_t size)
 
 	pipe = usb_rcvbulkpipe(dev->udev, dev->in_epAddr);
 	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
-				diag_read_cb, dev);
+				diag_bridge_read_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
 
 	ret = usb_submit_urb(urb, GFP_KERNEL);
@@ -122,25 +120,22 @@ int diag_read(char *data, size_t size)
 
 	return 0;
 }
-EXPORT_SYMBOL(diag_read);
+EXPORT_SYMBOL(diag_bridge_read);
 
-static void diag_write_cb(struct urb *urb)
+static void diag_bridge_write_cb(struct urb *urb)
 {
 	struct diag_bridge	*dev = urb->context;
 	struct diag_bridge_ops	*cbs = dev->ops;
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
-	if (urb->status)
-		urb->actual_length = urb->status;
-
 	cbs->write_complete_cb(cbs->ctxt,
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
-			urb->actual_length);
+			urb->status < 0 ? urb->status : urb->actual_length);
 }
 
-int diag_write(char *data, size_t size)
+int diag_bridge_write(char *data, size_t size)
 {
 	struct urb		*urb = NULL;
 	unsigned int		pipe;
@@ -167,7 +162,7 @@ int diag_write(char *data, size_t size)
 
 	pipe = usb_sndbulkpipe(dev->udev, dev->out_epAddr);
 	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
-				diag_write_cb, dev);
+				diag_bridge_write_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
 
 	ret = usb_submit_urb(urb, GFP_KERNEL);
@@ -182,9 +177,9 @@ int diag_write(char *data, size_t size)
 
 	return 0;
 }
-EXPORT_SYMBOL(diag_write);
+EXPORT_SYMBOL(diag_bridge_write);
 
-static void diag_delete(struct kref *kref)
+static void diag_bridge_delete(struct kref *kref)
 {
 	struct diag_bridge *dev =
 		container_of(kref, struct diag_bridge, kref);
@@ -195,7 +190,7 @@ static void diag_delete(struct kref *kref)
 }
 
 static int
-diag_probe(struct usb_interface *ifc, const struct usb_device_id *id)
+diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 {
 	struct diag_bridge		*dev;
 	struct usb_host_interface	*ifc_desc;
@@ -257,44 +252,44 @@ diag_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 error:
 	if (dev)
-		kref_put(&dev->kref, diag_delete);
+		kref_put(&dev->kref, diag_bridge_delete);
 
 	return ret;
 }
 
-static void diag_disconnect(struct usb_interface *ifc)
+static void diag_bridge_disconnect(struct usb_interface *ifc)
 {
 	struct diag_bridge	*dev = usb_get_intfdata(ifc);
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
 	platform_device_del(dev->pdev);
-	kref_put(&dev->kref, diag_delete);
+	kref_put(&dev->kref, diag_bridge_delete);
 	usb_set_intfdata(ifc, NULL);
 }
 
 
 #define VALID_INTERFACE_NUM	0
-static const struct usb_device_id diag_ids[] = {
+static const struct usb_device_id diag_bridge_ids[] = {
 	{ USB_DEVICE(0x5c6, 0x9001),
 	.driver_info = VALID_INTERFACE_NUM, },
 
 	{} /* terminating entry */
 };
-MODULE_DEVICE_TABLE(usb, diag_ids);
+MODULE_DEVICE_TABLE(usb, diag_bridge_ids);
 
-static struct usb_driver diag_driver = {
-	.name =		"diag_qc",
-	.probe =	diag_probe,
-	.disconnect =	diag_disconnect,
-	.id_table =	diag_ids,
+static struct usb_driver diag_bridge_driver = {
+	.name =		"diag_bridge",
+	.probe =	diag_bridge_probe,
+	.disconnect =	diag_bridge_disconnect,
+	.id_table =	diag_bridge_ids,
 };
 
-static int __init diag_init(void)
+static int __init diag_bridge_init(void)
 {
 	int ret;
 
-	ret = usb_register(&diag_driver);
+	ret = usb_register(&diag_bridge_driver);
 	if (ret) {
 		err("%s: unable to register diag driver",
 				__func__);
@@ -304,13 +299,14 @@ static int __init diag_init(void)
 	return 0;
 }
 
-static void __exit diag_exit(void)
+static void __exit diag_bridge_exit(void)
 {
-	usb_deregister(&diag_driver);
+	usb_deregister(&diag_bridge_driver);
 }
 
-module_init(diag_init);
-module_exit(diag_exit);
+module_init(diag_bridge_init);
+module_exit(diag_bridge_exit);
 
 MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("GPL V2");
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_LICENSE("GPL v2");

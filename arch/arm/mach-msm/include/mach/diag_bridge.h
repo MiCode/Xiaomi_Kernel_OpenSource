@@ -1,4 +1,3 @@
-
 /* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -11,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef __LINUX_USB_DIAG_BRIDGE_H__
 #define __LINUX_USB_DIAG_BRIDGE_H__
 
@@ -23,9 +21,33 @@ struct diag_bridge_ops {
 			size_t buf_size, size_t actual);
 };
 
-extern int diag_read(char *data, size_t size);
-extern int diag_write(char *data, size_t size);
-extern int diag_open(struct diag_bridge_ops *ops);
-extern void diag_close(void);
+#if defined(CONFIG_USB_QCOM_DIAG_BRIDGE) \
+	|| defined(CONFIG_USB_QCOM_DIAG_BRIDGE_MODULE)
+
+extern int diag_bridge_read(char *data, size_t size);
+extern int diag_bridge_write(char *data, size_t size);
+extern int diag_bridge_open(struct diag_bridge_ops *ops);
+extern void diag_bridge_close(void);
+
+#else
+
+static int __maybe_unused diag_bridge_read(char *data, size_t size)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused diag_bridge_write(char *data, size_t size)
+{
+	return -ENODEV;
+}
+
+static int __maybe_unused diag_bridge_open(struct diag_bridge_ops *ops)
+{
+	return -ENODEV;
+}
+
+static void __maybe_unused diag_bridge_close(void) { }
+
+#endif
 
 #endif
