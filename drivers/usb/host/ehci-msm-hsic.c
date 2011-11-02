@@ -34,6 +34,7 @@
 #include <linux/gpio.h>
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
+#include <mach/msm_xo.h>
 
 #define MSM_USB_BASE (hcd->regs)
 
@@ -48,6 +49,7 @@ struct msm_hsic_hcd {
 	struct regulator	*hsic_vddcx;
 	bool			async_int;
 	atomic_t                in_lpm;
+	struct msm_xo_voter	*xo_handle;
 	struct wake_lock	wlock;
 };
 
@@ -143,6 +145,81 @@ static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 	}
 
 	return 0;
+}
+
+#define HSIC_HUB_VDD_VOL_MIN	1650000 /* uV */
+#define HSIC_HUB_VDD_VOL_MAX	1950000 /* uV */
+#define HSIC_HUB_VDD_LOAD	36000	/* uA */
+static int msm_hsic_config_hub(struct msm_hsic_hcd *mehci, int init)
+{
+	int ret = 0;
+	struct msm_hsic_host_platform_data *pdata;
+	static struct regulator *hsic_hub_reg;
+
+	pdata = mehci->dev->platform_data;
+	if (!pdata->hub_reset)
+		return ret;
+
+	if (!init)
+		goto disable_reg;
+
+	hsic_hub_reg = regulator_get(mehci->dev, "EXT_HUB_VDDIO");
+	if (IS_ERR(hsic_hub_reg)) {
+		dev_err(mehci->dev, "unable to get ext hub vddcx\n");
+		return PTR_ERR(hsic_hub_reg);
+	}
+
+	ret = gpio_request(pdata->hub_reset, "HSIC_HUB_RESET_GPIO");
+	if (ret < 0) {
+		dev_err(mehci->dev, "gpio request failed for GPIO%d\n",
+							pdata->hub_reset);
+		goto gpio_req_fail;
+	}
+
+	ret = regulator_set_voltage(hsic_hub_reg,
+			HSIC_HUB_VDD_VOL_MIN,
+			HSIC_HUB_VDD_VOL_MAX);
+	if (ret) {
+		dev_err(mehci->dev, "unable to set the voltage"
+				"for hsic hub reg\n");
+		goto reg_set_voltage_fail;
+	}
+
+	ret = regulator_set_optimum_mode(hsic_hub_reg,
+				HSIC_HUB_VDD_LOAD);
+	if (ret < 0) {
+		pr_err("%s: Unable to set optimum mode of the regulator:"
+					"VDDCX\n", __func__);
+		goto reg_optimum_mode_fail;
+	}
+
+	ret = regulator_enable(hsic_hub_reg);
+	if (ret) {
+		dev_err(mehci->dev, "unable to enable ext hub vddcx\n");
+		goto reg_enable_fail;
+	}
+
+	gpio_direction_output(pdata->hub_reset, 0);
+	/* Hub reset should be asserted for minimum 2usec before deasserting */
+	udelay(5);
+	gpio_direction_output(pdata->hub_reset, 1);
+
+	return 0;
+
+disable_reg:
+	regulator_disable(hsic_hub_reg);
+reg_enable_fail:
+	regulator_set_optimum_mode(hsic_hub_reg, 0);
+reg_optimum_mode_fail:
+	regulator_set_voltage(hsic_hub_reg, 0,
+				HSIC_HUB_VDD_VOL_MIN);
+reg_set_voltage_fail:
+	gpio_free(pdata->hub_reset);
+gpio_req_fail:
+	regulator_put(hsic_hub_reg);
+
+	return ret;
+
 }
 
 static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
@@ -294,8 +371,9 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
-	int cnt = 0;
+	int cnt = 0, ret;
 	u32 val;
+	struct msm_hsic_host_platform_data *pdata;
 
 	if (atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in lpm\n", __func__);
@@ -345,6 +423,13 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	clk_disable(mehci->hsic_clk);
 	clk_disable(mehci->cal_clk);
 	clk_disable(mehci->ahb_clk);
+	pdata = mehci->dev->platform_data;
+	if (pdata->hub_reset) {
+		ret = msm_xo_mode_vote(mehci->xo_handle, MSM_XO_MODE_OFF);
+		if (ret)
+			pr_err("%s failed to devote for"
+				"TCXO D1 buffer%d\n", __func__, ret);
+	}
 
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
@@ -358,8 +443,9 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
-	int cnt = 0;
+	int cnt = 0, ret;
 	unsigned temp;
+	struct msm_hsic_host_platform_data *pdata;
 
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in !in_lpm\n", __func__);
@@ -368,6 +454,13 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 
 	wake_lock(&mehci->wlock);
 
+	pdata = mehci->dev->platform_data;
+	if (pdata->hub_reset) {
+		ret = msm_xo_mode_vote(mehci->xo_handle, MSM_XO_MODE_ON);
+		if (ret)
+			pr_err("%s failed to vote for"
+				"TCXO D1 buffer%d\n", __func__, ret);
+	}
 	clk_enable(mehci->sys_clk);
 	clk_enable(mehci->hsic_clk);
 	clk_enable(mehci->cal_clk);
@@ -598,6 +691,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	struct usb_hcd *hcd;
 	struct resource *res;
 	struct msm_hsic_hcd *mehci;
+	struct msm_hsic_host_platform_data *pdata;
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm-hsic probe\n");
@@ -649,10 +743,34 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		goto deinit_clocks;
 	}
 
+	pdata = mehci->dev->platform_data;
+	if (pdata->hub_reset) {
+		mehci->xo_handle = msm_xo_get(MSM_XO_TCXO_D1, "hsic");
+		if (IS_ERR(mehci->xo_handle)) {
+			pr_err(" %s not able to get the handle"
+				"to vote for TCXO D1 buffer\n", __func__);
+			ret = PTR_ERR(mehci->xo_handle);
+			goto deinit_vddcx;
+		}
+
+		ret = msm_xo_mode_vote(mehci->xo_handle, MSM_XO_MODE_ON);
+		if (ret) {
+			pr_err("%s failed to vote for TCXO"
+				"D1 buffer%d\n", __func__, ret);
+			goto free_xo_handle;
+		}
+	}
+
+	ret = msm_hsic_config_hub(mehci, 1);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to initialize hsic hub");
+		goto free_xo_handle;
+	}
+
 	ret = msm_hsic_reset(mehci);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize PHY\n");
-		goto deinit_vddcx;
+		goto deinit_hub;
 	}
 
 	ret = usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
@@ -676,6 +794,11 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 unconfig_gpio:
 	msm_hsic_config_gpios(mehci, 0);
+deinit_hub:
+	msm_hsic_config_hub(mehci, 0);
+free_xo_handle:
+	if (pdata->hub_reset)
+		msm_xo_put(mehci->xo_handle);
 deinit_vddcx:
 	msm_hsic_init_vddcx(mehci, 0);
 deinit_clocks:
@@ -692,6 +815,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+	struct msm_hsic_host_platform_data *pdata;
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
@@ -699,6 +823,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 
 	usb_remove_hcd(hcd);
 	msm_hsic_config_gpios(mehci, 0);
+	msm_hsic_config_hub(mehci, 0);
+	pdata = mehci->dev->platform_data;
+	if (pdata->hub_reset)
+		msm_xo_put(mehci->xo_handle);
 	msm_hsic_init_vddcx(mehci, 0);
 
 	msm_hsic_init_clocks(mehci, 0);
