@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,6 +269,17 @@ set_vdd_bail:
 	pr_err("%s: failed, remaining timeout %uus, vlevel 0x%x\n",
 	       __func__, timeout_us, msm_spm_drv_get_sts_curr_pmic_data(dev));
 	return -EIO;
+}
+
+void msm_spm_drv_reinit(struct msm_spm_driver_data *dev)
+{
+	int i;
+
+	for (i = 0; i < MSM_SPM_REG_NR_INITIALIZE; i++)
+		msm_spm_drv_flush_shadow(dev, i);
+
+	msm_spm_drv_flush_seq_entry(dev);
+	mb();
 }
 
 int __init msm_spm_drv_init(struct msm_spm_driver_data *dev,

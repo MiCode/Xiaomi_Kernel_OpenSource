@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@ struct msm_spm_driver_data {
 
 int msm_spm_drv_init(struct msm_spm_driver_data *dev,
 		struct msm_spm_platform_data *data);
+void msm_spm_drv_reinit(struct msm_spm_driver_data *dev);
 int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 		uint32_t addr);
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev,
