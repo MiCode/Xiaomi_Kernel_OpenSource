@@ -1218,7 +1218,7 @@ struct dentry *dent_smd_status;
 static void rmnet_smd_debugfs_init(struct rmnet_smd_dev *dev)
 {
 
-	dent_smd = debugfs_create_dir("usb_rmnet", 0);
+	dent_smd = debugfs_create_dir("usb_rmnet_smd", 0);
 	if (IS_ERR(dent_smd))
 		return;
 
