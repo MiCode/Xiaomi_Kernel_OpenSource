@@ -2647,11 +2647,6 @@ static int __init gpiomux_init(void)
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
 
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-	msm_gpiomux_install(msm8960_hsic_configs,
-			ARRAY_SIZE(msm8960_hsic_configs));
-#endif
-
 	return 0;
 }
 
@@ -3799,7 +3794,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm8960_device_otg,
 	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
-	&msm_device_hsic_host,
 	&android_usb_device,
 	&msm_pcm,
 	&msm_pcm_routing,
@@ -4409,6 +4403,28 @@ static void __init msm8960_init_dsps(void)
 #endif /* CONFIG_MSM_DSPS */
 }
 
+static void __init msm8960_init_hsic(void)
+{
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+	uint32_t version = socinfo_get_version();
+
+	pr_info("%s: version:%d mtp:%d\n", __func__,
+			SOCINFO_VERSION_MAJOR(version),
+			machine_is_msm8960_mtp());
+
+	if ((SOCINFO_VERSION_MAJOR(version) == 1) ||
+			machine_is_msm8960_mtp() ||
+			machine_is_msm8960_fluid())
+		return;
+
+	msm_gpiomux_install(msm8960_hsic_configs,
+			ARRAY_SIZE(msm8960_hsic_configs));
+
+	platform_device_register(&msm_device_hsic_host);
+#endif
+}
+
+
 #ifdef CONFIG_ISL9519_CHARGER
 static struct isl_platform_data isl_data __initdata = {
 	.valid_n_gpio		= 0,	/* Not required when notify-by-pmic */
@@ -4612,6 +4628,7 @@ static void __init msm8960_cdp_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+	msm8960_init_hsic();
 	msm8960_init_cam();
 	msm8960_init_mmc();
 	acpuclk_init(&acpuclk_8960_soc_data);
