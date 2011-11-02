@@ -126,6 +126,10 @@ int msm_mctl_do_pp_divert(
 
 	idx = msm_mctl_out_type_to_inst_index(
 		p_mctl->sync.pcam_sync, msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance. returning\n", __func__);
+		return -EINVAL;
+	}
 	pcam_inst = p_mctl->sync.pcam_sync->dev_inst[idx];
 	vb = msm_mctl_buf_find(p_mctl, pcam_inst,
 		  del_buf, msg_type, fbuf);
@@ -192,27 +196,52 @@ int msm_mctl_do_pp_divert(
 }
 
 static int msm_mctl_pp_get_phy_addr(
+	struct msm_cam_v4l2_dev_inst *pcam_inst,
 	uint32_t frame_handle,
 	struct msm_pp_frame *pp_frame)
 {
 	struct msm_frame_buffer *vb = NULL;
 	struct videobuf2_contig_pmem *mem;
+	int i, buf_idx = 0;
 
 	vb = (struct msm_frame_buffer *)frame_handle;
-	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	buf_idx = vb->vidbuf.v4l2_buf.index;
 	memset(pp_frame, 0, sizeof(struct msm_pp_frame));
 	pp_frame->handle = (uint32_t)vb;
 	pp_frame->frame_id = vb->vidbuf.v4l2_buf.sequence;
-	pp_frame->image_type = (unsigned short)mem->path;
 	pp_frame->timestamp = vb->vidbuf.v4l2_buf.timestamp;
-	/* hard coded for now. Will need to expand to MP case */
-	pp_frame->num_planes = 1;
-	pp_frame->sp.addr_offset = mem->addr_offset;
-	pp_frame->sp.phy_addr = videobuf2_to_pmem_contig(&vb->vidbuf, 0);
-	pp_frame->sp.y_off = 0;
-	pp_frame->sp.cbcr_off = mem->offset.sp_off.cbcr_off;
-	pp_frame->sp.length = mem->size;
-	pp_frame->sp.fd = (int)mem->vaddr;
+	/* Get the cookie for 1st plane and store the path.
+	 * Also use this to check the number of planes in
+	 * this buffer.*/
+	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	pp_frame->image_type = (unsigned short)mem->path;
+	if (mem->buffer_type == VIDEOBUF2_SINGLE_PLANE) {
+		pp_frame->num_planes = 1;
+		pp_frame->sp.addr_offset = mem->addr_offset;
+		pp_frame->sp.phy_addr =
+			videobuf2_to_pmem_contig(&vb->vidbuf, 0);
+		pp_frame->sp.y_off = 0;
+		pp_frame->sp.cbcr_off = mem->offset.sp_off.cbcr_off;
+		pp_frame->sp.length = mem->size;
+		pp_frame->sp.fd = (int)mem->vaddr;
+	} else {
+		pp_frame->num_planes = pcam_inst->plane_info.num_planes;
+		for (i = 0; i < pp_frame->num_planes; i++) {
+			mem = vb2_plane_cookie(&vb->vidbuf, i);
+			pp_frame->mp[i].addr_offset = mem->addr_offset;
+			pp_frame->mp[i].phy_addr =
+				videobuf2_to_pmem_contig(&vb->vidbuf, i);
+			pp_frame->mp[i].data_offset =
+			pcam_inst->buf_offset[buf_idx][i].data_offset;
+			pp_frame->mp[i].fd = (int)mem->vaddr;
+			pp_frame->mp[i].length = mem->size;
+			D("%s frame id %d buffer %d plane %d phy addr 0x%x"
+				" fd %d length %d\n", __func__,
+				pp_frame->frame_id, buf_idx, i,
+				(uint32_t)pp_frame->mp[i].phy_addr,
+				pp_frame->mp[i].fd, pp_frame->mp[i].length);
+		}
+	}
 	return 0;
 }
 
@@ -235,12 +264,38 @@ static int msm_mctl_pp_copy_timestamp_and_frame_id(
 	return 0;
 }
 
+static int msm_mctl_pp_path_to_inst_index(struct msm_cam_v4l2_device *pcam,
+					int out_type)
+{
+	int image_mode;
+	switch (out_type) {
+	case OUTPUT_TYPE_P:
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+		break;
+	case OUTPUT_TYPE_V:
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_VIDEO;
+		break;
+	case OUTPUT_TYPE_S:
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
+		break;
+	default:
+		image_mode = -1;
+		break;
+	}
+	if ((image_mode >= 0) && pcam->dev_inst_map[image_mode])
+		return pcam->dev_inst_map[image_mode]->my_index;
+	else
+		return -EINVAL;
+}
+
 int msm_mctl_pp_proc_vpe_cmd(
 	struct msm_cam_media_controller *p_mctl,
 	struct msm_mctl_pp_cmd *pp_cmd)
 {
-	int rc = 0;
+	int rc = 0, idx;
 	void __user *argp = (void __user *)pp_cmd->value;
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+
 	switch (pp_cmd->id) {
 	case VPE_CMD_INIT:
 	case VPE_CMD_DEINIT:
@@ -422,15 +477,27 @@ int msm_mctl_pp_proc_vpe_cmd(
 				zoom->pp_frame_cmd.cookie,
 				zoom->pp_frame_cmd.vpe_output_action,
 				zoom->pp_frame_cmd.path);
-
+		idx = msm_mctl_pp_path_to_inst_index(p_mctl->sync.pcam_sync,
+			zoom->pp_frame_cmd.path);
+		if (idx < 0) {
+			pr_err("%s Invalid path, returning\n", __func__);
+			kfree(zoom);
+			return idx;
+		}
+		pcam_inst = p_mctl->sync.pcam_sync->dev_inst[idx];
+		if (!pcam_inst) {
+			pr_err("%s Invalid instance, returning\n", __func__);
+			kfree(zoom);
+			return -EINVAL;
+		}
 		zoom->user_cmd = pp_cmd->id;
-		rc = msm_mctl_pp_get_phy_addr(
+		rc = msm_mctl_pp_get_phy_addr(pcam_inst,
 			zoom->pp_frame_cmd.src_buf_handle, &zoom->src_frame);
 		if (rc) {
 			kfree(zoom);
 			break;
 		}
-		rc = msm_mctl_pp_get_phy_addr(
+		rc = msm_mctl_pp_get_phy_addr(pcam_inst,
 			zoom->pp_frame_cmd.dest_buf_handle, &zoom->dest_frame);
 		if (rc) {
 			kfree(zoom);
