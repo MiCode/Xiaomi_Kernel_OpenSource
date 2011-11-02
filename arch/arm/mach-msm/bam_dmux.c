@@ -139,9 +139,9 @@ static int bam_mux_initialized;
 static int polling_mode;
 
 static LIST_HEAD(bam_rx_pool);
-static DEFINE_MUTEX(bam_rx_pool_lock);
+static DEFINE_MUTEX(bam_rx_pool_mutexlock);
 static LIST_HEAD(bam_tx_pool);
-static DEFINE_MUTEX(bam_tx_pool_lock);
+static DEFINE_SPINLOCK(bam_tx_pool_spinlock);
 
 struct bam_mux_hdr {
 	uint16_t magic_num;
@@ -226,9 +226,9 @@ static void queue_rx(void)
 	info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
 	ptr = skb_put(info->skb, BUFFER_SIZE);
 
-	mutex_lock(&bam_rx_pool_lock);
+	mutex_lock(&bam_rx_pool_mutexlock);
 	list_add_tail(&info->list_node, &bam_rx_pool);
-	mutex_unlock(&bam_rx_pool_lock);
+	mutex_unlock(&bam_rx_pool_mutexlock);
 
 	/* need a way to handle error case */
 	info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
@@ -361,9 +361,9 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 1;
 	INIT_WORK(&pkt->work, bam_mux_write_done);
-	mutex_lock(&bam_tx_pool_lock);
+	spin_lock(&bam_tx_pool_spinlock);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	mutex_unlock(&bam_tx_pool_lock);
+	spin_unlock(&bam_tx_pool_spinlock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 
@@ -382,10 +382,10 @@ static void bam_mux_write_done(struct work_struct *work)
 
 	if (in_global_reset)
 		return;
-	mutex_lock(&bam_tx_pool_lock);
+	spin_lock(&bam_tx_pool_spinlock);
 	node = bam_tx_pool.next;
 	list_del(node);
-	mutex_unlock(&bam_tx_pool_lock);
+	spin_unlock(&bam_tx_pool_spinlock);
 	info = container_of(work, struct tx_pkt_info, work);
 	if (info->is_cmd) {
 		kfree(info->skb);
@@ -487,9 +487,9 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 0;
 	INIT_WORK(&pkt->work, bam_mux_write_done);
-	mutex_lock(&bam_tx_pool_lock);
+	spin_lock(&bam_tx_pool_spinlock);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	mutex_unlock(&bam_tx_pool_lock);
+	spin_unlock(&bam_tx_pool_spinlock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	ul_packet_written = 1;
@@ -639,10 +639,10 @@ static void rx_timer_work_func(struct work_struct *work)
 			if (iov.addr == 0)
 				break;
 			inactive_cycles = 0;
-			mutex_lock(&bam_rx_pool_lock);
+			mutex_lock(&bam_rx_pool_mutexlock);
 			node = bam_rx_pool.next;
 			list_del(node);
-			mutex_unlock(&bam_rx_pool_lock);
+			mutex_unlock(&bam_rx_pool_mutexlock);
 			info = container_of(node, struct rx_pkt_info,
 							list_node);
 			handle_bam_mux_cmd(&info->work);
@@ -685,10 +685,10 @@ static void rx_timer_work_func(struct work_struct *work)
 			if (iov.addr == 0)
 				return;
 			inactive_cycles = 0;
-			mutex_lock(&bam_rx_pool_lock);
+			mutex_lock(&bam_rx_pool_mutexlock);
 			node = bam_rx_pool.next;
 			list_del(node);
-			mutex_unlock(&bam_rx_pool_lock);
+			mutex_unlock(&bam_rx_pool_mutexlock);
 			info = container_of(node, struct rx_pkt_info,
 							list_node);
 			handle_bam_mux_cmd(&info->work);
@@ -976,7 +976,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 		}
 	}
 	/*cleanup UL*/
-	mutex_lock(&bam_tx_pool_lock);
+	spin_lock(&bam_tx_pool_spinlock);
 	while (!list_empty(&bam_tx_pool)) {
 		node = bam_tx_pool.next;
 		list_del(node);
@@ -995,7 +995,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 		}
 		kfree(info);
 	}
-	mutex_unlock(&bam_tx_pool_lock);
+	spin_unlock(&bam_tx_pool_spinlock);
 	smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
 
 	return NOTIFY_DONE;
