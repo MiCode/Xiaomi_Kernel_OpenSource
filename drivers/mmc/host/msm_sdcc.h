@@ -77,6 +77,7 @@
 #define MCI_DPSM_DIRECTION	(1 << 1)
 #define MCI_DPSM_MODE		(1 << 2)
 #define MCI_DPSM_DMAENABLE	(1 << 3)
+#define MCI_DATA_PEND		(1 << 17)
 #define MCI_AUTO_PROG_DONE	(1 << 19)
 #define MCI_RX_DATA_PEND	(1 << 20)
 
@@ -208,7 +209,7 @@
 
 #define NR_SG		32
 
-#define MSM_MMC_IDLE_TIMEOUT	10000 /* msecs */
+#define MSM_MMC_IDLE_TIMEOUT	5000 /* msecs */
 
 /*
  * Set the request timeout to 10secs to allow
