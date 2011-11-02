@@ -1573,6 +1573,16 @@ config SCORPION_Uni_45nm_BUG
 
 	  This bug is not applicable to any ScorpionMP or Scorpion Uni 65nm(SC65U) cores.
 
+config MSM_BUSPM_DEV
+	tristate "MSM Bus Performance Monitor Kernel Module"
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960)
+	default m
+	help
+	  This kernel module is used to mmap() hardware registers for the
+	  performance monitors, counters, etc. The module can also be used to
+	  allocate physical memory which is used by bus performance hardware to
+	  dump performance data.
+
 config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
 	depends on DEBUG_FS

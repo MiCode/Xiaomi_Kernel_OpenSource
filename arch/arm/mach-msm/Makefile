@@ -254,6 +254,7 @@ obj-$(CONFIG_MSM_RPM_STATS_LOG) += rpm_stats.o
 obj-$(CONFIG_MSM_RPM_LOG) += rpm_log.o
 obj-$(CONFIG_MSM_XO) += msm_xo.o
 obj-$(CONFIG_MSM_BUS_SCALING) += msm_bus/
+obj-$(CONFIG_MSM_BUSPM_DEV) += msm-buspm-dev.o
 
 obj-$(CONFIG_MSM_IOMMU)		+= iommu.o iommu_dev.o devices-iommu.o iommu_domains.o
 
