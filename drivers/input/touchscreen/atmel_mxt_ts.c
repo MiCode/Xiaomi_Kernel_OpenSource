@@ -22,6 +22,8 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/regulator/consumer.h>
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
@@ -253,6 +255,9 @@
 #define MXT_MAX_RW_TRIES	3
 #define MXT_BLOCK_SIZE		256
 
+#define MXT_DEBUGFS_DIR		"atmel_mxt_ts"
+#define MXT_DEBUGFS_FILE	"object"
+
 struct mxt_info {
 	u8 family_id;
 	u8 variant_id;
@@ -317,6 +322,8 @@ struct mxt_data {
 	u8 curr_cfg_version;
 	int cfg_version_idx;
 };
+
+static struct dentry *debug_base;
 
 static bool mxt_object_readable(unsigned int type)
 {
@@ -1717,6 +1724,72 @@ static const struct dev_pm_ops mxt_pm_ops = {
 };
 #endif
 
+static int mxt_debugfs_object_show(struct seq_file *m, void *v)
+{
+	struct mxt_data *data = m->private;
+	struct mxt_object *object;
+	struct device *dev = &data->client->dev;
+	int i, j, k;
+	int error;
+	int obj_size;
+	u8 val;
+
+	for (i = 0; i < data->info.object_num; i++) {
+		object = data->object_table + i;
+		obj_size = object->size + 1;
+
+		seq_printf(m, "Object[%d] (Type %d)\n", i + 1, object->type);
+
+		for (j = 0; j < object->instances + 1; j++) {
+			seq_printf(m, "[Instance %d]\n", j);
+
+			for (k = 0; k < obj_size; k++) {
+				error = mxt_read_object(data, object->type,
+							j * obj_size + k, &val);
+				if (error) {
+					dev_err(dev,
+						"Failed to read object %d "
+						"instance %d at offset %d\n",
+						object->type, j, k);
+					return error;
+				}
+
+				seq_printf(m, "Byte %d: 0x%02x (%d)\n",
+						k, val, val);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int mxt_debugfs_object_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mxt_debugfs_object_show, inode->i_private);
+}
+
+static const struct file_operations mxt_object_fops = {
+	.owner		= THIS_MODULE,
+	.open		= mxt_debugfs_object_open,
+	.read		= seq_read,
+	.release	= single_release,
+};
+
+static void __init mxt_debugfs_init(struct mxt_data *data)
+{
+	debug_base = debugfs_create_dir(MXT_DEBUGFS_DIR, NULL);
+	if (IS_ERR_OR_NULL(debug_base))
+		pr_err("atmel_mxt_ts: Failed to create debugfs dir\n");
+	if (IS_ERR_OR_NULL(debugfs_create_file(MXT_DEBUGFS_FILE,
+					       0444,
+					       debug_base,
+					       data,
+					       &mxt_object_fops))) {
+		pr_err("atmel_mxt_ts: Failed to create object file\n");
+		debugfs_remove_recursive(debug_base);
+	}
+}
+
 static int __devinit mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -1868,6 +1941,8 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	register_early_suspend(&data->early_suspend);
 #endif
 
+	mxt_debugfs_init(data);
+
 	return 0;
 
 err_unregister_device:
@@ -1928,6 +2003,8 @@ static int __devexit mxt_remove(struct i2c_client *client)
 
 	kfree(data->object_table);
 	kfree(data);
+
+	debugfs_remove_recursive(debug_base);
 
 	return 0;
 }
