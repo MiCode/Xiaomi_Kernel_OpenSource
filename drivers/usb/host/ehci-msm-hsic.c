@@ -65,9 +65,10 @@ static inline struct usb_hcd *hsic_to_hcd(struct msm_hsic_hcd *mehci)
 
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 
-#define USB_PHY_VDD_DIG_VOL_MIN	1000000 /* uV */
-#define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
-#define USB_PHY_VDD_DIG_LOAD	49360	/* uA */
+#define USB_PHY_VDD_DIG_VOL_SUSP_MIN	500000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_MIN		1000000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
+#define USB_PHY_VDD_DIG_LOAD		49360	/* uA */
 
 static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 {
@@ -431,6 +432,12 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 				"TCXO D1 buffer%d\n", __func__, ret);
 	}
 
+	ret = regulator_set_voltage(mehci->hsic_vddcx,
+				USB_PHY_VDD_DIG_VOL_SUSP_MIN,
+				USB_PHY_VDD_DIG_VOL_MAX);
+	if (ret < 0)
+		dev_err(mehci->dev, "unable to set vddcx voltage: min:0.5v max:1.3v\n");
+
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
 	wake_unlock(&mehci->wlock);
@@ -453,6 +460,12 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	}
 
 	wake_lock(&mehci->wlock);
+
+	ret = regulator_set_voltage(mehci->hsic_vddcx,
+				USB_PHY_VDD_DIG_VOL_MIN,
+				USB_PHY_VDD_DIG_VOL_MAX);
+	if (ret < 0)
+		dev_err(mehci->dev, "unable to set vddcx voltage: min:1v max:1.3v\n");
 
 	pdata = mehci->dev->platform_data;
 	if (pdata->hub_reset) {
