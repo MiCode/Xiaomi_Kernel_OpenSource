@@ -601,7 +601,7 @@ int msm_bam_dmux_close(uint32_t id)
 		return 0;
 	}
 
-	hdr = kmalloc(sizeof(struct bam_mux_hdr), GFP_KERNEL);
+	hdr = kmalloc(sizeof(struct bam_mux_hdr), GFP_ATOMIC);
 	if (hdr == NULL) {
 		pr_err("%s: hdr kmalloc failed. ch: %d\n", __func__, id);
 		read_unlock(&ul_wakeup_lock);
