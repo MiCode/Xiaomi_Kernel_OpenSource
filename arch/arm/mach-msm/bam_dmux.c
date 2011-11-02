@@ -446,7 +446,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 					  4 - (skb->len & 0x3), GFP_ATOMIC);
 		if (new_skb == NULL) {
 			pr_err("%s: cannot allocate skb\n", __func__);
-			return -ENOMEM;
+			goto write_fail;
 		}
 		dev_kfree_skb_any(skb);
 		skb = new_skb;
@@ -474,19 +474,14 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_ATOMIC);
 	if (pkt == NULL) {
 		pr_err("%s: mem alloc for tx_pkt_info failed\n", __func__);
-		if (new_skb)
-			dev_kfree_skb_any(new_skb);
-		return -ENOMEM;
+		goto write_fail2;
 	}
 
 	dma_address = dma_map_single(NULL, skb->data, skb->len,
 					DMA_TO_DEVICE);
 	if (!dma_address) {
 		pr_err("%s: dma_map_single() failed\n", __func__);
-		if (new_skb)
-			dev_kfree_skb_any(new_skb);
-		kfree(pkt);
-		return -ENOMEM;
+		goto write_fail3;
 	}
 	pkt->skb = skb;
 	pkt->dma_address = dma_address;
@@ -500,6 +495,15 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	ul_packet_written = 1;
 	read_unlock(&ul_wakeup_lock);
 	return rc;
+
+write_fail3:
+	kfree(pkt);
+write_fail2:
+	if (new_skb)
+		dev_kfree_skb_any(new_skb);
+write_fail:
+	read_unlock(&ul_wakeup_lock);
+	return -ENOMEM;
 }
 
 int msm_bam_dmux_open(uint32_t id, void *priv,
@@ -600,6 +604,7 @@ int msm_bam_dmux_close(uint32_t id)
 	hdr = kmalloc(sizeof(struct bam_mux_hdr), GFP_KERNEL);
 	if (hdr == NULL) {
 		pr_err("%s: hdr kmalloc failed. ch: %d\n", __func__, id);
+		read_unlock(&ul_wakeup_lock);
 		return -ENOMEM;
 	}
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
