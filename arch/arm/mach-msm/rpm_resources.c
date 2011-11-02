@@ -306,7 +306,7 @@ static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits)
 		vdd_mem = MSM_RPMRS_VDD_MEM_ACTIVE;
 	}
 
-	return MSM_RPMRS_VDD(vdd_mem) >=
+	return MSM_RPMRS_VDD(vdd_mem) >
 				MSM_RPMRS_VDD(limits->vdd_mem_upper_bound);
 }
 
@@ -357,7 +357,7 @@ static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits)
 		vdd_dig = MSM_RPMRS_VDD_DIG_ACTIVE;
 	}
 
-	return MSM_RPMRS_VDD(vdd_dig) >=
+	return MSM_RPMRS_VDD(vdd_dig) >
 				MSM_RPMRS_VDD(limits->vdd_dig_upper_bound);
 }
 
@@ -396,7 +396,7 @@ static bool msm_rpmrs_irqs_detectable(struct msm_rpmrs_limits *limits,
 		bool irqs_detect, bool gpio_detect)
 {
 
-	if (limits->vdd_dig <= MSM_RPMRS_VDD_DIG_RET_HIGH)
+	if (limits->vdd_dig_upper_bound <= MSM_RPMRS_VDD_DIG_RET_HIGH)
 		return irqs_detect;
 
 	if (limits->pxo == MSM_RPMRS_PXO_OFF)
