@@ -122,7 +122,7 @@ struct mipi_panel_info {
 	char dma_trigger;
 	uint32 dsi_pclk_rate;
 	/* The packet-size should not bet changed */
-	char fixed_packet_size;
+	char no_max_pkt_size;
 	/* Clock required during LP commands */
 	char force_clk_lane_hs;
 	/* Pad width */
