@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/crypto.h>
 #include <linux/qcedev.h>
+#include <linux/bitops.h>
 #include <crypto/hash.h>
 #include <crypto/sha.h>
 #include <mach/dma.h>
@@ -168,23 +169,24 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	return 0;
 };
 
-#ifdef CONFIG_ARCH_MSM9615
 static void config_ce_engine(struct qce_device *pce_dev)
 {
 	unsigned int val = 0;
+	unsigned int ret = 0;
 
-	val = (1 << CRYPTO_MASK_DOUT_INTR) | (1 << CRYPTO_MASK_DIN_INTR) |
-			(1 << CRYPTO_MASK_OP_DONE_INTR) |
-				(1 << CRYPTO_MASK_ERR_INTR);
+	/* Crypto config register returns a 0 when it is XPU protected. */
+	ret = readl_relaxed(pce_dev->iobase + CRYPTO_CONFIG_REG);
 
-	writel_relaxed(val, pce_dev->iobase + CRYPTO_CONFIG_REG);
+	/* Configure the crypto register if it is not XPU protected. */
+	if (ret) {
+		val = BIT(CRYPTO_MASK_DOUT_INTR) |
+			BIT(CRYPTO_MASK_DIN_INTR) |
+			BIT(CRYPTO_MASK_OP_DONE_INTR) |
+			BIT(CRYPTO_MASK_ERR_INTR);
+
+		writel_relaxed(val, pce_dev->iobase + CRYPTO_CONFIG_REG);
+	}
 }
-#else
-static void config_ce_engine(struct qce_device *pce_dev)
-{
-
-}
-#endif
 
 static void _check_probe_done_call_back(struct msm_dmov_cmd *cmd_ptr,
 		unsigned int result, struct msm_dmov_errdata *err)
@@ -2569,4 +2571,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.12");
+MODULE_VERSION("2.13");
