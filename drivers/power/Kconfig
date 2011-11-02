@@ -261,7 +261,8 @@ config PM8058_CHARGER
 
 config ISL9519_CHARGER
 	tristate "isl9519 charger"
-	depends on BATTERY_MSM8X60
+	depends on (BATTERY_MSM8X60 || PM8921_CHARGER)
+	depends on I2C
 	default n
 	help
 	  The isl9519q charger chip from intersil is connected to an external
