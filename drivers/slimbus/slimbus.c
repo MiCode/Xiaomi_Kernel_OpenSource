@@ -892,6 +892,10 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 	cur = slim_slicecodefromsize(sl);
 	ec = ((sl | (1 << 3)) | ((msg->start_offset & 0xFFF) << 4));
 
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
+
 	if (wbuf)
 		mlen += len;
 	if (rbuf) {
@@ -1123,6 +1127,10 @@ int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc, u32 sinkh,
 	u8 chan = (u8)(chanh & 0xFF);
 	struct slim_ich *slc = &ctrl->chans[chan];
 
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
+
 	mutex_lock(&ctrl->m_ctrl);
 	/* Make sure the channel is not already pending reconf. or active */
 	if (slc->state >= SLIM_CH_PENDING_ACTIVE) {
@@ -1185,8 +1193,11 @@ EXPORT_SYMBOL_GPL(slim_connect_ports);
 int slim_disconnect_ports(struct slim_device *sb, u32 *ph, int nph)
 {
 	struct slim_controller *ctrl = sb->ctrl;
-	int i;
+	int i, ret;
 
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
 	mutex_lock(&ctrl->m_ctrl);
 
 	for (i = 0; i < nph; i++)
@@ -2377,6 +2388,10 @@ int slim_reconfigure_now(struct slim_device *sb)
 	u32 expshft;
 	u32 segdist;
 	struct slim_pending_ch *pch;
+
+	ret = slim_ctrl_clk_pause(ctrl, true, 0);
+	if (ret)
+		return ret;
 
 	mutex_lock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
