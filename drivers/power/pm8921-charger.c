@@ -2329,6 +2329,9 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		pm8xxx_writeb(chip->dev->parent, PSI_CONFIG_STATUS, 0x0C);
 	}
 
+	/* Disable EOC FSM processing */
+	pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x91);
+
 	rc = pm_chg_charge_dis(chip, charging_disabled);
 	if (rc) {
 		pr_err("Failed to disable CHG_CHARGE_DIS bit rc=%d\n", rc);
