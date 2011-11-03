@@ -365,6 +365,18 @@ static u32 ddl_set_dec_property
 			}
 			break;
 		}
+	case VCD_I_DEC_PICTYPE:
+		{
+			if ((sizeof(u32) == property_hdr->sz) &&
+				DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN)) {
+				decoder->idr_only_decoding =
+					*(u32 *)property_value;
+				ddl_set_default_decoder_buffer_req(
+						decoder, true);
+				vcd_status = VCD_S_SUCCESS;
+			}
+		}
+		break;
 	case VCD_I_FRAME_RATE:
 		{
 			vcd_status = VCD_S_SUCCESS;
@@ -1462,6 +1474,7 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 	decoder->client_frame_size.stride = 176;
 	decoder->client_frame_size.scan_lines = 144;
 	decoder->progressive_only = 1;
+	decoder->idr_only_decoding = 0;
 	decoder->profile.profile = VCD_PROFILE_UNKNOWN;
 	decoder->level.level = VCD_LEVEL_UNKNOWN;
 	decoder->output_order = VCD_DEC_ORDER_DISPLAY;
@@ -1689,18 +1702,24 @@ void ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 		min_dpb = decoder->min_dpb_num;
 	}
 
+	if (decoder->idr_only_decoding)
+		min_dpb = 1;
+
 	memset(output_buf_req, 0, sizeof(struct vcd_buffer_requirement));
 
 	output_buf_req->min_count = min_dpb;
 
 	num_mb = DDL_NO_OF_MB(frame_size->width, frame_size->height);
-	if (num_mb >= DDL_WVGA_MBS) {
-		output_buf_req->actual_count = min_dpb + 2;
-		if (output_buf_req->actual_count < 10)
-			output_buf_req->actual_count = 10;
-	} else
-		output_buf_req->actual_count = min_dpb + 5;
-
+	if (decoder->idr_only_decoding) {
+		output_buf_req->actual_count = output_buf_req->min_count;
+	} else {
+		if (num_mb >= DDL_WVGA_MBS) {
+			output_buf_req->actual_count = min_dpb + 2;
+			if (output_buf_req->actual_count < 10)
+				output_buf_req->actual_count = 10;
+		} else
+			output_buf_req->actual_count = min_dpb + 5;
+	}
 	output_buf_req->max_count = DDL_MAX_BUFFER_COUNT;
 	output_buf_req->sz = y_cb_cr_size;
 	if (decoder->buf_format.buffer_format != VCD_BUFFER_FORMAT_NV12)

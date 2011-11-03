@@ -195,6 +195,7 @@ struct ddl_decoder_data {
 	struct vcd_buffer_requirement actual_output_buf_req;
 	struct vcd_buffer_requirement min_output_buf_req;
 	struct vcd_buffer_requirement client_output_buf_req;
+	u32 idr_only_decoding;
 };
 
 union ddl_codec_data {
