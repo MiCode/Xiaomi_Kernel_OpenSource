@@ -1071,7 +1071,7 @@ static void rmnet_mux_command_complete(struct usb_ep *ep,
 	spin_lock(&dev->lock);
 	if (!ctrl_dev->opened) {
 		spin_unlock(&dev->lock);
-		kfree(cpkt);
+		rmnet_mux_free_ctrl_pkt(cpkt);
 		dev->cpkts_drp_cnt++;
 		pr_err_ratelimited(
 			"%s: ctrl pkts dropped: cpkts_drp_cnt: %lu\n",
