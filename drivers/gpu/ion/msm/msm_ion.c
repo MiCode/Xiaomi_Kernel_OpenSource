@@ -19,9 +19,9 @@
 #include <mach/msm_memtypes.h>
 #include "../ion_priv.h"
 
-struct ion_device *idev;
-int num_heaps;
-struct ion_heap **heaps;
+static struct ion_device *idev;
+static int num_heaps;
+static struct ion_heap **heaps;
 
 struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 					const char *name)
@@ -83,19 +83,17 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
-			err = PTR_ERR(heaps[i]);
-			goto heapdestroy;
+			pr_err("%s: could not create ion heap %s"
+				" (id %x)\n", __func__, heap_data->name,
+				heap_data->id);
+			heaps[i] = 0;
+			continue;
 		}
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
 	return 0;
 
-heapdestroy:
-	for (i = 0; i < num_heaps; i++) {
-		if (!IS_ERR_OR_NULL(heaps[i]))
-			ion_heap_destroy(heaps[i]);
-	}
 freeheaps:
 	kfree(heaps);
 out:
