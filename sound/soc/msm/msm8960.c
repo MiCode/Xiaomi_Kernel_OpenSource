@@ -577,6 +577,8 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s()\n", __func__);
 
+	rtd->pmdown_time = 0;
+
 	err = snd_soc_add_controls(codec, tabla_msm8960_controls,
 				ARRAY_SIZE(tabla_msm8960_controls));
 	if (err < 0)
