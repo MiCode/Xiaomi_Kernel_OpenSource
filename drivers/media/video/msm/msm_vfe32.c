@@ -454,7 +454,7 @@ static int vfe32_config_axi(int mode, uint32_t *ao)
 		break;
 
 	case OUTPUT_1_2_AND_3:
-		CDBG("%s: OUTPUT_1_2_AND_3", __func__);
+		CDBG("%s: OUTPUT_ZSL", __func__);
 		/* use wm0& 4 for postview, wm1&5 for preview.*/
 		/* use wm2& 6 for main img */
 		vfe32_ctrl->outpath.output_mode |=
@@ -477,6 +477,23 @@ static int vfe32_config_axi(int mode, uint32_t *ao)
 		CDBG("config axi for raw snapshot.\n");
 		vfe32_ctrl->outpath.out1.ch0 = 0; /* raw */
 		vfe32_ctrl->outpath.output_mode |= VFE32_OUTPUT_MODE_S;
+		break;
+	case OUTPUT_ALL_CHNLS:
+		/* YV12 preview */
+		vfe32_ctrl->outpath.output_mode |=
+			VFE32_OUTPUT_MODE_P_ALL_CHNLS;
+		/* video */
+		vfe32_ctrl->outpath.output_mode |=
+			VFE32_OUTPUT_MODE_V;
+		break;
+	case OUTPUT_ZSL_ALL_CHNLS:
+		CDBG("%s: OUTPUT_ZSL_ALL_CHNLS", __func__);
+		vfe32_ctrl->outpath.output_mode |=
+			VFE32_OUTPUT_MODE_S;  /* main image.*/
+		vfe32_ctrl->outpath.output_mode |=
+			VFE32_OUTPUT_MODE_P_ALL_CHNLS;  /* preview. */
+		vfe32_ctrl->outpath.output_mode |=
+			VFE32_OUTPUT_MODE_T;  /* thumbnail. */
 		break;
 	default:
 		break;
@@ -725,6 +742,12 @@ static int vfe32_zsl(void)
 			irq_comp_mask |=
 				((0x1 << (vfe32_ctrl->outpath.out0.ch0)) |
 				(0x1 << (vfe32_ctrl->outpath.out0.ch1)));
+		} else if (vfe32_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_P_ALL_CHNLS) {
+			pr_debug("%s Enabling all channels ", __func__);
+			irq_comp_mask |= (0x1 << vfe32_ctrl->outpath.out0.ch0 |
+				0x1 << vfe32_ctrl->outpath.out0.ch1 |
+				0x1 << vfe32_ctrl->outpath.out0.ch2);
 		}
 		if (vfe32_ctrl->outpath.output_mode & VFE32_OUTPUT_MODE_T) {
 			irq_comp_mask |=
@@ -741,6 +764,14 @@ static int vfe32_zsl(void)
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
 			msm_io_w(1, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+		} else if (vfe32_ctrl->outpath.output_mode &
+					VFE32_OUTPUT_MODE_P_ALL_CHNLS) {
+			msm_io_w(1, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+			msm_io_w(1, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+			msm_io_w(1, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch2]);
 		}
 		if (vfe32_ctrl->outpath.output_mode & VFE32_OUTPUT_MODE_T) {
 			msm_io_w(1, vfe32_ctrl->vfebase +
@@ -839,6 +870,12 @@ static int vfe32_start(void)
 	if (vfe32_ctrl->outpath.output_mode & VFE32_OUTPUT_MODE_PT) {
 		irq_comp_mask |= (0x1 << vfe32_ctrl->outpath.out0.ch0 |
 			0x1 << vfe32_ctrl->outpath.out0.ch1);
+	} else if (vfe32_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_P_ALL_CHNLS) {
+		pr_debug("%s Enabling all channels ", __func__);
+		irq_comp_mask |= (0x1 << vfe32_ctrl->outpath.out0.ch0 |
+			0x1 << vfe32_ctrl->outpath.out0.ch1 |
+			0x1 << vfe32_ctrl->outpath.out0.ch2);
 	}
 
 	if (vfe32_ctrl->outpath.output_mode & VFE32_OUTPUT_MODE_V) {
@@ -853,6 +890,14 @@ static int vfe32_start(void)
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
 		msm_io_w(1, vfe32_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+	} else if (vfe32_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_P_ALL_CHNLS) {
+		msm_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+		msm_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+		msm_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch2]);
 	}
 	msm_camio_set_perf_lvl(S_PREVIEW);
 	vfe32_start_common();
@@ -3499,6 +3544,27 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 		break;
 
+	case CMD_AXI_CFG_ZSL_ALL_CHNLS: {
+		uint32_t *axio = NULL;
+		CDBG("%s, CMD_AXI_CFG_ZSL\n", __func__);
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
+				GFP_ATOMIC);
+		if (!axio) {
+			rc = -ENOMEM;
+			break;
+		}
+
+		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+			kfree(axio);
+			rc = -EFAULT;
+			break;
+		}
+		vfe32_config_axi(OUTPUT_ZSL_ALL_CHNLS, axio);
+		kfree(axio);
+	}
+		break;
+
 	case CMD_AXI_CFG_VIDEO: {
 		uint32_t *axio = NULL;
 		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
@@ -3515,6 +3581,26 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			break;
 		}
 		vfe32_config_axi(OUTPUT_1_AND_3, axio);
+		kfree(axio);
+	}
+		break;
+
+	case CMD_AXI_CFG_VIDEO_ALL_CHNLS: {
+		uint32_t *axio = NULL;
+		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
+				GFP_ATOMIC);
+		if (!axio) {
+			rc = -ENOMEM;
+			break;
+		}
+
+		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+			kfree(axio);
+			rc = -EFAULT;
+			break;
+		}
+		vfe32_config_axi(OUTPUT_ALL_CHNLS, axio);
 		kfree(axio);
 	}
 		break;

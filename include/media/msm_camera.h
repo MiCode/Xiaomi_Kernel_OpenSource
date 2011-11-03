@@ -381,9 +381,11 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_CFG_ZSL 43
 #define CMD_AXI_CFG_SNAP_VPE 44
 #define CMD_AXI_CFG_SNAP_THUMB_VPE 45
-#define CMD_CONFIG_PING_ADDR 46
-#define CMD_CONFIG_PONG_ADDR 47
-#define CMD_CONFIG_FREE_BUF_ADDR 48
+#define CMD_AXI_CFG_VIDEO_ALL_CHNLS  46
+#define CMD_AXI_CFG_ZSL_ALL_CHNLS  47
+#define CMD_CONFIG_PING_ADDR 48
+#define CMD_CONFIG_PONG_ADDR 49
+#define CMD_CONFIG_FREE_BUF_ADDR 50
 
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {
@@ -469,7 +471,9 @@ struct outputCfg {
 #define OUTPUT_1_AND_CAMIF_TO_AXI_VIA_OUTPUT_2 5
 #define OUTPUT_2_AND_CAMIF_TO_AXI_VIA_OUTPUT_1 6
 #define OUTPUT_1_2_AND_3 7
-#define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_1_2_AND_3 7
+#define OUTPUT_ALL_CHNLS 8
+#define OUTPUT_ZSL_ALL_CHNLS 9
+#define LAST_AXI_OUTPUT_MODE_ENUM  OUTPUT_ZSL_ALL_CHNLS
 
 #define MSM_FRAME_PREV_1	0
 #define MSM_FRAME_PREV_2	1

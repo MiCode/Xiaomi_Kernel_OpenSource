@@ -522,6 +522,8 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_PREVIEW:
 	case CMD_AXI_CFG_SNAP:
 	case CMD_AXI_CFG_ZSL:
+	case CMD_AXI_CFG_VIDEO_ALL_CHNLS:
+	case CMD_AXI_CFG_ZSL_ALL_CHNLS:
 	case CMD_RAW_PICT_AXI_CFG:
 		/* Dont need to pass buffer information.
 		 * subdev will get the buffer from media
