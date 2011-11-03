@@ -1494,18 +1494,20 @@ static irqreturn_t batt_inserted_irq_handler(int irq, void *data)
 static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
+	int high_transition;
 
-	pm8921_chg_disable_irq(chip, VBATDET_LOW_IRQ);
+	high_transition = pm_chg_get_rt_status(chip, VBATDET_LOW_IRQ);
 
-	/* enable auto charging */
-	pm_chg_auto_enable(chip, !charging_disabled);
+	if (high_transition) {
+		/* enable auto charging */
+		pm_chg_auto_enable(chip, !charging_disabled);
+	}
 	pr_debug("fsm_state=%d\n", pm_chg_get_fsm_state(data));
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
 
-	pm8921_chg_enable_irq(chip, FASTCHG_IRQ);
 	return IRQ_HANDLED;
 }
 
@@ -1561,12 +1563,6 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 	chip->bms_notify.is_battery_full = 1;
 	bms_notify_check(chip);
 
-	/*
-	 * since charging is now done, start monitoring for
-	 * battery voltage below resume voltage
-	 */
-	pm8921_chg_enable_irq(chip, VBATDET_LOW_IRQ);
-
 	return IRQ_HANDLED;
 }
 
@@ -1613,14 +1609,17 @@ static irqreturn_t loop_change_irq_handler(int irq, void *data)
 static irqreturn_t fastchg_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
+	int high_transition;
 
-	/* disable this irq now, reenable it when resuming charging */
-	pm8921_chg_disable_irq(chip, FASTCHG_IRQ);
-	power_supply_changed(&chip->batt_psy);
-	wake_lock(&chip->eoc_wake_lock);
-	schedule_delayed_work(&chip->eoc_work,
-			      round_jiffies_relative(msecs_to_jiffies
+	high_transition = pm_chg_get_rt_status(chip, FASTCHG_IRQ);
+	if (high_transition && !delayed_work_pending(&chip->eoc_work)) {
+		wake_lock(&chip->eoc_wake_lock);
+		schedule_delayed_work(&chip->eoc_work,
+				      round_jiffies_relative(msecs_to_jiffies
 						     (EOC_CHECK_PERIOD_MS)));
+	}
+	power_supply_changed(&chip->batt_psy);
+	bms_notify_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -1834,7 +1833,6 @@ static void eoc_worker(struct work_struct *work)
 		pr_debug("fast_chg = %d\n", fast_chg);
 		if (fast_chg == 0) {
 			/* enable fastchg irq */
-			pm8921_chg_enable_irq(chip, FASTCHG_IRQ);
 			count = 0;
 			wake_unlock(&chip->eoc_wake_lock);
 			return;
@@ -2143,6 +2141,7 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	if (usb_chg_current) {
 		/* reissue a vbus draw call */
 		__pm8921_charger_vbus_draw(usb_chg_current);
+		fastchg_irq_handler(chip->pmic_chg_irq[FASTCHG_IRQ], chip);
 	}
 	spin_unlock_irqrestore(&vbus_lock, flags);
 
@@ -2181,7 +2180,8 @@ struct pm_chg_irq_init_data chg_irq_data[] = {
 	CHG_IRQ(USBIN_OV_IRQ, IRQF_TRIGGER_RISING, usbin_ov_irq_handler),
 	CHG_IRQ(BATT_INSERTED_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 						batt_inserted_irq_handler),
-	CHG_IRQ(VBATDET_LOW_IRQ, IRQF_TRIGGER_HIGH, vbatdet_low_irq_handler),
+	CHG_IRQ(VBATDET_LOW_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						vbatdet_low_irq_handler),
 	CHG_IRQ(USBIN_UV_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 							usbin_uv_irq_handler),
 	CHG_IRQ(VBAT_OV_IRQ, IRQF_TRIGGER_RISING, vbat_ov_irq_handler),
@@ -2193,7 +2193,8 @@ struct pm_chg_irq_init_data chg_irq_data[] = {
 	CHG_IRQ(CHGFAIL_IRQ, IRQF_TRIGGER_RISING, chgfail_irq_handler),
 	CHG_IRQ(CHGSTATE_IRQ, IRQF_TRIGGER_RISING, chgstate_irq_handler),
 	CHG_IRQ(LOOP_CHANGE_IRQ, IRQF_TRIGGER_RISING, loop_change_irq_handler),
-	CHG_IRQ(FASTCHG_IRQ, IRQF_TRIGGER_HIGH, fastchg_irq_handler),
+	CHG_IRQ(FASTCHG_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						fastchg_irq_handler),
 	CHG_IRQ(TRKLCHG_IRQ, IRQF_TRIGGER_RISING, trklchg_irq_handler),
 	CHG_IRQ(BATT_REMOVED_IRQ, IRQF_TRIGGER_RISING,
 						batt_removed_irq_handler),
