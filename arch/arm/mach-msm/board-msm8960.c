@@ -154,6 +154,12 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_STRENGTH_HIGH, \
 			_func, 0, 0)
 
+#define PM8XXX_GPIO_OUTPUT_VIN(_gpio, _val, _vin) \
+	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
+			PM_GPIO_PULL_NO, _vin, \
+			PM_GPIO_STRENGTH_HIGH, \
+			PM_GPIO_FUNC_NORMAL, 0, 0)
+
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_DISABLE(6),				 /* Disable unused */
@@ -161,7 +167,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_INPUT(16,	    PM_GPIO_PULL_UP_30), /* SD_CARD_WP */
     /* External regulator shared by display and touchscreen on LiQUID */
 	PM8XXX_GPIO_OUTPUT(17,	    0),			 /* DISP 3.3 V Boost */
-	PM8XXX_GPIO_OUTPUT(21,	    1),			 /* Backlight Enable */
+	PM8XXX_GPIO_OUTPUT_VIN(21, 1, PM_GPIO_VIN_VPH),	 /* Backlight Enable */
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
