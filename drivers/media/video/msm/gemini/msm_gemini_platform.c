@@ -25,29 +25,38 @@
 
 /* AXI rate in KHz */
 #define MSM_SYSTEM_BUS_RATE	160000
+struct ion_client *gemini_client;
 
 void msm_gemini_platform_p2v(struct file  *file,
-				struct msm_mapped_buffer **msm_buffer)
+				struct msm_mapped_buffer **msm_buffer,
+				struct ion_handle **ionhandle)
 {
-
 	if (msm_subsystem_unmap_buffer(
 		(struct msm_mapped_buffer *)*msm_buffer) < 0)
 		pr_err("%s: umapped stat memory\n",  __func__);
 	*msm_buffer = NULL;
-#ifdef CONFIG_ANDROID_PMEM
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_free(gemini_client, *ionhandle);
+	*ionhandle = NULL;
+#elif CONFIG_ANDROID_PMEM
 	put_pmem_file(file);
 #endif
 }
 
 uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
-					struct msm_mapped_buffer **msm_buffer,
-					int *subsys_id)
+				struct msm_mapped_buffer **msm_buffer,
+				int *subsys_id, struct ion_handle **ionhandle)
 {
 	unsigned long paddr;
 	unsigned long size;
 	int rc;
 	int flags;
-#ifdef CONFIG_ANDROID_PMEM
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	*ionhandle = ion_import_fd(gemini_client, fd);
+	if (IS_ERR_OR_NULL(*ionhandle))
+		return 0;
+	rc = ion_phys(gemini_client, *ionhandle, &paddr, (size_t *)&size);
+#elif CONFIG_ANDROID_PMEM
 	unsigned long kvstart;
 	rc = get_pmem_file(fd, &paddr, &kvstart, &size, file_p);
 #else
@@ -73,6 +82,12 @@ uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
 					flags, subsys_id, 1);
 	if (IS_ERR((void *)*msm_buffer)) {
 		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_free(gemini_client, *ionhandle);
+		*ionhandle = NULL;
+#elif CONFIG_ANDROID_PMEM
+		put_pmem_file(*file_p);
+#endif
 		return 0;
 	}
 	paddr = ((struct msm_mapped_buffer *)*msm_buffer)->iova[0];
@@ -136,6 +151,10 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 	*mem  = gemini_mem;
 	*base = gemini_base;
 	*irq  = gemini_irq;
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	gemini_client = msm_ion_client_create(-1, "camera/gemini");
+#endif
 	GMN_DBG("%s:%d] success\n", __func__, __LINE__);
 
 	return rc;
@@ -159,7 +178,9 @@ int msm_gemini_platform_release(struct resource *mem, void *base, int irq,
 	result = msm_camio_jpeg_clk_disable();
 	iounmap(base);
 	release_mem_region(mem->start, resource_size(mem));
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_client_destroy(gemini_client);
+#endif
 	GMN_DBG("%s:%d] success\n", __func__, __LINE__);
 	return result;
 }
