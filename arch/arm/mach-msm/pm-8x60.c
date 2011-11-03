@@ -162,7 +162,7 @@ static ssize_t msm_pm_mode_attr_show(
 	}
 
 	if (ret > 0) {
-		strcat(buf, "\n");
+		strlcat(buf, "\n", PAGE_SIZE);
 		ret++;
 	}
 
@@ -216,7 +216,7 @@ static int __init msm_pm_mode_sysfs_add_cpu(
 {
 	char cpu_name[8];
 	struct kobject *cpu_kobj;
-	struct msm_pm_sysfs_sleep_mode *mode;
+	struct msm_pm_sysfs_sleep_mode *mode = NULL;
 	int i, j, k;
 	int ret;
 
