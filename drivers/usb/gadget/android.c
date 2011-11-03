@@ -252,14 +252,9 @@ static struct android_usb_function rmnet_smd_sdio_function = {
 	.attributes	= rmnet_smd_sdio_attributes,
 };
 
-/* RMNET - used with BAM */
-#define MAX_RMNET_INSTANCES 1
-static int rmnet_instances;
-static int rmnet_function_init(struct android_usb_function *f,
-					 struct usb_composite_dev *cdev)
-{
-	return frmnet_init_port(MAX_RMNET_INSTANCES);
-}
+/*rmnet transport string format(per port):"ctrl0,data0,ctrl1,data1..." */
+#define MAX_XPORT_STR_LEN 50
+static char rmnet_transports[MAX_XPORT_STR_LEN];
 
 static void rmnet_function_cleanup(struct android_usb_function *f)
 {
@@ -270,45 +265,74 @@ static int rmnet_function_bind_config(struct android_usb_function *f,
 					 struct usb_configuration *c)
 {
 	int i;
-	int ret = 0;
+	int err = 0;
+	char *ctrl_name;
+	char *data_name;
+	char buf[MAX_XPORT_STR_LEN], *b;
+	static int rmnet_initialized, ports;
 
-	for (i = 0; i < rmnet_instances; i++) {
-		ret = frmnet_bind_config(c, i);
-		if (ret) {
+	if (!rmnet_initialized) {
+		rmnet_initialized = 1;
+		strlcpy(buf, rmnet_transports, sizeof(buf));
+		b = strim(buf);
+		while (b) {
+			ctrl_name = strsep(&b, ",");
+			data_name = strsep(&b, ",");
+			if (ctrl_name && data_name) {
+				err = frmnet_init_port(ctrl_name, data_name);
+				if (err) {
+					pr_err("rmnet: Cannot open ctrl port:"
+						"'%s' data port:'%s'\n",
+						ctrl_name, data_name);
+					goto out;
+				}
+				ports++;
+			}
+		}
+
+		err = rmnet_gport_setup();
+		if (err) {
+			pr_err("rmnet: Cannot setup transports");
+			goto out;
+		}
+	}
+
+	for (i = 0; i < ports; i++) {
+		err = frmnet_bind_config(c, i);
+		if (err) {
 			pr_err("Could not bind rmnet%u config\n", i);
 			break;
 		}
 	}
-
-	return ret;
+out:
+	return err;
 }
 
-static ssize_t rmnet_instances_show(struct device *dev,
+static ssize_t rmnet_transports_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", rmnet_instances);
+	return snprintf(buf, PAGE_SIZE, "%s\n", rmnet_transports);
 }
 
-static ssize_t rmnet_instances_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t rmnet_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
 {
-	int value;
+	strlcpy(rmnet_transports, buff, sizeof(rmnet_transports));
 
-	sscanf(buf, "%d", &value);
-	if (value > MAX_RMNET_INSTANCES)
-		value = MAX_RMNET_INSTANCES;
-	rmnet_instances = value;
 	return size;
 }
 
-static DEVICE_ATTR(instances, S_IRUGO | S_IWUSR, rmnet_instances_show,
-						 rmnet_instances_store);
+static struct device_attribute dev_attr_rmnet_transports =
+					__ATTR(transports, S_IRUGO | S_IWUSR,
+						rmnet_transports_show,
+						rmnet_transports_store);
 static struct device_attribute *rmnet_function_attributes[] = {
-					&dev_attr_instances, NULL };
+					&dev_attr_rmnet_transports,
+					NULL };
 
 static struct android_usb_function rmnet_function = {
 	.name		= "rmnet",
-	.init		= rmnet_function_init,
 	.cleanup	= rmnet_function_cleanup,
 	.bind_config	= rmnet_function_bind_config,
 	.attributes	= rmnet_function_attributes,

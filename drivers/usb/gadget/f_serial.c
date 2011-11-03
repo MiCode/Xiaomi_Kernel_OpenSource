@@ -251,31 +251,6 @@ static struct usb_gadget_strings *gser_strings[] = {
 	NULL,
 };
 
-static char *transport_to_str(enum transport_type t)
-{
-	switch (t) {
-	case USB_GADGET_XPORT_TTY:
-		return "TTY";
-	case USB_GADGET_XPORT_SDIO:
-		return "SDIO";
-	case USB_GADGET_XPORT_SMD:
-		return "SMD";
-	default:
-		return "NONE";
-	}
-}
-
-static enum transport_type serial_str_to_transport(const char *name)
-{
-	if (!strcasecmp("SDIO", name))
-		return USB_GADGET_XPORT_SDIO;
-	if (!strcasecmp("SMD", name))
-		return USB_GADGET_XPORT_SMD;
-
-	return USB_GADGET_XPORT_TTY;
-}
-
-
 static int gport_setup(struct usb_configuration *c)
 {
 	int ret = 0;
@@ -298,7 +273,7 @@ static int gport_connect(struct f_gser *gser)
 	unsigned port_num;
 
 	pr_debug("%s: transport:%s f_gser:%p gserial:%p port_num:%d\n",
-			__func__, transport_to_str(gser->transport),
+			__func__, xport_to_str(gser->transport),
 			gser, &gser->port, gser->port_num);
 
 	port_num = gserial_ports[gser->port_num].client_port_num;
@@ -315,7 +290,7 @@ static int gport_connect(struct f_gser *gser)
 		break;
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
-				transport_to_str(gser->transport));
+				xport_to_str(gser->transport));
 		return -ENODEV;
 	}
 
@@ -327,7 +302,7 @@ static int gport_disconnect(struct f_gser *gser)
 	unsigned port_num;
 
 	pr_debug("%s: transport:%s f_gser:%p gserial:%p port_num:%d\n",
-			__func__, transport_to_str(gser->transport),
+			__func__, xport_to_str(gser->transport),
 			gser, &gser->port, gser->port_num);
 
 	port_num = gserial_ports[gser->port_num].client_port_num;
@@ -344,7 +319,7 @@ static int gport_disconnect(struct f_gser *gser)
 		break;
 	default:
 		pr_err("%s: Un-supported transport:%s\n", __func__,
-				transport_to_str(gser->transport));
+				xport_to_str(gser->transport));
 		return -ENODEV;
 	}
 
@@ -888,9 +863,9 @@ static int gserial_init_port(int port_num, const char *name)
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
 
-	transport = serial_str_to_transport(name);
+	transport = str_to_xport(name);
 	pr_debug("%s, port:%d, transport:%s\n", __func__,
-				port_num, transport_to_str(transport));
+				port_num, xport_to_str(transport));
 
 	gserial_ports[port_num].transport = transport;
 	gserial_ports[port_num].port_num = port_num;

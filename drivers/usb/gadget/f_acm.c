@@ -107,20 +107,6 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 	return container_of(p, struct f_acm, port);
 }
 
-static char *transport_to_str(enum transport_type t)
-{
-	switch (t) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
-		return "TTY";
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
-		return "SDIO";
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
-		return "SMD";
-	}
-
-	return "NONE";
-}
-
 static int gport_setup(struct usb_configuration *c)
 {
 	int ret = 0;
@@ -146,7 +132,7 @@ static int gport_connect(struct f_acm *acm)
 
 
 	pr_debug("%s: transport:%s f_acm:%p gserial:%p port_num:%d cl_port_no:%d\n",
-			__func__, transport_to_str(acm->transport),
+			__func__, xport_to_str(acm->transport),
 			acm, &acm->port, acm->port_num, port_num);
 
 	switch (acm->transport) {
@@ -161,7 +147,7 @@ static int gport_connect(struct f_acm *acm)
 		break;
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
-				transport_to_str(acm->transport));
+				xport_to_str(acm->transport));
 		return -ENODEV;
 	}
 
@@ -175,7 +161,7 @@ static int gport_disconnect(struct f_acm *acm)
 	port_num = gacm_ports[acm->port_num].client_port_num;
 
 	pr_debug("%s: transport:%s f_acm:%p gserial:%p port_num:%d cl_pno:%d\n",
-			__func__, transport_to_str(acm->transport),
+			__func__, xport_to_str(acm->transport),
 			acm, &acm->port, acm->port_num, port_num);
 
 	switch (acm->transport) {
@@ -190,7 +176,7 @@ static int gport_disconnect(struct f_acm *acm)
 		break;
 	default:
 		pr_err("%s: Un-supported transport:%s\n", __func__,
-				transport_to_str(acm->transport));
+				xport_to_str(acm->transport));
 		return -ENODEV;
 	}
 
