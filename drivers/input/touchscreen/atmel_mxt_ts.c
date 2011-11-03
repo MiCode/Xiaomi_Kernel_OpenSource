@@ -857,7 +857,8 @@ static int mxt_initialize(struct mxt_data *data)
 	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
 	if (!t7_object) {
 		dev_err(&client->dev, "Failed to get T7 object\n");
-		return -EINVAL;
+		error = -EINVAL;
+		goto err_free_object_table;
 	}
 
 	data->t7_start_addr = t7_object->start_address;
@@ -865,14 +866,14 @@ static int mxt_initialize(struct mxt_data *data)
 				T7_DATA_SIZE, data->t7_data);
 	if (error < 0) {
 		dev_err(&client->dev,
-			"failed to save current power state\n");
-		return error;
+			"Failed to save current power state\n");
+		goto err_free_object_table;
 	}
 	error = mxt_read_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
 			&data->t9_ctrl);
 	if (error < 0) {
-		dev_err(&client->dev, "failed to save current touch object\n");
-		return error;
+		dev_err(&client->dev, "Failed to save current touch object\n");
+		goto err_free_object_table;
 	}
 
 	/* Backup to memory */
@@ -885,12 +886,13 @@ static int mxt_initialize(struct mxt_data *data)
 					MXT_COMMAND_BACKUPNV,
 					&command_register);
 		if (error)
-			return error;
+			goto err_free_object_table;
 		usleep_range(1000, 2000);
 	} while ((command_register != 0) && (++timeout_counter <= 100));
 	if (timeout_counter > 100) {
 		dev_err(&client->dev, "No response after backup!\n");
-		return -EIO;
+		error = -EIO;
+		goto err_free_object_table;
 	}
 
 
