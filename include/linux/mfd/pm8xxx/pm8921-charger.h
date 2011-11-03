@@ -35,8 +35,10 @@ enum pm8921_chg_hot_thr	{
 
 /**
  * struct pm8921_charger_platform_data -
- * @safety_time:	max charging time in minutes
+ * @safety_time:	max charging time in minutes incl. fast and trkl
+ *			valid range 4 to 512 min. PON default 120 min
  * @ttrkl_time:		max trckl charging time in minutes
+ *			valid range 1 to 64 mins. PON default 15 min
  * @update_time:	how often the userland be updated of the charging (msec)
  * @max_voltage:	the max voltage (mV) the battery should be charged up to
  * @min_voltage:	the voltage (mV) where charging method switches from
