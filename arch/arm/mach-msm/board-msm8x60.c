@@ -2630,7 +2630,7 @@ static int writeback_offset(void)
 
 #define MSM_ION_EBI_SIZE        MSM_PMEM_SF_SIZE
 #define MSM_ION_ADSP_SIZE       MSM_PMEM_ADSP_SIZE
-#define MSM_ION_SMI_SIZE	MSM_USER_SMI_SIZE
+#define MSM_ION_SMI_SIZE	MSM_PMEM_SMIPOOL_SIZE
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_ION_HEAP_NUM	5
@@ -4157,10 +4157,12 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_device_ssbi3,
 #endif
 #ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
 	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
 	&android_pmem_smipool_device,
+#endif
+	&android_pmem_audio_device,
 #endif
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
