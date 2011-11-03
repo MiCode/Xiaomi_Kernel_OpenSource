@@ -33,6 +33,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
 #include <mach/msm-krait-l2-accessors.h>
+#include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
 
@@ -50,6 +51,7 @@
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 #define SEC_SRC_SEL_QSB		0
+#define SEC_SRC_SEL_AUX		2
 
 /* HFPLL registers offsets. */
 #define HFPLL_MODE		0x00
@@ -87,6 +89,8 @@ enum vregs {
 	VREG_CORE,
 	VREG_MEM,
 	VREG_DIG,
+	VREG_HFPLL_A,
+	VREG_HFPLL_B,
 	NUM_VREG
 };
 
@@ -143,6 +147,12 @@ static struct scalable scalable_8960[] = {
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER1,
 					     RPM_VREG_ID_PM8921_S3 },
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER1,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER1,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 	[CPU1] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x300,
@@ -155,11 +165,23 @@ static struct scalable scalable_8960[] = {
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER2,
 					     RPM_VREG_ID_PM8921_S3 },
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER2,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER2,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 	[L2] = {
 			.hfpll_base   = MSM_HFPLL_BASE    + 0x400,
 			.aux_clk_sel  = MSM_APCS_GCC_BASE + 0x028,
 			.l2cpmr_iaddr = L2CPMR_IADDR,
+			.vreg[VREG_HFPLL_A] = { "hfpll", 2200000,
+					     RPM_VREG_VOTER6,
+					     RPM_VREG_ID_PM8921_S8 },
+			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
+					     RPM_VREG_VOTER6,
+					     RPM_VREG_ID_PM8921_L23 },
 		},
 };
 
@@ -410,6 +432,23 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 /* Enable an already-configured HFPLL. */
 static void hfpll_enable(struct scalable *sc)
 {
+	int rc;
+
+	if (cpu_is_msm8960()) {
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2200000,
+				2200000, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_A].name, rc);
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
+				1800000, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_B].name, rc);
+	}
+
 	/* Disable PLL bypass mode. */
 	writel_relaxed(0x2, sc->hfpll_base + HFPLL_MODE);
 
@@ -434,11 +473,28 @@ static void hfpll_enable(struct scalable *sc)
 /* Disable a HFPLL for power-savings or while its being reprogrammed. */
 static void hfpll_disable(struct scalable *sc)
 {
+	int rc;
+
 	/*
 	 * Disable the PLL output, disable test mode, enable
 	 * the bypass mode, and assert the reset.
 	 */
 	writel_relaxed(0, sc->hfpll_base + HFPLL_MODE);
+
+	if (cpu_is_msm8960()) {
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
+				0, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_B].name, rc);
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
+				0, 0);
+		if (rc)
+			pr_err("%s regulator enable failed (%d)\n",
+				sc->vreg[VREG_HFPLL_A].name, rc);
+	}
 }
 
 /* Program the HFPLL rate. Assumes HFPLL is already disabled. */
@@ -493,12 +549,11 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		return;
 
 	if (strt_s->src == HFPLL && tgt_s->src == HFPLL) {
-		/* Move CPU to QSB source. */
 		/*
-		 * TODO: If using QSB here requires elevating voltages,
-		 * consider using PLL8 instead.
+		 * Move to an always-on source running at a frequency that does
+		 * not require an elevated CPU voltage. PLL8 is used here.
 		 */
-		set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
+		set_sec_clk_src(sc, SEC_SRC_SEL_AUX);
 		set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 
 		/* Program CPU HFPLL. */
@@ -817,24 +872,18 @@ static void __init regulator_init(void)
 	}
 }
 
-#define INIT_QSB_ID	0
-#define INIT_HFPLL_ID	1
 /* Set initial rate for a given core. */
 static void __init init_clock_sources(struct scalable *sc,
 				      struct core_speed *tgt_s)
 {
-	uint32_t pri_src, regval;
+	uint32_t regval;
 
-	/*
-	 * If the HFPLL is in use, program AUX source for QSB, switch to it,
-	 * re-initialize the HFPLL, and switch back to the HFPLL. Otherwise,
-	 * the HFPLL is not in use, so we can switch directly to it.
-	 */
-	pri_src = get_pri_clk_src(scalable);
-	if (pri_src == PRI_SRC_SEL_HFPLL || pri_src == PRI_SRC_SEL_HFPLL_DIV2) {
-		set_sec_clk_src(sc, SEC_SRC_SEL_QSB);
-		set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
-	}
+	/* Select PLL8 as AUX source input to the secondary MUX. */
+	writel_relaxed(0x3, sc->aux_clk_sel);
+
+	/* Switch away from the HFPLL while it's re-initialized. */
+	set_sec_clk_src(sc, SEC_SRC_SEL_AUX);
+	set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 	hfpll_init(sc, tgt_s);
 
 	/* Set PRI_SRC_SEL_HFPLL_DIV2 divider to div-2. */
@@ -842,9 +891,8 @@ static void __init init_clock_sources(struct scalable *sc,
 	regval &= ~(0x3 << 6);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
-	/* Select PLL8 as AUX source input to the secondary MUX. */
-	writel_relaxed(0x3, sc->aux_clk_sel);
-
+	/* Switch to the target clock source. */
+	set_sec_clk_src(sc, tgt_s->sec_src_sel);
 	set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	sc->current_speed = tgt_s;
 
