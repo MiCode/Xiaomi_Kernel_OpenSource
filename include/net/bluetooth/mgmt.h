@@ -219,6 +219,15 @@ struct mgmt_cp_resolve_name {
 
 #define MGMT_OP_SET_LIMIT_DISCOVERABLE	0x001F
 
+#define MGMT_OP_SET_CONNECTION_PARAMS	0x0020
+struct mgmt_cp_set_connection_params {
+	bdaddr_t bdaddr;
+	__le16 interval_min;
+	__le16 interval_max;
+	__le16 slave_latency;
+	__le16 timeout_multiplier;
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16 opcode;

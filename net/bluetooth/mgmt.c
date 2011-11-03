@@ -1699,6 +1699,48 @@ failed:
 	return err;
 }
 
+static int set_connection_params(struct sock *sk, u16 index,
+				unsigned char *data, u16 len)
+{
+	struct mgmt_cp_set_connection_params *cp = (void *) data;
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	int err;
+
+	BT_DBG("");
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_SET_CONNECTION_PARAMS,
+									EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_SET_CONNECTION_PARAMS,
+									ENODEV);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_SET_CONNECTION_PARAMS,
+								ENOTCONN);
+		goto failed;
+	}
+
+	hci_le_conn_update(conn, le16_to_cpu(cp->interval_min),
+				le16_to_cpu(cp->interval_max),
+				le16_to_cpu(cp->slave_latency),
+				le16_to_cpu(cp->timeout_multiplier));
+
+	err = cmd_status(sk, index, MGMT_OP_SET_CONNECTION_PARAMS, 0);
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
 static int set_local_name(struct sock *sk, u16 index, unsigned char *data,
 								u16 len)
 {
@@ -2261,6 +2303,9 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 		break;
 	case MGMT_OP_RESOLVE_NAME:
 		err = resolve_name(sk, index, buf + sizeof(*hdr), len);
+		break;
+	case MGMT_OP_SET_CONNECTION_PARAMS:
+		err = set_connection_params(sk, index, buf + sizeof(*hdr), len);
 		break;
 	case MGMT_OP_READ_LOCAL_OOB_DATA:
 		err = read_local_oob_data(sk, index);
