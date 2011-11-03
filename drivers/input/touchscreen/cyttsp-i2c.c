@@ -2419,7 +2419,7 @@ static int cyttsp_power_device(struct cyttsp *ts, bool on)
 		}
 
 		rc = regulator_set_optimum_mode(ts->vdd[i],
-						reg_info[i].load_uA);
+						reg_info[i].hpm_load_uA);
 		if (rc < 0) {
 			pr_err("%s: regulator_set_optimum_mode failed rc=%d\n",
 								__func__, rc);
@@ -2838,6 +2838,57 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 }
 
 #ifdef CONFIG_PM
+static int cyttsp_regulator_lpm(struct cyttsp *ts, bool on)
+{
+	int rc = 0, i;
+	const struct cyttsp_regulator *reg_info =
+			ts->platform_data->regulator_info;
+	u8 num_reg = ts->platform_data->num_regulators;
+
+	if (on == false)
+		goto regulator_hpm;
+
+	for (i = 0; i < num_reg; i++) {
+		rc = regulator_set_optimum_mode(ts->vdd[i],
+					reg_info[i].lpm_load_uA);
+		if (rc < 0) {
+			pr_err("%s: regulator_set_optimum failed rc = %d\n",
+							__func__, rc);
+			goto fail_regulator_lpm;
+		}
+
+	}
+
+	return 0;
+
+regulator_hpm:
+	for (i = 0; i < num_reg; i++) {
+		rc = regulator_set_optimum_mode(ts->vdd[i],
+					reg_info[i].hpm_load_uA);
+		if (rc < 0) {
+			pr_err("%s: regulator_set_optimum failed"
+				"rc = %d\n", __func__, rc);
+			goto fail_regulator_hpm;
+		}
+	}
+
+	return 0;
+
+fail_regulator_lpm:
+	while (i--)
+		regulator_set_optimum_mode(ts->vdd[i],
+					reg_info[i].hpm_load_uA);
+
+	return rc;
+
+fail_regulator_hpm:
+	while (i--)
+		regulator_set_optimum_mode(ts->vdd[i],
+					reg_info[i].lpm_load_uA);
+
+	return rc;
+}
+
 /* Function to manage power-on resume */
 static int cyttsp_resume(struct device *dev)
 {
@@ -2865,6 +2916,8 @@ static int cyttsp_resume(struct device *dev)
 		(ts->platform_data->power_state != CY_ACTIVE_STATE)) {
 		if (ts->platform_data->resume)
 			retval = ts->platform_data->resume(ts->client);
+		else
+			retval = cyttsp_regulator_lpm(ts, false);
 		/* take TTSP device out of bootloader mode;
 		 * switch back to TrueTouch operational mode */
 		if (!(retval < CY_OK)) {
@@ -2948,14 +3001,23 @@ static int cyttsp_suspend(struct device *dev)
 	if (!(retval < CY_OK)) {
 		if (ts->platform_data->use_sleep &&
 			(ts->platform_data->power_state == CY_ACTIVE_STATE)) {
+			if (ts->platform_data->suspend) {
+				retval =
+				ts->platform_data->suspend(ts->client);
+			} else {
+				retval = cyttsp_regulator_lpm(ts, true);
+			}
 			if (ts->platform_data->use_sleep & CY_USE_DEEP_SLEEP_SEL)
 				sleep_mode = CY_DEEP_SLEEP_MODE;
 			else
 				sleep_mode = CY_LOW_PWR_MODE;
 
-			retval = i2c_smbus_write_i2c_block_data(ts->client,
-				CY_REG_BASE,
-				sizeof(sleep_mode), &sleep_mode);
+			if (!(retval < CY_OK)) {
+				retval =
+				i2c_smbus_write_i2c_block_data(ts->client,
+								CY_REG_BASE,
+					sizeof(sleep_mode), &sleep_mode);
+			}
 		}
 	}
 

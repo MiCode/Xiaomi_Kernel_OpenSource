@@ -389,6 +389,14 @@ l8_put:
 	return rc;
 }
 
+/* TODO: Put the regulator to LPM / HPM in suspend/resume*/
+static int cyttsp_platform_suspend(struct i2c_client *client)
+{
+	msleep(20);
+
+	return CY_OK;
+}
+
 static int cyttsp_platform_resume(struct i2c_client *client)
 {
 	/* add any special code to strobe a wakeup pin or chip reset */
@@ -432,6 +440,7 @@ static struct cyttsp_platform_data cyttsp_data = {
 	 */
 	.lp_intrvl = CY_LP_INTRVL_DFLT,
 	.resume = cyttsp_platform_resume,
+	.suspend = cyttsp_platform_suspend,
 	.init = cyttsp_platform_init,
 	.sleep_gpio = -1,
 	.resout_gpio = -1,
