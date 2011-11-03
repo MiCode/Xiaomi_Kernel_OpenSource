@@ -202,6 +202,7 @@ extern struct platform_device led_pdev;
 extern struct platform_device msm_rpm_device;
 extern struct platform_device msm_rpm_stat_device;
 extern struct platform_device msm_device_rng;
+extern struct platform_device apq8064_device_rng;
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)

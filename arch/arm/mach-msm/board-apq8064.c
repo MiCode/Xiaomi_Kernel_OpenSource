@@ -652,6 +652,10 @@ static struct platform_device *common_devices[] __initdata = {
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
 	&qcedev_device,
 #endif
+
+#ifdef CONFIG_HW_RANDOM_MSM
+	&apq8064_device_rng,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
