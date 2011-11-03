@@ -32,7 +32,6 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_hsusb.h>
 #include <mach/usbdiag.h>
-#include <mach/usb_gadget_fserial.h>
 #include <mach/rpc_hsusb.h>
 
 static struct resource resources_uart1[] = {

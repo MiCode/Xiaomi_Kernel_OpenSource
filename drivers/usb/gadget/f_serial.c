@@ -13,7 +13,7 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
-#include <mach/usb_gadget_fserial.h>
+#include <mach/usb_gadget_xport.h>
 
 #include "u_serial.h"
 #include "gadget_chips.h"
@@ -27,6 +27,7 @@
  * CDC ACM driver.  However, for many purposes it's just as functional
  * if you can arrange appropriate host side drivers.
  */
+#define GSERIAL_NO_PORTS 2
 
 struct gser_descs {
 	struct usb_endpoint_descriptor	*in;
@@ -85,7 +86,7 @@ static struct port_info {
 
 static inline bool is_transport_sdio(enum transport_type t)
 {
-	if (t == USB_GADGET_FSERIAL_TRANSPORT_SDIO)
+	if (t == USB_GADGET_XPORT_SDIO)
 		return 1;
 	return 0;
 }
@@ -253,25 +254,25 @@ static struct usb_gadget_strings *gser_strings[] = {
 static char *transport_to_str(enum transport_type t)
 {
 	switch (t) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		return "TTY";
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		return "SDIO";
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		return "SMD";
+	default:
+		return "NONE";
 	}
-
-	return "NONE";
 }
 
 static enum transport_type serial_str_to_transport(const char *name)
 {
 	if (!strcasecmp("SDIO", name))
-		return USB_GADGET_FSERIAL_TRANSPORT_SDIO;
+		return USB_GADGET_XPORT_SDIO;
 	if (!strcasecmp("SMD", name))
-		return USB_GADGET_FSERIAL_TRANSPORT_SMD;
+		return USB_GADGET_XPORT_SMD;
 
-	return USB_GADGET_FSERIAL_TRANSPORT_TTY;
+	return USB_GADGET_XPORT_TTY;
 }
 
 
@@ -303,13 +304,13 @@ static int gport_connect(struct f_gser *gser)
 	port_num = gserial_ports[gser->port_num].client_port_num;
 
 	switch (gser->transport) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		gserial_connect(&gser->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		gsdio_connect(&gser->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		gsmd_connect(&gser->port, port_num);
 		break;
 	default:
@@ -332,13 +333,13 @@ static int gport_disconnect(struct f_gser *gser)
 	port_num = gserial_ports[gser->port_num].client_port_num;
 
 	switch (gser->transport) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		gserial_disconnect(&gser->port);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		gsdio_disconnect(&gser->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		gsmd_disconnect(&gser->port, port_num);
 		break;
 	default:
@@ -895,15 +896,15 @@ static int gserial_init_port(int port_num, const char *name)
 	gserial_ports[port_num].port_num = port_num;
 
 	switch (transport) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		gserial_ports[port_num].client_port_num = no_tty_ports;
 		no_tty_ports++;
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		gserial_ports[port_num].client_port_num = no_sdio_ports;
 		no_sdio_ports++;
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		gserial_ports[port_num].client_port_num = no_smd_ports;
 		no_smd_ports++;
 		break;
