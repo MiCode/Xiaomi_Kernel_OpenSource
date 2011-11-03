@@ -289,7 +289,8 @@ static int __devinit pm_gpio_probe(struct platform_device *pdev)
 					GFP_KERNEL);
 	if (!pm_gpio_chip->bank1) {
 		pr_err("Cannot allocate pm_gpio_chip->bank1\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto free_chip;
 	}
 
 	spin_lock_init(&pm_gpio_chip->pm_lock);
@@ -332,6 +333,8 @@ remove_chip:
 		pr_err("failed to remove gpio chip\n");
 reset_drvdata:
 	platform_set_drvdata(pdev, NULL);
+	kfree(pm_gpio_chip->bank1);
+free_chip:
 	kfree(pm_gpio_chip);
 	return ret;
 }
