@@ -74,6 +74,8 @@ void __init msm_copper_init_irq(void)
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
+	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -82,6 +84,8 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 };
 
 static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF9684000, \
+			"msm_serial_hsl.0", NULL),
 	{}
 };
 
