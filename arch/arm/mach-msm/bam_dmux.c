@@ -948,16 +948,10 @@ static void disconnect_to_bam(void)
 
 static void vote_dfab(void)
 {
-	int rc;
-
-	rc = clk_enable(dfab_clk);
-	if (rc)
-		pr_err("bam_dmux vote for dfab failed rc = %d\n", rc);
 }
 
 static void unvote_dfab(void)
 {
-	clk_disable(dfab_clk);
 }
 
 static int restart_notifier_cb(struct notifier_block *this,
