@@ -157,7 +157,6 @@ static void bam_mux_write_done(struct work_struct *work);
 static void handle_bam_mux_cmd(struct work_struct *work);
 static void rx_timer_work_func(struct work_struct *work);
 
-static DEFINE_MUTEX(bam_mux_lock);
 static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 
 static struct workqueue_struct *bam_mux_rx_workqueue;
@@ -339,12 +338,10 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	struct tx_pkt_info *pkt;
 	dma_addr_t dma_address;
 
-	mutex_lock(&bam_mux_lock);
 	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_KERNEL);
 	if (pkt == NULL) {
 		pr_err("%s: mem alloc for tx_pkt_info failed\n", __func__);
 		rc = -ENOMEM;
-		mutex_unlock(&bam_mux_lock);
 		return rc;
 	}
 
@@ -353,7 +350,6 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	if (!dma_address) {
 		pr_err("%s: dma_map_single() failed\n", __func__);
 		rc = -ENOMEM;
-		mutex_unlock(&bam_mux_lock);
 		return rc;
 	}
 	pkt->skb = (struct sk_buff *)(data);
@@ -367,7 +363,6 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 
-	mutex_unlock(&bam_mux_lock);
 	ul_packet_written = 1;
 	return rc;
 }
