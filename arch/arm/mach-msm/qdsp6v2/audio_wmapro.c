@@ -109,7 +109,8 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EINVAL;
 			break;
 		}
-		if (wmapro_config->validbitspersample == 16) {
+		if ((wmapro_config->validbitspersample == 16) ||
+			(wmapro_config->validbitspersample == 24)) {
 			wmapro_cfg.valid_bits_per_sample =
 				wmapro_config->validbitspersample;
 		} else {
