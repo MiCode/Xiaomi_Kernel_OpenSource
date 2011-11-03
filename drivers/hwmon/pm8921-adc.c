@@ -644,13 +644,16 @@ static uint32_t pm8921_adc_calib_device(void)
 	offset_adc = calib_read_2 -
 			((slope_adc * adc_pmic->adc_prop->adc_vdd_reference)
 							>> PM8921_ADC_MUL);
-
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].offset
 								= offset_adc;
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dy =
 					(calib_read_1 - calib_read_2);
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dx =
 					adc_pmic->adc_prop->adc_vdd_reference;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].adc_vref =
+					calib_read_1;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].adc_gnd =
+					calib_read_2;
 calib_fail:
 	rc = pm8921_adc_arb_cntrl(0, CHANNEL_MUXOFF);
 	if (rc < 0) {
@@ -827,7 +830,8 @@ uint32_t pm8921_adc_btm_configure(struct pm8921_adc_arb_btm_param *btm_param)
 		return -EINVAL;
 	}
 
-	rc = pm8921_adc_batt_scaler(btm_param);
+	rc = pm8921_adc_batt_scaler(btm_param, adc_pmic->adc_prop,
+					adc_pmic->conv->chan_prop);
 	if (rc < 0) {
 		pr_err("Failed to lookup the BTM thresholds\n");
 		return rc;
