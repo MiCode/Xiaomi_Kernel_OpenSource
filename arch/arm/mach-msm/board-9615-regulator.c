@@ -61,6 +61,7 @@ VREG_CONSUMERS(L12) = {
 };
 VREG_CONSUMERS(L13) = {
 	REGULATOR_SUPPLY("8018_l13",		NULL),
+	REGULATOR_SUPPLY("sdc_vddp",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8018_l14",		NULL),
@@ -86,6 +87,7 @@ VREG_CONSUMERS(LVS1) = {
 };
 VREG_CONSUMERS(EXT_2P95V) = {
 	REGULATOR_SUPPLY("ext_2p95v",		NULL),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
 
 #define PM8018_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
@@ -288,7 +290,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L10,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
 	RPM_LDO(L11,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
 	RPM_LDO(L12,     0, 1, 0, 1050000, 1050000, "8018_s5", 0, 0),
-	RPM_LDO(L13,     0, 1, 0, 2950000, 2950000, NULL,      0, 0),
+	RPM_LDO(L13,     0, 1, 0, 1850000, 2950000, NULL,      0, 0),
 	RPM_LDO(L14,     0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 
 	/*	ID    a_on pd ss		    supply */

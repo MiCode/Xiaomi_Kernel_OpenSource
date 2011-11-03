@@ -37,6 +37,11 @@ struct msm_mmc_reg_data {
 	 * is set voltage supported for this regulator?
 	 * false => set voltage is not supported
 	 * true  => set voltage is supported
+	 *
+	 * Some regulators (like gpio-regulators, LVS (low voltage swtiches)
+	 * PMIC regulators) dont have the capability to call
+	 * regulator_set_voltage or regulator_set_optimum_mode
+	 * Use this variable to indicate if its a such regulator or not
 	 */
 	bool set_voltage_sup;
 	/* is this regulator enabled? */

@@ -1682,16 +1682,20 @@ static inline int msmsdcc_vreg_set_optimum_mode(struct msm_mmc_reg_data *vreg,
 {
 	int rc = 0;
 
-	rc = regulator_set_optimum_mode(vreg->reg, uA_load);
-	if (rc < 0)
-		pr_err("%s: regulator_set_optimum_mode(reg=%s, uA_load=%d)"
-			" failed. rc=%d\n", __func__, vreg->name,
-			uA_load, rc);
-	else
-		/* regulator_set_optimum_mode() can return non zero value
-		 * even for success case.
-		 */
-		rc = 0;
+	/* regulators that do not support regulator_set_voltage also
+	   do not support regulator_set_optimum_mode */
+	if (vreg->set_voltage_sup) {
+		rc = regulator_set_optimum_mode(vreg->reg, uA_load);
+		if (rc < 0)
+			pr_err("%s: regulator_set_optimum_mode(reg=%s, "
+				"uA_load=%d) failed. rc=%d\n", __func__,
+				vreg->name, uA_load, rc);
+		else
+			/* regulator_set_optimum_mode() can return non zero
+			 * value even for success case.
+			 */
+			rc = 0;
+	}
 
 	return rc;
 }
