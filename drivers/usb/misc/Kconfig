@@ -275,3 +275,13 @@ config USB_QCOM_DIAG_BRIDGE_TEST
 	  To compile this driver as a module, choose M here: the
 	  module will be called diag_bridge_test.  If unsure, choose N.
 
+config USB_QCOM_MDM_BRIDGE
+	tristate "USB Qualcomm modem bridge driver for DUN and RMNET"
+	depends on USB
+	help
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a bridge to pass
+	  control and data packets between the modem and peripheral usb gadget
+	  driver for dial up network and RMNET.
+	  To compile this driver as a module, choose M here: the module
+	  will be called mdm_bridge. If unsure, choose N.
