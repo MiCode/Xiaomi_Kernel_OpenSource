@@ -315,7 +315,6 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	return 0;
 }
 
-#ifdef CONFIG_MSM_KGSL_MMU
 static void
 kgsl_gem_unmap(struct drm_gem_object *obj)
 {
@@ -335,12 +334,6 @@ kgsl_gem_unmap(struct drm_gem_object *obj)
 
 	priv->flags &= ~DRM_KGSL_GEM_FLAG_MAPPED;
 }
-#else
-static void
-kgsl_gem_unmap(struct drm_gem_object *obj)
-{
-}
-#endif
 
 static void
 kgsl_gem_free_memory(struct drm_gem_object *obj)
@@ -724,7 +717,6 @@ kgsl_gem_unbind_gpu_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
-#ifdef CONFIG_MSM_KGSL_MMU
 static int
 kgsl_gem_map(struct drm_gem_object *obj)
 {
@@ -769,24 +761,6 @@ kgsl_gem_map(struct drm_gem_object *obj)
 
 	return ret;
 }
-#else
-static int
-kgsl_gem_map(struct drm_gem_object *obj)
-{
-	struct drm_kgsl_gem_object *priv = obj->driver_private;
-	int index;
-
-	if (TYPE_IS_PMEM(priv->type)) {
-		for (index = 0; index < priv->bufcount; index++)
-			priv->bufs[index].gpuaddr =
-			priv->memdesc.physaddr + priv->bufs[index].offset;
-
-		return 0;
-	}
-
-	return -EINVAL;
-}
-#endif
 
 int
 kgsl_gem_bind_gpu_ioctl(struct drm_device *dev, void *data,

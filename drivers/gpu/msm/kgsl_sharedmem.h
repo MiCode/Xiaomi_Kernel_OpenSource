@@ -15,6 +15,7 @@
 
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include "kgsl_mmu.h"
 
 struct kgsl_device;
 struct kgsl_process_private;
@@ -94,11 +95,9 @@ static inline int
 kgsl_allocate(struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable, size_t size)
 {
-#ifdef CONFIG_MSM_KGSL_MMU
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+		return kgsl_sharedmem_ebimem(memdesc, pagetable, size);
 	return kgsl_sharedmem_vmalloc(memdesc, pagetable, size);
-#else
-	return kgsl_sharedmem_ebimem(memdesc, pagetable, size);
-#endif
 }
 
 static inline int
@@ -106,21 +105,18 @@ kgsl_allocate_user(struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
 		size_t size, unsigned int flags)
 {
-#ifdef CONFIG_MSM_KGSL_MMU
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+		return kgsl_sharedmem_ebimem_user(memdesc, pagetable, size,
+						  flags);
 	return kgsl_sharedmem_vmalloc_user(memdesc, pagetable, size, flags);
-#else
-	return kgsl_sharedmem_ebimem_user(memdesc, pagetable, size, flags);
-#endif
 }
 
 static inline int
 kgsl_allocate_contiguous(struct kgsl_memdesc *memdesc, size_t size)
 {
 	int ret  = kgsl_sharedmem_alloc_coherent(memdesc, size);
-#ifndef CONFIG_MSM_KGSL_MMU
-	if (!ret)
+	if (!ret && (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE))
 		memdesc->gpuaddr = memdesc->physaddr;
-#endif
 	return ret;
 }
 
