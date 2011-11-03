@@ -5660,10 +5660,10 @@ static void __init reg_init(void)
 		/* Check if PLL8 is active */
 		is_pll_enabled = readl_relaxed(BB_PLL8_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
-			/* Ref clk = 24.5MHz and program pll8 to 384MHz */
-			writel_relaxed(0xF,  BB_PLL8_L_VAL_REG);
-			writel_relaxed(0x21, BB_PLL8_M_VAL_REG);
-			writel_relaxed(0x31, BB_PLL8_N_VAL_REG);
+			/* Ref clk = 27MHz and program pll8 to 384MHz */
+			writel_relaxed(0xE, BB_PLL8_L_VAL_REG);
+			writel_relaxed(0x2, BB_PLL8_M_VAL_REG);
+			writel_relaxed(0x9, BB_PLL8_N_VAL_REG);
 
 			regval = readl_relaxed(BB_PLL8_CONFIG_REG);
 
@@ -5689,10 +5689,10 @@ static void __init reg_init(void)
 		/* Check if PLL3 is active */
 		is_pll_enabled = readl_relaxed(GPLL1_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
-			/* Ref clk = 24.5MHz and program pll3 to 1200MHz */
-			writel_relaxed(0x30, GPLL1_L_VAL_REG);
-			writel_relaxed(0x30, GPLL1_M_VAL_REG);
-			writel_relaxed(0x31, GPLL1_N_VAL_REG);
+			/* Ref clk = 27MHz and program pll3 to 1200MHz */
+			writel_relaxed(0x2C, GPLL1_L_VAL_REG);
+			writel_relaxed(0x4,  GPLL1_M_VAL_REG);
+			writel_relaxed(0x9,  GPLL1_N_VAL_REG);
 
 			regval = readl_relaxed(GPLL1_CONFIG_REG);
 
@@ -5708,10 +5708,10 @@ static void __init reg_init(void)
 		/* Check if PLL14 is active */
 		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
-			/* Ref clk = 24.5MHz and program pll14 to 480MHz */
-			writel_relaxed(0x13, BB_PLL14_L_VAL_REG);
-			writel_relaxed(0x1D, BB_PLL14_M_VAL_REG);
-			writel_relaxed(0x31, BB_PLL14_N_VAL_REG);
+			/* Ref clk = 27MHz and program pll14 to 480MHz */
+			writel_relaxed(0x11, BB_PLL14_L_VAL_REG);
+			writel_relaxed(0x7,  BB_PLL14_M_VAL_REG);
+			writel_relaxed(0x9,  BB_PLL14_N_VAL_REG);
 
 			regval = readl_relaxed(BB_PLL14_CONFIG_REG);
 
@@ -5775,10 +5775,10 @@ static void __init reg_init(void)
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
-			/* Ref clk = 24.5MHz and program pll4 to 393.2160MHz */
-			writel_relaxed(0x10,   LCC_PLL0_L_VAL_REG);
-			writel_relaxed(0x130,  LCC_PLL0_M_VAL_REG);
-			writel_relaxed(0x17ED, LCC_PLL0_N_VAL_REG);
+			/* Ref clk = 27MHz and program pll4 to 393.2160MHz */
+			writel_relaxed(0xE,   LCC_PLL0_L_VAL_REG);
+			writel_relaxed(0x27A, LCC_PLL0_M_VAL_REG);
+			writel_relaxed(0x465, LCC_PLL0_N_VAL_REG);
 
 			regval = readl_relaxed(LCC_PLL0_CONFIG_REG);
 
