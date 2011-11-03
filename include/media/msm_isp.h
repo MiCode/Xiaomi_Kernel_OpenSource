@@ -171,6 +171,7 @@
 #define VFE_CMD_GET_PCA_ROLLOFF_TABLE                   125
 #define VFE_CMD_GET_RGB_G_TABLE                         126
 #define VFE_CMD_GET_LA_TABLE                            127
+#define VFE_CMD_DEMOSAICV3_UPDATE                       128
 
 struct msm_isp_cmd {
 	int32_t  id;

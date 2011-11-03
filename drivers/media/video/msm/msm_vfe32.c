@@ -1726,6 +1726,39 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			cmdp_local, V32_DEMOSAICV3_1_LEN);
 		break;
 
+	case VFE_CMD_DEMOSAICV3_UPDATE:
+		if (cmd->length !=
+			V32_DEMOSAICV3_0_LEN * V32_DEMOSAICV3_UP_REG_CNT) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+			(void __user *)(cmd->value),
+			cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_DEMOSAICV3_0_OFF,
+			cmdp_local, V32_DEMOSAICV3_0_LEN);
+		/* As the address space is not contiguous increment by 2
+		 * before copying to next address space */
+		cmdp_local += 1;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_DEMOSAICV3_1_OFF,
+			cmdp_local, 2 * V32_DEMOSAICV3_0_LEN);
+		/* As the address space is not contiguous increment by 2
+		 * before copying to next address space */
+		cmdp_local += 2;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_DEMOSAICV3_2_OFF,
+			cmdp_local, 2 * V32_DEMOSAICV3_0_LEN);
+		break;
+
 	case VFE_CMD_DEMOSAICV3_ABCC_CFG:
 		rc = -EFAULT;
 		break;
