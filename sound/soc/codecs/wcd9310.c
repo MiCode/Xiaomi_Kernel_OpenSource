@@ -2801,6 +2801,12 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 	struct snd_soc_codec *codec = tabla->codec;
 	struct tabla_pdata *pdata = tabla->pdata;
 	int k1, k2, k3, rc = 0;
+	u8 leg_mode = pdata->amic_settings.legacy_mode;
+	u8 txfe_bypass = pdata->amic_settings.txfe_enable;
+	u8 txfe_buff = pdata->amic_settings.txfe_buff;
+	u8 flag = pdata->amic_settings.use_pdata;
+	u8 i = 0, j = 0;
+	u8 val_txfe = 0, value = 0;
 
 	if (!pdata) {
 		rc = -ENODEV;
@@ -2850,6 +2856,38 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 	snd_soc_update_bits(codec, TABLA_A_MICB_4_CTL, 0x60,
 		(pdata->micbias.bias4_cfilt_sel << 5));
 
+	for (i = 0; i < 6; j++, i += 2) {
+		if (flag & (0x01 << i)) {
+			value = (leg_mode & (0x01 << i)) ? 0x10 : 0x00;
+			val_txfe = (txfe_bypass & (0x01 << i)) ? 0x20 : 0x00;
+			val_txfe = val_txfe |
+				((txfe_buff & (0x01 << i)) ? 0x10 : 0x00);
+			snd_soc_update_bits(codec, TABLA_A_TX_1_2_EN + j * 10,
+				0x10, value);
+			snd_soc_update_bits(codec,
+				TABLA_A_TX_1_2_TEST_EN + j * 10,
+				0x30, val_txfe);
+		}
+		if (flag & (0x01 << (i + 1))) {
+			value = (leg_mode & (0x01 << (i + 1))) ? 0x01 : 0x00;
+			val_txfe = (txfe_bypass &
+					(0x01 << (i + 1))) ? 0x02 : 0x00;
+			val_txfe |= (txfe_buff &
+					(0x01 << (i + 1))) ? 0x01 : 0x00;
+			snd_soc_update_bits(codec, TABLA_A_TX_1_2_EN + j * 10,
+				0x01, value);
+			snd_soc_update_bits(codec,
+				TABLA_A_TX_1_2_TEST_EN + j * 10,
+				0x03, val_txfe);
+		}
+	}
+	if (flag & 0x40) {
+		value = (leg_mode & 0x40) ? 0x10 : 0x00;
+		value = value | ((txfe_bypass & 0x40) ? 0x02 : 0x00);
+		value = value | ((txfe_buff & 0x40) ? 0x01 : 0x00);
+		snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN,
+			0x13, value);
+	}
 done:
 	return rc;
 }
@@ -3012,15 +3050,14 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
 
-	ret = tabla_handle_pdata(tabla);
+	tabla_update_reg_defaults(codec);
+	tabla_codec_init_reg(codec);
 
+	ret = tabla_handle_pdata(tabla);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: bad pdata\n", __func__);
 		goto err_pdata;
 	}
-
-	tabla_update_reg_defaults(codec);
-	tabla_codec_init_reg(codec);
 
 	/* TODO only enable bandgap when necessary in order to save power */
 	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_AUDIO_MODE);
