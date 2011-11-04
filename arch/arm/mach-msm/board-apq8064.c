@@ -482,6 +482,7 @@ static void __init apq8064_init_irq(void)
 }
 
 static struct platform_device *common_devices[] __initdata = {
+	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_slim_ctrl,
@@ -498,7 +499,6 @@ static struct platform_device *common_devices[] __initdata = {
 };
 
 static struct platform_device *sim_devices[] __initdata = {
-	&apq8064_device_dmov,
 	&apq8064_device_uart_gsbi3,
 	&msm_device_sps_apq8064,
 };
