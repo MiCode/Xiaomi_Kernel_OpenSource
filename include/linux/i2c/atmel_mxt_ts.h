@@ -41,6 +41,8 @@ struct mxt_platform_data {
 	const unsigned int key_map[MXT_NUM_GPIO];
 	bool	i2c_pull_up;
 	bool	digital_pwr_regulator;
+	int reset_gpio;
+	int irq_gpio;
 
 	u8(*read_chg) (void);
 	int (*init_hw) (bool);

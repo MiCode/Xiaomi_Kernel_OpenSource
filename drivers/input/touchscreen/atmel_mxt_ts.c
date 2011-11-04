@@ -21,6 +21,7 @@
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 
 /* Family ID */
@@ -1456,9 +1457,47 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_regulator_on;
 	}
 
+	if (gpio_is_valid(pdata->irq_gpio)) {
+		/* configure touchscreen irq gpio */
+		error = gpio_request(pdata->irq_gpio,
+							"mxt_irq_gpio");
+		if (error) {
+			pr_err("%s: unable to request gpio [%d]\n", __func__,
+						pdata->irq_gpio);
+			goto err_power_on;
+		}
+		error = gpio_direction_input(pdata->irq_gpio);
+		if (error) {
+			pr_err("%s: unable to set_direction for gpio [%d]\n",
+					__func__, pdata->irq_gpio);
+			goto err_irq_gpio_req;
+		}
+	}
+
+	if (gpio_is_valid(pdata->reset_gpio)) {
+		/* configure touchscreen reset out gpio */
+		error = gpio_request(pdata->reset_gpio,
+						"mxt_reset_gpio");
+		if (error) {
+			pr_err("%s: unable to request reset gpio %d\n",
+				__func__, pdata->reset_gpio);
+			goto err_irq_gpio_req;
+		}
+
+		error = gpio_direction_output(
+					pdata->reset_gpio, 1);
+		if (error) {
+			pr_err("%s: unable to set direction for gpio %d\n",
+				__func__, pdata->reset_gpio);
+			goto err_reset_gpio_req;
+		}
+	}
+
+	mxt_reset_delay(data);
+
 	error = mxt_initialize(data);
 	if (error)
-		goto err_power_on;
+		goto err_reset_gpio_req;
 
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
@@ -1499,7 +1538,7 @@ static int mxt_probe(struct i2c_client *client,
 	num_mt_slots = data->T9_reportid_max - data->T9_reportid_min + 1;
 	error = input_mt_init_slots(input_dev, num_mt_slots, 0);
 	if (error)
-		goto err_power_on;
+		goto err_reset_gpio_req;
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, MXT_MAX_AREA, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
@@ -1517,7 +1556,7 @@ static int mxt_probe(struct i2c_client *client,
 				     client->name, data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err_power_on;
+		goto err_reset_gpio_req;
 	}
 
 	error = mxt_make_highchg(data);
@@ -1539,6 +1578,12 @@ err_unregister_device:
 	input_dev = NULL;
 err_free_irq:
 	free_irq(client->irq, data);
+err_reset_gpio_req:
+	if (gpio_is_valid(pdata->reset_gpio))
+		gpio_free(pdata->reset_gpio);
+err_irq_gpio_req:
+	if (gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
 err_power_on:
 	if (pdata->power_on)
 		pdata->power_on(false);
