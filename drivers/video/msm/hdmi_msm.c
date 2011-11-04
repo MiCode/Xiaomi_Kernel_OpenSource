@@ -3347,8 +3347,6 @@ static void hdmi_msm_audio_setup(void)
 		MSM_HDMI_SAMPLE_RATE_48KHZ, channels);
 	hdmi_msm_audio_info_setup(TRUE, channels, 0, FALSE);
 
-	hdmi_msm_audio_ctrl_setup(FALSE, 1);
-
 	/* Turn on Audio FIFO and SAM DROP ISR */
 	HDMI_OUTP(0x02CC, HDMI_INP(0x02CC) | BIT(1) | BIT(3));
 	DEV_INFO("HDMI Audio: Enabled\n");
