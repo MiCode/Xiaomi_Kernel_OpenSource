@@ -631,18 +631,33 @@ static int interpolate_fcc_adjusted(struct pm8921_bms_chip *chip, int batt_temp)
 static int interpolate_scalingfactor_fcc(struct pm8921_bms_chip *chip,
 								int cycles)
 {
-	return interpolate_single_lut(chip->fcc_sf_lut, cycles);
+	/*
+	 * sf table could be null when no battery aging data is available, in
+	 * that case return 100%
+	 */
+	if (chip->fcc_sf_lut)
+		return interpolate_single_lut(chip->fcc_sf_lut, cycles);
+	else
+		return 100;
 }
 
 static int interpolate_scalingfactor_pc(struct pm8921_bms_chip *chip,
 				int cycles, int pc)
 {
 	int i, scalefactorrow1, scalefactorrow2, scalefactor;
+	int rows, cols;
 	int row1 = 0;
 	int row2 = 0;
-	int rows = chip->pc_sf_lut->rows;
-	int cols = chip->pc_sf_lut->cols;
 
+	/*
+	 * sf table could be null when no battery aging data is available, in
+	 * that case return 100%
+	 */
+	if (!chip->pc_sf_lut)
+		return 100;
+
+	rows = chip->pc_sf_lut->rows;
+	cols = chip->pc_sf_lut->cols;
 	if (pc > chip->pc_sf_lut->percent[0]) {
 		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
 		row1 = 0;
