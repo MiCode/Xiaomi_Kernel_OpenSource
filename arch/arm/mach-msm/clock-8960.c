@@ -2934,7 +2934,7 @@ static struct clk *pix_rdi_mux_map[] = {
 
 struct pix_rdi_clk {
 	bool enabled;
-	unsigned cur_rate;
+	unsigned long cur_rate;
 
 	void __iomem *const s_reg;
 	u32 s_mask;
@@ -2951,7 +2951,7 @@ static inline struct pix_rdi_clk *to_pix_rdi_clk(struct clk *clk)
 	return container_of(clk, struct pix_rdi_clk, c);
 }
 
-static int pix_rdi_clk_set_rate(struct clk *c, unsigned rate)
+static int pix_rdi_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	int ret, i;
 	u32 reg;
@@ -3011,7 +3011,7 @@ err:
 	return 0;
 }
 
-static unsigned pix_rdi_clk_get_rate(struct clk *c)
+static unsigned long pix_rdi_clk_get_rate(struct clk *c)
 {
 	return to_pix_rdi_clk(c)->cur_rate;
 }
@@ -3982,7 +3982,7 @@ static void hdmi_pll_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned hdmi_pll_clk_get_rate(struct clk *clk)
+static unsigned long hdmi_pll_clk_get_rate(struct clk *clk)
 {
 	return hdmi_pll_get_rate();
 }
@@ -4970,7 +4970,7 @@ static u32 run_measurement(unsigned ticks)
 
 /* Perform a hardware rate measurement for a given clock.
    FOR DEBUG USE ONLY: Measurements take ~15 ms! */
-static unsigned measure_clk_get_rate(struct clk *c)
+static unsigned long measure_clk_get_rate(struct clk *c)
 {
 	unsigned long flags;
 	u32 pdm_reg_backup, ringosc_reg_backup;
@@ -5023,7 +5023,7 @@ static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
 	return -EINVAL;
 }
 
-static unsigned measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *clk)
 {
 	return 0;
 }

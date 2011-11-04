@@ -508,7 +508,7 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 }
 
 /* Set a clock to an exact rate. */
-int rcg_clk_set_rate(struct clk *c, unsigned rate)
+int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *nf;
@@ -524,7 +524,7 @@ int rcg_clk_set_rate(struct clk *c, unsigned rate)
 }
 
 /* Set a clock to a rate greater than some minimum. */
-int rcg_clk_set_min_rate(struct clk *c, unsigned rate)
+int rcg_clk_set_min_rate(struct clk *c, unsigned long rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *nf;
@@ -540,7 +540,7 @@ int rcg_clk_set_min_rate(struct clk *c, unsigned rate)
 }
 
 /* Get the currently-set rate of a clock in Hz. */
-unsigned rcg_clk_get_rate(struct clk *c)
+unsigned long rcg_clk_get_rate(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	unsigned long flags;
@@ -567,7 +567,7 @@ int rcg_clk_is_enabled(struct clk *clk)
 }
 
 /* Return a supported rate that's at least the specified rate. */
-long rcg_clk_round_rate(struct clk *c, unsigned rate)
+long rcg_clk_round_rate(struct clk *c, unsigned long rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *f;
@@ -673,7 +673,7 @@ static void pll_vote_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned pll_vote_clk_get_rate(struct clk *clk)
+static unsigned long pll_vote_clk_get_rate(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 	return pll->rate;
@@ -753,7 +753,7 @@ static void pll_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned pll_clk_get_rate(struct clk *clk)
+static unsigned long pll_clk_get_rate(struct clk *clk)
 {
 	struct pll_clk *pll = to_pll_clk(clk);
 	return pll->rate;

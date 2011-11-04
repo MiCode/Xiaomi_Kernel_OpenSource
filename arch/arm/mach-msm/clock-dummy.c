@@ -17,17 +17,17 @@ static int dummy_clk_reset(struct clk *clk, enum clk_reset_action action)
 	return 0;
 }
 
-static int dummy_clk_set_rate(struct clk *clk, unsigned rate)
+static int dummy_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	return 0;
 }
 
-static int dummy_clk_set_min_rate(struct clk *clk, unsigned rate)
+static int dummy_clk_set_min_rate(struct clk *clk, unsigned long rate)
 {
 	return 0;
 }
 
-static int dummy_clk_set_max_rate(struct clk *clk, unsigned rate)
+static int dummy_clk_set_max_rate(struct clk *clk, unsigned long rate)
 {
 	return 0;
 }
@@ -37,12 +37,12 @@ static int dummy_clk_set_flags(struct clk *clk, unsigned flags)
 	return 0;
 }
 
-static unsigned dummy_clk_get_rate(struct clk *clk)
+static unsigned long dummy_clk_get_rate(struct clk *clk)
 {
 	return 0;
 }
 
-static long dummy_clk_round_rate(struct clk *clk, unsigned rate)
+static long dummy_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	return rate;
 }

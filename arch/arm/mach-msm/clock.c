@@ -229,7 +229,7 @@ unsigned long clk_get_rate(struct clk *clk)
 EXPORT_SYMBOL(clk_get_rate);
 
 static int _clk_set_rate(struct clk *clk, unsigned long rate,
-			 int (*set_fn)(struct clk *, unsigned))
+			 int (*set_fn)(struct clk *, unsigned long))
 {
 	unsigned long start_rate, flags;
 	int rc;

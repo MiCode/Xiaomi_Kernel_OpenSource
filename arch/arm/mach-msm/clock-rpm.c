@@ -26,8 +26,8 @@ static int rpm_clk_enable(struct clk *clk)
 	struct msm_rpm_iv_pair iv;
 	int rc = 0;
 	struct rpm_clk *r = to_rpm_clk(clk);
-	unsigned this_khz, this_sleep_khz;
-	unsigned peer_khz = 0, peer_sleep_khz = 0;
+	unsigned long this_khz, this_sleep_khz;
+	unsigned long peer_khz = 0, peer_sleep_khz = 0;
 	struct rpm_clk *peer = r->peer;
 
 	spin_lock_irqsave(&rpm_clock_lock, flags);
@@ -78,7 +78,7 @@ static void rpm_clk_disable(struct clk *clk)
 	if (r->last_set_khz) {
 		struct msm_rpm_iv_pair iv;
 		struct rpm_clk *peer = r->peer;
-		unsigned peer_khz = 0, peer_sleep_khz = 0;
+		unsigned long peer_khz = 0, peer_sleep_khz = 0;
 		int rc;
 
 		iv.id = r->rpm_clk_id;
@@ -104,11 +104,11 @@ out:
 	return;
 }
 
-static int rpm_clk_set_min_rate(struct clk *clk, unsigned rate)
+static int rpm_clk_set_min_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long flags;
 	struct rpm_clk *r = to_rpm_clk(clk);
-	unsigned this_khz, this_sleep_khz;
+	unsigned long this_khz, this_sleep_khz;
 	int rc = 0;
 
 	this_khz = DIV_ROUND_UP(rate, 1000);
@@ -129,7 +129,7 @@ static int rpm_clk_set_min_rate(struct clk *clk, unsigned rate)
 	if (r->enabled) {
 		struct msm_rpm_iv_pair iv;
 		struct rpm_clk *peer = r->peer;
-		unsigned peer_khz = 0, peer_sleep_khz = 0;
+		unsigned long peer_khz = 0, peer_sleep_khz = 0;
 
 		iv.id = r->rpm_clk_id;
 
@@ -158,7 +158,7 @@ out:
 	return rc;
 }
 
-static unsigned rpm_clk_get_rate(struct clk *clk)
+static unsigned long rpm_clk_get_rate(struct clk *clk)
 {
 	struct rpm_clk *r = to_rpm_clk(clk);
 	struct msm_rpm_iv_pair iv = { r->rpm_status_id };
@@ -175,7 +175,7 @@ static int rpm_clk_is_enabled(struct clk *clk)
 	return !!(rpm_clk_get_rate(clk));
 }
 
-static long rpm_clk_round_rate(struct clk *clk, unsigned rate)
+static long rpm_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	/* Not supported. */
 	return rate;
