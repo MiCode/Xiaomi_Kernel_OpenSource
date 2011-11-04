@@ -374,7 +374,12 @@ static inline int msmsdcc_lpm_enable(struct mmc_host *mmc)
 
 static inline int msmsdcc_lpm_disable(struct mmc_host *mmc)
 {
-	return msmsdcc_sdio_al_lpm(mmc, false);
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	int ret;
+
+	ret = msmsdcc_sdio_al_lpm(mmc, false);
+	wake_unlock(&host->sdio_wlock);
+	return ret;
 }
 #endif
 
