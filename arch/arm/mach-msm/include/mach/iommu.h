@@ -27,6 +27,9 @@
 #define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
 #define MSM_IOMMU_ATTR_CACHED_WT	0x3
 
+/* Domain attributes */
+#define MSM_IOMMU_DOMAIN_PT_CACHEABLE	0x1
+
 /* Mask for the cache policy attribute */
 #define MSM_IOMMU_CP_MASK		0x03
 
