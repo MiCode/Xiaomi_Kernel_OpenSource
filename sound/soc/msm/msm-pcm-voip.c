@@ -111,6 +111,59 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 };
 
 
+static int msm_voip_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int mute = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	voc_set_tx_mute(voc_get_session_id(VOIP_SESSION_NAME), TX_PATH, mute);
+
+	return 0;
+}
+
+static int msm_voip_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_voip_volume_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int volume = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: volume: %d\n", __func__, volume);
+
+	voc_set_rx_vol_index(voc_get_session_id(VOIP_SESSION_NAME),
+			     RX_PATH,
+			     volume);
+	return 0;
+}
+static int msm_voip_volume_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static struct snd_kcontrol_new msm_voip_controls[] = {
+	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
+				msm_voip_mute_get, msm_voip_mute_put),
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+				msm_voip_volume_get, msm_voip_volume_put),
+};
+
+static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
+{
+	snd_soc_add_platform_controls(platform, msm_voip_controls,
+					ARRAY_SIZE(msm_voip_controls));
+
+	return 0;
+}
+
 /* sample rate supported */
 static unsigned int supported_sample_rates[] = {8000, 16000};
 
@@ -666,6 +719,7 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.ops		= &msm_pcm_ops,
 	.pcm_new	= msm_asoc_pcm_new,
+	.probe		= msm_pcm_voip_probe,
 };
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
