@@ -415,13 +415,13 @@ static struct msm_bus_vectors vidc_venc_1080p_vectors[] = {
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 372244480,
-		.ib  = 1861222400,
+		.ib  = 2560000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 501219328,
-		.ib  = 2004877312,
+		.ib  = 2560000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_AMPSS_M0,
@@ -441,13 +441,13 @@ static struct msm_bus_vectors vidc_vdec_1080p_vectors[] = {
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 222298112,
-		.ib  = 1778384896,
+		.ib  = 2560000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 330301440,
-		.ib  = 1321205760,
+		.ib  = 2560000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_AMPSS_M0,
