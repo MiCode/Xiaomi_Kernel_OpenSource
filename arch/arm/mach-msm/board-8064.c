@@ -51,6 +51,7 @@
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
+#include "acpuclock.h"
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x2B4000
@@ -791,6 +792,7 @@ static void __init apq8064_common_init(void)
 	apq8064_init_mmc();
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
+	acpuclk_init(&acpuclk_8064_soc_data);
 }
 
 static void __init apq8064_sim_init(void)
