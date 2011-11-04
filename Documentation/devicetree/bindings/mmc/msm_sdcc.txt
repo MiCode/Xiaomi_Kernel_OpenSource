@@ -1,0 +1,40 @@
+Qualcomm Secure Digital Card Controller (SDCC)
+
+Secure Digital Card Controller provides host interface to
+SD/MMC/SDIO cards.
+
+Required properties:
+  - compatible : should be "qcom,msm-sdcc"
+  - reg : should contain SDCC, BAM register map.
+  - interrupts : should contain SDCC core interrupt.
+  - qcom,sdcc-clk-rates : specifies supported SDCC clock frequencies, Units - Hz.
+  - qcom,sdcc-sup-voltages: specifies supported voltage ranges for card. Should always be
+			specified in pairs (min, max), Units - mV.
+
+Optional Properties:
+	- cell-index - defines slot ID.
+	- qcom,sdcc-bus-width - defines the bus I/O width that controller supports.
+	- qcom,sdcc-wp-gpio - defines write protect switch gpio.
+	- qcom,sdcc-wp-polarity - specifies the polarity of wp switch.
+	- qcom,sdcc-cd-gpio - defines card detect gpio number.
+	- qcom,sdcc-cd-polarity - specifies the polarity of cd gpio.
+	- qcom,sdcc-nonremovable - specifies whether the card in slot is
+				hot pluggable or hard wired.
+	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.
+
+Example:
+
+	qcom,sdcc@F9600000 {
+	/* SDC1 used as eMMC slot */
+	cell-index = <1>;
+	compatible = "qcom,msm-sdcc";
+	reg = <0xF9600000 0x800   // SDCC register interface
+		0xF9600800 0x1800  // DML register interface
+		0xF9602000 0x2000> // BAM register interface
+
+	interrupts = <123>;
+	qcom,sdcc-clk-rates = <400000 24000000 48000000>;
+	qcom,sdcc-sup-voltages = <2700 3300>;
+	qcom,sdcc-bus-width = <8>; //8-bit wide
+	qcom,sdcc-nonremovable;
+};
