@@ -750,6 +750,16 @@ static int msm_otg_suspend(struct msm_otg *dev)
 
 	atomic_set(&dev->in_lpm, 1);
 
+	/*
+	 * TODO: put regulators in low power mode by assuming that
+	 * regulators are brought back to active state before PHY
+	 * becomes active. But this assumption becomes wrong in case of
+	 * ACA charger where PHY itself will generate the wakeup
+	 * interrupt. This creates a small window where PHY regulators
+	 * are in LPM but PHY is in active state and this patch assumes
+	 * that there is no harm with this. Till hw folks confirms this
+	 * put regulators in lpm.
+	 */
 	if (!host_bus_suspend && dev->pmic_vbus_notif_supp) {
 		pr_debug("phy can power collapse: (%d)\n",
 			can_phy_power_collapse(dev));
@@ -848,6 +858,9 @@ static void msm_otg_resume_w(struct work_struct *w)
 {
 	struct msm_otg	*dev = container_of(w, struct msm_otg, otg_resume_work);
 	unsigned long timeout;
+
+	if (can_phy_power_collapse(dev) && dev->pdata->ldo_enable)
+		dev->pdata->ldo_enable(1);
 
 	msm_otg_get_resume(dev);
 
