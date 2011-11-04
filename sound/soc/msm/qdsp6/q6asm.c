@@ -295,16 +295,26 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 	}
 
 	if (port->buf[0].data) {
-		pr_debug("%s:data[%p]phys[%p][%p] cnt[%d]\n",
-			   __func__,
-			   (void *)port->buf[0].data,
-			   (void *)port->buf[0].phys,
-			   (void *)&port->buf[0].phys, cnt);
-		dma_free_coherent(NULL,
-			port->buf[0].size * port->max_buf_cnt,
-			port->buf[0].data,
-				port->buf[0].phys);
+		pr_debug("%s:data[%p]phys[%p][%p]"
+			"mem_buffer[%p]\n",
+			__func__,
+			(void *)port->buf[0].data,
+			(void *)port->buf[0].phys,
+			(void *)&port->buf[0].phys,
+			(void *)port->buf[0].mem_buffer);
+		if (IS_ERR((void *)port->buf[0].mem_buffer))
+			pr_err("%s:mem buffer invalid, error ="
+				"%ld\n", __func__,
+				PTR_ERR((void *)port->buf[0].mem_buffer));
+		else {
+			if (msm_subsystem_unmap_buffer(
+				port->buf[0].mem_buffer) < 0)
+				pr_err("%s: unmap buffer"
+					" failed\n", __func__);
+		}
+		free_contiguous_memory_by_paddr(port->buf[0].phys);
 	}
+
 	while (cnt >= 0) {
 		port->buf[cnt].data = NULL;
 		port->buf[cnt].phys = 0;
@@ -533,6 +543,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 {
 	int cnt = 0;
 	int rc = 0;
+	int flags = 0;
 	struct audio_buffer *buf;
 
 	if (!(ac) || ((dir != IN) && (dir != OUT)))
@@ -560,8 +571,35 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 
 	ac->port[dir].buf = buf;
 
-	buf[0].data =  dma_alloc_coherent(NULL, bufsz * bufcnt,
-				&buf[0].phys, GFP_KERNEL);
+	buf[0].phys = allocate_contiguous_ebi_nomap(bufsz * bufcnt,
+						SZ_4K);
+	if (!buf[0].phys) {
+		pr_err("%s:Buf alloc failed "
+			" size=%d, bufcnt=%d\n", __func__,
+			bufsz, bufcnt);
+		mutex_unlock(&ac->cmd_lock);
+		goto fail;
+	}
+
+	flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
+	buf[0].mem_buffer = msm_subsystem_map_buffer(buf[0].phys,
+				bufsz * bufcnt, flags, NULL, 0);
+	if (IS_ERR((void *)buf[cnt].mem_buffer)) {
+		pr_err("%s:map_buffer failed,"
+			"error = %ld\n",
+			__func__, PTR_ERR((void *)buf[0].mem_buffer));
+
+		mutex_unlock(&ac->cmd_lock);
+		goto fail;
+	}
+	buf[0].data = buf[0].mem_buffer->vaddr;
+	if (!buf[0].data) {
+		pr_err("%s:invalid vaddr,"
+			" iomap failed\n", __func__);
+		mutex_unlock(&ac->cmd_lock);
+		goto fail;
+	}
+
 	buf[0].used = dir ^ 1;
 	buf[0].size = bufsz;
 	buf[0].actual_size = bufsz;

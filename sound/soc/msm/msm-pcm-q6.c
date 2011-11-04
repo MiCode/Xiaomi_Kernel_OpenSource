@@ -588,16 +588,25 @@ static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 static int msm_pcm_mmap(struct snd_pcm_substream *substream,
 				struct vm_area_struct *vma)
 {
+	int result = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 
 	pr_debug("%s\n", __func__);
 	prtd->mmap_flag = 1;
-	dma_mmap_coherent(substream->pcm->card->dev, vma,
-				     runtime->dma_area,
-				     runtime->dma_addr,
-				     runtime->dma_bytes);
-	return 0;
+
+	if (runtime->dma_addr && runtime->dma_bytes) {
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		result = remap_pfn_range(vma, vma->vm_start,
+				runtime->dma_addr >> PAGE_SHIFT,
+				runtime->dma_bytes,
+				vma->vm_page_prot);
+	} else {
+		pr_err("Physical address or size of buf is NULL");
+		return -EINVAL;
+	}
+
+	return result;
 }
 
 static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
