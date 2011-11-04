@@ -63,6 +63,7 @@
 #include <mach/usbdiag.h>
 #endif
 
+#include "board-msm7627-regulator.h"
 #include "devices.h"
 #include "clock.h"
 #include "acpuclock.h"
@@ -1569,7 +1570,21 @@ static struct msm_i2c_platform_data msm_i2c_pdata = {
 	.aux_dat = 96,
 	.msm_i2c_config_gpio = msm_i2c_gpio_config,
 };
+static struct platform_device msm_proccomm_regulator_dev = {
+	.name   = PROCCOMM_REGULATOR_DEV_NAME,
+	.id     = -1,
+	.dev    = {
+		.platform_data = &msm7627_proccomm_regulator_data
+	}
+};
 
+static void __init msm7627_init_regulators(void)
+{
+	int rc = platform_device_register(&msm_proccomm_regulator_dev);
+	if (rc)
+		pr_err("%s: could not register regulator device: %d\n",
+				__func__, rc);
+}
 static void __init msm_device_i2c_init(void)
 {
 	if (gpio_request(60, "i2c_pri_clk"))
@@ -1624,6 +1639,7 @@ static void msm7x27_wlan_init(void)
 static void __init msm7x2x_init(void)
 {
 
+	msm7627_init_regulators();
 #ifdef CONFIG_ARCH_MSM7X25
 	msm_clock_init(msm_clocks_7x25, msm_num_clocks_7x25);
 #elif defined(CONFIG_ARCH_MSM7X27)

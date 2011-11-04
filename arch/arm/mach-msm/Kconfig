@@ -29,6 +29,7 @@ config ARCH_MSM7X27
 	select MSM_GPIOMUX
 	select REGULATOR
 	select MULTI_IRQ_HANDLER
+	select MSM_PROC_COMM_REGULATOR
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
