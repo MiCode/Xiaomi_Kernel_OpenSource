@@ -1015,6 +1015,7 @@ static void __init msm_timer_init(void)
 	} else {
 		WARN_ON("Timer running on unknown hardware. Configure this! "
 			"Assuming default configuration.\n");
+		global_timer_offset = MSM_TMR0_BASE - MSM_TMR_BASE;
 		dgt->freq = 6750000;
 	}
 
