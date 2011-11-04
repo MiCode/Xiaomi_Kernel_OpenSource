@@ -1411,66 +1411,32 @@ static const u8 mxt_config_data[] = {
 	0, 0, 0, 0, 0, 0,
 };
 
-#define MXT_TS_GPIO_IRQ		11
-#define MXT_TS_LDO_EN_GPIO	50
-#define MXT_TS_RESET_GPIO	52
+#define MXT_TS_GPIO_IRQ			11
+#define MXT_TS_LDO_EN_GPIO		50
+#define MXT_TS_RESET_GPIO		52
 
 static void mxt_init_hw_liquid(void)
 {
 	int rc;
 
-	rc = gpio_request(MXT_TS_GPIO_IRQ, "mxt_ts_irq_gpio");
-	if (rc) {
-		pr_err("%s: unable to request mxt_ts_irq gpio [%d]\n",
-				__func__, MXT_TS_GPIO_IRQ);
-		return;
-	}
-
-	rc = gpio_direction_input(MXT_TS_GPIO_IRQ);
-	if (rc) {
-		pr_err("%s: unable to set_direction for mxt_ts_irq gpio [%d]\n",
-				__func__, MXT_TS_GPIO_IRQ);
-		goto err_irq_gpio_req;
-	}
-
 	rc = gpio_request(MXT_TS_LDO_EN_GPIO, "mxt_ldo_en_gpio");
 	if (rc) {
-		pr_err("%s: unable to request mxt_ldo_en gpio [%d]\n",
-				__func__, MXT_TS_LDO_EN_GPIO);
-		goto err_irq_gpio_req;
+		pr_err("%s: unable to request mxt_ldo_en_gpio [%d]\n",
+			__func__, MXT_TS_LDO_EN_GPIO);
+		return;
 	}
 
 	rc = gpio_direction_output(MXT_TS_LDO_EN_GPIO, 1);
 	if (rc) {
-		pr_err("%s: unable to set_direction for mxt_ldo_en gpio [%d]\n",
-				__func__, MXT_TS_LDO_EN_GPIO);
+		pr_err("%s: unable to set_direction for mxt_ldo_en_gpio [%d]\n",
+			__func__, MXT_TS_LDO_EN_GPIO);
 		goto err_ldo_gpio_req;
-	}
-
-	rc = gpio_request(MXT_TS_RESET_GPIO, "mxt_reset_gpio");
-	if (rc) {
-		pr_err("%s: unable to request mxt_reset gpio [%d]\n",
-				__func__, MXT_TS_RESET_GPIO);
-		goto err_ldo_gpio_set_dir;
-	}
-
-	rc = gpio_direction_output(MXT_TS_RESET_GPIO, 1);
-	if (rc) {
-		pr_err("%s: unable to set_direction for mxt_reset gpio [%d]\n",
-				__func__, MXT_TS_RESET_GPIO);
-		goto err_reset_gpio_req;
 	}
 
 	return;
 
-err_reset_gpio_req:
-	gpio_free(MXT_TS_RESET_GPIO);
-err_ldo_gpio_set_dir:
-	gpio_set_value(MXT_TS_LDO_EN_GPIO, 0);
 err_ldo_gpio_req:
 	gpio_free(MXT_TS_LDO_EN_GPIO);
-err_irq_gpio_req:
-	gpio_free(MXT_TS_GPIO_IRQ);
 }
 
 static struct mxt_platform_data mxt_platform_data = {
@@ -1480,6 +1446,8 @@ static struct mxt_platform_data mxt_platform_data = {
 	.y_size			= 767,
 	.irqflags		= IRQF_TRIGGER_FALLING,
 	.i2c_pull_up		= true,
+	.reset_gpio		= MXT_TS_RESET_GPIO,
+	.irq_gpio		= MXT_TS_GPIO_IRQ,
 };
 
 static struct i2c_board_info mxt_device_info[] __initdata = {
