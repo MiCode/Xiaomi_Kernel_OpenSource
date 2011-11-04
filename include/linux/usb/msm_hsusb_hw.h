@@ -54,6 +54,7 @@
 
 /* OTG definitions */
 #define OTGSC_INTSTS_MASK	(0x7f << 16)
+#define OTGSC_IDPU		(1 << 5)
 #define OTGSC_ID		(1 << 8)
 #define OTGSC_BSV		(1 << 11)
 #define OTGSC_IDIS		(1 << 16)
