@@ -42,6 +42,11 @@
 
 #include "gadget_chips.h"
 
+#ifndef CONFIG_MSM_SMD
+#define CONFIG_RMNET_SMD_CTL_CHANNEL	""
+#define CONFIG_RMNET_SMD_DATA_CHANNEL	""
+#endif
+
 static char *rmnet_ctl_ch = CONFIG_RMNET_SMD_CTL_CHANNEL;
 module_param(rmnet_ctl_ch, charp, S_IRUGO);
 MODULE_PARM_DESC(rmnet_ctl_ch, "RmNet control SMD channel");
