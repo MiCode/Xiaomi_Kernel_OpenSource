@@ -338,7 +338,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	struct tx_pkt_info *pkt;
 	dma_addr_t dma_address;
 
-	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_KERNEL);
+	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_ATOMIC);
 	if (pkt == NULL) {
 		pr_err("%s: mem alloc for tx_pkt_info failed\n", __func__);
 		rc = -ENOMEM;
