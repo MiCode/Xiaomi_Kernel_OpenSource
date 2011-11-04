@@ -140,6 +140,9 @@
 /* For DBPC bit 1 is set to zero and other's 1 */
 #define DBCC_MASK 0xFFFFFFFD
 
+/* For DBPC/ABF/DBCC/ABCC bits are set to 1 all others 0 */
+#define DEMOSAIC_MASK 0xF
+
 /* For MCE enable bit 28 set to zero and other's 1 */
 #define MCE_EN_MASK 0xEFFFFFFF
 
