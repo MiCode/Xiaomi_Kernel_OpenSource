@@ -286,6 +286,9 @@ static struct map_desc msm_copper_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(TLMM, COPPER),
 	MSM_CHIP_DEVICE(TMR, COPPER),
 	MSM_CHIP_DEVICE(TMR0, COPPER),
+#ifdef CONFIG_DEBUG_MSMCOPPER_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
 };
 
 void __init msm_map_copper_io(void)

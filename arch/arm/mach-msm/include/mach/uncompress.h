@@ -21,6 +21,7 @@
 #include <asm/processor.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/msm_serial_hsl_regs.h>
 
 #ifndef CONFIG_DEBUG_ICEDCC
 static void putc(int c)
@@ -28,18 +29,18 @@ static void putc(int c)
 #if defined(MSM_DEBUG_UART_PHYS)
 	unsigned long base = MSM_DEBUG_UART_PHYS;
 
-#ifdef CONFIG_SERIAL_MSM_HSL
+#ifdef CONFIG_MSM_HAS_DEBUG_UART_HS
 	/*
 	 * Wait for TX_READY to be set; but skip it if we have a
 	 * TX underrun.
 	 */
-	if (__raw_readl(base + 0x08) & 0x08)
-		while (!(__raw_readl(base + 0x14) & 0x80))
+	if (!(__raw_readl(base + UARTDM_SR_OFFSET) & 0x08))
+		while (!(__raw_readl(base + UARTDM_ISR_OFFSET) & 0x80))
 			cpu_relax();
 
-	__raw_writel(0x300, base + 0x10);
-	__raw_writel(0x1, base + 0x40);
-	__raw_writel(c, base + 0x70);
+	__raw_writel(0x300, base + UARTDM_CR_OFFSET);
+	__raw_writel(0x1, base + UARTDM_NCF_TX_OFFSET);
+	__raw_writel(c, base + UARTDM_TF_OFFSET);
 #else
 	/* Wait for TX_READY to be set */
 	while (!(__raw_readl(base + 0x08) & 0x04))
