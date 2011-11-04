@@ -362,6 +362,13 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	spin_unlock(&bam_tx_pool_spinlock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+	if (rc) {
+		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
+		spin_lock(&bam_tx_pool_spinlock);
+		list_del(&pkt->list_node);
+		spin_unlock(&bam_tx_pool_spinlock);
+		kfree(pkt);
+	}
 
 	ul_packet_written = 1;
 	return rc;
@@ -487,6 +494,13 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	spin_unlock(&bam_tx_pool_spinlock);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+	if (rc) {
+		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
+		spin_lock(&bam_tx_pool_spinlock);
+		list_del(&pkt->list_node);
+		spin_unlock(&bam_tx_pool_spinlock);
+		kfree(pkt);
+	}
 	ul_packet_written = 1;
 	read_unlock(&ul_wakeup_lock);
 	return rc;
