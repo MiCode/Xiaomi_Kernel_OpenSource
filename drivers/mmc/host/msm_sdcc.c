@@ -1024,8 +1024,6 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 
 	if (data->flags & MMC_DATA_READ)
 		datactrl |= (MCI_DPSM_DIRECTION | MCI_RX_DATA_PEND);
-	else if (data->flags & MMC_DATA_WRITE)
-		datactrl |= MCI_DATA_PEND;
 
 	clks = (unsigned long long)data->timeout_ns * host->clk_rate;
 	do_div(clks, 1000000000UL);
@@ -1364,6 +1362,9 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 			msmsdcc_start_command(host, host->curr.mrq->cmd, 0);
 		else
 			msmsdcc_request_start(host, host->curr.mrq);
+	} else if (cmd->data) {
+		if (!(cmd->data->flags & MMC_DATA_READ))
+			msmsdcc_start_data(host, cmd->data, NULL, 0);
 	}
 }
 
@@ -1570,9 +1571,9 @@ msmsdcc_irq(int irq, void *dev_id)
 static void
 msmsdcc_request_start(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
-	if (mrq->data) {
+	if (mrq->data && mrq->data->flags & MMC_DATA_READ) {
 		/* Queue/read data, daisy-chain command when data starts */
-		if (mrq->sbc && (mrq->data->flags & MMC_DATA_READ))
+		if (mrq->sbc)
 			msmsdcc_start_data(host, mrq->data, mrq->sbc, 0);
 		else
 			msmsdcc_start_data(host, mrq->data, mrq->cmd, 0);
