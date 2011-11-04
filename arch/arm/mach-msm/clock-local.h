@@ -177,6 +177,8 @@ static inline unsigned long fixed_clk_get_rate(struct clk *clk)
 /**
  * struct pll_vote_clk - phase locked loop (HW voteable)
  * @rate: output rate
+ * @soft_vote: soft voting variable for multiple PLL software instances
+ * @soft_vote_mask: soft voting mask for multiple PLL software instances
  * @en_reg: enable register
  * @en_mask: ORed with @en_reg to enable the clock
  * @status_reg: status register
@@ -186,6 +188,8 @@ static inline unsigned long fixed_clk_get_rate(struct clk *clk)
 struct pll_vote_clk {
 	unsigned long rate;
 
+	u32 *soft_vote;
+	const u32 soft_vote_mask;
 	void __iomem *const en_reg;
 	const u32 en_mask;
 
@@ -286,6 +290,15 @@ extern struct fixed_clk		gnd_clk;
  * Local-clock APIs
  */
 bool local_clk_is_local(struct clk *clk);
+
+/*
+ * PLL vote clock APIs
+ */
+int pll_vote_clk_enable(struct clk *clk);
+void pll_vote_clk_disable(struct clk *clk);
+unsigned long pll_vote_clk_get_rate(struct clk *clk);
+struct clk *pll_vote_clk_get_parent(struct clk *clk);
+int pll_vote_clk_is_enabled(struct clk *clk);
 
 /*
  * Generic set-rate implementations
