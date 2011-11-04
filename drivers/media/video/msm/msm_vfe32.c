@@ -210,6 +210,15 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 			V32_CLF_LUMA_UPDATE_OFF},
 		{VFE_CMD_CLF_CHROMA_UPDATE, V32_CLF_CHROMA_UPDATE_LEN,
 			V32_CLF_CHROMA_UPDATE_OFF},
+/*120*/ {VFE_CMD_PCA_ROLL_OFF_CFG},
+		{VFE_CMD_PCA_ROLL_OFF_UPDATE},
+		{VFE_CMD_GET_REG_DUMP},
+		{VFE_CMD_GET_LINEARIZATON_TABLE},
+		{VFE_CMD_GET_MESH_ROLLOFF_TABLE},
+/*125*/ {VFE_CMD_GET_PCA_ROLLOFF_TABLE},
+		{VFE_CMD_GET_RGB_G_TABLE},
+		{VFE_CMD_GET_LA_TABLE},
+		{VFE_CMD_DEMOSAICV3_UPDATE},
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -343,6 +352,15 @@ static const char * const vfe32_general_cmd[] = {
 	"CLF_CFG",
 	"CLF_LUMA_UPDATE",
 	"CLF_CHROMA_UPDATE",
+	"PCA_ROLL_OFF_CFG", /*120*/
+	"PCA_ROLL_OFF_UPDATE",
+	"GET_REG_DUMP",
+	"GET_LINEARIZATON_TABLE",
+	"GET_MESH_ROLLOFF_TABLE",
+	"GET_PCA_ROLLOFF_TABLE", /*125*/
+	"GET_RGB_G_TABLE",
+	"GET_LA_TABLE",
+	"DEMOSAICV3_UPDATE",
 };
 
 static void vfe32_stop(void)
@@ -1020,6 +1038,7 @@ static void vfe32_program_dmi_cfg(enum VFE32_DMI_RAM_SEL bankSel)
 	/* set bit 8 for auto increment. */
 	uint32_t value = VFE_DMI_CFG_DEFAULT;
 	value += (uint32_t)bankSel;
+	CDBG("%s: banksel = %d\n", __func__, bankSel);
 
 	msm_io_w(value, vfe32_ctrl->vfebase + VFE_DMI_CFG);
 	/* by default, always starts with offset 0.*/
@@ -2146,9 +2165,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		CDBG("%s: start writing RollOff Ram0 table\n", __func__);
 		if (temp2)
-			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK1);
-		else
 			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK0);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM0_BANK1);
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
@@ -2162,9 +2181,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		CDBG("%s: start writing RollOff Ram1 table\n", __func__);
 		if (temp2)
-			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
-		else
 			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
+		else
+			vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
 
 		msm_io_w(temp1, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE ; i++) {
