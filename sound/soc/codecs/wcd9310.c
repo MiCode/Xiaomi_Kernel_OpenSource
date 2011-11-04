@@ -62,6 +62,22 @@ struct mbhc_micbias_regs {
 	u16 ctl_reg;
 };
 
+/* Codec supports 2 IIR filters */
+enum {
+	IIR1 = 0,
+	IIR2,
+	IIR_MAX,
+};
+/* Codec supports 5 bands */
+enum {
+	BAND1 = 0,
+	BAND2,
+	BAND3,
+	BAND4,
+	BAND5,
+	BAND_MAX,
+};
+
 struct tabla_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -201,6 +217,173 @@ static int tabla_pa_gain_put(struct snd_kcontrol *kcontrol,
 	}
 
 	snd_soc_update_bits(codec, TABLA_A_RX_EAR_GAIN, 0xE0, ear_pa_gain);
+	return 0;
+}
+
+static int tabla_get_iir_enable_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int iir_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	ucontrol->value.integer.value[0] =
+		snd_soc_read(codec, (TABLA_A_CDC_IIR1_CTL + 16 * iir_idx)) &
+		(1 << band_idx);
+
+	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
+		iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int tabla_put_iir_enable_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int iir_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+	int value = ucontrol->value.integer.value[0];
+
+	/* Mask first 5 bits, 6-8 are reserved */
+	snd_soc_update_bits(codec, (TABLA_A_CDC_IIR1_CTL + 16 * iir_idx),
+		(1 << band_idx), (value << band_idx));
+
+	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
+		iir_idx, band_idx, value);
+	return 0;
+}
+static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
+				int iir_idx, int band_idx,
+				int coeff_idx)
+{
+	/* Address does not automatically update if reading */
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		0x1F, band_idx * BAND_MAX + coeff_idx);
+
+	/* Mask bits top 2 bits since they are reserved */
+	return ((snd_soc_read(codec,
+		(TABLA_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 24) |
+		(snd_soc_read(codec,
+		(TABLA_A_CDC_IIR1_COEF_B3_CTL + 16 * iir_idx)) << 16) |
+		(snd_soc_read(codec,
+		(TABLA_A_CDC_IIR1_COEF_B4_CTL + 16 * iir_idx)) << 8) |
+		(snd_soc_read(codec,
+		(TABLA_A_CDC_IIR1_COEF_B5_CTL + 16 * iir_idx)))) &
+		0x3FFFFFFF;
+}
+
+static int tabla_get_iir_band_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int iir_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	ucontrol->value.integer.value[0] =
+		get_iir_band_coeff(codec, iir_idx, band_idx, 0);
+	ucontrol->value.integer.value[1] =
+		get_iir_band_coeff(codec, iir_idx, band_idx, 1);
+	ucontrol->value.integer.value[2] =
+		get_iir_band_coeff(codec, iir_idx, band_idx, 2);
+	ucontrol->value.integer.value[3] =
+		get_iir_band_coeff(codec, iir_idx, band_idx, 3);
+	ucontrol->value.integer.value[4] =
+		get_iir_band_coeff(codec, iir_idx, band_idx, 4);
+
+	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
+		"%s: IIR #%d band #%d b1 = 0x%x\n"
+		"%s: IIR #%d band #%d b2 = 0x%x\n"
+		"%s: IIR #%d band #%d a1 = 0x%x\n"
+		"%s: IIR #%d band #%d a2 = 0x%x\n",
+		__func__, iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[0],
+		__func__, iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[1],
+		__func__, iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[2],
+		__func__, iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[3],
+		__func__, iir_idx, band_idx,
+		(uint32_t)ucontrol->value.integer.value[4]);
+	return 0;
+}
+
+static void set_iir_band_coeff(struct snd_soc_codec *codec,
+				int iir_idx, int band_idx,
+				int coeff_idx, uint32_t value)
+{
+	/* Mask top 3 bits, 6-8 are reserved */
+	/* Update address manually each time */
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		0x1F, band_idx * BAND_MAX + coeff_idx);
+
+	/* Mask top 2 bits, 7-8 are reserved */
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		0x3F, (value >> 24) & 0x3F);
+
+	/* Isolate 8bits at a time */
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B3_CTL + 16 * iir_idx),
+		0xFF, (value >> 16) & 0xFF);
+
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B4_CTL + 16 * iir_idx),
+		0xFF, (value >> 8) & 0xFF);
+
+	snd_soc_update_bits(codec,
+		(TABLA_A_CDC_IIR1_COEF_B5_CTL + 16 * iir_idx),
+		0xFF, value & 0xFF);
+}
+
+static int tabla_put_iir_band_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int iir_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	set_iir_band_coeff(codec, iir_idx, band_idx, 0,
+				ucontrol->value.integer.value[0]);
+	set_iir_band_coeff(codec, iir_idx, band_idx, 1,
+				ucontrol->value.integer.value[1]);
+	set_iir_band_coeff(codec, iir_idx, band_idx, 2,
+				ucontrol->value.integer.value[2]);
+	set_iir_band_coeff(codec, iir_idx, band_idx, 3,
+				ucontrol->value.integer.value[3]);
+	set_iir_band_coeff(codec, iir_idx, band_idx, 4,
+				ucontrol->value.integer.value[4]);
+
+	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
+		"%s: IIR #%d band #%d b1 = 0x%x\n"
+		"%s: IIR #%d band #%d b2 = 0x%x\n"
+		"%s: IIR #%d band #%d a1 = 0x%x\n"
+		"%s: IIR #%d band #%d a2 = 0x%x\n",
+		__func__, iir_idx, band_idx,
+		get_iir_band_coeff(codec, iir_idx, band_idx, 0),
+		__func__, iir_idx, band_idx,
+		get_iir_band_coeff(codec, iir_idx, band_idx, 1),
+		__func__, iir_idx, band_idx,
+		get_iir_band_coeff(codec, iir_idx, band_idx, 2),
+		__func__, iir_idx, band_idx,
+		get_iir_band_coeff(codec, iir_idx, band_idx, 3),
+		__func__, iir_idx, band_idx,
+		get_iir_band_coeff(codec, iir_idx, band_idx, 4));
 	return 0;
 }
 
@@ -385,6 +568,48 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_ENUM("RX5 HPF cut off", cf_rxmix5_enum),
 	SOC_ENUM("RX6 HPF cut off", cf_rxmix6_enum),
 	SOC_ENUM("RX7 HPF cut off", cf_rxmix7_enum),
+
+	SOC_SINGLE_EXT("IIR1 Enable Band1", IIR1, BAND1, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR1 Enable Band2", IIR1, BAND2, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR1 Enable Band3", IIR1, BAND3, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR1 Enable Band4", IIR1, BAND4, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR1 Enable Band5", IIR1, BAND5, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR2 Enable Band1", IIR2, BAND1, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR2 Enable Band2", IIR2, BAND2, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR2 Enable Band3", IIR2, BAND3, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR2 Enable Band4", IIR2, BAND4, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+	SOC_SINGLE_EXT("IIR2 Enable Band5", IIR2, BAND5, 1, 0,
+	tabla_get_iir_enable_audio_mixer, tabla_put_iir_enable_audio_mixer),
+
+	SOC_SINGLE_MULTI_EXT("IIR1 Band1", IIR1, BAND1, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR1 Band2", IIR1, BAND2, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR1 Band3", IIR1, BAND3, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR1 Band4", IIR1, BAND4, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR1 Band5", IIR1, BAND5, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR2 Band1", IIR2, BAND1, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR2 Band2", IIR2, BAND2, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR2 Band3", IIR2, BAND3, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR2 Band4", IIR2, BAND4, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("IIR2 Band5", IIR2, BAND5, 255, 0, 5,
+	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
 };
 
 static const char *rx_mix1_text[] = {
@@ -1987,6 +2212,11 @@ static int tabla_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	 */
 
 	if ((reg >= TABLA_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
+		return 1;
+
+	/* IIR Coeff registers are not cacheable */
+	if ((reg >= TABLA_A_CDC_IIR1_COEF_B1_CTL) &&
+		(reg <= TABLA_A_CDC_IIR2_COEF_B5_CTL))
 		return 1;
 
 	return 0;
