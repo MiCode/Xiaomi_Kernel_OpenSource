@@ -4637,6 +4637,8 @@ static void __init msm8960_cdp_init(void)
 		pr_err("Failed to initialize XO votes\n");
 	platform_device_register(&msm8960_device_rpm_regulator);
 	msm_clock_init(&msm8960_clock_init_data);
+	if (machine_is_msm8960_liquid())
+		msm_otg_pdata.mhl_enable = true;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm8960_device_gadget_peripheral.dev.parent = &msm8960_device_otg.dev;
 	msm_device_hsusb_host.dev.parent = &msm8960_device_otg.dev;
