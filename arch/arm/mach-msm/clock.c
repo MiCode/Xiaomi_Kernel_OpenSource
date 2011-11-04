@@ -230,12 +230,13 @@ unsigned long clk_get_rate(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_rate);
 
-int clk_set_rate(struct clk *clk, unsigned long rate)
+static int _clk_set_rate(struct clk *clk, unsigned long rate,
+			 int (*set_fn)(struct clk *, unsigned))
 {
 	unsigned long start_rate, flags;
 	int rc;
 
-	if (!clk->ops->set_rate)
+	if (!set_fn)
 		return -ENOSYS;
 
 	spin_lock_irqsave(&clk->lock, flags);
@@ -245,13 +246,13 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		rc = vote_rate_vdd(clk, rate);
 		if (rc)
 			goto err_vote_vdd;
-		rc = clk->ops->set_rate(clk, rate);
+		rc = set_fn(clk, rate);
 		if (rc)
 			goto err_set_rate;
 		/* Release vdd requirements for starting frequency. */
 		unvote_rate_vdd(clk, start_rate);
 	} else {
-		rc = clk->ops->set_rate(clk, rate);
+		rc = set_fn(clk, rate);
 	}
 	spin_unlock_irqrestore(&clk->lock, flags);
 	return rc;
@@ -262,7 +263,6 @@ err_vote_vdd:
 	spin_unlock_irqrestore(&clk->lock, flags);
 	return rc;
 }
-EXPORT_SYMBOL(clk_set_rate);
 
 long clk_round_rate(struct clk *clk, unsigned long rate)
 {
@@ -273,12 +273,15 @@ long clk_round_rate(struct clk *clk, unsigned long rate)
 }
 EXPORT_SYMBOL(clk_round_rate);
 
+int clk_set_rate(struct clk *clk, unsigned long rate)
+{
+	return _clk_set_rate(clk, rate, clk->ops->set_rate);
+}
+EXPORT_SYMBOL(clk_set_rate);
+
 int clk_set_min_rate(struct clk *clk, unsigned long rate)
 {
-	if (!clk->ops->set_min_rate)
-		return -ENOSYS;
-
-	return clk->ops->set_min_rate(clk, rate);
+	return _clk_set_rate(clk, rate, clk->ops->set_min_rate);
 }
 EXPORT_SYMBOL(clk_set_min_rate);
 
