@@ -22,7 +22,14 @@ void msm_warmboot_entry(void);
 #ifdef CONFIG_CPU_V7
 void msm_pm_boot_entry(void);
 void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address);
+void msm_pm_set_l2_flush_flag(unsigned int flag);
 extern unsigned long msm_pm_pc_pgd;
+#else
+static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
+{
+	/* empty */
+}
 #endif
+
 
 #endif
