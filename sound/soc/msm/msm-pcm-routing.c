@@ -913,6 +913,12 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 
 	bedai = &msm_bedais[be_id];
 
+	if (bedai->hw_params == NULL) {
+		pr_err("%s: HW param is not configured", __func__);
+		return -EINVAL;
+	}
+
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		path_type = ADM_PATH_PLAYBACK;
 		session_type = SESSION_TYPE_RX;
