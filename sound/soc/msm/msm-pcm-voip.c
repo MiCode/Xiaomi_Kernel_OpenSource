@@ -32,6 +32,7 @@
 
 #define VOIP_MAX_Q_LEN 10
 #define VOIP_MAX_VOC_PKT_SIZE 640
+#define VOIP_MIN_VOC_PKT_SIZE 320
 
 enum voip_state {
 	VOIP_STOPPED,
@@ -61,6 +62,7 @@ struct voip_drv_info {
 	struct list_head free_out_queue;
 
 	wait_queue_head_t out_wait;
+	wait_queue_head_t in_wait;
 
 	struct mutex lock;
 	struct mutex in_lock;
@@ -103,7 +105,7 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 	.channels_min =         1,
 	.channels_max =         1,
 	.buffer_bytes_max =	VOIP_MAX_VOC_PKT_SIZE * VOIP_MAX_Q_LEN,
-	.period_bytes_min =	VOIP_MAX_VOC_PKT_SIZE,
+	.period_bytes_min =	VOIP_MIN_VOC_PKT_SIZE,
 	.period_bytes_max =	VOIP_MAX_VOC_PKT_SIZE,
 	.periods_min =		VOIP_MAX_Q_LEN,
 	.periods_max =		VOIP_MAX_Q_LEN,
@@ -240,6 +242,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 		pr_err("DL data not available\n");
 	}
+	wake_up(&prtd->in_wait);
 }
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -353,12 +356,15 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	struct voip_drv_info *prtd = runtime->private_data;
 
 	int count = frames_to_bytes(runtime, frames);
-	pr_debug("%s: count = %d\n", __func__, count);
+	pr_debug("%s: count = %d, frames=%d\n", __func__, count, (int)frames);
 
-	mutex_lock(&prtd->in_lock);
-
-	if (count == VOIP_MAX_VOC_PKT_SIZE) {
-		if (!list_empty(&prtd->free_in_queue)) {
+	ret = wait_event_interruptible_timeout(prtd->in_wait,
+				(!list_empty(&prtd->free_in_queue) ||
+				prtd->state == VOIP_STOPPED),
+				1 * HZ);
+	if (ret > 0) {
+		mutex_lock(&prtd->in_lock);
+		if (count <= VOIP_MAX_VOC_PKT_SIZE) {
 			buf_node =
 				list_first_entry(&prtd->free_in_queue,
 						struct voip_buf_node, list);
@@ -368,15 +374,19 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 						buf, count);
 			buf_node->frame.len = count;
 			list_add_tail(&buf_node->list, &prtd->in_queue);
-		} else
-			pr_err("%s: No free DL buffs\n", __func__);
-	} else {
-		pr_err("%s: Write count %d is not  VOIP_MAX_VOC_PKT_SIZE\n",
-			__func__, count);
-		ret = -ENOMEM;
-	}
+		} else {
+			pr_err("%s: Write cnt %d is > VOIP_MAX_VOC_PKT_SIZE\n",
+				__func__, count);
+			ret = -ENOMEM;
+		}
 
-	mutex_unlock(&prtd->in_lock);
+		mutex_unlock(&prtd->in_lock);
+	} else if (ret == 0) {
+		pr_err("%s: No free DL buffs\n", __func__);
+		ret = -ETIMEDOUT;
+	} else {
+		pr_err("%s: playback copy  was interrupted\n", __func__);
+	}
 
 	return  ret;
 }
@@ -402,7 +412,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	if (ret > 0) {
 		mutex_lock(&prtd->out_lock);
 
-		if (count == VOIP_MAX_VOC_PKT_SIZE) {
+		if (count <= VOIP_MAX_VOC_PKT_SIZE) {
 			buf_node = list_first_entry(&prtd->out_queue,
 					struct voip_buf_node, list);
 			list_del(&buf_node->list);
@@ -419,9 +429,9 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 			list_add_tail(&buf_node->list,
 						&prtd->free_out_queue);
 		} else {
-				pr_err("%s: Read count %d < VOIP_MAX_VOC_PKT_SIZE\n",
-						__func__, count);
-				ret = -ENOMEM;
+			pr_err("%s: Read count %d > VOIP_MAX_VOC_PKT_SIZE\n",
+				__func__, count);
+			ret = -ENOMEM;
 		}
 
 		mutex_unlock(&prtd->out_lock);
@@ -755,6 +765,7 @@ static int __init msm_soc_platform_init(void)
 	spin_lock_init(&voip_info.dsp_lock);
 
 	init_waitqueue_head(&voip_info.out_wait);
+	init_waitqueue_head(&voip_info.in_wait);
 
 	INIT_LIST_HEAD(&voip_info.in_queue);
 	INIT_LIST_HEAD(&voip_info.free_in_queue);
