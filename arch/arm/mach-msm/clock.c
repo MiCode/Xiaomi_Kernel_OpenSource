@@ -133,7 +133,7 @@ static void unvote_rate_vdd(struct clk *clk, unsigned long rate)
 int clk_enable(struct clk *clk)
 {
 	int ret = 0;
-	unsigned long flags, rate;
+	unsigned long flags;
 	struct clk *parent;
 
 	if (!clk)
@@ -142,7 +142,6 @@ int clk_enable(struct clk *clk)
 	spin_lock_irqsave(&clk->lock, flags);
 	if (clk->count == 0) {
 		parent = clk_get_parent(clk);
-		rate = clk_get_rate(clk);
 
 		ret = clk_enable(parent);
 		if (ret)
@@ -151,7 +150,7 @@ int clk_enable(struct clk *clk)
 		if (ret)
 			goto err_enable_depends;
 
-		ret = vote_rate_vdd(clk, rate);
+		ret = vote_rate_vdd(clk, clk->rate);
 		if (ret)
 			goto err_vote_vdd;
 		if (clk->ops->enable)
@@ -175,7 +174,7 @@ out:
 	return 0;
 
 err_enable_clock:
-	unvote_rate_vdd(clk, rate);
+	unvote_rate_vdd(clk, clk->rate);
 err_vote_vdd:
 	clk_disable(clk->depends);
 err_enable_depends:
@@ -198,11 +197,10 @@ void clk_disable(struct clk *clk)
 		goto out;
 	if (clk->count == 1) {
 		struct clk *parent = clk_get_parent(clk);
-		unsigned long rate = clk_get_rate(clk);
 
 		if (clk->ops->disable)
 			clk->ops->disable(clk);
-		unvote_rate_vdd(clk, rate);
+		unvote_rate_vdd(clk, clk->rate);
 		clk_disable(clk->depends);
 		clk_disable(parent);
 	}
@@ -241,7 +239,7 @@ static int _clk_set_rate(struct clk *clk, unsigned long rate,
 
 	spin_lock_irqsave(&clk->lock, flags);
 	if (clk->count) {
-		start_rate = clk_get_rate(clk);
+		start_rate = clk->rate;
 		/* Enforce vdd requirements for target frequency. */
 		rc = vote_rate_vdd(clk, rate);
 		if (rc)
@@ -254,6 +252,10 @@ static int _clk_set_rate(struct clk *clk, unsigned long rate,
 	} else {
 		rc = set_fn(clk, rate);
 	}
+
+	if (!rc)
+		clk->rate = rate;
+
 	spin_unlock_irqrestore(&clk->lock, flags);
 	return rc;
 

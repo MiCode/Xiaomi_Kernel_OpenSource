@@ -93,6 +93,7 @@ struct clk {
 	struct clk *depends;
 	struct clk_vdd_class *vdd_class;
 	unsigned long fmax[MAX_VDD_LEVELS];
+	unsigned long rate;
 
 	struct list_head children;
 	struct list_head siblings;
