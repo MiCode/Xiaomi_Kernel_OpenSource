@@ -1135,4 +1135,36 @@ int sps_timer_ctrl(struct sps_pipe *h,
 		   struct sps_timer_ctrl *timer_ctrl,
 		   struct sps_timer_result *timer_result);
 
+/**
+ * Find the handle of a BAM device based on the physical address
+ *
+ * This function finds a BAM device in the BAM registration list that
+ * matches the specified physical address, and returns its handle.
+ *
+ * @phys_addr - physical address of the BAM
+ *
+ * @h - device handle of the BAM
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_phy2h(u32 phys_addr, u32 *handle);
+
+/**
+ * Setup desc/data FIFO for bam-to-bam connection
+ *
+ * @mem_buffer - Pointer to struct for allocated memory properties.
+ *
+ * @addr - address of FIFO
+ *
+ * @size - FIFO size
+ *
+ * @use_offset - use address offset instead of absolute address
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
+		  u32 addr, u32 size, int use_offset);
+
 #endif /* _SPS_H_ */
