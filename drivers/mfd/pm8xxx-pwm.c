@@ -1230,6 +1230,7 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 	struct dentry		   *temp;
 	struct pm8xxx_pwm_user	  *puser;
 	int			     i;
+	int rc = 0;
 
 	if (dev == NULL) {
 		pr_err("no parent data passed in.\n");
@@ -1246,8 +1247,8 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 				sizeof(struct pm8xxx_pwm_user), GFP_KERNEL);
 	if (dbgdev->user == NULL) {
 		pr_err("kcalloc() failed.\n");
-		kfree(dbgdev);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto user_error;
 	}
 
 	mutex_init(&dbgdev->dbg_mutex);
@@ -1257,7 +1258,8 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 	dent = debugfs_create_dir("pm8xxx-pwm-dbg", NULL);
 	if (dent == NULL || IS_ERR(dent)) {
 		pr_err("ERR debugfs_create_dir: dent=%p\n", dent);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto dir_error;
 	}
 
 	dbgdev->dent = dent;
@@ -1269,6 +1271,7 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 		dent = debugfs_create_dir(pwm_ch, dbgdev->dent);
 		if (dent == NULL || IS_ERR(dent)) {
 			pr_err("ERR: pwm=%d: dir: dent=%p\n", i, dent);
+			rc = -ENOMEM;
 			goto debug_error;
 		}
 
@@ -1279,6 +1282,7 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 				dent, puser, &dbg_pwm_period_fops);
 		if (temp == NULL || IS_ERR(temp)) {
 			pr_err("ERR: pwm=%d: period: dent=%p\n", i, dent);
+			rc = -ENOMEM;
 			goto debug_error;
 		}
 
@@ -1286,6 +1290,7 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 				dent, puser, &dbg_pwm_duty_cycle_fops);
 		if (temp == NULL || IS_ERR(temp)) {
 			pr_err("ERR: pwm=%d: duty-cycle: dent=%p\n", i, dent);
+			rc = -ENOMEM;
 			goto debug_error;
 		}
 
@@ -1293,6 +1298,7 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 				dent, puser, &dbg_pwm_enable_fops);
 		if (temp == NULL || IS_ERR(temp)) {
 			pr_err("ERR: pwm=%d: enable: dent=%p\n", i, dent);
+			rc = -ENOMEM;
 			goto debug_error;
 		}
 	}
@@ -1303,7 +1309,11 @@ static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
 
 debug_error:
 	debugfs_remove_recursive(dbgdev->dent);
-	return -ENOMEM;
+dir_error:
+	kfree(dbgdev->user);
+user_error:
+	kfree(dbgdev);
+	return rc;
 }
 
 static int __devexit pm8xxx_pwm_dbg_remove(void)
