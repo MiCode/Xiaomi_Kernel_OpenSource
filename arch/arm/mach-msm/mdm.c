@@ -119,6 +119,9 @@ static int charm_panic_prep(struct notifier_block *this,
 
 	CHARM_DBG("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
 			 __func__);
+	if (get_restart_level() == RESET_SOC)
+		pm8058_stay_on();
+
 	charm_disable_irqs();
 	gpio_set_value(AP2MDM_ERRFATAL, 1);
 	gpio_set_value(AP2MDM_WAKEUP, 1);
