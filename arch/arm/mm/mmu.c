@@ -25,6 +25,7 @@
 #include <asm/tlb.h>
 #include <asm/highmem.h>
 #include <asm/traps.h>
+#include <asm/mmu_writeable.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -48,6 +49,9 @@ pmd_t *top_pmd;
 #define CPOLICY_WRITETHROUGH	2
 #define CPOLICY_WRITEBACK	3
 #define CPOLICY_WRITEALLOC	4
+
+#define RX_AREA_START           _text
+#define RX_AREA_END             __start_rodata
 
 static unsigned int cachepolicy __initdata = CPOLICY_WRITEBACK;
 static unsigned int ecc_mask __initdata = 0;
@@ -1041,6 +1045,90 @@ static void __init kmap_init(void)
 #endif
 }
 
+#ifdef CONFIG_STRICT_MEMORY_RWX
+static struct {
+	pmd_t *pmd_to_flush;
+	pmd_t *pmd;
+	unsigned long addr;
+	pmd_t saved_pmd;
+	bool made_writeable;
+} mem_unprotect;
+
+static DEFINE_SPINLOCK(mem_text_writeable_lock);
+
+void mem_text_writeable_spinlock(unsigned long *flags)
+{
+	spin_lock_irqsave(&mem_text_writeable_lock, *flags);
+}
+
+void mem_text_writeable_spinunlock(unsigned long *flags)
+{
+	spin_unlock_irqrestore(&mem_text_writeable_lock, *flags);
+}
+
+/*
+ * mem_text_address_writeable() and mem_text_address_restore()
+ * should be called as a pair. They are used to make the
+ * specified address in the kernel text section temporarily writeable
+ * when it has been marked read-only by STRICT_MEMORY_RWX.
+ * Used by kprobes and other debugging tools to set breakpoints etc.
+ * mem_text_address_writeable() is invoked before writing.
+ * After the write, mem_text_address_restore() must be called
+ * to restore the original state.
+ * This is only effective when used on the kernel text section
+ * marked as MEMORY_RX by map_lowmem()
+ *
+ * They must each be called with mem_text_writeable_lock locked
+ * by the caller, with no unlocking between the calls.
+ * The caller should release mem_text_writeable_lock immediately
+ * after the call to mem_text_address_restore().
+ * Only the write and associated cache operations should be performed
+ * between the calls.
+ */
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_writeable(unsigned long addr)
+{
+	struct task_struct *tsk = current;
+	struct mm_struct *mm = tsk->active_mm;
+	pgd_t *pgd = pgd_offset(mm, addr);
+	pud_t *pud = pud_offset(pgd, addr);
+
+	mem_unprotect.made_writeable = 0;
+
+	if ((addr < (unsigned long)RX_AREA_START) ||
+	    (addr >= (unsigned long)RX_AREA_END))
+		return;
+
+	mem_unprotect.pmd = pmd_offset(pud, addr);
+	mem_unprotect.pmd_to_flush = mem_unprotect.pmd;
+	mem_unprotect.addr = addr & PAGE_MASK;
+
+	if (addr & SECTION_SIZE)
+			mem_unprotect.pmd++;
+
+	mem_unprotect.saved_pmd = *mem_unprotect.pmd;
+	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) != PMD_TYPE_SECT)
+		return;
+
+	*mem_unprotect.pmd &= ~PMD_SECT_APX;
+
+	flush_pmd_entry(mem_unprotect.pmd_to_flush);
+	flush_tlb_kernel_page(mem_unprotect.addr);
+	mem_unprotect.made_writeable = 1;
+}
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_restore(void)
+{
+	if (mem_unprotect.made_writeable) {
+		*mem_unprotect.pmd = mem_unprotect.saved_pmd;
+		flush_pmd_entry(mem_unprotect.pmd_to_flush);
+		flush_tlb_kernel_page(mem_unprotect.addr);
+	}
+}
+#endif
+
 static void __init map_lowmem(void)
 {
 	struct memblock_region *reg;
@@ -1065,9 +1153,9 @@ static void __init map_lowmem(void)
 
 			create_mapping(&map);
 
-			map.pfn = __phys_to_pfn(__pa(_text));
-			map.virtual = (unsigned long)_text;
-			map.length = __start_rodata - _text;
+			map.pfn = __phys_to_pfn(__pa(RX_AREA_START));
+			map.virtual = (unsigned long)RX_AREA_START;
+			map.length = RX_AREA_END - RX_AREA_START;
 			map.type = MT_MEMORY_RX;
 
 			create_mapping(&map);
