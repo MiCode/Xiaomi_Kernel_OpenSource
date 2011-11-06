@@ -301,25 +301,25 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
 		bam_ch[rx_hdr->ch_id].status |= BAM_CH_REMOTE_OPEN;
 		spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
-		dev_kfree_skb_any(rx_skb);
 		queue_rx();
 		ret = platform_device_add(bam_ch[rx_hdr->ch_id].pdev);
 		if (ret)
 			pr_err("%s: platform_device_add() error: %d\n",
 					__func__, ret);
+		dev_kfree_skb_any(rx_skb);
 		break;
 	case BAM_MUX_HDR_CMD_CLOSE:
 		/* probably should drop pending write */
 		spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
 		bam_ch[rx_hdr->ch_id].status &= ~BAM_CH_REMOTE_OPEN;
 		spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
-		dev_kfree_skb_any(rx_skb);
 		queue_rx();
 		platform_device_unregister(bam_ch[rx_hdr->ch_id].pdev);
 		bam_ch[rx_hdr->ch_id].pdev =
 			platform_device_alloc(bam_ch[rx_hdr->ch_id].name, 2);
 		if (!bam_ch[rx_hdr->ch_id].pdev)
 			pr_err("%s: platform_device_alloc failed\n", __func__);
+		dev_kfree_skb_any(rx_skb);
 		break;
 	default:
 		pr_err("%s: dropping invalid hdr. magic %x reserved %d cmd %d"
