@@ -28,7 +28,7 @@
 #include <linux/android_pmem.h>
 #include <linux/clk.h>
 #include <linux/timer.h>
-
+#include <mach/msm_subsystem_map.h>
 #include "vidc_type.h"
 #include "vcd_api.h"
 #include "vdec_internal.h"
@@ -50,6 +50,8 @@
 static struct vid_dec_dev *vid_dec_device_p;
 static dev_t vid_dec_dev_num;
 static struct class *vid_dec_class;
+static unsigned int vidc_mmu_subsystem[] = {
+	MSM_SUBSYSTEM_VIDEO};
 static s32 vid_dec_get_empty_client_index(void)
 {
 	u32 i, found = false;
@@ -743,9 +745,10 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 					struct vdec_h264_mv *mv_data)
 {
 	struct vcd_property_hdr vcd_property_hdr;
-	struct vcd_property_h264_mv_buffer vcd_h264_mv_buffer;
+	struct vcd_property_h264_mv_buffer *vcd_h264_mv_buffer = NULL;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
 	u32 vcd_status = VCD_ERR_FAIL;
-	u32 len;
+	u32 len = 0, flags = 0;
 	struct file *file;
 
 	if (!client_ctx || !mv_data)
@@ -753,29 +756,41 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 
 	vcd_property_hdr.prop_id = VCD_I_H264_MV_BUFFER;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_h264_mv_buffer);
+	vcd_h264_mv_buffer = &client_ctx->vcd_h264_mv_buffer;
 
-	memset(&vcd_h264_mv_buffer, 0,
+	memset(&client_ctx->vcd_h264_mv_buffer, 0,
 		   sizeof(struct vcd_property_h264_mv_buffer));
-	vcd_h264_mv_buffer.size = mv_data->size;
-	vcd_h264_mv_buffer.count = mv_data->count;
-	vcd_h264_mv_buffer.pmem_fd = mv_data->pmem_fd;
-	vcd_h264_mv_buffer.offset = mv_data->offset;
+	vcd_h264_mv_buffer->size = mv_data->size;
+	vcd_h264_mv_buffer->count = mv_data->count;
+	vcd_h264_mv_buffer->pmem_fd = mv_data->pmem_fd;
+	vcd_h264_mv_buffer->offset = mv_data->offset;
 
-	if (get_pmem_file(vcd_h264_mv_buffer.pmem_fd,
-		(unsigned long *) (&(vcd_h264_mv_buffer.physical_addr)),
-		(unsigned long *) (&vcd_h264_mv_buffer.kernel_virtual_addr),
+	if (get_pmem_file(vcd_h264_mv_buffer->pmem_fd,
+		(unsigned long *) (&(vcd_h264_mv_buffer->physical_addr)),
+		(unsigned long *) (&vcd_h264_mv_buffer->kernel_virtual_addr),
 		(unsigned long *) (&len), &file)) {
 		ERR("%s(): get_pmem_file failed\n", __func__);
 		return false;
 	}
 	put_pmem_file(file);
 
-	DBG("Virt: %p, Phys %p, fd: %d\n", vcd_h264_mv_buffer.
-		kernel_virtual_addr, vcd_h264_mv_buffer.physical_addr,
-		vcd_h264_mv_buffer.pmem_fd);
-
+	flags = MSM_SUBSYSTEM_MAP_IOVA;
+	mapped_buffer = msm_subsystem_map_buffer(
+		(unsigned long)vcd_h264_mv_buffer->physical_addr, len,
+			flags, vidc_mmu_subsystem,
+			sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
+	if (IS_ERR(mapped_buffer)) {
+		pr_err("buffer map failed");
+		return false;
+	}
+	vcd_h264_mv_buffer->client_data = (void *) mapped_buffer;
+	vcd_h264_mv_buffer->dev_addr = (u8 *)mapped_buffer->iova[0];
+	DBG("Virt: %p, Phys %p, fd: %d", vcd_h264_mv_buffer->
+		kernel_virtual_addr, vcd_h264_mv_buffer->physical_addr,
+		vcd_h264_mv_buffer->pmem_fd);
+	DBG("Dev addr %p", vcd_h264_mv_buffer->dev_addr);
 	vcd_status = vcd_set_property(client_ctx->vcd_handle,
-				      &vcd_property_hdr, &vcd_h264_mv_buffer);
+				      &vcd_property_hdr, vcd_h264_mv_buffer);
 
 	if (vcd_status)
 		return false;
@@ -837,6 +852,9 @@ static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
 
 	if (!client_ctx)
 		return false;
+	if (client_ctx->vcd_h264_mv_buffer.client_data)
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		client_ctx->vcd_h264_mv_buffer.client_data);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_H264_MV_BUFFER;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
@@ -888,7 +906,7 @@ static u32 vid_dec_set_buffer(struct video_client_ctx *client_ctx,
 	enum vcd_buffer_type buffer = VCD_BUFFER_INPUT;
 	enum buffer_dir dir_buffer = BUFFER_TYPE_INPUT;
 	u32 vcd_status = VCD_ERR_FAIL;
-	unsigned long kernel_vaddr, buf_adr_offset = 0;
+	unsigned long kernel_vaddr, buf_adr_offset = 0, length;
 
 	if (!client_ctx || !buffer_info)
 		return false;
@@ -898,12 +916,12 @@ static u32 vid_dec_set_buffer(struct video_client_ctx *client_ctx,
 		buffer = VCD_BUFFER_OUTPUT;
 		buf_adr_offset = (unsigned long)buffer_info->buffer.offset;
 	}
-
+	length = buffer_info->buffer.buffer_len;
 	/*If buffer cannot be set, ignore */
 	if (!vidc_insert_addr_table(client_ctx, dir_buffer,
 		(unsigned long)buffer_info->buffer.bufferaddr,
 		&kernel_vaddr, buffer_info->buffer.pmem_fd,
-		buf_adr_offset, MAX_VIDEO_NUM_OF_BUFF)) {
+		buf_adr_offset, MAX_VIDEO_NUM_OF_BUFF, length)) {
 		DBG("%s() : user_virt_addr = %p cannot be set.",
 		    __func__, buffer_info->buffer.bufferaddr);
 		return false;

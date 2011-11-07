@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -966,8 +966,15 @@ static long vid_enc_ioctl(struct file *file,
 	}
 	case VEN_IOCTL_FREE_RECON_BUFFER:
 	{
+		struct venc_recon_addr venc_recon;
 		DBG("VEN_IOCTL_FREE_RECON_BUFFER\n");
-		result = vid_enc_free_recon_buffers(client_ctx);
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		if (copy_from_user(&venc_recon, venc_msg.in,
+				sizeof(venc_recon)))
+				return -EFAULT;
+		result = vid_enc_free_recon_buffers(client_ctx,
+				&venc_recon);
 		if (!result) {
 			ERR("VEN_IOCTL_FREE_RECON_BUFFER failed\n");
 			return -EIO;
