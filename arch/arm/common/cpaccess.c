@@ -29,6 +29,7 @@
 #include <linux/smp.h>
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
+#include <asm/mmu_writeable.h>
 
 #ifdef CONFIG_ARCH_MSM_KRAIT
 #include <mach/msm-krait-l2-accessors.h>
@@ -191,16 +192,11 @@ static unsigned long do_cpregister_rw(int write)
 	(per_cpu(cp_param.cp, cpu) << 8);
 
 	/*
-	 * Grab address of the Dummy function, insert MRC/MCR
-	 * instruction and a return instruction ("bx lr"). Do
-	 * a D cache clean and I cache invalidate after inserting
-	 * new code.
+	 * Grab address of the Dummy function, write the MRC/MCR
+	 * instruction, ensuring cache coherency.
 	 */
 	p_opcode = (unsigned long *)&cpaccess_dummy;
-	*p_opcode++ = opcode;
-	*p_opcode-- = 0xE12FFF1E;
-	__cpuc_coherent_kern_range((unsigned long)p_opcode,
-	 ((unsigned long)p_opcode + (sizeof(long) * 2)));
+	mem_text_write_kernel_word(p_opcode, opcode);
 
 #ifdef CONFIG_SMP
 	/*
