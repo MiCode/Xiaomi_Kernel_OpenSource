@@ -481,6 +481,38 @@ static void __init apq8064_init_irq(void)
 	}
 }
 
+static struct platform_device msm8064_device_saw_regulator_core0 = {
+	.name	= "saw-regulator",
+	.id	= 0,
+	.dev	= {
+		.platform_data = &msm8064_saw_regulator_pdata_8921_s5,
+	},
+};
+
+static struct platform_device msm8064_device_saw_regulator_core1 = {
+	.name	= "saw-regulator",
+	.id	= 1,
+	.dev	= {
+		.platform_data = &msm8064_saw_regulator_pdata_8921_s6,
+	},
+};
+
+static struct platform_device msm8064_device_saw_regulator_core2 = {
+	.name	= "saw-regulator",
+	.id	= 2,
+	.dev	= {
+		.platform_data = &msm8064_saw_regulator_pdata_8821_s0,
+	},
+};
+
+static struct platform_device msm8064_device_saw_regulator_core3 = {
+	.name	= "saw-regulator",
+	.id	= 3,
+	.dev	= {
+		.platform_data = &msm8064_saw_regulator_pdata_8821_s1,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi4,
@@ -496,6 +528,10 @@ static struct platform_device *common_devices[] __initdata = {
 	&android_pmem_adsp_device,
 	&android_pmem_audio_device,
 	&msm8064_device_watchdog,
+	&msm8064_device_saw_regulator_core0,
+	&msm8064_device_saw_regulator_core1,
+	&msm8064_device_saw_regulator_core2,
+	&msm8064_device_saw_regulator_core3,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

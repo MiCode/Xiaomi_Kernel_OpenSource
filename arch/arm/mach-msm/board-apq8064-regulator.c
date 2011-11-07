@@ -158,6 +158,12 @@ VREG_CONSUMERS(HDMI_MVS) = {
 VREG_CONSUMERS(NCP) = {
 	REGULATOR_SUPPLY("8921_ncp",		NULL),
 };
+VREG_CONSUMERS(8821_S0) = {
+	REGULATOR_SUPPLY("8821_s0",		NULL),
+};
+VREG_CONSUMERS(8821_S1) = {
+	REGULATOR_SUPPLY("8821_s1",		NULL),
+};
 
 #define PM8921_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
 			 _pull_down, _always_on, _supply_regulator, \
@@ -262,11 +268,17 @@ VREG_CONSUMERS(NCP) = {
 	}
 
 /* SAW regulator constraints */
-struct regulator_init_data msm8064_saw_regulator_pdata_s5 =
+struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5 =
 	/*	      ID  vreg_name	       min_uV   max_uV */
-	SAW_VREG_INIT(S5, "8921_s5",	       1050000, 1150000);
-struct regulator_init_data msm8064_saw_regulator_pdata_s6 =
-	SAW_VREG_INIT(S6, "8921_s6",	       1050000, 1150000);
+	SAW_VREG_INIT(S5, "8921_s5",	       950000, 1150000);
+struct regulator_init_data msm8064_saw_regulator_pdata_8921_s6 =
+	SAW_VREG_INIT(S6, "8921_s6",	       950000, 1150000);
+
+struct regulator_init_data msm8064_saw_regulator_pdata_8821_s0 =
+	/*	      ID       vreg_name	min_uV  max_uV */
+	SAW_VREG_INIT(8821_S0, "8821_s0",       950000, 1150000);
+struct regulator_init_data msm8064_saw_regulator_pdata_8821_s1 =
+	SAW_VREG_INIT(8821_S1, "8821_s1",       950000, 1150000);
 
 /* PM8921 regulator constraints */
 struct pm8921_regulator_platform_data

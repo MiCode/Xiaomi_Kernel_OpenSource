@@ -32,6 +32,11 @@ extern struct pm8921_regulator_platform_data
 
 extern int msm8064_pm8921_regulator_pdata_len __devinitdata;
 
+extern struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5;
+extern struct regulator_init_data msm8064_saw_regulator_pdata_8921_s6;
+extern struct regulator_init_data msm8064_saw_regulator_pdata_8821_s0;
+extern struct regulator_init_data msm8064_saw_regulator_pdata_8821_s1;
+
 struct mmc_platform_data;
 int __init apq8064_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
