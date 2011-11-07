@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/timex.h>
 #include <linux/device.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
@@ -18,10 +19,13 @@
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/irq.h>
 
 #include <asm/cputype.h>
+#include <asm/sched_clock.h>
 #include <asm/hardware/gic.h>
 
+static struct irqaction arch_irqaction[2];
 static unsigned long arch_timer_rate;
 static int arch_timer_ppi;
 static int arch_timer_ppi2;
@@ -77,13 +81,14 @@ static u32 arch_timer_reg_read(int reg)
 
 static irqreturn_t arch_timer_handler(int irq, void *dev_id)
 {
-	struct clock_event_device *evt = dev_id;
+	struct clock_event_device *evt;
 	unsigned long ctrl;
 
 	ctrl = arch_timer_reg_read(ARCH_TIMER_REG_CTRL);
 	if (ctrl & 0x4) {
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
 		arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
+		evt = per_cpu_ptr(arch_timer_evt, smp_processor_id());
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -131,7 +136,6 @@ static int arch_timer_set_next_event(unsigned long evt,
 static void __cpuinit arch_timer_setup(void *data)
 {
 	struct clock_event_device *clk = data;
-	int err;
 
 	/* Be safe... */
 	arch_timer_stop();
@@ -147,20 +151,9 @@ static void __cpuinit arch_timer_setup(void *data)
 	clockevents_config_and_register(clk, arch_timer_rate,
 					0xf, 0x7fffffff);
 
-	err = gic_request_ppi(clk->irq, arch_timer_handler, clk);
-	if (err) {
-		pr_err("%s: can't register interrupt %d on cpu %d (%d)\n",
-		       clk->name, clk->irq, smp_processor_id(), err);
-		return;
-	}
-
-	if (arch_timer_ppi2 >= 0) {
-		err = gic_request_ppi(arch_timer_ppi2, arch_timer_handler, clk);
-		if (err) {
-			pr_warn("%s: can't register interrupt %d on cpu %d (%d)\n",
-				clk->name, arch_timer_ppi2, smp_processor_id(), err);
-		}
-	}
+	gic_enable_ppi(arch_timer_ppi);
+	if (arch_timer_ppi2 > 0)
+		gic_enable_ppi(arch_timer_ppi2);
 }
 
 /* Is the optional system timer available? */
@@ -218,6 +211,14 @@ static cycle_t arch_counter_read(struct clocksource *cs)
 	return arch_counter_get_cntpct();
 }
 
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+int read_current_timer(unsigned long *timer_val)
+{
+	*timer_val = (unsigned long)arch_counter_get_cntpct();
+	return 0;
+}
+#endif
+
 static struct clocksource clocksource_counter = {
 	.name	= "arch_sys_counter",
 	.rating	= 400,
@@ -240,7 +241,7 @@ static u32 arch_counter_get_cntvct32(void)
 	return (u32)(cntvct & (u32)~0);
 }
 
-DEFINE_SCHED_CLOCK_FUNC(arch_timer_sched_clock)
+unsigned long long notrace sched_clock(void)
 {
 	return cyc_to_sched_clock(&cd, arch_counter_get_cntvct32(), (u32)~0);
 }
@@ -255,9 +256,11 @@ static void __cpuinit arch_timer_teardown(void *data)
 	struct clock_event_device *clk = data;
 	pr_debug("arch_timer_teardown disable IRQ%d cpu #%d\n",
 		 clk->irq, smp_processor_id());
-	gic_free_ppi(clk->irq, clk);
-	if (arch_timer_ppi2 >= 0)
-		gic_free_ppi(arch_timer_ppi2, clk);
+	if (!smp_processor_id()) {
+		remove_irq(arch_timer_ppi, &arch_irqaction[0]);
+		if (arch_timer_ppi2 > 0)
+			remove_irq(arch_timer_ppi2, &arch_irqaction[1]);
+	}
 	arch_timer_set_mode(CLOCK_EVT_MODE_UNUSED, clk);
 }
 
@@ -288,6 +291,8 @@ static struct notifier_block __cpuinitdata arch_timer_cpu_nb = {
 
 int arch_timer_register(struct resource *res, int res_nr)
 {
+	struct irqaction *irqa;
+	unsigned int cpu = smp_processor_id();
 	int err;
 
 	if (!res_nr || res[0].start < 0 || !(res[0].flags & IORESOURCE_IRQ))
@@ -307,11 +312,41 @@ int arch_timer_register(struct resource *res, int res_nr)
 
 	clocksource_register_hz(&clocksource_counter, arch_timer_rate);
 
-	init_arch_sched_clock(&cd, arch_timer_update_sched_clock,
-				arch_timer_sched_clock, 32, arch_timer_rate);
+	init_sched_clock(&cd, arch_timer_update_sched_clock, 32,
+			arch_timer_rate);
+
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+	set_delay_fn(read_current_timer_delay_loop);
+#endif
+
+	irqa = &arch_irqaction[0];
+	irqa->name = "arch_sys_timer";
+	irqa->flags = IRQF_DISABLED | IRQF_TIMER | IRQF_TRIGGER_HIGH;
+	irqa->handler = arch_timer_handler;
+	irqa->dev_id = per_cpu_ptr(arch_timer_evt, cpu);
+	irqa->irq = arch_timer_ppi;
+	err = setup_irq(arch_timer_ppi, irqa);
+	if (err) {
+		pr_err("%s: can't register interrupt %d (%d)\n",
+		       irqa->name, irqa->irq, err);
+		return err;
+	}
+
+	if (arch_timer_ppi2 > 0) {
+		irqa = &arch_irqaction[1];
+		irqa->name = "arch_sys_timer";
+		irqa->flags = IRQF_DISABLED | IRQF_TIMER | IRQF_TRIGGER_HIGH;
+		irqa->handler = arch_timer_handler;
+		irqa->dev_id = per_cpu_ptr(arch_timer_evt, cpu);
+		irqa->irq = arch_timer_ppi2;
+		err = setup_irq(arch_timer_ppi2, irqa);
+		if (err)
+			pr_warn("%s: can't register interrupt %d (%d)\n",
+				irqa->name, irqa->irq, err);
+	}
 
 	/* Immediately configure the timer on the boot CPU */
-	arch_timer_setup(per_cpu_ptr(arch_timer_evt, smp_processor_id()));
+	arch_timer_setup(per_cpu_ptr(arch_timer_evt, cpu));
 
 	register_cpu_notifier(&arch_timer_cpu_nb);
 
