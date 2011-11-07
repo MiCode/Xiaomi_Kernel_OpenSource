@@ -262,6 +262,7 @@ struct pm8921_chg_chip {
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
+	int				rconn_mohm;
 };
 
 static int usb_max_current;
@@ -2389,6 +2390,80 @@ static void update_heartbeat(struct work_struct *work)
 			      round_jiffies_relative(msecs_to_jiffies
 						     (chip->update_time)));
 }
+#define VDD_LOOP_ACTIVE_BIT	BIT(3)
+#define VDD_MAX_INCREASE_MV	400
+static int vdd_max_increase_mv = VDD_MAX_INCREASE_MV;
+module_param(vdd_max_increase_mv, int, 0644);
+
+static int ichg_threshold_ua = -400000;
+module_param(ichg_threshold_ua, int, 0644);
+static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
+{
+	int ichg_meas_ua, vbat_uv;
+	int ichg_meas_ma;
+	int adj_vdd_max_mv, programmed_vdd_max;
+	int vbat_batt_terminal_uv;
+	int vbat_batt_terminal_mv;
+	int reg_loop;
+	int delta_mv = 0;
+
+	if (chip->rconn_mohm == 0) {
+		pr_debug("Exiting as rconn_mohm is 0\n");
+		return;
+	}
+	/* adjust vdd_max only in normal temperature zone */
+	if (chip->is_bat_cool || chip->is_bat_warm) {
+		pr_debug("Exiting is_bat_cool = %d is_batt_warm = %d\n",
+				chip->is_bat_cool, chip->is_bat_warm);
+		return;
+	}
+
+	reg_loop = pm_chg_get_regulation_loop(chip);
+	if (!(reg_loop & VDD_LOOP_ACTIVE_BIT)) {
+		pr_debug("Exiting Vdd loop is not active reg loop=0x%x\n",
+			reg_loop);
+		return;
+	}
+
+	pm8921_bms_get_simultaneous_battery_voltage_and_current(&ichg_meas_ua,
+								&vbat_uv);
+	if (ichg_meas_ua >= 0) {
+		pr_debug("Exiting ichg_meas_ua = %d > 0\n", ichg_meas_ua);
+		return;
+	}
+	if (ichg_meas_ua <= ichg_threshold_ua) {
+		pr_debug("Exiting ichg_meas_ua = %d < ichg_threshold_ua = %d\n",
+					ichg_meas_ua, ichg_threshold_ua);
+		return;
+	}
+	ichg_meas_ma = ichg_meas_ua / 1000;
+
+	/* rconn_mohm is in milliOhms */
+	vbat_batt_terminal_uv = vbat_uv + ichg_meas_ma * the_chip->rconn_mohm;
+	vbat_batt_terminal_mv = vbat_batt_terminal_uv/1000;
+	pm_chg_vddmax_get(the_chip, &programmed_vdd_max);
+
+	delta_mv =  chip->max_voltage_mv - vbat_batt_terminal_mv;
+
+	adj_vdd_max_mv = programmed_vdd_max + delta_mv;
+	pr_debug("vdd_max needs to be changed by %d mv from %d to %d\n",
+			delta_mv,
+			programmed_vdd_max,
+			adj_vdd_max_mv);
+
+	if (adj_vdd_max_mv < chip->max_voltage_mv) {
+		pr_debug("adj vdd_max lower than default max voltage\n");
+		return;
+	}
+
+	if (adj_vdd_max_mv > (chip->max_voltage_mv + vdd_max_increase_mv))
+		adj_vdd_max_mv = chip->max_voltage_mv + vdd_max_increase_mv;
+
+	pr_debug("adjusting vdd_max_mv to %d to make "
+		"vbat_batt_termial_uv = %d to %d\n",
+		adj_vdd_max_mv, vbat_batt_terminal_uv, chip->max_voltage_mv);
+	pm_chg_vddmax_set(chip, adj_vdd_max_mv);
+}
 
 enum {
 	CHG_IN_PROGRESS,
@@ -2442,8 +2517,6 @@ static int is_charging_finished(struct pm8921_chg_chip *chip)
 		}
 		pr_debug("vddmax = %d vbat_meas_mv=%d\n",
 			 vbat_programmed, vbat_meas_mv);
-		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
-			return CHG_IN_PROGRESS;
 
 		if (last_vbat_programmed == -EINVAL)
 			last_vbat_programmed = vbat_programmed;
@@ -2455,10 +2528,6 @@ static int is_charging_finished(struct pm8921_chg_chip *chip)
 			return CHG_IN_PROGRESS;
 		}
 
-		/*
-		 * TODO if charging from an external charger
-		 * check SOC instead of regulation loop
-		 */
 		regulation_loop = pm_chg_get_regulation_loop(chip);
 		if (regulation_loop < 0) {
 			pr_err("couldnt read the regulation loop err=%d\n",
@@ -2518,10 +2587,9 @@ static void eoc_worker(struct work_struct *work)
 	end = is_charging_finished(chip);
 
 	if (end == CHG_NOT_IN_PROGRESS) {
-			/* enable fastchg irq */
-			count = 0;
-			wake_unlock(&chip->eoc_wake_lock);
-			return;
+		count = 0;
+		wake_unlock(&chip->eoc_wake_lock);
+		return;
 	}
 
 	if (end == CHG_FINISHED) {
@@ -2547,6 +2615,7 @@ static void eoc_worker(struct work_struct *work)
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
 		wake_unlock(&chip->eoc_wake_lock);
 	} else {
+		adjust_vdd_max_for_fastchg(chip);
 		pr_debug("EOC count = %d\n", count);
 		schedule_delayed_work(&chip->eoc_work,
 			      round_jiffies_relative(msecs_to_jiffies
@@ -2687,6 +2756,23 @@ static int set_disable_status_param(const char *val, struct kernel_param *kp)
 module_param_call(disabled, set_disable_status_param, param_get_uint,
 					&charging_disabled, 0644);
 
+static int rconn_mohm;
+static int set_rconn_mohm(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	struct pm8921_chg_chip *chip = the_chip;
+
+	ret = param_set_int(val, kp);
+	if (ret) {
+		pr_err("error setting value %d\n", ret);
+		return ret;
+	}
+	if (chip)
+		chip->rconn_mohm = rconn_mohm;
+	return 0;
+}
+module_param_call(rconn_mohm, set_rconn_mohm, param_get_uint,
+					&rconn_mohm, 0644);
 /**
  * set_thermal_mitigation_level -
  *
@@ -3004,6 +3090,7 @@ static void pm8921_chg_set_hw_clk_switching(struct pm8921_chg_chip *chip)
 static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 {
 	int rc;
+	int vdd_safe;
 
 	rc = pm_chg_masked_write(chip, SYS_CONFIG_2,
 					BOOT_DONE_BIT, BOOT_DONE_BIT);
@@ -3012,7 +3099,13 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		return rc;
 	}
 
-	rc = pm_chg_vddsafe_set(chip, chip->max_voltage_mv);
+	vdd_safe = chip->max_voltage_mv + VDD_MAX_INCREASE_MV;
+
+	if (vdd_safe > PM8921_CHG_VDDSAFE_MAX)
+		vdd_safe = PM8921_CHG_VDDSAFE_MAX;
+
+	rc = pm_chg_vddsafe_set(chip, vdd_safe);
+
 	if (rc) {
 		pr_err("Failed to set safe voltage to %d rc=%d\n",
 						chip->max_voltage_mv, rc);
@@ -3505,6 +3598,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 
 	chip->cold_thr = pdata->cold_thr;
 	chip->hot_thr = pdata->hot_thr;
+	chip->rconn_mohm = pdata->rconn_mohm;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
