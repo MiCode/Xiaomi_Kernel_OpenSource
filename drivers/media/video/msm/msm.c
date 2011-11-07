@@ -774,11 +774,21 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 	}
 	if (!pb->count) {
 		/* Deallocation. free buf_offset array */
-		D("%s freeing buffer offsets array ", __func__);
+		D("%s Inst %p freeing buffer offsets array",
+			__func__, pcam_inst);
 		for (j = 0 ; j < pcam_inst->buf_count ; j++)
 			kfree(pcam_inst->buf_offset[j]);
 		kfree(pcam_inst->buf_offset);
+		pcam_inst->buf_offset = NULL;
+		/* If the userspace has deallocated all the
+		 * buffers, then release the vb2 queue */
+		if (pcam_inst->vbqueue_initialized) {
+			vb2_queue_release(&pcam_inst->vid_bufq);
+			pcam_inst->vbqueue_initialized = 0;
+		}
 	} else {
+		D("%s Inst %p Allocating buf_offset array",
+			__func__, pcam_inst);
 		/* Allocation. allocate buf_offset array */
 		pcam_inst->buf_offset = (struct msm_cam_buf_offset **)
 			kzalloc(pb->count * sizeof(struct msm_cam_buf_offset *),
@@ -796,6 +806,7 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 				for (j = i-1 ; j >= 0; j--)
 					kfree(pcam_inst->buf_offset[j]);
 				kfree(pcam_inst->buf_offset);
+				pcam_inst->buf_offset = NULL;
 				return -ENOMEM;
 			}
 		}
@@ -828,7 +839,18 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 
 	D("%s Inst = %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
+
+	if (!pcam_inst->buf_offset) {
+		pr_err("%s Buffer is already released. Returning. ", __func__);
+		return -EINVAL;
+	}
+
 	if (pb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		/* Reject the buffer if planes array was not allocated */
+		if (pb->m.planes == NULL) {
+			pr_err("%s Planes array is null ", __func__);
+			return -EINVAL;
+		}
 		for (i = 0; i < pcam_inst->plane_info.num_planes; i++) {
 			D("%s stored offsets for plane %d as"
 				"addr offset %d, data offset %d",
@@ -1093,7 +1115,7 @@ static int msm_camera_v4l2_s_fmt_cap_mplane(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 			struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s\n", __func__);
+	D("%s Inst %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	if (!pcam_inst->vbqueue_initialized) {
