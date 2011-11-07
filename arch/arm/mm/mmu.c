@@ -1373,6 +1373,20 @@ void mem_text_address_restore(void)
 }
 #endif
 
+void mem_text_write_kernel_word(unsigned long *addr, unsigned long word)
+{
+	unsigned long flags;
+
+	mem_text_writeable_spinlock(&flags);
+	mem_text_address_writeable((unsigned long)addr);
+	*addr = word;
+	flush_icache_range((unsigned long)addr,
+			   ((unsigned long)addr + sizeof(long)));
+	mem_text_address_restore();
+	mem_text_writeable_spinunlock(&flags);
+}
+EXPORT_SYMBOL(mem_text_write_kernel_word);
+
 extern char __init_data[];
 
 static void __init map_lowmem(void)
