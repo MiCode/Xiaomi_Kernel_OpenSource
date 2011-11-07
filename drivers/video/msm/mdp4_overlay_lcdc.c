@@ -451,11 +451,11 @@ void mdp4_dma_p_done_lcdc(void)
 void mdp4_overlay0_done_lcdc(struct mdp_dma_data *dma)
 {
 	spin_lock(&mdp_spin_lock);
+	dma->busy = FALSE;
 	if (lcdc_pipe->blt_addr == 0) {
 		spin_unlock(&mdp_spin_lock);
 		return;
 	}
-	dma->busy = FALSE;
 	mdp4_lcdc_blt_dmap_update(lcdc_pipe);
 	lcdc_pipe->dmap_cnt++;
 	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
