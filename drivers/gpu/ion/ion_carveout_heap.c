@@ -33,6 +33,10 @@ struct ion_carveout_heap {
 	ion_phys_addr_t base;
 	unsigned long allocated_bytes;
 	unsigned long total_size;
+	void (*request_region)(void *);
+	void (*release_region)(void *);
+	atomic_t map_count;
+	void *bus_id;
 };
 
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
@@ -128,6 +132,12 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 				   struct ion_buffer *buffer,
 				   unsigned long flags)
 {
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
+	if (atomic_inc_return(&carveout_heap->map_count) == 1)
+		carveout_heap->request_region(carveout_heap->bus_id);
+
 	if (ION_IS_CACHED(flags))
 		return ioremap_cached(buffer->priv_phys, buffer->size);
 	else
@@ -137,14 +147,27 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 				    struct ion_buffer *buffer)
 {
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
 	__arch_iounmap(buffer->vaddr);
 	buffer->vaddr = NULL;
+
+	if (atomic_dec_and_test(&carveout_heap->map_count))
+		carveout_heap->release_region(carveout_heap->bus_id);
+
 	return;
 }
 
 int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			       struct vm_area_struct *vma, unsigned long flags)
 {
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
+	if (atomic_inc_return(&carveout_heap->map_count) == 1)
+		carveout_heap->request_region(carveout_heap->bus_id);
+
 	if (ION_IS_CACHED(flags))
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
@@ -155,6 +178,16 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 					buffer->size,
 					pgprot_noncached(vma->vm_page_prot));
+}
+
+void ion_carveout_heap_unmap_user(struct ion_heap *heap,
+				    struct ion_buffer *buffer)
+{
+	struct ion_carveout_heap *carveout_heap =
+		container_of(heap, struct ion_carveout_heap, heap);
+
+	if (atomic_dec_and_test(&carveout_heap->map_count))
+		carveout_heap->release_region(carveout_heap->bus_id);
 }
 
 int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
@@ -205,6 +238,7 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.phys = ion_carveout_heap_phys,
 	.map_user = ion_carveout_heap_map_user,
 	.map_kernel = ion_carveout_heap_map_kernel,
+	.unmap_user = ion_carveout_heap_unmap_user,
 	.unmap_kernel = ion_carveout_heap_unmap_kernel,
 	.map_dma = ion_carveout_heap_map_dma,
 	.unmap_dma = ion_carveout_heap_unmap_dma,
@@ -238,6 +272,9 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->allocated_bytes = 0;
 	carveout_heap->total_size = heap_data->size;
+	carveout_heap->bus_id = heap_data->setup_region();
+	carveout_heap->request_region = heap_data->request_region;
+	carveout_heap->release_region = heap_data->release_region;
 
 	return &carveout_heap->heap;
 }
