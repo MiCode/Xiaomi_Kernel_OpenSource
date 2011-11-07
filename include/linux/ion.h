@@ -41,6 +41,11 @@ struct ion_buffer;
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
+ * @request_region: function to be called when the number of allocations goes
+ *						from 0 -> 1
+ * @release_region: function to be called when the number of allocations goes
+ *						from 1 -> 0
+ * @setup_region:   function to be called upon ion registration
  *
  * Provided by the board file.
  */
@@ -51,6 +56,9 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
+	void (*request_region)(void *);
+	void (*release_region)(void *);
+	void *(*setup_region)(void);
 };
 
 /**
