@@ -601,12 +601,14 @@ static void tsens_hw_init(void)
 	writel_relaxed(reg_cntl | TSENS_SW_RST, TSENS_CNTL_ADDR);
 
 	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615) {
-		reg_cntl |= TSENS_8960_SLP_CLK_ENA | TSENS_EN |
+		reg_cntl |= TSENS_8960_SLP_CLK_ENA |
 			(TSENS_MEASURE_PERIOD << 18) |
 			TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR |
 			TSENS_MIN_STATUS_MASK | TSENS_MAX_STATUS_MASK |
 			(((1 << tmdev->tsens_num_sensor) - 1) <<
 			TSENS_SENSOR0_SHIFT);
+		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
+		reg_cntl |= TSENS_EN;
 		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
 
 		reg_cfg = readl_relaxed(TSENS_8960_CONFIG_ADDR);
