@@ -277,7 +277,10 @@ EXPORT_SYMBOL(clk_round_rate);
 
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
-	return _clk_set_rate(clk, rate, clk->ops->set_rate);
+	if (clk->flags & CLKFLAG_MIN)
+		return _clk_set_rate(clk, rate, clk->ops->set_min_rate);
+	else
+		return _clk_set_rate(clk, rate, clk->ops->set_rate);
 }
 EXPORT_SYMBOL(clk_set_rate);
 
