@@ -51,13 +51,13 @@ static void radio_hci_smd_recv_event(unsigned long temp)
 	len = smd_read_avail(hsmd->fm_channel);
 
 	while (len) {
-		skb = alloc_skb(len, GFP_KERNEL);
+		skb = alloc_skb(len, GFP_ATOMIC);
 		if (!skb) {
 			FMDERR("Memory not allocated for the socket");
 			return;
 		}
 
-		buf = kmalloc(len, GFP_KERNEL);
+		buf = kmalloc(len, GFP_ATOMIC);
 		if (!buf) {
 			kfree_skb(skb);
 			FMDERR("Error in allocating buffer memory");
