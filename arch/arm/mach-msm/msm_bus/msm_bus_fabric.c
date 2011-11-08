@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/radix-tree.h>
-#include <mach/clk.h>
 #include <mach/board.h>
 #include <mach/rpm.h>
 #include "msm_bus_core.h"
@@ -344,7 +343,7 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 	int i, status = 0;
 	for (i = 0; i < NUM_CTX; i++)
 		if (info->nodeclk[i].dirty) {
-			status = clk_set_min_rate(info->nodeclk[i].clk, info->
+			status = clk_set_rate(info->nodeclk[i].clk, info->
 				nodeclk[i].rate);
 			if (enable && !(info->nodeclk[i].enable)) {
 				clk_enable(info->nodeclk[i].clk);
@@ -359,7 +358,7 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 		}
 
 	if (info->memclk.dirty) {
-		status = clk_set_min_rate(info->memclk.clk, info->memclk.rate);
+		status = clk_set_rate(info->memclk.clk, info->memclk.rate);
 		if (enable && !(info->memclk.enable)) {
 			clk_enable(info->memclk.clk);
 			info->memclk.dirty = false;
