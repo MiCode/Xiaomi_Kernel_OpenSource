@@ -663,7 +663,7 @@ static struct rcg_clk prng_clk = {
 		.c = { \
 			.dbg_name = #name, \
 			.ops = &clk_ops_rcg_9615, \
-			VDD_DIG_FMAX_MAP2(LOW, 25000000, NOMINAL, 50000000), \
+			VDD_DIG_FMAX_MAP2(LOW, 26000000, NOMINAL, 52000000), \
 			CLK_INIT(name.c), \
 		}, \
 	}
@@ -682,7 +682,10 @@ static struct clk_freq_tbl clk_tbl_sdc1_2[] = {
 	F_SDC( 17070000, pll8,  1, 2,  45),
 	F_SDC( 20210000, pll8,  1, 1,  19),
 	F_SDC( 24000000, pll8,  4, 1,   4),
+	F_SDC( 38400000, pll8,  2, 1,   5),
 	F_SDC( 48000000, pll8,  4, 1,   2),
+	F_SDC( 64000000, pll8,  3, 1,   2),
+	F_SDC( 76800000, pll8,  1, 1,   5),
 	F_END
 };
 
