@@ -301,7 +301,6 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		 * This is a gpio-regulator and does not support
 		 * regulator_set_voltage and regulator_set_optimum_mode
 		 */
-		.set_voltage_sup = false,
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
 		.hpm_uA = 600000, /* 600mA */
@@ -313,7 +312,6 @@ static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : External card slot connected */
 	[SDCC1] = {
 		.name = "sdc_vddp",
-		.set_voltage_sup = true,
 		.high_vol_level = 2950000,
 		.low_vol_level = 1850000,
 		.always_on = true,
