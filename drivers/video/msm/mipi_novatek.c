@@ -439,6 +439,10 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 		return;
 
 	mutex_lock(&mfd->dma->ov_mutex);
+	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return;
+	}
 	/* mdp4_dsi_cmd_busy_wait: will turn on dsi clock also */
 	mdp4_dsi_cmd_dma_busy_wait(mfd);
 	mdp4_dsi_blt_dmap_busy_wait(mfd);
