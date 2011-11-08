@@ -154,7 +154,7 @@ static void clean_and_signal(struct smd_pkt_dev *smd_pkt_devp)
 
 	smd_pkt_devp->is_open = 0;
 
-	wake_up_interruptible(&smd_pkt_devp->ch_read_wait_queue);
+	wake_up(&smd_pkt_devp->ch_read_wait_queue);
 	wake_up_interruptible(&smd_pkt_devp->ch_write_wait_queue);
 	wake_up_interruptible(&smd_pkt_devp->ch_opened_wait_queue);
 }
@@ -208,6 +208,7 @@ ssize_t smd_pkt_read(struct file *file,
 {
 	int r;
 	int bytes_read;
+	int pkt_size;
 	struct smd_pkt_dev *smd_pkt_devp;
 	struct smd_channel *chl;
 
@@ -228,8 +229,7 @@ ssize_t smd_pkt_read(struct file *file,
 wait_for_packet:
 	r = wait_event_interruptible(smd_pkt_devp->ch_read_wait_queue,
 				     (smd_cur_packet_size(chl) > 0 &&
-				      smd_read_avail(chl) >=
-				      smd_cur_packet_size(chl)) ||
+				      smd_read_avail(chl)) ||
 				     smd_pkt_devp->has_reset);
 
 	if (smd_pkt_devp->has_reset)
@@ -253,35 +253,41 @@ wait_for_packet:
 	/* Here we have a whole packet waiting for us */
 
 	mutex_lock(&smd_pkt_devp->rx_lock);
-	bytes_read = smd_cur_packet_size(smd_pkt_devp->ch);
+	pkt_size = smd_cur_packet_size(smd_pkt_devp->ch);
 
-	D(KERN_ERR "%s: after wait_event_interruptible bytes_read = %i\n",
-	  __func__, bytes_read);
-
-	if (bytes_read == 0 ||
-	    bytes_read < smd_read_avail(smd_pkt_devp->ch)) {
+	if (!pkt_size) {
 		D(KERN_ERR "%s: Nothing to read\n", __func__);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		goto wait_for_packet;
 	}
 
-	if (bytes_read > count) {
-		printk(KERN_ERR "packet size %i > buffer size %i, "
-		       "dropping packet!", bytes_read, count);
-		smd_read(smd_pkt_devp->ch, 0, bytes_read);
+	if (pkt_size > count) {
+		pr_err("packet size %i > buffer size %i,", pkt_size, count);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
-		return -EINVAL;
+		return -ETOOSMALL;
 	}
 
-	if (smd_read_user_buffer(smd_pkt_devp->ch, buf, bytes_read)
-	    != bytes_read) {
-		mutex_unlock(&smd_pkt_devp->rx_lock);
-		if (smd_pkt_devp->has_reset)
+	bytes_read = 0;
+	do {
+		r = smd_read_user_buffer(smd_pkt_devp->ch,
+					 (buf + bytes_read),
+					 (pkt_size - bytes_read));
+		if (r < 0) {
+			mutex_unlock(&smd_pkt_devp->rx_lock);
+			if (smd_pkt_devp->has_reset)
+				return notify_reset(smd_pkt_devp);
+			return r;
+		}
+		bytes_read += r;
+		if (pkt_size != bytes_read)
+			wait_event(smd_pkt_devp->ch_read_wait_queue,
+				   smd_read_avail(smd_pkt_devp->ch) ||
+				   smd_pkt_devp->has_reset);
+		if (smd_pkt_devp->has_reset) {
+			mutex_unlock(&smd_pkt_devp->rx_lock);
 			return notify_reset(smd_pkt_devp);
-
-		printk(KERN_ERR "user read: not enough data?!\n");
-		return -EINVAL;
-	}
+		}
+	} while (pkt_size != bytes_read);
 	D_DUMP_BUFFER("read: ", bytes_read, buf);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
 
@@ -425,15 +431,15 @@ static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp)
 		D(KERN_ERR "%s: packet size is 0\n", __func__);
 		return;
 	}
-	if (sz > smd_read_avail(smd_pkt_devp->ch)) {
+	if (!smd_read_avail(smd_pkt_devp->ch)) {
 		D(KERN_ERR "%s: packet size is %i - "
-		  "the whole packet isn't here\n",
+		  "but the data isn't here\n",
 		  __func__, sz);
 		return;
 	}
 
 	/* here we have a packet of size sz ready */
-	wake_up_interruptible(&smd_pkt_devp->ch_read_wait_queue);
+	wake_up(&smd_pkt_devp->ch_read_wait_queue);
 	D(KERN_ERR "%s: after wake_up\n", __func__);
 }
 
