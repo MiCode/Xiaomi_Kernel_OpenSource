@@ -1426,6 +1426,7 @@ static void __init msm8960_init_cam(void)
 	platform_device_register(&msm8960_device_csid1);
 	platform_device_register(&msm8960_device_ispif);
 	platform_device_register(&msm8960_device_vfe);
+	platform_device_register(&msm8960_device_vpe);
 }
 #endif
 

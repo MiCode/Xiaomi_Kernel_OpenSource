@@ -300,12 +300,12 @@ int msm_mctl_pp_proc_vpe_cmd(
 	case VPE_CMD_INIT:
 	case VPE_CMD_DEINIT:
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	case VPE_CMD_DISABLE:
 	case VPE_CMD_RESET:
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	case VPE_CMD_ENABLE: {
 		struct msm_vpe_clock_rate clk_rate;
@@ -325,7 +325,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 		}
 		pp_cmd->value = (void *)&clk_rate;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		pp_cmd->value = argp;
 		break;
 	}
@@ -344,7 +344,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			return -EFAULT;
 		pp_cmd->value = (void *)&flush_buf;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		if (rc == 0) {
 			if (copy_to_user((void *)argp,
 						&flush_buf,
@@ -372,7 +372,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			return -EFAULT;
 		pp_cmd->value = (void *)&op_mode_cfg;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	}
 	case VPE_CMD_INPUT_PLANE_CFG: {
@@ -390,7 +390,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			return -EFAULT;
 		pp_cmd->value = (void *)&input_cfg;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	}
 	case VPE_CMD_OUTPUT_PLANE_CFG: {
@@ -411,7 +411,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 		}
 		pp_cmd->value = (void *)&output_cfg;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	}
 	case VPE_CMD_INPUT_PLANE_UPDATE: {
@@ -429,7 +429,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			return -EFAULT;
 		pp_cmd->value = (void *)&input_update_cfg;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	}
 	case VPE_CMD_SCALE_CFG_TYPE: {
@@ -447,7 +447,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			return -EFAULT;
 		pp_cmd->value = (void *)&scaler_cfg;
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, NULL);
 		break;
 	}
 	case VPE_CMD_ZOOM: {
@@ -512,7 +512,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 			break;
 		}
 		rc = msm_isp_subdev_ioctl_vpe(
-			&p_mctl->isp_sdev->sd_vpe, pp_cmd, (void *)zoom);
+			p_mctl->isp_sdev->sd_vpe, pp_cmd, (void *)zoom);
 		if (rc) {
 			kfree(zoom);
 			break;

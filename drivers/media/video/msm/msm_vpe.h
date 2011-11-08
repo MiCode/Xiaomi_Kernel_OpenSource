@@ -91,15 +91,6 @@ enum vpe_state {
 	VPE_STATE_ACTIVE,
 };
 
-struct vpe_device_type {
-	/* device related. */
-	int   vpeirq;
-	void __iomem      *vpebase;
-	struct resource	  *vpemem;
-	struct resource   *vpeio;
-	void        *device_extdata;
-};
-
 struct dis_offset_type {
 	int32_t dis_offset_x;
 	int32_t dis_offset_y;
@@ -128,8 +119,15 @@ struct vpe_ctrl_type {
 	enum vpe_state    state;
 	unsigned long     out_y_addr;
 	unsigned long     out_cbcr_addr;
-	struct v4l2_subdev *subdev;
-	struct vpe_device_type device_data;
+	struct v4l2_subdev subdev;
+	struct platform_device *pdev;
+	struct resource   *vpeirq;
+	void __iomem      *vpebase;
+	struct resource	  *vpemem;
+	struct resource   *vpeio;
+	void        *device_extdata;
+	struct regulator *fs_vpe;
+	struct clk	*vpe_clk[2];
 	struct msm_mctl_pp_frame_info *pp_frame_info;
 };
 

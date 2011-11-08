@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/pm_qos_params.h>
+#include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <mach/clk.h>
 #include <asm/div64.h>
@@ -32,9 +33,7 @@
 static int vpe_enable(uint32_t);
 static int vpe_disable(void);
 static int vpe_update_scaler(struct msm_pp_crop *pcrop);
-static struct vpe_device_type *vpe_device;
 struct vpe_ctrl_type *vpe_ctrl;
-static void *vpe_syncdata;
 static atomic_t vpe_init_done = ATOMIC_INIT(0);
 
 static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
@@ -49,14 +48,14 @@ static long long vpe_do_div(long long num, long long den)
 static int vpe_start(void)
 {
 	/*  enable the frame irq, bit 0 = Display list 0 ROI done */
-	msm_io_w_mb(1, vpe_device->vpebase + VPE_INTR_ENABLE_OFFSET);
-	msm_io_dump(vpe_device->vpebase, 0x120);
-	msm_io_dump(vpe_device->vpebase + 0x10000, 0x250);
-	msm_io_dump(vpe_device->vpebase + 0x30000, 0x20);
-	msm_io_dump(vpe_device->vpebase + 0x50000, 0x30);
-	msm_io_dump(vpe_device->vpebase + 0x50400, 0x10);
+	msm_io_w_mb(1, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_io_dump(vpe_ctrl->vpebase, 0x120);
+	msm_io_dump(vpe_ctrl->vpebase + 0x10000, 0x250);
+	msm_io_dump(vpe_ctrl->vpebase + 0x30000, 0x20);
+	msm_io_dump(vpe_ctrl->vpebase + 0x50000, 0x30);
+	msm_io_dump(vpe_ctrl->vpebase + 0x50400, 0x10);
 	/* this triggers the operation. */
-	msm_io_w(1, vpe_device->vpebase + VPE_DL0_START_OFFSET);
+	msm_io_w(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
 	wmb();
 	return 0;
 }
@@ -70,16 +69,16 @@ void vpe_reset_state_variables(void)
 
 static void vpe_config_axi_default(void)
 {
-	msm_io_w(0x25, vpe_device->vpebase + VPE_AXI_ARB_2_OFFSET);
+	msm_io_w(0x25, vpe_ctrl->vpebase + VPE_AXI_ARB_2_OFFSET);
 	CDBG("%s: yaddr %ld cbcraddr %ld", __func__,
 		 vpe_ctrl->out_y_addr, vpe_ctrl->out_cbcr_addr);
 	if (!vpe_ctrl->out_y_addr || !vpe_ctrl->out_cbcr_addr)
 		return;
 	msm_io_w(vpe_ctrl->out_y_addr,
-		vpe_device->vpebase + VPE_OUTP0_ADDR_OFFSET);
+		vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
 	/* for video  CbCr address */
 	msm_io_w(vpe_ctrl->out_cbcr_addr,
-		vpe_device->vpebase + VPE_OUTP1_ADDR_OFFSET);
+		vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
 
 }
 
@@ -89,33 +88,33 @@ static int vpe_reset(void)
 	uint32_t rc = 0;
 
 	vpe_reset_state_variables();
-	vpe_version = msm_io_r(vpe_device->vpebase + VPE_HW_VERSION_OFFSET);
+	vpe_version = msm_io_r(vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
 	CDBG("vpe_version = 0x%x\n", vpe_version);
 	/* disable all interrupts.*/
-	msm_io_w(0, vpe_device->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	/* clear all pending interrupts*/
-	msm_io_w(0x1fffff, vpe_device->vpebase + VPE_INTR_CLEAR_OFFSET);
+	msm_io_w(0x1fffff, vpe_ctrl->vpebase + VPE_INTR_CLEAR_OFFSET);
 	/* write sw_reset to reset the core. */
-	msm_io_w(0x10, vpe_device->vpebase + VPE_SW_RESET_OFFSET);
+	msm_io_w(0x10, vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET);
 	/* then poll the reset bit, it should be self-cleared. */
 	while (1) {
 		rc =
-		msm_io_r(vpe_device->vpebase + VPE_SW_RESET_OFFSET) & 0x10;
+		msm_io_r(vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET) & 0x10;
 		if (rc == 0)
 			break;
 	}
 	/*  at this point, hardware is reset. Then pogram to default
 		values. */
 	msm_io_w(VPE_AXI_RD_ARB_CONFIG_VALUE,
-			vpe_device->vpebase + VPE_AXI_RD_ARB_CONFIG_OFFSET);
+			vpe_ctrl->vpebase + VPE_AXI_RD_ARB_CONFIG_OFFSET);
 
 	msm_io_w(VPE_CGC_ENABLE_VALUE,
-			vpe_device->vpebase + VPE_CGC_EN_OFFSET);
-	msm_io_w(1, vpe_device->vpebase + VPE_CMD_MODE_OFFSET);
+			vpe_ctrl->vpebase + VPE_CGC_EN_OFFSET);
+	msm_io_w(1, vpe_ctrl->vpebase + VPE_CMD_MODE_OFFSET);
 	msm_io_w(VPE_DEFAULT_OP_MODE_VALUE,
-			vpe_device->vpebase + VPE_OP_MODE_OFFSET);
+			vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 	msm_io_w(VPE_DEFAULT_SCALE_CONFIG,
-			vpe_device->vpebase + VPE_SCALE_CONFIG_OFFSET);
+			vpe_ctrl->vpebase + VPE_SCALE_CONFIG_OFFSET);
 	vpe_config_axi_default();
 	return rc;
 }
@@ -125,7 +124,7 @@ static int msm_vpe_cfg_update(void *pinfo)
 	uint32_t  rot_flag, rc = 0;
 	struct msm_pp_crop *pcrop = (struct msm_pp_crop *)pinfo;
 
-	rot_flag = msm_io_r(vpe_device->vpebase +
+	rot_flag = msm_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
 		pr_err("%s: Crop info in2_w = %d, in2_h = %d "
@@ -145,39 +144,39 @@ void vpe_update_scale_coef(uint32_t *p)
 	uint32_t i, offset;
 	offset = *p;
 	for (i = offset; i < (VPE_SCALE_COEFF_NUM + offset); i++) {
-		msm_io_w(*(++p), vpe_device->vpebase + VPE_SCALE_COEFF_LSBn(i));
-		msm_io_w(*(++p), vpe_device->vpebase + VPE_SCALE_COEFF_MSBn(i));
+		msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SCALE_COEFF_LSBn(i));
+		msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SCALE_COEFF_MSBn(i));
 	}
 }
 
 void vpe_input_plane_config(uint32_t *p)
 {
-	msm_io_w(*p, vpe_device->vpebase + VPE_SRC_FORMAT_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_SRC_UNPACK_PATTERN1_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_SRC_IMAGE_SIZE_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_SRC_SIZE_OFFSET);
+	msm_io_w(*p, vpe_ctrl->vpebase + VPE_SRC_FORMAT_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_UNPACK_PATTERN1_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_IMAGE_SIZE_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
 	vpe_ctrl->in_h_w = *p;
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_SRC_XY_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
 	CDBG("%s: in_h_w=0x%x", __func__, vpe_ctrl->in_h_w);
 }
 
 void vpe_output_plane_config(uint32_t *p)
 {
-	msm_io_w(*p, vpe_device->vpebase + VPE_OUT_FORMAT_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_OUT_PACK_PATTERN1_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_OUT_YSTRIDE1_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_OUT_SIZE_OFFSET);
-	msm_io_w(*(++p), vpe_device->vpebase + VPE_OUT_XY_OFFSET);
+	msm_io_w(*p, vpe_ctrl->vpebase + VPE_OUT_FORMAT_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_PACK_PATTERN1_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_YSTRIDE1_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
+	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_XY_OFFSET);
 	vpe_ctrl->pcbcr_dis_offset = *(++p);
 }
 
 static int vpe_operation_config(uint32_t *p)
 {
 	uint32_t w, h, temp;
-	msm_io_w(*p, vpe_device->vpebase + VPE_OP_MODE_OFFSET);
+	msm_io_w(*p, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
-	temp = msm_io_r(vpe_device->vpebase + VPE_OUT_SIZE_OFFSET);
+	temp = msm_io_r(vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
 	w = temp & 0xFFF;
 	h = (temp & 0xFFF0000) >> 16;
 	if (*p++ & 0xE00) {
@@ -221,15 +220,15 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 		(pcrop->src_h >= pcrop->dst_h)) {
 		CDBG(" =======VPE no zoom needed.\n");
 
-		temp = msm_io_r(vpe_device->vpebase + VPE_OP_MODE_OFFSET)
+		temp = msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET)
 		& 0xfffffffc;
-		msm_io_w(temp, vpe_device->vpebase + VPE_OP_MODE_OFFSET);
+		msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
 
-		msm_io_w(0, vpe_device->vpebase + VPE_SRC_XY_OFFSET);
+		msm_io_w(0, vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
 
 		CDBG("vpe_ctrl->in_h_w = %d\n", vpe_ctrl->in_h_w);
-		msm_io_w(vpe_ctrl->in_h_w , vpe_device->vpebase +
+		msm_io_w(vpe_ctrl->in_h_w , vpe_ctrl->vpebase +
 				VPE_SRC_SIZE_OFFSET);
 
 		return rc;
@@ -240,8 +239,8 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	/* assumption is both direction need zoom. this can be
 	improved. */
 	temp =
-		msm_io_r(vpe_device->vpebase + VPE_OP_MODE_OFFSET) | 0x3;
-	msm_io_w(temp, vpe_device->vpebase + VPE_OP_MODE_OFFSET);
+		msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET) | 0x3;
+	msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
 	src_ROI_width = pcrop->src_w;
 	src_ROI_height = pcrop->src_h;
@@ -253,7 +252,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 		out_ROI_height);
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
 
-	msm_io_w(src_roi, vpe_device->vpebase + VPE_SRC_SIZE_OFFSET);
+	msm_io_w(src_roi, vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
 
 	src_x = pcrop->src_x;
 	src_y = pcrop->src_y;
@@ -261,7 +260,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
 
 	src_xy = src_y*(1<<16) + src_x;
-	msm_io_w(src_xy, vpe_device->vpebase +
+	msm_io_w(src_xy, vpe_ctrl->vpebase +
 			VPE_SRC_XY_OFFSET);
 	CDBG("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
 
@@ -401,15 +400,15 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	CDBG("phase init x = %d, init y = %d.\n",
 		 phase_init_x, phase_init_y);
 
-	msm_io_w(phase_step_x, vpe_device->vpebase +
+	msm_io_w(phase_step_x, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEX_STEP_OFFSET);
-	msm_io_w(phase_step_y, vpe_device->vpebase +
+	msm_io_w(phase_step_y, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEY_STEP_OFFSET);
 
-	msm_io_w(phase_init_x, vpe_device->vpebase +
+	msm_io_w(phase_init_x, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEX_INIT_OFFSET);
 
-	msm_io_w(phase_init_y, vpe_device->vpebase +
+	msm_io_w(phase_init_y, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEY_INIT_OFFSET);
 
 	return 1;
@@ -445,16 +444,16 @@ static int msm_send_frame_to_vpe(void)
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	msm_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->src_frame.sp.y_off),
-			vpe_device->vpebase + VPE_SRCP0_ADDR_OFFSET);
+			vpe_ctrl->vpebase + VPE_SRCP0_ADDR_OFFSET);
 	msm_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->src_frame.sp.cbcr_off),
-			vpe_device->vpebase + VPE_SRCP1_ADDR_OFFSET);
+			vpe_ctrl->vpebase + VPE_SRCP1_ADDR_OFFSET);
 	msm_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->dest_frame.sp.y_off),
-			vpe_device->vpebase + VPE_OUTP0_ADDR_OFFSET);
+			vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
 	msm_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off),
-			vpe_device->vpebase + VPE_OUTP1_ADDR_OFFSET);
+			vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
 	vpe_ctrl->state = VPE_STATE_ACTIVE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	vpe_start();
@@ -473,7 +472,7 @@ static void vpe_send_outmsg(void)
 	vpe_ctrl->state = VPE_STATE_INIT;   /* put it back to idle. */
 	vpe_ctrl->pp_frame_info = NULL;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-	v4l2_subdev_notify(vpe_ctrl->subdev,
+	v4l2_subdev_notify(&vpe_ctrl->subdev,
 		NOTIFY_VPE_MSG_EVT, (void *)&rp);
 }
 
@@ -489,22 +488,20 @@ DECLARE_TASKLET(vpe_tasklet, vpe_do_tasklet, 0);
 
 static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 {
-	vpe_ctrl->irq_status = msm_io_r_mb(vpe_device->vpebase +
+	vpe_ctrl->irq_status = msm_io_r_mb(vpe_ctrl->vpebase +
 							VPE_INTR_STATUS_OFFSET);
-	msm_io_w_mb(vpe_ctrl->irq_status, vpe_device->vpebase +
+	msm_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
 				VPE_INTR_CLEAR_OFFSET);
-	msm_io_w(0, vpe_device->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	CDBG("%s: vpe_parse_irq =0x%x.\n", __func__, vpe_ctrl->irq_status);
 	tasklet_schedule(&vpe_tasklet);
 	return IRQ_HANDLED;
 }
 
-static int vpe_enable_irq(void)
-{
-	uint32_t rc = 0;
-	enable_irq(vpe_device->vpeirq);
-	return rc;
-}
+static struct msm_cam_clk_info vpe_clk_info[] = {
+	{"vpe_clk", 160000000},
+	{"vpe_pclk", -1},
+};
 
 int vpe_enable(uint32_t clk_rate)
 {
@@ -520,13 +517,32 @@ int vpe_enable(uint32_t clk_rate)
 	}
 	vpe_ctrl->state = VPE_STATE_INIT;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-	rc = msm_camio_vpe_clk_enable(clk_rate);
-	if (rc < 0) {
-		pr_err("%s: msm_camio_vpe_clk_enable failed", __func__);
-		vpe_ctrl->state = VPE_STATE_IDLE;
-		return rc;
+	enable_irq(vpe_ctrl->vpeirq->start);
+	vpe_ctrl->fs_vpe = regulator_get(NULL, "fs_vpe");
+	if (IS_ERR(vpe_ctrl->fs_vpe)) {
+		pr_err("%s: Regulator FS_VPE get failed %ld\n", __func__,
+			PTR_ERR(vpe_ctrl->fs_vpe));
+		vpe_ctrl->fs_vpe = NULL;
+		goto vpe_fs_failed;
+	} else if (regulator_enable(vpe_ctrl->fs_vpe)) {
+		pr_err("%s: Regulator FS_VPE enable failed\n", __func__);
+		regulator_put(vpe_ctrl->fs_vpe);
+		goto vpe_fs_failed;
 	}
-	vpe_enable_irq();
+
+	rc = msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
+			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 1);
+	if (rc < 0)
+		goto vpe_clk_failed;
+
+	return rc;
+
+vpe_clk_failed:
+	regulator_disable(vpe_ctrl->fs_vpe);
+	regulator_put(vpe_ctrl->fs_vpe);
+	vpe_ctrl->fs_vpe = NULL;
+vpe_fs_failed:
+	disable_irq(vpe_ctrl->vpeirq->start);
 	return rc;
 }
 
@@ -543,9 +559,15 @@ int vpe_disable(void)
 	}
 	vpe_ctrl->state = VPE_STATE_IDLE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-	disable_irq(vpe_device->vpeirq);
+
+	msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
+			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 0);
+
+	regulator_disable(vpe_ctrl->fs_vpe);
+	regulator_put(vpe_ctrl->fs_vpe);
+	vpe_ctrl->fs_vpe = NULL;
+	disable_irq(vpe_ctrl->vpeirq->start);
 	tasklet_kill(&vpe_tasklet);
-	rc = msm_camio_vpe_clk_disable();
 	return rc;
 }
 
@@ -628,7 +650,7 @@ static const struct v4l2_subdev_ops msm_vpe_subdev_ops = {
 	.core = &msm_vpe_subdev_core_ops,
 };
 
-static int msm_vpe_resource_init(struct platform_device *pdev, void *sdata);
+static int msm_vpe_resource_init(struct platform_device *pdev);
 
 int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
 	struct platform_device *pdev)
@@ -640,108 +662,122 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
 		return -EBUSY;
 	}
 	atomic_set(&vpe_init_done, 1);
-	vpe_syncdata = data;
-	rc = msm_vpe_resource_init(pdev, vpe_syncdata);
+
+	rc = msm_vpe_resource_init(pdev);
 	if (rc < 0) {
 		atomic_set(&vpe_init_done, 0);
 		return rc;
 	}
-	vpe_ctrl->subdev = sd;
-	v4l2_subdev_init(sd, &msm_vpe_subdev_ops);
-	v4l2_set_subdev_hostdata(sd, data);
-	snprintf(sd->name, sizeof(sd->name), "vpe");
 	spin_lock_init(&vpe_ctrl->lock);
 	CDBG("%s:end", __func__);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vpe_subdev_init);
 
-static int msm_vpe_resource_init(struct platform_device *pdev,
-				void *sdata)
+static int msm_vpe_resource_init(struct platform_device *pdev)
 {
 	int rc = 0;
-	struct resource   *vpemem, *vpeirq, *vpeio;
-	void __iomem      *vpebase;
-	/* first allocate */
-	vpe_ctrl = kzalloc(sizeof(struct vpe_ctrl_type), GFP_KERNEL);
-	if (!vpe_ctrl) {
+
+	vpe_ctrl->vpebase = ioremap(vpe_ctrl->vpemem->start,
+		resource_size(vpe_ctrl->vpemem));
+
+	if (!vpe_ctrl->vpebase) {
 		rc = -ENOMEM;
-		goto vpe_free_device;
-	}
-	vpe_device = &vpe_ctrl->device_data;
-	/* does the device exist? */
-	vpeirq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!vpeirq) {
-		pr_err("%s: no vpe irq resource.\n", __func__);
-		rc = -ENODEV;
-		goto vpe_free_device;
-	}
-	vpemem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!vpemem) {
-		pr_err("%s: no vpe mem resource!\n", __func__);
-		rc = -ENODEV;
-		goto vpe_free_device;
-	}
-	vpeio = request_mem_region(vpemem->start,
-			resource_size(vpemem), pdev->name);
-	if (!vpeio) {
-		pr_err("%s: VPE region already claimed.\n", __func__);
-		rc = -EBUSY;
-		goto vpe_release_mem_region;
-	}
-	vpebase =
-		ioremap(vpemem->start,
-				(vpemem->end - vpemem->start) + 1);
-	if (!vpebase) {
-		pr_err("%s: vpe ioremap failed.\n", __func__);
-		rc = -ENOMEM;
-		goto vpe_release_mem_region;
+		pr_err("%s: vpe ioremap failed\n", __func__);
+		goto vpe_unmap_mem_region;
 	}
 
-	/* Fall through, _probe is successful. */
-	vpe_device->vpeirq = vpeirq->start;
-	vpe_device->vpemem = vpemem;
-	vpe_device->vpeio = vpeio;
-	vpe_device->vpebase = vpebase;
-	rc = request_irq(vpe_device->vpeirq,
-				vpe_parse_irq,
-				IRQF_TRIGGER_HIGH, "vpe", 0);
-	disable_irq(vpe_device->vpeirq);
-	CDBG("%s:end: vpebase=0x%p", __func__, vpebase);
-	return rc;  /* this rc should be zero.*/
-
-	iounmap(vpe_device->vpebase);  /* this path should never occur */
-
+	return rc;
 /* from this part it is error handling. */
-vpe_release_mem_region:
-	release_mem_region(vpemem->start, (vpemem->end - vpemem->start) + 1);
-vpe_free_device:
-	kfree(vpe_ctrl);
+vpe_unmap_mem_region:
+	iounmap(vpe_ctrl->vpebase);
 	return rc;  /* this rc should have error code. */
 }
 
 void msm_vpe_subdev_release(struct platform_device *pdev)
 {
-	struct resource	*vpemem, *vpeio;
 	if (!atomic_read(&vpe_init_done)) {
 		/* no VPE object created */
 		pr_err("%s: no VPE object to release", __func__);
 		return;
 	}
-	CDBG("%s, free_irq\n", __func__);
-	free_irq(vpe_ctrl->device_data.vpeirq, 0);
 
-	vpemem = vpe_ctrl->device_data.vpemem;
-	vpeio  = vpe_ctrl->device_data.vpeio;
-
-	kfree(vpe_ctrl->extdata);
-	iounmap(vpe_ctrl->device_data.vpebase);
-	kfree(vpe_ctrl);
-	vpe_ctrl = NULL;
-	release_mem_region(vpemem->start, (vpemem->end - vpemem->start) + 1);
-	CDBG("%s, end\n", __func__);
-	vpe_syncdata = NULL;
+	iounmap(vpe_ctrl->vpebase);
 	atomic_set(&vpe_init_done, 0);
 }
 EXPORT_SYMBOL(msm_vpe_subdev_release);
 
+static int __devinit vpe_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	CDBG("%s: device id = %d\n", __func__, pdev->id);
+	vpe_ctrl = kzalloc(sizeof(struct vpe_ctrl_type), GFP_KERNEL);
+	if (!vpe_ctrl) {
+		pr_err("%s: no enough memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	v4l2_subdev_init(&vpe_ctrl->subdev, &msm_vpe_subdev_ops);
+	v4l2_set_subdevdata(&vpe_ctrl->subdev, vpe_ctrl);
+	snprintf(vpe_ctrl->subdev.name, sizeof(vpe_ctrl->subdev.name), "vpe");
+	platform_set_drvdata(pdev, &vpe_ctrl->subdev);
+
+	vpe_ctrl->vpemem = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "vpe");
+	if (!vpe_ctrl->vpemem) {
+		pr_err("%s: no mem resource?\n", __func__);
+		rc = -ENODEV;
+		goto vpe_no_resource;
+	}
+	vpe_ctrl->vpeirq = platform_get_resource_byname(pdev,
+					IORESOURCE_IRQ, "vpe");
+	if (!vpe_ctrl->vpeirq) {
+		pr_err("%s: no irq resource?\n", __func__);
+		rc = -ENODEV;
+		goto vpe_no_resource;
+	}
+
+	vpe_ctrl->vpeio = request_mem_region(vpe_ctrl->vpemem->start,
+		resource_size(vpe_ctrl->vpemem), pdev->name);
+	if (!vpe_ctrl->vpeio) {
+		pr_err("%s: no valid mem region\n", __func__);
+		rc = -EBUSY;
+		goto vpe_no_resource;
+	}
+
+	rc = request_irq(vpe_ctrl->vpeirq->start, vpe_parse_irq,
+		IRQF_TRIGGER_RISING, "vfe", 0);
+	if (rc < 0) {
+		release_mem_region(vpe_ctrl->vpemem->start,
+			resource_size(vpe_ctrl->vpemem));
+		pr_err("%s: irq request fail\n", __func__);
+		rc = -EBUSY;
+		goto vpe_no_resource;
+	}
+
+	disable_irq(vpe_ctrl->vpeirq->start);
+
+	vpe_ctrl->pdev = pdev;
+	return 0;
+
+vpe_no_resource:
+	kfree(vpe_ctrl);
+	return 0;
+}
+
+struct platform_driver vpe_driver = {
+	.probe = vpe_probe,
+	.driver = {
+		.name = MSM_VPE_DRV_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_vpe_init_module(void)
+{
+	return platform_driver_register(&vpe_driver);
+}
+
+module_init(msm_vpe_init_module);
+MODULE_DESCRIPTION("VPE driver");
+MODULE_LICENSE("GPL v2");

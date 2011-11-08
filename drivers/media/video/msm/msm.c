@@ -1481,7 +1481,7 @@ static int msm_open(struct file *f)
 			return rc;
 		}
 		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
-					&pcam->mctl.isp_sdev->sd_vpe);
+					pcam->mctl.isp_sdev->sd_vpe);
 		if (rc < 0) {
 			mutex_unlock(&pcam->vid_lock);
 			pr_err("%s: vpe v4l2_device_register_subdev failed rc = %d\n",
@@ -1614,7 +1614,7 @@ static int msm_close(struct file *f)
 
 	if (pcam->use_count == 0) {
 		v4l2_device_unregister_subdev(pcam->mctl.isp_sdev->sd);
-		v4l2_device_unregister_subdev(&pcam->mctl.isp_sdev->sd_vpe);
+		v4l2_device_unregister_subdev(pcam->mctl.isp_sdev->sd_vpe);
 		rc = msm_cam_server_close_session(&g_server_dev, pcam);
 		if (rc < 0)
 			pr_err("msm_cam_server_close_session fails %d\n", rc);

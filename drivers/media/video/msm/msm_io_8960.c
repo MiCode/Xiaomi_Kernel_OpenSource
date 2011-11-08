@@ -45,10 +45,7 @@ static struct clk *camio_cam_clk;
 
 static struct clk *camio_jpeg_clk;
 static struct clk *camio_jpeg_pclk;
-static struct clk *camio_vpe_clk;
-static struct clk *camio_vpe_pclk;
 static struct regulator *fs_ijpeg;
-static struct regulator *fs_vpe;
 static struct regulator *cam_vana;
 static struct regulator *cam_vio;
 static struct regulator *cam_vdig;
@@ -357,17 +354,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(NULL, "ijpeg_pclk");
 		break;
 
-	case CAMIO_VPE_CLK:
-		camio_vpe_clk =
-		clk = clk_get(NULL, "vpe_clk");
-		msm_camio_clk_set_min_rate(clk, 150000000);
-		break;
-
-	case CAMIO_VPE_PCLK:
-		camio_vpe_pclk =
-		clk = clk_get(NULL, "vpe_pclk");
-		break;
-
 	default:
 		break;
 	}
@@ -399,14 +385,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 
 	case CAMIO_JPEG_PCLK:
 		clk = camio_jpeg_pclk;
-		break;
-
-	case CAMIO_VPE_CLK:
-		clk = camio_vpe_clk;
-		break;
-
-	case CAMIO_VPE_PCLK:
-		clk = camio_vpe_pclk;
 		break;
 
 	default:
@@ -480,42 +458,6 @@ int msm_camio_jpeg_clk_enable(void)
 		regulator_put(fs_ijpeg);
 	}
 	CDBG("%s: exit %d\n", __func__, rc);
-	return rc;
-}
-
-int msm_camio_vpe_clk_disable(void)
-{
-	int rc = 0;
-	if (fs_vpe) {
-		regulator_disable(fs_vpe);
-		regulator_put(fs_vpe);
-	}
-
-	rc = msm_camio_clk_disable(CAMIO_VPE_CLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_disable(CAMIO_VPE_PCLK);
-	return rc;
-}
-
-int msm_camio_vpe_clk_enable(uint32_t clk_rate)
-{
-	int rc = 0;
-	(void)clk_rate;
-	fs_vpe = regulator_get(NULL, "fs_vpe");
-	if (IS_ERR(fs_vpe)) {
-		pr_err("%s: Regulator FS_VPE get failed %ld\n", __func__,
-			PTR_ERR(fs_vpe));
-		fs_vpe = NULL;
-	} else if (regulator_enable(fs_vpe)) {
-		pr_err("%s: Regulator FS_VPE enable failed\n", __func__);
-		regulator_put(fs_vpe);
-	}
-
-	rc = msm_camio_clk_enable(CAMIO_VPE_CLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_enable(CAMIO_VPE_PCLK);
 	return rc;
 }
 
