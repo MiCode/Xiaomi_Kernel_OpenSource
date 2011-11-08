@@ -475,6 +475,19 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.power_budget		= 750,
 };
 
+static struct msm_usb_host_platform_data msm_ehci_host_pdata = {
+	.power_budget = 500,
+};
+
+static void __init apq8064_ehci_host_init(void)
+{
+	if (machine_is_apq8064_liquid()) {
+		apq8064_device_ehci_host3.dev.platform_data =
+				&msm_ehci_host_pdata;
+		platform_device_register(&apq8064_device_ehci_host3);
+	}
+}
+
 #define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
 
 /* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
@@ -1861,6 +1874,7 @@ static void __init apq8064_common_init(void)
 	if (machine_is_apq8064_liquid())
 		msm_otg_pdata.mhl_enable = true;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
+	apq8064_ehci_host_init();
 	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	if (machine_is_apq8064_mtp()) {

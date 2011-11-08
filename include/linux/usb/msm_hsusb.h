@@ -277,6 +277,10 @@ struct msm_hsic_host_platform_data {
 	unsigned hub_reset;
 };
 
+struct msm_usb_host_platform_data {
+	unsigned int power_budget;
+};
+
 struct usb_bam_pipe_connect {
 	u32 src_phy_addr;
 	int src_pipe_index;
