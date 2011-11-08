@@ -143,7 +143,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	region->handle = ion_import_fd(client, info->fd);
 	if (IS_ERR_OR_NULL(region->handle))
-		goto OUT1;
+		goto out1;
 	ion_phys(client, region->handle, &paddr, (size_t *)&len);
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
