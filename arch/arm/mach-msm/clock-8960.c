@@ -5044,7 +5044,7 @@ static struct measure_clk measure_clk = {
 	.multiplier = 1,
 };
 
-static struct clk_lookup msm_clocks_8064[] __initdata = {
+static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
 	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
 	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
