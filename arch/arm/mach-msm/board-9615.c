@@ -509,6 +509,9 @@ static struct mmc_platform_data sdc1_data = {
 	.status_irq	= MSM_GPIO_TO_INT(GPIO_SDC1_HW_DET),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 #endif
+	.xpc_cap	= 1,
+	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
+			   MMC_CAP_MAX_CURRENT_400)
 };
 static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
 #else
