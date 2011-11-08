@@ -737,8 +737,11 @@ static int __init rmnet_init(void)
 		bam_rmnet_drivers[n].driver.name = tempname;
 		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
 		ret = platform_driver_register(&bam_rmnet_drivers[n]);
-		if (!ret)
+		if (ret) {
+			pr_err("%s: registration failed n=%d rc=%d\n",
+					__func__, n, ret);
 			return ret;
+		}
 	}
 	return 0;
 }
