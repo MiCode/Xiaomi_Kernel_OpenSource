@@ -19,7 +19,6 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/clk.h>
-#include <mach/clk.h>
 #include <linux/android_pmem.h>
 #include <linux/msm_rotator.h>
 #include <linux/io.h>
@@ -1339,7 +1338,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 				goto error_imem_clk;
 			}
 			if (pdata->rotator_clks[i].clk_rate)
-				clk_set_min_rate(msm_rotator_dev->imem_clk,
+				clk_set_rate(msm_rotator_dev->imem_clk,
 					pdata->rotator_clks[i].clk_rate);
 		}
 		if (pdata->rotator_clks[i].clk_type == ROTATOR_PCLK) {
@@ -1355,7 +1354,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 			}
 
 			if (pdata->rotator_clks[i].clk_rate)
-				clk_set_min_rate(msm_rotator_dev->pclk,
+				clk_set_rate(msm_rotator_dev->pclk,
 					pdata->rotator_clks[i].clk_rate);
 		}
 
@@ -1372,7 +1371,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 			}
 
 			if (pdata->rotator_clks[i].clk_rate)
-				clk_set_min_rate(msm_rotator_dev->core_clk,
+				clk_set_rate(msm_rotator_dev->core_clk,
 					pdata->rotator_clks[i].clk_rate);
 		}
 	}
