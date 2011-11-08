@@ -43,7 +43,7 @@
 #define DRIVER_DESC "Qualcomm On-Chip EHCI Host Controller"
 
 static const char hcd_name[] = "ehci-msm";
-static struct hc_driver __read_mostly msm_hc_driver;
+static struct hc_driver __read_mostly ehci_msm_hc_driver;
 static struct usb_phy *phy;
 
 static int ehci_msm_reset(struct usb_hcd *hcd)
@@ -68,6 +68,10 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 	return 0;
 }
 
+static const struct ehci_driver_overrides ehci_msm_overrides __initdata = {
+	.reset = ehci_msm_reset,
+};
+
 static u64 msm_ehci_dma_mask = DMA_BIT_MASK(64);
 static int ehci_msm_probe(struct platform_device *pdev)
 {
@@ -82,7 +86,8 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	if (!pdev->dev.coherent_dma_mask)
 		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
-	hcd = usb_create_hcd(&msm_hc_driver, &pdev->dev, dev_name(&pdev->dev));
+	hcd = usb_create_hcd(&ehci_msm_hc_driver, &pdev->dev,
+			     dev_name(&pdev->dev));
 	if (!hcd) {
 		dev_err(&pdev->dev, "Unable to create HCD\n");
 		return  -ENOMEM;
@@ -203,17 +208,13 @@ static struct platform_driver ehci_msm_driver = {
 	},
 };
 
-static const struct ehci_driver_overrides msm_overrides __initdata = {
-	.reset = ehci_msm_reset,
-};
-
 static int __init ehci_msm_init(void)
 {
 	if (usb_disabled())
 		return -ENODEV;
 
 	pr_info("%s: " DRIVER_DESC "\n", hcd_name);
-	ehci_init_driver(&msm_hc_driver, &msm_overrides);
+	ehci_init_driver(&ehci_msm_hc_driver, &ehci_msm_overrides);
 	return platform_driver_register(&ehci_msm_driver);
 }
 module_init(ehci_msm_init);
