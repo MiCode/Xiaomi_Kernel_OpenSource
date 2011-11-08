@@ -17,15 +17,7 @@
 #include <linux/clk.h>
 #include <mach/socinfo.h>
 
-/* Sharability attributes of MSM IOMMU mappings */
-#define MSM_IOMMU_ATTR_NON_SH		0x0
-#define MSM_IOMMU_ATTR_SH		0x4
-
-/* Cacheability attributes of MSM IOMMU mappings */
-#define MSM_IOMMU_ATTR_NONCACHED	0x0
-#define MSM_IOMMU_ATTR_CACHED_WB_WA	0x1
-#define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
-#define MSM_IOMMU_ATTR_CACHED_WT	0x3
+extern pgprot_t     pgprot_kernel;
 
 /* Domain attributes */
 #define MSM_IOMMU_DOMAIN_PT_CACHEABLE	0x1
