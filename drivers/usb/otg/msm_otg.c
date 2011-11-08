@@ -600,6 +600,9 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (motg->core_clk)
 		clk_disable(motg->core_clk);
 
+	if (!IS_ERR(motg->system_clk))
+		clk_disable(motg->system_clk);
+
 	if (!IS_ERR(motg->pclk_src))
 		clk_disable(motg->pclk_src);
 
@@ -641,6 +644,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 	wake_lock(&motg->wlock);
 	if (!IS_ERR(motg->pclk_src))
 		clk_enable(motg->pclk_src);
+
+	if (!IS_ERR(motg->system_clk))
+		clk_enable(motg->system_clk);
 
 	clk_enable(motg->pclk);
 	if (motg->core_clk)
@@ -2070,6 +2076,8 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	clk_disable(motg->pclk);
 	if (motg->core_clk)
 		clk_disable(motg->core_clk);
+	if (!IS_ERR(motg->system_clk))
+		clk_disable(motg->system_clk);
 	if (!IS_ERR(motg->pclk_src)) {
 		clk_disable(motg->pclk_src);
 		clk_put(motg->pclk_src);
