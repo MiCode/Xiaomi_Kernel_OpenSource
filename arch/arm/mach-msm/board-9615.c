@@ -419,7 +419,7 @@ static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 		.gpio      = 26,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
-			[GPIOMUX_SUSPENDED] = &sdcc2_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc2_cmd_data_0_3_actv_cfg,
 		},
 	},
 	{
@@ -439,7 +439,7 @@ static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 		},
 	},
 	{
-		/* SDC2_CMD GSBI1 */
+		/* SDC2_CMD */
 		.gpio      = 29,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &sdcc2_cmd_data_0_3_actv_cfg,
@@ -447,7 +447,7 @@ static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 		},
 	},
 	{
-		/* SDC2_CLK GSBI1 */
+		/* SDC2_CLK */
 		.gpio      = 30,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &sdcc2_clk_actv_cfg,
