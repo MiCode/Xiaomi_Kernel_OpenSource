@@ -33,6 +33,11 @@
 
 ENTRY(msm_arch_idle)
 	wfi
+#ifdef CONFIG_ARCH_MSM8X60
+	mrc	p14, 1, r1, c1, c5, 4 /* read ETM PDSR to clear sticky bit */
+	mrc     p14, 0, r1, c1, c5, 4 /* read DBG PRSR to clear sticky bit */
+	isb
+#endif
 	bx	lr
 
 ENTRY(msm_pm_collapse)
