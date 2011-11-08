@@ -771,6 +771,7 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
 	u32 comv_buf_size = DDL_COMV_BUFLINE_NO, comv_buf_no = 0;
 	u32 ref_buf_no = 0;
+	struct ddl_context  *ddl_ctxt = NULL;
 
 	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_DPB)) {
 		VIDC_LOG_STRING("STATE-CRITICAL");
@@ -857,6 +858,10 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 	}
 	ddl_decode_set_metadata_output(decoder);
 	ddl_decoder_dpb_transact(decoder, NULL, DDL_DPB_OP_INIT);
+	ddl_ctxt = ddl_get_context();
+	vidc_720p_set_deblock_line_buffer(
+		ddl_ctxt->db_line_buffer.align_physical_addr,
+		ddl_ctxt->db_line_buffer.buffer_size);
 	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_DPBDONE);
 	ddl_move_command_state(ddl->ddl_context, DDL_CMD_DECODE_SET_DPB);
 
