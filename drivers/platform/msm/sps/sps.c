@@ -597,7 +597,7 @@ int sps_disconnect(struct sps_pipe *h)
 	if (pipe == NULL)
 		return SPS_ERROR;
 
-	bam = sps_bam_lock(pipe);
+	bam = pipe->bam;
 	if (bam == NULL)
 		return SPS_ERROR;
 
@@ -620,7 +620,9 @@ int sps_disconnect(struct sps_pipe *h)
 	}
 
 	/* Disconnect the BAM pipe */
+	mutex_lock(&bam->lock);
 	result = sps_rm_state_change(pipe, SPS_STATE_DISCONNECT);
+	mutex_unlock(&bam->lock);
 	if (result)
 		goto exit_err;
 
@@ -628,7 +630,6 @@ int sps_disconnect(struct sps_pipe *h)
 	result = 0;
 
 exit_err:
-	sps_bam_unlock(bam);
 
 	return result;
 }
