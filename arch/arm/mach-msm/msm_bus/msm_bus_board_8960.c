@@ -23,6 +23,7 @@
 
 #define NMASTERS 45
 #define NSLAVES 75
+#define NFAB_8960 5
 
 enum msm_bus_fabric_tiered_slave_type {
 	MSM_BUS_SYSTEM_TIERED_SLAVE_FAB_APPSS_0 = 1,
@@ -863,6 +864,7 @@ static int msm_bus_board_8960_get_iid(int id)
 }
 
 static struct msm_bus_board_algorithm msm_bus_board_algo = {
+	.board_nfab = NFAB_8960,
 	.get_iid = msm_bus_board_8960_get_iid,
 	.assign_iids = msm_bus_board_assign_iids,
 };
