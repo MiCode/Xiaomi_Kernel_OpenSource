@@ -126,8 +126,9 @@ static int mddi_ext_on(struct platform_device *pdev)
 			  "%s: can't select mddi io clk targate rate = %d\n",
 			  __func__, clk_rate);
 
-	if (clk_set_min_rate(mddi_ext_clk, clk_rate) < 0)
-		printk(KERN_ERR "%s: clk_set_min_rate failed\n",
+	clk_rate = clk_round_rate(mddi_ext_clk, clk_rate);
+	if (clk_set_rate(mddi_ext_clk, clk_rate) < 0)
+		printk(KERN_ERR "%s: clk_set_rate failed\n",
 			__func__);
 
 	mddi_host_start_ext_display();
@@ -264,9 +265,6 @@ static int mddi_ext_suspend(struct platform_device *pdev, pm_message_t state)
 		return 0;
 
 	mddi_ext_is_in_suspend = 1;
-
-	if (clk_set_min_rate(mddi_ext_clk, 0) < 0)
-		printk(KERN_ERR "%s: clk_set_min_rate failed\n", __func__);
 
 	clk_disable(mddi_ext_clk);
 	if (mddi_ext_pclk)
