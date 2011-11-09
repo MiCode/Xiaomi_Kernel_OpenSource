@@ -2490,7 +2490,7 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	usleep_range(5000, 5500);
 
 	spin_lock_irqsave(&host->lock, flags);
-	/* Start SD CLK output. */
+	/* Disable PWRSAVE would make sure that SD CLK is always running */
 	writel_relaxed((readl_relaxed(host->base + MMCICLOCK)
 			& ~MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
 	msmsdcc_delay(host);
@@ -2514,6 +2514,9 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	}
 
 out_unlock:
+	/* Enable PWRSAVE */
+	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
+			MCI_CLK_PWRSAVE), host->base + MMCICLOCK);
 	spin_unlock_irqrestore(&host->lock, flags);
 out:
 	return rc;
