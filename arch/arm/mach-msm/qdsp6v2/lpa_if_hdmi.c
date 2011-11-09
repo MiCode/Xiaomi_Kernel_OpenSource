@@ -228,6 +228,8 @@ static int lpa_if_open(struct inode *inode, struct file *file)
 
 	file->private_data = lpa_if_ptr;
 	dma_buf_index = 0;
+	lpa_if_ptr->cpu_buf = 0;
+	lpa_if_ptr->dma_buf = 0;
 
 	core_req_bus_bandwith(AUDIO_IF_BUS_ID, 100000, 0);
 
