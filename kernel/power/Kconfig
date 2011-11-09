@@ -24,6 +24,10 @@ config HAS_WAKELOCK
 config HAS_EARLYSUSPEND
 	bool
 
+config CPU_PM
+	def_bool y
+	depends on SUSPEND || CPU_IDLE
+
 config WAKELOCK
 	bool "Wake lock"
 	depends on PM && RTC_CLASS
