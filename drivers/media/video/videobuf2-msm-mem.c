@@ -151,16 +151,27 @@ EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct videobuf2_msm_offset *offset,
 					enum videobuf2_buffer_type buffer_type,
-					uint32_t addr_offset, int path)
+					uint32_t addr_offset, int path,
+					struct ion_client *client)
 {
-	unsigned long kvstart;
 	unsigned long len;
-	int rc;
+	int rc = 0;
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
+	unsigned long kvstart;
+#endif
 	unsigned int flags = 0;
-
+	unsigned long paddr = 0;
 	if (mem->phyaddr != 0)
 		return 0;
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	mem->ion_handle = ion_import_fd(client, (int)mem->vaddr);
+	if (IS_ERR_OR_NULL(mem->ion_handle)) {
+		pr_err("%s ION import failed\n", __func__);
+		return PTR_ERR(mem->ion_handle);
+	}
+	rc = ion_phys(client, mem->ion_handle, (ion_phys_addr_t *)&mem->phyaddr,
+			 (size_t *)&len);
+#elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file((int)mem->vaddr, (unsigned long *)&mem->phyaddr,
 					&kvstart, &len, &mem->file);
 	if (rc < 0) {
@@ -168,32 +179,48 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					__func__, (int)mem->vaddr, rc);
 		return rc;
 	}
+#else
+	paddr = 0;
+	kvstart = 0;
+#endif
 	if (offset)
 		mem->offset = *offset;
 	else
 		memset(&mem->offset, 0, sizeof(struct videobuf2_msm_offset));
 	mem->path = path;
 	mem->buffer_type = buffer_type;
+	paddr = mem->phyaddr;
 	flags = MSM_SUBSYSTEM_MAP_IOVA;
 	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
 	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, len,
 					flags, &(mem->subsys_id), 1);
 	if (IS_ERR((void *)mem->msm_buffer)) {
 		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_free(client, mem->ion_handle);
+#elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
+#endif
 		return PTR_ERR((void *)mem->msm_buffer);
 	}
-	mem->mapped_phyaddr = mem->msm_buffer->iova[0] + addr_offset;
+	paddr = mem->msm_buffer->iova[0];
+	mem->mapped_phyaddr = paddr + addr_offset;
 	return rc;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
 
-void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem)
+void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
+					struct ion_client *client)
 {
 	if (msm_subsystem_unmap_buffer(mem->msm_buffer) < 0)
 		D("%s unmapped memory\n", __func__);
-	if (mem->is_userptr)
+	if (mem->is_userptr) {
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_free(client, mem->ion_handle);
+#elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
+#endif
+	}
 	mem->is_userptr = 0;
 	mem->phyaddr = 0;
 	mem->size = 0;

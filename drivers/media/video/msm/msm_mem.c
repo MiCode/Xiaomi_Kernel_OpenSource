@@ -124,48 +124,56 @@ static int check_overlap(struct hlist_head *ptype,
 }
 
 static int msm_pmem_table_add(struct hlist_head *ptype,
-	struct msm_pmem_info *info)
+	struct msm_pmem_info *info, struct ion_client *client)
 {
-	struct file *file;
 	unsigned long paddr;
 	unsigned int flags;
-#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	unsigned long kvstart;
-	int rc;
+	struct file *file;
 #endif
+	int rc = -ENOMEM;
+
 	unsigned long len;
 	struct msm_pmem_region *region;
-#ifdef CONFIG_ANDROID_PMEM
+
+	region = kmalloc(sizeof(struct msm_pmem_region), GFP_KERNEL);
+	if (!region)
+		goto out;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	region->handle = ion_import_fd(client, info->fd);
+	if (IS_ERR_OR_NULL(region->handle))
+		goto OUT1;
+	ion_phys(client, region->handle, &paddr, (size_t *)&len);
+#elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
 	if (rc < 0) {
 		pr_err("%s: get_pmem_file fd %d error %d\n",
-						__func__,
-						info->fd, rc);
-		return rc;
+				__func__, info->fd, rc);
+		goto out1;
 	}
-	if (!info->len)
-		info->len = len;
-
-	rc = check_pmem_info(info, len);
-	if (rc < 0)
-		return rc;
+	region->file = file;
 #else
 	paddr = 0;
 	file = NULL;
+	kvstart = 0;
 #endif
+	if (!info->len)
+		info->len = len;
+	rc = check_pmem_info(info, len);
+	if (rc < 0)
+		goto out2;
 	paddr += info->offset;
 	len = info->len;
 
-	if (check_overlap(ptype, paddr, len) < 0)
-		return -EINVAL;
+	if (check_overlap(ptype, paddr, len) < 0) {
+		rc = -EINVAL;
+		goto out2;
+	}
 
 	CDBG("%s: type %d, active flag %d, paddr 0x%lx, vaddr 0x%lx\n",
 		__func__, info->type, info->active, paddr,
 		(unsigned long)info->vaddr);
-
-	region = kmalloc(sizeof(struct msm_pmem_region), GFP_KERNEL);
-	if (!region)
-		return -ENOMEM;
 
 	INIT_HLIST_NODE(&region->list);
 	flags = MSM_SUBSYSTEM_MAP_IOVA;
@@ -174,13 +182,12 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 					flags, &(region->subsys_id), 1);
 	if (IS_ERR((void *)region->msm_buffer)) {
 		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
-		kfree(region);
-		put_pmem_file(file);
-		return PTR_ERR((void *)region->msm_buffer);
+		rc = PTR_ERR((void *)region->msm_buffer);
+		goto out2;
 	}
-	region->paddr = region->msm_buffer->iova[0];
+	paddr = region->msm_buffer->iova[0];
+	region->paddr = paddr;
 	region->len = len;
-	region->file = file;
 	memcpy(&region->info, info, sizeof(region->info));
 	D("%s Adding region to list with type %d\n", __func__,
 						region->info.type);
@@ -188,10 +195,20 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	hlist_add_head(&(region->list), ptype);
 
 	return 0;
+out2:
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_free(client, region->handle);
+#elif CONFIG_ANDROID_PMEM
+	put_pmem_file(region->file);
+#endif
+out1:
+	kfree(region);
+out:
+	return rc;
 }
 
 static int __msm_register_pmem(struct hlist_head *ptype,
-			struct msm_pmem_info *pinfo)
+			struct msm_pmem_info *pinfo, struct ion_client *client)
 {
 	int rc = 0;
 
@@ -203,7 +220,7 @@ static int __msm_register_pmem(struct hlist_head *ptype,
 	case MSM_PMEM_CS:
 	case MSM_PMEM_IHIST:
 	case MSM_PMEM_SKIN:
-		rc = msm_pmem_table_add(ptype, pinfo);
+		rc = msm_pmem_table_add(ptype, pinfo, client);
 		break;
 
 	default:
@@ -215,7 +232,7 @@ static int __msm_register_pmem(struct hlist_head *ptype,
 }
 
 static int __msm_pmem_table_del(struct hlist_head *ptype,
-			struct msm_pmem_info *pinfo)
+			struct msm_pmem_info *pinfo, struct ion_client *client)
 {
 	int rc = 0;
 	struct msm_pmem_region *region;
@@ -235,16 +252,16 @@ static int __msm_pmem_table_del(struct hlist_head *ptype,
 			if (pinfo->type == region->info.type &&
 				pinfo->vaddr == region->info.vaddr &&
 				pinfo->fd == region->info.fd) {
+				hlist_del(node);
 				if (msm_subsystem_unmap_buffer
 					(region->msm_buffer) < 0)
 					pr_err(
 					"%s: unmapped stat memory\n",
-					__func__);
-				hlist_del(node);
-#ifdef CONFIG_ANDROID_PMEM
-				put_pmem_file(region->file);
+				__func__);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+				ion_free(client, region->handle);
 #else
-
+				put_pmem_file(region->file);
 #endif
 				kfree(region);
 			}
@@ -381,7 +398,8 @@ unsigned long msm_pmem_stats_ptov_lookup(struct msm_sync *sync,
 	return 0;
 }
 
-int msm_register_pmem(struct hlist_head *ptype, void __user *arg)
+int msm_register_pmem(struct hlist_head *ptype, void __user *arg,
+					  struct ion_client *client)
 {
 	struct msm_pmem_info info;
 
@@ -390,11 +408,12 @@ int msm_register_pmem(struct hlist_head *ptype, void __user *arg)
 			return -EFAULT;
 	}
 
-	return __msm_register_pmem(ptype, &info);
+	return __msm_register_pmem(ptype, &info, client);
 }
 EXPORT_SYMBOL(msm_register_pmem);
 
-int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg)
+int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg,
+					   struct ion_client *client)
 {
 	struct msm_pmem_info info;
 
@@ -403,6 +422,6 @@ int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg)
 		return -EFAULT;
 	}
 
-	return __msm_pmem_table_del(ptype, &info);
+	return __msm_pmem_table_del(ptype, &info, client);
 }
 EXPORT_SYMBOL(msm_pmem_table_del);
