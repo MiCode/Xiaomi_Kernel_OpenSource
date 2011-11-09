@@ -747,12 +747,14 @@ vreg_get_fail:
 }
 
 #define PMIC_GPIO_HAP_ENABLE   18  /* PMIC GPIO Number 19 */
+#define PMIC_GPIO_HAP_LDO_ENABLE   5  /* PMIC GPIO Number 6 */
 static struct isa1200_platform_data isa1200_1_pdata = {
 	.name = "vibrator",
 	.power_on = isa1200_power,
 	.dev_setup = isa1200_dev_setup,
 	/*gpio to enable haptic*/
 	.hap_en_gpio = PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
+	.hap_len_gpio = PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_LDO_ENABLE),
 	.max_timeout = 15000,
 	.mode_ctrl = PWM_GEN_MODE,
 	.pwm_fd = {
@@ -5346,6 +5348,7 @@ static struct i2c_board_info smb137b_charger_i2c_info[] __initdata = {
 
 #ifdef CONFIG_PMIC8058
 #define PMIC_GPIO_SDC3_DET 22
+#define PMIC_GPIO_TOUCH_DISC_INTR 5
 
 static int pm8058_gpios_init(void)
 {
@@ -5409,16 +5412,6 @@ static int pm8058_gpios_init(void)
 				.inv_int_pol    = 0,
 			},
 		},
-		{ /* TouchDisc Interrupt */
-			5,
-			{
-				.direction      = PM_GPIO_DIR_IN,
-				.pull           = PM_GPIO_PULL_UP_1P5,
-				.vin_sel        = 2,
-				.function       = PM_GPIO_FUNC_NORMAL,
-				.inv_int_pol    = 0,
-			}
-		},
 		{ /* Timpani Reset */
 			20,
 			{
@@ -5444,22 +5437,27 @@ static int pm8058_gpios_init(void)
 		},
 	};
 
+#if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
+		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
+	struct pm8058_gpio touchdisc_intr_gpio_cfg = {
+		.direction      = PM_GPIO_DIR_IN,
+		.pull           = PM_GPIO_PULL_UP_1P5,
+		.vin_sel        = 2,
+		.function       = PM_GPIO_FUNC_NORMAL,
+	};
+#endif
+
 #if defined(CONFIG_HAPTIC_ISA1200) || \
-		defined(CONFIG_HAPTIC_ISA1200_MODULE)
-
-	struct pm8058_gpio_cfg en_hap_gpio_cfg = {
-			PMIC_GPIO_HAP_ENABLE,
-			{
-				.direction      = PM_GPIO_DIR_OUT,
-				.pull           = PM_GPIO_PULL_NO,
-				.out_strength   = PM_GPIO_STRENGTH_HIGH,
-				.function       = PM_GPIO_FUNC_NORMAL,
-				.inv_int_pol    = 0,
-				.vin_sel        = 2,
-				.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-				.output_value   = 0,
-			}
-
+			defined(CONFIG_HAPTIC_ISA1200_MODULE)
+	struct pm8058_gpio en_hap_gpio_cfg = {
+		.direction      = PM_GPIO_DIR_OUT,
+		.pull           = PM_GPIO_PULL_NO,
+		.out_strength   = PM_GPIO_STRENGTH_HIGH,
+		.function       = PM_GPIO_FUNC_NORMAL,
+		.inv_int_pol    = 0,
+		.vin_sel        = 2,
+		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+		.output_value   = 0,
 	};
 #endif
 
@@ -5508,15 +5506,35 @@ static int pm8058_gpios_init(void)
 		}
 	};
 #endif
+
 #if defined(CONFIG_HAPTIC_ISA1200) || \
 			defined(CONFIG_HAPTIC_ISA1200_MODULE)
 	if (machine_is_msm8x60_fluid()) {
-		rc = pm8058_gpio_config(en_hap_gpio_cfg.gpio,
-				&en_hap_gpio_cfg.cfg);
+		rc = pm8058_gpio_config(PMIC_GPIO_HAP_ENABLE,
+				&en_hap_gpio_cfg);
 		if (rc < 0) {
-			pr_err("%s pmic haptics gpio config failed\n",
+			pr_err("%s: pmic haptics gpio config failed\n",
 							__func__);
-			return rc;
+		}
+		rc = pm8058_gpio_config(PMIC_GPIO_HAP_LDO_ENABLE,
+				&en_hap_gpio_cfg);
+		if (rc < 0) {
+			pr_err("%s: pmic haptics ldo gpio config failed\n",
+							__func__);
+		}
+
+	}
+#endif
+
+#if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
+		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
+	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf() ||
+		machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa()) {
+		rc = pm8058_gpio_config(PMIC_GPIO_TOUCH_DISC_INTR,
+				&touchdisc_intr_gpio_cfg);
+		if (rc < 0) {
+			pr_err("%s: Touchdisc interrupt gpio config failed\n",
+							__func__);
 		}
 	}
 #endif
