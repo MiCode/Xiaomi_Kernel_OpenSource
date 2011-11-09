@@ -639,6 +639,16 @@ static struct platform_device android_usb_device = {
 	},
 };
 
+static struct platform_device msm_wlan_ar6000_pm_device = {
+	.name           = "wlan_ar6000_pm_dev",
+	.id             = -1,
+};
+
+static int __init msm9615_init_ar6000pm(void)
+{
+	return platform_device_register(&msm_wlan_ar6000_pm_device);
+}
+
 static struct platform_device *common_devices[] = {
 	&msm9615_device_dmov,
 	&msm_device_smd,
@@ -696,6 +706,9 @@ static void __init msm9615_common_init(void)
 
 	msm_clock_init(&msm9615_clock_init_data);
 	acpuclk_init(&acpuclk_9615_soc_data);
+
+	/* Ensure ar6000pm device is registered before MMC/SDC */
+	msm9615_init_ar6000pm();
 
 	msm9615_init_mmc();
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
