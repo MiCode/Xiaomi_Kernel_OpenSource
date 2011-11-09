@@ -19,7 +19,6 @@
 #include <linux/suspend.h>
 #include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
-#include <linux/syscore_ops.h>
 #ifdef CONFIG_WAKELOCK_STAT
 #include <linux/proc_fs.h>
 #endif
@@ -392,8 +391,15 @@ static int power_suspend_late(struct device *dev)
 	return ret;
 }
 
+static int power_resume_early(struct device *dev)
+{
+	msm_suspend_check_done = 0;
+	return 0;
+}
+
 static struct dev_pm_ops power_driver_pm_ops = {
 	.suspend_noirq = power_suspend_late,
+	.resume_noirq = power_resume_early,
 };
 
 static struct platform_driver power_driver = {
@@ -402,14 +408,6 @@ static struct platform_driver power_driver = {
 };
 static struct platform_device power_device = {
 	.name = "power",
-};
-
-static void power_resume_early(void)
-{
-	msm_suspend_check_done = 0;
-}
-static struct syscore_ops wakelock_syscore_ops = {
-	.resume = power_resume_early,
 };
 
 void wake_lock_init(struct wake_lock *lock, int type, const char *name)
@@ -663,7 +661,6 @@ static int __init wakelocks_init(void)
 	proc_create("wakelocks", S_IRUGO, NULL, &wakelock_stats_fops);
 #endif
 
-	register_syscore_ops(&wakelock_syscore_ops);
 	return 0;
 
 err_suspend_work_queue:
