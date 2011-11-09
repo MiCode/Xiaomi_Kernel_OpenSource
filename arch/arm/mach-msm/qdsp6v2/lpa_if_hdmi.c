@@ -28,7 +28,7 @@
 #include <sound/dai.h>
 #include "q6core.h"
 
-#define DMA_ALLOC_BUF_SZ		(SZ_4K * 6)
+#define DMA_ALLOC_BUF_SZ		(SZ_4K * 16)
 
 #define HDMI_AUDIO_FIFO_WATER_MARK	4
 
@@ -191,7 +191,7 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_debug("%s:failed to copy from user\n", __func__);
 			rc = -EFAULT;
 		}
-		if (lpa_if->dma_period_sz > DMA_ALLOC_BUF_SZ) {
+		if ((lpa_if->dma_period_sz * 2) > DMA_ALLOC_BUF_SZ) {
 			pr_err("Dma buffer size greater than allocated size\n");
 			return -EINVAL;
 		}
