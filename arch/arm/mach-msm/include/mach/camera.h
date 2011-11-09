@@ -617,6 +617,11 @@ enum msm_cam_mode {
 	MODE_DUAL
 };
 
+struct msm_cam_clk_info {
+	const char *clk_name;
+	long clk_rate;
+};
+
 int msm_camio_enable(struct platform_device *dev);
 int msm_camio_jpeg_clk_enable(void);
 int msm_camio_jpeg_clk_disable(void);
@@ -665,4 +670,7 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 void *msm_isp_sync_alloc(int size, gfp_t gfp);
 
 void msm_isp_sync_free(void *ptr);
+
+int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
+		struct clk **clk_ptr, int num_clk, int enable);
 #endif
