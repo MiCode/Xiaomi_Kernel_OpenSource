@@ -900,6 +900,22 @@ struct platform_device msm_device_ssbi_pmic1 = {
 	.resource       = resources_ssbi_pmic1_resource,
 	.num_resources  = ARRAY_SIZE(resources_ssbi_pmic1_resource),
 };
+
+#define MSM_SSBI2_PMIC2B_PHYS	0x00C00000
+static struct resource resources_ssbi_pmic2_resource[] = {
+	{
+		.start	= MSM_SSBI2_PMIC2B_PHYS,
+		.end	= MSM_SSBI2_PMIC2B_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_ssbi_pmic2 = {
+	.name		= "msm_ssbi",
+	.id		= 1,
+	.resource	= resources_ssbi_pmic2_resource,
+	.num_resources	= ARRAY_SIZE(resources_ssbi_pmic2_resource),
+};
 #endif
 
 #ifdef CONFIG_I2C_SSBI

@@ -138,6 +138,7 @@ extern struct platform_device msm_rotator_device;
 extern struct platform_device msm_device_tsif[2];
 
 extern struct platform_device msm_device_ssbi_pmic1;
+extern struct platform_device msm_device_ssbi_pmic2;
 extern struct platform_device msm_device_ssbi1;
 extern struct platform_device msm_device_ssbi2;
 extern struct platform_device msm_device_ssbi3;

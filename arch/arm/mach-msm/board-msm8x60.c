@@ -5030,6 +5030,7 @@ static struct platform_device *surf_devices[] __initdata = {
 #endif
 #ifdef CONFIG_MSM_SSBI
 	&msm_device_ssbi_pmic1,
+	&msm_device_ssbi_pmic2,
 #endif
 #ifdef CONFIG_I2C_SSBI
 	&msm_device_ssbi2,
@@ -6621,9 +6622,18 @@ static struct mfd_cell pm8901_subdevs[] = {
 
 static struct pm8901_platform_data pm8901_platform_data = {
 	.irq_base = PM8901_IRQ_BASE,
+	.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
 	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
 	.sub_devices = pm8901_subdevs,
 	.irq_trigger_flags = IRQF_TRIGGER_LOW,
+};
+
+static struct msm_ssbi_platform_data msm8x60_ssbi_pm8901_pdata __devinitdata = {
+	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
+	.slave	= {
+		.name = "pm8901-core",
+		.platform_data = &pm8901_platform_data,
+	},
 };
 
 static struct i2c_board_info pm8901_boardinfo[] __initdata = {
@@ -7223,6 +7233,8 @@ static void __init msm8x60_init_buses(void)
 #ifdef CONFIG_MSM_SSBI
 	msm_device_ssbi_pmic1.dev.platform_data =
 				&msm8x60_ssbi_pm8058_pdata;
+	msm_device_ssbi_pmic2.dev.platform_data =
+				&msm8x60_ssbi_pm8901_pdata;
 #endif
 
 	if (machine_is_msm8x60_fluid()) {

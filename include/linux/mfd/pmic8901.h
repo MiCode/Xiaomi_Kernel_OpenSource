@@ -38,6 +38,7 @@ struct pm8901_chip;
 struct pm8901_platform_data {
 	/* This table is only needed for misc interrupts. */
 	int		irq_base;
+	int		irq;
 
 	int		num_subdevs;
 	struct mfd_cell *sub_devices;
