@@ -225,6 +225,9 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8060A ID */
 	[124] = MSM_CPU_8960,
 
+	/* Copper IDs */
+	[126] = MSM_CPU_COPPER,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -591,6 +594,8 @@ void *setup_dummy_socinfo(void)
 		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
+	else if (early_machine_is_copper())
+		dummy_socinfo.id = 126;
 	return (void *) &dummy_socinfo;
 }
 
