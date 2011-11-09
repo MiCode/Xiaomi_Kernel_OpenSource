@@ -33,9 +33,10 @@ static unsigned bam_ch_ids[] = { 8 };
 
 static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
 
+#define BAM_PENDING_LIMIT			220
 #define BAM_MUX_TX_PKT_DROP_THRESHOLD		1000
-#define BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD		200
-#define BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD		125
+#define BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD		500
+#define BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD		300
 #define BAM_MUX_RX_PKT_FLOW_CTRL_SUPPORT	1
 
 #define BAM_MUX_HDR				8
@@ -246,15 +247,9 @@ void gbam_data_write_done(void *p, struct sk_buff *skb)
 			port, d, d->to_modem,
 			d->pending_with_bam, port->port_num);
 
-	if (bam_mux_rx_fctrl_support &&
-			d->pending_with_bam >= bam_mux_rx_fctrl_dis_thld) {
-
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return;
-	}
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	gbam_start_rx(port);
+	queue_work(gbam_wq, &d->write_tobam_w);
 }
 
 static void gbam_data_write_tobam(struct work_struct *w)
@@ -264,6 +259,7 @@ static void gbam_data_write_tobam(struct work_struct *w)
 	struct sk_buff		*skb;
 	unsigned long		flags;
 	int			ret;
+	int			qlen;
 
 	d = container_of(w, struct bam_ch_info, write_tobam_w);
 	port = d->port;
@@ -274,8 +270,7 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while (!bam_mux_rx_fctrl_support ||
-			(d->pending_with_bam < bam_mux_rx_fctrl_en_thld)) {
+	while (d->pending_with_bam < BAM_PENDING_LIMIT) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb) {
 			spin_unlock_irqrestore(&port->port_lock, flags);
@@ -300,7 +295,13 @@ static void gbam_data_write_tobam(struct work_struct *w)
 			break;
 		}
 	}
+
+	qlen = d->rx_skb_q.qlen;
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	if (qlen < BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD)
+		gbam_start_rx(port);
 }
 /*-------------------------------------------------------------*/
 
@@ -377,7 +378,7 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	 * having call back mechanism from bam driver
 	 */
 	if (bam_mux_rx_fctrl_support &&
-		d->pending_with_bam >= bam_mux_rx_fctrl_en_thld) {
+		d->rx_skb_q.qlen >= bam_mux_rx_fctrl_en_thld) {
 
 		list_add_tail(&req->list, &d->rx_idle);
 		spin_unlock(&port->port_lock);
@@ -431,6 +432,11 @@ static void gbam_start_rx(struct gbam_port *port)
 	ep = port->port_usb->out;
 
 	while (port->port_usb && !list_empty(&d->rx_idle)) {
+
+		if (bam_mux_rx_fctrl_support &&
+			d->rx_skb_q.qlen >= bam_mux_rx_fctrl_en_thld)
+			break;
+
 		req = list_first_entry(&d->rx_idle, struct usb_request, list);
 
 		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
@@ -719,13 +725,14 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"to_usbhost_dcnt:  %u\n"
 				"tomodem__dcnt:  %u\n"
 				"tx_buf_len:	 %u\n"
+				"rx_buf_len:	 %u\n"
 				"data_ch_open:   %d\n"
 				"data_ch_ready:  %d\n",
 				i, port, &port->data_ch,
 				d->to_host, d->to_modem,
 				d->pending_with_bam,
 				d->tohost_drp_cnt, d->tomodem_drp_cnt,
-				d->tx_skb_q.qlen,
+				d->tx_skb_q.qlen, d->rx_skb_q.qlen,
 				test_bit(BAM_CH_OPENED, &d->flags),
 				test_bit(BAM_CH_READY, &d->flags));
 
