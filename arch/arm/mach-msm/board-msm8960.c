@@ -2068,6 +2068,14 @@ static struct platform_device hdmi_msm_device = {
 };
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+static struct platform_device wfd_panel_device = {
+	.name = "wfd_panel",
+	.id = 0,
+	.dev.platform_data = NULL,
+};
+#endif
+
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors dtv_bus_init_vectors[] = {
 	{
@@ -3782,6 +3790,9 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+	&wfd_panel_device,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
