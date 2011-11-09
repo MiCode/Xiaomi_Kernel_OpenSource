@@ -374,8 +374,11 @@ static int __rmnet_open(struct net_device *dev)
 	if (!p->device_up) {
 		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
 
-		if (r < 0)
+		if (r < 0) {
+			DBG0("%s: ch=%d failed with rc %d\n",
+					__func__, p->ch_id, r);
 			return -ENODEV;
+		}
 	}
 
 	p->device_up = DEVICE_ACTIVE;
@@ -688,8 +691,10 @@ static int __init rmnet_init(void)
 		dev = alloc_netdev(sizeof(struct rmnet_private),
 				   "rmnet%d", rmnet_setup);
 
-		if (!dev)
+		if (!dev) {
+			pr_err("%s: no memory for netdev %d\n", __func__, n);
 			return -ENOMEM;
+		}
 
 		netdevs[n] = dev;
 		d = &(dev->dev);
@@ -707,6 +712,8 @@ static int __init rmnet_init(void)
 
 		ret = register_netdev(dev);
 		if (ret) {
+			pr_err("%s: unable to register netdev"
+				   " %d rc=%d\n", __func__, n, ret);
 			free_netdev(dev);
 			return ret;
 		}
