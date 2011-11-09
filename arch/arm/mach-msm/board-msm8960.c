@@ -173,6 +173,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
 	PM8XXX_GPIO_OUTPUT(43,	    PM_GPIO_PULL_UP_30), /* DISP_RESET_N */
+	PM8XXX_GPIO_OUTPUT(42, 0),                      /* USB 5V reg enable */
 };
 
 /* Initial PM8921 MPP configurations */
@@ -3065,15 +3066,6 @@ static void msm_hsusb_vbus_power(bool on)
 	int rc;
 	static bool vbus_is_on;
 	static struct regulator *mvs_otg_switch;
-	struct pm_gpio param = {
-		.direction	= PM_GPIO_DIR_OUT,
-		.output_buffer	= PM_GPIO_OUT_BUF_CMOS,
-		.output_value	= 1,
-		.pull		= PM_GPIO_PULL_NO,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength	= PM_GPIO_STRENGTH_MED,
-		.function	= PM_GPIO_FUNC_NORMAL,
-	};
 
 	if (vbus_is_on == on)
 		return;
@@ -3093,27 +3085,29 @@ static void msm_hsusb_vbus_power(bool on)
 			goto put_mvs_otg;
 		}
 
-		if (regulator_enable(mvs_otg_switch)) {
-			pr_err("unable to enable mvs_otg_switch\n");
+		rc = gpio_direction_output(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 1);
+		if (rc) {
+			pr_err("%s: unable to set_direction for gpio [%d]\n",
+				__func__, PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
 			goto free_usb_5v_en;
 		}
 
-		rc = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
-				&param);
-		if (rc < 0) {
-			pr_err("failed to configure usb_5v_en gpio\n");
-			goto disable_mvs_otg;
+		if (regulator_enable(mvs_otg_switch)) {
+			pr_err("unable to enable mvs_otg_switch\n");
+			goto err_ldo_gpio_set_dir;
 		}
+
 		vbus_is_on = true;
 		return;
 	}
-disable_mvs_otg:
-		regulator_disable(mvs_otg_switch);
+	regulator_disable(mvs_otg_switch);
+err_ldo_gpio_set_dir:
+	gpio_set_value(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
 free_usb_5v_en:
-		gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
+	gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
 put_mvs_otg:
-		regulator_put(mvs_otg_switch);
-		vbus_is_on = false;
+	regulator_put(mvs_otg_switch);
+	vbus_is_on = false;
 }
 
 static struct msm_otg_platform_data msm_otg_pdata = {
