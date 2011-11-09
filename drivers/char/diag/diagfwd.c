@@ -43,7 +43,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-
+smd_channel_t *ch_temp;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -1149,8 +1149,12 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 	if (event == SMD_EVENT_CLOSE) {
 		pr_info("diag: clean modem registration\n");
 		diag_clear_reg(MODEM_PROC);
-	} else
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
+		driver->ch = 0;
+		return;
+	} else if (event == SMD_EVENT_OPEN) {
+		driver->ch = ch_temp;
+	}
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 }
 
 #if defined(CONFIG_MSM_N_WAY_SMD)
@@ -1169,8 +1173,10 @@ static int diag_smd_probe(struct platform_device *pdev)
 {
 	int r = 0;
 
-	if (pdev->id == SMD_APPS_MODEM)
+	if (pdev->id == SMD_APPS_MODEM) {
 		r = smd_open("DIAG", &driver->ch, driver, diag_smd_notify);
+		ch_temp = driver->ch;
+	}
 #if defined(CONFIG_MSM_N_WAY_SMD)
 	if (pdev->id == SMD_APPS_QDSP)
 		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
