@@ -1009,8 +1009,8 @@ static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
 			/* EOS buffer handled in driver */
 			list_add_tail(&buf_node->list, &audio->out_queue);
 			spin_unlock_irqrestore(&audio->dsp_lock, flags);
-		}
-		if (buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOS_SET) {
+		} else if (buf_node->meta_info.meta_in.nflags
+				   & AUDIO_DEC_EOS_SET) {
 			if (!audio->wflush) {
 				pr_debug("%s[%p]:Send EOS cmd at i/p\n",
 					__func__, audio);
