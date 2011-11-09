@@ -274,7 +274,13 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while ((skb = __skb_dequeue(&d->rx_skb_q))) {
+	while (!bam_mux_rx_fctrl_support ||
+			(d->pending_with_bam < bam_mux_rx_fctrl_en_thld)) {
+		skb =  __skb_dequeue(&d->rx_skb_q);
+		if (!skb) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return;
+		}
 		d->pending_with_bam++;
 		d->to_modem++;
 
