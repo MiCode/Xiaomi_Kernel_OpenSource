@@ -298,6 +298,7 @@ struct test_context {
 	uint32_t smem_counter;
 
 	struct platform_device *ciq_app_pdev;
+	struct platform_device *csvt_app_pdev;
 
 	wait_queue_head_t   wait_q;
 	int test_completed;
@@ -6162,7 +6163,7 @@ int test_channel_init(char *name)
 	int ret;
 
 	pr_debug(TEST_MODULE_NAME ":%s.\n", __func__);
-	pr_info(TEST_MODULE_NAME ": init test cahnnel %s.\n", name);
+	pr_info(TEST_MODULE_NAME ": init test channel %s.\n", name);
 
 	ch_id = channel_name_to_id(name);
 	pr_debug(TEST_MODULE_NAME ":id = %d.\n", ch_id);
@@ -6324,6 +6325,35 @@ static int sdio_test_channel_ciq_remove(struct platform_device *pdev)
 	return sdio_test_channel_remove(pdev);
 }
 
+static int sdio_test_channel_csvt_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if (!pdev)
+		return -ENODEV;
+
+	test_ctx->csvt_app_pdev = platform_device_alloc("SDIO_CSVT_TEST_APP",
+							-1);
+	ret = platform_device_add(test_ctx->csvt_app_pdev);
+		if (ret) {
+			pr_err(MODULE_NAME ":platform_device_add failed, "
+					   "ret=%d\n", ret);
+			return ret;
+		}
+
+	return sdio_test_channel_probe(pdev);
+}
+
+static int sdio_test_channel_csvt_remove(struct platform_device *pdev)
+{
+	if (!pdev)
+		return -ENODEV;
+
+	platform_device_unregister(test_ctx->csvt_app_pdev);
+
+	return sdio_test_channel_remove(pdev);
+}
+
 static struct platform_driver sdio_rpc_drv = {
 	.probe		= sdio_test_channel_probe,
 	.remove		= sdio_test_channel_remove,
@@ -6388,8 +6418,8 @@ static struct platform_driver sdio_ciq_drv = {
 };
 
 static struct platform_driver sdio_csvt_drv = {
-	.probe		= sdio_test_channel_probe,
-	.remove		= sdio_test_channel_remove,
+	.probe		= sdio_test_channel_csvt_probe,
+	.remove		= sdio_test_channel_csvt_remove,
 	.driver		= {
 		.name	= "SDIO_CSVT_TEST",
 		.owner	= THIS_MODULE,
