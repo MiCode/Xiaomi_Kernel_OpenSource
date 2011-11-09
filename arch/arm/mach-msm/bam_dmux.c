@@ -523,12 +523,18 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	int rc = 0;
 
 	DBG("%s: opening ch %d\n", __func__, id);
-	if (!bam_mux_initialized)
+	if (!bam_mux_initialized) {
+		DBG("%s: not inititialized\n", __func__);
 		return -ENODEV;
-	if (id >= BAM_DMUX_NUM_CHANNELS)
+	}
+	if (id >= BAM_DMUX_NUM_CHANNELS) {
+		pr_err("%s: invalid channel id %d\n", __func__, id);
 		return -EINVAL;
-	if (notify == NULL)
+	}
+	if (notify == NULL) {
+		pr_err("%s: notify function is NULL\n", __func__);
 		return -EINVAL;
+	}
 
 	hdr = kmalloc(sizeof(struct bam_mux_hdr), GFP_KERNEL);
 	if (hdr == NULL) {
@@ -546,8 +552,7 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 		DBG("%s: Remote not open; ch: %d\n", __func__, id);
 		spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 		kfree(hdr);
-		rc = -ENODEV;
-		goto open_done;
+		return -ENODEV;
 	}
 
 	bam_ch[id].notify = notify;
