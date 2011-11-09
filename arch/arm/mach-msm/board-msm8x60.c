@@ -2525,11 +2525,6 @@ static struct msm_spi_platform_data msm_gsbi10_qup_spi_pdata = {
 #endif
 
 #ifdef CONFIG_I2C_SSBI
-/* PMIC SSBI */
-static struct msm_i2c_ssbi_platform_data msm_ssbi2_pdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-};
-
 /* CODEC/TSSC SSBI */
 static struct msm_i2c_ssbi_platform_data msm_ssbi3_pdata = {
 	.controller_type = MSM_SBI_CTRL_SSBI,
@@ -4193,7 +4188,6 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_gsbi12_qup_i2c_device,
 #endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
 #ifdef CONFIG_ANDROID_PMEM
@@ -5033,7 +5027,6 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_ssbi_pmic2,
 #endif
 #ifdef CONFIG_I2C_SSBI
-	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
 #if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
@@ -6635,15 +6628,6 @@ static struct msm_ssbi_platform_data msm8x60_ssbi_pm8901_pdata __devinitdata = {
 		.platform_data = &pm8901_platform_data,
 	},
 };
-
-static struct i2c_board_info pm8901_boardinfo[] __initdata = {
-	{
-		I2C_BOARD_INFO("pm8901-core", 0x55),
-		.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
-		.platform_data = &pm8901_platform_data,
-	},
-};
-
 #endif /* CONFIG_PMIC8901 */
 
 #if defined(CONFIG_MARIMBA_CORE) && (defined(CONFIG_GPIO_SX150X) \
@@ -6956,14 +6940,6 @@ struct i2c_registry {
 };
 
 static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
-#ifdef CONFIG_PMIC8901
-	{
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_DRAGON,
-		MSM_SSBI2_I2C_BUS_ID,
-		pm8901_boardinfo,
-		ARRAY_SIZE(pm8901_boardinfo),
-	},
-#endif
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 	{
 		I2C_SURF | I2C_FFA | I2C_DRAGON,
@@ -7226,7 +7202,6 @@ static void __init msm8x60_init_buses(void)
 	msm_gsbi1_qup_spi_device.dev.platform_data = &msm_gsbi1_qup_spi_pdata;
 #endif
 #ifdef CONFIG_I2C_SSBI
-	msm_device_ssbi2.dev.platform_data = &msm_ssbi2_pdata;
 	msm_device_ssbi3.dev.platform_data = &msm_ssbi3_pdata;
 #endif
 

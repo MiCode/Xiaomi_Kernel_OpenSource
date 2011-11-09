@@ -919,24 +919,6 @@ struct platform_device msm_device_ssbi_pmic2 = {
 #endif
 
 #ifdef CONFIG_I2C_SSBI
-/* 8901 PMIC SSBI on /dev/i2c-7 */
-#define MSM_SSBI2_PMIC2B_PHYS	0x00C00000
-static struct resource msm_ssbi2_resources[] = {
-	{
-		.name   = "ssbi_base",
-		.start	= MSM_SSBI2_PMIC2B_PHYS,
-		.end	= MSM_SSBI2_PMIC2B_PHYS + SZ_4K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-struct platform_device msm_device_ssbi2 = {
-	.name		= "i2c_ssbi",
-	.id		= MSM_SSBI2_I2C_BUS_ID,
-	.num_resources	= ARRAY_SIZE(msm_ssbi2_resources),
-	.resource	= msm_ssbi2_resources,
-};
-
 /* CODEC SSBI on /dev/i2c-8 */
 #define MSM_SSBI3_PHYS  0x18700000
 static struct resource msm_ssbi3_resources[] = {
