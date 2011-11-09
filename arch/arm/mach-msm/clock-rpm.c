@@ -104,7 +104,7 @@ out:
 	return;
 }
 
-static int rpm_clk_set_min_rate(struct clk *clk, unsigned long rate)
+static int rpm_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long flags;
 	struct rpm_clk *r = to_rpm_clk(clk);
@@ -189,7 +189,7 @@ static bool rpm_clk_is_local(struct clk *clk)
 struct clk_ops clk_ops_rpm = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
-	.set_min_rate = rpm_clk_set_min_rate,
+	.set_rate = rpm_clk_set_rate,
 	.get_rate = rpm_clk_get_rate,
 	.is_enabled = rpm_clk_is_enabled,
 	.round_rate = rpm_clk_round_rate,

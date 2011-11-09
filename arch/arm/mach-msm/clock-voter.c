@@ -175,7 +175,6 @@ struct clk_ops clk_ops_voter = {
 	.enable = voter_clk_enable,
 	.disable = voter_clk_disable,
 	.set_rate = voter_clk_set_rate,
-	.set_min_rate = voter_clk_set_rate,
 	.get_rate = voter_clk_get_rate,
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,

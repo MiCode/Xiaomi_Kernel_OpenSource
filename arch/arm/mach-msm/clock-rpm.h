@@ -45,7 +45,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.peer = &active, \
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_MIN, \
+			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
 			CLK_INIT(name.c), \
 			.depends = dep, \
@@ -58,7 +58,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.active_only = true, \
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_MIN, \
+			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
 			CLK_INIT(active.c), \
 			.depends = dep, \

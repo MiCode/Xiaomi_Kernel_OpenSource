@@ -22,11 +22,6 @@ static int dummy_clk_set_rate(struct clk *clk, unsigned long rate)
 	return 0;
 }
 
-static int dummy_clk_set_min_rate(struct clk *clk, unsigned long rate)
-{
-	return 0;
-}
-
 static int dummy_clk_set_max_rate(struct clk *clk, unsigned long rate)
 {
 	return 0;
@@ -55,7 +50,6 @@ static bool dummy_clk_is_local(struct clk *clk)
 static struct clk_ops clk_ops_dummy = {
 	.reset = dummy_clk_reset,
 	.set_rate = dummy_clk_set_rate,
-	.set_min_rate = dummy_clk_set_min_rate,
 	.set_max_rate = dummy_clk_set_max_rate,
 	.set_flags = dummy_clk_set_flags,
 	.get_rate = dummy_clk_get_rate,
