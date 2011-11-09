@@ -335,7 +335,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		}
 	}
 
-	pr_info("%s: session ID %d\n", __func__, prtd->audio_client->session);
+	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
 
 	prtd->session_id = prtd->audio_client->session;
 	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
