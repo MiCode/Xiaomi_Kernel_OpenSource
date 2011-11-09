@@ -57,7 +57,7 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 	struct msm_bus_inode_info *info)
 {
 	int status = -ENOMEM;
-	MSM_FAB_DBG("msm_bus_fabric_add_node: ID %d Gw: %d\n",
+	MSM_BUS_DBG("msm_bus_fabric_add_node: ID %d Gw: %d\n",
 		info->node_info->priv_id, info->node_info->gateway);
 	status = radix_tree_preload(GFP_ATOMIC);
 	if (status)
@@ -96,7 +96,7 @@ static int msm_bus_fabric_add_fab(struct msm_bus_fabric *fabric,
 	struct msm_bus_inode_info *info)
 {
 	struct msm_bus_fabnodeinfo *fabnodeinfo;
-	MSM_FAB_DBG("msm_bus_fabric_add_fab: ID %d Gw: %d\n",
+	MSM_BUS_DBG("msm_bus_fabric_add_fab: ID %d Gw: %d\n",
 		info->node_info->priv_id, info->node_info->gateway);
 	fabnodeinfo = kzalloc(sizeof(struct msm_bus_fabnodeinfo), GFP_KERNEL);
 	if (fabnodeinfo == NULL) {
@@ -125,7 +125,7 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 {
 	int i, ret = 0, err = 0;
 
-	MSM_FAB_DBG("id:%d pdata-id: %d len: %d\n", fabric->fabdev.id,
+	MSM_BUS_DBG("id:%d pdata-id: %d len: %d\n", fabric->fabdev.id,
 		fabric->pdata->id, fabric->pdata->len);
 
 	for (i = 0; i < fabric->pdata->len; i++) {
@@ -179,12 +179,12 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 
 	fabric->rpm_data = allocate_rpm_data(fabric->pdata);
 
-	MSM_FAB_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
+	MSM_BUS_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
 		" ntieredslaves: %d, rpm_enabled: %d\n",
 		fabric->fabdev.id, fabric->pdata->nmasters,
 		fabric->pdata->nslaves, fabric->pdata->ntieredslaves,
 		fabric->pdata->rpm_enabled);
-	MSM_FAB_DBG("msm_bus_register_fabric_info i: %d\n", i);
+	MSM_BUS_DBG("msm_bus_register_fabric_info i: %d\n", i);
 	fabric->num_nodes = fabric->pdata->len;
 error:
 	fabric->num_nodes = i;
@@ -238,7 +238,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			info->link_info.sel_clk = &info->link_info.clk[ctx];
 			max_pclk = max(max_pclk, *info->link_info.sel_clk);
 		}
-		MSM_FAB_DBG("max_pclk from gateways: %lu\n", max_pclk);
+		MSM_BUS_DBG("max_pclk from gateways: %lu\n", max_pclk);
 
 		/* Maximum of all slave clocks. */
 
@@ -255,7 +255,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		}
 
 
-		MSM_FAB_DBG("max_pclk from slaves & gws: %lu\n", max_pclk);
+		MSM_BUS_DBG("max_pclk from slaves & gws: %lu\n", max_pclk);
 		fabric->info.link_info.sel_clk =
 			&fabric->info.link_info.clk[ctx];
 		pclk = fabric->info.link_info.sel_clk;
@@ -325,7 +325,7 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 
 	/* If it's an ahb fabric, don't calculate arb values */
 	if (fabric->ahb) {
-		MSM_FAB_DBG("AHB fabric, skipping bw calculation\n");
+		MSM_BUS_DBG("AHB fabric, skipping bw calculation\n");
 		return;
 	}
 	if (!add_bw) {
@@ -486,9 +486,9 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int iid)
 	rpm_data[1].id = haltid + 1;
 	rpm_data[1].value = hvector.haltmask;
 
-	MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
+	MSM_BUS_DBG("ctx: %d, id: %d, value: %d\n",
 		MSM_RPM_CTX_SET_0, rpm_data[0].id, rpm_data[0].value);
-	MSM_FAB_DBG("ctx: %d, id: %d, value: %d\n",
+	MSM_BUS_DBG("ctx: %d, id: %d, value: %d\n",
 		MSM_RPM_CTX_SET_0, rpm_data[1].id, rpm_data[1].value);
 
 	if (fabric->pdata->rpm_enabled)
@@ -529,9 +529,9 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int iid)
 	rpm_data[1].id = haltid + 1;
 	rpm_data[1].value = hvector.haltmask;
 
-	MSM_FAB_DBG("unalt: ctx: %d, id: %d, value: %d\n",
+	MSM_BUS_DBG("unalt: ctx: %d, id: %d, value: %d\n",
 		MSM_RPM_CTX_SET_SLEEP, rpm_data[0].id, rpm_data[0].value);
-	MSM_FAB_DBG("unhalt: ctx: %d, id: %d, value: %d\n",
+	MSM_BUS_DBG("unhalt: ctx: %d, id: %d, value: %d\n",
 		MSM_RPM_CTX_SET_SLEEP, rpm_data[1].id, rpm_data[1].value);
 
 	if (fabric->pdata->rpm_enabled)
@@ -582,7 +582,7 @@ static struct msm_bus_inode_info *msm_bus_fabric_find_node(struct
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	info = radix_tree_lookup(&fabric->fab_tree, id);
 	if (!info)
-		MSM_FAB_DBG("Null info found for id %d\n", id);
+		MSM_BUS_ERR("Null info found for id %d\n", id);
 	return info;
 }
 
