@@ -440,6 +440,23 @@ fail_session:
 	return NULL;
 }
 
+struct audio_client *q6asm_get_audio_client(int session_id)
+{
+	if ((session_id <= 0) || (session_id > SESSION_MAX)) {
+		pr_err("%s: invalid session: %d\n", __func__, session_id);
+		goto err;
+	}
+
+	if (!session[session_id]) {
+		pr_err("%s: session not active: %d\n", __func__, session_id);
+		goto err;
+	}
+
+	return session[session_id];
+err:
+	return NULL;
+}
+
 int q6asm_audio_client_buf_alloc(unsigned int dir,
 			struct audio_client *ac,
 			unsigned int bufsz,
