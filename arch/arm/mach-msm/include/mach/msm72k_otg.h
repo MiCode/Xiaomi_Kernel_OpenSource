@@ -25,6 +25,7 @@
 
 #define OTGSC_BSVIE            (1 << 27)
 #define OTGSC_IDIE             (1 << 24)
+#define OTGSC_IDPU             (1 << 5)
 #define OTGSC_BSVIS            (1 << 19)
 #define OTGSC_ID               (1 << 8)
 #define OTGSC_IDIS             (1 << 16)
@@ -148,7 +149,6 @@ struct msm_otg {
 	struct wake_lock wlock;
 	unsigned long b_last_se0_sess; /* SRP initial condition check */
 	unsigned long inputs;
-	int pmic_id_status;
 	unsigned long tmouts;
 	u8 active_tmout;
 	struct hrtimer timer;
