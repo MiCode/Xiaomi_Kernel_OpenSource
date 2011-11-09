@@ -3773,6 +3773,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&ion_dev,
 #endif
 	&msm_rpm_log_device,
+	&msm_rpm_stat_device,
 #ifdef CONFIG_MSM_QDSS
 	&msm_etb_device,
 	&msm_tpiu_device,
