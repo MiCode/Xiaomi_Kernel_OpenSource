@@ -276,8 +276,6 @@ int msm_ipc_router_bind(struct socket *sock, struct sockaddr *uaddr,
 	lock_sock(sk);
 
 	ret = msm_ipc_router_register_server(port_ptr, &addr->address);
-	if (!ret)
-		sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 
 	release_sock(sk);
 	return ret;
