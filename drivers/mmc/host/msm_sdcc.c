@@ -3527,9 +3527,10 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (pdev->id < 1 || pdev->id > 5)
 		return -EINVAL;
 
-	if (plat->is_sdio_al_client)
-		if (!plat->sdio_lpm_gpio_setup || !plat->sdiowakeup_irq)
-			return -EINVAL;
+	if (plat->is_sdio_al_client && !plat->sdiowakeup_irq) {
+		pr_err("%s: No wakeup IRQ for sdio_al client\n", __func__);
+		return -EINVAL;
+	}
 
 	if (pdev->resource == NULL || pdev->num_resources < 2) {
 		pr_err("%s: Invalid resource\n", __func__);
@@ -4099,7 +4100,8 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 			host->clks_on = 0;
 		}
 
-		if (!host->sdio_gpio_lpm) {
+		if (host->plat->sdio_lpm_gpio_setup &&
+				!host->sdio_gpio_lpm) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			host->plat->sdio_lpm_gpio_setup(mmc_dev(mmc), 0);
 			spin_lock_irqsave(&host->lock, flags);
@@ -4118,7 +4120,8 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 			msmsdcc_disable_irq_wake(host);
 		}
 
-		if (host->sdio_gpio_lpm) {
+		if (host->plat->sdio_lpm_gpio_setup &&
+				host->sdio_gpio_lpm) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			host->plat->sdio_lpm_gpio_setup(mmc_dev(mmc), 1);
 			spin_lock_irqsave(&host->lock, flags);
