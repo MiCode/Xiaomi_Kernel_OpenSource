@@ -273,6 +273,14 @@ static int branch_clk_is_halted(const struct branch *clk)
 	return invert ? !status_bit : status_bit;
 }
 
+int branch_in_hwcg_mode(const struct branch *b)
+{
+	if (!b->hwcg_mask)
+		return 0;
+
+	return !!(readl_relaxed(b->hwcg_reg) & b->hwcg_mask);
+}
+
 void __branch_clk_enable_reg(const struct branch *clk, const char *name)
 {
 	u32 reg_val;
@@ -290,6 +298,10 @@ void __branch_clk_enable_reg(const struct branch *clk, const char *name)
 	 * the delay starts after the branch enable.
 	 */
 	mb();
+
+	/* Skip checking halt bit if the clock is in hardware gated mode */
+	if (branch_in_hwcg_mode(clk))
+		return;
 
 	/* Wait for clock to enable before returning. */
 	if (clk->halt_check == DELAY)
@@ -361,6 +373,10 @@ u32 __branch_clk_disable_reg(const struct branch *clk, const char *name)
 	 * the delay starts after the branch disable.
 	 */
 	mb();
+
+	/* Skip checking halt bit if the clock is in hardware gated mode */
+	if (branch_in_hwcg_mode(clk))
+		return reg_val;
 
 	/* Wait for clock to disable before continuing. */
 	if (clk->halt_check == DELAY || clk->halt_check == ENABLE_VOTED
@@ -584,11 +600,31 @@ struct clk *rcg_clk_get_parent(struct clk *clk)
 	return to_rcg_clk(clk)->current_freq->src_clk;
 }
 
+/* Disable hw clock gating if not set at boot */
+static void branch_handoff(struct branch *clk, struct clk *c)
+{
+	if (!branch_in_hwcg_mode(clk)) {
+		clk->hwcg_mask = 0;
+		c->flags &= ~CLKFLAG_HWCG;
+	} else {
+		c->flags |= CLKFLAG_HWCG;
+	}
+}
+
+int branch_clk_handoff(struct clk *c)
+{
+	struct branch_clk *clk = to_branch_clk(c);
+	branch_handoff(&clk->b, &clk->c);
+	return 0;
+}
+
 int rcg_clk_handoff(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	uint32_t ctl_val, ns_val, md_val, ns_mask;
 	struct clk_freq_tbl *freq;
+
+	branch_handoff(&clk->b, &clk->c);
 
 	ctl_val = readl_relaxed(clk->b.ctl_reg);
 	if (!(ctl_val & clk->root_en_mask))
@@ -859,35 +895,100 @@ int branch_clk_is_enabled(struct clk *clk)
 	return branch->enabled;
 }
 
-int branch_reset(struct branch *clk, enum clk_reset_action action)
+static void branch_enable_hwcg(struct branch *b)
+{
+	unsigned long flags;
+	u32 reg_val;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	reg_val = readl_relaxed(b->hwcg_reg);
+	reg_val |= b->hwcg_mask;
+	writel_relaxed(reg_val, b->hwcg_reg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static void branch_disable_hwcg(struct branch *b)
+{
+	unsigned long flags;
+	u32 reg_val;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	reg_val = readl_relaxed(b->hwcg_reg);
+	reg_val &= ~b->hwcg_mask;
+	writel_relaxed(reg_val, b->hwcg_reg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+void branch_clk_enable_hwcg(struct clk *clk)
+{
+	struct branch_clk *branch = to_branch_clk(clk);
+	branch_enable_hwcg(&branch->b);
+}
+
+void branch_clk_disable_hwcg(struct clk *clk)
+{
+	struct branch_clk *branch = to_branch_clk(clk);
+	branch_disable_hwcg(&branch->b);
+}
+
+int branch_clk_in_hwcg_mode(struct clk *c)
+{
+	struct branch_clk *clk = to_branch_clk(c);
+	return branch_in_hwcg_mode(&clk->b);
+}
+
+void rcg_clk_enable_hwcg(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	branch_enable_hwcg(&rcg->b);
+}
+
+void rcg_clk_disable_hwcg(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	branch_disable_hwcg(&rcg->b);
+}
+
+int rcg_clk_in_hwcg_mode(struct clk *c)
+{
+	struct rcg_clk *clk = to_rcg_clk(c);
+	return branch_in_hwcg_mode(&clk->b);
+}
+
+int branch_reset(struct branch *b, enum clk_reset_action action)
 {
 	int ret = 0;
 	u32 reg_val;
 	unsigned long flags;
 
-	if (!clk->reset_reg)
+	if (!b->reset_reg)
 		return -EPERM;
 
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	/* Disable hw gating when asserting a reset */
+	if (b->hwcg_mask && action == CLK_RESET_ASSERT)
+		branch_disable_hwcg(b);
 
-	reg_val = readl_relaxed(clk->reset_reg);
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	/* Assert/Deassert reset */
+	reg_val = readl_relaxed(b->reset_reg);
 	switch (action) {
 	case CLK_RESET_ASSERT:
-		reg_val |= clk->reset_mask;
+		reg_val |= b->reset_mask;
 		break;
 	case CLK_RESET_DEASSERT:
-		reg_val &= ~(clk->reset_mask);
+		reg_val &= ~b->reset_mask;
 		break;
 	default:
 		ret = -EINVAL;
 	}
-	writel_relaxed(reg_val, clk->reset_reg);
-
+	writel_relaxed(reg_val, b->reset_reg);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
+	/* Enable hw gating when deasserting a reset */
+	if (b->hwcg_mask && action == CLK_RESET_DEASSERT)
+		branch_enable_hwcg(b);
 	/* Make sure write is issued before returning. */
 	mb();
-
 	return ret;
 }
 
@@ -972,6 +1073,8 @@ static int cdiv_clk_handoff(struct clk *c)
 	struct cdiv_clk *clk = to_cdiv_clk(c);
 	u32 reg_val;
 
+	branch_handoff(&clk->b, &clk->c);
+
 	reg_val = readl_relaxed(clk->ns_reg);
 	if (reg_val & clk->ext_mask) {
 		clk->cur_div = 0;
@@ -983,9 +1086,30 @@ static int cdiv_clk_handoff(struct clk *c)
 	return 0;
 }
 
+static void cdiv_clk_enable_hwcg(struct clk *c)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	branch_enable_hwcg(&clk->b);
+}
+
+static void cdiv_clk_disable_hwcg(struct clk *c)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	branch_disable_hwcg(&clk->b);
+}
+
+static int cdiv_clk_in_hwcg_mode(struct clk *c)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	return branch_in_hwcg_mode(&clk->b);
+}
+
 struct clk_ops clk_ops_cdiv = {
 	.enable = cdiv_clk_enable,
 	.disable = cdiv_clk_disable,
+	.in_hwcg_mode = cdiv_clk_in_hwcg_mode,
+	.enable_hwcg = cdiv_clk_enable_hwcg,
+	.disable_hwcg = cdiv_clk_disable_hwcg,
 	.auto_off = cdiv_clk_disable,
 	.handoff = cdiv_clk_handoff,
 	.set_rate = cdiv_clk_set_rate,

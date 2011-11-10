@@ -54,12 +54,31 @@ static struct clk *measure;
 
 static int clock_debug_measure_get(void *data, u64 *val)
 {
-	int ret;
 	struct clk *clock = data;
+	int ret, is_hw_gated;
+
+	/* Check to see if the clock is in hardware gating mode */
+	if (clock->flags & CLKFLAG_HWCG)
+		is_hw_gated = clock->ops->in_hwcg_mode(clock);
+	else
+		is_hw_gated = 0;
 
 	ret = clk_set_parent(measure, clock);
-	if (!ret)
+	if (!ret) {
+		/*
+		 * Disable hw gating to get accurate rate measurements. Only do
+		 * this if the clock is explictly enabled by software. This
+		 * allows us to detect errors where clocks are on even though
+		 * software is not requesting them to be on due to broken
+		 * hardware gating signals.
+		 */
+		if (is_hw_gated && clock->count)
+			clock->ops->disable_hwcg(clock);
 		*val = clk_get_rate(measure);
+		/* Reenable hwgating if it was disabled */
+		if (is_hw_gated && clock->count)
+			clock->ops->enable_hwcg(clock);
+	}
 
 	return ret;
 }
@@ -107,6 +126,16 @@ static int clock_debug_local_get(void *data, u64 *val)
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(clock_local_fops, clock_debug_local_get,
+			NULL, "%llu\n");
+
+static int clock_debug_hwcg_get(void *data, u64 *val)
+{
+	struct clk *clock = data;
+	*val = !!(clock->flags & CLKFLAG_HWCG);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(clock_hwcg_fops, clock_debug_hwcg_get,
 			NULL, "%llu\n");
 
 static struct dentry *debugfs_base;
@@ -237,6 +266,10 @@ int __init clock_debug_add(struct clk *clock)
 
 	if (!debugfs_create_file("is_local", S_IRUGO, clk_dir, clock,
 				&clock_local_fops))
+		goto error;
+
+	if (!debugfs_create_file("has_hw_gating", S_IRUGO, clk_dir, clock,
+				&clock_hwcg_fops))
 		goto error;
 
 	if (measure &&
