@@ -15,6 +15,7 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/msm_rotator.h>
+#include <linux/ion.h>
 #include <linux/gpio.h>
 #include <asm/clkdev.h>
 #include <linux/msm_kgsl.h>
@@ -537,10 +538,11 @@ struct msm_vidc_platform_data vidc_platform_data = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.vidc_bus_client_pdata = &vidc_bus_client_data,
 #endif
-	.memtype = MEMTYPE_EBI1,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	.memtype = ION_HEAP_EBI_ID,
 	.enable_ion = 1,
 #else
+	.memtype = MEMTYPE_EBI1,
 	.enable_ion = 0,
 #endif
 };
