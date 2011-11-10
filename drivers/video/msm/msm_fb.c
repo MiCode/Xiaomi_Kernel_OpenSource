@@ -2526,8 +2526,6 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	int	ret;
 	struct msmfb_overlay_data req;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	struct file *p_src_file = 0;
-	struct file *p_src_plane1_file = 0, *p_src_plane2_file = 0;
 
 	if (mfd->overlay_play_enable == 0)	/* nothing to do */
 		return 0;
@@ -2549,17 +2547,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	add_timer(&mfd->msmfb_no_update_notify_timer);
 	mutex_unlock(&msm_fb_notify_update_sem);
 
-	ret = mdp4_overlay_play(info, &req, &p_src_file, &p_src_plane1_file,
-				&p_src_plane2_file);
-
-#ifdef CONFIG_ANDROID_PMEM
-	if (p_src_file)
-		put_pmem_file(p_src_file);
-	if (p_src_plane1_file)
-		put_pmem_file(p_src_plane1_file);
-	if (p_src_plane2_file)
-		put_pmem_file(p_src_plane2_file);
-#endif
+	ret = mdp4_overlay_play(info, &req);
 
 	return ret;
 }
@@ -3304,7 +3292,9 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	mfd->fb_page = fb_num;
 	mfd->index = fbi_list_index;
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	mfd->client = msm_ion_client_create(-1, pdev->name);
+#endif
 	/* link to the latest pdev */
 	mfd->pdev = this_dev;
 

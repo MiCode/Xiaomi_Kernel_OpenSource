@@ -29,6 +29,7 @@
 #include <linux/file.h>
 #include <linux/major.h>
 #include <linux/regulator/consumer.h>
+#include <linux/ion.h>
 
 #define DRIVER_NAME "msm_rotator"
 
@@ -123,6 +124,7 @@ struct msm_rotator_dev {
 	struct mutex imem_lock;
 	int imem_owner;
 	wait_queue_head_t wq;
+	struct ion_client *client;
 };
 
 #define COMPONENT_5BITS 1
@@ -709,57 +711,82 @@ static int msm_rotator_rgb_types(struct msm_rotator_img_info *info,
 	return 0;
 }
 
-static int get_img(int memory_id, unsigned long *start, unsigned long *len,
-		struct file **pp_file)
+static int get_img(struct msmfb_data *fbd, unsigned long *start,
+	unsigned long *len, struct file **p_file, struct ion_handle **p_ihdl)
 {
 	int ret = 0;
 #ifdef CONFIG_FB
-	struct file *file;
+	struct file *file = NULL;
 	int put_needed, fb_num;
 #endif
 #ifdef CONFIG_ANDROID_PMEM
 	unsigned long vstart;
 #endif
 
-#ifdef CONFIG_ANDROID_PMEM
-	if (!get_pmem_file(memory_id, start, &vstart, len, pp_file))
-		return 0;
-#endif
 #ifdef CONFIG_FB
-	file = fget_light(memory_id, &put_needed);
-	if (file == NULL)
-		return -1;
+	if (fbd->flags & MDP_MEMORY_ID_TYPE_FB) {
+		file = fget_light(fbd->memory_id, &put_needed);
+		if (file == NULL)
+			return -EINVAL;
 
-	if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-		fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
-		if (get_fb_phys_info(start, len, fb_num))
+		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+			if (get_fb_phys_info(start, len, fb_num))
+				ret = -1;
+			else
+				*p_file = file;
+		} else
 			ret = -1;
-		else
-			*pp_file = file;
-	} else
-		ret = -1;
-	if (ret)
-		fput_light(file, put_needed);
+		if (ret)
+			fput_light(file, put_needed);
+		return ret;
+	}
 #endif
-	return ret;
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	*p_ihdl = ion_import_fd(msm_rotator_dev->client,
+		fbd->memory_id);
+	if (IS_ERR_OR_NULL(*p_ihdl))
+		return PTR_ERR(*p_ihdl);
+	if (!ion_phys(msm_rotator_dev->client, *p_ihdl, start,
+		(size_t *) len))
+		return 0;
+	else
+		return -ENOMEM;
+#endif
+#ifdef CONFIG_ANDROID_PMEM
+	if (!get_pmem_file(fbd->memory_id, start, &vstart, len, p_file))
+		return 0;
+	else
+		return -ENOMEM;
+#endif
+
 }
 
+static void put_img(struct file *p_file, struct ion_handle *p_ihdl)
+{
+#ifdef CONFIG_ANDROID_PMEM
+	if (p_file != NULL)
+		put_pmem_file(p_file);
+#endif
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	if (!IS_ERR_OR_NULL(p_ihdl))
+		ion_free(msm_rotator_dev->client, p_ihdl);
+#endif
+}
 static int msm_rotator_do_rotate(unsigned long arg)
 {
-	int rc = 0;
-	unsigned int status;
+	unsigned int status, format;
 	struct msm_rotator_data_info info;
 	unsigned int in_paddr, out_paddr;
 	unsigned long src_len, dst_len;
-	struct file *src_file = 0;
-	struct file *dst_file = 0;
-	int use_imem = 0;
-	int s;
-	struct file *src_chroma_file = 0;
-	struct file *dst_chroma_file = 0;
+	int use_imem = 0, rc = 0, s;
+	struct file *srcp0_file = NULL, *dstp0_file = NULL;
+	struct file *srcp1_file = NULL, *dstp1_file = NULL;
+	struct ion_handle *srcp0_ihdl = NULL, *dstp0_ihdl = NULL;
+	struct ion_handle *srcp1_ihdl = NULL, *dstp1_ihdl = NULL;
 	unsigned int in_chroma_paddr = 0, out_chroma_paddr = 0;
 	unsigned int in_chroma2_paddr = 0;
-	uint32_t format;
 	struct msm_rotator_img_info *img_info;
 	struct msm_rotator_mem_planes src_planes, dst_planes;
 
@@ -808,16 +835,16 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		goto do_rotate_unlock_mutex;
 	}
 
-	rc = get_img(info.src.memory_id, (unsigned long *)&in_paddr,
-			(unsigned long *)&src_len, &src_file);
+	rc = get_img(&info.src, (unsigned long *)&in_paddr,
+			(unsigned long *)&src_len, &srcp0_file, &srcp0_ihdl);
 	if (rc) {
 		pr_err("%s: in get_img() failed id=0x%08x\n",
 			DRIVER_NAME, info.src.memory_id);
 		goto do_rotate_unlock_mutex;
 	}
 
-	rc = get_img(info.dst.memory_id, (unsigned long *)&out_paddr,
-			(unsigned long *)&dst_len, &dst_file);
+	rc = get_img(&info.dst, (unsigned long *)&out_paddr,
+			(unsigned long *)&dst_len, &dstp0_file, &dstp0_ihdl);
 	if (rc) {
 		pr_err("%s: out get_img() failed id=0x%08x\n",
 		       DRIVER_NAME, info.dst.memory_id);
@@ -845,18 +872,20 @@ static int msm_rotator_do_rotate(unsigned long arg)
 			goto do_rotate_unlock_mutex;
 		}
 
-		rc = get_img(info.src_chroma.memory_id,
+		rc = get_img(&info.src_chroma,
 				(unsigned long *)&in_chroma_paddr,
-				(unsigned long *)&src_len, &src_chroma_file);
+				(unsigned long *)&src_len, &srcp1_file,
+				&srcp1_ihdl);
 		if (rc) {
 			pr_err("%s: in chroma get_img() failed id=0x%08x\n",
 				DRIVER_NAME, info.src_chroma.memory_id);
 			goto do_rotate_unlock_mutex;
 		}
 
-		rc = get_img(info.dst_chroma.memory_id,
+		rc = get_img(&info.dst_chroma,
 				(unsigned long *)&out_chroma_paddr,
-				(unsigned long *)&dst_len, &dst_chroma_file);
+				(unsigned long *)&dst_len, &dstp1_file,
+				&dstp1_ihdl);
 		if (rc) {
 			pr_err("%s: out chroma get_img() failed id=0x%08x\n",
 				DRIVER_NAME, info.dst_chroma.memory_id);
@@ -1019,14 +1048,10 @@ do_rotate_exit:
 #endif
 	schedule_delayed_work(&msm_rotator_dev->rot_clk_work, HZ);
 do_rotate_unlock_mutex:
-	if (dst_chroma_file)
-		put_pmem_file(dst_chroma_file);
-	if (src_chroma_file)
-		put_pmem_file(src_chroma_file);
-	if (dst_file)
-		put_pmem_file(dst_file);
-	if (src_file)
-		put_pmem_file(src_file);
+	put_img(dstp1_file, dstp1_ihdl);
+	put_img(srcp1_file, srcp1_ihdl);
+	put_img(dstp0_file, dstp0_ihdl);
+	put_img(srcp0_file, srcp0_ihdl);
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	dev_dbg(msm_rotator_dev->device, "%s() returning rc = %d\n",
 		__func__, rc);
@@ -1361,7 +1386,9 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 			  msm_rotator_rot_clk_work_f);
 
 	mutex_init(&msm_rotator_dev->rotator_lock);
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	msm_rotator_dev->client = msm_ion_client_create(-1, pdev->name);
+#endif
 	platform_set_drvdata(pdev, msm_rotator_dev);
 
 
@@ -1387,9 +1414,9 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	if (msm_rotator_dev->imem_clk)
 		clk_disable(msm_rotator_dev->imem_clk);
 #endif
-	if (ver != pdata->hardware_version_number) {
+	if (ver != pdata->hardware_version_number)
 		pr_info("%s: invalid HW version\n", DRIVER_NAME);
-	}
+
 	msm_rotator_dev->irq = platform_get_irq(pdev, 0);
 	if (msm_rotator_dev->irq < 0) {
 		printk(KERN_ALERT "%s: could not get IORESOURCE_IRQ\n",
