@@ -1080,6 +1080,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 {
 	long status = 0;
 	uint io = 1;
+	static uint io_cnt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
@@ -1097,12 +1098,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		goto done;
 	}
 	if (!kgsl_check_timestamp(device, timestamp)) {
-		if (pwr->active_pwrlevel) {
-			int low_pwrlevel = pwr->num_pwrlevels -
-					KGSL_PWRLEVEL_LOW_OFFSET;
-			if (pwr->active_pwrlevel == low_pwrlevel)
-				io = 0;
-		}
+		io_cnt = (io_cnt + 1) % 100;
+		if (io_cnt < pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
+			io = 0;
 		mutex_unlock(&device->mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
