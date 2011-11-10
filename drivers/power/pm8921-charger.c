@@ -105,6 +105,39 @@ enum chg_fsm_state {
 	FSM_STATE_FLCB = 22,
 };
 
+struct fsm_state_to_batt_status {
+	enum chg_fsm_state	fsm_state;
+	int			batt_state;
+};
+
+static struct fsm_state_to_batt_status map[] = {
+	{FSM_STATE_OFF_0, POWER_SUPPLY_STATUS_UNKNOWN},
+	{FSM_STATE_BATFETDET_START_12, POWER_SUPPLY_STATUS_UNKNOWN},
+	{FSM_STATE_BATFETDET_END_16, POWER_SUPPLY_STATUS_UNKNOWN},
+	/*
+	 * for CHG_HIGHI_1 report NOT_CHARGING if battery missing,
+	 * too hot/cold, charger too hot
+	 */
+	{FSM_STATE_ON_CHG_HIGHI_1, POWER_SUPPLY_STATUS_FULL},
+	{FSM_STATE_ATC_2A, POWER_SUPPLY_STATUS_CHARGING},
+	{FSM_STATE_ATC_2B, POWER_SUPPLY_STATUS_CHARGING},
+	{FSM_STATE_ON_BAT_3, POWER_SUPPLY_STATUS_DISCHARGING},
+	{FSM_STATE_ATC_FAIL_4, POWER_SUPPLY_STATUS_DISCHARGING},
+	{FSM_STATE_DELAY_5, POWER_SUPPLY_STATUS_UNKNOWN },
+	{FSM_STATE_ON_CHG_AND_BAT_6, POWER_SUPPLY_STATUS_CHARGING},
+	{FSM_STATE_FAST_CHG_7, POWER_SUPPLY_STATUS_CHARGING},
+	{FSM_STATE_TRKL_CHG_8, POWER_SUPPLY_STATUS_CHARGING},
+	{FSM_STATE_CHG_FAIL_9, POWER_SUPPLY_STATUS_DISCHARGING},
+	{FSM_STATE_EOC_10, POWER_SUPPLY_STATUS_FULL},
+	{FSM_STATE_ON_CHG_VREGOK_11, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_ATC_PAUSE_13, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_FAST_CHG_PAUSE_14, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_TRKL_CHG_PAUSE_15, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_START_BOOT, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_FLCB_VREGOK, POWER_SUPPLY_STATUS_NOT_CHARGING},
+	{FSM_STATE_FLCB, POWER_SUPPLY_STATUS_NOT_CHARGING},
+};
+
 enum chg_regulation_loop {
 	VDD_LOOP = BIT(3),
 	BAT_CURRENT_LOOP = BIT(2),
@@ -968,36 +1001,22 @@ static int get_prop_charge_type(struct pm8921_chg_chip *chip)
 
 static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 {
-	int temp = 0;
+	int batt_state = POWER_SUPPLY_STATUS_DISCHARGING;
+	int fsm_state = pm_chg_get_fsm_state(chip);
+	int i;
 
-	if (!get_prop_batt_present(chip))
-		return POWER_SUPPLY_STATUS_UNKNOWN;
+	for (i = 0; i < ARRAY_SIZE(map); i++)
+		if (map[i].fsm_state == fsm_state)
+			batt_state = map[i].batt_state;
 
-	if (chip->ext) {
-		if (chip->ext_charge_done)
-			return POWER_SUPPLY_STATUS_FULL;
+	if (fsm_state == FSM_STATE_ON_CHG_HIGHI_1) {
+		if (!pm_chg_get_rt_status(chip, BATT_INSERTED_IRQ)
+			|| !pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ)
+			|| !pm_chg_get_rt_status(chip, CHGHOT_IRQ))
 
-		if (chip->ext_charging)
-			return POWER_SUPPLY_STATUS_CHARGING;
+			batt_state = POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
-
-	/* TODO reading the FSM state is more reliable */
-	temp = pm_chg_get_rt_status(chip, TRKLCHG_IRQ);
-
-	temp |= pm_chg_get_rt_status(chip, FASTCHG_IRQ);
-	if (temp)
-		return POWER_SUPPLY_STATUS_CHARGING;
-	/*
-	 * The battery is not charging
-	 * check the FET - if on battery is discharging
-	 *		 - if off battery is isolated(full) and the system
-	 *		   is being driven from a charger
-	 */
-	temp = pm_chg_get_rt_status(chip, BATFET_IRQ);
-	if (temp)
-		return POWER_SUPPLY_STATUS_DISCHARGING;
-
-	return POWER_SUPPLY_STATUS_FULL;
+	return batt_state;
 }
 
 static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
