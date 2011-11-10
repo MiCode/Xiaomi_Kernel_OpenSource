@@ -332,6 +332,11 @@ struct platform_device msm_device_smd = {
 	.id		= -1,
 };
 
+struct platform_device msm_device_bam_dmux = {
+	.name		= "BAM_RMNT",
+	.id		= -1,
+};
+
 #ifdef CONFIG_HW_RANDOM_MSM
 /* PRNG device */
 #define MSM_PRNG_PHYS		0x1A500000

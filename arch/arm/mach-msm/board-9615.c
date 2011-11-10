@@ -653,6 +653,7 @@ static struct platform_device *common_devices[] = {
 	&msm_device_sps,
 	&msm9615_device_tsens,
 	&msm_device_nand,
+	&msm_device_bam_dmux,
 	&msm_rpm_device,
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
