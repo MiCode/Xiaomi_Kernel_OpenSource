@@ -45,9 +45,6 @@ struct a2mp_cmd_rej {
 	__le16     reason;
 } __packed;
 
-#define HCI_A2MP_ID(id)     ((id)+0x10)  /* convert HCI dev index to AMP ID */
-#define A2MP_HCI_ID(id)     ((id)-0x10)  /* convert AMP ID to HCI dev index */
-
 struct a2mp_discover_req {
 	__le16     mtu;
 	__le16     ext_feat;
