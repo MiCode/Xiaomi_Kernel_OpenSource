@@ -477,7 +477,7 @@ qup_issue_write(struct qup_i2c_dev *dev, struct i2c_msg *msg, int rem,
 							addr) << 16),
 					dev->base + QUP_OUT_FIFO_BASE);
 
-			qup_verify_fifo(dev, *carry_over | QUP_OUT_DATA << 16 |
+			qup_verify_fifo(dev, *carry_over | QUP_OUT_START << 16 |
 				addr << 16, (uint32_t)dev->base +
 				QUP_OUT_FIFO_BASE + (*idx) - 2, 0);
 		} else
@@ -541,14 +541,15 @@ qup_issue_write(struct qup_i2c_dev *dev, struct i2c_msg *msg, int rem,
 					QUP_OUT_FIFO_BASE + (*idx), 0);
 				*idx += 2;
 			} else if (next->flags == 0 && dev->pos == msg->len - 1
-					&& *idx < (dev->wr_sz*2)) {
+					&& *idx < (dev->wr_sz*2) &&
+					(next->addr != msg->addr)) {
 				/* Last byte of an intermittent write */
-				writel_relaxed((last_entry |
+				writel_relaxed((QUP_OUT_STOP |
 						msg->buf[dev->pos]),
 					dev->base + QUP_OUT_FIFO_BASE);
 
 				qup_verify_fifo(dev,
-					last_entry | msg->buf[dev->pos],
+					QUP_OUT_STOP | msg->buf[dev->pos],
 					(uint32_t)dev->base +
 					QUP_OUT_FIFO_BASE + (*idx), 0);
 				*idx += 2;
@@ -605,7 +606,7 @@ qup_set_wr_mode(struct qup_i2c_dev *dev, int rem)
 	struct i2c_msg *next = NULL;
 	if (rem > 1)
 		next = dev->msg + 1;
-	while (rem > 1 && next->flags == 0) {
+	while (rem > 1 && next->flags == 0 && (next->addr == dev->msg->addr)) {
 		len += next->len + 1;
 		next = next + 1;
 		rem--;
