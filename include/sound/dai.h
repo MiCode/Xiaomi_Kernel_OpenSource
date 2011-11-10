@@ -43,6 +43,7 @@ void register_dma_irq_handler(int dma_ch,
 void unregister_dma_irq_handler(int dma_ch);
 void dai_set_master_mode(uint32_t dma_ch, int mode);
 int dai_start_hdmi(uint32_t dma_ch);
+int wait_for_dma_cnt_stop(uint32_t dma_ch);
 void dai_stop_hdmi(uint32_t dma_ch);
 
 #endif

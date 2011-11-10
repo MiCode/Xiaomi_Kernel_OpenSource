@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +201,11 @@
 #define LPAIF_DMA_FRMCLR(x)		DMA_CTRL_ADDR(x, 0x1c)
 #define LPAIF_DMA_SET_BUFF_CNT(x)	DMA_CTRL_ADDR(x, 0x20)
 #define	LPAIF_DMA_SET_PER_CNT(x)	DMA_CTRL_ADDR(x, 0x24)
+
+#define LPAIF_DMA_PER_CNT_PER_CNT_MASK		0x000FFFFF
+#define LPAIF_DMA_PER_CNT_PER_CNT_SHIFT		0
+#define LPAIF_DMA_PER_CNT_FIFO_WORDCNT_MASK	0x00F00000
+#define LPAIF_DMA_PER_CNT_FIFO_WORDCNT_SHIFT	20
 
 /* channel assignments */
 

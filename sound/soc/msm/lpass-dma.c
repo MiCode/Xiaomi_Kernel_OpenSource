@@ -93,6 +93,7 @@ static irqreturn_t dai_irq_handler(int irq, void *data)
 	spin_lock_irqsave(&dai_lock, flag);
 	intrsrc = readl(dai_info.base + LPAIF_IRQ_STAT(0));
 	writel(intrsrc, dai_info.base + LPAIF_IRQ_CLEAR(0));
+	mb();
 	while (intrsrc) {
 		dma_ch = dai_find_dma_channel(intrsrc);
 
@@ -149,6 +150,7 @@ static void dai_config_dma(uint32_t dma_ch)
 			dai_info.base + LPAIF_DMA_BUFF_LEN(dma_ch));
 	writel(((dai[dma_ch]->period_len >> 2) - 1),
 			dai_info.base + LPAIF_DMA_PER_LEN(dma_ch));
+	mb();
 }
 
 static void dai_enable_codec(uint32_t dma_ch, int codec)
@@ -237,6 +239,7 @@ int dai_set_params(uint32_t dma_ch, struct dai_dma_params *params)
 	dai[dma_ch]->channels = params->channels;
 	dai[dma_ch]->buffer_len = params->buffer_size;
 	dai[dma_ch]->period_len = params->period_size;
+	mb();
 	dai_config_dma(dma_ch);
 	return dma_ch;
 }
@@ -278,6 +281,7 @@ int dai_start_hdmi(uint32_t dma_ch)
 		val = readl(dai_info.base + LPAIF_IRQ_EN(0));
 		val = val | (7 << (dma_ch * 3));
 		writel(val, dai_info.base + LPAIF_IRQ_EN(0));
+		mb();
 
 
 		val = (HDMI_BURST_INCR4 | HDMI_WPSCNT | HDMI_AUDIO_INTF |
@@ -287,7 +291,55 @@ int dai_start_hdmi(uint32_t dma_ch)
 	}
 	spin_unlock_irqrestore(&dai_lock, flag);
 
+	mb();
 	dai_print_state(dma_ch);
+	return 0;
+}
+
+int wait_for_dma_cnt_stop(uint32_t dma_ch)
+{
+	uint32_t dma_per_cnt_reg_val, dma_per_cnt, prev_dma_per_cnt;
+	uint32_t i;
+
+	pr_info("%s dma_ch %u\n", __func__, dma_ch);
+
+	dma_per_cnt_reg_val =  readl_relaxed(dai_info.base +
+					LPAIF_DMA_PER_CNT(dma_ch));
+
+	dma_per_cnt =
+		((LPAIF_DMA_PER_CNT_PER_CNT_MASK & dma_per_cnt_reg_val) >>
+			LPAIF_DMA_PER_CNT_PER_CNT_SHIFT) -
+		((LPAIF_DMA_PER_CNT_FIFO_WORDCNT_MASK & dma_per_cnt_reg_val) >>
+			LPAIF_DMA_PER_CNT_FIFO_WORDCNT_SHIFT);
+
+	prev_dma_per_cnt = dma_per_cnt;
+
+	i = 1;
+	pr_info("%s: i = %u dma_per_cnt_reg_val 0x%08x , dma_per_cnt %u\n",
+		__func__, i, dma_per_cnt_reg_val, dma_per_cnt);
+
+	while (i <= 50) {
+		msleep(50);
+
+		dma_per_cnt_reg_val =  readl_relaxed(dai_info.base +
+						LPAIF_DMA_PER_CNT(dma_ch));
+
+		dma_per_cnt =
+		((LPAIF_DMA_PER_CNT_PER_CNT_MASK & dma_per_cnt_reg_val) >>
+			LPAIF_DMA_PER_CNT_PER_CNT_SHIFT) -
+		((LPAIF_DMA_PER_CNT_FIFO_WORDCNT_MASK & dma_per_cnt_reg_val) >>
+			LPAIF_DMA_PER_CNT_FIFO_WORDCNT_SHIFT);
+
+		i++;
+
+		pr_info("%s: i = %u dma_per_cnt_reg_val 0x%08x , dma_per_cnt %u\n",
+			__func__, i, dma_per_cnt_reg_val, dma_per_cnt);
+
+		if (prev_dma_per_cnt == dma_per_cnt)
+			break;
+
+		prev_dma_per_cnt = dma_per_cnt;
+	}
 	return 0;
 }
 
@@ -307,13 +359,17 @@ void dai_stop_hdmi(uint32_t dma_ch)
 	intrVal = 0x0;
 	writel(intrVal, dai_info.base + LPAIF_DMA_CTL(dma_ch));
 
+	mb();
+
 	intrVal = readl(dai_info.base + LPAIF_IRQ_EN(0));
 
 	int_mask = ((int_mask) << (dma_ch * 3));
 	int_mask = ~int_mask;
 
-	intrVal = intrVal && int_mask;
+	intrVal = intrVal & int_mask;
 	writel(intrVal, dai_info.base + LPAIF_IRQ_EN(0));
+
+	mb();
 
 	spin_unlock_irqrestore(&dai_lock, flag);
 }
