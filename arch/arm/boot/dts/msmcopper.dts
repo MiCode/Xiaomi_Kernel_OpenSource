@@ -15,6 +15,11 @@
 		      <0xF9002000 0x1000>;
 	};
 
+	timer {
+		compatible = "qcom,msm-qtimer";
+		interrupts = <18>;
+	};
+
 	serial@F991F000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xF991F000 0x1000>;
