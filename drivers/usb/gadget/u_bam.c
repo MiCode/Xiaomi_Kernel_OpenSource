@@ -33,37 +33,37 @@ static unsigned bam_ch_ids[] = { 8 };
 
 static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
 
-#define TX_PKT_DROP_THRESHOLD			1000
-#define RX_PKT_FLOW_CTRL_EN_THRESHOLD		1000
-#define RX_PKT_FLOW_CTRL_DISABLE		500
-#define RX_PKT_FLOW_CTRL_SUPPORT		1
+#define BAM_MUX_TX_PKT_DROP_THRESHOLD		1000
+#define BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD		200
+#define BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD		125
+#define BAM_MUX_RX_PKT_FLOW_CTRL_SUPPORT	1
 
 #define BAM_MUX_HDR				8
 
-#define RX_Q_SIZE				16
-#define TX_Q_SIZE				200
-#define RX_REQ_SIZE				(2048 - BAM_MUX_HDR)
+#define BAM_MUX_RX_Q_SIZE			16
+#define BAM_MUX_TX_Q_SIZE			200
+#define BAM_MUX_RX_REQ_SIZE			(2048 - BAM_MUX_HDR)
 
-unsigned int tx_pkt_drop_thld = TX_PKT_DROP_THRESHOLD;
-module_param(tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
+module_param(bam_mux_tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int rx_fctrl_en_thld = RX_PKT_FLOW_CTRL_EN_THRESHOLD;
-module_param(rx_fctrl_en_thld, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_rx_fctrl_en_thld = BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD;
+module_param(bam_mux_rx_fctrl_en_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int rx_fctrl_support = RX_PKT_FLOW_CTRL_SUPPORT;
-module_param(rx_fctrl_support, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_rx_fctrl_support = BAM_MUX_RX_PKT_FLOW_CTRL_SUPPORT;
+module_param(bam_mux_rx_fctrl_support, uint, S_IRUGO | S_IWUSR);
 
-unsigned int rx_fctrl_dis_thld = RX_PKT_FLOW_CTRL_DISABLE;
-module_param(rx_fctrl_dis_thld, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_rx_fctrl_dis_thld = BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD;
+module_param(bam_mux_rx_fctrl_dis_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int tx_q_size = TX_Q_SIZE;
-module_param(tx_q_size, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_tx_q_size = BAM_MUX_TX_Q_SIZE;
+module_param(bam_mux_tx_q_size, uint, S_IRUGO | S_IWUSR);
 
-unsigned int rx_q_size = RX_Q_SIZE;
-module_param(rx_q_size, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_rx_q_size = BAM_MUX_RX_Q_SIZE;
+module_param(bam_mux_rx_q_size, uint, S_IRUGO | S_IWUSR);
 
-unsigned int rx_req_size = RX_REQ_SIZE;
-module_param(rx_req_size, uint, S_IRUGO | S_IWUSR);
+unsigned int bam_mux_rx_req_size = BAM_MUX_RX_REQ_SIZE;
+module_param(bam_mux_rx_req_size, uint, S_IRUGO | S_IWUSR);
 
 #define BAM_CH_OPENED	BIT(0)
 #define BAM_CH_READY	BIT(1)
@@ -211,7 +211,7 @@ void gbam_data_recv_cb(void *p, struct sk_buff *skb)
 		return;
 	}
 
-	if (d->tx_skb_q.qlen > tx_pkt_drop_thld) {
+	if (d->tx_skb_q.qlen > bam_mux_tx_pkt_drop_thld) {
 		d->tohost_drp_cnt++;
 		if (printk_ratelimit())
 			pr_err("%s: tx pkt dropped: tx_drop_cnt:%u\n",
@@ -246,8 +246,8 @@ void gbam_data_write_done(void *p, struct sk_buff *skb)
 			port, d, d->to_modem,
 			d->pending_with_bam, port->port_num);
 
-	if (rx_fctrl_support &&
-			d->pending_with_bam >= rx_fctrl_dis_thld) {
+	if (bam_mux_rx_fctrl_support &&
+			d->pending_with_bam >= bam_mux_rx_fctrl_dis_thld) {
 
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
@@ -274,7 +274,13 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while ((skb = __skb_dequeue(&d->rx_skb_q))) {
+	while (!bam_mux_rx_fctrl_support ||
+			(d->pending_with_bam < bam_mux_rx_fctrl_en_thld)) {
+		skb =  __skb_dequeue(&d->rx_skb_q);
+		if (!skb) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return;
+		}
 		d->pending_with_bam++;
 		d->to_modem++;
 
@@ -370,8 +376,8 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	/* TODO: Handle flow control gracefully by having
 	 * having call back mechanism from bam driver
 	 */
-	if (rx_fctrl_support &&
-		d->pending_with_bam >= rx_fctrl_en_thld) {
+	if (bam_mux_rx_fctrl_support &&
+		d->pending_with_bam >= bam_mux_rx_fctrl_en_thld) {
 
 		list_add_tail(&req->list, &d->rx_idle);
 		spin_unlock(&port->port_lock);
@@ -379,7 +385,7 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 	spin_unlock(&port->port_lock);
 
-	skb = alloc_skb(rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
+	skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
 	if (!skb) {
 		spin_lock(&port->port_lock);
 		list_add_tail(&req->list, &d->rx_idle);
@@ -389,7 +395,7 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	skb_reserve(skb, BAM_MUX_HDR);
 
 	req->buf = skb->data;
-	req->length = rx_req_size;
+	req->length = bam_mux_rx_req_size;
 	req->context = skb;
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
@@ -427,14 +433,14 @@ static void gbam_start_rx(struct gbam_port *port)
 	while (port->port_usb && !list_empty(&d->rx_idle)) {
 		req = list_first_entry(&d->rx_idle, struct usb_request, list);
 
-		skb = alloc_skb(rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
+		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
 		if (!skb)
 			break;
 		skb_reserve(skb, BAM_MUX_HDR);
 
 		list_del(&req->list);
 		req->buf = skb->data;
-		req->length = rx_req_size;
+		req->length = bam_mux_rx_req_size;
 		req->context = skb;
 
 		spin_unlock_irqrestore(&port->port_lock, flags);
@@ -473,7 +479,7 @@ static void gbam_start_io(struct gbam_port *port)
 
 	d = &port->data_ch;
 	ep = port->port_usb->out;
-	ret = gbam_alloc_requests(ep, &d->rx_idle, rx_q_size,
+	ret = gbam_alloc_requests(ep, &d->rx_idle, bam_mux_rx_q_size,
 			gbam_epout_complete, GFP_ATOMIC);
 	if (ret) {
 		pr_err("%s: rx req allocation failed\n", __func__);
@@ -481,7 +487,7 @@ static void gbam_start_io(struct gbam_port *port)
 	}
 
 	ep = port->port_usb->in;
-	ret = gbam_alloc_requests(ep, &d->tx_idle, tx_q_size,
+	ret = gbam_alloc_requests(ep, &d->tx_idle, bam_mux_tx_q_size,
 			gbam_epin_complete, GFP_ATOMIC);
 	if (ret) {
 		pr_err("%s: tx req allocation failed\n", __func__);
