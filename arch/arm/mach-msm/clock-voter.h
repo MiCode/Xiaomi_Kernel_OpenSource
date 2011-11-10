@@ -19,7 +19,7 @@ extern struct clk_ops clk_ops_voter;
 
 struct clk_voter {
 	bool enabled;
-	unsigned rate;
+	unsigned long rate;
 	struct clk *parent;
 	struct clk c;
 };

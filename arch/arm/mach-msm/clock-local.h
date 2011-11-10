@@ -143,12 +143,12 @@ extern struct clk_freq_tbl rcg_dummy_freq;
 
 int rcg_clk_enable(struct clk *clk);
 void rcg_clk_disable(struct clk *clk);
-int rcg_clk_set_rate(struct clk *clk, unsigned rate);
-int rcg_clk_set_min_rate(struct clk *clk, unsigned rate);
-unsigned rcg_clk_get_rate(struct clk *clk);
+int rcg_clk_set_rate(struct clk *clk, unsigned long rate);
+int rcg_clk_set_min_rate(struct clk *clk, unsigned long rate);
+unsigned long rcg_clk_get_rate(struct clk *clk);
 int rcg_clk_list_rate(struct clk *clk, unsigned n);
 int rcg_clk_is_enabled(struct clk *clk);
-long rcg_clk_round_rate(struct clk *clk, unsigned rate);
+long rcg_clk_round_rate(struct clk *clk, unsigned long rate);
 struct clk *rcg_clk_get_parent(struct clk *c);
 int rcg_clk_handoff(struct clk *c);
 
@@ -167,7 +167,7 @@ static inline struct fixed_clk *to_fixed_clk(struct clk *clk)
 	return container_of(clk, struct fixed_clk, c);
 }
 
-static inline unsigned fixed_clk_get_rate(struct clk *clk)
+static inline unsigned long fixed_clk_get_rate(struct clk *clk)
 {
 	struct fixed_clk *f = to_fixed_clk(clk);
 	return f->rate;

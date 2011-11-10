@@ -2550,7 +2550,7 @@ static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
 }
 
 /* Sample clock for 'tcxo4_ticks' reference clock ticks. */
-static u32 run_measurement(unsigned tcxo4_ticks)
+static unsigned long run_measurement(unsigned tcxo4_ticks)
 {
 	/* TCXO4_CNT_EN and RINGOSC_CNT_EN register values. */
 	u32 reg_val_enable = readl_relaxed(MISC_CLK_CTL_BASE_REG) | 0x3;
@@ -2573,7 +2573,7 @@ static u32 run_measurement(unsigned tcxo4_ticks)
 
 /* Perform a hardware rate measurement for a given clock.
    FOR DEBUG USE ONLY: Measurements take ~15 ms! */
-static unsigned measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *clk)
 {
 	unsigned long flags;
 	u32 regval, prph_web_reg_old;
@@ -2626,7 +2626,7 @@ static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
 	return -EINVAL;
 }
 
-static unsigned measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *clk)
 {
 	return 0;
 }

@@ -74,28 +74,29 @@ static int pc_reset(struct clk *clk, enum clk_reset_action action)
 	return pc_clk_reset(id, action);
 }
 
-static int pc_clk_set_rate(struct clk *clk, unsigned rate)
+static int pc_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	/* The rate _might_ be rounded off to the nearest KHz value by the
 	 * remote function. So a return value of 0 doesn't necessarily mean
 	 * that the exact rate was set successfully.
 	 */
+	unsigned r = rate;
 	int id = to_pcom_clk(clk)->id;
-	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_SET_RATE, &id, &rate);
+	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_SET_RATE, &id, &r);
 	if (rc < 0)
 		return rc;
 	else
 		return (int)id < 0 ? -EINVAL : 0;
 }
 
-static int pc_clk_set_min_rate(struct clk *clk, unsigned rate)
+static int pc_clk_set_min_rate(struct clk *clk, unsigned long rate)
 {
 	int rc;
 	int id = to_pcom_clk(clk)->id;
 	bool ignore_error = (cpu_is_msm7x27() && id == P_EBI1_CLK &&
 				rate >= INT_MAX);
-
-	rc = msm_proc_comm(PCOM_CLKCTL_RPC_MIN_RATE, &id, &rate);
+	unsigned r = rate;
+	rc = msm_proc_comm(PCOM_CLKCTL_RPC_MIN_RATE, &id, &r);
 	if (rc < 0)
 		return rc;
 	else if (ignore_error)
@@ -104,10 +105,11 @@ static int pc_clk_set_min_rate(struct clk *clk, unsigned rate)
 		return (int)id < 0 ? -EINVAL : 0;
 }
 
-static int pc_clk_set_max_rate(struct clk *clk, unsigned rate)
+static int pc_clk_set_max_rate(struct clk *clk, unsigned long rate)
 {
 	int id = to_pcom_clk(clk)->id;
-	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_MAX_RATE, &id, &rate);
+	unsigned r = rate;
+	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_MAX_RATE, &id, &r);
 	if (rc < 0)
 		return rc;
 	else
@@ -124,17 +126,18 @@ static int pc_clk_set_flags(struct clk *clk, unsigned flags)
 		return (int)id < 0 ? -EINVAL : 0;
 }
 
-static int pc_clk_set_ext_config(struct clk *clk, unsigned config)
+static int pc_clk_set_ext_config(struct clk *clk, unsigned long config)
 {
 	int id = to_pcom_clk(clk)->id;
-	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_SET_EXT_CONFIG, &id, &config);
+	unsigned c = config;
+	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_SET_EXT_CONFIG, &id, &c);
 	if (rc < 0)
 		return rc;
 	else
 		return (int)id < 0 ? -EINVAL : 0;
 }
 
-static unsigned pc_clk_get_rate(struct clk *clk)
+static unsigned long pc_clk_get_rate(struct clk *clk)
 {
 	int id = to_pcom_clk(clk)->id;
 	if (msm_proc_comm(PCOM_CLKCTL_RPC_RATE, &id, NULL))
@@ -152,7 +155,7 @@ static int pc_clk_is_enabled(struct clk *clk)
 		return id;
 }
 
-static long pc_clk_round_rate(struct clk *clk, unsigned rate)
+static long pc_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 
 	/* Not really supported; pc_clk_set_rate() does rounding on it's own. */
