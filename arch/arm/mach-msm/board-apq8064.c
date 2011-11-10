@@ -508,7 +508,7 @@ static struct platform_device *rumi3_devices[] __initdata = {
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
-	.max_clock_speed = 26000000,
+	.max_clock_speed = 24000000,
 };
 
 #define KS8851_IRQ_GPIO		43
