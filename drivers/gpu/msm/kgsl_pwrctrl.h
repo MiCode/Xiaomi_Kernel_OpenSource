@@ -58,9 +58,6 @@ struct kgsl_pwrctrl {
 	unsigned int restore_slumber;
 };
 
-void kgsl_pwrctrl_clk(struct kgsl_device *device, int state);
-void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
-void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
 int kgsl_pwrctrl_init(struct kgsl_device *device);
 void kgsl_pwrctrl_close(struct kgsl_device *device);
