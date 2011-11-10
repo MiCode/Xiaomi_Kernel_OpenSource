@@ -221,6 +221,8 @@ enum pm8xxx_adc_scale_fn_type {
  * @offset: Offset with respect to the actual curve
  * @dy: Numerator slope to calculate the gain
  * @dx: Denominator slope to calculate the gain
+ * @adc_vref: A/D word of the voltage reference used for the channel
+ * @adc_gnd: A/D word of the ground reference used for the channel
  *
  * Each ADC device has different offset and gain parameters which are computed
  * to calibrate the device.
@@ -229,6 +231,8 @@ struct pm8xxx_adc_linear_graph {
 	int32_t offset;
 	int32_t dy;
 	int32_t dx;
+	int32_t adc_vref;
+	int32_t adc_gnd;
 };
 
 /**
@@ -453,8 +457,8 @@ struct pm8xxx_adc_amux {
  * levels once the thresholds are reached
  */
 struct pm8xxx_adc_arb_btm_param {
-	uint32_t	low_thr_temp;
-	uint32_t	high_thr_temp;
+	int32_t		low_thr_temp;
+	int32_t		high_thr_temp;
 	uint64_t	low_thr_voltage;
 	uint64_t	high_thr_voltage;
 	int32_t		interval;
@@ -462,8 +466,9 @@ struct pm8xxx_adc_arb_btm_param {
 	void		(*btm_cool_fn) (bool);
 };
 
-int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *);
-
+int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *,
+			const struct pm8xxx_adc_properties *adc_prop,
+			const struct pm8xxx_adc_chan_properties *chan_prop);
 /**
  * struct pm8xxx_adc_platform_data - PM8XXX ADC platform data
  * @adc_prop: ADC specific parameters, voltage and channel setup

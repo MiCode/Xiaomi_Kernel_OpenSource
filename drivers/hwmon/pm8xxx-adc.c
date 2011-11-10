@@ -121,6 +121,7 @@
 #define PM8XXX_ADC_PA_THERM_VREG_UV_MIN			1800000
 #define PM8XXX_ADC_PA_THERM_VREG_UV_MAX			1800000
 #define PM8XXX_ADC_PA_THERM_VREG_UA_LOAD		100000
+#define PM8XXX_ADC_HWMON_NAME_LENGTH			32
 
 struct pm8xxx_adc {
 	struct device				*dev;
@@ -654,6 +655,10 @@ static uint32_t pm8xxx_adc_calib_device(void)
 					(calib_read_1 - calib_read_2);
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dx =
 					adc_pmic->adc_prop->adc_vdd_reference;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].adc_vref =
+					calib_read_1;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].adc_gnd =
+					calib_read_2;
 calib_fail:
 	rc = pm8xxx_adc_arb_cntrl(0, CHANNEL_NONE);
 	if (rc < 0) {
@@ -694,11 +699,12 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 	if (channel < PM8XXX_CHANNEL_MPP_SCALE1_IDX) {
 		mpp_scale = PREMUX_MPP_SCALE_0;
 		adc_pmic->conv->amux_channel = channel;
-	} else if (channel >= PM8XXX_CHANNEL_MPP_SCALE1_IDX) {
+	} else if (channel >= PM8XXX_CHANNEL_MPP_SCALE1_IDX &&
+			channel < PM8XXX_CHANNEL_MPP_SCALE3_IDX) {
 		mpp_scale = PREMUX_MPP_SCALE_1;
 		adc_pmic->conv->amux_channel = channel %
 				PM8XXX_CHANNEL_MPP_SCALE1_IDX;
-	} else if (channel >= PM8XXX_CHANNEL_MPP_SCALE3_IDX) {
+	} else {
 		mpp_scale = PREMUX_MPP_SCALE_1_DIV3;
 		adc_pmic->conv->amux_channel = channel %
 				PM8XXX_CHANNEL_MPP_SCALE3_IDX;
@@ -830,7 +836,8 @@ uint32_t pm8xxx_adc_btm_configure(struct pm8xxx_adc_arb_btm_param *btm_param)
 		return -EINVAL;
 	}
 
-	rc = pm8xxx_adc_batt_scaler(btm_param);
+	rc = pm8xxx_adc_batt_scaler(btm_param, adc_pmic->adc_prop,
+					adc_pmic->conv->chan_prop);
 	if (rc < 0) {
 		pr_err("Failed to lookup the BTM thresholds\n");
 		return rc;
@@ -1014,9 +1021,8 @@ static ssize_t pm8xxx_adc_show(struct device *dev,
 	if (rc)
 		return 0;
 
-	return snprintf(buf, sizeof(struct pm8xxx_adc_chan_result),
-				"Result:%lld Raw:%d\n",
-				result.physical, result.adc_code);
+	return snprintf(buf, PM8XXX_ADC_HWMON_NAME_LENGTH,
+		"Result:%lld Raw:%d\n", result.physical, result.adc_code);
 }
 
 static int get_adc(void *data, u64 *val)
