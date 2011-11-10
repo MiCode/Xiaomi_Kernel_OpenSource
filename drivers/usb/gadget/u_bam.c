@@ -100,6 +100,7 @@ struct gbam_port {
 	struct bam_ch_info	data_ch;
 
 	struct work_struct	connect_w;
+	struct work_struct	disconnect_w;
 };
 
 static struct bam_portmaster {
@@ -519,11 +520,32 @@ static void gbam_notify(void *p, int event, unsigned long data)
 	}
 }
 
+static void gbam_disconnect_work(struct work_struct *w)
+{
+	struct gbam_port *port =
+			container_of(w, struct gbam_port, disconnect_w);
+	struct bam_ch_info *d = &port->data_ch;
+
+	if (!test_bit(BAM_CH_OPENED, &d->flags))
+		return;
+
+	msm_bam_dmux_close(d->id);
+	clear_bit(BAM_CH_OPENED, &d->flags);
+}
+
 static void gbam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
 	struct bam_ch_info *d = &port->data_ch;
 	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (!test_bit(BAM_CH_READY, &d->flags))
 		return;
@@ -666,6 +688,7 @@ static int gbam_port_alloc(int portno)
 	/* port initialization */
 	spin_lock_init(&port->port_lock);
 	INIT_WORK(&port->connect_w, gbam_connect_work);
+	INIT_WORK(&port->disconnect_w, gbam_disconnect_work);
 
 	/* data ch */
 	d = &port->data_ch;
@@ -828,10 +851,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num)
 	usb_ep_disable(gr->out);
 	usb_ep_disable(gr->in);
 
-	if (test_bit(BAM_CH_OPENED, &d->flags)) {
-		msm_bam_dmux_close(d->id);
-		clear_bit(BAM_CH_OPENED, &d->flags);
-	}
+	queue_work(gbam_wq, &port->disconnect_w);
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num)
