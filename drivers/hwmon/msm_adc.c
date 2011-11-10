@@ -98,6 +98,8 @@ static bool epm_fluid_enabled;
 /* Needed to support file_op interfaces */
 static struct msm_adc_drv *msm_adc_drv;
 
+static bool conv_first_request;
+
 static ssize_t msm_adc_show_curr(struct device *dev,
 				struct device_attribute *devattr, char *buf);
 
@@ -726,6 +728,16 @@ static int msm_adc_blocking_conversion(struct msm_adc_drv *msm_adc,
 	struct msm_adc_platform_data *pdata =
 					msm_adc_drv->pdev->dev.platform_data;
 	struct msm_adc_channels *channel = &pdata->channel[hwmon_chan];
+	int ret = 0;
+
+	if (conv_first_request) {
+		ret = pm8058_xoadc_calib_device(channel->adc_dev_instance);
+		if (ret) {
+			pr_err("pmic8058 xoadc calibration failed, retry\n");
+			return ret;
+		}
+		conv_first_request = false;
+	}
 
 	channel->adc_access_fn->adc_slot_request(channel->adc_dev_instance,
 									&slot);
@@ -813,6 +825,16 @@ int32_t adc_channel_request_conv(void *h, struct completion *conv_complete_evt)
 					msm_adc_drv->pdev->dev.platform_data;
 	struct msm_adc_channels *channel = &pdata->channel[client->adc_chan];
 	struct adc_conv_slot *slot;
+	int ret;
+
+	if (conv_first_request) {
+		ret = pm8058_xoadc_calib_device(channel->adc_dev_instance);
+		if (ret) {
+			pr_err("pmic8058 xoadc calibration failed, retry\n");
+			return ret;
+		}
+		conv_first_request = false;
+	}
 
 	channel->adc_access_fn->adc_slot_request(channel->adc_dev_instance,
 									&slot);
@@ -869,46 +891,6 @@ int32_t adc_channel_read_result(void *h, struct adc_chan_result *chan_result)
 		channel[slot->conv.result.chan].adc_dev_instance, slot);
 
 	return rc;
-}
-
-int32_t adc_calib_request(void *h, struct completion *calib_complete_evt)
-{
-	struct msm_client_data *client = (struct msm_client_data *)h;
-	struct msm_adc_platform_data *pdata =
-					msm_adc_drv->pdev->dev.platform_data;
-	struct msm_adc_channels *channel = &pdata->channel[client->adc_chan];
-	struct adc_conv_slot *slot;
-	int rc, calib_status;
-
-	channel->adc_access_fn->adc_slot_request(channel->adc_dev_instance,
-				&slot);
-	if (slot) {
-		slot->conv.result.chan = client->adc_chan;
-		slot->blocking = 0;
-		slot->compk = calib_complete_evt;
-		slot->adc_request = START_OF_CALIBRATION;
-		slot->chan_path = channel->chan_path_type;
-		slot->chan_adc_config = channel->adc_config_type;
-		slot->chan_adc_calib = channel->adc_calib_type;
-		rc = channel->adc_access_fn->adc_calibrate(
-			channel->adc_dev_instance, slot, &calib_status);
-
-		if (calib_status == CALIB_NOT_REQUIRED) {
-			channel->adc_access_fn->adc_restore_slot(
-					channel->adc_dev_instance, slot);
-			/* client will always wait in case when
-				calibration is not required */
-			complete(calib_complete_evt);
-		} else {
-			atomic_inc(&msm_adc_drv->total_outst);
-			mutex_lock(&client->lock);
-			client->num_outstanding++;
-			mutex_unlock(&client->lock);
-		}
-
-		return rc;
-	}
-	return -EBUSY;
 }
 
 static void msm_rpc_adc_conv_cb(void *context, u32 param,
@@ -1458,6 +1440,7 @@ static int msm_adc_probe(struct platform_device *pdev)
 		else
 			msm_rpc_adc_init(pdev);
 	}
+	conv_first_request = true;
 
 	pr_info("msm_adc successfully registered\n");
 
