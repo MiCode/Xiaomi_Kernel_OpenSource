@@ -1688,13 +1688,31 @@ static irqreturn_t chg_gone_irq_handler(int irq, void *data)
 	power_supply_changed(&chip->dc_psy);
 	return IRQ_HANDLED;
 }
-
+/*
+ *
+ * bat_temp_ok_irq_handler - is edge triggered, hence it will
+ * fire for two cases:
+ *
+ * If the interrupt line switches to high temperature is okay
+ * and thus charging begins.
+ * If bat_temp_ok is low this means the temperature is now
+ * too hot or cold, so charging is stopped.
+ *
+ */
 static irqreturn_t bat_temp_ok_irq_handler(int irq, void *data)
 {
+	int bat_temp_ok;
 	struct pm8921_chg_chip *chip = data;
 
-	pr_debug("batt temp ok fsm_state=%d\n", pm_chg_get_fsm_state(data));
-	handle_start_ext_chg(chip);
+	bat_temp_ok = pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ);
+
+	pr_debug("batt_temp_ok = %d fsm_state%d\n",
+			 bat_temp_ok, pm_chg_get_fsm_state(data));
+
+	if (bat_temp_ok)
+		handle_start_ext_chg(chip);
+	else
+		handle_stop_ext_chg(chip);
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
@@ -2119,6 +2137,7 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	pm8921_chg_enable_irq(chip, CHGFAIL_IRQ);
 	pm8921_chg_enable_irq(chip, FASTCHG_IRQ);
 	pm8921_chg_enable_irq(chip, VBATDET_LOW_IRQ);
+	pm8921_chg_enable_irq(chip, BAT_TEMP_OK_IRQ);
 
 	spin_lock_irqsave(&vbus_lock, flags);
 	if (usb_chg_current) {
