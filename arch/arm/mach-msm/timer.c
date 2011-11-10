@@ -939,12 +939,19 @@ int __init msm_timer_init_time_sync(void (*timeout)(void))
 
 static DEFINE_CLOCK_DATA(cd);
 
+/*
+ * Store the most recent timestamp read from hardware
+ * in last_ns. This is useful for debugging crashes.
+ */
+static u64 last_ns;
+
 unsigned long long notrace sched_clock(void)
 {
 	struct msm_clock *clock = &msm_clocks[msm_global_timer];
 	struct clocksource *cs = &clock->clocksource;
 	u32 cyc = cs->read(cs);
-	return cyc_to_sched_clock(&cd, cyc, ((u32)~0 >> clock->shift));
+	last_ns = cyc_to_sched_clock(&cd, cyc, ((u32)~0 >> clock->shift));
+	return last_ns;
 }
 
 static void notrace msm_update_sched_clock(void)
