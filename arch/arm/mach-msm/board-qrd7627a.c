@@ -2382,6 +2382,14 @@ static int mipi_dsi_panel_qrd1_power(int on)
 		if (rc < 0)
 			return rc;
 
+		rc = gpio_tlmm_config(GPIO_CFG(GPIO_BACKLIGHT_EN, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+		if (rc < 0) {
+			pr_err("failed GPIO_BACKLIGHT_EN tlmm config\n");
+			return rc;
+		}
+
 		rc = gpio_direction_output(GPIO_BACKLIGHT_EN, 1);
 		if (rc < 0) {
 			pr_err("failed to enable backlight\n");
