@@ -1070,12 +1070,19 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 
 #ifdef CONFIG_ARCH_MSM7X27A
 #define MSM_PMEM_MDP_SIZE       0x1900000
+#define MSM7x25A_MSM_PMEM_MDP_SIZE	0x1000000
+
 #define MSM_PMEM_ADSP_SIZE      0x1000000
+#define MSM7x25A_MSM_PMEM_ADSP_SIZE      0xB91000
+
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_SIZE		0x276000
+#define MSM_FB_SIZE		0x260000
+#define MSM7x25A_MSM_FB_SIZE	0xE1000
 #else
-#define MSM_FB_SIZE		0x1A4000
+#define MSM_FB_SIZE		0x195000
+#define MSM7x25A_MSM_FB_SIZE	0xE1000
+
 #endif
 
 #endif
@@ -2568,7 +2575,12 @@ static void __init msm_msm7x2x_allocate_memory_regions(void)
 	void *addr;
 	unsigned long size;
 
-	size = fb_size ? : MSM_FB_SIZE;
+	if (machine_is_msm7625a_surf() || machine_is_msm7625a_ffa())
+		fb_size = MSM7x25A_MSM_FB_SIZE;
+	else
+		fb_size = MSM_FB_SIZE;
+
+	size = fb_size;
 	addr = alloc_bootmem_align(size, 0x1000);
 	msm_fb_resources[0].start = __pa(addr);
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
@@ -2589,6 +2601,15 @@ static struct memtype_reserve msm7x27a_reserve_table[] __initdata = {
 
 static void __init size_pmem_devices(void)
 {
+
+	if (machine_is_msm7625a_surf() || machine_is_msm7625a_ffa()) {
+		pmem_mdp_size = MSM7x25A_MSM_PMEM_MDP_SIZE;
+		pmem_adsp_size = MSM7x25A_MSM_PMEM_ADSP_SIZE;
+	} else {
+		pmem_mdp_size = MSM_PMEM_MDP_SIZE;
+		pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
+	}
+
 #ifdef CONFIG_ANDROID_PMEM
 	android_pmem_adsp_pdata.size = pmem_adsp_size;
 	android_pmem_pdata.size = pmem_mdp_size;
