@@ -250,7 +250,7 @@ struct pm8921_chg_chip {
 	int				trkl_current;
 	int				weak_current;
 	int				vin_min;
-	int				*thermal_mitigation;
+	unsigned int			*thermal_mitigation;
 	int				thermal_levels;
 	struct delayed_work		update_heartbeat_work;
 	struct delayed_work		eoc_work;
@@ -1940,48 +1940,69 @@ static void btm_configure_work(struct work_struct *work)
 
 DECLARE_WORK(btm_config_work, btm_configure_work);
 
+static void set_appropriate_battery_current(struct pm8921_chg_chip *chip)
+{
+	unsigned int chg_current = chip->max_bat_chg_current;
+
+	if (chip->is_bat_cool)
+		chg_current = min(chg_current, chip->cool_bat_chg_current);
+
+	if (chip->is_bat_warm)
+		chg_current = min(chg_current, chip->warm_bat_chg_current);
+
+	if (thermal_mitigation != 0 && !chip->thermal_mitigation)
+		chg_current = min(chg_current,
+				chip->thermal_mitigation[thermal_mitigation]);
+
+	pm_chg_ibatmax_set(the_chip, chg_current);
+}
+
 #define TEMP_HYSTERISIS_DEGC 2
 static void battery_cool(bool enter)
 {
 	pr_debug("enter = %d\n", enter);
+	if (enter == the_chip->is_bat_cool)
+		return;
+	the_chip->is_bat_cool = enter;
 	if (enter) {
 		btm_config.low_thr_temp =
 			the_chip->cool_temp + TEMP_HYSTERISIS_DEGC;
-		pm_chg_ibatmax_set(the_chip, the_chip->cool_bat_chg_current);
+		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->cool_bat_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->cool_bat_voltage
 			- the_chip->resume_voltage_delta);
 	} else {
 		btm_config.low_thr_temp = the_chip->cool_temp;
-		pm_chg_ibatmax_set(the_chip, the_chip->max_bat_chg_current);
+		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->max_voltage - the_chip->resume_voltage_delta);
 	}
-	the_chip->is_bat_cool = enter;
 	schedule_work(&btm_config_work);
 }
 
 static void battery_warm(bool enter)
 {
 	pr_debug("enter = %d\n", enter);
+	if (enter == the_chip->is_bat_warm)
+		return;
+	the_chip->is_bat_warm = enter;
 	if (enter) {
 		btm_config.high_thr_temp =
 			the_chip->warm_temp - TEMP_HYSTERISIS_DEGC;
-		pm_chg_ibatmax_set(the_chip, the_chip->warm_bat_chg_current);
+		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->warm_bat_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->warm_bat_voltage
 			- the_chip->resume_voltage_delta);
 	} else {
 		btm_config.high_thr_temp = the_chip->warm_temp;
-		pm_chg_ibatmax_set(the_chip, the_chip->max_bat_chg_current);
+		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->max_voltage - the_chip->resume_voltage_delta);
 	}
-	the_chip->is_bat_warm = enter;
 	schedule_work(&btm_config_work);
 }
 
@@ -2094,8 +2115,7 @@ static int set_therm_mitigation_level(const char *val, struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	ret = pm_chg_ibatmax_set(chip,
-			chip->thermal_mitigation[thermal_mitigation]);
+	set_appropriate_battery_current(chip);
 	return ret;
 }
 module_param_call(thermal_mitigation, set_therm_mitigation_level,
@@ -2299,7 +2319,6 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		return rc;
 	}
 
-	/* TODO needs to be changed as per the temeperature of the battery */
 	rc = pm_chg_ibatmax_set(chip, chip->max_bat_chg_current);
 	if (rc) {
 		pr_err("Failed to set max current to 400 rc=%d\n", rc);
