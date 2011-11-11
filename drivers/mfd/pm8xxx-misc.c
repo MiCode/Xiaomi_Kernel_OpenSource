@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/misc.h>
@@ -103,6 +104,7 @@ struct pm8xxx_misc_chip {
 	struct pm8xxx_misc_platform_data	pdata;
 	struct device				*dev;
 	enum pm8xxx_version			version;
+	u64					osc_halt_count;
 };
 
 static LIST_HEAD(pm8xxx_misc_chips);
@@ -471,6 +473,23 @@ int pm8xxx_reset_pwr_off(int reset)
 }
 EXPORT_SYMBOL_GPL(pm8xxx_reset_pwr_off);
 
+/* Handle the OSC_HALT interrupt: 32 kHz XTAL oscillator has stopped. */
+static irqreturn_t pm8xxx_osc_halt_isr(int irq, void *data)
+{
+	struct pm8xxx_misc_chip *chip = data;
+	u64 count = 0;
+
+	if (chip) {
+		chip->osc_halt_count++;
+		count = chip->osc_halt_count;
+	}
+
+	pr_crit("%s: OSC_HALT interrupt has triggered, 32 kHz XTAL oscillator"
+				" has halted (%llu)!\n", __func__, count);
+
+	return IRQ_HANDLED;
+}
+
 /**
  * pm8xxx_uart_gpio_mux_ctrl - Mux configuration to select the UART
  *
@@ -519,7 +538,7 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	struct pm8xxx_misc_chip *sibling;
 	struct list_head *prev;
 	unsigned long flags;
-	int rc = 0;
+	int rc = 0, irq;
 
 	if (!pdata) {
 		pr_err("missing platform data\n");
@@ -537,6 +556,18 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	chip->version = pm8xxx_get_version(chip->dev->parent);
 	memcpy(&(chip->pdata), pdata, sizeof(struct pm8xxx_misc_platform_data));
 
+	irq = platform_get_irq_byname(pdev, "pm8xxx_osc_halt_irq");
+	if (irq > 0) {
+		rc = request_any_context_irq(irq, pm8xxx_osc_halt_isr,
+				 IRQF_TRIGGER_RISING | IRQF_DISABLED,
+				 "pm8xxx_osc_halt_irq", chip);
+		if (rc < 0) {
+			pr_err("%s: request_any_context_irq(%d) FAIL: %d\n",
+							 __func__, irq, rc);
+			goto fail_irq;
+		}
+	}
+
 	/* Insert PMICs in priority order (lowest value first). */
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	prev = &pm8xxx_misc_chips;
@@ -552,12 +583,20 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, chip);
 
 	return rc;
+
+fail_irq:
+	platform_set_drvdata(pdev, NULL);
+	kfree(chip);
+	return rc;
 }
 
 static int __devexit pm8xxx_misc_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_misc_chip *chip = platform_get_drvdata(pdev);
 	unsigned long flags;
+	int irq = platform_get_irq_byname(pdev, "pm8xxx_osc_halt_irq");
+	if (irq > 0)
+		free_irq(irq, chip);
 
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	list_del(&chip->link);
