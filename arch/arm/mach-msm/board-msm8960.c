@@ -4357,6 +4357,12 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		false,
 		6300, 4500, 65350000, 4800,
 	},
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, ACTIVE, RET_HIGH),
+		false,
+		7000, 3500, 66600000, 5150,
+	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
