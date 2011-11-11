@@ -117,7 +117,8 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.playback = {
 			.stream_name = "VoIP Playback",
 			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+					SNDRV_PCM_FMTBIT_SPECIAL,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min =	8000,
@@ -126,7 +127,8 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.capture = {
 			.stream_name = "VoIP Capture",
 			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+					SNDRV_PCM_FMTBIT_SPECIAL,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min =	8000,
