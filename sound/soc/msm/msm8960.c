@@ -32,8 +32,6 @@
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 
-#define TOP_SPK_PAMP_GPIO (PM8921_GPIO_PM_TO_SYS(18))
-#define BOTTOM_SPK_PAMP_GPIO (PM8921_GPIO_PM_TO_SYS(19))
 #define MSM8960_SPK_ON 1
 #define MSM8960_SPK_OFF 0
 
@@ -53,6 +51,8 @@
 #define GPIO_AUX_PCM_SYNC 65
 #define GPIO_AUX_PCM_CLK 66
 
+static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
+static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
 static int msm8960_spk_control;
 static int msm8960_ext_bottom_spk_pamp;
 static int msm8960_ext_top_spk_pamp;
@@ -96,38 +96,38 @@ static void msm8960_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 			function       = PM_GPIO_FUNC_NORMAL,
 	};
 
-	if (spk_amp_gpio == BOTTOM_SPK_PAMP_GPIO) {
+	if (spk_amp_gpio == bottom_spk_pamp_gpio) {
 
-		ret = gpio_request(BOTTOM_SPK_PAMP_GPIO, "BOTTOM_SPK_AMP");
+		ret = gpio_request(bottom_spk_pamp_gpio, "BOTTOM_SPK_AMP");
 		if (ret) {
 			pr_err("%s: Error requesting BOTTOM SPK AMP GPIO %u\n",
-				__func__, BOTTOM_SPK_PAMP_GPIO);
+				__func__, bottom_spk_pamp_gpio);
 			return;
 		}
-		ret = pm8xxx_gpio_config(BOTTOM_SPK_PAMP_GPIO, &param);
+		ret = pm8xxx_gpio_config(bottom_spk_pamp_gpio, &param);
 		if (ret)
 			pr_err("%s: Failed to configure Bottom Spk Ampl"
-				" gpio %u\n", __func__, BOTTOM_SPK_PAMP_GPIO);
+				" gpio %u\n", __func__, bottom_spk_pamp_gpio);
 		else {
 			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
-			gpio_direction_output(BOTTOM_SPK_PAMP_GPIO, 1);
+			gpio_direction_output(bottom_spk_pamp_gpio, 1);
 		}
 
-	} else if (spk_amp_gpio == TOP_SPK_PAMP_GPIO) {
+	} else if (spk_amp_gpio == top_spk_pamp_gpio) {
 
-		ret = gpio_request(TOP_SPK_PAMP_GPIO, "TOP_SPK_AMP");
+		ret = gpio_request(top_spk_pamp_gpio, "TOP_SPK_AMP");
 		if (ret) {
 			pr_err("%s: Error requesting GPIO %d\n", __func__,
-				TOP_SPK_PAMP_GPIO);
+				top_spk_pamp_gpio);
 			return;
 		}
-		ret = pm8xxx_gpio_config(TOP_SPK_PAMP_GPIO, &param);
+		ret = pm8xxx_gpio_config(top_spk_pamp_gpio, &param);
 		if (ret)
 			pr_err("%s: Failed to configure Top Spk Ampl"
-				" gpio %u\n", __func__, TOP_SPK_PAMP_GPIO);
+				" gpio %u\n", __func__, top_spk_pamp_gpio);
 		else {
 			pr_debug("%s: enable Top spkr amp gpio\n", __func__);
-			gpio_direction_output(TOP_SPK_PAMP_GPIO, 1);
+			gpio_direction_output(top_spk_pamp_gpio, 1);
 		}
 	} else {
 		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO."
@@ -153,7 +153,7 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 		if ((msm8960_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
 			(msm8960_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
 
-			msm8960_enable_ext_spk_amp_gpio(BOTTOM_SPK_PAMP_GPIO);
+			msm8960_enable_ext_spk_amp_gpio(bottom_spk_pamp_gpio);
 			pr_debug("%s: slepping 4 ms after turning on external "
 				" Bottom Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
@@ -174,7 +174,7 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 		if ((msm8960_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
 			(msm8960_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
 
-			msm8960_enable_ext_spk_amp_gpio(TOP_SPK_PAMP_GPIO);
+			msm8960_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
 			pr_debug("%s: sleeping 4 ms after turning on "
 				" external Top Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
@@ -194,8 +194,8 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 		if (!msm8960_ext_bottom_spk_pamp)
 			return;
 
-		gpio_direction_output(BOTTOM_SPK_PAMP_GPIO, 0);
-		gpio_free(BOTTOM_SPK_PAMP_GPIO);
+		gpio_direction_output(bottom_spk_pamp_gpio, 0);
+		gpio_free(bottom_spk_pamp_gpio);
 		msm8960_ext_bottom_spk_pamp = 0;
 
 		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
@@ -208,8 +208,8 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 		if (!msm8960_ext_top_spk_pamp)
 			return;
 
-		gpio_direction_output(TOP_SPK_PAMP_GPIO, 0);
-		gpio_free(TOP_SPK_PAMP_GPIO);
+		gpio_direction_output(top_spk_pamp_gpio, 0);
+		gpio_free(top_spk_pamp_gpio);
 		msm8960_ext_top_spk_pamp = 0;
 
 		pr_debug("%s: sleeping 4 ms after turning off external Top"
@@ -576,6 +576,11 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
 	pr_debug("%s()\n", __func__);
+
+	if (machine_is_msm8960_liquid()) {
+		top_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(19));
+		bottom_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(18));
+	}
 
 	rtd->pmdown_time = 0;
 
