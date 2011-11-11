@@ -4,7 +4,7 @@
  * bootloader.
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009,2011 Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -48,7 +48,7 @@ struct msm_ptbl_entry {
 	__u32 flags;
 };
 
-#define MSM_MAX_PARTITIONS 8
+#define MSM_MAX_PARTITIONS 18
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
 static char msm_nand_names[MSM_MAX_PARTITIONS * 16];
