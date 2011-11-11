@@ -24,6 +24,7 @@
 #include <mach/dma.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
+#include <mach/msm_bus_board.h>
 #include "clock.h"
 #include "devices.h"
 #include "msm_watchdog.h"
@@ -692,6 +693,27 @@ static struct resource resources_sps[] = {
 		.end	= SPS_BAM_DMA_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+};
+
+struct platform_device msm_bus_8064_sys_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYSTEM,
+};
+struct platform_device msm_bus_8064_apps_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_APPSS,
+};
+struct platform_device msm_bus_8064_mm_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_MMSS,
+};
+struct platform_device msm_bus_8064_sys_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_SYSTEM_FPB,
+};
+struct platform_device msm_bus_8064_cpss_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_CPSS_FPB,
 };
 
 static struct msm_sps_platform_data msm_sps_pdata = {
