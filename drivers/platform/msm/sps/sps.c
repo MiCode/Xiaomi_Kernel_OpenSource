@@ -597,7 +597,7 @@ int sps_disconnect(struct sps_pipe *h)
 	if (pipe == NULL)
 		return SPS_ERROR;
 
-	bam = sps_bam_lock(pipe);
+	bam = pipe->bam;
 	if (bam == NULL)
 		return SPS_ERROR;
 
@@ -620,7 +620,9 @@ int sps_disconnect(struct sps_pipe *h)
 	}
 
 	/* Disconnect the BAM pipe */
+	mutex_lock(&bam->lock);
 	result = sps_rm_state_change(pipe, SPS_STATE_DISCONNECT);
+	mutex_unlock(&bam->lock);
 	if (result)
 		goto exit_err;
 
@@ -628,7 +630,6 @@ int sps_disconnect(struct sps_pipe *h)
 	result = 0;
 
 exit_err:
-	sps_bam_unlock(bam);
 
 	return result;
 }
@@ -725,7 +726,6 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
 	int result;
-	int ret;
 
 	SPS_DBG("%s.", __func__);
 
@@ -733,16 +733,7 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	if (bam == NULL)
 		return SPS_ERROR;
 
-	ret = clk_enable(sps->dfab_clk);
-	if (ret) {
-		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
-		sps_bam_unlock(bam);
-		return SPS_ERROR;
-	}
-
 	result = sps_bam_pipe_transfer(bam, pipe->pipe_index, transfer);
-
-	clk_disable(sps->dfab_clk);
 
 	sps_bam_unlock(bam);
 
@@ -760,7 +751,6 @@ int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
 	int result;
-	int ret;
 
 	SPS_DBG("%s.", __func__);
 
@@ -768,17 +758,8 @@ int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
 	if (bam == NULL)
 		return SPS_ERROR;
 
-	ret = clk_enable(sps->dfab_clk);
-	if (ret) {
-		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
-		sps_bam_unlock(bam);
-		return SPS_ERROR;
-	}
-
 	result = sps_bam_pipe_transfer_one(bam, pipe->pipe_index,
 					   addr, size, user, flags);
-
-	clk_disable(sps->dfab_clk);
 
 	sps_bam_unlock(bam);
 
@@ -1432,14 +1413,24 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 			goto clk_err;
 		}
 	}
-#endif
 
+	ret = clk_enable(sps->dfab_clk);
+	if (ret) {
+		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
+		goto clk_err;
+	}
+#endif
 	ret = sps_device_init();
 	if (ret) {
 		SPS_ERR("sps:sps_device_init err.");
+#ifdef CONFIG_SPS_SUPPORT_BAMDMA
+		clk_disable(sps->dfab_clk);
+#endif
 		goto sps_device_init_err;
 	}
-
+#ifdef CONFIG_SPS_SUPPORT_BAMDMA
+	clk_disable(sps->dfab_clk);
+#endif
 	sps->is_ready = true;
 
 	SPS_INFO("sps is ready.");
