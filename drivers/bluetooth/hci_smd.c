@@ -443,6 +443,9 @@ static void hci_smd_deregister_dev(void)
 	smd_close(hs.event_channel);
 	smd_close(hs.data_channel);
 
+	if (wake_lock_active(&hs.wake_lock_rx))
+		wake_unlock(&hs.wake_lock_rx);
+
 	/*Destroy the timer used to monitor the Rx queue for emptiness */
 	del_timer_sync(&hs.rx_q_timer);
 	tasklet_kill(&hs.hci_event_task);
