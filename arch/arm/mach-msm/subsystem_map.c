@@ -236,6 +236,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 	int i = 0, j = 0, ret;
 	unsigned long iova_start = 0, temp_phys, temp_va = 0;
 	struct iommu_domain *d = NULL;
+	int map_size = length;
 
 	if (!((flags & MSM_SUBSYSTEM_MAP_KADDR) ||
 		(flags & MSM_SUBSYSTEM_MAP_IOVA))) {
@@ -302,6 +303,11 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 		length = round_up(length, SZ_4K);
 
+		if (flags & MSM_SUBSYSTEM_MAP_IOMMU_2X)
+			map_size = 2 * length;
+		else
+			map_size = length;
+
 		buf->iova = kzalloc(sizeof(unsigned long)*nsubsys, GFP_ATOMIC);
 		if (!buf->iova) {
 			err = ERR_PTR(-ENOMEM);
@@ -337,7 +343,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 			iova_start = msm_allocate_iova_address(domain_no,
 						partition_no,
-						length,
+						map_size,
 						max(min_align, SZ_4K));
 
 			if (!iova_start) {
@@ -363,13 +369,17 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 				}
 			}
 			buf->iova[i] = iova_start;
+
+			if (flags & MSM_SUBSYSTEM_MAP_IOMMU_2X)
+				msm_iommu_map_extra
+					(d, temp_va, length, 0);
 		}
 
 	}
 
 	node->buf = buf;
 	node->subsystems = subsys_ids;
-	node->length = length;
+	node->length = map_size;
 	node->nsubsys = nsubsys;
 
 	if (add_buffer(node)) {
