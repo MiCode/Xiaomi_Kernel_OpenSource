@@ -2499,17 +2499,6 @@ static int32_t modem_mvm_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: session_id 0x%x\n", __func__, data->dest_port);
 
-	v = voice_get_session(data->dest_port);
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	pr_debug("%s: common data 0x%x, session 0x%x\n",
-		 __func__, (unsigned int)c, (unsigned int)v);
-	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
-				data->payload_size, data->opcode);
-
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("%s:Reset event received in Voice service\n",
 					__func__);
@@ -2524,6 +2513,17 @@ static int32_t modem_mvm_callback(struct apr_client_data *data, void *priv)
 
 		return 0;
 	}
+
+	v = voice_get_session(data->dest_port);
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: common data 0x%x, session 0x%x\n",
+		 __func__, (unsigned int)c, (unsigned int)v);
+	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
+				data->payload_size, data->opcode);
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
@@ -2614,17 +2614,6 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: session_id 0x%x\n", __func__, data->dest_port);
 
-	v = voice_get_session(data->dest_port);
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	pr_debug("%s: common data 0x%x, session 0x%x\n",
-		 __func__, (unsigned int)c, (unsigned int)v);
-	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
-					data->payload_size, data->opcode);
-
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("%s:Reset event received in Voice service\n",
 					__func__);
@@ -2639,6 +2628,17 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 
 		return 0;
 	}
+
+	v = voice_get_session(data->dest_port);
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: common data 0x%x, session 0x%x\n",
+		 __func__, (unsigned int)c, (unsigned int)v);
+	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
+					data->payload_size, data->opcode);
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
@@ -2812,17 +2812,6 @@ static int32_t modem_cvp_callback(struct apr_client_data *data, void *priv)
 
 	pr_debug("%s: session_id 0x%x\n", __func__, data->dest_port);
 
-	v = voice_get_session(data->dest_port);
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	pr_debug("%s: common data 0x%x, session 0x%x\n",
-		 __func__, (unsigned int)c, (unsigned int)v);
-	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
-				data->payload_size, data->opcode);
-
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("%s:Reset event received in Voice service\n",
 					__func__);
@@ -2837,6 +2826,17 @@ static int32_t modem_cvp_callback(struct apr_client_data *data, void *priv)
 
 		return 0;
 	}
+
+	v = voice_get_session(data->dest_port);
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: common data 0x%x, session 0x%x\n",
+		 __func__, (unsigned int)c, (unsigned int)v);
+	pr_debug("%s: Payload Length = %d, opcode=%x\n", __func__,
+				data->payload_size, data->opcode);
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		if (data->payload_size) {
