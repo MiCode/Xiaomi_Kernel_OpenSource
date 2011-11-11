@@ -919,6 +919,7 @@ static void smd_state_change(struct smd_channel *ch,
 		if (ch->send->state == SMD_SS_OPENED) {
 			ch_set_state(ch, SMD_SS_CLOSING);
 			ch->current_packet = 0;
+			ch->pending_pkt_sz = 0;
 			ch->notify(ch->priv, SMD_EVENT_CLOSE);
 		}
 		break;
