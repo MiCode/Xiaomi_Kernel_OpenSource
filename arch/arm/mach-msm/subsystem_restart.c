@@ -252,6 +252,8 @@ static void do_epoch_check(struct subsys_data *subsys)
 		goto out;
 
 	r_log = kmalloc(sizeof(struct restart_log), GFP_KERNEL);
+	if (!r_log)
+		goto out;
 	r_log->subsys = subsys;
 	do_gettimeofday(&r_log->time);
 	curr_time = &r_log->time;
