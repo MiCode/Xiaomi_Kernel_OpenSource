@@ -2205,6 +2205,7 @@ static struct branch_clk mfc_div2_clk = {
 static struct clk_freq_tbl clk_tbl_spi[] = {
 	F_MND8(       0,  0,  0, gnd,  1,   0,     0),
 	F_MND8( 9963243, 19, 12, pll3, 4,   2,    37),
+	F_MND8(24576000, 19, 12, lpxo, 1,   0,     0),
 	F_MND8(26331429, 19, 12, pll3, 4,   1,     7),
 	F_END,
 };
