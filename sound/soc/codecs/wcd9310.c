@@ -93,6 +93,7 @@ struct tabla_priv {
 	bool clock_active;
 	bool config_mode_active;
 	bool mbhc_polling_active;
+	bool fake_insert_context;
 	int buttons_pressed;
 
 	struct tabla_mbhc_calibration *calibration;
@@ -3301,6 +3302,16 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 			0x90, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
+	if (priv->fake_insert_context) {
+		pr_debug("%s: fake context interrupt, reset insertion\n",
+			__func__);
+		priv->fake_insert_context = false;
+		tabla_codec_shutdown_hs_polling(codec);
+		tabla_codec_enable_hs_detect(codec, 1);
+		return IRQ_HANDLED;
+	}
+
+
 	ldo_h_on = snd_soc_read(codec, TABLA_A_LDO_H_MODE_1) & 0x80;
 	micb_cfilt_on = snd_soc_read(codec,
 					priv->mbhc_bias_regs.cfilt_ctl) & 0x80;
@@ -3343,7 +3354,25 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	if (mic_voltage > threshold_fake_insert) {
 		pr_debug("%s: Fake insertion interrupt, mic_voltage = %x\n",
 			__func__, mic_voltage);
-		tabla_codec_enable_hs_detect(codec, 1);
+
+		/* Disable HPH trigger and enable MIC line trigger */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12, 0x00);
+
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg, 0x60,
+			priv->calibration->mic_current << 5);
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
+			0x80, 0x80);
+		usleep_range(priv->calibration->mic_pid,
+			priv->calibration->mic_pid);
+		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
+			0x10, 0x10);
+
+		/* Setup for insertion detection */
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
+		priv->fake_insert_context = true;
+		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
+
 	} else if (mic_voltage < threshold_no_mic) {
 		pr_debug("%s: Headphone Detected, mic_voltage = %x\n",
 			__func__, mic_voltage);
@@ -3711,6 +3740,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->clock_active = false;
 	tabla->config_mode_active = false;
 	tabla->mbhc_polling_active = false;
+	tabla->fake_insert_context = false;
 	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
