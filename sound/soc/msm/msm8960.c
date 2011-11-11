@@ -919,6 +919,15 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.platform_name  = "msm-pcm-afe",
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "MSM8960 Compr",
+		.stream_name = "COMPR",
+		.cpu_dai_name	= "MultiMedia4",
+		.platform_name  = "msm-compr-dsp",
+		.dynamic = 1,
+		.dsp_link = &lpa_fe_media,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA4,
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
