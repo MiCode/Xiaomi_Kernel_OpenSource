@@ -4638,6 +4638,8 @@ DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
 
 static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_usb_hs3_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_usb_hs4_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc3_clk, &dfab_clk.c);
@@ -5092,8 +5094,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("ref_clk",		tsif_ref_clk.c,		NULL),
 	CLK_LOOKUP("core_clk",		tssc_clk.c,		NULL),
 	CLK_LOOKUP("usb_hs_clk",	usb_hs1_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("core_clk",          usb_hs3_xcvr_clk.c,     NULL),
-	CLK_LOOKUP("core_clk",          usb_hs4_xcvr_clk.c,     NULL),
+	CLK_LOOKUP("core_clk",          usb_hs3_xcvr_clk.c,  "msm_ehci_host.0"),
+	CLK_LOOKUP("core_clk",          usb_hs4_xcvr_clk.c,  "msm_ehci_host.1"),
 	CLK_LOOKUP("usb_fs_src_clk",	usb_fs1_src_clk.c,	NULL),
 	CLK_LOOKUP("usb_fs_clk",	usb_fs1_xcvr_clk.c,	NULL),
 	CLK_LOOKUP("usb_fs_sys_clk",	usb_fs1_sys_clk.c,	NULL),
@@ -5112,8 +5114,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		NULL),
 	CLK_LOOKUP("usb_fs_pclk",	usb_fs1_p_clk.c,	NULL),
 	CLK_LOOKUP("usb_hs_pclk",	usb_hs1_p_clk.c,	NULL),
-	CLK_LOOKUP("iface_clk",         usb_hs3_p_clk.c,        NULL),
-	CLK_LOOKUP("iface_clk",         usb_hs4_p_clk.c,        NULL),
+	CLK_LOOKUP("iface_clk",         usb_hs3_p_clk.c,     "msm_ehci_host.0"),
+	CLK_LOOKUP("iface_clk",         usb_hs4_p_clk.c,     "msm_ehci_host.1"),
 	CLK_LOOKUP("iface_clk",		sdc1_p_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",		sdc2_p_clk.c,		"msm_sdcc.2"),
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c,		"msm_sdcc.3"),
@@ -5249,6 +5251,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("core_clk",		gfx3d_axi_clk.c,	NULL),
 	CLK_DUMMY("dfab_dsps_clk",	DFAB_DSPS_CLK,		NULL, 0),
 	CLK_DUMMY("dfab_usb_hs_clk",	DFAB_USB_HS_CLK,	NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_USB_HS3_CLK, "msm_ehci_host.0", 0),
+	CLK_DUMMY("bus_clk",		DFAB_USB_HS4_CLK, "msm_ehci_host.1", 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC1_CLK,		NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC2_CLK,		NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC3_CLK,		NULL, 0),
