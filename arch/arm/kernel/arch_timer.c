@@ -25,6 +25,7 @@
 static unsigned long arch_timer_rate;
 static int arch_timer_ppi;
 static int arch_timer_ppi2;
+static DEFINE_CLOCK_DATA(cd);
 
 static struct clock_event_device __percpu *arch_timer_evt;
 
@@ -225,6 +226,30 @@ static struct clocksource clocksource_counter = {
 	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
+static u32 arch_counter_get_cntvct32(void)
+{
+	cycle_t cntvct;
+
+	cntvct = arch_counter_get_cntvct();
+
+	/*
+	 * The sched_clock infrastructure only knows about counters
+	 * with at most 32bits. Forget about the upper 24 bits for the
+	 * time being...
+	 */
+	return (u32)(cntvct & (u32)~0);
+}
+
+DEFINE_SCHED_CLOCK_FUNC(arch_timer_sched_clock)
+{
+	return cyc_to_sched_clock(&cd, arch_counter_get_cntvct32(), (u32)~0);
+}
+
+static void notrace arch_timer_update_sched_clock(void)
+{
+	update_sched_clock(&cd, arch_counter_get_cntvct32(), (u32)~0);
+}
+
 static void __cpuinit arch_timer_teardown(void *data)
 {
 	struct clock_event_device *clk = data;
@@ -281,6 +306,9 @@ int arch_timer_register(struct resource *res, int res_nr)
 		arch_timer_ppi2 = res[1].start;
 
 	clocksource_register_hz(&clocksource_counter, arch_timer_rate);
+
+	init_arch_sched_clock(&cd, arch_timer_update_sched_clock,
+				arch_timer_sched_clock, 32, arch_timer_rate);
 
 	/* Immediately configure the timer on the boot CPU */
 	arch_timer_setup(per_cpu_ptr(arch_timer_evt, smp_processor_id()));
