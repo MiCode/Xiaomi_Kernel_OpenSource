@@ -1029,6 +1029,7 @@ static void bam_init(void)
 	a2_props.virt_addr = a2_virt_addr;
 	a2_props.virt_size = A2_PHYS_SIZE;
 	a2_props.irq = A2_BAM_IRQ;
+	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
 	a2_props.num_pipes = A2_NUM_PIPES;
 	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
 	/* need to free on tear down */
