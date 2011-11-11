@@ -25,6 +25,7 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <sound/q6adm.h>
+#include <sound/q6asm.h>
 #include <sound/q6afe.h>
 #include <sound/tlv.h>
 #include "msm-pcm-routing.h"
@@ -59,6 +60,43 @@ static int msm_route_lpa_vol_control;
 static const DECLARE_TLV_DB_SCALE(lpa_rx_vol_gain, 0,
 			INT_LPA_RX_VOL_MAX_STEPS, 0);
 
+/* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
+#define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
+
+enum {
+	EQ_BAND1 = 0,
+	EQ_BAND2,
+	EQ_BAND3,
+	EQ_BAND4,
+	EQ_BAND5,
+	EQ_BAND6,
+	EQ_BAND7,
+	EQ_BAND8,
+	EQ_BAND9,
+	EQ_BAND10,
+	EQ_BAND11,
+	EQ_BAND12,
+	EQ_BAND_MAX,
+};
+
+struct msm_audio_eq_band {
+	uint16_t     band_idx; /* The band index, 0 .. 11 */
+	uint32_t     filter_type; /* Filter band type */
+	uint32_t     center_freq_hz; /* Filter band center frequency */
+	uint32_t     filter_gain; /* Filter band initial gain (dB) */
+			/* Range is +12 dB to -12 dB with 1dB increments. */
+	uint32_t     q_factor;
+} __packed;
+
+struct msm_audio_eq_stream_config {
+	uint32_t	enable; /* Number of consequtive bands specified */
+	uint32_t	num_bands;
+	struct msm_audio_eq_band	eq_bands[EQ_BAND_MAX];
+} __packed;
+
+struct msm_audio_eq_stream_config	eq_data[MAX_EQ_SESSIONS];
+
+static void msm_send_eq_values(int eq_idx);
 /* This array is indexed by back-end DAI ID defined in msm-pcm-routing.h
  * If new back-end is defined, add new back-end DAI ID at the end of enum
  */
@@ -132,6 +170,9 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 
 	payload.num_copps = 0; /* only RX needs to use payload */
 	fe_dai_map[fedai_id][session_type] = dspst_id;
+	/* re-enable EQ if active */
+	if (eq_data[fedai_id].enable)
+		msm_send_eq_values(fedai_id);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if ((afe_get_port_type(msm_bedais[i].port_id) ==
 			port_type) && msm_bedais[i].active &&
@@ -448,6 +489,122 @@ static int msm_routing_set_lpa_vol_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static void msm_send_eq_values(int eq_idx)
+{
+	int result;
+	struct audio_client *ac =
+		q6asm_get_audio_client(fe_dai_map[eq_idx][SESSION_TYPE_RX]);
+
+	if (ac == NULL) {
+		pr_err("%s: Could not get audio client for session: %d\n",
+		       __func__, fe_dai_map[eq_idx][SESSION_TYPE_RX]);
+		goto done;
+	}
+
+	result = q6asm_equalizer(ac, &eq_data[eq_idx]);
+
+	if (result < 0)
+		pr_err("%s: Call to ASM equalizer failed, returned = %d\n",
+		       __func__, result);
+done:
+	return;
+}
+
+static int msm_routing_get_eq_enable_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+
+	pr_debug("%s: EQ #%d enable %d\n", __func__,
+		eq_idx, eq_data[eq_idx].enable);
+	return eq_data[eq_idx].enable;
+}
+
+static int msm_routing_put_eq_enable_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int value = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: EQ #%d enable %d\n", __func__,
+		eq_idx, value);
+	eq_data[eq_idx].enable = value;
+
+	msm_send_eq_values(eq_idx);
+	return 0;
+}
+
+static int msm_routing_get_eq_band_count_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+
+	pr_debug("%s: EQ #%d bands %d\n", __func__,
+		eq_idx, eq_data[eq_idx].num_bands);
+	return eq_data[eq_idx].num_bands;
+}
+
+static int msm_routing_put_eq_band_count_audio_mixer(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int value = ucontrol->value.integer.value[0];
+
+
+	pr_debug("%s: EQ #%d bands %d\n", __func__,
+		eq_idx, value);
+	eq_data[eq_idx].num_bands = value;
+	return 0;
+}
+
+static int msm_routing_get_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	pr_debug("%s: band_idx = %d\n", __func__,
+			eq_data[eq_idx].eq_bands[band_idx].band_idx);
+	pr_debug("%s: filter_type = %d\n", __func__,
+			eq_data[eq_idx].eq_bands[band_idx].filter_type);
+	pr_debug("%s: center_freq_hz = %d\n", __func__,
+			eq_data[eq_idx].eq_bands[band_idx].center_freq_hz);
+	pr_debug("%s: filter_gain = %d\n", __func__,
+			eq_data[eq_idx].eq_bands[band_idx].filter_gain);
+	pr_debug("%s: q_factor = %d\n", __func__,
+			eq_data[eq_idx].eq_bands[band_idx].q_factor);
+	return 0;
+}
+
+static int msm_routing_put_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int eq_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->reg;
+	int band_idx = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	eq_data[eq_idx].eq_bands[band_idx].band_idx =
+					ucontrol->value.integer.value[0];
+	eq_data[eq_idx].eq_bands[band_idx].filter_type =
+					ucontrol->value.integer.value[1];
+	eq_data[eq_idx].eq_bands[band_idx].center_freq_hz =
+					ucontrol->value.integer.value[2];
+	eq_data[eq_idx].eq_bands[band_idx].filter_gain =
+					ucontrol->value.integer.value[3];
+	eq_data[eq_idx].eq_bands[band_idx].q_factor =
+					ucontrol->value.integer.value[4];
+	return 0;
+}
+
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_I2S_RX ,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
@@ -664,6 +821,180 @@ static const struct snd_kcontrol_new lpa_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("LPA RX Volume", SND_SOC_NOPM, 0,
 	INT_LPA_RX_VOL_GAIN, 0, msm_routing_get_lpa_vol_mixer,
 	msm_routing_set_lpa_vol_mixer, lpa_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
+	msm_routing_put_eq_enable_mixer),
+	SOC_SINGLE_EXT("MultiMedia2 EQ Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_eq_enable_mixer,
+	msm_routing_put_eq_enable_mixer),
+	SOC_SINGLE_EXT("MultiMedia3 EQ Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 1, 0, msm_routing_get_eq_enable_mixer,
+	msm_routing_put_eq_enable_mixer),
+};
+
+static const struct snd_kcontrol_new eq_band_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1 EQ Band Count", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 11, 0,
+	msm_routing_get_eq_band_count_audio_mixer,
+	msm_routing_put_eq_band_count_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia2 EQ Band Count", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 11, 0,
+	msm_routing_get_eq_band_count_audio_mixer,
+	msm_routing_put_eq_band_count_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia3 EQ Band Count", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 11, 0,
+	msm_routing_get_eq_band_count_audio_mixer,
+	msm_routing_put_eq_band_count_audio_mixer),
+};
+
+static const struct snd_kcontrol_new eq_coeff_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band1", EQ_BAND1,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band2", EQ_BAND2,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band3", EQ_BAND3,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band4", EQ_BAND4,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band5", EQ_BAND5,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band6", EQ_BAND6,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band7", EQ_BAND7,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band8", EQ_BAND8,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band9", EQ_BAND9,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band10", EQ_BAND10,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band11", EQ_BAND11,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia1 EQ Band12", EQ_BAND12,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band1", EQ_BAND1,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band2", EQ_BAND2,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band3", EQ_BAND3,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band4", EQ_BAND4,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band5", EQ_BAND5,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band6", EQ_BAND6,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band7", EQ_BAND7,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band8", EQ_BAND8,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band9", EQ_BAND9,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band10", EQ_BAND10,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band11", EQ_BAND11,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia2 EQ Band12", EQ_BAND12,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band1", EQ_BAND1,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band2", EQ_BAND2,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band3", EQ_BAND3,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band4", EQ_BAND4,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band5", EQ_BAND5,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band6", EQ_BAND6,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band7", EQ_BAND7,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band8", EQ_BAND8,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band9", EQ_BAND9,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band10", EQ_BAND10,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band11", EQ_BAND11,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
+	SOC_SINGLE_MULTI_EXT("MultiMedia3 EQ Band12", EQ_BAND12,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 255, 0, 5,
+	msm_routing_get_eq_band_audio_mixer,
+	msm_routing_put_eq_band_audio_mixer),
 };
 
 static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
@@ -994,6 +1325,18 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				lpa_vol_mixer_controls,
 			ARRAY_SIZE(lpa_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				eq_enable_mixer_controls,
+			ARRAY_SIZE(eq_enable_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				eq_band_mixer_controls,
+			ARRAY_SIZE(eq_band_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				eq_coeff_mixer_controls,
+			ARRAY_SIZE(eq_coeff_mixer_controls));
 	return 0;
 }
 
