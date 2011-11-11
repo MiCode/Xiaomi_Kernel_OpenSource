@@ -259,27 +259,29 @@ config USB_YUREX
 	  To compile this driver as a module, choose M here: the
 	  module will be called yurex.
 
-config USB_QCOM_DIAG
-	tristate "USB Qualcomm diag port driver"
-	depends on USB && !USB_SERIAL_QUALCOMM
-	default n
+config USB_QCOM_DIAG_BRIDGE
+	tristate "USB Qualcomm diagnostic bridge driver"
+	depends on USB
 	help
-	  Say Y here if you want to use the diag ports provided
-	  by many Qualcomm chipsets.
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver communicates with the
+	  diagnostic interface and allows for bridging with the diag forwarding
+	  driver.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called qcaux.  If unsure, choose N.
+	  module will be called diag_bridge.  If unsure, choose N.
 
-config USB_QCOM_DIAG_TEST
-	tristate "USB Qualcomm diag port unit test driver"
-	depends on USB && USB_QCOM_DIAG
-	default n
+config USB_QCOM_DIAG_BRIDGE_TEST
+	tristate "USB Qualcomm diagnostic bridge driver test"
+	depends on USB && USB_QCOM_DIAG_BRIDGE
 	help
-	  Say Y here if you want to use unit test diag port provided
-	  by many Qualcomm chipsets.
+	  Say Y here if you want to enable the test hook for the
+	  Qualcomm diag bridge driver. When enabled, this will create
+	  a debugfs file entry named "diag_bridge_test" which can be used
+	  to send a ping command to the diag port of the modem over USB.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called qcaux.  If unsure, choose N.
+	  module will be called diag_bridge_test.  If unsure, choose N.
 
 config USB_QCOM_DUN_BRIDGE
 	tristate "USB Qualcomm modem DUN bridge driver"

@@ -29,7 +29,7 @@ obj-$(CONFIG_USB_YUREX)			+= yurex.o
 
 obj-$(CONFIG_USB_SISUSBVGA)		+= sisusbvga/
 
-obj-$(CONFIG_USB_QCOM_DIAG)		+= diag_usb.o
-obj-$(CONFIG_USB_QCOM_DIAG_TEST)	+= diag_bridge_test.o
+obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE)	+= diag_bridge.o
+obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE_TEST)	+= diag_bridge_test.o
 obj-$(CONFIG_USB_QCOM_DUN_BRIDGE)	+= dun_bridge.o
 obj-$(CONFIG_USB_QCOM_DUN_BRIDGE_TEST)	+= dun_bridge_test.o
