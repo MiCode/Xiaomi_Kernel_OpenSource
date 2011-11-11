@@ -2608,7 +2608,10 @@ int mgmt_user_confirm_request(u16 index, u8 event,
 	loc_mitm = conn->auth_type & 0x01;
 	rem_mitm = conn->remote_auth & 0x01;
 
-	if (loc_cap == 0x01 && (rem_cap == 0x00 || rem_cap == 0x03))
+	if ((conn->auth_type & HCI_AT_DEDICATED_BONDING) &&
+			conn->auth_initiator && rem_cap == 0x03)
+		ev.auto_confirm = 1;
+	else if (loc_cap == 0x01 && (rem_cap == 0x00 || rem_cap == 0x03))
 		goto no_auto_confirm;
 
 
