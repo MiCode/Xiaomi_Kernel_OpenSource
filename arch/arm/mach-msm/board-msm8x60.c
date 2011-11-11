@@ -993,7 +993,6 @@ static struct regulator *ldo6_3p3;
 static struct regulator *ldo7_1p8;
 static struct regulator *vdd_cx;
 #define PMICID_INT		PM8058_GPIO_IRQ(PM8058_IRQ_BASE, 36)
-#define PMIC_ID_GPIO		36
 notify_vbus_state notify_vbus_state_func_ptr;
 static int usb_phy_susp_dig_vol = 750000;
 static int pmic_id_notif_supported;
@@ -1032,42 +1031,10 @@ static irqreturn_t pmic_id_on_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int msm_hsusb_phy_id_setup_init(int init)
-{
-	unsigned ret;
-
-	if (init) {
-		ret = pm8901_mpp_config_digital_out(1,
-			PM8901_MPP_DIG_LEVEL_L5, 1);
-		if (ret < 0)
-			pr_err("%s:MPP2 configuration failed\n", __func__);
-	} else {
-		ret = pm8901_mpp_config_digital_out(1,
-			PM8901_MPP_DIG_LEVEL_L5, 0);
-		if (ret < 0)
-			pr_err("%s:MPP2 un config failed\n", __func__);
-	}
-	return ret;
-}
-
 static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 {
 	unsigned ret = -ENODEV;
 
-	struct pm8058_gpio pmic_id_cfg = {
-		.direction	= PM_GPIO_DIR_IN,
-		.pull		= PM_GPIO_PULL_UP_1P5,
-		.function	= PM_GPIO_FUNC_NORMAL,
-		.vin_sel	= 2,
-		.inv_int_pol	= 0,
-	};
-	struct pm8058_gpio pmic_id_uncfg = {
-		.direction	= PM_GPIO_DIR_IN,
-		.pull		= PM_GPIO_PULL_NO,
-		.function	= PM_GPIO_FUNC_NORMAL,
-		.vin_sel	= 2,
-		.inv_int_pol	= 0,
-	};
 	if (!callback)
 		return -EINVAL;
 
@@ -1091,34 +1058,37 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 
 	if (init) {
 		notify_vbus_state_func_ptr = callback;
-		INIT_DELAYED_WORK(&pmic_id_det, pmic_id_detect);
-		ret = pm8058_gpio_config(PMIC_ID_GPIO, &pmic_id_cfg);
+		ret = pm8901_mpp_config_digital_out(1,
+			PM8901_MPP_DIG_LEVEL_L5, 1);
 		if (ret) {
-			pr_err("%s:return val of pm8058_gpio_config: %d\n",
-						__func__,  ret);
-			return ret;
+			pr_err("%s: MPP2 configuration failed\n", __func__);
+			return -ENODEV;
 		}
+		INIT_DELAYED_WORK(&pmic_id_det, pmic_id_detect);
 		ret = request_threaded_irq(PMICID_INT, NULL, pmic_id_on_irq,
 			(IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING),
 						"msm_otg_id", NULL);
 		if (ret) {
+			pm8901_mpp_config_digital_out(1,
+					PM8901_MPP_DIG_LEVEL_L5, 0);
 			pr_err("%s:pmic_usb_id interrupt registration failed",
 					__func__);
 			return ret;
 		}
+		/* Notify the initial Id status */
+		pmic_id_detect(&pmic_id_det.work);
 		msm_otg_pdata.pmic_id_irq = PMICID_INT;
 	} else {
-		usb_phy_susp_dig_vol = 750000;
 		free_irq(PMICID_INT, 0);
-		ret = pm8058_gpio_config(PMIC_ID_GPIO, &pmic_id_uncfg);
-		if (ret) {
-			pr_err("%s: return val of pm8058_gpio_config: %d\n",
-						__func__,  ret);
-			return ret;
-		}
 		msm_otg_pdata.pmic_id_irq = 0;
 		cancel_delayed_work_sync(&pmic_id_det);
 		notify_vbus_state_func_ptr = NULL;
+		ret = pm8901_mpp_config_digital_out(1,
+			PM8901_MPP_DIG_LEVEL_L5, 0);
+		if (ret) {
+			pr_err("%s:MPP2 configuration failed\n", __func__);
+			return -ENODEV;
+		}
 	}
 	return 0;
 }
@@ -1423,7 +1393,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bam_disable		 = 1,
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	.pmic_id_notif_init = msm_hsusb_pmic_id_notif_init,
-	.phy_id_setup_init = msm_hsusb_phy_id_setup_init,
 #endif
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	.vbus_power = msm_hsusb_vbus_power,
@@ -5460,7 +5429,7 @@ static int pm8058_gpios_init(void)
 			36,
 			{
 				.direction	= PM_GPIO_DIR_IN,
-				.pull		= PM_GPIO_PULL_NO,
+				.pull		= PM_GPIO_PULL_UP_1P5,
 				.function	= PM_GPIO_FUNC_NORMAL,
 				.vin_sel	= 2,
 				.inv_int_pol	= 0,
