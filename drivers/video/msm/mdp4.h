@@ -222,6 +222,15 @@ enum {
 
 #define MDP4_MAX_PLANE		4
 
+struct mdp4_hsic_regs {
+	int32_t params[NUM_HSIC_PARAM];
+	int32_t conv_matrix[3][3];
+	int32_t	pre_limit[6];
+	int32_t post_limit[6];
+	int32_t pre_bias[3];
+	int32_t post_bias[3];
+	int32_t dirty;
+};
 
 struct mdp4_overlay_pipe {
 	uint32 pipe_used;
@@ -298,6 +307,7 @@ struct mdp4_overlay_pipe {
 	uint32 dmap_cnt;
 	uint32 blt_end;
 	uint32 luma_align_size;
+	struct mdp4_hsic_regs hsic_regs;
 	struct completion dmas_comp;
 	struct mdp_overlay req_data;
 };
@@ -637,4 +647,6 @@ void mdp4_writeback_dma_stop(struct msm_fb_data_type *mfd);
 int mdp4_writeback_init(struct fb_info *info);
 int mdp4_writeback_terminate(struct fb_info *info);
 
+void mdp4_hsic_set(struct mdp4_overlay_pipe *pipe, struct dpp_ctrl *ctrl);
+void mdp4_hsic_update(struct mdp4_overlay_pipe *pipe);
 #endif /* MDP_H */
