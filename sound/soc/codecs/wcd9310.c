@@ -37,6 +37,8 @@
 #define TABLA_RX_DAI_ID 1
 #define TABLA_TX_DAI_ID 2
 
+#define TABLA_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | SND_JACK_OC_HPHR)
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -84,6 +86,14 @@ struct tabla_priv {
 	struct mbhc_micbias_regs mbhc_bias_regs;
 	u8 cfilt_k_value;
 	bool mbhc_micbias_switched;
+
+	u32 hph_status; /* track headhpone status */
+	/* define separate work for left and right headphone OCP to avoid
+	 * additional checking on which OCP event to report so no locking
+	 * to ensure synchronization is required
+	 */
+	struct work_struct hphlocp_work; /* reporting left hph ocp off */
+	struct work_struct hphrocp_work; /* reporting right hph ocp off */
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1285,6 +1295,42 @@ static int tabla_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void hphocp_off_report(struct tabla_priv *tabla,
+	u32 jack_status, int irq)
+{
+	struct snd_soc_codec *codec;
+
+	if (tabla) {
+		pr_info("%s: clear ocp status %x\n", __func__, jack_status);
+		codec = tabla->codec;
+		tabla->hph_status &= ~jack_status;
+		if (tabla->headset_jack)
+			snd_soc_jack_report(tabla->headset_jack,
+			tabla->hph_status, TABLA_JACK_MASK);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+		0x00);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+		0x10);
+		tabla_enable_irq(codec->control_data, irq);
+	} else {
+		pr_err("%s: Bad tabla private data\n", __func__);
+	}
+}
+
+static void hphlocp_off_report(struct work_struct *work)
+{
+	struct tabla_priv *tabla = container_of(work, struct tabla_priv,
+		hphlocp_work);
+	hphocp_off_report(tabla, SND_JACK_OC_HPHL, TABLA_IRQ_HPH_PA_OCPL_FAULT);
+}
+
+static void hphrocp_off_report(struct work_struct *work)
+{
+	struct tabla_priv *tabla = container_of(work, struct tabla_priv,
+		hphrocp_work);
+	hphocp_off_report(tabla, SND_JACK_OC_HPHR, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+}
+
 static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -1305,7 +1351,17 @@ static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
-
+		/* schedule work is required because at the time HPH PA DAPM
+		 * event callback is called by DAPM framework, CODEC dapm mutex
+		 * would have been locked while snd_soc_jack_report also
+		 * attempts to acquire same lock.
+		 */
+		if ((tabla->hph_status & SND_JACK_OC_HPHL) &&
+			strnstr(w->name, "HPHL", 4))
+			schedule_work(&tabla->hphlocp_work);
+		else if ((tabla->hph_status & SND_JACK_OC_HPHR) &&
+			strnstr(w->name, "HPHR", 4))
+			schedule_work(&tabla->hphrocp_work);
 		if (tabla->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
 
@@ -2495,6 +2551,8 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	struct tabla_mbhc_calibration *calibration)
 {
 	struct tabla_priv *tabla;
+	int rc;
+
 	if (!codec || !calibration) {
 		pr_err("Error: no codec or calibration\n");
 		return -EINVAL;
@@ -2506,7 +2564,20 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	tabla_get_mbhc_micbias_regs(codec, &tabla->mbhc_bias_regs);
 
 	INIT_DELAYED_WORK(&tabla->btn0_dwork, btn0_lpress_fn);
-	return tabla_codec_enable_hs_detect(codec, 1);
+	INIT_WORK(&tabla->hphlocp_work, hphlocp_off_report);
+	INIT_WORK(&tabla->hphrocp_work, hphrocp_off_report);
+	rc =  tabla_codec_enable_hs_detect(codec, 1);
+
+	if (!IS_ERR_VALUE(rc)) {
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+			0x10);
+		tabla_enable_irq(codec->control_data,
+			TABLA_IRQ_HPH_PA_OCPL_FAULT);
+		tabla_enable_irq(codec->control_data,
+			TABLA_IRQ_HPH_PA_OCPR_FAULT);
+	}
+
+	return rc;
 }
 EXPORT_SYMBOL_GPL(tabla_hs_detect);
 
@@ -2636,6 +2707,52 @@ static void tabla_codec_shutdown_hs_polling(struct snd_soc_codec *codec)
 	tabla->mbhc_polling_active = false;
 }
 
+static irqreturn_t tabla_hphl_ocp_irq(int irq, void *data)
+{
+	struct tabla_priv *tabla = data;
+	struct snd_soc_codec *codec;
+
+	pr_info("%s: received HPHL OCP irq\n", __func__);
+
+	if (tabla) {
+		codec = tabla->codec;
+		tabla_disable_irq(codec->control_data,
+			TABLA_IRQ_HPH_PA_OCPL_FAULT);
+		tabla->hph_status |= SND_JACK_OC_HPHL;
+		if (tabla->headset_jack) {
+			snd_soc_jack_report(tabla->headset_jack,
+				tabla->hph_status, TABLA_JACK_MASK);
+		}
+	} else {
+		pr_err("%s: Bad tabla private data\n", __func__);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
+{
+	struct tabla_priv *tabla = data;
+	struct snd_soc_codec *codec;
+
+	pr_info("%s: received HPHR OCP irq\n", __func__);
+
+	if (tabla) {
+		codec = tabla->codec;
+		tabla_disable_irq(codec->control_data,
+			TABLA_IRQ_HPH_PA_OCPR_FAULT);
+		tabla->hph_status |= SND_JACK_OC_HPHR;
+		if (tabla->headset_jack) {
+			snd_soc_jack_report(tabla->headset_jack,
+				tabla->hph_status, TABLA_JACK_MASK);
+		}
+	} else {
+		pr_err("%s: Bad tabla private data\n", __func__);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
@@ -2683,10 +2800,11 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		 */
 		if (priv->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
+		priv->hph_status &= ~SND_JACK_HEADSET;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
-			snd_soc_jack_report(priv->headset_jack, 0,
-				SND_JACK_HEADSET);
+			snd_soc_jack_report(priv->headset_jack,
+				priv->hph_status, TABLA_JACK_MASK);
 		}
 		tabla_codec_shutdown_hs_removal_detect(codec);
 		tabla_codec_enable_hs_detect(codec, 1);
@@ -2702,12 +2820,12 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	} else if (mic_voltage < threshold_no_mic) {
 		pr_debug("%s: Headphone Detected, mic_voltage = %x\n",
 			__func__, mic_voltage);
-
+		priv->hph_status |= SND_JACK_HEADPHONE;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
 				SND_JACK_HEADPHONE);
 			snd_soc_jack_report(priv->headset_jack,
-				SND_JACK_HEADPHONE, SND_JACK_HEADSET);
+				priv->hph_status, TABLA_JACK_MASK);
 		}
 		tabla_codec_shutdown_hs_polling(codec);
 		tabla_codec_enable_hs_detect(codec, 0);
@@ -2715,11 +2833,12 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	} else {
 		pr_debug("%s: Headset detected, mic_voltage = %x\n",
 			__func__, mic_voltage);
+		priv->hph_status |= SND_JACK_HEADSET;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
 				SND_JACK_HEADSET);
 			snd_soc_jack_report(priv->headset_jack,
-				SND_JACK_HEADSET, SND_JACK_HEADSET);
+				priv->hph_status,  TABLA_JACK_MASK);
 		}
 		tabla_codec_start_hs_polling(codec);
 	}
@@ -2754,10 +2873,11 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 		 */
 		if (priv->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
+		priv->hph_status &= ~SND_JACK_HEADSET;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
 			snd_soc_jack_report(priv->headset_jack, 0,
-				SND_JACK_HEADSET);
+				 TABLA_JACK_MASK);
 		}
 		tabla_codec_shutdown_hs_polling(codec);
 
@@ -2888,6 +3008,21 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 		snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN,
 			0x13, value);
 	}
+
+	if (pdata->ocp.use_pdata) {
+		/* not defined in CODEC specification */
+		if (pdata->ocp.hph_ocp_limit == 1 ||
+			pdata->ocp.hph_ocp_limit == 5) {
+			rc = -EINVAL;
+			goto done;
+		}
+		snd_soc_update_bits(codec, TABLA_A_RX_COM_OCP_CTL,
+			0x0F, pdata->ocp.num_attempts);
+		snd_soc_write(codec, TABLA_A_RX_COM_OCP_COUNT,
+			((pdata->ocp.run_time << 4) | pdata->ocp.wait_time));
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL,
+			0xE0, (pdata->ocp.hph_ocp_limit << 5));
+	}
 done:
 	return rc;
 }
@@ -2956,6 +3091,8 @@ static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 }
 
 static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
+	/* Initialize current threshold to 350MA */
+	{TABLA_A_RX_HPH_OCP_CTL, 0xE0, 0x60},
 
 	{TABLA_A_QFUSE_CTL, 0xFF, 0x03},
 
@@ -3118,12 +3255,34 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		tabla_interface_reg_write(codec->control_data,
 			TABLA_SLIM_PGD_PORT_INT_EN0 + i, 0xFF);
 
+	ret = tabla_request_irq(codec->control_data,
+		TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla_hphl_ocp_irq,
+		"HPH_L OCP detect", tabla);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TABLA_IRQ_HPH_PA_OCPL_FAULT);
+		goto err_hphl_ocp_irq;
+	}
+
+	ret = tabla_request_irq(codec->control_data,
+		TABLA_IRQ_HPH_PA_OCPR_FAULT, tabla_hphr_ocp_irq,
+		"HPH_R OCP detect", tabla);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TABLA_IRQ_HPH_PA_OCPR_FAULT);
+		goto err_hphr_ocp_irq;
+	}
+
 #ifdef CONFIG_DEBUG_FS
 	debug_tabla_priv = tabla;
 #endif
 
 	return ret;
 
+err_hphr_ocp_irq:
+	tabla_free_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla);
+err_hphl_ocp_irq:
+	tabla_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
 err_slimbus_irq:
 	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
 err_release_irq:

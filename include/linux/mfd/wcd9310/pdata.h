@@ -27,6 +27,30 @@
 
 #define MAX_AMIC_CHANNEL 7
 
+#define TABLA_OCP_300_MA 0x0
+#define TABLA_OCP_350_MA 0x2
+#define TABLA_OCP_365_MA 0x3
+#define TABLA_OCP_150_MA 0x4
+#define TABLA_OCP_190_MA 0x6
+#define TABLA_OCP_220_MA 0x7
+
+#define TABLA_DCYCLE_255  0x0
+#define TABLA_DCYCLE_511  0x1
+#define TABLA_DCYCLE_767  0x2
+#define TABLA_DCYCLE_1023 0x3
+#define TABLA_DCYCLE_1279 0x4
+#define TABLA_DCYCLE_1535 0x5
+#define TABLA_DCYCLE_1791 0x6
+#define TABLA_DCYCLE_2047 0x7
+#define TABLA_DCYCLE_2303 0x8
+#define TABLA_DCYCLE_2559 0x9
+#define TABLA_DCYCLE_2815 0xA
+#define TABLA_DCYCLE_3071 0xB
+#define TABLA_DCYCLE_3327 0xC
+#define TABLA_DCYCLE_3583 0xD
+#define TABLA_DCYCLE_3839 0xE
+#define TABLA_DCYCLE_4095 0xF
+
 struct tabla_amic {
 	/*legacy mode, txfe_enable and txfe_buff take 7 input
 	 * each bit represent the channel / TXFE number
@@ -62,6 +86,14 @@ struct tabla_micbias_setting {
 	u8 bias4_cfilt_sel;
 };
 
+struct tabla_ocp_setting {
+	unsigned int	use_pdata:1; /* 0 - use sys default as recommended */
+	unsigned int	num_attempts:4; /* up to 15 attempts */
+	unsigned int	run_time:4; /* in duty cycle */
+	unsigned int	wait_time:4; /* in duty cycle */
+	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
+};
+
 struct tabla_pdata {
 	int irq;
 	int irq_base;
@@ -70,6 +102,7 @@ struct tabla_pdata {
 	struct tabla_amic amic_settings;
 	struct slim_device slimbus_slave_device;
 	struct tabla_micbias_setting micbias;
+	struct tabla_ocp_setting ocp;
 };
 
 #endif
