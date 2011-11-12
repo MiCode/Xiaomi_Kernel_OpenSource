@@ -19,11 +19,11 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/pwm.h>
-#include <linux/mfd/pmic8058.h>
+#include <linux/mfd/pm8xxx/core.h>
 #include <linux/pmic8058-pwm.h>
-#include <linux/slab.h>
 
 #define	PM8058_LPG_BANKS		8
 #define	PM8058_PWM_CHANNELS		PM8058_LPG_BANKS	/* MAX=8 */
@@ -179,6 +179,7 @@ static unsigned int pt_t[NUM_PRE_DIVIDE][NUM_CLOCKS] = {
 struct pm8058_pwm_chip;
 
 struct pwm_device {
+	struct device		*dev;
 	int			pwm_id;		/* = bank/channel id */
 	int			in_use;
 	const char		*label;
@@ -188,14 +189,13 @@ struct pwm_device {
 	int			use_lut;	/* Use LUT to output PWM */
 	u8			pwm_ctl[PM8058_LPG_CTL_REGS];
 	int			irq;
-	struct pm8058_pwm_chip	*chip;
+	struct pm8058_pwm_chip  *chip;
 };
 
 struct pm8058_pwm_chip {
 	struct pwm_device	pwm_dev[PM8058_PWM_CHANNELS];
 	u8			bank_mask;
 	struct mutex		pwm_mutex;
-	struct pm8058_chip	*pm_chip;
 	struct pm8058_pwm_pdata	*pdata;
 };
 
@@ -244,9 +244,10 @@ static int pm8058_pwm_bank_enable(struct pwm_device *pwm, int enable)
 	else
 		reg = chip->bank_mask & ~(1 << pwm->pwm_id);
 
-	rc = pm8058_write(chip->pm_chip, SSBI_REG_ADDR_LPG_BANK_EN, &reg, 1);
+	rc = pm8xxx_writeb(pwm->dev->parent,
+				SSBI_REG_ADDR_LPG_BANK_EN, reg);
 	if (rc) {
-		pr_err("pm8058_write(): rc=%d (Enable LPG Bank)\n", rc);
+		pr_err("pm8xxx_write(): rc=%d (Enable LPG Bank)\n", rc);
 		goto bail_out;
 	}
 	chip->bank_mask = reg;
@@ -261,10 +262,10 @@ static int pm8058_pwm_bank_sel(struct pwm_device *pwm)
 	u8	reg;
 
 	reg = pwm->pwm_id;
-	rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_BANK_SEL,
-			     &reg, 1);
+	rc = pm8xxx_writeb(pwm->dev->parent,
+			SSBI_REG_ADDR_LPG_BANK_SEL, reg);
 	if (rc)
-		pr_err("pm8058_write(): rc=%d (Select PWM Bank)\n", rc);
+		pr_err("pm8xxx_write(): rc=%d (Select PWM Bank)\n", rc);
 	return rc;
 }
 
@@ -284,10 +285,10 @@ static int pm8058_pwm_start(struct pwm_device *pwm, int start, int ramp_start)
 		reg &= ~PM8058_PWM_RAMP_GEN_START;
 	}
 
-	rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_CTL(0),
-			  &reg, 1);
+	rc = pm8xxx_writeb(pwm->dev->parent, SSBI_REG_ADDR_LPG_CTL(0),
+									reg);
 	if (rc)
-		pr_err("pm8058_write(): rc=%d (Enable PWM Ctl 0)\n", rc);
+		pr_err("pm8xxx_write(): rc=%d (Enable PWM Ctl 0)\n", rc);
 	else
 		pwm->pwm_ctl[0] = reg;
 	return rc;
@@ -415,15 +416,13 @@ static int pm8058_pwm_change_table(struct pwm_device *pwm, int duty_pct[],
 		cfg1 = (pwm_value >> 1) & 0x80;
 		cfg1 |= start_idx + i;
 
-		rc = pm8058_write(pwm->chip->pm_chip,
-			     SSBI_REG_ADDR_LPG_LUT_CFG0,
-			     &cfg0, 1);
+		rc = pm8xxx_writeb(pwm->dev->parent,
+			     SSBI_REG_ADDR_LPG_LUT_CFG0, cfg0);
 		if (rc)
 			break;
 
-		rc = pm8058_write(pwm->chip->pm_chip,
-			     SSBI_REG_ADDR_LPG_LUT_CFG1,
-			     &cfg1, 1);
+		rc = pm8xxx_writeb(pwm->dev->parent,
+			     SSBI_REG_ADDR_LPG_LUT_CFG1, cfg1);
 		if (rc)
 			break;
 	}
@@ -539,11 +538,11 @@ static int pm8058_pwm_write(struct pwm_device *pwm, int start, int end)
 
 	/* Write in reverse way so 0 would be the last */
 	for (i = end - 1; i >= start; i--) {
-		rc = pm8058_write(pwm->chip->pm_chip,
+		rc = pm8xxx_writeb(pwm->dev->parent,
 				  SSBI_REG_ADDR_LPG_CTL(i),
-				  &pwm->pwm_ctl[i], 1);
+				  pwm->pwm_ctl[i]);
 		if (rc) {
-			pr_err("pm8058_write(): rc=%d (PWM Ctl[%d])\n", rc, i);
+			pr_err("pm8xxx_write(): rc=%d (PWM Ctl[%d])\n", rc, i);
 			return rc;
 		}
 	}
@@ -957,8 +956,8 @@ int pm8058_pwm_config_led(struct pwm_device *pwm, int id,
 	case PM_PWM_LED_2:
 		conf = mode & PM8058_LED_MODE_MASK;
 		conf |= (max_current / 2) << PM8058_LED_CURRENT_SHIFT;
-		rc = pm8058_write(pwm->chip->pm_chip,
-				  SSBI_REG_ADDR_LED(id), &conf, 1);
+		rc = pm8xxx_writeb(pwm->dev->parent,
+				  SSBI_REG_ADDR_LED(id), conf);
 		break;
 
 	case PM_PWM_LED_KPD:
@@ -982,8 +981,8 @@ int pm8058_pwm_config_led(struct pwm_device *pwm, int id,
 		}
 		conf |= (max_current / 20) << PM8058_FLASH_CURRENT_SHIFT;
 		id -= PM_PWM_LED_KPD;
-		rc = pm8058_write(pwm->chip->pm_chip,
-				  SSBI_REG_ADDR_FLASH(id), &conf, 1);
+		rc = pm8xxx_writeb(pwm->dev->parent,
+				  SSBI_REG_ADDR_FLASH(id), conf);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1012,10 +1011,10 @@ int pm8058_pwm_set_dtest(struct pwm_device *pwm, int enable)
 			/* Only Test 1 available */
 			reg |= (1 << PM8058_PWM_DTEST_SHIFT) &
 				PM8058_PWM_DTEST_MASK;
-		rc = pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_TEST,
-				  &reg, 1);
+		rc = pm8xxx_writeb(pwm->dev->parent,
+			SSBI_REG_ADDR_LPG_TEST, reg);
 		if (rc)
-			pr_err("pm8058_write(DTEST=0x%x): rc=%d\n", reg, rc);
+			pr_err("pm8xxx_write(DTEST=0x%x): rc=%d\n", reg, rc);
 
 	}
 	return rc;
@@ -1024,15 +1023,8 @@ EXPORT_SYMBOL(pm8058_pwm_set_dtest);
 
 static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 {
-	struct pm8058_chip	*pm_chip;
 	struct pm8058_pwm_chip	*chip;
 	int	i;
-
-	pm_chip = dev_get_drvdata(pdev->dev.parent);
-	if (pm_chip == NULL) {
-		pr_err("no parent data passed in.\n");
-		return -EFAULT;
-	}
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
 	if (chip == NULL) {
@@ -1043,12 +1035,12 @@ static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 	for (i = 0; i < PM8058_PWM_CHANNELS; i++) {
 		chip->pwm_dev[i].pwm_id = i;
 		chip->pwm_dev[i].chip = chip;
+		chip->pwm_dev[i].dev = &pdev->dev;
 	}
 
 	mutex_init(&chip->pwm_mutex);
 
 	chip->pdata = pdev->dev.platform_data;
-	chip->pm_chip = pm_chip;
 	pwm_chip = chip;
 	platform_set_drvdata(pdev, chip);
 

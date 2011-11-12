@@ -27,6 +27,7 @@
 #define VIB_DRV_SEL_MASK	0xf8
 #define VIB_DRV_SEL_SHIFT	0x03
 #define VIB_DRV_EN_MANUAL_MASK	0xfc
+#define VIB_DRV_LOGIC_SHIFT	0x2
 
 #define VIB_MAX_LEVEL_mV	3100
 #define VIB_MIN_LEVEL_mV	1200
@@ -42,6 +43,40 @@ struct pm8xxx_vib {
 	int level;
 	u8  reg_vib_drv;
 };
+
+static struct pm8xxx_vib *vib_dev;
+
+int pm8xxx_vibrator_config(struct pm8xxx_vib_config *vib_config)
+{
+	u8 reg = 0;
+	int rc;
+
+	if (vib_dev == NULL) {
+		pr_err("%s: vib_dev is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (vib_config->drive_mV) {
+		if ((vib_config->drive_mV < VIB_MIN_LEVEL_mV) ||
+			(vib_config->drive_mV > VIB_MAX_LEVEL_mV)) {
+			pr_err("Invalid vibrator drive strength\n");
+			return -EINVAL;
+		}
+	}
+
+	reg = (vib_config->drive_mV / 100) << VIB_DRV_SEL_SHIFT;
+
+	reg |= (!!vib_config->active_low) << VIB_DRV_LOGIC_SHIFT;
+
+	reg |= vib_config->enable_mode;
+
+	rc = pm8xxx_writeb(vib_dev->dev->parent, VIB_DRV, reg);
+	if (rc)
+		pr_err("%s: pm8xxx write failed: rc=%d\n", __func__, rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_vibrator_config);
 
 /* REVISIT: just for debugging, will be removed in final working version */
 static void __dump_vib_regs(struct pm8xxx_vib *vib, char *msg)
@@ -239,6 +274,8 @@ static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 	pm8xxx_vib_enable(&vib->timed_dev, pdata->initial_vibrate_ms);
 
 	platform_set_drvdata(pdev, vib);
+
+	vib_dev = vib;
 
 	return 0;
 

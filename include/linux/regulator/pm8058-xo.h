@@ -25,6 +25,7 @@
 
 struct pm8058_xo_pdata {
 	struct regulator_init_data	init_data;
+	int id;
 };
 
 #endif

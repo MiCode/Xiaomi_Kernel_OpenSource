@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010,2011 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,10 +10,12 @@
  * GNU General Public License for more details.
  *
  */
-#ifndef __PMIC8058_NFC_H__
-#define __PMIC8058_NFC_H__
+#ifndef __PM8XXX_NFC_H__
+#define __PM8XXX_NFC_H__
 
-struct pm8058_nfc_device;
+struct pm8xxx_nfc_device;
+
+#define PM8XXX_NFC_DEV_NAME		"pm8xxx-nfc"
 
 /* masks, flags and status */
 #define	PM_NFC_VDDLDO_MON_LEVEL		0x0003
@@ -46,32 +48,32 @@ struct pm8058_nfc_device;
 					PM_NFC_VDDLDO_OK_HIGH)
 
 /*
- * pm8058_nfc_request - request a handle to access NFC device
+ * pm8xxx_nfc_request - request a handle to access NFC device
  */
-struct pm8058_nfc_device *pm8058_nfc_request(void);
+struct pm8xxx_nfc_device *pm8xxx_nfc_request(void);
 
 /*
- * pm8058_nfc_config - configure NFC signals
+ * pm8xxx_nfc_config - configure NFC signals
  *
  * @nfcdev: the NFC device
  * @mask: signal mask to configure
  * @flags: control flags
  */
-int pm8058_nfc_config(struct pm8058_nfc_device *nfcdev, u32 mask, u32 flags);
+int pm8xxx_nfc_config(struct pm8xxx_nfc_device *nfcdev, u32 mask, u32 flags);
 
 /*
- * pm8058_nfc_get_status - get NFC status
+ * pm8xxx_nfc_get_status - get NFC status
  *
  * @nfcdev: the NFC device
  * @mask: of status mask to read
  * @status: pointer to the status variable
  */
-int pm8058_nfc_get_status(struct pm8058_nfc_device *nfcdev,
+int pm8xxx_nfc_get_status(struct pm8xxx_nfc_device *nfcdev,
 			  u32 mask, u32 *status);
 
 /*
- * pm8058_nfc_free - free the NFC device
+ * pm8xxx_nfc_free - free the NFC device
  */
-void pm8058_nfc_free(struct pm8058_nfc_device *nfcdev);
+void pm8xxx_nfc_free(struct pm8xxx_nfc_device *nfcdev);
 
-#endif /* __PMIC8058_NFC_H__ */
+#endif /* __PM8XXX_NFC_H__ */

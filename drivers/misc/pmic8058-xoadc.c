@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/msm_adc.h>
-#include <linux/pmic8058-xoadc.h>
+#include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
@@ -54,8 +54,8 @@
 #define ADC_ARB_USRP_DATA1                      0x19C
 
 struct pmic8058_adc {
+	struct device *dev;
 	struct xoadc_platform_data *pdata;
-	struct pm8058_chip *pm_chip;
 	struct adc_properties *adc_prop;
 	struct xoadc_conv_state	conv[2];
 	int xoadc_queue_count;
@@ -144,8 +144,8 @@ static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
 	for (i = 0; i < 2; i++) {
-		rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNTRL,
-					&data_arb_cntrl, 1);
+		rc = pm8xxx_writeb(adc_pmic->dev->parent, ADC_ARB_USRP_CNTRL,
+							data_arb_cntrl);
 		if (rc < 0) {
 			pr_debug("%s: PM8058 write failed\n", __func__);
 			return rc;
@@ -165,8 +165,8 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 {
 
 	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
-	u8 data_arb_cntrl, data_amux_chan, data_arb_rsv, data_ana_param;
-	u8 data_dig_param, data_ana_param2;
+	u8 data_arb_cntrl = 0, data_amux_chan = 0, data_arb_rsv = 0;
+	u8 data_dig_param = 0, data_ana_param2 = 0, data_ana_param = 0;
 	int rc;
 
 	rc = pm8058_xoadc_arb_cntrl(1, adc_instance, slot->chan_path);
@@ -307,15 +307,15 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		break;
 	}
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-			ADC_ARB_USRP_AMUX_CNTRL, &data_amux_chan, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+			ADC_ARB_USRP_AMUX_CNTRL, data_amux_chan);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
 	}
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-			ADC_ARB_USRP_RSV, &data_arb_rsv, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+			ADC_ARB_USRP_RSV, data_arb_rsv);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
@@ -341,22 +341,22 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		break;
 	}
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_ANA_PARAM, &data_ana_param, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+				ADC_ARB_USRP_ANA_PARAM, data_ana_param);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
 	}
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_DIG_PARAM, &data_dig_param, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+			ADC_ARB_USRP_DIG_PARAM, data_dig_param);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
 	}
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_ANA_PARAM, &data_ana_param2, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+			ADC_ARB_USRP_ANA_PARAM, data_ana_param2);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
@@ -364,8 +364,8 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 
 	enable_irq(adc_pmic->adc_irq);
 
-	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_CNTRL, &data_arb_cntrl, 1);
+	rc = pm8xxx_writeb(adc_pmic->dev->parent,
+				ADC_ARB_USRP_CNTRL, data_arb_cntrl);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
@@ -434,13 +434,15 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 	if (!xoadc_initialized)
 		return -ENODEV;
 
-	rc = pm8058_read(adc_pmic->pm_chip, ADC_ARB_USRP_DATA0, &rslt_lsb, 1);
+	rc = pm8xxx_readb(adc_pmic->dev->parent, ADC_ARB_USRP_DATA0,
+							&rslt_lsb);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 read failed\n", __func__);
 		return rc;
 	}
 
-	rc = pm8058_read(adc_pmic->pm_chip, ADC_ARB_USRP_DATA1, &rslt_msb, 1);
+	rc = pm8xxx_readb(adc_pmic->dev->parent, ADC_ARB_USRP_DATA1,
+							&rslt_msb);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 read failed\n", __func__);
 		return rc;
@@ -657,7 +659,7 @@ static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 
 	wake_lock_destroy(&adc_pmic->adc_wakelock);
 	msm_xo_put(adc_pmic->adc_voter);
-	platform_set_drvdata(pdev, adc_pmic->pm_chip);
+	platform_set_drvdata(pdev, NULL);
 	device_init_wakeup(&pdev->dev, 0);
 	kfree(adc_pmic);
 	xoadc_initialized = false;
@@ -668,15 +670,8 @@ static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 {
 	struct xoadc_platform_data *pdata = pdev->dev.platform_data;
-	struct pm8058_chip *pm_chip;
 	struct pmic8058_adc *adc_pmic;
 	int i, rc = 0;
-
-	pm_chip = dev_get_drvdata(pdev->dev.parent);
-	if (pm_chip == NULL) {
-		dev_err(&pdev->dev, "no parent data passed in\n");
-		return -EFAULT;
-	}
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "no platform data?\n");
@@ -689,7 +684,7 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	adc_pmic->pm_chip = pm_chip;
+	adc_pmic->dev = &pdev->dev;
 	adc_pmic->adc_prop = pdata->xoadc_prop;
 	adc_pmic->xoadc_num = pdata->xoadc_num;
 	adc_pmic->xoadc_queue_count = 0;

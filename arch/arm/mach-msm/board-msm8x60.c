@@ -19,21 +19,11 @@
 #include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8058.h>
 
-#include <linux/input/pmic8058-keypad.h>
-#include <linux/pmic8058-batt-alarm.h>
-#include <linux/pmic8058-pwrkey.h>
-#include <linux/rtc/rtc-pm8058.h>
-#include <linux/pmic8058-vibrator.h>
 #include <linux/leds.h>
 #include <linux/pmic8058-othc.h>
 #include <linux/mfd/pmic8901.h>
-#include <linux/regulator/pmic8058-regulator.h>
 #include <linux/regulator/pmic8901-regulator.h>
 #include <linux/bootmem.h>
-#include <linux/pwm.h>
-#include <linux/pmic8058-pwm.h>
-#include <linux/leds-pmic8058.h>
-#include <linux/pmic8058-xoadc.h>
 #include <linux/msm_adc.h>
 #include <linux/m_adcproc.h>
 #include <linux/mfd/marimba.h>
@@ -273,6 +263,21 @@ enum {
 	GPIO_EPM_EXPANDER_IO14,
 	GPIO_EPM_EXPANDER_IO15,
 };
+
+struct pm8xxx_mpp_init_info {
+	unsigned			mpp;
+	struct pm8xxx_mpp_config_data	config;
+};
+
+#define PM8XXX_MPP_INIT(_mpp, _type, _level, _control) \
+{ \
+	.mpp	= PM8058_MPP_PM_TO_SYS(_mpp), \
+	.config	= { \
+		.type		= PM8XXX_MPP_TYPE_##_type, \
+		.level		= _level, \
+		.control	= PM8XXX_MPP_##_control, \
+	} \
+}
 
 /*
  * The UI_INTx_N lines are pmic gpio lines which connect i2c
@@ -1054,14 +1059,14 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 {
 	unsigned ret = -ENODEV;
 
-	struct pm8058_gpio pmic_id_cfg = {
+	struct pm_gpio pmic_id_cfg = {
 		.direction	= PM_GPIO_DIR_IN,
 		.pull		= PM_GPIO_PULL_UP_1P5,
 		.function	= PM_GPIO_FUNC_NORMAL,
 		.vin_sel	= 2,
 		.inv_int_pol	= 0,
 	};
-	struct pm8058_gpio pmic_id_uncfg = {
+	struct pm_gpio pmic_id_uncfg = {
 		.direction	= PM_GPIO_DIR_IN,
 		.pull		= PM_GPIO_PULL_NO,
 		.function	= PM_GPIO_FUNC_NORMAL,
@@ -1092,9 +1097,10 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 	if (init) {
 		notify_vbus_state_func_ptr = callback;
 		INIT_DELAYED_WORK(&pmic_id_det, pmic_id_detect);
-		ret = pm8058_gpio_config(PMIC_ID_GPIO, &pmic_id_cfg);
+		ret = pm8xxx_gpio_config(PM8058_GPIO_PM_TO_SYS(PMIC_ID_GPIO),
+							&pmic_id_cfg);
 		if (ret) {
-			pr_err("%s:return val of pm8058_gpio_config: %d\n",
+			pr_err("%s:return val of pm8xxx_gpio_config: %d\n",
 						__func__,  ret);
 			return ret;
 		}
@@ -1110,9 +1116,10 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 	} else {
 		usb_phy_susp_dig_vol = 750000;
 		free_irq(PMICID_INT, 0);
-		ret = pm8058_gpio_config(PMIC_ID_GPIO, &pmic_id_uncfg);
+		ret = pm8xxx_gpio_config(PM8058_GPIO_PM_TO_SYS(PMIC_ID_GPIO),
+							&pmic_id_uncfg);
 		if (ret) {
-			pr_err("%s: return val of pm8058_gpio_config: %d\n",
+			pr_err("%s: return val of pm8xxx_gpio_config: %d\n",
 						__func__,  ret);
 			return ret;
 		}
@@ -4482,13 +4489,6 @@ static struct i2c_board_info fluid_expanders_i2c_epm_info[] = {
 #endif
 
 #ifdef CONFIG_SENSORS_MSM_ADC
-static struct resource resources_adc[] = {
-	{
-		.start = PM8058_ADC_IRQ(PM8058_IRQ_BASE),
-		.end   = PM8058_ADC_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-};
 
 static struct adc_access_fn xoadc_fn = {
 	pm8058_xoadc_select_chan_and_start_conv,
@@ -4837,37 +4837,33 @@ static struct platform_device msm_adc_device = {
 
 static void pmic8058_xoadc_mpp_config(void)
 {
-	int rc;
+	int rc, i;
+	struct pm8xxx_mpp_init_info xoadc_mpps[] = {
+		PM8XXX_MPP_INIT(XOADC_MPP_3, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH5,
+							AOUT_CTRL_DISABLE),
+		PM8XXX_MPP_INIT(XOADC_MPP_5, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH9,
+							AOUT_CTRL_DISABLE),
+		PM8XXX_MPP_INIT(XOADC_MPP_7, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH6,
+							AOUT_CTRL_DISABLE),
+		PM8XXX_MPP_INIT(XOADC_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
+							AOUT_CTRL_DISABLE),
+		PM8XXX_MPP_INIT(XOADC_MPP_10, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH7,
+							AOUT_CTRL_DISABLE),
+	};
 
 	rc = pm8901_mpp_config_digital_out(XOADC_MPP_4,
 			PM8901_MPP_DIG_LEVEL_S4, PM_MPP_DOUT_CTL_LOW);
 	if (rc)
 		pr_err("%s: Config mpp4 on pmic 8901 failed\n", __func__);
 
-	rc = pm8058_mpp_config_analog_input(XOADC_MPP_3,
-			PM_MPP_AIN_AMUX_CH5, PM_MPP_AOUT_CTL_DISABLE);
-	if (rc)
-		pr_err("%s: Config mpp3 on pmic 8058 failed\n", __func__);
-
-	rc = pm8058_mpp_config_analog_input(XOADC_MPP_5,
-			PM_MPP_AIN_AMUX_CH9, PM_MPP_AOUT_CTL_DISABLE);
-	if (rc)
-		pr_err("%s: Config mpp5 on pmic 8058 failed\n", __func__);
-
-	rc = pm8058_mpp_config_analog_input(XOADC_MPP_7,
-			PM_MPP_AIN_AMUX_CH6, PM_MPP_AOUT_CTL_DISABLE);
-	if (rc)
-		pr_err("%s: Config mpp7 on pmic 8058 failed\n", __func__);
-
-	rc = pm8058_mpp_config_analog_input(XOADC_MPP_8,
-			PM_MPP_AIN_AMUX_CH8, PM_MPP_AOUT_CTL_DISABLE);
-	if (rc)
-		pr_err("%s: Config mpp8 on pmic 8058 failed\n", __func__);
-
-	rc = pm8058_mpp_config_analog_input(XOADC_MPP_10,
-			PM_MPP_AIN_AMUX_CH7, PM_MPP_AOUT_CTL_DISABLE);
-	if (rc)
-		pr_err("%s: Config mpp10 on pmic 8058 failed\n", __func__);
+	for (i = 0; i < ARRAY_SIZE(xoadc_mpps); i++) {
+		rc = pm8xxx_mpp_config(xoadc_mpps[i].mpp,
+					&xoadc_mpps[i].config);
+		if (rc) {
+			pr_err("%s: Config MPP %d of PM8058 failed\n",
+					__func__, xoadc_mpps[i].mpp);
+		}
+	}
 }
 
 static struct regulator *vreg_ldo18_adc;
@@ -4932,7 +4928,7 @@ static struct adc_properties pm8058_xoadc_data = {
 	.conversiontime         = 54,
 };
 
-static struct xoadc_platform_data xoadc_pdata = {
+static struct xoadc_platform_data pm8058_xoadc_pdata = {
 	.xoadc_prop = &pm8058_xoadc_data,
 	.xoadc_mpp_config = pmic8058_xoadc_mpp_config,
 	.xoadc_vreg_set = pmic8058_xoadc_vreg_config,
@@ -5314,18 +5310,28 @@ static void __init msm8x60_reserve(void)
 #define EXT_CHG_VALID_MPP 10
 #define EXT_CHG_VALID_MPP_2 11
 
+static struct pm8xxx_mpp_init_info isl_mpp[] = {
+	PM8XXX_MPP_INIT(EXT_CHG_VALID_MPP, D_INPUT,
+		PM8058_MPP_DIG_LEVEL_S3, DIN_TO_INT),
+	PM8XXX_MPP_INIT(EXT_CHG_VALID_MPP_2, D_BI_DIR,
+		PM8058_MPP_DIG_LEVEL_S3, BI_PULLUP_10KOHM),
+};
+
 #ifdef CONFIG_ISL9519_CHARGER
 static int isl_detection_setup(void)
 {
-	int ret = 0;
+	int ret = 0, i;
 
-	ret = pm8058_mpp_config_digital_in(EXT_CHG_VALID_MPP,
-					   PM8058_MPP_DIG_LEVEL_S3,
-					   PM_MPP_DIN_TO_INT);
-	ret |=  pm8058_mpp_config_bi_dir(EXT_CHG_VALID_MPP_2,
-					   PM8058_MPP_DIG_LEVEL_S3,
-					   PM_MPP_BI_PULLUP_10KOHM
-					   );
+	for (i = 0; i < ARRAY_SIZE(isl_mpp); i++) {
+		ret = pm8xxx_mpp_config(isl_mpp[i].mpp,
+					&isl_mpp[i].config);
+		if (ret) {
+			pr_err("%s: Config MPP %d of PM8058 failed\n",
+						 __func__, isl_mpp[i].mpp);
+			return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -5342,7 +5348,7 @@ static struct isl_platform_data isl_data __initdata = {
 static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("isl9519q", 0x9),
-		.irq = PM8058_CBLPWR_IRQ(PM8058_IRQ_BASE),
+		.irq = PM8058_IRQ_BASE + PM8058_CBLPWR_IRQ,
 		.platform_data = &isl_data,
 	},
 };
@@ -5351,14 +5357,18 @@ static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
 #if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 static int smb137b_detection_setup(void)
 {
-	int ret = 0;
+	int ret = 0, i;
 
-	ret = pm8058_mpp_config_digital_in(EXT_CHG_VALID_MPP,
-					PM8058_MPP_DIG_LEVEL_S3,
-					PM_MPP_DIN_TO_INT);
-	ret |=  pm8058_mpp_config_bi_dir(EXT_CHG_VALID_MPP_2,
-					PM8058_MPP_DIG_LEVEL_S3,
-					PM_MPP_BI_PULLUP_10KOHM);
+	for (i = 0; i < ARRAY_SIZE(isl_mpp); i++) {
+		ret = pm8xxx_mpp_config(isl_mpp[i].mpp,
+					&isl_mpp[i].config);
+		if (ret) {
+			pr_err("%s: Config MPP %d of PM8058 failed\n",
+						 __func__, isl_mpp[i].mpp);
+			return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -5371,7 +5381,7 @@ static struct smb137b_platform_data smb137b_data __initdata = {
 static struct i2c_board_info smb137b_charger_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("smb137b", 0x08),
-		.irq = PM8058_CBLPWR_IRQ(PM8058_IRQ_BASE),
+		.irq = PM8058_IRQ_BASE + PM8058_CBLPWR_IRQ,
 		.platform_data = &smb137b_data,
 	},
 };
@@ -5387,12 +5397,12 @@ static int pm8058_gpios_init(void)
 	int rc;
 	struct pm8058_gpio_cfg {
 		int                gpio;
-		struct pm8058_gpio cfg;
+		struct pm_gpio	   cfg;
 	};
 
 	struct pm8058_gpio_cfg gpio_cfgs[] = {
 		{ /* FFA ethernet */
-			6,
+			PM8058_GPIO_PM_TO_SYS(6),
 			{
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_DN,
@@ -5403,7 +5413,7 @@ static int pm8058_gpios_init(void)
 		},
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 		{
-			PMIC_GPIO_SDC3_DET - 1,
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1),
 			{
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_UP_30,
@@ -5414,37 +5424,37 @@ static int pm8058_gpios_init(void)
 		},
 #endif
 		{ /* core&surf gpio expander */
-			UI_INT1_N,
+			PM8058_GPIO_PM_TO_SYS(UI_INT1_N),
 			{
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_NO,
-				.vin_sel        = PM_GPIO_VIN_S3,
+				.vin_sel        = PM8058_GPIO_VIN_S3,
 				.function       = PM_GPIO_FUNC_NORMAL,
 				.inv_int_pol    = 0,
 			},
 		},
 		{ /* docking gpio expander */
-			UI_INT2_N,
+			PM8058_GPIO_PM_TO_SYS(UI_INT2_N),
 			{
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_NO,
-				.vin_sel        = PM_GPIO_VIN_S3,
+				.vin_sel        = PM8058_GPIO_VIN_S3,
 				.function       = PM_GPIO_FUNC_NORMAL,
 				.inv_int_pol    = 0,
 			},
 		},
 		{ /* FHA/keypad gpio expanders */
-			UI_INT3_N,
+			PM8058_GPIO_PM_TO_SYS(UI_INT3_N),
 			{
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_NO,
-				.vin_sel        = PM_GPIO_VIN_S3,
+				.vin_sel        = PM8058_GPIO_VIN_S3,
 				.function       = PM_GPIO_FUNC_NORMAL,
 				.inv_int_pol    = 0,
 			},
 		},
 		{ /* Timpani Reset */
-			20,
+			PM8058_GPIO_PM_TO_SYS(20),
 			{
 				.direction	= PM_GPIO_DIR_OUT,
 				.output_value	= 1,
@@ -5457,7 +5467,7 @@ static int pm8058_gpios_init(void)
 			}
 		},
 		{ /* PMIC ID interrupt */
-			36,
+			PM8058_GPIO_PM_TO_SYS(36),
 			{
 				.direction	= PM_GPIO_DIR_IN,
 				.pull		= PM_GPIO_PULL_NO,
@@ -5470,7 +5480,7 @@ static int pm8058_gpios_init(void)
 
 #if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
 		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
-	struct pm8058_gpio touchdisc_intr_gpio_cfg = {
+	struct pm_gpio touchdisc_intr_gpio_cfg = {
 		.direction      = PM_GPIO_DIR_IN,
 		.pull           = PM_GPIO_PULL_UP_1P5,
 		.vin_sel        = 2,
@@ -5480,7 +5490,7 @@ static int pm8058_gpios_init(void)
 
 #if defined(CONFIG_HAPTIC_ISA1200) || \
 			defined(CONFIG_HAPTIC_ISA1200_MODULE)
-	struct pm8058_gpio en_hap_gpio_cfg = {
+	struct pm_gpio en_hap_gpio_cfg = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.pull           = PM_GPIO_PULL_NO,
 		.out_strength   = PM_GPIO_STRENGTH_HIGH,
@@ -5494,7 +5504,7 @@ static int pm8058_gpios_init(void)
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 	struct pm8058_gpio_cfg line_in_gpio_cfg = {
-			18,
+			PM8058_GPIO_PM_TO_SYS(18),
 			{
 				.direction	= PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_UP_1P5,
@@ -5508,7 +5518,7 @@ static int pm8058_gpios_init(void)
 #if defined(CONFIG_QS_S5K4E1)
 		{
 			struct pm8058_gpio_cfg qs_hc37_cam_pd_gpio_cfg = {
-			26,
+			PM8058_GPIO_PM_TO_SYS(26),
 			{
 				.direction		= PM_GPIO_DIR_OUT,
 				.output_value	= 0,
@@ -5523,32 +5533,33 @@ static int pm8058_gpios_init(void)
 #endif
 #ifdef CONFIG_FB_MSM_LCDC_NT35582_WVGA
 	struct pm8058_gpio_cfg pmic_lcdc_nt35582_gpio_cfg = {
-		GPIO_NT35582_BL_EN_HW_PIN - 1,
+		PM8058_GPIO_PM_TO_SYS(GPIO_NT35582_BL_EN_HW_PIN - 1),
 		{
 			.direction		= PM_GPIO_DIR_OUT,
 			.output_buffer	= PM_GPIO_OUT_BUF_CMOS,
 			.output_value	= 1,
 			.pull			= PM_GPIO_PULL_UP_30,
 			/* 2.9V  PM_GPIO_VIN_L2, which gives 2.6V */
-			.vin_sel		= PM_GPIO_VIN_L5,
+			.vin_sel		= PM8058_GPIO_VIN_L5,
 			.out_strength	= PM_GPIO_STRENGTH_HIGH,
 			.function		= PM_GPIO_FUNC_NORMAL,
 			.inv_int_pol	= 0,
 		}
 	};
 #endif
-
 #if defined(CONFIG_HAPTIC_ISA1200) || \
 			defined(CONFIG_HAPTIC_ISA1200_MODULE)
 	if (machine_is_msm8x60_fluid()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_HAP_ENABLE,
-				&en_hap_gpio_cfg);
+		rc = pm8xxx_gpio_config(
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
+			&en_hap_gpio_cfg);
 		if (rc < 0) {
 			pr_err("%s: pmic haptics gpio config failed\n",
 							__func__);
 		}
-		rc = pm8058_gpio_config(PMIC_GPIO_HAP_LDO_ENABLE,
-				&en_hap_gpio_cfg);
+		rc = pm8xxx_gpio_config(
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_LDO_ENABLE),
+			&en_hap_gpio_cfg);
 		if (rc < 0) {
 			pr_err("%s: pmic haptics ldo gpio config failed\n",
 							__func__);
@@ -5561,8 +5572,9 @@ static int pm8058_gpios_init(void)
 		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
 	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf() ||
 		machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_TOUCH_DISC_INTR,
-				&touchdisc_intr_gpio_cfg);
+		rc = pm8xxx_gpio_config(
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_TOUCH_DISC_INTR),
+			&touchdisc_intr_gpio_cfg);
 		if (rc < 0) {
 			pr_err("%s: Touchdisc interrupt gpio config failed\n",
 							__func__);
@@ -5575,7 +5587,7 @@ static int pm8058_gpios_init(void)
 	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf() ||
 		machine_is_msm8x60_fusion() || machine_is_msm8x60_dragon() ||
 		machine_is_msm8x60_fusn_ffa()) {
-		rc = pm8058_gpio_config(line_in_gpio_cfg.gpio,
+		rc = pm8xxx_gpio_config(line_in_gpio_cfg.gpio,
 				&line_in_gpio_cfg.cfg);
 		if (rc < 0) {
 			pr_err("%s pmic line_in gpio config failed\n",
@@ -5587,7 +5599,7 @@ static int pm8058_gpios_init(void)
 
 #ifdef CONFIG_FB_MSM_LCDC_NT35582_WVGA
 	if (machine_is_msm8x60_dragon()) {
-		rc = pm8058_gpio_config(pmic_lcdc_nt35582_gpio_cfg.gpio,
+		rc = pm8xxx_gpio_config(pmic_lcdc_nt35582_gpio_cfg.gpio,
 				&pmic_lcdc_nt35582_gpio_cfg.cfg);
 		if (rc < 0) {
 			pr_err("%s pmic gpio config failed\n", __func__);
@@ -5599,7 +5611,7 @@ static int pm8058_gpios_init(void)
 #if defined(CONFIG_QS_S5K4E1)
 		/* qs_cam_hc37_cam_pd only for 8660 fluid qs camera*/
 		if (machine_is_msm8x60_fluid()) {
-			rc = pm8058_gpio_config(qs_hc37_cam_pd_gpio_cfg.gpio,
+			rc = pm8xxx_gpio_config(qs_hc37_cam_pd_gpio_cfg.gpio,
 					&qs_hc37_cam_pd_gpio_cfg.cfg);
 			if (rc < 0) {
 				pr_err("%s pmic qs_hc37_cam_pd gpio config failed\n",
@@ -5611,7 +5623,7 @@ static int pm8058_gpios_init(void)
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(gpio_cfgs); ++i) {
-		rc = pm8058_gpio_config(gpio_cfgs[i].gpio,
+		rc = pm8xxx_gpio_config(gpio_cfgs[i].gpio,
 				&gpio_cfgs[i].cfg);
 		if (rc < 0) {
 			pr_err("%s pmic gpio config failed\n",
@@ -5679,32 +5691,19 @@ static const unsigned int dragon_keymap[] = {
 	KEY(4, 3, KEY_KBDILLUMTOGGLE),
 };
 
-static struct resource resources_keypad[] = {
-	{
-		.start	= PM8058_KEYPAD_IRQ(PM8058_IRQ_BASE),
-		.end	= PM8058_KEYPAD_IRQ(PM8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= PM8058_KEYSTUCK_IRQ(PM8058_IRQ_BASE),
-		.end	= PM8058_KEYSTUCK_IRQ(PM8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
 static struct matrix_keymap_data ffa_keymap_data = {
 	.keymap_size	= ARRAY_SIZE(ffa_keymap),
 	.keymap		= ffa_keymap,
 };
 
-static struct pmic8058_keypad_data ffa_keypad_data = {
+static struct pm8xxx_keypad_platform_data ffa_keypad_data = {
 	.input_name		= "ffa-keypad",
 	.input_phys_device	= "ffa-keypad/input0",
 	.num_rows		= 6,
 	.num_cols		= 5,
-	.rows_gpio_start	= 8,
-	.cols_gpio_start	= 0,
-	.debounce_ms		= {8, 10},
+	.rows_gpio_start	= PM8058_GPIO_PM_TO_SYS(8),
+	.cols_gpio_start	= PM8058_GPIO_PM_TO_SYS(0),
+	.debounce_ms		= 15,
 	.scan_delay_ms		= 32,
 	.row_hold_ns            = 91500,
 	.wakeup			= 1,
@@ -5716,19 +5715,20 @@ static struct matrix_keymap_data dragon_keymap_data = {
 	.keymap = dragon_keymap,
 };
 
-static struct pmic8058_keypad_data dragon_keypad_data = {
+static struct pm8xxx_keypad_platform_data dragon_keypad_data = {
 	.input_name = "dragon-keypad",
 	.input_phys_device = "dragon-keypad/input0",
 	.num_rows = 6,
 	.num_cols = 5,
-	.rows_gpio_start = 8,
-	.cols_gpio_start = 0,
-	.debounce_ms = {8, 10},
+	.rows_gpio_start	= PM8058_GPIO_PM_TO_SYS(8),
+	.cols_gpio_start	= PM8058_GPIO_PM_TO_SYS(0),
+	.debounce_ms		= 15,
 	.scan_delay_ms = 32,
 	.row_hold_ns = 91500,
 	.wakeup = 1,
 	.keymap_data = &dragon_keymap_data,
 };
+
 static const unsigned int fluid_keymap[] = {
 	KEY(0, 0, KEY_FN_F1),	 /* LS - PUSH1 */
 	KEY(0, 1, KEY_UP),	 /* NAV - UP */
@@ -5760,50 +5760,37 @@ static struct matrix_keymap_data fluid_keymap_data = {
 	.keymap		= fluid_keymap,
 };
 
-static struct pmic8058_keypad_data fluid_keypad_data = {
+static struct pm8xxx_keypad_platform_data fluid_keypad_data = {
 	.input_name		= "fluid-keypad",
 	.input_phys_device	= "fluid-keypad/input0",
 	.num_rows		= 6,
 	.num_cols		= 5,
-	.rows_gpio_start	= 8,
-	.cols_gpio_start	= 0,
-	.debounce_ms		= {8, 10},
+	.rows_gpio_start	= PM8058_GPIO_PM_TO_SYS(8),
+	.cols_gpio_start	= PM8058_GPIO_PM_TO_SYS(0),
+	.debounce_ms		= 15,
 	.scan_delay_ms		= 32,
 	.row_hold_ns            = 91500,
 	.wakeup			= 1,
 	.keymap_data		= &fluid_keymap_data,
 };
 
-static struct resource resources_pwrkey[] = {
-	{
-		.start	= PM8058_PWRKEY_REL_IRQ(PM8058_IRQ_BASE),
-		.end	= PM8058_PWRKEY_REL_IRQ(PM8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= PM8058_PWRKEY_PRESS_IRQ(PM8058_IRQ_BASE),
-		.end	= PM8058_PWRKEY_PRESS_IRQ(PM8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct pmic8058_pwrkey_pdata pwrkey_pdata = {
-	.pull_up		= 1,
-	.kpd_trigger_delay_us   = 970,
-	.wakeup			= 1,
-	.pwrkey_time_ms		= 500,
-};
-
-static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
+static struct pm8xxx_vibrator_platform_data pm8058_vib_pdata = {
 	.initial_vibrate_ms  = 500,
 	.level_mV = 3000,
 	.max_timeout_ms = 15000,
 };
 
-#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
-#define PM8058_OTHC_CNTR_BASE0	0xA0
-#define PM8058_OTHC_CNTR_BASE1	0x134
-#define PM8058_OTHC_CNTR_BASE2	0x137
+static struct pm8xxx_rtc_platform_data pm8058_rtc_pdata = {
+	.rtc_write_enable       = false,
+	.rtc_alarm_powerup	= false,
+};
+
+static struct pm8xxx_pwrkey_platform_data pm8058_pwrkey_pdata = {
+	.pull_up		= 1,
+	.kpd_trigger_delay_us   = 970,
+	.wakeup			= 1,
+};
+
 #define PM8058_LINE_IN_DET_GPIO	PM8058_GPIO_PM_TO_SYS(18)
 
 static struct othc_accessory_info othc_accessories[]  = {
@@ -5950,42 +5937,6 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_2 = {
 	.micbias_regulator = &othc_reg,
 };
 
-static struct resource resources_othc_0[] = {
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE0,
-		.end   = PM8058_OTHC_CNTR_BASE0,
-		.flags = IORESOURCE_IO,
-	},
-};
-
-static struct resource resources_othc_1[] = {
-	{
-		.start = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
-		.end   = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.start = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
-		.end   = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE1,
-		.end   = PM8058_OTHC_CNTR_BASE1,
-		.flags = IORESOURCE_IO,
-	},
-};
-
-static struct resource resources_othc_2[] = {
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE2,
-		.end   = PM8058_OTHC_CNTR_BASE2,
-		.flags = IORESOURCE_IO,
-	},
-};
 
 static void __init msm8x60_init_pm8058_othc(void)
 {
@@ -6023,143 +5974,16 @@ static void __init msm8x60_init_pm8058_othc(void)
 		}
 	}
 }
-#endif
 
-static struct resource resources_pm8058_charger[] = {
-	{	.name = "CHGVAL",
-		.start = PM8058_CHGVAL_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGVAL_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{	.name = "CHGINVAL",
-		.start = PM8058_CHGINVAL_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGINVAL_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHGILIM",
-		.start = PM8058_CHGILIM_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGILIM_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "VCP",
-		.start = PM8058_VCP_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_VCP_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-		{
-		.name = "ATC_DONE",
-		.start = PM8058_ATC_DONE_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_ATC_DONE_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "ATCFAIL",
-		.start = PM8058_ATCFAIL_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_ATCFAIL_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "AUTO_CHGDONE",
-		 .start = PM8058_AUTO_CHGDONE_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_AUTO_CHGDONE_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "AUTO_CHGFAIL",
-		.start = PM8058_AUTO_CHGFAIL_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_AUTO_CHGFAIL_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHGSTATE",
-		.start = PM8058_CHGSTATE_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGSTATE_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "FASTCHG",
-		.start = PM8058_FASTCHG_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_FASTCHG_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHG_END",
-		 .start = PM8058_CHG_END_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_CHG_END_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "BATTTEMP",
-		.start = PM8058_BATTTEMP_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_BATTTEMP_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHGHOT",
-		.start = PM8058_CHGHOT_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGHOT_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHGTLIMIT",
-		.start = PM8058_CHGTLIMIT_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_CHGTLIMIT_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "CHG_GONE",
-		 .start = PM8058_CHG_GONE_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_CHG_GONE_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "VCPMAJOR",
-		 .start = PM8058_VCPMAJOR_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_VCPMAJOR_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "VBATDET",
-		 .start = PM8058_VBATDET_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_VBATDET_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "BATFET",
-		 .start = PM8058_BATFET_IRQ(PM8058_IRQ_BASE),
-		 .end = PM8058_BATFET_IRQ(PM8058_IRQ_BASE),
-		 .flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "BATT_REPLACE",
-		.start = PM8058_BATT_REPLACE_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_BATT_REPLACE_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "BATTCONNECT",
-		.start = PM8058_BATTCONNECT_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_BATTCONNECT_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "VBATDET_LOW",
-		.start = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
-		.end = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-};
 
 static int pm8058_pwm_config(struct pwm_device *pwm, int ch, int on)
 {
-	struct pm8058_gpio pwm_gpio_config = {
+	struct pm_gpio pwm_gpio_config = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
 		.output_value   = 0,
 		.pull           = PM_GPIO_PULL_NO,
-		.vin_sel        = PM_GPIO_VIN_VPH,
+		.vin_sel        = PM8058_GPIO_VIN_VPH,
 		.out_strength   = PM_GPIO_STRENGTH_HIGH,
 		.function       = PM_GPIO_FUNC_2,
 	};
@@ -6174,9 +5998,10 @@ static int pm8058_pwm_config(struct pwm_device *pwm, int ch, int on)
 	case 2:
 		if (on) {
 			id = 24 + ch;
-			rc = pm8058_gpio_config(id - 1, &pwm_gpio_config);
+			rc = pm8xxx_gpio_config(PM8058_GPIO_PM_TO_SYS(id - 1),
+							&pwm_gpio_config);
 			if (rc)
-				pr_err("%s: pm8058_gpio_config(%d): rc=%d\n",
+				pr_err("%s: pm8xxx_gpio_config(%d): rc=%d\n",
 					__func__, id, rc);
 		}
 		break;
@@ -6216,34 +6041,6 @@ static struct pm8058_pwm_pdata pm8058_pwm_data = {
 };
 
 #define PM8058_GPIO_INT           88
-
-static struct pm8058_gpio_platform_data pm8058_gpio_data = {
-	.gpio_base	= PM8058_GPIO_PM_TO_SYS(0),
-	.irq_base	= PM8058_GPIO_IRQ(PM8058_IRQ_BASE, 0),
-	.init		= pm8058_gpios_init,
-};
-
-static struct pm8058_gpio_platform_data pm8058_mpp_data = {
-	.gpio_base	= PM8058_GPIO_PM_TO_SYS(PM8058_GPIOS),
-	.irq_base	= PM8058_MPP_IRQ(PM8058_IRQ_BASE, 0),
-};
-
-static struct resource resources_rtc[] = {
-       {
-		.start  = PM8058_RTC_IRQ(PM8058_IRQ_BASE),
-		.end    = PM8058_RTC_IRQ(PM8058_IRQ_BASE),
-		.flags  = IORESOURCE_IRQ,
-       },
-       {
-		.start  = PM8058_RTC_ALARM_IRQ(PM8058_IRQ_BASE),
-		.end    = PM8058_RTC_ALARM_IRQ(PM8058_IRQ_BASE),
-		.flags  = IORESOURCE_IRQ,
-       },
-};
-
-static struct pm8058_rtc_platform_data pm8058_rtc_pdata = {
-	.rtc_alarm_powerup	= false,
-};
 
 static struct pmic8058_led pmic8058_flash_leds[] = {
 	[0] = {
@@ -6322,156 +6119,48 @@ static struct pmic8058_leds_platform_data pm8058_fluid_flash_leds_data = {
 	.leds	= pmic8058_fluid_flash_leds,
 };
 
-static struct resource resources_temp_alarm[] = {
-	{
-		.start  = PM8058_TEMP_ALARM_IRQ(PM8058_IRQ_BASE),
-		.end    = PM8058_TEMP_ALARM_IRQ(PM8058_IRQ_BASE),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource resources_pm8058_misc[] = {
-	{
-		.start  = PM8058_OSCHALT_IRQ(PM8058_IRQ_BASE),
-		.end    = PM8058_OSCHALT_IRQ(PM8058_IRQ_BASE),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource resources_pm8058_batt_alarm[] = {
-	{
-		.start  = PM8058_BATT_ALARM_IRQ(PM8058_IRQ_BASE),
-		.end    = PM8058_BATT_ALARM_IRQ(PM8058_IRQ_BASE),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-#define PM8058_SUBDEV_KPD 0
-#define PM8058_SUBDEV_LED 1
-#define PM8058_SUBDEV_VIB 2
-
-static struct mfd_cell pm8058_subdevs[] = {
-	{
-		.name = "pm8058-keypad",
-		.id		= -1,
-		.num_resources	= ARRAY_SIZE(resources_keypad),
-		.resources	= resources_keypad,
-	},
-	{	.name = "pm8058-led",
-		.id		= -1,
-	},
-	{
-		.name = "pm8058-vib",
-		.id = -1,
-	},
-	{	.name = "pm8058-gpio",
-		.id		= -1,
-		.platform_data	= &pm8058_gpio_data,
-		.pdata_size = sizeof(pm8058_gpio_data),
-	},
-	{	.name = "pm8058-mpp",
-		.id		= -1,
-		.platform_data	= &pm8058_mpp_data,
-		.pdata_size = sizeof(pm8058_mpp_data),
-	},
-	{	.name = "pm8058-pwrkey",
-		.id	= -1,
-		.resources = resources_pwrkey,
-		.num_resources = ARRAY_SIZE(resources_pwrkey),
-		.platform_data = &pwrkey_pdata,
-		.pdata_size = sizeof(pwrkey_pdata),
-	},
-	{
-		.name = "pm8058-pwm",
-		.id = -1,
-		.platform_data = &pm8058_pwm_data,
-		.pdata_size = sizeof(pm8058_pwm_data),
-	},
-#ifdef CONFIG_SENSORS_MSM_ADC
-	{
-		.name = "pm8058-xoadc",
-		.id = -1,
-		.num_resources = ARRAY_SIZE(resources_adc),
-		.resources = resources_adc,
-		.platform_data = &xoadc_pdata,
-		.pdata_size = sizeof(xoadc_pdata),
-	},
-#endif
-#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
-	{
-		.name = "pm8058-othc",
-		.id = 0,
-		.platform_data = &othc_config_pdata_0,
-		.pdata_size = sizeof(othc_config_pdata_0),
-		.num_resources = ARRAY_SIZE(resources_othc_0),
-		.resources = resources_othc_0,
-	},
-	{
-		/* OTHC1 module has headset/switch dection */
-		.name = "pm8058-othc",
-		.id = 1,
-		.num_resources = ARRAY_SIZE(resources_othc_1),
-		.resources = resources_othc_1,
-		.platform_data = &othc_config_pdata_1,
-		.pdata_size = sizeof(othc_config_pdata_1),
-	},
-	{
-		.name = "pm8058-othc",
-		.id = 2,
-		.platform_data = &othc_config_pdata_2,
-		.pdata_size = sizeof(othc_config_pdata_2),
-		.num_resources = ARRAY_SIZE(resources_othc_2),
-		.resources = resources_othc_2,
-	},
-#endif
-	{
-		.name = "pm8058-rtc",
-		.id = -1,
-		.num_resources  = ARRAY_SIZE(resources_rtc),
-		.resources      = resources_rtc,
-		.platform_data = &pm8058_rtc_pdata,
-	},
-	{
-		.name = "pm8058-tm",
-		.id = -1,
-		.num_resources  = ARRAY_SIZE(resources_temp_alarm),
-		.resources      = resources_temp_alarm,
-	},
-	{	.name = "pm8058-upl",
-		.id		= -1,
-	},
-	{
-		.name = "pm8058-misc",
-		.id = -1,
-		.num_resources  = ARRAY_SIZE(resources_pm8058_misc),
-		.resources      = resources_pm8058_misc,
-	},
-	{	.name = "pm8058-batt-alarm",
-		.id		= -1,
-		.num_resources  = ARRAY_SIZE(resources_pm8058_batt_alarm),
-		.resources      = resources_pm8058_batt_alarm,
-	},
-};
-
 static struct pmic8058_charger_data pmic8058_charger_dragon = {
+		.charger_data_valid = true,
 		.max_source_current = 1800,
 		.charger_type = CHG_TYPE_AC,
 };
 
-static struct mfd_cell pm8058_charger_sub_dev = {
-		.name = "pm8058-charger",
-		.id = -1,
-		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
-		.resources = resources_pm8058_charger,
+static struct pmic8058_charger_data pmic8058_charger_ffa_surf = {
+		.charger_data_valid = false,
+};
+
+static struct pm8xxx_misc_platform_data pm8058_misc_pdata = {
+	.priority		= 0,
+};
+
+static struct pm8xxx_irq_platform_data pm8058_irq_pdata = {
+	.irq_base		= PM8058_IRQ_BASE,
+	.devirq			= MSM_GPIO_TO_INT(PM8058_GPIO_INT),
+	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
+};
+
+static struct pm8xxx_gpio_platform_data pm8058_gpio_pdata = {
+	.gpio_base	= PM8058_GPIO_PM_TO_SYS(0),
+};
+
+static struct pm8xxx_mpp_platform_data pm8058_mpp_pdata = {
+	.mpp_base	= PM8058_MPP_PM_TO_SYS(0),
 };
 
 static struct pm8058_platform_data pm8058_platform_data = {
-	.irq_base = PM8058_IRQ_BASE,
-	.irq = MSM_GPIO_TO_INT(PM8058_GPIO_INT),
-
-	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
-	.sub_devices = pm8058_subdevs,
-	.irq_trigger_flags = IRQF_TRIGGER_LOW,
+	.irq_pdata		= &pm8058_irq_pdata,
+	.gpio_pdata		= &pm8058_gpio_pdata,
+	.mpp_pdata		= &pm8058_mpp_pdata,
+	.rtc_pdata		= &pm8058_rtc_pdata,
+	.pwrkey_pdata		= &pm8058_pwrkey_pdata,
+	.othc0_pdata		= &othc_config_pdata_0,
+	.othc1_pdata		= &othc_config_pdata_1,
+	.othc2_pdata		= &othc_config_pdata_2,
+	.pwm_pdata		= &pm8058_pwm_data,
+	.misc_pdata		= &pm8058_misc_pdata,
+#ifdef CONFIG_SENSORS_MSM_ADC
+	.xoadc_pdata		= &pm8058_xoadc_pdata,
+#endif
 };
 
 #ifdef CONFIG_MSM_SSBI
@@ -7108,10 +6797,10 @@ static struct msm_xo_voter *fm_clock;
 static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 {
 	int rc = 0;
-	struct pm8058_gpio cfg = {
+	struct pm_gpio cfg = {
 				.direction      = PM_GPIO_DIR_IN,
 				.pull           = PM_GPIO_PULL_NO,
-				.vin_sel        = PM_GPIO_VIN_S3,
+				.vin_sel        = PM8058_GPIO_VIN_S3,
 				.function       = PM_GPIO_FUNC_NORMAL,
 				.inv_int_pol    = 0,
 				};
@@ -7159,9 +6848,9 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 	}
 
 	/*GPIO 18 on PMIC is FM_IRQ*/
-	rc = pm8058_gpio_config(FM_GPIO, &cfg);
+	rc = pm8xxx_gpio_config(PM8058_GPIO_PM_TO_SYS(FM_GPIO), &cfg);
 	if (rc) {
-		printk(KERN_ERR "%s: return val of pm8058_gpio_config: %d\n",
+		printk(KERN_ERR "%s: return val of pm8xxx_gpio_config: %d\n",
 						__func__,  rc);
 		goto fm_fail_clock;
 	}
@@ -10226,7 +9915,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	uint32_t soc_platform_version;
 
-	pmic_reset_irq = PM8058_RESOUT_IRQ(PM8058_IRQ_BASE);
+	pmic_reset_irq = PM8058_IRQ_BASE + PM8058_RESOUT_IRQ;
 
 	/*
 	 * Initialize RPM first as other drivers and devices may need
@@ -10322,33 +10011,42 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_pm8058_othc();
 #endif
 
-	if (machine_is_msm8x60_fluid()) {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
-			platform_data = &fluid_keypad_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
-			= sizeof(fluid_keypad_data);
-	} else if (machine_is_msm8x60_dragon()) {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
-			platform_data = &dragon_keypad_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
-			= sizeof(dragon_keypad_data);
-	} else {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
-			platform_data = &ffa_keypad_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
-			= sizeof(ffa_keypad_data);
-
-	}
-
-	/* Disable END_CALL simulation function of powerkey on fluid */
-	if (machine_is_msm8x60_fluid()) {
-		pwrkey_pdata.pwrkey_time_ms = 0;
-	}
+	if (machine_is_msm8x60_fluid())
+		pm8058_platform_data.keypad_pdata = &fluid_keypad_data;
+	else if (machine_is_msm8x60_dragon())
+		pm8058_platform_data.keypad_pdata = &dragon_keypad_data;
+	else
+		pm8058_platform_data.keypad_pdata = &ffa_keypad_data;
 
 	/* Specify reset pin for OV9726 */
 	if (machine_is_msm8x60_dragon()) {
 		msm_camera_sensor_ov9726_data.sensor_reset = 62;
 		ov9726_sensor_8660_info.mount_angle = 270;
+	}
+
+#ifdef CONFIG_BATTERY_MSM8X60
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+		machine_is_msm8x60_fusion() || machine_is_msm8x60_dragon() ||
+		machine_is_msm8x60_fusn_ffa() || machine_is_msm8x60_fluid())
+		platform_device_register(&msm_charger_device);
+#endif
+
+	if (machine_is_msm8x60_dragon())
+		pm8058_platform_data.charger_pdata = &pmic8058_charger_dragon;
+	if (!machine_is_msm8x60_fluid())
+		pm8058_platform_data.charger_pdata = &pmic8058_charger_ffa_surf;
+
+	/* configure pmic leds */
+	if (machine_is_msm8x60_fluid())
+		pm8058_platform_data.leds_pdata = &pm8058_fluid_flash_leds_data;
+	else if (machine_is_msm8x60_dragon())
+		pm8058_platform_data.leds_pdata = &pm8058_dragon_leds_data;
+	else
+		pm8058_platform_data.leds_pdata = &pm8058_flash_leds_data;
+
+	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_fusn_ffa() ||
+		machine_is_msm8x60_dragon()) {
+		pm8058_platform_data.vibrator_pdata = &pm8058_vib_pdata;
 	}
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
@@ -10398,25 +10096,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		machine_is_msm8x60_dragon())
 		msm8x60_cfg_isp1763();
 #endif
-#ifdef CONFIG_BATTERY_MSM8X60
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-		machine_is_msm8x60_fusion() || machine_is_msm8x60_dragon() ||
-		machine_is_msm8x60_fusn_ffa() || machine_is_msm8x60_fluid())
-		platform_device_register(&msm_charger_device);
-#endif
 
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		platform_add_devices(charm_devices, ARRAY_SIZE(charm_devices));
 
-	if (machine_is_msm8x60_dragon()) {
-		pm8058_charger_sub_dev.platform_data
-			= &pmic8058_charger_dragon;
-		pm8058_charger_sub_dev.pdata_size
-			= sizeof(pmic8058_charger_dragon);
-	}
-	if (!machine_is_msm8x60_fluid())
-		pm8058_platform_data.charger_sub_device
-			= &pm8058_charger_sub_dev;
 
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 	if (machine_is_msm8x60_fluid())
@@ -10473,6 +10156,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_TZ, NULL));
 
+	pm8058_gpios_init();
+
 #ifdef CONFIG_SENSORS_MSM_ADC
 	if (machine_is_msm8x60_fluid()) {
 		msm_adc_pdata.dev_names = msm_adc_fluid_device_names;
@@ -10493,32 +10178,6 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	else
 		platform_device_register(&gpio_leds);
 #endif
-
-	/* configure pmic leds */
-	if (machine_is_msm8x60_fluid()) {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
-			platform_data = &pm8058_fluid_flash_leds_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].pdata_size
-			= sizeof(pm8058_fluid_flash_leds_data);
-	} else if (machine_is_msm8x60_dragon()) {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
-			platform_data = &pm8058_dragon_leds_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].pdata_size
-			= sizeof(pm8058_dragon_leds_data);
-	} else {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
-			platform_data = &pm8058_flash_leds_data;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].pdata_size
-			= sizeof(pm8058_flash_leds_data);
-	}
-
-	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_fusn_ffa() ||
-		machine_is_msm8x60_dragon()) {
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_VIB].
-					platform_data = &pmic_vib_pdata;
-		pm8058_platform_data.sub_devices[PM8058_SUBDEV_VIB].
-					pdata_size = sizeof(pmic_vib_pdata);
-	}
 
 	msm8x60_multi_sdio_init();
 

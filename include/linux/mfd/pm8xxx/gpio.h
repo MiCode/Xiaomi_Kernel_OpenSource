@@ -59,6 +59,16 @@ struct pm8xxx_gpio_platform_data {
 #define	PM_GPIO_VIN_L3			5
 #define	PM_GPIO_VIN_L17			6
 
+/* vin_sel: Voltage Input select on PM8058 */
+#define PM8058_GPIO_VIN_VPH		0
+#define PM8058_GPIO_VIN_BB		1
+#define PM8058_GPIO_VIN_S3		2
+#define PM8058_GPIO_VIN_L3		3
+#define PM8058_GPIO_VIN_L7		4
+#define PM8058_GPIO_VIN_L6		5
+#define PM8058_GPIO_VIN_L5		6
+#define PM8058_GPIO_VIN_L2		7
+
 /* out_strength */
 #define	PM_GPIO_STRENGTH_NO		0
 #define	PM_GPIO_STRENGTH_HIGH		1

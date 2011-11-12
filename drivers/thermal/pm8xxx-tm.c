@@ -30,6 +30,7 @@
 #include <linux/mfd/pm8xxx/tm.h>
 #include <linux/completion.h>
 #include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/msm_adc.h>
 
 /* Register TEMP_ALARM_CTRL bits */
 #define	TEMP_ALARM_CTRL_ST3_SD		0x80
@@ -226,6 +227,43 @@ static int pm8xxx_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
 	return 0;
 }
 
+static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
+			      unsigned long *temp)
+{
+	struct pm8xxx_tm_chip *chip = thermal->devdata;
+	DECLARE_COMPLETION_ONSTACK(wait);
+	struct adc_chan_result adc_result = {
+		.physical = 0lu,
+	};
+	int rc;
+
+	if (!chip || !temp)
+		return -EINVAL;
+
+	*temp = chip->temp;
+
+	rc = adc_channel_request_conv(chip->adc_handle, &wait);
+	if (rc < 0) {
+		pr_err("%s: adc_channel_request_conv() failed, rc = %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	wait_for_completion(&wait);
+
+	rc = adc_channel_read_result(chip->adc_handle, &adc_result);
+	if (rc < 0) {
+		pr_err("%s: adc_channel_read_result() failed, rc = %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	*temp = adc_result.physical;
+	chip->temp = adc_result.physical;
+
+	return 0;
+}
+
 static int pm8xxx_tz_get_temp_pm8921_adc(struct thermal_zone_device *thermal,
 				      unsigned long *temp)
 {
@@ -372,6 +410,15 @@ static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_pm8921_adc = {
 	.get_crit_temp = pm8xxx_tz_get_crit_temp,
 };
 
+static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_pm8058_adc = {
+	.get_temp = pm8xxx_tz_get_temp_pm8058_adc,
+	.get_mode = pm8xxx_tz_get_mode,
+	.set_mode = pm8xxx_tz_set_mode,
+	.get_trip_type = pm8xxx_tz_get_trip_type,
+	.get_trip_temp = pm8xxx_tz_get_trip_temp,
+	.get_crit_temp = pm8xxx_tz_get_crit_temp,
+};
+
 static void pm8xxx_tm_work(struct work_struct *work)
 {
 	struct pm8xxx_tm_chip *chip
@@ -465,6 +512,24 @@ static int pm8xxx_tm_init_reg(struct pm8xxx_tm_chip *chip)
 	return rc;
 }
 
+static int pm8xxx_init_adc(struct pm8xxx_tm_chip *chip, bool enable)
+{
+	int rc = 0;
+
+	if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8058_ADC) {
+		if (enable) {
+			rc = adc_channel_open(chip->cdata.adc_channel,
+						&(chip->adc_handle));
+			if (rc < 0)
+				pr_err("adc_channel_open() failed.\n");
+		} else {
+			adc_channel_close(chip->adc_handle);
+		}
+	}
+
+	return rc;
+}
+
 static int __devinit pm8xxx_tm_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_tm_core_data *cdata = pdev->dev.platform_data;
@@ -505,18 +570,27 @@ static int __devinit pm8xxx_tm_probe(struct platform_device *pdev)
 		goto err_free_chip;
 	}
 
+	rc = pm8xxx_init_adc(chip, true);
+	if (rc < 0) {
+		pr_err("Unable to initialize adc\n");
+		goto err_free_chip;
+	}
+
 	/* Select proper thermal zone ops functions based on ADC type. */
 	if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8921_ADC)
 		tz_ops = &pm8xxx_thermal_zone_ops_pm8921_adc;
+	else if (chip->cdata.adc_type == PM8XXX_TM_ADC_PM8058_ADC)
+		tz_ops = &pm8xxx_thermal_zone_ops_pm8058_adc;
 	else
 		tz_ops = &pm8xxx_thermal_zone_ops_no_adc;
 
 	chip->tz_dev = thermal_zone_device_register(chip->cdata.tm_name,
 			TRIP_NUM, chip, tz_ops, 0, 0, 0, 0);
+
 	if (chip->tz_dev == NULL) {
 		pr_err("thermal_zone_device_register() failed.\n");
 		rc = -ENODEV;
-		goto err_free_chip;
+		goto err_fail_adc;
 	}
 
 	rc = pm8xxx_tm_init_reg(chip);
@@ -564,6 +638,8 @@ err_cancel_work:
 	cancel_work_sync(&chip->irq_work);
 err_free_tz:
 	thermal_zone_device_unregister(chip->tz_dev);
+err_fail_adc:
+	pm8xxx_init_adc(chip, false);
 err_free_chip:
 	kfree(chip);
 	return rc;
@@ -579,6 +655,7 @@ static int __devexit pm8xxx_tm_remove(struct platform_device *pdev)
 		free_irq(chip->overtemp_irq, chip);
 		free_irq(chip->tempstat_irq, chip);
 		pm8xxx_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
+		pm8xxx_init_adc(chip, false);
 		thermal_zone_device_unregister(chip->tz_dev);
 		kfree(chip);
 	}

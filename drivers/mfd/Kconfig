@@ -157,6 +157,7 @@ config PMIC8058
 	tristate "PMIC8058 Power Management chip"
 	depends on MSM_SSBI
 	select MFD_CORE
+	select MFD_PM8XXX
 	select MSM_SHOW_RESUME_IRQ
 	help
 	  Say yes here for Qualcomm PM8058 chip.

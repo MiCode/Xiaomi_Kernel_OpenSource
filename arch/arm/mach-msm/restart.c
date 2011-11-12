@@ -120,11 +120,11 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
-	if (cpu_is_msm8x60()) {
-		pm8058_reset_pwr_off(0);
-		pm8901_reset_pwr_off(0);
-	}
 	pm8xxx_reset_pwr_off(0);
+
+	if (cpu_is_msm8x60())
+		pm8901_reset_pwr_off(0);
+
 	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
@@ -202,8 +202,6 @@ void arch_reset(char mode, const char *cmd)
 
 	printk(KERN_NOTICE "Going down for restart now\n");
 
-	if (cpu_is_msm8x60())
-		pm8058_reset_pwr_off(1);
 	pm8xxx_reset_pwr_off(1);
 
 	if (cmd != NULL) {

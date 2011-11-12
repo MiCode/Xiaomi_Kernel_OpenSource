@@ -27,7 +27,7 @@
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 
-#include <linux/mfd/pmic8058.h>
+#include <linux/mfd/pm8xxx/core.h>
 #include <linux/pmic8058-othc.h>
 #include <linux/msm_adc.h>
 
@@ -68,6 +68,7 @@ struct pm8058_othc {
 	void *adc_handle;
 	void *accessory_adc_handle;
 	spinlock_t lock;
+	struct device *dev;
 	struct regulator *othc_vreg;
 	struct input_dev *othc_ipd;
 	struct switch_dev othc_sdev;
@@ -75,7 +76,6 @@ struct pm8058_othc {
 	struct othc_accessory_info *accessory_info;
 	struct hrtimer timer;
 	struct othc_n_switch_config *switch_config;
-	struct pm8058_chip *pm_chip;
 	struct work_struct switch_work;
 	struct delayed_work detect_work;
 	struct delayed_work hs_work;
@@ -149,7 +149,7 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 		return -EINVAL;
 	}
 
-	rc = pm8058_read(dd->pm_chip, dd->othc_base + 1, &reg, 1);
+	rc = pm8xxx_readb(dd->dev->parent, dd->othc_base + 1, &reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
@@ -158,7 +158,7 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 	reg &= PM8058_OTHC_EN_SIG_MASK;
 	reg |= (enable << PM8058_OTHC_EN_SIG_SHIFT);
 
-	rc = pm8058_write(dd->pm_chip, dd->othc_base + 1, &reg, 1);
+	rc = pm8xxx_writeb(dd->dev->parent, dd->othc_base + 1, reg);
 	if (rc < 0) {
 		pr_err("PM8058 write failed\n");
 		return rc;
@@ -446,7 +446,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 
 	if (dd->ir_gpio < 0) {
 		/* Check the MIC_BIAS status */
-		rc = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_ir);
+		rc = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_ir);
 		if (rc < 0) {
 			pr_err("Unable to read IR status from PMIC\n");
 			goto fail_ir_accessory;
@@ -462,7 +462,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 	}
 
 	/* Check the switch status */
-	rc = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_sw);
+	rc = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_sw);
 	if (rc < 0) {
 		pr_err("Unable to read SWITCH status\n");
 		goto fail_ir_accessory;
@@ -576,7 +576,7 @@ static irqreturn_t pm8058_no_sw(int irq, void *dev_id)
 	}
 	spin_unlock_irqrestore(&dd->lock, flags);
 
-	level = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_sw);
+	level = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_sw);
 	if (level < 0) {
 		pr_err("Unable to read IRQ status register\n");
 		return IRQ_HANDLED;
@@ -641,7 +641,7 @@ static irqreturn_t pm8058_nc_ir(int irq, void *dev_id)
 	disable_irq_nosync(dd->othc_irq_ir);
 
 	/* Check the MIC_BIAS status, to check if inserted or removed */
-	rc = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_ir);
+	rc = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_ir);
 	if (rc < 0) {
 		pr_err("Unable to read IR status\n");
 		goto fail_ir;
@@ -666,7 +666,7 @@ static int pm8058_configure_micbias(struct pm8058_othc *dd)
 
 	/* Intialize the OTHC module */
 	/* Control Register 1*/
-	rc = pm8058_read(dd->pm_chip, base_addr, &reg, 1);
+	rc = pm8xxx_readb(dd->dev->parent, base_addr, &reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
@@ -676,14 +676,14 @@ static int pm8058_configure_micbias(struct pm8058_othc *dd)
 	value = (hsed_config->othc_highcurr_thresh_uA / 100) - 2;
 	reg =  (reg & PM8058_OTHC_HIGH_CURR_MASK) | value;
 
-	rc = pm8058_write(dd->pm_chip, base_addr, &reg, 1);
+	rc = pm8xxx_writeb(dd->dev->parent, base_addr, reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
 	/* Control register 2*/
-	rc = pm8058_read(dd->pm_chip, base_addr + 1, &reg, 1);
+	rc = pm8xxx_readb(dd->dev->parent, base_addr + 1, &reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
@@ -718,14 +718,14 @@ static int pm8058_configure_micbias(struct pm8058_othc *dd)
 	}
 	reg = (reg &  PM8058_OTHC_CLK_PREDIV_MASK) | (value - 1);
 
-	rc = pm8058_write(dd->pm_chip, base_addr + 1, &reg, 1);
+	rc = pm8xxx_writeb(dd->dev->parent, base_addr + 1, reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
 	/* Control register 3 */
-	rc = pm8058_read(dd->pm_chip, base_addr + 2 , &reg, 1);
+	rc = pm8xxx_readb(dd->dev->parent, base_addr + 2 , &reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
@@ -748,7 +748,7 @@ static int pm8058_configure_micbias(struct pm8058_othc *dd)
 	}
 	reg = (reg & PM8058_OTHC_PERIOD_CLK_MASK) | value;
 
-	rc = pm8058_write(dd->pm_chip, base_addr + 2, &reg, 1);
+	rc = pm8xxx_writeb(dd->dev->parent, base_addr + 2, reg);
 	if (rc < 0) {
 		pr_err("PM8058 read failed\n");
 		return rc;
@@ -1006,7 +1006,7 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 
 	/* Check if the accessory is already inserted during boot up */
 	if (dd->ir_gpio < 0) {
-		rc = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_ir);
+		rc = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_ir);
 		if (rc < 0) {
 			pr_err("Unable to get accessory status at boot\n");
 			goto fail_ir_status;
@@ -1061,21 +1061,8 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 {
 	int rc;
 	struct pm8058_othc *dd;
-	struct pm8058_chip *chip;
 	struct resource *res;
 	struct pmic8058_othc_config_pdata *pdata = pd->dev.platform_data;
-
-	chip = dev_get_drvdata(pd->dev.parent);
-	if (chip == NULL) {
-		pr_err("Invalid driver information\n");
-		return  -EINVAL;
-	}
-
-	/* Check PMIC8058 version. A0 version is not supported */
-	if (pm8058_rev(chip) == PM_8058_REV_1p0) {
-		pr_err("PMIC8058 version not supported\n");
-		return -ENODEV;
-	}
 
 	if (pdata == NULL) {
 		pr_err("Platform data not present\n");
@@ -1101,8 +1088,8 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 		goto fail_get_res;
 	}
 
+	dd->dev = &pd->dev;
 	dd->othc_pdata = pdata;
-	dd->pm_chip = chip;
 	dd->othc_base = res->start;
 	if (pdata->micbias_regulator == NULL) {
 		pr_err("OTHC regulator not specified\n");

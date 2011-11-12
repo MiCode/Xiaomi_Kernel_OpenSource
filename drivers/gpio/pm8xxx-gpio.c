@@ -432,7 +432,7 @@ int pm8xxx_gpio_config(int gpio, struct pm_gpio *param)
 
 	return rc;
 }
-EXPORT_SYMBOL_GPL(pm8xxx_gpio_config);
+EXPORT_SYMBOL(pm8xxx_gpio_config);
 
 static struct platform_driver pm_gpio_driver = {
 	.probe		= pm_gpio_probe,

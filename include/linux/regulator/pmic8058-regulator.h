@@ -80,6 +80,7 @@ enum pm8058_vreg_pin_fn {
 
 struct pm8058_vreg_pdata {
 	struct regulator_init_data	init_data;
+	int				id;
 	unsigned			pull_down_enable;
 	unsigned			pin_ctrl;
 	enum pm8058_vreg_pin_fn		pin_fn;

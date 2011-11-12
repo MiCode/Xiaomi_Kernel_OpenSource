@@ -601,21 +601,19 @@ config PMIC8XXX_VIBRATOR
 	  on the PM8XXX chips. The vibrator is controlled using the
 	  timed output class.
 
-config PMIC8058_NFC
-	tristate "Qualcomm PM8058 support for Near Field Communication"
-	depends on PMIC8058
-	default y
+config PMIC8XXX_NFC
+	tristate "Qualcomm PM8XXX support for Near Field Communication"
+	depends on MFD_PM8XXX
 	help
-	  Qualcomm PM8058 chip has a module to support NFC (Near Field
+	  Qualcomm PM8XXX chips have a module to support NFC (Near Field
 	  Communication). This option enables the driver to support it.
 
-config PMIC8058_UPL
-	tristate "Qualcomm PM8058 support for User Programmable Logic"
-	depends on PMIC8058
-	default n
+config PMIC8XXX_UPL
+	tristate "Qualcomm PM8XXX support for User Programmable Logic"
+	depends on MFD_PM8XXX
 	help
 	  This option enables device driver support for User Programmable Logic
-	  on Qualcomm PM8058 chip.  The UPL module provides a means to implement
+	  on Qualcomm PM8XXX chips. The UPL module provides a means to implement
 	  simple truth table based logic via a set of control registers. I/O may
 	  be routed in and out of the UPL module via GPIO or DTEST pins.
 

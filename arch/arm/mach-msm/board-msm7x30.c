@@ -23,16 +23,14 @@
 #endif
 #include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8058.h>
+#include <linux/leds.h>
 #include <linux/mfd/marimba.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/smsc911x.h>
 #include <linux/ofn_atlab.h>
 #include <linux/power_supply.h>
-#include <linux/input/pmic8058-keypad.h>
 #include <linux/i2c/isa1200.h>
-#include <linux/pwm.h>
-#include <linux/pmic8058-pwm.h>
 #include <linux/i2c/tsc2007.h>
 #include <linux/input/kp_flip_switch.h>
 #include <linux/leds-pmic8058.h>
@@ -123,6 +121,8 @@
 /* Macros assume PMIC GPIOs start at 0 */
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)     (pm_gpio + NR_GPIO_IRQS)
 #define PM8058_GPIO_SYS_TO_PM(sys_gpio)    (sys_gpio - NR_GPIO_IRQS)
+#define PM8058_MPP_BASE			   PM8058_GPIO_PM_TO_SYS(PM8058_GPIOS)
+#define PM8058_MPP_PM_TO_SYS(pm_gpio)	   (pm_gpio + PM8058_MPP_BASE)
 
 #define PMIC_GPIO_FLASH_BOOST_ENABLE	15	/* PMIC GPIO Number 16 */
 #define PMIC_GPIO_HAP_ENABLE   16  /* PMIC GPIO Number 17 */
@@ -136,61 +136,71 @@
 #define PMIC_GPIO_QUICKVX_CLK 37 /* PMIC GPIO 38 */
 
 #define	PM_FLIP_MPP 5 /* PMIC MPP 06 */
+
+struct pm8xxx_gpio_init_info {
+	unsigned			gpio;
+	struct pm_gpio			config;
+};
+
 static int pm8058_gpios_init(void)
 {
 	int rc;
-	int pmic_gpio_hdmi_5v_en;
 
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-	struct pm8058_gpio sdcc_det = {
-		.direction      = PM_GPIO_DIR_IN,
-		.pull           = PM_GPIO_PULL_UP_1P5,
-		.vin_sel        = 2,
-		.function       = PM_GPIO_FUNC_NORMAL,
-		.inv_int_pol    = 0,
-	};
-#endif
-	struct pm8058_gpio sdc4_en = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_NO,
-		.vin_sel        = PM_GPIO_VIN_L5,
-		.function       = PM_GPIO_FUNC_NORMAL,
-		.inv_int_pol    = 0,
-		.out_strength   = PM_GPIO_STRENGTH_LOW,
-		.output_value   = 0,
+	struct pm8xxx_gpio_init_info sdc4_en = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.vin_sel        = PM8058_GPIO_VIN_L5,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+			.out_strength   = PM_GPIO_STRENGTH_LOW,
+			.output_value   = 0,
+		},
 	};
 
-	struct pm8058_gpio haptics_enable = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_NO,
-		.out_strength   = PM_GPIO_STRENGTH_HIGH,
-		.function       = PM_GPIO_FUNC_NORMAL,
-		.inv_int_pol    = 0,
-		.vin_sel        = 2,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 0,
+	struct pm8xxx_gpio_init_info haptics_enable = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.out_strength   = PM_GPIO_STRENGTH_HIGH,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+			.vin_sel        = 2,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 0,
+		},
 	};
 
-	struct pm8058_gpio hdmi_5V_en = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_NO,
-		.vin_sel        = PM_GPIO_VIN_VPH,
-		.function       = PM_GPIO_FUNC_NORMAL,
-		.out_strength   = PM_GPIO_STRENGTH_LOW,
-		.output_value   = 0,
+	struct pm8xxx_gpio_init_info hdmi_5V_en = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HDMI_5V_EN_V3),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.vin_sel        = PM8058_GPIO_VIN_VPH,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.out_strength   = PM_GPIO_STRENGTH_LOW,
+			.output_value   = 0,
+		},
 	};
 
-	struct pm8058_gpio flash_boost_enable = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 0,
-		.pull           = PM_GPIO_PULL_NO,
-		.vin_sel        = PM_GPIO_VIN_S3,
-		.out_strength   = PM_GPIO_STRENGTH_HIGH,
-		.function       = PM_GPIO_FUNC_2,
+	struct pm8xxx_gpio_init_info flash_boost_enable = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_FLASH_BOOST_ENABLE),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 0,
+			.pull           = PM_GPIO_PULL_NO,
+			.vin_sel        = PM8058_GPIO_VIN_S3,
+			.out_strength   = PM_GPIO_STRENGTH_HIGH,
+			.function        = PM_GPIO_FUNC_2,
+		},
 	};
 
-	struct pm8058_gpio gpio23 = {
+	struct pm8xxx_gpio_init_info gpio23 = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_WLAN_EXT_POR),
+		{
 			.direction      = PM_GPIO_DIR_OUT,
 			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
 			.output_value   = 0,
@@ -198,71 +208,83 @@ static int pm8058_gpios_init(void)
 			.vin_sel        = 2,
 			.out_strength   = PM_GPIO_STRENGTH_LOW,
 			.function       = PM_GPIO_FUNC_NORMAL,
+		}
 	};
 
-
-	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa() ||
-						machine_is_msm7x30_fluid())
-		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V2 ;
-	else
-		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V3 ;
-
-	if (machine_is_msm7x30_fluid()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_HAP_ENABLE, &haptics_enable);
-		if (rc) {
-			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
-				(PMIC_GPIO_HAP_ENABLE + 1));
-			return rc;
-		}
-		rc = pm8058_gpio_config(PMIC_GPIO_FLASH_BOOST_ENABLE,
-			&flash_boost_enable);
-		if (rc) {
-			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
-				(PMIC_GPIO_FLASH_BOOST_ENABLE + 1));
-			return rc;
-		}
-	}
-
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-	if (machine_is_msm7x30_fluid())
-		sdcc_det.inv_int_pol = 1;
+	struct pm8xxx_gpio_init_info sdcc_det = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SD_DET - 1),
+		{
+			.direction      = PM_GPIO_DIR_IN,
+			.pull           = PM_GPIO_PULL_UP_1P5,
+			.vin_sel        = 2,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+		},
+	};
 
-	rc = pm8058_gpio_config(PMIC_GPIO_SD_DET - 1, &sdcc_det);
+	if (machine_is_msm7x30_fluid())
+		sdcc_det.config.inv_int_pol = 1;
+
+	rc = pm8xxx_gpio_config(sdcc_det.gpio, &sdcc_det.config);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_SD_DET config failed\n", __func__);
 		return rc;
 	}
 #endif
 
-	rc = pm8058_gpio_config(pmic_gpio_hdmi_5v_en, &hdmi_5V_en);
+	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa() ||
+						machine_is_msm7x30_fluid())
+		hdmi_5V_en.gpio = PMIC_GPIO_HDMI_5V_EN_V2;
+	else
+		hdmi_5V_en.gpio = PMIC_GPIO_HDMI_5V_EN_V3;
+
+	hdmi_5V_en.gpio = PM8058_GPIO_PM_TO_SYS(hdmi_5V_en.gpio);
+
+	rc = pm8xxx_gpio_config(hdmi_5V_en.gpio, &hdmi_5V_en.config);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_HDMI_5V_EN config failed\n", __func__);
 		return rc;
 	}
 
 	/* Deassert GPIO#23 (source for Ext_POR on WLAN-Volans) */
-	rc = pm8058_gpio_config(PMIC_GPIO_WLAN_EXT_POR, &gpio23);
+	rc = pm8xxx_gpio_config(gpio23.gpio, &gpio23.config);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_WLAN_EXT_POR config failed\n", __func__);
 		return rc;
 	}
 
 	if (machine_is_msm7x30_fluid()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN_N, &sdc4_en);
+		/* Haptics gpio */
+		rc = pm8xxx_gpio_config(haptics_enable.gpio,
+						&haptics_enable.config);
+		if (rc) {
+			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
+							haptics_enable.gpio);
+			return rc;
+		}
+		/* Flash boost gpio */
+		rc = pm8xxx_gpio_config(flash_boost_enable.gpio,
+						&flash_boost_enable.config);
+		if (rc) {
+			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
+						flash_boost_enable.gpio);
+			return rc;
+		}
+		/* SCD4 gpio */
+		rc = pm8xxx_gpio_config(sdc4_en.gpio, &sdc4_en.config);
 		if (rc) {
 			pr_err("%s PMIC_GPIO_SDC4_EN_N config failed\n",
 								 __func__);
 			return rc;
 		}
-		rc = gpio_request(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N),
-				  "sdc4_en");
+		rc = gpio_request(sdc4_en.gpio, "sdc4_en");
 		if (rc) {
 			pr_err("%s PMIC_GPIO_SDC4_EN_N gpio_request failed\n",
 				__func__);
 			return rc;
 		}
-		gpio_set_value_cansleep(
-			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N), 0);
+		gpio_set_value_cansleep(sdc4_en.gpio, 0);
 	}
 
 	return 0;
@@ -450,12 +472,12 @@ static struct cyttsp_platform_data cyttsp_data = {
 
 static int pm8058_pwm_config(struct pwm_device *pwm, int ch, int on)
 {
-	struct pm8058_gpio pwm_gpio_config = {
+	struct pm_gpio pwm_gpio_config = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
 		.output_value   = 0,
 		.pull           = PM_GPIO_PULL_NO,
-		.vin_sel        = PM_GPIO_VIN_S3,
+		.vin_sel        = PM8058_GPIO_VIN_S3,
 		.out_strength   = PM_GPIO_STRENGTH_HIGH,
 		.function       = PM_GPIO_FUNC_2,
 	};
@@ -469,9 +491,10 @@ static int pm8058_pwm_config(struct pwm_device *pwm, int ch, int on)
 	case 2:
 		if (on) {
 			id = 24 + ch;
-			rc = pm8058_gpio_config(id - 1, &pwm_gpio_config);
+			rc = pm8xxx_gpio_config(PM8058_GPIO_PM_TO_SYS(id - 1),
+							&pwm_gpio_config);
 			if (rc)
-				pr_err("%s: pm8058_gpio_config(%d): rc=%d\n",
+				pr_err("%s: pm8xxx_gpio_config(%d): rc=%d\n",
 				       __func__, id, rc);
 		}
 		break;
@@ -660,78 +683,47 @@ static const unsigned int surf_keymap[] = {
 	KEY(11, 7, KEY_RIGHTSHIFT),
 };
 
-static struct resource resources_keypad[] = {
-	{
-		.start	= PM8058_KEYPAD_IRQ(PMIC8058_IRQ_BASE),
-		.end	= PM8058_KEYPAD_IRQ(PMIC8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= PM8058_KEYSTUCK_IRQ(PMIC8058_IRQ_BASE),
-		.end	= PM8058_KEYSTUCK_IRQ(PMIC8058_IRQ_BASE),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
 static struct matrix_keymap_data surf_keymap_data = {
-        .keymap_size    = ARRAY_SIZE(surf_keymap),
-        .keymap         = surf_keymap,
+	.keymap_size    = ARRAY_SIZE(surf_keymap),
+	.keymap		= surf_keymap,
 };
 
-
-static struct pmic8058_keypad_data surf_keypad_data = {
+static struct pm8xxx_keypad_platform_data surf_keypad_data = {
 	.input_name		= "surf_keypad",
 	.input_phys_device	= "surf_keypad/input0",
 	.num_rows		= 12,
 	.num_cols		= 8,
-	.rows_gpio_start	= 8,
-	.cols_gpio_start	= 0,
-	.debounce_ms		= {8, 10},
+	.rows_gpio_start	= PM8058_GPIO_PM_TO_SYS(8),
+	.cols_gpio_start	= PM8058_GPIO_PM_TO_SYS(0),
+	.debounce_ms		= 15,
 	.scan_delay_ms		= 32,
 	.row_hold_ns		= 91500,
 	.wakeup			= 1,
-	.keymap_data            = &surf_keymap_data,
+	.keymap_data		= &surf_keymap_data,
 };
 
 static struct matrix_keymap_data fluid_keymap_data = {
-        .keymap_size    = ARRAY_SIZE(fluid_keymap),
-        .keymap         = fluid_keymap,
+	.keymap_size	= ARRAY_SIZE(fluid_keymap),
+	.keymap		= fluid_keymap,
 };
 
-
-
-static struct pmic8058_keypad_data fluid_keypad_data = {
+static struct pm8xxx_keypad_platform_data fluid_keypad_data = {
 	.input_name		= "fluid-keypad",
 	.input_phys_device	= "fluid-keypad/input0",
 	.num_rows		= 5,
 	.num_cols		= 5,
-	.rows_gpio_start	= 8,
-	.cols_gpio_start	= 0,
-	.debounce_ms		= {8, 10},
+	.rows_gpio_start	= PM8058_GPIO_PM_TO_SYS(8),
+	.cols_gpio_start	= PM8058_GPIO_PM_TO_SYS(0),
+	.debounce_ms		= 15,
 	.scan_delay_ms		= 32,
 	.row_hold_ns		= 91500,
 	.wakeup			= 1,
-	.keymap_data            = &fluid_keymap_data,
+	.keymap_data		= &fluid_keymap_data,
 };
 
 static struct pm8058_pwm_pdata pm8058_pwm_data = {
-	.config		= pm8058_pwm_config,
-	.enable		= pm8058_pwm_enable,
-};
-
-/* Put sub devices with fixed location first in sub_devices array */
-#define	PM8058_SUBDEV_KPD	0
-#define	PM8058_SUBDEV_LED	1
-
-static struct pm8058_gpio_platform_data pm8058_gpio_data = {
-	.gpio_base	= PM8058_GPIO_PM_TO_SYS(0),
-	.irq_base	= PM8058_GPIO_IRQ(PMIC8058_IRQ_BASE, 0),
-	.init		= pm8058_gpios_init,
-};
-
-static struct pm8058_gpio_platform_data pm8058_mpp_data = {
-	.gpio_base	= PM8058_GPIO_PM_TO_SYS(PM8058_GPIOS),
-	.irq_base	= PM8058_MPP_IRQ(PMIC8058_IRQ_BASE, 0),
+	.config         = pm8058_pwm_config,
+	.enable         = pm8058_pwm_enable,
 };
 
 static struct pmic8058_led pmic8058_ffa_leds[] = {
@@ -765,38 +757,6 @@ static struct pmic8058_led pmic8058_surf_leds[] = {
 	},
 };
 
-static struct mfd_cell pm8058_subdevs[] = {
-	{	.name = "pm8058-keypad",
-		.id		= -1,
-		.num_resources	= ARRAY_SIZE(resources_keypad),
-		.resources	= resources_keypad,
-	},
-	{	.name = "pm8058-led",
-		.id		= -1,
-	},
-	{	.name = "pm8058-gpio",
-		.id		= -1,
-		.platform_data	= &pm8058_gpio_data,
-		.pdata_size	= sizeof(pm8058_gpio_data),
-	},
-	{	.name = "pm8058-mpp",
-		.id		= -1,
-		.platform_data	= &pm8058_mpp_data,
-		.pdata_size	= sizeof(pm8058_mpp_data),
-	},
-	{	.name = "pm8058-pwm",
-		.id		= -1,
-		.platform_data	= &pm8058_pwm_data,
-		.pdata_size	= sizeof(pm8058_pwm_data),
-	},
-	{	.name = "pm8058-nfc",
-		.id		= -1,
-	},
-	{	.name = "pm8058-upl",
-		.id		= -1,
-	},
-};
-
 static struct pmic8058_leds_platform_data pm8058_surf_leds_data = {
 	.num_leds = ARRAY_SIZE(pmic8058_surf_leds),
 	.leds	= pmic8058_surf_leds,
@@ -825,13 +785,25 @@ static struct pmic8058_leds_platform_data pm8058_fluid_leds_data = {
 	.leds	= pmic8058_fluid_leds,
 };
 
-static struct pm8058_platform_data pm8058_7x30_data = {
-	.irq_base = PMIC8058_IRQ_BASE,
-	.irq = MSM_GPIO_TO_INT(PMIC_GPIO_INT),
+static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata = {
+	.irq_base		= PMIC8058_IRQ_BASE,
+	.devirq			= MSM_GPIO_TO_INT(PMIC_GPIO_INT),
+	.irq_trigger_flag       = IRQF_TRIGGER_LOW,
+};
 
-	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
-	.sub_devices = pm8058_subdevs,
-	.irq_trigger_flags = IRQF_TRIGGER_LOW,
+static struct pm8xxx_gpio_platform_data pm8xxx_gpio_pdata = {
+	.gpio_base		= PM8058_GPIO_PM_TO_SYS(0),
+};
+
+static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata = {
+	.mpp_base	= PM8058_MPP_PM_TO_SYS(0),
+};
+
+static struct pm8058_platform_data pm8058_7x30_data = {
+	.irq_pdata		= &pm8xxx_irq_pdata,
+	.gpio_pdata		= &pm8xxx_gpio_pdata,
+	.mpp_pdata		= &pm8xxx_mpp_pdata,
+	.pwm_pdata		= &pm8058_pwm_data,
 };
 
 #ifdef CONFIG_MSM_SSBI
@@ -1611,15 +1583,10 @@ static int __init buses_init(void)
 		pr_err("%s: gpio_tlmm_config (gpio=%d) failed\n",
 		       __func__, PMIC_GPIO_INT);
 
-	if (machine_is_msm7x30_fluid()) {
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_KPD].platform_data
-			= &fluid_keypad_data;
-	} else {
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_KPD].platform_data
-			= &surf_keypad_data;
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_KPD].pdata_size
-                        = sizeof(surf_keypad_data);
-	}
+	if (machine_is_msm8x60_fluid())
+		pm8058_7x30_data.keypad_pdata = &fluid_keypad_data;
+	else
+		pm8058_7x30_data.keypad_pdata = &surf_keypad_data;
 
 	return 0;
 }
@@ -3246,24 +3213,27 @@ static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
         int rc;
         static int vbus_is_on;
-        struct pm8058_gpio usb_vbus = {
-                .direction      = PM_GPIO_DIR_OUT,
-                .pull           = PM_GPIO_PULL_NO,
-                .output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-                .output_value   = 1,
-                .vin_sel        = 2,
-                .out_strength   = PM_GPIO_STRENGTH_MED,
-                .function       = PM_GPIO_FUNC_NORMAL,
-                .inv_int_pol    = 0,
-        };
+	struct pm8xxx_gpio_init_info usb_vbus = {
+		PM8058_GPIO_PM_TO_SYS(36),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 1,
+			.vin_sel        = 2,
+			.out_strength   = PM_GPIO_STRENGTH_MED,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+		},
+	};
 
         /* If VBUS is already on (or off), do nothing. */
         if (unlikely(on == vbus_is_on))
                 return;
 
         if (on) {
-                rc = pm8058_gpio_config(36, &usb_vbus);
-                if (rc) {
+		rc = pm8xxx_gpio_config(usb_vbus.gpio, &usb_vbus.config);
+		if (rc) {
                         pr_err("%s PMIC GPIO 36 write failed\n", __func__);
                         return;
                 }
@@ -4041,14 +4011,17 @@ static unsigned char quickvx_ldo_enabled;
 static unsigned quickvx_vlp_gpio =
 	GPIO_CFG(97, 0, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL,	GPIO_CFG_2MA);
 
-static struct pm8058_gpio pmic_quickvx_clk_gpio = {
-	.direction      = PM_GPIO_DIR_OUT,
-	.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-	.output_value   = 1,
-	.pull           = PM_GPIO_PULL_NO,
-	.vin_sel        = PM_GPIO_VIN_S3,
-	.out_strength   = PM_GPIO_STRENGTH_HIGH,
-	.function       = PM_GPIO_FUNC_2,
+static struct pm8xxx_gpio_init_info pmic_quickvx_clk_gpio = {
+	PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_QUICKVX_CLK),
+	{
+		.direction      = PM_GPIO_DIR_OUT,
+		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+		.output_value   = 1,
+		.pull           = PM_GPIO_PULL_NO,
+		.vin_sel        = PM8058_GPIO_VIN_S3,
+		.out_strength   = PM_GPIO_STRENGTH_HIGH,
+		.function       = PM_GPIO_FUNC_2,
+	},
 };
 
 static int display_common_power(int on)
@@ -4088,11 +4061,11 @@ static int display_common_power(int on)
 			/* bring QuickVX VLP line low */
 			gpio_set_value(97, 0);
 
-			rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
-				&pmic_quickvx_clk_gpio);
+			rc = pm8xxx_gpio_config(pmic_quickvx_clk_gpio.gpio,
+						&pmic_quickvx_clk_gpio.config);
 			if (rc) {
-				pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
-					__func__, PMIC_GPIO_QUICKVX_CLK + 1,
+				pr_err("%s: pm8xxx_gpio_config(%#x)=%d\n",
+					__func__, pmic_quickvx_clk_gpio.gpio,
 					rc);
 				return rc;
 			}
@@ -6452,16 +6425,12 @@ static struct msm_tsif_platform_data tsif_platform_data = {
 
 static void __init pmic8058_leds_init(void)
 {
-	if (machine_is_msm7x30_surf()) {
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].platform_data
-			= &pm8058_surf_leds_data;
-	} else if (!machine_is_msm7x30_fluid()) {
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].platform_data
-			= &pm8058_ffa_leds_data;
-	} else if (machine_is_msm7x30_fluid()) {
-		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].platform_data
-			= &pm8058_fluid_leds_data;
-	}
+	if (machine_is_msm7x30_surf())
+		pm8058_7x30_data.leds_pdata = &pm8058_surf_leds_data;
+	else if (!machine_is_msm7x30_fluid())
+		pm8058_7x30_data.leds_pdata = &pm8058_ffa_leds_data;
+	else if (machine_is_msm7x30_fluid())
+		pm8058_7x30_data.leds_pdata = &pm8058_fluid_leds_data;
 }
 
 static struct msm_spm_platform_data msm_spm_data __initdata = {
@@ -6780,8 +6749,14 @@ static struct i2c_board_info msm_isa1200_board_info[] = {
 
 static int kp_flip_mpp_config(void)
 {
-	return pm8058_mpp_config_digital_in(PM_FLIP_MPP,
-		PM8058_MPP_DIG_LEVEL_S3, PM_MPP_DIN_TO_INT);
+	struct pm8xxx_mpp_config_data kp_flip_mpp = {
+		.type = PM8XXX_MPP_TYPE_D_INPUT,
+		.level = PM8018_MPP_DIG_LEVEL_S3,
+		.control = PM8XXX_MPP_DIN_TO_INT,
+	};
+
+	return pm8xxx_mpp_config(PM8058_MPP_PM_TO_SYS(PM_FLIP_MPP),
+						&kp_flip_mpp);
 }
 
 static struct flip_switch_pdata flip_switch_data = {
@@ -6992,6 +6967,10 @@ static void __init msm7x30_init(void)
 		msm_adc_pdata.num_adc = ARRAY_SIZE(msm_adc_surf_device_names);
 	}
 
+	pmic8058_leds_init();
+
+	buses_init();
+
 #ifdef CONFIG_MSM_SSBI
 	msm_device_ssbi_pmic1.dev.platform_data =
 				&msm7x30_ssbi_pm8058_pdata;
@@ -7023,7 +7002,6 @@ static void __init msm7x30_init(void)
 	msm_device_i2c_init();
 	msm_device_i2c_2_init();
 	qup_device_i2c_init();
-	buses_init();
 	msm7x30_init_marimba();
 #ifdef CONFIG_MSM7KV2_AUDIO
 	snddev_poweramp_gpio_init();
@@ -7071,7 +7049,8 @@ static void __init msm7x30_init(void)
 
 	if (machine_is_msm7x30_surf())
 		platform_device_register(&flip_switch_device);
-	pmic8058_leds_init();
+
+	pm8058_gpios_init();
 
 	if (machine_is_msm7x30_fluid()) {
 		/* Initialize platform data for fluid v2 hardware */
