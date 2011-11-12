@@ -3989,7 +3989,6 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 		phy_reset_done = 1;
 	}
 
-	hdmi_msm_init_phy(external_common_state->video_resolution);
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);
 
