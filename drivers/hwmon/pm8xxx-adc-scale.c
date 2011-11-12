@@ -34,81 +34,89 @@ static const struct pm8xxx_adc_map_pt adcmap_batttherm[] = {
 };
 
 static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
-	{-30,	41001},
-	{-20,	40017},
-	{-10,	38721},
-	{0,	37186},
-	{10,	35554},
-	{11,	35392},
-	{12,	35230},
-	{13,	35070},
-	{14,	34910},
-	{15,	34751},
-	{16,	34594},
-	{17,	34438},
-	{18,	34284},
-	{19,	34131},
-	{20,	33980},
-	{21,	33830},
-	{22,	33683},
-	{23,	33538},
-	{24,	33394},
-	{25,	33253},
-	{26,	33114},
-	{27,	32977},
-	{28,	32842},
-	{29,	32710},
-	{30,	32580},
-	{31,	32452},
-	{32,	32327},
-	{33,	32204},
-	{34,	32084},
-	{35,	31966},
-	{36,	31850},
-	{37,	31737},
-	{38,	31627},
-	{39,	31518},
-	{40,	31412},
-	{41,	31309},
-	{42,	31208},
-	{43,	31109},
-	{44,	31013},
-	{45,	30918},
-	{46,	30827},
-	{47,	30737},
-	{48,	30649},
-	{49,	30564},
-	{50,	30481},
-	{51,	30400},
-	{52,	30321},
-	{53,	30244},
-	{54,	30169},
-	{55,	30096},
-	{56,	30025},
-	{57,	29956},
-	{58,	29889},
-	{59,	29823},
-	{60,	29759},
-	{61,	29697},
-	{62,	29637},
-	{63,	29578},
-	{64,	29521},
-	{65,	29465},
-	{66,	29411},
-	{67,	29359},
-	{68,	29308},
-	{69,	29258},
-	{70,	29209},
-	{71,	29162},
-	{72,	29117},
-	{73,	29072},
-	{74,	29029},
-	{75,	28987},
-	{76,	28946},
-	{77,	28906},
-	{78,	28868},
-	{79,	28830},
-	{80,	28794}
+	{-30,	1642},
+	{-20,	1544},
+	{-10,	1414},
+	{0,	1260},
+	{1,	1244},
+	{2,	1228},
+	{3,	1212},
+	{4,	1195},
+	{5,	1179},
+	{6,	1162},
+	{7,	1146},
+	{8,	1129},
+	{9,	1113},
+	{10,	1097},
+	{11,	1080},
+	{12,	1064},
+	{13,	1048},
+	{14,	1032},
+	{15,	1016},
+	{16,	1000},
+	{17,	985},
+	{18,	969},
+	{19,	954},
+	{20,	939},
+	{21,	924},
+	{22,	909},
+	{23,	894},
+	{24,	880},
+	{25,	866},
+	{26,	852},
+	{27,	838},
+	{28,	824},
+	{29,	811},
+	{30,	798},
+	{31,	785},
+	{32,	773},
+	{33,	760},
+	{34,	748},
+	{35,	736},
+	{36,	725},
+	{37,	713},
+	{38,	702},
+	{39,	691},
+	{40,	681},
+	{41,	670},
+	{42,	660},
+	{43,	650},
+	{44,	640},
+	{45,	631},
+	{46,	622},
+	{47,	613},
+	{48,	604},
+	{49,	595},
+	{50,	587},
+	{51,	579},
+	{52,	571},
+	{53,	563},
+	{54,	556},
+	{55,	548},
+	{56,	541},
+	{57,	534},
+	{58,	527},
+	{59,	521},
+	{60,	514},
+	{61,	508},
+	{62,	502},
+	{63,	496},
+	{64,	490},
+	{65,	485},
+	{66,	281},
+	{67,	274},
+	{68,	267},
+	{69,	260},
+	{70,	254},
+	{71,	247},
+	{72,	241},
+	{73,	235},
+	{74,	229},
+	{75,	224},
+	{76,	218},
+	{77,	213},
+	{78,	208},
+	{79,	203}
 };
 
 static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
@@ -597,7 +605,9 @@ int32_t pm8xxx_adc_tdkntcg_therm(int32_t adc_code,
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_tdkntcg_therm);
 
-int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *btm_param)
+int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *btm_param,
+		const struct pm8xxx_adc_properties *adc_properties,
+		const struct pm8xxx_adc_chan_properties *chan_properties)
 {
 	int rc;
 
@@ -606,14 +616,29 @@ int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *btm_param)
 		ARRAY_SIZE(adcmap_btm_threshold),
 		btm_param->low_thr_temp,
 		&btm_param->low_thr_voltage);
+	if (rc)
+		return rc;
 
-	if (!rc) {
-		rc = pm8xxx_adc_map_linear(
-			adcmap_btm_threshold,
-			ARRAY_SIZE(adcmap_btm_threshold),
-			btm_param->high_thr_temp,
-			&btm_param->high_thr_voltage);
-	}
+	btm_param->low_thr_voltage *=
+		chan_properties->adc_graph[ADC_CALIB_RATIOMETRIC].dy;
+	do_div(btm_param->low_thr_voltage, adc_properties->adc_vdd_reference);
+	btm_param->low_thr_voltage +=
+		chan_properties->adc_graph[ADC_CALIB_RATIOMETRIC].adc_gnd;
+
+	rc = pm8xxx_adc_map_linear(
+		adcmap_btm_threshold,
+		ARRAY_SIZE(adcmap_btm_threshold),
+		btm_param->high_thr_temp,
+		&btm_param->high_thr_voltage);
+	if (rc)
+		return rc;
+
+	btm_param->high_thr_voltage *=
+		chan_properties->adc_graph[ADC_CALIB_RATIOMETRIC].dy;
+	do_div(btm_param->high_thr_voltage, adc_properties->adc_vdd_reference);
+	btm_param->high_thr_voltage +=
+		chan_properties->adc_graph[ADC_CALIB_RATIOMETRIC].adc_gnd;
+
 
 	return rc;
 }
