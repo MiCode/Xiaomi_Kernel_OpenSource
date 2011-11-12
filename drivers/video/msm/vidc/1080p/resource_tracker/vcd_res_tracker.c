@@ -222,6 +222,13 @@ bail_out:
 	return false;
 }
 
+static struct ion_client *res_trk_create_ion_client(void){
+	struct ion_client *video_client;
+	video_client = msm_ion_client_create((1<<ION_HEAP_TYPE_CARVEOUT),
+						"video_client");
+	return video_client;
+}
+
 u32 res_trk_power_up(void)
 {
 	VCDRES_MSG_LOW("clk_regime_rail_enable");
@@ -416,6 +423,15 @@ void res_trk_init(struct device *device, u32 irq)
 		if (resource_context.vidc_platform_data) {
 			resource_context.memtype =
 			resource_context.vidc_platform_data->memtype;
+			if (resource_context.vidc_platform_data->enable_ion) {
+				resource_context.res_ion_client =
+					res_trk_create_ion_client();
+				if (!(resource_context.res_ion_client)) {
+					VCDRES_MSG_ERROR("%s()ION createfail\n",
+							__func__);
+					return;
+				}
+			}
 #ifdef CONFIG_MSM_BUS_SCALING
 			resource_context.vidc_bus_client_pdata =
 			resource_context.vidc_platform_data->
@@ -452,4 +468,17 @@ u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr)
 
 u32 res_trk_get_mem_type(void){
 	return resource_context.memtype;
+}
+
+u32 res_trk_get_enable_ion(void)
+{
+	if (resource_context.vidc_platform_data->enable_ion)
+		return 1;
+	else
+		return 0;
+}
+
+struct ion_client *res_trk_get_ion_client(void)
+{
+	return resource_context.res_ion_client;
 }

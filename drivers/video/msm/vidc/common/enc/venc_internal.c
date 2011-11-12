@@ -1589,7 +1589,6 @@ u32 vid_enc_free_buffer(struct video_client_ctx *client_ctx,
 		    __func__, buffer_info->pbuffer);
 		return true;
 	}
-
 	vcd_status = vcd_free_buffer(client_ctx->vcd_handle, buffer_vcd,
 					 (u8 *)kernel_vaddr);
 
@@ -1705,6 +1704,9 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_enc_recon_buffer *control = NULL;
 	struct msm_mapped_buffer *mapped_buffer = NULL;
+	size_t ion_len = -1;
+	unsigned long phy_addr;
+	int rc = -1;
 	if (!client_ctx || !venc_recon) {
 		pr_err("%s() Invalid params", __func__);
 		return false;
@@ -1727,39 +1729,78 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 	control->pmem_fd = venc_recon->pmem_fd;
 	control->offset = venc_recon->offset;
 	control->user_virtual_addr = venc_recon->pbuffer;
-	if (get_pmem_file(control->pmem_fd, (unsigned long *)
-		(&(control->physical_addr)), (unsigned long *)
-		(&control->kernel_virtual_addr),
-		(unsigned long *) (&len), &file)) {
-			ERR("%s(): get_pmem_file failed\n", __func__);
-			return false;
-		}
-		put_pmem_file(file);
-		flags = MSM_SUBSYSTEM_MAP_IOVA;
-		mapped_buffer = msm_subsystem_map_buffer(
-		(unsigned long)control->physical_addr, len,
-		flags, vidc_mmu_subsystem,
-		sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
-		if (IS_ERR(mapped_buffer)) {
-			pr_err("buffer map failed");
-			return false;
-		}
-		control->client_data = (void *) mapped_buffer;
-		control->dev_addr = (u8 *)mapped_buffer->iova[0];
-		vcd_property_hdr.prop_id = VCD_I_RECON_BUFFERS;
-		vcd_property_hdr.sz =
-			sizeof(struct vcd_property_enc_recon_buffer);
 
-		vcd_status = vcd_set_property(client_ctx->vcd_handle,
-						&vcd_property_hdr, control);
-		if (!vcd_status) {
-			DBG("vcd_set_property returned success\n");
-			return true;
-		} else {
-			ERR("%s(): vid_enc_set_recon_buffers failed = %u\n",
-					__func__, vcd_status);
-			return false;
+	if (!vcd_get_ion_status()) {
+		if (get_pmem_file(control->pmem_fd, (unsigned long *)
+			(&(control->physical_addr)), (unsigned long *)
+			(&control->kernel_virtual_addr),
+			(unsigned long *) (&len), &file)) {
+				ERR("%s(): get_pmem_file failed\n", __func__);
+				return false;
+			}
+			put_pmem_file(file);
+	} else {
+		client_ctx->recon_buffer_ion_handle[i] = ion_import_fd(
+				client_ctx->user_ion_client, control->pmem_fd);
+		if (!client_ctx->recon_buffer_ion_handle[i]) {
+			ERR("%s(): get_ION_handle failed\n", __func__);
+			goto ion_error;
 		}
+		control->kernel_virtual_addr = (u8 *) ion_map_kernel(
+			client_ctx->user_ion_client,
+			client_ctx->recon_buffer_ion_handle[i],
+			0);
+		if (!control->kernel_virtual_addr) {
+			ERR("%s(): get_ION_kernel virtual addr fail\n",
+				 __func__);
+			goto ion_error;
+		}
+		rc = ion_phys(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i],
+				&phy_addr, &ion_len);
+		if (rc) {
+			ERR("%s():get_ION_kernel physical addr fail\n",
+				 __func__);
+			goto ion_error;
+		}
+		control->physical_addr =  (u8 *) phy_addr;
+		len = (unsigned long) ion_len;
+	}
+	flags = MSM_SUBSYSTEM_MAP_IOVA;
+	mapped_buffer = msm_subsystem_map_buffer(
+	(unsigned long)control->physical_addr, len,
+	flags, vidc_mmu_subsystem,
+	sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
+	if (IS_ERR(mapped_buffer)) {
+		pr_err("buffer map failed");
+		return false;
+	}
+	control->client_data = (void *) mapped_buffer;
+	control->dev_addr = (u8 *)mapped_buffer->iova[0];
+
+	vcd_property_hdr.prop_id = VCD_I_RECON_BUFFERS;
+	vcd_property_hdr.sz =
+		sizeof(struct vcd_property_enc_recon_buffer);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+					&vcd_property_hdr, control);
+	if (!vcd_status) {
+		DBG("vcd_set_property returned success\n");
+		return true;
+	} else {
+		ERR("%s(): vid_enc_set_recon_buffers failed = %u\n",
+				__func__, vcd_status);
+		return false;
+	}
+ion_error:
+	if (control->kernel_virtual_addr)
+		ion_unmap_kernel(client_ctx->user_ion_client,
+			client_ctx->recon_buffer_ion_handle[i]);
+	if (client_ctx->recon_buffer_ion_handle[i])
+		ion_free(client_ctx->user_ion_client,
+			client_ctx->recon_buffer_ion_handle[i]);
+		client_ctx->recon_buffer_ion_handle[i] = NULL;
+	return false;
 }
 
 u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
@@ -1798,6 +1839,15 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
 	vcd_status = vcd_set_property(client_ctx->vcd_handle,
 						&vcd_property_hdr, control);
+	if (vcd_get_ion_status()) {
+		if (client_ctx->recon_buffer_ion_handle[i]) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+			ion_free(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+			client_ctx->recon_buffer_ion_handle[i] = NULL;
+		}
+	}
 	memset(control, 0, sizeof(struct vcd_property_enc_recon_buffer));
 	return true;
 }

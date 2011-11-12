@@ -24,18 +24,23 @@
 struct vcd_msm_map_buffer {
 	phys_addr_t phy_addr;
 	struct msm_mapped_buffer *mapped_buffer;
+	struct ion_handle *alloc_handle;
 	u32 in_use;
 };
 static struct vcd_msm_map_buffer msm_mapped_buffer_table[MAP_TABLE_SZ];
 static unsigned int vidc_mmu_subsystem[] = {MSM_SUBSYSTEM_VIDEO};
 
-static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr)
+static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
+			 struct vcd_clnt_ctxt *cctxt)
 {
 	u32 memtype, i = 0, flags = 0;
 	struct vcd_msm_map_buffer *map_buffer = NULL;
 	struct msm_mapped_buffer *mapped_buffer = NULL;
+	int rc = 0;
+	ion_phys_addr_t phyaddr = 0;
+	size_t len = 0;
 
-	if (!kernel_vaddr || !phy_addr) {
+	if (!kernel_vaddr || !phy_addr || !cctxt) {
 		pr_err("\n%s: Invalid parameters", __func__);
 		goto bailout;
 	}
@@ -52,18 +57,41 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr)
 		pr_err("%s() map table is full", __func__);
 		goto bailout;
 	}
-	memtype = res_trk_get_mem_type();
-	map_buffer->phy_addr = (phys_addr_t)
-	allocate_contiguous_memory_nomap(sz, memtype, SZ_4K);
-	if (!map_buffer->phy_addr) {
-		pr_err("%s() acm alloc failed", __func__);
-		goto free_map_table;
+	if (!cctxt->vcd_enable_ion) {
+		memtype = res_trk_get_mem_type();
+		map_buffer->phy_addr = (phys_addr_t)
+		allocate_contiguous_memory_nomap(sz, memtype, SZ_4K);
+		if (!map_buffer->phy_addr) {
+			pr_err("%s() acm alloc failed", __func__);
+			goto free_map_table;
+		}
+	} else {
+		map_buffer->alloc_handle = ion_alloc(
+			    cctxt->vcd_ion_client, sz, SZ_4K,
+			    (1<<ION_HEAP_EBI_ID));
+		if (!map_buffer->alloc_handle) {
+			pr_err("%s() ION alloc failed", __func__);
+			goto bailout;
+		}
+		rc = ion_phys(cctxt->vcd_ion_client,
+		map_buffer->alloc_handle, &phyaddr, &len);
+		if (rc) {
+			pr_err("%s() : ION client physical fail\n",
+			 __func__);
+			goto free_acm_alloc;
+		}
+		map_buffer->phy_addr = phyaddr;
+		if (!map_buffer->phy_addr) {
+			pr_err("%s() acm alloc failed", __func__);
+			goto free_map_table;
+		}
+
 	}
 
 	flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
 	map_buffer->mapped_buffer =
-	msm_subsystem_map_buffer((unsigned long)*phy_addr,
-	sz,	flags, vidc_mmu_subsystem,
+	msm_subsystem_map_buffer((unsigned long)map_buffer->phy_addr,
+	sz, flags, vidc_mmu_subsystem,
 	sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
 	if (IS_ERR(map_buffer->mapped_buffer)) {
 		pr_err(" %s() buffer map failed", __func__);
@@ -81,26 +109,32 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr)
 free_map_buffers:
 	msm_subsystem_unmap_buffer(map_buffer->mapped_buffer);
 free_acm_alloc:
-	free_contiguous_memory_by_paddr(
+	if (!cctxt->vcd_enable_ion) {
+		free_contiguous_memory_by_paddr(
 		(unsigned long)map_buffer->phy_addr);
+	} else {
+		ion_free(cctxt->vcd_ion_client, map_buffer->alloc_handle);
+	}
 free_map_table:
 	map_buffer->in_use = 0;
 bailout:
 	return -ENOMEM;
 }
 
-static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr)
+static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr,
+			 struct vcd_clnt_ctxt *cctxt)
 {
 	u32 i = 0;
 	struct vcd_msm_map_buffer *map_buffer = NULL;
-	if (!kernel_vaddr || !phy_addr) {
+
+	if (!kernel_vaddr || !phy_addr || !cctxt) {
 		pr_err("\n%s: Invalid parameters", __func__);
 		goto bailout;
 	}
 	for (i = 0; i  < MAP_TABLE_SZ; i++) {
 		if (msm_mapped_buffer_table[i].in_use &&
 			(msm_mapped_buffer_table[i]
-			 .mapped_buffer->vaddr == kernel_vaddr)) {
+			.mapped_buffer->vaddr == kernel_vaddr)) {
 			map_buffer = &msm_mapped_buffer_table[i];
 			map_buffer->in_use = 0;
 			break;
@@ -111,13 +145,21 @@ static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr)
 		goto bailout;
 	}
 	msm_subsystem_unmap_buffer(map_buffer->mapped_buffer);
-	free_contiguous_memory_by_paddr(
-		(unsigned long)map_buffer->phy_addr);
+	if (cctxt->vcd_enable_ion) {
+		if (map_buffer->alloc_handle) {
+			ion_free(cctxt->vcd_ion_client,
+			map_buffer->alloc_handle);
+		}
+	} else {
+		free_contiguous_memory_by_paddr(
+			(unsigned long)map_buffer->phy_addr);
+	}
 bailout:
 	kernel_vaddr = NULL;
 	phy_addr = NULL;
 	return 0;
 }
+
 
 u8 *vcd_pmem_get_physical(struct video_client_ctx *client_ctx,
 			  unsigned long kernel_vaddr)
@@ -543,7 +585,7 @@ u32 vcd_allocate_buffer_internal(
 	buf_size += buf_req->align;
 
 	rc = vcd_pmem_alloc(buf_size, &buf_entry->alloc,
-				&buf_entry->physical);
+				&buf_entry->physical, cctxt);
 
 	if (rc < 0) {
 		VCD_MSG_ERROR("Buffer allocation failed");
@@ -633,7 +675,7 @@ u32 vcd_free_one_buffer_internal(
 			buf_entry->virtual, buf_entry->allocated);
 
 	if (buf_entry->allocated) {
-		vcd_pmem_free(buf_entry->alloc, buf_entry->physical);
+		vcd_pmem_free(buf_entry->alloc, buf_entry->physical, cctxt);
 		buf_pool->allocated--;
 	}
 
@@ -660,7 +702,7 @@ u32 vcd_free_buffers_internal(
 				buf_pool->entries[i].allocated) {
 				vcd_pmem_free(buf_pool->entries[i].alloc,
 						  buf_pool->entries[i].
-						  physical);
+						  physical, cctxt);
 			}
 		}
 
@@ -987,6 +1029,14 @@ u32 vcd_init_client_context(struct vcd_clnt_ctxt *cctxt)
 	VCD_MSG_LOW("vcd_init_client_context:");
 	rc = ddl_open(&cctxt->ddl_handle, cctxt->decoding);
 	VCD_FAILED_RETURN(rc, "Failed: ddl_open");
+	cctxt->vcd_enable_ion = res_trk_get_enable_ion();
+	if (cctxt->vcd_enable_ion) {
+		cctxt->vcd_ion_client = res_trk_get_ion_client();
+		if (!cctxt->vcd_ion_client) {
+			VCD_MSG_LOW("vcd_init_ion_get_client_failed:");
+			return -EINVAL;
+		}
+	}
 	cctxt->ddl_hdl_valid = true;
 	cctxt->clnt_state.state = VCD_CLIENT_STATE_OPEN;
 	cctxt->clnt_state.state_table =
@@ -1045,7 +1095,7 @@ void vcd_destroy_client_context(struct vcd_clnt_ctxt *cctxt)
 
 	if (cctxt->seq_hdr.sequence_header) {
 		vcd_pmem_free(cctxt->seq_hdr.sequence_header,
-				  cctxt->seq_hdr_phy_addr);
+				  cctxt->seq_hdr_phy_addr, cctxt);
 		cctxt->seq_hdr.sequence_header = NULL;
 	}
 
@@ -1063,7 +1113,7 @@ void vcd_destroy_client_context(struct vcd_clnt_ctxt *cctxt)
 	cctxt->signature = 0;
 	cctxt->clnt_state.state = VCD_CLIENT_STATE_NULL;
 	cctxt->clnt_state.state_table = NULL;
-
+	cctxt->vcd_ion_client = NULL;
 	kfree(cctxt);
 }
 
@@ -2684,7 +2734,7 @@ u32 vcd_store_seq_hdr(
 		VCD_MSG_HIGH("Old seq hdr detected");
 
 		vcd_pmem_free(cctxt->seq_hdr.sequence_header,
-				  cctxt->seq_hdr_phy_addr);
+				  cctxt->seq_hdr_phy_addr, cctxt);
 		cctxt->seq_hdr.sequence_header = NULL;
 	}
 
@@ -2704,7 +2754,7 @@ u32 vcd_store_seq_hdr(
 	ret = vcd_pmem_alloc(cctxt->seq_hdr.sequence_header_len + align +
 				 VCD_SEQ_HDR_PADDING_BYTES,
 				 &(cctxt->seq_hdr.sequence_header),
-				 &(cctxt->seq_hdr_phy_addr));
+				 &(cctxt->seq_hdr_phy_addr), cctxt);
 
 	if (ret < 0) {
 		VCD_MSG_ERROR("Seq hdr allocation failed");

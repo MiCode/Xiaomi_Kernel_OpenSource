@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -875,6 +875,18 @@ u8 vcd_get_num_of_clients(void)
 	return count;
 }
 EXPORT_SYMBOL(vcd_get_num_of_clients);
+
+u32 vcd_get_ion_status(void)
+{
+	return res_trk_get_enable_ion();
+}
+EXPORT_SYMBOL(vcd_get_ion_status);
+
+struct ion_client *vcd_get_ion_client(void)
+{
+	return res_trk_get_ion_client();
+}
+EXPORT_SYMBOL(vcd_get_ion_client);
 
 
 

@@ -13,6 +13,7 @@
 #ifndef _VCD_CORE_H_
 #define _VCD_CORE_H_
 
+#include <linux/ion.h>
 #include "vcd_api.h"
 #include "vcd_ddl_api.h"
 
@@ -204,7 +205,8 @@ struct vcd_clnt_ctxt {
 	struct vcd_sequence_hdr seq_hdr;
 	u8 *seq_hdr_phy_addr;
 	struct vcd_clnt_status status;
-
+	struct ion_client *vcd_ion_client;
+	u32 vcd_enable_ion;
 	struct vcd_clnt_ctxt *next;
 };
 
