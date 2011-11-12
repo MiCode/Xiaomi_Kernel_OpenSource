@@ -42,7 +42,7 @@
 #define NUM_AUTOFOCUS_MULTI_WINDOW_GRIDS 16
 #define NUM_STAT_OUTPUT_BUFFERS      3
 #define NUM_AF_STAT_OUTPUT_BUFFERS      3
-#define max_control_command_size 260
+#define max_control_command_size 512
 #define CROP_LEN 36
 
 enum vfe_mode_of_operation{
