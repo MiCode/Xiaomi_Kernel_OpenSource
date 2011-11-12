@@ -217,6 +217,18 @@ int sps_bam_enable(struct sps_bam *dev)
 		/* Enable the BAM interrupt */
 		irq_mask = BAM_IRQ_ALL;
 		dev->state |= BAM_STATE_IRQ;
+
+		/* Register BAM IRQ for apps wakeup */
+		if (dev->props.options & SPS_BAM_OPT_IRQ_WAKEUP) {
+			result = enable_irq_wake(dev->props.irq);
+
+			if (result) {
+				SPS_ERR("Failed to enable wakeup irq "
+					"BAM 0x%x IRQ %d",
+					BAM_ID(dev), dev->props.irq);
+				return SPS_ERROR;
+			}
+		}
 	}
 
 	/* Is global BAM control managed by the local processor? */

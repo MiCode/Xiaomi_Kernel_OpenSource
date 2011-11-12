@@ -65,6 +65,8 @@
 #define SPS_BAM_OPT_IRQ_DISABLED    (1UL << 1)
 /* BAM peripheral is a BAM-DMA */
 #define SPS_BAM_OPT_BAMDMA          (1UL << 2)
+/* BAM IRQ is registered for apps wakeup */
+#define SPS_BAM_OPT_IRQ_WAKEUP      (1UL << 3)
 
 /* BAM device management flags */
 
