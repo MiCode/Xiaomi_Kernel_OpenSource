@@ -79,7 +79,7 @@ static inline bool msm_chg_check_aca_intr(struct msm_otg *motg)
 #define USB_PHY_1P8_HPM_LOAD	50000	/* uA */
 #define USB_PHY_1P8_LPM_LOAD	4000	/* uA */
 
-#define USB_PHY_VDD_DIG_VOL_MIN	945000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_MIN	1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
 
 static struct msm_otg *the_msm_otg;
