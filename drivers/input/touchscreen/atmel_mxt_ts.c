@@ -835,18 +835,19 @@ static int mxt_initialize(struct mxt_data *data)
 	/* Get object table information */
 	error = mxt_get_object_table(data);
 	if (error)
-		return error;
+		goto free_object_table;
 
 	/* Check register init values */
 	error = mxt_check_reg_init(data);
 	if (error)
-		return error;
+		goto free_object_table;
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
 	t7_object = mxt_get_object(data, MXT_GEN_POWER);
 	if (!t7_object) {
 		dev_err(&client->dev, "Failed to get T7 object\n");
-		return -EINVAL;
+		error = -EINVAL;
+		goto free_object_table;
 	}
 
 	data->t7_start_addr = t7_object->start_address;
@@ -854,14 +855,14 @@ static int mxt_initialize(struct mxt_data *data)
 				T7_DATA_SIZE, data->t7_data);
 	if (error < 0) {
 		dev_err(&client->dev,
-			"failed to save current power state\n");
-		return error;
+			"Failed to save current power state\n");
+		goto free_object_table;
 	}
 	error = mxt_read_object(data, MXT_TOUCH_MULTI, MXT_TOUCH_CTRL,
 			&data->t9_ctrl);
 	if (error < 0) {
-		dev_err(&client->dev, "failed to save current touch object\n");
-		return error;
+		dev_err(&client->dev, "Failed to save current touch object\n");
+		goto free_object_table;
 	}
 
 	/* Backup to memory */
@@ -874,12 +875,13 @@ static int mxt_initialize(struct mxt_data *data)
 					MXT_COMMAND_BACKUPNV,
 					&command_register);
 		if (error)
-			return error;
+			goto free_object_table;
 		usleep_range(1000, 2000);
 	} while ((command_register != 0) && (++timeout_counter <= 100));
 	if (timeout_counter > 100) {
 		dev_err(&client->dev, "No response after backup!\n");
-		return -EIO;
+		error = -EIO;
+		goto free_object_table;
 	}
 
 
@@ -892,12 +894,12 @@ static int mxt_initialize(struct mxt_data *data)
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
 	if (error)
-		return error;
+		goto free_object_table;
 	info->matrix_xsize = val;
 
 	error = mxt_read_reg(client, MXT_MATRIX_Y_SIZE, &val);
 	if (error)
-		return error;
+		goto free_object_table;
 	info->matrix_ysize = val;
 
 	dev_info(&client->dev,
@@ -911,6 +913,10 @@ static int mxt_initialize(struct mxt_data *data)
 			info->object_num);
 
 	return 0;
+
+free_object_table:
+	kfree(data->object_table);
+	return error;
 }
 
 static ssize_t mxt_object_show(struct device *dev,
@@ -1484,7 +1490,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		error = mxt_regulator_configure(data, true);
 	if (error) {
 		dev_err(&client->dev, "Failed to intialize hardware\n");
-		goto err_free_object;
+		goto err_free_mem;
 	}
 
 	if (pdata->power_on)
@@ -1504,7 +1510,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			pdata->irqflags, client->dev.driver->name, data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err_power_on;
+		goto err_free_object;
 	}
 
 	error = mxt_make_highchg(data);
@@ -1534,6 +1540,8 @@ err_unregister_device:
 	input_dev = NULL;
 err_free_irq:
 	free_irq(client->irq, data);
+err_free_object:
+	kfree(data->object_table);
 err_power_on:
 	if (pdata->power_on)
 		pdata->power_on(false);
@@ -1544,8 +1552,6 @@ err_regulator_on:
 		pdata->init_hw(false);
 	else
 		mxt_regulator_configure(data, false);
-err_free_object:
-	kfree(data->object_table);
 err_free_mem:
 	input_free_device(input_dev);
 	kfree(data);
