@@ -19,6 +19,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
@@ -937,9 +938,27 @@ static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
 	return (int)result.physical;
 }
 
+static unsigned int voltage_based_capacity(struct pm8921_chg_chip *chip)
+{
+	unsigned int current_voltage = get_prop_battery_mvolts(chip);
+	unsigned int low_voltage = chip->min_voltage;
+	unsigned int high_voltage = chip->max_voltage;
+
+	if (current_voltage <= low_voltage)
+		return 0;
+	else if (current_voltage >= high_voltage)
+		return 100;
+	else
+		return (current_voltage - low_voltage) * 100
+		    / (high_voltage - low_voltage);
+}
+
 static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 {
 	int percent_soc = pm8921_bms_get_percent_charge();
+
+	if (percent_soc == -ENXIO)
+		percent_soc = voltage_based_capacity(chip);
 
 	if (percent_soc <= 10)
 		pr_warn("low battery charge = %d%%\n", percent_soc);
@@ -952,6 +971,10 @@ static int get_prop_batt_current(struct pm8921_chg_chip *chip)
 	int result_ma, rc;
 
 	rc = pm8921_bms_get_battery_current(&result_ma);
+	if (rc == -ENXIO) {
+		rc = pm8xxx_ccadc_get_battery_current(&result_ma);
+	}
+
 	if (rc) {
 		pr_err("unable to get batt current rc = %d\n", rc);
 		return rc;
