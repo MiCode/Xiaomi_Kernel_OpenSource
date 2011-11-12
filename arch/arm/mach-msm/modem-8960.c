@@ -26,7 +26,6 @@
 #include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
-#include <mach/irqs-8960.h>
 #include <mach/socinfo.h>
 
 #include "smd_private.h"
@@ -227,7 +226,7 @@ static int __init modem_8960_init(void)
 {
 	int ret;
 
-	if (!cpu_is_msm8960() && !cpu_is_msm8930())
+	if (!cpu_is_msm8960() && !cpu_is_msm8930() && !cpu_is_msm9615())
 		return -ENODEV;
 
 	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
@@ -266,7 +265,7 @@ static int __init modem_8960_init(void)
 
 	ret = modem_debugfs_init();
 
-	pr_info("%s: 8960 modem fatal driver init'ed.\n", __func__);
+	pr_info("%s: modem fatal driver init'ed.\n", __func__);
 out:
 	return ret;
 }
