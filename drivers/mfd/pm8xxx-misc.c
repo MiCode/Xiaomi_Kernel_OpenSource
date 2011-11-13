@@ -16,14 +16,13 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/misc.h>
 
 /* PON CTRL 1 register */
-#define REG_PM8058_PON_CTRL_1			0x01C
-#define REG_PM8921_PON_CTRL_1			0x01C
-#define REG_PM8018_PON_CTRL_1			0x01C
+#define REG_PM8XXX_PON_CTRL_1			0x01C
 
 #define PON_CTRL_1_PULL_UP_MASK			0xE0
 #define PON_CTRL_1_USB_PWR_EN			0x10
@@ -83,6 +82,10 @@
 #define SLEEP_CTRL_SMPL_EN_RESET		0x04
 #define SLEEP_CTRL_SMPL_EN_PWR_OFF		0x00
 
+#define SLEEP_CTRL_SMPL_SEL_MASK		0x03
+#define SLEEP_CTRL_SMPL_SEL_MIN			0
+#define SLEEP_CTRL_SMPL_SEL_MAX			3
+
 /* FTS regulator PMR registers */
 #define REG_PM8901_REGULATOR_S1_PMR		0xA7
 #define REG_PM8901_REGULATOR_S2_PMR		0xA8
@@ -91,6 +94,13 @@
 
 #define PM8901_REGULATOR_PMR_STATE_MASK		0x60
 #define PM8901_REGULATOR_PMR_STATE_OFF		0x20
+
+/* COINCELL CHG registers */
+#define REG_PM8058_COIN_CHG			0x02F
+#define REG_PM8921_COIN_CHG			0x09C
+#define REG_PM8018_COIN_CHG			0x09C
+
+#define COINCELL_RESISTOR_SHIFT			0x2
 
 /* GPIO UART MUX CTRL registers */
 #define REG_PM8XXX_GPIO_MUX_CTRL		0x1CC
@@ -103,6 +113,7 @@ struct pm8xxx_misc_chip {
 	struct pm8xxx_misc_platform_data	pdata;
 	struct device				*dev;
 	enum pm8xxx_version			version;
+	u64					osc_halt_count;
 };
 
 static LIST_HEAD(pm8xxx_misc_chips);
@@ -294,7 +305,7 @@ static int __pm8018_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8018_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -351,7 +362,7 @@ static int __pm8058_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8058_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -411,7 +422,7 @@ static int __pm8921_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
-	rc = pm8xxx_misc_masked_write(chip, REG_PM8921_PON_CTRL_1,
+	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
 		| PON_CTRL_1_WD_EN_MASK,
 		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
@@ -472,6 +483,262 @@ int pm8xxx_reset_pwr_off(int reset)
 EXPORT_SYMBOL_GPL(pm8xxx_reset_pwr_off);
 
 /**
+ * pm8xxx_smpl_control - enables/disables SMPL detection
+ * @enable: 0 = shutdown PMIC on power loss, 1 = reset PMIC on power loss
+ *
+ * This function enables or disables the Sudden Momentary Power Loss detection
+ * module.  If SMPL detection is enabled, then when a sufficiently long power
+ * loss event occurs, the PMIC will automatically reset itself.  If SMPL
+ * detection is disabled, then the PMIC will shutdown when power loss occurs.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_smpl_control(int enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8018_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8058_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_RESET
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
+				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("setting smpl control failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_smpl_control);
+
+
+/**
+ * pm8xxx_smpl_set_delay - sets the SMPL detection time delay
+ * @delay: enum value corresponding to delay time
+ *
+ * This function sets the time delay of the SMPL detection module.  If power
+ * is reapplied within this interval, then the PMIC reset automatically.  The
+ * SMPL detection module must be enabled for this delay time to take effect.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	if (delay < SLEEP_CTRL_SMPL_SEL_MIN
+	    || delay > SLEEP_CTRL_SMPL_SEL_MAX) {
+		pr_err("%s: invalid delay specified: %d\n", __func__, delay);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8018_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8058_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
+				delay);
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("setting smpl delay failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_smpl_set_delay);
+
+/**
+ * pm8xxx_coincell_chg_config - Disables or enables the coincell charger, and
+ *				configures its voltage and resistor settings.
+ * @chg_config:			Holds both voltage and resistor values, and a
+ *				switch to change the state of charger.
+ *				If state is to disable the charger then
+ *				both voltage and resistor are disregarded.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	u8 reg = 0, voltage, resistor;
+	int rc = 0;
+
+	if (chg_config == NULL) {
+		pr_err("chg_config is NULL\n");
+		return -EINVAL;
+	}
+
+	voltage = chg_config->voltage;
+	resistor = chg_config->resistor;
+
+	if (resistor < PM8XXX_COINCELL_RESISTOR_2100_OHMS ||
+			resistor > PM8XXX_COINCELL_RESISTOR_800_OHMS) {
+		pr_err("Invalid resistor value provided\n");
+		return -EINVAL;
+	}
+
+	if (voltage < PM8XXX_COINCELL_VOLTAGE_3p2V ||
+		(voltage > PM8XXX_COINCELL_VOLTAGE_3p0V &&
+			voltage != PM8XXX_COINCELL_VOLTAGE_2p5V)) {
+		pr_err("Invalid voltage value provided\n");
+		return -EINVAL;
+	}
+
+	if (chg_config->state == PM8XXX_COINCELL_CHG_DISABLE) {
+		reg = 0;
+	} else {
+		reg |= voltage;
+		reg |= (resistor << COINCELL_RESISTOR_SHIFT);
+	}
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8018_COIN_CHG, reg);
+			break;
+		case PM8XXX_VERSION_8058:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8058_COIN_CHG, reg);
+			break;
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_writeb(chip->dev->parent,
+					REG_PM8921_COIN_CHG, reg);
+			break;
+		default:
+			/* PMIC doesn't have reset_pwr_off; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("coincell chg. config failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_coincell_chg_config);
+
+/**
+ * pm8xxx_watchdog_reset_control - enables/disables watchdog reset detection
+ * @enable: 0 = shutdown when PS_HOLD goes low, 1 = reset when PS_HOLD goes low
+ *
+ * This function enables or disables the PMIC watchdog reset detection feature.
+ * If watchdog reset detection is enabled, then the PMIC will reset itself
+ * when PS_HOLD goes low.  If it is not enabled, then the PMIC will shutdown
+ * when PS_HOLD goes low.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_watchdog_reset_control(int enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_WD_EN_MASK,
+				(enable ? PON_CTRL_1_WD_EN_RESET
+					   : PON_CTRL_1_WD_EN_PWR_OFF));
+			break;
+		default:
+			/* WD reset control not supported */
+			break;
+		}
+		if (rc) {
+			pr_err("setting WD reset control failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_watchdog_reset_control);
+
+/* Handle the OSC_HALT interrupt: 32 kHz XTAL oscillator has stopped. */
+static irqreturn_t pm8xxx_osc_halt_isr(int irq, void *data)
+{
+	struct pm8xxx_misc_chip *chip = data;
+	u64 count = 0;
+
+	if (chip) {
+		chip->osc_halt_count++;
+		count = chip->osc_halt_count;
+	}
+
+	pr_crit("%s: OSC_HALT interrupt has triggered, 32 kHz XTAL oscillator"
+				" has halted (%llu)!\n", __func__, count);
+
+	return IRQ_HANDLED;
+}
+
+/**
  * pm8xxx_uart_gpio_mux_ctrl - Mux configuration to select the UART
  *
  * @uart_path_sel: Input argument to select either UART1/2/3
@@ -519,7 +786,7 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	struct pm8xxx_misc_chip *sibling;
 	struct list_head *prev;
 	unsigned long flags;
-	int rc = 0;
+	int rc = 0, irq;
 
 	if (!pdata) {
 		pr_err("missing platform data\n");
@@ -537,6 +804,18 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	chip->version = pm8xxx_get_version(chip->dev->parent);
 	memcpy(&(chip->pdata), pdata, sizeof(struct pm8xxx_misc_platform_data));
 
+	irq = platform_get_irq_byname(pdev, "pm8xxx_osc_halt_irq");
+	if (irq > 0) {
+		rc = request_any_context_irq(irq, pm8xxx_osc_halt_isr,
+				 IRQF_TRIGGER_RISING | IRQF_DISABLED,
+				 "pm8xxx_osc_halt_irq", chip);
+		if (rc < 0) {
+			pr_err("%s: request_any_context_irq(%d) FAIL: %d\n",
+							 __func__, irq, rc);
+			goto fail_irq;
+		}
+	}
+
 	/* Insert PMICs in priority order (lowest value first). */
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	prev = &pm8xxx_misc_chips;
@@ -552,12 +831,20 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, chip);
 
 	return rc;
+
+fail_irq:
+	platform_set_drvdata(pdev, NULL);
+	kfree(chip);
+	return rc;
 }
 
 static int __devexit pm8xxx_misc_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_misc_chip *chip = platform_get_drvdata(pdev);
 	unsigned long flags;
+	int irq = platform_get_irq_byname(pdev, "pm8xxx_osc_halt_irq");
+	if (irq > 0)
+		free_irq(irq, chip);
 
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	list_del(&chip->link);
