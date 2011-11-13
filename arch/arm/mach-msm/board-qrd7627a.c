@@ -51,6 +51,7 @@
 #include "devices-msm7x2xa.h"
 #include "pm.h"
 #include "timer.h"
+#include "pm-boot.h"
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_PMEM_AUDIO_SIZE	0x5B000
@@ -2531,6 +2532,9 @@ static void __init msm_qrd1_init(void)
 #endif
 	msm_pm_set_platform_data(msm7627a_pm_data,
 				ARRAY_SIZE(msm7627a_pm_data));
+	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR,
+				ioremap(0, PAGE_SIZE)));
+
 	msm_fb_add_devices();
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
