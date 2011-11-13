@@ -43,7 +43,6 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
-#include <linux/mmc/mmc.h>
 
 #include <asm/cacheflush.h>
 #include <asm/div64.h>
@@ -921,9 +920,11 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 	if (/*interrupt*/0)
 		*c |= MCI_CPSM_INTERRUPT;
 
-	if ((((cmd->opcode == 17) || (cmd->opcode == 18))  ||
-	     ((cmd->opcode == 24) || (cmd->opcode == 25))) ||
-	      (cmd->opcode == 53))
+	if (cmd->opcode == MMC_READ_SINGLE_BLOCK ||
+		cmd->opcode == MMC_READ_MULTIPLE_BLOCK ||
+		cmd->opcode == MMC_WRITE_BLOCK ||
+		cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK ||
+		cmd->opcode == SD_IO_RW_EXTENDED)
 		*c |= MCI_CSPM_DATCMD;
 
 	/* Check if AUTO CMD19 is required or not? */
@@ -934,10 +935,12 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		 * For close ended block read operation (with CMD23),
 		 * AUTO_CMD19 bit should be set while sending CMD23.
 		 */
-		if ((cmd->opcode == 23 && (host->curr.mrq->cmd->opcode == 17 ||
-			host->curr.mrq->cmd->opcode == 18)) ||
+		if ((cmd->opcode == MMC_SET_BLOCK_COUNT &&
+			host->curr.mrq->cmd->opcode ==
+				MMC_READ_MULTIPLE_BLOCK) ||
 			(!host->curr.mrq->sbc &&
-			(cmd->opcode == 17 || cmd->opcode == 18))) {
+			(cmd->opcode == MMC_READ_SINGLE_BLOCK ||
+			cmd->opcode == MMC_READ_MULTIPLE_BLOCK))) {
 			msmsdcc_enable_cdr_cm_sdc4_dll(host);
 			*c |= MCI_CSPM_AUTO_CMD19;
 		}
