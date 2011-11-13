@@ -166,13 +166,6 @@ static struct msm_clock msm_clocks[] = {
 		.regbase = MSM_TMR_BASE + 0x4,
 		.freq = 32768,
 		.index = MSM_CLOCK_GPT,
-		.flags =
-#if defined(CONFIG_CPU_V6) || defined(CONFIG_ARCH_MSM7X27A)
-			MSM_CLOCK_FLAGS_UNSTABLE_COUNT |
-			MSM_CLOCK_FLAGS_ODD_MATCH_WRITE |
-			MSM_CLOCK_FLAGS_DELAYED_WRITE_POST |
-#endif
-			0,
 		.write_delay = 9,
 	},
 	[MSM_CLOCK_DGT] = {
@@ -226,32 +219,32 @@ static irqreturn_t msm_timer_interrupt(int irq, void *dev_id)
 
 static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 {
-	uint32_t t1, t2;
+	uint32_t t1, t2, t3;
 	int loop_count = 0;
-
-	if (global)
-		t1 = __raw_readl(clock->regbase + TIMER_COUNT_VAL +
-				 global_timer_offset);
-	else
-		t1 = __raw_readl(clock->regbase + TIMER_COUNT_VAL);
+	void __iomem *addr = clock->regbase + TIMER_COUNT_VAL +
+		global*global_timer_offset;
 
 	if (!(clock->flags & MSM_CLOCK_FLAGS_UNSTABLE_COUNT))
-		return t1;
+		return __raw_readl(addr);
+
+	t1 = __raw_readl(addr);
+	t2 = __raw_readl(addr);
+	if ((t2-t1) <= 1)
+		return t2;
 	while (1) {
-		if (global)
-			t2 = __raw_readl(clock->regbase + TIMER_COUNT_VAL +
-					 global_timer_offset);
-		else
-			t2 = __raw_readl(clock->regbase + TIMER_COUNT_VAL);
-		if (t1 == t2)
-			return t1;
-		if (loop_count++ > 10) {
-			printk(KERN_ERR "msm_read_timer_count timer %s did not"
-			       "stabilize %u != %u\n", clock->clockevent.name,
-			       t2, t1);
+		t1 = __raw_readl(addr);
+		t2 = __raw_readl(addr);
+		t3 = __raw_readl(addr);
+		if ((t3-t2) <= 1)
+			return t3;
+		if ((t2-t1) <= 1)
 			return t2;
+		if (++loop_count == 10) {
+			pr_err("msm_read_timer_count timer %s did not "
+			       "stabilize: %u -> %u -> %u\n",
+			       clock->clockevent.name, t1, t2, t3);
+			return t3;
 		}
-		t1 = t2;
 	}
 }
 
@@ -994,6 +987,9 @@ static void __init msm_timer_init(void)
 		dgt->clocksource.shift = 24 - MSM_DGT_SHIFT;
 		gpt->regbase = MSM_TMR_BASE;
 		dgt->regbase = MSM_TMR_BASE + 0x10;
+		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT
+			   |  MSM_CLOCK_FLAGS_ODD_MATCH_WRITE
+			   |  MSM_CLOCK_FLAGS_DELAYED_WRITE_POST;
 	} else if (cpu_is_qsd8x50()) {
 		dgt->freq = 4800000;
 		gpt->regbase = MSM_TMR_BASE;
@@ -1019,6 +1015,8 @@ static void __init msm_timer_init(void)
 		gpt->freq = 32765;
 		gpt_hz = 32765;
 		sclk_hz = 32765;
+		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
+		dgt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
 	} else {
 		WARN_ON("Timer running on unknown hardware. Configure this! "
 			"Assuming default configuration.\n");
