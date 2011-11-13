@@ -1646,6 +1646,9 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				 * without the need of sending dummy CMD52.
 				 */
 				host->curr.wait_for_auto_prog_done = 1;
+		} else if (mrq->cmd->opcode == MMC_WRITE_BLOCK &&
+				host->sdcc_version) {
+			host->curr.wait_for_auto_prog_done = 1;
 		}
 	}
 
