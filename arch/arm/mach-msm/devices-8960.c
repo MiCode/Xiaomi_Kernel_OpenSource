@@ -1035,18 +1035,6 @@ struct resource msm_camera_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.name	= "csiphy0",
-		.start	= 0x04800C00,
-		.end	= 0x04800C00 + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "csiphy0",
-		.start	= CSIPHY_4LN_IRQ,
-		.end	= CSIPHY_4LN_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
 		.name	= "csid1",
 		.start	= 0x04800400,
 		.end	= 0x04800400 + SZ_1K - 1,
@@ -1056,18 +1044,6 @@ struct resource msm_camera_resources[] = {
 		.name	= "csid1",
 		.start	= CSI_1_IRQ,
 		.end	= CSI_1_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name	= "csiphy1",
-		.start	= 0x04801000,
-		.end	= 0x04801000 + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "csiphy1",
-		.start	= MSM8960_CSIPHY_2LN_IRQ,
-		.end	= MSM8960_CSIPHY_2LN_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
@@ -1091,6 +1067,50 @@ int __init msm_get_cam_resources(struct msm_camera_sensor_info *s_info)
 	s_info->num_resources = ARRAY_SIZE(msm_camera_resources);
 	return 0;
 }
+
+static struct resource msm_csiphy0_resources[] = {
+	{
+		.name	= "csiphy",
+		.start	= 0x04800C00,
+		.end	= 0x04800C00 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csiphy",
+		.start	= CSIPHY_4LN_IRQ,
+		.end	= CSIPHY_4LN_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct resource msm_csiphy1_resources[] = {
+	{
+		.name	= "csiphy",
+		.start	= 0x04801000,
+		.end	= 0x04801000 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csiphy",
+		.start	= MSM8960_CSIPHY_2LN_IRQ,
+		.end	= MSM8960_CSIPHY_2LN_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_csiphy0 = {
+	.name           = "msm_csiphy",
+	.id             = 0,
+	.resource       = msm_csiphy0_resources,
+	.num_resources  = ARRAY_SIZE(msm_csiphy0_resources),
+};
+
+struct platform_device msm8960_device_csiphy1 = {
+	.name           = "msm_csiphy",
+	.id             = 1,
+	.resource       = msm_csiphy1_resources,
+	.num_resources  = ARRAY_SIZE(msm_csiphy1_resources),
+};
 #endif
 
 static struct resource resources_ssbi_pm8921[] = {

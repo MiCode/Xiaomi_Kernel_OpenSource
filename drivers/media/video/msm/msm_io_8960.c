@@ -26,39 +26,7 @@
 #include <mach/msm_bus_board.h>
 
 #define DBG_CSID 0
-#define DBG_CSIPHY 0
 #define BUFF_SIZE_128 128
-
-/* MIPI	CSI	PHY registers */
-#define MIPI_CSIPHY_LNn_CFG1_ADDR                0x0
-#define MIPI_CSIPHY_LNn_CFG2_ADDR                0x4
-#define MIPI_CSIPHY_LNn_CFG3_ADDR                0x8
-#define MIPI_CSIPHY_LNn_CFG4_ADDR                0xC
-#define MIPI_CSIPHY_LNn_CFG5_ADDR                0x10
-#define MIPI_CSIPHY_LNCK_CFG1_ADDR               0x100
-#define MIPI_CSIPHY_LNCK_CFG2_ADDR               0x104
-#define MIPI_CSIPHY_LNCK_CFG3_ADDR               0x108
-#define MIPI_CSIPHY_LNCK_CFG4_ADDR               0x10C
-#define MIPI_CSIPHY_LNCK_CFG5_ADDR               0x110
-#define MIPI_CSIPHY_LNCK_MISC1_ADDR              0x128
-#define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1E0
-#define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1E8
-#define MIPI_CSIPHY_GLBL_PWR_CFG_ADDR           0x0144
-#define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR      0x0180
-#define MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR      0x0184
-#define MIPI_CSIPHY_INTERRUPT_STATUS2_ADDR      0x0188
-#define MIPI_CSIPHY_INTERRUPT_STATUS3_ADDR      0x018C
-#define MIPI_CSIPHY_INTERRUPT_STATUS4_ADDR      0x0190
-#define MIPI_CSIPHY_INTERRUPT_MASK0_ADDR        0x01A0
-#define MIPI_CSIPHY_INTERRUPT_MASK1_ADDR        0x01A4
-#define MIPI_CSIPHY_INTERRUPT_MASK2_ADDR        0x01A8
-#define MIPI_CSIPHY_INTERRUPT_MASK3_ADDR        0x01AC
-#define MIPI_CSIPHY_INTERRUPT_MASK4_ADDR        0x01B0
-#define MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR       0x01C0
-#define MIPI_CSIPHY_INTERRUPT_CLEAR1_ADDR       0x01C4
-#define MIPI_CSIPHY_INTERRUPT_CLEAR2_ADDR       0x01C8
-#define MIPI_CSIPHY_INTERRUPT_CLEAR3_ADDR       0x01CC
-#define MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR       0x01D0
 
 /* MIPI	CSID registers */
 #define CSID_HW_VERSION_ADDR                    0x0
@@ -122,11 +90,8 @@ static struct clk *camio_csi_pix1_clk;
 static struct clk *camio_csi_rdi_clk;
 static struct clk *camio_csi_rdi1_clk;
 static struct clk *camio_csi_rdi2_clk;
-static struct clk *camio_csiphy0_timer_clk;
-static struct clk *camio_csiphy1_timer_clk;
 static struct clk *camio_vfe_pclk;
 static struct clk *camio_csi0_phy_clk;
-static struct clk *camio_csiphy_timer_src_clk;
 
 /*static struct clk *camio_vfe_pclk;*/
 static struct clk *camio_jpeg_clk;
@@ -144,10 +109,10 @@ static struct regulator *mipi_csi_vdd;
 
 static struct msm_camera_io_clk camio_clk;
 static struct platform_device *camio_dev;
-static struct resource *csidio, *csiphyio, *s3drw_io, *s3dctl_io;
-static struct resource *csid_mem, *csiphy_mem, *s3drw_mem, *s3dctl_mem;
-static struct resource *csid_irq, *csiphy_irq;
-void __iomem *csidbase, *csiphybase, *s3d_rw, *s3d_ctl;
+static struct resource *csidio, *s3drw_io, *s3dctl_io;
+static struct resource *csid_mem, *s3drw_mem, *s3dctl_mem;
+static struct resource *csid_irq;
+void __iomem *csidbase, *s3d_rw, *s3d_ctl;
 struct msm_bus_scale_pdata *cam_bus_scale_table;
 
 
@@ -533,22 +498,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		msm_camio_clk_rate_set_2(clk, csid_core);
 		break;
 
-	case CAMIO_CSIPHY0_TIMER_CLK:
-		camio_csiphy0_timer_clk =
-		clk = clk_get(NULL, "csi0phy_timer_clk");
-		break;
-
-	case CAMIO_CSIPHY1_TIMER_CLK:
-		camio_csiphy1_timer_clk =
-		clk = clk_get(NULL, "csi1phy_timer_clk");
-		break;
-
-	case CAMIO_CSIPHY_TIMER_SRC_CLK:
-		camio_csiphy_timer_src_clk =
-		clk = clk_get(NULL, "csiphy_timer_src_clk");
-		msm_camio_clk_rate_set_2(clk, 177780000);
-		break;
-
 	case CAMIO_CSI0_PCLK:
 		camio_csi0_pclk =
 		clk = clk_get(NULL, "csi_pclk");
@@ -645,14 +594,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_csi_rdi_clk;
 		break;
 
-	case CAMIO_CSIPHY0_TIMER_CLK:
-		clk = camio_csiphy0_timer_clk;
-		break;
-
-	case CAMIO_CSIPHY_TIMER_SRC_CLK:
-		clk = camio_csiphy_timer_src_clk;
-		break;
-
 	case CAMIO_CSI0_PCLK:
 		clk = camio_csi0_pclk;
 		break;
@@ -735,56 +676,6 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 #endif
-/*
-void msm_io_read_interrupt(void)
-{
-	uint32_t irq;
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS0 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS0 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS1 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS2_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS2 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS3_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS3 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS4_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS4 = 0x%x\n", __func__, irq);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR1_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR2_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR3_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR);
-	msm_io_w(0x1, csiphybase + 0x164);
-	msm_io_w(0x0, csiphybase + 0x164);
-	return;
-}
-*/
-#if DBG_CSIPHY
-static irqreturn_t msm_io_csiphy_irq(int irq_num, void *data)
-{
-	uint32_t irq;
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS0 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR1_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS1 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS2_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR2_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS2 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS3_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR3_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS3 = 0x%x\n", __func__, irq);
-	irq = msm_io_r(csiphybase + MIPI_CSIPHY_INTERRUPT_STATUS4_ADDR);
-	msm_io_w(irq, csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR);
-	CDBG("%s MIPI_CSIPHY_INTERRUPT_STATUS4 = 0x%x\n", __func__, irq);
-	msm_io_w(0x1, csiphybase + 0x164);
-	msm_io_w(0x0, csiphybase + 0x164);
-	return IRQ_HANDLED;
-}
-#endif
 
 static int msm_camio_enable_v2_clks(void)
 {
@@ -837,18 +728,7 @@ static int msm_camio_enable_all_clks(uint8_t csid_core)
 	rc = msm_camio_clk_enable(CAMIO_CSI0_PHY_CLK);
 	if (rc < 0)
 		goto csi0_phy_fail;
-	rc = msm_camio_clk_enable(CAMIO_CSIPHY_TIMER_SRC_CLK);
-	if (rc < 0)
-		goto csiphy_timer_src_fail;
-	if (csid_core == 0) {
-		rc = msm_camio_clk_enable(CAMIO_CSIPHY0_TIMER_CLK);
-		if (rc < 0)
-			goto csiphy0_timer_fail;
-	} else if (csid_core == 1) {
-		rc = msm_camio_clk_enable(CAMIO_CSIPHY1_TIMER_CLK);
-		if (rc < 0)
-			goto csiphy1_timer_fail;
-	}
+
 	rc = msm_camio_clk_enable(CAMIO_CSI0_PCLK);
 	if (rc < 0)
 		goto csi0p_fail;
@@ -882,12 +762,6 @@ vfep_fail:
 vfe_fail:
 	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
 csi0p_fail:
-	msm_camio_clk_disable(CAMIO_CSIPHY0_TIMER_CLK);
-csiphy1_timer_fail:
-	msm_camio_clk_disable(CAMIO_CSIPHY1_TIMER_CLK);
-csiphy0_timer_fail:
-	msm_camio_clk_disable(CAMIO_CSIPHY_TIMER_SRC_CLK);
-csiphy_timer_src_fail:
 	msm_camio_clk_disable(CAMIO_CSI0_PHY_CLK);
 csi0_phy_fail:
 	msm_camio_clk_disable(CAMIO_CSI0_CLK);
@@ -917,11 +791,6 @@ static void msm_camio_disable_all_clks(uint8_t csid_core)
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
-	if (csid_core == 0)
-		msm_camio_clk_disable(CAMIO_CSIPHY0_TIMER_CLK);
-	else if (csid_core == 1)
-		msm_camio_clk_disable(CAMIO_CSIPHY1_TIMER_CLK);
-	msm_camio_clk_disable(CAMIO_CSIPHY_TIMER_SRC_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_PHY_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_CLK);
 	if (csid_core == 1)
@@ -1047,12 +916,10 @@ int msm_camio_enable(struct platform_device *pdev)
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core = camdev->csid_core;
 	char csid[] = "csid0";
-	char csiphy[] = "csiphy0";
 	if (csid_core < 0 || csid_core > 2)
 		return -ENODEV;
 
 	csid[4] = '0' + csid_core;
-	csiphy[6] = '0' + csid_core;
 
 	camio_dev = pdev;
 	camio_clk = camdev->ioclk;
@@ -1069,16 +936,6 @@ int msm_camio_enable(struct platform_device *pdev)
 	}
 	csid_irq = platform_get_resource_byname(pdev, IORESOURCE_IRQ, csid);
 	if (!csid_irq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		return -ENODEV;
-	}
-	csiphy_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, csiphy);
-	if (!csiphy_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-	csiphy_irq = platform_get_resource_byname(pdev, IORESOURCE_IRQ, csiphy);
-	if (!csiphy_irq) {
 		pr_err("%s: no irq resource?\n", __func__);
 		return -ENODEV;
 	}
@@ -1101,35 +958,13 @@ int msm_camio_enable(struct platform_device *pdev)
 	if (rc < 0)
 		goto csi_irq_fail;
 #endif
-	csiphyio = request_mem_region(csiphy_mem->start,
-		resource_size(csiphy_mem), pdev->name);
-	if (!csidio) {
-		rc = -EBUSY;
-		goto csi_irq_fail;
-	}
-	csiphybase = ioremap(csiphy_mem->start,
-		resource_size(csiphy_mem));
-	if (!csiphybase) {
-		rc = -ENOMEM;
-		goto csiphy_busy;
-	}
-#if DBG_CSIPHY
-	rc = request_irq(csiphy_irq->start, msm_io_csiphy_irq,
-		IRQF_TRIGGER_RISING, "csiphy", 0);
-	if (rc < 0)
-		goto csiphy_irq_fail;
-#endif
 	msm_camio_enable_v2_clks();
 	CDBG("camio enable done\n");
 	return 0;
-#if DBG_CSIPHY
-csiphy_irq_fail:
-	iounmap(csiphybase);
-#endif
-csiphy_busy:
-	release_mem_region(csiphy_mem->start, resource_size(csiphy_mem));
+#if DBG_CSID
 csi_irq_fail:
 	iounmap(csidbase);
+#endif
 csi_busy:
 	release_mem_region(csid_mem->start, resource_size(csid_mem));
 common_fail:
@@ -1144,12 +979,6 @@ void msm_camio_disable(struct platform_device *pdev)
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core = camdev->csid_core;
-#if DBG_CSIPHY
-	free_irq(csiphy_irq->start, 0);
-#endif
-	iounmap(csiphybase);
-	release_mem_region(csiphy_mem->start, resource_size(csiphy_mem));
-
 #if DBG_CSID
 	free_irq(csid_irq->start, 0);
 #endif
@@ -1352,54 +1181,6 @@ int msm_camio_csid_config(struct msm_camera_csid_params *csid_params)
 	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
 
 	msleep(20);
-	return rc;
-}
-
-int msm_camio_csiphy_config(struct msm_camera_csiphy_params *csiphy_params)
-{
-	int rc = 0;
-	int i = 0;
-	uint32_t val = 0;
-	if (csiphy_params->lane_cnt < 1 || csiphy_params->lane_cnt > 4) {
-		CDBG("%s: unsupported lane cnt %d\n",
-			__func__, csiphy_params->lane_cnt);
-		return rc;
-	}
-
-	val = 0x3;
-	msm_io_w((((1 << csiphy_params->lane_cnt) - 1) << 2) | val,
-			 csiphybase + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
-	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
-	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
-
-	for (i = 0; i < csiphy_params->lane_cnt; i++) {
-		msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNn_CFG1_ADDR + 0x40*i);
-		msm_io_w(0x5F, csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
-		msm_io_w(csiphy_params->settle_cnt,
-			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*i);
-		msm_io_w(0x00000052,
-			csiphybase + MIPI_CSIPHY_LNn_CFG5_ADDR + 0x40*i);
-	}
-
-	msm_io_w(0x00000000, csiphybase + MIPI_CSIPHY_LNCK_CFG1_ADDR);
-	msm_io_w(0x5F, csiphybase + MIPI_CSIPHY_LNCK_CFG2_ADDR);
-	msm_io_w(csiphy_params->settle_cnt,
-			 csiphybase + MIPI_CSIPHY_LNCK_CFG3_ADDR);
-	msm_io_w(0x5, csiphybase + MIPI_CSIPHY_LNCK_CFG4_ADDR);
-	msm_io_w(0x2, csiphybase + MIPI_CSIPHY_LNCK_CFG5_ADDR);
-	msm_io_w(0x0, csiphybase + 0x128);
-
-	msm_io_w(0x24,
-		csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR);
-	msm_io_w(0x24,
-		csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
-
-	for (i = 1; i <= csiphy_params->lane_cnt; i++) {
-		msm_io_w(0x6F,
-			csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR + 0x4*i);
-		msm_io_w(0x6F,
-			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
-	}
 	return rc;
 }
 

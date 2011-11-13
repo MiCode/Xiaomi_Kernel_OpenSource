@@ -4,8 +4,9 @@ CFLAGS_REMOVE_msm_vfe8x.o = -Wframe-larger-than=1024
 endif
 
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
+  EXTRA_CFLAGS += -Idrivers/media/video/msm/csi
   obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o
-  obj-$(CONFIG_MSM_CAMERA) += io/ sensors/ actuators/
+  obj-$(CONFIG_MSM_CAMERA) += io/ sensors/ actuators/ csi/
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif

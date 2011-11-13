@@ -41,6 +41,8 @@
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
 #define ERR_COPY_TO_USER() ERR_USER_COPY(1)
 
+#define MSM_CSIPHY_DRV_NAME "msm_csiphy"
+
 /* msm queue management APIs*/
 
 #define msm_dequeue(queue, member) ({	   \
@@ -113,6 +115,7 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
 	NOTIFY_VPE_MSG_EVT,
 	NOTIFY_PCLK_CHANGE, /* arg = pclk */
+	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
 	NOTIFY_INVALID
 };
 
@@ -215,6 +218,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *vpe_sdev;    /* vpe sub device : VPE */
 	struct v4l2_subdev *flash_sdev;    /* vpe sub device : VPE */
 	struct msm_cam_config_dev *config_device;
+	struct v4l2_subdev *csiphy_sdev; /*csiphy sub device*/
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
 
