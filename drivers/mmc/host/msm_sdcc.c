@@ -966,6 +966,9 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	void __iomem *base = host->base;
 	unsigned int pio_irqmask = 0;
 
+	BUG_ON(!data->sg);
+	BUG_ON(!data->sg_len);
+
 	host->curr.data = data;
 	host->curr.xfer_size = data->blksz * data->blocks;
 	host->curr.xfer_remain = host->curr.xfer_size;
