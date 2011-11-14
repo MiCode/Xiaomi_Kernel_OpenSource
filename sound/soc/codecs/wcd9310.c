@@ -2273,6 +2273,22 @@ static const struct snd_soc_dapm_route tabla_1_x_lineout_2_to_4_map[] = {
 	{"LINEOUT4 DAC", NULL, "LINEOUT4 DAC GROUND"},
 };
 
+
+static const struct snd_soc_dapm_route tabla_2_x_lineout_2_to_4_map[] = {
+
+	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX1"},
+	{"RX4 DSM MUX", "CIC_OUT", "RX4 MIX1"},
+
+	{"LINEOUT3 DAC", NULL, "RX4 DSM MUX"},
+
+	{"LINEOUT2 DAC", NULL, "RX5 MIX1"},
+
+	{"RX6 DSM MUX", "DSM_INV", "RX5 MIX1"},
+	{"RX6 DSM MUX", "CIC_OUT", "RX6 MIX1"},
+
+	{"LINEOUT4 DAC", NULL, "RX6 DSM MUX"},
+};
+
 static int tabla_readable(struct snd_soc_codec *ssc, unsigned int reg)
 {
 	return tabla_reg_readable[reg];
@@ -3681,8 +3697,19 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla_version &=  0x1F;
 	pr_info("%s : Tabla version %u\n", __func__, (u32)tabla_version);
 
-	snd_soc_dapm_add_routes(dapm, tabla_1_x_lineout_2_to_4_map,
+	if ((tabla_version == TABLA_VERSION_1_0) ||
+		(tabla_version == TABLA_VERSION_1_1)) {
+		snd_soc_dapm_add_routes(dapm, tabla_1_x_lineout_2_to_4_map,
 			 ARRAY_SIZE(tabla_1_x_lineout_2_to_4_map));
+
+	} else if (tabla_version == TABLA_VERSION_2_0) {
+		snd_soc_dapm_add_routes(dapm, tabla_2_x_lineout_2_to_4_map,
+			 ARRAY_SIZE(tabla_2_x_lineout_2_to_4_map));
+	} else  {
+		pr_err("%s : ERROR.  Unsupported Tabla version 0x%2x\n",
+				__func__, (u32)tabla_version);
+		goto err_pdata;
+	}
 
 	snd_soc_dapm_sync(dapm);
 
