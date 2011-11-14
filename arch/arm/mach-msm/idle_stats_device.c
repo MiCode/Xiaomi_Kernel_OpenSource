@@ -227,8 +227,11 @@ EXPORT_SYMBOL(msm_idle_stats_idle_start);
 void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 				struct msm_idle_pulse *pulse)
 {
+	u32 idle_time = 0;
 	spin_lock(&device->lock);
 	if (ktime_to_us(device->idle_start) != 0) {
+		idle_time = ktime_to_us(ktime_get())
+			- ktime_to_us(device->idle_start);
 		device->idle_start = us_to_ktime(0);
 	    msm_idle_stats_add_sample(device, pulse);
 		if (device->stats->event &
@@ -239,7 +242,10 @@ void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 				MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED_RESET);
 		} else if (ktime_to_us(device->busy_timer_interval) > 0) {
 			ktime_t busy_timer = device->busy_timer_interval;
-			if ((pulse->wait_interval > 0) &&
+			/* if it is serialized, it would be full busy,
+			 * checking 80%
+			 */
+			if ((pulse->wait_interval*5 >= idle_time*4) &&
 				(ktime_to_us(device->remaining_time) > 0) &&
 				(ktime_to_us(device->remaining_time) <
 				 ktime_to_us(busy_timer)))
