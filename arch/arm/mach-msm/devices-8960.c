@@ -1023,30 +1023,6 @@ struct resource msm_camera_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.name	= "csid0",
-		.start	= 0x04800000,
-		.end	= 0x04800000 + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "csid0",
-		.start	= CSI_0_IRQ,
-		.end	= CSI_0_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name	= "csid1",
-		.start	= 0x04800400,
-		.end	= 0x04800400 + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "csid1",
-		.start	= CSI_1_IRQ,
-		.end	= CSI_1_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
 		.name   = "s3d_rw",
 		.start  = 0x008003E0,
 		.end    = 0x008003E0 + SZ_16 - 1,
@@ -1058,7 +1034,6 @@ struct resource msm_camera_resources[] = {
 		.end    = 0x008020B8 + SZ_16 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
-
 };
 
 int __init msm_get_cam_resources(struct msm_camera_sensor_info *s_info)
@@ -1110,6 +1085,50 @@ struct platform_device msm8960_device_csiphy1 = {
 	.id             = 1,
 	.resource       = msm_csiphy1_resources,
 	.num_resources  = ARRAY_SIZE(msm_csiphy1_resources),
+};
+
+static struct resource msm_csid0_resources[] = {
+	{
+		.name	= "csid",
+		.start	= 0x04800000,
+		.end	= 0x04800000 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csid",
+		.start	= CSI_0_IRQ,
+		.end	= CSI_0_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct resource msm_csid1_resources[] = {
+	{
+		.name	= "csid",
+		.start	= 0x04800400,
+		.end	= 0x04800400 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csid",
+		.start	= CSI_1_IRQ,
+		.end	= CSI_1_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_csid0 = {
+	.name           = "msm_csid",
+	.id             = 0,
+	.resource       = msm_csid0_resources,
+	.num_resources  = ARRAY_SIZE(msm_csid0_resources),
+};
+
+struct platform_device msm8960_device_csid1 = {
+	.name           = "msm_csid",
+	.id             = 1,
+	.resource       = msm_csid1_resources,
+	.num_resources  = ARRAY_SIZE(msm_csid1_resources),
 };
 #endif
 
