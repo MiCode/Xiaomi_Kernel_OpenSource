@@ -985,10 +985,6 @@ struct platform_device msm8960_device_qup_i2c_gsbi12 = {
 #ifdef CONFIG_MSM_CAMERA
 struct resource msm_camera_resources[] = {
 	{
-		.name	= "vid_buf",
-		.flags	= IORESOURCE_DMA,
-	},
-	{
 		.name   = "s3d_rw",
 		.start  = 0x008003E0,
 		.end    = 0x008003E0 + SZ_16 - 1,
