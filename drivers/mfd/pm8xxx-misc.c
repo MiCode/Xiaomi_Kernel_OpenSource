@@ -31,6 +31,23 @@
 #define PON_CTRL_1_WD_EN_RESET			0x08
 #define PON_CTRL_1_WD_EN_PWR_OFF		0x00
 
+/* PON CNTL registers */
+#define REG_PM8058_PON_CNTL_4			0x098
+#define REG_PM8901_PON_CNTL_4			0x099
+#define REG_PM8018_PON_CNTL_4			0x01E
+#define REG_PM8921_PON_CNTL_4			0x01E
+#define REG_PM8058_PON_CNTL_5			0x07B
+#define REG_PM8901_PON_CNTL_5			0x09A
+#define REG_PM8018_PON_CNTL_5			0x01F
+#define REG_PM8921_PON_CNTL_5			0x01F
+
+#define PON_CTRL_4_RESET_EN_MASK		0x01
+#define PON_CTRL_4_SHUTDOWN_ON_RESET		0x0
+#define PON_CTRL_4_RESTART_ON_RESET		0x1
+#define PON_CTRL_5_HARD_RESET_EN_MASK		0x08
+#define PON_CTRL_5_HARD_RESET_EN		0x08
+#define PON_CTRL_5_HARD_RESET_DIS		0x00
+
 /* Regulator master enable addresses */
 #define REG_PM8058_VREG_EN_MSM			0x018
 #define REG_PM8058_VREG_EN_GRP_5_4		0x1C8
@@ -101,6 +118,12 @@
 #define REG_PM8018_COIN_CHG			0x09C
 
 #define COINCELL_RESISTOR_SHIFT			0x2
+
+/* GP TEST register */
+#define REG_PM8XXX_GP_TEST_1			0x07A
+
+/* Stay on configuration */
+#define PM8XXX_STAY_ON_CFG			0x92
 
 /* GPIO UART MUX CTRL registers */
 #define REG_PM8XXX_GPIO_MUX_CTRL		0x1CC
@@ -720,6 +743,141 @@ int pm8xxx_watchdog_reset_control(int enable)
 	return rc;
 }
 EXPORT_SYMBOL(pm8xxx_watchdog_reset_control);
+
+/**
+ * pm8xxx_stay_on - enables stay_on feature
+ *
+ * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
+ * signal so that some special functions like debugging could be
+ * performed.
+ *
+ * This feature should not be used in any product release.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_stay_on(void)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_writeb(chip->dev->parent,
+				REG_PM8XXX_GP_TEST_1, PM8XXX_STAY_ON_CFG);
+			break;
+		default:
+			/* stay on not supported */
+			break;
+		}
+		if (rc) {
+			pr_err("stay_on failed failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_stay_on);
+
+static int
+__pm8xxx_hard_reset_config(struct pm8xxx_misc_chip *chip,
+		enum pm8xxx_pon_config config, u16 pon4_addr, u16 pon5_addr)
+{
+	int rc = 0;
+
+	switch (config) {
+	case PM8XXX_DISABLE_HARD_RESET:
+		rc = pm8xxx_misc_masked_write(chip, pon5_addr,
+				PON_CTRL_5_HARD_RESET_EN_MASK,
+				PON_CTRL_5_HARD_RESET_DIS);
+		break;
+	case PM8XXX_SHUTDOWN_ON_HARD_RESET:
+		rc = pm8xxx_misc_masked_write(chip, pon5_addr,
+				PON_CTRL_5_HARD_RESET_EN_MASK,
+				PON_CTRL_5_HARD_RESET_EN);
+		if (!rc) {
+			rc = pm8xxx_misc_masked_write(chip, pon4_addr,
+					PON_CTRL_4_RESET_EN_MASK,
+					PON_CTRL_4_SHUTDOWN_ON_RESET);
+		}
+		break;
+	case PM8XXX_RESTART_ON_HARD_RESET:
+		rc = pm8xxx_misc_masked_write(chip, pon5_addr,
+				PON_CTRL_5_HARD_RESET_EN_MASK,
+				PON_CTRL_5_HARD_RESET_EN);
+		if (!rc) {
+			rc = pm8xxx_misc_masked_write(chip, pon4_addr,
+					PON_CTRL_4_RESET_EN_MASK,
+					PON_CTRL_4_RESTART_ON_RESET);
+		}
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+/**
+ * pm8xxx_hard_reset_config - Allows different reset configurations
+ *
+ * config = PM8XXX_DISABLE_HARD_RESET to disable hard reset
+ *	  = PM8XXX_SHUTDOWN_ON_HARD_RESET to turn off the system on hard reset
+ *	  = PM8XXX_RESTART_ON_HARD_RESET to restart the system on hard reset
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8018:
+			__pm8xxx_hard_reset_config(chip, config,
+				REG_PM8018_PON_CNTL_4, REG_PM8018_PON_CNTL_5);
+			break;
+		case PM8XXX_VERSION_8058:
+			__pm8xxx_hard_reset_config(chip, config,
+				REG_PM8058_PON_CNTL_4, REG_PM8058_PON_CNTL_5);
+			break;
+		case PM8XXX_VERSION_8901:
+			__pm8xxx_hard_reset_config(chip, config,
+				REG_PM8901_PON_CNTL_4, REG_PM8901_PON_CNTL_5);
+			break;
+		case PM8XXX_VERSION_8921:
+			__pm8xxx_hard_reset_config(chip, config,
+				REG_PM8921_PON_CNTL_4, REG_PM8921_PON_CNTL_5);
+			break;
+		default:
+			/* hard reset config. no supported */
+			break;
+		}
+		if (rc) {
+			pr_err("hard reset config. failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_hard_reset_config);
 
 /* Handle the OSC_HALT interrupt: 32 kHz XTAL oscillator has stopped. */
 static irqreturn_t pm8xxx_osc_halt_isr(int irq, void *data)

@@ -67,6 +67,12 @@ enum pm8xxx_smpl_delay {
 	PM8XXX_SMPL_DELAY_2p0,
 };
 
+enum pm8xxx_pon_config {
+	PM8XXX_DISABLE_HARD_RESET = 0,
+	PM8XXX_SHUTDOWN_ON_HARD_RESET,
+	PM8XXX_RESTART_ON_HARD_RESET,
+};
+
 #if defined(CONFIG_MFD_PM8XXX_MISC) || defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
 
 /**
@@ -130,6 +136,30 @@ int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay);
  */
 int pm8xxx_watchdog_reset_control(int enable);
 
+/**
+ * pm8xxx_hard_reset_config - Allows different reset configurations
+ *
+ * config = DISABLE_HARD_RESET to disable hard reset
+ *	  = SHUTDOWN_ON_HARD_RESET to turn off the system on hard reset
+ *	  = RESTART_ON_HARD_RESET to restart the system on hard reset
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config);
+
+/**
+ * pm8xxx_stay_on - enables stay_on feature
+ *
+ * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
+ * signal so that some special functions like debugging could be
+ * performed.
+ *
+ * This feature should not be used in any product release.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_stay_on(void);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -158,7 +188,14 @@ static inline int pm8xxx_watchdog_reset_control(int enable)
 {
 	return -ENODEV;
 }
-
+static inline int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_stay_on(void)
+{
+	return -ENODEV;
+}
 #endif
 
 #endif
