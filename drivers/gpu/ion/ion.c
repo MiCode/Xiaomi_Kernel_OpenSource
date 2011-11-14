@@ -618,7 +618,6 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			unsigned int cmd)
 {
 	struct ion_buffer *buffer;
-	unsigned long start, end;
 	int ret = -EINVAL;
 
 	mutex_lock(&client->lock);
@@ -643,14 +642,6 @@ int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 		goto out;
 	}
 
-	start = (unsigned long) uaddr;
-	end = (unsigned long) uaddr + len;
-
-	if (check_vaddr_bounds(start, end)) {
-		pr_err("%s: virtual address %p is out of bounds\n",
-			__func__, uaddr);
-		goto out;
-	}
 
 	ret = buffer->heap->ops->cache_op(buffer->heap, buffer, uaddr,
 						offset, len, cmd);
@@ -1174,10 +1165,20 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_CLEAN_INV_CACHES:
 	{
 		struct ion_flush_data data;
+		unsigned long start, end;
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(struct ion_flush_data)))
 			return -EFAULT;
+
+		start = (unsigned long) data.vaddr;
+		end = (unsigned long) data.vaddr + data.length;
+
+		if (check_vaddr_bounds(start, end)) {
+			pr_err("%s: virtual address %p is out of bounds\n",
+				__func__, data.vaddr);
+			return -EINVAL;
+		}
 
 		return ion_do_cache_op(client, data.handle, data.vaddr,
 					data.offset, data.length, cmd);
