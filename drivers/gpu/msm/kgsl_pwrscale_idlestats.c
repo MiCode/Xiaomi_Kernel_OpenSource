@@ -149,7 +149,8 @@ static void idlestats_sleep(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
 	struct idlestats_priv *priv = pwrscale->priv;
-	priv->idledev.stats->event |= MSM_IDLE_STATS_EVENT_IDLE_TIMER_EXPIRED;
+	msm_idle_stats_update_event(&priv->idledev,
+		MSM_IDLE_STATS_EVENT_IDLE_TIMER_EXPIRED);
 }
 
 static int idlestats_init(struct kgsl_device *device,

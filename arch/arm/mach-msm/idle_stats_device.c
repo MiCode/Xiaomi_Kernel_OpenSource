@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,8 +43,8 @@ static struct msm_idle_stats_device *_device_from_minor(unsigned int minor)
 	return ret;
 }
 
-static void update_event
-	(struct msm_idle_stats_device *device, __u32 event)
+void msm_idle_stats_update_event(struct msm_idle_stats_device *device,
+	__u32 event)
 {
 	__u32 wake_up = !device->stats->event;
 
@@ -52,6 +52,7 @@ static void update_event
 	if (wake_up)
 		wake_up_interruptible(&device->wait);
 }
+EXPORT_SYMBOL(msm_idle_stats_update_event);
 
 static enum hrtimer_restart msm_idle_stats_busy_timer(struct hrtimer *timer)
 {
@@ -64,7 +65,8 @@ static enum hrtimer_restart msm_idle_stats_busy_timer(struct hrtimer *timer)
 	 * assured that we have exclusive access to the event at this time.
 	 */
 	hrtimer_set_expires(&device->busy_timer, us_to_ktime(0));
-	update_event(device, MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED);
+	msm_idle_stats_update_event(device,
+		MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED);
 	return HRTIMER_NORESTART;
 }
 
@@ -108,10 +110,11 @@ static void msm_idle_stats_add_sample(struct msm_idle_stats_device *device,
 	device->stats->nr_collected++;
 
 	if (device->stats->nr_collected == MSM_IDLE_STATS_NR_MAX_INTERVALS) {
-		update_event(device, MSM_IDLE_STATS_EVENT_COLLECTION_FULL);
+		msm_idle_stats_update_event(device,
+			MSM_IDLE_STATS_EVENT_COLLECTION_FULL);
 	} else if (device->stats->nr_collected ==
 				((MSM_IDLE_STATS_NR_MAX_INTERVALS * 3) / 4)) {
-		update_event(device,
+		msm_idle_stats_update_event(device,
 			MSM_IDLE_STATS_EVENT_COLLECTION_NEARLY_FULL);
 	}
 }
@@ -233,7 +236,7 @@ void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 			MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED) {
 			device->stats->event &=
 				~MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED;
-			update_event(device,
+			msm_idle_stats_update_event(device,
 				MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED_RESET);
 		} else if (ktime_to_us(device->busy_timer_interval) > 0) {
 			ktime_t busy_timer = device->busy_timer_interval;
