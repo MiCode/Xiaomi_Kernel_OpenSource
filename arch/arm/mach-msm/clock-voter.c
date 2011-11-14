@@ -61,7 +61,7 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 		new_rate = max(other_rate, rate);
 
 		if (new_rate != cur_rate) {
-			ret = clk_set_min_rate(parent, new_rate);
+			ret = clk_set_rate(parent, new_rate);
 			if (ret)
 				goto unlock;
 		}
@@ -90,7 +90,7 @@ static int voter_clk_enable(struct clk *clk)
 	 */
 	cur_rate = voter_clk_aggregate_rate(parent);
 	if (v->rate > cur_rate) {
-		ret = clk_set_min_rate(parent, v->rate);
+		ret = clk_set_rate(parent, v->rate);
 		if (ret)
 			goto out;
 	}
@@ -119,7 +119,7 @@ static void voter_clk_disable(struct clk *clk)
 	cur_rate = max(new_rate, v->rate);
 
 	if (new_rate < cur_rate)
-		clk_set_min_rate(parent, new_rate);
+		clk_set_rate(parent, new_rate);
 
 	spin_unlock_irqrestore(&voter_clk_lock, flags);
 }

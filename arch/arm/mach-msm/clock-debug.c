@@ -33,13 +33,10 @@ static int clock_debug_rate_set(void *data, u64 val)
 	 * for debugging purposes so we don't check for error. */
 	if (clock->flags & CLKFLAG_MAX)
 		clk_set_max_rate(clock, val);
-	if (clock->flags & CLKFLAG_MIN)
-		ret = clk_set_min_rate(clock, val);
-	else
-		ret = clk_set_rate(clock, val);
-	if (ret != 0)
-		printk(KERN_ERR "clk_set%s_rate failed (%d)\n",
-			(clock->flags & CLKFLAG_MIN) ? "_min" : "", ret);
+	ret = clk_set_rate(clock, val);
+	if (ret)
+		pr_err("clk_set_rate failed (%d)\n", ret);
+
 	return ret;
 }
 
