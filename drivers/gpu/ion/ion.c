@@ -1193,6 +1193,11 @@ static void ion_vma_close(struct vm_area_struct *vma)
 	mutex_lock(&buffer->lock);
 	buffer->umap_cnt--;
 	mutex_unlock(&buffer->lock);
+
+	if (buffer->heap->ops->unmap_user)
+		buffer->heap->ops->unmap_user(buffer->heap, buffer);
+
+
 	pr_debug("%s: %d client_cnt %d handle_cnt %d alloc_cnt %d\n",
 		 __func__, __LINE__,
 		 atomic_read(&client->ref.refcount),
