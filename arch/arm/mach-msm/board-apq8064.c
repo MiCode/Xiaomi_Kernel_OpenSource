@@ -401,7 +401,6 @@ static struct mmc_platform_data sdc1_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
-	.sdcc_v4_sup	= true,
 };
 static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
 #else
@@ -420,7 +419,6 @@ static struct mmc_platform_data sdc3_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
-	.sdcc_v4_sup	= true,
 };
 static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
 #else

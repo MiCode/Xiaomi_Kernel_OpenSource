@@ -168,6 +168,7 @@
 
 #define MMCIMASK1		0x040
 #define MMCIFIFOCNT		0x044
+#define MCI_VERSION		0x050
 #define MCICCSTIMER		0x058
 #define MCI_DLL_CONFIG		0x060
 #define MCI_DLL_EN		(1 << 16)
@@ -316,6 +317,7 @@ struct msmsdcc_host {
 
 	u32			pwr;
 	struct mmc_platform_data *plat;
+	u32			sdcc_version;
 
 	unsigned int		oldstat;
 

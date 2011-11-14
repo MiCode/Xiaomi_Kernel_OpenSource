@@ -499,7 +499,6 @@ static struct mmc_platform_data sdc1_data = {
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.pclk_src_dfab	= true,
-	.sdcc_v4_sup    = true,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
@@ -527,7 +526,6 @@ static struct mmc_platform_data sdc2_data = {
 	.sup_clk_table	= sdc2_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
 	.pclk_src_dfab	= 1,
-	.sdcc_v4_sup    = true,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
 #ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(GPIO_SDC2_DAT1_WAKEUP),

@@ -3027,7 +3027,6 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.pclk_src_dfab	= 1,
 	.nonremovable	= 1,
-	.sdcc_v4_sup	= true,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1]
 };
@@ -3043,7 +3042,6 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
 #endif
-	.sdcc_v4_sup	= true,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION

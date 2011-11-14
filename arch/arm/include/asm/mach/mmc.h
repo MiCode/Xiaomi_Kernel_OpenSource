@@ -140,7 +140,6 @@ struct mmc_platform_data {
 	bool nonremovable;
 	bool pclk_src_dfab;
 	int (*cfg_mpm_sdiowakeup)(struct device *, unsigned);
-	bool sdcc_v4_sup;
 	unsigned int wpswitch_gpio;
 	unsigned char wpswitch_polarity;
 	struct msm_mmc_slot_reg_data *vreg_data;
