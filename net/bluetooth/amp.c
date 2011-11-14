@@ -510,14 +510,14 @@ static void accept_physical(struct l2cap_conn *lcon, u8 id, struct sock *sk)
 	int result = -EINVAL;
 
 	BT_DBG("lcon %p", lcon);
-	mgr = get_create_amp_mgr(lcon, NULL);
-	if (!mgr)
-		goto ap_finished;
-	BT_DBG("mgr %p", mgr);
 	hdev = hci_dev_get(A2MP_HCI_ID(id));
 	if (!hdev)
 		goto ap_finished;
 	BT_DBG("hdev %p", hdev);
+	mgr = get_create_amp_mgr(lcon, NULL);
+	if (!mgr)
+		goto ap_finished;
+	BT_DBG("mgr %p", mgr);
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK,
 					&mgr->l2cap_conn->hcon->dst);
 	if (conn) {
@@ -534,6 +534,8 @@ static void accept_physical(struct l2cap_conn *lcon, u8 id, struct sock *sk)
 	return;
 
 ap_finished:
+	if (hdev)
+		hci_dev_put(hdev);
 	l2cap_amp_physical_complete(result, id, remote_id, sk);
 }
 

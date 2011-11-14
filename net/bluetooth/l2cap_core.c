@@ -3165,14 +3165,16 @@ static struct hci_chan *l2cap_chan_admit(u8 amp_id, struct l2cap_pinfo *pi)
 	BT_DBG("hdev %s", hdev->name);
 
 	hcon = hci_conn_hash_lookup_ba(hdev, ACL_LINK, pi->conn->dst);
-	if (!hcon)
-		return NULL;
+	if (!hcon) {
+		chan = NULL;
+		goto done;
+	}
 
 	chan = hci_chan_list_lookup_id(hdev, hcon->handle);
 	if (chan) {
 		l2cap_aggregate(chan, pi);
 		hci_chan_hold(chan);
-		return chan;
+		goto done;
 	}
 
 	if (bt_sk(pi)->parent) {
@@ -3186,6 +3188,8 @@ static struct hci_chan *l2cap_chan_admit(u8 amp_id, struct l2cap_pinfo *pi)
 					(struct hci_ext_fs *) &pi->local_fs,
 					(struct hci_ext_fs *) &pi->remote_fs);
 	}
+done:
+	hci_dev_put(hdev);
 	return chan;
 }
 
@@ -4813,6 +4817,7 @@ static inline int l2cap_move_channel_req(struct l2cap_conn *conn,
 			result = L2CAP_MOVE_CHAN_REFUSED_CONTROLLER;
 			goto send_move_response;
 		}
+		hci_dev_put(hdev);
 	}
 
 	if (((pi->amp_move_state != L2CAP_AMP_STATE_STABLE &&
