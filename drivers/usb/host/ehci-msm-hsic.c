@@ -400,8 +400,6 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		dev_err(mehci->dev, "Unable to suspend PHY\n");
 		msm_hsic_config_gpios(mehci, 0);
 		msm_hsic_reset(mehci);
-		enable_irq(hcd->irq);
-		return -ETIMEDOUT;
 	}
 
 	/*
