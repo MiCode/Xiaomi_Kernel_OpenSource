@@ -2365,6 +2365,7 @@ struct platform_device msm_dsps_device = {
 #define MSM_ETB_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1000)
 #define MSM_TPIU_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x3000)
 #define MSM_FUNNEL_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x4000)
+#define MSM_DEBUG_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x10000)
 #define MSM_PTM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
 
 static struct resource msm_etb_resources[] = {
@@ -2410,6 +2411,26 @@ struct platform_device msm_funnel_device = {
 	.id            = 0,
 	.num_resources = ARRAY_SIZE(msm_funnel_resources),
 	.resource      = msm_funnel_resources,
+};
+
+static struct resource msm_debug_resources[] = {
+	{
+		.start = MSM_DEBUG_PHYS_BASE,
+		.end   = MSM_DEBUG_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MSM_DEBUG_PHYS_BASE + (SZ_4K * 2),
+		.end   = MSM_DEBUG_PHYS_BASE + (SZ_4K * 2) + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_debug_device = {
+	.name          = "msm_debug",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_debug_resources),
+	.resource      = msm_debug_resources,
 };
 
 static struct resource msm_ptm_resources[] = {

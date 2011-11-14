@@ -45,7 +45,13 @@ obj-$(CONFIG_MSM_JTAG_V7) += jtag-v7.o
 
 msm-etm-objs := cp14.o etm.o
 obj-$(CONFIG_MSM_ETM) += msm-etm.o
-obj-$(CONFIG_MSM_QDSS) += qdss-etb.o qdss-tpiu.o qdss-funnel.o qdss-ptm.o
+
+ifdef CONFIG_MSM_QDSS
+	obj-y += qdss-debug.o
+	obj-y += qdss-etb.o qdss-tpiu.o
+	obj-y += qdss-funnel.o
+	obj-y += qdss-ptm.o
+endif
 
 quiet_cmd_mkrpcsym = MKCAP   $@
       cmd_mkrpcsym = $(PERL) $(srctree)/$(src)/mkrpcsym.pl $< $@

@@ -133,6 +133,7 @@ config ARCH_MSM8960
 	select MSM_AUDIO_QDSP6 if SND_SOC
 	select CPU_HAS_L2_PMU
 	select MSM_SPM_V2
+	select HAS_QDSS
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
@@ -868,13 +869,6 @@ config CPU_HAS_L2_PMU
 	bool "L2CC PMU Support"
 	help
 	 Select this if the L2 cache controller has a Performance Monitoring Unit.
-
-config MSM_JTAG_V7
-	depends on CPU_V7
-	default y if DEBUG_KERNEL
-        bool "JTAG debug support"
-	help
-          Add additional support for JTAG kernel debugging.
 
 config HTC_HEADSET
 	tristate "HTC 2 Wire detection driver"
@@ -1682,25 +1676,43 @@ config MSM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
+config HAS_QDSS
+	bool "QDSS Present"
+	help
+	 Select this if the chip has Qualcomm Debug Subsystem implemented.
+
+config MSM_DEBUG_ACROSS_PC
+	bool "Debug support across power collapse"
+	help
+	  Enables debug state to be saved and restored across power collapse.
+
+config MSM_JTAG_V7
+	depends on CPU_V7 && !HAS_QDSS
+	default y if DEBUG_KERNEL
+	bool "JTAG debug support"
+	select MSM_DEBUG_ACROSS_PC
+	help
+          Add additional support for JTAG kernel debugging.
+
 config MSM_TRACE_ACROSS_PC
 	bool "Trace support across power collapse"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960
 	help
 	  Enables trace state to be saved and restored across power collapse.
 
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"
-	depends on ARCH_MSM8X60
+	depends on ARCH_MSM8X60 && !HAS_QDSS
 	select MSM_TRACE_ACROSS_PC
 	help
 	  Enables embedded trace collection on Qualcomm v7 CPUs.
 
 config MSM_QDSS
-	bool "Coresight tracing support"
-	depends on ARCH_MSM8960
+	bool "Qualcomm Debug Subsystem"
+	depends on HAS_QDSS
+	select MSM_DEBUG_ACROSS_PC
 	select MSM_TRACE_ACROSS_PC
 	help
-	  Enables support for Qualcomm debug subsystem.
+	  Enables support for Qualcomm Debug Subsystem.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"

@@ -56,6 +56,13 @@ void tpiu_disable(void);
 void funnel_enable(uint8_t id, uint32_t port_mask);
 void funnel_disable(uint8_t id, uint32_t port_mask);
 
+#ifdef CONFIG_MSM_DEBUG_ACROSS_PC
+extern void msm_save_jtag_debug(void);
+extern void msm_restore_jtag_debug(void);
+#else
+static inline void msm_save_jtag_debug(void) {}
+static inline void msm_restore_jtag_debug(void) {}
+#endif
 #ifdef CONFIG_MSM_TRACE_ACROSS_PC
 extern void etm_save_reg_check(void);
 extern void etm_restore_reg_check(void);

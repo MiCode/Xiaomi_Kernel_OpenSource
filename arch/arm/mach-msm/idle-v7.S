@@ -32,14 +32,11 @@
 #endif
 
 ENTRY(msm_arch_idle)
-#ifdef CONFIG_MSM_JTAG_V7
-	stmfd   sp!, {lr}
-	bl      msm_save_jtag_debug
-#endif
 	wfi
-#ifdef CONFIG_MSM_JTAG_V7
-	bl      msm_restore_jtag_debug
-	ldmfd   sp!, {lr}
+#ifdef CONFIG_ARCH_MSM8X60
+	mrc	p14, 1, r1, c1, c5, 4 /* read ETM PDSR to clear sticky bit */
+	mrc     p14, 0, r1, c1, c5, 4 /* read DBG PRSR to clear sticky bit */
+	isb
 #endif
 	bx	lr
 
@@ -85,7 +82,7 @@ ENTRY(msm_pm_collapse)
 	stmia   r0!, {r1-r3}
 #endif
 
-#ifdef CONFIG_MSM_JTAG_V7
+#ifdef CONFIG_MSM_DEBUG_ACROSS_PC
 	bl      msm_save_jtag_debug
 #endif
 #ifdef CONFIG_MSM_TRACE_ACROSS_PC
@@ -132,7 +129,7 @@ skip:	ldr	r0, =saved_state
 #ifdef CONFIG_MSM_TRACE_ACROSS_PC
 	bl	etm_restore_reg_check
 #endif
-#ifdef CONFIG_MSM_JTAG_V7
+#ifdef CONFIG_MSM_DEBUG_ACROSS_PC
 	bl	msm_restore_jtag_debug
 #endif
 	ldr     r0, =saved_state        /* restore registers */
@@ -220,7 +217,7 @@ msm_pm_pa_to_va:
 #ifdef CONFIG_MSM_TRACE_ACROSS_PC
 	bl      etm_restore_reg_check
 #endif
-#ifdef CONFIG_MSM_JTAG_V7
+#ifdef CONFIG_MSM_DEBUG_ACROSS_PC
 	bl      msm_restore_jtag_debug
 #endif
 	ldmfd   sp!, {lr}

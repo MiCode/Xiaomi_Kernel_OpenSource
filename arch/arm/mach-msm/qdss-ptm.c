@@ -119,6 +119,7 @@ do {									\
 } while (0)
 #define PTM_OS_UNLOCK(cpu)						\
 do {									\
+	mb();								\
 	ptm_writel(ptm, cpu, MAGIC2, ETMOSLAR);				\
 	mb();								\
 } while (0)
