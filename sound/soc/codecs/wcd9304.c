@@ -1930,6 +1930,20 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 
 };
 
+static const struct snd_soc_dapm_route audio_i2s_map[] = {
+	{"RX_I2S_CLK", NULL, "CP"},
+	{"RX_I2S_CLK", NULL, "CDC_CONN"},
+	{"SLIM RX1", NULL, "RX_I2S_CLK"},
+	{"SLIM RX2", NULL, "RX_I2S_CLK"},
+	{"SLIM RX3", NULL, "RX_I2S_CLK"},
+	{"SLIM RX4", NULL, "RX_I2S_CLK"},
+
+	{"SLIM TX1", NULL, "TX_I2S_CLK"},
+	{"SLIM TX2", NULL, "TX_I2S_CLK"},
+	{"SLIM TX3", NULL, "TX_I2S_CLK"},
+	{"SLIM TX4", NULL, "TX_I2S_CLK"},
+};
+
 static const struct snd_soc_dapm_route audio_map[] = {
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
@@ -2618,9 +2632,9 @@ static int sitar_hw_params(struct snd_pcm_substream *substream,
 			}
 			snd_soc_update_bits(codec, SITAR_A_CDC_CLK_TX_I2S_CTL,
 						0x03, tx_fs_rate);
+		} else {
+			sitar->dai[dai->id - 1].rate   = params_rate(params);
 		}
-	} else {
-		sitar->dai[dai->id - 1].rate   = params_rate(params);
 	}
 
 	/**
@@ -2665,9 +2679,9 @@ static int sitar_hw_params(struct snd_pcm_substream *substream,
 			}
 			snd_soc_update_bits(codec, SITAR_A_CDC_CLK_RX_I2S_CTL,
 						0x03, (rx_fs_rate >> 0x05));
+		} else {
+			sitar->dai[dai->id - 1].rate   = params_rate(params);
 		}
-	} else {
-		sitar->dai[dai->id - 1].rate   = params_rate(params);
 	}
 
 	return 0;
@@ -2709,6 +2723,37 @@ static struct snd_soc_dai_driver sitar_dai[] = {
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 2,
+		},
+		.ops = &sitar_dai_ops,
+	},
+};
+
+static struct snd_soc_dai_driver sitar_i2s_dai[] = {
+	{
+		.name = "sitar_i2s_rx1",
+		.id = AIF1_PB,
+		.playback = {
+			.stream_name = "AIF1 Playback",
+			.rates = WCD9304_RATES,
+			.formats = SITAR_FORMATS,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
+		},
+		.ops = &sitar_dai_ops,
+	},
+	{
+		.name = "sitar_i2s_tx1",
+		.id = AIF1_CAP,
+		.capture = {
+			.stream_name = "AIF1 Capture",
+			.rates = WCD9304_RATES,
+			.formats = SITAR_FORMATS,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
 		},
 		.ops = &sitar_dai_ops,
 	},
@@ -4638,6 +4683,11 @@ static void sitar_update_reg_defaults(struct snd_soc_codec *codec)
 				sitar_1_1_reg_defaults[i].val);
 
 }
+
+static const struct sitar_reg_mask_val sitar_i2c_codec_reg_init_val[] = {
+	{WCD9XXX_A_CHIP_CTL, 0x1, 0x1},
+};
+
 static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 	/* Initialize current threshold to 350MA
 	* number of wait and run cycles to 4096
@@ -4678,6 +4728,15 @@ static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 	/*enable External clock select*/
 	{SITAR_A_CDC_CLK_MCLK_CTL, 0x01, 0x01},
 };
+
+static void sitar_i2c_codec_init_reg(struct snd_soc_codec *codec)
+{
+	u32 i;
+	for (i = 0; i < ARRAY_SIZE(sitar_i2c_codec_reg_init_val); i++)
+		snd_soc_update_bits(codec, sitar_i2c_codec_reg_init_val[i].reg,
+			sitar_i2c_codec_reg_init_val[i].mask,
+			sitar_i2c_codec_reg_init_val[i].val);
+}
 
 static void sitar_codec_init_reg(struct snd_soc_codec *codec)
 {
@@ -4734,6 +4793,9 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 	sitar->pdata = dev_get_platdata(codec->dev->parent);
 	sitar_update_reg_defaults(codec);
 	sitar_codec_init_reg(codec);
+	sitar->intf_type = wcd9xxx_get_intf_type();
+	if (sitar->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
+		sitar_i2c_codec_init_reg(codec);
 
 	ret = sitar_handle_pdata(sitar);
 	if (IS_ERR_VALUE(ret)) {
@@ -4745,6 +4807,12 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 		ARRAY_SIZE(sitar_snd_controls));
 	snd_soc_dapm_new_controls(dapm, sitar_dapm_widgets,
 		ARRAY_SIZE(sitar_dapm_widgets));
+	if (sitar->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
+		snd_soc_dapm_new_controls(dapm, sitar_dapm_i2s_widgets,
+			ARRAY_SIZE(sitar_dapm_i2s_widgets));
+		snd_soc_dapm_add_routes(dapm, audio_i2s_map,
+		ARRAY_SIZE(audio_i2s_map));
+	}
 	snd_soc_dapm_add_routes(dapm, audio_map, ARRAY_SIZE(audio_map));
 
 	sitar_version = snd_soc_read(codec, WCD9XXX_A_CHIP_VERSION);
@@ -4972,8 +5040,12 @@ static int sitar_probe(struct platform_device *pdev)
 		S_IFREG | S_IRUGO, NULL, (void *) "TRRS", &codec_debug_ops);
 
 #endif
-	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_sitar,
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_sitar,
 			sitar_dai, ARRAY_SIZE(sitar_dai));
+	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_sitar,
+			sitar_i2s_dai, ARRAY_SIZE(sitar_i2s_dai));
 	return ret;
 }
 static int sitar_remove(struct platform_device *pdev)

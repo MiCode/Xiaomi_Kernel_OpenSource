@@ -31,7 +31,8 @@
 #define WCD9XXX_SLIM_RW_MAX_TRIES 3
 
 #define MAX_WCD9XXX_DEVICE	4
-#define WCD9XXX_I2C_MODE	0x03
+#define TABLA_I2C_MODE	0x03
+#define SITAR_I2C_MODE	0x01
 
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
@@ -351,15 +352,15 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 		 * care of now only tabla.
 		 */
 		pr_debug("%s : Read codec version using I2C\n",	__func__);
-		if (TABLA_IS_1_X(wcd9xxx->version)) {
+		if (!strncmp(wcd9xxx_modules[0].client->name, "sitar", 5)) {
+			wcd9xxx_dev = sitar_devs;
+			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
+		} else if (TABLA_IS_1_X(wcd9xxx->version)) {
 			wcd9xxx_dev = tabla1x_devs;
 			wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
 		} else if (TABLA_IS_2_0(wcd9xxx->version)) {
 			wcd9xxx_dev = tabla_devs;
 			wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
-		} else {
-			wcd9xxx_dev = sitar_devs;
-			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 		}
 	}
 
@@ -711,8 +712,10 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 	struct wcd9xxx_pdata *pdata = client->dev.platform_data;
 	int val = 0;
 	int ret = 0;
+	int i2c_mode = 0;
 	static int device_id;
 
+	pr_info("%s\n", __func__);
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		pr_info("tabla card is already detected in slimbus mode\n");
 		return -ENODEV;
@@ -764,10 +767,13 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 
 	/*read the tabla status before initializing the device type*/
 	ret = wcd9xxx_read(wcd9xxx, WCD9XXX_A_CHIP_STATUS, 1, &val, 0);
-	if ((ret < 0) || (val != WCD9XXX_I2C_MODE)) {
-		pr_err("failed to read the wcd9xxx status\n");
-		goto err_device_init;
-	}
+	if (!strncmp(wcd9xxx_modules[0].client->name, "sitar", 5))
+		i2c_mode = SITAR_I2C_MODE;
+	else if (!strncmp(wcd9xxx_modules[0].client->name, "tabla", 5))
+		i2c_mode = TABLA_I2C_MODE;
+
+	if ((ret < 0) || (val != i2c_mode))
+		pr_err("failed to read the wcd9xxx status ret = %d\n", ret);
 
 	ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
 	if (ret) {
@@ -1106,16 +1112,25 @@ static struct slim_driver tabla2x_slim_driver = {
 	.suspend = wcd9xxx_slim_suspend,
 };
 
-#define TABLA_I2C_TOP_LEVEL 0
-#define TABLA_I2C_ANALOG       1
-#define TABLA_I2C_DIGITAL_1    2
-#define TABLA_I2C_DIGITAL_2    3
+#define WCD9XXX_I2C_TOP_LEVEL	0
+#define WCD9XXX_I2C_ANALOG	1
+#define WCD9XXX_I2C_DIGITAL_1	2
+#define WCD9XXX_I2C_DIGITAL_2	3
 
 static struct i2c_device_id tabla_id_table[] = {
-	{"tabla top level", TABLA_I2C_TOP_LEVEL},
-	{"tabla analog", TABLA_I2C_TOP_LEVEL},
-	{"tabla digital1", TABLA_I2C_TOP_LEVEL},
-	{"tabla digital2", TABLA_I2C_TOP_LEVEL},
+	{"tabla top level", WCD9XXX_I2C_TOP_LEVEL},
+	{"tabla analog", WCD9XXX_I2C_ANALOG},
+	{"tabla digital1", WCD9XXX_I2C_DIGITAL_1},
+	{"tabla digital2", WCD9XXX_I2C_DIGITAL_2},
+	{}
+};
+MODULE_DEVICE_TABLE(i2c, tabla_id_table);
+
+static struct i2c_device_id sitar_id_table[] = {
+	{"sitar top level", WCD9XXX_I2C_TOP_LEVEL},
+	{"sitar analog", WCD9XXX_I2C_ANALOG},
+	{"sitar digital1", WCD9XXX_I2C_DIGITAL_1},
+	{"sitar digital2", WCD9XXX_I2C_DIGITAL_2},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, tabla_id_table);
@@ -1132,9 +1147,21 @@ static struct i2c_driver tabla_i2c_driver = {
 	.suspend = wcd9xxx_i2c_suspend,
 };
 
+static struct i2c_driver sitar_i2c_driver = {
+	.driver                 = {
+		.owner          =       THIS_MODULE,
+		.name           =       "sitar-i2c-core",
+	},
+	.id_table               =       sitar_id_table,
+	.probe                  =       wcd9xxx_i2c_probe,
+	.remove                 =       wcd9xxx_i2c_remove,
+	.resume	= wcd9xxx_i2c_resume,
+	.suspend = wcd9xxx_i2c_suspend,
+};
+
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4, ret5;
+	int ret1, ret2, ret3, ret4, ret5, ret6;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1156,7 +1183,11 @@ static int __init wcd9xxx_init(void)
 	if (ret5 != 0)
 		pr_err("Failed to register sitar SB driver: %d\n", ret5);
 
-	return (ret1 && ret2 && ret3 && ret4 && ret5) ? -1 : 0;
+	ret6 = i2c_add_driver(&sitar_i2c_driver);
+	if (ret6 != 0)
+		pr_err("failed to add the I2C driver\n");
+
+	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 
