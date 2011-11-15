@@ -1277,6 +1277,7 @@ static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
 
 /*
@@ -1585,7 +1586,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("bus_clk",		dfab_sdc1_clk.c,	"msm_sdcc.1"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc2_clk.c,	"msm_sdcc.2"),
 	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,		"msm_sps"),
-
+	CLK_LOOKUP("bus_clk",		dfab_bam_dmux_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL),
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 
