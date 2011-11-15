@@ -19,6 +19,9 @@
 
 #define TABLA_SLIM_NUM_PORT_REG 3
 
+#define TABLA_INTERFACE_TYPE_SLIMBUS	0x00
+#define TABLA_INTERFACE_TYPE_I2C	0x01
+
 enum {
 	TABLA_IRQ_SLIMBUS = 0,
 	TABLA_IRQ_MBHC_REMOVAL,
@@ -82,6 +85,7 @@ int tabla_bulk_write(struct tabla *tabla, unsigned short reg,
 int tabla_irq_init(struct tabla *tabla);
 void tabla_irq_exit(struct tabla *tabla);
 int tabla_get_logical_addresses(u8 *pgd_la, u8 *inf_la);
+int tabla_get_intf_type(void);
 
 static inline int tabla_request_irq(struct tabla *tabla, int irq,
 				     irq_handler_t handler, const char *name,
