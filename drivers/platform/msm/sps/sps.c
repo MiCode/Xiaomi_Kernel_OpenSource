@@ -425,6 +425,85 @@ static struct sps_bam *phy2bam(u32 phys_addr)
 }
 
 /**
+ * Find the handle of a BAM device based on the physical address
+ *
+ * This function finds a BAM device in the BAM registration list that
+ * matches the specified physical address, and returns its handle.
+ *
+ * @phys_addr - physical address of the BAM
+ *
+ * @h - device handle of the BAM
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_phy2h(u32 phys_addr, u32 *handle)
+{
+	struct sps_bam *bam;
+
+	list_for_each_entry(bam, &sps->bams_q, list) {
+		if (bam->props.phys_addr == phys_addr) {
+			*handle = (u32) bam;
+			return 0;
+		}
+	}
+
+	SPS_INFO("sps: BAM device 0x%x is not registered yet.\n", phys_addr);
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL(sps_phy2h);
+
+/**
+ * Setup desc/data FIFO for bam-to-bam connection
+ *
+ * @mem_buffer - Pointer to struct for allocated memory properties.
+ *
+ * @addr - address of FIFO
+ *
+ * @size - FIFO size
+ *
+ * @use_offset - use address offset instead of absolute address
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
+		  u32 addr, u32 size, int use_offset)
+{
+	if ((mem_buffer == NULL) || (size == 0))
+		return SPS_ERROR;
+
+	if (use_offset) {
+		if ((addr + size) <= sps->pipemem_size)
+			mem_buffer->phys_base = sps->pipemem_phys_base + addr;
+		else {
+			SPS_ERR("sps: requested mem is out of "
+					"pipe mem range.\n");
+			return SPS_ERROR;
+		}
+	} else {
+		if (addr >= sps->pipemem_phys_base &&
+			(addr + size) <= (sps->pipemem_phys_base
+						+ sps->pipemem_size))
+			mem_buffer->phys_base = addr;
+		else {
+			SPS_ERR("sps: requested mem is out of "
+					"pipe mem range.\n");
+			return SPS_ERROR;
+		}
+	}
+
+	mem_buffer->base = spsi_get_mem_ptr(mem_buffer->phys_base);
+	mem_buffer->size = size;
+
+	memset(mem_buffer->base, 0, mem_buffer->size);
+
+	return 0;
+}
+EXPORT_SYMBOL(sps_setup_bam2bam_fifo);
+
+/**
  * Find the BAM device from the handle
  *
  * This function finds a BAM device in the BAM registration list that
