@@ -661,6 +661,7 @@ int audio_in_release(struct inode *inode, struct file *file)
 	q6asm_audio_client_free(audio->ac);
 	mutex_unlock(&audio->lock);
 	kfree(audio->enc_cfg);
+	kfree(audio->codec_cfg);
 	kfree(audio);
 	return 0;
 }
