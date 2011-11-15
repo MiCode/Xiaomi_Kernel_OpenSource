@@ -308,6 +308,7 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	dev->trans_start = jiffies;
+	/* if write() succeeds, skb access is unsafe in this process */
 	bam_ret = msm_bam_dmux_write(p->ch_id, skb);
 
 	if (bam_ret != 0) {
@@ -315,16 +316,6 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 			dev->name, __func__, bam_ret);
 		goto xmit_out;
 	}
-
-	if (count_this_packet(skb->data, skb->len)) {
-		p->stats.tx_packets++;
-		p->stats.tx_bytes += skb->len;
-#ifdef CONFIG_MSM_RMNET_DEBUG
-		p->wakeups_xmit += rmnet_cause_wakeup(p);
-#endif
-	}
-	DBG1("[%s] Tx packet #%lu len=%d mark=0x%x\n",
-	    dev->name, p->stats.tx_packets, skb->len, skb->mark);
 
 	return 0;
 xmit_out:
@@ -335,7 +326,21 @@ xmit_out:
 
 static void bam_write_done(void *dev, struct sk_buff *skb)
 {
+	struct rmnet_private *p = netdev_priv(dev);
+	u32 opmode = p->operation_mode;
+
 	DBG1("%s: write complete\n", __func__);
+	if (RMNET_IS_MODE_IP(opmode) ||
+				count_this_packet(skb->data, skb->len)) {
+		p->stats.tx_packets++;
+		p->stats.tx_bytes += skb->len;
+#ifdef CONFIG_MSM_RMNET_DEBUG
+		p->wakeups_xmit += rmnet_cause_wakeup(p);
+#endif
+	}
+	DBG1("[%s] Tx packet #%lu len=%d mark=0x%x\n",
+	    ((struct net_device *)(dev))->name, p->stats.tx_packets,
+	    skb->len, skb->mark);
 	dev_kfree_skb_any(skb);
 	netif_wake_queue(dev);
 }
