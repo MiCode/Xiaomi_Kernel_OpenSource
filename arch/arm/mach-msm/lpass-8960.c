@@ -178,7 +178,7 @@ static int __init lpass_fatal_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
-	pr_info("%s: 8960 lpass SSR driver init'ed.\n", __func__);
+	pr_info("%s: lpass SSR driver init'ed.\n", __func__);
 out:
 	return ret;
 }

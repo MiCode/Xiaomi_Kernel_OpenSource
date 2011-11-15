@@ -1518,7 +1518,7 @@ config MSM_SCM
 
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart Driver"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960)
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615)
 	default n
 	help
 	  This option enables the MSM subsystem restart driver, which provides
@@ -1535,19 +1535,19 @@ config MSM_SYSMON_COMM
 
 config MSM_MODEM_8960
 	bool "MSM 8960 Modem driver"
-	depends on (ARCH_MSM8960)
+	depends on (ARCH_MSM8960 || ARCH_MSM9615)
 	help
-	 This option enables the modem driver for the MSM8960, which monitors
+	 This option enables the modem driver for the MSM8960 and MSM9615, which monitors
 	 modem hardware watchdog interrupt lines and plugs into the subsystem
-	 restart and PIL drivers.
+	 restart and PIL drivers. For MSM9615, it only supports a full chip reset.
 
 config MSM_LPASS_8960
 	tristate "MSM 8960 Lpass driver"
-	depends on (ARCH_MSM8960)
+	depends on (ARCH_MSM8960 || ARCH_MSM9615)
 	help
-	 This option enables the lpass driver for the MSM8960, which monitors
+	 This option enables the lpass driver for the MSM8960 and MSM9615. This monitors
 	 lpass hardware watchdog interrupt lines and plugs into the subsystem
-	 restart and PIL drivers.
+	 restart and PIL drivers. For MSM9615, it only supports a full chip reset.
 
 config MSM_WCNSS_SSR_8960
 	tristate "MSM 8960 WCNSS restart module"
