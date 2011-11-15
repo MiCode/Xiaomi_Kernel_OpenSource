@@ -526,7 +526,8 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		}
 		phys_addr += buffer_addr_offset;
 		(*kernel_vaddr) += buffer_addr_offset;
-		flags = MSM_SUBSYSTEM_MAP_IOVA;
+		flags = (buffer == BUFFER_TYPE_INPUT) ? MSM_SUBSYSTEM_MAP_IOVA :
+		MSM_SUBSYSTEM_MAP_IOVA|MSM_SUBSYSTEM_ALIGN_IOVA_8K;
 		mapped_buffer = msm_subsystem_map_buffer(phys_addr, length,
 		flags, vidc_mmu_subsystem,
 		sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
