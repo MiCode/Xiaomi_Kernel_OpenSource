@@ -3658,7 +3658,7 @@ static int tavarua_suspend(struct platform_device *pdev, pm_message_t state)
 	printk(KERN_INFO DRIVER_NAME "%s: radio suspend\n\n", __func__);
 	if (radio) {
 		users = atomic_read(&radio->users);
-		if (users) {
+		if (!users) {
 			retval = tavarua_disable_interrupts(radio);
 			if (retval < 0) {
 				printk(KERN_INFO DRIVER_NAME
@@ -3690,7 +3690,7 @@ static int tavarua_resume(struct platform_device *pdev)
 	if (radio) {
 		users = atomic_read(&radio->users);
 
-		if (users) {
+		if (!users) {
 			retval = tavarua_setup_interrupts(radio,
 			(radio->registers[RDCTRL] & 0x03));
 			if (retval < 0) {
