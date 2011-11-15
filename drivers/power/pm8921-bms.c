@@ -89,6 +89,9 @@ struct pm8921_bms_chip {
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
 	spinlock_t		bms_output_lock;
 	struct single_row_lut	*adjusted_fcc_temp_lut;
+	unsigned int		charging_began;
+	unsigned int		start_percent;
+	unsigned int		end_percent;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -1102,9 +1105,23 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		update_userspace = 0;
 	}
 
-	if (update_userspace) {
-		last_soc = soc;
+	if (last_soc == -EINVAL || soc <= last_soc) {
+		last_soc = update_userspace ? soc : last_soc;
+		return soc;
 	}
+
+	/*
+	 * soc > last_soc
+	 * the device must be charging for reporting a higher soc, if not ignore
+	 * this soc and continue reporting the last_soc
+	 */
+	if (the_chip->start_percent != 0) {
+		last_soc = soc;
+	} else {
+		pr_debug("soc = %d reporting last_soc = %d\n", soc, last_soc);
+		soc = last_soc;
+	}
+
 	return soc;
 }
 
@@ -1645,12 +1662,10 @@ int pm8921_bms_get_fcc(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 
-static int start_percent;
-static int end_percent;
 void pm8921_bms_charging_began(void)
 {
-	start_percent = pm8921_bms_get_percent_charge();
-	pr_debug("start_percent = %u%%\n", start_percent);
+	the_chip->start_percent = pm8921_bms_get_percent_charge();
+	pr_debug("start_percent = %u%%\n", the_chip->start_percent);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
@@ -1676,9 +1691,10 @@ void pm8921_bms_charging_end(int is_battery_full)
 	}
 
 charge_cycle_calculation:
-	end_percent = pm8921_bms_get_percent_charge();
-	if (end_percent > start_percent) {
-		last_charge_increase = end_percent - start_percent;
+	the_chip->end_percent = pm8921_bms_get_percent_charge();
+	if (the_chip->end_percent > the_chip->start_percent) {
+		last_charge_increase =
+			the_chip->end_percent - the_chip->start_percent;
 		if (last_charge_increase > 100) {
 			last_chargecycles++;
 			last_charge_increase = last_charge_increase % 100;
@@ -1686,9 +1702,11 @@ charge_cycle_calculation:
 	}
 	pr_debug("end_percent = %u%% last_charge_increase = %d"
 			"last_chargecycles = %d\n",
-			end_percent,
+			the_chip->end_percent,
 			last_charge_increase,
 			last_chargecycles);
+	the_chip->start_percent = 0;
+	the_chip->end_percent = 0;
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_end);
 
