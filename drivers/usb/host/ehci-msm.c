@@ -177,11 +177,6 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
-	/*
-	 * OTG device parent of HCD takes care of putting
-	 * hardware into low power mode.
-	 */
-	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
 	return 0;
@@ -212,7 +207,31 @@ static int __devexit ehci_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_RUNTIME
+static int ehci_msm_runtime_idle(struct device *dev)
+{
+	dev_dbg(dev, "ehci runtime idle\n");
+	return 0;
+}
+
+static int ehci_msm_runtime_suspend(struct device *dev)
+{
+	dev_dbg(dev, "ehci runtime suspend\n");
+	/*
+	 * Notify OTG about suspend.  It takes care of
+	 * putting the hardware in LPM.
+	 */
+	return otg_set_suspend(otg, 1);
+}
+
+static int ehci_msm_runtime_resume(struct device *dev)
+{
+	dev_dbg(dev, "ehci runtime resume\n");
+	return otg_set_suspend(otg, 0);
+}
+#endif
+
+#ifdef CONFIG_PM_SLEEP
 static int ehci_msm_pm_suspend(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
@@ -236,7 +255,7 @@ static int ehci_msm_pm_suspend(struct device *dev)
 				wakeup);
 	}
 
-	return 0;
+	return otg_set_suspend(otg, 1);
 }
 
 static int ehci_msm_pm_resume(struct device *dev)
@@ -250,16 +269,14 @@ static int ehci_msm_pm_resume(struct device *dev)
 
 	ehci_prepare_ports_for_controller_resume(hcd_to_ehci(hcd));
 
-	return 0;
+	return otg_set_suspend(otg, 0);
 }
-#else
-#define ehci_msm_pm_suspend	NULL
-#define ehci_msm_pm_resume	NULL
 #endif
 
 static const struct dev_pm_ops ehci_msm_dev_pm_ops = {
-	.suspend         = ehci_msm_pm_suspend,
-	.resume          = ehci_msm_pm_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(ehci_msm_pm_suspend, ehci_msm_pm_resume)
+	SET_RUNTIME_PM_OPS(ehci_msm_runtime_suspend, ehci_msm_runtime_resume,
+				ehci_msm_runtime_idle)
 };
 
 static struct platform_driver ehci_msm_driver = {

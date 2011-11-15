@@ -701,7 +701,6 @@ static void __init msm9615_common_init(void)
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
 
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 
 	msm_clock_init(&msm9615_clock_init_data);
