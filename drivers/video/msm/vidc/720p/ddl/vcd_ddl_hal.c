@@ -807,8 +807,13 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 		}
 	case VCD_CODEC_H264:
 		{
-			comv_buf_no =
-			    decoder->client_output_buf_req.actual_count;
+			if (decoder->idr_only_decoding)
+				comv_buf_no = decoder->min_dpb_num;
+			else
+				comv_buf_no =
+					decoder->
+					client_output_buf_req.
+					actual_count;
 			break;
 		}
 	}

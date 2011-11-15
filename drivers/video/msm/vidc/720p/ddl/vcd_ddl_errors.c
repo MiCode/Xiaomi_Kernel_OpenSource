@@ -356,6 +356,11 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 	case ACTIVE_SPS_NOT_PRESENT:
 	case ACTIVE_PPS_NOT_PRESENT:
 		{
+			if (ddl->codec_data.decoder.idr_only_decoding) {
+				DBG("Consider warnings as errors in idr mode");
+				ddl_client_fatal_cb(ddl_context);
+				return true;
+			}
 			vcd_status = VCD_ERR_BITSTREAM_ERR;
 			break;
 		}

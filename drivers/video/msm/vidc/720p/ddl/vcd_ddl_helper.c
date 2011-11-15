@@ -124,6 +124,7 @@ u32 ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 	u32 loopc;
 	struct ddl_frame_data_tag *found_frame = NULL;
 	struct ddl_mask *dpb_mask = &decoder->dpb_mask;
+	u32 temp_mask;
 
 	switch (operation) {
 	case DDL_DPB_OP_MARK_BUSY:
@@ -145,13 +146,17 @@ u32 ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 
 			if (found_frame) {
 				if (operation == DDL_DPB_OP_MARK_BUSY) {
-					dpb_mask->hw_mask &=
-					    (~(0x1 << loopc));
+					temp_mask = (~(0x1 << loopc));
+					if (decoder->idr_only_decoding)
+						temp_mask = ~(0xffffffff);
+					dpb_mask->hw_mask &= temp_mask;
 					*in_out_frame = *found_frame;
 				} else if (operation ==
 					DDL_DPB_OP_MARK_FREE) {
-					dpb_mask->client_mask |=
-					    (0x1 << loopc);
+					temp_mask = (0x1 << loopc);
+					if (decoder->idr_only_decoding)
+						temp_mask = 0xffffffff;
+					dpb_mask->client_mask |= temp_mask;
 					*found_frame = *in_out_frame;
 				}
 			} else {
@@ -172,29 +177,35 @@ u32 ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 		}
 	case DDL_DPB_OP_INIT:
 		{
-			u32 dpb_size;
+			u32 dpb_size, index, num_dpb;
 			dpb_size = (!decoder->meta_data_offset) ?
 			    decoder->dp_buf.dec_pic_buffers[0].vcd_frm.
 			    alloc_len : decoder->meta_data_offset;
-			vidc_720p_decode_set_dpb_details(decoder->dp_buf.
-						  no_of_dec_pic_buf,
+			if (decoder->idr_only_decoding)
+				num_dpb = decoder->min_dpb_num;
+			else
+				num_dpb = decoder->dp_buf.no_of_dec_pic_buf;
+			vidc_720p_decode_set_dpb_details(
+						  num_dpb,
 						  dpb_size,
 						  decoder->ref_buffer.
 						  align_physical_addr);
-			for (loopc = 0;
-			     loopc < decoder->dp_buf.no_of_dec_pic_buf;
-			     ++loopc) {
+			for (loopc = 0; loopc < num_dpb; ++loopc) {
+				if (decoder->idr_only_decoding)
+					index = 0;
+				else
+					index = loopc;
 				vidc_720p_decode_set_dpb_buffers(loopc,
 							  (u32 *)
 							  decoder->
 							  dp_buf.
 							  dec_pic_buffers
-							  [loopc].
+							  [index].
 							  vcd_frm.
 							  physical);
-				VIDC_LOG1("DEC_DPB_BUFn_SIZE",
+				VIDC_LOG1("DEC_DPB_BUFn_SIZE=%d",
 					   decoder->dp_buf.
-					   dec_pic_buffers[loopc].vcd_frm.
+					   dec_pic_buffers[index].vcd_frm.
 					   alloc_len);
 			}
 			break;
