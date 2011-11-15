@@ -35,6 +35,10 @@ extern uint32 mdp4_extn_disp;
 #define MDP4_RGB_BASE 0x40000
 #define MDP4_RGB_OFF 0x10000
 
+/* chip select controller */
+#define CS_CONTROLLER_0 0x0707ffff
+#define CS_CONTROLLER_1 0x03073f3f
+
 enum {
 	OVERLAY_PERF_LEVEL1 = 1,
 	OVERLAY_PERF_LEVEL2,

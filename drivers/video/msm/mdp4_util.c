@@ -258,6 +258,12 @@ void mdp4_hw_init(void)
 	mdp4_sw_reset(0x17);
 #endif
 
+	if (mdp_rev > MDP_REV_41) {
+		/* mdp chip select controller */
+		outpdw(MDP_BASE + 0x00c0, CS_CONTROLLER_0);
+		outpdw(MDP_BASE + 0x00c4, CS_CONTROLLER_1);
+	}
+
 	mdp4_clear_lcdc();
 
 	mdp4_mixer_blend_init(0);
