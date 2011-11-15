@@ -262,12 +262,12 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(domain, iommu_virt_addr, memdesc->sg,
-				memdesc->size, MSM_IOMMU_ATTR_NONCACHED);
+				memdesc->size, 0);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
 				"failed with err: %d\n", domain,
 				iommu_virt_addr, memdesc->sg, memdesc->size,
-				MSM_IOMMU_ATTR_NONCACHED, ret);
+				0, ret);
 		return ret;
 	}
 

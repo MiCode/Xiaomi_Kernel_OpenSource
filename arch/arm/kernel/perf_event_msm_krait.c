@@ -365,7 +365,7 @@ krait_out:
 
 static struct arm_pmu krait_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
-#ifdef CONFIG_MSM_SMP
+#ifdef CONFIG_SMP
 	.secondary_enable       = scorpion_secondary_enable,
 	.secondary_disable      = scorpion_secondary_disable,
 #endif

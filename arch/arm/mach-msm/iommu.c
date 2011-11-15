@@ -38,6 +38,17 @@ __asm__ __volatile__ (							\
 #define RCP15_PRRR(reg)		MRC(reg, p15, 0, c10, c2, 0)
 #define RCP15_NMRR(reg)		MRC(reg, p15, 0, c10, c2, 1)
 
+/* Sharability attributes of MSM IOMMU mappings */
+#define MSM_IOMMU_ATTR_NON_SH		0x0
+#define MSM_IOMMU_ATTR_SH		0x4
+
+/* Cacheability attributes of MSM IOMMU mappings */
+#define MSM_IOMMU_ATTR_NONCACHED	0x0
+#define MSM_IOMMU_ATTR_CACHED_WB_WA	0x1
+#define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
+#define MSM_IOMMU_ATTR_CACHED_WT	0x3
+
+
 static inline void clean_pte(unsigned long *start, unsigned long *end)
 {
 	dmac_flush_range(start, end);
@@ -407,21 +418,23 @@ fail:
 static int __get_pgprot(int prot, int len)
 {
 	unsigned int pgprot;
-	int tex, sh;
+	int tex;
 
-	sh = (prot & MSM_IOMMU_ATTR_SH) ? 1 : 0;
-	tex = msm_iommu_tex_class[prot & MSM_IOMMU_CP_MASK];
+	if (prot & IOMMU_CACHE)
+		tex = (pgprot_kernel >> 2) & 0x07;
+	else
+		tex = msm_iommu_tex_class[MSM_IOMMU_ATTR_NONCACHED];
 
 	if (tex < 0 || tex > NUM_TEX_CLASS - 1)
 		return 0;
 
 	if (len == SZ_16M || len == SZ_1M) {
-		pgprot = sh ? FL_SHARED : 0;
+		pgprot = FL_SHARED;
 		pgprot |= tex & 0x01 ? FL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? FL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? FL_TEX0 : 0;
 	} else	{
-		pgprot = sh ? SL_SHARED : 0;
+		pgprot = SL_SHARED;
 		pgprot |= tex & 0x01 ? SL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? SL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? SL_TEX0 : 0;
