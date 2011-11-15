@@ -627,6 +627,10 @@ int soc_dsp_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd)
 	struct snd_soc_dsp_params *dsp_params;
 	int ret = 0;
 
+	if ((cmd == SNDRV_PCM_TRIGGER_PAUSE_RELEASE) ||
+				(cmd == SNDRV_PCM_TRIGGER_PAUSE_PUSH))
+		return ret;
+
 	list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
 
 		struct snd_pcm_substream *be_substream =
