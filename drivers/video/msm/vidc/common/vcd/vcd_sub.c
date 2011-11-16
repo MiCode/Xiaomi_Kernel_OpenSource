@@ -57,8 +57,8 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 		pr_err("%s() map table is full", __func__);
 		goto bailout;
 	}
+	memtype = res_trk_get_mem_type();
 	if (!cctxt->vcd_enable_ion) {
-		memtype = res_trk_get_mem_type();
 		map_buffer->phy_addr = (phys_addr_t)
 		allocate_contiguous_memory_nomap(sz, memtype, SZ_4K);
 		if (!map_buffer->phy_addr) {
@@ -68,7 +68,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 	} else {
 		map_buffer->alloc_handle = ion_alloc(
 			    cctxt->vcd_ion_client, sz, SZ_4K,
-			    (1<<ION_HEAP_EBI_ID));
+			    (1<<memtype));
 		if (!map_buffer->alloc_handle) {
 			pr_err("%s() ION alloc failed", __func__);
 			goto bailout;
