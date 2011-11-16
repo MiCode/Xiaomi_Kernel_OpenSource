@@ -737,6 +737,10 @@ static inline void mdp4_overlay_dsi_state_set(int state)
 {
 	/* empty */
 }
+static inline int mdp4_overlay_dsi_state_get(void)
+{
+	return 0;
+}
 #endif
 
 #endif /* MDP_H */
