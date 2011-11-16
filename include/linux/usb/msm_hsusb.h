@@ -72,6 +72,9 @@ enum msm_usb_phy_type {
 #define IDEV_CHG_MIN	500
 #define IUNIT		100
 
+#define IDEV_ACA_CHG_MAX	1500
+#define IDEV_ACA_CHG_LIMIT	500
+
 /**
  * Different states involved in USB charger detection.
  *
@@ -185,6 +188,7 @@ struct msm_otg_platform_data {
  *             connected. Useful only when ACA_A charger is
  *             connected.
  * @mA_port: The amount of current drawn by the attached B-device.
+ * @id_timer: The timer used for polling ID line to detect ACA states.
  */
 struct msm_otg {
 	struct otg_transceiver otg;
@@ -214,6 +218,7 @@ struct msm_otg {
 	struct wake_lock wlock;
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
+	struct timer_list id_timer;
 	unsigned long caps;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v

@@ -161,7 +161,7 @@ config USB_MSM_ACA
 config USB_MSM_STANDARD_ACA
 	bool "Support for Standard ACA"
 	depends on USB_MSM_ACA
-	default y
+	default USB_MSM_OTG_72K
 	help
 	  A Standard ACA has a Standard-A receptacle on the Accessory Port,
 	  and can only be attached to a B-device.  RID_A and RID_GND states
