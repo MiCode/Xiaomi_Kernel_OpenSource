@@ -197,8 +197,7 @@ static void report_data(struct cy8c_ts *ts, u16 x, u16 y, u8 pressure, u8 id)
 	input_report_abs(ts->input, ABS_MT_TRACKING_ID, id);
 	input_report_abs(ts->input, ABS_MT_POSITION_X, x);
 	input_report_abs(ts->input, ABS_MT_POSITION_Y, y);
-	input_report_abs(ts->input, ABS_MT_TOUCH_MAJOR, pressure);
-	input_report_abs(ts->input, ABS_MT_WIDTH_MAJOR, ts->dd->finger_size);
+	input_report_abs(ts->input, ABS_MT_PRESSURE, pressure);
 	input_mt_sync(ts->input);
 }
 
@@ -227,8 +226,7 @@ static void process_tma300_data(struct cy8c_ts *ts)
 	}
 
 	for (i = 0; i < ts->prev_touches - touches; i++) {
-		input_report_abs(ts->input, ABS_MT_TOUCH_MAJOR, 0);
-		input_report_abs(ts->input, ABS_MT_WIDTH_MAJOR, 0);
+		input_report_abs(ts->input, ABS_MT_PRESSURE, 0);
 		input_mt_sync(ts->input);
 	}
 
@@ -263,8 +261,7 @@ static void process_tmg200_data(struct cy8c_ts *ts)
 		}
 	} else {
 		for (i = 0; i < ts->prev_touches; i++) {
-			input_report_abs(ts->input, ABS_MT_TOUCH_MAJOR,	0);
-			input_report_abs(ts->input, ABS_MT_WIDTH_MAJOR,	0);
+			input_report_abs(ts->input, ABS_MT_PRESSURE,	0);
 			input_mt_sync(ts->input);
 		}
 	}
@@ -402,10 +399,8 @@ static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
 			ts->pdata->dis_min_x, ts->pdata->dis_max_x, 0, 0);
 	input_set_abs_params(input_device, ABS_MT_POSITION_Y,
 			ts->pdata->dis_min_y, ts->pdata->dis_max_y, 0, 0);
-	input_set_abs_params(input_device, ABS_MT_TOUCH_MAJOR,
+	input_set_abs_params(input_device, ABS_MT_PRESSURE,
 			ts->pdata->min_touch, ts->pdata->max_touch, 0, 0);
-	input_set_abs_params(input_device, ABS_MT_WIDTH_MAJOR,
-			ts->pdata->min_width, ts->pdata->max_width, 0, 0);
 	input_set_abs_params(input_device, ABS_MT_TRACKING_ID,
 			ts->pdata->min_tid, ts->pdata->max_tid, 0, 0);
 
