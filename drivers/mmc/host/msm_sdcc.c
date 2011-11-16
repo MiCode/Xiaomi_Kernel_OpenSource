@@ -244,7 +244,7 @@ static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
-	if (host->plat->sdcc_v4_sup) {
+	if (host->sdcc_version) {
 		if (host->is_sps_mode) {
 			/* Reset DML first */
 			msmsdcc_dml_reset(host);
@@ -345,7 +345,7 @@ static inline void msmsdcc_delay(struct msmsdcc_host *host)
 	mb();
 	udelay(host->reg_write_delay);
 
-	if (host->plat->sdcc_v4_sup &&
+	if (host->sdcc_version &&
 		(readl_relaxed(host->base + MCI_STATUS2) &
 			MCI_MCLK_REG_WR_ACTIVE)) {
 		start = ktime_get();
@@ -1631,7 +1631,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
 		if (mrq->cmd->opcode == SD_IO_RW_EXTENDED ||
 			mrq->cmd->opcode == 54) {
-			if (!host->plat->sdcc_v4_sup)
+			if (!host->sdcc_version)
 				host->dummy_52_needed = 1;
 			else
 				/*
@@ -3701,6 +3701,14 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->clk_rate = clk_get_rate(host->clk);
 	if (!host->clk_rate)
 		dev_err(&pdev->dev, "Failed to read MCLK\n");
+
+	/*
+	* Lookup the Controller Version, to identify the supported features
+	* Version number read as 0 would indicate SDCC3 or earlier versions
+	*/
+	host->sdcc_version = readl_relaxed(host->base + MCI_VERSION);
+	pr_info("%s: mci-version: %x\n", mmc_hostname(host->mmc),
+		host->sdcc_version);
 	/*
 	 * Set the register write delay according to min. clock frequency
 	 * supported and update later when the host->clk_rate changes.
@@ -3752,7 +3760,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * status is to use the AUTO_PROG_DONE status provided by SDCC4
 	 * controller. So let's enable the CMD23 for SDCC4 only.
 	 */
-	if (!plat->disable_cmd23 && host->plat->sdcc_v4_sup)
+	if (!plat->disable_cmd23 && host->sdcc_version)
 		mmc->caps |= MMC_CAP_CMD23;
 
 	mmc->caps |= plat->uhs_caps;
