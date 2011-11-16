@@ -288,11 +288,6 @@ void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 	clk_set_rate(clk, rate);
 }
 
-void msm_camio_clk_set_min_rate(struct clk *clk, int rate)
-{
-	clk_set_min_rate(clk, rate);
-}
-
 static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 {
 	uint32_t irq;

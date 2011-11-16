@@ -117,6 +117,7 @@ static struct msm_camera_io_clk camio_clk;
 static struct resource *camifpadio, *csiio;
 void __iomem *camifpadbase, *csibase;
 static uint32_t vpe_clk_rate;
+static uint32_t jpeg_clk_rate;
 
 static struct regulator_bulk_data regs[] = {
 	{ .supply = "gp2",  .min_uV = 2600000, .max_uV = 2600000 },
@@ -317,7 +318,8 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 	case CAMIO_JPEG_CLK:
 		camio_jpeg_clk =
 		clk = clk_get(NULL, "jpeg_clk");
-		clk_set_min_rate(clk, 144000000);
+		jpeg_clk_rate = clk_round_rate(clk, 144000000);
+		clk_set_rate(clk, jpeg_clk_rate);
 		break;
 	case CAMIO_JPEG_PCLK:
 		camio_jpeg_pclk =
@@ -326,7 +328,8 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 	case CAMIO_VPE_CLK:
 		camio_vpe_clk =
 		clk = clk_get(NULL, "vpe_clk");
-		msm_camio_clk_set_min_rate(clk, vpe_clk_rate);
+		vpe_clk_rate = clk_round_rate(clk, vpe_clk_rate);
+		clk_set_rate(clk, vpe_clk_rate);
 		break;
 	default:
 		break;
@@ -418,11 +421,6 @@ int msm_camio_vfe_clk_rate_set(int rate)
 void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 {
 	clk_set_rate(clk, rate);
-}
-
-void msm_camio_clk_set_min_rate(struct clk *clk, int rate)
-{
-	clk_set_min_rate(clk, rate);
 }
 
 static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
