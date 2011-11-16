@@ -1360,7 +1360,8 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 	version = pm8xxx_get_version(chip->dev->parent);
 
 	if (version == PM8XXX_VERSION_8921 ||
-			version == PM8XXX_VERSION_8058) {
+			version == PM8XXX_VERSION_8058 ||
+			version == PM8XXX_VERSION_8922) {
 		chip->is_lpg_supported = 1;
 	}
 	if (chip->is_lpg_supported) {

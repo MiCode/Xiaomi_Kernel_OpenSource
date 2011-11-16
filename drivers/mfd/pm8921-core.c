@@ -39,6 +39,7 @@
 
 #define PM8921_VERSION_MASK	0xFFF0
 #define PM8921_VERSION_VALUE	0x06F0
+#define PM8922_VERSION_VALUE	0x0AF0
 #define PM8921_REVISION_MASK	0x000F
 
 #define REG_PM8921_PON_CNTRL_3	0x01D
@@ -109,6 +110,9 @@ static enum pm8xxx_version pm8921_get_version(const struct device *dev)
 
 	if ((pmic->rev_registers & PM8921_VERSION_MASK) == PM8921_VERSION_VALUE)
 		version = PM8XXX_VERSION_8921;
+	else if ((pmic->rev_registers & PM8921_VERSION_MASK)
+			== PM8922_VERSION_VALUE)
+		version = PM8XXX_VERSION_8922;
 
 	return version;
 }
@@ -365,7 +369,10 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
 	static struct mfd_cell *mfd_regulators;
+	enum pm8xxx_version version;
 	int i;
+
+	version = pm8xxx_get_version(pmic->dev);
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8921_NR_IRQS;
@@ -619,6 +626,13 @@ static const char * const pm8921_rev_names[] = {
 	[PM8XXX_REVISION_8921_3p0]	= "3.0",
 };
 
+static const char * const pm8922_rev_names[] = {
+	[PM8XXX_REVISION_8922_TEST]	= "test",
+	[PM8XXX_REVISION_8922_1p0]	= "1.0",
+	[PM8XXX_REVISION_8922_1p1]	= "1.1",
+	[PM8XXX_REVISION_8922_2p0]	= "2.0",
+};
+
 static int __devinit pm8921_probe(struct platform_device *pdev)
 {
 	const struct pm8921_platform_data *pdata = pdev->dev.platform_data;
@@ -665,13 +679,18 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 
 	/* Print out human readable version and revision names. */
 	version = pm8xxx_get_version(pmic->dev);
+	revision = pm8xxx_get_revision(pmic->dev);
 	if (version == PM8XXX_VERSION_8921) {
-		revision = pm8xxx_get_revision(pmic->dev);
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8921_rev_names))
 			revision_name = pm8921_rev_names[revision];
 		pr_info("PMIC version: PM8921 rev %s\n", revision_name);
+	} else if (version == PM8XXX_VERSION_8922) {
+		if (revision >= 0 && revision < ARRAY_SIZE(pm8922_rev_names))
+			revision_name = pm8922_rev_names[revision];
+		pr_info("PMIC version: PM8922 rev %s\n", revision_name);
 	} else {
-		WARN_ON(version != PM8XXX_VERSION_8921);
+		WARN_ON(version != PM8XXX_VERSION_8921
+			&& version != PM8XXX_VERSION_8922);
 	}
 
 	/* Log human readable restart reason */
