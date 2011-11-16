@@ -62,6 +62,18 @@ static volatile int hlt_counter;
 
 #include <mach/system.h>
 
+#ifdef CONFIG_SMP
+void arch_trigger_all_cpu_backtrace(void)
+{
+	smp_send_all_cpu_backtrace();
+}
+#else
+void arch_trigger_all_cpu_backtrace(void)
+{
+	dump_stack();
+}
+#endif
+
 void disable_hlt(void)
 {
 	hlt_counter++;
@@ -239,8 +251,8 @@ void cpu_idle(void)
 				local_irq_enable();
 			}
 		}
-		idle_notifier_call_chain(IDLE_END);
 		tick_nohz_restart_sched_tick();
+		idle_notifier_call_chain(IDLE_END);
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();

@@ -33,7 +33,13 @@ void vfp_support_entry(void);
 void vfp_null_entry(void);
 
 void (*vfp_vector)(void) = vfp_null_entry;
-union vfp_state *last_VFP_context[NR_CPUS];
+
+/*
+ * The pointer to the vfpstate structure of the thread which currently
+ * owns the context held in the VFP hardware, or NULL if the hardware
+ * context is invalid.
+ */
+union vfp_state *vfp_current_hw_state[NR_CPUS];
 
 /*
  * Dual-use variable.
@@ -57,12 +63,12 @@ static void vfp_thread_flush(struct thread_info *thread)
 
 	/*
 	 * Disable VFP to ensure we initialize it first.  We must ensure
-	 * that the modification of last_VFP_context[] and hardware disable
+	 * that the modification of vfp_current_hw_state[] and hardware disable
 	 * are done for the same CPU and without preemption.
 	 */
 	cpu = get_cpu();
-	if (last_VFP_context[cpu] == vfp)
-		last_VFP_context[cpu] = NULL;
+	if (vfp_current_hw_state[cpu] == vfp)
+		vfp_current_hw_state[cpu] = NULL;
 	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
 	put_cpu();
 }
@@ -73,8 +79,8 @@ static void vfp_thread_exit(struct thread_info *thread)
 	union vfp_state *vfp = &thread->vfpstate;
 	unsigned int cpu = get_cpu();
 
-	if (last_VFP_context[cpu] == vfp)
-		last_VFP_context[cpu] = NULL;
+	if (vfp_current_hw_state[cpu] == vfp)
+		vfp_current_hw_state[cpu] = NULL;
 	put_cpu();
 }
 
@@ -129,9 +135,9 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		 * case the thread migrates to a different CPU. The
 		 * restoring is done lazily.
 		 */
-		if ((fpexc & FPEXC_EN) && last_VFP_context[cpu]) {
-			vfp_save_state(last_VFP_context[cpu], fpexc);
-			last_VFP_context[cpu]->hard.cpu = cpu;
+		if ((fpexc & FPEXC_EN) && vfp_current_hw_state[cpu]) {
+			vfp_save_state(vfp_current_hw_state[cpu], fpexc);
+			vfp_current_hw_state[cpu]->hard.cpu = cpu;
 		}
 		/*
 		 * Thread migration, just force the reloading of the
@@ -139,7 +145,7 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		 * contain stale data.
 		 */
 		if (thread->vfpstate.hard.cpu != cpu)
-			last_VFP_context[cpu] = NULL;
+			vfp_current_hw_state[cpu] = NULL;
 #endif
 
 		/*
@@ -413,22 +419,22 @@ int vfp_flush_context(void)
 
 #ifdef CONFIG_SMP
 	/* On SMP, if VFP is enabled, save the old state */
-	if ((fpexc & FPEXC_EN) && last_VFP_context[cpu]) {
-		last_VFP_context[cpu]->hard.cpu = cpu;
+	if ((fpexc & FPEXC_EN) && vfp_current_hw_state[cpu]) {
+		vfp_current_hw_state[cpu]->hard.cpu = cpu;
 #else
 	/* If there is a VFP context we must save it. */
-	if (last_VFP_context[cpu]) {
+	if (vfp_current_hw_state[cpu]) {
 		/* Enable VFP so we can save the old state. */
 		fmxr(FPEXC, fpexc | FPEXC_EN);
 		isb();
 #endif
-		vfp_save_state(last_VFP_context[cpu], fpexc);
+		vfp_save_state(vfp_current_hw_state[cpu], fpexc);
 
 		/* disable, just in case */
 		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
 		saved = 1;
 	}
-	last_VFP_context[cpu] = NULL;
+	vfp_current_hw_state[cpu] = NULL;
 
 	local_irq_restore(flags);
 
@@ -481,7 +487,7 @@ void vfp_sync_hwstate(struct thread_info *thread)
 	 * If the thread we're interested in is the current owner of the
 	 * hardware VFP state, then we need to save its state.
 	 */
-	if (last_VFP_context[cpu] == &thread->vfpstate) {
+	if (vfp_current_hw_state[cpu] == &thread->vfpstate) {
 		u32 fpexc = fmrx(FPEXC);
 
 		/*
@@ -503,7 +509,7 @@ void vfp_flush_hwstate(struct thread_info *thread)
 	 * If the thread we're interested in is the current owner of the
 	 * hardware VFP state, then we need to save its state.
 	 */
-	if (last_VFP_context[cpu] == &thread->vfpstate) {
+	if (vfp_current_hw_state[cpu] == &thread->vfpstate) {
 		u32 fpexc = fmrx(FPEXC);
 
 		fmxr(FPEXC, fpexc & ~FPEXC_EN);
@@ -512,7 +518,7 @@ void vfp_flush_hwstate(struct thread_info *thread)
 		 * Set the context to NULL to force a reload the next time
 		 * the thread uses the VFP.
 		 */
-		last_VFP_context[cpu] = NULL;
+		vfp_current_hw_state[cpu] = NULL;
 	}
 
 #ifdef CONFIG_SMP
@@ -544,7 +550,7 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 {
 	if (action == CPU_DYING || action == CPU_DYING_FROZEN) {
 		unsigned int cpu = (long)hcpu;
-		last_VFP_context[cpu] = NULL;
+		vfp_current_hw_state[cpu] = NULL;
 	} else if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
 		vfp_enable(NULL);
 	return NOTIFY_OK;
