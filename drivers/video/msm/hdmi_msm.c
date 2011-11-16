@@ -49,6 +49,8 @@
 #define MSM_HDMI_SAMPLE_RATE_MAX		7
 #define MSM_HDMI_SAMPLE_RATE_FORCE_32BIT	0x7FFFFFFF
 
+static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
+
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
@@ -3331,6 +3333,19 @@ static void hdmi_msm_en_acp_packet(uint32 byte1)
 }
 #endif
 
+int hdmi_msm_audio_get_sample_rate(void)
+{
+	return msm_hdmi_sample_rate;
+}
+EXPORT_SYMBOL(hdmi_msm_audio_get_sample_rate);
+
+void hdmi_msm_audio_sample_rate_reset(int rate)
+{
+	msm_hdmi_sample_rate = rate;
+	hdcp_deauthenticate();
+}
+EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
+
 static void hdmi_msm_audio_setup(void)
 {
 	const int channels = MSM_HDMI_AUDIO_CHANNEL_2;
@@ -3344,7 +3359,7 @@ static void hdmi_msm_audio_setup(void)
 	DEV_DBG("Not setting ACP, ISRC1, ISRC2 packets\n");
 	hdmi_msm_audio_acr_setup(TRUE,
 		external_common_state->video_resolution,
-		MSM_HDMI_SAMPLE_RATE_48KHZ, channels);
+		msm_hdmi_sample_rate, channels);
 	hdmi_msm_audio_info_setup(TRUE, channels, 0, FALSE);
 
 	/* Turn on Audio FIFO and SAM DROP ISR */
