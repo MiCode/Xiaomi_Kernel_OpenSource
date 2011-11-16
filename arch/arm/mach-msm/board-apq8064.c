@@ -228,7 +228,6 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.name = "sdc_vdd",
-		.set_voltage_sup = 1,
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
 		.always_on = 1,
@@ -239,7 +238,6 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd",
-		.set_voltage_sup = 1,
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
 		.hpm_uA = 600000, /* 600mA */
@@ -251,7 +249,6 @@ static struct msm_mmc_reg_data mmc_vccq_reg_data[1] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.name = "sdc_vccq",
-		.set_voltage_sup = 1,
 		.always_on = 1,
 		.high_vol_level = 1800000,
 		.low_vol_level = 1800000,
@@ -264,7 +261,6 @@ static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vddp",
-		.set_voltage_sup = 1,
 		.high_vol_level = 2950000,
 		.low_vol_level = 1850000,
 		.always_on = 1,

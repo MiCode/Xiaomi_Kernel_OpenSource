@@ -1716,7 +1716,12 @@ static inline int msmsdcc_vreg_init_reg(struct msm_mmc_reg_data *vreg,
 		rc = PTR_ERR(vreg->reg);
 		pr_err("%s: regulator_get(%s) failed. rc=%d\n",
 			__func__, vreg->name, rc);
+		goto out;
 	}
+
+	if (regulator_count_voltages(vreg->reg) > 0)
+		vreg->set_voltage_sup = 1;
+
 out:
 	return rc;
 }
