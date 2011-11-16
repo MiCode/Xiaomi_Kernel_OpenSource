@@ -106,6 +106,14 @@ enum {
 	FB_IMG,
 };
 
+enum {
+	HSIC_HUE = 0,
+	HSIC_SAT,
+	HSIC_INT,
+	HSIC_CON,
+	NUM_HSIC_PARAM,
+};
+
 /* mdp_blit_req flag values */
 #define MDP_ROT_NOP 0
 #define MDP_FLIP_LR 0x1
@@ -132,6 +140,7 @@ enum {
 #define MDP_OV_PLAY_NOWAIT		0x00200000
 #define MDP_SOURCE_ROTATED_90		0x00100000
 #define MDP_MEMORY_ID_TYPE_FB		0x00001000
+#define MDP_DPP_HSIC			0x00080000
 
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
@@ -250,6 +259,7 @@ struct dpp_ctrl {
 	 *  smoothed picture.
 	 */
 	int8_t sharp_strength;
+	int8_t hsic_params[NUM_HSIC_PARAM];
 };
 
 struct mdp_overlay {
