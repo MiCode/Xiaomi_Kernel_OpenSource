@@ -377,7 +377,6 @@ static int slim_register_controller(struct slim_controller *ctrl)
 	dev_set_name(&ctrl->dev, "sb-%d", ctrl->nr);
 	ctrl->dev.bus = &slimbus_type;
 	ctrl->dev.type = &slim_ctrl_type;
-	ctrl->dev.parent = &slimbus_dev;
 	ctrl->num_dev = 0;
 	if (!ctrl->min_cg)
 		ctrl->min_cg = SLIM_MIN_CLK_GEAR;
@@ -581,7 +580,7 @@ void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid, u8 len)
 }
 EXPORT_SYMBOL_GPL(slim_msg_response);
 
-static int slim_processtxn(struct slim_controller *ctrl, u8 dt, u8 mc, u16 ec,
+static int slim_processtxn(struct slim_controller *ctrl, u8 dt, u16 mc, u16 ec,
 			u8 mt, u8 *rbuf, const u8 *wbuf, u8 len, u8 mlen,
 			struct completion *comp, u8 la, u8 *tid)
 {
@@ -870,7 +869,7 @@ EXPORT_SYMBOL_GPL(slim_request_clear_inf_element);
  * All controllers may not support broadcast
  */
 int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
-			struct slim_ele_access *msg, u8 mc, u8 *rbuf,
+			struct slim_ele_access *msg, u16 mc, u8 *rbuf,
 			const u8 *wbuf, u8 len)
 {
 	DECLARE_COMPLETION_ONSTACK(complete);
@@ -891,10 +890,6 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 
 	cur = slim_slicecodefromsize(sl);
 	ec = ((sl | (1 << 3)) | ((msg->start_offset & 0xFFF) << 4));
-
-	ret = slim_ctrl_clk_pause(ctrl, true, 0);
-	if (ret)
-		return ret;
 
 	if (wbuf)
 		mlen += len;
@@ -1069,7 +1064,7 @@ static int connect_port_ch(struct slim_controller *ctrl, u8 ch, u32 ph,
 				enum slim_port_flow flow)
 {
 	int ret;
-	u8 mc;
+	u16 mc;
 	u8 buf[2];
 	u32 la = SLIM_HDL_TO_LA(ph);
 	u8 pn = (u8)SLIM_HDL_TO_PORT(ph);
@@ -1093,7 +1088,7 @@ static int connect_port_ch(struct slim_controller *ctrl, u8 ch, u32 ph,
 static int disconnect_port_ch(struct slim_controller *ctrl, u32 ph)
 {
 	int ret;
-	u8 mc;
+	u16 mc;
 	u32 la = SLIM_HDL_TO_LA(ph);
 	u8 pn = (u8)SLIM_HDL_TO_PORT(ph);
 
@@ -1126,10 +1121,6 @@ int slim_connect_ports(struct slim_device *sb, u32 *srch, int nsrc, u32 sinkh,
 	int ret = 0;
 	u8 chan = (u8)(chanh & 0xFF);
 	struct slim_ich *slc = &ctrl->chans[chan];
-
-	ret = slim_ctrl_clk_pause(ctrl, true, 0);
-	if (ret)
-		return ret;
 
 	mutex_lock(&ctrl->m_ctrl);
 	/* Make sure the channel is not already pending reconf. or active */
@@ -1193,11 +1184,8 @@ EXPORT_SYMBOL_GPL(slim_connect_ports);
 int slim_disconnect_ports(struct slim_device *sb, u32 *ph, int nph)
 {
 	struct slim_controller *ctrl = sb->ctrl;
-	int i, ret;
+	int i;
 
-	ret = slim_ctrl_clk_pause(ctrl, true, 0);
-	if (ret)
-		return ret;
 	mutex_lock(&ctrl->m_ctrl);
 
 	for (i = 0; i < nph; i++)
@@ -2389,10 +2377,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 	u32 segdist;
 	struct slim_pending_ch *pch;
 
-	ret = slim_ctrl_clk_pause(ctrl, true, 0);
-	if (ret)
-		return ret;
-
 	mutex_lock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	ctrl->sched.pending_msgsl += sb->pending_msgsl - sb->cur_msgsl;
@@ -2785,20 +2769,20 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 	}
 
 	ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
-			SLIM_MSG_MC_BEGIN_RECONFIGURATION, 0, SLIM_MSG_MT_CORE,
-			NULL, NULL, 0, 3, NULL, 0, NULL);
-	if (ret)
-		goto clk_pause_ret;
-
-		ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
-			SLIM_MSG_MC_NEXT_PAUSE_CLOCK, 0, SLIM_MSG_MT_CORE,
-			NULL, &restart, 1, 4, NULL, 0, NULL);
+		SLIM_MSG_CLK_PAUSE_SEQ_FLG | SLIM_MSG_MC_BEGIN_RECONFIGURATION,
+		0, SLIM_MSG_MT_CORE, NULL, NULL, 0, 3, NULL, 0, NULL);
 	if (ret)
 		goto clk_pause_ret;
 
 	ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
-			SLIM_MSG_MC_RECONFIGURE_NOW, 0, SLIM_MSG_MT_CORE,
-			NULL, NULL, 0, 3, NULL, 0, NULL);
+		SLIM_MSG_CLK_PAUSE_SEQ_FLG | SLIM_MSG_MC_NEXT_PAUSE_CLOCK, 0,
+		SLIM_MSG_MT_CORE, NULL, &restart, 1, 4, NULL, 0, NULL);
+	if (ret)
+		goto clk_pause_ret;
+
+	ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
+		SLIM_MSG_CLK_PAUSE_SEQ_FLG | SLIM_MSG_MC_RECONFIGURE_NOW, 0,
+		SLIM_MSG_MT_CORE, NULL, NULL, 0, 3, NULL, 0, NULL);
 	if (ret)
 		goto clk_pause_ret;
 

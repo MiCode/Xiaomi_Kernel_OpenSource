@@ -83,6 +83,12 @@ extern struct bus_type slimbus_type;
 #define SLIM_MSG_MC_NEXT_REMOVE_CHANNEL          0x58
 #define SLIM_MSG_MC_RECONFIGURE_NOW              0x5F
 
+/*
+ * Clock pause flag to indicate that the reconfig message
+ * corresponds to clock pause sequence
+ */
+#define SLIM_MSG_CLK_PAUSE_SEQ_FLG		(1U << 8)
+
 /* Value management messages */
 #define SLIM_MSG_MC_REQUEST_VALUE                0x60
 #define SLIM_MSG_MC_REQUEST_CHANGE_VALUE         0x61
@@ -150,7 +156,9 @@ struct slim_addrt {
  * For the header information, refer to Table 34-36.
  * @rl: Header field. remaining length.
  * @mt: Header field. Message type.
- * @mc: Header field. Message code for type mt.
+ * @mc: Header field. LSB is message code for type mt. Framework will set MSB to
+ *	SLIM_MSG_CLK_PAUSE_SEQ_FLG in case "mc" in the reconfiguration sequence
+ *	is for pausing the clock.
  * @dt: Header field. Destination type.
  * @ec: Element size. Used for elemental access APIs.
  * @len: Length of payload. (excludes ec)
@@ -166,7 +174,7 @@ struct slim_addrt {
 struct slim_msg_txn {
 	u8			rl;
 	u8			mt;
-	u8			mc;
+	u16			mc;
 	u8			dt;
 	u16			ec;
 	u8			len;
@@ -670,7 +678,7 @@ extern int slim_request_clear_inf_element(struct slim_device *sb,
  */
 extern int slim_xfer_msg(struct slim_controller *ctrl,
 			struct slim_device *sbdev, struct slim_ele_access *msg,
-			u8 mc, u8 *rbuf, const u8 *wbuf, u8 len);
+			u16 mc, u8 *rbuf, const u8 *wbuf, u8 len);
 /* end of message apis */
 
 /* Port management for manager device APIs */
