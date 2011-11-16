@@ -231,8 +231,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	 * increasing the ACPU frequency, since voting for high AXI rates
 	 * implicitly takes care of increasing the MSMC1 voltage, as needed. */
 	if (tgt_s->axi_clk_hz > strt_s->axi_clk_hz) {
-		rc = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_hz);
+		rc = clk_set_rate(drv_state.ebi1_clk, tgt_s->axi_clk_hz);
 		if (rc < 0) {
 			pr_err("Setting AXI min rate failed (%d)\n", rc);
 			goto out;
@@ -277,8 +276,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 
 	/* Decrease the AXI bus frequency if we can. */
 	if (tgt_s->axi_clk_hz < strt_s->axi_clk_hz) {
-		res = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_hz);
+		res = clk_set_rate(drv_state.ebi1_clk, tgt_s->axi_clk_hz);
 		if (res < 0)
 			pr_warning("Setting AXI min rate failed (%d)\n", res);
 	}
@@ -385,7 +383,7 @@ static void __init acpuclk_hw_init(void)
 	if (s->src >= 0)
 		clk_enable(acpuclk_sources[s->src]);
 
-	res = clk_set_min_rate(drv_state.ebi1_clk, s->axi_clk_hz);
+	res = clk_set_rate(drv_state.ebi1_clk, s->axi_clk_hz);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed!\n");
 
