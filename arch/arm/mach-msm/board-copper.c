@@ -80,6 +80,9 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	NULL,			OFF),
 	CLK_DUMMY("core_clk",	SDC3_CLK,	NULL,			OFF),
 	CLK_DUMMY("iface_clk",	SDC3_P_CLK,	NULL,			OFF),
+	CLK_DUMMY("usb_phy_clk", NULL, NULL, OFF),
+	CLK_DUMMY("usb_hs_clk", NULL, NULL, OFF),
+	CLK_DUMMY("usb_hs_pclk", NULL, NULL, OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
