@@ -2092,6 +2092,9 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
 			cmdp, (vfe32_cmd[cmd->id].length));
+		cmdp_local = cmdp + V32_ASF_LEN/4;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_ASF_SPECIAL_EFX_CFG_OFF,
+			cmdp_local, V32_ASF_SPECIAL_EFX_CFG_LEN);
 		break;
 
 	case VFE_CMD_PCA_ROLL_OFF_CFG:

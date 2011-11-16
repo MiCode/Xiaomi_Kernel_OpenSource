@@ -349,6 +349,9 @@ enum  vfe_recording_state {
 #define V32_MODULE_CFG_OFF 0x00000010
 #define V32_MODULE_CFG_LEN 4
 
+#define V32_ASF_SPECIAL_EFX_CFG_OFF 0x000005FC
+#define V32_ASF_SPECIAL_EFX_CFG_LEN 4
+
 #define V32_CLF_CFG_OFF 0x000006B0
 #define V32_CLF_CFG_LEN 72
 
