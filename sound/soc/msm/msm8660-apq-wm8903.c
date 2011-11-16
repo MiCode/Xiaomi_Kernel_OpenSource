@@ -499,6 +499,10 @@ static const struct snd_soc_dapm_widget msm8660_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Ext Spk", msm8660_spkramp_event),
 	SND_SOC_DAPM_MIC("Headset Jack", NULL),
 	SND_SOC_DAPM_MIC("Headphone Jack", NULL),
+	/* to fix a bug in wm8903.c, where audio doesn't function
+	 * after suspend/resume
+	 */
+	SND_SOC_DAPM_SUPPLY("CLK_SYS_ENA", WM8903_CLOCK_RATES_2, 2, 0, NULL, 0),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -511,6 +515,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* Headphone connects to IN3R with Bias */
 	{"IN3R", NULL, "Mic Bias"},
 	{"Mic Bias", NULL, "Headphone Jack"},
+	{"ADCL", NULL, "CLK_SYS_ENA"},
+	{"ADCR", NULL, "CLK_SYS_ENA"},
+	{"DACL", NULL, "CLK_SYS_ENA"},
+	{"DACR", NULL, "CLK_SYS_ENA"},
 };
 
 static const char *cmn_status[] = {"Off", "On"};
@@ -533,6 +541,7 @@ static int msm8660_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	int err;
 
 	snd_soc_dapm_disable_pin(&codec->dapm, "Ext Spk");
+	snd_soc_dapm_enable_pin(&codec->dapm, "CLK_SYS_ENA");
 
 	err = snd_soc_add_controls(codec, wm8903_msm8660_controls,
 				ARRAY_SIZE(wm8903_msm8660_controls));
