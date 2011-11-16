@@ -537,6 +537,8 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 		kfree(pkt);
+		if (new_skb)
+			dev_kfree_skb_any(new_skb);
 	} else {
 		spin_lock_irqsave(&bam_ch[id].lock, flags);
 		bam_ch[id].num_tx_pkts++;
