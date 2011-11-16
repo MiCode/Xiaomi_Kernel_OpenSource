@@ -1877,6 +1877,19 @@ static void __init reg_init(void)
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);
 	writel_relaxed(regval | BIT(0), LCC_PRI_PLL_CLK_CTL_REG);
+
+	/* Disable hardware clock gating on certain clocks */
+	regval = readl_relaxed(USB_HSIC_HCLK_CTL_REG);
+	regval &= ~BIT(6);
+	writel_relaxed(regval, USB_HSIC_HCLK_CTL_REG);
+
+	regval = readl_relaxed(CE1_CORE_CLK_CTL_REG);
+	regval &= ~BIT(6);
+	writel_relaxed(regval, CE1_CORE_CLK_CTL_REG);
+
+	regval = readl_relaxed(USB_HS1_HCLK_CTL_REG);
+	regval &= ~BIT(6);
+	writel_relaxed(regval, USB_HS1_HCLK_CTL_REG);
 }
 
 /* Local clock driver initialization. */
