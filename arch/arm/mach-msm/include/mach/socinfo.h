@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,7 @@ enum msm_cpu {
 	MSM_CPU_9615,
 	MSM_CPU_COPPER,
 	MSM_CPU_8627,
+	MSM_CPU_8625,
 };
 
 enum msm_cpu socinfo_get_msm_cpu(void);
@@ -266,4 +267,17 @@ static inline int cpu_is_msm9615(void)
 	return 0;
 #endif
 }
+
+static inline int cpu_is_msm8625(void)
+{
+#ifdef CONFIG_ARCH_MSM8625
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8625;
+#else
+	return 0;
+#endif
+}
+
 #endif
