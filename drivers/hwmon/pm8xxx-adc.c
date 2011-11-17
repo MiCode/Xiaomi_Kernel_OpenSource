@@ -502,7 +502,7 @@ static uint32_t pm8xxx_adc_calib_device(void)
 {
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	struct pm8xxx_adc_amux_properties conv;
-	int rc, offset_adc, slope_adc, calib_read_1, calib_read_2;
+	int rc, calib_read_1, calib_read_2;
 	u8 data_arb_usrp_cntrl1 = 0;
 
 	conv.amux_channel = CHANNEL_125V;
@@ -565,18 +565,14 @@ static uint32_t pm8xxx_adc_calib_device(void)
 	}
 	pm8xxx_adc_calib_first_adc = false;
 
-	slope_adc = (((calib_read_1 - calib_read_2) << PM8XXX_ADC_MUL)/
-					PM8XXX_CHANNEL_ADC_625_MV);
-	offset_adc = calib_read_2 -
-			((slope_adc * PM8XXX_CHANNEL_ADC_625_MV) >>
-							PM8XXX_ADC_MUL);
-
-	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].offset
-								= offset_adc;
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].dy =
 					(calib_read_1 - calib_read_2);
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].dx
-						= PM8XXX_CHANNEL_ADC_625_MV;
+						= PM8XXX_CHANNEL_ADC_625_UV;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].adc_vref =
+					calib_read_1;
+	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_ABSOLUTE].adc_gnd =
+					calib_read_2;
 	rc = pm8xxx_adc_arb_cntrl(0, CHANNEL_NONE);
 	if (rc < 0) {
 		pr_err("%s: Configuring ADC Arbiter disable"
@@ -644,14 +640,6 @@ static uint32_t pm8xxx_adc_calib_device(void)
 	}
 	pm8xxx_adc_calib_first_adc = false;
 
-	slope_adc = (((calib_read_1 - calib_read_2) << PM8XXX_ADC_MUL)/
-				adc_pmic->adc_prop->adc_vdd_reference);
-	offset_adc = calib_read_2 -
-			((slope_adc * adc_pmic->adc_prop->adc_vdd_reference)
-							>> PM8XXX_ADC_MUL);
-
-	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].offset
-								= offset_adc;
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dy =
 					(calib_read_1 - calib_read_2);
 	adc_pmic->conv->chan_prop->adc_graph[ADC_CALIB_RATIOMETRIC].dx =

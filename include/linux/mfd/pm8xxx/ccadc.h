@@ -73,7 +73,7 @@ void pm8xxx_calib_ccadc(void);
 
 /**
  * pm8xxx_ccadc_get_battery_current - return the battery current based on vsense
- *				resitor in milliamperes
+ *				resitor in microamperes
  * @result:	The pointer where the voltage will be updated. A -ve
  *		result means that the current is flowing in
  *		the battery - during battery charging
