@@ -149,6 +149,9 @@ static const struct {
 	{ ADRENO_REV_A225, 2, 2, 0, 5,
 		"a225p5_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
 		1536, 768 },
+	{ ADRENO_REV_A225, 2, 2, 0, 6,
+		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
+		1536, 768 },
 	{ ADRENO_REV_A225, 2, 2, ANY_ID, ANY_ID,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
 		1536, 768 },
@@ -358,6 +361,7 @@ adreno_getchipid(struct kgsl_device *device)
 {
 	unsigned int chipid = 0;
 	unsigned int coreid, majorid, minorid, patchid, revid;
+	uint32_t soc_platform_version = socinfo_get_version();
 
 	adreno_regread(device, REG_RBBM_PERIPHID1, &coreid);
 	adreno_regread(device, REG_RBBM_PERIPHID2, &majorid);
@@ -379,8 +383,12 @@ adreno_getchipid(struct kgsl_device *device)
 	patchid = ((revid >> 16) & 0xFF);
 
 	/* 8x50 returns 0 for patch release, but it should be 1 */
+	/* 8960v3 returns 5 for patch release, but it should be 6 */
 	if (cpu_is_qsd8x50())
 		patchid = 1;
+	else if (cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(soc_platform_version) == 3)
+		patchid = 6;
 
 	chipid |= (minorid << 8) | patchid;
 
