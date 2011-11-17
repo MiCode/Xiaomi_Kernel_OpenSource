@@ -403,10 +403,11 @@ static int pm8921_therm_mitigation[] = {
 	325,
 };
 
+#define MAX_VOLTAGE_MV		4200
 static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.safety_time		= 180,
 	.update_time		= 60000,
-	.max_voltage		= 4200,
+	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3200,
 	.resume_voltage_delta	= 100,
 	.term_current		= 100,
@@ -431,6 +432,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.i_test			= 2500,
 	.v_failure		= 3000,
 	.calib_delay_ms		= 600000,
+	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */

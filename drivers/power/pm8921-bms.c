@@ -84,6 +84,7 @@ struct pm8921_bms_chip {
 
 	uint16_t		ocv_reading_at_100;
 	int			cc_reading_at_100;
+	int			max_voltage_uv;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -453,15 +454,10 @@ static int read_last_good_ocv(struct pm8921_bms_chip *chip, uint *result)
 			last_ocv_uv = *result;
 	} else {
 		/*
-		 * force 100% ocv by selecting the highest profiled ocv
-		 * This is the first row last column entry in the ocv
-		 * lookup table
+		 * force 100% ocv by selecting the highest voltage the
+		 * battery could every reach
 		 */
-		int cols = chip->pc_temp_ocv_lut->cols;
-
-		pr_debug("Forcing max voltage %d\n",
-				1000 * chip->pc_temp_ocv_lut->ocv[0][cols-1]);
-		*result = 1000 * chip->pc_temp_ocv_lut->ocv[0][cols-1];
+		*result = chip->max_voltage_uv;
 	}
 
 	return 0;
@@ -1799,6 +1795,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->i_test = pdata->i_test;
 	chip->v_failure = pdata->v_failure;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
+	chip->max_voltage_uv = pdata->max_voltage_uv;
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("%s bad battery data %d\n", __func__, rc);
