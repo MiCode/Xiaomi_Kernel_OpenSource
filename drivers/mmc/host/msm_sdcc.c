@@ -2501,8 +2501,38 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	return rc;
 }
 #else
-#define msmsdcc_enable NULL
-#define msmsdcc_disable NULL
+static int msmsdcc_enable(struct mmc_host *mmc)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (!host->clks_on) {
+		msmsdcc_setup_clocks(host, true);
+		host->clks_on = 1;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return 0;
+}
+
+static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned long flags;
+
+	if (mmc->card && mmc_card_sdio(mmc->card))
+		return -ENOTSUPP;
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (host->clks_on) {
+		msmsdcc_setup_clocks(host, false);
+		host->clks_on = 0;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return 0;
+}
 #endif
 
 static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
@@ -4101,6 +4131,9 @@ msmsdcc_probe(struct platform_device *pdev)
 		mmc->caps |= MMC_CAP_DISABLE;
 		pm_runtime_enable(&(pdev)->dev);
 	}
+#endif
+#ifndef CONFIG_PM_RUNTIME
+	mmc_set_disable_delay(mmc, MSM_MMC_DISABLE_TIMEOUT);
 #endif
 	setup_timer(&host->req_tout_timer, msmsdcc_req_tout_timer_hdlr,
 			(unsigned long)host);
