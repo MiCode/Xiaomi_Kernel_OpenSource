@@ -25,16 +25,3 @@ void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count)
 
 void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns) { }
 EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
-
-int platform_cpu_disable(unsigned int cpu)
-{
-	return -ENOSYS;
-}
-
-int platform_cpu_kill(unsigned int cpu)
-{
-	return -ENOSYS;
-}
-
-void platform_cpu_die(unsigned int cpu)
-{ }

@@ -149,7 +149,7 @@ ifdef CONFIG_PM
 	obj-$(CONFIG_ARCH_MSM7X01A) += pm.o
 	obj-y += pm-boot.o
 else
-	obj-y += no-pm.o
+	obj-y += no-pm.o hotplug.o
 endif
 
 obj-$(CONFIG_MSM_SPM_V1) += spm.o
