@@ -18,7 +18,6 @@
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
 
-/* #define CEC_COMPLIANCE_TESTING */
 #include "msm_fb.h"
 #include "hdmi_msm.h"
 #include "external_common.h"
@@ -370,7 +369,7 @@ static ssize_t hdmi_msm_wta_cec_logical_addr(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 
-#ifdef CEC_COMPLIANCE_TESTING
+#ifdef DRVR_ONLY_CECT_NO_DAEMON
 	/*
 	 * Only for testing
 	 */
