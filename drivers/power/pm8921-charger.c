@@ -368,6 +368,19 @@ static int pm_chg_auto_enable(struct pm8921_chg_chip *chip, int enable)
 				enable ? CHG_EN_BIT : 0);
 }
 
+#define CHG_FAILED_CLEAR	BIT(0)
+#define ATC_FAILED_CLEAR	BIT(1)
+static int pm_chg_failed_clear(struct pm8921_chg_chip *chip, int clear)
+{
+	int rc;
+
+	rc = pm_chg_masked_write(chip, CHG_CNTRL_3, ATC_FAILED_CLEAR,
+				clear ? ATC_FAILED_CLEAR : 0);
+	rc |= pm_chg_masked_write(chip, CHG_CNTRL_3, CHG_FAILED_CLEAR,
+				clear ? CHG_FAILED_CLEAR : 0);
+	return rc;
+}
+
 #define CHG_CHARGE_DIS_BIT	BIT(1)
 static int pm_chg_charge_dis(struct pm8921_chg_chip *chip, int disable)
 {
@@ -1525,8 +1538,17 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 static irqreturn_t chgfail_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
+	int ret;
 
-	pr_debug("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
+	ret = pm_chg_failed_clear(chip, 1);
+	if (ret)
+		pr_err("Failed to write CHG_FAILED_CLEAR bit\n");
+
+	pr_err("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
+			get_prop_batt_present(chip),
+			pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ),
+			pm_chg_get_fsm_state(data));
+
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
@@ -2047,6 +2069,7 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	pm8921_chg_enable_irq(chip, USBIN_UV_IRQ);
 	pm8921_chg_enable_irq(chip, DCIN_OV_IRQ);
 	pm8921_chg_enable_irq(chip, DCIN_UV_IRQ);
+	pm8921_chg_enable_irq(chip, CHGFAIL_IRQ);
 	pm8921_chg_enable_irq(chip, FASTCHG_IRQ);
 	pm8921_chg_enable_irq(chip, VBATDET_LOW_IRQ);
 
