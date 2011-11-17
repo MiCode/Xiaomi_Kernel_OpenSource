@@ -164,9 +164,9 @@ config PMIC8058
 
 config PMIC8901
 	tristate "PMIC8901 Power Management chip"
-	depends on I2C_SSBI && ARCH_MSM8X60
-	default y if I2C_SSBI && ARCH_MSM8X60
+	depends on MSM_SSBI
 	select MFD_CORE
+	select MFD_PM8XXX
 	help
 	  Say yes here for Qualcomm PM8901 chip.
 

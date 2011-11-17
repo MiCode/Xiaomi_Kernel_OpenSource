@@ -11,10 +11,11 @@
  */
 
 #include <linux/interrupt.h>
-#include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
+#include <linux/gpio.h>
 #include <linux/mfd/core.h>
+#include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8901.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
@@ -66,8 +67,7 @@
 
 struct pm8901_chip {
 	struct pm8901_platform_data	pdata;
-
-	struct i2c_client		*dev;
+	struct device			*dev;
 
 	u8	irqs_allowed[MAX_PM_BLOCKS];
 	u8	blocks_allowed[MAX_PM_MASTERS];
@@ -107,33 +107,15 @@ static inline int pm8901_can_print(void)
 }
 
 static inline int
-ssbi_write(struct i2c_client *client, u16 addr, const u8 *buf, size_t len)
+ssbi_read(struct device *dev, u16 addr, u8 *buf, size_t len)
 {
-	int	rc;
-	struct	i2c_msg msg = {
-		.addr           = addr,
-		.flags          = 0x0,
-		.buf            = (u8 *)buf,
-		.len            = len,
-	};
-
-	rc = i2c_transfer(client->adapter, &msg, 1);
-	return (rc == 1) ? 0 : rc;
+	return msm_ssbi_read(dev->parent, addr, buf, len);
 }
 
 static inline int
-ssbi_read(struct i2c_client *client, u16 addr, u8 *buf, size_t len)
+ssbi_write(struct device *dev, u16 addr, u8 *buf, size_t len)
 {
-	int	rc;
-	struct	i2c_msg msg = {
-		.addr           = addr,
-		.flags          = I2C_M_RD,
-		.buf            = buf,
-		.len            = len,
-	};
-
-	rc = i2c_transfer(client->adapter, &msg, 1);
-	return (rc == 1) ? 0 : rc;
+	return msm_ssbi_write(dev->parent, addr, buf, len);
 }
 
 /* External APIs */
@@ -770,20 +752,14 @@ static struct irq_chip pm8901_irq_chip = {
 	.irq_set_wake  = pm8901_irq_set_wake,
 };
 
-static int pm8901_probe(struct i2c_client *client,
-			const struct i2c_device_id *id)
+static int pm8901_probe(struct platform_device *pdev)
 {
-	int	i, rc;
-	struct	pm8901_platform_data *pdata = client->dev.platform_data;
-	struct	pm8901_chip *chip;
+	int i, rc;
+	struct pm8901_platform_data *pdata = pdev->dev.platform_data;
+	struct pm8901_chip *chip;
 
-	if (pdata == NULL || !client->irq) {
+	if (pdata == NULL || pdata->irq <= 0) {
 		pr_err("%s: No platform_data or IRQ.\n", __func__);
-		return -ENODEV;
-	}
-
-	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
-		pr_err("%s: i2c_check_functionality failed.\n", __func__);
 		return -ENODEV;
 	}
 
@@ -793,7 +769,7 @@ static int pm8901_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	chip->dev = client;
+	chip->dev = &pdev->dev;
 
 	/* Read PMIC chip revision */
 	rc = ssbi_read(chip->dev, SSBI_REG_REV, &chip->revision, 1);
@@ -805,14 +781,14 @@ static int pm8901_probe(struct i2c_client *client,
 	(void) memcpy((void *)&chip->pdata, (const void *)pdata,
 		      sizeof(chip->pdata));
 
-	irq_set_handler_data(chip->dev->irq, (void *)chip);
-	irq_set_irq_wake(chip->dev->irq, 1);
+	irq_set_handler_data(pdata->irq, (void *)chip);
+	irq_set_irq_wake(pdata->irq, 1);
 
 	chip->pm_max_irq = 0;
 	chip->pm_max_blocks = 0;
 	chip->pm_max_masters = 0;
 
-	i2c_set_clientdata(client, chip);
+	platform_set_drvdata(pdev, chip);
 
 	pmic_chip = chip;
 	spin_lock_init(&chip->pm_lock);
@@ -825,19 +801,19 @@ static int pm8901_probe(struct i2c_client *client,
 		irq_set_handler_data(i, (void *)chip);
 	}
 
-	rc = mfd_add_devices(&chip->dev->dev, 0, pdata->sub_devices,
+	rc = mfd_add_devices(chip->dev, 0, pdata->sub_devices,
 			     pdata->num_subdevs, NULL, 0);
 	if (rc) {
 		pr_err("%s: could not add devices %d\n", __func__, rc);
 		return rc;
 	}
 
-	rc = request_threaded_irq(chip->dev->irq, NULL, pm8901_isr_thread,
+	rc = request_threaded_irq(pdata->irq, NULL, pm8901_isr_thread,
 			IRQF_ONESHOT | IRQF_DISABLED | pdata->irq_trigger_flags,
 			"pm8901-irq", chip);
 	if (rc)
 		pr_err("%s: could not request irq %d: %d\n", __func__,
-				chip->dev->irq, rc);
+				pdata->irq, rc);
 
 	rc = pmic8901_dbg_probe(chip);
 	if (rc < 0)
@@ -846,18 +822,18 @@ static int pm8901_probe(struct i2c_client *client,
 	return rc;
 }
 
-static int __devexit pm8901_remove(struct i2c_client *client)
+static int __devexit pm8901_remove(struct platform_device *pdev)
 {
 	struct	pm8901_chip *chip;
 
-	chip = i2c_get_clientdata(client);
+	chip = platform_get_drvdata(pdev);
 	if (chip) {
 		if (chip->pm_max_irq) {
-			irq_set_irq_wake(chip->dev->irq, 0);
-			free_irq(chip->dev->irq, chip);
+			irq_set_irq_wake(chip->pdata.irq, 0);
+			free_irq(chip->pdata.irq, chip);
 		}
 
-		mfd_remove_devices(&chip->dev->dev);
+		mfd_remove_devices(chip->dev);
 
 		chip->dev = NULL;
 
@@ -870,13 +846,13 @@ static int __devexit pm8901_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-static int pm8901_suspend(struct i2c_client *client, pm_message_t mesg)
+static int pm8901_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	struct	pm8901_chip *chip;
 	int	i;
 	unsigned long	irqsave;
 
-	chip = i2c_get_clientdata(client);
+	chip = platform_get_drvdata(pdev);
 
 	for (i = 0; i < MAX_PM_IRQ; i++) {
 		spin_lock_irqsave(&chip->pm_lock, irqsave);
@@ -890,18 +866,18 @@ static int pm8901_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 
 	if (!chip->count_wakeable)
-		disable_irq(chip->dev->irq);
+		disable_irq(chip->pdata.irq);
 
 	return 0;
 }
 
-static int pm8901_resume(struct i2c_client *client)
+static int pm8901_resume(struct platform_device *pdev)
 {
 	struct	pm8901_chip *chip;
 	int	i;
 	unsigned long	irqsave;
 
-	chip = i2c_get_clientdata(client);
+	chip = platform_get_drvdata(pdev);
 
 	for (i = 0; i < MAX_PM_IRQ; i++) {
 		spin_lock_irqsave(&chip->pm_lock, irqsave);
@@ -915,7 +891,7 @@ static int pm8901_resume(struct i2c_client *client)
 	}
 
 	if (!chip->count_wakeable)
-		enable_irq(chip->dev->irq);
+		enable_irq(chip->pdata.irq);
 
 	return 0;
 }
@@ -924,35 +900,27 @@ static int pm8901_resume(struct i2c_client *client)
 #define	pm8901_resume		NULL
 #endif
 
-static const struct i2c_device_id pm8901_ids[] = {
-	{ "pm8901-core", 0 },
-	{ },
-};
-MODULE_DEVICE_TABLE(i2c, pm8901_ids);
-
-static struct i2c_driver pm8901_driver = {
-	.driver.name	= "pm8901-core",
-	.id_table	= pm8901_ids,
+static struct platform_driver pm8901_driver = {
 	.probe		= pm8901_probe,
 	.remove		= __devexit_p(pm8901_remove),
+	.driver		= {
+		.name	= "pm8901-core",
+		.owner	= THIS_MODULE,
+	},
 	.suspend	= pm8901_suspend,
 	.resume		= pm8901_resume,
 };
 
 static int __init pm8901_init(void)
 {
-	int rc = i2c_add_driver(&pm8901_driver);
-	pr_notice("%s: i2c_add_driver: rc = %d\n", __func__, rc);
-
-	return rc;
+	return  platform_driver_register(&pm8901_driver);
 }
+arch_initcall(pm8901_init);
 
 static void __exit pm8901_exit(void)
 {
-	i2c_del_driver(&pm8901_driver);
+	platform_driver_unregister(&pm8901_driver);
 }
-
-arch_initcall(pm8901_init);
 module_exit(pm8901_exit);
 
 MODULE_LICENSE("GPL v2");
