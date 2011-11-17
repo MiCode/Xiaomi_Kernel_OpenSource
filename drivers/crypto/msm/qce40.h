@@ -117,6 +117,7 @@ struct ce_reg_buffers {
 /* CE Command lists */
 struct ce_cmdlists {
 	dmov_s *get_hw_version;
+	dmov_s *clear_status;
 	dmov_s *get_status_ocu;
 
 	dmov_s *set_cipher_cfg;
@@ -132,10 +133,8 @@ struct ce_cmdlists {
 
 	dmov_s *set_cipher_aes_iv;
 	dmov_s *set_cipher_aes_xts_iv;
-	dmov_s *get_cipher_aes_iv;
-	dmov_s *get_cipher_aes_xts_iv;
 	dmov_s *set_cipher_des_iv;
-	dmov_s *get_cipher_des_iv;
+	dmov_s *get_cipher_iv;
 
 	dmov_s *set_cipher_mask;
 
@@ -195,6 +194,7 @@ struct ce_cmdptrlists_ops {
 	uint32_t aead_aes_256_ccm;
 
 	uint32_t cipher_ce_out;
+	uint32_t cipher_ce_out_get_iv;
 	uint32_t aead_ce_out;
 };
 
