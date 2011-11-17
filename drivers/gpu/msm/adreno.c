@@ -1035,7 +1035,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			kgsl_sharedmem_readl(&device->memstore, &ref_ts,
 				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts));
 			mb();
-			if (timestamp_cmp(ref_ts, timestamp)) {
+			if (timestamp_cmp(ref_ts, timestamp) >= 0) {
 				kgsl_sharedmem_writel(&device->memstore,
 				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
 				timestamp);
@@ -1098,9 +1098,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	if (msecs == -1)
 		msecs = adreno_dev->wait_timeout;
 
-	if (timestamp != adreno_dev->ringbuffer.timestamp &&
-		timestamp_cmp(timestamp,
-		adreno_dev->ringbuffer.timestamp)) {
+	if (timestamp_cmp(timestamp, adreno_dev->ringbuffer.timestamp) > 0) {
 		KGSL_DRV_ERR(device, "Cannot wait for invalid ts: %x, "
 			"rb->timestamp: %x\n",
 			timestamp, adreno_dev->ringbuffer.timestamp);
