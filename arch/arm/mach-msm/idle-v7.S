@@ -93,6 +93,7 @@ ENTRY(msm_pm_collapse)
 	ldr	r0, [r0]
 	mov	r1, #0
 	mcr	p15, 2, r1, c0, c0, 0 /*CCSELR*/
+	isb
 	mrc	p15, 1, r1, c0, c0, 0 /*CCSIDR*/
 	mov	r2, #1
 	and	r1, r2, r1, ASR #30 /* Check if the cache is write back */
