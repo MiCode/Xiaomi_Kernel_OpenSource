@@ -338,6 +338,13 @@ config PM8XXX_CCADC
 	help
 	  Say Y here to enable support for pm8921 chip bms subdevice
 
+config LTC4088_CHARGER
+	tristate "LTC4088 Charger driver"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable support for ltc4088 chip charger. It controls the
+	  operations through GPIO pins.
+
 config PM8921_BMS
 	select PM8XXX_CCADC
 	tristate "PM8921 Battery Monitoring System driver"
