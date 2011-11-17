@@ -114,7 +114,9 @@ static struct adreno_device device_3d0 = {
 	},
 	.pfp_fw = NULL,
 	.pm4_fw = NULL,
+	.wait_timeout = 10000, /* in milliseconds */
 };
+
 
 /*
  * This is the master list of all GPU cores that are supported by this
@@ -434,8 +436,6 @@ adreno_probe(struct platform_device *pdev)
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 	adreno_dev = ADRENO_DEVICE(device);
 	device->parentdev = &pdev->dev;
-
-	adreno_dev->wait_timeout = 10000; /* default value in milliseconds */
 
 	init_completion(&device->recovery_gate);
 
