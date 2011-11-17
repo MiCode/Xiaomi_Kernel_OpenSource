@@ -319,52 +319,6 @@ static int msm_vbqueue_init(struct msm_cam_v4l2_dev_inst *pcam_inst,
 	return 0;
 }
 
-static int msm_buf_init(struct msm_cam_v4l2_dev_inst *pcam_inst)
-{
-	int rc = 0;
-	struct resource *res;
-	struct platform_device *pdev = NULL;
-	struct msm_cam_v4l2_device *pcam = NULL;
-
-	D("%s\n", __func__);
-	pcam = pcam_inst->pcam;
-	if (!pcam) {
-		pr_err("%s error : input is NULL\n", __func__);
-		return -EINVAL;
-	} else
-		pdev = pcam->mctl.sync.pdev;
-
-	if (!pdev) {
-		pr_err("%s error : pdev is NULL\n", __func__);
-		return -EINVAL;
-	}
-	if (pcam->use_count == 1) {
-		/* first check if we have resources */
-		res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
-		if (res) {
-			D("res->start = 0x%x\n", (u32)res->start);
-			D("res->size = 0x%x\n", (u32)resource_size(res));
-			D("res->end = 0x%x\n", (u32)res->end);
-			rc = dma_declare_coherent_memory(&pdev->dev, res->start,
-					res->start,
-					resource_size(res),
-					DMA_MEMORY_MAP |
-					DMA_MEMORY_EXCLUSIVE);
-			if (!rc) {
-				pr_err("%s: Unable to declare coherent memory.\n",
-				__func__);
-				rc = -ENXIO;
-				return rc;
-			}
-			D("%s: found DMA capable resource\n", __func__);
-		} else {
-			pr_err("%s: no DMA capable resource\n", __func__);
-			return -ENOMEM;
-		}
-	}
-	return 0;
-}
-
 int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
 					int out_type)
 {
@@ -502,7 +456,6 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 
 int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam)
 {
-	pcam->mctl.mctl_buf_init = msm_buf_init;
 	pcam->mctl.mctl_vbqueue_init = msm_vbqueue_init;
 	return 0;
 }

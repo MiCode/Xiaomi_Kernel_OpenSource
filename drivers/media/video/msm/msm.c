@@ -1497,12 +1497,7 @@ static int msm_open(struct file *f)
 		}
 	}
 	pcam_inst->vbqueue_initialized = 0;
-	/* Initialize the video queue */
-	rc = pcam->mctl.mctl_buf_init(pcam_inst);
-	if (rc < 0) {
-		mutex_unlock(&pcam->vid_lock);
-		return rc;
-	}
+	rc = 0;
 
 	f->private_data = &pcam_inst->eventHandle;
 
@@ -1630,7 +1625,6 @@ static int msm_close(struct file *f)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		ion_client_destroy(pcam->mctl.client);
 #endif
-		dma_release_declared_memory(&pcam->pdev->dev);
 	}
 	mutex_unlock(&pcam->vid_lock);
 	return rc;
