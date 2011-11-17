@@ -260,6 +260,9 @@ static int msm_mpm_set_irq_type_exclusive(
 		uint32_t index = MSM_MPM_IRQ_INDEX(mpm_irq);
 		uint32_t mask = MSM_MPM_IRQ_MASK(mpm_irq);
 
+		if (index >= MSM_MPM_REG_WIDTH)
+			return -EFAULT;
+
 		if (flow_type & IRQ_TYPE_EDGE_BOTH)
 			msm_mpm_detect_ctl[index] |= mask;
 		else
