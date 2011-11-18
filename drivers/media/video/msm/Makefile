@@ -35,7 +35,6 @@ else
   obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
 endif
 obj-$(CONFIG_QS_S5K4E1) += qs_s5k4e1.o qs_s5k4e1_reg.o
-obj-$(CONFIG_QS_MT9P017) += qs_mt9p017.o qs_mt9p017_reg.o
 obj-$(CONFIG_VB6801) += vb6801.o
 obj-$(CONFIG_IMX072) += imx072.o imx072_reg.o
 obj-$(CONFIG_WEBCAM_OV9726) += ov9726.o ov9726_reg.o

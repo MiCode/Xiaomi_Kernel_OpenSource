@@ -1397,35 +1397,6 @@ struct platform_device msm8960_camera_sensor_ov2720 = {
 };
 #endif
 
-static struct msm_camera_sensor_flash_data flash_qs_mt9p017 = {
-	.flash_type	= MSM_CAMERA_FLASH_LED,
-};
-
-static struct msm_camera_sensor_platform_info sensor_board_info_qs_mt9p017 = {
-	.mount_angle	= 270,
-	.sensor_reset	= 107,
-	.sensor_pwd	= 85,
-	.vcm_pwd	= 0,
-	.vcm_enable	= 1,
-};
-
-static struct msm_camera_sensor_info msm_camera_sensor_qs_mt9p017_data = {
-	.sensor_name	= "qs_mt9p017",
-	.pdata	= &msm_camera_csi_device_data[0],
-	.flash_data	= &flash_qs_mt9p017,
-	.sensor_platform_info = &sensor_board_info_qs_mt9p017,
-	.gpio_conf = &gpio_conf,
-	.csi_if	= 1,
-	.camera_type = BACK_CAMERA_3D,
-};
-
-struct platform_device msm8960_camera_sensor_qs_mt9p017 = {
-	.name	= "msm_camera_qs_mt9p017",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_qs_mt9p017_data,
-	},
-};
-
 static struct msm8960_privacy_light_cfg privacy_light_info = {
 	.mpp = PM8921_MPP_PM_TO_SYS(12),
 };
@@ -1436,7 +1407,6 @@ static void __init msm8960_init_cam(void)
 	struct platform_device *cam_dev[] = {
 		&msm8960_camera_sensor_imx074,
 		&msm8960_camera_sensor_ov2720,
-		&msm8960_camera_sensor_qs_mt9p017,
 	};
 
 	if (machine_is_msm8960_liquid()) {
@@ -4583,9 +4553,6 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	},
 #endif
-	{
-	I2C_BOARD_INFO("qs_mt9p017", 0x6C >> 1),
-	},
 #ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
 	{
 	I2C_BOARD_INFO("sc628a", 0x6E),
