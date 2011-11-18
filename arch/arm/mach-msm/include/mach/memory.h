@@ -21,7 +21,7 @@
 #define PLAT_PHYS_OFFSET UL(CONFIG_PHYS_OFFSET)
 
 #define MAX_PHYSMEM_BITS 32
-#define SECTION_SIZE_BITS 29
+#define SECTION_SIZE_BITS 28
 
 /* Maximum number of Memory Regions */
 #define MAX_NR_REGIONS 4
