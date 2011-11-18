@@ -79,6 +79,8 @@ extern struct platform_device msm9615_device_qup_i2c_gsbi5;
 extern struct platform_device msm9615_device_qup_spi_gsbi3;
 extern struct platform_device msm9615_device_ssbi_pmic1;
 extern struct platform_device msm9615_device_tsens;
+extern struct platform_device msm_bus_9615_sys_fabric;
+extern struct platform_device msm_bus_def_fab;
 
 extern struct platform_device msm_device_sdc1;
 extern struct platform_device msm_device_sdc2;

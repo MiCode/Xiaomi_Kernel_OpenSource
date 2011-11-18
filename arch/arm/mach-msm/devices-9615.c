@@ -26,6 +26,7 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 #include <mach/rpm.h>
+#include <mach/msm_bus_board.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
@@ -860,3 +861,13 @@ void __init msm9615_init_irq(void)
 			irq_set_handler(i, handle_percpu_irq);
 	}
 }
+
+struct platform_device msm_bus_9615_sys_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYSTEM,
+};
+
+struct platform_device msm_bus_def_fab = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_DEFAULT,
+};
