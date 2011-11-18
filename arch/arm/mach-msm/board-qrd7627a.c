@@ -26,6 +26,7 @@
 #include <linux/power_supply.h>
 #include <linux/input/rmi_platformdata.h>
 #include <linux/input/rmi_i2c.h>
+#include <linux/regulator/consumer.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -52,6 +53,7 @@
 #include "pm.h"
 #include "timer.h"
 #include "pm-boot.h"
+#include "board-msm7x27a-regulator.h"
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_PMEM_AUDIO_SIZE	0x5B000
@@ -2505,10 +2507,27 @@ static struct platform_device hs_pdev = {
 	},
 };
 
+static struct platform_device msm_proccomm_regulator_dev = {
+	.name   = PROCCOMM_REGULATOR_DEV_NAME,
+	.id     = -1,
+	.dev    = {
+		.platform_data = &msm7x27a_proccomm_regulator_data
+	}
+};
+
+static void __init msm7627a_init_regulators(void)
+{
+	int rc = platform_device_register(&msm_proccomm_regulator_dev);
+	if (rc)
+		pr_err("%s: could not register regulator device: %d\n",
+				__func__, rc);
+}
+
 #define UART1DM_RX_GPIO		45
 static void __init msm_qrd1_init(void)
 {
 	msm7x2x_misc_init();
+	msm7627a_init_regulators();
 	msm_device_i2c_init();
 	msm7627a_init_mmc();
 
