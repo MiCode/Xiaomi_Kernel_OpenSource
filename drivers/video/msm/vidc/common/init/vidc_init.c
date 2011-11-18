@@ -459,6 +459,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	struct msm_mapped_buffer *mapped_buffer = NULL;
 	size_t ion_len;
 	struct ion_handle *buff_ion_handle = NULL;
+	unsigned long ionflag;
 
 	if (!client_ctx || !length)
 		return false;
@@ -507,11 +508,18 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				 __func__);
 				goto ion_error;
 			}
+			if (ion_handle_get_flags(client_ctx->user_ion_client,
+						buff_ion_handle,
+						&ionflag)) {
+				ERR("%s():ION flags fail\n",
+				 __func__);
+				goto ion_error;
+			}
 			*kernel_vaddr = (unsigned long)
 				ion_map_kernel(
 				client_ctx->user_ion_client,
 				buff_ion_handle,
-				0);
+				ionflag);
 			if (!(*kernel_vaddr)) {
 				ERR("%s():ION virtual addr fail\n",
 				 __func__);
