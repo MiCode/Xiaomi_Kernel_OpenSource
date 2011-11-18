@@ -127,12 +127,13 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
-#define MSM_ION_EBI_SIZE	(MSM_PMEM_SIZE + 0x600000)
-#define MSM_ION_ADSP_SIZE	MSM_PMEM_ADSP_SIZE
-#define MSM_ION_HEAP_NUM	4
+#define MSM_ION_SF_SIZE		0x1800000 /* 24MB */
+#define MSM_ION_MM_SIZE		0x4000000 /* (64MB) */
+#define MSM_ION_MFC_SIZE	SZ_8K
+#define MSM_ION_HEAP_NUM	5
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
-#define MSM_ION_HEAP_NUM	2
+#define MSM_ION_HEAP_NUM	1
 #endif
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
@@ -284,29 +285,36 @@ static struct ion_platform_data ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
 		{
-			.id	= ION_HEAP_SYSTEM_ID,
+			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
-			.name	= ION_KMALLOC_HEAP_NAME,
-		},
-		{
-			.id	= ION_HEAP_SYSTEM_CONTIG_ID,
-			.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
 			.name	= ION_VMALLOC_HEAP_NAME,
 		},
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		{
-			.id	= ION_HEAP_EBI_ID,
+			.id	= ION_SF_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_EBI1_HEAP_NAME,
-			.size	= MSM_ION_EBI_SIZE,
+			.name	= ION_SF_HEAP_NAME,
+			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
 		},
 		{
-			.id	= ION_HEAP_ADSP_ID,
+			.id	= ION_CP_MM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_ADSP_HEAP_NAME,
-			.size	= MSM_ION_ADSP_SIZE,
+			.name	= ION_MM_HEAP_NAME,
+			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
+		},
+		{
+			.id	= ION_CP_MFC_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_MFC_HEAP_NAME,
+			.size	= MSM_ION_MFC_SIZE,
+			.memory_type = ION_EBI_TYPE,
+		},
+		{
+			.id	= ION_IOMMU_HEAP_ID,
+			.type	= ION_HEAP_TYPE_IOMMU,
+			.name	= ION_IOMMU_HEAP_NAME,
 		},
 #endif
 	}
@@ -322,8 +330,9 @@ static struct platform_device ion_dev = {
 static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-	msm8930_reserve_table[MEMTYPE_EBI1].size += MSM_ION_EBI_SIZE;
-	msm8930_reserve_table[MEMTYPE_EBI1].size += MSM_ION_ADSP_SIZE;
+	msm8930_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
+	msm8930_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
+	msm8930_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
 #endif
 }
 

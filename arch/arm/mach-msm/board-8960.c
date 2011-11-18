@@ -141,14 +141,15 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
-#define MSM_ION_EBI_SIZE	(MSM_PMEM_SIZE + 0x600000)
-#define MSM_ION_ADSP_SIZE	MSM_PMEM_ADSP_SIZE
+#define MSM_ION_SF_SIZE		0x1800000 /* 24MB */
+#define MSM_ION_MM_SIZE		0x4000000 /* (64MB) */
+#define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_HEAP_NUM	5
-#define MSM_LIQUID_ION_EBI_SIZE (MSM_LIQUID_PMEM_SIZE + 0x600000)
-static unsigned msm_ion_ebi_size = MSM_ION_EBI_SIZE;
+#define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
+static unsigned int msm_ion_cp_mm_size = MSM_ION_MM_SIZE;
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
-#define MSM_ION_HEAP_NUM	2
+#define MSM_ION_HEAP_NUM	1
 #endif
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
@@ -312,32 +313,34 @@ static struct ion_platform_data ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
 		{
-			.id	= ION_HEAP_SYSTEM_ID,
+			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
-			.name	= ION_KMALLOC_HEAP_NAME,
-		},
-		{
-			.id	= ION_HEAP_SYSTEM_CONTIG_ID,
-			.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
 			.name	= ION_VMALLOC_HEAP_NAME,
 		},
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		{
-			.id	= ION_HEAP_EBI_ID,
+			.id	= ION_SF_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_EBI1_HEAP_NAME,
-			.size	= MSM_ION_EBI_SIZE,
+			.name	= ION_SF_HEAP_NAME,
+			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
 		},
 		{
-			.id	= ION_HEAP_ADSP_ID,
+			.id	= ION_CP_MM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_ADSP_HEAP_NAME,
-			.size	= MSM_ION_ADSP_SIZE,
+			.name	= ION_MM_HEAP_NAME,
+			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
 		},
 		{
-			.id	= ION_HEAP_IOMMU_ID,
+			.id	= ION_CP_MFC_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_MFC_HEAP_NAME,
+			.size	= MSM_ION_MFC_SIZE,
+			.memory_type = ION_EBI_TYPE,
+		},
+		{
+			.id	= ION_IOMMU_HEAP_ID,
 			.type	= ION_HEAP_TYPE_IOMMU,
 			.name	= ION_IOMMU_HEAP_NAME,
 		},
@@ -364,18 +367,19 @@ static void reserve_ion_memory(void)
 	unsigned int i;
 
 	if (!pmem_param_set && machine_is_msm8960_liquid()) {
-		msm_ion_ebi_size = MSM_LIQUID_ION_EBI_SIZE;
+		msm_ion_cp_mm_size = MSM_LIQUID_ION_MM_SIZE;
 		for (i = 0; i < ion_pdata.nr; i++) {
-			if (ion_pdata.heaps[i].id == ION_HEAP_EBI_ID) {
-				ion_pdata.heaps[i].size = msm_ion_ebi_size;
-				pr_debug("msm_ion_ebi_size 0x%x\n",
-					msm_ion_ebi_size);
+			if (ion_pdata.heaps[i].id == ION_CP_MM_HEAP_ID) {
+				ion_pdata.heaps[i].size = msm_ion_cp_mm_size;
+				pr_debug("msm_ion_cp_mm_size 0x%x\n",
+					msm_ion_cp_mm_size);
 				break;
 			}
 		}
 	}
-	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_ion_ebi_size;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_ADSP_SIZE;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_ion_cp_mm_size;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
 #endif
 }
 

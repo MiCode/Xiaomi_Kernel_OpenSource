@@ -27,8 +27,8 @@ struct ion_handle;
  * @ION_HEAP_TYPE_SYSTEM:	 memory allocated via vmalloc
  * @ION_HEAP_TYPE_SYSTEM_CONTIG: memory allocated via kmalloc
  * @ION_HEAP_TYPE_CARVEOUT:	 memory allocated from a prereserved
- *				 carveout heap, allocations are physically
- *				 contiguous
+ * 				 carveout heap, allocations are physically
+ * 				 contiguous
  * @ION_HEAP_END:		 helper for iterating over heaps
  */
 enum ion_heap_type {
@@ -51,24 +51,42 @@ enum ion_heap_type {
  * The ids listed are the order in which allocation will be attempted
  * if specified. Don't swap the order of heap ids unless you know what
  * you are doing!
+ * Id's are spaced by purpose to allow new Id's to be inserted in-between (for
+ * possible fallbacks)
  */
 
 enum ion_heap_ids {
-	ION_HEAP_SYSTEM_ID,
-	ION_HEAP_SYSTEM_CONTIG_ID,
-	ION_HEAP_EBI_ID,
-	ION_HEAP_SMI_ID,
-	ION_HEAP_ADSP_ID,
-	ION_HEAP_AUDIO_ID,
-	ION_HEAP_IOMMU_ID,
+	ION_IOMMU_HEAP_ID = 4,
+	ION_CP_MM_HEAP_ID = 8,
+	ION_CP_MFC_HEAP_ID = 12,
+	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
+	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
+	ION_SF_HEAP_ID = 24,
+	ION_AUDIO_HEAP_ID = 28,
+
+	ION_SYSTEM_HEAP_ID = 30,
+
+	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
 };
 
-#define ION_KMALLOC_HEAP_NAME	"kmalloc"
+/**
+ * Flag to use when allocating to indicate that a heap is secure.
+ */
+#define ION_SECURE (1 << ION_HEAP_ID_RESERVED)
+
+/**
+ * Macro should be used with ion_heap_ids defined above.
+ */
+#define ION_HEAP(bit) (1 << (bit))
+
 #define ION_VMALLOC_HEAP_NAME	"vmalloc"
-#define ION_EBI1_HEAP_NAME	"EBI1"
-#define ION_ADSP_HEAP_NAME	"adsp"
-#define ION_SMI_HEAP_NAME	"smi"
+#define ION_AUDIO_HEAP_NAME	"audio"
+#define ION_SF_HEAP_NAME	"sf"
+#define ION_MM_HEAP_NAME	"mm"
+#define ION_CAMERA_HEAP_NAME	"camera_preview"
 #define ION_IOMMU_HEAP_NAME	"iommu"
+#define ION_MFC_HEAP_NAME	"mfc"
+#define ION_WB_HEAP_NAME	"wb"
 
 #define CACHED          1
 #define UNCACHED        0
@@ -98,7 +116,7 @@ struct ion_buffer;
  * struct ion_platform_heap - defines a heap in the given platform
  * @type:	type of the heap from ion_heap_type enum
  * @id:		unique identifier for heap.  When allocating (lower numbers
- *		will be allocated from first)
+ * 		will be allocated from first)
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
