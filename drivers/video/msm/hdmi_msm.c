@@ -3479,9 +3479,11 @@ void hdmi_msm_audio_sample_rate_reset(int rate)
 {
 	msm_hdmi_sample_rate = rate;
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	if (hdmi_msm_has_hdcp())
 		hdcp_deauthenticate();
 	else
+#endif
 		hdmi_msm_turn_on();
 }
 EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
@@ -4275,9 +4277,13 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	if (rc)
 		goto error;
 
-	if (hdmi_msm_has_hdcp())
+	if (hdmi_msm_has_hdcp()) {
+		/* Don't Set Encryption in case of non HDCP builds */
+		external_common_state->present_hdcp = FALSE;
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 		external_common_state->present_hdcp = TRUE;
-	else {
+#endif
+	} else {
 		external_common_state->present_hdcp = FALSE;
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 		/*
