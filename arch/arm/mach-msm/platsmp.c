@@ -166,9 +166,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 {
 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
 
-#ifdef CONFIG_HOTPLUG_CPU
-	WARN_ON(msm_pm_platform_secondary_init(cpu));
-#endif
+	WARN_ON(msm_platform_secondary_init(cpu));
 
 	trace_hardirqs_off();
 

@@ -22,7 +22,6 @@
 #include <linux/cpuidle.h>
 
 #ifdef CONFIG_SMP
-extern int pen_release;
 extern void msm_secondary_startup(void);
 #else
 #define msm_secondary_startup NULL
@@ -55,13 +54,17 @@ struct msm_pm_platform_data {
 void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count);
 int msm_pm_idle_prepare(struct cpuidle_device *dev);
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode);
+void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 
 #ifdef CONFIG_PM
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
-int msm_pm_platform_secondary_init(unsigned int cpu);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
-static inline int msm_pm_platform_secondary_init(unsigned int cpu)
-{ return -ENOSYS; }
+#endif
+
+#ifdef CONFIG_HOTPLUG_CPU
+int msm_platform_secondary_init(unsigned int cpu);
+#else
+static inline int msm_platform_secondary_init(unsigned int cpu) { return 0; }
 #endif
 #endif  /* __ARCH_ARM_MACH_MSM_PM_H */

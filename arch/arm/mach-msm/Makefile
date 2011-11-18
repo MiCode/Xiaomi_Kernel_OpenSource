@@ -39,6 +39,7 @@ ifdef CONFIG_ARCH_QSD8X50
 endif
 
 obj-$(CONFIG_SMP) += headsmp.o platsmp.o
+obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 
 obj-$(CONFIG_MSM_CPU_AVS) += avs.o
 obj-$(CONFIG_MSM_AVS_HW) += avs_hw.o
@@ -155,7 +156,7 @@ ifdef CONFIG_PM
 	obj-$(CONFIG_ARCH_MSM7X01A) += pm.o
 	obj-y += pm-boot.o
 else
-	obj-y += no-pm.o hotplug.o
+	obj-y += no-pm.o
 endif
 
 obj-$(CONFIG_MSM_SPM_V1) += spm.o

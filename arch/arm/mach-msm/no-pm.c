@@ -23,5 +23,13 @@ void arch_idle(void)
 void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count)
 { }
 
+void msm_pm_cpu_enter_lowpower(unsigned cpu)
+{
+	asm("wfi"
+		:
+		:
+		: "memory", "cc");
+}
+
 void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns) { }
 EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
