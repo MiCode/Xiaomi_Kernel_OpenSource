@@ -939,6 +939,7 @@ void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch)
 				input_mt_sync(mxt->input);
 			}
 		}
+		input_report_key(mxt->input, BTN_TOUCH, !!active_touches);
 		if (active_touches == 0)
 			input_mt_sync(mxt->input);
 		input_sync(mxt->input);
