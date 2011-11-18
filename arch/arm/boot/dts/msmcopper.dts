@@ -30,4 +30,29 @@
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <1>;
 	};
+
+	qcom,sdcc@F9600000 {
+		cell-index = <1>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xF9600000 0x1000>;
+		interrupts = <123>;
+
+		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
+		qcom,sdcc-sup-voltages = <3300 3300>;
+		qcom,sdcc-bus-width = <8>;
+		qcom,sdcc-nonremovable;
+		qcom,sdcc-disable_cmd23;
+	};
+
+	qcom,sdcc@F9620000 {
+		cell-index = <3>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xF9620000 0x1000>;
+		interrupts = <127>;
+
+		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
+		qcom,sdcc-sup-voltages = <3300 3300>;
+		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-disable_cmd23;
+	};
 };
