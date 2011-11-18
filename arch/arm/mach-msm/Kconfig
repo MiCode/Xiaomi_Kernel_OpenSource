@@ -712,9 +712,21 @@ choice
 		bool "6.2.20 + New ADSP"
 endchoice
 
+config MSM_HAS_DEBUG_UART_HS
+	bool
+	help
+	  Say Y here if high speed MSM UART is present.
+
+config MSM_HAS_DEBUG_UART_HS_V14
+	bool
+	select MSM_HAS_DEBUG_UART_HS
+	help
+	  Say Y here if high speed MSM UART v1.4 is present.
+
 config DEBUG_MSM8930_UART
 	bool "Kernel low-level debugging messages via MSM 8930 UART"
 	depends on ARCH_MSM8930 && DEBUG_LL
+	select MSM_HAS_DEBUG_UART_HS
 	help
 	  Say Y here if you want the debug print routines to direct
 	  their output to the serial port on MSM 8930 devices.
@@ -747,6 +759,7 @@ choice
 	config DEBUG_MSM8660_UART
 		bool "Kernel low-level debugging messages via MSM 8660 UART"
 		depends on ARCH_MSM8X60
+		select MSM_HAS_DEBUG_UART_HS
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8660 devices.
@@ -755,9 +768,18 @@ choice
 		bool "Kernel low-level debugging messages via MSM 8960 UART"
 		depends on ARCH_MSM8960
 		select DEBUG_MSM8930_UART
+		select MSM_HAS_DEBUG_UART_HS
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8960 devices.
+
+	config DEBUG_MSMCOPPER_UART
+		bool "Kernel low-level debugging messages via MSM Copper UART"
+		depends on ARCH_MSMCOPPER
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM Copper devices.
 endchoice
 
 choice
