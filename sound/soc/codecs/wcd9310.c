@@ -46,6 +46,8 @@
 
 #define TABLA_I2S_MASTER_MODE_MASK 0x08
 
+#define TABLA_OCP_ATTEMPT 1
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -140,6 +142,9 @@ struct tabla_priv {
 	 * so if pm_cnt is 1 system is sleep-able. */
 	atomic_t pm_cnt;
 	wait_queue_head_t pm_wq;
+
+	u8 hphlocp_cnt; /* headphone left ocp retry */
+	u8 hphrocp_cnt; /* headphone right ocp retry */
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1659,6 +1664,13 @@ static void hphocp_off_report(struct tabla_priv *tabla,
 		0x00);
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
 		0x10);
+		/* reset retry counter as PA is turned off signifying
+		 * start of new OCP detection session
+		 */
+		if (TABLA_IRQ_HPH_PA_OCPL_FAULT)
+			tabla->hphlocp_cnt = 0;
+		else
+			tabla->hphrocp_cnt = 0;
 		tabla_enable_irq(codec->control_data, irq);
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
@@ -3346,13 +3358,22 @@ static irqreturn_t tabla_hphl_ocp_irq(int irq, void *data)
 
 	if (tabla) {
 		codec = tabla->codec;
-		tabla_disable_irq(codec->control_data,
-			TABLA_IRQ_HPH_PA_OCPL_FAULT);
-		tabla->hph_status |= SND_JACK_OC_HPHL;
-		if (tabla->headset_jack) {
-			tabla_snd_soc_jack_report(tabla, tabla->headset_jack,
-						  tabla->hph_status,
-						  TABLA_JACK_MASK);
+		if (tabla->hphlocp_cnt++ < TABLA_OCP_ATTEMPT) {
+			pr_info("%s: retry\n", __func__);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x00);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x10);
+		} else {
+			tabla_disable_irq(codec->control_data,
+					  TABLA_IRQ_HPH_PA_OCPL_FAULT);
+			tabla->hphlocp_cnt = 0;
+			tabla->hph_status |= SND_JACK_OC_HPHL;
+			if (tabla->headset_jack)
+				tabla_snd_soc_jack_report(tabla,
+							  tabla->headset_jack,
+							  tabla->hph_status,
+							  TABLA_JACK_MASK);
 		}
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
@@ -3370,13 +3391,22 @@ static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
 
 	if (tabla) {
 		codec = tabla->codec;
-		tabla_disable_irq(codec->control_data,
-			TABLA_IRQ_HPH_PA_OCPR_FAULT);
-		tabla->hph_status |= SND_JACK_OC_HPHR;
-		if (tabla->headset_jack) {
-			tabla_snd_soc_jack_report(tabla, tabla->headset_jack,
-						  tabla->hph_status,
-						  TABLA_JACK_MASK);
+		if (tabla->hphrocp_cnt++ < TABLA_OCP_ATTEMPT) {
+			pr_info("%s: retry\n", __func__);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x00);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x10);
+		} else {
+			tabla_disable_irq(codec->control_data,
+					  TABLA_IRQ_HPH_PA_OCPR_FAULT);
+			tabla->hphrocp_cnt = 0;
+			tabla->hph_status |= SND_JACK_OC_HPHR;
+			if (tabla->headset_jack)
+				tabla_snd_soc_jack_report(tabla,
+							  tabla->headset_jack,
+							  tabla->hph_status,
+							  TABLA_JACK_MASK);
 		}
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
@@ -3808,8 +3838,11 @@ static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 }
 
 static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
-	/* Initialize current threshold to 350MA */
+	/* Initialize current threshold to 350MA
+	 * number of wait and run cycles to 4096
+	 */
 	{TABLA_A_RX_HPH_OCP_CTL, 0xE0, 0x60},
+	{TABLA_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 
 	{TABLA_A_QFUSE_CTL, 0xFF, 0x03},
 
