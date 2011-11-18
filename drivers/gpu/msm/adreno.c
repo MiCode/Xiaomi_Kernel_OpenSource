@@ -947,6 +947,8 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	struct kgsl_process_private *priv;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *ringbuffer = &adreno_dev->ringbuffer;
+	struct kgsl_context *context;
+	int next = 0;
 
 	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr, size))
 		return &ringbuffer->buffer_desc;
@@ -978,11 +980,39 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	list_for_each_entry(entry, &device->memqueue, list) {
 		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
 			result = &entry->memdesc;
-			break;
+			return result;
 		}
 
 	}
-	return result;
+
+	while (1) {
+		struct adreno_context *adreno_context = NULL;
+		struct kgsl_memdesc *gpustate;
+		struct kgsl_memdesc *gmemshadow;
+		context = idr_get_next(&device->context_idr, &next);
+		if (context == NULL)
+			break;
+
+		adreno_context = (struct adreno_context *)context->devctxt;
+
+		if (!kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base))
+			continue;
+
+		gpustate = &adreno_context->gpustate;
+		if (kgsl_gpuaddr_in_memdesc(gpustate, gpuaddr, size)) {
+			result = gpustate;
+			return result;
+		}
+		gmemshadow = &adreno_context->context_gmem_shadow.gmemshadow;
+		if (kgsl_gpuaddr_in_memdesc(gmemshadow, gpuaddr, size)) {
+			result = gmemshadow;
+			return result;
+		}
+
+		next = next + 1;
+	}
+
+	return NULL;
 
 }
 
