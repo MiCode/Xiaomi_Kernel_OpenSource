@@ -935,6 +935,7 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 	u16 st_x2, st_y2;
 	u8 st_z2;
 	s32 retval;
+	int val;
 
 	cyttsp_xdebug("TTSP handler start 1:\n");
 
@@ -1239,16 +1240,20 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 			FLIP_XY(g_xy_data.x4, g_xy_data.y4);
 
 		if (rev_x) {
-			g_xy_data.x4 = INVERT_X(g_xy_data.x4,
-						ts->platform_data->panel_maxx);
-			if (g_xy_data.x4 < 0)
+			val = INVERT_X(g_xy_data.x4,
+					ts->platform_data->panel_maxx);
+			if (val >= 0)
+				g_xy_data.x4 = val;
+			else
 				pr_debug("X value is negative. Please configure"
 					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y4 = INVERT_X(g_xy_data.y4,
-						ts->platform_data->panel_maxy);
-			if (g_xy_data.y4 < 0)
+			val = INVERT_X(g_xy_data.y4,
+					ts->platform_data->panel_maxy);
+			if (val >= 0)
+				g_xy_data.y4 = val;
+			else
 				pr_debug("Y value is negative. Please configure"
 					" maxy in platform data structure\n");
 
@@ -1293,17 +1298,21 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 			FLIP_XY(g_xy_data.x3, g_xy_data.y3);
 
 		if (rev_x) {
-			g_xy_data.x3 = INVERT_X(g_xy_data.x3,
-						ts->platform_data->panel_maxx);
-			if (g_xy_data.x3 < 0)
+			val = INVERT_X(g_xy_data.x3,
+					ts->platform_data->panel_maxx);
+			if (val >= 0)
+				g_xy_data.x3 = val;
+			else
 				pr_debug("X value is negative. Please configure"
 					" maxx in platform data structure\n");
 
 		}
 		if (rev_y) {
-			g_xy_data.y3 = INVERT_X(g_xy_data.y3,
-						ts->platform_data->panel_maxy);
-			if (g_xy_data.y3 < 0)
+			val = INVERT_X(g_xy_data.y3,
+					ts->platform_data->panel_maxy);
+			if (val >= 0)
+				g_xy_data.y3 = val;
+			else
 				pr_debug("Y value is negative. Please configure"
 					" maxy in platform data structure\n");
 
@@ -1348,16 +1357,20 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 			FLIP_XY(g_xy_data.x2, g_xy_data.y2);
 
 		if (rev_x) {
-			g_xy_data.x2 = INVERT_X(g_xy_data.x2,
-						ts->platform_data->panel_maxx);
-			if (g_xy_data.x2 < 0)
+			val = INVERT_X(g_xy_data.x2,
+					ts->platform_data->panel_maxx);
+			if (val >= 0)
+				g_xy_data.x2 = val;
+			else
 				pr_debug("X value is negative. Please configure"
 					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y2 = INVERT_X(g_xy_data.y2,
-						ts->platform_data->panel_maxy);
-			if (g_xy_data.y2 < 0)
+			val = INVERT_X(g_xy_data.y2,
+					ts->platform_data->panel_maxy);
+			if (val >= 0)
+				g_xy_data.y2 = val;
+			else
 				pr_debug("Y value is negative. Please configure"
 					" maxy in platform data structure\n");
 		}
@@ -1401,16 +1414,20 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 			FLIP_XY(g_xy_data.x1, g_xy_data.y1);
 
 		if (rev_x) {
-			g_xy_data.x1 = INVERT_X(g_xy_data.x1,
-						ts->platform_data->panel_maxx);
-			if (g_xy_data.x1 < 0)
+			val = INVERT_X(g_xy_data.x1,
+					ts->platform_data->panel_maxx);
+			if (val >= 0)
+				g_xy_data.x1 = val;
+			else
 				pr_debug("X value is negative. Please configure"
 					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y1 = INVERT_X(g_xy_data.y1,
-						ts->platform_data->panel_maxy);
-			if (g_xy_data.y1 < 0)
+			val = INVERT_X(g_xy_data.y1,
+					ts->platform_data->panel_maxy);
+			if (val >= 0)
+				g_xy_data.y1 = val;
+			else
 				pr_debug("Y value is negative. Please configure"
 					" maxy in platform data structure");
 		}
@@ -2744,7 +2761,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 	ts = kzalloc(sizeof(struct cyttsp), GFP_KERNEL);
 	if (ts == NULL) {
 		cyttsp_xdebug1("err kzalloc for cyttsp\n");
-		retval = -ENOMEM;
+		return -ENOMEM;
 	}
 
 	/* Enable runtime PM ops, start in ACTIVE mode */
@@ -2779,10 +2796,8 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 		error = cyttsp_initialize(client, ts);
 		if (error) {
 			cyttsp_xdebug1("err cyttsp_initialize\n");
-			if (ts != NULL) {
-				/* deallocate memory */
-				kfree(ts);
-			}
+			/* deallocate memory */
+			kfree(ts);
 /*
 			i2c_del_driver(&cyttsp_driver);
 */
@@ -3054,8 +3069,7 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 		gpio_free(ts->platform_data->irq_gpio);
 
 	/* housekeeping */
-	if (ts != NULL)
-		kfree(ts);
+	kfree(ts);
 
 	cyttsp_alert("Leaving\n");
 
