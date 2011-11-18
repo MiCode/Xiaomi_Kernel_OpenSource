@@ -51,20 +51,20 @@ static void remove_amp_mgr(struct amp_mgr *mgr)
 {
 	BT_DBG("mgr %p", mgr);
 
-	write_lock_bh(&amp_mgr_list_lock);
+	write_lock(&amp_mgr_list_lock);
 	list_del(&mgr->list);
-	write_unlock_bh(&amp_mgr_list_lock);
+	write_unlock(&amp_mgr_list_lock);
 
-	read_lock_bh(&mgr->ctx_list_lock);
+	read_lock(&mgr->ctx_list_lock);
 	while (!list_empty(&mgr->ctx_list)) {
 		struct amp_ctx *ctx;
 		ctx = list_first_entry(&mgr->ctx_list, struct amp_ctx, list);
-		read_unlock_bh(&mgr->ctx_list_lock);
+		read_unlock(&mgr->ctx_list_lock);
 		BT_DBG("kill ctx %p", ctx);
 		kill_ctx(ctx);
-		read_lock_bh(&mgr->ctx_list_lock);
+		read_lock(&mgr->ctx_list_lock);
 	}
-	read_unlock_bh(&mgr->ctx_list_lock);
+	read_unlock(&mgr->ctx_list_lock);
 
 	kfree(mgr->ctrls);
 
@@ -76,14 +76,14 @@ static struct amp_mgr *get_amp_mgr_sk(struct sock *sk)
 	struct amp_mgr *mgr;
 	struct amp_mgr *found = NULL;
 
-	read_lock_bh(&amp_mgr_list_lock);
+	read_lock(&amp_mgr_list_lock);
 	list_for_each_entry(mgr, &amp_mgr_list, list) {
 		if ((mgr->a2mp_sock) && (mgr->a2mp_sock->sk == sk)) {
 			found = mgr;
 			break;
 		}
 	}
-	read_unlock_bh(&amp_mgr_list_lock);
+	read_unlock(&amp_mgr_list_lock);
 	return found;
 }
 
@@ -92,17 +92,19 @@ static struct amp_mgr *get_create_amp_mgr(struct l2cap_conn *conn,
 {
 	struct amp_mgr *mgr;
 
-	write_lock_bh(&amp_mgr_list_lock);
+	write_lock(&amp_mgr_list_lock);
 	list_for_each_entry(mgr, &amp_mgr_list, list) {
 		if (mgr->l2cap_conn == conn) {
 			BT_DBG("conn %p found %p", conn, mgr);
+			write_unlock(&amp_mgr_list_lock);
 			goto gc_finished;
 		}
 	}
+	write_unlock(&amp_mgr_list_lock);
 
 	mgr = kzalloc(sizeof(*mgr), GFP_ATOMIC);
 	if (!mgr)
-		goto gc_finished;
+		return NULL;
 
 	mgr->l2cap_conn = conn;
 	mgr->next_ident = 1;
@@ -113,12 +115,13 @@ static struct amp_mgr *get_create_amp_mgr(struct l2cap_conn *conn,
 	mgr->a2mp_sock = open_fixed_channel(conn->src, conn->dst);
 	if (!mgr->a2mp_sock) {
 		kfree(mgr);
-		goto gc_finished;
+		return NULL;
 	}
+	write_lock(&amp_mgr_list_lock);
 	list_add(&(mgr->list), &amp_mgr_list);
+	write_unlock(&amp_mgr_list_lock);
 
 gc_finished:
-	write_unlock_bh(&amp_mgr_list_lock);
 	return mgr;
 }
 
@@ -169,9 +172,9 @@ static struct amp_ctx *create_ctx(u8 type, u8 state)
 static inline void start_ctx(struct amp_mgr *mgr, struct amp_ctx *ctx)
 {
 	BT_DBG("ctx %p", ctx);
-	write_lock_bh(&mgr->ctx_list_lock);
+	write_lock(&mgr->ctx_list_lock);
 	list_add(&ctx->list, &mgr->ctx_list);
-	write_unlock_bh(&mgr->ctx_list_lock);
+	write_unlock(&mgr->ctx_list_lock);
 	ctx->mgr = mgr;
 	execute_ctx(ctx, AMP_INIT, 0);
 }
@@ -182,9 +185,9 @@ static void destroy_ctx(struct amp_ctx *ctx)
 
 	BT_DBG("ctx %p deferred %p", ctx, ctx->deferred);
 	del_timer(&ctx->timer);
-	write_lock_bh(&mgr->ctx_list_lock);
+	write_lock(&mgr->ctx_list_lock);
 	list_del(&ctx->list);
-	write_unlock_bh(&mgr->ctx_list_lock);
+	write_unlock(&mgr->ctx_list_lock);
 	if (ctx->deferred)
 		execute_ctx(ctx->deferred, AMP_INIT, 0);
 	kfree(ctx);
@@ -195,14 +198,14 @@ static struct amp_ctx *get_ctx_mgr(struct amp_mgr *mgr, u8 type)
 	struct amp_ctx *fnd = NULL;
 	struct amp_ctx *ctx;
 
-	read_lock_bh(&mgr->ctx_list_lock);
+	read_lock(&mgr->ctx_list_lock);
 	list_for_each_entry(ctx, &mgr->ctx_list, list) {
 		if (ctx->type == type) {
 			fnd = ctx;
 			break;
 		}
 	}
-	read_unlock_bh(&mgr->ctx_list_lock);
+	read_unlock(&mgr->ctx_list_lock);
 	return fnd;
 }
 
@@ -212,14 +215,14 @@ static struct amp_ctx *get_ctx_type(struct amp_ctx *cur, u8 type)
 	struct amp_ctx *fnd = NULL;
 	struct amp_ctx *ctx;
 
-	read_lock_bh(&mgr->ctx_list_lock);
+	read_lock(&mgr->ctx_list_lock);
 	list_for_each_entry(ctx, &mgr->ctx_list, list) {
 		if ((ctx->type == type) && (ctx != cur)) {
 			fnd = ctx;
 			break;
 		}
 	}
-	read_unlock_bh(&mgr->ctx_list_lock);
+	read_unlock(&mgr->ctx_list_lock);
 	return fnd;
 }
 
@@ -228,7 +231,7 @@ static struct amp_ctx *get_ctx_a2mp(struct amp_mgr *mgr, u8 ident)
 	struct amp_ctx *fnd = NULL;
 	struct amp_ctx *ctx;
 
-	read_lock_bh(&mgr->ctx_list_lock);
+	read_lock(&mgr->ctx_list_lock);
 	list_for_each_entry(ctx, &mgr->ctx_list, list) {
 		if ((ctx->evt_type & AMP_A2MP_RSP) &&
 				(ctx->rsp_ident == ident)) {
@@ -236,7 +239,7 @@ static struct amp_ctx *get_ctx_a2mp(struct amp_mgr *mgr, u8 ident)
 			break;
 		}
 	}
-	read_unlock_bh(&mgr->ctx_list_lock);
+	read_unlock(&mgr->ctx_list_lock);
 	return fnd;
 }
 
@@ -246,10 +249,10 @@ static struct amp_ctx *get_ctx_hdev(struct hci_dev *hdev, u8 evt_type,
 	struct amp_mgr *mgr;
 	struct amp_ctx *fnd = NULL;
 
-	read_lock_bh(&amp_mgr_list_lock);
+	read_lock(&amp_mgr_list_lock);
 	list_for_each_entry(mgr, &amp_mgr_list, list) {
 		struct amp_ctx *ctx;
-		read_lock_bh(&mgr->ctx_list_lock);
+		read_lock(&mgr->ctx_list_lock);
 		list_for_each_entry(ctx, &mgr->ctx_list, list) {
 			struct hci_dev *ctx_hdev;
 			ctx_hdev = hci_dev_get(A2MP_HCI_ID(ctx->id));
@@ -272,9 +275,9 @@ static struct amp_ctx *get_ctx_hdev(struct hci_dev *hdev, u8 evt_type,
 			if (fnd)
 				break;
 		}
-		read_unlock_bh(&mgr->ctx_list_lock);
+		read_unlock(&mgr->ctx_list_lock);
 	}
-	read_unlock_bh(&amp_mgr_list_lock);
+	read_unlock(&amp_mgr_list_lock);
 	return fnd;
 }
 
@@ -371,13 +374,13 @@ static void send_a2mp_change_notify(void)
 {
 	struct amp_mgr *mgr;
 
-	read_lock_bh(&amp_mgr_list_lock);
+	read_lock(&amp_mgr_list_lock);
 	list_for_each_entry(mgr, &amp_mgr_list, list) {
 		if (mgr->discovered)
 			send_a2mp_cl(mgr, next_ident(mgr),
 					A2MP_CHANGE_NOTIFY, 0, NULL);
 	}
-	read_unlock_bh(&amp_mgr_list_lock);
+	read_unlock(&amp_mgr_list_lock);
 }
 
 static inline int discover_req(struct amp_mgr *mgr, struct sk_buff *skb)
@@ -1517,10 +1520,10 @@ static void launch_ctx(struct amp_mgr *mgr)
 	struct amp_ctx *ctx = NULL;
 
 	BT_DBG("mgr %p", mgr);
-	read_lock_bh(&mgr->ctx_list_lock);
+	read_lock(&mgr->ctx_list_lock);
 	if (!list_empty(&mgr->ctx_list))
 		ctx = list_first_entry(&mgr->ctx_list, struct amp_ctx, list);
-	read_unlock_bh(&mgr->ctx_list_lock);
+	read_unlock(&mgr->ctx_list_lock);
 	BT_DBG("ctx %p", ctx);
 	if (ctx)
 		execute_ctx(ctx, AMP_INIT, NULL);
@@ -1549,7 +1552,7 @@ static inline int a2mp_rsp(struct amp_mgr *mgr, struct sk_buff *skb)
 
 /* L2CAP-A2MP interface */
 
-void a2mp_receive(struct sock *sk, struct sk_buff *skb)
+static void a2mp_receive(struct sock *sk, struct sk_buff *skb)
 {
 	struct a2mp_cmd_hdr *hdr = (struct a2mp_cmd_hdr *) skb->data;
 	int len;
