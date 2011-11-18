@@ -1353,10 +1353,13 @@ static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	int cfilt_k_val;
+	bool mbhc_was_polling =  false;
 
 	switch (vddio_switch) {
 	case 1:
 		if (tabla->mbhc_polling_active) {
+
+			tabla_codec_pause_hs_polling(codec);
 			/* Enable Mic Bias switch to VDDIO */
 			tabla->cfilt_k_value = snd_soc_read(codec,
 					tabla->mbhc_bias_regs.cfilt_val);
@@ -1370,6 +1373,7 @@ static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 				tabla->mbhc_bias_regs.mbhc_reg,	0x80, 0x80);
 			snd_soc_update_bits(codec,
 				tabla->mbhc_bias_regs.mbhc_reg,	0x10, 0x00);
+			tabla_codec_start_hs_polling(codec);
 
 			tabla->mbhc_micbias_switched = true;
 			pr_debug("%s: Enabled MBHC Mic bias to VDDIO Switch\n",
@@ -1379,6 +1383,10 @@ static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 
 	case 0:
 		if (tabla->mbhc_micbias_switched) {
+			if (tabla->mbhc_polling_active) {
+				tabla_codec_pause_hs_polling(codec);
+				mbhc_was_polling = true;
+			}
 			/* Disable Mic Bias switch to VDDIO */
 			if (tabla->cfilt_k_value != 0)
 				snd_soc_update_bits(codec,
@@ -1388,6 +1396,9 @@ static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 				tabla->mbhc_bias_regs.mbhc_reg,	0x80, 0x00);
 			snd_soc_update_bits(codec,
 				tabla->mbhc_bias_regs.mbhc_reg,	0x10, 0x00);
+
+			if (mbhc_was_polling)
+				tabla_codec_start_hs_polling(codec);
 
 			tabla->mbhc_micbias_switched = false;
 			pr_debug("%s: Disabled MBHC Mic bias to VDDIO Switch\n",
