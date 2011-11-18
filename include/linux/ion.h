@@ -37,7 +37,7 @@ struct ion_buffer;
  * struct ion_platform_heap - defines a heap in the given platform
  * @type:	type of the heap from ion_heap_type enum
  * @id:		unique identifier for heap.  When allocating (lower numbers
- *		will be allocated from first)
+ * 		will be allocated from first)
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
