@@ -162,7 +162,7 @@ static int __devinit pm8058_xo_buffer_probe(struct platform_device *pdev)
 			goto bail;
 
 		xo->rdev = regulator_register(rdesc, &pdev->dev,
-					&xo->pdata->init_data, xo);
+					&xo->pdata->init_data, xo, NULL);
 		if (IS_ERR(xo->rdev)) {
 			rc = PTR_ERR(xo->rdev);
 			pr_err("FAIL: regulator_register(%s): rc=%d\n",

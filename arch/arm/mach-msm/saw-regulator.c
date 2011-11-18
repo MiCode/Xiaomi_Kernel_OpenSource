@@ -174,8 +174,8 @@ static int __devinit saw_probe(struct platform_device *pdev)
 	vreg->desc.owner = THIS_MODULE;
 	vreg->uV	 = MIN_CORE_VOLTAGE;
 
-	vreg->rdev = regulator_register(&vreg->desc, &pdev->dev, init_data,
-					vreg);
+	vreg->rdev = regulator_register(&vreg->desc, &pdev->dev,
+							init_data, vreg, NULL);
 	if (IS_ERR(vreg->rdev)) {
 		rc = PTR_ERR(vreg->rdev);
 		pr_err("regulator_register failed, rc=%d.\n", rc);

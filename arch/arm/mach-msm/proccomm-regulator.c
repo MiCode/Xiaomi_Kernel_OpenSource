@@ -247,7 +247,7 @@ static struct regulator_dev *__devinit create_proccomm_rdev(
 	d->negative	= info->negative;
 	d->rdesc.n_voltages = info->n_voltages;
 
-	rdev = regulator_register(&d->rdesc, parent, &info->init_data, d);
+	rdev = regulator_register(&d->rdesc, parent, &info->init_data, d, NULL);
 
 	if (IS_ERR(rdev)) {
 		rc = PTR_ERR(rdev);

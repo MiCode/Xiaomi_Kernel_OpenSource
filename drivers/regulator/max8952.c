@@ -211,7 +211,7 @@ static int __devinit max8952_pmic_probe(struct i2c_client *client,
 	mutex_init(&max8952->mutex);
 
 	max8952->rdev = regulator_register(&regulator, max8952->dev,
-			&pdata->reg_data, max8952);
+			&pdata->reg_data, max8952, NULL);
 
 	if (IS_ERR(max8952->rdev)) {
 		ret = PTR_ERR(max8952->rdev);

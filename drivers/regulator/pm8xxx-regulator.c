@@ -3206,7 +3206,7 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 
 	if (!core_data->is_pin_controlled) {
 		vreg->rdev = regulator_register(rdesc, &pdev->dev,
-				&(pdata->init_data), vreg);
+				&(pdata->init_data), vreg, NULL);
 		if (IS_ERR(vreg->rdev)) {
 			rc = PTR_ERR(vreg->rdev);
 			vreg->rdev = NULL;
@@ -3215,7 +3215,7 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 		}
 	} else {
 		vreg->rdev_pc = regulator_register(rdesc, &pdev->dev,
-				&(pdata->init_data), vreg);
+				&(pdata->init_data), vreg, NULL);
 		if (IS_ERR(vreg->rdev_pc)) {
 			rc = PTR_ERR(vreg->rdev_pc);
 			vreg->rdev_pc = NULL;
