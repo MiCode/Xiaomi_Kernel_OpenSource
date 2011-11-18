@@ -29,7 +29,6 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <mach/clk.h>
 
 #include "msm_fb.h"
 
@@ -78,7 +77,7 @@ static int lcdc_off(struct platform_device *pdev)
 #ifndef CONFIG_MSM_BUS_SCALING
 	if (mfd->ebi1_clk) {
 		if (mdp_rev == MDP_REV_303) {
-			if (clk_set_min_rate(mfd->ebi1_clk, 0))
+			if (clk_set_rate(mfd->ebi1_clk, 0))
 				pr_err("%s: ebi1_lcdc_clk set rate failed\n",
 					__func__);
 		}
@@ -117,7 +116,7 @@ static int lcdc_on(struct platform_device *pdev)
 
 	if (mfd->ebi1_clk) {
 		if (mdp_rev == MDP_REV_303) {
-			if (clk_set_min_rate(mfd->ebi1_clk, 65000000))
+			if (clk_set_rate(mfd->ebi1_clk, 65000000))
 				pr_err("%s: ebi1_lcdc_clk set rate failed\n",
 					__func__);
 		} else {
