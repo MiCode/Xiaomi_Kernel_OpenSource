@@ -5694,6 +5694,7 @@ static void __init set_fsm_mode(void __iomem *mode_reg)
 
 static void __init reg_init(void)
 {
+	void __iomem *imem_reg;
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel_relaxed(0, SW_RESET_ALL_REG);
 
@@ -5702,12 +5703,21 @@ static void __init reg_init(void)
 	 * reserved bits on the other SoC. Writing to these reserved bits
 	 * should have no effect.
 	 */
-	/* Initialize MM AHB registers: Enable the FPB clock and disable HW
-	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
-	 * prevent its memory from being collapsed when the clock is halted.
-	 * The sleep and wake-up delays are set to safe values. */
-	rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
-	writel_relaxed(0x000007F9, AHB_EN2_REG);
+	/*
+	 * Initialize MM AHB registers: Enable the FPB clock and disable HW
+	 * gating on 8960v1/8064 for all clocks. Also set VFE_AHB's
+	 * FORCE_CORE_ON bit to prevent its memory from being collapsed when
+	 * the clock is halted. The sleep and wake-up delays are set to safe
+	 * values.
+	 */
+	if (cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
+		rmwreg(0x44000000, AHB_EN_REG,  0x6C000103);
+		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
+	} else {
+		rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
+		writel_relaxed(0x000007F9, AHB_EN2_REG);
+	}
 	if (cpu_is_apq8064())
 		rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
 
@@ -5718,14 +5728,31 @@ static void __init reg_init(void)
 	/* Initialize MM AXI registers: Enable HW gating for all clocks that
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
-	/* TODO: Enable HW Gating */
-	rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
-	rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
+	if (cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
+		rmwreg(0x0003AFF9, MAXI_EN_REG,  0x0803FFFF);
+		rmwreg(0x3A27FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
+		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+	} else {
+		rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
+		rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
+		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+	}
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
-	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
 	if (cpu_is_apq8064())
 		rmwreg(0x009FE4FF, MAXI_EN5_REG, 0x01FFEFFF);
-	rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
+	if (cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
+		rmwreg(0x00003C38, SAXI_EN_REG,  0x00003FFF);
+	else
+		rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
+
+	/* Enable IMEM's clk_on signal */
+	imem_reg = ioremap(0x04b00040, 4);
+	if (imem_reg) {
+		writel_relaxed(0x3, imem_reg);
+		iounmap(imem_reg);
+	}
 
 	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
 	 * memories retain state even when not clocked. Also, set sleep and
