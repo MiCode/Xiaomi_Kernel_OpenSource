@@ -54,6 +54,7 @@ allowed_warnings = set([
     "inode.c:72",
     "inode.c:73",
     "inode.c:74",
+    "menu.c:128",
     "msm_sdcc.c:126",
     "msm_sdcc.c:128",
     "nf_conntrack_netlink.c:790",
