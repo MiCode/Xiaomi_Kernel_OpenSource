@@ -140,6 +140,7 @@ struct ion_custom_data {
 /* struct ion_flush_data - data passed to ion for flushing caches
  *
  * @handle:	handle with data to flush
+ * @fd:		fd to flush
  * @vaddr:	userspace virtual address mapped with mmap
  * @offset:	offset into the handle to flush
  * @length:	length of handle to flush
@@ -150,6 +151,7 @@ struct ion_custom_data {
  */
 struct ion_flush_data {
 	struct ion_handle *handle;
+	int fd;
 	void *vaddr;
 	unsigned int offset;
 	unsigned int length;
