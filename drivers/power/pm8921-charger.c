@@ -2438,6 +2438,12 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		pm8xxx_writeb(chip->dev->parent, PSI_CONFIG_STATUS, 0x0C);
 	}
 
+	/* Workarounds for die 3.0 */
+	if (pm8xxx_get_revision(chip->dev->parent) == PM8XXX_REVISION_8921_3p0)
+		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xAC);
+
+	pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xD9);
+
 	/* Disable EOC FSM processing */
 	pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x91);
 
