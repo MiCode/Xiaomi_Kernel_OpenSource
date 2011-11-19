@@ -1,0 +1,132 @@
+Introduction:
+=============
+
+The tz_log driver is a platform device driver that exposes a debugfs
+interface for accessing and displaying diagnostic information related
+to secure code (Trustzone).
+
+The Secure code (Trustzone) will store the diagnostic data in 4KB of
+IMEM. The address of this IMEM region varies from platform.  The
+diagnostic data encodes information related to secure code boot-up,
+reset, interrupt and other attributes in a specific format as shown
+below:
+
+   ----------------------------
+   |                          |
+   |     General info         |
+   | (Magic #, CPU cnt etc)   |
+   |                          |
+   ----------------------------
+   |                          |
+   |        VMID info         |
+   |                          |
+   ----------------------------
+   |                          |
+   |   Boot info (per CPU)    |
+   |                          |
+   ----------------------------
+   |                          |
+   |   Reset info (per CPU)   |
+   |                          |
+   ----------------------------
+   |                          |
+   | Interrupt info (per CPU) |
+   |                          |
+   ----------------------------
+   |                          |
+   |   Data logged by TZ      |
+   |                          |
+   ----------------------------
+
+During the initialization of the driver module, this 4KB of IMEM
+is remapped for access by kernel.  Further more, an additonal 4KB
+memory is allocated for storing the formatted data that will be
+displayed by the debugfs interface.
+
+Once the device is booted up and HLOS is up, the standard debugfs
+interface is used to read out and display this information that
+was logged in by secure code in a specific format as shown below.
+
+Debugfs is typically mounted with a command like:
+    mount -t debugfs none /sys/kernel/debug
+(Or an equivalent /etc/fstab line).
+
+Note that the debugfs API is exported GPL-only to modules.
+
+Software description
+====================
+
+The tz_log module is a Linux platform device driver with a debugfs
+interface. The goal of this module is to provide a way to peek into
+the Trustzone diagnostic information to help debug issues with
+Trustzone. Although, this tz_log platform device driver will be
+compiled into the kernel, the debugfs entries will not be exposed
+unless Trustzone is supported by the platform.
+
+
+On loading the tz_log driver, tzdbgfs_init() is invoked. tzdbgfs_init()
+initializes the tz_log debugfs interface.  The following is done in
+this initialization call.
+
+(1) Create a directory "tzdbg", to hold a set of debugfs files
+
+(2) Create the following debugfs files in the "tzdbg" directory
+- boot_info
+   Contains information on the warm boot jump address
+- reset_info
+   Contains information on the cause of a CPU reset, number of
+   resets occurred on a specific CPU
+- interrupt_info
+   Contains information on the number of IRQ and FIQ Interrupts
+   (with a brief description), interrupts fired and the number
+   of times it is fired on a specific CPU.
+- general_info
+   Contains information on number of CPUs supported, magic number,
+   version number.
+- vmid_info
+   Contains information on VMID supported, with a brief description
+- log
+   Debug information (ASCII text) that is logged by Trustzone
+
+Following are the set of file operation defines and register
+- read()
+- open()
+
+(3) Remap the IMEM region where the secure code diagnostic information
+is stored.
+
+(4) Allocate 4KB buffer for storing the formatted information
+to be displayed
+
+When the tz_log driver is unloaded the tz_log debugfs entries are
+explicitly removed.
+
+
+Power Management
+================
+
+n/a
+
+Security
+========
+
+None
+
+Interface
+=========
+
+This module will create debugfs files under sys/kernel/debug which
+contains information that can be displayed by using the "cat" command.
+
+
+Dependencies
+============
+
+This driver interacts with Trustzone operating environment, thus depends
+on the TZBSP supported architecture. It also depends on debugfs.
+
+
+To do
+=====
+
+TBD
