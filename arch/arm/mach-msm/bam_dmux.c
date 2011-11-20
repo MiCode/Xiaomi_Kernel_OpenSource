@@ -1268,6 +1268,9 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (smsm_get_state(SMSM_MODEM_STATE) & SMSM_A2_POWER_CONTROL)
+		bam_dmux_smsm_cb(NULL, 0, smsm_get_state(SMSM_MODEM_STATE));
+
 	return 0;
 }
 
