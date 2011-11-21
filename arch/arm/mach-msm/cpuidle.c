@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpuidle.h>
+#include <linux/cpu_pm.h>
 
 #include "cpuidle.h"
 #include "pm.h"
@@ -61,7 +62,14 @@ static int msm_cpuidle_enter(
 	atomic_notifier_call_chain(head, MSM_CPUIDLE_STATE_ENTER, NULL);
 #endif
 
+#ifdef CONFIG_CPU_PM
+	cpu_pm_enter();
+#endif
 	ret = msm_pm_idle_enter((enum msm_pm_sleep_mode) (state->driver_data));
+
+#ifdef CONFIG_CPU_PM
+	cpu_pm_exit();
+#endif
 
 #ifdef CONFIG_MSM_SLEEP_STATS
 	atomic_notifier_call_chain(head, MSM_CPUIDLE_STATE_EXIT, NULL);

@@ -26,6 +26,7 @@
 #include <asm/irq_regs.h>
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
+#include <linux/cpu_pm.h>
 
 static struct platform_device *pmu_device;
 
@@ -651,6 +652,30 @@ static struct pmu pmu = {
 #include "perf_event_msm_krait.c"
 #include "perf_event_msm_krait_l2.c"
 
+static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
+		void *v)
+{
+	switch (cmd) {
+	case CPU_PM_ENTER:
+		perf_pmu_disable(&pmu);
+		break;
+
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		if (armpmu && armpmu->reset)
+			armpmu->reset(NULL);
+		perf_pmu_enable(&pmu);
+
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_cpu_pm_notifier_block = {
+	.notifier_call = perf_cpu_pm_notifier,
+};
+
 /*
  * Ensure the PMU has sane values out of reset.
  * This requires SMP to be available, so exists as a separate initcall.
@@ -732,6 +757,8 @@ init_hw_perf_events(void)
 	}
 
 	perf_pmu_register(&pmu, "cpu", PERF_TYPE_RAW);
+
+	cpu_pm_register_notifier(&perf_cpu_pm_notifier_block);
 
 	return 0;
 }

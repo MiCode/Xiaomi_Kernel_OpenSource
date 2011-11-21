@@ -686,6 +686,26 @@ static void scorpion_secondary_disable(unsigned int irq)
 }
 #endif
 
+static void scorpion_pmu_reset(void *info)
+{
+	u32 idx, nb_cnt = armpmu->num_events;
+
+	/* Stop all counters and their interrupts */
+	for (idx = 1; idx < nb_cnt; ++idx) {
+		armv7_pmnc_disable_counter(idx);
+		armv7_pmnc_disable_intens(idx);
+	}
+
+	/* Clear all pmresrs */
+	scorpion_clear_pmuregs();
+
+	/* Reset irq stat reg */
+	armv7_pmnc_getreset_flags();
+
+	/* Reset all ctrs to 0 */
+	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
+}
+
 static struct arm_pmu scorpion_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
 #ifdef CONFIG_SMP
@@ -700,6 +720,7 @@ static struct arm_pmu scorpion_pmu = {
 	.get_event_idx		= armv7pmu_get_event_idx,
 	.start			= armv7pmu_start,
 	.stop			= armv7pmu_stop,
+	.reset			= scorpion_pmu_reset,
 	.max_period		= (1LLU << 32) - 1,
 };
 
