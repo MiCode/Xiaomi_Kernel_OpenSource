@@ -41,6 +41,12 @@
 #define MPX_DCC_PEEK_MSB_REG3      (0x88)
 #define MPX_DCC_PEEK_LSB_REG3      (0xC4)
 
+#define ON_CHANNEL_TH_MSB          (0x0B)
+#define ON_CHANNEL_TH_LSB          (0xA8)
+
+#define OFF_CHANNEL_TH_MSB         (0x0B)
+#define OFF_CHANNEL_TH_LSB         (0xAC)
+
 #define ENF_200Khz                    (1)
 #define SRCH200KHZ_OFFSET             (7)
 #define SRCH_MASK                  (1 << SRCH200KHZ_OFFSET)
@@ -147,7 +153,14 @@ enum v4l2_cid_private_tavarua_t {
 	*/
 	V4L2_CID_PRIVATE_TAVARUA_SET_NOTCH_FILTER =
 		V4L2_CID_PRIVATE_BASE + 0x28,
-	V4L2_CID_PRIVATE_TAVARUA_SET_AUDIO_PATH
+	V4L2_CID_PRIVATE_TAVARUA_SET_AUDIO_PATH,
+	/*0x800002a is used for iris specific ioctl*/
+
+	V4L2_CID_PRIVATE_TAVARUA_ON_CHANNEL_THRESHOLD =
+		V4L2_CTRL_CLASS_USER + 0x92B,
+	V4L2_CID_PRIVATE_TAVARUA_OFF_CHANNEL_THRESHOLD =
+		V4L2_CTRL_CLASS_USER + 0x92C
+
 };
 
 enum tavarua_buf_t {
