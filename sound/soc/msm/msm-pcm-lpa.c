@@ -131,7 +131,8 @@ static void event_handler(uint32_t opcode,
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
 		case ASM_SESSION_CMD_RUN: {
-			if (!prtd->pending_buffer)
+			if (!prtd->pending_buffer &&
+				!atomic_read(&prtd->start))
 				break;
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
