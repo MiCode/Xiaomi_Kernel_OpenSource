@@ -567,6 +567,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
 	bool session_active;
+	u32 phy_ctrl_val = 0;
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
@@ -638,8 +639,13 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	writel(readl(USB_USBCMD) | ASYNC_INTR_CTRL | ULPI_STP_CTRL, USB_USBCMD);
 
 	if (motg->caps & ALLOW_PHY_RETENTION && !session_active) {
-		writel_relaxed(readl_relaxed(USB_PHY_CTRL) & ~PHY_RETEN,
-				USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+			/* Enable PHY HV interrupts to wake MPM/Link */
+			phy_ctrl_val |=
+				(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
+
+		writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
 		motg->lpm_flags |= PHY_RETENTIONED;
 	}
 
@@ -688,6 +694,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 	struct usb_bus *bus = otg->host;
 	int cnt = 0;
 	unsigned temp;
+	u32 phy_ctrl_val = 0;
 
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
@@ -711,8 +718,13 @@ static int msm_otg_resume(struct msm_otg *motg)
 	if (motg->lpm_flags & PHY_RETENTIONED) {
 		msm_hsusb_mhl_switch_enable(motg, 1);
 		msm_hsusb_config_vddcx(1);
-		writel_relaxed(readl_relaxed(USB_PHY_CTRL) | PHY_RETEN,
-				USB_PHY_CTRL);
+		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+		phy_ctrl_val |= PHY_RETEN;
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+			/* Disable PHY HV interrupts */
+			phy_ctrl_val &=
+				~(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
+		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
 	}
 
@@ -2362,12 +2374,16 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
 
-	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY &&
-			motg->pdata->otg_control == OTG_PMIC_CONTROL &&
+	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) {
+		if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
 			motg->pdata->pmic_id_irq)
-		motg->caps = ALLOW_PHY_POWER_COLLAPSE |
+			motg->caps = ALLOW_PHY_POWER_COLLAPSE |
 				ALLOW_PHY_RETENTION |
 				ALLOW_PHY_COMP_DISABLE;
+
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+			motg->caps = ALLOW_PHY_RETENTION;
+	}
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
