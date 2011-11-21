@@ -845,15 +845,7 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 					" not disabled\n", __func__);
 				break;
 			}
-			rx_register_event.options = 0;
-			ret = sps_register_event(bam_rx_pipe,
-							&rx_register_event);
-			if (ret) {
-				pr_err("%s: sps_register_event ret = %d\n",
-					__func__, ret);
-				break;
-			}
-			cur_rx_conn.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
+			cur_rx_conn.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
 			if (ret) {
