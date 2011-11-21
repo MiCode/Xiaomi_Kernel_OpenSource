@@ -51,14 +51,15 @@ struct vreg_config *(*get_config[])(void) = {
 #define SET_PART(_vreg, _part, _val) \
 	_vreg->req[_vreg->part->_part.word].value \
 		= (_vreg->req[_vreg->part->_part.word].value \
-			& ~vreg->part->_part.mask) \
-		| (((_val) << vreg->part->_part.shift) & vreg->part->_part.mask)
+			& ~_vreg->part->_part.mask) \
+		  | (((_val) << _vreg->part->_part.shift) \
+			& _vreg->part->_part.mask)
 
 #define GET_PART(_vreg, _part) \
-	((_vreg->req[_vreg->part->_part.word].value & vreg->part->_part.mask) \
-		>> vreg->part->_part.shift)
+	((_vreg->req[_vreg->part->_part.word].value & _vreg->part->_part.mask) \
+		>> _vreg->part->_part.shift)
 
-#define USES_PART(_vreg, _part) (vreg->part->_part.mask)
+#define USES_PART(_vreg, _part) (_vreg->part->_part.mask)
 
 #define vreg_err(vreg, fmt, ...) \
 	pr_err("%s: " fmt, vreg->rdesc.name, ##__VA_ARGS__)
