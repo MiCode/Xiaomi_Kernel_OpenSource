@@ -187,7 +187,7 @@ static int isa1200_setup(struct i2c_client *client)
 	rc = isa1200_write_reg(client, ISA1200_HCTRL1, value);
 	if (rc < 0) {
 		pr_err("%s: i2c write failure\n", __func__);
-		return rc;
+		goto reset_gpios;
 	}
 
 	if (haptic->pdata->mode_ctrl == PWM_GEN_MODE) {
@@ -224,6 +224,10 @@ static int isa1200_setup(struct i2c_client *client)
 reset_hctrl1:
 	i2c_smbus_write_byte_data(client, ISA1200_HCTRL1,
 				ISA1200_HCTRL1_RESET);
+reset_gpios:
+	gpio_set_value_cansleep(haptic->pdata->hap_en_gpio, 0);
+	if (haptic->is_len_gpio_valid == true)
+		gpio_set_value_cansleep(haptic->pdata->hap_len_gpio, 0);
 	return rc;
 }
 
@@ -449,6 +453,11 @@ static int __devinit isa1200_probe(struct i2c_client *client,
 	return 0;
 
 reset_hctrl0:
+	gpio_set_value_cansleep(haptic->pdata->hap_en_gpio, 0);
+	if (haptic->is_len_gpio_valid == true)
+		gpio_set_value_cansleep(haptic->pdata->hap_len_gpio, 0);
+	i2c_smbus_write_byte_data(client, ISA1200_HCTRL1,
+				ISA1200_HCTRL1_RESET);
 	i2c_smbus_write_byte_data(client, ISA1200_HCTRL0,
 					ISA1200_HCTRL0_RESET);
 setup_fail:
@@ -489,6 +498,10 @@ static int __devexit isa1200_remove(struct i2c_client *client)
 		pwm_free(haptic->pwm);
 
 	timed_output_dev_unregister(&haptic->dev);
+
+	gpio_set_value_cansleep(haptic->pdata->hap_en_gpio, 0);
+	if (haptic->is_len_gpio_valid == true)
+		gpio_set_value_cansleep(haptic->pdata->hap_len_gpio, 0);
 
 	gpio_free(haptic->pdata->hap_en_gpio);
 	if (haptic->is_len_gpio_valid == true)
