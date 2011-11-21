@@ -1167,7 +1167,6 @@ static struct isa1200_platform_data isa1200_1_pdata = {
 static struct i2c_board_info msm_isa1200_board_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("isa1200_1", 0x90>>1),
-		.platform_data = &isa1200_1_pdata,
 	},
 };
 
@@ -2012,7 +2011,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(mxt_device_info),
 	},
 	{
-		I2C_LIQUID,
+		I2C_FFA | I2C_LIQUID,
 		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
 		sii_device_info,
 		ARRAY_SIZE(sii_device_info),
@@ -2168,6 +2167,9 @@ static void __init msm8960_cdp_init(void)
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 
 	msm8960_init_pmic();
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&
+		(machine_is_msm8960_mtp())) || machine_is_msm8960_liquid())
+		msm_isa1200_board_info[0].platform_data = &isa1200_1_pdata;
 	msm8960_i2c_init();
 	msm8960_gfx_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
