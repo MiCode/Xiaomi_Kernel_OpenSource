@@ -25,6 +25,7 @@
 #include <linux/msm_adc.h>
 
 #define REG_MPP_BASE			0x50
+#define REG_IRQ_BASE			0x1BB
 
 /* PMIC8058 Revision */
 #define PM8058_REG_REV			0x002  /* PMIC4 revision */
@@ -901,6 +902,7 @@ pm8058_add_subdevices(const struct pm8058_platform_data *pdata,
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8058_NR_IRQS;
+		pdata->irq_pdata->irq_cdata.base_addr = REG_IRQ_BASE;
 		irq_base = pdata->irq_pdata->irq_base;
 		irq_chip = pm8xxx_irq_init(pmic->dev, pdata->irq_pdata);
 

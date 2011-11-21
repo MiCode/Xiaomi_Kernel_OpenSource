@@ -24,6 +24,7 @@
 struct pm8xxx_irq_core_data {
 	u32		rev;
 	int		nirqs;
+	unsigned int	base_addr;
 };
 
 struct pm8xxx_irq_platform_data {

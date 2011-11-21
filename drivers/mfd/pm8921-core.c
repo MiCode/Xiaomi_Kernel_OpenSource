@@ -27,6 +27,7 @@
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
 
 #define REG_MPP_BASE		0x050
+#define REG_IRQ_BASE		0x1BB
 
 #define REG_TEMP_ALARM_CTRL	0x1B
 #define REG_TEMP_ALARM_PWM	0x9B
@@ -368,6 +369,7 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8921_NR_IRQS;
+		pdata->irq_pdata->irq_cdata.base_addr = REG_IRQ_BASE;
 		irq_base = pdata->irq_pdata->irq_base;
 		irq_chip = pm8xxx_irq_init(pmic->dev, pdata->irq_pdata);
 
