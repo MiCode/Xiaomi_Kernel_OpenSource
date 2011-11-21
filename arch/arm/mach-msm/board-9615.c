@@ -623,11 +623,63 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+#define USB_5V_EN		3
+#define PM_USB_5V_EN	PM8018_GPIO_PM_TO_SYS(USB_5V_EN)
+
+static void msm_hsusb_vbus_power(bool on)
+{
+	int rc;
+	static bool vbus_is_on;
+	struct pm_gpio usb_vbus = {
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 0,
+			.vin_sel        = 2,
+			.out_strength   = PM_GPIO_STRENGTH_HIGH,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+	};
+
+	if (vbus_is_on == on)
+		return;
+
+	if (on) {
+		rc = pm8xxx_gpio_config(PM_USB_5V_EN, &usb_vbus);
+		if (rc) {
+			pr_err("failed to config usb_5v_en gpio\n");
+			return;
+		}
+
+		rc = gpio_request(PM_USB_5V_EN,
+						"usb_5v_en");
+		if (rc < 0) {
+			pr_err("failed to request usb_5v_en gpio\n");
+			return;
+		}
+
+		rc = gpio_direction_output(PM_USB_5V_EN, 1);
+		if (rc) {
+			pr_err("%s: unable to set_direction for gpio [%d]\n",
+				__func__, PM_USB_5V_EN);
+			goto free_usb_5v_en;
+		}
+
+		vbus_is_on = true;
+		return;
+	}
+	gpio_set_value(PM_USB_5V_EN, 0);
+free_usb_5v_en:
+	gpio_free(PM_USB_5V_EN);
+	vbus_is_on = false;
+}
+
 static struct msm_otg_platform_data msm_otg_pdata = {
-	.mode			= USB_PERIPHERAL,
-	.otg_control		= OTG_NO_CONTROL,
+	.mode			= USB_OTG,
+	.otg_control	= OTG_PHY_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
-	.pclk_src_name		= "dfab_usb_hs_clk",
+	.pclk_src_name	= "dfab_usb_hs_clk",
+	.vbus_power		= msm_hsusb_vbus_power,
 };
 
 static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
@@ -662,6 +714,7 @@ static struct platform_device *common_devices[] = {
 	&msm_device_smd,
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
+	&msm_device_hsusb_host,
 	&android_usb_device,
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_ext_2p95v_vreg,
