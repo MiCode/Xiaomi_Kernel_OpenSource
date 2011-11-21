@@ -332,7 +332,14 @@ config PM8921_CHARGER
 	help
 	  Say Y here to enable support for pm8921 chip charger subdevice
 
+config PM8XXX_CCADC
+	tristate "PM8XXX battery current adc driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip bms subdevice
+
 config PM8921_BMS
+	select PM8XXX_CCADC
 	tristate "PM8921 Battery Monitoring System driver"
 	depends on MFD_PM8921_CORE
 	help
