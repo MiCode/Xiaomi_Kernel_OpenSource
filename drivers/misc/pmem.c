@@ -1970,6 +1970,13 @@ int pmem_cache_maint(struct file *file, unsigned int cmd,
 	if (!file)
 		return -EBADF;
 
+	/*
+	 * check that the vaddr passed for flushing is valid
+	 * so that you don't crash the kernel
+	 */
+	if (!pmem_addr->vaddr)
+		return -EINVAL;
+
 	data = file->private_data;
 	id = get_id(file);
 
