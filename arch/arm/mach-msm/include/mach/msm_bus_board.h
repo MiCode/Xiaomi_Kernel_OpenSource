@@ -92,6 +92,7 @@ int msm_bus_board_get_iid(int id);
 
 #define NODE_ID(id) ((id) & (FABRIC_ID_KEY - 1))
 #define IS_SLAVE(id) ((NODE_ID(id)) >= SLAVE_ID_KEY ? 1 : 0)
+#define CHECK_ID(iid, id) (((iid & id) != id) ? -ENXIO : iid)
 
 /*
  * The following macros are used to format the data for port halt

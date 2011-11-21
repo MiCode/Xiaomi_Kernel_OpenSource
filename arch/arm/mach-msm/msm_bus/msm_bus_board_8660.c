@@ -826,8 +826,14 @@ static void msm_bus_board_assign_iids(struct msm_bus_fabric_registration
 
 static int msm_bus_board_8660_get_iid(int id)
 {
-	return ((id < SLAVE_ID_KEY) ? master_iids[id] : slave_iids[id -
-		SLAVE_ID_KEY]);
+	if ((id < SLAVE_ID_KEY && id >= NMASTERS) ||
+		id >= (SLAVE_ID_KEY + NSLAVES)) {
+		MSM_BUS_ERR("Cannot get iid. Invalid id %d passed\n", id);
+		return -EINVAL;
+	}
+
+	return CHECK_ID(((id < SLAVE_ID_KEY) ? master_iids[id] :
+		slave_iids[id - SLAVE_ID_KEY]), id);
 }
 
 static struct msm_bus_board_algorithm msm_bus_board_algo = {

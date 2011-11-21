@@ -859,8 +859,8 @@ static int msm_bus_board_8960_get_iid(int id)
 		return -EINVAL;
 	}
 
-	return ((id < SLAVE_ID_KEY) ? master_iids[id] : slave_iids[id -
-		SLAVE_ID_KEY]);
+	return CHECK_ID(((id < SLAVE_ID_KEY) ? master_iids[id] :
+		slave_iids[id - SLAVE_ID_KEY]), id);
 }
 
 static struct msm_bus_board_algorithm msm_bus_board_algo = {
