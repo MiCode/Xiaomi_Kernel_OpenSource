@@ -164,7 +164,6 @@ struct msm_fb_data_type {
 	struct timer_list msmfb_no_update_notify_timer;
 	struct completion msmfb_update_notify;
 	struct completion msmfb_no_update_notify;
-	u32 ov_start, ov_end;
 	struct mutex writeback_mutex;
 	struct mutex unregister_mutex;
 	struct list_head writeback_busy_queue;
@@ -174,6 +173,7 @@ struct msm_fb_data_type {
 	struct ion_client *iclient;
 	struct mdp_buf_type *ov0_wb_buf;
 	struct mdp_buf_type *ov1_wb_buf;
+	u32 ov_start;
 	u32 mem_hid;
 	u32 mdp_rev;
 	u32 use_ov0_blt, ov0_blt_state;

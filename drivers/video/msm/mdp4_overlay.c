@@ -2225,7 +2225,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 			}
 		} else {
 			if (ctrl->panel_mode & MDP4_PANEL_DTV)
-				mdp4_overlay_dtv_vsync_push(mfd, pipe);
+				mdp4_overlay_dtv_ov_done_push(mfd, pipe);
 		}
 	}
 	mutex_unlock(&mfd->dma->ov_mutex);

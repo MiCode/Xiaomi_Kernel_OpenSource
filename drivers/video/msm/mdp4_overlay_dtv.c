@@ -214,12 +214,6 @@ static int mdp4_dtv_stop(struct msm_fb_data_type *mfd)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	/*
-	 * wait for vsync == 16.6 ms to make sure
-	 * the last frame finishes
-	*/
-	msleep(20);
-
 	return 0;
 }
 
@@ -265,8 +259,6 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp4_overlay_panel_mode_unset(MDP4_MIXER1, MDP4_PANEL_DTV);
 
 	ret = panel_next_off(pdev);
-
-	msleep(20);
 
 	dev_info(&pdev->dev, "mdp4_overlay_dtv: off");
 	return ret;
@@ -397,7 +389,7 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 
 	flags = pipe->flags;
 	pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
-	mdp4_overlay_dtv_vsync_push(mfd, pipe);
+	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
 	pipe->flags = flags;
 
 	if (pipe->mixer_stage == MDP4_MIXER_STAGE_BASE &&
@@ -413,6 +405,9 @@ static void mdp4_overlay_dtv_ov_start(struct msm_fb_data_type *mfd)
 	unsigned long flag;
 
 	/* enable irq */
+	if (mfd->ov_start)
+		return;
+
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_enable_irq(MDP_OVERLAY1_TERM);
 	INIT_COMPLETION(dtv_pipe->comp);
@@ -429,11 +424,14 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 {
 	u32 data = inpdw(MDP_BASE + DTV_BASE);
 
-	mfd->ov_start = false;
-
+	if (mfd->ov_start)
+		mfd->ov_start = false;
+	else
+		return;
 	if (!(data & 0x1) || (pipe == NULL))
 		return;
-	wait_for_completion_killable(&dtv_pipe->comp);
+	wait_for_completion_timeout(&dtv_pipe->comp,
+		msecs_to_jiffies(VSYNC_PERIOD));
 	mdp_disable_irq(MDP_OVERLAY1_TERM);
 }
 
@@ -455,17 +453,13 @@ void mdp4_overlay_dtv_ov_done_push(struct msm_fb_data_type *mfd,
 void mdp4_overlay_dtv_wait_for_ov(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe)
 {
-	if (mfd->ov_end) {
-		mfd->ov_end = false;
-		return;
-	}
 	mdp4_overlay_dtv_wait4_ov_done(mfd, pipe);
 	mdp4_set_perf_level();
 }
 
 void mdp4_external_vsync_dtv()
 {
-	complete(&dtv_pipe->comp);
+	complete_all(&dtv_pipe->comp);
 }
 
 /*
@@ -473,7 +467,7 @@ void mdp4_external_vsync_dtv()
  */
 void mdp4_overlay1_done_dtv()
 {
-	complete(&dtv_pipe->comp);
+	complete_all(&dtv_pipe->comp);
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -526,10 +520,6 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	if (pipe->pipe_type == OVERLAY_TYPE_RGB) {
 		pipe->srcp0_addr = (uint32) mfd->ibuf.buf;
 		mdp4_overlay_rgb_setup(pipe);
-	}
-	if (mfd->ov_start) {
-		mdp4_overlay_dtv_wait4_ov_done(mfd, pipe);
-		mfd->ov_end = true;
 	}
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
