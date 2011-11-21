@@ -44,8 +44,8 @@ enum pm8921_chg_hot_thr	{
  * @min_voltage:	the voltage (mV) where charging method switches from
  *			trickle to fast. This is also the minimum voltage the
  *			system operates at
- * @resume_voltage:	the voltage (mV) to wait for before resume charging
- *			after the battery has been fully charged
+ * @resume_voltage_delta:	the (mV) drop to wait for before resume charging
+ *				after the battery has been fully charged
  * @term_current:	the charger current (mA) at which EOC happens
  * @cool_temp:		the temperature (degC) at which the battery is
  *			considered cool charging current and voltage is reduced
@@ -91,7 +91,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			update_time;
 	unsigned int			max_voltage;
 	unsigned int			min_voltage;
-	unsigned int			resume_voltage;
+	unsigned int			resume_voltage_delta;
 	unsigned int			term_current;
 	unsigned int			cool_temp;
 	unsigned int			warm_temp;
