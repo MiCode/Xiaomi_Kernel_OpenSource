@@ -641,7 +641,7 @@ int rcg_clk_handoff(struct clk *c)
 	return 1;
 }
 
-static int pll_vote_clk_enable(struct clk *clk)
+int pll_vote_clk_enable(struct clk *clk)
 {
 	u32 ena;
 	unsigned long flags;
@@ -660,7 +660,7 @@ static int pll_vote_clk_enable(struct clk *clk)
 	return 0;
 }
 
-static void pll_vote_clk_disable(struct clk *clk)
+void pll_vote_clk_disable(struct clk *clk)
 {
 	u32 ena;
 	unsigned long flags;
@@ -673,19 +673,19 @@ static void pll_vote_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned long pll_vote_clk_get_rate(struct clk *clk)
+unsigned long pll_vote_clk_get_rate(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 	return pll->rate;
 }
 
-static struct clk *pll_vote_clk_get_parent(struct clk *clk)
+struct clk *pll_vote_clk_get_parent(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 	return pll->parent;
 }
 
-static int pll_vote_clk_is_enabled(struct clk *clk)
+int pll_vote_clk_is_enabled(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 	return !!(readl_relaxed(pll->status_reg) & BIT(16));

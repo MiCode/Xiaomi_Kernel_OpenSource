@@ -56,7 +56,6 @@ struct src_clock {
 };
 
 static struct src_clock clocks[NUM_SRC] = {
-	[SRC_CXO].name  = "cxo",
 	[SRC_PLL0].name = "pll0",
 	[SRC_PLL8].name = "pll8",
 	[SRC_PLL9].name = "pll9",
@@ -320,7 +319,7 @@ static int __init acpuclk_9615_init(struct acpuclk_soc_data *soc_data)
 
 	for (i = 0; i < NUM_SRC; i++) {
 		if (clocks[i].name) {
-			clocks[i].clk = clk_get_sys(NULL, clocks[i].name);
+			clocks[i].clk = clk_get_sys("acpu", clocks[i].name);
 			BUG_ON(IS_ERR(clocks[i].clk));
 		}
 	}
