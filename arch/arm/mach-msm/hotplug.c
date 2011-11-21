@@ -113,8 +113,7 @@ int msm_platform_secondary_init(unsigned int cpu)
 		init_completion(&dev->cpu_killed);
 		return 0;
 	}
-	etm_restore_reg_check();
-	msm_restore_jtag_debug();
+	msm_jtag_restore_state();
 #ifdef CONFIG_VFP
 	vfp_reinit();
 #endif

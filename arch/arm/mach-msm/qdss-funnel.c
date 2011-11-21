@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,11 +37,11 @@
 #define FUNNEL_LOCK(id)							\
 do {									\
 	mb();								\
-	funnel_writel(funnel, id, MAGIC2, CS_LAR);			\
+	funnel_writel(funnel, id, 0x0, CS_LAR);				\
 } while (0)
 #define FUNNEL_UNLOCK(id)						\
 do {									\
-	funnel_writel(funnel, id, MAGIC1, CS_LAR);			\
+	funnel_writel(funnel, id, CS_UNLOCK_MAGIC, CS_LAR);		\
 	mb();								\
 } while (0)
 

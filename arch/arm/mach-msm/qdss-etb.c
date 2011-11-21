@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,11 +56,11 @@
 #define ETB_LOCK()							\
 do {									\
 	mb();								\
-	etb_writel(etb, MAGIC2, CS_LAR);				\
+	etb_writel(etb, 0x0, CS_LAR);					\
 } while (0)
 #define ETB_UNLOCK()							\
 do {									\
-	etb_writel(etb, MAGIC1, CS_LAR);				\
+	etb_writel(etb, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 

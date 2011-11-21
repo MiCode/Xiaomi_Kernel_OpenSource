@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,11 +47,11 @@
 #define TPIU_LOCK()							\
 do {									\
 	mb();								\
-	tpiu_writel(tpiu, MAGIC2, CS_LAR);				\
+	tpiu_writel(tpiu, 0x0, CS_LAR);					\
 } while (0)
 #define TPIU_UNLOCK()							\
 do {									\
-	tpiu_writel(tpiu, MAGIC1, CS_LAR);				\
+	tpiu_writel(tpiu, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 

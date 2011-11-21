@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,8 +28,6 @@
 #include "cp14.h"
 
 #define LOG_BUF_LEN			32768
-#define ETM_NUM_REGS			128
-#define ETB_NUM_REGS			9
 /* each slot is 4 bytes, 8kb total */
 #define ETB_RAM_SLOTS			2048
 
@@ -37,14 +35,16 @@
 #define ETM_DUMP_MSG_ID			0x000A6960
 #define ETB_DUMP_MSG_ID			0x000A6961
 
-/* ETM Registers */
-#define ETM_REG_CONTROL			0x00
-#define ETM_REG_STATUS			0x04
-#define ETB_REG_CONTROL			0x71
-#define ETB_REG_STATUS			0x72
-#define ETB_REG_COUNT			0x73
-#define ETB_REG_ADDRESS			0x74
-#define ETB_REG_DATA			0x75
+/* ETB Registers */
+#define ETB_REG_CONTROL			ETMIMPSPEC1
+#define ETB_REG_STATUS			ETMIMPSPEC2
+#define ETB_REG_COUNT			ETMIMPSPEC3
+#define ETB_REG_ADDRESS			ETMIMPSPEC4
+#define ETB_REG_DATA			ETMIMPSPEC5
+
+/* Having etb macro accessors allows macro expansion for ETB reg defines */
+#define etb_read(reg)			etm_read(reg)
+#define etb_write(val, reg)		etm_write(val, reg)
 
 /* Bitmasks for the ETM control register */
 #define ETM_CONTROL_POWERDOWN		0x00000001
@@ -186,6 +186,41 @@ static struct etm_config_struct etm_config = {
 	.etb_init_ptr                   = 0x00000010,
 };
 
+/* ETM clock is derived from the processor clock and gets enabled on a
+ * logical OR of below items on Scorpion:
+ * 1.CPMR[ETMCLKEN] is set
+ * 2.ETM is not idle. Also means ETMCR[PD] is 0
+ * 3.Reset is asserted (core or debug)
+ * 4.MRC/MCR to ETM reg (CP14 access)
+ * 5.Debugger access to a ETM register in the core power domain
+ *
+ * 1. and 2. above are permanent enables whereas 3., 4. and 5. are
+ * temporary enables
+ *
+ * We rely on 4. to be able to access ETMCR and then use 2. above for ETM
+ * clock vote in the driver and the save-restore code uses 1. above
+ * for its vote.
+ */
+static inline void __cpu_set_etm_pwrdwn(void)
+{
+	uint32_t etm_control;
+
+	isb();
+	etm_control = etm_read(ETMCR);
+	etm_control |= ETM_CONTROL_POWERDOWN;
+	etm_write(etm_control, ETMCR);
+}
+
+static inline void __cpu_clear_etm_pwrdwn(void)
+{
+	uint32_t etm_control;
+
+	etm_control = etm_read(ETMCR);
+	etm_control &= ~ETM_CONTROL_POWERDOWN;
+	etm_write(etm_control, ETMCR);
+	isb();
+}
+
 static void emit_log_char(uint8_t c)
 {
 	int this_cpu = get_cpu();
@@ -211,21 +246,21 @@ static void __cpu_enable_etb(void)
 
 	/* enable auto-increment on reads and writes */
 	etb_control = AIR | AIW;
-	etm_write_reg(ETB_REG_CONTROL, etb_control);
+	etb_write(etb_control, ETB_REG_CONTROL);
 
 	/* write tags to the slots before the write pointer so we can
 	 * detect overflow */
-	etm_write_reg(ETB_REG_ADDRESS, 0x00000000);
+	etb_write(0x00000000, ETB_REG_ADDRESS);
 	for (i = 0; i < (etm_config.etb_init_ptr >> 2); i++)
-		etm_write_reg(ETB_REG_DATA, 0xDEADBEEF);
+		etb_write(0xDEADBEEF, ETB_REG_DATA);
 
-	etm_write_reg(ETB_REG_STATUS, 0x00000000);
+	etb_write(0x00000000, ETB_REG_STATUS);
 
 	/* initialize write pointer */
-	etm_write_reg(ETB_REG_ADDRESS, etm_config.etb_init_ptr);
+	etb_write(etm_config.etb_init_ptr, ETB_REG_ADDRESS);
 
 	/* multiple of 16 */
-	etm_write_reg(ETB_REG_COUNT, etm_config.etb_trig_cnt & 0xFFFFFFF0);
+	etb_write(etm_config.etb_trig_cnt & 0xFFFFFFF0, ETB_REG_COUNT);
 
 	/* Enable ETB and enable the trigger counter as appropriate. A
 	 * trigger count of 0 will be used to signify that the user wants to
@@ -236,15 +271,15 @@ static void __cpu_enable_etb(void)
 	etb_control |= CPTEN;
 	if (etm_config.etb_trig_cnt)
 		etb_control |= CPTM;
-	etm_write_reg(ETB_REG_CONTROL, etb_control);
+	etb_write(etb_control, ETB_REG_CONTROL);
 }
 
 static void __cpu_disable_etb(void)
 {
 	uint32_t etb_control;
-	etb_control = etm_read_reg(ETB_REG_CONTROL);
+	etb_control = etb_read(ETB_REG_CONTROL);
 	etb_control &= ~CPTEN;
-	etm_write_reg(ETB_REG_CONTROL, etb_control);
+	etb_write(etb_control, ETB_REG_CONTROL);
 }
 
 static void __cpu_enable_etm(void)
@@ -252,11 +287,11 @@ static void __cpu_enable_etm(void)
 	uint32_t etm_control;
 	unsigned long timeout = jiffies + msecs_to_jiffies(PROG_TIMEOUT_MS);
 
-	etm_control = etm_read_reg(ETM_REG_CONTROL);
+	etm_control = etm_read(ETMCR);
 	etm_control &= ~ETM_CONTROL_PROGRAM;
-	etm_write_reg(ETM_REG_CONTROL, etm_control);
+	etm_write(etm_control, ETMCR);
 
-	while ((etm_read_reg(ETM_REG_STATUS) & ETM_STATUS_PROGRAMMING) == 1) {
+	while ((etm_read(ETMSR) & ETM_STATUS_PROGRAMMING) == 1) {
 		cpu_relax();
 		if (time_after(jiffies, timeout)) {
 			pr_err("etm: timeout while clearing prog bit\n");
@@ -270,11 +305,11 @@ static void __cpu_disable_etm(void)
 	uint32_t etm_control;
 	unsigned long timeout = jiffies + msecs_to_jiffies(PROG_TIMEOUT_MS);
 
-	etm_control = etm_read_reg(ETM_REG_CONTROL);
+	etm_control = etm_read(ETMCR);
 	etm_control |= ETM_CONTROL_PROGRAM;
-	etm_write_reg(ETM_REG_CONTROL, etm_control);
+	etm_write(etm_control, ETMCR);
 
-	while ((etm_read_reg(ETM_REG_STATUS) & ETM_STATUS_PROGRAMMING) == 0) {
+	while ((etm_read(ETMSR) & ETM_STATUS_PROGRAMMING) == 0) {
 		cpu_relax();
 		if (time_after(jiffies, timeout)) {
 			pr_err("etm: timeout while setting prog bit\n");
@@ -291,14 +326,14 @@ static void __cpu_enable_trace(void *unused)
 
 	get_cpu();
 
-	etm_read_reg(0xC5); /* clear sticky bit in PDSR */
-
 	__cpu_disable_etb();
+	/* vote for ETM power/clock enable */
+	__cpu_clear_etm_pwrdwn();
 	__cpu_disable_etm();
 
 	etm_control = (etm_config.etm_00_control & ~ETM_CONTROL_POWERDOWN)
 						| ETM_CONTROL_PROGRAM;
-	etm_write_reg(0x00, etm_control);
+	etm_write(etm_control, ETMCR);
 
 	etm_trigger = etm_config.etm_02_trigger_event;
 	etm_external_output = 0x406F; /* always FALSE */
@@ -314,53 +349,53 @@ static void __cpu_enable_trace(void *unused)
 		etm_external_output = etm_trigger;
 	}
 
-	etm_write_reg(0x02, etm_trigger);
-	etm_write_reg(0x06, etm_config.etm_06_te_start_stop);
-	etm_write_reg(0x07, etm_config.etm_07_te_single_addr_comp);
-	etm_write_reg(0x08, etm_config.etm_08_te_event);
-	etm_write_reg(0x09, etm_config.etm_09_te_control);
-	etm_write_reg(0x0a, etm_config.etm_0a_fifofull_region);
-	etm_write_reg(0x0b, etm_config.etm_0b_fifofull_level);
-	etm_write_reg(0x0c, etm_config.etm_0c_vd_event);
-	etm_write_reg(0x0d, etm_config.etm_0d_vd_single_addr_comp);
-	etm_write_reg(0x0e, etm_config.etm_0e_vd_mmd);
-	etm_write_reg(0x0f, etm_config.etm_0f_vd_control);
-	etm_write_reg(0x10, etm_config.etm_addr_comp_value[0]);
-	etm_write_reg(0x11, etm_config.etm_addr_comp_value[1]);
-	etm_write_reg(0x12, etm_config.etm_addr_comp_value[2]);
-	etm_write_reg(0x13, etm_config.etm_addr_comp_value[3]);
-	etm_write_reg(0x14, etm_config.etm_addr_comp_value[4]);
-	etm_write_reg(0x15, etm_config.etm_addr_comp_value[5]);
-	etm_write_reg(0x16, etm_config.etm_addr_comp_value[6]);
-	etm_write_reg(0x17, etm_config.etm_addr_comp_value[7]);
-	etm_write_reg(0x20, etm_config.etm_addr_access_type[0]);
-	etm_write_reg(0x21, etm_config.etm_addr_access_type[1]);
-	etm_write_reg(0x22, etm_config.etm_addr_access_type[2]);
-	etm_write_reg(0x23, etm_config.etm_addr_access_type[3]);
-	etm_write_reg(0x24, etm_config.etm_addr_access_type[4]);
-	etm_write_reg(0x25, etm_config.etm_addr_access_type[5]);
-	etm_write_reg(0x26, etm_config.etm_addr_access_type[6]);
-	etm_write_reg(0x27, etm_config.etm_addr_access_type[7]);
-	etm_write_reg(0x30, etm_config.etm_data_comp_value[0]);
-	etm_write_reg(0x32, etm_config.etm_data_comp_value[1]);
-	etm_write_reg(0x40, etm_config.etm_data_comp_mask[0]);
-	etm_write_reg(0x42, etm_config.etm_data_comp_mask[1]);
-	etm_write_reg(0x50, etm_config.etm_counter_reload_value[0]);
-	etm_write_reg(0x51, etm_config.etm_counter_reload_value[1]);
-	etm_write_reg(0x54, etm_config.etm_counter_enable[0]);
-	etm_write_reg(0x55, etm_config.etm_counter_enable[1]);
-	etm_write_reg(0x58, etm_config.etm_counter_reload_event[0]);
-	etm_write_reg(0x59, etm_config.etm_counter_reload_event[1]);
-	etm_write_reg(0x60, etm_config.etm_60_seq_event_1_to_2);
-	etm_write_reg(0x61, etm_config.etm_61_seq_event_2_to_1);
-	etm_write_reg(0x62, etm_config.etm_62_seq_event_2_to_3);
-	etm_write_reg(0x63, etm_config.etm_63_seq_event_3_to_1);
-	etm_write_reg(0x64, etm_config.etm_64_seq_event_3_to_2);
-	etm_write_reg(0x65, etm_config.etm_65_seq_event_1_to_3);
-	etm_write_reg(0x68, etm_external_output);
-	etm_write_reg(0x6c, etm_config.etm_6c_cid_comp_value_1);
-	etm_write_reg(0x6f, etm_config.etm_6f_cid_comp_mask);
-	etm_write_reg(0x78, etm_config.etm_78_sync_freq);
+	etm_write(etm_trigger, ETMTRIGGER);
+	etm_write(etm_config.etm_06_te_start_stop, ETMTSSCR);
+	etm_write(etm_config.etm_07_te_single_addr_comp, ETMTECR2);
+	etm_write(etm_config.etm_08_te_event, ETMTEEVR);
+	etm_write(etm_config.etm_09_te_control, ETMTECR1);
+	etm_write(etm_config.etm_0a_fifofull_region, ETMFFRR);
+	etm_write(etm_config.etm_0b_fifofull_level, ETMFFLR);
+	etm_write(etm_config.etm_0c_vd_event, ETMVDEVR);
+	etm_write(etm_config.etm_0d_vd_single_addr_comp, ETMVDCR1);
+	etm_write(etm_config.etm_0e_vd_mmd, ETMVDCR2);
+	etm_write(etm_config.etm_0f_vd_control, ETMVDCR3);
+	etm_write(etm_config.etm_addr_comp_value[0], ETMACVR0);
+	etm_write(etm_config.etm_addr_comp_value[1], ETMACVR1);
+	etm_write(etm_config.etm_addr_comp_value[2], ETMACVR2);
+	etm_write(etm_config.etm_addr_comp_value[3], ETMACVR3);
+	etm_write(etm_config.etm_addr_comp_value[4], ETMACVR4);
+	etm_write(etm_config.etm_addr_comp_value[5], ETMACVR5);
+	etm_write(etm_config.etm_addr_comp_value[6], ETMACVR6);
+	etm_write(etm_config.etm_addr_comp_value[7], ETMACVR7);
+	etm_write(etm_config.etm_addr_access_type[0], ETMACTR0);
+	etm_write(etm_config.etm_addr_access_type[1], ETMACTR1);
+	etm_write(etm_config.etm_addr_access_type[2], ETMACTR2);
+	etm_write(etm_config.etm_addr_access_type[3], ETMACTR3);
+	etm_write(etm_config.etm_addr_access_type[4], ETMACTR4);
+	etm_write(etm_config.etm_addr_access_type[5], ETMACTR5);
+	etm_write(etm_config.etm_addr_access_type[6], ETMACTR6);
+	etm_write(etm_config.etm_addr_access_type[7], ETMACTR7);
+	etm_write(etm_config.etm_data_comp_value[0], ETMDCVR0);
+	etm_write(etm_config.etm_data_comp_value[1], ETMDCVR1);
+	etm_write(etm_config.etm_data_comp_mask[0], ETMDCMR0);
+	etm_write(etm_config.etm_data_comp_mask[1], ETMDCMR1);
+	etm_write(etm_config.etm_counter_reload_value[0], ETMCNTRLDVR0);
+	etm_write(etm_config.etm_counter_reload_value[1], ETMCNTRLDVR1);
+	etm_write(etm_config.etm_counter_enable[0], ETMCNTENR0);
+	etm_write(etm_config.etm_counter_enable[1], ETMCNTENR1);
+	etm_write(etm_config.etm_counter_reload_event[0], ETMCNTRLDEVR0);
+	etm_write(etm_config.etm_counter_reload_event[1], ETMCNTRLDEVR1);
+	etm_write(etm_config.etm_60_seq_event_1_to_2, ETMSQ12EVR);
+	etm_write(etm_config.etm_61_seq_event_2_to_1, ETMSQ21EVR);
+	etm_write(etm_config.etm_62_seq_event_2_to_3, ETMSQ23EVR);
+	etm_write(etm_config.etm_63_seq_event_3_to_1, ETMSQ31EVR);
+	etm_write(etm_config.etm_64_seq_event_3_to_2, ETMSQ32EVR);
+	etm_write(etm_config.etm_65_seq_event_1_to_3, ETMSQ13EVR);
+	etm_write(etm_external_output, ETMEXTOUTEVR0);
+	etm_write(etm_config.etm_6c_cid_comp_value_1, ETMCIDCVR0);
+	etm_write(etm_config.etm_6f_cid_comp_mask, ETMCIDCMR);
+	etm_write(etm_config.etm_78_sync_freq, ETMSYNCFR);
 
 	/* Note that we must enable the ETB before we enable the ETM if we
 	 * want to capture the "always true" trigger event. */
@@ -373,20 +408,14 @@ static void __cpu_enable_trace(void *unused)
 
 static void __cpu_disable_trace(void *unused)
 {
-	uint32_t etm_control;
-
 	get_cpu();
-	etm_read_reg(0xC5); /* clear sticky bit in PDSR */
 
 	__cpu_disable_etm();
 
 	/* program trace enable to be low by using always false event */
-	etm_write_reg(0x08, 0x6F | BIT(14));
-
-	/* set the powerdown bit */
-	etm_control = etm_read_reg(ETM_REG_CONTROL);
-	etm_control |= ETM_CONTROL_POWERDOWN;
-	etm_write_reg(ETM_REG_CONTROL, etm_control);
+	etm_write(0x6F | BIT(14), ETMTEEVR);
+	/* vote for ETM power/clock disable */
+	__cpu_set_etm_pwrdwn();
 
 	__cpu_disable_etb();
 
@@ -402,7 +431,8 @@ static void enable_trace(void)
 		/* This register is accessible from either core.
 		 * CPU1_extout[0] -> CPU0_extin[0]
 		 * CPU_extout[0] -> CPU1_extin[0] */
-		l2tevselr0_write(0x00000001);
+		asm volatile("mcr p15, 3, %0, c15, c5, 2" : : "r" (0x1));
+		asm volatile("isb");
 	}
 
 	get_cpu();
@@ -456,14 +486,14 @@ static void generate_etb_dump(void)
 	uint32_t prim_len;
 	uint32_t uptime = 0;
 
-	etb_control = etm_read_reg(ETB_REG_CONTROL);
+	etb_control = etb_read(ETB_REG_CONTROL);
 	etb_control |= AIR;
-	etm_write_reg(ETB_REG_CONTROL, etb_control);
+	etb_write(etb_control, ETB_REG_CONTROL);
 
-	if (etm_read_reg(ETB_REG_STATUS) & OV)
+	if (etb_read(ETB_REG_STATUS) & OV)
 		full_slots = ETB_RAM_SLOTS;
 	else
-		full_slots = etm_read_reg(ETB_REG_ADDRESS) >> 2;
+		full_slots = etb_read(ETB_REG_ADDRESS) >> 2;
 
 	prim_len = 28 + (full_slots * 4);
 
@@ -473,23 +503,24 @@ static void generate_etb_dump(void)
 	emit_log_char((prim_len >> 0) & 0xFF);
 	emit_log_word(uptime);
 	emit_log_word(ETB_DUMP_MSG_ID);
-	emit_log_word(etm_read_reg(ETM_REG_CONTROL));
+	emit_log_word(etm_read(ETMCR));
 	emit_log_word(etm_config.etb_init_ptr >> 2);
-	emit_log_word(etm_read_reg(ETB_REG_ADDRESS) >> 2);
-	emit_log_word((etm_read_reg(ETB_REG_STATUS) & OV) >> 21);
+	emit_log_word(etb_read(ETB_REG_ADDRESS) >> 2);
+	emit_log_word((etb_read(ETB_REG_STATUS) & OV) >> 21);
 
-	etm_write_reg(ETB_REG_ADDRESS, 0x00000000);
+	etb_write(0x00000000, ETB_REG_ADDRESS);
 	for (i = 0; i < full_slots; i++)
-		emit_log_word(etm_read_reg(ETB_REG_DATA));
+		emit_log_word(etb_read(ETB_REG_DATA));
 }
 
+/* This should match the number of ETM registers being dumped below */
+#define ETM_NUM_REGS_TO_DUMP	54
 static void generate_etm_dump(void)
 {
-	uint32_t i;
 	uint32_t prim_len;
 	uint32_t uptime = 0;
 
-	prim_len = 12 + (4 * ETM_NUM_REGS);
+	prim_len = 12 + (4 * ETM_NUM_REGS_TO_DUMP);
 
 	emit_log_char((DATALOG_SYNC >> 8) & 0xFF);
 	emit_log_char((DATALOG_SYNC >> 0) & 0xFF);
@@ -498,19 +529,65 @@ static void generate_etm_dump(void)
 	emit_log_word(uptime);
 	emit_log_word(ETM_DUMP_MSG_ID);
 
-	/* do not disturb ETB_REG_ADDRESS by reading ETB_REG_DATA */
-	for (i = 0; i < ETM_NUM_REGS; i++)
-		if (i == ETB_REG_DATA)
-			emit_log_word(0);
-		else
-			emit_log_word(etm_read_reg(i));
+	emit_log_word(etm_read(ETMCR));
+	emit_log_word(etm_read(ETMSR));
+	emit_log_word(etb_read(ETB_REG_CONTROL));
+	emit_log_word(etb_read(ETB_REG_STATUS));
+	emit_log_word(etb_read(ETB_REG_COUNT));
+	emit_log_word(etb_read(ETB_REG_ADDRESS));
+	emit_log_word(0); /* don't read ETB_REG_DATA, changes ETB_REG_ADDRESS */
+	emit_log_word(etm_read(ETMTRIGGER));
+	emit_log_word(etm_read(ETMTSSCR));
+	emit_log_word(etm_read(ETMTECR2));
+	emit_log_word(etm_read(ETMTEEVR));
+	emit_log_word(etm_read(ETMTECR1));
+	emit_log_word(etm_read(ETMFFRR));
+	emit_log_word(etm_read(ETMFFLR));
+	emit_log_word(etm_read(ETMVDEVR));
+	emit_log_word(etm_read(ETMVDCR1));
+	emit_log_word(etm_read(ETMVDCR2));
+	emit_log_word(etm_read(ETMVDCR3));
+	emit_log_word(etm_read(ETMACVR0));
+	emit_log_word(etm_read(ETMACVR1));
+	emit_log_word(etm_read(ETMACVR2));
+	emit_log_word(etm_read(ETMACVR3));
+	emit_log_word(etm_read(ETMACVR4));
+	emit_log_word(etm_read(ETMACVR5));
+	emit_log_word(etm_read(ETMACVR6));
+	emit_log_word(etm_read(ETMACVR7));
+	emit_log_word(etm_read(ETMACTR0));
+	emit_log_word(etm_read(ETMACTR1));
+	emit_log_word(etm_read(ETMACTR2));
+	emit_log_word(etm_read(ETMACTR3));
+	emit_log_word(etm_read(ETMACTR4));
+	emit_log_word(etm_read(ETMACTR5));
+	emit_log_word(etm_read(ETMACTR6));
+	emit_log_word(etm_read(ETMACTR7));
+	emit_log_word(etm_read(ETMDCVR0));
+	emit_log_word(etm_read(ETMDCVR1));
+	emit_log_word(etm_read(ETMDCMR0));
+	emit_log_word(etm_read(ETMDCMR1));
+	emit_log_word(etm_read(ETMCNTRLDVR0));
+	emit_log_word(etm_read(ETMCNTRLDVR1));
+	emit_log_word(etm_read(ETMCNTENR0));
+	emit_log_word(etm_read(ETMCNTENR1));
+	emit_log_word(etm_read(ETMCNTRLDEVR0));
+	emit_log_word(etm_read(ETMCNTRLDEVR1));
+	emit_log_word(etm_read(ETMSQ12EVR));
+	emit_log_word(etm_read(ETMSQ21EVR));
+	emit_log_word(etm_read(ETMSQ23EVR));
+	emit_log_word(etm_read(ETMSQ31EVR));
+	emit_log_word(etm_read(ETMSQ32EVR));
+	emit_log_word(etm_read(ETMSQ13EVR));
+	emit_log_word(etm_read(ETMEXTOUTEVR0));
+	emit_log_word(etm_read(ETMCIDCVR0));
+	emit_log_word(etm_read(ETMCIDCMR));
+	emit_log_word(etm_read(ETMSYNCFR));
 }
 
 static void dump_all(void *unused)
 {
 	get_cpu();
-	etm_read_reg(0xC5); /* clear sticky bit in PDSR in case
-			     * trace hasn't been enabled yet. */
 	__cpu_disable_etb();
 	generate_etm_dump();
 	generate_etb_dump();
@@ -900,34 +977,10 @@ static struct miscdevice etm_dev = {
 	.fops = &etm_dev_fops,
 };
 
-/* etm_save_reg_check and etm_restore_reg_check should be fast
- *
- * These functions will be called either from:
- * 1. per_cpu idle thread context for idle power collapses.
- * 2. per_cpu idle thread context for hotplug/suspend power collapse for
- *    nonboot cpus.
- * 3. suspend thread context for core0.
- *
- * In all cases we are guaranteed to be running on the same cpu for the
- * entire duration.
- *
- * Another assumption is that etm registers won't change after trace_enabled
- * is set. Current usage model guarantees this doesn't happen.
- *
- * Also disabling all types of power_collapses when enabling and disabling
- * trace provides mutual exclusion to be able to safely access
- * ptm.trace_enabled here.
- */
-void etm_save_reg_check(void)
+static void __cpu_clear_sticky(void *unused)
 {
-	if (trace_enabled)
-		etm_save_reg();
-}
-
-void etm_restore_reg_check(void)
-{
-	if (trace_enabled)
-		etm_restore_reg();
+	etm_read(ETMPDSR); /* clear sticky bit in PDSR */
+	isb();
 }
 
 static int __init etm_init(void)
@@ -948,6 +1001,12 @@ static int __init etm_init(void)
 	wake_lock_init(&etm_wake_lock, WAKE_LOCK_SUSPEND, "msm_etm");
 	pm_qos_add_request(&etm_qos_req, PM_QOS_CPU_DMA_LATENCY,
 						PM_QOS_DEFAULT_VALUE);
+
+	/* No need to explicity turn on ETM clock since CP14 access go
+	 * through via the autoclock turn on/off
+	 */
+	__cpu_clear_sticky(NULL);
+	smp_call_function(__cpu_clear_sticky, NULL, 1);
 
 	cpu_to_dump = next_cpu_to_dump = 0;
 
