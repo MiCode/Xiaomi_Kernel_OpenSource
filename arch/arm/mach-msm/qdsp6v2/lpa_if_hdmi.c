@@ -43,7 +43,7 @@ struct audio_buffer {
 struct lpa_if {
 	struct mutex lock;
 	struct msm_audio_config cfg;
-	struct audio_buffer audio_buf[2];
+	struct audio_buffer audio_buf[6];
 	int cpu_buf;		/* next buffer the CPU will touch */
 	int dma_buf;		/* next buffer the DMA will touch */
 	u8 *buffer;
@@ -52,6 +52,7 @@ struct lpa_if {
 	wait_queue_head_t wait;
 	u32 config;
 	u32 dma_period_sz;
+	unsigned int num_periods;
 };
 
 static struct lpa_if  *lpa_if_ptr;
@@ -85,9 +86,11 @@ static irqreturn_t lpa_if_irq(int intrsrc, void *data)
 
 		pr_debug("dma_buf %d  used %d\n", lpa_if->dma_buf,
 			lpa_if->audio_buf[lpa_if->dma_buf].used);
+		lpa_if->dma_buf++;
+		lpa_if->dma_buf = lpa_if->dma_buf % lpa_if->cfg.buffer_count;
 
-		lpa_if->dma_buf ^= 1;
-
+		if (lpa_if->dma_buf == lpa_if->cpu_buf)
+			pr_err("Err:both dma_buf and cpu_buf are on same index\n");
 		wake_up(&lpa_if->wait);
 	}
 	return IRQ_HANDLED;
@@ -114,7 +117,7 @@ int lpa_if_config(struct lpa_if *lpa_if)
 
 	dma_params.src_start = lpa_if->buffer_phys;
 	dma_params.buffer = lpa_if->buffer;
-	dma_params.buffer_size = lpa_if->dma_period_sz * 2;
+	dma_params.buffer_size = lpa_if->dma_period_sz * lpa_if->num_periods;
 	dma_params.period_size = lpa_if->dma_period_sz;
 	dma_params.channels = 2;
 
@@ -143,7 +146,7 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct lpa_if *lpa_if = file->private_data;
 	int rc = 0;
-
+	unsigned int i;
 	pr_debug("cmd %u\n", cmd);
 
 	mutex_lock(&lpa_if->lock);
@@ -188,25 +191,28 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_debug("%s:failed to copy from user\n", __func__);
 			rc = -EFAULT;
 		}
-		if ((lpa_if->dma_period_sz * 2) > DMA_ALLOC_BUF_SZ) {
+		if ((lpa_if->dma_period_sz * lpa_if->num_periods) >
+			DMA_ALLOC_BUF_SZ) {
 			pr_err("Dma buffer size greater than allocated size\n");
 			return -EINVAL;
 		}
 		pr_debug("Dma_period_sz %d\n", lpa_if->dma_period_sz);
-		lpa_if->cfg.buffer_count = 2;
-		lpa_if->cfg.buffer_size = lpa_if->dma_period_sz * 2;
+		if (lpa_if->dma_period_sz < (2 * SZ_4K))
+			lpa_if->num_periods = 6;
+		pr_debug("No. of Periods %d\n", lpa_if->num_periods);
 
-		lpa_if->audio_buf[0].phys = lpa_if->buffer_phys;
-		lpa_if->audio_buf[0].data = lpa_if->buffer;
-		lpa_if->audio_buf[0].size = lpa_if->dma_period_sz;
-		lpa_if->audio_buf[0].used = 0;
+		lpa_if->cfg.buffer_count = lpa_if->num_periods;
+		lpa_if->cfg.buffer_size = lpa_if->dma_period_sz *
+						lpa_if->num_periods;
 
-		lpa_if->audio_buf[1].phys =
-				lpa_if->buffer_phys + lpa_if->dma_period_sz;
-		lpa_if->audio_buf[1].data =
-				lpa_if->buffer + lpa_if->dma_period_sz;
-		lpa_if->audio_buf[1].size = lpa_if->dma_period_sz;
-		lpa_if->audio_buf[1].used = 0;
+		for (i = 0; i < lpa_if->cfg.buffer_count; i++) {
+			lpa_if->audio_buf[i].phys =
+				lpa_if->buffer_phys + i * lpa_if->dma_period_sz;
+			lpa_if->audio_buf[i].data =
+				lpa_if->buffer + i * lpa_if->dma_period_sz;
+			lpa_if->audio_buf[i].size = lpa_if->dma_period_sz;
+			lpa_if->audio_buf[i].used = 0;
+		}
 		break;
 	default:
 		pr_err("UnKnown Ioctl\n");
@@ -225,8 +231,9 @@ static int lpa_if_open(struct inode *inode, struct file *file)
 
 	file->private_data = lpa_if_ptr;
 	dma_buf_index = 0;
-	lpa_if_ptr->cpu_buf = 0;
+	lpa_if_ptr->cpu_buf = 2;
 	lpa_if_ptr->dma_buf = 0;
+	lpa_if_ptr->num_periods = 4;
 
 	core_req_bus_bandwith(AUDIO_IF_BUS_ID, 100000, 0);
 	mb();
@@ -234,6 +241,17 @@ static int lpa_if_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static inline int rt_policy(int policy)
+{
+	if (unlikely(policy == SCHED_FIFO) || unlikely(policy == SCHED_RR))
+		return 1;
+	return 0;
+}
+
+static inline int task_has_rt_policy(struct task_struct *p)
+{
+	return rt_policy(p->policy);
+}
 static ssize_t lpa_if_write(struct file *file, const char __user *buf,
 		size_t count, loff_t *pos)
 {
@@ -241,7 +259,19 @@ static ssize_t lpa_if_write(struct file *file, const char __user *buf,
 	struct audio_buffer *ab;
 	const char __user *start = buf;
 	int xfer, rc;
+	struct sched_param s = { .sched_priority = 1 };
+	int old_prio = current->rt_priority;
+	int old_policy = current->policy;
+	int cap_nice = cap_raised(current_cap(), CAP_SYS_NICE);
 
+	 /* just for this write, set us real-time */
+	if (!task_has_rt_policy(current)) {
+		struct cred *new = prepare_creds();
+		cap_raise(new->cap_effective, CAP_SYS_NICE);
+		commit_creds(new);
+		if ((sched_setscheduler(current, SCHED_RR, &s)) < 0)
+			pr_err("sched_setscheduler failed\n");
+	}
 	mutex_lock(&lpa_if->lock);
 
 	if (dma_buf_index < 2) {
@@ -299,12 +329,23 @@ static ssize_t lpa_if_write(struct file *file, const char __user *buf,
 
 		pr_debug("xfer %d, size %d, used %d cpu_buf %d\n",
 			xfer, ab->size, ab->used, lpa_if->cpu_buf);
-
-		lpa_if->cpu_buf ^= 1;
+		lpa_if->cpu_buf++;
+		lpa_if->cpu_buf = lpa_if->cpu_buf % lpa_if->cfg.buffer_count;
 	}
 	rc = buf - start;
 end:
 	mutex_unlock(&lpa_if->lock);
+	/* restore old scheduling policy */
+	if (!rt_policy(old_policy)) {
+		struct sched_param v = { .sched_priority = old_prio };
+		if ((sched_setscheduler(current, old_policy, &v)) < 0)
+			pr_err("sched_setscheduler failed\n");
+		if (likely(!cap_nice)) {
+			struct cred *new = prepare_creds();
+			cap_lower(new->cap_effective, CAP_SYS_NICE);
+			commit_creds(new);
+		}
+	}
 	return rc;
 }
 
