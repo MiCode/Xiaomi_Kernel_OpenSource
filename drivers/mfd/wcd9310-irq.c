@@ -110,11 +110,19 @@ static irqreturn_t tabla_irq_thread(int irq, void *data)
 				(i >= TABLA_IRQ_MBHC_REMOVAL)) {
 				tabla_reg_write(tabla, TABLA_A_INTR_CLEAR0 +
 					BIT_BYTE(i), BYTE_BIT_MASK(i));
+				if (tabla_get_intf_type() ==
+					TABLA_INTERFACE_TYPE_I2C)
+					tabla_reg_write(tabla,
+						TABLA_A_INTR_MODE, 0x02);
 				handle_nested_irq(tabla->irq_base + i);
 			} else {
 				handle_nested_irq(tabla->irq_base + i);
 				tabla_reg_write(tabla, TABLA_A_INTR_CLEAR0 +
 					BIT_BYTE(i), BYTE_BIT_MASK(i));
+				if (tabla_get_intf_type() ==
+					TABLA_INTERFACE_TYPE_I2C)
+					tabla_reg_write(tabla,
+						TABLA_A_INTR_MODE, 0x02);
 			}
 			break;
 		}

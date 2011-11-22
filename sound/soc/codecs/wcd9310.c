@@ -14,12 +14,15 @@
 #include <linux/firmware.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/device.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/wcd9310/core.h>
 #include <linux/mfd/wcd9310/registers.h>
 #include <linux/mfd/wcd9310/pdata.h>
+#include <sound/pcm.h>
+#include <sound/pcm_params.h>
 #include <sound/jack.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -38,6 +41,8 @@
 #define TABLA_TX_DAI_ID 2
 
 #define TABLA_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | SND_JACK_OC_HPHR)
+
+#define TABLA_I2S_MASTER_MODE_MASK 0x08
 
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
@@ -86,6 +91,9 @@ struct tabla_priv {
 	struct mbhc_micbias_regs mbhc_bias_regs;
 	u8 cfilt_k_value;
 	bool mbhc_micbias_switched;
+
+	/*track tabla interface type*/
+	u8 intf_type;
 
 	u32 hph_status; /* track headhpone status */
 	/* define separate work for left and right headphone OCP to avoid
@@ -1426,6 +1434,12 @@ static void tabla_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
 		break;
 	}
 }
+static const struct snd_soc_dapm_widget tabla_dapm_i2s_widgets[] = {
+	SND_SOC_DAPM_SUPPLY("RX_I2S_CLK", TABLA_A_CDC_CLK_RX_I2S_CTL,
+	4, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("TX_I2S_CLK", TABLA_A_CDC_CLK_TX_I2S_CTL, 4,
+	0, NULL, 0),
+};
 
 static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/*RX stuff */
@@ -1438,6 +1452,8 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 
 	SND_SOC_DAPM_AIF_IN("SLIM RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIM RX2", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("SLIM RX4", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 
 	/* Headphone */
 	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
@@ -1701,6 +1717,19 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("IIR1", TABLA_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
 };
 
+static const struct snd_soc_dapm_route audio_i2s_map[] = {
+	{"RX_I2S_CLK", NULL, "CDC_CONN"},
+	{"SLIM RX1", NULL, "RX_I2S_CLK"},
+	{"SLIM RX2", NULL, "RX_I2S_CLK"},
+	{"SLIM RX3", NULL, "RX_I2S_CLK"},
+	{"SLIM RX4", NULL, "RX_I2S_CLK"},
+
+	{"SLIM TX7", NULL, "TX_I2S_CLK"},
+	{"SLIM TX8", NULL, "TX_I2S_CLK"},
+	{"SLIM TX9", NULL, "TX_I2S_CLK"},
+	{"SLIM TX10", NULL, "TX_I2S_CLK"},
+};
+
 static const struct snd_soc_dapm_route audio_map[] = {
 	/* SLIMBUS Connections */
 
@@ -1814,45 +1843,73 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"RX1 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX1 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX1 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX1 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX1 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX1 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX1 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX1 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX1 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX1 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX2 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX2 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX2 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX2 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX2 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX2 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX2 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX2 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX2 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX2 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX3 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX3 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX3 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX3 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX3 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX3 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX3 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX3 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX3 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX3 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX4 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX4 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX4 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX4 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX4 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX4 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX4 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX4 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX4 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX4 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX5 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX5 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX5 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX5 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX5 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX5 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX5 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX5 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX5 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX5 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX6 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX6 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX6 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX6 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX6 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX6 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX6 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX6 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX6 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX6 MIX1 INP2", "IIR1", "IIR1"},
 	{"RX7 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX7 MIX1 INP1", "RX2", "SLIM RX2"},
+	{"RX7 MIX1 INP1", "RX3", "SLIM RX3"},
+	{"RX7 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX7 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX7 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX7 MIX1 INP2", "RX2", "SLIM RX2"},
+	{"RX7 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX7 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX7 MIX1 INP2", "IIR1", "IIR1"},
 
 	/* Decimator Inputs */
@@ -2191,7 +2248,39 @@ static int tabla_set_dai_sysclk(struct snd_soc_dai *dai,
 
 static int tabla_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
+	u8 val = 0;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(dai->codec);
+
 	pr_debug("%s\n", __func__);
+	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+	case SND_SOC_DAIFMT_CBS_CFS:
+		/* CPU is master */
+		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+			if (dai->id == TABLA_TX_DAI_ID)
+				snd_soc_update_bits(dai->codec,
+					TABLA_A_CDC_CLK_TX_I2S_CTL,
+					TABLA_I2S_MASTER_MODE_MASK, 0);
+			else if (dai->id == TABLA_RX_DAI_ID)
+				snd_soc_update_bits(dai->codec,
+					TABLA_A_CDC_CLK_RX_I2S_CTL,
+					TABLA_I2S_MASTER_MODE_MASK, 0);
+		}
+		break;
+	case SND_SOC_DAIFMT_CBM_CFM:
+	/* CPU is slave */
+		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+			val = TABLA_I2S_MASTER_MODE_MASK;
+			if (dai->id == TABLA_TX_DAI_ID)
+				snd_soc_update_bits(dai->codec,
+					TABLA_A_CDC_CLK_TX_I2S_CTL, val, val);
+			else if (dai->id == TABLA_RX_DAI_ID)
+				snd_soc_update_bits(dai->codec,
+					TABLA_A_CDC_CLK_RX_I2S_CTL, val, val);
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -2200,6 +2289,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(dai->codec);
 	u8 path, shift;
 	u16 tx_fs_reg, rx_fs_reg;
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
@@ -2255,6 +2345,25 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 							0x03, tx_fs_rate);
 			}
 		}
+		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+			switch (params_format(params)) {
+			case SNDRV_PCM_FORMAT_S16_LE:
+				snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_TX_I2S_CTL,
+					0x20, 0x20);
+				break;
+			case SNDRV_PCM_FORMAT_S32_LE:
+				snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_TX_I2S_CTL,
+					0x20, 0x00);
+				break;
+			default:
+				pr_err("invalid format\n");
+				break;
+			}
+			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_TX_I2S_CTL,
+						0x03, tx_fs_rate);
+		}
 	}
 
 	/**
@@ -2280,6 +2389,25 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 				snd_soc_update_bits(codec, rx_fs_reg,
 						0xE0, rx_fs_rate);
 			}
+		}
+		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+			switch (params_format(params)) {
+			case SNDRV_PCM_FORMAT_S16_LE:
+				snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_RX_I2S_CTL,
+					0x20, 0x20);
+				break;
+			case SNDRV_PCM_FORMAT_S32_LE:
+				snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_RX_I2S_CTL,
+					0x20, 0x00);
+				break;
+			default:
+				pr_err("invalid format\n");
+				break;
+			}
+			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_RX_I2S_CTL,
+						0x03, (rx_fs_rate >> 0x05));
 		}
 	}
 
@@ -2320,6 +2448,37 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 2,
+		},
+		.ops = &tabla_dai_ops,
+	},
+};
+
+static struct snd_soc_dai_driver tabla_i2s_dai[] = {
+	{
+		.name = "tabla_i2s_rx1",
+		.id = 1,
+		.playback = {
+			.stream_name = "AIF1 Playback",
+			.rates = WCD9310_RATES,
+			.formats = TABLA_FORMATS,
+			.rate_max = 48000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
+		},
+		.ops = &tabla_dai_ops,
+	},
+	{
+		.name = "tabla_i2s_tx1",
+		.id = 2,
+		.capture = {
+			.stream_name = "AIF1 Capture",
+			.rates = WCD9310_RATES,
+			.formats = TABLA_FORMATS,
+			.rate_max = 48000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
 		},
 		.ops = &tabla_dai_ops,
 	},
@@ -3186,6 +3345,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
+	tabla->intf_type = tabla_get_intf_type();
 
 	tabla_update_reg_defaults(codec);
 	tabla_codec_init_reg(codec);
@@ -3204,6 +3364,12 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		ARRAY_SIZE(tabla_snd_controls));
 	snd_soc_dapm_new_controls(dapm, tabla_dapm_widgets,
 		ARRAY_SIZE(tabla_dapm_widgets));
+	if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+		snd_soc_dapm_new_controls(dapm, tabla_dapm_i2s_widgets,
+			ARRAY_SIZE(tabla_dapm_i2s_widgets));
+		snd_soc_dapm_add_routes(dapm, audio_i2s_map,
+			ARRAY_SIZE(audio_i2s_map));
+	}
 	snd_soc_dapm_add_routes(dapm, audio_map, ARRAY_SIZE(audio_map));
 	snd_soc_dapm_sync(dapm);
 
@@ -3362,13 +3528,19 @@ static const struct file_operations codec_debug_ops = {
 
 static int __devinit tabla_probe(struct platform_device *pdev)
 {
+	int ret = 0;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_poke = debugfs_create_file("TRRS",
 		S_IFREG | S_IRUGO, NULL, (void *) "TRRS", &codec_debug_ops);
 
 #endif
-	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
-		tabla_dai, ARRAY_SIZE(tabla_dai));
+	if (tabla_get_intf_type() == TABLA_INTERFACE_TYPE_SLIMBUS)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
+			tabla_dai, ARRAY_SIZE(tabla_dai));
+	else if (tabla_get_intf_type() == TABLA_INTERFACE_TYPE_I2C)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
+			tabla_i2s_dai, ARRAY_SIZE(tabla_i2s_dai));
+	return ret;
 }
 static int __devexit tabla_remove(struct platform_device *pdev)
 {

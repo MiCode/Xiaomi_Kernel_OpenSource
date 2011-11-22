@@ -22,10 +22,25 @@
 #include <linux/gpio.h>
 #include <linux/debugfs.h>
 #include <linux/regulator/consumer.h>
+#include <linux/i2c.h>
 #include <sound/soc.h>
 
 #define TABLA_SLIM_GLA_MAX_RETRIES 5
 #define TABLA_REGISTER_START_OFFSET 0x800
+
+#define MAX_TABLA_DEVICE	4
+#define TABLA_I2C_MODE	0x03
+
+struct tabla_i2c {
+	struct i2c_client *client;
+	struct i2c_msg xfer_msg[2];
+	struct mutex xfer_lock;
+	int mod_id;
+};
+
+struct tabla_i2c tabla_modules[MAX_TABLA_DEVICE];
+static int tabla_intf;
+
 static int tabla_read(struct tabla *tabla, unsigned short reg,
 		       int bytes, void *dest, bool interface_reg)
 {
@@ -566,6 +581,214 @@ static void tabla_disable_supplies(struct tabla *tabla)
 	kfree(tabla->supplies);
 }
 
+int tabla_get_intf_type(void)
+{
+	return tabla_intf;
+}
+EXPORT_SYMBOL_GPL(tabla_get_intf_type);
+
+struct tabla_i2c *get_i2c_tabla_device_info(u16 reg)
+{
+	u16 mask = 0x0f00;
+	int value = 0;
+	struct tabla_i2c *tabla = NULL;
+	value = ((reg & mask) >> 8) & 0x000f;
+	switch (value) {
+	case 0:
+		tabla = &tabla_modules[0];
+		break;
+	case 1:
+		tabla = &tabla_modules[1];
+		break;
+	case 2:
+		tabla = &tabla_modules[2];
+		break;
+	case 3:
+		tabla = &tabla_modules[3];
+		break;
+	default:
+		break;
+	}
+	return tabla;
+}
+
+int tabla_i2c_write_device(u16 reg, u8 *value,
+				u32 bytes)
+{
+
+	struct i2c_msg *msg;
+	int ret = 0;
+	u8 reg_addr = 0;
+	u8 data[bytes + 1];
+	struct tabla_i2c *tabla;
+
+	tabla = get_i2c_tabla_device_info(reg);
+	if (tabla->client == NULL) {
+		pr_err("failed to get device info\n");
+		return -ENODEV;
+	}
+	reg_addr = (u8)reg;
+	msg = &tabla->xfer_msg[0];
+	msg->addr = tabla->client->addr;
+	msg->len = bytes + 1;
+	msg->flags = 0;
+	data[0] = reg;
+	data[1] = *value;
+	msg->buf = data;
+	ret = i2c_transfer(tabla->client->adapter, tabla->xfer_msg, 1);
+	/* Try again if the write fails */
+	if (ret != 1) {
+		ret = i2c_transfer(tabla->client->adapter,
+						tabla->xfer_msg, 1);
+		if (ret != 1) {
+			pr_err("failed to write the device\n");
+			return ret;
+		}
+	}
+	pr_debug("write sucess register = %x val = %x\n", reg, data[1]);
+	return 0;
+}
+
+
+int tabla_i2c_read_device(unsigned short reg,
+				  int bytes, unsigned char *dest)
+{
+	struct i2c_msg *msg;
+	int ret = 0;
+	u8 reg_addr = 0;
+	struct tabla_i2c *tabla;
+	u8 i = 0;
+
+	tabla = get_i2c_tabla_device_info(reg);
+	if (tabla->client == NULL) {
+		pr_err("failed to get device info\n");
+		return -ENODEV;
+	}
+	for (i = 0; i < bytes; i++) {
+		reg_addr = (u8)reg++;
+		msg = &tabla->xfer_msg[0];
+		msg->addr = tabla->client->addr;
+		msg->len = 1;
+		msg->flags = 0;
+		msg->buf = &reg_addr;
+
+		msg = &tabla->xfer_msg[1];
+		msg->addr = tabla->client->addr;
+		msg->len = 1;
+		msg->flags = I2C_M_RD;
+		msg->buf = dest++;
+		ret = i2c_transfer(tabla->client->adapter, tabla->xfer_msg, 2);
+
+		/* Try again if read fails first time */
+		if (ret != 2) {
+			ret = i2c_transfer(tabla->client->adapter,
+							tabla->xfer_msg, 2);
+			if (ret != 2) {
+				pr_err("failed to read tabla register\n");
+				return ret;
+			}
+		}
+	}
+	return 0;
+}
+
+int tabla_i2c_read(struct tabla *tabla, unsigned short reg,
+			int bytes, void *dest, bool interface_reg)
+{
+	return tabla_i2c_read_device(reg, bytes, dest);
+}
+
+int tabla_i2c_write(struct tabla *tabla, unsigned short reg,
+			 int bytes, void *src, bool interface_reg)
+{
+	return tabla_i2c_write_device(reg, src, bytes);
+}
+
+static int __devinit tabla_i2c_probe(struct i2c_client *client,
+			const struct i2c_device_id *id)
+{
+	struct tabla *tabla;
+	struct tabla_pdata *pdata = client->dev.platform_data;
+	int val = 0;
+	int ret = 0;
+	static int device_id;
+
+	if (device_id > 0) {
+		tabla_modules[device_id++].client = client;
+		pr_info("probe for other slaves devices of tabla\n");
+		return ret;
+	}
+
+	tabla = kzalloc(sizeof(struct tabla), GFP_KERNEL);
+	if (tabla == NULL) {
+		pr_err("%s: error, allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	if (!pdata) {
+		dev_dbg(&client->dev, "no platform data?\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
+		dev_dbg(&client->dev, "can't talk I2C?\n");
+		ret = -EIO;
+		goto fail;
+	}
+	tabla->dev = &client->dev;
+	tabla->reset_gpio = pdata->reset_gpio;
+
+	ret = tabla_enable_supplies(tabla);
+	if (ret) {
+		pr_err("%s: Fail to enable Tabla supplies\n", __func__);
+		goto err_tabla;
+	}
+
+	usleep_range(5, 5);
+	ret = tabla_reset(tabla);
+	if (ret) {
+		pr_err("%s: Resetting Tabla failed\n", __func__);
+		goto err_supplies;
+	}
+	tabla_modules[device_id++].client = client;
+
+	tabla->read_dev = tabla_i2c_read;
+	tabla->write_dev = tabla_i2c_write;
+	tabla->irq = pdata->irq;
+	tabla->irq_base = pdata->irq_base;
+
+	/*read the tabla status before initializing the device type*/
+	ret = tabla_read(tabla, TABLA_A_CHIP_STATUS, 1, &val, 0);
+	if ((ret < 0) || (val != TABLA_I2C_MODE)) {
+		pr_err("failed to read the tabla status\n");
+		goto err_device_init;
+	}
+
+	ret = tabla_device_init(tabla, tabla->irq);
+	if (ret) {
+		pr_err("%s: error, initializing device failed\n", __func__);
+		goto err_device_init;
+	}
+	tabla_intf = TABLA_INTERFACE_TYPE_I2C;
+
+	return ret;
+err_device_init:
+	tabla_free_reset(tabla);
+err_supplies:
+	tabla_disable_supplies(tabla);
+err_tabla:
+	kfree(tabla);
+fail:
+	return ret;
+}
+
+static int __devexit tabla_i2c_remove(struct i2c_client *client)
+{
+	pr_debug("exit\n");
+	return 0;
+}
+
 static int tabla_slim_probe(struct slim_device *slim)
 {
 	struct tabla *tabla;
@@ -600,7 +823,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 
 	ret = tabla_enable_supplies(tabla);
 	if (ret) {
-		pr_info("%s: Fail to enable Tabla supplies\n", __func__);
+		pr_err("%s: Fail to enable Tabla supplies\n", __func__);
 		goto err_tabla;
 	}
 	usleep_range(5, 5);
@@ -661,6 +884,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 		break;
 	}
 	tabla_inf_la = tabla->slim_slave->laddr;
+	tabla_intf = TABLA_INTERFACE_TYPE_SLIMBUS;
 
 	ret = tabla_device_init(tabla, tabla->irq);
 	if (ret) {
@@ -744,9 +968,33 @@ static struct slim_driver tabla2x_slim_driver = {
 	.id_table = slimtest2x_id,
 };
 
+#define TABLA_I2C_TOP_LEVEL 0
+#define TABLA_I2C_ANALOG       1
+#define TABLA_I2C_DIGITAL_1    2
+#define TABLA_I2C_DIGITAL_2    3
+
+static struct i2c_device_id tabla_id_table[] = {
+	{"tabla top level", TABLA_I2C_TOP_LEVEL},
+	{"tabla analog", TABLA_I2C_TOP_LEVEL},
+	{"tabla digital1", TABLA_I2C_TOP_LEVEL},
+	{"tabla digital2", TABLA_I2C_TOP_LEVEL},
+	{}
+};
+MODULE_DEVICE_TABLE(i2c, tabla_id_table);
+
+static struct i2c_driver tabla_i2c_driver = {
+	.driver                 = {
+		.owner          =       THIS_MODULE,
+		.name           =       "tabla-i2c-core",
+	},
+	.id_table               =       tabla_id_table,
+	.probe                  =       tabla_i2c_probe,
+	.remove                 =       __devexit_p(tabla_i2c_remove),
+};
+
 static int __init tabla_init(void)
 {
-	int ret1, ret2;
+	int ret1, ret2, ret3;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -756,7 +1004,11 @@ static int __init tabla_init(void)
 	if (ret2 != 0)
 		pr_err("Failed to register tabla2x SB driver: %d\n", ret2);
 
-	return (ret1 && ret2) ? -1 : 0;
+	ret3 = i2c_add_driver(&tabla_i2c_driver);
+	if (ret3 != 0)
+		pr_err("failed to add the I2C driver\n");
+
+	return (ret1 && ret2 && ret3) ? -1 : 0;
 }
 module_init(tabla_init);
 
