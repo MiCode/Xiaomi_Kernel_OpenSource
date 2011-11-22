@@ -1322,6 +1322,7 @@ static void a2xx_ctxt_save(struct adreno_device *adreno_dev,
 			struct adreno_context *context)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int cmd[22];
 
 	if (context == NULL)
 		return;
@@ -1363,6 +1364,30 @@ static void a2xx_ctxt_save(struct adreno_device *adreno_dev,
 			context->chicken_restore, 3);
 
 		context->flags |= CTXT_FLAGS_GMEM_RESTORE;
+	} else if (adreno_is_a225(adreno_dev)) {
+		unsigned int *cmds = &cmd[0];
+		/*
+		 * Issue an empty draw call to avoid possible hangs due to
+		 * repeated idles without intervening draw calls.
+		 * On adreno 225 the PC block has a cache that is only
+		 * flushed on draw calls and repeated idles can make it
+		 * overflow. The gmem save path contains draw calls so
+		 * this workaround isn't needed there.
+		 */
+		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+		*cmds++ = (0x4 << 16) | (REG_PA_SU_SC_MODE_CNTL - 0x2000);
+		*cmds++ = 0;
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 5);
+		*cmds++ = 0;
+		*cmds++ = 1<<14;
+		*cmds++ = 0;
+		*cmds++ = device->mmu.setstate_memory.gpuaddr;
+		*cmds++ = 0;
+		*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*cmds++ = 0x00000000;
+
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+					    &cmd[0], 11);
 	}
 }
 
