@@ -98,7 +98,15 @@ static int is_in_reset(struct smd_tty_info *info)
 static void buf_req_retry(unsigned long param)
 {
 	struct smd_tty_info *info = (struct smd_tty_info *)param;
-	tasklet_hi_schedule(&info->tty_tsklt);
+	unsigned long flags;
+
+	spin_lock_irqsave(&info->reset_lock, flags);
+	if (info->is_open) {
+		spin_unlock_irqrestore(&info->reset_lock, flags);
+		tasklet_hi_schedule(&info->tty_tsklt);
+		return;
+	}
+	spin_unlock_irqrestore(&info->reset_lock, flags);
 }
 
 static void smd_tty_read(unsigned long param)
@@ -163,6 +171,12 @@ static void smd_tty_notify(void *priv, unsigned event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
+		spin_lock_irqsave(&info->reset_lock, flags);
+		if (!info->is_open) {
+			spin_unlock_irqrestore(&info->reset_lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&info->reset_lock, flags);
 		/* There may be clients (tty framework) that are blocked
 		 * waiting for space to write data, so if a possible read
 		 * interrupt came in wake anyone waiting and disable the
@@ -390,8 +404,15 @@ static int smd_tty_chars_in_buffer(struct tty_struct *tty)
 static void smd_tty_unthrottle(struct tty_struct *tty)
 {
 	struct smd_tty_info *info = tty->driver_data;
-	tasklet_hi_schedule(&info->tty_tsklt);
-	return;
+	unsigned long flags;
+
+	spin_lock_irqsave(&info->reset_lock, flags);
+	if (info->is_open) {
+		spin_unlock_irqrestore(&info->reset_lock, flags);
+		tasklet_hi_schedule(&info->tty_tsklt);
+		return;
+	}
+	spin_unlock_irqrestore(&info->reset_lock, flags);
 }
 
 /*
