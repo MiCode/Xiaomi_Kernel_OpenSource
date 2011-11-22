@@ -323,12 +323,16 @@ out:
 static void smd_tty_close(struct tty_struct *tty, struct file *f)
 {
 	struct smd_tty_info *info = tty->driver_data;
+	unsigned long flags;
 
 	if (info == 0)
 		return;
 
 	mutex_lock(&smd_tty_lock);
 	if (--info->open_count == 0) {
+		spin_lock_irqsave(&info->reset_lock, flags);
+		info->is_open = 0;
+		spin_unlock_irqrestore(&info->reset_lock, flags);
 		if (info->tty) {
 			tasklet_kill(&info->tty_tsklt);
 			wake_lock_destroy(&info->wake_lock);
