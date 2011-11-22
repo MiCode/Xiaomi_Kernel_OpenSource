@@ -292,6 +292,17 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		queue_rx();
 		return;
 	}
+
+	if (rx_hdr->ch_id >= BAM_DMUX_NUM_CHANNELS) {
+		pr_err("%s: dropping invalid LCID %d reserved %d cmd %d"
+			" pad %d ch %d len %d\n", __func__,
+			rx_hdr->ch_id, rx_hdr->reserved, rx_hdr->cmd,
+			rx_hdr->pad_len, rx_hdr->ch_id, rx_hdr->pkt_len);
+		dev_kfree_skb_any(rx_skb);
+		queue_rx();
+		return;
+	}
+
 	switch (rx_hdr->cmd) {
 	case BAM_MUX_HDR_CMD_DATA:
 		DBG_INC_READ_CNT(rx_hdr->pkt_len);
