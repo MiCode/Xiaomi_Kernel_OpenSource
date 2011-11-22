@@ -615,10 +615,21 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
+	/*
+	 * a video kickoff may happen before UI kickoff after
+	 * blt enabled. mdp4_overlay_update_dsi_cmd() need
+	 * to be called before kickoff.
+	 * vice versa for blt disabled.
+	 */
 	if (dsi_pipe->blt_addr && dsi_pipe->blt_cnt == 0)
-		mdp4_overlay_update_dsi_cmd(mfd);
+		mdp4_overlay_update_dsi_cmd(mfd); /* first time */
+	else if (dsi_pipe->blt_addr == 0  && dsi_pipe->blt_cnt) {
+		mdp4_overlay_update_dsi_cmd(mfd); /* last time */
+		dsi_pipe->blt_cnt = 0;
+	}
 
-	pr_debug("%s: pid=%d\n", __func__, current->pid);
+	pr_debug("%s: blt_addr=%d blt_cnt=%d\n",
+		__func__, (int)dsi_pipe->blt_addr, dsi_pipe->blt_cnt);
 
 	if (dsi_pipe->blt_addr)
 		mdp4_dsi_blt_dmap_busy_wait(dsi_mfd);
