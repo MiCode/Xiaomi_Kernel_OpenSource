@@ -753,7 +753,8 @@ static struct page *
 hotremove_migrate_alloc(struct page *page, unsigned long private, int **x)
 {
 	/* This should be improooooved!! */
-	return alloc_page(GFP_HIGHUSER_MOVABLE);
+	return alloc_page(GFP_HIGHUSER_MOVABLE | __GFP_NORETRY | __GFP_NOWARN |
+				__GFP_NOMEMALLOC);
 }
 
 #define NR_OFFLINE_AT_ONCE_PAGES	(256)
