@@ -357,6 +357,7 @@ static void __ptm_trace_enable(void)
 		ptm_writel(ptm, cpu, ptm.cfg.extnd_ext_input_sel, ETMEXTINSELR);
 		ptm_writel(ptm, cpu, ptm.cfg.ts_event, ETMTSEVR);
 		ptm_writel(ptm, cpu, ptm.cfg.aux_control, ETMAUXCR);
+		ptm_writel(ptm, cpu, cpu+1, ETMTRACEIDR);
 		ptm_writel(ptm, cpu, ptm.cfg.vmid_comp_value, ETMVMIDCVR);
 
 		ptm_clear_prog(cpu);
@@ -640,6 +641,7 @@ static void ptm_save_reg(int cpu)
 	ptm.state[i++] = ptm_readl(ptm, cpu, ETMEXTINSELR);
 	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTSEVR);
 	ptm.state[i++] = ptm_readl(ptm, cpu, ETMAUXCR);
+	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTRACEIDR);
 	ptm.state[i++] = ptm_readl(ptm, cpu, ETMVMIDCVR);
 	ptm.state[i++] = ptm_readl(ptm, cpu, CS_CLAIMSET);
 	ptm.state[i++] = ptm_readl(ptm, cpu, CS_CLAIMCLR);
@@ -696,6 +698,7 @@ static void ptm_restore_reg(int cpu)
 	ptm_writel(ptm, cpu, ptm.state[i++], ETMEXTINSELR);
 	ptm_writel(ptm, cpu, ptm.state[i++], ETMTSEVR);
 	ptm_writel(ptm, cpu, ptm.state[i++], ETMAUXCR);
+	ptm_writel(ptm, cpu, ptm.state[i++], ETMTRACEIDR);
 	ptm_writel(ptm, cpu, ptm.state[i++], ETMVMIDCVR);
 	ptm_writel(ptm, cpu, ptm.state[i++], CS_CLAIMSET);
 	ptm_writel(ptm, cpu, ptm.state[i++], CS_CLAIMCLR);
