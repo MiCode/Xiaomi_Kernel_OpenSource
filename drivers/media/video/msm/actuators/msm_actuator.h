@@ -18,6 +18,24 @@
 #include <media/msm_camera.h>
 #include "msm_camera_i2c.h"
 
+#ifdef LERROR
+#undef LERROR
+#endif
+
+#ifdef LINFO
+#undef LINFO
+#endif
+
+#define LERROR(fmt, args...) pr_err(fmt, ##args)
+
+#define CONFIG_MSM_CAMERA_ACT_DBG 0
+
+#if CONFIG_MSM_CAMERA_ACT_DBG
+#define LINFO(fmt, args...) printk(fmt, ##args)
+#else
+#define LINFO(fmt, args...) CDBG(fmt, ##args)
+#endif
+
 struct msm_actuator_ctrl_t;
 
 struct region_params_t {

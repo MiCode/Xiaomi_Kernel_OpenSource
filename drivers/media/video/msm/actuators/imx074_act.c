@@ -12,7 +12,6 @@
  */
 
 #include "msm_actuator.h"
-#include "msm_logging.h"
 #include "msm_camera_i2c.h"
 
 #define	IMX074_TOTAL_STEPS_NEAR_TO_FAR			41

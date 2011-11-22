@@ -11,10 +11,6 @@
  */
 
 #include "msm_actuator.h"
-#include "msm_logging.h"
-
-LDECVAR(a_profstarttime);
-LDECVAR(a_profendtime);
 
 int32_t msm_actuator_write_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
