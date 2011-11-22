@@ -9292,7 +9292,7 @@ static int mipi_dsi_panel_power(int on)
 			goto out;
 	} else {
 		/* set ldo0 to LPM */
-		rc = regulator_set_optimum_mode(ldo0, 9000);
+		rc = regulator_set_optimum_mode(ldo0, 1000);
 		if (rc < 0)
 			goto out;
 	}
