@@ -761,6 +761,12 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("dfab_clk",		DFAB_CLK,		NULL, 0),
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,		NULL, 0),
 	CLK_DUMMY("mem_clk",		EBI1_ADM_CLK,	  "msm_dmov", 0),
+	CLK_DUMMY("ce3_core_src_clk",	CE3_SRC_CLK,     "qce.0", OFF),
+	CLK_DUMMY("ce3_core_src_clk",	CE3_SRC_CLK, "qcrypto.0", OFF),
+	CLK_DUMMY("core_clk",		CE3_CORE_CLK,	      "qce.0", OFF),
+	CLK_DUMMY("core_clk",		CE3_CORE_CLK,	  "qcrypto.0", OFF),
+	CLK_DUMMY("iface_clk",		CE3_P_CLK,	     "qce0.0", OFF),
+	CLK_DUMMY("iface_clk",		CE3_P_CLK,	  "qcrypto.0", OFF),
 };
 
 struct clock_init_data apq8064_dummy_clock_init_data __initdata = {
