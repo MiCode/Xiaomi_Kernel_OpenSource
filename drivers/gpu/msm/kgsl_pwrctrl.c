@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -23,7 +24,6 @@
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
 
-#define GPU_SWFI_LATENCY	3
 #define UPDATE_BUSY_VAL		1000000
 #define UPDATE_BUSY		50
 
@@ -731,9 +731,8 @@ clk_off:
 
 	device->state = device->requested_state;
 	device->requested_state = KGSL_STATE_NONE;
-	wake_unlock(&device->idle_wakelock);
-	pm_qos_update_request(&device->pm_qos_req_dma,
-				PM_QOS_DEFAULT_VALUE);
+	if (device->idle_wakelock.name)
+		wake_unlock(&device->idle_wakelock);
 	KGSL_PWR_WARN(device, "state -> NAP/SLEEP(%d), device %d\n",
 				  device->state, device->id);
 
@@ -786,8 +785,9 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 	mod_timer(&device->idle_timer,
 				jiffies + device->pwrctrl.interval_timeout);
 
-	wake_lock(&device->idle_wakelock);
-	pm_qos_update_request(&device->pm_qos_req_dma, GPU_SWFI_LATENCY);
+	if (device->idle_wakelock.name)
+		wake_lock(&device->idle_wakelock);
+
 	KGSL_PWR_INFO(device, "wake return for device %d\n", device->id);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_wake);
