@@ -4921,9 +4921,9 @@ static struct measure_sel measure_mux[] = {
 
 	{ TEST_LPA_HS(0x00), &q6_func_clk },
 
-	{ TEST_CPUL2(0x1), &l2_m_clk },
-	{ TEST_CPUL2(0x2), &krait0_m_clk },
-	{ TEST_CPUL2(0x3), &krait1_m_clk },
+	{ TEST_CPUL2(0x2), &l2_m_clk },
+	{ TEST_CPUL2(0x0), &krait0_m_clk },
+	{ TEST_CPUL2(0x1), &krait1_m_clk },
 };
 
 static struct measure_sel *find_measure_sel(struct clk *clk)
