@@ -21,6 +21,7 @@
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
+#include <mach/peripheral-loader.h>
 #include "smd_private.h"
 #include "ramdump.h"
 
@@ -35,10 +36,14 @@ static DECLARE_WORK(riva_fatal_work, riva_fatal_fn);
 static void *riva_ramdump_dev;
 static int riva_crash;
 static int ss_restart_inprogress;
+static int enable_riva_ssr;
 
 static void riva_smsm_cb_fn(struct work_struct *work)
 {
-	panic(MODULE_NAME ": SMSM reset request received from Riva");
+	if (!enable_riva_ssr)
+		panic(MODULE_NAME ": SMSM reset request received from Riva");
+	else
+		subsystem_restart("riva");
 }
 
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
@@ -74,13 +79,13 @@ static void smsm_riva_reset(void)
 /* Subsystem handlers */
 static int riva_shutdown(const struct subsys_data *subsys)
 {
-	/* TODO for phase 3 */
+	pil_force_shutdown("wcnss");
 	return 0;
 }
 
 static int riva_powerup(const struct subsys_data *subsys)
 {
-	/* TODO for phase 3 */
+	pil_force_boot("wcnss");
 	return 0;
 }
 
@@ -117,6 +122,23 @@ static struct subsys_data riva_8960 = {
 	.ramdump = riva_ramdump,
 	.crash_shutdown = riva_crash_shutdown
 };
+
+static int enable_riva_ssr_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_int(val, kp);
+	if (ret)
+		return ret;
+
+	if (enable_riva_ssr)
+		pr_info(MODULE_NAME ": Subsystem restart activated for riva.\n");
+
+	return 0;
+}
+
+module_param_call(enable_riva_ssr, enable_riva_ssr_set, param_get_int,
+			&enable_riva_ssr, S_IRUGO | S_IWUSR);
 
 static int __init riva_restart_init(void)
 {
