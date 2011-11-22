@@ -544,6 +544,7 @@ BUILTIN_OBJS += $(OUTPUT)builtin-list.o
 BUILTIN_OBJS += $(OUTPUT)builtin-record.o
 BUILTIN_OBJS += $(OUTPUT)builtin-report.o
 BUILTIN_OBJS += $(OUTPUT)builtin-stat.o
+BUILTIN_OBJS += $(OUTPUT)builtin-periodic.o
 BUILTIN_OBJS += $(OUTPUT)builtin-timechart.o
 BUILTIN_OBJS += $(OUTPUT)builtin-top.o
 BUILTIN_OBJS += $(OUTPUT)builtin-script.o
