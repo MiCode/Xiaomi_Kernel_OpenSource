@@ -1871,7 +1871,8 @@ config MSM_SHARED_GPIO_FOR_UART2DM
 
 config MSM_SHOW_RESUME_IRQ
 	bool "Enable logging of interrupts that could have caused resume"
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSMCOPPER)
+	depends on (ARM_GIC || PMIC8058)
+	default y if PMIC8058
 	default n
 	help
 		This option logs wake up interrupts that have triggered just before
