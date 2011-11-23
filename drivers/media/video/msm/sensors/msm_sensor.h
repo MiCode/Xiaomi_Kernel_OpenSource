@@ -99,18 +99,6 @@ struct msm_sensor_fn_t {
 	void (*sensor_group_hold_on) (struct msm_sensor_ctrl_t *);
 	void (*sensor_group_hold_off) (struct msm_sensor_ctrl_t *);
 
-	uint16_t (*sensor_get_prev_lines_pf)
-		(struct msm_sensor_ctrl_t *);
-	uint16_t (*sensor_get_prev_pixels_pl)
-		(struct msm_sensor_ctrl_t *);
-	uint16_t (*sensor_get_pict_lines_pf)
-		(struct msm_sensor_ctrl_t *);
-	uint16_t (*sensor_get_pict_pixels_pl)
-		(struct msm_sensor_ctrl_t *);
-	uint32_t (*sensor_get_pict_max_exp_lc)
-		(struct msm_sensor_ctrl_t *);
-	void (*sensor_get_pict_fps) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint16_t *);
 	int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
 			struct fps_cfg *);
 	int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
@@ -153,10 +141,7 @@ struct msm_sensor_ctrl_t {
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
 
-	uint16_t fps;
 	uint32_t fps_divider;
-	enum msm_sensor_resolution_t prev_res;
-	enum msm_sensor_resolution_t pict_res;
 	enum msm_sensor_resolution_t curr_res;
 	enum msm_sensor_cam_mode_t cam_mode;
 
@@ -176,13 +161,6 @@ void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_group_hold_on(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_group_hold_off(struct msm_sensor_ctrl_t *s_ctrl);
 
-uint16_t msm_sensor_get_prev_lines_pf(struct msm_sensor_ctrl_t *s_ctrl);
-uint16_t msm_sensor_get_prev_pixels_pl(struct msm_sensor_ctrl_t *s_ctrl);
-uint16_t msm_sensor_get_pict_lines_pf(struct msm_sensor_ctrl_t *s_ctrl);
-uint16_t msm_sensor_get_pict_pixels_pl(struct msm_sensor_ctrl_t *s_ctrl);
-uint32_t msm_sensor_get_pict_max_exp_lc(struct msm_sensor_ctrl_t *s_ctrl);
-void msm_sensor_get_pict_fps(struct msm_sensor_ctrl_t *s_ctrl,
-			uint16_t fps, uint16_t *pfps);
 int32_t msm_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 			struct fps_cfg   *fps);
 int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
