@@ -283,7 +283,7 @@ static int mxt_write_block_bl(struct i2c_client *client, u16 length, u8 *value);
 #endif
 
 /**
- * struct mxt_platform_data - includes platform specific informatio
+ * struct maxtouch_platform_data - includes platform specific informatio
  * related to Atmel maXTouch touchscreen controller.
  * 
  * @numtouch:           Number of simultaneous touches supported
@@ -298,7 +298,7 @@ static int mxt_write_block_bl(struct i2c_client *client, u16 length, u8 *value);
  * @max_y:              Reported Y range
  */
  
-struct mxt_platform_data {
+struct maxtouch_platform_data {
 	u8    numtouch;	/* Number of touches to report	*/
 	int   (*init_platform_hw)(struct i2c_client *client);
 	int   (*exit_platform_hw)(struct i2c_client *client);

@@ -3041,7 +3041,7 @@ static u8 atmel_ts_valid_interrupt(void)
 #define ATMEL_X_OFFSET 13
 #define ATMEL_Y_OFFSET 0
 
-static struct mxt_platform_data atmel_ts_pdata = {
+static struct maxtouch_platform_data atmel_ts_pdata = {
 	.numtouch = 4,
 	.init_platform_hw = atmel_ts_platform_init,
 	.exit_platform_hw = atmel_ts_platform_exit,
