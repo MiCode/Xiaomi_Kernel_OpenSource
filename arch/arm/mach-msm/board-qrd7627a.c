@@ -832,8 +832,37 @@ static struct platform_device kp_pdev_8625 = {
 	},
 };
 
+#define LED_RED_GPIO_8625 49
+#define LED_GREEN_GPIO_8625 34
+
+static struct gpio_led gpio_leds_config_8625[] = {
+	{
+		.name = "green",
+		.gpio = LED_GREEN_GPIO_8625,
+	},
+	{
+		.name = "red",
+		.gpio = LED_RED_GPIO_8625,
+	},
+};
+
+static struct gpio_led_platform_data gpio_leds_pdata_8625 = {
+	.num_leds = ARRAY_SIZE(gpio_leds_config_8625),
+	.leds = gpio_leds_config_8625,
+};
+
+static struct platform_device gpio_leds_8625 = {
+	.name          = "leds-gpio",
+	.id            = -1,
+	.dev           = {
+		.platform_data = &gpio_leds_pdata_8625,
+	},
+};
+
 static void msm7627a_add_io_devices(void)
 {
+	int rc;
+
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
 	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
 	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
@@ -849,6 +878,27 @@ static void msm7627a_add_io_devices(void)
 	/* keypad */
 	if (machine_is_msm7627a_evb())
 		platform_device_register(&kp_pdev_8625);
+
+	/* leds */
+	if (machine_is_msm7627a_evb()) {
+		rc = gpio_tlmm_config(GPIO_CFG(LED_RED_GPIO_8625, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_16MA), GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s: gpio_tlmm_config for %d failed\n",
+				__func__, LED_RED_GPIO_8625);
+		}
+
+		rc = gpio_tlmm_config(GPIO_CFG(LED_GREEN_GPIO_8625, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_16MA), GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s: gpio_tlmm_config for %d failed\n",
+				__func__, LED_GREEN_GPIO_8625);
+		}
+
+		platform_device_register(&gpio_leds_8625);
+	}
 }
 
 #define UART1DM_RX_GPIO		45
