@@ -65,10 +65,6 @@ static ssize_t msm_rpmrs_resource_attr_show(
 static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count);
 
-static  void *msm_rpmrs_l2_counter_addr;
-static  int msm_rpmrs_l2_reset_count;
-#define L2_PC_COUNTER_ADDR 0x660
-
 #define MSM_RPMRS_MAX_RS_REGISTER_COUNT 2
 
 #define RPMRS_ATTR(_name) \
@@ -509,11 +505,6 @@ static int msm_rpmrs_flush_L2(struct msm_rpmrs_limits *limits, int notify_rpm)
 	switch (limits->l2_cache) {
 	case MSM_RPMRS_L2_CACHE_HSFS_OPEN:
 		lpm = MSM_SPM_L2_MODE_POWER_COLLAPSE;
-		/* Increment the counter for TZ to init L2  on warmboot */
-		/* Barrier in msm_spm_l2_set_low_power_mode */
-		BUG_ON(!msm_rpmrs_l2_counter_addr);
-		writel_relaxed(++msm_rpmrs_l2_reset_count,
-				msm_rpmrs_l2_counter_addr);
 		msm_pm_set_l2_flush_flag(1);
 		break;
 	case MSM_RPMRS_L2_CACHE_GDHS:
@@ -540,9 +531,6 @@ static void msm_rpmrs_L2_restore(struct msm_rpmrs_limits *limits,
 {
 	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
 	msm_pm_set_l2_flush_flag(0);
-	if (!collapsed && (limits->l2_cache == MSM_RPMRS_L2_CACHE_HSFS_OPEN))
-		writel_relaxed(--msm_rpmrs_l2_reset_count,
-				msm_rpmrs_l2_counter_addr);
 }
 #else
 static int msm_rpmrs_flush_L2(struct msm_rpmrs_limits *limits, int notify_rpm)
@@ -1059,13 +1047,9 @@ static int __init msm_rpmrs_early_init(void)
 }
 early_initcall(msm_rpmrs_early_init);
 
-static int __init msm_rpmrs_l2_counter_init(void)
+static int __init msm_rpmrs_l2_init(void)
 {
 	if (cpu_is_msm8960() || cpu_is_msm8930()) {
-		msm_rpmrs_l2_counter_addr = MSM_IMEM_BASE + L2_PC_COUNTER_ADDR;
-		writel_relaxed(msm_rpmrs_l2_reset_count,
-				msm_rpmrs_l2_counter_addr);
-		mb();
 
 		msm_pm_set_l2_flush_flag(0);
 
@@ -1073,6 +1057,7 @@ static int __init msm_rpmrs_l2_counter_init(void)
 			msm_spm_l2_cache_beyond_limits;
 		msm_rpmrs_l2_cache.aggregate = NULL;
 		msm_rpmrs_l2_cache.restore = NULL;
+
 		register_hotcpu_notifier(&rpmrs_cpu_notifier);
 
 	} else if (cpu_is_msm9615()) {
@@ -1082,4 +1067,4 @@ static int __init msm_rpmrs_l2_counter_init(void)
 	}
 	return 0;
 }
-early_initcall(msm_rpmrs_l2_counter_init);
+early_initcall(msm_rpmrs_l2_init);
