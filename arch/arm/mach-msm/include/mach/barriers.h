@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  *
  */
+#include <mach/memory.h>
+
 #define mb() do \
 	{ \
 		dsb();\
