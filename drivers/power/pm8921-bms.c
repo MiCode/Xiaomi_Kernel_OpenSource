@@ -151,6 +151,31 @@ module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
 static int bms_fake_battery;
 module_param(bms_fake_battery, int, 0644);
 
+/* bms_start_XXX and bms_end_XXX are read only */
+static int bms_start_percent;
+static int bms_start_ocv_uv;
+static int bms_start_cc_mah;
+static int bms_end_percent;
+static int bms_end_ocv_uv;
+static int bms_end_cc_mah;
+
+static int bms_ro_ops_set(const char *val, const struct kernel_param *kp)
+{
+	return -EINVAL;
+}
+
+static struct kernel_param_ops bms_ro_param_ops = {
+	.set = bms_ro_ops_set,
+	.get = param_get_int,
+};
+module_param_cb(bms_start_percent, &bms_ro_param_ops, &bms_start_percent, 0644);
+module_param_cb(bms_start_ocv_uv, &bms_ro_param_ops, &bms_start_ocv_uv, 0644);
+module_param_cb(bms_start_cc_mah, &bms_ro_param_ops, &bms_start_cc_mah, 0644);
+
+module_param_cb(bms_end_percent, &bms_ro_param_ops, &bms_end_percent, 0644);
+module_param_cb(bms_end_ocv_uv, &bms_ro_param_ops, &bms_end_ocv_uv, 0644);
+module_param_cb(bms_end_cc_mah, &bms_ro_param_ops, &bms_end_cc_mah, 0644);
+
 static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp);
 static void readjust_fcc_table(void)
 {
@@ -1241,7 +1266,28 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 
 void pm8921_bms_charging_began(void)
 {
-	the_chip->start_percent = pm8921_bms_get_percent_charge();
+	int batt_temp, coulumb_counter, rc;
+	struct pm8xxx_adc_chan_result result;
+	struct pm8921_soc_params raw;
+
+	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+				the_chip->batt_temp_channel, rc);
+		return;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+
+	read_soc_params_raw(the_chip, &raw);
+
+	the_chip->start_percent = calculate_state_of_charge(the_chip, &raw,
+					batt_temp, last_chargecycles);
+	bms_start_percent = the_chip->start_percent;
+	bms_start_ocv_uv = raw.last_good_ocv_uv;
+	calculate_cc_mah(the_chip, raw.cc, &bms_start_cc_mah, &coulumb_counter);
+
 	pr_debug("start_percent = %u%%\n", the_chip->start_percent);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
@@ -1249,7 +1295,7 @@ EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 #define DELTA_FCC_PERCENT	3
 void pm8921_bms_charging_end(int is_battery_full)
 {
-	int batt_temp, rc;
+	int batt_temp, coulumb_counter, rc;
 	struct pm8xxx_adc_chan_result result;
 	struct pm8921_soc_params raw;
 
@@ -1299,6 +1345,11 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	the_chip->end_percent = calculate_state_of_charge(the_chip, &raw,
 					batt_temp, last_chargecycles);
+
+	bms_end_percent = the_chip->end_percent;
+	bms_end_ocv_uv = raw.last_good_ocv_uv;
+	calculate_cc_mah(the_chip, raw.cc, &bms_end_cc_mah, &coulumb_counter);
+
 	if (the_chip->end_percent > the_chip->start_percent) {
 		last_charge_increase =
 			the_chip->end_percent - the_chip->start_percent;
