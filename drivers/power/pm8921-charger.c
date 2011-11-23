@@ -1367,6 +1367,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 		notify_usb_of_the_plugin_event(usb_present);
 		chip->usb_present = usb_present;
 		power_supply_changed(&chip->usb_psy);
+		power_supply_changed(&chip->batt_psy);
 	}
 	bms_notify_check(chip);
 }
@@ -1451,6 +1452,7 @@ static void handle_dc_removal_insertion(struct pm8921_chg_chip *chip)
 	if (chip->dc_present ^ dc_present) {
 		chip->dc_present = dc_present;
 		power_supply_changed(&chip->dc_psy);
+		power_supply_changed(&chip->batt_psy);
 	}
 	bms_notify_check(chip);
 }
