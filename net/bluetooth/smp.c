@@ -1020,11 +1020,15 @@ static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 		*keydist &= ~SMP_DIST_SIGN;
 	}
 
-	if (hcon->out || rsp->resp_key_dist) {
+	if (hcon->out) {
 		if (hcon->disconn_cfm_cb)
 			hcon->disconn_cfm_cb(hcon, 0);
-
 		del_timer(&hcon->smp_timer);
+		clear_bit(HCI_CONN_ENCRYPT_PEND, &hcon->pend);
+		hci_conn_put(hcon);
+	} else if (rsp->resp_key_dist) {
+		if (hcon->disconn_cfm_cb)
+			hcon->disconn_cfm_cb(hcon, SMP_UNSPECIFIED);
 		clear_bit(HCI_CONN_ENCRYPT_PEND, &hcon->pend);
 		mgmt_auth_failed(hcon->hdev->id, conn->dst, SMP_UNSPECIFIED);
 		hci_conn_put(hcon);
