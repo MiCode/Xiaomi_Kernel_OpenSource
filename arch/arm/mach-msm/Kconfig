@@ -227,6 +227,7 @@ config ARCH_FSM9XXX
 	select MSM_REMOTE_SPINLOCK_LDREX
 	select FSM9XXX_TLMM
 	select MULTI_IRQ_HANDLER
+	select MSM_DALRPC
 
 config ARCH_MSM9615
 	bool "MSM9615"
@@ -1311,8 +1312,7 @@ config MSM_SDIO_SMEM
 
 config MSM_DALRPC
 	bool "DAL RPC support"
-	depends on ARCH_MSM_SCORPION || ARCH_MSM_KRAIT
-	default y
+	default n
 	help
 	  Supports RPC calls to DAL devices on remote processor cores.
 
