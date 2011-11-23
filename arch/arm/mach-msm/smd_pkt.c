@@ -63,7 +63,6 @@ struct smd_pkt_dev {
 	int i;
 
 	int blocking_write;
-	int needed_space;
 	int is_open;
 	unsigned ch_size;
 	uint open_modem_wait;
@@ -155,7 +154,7 @@ static void clean_and_signal(struct smd_pkt_dev *smd_pkt_devp)
 	smd_pkt_devp->is_open = 0;
 
 	wake_up(&smd_pkt_devp->ch_read_wait_queue);
-	wake_up_interruptible(&smd_pkt_devp->ch_write_wait_queue);
+	wake_up(&smd_pkt_devp->ch_write_wait_queue);
 	wake_up_interruptible(&smd_pkt_devp->ch_opened_wait_queue);
 }
 
@@ -305,7 +304,7 @@ ssize_t smd_pkt_write(struct file *file,
 		       size_t count,
 		       loff_t *ppos)
 {
-	int r = 0;
+	int r = 0, bytes_written;
 	struct smd_pkt_dev *smd_pkt_devp;
 	DEFINE_WAIT(write_wait);
 
@@ -317,84 +316,56 @@ ssize_t smd_pkt_write(struct file *file,
 	if (!smd_pkt_devp || !smd_pkt_devp->ch)
 		return -EINVAL;
 
-	if (count > smd_pkt_devp->ch_size)
-		return -EINVAL;
-
 	if (smd_pkt_devp->do_reset_notification) {
 		/* notify client that a reset occurred */
 		return notify_reset(smd_pkt_devp);
 	}
 
-	if (smd_pkt_devp->blocking_write) {
-		for (;;) {
-			mutex_lock(&smd_pkt_devp->tx_lock);
-			if (smd_pkt_devp->has_reset) {
-				smd_disable_read_intr(smd_pkt_devp->ch);
-				mutex_unlock(&smd_pkt_devp->tx_lock);
-				return notify_reset(smd_pkt_devp);
-			}
-			if (signal_pending(current)) {
-				smd_disable_read_intr(smd_pkt_devp->ch);
-				mutex_unlock(&smd_pkt_devp->tx_lock);
-				return -ERESTARTSYS;
-			}
-
-			prepare_to_wait(&smd_pkt_devp->ch_write_wait_queue,
-					&write_wait, TASK_INTERRUPTIBLE);
-			smd_enable_read_intr(smd_pkt_devp->ch);
-			if (smd_write_avail(smd_pkt_devp->ch) < count) {
-				if (!smd_pkt_devp->needed_space ||
-				    count < smd_pkt_devp->needed_space)
-					smd_pkt_devp->needed_space = count;
-				mutex_unlock(&smd_pkt_devp->tx_lock);
-				schedule();
-			} else
-				break;
-		}
-		finish_wait(&smd_pkt_devp->ch_write_wait_queue, &write_wait);
-		smd_disable_read_intr(smd_pkt_devp->ch);
-		if (smd_pkt_devp->has_reset) {
-			mutex_unlock(&smd_pkt_devp->tx_lock);
-			return notify_reset(smd_pkt_devp);
-		}
-		if (signal_pending(current)) {
-			mutex_unlock(&smd_pkt_devp->tx_lock);
-			return -ERESTARTSYS;
-		}
-	} else {
-		if (smd_pkt_devp->has_reset)
-			return notify_reset(smd_pkt_devp);
-		if (signal_pending(current))
-			return -ERESTARTSYS;
-
-		mutex_lock(&smd_pkt_devp->tx_lock);
+	mutex_lock(&smd_pkt_devp->tx_lock);
+	if (!smd_pkt_devp->blocking_write) {
 		if (smd_write_avail(smd_pkt_devp->ch) < count) {
 			D(KERN_ERR "%s: Not enough space to write\n",
-				    __func__);
+				   __func__);
 			mutex_unlock(&smd_pkt_devp->tx_lock);
 			return -ENOMEM;
 		}
 	}
 
-	D_DUMP_BUFFER("write: ", count, buf);
-
-	smd_pkt_devp->needed_space = 0;
-
-	r = smd_write_user_buffer(smd_pkt_devp->ch, buf, count);
-	if (r != count) {
+	r = smd_write_start(smd_pkt_devp->ch, count);
+	if (r < 0) {
 		mutex_unlock(&smd_pkt_devp->tx_lock);
-		if (smd_pkt_devp->has_reset)
-			return notify_reset(smd_pkt_devp);
-
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
-		       "smd_write(ch,buf,count = %i) ret %i.\n",
-		       __FILE__,
-		       __LINE__,
-		       __func__,
-		       count,
-		       r);
+		pr_err("%s: Error %d @ smd_write_start\n", __func__, r);
 		return r;
 	}
+
+	bytes_written = 0;
+	do {
+		prepare_to_wait(&smd_pkt_devp->ch_write_wait_queue,
+				&write_wait, TASK_UNINTERRUPTIBLE);
+		if (!smd_write_avail(smd_pkt_devp->ch) &&
+		    !smd_pkt_devp->has_reset) {
+			smd_enable_read_intr(smd_pkt_devp->ch);
+			schedule();
+		}
+		finish_wait(&smd_pkt_devp->ch_write_wait_queue, &write_wait);
+		smd_disable_read_intr(smd_pkt_devp->ch);
+
+		if (smd_pkt_devp->has_reset) {
+			mutex_unlock(&smd_pkt_devp->tx_lock);
+			return notify_reset(smd_pkt_devp);
+		} else {
+			r = smd_write_segment(smd_pkt_devp->ch,
+					      (void *)(buf + bytes_written),
+					      (count - bytes_written), 1);
+			if (r < 0) {
+				mutex_unlock(&smd_pkt_devp->tx_lock);
+				if (smd_pkt_devp->has_reset)
+					return notify_reset(smd_pkt_devp);
+			}
+			bytes_written += r;
+		}
+	} while (bytes_written != count);
+	smd_write_end(smd_pkt_devp->ch);
 	mutex_unlock(&smd_pkt_devp->tx_lock);
 
 	D(KERN_ERR "%s: just wrote %i bytes\n",
@@ -451,11 +422,11 @@ static void check_and_wakeup_writer(struct smd_pkt_dev *smd_pkt_devp)
 		return;
 
 	sz = smd_write_avail(smd_pkt_devp->ch);
-	if (sz >= smd_pkt_devp->needed_space) {
+	if (sz) {
 		D(KERN_ERR "%s: %d bytes Write Space available\n",
 			    __func__, sz);
 		smd_disable_read_intr(smd_pkt_devp->ch);
-		wake_up_interruptible(&smd_pkt_devp->ch_write_wait_queue);
+		wake_up(&smd_pkt_devp->ch_write_wait_queue);
 	}
 }
 
