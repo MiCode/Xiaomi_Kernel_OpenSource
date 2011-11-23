@@ -113,7 +113,7 @@ static int rpm_change_memory_state(int retention_mask,
 
 static int switch_memory_state(int id, int new_state)
 {
-	int mask;
+	int mask = 0;
 	int power_down_masks[MAX_NR_REGIONS] = { 0xFFFFFF00, 0xFFFF00FF,
 						0xFF00FFFF, 0x00FFFFFF };
 	int self_refresh_masks[MAX_NR_REGIONS] = { 0xFFFFFFF0, 0xFFFFFF0F,
