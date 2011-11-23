@@ -727,13 +727,19 @@ enum search_t {
 #define RSB_CALIB_SIZE    4
 #define CALIB_DATA_OFSET  2
 #define CALIB_MODE_OFSET  1
-
 #define MAX_CALIB_SIZE 75
-struct hci_fm_set_cal_req {
+struct hci_fm_set_cal_req_proc {
 	__u8    mode;
-	/*Max calibration data size*/
-	__u8    data[MAX_CALIB_SIZE];
+	/*Max process calibration data size*/
+	__u8    data[PROCS_CALIB_SIZE];
 } __packed;
+
+struct hci_fm_set_cal_req_dc {
+	__u8    mode;
+	/*Max DC calibration data size*/
+	__u8    data[DC_CALIB_SIZE];
+} __packed;
+
 struct hci_cc_do_calibration_rsp {
 	__u8 status;
 	__u8 mode;

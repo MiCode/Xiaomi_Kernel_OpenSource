@@ -1352,18 +1352,30 @@ static int hci_ssbi_poke_reg(struct hci_fm_ssbi_req *arg,
 	return ret;
 }
 
-static int hci_fm_set_cal_req(struct radio_hci_dev *hdev,
+static int hci_fm_set_cal_req_proc(struct radio_hci_dev *hdev,
 		unsigned long param)
 {
 	u16 opcode = 0;
-	struct hci_fm_set_cal_req *cal_req =
-		(struct hci_fm_set_cal_req *)param;
+	struct hci_fm_set_cal_req_proc *cal_req =
+		(struct hci_fm_set_cal_req_proc *)param;
 
 	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
 		HCI_OCF_FM_SET_CALIBRATION);
-	return radio_hci_send_cmd(hdev, opcode, sizeof((*hci_fm_set_cal_req)),
+	return radio_hci_send_cmd(hdev, opcode, sizeof(*cal_req),
 		cal_req);
+}
 
+static int hci_fm_set_cal_req_dc(struct radio_hci_dev *hdev,
+		unsigned long param)
+{
+	u16 opcode = 0;
+	struct hci_fm_set_cal_req_dc *cal_req =
+		(struct hci_fm_set_cal_req_dc *)param;
+
+	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
+		HCI_OCF_FM_SET_CALIBRATION);
+	return radio_hci_send_cmd(hdev, opcode, sizeof(*cal_req),
+		cal_req);
 }
 
 static int hci_fm_do_cal_req(struct radio_hci_dev *hdev,
@@ -2525,7 +2537,8 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct hci_fm_tx_ps tx_ps;
 	struct hci_fm_tx_rt tx_rt;
 	struct hci_fm_def_data_wr_req default_data;
-	struct hci_fm_set_cal_req cal_req;
+	struct hci_fm_set_cal_req_proc proc_cal_req;
+	struct hci_fm_set_cal_req_dc dc_cal_req;
 
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
@@ -2579,24 +2592,33 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		retval = hci_def_data_write(&default_data, radio->fm_hdev);
 			break;
 	case V4L2_CID_PRIVATE_IRIS_SET_CALIBRATION:
-		FMDERR("In Set Calibration");
 		data = (ctrl->controls[0]).string;
 		bytes_to_copy = (ctrl->controls[0]).size;
-		memset(cal_req.data, 0, MAX_CALIB_SIZE);
-		cal_req.mode = PROCS_CALIB_MODE;
-		if (copy_from_user(&cal_req.data[0],
-				data, PROCS_CALIB_SIZE))
+		if (bytes_to_copy < (PROCS_CALIB_SIZE + DC_CALIB_SIZE)) {
+			FMDERR("data is less than required size");
+			return -EFAULT;
+		}
+		memset(proc_cal_req.data, 0, PROCS_CALIB_SIZE);
+		proc_cal_req.mode = PROCS_CALIB_MODE;
+		if (copy_from_user(&proc_cal_req.data[0],
+				data, sizeof(proc_cal_req.data)))
 				return -EFAULT;
-		retval = radio_hci_request(radio->fm_hdev, hci_fm_set_cal_req,
-				(unsigned long)&cal_req, RADIO_HCI_TIMEOUT);
-		if (retval < 0)
+		retval = radio_hci_request(radio->fm_hdev,
+				hci_fm_set_cal_req_proc,
+				(unsigned long)&proc_cal_req,
+				 RADIO_HCI_TIMEOUT);
+		if (retval < 0) {
 			FMDERR("Set Process calibration failed %d", retval);
-		if (copy_from_user(&cal_req.data[PROCS_CALIB_SIZE],
-				data, DC_CALIB_SIZE))
+			return retval;
+		}
+		memset(dc_cal_req.data, 0, DC_CALIB_SIZE);
+		if (copy_from_user(&dc_cal_req.data[0], &data[PROCS_CALIB_SIZE],
+				sizeof(dc_cal_req.data)))
 				return -EFAULT;
-		cal_req.mode = DC_CALIB_MODE;
-		retval = radio_hci_request(radio->fm_hdev, hci_fm_set_cal_req,
-				(unsigned long)&cal_req, RADIO_HCI_TIMEOUT);
+		dc_cal_req.mode = DC_CALIB_MODE;
+		retval = radio_hci_request(radio->fm_hdev,
+				hci_fm_set_cal_req_dc,
+				(unsigned long)&dc_cal_req, RADIO_HCI_TIMEOUT);
 		if (retval < 0)
 			FMDERR("Set DC calibration failed %d", retval);
 		break;
@@ -3188,6 +3210,9 @@ static int __init iris_probe(struct platform_device *pdev)
 		if ((i == IRIS_BUF_RAW_RDS) || (i == IRIS_BUF_PEEK))
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				rds_buf*3, GFP_KERNEL);
+		else if (i == IRIS_BUF_CAL_DATA)
+			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
+				STD_BUF_SIZE*2, GFP_KERNEL);
 		else
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				STD_BUF_SIZE, GFP_KERNEL);
