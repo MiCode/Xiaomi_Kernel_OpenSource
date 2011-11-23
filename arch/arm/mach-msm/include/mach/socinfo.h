@@ -61,6 +61,7 @@ enum msm_cpu {
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 	MSM_CPU_COPPER,
+	MSM_CPU_8627,
 };
 
 enum msm_cpu socinfo_get_msm_cpu(void);
@@ -225,7 +226,18 @@ static inline int cpu_is_apq8064(void)
 static inline int cpu_is_msm8930(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
-	return read_msm_cpu_type() == MSM_CPU_8930;
+	return (read_msm_cpu_type() == MSM_CPU_8930) ||
+	       (read_msm_cpu_type() == MSM_CPU_8627);
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8627(void)
+{
+/* 8930 and 8627 will share the same CONFIG_ARCH type unless otherwise needed */
+#ifdef CONFIG_ARCH_MSM8930
+	return read_msm_cpu_type() == MSM_CPU_8627;
 #else
 	return 0;
 #endif
