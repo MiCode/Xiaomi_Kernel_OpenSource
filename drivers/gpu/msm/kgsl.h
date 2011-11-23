@@ -184,10 +184,14 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
-static inline bool timestamp_cmp(unsigned int new, unsigned int old)
+static inline int timestamp_cmp(unsigned int new, unsigned int old)
 {
 	int ts_diff = new - old;
-	return (ts_diff >= 0) || (ts_diff < -20000);
+
+	if (ts_diff == 0)
+		return 0;
+
+	return ((ts_diff > 0) || (ts_diff < -20000)) ? 1 : -1;
 }
 
 static inline void
