@@ -268,6 +268,10 @@ static int msm_isp_notify_vpe(struct v4l2_subdev *sd, void *arg)
 	struct msm_sync *sync =
 		(struct msm_sync *)v4l2_get_subdev_hostdata(sd);
 	struct msm_vpe_resp *vdata = (struct msm_vpe_resp *)arg;
+	if (sync == NULL) {
+		pr_err("%s: VPE subdev hostdata not set\n", __func__);
+		return -EINVAL;
+	}
 
 	msm_mctl_pp_notify(&sync->pcam_sync->mctl,
 		(struct msm_mctl_pp_frame_info *)vdata->extdata);
