@@ -1717,6 +1717,7 @@ static void tabla_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
 	default:
 		/* Should never reach here */
 		pr_err("%s: Invalid MIC BIAS for MBHC\n", __func__);
+		return;
 	}
 
 	micbias_regs->cfilt_sel = cfilt;
