@@ -1822,6 +1822,14 @@ config MSM_PIL_GSS
 	  Support for booting and shutting down Cortex A5 processors which run
 	  GPS subsystem firmware.
 
+config MSM_PIL_PRONTO
+	tristate "PRONTO (WCNSS) Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for booting and shutting down the PRONTO processor (WCNSS).
+	  PRONTO is the wireless subsystem processor used in bluetooth, wireless
+	  LAN, and FM software applications.
+
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
