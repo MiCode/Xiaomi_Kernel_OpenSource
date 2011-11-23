@@ -612,6 +612,8 @@ done:
 
 static int hci_dev_do_close(struct hci_dev *hdev)
 {
+	unsigned long keepflags = 0;
+
 	BT_DBG("%s %p", hdev->name, hdev);
 
 	hci_req_cancel(hdev, ENODEV);
@@ -669,8 +671,15 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	if (hdev->dev_type == HCI_BREDR)
 		mgmt_powered(hdev->id, 0);
 
-	/* Clear flags */
-	hdev->flags = 0;
+	/* Clear only non-persistent flags */
+	if (test_bit(HCI_MGMT, &hdev->flags))
+		set_bit(HCI_MGMT, &keepflags);
+	if (test_bit(HCI_LINK_KEYS, &hdev->flags))
+		set_bit(HCI_LINK_KEYS, &keepflags);
+	if (test_bit(HCI_DEBUG_KEYS, &hdev->flags))
+		set_bit(HCI_DEBUG_KEYS, &keepflags);
+
+	hdev->flags = keepflags;
 
 	hci_req_unlock(hdev);
 
