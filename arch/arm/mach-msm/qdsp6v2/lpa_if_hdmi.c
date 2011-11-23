@@ -184,13 +184,18 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 		}
 		break;
-	case AUDIO_SET_CONFIG:
+	case AUDIO_SET_CONFIG: {
+		/*  Setting default rate as 48khz */
+		unsigned int cur_sample_rate =
+			HDMI_SAMPLE_RATE_48KHZ;
+		struct msm_audio_config config;
+
 		pr_debug("AUDIO_SET_CONFIG\n");
-		if (copy_from_user(&lpa_if->dma_period_sz, (void *) arg,
-				sizeof(unsigned int))) {
-			pr_debug("%s:failed to copy from user\n", __func__);
+		if (copy_from_user(&config, (void *)arg, sizeof(config))) {
 			rc = -EFAULT;
+			break;
 		}
+		lpa_if->dma_period_sz = config.buffer_size;
 		if ((lpa_if->dma_period_sz * lpa_if->num_periods) >
 			DMA_ALLOC_BUF_SZ) {
 			pr_err("Dma buffer size greater than allocated size\n");
@@ -213,7 +218,40 @@ static long lpa_if_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			lpa_if->audio_buf[i].size = lpa_if->dma_period_sz;
 			lpa_if->audio_buf[i].used = 0;
 		}
+
+		pr_debug("Sample rate %d\n", config.sample_rate);
+		switch (config.sample_rate) {
+		case 48000:
+			cur_sample_rate = HDMI_SAMPLE_RATE_48KHZ;
+			break;
+		case 44100:
+			cur_sample_rate = HDMI_SAMPLE_RATE_44_1KHZ;
+			break;
+		case 32000:
+			cur_sample_rate = HDMI_SAMPLE_RATE_32KHZ;
+			break;
+		case 88200:
+			cur_sample_rate = HDMI_SAMPLE_RATE_88_2KHZ;
+			break;
+		case 96000:
+			cur_sample_rate = HDMI_SAMPLE_RATE_96KHZ;
+			break;
+		case 176400:
+			cur_sample_rate = HDMI_SAMPLE_RATE_176_4KHZ;
+			break;
+		case 192000:
+			cur_sample_rate = HDMI_SAMPLE_RATE_192KHZ;
+			break;
+		default:
+			cur_sample_rate = HDMI_SAMPLE_RATE_48KHZ;
+		}
+		if (cur_sample_rate != hdmi_msm_audio_get_sample_rate())
+			hdmi_msm_audio_sample_rate_reset(cur_sample_rate);
+		else
+			pr_debug("Previous sample rate and current"
+				"sample rate are same\n");
 		break;
+	}
 	default:
 		pr_err("UnKnown Ioctl\n");
 		rc = -EINVAL;
