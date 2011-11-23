@@ -2776,7 +2776,14 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_SRCH_CNT:
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SPACING:
-		radio->recv_conf.ch_spacing = ctrl->value;
+		if (radio->mode == FM_RECV) {
+			radio->recv_conf.ch_spacing = ctrl->value;
+			retval = hci_set_fm_recv_conf(
+					&radio->recv_conf,
+						radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("Error in setting channel spacing");
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_EMPHASIS:
 		switch (radio->mode) {
