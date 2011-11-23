@@ -1043,6 +1043,13 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	int fsm_state = pm_chg_get_fsm_state(chip);
 	int i;
 
+	if (chip->ext) {
+		if (chip->ext_charge_done)
+			return POWER_SUPPLY_STATUS_FULL;
+		if (chip->ext_charging)
+			return POWER_SUPPLY_STATUS_CHARGING;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(map); i++)
 		if (map[i].fsm_state == fsm_state)
 			batt_state = map[i].batt_state;
@@ -1378,6 +1385,7 @@ static void handle_stop_ext_chg(struct pm8921_chg_chip *chip)
 
 	chip->ext->stop_charging(chip->ext->ctx);
 	chip->ext_charging = false;
+	chip->ext_charge_done = false;
 }
 
 static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
