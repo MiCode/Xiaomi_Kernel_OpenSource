@@ -203,7 +203,6 @@ struct msm_isp_cmd {
 #define MCTL_CMD_GET_FRAME_BUFFER       1  /* reserve a free frame buffer */
 #define MCTL_CMD_PUT_FRAME_BUFFER       2  /* return the free frame buffer */
 #define MCTL_CMD_DIVERT_FRAME_PP_PATH   3  /* divert frame for pp */
-#define MCTL_CMD_DIVERT_FRAME_PP_DONE   4  /* pp done. buf send to app */
 
 /* event typese sending to MCTL PP module */
 #define MCTL_PP_EVENT_NOTUSED           0
@@ -252,6 +251,7 @@ struct msm_mctl_pp_frame_buffer {
 };
 struct msm_mctl_pp_divert_pp {
 	int path;
+	int enable;
 };
 struct msm_vpe_clock_rate {
 	uint32_t rate;
