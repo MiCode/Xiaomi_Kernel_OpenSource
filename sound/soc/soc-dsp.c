@@ -482,15 +482,15 @@ static int soc_dsp_be_dai_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 		struct snd_pcm_substream *be_substream =
 			snd_soc_dsp_get_substream(dsp_params->be, stream);
 
+		if (dsp_params->state != SND_SOC_DSP_LINK_STATE_FREE)
+			continue;
+
 		/* is this op for this BE ? */
 		if (fe->dsp[stream].runtime_update &&
 				!dsp_params->be->dsp[stream].runtime_update)
 			continue;
 
 		if (--dsp_params->be->dsp[stream].users != 0)
-			continue;
-
-		if (dsp_params->state != SND_SOC_DSP_LINK_STATE_FREE)
 			continue;
 
 		dev_dbg(&dsp_params->be->dev, "dsp: close BE %s\n",
