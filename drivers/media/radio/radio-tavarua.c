@@ -2745,6 +2745,7 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 {
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
 	int retval = 0;
+	int size = 0, cnt = 0;
 	unsigned char value;
 	unsigned char xfr_buf[XFR_REG_NUM];
 	unsigned char tx_data[XFR_REG_NUM];
@@ -2960,6 +2961,110 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_TAVARUA_ANTENNA:
 		SET_REG_FIELD(radio->registers[IOCTRL], ctrl->value,
 					IOC_ANTENNA_OFFSET, IOC_ANTENNA_MASK);
+		break;
+	case V4L2_CID_PRIVATE_TAVARUA_ON_CHANNEL_THRESHOLD:
+		size = 0x04;
+		/* Poking the value of ON Channel Threshold value */
+		xfr_buf[0] = (XFR_POKE_MODE | (size << 1));
+		xfr_buf[1] = ON_CHANNEL_TH_MSB;
+		xfr_buf[2] = ON_CHANNEL_TH_LSB;
+		/* Data to be poked into the register */
+		xfr_buf[3] = (ctrl->value & 0xFF000000) >> 24;
+		xfr_buf[4] = (ctrl->value & 0x00FF0000) >> 16;
+		xfr_buf[5] = (ctrl->value & 0x0000FF00) >> 8;
+		xfr_buf[6] = (ctrl->value & 0x000000FF);
+
+		for (cnt = 3; cnt < 7; cnt++) {
+			FMDBG("On-channel data to be poked is : %d",
+				(int)xfr_buf[cnt]);
+		}
+
+		retval = tavarua_write_registers(radio, XFRCTRL,
+				xfr_buf, size+3);
+		if (retval < 0) {
+			FMDBG("Failed to write\n");
+			return retval;
+		}
+		/*Wait for the XFR interrupt */
+		msleep(TAVARUA_DELAY*15);
+
+		for (cnt = 0; cnt < 5; cnt++) {
+			xfr_buf[cnt] = 0;
+			radio->registers[XFRDAT0+cnt] = 0x0;
+		}
+
+		/* Peeking Regs 0x88C2-0x88C4 */
+		size = 0x04;
+		xfr_buf[0] = (XFR_PEEK_MODE | (size << 1));
+		xfr_buf[1] = ON_CHANNEL_TH_MSB;
+		xfr_buf[2] = ON_CHANNEL_TH_LSB;
+		retval = tavarua_write_registers(radio, XFRCTRL, xfr_buf, 3);
+		if (retval < 0) {
+			pr_err("%s: Failed to write\n", __func__);
+			return retval;
+		}
+		/*Wait for the XFR interrupt */
+		msleep(TAVARUA_DELAY*10);
+		retval = tavarua_read_registers(radio, XFRDAT0, 4);
+		if (retval < 0) {
+			pr_err("%s: On Ch. DET: Read failure\n", __func__);
+			return retval;
+		}
+		for (cnt = 0; cnt < 4; cnt++)
+			FMDBG("On-Channel data set is : 0x%x\t",
+				(int)radio->registers[XFRDAT0+cnt]);
+		break;
+	case V4L2_CID_PRIVATE_TAVARUA_OFF_CHANNEL_THRESHOLD:
+		size = 0x04;
+		/* Poking the value of OFF Channel Threshold value */
+		xfr_buf[0] = (XFR_POKE_MODE | (size << 1));
+		xfr_buf[1] = OFF_CHANNEL_TH_MSB;
+		xfr_buf[2] = OFF_CHANNEL_TH_LSB;
+		/* Data to be poked into the register */
+		xfr_buf[3] = (ctrl->value & 0xFF000000) >> 24;
+		xfr_buf[4] = (ctrl->value & 0x00FF0000) >> 16;
+		xfr_buf[5] = (ctrl->value & 0x0000FF00) >> 8;
+		xfr_buf[6] = (ctrl->value & 0x000000FF);
+
+		for (cnt = 3; cnt < 7; cnt++) {
+			FMDBG("Off-channel data to be poked is : %d",
+				(int)xfr_buf[cnt]);
+		}
+
+		retval = tavarua_write_registers(radio, XFRCTRL,
+				xfr_buf, size+3);
+		if (retval < 0) {
+			pr_err("%s: Failed to write\n", __func__);
+			return retval;
+		}
+		/*Wait for the XFR interrupt */
+		msleep(TAVARUA_DELAY*10);
+
+		for (cnt = 0; cnt < 5; cnt++) {
+			xfr_buf[cnt] = 0;
+			radio->registers[XFRDAT0+cnt] = 0x0;
+		}
+
+		/* Peeking Regs 0x88C2-0x88C4 */
+		size = 0x04;
+		xfr_buf[0] = (XFR_PEEK_MODE | (size << 1));
+		xfr_buf[1] = OFF_CHANNEL_TH_MSB;
+		xfr_buf[2] = OFF_CHANNEL_TH_LSB;
+		retval = tavarua_write_registers(radio, XFRCTRL, xfr_buf, 3);
+		if (retval < 0) {
+			pr_err("%s: Failed to write\n", __func__);
+			return retval;
+		}
+		/*Wait for the XFR interrupt */
+		msleep(TAVARUA_DELAY*10);
+		retval = tavarua_read_registers(radio, XFRDAT0, 4);
+		if (retval < 0) {
+			pr_err("%s: Off Ch. DET: Read failure\n", __func__);
+			return retval;
+		}
+		for (cnt = 0; cnt < 4; cnt++)
+			FMDBG("Off-channel data set is : 0x%x\t",
+				(int)radio->registers[XFRDAT0+cnt]);
 		break;
 	/* TX Controls */
 
