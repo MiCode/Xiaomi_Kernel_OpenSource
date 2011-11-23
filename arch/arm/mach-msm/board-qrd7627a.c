@@ -793,11 +793,47 @@ static void __init msm7627a_init_regulators(void)
 				__func__, rc);
 }
 
+/* 8625 keypad device information */
+static unsigned int kp_row_gpios_8625[] = {31};
+static unsigned int kp_col_gpios_8625[] = {36, 37};
+
+static const unsigned short keymap_8625[] = {
+	KEY_VOLUMEUP,
+	KEY_VOLUMEDOWN,
+};
+
+static struct gpio_event_matrix_info kp_matrix_info_8625 = {
+	.info.func      = gpio_event_matrix_func,
+	.keymap         = keymap_8625,
+	.output_gpios   = kp_row_gpios_8625,
+	.input_gpios    = kp_col_gpios_8625,
+	.noutputs       = ARRAY_SIZE(kp_row_gpios_8625),
+	.ninputs        = ARRAY_SIZE(kp_col_gpios_8625),
+	.settle_time.tv_nsec = 40 * NSEC_PER_USEC,
+	.poll_time.tv_nsec = 20 * NSEC_PER_MSEC,
+	.flags          = GPIOKPF_LEVEL_TRIGGERED_IRQ | GPIOKPF_DRIVE_INACTIVE |
+			  GPIOKPF_PRINT_UNMAPPED_KEYS,
+};
+
+static struct gpio_event_info *kp_info_8625[] = {
+	&kp_matrix_info_8625.info,
+};
+static struct gpio_event_platform_data kp_pdata_8625 = {
+	.name           = "8625_kp",
+	.info           = kp_info_8625,
+	.info_count     = ARRAY_SIZE(kp_info_8625)
+};
+
+static struct platform_device kp_pdev_8625 = {
+	.name   = GPIO_EVENT_DEV_NAME,
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &kp_pdata_8625,
+	},
+};
+
 static void msm7627a_add_io_devices(void)
 {
-	if (machine_is_msm7627a_evb())
-		return;
-
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
 	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
 	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
@@ -810,6 +846,9 @@ static void msm7627a_add_io_devices(void)
 	msm_init_pmic_vibrator();
 #endif
 
+	/* keypad */
+	if (machine_is_msm7627a_evb())
+		platform_device_register(&kp_pdev_8625);
 }
 
 #define UART1DM_RX_GPIO		45
