@@ -145,6 +145,31 @@ struct platform_device msm_device_gadget_peripheral = {
 	},
 };
 
+static struct resource resources_hsusb_host[] = {
+	{
+		.start  = MSM9615_HSUSB_PHYS,
+		.end    = MSM9615_HSUSB_PHYS + MSM9615_HSUSB_PHYS - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = USB1_HS_IRQ,
+		.end    = USB1_HS_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static u64 dma_mask = DMA_BIT_MASK(32);
+struct platform_device msm_device_hsusb_host = {
+	.name           = "msm_hsusb_host",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_hsusb_host),
+	.resource       = resources_hsusb_host,
+	.dev            = {
+		.dma_mask               = &dma_mask,
+		.coherent_dma_mask      = 0xffffffff,
+	},
+};
+
 static struct resource resources_uart_gsbi4[] = {
 	{
 		.start	= GSBI4_UARTDM_IRQ,
