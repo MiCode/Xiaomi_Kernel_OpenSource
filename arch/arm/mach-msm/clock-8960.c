@@ -1791,6 +1791,7 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_SDC( 48000000, pll8,  4, 1,   2),
 	F_SDC( 64000000, pll8,  3, 1,   2),
 	F_SDC( 96000000, pll8,  4, 0,   0),
+	F_SDC(192000000, pll8,  2, 0,   0),
 	F_END
 };
 
