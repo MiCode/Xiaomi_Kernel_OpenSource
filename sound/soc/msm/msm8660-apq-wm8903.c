@@ -9,8 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- *TODO:
- *  - Audio stream capture support
  */
 
 #include <linux/clk.h>
@@ -34,11 +32,11 @@
 #define MSM_GPIO_CLASS_D0_EN  80
 #define MSM_GPIO_CLASS_D1_EN  81
 
-#define MSM8660_SPK_ON    1
-#define MSM8660_SPK_OFF   0
 #define MSM_CDC_MIC_I2S_MCLK 108
 
 static int msm8660_spk_func;
+static int msm8660_headset_func;
+static int msm8660_headphone_func;
 
 static struct clk *mic_bit_clk;
 static struct clk *spkr_osr_clk;
@@ -54,6 +52,11 @@ enum {
 	SET_ERR,
 	ENABLE_ERR,
 	NONE
+};
+
+enum {
+	FUNC_OFF,
+	FUNC_ON,
 };
 
 static struct wm8903_vdd {
@@ -295,23 +298,19 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 		/* config WM8903 in Mater mode */
 		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBM_CFM |
 				SND_SOC_DAIFMT_I2S);
-		mic_bit_clk = clk_get(NULL, "i2s_mic_bit_clk");
-		if (IS_ERR(mic_bit_clk)) {
-			pr_err("Failed to get i2s_mic_bit_clk\n");
-			return PTR_ERR(mic_bit_clk);
-		}
-		clk_set_rate(mic_bit_clk, 0);
-		ret = clk_enable(mic_bit_clk);
 		if (ret != 0) {
-			pr_err("Unable to enable i2s_mic_bit_clk\n");
-			clk_put(mic_bit_clk);
+			pr_err("codec_dai set_fmt error\n");
+			return ret;
+		}
+		/* config CPU in SLAVE mode */
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
+		if (ret != 0) {
+			pr_err("cpu_dai set_fmt error\n");
 			return ret;
 		}
 		spkr_osr_clk = clk_get(NULL, "i2s_spkr_osr_clk");
 		if (IS_ERR(spkr_osr_clk)) {
 			pr_err("Failed to get i2s_spkr_osr_clk\n");
-			clk_disable(mic_bit_clk);
-			clk_put(mic_bit_clk);
 			return PTR_ERR(spkr_osr_clk);
 		}
 		clk_set_rate(spkr_osr_clk, 48000 * 256);
@@ -319,8 +318,6 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 		if (ret != 0) {
 			pr_err("Unable to enable i2s_spkr_osr_clk\n");
 			clk_put(spkr_osr_clk);
-			clk_disable(mic_bit_clk);
-			clk_put(mic_bit_clk);
 			return ret;
 		}
 		spkr_bit_clk = clk_get(NULL, "i2s_spkr_bit_clk");
@@ -328,8 +325,6 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			pr_err("Failed to get i2s_spkr_bit_clk\n");
 			clk_disable(spkr_osr_clk);
 			clk_put(spkr_osr_clk);
-			clk_disable(mic_bit_clk);
-			clk_put(mic_bit_clk);
 			return PTR_ERR(spkr_bit_clk);
 		}
 		clk_set_rate(spkr_bit_clk, 0);
@@ -338,15 +333,24 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			pr_err("Unable to enable i2s_spkr_bit_clk\n");
 			clk_disable(spkr_osr_clk);
 			clk_put(spkr_osr_clk);
-			clk_disable(mic_bit_clk);
-			clk_put(mic_bit_clk);
 			clk_put(spkr_bit_clk);
+			return ret;
+		}
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		/* config WM8903 in Mater mode */
+		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBM_CFM |
+				SND_SOC_DAIFMT_I2S);
+		if (ret != 0) {
+			pr_err("codec_dai set_fmt error\n");
 			return ret;
 		}
 		/* config CPU in SLAVE mode */
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
-		/* End of platform specific logic */
-	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (ret != 0) {
+			pr_err("codec_dai set_fmt error\n");
+			return ret;
+		}
+
 		mic_bit_clk = clk_get(NULL, "i2s_mic_bit_clk");
 		if (IS_ERR(mic_bit_clk)) {
 			pr_err("Failed to get i2s_mic_bit_clk\n");
@@ -359,7 +363,6 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			clk_put(mic_bit_clk);
 			return ret;
 		}
-		msleep(30);
 	}
 	return ret;
 }
@@ -367,7 +370,9 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 static void msm8660_i2s_shutdown(struct snd_pcm_substream *substream)
 {
 	pr_debug("Enter %s\n", __func__);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ||
+			 substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		tx_hw_param_status = 0;
 		rx_hw_param_status = 0;
 		if (spkr_bit_clk) {
 			clk_disable(spkr_bit_clk);
@@ -384,24 +389,28 @@ static void msm8660_i2s_shutdown(struct snd_pcm_substream *substream)
 			clk_put(mic_bit_clk);
 			mic_bit_clk = NULL;
 		}
-	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		tx_hw_param_status = 0;
-		msleep(30);
-		if (mic_bit_clk) {
-			clk_disable(mic_bit_clk);
-			clk_put(mic_bit_clk);
-			mic_bit_clk = NULL;
-		}
 	}
 }
 
 static void msm8660_ext_control(struct snd_soc_codec *codec)
 {
 	/* set the enpoints to their new connetion states */
-	if (msm8660_spk_func == MSM8660_SPK_ON)
+	if (msm8660_spk_func == FUNC_ON)
 		snd_soc_dapm_enable_pin(&codec->dapm, "Ext Spk");
 	else
 		snd_soc_dapm_disable_pin(&codec->dapm, "Ext Spk");
+
+	/* set the enpoints to their new connetion states */
+	if (msm8660_headset_func == FUNC_ON)
+		snd_soc_dapm_enable_pin(&codec->dapm, "Headset Jack");
+	else
+		snd_soc_dapm_disable_pin(&codec->dapm, "Headset Jack");
+
+	/* set the enpoints to their new connetion states */
+	if (msm8660_headphone_func == FUNC_ON)
+		snd_soc_dapm_enable_pin(&codec->dapm, "Headphone Jack");
+	else
+		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack");
 
 	/* signal a DAPM event */
 	snd_soc_dapm_sync(&codec->dapm);
@@ -428,6 +437,48 @@ static int msm8660_set_spk(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm8660_get_hs(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm8660_headset_func;
+	return 0;
+}
+
+static int msm8660_set_hs(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =  snd_kcontrol_chip(kcontrol);
+
+	pr_debug("%s()\n", __func__);
+	if (msm8660_headset_func == ucontrol->value.integer.value[0])
+		return 0;
+
+	msm8660_headset_func = ucontrol->value.integer.value[0];
+	msm8660_ext_control(codec);
+	return 1;
+}
+
+static int msm8660_get_hph(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm8660_headphone_func;
+	return 0;
+}
+
+static int msm8660_set_hph(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =  snd_kcontrol_chip(kcontrol);
+
+	pr_debug("%s()\n", __func__);
+	if (msm8660_headphone_func == ucontrol->value.integer.value[0])
+		return 0;
+
+	msm8660_headphone_func = ucontrol->value.integer.value[0];
+	msm8660_ext_control(codec);
+	return 1;
+}
+
 static int msm8660_spkramp_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *k, int event)
 {
@@ -446,22 +497,42 @@ static struct snd_soc_ops machine_ops  = {
 
 static const struct snd_soc_dapm_widget msm8660_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Ext Spk", msm8660_spkramp_event),
+	SND_SOC_DAPM_MIC("Headset Jack", NULL),
+	SND_SOC_DAPM_MIC("Headphone Jack", NULL),
+	/* to fix a bug in wm8903.c, where audio doesn't function
+	 * after suspend/resume
+	 */
+	SND_SOC_DAPM_SUPPLY("CLK_SYS_ENA", WM8903_CLOCK_RATES_2, 2, 0, NULL, 0),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
 	/* Match with wm8903 codec line out pin */
 	{"Ext Spk", NULL, "LINEOUTL"},
 	{"Ext Spk", NULL, "LINEOUTR"},
+	/* Headset connects to IN3L with Bias */
+	{"IN3L", NULL, "Mic Bias"},
+	{"Mic Bias", NULL, "Headset Jack"},
+	/* Headphone connects to IN3R with Bias */
+	{"IN3R", NULL, "Mic Bias"},
+	{"Mic Bias", NULL, "Headphone Jack"},
+	{"ADCL", NULL, "CLK_SYS_ENA"},
+	{"ADCR", NULL, "CLK_SYS_ENA"},
+	{"DACL", NULL, "CLK_SYS_ENA"},
+	{"DACR", NULL, "CLK_SYS_ENA"},
 };
 
-static const char *spk_function[] = {"Off", "On"};
+static const char *cmn_status[] = {"Off", "On"};
 static const struct soc_enum msm8660_enum[] = {
-	SOC_ENUM_SINGLE_EXT(2, spk_function),
+	SOC_ENUM_SINGLE_EXT(2, cmn_status),
 };
 
 static const struct snd_kcontrol_new wm8903_msm8660_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm8660_enum[0], msm8660_get_spk,
 		msm8660_set_spk),
+	SOC_ENUM_EXT("Headset Function", msm8660_enum[0], msm8660_get_hs,
+		msm8660_set_hs),
+	SOC_ENUM_EXT("Headphone Function", msm8660_enum[0], msm8660_get_hph,
+		msm8660_set_hph),
 };
 
 static int msm8660_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -470,6 +541,7 @@ static int msm8660_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	int err;
 
 	snd_soc_dapm_disable_pin(&codec->dapm, "Ext Spk");
+	snd_soc_dapm_enable_pin(&codec->dapm, "CLK_SYS_ENA");
 
 	err = snd_soc_add_controls(codec, wm8903_msm8660_controls,
 				ARRAY_SIZE(wm8903_msm8660_controls));
