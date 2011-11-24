@@ -791,7 +791,7 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 	struct apr_hdr cvs_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
 	int index = 0;
@@ -830,11 +830,12 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 	pr_debug("cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
 		pr_debug(" cal size =%d\n", cal_size_per_network);
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
 			pr_err("Cal size is too big\n");
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
 		cvs_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
 			cal_size_per_network);
@@ -868,7 +869,7 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 	struct apr_hdr cvp_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
 	int index = 0;
@@ -907,11 +908,12 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 	pr_debug(" cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
 			pr_err("Cal size is too big\n");
 		pr_debug(" cal size =%d\n", cal_size_per_network);
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
 
 		cvp_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
@@ -945,7 +947,7 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	struct apr_hdr cvp_vol_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
 	int index = 0;
@@ -984,8 +986,9 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	pr_debug("Cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 
 		pr_debug("Cal size =%d, index=%d\n", cal_size_per_network,
 			index);

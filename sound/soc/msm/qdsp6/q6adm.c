@@ -457,7 +457,7 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 	int     i = 0;
 	int     cmd_size = 0;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (this_adm.apr == NULL) {
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
 						0xFFFFFFFF, &this_adm);
@@ -532,7 +532,7 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 	int     i = 0;
 	int     cmd_size = 0;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (this_adm.apr == NULL) {
 		pr_err("%s APR handle NULL\n", __func__);
