@@ -3682,7 +3682,27 @@ int hdmi_msm_clk(int on)
 static void hdmi_msm_turn_on(void)
 {
 	uint32 hpd_ctrl;
+	uint32 audio_pkt_ctrl, audio_cfg;
+	/*
+	 * Number of wait iterations for QDSP to disable Audio Engine
+	 * before resetting HDMI core
+	 */
+	int i = 10;
+	audio_pkt_ctrl = HDMI_INP_ND(0x0020);
+	audio_cfg = HDMI_INP_ND(0x01D0);
 
+	/*
+	 * Checking BIT[0] of AUDIO PACKET CONTROL and
+	 * AUDIO CONFIGURATION register
+	 */
+	while (((audio_pkt_ctrl & 0x00000001) || (audio_cfg & 0x00000001))
+		&& (i--)) {
+		audio_pkt_ctrl = HDMI_INP_ND(0x0020);
+		audio_cfg = HDMI_INP_ND(0x01D0);
+		DEV_DBG("%d times :: HDMI AUDIO PACKET is %08x and "
+			"AUDIO CFG is %08x", i, audio_pkt_ctrl, audio_cfg);
+		msleep(20);
+	}
 	hdmi_msm_reset_core();
 	hdmi_msm_init_phy(external_common_state->video_resolution);
 	/* HDMI_USEC_REFTIMER[0x0208] */
