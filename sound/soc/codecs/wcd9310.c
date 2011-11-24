@@ -2168,7 +2168,7 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B10_CTL, 0xFF);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B9_CTL, 0x20);
 
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x08);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0xF8);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B3_CTL, 0xEE);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B2_CTL, 0xFC);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL, 0xCE);
@@ -2762,7 +2762,6 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	 */
 	priv->buttons_pressed |= SND_JACK_BTN_0;
 
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x09);
 	msleep(100);
 
 	schedule_delayed_work(&priv->btn0_dwork, msecs_to_jiffies(400));
@@ -2822,7 +2821,6 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 		priv->buttons_pressed &= ~SND_JACK_BTN_0;
 	}
 
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B4_CTL, 0x08);
 	tabla_codec_start_hs_polling(codec);
 
 	return IRQ_HANDLED;
