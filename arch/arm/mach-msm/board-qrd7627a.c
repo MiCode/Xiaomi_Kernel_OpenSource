@@ -77,6 +77,7 @@ enum {
 	/* FM Platform power and shutdown routines */
 #define FPGA_MSM_CNTRL_REG2 0x90008010
 
+#if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 static void config_pcm_i2s_mode(int mode)
 {
 	void __iomem *cfg_ptr;
@@ -401,6 +402,7 @@ static struct marimba_fm_platform_data marimba_fm_pdata = {
 	.is_fm_soc_i2s_master = true,
 	.config_i2s_gpio = msm_bahama_setup_pcm_i2s,
 };
+#endif
 
 static struct platform_device msm_wlan_ar6000_pm_device = {
 	.name           = "wlan_ar6000_pm_dev",
