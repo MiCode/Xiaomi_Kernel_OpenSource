@@ -76,6 +76,7 @@
 
 #include <linux/ion.h>
 #include <mach/ion.h>
+#include <mach/mdm2.h>
 
 #include "timer.h"
 #include "devices.h"
@@ -91,6 +92,11 @@
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
+
+#define PLATFORM_IS_CHARM25() \
+	(machine_is_msm8960_cdp() && \
+		(socinfo_get_platform_subtype() == 1) \
+	)
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -2663,6 +2669,138 @@ static struct platform_device qcedev_device = {
 };
 #endif
 
+#define MDM2AP_ERRFATAL			70
+#define AP2MDM_ERRFATAL			95
+#define MDM2AP_STATUS			69
+#define AP2MDM_STATUS			94
+#define AP2MDM_PMIC_RESET_N		80
+#define AP2MDM_KPDPWR_N			81
+
+static struct gpiomux_setting ap2mdm_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mdm2ap_status_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting mdm2ap_errfatal_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting ap2mdm_kpdpwr_n_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config mdm_configs[] __initdata = {
+	/* AP2MDM_STATUS */
+	{
+		.gpio = AP2MDM_STATUS,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* MDM2AP_STATUS */
+	{
+		.gpio = MDM2AP_STATUS,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
+		}
+	},
+	/* MDM2AP_ERRFATAL */
+	{
+		.gpio = MDM2AP_ERRFATAL,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_errfatal_cfg,
+		}
+	},
+	/* AP2MDM_ERRFATAL */
+	{
+		.gpio = AP2MDM_ERRFATAL,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* AP2MDM_KPDPWR_N */
+	{
+		.gpio = AP2MDM_KPDPWR_N,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
+		}
+	},
+	/* AP2MDM_PMIC_RESET_N */
+	{
+		.gpio = AP2MDM_PMIC_RESET_N,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
+		}
+	}
+};
+
+static struct resource mdm_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_PMIC_RESET_N,
+		.end	= AP2MDM_PMIC_RESET_N,
+		.name	= "AP2MDM_PMIC_RESET_N",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_KPDPWR_N,
+		.end	= AP2MDM_KPDPWR_N,
+		.name	= "AP2MDM_KPDPWR_N",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct mdm_platform_data mdm_platform_data = {
+	.mdm_version = "2.5",
+};
+
+struct platform_device mdm_device = {
+	.name		= "mdm2_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(mdm_resources),
+	.resource	= mdm_resources,
+	.dev		= {
+		.platform_data = &mdm_platform_data,
+	},
+};
+
+static struct platform_device *mdm_devices[] __initdata = {
+	&mdm_device,
+};
 
 static int __init gpiomux_init(void)
 {
@@ -2710,6 +2848,11 @@ static int __init gpiomux_init(void)
 		machine_is_msm8960_liquid() || machine_is_msm8960_cdp())
 		msm_gpiomux_install(hap_lvl_shft_config,
 			ARRAY_SIZE(hap_lvl_shft_config));
+
+	if (PLATFORM_IS_CHARM25())
+		msm_gpiomux_install(mdm_configs,
+			ARRAY_SIZE(mdm_configs));
+
 	return 0;
 }
 
@@ -4840,6 +4983,9 @@ static void __init msm8960_cdp_init(void)
 				msm_pm_data);
 	change_memory_power = &msm8960_change_memory_power;
 	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_TZ, NULL));
+
+	if (PLATFORM_IS_CHARM25())
+		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
 }
 
 MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")
