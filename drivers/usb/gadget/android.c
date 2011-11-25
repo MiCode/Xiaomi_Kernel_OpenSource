@@ -609,26 +609,14 @@ struct rndis_function_config {
 
 static int rndis_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
-	int ret;
-	struct rndis_function_config *rndis;
-
 	f->config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
 	if (!f->config)
 		return -ENOMEM;
-
-	rndis = f->config;
-	ret = gether_setup_name(cdev->gadget, rndis->ethaddr, "usb");
-	if (ret) {
-		pr_err("%s: gether_setup failed\n", __func__);
-		return ret;
-	}
-
 	return 0;
 }
 
 static void rndis_function_cleanup(struct android_usb_function *f)
 {
-	gether_cleanup();
 	kfree(f->config);
 	f->config = NULL;
 }
@@ -636,6 +624,7 @@ static void rndis_function_cleanup(struct android_usb_function *f)
 static int rndis_function_bind_config(struct android_usb_function *f,
 					struct usb_configuration *c)
 {
+	int ret;
 	struct rndis_function_config *rndis = f->config;
 
 	if (!rndis) {
@@ -646,6 +635,12 @@ static int rndis_function_bind_config(struct android_usb_function *f,
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
+
+	ret = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
+	if (ret) {
+		pr_err("%s: gether_setup failed\n", __func__);
+		return ret;
+	}
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
@@ -666,6 +661,7 @@ static int rndis_function_bind_config(struct android_usb_function *f,
 static void rndis_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
+	gether_cleanup();
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
