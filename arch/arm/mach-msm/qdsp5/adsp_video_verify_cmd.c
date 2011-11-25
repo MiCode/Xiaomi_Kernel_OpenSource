@@ -82,7 +82,8 @@ static int verify_vdec_pkt_cmd(struct msm_adsp_module *module,
 	unsigned long subframe_pkt_addr;
 	unsigned long subframe_pkt_size;
 	unsigned short *frame_header_pkt;
-	int i, num_addr, skip, start_pos = 0, xdim_pos = 1, ydim_pos = 2;
+	int i, num_addr, col_addr = 0, skip;
+	int start_pos = 0, xdim_pos = 1, ydim_pos = 2;
 	unsigned short *frame_buffer_high, *frame_buffer_low;
 	unsigned long frame_buffer_size;
 	unsigned short frame_buffer_size_high, frame_buffer_size_low;
@@ -133,9 +134,10 @@ static int verify_vdec_pkt_cmd(struct msm_adsp_module *module,
 		skip = 0;
 		start_pos = 5;
 	   } else {
-	       num_addr = 33;
+	       num_addr = 16;
 	       skip = 0;
 	       start_pos = 6;
+	       col_addr = 17;
 	   }
 		break;
 	case 0x8201: /* h.264 vld in arm */
@@ -215,6 +217,29 @@ static int verify_vdec_pkt_cmd(struct msm_adsp_module *module,
 					module,
 					NULL, NULL, NULL, NULL))
 			return -EINVAL;
+	}
+	if (col_addr) {
+		frame_buffer_high += 2;
+		frame_buffer_low += 2;
+		/* Patch the Co-located buffers.*/
+		frame_buffer_size =  (72 * frame_header_pkt[xdim_pos] *
+					frame_header_pkt[ydim_pos]) >> 16;
+		ptr_to_high_low_short((void *)frame_buffer_size,
+					&frame_buffer_size_high,
+					&frame_buffer_size_low);
+		for (i = 0; i < col_addr; i++) {
+			if (frame_buffer_high && frame_buffer_low) {
+				if (pmem_fixup_high_low(frame_buffer_high,
+						frame_buffer_low,
+						frame_buffer_size_high,
+						frame_buffer_size_low,
+						module,
+						NULL, NULL, NULL, NULL))
+					return -EINVAL;
+			}
+			frame_buffer_high += 2;
+			frame_buffer_low += 2;
+		}
 	}
 	/*Flush the cached pmem subframe packet before sending to DSP*/
 	if (filp) {
