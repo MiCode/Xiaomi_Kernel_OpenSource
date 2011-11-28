@@ -33,6 +33,9 @@
 #define KRAIT_P2_L1_ITLB_ACCESS 0x12222
 #define KRAIT_P2_L1_DTLB_ACCESS 0x12210
 
+#define KRAIT_EVENT_MASK 0xfffff
+#define KRAIT_MODE_EXCL_MASK 0xc0000000
+
 u32 evt_type_base[][4] = {
 	{0x4c, 0x50, 0x54},		/* Pass 1 */
 	{0xcc, 0xd0, 0xd4, 0xd8},	/* Pass 2 */
@@ -391,6 +394,8 @@ static void krait_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
+		val &= KRAIT_EVENT_MASK;
+
 		if (val > 0x40) {
 			event = get_krait_evtinfo(val, &evtinfo);
 			if (event == -EINVAL)
@@ -430,6 +435,8 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
+		val &= KRAIT_EVENT_MASK;
+
 		if (val < 0x40) {
 			armv7_pmnc_write_evtsel(idx, hwc->config_base);
 		} else {
@@ -437,6 +444,10 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 
 			if (event == -EINVAL)
 				goto krait_out;
+
+			/* Restore Mode-exclusion bits */
+			event |= (hwc->config_base & KRAIT_MODE_EXCL_MASK);
+
 			/*
 			 * Set event (if destined for PMNx counters)
 			 * We don't need to set the event if it's a cycle count
@@ -505,6 +516,9 @@ static const struct arm_pmu *__init armv7_krait_pmu_init(void)
 	if (krait_ver > 0) {
 		evt_index = 1;
 		krait_max_l1_reg = 3;
+
+		krait_pmu.set_event_filter = armv7pmu_set_event_filter,
+
 		armv7_krait_perf_cache_map[C(ITLB)]
 			[C(OP_READ)]
 			[C(RESULT_ACCESS)] = KRAIT_P2_L1_ITLB_ACCESS;

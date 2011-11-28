@@ -585,6 +585,8 @@ static void scorpion_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
+		val &= ARMV7_EVTYPE_EVENT;
+
 		if (val > 0x40) {
 			event = get_scorpion_evtinfo(val, &evtinfo);
 			if (event == -EINVAL)
@@ -624,6 +626,8 @@ static void scorpion_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
+		val &= ARMV7_EVTYPE_EVENT;
+
 		if (val < 0x40) {
 			armv7_pmnc_write_evtsel(idx, hwc->config_base);
 		} else {
