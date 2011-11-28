@@ -153,6 +153,35 @@ struct clk *rcg_clk_get_parent(struct clk *c);
 int rcg_clk_handoff(struct clk *c);
 
 /**
+ * struct cdiv_clk - integer divider clock with external source selection
+ * @ns_reg: source select and divider settings register
+ * @ext_mask: bit to set to select an external source
+ * @cur_div: current divider setting (or 0 for external source)
+ * @max_div: maximum divider value supported (must be power of 2)
+ * @div_offset: number of bits to shift divider left by in @ns_reg
+ * @b: branch
+ * @c: clock
+ */
+struct cdiv_clk {
+	void __iomem *const ns_reg;
+	u32 ext_mask;
+
+	unsigned long cur_div;
+	u8 div_offset;
+	u32 max_div;
+
+	struct branch b;
+	struct clk c;
+};
+
+static inline struct cdiv_clk *to_cdiv_clk(struct clk *clk)
+{
+	return container_of(clk, struct cdiv_clk, c);
+}
+
+extern struct clk_ops clk_ops_cdiv;
+
+/**
  * struct fixed_clk - fixed rate clock (used for crystal oscillators)
  * @rate: output rate
  * @c: clk

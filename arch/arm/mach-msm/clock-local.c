@@ -911,3 +911,97 @@ int branch_clk_reset(struct clk *clk, enum clk_reset_action action)
 {
 	return branch_reset(&to_branch_clk(clk)->b, action);
 }
+
+static int cdiv_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__branch_clk_enable_reg(&clk->b, clk->c.dbg_name);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	return 0;
+}
+
+static void cdiv_clk_disable(struct clk *c)
+{
+	unsigned long flags;
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__branch_clk_disable_reg(&clk->b, clk->c.dbg_name);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static int cdiv_clk_set_rate(struct clk *c, unsigned long rate)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	u32 reg_val;
+
+	if (rate > clk->max_div)
+		return -EINVAL;
+	/* Check if frequency is actually changed. */
+	if (rate == clk->cur_div)
+		return 0;
+
+	spin_lock(&local_clock_reg_lock);
+	reg_val = readl_relaxed(clk->ns_reg);
+	reg_val &= ~(clk->ext_mask | (clk->max_div - 1) << clk->div_offset);
+	/* Non-zero rates mean set a divider, zero means use external input */
+	if (rate)
+		reg_val |= (rate - 1) << clk->div_offset;
+	else
+		reg_val |= clk->ext_mask;
+	writel_relaxed(reg_val, clk->ns_reg);
+	spin_unlock(&local_clock_reg_lock);
+
+	clk->cur_div = rate;
+	return 0;
+}
+
+static unsigned long cdiv_clk_get_rate(struct clk *c)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	return clk->cur_div;
+}
+
+static long cdiv_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	return rate > clk->max_div ? -EPERM : rate;
+}
+
+static int cdiv_clk_list_rate(struct clk *c, unsigned n)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	return n > clk->max_div ? -ENXIO : n;
+}
+
+static int cdiv_clk_handoff(struct clk *c)
+{
+	struct cdiv_clk *clk = to_cdiv_clk(c);
+	u32 reg_val;
+
+	reg_val = readl_relaxed(clk->ns_reg);
+	if (reg_val & clk->ext_mask) {
+		clk->cur_div = 0;
+	} else {
+		reg_val >>= clk->div_offset;
+		clk->cur_div = (reg_val & (clk->max_div - 1)) + 1;
+	}
+
+	return 0;
+}
+
+struct clk_ops clk_ops_cdiv = {
+	.enable = cdiv_clk_enable,
+	.disable = cdiv_clk_disable,
+	.auto_off = cdiv_clk_disable,
+	.handoff = cdiv_clk_handoff,
+	.set_rate = cdiv_clk_set_rate,
+	.get_rate = cdiv_clk_get_rate,
+	.list_rate = cdiv_clk_list_rate,
+	.round_rate = cdiv_clk_round_rate,
+	.is_local = local_clk_is_local,
+};
