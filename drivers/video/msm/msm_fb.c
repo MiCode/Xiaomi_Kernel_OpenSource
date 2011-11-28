@@ -2891,6 +2891,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_csc csc_matrix;
 #endif
 	struct mdp_page_protection fb_page_protection;
+	struct msmfb_mdp_pp mdp_pp;
 	int ret = 0;
 
 	switch (cmd) {
@@ -3166,7 +3167,23 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = -EINVAL;
 #endif
 		break;
+	case MSMFB_MDP_PP:
+		ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
+		if (ret)
+			return ret;
 
+		switch (mdp_pp.op) { /*Add PCC, CSC, and LUT op handling here*/
+#ifdef CONFIG_FB_MSM_MDP40
+		case mdp_op_csc_cfg:
+		case mdp_op_pcc_cfg:
+		case mdp_op_lut_cfg:
+#endif
+		default:
+			ret = -EINVAL;
+			break;
+		}
+
+		break;
 	default:
 		MSM_FB_INFO("MDP: unknown ioctl (cmd=%x) received!\n", cmd);
 		ret = -EINVAL;
