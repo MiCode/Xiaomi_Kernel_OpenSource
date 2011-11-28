@@ -39,7 +39,6 @@
 #include <mach/usb_gadget_fserial.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_serial_hs.h>
-#include <mach/vreg.h>
 #include <mach/pmic.h>
 #include <mach/socinfo.h>
 #include <mach/vreg.h>
@@ -47,7 +46,7 @@
 #include <mach/msm_battery.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/socinfo.h>
-
+#include "board-msm7x27a-regulator.h"
 #include "devices.h"
 #include "devices-msm7x2xa.h"
 #include "pm.h"
@@ -279,7 +278,7 @@ static int bt_set_gpio(int on)
 
 	return rc;
 }
-static struct vreg *fm_regulator;
+static struct regulator *fm_regulator;
 static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 {
 	int rc = 0;
@@ -289,27 +288,25 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 	u8 value;
 
 	/* Voting for 1.8V Regulator */
-	fm_regulator = vreg_get(NULL , "msme1");
+	fm_regulator = regulator_get(NULL , "msme1");
 	if (IS_ERR(fm_regulator)) {
-		pr_err("%s: vreg get failed with : (%ld)\n",
-			__func__, PTR_ERR(fm_regulator));
-		return -EINVAL;
+		rc = PTR_ERR(fm_regulator);
+		pr_err("%s: could not get regulator: %d\n", __func__, rc);
+		goto out;
 	}
 
 	/* Set the voltage level to 1.8V */
-	rc = vreg_set_level(fm_regulator, 1800);
+	rc = regulator_set_voltage(fm_regulator, 1800000, 1800000);
 	if (rc < 0) {
-		pr_err("%s: set regulator level failed with :(%d)\n",
-			__func__, rc);
-		goto fm_vreg_fail;
+		pr_err("%s: could not set voltage: %d\n", __func__, rc);
+		goto reg_free;
 	}
 
 	/* Enabling the 1.8V regulator */
-	rc = vreg_enable(fm_regulator);
+	rc = regulator_enable(fm_regulator);
 	if (rc) {
-		pr_err("%s: enable regulator failed with :(%d)\n",
-			__func__, rc);
-		goto fm_vreg_fail;
+		pr_err("%s: could not enable regulator: %d\n", __func__, rc);
+		goto reg_free;
 	}
 
 	/* Voting for 19.2MHz clock */
@@ -318,13 +315,13 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 	if (rc < 0) {
 		pr_err("%s: clock vote failed with :(%d)\n",
 			 __func__, rc);
-		goto fm_clock_vote_fail;
+		goto reg_disable;
 	}
 
 	rc = bt_set_gpio(1);
 	if (rc) {
 		pr_err("%s: bt_set_gpio = %d", __func__, rc);
-		goto fm_gpio_config_fail;
+		goto gpio_deconfig;
 	}
 	/*re-write FM Slave Id, after reset*/
 	value = BAHAMA_SLAVE_ID_FM_ADDR;
@@ -332,7 +329,7 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 			BAHAMA_SLAVE_ID_FM_REG, &value, 1, 0xFF);
 	if (rc < 0) {
 		pr_err("%s: FM Slave ID rewrite Failed = %d", __func__, rc);
-		goto fm_gpio_config_fail;
+		goto gpio_deconfig;
 	}
 	/* Configuring the FM GPIO */
 	irqcfg = GPIO_CFG(FM_GPIO, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
@@ -342,21 +339,21 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 	if (rc) {
 		pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
 			 __func__, irqcfg, rc);
-		goto fm_gpio_config_fail;
+		goto gpio_deconfig;
 	}
 
 	return 0;
 
-fm_gpio_config_fail:
+gpio_deconfig:
 	pmapp_clock_vote(id, PMAPP_CLOCK_ID_D1,
 		PMAPP_CLOCK_VOTE_OFF);
 	bt_set_gpio(0);
-fm_clock_vote_fail:
-	vreg_disable(fm_regulator);
-
-fm_vreg_fail:
-	vreg_put(fm_regulator);
-
+reg_disable:
+	regulator_disable(fm_regulator);
+reg_free:
+	regulator_put(fm_regulator);
+	fm_regulator = NULL;
+out:
 	return rc;
 };
 
@@ -375,11 +372,12 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 			 __func__, irqcfg, rc);
 
 	/* Releasing the 1.8V Regulator */
-	if (fm_regulator != NULL) {
-		rc = vreg_disable(fm_regulator);
+	if (!IS_ERR_OR_NULL(fm_regulator)) {
+		rc = regulator_disable(fm_regulator);
 		if (rc)
-			pr_err("%s: disable regulator failed:(%d)\n",
-				__func__, rc);
+			pr_err("%s: could not disable regulator: %d\n",
+					__func__, rc);
+		regulator_put(fm_regulator);
 		fm_regulator = NULL;
 	}
 
@@ -423,18 +421,18 @@ struct bahama_config_register {
 struct bt_vreg_info {
 	const char *name;
 	unsigned int pmapp_id;
-	unsigned int level;
+	unsigned int min_level;
+	unsigned int max_level;
 	unsigned int is_pin_controlled;
-	struct vreg *vregs;
+	struct regulator *reg;
 };
 static struct bt_vreg_info bt_vregs[] = {
-	{"msme1", 2, 1800, 0, NULL},
-	{"bt", 21, 2900, 1, NULL}
+	{"msme1", 2, 1800000, 1800000, 0, NULL},
+	{"bt", 21, 2900000, 3050000, 1, NULL}
 };
 
 static int bahama_bt(int on)
 {
-
 	int rc = 0;
 	int i;
 
@@ -587,73 +585,94 @@ static int bluetooth_switch_regulators(int on)
 	const char *id = "BTPW";
 
 	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
-		if (!bt_vregs[i].vregs) {
-			pr_err("%s: vreg_get %s failed(%d)\n",
-			__func__, bt_vregs[i].name, rc);
-			goto vreg_fail;
+		if (IS_ERR_OR_NULL(bt_vregs[i].reg)) {
+			rc = bt_vregs[i].reg ?
+				PTR_ERR(bt_vregs[i].reg) :
+				-ENODEV;
+			dev_err(&msm_bt_power_device.dev,
+				"%s: invalid regulator handle for %s: %d\n",
+					__func__, bt_vregs[i].name, rc);
+			goto reg_disable;
 		}
-		rc = on ? vreg_set_level(bt_vregs[i].vregs,
-				bt_vregs[i].level) : 0;
 
-		if (rc < 0) {
-			pr_err("%s: vreg set level failed (%d)\n",
-					__func__, rc);
-			goto vreg_set_level_fail;
+		rc = on ? regulator_set_voltage(bt_vregs[i].reg,
+					bt_vregs[i].min_level,
+						bt_vregs[i].max_level) : 0;
+		if (rc) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: could not set voltage for %s: %d\n",
+					__func__, bt_vregs[i].name, rc);
+			goto reg_disable;
 		}
-		if (bt_vregs[i].is_pin_controlled == 1) {
-			rc = pmapp_vreg_pincntrl_vote(id,
-					bt_vregs[i].pmapp_id,
+
+		rc = on ? regulator_enable(bt_vregs[i].reg) : 0;
+		if (rc) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: could not %sable regulator %s: %d\n",
+					__func__, "en", bt_vregs[i].name, rc);
+			goto reg_disable;
+		}
+
+		if (bt_vregs[i].is_pin_controlled) {
+			rc = pmapp_vreg_lpm_pincntrl_vote(id,
+				bt_vregs[i].pmapp_id,
 					PMAPP_CLOCK_ID_D1,
 					on ? PMAPP_CLOCK_VOTE_ON :
-					PMAPP_CLOCK_VOTE_OFF);
-		} else {
-		rc = on ? vreg_enable(bt_vregs[i].vregs) :
-			  vreg_disable(bt_vregs[i].vregs);
+						PMAPP_CLOCK_VOTE_OFF);
+			if (rc) {
+				dev_err(&msm_bt_power_device.dev,
+					"%s: pin control failed for %s: %d\n",
+						__func__, bt_vregs[i].name, rc);
+				goto pin_cnt_fail;
+			}
 		}
+		rc = on ? 0 : regulator_disable(bt_vregs[i].reg);
 
-		if (rc < 0) {
-			pr_err("%s: vreg %s %s failed(%d)\n",
-					__func__, bt_vregs[i].name,
-					on ? "enable" : "disable", rc);
-			goto vreg_fail;
+		if (rc) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: could not %sable regulator %s: %d\n",
+					__func__, "dis", bt_vregs[i].name, rc);
+			goto reg_disable;
 		}
 	}
 
 	return rc;
-
-vreg_fail:
+pin_cnt_fail:
+	if (on)
+		regulator_disable(bt_vregs[i].reg);
+reg_disable:
 	while (i) {
-		if (on)
-			vreg_disable(bt_vregs[--i].vregs);
+		if (on) {
+			i--;
+			regulator_disable(bt_vregs[i].reg);
+			regulator_put(bt_vregs[i].reg);
 		}
-vreg_set_level_fail:
-	vreg_put(bt_vregs[0].vregs);
-	vreg_put(bt_vregs[1].vregs);
+	}
 	return rc;
 }
 
+static struct regulator *reg_s3;
 static unsigned int msm_bahama_setup_power(void)
 {
 	int rc = 0;
-	struct vreg *vreg_s3 = NULL;
 
-	vreg_s3 = vreg_get(NULL, "msme1");
-	if (IS_ERR(vreg_s3)) {
-		pr_err("%s: vreg get failed (%ld)\n",
-			__func__, PTR_ERR(vreg_s3));
-		return PTR_ERR(vreg_s3);
+	reg_s3 = regulator_get(NULL, "msme1");
+	if (IS_ERR(reg_s3)) {
+		rc = PTR_ERR(reg_s3);
+		pr_err("%s: could not get regulator: %d\n", __func__, rc);
+		goto out;
 	}
-	rc = vreg_set_level(vreg_s3, 1800);
+
+	rc = regulator_set_voltage(reg_s3, 1800000, 1800000);
 	if (rc < 0) {
-		pr_err("%s: vreg set level failed (%d)\n",
-				__func__, rc);
-		goto vreg_fail;
+		pr_err("%s: could not set voltage: %d\n", __func__, rc);
+		goto reg_fail;
 	}
-	rc = vreg_enable(vreg_s3);
+
+	rc = regulator_enable(reg_s3);
 	if (rc < 0) {
-		pr_err("%s: vreg enable failed (%d)\n",
-		       __func__, rc);
-		goto vreg_fail;
+		pr_err("%s: could not enable regulator: %d\n", __func__, rc);
+		goto reg_fail;
 	}
 
 	/*setup Bahama_sys_reset_n*/
@@ -661,48 +680,62 @@ static unsigned int msm_bahama_setup_power(void)
 	if (rc < 0) {
 		pr_err("%s: gpio_request %d = %d\n", __func__,
 			GPIO_BT_SYS_REST_EN, rc);
-		goto vreg_fail;
+		goto reg_disable;
 	}
+
 	rc = bt_set_gpio(1);
 	if (rc < 0) {
 		pr_err("%s: bt_set_gpio %d = %d\n", __func__,
 			GPIO_BT_SYS_REST_EN, rc);
 		goto gpio_fail;
 	}
+
 	return rc;
 
 gpio_fail:
 	gpio_free(GPIO_BT_SYS_REST_EN);
-vreg_fail:
-	vreg_put(vreg_s3);
+reg_disable:
+	regulator_disable(reg_s3);
+reg_fail:
+	regulator_put(reg_s3);
+out:
+	reg_s3 = NULL;
 	return rc;
 }
 
 static unsigned int msm_bahama_shutdown_power(int value)
 {
 	int rc = 0;
-	struct vreg *vreg_s3 = NULL;
 
-	vreg_s3 = vreg_get(NULL, "msme1");
-	if (IS_ERR(vreg_s3)) {
-		pr_err("%s: vreg get failed (%ld)\n",
-			__func__, PTR_ERR(vreg_s3));
-		return PTR_ERR(vreg_s3);
+	if (IS_ERR_OR_NULL(reg_s3)) {
+		rc = reg_s3 ? PTR_ERR(reg_s3) : -ENODEV;
+		goto out;
 	}
-	rc = vreg_disable(vreg_s3);
+
+	rc = regulator_disable(reg_s3);
 	if (rc) {
-		pr_err("%s: vreg disable failed (%d)\n",
-		       __func__, rc);
-		vreg_put(vreg_s3);
-		return rc;
+		pr_err("%s: could not disable regulator: %d\n", __func__, rc);
+		goto out;
 	}
+
 	if (value == BAHAMA_ID) {
 		rc = bt_set_gpio(0);
 		if (rc) {
 			pr_err("%s: bt_set_gpio = %d\n",
 					__func__, rc);
+			goto reg_enable;
 		}
+		gpio_free(GPIO_BT_SYS_REST_EN);
 	}
+
+	regulator_put(reg_s3);
+	reg_s3 = NULL;
+
+	return 0;
+
+reg_enable:
+	regulator_enable(reg_s3);
+out:
 	return rc;
 }
 
@@ -863,25 +896,27 @@ exit:
 static int __init bt_power_init(void)
 {
 	int i, rc = 0;
-	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
-			bt_vregs[i].vregs = vreg_get(NULL,
-					bt_vregs[i].name);
-			if (IS_ERR(bt_vregs[i].vregs)) {
-				pr_err("%s: vreg get %s failed (%ld)\n",
-				       __func__, bt_vregs[i].name,
-				       PTR_ERR(bt_vregs[i].vregs));
-				rc = PTR_ERR(bt_vregs[i].vregs);
-				goto vreg_get_fail;
-			}
-		}
+	struct device *dev = &msm_bt_power_device.dev;
 
-	msm_bt_power_device.dev.platform_data = &bluetooth_power;
+	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
+		bt_vregs[i].reg = regulator_get(dev, bt_vregs[i].name);
+		if (IS_ERR(bt_vregs[i].reg)) {
+			rc = PTR_ERR(bt_vregs[i].reg);
+			dev_err(dev, "%s: could not get regulator %s: %d\n",
+					__func__, bt_vregs[i].name, rc);
+			goto reg_get_fail;
+		}
+	}
+
+	dev->platform_data = &bluetooth_power;
 
 	return rc;
 
-vreg_get_fail:
-	while (i)
-		vreg_put(bt_vregs[--i].vregs);
+reg_get_fail:
+	while (i--) {
+		regulator_put(bt_vregs[i].reg);
+		bt_vregs[i].reg = NULL;
+	}
 	return rc;
 }
 
@@ -1144,35 +1179,52 @@ static int hsusb_rpc_connect(int connect)
 		return msm_hsusb_rpc_close();
 }
 
-static struct vreg *vreg_3p3;
+static struct regulator *reg_hsusb;
 static int msm_hsusb_ldo_init(int init)
 {
-	if (init) {
-		vreg_3p3 = vreg_get(NULL, "usb");
-		if (IS_ERR(vreg_3p3))
-			return PTR_ERR(vreg_3p3);
-	} else
-		vreg_put(vreg_3p3);
+	int rc = 0;
 
-	return 0;
+	if (init) {
+		reg_hsusb = regulator_get(NULL, "usb");
+		if (IS_ERR(reg_hsusb)) {
+			rc = PTR_ERR(reg_hsusb);
+			pr_err("%s: could not get regulator: %d\n",
+					__func__, rc);
+			goto out;
+		}
+
+		rc = regulator_set_voltage(reg_hsusb, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: could not set voltage: %d\n",
+					__func__, rc);
+			goto reg_free;
+		}
+
+		return 0;
+	}
+	/* else fall through */
+reg_free:
+	regulator_put(reg_hsusb);
+out:
+	reg_hsusb = NULL;
+	return rc;
 }
 
 static int msm_hsusb_ldo_enable(int enable)
 {
 	static int ldo_status;
 
-	if (!vreg_3p3 || IS_ERR(vreg_3p3))
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(reg_hsusb))
+		return reg_hsusb ? PTR_ERR(reg_hsusb) : -ENODEV;
 
 	if (ldo_status == enable)
 		return 0;
 
 	ldo_status = enable;
 
-	if (enable)
-		return vreg_enable(vreg_3p3);
-
-	return vreg_disable(vreg_3p3);
+	return enable ?
+		regulator_enable(reg_hsusb) :
+		regulator_disable(reg_hsusb);
 }
 
 #ifndef CONFIG_USB_EHCI_MSM_72K
@@ -1219,15 +1271,6 @@ static struct msm_hsusb_gadget_platform_data msm_gadget_pdata = {
 	|| defined(CONFIG_MMC_MSM_SDC4_SUPPORT))
 
 static unsigned long vreg_sts, gpio_sts;
-static struct vreg *vreg_mmc;
-static struct vreg *vreg_emmc;
-
-struct sdcc_vreg {
-	struct vreg *vreg_data;
-	unsigned level;
-};
-
-static struct sdcc_vreg sdcc_vreg_data[4];
 
 struct sdcc_gpio {
 	struct msm_gpio *cfg_data;
@@ -1346,6 +1389,7 @@ static struct sdcc_gpio sdcc_cfg_data[] = {
 	},
 };
 
+static struct regulator *sdcc_vreg_data[ARRAY_SIZE(sdcc_cfg_data)];
 static int msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 {
 	int rc = 0;
@@ -1376,27 +1420,31 @@ static int msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 static int msm_sdcc_setup_vreg(int dev_id, unsigned int enable)
 {
 	int rc = 0;
-	struct sdcc_vreg *curr;
+	struct regulator *curr = sdcc_vreg_data[dev_id - 1];
 
-	curr = &sdcc_vreg_data[dev_id - 1];
+	if (test_bit(dev_id, &vreg_sts) == enable)
+		return 0;
 
-	if (!(test_bit(dev_id, &vreg_sts)^enable))
-		return rc;
+	if (!curr)
+		return -ENODEV;
+
+	if (IS_ERR(curr))
+		return PTR_ERR(curr);
 
 	if (enable) {
 		set_bit(dev_id, &vreg_sts);
-		rc = vreg_set_level(curr->vreg_data, curr->level);
-		if (rc)
-			pr_err("%s: vreg_set_level() = %d\n", __func__, rc);
 
-		rc = vreg_enable(curr->vreg_data);
+		rc = regulator_enable(curr);
 		if (rc)
-			pr_err("%s: vreg_enable() = %d\n", __func__, rc);
+			pr_err("%s: could not enable regulator: %d\n",
+						__func__, rc);
 	} else {
 		clear_bit(dev_id, &vreg_sts);
-		rc = vreg_disable(curr->vreg_data);
+
+		rc = regulator_disable(curr);
 		if (rc)
-			pr_err("%s: vreg_disable() = %d\n", __func__, rc);
+			pr_err("%s: could not disable regulator: %d\n",
+						__func__, rc);
 	}
 	return rc;
 }
@@ -1644,45 +1692,65 @@ static struct platform_device mipi_dsi_truly_panel_device = {
 	}
 };
 
+static int __init mmc_regulator_init(int sdcc_no, const char *supply, int uV)
+{
+	int rc;
+
+	BUG_ON(sdcc_no < 1 || sdcc_no > 4);
+
+	sdcc_no--;
+
+	sdcc_vreg_data[sdcc_no] = regulator_get(NULL, supply);
+
+	if (IS_ERR(sdcc_vreg_data[sdcc_no])) {
+		rc = PTR_ERR(sdcc_vreg_data[sdcc_no]);
+		pr_err("%s: could not get regulator \"%s\": %d\n",
+				__func__, supply, rc);
+		goto out;
+	}
+
+	rc = regulator_set_voltage(sdcc_vreg_data[sdcc_no], uV, uV);
+
+	if (rc) {
+		pr_err("%s: could not set voltage for \"%s\" to %d uV: %d\n",
+				__func__, supply, uV, rc);
+		goto reg_free;
+	}
+
+	return rc;
+
+reg_free:
+	regulator_put(sdcc_vreg_data[sdcc_no]);
+out:
+	sdcc_vreg_data[sdcc_no] = NULL;
+	return rc;
+}
+
 static void __init msm7627a_init_mmc(void)
 {
-	vreg_emmc = vreg_get(NULL, "emmc");
-	if (IS_ERR(vreg_emmc)) {
-		pr_err("%s: vreg get failed (%ld)\n",
-				__func__, PTR_ERR(vreg_emmc));
-		return;
-	}
-
-	vreg_mmc = vreg_get(NULL, "mmc");
-	if (IS_ERR(vreg_mmc)) {
-		pr_err("%s: vreg get failed (%ld)\n",
-				__func__, PTR_ERR(vreg_mmc));
-		return;
-	}
-
 	/* eMMC slot */
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-	sdcc_vreg_data[2].vreg_data = vreg_emmc;
-	sdcc_vreg_data[2].level = 3000;
+	if (mmc_regulator_init(3, "emmc", 3000000))
+		return;
 	msm_add_sdcc(3, &sdc3_plat_data);
 #endif
 	/* Micro-SD slot */
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-	sdcc_vreg_data[0].vreg_data = vreg_mmc;
-	sdcc_vreg_data[0].level = 2850;
+	if (mmc_regulator_init(1, "mmc", 2850000))
+		return;
 	msm_add_sdcc(1, &sdc1_plat_data);
 #endif
 	/* SDIO WLAN slot */
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-	sdcc_vreg_data[1].vreg_data = vreg_mmc;
-	sdcc_vreg_data[1].level = 2850;
+	if (mmc_regulator_init(2, "mmc", 2850000))
+		return;
 	msm_add_sdcc(2, &sdc2_plat_data);
 #endif
 	/* Not Used */
 #if (defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
 		&& !defined(CONFIG_MMC_MSM_SDC3_8_BIT_SUPPORT))
-	sdcc_vreg_data[3].vreg_data = vreg_mmc;
-	sdcc_vreg_data[3].level = 2850;
+	if (mmc_regulator_init(4, "mmc", 2850000))
+		return;
 	msm_add_sdcc(4, &sdc4_plat_data);
 #endif
 }
@@ -1945,98 +2013,39 @@ static void qrd1_camera_gpio_cfg(void)
 }
 
 #endif
-static struct vreg *vreg_gp1;
-static struct vreg *vreg_gp2;
-static struct vreg *vreg_gp3;
-static void msm_camera_vreg_config(int vreg_en)
+static struct regulator_bulk_data regs_camera[] = {
+	{ .supply = "msme1", .min_uV = 1800000, .max_uV = 1800000 },
+	{ .supply = "gp2",   .min_uV = 2850000, .max_uV = 2850000 },
+	{ .supply = "usb2",  .min_uV = 1800000, .max_uV = 1800000 },
+};
+
+static void __init msm_camera_vreg_init(void)
 {
 	int rc;
 
-	if (vreg_gp1 == NULL) {
-		vreg_gp1 = vreg_get(NULL, "msme1");
-		if (IS_ERR(vreg_gp1)) {
-			pr_err("%s: vreg_get(%s) failed (%ld)\n",
-				__func__, "msme1", PTR_ERR(vreg_gp1));
-			return;
-		}
-
-		rc = vreg_set_level(vreg_gp1, 1800);
-		if (rc) {
-			pr_err("%s: GP1 set_level failed (%d)\n",
-				__func__, rc);
-			return;
-		}
+	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
+	if (rc) {
+		pr_err("%s: could not get regulators: %d\n", __func__, rc);
+		return;
 	}
 
-	if (vreg_gp2 == NULL) {
-		vreg_gp2 = vreg_get(NULL, "gp2");
-		if (IS_ERR(vreg_gp2)) {
-			pr_err("%s: vreg_get(%s) failed (%ld)\n",
-				__func__, "gp2", PTR_ERR(vreg_gp2));
-			return;
-		}
-
-		rc = vreg_set_level(vreg_gp2, 2850);
-		if (rc) {
-			pr_err("%s: GP2 set_level failed (%d)\n",
-				__func__, rc);
-		}
-	}
-
-	if (vreg_gp3 == NULL) {
-		vreg_gp3 = vreg_get(NULL, "usb2");
-		if (IS_ERR(vreg_gp3)) {
-			pr_err("%s: vreg_get(%s) failed (%ld)\n",
-				__func__, "gp3", PTR_ERR(vreg_gp3));
-			return;
-		}
-
-		rc = vreg_set_level(vreg_gp3, 1800);
-		if (rc) {
-			pr_err("%s: GP3 set level failed (%d)\n",
-				__func__, rc);
-		}
-	}
-
-	if (vreg_en) {
-		rc = vreg_enable(vreg_gp1);
-		if (rc) {
-			pr_err("%s: GP1 enable failed (%d)\n",
-				__func__, rc);
-			return;
-		}
-
-		rc = vreg_enable(vreg_gp2);
-		if (rc) {
-			pr_err("%s: GP2 enable failed (%d)\n",
-				__func__, rc);
-		}
-
-		rc = vreg_enable(vreg_gp3);
-		if (rc) {
-			pr_err("%s: GP3 enable failed (%d)\n",
-				__func__, rc);
-		}
-	} else {
-		rc = vreg_disable(vreg_gp1);
-		if (rc)
-			pr_err("%s: GP1 disable failed (%d)\n",
-				__func__, rc);
-
-		rc = vreg_disable(vreg_gp2);
-		if (rc) {
-			pr_err("%s: GP2 disable failed (%d)\n",
-				__func__, rc);
-		}
-
-		rc = vreg_disable(vreg_gp3);
-		if (rc) {
-			pr_err("%s: GP3 disable failed (%d)\n",
-				__func__, rc);
-		}
+	rc = regulator_bulk_set_voltage(ARRAY_SIZE(regs_camera), regs_camera);
+	if (rc) {
+		pr_err("%s: could not set voltages: %d\n", __func__, rc);
+		return;
 	}
 }
 
+static void msm_camera_vreg_config(int vreg_en)
+{
+	int rc = vreg_en ?
+		regulator_bulk_enable(ARRAY_SIZE(regs_camera), regs_camera) :
+		regulator_bulk_disable(ARRAY_SIZE(regs_camera), regs_camera);
+
+	if (rc)
+		pr_err("%s: could not %sable regulators: %d\n",
+				__func__, vreg_en ? "en" : "dis", rc);
+}
 static int config_gpio_table(uint32_t *table, int len)
 {
 	int rc = 0, i = 0;
@@ -2563,6 +2572,7 @@ static void __init msm_qrd1_init(void)
 	bt_power_init();
 #endif
 
+	msm_camera_vreg_init();
 	i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID, i2c_camera_devices,
 			ARRAY_SIZE(i2c_camera_devices));
 
