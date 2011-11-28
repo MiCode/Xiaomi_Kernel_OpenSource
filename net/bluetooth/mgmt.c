@@ -41,8 +41,6 @@ enum scan_mode {
 };
 
 struct disco_interleave {
-	struct timer_list	timer;
-	struct timer_list	le_timer;
 	u16			index;
 	enum scan_mode		mode;
 	int			int_phase;
@@ -1565,12 +1563,19 @@ static void pairing_connect_complete_cb(struct hci_conn *conn, u8 status)
 
 static void discovery_terminated(struct pending_cmd *cmd, void *data)
 {
+	struct hci_dev *hdev;
 	struct mgmt_mode ev = {0};
-	struct disco_interleave *ilp = cmd->param;
 
 	BT_DBG("");
-	del_timer_sync(&ilp->le_timer);
-	del_timer_sync(&ilp->timer);
+	hdev = hci_dev_get(cmd->index);
+	if (!hdev)
+		goto not_found;
+
+	del_timer_sync(&hdev->disc_le_timer);
+	del_timer_sync(&hdev->disc_timer);
+	hci_dev_put(hdev);
+
+not_found:
 	mgmt_event(MGMT_EV_DISCOVERING, cmd->index, &ev, sizeof(ev), NULL);
 
 	list_del(&cmd->list);
@@ -1851,10 +1856,12 @@ static void discovery_rsp(struct pending_cmd *cmd, void *data)
 		cmd_complete(cmd->sk, cmd->index, MGMT_OP_STOP_DISCOVERY,
 								NULL, 0);
 		if (cmd->opcode == MGMT_OP_STOP_DISCOVERY) {
-			struct disco_interleave *ilp = cmd->param;
-
-			del_timer_sync(&ilp->le_timer);
-			del_timer_sync(&ilp->timer);
+			struct hci_dev *hdev = hci_dev_get(cmd->index);
+			if (hdev) {
+				del_timer_sync(&hdev->disc_le_timer);
+				del_timer_sync(&hdev->disc_timer);
+				hci_dev_put(hdev);
+			}
 		}
 	}
 
@@ -1903,8 +1910,8 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 
 		err = hci_send_cmd(hdev, HCI_OP_LE_SET_SCAN_ENABLE,
 						sizeof(le_cp), &le_cp);
-		if (err >= 0) {
-			mod_timer(&ilp->le_timer, jiffies +
+		if (err >= 0 && hdev) {
+			mod_timer(&hdev->disc_le_timer, jiffies +
 				msecs_to_jiffies(ilp->int_phase * 1000));
 			ilp->mode = SCAN_LE;
 		} else
@@ -1927,11 +1934,11 @@ static void disco_to(unsigned long data)
 
 	BT_DBG("hci%d", ilp->index);
 
-	del_timer_sync(&ilp->le_timer);
 	hdev = hci_dev_get(ilp->index);
 
 	if (hdev) {
 		hci_dev_lock_bh(hdev);
+		del_timer_sync(&hdev->disc_le_timer);
 
 		cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, ilp->index);
 
@@ -2056,10 +2063,11 @@ static int start_discovery(struct sock *sk, u16 index)
 		cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
 		if (cmd) {
 			ilp = cmd->param;
-			setup_timer(&ilp->le_timer, disco_le_to,
+			setup_timer(&hdev->disc_le_timer, disco_le_to,
 							(unsigned long) ilp);
-			setup_timer(&ilp->timer, disco_to, (unsigned long) ilp);
-			mod_timer(&ilp->timer,
+			setup_timer(&hdev->disc_timer, disco_to,
+							(unsigned long) ilp);
+			mod_timer(&hdev->disc_timer,
 					jiffies + msecs_to_jiffies(20000));
 		}
 	}
@@ -2110,8 +2118,8 @@ static int stop_discovery(struct sock *sk, u16 index)
 
 	if (ilp) {
 		ilp->mode = SCAN_IDLE;
-		del_timer_sync(&ilp->le_timer);
-		del_timer_sync(&ilp->timer);
+		del_timer_sync(&hdev->disc_le_timer);
+		del_timer_sync(&hdev->disc_timer);
 	}
 
 	if (err < 0 && cmd)
@@ -2859,7 +2867,7 @@ int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 				hci_send_cmd(hdev, HCI_OP_INQUIRY,
 							sizeof(cp), &cp);
 				ilp->mode = SCAN_BR;
-				del_timer_sync(&ilp->le_timer);
+				del_timer_sync(&hdev->disc_le_timer);
 			}
 		}
 
