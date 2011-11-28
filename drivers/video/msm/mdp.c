@@ -200,6 +200,7 @@ static int mdp_lut_update_nonlcdc(struct fb_info *info, struct fb_cmap *cmap)
 static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 {
 	int ret;
+	uint32_t out;
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = mdp_lut_hw_update(cmap);
@@ -209,7 +210,9 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 		return ret;
 	}
 
-	MDP_OUTP(MDP_BASE + 0x90070, (mdp_lut_i << 10) | 0x17);
+	/*mask off non LUT select bits*/
+	out = inpdw(MDP_BASE + 0x90070) & ~(0x1 << 10);
+	MDP_OUTP(MDP_BASE + 0x90070, (mdp_lut_i << 10) | out);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_lut_i = (mdp_lut_i + 1)%2;
 
@@ -218,11 +221,13 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 
 static void mdp_lut_enable(void)
 {
+	uint32_t out;
 	if (mdp_lut_push) {
 		mutex_lock(&mdp_lut_push_sem);
 		mdp_lut_push = 0;
+		out = inpdw(MDP_BASE + 0x90070) & ~(0x1 << 10);
 		MDP_OUTP(MDP_BASE + 0x90070,
-				(mdp_lut_push_i << 10) | 0x17);
+				(mdp_lut_push_i << 10) | out);
 		mutex_unlock(&mdp_lut_push_sem);
 	}
 }

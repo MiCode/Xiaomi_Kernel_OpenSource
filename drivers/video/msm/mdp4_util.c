@@ -275,6 +275,7 @@ void mdp4_hw_init(void)
 	mdp4_vg_csc_setup(1);
 	mdp4_mixer_csc_setup(1);
 	mdp4_mixer_csc_setup(2);
+	mdp4_dmap_csc_setup();
 
 	if (mdp_rev <= MDP_REV_41) {
 		mdp4_mixer_gc_lut_setup(0);
@@ -1238,7 +1239,7 @@ uint32 csc_pre_bv[3];
 uint32 csc_post_bv[3];
 uint32 csc_pre_lv[6];
 uint32 csc_post_lv[6];
-} csc_matrix[2] = {
+} csc_matrix[3] = {
 	{
 		{
 			0x0254, 0x0000, 0x0331,
@@ -1266,6 +1267,25 @@ uint32 csc_post_lv[6];
 		},
 		{
 			0xfff0, 0xff80, 0xff80,
+		},
+		{
+			0, 0, 0,
+		},
+		{
+			0, 0xff, 0, 0xff, 0, 0xff,
+		},
+		{
+			0, 0xff, 0, 0xff, 0, 0xff,
+		},
+	},
+	{
+		{
+			0x0200, 0x0000, 0x0000,
+			0x0000, 0x0200, 0x0000,
+			0x0000, 0x0000, 0x0200,
+		},
+		{
+			0x0, 0x0, 0x0,
 		},
 		{
 			0, 0, 0,
@@ -1527,6 +1547,91 @@ void mdp4_mixer_csc_setup(uint32 mixer)
 		mdp4_mixer_csc_pre_lv_setup(mixer);
 		mdp4_mixer_csc_post_lv_setup(mixer);
 	}
+}
+
+#define DMA_P_BASE 0x90000
+void mdp4_dmap_csc_mv_setup(void)
+{
+	uint32 *off;
+	int i;
+
+	off = (uint32 *)(MDP_BASE + DMA_P_BASE + 0x3400);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < 9; i++) {
+		outpdw(off, csc_matrix[2].csc_mv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_dmap_csc_pre_bv_setup(void)
+{
+	uint32 *off;
+	int i;
+
+	off = (uint32 *)(MDP_BASE + DMA_P_BASE + 0x3500);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < 3; i++) {
+		outpdw(off, csc_matrix[2].csc_pre_bv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_dmap_csc_post_bv_setup(void)
+{
+	uint32 *off;
+	int i;
+
+	off = (uint32 *)(MDP_BASE + DMA_P_BASE + 0x3580);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < 3; i++) {
+		outpdw(off, csc_matrix[2].csc_post_bv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_dmap_csc_pre_lv_setup(void)
+{
+	uint32 *off;
+	int i;
+
+	off = (uint32 *)(MDP_BASE + DMA_P_BASE + 0x3600);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < 6; i++) {
+		outpdw(off, csc_matrix[2].csc_pre_lv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_dmap_csc_post_lv_setup(void)
+{
+	uint32 *off;
+	int i;
+
+	off = (uint32 *)(MDP_BASE + DMA_P_BASE + 0x3680);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < 6; i++) {
+		outpdw(off, csc_matrix[2].csc_post_lv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_dmap_csc_setup(void)
+{
+	mdp4_dmap_csc_mv_setup();
+	mdp4_dmap_csc_pre_bv_setup();
+	mdp4_dmap_csc_post_bv_setup();
+	mdp4_dmap_csc_pre_lv_setup();
+	mdp4_dmap_csc_post_lv_setup();
 }
 
 char gc_lut[] = {
@@ -2224,6 +2329,108 @@ uint32_t mdp4_ss_table_value(int8_t value, int8_t index)
 	}
 
 	return out;
+}
+
+static uint32_t mdp4_csc_block2base(uint32_t block)
+{
+	uint32_t base = 0x0;
+	switch (block) {
+	case MDP_BLOCK_OVERLAY_1:
+		base = 0x1A000;
+		break;
+	case MDP_BLOCK_VG_1:
+		base = 0x24000;
+		break;
+	case MDP_BLOCK_VG_2:
+		base = 0x34000;
+		break;
+	case MDP_BLOCK_DMA_P:
+		base = 0x93000;
+		break;
+	default:
+		break;
+	}
+	return base;
+}
+
+static int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
+{
+	uint32_t output, base, temp, mask;
+
+	switch (config->block) {
+	case MDP_BLOCK_DMA_P:
+		base = 0x90070;
+		output = (config->csc_data.flags << 3) & (0x08);
+		temp = (config->csc_data.flags << 10) & (0x1800);
+		output |= temp;
+		mask = 0x08 | 0x1800;
+		break;
+	case MDP_BLOCK_VG_1:
+	case MDP_BLOCK_VG_2:
+	case MDP_BLOCK_OVERLAY_1:
+	default:
+		pr_err("%s - CSC block does not exist on MDP_BLOCK = %d\n",
+						__func__, config->block);
+		return -EINVAL;
+	}
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	temp = inpdw(MDP_BASE + base) & ~mask;
+	output |= temp;
+	outpdw(MDP_BASE + base, output);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	return 0;
+}
+
+#define CSC_MV_OFF	0x400
+#define CSC_BV_OFF	0x500
+#define CSC_LV_OFF	0x600
+#define CSC_POST_OFF	0x80
+
+int mdp4_csc_config(struct mdp_csc_cfg_data *config)
+{
+	int ret = 0;
+	int i;
+	uint32_t base, *off;
+
+	base = mdp4_csc_block2base(config->block);
+	if (!base)
+		return -EINVAL;
+
+	/* TODO: implement other CSC block support */
+	if (config->block != MDP_BLOCK_DMA_P) {
+		pr_warn("%s: Only DMA_P currently supported by CSC.\n",
+		__func__);
+		return -EINVAL;
+	}
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	off = (uint32_t *) (MDP_BASE + base + CSC_MV_OFF);
+	for (i = 0; i < 9; i++) {
+		outpdw(off, config->csc_data.csc_mv[i]);
+		off++;
+	}
+
+	off = (uint32_t *) (MDP_BASE + base + CSC_BV_OFF);
+	for (i = 0; i < 3; i++) {
+		outpdw(off, config->csc_data.csc_pre_bv[i]);
+		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
+					config->csc_data.csc_post_bv[i]);
+		off++;
+	}
+
+	off = (uint32_t *) (MDP_BASE + base + CSC_LV_OFF);
+	for (i = 0; i < 6; i++) {
+		outpdw(off, config->csc_data.csc_pre_lv[i]);
+		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
+					config->csc_data.csc_post_lv[i]);
+		off++;
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	ret = mdp4_csc_enable(config);
+
+	return ret;
 }
 
 void mdp4_init_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)

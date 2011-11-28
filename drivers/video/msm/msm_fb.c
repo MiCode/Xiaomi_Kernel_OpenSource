@@ -3160,13 +3160,18 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			return ret;
 
-		switch (mdp_pp.op) { /*Add PCC, CSC, and LUT op handling here*/
+		switch (mdp_pp.op) { /*Add PCC and LUT op handling here*/
 #ifdef CONFIG_FB_MSM_MDP40
 		case mdp_op_csc_cfg:
+			ret = mdp4_csc_config((struct mdp_csc_cfg_data *)
+					&(mdp_pp.data));
+			break;
 		case mdp_op_pcc_cfg:
 		case mdp_op_lut_cfg:
 #endif
 		default:
+			pr_warn("%s: Only CSC supported by MDP_PP IOCTL.\n",
+					__func__);
 			ret = -EINVAL;
 			break;
 		}
