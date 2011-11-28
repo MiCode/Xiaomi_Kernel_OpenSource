@@ -52,8 +52,6 @@ struct workqueue_struct *suspend_work_queue;
 struct wake_lock main_wake_lock;
 suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
 static struct wake_lock unknown_wakeup;
-/* flag to warn/bug if wakelocks are taken after suspend_noirq */
-static int msm_suspend_check_done;
 static struct wake_lock suspend_backoff_lock;
 
 #define SUSPEND_BACKOFF_THRESHOLD	10
@@ -412,21 +410,11 @@ static int power_suspend_late(struct device *dev)
 #endif
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("power_suspend_late return %d\n", ret);
-
-	if (ret == 0)
-		msm_suspend_check_done = 1;
 	return ret;
-}
-
-static int power_resume_early(struct device *dev)
-{
-	msm_suspend_check_done = 0;
-	return 0;
 }
 
 static struct dev_pm_ops power_driver_pm_ops = {
 	.suspend_noirq = power_suspend_late,
-	.resume_noirq = power_resume_early,
 };
 
 static struct platform_driver power_driver = {
@@ -569,24 +557,12 @@ static void wake_lock_internal(
 
 void wake_lock(struct wake_lock *lock)
 {
-	/*
-	 * if wake lock is being called too late in the suspend sequence,
-	 * call bug so we get to analyze the callstack
-	 */
-	BUG_ON(msm_suspend_check_done);
-
 	wake_lock_internal(lock, 0, 0);
 }
 EXPORT_SYMBOL(wake_lock);
 
 void wake_lock_timeout(struct wake_lock *lock, long timeout)
 {
-	/*
-	 * if wake lock is being called too late in the suspend sequence,
-	 * call bug so we get to analyze the callstack
-	 */
-	BUG_ON(msm_suspend_check_done);
-
 	wake_lock_internal(lock, timeout, 1);
 }
 EXPORT_SYMBOL(wake_lock_timeout);
