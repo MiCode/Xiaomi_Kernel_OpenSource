@@ -15,15 +15,15 @@
 		      <0xF9002000 0x1000>;
 	};
 
-	serial@F9684000 {
+	serial@F991F000 {
 		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xF9684000 0x1000>;
+		reg = <0xF991F000 0x1000>;
 		interrupts = <109>;
 	};
 
-	usb@F9690000 {
+	usb@F9A55000 {
 		compatible = "qcom,hsusb-otg";
-		reg = <0xF9690000 0x400>;
+		reg = <0xF9A55000 0x400>;
 		interrupts = <134>;
 
 		qcom,hsusb-otg-phy-type = <2>;
@@ -31,10 +31,10 @@
 		qcom,hsusb-otg-otg-control = <1>;
 	};
 
-	qcom,sdcc@F9600000 {
+	qcom,sdcc@F980B000 {
 		cell-index = <1>;
 		compatible = "qcom,msm-sdcc";
-		reg = <0xF9600000 0x1000>;
+		reg = <0xF980B000 0x1000>;
 		interrupts = <123>;
 
 		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
@@ -44,10 +44,10 @@
 		qcom,sdcc-disable_cmd23;
 	};
 
-	qcom,sdcc@F9620000 {
+	qcom,sdcc@F984B000 {
 		cell-index = <3>;
 		compatible = "qcom,msm-sdcc";
-		reg = <0xF9620000 0x1000>;
+		reg = <0xF984B000 0x1000>;
 		interrupts = <127>;
 
 		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
