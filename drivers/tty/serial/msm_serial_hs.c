@@ -405,9 +405,9 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 		      msm_uport->rx.rbuffer);
 	dma_pool_destroy(msm_uport->rx.pool);
 
-	dma_unmap_single(dev, msm_uport->rx.cmdptr_dmaaddr, sizeof(u32 *),
+	dma_unmap_single(dev, msm_uport->rx.cmdptr_dmaaddr, sizeof(u32),
 			 DMA_TO_DEVICE);
-	dma_unmap_single(dev, msm_uport->tx.mapped_cmd_ptr_ptr, sizeof(u32 *),
+	dma_unmap_single(dev, msm_uport->tx.mapped_cmd_ptr_ptr, sizeof(u32),
 			 DMA_TO_DEVICE);
 	dma_unmap_single(dev, msm_uport->tx.mapped_cmd_ptr, sizeof(dmov_box),
 			 DMA_TO_DEVICE);
@@ -897,7 +897,7 @@ static void msm_hs_submit_tx_locked(struct uart_port *uport)
 	mb();
 
 	dma_sync_single_for_device(uport->dev, tx->mapped_cmd_ptr_ptr,
-				   sizeof(u32 *), DMA_TO_DEVICE);
+				   sizeof(u32), DMA_TO_DEVICE);
 
 	msm_dmov_enqueue_cmd(msm_uport->dma_tx_channel, &tx->xfer);
 }
@@ -1726,7 +1726,7 @@ static int uartdm_init_port(struct uart_port *uport)
 	if (!tx->command_ptr)
 		return -ENOMEM;
 
-	tx->command_ptr_ptr = kmalloc(sizeof(u32 *), GFP_KERNEL | __GFP_DMA);
+	tx->command_ptr_ptr = kmalloc(sizeof(u32), GFP_KERNEL | __GFP_DMA);
 	if (!tx->command_ptr_ptr) {
 		ret = -ENOMEM;
 		goto free_tx_command_ptr;
@@ -1736,7 +1736,7 @@ static int uartdm_init_port(struct uart_port *uport)
 					    sizeof(dmov_box), DMA_TO_DEVICE);
 	tx->mapped_cmd_ptr_ptr = dma_map_single(uport->dev,
 						tx->command_ptr_ptr,
-						sizeof(u32 *), DMA_TO_DEVICE);
+						sizeof(u32), DMA_TO_DEVICE);
 	tx->xfer.cmdptr = DMOV_CMD_ADDR(tx->mapped_cmd_ptr_ptr);
 
 	init_waitqueue_head(&rx->wait);
@@ -1772,7 +1772,7 @@ static int uartdm_init_port(struct uart_port *uport)
 		goto free_rx_buffer;
 	}
 
-	rx->command_ptr_ptr = kmalloc(sizeof(u32 *), GFP_KERNEL | __GFP_DMA);
+	rx->command_ptr_ptr = kmalloc(sizeof(u32), GFP_KERNEL | __GFP_DMA);
 	if (!rx->command_ptr_ptr) {
 		pr_err("%s(): cannot allocate rx->command_ptr_ptr", __func__);
 		ret = -ENOMEM;
@@ -1803,7 +1803,7 @@ static int uartdm_init_port(struct uart_port *uport)
 	*rx->command_ptr_ptr = CMD_PTR_LP | DMOV_CMD_ADDR(rx->mapped_cmd_ptr);
 
 	rx->cmdptr_dmaaddr = dma_map_single(uport->dev, rx->command_ptr_ptr,
-					    sizeof(u32 *), DMA_TO_DEVICE);
+					    sizeof(u32), DMA_TO_DEVICE);
 	rx->xfer.cmdptr = DMOV_CMD_ADDR(rx->cmdptr_dmaaddr);
 
 	INIT_DELAYED_WORK(&rx->flip_insert_work, flip_insert_work);
@@ -1826,7 +1826,7 @@ exit_tasket_init:
 	tasklet_kill(&msm_uport->tx.tlet);
 	tasklet_kill(&msm_uport->rx.tlet);
 	dma_unmap_single(uport->dev, msm_uport->tx.mapped_cmd_ptr_ptr,
-			sizeof(u32 *), DMA_TO_DEVICE);
+			sizeof(u32), DMA_TO_DEVICE);
 	dma_unmap_single(uport->dev, msm_uport->tx.mapped_cmd_ptr,
 			sizeof(dmov_box), DMA_TO_DEVICE);
 	kfree(msm_uport->tx.command_ptr_ptr);
