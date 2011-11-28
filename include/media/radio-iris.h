@@ -198,6 +198,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_FM_STATION_DBG_PARAM_CMD 12
 #define HCI_FM_ENABLE_TRANS_CMD 13
 #define HCI_FM_DISABLE_TRANS_CMD 14
+#define HCI_FM_GET_TX_CONFIG 15
 
 
 /* Defines for FM TX*/
@@ -239,14 +240,6 @@ struct hci_fm_tx_rt {
 	__u8	pty;
 	__u8	ps_len;
 	__u8    rt_data[TX_RT_DATA_LENGTH];
-} __packed;
-
-struct hci_fm_get_trans_conf_rsp {
-	__u8    status;
-	__u8	emphasis;
-	__u8	rds_std;
-	__u32	band_low_limit;
-	__u32	band_high_limit;
 } __packed;
 
 struct hci_fm_mute_mode_req {
@@ -428,6 +421,10 @@ struct hci_fm_conf_rsp {
 	struct hci_fm_recv_conf_req recv_conf_rsp;
 } __packed;
 
+struct hci_fm_get_trans_conf_rsp {
+	__u8    status;
+	struct hci_fm_trans_conf_req_struct trans_conf_rsp;
+} __packed;
 struct hci_fm_sig_threshold_rsp {
 	__u8    status;
 	__u8    sig_threshold;
