@@ -211,81 +211,28 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai, int stream)
 {
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	u8 pgd_la, inf_la;
-	u16 *slave_port_mapping;
-
-	memset(dai_data->port_config.slimbus.slave_port_mapping, 0,
-		sizeof(dai_data->port_config.slimbus.slave_port_mapping));
 
 	dai_data->channels = params_channels(params);
-
-	slave_port_mapping = dai_data->port_config.slimbus.slave_port_mapping;
-
-	switch (dai_data->channels) {
-	case 4:
-		if (dai->id == SLIMBUS_0_TX) {
-			slave_port_mapping[0] = 7;
-			slave_port_mapping[1] = 8;
-			slave_port_mapping[2] = 9;
-			slave_port_mapping[3] = 10;
-		} else {
-			return -EINVAL;
-		}
-		break;
-	case 3:
-		if (dai->id == SLIMBUS_0_TX) {
-			slave_port_mapping[0] = 7;
-			slave_port_mapping[1] = 8;
-			slave_port_mapping[2] = 9;
-		} else {
-			return -EINVAL;
-		}
-		break;
-	case 2:
-		if (dai->id == SLIMBUS_0_RX) {
-			slave_port_mapping[0] = 1;
-			slave_port_mapping[1] = 2;
-		} else {
-			slave_port_mapping[0] = 7;
-			slave_port_mapping[1] = 8;
-		}
-		break;
-	case 1:
-		if (dai->id == SLIMBUS_0_RX)
-			slave_port_mapping[0] = 1;
-		else
-			slave_port_mapping[0] = 7;
-		break;
-	default:
-		return -EINVAL;
-		break;
-	}
 	dai_data->rate = params_rate(params);
-	tabla_get_logical_addresses(&pgd_la, &inf_la);
 
 	dai_data->port_config.slimbus.slimbus_dev_id =  AFE_SLIMBUS_DEVICE_1;
-	dai_data->port_config.slimbus.slave_dev_pgd_la = pgd_la;
-	dai_data->port_config.slimbus.slave_dev_intfdev_la = inf_la;
 	/* Q6 only supports 16 as now */
-	dai_data->port_config.slimbus.bit_width = 16;
-	dai_data->port_config.slimbus.data_format = 0;
-	dai_data->port_config.slimbus.num_channels = dai_data->channels;
-	dai_data->port_config.slimbus.reserved = 0;
+	dai_data->port_config.slim_sch.bit_width = 16;
+	dai_data->port_config.slim_sch.data_format = 0;
+	dai_data->port_config.slim_sch.num_channels = dai_data->channels;
+	dai_data->port_config.slim_sch.reserved = 0;
 
-	dev_dbg(dai->dev, "slimbus_dev_id  %hu  slave_dev_pgd_la 0x%hx\n"
-		"slave_dev_intfdev_la 0x%hx   bit_width %hu   data_format %hu\n"
-		"num_channel %hu  slave_port_mapping[0]  %hu\n"
+	dev_dbg(dai->dev, "%s:slimbus_dev_id[%hu] bit_wd[%hu] format[%hu]\n"
+		"num_channel %hu  slave_ch_mapping[0]  %hu\n"
 		"slave_port_mapping[1]  %hu slave_port_mapping[2]  %hu\n"
-		"sample_rate %d\n",
-		dai_data->port_config.slimbus.slimbus_dev_id,
-		dai_data->port_config.slimbus.slave_dev_pgd_la,
-		dai_data->port_config.slimbus.slave_dev_intfdev_la,
-		dai_data->port_config.slimbus.bit_width,
-		dai_data->port_config.slimbus.data_format,
-		dai_data->port_config.slimbus.num_channels,
-		dai_data->port_config.slimbus.slave_port_mapping[0],
-		dai_data->port_config.slimbus.slave_port_mapping[1],
-		dai_data->port_config.slimbus.slave_port_mapping[2],
+		"sample_rate %d\n", __func__,
+		dai_data->port_config.slim_sch.slimbus_dev_id,
+		dai_data->port_config.slim_sch.bit_width,
+		dai_data->port_config.slim_sch.data_format,
+		dai_data->port_config.slim_sch.num_channels,
+		dai_data->port_config.slim_sch.slave_ch_mapping[0],
+		dai_data->port_config.slim_sch.slave_ch_mapping[1],
+		dai_data->port_config.slim_sch.slave_ch_mapping[2],
 		dai_data->rate);
 
 	return 0;
@@ -784,7 +731,8 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	int rc = 0;
 
-	dev_dbg(dai->dev, "enter %s, id = %d\n", __func__, dai->id);
+	dev_dbg(dai->dev, "enter %s, id = %d fmt[%d]\n", __func__,
+							dai->id, fmt);
 	switch (dai->id) {
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
@@ -801,12 +749,69 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return rc;
 }
 
+static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
+				unsigned int tx_num, unsigned int *tx_slot,
+				unsigned int rx_num, unsigned int *rx_slot)
+
+{
+	int rc = 0;
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	unsigned int i = 0;
+
+	dev_dbg(dai->dev, "enter %s, id = %d\n", __func__,
+							dai->id);
+	if (!tx_slot && !rx_slot)
+		return -EINVAL;
+	switch (dai->id) {
+	case SLIMBUS_0_RX:
+		/* channel number to be between 128 and 255. For RX port
+		 * use channel numbers from 138 to 144, for TX port
+		 * use channel numbers from 128 to 137
+		 */
+		for (i = 0; i < rx_num; i++) {
+			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
+							rx_slot[i];
+			pr_debug("%s: find number of channels[%d] ch[%d]\n",
+							__func__, i,
+							rx_slot[i]);
+		}
+		dai_data->port_config.slim_sch.num_channels = rx_num;
+		pr_debug("%s:SLIMBUS_0_RX cnt[%d] ch[%d %d]\n", __func__,
+		rx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],
+		dai_data->port_config.slim_sch.slave_ch_mapping[1]);
+
+		break;
+	case SLIMBUS_0_TX:
+		/* channel number to be between 128 and 255. For RX port
+		 * use channel numbers from 138 to 144, for TX port
+		 * use channel numbers from 128 to 137
+		 */
+		for (i = 0; i < tx_num; i++) {
+			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
+							tx_slot[i];
+			pr_debug("%s: find number of channels[%d] ch[%d]\n",
+						__func__, i, tx_slot[i]);
+		}
+		dai_data->port_config.slim_sch.num_channels = tx_num;
+		pr_debug("%s:SLIMBUS_0_TX cnt[%d] ch[%d %d]\n", __func__,
+		tx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],
+		dai_data->port_config.slim_sch.slave_ch_mapping[1]);
+		break;
+	default:
+		dev_err(dai->dev, "invalid cpu_dai set_fmt\n");
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
 static struct snd_soc_dai_ops msm_dai_q6_ops = {
 	.prepare	= msm_dai_q6_prepare,
 	.trigger	= msm_dai_q6_trigger,
 	.hw_params	= msm_dai_q6_hw_params,
 	.shutdown	= msm_dai_q6_shutdown,
 	.set_fmt	= msm_dai_q6_set_fmt,
+	.set_channel_map = msm_dai_q6_set_channel_map,
 };
 
 static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {

@@ -643,6 +643,66 @@ static void *def_tabla_mbhc_cal(void)
 	return tabla_cal;
 }
 
+static int msm8960_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
+	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+
+	pr_debug("%s: ch=%d\n", __func__,
+					msm8960_slim_0_rx_ch);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+				msm8960_slim_0_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
+				msm8960_slim_0_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set codec channel map\n",
+								__func__);
+			goto end;
+		}
+	} else {
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+				msm8960_slim_0_tx_ch, tx_ch, 0 , 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+		ret = snd_soc_dai_set_channel_map(codec_dai,
+				msm8960_slim_0_tx_ch, tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set codec channel map\n",
+								__func__);
+			goto end;
+		}
+
+
+	}
+end:
+	return ret;
+}
+
 static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -914,6 +974,7 @@ static void msm8960_shutdown(struct snd_pcm_substream *substream)
 
 static struct snd_soc_ops msm8960_be_ops = {
 	.startup = msm8960_startup,
+	.hw_params = msm8960_hw_params,
 	.shutdown = msm8960_shutdown,
 };
 

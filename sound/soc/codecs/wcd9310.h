@@ -11,6 +11,7 @@
  */
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <linux/mfd/wcd9310/wcd9310-slimslave.h>
 
 #define TABLA_NUM_REGISTERS 0x400
 #define TABLA_MAX_REGISTER (TABLA_NUM_REGISTERS-1)
