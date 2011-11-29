@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,6 +430,7 @@ int msm_mctl_buf_done_proc(
 	vb2_buffer_done(&buf->vidbuf, VB2_BUF_STATE_DONE);
 	return 0;
 }
+
 
 int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 			int msg_type, struct msm_free_buf *fbuf,

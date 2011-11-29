@@ -265,6 +265,7 @@ struct msm_pp_frame_mp {
 struct msm_pp_frame {
 	uint32_t       handle; /* stores vb cookie */
 	uint32_t       frame_id;
+	unsigned short buf_idx;
 	int            path;
 	unsigned short image_type;
 	unsigned short num_planes; /* 1 for sp */

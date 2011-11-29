@@ -1991,7 +1991,6 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 				(*((uint32_t *)ev.u.data));
 		/* Copy the event structure into user struct. */
 		u_isp_event = *k_isp_event;
-
 		if (ev.type != (V4L2_EVENT_PRIVATE_START +
 				MSM_CAM_RESP_DIV_FRAME_EVT_MSG) &&
 				ev.type != (V4L2_EVENT_PRIVATE_START +

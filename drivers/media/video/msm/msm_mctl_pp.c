@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,7 @@ int msm_mctl_do_pp_divert(
 	p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode] = frame_id;
 	div.frame.frame_id =
 		p_mctl->pp_info.cur_frame_id[pcam_inst->image_mode];
+	div.frame.buf_idx  = buf_idx;
 	div.frame.handle = (uint32_t)vb;
 	msm_mctl_gettimeofday(&div.frame.timestamp);
 	vb->vidbuf.v4l2_buf.timestamp = div.frame.timestamp;
@@ -703,6 +704,9 @@ int msm_mctl_pp_reserve_free_frame(
 	struct msm_cam_evt_divert_frame frame;
 	int msg_type, image_mode, rc = 0;
 	struct msm_free_buf free_buf;
+	int idx;
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+
 	memset(&free_buf, 0, sizeof(struct msm_free_buf));
 	if (copy_from_user(&frame, arg,
 		sizeof(struct msm_cam_evt_divert_frame)))
@@ -725,10 +729,18 @@ int msm_mctl_pp_reserve_free_frame(
 		rc = -EFAULT;
 		return rc;
 	}
+
+	idx = msm_mctl_out_type_to_inst_index(
+		p_mctl->sync.pcam_sync, msg_type);
+	if (idx < 0) {
+		pr_err("%s Invalid instance. returning\n", __func__);
+		return -EINVAL;
+	}
+	pcam_inst = p_mctl->sync.pcam_sync->dev_inst[idx];
+
 	rc = msm_mctl_reserve_free_buf(p_mctl, msg_type, &free_buf);
 	if (rc == 0) {
-		frame.frame.sp.phy_addr = free_buf.ch_paddr[0];
-		frame.frame.handle = free_buf.vb;
+		msm_mctl_pp_get_phy_addr(pcam_inst, free_buf.vb, &frame.frame);
 		if (copy_to_user((void *)arg,
 				&frame,
 				sizeof(frame))) {
@@ -864,11 +876,13 @@ int msm_mctl_pp_divert_done(
 	int dirty = 0;
 	struct msm_free_buf buf;
 	unsigned long flags;
+	D("%s enter\n", __func__);
 
 	if (copy_from_user(&frame, arg, sizeof(frame)))
 		return -EFAULT;
 
 	spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
+	D("%s Frame path: %d\n", __func__, frame.path);
 	switch (frame.path) {
 	case OUTPUT_TYPE_P:
 		msg_type = VFE_MSG_OUTPUT_P;
@@ -887,12 +901,14 @@ int msm_mctl_pp_divert_done(
 		rc = -EFAULT;
 		goto err;
 	}
+
 	if (frame.num_planes > 1)
 		buf.ch_paddr[0] = frame.mp[0].phy_addr;
 	else
 		buf.ch_paddr[0] = frame.sp.phy_addr;
+
 	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
-	/* here buf.addr is phy_addr */
+	D("%s Frame done id: %d\n", __func__, frame.frame_id);
 	rc = msm_mctl_buf_done_pp(p_mctl, msg_type, &buf, dirty);
 	return rc;
 err:

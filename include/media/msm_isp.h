@@ -201,6 +201,7 @@ struct msm_isp_cmd {
 #define VPE_CMD_SCALE_CFG_TYPE                          11
 #define VPE_CMD_DIS_OFFSET_CFG                          12
 #define VPE_CMD_ZOOM                                    13
+#define VPE_CMD_MAX                                     14
 
 #define MSM_PP_CMD_TYPE_NOT_USED        0  /* not used */
 #define MSM_PP_CMD_TYPE_VPE             1  /* VPE cmd */
