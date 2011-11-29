@@ -55,6 +55,7 @@ static uint32_t bam_dmux_read_cnt;
 static uint32_t bam_dmux_write_cnt;
 static uint32_t bam_dmux_write_cpy_cnt;
 static uint32_t bam_dmux_write_cpy_bytes;
+static uint32_t bam_dmux_tx_sps_failure_cnt;
 
 #define DBG(x...) do {		                 \
 		if (msm_bam_dmux_debug_enable)  \
@@ -83,11 +84,17 @@ static uint32_t bam_dmux_write_cpy_bytes;
 				 __func__, bam_dmux_write_cpy_cnt,          \
 				 bam_dmux_write_cpy_bytes);                 \
 	} while (0)
+
+#define DBG_INC_TX_SPS_FAILURE_CNT() do {	\
+		bam_dmux_tx_sps_failure_cnt++;		\
+} while (0)
+
 #else
 #define DBG(x...) do { } while (0)
 #define DBG_INC_READ_CNT(x...) do { } while (0)
 #define DBG_INC_WRITE_CNT(x...) do { } while (0)
 #define DBG_INC_WRITE_CPY(x...) do { } while (0)
+#define DBG_INC_TX_SPS_FAILURE_CNT() do { } while (0)
 #endif
 
 struct bam_ch_info {
@@ -377,6 +384,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
 		spin_lock(&bam_tx_pool_spinlock);
 		list_del(&pkt->list_node);
+		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock(&bam_tx_pool_spinlock);
 		kfree(pkt);
 	}
@@ -509,6 +517,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
 		spin_lock(&bam_tx_pool_spinlock);
 		list_del(&pkt->list_node);
+		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock(&bam_tx_pool_spinlock);
 		kfree(pkt);
 	}
@@ -811,6 +820,37 @@ static int debug_tbl(char *buf, int max)
 			j, bam_ch_is_local_open(j) ? "Y" : "N",
 			bam_ch_is_remote_open(j) ? "Y" : "N");
 	}
+
+	return i;
+}
+
+static int debug_ul_pkt_cnt(char *buf, int max)
+{
+	struct list_head *p;
+	unsigned long flags;
+	int n = 0;
+
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
+	__list_for_each(p, &bam_tx_pool) {
+		++n;
+	}
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+
+	return scnprintf(buf, max, "Number of UL packets in flight: %d\n", n);
+}
+
+static int debug_stats(char *buf, int max)
+{
+	int i = 0;
+
+	i += scnprintf(buf + i, max - i,
+			"skb copy cnt:    %u\n"
+			"skb copy bytes:  %u\n"
+			"sps tx failures: %u\n",
+			bam_dmux_write_cpy_cnt,
+			bam_dmux_write_cpy_bytes,
+			bam_dmux_tx_sps_failure_cnt
+			);
 
 	return i;
 }
@@ -1307,8 +1347,11 @@ static int __init bam_dmux_init(void)
 	struct dentry *dent;
 
 	dent = debugfs_create_dir("bam_dmux", 0);
-	if (!IS_ERR(dent))
+	if (!IS_ERR(dent)) {
 		debug_create("tbl", 0444, dent, debug_tbl);
+		debug_create("ul_pkt_cnt", 0444, dent, debug_ul_pkt_cnt);
+		debug_create("stats", 0444, dent, debug_stats);
+	}
 #endif
 	subsys_notif_register_notifier("modem", &restart_notifier);
 	return platform_driver_register(&bam_dmux_driver);
