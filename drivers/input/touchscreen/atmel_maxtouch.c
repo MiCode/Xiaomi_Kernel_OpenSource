@@ -1878,7 +1878,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
 	struct mxt_data          *mxt;
-	struct mxt_platform_data *pdata;
+	struct maxtouch_platform_data *pdata;
 	struct input_dev         *input;
 	u8 *id_data;
 	u8 *t38_data;
