@@ -31,7 +31,7 @@
 #include <linux/mutex.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/memory_alloc.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
@@ -1123,18 +1123,6 @@ void mdp_hw_version(void)
 				__func__, mdp_hw_revision);
 }
 
-int mdp4_writeback_offset(void)
-{
-	int off = 0;
-
-	if (mdp_pdata->writeback_offset)
-		off = mdp_pdata->writeback_offset();
-
-	pr_debug("%s: writeback_offset=%d %x\n", __func__, off, off);
-
-	return off;
-}
-
 #ifdef CONFIG_FB_MSM_MDP40
 static void configure_mdp_core_clk_table(uint32 min_clk_rate)
 {
@@ -1315,6 +1303,7 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 
 	if ((pdev->id == 0) && (pdev->num_resources > 0)) {
+
 		mdp_pdata = pdev->dev.platform_data;
 
 		size =  resource_size(&pdev->resource[0]);
@@ -1352,6 +1341,28 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 
 		mdp_resource_initialized = 1;
+
+		if (!mdp_pdata)
+			return 0;
+
+		size = mdp_pdata->mdp_writeback_size_ov0 +
+			mdp_pdata->mdp_writeback_size_ov1;
+		if (size) {
+			mdp_pdata->mdp_writeback_phys =
+				(void *)allocate_contiguous_memory_nomap
+				(size,
+				 mdp_pdata->mdp_writeback_memtype,
+				 4); /* align to word size */
+			if (mdp_pdata->mdp_writeback_phys) {
+				pr_info("allocating %d bytes at %p for mdp writeback\n",
+					size, mdp_pdata->mdp_writeback_phys);
+			} else {
+				pr_err("%s cannot allocate memory for mdp writeback!\n",
+				       __func__);
+			}
+		} else {
+			mdp_pdata->mdp_writeback_phys = 0;
+		}
 		return 0;
 	}
 
@@ -1622,6 +1633,20 @@ static int mdp_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+
+	if (mdp_pdata && mdp_pdata->mdp_writeback_phys) {
+		mfd->writeback_overlay0_phys =
+			(mdp_pdata->mdp_writeback_size_ov0) ?
+			mdp_pdata->mdp_writeback_phys : 0;
+		mfd->writeback_overlay1_phys =
+			(mdp_pdata->mdp_writeback_size_ov1) ?
+			(mdp_pdata->mdp_writeback_phys +
+			 mdp_pdata->mdp_writeback_size_ov0) : 0;
+	} else {
+		mfd->writeback_overlay0_phys = 0;
+		mfd->writeback_overlay1_phys = 0;
+	}
+
 	/* set driver data */
 	platform_set_drvdata(msm_fb_dev, mfd);
 
