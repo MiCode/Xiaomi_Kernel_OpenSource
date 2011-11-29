@@ -198,7 +198,7 @@ static unsigned int get_krait_evtinfo(unsigned int krait_evt_type,
 	if ((group > 3) || (reg > krait_max_l1_reg))
 		return -EINVAL;
 
-	if (prefix != KRAIT_EVT_PREFIX || prefix != KRAIT_VENUMEVT_PREFIX)
+	if (prefix != KRAIT_EVT_PREFIX && prefix != KRAIT_VENUMEVT_PREFIX)
 		return -EINVAL;
 
 	if (prefix == KRAIT_VENUMEVT_PREFIX) {
