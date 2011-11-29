@@ -74,7 +74,7 @@ static const unsigned armv6_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_BUS_CYCLES]	    = HW_OP_UNSUPPORTED,
 };
 
-static const unsigned armv6_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
+static unsigned armv6_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 					  [PERF_COUNT_HW_CACHE_OP_MAX]
 					  [PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {
@@ -213,7 +213,7 @@ static const unsigned armv6mpcore_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_BUS_CYCLES]	    = HW_OP_UNSUPPORTED,
 };
 
-static const unsigned armv6mpcore_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
+static unsigned armv6mpcore_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 					[PERF_COUNT_HW_CACHE_OP_MAX]
 					[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {

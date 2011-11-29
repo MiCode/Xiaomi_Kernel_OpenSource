@@ -128,7 +128,7 @@ static const unsigned armv7_scorpion_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_BUS_CYCLES]	    = ARMV7_PERFCTR_CLOCK_CYCLES,
 };
 
-static const unsigned armv7_scorpion_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
+static unsigned armv7_scorpion_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 					  [PERF_COUNT_HW_CACHE_OP_MAX]
 					  [PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {

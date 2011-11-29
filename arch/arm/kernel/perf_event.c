@@ -85,7 +85,7 @@ struct arm_pmu {
 	void		(*start)(void);
 	void		(*stop)(void);
 	void		(*reset)(void *);
-	const unsigned	(*cache_map)[PERF_COUNT_HW_CACHE_MAX]
+	unsigned	(*cache_map)[PERF_COUNT_HW_CACHE_MAX]
 				    [PERF_COUNT_HW_CACHE_OP_MAX]
 				    [PERF_COUNT_HW_CACHE_RESULT_MAX];
 	const unsigned	(*event_map)[PERF_COUNT_HW_MAX];
