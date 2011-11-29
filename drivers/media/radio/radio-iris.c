@@ -1911,17 +1911,10 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
 	int i;
-	int len;
-
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
-	struct hci_fm_station_rsp *rsp;
 
-	len = sizeof(struct hci_fm_station_rsp);
-	rsp = (struct hci_fm_station_rsp *)skb_pull(skb, len);
-	if (rsp == NULL)
-		return;
-	memcpy(&radio->fm_st_rsp.station_rsp, rsp, len);
-
+	memcpy(&radio->fm_st_rsp.station_rsp, &skb->data[0],
+				sizeof(struct hci_ev_tune_status));
 	iris_q_event(radio, IRIS_EVT_TUNE_SUCC);
 
 	for (i = 0; i < IRIS_BUF_MAX; i++) {
