@@ -3342,7 +3342,11 @@ EXPORT_SYMBOL(hdmi_msm_audio_get_sample_rate);
 void hdmi_msm_audio_sample_rate_reset(int rate)
 {
 	msm_hdmi_sample_rate = rate;
-	hdcp_deauthenticate();
+
+	if (hdmi_msm_has_hdcp())
+		hdcp_deauthenticate();
+	else
+		hdmi_msm_turn_on();
 }
 EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
