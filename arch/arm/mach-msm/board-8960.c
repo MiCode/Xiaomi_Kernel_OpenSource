@@ -1589,7 +1589,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
-	&msm8960_device_ext_l2_vreg,
 	&msm8960_device_ssbi_pmic,
 	&msm8960_device_qup_spi_gsbi1,
 	&msm8960_device_qup_i2c_gsbi3,
@@ -2178,6 +2177,8 @@ static void __init msm8960_cdp_init(void)
 		msm_num_footswitch_devices);
 	if (machine_is_msm8960_liquid())
 		platform_device_register(&msm8960_device_ext_3p3v_vreg);
+	if (machine_is_msm8960_cdp())
+		platform_device_register(&msm8960_device_ext_l2_vreg);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
