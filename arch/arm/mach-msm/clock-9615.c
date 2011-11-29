@@ -1766,7 +1766,7 @@ static void set_fsm_mode(void __iomem *mode_reg)
 
 	/* Program bias count */
 	regval &= ~BM(19, 14);
-	regval |= BVAL(19, 14, 0x4);
+	regval |= BVAL(19, 14, 0x1);
 	writel_relaxed(regval, mode_reg);
 
 	/* Program lock count */
