@@ -2676,6 +2676,14 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				FMDERR("Failed to set stereo mode\n");
 				return retval;
 			}
+			radio->event_mask = SIG_LEVEL_INTR |
+						RDS_SYNC_INTR | AUDIO_CTRL_INTR;
+			retval = hci_conf_event_mask(&radio->event_mask,
+							radio->fm_hdev);
+			if (retval < 0) {
+				FMDERR("Enable Async events failed");
+				return retval;
+			}
 			retval = hci_cmd(HCI_FM_GET_RECV_CONF_CMD,
 						radio->fm_hdev);
 			if (retval < 0)
