@@ -1833,7 +1833,6 @@ int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
 }
 #endif
 
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
 int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -1876,7 +1875,6 @@ int mdp4_overlay_blt_offset(struct fb_info *info, struct msmfb_overlay_blt *req)
 
 	return ret;
 }
-#endif
 
 int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 {

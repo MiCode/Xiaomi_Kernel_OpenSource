@@ -545,8 +545,6 @@ void mdp4_overlay0_done_dsi_video(struct mdp_dma_data *dma)
 	complete(&dma->comp);
 }
 
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-
 static void mdp4_overlay_dsi_video_prefill(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
@@ -659,24 +657,6 @@ void mdp4_dsi_video_blt_stop(struct msm_fb_data_type *mfd)
 {
 	mdp4_dsi_video_do_blt(mfd, 0);
 }
-#else
-int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	return 0;
-}
-void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req)
-{
-	return;
-}
-void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd)
-{
-}
-void mdp4_dsi_video_blt_stop(struct msm_fb_data_type *mfd)
-{
-}
-#endif
 
 void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 {

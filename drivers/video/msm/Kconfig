@@ -295,11 +295,11 @@ config FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_DSI_SIMULATOR
 	default n
 
-config FB_MSM_OVERLAY_WRITEBACK
+config FB_MSM_OVERLAY0_WRITEBACK
 	depends on FB_MSM_OVERLAY
-        bool "MDP overlay write back mode enable"
+        bool "MDP overlay0 write back mode enable"
 	---help---
-	  Support for MDP4 OVERLAY write back mode
+	  Support for MDP4 OVERLAY0 write back mode
 
 config FB_MSM_WRITEBACK_MSM_PANEL
 	depends on FB_MSM_OVERLAY
