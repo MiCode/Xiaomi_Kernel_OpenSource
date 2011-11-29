@@ -85,8 +85,10 @@ static int radio_hci_smd_send_frame(struct sk_buff *skb)
 	len = smd_write(hs.fm_channel, skb->data, skb->len);
 	if (len < skb->len) {
 		FMDERR("Failed to write Data %d", len);
+		kfree_skb(skb);
 		return -ENODEV;
 	}
+	kfree_skb(skb);
 	return 0;
 }
 
