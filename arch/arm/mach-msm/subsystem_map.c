@@ -440,6 +440,9 @@ int msm_subsystem_unmap_buffer(struct msm_mapped_buffer *buf)
 	int i, j, ret;
 	unsigned long temp_va;
 
+	if (IS_ERR_OR_NULL(buf))
+		goto out;
+
 	if (buf->vaddr)
 		node = find_buffer(buf->vaddr);
 	else
