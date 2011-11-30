@@ -223,12 +223,13 @@ static void hci_cc_write_local_name(struct hci_dev *hdev, struct sk_buff *skb)
 	sent = hci_sent_cmd_data(hdev, HCI_OP_WRITE_LOCAL_NAME);
 	if (!sent)
 		return;
-
+	hci_dev_lock(hdev);
 	if (!status)
 		memcpy(hdev->dev_name, sent, HCI_MAX_NAME_LENGTH);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_set_local_name_complete(hdev->id, sent, status);
+	hci_dev_unlock(hdev);
 }
 
 static void hci_cc_read_local_name(struct hci_dev *hdev, struct sk_buff *skb)
@@ -303,6 +304,7 @@ static void hci_cc_write_scan_enable(struct hci_dev *hdev, struct sk_buff *skb)
 	if (!status) {
 		__u8 param = *((__u8 *) sent);
 		int old_pscan, old_iscan;
+		hci_dev_lock(hdev);
 
 		old_pscan = test_and_clear_bit(HCI_PSCAN, &hdev->flags);
 		old_iscan = test_and_clear_bit(HCI_ISCAN, &hdev->flags);
@@ -320,6 +322,7 @@ static void hci_cc_write_scan_enable(struct hci_dev *hdev, struct sk_buff *skb)
 				mgmt_connectable(hdev->id, 1);
 		} else if (old_pscan)
 			mgmt_connectable(hdev->id, 0);
+		hci_dev_unlock(hdev);
 	}
 
 	hci_req_complete(hdev, HCI_OP_WRITE_SCAN_ENABLE, status);
@@ -859,20 +862,23 @@ static void hci_cc_pin_code_reply(struct hci_dev *hdev, struct sk_buff *skb)
 	struct hci_conn *conn;
 
 	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+	hci_dev_lock(hdev);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_pin_code_reply_complete(hdev->id, &rp->bdaddr, rp->status);
 
 	if (rp->status != 0)
-		return;
+		goto unlock;
 
 	cp = hci_sent_cmd_data(hdev, HCI_OP_PIN_CODE_REPLY);
 	if (!cp)
-		return;
+		goto unlock;
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &cp->bdaddr);
 	if (conn)
 		conn->pin_length = cp->pin_len;
+unlock:
+	hci_dev_unlock(hdev);
 }
 
 static void hci_cc_pin_code_neg_reply(struct hci_dev *hdev, struct sk_buff *skb)
@@ -880,10 +886,12 @@ static void hci_cc_pin_code_neg_reply(struct hci_dev *hdev, struct sk_buff *skb)
 	struct hci_rp_pin_code_neg_reply *rp = (void *) skb->data;
 
 	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+	hci_dev_lock(hdev);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_pin_code_neg_reply_complete(hdev->id, &rp->bdaddr,
 								rp->status);
+	hci_dev_unlock(hdev);
 }
 static void hci_cc_le_read_buffer_size(struct hci_dev *hdev,
 				       struct sk_buff *skb)
@@ -910,10 +918,12 @@ static void hci_cc_user_confirm_reply(struct hci_dev *hdev, struct sk_buff *skb)
 	struct hci_rp_user_confirm_reply *rp = (void *) skb->data;
 
 	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+	hci_dev_lock(hdev);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_user_confirm_reply_complete(hdev->id, &rp->bdaddr,
 								rp->status);
+	hci_dev_unlock(hdev);
 }
 
 static void hci_cc_user_confirm_neg_reply(struct hci_dev *hdev,
@@ -922,10 +932,12 @@ static void hci_cc_user_confirm_neg_reply(struct hci_dev *hdev,
 	struct hci_rp_user_confirm_reply *rp = (void *) skb->data;
 
 	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+	hci_dev_lock(hdev);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_user_confirm_neg_reply_complete(hdev->id, &rp->bdaddr,
 								rp->status);
+	hci_dev_unlock(hdev);
 }
 
 static void hci_cc_read_local_oob_data_reply(struct hci_dev *hdev,
@@ -934,9 +946,11 @@ static void hci_cc_read_local_oob_data_reply(struct hci_dev *hdev,
 	struct hci_rp_read_local_oob_data *rp = (void *) skb->data;
 
 	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+	hci_dev_lock(hdev);
 
 	mgmt_read_local_oob_data_reply_complete(hdev->id, rp->hash,
 						rp->randomizer, rp->status);
+	hci_dev_unlock(hdev);
 }
 
 static void hci_cc_le_ltk_reply(struct hci_dev *hdev, struct sk_buff *skb)
@@ -995,8 +1009,10 @@ static inline void hci_cs_inquiry(struct hci_dev *hdev, __u8 status)
 		hci_conn_check_pending(hdev);
 	} else {
 		set_bit(HCI_INQUIRY, &hdev->flags);
+		hci_dev_lock(hdev);
 		if (test_bit(HCI_MGMT, &hdev->flags))
 			mgmt_inquiry_started(hdev->id);
+		hci_dev_unlock(hdev);
 	}
 }
 
@@ -1506,9 +1522,11 @@ static inline void hci_inquiry_complete_evt(struct hci_dev *hdev, struct sk_buff
 		clear_bit(HCI_INQUIRY, &hdev->flags);
 
 	hci_req_complete(hdev, HCI_OP_INQUIRY, status);
+	hci_dev_lock(hdev);
 
 	if (test_bit(HCI_MGMT, &hdev->flags))
 		mgmt_inquiry_complete_evt(hdev->id, status);
+	hci_dev_unlock(hdev);
 
 	if (!lmp_le_capable(hdev))
 		hci_conn_check_pending(hdev);
@@ -1709,7 +1727,9 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	BT_DBG("%s status %d", hdev->name, ev->status);
 
 	if (ev->status) {
+		hci_dev_lock(hdev);
 		mgmt_disconnect_failed(hdev->id);
+		hci_dev_unlock(hdev);
 		return;
 	}
 

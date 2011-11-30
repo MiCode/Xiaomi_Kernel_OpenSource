@@ -581,8 +581,11 @@ int hci_dev_open(__u16 dev)
 		set_bit(HCI_UP, &hdev->flags);
 		hci_notify(hdev, HCI_DEV_UP);
 		if (!test_bit(HCI_SETUP, &hdev->flags) &&
-				hdev->dev_type == HCI_BREDR)
+				hdev->dev_type == HCI_BREDR) {
+			hci_dev_lock_bh(hdev);
 			mgmt_powered(hdev->id, 1);
+			hci_dev_unlock_bh(hdev);
+		}
 	} else {
 		/* Init failed, cleanup */
 		tasklet_kill(&hdev->rx_task);
@@ -668,8 +671,11 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	 * and no tasks are scheduled. */
 	hdev->close(hdev);
 
-	if (hdev->dev_type == HCI_BREDR)
+	if (hdev->dev_type == HCI_BREDR) {
+		hci_dev_lock_bh(hdev);
 		mgmt_powered(hdev->id, 0);
+		hci_dev_unlock_bh(hdev);
+	}
 
 	/* Clear only non-persistent flags */
 	if (test_bit(HCI_MGMT, &hdev->flags))
@@ -1547,8 +1553,11 @@ int hci_unregister_dev(struct hci_dev *hdev)
 
 	if (!test_bit(HCI_INIT, &hdev->flags) &&
 				!test_bit(HCI_SETUP, &hdev->flags) &&
-				hdev->dev_type == HCI_BREDR)
+				hdev->dev_type == HCI_BREDR) {
+		hci_dev_lock_bh(hdev);
 		mgmt_index_removed(hdev->id);
+		hci_dev_unlock_bh(hdev);
+	}
 
 	if (!IS_ERR(hdev->tfm))
 		crypto_free_blkcipher(hdev->tfm);
