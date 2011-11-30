@@ -877,9 +877,17 @@ void msm_bam_dmux_kickoff_ul_wakeup(void)
 
 static void ul_timeout(struct work_struct *work)
 {
+	unsigned long flags;
+	int ret;
+
 	if (in_global_reset)
 		return;
-	write_lock(&ul_wakeup_lock);
+	ret = write_trylock_irqsave(&ul_wakeup_lock, flags);
+	if (!ret) { /* failed to grab lock, reschedule and bail */
+		schedule_delayed_work(&ul_timeout_work,
+				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+		return;
+	}
 	if (ul_packet_written) {
 		ul_packet_written = 0;
 		schedule_delayed_work(&ul_timeout_work,
@@ -889,7 +897,7 @@ static void ul_timeout(struct work_struct *work)
 		bam_is_connected = 0;
 		notify_all(BAM_DMUX_UL_DISCONNECTED, (unsigned long)(NULL));
 	}
-	write_unlock(&ul_wakeup_lock);
+	write_unlock_irqrestore(&ul_wakeup_lock, flags);
 }
 static void ul_wakeup(void)
 {
