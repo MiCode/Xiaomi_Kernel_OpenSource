@@ -35,19 +35,14 @@ struct grmnet {
 	/* to usb host, aka laptop, windows pc etc. Will
 	 * be filled by usb driver of rmnet functionality
 	 */
-	int (*send_cpkt_response)(struct grmnet *g,
-				struct rmnet_ctrl_pkt *pkt);
+	int (*send_cpkt_response)(void *g, void *buf, size_t len);
 
 	/* to modem, and to be filled by driver implementing
 	 * control function
 	 */
-	int (*send_cpkt_request)(struct grmnet *g,
-				u8 port_num,
-				struct rmnet_ctrl_pkt *pkt);
+	int (*send_encap_cmd)(u8 port_num, void *buf, size_t len);
 
-	void (*send_cbits_tomodem)(struct grmnet *g,
-				u8 port_num,
-				int cbits);
+	void (*notify_modem)(void *g, u8 port_num, int cbits);
 
 	void (*disconnect)(struct grmnet *g);
 	void (*connect)(struct grmnet *g);

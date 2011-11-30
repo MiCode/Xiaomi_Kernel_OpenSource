@@ -83,6 +83,7 @@ static struct rmnet_ctrl_pkt *alloc_rmnet_ctrl_pkt(unsigned len, gfp_t flags)
 		kfree(pkt);
 		return ERR_PTR(-ENOMEM);
 	}
+
 	pkt->len = len;
 
 	return pkt;
@@ -103,7 +104,8 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 	struct smd_ch_info *c = container_of(w, struct smd_ch_info, read_w);
 	struct rmnet_ctrl_port *port = c->port;
 	int sz;
-	struct rmnet_ctrl_pkt *cpkt;
+	size_t len;
+	void *buf;
 	unsigned long flags;
 
 	while (1) {
@@ -114,22 +116,20 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 		if (smd_read_avail(c->ch) < sz)
 			break;
 
-		cpkt = alloc_rmnet_ctrl_pkt(sz, GFP_KERNEL);
-		if (IS_ERR(cpkt)) {
-			pr_err("%s: unable to allocate rmnet control pkt\n",
-					__func__);
+		buf = kmalloc(sz, GFP_KERNEL);
+		if (!buf)
 			return;
-		}
-		cpkt->len = smd_read(c->ch, cpkt->buf, sz);
+
+		len = smd_read(c->ch, buf, sz);
 
 		/* send it to USB here */
 		spin_lock_irqsave(&port->port_lock, flags);
 		if (port->port_usb && port->port_usb->send_cpkt_response) {
-			port->port_usb->send_cpkt_response(
-							port->port_usb,
-							cpkt);
+			port->port_usb->send_cpkt_response(port->port_usb,
+							buf, len);
 			c->to_host++;
 		}
+		kfree(buf);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
 }
@@ -157,8 +157,7 @@ static void grmnet_ctrl_smd_write_w(struct work_struct *w)
 		ret = smd_write(c->ch, cpkt->buf, cpkt->len);
 		spin_lock_irqsave(&port->port_lock, flags);
 		if (ret != cpkt->len) {
-			pr_err("%s: smd_write failed err:%d\n",
-					__func__, ret);
+			pr_err("%s: smd_write failed err:%d\n", __func__, ret);
 			free_rmnet_ctrl_pkt(cpkt);
 			break;
 		}
@@ -169,24 +168,29 @@ static void grmnet_ctrl_smd_write_w(struct work_struct *w)
 }
 
 static int
-grmnet_ctrl_smd_send_cpkt_tomodem(struct grmnet *gr, u8 portno,
-			struct rmnet_ctrl_pkt *cpkt)
+grmnet_ctrl_smd_send_cpkt_tomodem(u8 portno,
+	void *buf, size_t len)
 {
 	unsigned long		flags;
 	struct rmnet_ctrl_port	*port;
 	struct smd_ch_info	*c;
+	struct rmnet_ctrl_pkt *cpkt;
 
 	if (portno >= n_rmnet_ctrl_ports) {
 		pr_err("%s: Invalid portno#%d\n", __func__, portno);
 		return -ENODEV;
 	}
 
-	if (!gr) {
-		pr_err("%s: grmnet is null\n", __func__);
-		return -ENODEV;
+	port = ctrl_smd_ports[portno].port;
+
+	cpkt = alloc_rmnet_ctrl_pkt(len, GFP_ATOMIC);
+	if (IS_ERR(cpkt)) {
+		pr_err("%s: Unable to allocate ctrl pkt\n", __func__);
+		return -ENOMEM;
 	}
 
-	port = ctrl_smd_ports[portno].port;
+	memcpy(cpkt->buf, buf, len);
+	cpkt->len = len;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	c = &port->ctrl_ch;
@@ -207,7 +211,7 @@ grmnet_ctrl_smd_send_cpkt_tomodem(struct grmnet *gr, u8 portno,
 
 #define RMNET_CTRL_DTR		0x01
 static void
-gsmd_ctrl_send_cbits_tomodem(struct grmnet *gr, u8 portno, int cbits)
+gsmd_ctrl_send_cbits_tomodem(void *gptr, u8 portno, int cbits)
 {
 	struct rmnet_ctrl_port	*port;
 	struct smd_ch_info	*c;
@@ -220,7 +224,7 @@ gsmd_ctrl_send_cbits_tomodem(struct grmnet *gr, u8 portno, int cbits)
 		return;
 	}
 
-	if (!gr) {
+	if (!gptr) {
 		pr_err("%s: grmnet is null\n", __func__);
 		return;
 	}
@@ -362,8 +366,8 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = gr;
-	gr->send_cpkt_request = grmnet_ctrl_smd_send_cpkt_tomodem;
-	gr->send_cbits_tomodem = gsmd_ctrl_send_cbits_tomodem;
+	gr->send_encap_cmd = grmnet_ctrl_smd_send_cpkt_tomodem;
+	gr->notify_modem = gsmd_ctrl_send_cbits_tomodem;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	queue_work(grmnet_ctrl_wq, &port->connect_w);
@@ -395,8 +399,8 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = 0;
-	gr->send_cpkt_request = 0;
-	gr->send_cbits_tomodem = 0;
+	gr->send_encap_cmd = 0;
+	gr->notify_modem = 0;
 	c->cbits_tomodem = 0;
 
 	while (!list_empty(&c->tx_q)) {

@@ -466,16 +466,24 @@ static void frmnet_disconnect(struct grmnet *gr)
 }
 
 static int
-frmnet_send_cpkt_response(struct grmnet *gr, struct rmnet_ctrl_pkt *cpkt)
+frmnet_send_cpkt_response(void *gr, void *buf, size_t len)
 {
 	struct f_rmnet		*dev;
+	struct rmnet_ctrl_pkt	*cpkt;
 	unsigned long		flags;
 
-	if (!gr || !cpkt) {
-		pr_err("%s: Invalid grmnet/cpkt, grmnet:%p cpkt:%p\n",
-				__func__, gr, cpkt);
+	if (!gr || !buf) {
+		pr_err("%s: Invalid grmnet/buf, grmnet:%p buf:%p\n",
+				__func__, gr, buf);
 		return -ENODEV;
 	}
+	cpkt = rmnet_alloc_ctrl_pkt(len, GFP_ATOMIC);
+	if (IS_ERR(cpkt)) {
+		pr_err("%s: Unable to allocate ctrl pkt\n", __func__);
+		return -ENOMEM;
+	}
+	memcpy(cpkt->buf, buf, len);
+	cpkt->len = len;
 
 	dev = port_to_rmnet(gr);
 
@@ -500,7 +508,6 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rmnet			*dev = req->context;
 	struct usb_composite_dev	*cdev;
-	struct rmnet_ctrl_pkt		*cpkt;
 
 	if (!dev) {
 		pr_err("%s: rmnet dev is null\n", __func__);
@@ -511,16 +518,8 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 
 	cdev = dev->cdev;
 
-	cpkt = rmnet_alloc_ctrl_pkt(req->actual, GFP_ATOMIC);
-	if (IS_ERR(cpkt)) {
-		pr_err("%s: Unable to allocate ctrl pkt\n", __func__);
-		return;
-	}
-
-	memcpy(cpkt->buf, req->buf, req->actual);
-
-	if (dev->port.send_cpkt_request)
-		dev->port.send_cpkt_request(&dev->port, dev->port_num, cpkt);
+	if (dev->port.send_encap_cmd)
+		dev->port.send_encap_cmd(dev->port_num, req->buf, req->actual);
 }
 
 static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
@@ -615,8 +614,8 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
-		if (dev->port.send_cbits_tomodem)
-			dev->port.send_cbits_tomodem(&dev->port,
+		if (dev->port.notify_modem)
+			dev->port.notify_modem(&dev->port,
 							dev->port_num,
 							w_value);
 		ret = 0;

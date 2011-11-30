@@ -579,10 +579,11 @@ static void gsmd_connect_work(struct work_struct *w)
 	}
 }
 
-static void gsmd_notify_modem(struct gserial *gser, u8 portno, int ctrl_bits)
+static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 {
 	struct gsmd_port *port;
 	int temp;
+	struct gserial *gser = gptr;
 
 	if (portno >= n_smd_ports) {
 		pr_err("%s: invalid portno#%d\n", __func__, portno);
