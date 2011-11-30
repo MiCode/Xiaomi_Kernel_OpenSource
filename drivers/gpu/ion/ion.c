@@ -1170,6 +1170,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_flush_data data;
 		unsigned long start, end;
+		struct ion_handle *handle = NULL;
+		int ret;
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(struct ion_flush_data)))
@@ -1184,8 +1186,24 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		}
 
-		return ion_do_cache_op(client, data.handle, data.vaddr,
-					data.offset, data.length, cmd);
+		if (!data.handle) {
+			handle = ion_import_fd(client, data.fd);
+			if (IS_ERR_OR_NULL(handle)) {
+				pr_info("%s: Could not import handle: %d\n",
+					__func__, (int)handle);
+				return -EINVAL;
+			}
+		}
+
+		ret = ion_do_cache_op(client,
+					data.handle ? data.handle : handle,
+					data.vaddr, data.offset, data.length,
+					cmd);
+
+		if (!data.handle)
+			ion_free(client, handle);
+
+		break;
 
 	}
 	case ION_IOC_GET_FLAGS:
