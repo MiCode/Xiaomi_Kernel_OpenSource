@@ -255,7 +255,7 @@ static struct amp_ctx *get_ctx_hdev(struct hci_dev *hdev, u8 evt_type,
 		read_lock(&mgr->ctx_list_lock);
 		list_for_each_entry(ctx, &mgr->ctx_list, list) {
 			struct hci_dev *ctx_hdev;
-			ctx_hdev = hci_dev_get(A2MP_HCI_ID(ctx->id));
+			ctx_hdev = hci_dev_get(ctx->id);
 			if ((ctx_hdev == hdev) && (ctx->evt_type & evt_type)) {
 				switch (evt_type) {
 				case AMP_HCI_CMD_STATUS:
@@ -356,7 +356,7 @@ static int send_a2mp_cl(struct amp_mgr *mgr, u8 ident, u8 code, u16 len,
 		if (hdev) {
 			if ((hdev->amp_type != HCI_BREDR) &&
 			test_bit(HCI_UP, &hdev->flags)) {
-				(cl + num_ctrls)->id  = HCI_A2MP_ID(hdev->id);
+				(cl + num_ctrls)->id  = hdev->id;
 				(cl + num_ctrls)->type = hdev->amp_type;
 				(cl + num_ctrls)->status = hdev->amp_status;
 				++num_ctrls;
@@ -459,7 +459,7 @@ static inline int getinfo_req(struct amp_mgr *mgr, struct sk_buff *skb)
 	rsp.status = 1;
 
 	BT_DBG("id %d", id);
-	hdev = hci_dev_get(A2MP_HCI_ID(id));
+	hdev = hci_dev_get(id);
 
 	if (hdev && hdev->amp_type != HCI_BREDR) {
 		rsp.status = 0;
@@ -510,14 +510,14 @@ static void accept_physical(struct l2cap_conn *lcon, u8 id, struct sock *sk)
 	int result = -EINVAL;
 
 	BT_DBG("lcon %p", lcon);
+	hdev = hci_dev_get(id);
+	if (!hdev)
+		goto ap_finished;
+	BT_DBG("hdev %p", hdev);
 	mgr = get_create_amp_mgr(lcon, NULL);
 	if (!mgr)
 		goto ap_finished;
 	BT_DBG("mgr %p", mgr);
-	hdev = hci_dev_get(A2MP_HCI_ID(id));
-	if (!hdev)
-		goto ap_finished;
-	BT_DBG("hdev %p", hdev);
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK,
 					&mgr->l2cap_conn->hcon->dst);
 	if (conn) {
@@ -534,6 +534,8 @@ static void accept_physical(struct l2cap_conn *lcon, u8 id, struct sock *sk)
 	return;
 
 ap_finished:
+	if (hdev)
+		hci_dev_put(hdev);
 	l2cap_amp_physical_complete(result, id, remote_id, sk);
 }
 
@@ -553,7 +555,7 @@ static int getampassoc_req(struct amp_mgr *mgr, struct sk_buff *skb)
 		return -ENOMEM;
 	ctx->id = req->id;
 	ctx->d.gaa.req_ident = hdr->ident;
-	ctx->hdev = hci_dev_get(A2MP_HCI_ID(ctx->id));
+	ctx->hdev = hci_dev_get(ctx->id);
 	if (ctx->hdev)
 		ctx->d.gaa.assoc = kmalloc(ctx->hdev->amp_assoc_size,
 						GFP_ATOMIC);
@@ -826,7 +828,7 @@ static int createphyslink_req(struct amp_mgr *mgr, struct sk_buff *skb)
 	ctx->d.apl.len_so_far = 0;
 	ctx->d.apl.rem_len = skb->len;
 	skb_pull(skb, skb->len);
-	ctx->hdev = hci_dev_get(A2MP_HCI_ID(ctx->id));
+	ctx->hdev = hci_dev_get(ctx->id);
 	start_ctx(mgr, ctx);
 	return 0;
 }
@@ -1122,7 +1124,7 @@ static u8 createphyslink_handler(struct amp_ctx *ctx, u8 evt_type, void *data)
 				if (hdev) {
 					struct hci_conn *conn;
 					ctx->hdev = hdev;
-					ctx->id = HCI_A2MP_ID(hdev->id);
+					ctx->id = hdev->id;
 					ctx->d.cpl.remote_id = cl->id;
 					conn = hci_conn_hash_lookup_ba(hdev,
 					    ACL_LINK,
@@ -1425,7 +1427,7 @@ static int disconnphyslink_req(struct amp_mgr *mgr, struct sk_buff *skb)
 	rsp.status = 0;
 	BT_DBG("local_id %d remote_id %d",
 		(int) rsp.local_id, (int) rsp.remote_id);
-	hdev = hci_dev_get(A2MP_HCI_ID(rsp.local_id));
+	hdev = hci_dev_get(rsp.local_id);
 	if (!hdev) {
 		rsp.status = 1; /* Invalid Controller ID */
 		goto dpl_finished;
