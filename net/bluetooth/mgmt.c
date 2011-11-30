@@ -1330,6 +1330,64 @@ failed:
 	return err;
 }
 
+static int encrypt_link(struct sock *sk, u16 index, unsigned char *data,
+									u16 len)
+{
+	struct hci_dev *hdev;
+	struct mgmt_cp_encrypt_link *cp;
+	struct hci_cp_set_conn_encrypt enc;
+	struct hci_conn *conn;
+	int err = 0;
+
+	BT_DBG("");
+
+	cp = (void *) data;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENODEV);
+
+	hci_dev_lock(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENETDOWN);
+		goto failed;
+	}
+
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK,
+					&cp->bdaddr);
+	if (!conn)
+		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENOTCONN);
+
+	if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend))
+		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, EINPROGRESS);
+
+	if (conn->link_mode & HCI_LM_AUTH) {
+		enc.handle = cpu_to_le16(conn->handle);
+		enc.encrypt = cp->enable;
+		err = hci_send_cmd(hdev,
+				HCI_OP_SET_CONN_ENCRYPT, sizeof(enc), &enc);
+	} else {
+		conn->auth_initiator = 1;
+		if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
+			struct hci_cp_auth_requested cp;
+			cp.handle = cpu_to_le16(conn->handle);
+			err = hci_send_cmd(conn->hdev,
+				HCI_OP_AUTH_REQUESTED, sizeof(cp), &cp);
+		}
+	}
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+
 static int pin_code_neg_reply(struct sock *sk, u16 index, unsigned char *data,
 									u16 len)
 {
@@ -2317,6 +2375,9 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 		err = remove_remote_oob_data(sk, index, buf + sizeof(*hdr),
 									len);
 		break;
+	case MGMT_OP_ENCRYPT_LINK:
+		err = encrypt_link(sk, index, buf + sizeof(*hdr), len);
+		break;
 
 	default:
 		BT_DBG("Unknown op %u", opcode);
@@ -2828,3 +2889,17 @@ int mgmt_remote_name(u16 index, bdaddr_t *bdaddr, u8 status, u8 *name)
 
 	return mgmt_event(MGMT_EV_REMOTE_NAME, index, &ev, sizeof(ev), NULL);
 }
+
+int mgmt_encrypt_change(u16 index, bdaddr_t *bdaddr, u8 status)
+{
+	struct mgmt_ev_encrypt_change ev;
+
+	BT_DBG("hci%u", index);
+
+	bacpy(&ev.bdaddr, bdaddr);
+	ev.status = status;
+
+	return mgmt_event(MGMT_EV_ENCRYPT_CHANGE, index, &ev, sizeof(ev),
+									NULL);
+}
+
