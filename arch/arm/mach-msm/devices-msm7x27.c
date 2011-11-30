@@ -807,32 +807,22 @@ static struct resource kgsl_3d0_resources[] = {
 };
 
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
-	.pwr_data = {
-		/* bus_freq has been set to 160000 for power savings.
-		 * OEMs may modify the value at their discretion for performance
-		 * The appropriate maximum replacement for 160000 is:
-		 * msm7x2x_clock_data.max_axi_khz
-		 */
-		.pwrlevel = {
-			{
-				.gpu_freq = 0,
-				.bus_freq = 160000000,
-			},
-		},
-		.init_level = 0,
-		.num_levels = 1,
-		.set_grp_async = NULL,
-		.idle_timeout = HZ/5,
-	},
-	.clk = {
-		.name = {
-			.clk = "core_clk",
-			.pclk = "iface_clk",
+	/* bus_freq has been set to 160000 for power savings.
+	* OEMs may modify the value at their discretion for performance
+	* The appropriate maximum replacement for 160000 is:
+	* msm7x2x_clock_data.max_axi_khz
+	*/
+	.pwrlevel = {
+		{
+			.gpu_freq = 0,
+			.bus_freq = 160000000,
 		},
 	},
-	.imem_clk_name = {
-		.clk = "mem_clk",
-	},
+	.init_level = 0,
+	.num_levels = 1,
+	.set_grp_async = NULL,
+	.idle_timeout = HZ/5,
+	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM,
 };
 
 struct platform_device msm_kgsl_3d0 = {
