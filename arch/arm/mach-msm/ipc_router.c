@@ -1938,7 +1938,6 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 	}
 	mutex_unlock(&port_ptr->port_rx_q_lock);
 
-	wake_lock_destroy(&port_ptr->port_rx_wake_lock);
 	if (port_ptr->type == SERVER_PORT) {
 		server = msm_ipc_router_lookup_server(
 				port_ptr->port_name.service,
@@ -1962,6 +1961,7 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		mutex_unlock(&control_ports_lock);
 	}
 
+	wake_lock_destroy(&port_ptr->port_rx_wake_lock);
 	kfree(port_ptr);
 	return 0;
 }
