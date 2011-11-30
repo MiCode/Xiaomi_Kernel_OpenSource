@@ -2672,7 +2672,30 @@ static int hdcp_authentication_part2(void)
 	for (i = 0; i < ksv_bytes - 1; i++) {
 		/* Write KSV byte and do not set DONE bit[0] */
 		HDMI_OUTP_ND(0x0244, kvs_fifo[i] << 16);
+
+		/* Once 64 bytes have been written, we need to poll for
+		 * HDCP_SHA_BLOCK_DONE before writing any further
+		 */
+		if (i && !((i+1)%64)) {
+			timeout_count = 100;
+			while (!(HDMI_INP_ND(0x0240) & 0x1)
+					&& (--timeout_count)) {
+				DEV_DBG("HDCP Auth Part II: Waiting for the "
+					"computation of the current 64 byte to "
+					"complete. HDCP_SHA_STATUS=%08x. "
+					"timeout_count=%d\n",
+					 HDMI_INP_ND(0x0240), timeout_count);
+				msleep(20);
+			}
+			if (!timeout_count) {
+				ret = -ETIMEDOUT;
+				DEV_ERR("%s(%d): timedout", __func__, __LINE__);
+				goto error;
+			}
+		}
+
 	}
+
 	/* Write l to DONE bit[0] */
 	HDMI_OUTP_ND(0x0244, (kvs_fifo[ksv_bytes - 1] << 16) | 0x1);
 
@@ -2680,8 +2703,9 @@ static int hdcp_authentication_part2(void)
 	[4] COMP_DONE */
 	/* Now wait for HDCP_SHA_COMP_DONE */
 	timeout_count = 100;
-	while ((0x10 != (HDMI_INP_ND(0x0240) & 0x10)) && timeout_count--)
+	while ((0x10 != (HDMI_INP_ND(0x0240) & 0xFFFFFF10)) && --timeout_count)
 		msleep(20);
+
 	if (!timeout_count) {
 		ret = -ETIMEDOUT;
 		DEV_ERR("%s(%d): timedout", __func__, __LINE__);
@@ -2692,8 +2716,10 @@ static int hdcp_authentication_part2(void)
 	[20] V_MATCHES */
 	timeout_count = 100;
 	while (((HDMI_INP_ND(0x011C) & (1 << 20)) != (1 << 20))
-	    && timeout_count--)
+	    && --timeout_count) {
 		msleep(20);
+	}
+
 	if (!timeout_count) {
 		ret = -ETIMEDOUT;
 		DEV_ERR("%s(%d): timedout", __func__, __LINE__);
