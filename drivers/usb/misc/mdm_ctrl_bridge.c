@@ -318,7 +318,7 @@ void ctrl_bridge_close(unsigned int id)
 		return;
 
 	dev  = __dev[id];
-	if (!dev && !dev->brdg)
+	if (!dev || !dev->brdg)
 		return;
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);

@@ -120,7 +120,7 @@ int data_bridge_unthrottle_rx(unsigned int id)
 		return -EINVAL;
 
 	dev = __dev[id];
-	if (!dev && !dev->brdg)
+	if (!dev || !dev->brdg)
 		return -ENODEV;
 
 	dev->rx_unthrottled_cnt++;
@@ -321,7 +321,7 @@ void data_bridge_close(unsigned int id)
 		return;
 
 	dev  = __dev[id];
-	if (!dev && !dev->brdg)
+	if (!dev || !dev->brdg)
 		return;
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
