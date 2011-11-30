@@ -58,8 +58,6 @@
 
 #endif
 
-#define HAS_ARCH_IO_REMAP_PFN_RANGE
-
 #ifndef __ASSEMBLY__
 void *alloc_bootmem_aligned(unsigned long size, unsigned long alignment);
 void *allocate_contiguous_ebi(unsigned long, unsigned long, int);
