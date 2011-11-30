@@ -2971,6 +2971,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	struct tabla_mbhc_calibration *calibration = tabla->calibration;
 	int central_bias_enabled = 0;
+	u8 wg_time;
 
 	if (!calibration) {
 		pr_err("Error, no tabla calibration\n");
@@ -2987,20 +2988,28 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 			0x81, 0x01);
 		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
 			0x90, 0x00);
+		wg_time = snd_soc_read(codec, TABLA_A_RX_HPH_CNP_WG_TIME) ;
+		wg_time += 1;
 
 		/* Enable HPH Schmitt Trigger */
-		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x13);
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x11, 0x11);
 		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x0C,
 			calibration->hph_current << 2);
 
-		/* Turn off HPH PAs during insertion detection to avoid false
-		 * insertion interrupts
+		/* Turn off HPH PAs and DAC's during insertion detection to
+		 * avoid false insertion interrupts
 		 */
 		if (tabla->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_L_DAC_CTL,
+			0xC0, 0x00);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_R_DAC_CTL,
+			0xC0, 0x00);
+		usleep_range(wg_time * 1000, wg_time * 1000);
 
 		/* setup for insetion detection */
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x02, 0x02);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
 	} else {
 		/* Make sure the HPH schmitt trigger is OFF */
