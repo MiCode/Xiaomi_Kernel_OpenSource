@@ -93,8 +93,13 @@ void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value);
 
-uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
-	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
+const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
+						unsigned int pt_base,
+						unsigned int gpuaddr,
+						unsigned int size);
+
+uint8_t *adreno_convertaddr(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int size);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
