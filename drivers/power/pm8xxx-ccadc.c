@@ -700,6 +700,9 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	chip->eoc_irq = res->start;
 	chip->r_sense = pdata->r_sense;
 
+	calib_ccadc_read_offset_and_gain(chip,
+					&chip->ccadc_gain_uv,
+					&chip->ccadc_offset);
 	rc = request_irq(chip->eoc_irq,
 			pm8921_bms_ccadc_eoc_handler, IRQF_TRIGGER_RISING,
 			"bms_eoc_ccadc", chip);
@@ -707,15 +710,13 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 		pr_err("failed to request %d irq rc= %d\n", chip->eoc_irq, rc);
 		goto free_chip;
 	}
+	disable_irq_nosync(chip->eoc_irq);
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
 
 	create_debugfs_entries(chip);
 
-	calib_ccadc_read_offset_and_gain(chip,
-					&chip->ccadc_gain_uv,
-					&chip->ccadc_offset);
 	return 0;
 
 free_chip:
