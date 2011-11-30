@@ -777,6 +777,11 @@ void __online_page_set_limits(struct page *page)
 {
 	unsigned long pfn = page_to_pfn(page);
 
+	totalram_pages++;
+#ifdef CONFIG_FIX_MOVABLE_ZONE
+	if (zone_idx(page_zone(page)) != ZONE_MOVABLE)
+		total_unmovable_pages++;
+#endif
 	if (pfn >= num_physpages)
 		num_physpages = pfn + 1;
 }
@@ -1583,6 +1588,10 @@ repeat:
 	zone->zone_pgdat->node_present_pages -= offlined_pages;
 	totalram_pages -= offlined_pages;
 
+#ifdef CONFIG_FIX_MOVABLE_ZONE
+	if (zone_idx(zone) != ZONE_MOVABLE)
+		total_unmovable_pages -= offlined_pages;
+#endif
 	init_per_zone_wmark_min();
 
 	if (!populated_zone(zone)) {
