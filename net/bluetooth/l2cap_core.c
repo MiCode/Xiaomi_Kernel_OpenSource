@@ -3747,6 +3747,12 @@ static int l2cap_parse_conf_rsp(struct sock *sk, void *rsp, int len, void *data,
 
 	BT_DBG("sk %p, rsp %p, len %d, req %p", sk, rsp, len, data);
 
+	/* Initialize rfc in case no rfc option is received */
+	rfc.mode = pi->mode;
+	rfc.retrans_timeout = L2CAP_DEFAULT_RETRANS_TO;
+	rfc.monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
+	rfc.max_pdu_size = L2CAP_DEFAULT_MAX_PDU_SIZE;
+
 	while (len >= L2CAP_CONF_OPT_SIZE) {
 		len -= l2cap_get_conf_opt(&rsp, &type, &olen, &val);
 
@@ -3840,6 +3846,12 @@ static void l2cap_conf_rfc_get(struct sock *sk, void *rsp, int len)
 	struct l2cap_conf_rfc rfc;
 
 	BT_DBG("sk %p, rsp %p, len %d", sk, rsp, len);
+
+	/* Initialize rfc in case no rfc option is received */
+	rfc.mode = pi->mode;
+	rfc.retrans_timeout = L2CAP_DEFAULT_RETRANS_TO;
+	rfc.monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
+	rfc.max_pdu_size = L2CAP_DEFAULT_MAX_PDU_SIZE;
 
 	if ((pi->mode != L2CAP_MODE_ERTM) && (pi->mode != L2CAP_MODE_STREAMING))
 		return;
