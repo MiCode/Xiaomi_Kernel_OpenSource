@@ -525,14 +525,14 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-int mdp_core_clk_rate_table[] = {
+static int mdp_core_clk_rate_table[] = {
 	200000000,
 	200000000,
 	200000000,
 	200000000,
 };
 #else
-int mdp_core_clk_rate_table[] = {
+static int mdp_core_clk_rate_table[] = {
 	85330000,
 	85330000,
 	160000000,

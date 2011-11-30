@@ -191,7 +191,7 @@ static struct msm_camera_gpio_conf gpio_conf = {
 #define VFE_CAMIF_TIMER1_GPIO 2
 #define VFE_CAMIF_TIMER2_GPIO 3
 #define VFE_CAMIF_TIMER3_GPIO_INT 4
-struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
+static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 	.flash_trigger = VFE_CAMIF_TIMER2_GPIO,
 	.flash_charge = VFE_CAMIF_TIMER1_GPIO,
 	.flash_charge_done = VFE_CAMIF_TIMER3_GPIO_INT,
@@ -345,7 +345,7 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 		.name = "msm_camera",
 };
 
-struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
+static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
 		.ioclk.mclk_clk_rate = 24000000,
 		.ioclk.vfe_clk_rate  = 228570000,
@@ -403,7 +403,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 #endif
 };
 
-struct platform_device msm8960_camera_sensor_imx074 = {
+static struct platform_device msm8960_camera_sensor_imx074 = {
 	.name	= "msm_camera_imx074",
 	.dev	= {
 		.platform_data = &msm_camera_sensor_imx074_data,
@@ -433,7 +433,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.camera_type = FRONT_CAMERA_2D,
 };
 
-struct platform_device msm8960_camera_sensor_ov2720 = {
+static struct platform_device msm8960_camera_sensor_ov2720 = {
 	.name	= "msm_camera_ov2720",
 	.dev	= {
 		.platform_data = &msm_camera_sensor_ov2720_data,

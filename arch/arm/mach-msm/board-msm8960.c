@@ -197,7 +197,7 @@ static struct gpiomux_setting slimbus = {
 	.pull = GPIOMUX_PULL_KEEPER,
 };
 
-struct msm_gpiomux_config msm8960_gpiomux_configs[NR_GPIO_IRQS] = {
+static struct msm_gpiomux_config msm8960_gpiomux_configs[NR_GPIO_IRQS] = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
 		.gpio = KS8851_IRQ_GPIO,
@@ -675,7 +675,7 @@ static struct resource resources_dspcrashd_8960[] = {
 	},
 };
 
-struct platform_device msm_device_dspcrashd_8960 = {
+static struct platform_device msm_device_dspcrashd_8960 = {
 	.name           = "msm_dspcrashd",
 	.num_resources  = ARRAY_SIZE(resources_dspcrashd_8960),
 	.resource       = resources_dspcrashd_8960,
@@ -727,7 +727,7 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 }
 
 #ifdef CONFIG_ION_MSM
-struct ion_platform_data ion_pdata = {
+static struct ion_platform_data ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
 		{
@@ -759,7 +759,7 @@ struct ion_platform_data ion_pdata = {
 	}
 };
 
-struct platform_device ion_dev = {
+static struct platform_device ion_dev = {
 	.name = "ion-msm",
 	.id = 1,
 	.dev = { .platform_data = &ion_pdata },
@@ -1212,7 +1212,7 @@ static struct mdm_platform_data mdm_platform_data = {
 	.mdm_version = "2.5",
 };
 
-struct platform_device mdm_device = {
+static struct platform_device mdm_device = {
 	.name		= "mdm2_modem",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(mdm_resources),
@@ -1451,7 +1451,7 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
 };
 
-struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
+static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.on = sdc1_pad_pull_on_cfg,
 		.off = sdc1_pad_pull_off_cfg,
@@ -1464,7 +1464,7 @@ struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
-struct msm_mmc_pad_drv_data mmc_pad_drv_data[MAX_SDCC_CONTROLLER] = {
+static struct msm_mmc_pad_drv_data mmc_pad_drv_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.on = sdc1_pad_drv_on_cfg,
 		.off = sdc1_pad_drv_off_cfg,
@@ -1477,7 +1477,7 @@ struct msm_mmc_pad_drv_data mmc_pad_drv_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
-struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
+static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pull = &mmc_pad_pull_data[SDCC1],
 		.drv = &mmc_pad_drv_data[SDCC1]
@@ -1488,7 +1488,7 @@ struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
-struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
+static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pad_data = &mmc_pad_data[SDCC1],
 	},
