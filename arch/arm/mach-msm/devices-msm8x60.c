@@ -949,12 +949,6 @@ static struct resource gsbi1_qup_spi_resources[] = {
 		.flags  = IORESOURCE_IO,
 	},
 	{
-		.name   = "spi_cs",
-		.start  = 35,
-		.end    = 35,
-		.flags  = IORESOURCE_IO,
-	},
-	{
 		.name   = "spi_miso",
 		.start  = 34,
 		.end    = 34,
@@ -964,6 +958,12 @@ static struct resource gsbi1_qup_spi_resources[] = {
 		.name   = "spi_mosi",
 		.start  = 33,
 		.end    = 33,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 35,
+		.end    = 35,
 		.flags  = IORESOURCE_IO,
 	},
 };
