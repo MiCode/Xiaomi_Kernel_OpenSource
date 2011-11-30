@@ -1226,11 +1226,17 @@ void msm_otg_set_vbus_state(int online)
 {
 	struct msm_otg *dev = the_msm_otg;
 
-	if (!atomic_read(&dev->in_lpm) || !online)
-		return;
+	/*
+	 * Process disconnect only for wallcharger
+	 * during fast plug-out plug-in at the
+	 * AC source side.
+	 */
+	if (online)
+		set_bit(B_SESS_VLD, &dev->inputs);
+	else
+		clear_bit(B_SESS_VLD, &dev->inputs);
 
 	wake_lock(&dev->wlock);
-	set_bit(B_SESS_VLD, &dev->inputs);
 	queue_work(dev->wq, &dev->sm_work);
 }
 
