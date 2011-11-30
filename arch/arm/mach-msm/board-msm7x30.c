@@ -4565,20 +4565,20 @@ static struct regulator_bulk_data regs_bt_marimba[] = {
 	{ .supply = "smps3", .min_uV = 1800000, .max_uV = 1800000 },
 	{ .supply = "smps2", .min_uV = 1300000, .max_uV = 1300000 },
 	{ .supply = "ldo24", .min_uV = 1200000, .max_uV = 1200000 },
-	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 2900000 },
+	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 3050000 },
 };
 
 static struct regulator_bulk_data regs_bt_bahama_v1[] = {
 	{ .supply = "smps3", .min_uV = 1800000, .max_uV = 1800000 },
 	{ .supply = "ldo7",  .min_uV = 1800000, .max_uV = 1800000 },
 	{ .supply = "smps2", .min_uV = 1300000, .max_uV = 1300000 },
-	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 2900000 },
+	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 3050000 },
 };
 
 static struct regulator_bulk_data regs_bt_bahama_v2[] = {
 	{ .supply = "smps3", .min_uV = 1800000, .max_uV = 1800000 },
 	{ .supply = "ldo7",  .min_uV = 1800000, .max_uV = 1800000 },
-	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 2900000 },
+	{ .supply = "ldo13", .min_uV = 2900000, .max_uV = 3050000 },
 };
 
 static struct regulator_bulk_data *regs_bt;
