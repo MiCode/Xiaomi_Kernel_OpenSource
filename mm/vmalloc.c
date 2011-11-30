@@ -1611,9 +1611,14 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 	struct vm_struct *area;
 	void *addr;
 	unsigned long real_size = size;
+#ifdef CONFIG_FIX_MOVABLE_ZONE
+	unsigned long total_pages = total_unmovable_pages;
+#else
+	unsigned long total_pages = totalram_pages;
+#endif
 
 	size = PAGE_ALIGN(size);
-	if (!size || (size >> PAGE_SHIFT) > totalram_pages)
+	if (!size || (size >> PAGE_SHIFT) > total_pages)
 		return NULL;
 
 	area = __get_vm_area_node(size, align, VM_ALLOC, start, end, node,
