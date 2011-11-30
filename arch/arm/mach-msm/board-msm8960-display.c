@@ -674,6 +674,11 @@ static struct platform_device wfd_panel_device = {
 	.id = 0,
 	.dev.platform_data = NULL,
 };
+
+static struct platform_device wfd_device = {
+	.name          = "msm_wfd",
+	.id            = -1,
+};
 #endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -985,6 +990,11 @@ void __init msm8960_init_fb(void)
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));
 
 	platform_device_register(&msm_fb_device);
+
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+	platform_device_register(&wfd_panel_device);
+	platform_device_register(&wfd_device);
+#endif
 
 	if (machine_is_msm8960_sim())
 		platform_device_register(&mipi_dsi_simulator_panel_device);
