@@ -19,6 +19,7 @@
 #include <linux/mfd/pmic8901.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 
 /* PMIC8901 Revision */
 #define SSBI_REG_REV			0x002  /* PMIC4 revision */
@@ -64,6 +65,10 @@
 
 #define REGULATOR_PMR_STATE_MASK	0x60
 #define REGULATOR_PMR_STATE_OFF		0x20
+
+/* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
+#define DELAY_AFTER_REG_DISABLE_MS	4
+#define DELAY_BEFORE_SHUTDOWN_MS	8
 
 struct pm8901_chip {
 	struct pm8901_platform_data	pdata;
@@ -225,10 +230,12 @@ int pm8901_reset_pwr_off(int reset)
 				       "\n", __func__, pmr_addr[i], pmr, rc);
 				goto get_out;
 			}
+			mdelay(DELAY_AFTER_REG_DISABLE_MS);
 		}
 	}
 
 get_out:
+	mdelay(DELAY_BEFORE_SHUTDOWN_MS);
 	return rc;
 }
 EXPORT_SYMBOL(pm8901_reset_pwr_off);
