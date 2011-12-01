@@ -97,8 +97,15 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	if (buf->state == MSM_BUFFER_STATE_INITIALIZED)
 		return rc;
 
-	buf_type = (vb->num_planes == 1) ? VIDEOBUF2_SINGLE_PLANE
-					: VIDEOBUF2_MULTIPLE_PLANES;
+	if (pcam_inst->plane_info.buffer_type ==
+		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		buf_type = VIDEOBUF2_MULTIPLE_PLANES;
+	else if (pcam_inst->plane_info.buffer_type ==
+		V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		buf_type = VIDEOBUF2_SINGLE_PLANE;
+	else
+		return -EINVAL;
+
 	if (buf_type == VIDEOBUF2_SINGLE_PLANE) {
 		offset.sp_off.y_off = pcam_inst->plane_info.sp_y_offset;
 		offset.sp_off.cbcr_off =
