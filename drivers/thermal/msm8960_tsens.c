@@ -99,6 +99,7 @@ enum tsens_trip_type {
 #define TSENS_SENSOR_SHIFT				16
 #define TSENS_RED_SHIFT					8
 #define TSENS_8960_QFPROM_SHIFT				4
+#define TSENS_SENSOR_QFPROM_SHIFT			2
 #define TSENS_SENSOR0_SHIFT				3
 #define TSENS_MASK1					1
 
@@ -680,12 +681,12 @@ static int tsens_calib_sensors8960(void)
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 		main_sensor_addr = TSENS_8960_QFPROM_ADDR0 +
 			(TSENS_8960_QFPROM_SHIFT *
-			(i & TSENS_8960_QFPROM_SHIFT >> TSENS_SENSOR0_SHIFT));
+		((i & TSENS_8960_QFPROM_SHIFT) >> TSENS_SENSOR_QFPROM_SHIFT));
 		sensor_shift = (i % TSENS_8960_QFPROM_SHIFT) * TSENS_RED_SHIFT;
 		sensor_mask = TSENS_THRESHOLD_MAX_CODE << sensor_shift;
 		backup_sensor_addr = TSENS_8960_QFPROM_SPARE_ADDR0 +
 			(TSENS_8960_QFPROM_SHIFT *
-		(i & TSENS_8960_QFPROM_SHIFT >> TSENS_SENSOR0_SHIFT));
+		((i & TSENS_8960_QFPROM_SHIFT) >> TSENS_SENSOR_QFPROM_SHIFT));
 
 		tmdev->sensor[i].calib_data = (readl_relaxed(main_sensor_addr)
 			& sensor_mask) >> sensor_shift;
