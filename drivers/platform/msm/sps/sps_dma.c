@@ -26,14 +26,24 @@
  */
 
 #define DMA_ENBL			(0x00000000)
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+#define DMA_REVISION			(0x00000004)
+#define DMA_CONFIG			(0x00000008)
+#define DMA_CHNL_CONFIG(n)		(0x00001000 + 4096 * (n))
+#else
 #define DMA_CHNL_CONFIG(n)		(0x00000004 + 4 * (n))
 #define DMA_CONFIG			(0x00000040)
+#endif
 
 /**
  * masks
  */
 
 /* DMA_CHNL_confign */
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+#define DMA_CHNL_PRODUCER_PIPE_ENABLED	0x40000
+#define DMA_CHNL_CONSUMER_PIPE_ENABLED	0x20000
+#endif
 #define DMA_CHNL_HALT_DONE		0x10000
 #define DMA_CHNL_HALT			0x1000
 #define DMA_CHNL_ENABLE                 0x100
