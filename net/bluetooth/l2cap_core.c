@@ -5494,6 +5494,7 @@ int l2cap_destroy_cfm(struct hci_chan *chan, u8 reason)
 		/* TODO MM/PK - What to do if connection is LOCAL_BUSY?  */
 		if (l2cap_pi(sk)->ampchan == chan) {
 			l2cap_pi(sk)->ampchan = NULL;
+			l2cap_pi(sk)->ampcon = NULL;
 			l2cap_amp_move_init(sk);
 		}
 		bh_unlock_sock(sk);
