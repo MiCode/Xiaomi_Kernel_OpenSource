@@ -1410,6 +1410,12 @@ config HAVE_ARM_SCU
 	help
 	  This option enables support for the ARM system coherency unit
 
+config ARM_ARCH_TIMER
+	bool "Architected timer support"
+	select TICK_ONESHOT
+	help
+	  This option enables support for the ARM architected timer
+
 config HAVE_ARM_TWD
 	bool
 	depends on SMP
