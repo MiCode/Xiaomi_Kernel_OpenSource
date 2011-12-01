@@ -70,7 +70,9 @@ enum {
 extern struct sx150x_platform_data msm8960_sx150x_data[];
 void msm8960_init_cam(void);
 void msm8960_init_fb(void);
+void msm8960_init_pmic(void);
 void msm8960_allocate_fb_region(void);
+void msm8960_pm8921_gpio_mpp_init(void);
 
 #define MSM_8960_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8960_GSBI3_QUP_I2C_BUS_ID 3
