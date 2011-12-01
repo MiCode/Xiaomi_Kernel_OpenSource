@@ -207,7 +207,7 @@
 
 #define MCI_FIFOHALFSIZE (MCI_FIFOSIZE / 2)
 
-#define NR_SG		32
+#define NR_SG		128
 
 #define MSM_MMC_IDLE_TIMEOUT	5000 /* msecs */
 
@@ -217,10 +217,46 @@
  */
 #define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
 
+/*
+ * Controller HW limitations
+ */
+#define MCI_DATALENGTH_BITS	25
+#define MMC_MAX_REQ_SIZE	((1 << MCI_DATALENGTH_BITS) - 1)
+/* MCI_DATA_CTL BLOCKSIZE up to 4096 */
+#define MMC_MAX_BLK_SIZE	4096
+#define MMC_MIN_BLK_SIZE	512
+#define MMC_MAX_BLK_CNT		(MMC_MAX_REQ_SIZE / MMC_MIN_BLK_SIZE)
+
+/* 64KiB */
+#define MAX_SG_SIZE		(64 * 1024)
+#define MAX_NR_SG_DMA_PIO	(MMC_MAX_REQ_SIZE / MAX_SG_SIZE)
+
+/*
+ * BAM limitations
+ */
+/* upto 16 bits (64K - 1) */
+#define SPS_MAX_DESC_FIFO_SIZE	65535
+/* 16KiB */
+#define SPS_MAX_DESC_SIZE	(16 * 1024)
+/* Each descriptor is of length 8 bytes */
+#define SPS_MAX_DESC_LENGTH	8
+#define SPS_MAX_DESCS		(SPS_MAX_DESC_FIFO_SIZE / SPS_MAX_DESC_LENGTH)
+#define SPS_MAX_SG_DESCS	(MAX_SG_SIZE / SPS_MAX_DESC_SIZE)
+#define MAX_NR_SG_SPS		(SPS_MAX_DESCS / SPS_MAX_SG_DESCS)
+
+/*
+ * DMA limitations
+ */
+/* upto 16 bits (64K - 1) */
+#define MMC_MAX_DMA_ROWS (64 * 1024 - 1)
+#define MMC_MAX_DMA_BOX_LENGTH (MMC_MAX_DMA_ROWS * MCI_FIFOSIZE)
+#define MMC_MAX_DMA_CMDS (MAX_NR_SG_DMA_PIO * (MMC_MAX_REQ_SIZE / \
+		MMC_MAX_DMA_BOX_LENGTH))
+
 struct clk;
 
 struct msmsdcc_nc_dmadata {
-	dmov_box	cmd[NR_SG];
+	dmov_box	cmd[MMC_MAX_DMA_CMDS];
 	uint32_t	cmdptr;
 };
 
