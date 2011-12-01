@@ -2129,6 +2129,7 @@ struct msm_vidc_platform_data vidc_platform_data = {
 	.memtype = MEMTYPE_SMI_KERNEL,
 	.enable_ion = 0,
 #endif
+	.disable_dmx = 0
 };
 
 struct platform_device msm_device_vidc = {
