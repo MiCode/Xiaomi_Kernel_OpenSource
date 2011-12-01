@@ -149,9 +149,58 @@ void modem_crash_shutdown(const struct subsys_data *subsys)
 	smsm_reset_modem(SMSM_RESET);
 }
 
-int modem_ramdump(int enable, const struct subsys_data *subsys)
+/* FIXME: Get address, size from PIL */
+static struct ramdump_segment modemsw_segments[] = {
+	{0x89000000, 0x8D400000 - 0x89000000},
+};
+
+static struct ramdump_segment modemfw_segments[] = {
+	{0x8D400000, 0x8DA00000 - 0x8D400000},
+};
+
+static struct ramdump_segment smem_segments[] = {
+	{0x80000000, 0x00200000},
+};
+
+static void *modemfw_ramdump_dev;
+static void *modemsw_ramdump_dev;
+static void *smem_ramdump_dev;
+
+static int modem_ramdump(int enable,
+				const struct subsys_data *crashed_subsys)
 {
-	return 0;
+	int ret = 0;
+
+	if (enable) {
+		ret = do_ramdump(modemsw_ramdump_dev, modemsw_segments,
+			ARRAY_SIZE(modemsw_segments));
+
+		if (ret < 0) {
+			pr_err("Unable to dump modem sw memory (rc = %d).\n",
+			       ret);
+			goto out;
+		}
+
+		ret = do_ramdump(modemfw_ramdump_dev, modemfw_segments,
+			ARRAY_SIZE(modemfw_segments));
+
+		if (ret < 0) {
+			pr_err("Unable to dump modem fw memory (rc = %d).\n",
+				ret);
+			goto out;
+		}
+
+		ret = do_ramdump(smem_ramdump_dev, smem_segments,
+			ARRAY_SIZE(smem_segments));
+
+		if (ret < 0) {
+			pr_err("Unable to dump smem memory (rc = %d).\n", ret);
+			goto out;
+		}
+	}
+
+out:
+	return ret;
 }
 
 static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
@@ -260,6 +309,33 @@ static int __init modem_8960_init(void)
 	if (ret < 0) {
 		pr_err("%s: Unable to reg with subsystem restart. (%d)\n",
 				__func__, ret);
+		goto out;
+	}
+
+	modemfw_ramdump_dev = create_ramdump_device("modem_fw");
+
+	if (!modemfw_ramdump_dev) {
+		pr_err("%s: Unable to create modem fw ramdump device. (%d)\n",
+				__func__, -ENOMEM);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	modemsw_ramdump_dev = create_ramdump_device("modem_sw");
+
+	if (!modemsw_ramdump_dev) {
+		pr_err("%s: Unable to create modem sw ramdump device. (%d)\n",
+				__func__, -ENOMEM);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	smem_ramdump_dev = create_ramdump_device("smem");
+
+	if (!smem_ramdump_dev) {
+		pr_err("%s: Unable to create smem ramdump device. (%d)\n",
+				__func__, -ENOMEM);
+		ret = -ENOMEM;
 		goto out;
 	}
 
