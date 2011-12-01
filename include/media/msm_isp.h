@@ -1,5 +1,19 @@
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
 #ifndef __MSM_ISP_H__
 #define __MSM_ISP_H__
+
+#define BIT(nr)			(1UL << (nr))
 
 /* ISP message IDs */
 #define MSG_ID_RESET_ACK                0
@@ -42,6 +56,8 @@
 #define MSG_ID_SOF_ACK                  37
 #define MSG_ID_STOP_REC_ACK             38
 #define MSG_ID_STATS_AWB_AEC            39
+#define MSG_ID_OUTPUT_PRIMARY           40
+#define MSG_ID_OUTPUT_SECONDARY         41
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -180,6 +196,8 @@
 #define VFE_CMD_Y_GAMMA_CONFIG                          133
 #define VFE_CMD_SCALE_OUTPUT1_CONFIG                    134
 #define VFE_CMD_SCALE_OUTPUT2_CONFIG                    135
+#define VFE_CMD_CAPTURE_RAW                             136
+#define VFE_CMD_STOP_LIVESHOT                           137
 
 struct msm_isp_cmd {
 	int32_t  id;
@@ -287,6 +305,16 @@ struct msm_mctl_pp_frame_cmd {
 	int path;
 	/* TBD: 3D related */
 };
+
+#define VFE_OUTPUTS_MAIN_AND_PREVIEW	BIT(0)
+#define VFE_OUTPUTS_MAIN_AND_VIDEO	BIT(1)
+#define VFE_OUTPUTS_MAIN_AND_THUMB	BIT(2)
+#define VFE_OUTPUTS_THUMB_AND_MAIN	BIT(3)
+#define VFE_OUTPUTS_PREVIEW_AND_VIDEO	BIT(4)
+#define VFE_OUTPUTS_VIDEO_AND_PREVIEW	BIT(5)
+#define VFE_OUTPUTS_PREVIEW		BIT(6)
+#define VFE_OUTPUTS_VIDEO		BIT(7)
+#define VFE_OUTPUTS_RAW			BIT(8)
 
 #endif /*__MSM_ISP_H__*/
 

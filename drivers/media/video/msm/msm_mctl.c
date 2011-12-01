@@ -277,6 +277,19 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
+static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
+					*p_mctl, void __user *arg)
+{
+	int rc = 0;
+	if (copy_from_user(&p_mctl->vfe_output_mode,
+		(void __user *)arg, sizeof(p_mctl->vfe_output_mode)))
+		rc = -EFAULT;
+	else
+		pr_info("%s: mctl=0x%p, vfe output mode =0x%x",
+		  __func__, p_mctl, p_mctl->vfe_output_mode);
+	return rc;
+}
+
 /* called by the server or the config nodes to handle user space
 	commands*/
 static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
@@ -408,6 +421,10 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	case MSM_CAM_IOCTL_RELEASE_FREE_FRAME:
 		rc = msm_mctl_pp_release_free_frame(p_mctl,
 			(void __user *)arg);
+		break;
+	case MSM_CAM_IOCTL_SET_VFE_OUTPUT_TYPE:
+		rc = msm_mctl_set_vfe_output_mode(p_mctl,
+		  (void __user *)arg);
 		break;
 			/* ISFIF config*/
 	default:
@@ -778,6 +795,7 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);
 	memset(&pmctl->pp_info, 0, sizeof(pmctl->pp_info));
+	pmctl->vfe_output_mode = 0;
 	spin_lock_init(&pmctl->pp_info.lock);
 	/* init sub device*/
 	v4l2_subdev_init(&(pmctl->mctl_sdev), &mctl_subdev_ops);

@@ -235,6 +235,10 @@ struct msm_cam_media_controller {
 	struct pm_qos_request_list pm_qos_req_list;
 	struct msm_mctl_pp_info pp_info;
 	struct ion_client *client;
+	/* VFE output mode.
+	* Used to interpret the Primary/Secondary messages
+	* to preview/video/main/thumbnail image types*/
+	uint32_t vfe_output_mode;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -454,7 +458,7 @@ int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
 			unsigned int cmd, unsigned long arg);
 int msm_mctl_pp_notify(struct msm_cam_media_controller *pmctl,
 			struct msm_mctl_pp_frame_info *pp_frame_info);
-int msm_mctl_out_type_to_inst_index(struct msm_cam_v4l2_device *pcam,
+int msm_mctl_img_mode_to_inst_index(struct msm_cam_media_controller *pmctl,
 					int out_type);
 struct msm_frame_buffer *msm_mctl_buf_find(
 	struct msm_cam_media_controller *pmctl,
