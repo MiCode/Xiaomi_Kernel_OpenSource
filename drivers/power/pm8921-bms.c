@@ -18,7 +18,7 @@
 #include <linux/errno.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/mfd/pm8xxx/core.h>
-#include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
@@ -839,9 +839,9 @@ static int calculate_fcc(struct pm8921_bms_chip *chip, int batt_temp,
 static int get_battery_uvolts(struct pm8921_bms_chip *chip, int *uvolts)
 {
 	int rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(chip->vbat_channel, &result);
+	rc = pm8xxx_adc_read(chip->vbat_channel, &result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					chip->vbat_channel, rc);
@@ -1107,9 +1107,9 @@ static int calib_hkadc_convert_microvolt(unsigned int phy)
 static void calib_hkadc(struct pm8921_bms_chip *chip)
 {
 	int voltage, rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(the_chip->ref1p25v_channel, &result);
+	rc = pm8xxx_adc_read(the_chip->ref1p25v_channel, &result);
 	if (rc) {
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
 		return;
@@ -1126,7 +1126,7 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 		voltage = XOADC_MIN_1P25V;
 	chip->xoadc_v125 = voltage;
 
-	rc = pm8921_adc_read(the_chip->ref625mv_channel, &result);
+	rc = pm8xxx_adc_read(the_chip->ref625mv_channel, &result);
 	if (rc) {
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
 		return;
@@ -1210,14 +1210,14 @@ EXPORT_SYMBOL(pm8921_bms_get_battery_current);
 int pm8921_bms_get_percent_charge(void)
 {
 	int batt_temp, rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
 	}
 
-	rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					the_chip->batt_temp_channel, rc);
@@ -1234,14 +1234,14 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_percent_charge);
 int pm8921_bms_get_fcc(void)
 {
 	int batt_temp, rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
 	}
 
-	rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					the_chip->batt_temp_channel, rc);
@@ -1266,9 +1266,9 @@ void pm8921_bms_charging_end(int is_battery_full)
 	if (is_battery_full && the_chip != NULL) {
 		unsigned long flags;
 		int batt_temp, rc, cc_reading;
-		struct pm8921_adc_chan_result result;
+		struct pm8xxx_adc_chan_result result;
 
-		rc = pm8921_adc_read(the_chip->batt_temp_channel, &result);
+		rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
 		if (rc) {
 			pr_err("error reading adc channel = %d, rc = %d\n",
 					the_chip->batt_temp_channel, rc);
@@ -1481,9 +1481,9 @@ static void check_initial_ocv(struct pm8921_bms_chip *chip)
 static int64_t read_battery_id(struct pm8921_bms_chip *chip)
 {
 	int rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(chip->batt_id_channel, &result);
+	rc = pm8xxx_adc_read(chip->batt_id_channel, &result);
 	if (rc) {
 		pr_err("error reading batt id channel = %d, rc = %d\n",
 					chip->vbat_channel, rc);

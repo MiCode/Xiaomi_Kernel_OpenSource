@@ -18,7 +18,7 @@
 #include <linux/errno.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
-#include <linux/mfd/pm8xxx/pm8921-adc.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/interrupt.h>
@@ -264,7 +264,7 @@ static int thermal_mitigation;
 
 static struct pm8921_chg_chip *the_chip;
 
-static struct pm8921_adc_arb_btm_param btm_config;
+static struct pm8xxx_adc_arb_btm_param btm_config;
 
 static int pm_chg_masked_write(struct pm8921_chg_chip *chip, u16 addr,
 							u8 mask, u8 val)
@@ -722,9 +722,9 @@ static int pm_chg_batt_hot_temp_config(struct pm8921_chg_chip *chip,
 static int64_t read_battery_id(struct pm8921_chg_chip *chip)
 {
 	int rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(chip->batt_id_channel, &result);
+	rc = pm8xxx_adc_read(chip->batt_id_channel, &result);
 	if (rc) {
 		pr_err("error reading batt id channel = %d, rc = %d\n",
 					chip->vbat_channel, rc);
@@ -925,9 +925,9 @@ static enum power_supply_property msm_batt_power_props[] = {
 static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
 {
 	int rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(chip->vbat_channel, &result);
+	rc = pm8xxx_adc_read(chip->vbat_channel, &result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					chip->vbat_channel, rc);
@@ -1067,9 +1067,9 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 {
 	int rc;
-	struct pm8921_adc_chan_result result;
+	struct pm8xxx_adc_chan_result result;
 
-	rc = pm8921_adc_read(chip->batt_temp_channel, &result);
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					chip->vbat_channel, rc);
@@ -1935,7 +1935,7 @@ static void btm_configure_work(struct work_struct *work)
 {
 	int rc;
 
-	rc = pm8921_adc_btm_configure(&btm_config);
+	rc = pm8xxx_adc_btm_configure(&btm_config);
 	if (rc)
 		pr_err("failed to configure btm rc=%d", rc);
 }
@@ -1996,10 +1996,10 @@ static int configure_btm(struct pm8921_chg_chip *chip)
 	btm_config.low_thr_temp = chip->cool_temp;
 	btm_config.high_thr_temp = chip->warm_temp;
 	btm_config.interval = chip->temp_check_period;
-	rc = pm8921_adc_btm_configure(&btm_config);
+	rc = pm8xxx_adc_btm_configure(&btm_config);
 	if (rc)
 		pr_err("failed to configure btm rc = %d\n", rc);
-	rc = pm8921_adc_btm_start();
+	rc = pm8xxx_adc_btm_start();
 	if (rc)
 		pr_err("failed to start btm rc = %d\n", rc);
 

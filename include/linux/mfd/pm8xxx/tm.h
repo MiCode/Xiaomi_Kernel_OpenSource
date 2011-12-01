@@ -25,7 +25,7 @@
 enum pm8xxx_tm_adc_type {
 	PM8XXX_TM_ADC_NONE,	/* Estimates temp based on overload level. */
 	PM8XXX_TM_ADC_PM8058_ADC,
-	PM8XXX_TM_ADC_PM8921_ADC,
+	PM8XXX_TM_ADC_PM8XXX_ADC,
 };
 
 struct pm8xxx_tm_core_data {

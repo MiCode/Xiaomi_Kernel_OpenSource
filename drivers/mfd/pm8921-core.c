@@ -154,7 +154,7 @@ static const struct resource adc_cell_resources[] __devinitconst = {
 };
 
 static struct mfd_cell adc_cell __devinitdata = {
-	.name		= PM8921_ADC_DEV_NAME,
+	.name		= PM8XXX_ADC_DEV_NAME,
 	.id		= -1,
 	.resources	= adc_cell_resources,
 	.num_resources	= ARRAY_SIZE(adc_cell_resources),
@@ -304,7 +304,7 @@ static const struct resource thermal_alarm_cell_resources[] __devinitconst = {
 
 static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
 	.adc_channel =			CHANNEL_DIE_TEMP,
-	.adc_type =			PM8XXX_TM_ADC_PM8921_ADC,
+	.adc_type =			PM8XXX_TM_ADC_PM8XXX_ADC,
 	.reg_addr_temp_alarm_ctrl =	REG_TEMP_ALARM_CTRL,
 	.reg_addr_temp_alarm_pwm =	REG_TEMP_ALARM_PWM,
 	.tm_name =			"pm8921_tz",
@@ -461,7 +461,7 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	if (pdata->adc_pdata) {
 		adc_cell.platform_data = pdata->adc_pdata;
 		adc_cell.pdata_size =
-			sizeof(struct pm8921_adc_platform_data);
+			sizeof(struct pm8xxx_adc_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &adc_cell, 1, NULL,
 					irq_base);
 		if (ret) {

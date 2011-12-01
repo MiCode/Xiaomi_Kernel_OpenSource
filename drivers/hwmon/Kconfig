@@ -788,18 +788,9 @@ config SENSORS_MSM_ADC
 	  internally uses an array of LTC2499 and EPM ADCs in a differential
 	  configuration to provide a flat set of channels that can be addressed.
 
-config SENSORS_PM8921_ADC
-	tristate "Support for Qualcomm PM8921 ADC"
-	depends on MFD_PM8921_CORE
-	help
-	  This is the ADC arbiter driver for Qualcomm PM8921 Chip.
-
-	  The driver supports reading the HKADC, XOADC and support to set and receive
-	  temperature threshold notifications using the Battery temperature module.
-
 config SENSORS_PM8XXX_ADC
 	tristate "Support for Qualcomm PM8XXX ADC"
-	depends on MFD_PM8018_CORE
+	depends on MFD_PM8018_CORE || MFD_PM8921_CORE
 	help
 	  This is the ADC arbiter driver for Qualcomm PM8XXX Chip.
 
