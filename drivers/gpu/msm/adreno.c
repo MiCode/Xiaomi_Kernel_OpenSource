@@ -1132,9 +1132,14 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 			mutex_lock(&device->mutex);
 
 			if (status > 0) {
+				/*completed before the wait finished */
 				status = 0;
 				goto done;
+			} else if (status < 0) {
+				/*an error occurred*/
+				goto done;
 			}
+			/*this wait timed out*/
 		}
 	}
 	if (!kgsl_check_timestamp(device, timestamp)) {
