@@ -928,10 +928,6 @@ int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 {
 	int rc = 0;
 
-	rc = msm_rpmrs_flush_L2(limits, notify_rpm);
-	if (rc)
-		return rc;
-
 	if (notify_rpm) {
 		rc = msm_rpmrs_flush_buffer(sclk_count, limits, from_idle);
 		if (rc)
@@ -941,6 +937,7 @@ int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 			msm_mpm_enter_sleep(from_idle);
 	}
 
+	rc = msm_rpmrs_flush_L2(limits, notify_rpm);
 	return rc;
 }
 
