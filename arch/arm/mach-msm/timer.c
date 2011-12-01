@@ -235,11 +235,14 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 		t1 = __raw_readl(addr);
 		t2 = __raw_readl(addr);
 		t3 = __raw_readl(addr);
+		cpu_relax();
 		if ((t3-t2) <= 1)
 			return t3;
 		if ((t2-t1) <= 1)
 			return t2;
-		if (++loop_count == 10) {
+		if (((t3-t2) == (t2-t1)) && (t3-t2) <= 8)
+			return t3;
+		if (++loop_count == 5) {
 			pr_err("msm_read_timer_count timer %s did not "
 			       "stabilize: %u -> %u -> %u\n",
 			       clock->clockevent.name, t1, t2, t3);
