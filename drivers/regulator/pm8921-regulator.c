@@ -85,9 +85,9 @@ module_param_named(
 #define LDO_CTRL_VPROG_MASK		0x1F
 
 /* TEST register bank 0 */
-#define LDO_TEST_LPM_MASK		0x40
+#define LDO_TEST_LPM_MASK		0x04
 #define LDO_TEST_LPM_SEL_CTRL		0x00
-#define LDO_TEST_LPM_SEL_TCXO		0x40
+#define LDO_TEST_LPM_SEL_TCXO		0x04
 
 /* TEST register bank 2 */
 #define LDO_TEST_VPROG_UPDATE_MASK	0x08
