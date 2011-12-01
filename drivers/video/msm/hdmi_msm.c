@@ -51,6 +51,12 @@
 
 static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
 
+/* HDMI/HDCP Registers */
+#define HDCP_DDC_STATUS		0x0128
+#define HDCP_DDC_CTRL_0		0x0120
+#define HDCP_DDC_CTRL_1		0x0124
+#define HDMI_DDC_CTRL		0x020C
+
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
@@ -2163,6 +2169,104 @@ static void hdcp_deauthenticate(void)
 	HDMI_OUTP(0x0118, 0x0);
 }
 
+static void check_and_clear_HDCP_DDC_Failure(void)
+{
+	int hdcp_ddc_ctrl1_reg;
+	int hdcp_ddc_status;
+	int failure;
+	int nack0;
+
+	/*
+	 * Check for any DDC transfer failures
+	 * 0x0128 HDCP_DDC_STATUS
+	 * [16] FAILED		Indicates that the last HDCP HW DDC transer
+	 *			failed. This occurs when a transfer is
+	 *			attempted with HDCP DDC disabled
+	 *			(HDCP_DDC_DISABLE=1) or the number of retries
+	 *			match HDCP_DDC_RETRY_CNT
+	 *
+	 * [14] NACK0		Indicates that the last HDCP HW DDC transfer
+	 *			was aborted due to a NACK on the first
+	 *			transaction - cleared by writing 0 to GO bit
+	 */
+	hdcp_ddc_status = HDMI_INP(HDCP_DDC_STATUS);
+	failure = (hdcp_ddc_status >> 16) & 0x1;
+	nack0 = (hdcp_ddc_status >> 14) & 0x1;
+	DEV_DBG("%s: On Entry: HDCP_DDC_STATUS = 0x%x, FAILURE = %d,"
+		"NACK0 = %d\n", __func__ , hdcp_ddc_status, failure, nack0);
+
+	if (failure == 0x1) {
+		/*
+		 * Indicates that the last HDCP HW DDC transfer failed.
+		 * This occurs when a transfer is attempted with HDCP DDC
+		 * disabled (HDCP_DDC_DISABLE=1) or the number of retries
+		 * matches HDCP_DDC_RETRY_CNT.
+		 * Failure occured,  let's clear it.
+		 */
+		DEV_INFO("%s: DDC failure detected. HDCP_DDC_STATUS=0x%08x\n",
+			 __func__, hdcp_ddc_status);
+		/*
+		 * First, Disable DDC
+		 * 0x0120 HDCP_DDC_CTRL_0
+		 * [0] DDC_DISABLE	Determines whether HDCP Ri and Pj reads
+		 *			are done unassisted by hardware or by
+		 *			software via HDMI_DDC (HDCP provides
+		 *			interrupts to request software
+		 *			transfers)
+		 *     0 : Use Hardware DDC
+		 *     1 : Use Software DDC
+		 */
+		HDMI_OUTP(HDCP_DDC_CTRL_0, 0x1);
+
+		/*
+		 * ACK the Failure to Clear it
+		 * 0x0124 HDCP_DDC_CTRL_1
+		 * [0] DDC_FAILED_ACK	Write 1 to clear
+		 *			HDCP_STATUS.HDCP_DDC_FAILED
+		 */
+		hdcp_ddc_ctrl1_reg = HDMI_INP(HDCP_DDC_CTRL_1);
+		HDMI_OUTP(HDCP_DDC_CTRL_1, hdcp_ddc_ctrl1_reg | 0x1);
+
+		/* Check if the FAILURE got Cleared */
+		hdcp_ddc_status = HDMI_INP(HDCP_DDC_STATUS);
+		hdcp_ddc_status = (hdcp_ddc_status >> 16) & 0x1;
+		if (hdcp_ddc_status == 0x0) {
+			DEV_INFO("%s: HDCP DDC Failure has been cleared\n",
+				  __func__);
+		} else {
+			DEV_WARN("%s: Error: HDCP DDC Failure DID NOT get"
+				 "cleared\n", __func__);
+		}
+
+		/* Re-Enable HDCP DDC */
+		HDMI_OUTP(HDCP_DDC_CTRL_0, 0x0);
+	}
+
+	if (nack0 == 0x1) {
+		/*
+		 * 0x020C HDMI_DDC_CTRL
+		 * [3] SW_STATUS_RESET	Write 1 to reset HDMI_DDC_SW_STATUS
+		 *			flags, will reset SW_DONE, ABORTED,
+		 *			TIMEOUT, SW_INTERRUPTED,
+		 *			BUFFER_OVERFLOW, STOPPED_ON_NACK, NACK0,
+		 *			NACK1, NACK2, NACK3
+		 */
+		HDMI_OUTP_ND(HDMI_DDC_CTRL,
+			     HDMI_INP(HDMI_DDC_CTRL) | (0x1 << 3));
+		msleep(20);
+		HDMI_OUTP_ND(HDMI_DDC_CTRL,
+			     HDMI_INP(HDMI_DDC_CTRL) & ~(0x1 << 3));
+	}
+
+	hdcp_ddc_status = HDMI_INP(HDCP_DDC_STATUS);
+
+	failure = (hdcp_ddc_status >> 16) & 0x1;
+	nack0 = (hdcp_ddc_status >> 14) & 0x1;
+	DEV_DBG("%s: On Exit: HDCP_DDC_STATUS = 0x%x, FAILURE = %d,"
+		"NACK0 = %d\n", __func__ , hdcp_ddc_status, failure, nack0);
+}
+
+
 static int hdcp_authentication_part1(void)
 {
 	int ret = 0;
@@ -2279,6 +2383,12 @@ static int hdcp_authentication_part1(void)
 			[0] ENABLE */
 		/* encryption_enable | enable  */
 		HDMI_OUTP(0x0110, (1 << 8) | (1 << 0));
+
+		/*
+		 * Check to see if a HDCP DDC Failure is indicated in
+		 * HDCP_DDC_STATUS. If yes, clear it.
+		 */
+		check_and_clear_HDCP_DDC_Failure();
 
 		/* 0x0118 HDCP_INT_CTRL
 		 *    [2] AUTH_SUCCESS_MASK	[R/W]	Mask bit for\
