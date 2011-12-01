@@ -3083,8 +3083,9 @@ static void l2cap_aggregate_fs(struct hci_ext_fs *cur,
 			if (new->sdu_arr_time)
 				new_rate = div_u64(new_rate, new->sdu_arr_time);
 			cur_rate = cur_rate + new_rate;
-			agg->sdu_arr_time = div64_u64(agg->max_sdu * 1000000ULL,
-				cur_rate);
+			if (cur_rate)
+				agg->sdu_arr_time = div64_u64(
+					agg->max_sdu * 1000000ULL, cur_rate);
 		}
 	}
 }
@@ -3125,8 +3126,9 @@ static void l2cap_deaggregate_fs(struct hci_ext_fs *cur,
 		if (old->sdu_arr_time)
 			old_rate = div_u64(old_rate, old->sdu_arr_time);
 		cur_rate = cur_rate - old_rate;
-		agg->sdu_arr_time = div64_u64(agg->max_sdu * 1000000ULL,
-								cur_rate);
+		if (cur_rate)
+			agg->sdu_arr_time = div64_u64(
+				agg->max_sdu * 1000000ULL, cur_rate);
 	}
 }
 
