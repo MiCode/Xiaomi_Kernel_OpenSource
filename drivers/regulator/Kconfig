@@ -538,5 +538,14 @@ config REGULATOR_PMIC8901
         help
          Say Y here to support the voltage regulators on PMIC8901
 
+config REGULATOR_PM8XXX
+	tristate "Qualcomm PM8XXX PMIC Voltage regulators"
+	depends on MFD_PM8XXX
+	help
+	  This driver supports voltage regulators in Qualcomm PM8XXX PMIC chips.
+	  PM8XXX chips provide several different varieties of LDO and switching
+	  regulators.  They also provide negative charge pumps and voltage
+	  switches.
+
 endif
 
