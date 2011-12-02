@@ -27,7 +27,7 @@
 #define PM8821_MPP_PM_TO_SYS(pm_mpp)	(pm_mpp - 1 + PM8821_MPP_BASE)
 #define PM8821_IRQ_BASE			(PM8921_IRQ_BASE + PM8921_NR_IRQS)
 
-extern struct pm8921_regulator_platform_data
+extern struct pm8xxx_regulator_platform_data
 	msm8064_pm8921_regulator_pdata[] __devinitdata;
 
 extern int msm8064_pm8921_regulator_pdata_len __devinitdata;
