@@ -837,6 +837,35 @@ struct platform_device msm8625_device_dmov = {
 	},
 };
 
+static struct resource gsbi0_msm8625_qup_resources[] = {
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI0_QUP_PHYS,
+		.end	= MSM_GSBI0_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI0_PHYS,
+		.end	= MSM_GSBI0_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= MSM8625_INT_PWB_I2C,
+		.end	= MSM8625_INT_PWB_I2C,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+/* Use GSBI0 QUP for /dev/i2c-0 */
+struct platform_device msm8625_device_qup_i2c_gsbi0 = {
+	.name		= "qup_i2c",
+	.id		= MSM_GSBI0_QUP_I2C_BUS_ID,
+	.num_resources	= ARRAY_SIZE(gsbi0_msm8625_qup_resources),
+	.resource	= gsbi0_msm8625_qup_resources,
+};
+
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
 	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
