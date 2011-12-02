@@ -837,10 +837,79 @@ struct platform_device msm8625_device_dmov = {
 	},
 };
 
+static struct clk_lookup msm_clock_8625_dummy[] = {
+	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
+	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
+	CLK_DUMMY("ahb_m_clk",		ahb_m_clk.c,	NULL, 0),
+	CLK_DUMMY("ahb_s_clk",		ahb_s_clk.c,	NULL, 0),
+	CLK_DUMMY("cam_m_clk",		cam_m_clk.c,	NULL, 0),
+	CLK_DUMMY("csi_clk",		csi1_clk.c,	NULL, 0),
+	CLK_DUMMY("csi_pclk",		csi1_p_clk.c,	NULL, 0),
+	CLK_DUMMY("csi_vfe_clk",	csi1_vfe_clk.c,	NULL, 0),
+	CLK_DUMMY("dsi_byte_clk",	dsi_byte_clk.c,	NULL, 0),
+	CLK_DUMMY("dsi_clk",		dsi_clk.c,	NULL, 0),
+	CLK_DUMMY("dsi_esc_clk",	dsi_esc_clk.c,	NULL, 0),
+	CLK_DUMMY("dsi_pixel_clk",	dsi_pixel_clk.c, NULL, 0),
+	CLK_DUMMY("dsi_ref_clk",	dsi_ref_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_clk",		ebi1_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi2_clk",		ebi2_clk.c,	NULL, 0),
+	CLK_DUMMY("ecodec_clk",		ecodec_clk.c,	NULL, 0),
+	CLK_DUMMY("gp_clk",		gp_clk.c,	NULL, 0),
+	CLK_DUMMY("core_clk",		gsbi1_qup_clk.c, "qup_i2c.0", 0),
+	CLK_DUMMY("core_clk",		gsbi2_qup_clk.c, "qup_i2c.1", 0),
+	CLK_DUMMY("iface_clk",		gsbi1_qup_p_clk.c, "qup_i2c.0", 0),
+	CLK_DUMMY("iface_clk",		gsbi2_qup_p_clk.c, "qup_i2c.1", 0),
+	CLK_DUMMY("icodec_rx_clk",	icodec_rx_clk.c, NULL, 0),
+	CLK_DUMMY("icodec_tx_clk",	icodec_tx_clk.c, NULL, 0),
+	CLK_DUMMY("mem_clk",		imem_clk.c,	NULL, 0),
+	CLK_DUMMY("mddi_clk",		pmdh_clk.c,	NULL, 0),
+	CLK_DUMMY("mdp_clk",		mdp_clk.c,	NULL, 0),
+	CLK_DUMMY("mdp_lcdc_pclk_clk",	mdp_lcdc_pclk_clk.c, NULL, 0),
+	CLK_DUMMY("mdp_lcdc_pad_pclk_clk", mdp_lcdc_pad_pclk_clk.c, NULL, 0),
+	CLK_DUMMY("mdp_vsync_clk",	mdp_vsync_clk.c,	NULL, 0),
+	CLK_DUMMY("mdp_dsi_pclk",	mdp_dsi_p_clk.c,	NULL, 0),
+	CLK_DUMMY("pbus_clk",		pbus_clk.c,	NULL, 0),
+	CLK_DUMMY("pcm_clk",		pcm_clk.c,	NULL, 0),
+	CLK_DUMMY("sdac_clk",		sdac_clk.c,	NULL, 0),
+	CLK_DUMMY("core_clk",		sdc1_clk.c,	"msm_sdcc.1", 0),
+	CLK_DUMMY("iface_clk",		sdc1_p_clk.c,	"msm_sdcc.1", 0),
+	CLK_DUMMY("core_clk",		sdc2_clk.c,	"msm_sdcc.2", 0),
+	CLK_DUMMY("iface_clk",		sdc2_p_clk.c,	"msm_sdcc.2", 0),
+	CLK_DUMMY("core_clk",		sdc3_clk.c,	"msm_sdcc.3", 0),
+	CLK_DUMMY("iface_clk",		sdc3_p_clk.c,	"msm_sdcc.3", 0),
+	CLK_DUMMY("core_clk",		sdc4_clk.c,	"msm_sdcc.4", 0),
+	CLK_DUMMY("iface_clk",		sdc4_p_clk.c,	"msm_sdcc.4", 0),
+	CLK_DUMMY("ref_clk",		tsif_ref_clk.c,	"msm_tsif.0", 0),
+	CLK_DUMMY("iface_clk",		tsif_p_clk.c,	"msm_tsif.0", 0),
+	CLK_DUMMY("core_clk",		uart1_clk.c,	"msm_serial.0", 0),
+	CLK_DUMMY("core_clk",		uart2_clk.c,	"msm_serial.1", 0),
+	CLK_DUMMY("core_clk",		uart1dm_clk.c,	"msm_serial_hs.0", 0),
+	CLK_DUMMY("core_clk",		uart2dm_clk.c,	"msm_serial_hsl.0", 0),
+	CLK_DUMMY("usb_hs_core_clk",	usb_hs_core_clk.c, NULL, 0),
+	CLK_DUMMY("usb_hs2_clk",	usb_hs2_clk.c,	NULL, 0),
+	CLK_DUMMY("usb_hs_clk",		usb_hs_clk.c,	NULL, 0),
+	CLK_DUMMY("usb_hs_pclk",	usb_hs_p_clk.c,	NULL, 0),
+	CLK_DUMMY("usb_phy_clk",	usb_phy_clk.c,	NULL, 0),
+	CLK_DUMMY("vdc_clk",		vdc_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_acpu_clk",	ebi_acpu_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_usb_clk",	ebi_usb_clk.c,	NULL, 0),
+	CLK_DUMMY("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL, 0),
+	CLK_DUMMY("mem_clk",		ebi_adm_clk.c,	"msm_dmov", 0),
+};
+
+struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
+	.table = msm_clock_8625_dummy,
+	.size = ARRAY_SIZE(msm_clock_8625_dummy),
+};
+
 int __init msm7x2x_misc_init(void)
 {
-	if (machine_is_msm8625_rumi3())
+	if (machine_is_msm8625_rumi3()) {
+		msm_clock_init(&msm8625_dummy_clock_init_data);
 		return 0;
+	}
 
 	msm_clock_init(&msm7x27a_clock_init_data);
 	if (cpu_is_msm7x27aa())
