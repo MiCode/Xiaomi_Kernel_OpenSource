@@ -29,6 +29,7 @@
 #include <linux/timer.h>
 #include <linux/slab.h>
 #include <mach/board.h>
+#include <mach/gpiomux.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
@@ -110,6 +111,7 @@ enum {
 enum {
 	I2C_STATUS_WR_BUFFER_FULL  = 1U << 0,
 	I2C_STATUS_BUS_ACTIVE      = 1U << 8,
+	I2C_STATUS_BUS_MASTER	   = 1U << 9,
 	I2C_STATUS_ERROR_MASK      = 0x38000FC,
 	QUP_I2C_NACK_FLAG          = 1U << 3,
 	QUP_IN_NOT_EMPTY           = 1U << 5,
@@ -125,6 +127,12 @@ enum {
 #define QUP_MAX_CLK_STATE_RETRIES	300
 
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
+
+static struct gpiomux_setting recovery_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
 
 struct qup_i2c_dev {
 	struct device                *dev;
@@ -639,6 +647,83 @@ qup_set_wr_mode(struct qup_i2c_dev *dev, int rem)
 	return ret;
 }
 
+
+static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
+{
+	int i;
+	int gpio_clk;
+	int gpio_dat;
+	bool gpio_clk_status = false;
+	uint32_t status = readl_relaxed(dev->base + QUP_I2C_STATUS);
+	struct gpiomux_setting old_gpio_setting;
+
+	if (dev->pdata->msm_i2c_config_gpio)
+		return;
+
+	if (!(status & (I2C_STATUS_BUS_ACTIVE)) ||
+		(status & (I2C_STATUS_BUS_MASTER)))
+		return;
+
+	gpio_clk = dev->i2c_gpios[0];
+	gpio_dat = dev->i2c_gpios[1];
+
+	if ((gpio_clk == -1) && (gpio_dat == -1)) {
+		dev_err(dev->dev, "Recovery failed due to undefined GPIO's\n");
+		return;
+	}
+
+	disable_irq(dev->err_irq);
+	for (i = 0; i < ARRAY_SIZE(i2c_rsrcs); ++i) {
+		if (msm_gpiomux_write(dev->i2c_gpios[i], GPIOMUX_ACTIVE,
+				&recovery_config, &old_gpio_setting)) {
+			dev_err(dev->dev, "GPIO pins have no active setting\n");
+			goto recovery_end;
+		}
+	}
+
+	dev_warn(dev->dev, "i2c_scl: %d, i2c_sda: %d\n",
+		 gpio_get_value(gpio_clk), gpio_get_value(gpio_dat));
+
+	for (i = 0; i < 9; i++) {
+		if (gpio_get_value(gpio_dat) && gpio_clk_status)
+			break;
+		gpio_direction_output(gpio_clk, 0);
+		udelay(5);
+		gpio_direction_output(gpio_dat, 0);
+		udelay(5);
+		gpio_direction_input(gpio_clk);
+		udelay(5);
+		if (!gpio_get_value(gpio_clk))
+			udelay(20);
+		if (!gpio_get_value(gpio_clk))
+			usleep_range(10000, 10000);
+		gpio_clk_status = gpio_get_value(gpio_clk);
+		gpio_direction_input(gpio_dat);
+		udelay(5);
+	}
+
+	/* Configure ALT funciton to QUP I2C*/
+	for (i = 0; i < ARRAY_SIZE(i2c_rsrcs); ++i) {
+		msm_gpiomux_write(dev->i2c_gpios[i], GPIOMUX_ACTIVE,
+				&old_gpio_setting, NULL);
+	}
+
+	udelay(10);
+
+	status = readl_relaxed(dev->base + QUP_I2C_STATUS);
+	if (!(status & I2C_STATUS_BUS_ACTIVE)) {
+		dev_info(dev->dev, "Bus busy cleared after %d clock cycles, "
+			 "status %x\n",
+			 i, status);
+		goto recovery_end;
+	}
+
+	dev_warn(dev->dev, "Bus still busy, status %x\n", status);
+
+recovery_end:
+	enable_irq(dev->err_irq);
+}
+
 static int
 qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 {
@@ -837,7 +922,8 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				idx, rem, num, dev->mode);
 
 			qup_print_status(dev);
-			timeout = wait_for_completion_timeout(&complete, HZ);
+			timeout = wait_for_completion_timeout(&complete,
+					msecs_to_jiffies(dev->out_fifo_sz));
 			if (!timeout) {
 				uint32_t istatus = readl_relaxed(dev->base +
 							QUP_I2C_STATUS);
@@ -846,7 +932,24 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				uint32_t op_flgs = readl_relaxed(dev->base +
 							QUP_OPERATIONAL);
 
-				dev_err(dev->dev, "Transaction timed out\n");
+				/*
+				 * Dont wait for 1 sec if i2c sees the bus
+				 * active and controller is not master.
+				 * A slave has pulled line low. Try to recover
+				 */
+				if (!(istatus & I2C_STATUS_BUS_ACTIVE) ||
+					(istatus & I2C_STATUS_BUS_MASTER)) {
+					timeout =
+					wait_for_completion_timeout(&complete,
+									HZ);
+					if (timeout)
+						goto timeout_err;
+				}
+				qup_i2c_recover_bus_busy(dev);
+				dev_err(dev->dev,
+					"Transaction timed out, SL-AD = 0x%x\n",
+					dev->msg->addr);
+
 				dev_err(dev->dev, "I2C Status: %x\n", istatus);
 				dev_err(dev->dev, "QUP Status: %x\n", qstatus);
 				dev_err(dev->dev, "OP Flags: %x\n", op_flgs);
@@ -858,17 +961,27 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				ret = -ETIMEDOUT;
 				goto out_err;
 			}
+timeout_err:
 			if (dev->err) {
 				if (dev->err > 0 &&
-					dev->err & QUP_I2C_NACK_FLAG)
+					dev->err & QUP_I2C_NACK_FLAG) {
 					dev_err(dev->dev,
 					"I2C slave addr:0x%x not connected\n",
 					dev->msg->addr);
-				else if (dev->err < 0) {
+					dev->err = ENOTCONN;
+				} else if (dev->err < 0) {
 					dev_err(dev->dev,
 					"QUP data xfer error %d\n", dev->err);
 					ret = dev->err;
 					goto out_err;
+				} else if (dev->err > 0) {
+					/*
+					 * ISR returns +ve error if error code
+					 * is I2C related, e.g. unexpected start
+					 * So you may call recover-bus-busy when
+					 * this error happens
+					 */
+					qup_i2c_recover_bus_busy(dev);
 				}
 				ret = -dev->err;
 				goto out_err;
