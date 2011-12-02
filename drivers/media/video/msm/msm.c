@@ -2407,6 +2407,7 @@ device_fail:
 	adapter = NULL;
 probe_fail:
 	actctrl->a_init_table = NULL;
+	actctrl->a_power_up = NULL;
 	actctrl->a_power_down = NULL;
 	actctrl->a_config = NULL;
 	actctrl->a_create_subdevice = NULL;
