@@ -14,6 +14,7 @@
 #include <linux/gpio_event.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
@@ -677,6 +678,11 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_gsbi1_qup_i2c_device,
 };
 
+static struct platform_device *msm8625_rumi3_devices[] __initdata = {
+	&msm8625_device_dmov,
+	&msm8625_device_uart1,
+};
+
 static struct platform_device *surf_ffa_devices[] __initdata = {
 	&msm_device_dmov,
 	&msm_device_smd,
@@ -1052,6 +1058,13 @@ static void __init msm7627a_rumi3_init(void)
 			ARRAY_SIZE(rumi_sim_devices));
 }
 
+static void __init msm8625_rumi3_init(void)
+{
+	msm7x2x_misc_init();
+	platform_add_devices(msm8625_rumi3_devices,
+			ARRAY_SIZE(msm8625_rumi3_devices));
+}
+
 #define LED_GPIO_PDM		96
 #define UART1DM_RX_GPIO		45
 
@@ -1209,4 +1222,12 @@ MACHINE_START(MSM7625A_FFA, "QCT MSM7625a FFA")
 	.timer          = &msm_timer,
 	.init_early     = msm7x2x_init_early,
 	.handle_irq	= vic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM8625_RUMI3, "QCT MSM8625 RUMI3")
+	.boot_params    = PHYS_OFFSET + 0x100,
+	.map_io         = msm8625_map_io,
+	.init_irq       = msm8625_init_irq,
+	.init_machine   = msm8625_rumi3_init,
+	.timer          = &msm_timer,
+	.handle_irq	= gic_handle_irq,
 MACHINE_END

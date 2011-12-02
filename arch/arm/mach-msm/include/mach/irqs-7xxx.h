@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 
@@ -78,12 +78,6 @@
 #define INT_L2CC_INTR        (32 + 23)
 #define INT_CE_IRQ           (32 + 24)
 #endif
-
-/* 7x00A uses 122, but 7x25 has up to 132. */
-#define NR_GPIO_IRQS 133
-#define NR_MSM_IRQS 64
-#define NR_BOARD_IRQS 64
-#define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #define INT_ADSP_A11_SMSM    INT_ADSP_A11
 #endif

@@ -3,7 +3,7 @@
  * MSM7K, QSD io support
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -396,6 +396,47 @@ void __init msm_map_msm9615_io(void)
 	msm_map_io(msm9615_io_desc, ARRAY_SIZE(msm9615_io_desc));
 }
 #endif /* CONFIG_ARCH_MSM9615 */
+
+#ifdef CONFIG_ARCH_MSM8625
+static struct map_desc msm8625_io_desc[] __initdata = {
+	MSM_DEVICE(QGIC_DIST),
+	MSM_DEVICE(QGIC_CPU),
+	MSM_DEVICE(TMR),
+	MSM_DEVICE(TMR0),
+	MSM_DEVICE(CSR),
+	MSM_DEVICE(SCU),
+	MSM_DEVICE(CFG_CTL),
+	MSM_DEVICE(GPIO1),
+	MSM_DEVICE(GPIO2),
+	MSM_DEVICE(CLK_CTL),
+	MSM_DEVICE(SPM0),
+	MSM_DEVICE(SPM1),
+#if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) || \
+	defined(CONFIG_DEBUG_MSM_UART3)
+	MSM_DEVICE(DEBUG_UART),
+#endif
+#ifdef CONFIG_CACHE_L2X0
+	{
+		.virtual = (unsigned long) MSM_L2CC_BASE,
+		.pfn	 = __phys_to_pfn(MSM_L2CC_PHYS),
+		.length	 = MSM_L2CC_SIZE,
+		.type	 = MT_DEVICE,
+	},
+#endif
+	{
+		.virtual = (unsigned long) MSM_SHARED_RAM_BASE,
+		.length	 = MSM_SHARED_RAM_SIZE,
+		.type	 = MT_DEVICE,
+	},
+};
+
+void __init msm_map_msm8625_io(void)
+{
+	msm_map_io(msm8625_io_desc, ARRAY_SIZE(msm8625_io_desc));
+}
+#else
+void __init msm_map_msm8625_io(void) { return; }
+#endif /* CONFIG_ARCH_MSM8625 */
 
 void __iomem *
 __msm_ioremap(unsigned long phys_addr, size_t size, unsigned int mtype)

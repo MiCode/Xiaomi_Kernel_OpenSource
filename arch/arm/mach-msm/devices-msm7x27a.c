@@ -16,12 +16,14 @@
 #include <linux/msm_kgsl.h>
 #include <linux/regulator/machine.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <mach/irqs.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
 #include <mach/dma.h>
 #include <mach/dal_axi.h>
 #include <asm/mach/flash.h>
+#include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/mmc.h>
 #include <mach/rpc_hsusb.h>
@@ -786,15 +788,60 @@ static struct platform_device msm_device_gpio = {
 	.num_resources	= ARRAY_SIZE(gpio_resources),
 };
 
-static int msm7627a_init_gpio(void)
-{
-	platform_device_register(&msm_device_gpio);
-	return 0;
-}
-postcore_initcall(msm7627a_init_gpio);
+struct platform_device *msm_footswitch_devices[] = {
+	FS_PCOM(FS_GFX3D,  "fs_gfx3d"),
+};
+unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
+
+/* MSM8625 Devices */
+
+static struct resource msm8625_resources_uart1[] = {
+	{
+		.start  = MSM8625_INT_UART1,
+		.end    = MSM8625_INT_UART1,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART1_PHYS,
+		.end    = MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8625_device_uart1 = {
+	.name		= "msm_serial",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_uart1),
+	.resource	= msm8625_resources_uart1,
+};
+
+static struct resource msm8625_dmov_resource[] = {
+	{
+		.start	= MSM8625_INT_ADM_AARM,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= 0xA9700000,
+		.end	= 0xA9700000 + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8625_device_dmov = {
+	.name		= "msm_dmov",
+	.id		= -1,
+	.resource	= msm8625_dmov_resource,
+	.num_resources	= ARRAY_SIZE(msm8625_dmov_resource),
+	.dev		= {
+		.platform_data = &msm_dmov_pdata,
+	},
+};
 
 int __init msm7x2x_misc_init(void)
 {
+	if (machine_is_msm8625_rumi3())
+		return 0;
+
 	msm_clock_init(&msm7x27a_clock_init_data);
 	if (cpu_is_msm7x27aa())
 		acpuclk_init(&acpuclk_7x27aa_soc_data);
@@ -826,13 +873,37 @@ static int __init msm7x27x_cache_init(void){ return 0; }
 void __init msm_common_io_init(void)
 {
 	msm_map_common_io();
+	if (socinfo_init() < 0)
+		pr_err("%s: socinfo_init() failed!\n", __func__);
 	msm7x27x_cache_init();
+}
+
+void __init msm8625_init_irq(void)
+{
+	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
+			(void *)MSM_QGIC_CPU_BASE);
+
+	/* Edge trigger PPIs
+	 */
+	writel_relaxed(0x555555F5, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
+
+	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
+	mb();
+}
+
+void __init msm8625_map_io(void)
+{
+	msm_map_msm8625_io();
+
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n", __func__);
 
 }
 
-struct platform_device *msm_footswitch_devices[] = {
-	FS_PCOM(FS_GFX3D,  "fs_gfx3d"),
-};
-unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
+static int msm7627a_init_gpio(void)
+{
+	platform_device_register(&msm_device_gpio);
+	return 0;
+}
+postcore_initcall(msm7627a_init_gpio);
+

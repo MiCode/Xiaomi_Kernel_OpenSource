@@ -247,6 +247,14 @@ config ARCH_MSM9615
 	select MSM_RPM_REGULATOR
 	select MULTI_IRQ_HANDLER
 
+config ARCH_MSM8625
+	bool "MSM8625"
+	select ARCH_MSM_CORTEX_A5
+	select CPU_V7
+	select MSM_GPIOMUX
+	select ARM_GIC
+	select ARCH_MSM_CORTEXMP
+	select MULTI_IRQ_HANDLER
 endmenu
 
 choice
@@ -296,6 +304,10 @@ config  ARCH_MSM_KRAITMP
 	select MSM_SMP
 	bool
 
+config  ARCH_MSM_CORTEXMP
+	select MSM_SMP
+	bool
+
 config  ARCH_MSM_CORTEX_A5
 	bool
 	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
@@ -305,6 +317,8 @@ config ARCH_MSM7X27A
 	select MSM_DALRPC
 	select MSM_PROC_COMM_REGULATOR
 	select MULTI_IRQ_HANDLER
+	select ARM_GIC
+	select ARCH_MSM_CORTEXMP
 
 config  MSM_VIC
 	bool
@@ -433,6 +447,14 @@ config MACH_MSM7627A_EVB
         bool "MSM7627A EVB"
         help
           Support for the Qualcomm MSM7627A Reference Design.
+
+config MACH_MSM8625_RUMI3
+	depends on ARCH_MSM8625
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "MSM8625 RUMI3"
+	help
+	  Support for the Qualcomm MSM8625 RUMI3 Emulation Platform.
 
 config MACH_MSM7X30_SURF
        depends on ARCH_MSM7X30

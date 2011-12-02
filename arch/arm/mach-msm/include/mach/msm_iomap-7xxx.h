@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -49,8 +49,6 @@
 
 #define MSM_TMR0_BASE         MSM_TMR_BASE
 
-#define MSM_QGIC_DIST_BASE    MSM_VIC_BASE
-
 #define MSM_GPIO1_BASE        IOMEM(0xFA003000)
 #define MSM_GPIO1_PHYS        0xA9200000
 #define MSM_GPIO1_SIZE        SZ_4K
@@ -66,6 +64,30 @@
 #define MSM_L2CC_BASE         IOMEM(0xFA006000)
 #define MSM_L2CC_PHYS         0xC0400000
 #define MSM_L2CC_SIZE         SZ_4K
+
+#define MSM_QGIC_DIST_BASE    IOMEM(0xFA000000)
+#define MSM_QGIC_DIST_PHYS    0xC0000000
+#define MSM_QGIC_DIST_SIZE    SZ_4K
+
+#define MSM_QGIC_CPU_BASE     IOMEM(0xFA007000)
+#define MSM_QGIC_CPU_PHYS     0xC0002000
+#define MSM_QGIC_CPU_SIZE     SZ_256
+
+#define MSM_SCU_BASE          IOMEM(0xFA008000)
+#define MSM_SCU_PHYS          0xC0600000
+#define MSM_SCU_SIZE          SZ_256
+
+#define MSM_SPM0_BASE         IOMEM(0xFA009000)
+#define MSM_SPM0_PHYS         0xC0200000
+#define MSM_SPM0_SIZE         SZ_4K
+
+#define MSM_SPM1_BASE         IOMEM(0xFA00A000)
+#define MSM_SPM1_PHYS         0xC0700000
+#define MSM_SPM1_SIZE         SZ_4K
+
+#define MSM_CFG_CTL_BASE      IOMEM(0xFA00B000)
+#define MSM_CFG_CTL_PHYS      0xA9800000
+#define MSM_CFG_CTL_SIZE      SZ_4K
 
 #define MSM_SHARED_RAM_BASE   IOMEM(0xFA100000)
 #define MSM_SHARED_RAM_SIZE   SZ_1M

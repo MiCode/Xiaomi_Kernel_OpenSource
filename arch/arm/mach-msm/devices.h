@@ -41,6 +41,7 @@ extern struct platform_device msm_ebi1_thermal;
 extern struct platform_device msm_device_uart1;
 extern struct platform_device msm_device_uart2;
 extern struct platform_device msm_device_uart3;
+extern struct platform_device msm8625_device_uart1;
 
 extern struct platform_device msm_device_uart_dm1;
 extern struct platform_device msm_device_uart_dm2;
@@ -128,6 +129,7 @@ extern struct platform_device msm_device_dmov;
 extern struct platform_device msm8960_device_dmov;
 extern struct platform_device apq8064_device_dmov;
 extern struct platform_device msm9615_device_dmov;
+extern struct platform_device msm8625_device_dmov;
 extern struct platform_device msm_device_dmov_adm0;
 extern struct platform_device msm_device_dmov_adm1;
 

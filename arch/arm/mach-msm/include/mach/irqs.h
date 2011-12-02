@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -18,6 +18,8 @@
 #define __ASM_ARCH_MSM_IRQS_H
 
 #define MSM_IRQ_BIT(irq)     (1 << ((irq) & 31))
+
+#include "irqs-8625.h"
 
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
@@ -63,6 +65,11 @@
 #elif defined(CONFIG_ARCH_MSM7X01A) || defined(CONFIG_ARCH_MSM7X25) \
 	|| defined(CONFIG_ARCH_MSM7X27)
 #include "irqs-7xxx.h"
+
+#define NR_GPIO_IRQS 133
+#define NR_MSM_IRQS 256
+#define NR_BOARD_IRQS 256
+#define NR_MSM_GPIOS NR_GPIO_IRQS
 #elif defined(CONFIG_ARCH_FSM9XXX)
 #include "irqs-fsm9xxx.h"
 #include "sirc.h"
