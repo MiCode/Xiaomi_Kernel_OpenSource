@@ -445,8 +445,8 @@ int subsystem_restart(const char *subsys_name)
 		return -EINVAL;
 	}
 
-	pr_info("Restart sequence requested for %s\n",
-		subsys_name);
+	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
+		subsys_name, restart_level);
 
 	/* List of subsystems is protected by a lock. New subsystems can
 	 * still come in.
@@ -497,7 +497,8 @@ int subsystem_restart(const char *subsys_name)
 		break;
 
 	case RESET_SOC:
-		panic("subsys-restart: Resetting the SoC");
+		panic("subsys-restart: Resetting the SoC - %s crashed.",
+			subsys->name);
 		break;
 
 	default:
