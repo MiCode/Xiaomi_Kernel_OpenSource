@@ -18,6 +18,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/clk.h>
+#include <mach/socinfo.h>
 #include "footswitch.h"
 #include "proc_comm.h"
 
@@ -305,6 +306,8 @@ static int __init footswitch_init(void)
 	struct footswitch *fs;
 	int ret;
 
+	if (cpu_is_msm8625())
+		return 0;
 	/*
 	 * Enable all footswitches in manual mode (ie. not controlled along
 	 * with pcom clocks).
