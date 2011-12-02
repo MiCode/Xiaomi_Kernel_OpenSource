@@ -1020,8 +1020,10 @@ static void __init msm_timer_init(void)
 		gpt->freq = 32765;
 		gpt_hz = 32765;
 		sclk_hz = 32765;
-		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
-		dgt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
+		if (!machine_is_apq8064_rumi3()) {
+			gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
+			dgt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
+		}
 	} else {
 		WARN_ON("Timer running on unknown hardware. Configure this! "
 			"Assuming default configuration.\n");
