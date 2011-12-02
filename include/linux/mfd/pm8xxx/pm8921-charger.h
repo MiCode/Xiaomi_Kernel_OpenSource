@@ -184,6 +184,18 @@ int pm8921_is_battery_present(void);
 int pm8921_set_max_battery_charge_current(int ma);
 
 /**
+ * pm8921_disable_input_current_limt - disable input current limit
+ *
+ * @disable: disable input curren_limit limit
+ *
+ * Disabling the charge current limit causes current
+ * current limits to have no monitoring. An adequate charger
+ * capable of supplying high current while sustaining VIN_MIN
+ * is required if input current limiting is disabled.
+ */
+int pm8921_disable_input_current_limit(bool disable);
+
+/**
  * pm8921_disable_source_current - disable drawing current from source
  * @disable: true to disable current drawing from source false otherwise
  *
@@ -258,6 +270,10 @@ static inline int pm8921_is_dc_chg_plugged_in(void)
 	return -ENXIO;
 }
 static inline int pm8921_is_battery_present(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_disable_input_current_limit(bool disable)
 {
 	return -ENXIO;
 }
