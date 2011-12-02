@@ -278,6 +278,53 @@ struct platform_device msm9615_device_qup_spi_gsbi3 = {
 	.resource	= resources_qup_spi_gsbi3,
 };
 
+#define LPASS_SLIMBUS_PHYS	0x28080000
+#define LPASS_SLIMBUS_BAM_PHYS	0x28084000
+#define LPASS_SLIMBUS_SLEW	(MSM9615_TLMM_PHYS + 0x207C)
+/* Board info for the slimbus slave device */
+static struct resource slimbus_res[] = {
+	{
+		.start	= LPASS_SLIMBUS_PHYS,
+		.end	= LPASS_SLIMBUS_PHYS + 8191,
+		.flags	= IORESOURCE_MEM,
+		.name	= "slimbus_physical",
+	},
+	{
+		.start	= LPASS_SLIMBUS_BAM_PHYS,
+		.end	= LPASS_SLIMBUS_BAM_PHYS + 8191,
+		.flags	= IORESOURCE_MEM,
+		.name	= "slimbus_bam_physical",
+	},
+	{
+		.start	= LPASS_SLIMBUS_SLEW,
+		.end	= LPASS_SLIMBUS_SLEW + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+		.name	= "slimbus_slew_reg",
+	},
+	{
+		.start	= SLIMBUS0_CORE_EE1_IRQ,
+		.end	= SLIMBUS0_CORE_EE1_IRQ,
+		.flags	= IORESOURCE_IRQ,
+		.name	= "slimbus_irq",
+	},
+	{
+		.start	= SLIMBUS0_BAM_EE1_IRQ,
+		.end	= SLIMBUS0_BAM_EE1_IRQ,
+		.flags	= IORESOURCE_IRQ,
+		.name	= "slimbus_bam_irq",
+	},
+};
+
+struct platform_device msm9615_slim_ctrl = {
+	.name	= "msm_slim_ctrl",
+	.id	= 1,
+	.num_resources	= ARRAY_SIZE(slimbus_res),
+	.resource	= slimbus_res,
+	.dev            = {
+		.coherent_dma_mask      = 0xffffffffULL,
+	},
+};
+
 static struct resource resources_ssbi_pmic1[] = {
 	{
 		.start  = MSM_PMIC1_SSBI_CMD_PHYS,

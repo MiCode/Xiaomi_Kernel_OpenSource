@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/slimbus/slimbus.h>
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
 #include <linux/usb/android.h>
@@ -227,6 +228,10 @@ static void __init msm9615_init_buses(void)
 #endif
 }
 
+static struct slim_boardinfo msm_slim_devices[] = {
+	/* add slimbus slaves as needed */
+};
+
 static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
 	.max_clock_speed = 24000000,
 };
@@ -391,6 +396,7 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_qup_i2c_gsbi5,
 	&msm9615_device_qup_spi_gsbi3,
 	&msm_device_sps,
+	&msm9615_slim_ctrl,
 	&msm9615_device_tsens,
 	&msm_device_nand,
 	&msm_device_bam_dmux,
@@ -450,6 +456,8 @@ static void __init msm9615_common_init(void)
 	msm9615_init_ar6000pm();
 
 	msm9615_init_mmc();
+	slim_register_board_info(msm_slim_devices,
+		ARRAY_SIZE(msm_slim_devices));
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),

@@ -23,6 +23,12 @@ static struct gpiomux_setting ps_hold = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting slimbus = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+};
+
 static struct gpiomux_setting gsbi4 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -227,6 +233,21 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm9615_slimbus_configs[] __initdata = {
+	{
+		.gpio      = 20,	/* Slimbus data */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+	{
+		.gpio      = 23,	/* Slimbus clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+};
+
 int __init msm9615_init_gpiomux(void)
 {
 	int rc;
@@ -238,6 +259,9 @@ int __init msm9615_init_gpiomux(void)
 	}
 	msm_gpiomux_install(msm9615_gsbi_configs,
 			ARRAY_SIZE(msm9615_gsbi_configs));
+
+	msm_gpiomux_install(msm9615_slimbus_configs,
+			ARRAY_SIZE(msm9615_slimbus_configs));
 
 	msm_gpiomux_install(msm9615_ps_hold_config,
 			ARRAY_SIZE(msm9615_ps_hold_config));
