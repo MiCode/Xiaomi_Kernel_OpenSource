@@ -37,6 +37,7 @@
 
 #include <mach/scm.h>
 #include <linux/platform_data/qcom_crypto_device.h>
+#include <mach/msm_bus.h>
 #include "qce.h"
 
 
@@ -80,6 +81,8 @@ struct crypto_priv {
 
 	/* CE features/algorithms supported by HW engine*/
 	struct ce_hw_support ce_support;
+
+	uint32_t  bus_scale_handle;
 	/* the lock protects queue and req*/
 	spinlock_t lock;
 
@@ -100,6 +103,7 @@ struct crypto_priv {
 	struct crypto_queue queue;
 
 	uint32_t ce_lock_count;
+	uint32_t high_bw_req_count;
 
 	struct work_struct unlock_ce_ws;
 
@@ -115,6 +119,8 @@ struct crypto_priv {
 #define QCRYPTO_CE_UNLOCK_CMD			0
 #define NUM_RETRY				1000
 #define CE_BUSY				        55
+
+static DEFINE_MUTEX(sent_bw_req);
 
 static int qcrypto_scm_cmd(int resource, int cmd, int *response)
 {
@@ -323,6 +329,27 @@ static void _words_to_byte_stream(uint32_t *iv, unsigned char *b,
 	}
 }
 
+static int qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req)
+{
+	int ret = 0;
+
+	mutex_lock(&sent_bw_req);
+	if (high_bw_req) {
+		if (cp->high_bw_req_count == 0)
+			ret = msm_bus_scale_client_update_request(
+				cp->bus_scale_handle, 1);
+		cp->high_bw_req_count++;
+	} else {
+		if (cp->high_bw_req_count == 1)
+			ret = msm_bus_scale_client_update_request(
+				cp->bus_scale_handle, 0);
+		cp->high_bw_req_count--;
+	}
+	mutex_unlock(&sent_bw_req);
+
+	return ret;
+}
+
 static void _start_qcrypto_process(struct crypto_priv *cp);
 
 static struct qcrypto_alg *_qcrypto_sha_alg_alloc(struct crypto_priv *cp,
@@ -375,6 +402,8 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 
 	/* random first IV */
 	get_random_bytes(ctx->iv, QCRYPTO_MAX_IV_LENGTH);
+	if (ctx->cp->platform_support.bus_scale_table != NULL)
+		return  qcrypto_ce_high_bw_req(ctx->cp, true);
 
 	return 0;
 };
@@ -410,6 +439,9 @@ static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
 	}
 
 	sha_ctx->ahash_req = NULL;
+	if (sha_ctx->cp->platform_support.bus_scale_table != NULL)
+		return qcrypto_ce_high_bw_req(sha_ctx->cp, true);
+
 	return 0;
 };
 
@@ -429,6 +461,8 @@ static void _qcrypto_ahash_cra_exit(struct crypto_tfm *tfm)
 		ahash_request_free(sha_ctx->ahash_req);
 		sha_ctx->ahash_req = NULL;
 	}
+	if (sha_ctx->cp->platform_support.bus_scale_table != NULL)
+		qcrypto_ce_high_bw_req(sha_ctx->cp, false);
 };
 
 
@@ -458,6 +492,9 @@ static int _qcrypto_ahash_hmac_cra_init(struct crypto_tfm *tfm)
 				&sha_ctx->ahash_req_complete);
 	crypto_ahash_clear_flags(ahash, ~0);
 
+	if (sha_ctx->cp->platform_support.bus_scale_table != NULL)
+		qcrypto_ce_high_bw_req(sha_ctx->cp, true);
+
 	return 0;
 };
 
@@ -471,6 +508,22 @@ static int _qcrypto_cra_aead_init(struct crypto_tfm *tfm)
 {
 	tfm->crt_aead.reqsize = sizeof(struct qcrypto_cipher_req_ctx);
 	return _qcrypto_cipher_cra_init(tfm);
+};
+
+static void _qcrypto_cra_ablkcipher_exit(struct crypto_tfm *tfm)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	if (ctx->cp->platform_support.bus_scale_table != NULL)
+		qcrypto_ce_high_bw_req(ctx->cp, false);
+};
+
+static void _qcrypto_cra_aead_exit(struct crypto_tfm *tfm)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	if (ctx->cp->platform_support.bus_scale_table != NULL)
+		qcrypto_ce_high_bw_req(ctx->cp, false);
 };
 
 static int _disp_stats(int id)
@@ -576,6 +629,9 @@ static int _qcrypto_remove(struct platform_device *pdev)
 
 	if (!cp)
 		return 0;
+
+	if (cp->platform_support.bus_scale_table != NULL)
+		msm_bus_scale_unregister_client(cp->bus_scale_handle);
 
 	list_for_each_entry_safe(q_alg, n, &cp->alg_list, entry) {
 		if (q_alg->alg_type == QCRYPTO_ALG_CIPHER)
@@ -2676,6 +2732,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.min_keysize	= AES_MIN_KEY_SIZE,
@@ -2697,6 +2754,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= AES_BLOCK_SIZE,
@@ -2719,6 +2777,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= AES_BLOCK_SIZE,
@@ -2741,6 +2800,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.min_keysize	= DES_KEY_SIZE,
@@ -2762,6 +2822,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= DES_BLOCK_SIZE,
@@ -2784,6 +2845,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.min_keysize	= DES3_EDE_KEY_SIZE,
@@ -2805,6 +2867,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= DES3_EDE_BLOCK_SIZE,
@@ -2829,6 +2892,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_xts_algo = {
 	.cra_type	= &crypto_ablkcipher_type,
 	.cra_module	= THIS_MODULE,
 	.cra_init	= _qcrypto_cra_ablkcipher_init,
+	.cra_exit	= _qcrypto_cra_ablkcipher_exit,
 	.cra_u		= {
 		.ablkcipher = {
 			.ivsize		= AES_BLOCK_SIZE,
@@ -2853,6 +2917,7 @@ static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 		.cra_type	= &crypto_aead_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_aead_init,
+		.cra_exit	= _qcrypto_cra_aead_exit,
 		.cra_u		= {
 			.aead = {
 				.ivsize         = AES_BLOCK_SIZE,
@@ -2879,6 +2944,7 @@ static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 		.cra_type	= &crypto_aead_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_aead_init,
+		.cra_exit	= _qcrypto_cra_aead_exit,
 		.cra_u		= {
 			.aead = {
 				.ivsize         = AES_BLOCK_SIZE,
@@ -2904,6 +2970,7 @@ static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 		.cra_type	= &crypto_aead_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_aead_init,
+		.cra_exit	= _qcrypto_cra_aead_exit,
 		.cra_u		= {
 			.aead = {
 				.ivsize         = DES_BLOCK_SIZE,
@@ -2928,6 +2995,7 @@ static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 		.cra_type	= &crypto_aead_type,
 		.cra_module	= THIS_MODULE,
 		.cra_init	= _qcrypto_cra_aead_init,
+		.cra_exit	= _qcrypto_cra_aead_exit,
 		.cra_u		= {
 			.aead = {
 				.ivsize         = DES3_EDE_BLOCK_SIZE,
@@ -2954,6 +3022,7 @@ static struct crypto_alg _qcrypto_aead_ccm_algo = {
 	.cra_type	= &crypto_aead_type,
 	.cra_module	= THIS_MODULE,
 	.cra_init	= _qcrypto_cra_aead_init,
+	.cra_exit	= _qcrypto_cra_aead_exit,
 	.cra_u		= {
 		.aead = {
 			.ivsize         = AES_BLOCK_SIZE,
@@ -3011,11 +3080,27 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 				platform_support->shared_ce_resource;
 	cp->platform_support.hw_key_support =
 				platform_support->hw_key_support;
+	cp->platform_support.bus_scale_table =
+				platform_support->bus_scale_table;
+	cp->high_bw_req_count = 0;
 	cp->ce_lock_count = 0;
 	cp->platform_support.sha_hmac = platform_support->sha_hmac;
 
 	if (cp->platform_support.ce_shared)
 		INIT_WORK(&cp->unlock_ce_ws, qcrypto_unlock_ce);
+
+	if (cp->platform_support.bus_scale_table != NULL) {
+		cp->bus_scale_handle =
+			msm_bus_scale_register_client(
+				(struct msm_bus_scale_pdata *)
+					cp->platform_support.bus_scale_table);
+		if (!cp->bus_scale_handle) {
+			printk(KERN_ERR "%s not able to get bus scale\n",
+				__func__);
+			rc =  -ENOMEM;
+			goto err;
+		}
+	}
 
 	/* register crypto cipher algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_ablk_cipher_algos); i++) {
@@ -3274,4 +3359,4 @@ module_exit(_qcrypto_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
-MODULE_VERSION("1.19");
+MODULE_VERSION("1.20");

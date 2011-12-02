@@ -696,6 +696,7 @@ static struct msm_ce_hw_support qcrypto_ce_hw_suppport = {
 	.shared_ce_resource = QCE_NO_SHARE_CE_RESOURCE,
 	.hw_key_support = QCE_NO_HW_KEY_SUPPORT,
 	.sha_hmac = QCE_NO_SHA_HMAC_SUPPORT,
+	.bus_scale_table = NULL,
 };
 
 struct platform_device qcrypto_device = {
@@ -746,6 +747,7 @@ static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
 	.shared_ce_resource = QCE_NO_SHARE_CE_RESOURCE,
 	.hw_key_support = QCE_NO_HW_KEY_SUPPORT,
 	.sha_hmac = QCE_NO_SHA_HMAC_SUPPORT,
+	.bus_scale_table = NULL,
 };
 
 static struct platform_device qcedev_device = {
