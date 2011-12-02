@@ -105,8 +105,8 @@ static inline void set_next_event(const int access, unsigned long evt)
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL);
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
-	arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt);
 	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl);
+	arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt);
 }
 
 static int arch_timer_set_next_event_virt(unsigned long evt,
