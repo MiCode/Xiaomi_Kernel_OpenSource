@@ -127,8 +127,8 @@ static int arch_timer_set_next_event(unsigned long evt,
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
 	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
 
-	arch_timer_reg_write(ARCH_TIMER_REG_TVAL, evt);
 	arch_timer_reg_write(ARCH_TIMER_REG_CTRL, ctrl);
+	arch_timer_reg_write(ARCH_TIMER_REG_TVAL, evt);
 
 	return 0;
 }
