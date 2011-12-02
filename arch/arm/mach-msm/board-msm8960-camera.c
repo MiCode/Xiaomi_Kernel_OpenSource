@@ -96,6 +96,15 @@ static struct gpiomux_setting cam_settings[] = {
 
 };
 
+static struct msm_gpiomux_config msm8960_cdp_flash_configs[] = {
+	{
+		.gpio = 3,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+		},
+	},
+};
 
 static struct msm_gpiomux_config msm8960_cam_common_configs[] = {
 	{
@@ -108,7 +117,7 @@ static struct msm_gpiomux_config msm8960_cam_common_configs[] = {
 	{
 		.gpio = 3,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
@@ -202,12 +211,8 @@ static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 #ifdef CONFIG_MSM_CAMERA_FLASH
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
-	._fsrc.ext_driver_src.led_en = GPIO_CAM_GP_LED_EN1,
-	._fsrc.ext_driver_src.led_flash_en = GPIO_CAM_GP_LED_EN2,
-#if defined(CONFIG_I2C) && (defined(CONFIG_GPIO_SX150X) || \
-			defined(CONFIG_GPIO_SX150X_MODULE))
-	._fsrc.ext_driver_src.expander_info = cam_expander_info,
-#endif
+	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
+	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
 };
 #endif
 
@@ -455,6 +460,20 @@ void __init msm8960_init_cam(void)
 
 	msm_gpiomux_install(msm8960_cam_common_configs,
 			ARRAY_SIZE(msm8960_cam_common_configs));
+
+	if (machine_is_msm8960_cdp()) {
+		msm_gpiomux_install(msm8960_cdp_flash_configs,
+			ARRAY_SIZE(msm8960_cdp_flash_configs));
+		msm_flash_src._fsrc.ext_driver_src.led_en =
+			GPIO_CAM_GP_LED_EN1;
+		msm_flash_src._fsrc.ext_driver_src.led_flash_en =
+			GPIO_CAM_GP_LED_EN2;
+		#if defined(CONFIG_I2C) && (defined(CONFIG_GPIO_SX150X) || \
+		defined(CONFIG_GPIO_SX150X_MODULE))
+		msm_flash_src._fsrc.ext_driver_src.expander_info =
+			cam_expander_info;
+		#endif
+	}
 
 	if (machine_is_msm8960_liquid()) {
 		struct msm_camera_sensor_info *s_info;

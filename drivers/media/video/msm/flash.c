@@ -293,6 +293,7 @@ err1:
 		if (sc628a_client) {
 			gpio_set_value_cansleep(external->led_en, 1);
 			gpio_set_value_cansleep(external->led_flash_en, 1);
+			usleep_range(2000, 3000);
 		}
 		rc = sc628a_i2c_write_b_flash(0x02, 0x06);
 		break;
@@ -301,6 +302,7 @@ err1:
 		if (sc628a_client) {
 			gpio_set_value_cansleep(external->led_en, 1);
 			gpio_set_value_cansleep(external->led_flash_en, 1);
+			usleep_range(2000, 3000);
 		}
 		rc = sc628a_i2c_write_b_flash(0x02, 0x49);
 		break;
