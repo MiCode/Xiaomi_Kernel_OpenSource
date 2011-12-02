@@ -340,6 +340,7 @@ struct vidc_1080p_dec_frame_start_param{
 	u32 release_dpb_bit_mask;
 	u32 dpb_count;
 	u32 dpb_flush;
+	u32 dmx_disable;
 	enum vidc_1080p_decode decode;
 };
 struct vidc_1080p_dec_init_buffers_param{
@@ -347,6 +348,7 @@ struct vidc_1080p_dec_init_buffers_param{
 	u32 inst_id;
 	u32 shared_mem_addr_offset;
 	u32 dpb_count;
+	u32 dmx_disable;
 };
 struct vidc_1080p_seq_hdr_info{
 	u32 img_size_x;

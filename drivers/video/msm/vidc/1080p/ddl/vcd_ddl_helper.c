@@ -697,6 +697,9 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 			DDL_KILO_BYTE(2));
 		if (!ptr)
 			status = VCD_ERR_ALLOC_FAIL;
+		else
+			memset(dec_bufs->desc.align_virtual_addr,
+				   0, buf_size.sz_desc);
 	}
 	if (status)
 		ddl_free_dec_hw_buffers(ddl);
@@ -973,3 +976,15 @@ void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl)
 	}
 }
 
+void ddl_fill_dec_desc_buffer(struct ddl_client_context *ddl)
+{
+	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
+	struct vcd_frame_data *ip_bitstream = &(ddl->input_frame.vcd_frm);
+	struct ddl_buf_addr *dec_desc_buf = &(decoder->hw_bufs.desc);
+
+	if (ip_bitstream->desc_buf &&
+		ip_bitstream->desc_size < DDL_KILO_BYTE(128))
+		memcpy(dec_desc_buf->align_virtual_addr,
+			   ip_bitstream->desc_buf,
+			   ip_bitstream->desc_size);
+}

@@ -47,6 +47,7 @@ struct res_trk_context {
 	u32 core_type;
 	struct ddl_buf_addr firmware_addr;
 	struct ion_client *res_ion_client;
+	u32 disable_dmx;
 };
 
 #if DEBUG

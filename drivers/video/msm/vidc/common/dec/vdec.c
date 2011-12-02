@@ -184,6 +184,10 @@ static void vid_dec_input_frame_done(struct video_client_ctx *client_ctx,
 		return;
 	}
 
+	kfree(vcd_frame_data->desc_buf);
+	vcd_frame_data->desc_buf = NULL;
+	vcd_frame_data->desc_size = 0;
+
 	vdec_msg = kzalloc(sizeof(struct vid_dec_msg), GFP_KERNEL);
 	if (!vdec_msg) {
 		ERR("vid_dec_input_frame_done(): cannot allocate vid_dec_msg "
@@ -651,6 +655,57 @@ static u32 vid_dec_get_progressive_only(struct video_client_ctx *client_ctx,
 		return true;
 }
 
+static u32 vid_dec_get_disable_dmx_support(struct video_client_ctx *client_ctx,
+					   u32 *disable_dmx)
+{
+
+	struct vcd_property_hdr vcd_property_hdr;
+	if (!client_ctx || !disable_dmx)
+		return false;
+	vcd_property_hdr.prop_id = VCD_I_DISABLE_DMX_SUPPORT;
+	vcd_property_hdr.sz = sizeof(u32);
+	if (vcd_get_property(client_ctx->vcd_handle, &vcd_property_hdr,
+						 disable_dmx))
+		return false;
+	else
+		return true;
+}
+static u32 vid_dec_get_disable_dmx(struct video_client_ctx *client_ctx,
+					   u32 *disable_dmx)
+{
+
+	struct vcd_property_hdr vcd_property_hdr;
+	if (!client_ctx || !disable_dmx)
+		return false;
+	vcd_property_hdr.prop_id = VCD_I_DISABLE_DMX;
+	vcd_property_hdr.sz = sizeof(u32);
+	if (vcd_get_property(client_ctx->vcd_handle, &vcd_property_hdr,
+						 disable_dmx))
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_set_disable_dmx(struct video_client_ctx *client_ctx)
+{
+
+	struct vcd_property_hdr vcd_property_hdr;
+	u32 vcd_disable_dmx;
+	if (!client_ctx)
+		return false;
+	vcd_property_hdr.prop_id = VCD_I_DISABLE_DMX;
+	vcd_property_hdr.sz = sizeof(u32);
+	vcd_disable_dmx = true;
+	DBG("%s() : Setting Disable DMX: %d\n",
+		__func__, vcd_disable_dmx);
+
+	if (vcd_set_property(client_ctx->vcd_handle, &vcd_property_hdr,
+						 &vcd_disable_dmx))
+		return false;
+	else
+		return true;
+}
+
 static u32 vid_dec_set_picture_order(struct video_client_ctx *client_ctx,
 					u32 *picture_order)
 {
@@ -1104,7 +1159,8 @@ static u32 vid_dec_start_stop(struct video_client_ctx *client_ctx, u32 start)
 }
 
 static u32 vid_dec_decode_frame(struct video_client_ctx *client_ctx,
-				struct vdec_input_frameinfo *input_frame_info)
+				struct vdec_input_frameinfo *input_frame_info,
+				u8 *desc_buf, u32 desc_size)
 {
 	struct vcd_frame_data vcd_input_buffer;
 	unsigned long kernel_vaddr, phy_addr, user_vaddr;
@@ -1137,6 +1193,8 @@ static u32 vid_dec_decode_frame(struct video_client_ctx *client_ctx,
 		vcd_input_buffer.time_stamp = input_frame_info->timestamp;
 		/* Rely on VCD using the same flags as OMX */
 		vcd_input_buffer.flags = input_frame_info->flags;
+		vcd_input_buffer.desc_buf = desc_buf;
+		vcd_input_buffer.desc_size = desc_size;
 
 		vcd_status = vcd_decode_frame(client_ctx->vcd_handle,
 					      &vcd_input_buffer);
@@ -1502,17 +1560,38 @@ static long vid_dec_ioctl(struct file *file,
 	case VDEC_IOCTL_DECODE_FRAME:
 	{
 		struct vdec_input_frameinfo input_frame_info;
+		u8 *desc_buf = NULL;
+		u32 desc_size = 0;
 		DBG("VDEC_IOCTL_DECODE_FRAME\n");
 		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
 			return -EFAULT;
 		if (copy_from_user(&input_frame_info, vdec_msg.in,
 				   sizeof(input_frame_info)))
 			return -EFAULT;
+		if (client_ctx->dmx_disable) {
+			if (input_frame_info.desc_addr) {
+				desc_size = input_frame_info.desc_size;
+				desc_buf = kzalloc(desc_size, GFP_KERNEL);
+				if (desc_buf) {
+					if (copy_from_user(desc_buf,
+						input_frame_info.desc_addr,
+							desc_size)) {
+						kfree(desc_buf);
+						desc_buf = NULL;
+						return -EFAULT;
+					}
+				}
+			} else
+				return -EINVAL;
+		}
+		result = vid_dec_decode_frame(client_ctx, &input_frame_info,
+					desc_buf, desc_size);
 
-		result = vid_dec_decode_frame(client_ctx, &input_frame_info);
-
-		if (!result)
+		if (!result) {
+			kfree(desc_buf);
+			desc_buf = NULL;
 			return -EIO;
+		}
 		break;
 	}
 	case VDEC_IOCTL_FILL_OUTPUT_BUFFER:
@@ -1681,6 +1760,48 @@ static long vid_dec_ioctl(struct file *file,
 				return -EFAULT;
 		} else
 			return -EIO;
+		break;
+	}
+
+	case VDEC_IOCTL_GET_DISABLE_DMX_SUPPORT:
+	{
+		u32 disable_dmx;
+		DBG("VDEC_IOCTL_GET_DISABLE_DMX_SUPPORT\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		result = vid_dec_get_disable_dmx_support(client_ctx,
+					&disable_dmx);
+		if (result) {
+			if (copy_to_user(vdec_msg.out, &disable_dmx,
+					sizeof(u32)))
+				return -EFAULT;
+		} else
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_GET_DISABLE_DMX:
+	{
+		u32 disable_dmx;
+		DBG("VDEC_IOCTL_GET_DISABLE_DMX\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		result = vid_dec_get_disable_dmx(client_ctx,
+					&disable_dmx);
+		if (result) {
+			if (copy_to_user(vdec_msg.out, &disable_dmx,
+					sizeof(u32)))
+				return -EFAULT;
+		} else
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_DISABLE_DMX:
+	{
+		DBG("VDEC_IOCTL_SET_DISABLE_DMX\n");
+		result =  vid_dec_set_disable_dmx(client_ctx);
+		if (!result)
+			return -EIO;
+		client_ctx->dmx_disable = 1;
 		break;
 	}
 	case VDEC_IOCTL_SET_PICTURE_ORDER:
@@ -1875,6 +1996,7 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 	client_ctx->stop_msg = 0;
 	client_ctx->stop_called = false;
 	client_ctx->stop_sync_cb = false;
+	client_ctx->dmx_disable = 0;
 	if (vcd_get_ion_status()) {
 		client_ctx->user_ion_client = vcd_get_ion_client();
 		if (!client_ctx->user_ion_client) {

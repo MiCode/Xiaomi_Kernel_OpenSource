@@ -432,6 +432,8 @@ void res_trk_init(struct device *device, u32 irq)
 					return;
 				}
 			}
+			resource_context.disable_dmx =
+			resource_context.vidc_platform_data->disable_dmx;
 #ifdef CONFIG_MSM_BUS_SCALING
 			resource_context.vidc_bus_client_pdata =
 			resource_context.vidc_platform_data->
@@ -439,6 +441,7 @@ void res_trk_init(struct device *device, u32 irq)
 #endif
 		} else {
 			resource_context.memtype = -1;
+			resource_context.disable_dmx = 0;
 		}
 		resource_context.core_type = VCD_CORE_1080P;
 		if (!ddl_pmem_alloc(&resource_context.firmware_addr,
@@ -481,4 +484,8 @@ u32 res_trk_get_enable_ion(void)
 struct ion_client *res_trk_get_ion_client(void)
 {
 	return resource_context.res_ion_client;
+}
+
+u32 res_trk_get_disable_dmx(void){
+	return resource_context.disable_dmx;
 }
