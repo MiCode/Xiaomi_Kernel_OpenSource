@@ -2446,11 +2446,11 @@ static void __init register_i2c_devices(void)
 	int i;
 
 	/* Build the matching 'supported_machs' bitmask */
-	if (machine_is_msm8930_cdp())
+	if (machine_is_msm8930_cdp() || machine_is_msm8627_cdp())
 		mach_mask = I2C_SURF;
 	else if (machine_is_msm8930_fluid())
 		mach_mask = I2C_FLUID;
-	else if (machine_is_msm8930_mtp())
+	else if (machine_is_msm8930_mtp() || machine_is_msm8627_mtp())
 		mach_mask = I2C_FFA;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
@@ -2538,6 +2538,26 @@ MACHINE_START(MSM8930_MTP, "QCT MSM8930 MTP")
 MACHINE_END
 
 MACHINE_START(MSM8930_FLUID, "QCT MSM8930 FLUID")
+	.map_io = msm8930_map_io,
+	.reserve = msm8930_reserve,
+	.init_irq = msm8930_init_irq,
+	.timer = &msm_timer,
+	.init_machine = msm8930_cdp_init,
+	.init_early = msm8930_allocate_memory_regions,
+	.init_very_early = msm8930_early_memory,
+MACHINE_END
+
+MACHINE_START(MSM8627_CDP, "QCT MSM8627 CDP")
+	.map_io = msm8930_map_io,
+	.reserve = msm8930_reserve,
+	.init_irq = msm8930_init_irq,
+	.timer = &msm_timer,
+	.init_machine = msm8930_cdp_init,
+	.init_early = msm8930_allocate_memory_regions,
+	.init_very_early = msm8930_early_memory,
+MACHINE_END
+
+MACHINE_START(MSM8627_MTP, "QCT MSM8627 MTP")
 	.map_io = msm8930_map_io,
 	.reserve = msm8930_reserve,
 	.init_irq = msm8930_init_irq,
