@@ -194,6 +194,7 @@ static struct clk *dfab_clk;
 static DEFINE_RWLOCK(ul_wakeup_lock);
 static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
 static int bam_connection_is_active;
+static int wait_for_ack;
 /* End A2 power collaspe */
 
 /* subsystem restart */
@@ -991,6 +992,8 @@ static void ul_timeout(struct work_struct *work)
 		schedule_delayed_work(&ul_timeout_work,
 				msecs_to_jiffies(UL_TIMEOUT_DELAY));
 	} else {
+		wait_for_ack = 1;
+		INIT_COMPLETION(ul_wakeup_ack_completion);
 		smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
 		bam_is_connected = 0;
 		notify_all(BAM_DMUX_UL_DISCONNECTED, (unsigned long)(NULL));
@@ -999,17 +1002,31 @@ static void ul_timeout(struct work_struct *work)
 }
 static void ul_wakeup(void)
 {
+	int ret;
+
 	mutex_lock(&wakeup_lock);
 	if (bam_is_connected) { /* bam got connected before lock grabbed */
 		mutex_unlock(&wakeup_lock);
 		return;
 	}
+	/*
+	 * must wait for the previous power down request to have been acked
+	 * chances are it already came in and this will just fall through
+	 * instead of waiting
+	 */
+	if (wait_for_ack) {
+		ret = wait_for_completion_interruptible_timeout(
+					&ul_wakeup_ack_completion, HZ);
+		BUG_ON(ret == 0);
+	}
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	smsm_change_state(SMSM_APPS_STATE, 0, SMSM_A2_POWER_CONTROL);
-	wait_for_completion_interruptible_timeout(&ul_wakeup_ack_completion,
-							HZ);
-	wait_for_completion_interruptible_timeout(&bam_connection_completion,
-							HZ);
+	ret = wait_for_completion_interruptible_timeout(
+						&ul_wakeup_ack_completion, HZ);
+	BUG_ON(ret == 0);
+	ret = wait_for_completion_interruptible_timeout(
+						&bam_connection_completion, HZ);
+	BUG_ON(ret == 0);
 
 	bam_is_connected = 1;
 	schedule_delayed_work(&ul_timeout_work,
