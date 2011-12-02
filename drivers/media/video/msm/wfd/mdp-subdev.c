@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,11 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 	int rc = 0;
 	struct fb_info *fbi = NULL;
 	if (inst) {
+		rc = msm_fb_writeback_start(inst->mdp);
+		if (rc) {
+			WFD_MSG_ERR("Failed to start MDP mode\n");
+			goto exit;
+		}
 		fbi = msm_fb_get_writeback_fb();
 		if (!fbi) {
 			WFD_MSG_ERR("Failed to acquire mdp instance\n");
@@ -86,6 +91,11 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 	int rc = 0;
 	struct fb_info *fbi = NULL;
 	if (inst) {
+		rc = msm_fb_writeback_stop(inst->mdp);
+		if (rc) {
+			WFD_MSG_ERR("Failed to stop writeback mode\n");
+			return rc;
+		}
 		fbi = (struct fb_info *)inst->mdp;
 		rc = kobject_uevent(&fbi->dev->kobj, KOBJ_OFFLINE);
 		if (rc) {
@@ -112,16 +122,17 @@ int mdp_q_buffer(struct v4l2_subdev *sd, void *arg)
 	struct mdp_buf_info *binfo = arg;
 	struct msmfb_data fbdata;
 	struct mdp_instance *inst;
-	if (!binfo || !binfo->inst || !binfo->b) {
+	if (!binfo || !binfo->inst || !binfo->cookie) {
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
 	}
 	inst = binfo->inst;
 	fbdata.offset = binfo->offset;
 	fbdata.memory_id = binfo->fd;
+	fbdata.iova = binfo->paddr;
 	fbdata.id = 0;
 	fbdata.flags = 0;
-	fbdata.priv = (uint32_t)binfo->b;
+	fbdata.priv = (uint32_t)binfo->cookie;
 
 	WFD_MSG_INFO("queue buffer to mdp with offset = %u,"
 			"fd = %u, priv = %u\n",
@@ -150,45 +161,9 @@ int mdp_dq_buffer(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to dequeue buffer\n");
 		return rc;
 	}
-	WFD_MSG_INFO("dequeue buffer from mdp with offset = %u,"
-			"fd = %u, priv = %u\n",
-			fbdata.offset, fbdata.memory_id, fbdata.priv);
-	obuf->b = (struct vb2_buffer *)fbdata.priv;
-	return rc;
-}
-int mdp_prepare_buffer(struct v4l2_subdev *sd, void *arg)
-{
-	int rc = 0;
-	struct mdp_buf_info *binfo = arg;
-	struct msmfb_writeback_data wbdata;
-	struct mdp_instance *inst;
-
-	if (!binfo || !binfo->inst || !binfo->b) {
-		WFD_MSG_ERR("Invalid argument\n");
-		return -EINVAL;
-	}
-
-	inst = binfo->inst;
-	wbdata.buf_info.offset = binfo->offset;
-	wbdata.buf_info.memory_id = binfo->fd;
-	wbdata.buf_info.id = 0;
-	wbdata.buf_info.flags = 0;
-	wbdata.buf_info.priv = (uint32_t)binfo->b;
-
-	wbdata.img.width = inst->width;
-	wbdata.img.height = inst->height;
-	wbdata.img.format = MDP_RGB_565;
-	WFD_MSG_DBG("offset = %u, fd = %u, width = %u, height = %u,"
-			"uaddr = %u\n", wbdata.buf_info.offset,
-			wbdata.buf_info.memory_id,
-			wbdata.img.width, wbdata.img.height,
-			wbdata.buf_info.priv);
-
-	rc = msm_fb_writeback_register_buffer(inst->mdp, &wbdata);
-	if (rc) {
-		WFD_MSG_ERR("Failed to register buffer\n");
-		return -EIO;
-	}
+	WFD_MSG_DBG("dequeue buf from mdp with priv = %u\n",
+			fbdata.priv);
+	obuf->cookie = (void *)fbdata.priv;
 	return rc;
 }
 int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
@@ -202,34 +177,6 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 	inst->height = prop->height;
 	inst->width = prop->width;
 	return 0;
-}
-int mdp_release_buffer(struct v4l2_subdev *sd, void *arg)
-{
-	int rc = 0;
-	struct mdp_buf_info *binfo = arg;
-	struct msmfb_writeback_data wbdata;
-	struct mdp_instance *inst;
-	if (!binfo || !binfo->inst || !binfo->b) {
-		WFD_MSG_ERR("Invalid argument\n");
-		return -EINVAL;
-	}
-	inst = binfo->inst;
-
-	wbdata.buf_info.offset = binfo->offset;
-	wbdata.buf_info.memory_id = binfo->fd;
-	wbdata.buf_info.id = 0;
-	wbdata.buf_info.flags = 0;
-	wbdata.buf_info.priv = (uint32_t)binfo->b;
-
-	wbdata.img.width = inst->width;
-	wbdata.img.height = inst->height;
-	wbdata.img.format = MDP_RGB_565;
-
-	rc = msm_fb_writeback_unregister_buffer(inst->mdp, &wbdata);
-
-	if (rc)
-		WFD_MSG_ERR("Failed to unregister buffer\n");
-	return rc;
 }
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
@@ -245,9 +192,6 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	case MDP_DQ_BUFFER:
 		rc = mdp_dq_buffer(sd, arg);
 		break;
-	case MDP_PREPARE_BUF:
-		rc = mdp_prepare_buffer(sd, arg);
-		break;
 	case MDP_OPEN:
 		rc = mdp_open(sd, arg);
 		break;
@@ -259,9 +203,6 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_SET_PROP:
 		rc = mdp_set_prop(sd, arg);
-		break;
-	case MDP_RELEASE_BUF:
-		rc = mdp_release_buffer(sd, arg);
 		break;
 	case MDP_CLOSE:
 		rc = mdp_close(sd, arg);
