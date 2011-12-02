@@ -49,5 +49,6 @@ obj-$(CONFIG_REGULATOR_PM8921) += pm8921-regulator.o
 obj-$(CONFIG_REGULATOR_GPIO) += gpio-regulator.o
 obj-$(CONFIG_REGULATOR_PM8058_XO) += pm8058-xo.o
 obj-$(CONFIG_REGULATOR_PM8018) += pm8018-regulator.o
+obj-$(CONFIG_REGULATOR_PM8XXX) += pm8xxx-regulator.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
