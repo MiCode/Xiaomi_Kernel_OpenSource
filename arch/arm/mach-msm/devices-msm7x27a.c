@@ -931,6 +931,13 @@ static int __init msm7x27x_cache_init(void)
 		   (0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
 		   (0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT);
 
+	if (cpu_is_msm8625()) {
+		/* Way Size 011(0x3) 64KB */
+		aux_ctrl |= (0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
+			    (0x1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) | \
+			    (0x1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT);
+	}
+
 	l2x0_init(MSM_L2CC_BASE, aux_ctrl, L2X0_AUX_CTRL_MASK);
 
 	return 0;
@@ -966,7 +973,7 @@ void __init msm8625_map_io(void)
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n", __func__);
-
+	msm7x27x_cache_init();
 }
 
 static int msm7627a_init_gpio(void)
