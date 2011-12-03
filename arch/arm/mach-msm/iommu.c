@@ -979,6 +979,12 @@ fail:
 	return 0;
 }
 
+static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)
+{
+	struct msm_priv *priv = domain->priv;
+	return __pa(priv->pgtable);
+}
+
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
 	.domain_destroy = msm_iommu_domain_destroy,
@@ -989,7 +995,8 @@ static struct iommu_ops msm_iommu_ops = {
 	.map_range = msm_iommu_map_range,
 	.unmap_range = msm_iommu_unmap_range,
 	.iova_to_phys = msm_iommu_iova_to_phys,
-	.domain_has_cap = msm_iommu_domain_has_cap
+	.domain_has_cap = msm_iommu_domain_has_cap,
+	.get_pt_base_addr = msm_iommu_get_pt_base_addr
 };
 
 static int __init get_tex_class(int icp, int ocp, int mt, int nos)
