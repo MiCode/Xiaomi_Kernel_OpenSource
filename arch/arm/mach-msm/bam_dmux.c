@@ -25,6 +25,7 @@
 #include <linux/skbuff.h>
 #include <linux/debugfs.h>
 #include <linux/clk.h>
+#include <linux/wakelock.h>
 
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
@@ -195,6 +196,7 @@ static DEFINE_RWLOCK(ul_wakeup_lock);
 static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
 static int bam_connection_is_active;
 static int wait_for_ack;
+static struct wake_lock bam_wakelock;
 /* End A2 power collaspe */
 
 /* subsystem restart */
@@ -1315,14 +1317,19 @@ static void toggle_apps_ack(void)
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
 	DBG("%s: smsm activity\n", __func__);
-	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL)
+	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL) {
+		wake_lock(&bam_wakelock);
 		reconnect_to_bam();
-	else if (bam_mux_initialized && !(new_state & SMSM_A2_POWER_CONTROL))
+	} else if (bam_mux_initialized &&
+					!(new_state & SMSM_A2_POWER_CONTROL)) {
 		disconnect_to_bam();
-	else if (new_state & SMSM_A2_POWER_CONTROL)
+		wake_unlock(&bam_wakelock);
+	} else if (new_state & SMSM_A2_POWER_CONTROL) {
+		wake_lock(&bam_wakelock);
 		bam_init();
-	else
+	} else {
 		pr_err("%s: unsupported state change\n", __func__);
+	}
 
 }
 
@@ -1377,6 +1384,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	init_completion(&ul_wakeup_ack_completion);
 	init_completion(&bam_connection_completion);
 	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
+	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
 
 	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
 					bam_dmux_smsm_cb, NULL);
