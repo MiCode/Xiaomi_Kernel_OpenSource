@@ -89,6 +89,7 @@ static struct clk *camio_jpeg_clk;
 static struct clk *camio_jpeg_pclk;
 static struct clk *camio_vpe_clk;
 static struct clk *camio_vpe_pclk;
+static struct clk *camio_vpe_axi_clk;
 static struct regulator *fs_vfe;
 static struct regulator *fs_ijpeg;
 static struct regulator *fs_vpe;
@@ -351,6 +352,10 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		camio_vpe_pclk =
 		clk = clk_get(NULL, "vpe_pclk");
 		break;
+	case CAMIO_VPE_AXI_CLK:
+		camio_vpe_axi_clk =
+		clk = clk_get(NULL, "vpe_axi_clk");
+		break;
 
 	default:
 		break;
@@ -423,6 +428,10 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 
 	case CAMIO_VPE_PCLK:
 		clk = camio_vpe_pclk;
+		break;
+
+	case CAMIO_VPE_AXI_CLK:
+		clk = camio_vpe_axi_clk;
 		break;
 
 	default:
@@ -523,6 +532,10 @@ int msm_camio_vpe_clk_disable(void)
 	rc = msm_camio_clk_disable(CAMIO_VPE_CLK);
 	if (rc < 0)
 		return rc;
+	rc = msm_camio_clk_disable(CAMIO_VPE_AXI_CLK);
+	if (rc < 0)
+		return rc;
+
 	rc = msm_camio_clk_disable(CAMIO_VPE_PCLK);
 	return rc;
 }
@@ -542,6 +555,9 @@ int msm_camio_vpe_clk_enable(uint32_t clk_rate)
 
 	vpe_clk_rate = clk_rate;
 	rc = msm_camio_clk_enable(CAMIO_VPE_CLK);
+	if (rc < 0)
+		return rc;
+	rc = msm_camio_clk_enable(CAMIO_VPE_AXI_CLK);
 	if (rc < 0)
 		return rc;
 
