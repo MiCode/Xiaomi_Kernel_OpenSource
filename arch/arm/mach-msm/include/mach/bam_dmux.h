@@ -59,6 +59,10 @@ int msm_bam_dmux_close(uint32_t id);
 int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb);
 
 void msm_bam_dmux_kickoff_ul_wakeup(void);
+
+int msm_bam_dmux_is_ch_full(uint32_t id);
+
+int msm_bam_dmux_is_ch_low(uint32_t id);
 #else
 int msm_bam_dmux_open(uint32_t id, void *priv,
 		       void (*notify)(void *priv, int event_type,
@@ -79,6 +83,16 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 
 void msm_bam_dmux_kickoff_ul_wakeup(void)
 {
+}
+
+int msm_bam_dmux_is_ch_full(uint32_t id)
+{
+	return -ENODEV;
+}
+
+int msm_bam_dmux_is_ch_low(uint32_t id)
+{
+	return -ENODEV;
 }
 #endif
 #endif /* _BAM_DMUX_H */

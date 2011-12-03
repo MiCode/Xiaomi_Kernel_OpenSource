@@ -342,7 +342,12 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 	    ((struct net_device *)(dev))->name, p->stats.tx_packets,
 	    skb->len, skb->mark);
 	dev_kfree_skb_any(skb);
-	netif_wake_queue(dev);
+	if (netif_queue_stopped(dev) &&
+	    msm_bam_dmux_is_ch_low(p->ch_id)) {
+		DBG0("%s: Low WM hit, waking queue=%p\n",
+		      __func__, skb);
+		netif_wake_queue(dev);
+	}
 }
 
 static void bam_notify(void *dev, int event, unsigned long data)
@@ -452,13 +457,17 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		return 0;
 	}
 
-	netif_stop_queue(dev);
 	if (!ul_is_connected) {
 		p->waiting_for_ul = 1;
 		msm_bam_dmux_kickoff_ul_wakeup();
 		return NETDEV_TX_BUSY;
 	}
 	_rmnet_xmit(skb, dev);
+
+	if (msm_bam_dmux_is_ch_full(p->ch_id)) {
+		netif_stop_queue(dev);
+		DBG0("%s: High WM hit, stopping queue=%p\n",    __func__, skb);
+	}
 
 	return 0;
 }
