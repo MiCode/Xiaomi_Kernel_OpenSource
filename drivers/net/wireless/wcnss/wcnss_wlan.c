@@ -14,8 +14,8 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
-#include <linux/firmware.h>
-#include <linux/parser.h>
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/platform_data/qcom_wcnss_device.h>
 #include <linux/workqueue.h>
@@ -31,7 +31,7 @@
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
 static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
-module_param(has_48mhz_xo, int, S_IRUGO);
+module_param(has_48mhz_xo, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(has_48mhz_xo, "Is an external 48 MHz XO present");
 
 static struct {
@@ -42,6 +42,7 @@ static struct {
 	struct resource	*rx_irq_res;
 	struct resource	*gpios_5wire;
 	const struct dev_pm_ops *pm_ops;
+	int             triggered;
 	int             smd_channel_ready;
 	struct wcnss_wlan_config wlan_config;
 	struct delayed_work wcnss_work;
@@ -191,25 +192,16 @@ static int wcnss_wlan_resume(struct device *dev)
 	return 0;
 }
 
-static int __devinit
-wcnss_wlan_probe(struct platform_device *pdev)
+static int
+wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	struct qcom_wcnss_opts *pdata;
 
-	/* verify we haven't been called more than once */
-	if (penv) {
-		dev_err(&pdev->dev, "cannot handle multiple devices.\n");
-		return -ENODEV;
-	}
-
-	/* create an environment to track the device */
-	penv = kzalloc(sizeof(*penv), GFP_KERNEL);
-	if (!penv) {
-		dev_err(&pdev->dev, "cannot allocate device memory.\n");
-		return -ENOMEM;
-	}
-	penv->pdev = pdev;
+	/* make sure we are only triggered once */
+	if (penv->triggered)
+		return 0;
+	penv->triggered = 1;
 
 	/* initialize the WCNSS device configuration */
 	pdata = pdev->dev.platform_data;
@@ -279,6 +271,75 @@ fail_gpio_res:
 	kfree(penv);
 	penv = NULL;
 	return ret;
+}
+
+#ifndef MODULE
+static int wcnss_node_open(struct inode *inode, struct file *file)
+{
+	struct platform_device *pdev;
+
+	pr_info(DEVICE " triggered by userspace\n");
+
+	pdev = penv->pdev;
+	return wcnss_trigger_config(pdev);
+}
+
+static const struct file_operations wcnss_node_fops = {
+	.owner = THIS_MODULE,
+	.open = wcnss_node_open,
+};
+
+static struct miscdevice wcnss_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = DEVICE,
+	.fops = &wcnss_node_fops,
+};
+#endif /* ifndef MODULE */
+
+
+static int __devinit
+wcnss_wlan_probe(struct platform_device *pdev)
+{
+	/* verify we haven't been called more than once */
+	if (penv) {
+		dev_err(&pdev->dev, "cannot handle multiple devices.\n");
+		return -ENODEV;
+	}
+
+	/* create an environment to track the device */
+	penv = kzalloc(sizeof(*penv), GFP_KERNEL);
+	if (!penv) {
+		dev_err(&pdev->dev, "cannot allocate device memory.\n");
+		return -ENOMEM;
+	}
+	penv->pdev = pdev;
+
+#ifdef MODULE
+
+	/*
+	 * Since we were built as a module, we are running because
+	 * the module was loaded, therefore we assume userspace
+	 * applications are available to service PIL, so we can
+	 * trigger the WCNSS configuration now
+	 */
+	pr_info(DEVICE " probed in MODULE mode\n");
+	return wcnss_trigger_config(pdev);
+
+#else
+
+	/*
+	 * Since we were built into the kernel we'll be called as part
+	 * of kernel initialization.  We don't know if userspace
+	 * applications are available to service PIL at this time
+	 * (they probably are not), so we simply create a device node
+	 * here.  When userspace is available it should touch the
+	 * device so that we know that WCNSS configuration can take
+	 * place
+	 */
+	pr_info(DEVICE " probed in built-in mode\n");
+	return misc_register(&wcnss_misc);
+
+#endif
 }
 
 static int __devexit
