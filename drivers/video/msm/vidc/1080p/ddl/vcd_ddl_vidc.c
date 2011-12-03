@@ -242,7 +242,11 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 		decoder->hw_bufs.desc),
 	seq_start_param.descriptor_buffer_size =
 		decoder->hw_bufs.desc.buffer_size;
-	if (decoder->codec.codec == VCD_CODEC_MPEG4)
+	if ((decoder->codec.codec == VCD_CODEC_MPEG4) ||
+		(decoder->codec.codec == VCD_CODEC_DIVX_4) ||
+		(decoder->codec.codec == VCD_CODEC_DIVX_5) ||
+		(decoder->codec.codec == VCD_CODEC_DIVX_6) ||
+		(decoder->codec.codec == VCD_CODEC_XVID))
 		vidc_sm_set_mpeg4_profile_override(
 			&ddl->shared_mem[ddl->command_channel],
 			VIDC_SM_PROFILE_INFO_ASP);
