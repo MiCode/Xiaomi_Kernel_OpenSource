@@ -119,7 +119,6 @@
 #define LCDC_AUO_SPI_DEVICE_NAME		"lcdc_auo_nt35582"
 #define LCDC_NT35582_PANEL_NAME			"lcdc_nt35582_wvga"
 
-#define PANEL_NAME_MAX_LEN	30
 #define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
 #define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
 #define MIPI_VIDEO_TOSHIBA_WVGA_PANEL_NAME	"mipi_video_toshiba_wvga"
@@ -2660,19 +2659,17 @@ static void __init msm8x60_init_dsps(void)
 #define MSM_FB_EXT_BUFT_SIZE	0
 #endif
 
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-/* 4 bpp x 2 page HDMI case */
-#define MSM_FB_SIZE roundup((1920 * 1088 * 4 * 2), 4096)
-#else
 /* Note: must be multiple of 4096 */
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE + \
 				MSM_FB_DSUB_PMEM_ADDER, 4096)
-#endif
+
+#define MSM_PMEM_SF_SIZE 0x4000000 /* 64 Mbytes */
+#define MSM_HDMI_PRIM_PMEM_SF_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-#define MSM_PMEM_SF_SIZE 0x8000000 /* 128 Mbytes */
+unsigned char hdmi_is_primary = 1;
 #else
-#define MSM_PMEM_SF_SIZE 0x4000000 /* 64 Mbytes */
+unsigned char hdmi_is_primary;
 #endif
 
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
@@ -2712,6 +2709,8 @@ static void __init msm8x60_init_dsps(void)
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_ION_HEAP_NUM	9
+#define MSM_HDMI_PRIM_ION_SF_SIZE MSM_HDMI_PRIM_PMEM_SF_SIZE
+static unsigned msm_ion_sf_size = MSM_ION_SF_SIZE;
 #else
 #define MSM_ION_HEAP_NUM	1
 #endif
@@ -3159,13 +3158,41 @@ static void __init msm8x60_allocate_memory_regions(void)
 	void *addr;
 	unsigned long size;
 
-	size = MSM_FB_SIZE;
+	if (hdmi_is_primary)
+		size = roundup((1920 * 1088 * 4 * 2), 4096);
+	else
+		size = MSM_FB_SIZE;
+
 	addr = alloc_bootmem_align(size, 0x1000);
 	msm_fb_resources[0].start = __pa(addr);
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 		size, addr, __pa(addr));
 
+}
+
+void __init msm8x60_set_display_params(char *prim_panel, char *ext_panel)
+{
+	if (strnlen(prim_panel, PANEL_NAME_MAX_LEN)) {
+		strlcpy(msm_fb_pdata.prim_panel_name, prim_panel,
+			PANEL_NAME_MAX_LEN);
+		pr_debug("msm_fb_pdata.prim_panel_name %s\n",
+			msm_fb_pdata.prim_panel_name);
+
+		if (!strncmp((char *)msm_fb_pdata.prim_panel_name,
+			HDMI_PANEL_NAME, strnlen(HDMI_PANEL_NAME,
+				PANEL_NAME_MAX_LEN))) {
+			pr_debug("HDMI is the primary display by"
+				" boot parameter\n");
+			hdmi_is_primary = 1;
+		}
+	}
+	if (strnlen(ext_panel, PANEL_NAME_MAX_LEN)) {
+		strlcpy(msm_fb_pdata.ext_panel_name, ext_panel,
+			PANEL_NAME_MAX_LEN);
+		pr_debug("msm_fb_pdata.ext_panel_name %s\n",
+			msm_fb_pdata.ext_panel_name);
+	}
 }
 
 #if defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C) || \
@@ -5410,7 +5437,21 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-	msm8x60_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
+	unsigned int i;
+
+	if (hdmi_is_primary) {
+		msm_ion_sf_size = MSM_HDMI_PRIM_ION_SF_SIZE;
+		for (i = 0; i < ion_pdata.nr; i++) {
+			if (ion_pdata.heaps[i].id == ION_SF_HEAP_ID) {
+				ion_pdata.heaps[i].size = msm_ion_sf_size;
+				pr_debug("msm_ion_sf_size 0x%x\n",
+					msm_ion_sf_size);
+				break;
+			}
+		}
+	}
+
+	msm8x60_reserve_table[MEMTYPE_EBI1].size += msm_ion_sf_size;
 	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MM_FW_SIZE;
 	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MM_SIZE;
 	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MFC_SIZE;
@@ -5426,6 +5467,9 @@ static void __init size_pmem_devices(void)
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	android_pmem_adsp_pdata.size = pmem_adsp_size;
 	android_pmem_smipool_pdata.size = MSM_PMEM_SMIPOOL_SIZE;
+
+	if (hdmi_is_primary)
+		pmem_sf_size = MSM_HDMI_PRIM_PMEM_SF_SIZE;
 	android_pmem_pdata.size = pmem_sf_size;
 #endif
 	android_pmem_audio_pdata.size = MSM_PMEM_AUDIO_SIZE;
@@ -5475,8 +5519,27 @@ static struct reserve_info msm8x60_reserve_info __initdata = {
 	.paddr_to_memtype = msm8x60_paddr_to_memtype,
 };
 
+static char prim_panel_name[PANEL_NAME_MAX_LEN];
+static char ext_panel_name[PANEL_NAME_MAX_LEN];
+static int __init prim_display_setup(char *param)
+{
+	if (strnlen(param, PANEL_NAME_MAX_LEN))
+		strlcpy(prim_panel_name, param, PANEL_NAME_MAX_LEN);
+	return 0;
+}
+early_param("prim_display", prim_display_setup);
+
+static int __init ext_display_setup(char *param)
+{
+	if (strnlen(param, PANEL_NAME_MAX_LEN))
+		strlcpy(ext_panel_name, param, PANEL_NAME_MAX_LEN);
+	return 0;
+}
+early_param("ext_display", ext_display_setup);
+
 static void __init msm8x60_reserve(void)
 {
+	msm8x60_set_display_params(prim_panel_name, ext_panel_name);
 	reserve_info = &msm8x60_reserve_info;
 	msm_reserve();
 }
@@ -9422,26 +9485,7 @@ static struct msm_bus_vectors dtv_bus_init_vectors[] = {
 		.ib = 0,
 	},
 };
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-static struct msm_bus_vectors dtv_bus_def_vectors[] = {
-	/* For now, 0th array entry is reserved.
-	 * Please leave 0 as is and don't use it
-	 */
-	{
-		.src = MSM_BUS_MASTER_MDP_PORT0,
-		.dst = MSM_BUS_SLAVE_SMI,
-		.ab = 2000000000,
-		.ib = 2000000000,
-	},
-	/* Master and slaves can be from different fabrics */
-	{
-		.src = MSM_BUS_MASTER_MDP_PORT0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,
-		.ib = 2000000000,
-	},
-};
-#else
+
 static struct msm_bus_vectors dtv_bus_def_vectors[] = {
 	/* For now, 0th array entry is reserved.
 	 * Please leave 0 as is and don't use it
@@ -9460,7 +9504,26 @@ static struct msm_bus_vectors dtv_bus_def_vectors[] = {
 		.ib = 707616000,
 	},
 };
-#endif
+
+static struct msm_bus_vectors dtv_bus_hdmi_prim_vectors[] = {
+	/* For now, 0th array entry is reserved.
+	 * Please leave 0 as is and don't use it
+	 */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
+		.ab = 2000000000,
+		.ib = 2000000000,
+	},
+	/* Master and slaves can be from different fabrics */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 2000000000,
+		.ib = 2000000000,
+	},
+};
+
 static struct msm_bus_paths dtv_bus_scale_usecases[] = {
 	{
 		ARRAY_SIZE(dtv_bus_init_vectors),
@@ -9471,6 +9534,7 @@ static struct msm_bus_paths dtv_bus_scale_usecases[] = {
 		dtv_bus_def_vectors,
 	},
 };
+
 static struct msm_bus_scale_pdata dtv_bus_scale_pdata = {
 	dtv_bus_scale_usecases,
 	ARRAY_SIZE(dtv_bus_scale_usecases),
@@ -9479,6 +9543,27 @@ static struct msm_bus_scale_pdata dtv_bus_scale_pdata = {
 
 static struct lcdc_platform_data dtv_pdata = {
 	.bus_scale_table = &dtv_bus_scale_pdata,
+};
+
+static struct msm_bus_paths dtv_hdmi_prim_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(dtv_bus_init_vectors),
+		dtv_bus_init_vectors,
+	},
+	{
+		ARRAY_SIZE(dtv_bus_hdmi_prim_vectors),
+		dtv_bus_hdmi_prim_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata dtv_hdmi_prim_bus_scale_pdata = {
+	dtv_hdmi_prim_bus_scale_usecases,
+	ARRAY_SIZE(dtv_hdmi_prim_bus_scale_usecases),
+	.name = "dtv",
+};
+
+static struct lcdc_platform_data dtv_hdmi_prim_pdata = {
+	.bus_scale_table = &dtv_hdmi_prim_bus_scale_pdata,
 };
 #endif
 
@@ -9601,13 +9686,6 @@ int mdp_core_clk_rate_table[] = {
 	160000000,
 	200000000,
 };
-#elif defined(CONFIG_FB_MSM_HDMI_AS_PRIMARY)
-int mdp_core_clk_rate_table[] = {
-	200000000,
-	200000000,
-	200000000,
-	200000000,
-};
 #else
 int mdp_core_clk_rate_table[] = {
 	59080000,
@@ -9619,11 +9697,7 @@ int mdp_core_clk_rate_table[] = {
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-	.mdp_core_clk_rate = 200000000,
-#else
 	.mdp_core_clk_rate = 59080000,
-#endif
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -9729,7 +9803,10 @@ static void __init msm_fb_add_devices(void)
 	msm_fb_register_device("lcdc", &lcdc_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 #ifdef CONFIG_MSM_BUS_SCALING
-	msm_fb_register_device("dtv", &dtv_pdata);
+	if (hdmi_is_primary)
+		msm_fb_register_device("dtv", &dtv_hdmi_prim_pdata);
+	else
+		msm_fb_register_device("dtv", &dtv_pdata);
 #endif
 #ifdef CONFIG_FB_MSM_TVOUT
 	msm_fb_register_device("tvenc", &atv_pdata);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,12 +73,15 @@ enum {
 
 extern struct sx150x_platform_data msm8960_sx150x_data[];
 extern struct msm_camera_board_info msm8960_camera_board_info;
+extern unsigned char hdmi_is_primary;
+
 void msm8960_init_cam(void);
 void msm8960_init_fb(void);
 void msm8960_init_pmic(void);
 void msm8960_init_mmc(void);
 int msm8960_init_gpiomux(void);
 void msm8960_allocate_fb_region(void);
+void msm8960_set_display_params(char *prim_panel, char *ext_panel);
 void msm8960_pm8921_gpio_mpp_init(void);
 void msm8960_mdp_writeback(struct memtype_reserve *reserve_table);
 uint32_t msm_rpm_get_swfi_latency(void);
