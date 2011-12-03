@@ -485,6 +485,10 @@ int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
 int msm_mctl_pp_done(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
+int msm_mctl_pp_divert_done(
+	struct msm_cam_media_controller *p_mctl,
+	void __user *arg);
+
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

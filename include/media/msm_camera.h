@@ -156,6 +156,9 @@
 #define MSM_CAM_IOCTL_RELEASE_FREE_FRAME \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 46, struct msm_cam_evt_divert_frame *)
 
+#define MSM_CAM_IOCTL_PICT_PP_DIVERT_DONE \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 47, struct msm_pp_frame *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;

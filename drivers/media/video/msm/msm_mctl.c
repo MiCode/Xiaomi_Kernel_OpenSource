@@ -299,6 +299,9 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	case MSM_CAM_IOCTL_PICT_PP:
 		rc = msm_mctl_set_pp_key(p_mctl, (void __user *)arg);
 		break;
+	case MSM_CAM_IOCTL_PICT_PP_DIVERT_DONE:
+		rc = msm_mctl_pp_divert_done(p_mctl, (void __user *)arg);
+		break;
 	case MSM_CAM_IOCTL_PICT_PP_DONE:
 		rc = msm_mctl_pp_done(p_mctl, (void __user *)arg);
 		break;
