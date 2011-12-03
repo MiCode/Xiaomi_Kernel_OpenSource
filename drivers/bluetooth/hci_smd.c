@@ -140,20 +140,20 @@ static void hci_smd_recv_data(unsigned long arg)
 	wake_lock(&hs.wake_lock_rx);
 
 	len = smd_read_avail(hsmd->data_channel);
-	if (len <= 0) {
-		BT_ERR("Nothing to read from SMD channel\n");
+	if (len > HCI_MAX_FRAME_SIZE) {
+		BT_ERR("Frame larger than the allowed size");
 		goto out_data;
 	}
 	while (len > 0) {
 		skb = bt_skb_alloc(len, GFP_ATOMIC);
 		if (!skb) {
-			BT_ERR("Error in allocating  socket buffer\n");
+			BT_ERR("Error in allocating  socket buffer");
 			goto out_data;
 		}
 
 		buf = kmalloc(len, GFP_ATOMIC);
 		if (!buf)  {
-			BT_ERR("Error in allocating  buffer\n");
+			BT_ERR("Error in allocating  buffer");
 			rc = -ENOMEM;
 			goto out_data;
 		}
@@ -188,7 +188,7 @@ static void hci_smd_recv_data(unsigned long arg)
 		 * Start the timer to monitor whether the Rx queue is
 		 * empty for releasing the Rx wake lock
 		 */
-		BT_DBG("Rx Timer is starting\n");
+		BT_DBG("Rx Timer is starting");
 		mod_timer(&hsmd->rx_q_timer,
 				jiffies + msecs_to_jiffies(RX_Q_MONITOR));
 	}
@@ -214,20 +214,17 @@ static void hci_smd_recv_event(unsigned long arg)
 	if (len > HCI_MAX_FRAME_SIZE) {
 		BT_ERR("Frame larger than the allowed size");
 		goto out_event;
-	} else if (len <= 0) {
-		BT_ERR("Nothing to read from SMD channel\n");
-		goto out_event;
 	}
 
 	while (len > 0) {
 		skb = bt_skb_alloc(len, GFP_ATOMIC);
 		if (!skb) {
-			BT_ERR("Error in allocating  socket buffer\n");
+			BT_ERR("Error in allocating  socket buffer");
 			goto out_event;
 		}
 		buf = kmalloc(len, GFP_ATOMIC);
 		if (!buf) {
-			BT_ERR("Error in allocating  buffer\n");
+			BT_ERR("Error in allocating  buffer");
 			rc = -ENOMEM;
 			goto out_event;
 		}
@@ -261,7 +258,7 @@ static void hci_smd_recv_event(unsigned long arg)
 		 * Start the timer to monitor whether the Rx queue is
 		 * empty for releasing the Rx wake lock
 		 */
-		BT_DBG("Rx Timer is starting\n");
+		BT_DBG("Rx Timer is starting");
 		mod_timer(&hsmd->rx_q_timer,
 				jiffies + msecs_to_jiffies(RX_Q_MONITOR));
 	}
@@ -308,7 +305,7 @@ static int hci_smd_send_frame(struct sk_buff *skb)
 		}
 		break;
 	default:
-		BT_ERR("Uknown packet type\n");
+		BT_ERR("Uknown packet type");
 		ret = -ENODEV;
 		break;
 	}
@@ -322,6 +319,8 @@ static int hci_smd_send_frame(struct sk_buff *skb)
 static void hci_smd_notify_event(void *data, unsigned int event)
 {
 	struct hci_dev *hdev = hs.hdev;
+	struct hci_smd_data *hsmd = &hs;
+	int len = 0;
 
 	if (!hdev) {
 		BT_ERR("Frame for unknown HCI device (hdev=NULL)");
@@ -330,12 +329,19 @@ static void hci_smd_notify_event(void *data, unsigned int event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		tasklet_hi_schedule(&hs.hci_event_task);
+		len = smd_read_avail(hsmd->event_channel);
+		if (len > 0)
+			tasklet_hi_schedule(&hs.hci_event_task);
+		else if (len < 0)
+			BT_ERR("Failed to read event from smd %d", len);
+
 		break;
 	case SMD_EVENT_OPEN:
+		BT_INFO("opening HCI-SMD channel :%s", EVENT_CHANNEL);
 		hci_smd_open(hdev);
 		break;
 	case SMD_EVENT_CLOSE:
+		BT_INFO("Closing HCI-SMD channel :%s", EVENT_CHANNEL);
 		hci_smd_close(hdev);
 		break;
 	default:
@@ -346,6 +352,9 @@ static void hci_smd_notify_event(void *data, unsigned int event)
 static void hci_smd_notify_data(void *data, unsigned int event)
 {
 	struct hci_dev *hdev = hs.hdev;
+	struct hci_smd_data *hsmd = &hs;
+	int len = 0;
+
 	if (!hdev) {
 		BT_ERR("HCI device (hdev=NULL)");
 		return;
@@ -353,12 +362,18 @@ static void hci_smd_notify_data(void *data, unsigned int event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		tasklet_hi_schedule(&hs.hci_data_task);
+		len = smd_read_avail(hsmd->data_channel);
+		if (len > 0)
+			tasklet_hi_schedule(&hs.hci_data_task);
+		else if (len < 0)
+			BT_ERR("Failed to read data from smd %d", len);
 		break;
 	case SMD_EVENT_OPEN:
+		BT_INFO("opening HCI-SMD channel :%s", DATA_CHANNEL);
 		hci_smd_open(hdev);
 		break;
 	case SMD_EVENT_CLOSE:
+		BT_INFO("Closing HCI-SMD channel :%s", DATA_CHANNEL);
 		hci_smd_close(hdev);
 		break;
 	default:
@@ -419,7 +434,7 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 	rc = smd_named_open_on_edge(DATA_CHANNEL, SMD_APPS_WCNSS,
 			&hsmd->data_channel, hdev, hci_smd_notify_data);
 	if (rc < 0) {
-		BT_ERR("Failed to open the Data channel\n");
+		BT_ERR("Failed to open the Data channel");
 		hci_free_dev(hdev);
 		return -ENODEV;
 	}
