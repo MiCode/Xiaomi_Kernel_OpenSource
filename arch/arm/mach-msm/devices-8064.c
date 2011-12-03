@@ -581,6 +581,23 @@ struct platform_device msm_device_smd_apq8064 = {
 	.id		= -1,
 };
 
+#ifdef CONFIG_HW_RANDOM_MSM
+/* PRNG device */
+#define MSM_PRNG_PHYS           0x1A500000
+static struct resource rng_resources = {
+	.flags = IORESOURCE_MEM,
+	.start = MSM_PRNG_PHYS,
+	.end   = MSM_PRNG_PHYS + SZ_512 - 1,
+};
+
+struct platform_device apq8064_device_rng = {
+	.name          = "msm_rng",
+	.id            = 0,
+	.num_resources = 1,
+	.resource      = &rng_resources,
+};
+#endif
+
 static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),
 	CLK_DUMMY("pll8",		PLL8,		NULL, 0),
@@ -625,7 +642,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("core_clk",		GSBI7_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		PDM_CLK,		NULL, OFF),
 	CLK_DUMMY("mem_clk",		PMEM_CLK,		NULL, OFF),
-	CLK_DUMMY("core_clk",		PRNG_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",		PRNG_CLK,	"msm_rng.0", OFF),
 	CLK_DUMMY("core_clk",		SDC1_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		SDC2_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		SDC3_CLK,		NULL, OFF),
