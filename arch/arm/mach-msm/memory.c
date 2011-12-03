@@ -38,17 +38,6 @@
 #include <mach/socinfo.h>
 #include <../../mm/mm.h>
 
-int arch_io_remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
-			    unsigned long pfn, unsigned long size, pgprot_t prot)
-{
-	unsigned long pfn_addr = pfn << PAGE_SHIFT;
-	if ((pfn_addr >= 0x88000000) && (pfn_addr < 0xD0000000)) {
-		prot = pgprot_device(prot);
-		pr_debug("remapping device %lx\n", prot);
-	}
-	return remap_pfn_range(vma, addr, pfn, size, prot);
-}
-
 void *strongly_ordered_page;
 char strongly_ordered_mem[PAGE_SIZE*2-4];
 
