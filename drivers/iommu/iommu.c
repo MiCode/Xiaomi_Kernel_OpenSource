@@ -926,6 +926,15 @@ int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
 }
 EXPORT_SYMBOL_GPL(iommu_unmap_range);
 
+phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain)
+{
+	if (unlikely(domain->ops->get_pt_base_addr == NULL))
+		return 0;
+
+	return domain->ops->get_pt_base_addr(domain);
+}
+EXPORT_SYMBOL_GPL(iommu_get_pt_base_addr);
+
 static int __init iommu_init(void)
 {
 	iommu_group_kset = kset_create_and_add("iommu_groups",
