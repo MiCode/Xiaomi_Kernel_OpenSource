@@ -277,10 +277,11 @@ static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
 
 static inline int kgsl_create_device_workqueue(struct kgsl_device *device)
 {
-	device->work_queue = create_workqueue(device->name);
+	device->work_queue = create_singlethread_workqueue(device->name);
 	if (!device->work_queue) {
-		KGSL_DRV_ERR(device, "create_workqueue(%s) failed\n",
-			device->name);
+		KGSL_DRV_ERR(device,
+			     "create_singlethread_workqueue(%s) failed\n",
+			     device->name);
 		return -EINVAL;
 	}
 	return 0;
