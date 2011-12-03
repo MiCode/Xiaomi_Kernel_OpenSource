@@ -20,6 +20,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 #include "devices.h"
 #include "board-msm8930.h"
 
@@ -844,7 +845,8 @@ void __init msm8930_init_fb(void)
 	platform_device_register(&mipi_dsi_novatek_panel_device);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	platform_device_register(&hdmi_msm_device);
+	if (!cpu_is_msm8627())
+		platform_device_register(&hdmi_msm_device);
 #endif
 
 	platform_device_register(&mipi_dsi_toshiba_panel_device);
