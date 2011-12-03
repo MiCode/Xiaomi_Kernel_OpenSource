@@ -2661,7 +2661,7 @@ static int writeback_offset(void)
 #define MSM_SMI_SIZE          0x4000000
 
 #define KERNEL_SMI_BASE       (MSM_SMI_BASE)
-#define KERNEL_SMI_SIZE       0x300000
+#define KERNEL_SMI_SIZE       0x600000
 
 #define USER_SMI_BASE         (KERNEL_SMI_BASE + KERNEL_SMI_SIZE)
 #define USER_SMI_SIZE         (MSM_SMI_SIZE - KERNEL_SMI_SIZE)
