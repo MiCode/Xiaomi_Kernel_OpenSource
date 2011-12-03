@@ -256,6 +256,14 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	udelay(RESET_DELAY_US);
 
 	/*
+	 * Return clocks to their state before this function. For robustness
+	 * if memory-retention across collapses is required, clocks should
+	 * be disabled before asserting the clamps. Assuming clocks were off
+	 * before entering footswitch_disable(), this will be true.
+	 */
+	restore_clocks(fs);
+
+	/*
 	 * Clamp the I/O ports of the core to ensure the values
 	 * remain fixed while the core is collapsed.
 	 */
@@ -265,9 +273,6 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	/* Collapse the power rail at the footswitch. */
 	regval &= ~ENABLE_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
-
-	/* Return clocks to their state before this function. */
-	restore_clocks(fs);
 
 	fs->is_enabled = false;
 
