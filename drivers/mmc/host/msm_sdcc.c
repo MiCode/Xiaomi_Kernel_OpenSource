@@ -76,6 +76,7 @@ static struct dentry *debugfs_file;
 static int  msmsdcc_dbg_init(void);
 #endif
 
+static u64 dma_mask = DMA_BIT_MASK(32);
 static unsigned int msmsdcc_pwrsave = 1;
 
 static struct mmc_command dummy52cmd;
@@ -3929,6 +3930,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		if (ret)
 			goto sps_exit;
 	}
+	mmc_dev(mmc)->dma_mask = &dma_mask;
 
 	/*
 	 * Setup MMC host structure
