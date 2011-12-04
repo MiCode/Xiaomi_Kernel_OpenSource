@@ -521,6 +521,8 @@ struct cvs_start_record_cmd {
 #define VSS_NETWORK_ID_VOIP_WV				0x00011242
 
 /* Media types */
+#define VSS_MEDIA_ID_13K_MODEM		0x00010FC1
+/* Qcelp vocoder modem format */
 #define VSS_MEDIA_ID_EVRC_MODEM		0x00010FC2
 /* 80-VF690-47 CDMA enhanced variable rate vocoder modem format. */
 #define VSS_MEDIA_ID_4GV_NB_MODEM  0x00010FC3
@@ -531,6 +533,12 @@ struct cvs_start_record_cmd {
 /* 80-VF690-47 UMTS AMR-NB vocoder modem format. */
 #define VSS_MEDIA_ID_AMR_WB_MODEM	0x00010FC7
 /* 80-VF690-47 UMTS AMR-WB vocoder modem format. */
+#define VSS_MEDIA_ID_EFR_MODEM		0x00010FC8
+/*EFR modem format */
+#define VSS_MEDIA_ID_FR_MODEM		0x00010FC9
+/*FR modem format */
+#define VSS_MEDIA_ID_HR_MODEM		0x00010FCA
+/*HR modem format */
 #define VSS_MEDIA_ID_PCM_NB		0x00010FCB
 /* Linear PCM (16-bit, little-endian). */
 #define VSS_MEDIA_ID_PCM_WB		0x00010FCC
