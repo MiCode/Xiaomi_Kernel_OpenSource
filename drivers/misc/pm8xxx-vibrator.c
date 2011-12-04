@@ -145,9 +145,8 @@ static void pm8xxx_vib_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 	unsigned long flags;
 
-	spin_lock_irqsave(&vib->lock, flags);
-
 retry:
+	spin_lock_irqsave(&vib->lock, flags);
 	if (hrtimer_try_to_cancel(&vib->vib_timer) < 0) {
 		spin_unlock_irqrestore(&vib->lock, flags);
 		cpu_relax();
