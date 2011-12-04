@@ -64,7 +64,7 @@ static void radio_hci_smd_recv_event(unsigned long temp)
 			return;
 		}
 
-		rc = smd_read_from_cb(hsmd->fm_channel, (void *)buf, len);
+		rc = smd_read(hsmd->fm_channel, (void *)buf, len);
 
 		memcpy(skb_put(skb, len), buf, len);
 
