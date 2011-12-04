@@ -1211,22 +1211,8 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		}, \
 	}
 
-#define F_AIF_BIT(d, s) \
-	{ \
-		.freq_hz = d, \
-		.ns_val = (BVAL(14, 14, s) | BVAL(13, 10, (d-1))) \
-	}
-static struct clk_freq_tbl clk_tbl_aif_bit[] = {
-	F_AIF_BIT(0, 1),  /* Use external clock. */
-	F_AIF_BIT(1, 0),  F_AIF_BIT(2, 0),  F_AIF_BIT(3, 0),  F_AIF_BIT(4, 0),
-	F_AIF_BIT(5, 0),  F_AIF_BIT(6, 0),  F_AIF_BIT(7, 0),  F_AIF_BIT(8, 0),
-	F_AIF_BIT(9, 0),  F_AIF_BIT(10, 0), F_AIF_BIT(11, 0), F_AIF_BIT(12, 0),
-	F_AIF_BIT(13, 0), F_AIF_BIT(14, 0), F_AIF_BIT(15, 0), F_AIF_BIT(16, 0),
-	F_END
-};
-
 #define CLK_AIF_BIT(i, ns, h_r) \
-	struct rcg_clk i##_clk = { \
+	struct cdiv_clk i##_clk = { \
 		.b = { \
 			.ctl_reg = ns, \
 			.en_mask = BIT(15), \
@@ -1234,35 +1220,18 @@ static struct clk_freq_tbl clk_tbl_aif_bit[] = {
 			.halt_check = DELAY, \
 		}, \
 		.ns_reg = ns, \
-		.ns_mask = BM(14, 10), \
-		.set_rate = set_rate_nop, \
-		.freq_tbl = clk_tbl_aif_bit, \
-		.current_freq = &rcg_dummy_freq, \
+		.ext_mask = BIT(14), \
+		.div_offset = 10, \
+		.max_div = 16, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_9615, \
+			.ops = &clk_ops_cdiv, \
 			CLK_INIT(i##_clk.c), \
 		}, \
 	}
 
-#define F_AIF_BIT_D(d, s) \
-	{ \
-		.freq_hz = d, \
-		.ns_val = (BVAL(18, 18, s) | BVAL(17, 10, (d-1))) \
-	}
-static struct clk_freq_tbl clk_tbl_aif_bit_div[] = {
-	F_AIF_BIT_D(0, 1),  /* Use external clock. */
-	F_AIF_BIT_D(1, 0), F_AIF_BIT_D(2, 0), F_AIF_BIT_D(3, 0),
-	F_AIF_BIT_D(4, 0), F_AIF_BIT_D(5, 0), F_AIF_BIT_D(6, 0),
-	F_AIF_BIT_D(7, 0), F_AIF_BIT_D(8, 0), F_AIF_BIT_D(9, 0),
-	F_AIF_BIT_D(10, 0), F_AIF_BIT_D(11, 0), F_AIF_BIT_D(12, 0),
-	F_AIF_BIT_D(13, 0), F_AIF_BIT_D(14, 0), F_AIF_BIT_D(15, 0),
-	F_AIF_BIT_D(16, 0),
-	F_END
-};
-
 #define CLK_AIF_BIT_DIV(i, ns, h_r) \
-	struct rcg_clk i##_clk = { \
+	struct cdiv_clk i##_clk = { \
 		.b = { \
 			.ctl_reg = ns, \
 			.en_mask = BIT(19), \
@@ -1270,13 +1239,12 @@ static struct clk_freq_tbl clk_tbl_aif_bit_div[] = {
 			.halt_check = ENABLE, \
 		}, \
 		.ns_reg = ns, \
-		.ns_mask = BM(18, 10), \
-		.set_rate = set_rate_nop, \
-		.freq_tbl = clk_tbl_aif_bit_div, \
-		.current_freq = &rcg_dummy_freq, \
+		.ext_mask = BIT(18), \
+		.div_offset = 10, \
+		.max_div = 256, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_9615, \
+			.ops = &clk_ops_cdiv, \
 			CLK_INIT(i##_clk.c), \
 		}, \
 	}
