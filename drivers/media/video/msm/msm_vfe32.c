@@ -1461,6 +1461,45 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		cmdp_local, (vfe32_cmd[cmd->id].length));
 		}
 		break;
+	case VFE_CMD_CHROMA_SUP_UPDATE:
+	case VFE_CMD_CHROMA_SUP_CFG:{
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+			(void __user *)(cmd->value),
+			cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		cmdp_local = cmdp;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_SUP_OFF,
+			cmdp_local, 4);
+
+		cmdp_local += 1;
+		new_val = *cmdp_local;
+		/* Incrementing with 4 so as to point to the 2nd Register as
+		 * the 2nd register has the mce_enable bit
+		 */
+		old_val = msm_io_r(vfe32_ctrl->vfebase +
+			V32_CHROMA_SUP_OFF + 4);
+		old_val &= ~MCE_EN_MASK;
+		new_val = new_val | old_val;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_SUP_OFF + 4,
+			&new_val, 4);
+		cmdp_local += 1;
+
+		old_val = msm_io_r(vfe32_ctrl->vfebase +
+			V32_CHROMA_SUP_OFF + 8);
+		new_val = *cmdp_local;
+		old_val &= ~MCE_Q_K_MASK;
+		new_val = new_val | old_val;
+		msm_io_memcpy(vfe32_ctrl->vfebase + V32_CHROMA_SUP_OFF + 8,
+			&new_val, 4);
+		}
+		break;
 	case VFE_CMD_BLACK_LEVEL_CFG:
 		rc = -EFAULT;
 		goto proc_general_done;
