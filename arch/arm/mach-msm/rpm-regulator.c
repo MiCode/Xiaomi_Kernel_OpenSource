@@ -490,6 +490,14 @@ int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 		 */
 		uV = (uV - range->min_uV + range->step_uV - 1) / range->step_uV;
 		uV = uV * range->step_uV + range->min_uV;
+
+		if (uV > max_uV) {
+			vreg_err(vreg,
+			  "request v=[%d, %d] cannot be met by any set point; "
+			  "next set point: %d\n",
+			  min_uV, max_uV, uV);
+			return -EINVAL;
+		}
 	}
 
 	if (vreg->part->uV.mask) {
@@ -811,6 +819,14 @@ static int vreg_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV,
 	 */
 	uV = (uV - range->min_uV + range->step_uV - 1) / range->step_uV;
 	uV = uV * range->step_uV + range->min_uV;
+
+	if (uV > max_uV) {
+		vreg_err(vreg,
+			"request v=[%d, %d] cannot be met by any set point; "
+			"next set point: %d\n",
+			min_uV, max_uV, uV);
+		return -EINVAL;
+	}
 
 	if (vreg->part->uV.mask) {
 		val[vreg->part->uV.word] = uV << vreg->part->uV.shift;
