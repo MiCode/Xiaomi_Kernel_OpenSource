@@ -1860,6 +1860,9 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 			hci_conn_put(conn);
 		} else
 			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
+
+		if (test_bit(HCI_MGMT, &hdev->flags))
+			mgmt_encrypt_change(hdev->id, &conn->dst, ev->status);
 	}
 
 	hci_dev_unlock(hdev);

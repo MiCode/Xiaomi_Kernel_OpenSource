@@ -228,6 +228,12 @@ struct mgmt_cp_set_connection_params {
 	__le16 timeout_multiplier;
 } __packed;
 
+#define MGMT_OP_ENCRYPT_LINK		0x0021
+struct mgmt_cp_encrypt_link {
+	bdaddr_t bdaddr;
+	__u8 enable;
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16 opcode;
@@ -328,4 +334,11 @@ struct mgmt_ev_remote_name {
 struct mgmt_ev_user_passkey_request {
 	bdaddr_t bdaddr;
 } __packed;
+
+#define MGMT_EV_ENCRYPT_CHANGE		0x0016
+struct mgmt_ev_encrypt_change {
+	bdaddr_t bdaddr;
+	__u8 status;
+} __packed;
+
 
