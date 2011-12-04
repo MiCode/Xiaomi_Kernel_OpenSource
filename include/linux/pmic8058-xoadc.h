@@ -12,8 +12,8 @@
  * Qualcomm XOADC Driver header file
  */
 
-#ifndef _XOADC_H
-#define _XOADC_H_
+#ifndef _PMIC8058_XOADC_H_
+#define _PMIC8058_XOADC_H_
 
 #include <linux/kernel.h>
 #include <linux/list.h>
