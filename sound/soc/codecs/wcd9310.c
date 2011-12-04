@@ -464,13 +464,6 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE_TLV("LINEOUT5 Volume", TABLA_A_RX_LINE_5_GAIN, 0, 12, 1,
 		line_gain),
 
-	SOC_SINGLE("RX1 CHAIN INVERT Switch", TABLA_A_CDC_RX1_B6_CTL, 4, 1, 0),
-	SOC_SINGLE("RX2 CHAIN INVERT Switch", TABLA_A_CDC_RX2_B6_CTL, 4, 1, 0),
-	SOC_SINGLE("RX3 CHAIN INVERT Switch", TABLA_A_CDC_RX3_B6_CTL, 4, 1, 0),
-	SOC_SINGLE("RX4 CHAIN INVERT Switch", TABLA_A_CDC_RX4_B6_CTL, 4, 1, 0),
-	SOC_SINGLE("RX5 CHAIN INVERT Switch", TABLA_A_CDC_RX5_B6_CTL, 4, 1, 0),
-	SOC_SINGLE("RX6 CHAIN INVERT Switch", TABLA_A_CDC_RX6_B6_CTL, 4, 1, 0),
-
 	SOC_SINGLE_TLV("HPHL Volume", TABLA_A_RX_HPH_L_GAIN, 0, 12, 1,
 		line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", TABLA_A_RX_HPH_R_GAIN, 0, 12, 1,
@@ -617,6 +610,10 @@ static const char *rx_mix1_text[] = {
 		"RX5", "RX6", "RX7"
 };
 
+static const char *rx_dsm_text[] = {
+	"CIC_OUT", "DSM_INV"
+};
+
 static const char *sb_tx1_mux_text[] = {
 	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
 		"DEC1"
@@ -734,6 +731,12 @@ static const struct soc_enum rx7_mix1_inp1_chain_enum =
 static const struct soc_enum rx7_mix1_inp2_chain_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX7_B1_CTL, 4, 12, rx_mix1_text);
 
+static const struct soc_enum rx4_dsm_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_RX4_B6_CTL, 4, 2, rx_dsm_text);
+
+static const struct soc_enum rx6_dsm_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_RX6_B6_CTL, 4, 2, rx_dsm_text);
+
 static const struct soc_enum sb_tx5_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B5_CTL, 0, 9, sb_tx5_mux_text);
 
@@ -835,6 +838,12 @@ static const struct snd_kcontrol_new rx7_mix1_inp1_mux =
 static const struct snd_kcontrol_new rx7_mix1_inp2_mux =
 	SOC_DAPM_ENUM("RX7 MIX1 INP2 Mux", rx7_mix1_inp2_chain_enum);
 
+static const struct snd_kcontrol_new rx4_dsm_mux =
+	SOC_DAPM_ENUM("RX4 DSM MUX Mux", rx4_dsm_enum);
+
+static const struct snd_kcontrol_new rx6_dsm_mux =
+	SOC_DAPM_ENUM("RX6 DSM MUX Mux", rx6_dsm_enum);
+
 static const struct snd_kcontrol_new sb_tx5_mux =
 	SOC_DAPM_ENUM("SLIM TX5 MUX Mux", sb_tx5_mux_enum);
 
@@ -897,24 +906,12 @@ static const struct snd_kcontrol_new dac1_switch[] = {
 static const struct snd_kcontrol_new hphl_switch[] = {
 	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_HPH_L_DAC_CTL, 6, 1, 0)
 };
-static const struct snd_kcontrol_new hphr_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_HPH_R_DAC_CTL, 6, 1, 0)
-};
-static const struct snd_kcontrol_new lineout1_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_1_DAC_CTL, 6, 1, 0)
-};
-static const struct snd_kcontrol_new lineout2_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_2_DAC_CTL, 6, 1, 0)
-};
-static const struct snd_kcontrol_new lineout3_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_3_DAC_CTL, 6, 1, 0)
-};
-static const struct snd_kcontrol_new lineout4_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_4_DAC_CTL, 6, 1, 0)
-};
-static const struct snd_kcontrol_new lineout5_switch[] = {
-	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_5_DAC_CTL, 6, 1, 0)
-};
+
+static const struct snd_kcontrol_new lineout3_ground_switch =
+	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_3_DAC_CTL, 6, 1, 0);
+
+static const struct snd_kcontrol_new lineout4_ground_switch =
+	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_4_DAC_CTL, 6, 1, 0);
 
 static void tabla_codec_enable_adc_block(struct snd_soc_codec *codec,
 	int enable)
@@ -1470,6 +1467,8 @@ static int tabla_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
+	pr_debug("%s %d %s\n", __func__, event, w->name);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_RX_RESET_CTL,
@@ -1524,6 +1523,23 @@ static int tabla_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tabla_enable_rx_bias(codec, 0);
+		break;
+	}
+	return 0;
+}
+static int tabla_hphr_dac_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	pr_debug("%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x40);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
 		break;
 	}
 	return 0;
@@ -1667,6 +1683,25 @@ static const struct snd_soc_dapm_widget tabla_dapm_i2s_widgets[] = {
 	0, NULL, 0),
 };
 
+static int tabla_lineout_dac_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	pr_debug("%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x40);
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
+		break;
+	}
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/*RX stuff */
 	SND_SOC_DAPM_OUTPUT("EAR"),
@@ -1692,8 +1727,10 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_E("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
 		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
 			SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER("HPHR DAC", TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
-		hphr_switch, ARRAY_SIZE(hphr_switch)),
+
+	SND_SOC_DAPM_DAC_E("HPHR DAC", NULL, TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
+		tabla_hphr_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* Speaker */
 	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
@@ -1718,16 +1755,25 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MIXER("LINEOUT1 DAC", TABLA_A_RX_LINE_1_DAC_CTL, 7, 0,
-		lineout1_switch, ARRAY_SIZE(lineout1_switch)),
-	SND_SOC_DAPM_MIXER("LINEOUT2 DAC", TABLA_A_RX_LINE_2_DAC_CTL, 7, 0,
-		lineout2_switch, ARRAY_SIZE(lineout2_switch)),
-	SND_SOC_DAPM_MIXER("LINEOUT3 DAC", TABLA_A_RX_LINE_3_DAC_CTL, 7, 0,
-		lineout3_switch, ARRAY_SIZE(lineout3_switch)),
-	SND_SOC_DAPM_MIXER("LINEOUT4 DAC", TABLA_A_RX_LINE_4_DAC_CTL, 7, 0,
-		lineout4_switch, ARRAY_SIZE(lineout4_switch)),
-	SND_SOC_DAPM_MIXER("LINEOUT5 DAC", TABLA_A_RX_LINE_5_DAC_CTL, 7, 0,
-		lineout5_switch, ARRAY_SIZE(lineout5_switch)),
+	SND_SOC_DAPM_DAC_E("LINEOUT1 DAC", NULL, TABLA_A_RX_LINE_1_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("LINEOUT2 DAC", NULL, TABLA_A_RX_LINE_2_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("LINEOUT3 DAC", NULL, TABLA_A_RX_LINE_3_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SWITCH("LINEOUT3 DAC GROUND", SND_SOC_NOPM, 0, 0,
+				&lineout3_ground_switch),
+	SND_SOC_DAPM_DAC_E("LINEOUT4 DAC", NULL, TABLA_A_RX_LINE_4_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SWITCH("LINEOUT4 DAC GROUND", SND_SOC_NOPM, 0, 0,
+				&lineout4_ground_switch),
+	SND_SOC_DAPM_DAC_E("LINEOUT5 DAC", NULL, TABLA_A_RX_LINE_5_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER_E("RX1 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
@@ -1743,6 +1789,15 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
 	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+
+
+	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0,
+		&rx4_dsm_mux, tabla_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("RX6 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 5, 0,
+		&rx6_dsm_mux, tabla_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_MIXER("RX1 CHAIN", TABLA_A_CDC_RX1_B6_CTL, 5, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 CHAIN", TABLA_A_CDC_RX2_B6_CTL, 5, 0, NULL, 0),
@@ -2022,7 +2077,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"DAC1", "Switch", "RX1 CHAIN"},
 	{"HPHL DAC", "Switch", "RX1 CHAIN"},
-	{"HPHR DAC", "Switch", "RX2 CHAIN"},
+	{"HPHR DAC", NULL, "RX2 CHAIN"},
 
 	{"LINEOUT1", NULL, "LINEOUT1 PA"},
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
@@ -2036,21 +2091,20 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT4 PA", NULL, "LINEOUT4 DAC"},
 	{"LINEOUT5 PA", NULL, "LINEOUT5 DAC"},
 
+	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
+	{"LINEOUT5 DAC", NULL, "RX7 MIX1"},
+
 	{"RX1 CHAIN", NULL, "RX1 MIX1"},
 	{"RX2 CHAIN", NULL, "RX2 MIX1"},
 	{"RX1 CHAIN", NULL, "ANC"},
 	{"RX2 CHAIN", NULL, "ANC"},
-	{"LINEOUT1 DAC", "Switch", "RX3 MIX1"},
-	{"LINEOUT2 DAC", "Switch", "RX4 MIX1"},
-	{"LINEOUT3 DAC", "Switch", "RX3 MIX1"},
-	{"LINEOUT4 DAC", "Switch", "RX4 MIX1"},
-	{"LINEOUT5 DAC", "Switch", "RX7 MIX1"},
 
 	{"CP", NULL, "RX_BIAS"},
 	{"LINEOUT1 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT3 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT4 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT5 DAC", NULL, "RX_BIAS"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
@@ -2198,6 +2252,25 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS3 Internal2", NULL, "LDO_H"},
 	{"MIC BIAS3 External", NULL, "LDO_H"},
 	{"MIC BIAS4 External", NULL, "LDO_H"},
+};
+
+static const struct snd_soc_dapm_route tabla_1_x_lineout_2_to_4_map[] = {
+
+	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX1"},
+	{"RX4 DSM MUX", "CIC_OUT", "RX4 MIX1"},
+
+	{"LINEOUT2 DAC", NULL, "RX4 DSM MUX"},
+
+	{"LINEOUT3 DAC", NULL, "RX5 MIX1"},
+	{"LINEOUT3 DAC GROUND", "Switch", "RX3 MIX1"},
+	{"LINEOUT3 DAC", NULL, "LINEOUT3 DAC GROUND"},
+
+	{"RX6 DSM MUX", "DSM_INV", "RX5 MIX1"},
+	{"RX6 DSM MUX", "CIC_OUT", "RX6 MIX1"},
+
+	{"LINEOUT4 DAC", NULL, "RX6 DSM MUX"},
+	{"LINEOUT4 DAC GROUND", "Switch", "RX4 DSM MUX"},
+	{"LINEOUT4 DAC", NULL, "LINEOUT4 DAC GROUND"},
 };
 
 static int tabla_readable(struct snd_soc_codec *ssc, unsigned int reg)
@@ -3548,6 +3621,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
 	int i;
+	u8 tabla_version;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -3600,6 +3674,16 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			ARRAY_SIZE(audio_i2s_map));
 	}
 	snd_soc_dapm_add_routes(dapm, audio_map, ARRAY_SIZE(audio_map));
+
+	tabla_version = snd_soc_read(codec, TABLA_A_CHIP_VERSION);
+	pr_info("%s : Tabla version reg 0x%2x\n", __func__, (u32)tabla_version);
+
+	tabla_version &=  0x1F;
+	pr_info("%s : Tabla version %u\n", __func__, (u32)tabla_version);
+
+	snd_soc_dapm_add_routes(dapm, tabla_1_x_lineout_2_to_4_map,
+			 ARRAY_SIZE(tabla_1_x_lineout_2_to_4_map));
+
 	snd_soc_dapm_sync(dapm);
 
 	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION,
