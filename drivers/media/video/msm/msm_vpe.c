@@ -668,6 +668,7 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
 		atomic_set(&vpe_init_done, 0);
 		return rc;
 	}
+	v4l2_set_subdev_hostdata(sd, data);
 	spin_lock_init(&vpe_ctrl->lock);
 	CDBG("%s:end", __func__);
 	return rc;
