@@ -1374,19 +1374,6 @@ static int hci_fm_set_cal_req_proc(struct radio_hci_dev *hdev,
 		cal_req);
 }
 
-static int hci_fm_set_cal_req_dc(struct radio_hci_dev *hdev,
-		unsigned long param)
-{
-	u16 opcode = 0;
-	struct hci_fm_set_cal_req_dc *cal_req =
-		(struct hci_fm_set_cal_req_dc *)param;
-
-	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
-		HCI_OCF_FM_SET_CALIBRATION);
-	return radio_hci_send_cmd(hdev, opcode, sizeof(*cal_req),
-		cal_req);
-}
-
 static int hci_fm_do_cal_req(struct radio_hci_dev *hdev,
 		unsigned long param)
 {
@@ -1785,12 +1772,12 @@ static void hci_cc_do_calibration_rsp(struct radio_hci_dev *hdev,
 	if (rsp.mode == PROCS_CALIB_MODE) {
 		memcpy(&rsp.data[0], &skb->data[CALIB_DATA_OFSET],
 				PROCS_CALIB_SIZE);
-	} else if (rsp.mode == DC_CALIB_MODE) {
-		memcpy(&rsp.data[PROCS_CALIB_SIZE],
-			&skb->data[CALIB_DATA_OFSET], DC_CALIB_SIZE);
-		iris_q_evt_data(radio, rsp.data, (PROCS_CALIB_SIZE +
-				DC_CALIB_SIZE), IRIS_BUF_CAL_DATA);
+	iris_q_evt_data(radio, rsp.data, PROCS_CALIB_SIZE,
+					IRIS_BUF_CAL_DATA);
+	} else {
+		return;
 	}
+
 	radio_hci_req_complete(hdev, rsp.status);
 }
 static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
@@ -2393,13 +2380,6 @@ static int iris_do_calibration(struct iris_device *radio)
 		FMDERR("Do Process calibration failed %x", retval);
 		return retval;
 	}
-	cal_mode = DC_CALIB_MODE;
-	retval = radio_hci_request(radio->fm_hdev, hci_fm_do_cal_req,
-		(unsigned long)cal_mode, RADIO_HCI_TIMEOUT);
-	if (retval < 0) {
-		FMDERR("Do DC calibration failed %x", retval);
-		return retval;
-	}
 	retval = hci_cmd(HCI_FM_DISABLE_RECV_CMD,
 			radio->fm_hdev);
 	if (retval < 0)
@@ -2561,7 +2541,6 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct hci_fm_tx_rt tx_rt;
 	struct hci_fm_def_data_wr_req default_data;
 	struct hci_fm_set_cal_req_proc proc_cal_req;
-	struct hci_fm_set_cal_req_dc dc_cal_req;
 
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
@@ -2617,7 +2596,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_SET_CALIBRATION:
 		data = (ctrl->controls[0]).string;
 		bytes_to_copy = (ctrl->controls[0]).size;
-		if (bytes_to_copy < (PROCS_CALIB_SIZE + DC_CALIB_SIZE)) {
+		if (bytes_to_copy < PROCS_CALIB_SIZE) {
 			FMDERR("data is less than required size");
 			return -EFAULT;
 		}
@@ -2632,18 +2611,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 				 RADIO_HCI_TIMEOUT);
 		if (retval < 0) {
 			FMDERR("Set Process calibration failed %d", retval);
-			return retval;
 		}
-		memset(dc_cal_req.data, 0, DC_CALIB_SIZE);
-		if (copy_from_user(&dc_cal_req.data[0], &data[PROCS_CALIB_SIZE],
-				sizeof(dc_cal_req.data)))
-				return -EFAULT;
-		dc_cal_req.mode = DC_CALIB_MODE;
-		retval = radio_hci_request(radio->fm_hdev,
-				hci_fm_set_cal_req_dc,
-				(unsigned long)&dc_cal_req, RADIO_HCI_TIMEOUT);
-		if (retval < 0)
-			FMDERR("Set DC calibration failed %d", retval);
 		break;
 	default:
 		FMDBG("Shouldn't reach here\n");
