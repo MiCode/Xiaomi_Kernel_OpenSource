@@ -102,7 +102,6 @@ int acpuclk_init(struct acpuclk_soc_data *);
 extern struct acpuclk_soc_data acpuclk_7x27_soc_data;
 extern struct acpuclk_soc_data acpuclk_7x27a_soc_data;
 extern struct acpuclk_soc_data acpuclk_7x27aa_soc_data;
-extern struct acpuclk_soc_data acpuclk_7201_soc_data;
 extern struct acpuclk_soc_data acpuclk_7x30_soc_data;
 extern struct acpuclk_soc_data acpuclk_8x50_soc_data;
 extern struct acpuclk_soc_data acpuclk_8x60_soc_data;

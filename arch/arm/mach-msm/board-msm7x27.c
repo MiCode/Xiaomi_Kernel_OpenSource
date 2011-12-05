@@ -1757,10 +1757,7 @@ static void __init msm7x2x_init(void)
 		}
 	}
 #endif
-	if (cpu_is_msm7x27())
-		acpuclk_init(&acpuclk_7x27_soc_data);
-	else
-		acpuclk_init(&acpuclk_7201_soc_data);
+	acpuclk_init(&acpuclk_7x27_soc_data);
 
 	usb_mpp_init();
 
