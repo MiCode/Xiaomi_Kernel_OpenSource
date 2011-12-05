@@ -20,6 +20,8 @@
 #define BB_L2CYCLE_CTR_EVENT_IDX 4
 #define BB_L2CYCLE_CTR_RAW_CODE 0xfe
 #define SCORPIONL2_PMNC_E       (1 << 0)	/* Enable all counters */
+#define SCORPION_L2_EVT_PREFIX 3
+#define SCORPION_MAX_L2_REG 4
 
 /*
  * Lock to protect r/m/w sequences to the L2 PMU.
@@ -365,6 +367,26 @@ static unsigned int get_bb_l2_evtinfo(unsigned int evt_type,
 				      struct bb_l2_scorp_evt *evtinfo)
 {
 	u32 idx;
+	u8 prefix;
+	u8 reg;
+	u8 code;
+	u8 group;
+
+	prefix = (evt_type & 0xF0000) >> 16;
+	if (prefix == SCORPION_L2_EVT_PREFIX) {
+		reg   = (evt_type & 0x0F000) >> 12;
+		code  = (evt_type & 0x00FF0) >> 4;
+		group =  evt_type & 0x0000F;
+
+		if ((group > 3) || (reg > SCORPION_MAX_L2_REG))
+			return BB_L2_INV_EVTYPE;
+
+		evtinfo->val = 0x80000000 | (code << (group * 8));
+		evtinfo->grp = reg;
+		evtinfo->evt_type_act = group | (reg << 2);
+		return evtinfo->evt_type_act;
+	}
+
 	if (evt_type < BB_L2_EVT_START_IDX || evt_type >= BB_L2_MAX_EVT)
 		return BB_L2_INV_EVTYPE;
 	idx = evt_type - BB_L2_EVT_START_IDX;
