@@ -79,7 +79,7 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
 
 	for (i = 0; i < csiphy_params->lane_cnt; i++) {
-		msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNn_CFG1_ADDR + 0x40*i);
+		msm_io_w(0x00, csiphybase + MIPI_CSIPHY_LNn_CFG1_ADDR + 0x40*i);
 		msm_io_w(0x5F, csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
 		msm_io_w(csiphy_params->settle_cnt,
 			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*i);
