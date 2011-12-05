@@ -18,7 +18,14 @@ enum {
 	MSM_PM_BOOT_CONFIG_RESET_VECTOR	= 1,
 };
 
+#ifdef CONFIG_PM
 int __init msm_pm_boot_init(int boot_config, uint32_t* address);
+#else
+static inline int __init msm_pm_boot_init(int boot_config, uint32_t* address)
+{
+	return 0;
+}
+#endif
 void msm_pm_boot_config_before_pc(unsigned int cpu, unsigned long entry);
 void msm_pm_boot_config_after_pc(unsigned int cpu);
 
