@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
@@ -56,12 +57,14 @@ static void __cpuinit release_secondary(unsigned int cpu)
 
 	/* KraitMP or ScorpionMP ? */
 	if ((read_cpuid_id() & 0xFF0) >> 4 != 0x2D) {
-		base_ptr = ioremap_nocache(0x02098000, SZ_4K);
+		base_ptr = ioremap_nocache(0x02088000 + (cpu * 0x10000), SZ_4K);
 		if (base_ptr) {
 			if (machine_is_msm8960_sim() ||
 			    machine_is_msm8960_rumi3()) {
 				writel_relaxed(0x10, base_ptr+0x04);
 				writel_relaxed(0x80, base_ptr+0x04);
+			} else if (machine_is_apq8064_sim()) {
+				writel_relaxed(0xf0000, base_ptr+0x04);
 			} else if (get_core_count() == 2) {
 				writel_relaxed(0x109, base_ptr+0x04);
 				writel_relaxed(0x101, base_ptr+0x04);
@@ -95,6 +98,12 @@ static void __cpuinit release_secondary(unsigned int cpu)
 }
 
 DEFINE_PER_CPU(int, cold_boot_done);
+static int cold_boot_flags[] = {
+	0,
+	SCM_FLAG_COLDBOOT_CPU1,
+	SCM_FLAG_COLDBOOT_CPU2,
+	SCM_FLAG_COLDBOOT_CPU3,
+};
 
 /* Executed by primary CPU, brings other CPUs out of reset. Called at boot
    as well as when a CPU is coming out of shutdown induced by echo 0 >
@@ -104,16 +113,22 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	int cnt = 0;
 	int ret;
+	int flag = 0;
 
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
 	/* Set preset_lpj to avoid subsequent lpj recalculations */
 	preset_lpj = loops_per_jiffy;
 
+	if (cpu > 0 && cpu < ARRAY_SIZE(cold_boot_flags))
+		flag = cold_boot_flags[cpu];
+	else
+		__WARN();
+
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		ret = scm_set_boot_addr((void *)
 					virt_to_phys(msm_secondary_startup),
-					SCM_FLAG_COLDBOOT_CPU1);
+					flag);
 		if (ret == 0)
 			release_secondary(cpu);
 		else
