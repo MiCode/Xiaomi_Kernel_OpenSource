@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_ARCH_MSM8x60
+#ifdef CONFIG_ARCH_MSM8X60
 
 #include <linux/irq.h>
 
