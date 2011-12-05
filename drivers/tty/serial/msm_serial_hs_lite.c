@@ -1138,7 +1138,7 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 		spin_unlock(&port->lock);
 }
 
-static int __init msm_hsl_console_setup(struct console *co, char *options)
+static int msm_hsl_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
 	unsigned int vid;
@@ -1201,7 +1201,93 @@ static struct console msm_hsl_console = {
 };
 
 #define MSM_HSL_CONSOLE	(&msm_hsl_console)
+/*
+ * get_console_state - check the per-port serial console state.
+ * @port: uart_port structure describing the port
+ *
+ * Return the state of serial console availability on port.
+ * return 1: If serial console is enabled on particular UART port.
+ * return 0: If serial console is disabled on particular UART port.
+ */
+static int get_console_state(struct uart_port *port)
+{
+	if (is_console(port) && (port->cons->flags & CON_ENABLED))
+		return 1;
+	else
+		return 0;
+}
 
+/* show_msm_console - provide per-port serial console state. */
+static ssize_t show_msm_console(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int enable;
+	struct uart_port *port;
+
+	struct platform_device *pdev = to_platform_device(dev);
+	port = get_port_from_line(pdev->id);
+
+	enable = get_console_state(port);
+
+	return snprintf(buf, sizeof(enable), "%d\n", enable);
+}
+
+/*
+ * set_msm_console - allow to enable/disable serial console on port.
+ *
+ * writing 1 enables serial console on UART port.
+ * writing 0 disables serial console on UART port.
+ */
+static ssize_t set_msm_console(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int enable, cur_state;
+	struct uart_port *port;
+
+	struct platform_device *pdev = to_platform_device(dev);
+	port = get_port_from_line(pdev->id);
+
+	cur_state = get_console_state(port);
+	enable = buf[0] - '0';
+
+	if (enable == cur_state)
+		return count;
+
+	switch (enable) {
+	case 0:
+		pr_debug("%s(): Calling stop_console\n", __func__);
+		console_stop(port->cons);
+		pr_debug("%s(): Calling unregister_console\n", __func__);
+		unregister_console(port->cons);
+		pm_runtime_put_sync(&pdev->dev);
+		pm_runtime_disable(&pdev->dev);
+		/*
+		 * Disable UART Core clk
+		 * 3 - to disable the UART clock
+		 * Thid parameter is not used here, but used in serial core.
+		 */
+		msm_hsl_power(port, 3, 1);
+		break;
+	case 1:
+		pr_debug("%s(): Calling register_console\n", __func__);
+		/*
+		 * Disable UART Core clk
+		 * 0 - to enable the UART clock
+		 * Thid parameter is not used here, but used in serial core.
+		 */
+		msm_hsl_power(port, 0, 1);
+		pm_runtime_enable(&pdev->dev);
+		register_console(port->cons);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return count;
+}
+static DEVICE_ATTR(console, S_IWUSR | S_IRUGO, show_msm_console,
+						set_msm_console);
 #else
 #define MSM_HSL_CONSOLE	NULL
 #endif
@@ -1286,6 +1372,11 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);
 	pm_runtime_enable(port->dev);
+#ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
+	ret = device_create_file(&pdev->dev, &dev_attr_console);
+	if (unlikely(ret))
+		pr_err("%s():Can't create console attribute\n", __func__);
+#endif
 	msm_hsl_debugfs_init(msm_hsl_port, pdev->id);
 
 	/* Temporarily increase the refcount on the GSBI clock to avoid a race
@@ -1305,6 +1396,9 @@ static int __devexit msm_serial_hsl_remove(struct platform_device *pdev)
 	struct uart_port *port;
 
 	port = get_port_from_line(pdev->id);
+#ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
+	device_remove_file(&pdev->dev, &dev_attr_console);
+#endif
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
