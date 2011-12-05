@@ -2773,6 +2773,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	unsigned long flags;
 	int i, j;
 	int retval = -ENOMEM;
+	bool put = false;
 
 	trace("%p", driver);
 
@@ -2877,18 +2878,21 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 			if (udc->udc_driver->flags & CI13XXX_REGS_SHARED)
 				hw_device_reset(udc);
 		} else {
+			put = true;
 			goto done;
 		}
 	}
 
-	if (!udc->softconnect)
+	if (!udc->softconnect) {
+		put = true;
 		goto done;
+	}
 
 	retval = hw_device_state(udc->ep0out.qh.dma);
 
  done:
 	spin_unlock_irqrestore(udc->lock, flags);
-	if (retval)
+	if (retval || put)
 		pm_runtime_put_sync(&udc->gadget.dev);
 	return retval;
 }
