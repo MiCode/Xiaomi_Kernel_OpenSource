@@ -16,6 +16,8 @@
 #include <linux/irq.h>
 #include <linux/i2c.h>
 #include <linux/slimbus/slimbus.h>
+#include <linux/mfd/wcd9310/core.h>
+#include <linux/mfd/wcd9310/pdata.h>
 #include <linux/msm_ssbi.h>
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
@@ -224,6 +226,46 @@ enum sdcc_controllers {
 	SDCC3,
 	SDCC4,
 	MAX_SDCC_CONTROLLER
+};
+
+#define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
+
+/* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
+ * 4 micbiases are used to power various analog and digital
+ * microphones operating at 1800 mV. Technically, all micbiases
+ * can source from single cfilter since all microphones operate
+ * at the same voltage level. The arrangement below is to make
+ * sure all cfilters are exercised. LDO_H regulator ouput level
+ * does not need to be as high as 2.85V. It is choosen for
+ * microphone sensitivity purpose.
+ */
+static struct tabla_pdata apq8064_tabla_platform_data = {
+	.slimbus_slave_device = {
+		.name = "tabla-slave",
+		.e_addr = {0, 0, 0x10, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(62),
+	.irq_base = TABLA_INTERRUPT_BASE,
+	.num_irqs = NR_TABLA_IRQS,
+	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	}
+};
+
+static struct slim_device apq8064_slim_tabla = {
+	.name = "tabla-slim",
+	.e_addr = {0, 1, 0x10, 0, 0x17, 2},
+	.dev = {
+		.platform_data = &apq8064_tabla_platform_data,
+	},
 };
 
 /* All SDCC controllers require VDD/VCC voltage */
@@ -656,6 +698,27 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_HW_RANDOM_MSM
 	&apq8064_device_rng,
 #endif
+	&msm_pcm,
+	&msm_pcm_routing,
+	&msm_cpudai0,
+	&msm_cpudai1,
+	&msm_cpudai_hdmi_rx,
+	&msm_cpudai_bt_rx,
+	&msm_cpudai_bt_tx,
+	&msm_cpudai_fm_rx,
+	&msm_cpudai_fm_tx,
+	&msm_cpu_fe,
+	&msm_stub_codec,
+	&msm_voice,
+	&msm_voip,
+	&msm_lpa_pcm,
+	&msm_cpudai_afe_01_rx,
+	&msm_cpudai_afe_01_tx,
+	&msm_cpudai_afe_02_rx,
+	&msm_cpudai_afe_02_tx,
+	&msm_pcm_afe,
+	&msm_cpudai_auxpcm_rx,
+	&msm_cpudai_auxpcm_tx,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -666,6 +729,10 @@ static struct platform_device *sim_devices[] __initdata = {
 static struct platform_device *rumi3_devices[] __initdata = {
 	&apq8064_device_uart_gsbi1,
 	&msm_device_sps_apq8064,
+	&msm_cpudai_bt_rx,
+	&msm_cpudai_bt_tx,
+	&msm_cpudai_fm_rx,
+	&msm_cpudai_fm_tx,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
@@ -810,12 +877,62 @@ static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
 };
 
 static struct slim_boardinfo apq8064_slim_devices[] = {
-	/* Add slimbus slaves as needed */
+	{
+	.bus_num = 1,
+	.slim_slave = &apq8064_slim_tabla,
+	},
+	/* add more slimbus slaves as needed */
 };
 
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
+};
+
+
+static struct gpiomux_setting audio_auxpcm[] = {
+	/* Suspended state */
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+};
+static struct msm_gpiomux_config apq8064_audio_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 43,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 44,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 45,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 46,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
 };
 
 static void __init apq8064_i2c_init(void)
@@ -838,6 +955,8 @@ static int __init gpiomux_init(void)
 
 	msm_gpiomux_install(apq8064_gsbi_configs,
 			ARRAY_SIZE(apq8064_gsbi_configs));
+	msm_gpiomux_install(apq8064_audio_auxpcm_configs,
+			ARRAY_SIZE(apq8064_audio_auxpcm_configs));
 	return 0;
 }
 
