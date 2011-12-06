@@ -22,7 +22,7 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
-#include "board-msm8930.h"
+#include "board-8960.h"
 
 /* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
@@ -255,7 +255,7 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 };
 #endif
 
-void __init msm8930_init_mmc(void)
+void __init msm8960_init_mmc(void)
 {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 	/* SDC1 : eMMC card connected */

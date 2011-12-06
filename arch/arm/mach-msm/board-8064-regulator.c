@@ -13,7 +13,7 @@
 
 #include <linux/regulator/pm8921-regulator.h>
 
-#include "board-apq8064.h"
+#include "board-8064.h"
 
 #define VREG_CONSUMERS(_id) \
 	static struct regulator_consumer_supply vreg_consumers_##_id[]

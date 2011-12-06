@@ -22,15 +22,15 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
-#include "board-msm8960.h"
+#include "board-8064.h"
 
-/* MSM8960 has 5 SDCC controllers */
+
+/* APQ8064 has 4 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
 	SDCC2,
 	SDCC3,
 	SDCC4,
-	SDCC5,
 	MAX_SDCC_CONTROLLER
 };
 
@@ -146,18 +146,8 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_on_cfg[] = {
 
 static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_CLK, GPIO_CFG_NO_PULL},
-	/*
-	 * SDC3 CMD line should be PULLed UP otherwise fluid platform will
-	 * see transitions (1 -> 0 and 0 -> 1) on card detection line,
-	 * which would result in false card detection interrupts.
-	 */
-	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_UP},
-	/*
-	 * Keeping DATA lines status to PULL UP will make sure that
-	 * there is no current leak during sleep if external pull up
-	 * is connected to DATA lines.
-	 */
-	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
+	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_DOWN},
+	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_DOWN}
 };
 
 static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
@@ -206,16 +196,12 @@ static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 static unsigned int sdc1_sup_clk_rates[] = {
-	400000, 24000000, 48000000
-};
-
-static unsigned int sdc3_sup_clk_rates[] = {
 	400000, 24000000, 48000000, 96000000
 };
 
-#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-static struct mmc_platform_data msm8960_sdc1_data = {
+static struct mmc_platform_data sdc1_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
 #ifdef CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT
 	.mmc_bus_width  = MMC_CAP_8_BIT_DATA,
@@ -224,45 +210,48 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 #endif
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
-	.pclk_src_dfab	= 1,
-	.nonremovable	= 1,
+	.pin_data	= &mmc_slot_pin_data[SDCC1],
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
-	.pin_data	= &mmc_slot_pin_data[SDCC1]
 };
+static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
+#else
+static struct mmc_platform_data *apq8064_sdc1_pdata;
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-static struct mmc_platform_data msm8960_sdc3_data = {
+static unsigned int sdc3_sup_clk_rates[] = {
+	400000, 24000000, 48000000, 96000000
+};
+
+static struct mmc_platform_data sdc3_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc3_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
-	.pclk_src_dfab	= 1,
-#ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
-	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
-#endif
-	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-	.status_gpio	= PM8921_GPIO_PM_TO_SYS(26),
-	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 26),
-	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-#endif
-	.xpc_cap	= 1,
-	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
-			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
-			MMC_CAP_MAX_CURRENT_600)
+	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 };
+static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
+#else
+static struct mmc_platform_data *apq8064_sdc3_pdata;
 #endif
 
-void __init msm8960_init_mmc(void)
+void __init apq8064_init_mmc(void)
 {
-#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-	/* SDC1 : eMMC card connected */
-	msm_add_sdcc(1, &msm8960_sdc1_data);
-#endif
-#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-	/* SDC3: External card slot */
-	msm_add_sdcc(3, &msm8960_sdc3_data);
-#endif
+	if ((machine_is_apq8064_rumi3()) || machine_is_apq8064_sim()) {
+		if (apq8064_sdc1_pdata) {
+			if (machine_is_apq8064_sim())
+				apq8064_sdc1_pdata->disable_bam = true;
+			apq8064_sdc1_pdata->disable_runtime_pm = true;
+			apq8064_sdc1_pdata->disable_cmd23 = true;
+		}
+		if (apq8064_sdc3_pdata) {
+			if (machine_is_apq8064_sim())
+				apq8064_sdc3_pdata->disable_bam = true;
+			apq8064_sdc3_pdata->disable_runtime_pm = true;
+			apq8064_sdc3_pdata->disable_cmd23 = true;
+		}
+	}
+	apq8064_add_sdcc(1, apq8064_sdc1_pdata);
+	apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 }

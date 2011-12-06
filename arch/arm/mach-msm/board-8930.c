@@ -81,7 +81,7 @@
 #include "devices.h"
 #include "devices-msm8x60.h"
 #include "spm.h"
-#include "board-msm8930.h"
+#include "board-8930.h"
 #include "pm.h"
 #include "cpuidle.h"
 #include "rpm_resources.h"

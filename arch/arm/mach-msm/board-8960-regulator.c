@@ -15,7 +15,7 @@
 #include <linux/regulator/gpio-regulator.h>
 #include <mach/rpm-regulator.h>
 
-#include "board-msm8960.h"
+#include "board-8960.h"
 
 #define VREG_CONSUMERS(_id) \
 	static struct regulator_consumer_supply vreg_consumers_##_id[]

@@ -20,8 +20,9 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 #include "devices.h"
-#include "board-msm8960.h"
+#include "board-8930.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_PRIM_BUF_SIZE (1376 * 768 * 4 * 3) /* 4 bpp x 3 pages */
@@ -81,39 +82,32 @@ static struct resource msm_fb_resources[] = {
 
 static int msm_fb_detect_panel(const char *name)
 {
-	if (machine_is_msm8960_liquid()) {
-		if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
-	} else {
-		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+	if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
 #ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
-		if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
-				strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+	if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+			strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
-		if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
-				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+	if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+			strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
-		if (!strncmp(name, MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+	if (!strncmp(name, MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+			strnlen(MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 
-		if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
-				strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+	if (!strncmp(name, MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+			strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
+				PANEL_NAME_MAX_LEN)))
+		return 0;
 #endif
-	}
 
 	if (!strncmp(name, HDMI_PANEL_NAME,
 			strnlen(HDMI_PANEL_NAME,
@@ -142,123 +136,6 @@ static struct platform_device msm_fb_device = {
 };
 
 static bool dsi_power_on;
-
-/**
- * LiQUID panel on/off
- *
- * @param on
- *
- * @return int
- */
-static int mipi_dsi_liquid_panel_power(int on)
-{
-	static struct regulator *reg_l2, *reg_ext_3p3v;
-	static int gpio21, gpio24, gpio43;
-	int rc;
-
-	pr_info("%s: on=%d\n", __func__, on);
-
-	gpio21 = PM8921_GPIO_PM_TO_SYS(21); /* disp power enable_n */
-	gpio43 = PM8921_GPIO_PM_TO_SYS(43); /* Displays Enable (rst_n)*/
-	gpio24 = PM8921_GPIO_PM_TO_SYS(24); /* Backlight PWM */
-
-	if (!dsi_power_on) {
-
-		reg_l2 = regulator_get(&msm_mipi_dsi1_device.dev,
-				"dsi_vdda");
-		if (IS_ERR(reg_l2)) {
-			pr_err("could not get 8921_l2, rc = %ld\n",
-				PTR_ERR(reg_l2));
-			return -ENODEV;
-		}
-
-		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
-		if (rc) {
-			pr_err("set_voltage l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-
-		reg_ext_3p3v = regulator_get(&msm_mipi_dsi1_device.dev,
-			"vdd_lvds_3p3v");
-		if (IS_ERR(reg_ext_3p3v)) {
-			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
-			       PTR_ERR(reg_ext_3p3v));
-		    return -ENODEV;
-		}
-
-		rc = gpio_request(gpio21, "disp_pwr_en_n");
-		if (rc) {
-			pr_err("request gpio 21 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = gpio_request(gpio43, "disp_rst_n");
-		if (rc) {
-			pr_err("request gpio 43 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = gpio_request(gpio24, "disp_backlight_pwm");
-		if (rc) {
-			pr_err("request gpio 24 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		dsi_power_on = true;
-	}
-
-	if (on) {
-		rc = regulator_set_optimum_mode(reg_l2, 100000);
-		if (rc < 0) {
-			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-		rc = regulator_enable(reg_l2);
-		if (rc) {
-			pr_err("enable l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = regulator_enable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		/* set reset pin before power enable */
-		gpio_set_value_cansleep(gpio43, 0); /* disp disable (resx=0) */
-
-		gpio_set_value_cansleep(gpio21, 0); /* disp power enable_n */
-		msleep(20);
-		gpio_set_value_cansleep(gpio43, 1); /* disp enable */
-		msleep(20);
-		gpio_set_value_cansleep(gpio43, 0); /* disp enable */
-		msleep(20);
-		gpio_set_value_cansleep(gpio43, 1); /* disp enable */
-		msleep(20);
-	} else {
-		gpio_set_value_cansleep(gpio43, 0);
-		gpio_set_value_cansleep(gpio21, 1);
-
-		rc = regulator_disable(reg_l2);
-		if (rc) {
-			pr_err("disable reg_l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_set_optimum_mode(reg_l2, 100);
-		if (rc < 0) {
-			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
 
 static int mipi_dsi_cdp_panel_power(int on)
 {
@@ -384,16 +261,9 @@ static int mipi_dsi_cdp_panel_power(int on)
 
 static int mipi_dsi_panel_power(int on)
 {
-	int ret;
-
 	pr_info("%s: on=%d\n", __func__, on);
 
-	if (machine_is_msm8960_liquid())
-		ret = mipi_dsi_liquid_panel_power(on);
-	else
-		ret = mipi_dsi_cdp_panel_power(on);
-
-	return ret;
+	return mipi_dsi_cdp_panel_power(on);
 }
 
 static struct mipi_dsi_platform_data mipi_dsi_pdata = {
@@ -556,16 +426,6 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.writeback_offset = writeback_offset,
 };
 
-static struct platform_device mipi_dsi_renesas_panel_device = {
-	.name = "mipi_renesas",
-	.id = 0,
-};
-
-static struct platform_device mipi_dsi_simulator_panel_device = {
-	.name = "mipi_simulator",
-	.id = 0,
-};
-
 #define LPM_CHANNEL0 0
 static int toshiba_gpio[] = {LPM_CHANNEL0};
 
@@ -582,14 +442,6 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 };
 
 #define FPGA_3D_GPIO_CONFIG_ADDR	0xB5
-static int dsi2lvds_gpio[2] = {
-	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
-	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
-	};
-
-static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
-	.gpio_num = dsi2lvds_gpio,
-};
 
 static struct mipi_dsi_phy_ctrl dsi_novatek_cmd_mode_phy_db = {
 
@@ -618,12 +470,6 @@ static struct platform_device mipi_dsi_novatek_panel_device = {
 	.dev = {
 		.platform_data = &novatek_pdata,
 	}
-};
-
-static struct platform_device mipi_dsi2lvds_bridge_device = {
-	.name = "mipi_tc358764",
-	.id = 0,
-	.dev.platform_data = &mipi_dsi2lvds_pdata,
 };
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -908,7 +754,7 @@ error:
 }
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
-void __init msm8960_init_fb(void)
+void __init msm8930_init_fb(void)
 {
 	platform_device_register(&msm_fb_device);
 
@@ -917,37 +763,23 @@ void __init msm8960_init_fb(void)
 	platform_device_register(&wfd_device);
 #endif
 
-	if (machine_is_msm8960_sim())
-		platform_device_register(&mipi_dsi_simulator_panel_device);
-
-	if (machine_is_msm8960_rumi3())
-		platform_device_register(&mipi_dsi_renesas_panel_device);
-
-	if (!machine_is_msm8960_sim() && !machine_is_msm8960_rumi3()) {
-		platform_device_register(&mipi_dsi_novatek_panel_device);
+	platform_device_register(&mipi_dsi_novatek_panel_device);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+	if (!cpu_is_msm8627())
 		platform_device_register(&hdmi_msm_device);
 #endif
-	}
 
-	if (machine_is_msm8960_liquid())
-		platform_device_register(&mipi_dsi2lvds_bridge_device);
-	else
-		platform_device_register(&mipi_dsi_toshiba_panel_device);
+	platform_device_register(&mipi_dsi_toshiba_panel_device);
 
-	if (machine_is_msm8x60_rumi3()) {
-		msm_fb_register_device("mdp", NULL);
-		mipi_dsi_pdata.target_type = 1;
-	} else
-		msm_fb_register_device("mdp", &mdp_pdata);
+	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_fb_register_device("dtv", &dtv_pdata);
 #endif
 }
 
-void __init msm8960_allocate_fb_region(void)
+void __init msm8930_allocate_fb_region(void)
 {
 	void *addr;
 	unsigned long size;

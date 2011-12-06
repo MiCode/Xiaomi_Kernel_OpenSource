@@ -44,7 +44,7 @@
 #include <mach/dma.h>
 
 #include "msm_watchdog.h"
-#include "board-apq8064.h"
+#include "board-8064.h"
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x3800000

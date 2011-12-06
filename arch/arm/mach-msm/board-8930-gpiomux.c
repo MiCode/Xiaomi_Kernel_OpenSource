@@ -16,7 +16,7 @@
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
 #include "devices.h"
-#include "board-msm8930.h"
+#include "board-8930.h"
 
 /* The SPI configurations apply to GSBI 1*/
 static struct gpiomux_setting spi_active = {
