@@ -506,14 +506,15 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 		return ret;
 	}
 
-	ulpi_init(motg);
-
 	ret = msm_otg_link_reset(motg);
 	if (ret) {
 		dev_err(otg->dev, "link reset failed\n");
 		return ret;
 	}
 	msleep(100);
+
+	ulpi_init(motg);
+
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 

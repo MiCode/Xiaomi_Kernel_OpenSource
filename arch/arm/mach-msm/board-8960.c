@@ -822,6 +822,22 @@ put_mvs_otg:
 	vbus_is_on = false;
 }
 
+static int wr_phy_init_seq[] = {
+	0x44, 0x80, /* set VBUS valid threshold
+			and disconnect valid threshold */
+	0x38, 0x81, /* update DC voltage level */
+	0x14, 0x82, /* set preemphasis and rise/fall time */
+	0x13, 0x83, /* set source impedance adjusment */
+	-1};
+
+static int liquid_v1_phy_init_seq[] = {
+	0x44, 0x80,/* set VBUS valid threshold
+			and disconnect valid threshold */
+	0x3C, 0x81,/* update DC voltage level */
+	0x18, 0x82,/* set preemphasis and rise/fall time */
+	0x23, 0x83,/* set source impedance sdjusment */
+	-1};
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -2115,6 +2131,13 @@ static void __init msm8960_cdp_init(void)
 	if (machine_is_msm8960_liquid())
 		msm_otg_pdata.mhl_enable = true;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
+	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
+		machine_is_msm8960_cdp()) {
+		msm_otg_pdata.phy_init_seq = wr_phy_init_seq;
+	} else if (machine_is_msm8960_liquid()) {
+			msm_otg_pdata.phy_init_seq =
+				liquid_v1_phy_init_seq;
+	}
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if (machine_is_msm8960_liquid()) {
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
