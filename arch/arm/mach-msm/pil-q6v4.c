@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 
+#include <mach/msm_bus.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 
@@ -194,6 +195,11 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 	if (drv->modem_base)
 		pil_q6v4_init_modem(drv->modem_base, pdata->jtag_clk_reg);
 
+	/* Unhalt bus port */
+	err = msm_bus_axi_portunhalt(pdata->bus_port);
+	if (err)
+		dev_err(pil->dev, "Failed to unhalt bus port\n");
+
 	/*
 	 * Assert AXIS_ACLK_EN override to allow for correct updating of the
 	 * QDSP6_CORE_STATE status bit. This is mandatory only for the SW Q6
@@ -269,6 +275,10 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
 	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
+	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+
+	/* Make sure bus port is halted */
+	msm_bus_axi_porthalt(pdata->bus_port);
 
 	/* Turn off Q6 core clock */
 	writel_relaxed(Q6SS_SRC_SWITCH_CLK_OVR,
@@ -319,6 +329,11 @@ static int pil_q6v4_reset_trusted(struct pil_desc *pil)
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
 		return err;
+
+	/* Unhalt bus port */
+	err = msm_bus_axi_portunhalt(pdata->bus_port);
+	if (err)
+		dev_err(pil->dev, "Failed to unhalt bus port\n");
 	return pas_auth_and_reset(pdata->pas_id);
 }
 
@@ -327,6 +342,9 @@ static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 	int ret;
 	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+
+	/* Make sure bus port is halted */
+	msm_bus_axi_porthalt(pdata->bus_port);
 
 	ret = pas_shutdown(pdata->pas_id);
 	if (ret)
