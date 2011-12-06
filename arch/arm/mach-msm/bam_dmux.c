@@ -360,6 +360,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	int rc;
 	struct tx_pkt_info *pkt;
 	dma_addr_t dma_address;
+	unsigned long flags;
 
 	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_ATOMIC);
 	if (pkt == NULL) {
@@ -380,17 +381,17 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 1;
 	INIT_WORK(&pkt->work, bam_mux_write_done);
-	spin_lock(&bam_tx_pool_spinlock);
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	spin_unlock(&bam_tx_pool_spinlock);
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
-		spin_lock(&bam_tx_pool_spinlock);
+		spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
-		spin_unlock(&bam_tx_pool_spinlock);
+		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 		kfree(pkt);
 	}
 
@@ -409,10 +410,10 @@ static void bam_mux_write_done(struct work_struct *work)
 
 	if (in_global_reset)
 		return;
-	spin_lock(&bam_tx_pool_spinlock);
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	node = bam_tx_pool.next;
 	list_del(node);
-	spin_unlock(&bam_tx_pool_spinlock);
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	info = container_of(work, struct tx_pkt_info, work);
 	if (info->is_cmd) {
 		kfree(info->skb);
@@ -524,18 +525,20 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	pkt->dma_address = dma_address;
 	pkt->is_cmd = 0;
 	INIT_WORK(&pkt->work, bam_mux_write_done);
-	spin_lock(&bam_tx_pool_spinlock);
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	spin_unlock(&bam_tx_pool_spinlock);
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
-		spin_lock(&bam_tx_pool_spinlock);
+		spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
-		spin_unlock(&bam_tx_pool_spinlock);
+		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 		kfree(pkt);
+		if (new_skb)
+			dev_kfree_skb_any(new_skb);
 	} else {
 		spin_lock_irqsave(&bam_ch[id].lock, flags);
 		bam_ch[id].num_tx_pkts++;
@@ -844,15 +847,7 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 					" not disabled\n", __func__);
 				break;
 			}
-			rx_register_event.options = 0;
-			ret = sps_register_event(bam_rx_pipe,
-							&rx_register_event);
-			if (ret) {
-				pr_err("%s: sps_register_event ret = %d\n",
-					__func__, ret);
-				break;
-			}
-			cur_rx_conn.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
+			cur_rx_conn.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
 			if (ret) {
@@ -1089,6 +1084,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 	struct list_head *node;
 	struct tx_pkt_info *info;
 	int temp_remote_status;
+	unsigned long flags;
 
 	if (code != SUBSYS_AFTER_SHUTDOWN)
 		return NOTIFY_DONE;
@@ -1107,7 +1103,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 		}
 	}
 	/*cleanup UL*/
-	spin_lock(&bam_tx_pool_spinlock);
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	while (!list_empty(&bam_tx_pool)) {
 		node = bam_tx_pool.next;
 		list_del(node);
@@ -1126,7 +1122,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 		}
 		kfree(info);
 	}
-	spin_unlock(&bam_tx_pool_spinlock);
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
 
 	return NOTIFY_DONE;
