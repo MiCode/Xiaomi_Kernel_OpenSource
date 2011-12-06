@@ -100,49 +100,55 @@ static int reset_riva_untrusted(struct pil_desc *pil)
 	bool xo;
 
 	/* Enable A2XB bridge */
-	reg = readl(RIVA_PMU_A2XB_CFG);
+	reg = readl_relaxed(RIVA_PMU_A2XB_CFG);
 	reg |= RIVA_PMU_A2XB_CFG_EN;
-	writel(reg, RIVA_PMU_A2XB_CFG);
+	writel_relaxed(reg, RIVA_PMU_A2XB_CFG);
 
 	/* Determine which XO to use */
-	reg = readl(RIVA_PMU_CFG);
+	reg = readl_relaxed(RIVA_PMU_CFG);
 	xo = (reg & RIVA_PMU_CFG_IRIS_XO_MODE) == RIVA_PMU_CFG_IRIS_XO_MODE_48;
 
 	/* Program PLL 13 to 960 MHz */
-	reg = readl(RIVA_PLL_MODE);
+	reg = readl_relaxed(RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_BYPASSNL | PLL_MODE_OUTCTRL | PLL_MODE_RESET_N);
-	writel(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, RIVA_PLL_MODE);
 
 	if (xo)
-		writel(0x40000C00 | 40, RIVA_PLL_L_VAL);
+		writel_relaxed(0x40000C00 | 40, RIVA_PLL_L_VAL);
 	else
-		writel(0x40000C00 | 50, RIVA_PLL_L_VAL);
-	writel(0, RIVA_PLL_M_VAL);
-	writel(1, RIVA_PLL_N_VAL);
+		writel_relaxed(0x40000C00 | 50, RIVA_PLL_L_VAL);
+	writel_relaxed(0, RIVA_PLL_M_VAL);
+	writel_relaxed(1, RIVA_PLL_N_VAL);
 	writel_relaxed(0x01495227, RIVA_PLL_CONFIG);
 
-	reg = readl(RIVA_PLL_MODE);
+	reg = readl_relaxed(RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_REF_XO_SEL);
 	reg |= xo ? PLL_MODE_REF_XO_SEL_RF : PLL_MODE_REF_XO_SEL_CXO;
-	writel(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, RIVA_PLL_MODE);
 
 	/* Enable PLL 13 */
 	reg |= PLL_MODE_BYPASSNL;
-	writel(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, RIVA_PLL_MODE);
 
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
 	usleep_range(10, 20);
 
 	reg |= PLL_MODE_RESET_N;
-	writel(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, RIVA_PLL_MODE);
 	reg |= PLL_MODE_OUTCTRL;
-	writel(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, RIVA_PLL_MODE);
 
 	/* Wait for PLL to settle */
+	mb();
 	usleep_range(50, 100);
 
 	/* Configure cCPU for 240 MHz */
-	reg = readl(RIVA_PMU_CLK_ROOT3);
-	if (readl(RIVA_PMU_ROOT_CLK_SEL) & RIVA_PMU_ROOT_CLK_SEL_3) {
+	reg = readl_relaxed(RIVA_PMU_CLK_ROOT3);
+	if (readl_relaxed(RIVA_PMU_ROOT_CLK_SEL) & RIVA_PMU_ROOT_CLK_SEL_3) {
 		reg &= ~(RIVA_PMU_CLK_ROOT3_SRC0_SEL |
 			 RIVA_PMU_CLK_ROOT3_SRC0_DIV);
 		reg |= RIVA_PMU_CLK_ROOT3_SRC0_SEL_RIVA |
@@ -153,34 +159,34 @@ static int reset_riva_untrusted(struct pil_desc *pil)
 		reg |= RIVA_PMU_CLK_ROOT3_SRC1_SEL_RIVA |
 		       RIVA_PMU_CLK_ROOT3_SRC1_DIV_2;
 	}
-	writel(reg, RIVA_PMU_CLK_ROOT3);
+	writel_relaxed(reg, RIVA_PMU_CLK_ROOT3);
 	reg |= RIVA_PMU_CLK_ROOT3_ENA;
-	writel(reg, RIVA_PMU_CLK_ROOT3);
-	reg = readl(RIVA_PMU_ROOT_CLK_SEL);
+	writel_relaxed(reg, RIVA_PMU_CLK_ROOT3);
+	reg = readl_relaxed(RIVA_PMU_ROOT_CLK_SEL);
 	reg ^= RIVA_PMU_ROOT_CLK_SEL_3;
-	writel(reg, RIVA_PMU_ROOT_CLK_SEL);
+	writel_relaxed(reg, RIVA_PMU_ROOT_CLK_SEL);
 
 	/* Use the high vector table */
-	reg = readl(RIVA_PMU_CCPU_CTL);
+	reg = readl_relaxed(RIVA_PMU_CCPU_CTL);
 	reg |= RIVA_PMU_CCPU_CTL_HIGH_IVT | RIVA_PMU_CCPU_CTL_REMAP_EN;
-	writel(reg, RIVA_PMU_CCPU_CTL);
+	writel_relaxed(reg, RIVA_PMU_CCPU_CTL);
 
 	/* Set base memory address */
 	writel_relaxed(riva_start >> 16, RIVA_PMU_CCPU_BOOT_REMAP_ADDR);
 
 	/* Clear warmboot bit indicating this is a cold boot */
-	reg = readl(RIVA_PMU_CFG);
+	reg = readl_relaxed(RIVA_PMU_CFG);
 	reg &= ~(RIVA_PMU_CFG_WARM_BOOT);
-	writel(reg, RIVA_PMU_CFG);
+	writel_relaxed(reg, RIVA_PMU_CFG);
 
 	/* Enable the cCPU clock */
-	reg = readl(RIVA_PMU_OVRD_VAL);
+	reg = readl_relaxed(RIVA_PMU_OVRD_VAL);
 	reg |= RIVA_PMU_OVRD_VAL_CCPU_CLK;
-	writel(reg, RIVA_PMU_OVRD_VAL);
+	writel_relaxed(reg, RIVA_PMU_OVRD_VAL);
 
 	/* Take cCPU out of reset */
 	reg |= RIVA_PMU_OVRD_VAL_CCPU_RESET;
-	writel(reg, RIVA_PMU_OVRD_VAL);
+	writel_relaxed(reg, RIVA_PMU_OVRD_VAL);
 
 	return 0;
 }
@@ -189,9 +195,9 @@ static int shutdown_riva_untrusted(struct pil_desc *pil)
 {
 	u32 reg;
 	/* Put riva into reset */
-	reg = readl(RIVA_PMU_OVRD_VAL);
+	reg = readl_relaxed(RIVA_PMU_OVRD_VAL);
 	reg &= ~(RIVA_PMU_OVRD_VAL_CCPU_RESET | RIVA_PMU_OVRD_VAL_CCPU_CLK);
-	writel(reg, RIVA_PMU_OVRD_VAL);
+	writel_relaxed(reg, RIVA_PMU_OVRD_VAL);
 	return 0;
 }
 
