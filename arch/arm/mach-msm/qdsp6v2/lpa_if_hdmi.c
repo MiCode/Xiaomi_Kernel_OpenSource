@@ -404,6 +404,9 @@ static int lpa_if_release(struct inode *inode, struct file *file)
 	}
 	core_req_bus_bandwith(AUDIO_IF_BUS_ID, 0, 0);
 
+	if (hdmi_msm_audio_get_sample_rate() != HDMI_SAMPLE_RATE_48KHZ)
+		hdmi_msm_audio_sample_rate_reset(HDMI_SAMPLE_RATE_48KHZ);
+
 	return 0;
 }
 
