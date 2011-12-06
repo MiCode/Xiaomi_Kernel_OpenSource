@@ -250,42 +250,52 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 	int32_t rc = -EFAULT;
 	for (i = 0; i < size; i++) {
 		enum msm_camera_i2c_data_type dt;
-		if (reg_conf_tbl->dt == 0)
-			dt = data_type;
-		else
-			dt = reg_conf_tbl->dt;
+		if (reg_conf_tbl->cmd_type == MSM_CAMERA_I2C_CMD_POLL) {
+			rc = msm_camera_i2c_poll(client, reg_conf_tbl->reg_addr,
+				reg_conf_tbl->reg_addr, reg_conf_tbl->dt);
+		} else {
+			if (reg_conf_tbl->dt == 0)
+				dt = data_type;
+			else
+				dt = reg_conf_tbl->dt;
 
-		switch (dt) {
-		case MSM_CAMERA_I2C_BYTE_DATA:
-		case MSM_CAMERA_I2C_WORD_DATA:
-			rc = msm_camera_i2c_write(
-				client,
-				reg_conf_tbl->reg_addr,
-				reg_conf_tbl->reg_data, dt);
-			break;
-		case MSM_CAMERA_I2C_SET_BYTE_MASK:
-			rc = msm_camera_i2c_set_mask(client,
-				reg_conf_tbl->reg_addr, reg_conf_tbl->reg_data,
-				MSM_CAMERA_I2C_BYTE_DATA, 1);
-			break;
-		case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
-			rc = msm_camera_i2c_set_mask(client,
-				reg_conf_tbl->reg_addr, reg_conf_tbl->reg_data,
-				MSM_CAMERA_I2C_BYTE_DATA, 0);
-			break;
-		case MSM_CAMERA_I2C_SET_WORD_MASK:
-			rc = msm_camera_i2c_set_mask(client,
-				reg_conf_tbl->reg_addr, reg_conf_tbl->reg_data,
-				MSM_CAMERA_I2C_WORD_DATA, 1);
-			break;
-		case MSM_CAMERA_I2C_UNSET_WORD_MASK:
-			rc = msm_camera_i2c_set_mask(client,
-				reg_conf_tbl->reg_addr, reg_conf_tbl->reg_data,
-				MSM_CAMERA_I2C_WORD_DATA, 0);
-			break;
-		default:
-			pr_err("%s: Unsupport data type: %d\n", __func__, dt);
-			break;
+			switch (dt) {
+			case MSM_CAMERA_I2C_BYTE_DATA:
+			case MSM_CAMERA_I2C_WORD_DATA:
+				rc = msm_camera_i2c_write(
+					client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data, dt);
+				break;
+			case MSM_CAMERA_I2C_SET_BYTE_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_BYTE_DATA, 1);
+				break;
+			case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_BYTE_DATA, 0);
+				break;
+			case MSM_CAMERA_I2C_SET_WORD_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 1);
+				break;
+			case MSM_CAMERA_I2C_UNSET_WORD_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 0);
+				break;
+			default:
+				pr_err("%s: Unsupport data type: %d\n",
+					__func__, dt);
+				break;
+			}
 		}
 		if (rc < 0)
 			break;
@@ -364,21 +374,43 @@ int32_t msm_sensor_write_conf_array(struct msm_camera_i2c_client *client,
 			struct msm_camera_i2c_conf_array *array, uint16_t index)
 {
 	int32_t rc;
-	if (array[index].pre_process != NULL)
-		array[index].pre_process();
 
 	rc = msm_camera_i2c_write_tbl(client,
 		(struct msm_camera_i2c_reg_conf *) array[index].conf,
 		array[index].size, array[index].data_type);
-
-	if (array[index].post_process != NULL)
-		array[index].post_process();
-
 	if (array[index].delay > 20)
 		msleep(array[index].delay);
 	else
 		usleep_range(array[index].delay*1000,
 					(array[index].delay+1)*1000);
+	return rc;
+}
+
+int32_t msm_sensor_write_enum_conf_array(struct msm_camera_i2c_client *client,
+			struct msm_camera_i2c_enum_conf_array *conf,
+			uint16_t enum_val)
+{
+	int32_t rc = -1, i;
+	for (i = 0; i < conf->num_enum; i++) {
+		if (conf->conf_enum[i] == enum_val)
+			break;
+		if (conf->conf_enum[i] > enum_val)
+			break;
+	}
+	if (i == conf->num_enum)
+		i = conf->num_enum - 1;
+
+	if (i >= conf->num_index)
+		return rc;
+
+	rc = msm_sensor_write_all_conf_array(client,
+		&conf->conf[i*conf->num_conf], conf->num_conf);
+
+	if (conf->delay > 20)
+		msleep(conf->delay);
+	else
+		usleep_range(conf->delay*1000,
+					(conf->delay+1)*1000);
 	return rc;
 }
 

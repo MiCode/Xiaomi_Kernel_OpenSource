@@ -415,6 +415,35 @@ static struct platform_device msm8960_camera_sensor_imx074 = {
 	},
 };
 #endif
+
+#ifdef CONFIG_MT9M114
+static struct msm_camera_sensor_flash_data flash_mt9m114 = {
+	.flash_type = MSM_CAMERA_FLASH_NONE
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
+	.mount_angle = 90,
+	.sensor_reset = 107,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
+	.sensor_name = "mt9m114",
+	.pdata = &msm_camera_csi_device_data[0],
+	.flash_data = &flash_mt9m114,
+	.sensor_platform_info = &sensor_board_info_mt9m114,
+	.gpio_conf = &gpio_conf,
+	.csi_if = 1,
+	.camera_type = BACK_CAMERA_2D,
+};
+
+struct platform_device msm8960_camera_sensor_mt9m114 = {
+	.name = "msm_camera_mt9m114",
+	.dev = {
+		.platform_data = &msm_camera_sensor_mt9m114_data,
+	},
+};
+#endif
+
 #ifdef CONFIG_OV2720
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
@@ -455,6 +484,9 @@ void __init msm8960_init_cam(void)
 	int i;
 	struct platform_device *cam_dev[] = {
 		&msm8960_camera_sensor_imx074,
+#ifdef CONFIG_MT9M114
+		&msm8960_camera_sensor_mt9m114,
+#endif
 		&msm8960_camera_sensor_ov2720,
 	};
 

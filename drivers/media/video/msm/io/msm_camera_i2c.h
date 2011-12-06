@@ -44,10 +44,16 @@ enum msm_camera_i2c_data_type {
 	MSM_CAMERA_I2C_UNSET_WORD_MASK,
 };
 
+enum msm_camera_i2c_cmd_type {
+	MSM_CAMERA_I2C_CMD_WRITE,
+	MSM_CAMERA_I2C_CMD_POLL,
+};
+
 struct msm_camera_i2c_reg_conf {
 	uint16_t reg_addr;
 	uint16_t reg_data;
 	enum msm_camera_i2c_data_type dt;
+	enum msm_camera_i2c_cmd_type cmd_type;
 };
 
 struct msm_camera_i2c_conf_array {
@@ -55,8 +61,16 @@ struct msm_camera_i2c_conf_array {
 	uint16_t size;
 	uint16_t delay;
 	enum msm_camera_i2c_data_type data_type;
-	int (*pre_process) (void);
-	int (*post_process) (void);
+};
+
+struct msm_camera_i2c_enum_conf_array {
+	struct msm_camera_i2c_conf_array *conf;
+	int *conf_enum;
+	uint16_t num_enum;
+	uint16_t num_index;
+	uint16_t num_conf;
+	uint16_t delay;
+	enum msm_camera_i2c_data_type data_type;
 };
 
 int32_t msm_camera_i2c_rxdata(struct msm_camera_i2c_client *client,
@@ -97,6 +111,9 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 
 int32_t msm_sensor_write_conf_array(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_conf_array *array, uint16_t index);
+
+int32_t msm_sensor_write_enum_conf_array(struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_enum_conf_array *conf, uint16_t enum_val);
 
 int32_t msm_sensor_write_all_conf_array(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_conf_array *array, uint16_t size);
