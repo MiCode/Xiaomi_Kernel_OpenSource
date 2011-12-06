@@ -22,6 +22,7 @@
 #include <linux/leds.h>
 #include <linux/pmic8058-othc.h>
 #include <linux/mfd/pmic8901.h>
+#include <linux/regulator/gpio-regulator.h>
 #include <linux/regulator/pmic8901-regulator.h>
 #include <linux/bootmem.h>
 #include <linux/msm_adc.h>
@@ -54,7 +55,6 @@
 #include <asm/setup.h>
 
 #include <mach/dma.h>
-#include <mach/mpp.h>
 #include <mach/board.h>
 #include <mach/irqs.h>
 #include <mach/msm_spi.h>
@@ -83,6 +83,7 @@
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
 #include <mach/restart.h>
+#include <mach/board-msm8660.h>
 
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -104,23 +105,6 @@
 #include <mach/ion.h>
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
-
-/* Macros assume PMIC GPIOs start at 0 */
-#define PM8058_GPIO_BASE			NR_MSM_GPIOS
-#define PM8058_GPIO_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8058_GPIO_BASE)
-#define PM8058_GPIO_SYS_TO_PM(sys_gpio)		(sys_gpio - PM8058_GPIO_BASE)
-#define PM8058_MPP_BASE			(PM8058_GPIO_BASE + PM8058_GPIOS)
-#define PM8058_MPP_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8058_MPP_BASE)
-#define PM8058_MPP_SYS_TO_PM(sys_gpio)		(sys_gpio - PM8058_MPP_BASE)
-#define PM8058_IRQ_BASE				(NR_MSM_IRQS + NR_GPIO_IRQS)
-
-#define PM8901_GPIO_BASE			(PM8058_GPIO_BASE + \
-						PM8058_GPIOS + PM8058_MPPS)
-#define PM8901_GPIO_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8901_GPIO_BASE)
-#define PM8901_GPIO_SYS_TO_PM(sys_gpio)		(sys_gpio - PM901_GPIO_BASE)
-#define PM8901_IRQ_BASE				(PM8058_IRQ_BASE + \
-						NR_PMIC8058_IRQS)
-
 #define MDM2AP_SYNC 129
 
 #define GPIO_ETHERNET_RESET_N_DRAGON	30
@@ -150,7 +134,7 @@ static struct platform_device ion_dev;
 
 enum {
 	GPIO_EXPANDER_IRQ_BASE  = PM8901_IRQ_BASE + NR_PMIC8901_IRQS,
-	GPIO_EXPANDER_GPIO_BASE = PM8901_GPIO_BASE + PM8901_MPPS,
+	GPIO_EXPANDER_GPIO_BASE = PM8901_MPP_BASE + PM8901_MPPS,
 	/* CORE expander */
 	GPIO_CORE_EXPANDER_BASE = GPIO_EXPANDER_GPIO_BASE,
 	GPIO_CLASS_D1_EN        = GPIO_CORE_EXPANDER_BASE,
@@ -273,9 +257,19 @@ struct pm8xxx_mpp_init_info {
 	struct pm8xxx_mpp_config_data	config;
 };
 
-#define PM8XXX_MPP_INIT(_mpp, _type, _level, _control) \
+#define PM8058_MPP_INIT(_mpp, _type, _level, _control) \
 { \
 	.mpp	= PM8058_MPP_PM_TO_SYS(_mpp), \
+	.config	= { \
+		.type		= PM8XXX_MPP_TYPE_##_type, \
+		.level		= _level, \
+		.control	= PM8XXX_MPP_##_control, \
+	} \
+}
+
+#define PM8901_MPP_INIT(_mpp, _type, _level, _control) \
+{ \
+	.mpp	= PM8901_MPP_PM_TO_SYS(_mpp), \
 	.config	= { \
 		.type		= PM8XXX_MPP_TYPE_##_type, \
 		.level		= _level, \
@@ -1045,14 +1039,21 @@ static int msm_hsusb_phy_id_setup_init(int init)
 {
 	unsigned ret;
 
+	struct pm8xxx_mpp_config_data hsusb_phy_mpp = {
+		.type	= PM8XXX_MPP_TYPE_D_OUTPUT,
+		.level	= PM8901_MPP_DIG_LEVEL_L5,
+	};
+
 	if (init) {
-		ret = pm8901_mpp_config_digital_out(1,
-			PM8901_MPP_DIG_LEVEL_L5, 1);
+		hsusb_phy_mpp.control = PM8XXX_MPP_DOUT_CTRL_HIGH;
+		ret = pm8xxx_mpp_config(PM8901_MPP_PM_TO_SYS(1),
+							&hsusb_phy_mpp);
 		if (ret < 0)
 			pr_err("%s:MPP2 configuration failed\n", __func__);
 	} else {
-		ret = pm8901_mpp_config_digital_out(1,
-			PM8901_MPP_DIG_LEVEL_L5, 0);
+		hsusb_phy_mpp.control = PM8XXX_MPP_DOUT_CTRL_LOW;
+		ret = pm8xxx_mpp_config(PM8901_MPP_PM_TO_SYS(1),
+							&hsusb_phy_mpp);
 		if (ret < 0)
 			pr_err("%s:MPP2 un config failed\n", __func__);
 	}
@@ -4837,22 +4838,19 @@ static void pmic8058_xoadc_mpp_config(void)
 {
 	int rc, i;
 	struct pm8xxx_mpp_init_info xoadc_mpps[] = {
-		PM8XXX_MPP_INIT(XOADC_MPP_3, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH5,
+		PM8058_MPP_INIT(XOADC_MPP_3, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH5,
 							AOUT_CTRL_DISABLE),
-		PM8XXX_MPP_INIT(XOADC_MPP_5, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH9,
+		PM8058_MPP_INIT(XOADC_MPP_5, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH9,
 							AOUT_CTRL_DISABLE),
-		PM8XXX_MPP_INIT(XOADC_MPP_7, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH6,
+		PM8058_MPP_INIT(XOADC_MPP_7, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH6,
 							AOUT_CTRL_DISABLE),
-		PM8XXX_MPP_INIT(XOADC_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
+		PM8058_MPP_INIT(XOADC_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
 							AOUT_CTRL_DISABLE),
-		PM8XXX_MPP_INIT(XOADC_MPP_10, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH7,
+		PM8058_MPP_INIT(XOADC_MPP_10, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH7,
 							AOUT_CTRL_DISABLE),
+		PM8901_MPP_INIT(XOADC_MPP_4, D_OUTPUT, PM8901_MPP_DIG_LEVEL_S4,
+							DOUT_CTRL_LOW),
 	};
-
-	rc = pm8901_mpp_config_digital_out(XOADC_MPP_4,
-			PM8901_MPP_DIG_LEVEL_S4, PM_MPP_DOUT_CTL_LOW);
-	if (rc)
-		pr_err("%s: Config mpp4 on pmic 8901 failed\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(xoadc_mpps); i++) {
 		rc = pm8xxx_mpp_config(xoadc_mpps[i].mpp,
@@ -4981,6 +4979,75 @@ struct platform_device msm_device_sdio_al = {
 };
 
 #endif /* CONFIG_MSM_SDIO_AL */
+
+#define GPIO_VREG_ID_EXT_5V		0
+
+static struct regulator_consumer_supply vreg_consumers_EXT_5V[] = {
+	REGULATOR_SUPPLY("ext_5v",	NULL),
+	REGULATOR_SUPPLY("8901_mpp0",	NULL),
+};
+
+#define GPIO_VREG_INIT(_id, _reg_name, _gpio_label, _gpio, _active_low) \
+	[GPIO_VREG_ID_##_id] = { \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id), \
+			.consumer_supplies	= vreg_consumers_##_id, \
+		}, \
+		.regulator_name	= _reg_name, \
+		.active_low	= _active_low, \
+		.gpio_label	= _gpio_label, \
+		.gpio		= _gpio, \
+	}
+
+/* GPIO regulator constraints */
+static struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] = {
+	GPIO_VREG_INIT(EXT_5V, "ext_5v", "ext_5v_en",
+					PM8901_MPP_PM_TO_SYS(0), 0),
+};
+
+/* GPIO regulator */
+static struct platform_device msm8x60_8901_mpp_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8901_MPP_PM_TO_SYS(0),
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
+	},
+};
+
+static void __init pm8901_vreg_mpp0_init(void)
+{
+	int rc;
+
+	struct pm8xxx_mpp_init_info pm8901_vreg_mpp0 = {
+		.mpp	= PM8901_MPP_PM_TO_SYS(0),
+		.config =  {
+			.type	= PM8XXX_MPP_TYPE_D_OUTPUT,
+			.level	= PM8901_MPP_DIG_LEVEL_VPH,
+		},
+	};
+
+	/*
+	 * Set PMIC 8901 MPP0 active_high to 0 for surf and charm_surf. This
+	 * implies that the regulator connected to MPP0 is enabled when
+	 * MPP0 is low.
+	 */
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_fusion()) {
+		msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V].active_low = 1;
+		pm8901_vreg_mpp0.config.control = PM8XXX_MPP_DOUT_CTRL_HIGH;
+	} else {
+		msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V].active_low = 0;
+		pm8901_vreg_mpp0.config.control = PM8XXX_MPP_DOUT_CTRL_LOW;
+	}
+
+	rc = pm8xxx_mpp_config(pm8901_vreg_mpp0.mpp, &pm8901_vreg_mpp0.config);
+	if (rc)
+		pr_err("%s: pm8xxx_mpp_config: rc=%d\n", __func__, rc);
+}
 
 static struct platform_device *charm_devices[] __initdata = {
 	&msm_charm_modem,
@@ -5309,9 +5376,9 @@ static void __init msm8x60_reserve(void)
 #define EXT_CHG_VALID_MPP_2 11
 
 static struct pm8xxx_mpp_init_info isl_mpp[] = {
-	PM8XXX_MPP_INIT(EXT_CHG_VALID_MPP, D_INPUT,
+	PM8058_MPP_INIT(EXT_CHG_VALID_MPP, D_INPUT,
 		PM8058_MPP_DIG_LEVEL_S3, DIN_TO_INT),
-	PM8XXX_MPP_INIT(EXT_CHG_VALID_MPP_2, D_BI_DIR,
+	PM8058_MPP_INIT(EXT_CHG_VALID_MPP_2, D_BI_DIR,
 		PM8058_MPP_DIG_LEVEL_S3, BI_PULLUP_10KOHM),
 };
 
@@ -6526,32 +6593,10 @@ static struct i2c_board_info wm8903_codec_i2c_info[] = {
 #ifdef CONFIG_PMIC8901
 
 #define PM8901_GPIO_INT           91
-
-static struct pm8901_gpio_platform_data pm8901_mpp_data = {
-	.gpio_base	= PM8901_GPIO_PM_TO_SYS(0),
-	.irq_base	= PM8901_MPP_IRQ(PM8901_IRQ_BASE, 0),
-};
-
-static struct resource pm8901_temp_alarm[] = {
-	{
-		.start = PM8901_TEMP_ALARM_IRQ(PM8901_IRQ_BASE),
-		.end = PM8901_TEMP_ALARM_IRQ(PM8901_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.start = PM8901_TEMP_HI_ALARM_IRQ(PM8901_IRQ_BASE),
-		.end = PM8901_TEMP_HI_ALARM_IRQ(PM8901_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
 /*
  * Consumer specific regulator names:
  *			 regulator name		consumer dev_name
  */
-static struct regulator_consumer_supply vreg_consumers_8901_MPP0[] = {
-	REGULATOR_SUPPLY("8901_mpp0",		NULL),
-};
 static struct regulator_consumer_supply vreg_consumers_8901_USB_OTG[] = {
 	REGULATOR_SUPPLY("8901_usb_otg",	NULL),
 };
@@ -6560,8 +6605,8 @@ static struct regulator_consumer_supply vreg_consumers_8901_HDMI_MVS[] = {
 };
 
 #define PM8901_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
-			 _always_on, _active_high) \
-	[PM8901_VREG_ID_##_id] = { \
+			 _always_on) \
+	{ \
 		.init_data = { \
 			.constraints = { \
 				.valid_modes_mask = _modes, \
@@ -6576,53 +6621,33 @@ static struct regulator_consumer_supply vreg_consumers_8901_HDMI_MVS[] = {
 			.num_consumer_supplies = \
 				ARRAY_SIZE(vreg_consumers_8901_##_id), \
 		}, \
-		.active_high = _active_high, \
+		.id = PM8901_VREG_ID_##_id, \
 	}
-
-#define PM8901_VREG_INIT_MPP(_id, _active_high) \
-	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
-			REGULATOR_CHANGE_STATUS, 0, 0, _active_high)
 
 #define PM8901_VREG_INIT_VS(_id) \
 	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
-			REGULATOR_CHANGE_STATUS, 0, 0, 0)
+			REGULATOR_CHANGE_STATUS, 0, 0)
 
-static struct pm8901_vreg_pdata pm8901_vreg_init_pdata[PM8901_VREG_MAX] = {
-	PM8901_VREG_INIT_MPP(MPP0, 1),
-
+static struct pm8901_vreg_pdata pm8901_vreg_init[] = {
 	PM8901_VREG_INIT_VS(USB_OTG),
 	PM8901_VREG_INIT_VS(HDMI_MVS),
 };
 
-#define PM8901_VREG(_id) { \
-	.name = "pm8901-regulator", \
-	.id = _id, \
-	.platform_data = &pm8901_vreg_init_pdata[_id], \
-	.pdata_size = sizeof(pm8901_vreg_init_pdata[_id]), \
-}
+static struct pm8xxx_irq_platform_data pm8901_irq_pdata = {
+	.irq_base		= PM8901_IRQ_BASE,
+	.devirq			= MSM_GPIO_TO_INT(PM8901_GPIO_INT),
+	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
+};
 
-static struct mfd_cell pm8901_subdevs[] = {
-	{	.name = "pm8901-mpp",
-		.id		= -1,
-		.platform_data	= &pm8901_mpp_data,
-		.pdata_size      = sizeof(pm8901_mpp_data),
-	},
-	{	.name = "pm8901-tm",
-		.id		= -1,
-		.num_resources  = ARRAY_SIZE(pm8901_temp_alarm),
-		.resources      = pm8901_temp_alarm,
-	},
-	PM8901_VREG(PM8901_VREG_ID_MPP0),
-	PM8901_VREG(PM8901_VREG_ID_USB_OTG),
-	PM8901_VREG(PM8901_VREG_ID_HDMI_MVS),
+static struct pm8xxx_mpp_platform_data pm8901_mpp_pdata = {
+	.mpp_base		= PM8901_MPP_PM_TO_SYS(0),
 };
 
 static struct pm8901_platform_data pm8901_platform_data = {
-	.irq_base = PM8901_IRQ_BASE,
-	.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
-	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
-	.sub_devices = pm8901_subdevs,
-	.irq_trigger_flags = IRQF_TRIGGER_LOW,
+	.irq_pdata		= &pm8901_irq_pdata,
+	.mpp_pdata		= &pm8901_mpp_pdata,
+	.regulator_pdatas	= pm8901_vreg_init,
+	.num_regulators		= ARRAY_SIZE(pm8901_vreg_init),
 };
 
 static struct msm_ssbi_platform_data msm8x60_ssbi_pm8901_pdata __devinitdata = {
@@ -7106,15 +7131,6 @@ static void fixup_i2c_configs(void)
 		sx150x_data[SX150X_CORE_FLUID].irq_summary =
 			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT1_N);
 #endif
-	/*
-	 * Set PMIC 8901 MPP0 active_high to 0 for surf and charm_surf. This
-	 * implies that the regulator connected to MPP0 is enabled when
-	 * MPP0 is low.
-	 */
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_fusion())
-		pm8901_vreg_init_pdata[PM8901_VREG_ID_MPP0].active_high = 0;
-	else
-		pm8901_vreg_init_pdata[PM8901_VREG_ID_MPP0].active_high = 1;
 #endif
 }
 
@@ -9905,7 +9921,13 @@ static struct msm_board_data msm8x60_dragon_board_data __initdata = {
 static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	uint32_t soc_platform_version;
-
+#ifdef CONFIG_USB_EHCI_MSM_72K
+	struct pm8xxx_mpp_config_data hsusb_phy_mpp = {
+		.type		= PM8XXX_MPP_TYPE_D_OUTPUT,
+		.level		= PM8901_MPP_DIG_LEVEL_L5,
+		.control	= PM8XXX_MPP_DOUT_CTRL_HIGH,
+	};
+#endif
 	pmic_reset_irq = PM8058_IRQ_BASE + PM8058_RESOUT_IRQ;
 
 	/*
@@ -10057,16 +10079,18 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		}
 #endif
 
+	pm8901_vreg_mpp0_init();
+
+	platform_device_register(&msm8x60_8901_mpp_vreg);
+
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	/*
 	 * Drive MPP2 pin HIGH for PHY to generate ID interrupts on 8660
 	 * fluid
 	 */
-	if (machine_is_msm8x60_fluid()) {
-		pm8901_mpp_config_digital_out(1,
-			PM8901_MPP_DIG_LEVEL_L5, 1);
-	}
-		msm_add_host(0, &msm_usb_host_pdata);
+	if (machine_is_msm8x60_fluid())
+		pm8xxx_mpp_config(PM8901_MPP_PM_TO_SYS(1), &hsusb_phy_mpp);
+	msm_add_host(0, &msm_usb_host_pdata);
 #endif
 
 #ifdef CONFIG_SND_SOC_MSM8660_APQ
