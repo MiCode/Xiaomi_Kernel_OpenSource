@@ -198,6 +198,8 @@ rel:
 
 static int __init msm_rq_stats_init(void)
 {
+	int ret;
+
 	rq_wq = create_singlethread_workqueue("rq_stats");
 	BUG_ON(!rq_wq);
 	INIT_WORK(&rq_info.def_timer_work, def_work_fn);
@@ -206,7 +208,9 @@ static int __init msm_rq_stats_init(void)
 	rq_info.def_timer_jiffies = DEFAULT_DEF_TIMER_JIFFIES;
 	rq_info.rq_poll_last_jiffy = 0;
 	rq_info.def_timer_last_jiffy = 0;
+	ret = init_rq_attribs();
+
 	rq_info.init = 1;
-	return init_rq_attribs();
+	return ret;
 }
 late_initcall(msm_rq_stats_init);
