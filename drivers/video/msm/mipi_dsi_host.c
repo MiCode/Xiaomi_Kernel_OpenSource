@@ -1202,7 +1202,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	if (mfd->panel_info.mipi.no_max_pkt_size) {
 		/* Only support rlen = 4*n */
 		rlen += 3;
-		rlen &= 0x03;
+		rlen &= ~0x03;
 	}
 
 	len = rlen;
