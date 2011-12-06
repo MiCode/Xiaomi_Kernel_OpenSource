@@ -35,7 +35,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/system.h>
 
-static DEFINE_SPINLOCK(irq_controller_lock);
+static DEFINE_RAW_SPINLOCK(irq_controller_lock);
 
 /* Address of GIC 0 CPU interface */
 void __iomem *gic_cpu_base_addr __read_mostly;
@@ -85,23 +85,22 @@ static void gic_mask_irq(struct irq_data *d)
 {
 	u32 mask = 1 << (d->irq % 32);
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_CLEAR + (gic_irq(d) / 32) * 4);
 	if (gic_arch_extn.irq_mask)
 		gic_arch_extn.irq_mask(d);
-	spin_unlock(&irq_controller_lock);
-
+	raw_spin_unlock(&irq_controller_lock);
 }
 
 static void gic_unmask_irq(struct irq_data *d)
 {
 	u32 mask = 1 << (d->irq % 32);
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	if (gic_arch_extn.irq_unmask)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 }
 
 static void gic_disable_irq(struct irq_data *d)
@@ -149,13 +148,13 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 	if (!msm_show_resume_irq_mask)
 		return;
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	for (i = 0; i * 32 < gic->max_irq; i++) {
 		enabled = readl_relaxed(base + GIC_DIST_ENABLE_CLEAR + i * 4);
 		pending[i] = readl_relaxed(base + GIC_DIST_PENDING_SET + i * 4);
 		pending[i] &= enabled;
 	}
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 
 	for (i = find_first_bit(pending, gic->max_irq);
 	     i < gic->max_irq;
@@ -205,9 +204,9 @@ arch_initcall(gic_init_sys);
 static void gic_eoi_irq(struct irq_data *d)
 {
 	if (gic_arch_extn.irq_eoi) {
-		spin_lock(&irq_controller_lock);
+		raw_spin_lock(&irq_controller_lock);
 		gic_arch_extn.irq_eoi(d);
-		spin_unlock(&irq_controller_lock);
+		raw_spin_unlock(&irq_controller_lock);
 	}
 
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_EOI);
@@ -231,7 +230,7 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	if (type != IRQ_TYPE_LEVEL_HIGH && type != IRQ_TYPE_EDGE_RISING)
 		return -EINVAL;
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 
 	if (gic_arch_extn.irq_set_type)
 		gic_arch_extn.irq_set_type(d, type);
@@ -256,7 +255,7 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	if (enabled)
 		writel_relaxed(enablemask, base + GIC_DIST_ENABLE_SET + enableoff);
 
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 
 	return 0;
 }
@@ -276,21 +275,21 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 {
 	void __iomem *reg = gic_dist_base(d) + GIC_DIST_TARGET + (gic_irq(d) & ~3);
 	unsigned int shift = (d->irq % 4) * 8;
-	unsigned int cpu = cpumask_first(mask_val);
+	unsigned int cpu = cpumask_any_and(mask_val, cpu_online_mask);
 	u32 val, mask, bit;
 
-	if (cpu >= 8)
+	if (cpu >= 8 || cpu >= nr_cpu_ids)
 		return -EINVAL;
 
 	mask = 0xff << shift;
 	bit = 1 << (cpu + shift);
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	val = readl_relaxed(reg) & ~mask;
 	writel_relaxed(val | bit, reg);
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 
-	return 0;
+	return IRQ_SET_MASK_OK;
 }
 #endif
 
@@ -335,9 +334,9 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 
 	chained_irq_enter(chip, desc);
 
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	status = readl_relaxed(chip_data->cpu_base + GIC_CPU_INTACK);
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 
 	gic_irq = (status & 0x3ff);
 	if (gic_irq == 1023)
@@ -530,7 +529,7 @@ bool gic_is_spi_pending(unsigned int irq)
 	u32 mask, val;
 
 	WARN_ON(!irqs_disabled());
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	mask = 1 << (gic_irq(d) % 32);
 	val = readl(gic_dist_base(d) +
 			GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
@@ -538,7 +537,7 @@ bool gic_is_spi_pending(unsigned int irq)
 	WARN_ON(val & mask);
 	val = readl(gic_dist_base(d) +
 			GIC_DIST_PENDING_SET + (gic_irq(d) / 32) * 4);
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 	return (bool) (val & mask);
 }
 
@@ -551,7 +550,7 @@ void gic_clear_spi_pending(unsigned int irq)
 
 	u32 mask, val;
 	WARN_ON(!irqs_disabled());
-	spin_lock(&irq_controller_lock);
+	raw_spin_lock(&irq_controller_lock);
 	mask = 1 << (gic_irq(d) % 32);
 	val = readl(gic_dist_base(d) +
 			GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
@@ -559,5 +558,5 @@ void gic_clear_spi_pending(unsigned int irq)
 	WARN_ON(val & mask);
 	writel(mask, gic_dist_base(d) +
 			GIC_DIST_PENDING_CLEAR + (gic_irq(d) / 32) * 4);
-	spin_unlock(&irq_controller_lock);
+	raw_spin_unlock(&irq_controller_lock);
 }
