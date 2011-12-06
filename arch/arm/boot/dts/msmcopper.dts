@@ -55,4 +55,14 @@
 		qcom,sdcc-bus-width = <4>;
 		qcom,sdcc-disable_cmd23;
 	};
+
+	qcom,sps@F9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xF9984000 0x15000>,
+		      <0xF9999000 0xB000>;
+		interrupts = <94>;
+
+		qcom,bam-dma-res-pipes = <6>;
+	};
+
 };

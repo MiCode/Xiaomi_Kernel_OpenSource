@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>	/* platform_get_resource_byname() */
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/of.h>
 #include <mach/msm_sps.h>	/* msm_sps_platform_data */
 
 #include "sps_bam.h"
@@ -1428,13 +1429,74 @@ static int get_platform_data(struct platform_device *pdev)
 	return 0;
 }
 
+/**
+ * Read data from device tree
+ */
+static int get_device_tree_data(struct platform_device *pdev)
+{
+#ifdef CONFIG_SPS_SUPPORT_BAMDMA
+	struct resource *resource;
+
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,bam-dma-res-pipes",
+				&sps->bamdma_restricted_pipes))
+		return -EINVAL;
+	else
+		SPS_DBG("sps:bamdma_restricted_pipes=0x%x.",
+			sps->bamdma_restricted_pipes);
+
+	resource  = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (resource) {
+		sps->bamdma_bam_phys_base = resource->start;
+		sps->bamdma_bam_size = resource_size(resource);
+		SPS_DBG("sps:bamdma_bam.base=0x%x,size=0x%x.",
+			sps->bamdma_bam_phys_base,
+			sps->bamdma_bam_size);
+	} else {
+		SPS_ERR("sps:BAM DMA BAM mem unavailable.");
+		return -ENODEV;
+	}
+
+	resource  = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (resource) {
+		sps->bamdma_dma_phys_base = resource->start;
+		sps->bamdma_dma_size = resource_size(resource);
+		SPS_DBG("sps:bamdma_dma.base=0x%x,size=0x%x.",
+			sps->bamdma_dma_phys_base,
+			sps->bamdma_dma_size);
+	} else {
+		SPS_ERR("sps:BAM DMA mem unavailable.");
+		return -ENODEV;
+	}
+
+	resource  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (resource) {
+		sps->bamdma_irq = resource->start;
+		SPS_DBG("sps:bamdma_irq=%d.", sps->bamdma_irq);
+	} else {
+		SPS_ERR("sps:BAM DMA IRQ unavailable.");
+		return -ENODEV;
+	}
+#endif
+
+	return 0;
+}
+
 static int __devinit msm_sps_probe(struct platform_device *pdev)
 {
 	int ret;
 
 	SPS_DBG("sps:msm_sps_probe.");
 
-	ret = get_platform_data(pdev);
+	if (pdev->dev.of_node) {
+		SPS_DBG("sps:get data from device tree.");
+		ret = get_device_tree_data(pdev);
+
+	} else {
+		SPS_DBG("sps:get platform data.");
+		ret = get_platform_data(pdev);
+	}
+
 	if (ret)
 		return -ENODEV;
 
@@ -1542,11 +1604,18 @@ static int __devexit msm_sps_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id msm_sps_match[] = {
+	{	.compatible = "qcom,msm_sps",
+	},
+	{}
+};
+
 static struct platform_driver msm_sps_driver = {
 	.probe          = msm_sps_probe,
 	.driver		= {
 		.name	= SPS_DRV_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = msm_sps_match,
 	},
 	.remove		= __exit_p(msm_sps_remove),
 };

@@ -13,7 +13,7 @@ config MSM_SSBI
 config SPS
 	bool "SPS support"
 	depends on (HAS_IOMEM && (ARCH_MSM8960 || ARCH_MSM8X60 \
-			|| ARCH_APQ8064 || ARCH_MSM9615))
+			|| ARCH_APQ8064 || ARCH_MSM9615 || ARCH_MSMCOPPER))
 	select GENERIC_ALLOCATOR
 	default n
 	help
@@ -28,10 +28,17 @@ config SPS_SUPPORT_BAMDMA
 	depends on SPS
 	default n
 	help
-	The BAM-DMA is used for Memory-to-Memory transfers.
-	The main use cases is RPC between processors.
-	The BAM-DMA hardware has 2 registers sets:
-	1. A BAM HW like all the peripherals.
-	2. A DMA channel configuration (i.e. channel priority).
+	  The BAM-DMA is used for Memory-to-Memory transfers.
+	  The main use cases is RPC between processors.
+	  The BAM-DMA hardware has 2 registers sets:
+		1. A BAM HW like all the peripherals.
+		2. A DMA channel configuration (i.e. channel priority).
+
+config SPS_SUPPORT_NDP_BAM
+	bool "SPS support NDP BAM"
+	depends on SPS
+	default n
+	help
+	  No-Data-Path BAM is used to improve BAM performance.
 
 endmenu
