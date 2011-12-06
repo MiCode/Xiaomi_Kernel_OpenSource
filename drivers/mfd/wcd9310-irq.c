@@ -189,17 +189,37 @@ int tabla_irq_init(struct tabla *tabla)
 	ret = request_threaded_irq(tabla->irq, NULL, tabla_irq_thread,
 				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				   "tabla", tabla);
-
-	if (ret != 0) {
+	if (ret != 0)
 		dev_err(tabla->dev, "Failed to request IRQ %d: %d\n",
 			tabla->irq, ret);
-		return ret;
+	else {
+		ret = enable_irq_wake(tabla->irq);
+		if (ret == 0) {
+			ret = device_init_wakeup(tabla->dev, 1);
+			if (ret) {
+				dev_err(tabla->dev, "Failed to init device"
+					"wakeup : %d\n", ret);
+				disable_irq_wake(tabla->irq);
+			}
+		} else
+			dev_err(tabla->dev, "Failed to set wake interrupt on"
+				" IRQ %d: %d\n", tabla->irq, ret);
+		if (ret)
+			free_irq(tabla->irq, tabla);
 	}
-	return 0;
+
+	if (ret)
+		mutex_destroy(&tabla->irq_lock);
+
+	return ret;
 }
+
 void tabla_irq_exit(struct tabla *tabla)
 {
-	if (tabla->irq)
+	if (tabla->irq) {
+		disable_irq_wake(tabla->irq);
 		free_irq(tabla->irq, tabla);
+		device_init_wakeup(tabla->dev, 0);
+	}
 	mutex_destroy(&tabla->irq_lock);
 }
