@@ -190,6 +190,9 @@ config ARCH_APQ8064
 	select MSM_SCM if SMP
 	select MSM_GPIOMUX
 	select MSM_REMOTE_SPINLOCK_SFPB
+	select MSM_PIL
+	select MSM_QDSP6_APR
+	select MSM_AUDIO_QDSP6 if SND_SOC
 
 config ARCH_MSMCOPPER
 	bool "MSM Copper"
