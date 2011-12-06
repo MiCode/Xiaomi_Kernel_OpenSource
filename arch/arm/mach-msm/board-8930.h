@@ -58,12 +58,22 @@ extern struct gpio_regulator_platform_data
 	msm_gpio_regulator_pdata[] __devinitdata;
 
 extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
-#endif
 
 #define GPIO_VREG_ID_EXT_5V		0
 #define GPIO_VREG_ID_EXT_L2		1
 #define GPIO_VREG_ID_EXT_3P3V		2
+#endif
 
+extern struct pm8xxx_regulator_platform_data
+	msm8930_pm8038_regulator_pdata[] __devinitdata;
+
+extern int msm8930_pm8038_regulator_pdata_len __devinitdata;
+
+#define MSM8930_GPIO_VREG_ID_EXT_5V		0
+#define MSM8930_GPIO_VREG_ID_EXT_OTG_SW		1
+
+extern struct gpio_regulator_platform_data
+	msm8930_gpio_regulator_pdata[] __devinitdata;
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 enum {
