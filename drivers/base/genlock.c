@@ -37,6 +37,7 @@ struct genlock {
 	wait_queue_head_t queue;  /* Holding pen for processes pending lock */
 	struct file *file;        /* File structure for exported lock */
 	int state;                /* Current state of the lock */
+	struct kref refcount;
 };
 
 struct genlock_handle {
@@ -47,6 +48,14 @@ struct genlock_handle {
 				     taken */
 };
 
+static void genlock_destroy(struct kref *kref)
+{
+	struct genlock *lock = container_of(kref, struct genlock,
+			refcount);
+
+	kfree(lock);
+}
+
 /*
  * Release the genlock object. Called when all the references to
  * the genlock file descriptor are released
@@ -54,7 +63,6 @@ struct genlock_handle {
 
 static int genlock_release(struct inode *inodep, struct file *file)
 {
-	kfree(file->private_data);
 	return 0;
 }
 
@@ -96,6 +104,7 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 
 	/* Attach the new lock to the handle */
 	handle->lock = lock;
+	kref_init(&lock->refcount);
 
 	return lock;
 }
@@ -131,6 +140,7 @@ static int genlock_get_fd(struct genlock *lock)
 struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 {
 	struct file *file;
+	struct genlock *lock;
 
 	if (handle->lock != NULL)
 		return ERR_PTR(-EINVAL);
@@ -139,9 +149,17 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	if (file == NULL)
 		return ERR_PTR(-EBADF);
 
-	handle->lock = file->private_data;
+	lock = file->private_data;
 
-	return handle->lock;
+	fput(file);
+
+	if (lock == NULL)
+		return ERR_PTR(-EINVAL);
+
+	handle->lock = lock;
+	kref_get(&lock->refcount);
+
+	return lock;
 }
 EXPORT_SYMBOL(genlock_attach_lock);
 
@@ -418,7 +436,7 @@ void genlock_release_lock(struct genlock_handle *handle)
 	}
 	spin_unlock_irqrestore(&handle->lock->lock, flags);
 
-	fput(handle->lock->file);
+	kref_put(&handle->lock->refcount, genlock_destroy);
 	handle->lock = NULL;
 	handle->active = 0;
 }
@@ -575,7 +593,8 @@ static int genlock_dev_release(struct inode *inodep, struct file *file)
 {
 	struct genlock_handle *handle = file->private_data;
 
-	genlock_put_handle(handle);
+	genlock_release_lock(handle);
+	kfree(handle);
 
 	return 0;
 }
