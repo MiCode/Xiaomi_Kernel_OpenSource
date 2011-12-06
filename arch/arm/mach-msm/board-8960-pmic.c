@@ -436,6 +436,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
+#define	PM8921_LC_LED_LOW_CURRENT	1	/* I = 1mA */
 #define PM8XXX_LED_PWM_PERIOD		1000
 #define PM8XXX_LED_PWM_DUTY_MS		20
 /**
@@ -443,6 +444,50 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
  * driven using PWM feature.
  */
 #define PM8XXX_PWM_CHANNEL_NONE		-1
+
+static struct led_info pm8921_led_info_liquid[] = {
+	{
+		.name		= "led:red",
+		.flags		= PM8XXX_ID_LED_0,
+	},
+	{
+		.name		= "led:green",
+		.flags		= PM8XXX_ID_LED_0,
+	},
+	{
+		.name		= "led:blue",
+		.flags		= PM8XXX_ID_LED_2,
+	},
+};
+
+static struct pm8xxx_led_config pm8921_led_configs_liquid[] = {
+	[0] = {
+		.id = PM8XXX_ID_LED_0,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8921_LC_LED_MAX_CURRENT,
+	},
+	[1] = {
+		.id = PM8XXX_ID_LED_1,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8921_LC_LED_LOW_CURRENT,
+	},
+	[2] = {
+		.id = PM8XXX_ID_LED_2,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8921_LC_LED_MAX_CURRENT,
+	},
+};
+
+static struct led_platform_data pm8xxx_leds_core_liquid = {
+	.num_leds = ARRAY_SIZE(pm8921_led_info_liquid),
+	.leds = pm8921_led_info_liquid,
+};
+
+static struct pm8xxx_led_platform_data pm8xxx_leds_pdata_liquid = {
+	.led_core = &pm8xxx_leds_core_liquid,
+	.configs = pm8921_led_configs_liquid,
+	.num_configs = ARRAY_SIZE(pm8921_led_configs_liquid),
+};
 
 static struct led_info pm8921_led_info[] = {
 	[0] = {
@@ -539,6 +584,8 @@ void __init msm8960_init_pmic(void)
 	if (machine_is_msm8960_sim())
 		pm8921_platform_data.keypad_pdata = &keypad_data_sim;
 
-	if (machine_is_msm8960_liquid())
+	if (machine_is_msm8960_liquid()) {
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
+		pm8921_platform_data.leds_pdata = &pm8xxx_leds_pdata_liquid;
+	}
 }
