@@ -26,6 +26,7 @@
 #include <linux/mfd/pm8xxx/rtc.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/mfd/pm8xxx/misc.h>
+#include <linux/regulator/pm8xxx-regulator.h>
 
 #define PM8038_CORE_DEV_NAME "pm8038-core"
 
@@ -62,6 +63,8 @@ struct pm8038_platform_data {
 	struct pm8xxx_rtc_platform_data         *rtc_pdata;
 	struct pm8xxx_pwrkey_platform_data	*pwrkey_pdata;
 	struct pm8xxx_misc_platform_data	*misc_pdata;
+	struct pm8xxx_regulator_platform_data	*regulator_pdatas;
+	int					num_regulators;
 };
 
 #endif
