@@ -30,6 +30,7 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 
+#include <mach/iommu_domains.h>
 #include "ion_priv.h"
 #define DEBUG
 
@@ -102,7 +103,26 @@ struct ion_handle {
 	unsigned int kmap_cnt;
 	unsigned int dmap_cnt;
 	unsigned int usermap_cnt;
+	unsigned int iommu_map_cnt;
 };
+
+static int ion_validate_buffer_flags(struct ion_buffer *buffer,
+					unsigned long flags)
+{
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt ||
+		buffer->iommu_map_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			return 1;
+		}
+
+	} else {
+		buffer->flags = flags;
+	}
+	return 0;
+}
 
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
@@ -128,6 +148,61 @@ static void ion_buffer_add(struct ion_device *dev,
 
 	rb_link_node(&buffer->node, parent, p);
 	rb_insert_color(&buffer->node, &dev->buffers);
+}
+
+void ion_iommu_add(struct ion_buffer *buffer,
+			  struct ion_iommu_map *iommu)
+{
+	struct rb_node **p = &buffer->iommu_maps.rb_node;
+	struct rb_node *parent = NULL;
+	struct ion_iommu_map *entry;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct ion_iommu_map, node);
+
+		if (iommu->key < entry->key) {
+			p = &(*p)->rb_left;
+		} else if (iommu->key > entry->key) {
+			p = &(*p)->rb_right;
+		} else {
+			pr_err("%s: buffer %p already has mapping for domain %d"
+				" and partition %d\n", __func__,
+				buffer,
+				iommu_map_domain(iommu),
+				iommu_map_partition(iommu));
+			BUG();
+		}
+	}
+
+	rb_link_node(&iommu->node, parent, p);
+	rb_insert_color(&iommu->node, &buffer->iommu_maps);
+
+}
+
+static struct ion_iommu_map *ion_iommu_lookup(struct ion_buffer *buffer,
+						unsigned int domain_no,
+						unsigned int partition_no)
+{
+	struct rb_node **p = &buffer->iommu_maps.rb_node;
+	struct rb_node *parent = NULL;
+	struct ion_iommu_map *entry;
+	uint64_t key = domain_no;
+	key = key << 32 | partition_no;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct ion_iommu_map, node);
+
+		if (key < entry->key)
+			p = &(*p)->rb_left;
+		else if (key > entry->key)
+			p = &(*p)->rb_right;
+		else
+			return entry;
+	}
+
+	return NULL;
 }
 
 /* this function should only be called while dev->lock is held */
@@ -433,17 +508,9 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 		return ERR_PTR(-ENODEV);
 	}
 
-	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
-		if (buffer->flags != flags) {
-			pr_err("%s: buffer was already mapped with flags %lx,"
-				" cannot map with flags %lx\n", __func__,
-				buffer->flags, flags);
+	if (ion_validate_buffer_flags(buffer, flags)) {
 			vaddr = ERR_PTR(-EEXIST);
 			goto out;
-		}
-
-	} else {
-		buffer->flags = flags;
 	}
 
 	if (_ion_map(&buffer->kmap_cnt, &handle->kmap_cnt)) {
@@ -461,6 +528,179 @@ out:
 	mutex_unlock(&client->lock);
 	return vaddr;
 }
+
+int __ion_iommu_map(struct ion_buffer *buffer,
+		int domain_num, int partition_num, unsigned long align,
+		unsigned long iova_length, unsigned long flags,
+		unsigned long *iova)
+{
+	struct ion_iommu_map *data;
+	int ret;
+
+	data = kmalloc(sizeof(*data), GFP_ATOMIC);
+
+	if (!data)
+		return -ENOMEM;
+
+	data->buffer = buffer;
+	iommu_map_domain(data) = domain_num;
+	iommu_map_partition(data) = partition_num;
+
+	ret = buffer->heap->ops->map_iommu(buffer, data,
+						domain_num,
+						partition_num,
+						align,
+						iova_length,
+						flags);
+
+	if (ret)
+		goto out;
+
+	kref_init(&data->ref);
+	*iova = data->iova_addr;
+
+	ion_iommu_add(buffer, data);
+
+	return 0;
+
+out:
+	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
+				buffer->size);
+	kfree(data);
+	return ret;
+}
+
+int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, unsigned long *iova,
+			unsigned long *buffer_size,
+			unsigned long flags)
+{
+	struct ion_buffer *buffer;
+	struct ion_iommu_map *iommu_map;
+	int ret = 0;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to map_kernel.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	buffer = handle->buffer;
+	mutex_lock(&buffer->lock);
+
+	if (!handle->buffer->heap->ops->map_iommu) {
+		pr_err("%s: map_iommu is not implemented by this heap.\n",
+		       __func__);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (ion_validate_buffer_flags(buffer, flags)) {
+		ret = -EEXIST;
+		goto out;
+	}
+
+	/*
+	 * If clients don't want a custom iova length, just use whatever
+	 * the buffer size is
+	 */
+	if (!iova_length)
+		iova_length = buffer->size;
+
+	if (buffer->size > iova_length) {
+		pr_debug("%s: iova length %lx is not at least buffer size"
+			" %x\n", __func__, iova_length, buffer->size);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (buffer->size & ~PAGE_MASK) {
+		pr_debug("%s: buffer size %x is not aligned to %lx", __func__,
+			buffer->size, PAGE_SIZE);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (iova_length & ~PAGE_MASK) {
+		pr_debug("%s: iova_length %lx is not aligned to %lx", __func__,
+			iova_length, PAGE_SIZE);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	iommu_map = ion_iommu_lookup(buffer, domain_num, partition_num);
+	if (_ion_map(&buffer->iommu_map_cnt, &handle->iommu_map_cnt) ||
+		!iommu_map) {
+		ret = __ion_iommu_map(buffer, domain_num, partition_num, align,
+					iova_length, flags, iova);
+		if (ret < 0)
+			_ion_unmap(&buffer->iommu_map_cnt,
+				   &handle->iommu_map_cnt);
+	} else {
+		if (iommu_map->mapped_size != iova_length) {
+			pr_err("%s: handle %p is already mapped with length"
+				" %x, trying to map with length %lx\n",
+				__func__, handle, iommu_map->mapped_size,
+				iova_length);
+			_ion_unmap(&buffer->iommu_map_cnt,
+				   &handle->iommu_map_cnt);
+			ret = -EINVAL;
+		} else {
+			kref_get(&iommu_map->ref);
+			*iova = iommu_map->iova_addr;
+		}
+	}
+	*buffer_size = buffer->size;
+out:
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+	return ret;
+}
+EXPORT_SYMBOL(ion_map_iommu);
+
+static void ion_iommu_release(struct kref *kref)
+{
+	struct ion_iommu_map *map = container_of(kref, struct ion_iommu_map,
+						ref);
+	struct ion_buffer *buffer = map->buffer;
+
+	rb_erase(&map->node, &buffer->iommu_maps);
+	buffer->heap->ops->unmap_iommu(map);
+	kfree(map);
+}
+
+void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
+			int domain_num, int partition_num)
+{
+	struct ion_iommu_map *iommu_map;
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	buffer = handle->buffer;
+
+	mutex_lock(&buffer->lock);
+
+	iommu_map = ion_iommu_lookup(buffer, domain_num, partition_num);
+
+	if (!iommu_map) {
+		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
+				domain_num, partition_num, buffer);
+		goto out;
+	}
+
+	_ion_unmap(&buffer->iommu_map_cnt, &handle->iommu_map_cnt);
+	kref_put(&iommu_map->ref, ion_iommu_release);
+
+out:
+	mutex_unlock(&buffer->lock);
+
+	mutex_unlock(&client->lock);
+
+}
+EXPORT_SYMBOL(ion_unmap_iommu);
 
 struct scatterlist *ion_map_dma(struct ion_client *client,
 				struct ion_handle *handle,
@@ -487,17 +727,9 @@ struct scatterlist *ion_map_dma(struct ion_client *client,
 		return ERR_PTR(-ENODEV);
 	}
 
-	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
-		if (buffer->flags != flags) {
-			pr_err("%s: buffer was already mapped with flags %lx,"
-				" cannot map with flags %lx\n", __func__,
-				buffer->flags, flags);
-			sglist = ERR_PTR(-EEXIST);
-			goto out;
-		}
-
-	} else {
-		buffer->flags = flags;
+	if (ion_validate_buffer_flags(buffer, flags)) {
+		sglist = ERR_PTR(-EEXIST);
+		goto out;
 	}
 
 	if (_ion_map(&buffer->dmap_cnt, &handle->dmap_cnt)) {
@@ -888,6 +1120,28 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 }
 EXPORT_SYMBOL(ion_handle_get_flags);
 
+int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
+			unsigned long *size)
+{
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to %s.\n",
+		       __func__, __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+	buffer = handle->buffer;
+	mutex_lock(&buffer->lock);
+	*size = buffer->size;
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(ion_handle_get_size);
+
 static int ion_share_release(struct inode *inode, struct file* file)
 {
 	struct ion_buffer *buffer = file->private_data;
@@ -1001,19 +1255,13 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	mutex_lock(&buffer->lock);
-	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt) {
-		if (buffer->flags != flags) {
-			pr_err("%s: buffer was already mapped with flags %lx,"
-				" cannot map with flags %lx\n", __func__,
-				buffer->flags, flags);
-			ret = -EEXIST;
-			mutex_unlock(&buffer->lock);
-			goto err1;
-		}
 
-	} else {
-		buffer->flags = flags;
+	if (ion_validate_buffer_flags(buffer, flags)) {
+		ret = -EEXIST;
+		mutex_unlock(&buffer->lock);
+		goto err1;
 	}
+
 	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma,
 						flags);

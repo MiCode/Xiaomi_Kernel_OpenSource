@@ -89,6 +89,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 			heaps[i] = 0;
 			continue;
 		}
+
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
