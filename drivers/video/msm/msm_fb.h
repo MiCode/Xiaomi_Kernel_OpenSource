@@ -166,7 +166,6 @@ struct msm_fb_data_type {
 	struct completion msmfb_update_notify;
 	struct completion msmfb_no_update_notify;
 	u32 ov_start, ov_end;
-
 	struct mutex writeback_mutex;
 	struct mutex unregister_mutex;
 	struct list_head writeback_busy_queue;
@@ -174,6 +173,8 @@ struct msm_fb_data_type {
 	struct list_head writeback_register_queue;
 	wait_queue_head_t		wait_q;
 	struct ion_client *client;
+	u32 mdp_rev;
+	u32 use_ov0_blt, ov0_blt_state;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);

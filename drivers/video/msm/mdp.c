@@ -1340,6 +1340,10 @@ static int mdp_probe(struct platform_device *pdev)
 
 	/* link to the latest pdev */
 	mfd->pdev = msm_fb_dev;
+	mfd->mdp_rev = mdp_rev;
+
+	mfd->ov0_blt_state  = 0;
+	mfd->use_ov0_blt = 0 ;
 
 	/* add panel data */
 	if (platform_device_add_data
