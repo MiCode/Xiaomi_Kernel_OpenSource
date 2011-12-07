@@ -888,6 +888,16 @@ static void z180_irqctrl(struct kgsl_device *device, int state)
 	}
 }
 
+static unsigned int z180_gpuid(struct kgsl_device *device)
+{
+	/* Standard KGSL gpuid format:
+	 * top word is 0x0002 for 2D or 0x0003 for 3D
+	 * Bottom word is core specific identifer
+	 */
+
+	return (0x0002 << 16) | 180;
+}
+
 static const struct kgsl_functable z180_functable = {
 	/* Mandatory functions */
 	.regread = z180_regread,
@@ -905,6 +915,7 @@ static const struct kgsl_functable z180_functable = {
 	.cleanup_pt = z180_cleanup_pt,
 	.power_stats = z180_power_stats,
 	.irqctrl = z180_irqctrl,
+	.gpuid = z180_gpuid,
 	/* Optional functions */
 	.drawctxt_create = NULL,
 	.drawctxt_destroy = z180_drawctxt_destroy,
