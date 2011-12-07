@@ -304,6 +304,24 @@ static void __init reserve_memory_for_mempools(void)
 	}
 }
 
+unsigned long __init reserve_memory_for_fmem(unsigned long fmem_size)
+{
+	struct membank *mb;
+	int ret;
+	unsigned long fmem_phys;
+
+	if (!fmem_size)
+		return 0;
+
+	mb = &meminfo.bank[meminfo.nr_banks - 1];
+	fmem_phys = mb->start + (mb->size - fmem_size);
+	ret = memblock_remove(fmem_phys, fmem_size);
+	BUG_ON(ret);
+
+	pr_info("fmem start %lx size %lx\n", fmem_phys, fmem_size);
+	return fmem_phys;
+}
+
 static void __init initialize_mempools(void)
 {
 	struct mem_pool *mpool;

@@ -62,4 +62,6 @@ struct reserve_info {
 };
 
 extern struct reserve_info *reserve_info;
+
+unsigned long __init reserve_memory_for_fmem(unsigned long);
 #endif
