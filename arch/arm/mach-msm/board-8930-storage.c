@@ -22,7 +22,15 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
+
+/* TODO: Remove this once PM8038 physically becomes
+ * available.
+ */
+#ifndef MSM8930_PHASE_2
+#include "board-8960.h"
+#else
 #include "board-8930.h"
+#endif
 
 /* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
@@ -239,13 +247,19 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
 	.pclk_src_dfab	= 1,
 #ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
+/*TODO: Insert right replacement for PM8038 */
+#ifndef MSM8930_PHASE_2
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
+#endif
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
+/*TODO: Insert right replacement for PM8038 */
+#ifndef MSM8930_PHASE_2
 	.status_gpio	= PM8921_GPIO_PM_TO_SYS(26),
 	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 26),
+#endif
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 #endif
 	.xpc_cap	= 1,

@@ -81,7 +81,6 @@
 #include "devices.h"
 #include "devices-msm8x60.h"
 #include "spm.h"
-#include "board-8930.h"
 #include "pm.h"
 #include "cpuidle.h"
 #include "rpm_resources.h"
@@ -91,6 +90,7 @@
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
+#include "board-8930.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -428,7 +428,11 @@ static struct tabla_pdata tabla_platform_data = {
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
+
+/*TODO: Replace this with right PM8038 gpio */
+#ifndef MSM8930_PHASE_2
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+#endif
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
@@ -457,7 +461,11 @@ static struct tabla_pdata tabla20_platform_data = {
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
+
+/*TODO: Replace this with right PM8038 gpio */
+#ifndef MSM8930_PHASE_2
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+#endif
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
@@ -785,21 +793,25 @@ static void msm_hsusb_vbus_power(bool on)
 			pr_err("Unable to get mvs_otg_switch\n");
 			return;
 		}
-
+		/* TODO: Replace this with appropriate PM8038 alternative */
+#ifndef MSM8930_PHASE_2
 		rc = gpio_request(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
 						"usb_5v_en");
+#endif
 		if (rc < 0) {
 			pr_err("failed to request usb_5v_en gpio\n");
 			goto put_mvs_otg;
 		}
 
+		/* TODO: Replace this with appropriate PM8038 alternative */
+#ifndef MSM8930_PHASE_2
 		rc = gpio_direction_output(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 1);
 		if (rc) {
 			pr_err("%s: unable to set_direction for gpio [%d]\n",
 				__func__, PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
 			goto free_usb_5v_en;
 		}
-
+#endif
 		if (regulator_enable(mvs_otg_switch)) {
 			pr_err("unable to enable mvs_otg_switch\n");
 			goto err_ldo_gpio_set_dir;
@@ -809,10 +821,14 @@ static void msm_hsusb_vbus_power(bool on)
 		return;
 	}
 	regulator_disable(mvs_otg_switch);
+
+/* TODO: Replace this with appropriate PM8038 alternative */
+#ifndef MSM8930_PHASE_2
 err_ldo_gpio_set_dir:
 	gpio_set_value(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
 free_usb_5v_en:
 	gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
+#endif
 put_mvs_otg:
 	regulator_put(mvs_otg_switch);
 	vbus_is_on = false;
@@ -823,7 +839,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
 	.pclk_src_name		= "dfab_usb_hs_clk",
-	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
+	.pmic_id_irq		= PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE),
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
 };
@@ -1025,8 +1041,13 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 	},
 };
 
+#/* TODO: Remove this once PM8038 physically becomes
+ * available.
+ */
+#ifndef MSM8930_PHASE_2
 #define PM_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
 #define PM_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
+#endif
 
 static struct msm_xo_voter *xo_handle_d1;
 
@@ -1407,26 +1428,40 @@ static struct spi_board_info spi_board_info[] __initdata = {
 };
 
 static struct platform_device msm_device_saw_core0 = {
-	.name          = "saw-regulator",
-	.id            = 0,
+	.name	= "saw-regulator",
+	.id	= 0,
 	.dev	= {
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, replace msm_saw_regulator_pdata_s5
+	 * with 8930 saw regulator object.
+	 */
+#ifndef MSM8930_PHASE_2
 		.platform_data = &msm_saw_regulator_pdata_s5,
+#endif
 	},
 };
 
 static struct platform_device msm_device_saw_core1 = {
-	.name          = "saw-regulator",
-	.id            = 1,
+	.name	= "saw-regulator",
+	.id	= 1,
 	.dev	= {
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, replace msm_saw_regulator_pdata_s5
+	 * with 8930 saw regulator object.
+	 */
+#if     !defined(MSM8930_PHASE_2)
 		.platform_data = &msm_saw_regulator_pdata_s6,
+#endif
 	},
 };
 
 static struct tsens_platform_data msm_tsens_pdata  = {
-		.slope			= 910,
-		.tsens_factor		= 1000,
-		.hw_type		= MSM_8960,
-		.tsens_num_sensor	= 5,
+	.slope			= 910,
+	.tsens_factor		= 1000,
+	.hw_type		= MSM_8960,
+	.tsens_num_sensor	= 5,
 };
 
 static struct platform_device msm_tsens_device = {
@@ -1443,27 +1478,52 @@ static struct platform_device fish_battery_device = {
 };
 #endif
 
-static struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
+static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
+/* TODO: Replace this with right MPP for 8038 */
+#ifndef MSM8930_PHASE_2
 	.id	= PM8921_MPP_PM_TO_SYS(7),
+#endif
 	.dev	= {
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, replace msm_gpio_regulator_pdata
+	 * with 8930 gpio regulator object.
+	 */
+#if     !defined(MSM8930_PHASE_2)
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
+#endif
 	},
 };
 
-static struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
+static struct platform_device msm8930_device_ext_l2_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 91,
 	.dev	= {
+	 /*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, replace msm_gpio_regulator_pdata
+	 * with 8930 gpio regulator object.
+	 */
+#if     !defined(MSM8930_PHASE_2)
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
+#endif
 	},
 };
 
-static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
+static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
 	.dev	= {
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, replace msm_rpm_regulator_pdata
+	 * with 8930 rpm regulator object.
+	 */
+#if     !defined(MSM8930_PHASE_2)
+
 		.platform_data = &msm_rpm_regulator_pdata,
+#endif
 	},
 };
 
@@ -1493,8 +1553,8 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_uart_dm6,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
-	&msm8960_device_ext_5v_vreg,
-	&msm8960_device_ext_l2_vreg,
+	&msm8930_device_ext_5v_vreg,
+	&msm8930_device_ext_l2_vreg,
 	&msm8960_device_ssbi_pmic,
 	&msm8960_device_qup_spi_gsbi1,
 	&msm8960_device_qup_i2c_gsbi3,
@@ -1895,7 +1955,7 @@ static void __init msm8930_cdp_init(void)
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
-	platform_device_register(&msm8960_device_rpm_regulator);
+	platform_device_register(&msm8930_device_rpm_regulator);
 	msm_clock_init(&msm8960_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
@@ -1904,7 +1964,16 @@ static void __init msm8930_cdp_init(void)
 				&msm8960_qup_spi_gsbi1_pdata;
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, remove this block or add the config
+	 * option.
+	 */
+#ifndef MSM8930_PHASE_2
+	msm8960_init_pmic();
+#else
 	msm8930_init_pmic();
+#endif
 	msm8930_i2c_init();
 	msm8930_gfx_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
@@ -1913,7 +1982,16 @@ static void __init msm8930_cdp_init(void)
 	platform_add_devices(msm_footswitch_devices,
 		msm_num_footswitch_devices);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
-	msm8930_pm8921_gpio_mpp_init();
+	/*
+	 * TODO: When physical 8930/PM8038 hardware becomes
+	 * available, remove this block or add the config
+	 * option.
+	 */
+#ifndef MSM8930_PHASE_2
+	msm8960_pm8921_gpio_mpp_init();
+#else
+	msm8930_pm8038_gpio_mpp_init();
+#endif
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	msm8930_init_hsic();
 	msm8930_init_cam();

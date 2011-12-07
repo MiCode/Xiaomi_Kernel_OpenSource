@@ -22,7 +22,15 @@
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
 #include "devices.h"
+
+/* TODO: Remove this once PM8038 physically becomes
+ * available.
+ */
+#ifndef MSM8930_PHASE_2
+#include "board-8960.h"
+#else
 #include "board-8930.h"
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_PRIM_BUF_SIZE (1376 * 768 * 4 * 3) /* 4 bpp x 3 pages */
@@ -137,6 +145,12 @@ static struct platform_device msm_fb_device = {
 
 static bool dsi_power_on;
 
+/*
+ * TODO: When physical 8930/PM8038 hardware becomes
+ * available, replace mipi_dsi_cdp_panel_power with
+ * appropriate function.
+ */
+#ifndef MSM8930_PHASE_2
 static int mipi_dsi_cdp_panel_power(int on)
 {
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
@@ -258,6 +272,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 	}
 	return 0;
 }
+#endif
 
 static int mipi_dsi_panel_power(int on)
 {
