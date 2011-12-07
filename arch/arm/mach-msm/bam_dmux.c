@@ -232,8 +232,10 @@ static void queue_rx(void)
 		return;
 
 	info = kmalloc(sizeof(struct rx_pkt_info), GFP_KERNEL);
-	if (!info)
-		return; /*need better way to handle this */
+	if (!info) {
+		pr_err("%s: unable to alloc rx_pkt_info\n", __func__);
+		return;
+	}
 
 	INIT_WORK(&info->work, handle_bam_mux_cmd);
 
