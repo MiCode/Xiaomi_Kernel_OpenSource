@@ -72,8 +72,14 @@ void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
 void msm8930_init_mmc(void);
+int msm8930_init_gpiomux(void);
 void msm8930_allocate_fb_region(void);
 void msm8930_pm8921_gpio_mpp_init(void);
+
+#define PLATFORM_IS_CHARM25() \
+	(machine_is_msm8930_cdp() && \
+		(socinfo_get_platform_subtype() == 1) \
+	)
 
 #define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID 3
