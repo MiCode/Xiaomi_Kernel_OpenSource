@@ -41,6 +41,8 @@
 #define TABLA_TX_DAI_ID 2
 #define TABLA_CFILT_FAST_MODE 0x00
 #define TABLA_CFILT_SLOW_MODE 0x40
+#define MBHC_FW_READ_ATTEMPTS 15
+#define MBHC_FW_READ_TIMEOUT 2000000
 
 #define TABLA_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | SND_JACK_OC_HPHR)
 
@@ -186,6 +188,10 @@ struct tabla_priv {
 
 	/* Callback function to enable MCLK */
 	int (*mclk_cb) (struct snd_soc_codec*, int);
+
+	/* Work to perform MBHC Firmware Read */
+	struct delayed_work mbhc_firmware_dwork;
+	const struct firmware *mbhc_fw;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -3592,6 +3598,91 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x02, 0x02);
 }
 
+static bool tabla_mbhc_fw_validate(const struct firmware *fw)
+{
+	u32 cfg_offset;
+	struct tabla_mbhc_imped_detect_cfg *imped_cfg;
+	struct tabla_mbhc_btn_detect_cfg *btn_cfg;
+
+	if (fw->size < TABLA_MBHC_CAL_MIN_SIZE)
+		return false;
+
+	/* previous check guarantees that there is enough fw data up
+	 * to num_btn
+	 */
+	btn_cfg = TABLA_MBHC_CAL_BTN_DET_PTR(fw->data);
+	cfg_offset = (u32) ((void *) btn_cfg - (void *) fw->data);
+	if (fw->size < (cfg_offset + TABLA_MBHC_CAL_BTN_SZ(btn_cfg)))
+		return false;
+
+	/* previous check guarantees that there is enough fw data up
+	 * to start of impedance detection configuration
+	 */
+	imped_cfg = TABLA_MBHC_CAL_IMPED_DET_PTR(fw->data);
+	cfg_offset = (u32) ((void *) imped_cfg - (void *) fw->data);
+
+	if (fw->size < (cfg_offset + TABLA_MBHC_CAL_IMPED_MIN_SZ))
+		return false;
+
+	if (fw->size < (cfg_offset + TABLA_MBHC_CAL_IMPED_SZ(imped_cfg)))
+		return false;
+
+	return true;
+}
+static void mbhc_fw_read(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct tabla_priv *tabla;
+	struct snd_soc_codec *codec;
+	const struct firmware *fw;
+	int ret = -1, retry = 0, rc;
+
+	dwork = to_delayed_work(work);
+	tabla = container_of(dwork, struct tabla_priv,
+				mbhc_firmware_dwork);
+	codec = tabla->codec;
+
+	while (retry < MBHC_FW_READ_ATTEMPTS) {
+		retry++;
+		pr_info("%s:Attempt %d to request MBHC firmware\n",
+			__func__, retry);
+		ret = request_firmware(&fw, "wcd9310/wcd9310_mbhc.bin",
+					codec->dev);
+
+		if (ret != 0) {
+			usleep_range(MBHC_FW_READ_TIMEOUT,
+					MBHC_FW_READ_TIMEOUT);
+		} else {
+			pr_info("%s: MBHC Firmware read succesful\n", __func__);
+			break;
+		}
+	}
+
+	if (ret != 0) {
+		pr_err("%s: Cannot load MBHC firmware use default cal\n",
+			__func__);
+	} else if (tabla_mbhc_fw_validate(fw) == false) {
+		pr_err("%s: Invalid MBHC cal data size use default cal\n",
+			 __func__);
+		release_firmware(fw);
+	} else {
+		tabla->calibration = (void *)fw->data;
+		tabla->mbhc_fw = fw;
+	}
+
+	tabla->mclk_cb(codec, 1);
+	tabla_mbhc_init(codec);
+	tabla_mbhc_cal(codec);
+	tabla_mbhc_calc_thres(codec);
+	tabla->mclk_cb(codec, 0);
+	tabla_codec_calibrate_hs_polling(codec);
+	rc = tabla_codec_enable_hs_detect(codec, 1);
+
+	if (IS_ERR_VALUE(rc))
+		pr_err("%s: Failed to setup MBHC detection\n", __func__);
+
+}
+
 int tabla_hs_detect(struct snd_soc_codec *codec,
 		    struct snd_soc_jack *headset_jack,
 		    struct snd_soc_jack *button_jack,
@@ -3600,7 +3691,7 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 		    int read_fw_bin, u32 mclk_rate)
 {
 	struct tabla_priv *tabla;
-	int rc;
+	int rc = 0;
 
 	if (!codec || !calibration) {
 		pr_err("Error: no codec or calibration\n");
@@ -3618,7 +3709,7 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	/* Put CFILT in fast mode by default */
 	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl,
 		0x40, TABLA_CFILT_FAST_MODE);
-
+	INIT_DELAYED_WORK(&tabla->mbhc_firmware_dwork, mbhc_fw_read);
 	INIT_DELAYED_WORK(&tabla->btn0_dwork, btn0_lpress_fn);
 	INIT_WORK(&tabla->hphlocp_work, hphlocp_off_report);
 	INIT_WORK(&tabla->hphrocp_work, hphrocp_off_report);
@@ -3632,8 +3723,8 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 		tabla_codec_calibrate_hs_polling(codec);
 		rc =  tabla_codec_enable_hs_detect(codec, 1);
 	} else {
-		pr_err("%s: MBHC firmware read not supported\n", __func__);
-		rc = -EINVAL;
+		schedule_delayed_work(&tabla->mbhc_firmware_dwork,
+				usecs_to_jiffies(MBHC_FW_READ_TIMEOUT));
 	}
 
 	if (!IS_ERR_VALUE(rc)) {
@@ -4552,6 +4643,8 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
 	tabla_codec_disable_clock_block(codec);
 	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_OFF);
+	if (tabla->mbhc_fw)
+		release_firmware(tabla->mbhc_fw);
 	kfree(tabla);
 	return 0;
 }

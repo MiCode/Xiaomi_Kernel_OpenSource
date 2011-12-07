@@ -197,3 +197,29 @@ extern void *tabla_mbhc_cal_btn_det_mp(const struct tabla_mbhc_btn_detect_cfg
 	       sizeof(TABLA_MBHC_CAL_BTN_DET_PTR(cali)->_v_btn_high[0])))) \
 	)
 
+/* minimum size of calibration data assuming there is only one button and
+ * one rload.
+ */
+#define TABLA_MBHC_CAL_MIN_SIZE ( \
+	sizeof(struct tabla_mbhc_general_cfg) + \
+	sizeof(struct tabla_mbhc_plug_detect_cfg) + \
+	sizeof(struct tabla_mbhc_plug_type_cfg) + \
+	sizeof(struct tabla_mbhc_btn_detect_cfg) + \
+	sizeof(struct tabla_mbhc_imped_detect_cfg) + \
+	(sizeof(u16) * 2))
+
+#define TABLA_MBHC_CAL_BTN_SZ(cfg_ptr) ( \
+	    sizeof(struct tabla_mbhc_btn_detect_cfg) + \
+	    (cfg_ptr->num_btn * (sizeof(cfg_ptr->_v_btn_low[0]) + \
+				 sizeof(cfg_ptr->_v_btn_high[0]))))
+
+#define TABLA_MBHC_CAL_IMPED_MIN_SZ ( \
+	    sizeof(struct tabla_mbhc_imped_detect_cfg) + \
+	    sizeof(u16) * 2)
+
+#define TABLA_MBHC_CAL_IMPED_SZ(cfg_ptr) ( \
+	    sizeof(struct tabla_mbhc_imped_detect_cfg) + \
+	    (cfg_ptr->_n_rload * (sizeof(cfg_ptr->_rload[0]) + \
+				 sizeof(cfg_ptr->_alpha[0]))))
+
+
