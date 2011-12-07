@@ -151,6 +151,8 @@ config ARCH_MSM8960
 	select ARCH_MEMORY_PROBE
 	select ARCH_MEMORY_REMOVE
 	select FIX_MOVABLE_ZONE
+	select CLEANCACHE
+	select QCACHE
 
 config ARCH_MSM8930
 	bool "MSM8930"
