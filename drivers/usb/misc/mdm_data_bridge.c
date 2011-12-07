@@ -872,7 +872,9 @@ static void bridge_disconnect(struct usb_interface *intf)
 }
 
 static const struct usb_device_id bridge_ids[] = {
-	  { USB_DEVICE(0x5c6, 0x9001) },
+	{ USB_DEVICE(0x5c6, 0x9001) },
+
+	{ } /* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, bridge_ids);
