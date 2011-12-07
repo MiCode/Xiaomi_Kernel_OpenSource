@@ -382,6 +382,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 					DMA_TO_DEVICE);
 	if (!dma_address) {
 		pr_err("%s: dma_map_single() failed\n", __func__);
+		kfree(pkt);
 		rc = -ENOMEM;
 		return rc;
 	}
