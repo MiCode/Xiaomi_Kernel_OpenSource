@@ -43,6 +43,7 @@
 #define PM8921_REVISION_MASK	0x000F
 
 #define REG_PM8921_PON_CNTRL_3	0x01D
+#define REG_PM8921_PON_CNTRL_4	0x01E
 #define PM8921_RESTART_REASON_MASK	0x07
 
 #define SINGLE_IRQ_RESOURCE(_name, _irq) \
@@ -701,6 +702,14 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 	}
 	val &= PM8921_RESTART_REASON_MASK;
 	pr_info("PMIC Restart Reason: %s\n", pm8921_restart_reason[val]);
+
+	/* Set power-on-reset to 3 seconds */
+	val = 0xBB;
+	rc = msm_ssbi_write(pdev->dev.parent, REG_PM8921_PON_CNTRL_4, &val, 1);
+	if (rc) {
+		pr_err("Cannot write power-on-reset rc=%d\n", rc);
+		goto err;
+	}
 
 	rc = pm8921_add_subdevices(pdata, pmic);
 	if (rc) {
