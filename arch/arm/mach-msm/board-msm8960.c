@@ -2486,19 +2486,15 @@ static void __init msm8960_init_hsic(void)
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	uint32_t version = socinfo_get_version();
 
-	pr_info("%s: version:%d mtp:%d\n", __func__,
-			SOCINFO_VERSION_MAJOR(version),
-			machine_is_msm8960_mtp());
-
-	if ((SOCINFO_VERSION_MAJOR(version) == 1) ||
-			machine_is_msm8960_mtp() ||
-			machine_is_msm8960_fluid())
+	if (SOCINFO_VERSION_MAJOR(version) == 1)
 		return;
 
-	msm_gpiomux_install(msm8960_hsic_configs,
-			ARRAY_SIZE(msm8960_hsic_configs));
+	if (PLATFORM_IS_CHARM25() || machine_is_msm8960_liquid()) {
+		msm_gpiomux_install(msm8960_hsic_configs,
+				ARRAY_SIZE(msm8960_hsic_configs));
 
-	platform_device_register(&msm_device_hsic_host);
+		platform_device_register(&msm_device_hsic_host);
+	}
 #endif
 }
 
