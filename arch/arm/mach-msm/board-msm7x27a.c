@@ -3023,7 +3023,6 @@ static int atmel_ts_platform_exit(struct i2c_client *client)
 	gpio_tlmm_config(GPIO_CFG(ATMEL_TS_GPIO_IRQ, 0,
 				GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA), GPIO_CFG_DISABLE);
-	regulator_bulk_disable(ARRAY_SIZE(regs_atmel), regs_atmel);
 	regulator_bulk_free(ARRAY_SIZE(regs_atmel), regs_atmel);
 	return 0;
 }
