@@ -11,8 +11,15 @@
  */
 
 #include "clock.h"
+#include "clock-pll.h"
 #include "clock-pcom.h"
 #include "clock-voter.h"
+
+#include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
+
+#define PLLn_MODE(n)	(MSM_CLK_CTL_BASE + 0x300 + 28 * (n))
+#define PLL4_MODE	(MSM_CLK_CTL_BASE + 0x374)
 
 static DEFINE_CLK_PCOM(adm_clk,		ADM_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(adsp_clk,	ADSP_CLK,	CLKFLAG_SKIP_AUTO_OFF);
@@ -27,6 +34,46 @@ static DEFINE_CLK_PCOM(csi0_vfe_clk,	CSI0_VFE_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(csi1_clk,	CSI1_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(csi1_p_clk,	CSI1_P_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(csi1_vfe_clk,	CSI1_VFE_CLK,	CLKFLAG_SKIP_AUTO_OFF);
+
+static struct pll_shared_clk pll0_clk = {
+	.id = PLL_0,
+	.mode_reg = PLLn_MODE(0),
+	.c = {
+		.ops = &clk_pll_ops,
+		.dbg_name = "pll0_clk",
+		CLK_INIT(pll0_clk.c),
+	},
+};
+
+static struct pll_shared_clk pll1_clk = {
+	.id = PLL_1,
+	.mode_reg = PLLn_MODE(1),
+	.c = {
+		.ops = &clk_pll_ops,
+		.dbg_name = "pll1_clk",
+		CLK_INIT(pll1_clk.c),
+	},
+};
+
+static struct pll_shared_clk pll2_clk = {
+	.id = PLL_2,
+	.mode_reg = PLLn_MODE(2),
+	.c = {
+		.ops = &clk_pll_ops,
+		.dbg_name = "pll2_clk",
+		CLK_INIT(pll2_clk.c),
+	},
+};
+
+static struct pll_shared_clk pll4_clk = {
+	.id = PLL_4,
+	.mode_reg = PLL4_MODE,
+	.c = {
+		.ops = &clk_pll_ops,
+		.dbg_name = "pll4_clk",
+		CLK_INIT(pll4_clk.c),
+	},
+};
 
 static struct pcom_clk dsi_byte_clk = {
 	.id = P_DSI_BYTE_CLK,
@@ -251,14 +298,20 @@ static struct clk_lookup msm_clocks_7x27[] = {
 	CLK_LOOKUP("core_clk",		ebi_usb_clk.c,	"msm_otg"),
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("mem_clk",		ebi_adm_clk.c,	"msm_dmov"),
+
+	CLK_LOOKUP("pll0_clk",		pll0_clk.c,	"acpu"),
+	CLK_LOOKUP("pll1_clk",		pll1_clk.c,	"acpu"),
+	CLK_LOOKUP("pll2_clk",		pll2_clk.c,	"acpu"),
 };
 
 struct clock_init_data msm7x27_clock_init_data __initdata = {
 	.table = msm_clocks_7x27,
 	.size = ARRAY_SIZE(msm_clocks_7x27),
+	.init = msm_shared_pll_control_init,
 };
 
-static struct clk_lookup msm_clocks_7x27a[] = {
+/* Clock table for common clocks between 7627a and 7625a */
+static struct clk_lookup msm_cmn_clk_7625a_7627a[] __initdata = {
 	CLK_LOOKUP("core_clk",		adm_clk.c,	"msm_dmov"),
 	CLK_LOOKUP("adsp_clk",		adsp_clk.c,	NULL),
 	CLK_LOOKUP("ahb_m_clk",		ahb_m_clk.c,	NULL),
@@ -340,11 +393,41 @@ static struct clk_lookup msm_clocks_7x27a[] = {
 	CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL),
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("mem_clk",		ebi_adm_clk.c,	"msm_dmov"),
+
+	CLK_LOOKUP("pll0_clk",		pll0_clk.c,	"acpu"),
+	CLK_LOOKUP("pll1_clk",		pll1_clk.c,	"acpu"),
+	CLK_LOOKUP("pll2_clk",		pll2_clk.c,	"acpu"),
+
 };
 
+/* PLL 4 clock is available for 7627a target. */
+static struct clk_lookup msm_clk_7627a[] __initdata = {
+	CLK_LOOKUP("pll4_clk",		pll4_clk.c,	"acpu"),
+};
+
+static struct clk_lookup msm_clk_7627a_7625a[ARRAY_SIZE(msm_cmn_clk_7625a_7627a)
+					+ ARRAY_SIZE(msm_clk_7627a)];
+
+static void __init msm7627a_clock_init(void)
+{
+	int size = ARRAY_SIZE(msm_cmn_clk_7625a_7627a);
+
+	/* Intialize shared PLL control structure */
+	msm_shared_pll_control_init();
+
+	memcpy(&msm_clk_7627a_7625a, &msm_cmn_clk_7625a_7627a,
+					sizeof(msm_cmn_clk_7625a_7627a));
+	if (!cpu_is_msm7x25a()) {
+		memcpy(&msm_clk_7627a_7625a[size],
+				&msm_clk_7627a, sizeof(msm_clk_7627a));
+		size += ARRAY_SIZE(msm_clk_7627a);
+	}
+	msm7x27a_clock_init_data.size = size;
+}
+
 struct clock_init_data msm7x27a_clock_init_data __initdata = {
-	.table = msm_clocks_7x27a,
-	.size = ARRAY_SIZE(msm_clocks_7x27a),
+	.table = msm_clk_7627a_7625a,
+	.init = msm7627a_clock_init,
 };
 
 static struct clk_lookup msm_clocks_8x50[] = {
