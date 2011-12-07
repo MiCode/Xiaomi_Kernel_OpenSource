@@ -130,6 +130,8 @@ struct mmc_platform_data {
 	void (*sdio_lpm_gpio_setup)(struct device *, unsigned int);
         unsigned int status_irq;
 	unsigned int status_gpio;
+	/* Indicates the polarity of the GPIO line when card is inserted */
+	bool is_status_gpio_active_low;
         unsigned int sdiowakeup_irq;
         unsigned long irq_flags;
         unsigned long mmc_bus_width;

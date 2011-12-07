@@ -2897,7 +2897,7 @@ msmsdcc_slot_status(struct msmsdcc_host *host)
 	} else {
 		status = gpio_direction_input(gpio_no);
 		if (!status)
-			status = !gpio_get_value_cansleep(gpio_no);
+			status = gpio_get_value_cansleep(gpio_no);
 		gpio_free(gpio_no);
 	}
 	return status;
@@ -2910,15 +2910,36 @@ msmsdcc_check_status(unsigned long data)
 	unsigned int status;
 
 	if (host->plat->status || host->plat->status_gpio) {
-		if (host->plat->status)
+		if (host->plat->status) {
 			status = host->plat->status(mmc_dev(host->mmc));
-		else
+			host->eject = !status;
+		} else {
 			status = msmsdcc_slot_status(host);
 
-		host->eject = !status;
+			if (host->plat->is_status_gpio_active_low)
+				host->eject = status;
+			else
+				host->eject = !status;
+		}
+
 		if (status ^ host->oldstat) {
-			pr_info("%s: Slot status change detected (%d -> %d)\n",
-			       mmc_hostname(host->mmc), host->oldstat, status);
+			if (host->plat->status)
+				pr_info("%s: Slot status change detected "
+					"(%d -> %d)\n",
+					mmc_hostname(host->mmc),
+					host->oldstat, status);
+			else if (host->plat->is_status_gpio_active_low)
+				pr_info("%s: Slot status change detected "
+					"(%d -> %d) and the card detect GPIO"
+					" is ACTIVE_LOW\n",
+					mmc_hostname(host->mmc),
+					host->oldstat, status);
+			else
+				pr_info("%s: Slot status change detected "
+					"(%d -> %d) and the card detect GPIO"
+					" is ACTIVE_HIGH\n",
+					mmc_hostname(host->mmc),
+					host->oldstat, status);
 			mmc_detect_change(host->mmc, 0);
 		}
 		host->oldstat = status;
@@ -4049,11 +4070,17 @@ msmsdcc_probe(struct platform_device *pdev)
 	 */
 
 	if (plat->status || plat->status_gpio) {
-		if (plat->status)
+		if (plat->status) {
 			host->oldstat = plat->status(mmc_dev(host->mmc));
-		else
+			host->eject = !host->oldstat;
+		} else {
 			host->oldstat = msmsdcc_slot_status(host);
-		host->eject = !host->oldstat;
+
+			if (host->plat->is_status_gpio_active_low)
+				host->eject = host->oldstat;
+			else
+				host->eject = !host->oldstat;
+		}
 	}
 
 	if (plat->status_irq) {
