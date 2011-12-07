@@ -65,7 +65,7 @@
 
 #define YPROC_ROOT  NULL
 
-#define Y_INIT_TIMER(a)	init_timer_on_stack(a)
+#define Y_INIT_TIMER(a, b, c)	setup_deferrable_timer_on_stack(a, b, c)
 
 #define WRITE_SIZE_STR "writesize"
 #define WRITE_SIZE(mtd) ((mtd)->writesize)
@@ -1674,10 +1674,9 @@ static int yaffs_bg_thread_fn(void *data)
 		if (time_before(expires, now))
 			expires = now + HZ;
 
-		Y_INIT_TIMER(&timer);
+		Y_INIT_TIMER(&timer, yaffs_background_waker,
+				(unsigned long)current);
 		timer.expires = expires + 1;
-		timer.data = (unsigned long)current;
-		timer.function = yaffs_background_waker;
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		add_timer(&timer);
