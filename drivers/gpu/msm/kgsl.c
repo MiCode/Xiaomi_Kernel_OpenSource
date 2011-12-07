@@ -2456,8 +2456,6 @@ static int __init kgsl_core_init(void)
 	if (result)
 		goto err;
 
-	kgsl_mmu_set_mmutype(ksgl_mmu_type);
-
 	return 0;
 
 err:
