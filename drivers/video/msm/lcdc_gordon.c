@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,7 @@ static int spi_sclk;
 static int spi_sdo;
 static int spi_sdi;
 static int spi_dac;
+static int bl_level;
 static unsigned char bit_shift[8] = { (1 << 7),	/* MSB */
 	(1 << 6),
 	(1 << 5),
@@ -313,6 +314,17 @@ static int lcdc_gordon_panel_on(struct platform_device *pdev)
 		spi_init();	/* LCD needs SPI */
 		gordon_disp_powerup();
 		gordon_disp_on();
+		if (bl_level <= 1) {
+			/* keep back light OFF */
+			serigo(GORDON_REG_LCDIFCTL2, 0x0B);
+			udelay(15);
+			serigo(GORDON_REG_VALTRAN, 0x01);
+		} else {
+			/* keep back light ON */
+			serigo(GORDON_REG_LCDIFCTL2, 0x7B);
+			udelay(15);
+			serigo(GORDON_REG_VALTRAN, 0x01);
+		}
 		gordon_state.disp_initialized = TRUE;
 	}
 	return 0;
@@ -351,18 +363,20 @@ static int lcdc_gordon_panel_off(struct platform_device *pdev)
 
 static void lcdc_gordon_set_backlight(struct msm_fb_data_type *mfd)
 {
-		int bl_level = mfd->bl_level;
+		bl_level = mfd->bl_level;
 
-		if (bl_level <= 1) {
-			/* keep back light OFF */
-			serigo(GORDON_REG_LCDIFCTL2, 0x0B);
-			udelay(15);
-			serigo(GORDON_REG_VALTRAN, 0x01);
-		} else {
-			/* keep back light ON */
-			serigo(GORDON_REG_LCDIFCTL2, 0x7B);
-			udelay(15);
-			serigo(GORDON_REG_VALTRAN, 0x01);
+		if (gordon_state.disp_initialized) {
+			if (bl_level <= 1) {
+				/* keep back light OFF */
+				serigo(GORDON_REG_LCDIFCTL2, 0x0B);
+				udelay(15);
+				serigo(GORDON_REG_VALTRAN, 0x01);
+			} else {
+				/* keep back light ON */
+				serigo(GORDON_REG_LCDIFCTL2, 0x7B);
+				udelay(15);
+				serigo(GORDON_REG_VALTRAN, 0x01);
+			}
 		}
 }
 
