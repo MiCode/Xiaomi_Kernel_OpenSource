@@ -214,6 +214,12 @@ static long aac_in_ioctl(struct file *file,
 			rc = -EINVAL;
 			break;
 		}
+		if ((cfg.bit_rate < 24000) || (cfg.bit_rate > 192000)) {
+			pr_err("%s: ERROR in setting bitrate = %d\n",
+				__func__, cfg.bit_rate);
+			rc = -EINVAL;
+			break;
+		}
 		enc_cfg->sample_rate = cfg.sample_rate;
 		enc_cfg->channels = cfg.channels;
 		enc_cfg->bit_rate = cfg.bit_rate;
