@@ -136,13 +136,15 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 #else
 #define MSM_PMEM_SIZE 0x1C00000 /* 28 Mbytes */
 #endif
-
+#define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
 #define MSM_ION_EBI_SIZE	(MSM_PMEM_SIZE + 0x600000)
 #define MSM_ION_ADSP_SIZE	MSM_PMEM_ADSP_SIZE
 #define MSM_ION_HEAP_NUM	5
+#define MSM_LIQUID_ION_EBI_SIZE (MSM_LIQUID_PMEM_SIZE + 0x600000)
+static unsigned msm_ion_ebi_size = MSM_ION_EBI_SIZE;
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	2
@@ -160,9 +162,11 @@ early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
 
 #ifdef CONFIG_ANDROID_PMEM
 static unsigned pmem_size = MSM_PMEM_SIZE;
+static unsigned pmem_param_set;
 static int __init pmem_size_setup(char *p)
 {
 	pmem_size = memparse(p, NULL);
+	pmem_param_set = 1;
 	return 0;
 }
 early_param("pmem_size", pmem_size_setup);
@@ -267,6 +271,9 @@ static void __init size_pmem_devices(void)
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	android_pmem_adsp_pdata.size = pmem_adsp_size;
+
+	if (!pmem_param_set && machine_is_msm8960_liquid())
+		pmem_size = MSM_LIQUID_PMEM_SIZE;
 	android_pmem_pdata.size = pmem_size;
 #endif
 	android_pmem_audio_pdata.size = MSM_PMEM_AUDIO_SIZE;
@@ -353,7 +360,20 @@ struct platform_device fmem_device = {
 static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_EBI_SIZE;
+	unsigned int i;
+
+	if (!pmem_param_set && machine_is_msm8960_liquid()) {
+		msm_ion_ebi_size = MSM_LIQUID_ION_EBI_SIZE;
+		for (i = 0; i < ion_pdata.nr; i++) {
+			if (ion_pdata.heaps[i].id == ION_HEAP_EBI_ID) {
+				ion_pdata.heaps[i].size = msm_ion_ebi_size;
+				pr_debug("msm_ion_ebi_size 0x%x\n",
+					msm_ion_ebi_size);
+				break;
+			}
+		}
+	}
+	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_ion_ebi_size;
 	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_ADSP_SIZE;
 #endif
 }
