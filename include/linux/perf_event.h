@@ -55,6 +55,7 @@ enum perf_hw_id {
 	PERF_COUNT_HW_BUS_CYCLES		= 6,
 	PERF_COUNT_HW_STALLED_CYCLES_FRONTEND	= 7,
 	PERF_COUNT_HW_STALLED_CYCLES_BACKEND	= 8,
+	PERF_COUNT_HW_L2_CYCLES			= 9,
 
 	PERF_COUNT_HW_MAX,			/* non-ABI */
 };
@@ -219,8 +220,9 @@ struct perf_event_attr {
 				precise_ip     :  2, /* skid constraint       */
 				mmap_data      :  1, /* non-exec mmap data    */
 				sample_id_all  :  1, /* sample_type all events */
+				single_instance:1, /* per-cpu event if unset */
 
-				__reserved_1   : 45;
+				__reserved_1:44;
 
 	union {
 		__u32		wakeup_events;	  /* wakeup every n events */

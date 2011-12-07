@@ -584,9 +584,14 @@ static int krait_l2_event_init(struct perf_event *event)
 			return err;
 	}
 
-	hwc->config_base = event->attr.config;
 	hwc->config = 0;
 	hwc->event_base = 0;
+
+	/* Check if we came via perf default syms */
+	if (event->attr.config == PERF_COUNT_HW_L2_CYCLES)
+		hwc->config_base = L2CYCLE_CTR_RAW_CODE;
+	else
+		hwc->config_base = event->attr.config;
 
 	/* Only one CPU can control the cycle counter */
 	if (hwc->config_base == L2CYCLE_CTR_RAW_CODE) {
