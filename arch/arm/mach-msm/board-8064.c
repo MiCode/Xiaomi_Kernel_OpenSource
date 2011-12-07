@@ -1776,6 +1776,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_MSM_RTB
 	&msm_rtb_device,
 #endif
+	&apq8064_cpu_idle_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

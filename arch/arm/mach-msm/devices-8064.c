@@ -2139,3 +2139,13 @@ struct platform_device mdm_8064_device = {
 	.num_resources	= ARRAY_SIZE(mdm_resources),
 	.resource	= mdm_resources,
 };
+
+static int apq8064_LPM_latency = 1000; /* >100 usec for WFI */
+
+struct platform_device apq8064_cpu_idle_device = {
+	.name   = "msm_cpu_idle",
+	.id     = -1,
+	.dev = {
+		.platform_data = &apq8064_LPM_latency,
+	},
+};

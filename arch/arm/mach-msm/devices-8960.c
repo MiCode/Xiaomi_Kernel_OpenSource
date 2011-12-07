@@ -3219,3 +3219,13 @@ struct platform_device msm_etm_device = {
 };
 
 #endif
+
+static int msm8960_LPM_latency = 1000; /* >100 usec for WFI */
+
+struct platform_device msm8960_cpu_idle_device = {
+	.name   = "msm_cpu_idle",
+	.id     = -1,
+	.dev = {
+		.platform_data = &msm8960_LPM_latency,
+	},
+};
