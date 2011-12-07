@@ -64,7 +64,6 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/dma.h>
-#include <mach/msm_dsps.h>
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
 
@@ -2058,9 +2057,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
 	&msm8960_device_qup_i2c_gsbi10,
-#ifndef CONFIG_MSM_DSPS
 	&msm8960_device_qup_i2c_gsbi12,
-#endif
 	&msm_slim_ctrl,
 	&msm_device_wcnss_wlan,
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
@@ -2341,24 +2338,6 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 };
 #endif
 
-/* Sensors DSPS platform data */
-#ifdef CONFIG_MSM_DSPS
-#define DSPS_PIL_GENERIC_NAME		"dsps"
-#endif /* CONFIG_MSM_DSPS */
-
-static void __init msm8930_init_dsps(void)
-{
-#ifdef CONFIG_MSM_DSPS
-	struct msm_dsps_platform_data *pdata =
-		msm_dsps_device.dev.platform_data;
-	pdata->pil_name = DSPS_PIL_GENERIC_NAME;
-	pdata->gpios = NULL;
-	pdata->gpios_num = 0;
-
-	platform_device_register(&msm_dsps_device);
-#endif /* CONFIG_MSM_DSPS */
-}
-
 static void __init msm8930_init_hsic(void)
 {
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
@@ -2505,7 +2484,6 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_fb();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
-	msm8930_init_dsps();
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
