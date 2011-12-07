@@ -2784,6 +2784,13 @@ sub process {
 			     $herecurr);
 		}
 
+# MSM - check if a non board-gpiomux file has any gpiomux declarations
+	if ($realfile =~ /\/mach-msm\/board-[0-9]+/ &&
+	    $realfile !~ /camera/ && $realfile !~ /gpiomux/ &&
+	    $line =~ /\s*struct msm_gpiomux_config\s*/ ) {
+		WARN("Non gpiomux board file cannot have a gpiomux config declarations. Please declare gpiomux configs in board-*-gpiomux.c file.\n" . $herecurr);
+	}
+
 # unbounded string functions are overflow risks
 		my %str_fns = (
 			"sprintf" => "snprintf",
