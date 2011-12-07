@@ -896,6 +896,11 @@ int branch_clk_reset(struct clk *clk, enum clk_reset_action action)
 	return branch_reset(&to_branch_clk(clk)->b, action);
 }
 
+int rcg_clk_reset(struct clk *clk, enum clk_reset_action action)
+{
+	return branch_reset(&to_rcg_clk(clk)->b, action);
+}
+
 static int cdiv_clk_enable(struct clk *c)
 {
 	unsigned long flags;

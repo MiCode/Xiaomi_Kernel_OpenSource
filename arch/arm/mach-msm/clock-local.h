@@ -150,6 +150,7 @@ int rcg_clk_is_enabled(struct clk *clk);
 long rcg_clk_round_rate(struct clk *clk, unsigned long rate);
 struct clk *rcg_clk_get_parent(struct clk *c);
 int rcg_clk_handoff(struct clk *c);
+int rcg_clk_reset(struct clk *clk, enum clk_reset_action action);
 
 /**
  * struct cdiv_clk - integer divider clock with external source selection
