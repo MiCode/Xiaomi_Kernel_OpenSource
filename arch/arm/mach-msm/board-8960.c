@@ -1417,6 +1417,14 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 	},
 };
 
+static struct i2c_board_info sii_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("Sil-9244", 0x39),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = MSM_GPIO_TO_INT(15),
+	},
+};
+
 static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 {
 }
@@ -2003,6 +2011,12 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info,
 		ARRAY_SIZE(mxt_device_info),
+	},
+	{
+		I2C_LIQUID,
+		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
+		sii_device_info,
+		ARRAY_SIZE(sii_device_info),
 	},
 	{
 		I2C_LIQUID,
