@@ -43,6 +43,7 @@
  */
 #define ADRENO_ISTORE_BYTES 12
 #define ADRENO_ISTORE_WORDS 3
+#define ADRENO_ISTORE_START 0x5000
 
 enum adreno_gpurev {
 	ADRENO_REV_UNKNOWN = 0,

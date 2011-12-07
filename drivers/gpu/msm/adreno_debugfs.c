@@ -128,7 +128,6 @@ static int kgsl_regread_nolock(struct kgsl_device *device,
 	return 0;
 }
 
-#define ADRENO_ISTORE_START 0x5000
 static ssize_t kgsl_istore_read(
 	struct file *file,
 	char __user *buff,
