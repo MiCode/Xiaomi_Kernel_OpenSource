@@ -76,6 +76,7 @@ struct pm8xxx_ccadc_chip {
 
 static struct pm8xxx_ccadc_chip *the_chip;
 
+#ifdef DEBUG
 static s64 microvolt_to_ccadc_reading_v1(s64 uv)
 {
 	return div_s64(uv * CCADC_READING_RESOLUTION_D_V1,
@@ -98,6 +99,7 @@ static s64 microvolt_to_ccadc_reading(struct pm8xxx_ccadc_chip *chip, s64 cc)
 				microvolt_to_ccadc_reading_v1((s64)cc) :
 				microvolt_to_ccadc_reading_v2((s64)cc);
 }
+#endif
 
 static int cc_adjust_for_offset(u16 raw)
 {
@@ -328,7 +330,7 @@ static int calib_ccadc_program_trim(struct pm8xxx_ccadc_chip *chip,
 void pm8xxx_calib_ccadc(void)
 {
 	u8 data_msb, data_lsb, sec_cntrl;
-	int result_offset, voltage_offset, result_gain;
+	int result_offset, result_gain;
 	u16 result;
 	int i, rc;
 
@@ -385,26 +387,11 @@ void pm8xxx_calib_ccadc(void)
 
 	result_offset = result_offset / SAMPLE_COUNT;
 
-	voltage_offset = pm8xxx_ccadc_reading_to_microvolt(the_chip->revision,
-			((s64)result_offset - CCADC_INTRINSIC_OFFSET));
 
-	pr_debug("offset result_offset = 0x%x, voltage = %d microVolts\n",
-				result_offset, voltage_offset);
-
-	/* Sanity Check */
-	if (voltage_offset > CCADC_MAX_0UV) {
-		pr_err("offset voltage = %d is huge limiting to %d\n",
-					voltage_offset, CCADC_MAX_0UV);
-		result_offset = CCADC_INTRINSIC_OFFSET
-			+ microvolt_to_ccadc_reading(the_chip,
-							(s64)CCADC_MAX_0UV);
-	} else if (voltage_offset < CCADC_MIN_0UV) {
-		pr_err("offset voltage = %d is too low limiting to %d\n",
-					voltage_offset, CCADC_MIN_0UV);
-		result_offset = CCADC_INTRINSIC_OFFSET
-			+ microvolt_to_ccadc_reading(the_chip,
-							(s64)CCADC_MIN_0UV);
-	}
+	pr_debug("offset result_offset = 0x%x, voltage = %llduV\n",
+			result_offset,
+			pm8xxx_ccadc_reading_to_microvolt(the_chip->revision,
+			((s64)result_offset - CCADC_INTRINSIC_OFFSET)));
 
 	the_chip->ccadc_offset = result_offset;
 	data_msb = the_chip->ccadc_offset >> 8;
@@ -474,22 +461,6 @@ void pm8xxx_calib_ccadc(void)
 
 	pr_debug("gain result_gain = 0x%x, voltage = %d microVolts\n",
 					result_gain, the_chip->ccadc_gain_uv);
-	/* Sanity Check */
-	if (the_chip->ccadc_gain_uv > CCADC_MAX_25MV) {
-		pr_err("gain voltage = %d is huge limiting to %d\n",
-					the_chip->ccadc_gain_uv,
-					CCADC_MAX_25MV);
-		the_chip->ccadc_gain_uv = CCADC_MAX_25MV;
-		result_gain = result_offset +
-			microvolt_to_ccadc_reading(the_chip, CCADC_MAX_25MV);
-	} else if (the_chip->ccadc_gain_uv < CCADC_MIN_25MV) {
-		pr_err("gain voltage = %d is too low limiting to %d\n",
-					the_chip->ccadc_gain_uv,
-					CCADC_MIN_25MV);
-		the_chip->ccadc_gain_uv = CCADC_MIN_25MV;
-		result_gain = result_offset +
-			microvolt_to_ccadc_reading(the_chip, CCADC_MIN_25MV);
-	}
 
 	data_msb = result_gain >> 8;
 	data_lsb = result_gain;
