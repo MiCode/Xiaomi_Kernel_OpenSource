@@ -1495,7 +1495,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
 	&msm8960_device_ext_l2_vreg,
-	&msm8960_device_ssbi_pm8921,
+	&msm8960_device_ssbi_pmic,
 	&msm8960_device_qup_spi_gsbi1,
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
