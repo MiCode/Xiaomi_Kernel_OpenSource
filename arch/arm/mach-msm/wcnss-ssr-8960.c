@@ -17,6 +17,8 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/wcnss_wlan.h>
 #include <mach/irqs.h>
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
@@ -79,14 +81,32 @@ static void smsm_riva_reset(void)
 /* Subsystem handlers */
 static int riva_shutdown(const struct subsys_data *subsys)
 {
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int    ret = -1;
+
 	pil_force_shutdown("wcnss");
-	return 0;
+
+	/* proxy vote on behalf of Riva */
+	if (pdev && pwlanconfig)
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_OFF);
+	return ret;
 }
 
 static int riva_powerup(const struct subsys_data *subsys)
 {
-	pil_force_boot("wcnss");
-	return 0;
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int    ret = -1;
+
+	if (pdev && pwlanconfig)
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON);
+	if (!ret)
+		pil_force_boot("wcnss");
+
+	return ret;
 }
 
 /* RAM segments for Riva SS;

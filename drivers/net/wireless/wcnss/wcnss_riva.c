@@ -18,10 +18,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/gpio.h>
+#include <linux/wcnss_wlan.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
 
-#include "wcnss_riva.h"
 
 static void __iomem *msm_riva_base;
 static struct msm_xo_voter *wlan_clock;
