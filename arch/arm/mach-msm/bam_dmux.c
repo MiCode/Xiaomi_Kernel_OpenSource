@@ -238,6 +238,11 @@ static void queue_rx(void)
 	INIT_WORK(&info->work, handle_bam_mux_cmd);
 
 	info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
+	if (info->skb == NULL) {
+		pr_err("%s: unable to alloc skb\n", __func__);
+		kfree(info);
+		return;
+	}
 	ptr = skb_put(info->skb, BUFFER_SIZE);
 
 	mutex_lock(&bam_rx_pool_mutexlock);
