@@ -774,9 +774,7 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 	BUG_ON(private == NULL);
 
 	list_for_each_entry(entry, &private->mem_list, list) {
-		if (gpuaddr >= entry->memdesc.gpuaddr &&
-		    ((gpuaddr + size) <=
-			(entry->memdesc.gpuaddr + entry->memdesc.size))) {
+		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
 			result = entry;
 			break;
 		}
@@ -785,20 +783,6 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 	return result;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_find_region);
-
-uint8_t *kgsl_gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
-	unsigned int gpuaddr, unsigned int *size)
-{
-	BUG_ON(memdesc->hostptr == NULL);
-
-	if (memdesc->gpuaddr == 0 || (gpuaddr < memdesc->gpuaddr ||
-		gpuaddr >= memdesc->gpuaddr + memdesc->size))
-		return NULL;
-
-	*size = memdesc->size - (gpuaddr - memdesc->gpuaddr);
-	return memdesc->hostptr + (gpuaddr - memdesc->gpuaddr);
-}
-EXPORT_SYMBOL(kgsl_gpuaddr_to_vaddr);
 
 /*call all ioctl sub functions with driver locked*/
 static long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
@@ -1680,11 +1664,6 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 		result = -EINVAL;
 		goto done;
 	}
-	if (!entry->memdesc.hostptr)
-		entry->memdesc.hostptr =
-				kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-					param->gpuaddr, &entry->memdesc.size);
-
 	if (!entry->memdesc.hostptr) {
 		KGSL_CORE_ERR("invalid hostptr with gpuaddr %08x\n",
 			param->gpuaddr);

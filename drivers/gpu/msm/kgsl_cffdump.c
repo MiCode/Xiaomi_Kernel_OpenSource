@@ -391,7 +391,6 @@ void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
 	bool clean_cache)
 {
 	const void *src;
-	uint host_size;
 
 	if (!kgsl_cff_dump_enable)
 		return;
@@ -411,12 +410,9 @@ void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
 		}
 		memdesc = &entry->memdesc;
 	}
-	BUG_ON(memdesc->gpuaddr == 0);
-	BUG_ON(gpuaddr == 0);
-
-	src = kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr, &host_size);
-	if (src == NULL || host_size < sizebytes) {
-		KGSL_CORE_ERR("did not find mapping for "
+	src = (uint *)kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr);
+	if (memdesc->hostptr == NULL) {
+		KGSL_CORE_ERR("no kernel mapping for "
 			"gpuaddr: 0x%08x, m->host: 0x%p, phys: 0x%08x\n",
 			gpuaddr, memdesc->hostptr, memdesc->physaddr);
 		return;
@@ -561,7 +557,6 @@ bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
 {
 	static uint level; /* recursion level */
 	bool ret = true;
-	uint host_size;
 	uint *hostaddr, *hoststart;
 	int dwords_left = sizedwords; /* dwords left in the current command
 					 buffer */
@@ -582,10 +577,9 @@ bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
 		}
 		memdesc = &entry->memdesc;
 	}
-
-	hostaddr = (uint *)kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr, &host_size);
+	hostaddr = (uint *)kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr);
 	if (hostaddr == NULL) {
-		KGSL_CORE_ERR("did not find mapping for "
+		KGSL_CORE_ERR("no kernel mapping for "
 			"gpuaddr: 0x%08x\n", gpuaddr);
 		return true;
 	}

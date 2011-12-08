@@ -937,29 +937,27 @@ static int adreno_suspend_context(struct kgsl_device *device)
 	return status;
 }
 
-uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
-	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size)
+const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
+						unsigned int pt_base,
+						unsigned int gpuaddr,
+						unsigned int size)
 {
-	uint8_t *result = NULL;
+	struct kgsl_memdesc *result = NULL;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_process_private *priv;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *ringbuffer = &adreno_dev->ringbuffer;
+	struct kgsl_context *context;
+	int next = 0;
 
-	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&ringbuffer->buffer_desc,
-					gpuaddr, size);
-	}
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr, size))
+		return &ringbuffer->buffer_desc;
 
-	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->memptrs_desc, gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&ringbuffer->memptrs_desc,
-					gpuaddr, size);
-	}
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->memptrs_desc, gpuaddr, size))
+		return &ringbuffer->memptrs_desc;
 
-	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&device->memstore,
-					gpuaddr, size);
-	}
+	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr, size))
+		return &device->memstore;
 
 	mutex_lock(&kgsl_driver.process_mutex);
 	list_for_each_entry(priv, &kgsl_driver.process_list, list) {
@@ -969,8 +967,7 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 		entry = kgsl_sharedmem_find_region(priv, gpuaddr,
 						sizeof(unsigned int));
 		if (entry) {
-			result = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-							gpuaddr, size);
+			result = &entry->memdesc;
 			spin_unlock(&priv->mem_lock);
 			mutex_unlock(&kgsl_driver.process_mutex);
 			return result;
@@ -981,14 +978,52 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 	list_for_each_entry(entry, &device->memqueue, list) {
-		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr)) {
-			result = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-							gpuaddr, size);
-			break;
+		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
+			result = &entry->memdesc;
+			return result;
 		}
 
 	}
-	return result;
+
+	while (1) {
+		struct adreno_context *adreno_context = NULL;
+		struct kgsl_memdesc *gpustate;
+		struct kgsl_memdesc *gmemshadow;
+		context = idr_get_next(&device->context_idr, &next);
+		if (context == NULL)
+			break;
+
+		adreno_context = (struct adreno_context *)context->devctxt;
+
+		if (!kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base))
+			continue;
+
+		gpustate = &adreno_context->gpustate;
+		if (kgsl_gpuaddr_in_memdesc(gpustate, gpuaddr, size)) {
+			result = gpustate;
+			return result;
+		}
+		gmemshadow = &adreno_context->context_gmem_shadow.gmemshadow;
+		if (kgsl_gpuaddr_in_memdesc(gmemshadow, gpuaddr, size)) {
+			result = gmemshadow;
+			return result;
+		}
+
+		next = next + 1;
+	}
+
+	return NULL;
+
+}
+
+uint8_t *adreno_convertaddr(struct kgsl_device *device, unsigned int pt_base,
+			    unsigned int gpuaddr, unsigned int size)
+{
+	const struct kgsl_memdesc *memdesc;
+
+	memdesc = adreno_find_region(device, pt_base, gpuaddr, size);
+
+	return memdesc ? kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr) : NULL;
 }
 
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
