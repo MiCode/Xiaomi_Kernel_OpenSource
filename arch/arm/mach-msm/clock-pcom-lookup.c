@@ -87,7 +87,7 @@ static DEFINE_CLK_PCOM(icodec_rx_clk,	ICODEC_RX_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(icodec_tx_clk,	ICODEC_TX_CLK,	CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(imem_clk,	IMEM_CLK,	0);
 static DEFINE_CLK_PCOM(mdc_clk,		MDC_CLK,	CLKFLAG_SKIP_AUTO_OFF);
-static DEFINE_CLK_PCOM(mdp_clk,		MDP_CLK,	0);
+static DEFINE_CLK_PCOM(mdp_clk,		MDP_CLK,	CLKFLAG_MIN);
 static DEFINE_CLK_PCOM(mdp_lcdc_pad_pclk_clk, MDP_LCDC_PAD_PCLK_CLK,
 		CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(mdp_lcdc_pclk_clk, MDP_LCDC_PCLK_CLK,
