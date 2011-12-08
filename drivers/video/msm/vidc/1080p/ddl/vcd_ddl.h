@@ -84,6 +84,12 @@
 
 #define DDL_MAX_NUM_IN_INPUTFRAME_POOL          (DDL_MAX_NUM_OF_B_FRAME + 1)
 
+enum ddl_mem_area {
+	DDL_FW_MEM	= 0x0,
+	DDL_MM_MEM	= 0x1,
+	DDL_CMD_MEM	= 0x2
+};
+
 struct ddl_buf_addr{
 	u8  *virtual_base_addr;
 	u8  *physical_base_addr;
@@ -93,6 +99,7 @@ struct ddl_buf_addr{
 	struct msm_mapped_buffer *mapped_buffer;
 	struct ion_handle *alloc_handle;
 	u32 buffer_size;
+	enum ddl_mem_area mem_type;
 };
 enum ddl_cmd_state{
 	DDL_CMD_INVALID         = 0x0,

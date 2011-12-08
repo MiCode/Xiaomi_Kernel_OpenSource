@@ -40,6 +40,8 @@ struct res_trk_context {
 	struct regulator *footswitch;
 	struct msm_vidc_platform_data *vidc_platform_data;
 	int memtype;
+	int fw_mem_type;
+	int cmd_mem_type;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 	uint32_t     pcl;
@@ -48,6 +50,7 @@ struct res_trk_context {
 	struct ddl_buf_addr firmware_addr;
 	struct ion_client *res_ion_client;
 	u32 disable_dmx;
+	enum ddl_mem_area res_mem_type;
 };
 
 #if DEBUG

@@ -224,8 +224,7 @@ bail_out:
 
 static struct ion_client *res_trk_create_ion_client(void){
 	struct ion_client *video_client;
-	video_client = msm_ion_client_create((1<<ION_HEAP_TYPE_CARVEOUT),
-						"video_client");
+	video_client = msm_ion_client_create(-1, "video_client");
 	return video_client;
 }
 
@@ -423,6 +422,10 @@ void res_trk_init(struct device *device, u32 irq)
 		if (resource_context.vidc_platform_data) {
 			resource_context.memtype =
 			resource_context.vidc_platform_data->memtype;
+			resource_context.fw_mem_type =
+			resource_context.vidc_platform_data->memtype;
+			resource_context.cmd_mem_type =
+			resource_context.vidc_platform_data->memtype;
 			if (resource_context.vidc_platform_data->enable_ion) {
 				resource_context.res_ion_client =
 					res_trk_create_ion_client();
@@ -431,6 +434,10 @@ void res_trk_init(struct device *device, u32 irq)
 							__func__);
 					return;
 				}
+				resource_context.fw_mem_type =
+				resource_context.vidc_platform_data->memtype;
+				resource_context.cmd_mem_type =
+				ION_CP_MFC_HEAP_ID;
 			}
 			resource_context.disable_dmx =
 			resource_context.vidc_platform_data->disable_dmx;
@@ -444,6 +451,7 @@ void res_trk_init(struct device *device, u32 irq)
 			resource_context.disable_dmx = 0;
 		}
 		resource_context.core_type = VCD_CORE_1080P;
+		resource_context.firmware_addr.mem_type = DDL_FW_MEM;
 		if (!ddl_pmem_alloc(&resource_context.firmware_addr,
 			VIDC_FW_SIZE, DDL_KILO_BYTE(128))) {
 			pr_err("%s() Firmware buffer allocation failed",
@@ -469,8 +477,18 @@ u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr)
 	return status;
 }
 
-u32 res_trk_get_mem_type(void){
-	return resource_context.memtype;
+u32 res_trk_get_mem_type(void)
+{
+	switch (resource_context.res_mem_type) {
+	case DDL_FW_MEM:
+		return resource_context.fw_mem_type;
+	case DDL_MM_MEM:
+		return resource_context.memtype;
+	case DDL_CMD_MEM:
+		return resource_context.cmd_mem_type;
+	default:
+		return 0;
+	}
 }
 
 u32 res_trk_get_enable_ion(void)
@@ -488,4 +506,10 @@ struct ion_client *res_trk_get_ion_client(void)
 
 u32 res_trk_get_disable_dmx(void){
 	return resource_context.disable_dmx;
+}
+
+void res_trk_set_mem_type(enum ddl_mem_area mem_type)
+{
+	resource_context.res_mem_type = mem_type;
+	return;
 }

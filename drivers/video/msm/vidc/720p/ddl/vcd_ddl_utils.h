@@ -40,10 +40,6 @@ do { \
 		printk(KERN_DEBUG x); \
 } while (0)
 
-void ddl_pmem_alloc(struct ddl_buf_addr *, u32, u32);
-
-void ddl_pmem_free(struct ddl_buf_addr *);
-
 void ddl_set_core_start_time(const char *func_name, u32 index);
 
 void ddl_calc_core_proc_time(const char *func_name, u32 index);

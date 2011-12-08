@@ -2151,7 +2151,7 @@ struct msm_vidc_platform_data vidc_platform_data = {
 	.vidc_bus_client_pdata = &vidc_bus_client_data,
 #endif
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	.memtype = ION_HEAP_SMI_ID,
+	.memtype = ION_CP_MM_HEAP_ID,
 	.enable_ion = 1,
 #else
 	.memtype = MEMTYPE_SMI_KERNEL,

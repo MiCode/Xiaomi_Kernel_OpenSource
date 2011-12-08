@@ -52,6 +52,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 		goto bail_out;
 	}
 	ddl_context = ddl_get_context();
+	res_trk_set_mem_type(addr->mem_type);
 	alloc_size = (sz + alignment);
 	if (res_trk_get_enable_ion()) {
 		if (!ddl_context->video_ion_client)

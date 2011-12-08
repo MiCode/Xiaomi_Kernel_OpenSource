@@ -718,3 +718,8 @@ struct ion_client *res_trk_get_ion_client(void)
 {
 	return NULL;
 }
+
+void res_trk_set_mem_type(enum ddl_mem_area mem_type)
+{
+	return;
+}
