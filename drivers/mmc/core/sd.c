@@ -649,8 +649,11 @@ static int mmc_sd_init_uhs_card(struct mmc_card *card)
 		goto out;
 
 	/* SPI mode doesn't define CMD19 */
-	if (!mmc_host_is_spi(card->host) && card->host->ops->execute_tuning)
+	if (!mmc_host_is_spi(card->host) && card->host->ops->execute_tuning) {
+		mmc_host_clk_hold(card->host);
 		err = card->host->ops->execute_tuning(card->host);
+		mmc_host_clk_release(card->host);
+	}
 
 out:
 	kfree(status);
@@ -860,8 +863,11 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 	if (!reinit) {
 		int ro = -1;
 
-		if (host->ops->get_ro)
+		if (host->ops->get_ro) {
+			mmc_host_clk_hold(host);
 			ro = host->ops->get_ro(host);
+			mmc_host_clk_release(host);
+		}
 
 		if (ro < 0) {
 			printk(KERN_WARNING "%s: host does not "
@@ -979,8 +985,11 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 * Since initialization is now complete, enable preset
 		 * value registers for UHS-I cards.
 		 */
-		if (host->ops->enable_preset_value)
+		if (host->ops->enable_preset_value) {
+			mmc_host_clk_hold(host);
 			host->ops->enable_preset_value(host, true);
+			mmc_host_clk_release(host);
+		}
 	} else {
 		/*
 		 * Attempt to change to high-speed (if supported)
@@ -1195,8 +1204,11 @@ int mmc_attach_sd(struct mmc_host *host)
 		return err;
 
 	/* Disable preset value enable if already set since last time */
-	if (host->ops->enable_preset_value)
+	if (host->ops->enable_preset_value) {
+		mmc_host_clk_hold(host);
 		host->ops->enable_preset_value(host, false);
+		mmc_host_clk_release(host);
+	}
 
 	err = mmc_send_app_op_cond(host, 0, &ocr);
 	if (err)
