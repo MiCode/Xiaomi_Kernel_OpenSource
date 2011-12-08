@@ -138,36 +138,13 @@ static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 	unsigned short ret = NR_SG;
 
 	if (host->is_sps_mode) {
-		if (NR_SG > MAX_NR_SG_SPS)
-			ret = MAX_NR_SG_SPS;
+		ret = SPS_MAX_DESCS;
 	} else { /* DMA or PIO mode */
 		if (NR_SG > MAX_NR_SG_DMA_PIO)
 			ret = MAX_NR_SG_DMA_PIO;
 	}
 
 	return ret;
-}
-
-static inline unsigned int msmsdcc_get_max_seg_size(struct msmsdcc_host *host)
-{
-	unsigned int max_seg_size;
-
-	/*
-	 * SPS BAM has limitation of max. number of descriptors.
-	 * max. # of descriptors = SPS_MAX_DESCS
-	 * each descriptor can point to SPS_MAX_DESC_SIZE (16KB)
-	 * So (nr_sg * max_seg_size) should be limited to the
-	 * max. size that all of the descriptors can point to.
-	 * i.e., (nr_sg * max_seg_size) = (SPS_MAX_DESCS * SPS_MAX_DESC_SIZE).
-	 */
-	if (host->is_sps_mode) {
-		max_seg_size = (SPS_MAX_DESCS * SPS_MAX_DESC_SIZE) /
-			msmsdcc_get_nr_sg(host);
-	} else { /* DMA or PIO mode */
-		max_seg_size = MMC_MAX_REQ_SIZE;
-	}
-
-	return max_seg_size;
 }
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
@@ -4009,7 +3986,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->max_blk_count = MMC_MAX_BLK_CNT;
 
 	mmc->max_req_size = MMC_MAX_REQ_SIZE;
-	mmc->max_seg_size = msmsdcc_get_max_seg_size(host);
+	mmc->max_seg_size = mmc->max_req_size;
 
 	writel_relaxed(0, host->base + MMCIMASK0);
 	writel_relaxed(MCI_CLEAR_STATIC_MASK, host->base + MMCICLEAR);

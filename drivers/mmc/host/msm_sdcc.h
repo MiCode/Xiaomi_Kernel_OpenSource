@@ -242,8 +242,6 @@
 /* Each descriptor is of length 8 bytes */
 #define SPS_MAX_DESC_LENGTH	8
 #define SPS_MAX_DESCS		(SPS_MAX_DESC_FIFO_SIZE / SPS_MAX_DESC_LENGTH)
-#define SPS_MAX_SG_DESCS	(MAX_SG_SIZE / SPS_MAX_DESC_SIZE)
-#define MAX_NR_SG_SPS		(SPS_MAX_DESCS / SPS_MAX_SG_DESCS)
 
 /*
  * DMA limitations
