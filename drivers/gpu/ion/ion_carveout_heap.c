@@ -139,7 +139,8 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 		container_of(heap, struct ion_carveout_heap, heap);
 
 	if (atomic_inc_return(&carveout_heap->map_count) == 1)
-		carveout_heap->request_region(carveout_heap->bus_id);
+		if (carveout_heap->request_region)
+			carveout_heap->request_region(carveout_heap->bus_id);
 
 	if (ION_IS_CACHED(flags))
 		return ioremap_cached(buffer->priv_phys, buffer->size);
@@ -157,7 +158,8 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 	buffer->vaddr = NULL;
 
 	if (atomic_dec_and_test(&carveout_heap->map_count))
-		carveout_heap->release_region(carveout_heap->bus_id);
+		if (carveout_heap->release_region)
+			carveout_heap->release_region(carveout_heap->bus_id);
 
 	return;
 }
@@ -169,7 +171,8 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 		container_of(heap, struct ion_carveout_heap, heap);
 
 	if (atomic_inc_return(&carveout_heap->map_count) == 1)
-		carveout_heap->request_region(carveout_heap->bus_id);
+		if (carveout_heap->request_region)
+			carveout_heap->request_region(carveout_heap->bus_id);
 
 	if (ION_IS_CACHED(flags))
 		return remap_pfn_range(vma, vma->vm_start,
@@ -190,7 +193,8 @@ void ion_carveout_heap_unmap_user(struct ion_heap *heap,
 		container_of(heap, struct ion_carveout_heap, heap);
 
 	if (atomic_dec_and_test(&carveout_heap->map_count))
-		carveout_heap->release_region(carveout_heap->bus_id);
+		if (carveout_heap->release_region)
+			carveout_heap->release_region(carveout_heap->bus_id);
 }
 
 int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
@@ -379,9 +383,12 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->allocated_bytes = 0;
 	carveout_heap->total_size = heap_data->size;
-	carveout_heap->bus_id = heap_data->setup_region();
-	carveout_heap->request_region = heap_data->request_region;
-	carveout_heap->release_region = heap_data->release_region;
+	if (heap_data->setup_region)
+		carveout_heap->bus_id = heap_data->setup_region();
+	if (heap_data->request_region)
+		carveout_heap->request_region = heap_data->request_region;
+	if (heap_data->release_region)
+		carveout_heap->release_region = heap_data->release_region;
 
 	return &carveout_heap->heap;
 }
