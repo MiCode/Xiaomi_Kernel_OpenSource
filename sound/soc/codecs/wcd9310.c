@@ -3358,7 +3358,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		 */
 		if (priv->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
-		priv->hph_status &= ~SND_JACK_HEADSET;
+		priv->hph_status &= ~SND_JACK_HEADPHONE;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
 			snd_soc_jack_report(priv->headset_jack,
