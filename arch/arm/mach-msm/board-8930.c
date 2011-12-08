@@ -1273,68 +1273,114 @@ static struct i2c_board_info cyttsp_info[] __initdata = {
 	},
 };
 
-/* configuration data */
-static const u8 mxt_config_data[] = {
+#define MXT_TS_GPIO_IRQ			11
+#define MXT_TS_RESET_GPIO		52
+
+static const u8 mxt_config_data_8930[] = {
 	/* T6 Object */
-	0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0,
 	/* T38 Object */
-	11, 2, 0, 11, 11, 11, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0,
+	 15, 1, 0, 15, 12, 11, 0, 0,
 	/* T7 Object */
-	100, 16, 50,
+	 48, 255, 25,
 	/* T8 Object */
-	8, 0, 0, 0, 0, 0, 8, 14, 50, 215,
+	 27, 0, 5, 1, 0, 0, 8, 8, 0, 0,
 	/* T9 Object */
-	131, 0, 0, 26, 42, 0, 32, 63, 3, 5,
-	0, 2, 1, 113, 10, 10, 8, 10, 255, 2,
-	85, 5, 0, 0, 20, 20, 75, 25, 202, 29,
-	10, 10, 45, 46,
+	 131, 0, 0, 19, 11, 0, 16, 35, 1, 3,
+	 10, 15, 1, 11, 4, 5, 40, 10, 54, 2,
+	 43, 4, 0, 0, 0, 0, 143, 40, 143, 80,
+	 18, 15, 50, 50, 2,
 	/* T15 Object */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0,
-	/* T22 Object */
-	5, 0, 0, 0, 0, 0, 0, 0, 30, 0,
-	0, 0, 5, 8, 10, 13, 0,
-	/* T24 Object */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0,
+	/* T18 Object */
+	 0, 0,
+	/* T19 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0,
+	/* T23 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0,
 	/* T25 Object */
-	3, 0, 188, 52, 52, 33, 0, 0, 0, 0,
-	0, 0, 0, 0,
-	/* T27 Object */
-	0, 0, 0, 0, 0, 0, 0,
-	/* T28 Object */
-	0, 0, 0, 8, 12, 60,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0,
 	/* T40 Object */
-	0, 0, 0, 0, 0,
-	/* T41 Object */
-	0, 0, 0, 0, 0, 0,
-	/* T43 Object */
-	0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0,
+	/* T42 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T46 Object */
+	 0, 3, 16, 48, 0, 0, 1, 0, 0,
+	/* T47 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T48 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	 0, 0, 0, 0,
 };
 
-#define MXT_TS_GPIO_IRQ		11
-#define MXT_TS_LDO_EN_GPIO	50
-#define MXT_TS_RESET_GPIO	52
+static ssize_t mxt224e_vkeys_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 200,
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":65:938:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":208:938:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":348:938:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":490:938:90:90"
+	"\n");
+}
 
-static struct mxt_platform_data mxt_platform_data = {
-	.config			= mxt_config_data,
-	.config_length		= ARRAY_SIZE(mxt_config_data),
-	.x_size			= 1365,
-	.y_size			= 767,
+static struct kobj_attribute mxt224e_vkeys_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+	},
+	.show = &mxt224e_vkeys_show,
+};
+
+static struct attribute *mxt224e_properties_attrs[] = {
+	&mxt224e_vkeys_attr.attr,
+	NULL
+};
+
+static struct attribute_group mxt224e_properties_attr_group = {
+	.attrs = mxt224e_properties_attrs,
+};
+
+static void mxt_init_vkeys_8930(void)
+{
+	int rc;
+	static struct kobject *mxt224e_properties_kobj;
+
+	mxt224e_vkeys_attr.attr.name = "virtualkeys.atmel_mxt_ts";
+	mxt224e_properties_kobj = kobject_create_and_add("board_properties",
+								NULL);
+	if (mxt224e_properties_kobj)
+		rc = sysfs_create_group(mxt224e_properties_kobj,
+					&mxt224e_properties_attr_group);
+	if (!mxt224e_properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n",
+				__func__);
+
+	return;
+}
+
+static struct mxt_platform_data mxt_platform_data_8930 = {
+	.config			= mxt_config_data_8930,
+	.config_length		= ARRAY_SIZE(mxt_config_data_8930),
+	.x_size			= 1067,
+	.y_size			= 566,
 	.irqflags		= IRQF_TRIGGER_FALLING,
 	.i2c_pull_up		= true,
+	.reset_gpio		= MXT_TS_RESET_GPIO,
+	.irq_gpio		= MXT_TS_GPIO_IRQ,
 };
 
-static struct i2c_board_info mxt_device_info[] __initdata = {
+static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	{
-		I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
-		.platform_data = &mxt_platform_data,
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
+		.platform_data = &mxt_platform_data_8930,
 		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
 	},
 };
@@ -1883,15 +1929,15 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 	},
 	{
 		I2C_LIQUID,
-		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
-		mxt_device_info,
-		ARRAY_SIZE(mxt_device_info),
-	},
-	{
-		I2C_LIQUID,
 		MSM_8930_GSBI10_QUP_I2C_BUS_ID,
 		msm_isa1200_board_info,
 		ARRAY_SIZE(msm_isa1200_board_info),
+	},
+	{
+		I2C_SURF,
+		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
+		mxt_device_info_8930,
+		ARRAY_SIZE(mxt_device_info_8930),
 	},
 };
 #endif /* CONFIG_I2C */
@@ -1976,6 +2022,8 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_cam();
 	msm8930_init_mmc();
 	acpuclk_init(&acpuclk_8930_soc_data);
+	if (machine_is_msm8930_cdp() || machine_is_msm8627_cdp())
+		mxt_init_vkeys_8930();
 	register_i2c_devices();
 	msm8930_init_fb();
 	slim_register_board_info(msm_slim_devices,
