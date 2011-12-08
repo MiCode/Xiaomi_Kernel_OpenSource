@@ -21,6 +21,9 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <linux/ion.h>
+#include <mach/ion.h>
+
 #include "devices.h"
 #include "board-8960.h"
 
@@ -550,11 +553,23 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_42,
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	.mem_hid = ION_CP_MM_HEAP_ID,
+#else
+	.mem_hid = MEMTYPE_EBI1,
+#endif
 };
 
 void __init msm8960_mdp_writeback(struct memtype_reserve* reserve_table)
 {
-
+	mdp_pdata.ov0_wb_size = MSM_FB_OVERLAY0_WRITEBACK_SIZE;
+	mdp_pdata.ov1_wb_size = MSM_FB_OVERLAY1_WRITEBACK_SIZE;
+#if defined(CONFIG_ANDROID_PMEM) && !defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
+	reserve_table[mdp_pdata.mem_hid].size +=
+		mdp_pdata.ov0_wb_size;
+	reserve_table[mdp_pdata.mem_hid].size +=
+		mdp_pdata.ov1_wb_size;
+#endif
 }
 
 static struct platform_device mipi_dsi_renesas_panel_device = {
