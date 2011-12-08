@@ -1072,6 +1072,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 		DEV_DBG("calling reauthenticate from %s HDCP FAIL INT ",
 		    __func__);
 
+		/* Clear AUTH_FAIL_INFO as well */
+		HDMI_OUTP(0x0118, (hdcp_int_val | (1 << 7)));
 		return IRQ_HANDLED;
 	}
 	/*    [8] DDC_XFER_REQ_INT	[R]	HDCP DDC Transfer Request
@@ -2156,6 +2158,9 @@ static void hdcp_deauthenticate(void)
 
 	if (hdcp_link_status & 0x00000004)
 		hdcp_auth_info((hdcp_link_status & 0x000000F0) >> 4);
+
+	/* Disable HDCP interrupts */
+	HDMI_OUTP(0x0118, 0x0);
 }
 
 static int hdcp_authentication_part1(void)
