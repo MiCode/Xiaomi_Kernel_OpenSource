@@ -66,3 +66,4 @@ obj-$(CONFIG_PMIC8058_XOADC) += pmic8058-xoadc.o
 obj-$(CONFIG_PMIC8058_MISC) += pmic8058-misc.o
 obj-$(CONFIG_PMIC8058_BATTALARM) += pmic8058-batt-alarm.o
 obj-$(CONFIG_TZCOM) += tzcom.o
+obj-$(CONFIG_QFP_FUSE) += qfp_fuse.o
