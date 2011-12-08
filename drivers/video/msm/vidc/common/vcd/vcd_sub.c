@@ -1900,7 +1900,8 @@ u32 vcd_handle_input_done_in_eos(
 		VCD_MSG_HIGH("Got input done for EOS initiator");
 		transc->input_done = false;
 		transc->in_use = true;
-		if (codec_config ||
+		if ((codec_config &&
+			 (status != VCD_ERR_BITSTREAM_ERR)) ||
 			((status == VCD_ERR_BITSTREAM_ERR) &&
 			 !(cctxt->status.mask & VCD_FIRST_IP_DONE) &&
 			 (core_type == VCD_CORE_720P)))
