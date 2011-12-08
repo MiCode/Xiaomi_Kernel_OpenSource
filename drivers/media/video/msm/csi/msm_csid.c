@@ -97,6 +97,7 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	val |= 0x1 << 10;
 	val |= 0x1 << 11;
 	val |= 0x1 << 12;
+	val |= 0x1 << 13;
 	val |= 0x1 << 28;
 	msm_io_w(val, csidbase + CSID_CORE_CTRL_ADDR);
 
