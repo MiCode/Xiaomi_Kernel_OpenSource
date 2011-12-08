@@ -674,6 +674,14 @@ free_usb_5v_en:
 	vbus_is_on = false;
 }
 
+static int shelby_phy_init_seq[] = {
+	0x44, 0x80,/* set VBUS valid threshold and
+			disconnect valid threshold */
+	0x38, 0x81, /* update DC voltage level */
+	0x14, 0x82,/* set preemphasis and rise/fall time */
+	0x13, 0x83,/* set source impedance adjustment */
+	-1};
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control	= OTG_PHY_CONTROL,
@@ -766,6 +774,7 @@ static void __init msm9615_common_init(void)
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
 
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
+	msm_otg_pdata.phy_init_seq = shelby_phy_init_seq;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 
 	acpuclk_init(&acpuclk_9615_soc_data);
