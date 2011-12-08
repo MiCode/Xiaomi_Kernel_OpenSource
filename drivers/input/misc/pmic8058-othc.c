@@ -536,19 +536,11 @@ static void detect_work_f(struct work_struct *work)
 	struct pm8058_othc *dd =
 		container_of(work, struct pm8058_othc, detect_work.work);
 
-	if (dd->othc_ir_state) {
-		/* inserted */
-		rc = pm8058_accessory_report(dd, 1);
-		if (rc)
-			pr_err("Accessory could not be detected\n");
-	} else {
-		/* removed */
-		rc = pm8058_accessory_report(dd, 0);
-		if (rc)
-			pr_err("Accessory could not be detected\n");
-		/* Clear existing switch state */
-		dd->othc_sw_state = false;
-	}
+	/* Accessory has been inserted */
+	rc = pm8058_accessory_report(dd, 1);
+	if (rc)
+		pr_err("Accessory insertion could not be detected\n");
+
 	enable_irq(dd->othc_irq_ir);
 }
 
@@ -637,8 +629,6 @@ static irqreturn_t pm8058_nc_ir(int irq, void *dev_id)
 		ktime_set((dd->switch_debounce_ms / 1000),
 		(dd->switch_debounce_ms % 1000) * 1000000), HRTIMER_MODE_REL);
 
-	/* disable irq, this gets enabled in the workqueue */
-	disable_irq_nosync(dd->othc_irq_ir);
 
 	/* Check the MIC_BIAS status, to check if inserted or removed */
 	rc = pm8xxx_read_irq_stat(dd->dev->parent, dd->othc_irq_ir);
@@ -648,8 +638,20 @@ static irqreturn_t pm8058_nc_ir(int irq, void *dev_id)
 	}
 
 	dd->othc_ir_state = rc;
-	schedule_delayed_work(&dd->detect_work,
+	if (dd->othc_ir_state) {
+		/* disable irq, this gets enabled in the workqueue */
+		disable_irq_nosync(dd->othc_irq_ir);
+		/* Accessory has been inserted, report with detection delay */
+		schedule_delayed_work(&dd->detect_work,
 				msecs_to_jiffies(dd->detection_delay_ms));
+	} else {
+		/* Accessory has been removed, report removal immediately */
+		rc = pm8058_accessory_report(dd, 0);
+		if (rc)
+			pr_err("Accessory removal could not be detected\n");
+		/* Clear existing switch state */
+		dd->othc_sw_state = false;
+	}
 
 fail_ir:
 	return IRQ_HANDLED;
