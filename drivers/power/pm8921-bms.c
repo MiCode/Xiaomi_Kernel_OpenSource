@@ -120,6 +120,15 @@ module_param_cb(last_rbatt, &bms_param_ops, &last_rbatt, 0644);
 module_param_cb(last_ocv_uv, &bms_param_ops, &last_ocv_uv, 0644);
 module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
 
+/*
+ * bms_fake_battery is write only, this value is set in setups where a
+ * battery emulator is used instead of a real battery. This makes the
+ * bms driver report a higher value of charge regardless of the calculated
+ * state of charge.
+ */
+static int bms_fake_battery;
+module_param(bms_fake_battery, int, 0644);
+
 static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp);
 static void readjust_fcc_table(void)
 {
@@ -1015,8 +1024,6 @@ static int calculate_real_fcc(struct pm8921_bms_chip *chip,
  *				- unusable charge (due to battery resistance)
  * SOC% = (remaining usable charge/ fcc - usable_charge);
  */
-#define BMS_BATT_NOMINAL	3700000
-#define MIN_OPERABLE_SOC	10
 #define BATTERY_POWER_SUPPLY_SOC	53
 static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						int batt_temp, int chargecycles)
@@ -1040,22 +1047,10 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 100;
 	pr_debug("SOC = %u%%\n", soc);
 
-	if (soc < MIN_OPERABLE_SOC) {
-		int ocv = 0, rc;
-
-		rc = adc_based_ocv(chip, &ocv);
-		if (rc == 0 && ocv >= BMS_BATT_NOMINAL) {
-			/*
-			 * The ocv doesnt seem to have dropped for
-			 * soc to go negative.
-			 * The setup must be using a power supply
-			 * instead of real batteries.
-			 * Fake high enough soc to prevent userspace
-			 * shutdown for low battery
-			 */
-			soc = BATTERY_POWER_SUPPLY_SOC;
-			pr_debug("Adjusting SOC to %d\n", soc);
-		}
+	if (bms_fake_battery) {
+		soc = BATTERY_POWER_SUPPLY_SOC;
+		pr_debug("setting SOC = %u%% bms_fake_battery = %d\n", soc,
+							bms_fake_battery);
 	}
 
 	if (soc < 0) {
@@ -1069,6 +1064,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 				last_ocv_uv, chargecycles, batt_temp,
 				fcc, soc);
 		update_userspace = 0;
+		soc = 0;
 	}
 
 	if (last_soc == -EINVAL || soc <= last_soc) {
