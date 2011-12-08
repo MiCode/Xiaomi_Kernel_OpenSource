@@ -1444,6 +1444,9 @@ int l2cap_ertm_send(struct sock *sk)
 		 */
 		tx_skb = skb_clone(skb, GFP_ATOMIC);
 
+		if (!tx_skb)
+			break;
+
 		sock_hold(sk);
 		tx_skb->sk = sk;
 		tx_skb->destructor = l2cap_skb_destructor;
@@ -5828,6 +5831,11 @@ static void l2cap_ertm_resend(struct sock *sk)
 			tx_skb = skb_copy(skb, GFP_ATOMIC);
 		} else {
 			tx_skb = skb_clone(skb, GFP_ATOMIC);
+		}
+
+		if (!tx_skb) {
+			l2cap_seq_list_clear(&pi->retrans_list);
+			break;
 		}
 
 		/* Update skb contents */
