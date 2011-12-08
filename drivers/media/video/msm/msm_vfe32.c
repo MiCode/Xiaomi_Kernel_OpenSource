@@ -444,10 +444,11 @@ static void vfe32_subdev_notify(int id, int path)
 
 static int vfe32_config_axi(int mode, uint32_t *ao)
 {
-	int32_t *ch_info;
+	uint32_t *ch_info;
+	uint32_t *axi_cfg = ao+V32_AXI_BUS_FMT_OFF;
 
 	/* Update the corresponding write masters for each output*/
-	ch_info = ao + V32_AXI_CFG_LEN;
+	ch_info = axi_cfg + V32_AXI_CFG_LEN;
 	vfe32_ctrl->outpath.out0.ch0 = 0x0000FFFF & *ch_info;
 	vfe32_ctrl->outpath.out0.ch1 = 0x0000FFFF & (*ch_info++ >> 16);
 	vfe32_ctrl->outpath.out0.ch2 = 0x0000FFFF & *ch_info++;
@@ -517,9 +518,12 @@ static int vfe32_config_axi(int mode, uint32_t *ao)
 	default:
 		break;
 	}
+	msm_io_w(*ao, vfe32_ctrl->vfebase +
+		VFE_BUS_IO_FORMAT_CFG);
 	msm_io_memcpy(vfe32_ctrl->vfebase +
-		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].offset, ao,
-		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length - V32_AXI_CH_INF_LEN);
+		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].offset, axi_cfg,
+		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length - V32_AXI_CH_INF_LEN
+		- V32_AXI_BUS_FMT_LEN);
 	return 0;
 }
 
@@ -861,8 +865,6 @@ static int vfe32_capture(uint32_t num_frames_capture)
 			(0x1 << (vfe32_ctrl->outpath.out1.ch0 + 8));
 			msm_io_w(1, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
-			msm_io_w(0x1000, vfe32_ctrl->vfebase +
-					VFE_BUS_IO_FORMAT_CFG);
 		}
 	}
 	msm_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);

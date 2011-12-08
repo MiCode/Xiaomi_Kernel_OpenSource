@@ -226,9 +226,11 @@ enum  vfe_recording_state {
 #define V32_OPERATION_CFG_LEN     32
 
 #define V32_AXI_OUT_OFF           0x00000038
-#define V32_AXI_OUT_LEN           212
+#define V32_AXI_OUT_LEN           216
 #define V32_AXI_CH_INF_LEN        24
 #define V32_AXI_CFG_LEN           47
+#define V32_AXI_BUS_FMT_OFF    1
+#define V32_AXI_BUS_FMT_LEN    4
 
 #define V32_FRAME_SKIP_OFF        0x00000504
 #define V32_FRAME_SKIP_LEN        32
