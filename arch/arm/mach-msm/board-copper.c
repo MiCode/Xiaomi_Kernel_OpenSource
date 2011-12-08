@@ -380,6 +380,7 @@ void __init msm_copper_init_irq(void)
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
 	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
 	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	NULL,			OFF),
