@@ -48,3 +48,4 @@ obj-$(CONFIG_SMB137B_CHARGER)   += smb137b.o
 obj-$(CONFIG_PM8XXX_CCADC)	+= pm8xxx-ccadc.o
 obj-$(CONFIG_PM8921_BMS)	+= pm8921-bms.o
 obj-$(CONFIG_PM8921_CHARGER)	+= pm8921-charger.o
+obj-$(CONFIG_LTC4088_CHARGER)	+= ltc4088-charger.o
