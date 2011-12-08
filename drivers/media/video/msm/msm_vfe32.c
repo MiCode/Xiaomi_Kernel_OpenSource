@@ -2262,17 +2262,17 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 
 		CDBG("%s: PCA Rolloff Ram0\n", __func__);
 		for (i = 0 ; i < V33_PCA_ROLL_OFF_TABLE_SIZE * 2; i++) {
-			temp2 = (i == (V33_PCA_ROLL_OFF_TABLE_SIZE - 1));
+			temp2 = (i == (V33_PCA_ROLL_OFF_TABLE_SIZE));
 			if (old_val && temp2)
 				vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK1);
 			else if (!old_val && temp2)
 				vfe32_program_dmi_cfg(ROLLOFF_RAM1_BANK0);
 
+			*cmdp_local = msm_io_r(vfe32_ctrl->vfebase +
+				VFE33_DMI_DATA_LO);
 			*(cmdp_local + 1) =
 				msm_io_r(vfe32_ctrl->vfebase +
 				VFE33_DMI_DATA_HI);
-			*cmdp_local = msm_io_r(vfe32_ctrl->vfebase +
-				VFE33_DMI_DATA_LO);
 			CDBG("%s: %08x%08x\n", __func__,
 				*(cmdp_local + 1), *cmdp_local);
 			cmdp_local += 2;
