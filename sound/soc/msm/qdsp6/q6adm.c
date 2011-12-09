@@ -130,16 +130,18 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-void send_cal(int port_id, struct acdb_cal_block *aud_cal)
+int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 {
-	s32				result;
+	s32				result = 0;
 	struct adm_set_params_command	adm_params;
 	int index = afe_get_port_index(port_id);
 
 	pr_debug("%s: Port id %d, index %d\n", __func__, port_id, index);
 
 	if (!aud_cal || aud_cal->cal_size == 0) {
-		pr_err("%s: No calibration data to send!\n", __func__);
+		pr_debug("%s: No ADM cal to send for port_id = %d!\n",
+			__func__, port_id);
+		result = -EINVAL;
 		goto done;
 	}
 
@@ -165,17 +167,23 @@ void send_cal(int port_id, struct acdb_cal_block *aud_cal)
 	if (result < 0) {
 		pr_err("%s: Set params failed port = %d payload = 0x%x\n",
 			__func__, port_id, aud_cal->cal_paddr);
+		result = -EINVAL;
 		goto done;
 	}
 	/* Wait for the callback */
 	result = wait_event_timeout(this_adm.wait,
 		atomic_read(&this_adm.copp_stat[index]),
 		msecs_to_jiffies(TIMEOUT_MS));
-	if (!result)
+	if (!result) {
 		pr_err("%s: Set params timed out port = %d, payload = 0x%x\n",
 			__func__, port_id, aud_cal->cal_paddr);
+		result = -EINVAL;
+		goto done;
+	}
+
+	result = 0;
 done:
-	return;
+	return result;
 }
 
 void send_adm_cal(int port_id, int path)
@@ -187,22 +195,24 @@ void send_adm_cal(int port_id, int path)
 
 	/* Maps audio_dev_ctrl path definition to ACDB definition */
 	acdb_path = path - 1;
-	if ((acdb_path >= NUM_AUDPROC_BUFFERS) ||
-		(acdb_path < 0)) {
-		pr_err("%s: Path is not RX or TX, path = %d\n",
-			__func__, path);
-		goto done;
-	}
 
 	pr_debug("%s: Sending audproc cal\n", __func__);
 	get_audproc_cal(acdb_path, &aud_cal);
-	send_cal(port_id, &aud_cal);
+	if (!send_adm_cal_block(port_id, &aud_cal))
+		pr_info("%s: Audproc cal sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
+	else
+		pr_info("%s: Audproc cal not sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
 
 	pr_debug("%s: Sending audvol cal\n", __func__);
 	get_audvol_cal(acdb_path, &aud_cal);
-	send_cal(port_id, &aud_cal);
-done:
-	return;
+	if (!send_adm_cal_block(port_id, &aud_cal))
+		pr_info("%s: Audvol cal sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
+	else
+		pr_info("%s: Audvol cal not sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
 }
 
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology)

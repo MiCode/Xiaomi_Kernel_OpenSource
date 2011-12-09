@@ -21,8 +21,6 @@
 
 
 #define MAX_NETWORKS		12
-#define ACDB_BLOCK_SIZE		4096
-#define NUM_VOCPROC_BLOCKS	(3 * MAX_NETWORKS)
 
 struct acdb_data {
 	struct mutex		acdb_mutex;
@@ -196,26 +194,6 @@ void store_anc_cal(struct cal_block *cal_block)
 		cal_block->cal_size;
 
 	mutex_unlock(&acdb_data.acdb_mutex);
-done:
-	return;
-}
-
-void get_audproc_buffer_data(struct audproc_buffer_data *cal_buffers)
-{
-	int i;
-	pr_debug("%s\n", __func__);
-
-	if (cal_buffers == NULL) {
-		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
-		goto done;
-	}
-
-	for (i = 0; i < NUM_AUDPROC_BUFFERS; i++) {
-		cal_buffers->phys_addr[i] = (uint32_t)
-			(acdb_data.paddr +
-			(NUM_VOCPROC_BLOCKS + i) * ACDB_BLOCK_SIZE);
-		cal_buffers->buf_size[i] = ACDB_BLOCK_SIZE;
-	}
 done:
 	return;
 }
@@ -612,12 +590,9 @@ static int acdb_open(struct inode *inode, struct file *f)
 static int deregister_pmem(void)
 {
 	int result;
-	struct audproc_buffer_data buffer;
 
-	get_audproc_buffer_data(&buffer);
-
-	result = adm_memory_unmap_regions(buffer.phys_addr,
-			buffer.buf_size, NUM_AUDPROC_BUFFERS);
+	result = adm_memory_unmap_regions((uint32_t *)&acdb_data.paddr,
+			(uint32_t *)&acdb_data.pmem_len, 1);
 
 	if (result < 0)
 		pr_err("Audcal unmap did not work!\n");
@@ -632,7 +607,6 @@ static int deregister_pmem(void)
 static int register_pmem(void)
 {
 	int result;
-	struct audproc_buffer_data buffer;
 
 	result = get_pmem_file(acdb_data.pmem_fd, &acdb_data.paddr,
 				&acdb_data.kvaddr, &acdb_data.pmem_len,
@@ -646,10 +620,8 @@ static int register_pmem(void)
 	pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
 		"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
 		acdb_data.kvaddr, acdb_data.pmem_len);
-	get_audproc_buffer_data(&buffer);
-	result = adm_memory_map_regions(buffer.phys_addr, 0,
-			buffer.buf_size,
-			NUM_AUDPROC_BUFFERS);
+	result = adm_memory_map_regions((uint32_t *)&acdb_data.paddr, 0,
+			(uint32_t *)&acdb_data.pmem_len, 1);
 	if (result < 0)
 		pr_err("Audcal mmap did not work!\n");
 	goto done;
