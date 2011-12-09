@@ -1000,7 +1000,8 @@ static void calculate_charging_params(struct pm8921_bms_chip *chip,
 }
 
 static int calculate_real_fcc(struct pm8921_bms_chip *chip,
-						int batt_temp, int chargecycles)
+						int batt_temp, int chargecycles,
+						int *ret_fcc)
 {
 	int fcc, unusable_charge;
 	int remaining_charge;
@@ -1014,8 +1015,9 @@ static int calculate_real_fcc(struct pm8921_bms_chip *chip,
 						&cc_mah);
 
 	real_fcc = remaining_charge - cc_mah;
-	pr_debug("real_fcc = %d, RC = %d CC = %lld\n",
-			real_fcc, remaining_charge, cc_mah);
+	*ret_fcc = fcc;
+	pr_debug("real_fcc = %d, RC = %d CC = %lld fcc = %d\n",
+			real_fcc, remaining_charge, cc_mah, fcc);
 	return real_fcc;
 }
 /*
@@ -1257,11 +1259,13 @@ void pm8921_bms_charging_began(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
+#define DELTA_FCC_PERCENT	3
 void pm8921_bms_charging_end(int is_battery_full)
 {
 	if (is_battery_full && the_chip != NULL) {
 		unsigned long flags;
 		int batt_temp, rc, cc_reading;
+		int fcc, new_fcc, delta_fcc;
 		struct pm8xxx_adc_chan_result result;
 
 		rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
@@ -1273,10 +1277,24 @@ void pm8921_bms_charging_end(int is_battery_full)
 		pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
 							result.measurement);
 		batt_temp = (int)result.physical;
-		last_real_fcc = calculate_real_fcc(the_chip,
-						batt_temp, last_chargecycles);
-		last_real_fcc_batt_temp = batt_temp;
-		readjust_fcc_table();
+		new_fcc = calculate_real_fcc(the_chip,
+						batt_temp, last_chargecycles,
+						&fcc);
+		delta_fcc = new_fcc - fcc;
+		if (delta_fcc < 0)
+			delta_fcc = -delta_fcc;
+
+		if (delta_fcc * 100  <= (DELTA_FCC_PERCENT * fcc)) {
+			pr_debug("delta_fcc=%d < %d percent of fcc=%d\n",
+					delta_fcc, DELTA_FCC_PERCENT, fcc);
+			last_real_fcc = new_fcc;
+			last_real_fcc_batt_temp = batt_temp;
+			readjust_fcc_table();
+		} else {
+			pr_debug("delta_fcc=%d > %d percent of fcc=%d"
+					"will not update real fcc\n",
+					delta_fcc, DELTA_FCC_PERCENT, fcc);
+		}
 
 		spin_lock_irqsave(&the_chip->bms_output_lock, flags);
 		pm_bms_lock_output_data(the_chip);
