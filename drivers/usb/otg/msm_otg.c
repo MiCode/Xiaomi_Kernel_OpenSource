@@ -39,6 +39,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 
 #include <mach/clk.h>
+#include <mach/msm_xo.h>
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -569,6 +570,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	int cnt = 0;
 	bool session_active;
 	u32 phy_ctrl_val = 0;
+	unsigned ret;
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
@@ -662,6 +664,12 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (!IS_ERR(motg->pclk_src))
 		clk_disable(motg->pclk_src);
 
+	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
+	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
+	if (ret)
+		dev_err(otg->dev, "%s failed to devote for "
+			"TCXO D0 buffer%d\n", __func__, ret);
+
 	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !session_active) {
 		msm_hsusb_ldo_enable(motg, 0);
 		motg->lpm_flags |= PHY_PWR_COLLAPSED;
@@ -696,11 +704,19 @@ static int msm_otg_resume(struct msm_otg *motg)
 	int cnt = 0;
 	unsigned temp;
 	u32 phy_ctrl_val = 0;
+	unsigned ret;
 
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
 
 	wake_lock(&motg->wlock);
+
+	/* Vote for TCXO when waking up the phy */
+	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+	if (ret)
+		dev_err(otg->dev, "%s failed to vote for "
+			"TCXO D0 buffer%d\n", __func__, ret);
+
 	if (!IS_ERR(motg->pclk_src))
 		clk_enable(motg->pclk_src);
 
@@ -2283,12 +2299,27 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
+	motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
+	if (IS_ERR(motg->xo_handle)) {
+		dev_err(&pdev->dev, "%s not able to get the handle "
+			"to vote for TCXO D0 buffer\n", __func__);
+		ret = PTR_ERR(motg->xo_handle);
+		goto free_regs;
+	}
+
+	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+	if (ret) {
+		dev_err(&pdev->dev, "%s failed to vote for TCXO "
+			"D0 buffer%d\n", __func__, ret);
+		goto free_xo_handle;
+	}
+
 	clk_enable(motg->pclk);
 
 	ret = msm_hsusb_init_vddcx(motg, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vddcx init failed\n");
-		goto free_regs;
+		goto devote_xo_handle;
 	}
 
 	ret = msm_hsusb_config_vddcx(1);
@@ -2404,6 +2435,10 @@ free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
 free_init_vddcx:
 	msm_hsusb_init_vddcx(motg, 0);
+devote_xo_handle:
+	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
+free_xo_handle:
+	msm_xo_put(motg->xo_handle);
 free_regs:
 	iounmap(motg->regs);
 put_core_clk:
@@ -2483,6 +2518,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 		clk_disable(motg->pclk_src);
 		clk_put(motg->pclk_src);
 	}
+	msm_xo_put(motg->xo_handle);
 	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
 	msm_hsusb_init_vddcx(motg, 0);
