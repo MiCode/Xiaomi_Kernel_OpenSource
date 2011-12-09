@@ -1168,6 +1168,7 @@ static void ion_vma_open(struct vm_area_struct *vma)
 		vma->vm_private_data = NULL;
 		return;
 	}
+	ion_handle_get(handle);
 	mutex_lock(&buffer->lock);
 	buffer->umap_cnt++;
 	mutex_unlock(&buffer->lock);
