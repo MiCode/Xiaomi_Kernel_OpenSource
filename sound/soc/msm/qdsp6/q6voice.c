@@ -2336,7 +2336,10 @@ int voc_disable_cvp(uint16_t session_id)
 	mutex_lock(&v->lock);
 
 	if (v->voc_state == VOC_RUN) {
-		afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id, 0, 0);
+		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
+			v->dev_rx.port_id != RT_PROXY_PORT_001_RX)
+			afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
+					0, 0);
 
 		rtac_remove_voice(voice_get_cvs_handle(v));
 		/* send cmd to dsp to disable vocproc */
@@ -2403,12 +2406,17 @@ int voc_enable_cvp(uint16_t session_id)
 			voice_send_set_slowtalk_enable_cmd(v);
 
 		get_sidetone_cal(&sidetone_cal_data);
-		ret = afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
-						sidetone_cal_data.enable,
-						sidetone_cal_data.gain);
+		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
+			v->dev_rx.port_id != RT_PROXY_PORT_001_RX) {
+			ret = afe_sidetone(v->dev_tx.port_id,
+					v->dev_rx.port_id,
+					sidetone_cal_data.enable,
+					sidetone_cal_data.gain);
 
-		if (ret < 0)
-			pr_err("%s: AFE command sidetone failed\n", __func__);
+			if (ret < 0)
+				pr_err("%s: AFE command sidetone failed\n",
+					__func__);
+		}
 
 		rtac_add_voice(voice_get_cvs_handle(v),
 			voice_get_cvp_handle(v),
@@ -2683,7 +2691,10 @@ int voc_end_voice_call(uint16_t session_id)
 	mutex_lock(&v->lock);
 
 	if (v->voc_state == VOC_RUN) {
-		afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id, 0, 0);
+		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
+			v->dev_rx.port_id != RT_PROXY_PORT_001_RX)
+			afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
+					0, 0);
 		ret = voice_destroy_vocproc(v);
 		if (ret < 0)
 			pr_err("%s:  destroy voice failed\n", __func__);
@@ -2732,12 +2743,15 @@ int voc_start_voice_call(uint16_t session_id)
 			goto fail;
 		}
 		get_sidetone_cal(&sidetone_cal_data);
-		ret = afe_sidetone(v->dev_tx.port_id,
+		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
+			v->dev_rx.port_id != RT_PROXY_PORT_001_RX) {
+			ret = afe_sidetone(v->dev_tx.port_id,
 					v->dev_rx.port_id,
 					sidetone_cal_data.enable,
 					sidetone_cal_data.gain);
-		if (ret < 0)
-			pr_err("AFE command sidetone failed\n");
+			if (ret < 0)
+				pr_err("AFE command sidetone failed\n");
+		}
 
 		v->voc_state = VOC_RUN;
 	}
