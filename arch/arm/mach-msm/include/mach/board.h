@@ -311,7 +311,6 @@ struct msm_panel_common_pdata {
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
 	int mdp_rev;
-	int (*writeback_offset)(void);
 	int mdp_writeback_memtype;
 	void *mdp_writeback_phys;    /* writeback physical addr */
 	int mdp_writeback_size_ov0;  /* overlay0 writeback size */

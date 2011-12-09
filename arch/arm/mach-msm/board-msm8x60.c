@@ -2627,23 +2627,12 @@ static void __init msm8x60_init_dsps(void)
 #define MSM_FB_EXT_BUFT_SIZE	0
 #endif
 
-#ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
-/* width x height x 3 bpp x 2 frame buffer */
-#define MSM_FB_WRITEBACK_SIZE (1024 * 600 * 3 * 2)
-#define MSM_FB_WRITEBACK_OFFSET  \
-		(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE)
-#else
-#define MSM_FB_WRITEBACK_SIZE	0
-#define MSM_FB_WRITEBACK_OFFSET 0
-#endif
-
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
 /* 4 bpp x 2 page HDMI case */
 #define MSM_FB_SIZE roundup((1920 * 1088 * 4 * 2), 4096)
 #else
 /* Note: must be multiple of 4096 */
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE + \
-				MSM_FB_WRITEBACK_SIZE + \
 				MSM_FB_DSUB_PMEM_ADDER, 4096)
 #endif
 
@@ -2664,11 +2653,6 @@ static void __init msm8x60_init_dsps(void)
 #else
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
 #endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
-
-static int writeback_offset(void)
-{
-	return MSM_FB_WRITEBACK_OFFSET;
-}
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
@@ -9436,7 +9420,6 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_41,
-	.writeback_offset = writeback_offset,
 	.mdp_writeback_memtype = MEMTYPE_EBI1,
 	.mdp_writeback_phys = NULL,
 };
