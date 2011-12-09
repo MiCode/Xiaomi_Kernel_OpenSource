@@ -2999,7 +2999,14 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		temp_val = ctrl->value;
 		retval = hci_set_notch_filter(&temp_val, radio->fm_hdev);
 		break;
-
+	case V4L2_CID_PRIVATE_IRIS_SRCH_ALGORITHM:
+		/*
+		This private control is a place holder to keep the
+		driver compatible with changes done in the frameworks
+		which are specific to TAVARUA.
+		*/
+		retval = 0;
+		break;
 	default:
 		retval = -EINVAL;
 	}
