@@ -97,7 +97,7 @@ int diag_bridge_read(char *data, size_t size)
 		return -ENODEV;
 	}
 
-	urb = usb_alloc_urb(0, GFP_KERNEL);
+	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
 		dev_err(&dev->udev->dev, "unable to allocate urb\n");
 		return -ENOMEM;
@@ -108,7 +108,7 @@ int diag_bridge_read(char *data, size_t size)
 				diag_bridge_read_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
 
-	ret = usb_submit_urb(urb, GFP_KERNEL);
+	ret = usb_submit_urb(urb, GFP_ATOMIC);
 	if (ret) {
 		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
 		usb_unanchor_urb(urb);
@@ -154,7 +154,7 @@ int diag_bridge_write(char *data, size_t size)
 		return -ENODEV;
 	}
 
-	urb = usb_alloc_urb(0, GFP_KERNEL);
+	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
 		err("unable to allocate urb");
 		return -ENOMEM;
@@ -165,7 +165,7 @@ int diag_bridge_write(char *data, size_t size)
 				diag_bridge_write_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
 
-	ret = usb_submit_urb(urb, GFP_KERNEL);
+	ret = usb_submit_urb(urb, GFP_ATOMIC);
 	if (ret) {
 		err("submitting urb failed err:%d", ret);
 		usb_unanchor_urb(urb);
