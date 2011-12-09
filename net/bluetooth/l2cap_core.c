@@ -549,8 +549,7 @@ void l2cap_chan_del(struct sock *sk, int err)
 		l2cap_pi(sk)->ampcon->l2cap_data = NULL;
 		l2cap_pi(sk)->ampcon = NULL;
 		if (l2cap_pi(sk)->ampchan) {
-			hci_chan_put(l2cap_pi(sk)->ampchan);
-			if (atomic_read(&l2cap_pi(sk)->ampchan->refcnt))
+			if (!hci_chan_put(l2cap_pi(sk)->ampchan))
 				l2cap_deaggregate(l2cap_pi(sk)->ampchan,
 							l2cap_pi(sk));
 		}
@@ -3084,8 +3083,9 @@ static void l2cap_aggregate_fs(struct hci_ext_fs *cur,
 			if (new->sdu_arr_time)
 				new_rate = div_u64(new_rate, new->sdu_arr_time);
 			cur_rate = cur_rate + new_rate;
-			agg->sdu_arr_time = div64_u64(agg->max_sdu * 1000000ULL,
-				cur_rate);
+			if (cur_rate)
+				agg->sdu_arr_time = div64_u64(
+					agg->max_sdu * 1000000ULL, cur_rate);
 		}
 	}
 }
@@ -3126,8 +3126,9 @@ static void l2cap_deaggregate_fs(struct hci_ext_fs *cur,
 		if (old->sdu_arr_time)
 			old_rate = div_u64(old_rate, old->sdu_arr_time);
 		cur_rate = cur_rate - old_rate;
-		agg->sdu_arr_time = div64_u64(agg->max_sdu * 1000000ULL,
-								cur_rate);
+		if (cur_rate)
+			agg->sdu_arr_time = div64_u64(
+				agg->max_sdu * 1000000ULL, cur_rate);
 	}
 }
 
@@ -5056,8 +5057,7 @@ static inline int l2cap_move_channel_confirm(struct l2cap_conn *conn,
 			if ((!l2cap_pi(sk)->amp_id) &&
 						(l2cap_pi(sk)->ampchan)) {
 				/* Have moved off of AMP, free the channel */
-				hci_chan_put(l2cap_pi(sk)->ampchan);
-				if (atomic_read(&l2cap_pi(sk)->ampchan->refcnt))
+				if (!hci_chan_put(l2cap_pi(sk)->ampchan))
 					l2cap_deaggregate(l2cap_pi(sk)->ampchan,
 								l2cap_pi(sk));
 				l2cap_pi(sk)->ampchan = NULL;
@@ -5115,8 +5115,7 @@ static inline int l2cap_move_channel_confirm_rsp(struct l2cap_conn *conn,
 			/* Have moved off of AMP, free the channel */
 			l2cap_pi(sk)->ampcon = NULL;
 			if (l2cap_pi(sk)->ampchan) {
-				hci_chan_put(l2cap_pi(sk)->ampchan);
-				if (atomic_read(&l2cap_pi(sk)->ampchan->refcnt))
+				if (!hci_chan_put(l2cap_pi(sk)->ampchan))
 					l2cap_deaggregate(l2cap_pi(sk)->ampchan,
 								l2cap_pi(sk));
 			}

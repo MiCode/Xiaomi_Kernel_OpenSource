@@ -505,13 +505,13 @@ int hci_chan_del(struct hci_chan *chan)
 	return 0;
 }
 
-void hci_chan_put(struct hci_chan *chan)
+int hci_chan_put(struct hci_chan *chan)
 {
 	struct hci_cp_disconn_logical_link cp;
 
 	BT_DBG("chan %p refcnt %d", chan, atomic_read(&chan->refcnt));
 	if (!atomic_dec_and_test(&chan->refcnt))
-		return;
+		return 0;
 
 	BT_DBG("chan->conn->state %d", chan->conn->state);
 	if (chan->conn->state == BT_CONNECTED) {
@@ -520,6 +520,8 @@ void hci_chan_put(struct hci_chan *chan)
 				sizeof(cp), &cp);
 	} else
 		hci_chan_del(chan);
+
+	return 1;
 }
 EXPORT_SYMBOL(hci_chan_put);
 
