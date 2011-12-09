@@ -2653,6 +2653,18 @@ static void __init msm8x60_init_dsps(void)
 #define MSM_PMEM_SF_SIZE 0x4000000 /* 64 Mbytes */
 #endif
 
+#ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
+#define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((1376 * 768 * 3 * 2), 4096)
+#else
+#define MSM_FB_OVERLAY0_WRITEBACK_SIZE (0)
+#endif  /* CONFIG_FB_MSM_OVERLAY0_WRITEBACK */
+
+#ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
+#define MSM_FB_OVERLAY1_WRITEBACK_SIZE roundup((1920 * 1088 * 3 * 2), 4096)
+#else
+#define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
+#endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
+
 static int writeback_offset(void)
 {
 	return MSM_FB_WRITEBACK_OFFSET;
@@ -5349,13 +5361,14 @@ static void __init reserve_pmem_memory(void)
 #endif
 }
 
-
+static void __init reserve_mdp_memory(void);
 
 static void __init msm8x60_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
 	reserve_ion_memory();
+	reserve_mdp_memory();
 }
 
 static int msm8x60_paddr_to_memtype(unsigned int paddr)
@@ -9424,7 +9437,20 @@ static struct msm_panel_common_pdata mdp_pdata = {
 #endif
 	.mdp_rev = MDP_REV_41,
 	.writeback_offset = writeback_offset,
+	.mdp_writeback_memtype = MEMTYPE_EBI1,
+	.mdp_writeback_phys = NULL,
 };
+
+static void __init reserve_mdp_memory(void)
+{
+	mdp_pdata.mdp_writeback_size_ov0 = MSM_FB_OVERLAY0_WRITEBACK_SIZE;
+	mdp_pdata.mdp_writeback_size_ov1 = MSM_FB_OVERLAY1_WRITEBACK_SIZE;
+
+	msm8x60_reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
+		mdp_pdata.mdp_writeback_size_ov0;
+	msm8x60_reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
+		mdp_pdata.mdp_writeback_size_ov1;
+}
 
 #ifdef CONFIG_FB_MSM_TVOUT
 

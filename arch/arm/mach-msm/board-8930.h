@@ -18,6 +18,7 @@
 #include <linux/i2c/sx150x.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
+#include <mach/msm_memtypes.h>
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -106,6 +107,7 @@ void msm8930_init_mmc(void);
 int msm8930_init_gpiomux(void);
 void msm8930_allocate_fb_region(void);
 void msm8930_pm8038_gpio_mpp_init(void);
+void msm8930_mdp_writeback(struct memtype_reserve *reserve_table);
 
 #define PLATFORM_IS_CHARM25() \
 	(machine_is_msm8930_cdp() && \
