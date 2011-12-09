@@ -188,11 +188,7 @@ void FN_11_inthandler(struct rmi_function_info *rmifninfo,
 		}
 	}
 	input_report_key(function_device->input,
-			BTN_TOUCH, fingerDownCount);
-	for (finger = 0; finger < (instanceData->sensorInfo->numberOfFingers - 1); finger++) {
-		input_report_key(function_device->input,
-			BTN_2 + finger, fingerDownCount >= (finger + 2));
-	}
+			BTN_TOUCH, !!fingerDownCount);
 
 	for (finger = 0; finger < instanceData->sensorInfo->numberOfFingers; finger++) {
 		int reg;
@@ -269,14 +265,8 @@ void FN_11_inthandler(struct rmi_function_info *rmifninfo,
 				}
 #ifdef CONFIG_SYNA_MULTI_TOUCH
 				/* Report Multi-Touch events for each finger */
-				/* major axis of touch area ellipse */
-				input_report_abs(function_device->input, ABS_MT_TOUCH_MAJOR, Z);
-				/* minor axis of touch area ellipse */
-				input_report_abs(function_device->input, ABS_MT_WIDTH_MAJOR,
-						max(Wx, Wy));
-				/* Currently only 2 supported - 1 or 0 */
-				input_report_abs(function_device->input, ABS_MT_ORIENTATION,
-					(Wx > Wy ? 1 : 0));
+				input_report_abs(function_device->input,
+							ABS_MT_PRESSURE, Z);
 				input_report_abs(function_device->input, ABS_MT_POSITION_X, X);
 				input_report_abs(function_device->input, ABS_MT_POSITION_Y, Y);
 
@@ -284,7 +274,7 @@ void FN_11_inthandler(struct rmi_function_info *rmifninfo,
 				/* Could be formed by keeping an id per position and assiging */
 				/* a new id when fingerStatus changes for that position.*/
 				input_report_abs(function_device->input, ABS_MT_TRACKING_ID,
-						finger+1);
+						finger);
 				/* MT sync between fingers */
 				input_mt_sync(function_device->input);
 #endif
@@ -297,17 +287,10 @@ void FN_11_inthandler(struct rmi_function_info *rmifninfo,
 		instanceData->wasdown = false;
 
 #ifdef CONFIG_SYNA_MULTI_TOUCH
-		input_report_abs(function_device->input, ABS_MT_TOUCH_MAJOR, 0);
-		input_report_abs(function_device->input, ABS_MT_WIDTH_MAJOR, 0);
-		input_report_abs(function_device->input, ABS_MT_POSITION_X, instanceData->oldX);
-		input_report_abs(function_device->input, ABS_MT_POSITION_Y, instanceData->oldY);
-		input_report_abs(function_device->input, ABS_MT_TRACKING_ID, 1);
+		input_report_abs(function_device->input, ABS_MT_PRESSURE, 0);
+		input_report_key(function_device->input, BTN_TOUCH, 0);
 		input_mt_sync(function_device->input);
 #endif
-
-		input_report_abs(function_device->input, ABS_X, instanceData->oldX);
-		input_report_abs(function_device->input, ABS_Y, instanceData->oldY);
-		instanceData->oldX = instanceData->oldY = 0;
 	}
 
 	FN_11_relreport(rmifninfo);
@@ -468,10 +451,11 @@ static void f11_set_abs_params(struct rmi_function_device *function_device)
 	input_set_abs_params(function_device->input, ABS_TOOL_WIDTH, 0, 15, 0, 0);
 
 #ifdef CONFIG_SYNA_MULTI_TOUCH
-	input_set_abs_params(function_device->input, ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
-	input_set_abs_params(function_device->input, ABS_MT_TOUCH_MINOR, 0, 15, 0, 0);
+	input_set_abs_params(function_device->input, ABS_MT_PRESSURE,
+							0, 15, 0, 0);
 	input_set_abs_params(function_device->input, ABS_MT_ORIENTATION, 0, 1, 0, 0);
-	input_set_abs_params(function_device->input, ABS_MT_TRACKING_ID, 1, 10, 0, 0);
+	input_set_abs_params(function_device->input, ABS_MT_TRACKING_ID,
+							0, 10, 0, 0);
 	input_set_abs_params(function_device->input, ABS_MT_POSITION_X, xMin, xMax,
 		0, 0);
 	input_set_abs_params(function_device->input, ABS_MT_POSITION_Y, yMin, yMax,
@@ -536,8 +520,8 @@ int FN_11_init(struct rmi_function_device *function_device)
 	set_bit(EV_ABS, function_device->input->evbit);
 	set_bit(EV_SYN, function_device->input->evbit);
 	set_bit(EV_KEY, function_device->input->evbit);
-    set_bit(BTN_MISC, function_device->input->keybit);
-    set_bit(KEY_OK, function_device->input->keybit);
+	set_bit(BTN_TOUCH, function_device->input->keybit);
+	set_bit(KEY_OK, function_device->input->keybit);
 
 	f11_set_abs_params(function_device);
 
