@@ -48,7 +48,7 @@
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x3800000
-#define MSM_PMEM_AUDIO_SIZE        0x28B000
+#define MSM_PMEM_AUDIO_SIZE        0x2B4000
 #define MSM_PMEM_SIZE 0x1800000 /* 24 Mbytes */
 
 static struct memtype_reserve apq8064_reserve_table[] __initdata = {
