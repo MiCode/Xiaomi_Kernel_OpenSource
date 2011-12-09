@@ -1090,6 +1090,32 @@ static int android_enable_function(struct android_dev *dev, char *name)
 /*-------------------------------------------------------------------------*/
 /* /sys/class/android_usb/android%d/ interface */
 
+static ssize_t remote_wakeup_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			!!(android_config_driver.bmAttributes &
+				USB_CONFIG_ATT_WAKEUP));
+}
+
+static ssize_t remote_wakeup_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_debug("android_usb: %s remote wakeup\n",
+			enable ? "enabling" : "disabling");
+
+	if (enable)
+		android_config_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+	else
+		android_config_driver.bmAttributes &= ~USB_CONFIG_ATT_WAKEUP;
+
+	return size;
+}
+
 static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
@@ -1245,6 +1271,8 @@ DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show, functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+static DEVICE_ATTR(remote_wakeup, S_IRUGO | S_IWUSR,
+		remote_wakeup_show, remote_wakeup_store);
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
@@ -1259,6 +1287,7 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_state,
+	&dev_attr_remote_wakeup,
 	NULL
 };
 
