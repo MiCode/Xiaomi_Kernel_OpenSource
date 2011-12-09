@@ -814,7 +814,7 @@ static void msm_hsusb_vbus_power(bool on)
 	}
 	regulator_disable(mvs_otg_switch);
 err_ldo_gpio_set_dir:
-	gpio_set_value(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
+	gpio_set_value_cansleep(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
 free_usb_5v_en:
 	gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
 put_mvs_otg:
