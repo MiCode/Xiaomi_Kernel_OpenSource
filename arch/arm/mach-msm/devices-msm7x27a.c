@@ -228,8 +228,8 @@ static struct resource resources_uart1[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end	= MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7XXX_UART1_PHYS,
+		.end	= MSM7XXX_UART1_PHYS + MSM7XXX_UART1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -573,8 +573,8 @@ struct platform_device msm7x27a_device_csic1 = {
 static struct resource msm_clkctl_resources[] = {
 	{
 		.name   = "clk_ctl",
-		.start  = MSM_CLK_CTL_PHYS,
-		.end    = MSM_CLK_CTL_PHYS + MSM_CLK_CTL_SIZE - 1,
+		.start  = MSM7XXX_CLK_CTL_PHYS,
+		.end    = MSM7XXX_CLK_CTL_PHYS + MSM7XXX_CLK_CTL_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
@@ -802,8 +802,8 @@ static struct resource msm8625_resources_uart1[] = {
 		.flags  = IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end    = MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7XXX_UART1_PHYS,
+		.end    = MSM7XXX_UART1_PHYS + MSM7XXX_UART1_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };

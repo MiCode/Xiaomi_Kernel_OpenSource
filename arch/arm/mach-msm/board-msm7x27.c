@@ -1063,10 +1063,10 @@ static void config_camera_off_gpios(void)
 static struct msm_camera_device_platform_data msm_camera_device_data = {
 	.camera_gpio_on  = config_camera_on_gpios,
 	.camera_gpio_off = config_camera_off_gpios,
-	.ioext.mdcphy = MSM_MDC_PHYS,
-	.ioext.mdcsz  = MSM_MDC_SIZE,
-	.ioext.appphy = MSM_CLK_CTL_PHYS,
-	.ioext.appsz  = MSM_CLK_CTL_SIZE,
+	.ioext.mdcphy = MSM7XXX_MDC_PHYS,
+	.ioext.mdcsz  = MSM7XXX_MDC_SIZE,
+	.ioext.appphy = MSM7XXX_CLK_CTL_PHYS,
+	.ioext.appsz  = MSM7XXX_CLK_CTL_SIZE,
 };
 
 int pmic_set_flash_led_current(enum pmic8058_leds id, unsigned mA)

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -47,7 +47,10 @@
 
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615) || \
-	defined(CONFIG_ARCH_MSMCOPPER)
+	defined(CONFIG_ARCH_MSMCOPPER) || defined(CONFIG_ARCH_MSM7X27) || \
+	defined(CONFIG_ARCH_MSM7X01A) || defined(CONFIG_ARCH_MSM7X25) || \
+	defined(CONFIG_ARCH_MSM8625)
+
 /* Unified iomap */
 
 #define MSM_TMR_BASE		IOMEM(0xFA000000)	/*  4K	*/
@@ -79,8 +82,21 @@
 #define MSM_APCS_GLB_BASE	IOMEM(0xFA702000)	/*  4K  */
 #define MSM_SAW2_BASE		IOMEM(0xFA703000)	/*  4k  */
 #define MSM_SAW3_BASE		IOMEM(0xFA704000)	/*  4k  */
+#define MSM_VIC_BASE		IOMEM(0xFA705000)	/* 4K */
+#define MSM_CSR_BASE		MSM_TMR_BASE		/* 4K */
+#define MSM_GPIO1_BASE		IOMEM(0xFA706000)	/* 4K */
+#define MSM_GPIO2_BASE		IOMEM(0xFA707000)	/* 4K */
+#define MSM_SCU_BASE		IOMEM(0xFA708000)	/* 4K */
+#define MSM_SPM0_BASE		IOMEM(0xFA709000)	/* 4K */
+#define MSM_SPM1_BASE		IOMEM(0xFA70A000)	/* 4K */
+#define MSM_CFG_CTL_BASE	IOMEM(0xFA70B000)	/* 4K */
+#define MSM_MDC_BASE		IOMEM(0xFA70C000)	/* 4K */
+#define MSM_AD5_BASE		IOMEM(0xFA70D000)	/* 4K */
 
-#if defined(CONFIG_ARCH_MSM9615)
+
+#define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
+
+#if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27)
 #define MSM_SHARED_RAM_SIZE	SZ_1M
 #else
 #define MSM_SHARED_RAM_SIZE	SZ_2M
@@ -91,6 +107,8 @@
 #include "msm_iomap-8064.h"
 #include "msm_iomap-9615.h"
 #include "msm_iomap-copper.h"
+#include "msm_iomap-7xxx.h"
+#include "msm_iomap-8625.h"
 
 #else
 /* Legacy single-target iomap */
@@ -104,7 +122,7 @@
 #elif defined(CONFIG_ARCH_FSM9XXX)
 #include "msm_iomap-fsm9xxx.h"
 #else
-#include "msm_iomap-7xxx.h"
+#error "Target compiling without iomap"
 #endif
 
 #if defined(CONFIG_DEBUG_MSM_UART1)
