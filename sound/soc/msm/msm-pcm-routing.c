@@ -518,9 +518,11 @@ static int msm_routing_get_eq_enable_mixer(struct snd_kcontrol *kcontrol,
 	int eq_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 
+	ucontrol->value.integer.value[0] = eq_data[eq_idx].enable;
+
 	pr_debug("%s: EQ #%d enable %d\n", __func__,
 		eq_idx, eq_data[eq_idx].enable);
-	return eq_data[eq_idx].enable;
+	return 0;
 }
 
 static int msm_routing_put_eq_enable_mixer(struct snd_kcontrol *kcontrol,
@@ -545,6 +547,8 @@ static int msm_routing_get_eq_band_count_audio_mixer(
 	int eq_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 
+	ucontrol->value.integer.value[0] = eq_data[eq_idx].num_bands;
+
 	pr_debug("%s: EQ #%d bands %d\n", __func__,
 		eq_idx, eq_data[eq_idx].num_bands);
 	return eq_data[eq_idx].num_bands;
@@ -557,7 +561,6 @@ static int msm_routing_put_eq_band_count_audio_mixer(
 	int eq_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int value = ucontrol->value.integer.value[0];
-
 
 	pr_debug("%s: EQ #%d bands %d\n", __func__,
 		eq_idx, value);
@@ -572,6 +575,17 @@ static int msm_routing_get_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
+
+	ucontrol->value.integer.value[0] =
+			eq_data[eq_idx].eq_bands[band_idx].band_idx;
+	ucontrol->value.integer.value[1] =
+			eq_data[eq_idx].eq_bands[band_idx].filter_type;
+	ucontrol->value.integer.value[2] =
+			eq_data[eq_idx].eq_bands[band_idx].center_freq_hz;
+	ucontrol->value.integer.value[3] =
+			eq_data[eq_idx].eq_bands[band_idx].filter_gain;
+	ucontrol->value.integer.value[4] =
+			eq_data[eq_idx].eq_bands[band_idx].q_factor;
 
 	pr_debug("%s: band_idx = %d\n", __func__,
 			eq_data[eq_idx].eq_bands[band_idx].band_idx);
