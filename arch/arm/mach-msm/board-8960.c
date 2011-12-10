@@ -964,7 +964,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_base_addr = MSM_SAW0_BASE,
 		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0xB0,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
@@ -981,7 +981,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_base_addr = MSM_SAW1_BASE,
 		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0xB0,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
