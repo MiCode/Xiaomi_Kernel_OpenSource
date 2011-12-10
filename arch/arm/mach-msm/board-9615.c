@@ -34,6 +34,7 @@
 #include "cpuidle.h"
 #include "pm.h"
 #include "acpuclock.h"
+#include <linux/power/ltc4088-charger.h>
 
 static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
@@ -133,6 +134,14 @@ static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 		.num_configs = ARRAY_SIZE(pm8018_led_configs),
 };
 
+#ifdef CONFIG_LTC4088_CHARGER
+static struct ltc4088_charger_platform_data ltc4088_chg_pdata = {
+		.gpio_mode_select_d0 = 7,
+		.gpio_mode_select_d1 = 6,
+		.gpio_mode_select_d2 = 4,
+};
+#endif
+
 static struct pm8018_platform_data pm8018_platform_data __devinitdata = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
 	.gpio_pdata		= &pm8xxx_gpio_pdata,
@@ -200,6 +209,14 @@ static struct gpiomux_setting gsbi3_cs1_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+#ifdef CONFIG_LTC4088_CHARGER
+static struct gpiomux_setting ltc4088_chg_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif
+
 struct msm_gpiomux_config msm9615_ps_hold_config[] __initdata = {
 	{
 		.gpio = 83,
@@ -208,6 +225,30 @@ struct msm_gpiomux_config msm9615_ps_hold_config[] __initdata = {
 		},
 	},
 };
+
+#ifdef CONFIG_LTC4088_CHARGER
+static struct msm_gpiomux_config
+	msm9615_ltc4088_charger_config[] __initdata = {
+	{
+		.gpio = 4,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ltc4088_chg_cfg,
+		},
+	},
+	{
+		.gpio = 6,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ltc4088_chg_cfg,
+		},
+	},
+	{
+		.gpio = 7,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ltc4088_chg_cfg,
+		},
+	},
+};
+#endif
 
 struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 	{
@@ -600,6 +641,10 @@ static int __init gpiomux_init(void)
 
 	msm_gpiomux_install(msm9615_ps_hold_config,
 			ARRAY_SIZE(msm9615_ps_hold_config));
+#ifdef CONFIG_LTC4088_CHARGER
+	msm_gpiomux_install(msm9615_ltc4088_charger_config,
+			ARRAY_SIZE(msm9615_ltc4088_charger_config));
+#endif
 	return 0;
 }
 
@@ -717,9 +762,22 @@ static int __init msm9615_init_ar6000pm(void)
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 
+#ifdef CONFIG_LTC4088_CHARGER
+static struct platform_device msm_device_charger = {
+	.name	= LTC4088_CHARGER_DEV_NAME,
+	.id	= -1,
+	.dev	= {
+		.platform_data = &ltc4088_chg_pdata,
+	},
+};
+#endif
+
 static struct platform_device *common_devices[] = {
 	&msm9615_device_dmov,
 	&msm_device_smd,
+#ifdef CONFIG_LTC4088_CHARGER
+	&msm_device_charger,
+#endif
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
 	&msm_device_hsusb_host,
