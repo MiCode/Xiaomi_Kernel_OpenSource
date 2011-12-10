@@ -220,6 +220,7 @@ static int load_image(struct pil_device *pil)
 		dev_err(pil->desc->dev, "Failed to bring out of reset\n");
 		goto release_fw;
 	}
+	dev_info(pil->desc->dev, "brought out of reset\n");
 
 release_fw:
 	release_firmware(fw);
