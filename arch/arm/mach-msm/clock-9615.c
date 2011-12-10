@@ -424,7 +424,6 @@ static struct clk_ops clk_ops_rcg_9615 = {
 	.disable = rcg_clk_disable,
 	.auto_off = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate,
-	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
 	.list_rate = rcg_clk_list_rate,
 	.is_enabled = rcg_clk_is_enabled,
