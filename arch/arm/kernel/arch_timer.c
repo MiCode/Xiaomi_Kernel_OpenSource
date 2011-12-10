@@ -289,7 +289,7 @@ static struct notifier_block __cpuinitdata arch_timer_cpu_nb = {
 	.notifier_call = arch_timer_cpu_notify,
 };
 
-int arch_timer_register(struct resource *res, int res_nr)
+int __init arch_timer_register(struct resource *res, int res_nr)
 {
 	struct irqaction *irqa;
 	unsigned int cpu = smp_processor_id();
