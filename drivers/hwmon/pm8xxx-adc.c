@@ -122,6 +122,7 @@
 #define PM8XXX_ADC_PA_THERM_VREG_UV_MAX			1800000
 #define PM8XXX_ADC_PA_THERM_VREG_UA_LOAD		100000
 #define PM8XXX_ADC_HWMON_NAME_LENGTH			32
+#define PM8XXX_ADC_BTM_INTERVAL_MAX			0x14
 
 struct pm8xxx_adc {
 	struct device				*dev;
@@ -841,6 +842,12 @@ uint32_t pm8xxx_adc_btm_configure(struct pm8xxx_adc_arb_btm_param *btm_param)
 	if (rc < 0) {
 		pr_err("Failed to lookup the BTM thresholds\n");
 		return rc;
+	}
+
+	if (btm_param->interval > PM8XXX_ADC_BTM_INTERVAL_MAX) {
+		pr_info("Bug in PMIC BTM interval time and cannot set"
+		" a value greater than 0x14 %x\n", btm_param->interval);
+		btm_param->interval = PM8XXX_ADC_BTM_INTERVAL_MAX;
 	}
 
 	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
