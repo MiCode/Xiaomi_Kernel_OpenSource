@@ -764,7 +764,9 @@ static unsigned int calculate_vdd_dig(struct acpu_level *tgt)
 {
 	unsigned int pll_vdd_dig;
 
-	if (tgt->l2_level->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
+	if (tgt->l2_level->speed.src != HFPLL)
+		pll_vdd_dig = 0;
+	else if (tgt->l2_level->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
 		pll_vdd_dig = HFPLL_NOMINAL_VDD;
 	else
 		pll_vdd_dig = HFPLL_LOW_VDD;
@@ -776,7 +778,9 @@ static unsigned int calculate_vdd_core(struct acpu_level *tgt)
 {
 	unsigned int pll_vdd_core;
 
-	if (tgt->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
+	if (tgt->speed.src != HFPLL)
+		pll_vdd_core = 0;
+	else if (tgt->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
 		pll_vdd_core = HFPLL_NOMINAL_VDD;
 	else
 		pll_vdd_core = HFPLL_LOW_VDD;
