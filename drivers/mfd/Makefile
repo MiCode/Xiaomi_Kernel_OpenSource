@@ -117,6 +117,7 @@ obj-$(CONFIG_PMIC8901)		+= pmic8901.o
 obj-$(CONFIG_MFD_PM8921_CORE) 	+= pm8921-core.o
 obj-$(CONFIG_MFD_PM8821_CORE) 	+= pm8821-core.o
 obj-$(CONFIG_MFD_PM8018_CORE) 	+= pm8018-core.o
+obj-$(CONFIG_MFD_PM8038_CORE) 	+= pm8038-core.o
 obj-$(CONFIG_MFD_PM8XXX_IRQ) 	+= pm8xxx-irq.o
 obj-$(CONFIG_MFD_PM8XXX_DEBUG) 	+= pm8xxx-debug.o
 obj-$(CONFIG_MFD_PM8XXX_PWM) 	+= pm8xxx-pwm.o

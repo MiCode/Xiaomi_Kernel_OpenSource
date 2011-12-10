@@ -180,6 +180,14 @@ static inline int pm8xxx_mpp_config(unsigned mpp,
 #define	PM8018_MPP_DIG_LEVEL_L5		5
 #define	PM8018_MPP_DIG_LEVEL_VPH	7
 
+/* Digital Input/Output: level [PM8038] */
+#define	PM8038_MPP_DIG_LEVEL_L20	0
+#define	PM8038_MPP_DIG_LEVEL_L11	1
+#define	PM8038_MPP_DIG_LEVEL_L5		2
+#define	PM8038_MPP_DIG_LEVEL_L15	3
+#define	PM8038_MPP_DIG_LEVEL_L17	4
+#define	PM8038_MPP_DIG_LEVEL_VPH	7
+
 /* Digital Input: control */
 #define	PM8XXX_MPP_DIN_TO_INT		0
 #define	PM8XXX_MPP_DIN_TO_DBUS1		1
