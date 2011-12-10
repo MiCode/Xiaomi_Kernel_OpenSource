@@ -314,13 +314,9 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (bam_ret != 0) {
 		pr_err("[%s] %s: write returned error %d",
 			dev->name, __func__, bam_ret);
-		goto xmit_out;
+		return -EAGAIN;
 	}
 
-	return 0;
-xmit_out:
-	/* data xmited, safe to release skb */
-	dev_kfree_skb_any(skb);
 	return 0;
 }
 
@@ -450,6 +446,7 @@ static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
 static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
+	int ret = 0;
 
 	if (netif_queue_stopped(dev)) {
 		pr_err("[%s]fatal: rmnet_xmit called when "
@@ -462,7 +459,11 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		msm_bam_dmux_kickoff_ul_wakeup();
 		return NETDEV_TX_BUSY;
 	}
-	_rmnet_xmit(skb, dev);
+	ret = _rmnet_xmit(skb, dev);
+	if (ret == -EAGAIN) {
+		netif_start_queue(dev);
+		return NETDEV_TX_BUSY;
+	}
 
 	if (msm_bam_dmux_is_ch_full(p->ch_id)) {
 		netif_stop_queue(dev);
