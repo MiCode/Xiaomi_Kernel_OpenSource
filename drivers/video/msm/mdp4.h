@@ -139,12 +139,15 @@ enum {
 	OVERLAY_PIPE_RGB2,
 	OVERLAY_PIPE_VG1,	/* video/graphic */
 	OVERLAY_PIPE_VG2,
+	OVERLAY_PIPE_RGB3,
+	OVERLAY_PIPE_VG3,
 	OVERLAY_PIPE_MAX
 };
 
 enum {
 	OVERLAY_TYPE_RGB,
-	OVERLAY_TYPE_VIDEO
+	OVERLAY_TYPE_VIDEO,
+	OVERLAY_TYPE_BF
 };
 
 enum {
@@ -216,6 +219,10 @@ enum {
 #define MDP4_OP_SCALEX_FIR 		(0 << 2)
 #define MDP4_OP_SCALEX_MN_PHASE 	(1 << 2)
 #define MDP4_OP_SCALEX_PIXEL_RPT 	(2 << 2)
+#define MDP4_OP_SCALE_RGB_PIXEL_RPT	(0 << 3)
+#define MDP4_OP_SCALE_RGB_BILINEAR	(1 << 3)
+#define MDP4_OP_SCALE_ALPHA_PIXEL_RPT	(0 << 2)
+#define MDP4_OP_SCALE_ALPHA_BILINEAR	(1 << 2)
 #define MDP4_OP_SCALEY_EN	BIT(1)
 #define MDP4_OP_SCALEX_EN	BIT(0)
 
@@ -411,6 +418,17 @@ static inline void mdp4_dtv_set_black_screen(void)
 }
 #endif
 
+static inline int mdp4_overlay_borderfill_supported(void)
+{
+	unsigned int mdp_hw_version;
+	mdp_hw_version = inpdw(MDP_BASE + 0x0); /* MDP_HW_VERSION */
+	return (mdp_hw_version >= 0x0402030b);
+}
+
+int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe);
+int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe);
 void mdp4_dtv_overlay(struct msm_fb_data_type *mfd);
 int mdp4_dtv_on(struct platform_device *pdev);
 int mdp4_dtv_off(struct platform_device *pdev);
@@ -561,6 +579,7 @@ void mdp4_lcdc_overlay_blt_stop(struct msm_fb_data_type *mfd);
 int mdp4_mddi_overlay_blt_offset(int *off);
 void mdp4_mddi_overlay_blt(ulong addr);
 void mdp4_overlay_panel_mode(int mixer_num, uint32 mode);
+void mdp4_overlay_panel_mode_unset(int mixer_num, uint32 mode);
 int mdp4_overlay_mixer_play(int mixer_num);
 uint32 mdp4_overlay_panel_list(void);
 void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
