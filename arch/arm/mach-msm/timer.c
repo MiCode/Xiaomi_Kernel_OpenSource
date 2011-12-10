@@ -240,8 +240,8 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 			return t3;
 		if ((t2-t1) <= 1)
 			return t2;
-		if (((t3-t2) == (t2-t1)) && (t3-t2) <= 8)
-			return t3;
+		if ((t2 >= t1) && (t3 >= t2))
+			return t2;
 		if (++loop_count == 5) {
 			pr_err("msm_read_timer_count timer %s did not "
 			       "stabilize: %u -> %u -> %u\n",
