@@ -297,6 +297,29 @@ static int config_class_d0_gpio(int enable)
 	return 0;
 }
 
+static int config_class_d1_gpio(int enable)
+{
+	int rc;
+
+	if (enable) {
+		rc = gpio_request(SNDDEV_GPIO_CLASS_D1_EN, "CLASSD1_EN");
+
+		if (rc) {
+			pr_err("%s: Right Channel spkr gpio request"
+				" failed\n", __func__);
+			return rc;
+		}
+
+		gpio_direction_output(SNDDEV_GPIO_CLASS_D1_EN, 1);
+		gpio_set_value(SNDDEV_GPIO_CLASS_D1_EN, 1);
+
+	} else {
+		gpio_set_value(SNDDEV_GPIO_CLASS_D1_EN, 0);
+		gpio_free(SNDDEV_GPIO_CLASS_D1_EN);
+	}
+	return 0;
+}
+
 static atomic_t pamp_ref_cnt;
 
 static int msm_snddev_poweramp_on(void)
@@ -312,6 +335,11 @@ static int msm_snddev_poweramp_on(void)
 		pr_err("%s: d0 gpio configuration failed\n", __func__);
 		goto config_gpio_fail;
 	}
+	rc = config_class_d1_gpio(1);
+	if (rc) {
+		pr_err("%s: d1 gpio configuration failed\n", __func__);
+		goto config_gpio_fail;
+	}
 config_gpio_fail:
 	return rc;
 }
@@ -321,6 +349,7 @@ static void msm_snddev_poweramp_off(void)
 	if (atomic_dec_return(&pamp_ref_cnt) == 0) {
 		pr_debug("%s: disable stereo spkr amp\n", __func__);
 		config_class_d0_gpio(0);
+		config_class_d1_gpio(0);
 		msleep(30);
 	}
 }
