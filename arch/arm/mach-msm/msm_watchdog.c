@@ -35,6 +35,7 @@
 
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
+#define WDT0_STS	0x44
 #define WDT0_BARK_TIME	0x4C
 #define WDT0_BITE_TIME	0x5C
 
@@ -180,10 +181,26 @@ done:
 	return ret;
 }
 
+unsigned min_slack_ticks = UINT_MAX;
+unsigned long long min_slack_ns = ULLONG_MAX;
+
 void pet_watchdog(void)
 {
+	int slack;
+	unsigned long long time_ns;
+	unsigned long long slack_ns;
+	unsigned long long bark_time_ns = bark_time * 1000000ULL;
+
+	slack = __raw_readl(msm_tmr0_base + WDT0_STS) >> 3;
+	slack = ((bark_time*WDT_HZ)/1000) - slack;
+	if (slack < min_slack_ticks)
+		min_slack_ticks = slack;
 	__raw_writel(1, msm_tmr0_base + WDT0_RST);
-	last_pet = sched_clock();
+	time_ns = sched_clock();
+	slack_ns = (last_pet + bark_time_ns) - time_ns;
+	if (slack_ns < min_slack_ns)
+		min_slack_ns = slack_ns;
+	last_pet = time_ns;
 }
 
 static void pet_watchdog_work(struct work_struct *work)
