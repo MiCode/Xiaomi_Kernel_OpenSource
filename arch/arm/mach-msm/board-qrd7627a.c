@@ -676,6 +676,10 @@ static unsigned int msm_bahama_setup_power(void)
 		goto reg_fail;
 	}
 
+	gpio_tlmm_config(GPIO_CFG(GPIO_BT_SYS_REST_EN, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+
 	/*setup Bahama_sys_reset_n*/
 	rc = gpio_request(GPIO_BT_SYS_REST_EN, "bahama sys_rst_n");
 	if (rc < 0) {
