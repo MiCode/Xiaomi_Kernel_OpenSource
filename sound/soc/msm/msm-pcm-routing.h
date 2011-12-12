@@ -27,6 +27,12 @@
 #define LPASS_BE_AUXPCM_RX "(Backend) AUX_PCM_RX"
 #define LPASS_BE_AUXPCM_TX "(Backend) AUX_PCM_TX"
 
+/* For multimedia front-ends, asm session is allocated dynamically.
+ * Hence, asm session/multimedia front-end mapping has to be maintained.
+ * Due to this reason, additional multimedia front-end must be placed before
+ * non-multimedia front-ends.
+ */
+
 enum {
 	MSM_FRONTEND_DAI_MULTIMEDIA1 = 0,
 	MSM_FRONTEND_DAI_MULTIMEDIA2,
@@ -38,6 +44,9 @@ enum {
 	MSM_FRONTEND_DAI_AFE_TX,
 	MSM_FRONTEND_DAI_MAX,
 };
+
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA4 + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA4
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
