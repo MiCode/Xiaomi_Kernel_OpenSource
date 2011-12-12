@@ -362,6 +362,15 @@ config USB_CONFIGFS_F_FS
 	  implemented in kernel space (for instance Ethernet, serial or
 	  mass storage) and other are implemented in user space.
 
+config USB_G_ANDROID
+	boolean "Android Composite Gadget"
+	help
+	  The Android Composite Gadget supports multiple USB
+	  functions: adb, acm, mass storage, mtp, accessory
+	  and rndis.
+	  Each function can be configured and enabled/disabled
+	  dynamically from userspace through a sysfs interface.
+
 source "drivers/usb/gadget/legacy/Kconfig"
 
 endchoice
