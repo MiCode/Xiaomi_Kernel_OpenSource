@@ -769,10 +769,13 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	RPM_APCC_CPU0_GP_MEDIUM_IRQ,
 	RPM_APCC_CPU0_GP_LOW_IRQ,
 	RPM_APCC_CPU0_WAKE_UP_IRQ,
+	MSS_TO_APPS_IRQ_0,
+	MSS_TO_APPS_IRQ_1,
 	LPASS_SCSS_GP_LOW_IRQ,
 	LPASS_SCSS_GP_MEDIUM_IRQ,
 	LPASS_SCSS_GP_HIGH_IRQ,
 	SPS_MTI_31,
+	A2_BAM_IRQ,
 };
 
 struct msm_mpm_device_data msm_mpm_dev_data = {
