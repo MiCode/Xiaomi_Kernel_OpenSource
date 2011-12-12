@@ -216,6 +216,7 @@
  * bad cards/controller to respond.
  */
 #define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
+#define MSM_MMC_DISABLE_TIMEOUT        200 /* msecs */
 
 /*
  * Controller HW limitations
