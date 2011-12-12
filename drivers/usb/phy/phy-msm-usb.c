@@ -1666,6 +1666,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 		msm_otg_reset(otg->phy);
 		msm_otg_init_sm(motg);
 		otg->phy->state = OTG_STATE_B_IDLE;
+		if (!test_bit(B_SESS_VLD, &motg->inputs) &&
+				test_bit(ID, &motg->inputs)) {
+			pm_runtime_put_noidle(otg->phy->dev);
+			pm_runtime_suspend(otg->phy->dev);
+			break;
+		}
 		/* FALL THROUGH */
 	case OTG_STATE_B_IDLE:
 		dev_dbg(otg->phy->dev, "OTG_STATE_B_IDLE state\n");
