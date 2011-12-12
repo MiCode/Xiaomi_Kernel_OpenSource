@@ -96,6 +96,7 @@ struct bam_ch_info {
 
 	struct gbam_port	*port;
 	struct work_struct	write_tobam_w;
+	struct work_struct	write_tohost_w;
 
 	struct usb_request	*rx_req;
 	struct usb_request	*tx_req;
@@ -176,14 +177,18 @@ static int gbam_alloc_requests(struct usb_ep *ep, struct list_head *head,
 /*--------------------------------------------- */
 
 /*------------data_path----------------------------*/
-static void gbam_write_data_tohost(struct gbam_port *port)
+static void gbam_write_data_tohost(struct work_struct *w)
 {
 	unsigned long			flags;
-	struct bam_ch_info		*d = &port->data_ch;
+	struct bam_ch_info	*d;
+	struct gbam_port	*port;
 	struct sk_buff			*skb;
 	int				ret;
 	struct usb_request		*req;
 	struct usb_ep			*ep;
+
+	d = container_of(w, struct bam_ch_info, write_tohost_w);
+	port = d->port;
 
 	spin_lock_irqsave(&port->port_lock_dl, flags);
 	if (!port->port_usb) {
@@ -261,7 +266,7 @@ void gbam_data_recv_cb(void *p, struct sk_buff *skb)
 	__skb_queue_tail(&d->tx_skb_q, skb);
 	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 
-	gbam_write_data_tohost(port);
+	queue_work(gbam_wq, &d->write_tohost_w);
 }
 
 void gbam_data_write_done(void *p, struct sk_buff *skb)
@@ -370,7 +375,7 @@ static void gbam_epin_complete(struct usb_ep *ep, struct usb_request *req)
 	list_add_tail(&req->list, &d->tx_idle);
 	spin_unlock(&port->port_lock_dl);
 
-	gbam_write_data_tohost(port);
+	queue_work(gbam_wq, &d->write_tohost_w);
 }
 
 static void
@@ -867,6 +872,7 @@ static int gbam_port_alloc(int portno)
 	INIT_LIST_HEAD(&d->tx_idle);
 	INIT_LIST_HEAD(&d->rx_idle);
 	INIT_WORK(&d->write_tobam_w, gbam_data_write_tobam);
+	INIT_WORK(&d->write_tohost_w, gbam_write_data_tohost);
 	skb_queue_head_init(&d->tx_skb_q);
 	skb_queue_head_init(&d->rx_skb_q);
 	d->id = bam_ch_ids[portno];
