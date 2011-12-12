@@ -59,14 +59,33 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 						MODULE_NAME);
 		return;
 	}
-	if (new_state & SMSM_RESET)
+	if (new_state & SMSM_RESET) {
+		ss_restart_inprogress = true;
 		schedule_work(&riva_smsm_cb_work);
+	}
 }
 
 static void riva_fatal_fn(struct work_struct *work)
 {
-	if (!ss_restart_inprogress)
+	if (!enable_riva_ssr)
 		panic(MODULE_NAME ": Watchdog bite received from Riva");
+	else
+		subsystem_restart("riva");
+}
+
+static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
+{
+	int ret;
+
+	if (ss_restart_inprogress) {
+		pr_err("%s: Ignoring riva bite irq, restart in progress\n",
+						MODULE_NAME);
+		return IRQ_HANDLED;
+	}
+	disable_irq_nosync(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
+	ss_restart_inprogress = true;
+	ret = schedule_work(&riva_fatal_work);
+	return IRQ_HANDLED;
 }
 
 /* SMSM reset Riva */
@@ -106,6 +125,9 @@ static int riva_powerup(const struct subsys_data *subsys)
 	if (!ret)
 		pil_force_boot("wcnss");
 
+	ss_restart_inprogress = false;
+	enable_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
+
 	return ret;
 }
 
@@ -128,8 +150,6 @@ static int riva_ramdump(int enable, const struct subsys_data *subsys)
 /* Riva crash handler */
 static void riva_crash_shutdown(const struct subsys_data *subsys)
 {
-	ss_restart_inprogress = true;
-
 	pr_err("%s: crash shutdown : %d\n", MODULE_NAME, riva_crash);
 	if (riva_crash != true)
 		smsm_riva_reset();
@@ -173,6 +193,15 @@ static int __init riva_ssr_module_init(void)
 					smsm_state_cb_hdlr, 0);
 	if (ret < 0) {
 		pr_err("%s: Unable to register smsm callback for Riva Reset!"
+				" (%d)\n", MODULE_NAME, ret);
+		goto out;
+	}
+	ret = request_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
+			riva_wdog_bite_irq_hdlr, IRQF_TRIGGER_HIGH,
+				"riva_wdog", NULL);
+
+	if (ret < 0) {
+		pr_err("%s: Unable to register for Riva bite interrupt"
 				" (%d)\n", MODULE_NAME, ret);
 		goto out;
 	}
