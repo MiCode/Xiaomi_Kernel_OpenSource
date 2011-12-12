@@ -37,6 +37,7 @@
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
+#include <linux/pm_qos_params.h>
 
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
@@ -62,6 +63,25 @@
 
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
+
+/* Prevent idle power collapse(pc) while operating in peripheral mode */
+static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
+{
+	struct msm_otg_platform_data *pdata = dev->pdata;
+	u32 swfi_latency = 0;
+
+	if (!pdata || !pdata->swfi_latency)
+		return;
+
+	swfi_latency = pdata->swfi_latency + 1;
+
+	if (vote)
+		pm_qos_update_request(&dev->pm_qos_req_dma,
+				swfi_latency);
+	else
+		pm_qos_update_request(&dev->pm_qos_req_dma,
+				PM_QOS_DEFAULT_VALUE);
+}
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
@@ -991,10 +1011,16 @@ static void msm_otg_start_peripheral(struct otg_transceiver *otg, int on)
 		 */
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_B_PERIPHERAL);
+		/*
+		 * vote for minimum dma_latency to prevent idle
+		 * power collapse(pc) while running in peripheral mode.
+		 */
+		otg_pm_qos_update_latency(motg, 1);
 		usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		dev_dbg(otg->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(otg->gadget);
+		otg_pm_qos_update_latency(motg, 0);
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_UNDEFINED);
 	}
@@ -2240,6 +2266,10 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 	clk_set_rate(motg->clk, 60000000);
 
+	/* pm qos request to prevent apps idle power collapse */
+	if (motg->pdata->swfi_latency)
+		pm_qos_add_request(&motg->pm_qos_req_dma,
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 	/*
 	 * If USB Core is running its protocol engine based on CORE CLK,
 	 * CORE CLK  must be running at >55Mhz for correct HSUSB
@@ -2460,6 +2490,8 @@ put_phy_reset_clk:
 	if (!IS_ERR(motg->phy_reset_clk))
 		clk_put(motg->phy_reset_clk);
 free_motg:
+	if (motg->pdata->swfi_latency)
+		pm_qos_remove_request(&motg->pm_qos_req_dma);
 	kfree(motg);
 	return ret;
 }
@@ -2535,8 +2567,10 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	if (!IS_ERR(motg->system_clk))
 		clk_put(motg->system_clk);
 
-	kfree(motg);
+	if (motg->pdata->swfi_latency)
+		pm_qos_remove_request(&motg->pm_qos_req_dma);
 
+	kfree(motg);
 	return 0;
 }
 

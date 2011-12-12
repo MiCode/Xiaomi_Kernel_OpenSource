@@ -21,6 +21,7 @@
 #include <linux/types.h>
 #include <linux/usb/otg.h>
 #include <linux/wakelock.h>
+#include <linux/pm_qos_params.h>
 
 /**
  * Supported USB modes
@@ -145,6 +146,7 @@ enum usb_chg_type {
  *              dfab_usb_hs_clk in case of 8660 and 8960.
  * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
  * @mhl_enable: indicates MHL connector or not.
+ * @swfi_latency: miminum latency to allow swfi.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -158,6 +160,7 @@ struct msm_otg_platform_data {
 	const char *pclk_src_name;
 	int pmic_id_irq;
 	bool mhl_enable;
+	u32 swfi_latency;
 };
 
 /**
@@ -188,6 +191,8 @@ struct msm_otg_platform_data {
  *             connected. Useful only when ACA_A charger is
  *             connected.
  * @mA_port: The amount of current drawn by the attached B-device.
+ * @pm_qos_req_dma: miminum DMA latency to vote against idle power
+	collapse when cable is connected.
  * @id_timer: The timer used for polling ID line to detect ACA states.
  * @xo_handle: TCXO buffer handle
  */
@@ -244,6 +249,7 @@ struct msm_otg {
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
 #define PHY_OTG_COMP_DISABLED		BIT(2)
+	struct pm_qos_request_list pm_qos_req_dma;
 };
 
 struct msm_hsic_host_platform_data {
