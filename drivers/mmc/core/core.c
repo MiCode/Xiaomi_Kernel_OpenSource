@@ -412,7 +412,9 @@ int mmc_host_enable(struct mmc_host *host)
 		int err;
 
 		host->en_dis_recurs = 1;
+		mmc_host_clk_hold(host);
 		err = host->ops->enable(host);
+		mmc_host_clk_release(host);
 		host->en_dis_recurs = 0;
 
 		if (err) {
@@ -432,7 +434,9 @@ static int mmc_host_do_disable(struct mmc_host *host, int lazy)
 		int err;
 
 		host->en_dis_recurs = 1;
+		mmc_host_clk_hold(host);
 		err = host->ops->disable(host, lazy);
+		mmc_host_clk_release(host);
 		host->en_dis_recurs = 0;
 
 		if (err < 0) {
@@ -1003,8 +1007,11 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage, bool cmd11
 
 	host->ios.signal_voltage = signal_voltage;
 
-	if (host->ops->start_signal_voltage_switch)
+	if (host->ops->start_signal_voltage_switch) {
+		mmc_host_clk_hold(host);
 		err = host->ops->start_signal_voltage_switch(host, &host->ios);
+		mmc_host_clk_release(host);
+	}
 
 	return err;
 }

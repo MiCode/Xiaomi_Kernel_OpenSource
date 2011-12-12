@@ -430,5 +430,25 @@ static inline int mmc_host_cmd23(struct mmc_host *host)
 {
 	return host->caps & MMC_CAP_CMD23;
 }
+
+#ifdef CONFIG_MMC_CLKGATE
+void mmc_host_clk_hold(struct mmc_host *host);
+void mmc_host_clk_release(struct mmc_host *host);
+unsigned int mmc_host_clk_rate(struct mmc_host *host);
+
+#else
+static inline void mmc_host_clk_hold(struct mmc_host *host)
+{
+}
+
+static inline void mmc_host_clk_release(struct mmc_host *host)
+{
+}
+
+static inline unsigned int mmc_host_clk_rate(struct mmc_host *host)
+{
+	return host->ios.clock;
+}
+#endif
 #endif
 

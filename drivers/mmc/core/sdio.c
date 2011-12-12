@@ -397,8 +397,11 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	/*
 	 * Call the optional HC's init_card function to handle quirks.
 	 */
-	if (host->ops->init_card)
+	if (host->ops->init_card) {
+		mmc_host_clk_hold(host);
 		host->ops->init_card(host, card);
+		mmc_host_clk_release(host);
+	}
 
 	/*
 	 * For native busses:  set card RCA and quit open drain mode.
