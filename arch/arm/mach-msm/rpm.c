@@ -30,6 +30,7 @@
 #include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <mach/rpm.h>
+#include <mach/socinfo.h>
 
 /******************************************************************************
  * Data type and structure definitions
@@ -64,7 +65,6 @@ static struct msm_rpm_request msm_rpm_request_poll_mode;
 static LIST_HEAD(msm_rpm_notifications);
 static struct msm_rpm_notif_config msm_rpm_notif_cfgs[MSM_RPM_CTX_SET_COUNT];
 static bool msm_rpm_init_notif_done;
-
 /******************************************************************************
  * Internal functions
  *****************************************************************************/
@@ -380,12 +380,20 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
  *   -EINTR: interrupted
  *   -EINVAL: invalid <ctx> or invalid id in <req> array
  *   -ENOSPC: request rejected
+ *   -ENODEV: RPM driver not initialized
  */
 static int msm_rpm_set_common(
 	int ctx, struct msm_rpm_iv_pair *req, int count, bool noirq)
 {
 	uint32_t sel_masks[MSM_RPM_SEL_MASK_SIZE] = {};
 	int rc;
+
+	if (!msm_rpm_platform) {
+		if (cpu_is_apq8064())
+			return 0;
+		else
+			return -ENODEV;
+	}
 
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
@@ -420,6 +428,7 @@ set_common_exit:
  *   0: success
  *   -EINTR: interrupted
  *   -EINVAL: invalid <ctx> or invalid id in <req> array
+ *   -ENODEV: RPM driver not initialized.
  */
 static int msm_rpm_clear_common(
 	int ctx, struct msm_rpm_iv_pair *req, int count, bool noirq)
@@ -428,6 +437,13 @@ static int msm_rpm_clear_common(
 	struct msm_rpm_iv_pair r[MSM_RPM_SEL_MASK_SIZE];
 	int rc;
 	int i;
+
+	if (!msm_rpm_platform) {
+		if (cpu_is_apq8064())
+			return 0;
+		else
+			return -ENODEV;
+	}
 
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
@@ -556,6 +572,7 @@ local_request_is_outstanding_exit:
  *   -EBUSY: RPM is updating the status page; values across different registers
  *           may not be consistent
  *   -EINVAL: invalid id in <status> array
+ *   -ENODEV: RPM driver not initialized
  */
 int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
 {
@@ -563,6 +580,13 @@ int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
 	uint32_t seq_end;
 	int rc;
 	int i;
+
+	if (!msm_rpm_platform) {
+		if (cpu_is_apq8064())
+			return 0;
+		else
+			return -ENODEV;
+	}
 
 	seq_begin = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 				MSM_RPM_STATUS_ID_SEQUENCE);
@@ -609,6 +633,7 @@ EXPORT_SYMBOL(msm_rpm_get_status);
  *   -EINTR: interrupted
  *   -EINVAL: invalid <ctx> or invalid id in <req> array
  *   -ENOSPC: request rejected
+ *   -ENODEV: RPM driver not initialized
  */
 int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
@@ -693,6 +718,7 @@ EXPORT_SYMBOL(msm_rpm_clear_noirq);
  *   0: success
  *   -EINTR: interrupted
  *   -EINVAL: invalid id in <req> array
+ *   -ENODEV: RPM driver not initialized
  */
 int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	struct msm_rpm_iv_pair *req, int count)
@@ -702,6 +728,13 @@ int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	struct msm_rpm_notif_config cfg;
 	int rc;
 	int i;
+
+	if (!msm_rpm_platform) {
+		if (cpu_is_apq8064())
+			return 0;
+		else
+			return -ENODEV;
+	}
 
 	INIT_LIST_HEAD(&n->list);
 	rc = msm_rpm_fill_sel_masks(n->sel_masks, req, count);
@@ -745,6 +778,7 @@ EXPORT_SYMBOL(msm_rpm_register_notification);
  * Return value:
  *   0: success
  *   -EINTR: interrupted
+ *   -ENODEV: RPM driver not initialized
  */
 int msm_rpm_unregister_notification(struct msm_rpm_notification *n)
 {
@@ -753,6 +787,13 @@ int msm_rpm_unregister_notification(struct msm_rpm_notification *n)
 	struct msm_rpm_notif_config cfg;
 	int rc;
 	int i;
+
+	if (!msm_rpm_platform) {
+		if (cpu_is_apq8064())
+			return 0;
+		else
+			return -ENODEV;
+	}
 
 	rc = mutex_lock_interruptible(&msm_rpm_mutex);
 	if (rc)
@@ -847,6 +888,9 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 {
 	unsigned int irq;
 	int rc;
+
+	if (cpu_is_apq8064())
+		return 0;
 
 	msm_rpm_platform = data;
 
