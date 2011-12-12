@@ -1984,7 +1984,7 @@ static int msm_otg_show_chg_type(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
 
-	seq_printf(s, chg_to_string(motg->chg_type));
+	seq_printf(s, "%s\n", chg_to_string(motg->chg_type));
 	return 0;
 }
 
