@@ -818,7 +818,8 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 	if (vidc_msg_timing)
 		ddl_set_core_start_time(__func__, DEC_OP_TIME);
 	ddl_decoder_dpb_transact(decoder, NULL, DDL_DPB_OP_INIT);
-	ddl_decoder_dpb_init(ddl);
+	if (ddl_decoder_dpb_init(ddl) == VCD_ERR_FAIL)
+		return VCD_ERR_FAIL;
 	DDL_MSG_LOW("ddl_state_transition: %s ~~> DDL_CLIENT_WAIT_FOR_DPBDONE",
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_DPBDONE;

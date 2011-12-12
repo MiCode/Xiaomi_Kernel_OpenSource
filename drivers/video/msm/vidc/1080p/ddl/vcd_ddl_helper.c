@@ -237,7 +237,6 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 	struct ddl_frame_data_tag *frame;
 	u32 luma[DDL_MAX_BUFFER_COUNT], chroma[DDL_MAX_BUFFER_COUNT];
 	u32 mv[DDL_MAX_BUFFER_COUNT], luma_size, i, dpb;
-
 	frame = &decoder->dp_buf.dec_pic_buffers[0];
 	luma_size = ddl_get_yuv_buf_size(decoder->frame_size.width,
 			decoder->frame_size.height, DDL_YUV_BUF_TYPE_TILE);
@@ -248,9 +247,16 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 		dpb = DDL_MAX_BUFFER_COUNT;
 	for (i = 0; i < dpb; i++) {
 		if (frame[i].vcd_frm.virtual) {
-			memset(frame[i].vcd_frm.virtual, 0x10101010, luma_size);
-			memset(frame[i].vcd_frm.virtual + luma_size, 0x80808080,
+			if (luma_size <= frame[i].vcd_frm.alloc_len) {
+				memset(frame[i].vcd_frm.virtual,
+					 0x10101010, luma_size);
+				memset(frame[i].vcd_frm.virtual + luma_size,
+					 0x80808080,
 					frame[i].vcd_frm.alloc_len - luma_size);
+			} else {
+				DDL_MSG_ERROR("luma size error");
+				return VCD_ERR_FAIL;
+			}
 		}
 
 		luma[i] = DDL_OFFSET(ddl_context->dram_base_a.
