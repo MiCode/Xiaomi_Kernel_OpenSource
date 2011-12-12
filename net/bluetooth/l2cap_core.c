@@ -3212,6 +3212,44 @@ done:
 	return chan;
 }
 
+static void l2cap_get_ertm_timeouts(struct l2cap_conf_rfc *rfc,
+						struct l2cap_pinfo *pi)
+{
+	if (pi->amp_id && pi->ampcon) {
+		u64 ertm_to = pi->ampcon->hdev->amp_be_flush_to;
+
+		/* Class 1 devices have must have ERTM timeouts
+		 * exceeding the Link Supervision Timeout.  The
+		 * default Link Supervision Timeout for AMP
+		 * controllers is 10 seconds.
+		 *
+		 * Class 1 devices use 0xffffffff for their
+		 * best-effort flush timeout, so the clamping logic
+		 * will result in a timeout that meets the above
+		 * requirement.  ERTM timeouts are 16-bit values, so
+		 * the maximum timeout is 65.535 seconds.
+		 */
+
+		/* Convert timeout to milliseconds and round */
+		ertm_to = div_u64(ertm_to + 999, 1000);
+
+		/* This is the recommended formula for class 2 devices
+		 * that start ERTM timers when packets are sent to the
+		 * controller.
+		 */
+		ertm_to = 3 * ertm_to + 500;
+
+		if (ertm_to > 0xffff)
+			ertm_to = 0xffff;
+
+		rfc->retrans_timeout = cpu_to_le16((u16) ertm_to);
+		rfc->monitor_timeout = rfc->retrans_timeout;
+	} else {
+		rfc->retrans_timeout = cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
+		rfc->monitor_timeout = cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
+	}
+}
+
 int l2cap_build_conf_req(struct sock *sk, void *data)
 {
 	struct l2cap_pinfo *pi = l2cap_pi(sk);
@@ -3262,10 +3300,10 @@ done:
 			rfc.txwin_size = L2CAP_TX_WIN_MAX_ENHANCED;
 		else
 			rfc.txwin_size = pi->tx_win;
-		rfc.max_transmit    = pi->max_tx;
-		rfc.retrans_timeout = cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
-		rfc.monitor_timeout = cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
-		rfc.max_pdu_size    = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
+		rfc.max_transmit = pi->max_tx;
+		rfc.max_pdu_size = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
+		l2cap_get_ertm_timeouts(&rfc, pi);
+
 		if (L2CAP_DEFAULT_MAX_PDU_SIZE > pi->imtu)
 			rfc.max_pdu_size = cpu_to_le16(pi->imtu);
 
@@ -3337,30 +3375,16 @@ static int l2cap_build_amp_reconf_req(struct sock *sk, void *data)
 	struct l2cap_conf_req *req = data;
 	struct l2cap_conf_rfc rfc = { .mode = pi->mode };
 	void *ptr = req->data;
-	u32 be_flush_to;
 
 	BT_DBG("sk %p", sk);
-
-	/* convert to milliseconds, round up */
-	be_flush_to = (pi->conn->hcon->hdev->amp_be_flush_to + 999) / 1000;
 
 	switch (pi->mode) {
 	case L2CAP_MODE_ERTM:
 		rfc.mode            = L2CAP_MODE_ERTM;
 		rfc.txwin_size      = pi->tx_win;
 		rfc.max_transmit    = pi->max_tx;
-		if (pi->amp_move_id) {
-			rfc.retrans_timeout =
-					cpu_to_le16((3 * be_flush_to) + 500);
-			rfc.monitor_timeout =
-					cpu_to_le16((3 * be_flush_to) + 500);
-		} else {
-			rfc.retrans_timeout =
-					cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
-			rfc.monitor_timeout =
-					cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
-		}
 		rfc.max_pdu_size    = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
+		l2cap_get_ertm_timeouts(&rfc, pi);
 		if (L2CAP_DEFAULT_MAX_PDU_SIZE > pi->imtu)
 			rfc.max_pdu_size = cpu_to_le16(pi->imtu);
 
@@ -3374,17 +3398,16 @@ static int l2cap_build_amp_reconf_req(struct sock *sk, void *data)
 						(unsigned long) &rfc);
 
 	if (pi->conn->feat_mask & L2CAP_FEAT_FCS) {
-
 		/* TODO assign fcs for br/edr based on socket config option */
-		if (pi->amp_move_id)
+		/* FCS is not used with AMP because it is redundant - lower
+		 * layers already include a checksum. */
+		if (pi->amp_id)
 			pi->local_conf.fcs = L2CAP_FCS_NONE;
 		else
 			pi->local_conf.fcs = L2CAP_FCS_CRC16;
 
-			l2cap_add_conf_opt(&ptr, L2CAP_CONF_FCS, 1,
-						pi->local_conf.fcs);
-
-			pi->fcs = pi->local_conf.fcs | pi->remote_conf.fcs;
+		l2cap_add_conf_opt(&ptr, L2CAP_CONF_FCS, 1, pi->local_conf.fcs);
+		pi->fcs = pi->local_conf.fcs | pi->remote_conf.fcs;
 	}
 
 	req->dcid  = cpu_to_le16(pi->dcid);
@@ -3546,15 +3569,9 @@ done:
 		case L2CAP_MODE_ERTM:
 			if (!(pi->conf_state & L2CAP_CONF_EXT_WIN_RECV))
 				pi->remote_tx_win = rfc.txwin_size;
-
 			pi->remote_max_tx = rfc.max_transmit;
-
 			pi->remote_mps = le16_to_cpu(rfc.max_pdu_size);
-
-			rfc.retrans_timeout =
-				cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
-			rfc.monitor_timeout =
-				cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
+			l2cap_get_ertm_timeouts(&rfc, pi);
 
 			pi->conf_state |= L2CAP_CONF_MODE_DONE;
 
@@ -3660,9 +3677,6 @@ static int l2cap_parse_amp_move_reconf_req(struct sock *sk, void *data)
 		case L2CAP_CONF_RFC:
 			if (olen == sizeof(rfc))
 				memcpy(&rfc, (void *) val, olen);
-				if (pi->mode != rfc.mode ||
-					rfc.mode == L2CAP_MODE_BASIC)
-					result = L2CAP_CONF_UNACCEPT;
 			break;
 
 		case L2CAP_CONF_FCS:
@@ -3698,6 +3712,9 @@ static int l2cap_parse_amp_move_reconf_req(struct sock *sk, void *data)
 	BT_DBG("result 0x%2.2x cur mode 0x%2.2x req  mode 0x%2.2x",
 		result, pi->mode, rfc.mode);
 
+	if (pi->mode != rfc.mode || rfc.mode == L2CAP_MODE_BASIC)
+		result = L2CAP_CONF_UNACCEPT;
+
 	if (result == L2CAP_CONF_SUCCESS) {
 		/* Configure output options and let the other side know
 		 * which ones we don't like. */
@@ -3717,38 +3734,26 @@ static int l2cap_parse_amp_move_reconf_req(struct sock *sk, void *data)
 					pi->remote_tx_win);
 		}
 
+		pi->remote_mps = rfc.max_pdu_size;
+
 		if (rfc.mode == L2CAP_MODE_ERTM) {
-			pi->remote_conf.retrans_timeout =
-				le16_to_cpu(rfc.retrans_timeout);
-			pi->remote_conf.monitor_timeout =
-				le16_to_cpu(rfc.monitor_timeout);
-
-			BT_DBG("remote conf monitor timeout %d",
-					pi->remote_conf.monitor_timeout);
-
-			l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
-					sizeof(rfc), (unsigned long) &rfc);
+			l2cap_get_ertm_timeouts(&rfc, pi);
+		} else {
+			rfc.retrans_timeout = 0;
+			rfc.monitor_timeout = 0;
 		}
 
+		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
+					sizeof(rfc), (unsigned long) &rfc);
 	}
 
 	if (result != L2CAP_CONF_SUCCESS)
 		goto done;
 
-	pi->fcs = pi->remote_conf.fcs | pi->local_conf.fcs ;
+	pi->fcs = pi->remote_conf.fcs | pi->local_conf.fcs;
 
-	if (pi->rx_state == L2CAP_ERTM_RX_STATE_WAIT_F_FLAG) {
+	if (pi->rx_state == L2CAP_ERTM_RX_STATE_WAIT_F_FLAG)
 		pi->flush_to = pi->remote_conf.flush_to;
-		pi->retrans_timeout = pi->remote_conf.retrans_timeout;
-
-		if (pi->amp_move_id)
-			pi->monitor_timeout = pi->remote_conf.monitor_timeout;
-		else
-			pi->monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
-		BT_DBG("mode %d monitor timeout %d",
-			pi->mode, pi->monitor_timeout);
-
-	}
 
 done:
 	rsp->scid   = cpu_to_le16(pi->dcid);
@@ -3972,34 +3977,41 @@ static int l2cap_amp_move_reconf_rsp(struct sock *sk, void *rsp, int len,
 			if (type == L2CAP_CONF_RFC) {
 				if (olen == sizeof(rfc))
 					memcpy(&rfc, (void *)val, olen);
-				if (rfc.mode != pi->mode &&
-					rfc.mode != L2CAP_MODE_ERTM) {
-					err = -ECONNREFUSED;
-					goto done;
+
+				if (rfc.mode != pi->mode) {
+					l2cap_send_disconn_req(pi->conn, sk,
+								ECONNRESET);
+					return -ECONNRESET;
 				}
-				break;
+
+				goto done;
 			}
 		}
 	}
+
+	BT_ERR("Expected RFC option was missing, using existing values");
+
+	rfc.mode = pi->mode;
+	rfc.retrans_timeout = cpu_to_le16(pi->retrans_timeout);
+	rfc.monitor_timeout = cpu_to_le16(pi->monitor_timeout);
 
 done:
 	l2cap_ertm_stop_ack_timer(pi);
 	l2cap_ertm_stop_retrans_timer(pi);
 	l2cap_ertm_stop_monitor_timer(pi);
 
+	pi->mps = le16_to_cpu(rfc.max_pdu_size);
+	if (pi->mode == L2CAP_MODE_ERTM) {
+		pi->retrans_timeout = le16_to_cpu(rfc.retrans_timeout);
+		pi->monitor_timeout = le16_to_cpu(rfc.monitor_timeout);
+	}
+
 	if (l2cap_pi(sk)->reconf_state == L2CAP_RECONF_ACC) {
 		l2cap_pi(sk)->reconf_state = L2CAP_RECONF_NONE;
 
 		/* Respond to poll */
 		err = l2cap_answer_move_poll(sk);
-
 	} else if (l2cap_pi(sk)->reconf_state == L2CAP_RECONF_INT) {
-
-		/* If moving to BR/EDR, use default timeout defined by
-		 * the spec */
-		if (pi->amp_move_id == 0)
-			pi->monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
-
 		if (pi->mode == L2CAP_MODE_ERTM) {
 			l2cap_ertm_tx(sk, NULL, NULL,
 					L2CAP_ERTM_EVENT_EXPLICIT_POLL);

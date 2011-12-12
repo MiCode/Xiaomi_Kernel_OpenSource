@@ -294,8 +294,6 @@ struct l2cap_conf_ext_fs {
 
 struct l2cap_conf_prm {
 	__u8       fcs;
-	__le16     retrans_timeout;
-	__le16     monitor_timeout;
 	__le32     flush_to;
 };
 
