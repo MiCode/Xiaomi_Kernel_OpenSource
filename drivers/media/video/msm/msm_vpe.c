@@ -127,7 +127,7 @@ static int msm_vpe_cfg_update(void *pinfo)
 	rot_flag = msm_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
-		pr_err("%s: Crop info in2_w = %d, in2_h = %d "
+		CDBG("%s: Crop info in2_w = %d, in2_h = %d "
 			"out2_w = %d out2_h = %d\n",
 			__func__, pcrop->src_w, pcrop->src_h,
 			pcrop->dst_w, pcrop->dst_h);
