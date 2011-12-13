@@ -40,6 +40,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/ks8851.h>
 #include <linux/i2c/isa1200.h>
+#include <linux/gpio_keys.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -1354,6 +1355,63 @@ static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	},
 };
 
+#ifdef MSM8930_PHASE_2
+
+#define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(3)
+#define GPIO_VOLUME_DOWN	PM8038_GPIO_PM_TO_SYS(8)
+#define GPIO_CAMERA_SNAPSHOT	PM8038_GPIO_PM_TO_SYS(10)
+#define GPIO_CAMERA_FOCUS	PM8038_GPIO_PM_TO_SYS(11)
+
+static struct gpio_keys_button keys_8930[] = {
+	{
+		.code = KEY_VOLUMEUP,
+		.type = EV_KEY,
+		.desc = "volume_up",
+		.gpio = GPIO_VOLUME_UP,
+		.wakeup = 1,
+		.active_low = 1,
+	},
+	{
+		.code = KEY_VOLUMEDOWN,
+		.type = EV_KEY,
+		.desc = "volume_down",
+		.gpio = GPIO_VOLUME_DOWN,
+		.wakeup = 1,
+		.active_low = 1,
+	},
+	{
+		.code = KEY_CAMERA_FOCUS,
+		.type = EV_KEY,
+		.desc = "camera_focus",
+		.gpio = GPIO_CAMERA_FOCUS,
+		.wakeup = 1,
+		.active_low = 1,
+	},
+	{
+		.code = KEY_CAMERA_SNAPSHOT,
+		.type = EV_KEY,
+		.desc = "camera_snapshot",
+		.gpio = GPIO_CAMERA_SNAPSHOT,
+		.wakeup = 1,
+		.active_low = 1,
+	},
+};
+
+/* Add GPIO keys for 8930 */
+static struct gpio_keys_platform_data gpio_keys_8930_pdata = {
+	.buttons = keys_8930,
+	.nbuttons = 4,
+};
+
+static struct platform_device gpio_keys_8930 = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.dev		= {
+		.platform_data  = &gpio_keys_8930_pdata,
+	},
+};
+#endif /* MSM8930_PHASE_2 */
+
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi4_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
@@ -1600,6 +1658,9 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
+#ifdef MSM8930_PHASE_2
+	&gpio_keys_8930,
+#endif
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
