@@ -99,6 +99,7 @@ enum ion_heap_ids {
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_FMEM_HEAP_NAME	"fmem"
 
 #define CACHED          1
 #define UNCACHED        0
@@ -123,6 +124,7 @@ struct ion_buffer;
    be converted to phys_addr_t.  For the time being many kernel interfaces
    do not accept phys_addr_t's that would have to */
 #define ion_phys_addr_t unsigned long
+#define ion_virt_addr_t unsigned long
 
 /**
  * struct ion_platform_heap - defines a heap in the given platform
@@ -132,15 +134,8 @@ struct ion_buffer;
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
- * @memory_type:	Memory type used for the heap
- * @ion_memory_id:		Memory ID used to identify the memory to TZ
- * @request_region: function to be called when the number of allocations goes
- *						from 0 -> 1
- * @release_region: function to be called when the number of allocations goes
- *						from 1 -> 0
- * @setup_region:   function to be called upon ion registration
- *
- * Provided by the board file.
+ * @memory_type:Memory type used for the heap
+ * @extra_data:	Extra data specific to each heap type
  */
 struct ion_platform_heap {
 	enum ion_heap_type type;
@@ -152,16 +147,50 @@ struct ion_platform_heap {
 	void *extra_data;
 };
 
+/**
+ * struct ion_cp_heap_pdata - defines a content protection heap in the given
+ * platform
+ * @permission_type:	Memory ID used to identify the memory to TZ
+ * @align:		Alignment requirement for the memory
+ * @secure_base:	Base address for securing the heap.
+ *			Note: This might be different from actual base address
+ *			of this heap in the case of a shared heap.
+ * @secure_size:	Memory size for securing the heap.
+ *			Note: This might be different from actual size
+ *			of this heap in the case of a shared heap.
+ * @reusable		Flag indicating whether this heap is reusable of not.
+ *			(see FMEM)
+ * @virt_addr:		Virtual address used when using fmem.
+ * @request_region:	function to be called when the number of allocations
+ *			goes from 0 -> 1
+ * @release_region:	function to be called when the number of allocations
+ *			goes from 1 -> 0
+ * @setup_region:	function to be called upon ion registration
+ *
+ */
 struct ion_cp_heap_pdata {
 	enum ion_permission_type permission_type;
 	unsigned int align;
 	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
 	size_t secure_size; /* Size used for securing heap when heap is shared*/
+	int reusable;
+	ion_virt_addr_t *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
 };
 
+/**
+ * struct ion_co_heap_pdata - defines a carveout heap in the given platform
+ * @adjacent_mem_id:	Id of heap that this heap must be adjacent to.
+ * @align:		Alignment requirement for the memory
+ * @request_region:	function to be called when the number of allocations
+ *			goes from 0 -> 1
+ * @release_region:	function to be called when the number of allocations
+ *			goes from 1 -> 0
+ * @setup_region:	function to be called upon ion registration
+ *
+ */
 struct ion_co_heap_pdata {
 	int adjacent_mem_id;
 	unsigned int align;
