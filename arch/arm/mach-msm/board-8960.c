@@ -114,6 +114,15 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 		.io_open_drain_ena = 0x0,
 		.irq_summary       = -1,
 	},
+	[SX150X_LIQUID] = {
+		.gpio_base         = GPIO_LIQUID_EXPANDER_BASE,
+		.oscio_is_gpo      = false,
+		.io_pullup_ena     = 0x0c08,
+		.io_pulldn_ena     = 0x4060,
+		.io_open_drain_ena = 0x000c,
+		.io_polarity       = 0,
+		.irq_summary       = -1,
+	},
 };
 
 #endif
@@ -1986,6 +1995,13 @@ static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
 };
 #endif /* CONFIG_ISL9519_CHARGER */
 
+static struct i2c_board_info liquid_io_expander_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("sx1508q", 0x20),
+		.platform_data = &msm8960_sx150x_data[SX150X_LIQUID]
+	},
+};
+
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_MSM_CAMERA
 	{
@@ -2026,6 +2042,12 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
 		msm_isa1200_board_info,
 		ARRAY_SIZE(msm_isa1200_board_info),
+	},
+	{
+		I2C_LIQUID,
+		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
+		liquid_io_expander_i2c_info,
+		ARRAY_SIZE(liquid_io_expander_i2c_info),
 	},
 };
 #endif /* CONFIG_I2C */
