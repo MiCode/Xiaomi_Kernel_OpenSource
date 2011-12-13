@@ -1355,7 +1355,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					     data.flags);
 
 		if (IS_ERR_OR_NULL(data.handle))
-			return PTR_ERR(data.handle);
+			return -ENOMEM;
 
 		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
 			return -EFAULT;
