@@ -797,11 +797,12 @@ void __init sanity_check_meminfo(void)
 
 #if (defined CONFIG_HIGHMEM) && (defined CONFIG_FIX_MOVABLE_ZONE)
 	void *v_movable_start;
+	if (movable_reserved_size) {
+		v_movable_start = __va(movable_reserved_start);
 
-	v_movable_start = __va(movable_reserved_start);
-
-	if (vmalloc_min > v_movable_start)
-		vmalloc_min = v_movable_start;
+		if (vmalloc_min > v_movable_start)
+			vmalloc_min = v_movable_start;
+	}
 #endif
 	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
 		struct membank *bank = &meminfo.bank[j];
