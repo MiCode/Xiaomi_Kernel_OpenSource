@@ -344,14 +344,5 @@ config REGULATOR_PM8058_XO
 	  chip. It is only supposed to be used when Linux on application
 	  processor is the master in control of XO buffers.
 
-config REGULATOR_PM8018
-	tristate "Qualcomm PM8018 PMIC Power regulators"
-	depends on MFD_PM8018_CORE
-	default y if MFD_PM8018_CORE
-	help
-	  This driver supports voltage regulators in the Qualcomm PM8018 PMIC
-	  chip.  The PM8018 provides several different varieties of LDO and
-	  switching regulators.  It also provides a voltage switch.
-
 endif
 
