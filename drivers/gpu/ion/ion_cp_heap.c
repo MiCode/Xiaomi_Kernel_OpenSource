@@ -482,6 +482,58 @@ static unsigned long ion_cp_get_total(struct ion_heap *heap)
 	return cp_heap->total_size;
 }
 
+static unsigned long ion_cp_get_umap_count(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long umap_count;
+
+	mutex_lock(&cp_heap->lock);
+	umap_count = cp_heap->umap_count;
+	mutex_unlock(&cp_heap->lock);
+
+	return umap_count;
+}
+
+static unsigned long ion_cp_get_kmap_count(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long kmap_count;
+
+	mutex_lock(&cp_heap->lock);
+	kmap_count = cp_heap->kmap_count;
+	mutex_unlock(&cp_heap->lock);
+
+	return kmap_count;
+}
+
+static unsigned long ion_cp_get_alloc_count(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long alloc_count;
+
+	mutex_lock(&cp_heap->lock);
+	alloc_count = cp_heap->alloc_count;
+	mutex_unlock(&cp_heap->lock);
+
+	return alloc_count;
+}
+
+static unsigned long ion_cp_get_secured(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long secured_heap = 0;
+
+	mutex_lock(&cp_heap->lock);
+	secured_heap = cp_heap->heap_secured == SECURED_HEAP;
+	mutex_unlock(&cp_heap->lock);
+
+	return secured_heap;
+}
+
 int ion_cp_secure_heap(struct ion_heap *heap)
 {
 	int ret_value;
@@ -518,6 +570,10 @@ static struct ion_heap_ops cp_heap_ops = {
 	.cache_op = ion_cp_cache_ops,
 	.get_allocated = ion_cp_get_allocated,
 	.get_total = ion_cp_get_total,
+	.get_umap_cnt = ion_cp_get_umap_count,
+	.get_kmap_cnt = ion_cp_get_kmap_count,
+	.get_alloc_cnt = ion_cp_get_alloc_count,
+	.get_secured = ion_cp_get_secured,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
 };
