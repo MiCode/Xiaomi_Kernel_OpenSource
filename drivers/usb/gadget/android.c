@@ -373,12 +373,13 @@ static int diag_function_bind_config(struct android_usb_function *f,
 	char *name;
 	char buf[32], *b;
 	int once = 0, err = -1;
-	int (*notify)(uint32_t, const char *) = NULL;
+	int (*notify)(uint32_t, const char *);
 
 	strlcpy(buf, diag_clients, sizeof(buf));
 	b = strim(buf);
 
 	while (b) {
+		notify = NULL;
 		name = strsep(&b, ",");
 		/* Allow only first diag channel to update pid and serial no */
 		if (_android_dev->pdata && !once++)

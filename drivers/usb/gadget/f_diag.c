@@ -515,9 +515,11 @@ static int diag_function_set_alt(struct usb_function *f,
 	int rc = 0;
 
 	dev->in_desc = ep_choose(cdev->gadget,
-			&hs_bulk_in_desc, &fs_bulk_in_desc);
+			(struct usb_endpoint_descriptor *)f->hs_descriptors[1],
+			(struct usb_endpoint_descriptor *)f->descriptors[1]);
 	dev->out_desc = ep_choose(cdev->gadget,
-			&hs_bulk_out_desc, &fs_bulk_out_desc);
+			(struct usb_endpoint_descriptor *)f->hs_descriptors[2],
+			(struct usb_endpoint_descriptor *)f->descriptors[2]);
 	dev->in->driver_data = dev;
 	rc = usb_ep_enable(dev->in, dev->in_desc);
 	if (rc) {
@@ -669,10 +671,13 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 
 		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
 				"---Name: %s---\n"
+				"endpoints: %s, %s\n"
 				"dpkts_tolaptop: %lu\n"
 				"dpkts_tomodem:  %lu\n"
 				"pkts_tolaptop_pending: %u\n",
-				ch->name, ctxt->dpkts_tolaptop,
+				ch->name,
+				ctxt->in->name, ctxt->out->name,
+				ctxt->dpkts_tolaptop,
 				ctxt->dpkts_tomodem,
 				ctxt->dpkts_tolaptop_pending);
 	}
