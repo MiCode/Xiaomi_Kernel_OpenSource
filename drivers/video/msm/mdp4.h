@@ -219,6 +219,7 @@ enum {
 #define MDP4_OP_SCALEX_FIR 		(0 << 2)
 #define MDP4_OP_SCALEX_MN_PHASE 	(1 << 2)
 #define MDP4_OP_SCALEX_PIXEL_RPT 	(2 << 2)
+#define MDP4_OP_SCALE_RGB_ENHANCED	(1 << 4)
 #define MDP4_OP_SCALE_RGB_PIXEL_RPT	(0 << 3)
 #define MDP4_OP_SCALE_RGB_BILINEAR	(1 << 3)
 #define MDP4_OP_SCALE_ALPHA_PIXEL_RPT	(0 << 2)
