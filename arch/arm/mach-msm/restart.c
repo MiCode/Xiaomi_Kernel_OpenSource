@@ -122,9 +122,6 @@ static void __msm_power_off(int lower_pshold)
 #endif
 	pm8xxx_reset_pwr_off(0);
 
-	if (cpu_is_msm8x60())
-		pm8901_reset_pwr_off(0);
-
 	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);

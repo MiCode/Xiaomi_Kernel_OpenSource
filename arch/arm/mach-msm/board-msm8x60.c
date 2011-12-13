@@ -6633,6 +6633,10 @@ static struct pm8901_vreg_pdata pm8901_vreg_init[] = {
 	PM8901_VREG_INIT_VS(HDMI_MVS),
 };
 
+static struct pm8xxx_misc_platform_data pm8901_misc_pdata = {
+	.priority		= 1,
+};
+
 static struct pm8xxx_irq_platform_data pm8901_irq_pdata = {
 	.irq_base		= PM8901_IRQ_BASE,
 	.devirq			= MSM_GPIO_TO_INT(PM8901_GPIO_INT),
@@ -6648,6 +6652,7 @@ static struct pm8901_platform_data pm8901_platform_data = {
 	.mpp_pdata		= &pm8901_mpp_pdata,
 	.regulator_pdatas	= pm8901_vreg_init,
 	.num_regulators		= ARRAY_SIZE(pm8901_vreg_init),
+	.misc_pdata		= &pm8901_misc_pdata,
 };
 
 static struct msm_ssbi_platform_data msm8x60_ssbi_pm8901_pdata __devinitdata = {
