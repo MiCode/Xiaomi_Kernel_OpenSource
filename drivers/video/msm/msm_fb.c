@@ -3236,7 +3236,11 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			ret = mdp4_csc_config((struct mdp_csc_cfg_data *)
 					&(mdp_pp.data));
 			break;
+
 		case mdp_op_pcc_cfg:
+			ret = mdp4_pcc_cfg(&mdp_pp.data.pcc_cfg_data);
+			break;
+
 		case mdp_op_lut_cfg:
 #endif
 		default:

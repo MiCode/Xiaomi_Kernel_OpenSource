@@ -24,6 +24,7 @@
 #include <linux/debugfs.h>
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
+#include <linux/msm_mdp.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -2617,3 +2618,215 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 	}
 	buf->phys_addr = 0;
 }
+
+static int mdp4_update_pcc_regs(uint32_t offset,
+				struct mdp_pcc_cfg_data *cfg_ptr)
+{
+	int ret = -1;
+
+	if (offset && cfg_ptr) {
+
+		outpdw(offset, cfg_ptr->r.c);
+		outpdw(offset + 0x30, cfg_ptr->g.c);
+		outpdw(offset + 0x60, cfg_ptr->b.c);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.r);
+		outpdw(offset + 0x30, cfg_ptr->g.r);
+		outpdw(offset + 0x60, cfg_ptr->b.r);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.g);
+		outpdw(offset + 0x30, cfg_ptr->g.g);
+		outpdw(offset + 0x60, cfg_ptr->b.g);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.b);
+		outpdw(offset + 0x30, cfg_ptr->g.b);
+		outpdw(offset + 0x60, cfg_ptr->b.b);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.rr);
+		outpdw(offset + 0x30, cfg_ptr->g.rr);
+		outpdw(offset + 0x60, cfg_ptr->b.rr);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.gg);
+		outpdw(offset + 0x30, cfg_ptr->g.gg);
+		outpdw(offset + 0x60, cfg_ptr->b.gg);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.bb);
+		outpdw(offset + 0x30, cfg_ptr->g.bb);
+		outpdw(offset + 0x60, cfg_ptr->b.bb);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.rg);
+		outpdw(offset + 0x30, cfg_ptr->g.rg);
+		outpdw(offset + 0x60, cfg_ptr->b.rg);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.gb);
+		outpdw(offset + 0x30, cfg_ptr->g.gb);
+		outpdw(offset + 0x60, cfg_ptr->b.gb);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.rb);
+		outpdw(offset + 0x30, cfg_ptr->g.rb);
+		outpdw(offset + 0x60, cfg_ptr->b.rb);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.rgb_0);
+		outpdw(offset + 0x30, cfg_ptr->g.rgb_0);
+		outpdw(offset + 0x60, cfg_ptr->b.rgb_0);
+		offset += 4;
+
+		outpdw(offset, cfg_ptr->r.rgb_1);
+		outpdw(offset + 0x30, cfg_ptr->g.rgb_1);
+		outpdw(offset + 0x60, cfg_ptr->b.rgb_1);
+
+		ret = 0;
+	}
+
+	return ret;
+}
+
+static int mdp4_read_pcc_regs(uint32_t offset,
+				struct mdp_pcc_cfg_data *cfg_ptr)
+{
+	int ret = -1;
+
+	if (offset && cfg_ptr) {
+		cfg_ptr->r.c = inpdw(offset);
+		cfg_ptr->g.c = inpdw(offset + 0x30);
+		cfg_ptr->b.c = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.r = inpdw(offset);
+		cfg_ptr->g.r = inpdw(offset + 0x30);
+		cfg_ptr->b.r = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.g = inpdw(offset);
+		cfg_ptr->g.g = inpdw(offset + 0x30);
+		cfg_ptr->b.g = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.b = inpdw(offset);
+		cfg_ptr->g.b = inpdw(offset + 0x30);
+		cfg_ptr->b.b = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.rr = inpdw(offset);
+		cfg_ptr->g.rr = inpdw(offset + 0x30);
+		cfg_ptr->b.rr = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.gg = inpdw(offset);
+		cfg_ptr->g.gg = inpdw(offset + 0x30);
+		cfg_ptr->b.gg = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.bb = inpdw(offset);
+		cfg_ptr->g.bb = inpdw(offset + 0x30);
+		cfg_ptr->b.bb = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.rg = inpdw(offset);
+		cfg_ptr->g.rg = inpdw(offset + 0x30);
+		cfg_ptr->b.rg = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.gb = inpdw(offset);
+		cfg_ptr->g.gb = inpdw(offset + 0x30);
+		cfg_ptr->b.gb = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.rb = inpdw(offset);
+		cfg_ptr->g.rb = inpdw(offset + 0x30);
+		cfg_ptr->b.rb = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.rgb_0 = inpdw(offset);
+		cfg_ptr->g.rgb_0 = inpdw(offset + 0x30);
+		cfg_ptr->b.rgb_0 = inpdw(offset + 0x60);
+		offset += 4;
+
+		cfg_ptr->r.rgb_1 = inpdw(offset);
+		cfg_ptr->g.rgb_1 = inpdw(offset + 0x30);
+		cfg_ptr->b.rgb_1 = inpdw(offset + 0x60);
+
+		ret = 0;
+	}
+
+	return ret;
+}
+
+#define MDP_DMA_P_BASE 0x90000
+#define MDP_DMA_S_BASE 0xA0000
+
+#define MDP_PCC_OFFSET 0xA000
+
+#define MDP_DMA_P_OP_MODE_OFFSET 0x70
+#define MDP_DMA_S_OP_MODE_OFFSET 0x28
+
+
+#define DMA_PCC_R2_OFFSET 0x100
+
+int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
+{
+	int ret = -1;
+	uint32_t pcc_offset = 0, mdp_cfg_offset = 0;
+	uint32_t mdp_dma_op_mode = 0;
+
+	switch (cfg_ptr->block) {
+	case MDP_BLOCK_DMA_P:
+		pcc_offset = (uint32_t) (MDP_BASE + MDP_DMA_P_BASE \
+				+ MDP_PCC_OFFSET);
+		mdp_cfg_offset = (uint32_t)(MDP_BASE + MDP_DMA_P_BASE);
+		mdp_dma_op_mode = (uint32_t)(MDP_BASE + MDP_DMA_P_BASE \
+				+ MDP_DMA_P_OP_MODE_OFFSET);
+		break;
+
+	case MDP_BLOCK_DMA_S:
+		pcc_offset = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE \
+				+ MDP_PCC_OFFSET);
+		mdp_cfg_offset = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE);
+		mdp_dma_op_mode = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE \
+				+ MDP_DMA_S_OP_MODE_OFFSET);
+		break;
+
+	default:
+		break;
+	}
+
+	if (0x8 & cfg_ptr->ops)
+		pcc_offset += DMA_PCC_R2_OFFSET;
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
+	switch ((0x6 & cfg_ptr->ops)>>1) {
+	case 0x1:
+		ret = mdp4_read_pcc_regs(pcc_offset, cfg_ptr);
+		break;
+
+	case 0x2:
+		ret = mdp4_update_pcc_regs(pcc_offset, cfg_ptr);
+		break;
+
+	default:
+		break;
+	}
+
+	if (0x8 & cfg_ptr->ops)
+		outpdw(mdp_dma_op_mode,
+			(inpdw(mdp_dma_op_mode)|((0x8&cfg_ptr->ops)<<10)));
+
+	outpdw(mdp_cfg_offset,
+			(inpdw(mdp_cfg_offset)|((cfg_ptr->ops&0x1)<<29)));
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	return ret;
+}
+
