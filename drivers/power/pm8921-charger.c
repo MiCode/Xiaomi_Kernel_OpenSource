@@ -239,6 +239,7 @@ struct pm8921_chg_chip {
 	struct dentry			*dent;
 	struct bms_notify		bms_notify;
 	struct ext_chg_pm8921		*ext;
+	bool				keep_btm_on_suspend;
 	bool				ext_charging;
 	bool				ext_charge_done;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
@@ -2671,6 +2672,37 @@ static void create_debugfs_entries(struct pm8921_chg_chip *chip)
 	}
 }
 
+static int pm8921_charger_resume(struct device *dev)
+{
+	int rc;
+	struct pm8921_chg_chip *chip = dev_get_drvdata(dev);
+
+	if (!(chip->cool_temp == 0 && chip->warm_temp == 0)
+		&& !(chip->keep_btm_on_suspend)) {
+		rc = pm8xxx_adc_btm_configure(&btm_config);
+		if (rc)
+			pr_err("couldn't reconfigure btm rc=%d\n", rc);
+
+		rc = pm8xxx_adc_btm_start();
+		if (rc)
+			pr_err("couldn't restart btm rc=%d\n", rc);
+	}
+	return 0;
+}
+
+static int pm8921_charger_suspend(struct device *dev)
+{
+	int rc;
+	struct pm8921_chg_chip *chip = dev_get_drvdata(dev);
+
+	if (!(chip->cool_temp == 0 && chip->warm_temp == 0)
+		&& !(chip->keep_btm_on_suspend)) {
+		rc = pm8xxx_adc_btm_end();
+		if (rc)
+			pr_err("Failed to disable BTM on suspend rc=%d\n", rc);
+	}
+	return 0;
+}
 static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -2711,6 +2743,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->warm_bat_chg_current = pdata->warm_bat_chg_current;
 	chip->cool_bat_voltage = pdata->cool_bat_voltage;
 	chip->warm_bat_voltage = pdata->warm_bat_voltage;
+	chip->keep_btm_on_suspend = pdata->keep_btm_on_suspend;
 	chip->trkl_voltage = pdata->trkl_voltage;
 	chip->weak_voltage = pdata->weak_voltage;
 	chip->trkl_current = pdata->trkl_current;
@@ -2837,13 +2870,17 @@ static int __devexit pm8921_charger_remove(struct platform_device *pdev)
 	kfree(chip);
 	return 0;
 }
-
+static const struct dev_pm_ops pm8921_pm_ops = {
+	.suspend	= pm8921_charger_suspend,
+	.resume		= pm8921_charger_resume,
+};
 static struct platform_driver pm8921_charger_driver = {
-	.probe	= pm8921_charger_probe,
-	.remove	= __devexit_p(pm8921_charger_remove),
-	.driver	= {
-		.name	= PM8921_CHARGER_DEV_NAME,
-		.owner	= THIS_MODULE,
+	.probe		= pm8921_charger_probe,
+	.remove		= __devexit_p(pm8921_charger_remove),
+	.driver		= {
+			.name	= PM8921_CHARGER_DEV_NAME,
+			.owner	= THIS_MODULE,
+			.pm	= &pm8921_pm_ops,
 	},
 };
 
