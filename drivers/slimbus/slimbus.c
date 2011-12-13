@@ -1876,7 +1876,7 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 			*ctrlw = maxctrlw1;
 		}
 	} else {
-		struct slim_ich *slc1;
+		struct slim_ich *slc1 = NULL;
 		struct slim_ich *slc3 = ctrl->sched.chc3[coeff3];
 		u32 expshft = SLIM_MAX_CLK_GEAR - clkgear;
 		int curexp, finalexp, exp1;
