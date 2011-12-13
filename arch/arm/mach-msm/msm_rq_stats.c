@@ -95,10 +95,7 @@ static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int64_t diff_ms;
-	diff_ms = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
-	do_div(diff_ms, 1000 * 1000);
-	return snprintf(buf, MAX_LONG_SIZE, "%lld\n", diff_ms);
+	return snprintf(buf, MAX_LONG_SIZE, "%u\n", rq_info.def_interval);
 }
 
 static ssize_t store_def_timer_ms(struct kobject *kobj,
