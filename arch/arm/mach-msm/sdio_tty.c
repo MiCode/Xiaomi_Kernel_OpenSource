@@ -18,6 +18,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/module.h>
+#include <linux/debugfs.h>
 #include <mach/sdio_al.h>
 
 #define INPUT_SPEED			4800
@@ -77,9 +78,16 @@ struct sdio_tty {
 	enum sdio_tty_state sdio_tty_state;
 	int is_sdio_open;
 	int tty_open_count;
+	int total_rx;
+	int total_tx;
 };
 
 static struct sdio_tty *sdio_tty[MAX_SDIO_TTY_DEVS];
+
+#ifdef CONFIG_DEBUG_FS
+struct dentry *sdio_tty_debug_root;
+struct dentry *sdio_tty_debug_info;
+#endif
 
 #define DEBUG_MSG(sdio_tty_drv, x...) if (sdio_tty_drv->debug_msg_on) pr_info(x)
 
@@ -183,10 +191,11 @@ static void sdio_tty_read(struct work_struct *work)
 		}
 
 		tty_flip_buffer_push(sdio_tty_drv->tty_str);
+		sdio_tty_drv->total_rx += read_avail;
 
-		DEBUG_MSG(sdio_tty_drv, SDIO_TTY_MODULE_NAME
-				": %s: End of read %d bytes for dev %s",
-				__func__, read_avail,
+		DEBUG_MSG(sdio_tty_drv, SDIO_TTY_MODULE_NAME ": %s: Rx: %d, "
+				"Total Rx = %d bytes for dev %s", __func__,
+				read_avail, sdio_tty_drv->total_rx,
 				sdio_tty_drv->tty_dev_name);
 	}
 }
@@ -302,10 +311,11 @@ static int sdio_tty_write_callback(struct tty_struct *tty,
 		return 0;
 	}
 
-	DEBUG_MSG(sdio_tty_drv, SDIO_TTY_MODULE_NAME ": %s: End of function, "
-			"dev=%s, len=%d bytes\n", __func__,
-			sdio_tty_drv->tty_dev_name, len);
+	sdio_tty_drv->total_tx += len;
 
+	DEBUG_MSG(sdio_tty_drv, SDIO_TTY_MODULE_NAME ": %s: Tx: %d, "
+			"Total Tx = %d for dev %s", __func__, len,
+			sdio_tty_drv->total_tx, sdio_tty_drv->tty_dev_name);
 	return len;
 }
 
@@ -407,8 +417,8 @@ static int sdio_tty_open(struct tty_struct *tty, struct file *file)
 			return ret;
 		}
 
-		pr_info(SDIO_TTY_MODULE_NAME ": %s: SDIO_TTY channel(%s) opened "
-			"\n", __func__, sdio_tty_drv->sdio_ch_name);
+		pr_info(SDIO_TTY_MODULE_NAME ": %s: SDIO_TTY channel(%s) "
+			"opened\n", __func__, sdio_tty_drv->sdio_ch_name);
 
 		sdio_tty_drv->is_sdio_open = 1;
 	} else {
@@ -748,6 +758,39 @@ static struct platform_driver sdio_tty_pdrv = {
 	},
 };
 
+#ifdef CONFIG_DEBUG_FS
+void sdio_tty_print_info(void)
+{
+	int i = 0;
+
+	for (i = 0; i < MAX_SDIO_TTY_DEVS; i++) {
+		if (sdio_tty[i] == NULL)
+			continue;
+		pr_info(SDIO_TTY_MODULE_NAME ": %s: Total Rx=%d, Tx = %d "
+			"for dev %s", __func__, sdio_tty[i]->total_rx,
+			sdio_tty[i]->total_tx, sdio_tty[i]->tty_dev_name);
+	}
+}
+
+static int tty_debug_info_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t tty_debug_info_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	sdio_tty_print_info();
+	return count;
+}
+
+const struct file_operations tty_debug_info_ops = {
+	.open = tty_debug_info_open,
+	.write = tty_debug_info_write,
+};
+#endif
+
 /*
  *  Module Init.
  *
@@ -763,6 +806,19 @@ static int __init sdio_tty_init(void)
 		pr_err(SDIO_TTY_MODULE_NAME ": %s: platform_driver_register "
 					    "failed", __func__);
 	}
+#ifdef CONFIG_DEBUG_FS
+	else {
+		sdio_tty_debug_root = debugfs_create_dir("sdio_tty", NULL);
+		if (sdio_tty_debug_root) {
+			sdio_tty_debug_info = debugfs_create_file(
+							"sdio_tty_debug",
+							S_IRUGO | S_IWUGO,
+							sdio_tty_debug_root,
+							NULL,
+							&tty_debug_info_ops);
+		}
+	}
+#endif
 	return ret;
 };
 
@@ -774,6 +830,10 @@ static int __init sdio_tty_init(void)
  */
 static void __exit sdio_tty_exit(void)
 {
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove(sdio_tty_debug_info);
+	debugfs_remove(sdio_tty_debug_root);
+#endif
 	platform_driver_unregister(&sdio_tty_pdrv);
 }
 
