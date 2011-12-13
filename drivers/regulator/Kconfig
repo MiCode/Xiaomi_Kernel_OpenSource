@@ -317,16 +317,6 @@ config REGULATOR_PMIC8901
         help
          Say Y here to support the voltage regulators on PMIC8901
 
-config REGULATOR_PM8921
-	tristate "Qualcomm PM8921 PMIC Power regulators"
-	depends on MFD_PM8921_CORE
-	default y if MFD_PM8921_CORE
-	help
-	  This driver supports voltage regulators in the Qualcomm PM8921 PMIC
-	  chip.  The PM8921 provides several different varieties of LDO and
-	  switching regulators.  It also provides a negative charge pump and
-	  voltage switches.
-
 config REGULATOR_PM8XXX
 	tristate "Qualcomm PM8XXX PMIC Voltage regulators"
 	depends on MFD_PM8XXX

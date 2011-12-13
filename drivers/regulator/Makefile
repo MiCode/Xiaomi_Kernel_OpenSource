@@ -45,7 +45,6 @@ obj-$(CONFIG_REGULATOR_DB8500_PRCMU) += db8500-prcmu.o
 obj-$(CONFIG_REGULATOR_TPS65910) += tps65910-regulator.o
 obj-$(CONFIG_REGULATOR_PMIC8058) += pmic8058-regulator.o
 obj-$(CONFIG_REGULATOR_PMIC8901) += pmic8901-regulator.o
-obj-$(CONFIG_REGULATOR_PM8921) += pm8921-regulator.o
 obj-$(CONFIG_REGULATOR_GPIO) += gpio-regulator.o
 obj-$(CONFIG_REGULATOR_PM8058_XO) += pm8058-xo.o
 obj-$(CONFIG_REGULATOR_PM8018) += pm8018-regulator.o
