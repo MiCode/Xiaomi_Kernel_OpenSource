@@ -470,22 +470,7 @@ static int adreno_dump(struct kgsl_device *device)
 
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
 	mb();
-
-	KGSL_LOG_DUMP(device, "POWER: FLAGS = %08lX | ACTIVE POWERLEVEL = %08X",
-			pwr->power_flags, pwr->active_pwrlevel);
-
-	KGSL_LOG_DUMP(device, "POWER: INTERVAL TIMEOUT = %08X ",
-		pwr->interval_timeout);
-
-	KGSL_LOG_DUMP(device, "GRP_CLK = %lu ",
-				  kgsl_get_clkrate(pwr->grp_clks[0]));
-
-	KGSL_LOG_DUMP(device, "BUS CLK = %lu ",
-		kgsl_get_clkrate(pwr->ebi1_clk));
-
 
 	kgsl_regread(device, REG_RBBM_STATUS, &rbbm_status);
 	kgsl_regread(device, REG_RBBM_PM_OVERRIDE1, &r2);
@@ -810,6 +795,7 @@ end:
 int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 {
 	bool saved_nap;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	BUG_ON(device == NULL);
 
@@ -828,8 +814,25 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 			kgsl_idle(device,  KGSL_TIMEOUT_DEFAULT);
 
 	}
+	KGSL_LOG_DUMP(device, "POWER: FLAGS = %08lX | ACTIVE POWERLEVEL = %08X",
+			pwr->power_flags, pwr->active_pwrlevel);
+
+	KGSL_LOG_DUMP(device, "POWER: INTERVAL TIMEOUT = %08X ",
+		pwr->interval_timeout);
+
+	KGSL_LOG_DUMP(device, "GRP_CLK = %lu ",
+				  kgsl_get_clkrate(pwr->grp_clks[0]));
+
+	KGSL_LOG_DUMP(device, "BUS CLK = %lu ",
+		kgsl_get_clkrate(pwr->ebi1_clk));
+
 	/* Disable the idle timer so we don't get interrupted */
 	del_timer_sync(&device->idle_timer);
+
+	mutex_unlock(&device->mutex);
+	flush_workqueue(device->work_queue);
+	mutex_lock(&device->mutex);
+	adreno_dump(device);
 
 	/* Turn off napping to make sure we have the clocks full
 	   attention through the following process */
@@ -851,13 +854,6 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 				"state -> DUMP_AND_RECOVER, device %d\n",
 				device->id);
 	}
-
-	KGSL_DRV_ERR(device,
-			"wait for work in workqueue to complete\n");
-	mutex_unlock(&device->mutex);
-	flush_workqueue(device->work_queue);
-	mutex_lock(&device->mutex);
-	adreno_dump(device);
 
 	/* Restore nap mode */
 	device->pwrctrl.nap_allowed = saved_nap;
