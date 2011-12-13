@@ -1576,6 +1576,22 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		seq_printf(s, "total heap size: %lx\n",
 			heap->ops->get_total(heap));
 	}
+	if (heap->ops->get_alloc_cnt) {
+		seq_printf(s, "allocation count: %lx\n",
+			heap->ops->get_alloc_cnt(heap));
+	}
+	if (heap->ops->get_umap_cnt) {
+		seq_printf(s, "umapping count: %lx\n",
+			heap->ops->get_umap_cnt(heap));
+	}
+	if (heap->ops->get_kmap_cnt) {
+		seq_printf(s, "kmapping count: %lx\n",
+			heap->ops->get_kmap_cnt(heap));
+	}
+	if (heap->ops->get_secured) {
+		seq_printf(s, "secured heap: %s\n",
+			heap->ops->get_secured(heap) ? "Yes" : "No");
+	}
 	return 0;
 }
 

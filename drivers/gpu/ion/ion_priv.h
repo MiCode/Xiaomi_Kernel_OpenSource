@@ -149,6 +149,10 @@ struct ion_heap_ops {
 				unsigned long iova_length,
 				unsigned long flags);
 	void (*unmap_iommu)(struct ion_iommu_map *data);
+	unsigned long (*get_umap_cnt)(struct ion_heap *heap);
+	unsigned long (*get_kmap_cnt)(struct ion_heap *heap);
+	unsigned long (*get_alloc_cnt)(struct ion_heap *heap);
+	unsigned long (*get_secured)(struct ion_heap *heap);
 	int (*secure_heap)(struct ion_heap *heap);
 	int (*unsecure_heap)(struct ion_heap *heap);
 };
