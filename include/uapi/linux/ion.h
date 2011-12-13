@@ -97,6 +97,7 @@ enum ion_heap_ids {
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_FMEM_HEAP_NAME	"fmem"
 
 #define CACHED          1
 #define UNCACHED        0
