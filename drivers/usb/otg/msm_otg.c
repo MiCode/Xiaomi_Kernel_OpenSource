@@ -1850,7 +1850,7 @@ static void msm_otg_set_vbus_state(int online)
 	struct msm_otg *motg = the_msm_otg;
 
 	/* We depend on PMIC for only VBUS ON interrupt */
-	if (!atomic_read(&motg->in_lpm) || !online)
+	if (!atomic_read(&motg->in_lpm) || !online || motg->async_int)
 		return;
 
 	/*
