@@ -344,11 +344,12 @@ static void __init arm_memory_present(void)
 #else
 static void __init arm_memory_present(void)
 {
-	struct memblock_region *reg;
-
-	for_each_memblock(memory, reg)
-		memory_present(0, memblock_region_memory_base_pfn(reg),
-			       memblock_region_memory_end_pfn(reg));
+	struct meminfo *mi = &meminfo;
+	int i;
+	for_each_bank(i, mi) {
+		memory_present(0, bank_pfn_start(&mi->bank[i]),
+				bank_pfn_end(&mi->bank[i]));
+	}
 }
 #endif
 
