@@ -601,6 +601,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	bool session_active;
 	u32 phy_ctrl_val = 0;
 	unsigned ret;
+	u32 portsc;
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
@@ -642,17 +643,21 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		motg->lpm_flags |= PHY_OTG_COMP_DISABLED;
 	}
 
-	/*
+	/* Set the PHCD bit, only if it is not set by the controller.
 	 * PHY may take some time or even fail to enter into low power
 	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
 	 * in failure case.
 	 */
-	writel(readl(USB_PORTSC) | PORTSC_PHCD, USB_PORTSC);
-	while (cnt < PHY_SUSPEND_TIMEOUT_USEC) {
-		if (readl(USB_PORTSC) & PORTSC_PHCD)
-			break;
-		udelay(1);
-		cnt++;
+	portsc = readl_relaxed(USB_PORTSC);
+	if (!(portsc & PORTSC_PHCD)) {
+		writel_relaxed(portsc | PORTSC_PHCD,
+				USB_PORTSC);
+		while (cnt < PHY_SUSPEND_TIMEOUT_USEC) {
+			if (readl_relaxed(USB_PORTSC) & PORTSC_PHCD)
+				break;
+			udelay(1);
+			cnt++;
+		}
 	}
 
 	if (cnt >= PHY_SUSPEND_TIMEOUT_USEC) {
