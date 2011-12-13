@@ -191,6 +191,11 @@ static struct pm8xxx_drvdata pm8901_drvdata = {
 	.pmic_get_revision	= pm8901_get_revision,
 };
 
+static struct mfd_cell misc_cell = {
+	.name		= PM8XXX_MISC_DEV_NAME,
+	.id		= 1,
+};
+
 static struct mfd_cell debugfs_cell = {
 	.name		= "pm8xxx-debug",
 	.id		= 1,
@@ -313,6 +318,17 @@ pm8901_add_subdevices(const struct pm8901_platform_data *pdata,
 	if (rc) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", rc);
 		goto bail;
+	}
+
+	if (pdata->misc_pdata) {
+		misc_cell.platform_data = pdata->misc_pdata;
+		misc_cell.pdata_size = sizeof(struct pm8xxx_misc_platform_data);
+		rc = mfd_add_devices(pmic->dev, 0, &misc_cell, 1, NULL,
+				      irq_base);
+		if (rc) {
+			pr_err("Failed to add  misc subdevice ret=%d\n", rc);
+			goto bail;
+		}
 	}
 
 	return rc;
