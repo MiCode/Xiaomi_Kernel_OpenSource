@@ -23,6 +23,14 @@ config SPS
 		2. Peripheral-to-Memory.
 		3. Memory-to-Memory.
 
+config USB_BAM
+	boolean "USB BAM Driver"
+	depends on SPS && USB_GADGET
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
+	  transfers between the USB and other peripheral.
+
 config SPS_SUPPORT_BAMDMA
 	bool "SPS support BAM DMA"
 	depends on SPS
