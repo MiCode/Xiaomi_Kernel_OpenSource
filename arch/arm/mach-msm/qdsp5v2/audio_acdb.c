@@ -3288,7 +3288,6 @@ static s32 acdb_calibrate_device(void *data)
 	result = acdb_initialize_data();
 	if (result)
 		goto done;
-	MM_ERR("acdb_data.build_id[17] = %c\n", acdb_data.build_id[17]);
 	if (acdb_data.build_id[17] != '0') {
 		result = initialize_modem_acdb();
 		if (result < 0)

@@ -372,10 +372,8 @@ static int auda2dp_in_enc_config(struct audio_a2dp_in *audio, int enable)
 	memset(&cmd, 0, sizeof(cmd));
 	if (audio->build_id[17] == '1') {
 		cmd.cmd_id = AUDPREPROC_AUDREC_CMD_ENC_CFG_2;
-		MM_ERR("sending AUDPREPROC_AUDREC_CMD_ENC_CFG_2 command");
 	} else {
 		cmd.cmd_id = AUDPREPROC_AUDREC_CMD_ENC_CFG;
-		MM_ERR("sending AUDPREPROC_AUDREC_CMD_ENC_CFG command");
 	}
 	cmd.stream_id = audio->enc_id;
 
@@ -950,7 +948,7 @@ static int auda2dp_in_open(struct inode *inode, struct file *file)
 		goto evt_error;
 	}
 	audio->build_id = socinfo_get_build_id();
-	MM_ERR("build id used is = %s\n", audio->build_id);
+	MM_DBG("Modem build id = %s\n", audio->build_id);
 	file->private_data = audio;
 	audio->opened = 1;
 	rc = 0;

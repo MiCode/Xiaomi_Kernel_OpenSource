@@ -863,7 +863,7 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 		goto evt_error;
 	}
 	audio->build_id = socinfo_get_build_id();
-	MM_ERR("build id used is = %s\n", audio->build_id);
+	MM_DBG("Modem build id = %s\n", audio->build_id);
 
 	file->private_data = audio;
 	audio->opened = 1;

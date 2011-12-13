@@ -575,7 +575,6 @@ static int audaac_in_enc_config(struct audio_in *audio, int enable)
 {
 	struct audpreproc_audrec_cmd_enc_cfg cmd;
 	memset(&cmd, 0, sizeof(cmd));
-	MM_ERR("build_id[17] = %c", audio->build_id[17]);
 	if (audio->build_id[17] == '1') {
 		cmd.cmd_id = AUDPREPROC_AUDREC_CMD_ENC_CFG_2;
 		MM_ERR("sending AUDPREPROC_AUDREC_CMD_ENC_CFG_2 command");
@@ -1412,9 +1411,8 @@ static int audaac_in_open(struct inode *inode, struct file *file)
 		MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->out_phys, (int)audio->out_data);
 	}
-	MM_ERR("trying to get the build id\n");
 	audio->build_id = socinfo_get_build_id();
-	MM_ERR("build id used is = %s\n", audio->build_id);
+	MM_DBG("Modem build id = %s\n", audio->build_id);
 
 		/* Initialize buffer */
 	audio->out[0].data = audio->out_data + 0;
