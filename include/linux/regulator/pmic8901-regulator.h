@@ -32,23 +32,20 @@
 #define PM8901_VREG_ID_S3	10
 #define PM8901_VREG_ID_S4	11
 
-/* External regulator controlled by MPP pin ids */
-#define PM8901_VREG_ID_MPP0	12
-
 /* Low voltage switch regulator ids */
-#define PM8901_VREG_ID_LVS0	13
-#define PM8901_VREG_ID_LVS1	14
-#define PM8901_VREG_ID_LVS2	15
-#define PM8901_VREG_ID_LVS3	16
+#define PM8901_VREG_ID_LVS0	12
+#define PM8901_VREG_ID_LVS1	13
+#define PM8901_VREG_ID_LVS2	14
+#define PM8901_VREG_ID_LVS3	15
 
 /* Medium voltage switch regulator ids */
-#define PM8901_VREG_ID_MVS0	17
+#define PM8901_VREG_ID_MVS0	16
 
 /* USB OTG voltage switch regulator ids */
-#define PM8901_VREG_ID_USB_OTG	18
+#define PM8901_VREG_ID_USB_OTG	17
 
 /* HDMI medium voltage switch regulator ids */
-#define PM8901_VREG_ID_HDMI_MVS	19
+#define PM8901_VREG_ID_HDMI_MVS	18
 
 #define PM8901_VREG_MAX		(PM8901_VREG_ID_HDMI_MVS + 1)
 
@@ -70,10 +67,10 @@ enum pm8901_vreg_pin_fn {
 
 struct pm8901_vreg_pdata {
 	struct regulator_init_data	init_data;
+	int				id;
 	unsigned			pull_down_enable;
 	unsigned			pin_ctrl;
 	enum pm8901_vreg_pin_fn		pin_fn;
-	unsigned			active_high; /* For use with MPP. */
 };
 
 #endif
