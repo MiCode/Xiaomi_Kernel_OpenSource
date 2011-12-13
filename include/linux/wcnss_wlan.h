@@ -16,6 +16,15 @@
 
 #include <linux/device.h>
 
+enum wcnss_opcode {
+	WCNSS_WLAN_SWITCH_OFF = 0,
+	WCNSS_WLAN_SWITCH_ON,
+};
+
+struct wcnss_wlan_config {
+	int		use_48mhz_xo;
+};
+
 #define WCNSS_WLAN_IRQ_INVALID -1
 
 struct device *wcnss_wlan_get_device(void);
@@ -26,6 +35,11 @@ void wcnss_wlan_register_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops);
 void wcnss_wlan_unregister_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops);
+struct platform_device *wcnss_get_platform_device(void);
+struct wcnss_wlan_config *wcnss_get_wlan_config(void);
+int wcnss_wlan_power(struct device *dev,
+				struct wcnss_wlan_config *cfg,
+				enum wcnss_opcode opcode);
 
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))

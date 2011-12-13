@@ -22,7 +22,6 @@
 #include <linux/jiffies.h>
 #include <linux/gpio.h>
 #include <mach/peripheral-loader.h>
-#include "wcnss_riva.h"
 
 #define DEVICE "wcnss_wlan"
 #define VERSION "1.01"
@@ -127,6 +126,22 @@ struct device *wcnss_wlan_get_device(void)
 	return NULL;
 }
 EXPORT_SYMBOL(wcnss_wlan_get_device);
+
+struct platform_device *wcnss_get_platform_device(void)
+{
+	if (penv && penv->pdev)
+		return penv->pdev;
+	return NULL;
+}
+EXPORT_SYMBOL(wcnss_get_platform_device);
+
+struct wcnss_wlan_config *wcnss_get_wlan_config(void)
+{
+	if (penv && penv->pdev)
+		return &penv->wlan_config;
+	return NULL;
+}
+EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 struct resource *wcnss_wlan_get_memory_map(struct device *dev)
 {
