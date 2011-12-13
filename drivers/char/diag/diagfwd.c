@@ -503,9 +503,11 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	} else {
 		if (len > 0) {
 			if (entry.client_id == MODEM_PROC && driver->ch) {
-				if ((cpu_is_msm8960() || cpu_is_msm8930()) &&
+				if ((cpu_is_msm8960() || cpu_is_msm8930() ||
+					cpu_is_msm9615()) &&
 					 (int)(*(char *)buf) == MODE_CMD)
-					if ((int)(*(char *)(buf+1)) == RESET_ID)
+					if ((int)(*(char *)(buf+1)) ==
+						RESET_ID)
 						return;
 				smd_write(driver->ch, buf, len);
 			} else if (entry.client_id == QDSP_PROC &&
@@ -542,7 +544,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	temp += 2;
 	data_type = APPS_DATA;
 	/* Dont send any command other than mode reset */
-	if ((cpu_is_msm8960() || cpu_is_msm8930()) && cmd_code == MODE_CMD) {
+	if ((cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615()) &&
+		cmd_code == MODE_CMD) {
 		if (subsys_id != RESET_ID)
 			data_type = MODEM_DATA;
 	}
