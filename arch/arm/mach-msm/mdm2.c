@@ -116,6 +116,16 @@ static void debug_state_changed(int value)
 	mdm_debug_on = value;
 }
 
+static void mdm_status_changed(int value)
+{
+	MDM_DBG("%s: value:%d\n", __func__, value);
+
+	if (value) {
+		peripheral_disconnect();
+		peripheral_connect();
+	}
+}
+
 static int __init mdm_modem_probe(struct platform_device *pdev)
 {
 	/* Instantiate driver object. */
@@ -123,6 +133,7 @@ static int __init mdm_modem_probe(struct platform_device *pdev)
 	mdm_cb.power_down_mdm_cb = power_down_mdm;
 	mdm_cb.normal_boot_done_cb = normal_boot_done;
 	mdm_cb.debug_state_changed_cb = debug_state_changed;
+	mdm_cb.status_cb = mdm_status_changed;
 	return mdm_common_create(pdev, &mdm_cb);
 }
 
