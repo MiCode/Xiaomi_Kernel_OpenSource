@@ -653,7 +653,7 @@ u32 vcd_free_one_buffer_internal(
 	VCD_FAILED_RETURN(rc, "Invalid buffer type provided");
 
 	first_frm_recvd &= cctxt->status.mask;
-	if (first_frm_recvd) {
+	if (first_frm_recvd && !cctxt->meta_mode) {
 		VCD_MSG_ERROR(
 			"VCD free buffer called when data path is active");
 		return VCD_ERR_BAD_STATE;

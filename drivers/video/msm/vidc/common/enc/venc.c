@@ -1540,6 +1540,29 @@ static long vid_enc_ioctl(struct file *file,
 			return -EFAULT;
 		break;
 	}
+	case VEN_IOCTL_SET_METABUFFER_MODE:
+	{
+		u32 metabuffer_mode, vcd_status;
+		struct vcd_property_hdr vcd_property_hdr;
+		struct vcd_property_live live_mode;
+
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		if (copy_from_user(&metabuffer_mode, venc_msg.in,
+			sizeof(metabuffer_mode)))
+			return -EFAULT;
+		vcd_property_hdr.prop_id = VCD_I_META_BUFFER_MODE;
+		vcd_property_hdr.sz =
+			sizeof(struct vcd_property_live);
+		live_mode.live = metabuffer_mode;
+		vcd_status = vcd_set_property(client_ctx->vcd_handle,
+					&vcd_property_hdr, &live_mode);
+		if (vcd_status) {
+			pr_err(" Setting metabuffer mode failed");
+			return -EIO;
+		}
+		break;
+	}
 	case VEN_IOCTL_SET_AC_PREDICTION:
 	case VEN_IOCTL_GET_AC_PREDICTION:
 	case VEN_IOCTL_SET_RVLC:

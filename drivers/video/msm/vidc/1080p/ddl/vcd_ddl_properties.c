@@ -901,6 +901,9 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 			property_value);
 		vcd_status = VCD_S_SUCCESS;
 	break;
+	case VCD_I_META_BUFFER_MODE:
+		vcd_status = VCD_S_SUCCESS;
+		break;
 	default:
 		DDL_MSG_ERROR("INVALID ID %d\n", (int)property_hdr->prop_id);
 		vcd_status = VCD_ERR_ILLEGAL_OP;

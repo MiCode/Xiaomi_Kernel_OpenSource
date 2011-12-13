@@ -90,13 +90,13 @@ static u32 vcd_encode_start_in_open(struct vcd_clnt_ctxt *cctxt)
 		return VCD_ERR_ILLEGAL_OP;
 	}
 
-	if (!cctxt->in_buf_pool.entries ||
+	if ((!cctxt->meta_mode && !cctxt->in_buf_pool.entries) ||
 	    !cctxt->out_buf_pool.entries ||
-	    cctxt->in_buf_pool.validated != cctxt->in_buf_pool.count ||
+	    (!cctxt->meta_mode &&
+		 cctxt->in_buf_pool.validated != cctxt->in_buf_pool.count) ||
 	    cctxt->out_buf_pool.validated !=
 	    cctxt->out_buf_pool.count) {
 		VCD_MSG_ERROR("Buffer pool is not completely setup yet");
-
 		return VCD_ERR_BAD_STATE;
 	}
 
@@ -495,6 +495,13 @@ static u32 vcd_set_property_cmn
 	rc = ddl_set_property(cctxt->ddl_handle, prop_hdr, prop_val);
 	VCD_FAILED_RETURN(rc, "Failed: ddl_set_property");
 	switch (prop_hdr->prop_id) {
+	case VCD_I_META_BUFFER_MODE:
+		{
+			struct vcd_property_live *live =
+			    (struct vcd_property_live *)prop_val;
+			cctxt->meta_mode = live->live;
+			break;
+		}
 	case VCD_I_LIVE:
 		{
 			struct vcd_property_live *live =
