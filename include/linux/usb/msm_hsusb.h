@@ -19,7 +19,25 @@
 #define __ASM_ARCH_MSM_HSUSB_H
 
 #include <linux/types.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
+#include <linux/pm_qos.h>
+
+/*
+ * The following are bit fields describing the usb_request.udc_priv word.
+ * These bit fields are set by function drivers that wish to queue
+ * usb_requests with sps/bam parameters.
+ */
+#define MSM_PIPE_ID_MASK		(0x1F)
+#define MSM_TX_PIPE_ID_OFS		(16)
+#define MSM_SPS_MODE			BIT(5)
+#define MSM_IS_FINITE_TRANSFER		BIT(6)
+#define MSM_PRODUCER			BIT(7)
+#define MSM_DISABLE_WB			BIT(8)
+#define MSM_ETD_IOC			BIT(9)
+#define MSM_INTERNAL_MEM		BIT(10)
+#define MSM_VENDOR_ID			BIT(16)
 
 /**
  * Supported USB modes
@@ -116,7 +134,8 @@ enum usb_chg_type {
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
  *              terminated by -1.
- * @vbus_power: VBUS power on/off routine.
+ * @vbus_power: VBUS power on/off routine.It should return result
+ *		as success(zero value) or failure(non-zero value).
  * @power_budget: VBUS power budget in mA (0 will be treated as 500mA).
  * @mode: Supported mode (OTG/peripheral/host).
  * @otg_control: OTG switch controlled by user/Id pin
@@ -127,7 +146,7 @@ enum usb_chg_type {
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
-	void (*vbus_power)(bool on);
+	int (*vbus_power)(bool on);
 	unsigned power_budget;
 	enum usb_mode_type mode;
 	enum otg_control_type otg_control;
@@ -181,5 +200,46 @@ struct msm_otg {
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
 };
+
+struct msm_hsic_host_platform_data {
+	unsigned strobe;
+	unsigned data;
+	struct msm_bus_scale_pdata *bus_scale_table;
+};
+
+struct msm_usb_host_platform_data {
+	unsigned int power_budget;
+	unsigned int dock_connect_irq;
+};
+
+struct msm_hsic_peripheral_platform_data {
+	bool keep_core_clk_on_suspend_workaround;
+};
+
+struct usb_bam_pipe_connect {
+	u32 src_phy_addr;
+	int src_pipe_index;
+	u32 dst_phy_addr;
+	int dst_pipe_index;
+	u32 data_fifo_base_offset;
+	u32 data_fifo_size;
+	u32 desc_fifo_base_offset;
+	u32 desc_fifo_size;
+};
+
+struct msm_usb_bam_platform_data {
+	struct usb_bam_pipe_connect *connections;
+	int usb_active_bam;
+	int usb_bam_num_pipes;
+};
+
+enum usb_bam {
+	HSUSB_BAM = 0,
+	HSIC_BAM,
+};
+
+int msm_ep_config(struct usb_ep *ep);
+int msm_ep_unconfig(struct usb_ep *ep);
+int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size);
 
 #endif
