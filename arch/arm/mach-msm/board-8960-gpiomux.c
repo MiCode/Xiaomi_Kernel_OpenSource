@@ -247,7 +247,7 @@ static struct gpiomux_setting hdmi_active_2_cfg = {
 static struct gpiomux_setting hdmi_active_3_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_UP,
 	.dir = GPIOMUX_IN,
 };
 
