@@ -1852,7 +1852,7 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm9615_clock_init(void)
 {
-	xo_cxo = msm_xo_get(MSM_XO_TCXO_D0, "clock-9615");
+	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-9615");
 	if (IS_ERR(xo_cxo)) {
 		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
 		BUG();

@@ -83,6 +83,7 @@ static int msm_xo_show_voters(struct seq_file *m, void *v)
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A2], "TCXO A2");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CORE], "TCXO Core");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_PXO], "PXO during sleep");
+	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CXO], "CXO");
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
 	return 0;
@@ -137,6 +138,10 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 		cmd.id = MSM_RPM_ID_PXO_CLK;
 		cmd.value = msm_xo_sources[MSM_XO_PXO].mode ? 1 : 0;
 		ret = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_SLEEP, &cmd, 1);
+	} else if (xo == &msm_xo_sources[MSM_XO_CXO]) {
+		cmd.id = MSM_RPM_ID_CXO_CLK;
+		cmd.value = msm_xo_sources[MSM_XO_CXO].mode ? 1 : 0;
+		ret = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
 	} else {
 		cmd.id = MSM_RPM_ID_CXO_BUFFERS;
 		cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
@@ -223,10 +228,10 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 
 	/*
 	 * TODO: Remove early return for 8064 once RPM XO voting support
-	 * is available. Remove early return for 8960 TCXO_D0 once all
-	 * voters for it are in place.
+	 * is available. Remove early return for 8960 CXO once all voters
+	 * for it are in place.
 	 */
-	if (cpu_is_apq8064() || (cpu_is_msm8960() && xo_id == MSM_XO_TCXO_D0))
+	if (cpu_is_apq8064() || (cpu_is_msm8960() && xo_id == MSM_XO_CXO))
 		return NULL;
 
 	if (xo_id >= NUM_MSM_XO_IDS) {

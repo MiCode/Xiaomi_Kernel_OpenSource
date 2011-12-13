@@ -3903,7 +3903,7 @@ static void __init msm8660_clock_init(void)
 		pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
 		BUG();
 	}
-	xo_cxo = msm_xo_get(MSM_XO_TCXO_D1, "clock-8x60");
+	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-8x60");
 	if (IS_ERR(xo_cxo)) {
 		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
 		BUG();
