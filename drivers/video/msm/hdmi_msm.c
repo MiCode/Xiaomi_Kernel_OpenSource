@@ -4446,7 +4446,7 @@ static int __init hdmi_msm_init(void)
 {
 	int rc;
 
-	if (cpu_is_msm8627())
+	if (cpu_is_msm8930())
 		return 0;
 
 	if (msm_fb_detect_client("hdmi_msm"))
