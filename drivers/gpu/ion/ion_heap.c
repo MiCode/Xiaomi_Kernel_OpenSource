@@ -72,6 +72,9 @@ void ion_heap_destroy(struct ion_heap *heap)
 	case ION_HEAP_TYPE_CARVEOUT:
 		ion_carveout_heap_destroy(heap);
 		break;
+	case ION_HEAP_TYPE_IOMMU:
+		ion_iommu_heap_destroy(heap);
+		break;
 	case ION_HEAP_TYPE_CP:
 		ion_cp_heap_destroy(heap);
 		break;
