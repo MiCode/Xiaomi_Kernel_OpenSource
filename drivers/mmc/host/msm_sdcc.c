@@ -1265,6 +1265,9 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 			len = msmsdcc_pio_read(host, buffer, remain);
 		if (status & MCI_TXACTIVE)
 			len = msmsdcc_pio_write(host, buffer, remain);
+		/* len might have aligned to 32bits above */
+		if (len > remain)
+			len = remain;
 
 		/* Unmap the buffer */
 		kunmap_atomic(buffer, KM_BIO_SRC_IRQ);
