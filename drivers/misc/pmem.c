@@ -229,12 +229,12 @@ struct pmem_info {
 	 * request function for a region when the allocation count goes
 	 * from 0 -> 1
 	 */
-	void (*mem_request)(void *);
+	int (*mem_request)(void *);
 	/*
 	 * release function for a region when the allocation count goes
 	 * from 1 -> 0
 	 */
-	void (*mem_release)(void *);
+	int (*mem_release)(void *);
 	/*
 	 * private data for the request/release callback
 	 */
@@ -582,8 +582,13 @@ static int pmem_get_region(int id)
 	atomic_inc(&pmem[id].allocation_cnt);
 	if (!pmem[id].vbase) {
 		DLOG("PMEMDEBUG: mapping for %s", pmem[id].name);
-		if (pmem[id].mem_request)
-				pmem[id].mem_request(pmem[id].region_data);
+		if (pmem[id].mem_request) {
+			int ret = pmem[id].mem_request(pmem[id].region_data);
+			if (ret) {
+				atomic_dec(&pmem[id].allocation_cnt);
+				return 1;
+			}
+		}
 		ioremap_pmem(id);
 	}
 
@@ -610,8 +615,11 @@ static void pmem_put_region(int id)
 			unmap_kernel_range((unsigned long)pmem[id].vbase,
 				 pmem[id].size);
 			pmem[id].vbase = NULL;
-			if (pmem[id].mem_release)
-				pmem[id].mem_release(pmem[id].region_data);
+			if (pmem[id].mem_release) {
+				int ret = pmem[id].mem_release(
+						pmem[id].region_data);
+				WARN(ret, "mem_release failed");
+			}
 
 		}
 	}

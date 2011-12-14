@@ -2873,18 +2873,20 @@ static struct msm_bus_scale_pdata smi_client_pdata = {
 	.name = "pmem_smi",
 };
 
-void request_smi_region(void *data)
+int request_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
 	msm_bus_scale_client_update_request(bus_id, 1);
+	return 0;
 }
 
-void release_smi_region(void *data)
+int release_smi_region(void *data)
 {
 	int bus_id = (int) data;
 
 	msm_bus_scale_client_update_request(bus_id, 0);
+	return 0;
 }
 
 void *setup_smi_region(void)

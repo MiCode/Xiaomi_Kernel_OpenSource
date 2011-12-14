@@ -157,12 +157,12 @@ struct android_pmem_platform_data
 	 * function to be called when the number of allocations goes from
 	 * 0 -> 1
 	 */
-	void (*request_region)(void *);
+	int (*request_region)(void *);
 	/*
 	 * function to be called when the number of allocations goes from
 	 * 1 -> 0
 	 */
-	void (*release_region)(void *);
+	int (*release_region)(void *);
 	/*
 	 * function to be called upon pmem registration
 	 */
