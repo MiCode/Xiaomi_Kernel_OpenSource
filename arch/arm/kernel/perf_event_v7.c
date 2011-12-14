@@ -738,6 +738,10 @@ enum armv7_counters {
 #define        ARMV7_EXCLUDE_USER      (1 << 30)
 #define        ARMV7_INCLUDE_HYP       (1 << 27)
 
+
+/* Mask for restoring h/w counter val */
+#define	COUNT_MASK	0xffffffff
+
 /*
  * Add an event filter to a given event. This will only work for PMUv2 PMUs.
  */

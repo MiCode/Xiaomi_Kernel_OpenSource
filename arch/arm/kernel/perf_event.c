@@ -247,7 +247,6 @@ armpmu_read(struct perf_event *event)
 	/* Don't read disabled counters! */
 	if (hwc->idx < 0)
 		return;
-
 	armpmu_event_update(event, hwc, hwc->idx, 0);
 }
 
@@ -632,6 +631,24 @@ static void armpmu_disable(struct pmu *pmu)
 		armpmu->stop();
 }
 
+static void armpmu_update_counters(void)
+{
+	int idx;
+	struct cpu_hw_events *cpuc = &__get_cpu_var(cpu_hw_events);
+
+	if (!armpmu)
+		return;
+
+	for (idx = 0; idx <= armpmu->num_events; ++idx) {
+		struct perf_event *event = cpuc->events[idx];
+
+		if (!event)
+			continue;
+
+		armpmu_read(event);
+	}
+}
+
 static struct pmu pmu = {
 	.pmu_enable	= armpmu_enable,
 	.pmu_disable	= armpmu_disable,
@@ -657,6 +674,7 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 {
 	switch (cmd) {
 	case CPU_PM_ENTER:
+		armpmu_update_counters();
 		perf_pmu_disable(&pmu);
 		break;
 

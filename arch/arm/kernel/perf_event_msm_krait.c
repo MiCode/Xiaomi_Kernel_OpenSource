@@ -419,6 +419,7 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	u32 gr;
 	unsigned long event;
 	struct krait_evt evtinfo;
+	unsigned long long prev_count = local64_read(&hwc->prev_count);
 
 	/*
 	 * Enable counter and interrupt, and set the counter to count
@@ -464,6 +465,9 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 
 	/* Enable interrupt for this counter */
 	armv7_pmnc_enable_intens(idx);
+
+	/* Restore prev val */
+	armv7pmu_write_counter(idx, prev_count & COUNT_MASK);
 
 	/* Enable counter */
 	armv7_pmnc_enable_counter(idx);
