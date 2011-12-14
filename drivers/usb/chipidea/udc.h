@@ -19,6 +19,14 @@
 #define RX        0  /* similar to USB_DIR_OUT but can be used as an index */
 #define TX        1  /* similar to USB_DIR_IN  but can be used as an index */
 
+/* UDC private data:
+ *  16MSb - Vendor ID | 16 LSb Vendor private data
+ */
+#define CI13XX_REQ_VENDOR_ID(id)  (id & 0xFFFF0000UL)
+
+#define MSM_ETD_TYPE			BIT(1)
+#define MSM_EP_PIPE_ID_RESET_VAL	0x1F001F
+
 /* DMA layout of transfer descriptors */
 struct ci13xxx_td {
 	/* 0 */

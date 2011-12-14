@@ -92,6 +92,7 @@ static uintptr_t ci_regs_nolpm[] = {
 	[OP_ENDPTSTAT]		= 0x078UL,
 	[OP_ENDPTCOMPLETE]	= 0x07CUL,
 	[OP_ENDPTCTRL]		= 0x080UL,
+	[OP_ENDPTPIPEID]	= 0x0BCUL,
 };
 
 static uintptr_t ci_regs_lpm[] = {
@@ -114,6 +115,7 @@ static uintptr_t ci_regs_lpm[] = {
 	[OP_ENDPTSTAT]		= 0x0E4UL,
 	[OP_ENDPTCOMPLETE]	= 0x0E8UL,
 	[OP_ENDPTCTRL]		= 0x0ECUL,
+	[OP_ENDPTPIPEID]	= 0x0BCUL,
 };
 
 static int hw_alloc_regmap(struct ci13xxx *ci, bool is_lpm)
