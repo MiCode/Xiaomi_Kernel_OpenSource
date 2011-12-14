@@ -2301,8 +2301,8 @@ static int hdcp_authentication_part1(void)
 		aksv[4] =  qfprom_aksv_1        & 0xFF;
 		/* check there are 20 ones in AKSV */
 		if (hdmi_msm_count_one(aksv, 5) != 20) {
-			DEV_ERR("HDCP: AKSV read from QFPROM doesn't have\
-				20 1's and 20 0's, FAIL (AKSV=%02x%08x)\n",
+			DEV_ERR("HDCP: AKSV read from QFPROM doesn't have "
+				"20 1's and 20 0's, FAIL (AKSV=%02x%08x)\n",
 			qfprom_aksv_1, qfprom_aksv_0);
 			ret = -EINVAL;
 			goto error;
@@ -2332,9 +2332,9 @@ static int hdcp_authentication_part1(void)
 		}
 		/* check there are 20 ones in BKSV */
 		if (hdmi_msm_count_one(bksv, 5) != 20) {
-			DEV_ERR("HDCP: BKSV read from Sink doesn't have\
-				20 1's and 20 0's, FAIL (BKSV=\
-				%02x%02x%02x%02x%02x)\n",
+			DEV_ERR("HDCP: BKSV read from Sink doesn't have "
+				"20 1's and 20 0's, FAIL (BKSV="
+				"%02x%02x%02x%02x%02x)\n",
 				bksv[4], bksv[3], bksv[2], bksv[1], bksv[0]);
 			ret = -EINVAL;
 			goto error;
@@ -2507,8 +2507,8 @@ static int hdcp_authentication_part1(void)
 		hpd_int_status = HDMI_INP_ND(0x0250);
 		/* HDMI_HPD_INT_CTRL[0x0254] */
 		hpd_int_ctrl = HDMI_INP_ND(0x0254);
-		DEV_DBG("[SR-DEUG]: HPD_INTR_CTRL=[%u] HPD_INTR_STATUS=[%u]\
-		    before reading R0'\n", hpd_int_ctrl, hpd_int_status);
+		DEV_DBG("[SR-DEUG]: HPD_INTR_CTRL=[%u] HPD_INTR_STATUS=[%u] "
+			"before reading R0'\n", hpd_int_ctrl, hpd_int_status);
 
 		/*
 		* HDCP Compliace Test case 1B-01:
@@ -2968,8 +2968,8 @@ error:
 	hdmi_msm_state->hdcp_activating = FALSE;
 	mutex_unlock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->hpd_during_auth) {
-		DEV_WARN("Calling Deauthentication: HPD occured during\
-		    authentication  from [%s]\n", __func__);
+		DEV_WARN("Calling Deauthentication: HPD occured during "
+			 "authentication  from [%s]\n", __func__);
 		hdcp_deauthenticate();
 		mutex_lock(&hdcp_auth_state_mutex);
 		hdmi_msm_state->hpd_during_auth = FALSE;
