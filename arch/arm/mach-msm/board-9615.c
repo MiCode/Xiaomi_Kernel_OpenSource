@@ -736,9 +736,9 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 		.src_pipe_index = 11,
 		.dst_phy_addr = A2_BAM_PHY_BASE,
 		.dst_pipe_index = 0,
-		.data_fifo_base_offset = 0xf00,
-		.data_fifo_size = 0x400,
-		.desc_fifo_base_offset = 0x1300,
+		.data_fifo_base_offset = 0x1100,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1700,
 		.desc_fifo_size = 0x300,
 	},
 	[0][PEER_PERIPHERAL_TO_USB] = {
@@ -747,8 +747,8 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 		.dst_phy_addr = USB_BAM_PHY_BASE,
 		.dst_pipe_index = 10,
 		.data_fifo_base_offset = 0xa00,
-		.data_fifo_size = 0x400,
-		.desc_fifo_base_offset = 0xe00,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1000,
 		.desc_fifo_size = 0x100,
 	},
 };
