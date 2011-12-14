@@ -1543,10 +1543,17 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 			trace_snd_soc_dapm_widget_power(w, power);
 
-			if (power)
+			if (power) {
 				dapm_seq_insert(w, &up_list, true);
-			else
+				dev_dbg(w->dapm->dev,
+					"%s(): power up . widget  %s\n",
+					__func__, w->name);
+			} else {
 				dapm_seq_insert(w, &down_list, false);
+				dev_dbg(w->dapm->dev,
+					"%s(): power down . widget  %s\n",
+					__func__, w->name);
+			}
 
 			w->power = power;
 			break;
