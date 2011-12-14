@@ -83,7 +83,7 @@ def update_config(file, str):
 def scan_configs():
     """Get the full list of defconfigs appropriate for this tree."""
     names = {}
-    for n in glob.glob('arch/arm/configs/[fm]sm[0-9]*_defconfig'):
+    for n in glob.glob('arch/arm/configs/[fm]sm[0-9-]*_defconfig'):
         names[os.path.basename(n)[:-10]] = n
     for n in glob.glob('arch/arm/configs/qsd*_defconfig'):
         names[os.path.basename(n)[:-10]] = n
