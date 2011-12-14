@@ -4544,7 +4544,11 @@ msmsdcc_runtime_suspend(struct device *dev)
 		 * simple become pm usage counter increment operations.
 		 */
 		pm_runtime_get_noresume(dev);
-		rc = mmc_suspend_host(mmc);
+		/* If there is pending detect work abort runtime suspend */
+		if (unlikely(work_busy(&mmc->detect.work)))
+			rc = -EAGAIN;
+		else
+			rc = mmc_suspend_host(mmc);
 		pm_runtime_put_noidle(dev);
 
 		if (!rc) {
@@ -4575,7 +4579,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		if (rc && wake_lock_active(&host->sdio_suspend_wlock))
 			wake_unlock(&host->sdio_suspend_wlock);
 	}
-	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
+	pr_debug("%s: %s: ends with err=%d\n", mmc_hostname(mmc), __func__, rc);
 	return rc;
 }
 
