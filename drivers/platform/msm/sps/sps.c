@@ -1203,11 +1203,11 @@ exit_err:
 	mutex_unlock(&sps->lock);
 
 	if (result) {
-		if (virt_addr != NULL)
-			iounmap(bam->props.virt_addr);
-
-		if (bam != NULL)
+		if (bam != NULL) {
+			if (virt_addr != NULL)
+				iounmap(bam->props.virt_addr);
 			kfree(bam);
+		}
 
 		return result;
 	}

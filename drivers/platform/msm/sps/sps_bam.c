@@ -634,9 +634,16 @@ void sps_bam_pipe_free(struct sps_bam *dev, u32 pipe_index)
 		SPS_ERR("Disconnect BAM 0x%x pipe %d with events pending",
 			BAM_ID(dev), pipe_index);
 
-		list_for_each_entry(sps_event, &pipe->sys.events_q, list) {
+		sps_event = list_entry((&pipe->sys.events_q)->next,
+				typeof(*sps_event), list);
+
+		while (&sps_event->list != (&pipe->sys.events_q)) {
+			struct sps_q_event *sps_event_delete = sps_event;
+
 			list_del(&sps_event->list);
-			kfree(sps_event);
+			sps_event = list_entry(sps_event->list.next,
+					typeof(*sps_event), list);
+			kfree(sps_event_delete);
 		}
 	}
 
@@ -1086,11 +1093,17 @@ int sps_bam_pipe_reg_event(struct sps_bam *dev,
 			continue;	/* No */
 
 		index = SPS_EVENT_INDEX(opt_event_table[n].event_id);
-		event_reg = &pipe->sys.event_regs[index];
-		event_reg->xfer_done = reg->xfer_done;
-		event_reg->callback = reg->callback;
-		event_reg->mode = reg->mode;
-		event_reg->user = reg->user;
+		if (index < 0)
+			SPS_ERR("Negative event index: "
+			"BAM 0x%x pipe %d mode %d",
+			BAM_ID(dev), pipe_index, reg->mode);
+		else {
+			event_reg = &pipe->sys.event_regs[index];
+			event_reg->xfer_done = reg->xfer_done;
+			event_reg->callback = reg->callback;
+			event_reg->mode = reg->mode;
+			event_reg->user = reg->user;
+		}
 	}
 
 	return 0;
