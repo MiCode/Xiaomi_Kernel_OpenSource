@@ -261,6 +261,45 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = p_mctl->sync.sctrl.s_config(argp);
 			break;
 
+	case MSM_CAM_IOCTL_SENSOR_V4l2_S_CTRL: {
+			struct v4l2_control v4l2_ctrl;
+			CDBG("subdev call\n");
+			if (copy_from_user(&v4l2_ctrl,
+				(void *)argp,
+				sizeof(struct v4l2_control))) {
+				CDBG("copy fail\n");
+				return -EFAULT;
+			}
+			CDBG("subdev call ok\n");
+			rc = v4l2_subdev_call(p_mctl->sensor_sdev,
+				core, s_ctrl, &v4l2_ctrl);
+			break;
+	}
+
+	case MSM_CAM_IOCTL_SENSOR_V4l2_QUERY_CTRL: {
+			struct v4l2_queryctrl v4l2_qctrl;
+			CDBG("query called\n");
+			if (copy_from_user(&v4l2_qctrl,
+				(void *)argp,
+				sizeof(struct v4l2_queryctrl))) {
+				CDBG("copy fail\n");
+				rc = -EFAULT;
+				break;
+			}
+			rc = v4l2_subdev_call(p_mctl->sensor_sdev,
+				core, queryctrl, &v4l2_qctrl);
+			if (rc < 0) {
+				rc = -EFAULT;
+				break;
+			}
+			if (copy_to_user((void *)argp,
+					 &v4l2_qctrl,
+					 sizeof(struct v4l2_queryctrl))) {
+				rc = -EFAULT;
+			}
+			break;
+	}
+
 	case MSM_CAM_IOCTL_ACTUATOR_IO_CFG: {
 		struct msm_actuator_cfg_data act_data;
 		if (p_mctl->sync.actctrl.a_config) {

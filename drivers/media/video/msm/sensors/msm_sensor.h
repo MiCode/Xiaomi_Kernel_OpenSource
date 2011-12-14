@@ -93,6 +93,17 @@ struct v4l2_subdev_info {
 };
 
 struct msm_sensor_ctrl_t;
+
+struct msm_sensor_v4l2_ctrl_info_t {
+	uint32_t ctrl_id;
+	int16_t min;
+	int16_t max;
+	int16_t step;
+	struct msm_camera_i2c_enum_conf_array *enum_cfg_settings;
+	int (*s_v4l2_ctrl) (struct msm_sensor_ctrl_t *,
+		struct msm_sensor_v4l2_ctrl_info_t *, int);
+};
+
 struct msm_sensor_fn_t {
 	void (*sensor_start_stream) (struct msm_sensor_ctrl_t *);
 	void (*sensor_stop_stream) (struct msm_sensor_ctrl_t *);
@@ -137,6 +148,8 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_id_info_t *sensor_id_info;
 	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;
 	struct msm_sensor_reg_t *msm_sensor_reg;
+	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
+	uint16_t num_v4l2_ctrl;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
@@ -191,6 +204,18 @@ int msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 int msm_sensor_v4l2_probe(struct msm_sensor_ctrl_t *s_ctrl,
 	const struct msm_camera_sensor_info *info,
 	struct v4l2_subdev *sdev, struct msm_sensor_ctrl *s);
+
+int32_t msm_sensor_v4l2_s_ctrl(struct v4l2_subdev *sd,
+	struct v4l2_control *ctrl);
+
+int32_t msm_sensor_v4l2_query_ctrl(
+	struct v4l2_subdev *sd, struct v4l2_queryctrl *qctrl);
+
+int msm_sensor_s_ctrl_by_index(struct msm_sensor_ctrl_t *s_ctrl,
+	struct msm_sensor_v4l2_ctrl_info_t *ctrl_info, int value);
+
+int msm_sensor_s_ctrl_by_enum(struct msm_sensor_ctrl_t *s_ctrl,
+		struct msm_sensor_v4l2_ctrl_info_t *ctrl_info, int value);
 
 int msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			enum v4l2_mbus_pixelcode *code);

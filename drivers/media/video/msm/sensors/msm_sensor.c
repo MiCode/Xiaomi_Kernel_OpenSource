@@ -578,6 +578,74 @@ int32_t msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
+int32_t msm_sensor_v4l2_s_ctrl(struct v4l2_subdev *sd,
+	struct v4l2_control *ctrl)
+{
+	int rc = -1, i = 0;
+	struct msm_sensor_ctrl_t *s_ctrl =
+		(struct msm_sensor_ctrl_t *) sd->dev_priv;
+	struct msm_sensor_v4l2_ctrl_info_t *v4l2_ctrl =
+		s_ctrl->msm_sensor_v4l2_ctrl_info;
+
+	CDBG("%s\n", __func__);
+	CDBG("%d\n", ctrl->id);
+	if (v4l2_ctrl == NULL)
+		return rc;
+
+	for (i = 0; i < s_ctrl->num_v4l2_ctrl; i++) {
+		if (v4l2_ctrl[i].ctrl_id == ctrl->id) {
+			if (v4l2_ctrl[i].s_v4l2_ctrl != NULL) {
+				rc = v4l2_ctrl[i].s_v4l2_ctrl(
+					s_ctrl,
+					&s_ctrl->msm_sensor_v4l2_ctrl_info[i],
+					ctrl->value);
+			}
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int32_t msm_sensor_v4l2_query_ctrl(
+	struct v4l2_subdev *sd, struct v4l2_queryctrl *qctrl)
+{
+	int rc = -1, i = 0;
+	struct msm_sensor_ctrl_t *s_ctrl =
+		(struct msm_sensor_ctrl_t *) sd->dev_priv;
+
+	CDBG("%s\n", __func__);
+	CDBG("%s id: %d\n", __func__, qctrl->id);
+
+	if (s_ctrl->msm_sensor_v4l2_ctrl_info == NULL)
+		return rc;
+
+	for (i = 0; i < s_ctrl->num_v4l2_ctrl; i++) {
+		if (s_ctrl->msm_sensor_v4l2_ctrl_info[i].ctrl_id == qctrl->id) {
+			qctrl->minimum =
+				s_ctrl->msm_sensor_v4l2_ctrl_info[i].min;
+			qctrl->maximum =
+				s_ctrl->msm_sensor_v4l2_ctrl_info[i].max;
+			qctrl->flags = 1;
+			rc = 0;
+			break;
+		}
+	}
+
+	return rc;
+}
+
+int msm_sensor_s_ctrl_by_enum(struct msm_sensor_ctrl_t *s_ctrl,
+		struct msm_sensor_v4l2_ctrl_info_t *ctrl_info, int value)
+{
+	int rc = 0;
+	CDBG("%s enter\n", __func__);
+	rc = msm_sensor_write_enum_conf_array(
+		s_ctrl->sensor_i2c_client,
+		ctrl_info->enum_cfg_settings, value);
+	return rc;
+}
+
 static int msm_sensor_debugfs_stream_s(void *data, u64 val)
 {
 	struct msm_sensor_ctrl_t *s_ctrl = (struct msm_sensor_ctrl_t *) data;

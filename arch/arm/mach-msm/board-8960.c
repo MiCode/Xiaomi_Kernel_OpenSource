@@ -1922,6 +1922,11 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	},
 #endif
+#ifdef CONFIG_MT9M114
+	{
+	I2C_BOARD_INFO("mt9m114", 0x48),
+	},
+#endif
 #ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
 	{
 	I2C_BOARD_INFO("sc628a", 0x6E),
