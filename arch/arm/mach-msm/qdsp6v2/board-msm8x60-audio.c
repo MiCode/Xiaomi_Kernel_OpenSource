@@ -315,10 +315,10 @@ static int config_class_d1_gpio(int enable)
 		}
 
 		gpio_direction_output(SNDDEV_GPIO_CLASS_D1_EN, 1);
-		gpio_set_value(SNDDEV_GPIO_CLASS_D1_EN, 1);
+		gpio_set_value_cansleep(SNDDEV_GPIO_CLASS_D1_EN, 1);
 
 	} else {
-		gpio_set_value(SNDDEV_GPIO_CLASS_D1_EN, 0);
+		gpio_set_value_cansleep(SNDDEV_GPIO_CLASS_D1_EN, 0);
 		gpio_free(SNDDEV_GPIO_CLASS_D1_EN);
 	}
 	return 0;
