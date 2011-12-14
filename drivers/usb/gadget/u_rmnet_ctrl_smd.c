@@ -544,12 +544,13 @@ int gsmd_ctrl_setup(unsigned int count)
 	}
 
 	for (i = 0; i < count; i++) {
+		n_rmnet_ctrl_ports++;
 		ret = grmnet_ctrl_smd_port_alloc(i);
 		if (ret) {
 			pr_err("%s: Unable to alloc port:%d\n", __func__, i);
+			n_rmnet_ctrl_ports--;
 			goto free_ctrl_smd_ports;
 		}
-		n_rmnet_ctrl_ports++;
 	}
 
 	return 0;

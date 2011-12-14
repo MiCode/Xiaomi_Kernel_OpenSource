@@ -18,9 +18,9 @@
 #include <linux/spinlock.h>
 
 #include <mach/usb_gadget_xport.h>
+
 #include "u_rmnet.h"
 #include "gadget_chips.h"
-
 
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
@@ -66,6 +66,7 @@ static unsigned int nr_rmnet_ports;
 static unsigned int no_ctrl_smd_ports;
 static unsigned int no_ctrl_hsic_ports;
 static unsigned int no_data_bam_ports;
+static unsigned int no_data_bam2bam_ports;
 static unsigned int no_data_hsic_ports;
 static struct rmnet_ports {
 	enum transport_type		data_xport;
@@ -241,13 +242,16 @@ static int rmnet_gport_setup(void)
 	int	port_idx;
 	int	i;
 
-	pr_debug("%s: bam ports: %u data hsic ports: %u smd ports: %u"
-			" ctrl hsic ports: %u nr_rmnet_ports: %u\n",
-			__func__, no_data_bam_ports, no_data_hsic_ports,
-			no_ctrl_smd_ports, no_ctrl_hsic_ports, nr_rmnet_ports);
+	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u"
+		" smd ports: %u ctrl hsic ports: %u"
+	" nr_rmnet_ports: %u\n",
+		__func__, no_data_bam_ports, no_data_bam2bam_ports,
+		no_data_hsic_ports, no_ctrl_smd_ports,
+		no_ctrl_hsic_ports, nr_rmnet_ports);
 
-	if (no_data_bam_ports) {
-		ret = gbam_setup(no_data_bam_ports);
+	if (no_data_bam_ports || no_data_bam2bam_ports) {
+		ret = gbam_setup(no_data_bam_ports,
+						 no_data_bam2bam_ports);
 		if (ret)
 			return ret;
 	}
@@ -329,7 +333,11 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
-		ret = gbam_connect(&dev->port, port_num);
+	case USB_GADGET_XPORT_BAM2BAM:
+		/* currently only one connection (idx 0)
+		   is supported */
+		ret = gbam_connect(&dev->port, port_num,
+						   dxport, 0);
 		if (ret) {
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);
@@ -386,7 +394,8 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
-		gbam_disconnect(&dev->port, port_num);
+	case USB_GADGET_XPORT_BAM2BAM:
+		gbam_disconnect(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_data_disconnect(&dev->port, port_num);
@@ -954,6 +963,7 @@ static void frmnet_cleanup(void)
 	nr_rmnet_ports = 0;
 	no_ctrl_smd_ports = 0;
 	no_data_bam_ports = 0;
+	no_data_bam2bam_ports = 0;
 	no_ctrl_hsic_ports = 0;
 	no_data_hsic_ports = 0;
 }
@@ -1012,6 +1022,10 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 	case USB_GADGET_XPORT_BAM:
 		rmnet_port->data_xport_num = no_data_bam_ports;
 		no_data_bam_ports++;
+		break;
+	case USB_GADGET_XPORT_BAM2BAM:
+		rmnet_port->data_xport_num = no_data_bam2bam_ports;
+		no_data_bam2bam_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		rmnet_port->data_xport_num = no_data_hsic_ports;

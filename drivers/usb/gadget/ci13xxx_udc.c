@@ -155,6 +155,7 @@ static struct {
 #define CAP_ENDPTLISTADDR   (0x018UL)
 #define CAP_PORTSC          (0x044UL)
 #define CAP_DEVLC           (0x084UL)
+#define CAP_ENDPTPIPEID     (0x0BCUL)
 #define CAP_USBMODE         (hw_bank.lpm ? 0x0C8UL : 0x068UL)
 #define CAP_ENDPTSETUPSTAT  (hw_bank.lpm ? 0x0D8UL : 0x06CUL)
 #define CAP_ENDPTPRIME      (hw_bank.lpm ? 0x0DCUL : 0x070UL)
@@ -1638,6 +1639,23 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		if (!mReq->req.no_interrupt)
 			mReq->ptr->token  |= TD_IOC;
 	}
+
+	/* MSM Specific: updating the request as required for
+	 * SPS mode. Enable MSM proprietary DMA engine acording
+	 * to the UDC private data in the request.
+	 */
+	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
+		if (mReq->req.udc_priv & MSM_SPS_MODE) {
+			mReq->ptr->token = TD_STATUS_ACTIVE;
+			if (mReq->req.udc_priv & MSM_TBE)
+				mReq->ptr->next = TD_TERMINATE;
+			else
+				mReq->ptr->next = MSM_ETD_TYPE | mReq->dma;
+			if (!mReq->req.no_interrupt)
+				mReq->ptr->token |= MSM_ETD_IOC;
+		}
+	}
+
 	mReq->ptr->page[0]  = mReq->req.dma;
 	for (i = 1; i < 5; i++)
 		mReq->ptr->page[i] =
@@ -1680,6 +1698,39 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	}
 
 	mEp->qh.ptr->td.next   = mReq->dma;    /* TERMINATE = 0 */
+
+	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
+		if (mReq->req.udc_priv & MSM_SPS_MODE) {
+			mEp->qh.ptr->td.next   |= MSM_ETD_TYPE;
+			i = hw_cread(CAP_ENDPTPIPEID +
+						 mEp->num * sizeof(u32), ~0);
+			/* Read current value of this EPs pipe id */
+			i = (mEp->dir == TX) ?
+				((i >> MSM_TX_PIPE_ID_OFS) & MSM_PIPE_ID_MASK) :
+					(i & MSM_PIPE_ID_MASK);
+			/* If requested pipe id is different from current,
+			   then write it */
+			if (i != (mReq->req.udc_priv & MSM_PIPE_ID_MASK)) {
+				if (mEp->dir == TX)
+					hw_cwrite(
+						CAP_ENDPTPIPEID +
+							mEp->num * sizeof(u32),
+						MSM_PIPE_ID_MASK <<
+							MSM_TX_PIPE_ID_OFS,
+						(mReq->req.udc_priv &
+						 MSM_PIPE_ID_MASK)
+							<< MSM_TX_PIPE_ID_OFS);
+				else
+					hw_cwrite(
+						CAP_ENDPTPIPEID +
+							mEp->num * sizeof(u32),
+						MSM_PIPE_ID_MASK,
+						mReq->req.udc_priv &
+							MSM_PIPE_ID_MASK);
+			}
+		}
+	}
+
 	mEp->qh.ptr->td.token &= ~TD_STATUS;   /* clear status */
 	mEp->qh.ptr->cap |=  QH_ZLT;
 
@@ -1712,6 +1763,10 @@ static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	if ((TD_STATUS_ACTIVE & mReq->ptr->token) != 0)
 		return -EBUSY;
 
+	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID)
+		if ((mReq->req.udc_priv & MSM_SPS_MODE) &&
+			(mReq->req.udc_priv & MSM_TBE))
+			return -EBUSY;
 	if (mReq->zptr) {
 		if ((TD_STATUS_ACTIVE & mReq->zptr->token) != 0)
 			return -EBUSY;
@@ -1756,6 +1811,7 @@ __releases(mEp->lock)
 __acquires(mEp->lock)
 {
 	struct ci13xxx_ep *mEpTemp = mEp;
+	unsigned val;
 
 	trace("%p", mEp);
 
@@ -1771,6 +1827,21 @@ __acquires(mEp->lock)
 			list_entry(mEp->qh.queue.next,
 				   struct ci13xxx_req, queue);
 		list_del_init(&mReq->queue);
+
+		/* MSM Specific: Clear end point proprietary register */
+		if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
+			if (mReq->req.udc_priv & MSM_SPS_MODE) {
+				val = hw_cread(CAP_ENDPTPIPEID +
+					mEp->num * sizeof(u32),
+					~0);
+
+				if (val != MSM_EP_PIPE_ID_RESET_VAL)
+					hw_cwrite(
+						CAP_ENDPTPIPEID +
+						 mEp->num * sizeof(u32),
+						~0, MSM_EP_PIPE_ID_RESET_VAL);
+			}
+		}
 		mReq->req.status = -ESHUTDOWN;
 
 		if (mReq->req.complete != NULL) {
