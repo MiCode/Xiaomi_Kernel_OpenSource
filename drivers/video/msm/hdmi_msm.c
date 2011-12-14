@@ -3398,18 +3398,6 @@ static void hdmi_msm_audio_info_setup(boolean enabled, int num_of_channels,
 	HDMI_OUTP(0x002C, audio_info_ctrl_reg);
 }
 
-static void hdmi_msm_audio_ctrl_setup(boolean enabled, int delay)
-{
-	uint32 audio_pkt_ctrl_reg = 0;
-
-	/* Enable Packet Transmission */
-	audio_pkt_ctrl_reg |= enabled ? 0x00000001 : 0;
-	audio_pkt_ctrl_reg |= (delay << 4);
-
-	/* HDMI_AUDIO_PKT_CTRL1[0x0020] */
-	HDMI_OUTP(0x0020, audio_pkt_ctrl_reg);
-}
-
 static void hdmi_msm_en_gc_packet(boolean av_mute_is_requested)
 {
 	/* HDMI_GC[0x0040] */
@@ -3544,7 +3532,6 @@ static int hdmi_msm_audio_off(void)
 		}
 	}
 	hdmi_msm_audio_info_setup(FALSE, 0, 0, FALSE);
-	hdmi_msm_audio_ctrl_setup(FALSE, 0);
 	hdmi_msm_audio_acr_setup(FALSE, 0, 0, 0);
 	DEV_INFO("HDMI Audio: Disabled\n");
 	return 0;
