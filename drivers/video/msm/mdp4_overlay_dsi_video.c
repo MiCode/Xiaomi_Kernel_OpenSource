@@ -139,6 +139,7 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 		dsi_pipe = pipe; /* keep it */
 		init_completion(&dsi_video_comp);
 
+		mdp4_init_writeback_buf(mfd, MDP4_MIXER0);
 		pipe->blt_addr = 0;
 
 	} else {
@@ -571,14 +572,16 @@ static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
 	int data;
 	int change = 0;
 
-	if (dsi_pipe->blt_base == 0) {
+	mdp4_allocate_writeback_buf(mfd, MDP4_MIXER0);
+
+	if (mfd->ov0_wb_buf->phys_addr == 0) {
 		pr_info("%s: no blt_base assigned\n", __func__);
 		return;
 	}
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	if (enable && dsi_pipe->blt_addr == 0) {
-		dsi_pipe->blt_addr = dsi_pipe->blt_base;
+		dsi_pipe->blt_addr = mfd->ov0_wb_buf->phys_addr;
 		dsi_pipe->blt_cnt = 0;
 		dsi_pipe->ov_cnt = 0;
 		dsi_pipe->dmap_cnt = 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,9 @@
 #include <linux/fb.h>
 #include <linux/hrtimer.h>
 #include <linux/msm_mdp.h>
-
+#include <linux/memory_alloc.h>
 #include <mach/hardware.h>
+#include <linux/ion.h>
 
 #ifdef CONFIG_MSM_BUS_SCALING
 #include <mach/msm_bus.h>
@@ -66,6 +67,13 @@ extern int mdp_rev;
 #define MDPOP_SHARPENING	BIT(11) /* enable sharpening */
 #define MDPOP_BLUR		BIT(12) /* enable blur */
 #define MDPOP_FG_PM_ALPHA       BIT(13)
+#define MDP_ALLOC(x)  kmalloc(x, GFP_KERNEL)
+
+struct mdp_buf_type {
+	struct ion_handle *ihdl;
+	u32 phys_addr;
+	u32 size;
+};
 
 struct mdp_table_entry {
 	uint32_t reg;

@@ -680,4 +680,9 @@ int mdp4_writeback_terminate(struct fb_info *info);
 
 void mdp4_hsic_set(struct mdp4_overlay_pipe *pipe, struct dpp_ctrl *ctrl);
 void mdp4_hsic_update(struct mdp4_overlay_pipe *pipe);
+
+u32  mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
+void mdp4_init_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
+void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
+
 #endif /* MDP_H */

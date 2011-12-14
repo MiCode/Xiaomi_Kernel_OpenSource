@@ -31,7 +31,6 @@
 #include <linux/mutex.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
-#include <linux/memory_alloc.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
@@ -119,10 +118,8 @@ extern int mdp_lcd_rd_cnt_offset_slow;
 extern int mdp_lcd_rd_cnt_offset_fast;
 extern int mdp_usec_diff_threshold;
 
-#ifdef CONFIG_FB_MSM_LCDC
 extern int first_pixel_start_x;
 extern int first_pixel_start_y;
-#endif
 
 #ifdef MSM_FB_ENABLE_DBGFS
 struct dentry *mdp_dir;
@@ -1381,6 +1378,21 @@ static int mdp_probe(struct platform_device *pdev)
 	/* link to the latest pdev */
 	mfd->pdev = msm_fb_dev;
 	mfd->mdp_rev = mdp_rev;
+
+	mfd->ov0_wb_buf = MDP_ALLOC(sizeof(struct mdp_buf_type));
+	mfd->ov1_wb_buf = MDP_ALLOC(sizeof(struct mdp_buf_type));
+	memset((void *)mfd->ov0_wb_buf, 0, sizeof(struct mdp_buf_type));
+	memset((void *)mfd->ov1_wb_buf, 0, sizeof(struct mdp_buf_type));
+
+	if (mdp_pdata) {
+		mfd->ov0_wb_buf->size = mdp_pdata->ov0_wb_size;
+		mfd->ov1_wb_buf->size = mdp_pdata->ov1_wb_size;
+		mfd->mem_hid = mdp_pdata->mem_hid;
+	} else {
+		mfd->ov0_wb_buf->size = 0;
+		mfd->ov1_wb_buf->size = 0;
+		mfd->mem_hid = 0;
+	}
 
 	mfd->ov0_blt_state  = 0;
 	mfd->use_ov0_blt = 0 ;

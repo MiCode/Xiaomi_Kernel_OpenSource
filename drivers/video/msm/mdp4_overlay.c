@@ -1887,10 +1887,10 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 	}
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	*srcp_ihdl = ion_import_fd(mfd->client, img->memory_id);
+	*srcp_ihdl = ion_import_fd(mfd->iclient, img->memory_id);
 	if (IS_ERR_OR_NULL(*srcp_ihdl))
 		return PTR_ERR(*srcp_ihdl);
-	if (!ion_phys(mfd->client, *srcp_ihdl, start, (size_t *) len))
+	if (!ion_phys(mfd->iclient, *srcp_ihdl, start, (size_t *) len))
 		return 0;
 	else
 		return -EINVAL;
@@ -2153,6 +2153,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	mixer = mfd->panel_info.pdest;	/* DISPLAY_1 or DISPLAY_2 */
 
 	ret = mdp4_overlay_req2pipe(req, mixer, &pipe, mfd);
+
 	if (ret < 0) {
 		mutex_unlock(&mfd->dma->ov_mutex);
 		pr_err("%s: mdp4_overlay_req2pipe, ret=%d\n", __func__, ret);
@@ -2163,6 +2164,13 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		u32 use_blt = mdp4_overlay_blt_enable(req, mfd,	perf_level);
 		mfd->use_ov0_blt &= ~(1 << (pipe->pipe_ndx-1));
 		mfd->use_ov0_blt |= (use_blt << (pipe->pipe_ndx-1));
+	}
+
+	if (!IS_ERR_OR_NULL(mfd->iclient)) {
+		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+			mfd->mem_hid |= ION_SECURE;
+		else
+			mfd->mem_hid &= ~ION_SECURE;
 	}
 
 	/* return id back to user */
@@ -2312,6 +2320,8 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 		mfd->use_ov0_blt &= ~(1 << (pipe->pipe_ndx-1));
 		mdp4_overlay_update_blt_mode(mfd);
+		if (!mfd->use_ov0_blt)
+			mdp4_free_writeback_buf(mfd, MDP4_MIXER0);
 	}
 	else {	/* mixer1, DTV, ATV */
 		if (ctrl->panel_mode & MDP4_PANEL_DTV)
@@ -2629,11 +2639,11 @@ end:
 #endif
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	if (!IS_ERR_OR_NULL(srcp0_ihdl))
-		ion_free(mfd->client, srcp0_ihdl);
+		ion_free(mfd->iclient, srcp0_ihdl);
 	if (!IS_ERR_OR_NULL(srcp1_ihdl))
-		ion_free(mfd->client, srcp1_ihdl);
+		ion_free(mfd->iclient, srcp1_ihdl);
 	if (!IS_ERR_OR_NULL(srcp2_ihdl))
-		ion_free(mfd->client, srcp2_ihdl);
+		ion_free(mfd->iclient, srcp2_ihdl);
 #endif
 	return ret;
 }

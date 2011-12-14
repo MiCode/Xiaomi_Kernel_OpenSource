@@ -3,7 +3,7 @@
  * Core MSM framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -3311,7 +3311,9 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	mfd->index = fbi_list_index;
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	mfd->client = msm_ion_client_create(-1, pdev->name);
+	mfd->iclient = msm_ion_client_create(-1, pdev->name);
+#else
+	mfd->iclient = NULL;
 #endif
 	/* link to the latest pdev */
 	mfd->pdev = this_dev;
