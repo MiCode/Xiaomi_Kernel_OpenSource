@@ -104,6 +104,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			(*get_batt_capacity_percent) (void);
 	int64_t				batt_id_min;
 	int64_t				batt_id_max;
+	bool				keep_btm_on_suspend;
 	int				trkl_voltage;
 	int				weak_voltage;
 	int				trkl_current;

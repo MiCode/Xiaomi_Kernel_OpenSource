@@ -974,22 +974,14 @@ uint32_t pm8xxx_adc_btm_end(void)
 {
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int i, rc;
-	u8 data_arb_btm_cntrl;
+	u8 data_arb_btm_cntrl = 0;
 	unsigned long flags;
 
 	disable_irq_nosync(adc_pmic->btm_warm_irq);
 	disable_irq_nosync(adc_pmic->btm_cool_irq);
 
 	spin_lock_irqsave(&adc_pmic->btm_lock, flags);
-	/* Set BTM registers to Disable mode */
-	rc = pm8xxx_adc_read_reg(PM8XXX_ADC_ARB_BTM_CNTRL1,
-						&data_arb_btm_cntrl);
-	if (rc < 0) {
-		spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
-		return rc;
-	}
 
-	data_arb_btm_cntrl |= ~PM8XXX_ADC_ARB_BTM_CNTRL1_EN_BTM;
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
 	for (i = 0; i < 2; i++) {
