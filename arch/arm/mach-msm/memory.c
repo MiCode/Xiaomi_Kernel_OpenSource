@@ -37,6 +37,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <../../mm/mm.h>
+#include <linux/fmem.h>
 
 void *strongly_ordered_page;
 char strongly_ordered_mem[PAGE_SIZE*2-4];
@@ -438,4 +439,14 @@ void store_ttbr0(void)
 	/* Store TTBR0 for post-mortem debugging purposes. */
 	asm("mrc p15, 0, %0, c2, c0, 0\n"
 		: "=r" (msm_ttbr0));
+}
+
+int request_fmem_c_region(void *unused)
+{
+	return fmem_set_state(FMEM_C_STATE);
+}
+
+int release_fmem_c_region(void *unused)
+{
+	return fmem_set_state(FMEM_T_STATE);
 }

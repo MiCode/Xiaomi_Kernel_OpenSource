@@ -52,5 +52,6 @@ static inline void *fmem_map_virtual_area(int cacheability) { return NULL; }
 static inline void fmem_unmap_virtual_area(void) { return; }
 #endif
 
-
+int request_fmem_c_region(void *unused);
+int release_fmem_c_region(void *unused);
 #endif
