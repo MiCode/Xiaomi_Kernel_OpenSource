@@ -132,6 +132,19 @@ enum usb_chg_type {
 };
 
 /**
+ * SPS Pipes direction.
+ *
+ * USB_TO_PEER_PERIPHERAL	USB (as Producer) to other
+ *                          peer peripheral.
+ * PEER_PERIPHERAL_TO_USB	Other Peripheral to
+ *                          USB (as consumer).
+ */
+enum usb_bam_pipe_dir {
+	USB_TO_PEER_PERIPHERAL,
+	PEER_PERIPHERAL_TO_USB,
+};
+
+/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
@@ -258,4 +271,21 @@ struct msm_hsic_host_platform_data {
 	unsigned hub_reset;
 };
 
+struct usb_bam_pipe_connect {
+	u32 src_phy_addr;
+	int src_pipe_index;
+	u32 dst_phy_addr;
+	int dst_pipe_index;
+	u32 data_fifo_base_offset;
+	u32 data_fifo_size;
+	u32 desc_fifo_base_offset;
+	u32 desc_fifo_size;
+};
+
+struct msm_usb_bam_platform_data {
+	struct usb_bam_pipe_connect *connections;
+	unsigned long usb_bam_phy_base;
+	unsigned long usb_bam_phy_size;
+	int usb_bam_num_pipes;
+};
 #endif

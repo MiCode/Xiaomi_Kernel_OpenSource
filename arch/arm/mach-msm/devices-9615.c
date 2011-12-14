@@ -99,6 +99,9 @@ struct platform_device msm9615_device_dmov = {
 	},
 };
 
+#define MSM_USB_BAM_BASE     0x12502000
+#define MSM_USB_BAM_SIZE     0x3DFFF
+
 static struct resource resources_otg[] = {
 	{
 		.start	= MSM9615_HSUSB_PHYS,
@@ -133,6 +136,28 @@ static struct resource resources_hsusb[] = {
 		.end	= USB1_HS_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+};
+
+static struct resource resources_usb_bam[] = {
+	{
+		.name	= "usb_bam_addr",
+		.start	= MSM_USB_BAM_BASE,
+		.end	= MSM_USB_BAM_BASE + MSM_USB_BAM_SIZE,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "usb_bam_irq",
+		.start	= USB1_HS_BAM_IRQ,
+		.end	= USB1_HS_BAM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_usb_bam = {
+	.name		= "usb_bam",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_usb_bam),
+	.resource	= resources_usb_bam,
 };
 
 struct platform_device msm_device_gadget_peripheral = {
