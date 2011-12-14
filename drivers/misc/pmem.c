@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/file.h>
+#include <linux/fmem.h>
 #include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
@@ -243,6 +244,10 @@ struct pmem_info {
 	 * map and unmap as needed
 	 */
 	int map_on_demand;
+	/*
+	 * memory will be reused through fmem
+	 */
+	int reusable;
 };
 #define to_pmem_info_id(a) (container_of(a, struct pmem_info, kobj)->id)
 
@@ -2793,19 +2798,26 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pr_info("allocating %lu bytes at %p (%lx physical) for %s\n",
 		pmem[id].size, pmem[id].vbase, pmem[id].base, pmem[id].name);
 
-	pmem[id].map_on_demand = pdata->map_on_demand;
+	pmem[id].reusable = pdata->reusable;
+	/* reusable pmem requires map on demand */
+	pmem[id].map_on_demand = pdata->map_on_demand || pdata->reusable;
 	if (pmem[id].map_on_demand) {
-		pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
-		if (!pmem_vma) {
-			pr_err("pmem: Failed to allocate virtual space for "
+		if (pmem[id].reusable) {
+			const struct fmem_data *fmem_info = fmem_get_info();
+			pmem[id].area = fmem_info->area;
+		} else {
+			pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
+			if (!pmem_vma) {
+				pr_err("pmem: Failed to allocate virtual space for "
 					"%s\n", pdata->name);
-			goto out_put_kobj;
-		}
-		pr_err("pmem: Reserving virtual address range %lx - %lx for"
+				goto out_put_kobj;
+			}
+			pr_err("pmem: Reserving virtual address range %lx - %lx for"
 				" %s\n", (unsigned long) pmem_vma->addr,
 				(unsigned long) pmem_vma->addr + pmem[id].size,
 				pdata->name);
-		pmem[id].area = pmem_vma;
+			pmem[id].area = pmem_vma;
+		}
 	} else
 		pmem[id].area = NULL;
 
