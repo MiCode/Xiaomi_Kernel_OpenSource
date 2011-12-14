@@ -85,7 +85,7 @@ int mdp4_overlay_writeback_on(struct platform_device *pdev)
 		ptype = mdp4_overlay_format2type(format);
 		if (ptype < 0)
 			pr_err("%s: format2type failed\n", __func__);
-		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER1, 0);
+		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER1);
 		if (pipe == NULL)
 			pr_info("%s: pipe_alloc failed\n", __func__);
 		pipe->pipe_used++;
@@ -330,8 +330,6 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 		pr_debug("%s: in writeback pan display 0x%x\n", __func__,
 				(unsigned int)writeback_pipe->blt_addr);
 		mdp4_writeback_kickoff_ui(mfd, writeback_pipe);
-
-		mdp4_stat.kickoff_writeback++;
 
 		/* signal if pan function is waiting for the
 		 * update completion */
