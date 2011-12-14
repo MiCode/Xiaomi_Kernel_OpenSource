@@ -642,9 +642,6 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	vid = msm_hsl_port->ver_id;
 	msm_hsl_write(port, baud_code, regmap[vid][UARTDM_CSR]);
 
-	if (vid == UARTDM_VERSION_14)
-		rxstale = 5000;
-
 	/* RX stale watermark */
 	watermark = UARTDM_IPR_STALE_LSB_BMSK & rxstale;
 	watermark |= UARTDM_IPR_STALE_TIMEOUT_MSB_BMSK & (rxstale << 2);
