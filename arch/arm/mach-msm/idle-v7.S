@@ -49,7 +49,9 @@ ENTRY(msm_pm_collapse)
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
-	addne	r0, r0, #CPU_SAVED_STATE_SIZE
+	mov	r2, #CPU_SAVED_STATE_SIZE
+	mul	r1, r1, r2
+	add	r0, r0, r1
 #endif
 
 	stmia   r0!, {r4-r14}
@@ -149,15 +151,18 @@ ENTRY(msm_pm_collapse_exit)
 	mov     r1, #'A'
 	str     r1, [r0, #0x00C]
 #endif
-	ldr     r1, =saved_state_end
+	ldr     r1, =saved_state
 	ldr     r2, =msm_pm_collapse_exit
 	adr     r3, msm_pm_collapse_exit
 	add     r1, r1, r3
 	sub     r1, r1, r2
+	add	r1, r1, #CPU_SAVED_STATE_SIZE
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r2, c0, c0, 5	/* MPIDR */
 	ands	r2, r2, #15		/* What CPU am I */
-	subeq	r1, r1, #CPU_SAVED_STATE_SIZE
+	mov	r3, #CPU_SAVED_STATE_SIZE
+	mul	r2, r2, r3
+	add	r1, r1, r2
 #endif
 
 #ifdef CONFIG_MSM_CPU_AVS
@@ -268,11 +273,7 @@ msm_pm_pc_pgd:
 	.long	0x0
 
 saved_state:
-#if (NR_CPUS >= 2)
-	.space	CPU_SAVED_STATE_SIZE * 2 /* This code only supports 2 cores */
-#else
-	.space	CPU_SAVED_STATE_SIZE
-#endif
+	.space	CPU_SAVED_STATE_SIZE * NR_CPUS
 saved_state_end:
 
 msm_pm_boot_vector:
