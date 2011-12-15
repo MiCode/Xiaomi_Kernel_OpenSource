@@ -303,6 +303,8 @@ enum msm_mdp_hw_revision {
 	MDP_REV_40,
 	MDP_REV_41,
 	MDP_REV_42,
+	MDP_REV_43,
+	MDP_REV_44,
 };
 
 struct msm_panel_common_pdata {

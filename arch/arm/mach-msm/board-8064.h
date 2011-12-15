@@ -15,7 +15,7 @@
 
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
-
+#include <mach/msm_memtypes.h>
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8921_GPIO_BASE)
@@ -47,4 +47,8 @@ void apq8064_init_pmic(void);
 extern struct msm_camera_board_info apq8064_camera_board_info;
 void apq8064_init_cam(void);
 #define APQ_8064_GSBI4_QUP_I2C_BUS_ID 4
+
+void apq8064_init_fb(void);
+void apq8064_allocate_fb_region(void);
+void apq8064_mdp_writeback(struct memtype_reserve *reserve_table);
 #endif

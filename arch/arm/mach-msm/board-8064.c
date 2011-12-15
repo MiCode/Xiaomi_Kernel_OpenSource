@@ -314,11 +314,17 @@ static void reserve_ion_memory(void)
 #endif
 }
 
+static void __init reserve_mdp_memory(void)
+{
+	apq8064_mdp_writeback(apq8064_reserve_table);
+}
+
 static void __init apq8064_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
 	reserve_ion_memory();
+	reserve_mdp_memory();
 }
 
 static struct reserve_info apq8064_reserve_info __initdata = {
@@ -1080,6 +1086,9 @@ static struct platform_device *sim_devices[] __initdata = {
 static struct platform_device *rumi3_devices[] __initdata = {
 	&apq8064_device_uart_gsbi1,
 	&msm_device_sps_apq8064,
+#ifdef CONFIG_MSM_ROTATOR
+	&msm_rotator_device,
+#endif
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -1185,6 +1194,11 @@ static void __init apq8064_common_init(void)
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 }
 
+static void __init apq8064_allocate_memory_regions(void)
+{
+	apq8064_allocate_fb_region();
+}
+
 static void __init apq8064_sim_init(void)
 {
 	struct msm_watchdog_pdata *wdog_pdata = (struct msm_watchdog_pdata *)
@@ -1201,6 +1215,7 @@ static void __init apq8064_rumi3_init(void)
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+	apq8064_init_fb();
 }
 
 static void __init apq8064_cdp_init(void)
@@ -1227,6 +1242,7 @@ MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_rumi3_init,
+	.init_early = apq8064_allocate_memory_regions,
 MACHINE_END
 
 MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
