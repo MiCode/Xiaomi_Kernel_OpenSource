@@ -1019,7 +1019,11 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 	img_size_v = (((uint32)data_buf[0xE] & 0xF) << 8)
 		| data_buf[0xD];
 
-	aspect_ratio_4_3 = (img_size_h * 3 == img_size_v * 4);
+	/*
+	 * aspect ratio as 4:3 if within specificed range , rathaer than being
+	 * absolute value
+	 */
+	aspect_ratio_4_3 = (abs(img_size_h * 3 - img_size_v * 4) < 5) ? 1 : 0;
 
 	max_num_of_elements  = sizeof(hdmi_edid_disp_mode_lut)
 		/ sizeof(*hdmi_edid_disp_mode_lut);
