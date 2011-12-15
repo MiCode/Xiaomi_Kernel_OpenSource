@@ -35,6 +35,7 @@
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
+#include <linux/spinlock.h>
 
 #define MSM_USB_BASE (hcd->regs)
 
@@ -51,6 +52,7 @@ struct msm_hsic_hcd {
 	atomic_t                in_lpm;
 	struct msm_xo_voter	*xo_handle;
 	struct wake_lock	wlock;
+	int			peripheral_status_irq;
 };
 
 static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
@@ -227,14 +229,17 @@ static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 {
 	int rc = 0;
 	struct msm_hsic_host_platform_data *pdata;
+	static int gpio_status;
 
 	pdata = mehci->dev->platform_data;
-	/*
-	 * In future versions, dedicated lines might be used for HSIC
-	 * strobe and data instead of gpios. Hence returning zero value.
-	 */
+
 	if (!pdata->strobe || !pdata->data)
 		return rc;
+
+	if (gpio_status == gpio_en)
+		return 0;
+
+	gpio_status = gpio_en;
 
 	if (!gpio_en)
 		goto free_gpio;
@@ -697,6 +702,18 @@ put_sys_clk:
 
 	return ret;
 }
+static irqreturn_t hsic_peripheral_status_change(int irq, void *dev_id)
+{
+	struct msm_hsic_hcd *mehci = dev_id;
+
+	pr_debug("%s: mechi:%p dev_id:%p\n", __func__, mehci, dev_id);
+
+	if (mehci)
+		msm_hsic_config_gpios(mehci, 0);
+
+	return IRQ_HANDLED;
+}
+
 static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
@@ -739,6 +756,12 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	mehci = hcd_to_hsic(hcd);
 	mehci->dev = &pdev->dev;
+
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IRQ,
+			"peripheral_status_irq");
+	if (res)
+		mehci->peripheral_status_irq = res->start;
 
 	ret = msm_hsic_init_clocks(mehci, 1);
 	if (ret) {
@@ -793,6 +816,18 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	wake_lock_init(&mehci->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
 	wake_lock(&mehci->wlock);
+
+	if (mehci->peripheral_status_irq) {
+		ret = request_threaded_irq(mehci->peripheral_status_irq,
+			NULL, hsic_peripheral_status_change,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+						| IRQF_SHARED,
+			"hsic_peripheral_status", mehci);
+		if (ret)
+			dev_err(&pdev->dev, "%s:request_irq:%d failed:%d",
+				__func__, mehci->peripheral_status_irq, ret);
+	}
+
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
 	 * hence, runtime framework automatically calls this driver's
@@ -827,6 +862,9 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata;
+
+	if (mehci->peripheral_status_irq)
+		free_irq(mehci->peripheral_status_irq, mehci);
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
