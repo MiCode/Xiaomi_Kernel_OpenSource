@@ -2525,12 +2525,12 @@ static int hdcp_authentication_part1(void)
 			goto error;
 		}
 
+		DEV_DBG("HDCP: R0'=%02x%02x\n", buf[1], buf[0]);
+		INIT_COMPLETION(hdmi_msm_state->hdcp_success_done);
 		/* 0x013C HDCP_RCVPORT_DATA2_0
 		[15:0] LINK0_RI */
 		HDMI_OUTP(0x013C, (((uint32)buf[1]) << 8) | buf[0]);
-		DEV_DBG("HDCP: R0'=%02x%02x\n", buf[1], buf[0]);
 
-		INIT_COMPLETION(hdmi_msm_state->hdcp_success_done);
 		timeout_count = wait_for_completion_interruptible_timeout(
 			&hdmi_msm_state->hdcp_success_done, HZ*2);
 
