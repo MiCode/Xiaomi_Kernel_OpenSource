@@ -43,4 +43,5 @@ int __init apq8064_add_sdcc(unsigned int controller,
 
 void apq8064_init_mmc(void);
 void apq8064_init_gpiomux(void);
+void apq8064_init_pmic(void);
 #endif

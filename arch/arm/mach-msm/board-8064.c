@@ -520,67 +520,6 @@ static struct spi_board_info spi_board_info[] __initdata = {
 	},
 };
 
-static struct pm8xxx_mpp_platform_data
-apq8064_pm8921_mpp_pdata __devinitdata = {
-	.mpp_base	= PM8921_MPP_PM_TO_SYS(1),
-};
-
-static struct pm8xxx_gpio_platform_data
-apq8064_pm8921_gpio_pdata __devinitdata = {
-	.gpio_base	= PM8921_GPIO_PM_TO_SYS(1),
-};
-
-static struct pm8xxx_irq_platform_data
-apq8064_pm8921_irq_pdata __devinitdata = {
-	.irq_base		= PM8921_IRQ_BASE,
-	.devirq			= PM8921_USR_IRQ_N,
-	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
-	.dev_id			= 0,
-};
-
-static struct pm8921_platform_data
-apq8064_pm8921_platform_data __devinitdata = {
-	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
-	.irq_pdata		= &apq8064_pm8921_irq_pdata,
-	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
-	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
-};
-
-static struct pm8xxx_irq_platform_data
-apq8064_pm8821_irq_pdata __devinitdata = {
-	.irq_base		= PM8821_IRQ_BASE,
-	.devirq			= PM8821_USR_IRQ_N,
-	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
-	.dev_id			= 1,
-};
-
-static struct pm8xxx_mpp_platform_data
-apq8064_pm8821_mpp_pdata __devinitdata = {
-	.mpp_base	= PM8821_MPP_PM_TO_SYS(1),
-};
-
-static struct pm8821_platform_data
-apq8064_pm8821_platform_data __devinitdata = {
-	.irq_pdata	= &apq8064_pm8821_irq_pdata,
-	.mpp_pdata	= &apq8064_pm8821_mpp_pdata,
-};
-
-static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-	.slave	= {
-		.name		= "pm8921-core",
-		.platform_data	= &apq8064_pm8921_platform_data,
-	},
-};
-
-static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-	.slave	= {
-		.name		= "pm8821-core",
-		.platform_data	= &apq8064_pm8821_platform_data,
-	},
-};
-
 static struct slim_boardinfo apq8064_slim_devices[] = {
 	{
 	.bus_num = 1,
@@ -639,13 +578,8 @@ static void __init apq8064_common_init(void)
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
-	apq8064_device_ssbi_pmic1.dev.platform_data =
-						&apq8064_ssbi_pm8921_pdata;
-	apq8064_device_ssbi_pmic2.dev.platform_data =
-				&apq8064_ssbi_pm8821_pdata;
+	apq8064_init_pmic();
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
-	apq8064_pm8921_platform_data.num_regulators =
-					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_init_mmc();
 	slim_register_board_info(apq8064_slim_devices,
@@ -664,8 +598,6 @@ static void __init apq8064_sim_init(void)
 
 static void __init apq8064_rumi3_init(void)
 {
-	apq8064_pm8921_irq_pdata.devirq = 0;
-	apq8064_pm8821_irq_pdata.devirq = 0;
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
