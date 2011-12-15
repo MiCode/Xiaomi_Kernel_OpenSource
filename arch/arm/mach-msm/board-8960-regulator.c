@@ -212,7 +212,6 @@ VREG_CONSUMERS(LVS7) = {
 };
 VREG_CONSUMERS(USB_OTG) = {
 	REGULATOR_SUPPLY("8921_usb_otg",	NULL),
-	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 VREG_CONSUMERS(HDMI_MVS) = {
 	REGULATOR_SUPPLY("8921_hdmi_mvs",	NULL),
@@ -236,6 +235,7 @@ VREG_CONSUMERS(EXT_3P3V) = {
 };
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
+	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 
 #define PM8921_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \

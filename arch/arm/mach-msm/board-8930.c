@@ -776,10 +776,8 @@ static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
 #else
-#define USB_5V_EN		42
 static void msm_hsusb_vbus_power(bool on)
 {
-	int rc;
 	static bool vbus_is_on;
 	static struct regulator *mvs_otg_switch;
 
@@ -793,42 +791,16 @@ static void msm_hsusb_vbus_power(bool on)
 			pr_err("Unable to get mvs_otg_switch\n");
 			return;
 		}
-		/* TODO: Replace this with appropriate PM8038 alternative */
-#ifndef MSM8930_PHASE_2
-		rc = gpio_request(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
-						"usb_5v_en");
-#endif
-		if (rc < 0) {
-			pr_err("failed to request usb_5v_en gpio\n");
-			goto put_mvs_otg;
-		}
 
-		/* TODO: Replace this with appropriate PM8038 alternative */
-#ifndef MSM8930_PHASE_2
-		rc = gpio_direction_output(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 1);
-		if (rc) {
-			pr_err("%s: unable to set_direction for gpio [%d]\n",
-				__func__, PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
-			goto free_usb_5v_en;
-		}
-#endif
 		if (regulator_enable(mvs_otg_switch)) {
 			pr_err("unable to enable mvs_otg_switch\n");
-			goto err_ldo_gpio_set_dir;
+			goto put_mvs_otg;
 		}
 
 		vbus_is_on = true;
 		return;
 	}
 	regulator_disable(mvs_otg_switch);
-
-/* TODO: Replace this with appropriate PM8038 alternative */
-#ifndef MSM8930_PHASE_2
-err_ldo_gpio_set_dir:
-	gpio_set_value(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
-free_usb_5v_en:
-	gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
-#endif
 put_mvs_otg:
 	regulator_put(mvs_otg_switch);
 	vbus_is_on = false;
