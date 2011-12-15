@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #define SCM_SVC_FUSE			0x8
 #define SCM_SVC_PWR			0x9
 #define SCM_SVC_CP			0xC
+#define SCM_SVC_DCVS			0xD
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #ifdef CONFIG_MSM_SCM
@@ -30,6 +31,8 @@ extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 
 extern s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
 extern s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
+extern s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
+		u32 arg4, u32 *ret1, u32 *ret2);
 
 #define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
 
@@ -50,6 +53,12 @@ static inline s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 }
 
 static inline s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
+		u32 arg3, u32 arg4, u32 *ret1, u32 *ret2)
 {
 	return 0;
 }
