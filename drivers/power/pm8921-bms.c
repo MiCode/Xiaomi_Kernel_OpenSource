@@ -1097,19 +1097,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	return bms_fake_battery ? BATTERY_POWER_SUPPLY_SOC : soc;
 }
 
-#define XOADC_MAX_1P25V		1312500
-#define XOADC_MIN_1P25V		1187500
-#define XOADC_MAX_0P625V		656250
-#define XOADC_MIN_0P625V		593750
-
-#define HKADC_V_PER_BIT_MUL_FACTOR	977
-#define HKADC_V_PER_BIT_DIV_FACTOR	10
-static int calib_hkadc_convert_microvolt(unsigned int phy)
-{
-	return (phy - 0x6000) *
-			HKADC_V_PER_BIT_MUL_FACTOR / HKADC_V_PER_BIT_DIV_FACTOR;
-}
-
 static void calib_hkadc(struct pm8921_bms_chip *chip)
 {
 	int voltage, rc;
@@ -1120,16 +1107,11 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
 		return;
 	}
-	voltage = calib_hkadc_convert_microvolt(result.adc_code);
+	voltage = xoadc_reading_to_microvolt(result.adc_code);
 
 	pr_debug("result 1.25v = 0x%x, voltage = %duV adc_meas = %lld\n",
 				result.adc_code, voltage, result.measurement);
 
-	/* check for valid range */
-	if (voltage > XOADC_MAX_1P25V)
-		voltage = XOADC_MAX_1P25V;
-	else if (voltage < XOADC_MIN_1P25V)
-		voltage = XOADC_MIN_1P25V;
 	chip->xoadc_v125 = voltage;
 
 	rc = pm8xxx_adc_read(the_chip->ref625mv_channel, &result);
@@ -1137,14 +1119,9 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
 		return;
 	}
-	voltage = calib_hkadc_convert_microvolt(result.adc_code);
+	voltage = xoadc_reading_to_microvolt(result.adc_code);
 	pr_debug("result 0.625V = 0x%x, voltage = %duV adc_meas = %lld\n",
 				result.adc_code, voltage, result.measurement);
-	/* check for valid range */
-	if (voltage > XOADC_MAX_0P625V)
-		voltage = XOADC_MAX_0P625V;
-	else if (voltage < XOADC_MIN_0P625V)
-		voltage = XOADC_MIN_0P625V;
 
 	chip->xoadc_v0625 = voltage;
 }
