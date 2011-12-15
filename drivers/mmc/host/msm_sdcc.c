@@ -4638,7 +4638,7 @@ msmsdcc_dbg_state_read(struct file *file, char __user *ubuf,
 		       size_t count, loff_t *ppos)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *) file->private_data;
-	char buf[1024];
+	char buf[200];
 	int max, i;
 
 	i = 0;
