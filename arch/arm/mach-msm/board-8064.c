@@ -152,7 +152,6 @@ static void __init reserve_memory_for(struct android_pmem_platform_data *p)
 	apq8064_reserve_table[p->memory_type].size += p->size;
 }
 
-
 static void __init reserve_pmem_memory(void)
 {
 	reserve_memory_for(&android_pmem_adsp_pdata);
@@ -521,130 +520,6 @@ static struct spi_board_info spi_board_info[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_KS8851
-static struct gpiomux_setting gpio_eth_config = {
-	.pull = GPIOMUX_PULL_NONE,
-	.drv = GPIOMUX_DRV_8MA,
-	.func = GPIOMUX_FUNC_GPIO,
-};
-
-/* The SPI configurations apply to GSBI 5*/
-static struct gpiomux_setting gpio_spi_config = {
-	.func = GPIOMUX_FUNC_2,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-/* The SPI configurations apply to GSBI 5 chip select 2*/
-static struct gpiomux_setting gpio_spi_cs2_config = {
-	.func = GPIOMUX_FUNC_3,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
-
-struct msm_gpiomux_config apq8064_ethernet_configs[NR_GPIO_IRQS] = {
-#ifdef CONFIG_KS8851
-	{
-		.gpio = KS8851_IRQ_GPIO,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
-			[GPIOMUX_ACTIVE] = &gpio_eth_config,
-		}
-	},
-#endif
-};
-
-static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
-#ifdef CONFIG_KS8851
-	{
-		.gpio      = 51,		/* GSBI5 QUP SPI_DATA_MOSI */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
-		},
-	},
-	{
-		.gpio      = 52,		/* GSBI5 QUP SPI_DATA_MISO */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
-		},
-	},
-	{
-		.gpio      = 31,		/* GSBI5 QUP SPI_CS2_N */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs2_config,
-		},
-	},
-	{
-		.gpio      = 54,		/* GSBI5 QUP SPI_CLK */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
-		},
-	},
-#endif
-};
-
-static struct pm8xxx_mpp_platform_data
-apq8064_pm8921_mpp_pdata __devinitdata = {
-	.mpp_base	= PM8921_MPP_PM_TO_SYS(1),
-};
-
-static struct pm8xxx_gpio_platform_data
-apq8064_pm8921_gpio_pdata __devinitdata = {
-	.gpio_base	= PM8921_GPIO_PM_TO_SYS(1),
-};
-
-static struct pm8xxx_irq_platform_data
-apq8064_pm8921_irq_pdata __devinitdata = {
-	.irq_base		= PM8921_IRQ_BASE,
-	.devirq			= PM8921_USR_IRQ_N,
-	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
-	.dev_id			= 0,
-};
-
-static struct pm8921_platform_data
-apq8064_pm8921_platform_data __devinitdata = {
-	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
-	.irq_pdata		= &apq8064_pm8921_irq_pdata,
-	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
-	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
-};
-
-static struct pm8xxx_irq_platform_data
-apq8064_pm8821_irq_pdata __devinitdata = {
-	.irq_base		= PM8821_IRQ_BASE,
-	.devirq			= PM8821_USR_IRQ_N,
-	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
-	.dev_id			= 1,
-};
-
-static struct pm8xxx_mpp_platform_data
-apq8064_pm8821_mpp_pdata __devinitdata = {
-	.mpp_base	= PM8821_MPP_PM_TO_SYS(1),
-};
-
-static struct pm8821_platform_data
-apq8064_pm8821_platform_data __devinitdata = {
-	.irq_pdata	= &apq8064_pm8821_irq_pdata,
-	.mpp_pdata	= &apq8064_pm8821_mpp_pdata,
-};
-
-static struct msm_ssbi_platform_data apq8064_ssbi_pm8921_pdata __devinitdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-	.slave	= {
-		.name		= "pm8921-core",
-		.platform_data	= &apq8064_pm8921_platform_data,
-	},
-};
-
-static struct msm_ssbi_platform_data apq8064_ssbi_pm8821_pdata __devinitdata = {
-	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
-	.slave	= {
-		.name		= "pm8821-core",
-		.platform_data	= &apq8064_pm8821_platform_data,
-	},
-};
-
 static struct slim_boardinfo apq8064_slim_devices[] = {
 	{
 	.bus_num = 1,
@@ -658,75 +533,10 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.src_clk_rate = 24000000,
 };
 
-
-static struct gpiomux_setting audio_auxpcm[] = {
-	/* Suspended state */
-	{
-		.func = GPIOMUX_FUNC_GPIO,
-		.drv = GPIOMUX_DRV_2MA,
-		.pull = GPIOMUX_PULL_NONE,
-	},
-	/* Active state */
-	{
-		.func = GPIOMUX_FUNC_1,
-		.drv = GPIOMUX_DRV_2MA,
-		.pull = GPIOMUX_PULL_NONE,
-	},
-};
-static struct msm_gpiomux_config apq8064_audio_auxpcm_configs[] __initdata = {
-	{
-		.gpio = 43,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
-			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
-		},
-	},
-	{
-		.gpio = 44,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
-			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
-		},
-	},
-	{
-		.gpio = 45,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
-			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
-		},
-	},
-	{
-		.gpio = 46,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
-			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
-		},
-	},
-};
-
 static void __init apq8064_i2c_init(void)
 {
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
 					&apq8064_i2c_qup_gsbi4_pdata;
-}
-
-static int __init gpiomux_init(void)
-{
-	int rc;
-
-	rc = msm_gpiomux_init(NR_GPIO_IRQS);
-	if (rc) {
-		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
-		return rc;
-	}
-	msm_gpiomux_install(apq8064_ethernet_configs,
-			ARRAY_SIZE(apq8064_ethernet_configs));
-
-	msm_gpiomux_install(apq8064_gsbi_configs,
-			ARRAY_SIZE(apq8064_gsbi_configs));
-	msm_gpiomux_install(apq8064_audio_auxpcm_configs,
-			ARRAY_SIZE(apq8064_audio_auxpcm_configs));
-	return 0;
 }
 
 #ifdef CONFIG_KS8851
@@ -763,18 +573,13 @@ static void __init apq8064_common_init(void)
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	apq8064_clock_init();
-	gpiomux_init();
+	apq8064_init_gpiomux();
 	apq8064_i2c_init();
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
-	apq8064_device_ssbi_pmic1.dev.platform_data =
-						&apq8064_ssbi_pm8921_pdata;
-	apq8064_device_ssbi_pmic2.dev.platform_data =
-				&apq8064_ssbi_pm8821_pdata;
+	apq8064_init_pmic();
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
-	apq8064_pm8921_platform_data.num_regulators =
-					msm8064_pm8921_regulator_pdata_len;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_init_mmc();
 	slim_register_board_info(apq8064_slim_devices,
@@ -793,8 +598,6 @@ static void __init apq8064_sim_init(void)
 
 static void __init apq8064_rumi3_init(void)
 {
-	apq8064_pm8921_irq_pdata.devirq = 0;
-	apq8064_pm8821_irq_pdata.devirq = 0;
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
