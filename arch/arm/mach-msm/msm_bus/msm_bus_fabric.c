@@ -71,7 +71,7 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 			SLAVE_NODE);
 
 	if (info->node_info->slaveclk[DUAL_CTX]) {
-		info->nodeclk[DUAL_CTX].clk = clk_get(NULL,
+		info->nodeclk[DUAL_CTX].clk = clk_get_sys("msm_bus",
 			info->node_info->slaveclk[DUAL_CTX]);
 		if (IS_ERR(info->nodeclk[DUAL_CTX].clk)) {
 			MSM_BUS_ERR("Could not get clock for %s\n",
@@ -144,8 +144,8 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 
 		for (ctx = 0; ctx < NUM_CTX; ctx++) {
 			if (info->node_info->slaveclk[ctx]) {
-				info->nodeclk[ctx].clk = clk_get(NULL,
-						info->node_info->slaveclk[ctx]);
+				info->nodeclk[ctx].clk = clk_get_sys("msm_bus",
+					info->node_info->slaveclk[ctx]);
 				if (IS_ERR(info->nodeclk[ctx].clk)) {
 					MSM_BUS_ERR("Couldn't get clk %s\n",
 						info->node_info->slaveclk[ctx]);
@@ -156,7 +156,7 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 			}
 		}
 		if (info->node_info->memclk) {
-			info->memclk.clk = clk_get(NULL,
+			info->memclk.clk = clk_get_sys("msm_bus",
 					info->node_info->memclk);
 			if (IS_ERR(info->memclk.clk)) {
 				MSM_BUS_ERR("Couldn't get clk %s\n",
@@ -652,10 +652,21 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 		fabric->fabdev.id);
 	fabric->fabdev.board_algo = fabric->pdata->board_algo;
 
+	/*
+	 * clk and bw for fabric->info will contain the max bw and clk
+	 * it will allow. This info will come from the boards file.
+	 */
+	ret = msm_bus_fabric_device_register(&fabric->fabdev);
+	if (ret) {
+		MSM_BUS_ERR("Error registering fabric %d ret %d\n",
+			fabric->fabdev.id, ret);
+		goto err;
+	}
+
 	for (ctx = 0; ctx < NUM_CTX; ctx++) {
 		if (pdata->fabclk[ctx]) {
-			fabric->info.nodeclk[ctx].clk = clk_get(NULL,
-							pdata->fabclk[ctx]);
+			fabric->info.nodeclk[ctx].clk = clk_get(
+				&fabric->fabdev.dev, pdata->fabclk[ctx]);
 			if (IS_ERR(fabric->info.nodeclk[ctx].clk)) {
 				MSM_BUS_ERR("Couldn't get clock %s\n",
 					pdata->fabclk[ctx]);
@@ -686,16 +697,6 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 				goto err;
 			}
 		}
-	}
-	/*
-	 * clk and bw for fabric->info will contain the max bw and clk
-	 * it will allow. This info will come from the boards file.
-	 */
-	ret = msm_bus_fabric_device_register(&fabric->fabdev);
-	if (ret) {
-		MSM_BUS_ERR("Error registering fabric %d ret %d\n",
-			fabric->fabdev.id, ret);
-		goto err;
 	}
 
 	return ret;
