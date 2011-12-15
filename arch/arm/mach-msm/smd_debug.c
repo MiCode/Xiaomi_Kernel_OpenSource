@@ -431,7 +431,8 @@ static int debug_read_mem(char *buf, int max)
 	return i;
 }
 
-static int debug_read_ch_v1(char *buf, int max)
+#if (!defined(CONFIG_MSM_SMD_PKG4) && !defined(CONFIG_MSM_SMD_PKG3))
+static int debug_read_ch(char *buf, int max)
 {
 	void *shared;
 	int n, i = 0;
@@ -450,8 +451,8 @@ static int debug_read_ch_v1(char *buf, int max)
 
 	return i;
 }
-
-static int debug_read_ch_v2(char *buf, int max)
+#else
+static int debug_read_ch(char *buf, int max)
 {
 	void *shared, *buffer;
 	unsigned buffer_sz;
@@ -476,20 +477,7 @@ static int debug_read_ch_v2(char *buf, int max)
 
 	return i;
 }
-
-static int debug_read_ch(char *buf, int max)
-{
-	uint32_t *smd_ver;
-
-	smd_ver = smem_alloc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t));
-
-	if (smd_ver && (((smd_ver[VERSION_MODEM] >> 16) >= 1) ||
-			((smd_ver[VERSION_QDSP6] >> 16) >= 1) ||
-			((smd_ver[VERSION_DSPS] >> 16) >= 1)))
-		return debug_read_ch_v2(buf, max);
-	else
-		return debug_read_ch_v1(buf, max);
-}
+#endif
 
 static int debug_read_smem_version(char *buf, int max)
 {
