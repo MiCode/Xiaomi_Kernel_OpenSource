@@ -1975,7 +1975,7 @@ static void set_appropriate_battery_current(struct pm8921_chg_chip *chip)
 	if (chip->is_bat_warm)
 		chg_current = min(chg_current, chip->warm_bat_chg_current);
 
-	if (thermal_mitigation != 0 && !chip->thermal_mitigation)
+	if (thermal_mitigation != 0 && chip->thermal_mitigation)
 		chg_current = min(chg_current,
 				chip->thermal_mitigation[thermal_mitigation]);
 
