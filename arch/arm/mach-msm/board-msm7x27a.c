@@ -554,7 +554,7 @@ struct bt_vreg_info {
 };
 static struct bt_vreg_info bt_vregs[] = {
 	{"msme1", 2, 1800000, 1800000, 0, NULL},
-	{"bt", 21, 2900000, 3050000, 1, NULL}
+	{"bt", 21, 2900000, 3300000, 1, NULL}
 };
 
 static int bahama_bt(int on)
