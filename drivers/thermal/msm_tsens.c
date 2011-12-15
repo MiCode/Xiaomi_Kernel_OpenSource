@@ -511,7 +511,6 @@ static int tsens_resume(struct device *dev)
 	reg = readl_relaxed(TSENS_CNTL_ADDR);
 	writel_relaxed(reg | TSENS_SW_RST, TSENS_CNTL_ADDR);
 	reg |= TSENS_SLP_CLK_ENA | TSENS_EN | (TSENS_MEASURE_PERIOD << 16) |
-		TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR |
 		TSENS_MIN_STATUS_MASK | TSENS_MAX_STATUS_MASK |
 		(((1 << TSENS_NUM_SENSORS) - 1) << 3);
 
