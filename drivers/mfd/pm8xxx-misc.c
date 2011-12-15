@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/misc.h>
 
@@ -130,6 +131,10 @@
 
 #define UART_PATH_SEL_MASK			0x60
 #define UART_PATH_SEL_SHIFT			0x5
+
+/* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
+#define PM8901_DELAY_AFTER_REG_DISABLE_MS	4
+#define PM8901_DELAY_BEFORE_SHUTDOWN_MS		8
 
 struct pm8xxx_misc_chip {
 	struct list_head			link;
@@ -420,10 +425,12 @@ static int __pm8901_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 					"rc=%d\n", rc);
 				goto read_write_err;
 			}
+			mdelay(PM8901_DELAY_AFTER_REG_DISABLE_MS);
 		}
 	}
 
 read_write_err:
+	mdelay(PM8901_DELAY_BEFORE_SHUTDOWN_MS);
 	return rc;
 }
 

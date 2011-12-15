@@ -13,7 +13,6 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/delay.h>
 #include <linux/mfd/core.h>
 #include <linux/msm_ssbi.h>
 #include <linux/mfd/pmic8901.h>
@@ -31,19 +30,6 @@
 #define REG_TEMP_ALRM_CTRL		0x23
 #define REG_TEMP_ALRM_PWM		0x24
 
-/* FTS regulator PMR registers */
-#define SSBI_REG_ADDR_S1_PMR		(0xA7)
-#define SSBI_REG_ADDR_S2_PMR		(0xA8)
-#define SSBI_REG_ADDR_S3_PMR		(0xA9)
-#define SSBI_REG_ADDR_S4_PMR		(0xAA)
-
-#define REGULATOR_PMR_STATE_MASK	0x60
-#define REGULATOR_PMR_STATE_OFF		0x20
-
-/* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
-#define DELAY_AFTER_REG_DISABLE_MS	4
-#define DELAY_BEFORE_SHUTDOWN_MS	8
-
 #define SINGLE_IRQ_RESOURCE(_name, _irq) \
 { \
 	.name	= _name, \
@@ -59,63 +45,6 @@ struct pm8901_chip {
 	struct mfd_cell			*mfd_regulators;
 	u8				revision;
 };
-
-static struct pm8901_chip *pmic_chip;
-
-static inline int
-ssbi_read(struct device *dev, u16 addr, u8 *buf, size_t len)
-{
-	return msm_ssbi_read(dev->parent, addr, buf, len);
-}
-
-static inline int
-ssbi_write(struct device *dev, u16 addr, u8 *buf, size_t len)
-{
-	return msm_ssbi_write(dev->parent, addr, buf, len);
-}
-
-int pm8901_reset_pwr_off(int reset)
-{
-	int rc = 0, i;
-	u8 pmr;
-	u8 pmr_addr[4] = {
-		SSBI_REG_ADDR_S2_PMR,
-		SSBI_REG_ADDR_S3_PMR,
-		SSBI_REG_ADDR_S4_PMR,
-		SSBI_REG_ADDR_S1_PMR,
-	};
-
-	if (pmic_chip == NULL)
-		return -ENODEV;
-
-	/* Turn off regulators S1, S2, S3, S4 when shutting down. */
-	if (!reset) {
-		for (i = 0; i < 4; i++) {
-			rc = ssbi_read(pmic_chip->dev, pmr_addr[i], &pmr, 1);
-			if (rc) {
-				pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
-				       __func__, pmr_addr[i], rc);
-				goto get_out;
-			}
-
-			pmr &= ~REGULATOR_PMR_STATE_MASK;
-			pmr |= REGULATOR_PMR_STATE_OFF;
-
-			rc = ssbi_write(pmic_chip->dev, pmr_addr[i], &pmr, 1);
-			if (rc) {
-				pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d"
-				       "\n", __func__, pmr_addr[i], pmr, rc);
-				goto get_out;
-			}
-			mdelay(DELAY_AFTER_REG_DISABLE_MS);
-		}
-	}
-
-get_out:
-	mdelay(DELAY_BEFORE_SHUTDOWN_MS);
-	return rc;
-}
-EXPORT_SYMBOL(pm8901_reset_pwr_off);
 
 static int pm8901_readb(const struct device *dev, u16 addr, u8 *val)
 {
@@ -189,6 +118,11 @@ static struct pm8xxx_drvdata pm8901_drvdata = {
 	.pmic_read_irq_stat	= pm8901_read_irq_stat,
 	.pmic_get_version	= pm8901_get_version,
 	.pmic_get_revision	= pm8901_get_revision,
+};
+
+static struct mfd_cell misc_cell = {
+	.name		= PM8XXX_MISC_DEV_NAME,
+	.id		= 1,
 };
 
 static struct mfd_cell debugfs_cell = {
@@ -315,6 +249,17 @@ pm8901_add_subdevices(const struct pm8901_platform_data *pdata,
 		goto bail;
 	}
 
+	if (pdata->misc_pdata) {
+		misc_cell.platform_data = pdata->misc_pdata;
+		misc_cell.pdata_size = sizeof(struct pm8xxx_misc_platform_data);
+		rc = mfd_add_devices(pmic->dev, 0, &misc_cell, 1, NULL,
+				      irq_base);
+		if (rc) {
+			pr_err("Failed to add  misc subdevice ret=%d\n", rc);
+			goto bail;
+		}
+	}
+
 	return rc;
 
 bail:
@@ -346,7 +291,6 @@ static int pm8901_probe(struct platform_device *pdev)
 
 	pm8901_drvdata.pm_chip_data = pmic;
 	platform_set_drvdata(pdev, &pm8901_drvdata);
-	pmic_chip = pmic;
 
 	/* Read PMIC chip revision */
 	rc = pm8901_readb(pmic->dev, PM8901_REG_REV, &pmic->revision);
