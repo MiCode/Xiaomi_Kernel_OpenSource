@@ -92,16 +92,17 @@
 #define VEN_LEVEL_H264_2p2	0x10/* H.264 Level 2.2 */
 #define VEN_LEVEL_H264_3	0x11/* H.264 Level 3   */
 #define VEN_LEVEL_H264_3p1	0x12/* H.264 Level 3.1 */
-#define VEN_LEVEL_H264_4	0x13/* H.264 Level 4   */
+#define VEN_LEVEL_H264_3p2	0x13/* H.264 Level 3.2 */
+#define VEN_LEVEL_H264_4	0x14/* H.264 Level 4   */
 
-#define VEN_LEVEL_H263_10	0x14/* H.263 Level 10  */
-#define VEN_LEVEL_H263_20	0x15/* H.263 Level 20  */
-#define VEN_LEVEL_H263_30	0x16/* H.263 Level 30  */
-#define VEN_LEVEL_H263_40	0x17/* H.263 Level 40  */
-#define VEN_LEVEL_H263_45	0x18/* H.263 Level 45  */
-#define VEN_LEVEL_H263_50	0x19/* H.263 Level 50  */
-#define VEN_LEVEL_H263_60	0x1A/* H.263 Level 60  */
-#define VEN_LEVEL_H263_70	0x1B/* H.263 Level 70  */
+#define VEN_LEVEL_H263_10	0x15/* H.263 Level 10  */
+#define VEN_LEVEL_H263_20	0x16/* H.263 Level 20  */
+#define VEN_LEVEL_H263_30	0x17/* H.263 Level 30  */
+#define VEN_LEVEL_H263_40	0x18/* H.263 Level 40  */
+#define VEN_LEVEL_H263_45	0x19/* H.263 Level 45  */
+#define VEN_LEVEL_H263_50	0x1A/* H.263 Level 50  */
+#define VEN_LEVEL_H263_60	0x1B/* H.263 Level 60  */
+#define VEN_LEVEL_H263_70	0x1C/* H.263 Level 70  */
 
 /*Entropy coding model selection for H.264 encoder.*/
 #define VEN_ENTROPY_MODEL_CAVLC	1
