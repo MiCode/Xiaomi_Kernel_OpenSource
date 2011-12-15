@@ -20,6 +20,7 @@
 #include <mach/rpm-regulator-8660.h>
 #include <mach/rpm-regulator-8960.h>
 #include <mach/rpm-regulator-9615.h>
+#include <mach/rpm-regulator-copper.h>
 
 /**
  * enum rpm_vreg_version - supported RPM regulator versions
@@ -136,6 +137,7 @@ enum rpm_vreg_voter {
 	RPM_VREG_VOTER_COUNT,
 };
 
+#ifdef CONFIG_MSM_RPM_REGULATOR
 /**
  * rpm_vreg_set_voltage - vote for a min_uV value of specified regualtor
  * @vreg: ID for regulator
@@ -171,5 +173,26 @@ int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
  * Returns 0 on success or errno.
  */
 int rpm_vreg_set_frequency(int vreg_id, enum rpm_vreg_freq freq);
+
+#else
+
+/*
+ * These stubs exist to allow consumers of these APIs to compile and run
+ * in absence of a real RPM regulator driver. It is assumed that they are
+ * aware of the state of their regulators and have either set them
+ * correctly by some other means or don't care about their state at all.
+ */
+static inline int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter,
+				       int min_uV, int max_uV, int sleep_also)
+{
+	return 0;
+}
+
+static inline int rpm_vreg_set_frequency(int vreg_id, enum rpm_vreg_freq freq)
+{
+	return 0;
+}
+
+#endif /* CONFIG_MSM_RPM_REGULATOR */
 
 #endif

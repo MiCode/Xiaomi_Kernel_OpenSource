@@ -174,8 +174,14 @@ obj-$(CONFIG_MACH_QSD8X50_FFA) += board-qsd8x50.o
 obj-$(CONFIG_ARCH_MSM8X60) += devices-msm8x60.o clock-local.o clock-8x60.o acpuclock-8x60.o
 obj-$(CONFIG_ARCH_MSM8X60) += clock-rpm.o
 obj-$(CONFIG_ARCH_MSM8X60) += saw-regulator.o
-obj-$(CONFIG_ARCH_MSM8X60) += rpm-regulator.o rpm-regulator-8660.o
 obj-$(CONFIG_ARCH_MSM8X60) += footswitch-8x60.o
+
+ifdef CONFIG_MSM_RPM_REGULATOR
+obj-y += rpm-regulator.o
+obj-$(CONFIG_ARCH_MSM8X60) += rpm-regulator-8660.o
+obj-$(CONFIG_ARCH_MSM8960) += rpm-regulator-8960.o
+obj-$(CONFIG_ARCH_MSM9615) += rpm-regulator-9615.o
+endif
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
@@ -227,7 +233,7 @@ obj-$(CONFIG_ARCH_MSM8960) += clock-local.o clock-dss-8960.o clock-8960.o clock-
 obj-$(CONFIG_ARCH_MSM8960) += footswitch-8x60.o
 obj-$(CONFIG_ARCH_MSM8960) += acpuclock-8960.o
 obj-$(CONFIG_ARCH_MSM8960) += memory_topology.o
-obj-$(CONFIG_ARCH_MSM8960) += saw-regulator.o rpm-regulator.o rpm-regulator-8960.o
+obj-$(CONFIG_ARCH_MSM8960) += saw-regulator.o
 obj-$(CONFIG_ARCH_MSM8960) += devices-8960.o
 obj-$(CONFIG_ARCH_APQ8064) += devices-8960.o devices-8064.o
 board-8960-all-objs += board-8960.o board-8960-camera.o board-8960-display.o board-8960-pmic.o board-8960-storage.o board-8960-gpiomux.o
@@ -246,7 +252,6 @@ obj-$(CONFIG_MACH_APQ8064_SIM) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_MACH_APQ8064_RUMI3) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o
-obj-$(CONFIG_ARCH_MSM9615) += rpm-regulator.o rpm-regulator-9615.o
 obj-$(CONFIG_ARCH_MSMCOPPER) += board-copper.o board-dt.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
