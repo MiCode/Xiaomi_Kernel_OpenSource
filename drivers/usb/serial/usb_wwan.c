@@ -406,6 +406,10 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	portdata = usb_get_serial_port_data(port);
 	intfdata = serial->private;
 
+	/* explicitly set the driver mode to raw */
+	tty->raw = 0;
+	tty->real_raw = 0;
+
 	dbg("%s", __func__);
 
 	/* Start reading from the IN endpoint */
