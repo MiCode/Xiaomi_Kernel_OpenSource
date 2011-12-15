@@ -282,7 +282,7 @@ EXPORT_SYMBOL(scm_call);
  * This shall only be used with commands that are guaranteed to be
  * uninterruptable, atomic and SMP safe.
  */
-u32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
+s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 1);
@@ -312,7 +312,7 @@ EXPORT_SYMBOL(scm_call_atomic1);
  * This shall only be used with commands that are guaranteed to be
  * uninterruptable, atomic and SMP safe.
  */
-u32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 {
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 2);

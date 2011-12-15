@@ -27,8 +27,8 @@
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len);
 
-extern u32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
-extern u32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
+extern s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
+extern s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
 
 #define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
 
@@ -43,12 +43,12 @@ static inline int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 	return 0;
 }
 
-static inline u32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
+static inline s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	return 0;
 }
 
-static inline u32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+static inline s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 {
 	return 0;
 }
