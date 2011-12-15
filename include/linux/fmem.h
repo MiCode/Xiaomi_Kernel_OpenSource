@@ -33,9 +33,17 @@ enum fmem_state {
 	FMEM_O_STATE,
 };
 
+#ifdef CONFIG_QCACHE
 struct fmem_data *fmem_get_info(void);
 int fmem_set_state(enum fmem_state);
 void lock_fmem_state(void);
 void unlock_fmem_state(void);
+#else
+static inline struct fmem_data *fmem_get_info(void) { return NULL; }
+static inline int fmem_set_state(enum fmem_state f) { return -ENODEV; }
+static inline void lock_fmem_state(void) { return; }
+static inline void unlock_fmem_state(void) { return; }
+#endif
+
 
 #endif
