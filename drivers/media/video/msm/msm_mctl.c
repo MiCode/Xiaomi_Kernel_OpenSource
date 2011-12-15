@@ -543,6 +543,15 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto msm_open_done;
 		}
 
+		if (sync->actctrl.a_power_up)
+			rc = sync->actctrl.a_power_up(
+				sync->sdata->actuator_info);
+
+		if (rc < 0) {
+			pr_err("%s: act power failed:%d\n", __func__, rc);
+			goto msm_open_done;
+		}
+
 		pm_qos_add_request(&p_mctl->pm_qos_req_list,
 					PM_QOS_CPU_DMA_LATENCY,
 					PM_QOS_DEFAULT_VALUE);
@@ -576,7 +585,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 
 	if (p_mctl->sync.actctrl.a_power_down)
-		p_mctl->sync.actctrl.a_power_down();
+		p_mctl->sync.actctrl.a_power_down(sync->sdata->actuator_info);
 
 	if (p_mctl->sync.sctrl.s_release)
 		p_mctl->sync.sctrl.s_release();
