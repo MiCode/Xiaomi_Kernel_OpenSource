@@ -846,6 +846,7 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 				ddl_context->dram_base_a, ddl->shared_mem
 				[ddl->command_channel]);
 	init_buf_param.dpb_count = decoder->dp_buf.no_of_dec_pic_buf;
+	init_buf_param.dmx_disable = decoder->dmx_disable;
 	ddl_context->vidc_decode_init_buffers[ddl->command_channel] (
 		&init_buf_param);
 	return VCD_S_SUCCESS;
@@ -892,6 +893,9 @@ void ddl_vidc_decode_frame_run(struct ddl_client_context *ddl)
 	dec_param.release_dpb_bit_mask = dpb_mask->hw_mask;
 	dec_param.decode = VIDC_1080P_DEC_TYPE_FRAME_DATA;
 	dec_param.dpb_count = decoder->dp_buf.no_of_dec_pic_buf;
+	dec_param.dmx_disable = decoder->dmx_disable;
+	if (decoder->dmx_disable)
+		ddl_fill_dec_desc_buffer(ddl);
 	if (decoder->flush_pending) {
 		dec_param.dpb_flush = true;
 		decoder->flush_pending = false;

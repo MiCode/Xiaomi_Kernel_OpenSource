@@ -67,6 +67,8 @@ struct vcd_frame_data {
 	enum vcd_frame frame;
 	u32 ip_frm_tag;
 	u32 intrlcd_ip_frm_tag;
+	u8 *desc_buf;
+	u32 desc_size;
 };
 
 struct vcd_sequence_hdr {

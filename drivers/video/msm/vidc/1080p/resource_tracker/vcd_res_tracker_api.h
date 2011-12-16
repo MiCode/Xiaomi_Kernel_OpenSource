@@ -32,4 +32,5 @@ u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr);
 u32 res_trk_get_mem_type(void);
 u32 res_trk_get_enable_ion(void);
 struct ion_client *res_trk_get_ion_client(void);
+u32 res_trk_get_disable_dmx(void);
 #endif

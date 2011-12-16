@@ -56,6 +56,7 @@ struct video_client_ctx {
 	struct ion_handle *seq_hdr_ion_handle;
 	struct ion_handle *h264_mv_ion_handle;
 	struct ion_handle *recon_buffer_ion_handle[4];
+	u32 dmx_disable;
 };
 
 void __iomem *vidc_get_ioaddr(void);
