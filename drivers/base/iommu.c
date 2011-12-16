@@ -68,7 +68,7 @@ struct iommu_domain *iommu_domain_alloc(int flags)
 	if (!iommu_found())
 		return NULL;
 
-	domain = kmalloc(sizeof(*domain), GFP_KERNEL);
+	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
 	if (!domain)
 		return NULL;
 
