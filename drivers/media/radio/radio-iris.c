@@ -2979,9 +2979,11 @@ static int iris_vidioc_g_tuner(struct file *file, void *priv,
 {
 	int retval;
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
-	if (tuner->index > 0)
-		return -EINVAL;
 
+	if (tuner->index > 0) {
+		FMDERR("Invalid Tuner Index");
+		return -EINVAL;
+	}
 	if (radio->mode == FM_RECV) {
 		retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD, radio->fm_hdev);
 		if (retval < 0) {
@@ -3057,16 +3059,12 @@ static int iris_vidioc_g_frequency(struct file *file, void *priv,
 		struct v4l2_frequency *freq)
 {
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
-	int retval;
-
-	freq->type = V4L2_TUNER_RADIO;
-	retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD, radio->fm_hdev);
-	if (retval < 0)
-		FMDERR("get frequency failed %d\n", retval);
-	else
+	if ((freq != NULL) && (radio != NULL)) {
 		freq->frequency =
 			radio->fm_st_rsp.station_rsp.station_freq * TUNE_PARAM;
-	return retval;
+	} else
+		return -EINVAL;
+	return 0;
 }
 
 static int iris_vidioc_s_frequency(struct file *file, void *priv,
