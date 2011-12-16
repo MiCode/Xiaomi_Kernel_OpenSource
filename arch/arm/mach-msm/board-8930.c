@@ -1996,7 +1996,7 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_hsic();
 	msm8930_init_cam();
 	msm8930_init_mmc();
-	acpuclk_init(&acpuclk_8960_soc_data);
+	acpuclk_init(&acpuclk_8930_soc_data);
 	register_i2c_devices();
 	msm8930_init_fb();
 	slim_register_board_info(msm_slim_devices,

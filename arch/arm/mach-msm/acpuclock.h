@@ -109,5 +109,6 @@ extern struct acpuclk_soc_data acpuclk_8x60_soc_data;
 extern struct acpuclk_soc_data acpuclk_8960_soc_data;
 extern struct acpuclk_soc_data acpuclk_9xxx_soc_data;
 extern struct acpuclk_soc_data acpuclk_9615_soc_data;
+extern struct acpuclk_soc_data acpuclk_8930_soc_data;
 
 #endif
