@@ -30,6 +30,7 @@
 #define LPASS_BE_INCALL_RECORD_RX "(Backend) INCALL_RECORD_TX"
 #define LPASS_BE_INCALL_RECORD_TX "(Backend) INCALL_RECORD_RX"
 
+#define LPASS_BE_MI2S_RX "(Backend) MI2S_RX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -69,6 +70,7 @@ enum {
 	MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 	MSM_BACKEND_DAI_INCALL_RECORD_RX,
 	MSM_BACKEND_DAI_INCALL_RECORD_TX,
+	MSM_BACKEND_DAI_MI2S_RX,
 	MSM_BACKEND_DAI_MAX,
 };
 
