@@ -22,10 +22,6 @@
  */
 #define MAX_BRIDGE_DEVICES 2
 
-/*PID 9001*/
-#define DUN_IFACE_NUM 2
-#define TETHERED_RMNET_IFACE_NUM 3
-
 struct bridge_ops {
 	int (*send_pkt)(void *, void *, size_t actual);
 	void (*send_cbits)(void *, unsigned int);

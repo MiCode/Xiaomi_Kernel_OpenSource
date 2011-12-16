@@ -22,7 +22,7 @@
 #define RMNET_DATA_LEN			2000
 #define HEADROOM_FOR_QOS		8
 
-#define FIRST_RMNET_USB_INTERFACE	4
+#define FIRST_RMNET_USB_INTERFACE	5
 #define NUM_EMBEDDED_RMNET_IFACE	4
 
 static int	data_msg_dbg_mask;
@@ -514,7 +514,7 @@ static const struct driver_info rmnet_info = {
 
 static const struct usb_device_id vidpids[] = {
 	{
-		USB_DEVICE(0x05c6, 0x9034),	/* MDM9x15*/
+		USB_DEVICE(0x05c6, 0x9048),	/* MDM9x15*/
 		.driver_info = (unsigned long)&rmnet_info,
 	},
 	{ },

@@ -753,6 +753,9 @@ static void data_bridge_debugfs_init(void) { }
 static void data_bridge_debugfs_exit(void) { }
 #endif
 
+#define DUN_IFACE_NUM			3
+#define TETHERED_RMNET_IFACE_NUM	4
+
 static int __devinit
 bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
@@ -871,7 +874,7 @@ static void bridge_disconnect(struct usb_interface *intf)
 }
 
 static const struct usb_device_id bridge_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9001) },
+	{ USB_DEVICE(0x5c6, 0x9048) },
 
 	{ } /* Terminating entry */
 };
