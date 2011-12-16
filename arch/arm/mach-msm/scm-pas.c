@@ -10,12 +10,17 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "scm-pas: " fmt
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/clk.h>
 
 #include <mach/scm.h>
 #include <mach/socinfo.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include "scm-pas.h"
 
 #define PAS_INIT_IMAGE_CMD	1
@@ -50,15 +55,89 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 }
 EXPORT_SYMBOL(pas_init_image);
 
+static struct msm_bus_paths scm_pas_bw_tbl[] = {
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+			},
+		},
+		.num_paths = 1,
+	},
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+				.ib = 492 * 8 * 1000000UL,
+				.ab = 492 * 8 *  100000UL,
+			},
+		},
+		.num_paths = 1,
+	},
+};
+
+static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
+	.usecase = scm_pas_bw_tbl,
+	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
+	.name = "scm_pas",
+};
+
+static uint32_t scm_perf_client;
+static struct clk *scm_bus_clk;
+
+static DEFINE_MUTEX(scm_pas_bw_mutex);
+static int scm_pas_bw_count;
+
+static int scm_pas_enable_bw(void)
+{
+	int ret = 0;
+
+	if (!scm_perf_client || scm_bus_clk)
+		return -EINVAL;
+
+	mutex_lock(&scm_pas_bw_mutex);
+	if (!scm_pas_bw_count) {
+		ret = msm_bus_scale_client_update_request(scm_perf_client, 1);
+		if (ret) {
+			pr_err("bandwidth request failed (%d)\n", ret);
+		} else {
+			ret = clk_enable(scm_bus_clk);
+			if (ret)
+				pr_err("clock enable failed\n");
+		}
+	}
+	if (ret)
+		msm_bus_scale_client_update_request(scm_perf_client, 0);
+	else
+		scm_pas_bw_count++;
+	mutex_unlock(&scm_pas_bw_mutex);
+	return ret;
+}
+
+static void scm_pas_disable_bw(void)
+{
+	mutex_lock(&scm_pas_bw_mutex);
+	if (scm_pas_bw_count-- == 1) {
+		msm_bus_scale_client_update_request(scm_perf_client, 0);
+		clk_disable(scm_bus_clk);
+	}
+	mutex_unlock(&scm_pas_bw_mutex);
+}
+
 int pas_auth_and_reset(enum pas_id id)
 {
-	int ret;
+	int ret, bus_ret;
 	u32 proc = id, scm_ret = 0;
 
+	bus_ret = scm_pas_enable_bw();
 	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
 			sizeof(proc), &scm_ret, sizeof(scm_ret));
 	if (ret)
-		return ret;
+		scm_ret = ret;
+	if (!bus_ret)
+		scm_pas_disable_bw();
 
 	return scm_ret;
 }
@@ -108,3 +187,19 @@ int pas_supported(enum pas_id id)
 	return ret_val;
 }
 EXPORT_SYMBOL(pas_supported);
+
+static int __init scm_pas_init(void)
+{
+	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
+	if (!scm_perf_client)
+		pr_warn("unable to register bus client\n");
+	scm_bus_clk = clk_get_sys("scm", "bus_clk");
+	if (!IS_ERR(scm_bus_clk)) {
+		clk_set_rate(scm_bus_clk, 64000000);
+	} else {
+		scm_bus_clk = NULL;
+		pr_warn("unable to get bus clock\n");
+	}
+	return 0;
+}
+module_init(scm_pas_init);

@@ -4753,6 +4753,7 @@ static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c);
 
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
 /*
@@ -5375,6 +5376,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_DUMMY("bus_clk",		DFAB_SDC3_CLK,		NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC4_CLK,		NULL, 0),
 	CLK_DUMMY("dfab_clk",		DFAB_CLK,		NULL, 0),
+	CLK_DUMMY("bus_clk",		DFAB_SCM_CLK,	"scm", 0),
 	CLK_LOOKUP("usb_hsic_xcvr_fs_clk", usb_hsic_xcvr_fs_clk.c,	NULL),
 	CLK_LOOKUP("usb_hsic_hsic_clk", usb_hsic_hsic_clk.c,	NULL),
 	CLK_LOOKUP("usb_hsic_hsio_cal_clk", usb_hsic_hsio_cal_clk.c,	NULL),
@@ -5625,6 +5627,7 @@ static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("bus_clk",		dfab_sdc5_clk.c, "msm_sdcc.5"),
 	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,	"msm_sps"),
 	CLK_LOOKUP("bus_clk",		dfab_bam_dmux_clk.c,	"BAM_RMNT"),
+	CLK_LOOKUP("bus_clk",		dfab_scm_clk.c,	"scm"),
 
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 
