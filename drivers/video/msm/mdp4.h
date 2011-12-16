@@ -722,4 +722,5 @@ u32  mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 void mdp4_init_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 
+int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg);
 #endif /* MDP_H */

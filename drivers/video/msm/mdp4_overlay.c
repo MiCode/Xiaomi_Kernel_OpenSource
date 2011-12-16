@@ -277,6 +277,7 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe)
 void mdp4_overlay_dmap_cfg(struct msm_fb_data_type *mfd, int lcdc)
 {
 	uint32	dma2_cfg_reg;
+	uint32 mask, curr;
 
 	dma2_cfg_reg = DMA_DITHER_EN;
 #ifdef BLT_RGB565
@@ -309,6 +310,9 @@ void mdp4_overlay_dmap_cfg(struct msm_fb_data_type *mfd, int lcdc)
 #endif
 
 	/* dma2 config register */
+	curr = inpdw(MDP_BASE + 0x90000);
+	mask = 0xBFFFFFFF;
+	dma2_cfg_reg = (dma2_cfg_reg & mask) | (curr & ~mask);
 	MDP_OUTP(MDP_BASE + 0x90000, dma2_cfg_reg);
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
@@ -442,6 +446,7 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	char *rgb_base;
 	uint32 src_size, src_xy, dst_size, dst_xy;
 	uint32 format, pattern;
+	uint32 curr, mask;
 	uint32 offset = 0;
 	int pnum;
 
@@ -472,6 +477,12 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 #endif
 
 	mdp4_scale_setup(pipe);
+
+	/* Ensure proper covert matrix loaded when color space swaps */
+	curr = inpdw(rgb_base + 0x0058);
+	/* Don't touch bits you don't want to configure*/
+	mask = 0xFFFEFFFF;
+	pipe->op_mode = (pipe->op_mode & mask) | (curr & ~mask);
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
