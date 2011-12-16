@@ -48,10 +48,10 @@ struct grmnet {
 	void (*connect)(struct grmnet *g);
 };
 
-int gbam_setup(unsigned int count);
-int gbam_connect(struct grmnet *, u8 port_num);
-void gbam_disconnect(struct grmnet *, u8 port_num);
-
+int gbam_setup(unsigned int no_bam_port, unsigned int no_bam2bam_port);
+int gbam_connect(struct grmnet *gr, u8 port_num,
+				 enum transport_type trans, u8 connection_idx);
+void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans);
 int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(unsigned int count);

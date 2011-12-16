@@ -20,6 +20,7 @@ enum transport_type {
 	USB_GADGET_XPORT_SDIO,
 	USB_GADGET_XPORT_SMD,
 	USB_GADGET_XPORT_BAM,
+	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_HSIC,
 	USB_GADGET_XPORT_NONE,
 };
@@ -37,6 +38,8 @@ static char *xport_to_str(enum transport_type t)
 		return "SMD";
 	case USB_GADGET_XPORT_BAM:
 		return "BAM";
+	case USB_GADGET_XPORT_BAM2BAM:
+		return "BAM2BAM";
 	case USB_GADGET_XPORT_HSIC:
 		return "HSIC";
 	case USB_GADGET_XPORT_NONE:
@@ -56,6 +59,8 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_SMD;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_BAM;
+	if (!strncasecmp("BAM2BAM", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_BAM2BAM;
 	if (!strncasecmp("HSIC", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_HSIC;
 	if (!strncasecmp("", name, XPORT_STR_LEN))
