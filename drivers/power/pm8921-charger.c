@@ -192,16 +192,16 @@ struct bms_notify {
 /**
  * struct pm8921_chg_chip -device information
  * @dev:			device pointer to access the parent
- * @is_usb_path_used:		indicates whether USB charging is used at all
- * @is_usb_path_used:		indicates whether DC charging is used at all
  * @usb_present:		present status of usb
  * @dc_present:			present status of dc
  * @usb_charger_current:	usb current to charge the battery with used when
  *				the usb path is enabled or charging is resumed
  * @safety_time:		max time for which charging will happen
  * @update_time:		how frequently the userland needs to be updated
- * @max_voltage:		the max volts the batt should be charged up to
- * @min_voltage:		the min battery voltage before turning the FETon
+ * @max_voltage_mv:		the max volts the batt should be charged up to
+ * @min_voltage_mv:		the min battery voltage before turning the FETon
+ * @cool_temp_dc:		the cool temp threshold in deciCelcius
+ * @warm_temp_dc:		the warm temp threshold in deciCelcius
  * @resume_voltage_delta:	the voltage delta from vdd max at which the
  *				battery should resume charging
  * @term_current:		The charging based term current
@@ -217,10 +217,10 @@ struct pm8921_chg_chip {
 	unsigned int			safety_time;
 	unsigned int			ttrkl_time;
 	unsigned int			update_time;
-	unsigned int			max_voltage;
-	unsigned int			min_voltage;
-	unsigned int			cool_temp;
-	unsigned int			warm_temp;
+	unsigned int			max_voltage_mv;
+	unsigned int			min_voltage_mv;
+	unsigned int			cool_temp_dc;
+	unsigned int			warm_temp_dc;
 	unsigned int			temp_check_period;
 	unsigned int			cool_bat_chg_current;
 	unsigned int			warm_bat_chg_current;
@@ -923,7 +923,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_ENERGY_FULL,
 };
 
-static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
+static int get_prop_battery_uvolts(struct pm8921_chg_chip *chip)
 {
 	int rc;
 	struct pm8xxx_adc_chan_result result;
@@ -941,16 +941,17 @@ static int get_prop_battery_mvolts(struct pm8921_chg_chip *chip)
 
 static unsigned int voltage_based_capacity(struct pm8921_chg_chip *chip)
 {
-	unsigned int current_voltage = get_prop_battery_mvolts(chip);
-	unsigned int low_voltage = chip->min_voltage;
-	unsigned int high_voltage = chip->max_voltage;
+	unsigned int current_voltage_uv = get_prop_battery_uvolts(chip);
+	unsigned int current_voltage_mv = current_voltage_uv / 1000;
+	unsigned int low_voltage = chip->min_voltage_mv;
+	unsigned int high_voltage = chip->max_voltage_mv;
 
-	if (current_voltage <= low_voltage)
+	if (current_voltage_mv <= low_voltage)
 		return 0;
-	else if (current_voltage >= high_voltage)
+	else if (current_voltage_mv >= high_voltage)
 		return 100;
 	else
-		return (current_voltage - low_voltage) * 100
+		return (current_voltage_mv - low_voltage) * 100
 		    / (high_voltage - low_voltage);
 }
 
@@ -969,18 +970,18 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 
 static int get_prop_batt_current(struct pm8921_chg_chip *chip)
 {
-	int result_ma, rc;
+	int result_ua, rc;
 
-	rc = pm8921_bms_get_battery_current(&result_ma);
+	rc = pm8921_bms_get_battery_current(&result_ua);
 	if (rc == -ENXIO) {
-		rc = pm8xxx_ccadc_get_battery_current(&result_ma);
+		rc = pm8xxx_ccadc_get_battery_current(&result_ua);
 	}
 
 	if (rc) {
 		pr_err("unable to get batt current rc = %d\n", rc);
 		return rc;
 	} else {
-		return result_ma;
+		return result_ua;
 	}
 }
 
@@ -1105,13 +1106,13 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-		val->intval = chip->max_voltage;
+		val->intval = chip->max_voltage_mv * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
-		val->intval = chip->min_voltage;
+		val->intval = chip->min_voltage_mv * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = get_prop_battery_mvolts(chip);
+		val->intval = get_prop_battery_uvolts(chip);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_batt_capacity(chip);
@@ -1123,7 +1124,7 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		val->intval = get_prop_batt_temp(chip);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_FULL:
-		val->intval = get_prop_batt_fcc(chip);
+		val->intval = get_prop_batt_fcc(chip) * 1000;
 		break;
 	default:
 		return -EINVAL;
@@ -1844,8 +1845,8 @@ static void eoc_worker(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, eoc_work);
-	int vbat_meas, vbat_programmed;
-	int ichg_meas, iterm_programmed;
+	int vbat_meas_uv, vbat_meas_mv, vbat_programmed;
+	int ichg_meas_ma, iterm_programmed;
 	int regulation_loop, fast_chg, vcp;
 	int rc;
 	static int count;
@@ -1873,18 +1874,19 @@ static void eoc_worker(struct work_struct *work)
 			goto reset_and_reschedule;
 
 		/* reset count if battery voltage is less than vddmax */
-		vbat_meas = get_prop_battery_mvolts(chip);
-		if (vbat_meas < 0)
+		vbat_meas_uv = get_prop_battery_uvolts(chip);
+		if (vbat_meas_uv < 0)
 			goto reset_and_reschedule;
+		vbat_meas_mv = vbat_meas_uv / 1000;
 
 		rc = pm_chg_vddmax_get(chip, &vbat_programmed);
 		if (rc) {
 			pr_err("couldnt read vddmax rc = %d\n", rc);
 			goto reset_and_reschedule;
 		}
-		pr_debug("vddmax = %d vbat_meas=%d\n",
-			 vbat_programmed, vbat_meas);
-		if (vbat_meas < vbat_programmed - VBAT_TOLERANCE_MV)
+		pr_debug("vddmax = %d vbat_meas_mv=%d\n",
+			 vbat_programmed, vbat_meas_mv);
+		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
 			goto reset_and_reschedule;
 	} /* !is_ext_charging */
 
@@ -1895,17 +1897,17 @@ static void eoc_worker(struct work_struct *work)
 		goto reset_and_reschedule;
 	}
 
-	ichg_meas = get_prop_batt_current(chip);
-	pr_debug("iterm_programmed = %d ichg_meas=%d\n",
-				iterm_programmed, ichg_meas);
+	ichg_meas_ma = (get_prop_batt_current(chip)) / 1000;
+	pr_debug("iterm_programmed = %d ichg_meas_ma=%d\n",
+				iterm_programmed, ichg_meas_ma);
 	/*
-	 * ichg_meas < 0 means battery is drawing current
-	 * ichg_meas > 0 means battery is providing current
+	 * ichg_meas_ma < 0 means battery is drawing current
+	 * ichg_meas_ma > 0 means battery is providing current
 	 */
-	if (ichg_meas > 0)
+	if (ichg_meas_ma > 0)
 		goto reset_and_reschedule;
 
-	if (ichg_meas * -1 > iterm_programmed)
+	if (ichg_meas_ma * -1 > iterm_programmed)
 		goto reset_and_reschedule;
 
 	if (!is_ext_charging(chip)) {
@@ -1989,18 +1991,19 @@ static void battery_cool(bool enter)
 	the_chip->is_bat_cool = enter;
 	if (enter) {
 		btm_config.low_thr_temp =
-			the_chip->cool_temp + TEMP_HYSTERISIS_DEGC;
+			the_chip->cool_temp_dc + TEMP_HYSTERISIS_DEGC;
 		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->cool_bat_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->cool_bat_voltage
 			- the_chip->resume_voltage_delta);
 	} else {
-		btm_config.low_thr_temp = the_chip->cool_temp;
+		btm_config.low_thr_temp = the_chip->cool_temp_dc;
 		set_appropriate_battery_current(the_chip);
-		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
+		pm_chg_vddmax_set(the_chip, the_chip->max_voltage_mv);
 		pm_chg_vbatdet_set(the_chip,
-			the_chip->max_voltage - the_chip->resume_voltage_delta);
+			the_chip->max_voltage_mv
+			- the_chip->resume_voltage_delta);
 	}
 	schedule_work(&btm_config_work);
 }
@@ -2013,18 +2016,19 @@ static void battery_warm(bool enter)
 	the_chip->is_bat_warm = enter;
 	if (enter) {
 		btm_config.high_thr_temp =
-			the_chip->warm_temp - TEMP_HYSTERISIS_DEGC;
+			the_chip->warm_temp_dc - TEMP_HYSTERISIS_DEGC;
 		set_appropriate_battery_current(the_chip);
 		pm_chg_vddmax_set(the_chip, the_chip->warm_bat_voltage);
 		pm_chg_vbatdet_set(the_chip,
 			the_chip->warm_bat_voltage
 			- the_chip->resume_voltage_delta);
 	} else {
-		btm_config.high_thr_temp = the_chip->warm_temp;
+		btm_config.high_thr_temp = the_chip->warm_temp_dc;
 		set_appropriate_battery_current(the_chip);
-		pm_chg_vddmax_set(the_chip, the_chip->max_voltage);
+		pm_chg_vddmax_set(the_chip, the_chip->max_voltage_mv);
 		pm_chg_vbatdet_set(the_chip,
-			the_chip->max_voltage - the_chip->resume_voltage_delta);
+			the_chip->max_voltage_mv
+			- the_chip->resume_voltage_delta);
 	}
 	schedule_work(&btm_config_work);
 }
@@ -2035,8 +2039,8 @@ static int configure_btm(struct pm8921_chg_chip *chip)
 
 	btm_config.btm_warm_fn = battery_warm;
 	btm_config.btm_cool_fn = battery_cool;
-	btm_config.low_thr_temp = chip->cool_temp;
-	btm_config.high_thr_temp = chip->warm_temp;
+	btm_config.low_thr_temp = chip->cool_temp_dc;
+	btm_config.high_thr_temp = chip->warm_temp_dc;
 	btm_config.interval = chip->temp_check_period;
 	rc = pm8xxx_adc_btm_configure(&btm_config);
 	if (rc)
@@ -2315,24 +2319,25 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		return rc;
 	}
 
-	rc = pm_chg_vddsafe_set(chip, chip->max_voltage);
+	rc = pm_chg_vddsafe_set(chip, chip->max_voltage_mv);
 	if (rc) {
 		pr_err("Failed to set safe voltage to %d rc=%d\n",
-						chip->max_voltage, rc);
+						chip->max_voltage_mv, rc);
 		return rc;
 	}
 	rc = pm_chg_vbatdet_set(chip,
-				chip->max_voltage - chip->resume_voltage_delta);
+				chip->max_voltage_mv
+				- chip->resume_voltage_delta);
 	if (rc) {
 		pr_err("Failed to set vbatdet comprator voltage to %d rc=%d\n",
-			chip->max_voltage - chip->resume_voltage_delta, rc);
+			chip->max_voltage_mv - chip->resume_voltage_delta, rc);
 		return rc;
 	}
 
-	rc = pm_chg_vddmax_set(chip, chip->max_voltage);
+	rc = pm_chg_vddmax_set(chip, chip->max_voltage_mv);
 	if (rc) {
 		pr_err("Failed to set max voltage to %d rc=%d\n",
-						chip->max_voltage, rc);
+						chip->max_voltage_mv, rc);
 		return rc;
 	}
 	rc = pm_chg_ibatsafe_set(chip, SAFE_CURRENT_MA);
@@ -2677,7 +2682,7 @@ static int pm8921_charger_resume(struct device *dev)
 	int rc;
 	struct pm8921_chg_chip *chip = dev_get_drvdata(dev);
 
-	if (!(chip->cool_temp == 0 && chip->warm_temp == 0)
+	if (!(chip->cool_temp_dc == 0 && chip->warm_temp_dc == 0)
 		&& !(chip->keep_btm_on_suspend)) {
 		rc = pm8xxx_adc_btm_configure(&btm_config);
 		if (rc)
@@ -2695,7 +2700,7 @@ static int pm8921_charger_suspend(struct device *dev)
 	int rc;
 	struct pm8921_chg_chip *chip = dev_get_drvdata(dev);
 
-	if (!(chip->cool_temp == 0 && chip->warm_temp == 0)
+	if (!(chip->cool_temp_dc == 0 && chip->warm_temp_dc == 0)
 		&& !(chip->keep_btm_on_suspend)) {
 		rc = pm8xxx_adc_btm_end();
 		if (rc)
@@ -2726,8 +2731,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->safety_time = pdata->safety_time;
 	chip->ttrkl_time = pdata->ttrkl_time;
 	chip->update_time = pdata->update_time;
-	chip->max_voltage = pdata->max_voltage;
-	chip->min_voltage = pdata->min_voltage;
+	chip->max_voltage_mv = pdata->max_voltage;
+	chip->min_voltage_mv = pdata->min_voltage;
 	chip->resume_voltage_delta = pdata->resume_voltage_delta;
 	chip->term_current = pdata->term_current;
 	chip->vbat_channel = pdata->charger_cdata.vbat_channel;
@@ -2735,8 +2740,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->batt_id_channel = pdata->charger_cdata.batt_id_channel;
 	chip->batt_id_min = pdata->batt_id_min;
 	chip->batt_id_max = pdata->batt_id_max;
-	chip->cool_temp = pdata->cool_temp;
-	chip->warm_temp = pdata->warm_temp;
+	chip->cool_temp_dc = pdata->cool_temp * 10;
+	chip->warm_temp_dc = pdata->warm_temp * 10;
 	chip->temp_check_period = pdata->temp_check_period;
 	chip->max_bat_chg_current = pdata->max_bat_chg_current;
 	chip->cool_bat_chg_current = pdata->cool_bat_chg_current;
@@ -2819,10 +2824,10 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	enable_irq_wake(chip->pmic_chg_irq[BAT_TEMP_OK_IRQ]);
 	enable_irq_wake(chip->pmic_chg_irq[VBATDET_LOW_IRQ]);
 	/*
-	 * if both the cool_temp and warm_temp are zero the device doesnt
+	 * if both the cool_temp_dc and warm_temp_dc are zero the device doesnt
 	 * care for jeita compliance
 	 */
-	if (!(chip->cool_temp == 0 && chip->warm_temp == 0)) {
+	if (!(chip->cool_temp_dc == 0 && chip->warm_temp_dc == 0)) {
 		rc = configure_btm(chip);
 		if (rc) {
 			pr_err("couldn't register with btm rc=%d\n", rc);

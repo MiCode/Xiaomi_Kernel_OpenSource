@@ -546,7 +546,7 @@ static int ccadc_get_rsense_voltage(int *voltage_uv)
 	return 0;
 }
 
-int pm8xxx_ccadc_get_battery_current(int *bat_current)
+int pm8xxx_ccadc_get_battery_current(int *bat_current_ua)
 {
 	int voltage_uv, rc;
 
@@ -556,13 +556,13 @@ int pm8xxx_ccadc_get_battery_current(int *bat_current)
 		return rc;
 	}
 
-	*bat_current = voltage_uv/the_chip->r_sense;
+	*bat_current_ua = voltage_uv * 1000/the_chip->r_sense;
 	/*
 	 * ccadc reads +ve current when the battery is charging
 	 * We need to return -ve if the battery is charging
 	 */
-	*bat_current = -1 * (*bat_current);
-	pr_debug("bat current = %d ma\n", *bat_current);
+	*bat_current_ua = -1 * (*bat_current_ua);
+	pr_debug("bat current = %d ma\n", *bat_current_ua);
 	return 0;
 }
 EXPORT_SYMBOL(pm8xxx_ccadc_get_battery_current);

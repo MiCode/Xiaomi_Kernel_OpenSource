@@ -130,7 +130,7 @@ int pm8921_bms_get_vsense_avg(int *result);
 
 /**
  * pm8921_bms_get_battery_current - return the battery current based on vsense
- *				resitor in milliamperes
+ *				resitor in microamperes
  * @result:	The pointer where the voltage will be updated. A -ve
  *		result means that the current is flowing in
  *		the battery - during battery charging

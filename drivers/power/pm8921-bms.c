@@ -552,11 +552,15 @@ static int interpolate_single_lut(struct single_row_lut *lut, int x)
 
 static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp)
 {
+	/* batt_temp is in tenths of degC - convert it to degC for lookups */
+	batt_temp = batt_temp/10;
 	return interpolate_single_lut(chip->fcc_temp_lut, batt_temp);
 }
 
 static int interpolate_fcc_adjusted(struct pm8921_bms_chip *chip, int batt_temp)
 {
+	/* batt_temp is in tenths of degC - convert it to degC for lookups */
+	batt_temp = batt_temp/10;
 	return interpolate_single_lut(chip->adjusted_fcc_temp_lut, batt_temp);
 }
 
@@ -671,6 +675,9 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 	int i, j, pcj, pcj_minus_one, pc;
 	int rows = chip->pc_temp_ocv_lut->rows;
 	int cols = chip->pc_temp_ocv_lut->cols;
+
+	/* batt_temp is in tenths of degC - convert it to degC for lookups */
+	batt_temp = batt_temp/10;
 
 	if (batt_temp < chip->pc_temp_ocv_lut->temp[0]) {
 		pr_debug("batt_temp %d < known temp range for pc\n", batt_temp);
@@ -854,13 +861,12 @@ static int get_battery_uvolts(struct pm8921_bms_chip *chip, int *uvolts)
 	pr_debug("mvolts phy = %lld meas = 0x%llx", result.physical,
 						result.measurement);
 	*uvolts = (int)result.physical;
-	*uvolts = *uvolts * 1000;
 	return 0;
 }
 
 static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 {
-	int vbatt, rbatt, ibatt, rc;
+	int vbatt, rbatt, ibatt_ua, rc;
 	struct pm8921_soc_params raw;
 
 	rc = get_battery_uvolts(chip, &vbatt);
@@ -869,7 +875,7 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 		return rc;
 	}
 
-	rc =  pm8921_bms_get_battery_current(&ibatt);
+	rc =  pm8921_bms_get_battery_current(&ibatt_ua);
 	if (rc) {
 		pr_err("failed to read batt current rc = %d\n", rc);
 		return rc;
@@ -880,7 +886,7 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 	rbatt = calculate_rbatt(the_chip, &raw);
 	if (rbatt < 0)
 		rbatt = (last_rbatt < 0) ? DEFAULT_RBATT_MOHMS : last_rbatt;
-	*ocv = vbatt + ibatt * rbatt;
+	*ocv = vbatt + (ibatt_ua * rbatt)/1000;
 	return 0;
 }
 
@@ -1138,7 +1144,7 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 		return;
 	}
 	voltage = calib_hkadc_convert_microvolt(result.adc_code);
-	pr_debug("result 0.625V = 0x%x, voltage = %duV adc_mead = %lld\n",
+	pr_debug("result 0.625V = 0x%x, voltage = %duV adc_meas = %lld\n",
 				result.adc_code, voltage, result.measurement);
 	/* check for valid range */
 	if (voltage > XOADC_MAX_0P625V)
@@ -1186,7 +1192,7 @@ int pm8921_bms_get_vsense_avg(int *result)
 }
 EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
 
-int pm8921_bms_get_battery_current(int *result)
+int pm8921_bms_get_battery_current(int *result_ua)
 {
 	unsigned long flags;
 	int vsense;
@@ -1207,7 +1213,7 @@ int pm8921_bms_get_battery_current(int *result)
 	spin_unlock_irqrestore(&the_chip->bms_output_lock, flags);
 	pr_debug("vsense=%d\n", vsense);
 	/* cast for signed division */
-	*result = vsense / (int)the_chip->r_sense;
+	*result_ua = vsense * 1000 / (int)the_chip->r_sense;
 
 	return 0;
 }
