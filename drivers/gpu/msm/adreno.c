@@ -194,7 +194,7 @@ static irqreturn_t adreno_isr(int irq, void *data)
 
 	if (device->requested_state == KGSL_STATE_NONE) {
 		if (device->pwrctrl.nap_allowed == true) {
-			device->requested_state = KGSL_STATE_NAP;
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 			queue_work(device->work_queue, &device->idle_check_ws);
 		} else if (device->pwrscale.policy != NULL) {
 			queue_work(device->work_queue, &device->idle_check_ws);
@@ -495,8 +495,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int init_reftimestamp = 0x7fffffff;
 
-	device->state = KGSL_STATE_INIT;
-	device->requested_state = KGSL_STATE_NONE;
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 
 	/* Power up the device */
 	kgsl_pwrctrl_enable(device);
@@ -716,33 +715,27 @@ done:
 static int
 adreno_dump_and_recover(struct kgsl_device *device)
 {
-	static int recovery;
 	int result = -ETIMEDOUT;
 
 	if (device->state == KGSL_STATE_HUNG)
 		goto done;
-	if (device->state == KGSL_STATE_DUMP_AND_RECOVER && !recovery) {
+	if (device->state == KGSL_STATE_DUMP_AND_RECOVER) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->recovery_gate);
 		mutex_lock(&device->mutex);
-		if (!(device->state & KGSL_STATE_HUNG))
-			/* recovery success */
+		if (device->state != KGSL_STATE_HUNG)
 			result = 0;
 	} else {
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_DUMP_AND_RECOVER);
 		INIT_COMPLETION(device->recovery_gate);
 		/* Detected a hang - trigger an automatic dump */
 		adreno_postmortem_dump(device, 0);
-		if (!recovery) {
-			recovery = 1;
-			result = adreno_recover_hang(device);
-			if (result)
-				device->state = KGSL_STATE_HUNG;
-			recovery = 0;
-			complete_all(&device->recovery_gate);
-		} else
-			KGSL_DRV_ERR(device,
-				"Cannot recover from another hang while "
-				"recovering from a hang\n");
+		result = adreno_recover_hang(device);
+		if (result)
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
+		else
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
+		complete_all(&device->recovery_gate);
 	}
 done:
 	return result;

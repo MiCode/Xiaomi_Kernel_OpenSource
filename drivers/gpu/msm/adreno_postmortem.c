@@ -21,6 +21,7 @@
 #include "adreno_postmortem.h"
 #include "adreno_debugfs.h"
 #include "kgsl_cffdump.h"
+#include "kgsl_pwrctrl.h"
 
 #include "a2xx_reg.h"
 
@@ -828,11 +829,9 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 
 	/* Disable the idle timer so we don't get interrupted */
 	del_timer_sync(&device->idle_timer);
-
 	mutex_unlock(&device->mutex);
 	flush_workqueue(device->work_queue);
 	mutex_lock(&device->mutex);
-	adreno_dump(device);
 
 	/* Turn off napping to make sure we have the clocks full
 	   attention through the following process */
@@ -845,15 +844,7 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 	/* Disable the irq */
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
-	/* If this is not a manual trigger, then set up the
-	   state to try to recover */
-
-	if (!manual) {
-		device->state = KGSL_STATE_DUMP_AND_RECOVER;
-		KGSL_PWR_WARN(device,
-				"state -> DUMP_AND_RECOVER, device %d\n",
-				device->id);
-	}
+	adreno_dump(device);
 
 	/* Restore nap mode */
 	device->pwrctrl.nap_allowed = saved_nap;
@@ -867,7 +858,7 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 
 		/* try to go into a sleep mode until the next event */
-		device->requested_state = KGSL_STATE_SLEEP;
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLEEP);
 		kgsl_pwrctrl_sleep(device);
 	}
 
