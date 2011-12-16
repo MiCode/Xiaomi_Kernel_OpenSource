@@ -792,6 +792,11 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 	uint32 dsi_ctrl, intr_ctrl;
 	uint32 data;
 
+	if (mdp_rev > MDP_REV_41 || mdp_rev == MDP_REV_303)
+		pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
+	else
+		pinfo->rgb_swap = DSI_RGB_SWAP_BGR;
+
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
 		if (pinfo->pulse_mode_hsa_he)
@@ -810,11 +815,6 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
 		data |= (pinfo->vc & 0x03);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x000c, data);
-
-		if (mdp_rev > MDP_REV_41 || mdp_rev == MDP_REV_303)
-			pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
-		else
-			pinfo->rgb_swap = DSI_RGB_SWAP_BGR;
 
 		data = 0;
 		data |= ((pinfo->rgb_swap & 0x07) << 12);
