@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
 
 #include "spm.h"
 #include "spm_driver.h"
@@ -129,6 +130,11 @@ spm_failed_malloc:
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
+
+	/* TODO: Remove this after 8064 bring up */
+	if (cpu_is_apq8064())
+		return 0;
+
 	return msm_spm_dev_set_low_power_mode(dev, mode, notify_rpm);
 }
 
@@ -136,6 +142,10 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 {
 	unsigned int cpu;
 	int ret = 0;
+
+	/* TODO: Remove this after 8064 bring up */
+	if (cpu_is_apq8064())
+		return 0;
 
 	BUG_ON((nr_devs < num_possible_cpus()) || !data);
 
@@ -163,6 +173,10 @@ int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm)
 
 int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
 {
+	/* TODO: Remove this after 8064 bring up */
+	if (cpu_is_apq8064())
+		return 0;
+
 	return msm_spm_dev_init(&msm_spm_l2_device, data);
 }
 #endif
