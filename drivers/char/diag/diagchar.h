@@ -210,6 +210,7 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_qdsp_2;
 	struct diag_request *write_ptr_wcnss;
 	int logging_mode;
+	int mask_check;
 	int logging_process_id;
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	unsigned char *buf_in_sdio;
