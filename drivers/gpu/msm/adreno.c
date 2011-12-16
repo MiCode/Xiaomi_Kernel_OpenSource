@@ -905,6 +905,7 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int rbbm_status;
 
+	WARN_ON(!(rb->flags & KGSL_FLAGS_STARTED));
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		/* Is the ring buffer is empty? */
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
@@ -916,8 +917,8 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 				status = true;
 		}
 	} else {
-		KGSL_DRV_ERR(device, "ringbuffer not started\n");
-		BUG();
+		/* if the ringbuffer isn't started we are VERY idle */
+		status = true;
 	}
 	return status;
 }
@@ -987,28 +988,27 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 
 	while (1) {
 		struct adreno_context *adreno_context = NULL;
-		struct kgsl_memdesc *gpustate;
-		struct kgsl_memdesc *gmemshadow;
 		context = idr_get_next(&device->context_idr, &next);
 		if (context == NULL)
 			break;
 
 		adreno_context = (struct adreno_context *)context->devctxt;
 
-		if (!kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base))
-			continue;
+		if (kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base)) {
+			struct kgsl_memdesc *desc;
 
-		gpustate = &adreno_context->gpustate;
-		if (kgsl_gpuaddr_in_memdesc(gpustate, gpuaddr, size)) {
-			result = gpustate;
-			return result;
-		}
-		gmemshadow = &adreno_context->context_gmem_shadow.gmemshadow;
-		if (kgsl_gpuaddr_in_memdesc(gmemshadow, gpuaddr, size)) {
-			result = gmemshadow;
-			return result;
-		}
+			desc = &adreno_context->gpustate;
+			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size)) {
+				result = desc;
+				return result;
+			}
 
+			desc = &adreno_context->context_gmem_shadow.gmemshadow;
+			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size)) {
+				result = desc;
+				return result;
+			}
+		}
 		next = next + 1;
 	}
 
