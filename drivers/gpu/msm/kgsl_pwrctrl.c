@@ -722,6 +722,8 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 			return 0;
 		if (device->ftbl->isidle(device))
 			goto slumber;
+		else
+			device->pwrctrl.restore_slumber = true;
 	}
 
 	device->requested_state = KGSL_STATE_NONE;
