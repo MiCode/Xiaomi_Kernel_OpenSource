@@ -599,6 +599,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 				PM_QOS_DEFAULT_VALUE);
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
+	wake_unlock(&sync->wake_lock);
 	return rc;
 }
 
