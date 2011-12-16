@@ -86,7 +86,7 @@ static void diag_bridge_read_cb(struct urb *urb)
 			urb->status < 0 ? urb->status : urb->actual_length);
 }
 
-int diag_bridge_read(char *data, size_t size)
+int diag_bridge_read(char *data, int size)
 {
 	struct urb		*urb = NULL;
 	unsigned int		pipe;
@@ -153,7 +153,7 @@ static void diag_bridge_write_cb(struct urb *urb)
 			urb->status < 0 ? urb->status : urb->actual_length);
 }
 
-int diag_bridge_write(char *data, size_t size)
+int diag_bridge_write(char *data, int size)
 {
 	struct urb		*urb = NULL;
 	unsigned int		pipe;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@
 #define APPS_DATA  		3
 #define SDIO_DATA		4
 #define WCNSS_DATA		5
+#define HSIC_DATA		6
 #define MODEM_PROC		0
 #define APPS_PROC		1
 #define QDSP_PROC		2
@@ -215,6 +216,26 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_sdio_wq;
 	struct work_struct diag_read_sdio_work;
 	struct work_struct diag_close_sdio_work;
+	struct diag_request *usb_read_mdm_ptr;
+	struct diag_request *write_ptr_mdm;
+#endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+	unsigned char *buf_in_hsic;
+	unsigned char *usb_buf_mdm_out;
+	int hsic_initialized;
+	int hsic_ch;
+	int hsic_device_enabled;
+	int hsic_device_opened;
+	int read_len_mdm;
+	int in_busy_hsic_read_on_mdm;
+	int in_busy_hsic_write_on_mdm;
+	int in_busy_hsic_write;
+	int in_busy_hsic_read;
+	int usb_mdm_connected;
+	struct usb_diag_ch *mdm_ch;
+	struct workqueue_struct *diag_hsic_wq;
+	struct work_struct diag_read_mdm_work;
+	struct work_struct diag_read_hsic_work;
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif

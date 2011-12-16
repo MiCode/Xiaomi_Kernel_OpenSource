@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,9 @@
 #include "diagfwd_cntl.h"
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
+#endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+#include "diagfwd_hsic.h"
 #endif
 #include <linux/timer.h>
 
@@ -982,6 +985,18 @@ void diag_sdio_fn(int type)
 inline void diag_sdio_fn(int type) {}
 #endif
 
+#ifdef CONFIG_DIAG_HSIC_PIPE
+void diag_hsic_fn(int type)
+{
+	if (type == INIT)
+		diagfwd_hsic_init();
+	else if (type == EXIT)
+		diagfwd_hsic_exit();
+}
+#else
+inline void diag_hsic_fn(int type) {}
+#endif
+
 static int __init diagchar_init(void)
 {
 	dev_t dev;
@@ -1020,6 +1035,7 @@ static int __init diagchar_init(void)
 		diagfwd_init();
 		diagfwd_cntl_init();
 		diag_sdio_fn(INIT);
+		diag_hsic_fn(INIT);
 		pr_debug("diagchar initializing ..\n");
 		driver->num = 1;
 		driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
@@ -1052,6 +1068,7 @@ fail:
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_sdio_fn(EXIT);
+	diag_hsic_fn(EXIT);
 	return -1;
 }
 
@@ -1064,6 +1081,7 @@ static void __exit diagchar_exit(void)
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_sdio_fn(EXIT);
+	diag_hsic_fn(EXIT);
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");
 }

@@ -16,27 +16,27 @@
 struct diag_bridge_ops {
 	void *ctxt;
 	void (*read_complete_cb)(void *ctxt, char *buf,
-			size_t buf_size, size_t actual);
+			int buf_size, int actual);
 	void (*write_complete_cb)(void *ctxt, char *buf,
-			size_t buf_size, size_t actual);
+			int buf_size, int actual);
 };
 
 #if defined(CONFIG_USB_QCOM_DIAG_BRIDGE) \
 	|| defined(CONFIG_USB_QCOM_DIAG_BRIDGE_MODULE)
 
-extern int diag_bridge_read(char *data, size_t size);
-extern int diag_bridge_write(char *data, size_t size);
+extern int diag_bridge_read(char *data, int size);
+extern int diag_bridge_write(char *data, int size);
 extern int diag_bridge_open(struct diag_bridge_ops *ops);
 extern void diag_bridge_close(void);
 
 #else
 
-static int __maybe_unused diag_bridge_read(char *data, size_t size)
+static int __maybe_unused diag_bridge_read(char *data, int size)
 {
 	return -ENODEV;
 }
 
-static int __maybe_unused diag_bridge_write(char *data, size_t size)
+static int __maybe_unused diag_bridge_write(char *data, int size)
 {
 	return -ENODEV;
 }
