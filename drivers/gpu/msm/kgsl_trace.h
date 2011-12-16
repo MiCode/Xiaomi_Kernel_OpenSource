@@ -155,6 +155,108 @@ TRACE_EVENT(kgsl_waittimestamp_exit,
 		__entry->result
 	)
 );
+
+DECLARE_EVENT_CLASS(kgsl_pwr_template,
+	TP_PROTO(struct kgsl_device *device, int on),
+
+	TP_ARGS(device, on),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(int, on)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->on = on;
+	),
+
+	TP_printk(
+		"d_name=%s %s",
+		__get_str(device_name),
+		__entry->on ? "on" : "off"
+	)
+);
+
+DEFINE_EVENT(kgsl_pwr_template, kgsl_clk,
+	TP_PROTO(struct kgsl_device *device, int on),
+	TP_ARGS(device, on)
+);
+
+DEFINE_EVENT(kgsl_pwr_template, kgsl_irq,
+	TP_PROTO(struct kgsl_device *device, int on),
+	TP_ARGS(device, on)
+);
+
+DEFINE_EVENT(kgsl_pwr_template, kgsl_bus,
+	TP_PROTO(struct kgsl_device *device, int on),
+	TP_ARGS(device, on)
+);
+
+DEFINE_EVENT(kgsl_pwr_template, kgsl_rail,
+	TP_PROTO(struct kgsl_device *device, int on),
+	TP_ARGS(device, on)
+);
+
+TRACE_EVENT(kgsl_pwrlevel,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int pwrlevel,
+		 unsigned int freq),
+
+	TP_ARGS(device, pwrlevel, freq),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, pwrlevel)
+		__field(unsigned int, freq)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->pwrlevel = pwrlevel;
+		__entry->freq = freq;
+	),
+
+	TP_printk(
+		"d_name=%s pwrlevel=%d freq=%d",
+		__get_str(device_name),
+		__entry->pwrlevel,
+		__entry->freq
+	)
+);
+
+DECLARE_EVENT_CLASS(kgsl_pwrstate_template,
+	TP_PROTO(struct kgsl_device *device, unsigned int state),
+
+	TP_ARGS(device, state),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, state)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->state = state;
+	),
+
+	TP_printk(
+		"d_name=%s %s",
+		__get_str(device_name),
+		kgsl_pwrstate_to_str(__entry->state)
+	)
+);
+
+DEFINE_EVENT(kgsl_pwrstate_template, kgsl_pwr_set_state,
+	TP_PROTO(struct kgsl_device *device, unsigned int state),
+	TP_ARGS(device, state)
+);
+
+DEFINE_EVENT(kgsl_pwrstate_template, kgsl_pwr_request_state,
+	TP_PROTO(struct kgsl_device *device, unsigned int state),
+	TP_ARGS(device, state)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */

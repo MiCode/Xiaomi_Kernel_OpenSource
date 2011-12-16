@@ -318,4 +318,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 		irqreturn_t (*dev_isr) (int, void*));
 void kgsl_device_platform_remove(struct kgsl_device *device);
 
+const char *kgsl_pwrstate_to_str(unsigned int state);
+
 #endif  /* __KGSL_DEVICE_H */
