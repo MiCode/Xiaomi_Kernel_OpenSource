@@ -386,7 +386,7 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -EINVAL;
 		return ret;
 	}
-	pr_info("%s: %d %d\n", __func__, port_id, rate);
+	pr_debug("%s: %d %d\n", __func__, port_id, rate);
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX))
@@ -1428,7 +1428,7 @@ int afe_port_stop_nowait(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	pr_info("%s: port_id=%d\n", __func__, port_id);
+	pr_debug("%s: port_id=%d\n", __func__, port_id);
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1466,7 +1466,7 @@ int afe_close(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	pr_info("%s: port_id=%d\n", __func__, port_id);
+	pr_debug("%s: port_id=%d\n", __func__, port_id);
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,

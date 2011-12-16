@@ -615,7 +615,7 @@ int adm_close(int port_id)
 	if (afe_validate_port(port_id) < 0)
 		return -EINVAL;
 
-	pr_info("%s port_id=%d index %d\n", __func__, port_id, index);
+	pr_debug("%s port_id=%d index %d\n", __func__, port_id, index);
 
 	if (!(atomic_read(&this_adm.copp_cnt[index]))) {
 		pr_err("%s: copp count for port[%d]is 0\n", __func__, port_id);
