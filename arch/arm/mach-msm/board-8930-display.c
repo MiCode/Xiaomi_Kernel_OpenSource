@@ -148,7 +148,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
 	int rc;
 
-	pr_info("%s: state : %d\n", __func__, on);
+	pr_debug("%s: state : %d\n", __func__, on);
 
 	if (!dsi_power_on) {
 
@@ -269,7 +269,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 
 static int mipi_dsi_panel_power(int on)
 {
-	pr_info("%s: on=%d\n", __func__, on);
+	pr_debug("%s: on=%d\n", __func__, on);
 
 	return mipi_dsi_cdp_panel_power(on);
 }

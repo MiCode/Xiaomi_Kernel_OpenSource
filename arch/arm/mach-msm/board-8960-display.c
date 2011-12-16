@@ -156,7 +156,7 @@ static int mipi_dsi_liquid_panel_power(int on)
 	static int gpio21, gpio24, gpio43;
 	int rc;
 
-	pr_info("%s: on=%d\n", __func__, on);
+	pr_debug("%s: on=%d\n", __func__, on);
 
 	gpio21 = PM8921_GPIO_PM_TO_SYS(21); /* disp power enable_n */
 	gpio43 = PM8921_GPIO_PM_TO_SYS(43); /* Displays Enable (rst_n)*/
@@ -266,7 +266,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 	static int gpio43;
 	int rc;
 
-	pr_info("%s: state : %d\n", __func__, on);
+	pr_debug("%s: state : %d\n", __func__, on);
 
 	if (!dsi_power_on) {
 
@@ -386,7 +386,7 @@ static int mipi_dsi_panel_power(int on)
 {
 	int ret;
 
-	pr_info("%s: on=%d\n", __func__, on);
+	pr_debug("%s: on=%d\n", __func__, on);
 
 	if (machine_is_msm8960_liquid())
 		ret = mipi_dsi_liquid_panel_power(on);
