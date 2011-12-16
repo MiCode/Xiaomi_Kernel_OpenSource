@@ -56,6 +56,12 @@ struct msm_gpiomux_config apq8064_ethernet_configs[] = {
 };
 #endif
 
+static struct gpiomux_setting cdc_mclk = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting audio_auxpcm[] = {
 	/* Suspended state */
 	{
@@ -69,6 +75,12 @@ static struct gpiomux_setting audio_auxpcm[] = {
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
+};
+
+static struct gpiomux_setting slimbus = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_KEEPER,
 };
 
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
@@ -98,6 +110,30 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 #endif
+};
+
+static struct msm_gpiomux_config apq8064_slimbus_config[] __initdata = {
+	{
+		.gpio   = 40,           /* slimbus clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+	{
+		.gpio   = 41,           /* slimbus data */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+};
+
+static struct msm_gpiomux_config apq8064_audio_codec_configs[] __initdata = {
+	{
+		.gpio = 39,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &cdc_mclk,
+		},
+	},
 };
 
 static struct msm_gpiomux_config apq8064_audio_auxpcm_configs[] __initdata = {
@@ -148,6 +184,12 @@ void __init apq8064_init_gpiomux(void)
 
 	msm_gpiomux_install(apq8064_gsbi_configs,
 			ARRAY_SIZE(apq8064_gsbi_configs));
+
+	msm_gpiomux_install(apq8064_slimbus_config,
+			ARRAY_SIZE(apq8064_slimbus_config));
+
+	msm_gpiomux_install(apq8064_audio_codec_configs,
+			ARRAY_SIZE(apq8064_audio_codec_configs));
 
 	msm_gpiomux_install(apq8064_audio_auxpcm_configs,
 			ARRAY_SIZE(apq8064_audio_auxpcm_configs));
