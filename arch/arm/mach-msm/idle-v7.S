@@ -212,8 +212,17 @@ msm_pm_pa_to_va:
 	mcr     p15, 0, r3, c8, c7, 0   /* UTLBIALL */
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
-
 	isb
+#ifdef CONFIG_ARCH_MSM_KRAIT
+	mrc	p15, 0, r1, c0, c0, 0
+	ldr	r3, =0xff00fc00
+	and	r3, r1, r3
+	ldr 	r1, =0x51000400
+	cmp	r3, r1
+	mrceq	p15, 7, r3, c15, c0, 2
+	biceq	r3, r3, #0x400
+	mcreq	p15, 7, r3, c15, c0, 2
+#endif
 	stmfd   sp!, {lr}
 	bl      v7_flush_kern_cache_all
 #ifdef CONFIG_MSM_TRACE_ACROSS_PC

@@ -398,6 +398,15 @@ __turn_mmu_on:
 	mcr	p15, 0, r0, c1, c0, 0		@ write control reg
 	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
 	mov	r3, r3
+#ifdef CONFIG_ARCH_MSM_KRAIT
+	ldr	r3, =0xff00fc00
+	and	r3, r9, r3
+	ldr 	r4, =0x51000400
+	cmp	r3, r4
+	mrceq	p15, 7, r3, c15, c0, 2
+	biceq	r3, r3, #0x400
+	mcreq	p15, 7, r3, c15, c0, 2
+#endif
 	mov	r3, r13
 	mov	pc, r3
 __enable_mmu_end:
