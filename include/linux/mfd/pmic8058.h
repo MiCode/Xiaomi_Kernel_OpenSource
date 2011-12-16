@@ -146,17 +146,4 @@ struct pm8058_platform_data {
 
 int pm8058_hard_reset_config(enum pon_config config);
 
-/**
- * pm8058_stay_on - enables stay_on feature
- *
- * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
- * signal so that some special functions like debugging could be
- * performed.
- *
- * This feature should not be used in any product release.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_stay_on(void);
-
 #endif  /* __MFD_PMIC8058_H__ */

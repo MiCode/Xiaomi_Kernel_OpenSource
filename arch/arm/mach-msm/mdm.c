@@ -29,9 +29,9 @@
 #include <linux/completion.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
-#include <linux/mfd/pmic8058.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
+#include <linux/mfd/pm8xxx/misc.h>
 #include <mach/mdm.h>
 #include <mach/restart.h>
 #include <mach/subsystem_notif.h>
@@ -120,7 +120,7 @@ static int charm_panic_prep(struct notifier_block *this,
 	CHARM_DBG("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
 			 __func__);
 	if (get_restart_level() == RESET_SOC)
-		pm8058_stay_on();
+		pm8xxx_stay_on();
 
 	charm_disable_irqs();
 	gpio_set_value(AP2MDM_ERRFATAL, 1);
@@ -238,7 +238,7 @@ static void charm_fatal_fn(struct work_struct *work)
 {
 	pr_info("Reseting the charm due to an errfatal\n");
 	if (get_restart_level() == RESET_SOC)
-		pm8058_stay_on();
+		pm8xxx_stay_on();
 	subsystem_restart("external_modem");
 }
 

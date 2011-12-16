@@ -91,28 +91,6 @@ ssbi_write(struct device *dev, u16 addr, u8 *buf, size_t len)
 	return msm_ssbi_write(dev->parent, addr, buf, len);
 }
 
-/**
- * pm8058_stay_on - enables stay_on feature
- *
- * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
- * signal so that some special functions like debugging could be
- * performed.
- *
- * This feature should not be used in any product release.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_stay_on(void)
-{
-	u8	ctrl = 0x92;
-	int	rc;
-
-	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_GP_TEST_1, &ctrl, 1);
-	pr_info("%s: set stay-on: rc = %d\n", __func__, rc);
-	return rc;
-}
-EXPORT_SYMBOL(pm8058_stay_on);
-
 /*
    power on hard reset configuration
    config = DISABLE_HARD_RESET to disable hard reset
