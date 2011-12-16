@@ -115,7 +115,7 @@ late_initcall(msm_xo_debugfs_init);
 static int msm_xo_update_vote(struct msm_xo *xo)
 {
 	int ret;
-	unsigned vote, prev_vote = xo->mode;
+	unsigned vote, prev_vote = xo->mode, ctx_set;
 	struct msm_rpm_iv_pair cmd;
 
 	if (xo->votes[MSM_XO_MODE_ON])
@@ -141,7 +141,11 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 	} else if (xo == &msm_xo_sources[MSM_XO_CXO]) {
 		cmd.id = MSM_RPM_ID_CXO_CLK;
 		cmd.value = msm_xo_sources[MSM_XO_CXO].mode ? 1 : 0;
-		ret = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
+		if (cpu_is_msm9615())
+			ctx_set = MSM_RPM_CTX_SET_SLEEP;
+		else
+			ctx_set = MSM_RPM_CTX_SET_0;
+		ret = msm_rpmrs_set_noirq(ctx_set, &cmd, 1);
 	} else {
 		cmd.id = MSM_RPM_ID_CXO_BUFFERS;
 		cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
@@ -304,11 +308,24 @@ EXPORT_SYMBOL(msm_xo_put);
 int __init msm_xo_init(void)
 {
 	int i;
-	int ret;
+	int ret = 0;
 	struct msm_rpm_iv_pair cmd[2];
 
 	for (i = 0; i < ARRAY_SIZE(msm_xo_sources); i++)
 		INIT_LIST_HEAD(&msm_xo_sources[i].voters);
+
+	if (cpu_is_msm9615()) {
+		cmd[0].id = MSM_RPM_ID_CXO_CLK;
+		cmd[0].value = 1;
+		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, cmd, 1);
+		if (ret)
+			goto out;
+
+		cmd[0].id = MSM_RPM_ID_CXO_CLK;
+		cmd[0].value = 0;
+		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, cmd, 1);
+		goto out;
+	}
 
 	cmd[0].id = MSM_RPM_ID_PXO_CLK;
 	cmd[0].value = 1;

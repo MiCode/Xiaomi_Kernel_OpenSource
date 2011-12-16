@@ -257,6 +257,7 @@ config ARCH_MSM9615
 	select MSM_RPM_REGULATOR
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
+	select MSM_XO
 
 config ARCH_MSM8625
 	bool "MSM8625"

@@ -31,6 +31,7 @@
 #include <mach/gpio.h>
 #include <mach/msm_spi.h>
 #include <mach/msm_bus_board.h>
+#include <mach/msm_xo.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -568,6 +569,7 @@ static void __init msm9615_common_init(void)
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
 	platform_device_register(&msm9615_device_rpm_regulator);
+	msm_xo_init();
 	msm_clock_init(&msm9615_clock_init_data);
 	msm9615_init_buses();
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
