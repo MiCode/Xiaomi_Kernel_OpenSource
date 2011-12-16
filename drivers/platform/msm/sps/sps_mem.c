@@ -131,6 +131,12 @@ int sps_mem_init(u32 pipemem_phys_base, u32 pipemem_size)
 #endif
 
 	pool = gen_pool_create(min_alloc_order, nid);
+
+	if (!pool) {
+		SPS_ERR("sps:Failed to create a new memory pool.\n");
+		return -ENOMEM;
+	}
+
 #ifndef CONFIG_SPS_SUPPORT_NDP_BAM
 	res = gen_pool_add(pool, (u32) iomem_virt, iomem_size, nid);
 	if (res)

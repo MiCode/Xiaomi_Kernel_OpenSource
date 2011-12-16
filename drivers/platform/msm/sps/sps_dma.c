@@ -291,6 +291,11 @@ int sps_dma_device_init(u32 h)
 	dev->h = h;
 	dev->bam = sps_h2bam(h);
 
+	if (dev->bam == NULL) {
+		SPS_ERR("BAM-DMA BAM device is not found from the handle.");
+		goto exit_err;
+	}
+
 	/* Map the BAM DMA device into virtual space, if necessary */
 	props = &dev->bam->props;
 	dev->phys_addr = props->periph_phys_addr;
