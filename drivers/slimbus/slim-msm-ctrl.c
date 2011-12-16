@@ -1764,6 +1764,13 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	 */
 	wmb();
 
+	/* Register with framework before enabling frame, clock */
+	ret = slim_add_numbered_controller(&dev->ctrl);
+	if (ret) {
+		dev_err(dev->dev, "error adding controller\n");
+		goto err_ctrl_failed;
+	}
+
 	/* Framer register initialization */
 	writel_relaxed((0xA << REF_CLK_GEAR) | (0xA << CLK_GEAR) |
 		(1 << ROOT_FREQ) | (1 << FRM_ACTIVE) | 1,
@@ -1811,11 +1818,6 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, MSM_SLIM_AUTOSUSPEND);
 	pm_runtime_set_active(&pdev->dev);
 
-	ret = slim_add_numbered_controller(&dev->ctrl);
-	if (ret) {
-		dev_err(dev->dev, "error adding controller\n");
-		goto err_ctrl_failed;
-	}
 	dev_dbg(dev->dev, "MSM SB controller is up!\n");
 	return 0;
 
