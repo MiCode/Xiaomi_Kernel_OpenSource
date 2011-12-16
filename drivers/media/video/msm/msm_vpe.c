@@ -543,6 +543,7 @@ vpe_clk_failed:
 	vpe_ctrl->fs_vpe = NULL;
 vpe_fs_failed:
 	disable_irq(vpe_ctrl->vpeirq->start);
+	vpe_ctrl->state = VPE_STATE_IDLE;
 	return rc;
 }
 
@@ -578,9 +579,11 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
 	unsigned long flags;
 
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
-	if (vpe_ctrl->state == VPE_STATE_ACTIVE) {
+	if (vpe_ctrl->state == VPE_STATE_ACTIVE ||
+		 vpe_ctrl->state == VPE_STATE_IDLE) {
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-		pr_err(" =====VPE is busy!!!  Wrong!========\n");
+		pr_err(" =====VPE in wrong state:%d!!!  Wrong!========\n",
+		vpe_ctrl->state);
 		return -EBUSY;
 	}
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
