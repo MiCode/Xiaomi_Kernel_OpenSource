@@ -779,7 +779,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	usb_get_dev(udev);
 
 	if (iface_num != DUN_IFACE_NUM && iface_num != TETHERED_RMNET_IFACE_NUM)
-		return 0;
+		return -ENODEV;
 
 	numends = iface->cur_altsetting->desc.bNumEndpoints;
 	for (i = 0; i < numends; i++) {
