@@ -79,6 +79,8 @@
 #include <mach/ion.h>
 #include <mach/mdm2.h>
 
+#include <linux/fmem.h>
+
 #include "timer.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -226,6 +228,9 @@ static struct platform_device android_pmem_audio_device = {
 };
 #endif
 
+struct fmem_platform_data fmem_pdata = {
+};
+
 #define DSP_RAM_BASE_8960 0x8da00000
 #define DSP_RAM_SIZE_8960 0x1800000
 static int dspcrashd_pdata_8960 = 0xDEADDEAD;
@@ -285,6 +290,10 @@ static void __init reserve_pmem_memory(void)
 #endif
 }
 
+static void __init reserve_fmem_memory(void)
+{
+}
+
 static int msm8960_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
@@ -335,6 +344,12 @@ static struct platform_device ion_dev = {
 };
 #endif
 
+struct platform_device fmem_device = {
+	.name = "fmem",
+	.id = 1,
+	.dev = { .platform_data = &fmem_pdata },
+};
+
 static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
@@ -347,6 +362,7 @@ static void __init msm8960_calculate_reserve_sizes(void)
 	size_pmem_devices();
 	reserve_pmem_memory();
 	reserve_ion_memory();
+	reserve_fmem_memory();
 }
 
 static struct reserve_info msm8960_reserve_info __initdata = {
@@ -407,6 +423,7 @@ static void __init msm8960_early_memory(void)
 static void __init msm8960_reserve(void)
 {
 	msm_reserve();
+	fmem_pdata.phys = reserve_memory_for_fmem(fmem_pdata.size);
 }
 
 static int msm8960_change_memory_power(u64 start, u64 size,
@@ -1623,6 +1640,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_MSM_FAKE_BATTERY
 	&fish_battery_device,
 #endif
+	&fmem_device,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
