@@ -131,7 +131,7 @@ static struct msm_gpiomux_config msm8960_cam_common_configs[] = {
 	{
 		.gpio = 5,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
