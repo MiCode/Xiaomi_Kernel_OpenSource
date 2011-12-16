@@ -40,6 +40,7 @@
 #if defined(SUBSYS_FATAL_DEBUG)
 static void debug_crash_modem_fn(struct work_struct *);
 static int reset_modem;
+static int ignore_smsm_ack;
 
 static DECLARE_DELAYED_WORK(debug_crash_modem_work,
 				debug_crash_modem_fn);
@@ -129,26 +130,30 @@ static int modem_notif_handler(struct notifier_block *this,
 				void *_cmd)
 {
 	if (code == MODEM_NOTIFIER_START_RESET) {
-
+		if (ignore_smsm_ack) {
+			ignore_smsm_ack = 0;
+			goto out;
+		}
 		pr_err("%s: Modem error fatal'ed.", MODULE_NAME);
 		subsystem_restart("modem");
 	}
+out:
 	return NOTIFY_DONE;
 }
 
 static int modem_shutdown(const struct subsys_data *crashed_subsys)
 {
 	void __iomem *modem_wdog_addr;
-	int smsm_notif_unregistered = 0;
 
 	/* If the modem didn't already crash, setting SMSM_RESET
-	 * here will help flush caches etc. Unregister for SMSM
-	 * notifications to prevent unnecessary secondary calls to
-	 * subsystem_restart.
+	 * here will help flush caches etc. The ignore_smsm_ack
+	 * flag is set to ignore the SMSM_RESET notification
+	 * that is generated due to the modem settings its own
+	 * SMSM_RESET bit in response to the apps setting the
+	 * apps SMSM_RESET bit.
 	 */
 	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
-		modem_unregister_notifier(&modem_notif_nb);
-		smsm_notif_unregistered = 1;
+		ignore_smsm_ack = 1;
 		smsm_reset_modem(SMSM_RESET);
 	}
 
@@ -168,9 +173,6 @@ static int modem_shutdown(const struct subsys_data *crashed_subsys)
 	pil_force_shutdown("modem");
 	disable_irq_nosync(MARM_WDOG_EXPIRED);
 
-	/* Re-register for SMSM notifications if necessary */
-	if (smsm_notif_unregistered)
-		modem_register_notifier(&modem_notif_nb);
 
 
 	return 0;
