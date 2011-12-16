@@ -136,10 +136,10 @@ void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len)
 	msm_io_dump(dest_addr, len);
 }
 
-static int msm_camera_vreg_enable(struct platform_device *pdev)
+static int msm_camera_vreg_enable(struct device *dev)
 {
 	if (mipi_csi_vdd == NULL) {
-		mipi_csi_vdd = regulator_get(&pdev->dev, "mipi_csi_vdd");
+		mipi_csi_vdd = regulator_get(dev, "mipi_csi_vdd");
 		if (IS_ERR(mipi_csi_vdd)) {
 			CDBG("%s: VREG MIPI CSI VDD get failed\n", __func__);
 			mipi_csi_vdd = NULL;
@@ -164,7 +164,7 @@ static int msm_camera_vreg_enable(struct platform_device *pdev)
 		}
 	}
 	if (cam_vana == NULL) {
-		cam_vana = regulator_get(&pdev->dev, "cam_vana");
+		cam_vana = regulator_get(dev, "cam_vana");
 		if (IS_ERR(cam_vana)) {
 			CDBG("%s: VREG CAM VANA get failed\n", __func__);
 			cam_vana = NULL;
@@ -188,7 +188,7 @@ static int msm_camera_vreg_enable(struct platform_device *pdev)
 		}
 	}
 	if (cam_vio == NULL) {
-		cam_vio = regulator_get(&pdev->dev, "cam_vio");
+		cam_vio = regulator_get(dev, "cam_vio");
 		if (IS_ERR(cam_vio)) {
 			CDBG("%s: VREG VIO get failed\n", __func__);
 			cam_vio = NULL;
@@ -200,7 +200,7 @@ static int msm_camera_vreg_enable(struct platform_device *pdev)
 		}
 	}
 	if (cam_vdig == NULL) {
-		cam_vdig = regulator_get(&pdev->dev, "cam_vdig");
+		cam_vdig = regulator_get(dev, "cam_vdig");
 		if (IS_ERR(cam_vdig)) {
 			CDBG("%s: VREG CAM VDIG get failed\n", __func__);
 			cam_vdig = NULL;
@@ -224,7 +224,7 @@ static int msm_camera_vreg_enable(struct platform_device *pdev)
 		}
 	}
 	if (cam_vaf == NULL) {
-		cam_vaf = regulator_get(&pdev->dev, "cam_vaf");
+		cam_vaf = regulator_get(dev, "cam_vaf");
 		if (IS_ERR(cam_vaf)) {
 			CDBG("%s: VREG CAM VAF get failed\n", __func__);
 			cam_vaf = NULL;
@@ -456,9 +456,8 @@ int msm_camio_jpeg_clk_enable(void)
 	return rc;
 }
 
-static int config_gpio_table(int gpio_en)
+static int config_gpio_table(struct msm_camera_sensor_info *sinfo, int gpio_en)
 {
-	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
 	struct msm_camera_gpio_conf *gpio_conf = sinfo->gpio_conf;
 	int rc = 0, i = 0;
 
@@ -567,73 +566,47 @@ static struct pm8xxx_mpp_config_data privacy_light_off_config = {
 	.control	= PM8XXX_MPP_CS_CTRL_DISABLE,
 };
 
-int msm_camio_sensor_clk_on(struct platform_device *pdev)
+static struct msm_cam_clk_info cam_clk_info[] = {
+	{"cam_clk", 24000000},
+};
+
+int msm_sensor_probe_on(struct device *dev)
 {
 	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_sensor_info *sinfo = dev->platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	camio_dev = pdev;
 	camio_clk = camdev->ioclk;
 
-	msm_camera_vreg_enable(pdev);
+	rc = config_gpio_table(sinfo, 1);
+	if (rc < 0)
+		return rc;
+	msm_camera_vreg_enable(dev);
 	if (sinfo->sensor_platform_info->privacy_light) {
 		struct msm8960_privacy_light_cfg *privacy_light_config =
 			sinfo->sensor_platform_info->privacy_light_info;
 		pm8xxx_mpp_config(privacy_light_config->mpp,
 						  &privacy_light_on_config);
 	}
-	msleep(20);
-	rc = config_gpio_table(1);
-	if (rc < 0)
-		return rc;
-	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+	return msm_cam_clk_enable(dev, cam_clk_info,
+		&camio_cam_clk, ARRAY_SIZE(cam_clk_info), 1);
 }
 
-int msm_camio_sensor_clk_off(struct platform_device *pdev)
+int msm_sensor_probe_off(struct device *dev)
 {
 	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	msm_camera_vreg_disable();
+	struct msm_camera_sensor_info *sinfo = dev->platform_data;
 	if (sinfo->sensor_platform_info->privacy_light) {
 		struct msm8960_privacy_light_cfg *privacy_light_config =
 			sinfo->sensor_platform_info->privacy_light_info;
 		pm8xxx_mpp_config(privacy_light_config->mpp,
 						  &privacy_light_off_config);
 	}
-	rc = config_gpio_table(0);
-	if (rc < 0)
-		return rc;
-	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-}
-
-void msm_camio_vfe_blk_reset(void)
-{
-	return;
-}
-
-int msm_camio_probe_on(struct platform_device *pdev)
-{
-	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	camio_dev = pdev;
-	camio_clk = camdev->ioclk;
-
-	rc = config_gpio_table(1);
-	if (rc < 0)
-		return rc;
-	msm_camera_vreg_enable(pdev);
-	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
-}
-
-int msm_camio_probe_off(struct platform_device *pdev)
-{
-	int rc = 0;
 	msm_camera_vreg_disable();
-	rc = config_gpio_table(0);
+	rc = config_gpio_table(sinfo, 0);
 	if (rc < 0)
 		return rc;
-	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	return msm_cam_clk_enable(dev, cam_clk_info,
+		&camio_cam_clk, ARRAY_SIZE(cam_clk_info), 0);
 }
 
 void msm_camio_mode_config(enum msm_cam_mode mode)
@@ -653,16 +626,13 @@ void msm_camio_mode_config(enum msm_cam_mode mode)
 	}
 }
 
-void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
+void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
+		enum msm_bus_perf_setting perf_setting)
 {
 	static uint32_t bus_perf_client;
-	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
 	int rc = 0;
 	switch (perf_setting) {
 	case S_INIT:
-		cam_bus_scale_table = camdev->cam_bus_scale_table;
 		bus_perf_client =
 			msm_bus_scale_register_client(cam_bus_scale_table);
 		if (!bus_perf_client) {

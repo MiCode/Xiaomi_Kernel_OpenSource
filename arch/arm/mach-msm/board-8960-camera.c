@@ -11,8 +11,6 @@
  *
  */
 
-#include <linux/i2c.h>
-#include <linux/i2c/sx150x.h>
 #include <asm/mach-types.h>
 #include <mach/board.h>
 #include <mach/msm_bus_board.h>
@@ -407,13 +405,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.actuator_info = &imx074_actuator_info
 #endif
 };
-
-static struct platform_device msm8960_camera_sensor_imx074 = {
-	.name	= "msm_camera_imx074",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_imx074_data,
-	},
-};
 #endif
 
 #ifdef CONFIG_MT9M114
@@ -434,13 +425,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
 	.gpio_conf = &gpio_conf,
 	.csi_if = 1,
 	.camera_type = BACK_CAMERA_2D,
-};
-
-struct platform_device msm8960_camera_sensor_mt9m114 = {
-	.name = "msm_camera_mt9m114",
-	.dev = {
-		.platform_data = &msm_camera_sensor_mt9m114_data,
-	},
 };
 #endif
 
@@ -466,13 +450,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.csi_if	= 1,
 	.camera_type = FRONT_CAMERA_2D,
 };
-
-static struct platform_device msm8960_camera_sensor_ov2720 = {
-	.name	= "msm_camera_ov2720",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_ov2720_data,
-	},
-};
 #endif
 
 static struct msm8960_privacy_light_cfg privacy_light_info = {
@@ -481,15 +458,6 @@ static struct msm8960_privacy_light_cfg privacy_light_info = {
 
 void __init msm8960_init_cam(void)
 {
-	int i;
-	struct platform_device *cam_dev[] = {
-		&msm8960_camera_sensor_imx074,
-#ifdef CONFIG_MT9M114
-		&msm8960_camera_sensor_mt9m114,
-#endif
-		&msm8960_camera_sensor_ov2720,
-	};
-
 	msm_gpiomux_install(msm8960_cam_common_configs,
 			ARRAY_SIZE(msm8960_cam_common_configs));
 
@@ -509,19 +477,12 @@ void __init msm8960_init_cam(void)
 
 	if (machine_is_msm8960_liquid()) {
 		struct msm_camera_sensor_info *s_info;
-		s_info = msm8960_camera_sensor_imx074.dev.platform_data;
+		s_info = &msm_camera_sensor_imx074_data;
 		s_info->sensor_platform_info->mount_angle = 180;
-		s_info = msm8960_camera_sensor_ov2720.dev.platform_data;
+		s_info = &msm_camera_sensor_ov2720_data;
 		s_info->sensor_platform_info->privacy_light = 1;
 		s_info->sensor_platform_info->privacy_light_info =
 			&privacy_light_info;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(cam_dev); i++) {
-		struct msm_camera_sensor_info *s_info;
-		s_info = cam_dev[i]->dev.platform_data;
-		msm_get_cam_resources(s_info);
-		platform_device_register(cam_dev[i]);
 	}
 
 	platform_device_register(&msm8960_device_csiphy0);
@@ -532,4 +493,35 @@ void __init msm8960_init_cam(void)
 	platform_device_register(&msm8960_device_vfe);
 	platform_device_register(&msm8960_device_vpe);
 }
+
+#ifdef CONFIG_I2C
+static struct i2c_board_info msm8960_camera_i2c_boardinfo[] = {
+#ifdef CONFIG_IMX074
+	{
+	I2C_BOARD_INFO("imx074", 0x1A),
+	.platform_data = &msm_camera_sensor_imx074_data,
+	},
+#endif
+#ifdef CONFIG_OV2720
+	{
+	I2C_BOARD_INFO("ov2720", 0x6C),
+	.platform_data = &msm_camera_sensor_ov2720_data,
+	},
+#endif
+	{
+	I2C_BOARD_INFO("mt9m114", 0x48),
+	.platform_data = &msm_camera_sensor_mt9m114_data,
+	},
+#ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
+	{
+	I2C_BOARD_INFO("sc628a", 0x6E),
+	},
+#endif
+};
+
+struct msm_camera_board_info msm8960_camera_board_info = {
+	.board_info = msm8960_camera_i2c_boardinfo,
+	.num_i2c_board_info = ARRAY_SIZE(msm8960_camera_i2c_boardinfo),
+};
+#endif
 #endif

@@ -31,6 +31,7 @@
 #include "msm_csid.h"
 #include "msm_csiphy.h"
 #include "msm_ispif.h"
+#include "msm_sensor.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -151,7 +152,7 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 		return -EFAULT;
 	}
 
-	sdata = sync->pdev->dev.platform_data;
+	sdata = sync->sdata;
 	D("%s: sensor_name %s\n", __func__, sdata->sensor_name);
 
 	memcpy(&info.name[0], sdata->sensor_name, MAX_SENSOR_NAME);
@@ -175,8 +176,9 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	unsigned int notification, void *arg)
 {
 	int rc = -EINVAL;
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
-			p_mctl->plat_dev->dev.platform_data;
+		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core = camdev->csid_core;
 	switch (notification) {
@@ -258,7 +260,8 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			break;
 
 	case MSM_CAM_IOCTL_SENSOR_IO_CFG:
-			rc = p_mctl->sync.sctrl.s_config(argp);
+		rc = v4l2_subdev_call(p_mctl->sensor_sdev,
+			core, ioctl, VIDIOC_MSM_SENSOR_CFG, argp);
 			break;
 
 	case MSM_CAM_IOCTL_SENSOR_V4l2_S_CTRL: {
@@ -475,8 +478,10 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 {
 	int rc = 0;
 	struct msm_sync *sync = NULL;
-	struct msm_camera_sensor_info *sinfo;
-	struct msm_camera_device_platform_data *camdev;
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
+	struct msm_camera_sensor_info *sinfo =
+		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core;
 	D("%s\n", __func__);
 	if (!p_mctl) {
@@ -493,23 +498,11 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		uint32_t csid_version;
 		wake_lock(&sync->wake_lock);
 
-		sinfo = sync->pdev->dev.platform_data;
-		sync->pdev->resource = sinfo->resource;
-		sync->pdev->num_resources = sinfo->num_resources;
-		camdev = sinfo->pdata;
 		csid_core = camdev->csid_core;
 		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
 		if (rc < 0) {
 			pr_err("%s: msm_mctl_register_subdevs failed:%d\n",
 				__func__, rc);
-			goto msm_open_done;
-		}
-
-		/* turn on clock */
-		rc = msm_camio_sensor_clk_on(sync->pdev);
-		if (rc < 0) {
-			pr_err("%s: msm_camio_sensor_clk_on failed:%d\n",
-			 __func__, rc);
 			goto msm_open_done;
 		}
 
@@ -548,8 +541,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		}
 
 		/* then sensor - move sub dev later*/
-		if (sync->sctrl.s_init)
-			rc = sync->sctrl.s_init(sync->sdata);
+		rc = v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 1);
 
 		if (rc < 0) {
 			pr_err("%s: isp init failed: %d\n", __func__, rc);
@@ -583,8 +575,6 @@ msm_open_done:
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
-	struct msm_sync *sync = &(p_mctl->sync);
-
 	v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
 		VIDIOC_MSM_ISPIF_RELEASE, NULL);
 
@@ -598,21 +588,16 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 
 	if (p_mctl->sync.actctrl.a_power_down)
-		p_mctl->sync.actctrl.a_power_down(sync->sdata->actuator_info);
+		p_mctl->sync.actctrl.a_power_down(
+			p_mctl->sync.sdata->actuator_info);
 
-	if (p_mctl->sync.sctrl.s_release)
-		p_mctl->sync.sctrl.s_release();
-
-	rc = msm_camio_sensor_clk_off(sync->pdev);
-	if (rc < 0)
-		pr_err("%s: msm_camio_sensor_clk_off failed:%d\n",
-			 __func__, rc);
+	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
 
 	pm_qos_update_request(&p_mctl->pm_qos_req_list,
 				PM_QOS_DEFAULT_VALUE);
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
-	wake_unlock(&sync->wake_lock);
+	wake_unlock(&p_mctl->sync.wake_lock);
 	return rc;
 }
 
@@ -693,7 +678,6 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 	pmctl->mctl_cmd = msm_mctl_cmd;
 	pmctl->mctl_notify = msm_mctl_notify;
 	pmctl->mctl_release = msm_mctl_release;
-	pmctl->plat_dev = pcam->pdev;
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);
 	memset(&pmctl->pp_info, 0, sizeof(pmctl->pp_info));

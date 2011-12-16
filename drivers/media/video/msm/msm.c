@@ -19,7 +19,7 @@
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
 #include "msm.h"
-
+#include "msm_sensor.h"
 
 #define MSM_MAX_CAMERA_SENSORS 5
 
@@ -2294,10 +2294,11 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 {
 	int rc = -ENOMEM;
 	struct video_device *pvdev = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(pcam->mctl.sensor_sdev);
 	D("%s\n", __func__);
 
 	/* first register the v4l2 device */
-	pcam->v4l2_dev.dev = &pcam->pdev->dev;
+	pcam->v4l2_dev.dev = &client->dev;
 	rc = v4l2_device_register(pcam->v4l2_dev.dev, &pcam->v4l2_dev);
 	if (rc < 0)
 		return -EINVAL;
@@ -2314,11 +2315,11 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 
 	/* init video device's driver interface */
 	D("sensor name = %s, sizeof(pvdev->name)=%d\n",
-		pcam->pdev->name, sizeof(pvdev->name));
+		pcam->mctl.sensor_sdev->name, sizeof(pvdev->name));
 
 	/* device info - strlcpy is safer than strncpy but
 	   only if architecture supports*/
-	strlcpy(pvdev->name, pcam->pdev->name, sizeof(pvdev->name));
+	strlcpy(pvdev->name, pcam->mctl.sensor_sdev->name, sizeof(pvdev->name));
 
 	pvdev->release   = video_device_release;
 	pvdev->fops	  = &g_msm_fops;
@@ -2418,36 +2419,25 @@ static int msm_sync_init(struct msm_sync *sync,
 	struct platform_device *pdev)
 {
 	int rc = 0;
-
-	sync->sdata = pdev->dev.platform_data;
-
 	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
-
-	sync->pdev = pdev;
 	sync->opencnt = 0;
-
 	mutex_init(&sync->lock);
-	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
 	return rc;
 }
 
 /* register a msm sensor into the msm device, which will probe the
  * sensor HW. if the HW exist then create a video device (/dev/videoX/)
  * to represent this sensor */
-int msm_sensor_register(struct platform_device *pdev,
-		int (*sensor_probe)(const struct msm_camera_sensor_info *,
-			struct v4l2_subdev *, struct msm_sensor_ctrl *))
+int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 {
-
 	int rc = -EINVAL;
-	struct msm_camera_sensor_info *sdata = pdev->dev.platform_data;
+	struct msm_camera_sensor_info *sdata;
 	struct msm_cam_v4l2_device *pcam;
-	struct v4l2_subdev *sdev = NULL;
-	struct msm_sensor_ctrl *sctrl = NULL;
+	struct msm_sensor_ctrl_t *s_ctrl;
 	struct v4l2_subdev *act_sdev = NULL;
 	struct msm_actuator_ctrl *actctrl = NULL;
 
-	D("%s for %s\n", __func__, pdev->name);
+	D("%s for %s\n", __func__, sensor_sd->name);
 
 	/* allocate the memory for the camera device first */
 	pcam = kzalloc(sizeof(*pcam), GFP_KERNEL);
@@ -2457,44 +2447,15 @@ int msm_sensor_register(struct platform_device *pdev,
 		return -ENOMEM;
 	}
 
-	pcam->mctl.sensor_sdev = kzalloc(sizeof(struct v4l2_subdev),
-					 GFP_KERNEL);
-	if (!pcam->mctl.sensor_sdev) {
-		pr_err("%s: could not allocate mem for sensor v4l2_subdev\n",
-			__func__);
-		kfree(pcam);
-		return -ENOMEM;
-	}
-
-	sdev = pcam->mctl.sensor_sdev;
-	snprintf(sdev->name, sizeof(sdev->name), "%s", pdev->name);
-	sctrl = &pcam->mctl.sync.sctrl;
-
-	/* come sensor probe logic */
-	rc = msm_camio_probe_on(pdev);
-	if (rc < 0) {
-		kzfree(pcam);
-		return rc;
-	}
-
-	rc = sensor_probe(sdata, sdev, sctrl);
-	if (rc < 0) {
-		pr_err("%s: failed to detect %s\n",
-			__func__,
-			sdata->sensor_name);
-		msm_camio_probe_off(pdev);
-		kzfree(sdev);
-		kzfree(pcam);
-		return rc;
-	}
+	pcam->mctl.sensor_sdev = sensor_sd;
+	s_ctrl = get_sctrl(sensor_sd);
+	sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
 
 	pcam->mctl.act_sdev = kzalloc(sizeof(struct v4l2_subdev),
-					 GFP_KERNEL);
+								  GFP_KERNEL);
 	if (!pcam->mctl.act_sdev) {
 		pr_err("%s: could not allocate mem for actuator v4l2_subdev\n",
-			__func__);
-		msm_camio_probe_off(pdev);
-		kzfree(sdev);
+			   __func__);
 		kfree(pcam);
 		return -ENOMEM;
 	}
@@ -2503,20 +2464,17 @@ int msm_sensor_register(struct platform_device *pdev,
 	actctrl = &pcam->mctl.sync.actctrl;
 
 	msm_actuator_probe(sdata->actuator_info,
-			act_sdev, actctrl);
-
-	msm_camio_probe_off(pdev);
+					   act_sdev, actctrl);
 
 	/* setup a manager object*/
-	rc = msm_sync_init(&pcam->mctl.sync, pdev);
+	rc = msm_sync_init(&pcam->mctl.sync, NULL);
 	if (rc < 0)
 		goto failure;
 	D("%s: pcam =0x%p\n", __func__, pcam);
 	D("%s: &pcam->mctl.sync =0x%p\n", __func__, &pcam->mctl.sync);
 
+	pcam->mctl.sync.sdata = sdata;
 	pcam->mctl.sync.pcam_sync = pcam;
-	/* bind the driver device to the sensor device */
-	pcam->pdev = pdev;
 
 	/* init the user count and lock*/
 	pcam->use_count = 0;
@@ -2527,7 +2485,6 @@ int msm_sensor_register(struct platform_device *pdev,
 	if (rc < 0)
 		goto failure;
 
-	/* now initialize the camera device object */
 	rc  = msm_cam_dev_init(pcam);
 	if (rc < 0)
 		goto failure;
@@ -2541,39 +2498,35 @@ int msm_sensor_register(struct platform_device *pdev,
 
 	g_server_dev.camera_info.s_mount_angle
 	[g_server_dev.camera_info.num_cameras]
-	= sctrl->s_mount_angle;
+	= sdata->sensor_platform_info->mount_angle;
 
 	g_server_dev.camera_info.is_internal_cam
 	[g_server_dev.camera_info.num_cameras]
-	= sctrl->s_camera_type;
+	= sdata->camera_type;
 
 	g_server_dev.camera_info.num_cameras++;
 
 	D("%s done, rc = %d\n", __func__, rc);
 	D("%s number of sensors connected is %d\n", __func__,
 			g_server_dev.camera_info.num_cameras);
-/*
-	if (g_server_dev.camera_info.num_cameras == 1) {
-		rc = add_axi_qos();
-		if (rc < 0)
-			goto failure;
-	}
-*/
+
 	/* register the subdevice, must be done for callbacks */
-	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sdev);
+	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sensor_sd);
 	if (rc < 0) {
 		D("%s sensor sub device register failed\n",
 			__func__);
 		goto failure;
 	}
+
 	if (sdata->actuator_info) {
 		rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
 		if (rc < 0) {
 			D("%s actuator sub device register failed\n",
-				__func__);
+			  __func__);
 			goto failure;
 		}
 	}
+
 	pcam->vnode_id = vnode_count++;
 	return rc;
 
@@ -2581,9 +2534,7 @@ failure:
 	/* mutex_destroy not needed at this moment as the associated
 	implemenation of mutex_init is not consuming resources */
 	msm_sync_destroy(&pcam->mctl.sync);
-	pcam->pdev = NULL;
 	kfree(act_sdev);
-	kfree(sdev);
 	kzfree(pcam);
 	return rc;
 }

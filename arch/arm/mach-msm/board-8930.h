@@ -15,6 +15,7 @@
 
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
+#include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
@@ -89,6 +90,7 @@ enum {
 #endif
 
 extern struct sx150x_platform_data msm8930_sx150x_data[];
+extern struct msm_camera_board_info msm8930_camera_board_info;
 void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);

@@ -396,9 +396,7 @@ int msm_isp_register(struct msm_cam_v4l2_device *pcam);
 */
 int msm_isp_register(struct msm_cam_server_dev *psvr);
 void msm_isp_unregister(struct msm_cam_server_dev *psvr);
-int msm_sensor_register(struct platform_device *pdev,
-	int (*sensor_probe)(const struct msm_camera_sensor_info *,
-	struct v4l2_subdev *, struct msm_sensor_ctrl *));
+int msm_sensor_register(struct v4l2_subdev *);
 int msm_isp_init_module(int g_num_config_nodes);
 
 int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam);

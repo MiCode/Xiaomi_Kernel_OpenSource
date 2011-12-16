@@ -731,7 +731,9 @@ static void vfe32_start_common(void)
 
 static int vfe32_start_recording(void)
 {
-	msm_camio_set_perf_lvl(S_VIDEO);
+	struct msm_sync *sync = vfe_syncdata;
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 	vfe32_ctrl->recording_state = VFE_REC_STATE_START_REQUESTED;
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	return 0;
@@ -739,9 +741,11 @@ static int vfe32_start_recording(void)
 
 static int vfe32_stop_recording(void)
 {
+	struct msm_sync *sync = vfe_syncdata;
 	vfe32_ctrl->recording_state = VFE_REC_STATE_STOP_REQUESTED;
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-	msm_camio_set_perf_lvl(S_PREVIEW);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	return 0;
 }
 
@@ -753,6 +757,7 @@ static void vfe32_liveshot(void){
 
 static int vfe32_zsl(void)
 {
+	struct msm_sync *sync = vfe_syncdata;
 	uint32_t irq_comp_mask = 0;
 	/* capture command is valid for both idle and active state. */
 	irq_comp_mask	=
@@ -811,7 +816,8 @@ static int vfe32_zsl(void)
 	}
 	msm_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	vfe32_start_common();
-	msm_camio_set_perf_lvl(S_ZSL);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_ZSL);
 
 	msm_io_w(1, vfe32_ctrl->vfebase + 0x18C);
 	msm_io_w(1, vfe32_ctrl->vfebase + 0x188);
@@ -869,7 +875,8 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	}
 	msm_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
-	msm_camio_set_perf_lvl(S_CAPTURE);
+	msm_camio_bus_scale_cfg(
+		p_sync->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 	vfe32_start_common();
 	msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	/* for debug */
@@ -881,6 +888,7 @@ static int vfe32_capture(uint32_t num_frames_capture)
 static int vfe32_start(void)
 {
 	uint32_t irq_comp_mask = 0;
+	struct msm_sync *sync = vfe_syncdata;
 	/* start command now is only good for continuous mode. */
 	if ((vfe32_ctrl->operation_mode != VFE_MODE_OF_OPERATION_CONTINUOUS) &&
 		(vfe32_ctrl->operation_mode != VFE_MODE_OF_OPERATION_VIDEO))
@@ -920,7 +928,8 @@ static int vfe32_start(void)
 		msm_io_w(1, vfe32_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch2]);
 	}
-	msm_camio_set_perf_lvl(S_PREVIEW);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe32_start_common();
 	return 0;
 }
@@ -3683,6 +3692,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	struct platform_device *pdev)
 {
 	int rc = 0;
+	struct msm_sync *sync = data;
 	v4l2_set_subdev_hostdata(sd, data);
 	vfe_syncdata = data;
 
@@ -3735,8 +3745,10 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	if (rc < 0)
 		goto vfe_clk_enable_failed;
 
-	msm_camio_set_perf_lvl(S_INIT);
-	msm_camio_set_perf_lvl(S_PREVIEW);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_INIT);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 
 	if (msm_io_r(vfe32_ctrl->vfebase + V32_GET_HW_VERSION_OFF) ==
 		VFE32_HW_NUMBER)
@@ -3759,6 +3771,7 @@ vfe_remap_failed:
 
 void msm_vfe_subdev_release(struct platform_device *pdev)
 {
+	struct msm_sync *sync = vfe_syncdata;
 	msm_cam_clk_enable(&vfe32_ctrl->pdev->dev, vfe32_clk_info,
 			vfe32_ctrl->vfe_clk, ARRAY_SIZE(vfe32_clk_info), 0);
 	if (vfe32_ctrl->fs_vfe) {
@@ -3774,7 +3787,8 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 	if (atomic_read(&irq_cnt))
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);
 
-	msm_camio_set_perf_lvl(S_EXIT);
+	msm_camio_bus_scale_cfg(
+		sync->sdata->pdata->cam_bus_scale_table, S_EXIT);
 	vfe_syncdata = NULL;
 }
 
