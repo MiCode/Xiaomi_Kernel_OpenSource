@@ -117,10 +117,18 @@ static void set_evres(int event_groupsel, int event_reg, int event_group_code)
 	set_l2_indirect_reg(group_reg, resr_val);
 }
 
-static void set_evfilter(int ctr)
+static void set_evfilter_task_mode(int ctr)
 {
 	u32 filter_reg = (ctr * 16) + IA_L2PMXEVFILTER_BASE;
 	u32 filter_val = 0x000f0030 | 1 << smp_processor_id();
+
+	set_l2_indirect_reg(filter_reg, filter_val);
+}
+
+static void set_evfilter_sys_mode(int ctr)
+{
+	u32 filter_reg = (ctr * 16) + IA_L2PMXEVFILTER_BASE;
+	u32 filter_val = 0x000f003f;
 
 	set_l2_indirect_reg(filter_reg, filter_val);
 }
@@ -298,7 +306,10 @@ static void krait_l2_start_counter(struct perf_event *event, int flags)
 	set_evres(evdesc.event_groupsel, evdesc.event_reg,
 		  evdesc.event_group_code);
 
-	set_evfilter(idx);
+	if (event->cpu < 0)
+		set_evfilter_task_mode(idx);
+	else
+		set_evfilter_sys_mode(idx);
 
 out:
 	enable_intenset(idx);

@@ -427,9 +427,16 @@ static inline void bb_l2_set_evtyper(int ctr, int val)
 	asm volatile ("mcr p15, 3, %0, c15, c6, 7" : : "r" (val));
 }
 
-static void bb_l2_set_evfilter(void)
+static void bb_l2_set_evfilter_task_mode(void)
 {
 	u32 filter_val = 0x000f0030 | 1 << smp_processor_id();
+
+	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
+}
+
+static void bb_l2_set_evfilter_sys_mode(void)
+{
+	u32 filter_val = 0x000f003f;
 
 	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
 }
@@ -633,7 +640,10 @@ static void bb_l2_start_counter(struct perf_event *event, int flags)
 
 	bb_l2_set_evcntcr();
 
-	bb_l2_set_evfilter();
+	if (event->cpu < 0)
+		bb_l2_set_evfilter_task_mode();
+	else
+		bb_l2_set_evfilter_sys_mode();
 
 	bb_l2_evt_setup(evtinfo.grp, evtinfo.val);
 
