@@ -294,10 +294,9 @@ static void gbam_data_write_tobam(struct work_struct *w)
 
 	while (d->pending_with_bam < BAM_PENDING_LIMIT) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
-		if (!skb) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			return;
-		}
+		if (!skb)
+			break;
+
 		d->pending_with_bam++;
 		d->to_modem++;
 
