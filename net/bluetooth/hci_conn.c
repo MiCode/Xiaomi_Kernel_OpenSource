@@ -459,6 +459,8 @@ int hci_conn_del(struct hci_conn *conn)
 	if (hdev->notify)
 		hdev->notify(hdev, HCI_NOTIFY_CONN_DEL);
 
+	tasklet_schedule(&hdev->tx_task);
+
 	tasklet_enable(&hdev->tx_task);
 
 	skb_queue_purge(&conn->data_q);
