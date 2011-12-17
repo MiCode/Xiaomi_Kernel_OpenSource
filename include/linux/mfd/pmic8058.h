@@ -144,52 +144,7 @@ struct pm8058_platform_data {
 	struct pmic8058_charger_data		*charger_pdata;
 };
 
-#ifdef CONFIG_PMIC8058
-int pm8058_reset_pwr_off(int reset);
-#else
-static inline int pm8058_reset_pwr_off(int reset) { return 0; }
-#endif
-
-
 int pm8058_hard_reset_config(enum pon_config config);
-
-/**
- * pm8058_smpl_control - enables/disables SMPL detection
- * @enable: 0 = shutdown PMIC on power loss, 1 = reset PMIC on power loss
- *
- * This function enables or disables the Sudden Momentary Power Loss detection
- * module.  If SMPL detection is enabled, then when a sufficiently long power
- * loss event occurs, the PMIC will automatically reset itself.  If SMPL
- * detection is disabled, then the PMIC will shutdown when power loss occurs.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_smpl_control(int enable);
-
-/**
- * pm8058_smpl_set_delay - sets the SMPL detection time delay
- * @delay: enum value corresponding to delay time
- *
- * This function sets the time delay of the SMPL detection module.  If power
- * is reapplied within this interval, then the PMIC reset automatically.  The
- * SMPL detection module must be enabled for this delay time to take effect.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_smpl_set_delay(enum pm8058_smpl_delay delay);
-
-/**
- * pm8058_watchdog_reset_control - enables/disables watchdog reset detection
- * @enable: 0 = shutdown when PS_HOLD goes low, 1 = reset when PS_HOLD goes low
- *
- * This function enables or disables the PMIC watchdog reset detection feature.
- * If watchdog reset detection is enabled, then the PMIC will reset itself
- * when PS_HOLD goes low.  If it is not enabled, then the PMIC will shutdown
- * when PS_HOLD goes low.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_watchdog_reset_control(int enable);
 
 /**
  * pm8058_stay_on - enables stay_on feature
