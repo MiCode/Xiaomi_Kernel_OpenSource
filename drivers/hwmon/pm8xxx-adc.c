@@ -345,12 +345,16 @@ static int32_t pm8xxx_adc_configure(
 	if (rc < 0)
 		return rc;
 
+	rc = pm8xxx_adc_read_reg(PM8XXX_ADC_ARB_USRP_RSV, &data_arb_rsv);
+	if (rc < 0)
+		return rc;
+
 	data_arb_rsv &= (PM8XXX_ADC_ARB_USRP_RSV_RST |
 		PM8XXX_ADC_ARB_USRP_RSV_DTEST0 |
 		PM8XXX_ADC_ARB_USRP_RSV_DTEST1 |
-		PM8XXX_ADC_ARB_USRP_RSV_OP |
-		PM8XXX_ADC_ARB_USRP_RSV_TRM);
-	data_arb_rsv |= chan_prop->amux_ip_rsv << PM8XXX_ADC_RSV_IP_SEL;
+		PM8XXX_ADC_ARB_USRP_RSV_OP);
+	data_arb_rsv |= (chan_prop->amux_ip_rsv << PM8XXX_ADC_RSV_IP_SEL |
+				PM8XXX_ADC_ARB_USRP_RSV_TRM);
 
 	rc = pm8xxx_adc_write_reg(PM8XXX_ADC_ARB_USRP_RSV, data_arb_rsv);
 	if (rc < 0)
