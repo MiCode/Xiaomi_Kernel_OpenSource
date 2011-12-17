@@ -165,6 +165,9 @@
 #define MSM_CAM_IOCTL_SENSOR_V4l2_QUERY_CTRL \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 49, struct v4l2_queryctrl)
 
+#define MSM_CAM_IOCTL_GET_KERNEL_SYSTEM_TIME \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 50, struct timeval *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;

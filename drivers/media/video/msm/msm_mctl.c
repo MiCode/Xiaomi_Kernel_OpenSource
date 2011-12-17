@@ -325,6 +325,19 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		break;
 	}
 
+	case MSM_CAM_IOCTL_GET_KERNEL_SYSTEM_TIME: {
+		struct timeval timestamp;
+		if (copy_from_user(&timestamp, argp, sizeof(timestamp))) {
+			ERR_COPY_FROM_USER();
+			rc = -EFAULT;
+		} else {
+			msm_mctl_gettimeofday(&timestamp);
+			rc = copy_to_user((void *)argp,
+				 &timestamp, sizeof(timestamp));
+		}
+		break;
+	}
+
 	case MSM_CAM_IOCTL_FLASH_CTRL: {
 		struct flash_ctrl_data flash_info;
 		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
