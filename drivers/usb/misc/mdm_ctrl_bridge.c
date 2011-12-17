@@ -697,6 +697,8 @@ void ctrl_bridge_disconnect(unsigned int id)
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
+	platform_device_del(dev->pdev);
+
 	kfree(dev->in_ctlreq);
 	kfree(dev->readbuf);
 	kfree(dev->intbuf);
@@ -704,7 +706,6 @@ void ctrl_bridge_disconnect(unsigned int id)
 	usb_free_urb(dev->readurb);
 	usb_free_urb(dev->inturb);
 
-	platform_device_del(dev->pdev);
 	__dev[id] = NULL;
 	ch_id--;
 
