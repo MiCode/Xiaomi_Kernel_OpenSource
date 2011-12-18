@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -323,6 +323,7 @@ struct mvm_set_widevoice_enable_cmd {
 #define VSS_ISTREAM_CMD_SET_ENC_DTX_MODE		0x0001101D
 /* Set encoder DTX mode. */
 
+#define MODULE_ID_VOICE_MODULE_FENS			0x00010EEB
 #define MODULE_ID_VOICE_MODULE_ST			0x00010EE3
 #define VOICE_PARAM_MOD_ENABLE				0x00010E00
 #define MOD_ENABLE_PARAM_LEN				4
@@ -501,7 +502,7 @@ struct vss_istream_cmd_register_calibration_data_t {
 	/* Size of the calibration data in bytes. */
 };
 
-struct vss_icommon_cmd_set_ui_property_st_enable_t {
+struct vss_icommon_cmd_set_ui_property_enable_t {
 	uint32_t module_id;
 	/* Unique ID of the module. */
 	uint32_t param_id;
@@ -573,9 +574,9 @@ struct cvs_deregister_cal_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
 
-struct cvs_set_slowtalk_enable_cmd {
+struct cvs_set_pp_enable_cmd {
 	struct apr_hdr hdr;
-	struct vss_icommon_cmd_set_ui_property_st_enable_t vss_set_st;
+	struct vss_icommon_cmd_set_ui_property_enable_t vss_set_pp;
 } __packed;
 struct cvs_start_record_cmd {
 	struct apr_hdr hdr;
@@ -832,6 +833,8 @@ struct voice_data {
 	uint8_t wv_enable;
 	/* slowtalk enable value */
 	uint32_t st_enable;
+	/* FENC enable value */
+	uint32_t fens_enable;
 
 	struct voice_dev_route_state voc_route_state;
 
@@ -886,8 +889,8 @@ enum {
 };
 
 /* called  by alsa driver */
-int voc_set_slowtalk_enable(uint16_t session_id, uint32_t st_enable);
-uint32_t voc_get_slowtalk_enable(uint16_t session_id);
+int voc_set_pp_enable(uint16_t session_id, uint32_t module_id, uint32_t enable);
+int voc_get_pp_enable(uint16_t session_id, uint32_t module_id);
 int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable);
 uint32_t voc_get_widevoice_enable(uint16_t session_id);
 uint8_t voc_get_tty_mode(uint16_t session_id);

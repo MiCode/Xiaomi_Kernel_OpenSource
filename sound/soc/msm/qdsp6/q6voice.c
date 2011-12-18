@@ -1,4 +1,4 @@
-/*  Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/*  Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,8 +52,8 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v);
 static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v);
 static int voice_send_cvp_deregister_vol_cal_table_cmd(struct voice_data *v);
 static int voice_send_set_widevoice_enable_cmd(struct voice_data *v);
-static int voice_send_set_slowtalk_enable_cmd(struct voice_data *v);
-
+static int voice_send_set_pp_enable_cmd(struct voice_data *v,
+					uint32_t module_id, int enable);
 static int voice_cvs_stop_playback(struct voice_data *v);
 static int voice_cvs_start_playback(struct voice_data *v);
 static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode);
@@ -1764,9 +1764,10 @@ fail:
 	return -EINVAL;
 }
 
-static int voice_send_set_slowtalk_enable_cmd(struct voice_data *v)
+static int voice_send_set_pp_enable_cmd(struct voice_data *v,
+					uint32_t module_id, int enable)
 {
-	struct cvs_set_slowtalk_enable_cmd cvs_set_st_cmd;
+	struct cvs_set_pp_enable_cmd cvs_set_pp_cmd;
 	int ret = 0;
 	void *apr_cvs;
 	u16 cvs_handle;
@@ -1784,24 +1785,26 @@ static int voice_send_set_slowtalk_enable_cmd(struct voice_data *v)
 	cvs_handle = voice_get_cvs_handle(v);
 
 	/* fill in the header */
-	cvs_set_st_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+	cvs_set_pp_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	cvs_set_st_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				sizeof(cvs_set_st_cmd) - APR_HDR_SIZE);
-	cvs_set_st_cmd.hdr.src_port = v->session_id;
-	cvs_set_st_cmd.hdr.dest_port = cvs_handle;
-	cvs_set_st_cmd.hdr.token = 0;
-	cvs_set_st_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_UI_PROPERTY;
+	cvs_set_pp_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(cvs_set_pp_cmd) - APR_HDR_SIZE);
+	cvs_set_pp_cmd.hdr.src_port = v->session_id;
+	cvs_set_pp_cmd.hdr.dest_port = cvs_handle;
+	cvs_set_pp_cmd.hdr.token = 0;
+	cvs_set_pp_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_UI_PROPERTY;
 
-	cvs_set_st_cmd.vss_set_st.module_id = MODULE_ID_VOICE_MODULE_ST;
-	cvs_set_st_cmd.vss_set_st.param_id = VOICE_PARAM_MOD_ENABLE;
-	cvs_set_st_cmd.vss_set_st.param_size = MOD_ENABLE_PARAM_LEN;
-	cvs_set_st_cmd.vss_set_st.reserved = 0;
-	cvs_set_st_cmd.vss_set_st.enable = v->st_enable;
-	cvs_set_st_cmd.vss_set_st.reserved_field = 0;
+	cvs_set_pp_cmd.vss_set_pp.module_id = module_id;
+	cvs_set_pp_cmd.vss_set_pp.param_id = VOICE_PARAM_MOD_ENABLE;
+	cvs_set_pp_cmd.vss_set_pp.param_size = MOD_ENABLE_PARAM_LEN;
+	cvs_set_pp_cmd.vss_set_pp.reserved = 0;
+	cvs_set_pp_cmd.vss_set_pp.enable = enable;
+	cvs_set_pp_cmd.vss_set_pp.reserved_field = 0;
+	pr_debug("voice_send_set_pp_enable_cmd, module_id=%d, enable=%d\n",
+		module_id, enable);
 
 	v->cvs_state = CMD_STATUS_FAIL;
-	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_st_cmd);
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_pp_cmd);
 	if (ret < 0) {
 		pr_err("Fail: sending cvs set slowtalk enable,\n");
 		goto fail;
@@ -1918,7 +1921,11 @@ static int voice_setup_vocproc(struct voice_data *v)
 
 	/* enable slowtalk if st_enable is set */
 	if (v->st_enable)
-		voice_send_set_slowtalk_enable_cmd(v);
+		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_ST,
+					v->st_enable);
+	if (v->fens_enable)
+		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_FENS,
+					v->fens_enable);
 
 	if (is_voip_session(v->session_id))
 		voice_send_netid_timing_cmd(v);
@@ -2836,7 +2843,14 @@ int voc_enable_cvp(uint16_t session_id)
 
 		/* enable slowtalk */
 		if (v->st_enable)
-			voice_send_set_slowtalk_enable_cmd(v);
+			voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_ST,
+						v->st_enable);
+		/* enable FENS */
+		if (v->fens_enable)
+			voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_FENS,
+						v->fens_enable);
 
 		get_sidetone_cal(&sidetone_cal_data);
 		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
@@ -2973,7 +2987,7 @@ uint32_t voc_get_widevoice_enable(uint16_t session_id)
 	return ret;
 }
 
-int voc_set_slowtalk_enable(uint16_t session_id, uint32_t st_enable)
+int voc_set_pp_enable(uint16_t session_id, uint32_t module_id, uint32_t enable)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
@@ -2985,18 +2999,27 @@ int voc_set_slowtalk_enable(uint16_t session_id, uint32_t st_enable)
 	}
 
 	mutex_lock(&v->lock);
+	if (module_id == MODULE_ID_VOICE_MODULE_ST)
+		v->st_enable = enable;
+	else if (module_id == MODULE_ID_VOICE_MODULE_FENS)
+		v->fens_enable = enable;
 
-	v->st_enable = st_enable;
-
-	if (v->voc_state == VOC_RUN)
-		ret = voice_send_set_slowtalk_enable_cmd(v);
-
+	if (v->voc_state == VOC_RUN) {
+		if (module_id == MODULE_ID_VOICE_MODULE_ST)
+			ret = voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_ST,
+						enable);
+		else if (module_id == MODULE_ID_VOICE_MODULE_FENS)
+			ret = voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_FENS,
+						enable);
+	}
 	mutex_unlock(&v->lock);
 
 	return ret;
 }
 
-uint32_t voc_get_slowtalk_enable(uint16_t session_id)
+int voc_get_pp_enable(uint16_t session_id, uint32_t module_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
@@ -3008,8 +3031,10 @@ uint32_t voc_get_slowtalk_enable(uint16_t session_id)
 	}
 
 	mutex_lock(&v->lock);
-
-	ret = v->st_enable;
+	if (module_id == MODULE_ID_VOICE_MODULE_ST)
+		ret = v->st_enable;
+	else if (module_id == MODULE_ID_VOICE_MODULE_FENS)
+		ret = v->fens_enable;
 
 	mutex_unlock(&v->lock);
 
