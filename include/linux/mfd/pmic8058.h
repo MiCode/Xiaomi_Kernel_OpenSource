@@ -108,20 +108,6 @@ struct pmic8058_charger_data {
 	bool charger_data_valid;
 };
 
-enum pon_config{
-	DISABLE_HARD_RESET = 0,
-	SHUTDOWN_ON_HARD_RESET,
-	RESTART_ON_HARD_RESET,
-	MAX_PON_CONFIG,
-};
-
-enum pm8058_smpl_delay {
-	PM8058_SMPL_DELAY_0p5,
-	PM8058_SMPL_DELAY_1p0,
-	PM8058_SMPL_DELAY_1p5,
-	PM8058_SMPL_DELAY_2p0,
-};
-
 struct pm8058_platform_data {
 	struct pm8xxx_mpp_platform_data		*mpp_pdata;
 	struct pm8xxx_keypad_platform_data      *keypad_pdata;
@@ -143,7 +129,5 @@ struct pm8058_platform_data {
 	int					num_xo_buffers;
 	struct pmic8058_charger_data		*charger_pdata;
 };
-
-int pm8058_hard_reset_config(enum pon_config config);
 
 #endif  /* __MFD_PMIC8058_H__ */
