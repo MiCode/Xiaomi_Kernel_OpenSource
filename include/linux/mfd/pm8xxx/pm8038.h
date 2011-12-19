@@ -27,6 +27,7 @@
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/regulator/pm8xxx-regulator.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 
 #define PM8038_CORE_DEV_NAME "pm8038-core"
 
@@ -51,6 +52,9 @@
 #define PM8038_PWRKEY_PRESS_IRQ		PM8038_IRQ_BLOCK_BIT(6, 3)
 #define PM8038_KEYPAD_IRQ		PM8038_IRQ_BLOCK_BIT(9, 2)
 #define PM8038_KEYSTUCK_IRQ		PM8038_IRQ_BLOCK_BIT(9, 3)
+#define PM8038_ADC_EOC_USR_IRQ		PM8038_IRQ_BLOCK_BIT(9, 6)
+#define PM8038_ADC_BATT_TEMP_WARM_IRQ	PM8038_IRQ_BLOCK_BIT(9, 1)
+#define PM8038_ADC_BATT_TEMP_COLD_IRQ	PM8038_IRQ_BLOCK_BIT(9, 0)
 #define PM8038_USB_ID_IN_IRQ(base)	(base + PM8921_IRQ_BLOCK_BIT(6, 1))
 
 #define PM8038_RESOUT_IRQ		PM8038_IRQ_BLOCK_BIT(6, 4)
@@ -65,6 +69,7 @@ struct pm8038_platform_data {
 	struct pm8xxx_misc_platform_data	*misc_pdata;
 	struct pm8xxx_regulator_platform_data	*regulator_pdatas;
 	int					num_regulators;
+	struct pm8xxx_adc_platform_data		*adc_pdata;
 };
 
 #endif

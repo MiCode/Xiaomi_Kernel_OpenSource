@@ -790,7 +790,7 @@ config SENSORS_MSM_ADC
 
 config SENSORS_PM8XXX_ADC
 	tristate "Support for Qualcomm PM8XXX ADC"
-	depends on MFD_PM8018_CORE || MFD_PM8921_CORE
+	depends on MFD_PM8XXX
 	help
 	  This is the ADC arbiter driver for Qualcomm PM8XXX Chip.
 
