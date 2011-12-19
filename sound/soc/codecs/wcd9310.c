@@ -3870,6 +3870,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_IRQ_HPH_PA_OCPL_FAULT);
 		goto err_hphl_ocp_irq;
 	}
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT);
 
 	ret = tabla_request_irq(codec->control_data,
 		TABLA_IRQ_HPH_PA_OCPR_FAULT, tabla_hphr_ocp_irq,
@@ -3879,6 +3880,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_IRQ_HPH_PA_OCPR_FAULT);
 		goto err_hphr_ocp_irq;
 	}
+	tabla_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
 
 #ifdef CONFIG_DEBUG_FS
 	debug_tabla_priv = tabla;
