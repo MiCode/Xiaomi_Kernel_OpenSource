@@ -36,8 +36,8 @@ struct ion_carveout_heap {
 	ion_phys_addr_t base;
 	unsigned long allocated_bytes;
 	unsigned long total_size;
-	void (*request_region)(void *);
-	void (*release_region)(void *);
+	int (*request_region)(void *);
+	int (*release_region)(void *);
 	atomic_t map_count;
 	void *bus_id;
 };
@@ -146,10 +146,17 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
 
-	if (atomic_inc_return(&carveout_heap->map_count) == 1)
-		if (carveout_heap->request_region)
-			carveout_heap->request_region(carveout_heap->bus_id);
-
+	if (atomic_inc_return(&carveout_heap->map_count) == 1) {
+		if (carveout_heap->request_region) {
+			int ret = carveout_heap->request_region(
+						carveout_heap->bus_id);
+			if (ret) {
+				pr_err("Unable to request SMI region");
+				atomic_dec(&carveout_heap->map_count);
+				return NULL;
+			}
+		}
+	}
 	if (ION_IS_CACHED(buffer->flags))
 		return ioremap_cached(buffer->priv_phys, buffer->size);
 	else
@@ -165,9 +172,14 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 	__arm_iounmap(buffer->vaddr);
 	buffer->vaddr = NULL;
 
-	if (atomic_dec_and_test(&carveout_heap->map_count))
-		if (carveout_heap->release_region)
-			carveout_heap->release_region(carveout_heap->bus_id);
+	if (atomic_dec_and_test(&carveout_heap->map_count)) {
+		if (carveout_heap->release_region) {
+			int ret = carveout_heap->release_region(
+						carveout_heap->bus_id);
+			if (ret)
+				pr_err("Unable to release SMI region");
+		}
+	}
 
 	return;
 }
@@ -178,9 +190,17 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
 
-	if (atomic_inc_return(&carveout_heap->map_count) == 1)
-		if (carveout_heap->request_region)
-			carveout_heap->request_region(carveout_heap->bus_id);
+	if (atomic_inc_return(&carveout_heap->map_count) == 1) {
+		if (carveout_heap->request_region) {
+			int ret = carveout_heap->request_region(
+						carveout_heap->bus_id);
+			if (ret) {
+				pr_err("Unable to request SMI region");
+				atomic_dec(&carveout_heap->map_count);
+				return -EINVAL;
+			}
+		}
+	}
 
 	if (ION_IS_CACHED(buffer->flags))
 		return remap_pfn_range(vma, vma->vm_start,
@@ -200,9 +220,14 @@ void ion_carveout_heap_unmap_user(struct ion_heap *heap,
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
 
-	if (atomic_dec_and_test(&carveout_heap->map_count))
-		if (carveout_heap->release_region)
-			carveout_heap->release_region(carveout_heap->bus_id);
+	if (atomic_dec_and_test(&carveout_heap->map_count)) {
+		if (carveout_heap->release_region) {
+			int ret = carveout_heap->release_region(
+						carveout_heap->bus_id);
+			if (ret)
+				pr_err("Unable to release SMI region");
+		}
+	}
 }
 
 int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,

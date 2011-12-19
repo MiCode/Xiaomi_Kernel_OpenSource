@@ -36,8 +36,8 @@ struct ion_buffer;
 /**
  * struct ion_platform_heap - defines a heap in the given platform
  * @type:	type of the heap from ion_heap_type enum
- * @id:		unique identifier for heap.  When allocating (lower numbers 
- * 		will be allocated from first)
+ * @id:		unique identifier for heap.  When allocating (lower numbers
+ *		will be allocated from first)
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
@@ -56,8 +56,8 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
-	void (*request_region)(void *);
-	void (*release_region)(void *);
+	int (*request_region)(void *);
+	int (*release_region)(void *);
 	void *(*setup_region)(void);
 };
 
@@ -75,8 +75,8 @@ struct ion_platform_heap {
  */
 struct ion_platform_data {
 	int nr;
-	void (*request_region)(void *);
-	void (*release_region)(void *);
+	int (*request_region)(void *);
+	int (*release_region)(void *);
 	void *(*setup_region)(void);
 	struct ion_platform_heap heaps[];
 };
