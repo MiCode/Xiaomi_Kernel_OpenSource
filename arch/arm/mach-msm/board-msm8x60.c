@@ -2859,16 +2859,16 @@ static struct platform_device android_pmem_audio_device = {
 		}, \
 	.num_paths = 1, \
 	}
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct msm_bus_paths pmem_smi_table[] = {
+
+static struct msm_bus_paths mem_smi_table[] = {
 	[0] = PMEM_BUS_WIDTH(0), /* Off */
 	[1] = PMEM_BUS_WIDTH(1), /* On */
 };
 
 static struct msm_bus_scale_pdata smi_client_pdata = {
-	.usecase = pmem_smi_table,
-	.num_usecases = ARRAY_SIZE(pmem_smi_table),
-	.name = "pmem_smi",
+	.usecase = mem_smi_table,
+	.num_usecases = ARRAY_SIZE(mem_smi_table),
+	.name = "mem_smi",
 };
 
 int request_smi_region(void *data)
@@ -2891,6 +2891,7 @@ void *setup_smi_region(void)
 {
 	return (void *)msm_bus_scale_register_client(&smi_client_pdata);
 }
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct android_pmem_platform_data android_pmem_smipool_pdata = {
 	.name = "pmem_smipool",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
@@ -5268,6 +5269,9 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SMI_HEAP_NAME,
 			.size	= MSM_ION_SMI_SIZE,
 			.memory_type = ION_SMI_TYPE,
+			.request_region = request_smi_region,
+			.release_region = release_smi_region,
+			.setup_region = setup_smi_region,
 		},
 #endif
 	}
