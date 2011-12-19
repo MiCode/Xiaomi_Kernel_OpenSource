@@ -569,6 +569,7 @@ void l2cap_chan_del(struct sock *sk, int err)
 	} else
 		sk->sk_state_change(sk);
 
+	sk->sk_send_head = NULL;
 	skb_queue_purge(TX_QUEUE(sk));
 
 	if (l2cap_pi(sk)->mode == L2CAP_MODE_ERTM) {
@@ -782,6 +783,7 @@ void l2cap_send_disconn_req(struct l2cap_conn *conn, struct sock *sk, int err)
 	if (!conn)
 		return;
 
+	sk->sk_send_head = NULL;
 	skb_queue_purge(TX_QUEUE(sk));
 
 	if (l2cap_pi(sk)->mode == L2CAP_MODE_ERTM) {
@@ -4515,6 +4517,7 @@ static inline int l2cap_disconnect_req(struct l2cap_conn *conn, struct l2cap_cmd
 	if (sk->sk_state != BT_DISCONN) {
 		sk->sk_shutdown = SHUTDOWN_MASK;
 
+		sk->sk_send_head = NULL;
 		skb_queue_purge(TX_QUEUE(sk));
 
 		if (l2cap_pi(sk)->mode == L2CAP_MODE_ERTM) {
