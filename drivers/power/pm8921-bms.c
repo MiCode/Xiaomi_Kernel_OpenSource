@@ -1063,12 +1063,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 100;
 	pr_debug("SOC = %u%%\n", soc);
 
-	if (bms_fake_battery) {
-		soc = BATTERY_POWER_SUPPLY_SOC;
-		pr_debug("setting SOC = %u%% bms_fake_battery = %d\n", soc,
-							bms_fake_battery);
-	}
-
 	if (soc < 0) {
 		pr_err("bad rem_usb_chg = %d rem_chg %d,"
 				"cc_mah %d, unusb_chg %d\n",
@@ -1085,7 +1079,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	if (last_soc == -EINVAL || soc <= last_soc) {
 		last_soc = update_userspace ? soc : last_soc;
-		return soc;
+		return bms_fake_battery ? BATTERY_POWER_SUPPLY_SOC : soc;
 	}
 
 	/*
@@ -1100,7 +1094,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = last_soc;
 	}
 
-	return soc;
+	return bms_fake_battery ? BATTERY_POWER_SUPPLY_SOC : soc;
 }
 
 #define XOADC_MAX_1P25V		1312500
