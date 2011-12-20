@@ -460,6 +460,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	z180_dev->ringbuffer.prevctx = context->id;
 
 	addcmd(&z180_dev->ringbuffer, index, cmd + ofs, cnt);
+	kgsl_pwrscale_busy(device);
 
 	/* Make sure the next ringbuffer entry has a marker */
 	addmarker(&z180_dev->ringbuffer, nextindex);
@@ -523,6 +524,7 @@ static int __devinit z180_probe(struct platform_device *pdev)
 		goto error_close_ringbuffer;
 
 	kgsl_pwrscale_init(device);
+	kgsl_pwrscale_attach_policy(device, Z180_DEFAULT_PWRSCALE_POLICY);
 
 	return status;
 
@@ -861,17 +863,17 @@ static void z180_power_stats(struct kgsl_device *device,
 			    struct kgsl_power_stats *stats)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	s64 tmp = ktime_to_us(ktime_get());
 
 	if (pwr->time == 0) {
-		pwr->time = ktime_to_us(ktime_get());
+		pwr->time = tmp;
 		stats->total_time = 0;
 		stats->busy_time = 0;
 	} else {
-		s64 tmp;
-		tmp = ktime_to_us(ktime_get());
 		stats->total_time = tmp - pwr->time;
-		stats->busy_time = tmp - pwr->time;
 		pwr->time = tmp;
+		stats->busy_time = tmp - device->on_time;
+		device->on_time = tmp;
 	}
 }
 
