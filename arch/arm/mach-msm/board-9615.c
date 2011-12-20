@@ -534,12 +534,12 @@ static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 static unsigned int sdc1_sup_clk_rates[] = {
-	400000, 24000000, 48000000
+	400000, 24000000, 48000000,
 };
 
 static struct mmc_platform_data sdc1_data = {
-	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
-	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.ocr_mask	= MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width	= MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.pclk_src_dfab	= true,
@@ -552,7 +552,7 @@ static struct mmc_platform_data sdc1_data = {
 #endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
-			   MMC_CAP_MAX_CURRENT_400)
+			   MMC_CAP_MAX_CURRENT_400),
 };
 static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
 #else
@@ -561,7 +561,7 @@ static struct mmc_platform_data *msm9615_sdc1_pdata;
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 static unsigned int sdc2_sup_clk_rates[] = {
-	400000, 24000000, 48000000
+	400000, 24000000, 48000000,
 };
 
 static struct mmc_platform_data sdc2_data = {
