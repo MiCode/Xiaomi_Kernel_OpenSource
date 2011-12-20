@@ -42,6 +42,7 @@
 
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
+#include <mach/msm_bus.h>
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -1122,6 +1123,7 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 static void msm_otg_start_peripheral(struct otg_transceiver *otg, int on)
 {
+	int ret;
 	struct msm_otg *motg = container_of(otg, struct msm_otg, otg);
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
@@ -1142,11 +1144,27 @@ static void msm_otg_start_peripheral(struct otg_transceiver *otg, int on)
 		 * power collapse(pc) while running in peripheral mode.
 		 */
 		otg_pm_qos_update_latency(motg, 1);
+		/* Configure BUS performance parameters for MAX bandwidth */
+		if (motg->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					motg->bus_perf_client, 1);
+			if (ret)
+				dev_err(motg->otg.dev, "%s: Failed to vote for "
+					   "bus bandwidth %d\n", __func__, ret);
+		}
 		usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		dev_dbg(otg->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(otg->gadget);
 		otg_pm_qos_update_latency(motg, 0);
+		/* Configure BUS performance parameters to default */
+		if (motg->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					motg->bus_perf_client, 0);
+			if (ret)
+				dev_err(motg->otg.dev, "%s: Failed to devote "
+					   "for bus bw %d\n", __func__, ret);
+		}
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_UNDEFINED);
 	}
@@ -2601,6 +2619,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
+	if (motg->pdata->bus_scale_table) {
+		motg->bus_perf_client =
+		    msm_bus_scale_register_client(motg->pdata->bus_scale_table);
+		if (!motg->bus_perf_client)
+			dev_err(motg->otg.dev, "%s: Failed to register BUS "
+						"scaling client!!\n", __func__);
+	}
+
 	return 0;
 
 remove_otg:
@@ -2701,6 +2727,9 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 
 	if (motg->pdata->swfi_latency)
 		pm_qos_remove_request(&motg->pm_qos_req_dma);
+
+	if (motg->bus_perf_client)
+		msm_bus_scale_unregister_client(motg->bus_perf_client);
 
 	kfree(motg);
 	return 0;
