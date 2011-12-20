@@ -18,6 +18,7 @@
 #include <linux/i2c/sx150x.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
+#include <mach/msm_memtypes.h>
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
@@ -77,7 +78,7 @@ void msm8960_init_mmc(void);
 int msm8960_init_gpiomux(void);
 void msm8960_allocate_fb_region(void);
 void msm8960_pm8921_gpio_mpp_init(void);
-
+void msm8960_mdp_writeback(struct memtype_reserve *reserve_table);
 #define PLATFORM_IS_CHARM25() \
 	(machine_is_msm8960_cdp() && \
 		(socinfo_get_platform_subtype() == 1) \

@@ -17,6 +17,7 @@
 #include <linux/bootmem.h>
 #include <asm/mach-types.h>
 #include <mach/msm_bus_board.h>
+#include <mach/msm_memtypes.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
@@ -55,6 +56,18 @@
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE + \
 				MSM_FB_WRITEBACK_SIZE, 4096)
 #endif
+
+#ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
+#define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((1376 * 768 * 3 * 2), 4096)
+#else
+#define MSM_FB_OVERLAY0_WRITEBACK_SIZE (0)
+#endif  /* CONFIG_FB_MSM_OVERLAY0_WRITEBACK */
+
+#ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
+#define MSM_FB_OVERLAY1_WRITEBACK_SIZE roundup((1920 * 1088 * 3 * 2), 4096)
+#else
+#define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
+#endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
 
 #define MDP_VSYNC_GPIO 0
 
@@ -554,7 +567,20 @@ static struct msm_panel_common_pdata mdp_pdata = {
 #endif
 	.mdp_rev = MDP_REV_42,
 	.writeback_offset = writeback_offset,
+	.mdp_writeback_memtype = MEMTYPE_EBI1,
+	.mdp_writeback_phys = NULL,
 };
+
+void __init msm8960_mdp_writeback(struct memtype_reserve* reserve_table)
+{
+	mdp_pdata.mdp_writeback_size_ov0 = MSM_FB_OVERLAY0_WRITEBACK_SIZE;
+	mdp_pdata.mdp_writeback_size_ov1 = MSM_FB_OVERLAY1_WRITEBACK_SIZE;
+
+	reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
+		mdp_pdata.mdp_writeback_size_ov0;
+	reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
+		mdp_pdata.mdp_writeback_size_ov1;
+}
 
 static struct platform_device mipi_dsi_renesas_panel_device = {
 	.name = "mipi_renesas",
