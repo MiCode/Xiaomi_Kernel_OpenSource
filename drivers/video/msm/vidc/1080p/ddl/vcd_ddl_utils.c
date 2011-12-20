@@ -126,12 +126,13 @@ free_acm_ion_alloc:
 		if (addr->alloc_handle) {
 			ion_free(ddl_context->video_ion_client,
 				addr->alloc_handle);
+			addr->alloc_handle = NULL;
 		}
-	} else
+	} else {
 		free_contiguous_memory_by_paddr(
 			(unsigned long)addr->alloced_phys_addr);
-	addr->alloc_handle = NULL;
-	addr->alloced_phys_addr = (phys_addr_t)NULL;
+		addr->alloced_phys_addr = (phys_addr_t)NULL;
+	}
 bail_out:
 	return NULL;
 }
