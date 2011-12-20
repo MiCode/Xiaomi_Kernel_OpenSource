@@ -42,7 +42,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-smd_channel_t *ch_temp;
+smd_channel_t *ch_temp, *chqdsp_temp, *ch_wcnss_temp;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -1181,12 +1181,28 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 #if defined(CONFIG_MSM_N_WAY_SMD)
 static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
 {
+	if (event == SMD_EVENT_CLOSE) {
+		pr_info("diag: clean lpass registration\n");
+		diag_clear_reg(QDSP_PROC);
+		driver->chqdsp = 0;
+		return;
+	} else if (event == SMD_EVENT_OPEN) {
+		driver->chqdsp = chqdsp_temp;
+	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 }
 #endif
 
 static void diag_smd_wcnss_notify(void *ctxt, unsigned event)
 {
+	if (event == SMD_EVENT_CLOSE) {
+		pr_info("diag: clean wcnss registration\n");
+		diag_clear_reg(WCNSS_PROC);
+		driver->ch_wcnss = 0;
+		return;
+	} else if (event == SMD_EVENT_OPEN) {
+		driver->ch_wcnss = ch_wcnss_temp;
+	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
 }
 
@@ -1199,13 +1215,17 @@ static int diag_smd_probe(struct platform_device *pdev)
 		ch_temp = driver->ch;
 	}
 #if defined(CONFIG_MSM_N_WAY_SMD)
-	if (pdev->id == SMD_APPS_QDSP)
+	if (pdev->id == SMD_APPS_QDSP) {
 		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
 			, &driver->chqdsp, driver, diag_smd_qdsp_notify);
+		chqdsp_temp = driver->chqdsp;
+	}
 #endif
-	if (pdev->id == SMD_APPS_WCNSS)
+	if (pdev->id == SMD_APPS_WCNSS) {
 		r = smd_named_open_on_edge("APPS_RIVA_DATA", SMD_APPS_WCNSS
 			, &driver->ch_wcnss, driver, diag_smd_wcnss_notify);
+		ch_wcnss_temp = driver->ch_wcnss;
+	}
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pr_debug("diag: open SMD port, Id = %d, r = %d\n", pdev->id, r);
