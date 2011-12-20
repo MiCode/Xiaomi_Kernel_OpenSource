@@ -1183,7 +1183,15 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 
 	temp_ptr = skb_peek(pkt->pkt_fragment_q);
+	if (!temp_ptr) {
+		pr_err("%s: pkt_fragment_q is empty\n", __func__);
+		return -EINVAL;
+	}
 	hdr = (struct rr_header *)temp_ptr->data;
+	if (!hdr) {
+		pr_err("%s: No data inside the skb\n", __func__);
+		return -EINVAL;
+	}
 	msg = (union rr_control_msg *)((char *)hdr + IPC_ROUTER_HDR_SIZE);
 
 	switch (msg->cmd) {
@@ -1595,6 +1603,10 @@ static int loopback_data(struct msm_ipc_port *src,
 	}
 
 	head_skb = skb_peek(pkt->pkt_fragment_q);
+	if (!head_skb) {
+		pr_err("%s: pkt_fragment_q is empty\n", __func__);
+		return -EINVAL;
+	}
 	hdr = (struct rr_header *)skb_push(head_skb, IPC_ROUTER_HDR_SIZE);
 	if (!hdr) {
 		pr_err("%s: Prepend Header failed\n", __func__);
@@ -1642,6 +1654,10 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 		return -EINVAL;
 
 	head_skb = skb_peek(pkt->pkt_fragment_q);
+	if (!head_skb) {
+		pr_err("%s: pkt_fragment_q is empty\n", __func__);
+		return -EINVAL;
+	}
 	hdr = (struct rr_header *)skb_push(head_skb, IPC_ROUTER_HDR_SIZE);
 	if (!hdr) {
 		pr_err("%s: Prepend Header failed\n", __func__);
