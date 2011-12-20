@@ -840,6 +840,11 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				ddl, property_hdr, property_value);
 			break;
 		}
+	case VCD_I_META_BUFFER_MODE:
+		{
+			vcd_status = VCD_S_SUCCESS;
+			break;
+		}
 	default:
 		{
 			vcd_status = VCD_ERR_ILLEGAL_OP;
