@@ -59,7 +59,17 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
+	void *extra_data;
+};
+
+struct ion_cp_heap_pdata {
 	enum ion_permission_type permission_type;
+	int (*request_region)(void *);
+	int (*release_region)(void *);
+	void *(*setup_region)(void);
+};
+
+struct ion_co_heap_pdata {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);

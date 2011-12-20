@@ -623,7 +623,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	if (ret < 0)
 		goto destroy_pool;
 
-	cp_heap->permission_type = heap_data->permission_type;
 	cp_heap->allocated_bytes = 0;
 	cp_heap->alloc_count = 0;
 	cp_heap->umap_count = 0;
@@ -632,13 +631,17 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	cp_heap->heap.ops = &cp_heap_ops;
 	cp_heap->heap.type = ION_HEAP_TYPE_CP;
 	cp_heap->heap_secured = NON_SECURED_HEAP;
-	if (heap_data->setup_region)
-		cp_heap->bus_id = heap_data->setup_region();
-	if (heap_data->request_region)
-		cp_heap->request_region = heap_data->request_region;
-	if (heap_data->release_region)
-		cp_heap->release_region = heap_data->release_region;
-
+	if (heap_data->extra_data) {
+		struct ion_cp_heap_pdata *extra_data =
+				heap_data->extra_data;
+		cp_heap->permission_type = extra_data->permission_type;
+		if (extra_data->setup_region)
+			cp_heap->bus_id = extra_data->setup_region();
+		if (extra_data->request_region)
+			cp_heap->request_region = extra_data->request_region;
+		if (extra_data->release_region)
+			cp_heap->release_region = extra_data->release_region;
+	}
 	return &cp_heap->heap;
 
 destroy_pool:
