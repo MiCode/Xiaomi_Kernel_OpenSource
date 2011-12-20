@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/gpio.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <asm/mach/irq.h>
 #include <mach/gpiomux.h>
 #include "gpio_hw.h"
@@ -486,37 +487,6 @@ void msm_gpio_exit_sleep(void)
 	}
 }
 
-static int __init msm_init_gpio(void)
-{
-	int i, j = 0;
-
-	for (i = FIRST_GPIO_IRQ; i < FIRST_GPIO_IRQ + NR_GPIO_IRQS; i++) {
-		if (i - FIRST_GPIO_IRQ >=
-			msm_gpio_chips[j].chip.base +
-			msm_gpio_chips[j].chip.ngpio)
-			j++;
-		irq_set_chip_data(i, &msm_gpio_chips[j]);
-		irq_set_chip_and_handler(i, &msm_gpio_irq_chip,
-					 handle_edge_irq);
-		set_irq_flags(i, IRQF_VALID);
-	}
-
-	irq_set_chained_handler(INT_GPIO_GROUP1, msm_gpio_irq_handler);
-	irq_set_chained_handler(INT_GPIO_GROUP2, msm_gpio_irq_handler);
-
-	for (i = 0; i < ARRAY_SIZE(msm_gpio_chips); i++) {
-		spin_lock_init(&msm_gpio_chips[i].lock);
-		__raw_writel(0, msm_gpio_chips[i].regs.int_en);
-		gpiochip_add(&msm_gpio_chips[i].chip);
-	}
-
-	mb();
-	irq_set_irq_wake(INT_GPIO_GROUP1, 1);
-	irq_set_irq_wake(INT_GPIO_GROUP2, 2);
-	return 0;
-}
-
-postcore_initcall(msm_init_gpio);
 
 int gpio_tlmm_config(unsigned config, unsigned disable)
 {
@@ -643,3 +613,52 @@ void msm_gpio_find_out(const unsigned gpio, void __iomem **out,
 	*out = msm_chip->regs.out;
 	*offset = gpio - msm_chip->chip.base;
 }
+
+static int __devinit msm_gpio_probe(struct platform_device *dev)
+{
+	int i, j = 0;
+	int grp_irq;
+
+	for (i = FIRST_GPIO_IRQ; i < FIRST_GPIO_IRQ + NR_GPIO_IRQS; i++) {
+		if (i - FIRST_GPIO_IRQ >=
+			msm_gpio_chips[j].chip.base +
+			msm_gpio_chips[j].chip.ngpio)
+			j++;
+		irq_set_chip_data(i, &msm_gpio_chips[j]);
+		irq_set_chip_and_handler(i, &msm_gpio_irq_chip,
+					 handle_edge_irq);
+		set_irq_flags(i, IRQF_VALID);
+	}
+
+	for (i = 0; i < dev->num_resources; i++) {
+		grp_irq = platform_get_irq(dev, i);
+		if (grp_irq < 0)
+			return -ENXIO;
+
+		irq_set_chained_handler(grp_irq, msm_gpio_irq_handler);
+		irq_set_irq_wake(grp_irq, (i + 1));
+	}
+
+	for (i = 0; i < ARRAY_SIZE(msm_gpio_chips); i++) {
+		spin_lock_init(&msm_gpio_chips[i].lock);
+		__raw_writel(0, msm_gpio_chips[i].regs.int_en);
+		gpiochip_add(&msm_gpio_chips[i].chip);
+	}
+
+	mb();
+	return 0;
+}
+
+static struct platform_driver msm_gpio_driver = {
+	.probe = msm_gpio_probe,
+	.driver = {
+		.name = "msmgpio",
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_gpio_init(void)
+{
+	return platform_driver_register(&msm_gpio_driver);
+}
+postcore_initcall(msm_gpio_init);
