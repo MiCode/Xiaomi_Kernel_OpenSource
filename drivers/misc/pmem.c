@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/file.h>
+#include <linux/fmem.h>
 #include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
@@ -229,12 +230,12 @@ struct pmem_info {
 	 * request function for a region when the allocation count goes
 	 * from 0 -> 1
 	 */
-	void (*mem_request)(void *);
+	int (*mem_request)(void *);
 	/*
 	 * release function for a region when the allocation count goes
 	 * from 1 -> 0
 	 */
-	void (*mem_release)(void *);
+	int (*mem_release)(void *);
 	/*
 	 * private data for the request/release callback
 	 */
@@ -243,6 +244,10 @@ struct pmem_info {
 	 * map and unmap as needed
 	 */
 	int map_on_demand;
+	/*
+	 * memory will be reused through fmem
+	 */
+	int reusable;
 };
 #define to_pmem_info_id(a) (container_of(a, struct pmem_info, kobj)->id)
 
@@ -582,8 +587,13 @@ static int pmem_get_region(int id)
 	atomic_inc(&pmem[id].allocation_cnt);
 	if (!pmem[id].vbase) {
 		DLOG("PMEMDEBUG: mapping for %s", pmem[id].name);
-		if (pmem[id].mem_request)
-				pmem[id].mem_request(pmem[id].region_data);
+		if (pmem[id].mem_request) {
+			int ret = pmem[id].mem_request(pmem[id].region_data);
+			if (ret) {
+				atomic_dec(&pmem[id].allocation_cnt);
+				return 1;
+			}
+		}
 		ioremap_pmem(id);
 	}
 
@@ -610,8 +620,11 @@ static void pmem_put_region(int id)
 			unmap_kernel_range((unsigned long)pmem[id].vbase,
 				 pmem[id].size);
 			pmem[id].vbase = NULL;
-			if (pmem[id].mem_release)
-				pmem[id].mem_release(pmem[id].region_data);
+			if (pmem[id].mem_release) {
+				int ret = pmem[id].mem_release(
+						pmem[id].region_data);
+				WARN(ret, "mem_release failed");
+			}
 
 		}
 	}
@@ -2785,19 +2798,26 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pr_info("allocating %lu bytes at %p (%lx physical) for %s\n",
 		pmem[id].size, pmem[id].vbase, pmem[id].base, pmem[id].name);
 
-	pmem[id].map_on_demand = pdata->map_on_demand;
+	pmem[id].reusable = pdata->reusable;
+	/* reusable pmem requires map on demand */
+	pmem[id].map_on_demand = pdata->map_on_demand || pdata->reusable;
 	if (pmem[id].map_on_demand) {
-		pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
-		if (!pmem_vma) {
-			pr_err("pmem: Failed to allocate virtual space for "
+		if (pmem[id].reusable) {
+			const struct fmem_data *fmem_info = fmem_get_info();
+			pmem[id].area = fmem_info->area;
+		} else {
+			pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
+			if (!pmem_vma) {
+				pr_err("pmem: Failed to allocate virtual space for "
 					"%s\n", pdata->name);
-			goto out_put_kobj;
-		}
-		pr_err("pmem: Reserving virtual address range %lx - %lx for"
+				goto out_put_kobj;
+			}
+			pr_err("pmem: Reserving virtual address range %lx - %lx for"
 				" %s\n", (unsigned long) pmem_vma->addr,
 				(unsigned long) pmem_vma->addr + pmem[id].size,
 				pdata->name);
-		pmem[id].area = pmem_vma;
+			pmem[id].area = pmem_vma;
+		}
 	} else
 		pmem[id].area = NULL;
 

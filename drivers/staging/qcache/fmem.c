@@ -17,10 +17,35 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include "tmem.h"
+#include <asm/mach/map.h>
 
 struct fmem_data fmem_data;
 enum fmem_state fmem_state;
 static spinlock_t fmem_state_lock;
+
+void *fmem_map_virtual_area(int cacheability)
+{
+	unsigned long addr;
+	const struct mem_type *type;
+	int ret;
+
+	addr = (unsigned long) fmem_data.area->addr;
+	type = get_mem_type(cacheability);
+	ret = ioremap_page_range(addr, addr + fmem_data.size,
+			fmem_data.phys, __pgprot(type->prot_pte));
+	if (ret)
+		return ERR_PTR(ret);
+
+	fmem_data.virt = fmem_data.area->addr;
+
+	return fmem_data.virt;
+}
+
+void fmem_unmap_virtual_area(void)
+{
+	unmap_kernel_range((unsigned long)fmem_data.virt, fmem_data.size);
+	fmem_data.virt = NULL;
+}
 
 static int fmem_probe(struct platform_device *pdev)
 {
@@ -29,13 +54,16 @@ static int fmem_probe(struct platform_device *pdev)
 	if (!pdata->size)
 		return -ENODEV;
 
-	fmem_data.virt = ioremap_cached(pdata->phys, pdata->size);
-	if (!fmem_data.virt)
-		return -ENOMEM;
-
 	fmem_data.phys = pdata->phys;
 	fmem_data.size = pdata->size;
+	fmem_data.area = get_vm_area(pdata->size, VM_IOREMAP);
+	if (!fmem_data.area)
+		return -ENOMEM;
 
+	if (!fmem_map_virtual_area(MT_DEVICE_CACHED)) {
+		remove_vm_area(fmem_data.area->addr);
+		return -ENOMEM;
+	}
 	pr_info("fmem phys %lx virt %p size %lx\n",
 		fmem_data.phys, fmem_data.virt, fmem_data.size);
 
@@ -159,10 +187,18 @@ int fmem_set_state(enum fmem_state new_state)
 		}
 	}
 
-	if (new_state == FMEM_T_STATE)
+	if (new_state == FMEM_T_STATE) {
+		void *v;
+		v = fmem_map_virtual_area(MT_DEVICE_CACHED);
+		if (IS_ERR_OR_NULL(v)) {
+			ret = PTR_ERR(v);
+			goto out;
+		}
 		tmem_enable(true);
-	else
+	} else {
 		tmem_disable();
+		fmem_unmap_virtual_area();
+	}
 
 out_set:
 	fmem_state = new_state;
