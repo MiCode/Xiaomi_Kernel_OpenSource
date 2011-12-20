@@ -28,7 +28,7 @@
 #include "pil-q6v4.h"
 #include "scm-pas.h"
 
-#define PROXY_VOTE_TIMEOUT	10000
+#define PROXY_VOTE_TIMEOUT	40000
 
 #define QDSP6SS_RST_EVB		0x0
 #define QDSP6SS_RESET		0x04
