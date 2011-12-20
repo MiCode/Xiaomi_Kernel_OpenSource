@@ -1678,6 +1678,8 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 		}
 
 		memcpy(conn->dev_class, ev->dev_class, 3);
+		/* For incoming connection update remote class to userspace */
+		mgmt_remote_class(hdev->id, &ev->bdaddr, ev->dev_class);
 		conn->state = BT_CONNECT;
 
 		hci_dev_unlock(hdev);
