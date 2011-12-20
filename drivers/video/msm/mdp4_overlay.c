@@ -365,15 +365,16 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEY_EN;
 
 		if (pipe->pipe_num >= OVERLAY_PIPE_VG1) {
-			if (pipe->alpha_enable)
+			if (pipe->alpha_enable && pipe->dst_h > pipe->src_h)
 				pipe->op_mode |= MDP4_OP_SCALEY_PIXEL_RPT;
 			else if (pipe->dst_h <= (pipe->src_h / 4))
 				pipe->op_mode |= MDP4_OP_SCALEY_MN_PHASE;
 			else
 				pipe->op_mode |= MDP4_OP_SCALEY_FIR;
 		} else { /* RGB pipe */
-			pipe->op_mode |= MDP4_OP_SCALE_RGB_BILINEAR;
-			pipe->op_mode |= MDP4_OP_SCALE_ALPHA_BILINEAR;
+			pipe->op_mode |= MDP4_OP_SCALE_RGB_ENHANCED |
+				MDP4_OP_SCALE_RGB_BILINEAR |
+				MDP4_OP_SCALE_ALPHA_BILINEAR;
 		}
 
 		pipe->phasey_step = mdp4_scale_phase_step(29,
@@ -386,15 +387,16 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEX_EN;
 
 		if (pipe->pipe_num >= OVERLAY_PIPE_VG1) {
-			if (pipe->alpha_enable)
+			if (pipe->alpha_enable && pipe->dst_w > pipe->src_w)
 				pipe->op_mode |= MDP4_OP_SCALEX_PIXEL_RPT;
 			else if (pipe->dst_w <= (pipe->src_w / 4))
 				pipe->op_mode |= MDP4_OP_SCALEX_MN_PHASE;
 			else
 				pipe->op_mode |= MDP4_OP_SCALEX_FIR;
 		} else { /* RGB pipe */
-			pipe->op_mode |= MDP4_OP_SCALE_RGB_BILINEAR;
-			pipe->op_mode |= MDP4_OP_SCALE_ALPHA_BILINEAR;
+			pipe->op_mode |= MDP4_OP_SCALE_RGB_ENHANCED |
+				MDP4_OP_SCALE_RGB_BILINEAR |
+				MDP4_OP_SCALE_ALPHA_BILINEAR;
 		}
 
 		pipe->phasex_step = mdp4_scale_phase_step(29,
@@ -1960,14 +1962,14 @@ static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req)
 	if (req->flags & MDP_DEINTERLACE)
 		return OVERLAY_PERF_LEVEL1;
 
+	if (ctrl->plist[OVERLAY_PIPE_VG1].pipe_used &&
+	    ctrl->plist[OVERLAY_PIPE_VG2].pipe_used)
+		return OVERLAY_PERF_LEVEL1;
+
 	if (mdp4_overlay_is_rgb_type(req->src.format) && is_fg &&
 		((req->src.width * req->src.height) <= OVERLAY_WSVGA_SIZE))
 		return OVERLAY_PERF_LEVEL4;
 	else if (mdp4_overlay_is_rgb_type(req->src.format))
-		return OVERLAY_PERF_LEVEL1;
-
-	if (ctrl->plist[OVERLAY_PIPE_VG1].pipe_used &&
-		ctrl->plist[OVERLAY_PIPE_VG2].pipe_used)
 		return OVERLAY_PERF_LEVEL1;
 
 	if (req->src.width*req->src.height <= OVERLAY_VGA_SIZE)
