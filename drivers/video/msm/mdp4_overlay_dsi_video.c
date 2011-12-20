@@ -37,8 +37,6 @@
 static int first_pixel_start_x;
 static int first_pixel_start_y;
 
-static int writeback_offset;
-
 static struct mdp4_overlay_pipe *dsi_pipe;
 static struct completion dsi_video_comp;
 
@@ -141,14 +139,9 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 		dsi_pipe = pipe; /* keep it */
 		init_completion(&dsi_video_comp);
 
-		writeback_offset = mdp4_writeback_offset();
+		pipe->blt_base = (ulong) mfd->writeback_overlay0_phys;
+		pipe->blt_addr = 0;
 
-		if (writeback_offset > 0) {
-			pipe->blt_base = (ulong)fbi->fix.smem_start;
-			pipe->blt_base += writeback_offset;
-		} else {
-			pipe->blt_base  = 0;
-		}
 	} else {
 		pipe = dsi_pipe;
 	}
@@ -634,7 +627,7 @@ static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
 int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req)
 {
-	req->offset = writeback_offset;
+	req->offset = 0;
 	req->width = dsi_pipe->src_width;
 	req->height = dsi_pipe->src_height;
 	req->bpp = dsi_pipe->bpp;

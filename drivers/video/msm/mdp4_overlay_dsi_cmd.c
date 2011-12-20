@@ -45,8 +45,6 @@ static int vsync_start_y_adjust = 4;
 
 struct timer_list dsi_clock_timer;
 
-static int writeback_offset;
-
 void mdp4_overlay_dsi_state_set(int state)
 {
 	unsigned long flag;
@@ -119,7 +117,6 @@ void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
 void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 {
 	MDPIBUF *iBuf = &mfd->ibuf;
-	struct fb_info *fbi = mfd->fbi;
 	uint8 *src;
 	int ptype;
 	struct mdp4_overlay_pipe *pipe;
@@ -159,14 +156,9 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 
 		dsi_pipe = pipe; /* keep it */
 
-		writeback_offset = mdp4_writeback_offset();
+		pipe->blt_base = (ulong) mfd->writeback_overlay0_phys;
+		pipe->blt_addr = 0;
 
-		if (writeback_offset > 0) {
-			pipe->blt_base = (ulong)fbi->fix.smem_start;
-			pipe->blt_base += writeback_offset;
-		} else {
-			pipe->blt_base  = 0;
-		}
 	} else {
 		pipe = dsi_pipe;
 	}
@@ -351,7 +343,7 @@ int mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd)
 int mdp4_dsi_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req)
 {
-	req->offset = writeback_offset;
+	req->offset = 0;
 	req->width = dsi_pipe->src_width;
 	req->height = dsi_pipe->src_height;
 	req->bpp = dsi_pipe->bpp;

@@ -166,6 +166,8 @@ struct msm_fb_data_type {
 	struct completion msmfb_update_notify;
 	struct completion msmfb_no_update_notify;
 	u32 ov_start, ov_end;
+	void *writeback_overlay0_phys;
+	void *writeback_overlay1_phys;
 	struct mutex writeback_mutex;
 	struct mutex unregister_mutex;
 	struct list_head writeback_busy_queue;
