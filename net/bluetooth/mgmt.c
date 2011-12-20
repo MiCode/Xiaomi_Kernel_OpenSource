@@ -1810,6 +1810,81 @@ failed:
 	return err;
 }
 
+static int set_rssi_reporter(struct sock *sk, u16 index,
+				unsigned char *data, u16 len)
+{
+	struct mgmt_cp_set_rssi_reporter *cp = (void *) data;
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	int err = 0;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+								EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+							ENODEV);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+						ENOTCONN);
+		goto failed;
+	}
+
+	BT_DBG("updateOnThreshExceed %d ", cp->updateOnThreshExceed);
+	hci_conn_set_rssi_reporter(conn, cp->rssi_threshold,
+			__le16_to_cpu(cp->interval), cp->updateOnThreshExceed);
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int unset_rssi_reporter(struct sock *sk, u16 index,
+			unsigned char *data, u16 len)
+{
+	struct mgmt_cp_unset_rssi_reporter *cp = (void *) data;
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	int err = 0;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					EINVAL);
+
+	hdev = hci_dev_get(index);
+
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					ENODEV);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					ENOTCONN);
+		goto failed;
+	}
+
+	hci_conn_unset_rssi_reporter(conn);
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
 static int set_local_name(struct sock *sk, u16 index, unsigned char *data,
 								u16 len)
 {
@@ -2365,6 +2440,12 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 	case MGMT_OP_SET_CONNECTION_PARAMS:
 		err = set_connection_params(sk, index, buf + sizeof(*hdr), len);
 		break;
+	case MGMT_OP_SET_RSSI_REPORTER:
+		err = set_rssi_reporter(sk, index, buf + sizeof(*hdr), len);
+		break;
+	case MGMT_OP_UNSET_RSSI_REPORTER:
+		err = unset_rssi_reporter(sk, index, buf + sizeof(*hdr), len);
+		break;
 	case MGMT_OP_READ_LOCAL_OOB_DATA:
 		err = read_local_oob_data(sk, index);
 		break;
@@ -2816,6 +2897,57 @@ int mgmt_read_local_oob_data_reply_complete(u16 index, u8 *hash, u8 *randomizer,
 
 	return err;
 }
+
+void mgmt_read_rssi_complete(u16 index, s8 rssi, bdaddr_t *bdaddr,
+		u16 handle, u8 status)
+{
+	struct mgmt_ev_rssi_update ev;
+	struct hci_conn *conn;
+	struct hci_dev *hdev;
+
+	if (status)
+		return;
+
+	hdev = hci_dev_get(index);
+	conn = hci_conn_hash_lookup_handle(hdev, handle);
+
+	if (!conn)
+		return;
+
+	BT_DBG("rssi_update_thresh_exceed : %d ",
+		   conn->rssi_update_thresh_exceed);
+	BT_DBG("RSSI Threshold : %d , recvd RSSI : %d ",
+			conn->rssi_threshold, rssi);
+
+	if (conn->rssi_update_thresh_exceed == 1) {
+		BT_DBG("rssi_update_thresh_exceed == 1");
+		if (rssi >= conn->rssi_threshold) {
+			memset(&ev, 0, sizeof(ev));
+			bacpy(&ev.bdaddr, bdaddr);
+			ev.rssi = rssi;
+			mgmt_event(MGMT_EV_RSSI_UPDATE, index, &ev,
+				sizeof(ev), NULL);
+		} else {
+			hci_conn_set_rssi_reporter(conn, conn->rssi_threshold,
+				conn->rssi_update_interval,
+				conn->rssi_update_thresh_exceed);
+		}
+	} else {
+		BT_DBG("rssi_update_thresh_exceed == 0");
+		if (rssi <= conn->rssi_threshold) {
+			memset(&ev, 0, sizeof(ev));
+			bacpy(&ev.bdaddr, bdaddr);
+			ev.rssi = rssi;
+			mgmt_event(MGMT_EV_RSSI_UPDATE, index, &ev,
+				sizeof(ev), NULL);
+		} else {
+			hci_conn_set_rssi_reporter(conn, conn->rssi_threshold,
+				conn->rssi_update_interval,
+				conn->rssi_update_thresh_exceed);
+		}
+	}
+}
+
 
 int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 			u8 *dev_class, s8 rssi, u8 eir_len, u8 *eir)

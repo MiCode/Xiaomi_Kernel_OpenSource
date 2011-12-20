@@ -940,6 +940,21 @@ static void hci_cc_user_confirm_neg_reply(struct hci_dev *hdev,
 	hci_dev_unlock(hdev);
 }
 
+static void hci_cc_read_rssi(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_conn *conn;
+	struct hci_rp_read_rssi *rp = (void *) skb->data;
+
+	BT_DBG("%s status 0x%x", hdev->name, rp->status);
+
+	BT_DBG("%s rssi : %d handle : %d", hdev->name, rp->rssi, rp->handle);
+
+	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(rp->handle));
+	if (conn)
+		mgmt_read_rssi_complete(hdev->id, rp->rssi, &conn->dst,
+			__le16_to_cpu(rp->handle), rp->status);
+}
+
 static void hci_cc_read_local_oob_data_reply(struct hci_dev *hdev,
 							struct sk_buff *skb)
 {
@@ -2175,6 +2190,10 @@ static inline void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *sk
 
 	case HCI_OP_LE_READ_BUFFER_SIZE:
 		hci_cc_le_read_buffer_size(hdev, skb);
+		break;
+
+	case HCI_OP_READ_RSSI:
+		hci_cc_read_rssi(hdev, skb);
 		break;
 
 	case HCI_OP_USER_CONFIRM_REPLY:
