@@ -1192,7 +1192,7 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
 		if (WARN_ON(!prev_khz[cpu]))
-			prev_khz[cpu] = acpu_freq_tbl->speed.khz;
+			return NOTIFY_BAD;
 		acpuclk_8960_set_rate(cpu, prev_khz[cpu], SETRATE_HOTPLUG);
 		break;
 	case CPU_STARTING:
