@@ -168,6 +168,7 @@ enum usb_chg_type {
  * @enable_dcd: Enable Data Contact Detection circuit. if not set
  *              wait for 600msec before proceeding to primary
  *              detection.
+ * @bus_scale_table: parameters for bus bandwidth requirements
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -183,6 +184,7 @@ struct msm_otg_platform_data {
 	bool disable_reset_on_disconnect;
 	u32 swfi_latency;
 	bool enable_dcd;
+	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
 /**
@@ -215,6 +217,7 @@ struct msm_otg_platform_data {
 	collapse when cable is connected.
  * @id_timer: The timer used for polling ID line to detect ACA states.
  * @xo_handle: TCXO buffer handle
+ * @bus_perf_client: Bus performance client handle to request BUS bandwidth
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -245,6 +248,7 @@ struct msm_otg {
 	struct timer_list id_timer;
 	unsigned long caps;
 	struct msm_xo_voter *xo_handle;
+	uint32_t bus_perf_client;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.

@@ -47,6 +47,7 @@
 
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
+#include <mach/msm_bus.h>
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -1137,7 +1138,8 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 
 static void msm_otg_start_peripheral(struct usb_phy *phy, int on)
 {
-	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
+	int ret;
+	struct msm_otg *motg = container_of(phy, struct msm_otg, otg);
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	if (!phy->otg->gadget)
@@ -1157,11 +1159,27 @@ static void msm_otg_start_peripheral(struct usb_phy *phy, int on)
 		 * power collapse(pc) while running in peripheral mode.
 		 */
 		otg_pm_qos_update_latency(motg, 1);
+		/* Configure BUS performance parameters for MAX bandwidth */
+		if (motg->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					motg->bus_perf_client, 1);
+			if (ret)
+				dev_err(motg->otg.dev, "%s: Failed to vote for "
+					   "bus bandwidth %d\n", __func__, ret);
+		}
 		usb_gadget_vbus_connect(phy->otg->gadget);
 	} else {
 		dev_dbg(phy->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(phy->otg->gadget);
 		otg_pm_qos_update_latency(motg, 0);
+		/* Configure BUS performance parameters to default */
+		if (motg->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					motg->bus_perf_client, 0);
+			if (ret)
+				dev_err(motg->otg.dev, "%s: Failed to devote "
+					   "for bus bw %d\n", __func__, ret);
+		}
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_UNDEFINED);
 	}
@@ -2628,6 +2646,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
+	if (motg->pdata->bus_scale_table) {
+		motg->bus_perf_client =
+		    msm_bus_scale_register_client(motg->pdata->bus_scale_table);
+		if (!motg->bus_perf_client)
+			dev_err(motg->phy.dev, "%s: Failed to register BUS "
+						"scaling client!!\n", __func__);
+	}
+
 	return 0;
 
 remove_phy:
@@ -2729,6 +2755,10 @@ static int msm_otg_remove(struct platform_device *pdev)
 
 	if (motg->pdata->swfi_latency)
 		pm_qos_remove_request(&motg->pm_qos_req_dma);
+
+	if (motg->bus_perf_client)
+		msm_bus_scale_unregister_client(motg->bus_perf_client);
+
 	kfree(motg->phy.otg);
 	kfree(motg);
 	return 0;
