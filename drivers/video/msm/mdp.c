@@ -52,6 +52,7 @@ static struct clk *mdp_lut_clk;
 int mdp_rev;
 
 static struct regulator *footswitch;
+static unsigned int mdp_footswitch_on;
 
 struct completion mdp_ppp_comp;
 struct semaphore mdp_ppp_mutex;
@@ -1251,8 +1252,10 @@ static int mdp_irq_clk_setup(void)
 	footswitch = regulator_get(NULL, "fs_mdp");
 	if (IS_ERR(footswitch))
 		footswitch = NULL;
-	else
+	else {
 		regulator_enable(footswitch);
+		mdp_footswitch_on = 1;
+	}
 
 	mdp_clk = clk_get(NULL, "mdp_clk");
 	if (IS_ERR(mdp_clk)) {
@@ -1644,6 +1647,28 @@ static int mdp_probe(struct platform_device *pdev)
 	return rc;
 }
 
+void mdp_footswitch_ctrl(boolean on)
+{
+	mutex_lock(&mdp_suspend_mutex);
+	if (!mdp_suspended || mdp4_extn_disp || !footswitch ||
+		mdp_rev <= MDP_REV_41) {
+		mutex_unlock(&mdp_suspend_mutex);
+		return;
+	}
+
+	if (on && !mdp_footswitch_on) {
+		pr_debug("Enable MDP FS\n");
+		regulator_enable(footswitch);
+		mdp_footswitch_on = 1;
+	} else if (!on && mdp_footswitch_on) {
+		pr_debug("Disable MDP FS\n");
+		regulator_disable(footswitch);
+		mdp_footswitch_on = 0;
+	}
+
+	mutex_unlock(&mdp_suspend_mutex);
+}
+
 #ifdef CONFIG_PM
 static void mdp_suspend_sub(void)
 {
@@ -1688,15 +1713,12 @@ static void mdp_early_suspend(struct early_suspend *h)
 #ifdef CONFIG_FB_MSM_DTV
 	mdp4_dtv_set_black_screen();
 #endif
-	if (footswitch && mdp_rev > MDP_REV_42)
-		regulator_disable(footswitch);
+	mdp_footswitch_ctrl(FALSE);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
-	if (footswitch && mdp_rev > MDP_REV_42)
-		regulator_enable(footswitch);
-
+	mdp_footswitch_ctrl(TRUE);
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
 	mutex_unlock(&mdp_suspend_mutex);

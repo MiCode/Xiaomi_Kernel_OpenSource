@@ -109,6 +109,7 @@ static int dtv_off(struct platform_device *pdev)
 		clk_disable(ebi1_clk);
 #endif
 	mdp4_extn_disp = 0;
+	mdp_footswitch_ctrl(FALSE);
 	return ret;
 }
 
@@ -126,6 +127,7 @@ static int dtv_on(struct platform_device *pdev)
 		pm_qos_rate = panel_pixclock_freq / 1000 ;
 	else
 		pm_qos_rate = 58000;
+	mdp_footswitch_ctrl(TRUE);
 	mdp4_extn_disp = 1;
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (dtv_bus_scale_handle > 0)
