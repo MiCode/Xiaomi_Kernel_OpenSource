@@ -818,10 +818,8 @@ static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
 #else
-#define USB_5V_EN		42
 static void msm_hsusb_vbus_power(bool on)
 {
-	int rc;
 	static bool vbus_is_on;
 	static struct regulator *mvs_otg_switch;
 
@@ -836,33 +834,15 @@ static void msm_hsusb_vbus_power(bool on)
 			return;
 		}
 
-		rc = gpio_request(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
-						"usb_5v_en");
-		if (rc < 0) {
-			pr_err("failed to request usb_5v_en gpio\n");
-			goto put_mvs_otg;
-		}
-
-		rc = gpio_direction_output(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 1);
-		if (rc) {
-			pr_err("%s: unable to set_direction for gpio [%d]\n",
-				__func__, PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
-			goto free_usb_5v_en;
-		}
-
 		if (regulator_enable(mvs_otg_switch)) {
 			pr_err("unable to enable mvs_otg_switch\n");
-			goto err_ldo_gpio_set_dir;
+			goto put_mvs_otg;
 		}
 
 		vbus_is_on = true;
 		return;
 	}
 	regulator_disable(mvs_otg_switch);
-err_ldo_gpio_set_dir:
-	gpio_set_value_cansleep(PM8921_GPIO_PM_TO_SYS(USB_5V_EN), 0);
-free_usb_5v_en:
-	gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
 put_mvs_otg:
 	regulator_put(mvs_otg_switch);
 	vbus_is_on = false;
@@ -1599,6 +1579,15 @@ static struct platform_device msm8960_device_ext_3p3v_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device msm8960_device_ext_otg_sw_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8921_GPIO_PM_TO_SYS(42),
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_OTG_SW],
+	},
+};
+
 static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
@@ -1635,6 +1624,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
 	&msm8960_device_ssbi_pmic,
+	&msm8960_device_ext_otg_sw_vreg,
 	&msm8960_device_qup_spi_gsbi1,
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
