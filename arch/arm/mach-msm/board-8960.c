@@ -309,6 +309,19 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 }
 
 #ifdef CONFIG_ION_MSM
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
+	.permission_type = IPT_TYPE_MM_CARVEOUT,
+};
+
+static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
+	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+};
+
+static struct ion_co_heap_pdata co_ion_pdata = {
+};
+#endif
+
 static struct ion_platform_data ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
@@ -324,6 +337,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SF_HEAP_NAME,
 			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
+			.extra_data = &co_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MM_HEAP_ID,
@@ -331,7 +345,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.permission_type = IPT_TYPE_MM_CARVEOUT,
+			.extra_data = (void *) &cp_mm_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
@@ -339,7 +353,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+			.extra_data = (void *) &cp_mfc_ion_pdata,
 		},
 		{
 			.id	= ION_IOMMU_HEAP_ID,

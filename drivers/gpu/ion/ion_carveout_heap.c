@@ -409,13 +409,20 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->allocated_bytes = 0;
 	carveout_heap->total_size = heap_data->size;
-	if (heap_data->setup_region)
-		carveout_heap->bus_id = heap_data->setup_region();
-	if (heap_data->request_region)
-		carveout_heap->request_region = heap_data->request_region;
-	if (heap_data->release_region)
-		carveout_heap->release_region = heap_data->release_region;
 
+	if (heap_data->extra_data) {
+		struct ion_co_heap_pdata *extra_data =
+				heap_data->extra_data;
+
+		if (extra_data->setup_region)
+			carveout_heap->bus_id = extra_data->setup_region();
+		if (extra_data->request_region)
+			carveout_heap->request_region =
+					extra_data->request_region;
+		if (extra_data->release_region)
+			carveout_heap->release_region =
+					extra_data->release_region;
+	}
 	return &carveout_heap->heap;
 }
 
