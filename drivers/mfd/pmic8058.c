@@ -73,118 +73,7 @@ struct pm8058_chip {
 	struct mfd_cell         *mfd_regulators, *mfd_xo_buffers;
 
 	u8		revision;
-
-	struct mutex	pm_lock;
 };
-
-static struct pm8058_chip *pmic_chip;
-
-static inline int
-ssbi_read(struct device *dev, u16 addr, u8 *buf, size_t len)
-{
-	return msm_ssbi_read(dev->parent, addr, buf, len);
-}
-
-static inline int
-ssbi_write(struct device *dev, u16 addr, u8 *buf, size_t len)
-{
-	return msm_ssbi_write(dev->parent, addr, buf, len);
-}
-
-/**
- * pm8058_stay_on - enables stay_on feature
- *
- * PMIC stay-on feature allows PMIC to ignore MSM PS_HOLD=low
- * signal so that some special functions like debugging could be
- * performed.
- *
- * This feature should not be used in any product release.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8058_stay_on(void)
-{
-	u8	ctrl = 0x92;
-	int	rc;
-
-	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_GP_TEST_1, &ctrl, 1);
-	pr_info("%s: set stay-on: rc = %d\n", __func__, rc);
-	return rc;
-}
-EXPORT_SYMBOL(pm8058_stay_on);
-
-/*
-   power on hard reset configuration
-   config = DISABLE_HARD_RESET to disable hard reset
-	  = SHUTDOWN_ON_HARD_RESET to turn off the system on hard reset
-	  = RESTART_ON_HARD_RESET to restart the system on hard reset
- */
-int pm8058_hard_reset_config(enum pon_config config)
-{
-	int rc, ret;
-	u8 pon, pon_5;
-
-	if (config >= MAX_PON_CONFIG)
-		return -EINVAL;
-
-	if (pmic_chip == NULL)
-		return -ENODEV;
-
-	mutex_lock(&pmic_chip->pm_lock);
-
-	rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_5, &pon, 1);
-	if (rc) {
-		pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
-		       __func__, SSBI_REG_ADDR_PON_CNTL_5, rc);
-		mutex_unlock(&pmic_chip->pm_lock);
-		return rc;
-	}
-
-	pon_5 = pon;
-	(config != DISABLE_HARD_RESET) ? (pon |= PM8058_HARD_RESET_EN_MASK) :
-					(pon &= ~PM8058_HARD_RESET_EN_MASK);
-
-	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_5, &pon, 1);
-	if (rc) {
-		pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
-		       __func__, SSBI_REG_ADDR_PON_CNTL_5, pon, rc);
-		mutex_unlock(&pmic_chip->pm_lock);
-		return rc;
-	}
-
-	if (config == DISABLE_HARD_RESET) {
-		mutex_unlock(&pmic_chip->pm_lock);
-		return 0;
-	}
-
-	rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_4, &pon, 1);
-	if (rc) {
-		pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
-		       __func__, SSBI_REG_ADDR_PON_CNTL_4, rc);
-		goto err_restore_pon_5;
-	}
-
-	(config == RESTART_ON_HARD_RESET) ? (pon |= PM8058_PON_RESET_EN_MASK) :
-					(pon &= ~PM8058_PON_RESET_EN_MASK);
-
-	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_4, &pon, 1);
-	if (rc) {
-		pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
-		       __func__, SSBI_REG_ADDR_PON_CNTL_4, pon, rc);
-		goto err_restore_pon_5;
-	}
-	mutex_unlock(&pmic_chip->pm_lock);
-	return 0;
-
-err_restore_pon_5:
-	ret = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_5, &pon_5, 1);
-	if (ret)
-		pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
-		       __func__, SSBI_REG_ADDR_PON_CNTL_5, pon, ret);
-	mutex_unlock(&pmic_chip->pm_lock);
-	return rc;
-}
-EXPORT_SYMBOL(pm8058_hard_reset_config);
 
 static int pm8058_readb(const struct device *dev, u16 addr, u8 *val)
 {
@@ -823,9 +712,6 @@ static int __devinit pm8058_probe(struct platform_device *pdev)
 	pm8058_drvdata.pm_chip_data = pmic;
 	platform_set_drvdata(pdev, &pm8058_drvdata);
 
-	mutex_init(&pmic->pm_lock);
-	pmic_chip = pmic;
-
 	/* Read PMIC chip revision */
 	rc = pm8058_readb(pmic->dev, PM8058_REG_REV, &pmic->revision);
 	if (rc)
@@ -843,7 +729,7 @@ static int __devinit pm8058_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	rc = pm8058_hard_reset_config(SHUTDOWN_ON_HARD_RESET);
+	rc = pm8xxx_hard_reset_config(PM8XXX_SHUTDOWN_ON_HARD_RESET);
 	if (rc < 0)
 		pr_err("%s: failed to config shutdown on hard reset: %d\n",
 								__func__, rc);
@@ -870,7 +756,6 @@ static int __devexit pm8058_remove(struct platform_device *pdev)
 			mfd_remove_devices(pmic->dev);
 		if (pmic->irq_chip)
 			pm8xxx_irq_exit(pmic->irq_chip);
-		mutex_destroy(&pmic->pm_lock);
 		kfree(pmic->mfd_regulators);
 		kfree(pmic);
 	}
