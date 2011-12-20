@@ -153,6 +153,7 @@ config ARCH_MSM8960
 	select FIX_MOVABLE_ZONE
 	select CLEANCACHE
 	select QCACHE
+	select MSM_MULTIMEDIA_USE_ION
 
 config ARCH_MSM8930
 	bool "MSM8930"
