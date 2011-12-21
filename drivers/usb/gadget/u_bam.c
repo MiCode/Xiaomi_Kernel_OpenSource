@@ -34,6 +34,7 @@
 static struct workqueue_struct *gbam_wq;
 static int n_bam_ports;
 static int n_bam2bam_ports;
+static unsigned n_tx_req_queued;
 static unsigned bam_ch_ids[] = { 8 };
 
 static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
@@ -49,6 +50,8 @@ static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
 #define BAM_MUX_RX_Q_SIZE			16
 #define BAM_MUX_TX_Q_SIZE			200
 #define BAM_MUX_RX_REQ_SIZE			(2048 - BAM_MUX_HDR)
+
+#define DL_INTR_THRESHOLD			20
 
 unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
 module_param(bam_mux_tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
@@ -70,6 +73,9 @@ module_param(bam_mux_rx_q_size, uint, S_IRUGO | S_IWUSR);
 
 unsigned int bam_mux_rx_req_size = BAM_MUX_RX_REQ_SIZE;
 module_param(bam_mux_rx_req_size, uint, S_IRUGO | S_IWUSR);
+
+unsigned int dl_intr_threshold = DL_INTR_THRESHOLD;
+module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 
 #define BAM_CH_OPENED	BIT(0)
 #define BAM_CH_READY	BIT(1)
@@ -199,6 +205,13 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 		req->context = skb;
 		req->buf = skb->data;
 		req->length = skb->len;
+		n_tx_req_queued++;
+		if (n_tx_req_queued == dl_intr_threshold) {
+			req->no_interrupt = 0;
+			n_tx_req_queued = 0;
+		} else {
+			req->no_interrupt = 1;
+		}
 
 		list_del(&req->list);
 
@@ -1049,6 +1062,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock_irqsave(&port->port_lock_dl, flags);
 	port->port_usb = 0;
+	n_tx_req_queued = 0;
 	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
