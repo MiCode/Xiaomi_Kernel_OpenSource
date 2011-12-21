@@ -17,6 +17,7 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 
+#include <asm/mach-types.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
 
@@ -2070,8 +2071,14 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 	mvm_set_voice_timing.hdr.opcode = VSS_ICOMMON_CMD_SET_VOICE_TIMING;
 	mvm_set_voice_timing.timing.mode = 0;
 	mvm_set_voice_timing.timing.enc_offset = 8000;
-	mvm_set_voice_timing.timing.dec_req_offset = 3300;
-	mvm_set_voice_timing.timing.dec_offset = 8300;
+	if (machine_is_apq8064_sim()) {
+		pr_debug("%s: Machine is apq8064 sim\n", __func__);
+		mvm_set_voice_timing.timing.dec_req_offset = 0;
+		mvm_set_voice_timing.timing.dec_offset = 18000;
+	} else {
+		mvm_set_voice_timing.timing.dec_req_offset = 3300;
+		mvm_set_voice_timing.timing.dec_offset = 8300;
+	}
 
 	v->mvm_state = CMD_STATUS_FAIL;
 
