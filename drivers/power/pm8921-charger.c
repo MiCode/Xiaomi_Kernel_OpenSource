@@ -1334,6 +1334,69 @@ int pm8921_regulate_input_voltage(int voltage)
 	return pm_chg_vinmin_set(the_chip, voltage);
 }
 
+#define USB_OV_THRESHOLD_MASK  0x60
+#define USB_OV_THRESHOLD_SHIFT  5
+int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
+{
+	u8 temp;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (ov > PM_USB_OV_7V) {
+		pr_err("limiting to over voltage threshold to 7volts\n");
+		ov = PM_USB_OV_7V;
+	}
+
+	temp = USB_OV_THRESHOLD_MASK & (ov << USB_OV_THRESHOLD_SHIFT);
+
+	return pm_chg_masked_write(the_chip, USB_OVP_CONTROL,
+				USB_OV_THRESHOLD_MASK, temp);
+}
+EXPORT_SYMBOL(pm8921_usb_ovp_set_threshold);
+
+#define USB_DEBOUNCE_TIME_MASK	0x06
+#define USB_DEBOUNCE_TIME_SHIFT 1
+int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms)
+{
+	u8 temp;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (ms > PM_USB_DEBOUNCE_80P5MS) {
+		pr_err("limiting debounce to 80.5ms\n");
+		ms = PM_USB_DEBOUNCE_80P5MS;
+	}
+
+	temp = USB_DEBOUNCE_TIME_MASK & (ms << USB_DEBOUNCE_TIME_SHIFT);
+
+	return pm_chg_masked_write(the_chip, USB_OVP_CONTROL,
+				USB_DEBOUNCE_TIME_MASK, temp);
+}
+EXPORT_SYMBOL(pm8921_usb_ovp_set_hystersis);
+
+#define USB_OVP_DISABLE_MASK	0x80
+int pm8921_usb_ovp_disable(int disable)
+{
+	u8 temp = 0;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (disable)
+		temp = USB_OVP_DISABLE_MASK;
+
+	return pm_chg_masked_write(the_chip, USB_OVP_CONTROL,
+				USB_OVP_DISABLE_MASK, temp);
+}
+
 bool pm8921_is_battery_charging(int *source)
 {
 	int fsm_state, is_charging, dc_present, usb_present;
