@@ -1215,7 +1215,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
-static void bam_init(void)
+static int bam_init(void)
 {
 	u32 h;
 	dma_addr_t dma_addr;
@@ -1351,7 +1351,7 @@ static void bam_init(void)
 	toggle_apps_ack();
 	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
-	return;
+	return 0;
 
 rx_event_reg_failed:
 	sps_disconnect(bam_rx_pipe);
@@ -1371,8 +1371,45 @@ tx_mem_failed:
 	sps_deregister_bam_device(h);
 register_bam_failed:
 	/*destroy_workqueue(bam_mux_workqueue);*/
-	/*return ret;*/
-	return;
+	return ret;
+}
+
+static int bam_init_fallback(void)
+{
+	u32 h;
+	int ret;
+	void *a2_virt_addr;
+
+	unvote_dfab();
+	/* init BAM */
+	a2_virt_addr = ioremap_nocache(A2_PHYS_BASE, A2_PHYS_SIZE);
+	if (!a2_virt_addr) {
+		pr_err("%s: ioremap failed\n", __func__);
+		ret = -ENOMEM;
+		goto ioremap_failed;
+	}
+	a2_props.phys_addr = A2_PHYS_BASE;
+	a2_props.virt_addr = a2_virt_addr;
+	a2_props.virt_size = A2_PHYS_SIZE;
+	a2_props.irq = A2_BAM_IRQ;
+	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
+	a2_props.num_pipes = A2_NUM_PIPES;
+	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
+	if (cpu_is_msm9615())
+		a2_props.manage = SPS_BAM_MGR_DEVICE_REMOTE;
+	ret = sps_register_bam_device(&a2_props, &h);
+	if (ret < 0) {
+		pr_err("%s: register bam error %d\n", __func__, ret);
+		goto register_bam_failed;
+	}
+	a2_device_handle = h;
+
+	return 0;
+
+register_bam_failed:
+	iounmap(a2_virt_addr);
+ioremap_failed:
+	return ret;
 }
 
 static void toggle_apps_ack(void)
@@ -1387,6 +1424,7 @@ static void toggle_apps_ack(void)
 
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
+	int ret = 0;
 	pr_info("%s: smsm activity 0x%08x -> 0x%08x\n", __func__, old_state,
 							new_state);
 	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL) {
@@ -1401,7 +1439,13 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 	} else if (new_state & SMSM_A2_POWER_CONTROL) {
 		pr_info("%s: init\n", __func__);
 		wake_lock(&bam_wakelock);
-		bam_init();
+		ret = bam_init();
+		if (ret) {
+			ret = bam_init_fallback();
+			if (ret)
+				pr_err("%s: bam init fallback failed: %d",
+						__func__, ret);
+		}
 	} else {
 		pr_err("%s: unsupported state change\n", __func__);
 	}
