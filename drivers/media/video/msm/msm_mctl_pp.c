@@ -149,6 +149,8 @@ int msm_mctl_do_pp_divert(
 	msm_mctl_gettimeofday(&div.frame.timestamp);
 	vb->vidbuf.v4l2_buf.timestamp = div.frame.timestamp;
 	div.do_pp = pp_type;
+	D("%s Diverting frame %x id %d to userspace ", __func__,
+		(int)div.frame.handle, div.frame.frame_id);
 	/* Get the cookie for 1st plane and store the path.
 	 * Also use this to check the number of planes in
 	 * this buffer.*/
@@ -187,7 +189,8 @@ int msm_mctl_do_pp_divert(
 		}
 		if (!pp_type)
 			p_mctl->pp_info.div_frame[pcam_inst->image_mode].
-			ch_paddr[0] = div.frame.mp[0].phy_addr;
+			ch_paddr[0] = div.frame.mp[0].phy_addr +
+					div.frame.mp[0].data_offset;
 	}
 	rc = msm_mctl_pp_buf_divert(p_mctl, pcam_inst, &div);
 	return rc;
@@ -823,6 +826,8 @@ int msm_mctl_pp_done(
 		rc = -EFAULT;
 		goto err;
 	}
+	D("%s Returning frame %x id %d to kernel ", __func__,
+		(int)frame.handle, frame.frame_id);
 	if (p_mctl->pp_info.div_frame[image_mode].ch_paddr[0]) {
 		memcpy(&buf,
 			&p_mctl->pp_info.div_frame[image_mode],
@@ -836,9 +841,10 @@ int msm_mctl_pp_done(
 		}
 	} else {
 		if (frame.num_planes > 1)
-			buf.ch_paddr[0] = frame.mp[0].phy_addr;
+			buf.ch_paddr[0] = frame.mp[0].phy_addr +
+						frame.mp[0].data_offset;
 		else
-			buf.ch_paddr[0] = frame.sp.phy_addr;
+			buf.ch_paddr[0] = frame.sp.phy_addr + frame.sp.y_off;
 	}
 	spin_unlock_irqrestore(&p_mctl->pp_info.lock, flags);
 	/* here buf.addr is phy_addr */
