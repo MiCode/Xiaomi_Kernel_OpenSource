@@ -22,7 +22,6 @@
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/interrupt.h>
-#include <linux/power_supply.h>
 #include <linux/delay.h>
 #include <linux/bitops.h>
 #include <linux/workqueue.h>
@@ -896,7 +895,10 @@ static int pm_power_get_property(struct power_supply *psy,
 							dc_psy);
 			val->intval = is_dc_chg_plugged_in(chip);
 		}
-		if (psy->type == POWER_SUPPLY_TYPE_USB) {
+		if (psy->type == POWER_SUPPLY_TYPE_USB ||
+			psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
+			psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
+			psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
 			chip = container_of(psy, struct pm8921_chg_chip,
 							usb_psy);
 			val->intval = is_usb_chg_plugged_in(chip);
@@ -1440,6 +1442,22 @@ bool pm8921_is_battery_charging(int *source)
 	return is_charging;
 }
 EXPORT_SYMBOL(pm8921_is_battery_charging);
+
+int pm8921_set_usb_power_supply_type(enum power_supply_type type)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (type < POWER_SUPPLY_TYPE_USB)
+		return -EINVAL;
+
+	the_chip->usb_psy.type = type;
+	power_supply_changed(&the_chip->usb_psy);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pm8921_set_usb_power_supply_type);
 
 int pm8921_batt_temperature(void)
 {
