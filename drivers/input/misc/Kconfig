@@ -517,16 +517,6 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
-config PMIC8058_PWRKEY
-        tristate "PMIC8058 power key support"
-        default n
-        depends on PMIC8058
-        help
-          Say Y here if you want support for the PMIC8058 power key.
-
-          To compile this driver as a module, choose M here: the
-          module will be called pmic8058-pwrkey.
-
 config PMIC8058_OTHC
         tristate "Qualcomm PMIC8058 OTHC support"
         default n
