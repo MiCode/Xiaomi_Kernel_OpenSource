@@ -90,7 +90,7 @@ struct pm8xxx_mpp_init {
 
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
-	PM8XXX_GPIO_DISABLE(6),				 /* Disable unused */
+	PM8XXX_GPIO_OUTPUT_VIN(6, 1, PM_GPIO_VIN_VPH),	 /* MHL power EN_N */
 	PM8XXX_GPIO_DISABLE(7),				 /* Disable NFC */
 	PM8XXX_GPIO_INPUT(16,	    PM_GPIO_PULL_UP_30), /* SD_CARD_WP */
     /* External regulator shared by display and touchscreen on LiQUID */
