@@ -250,6 +250,8 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 /*TODO: Insert right replacement for PM8038 */
 #ifndef MSM8930_PHASE_2
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
+#else
+	.wpswitch_gpio	= 66,
 #endif
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
@@ -259,6 +261,9 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #ifndef MSM8930_PHASE_2
 	.status_gpio	= PM8921_GPIO_PM_TO_SYS(26),
 	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 26),
+#else
+	.status_gpio	= 94,
+	.status_irq	= MSM_GPIO_TO_INT(94),
 #endif
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.is_status_gpio_active_low = true,
