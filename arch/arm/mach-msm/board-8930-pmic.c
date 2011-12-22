@@ -119,6 +119,54 @@ void __init msm8930_pm8038_gpio_mpp_init(void)
 	}
 }
 
+static struct pm8xxx_adc_amux pm8xxx_adc_channels_data[] = {
+	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vbat", CHANNEL_VBAT, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"dcin", CHANNEL_DCIN, CHAN_PATH_SCALING4, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"ichg", CHANNEL_ICHG, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vph_pwr", CHANNEL_VPH_PWR, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"ibat", CHANNEL_IBAT, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"batt_therm", CHANNEL_BATT_THERM, CHAN_PATH_SCALING1, AMUX_RSV2,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+	{"batt_id", CHANNEL_BATT_ID, CHAN_PATH_SCALING1, AMUX_RSV2,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"usbin", CHANNEL_USBIN, CHAN_PATH_SCALING3, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
+	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"125v", CHANNEL_125V, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"chg_temp", CHANNEL_CHG_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pa_therm1", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+};
+
+static struct pm8xxx_adc_properties pm8xxx_adc_data = {
+	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
+	.bitresolution		= 15,
+	.bipolar                = 0,
+};
+
+static struct pm8xxx_adc_platform_data pm8xxx_adc_pdata = {
+	.adc_channel            = pm8xxx_adc_channels_data,
+	.adc_num_board_channel  = ARRAY_SIZE(pm8xxx_adc_channels_data),
+	.adc_prop               = &pm8xxx_adc_data,
+	.adc_mpp_base		= PM8038_MPP_PM_TO_SYS(1),
+};
+
 static struct pm8xxx_irq_platform_data pm8xxx_irq_pdata __devinitdata = {
 	.irq_base		= PM8038_IRQ_BASE,
 	.devirq			= MSM_GPIO_TO_INT(104),
@@ -156,6 +204,7 @@ static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
 	.regulator_pdatas	= msm8930_pm8038_regulator_pdata,
+	.adc_pdata		= &pm8xxx_adc_pdata,
 };
 
 static struct msm_ssbi_platform_data msm8930_ssbi_pm8038_pdata __devinitdata = {
