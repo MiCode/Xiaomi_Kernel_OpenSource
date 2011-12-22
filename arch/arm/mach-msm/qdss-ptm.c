@@ -26,10 +26,15 @@
 #include <linux/smp.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
-#include <linux/clk.h>
 #include <asm/atomic.h>
+#include <mach/rpm.h>
 
+#include "rpm_resources.h"
 #include "qdss.h"
+
+#define QDSS_CLK_ON_DBG			0x1
+#define QDSS_CLK_ON_HSDBG		0x2
+#define QDSS_CLK_OFF			0x0
 
 #define ptm_writel(ptm, cpu, val, off)	\
 			__raw_writel((val), ptm.base + (SZ_4K * cpu) + off)
@@ -179,61 +184,37 @@ struct ptm_ctx {
 	struct pm_qos_request_list	qos_req;
 	atomic_t			in_use;
 	struct device			*dev;
-	struct clk			*qdss_at_clk;
-	struct clk			*qdss_pclkdbg_clk;
-	struct clk			*qdss_pclk;
-	struct clk			*qdss_traceclkin_clk;
-	struct clk			*qdss_tsctr_clk;
 };
 
 static struct ptm_ctx ptm;
 
 
-static int ptm_clock_enable(void)
+int qdss_clk_enable(void)
 {
 	int ret;
 
-	ret = clk_enable(ptm.qdss_at_clk);
-	if (WARN(ret, "qdss_at_clk not enabled (%d)\n", ret))
-		goto err;
-
-	ret = clk_enable(ptm.qdss_pclkdbg_clk);
-	if (WARN(ret, "qdss_pclkdbg_clk not enabled (%d)\n", ret))
-		goto err_pclkdbg;
-
-	ret = clk_enable(ptm.qdss_pclk);
-	if (WARN(ret, "qdss_pclk not enabled (%d)\n", ret))
-		goto err_pclk;
-
-	ret = clk_enable(ptm.qdss_traceclkin_clk);
-	if (WARN(ret, "qdss_traceclkin_clk not enabled (%d)\n", ret))
-		goto err_traceclkin;
-
-	ret = clk_enable(ptm.qdss_tsctr_clk);
-	if (WARN(ret, "qdss_tsctr_clk not enabled (%d)\n", ret))
-		goto err_tsctr;
+	struct msm_rpm_iv_pair iv;
+	iv.id = MSM_RPM_ID_QDSS_CLK;
+	iv.value = QDSS_CLK_ON_DBG;
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
+	if (WARN(ret, "qdss clks not enabled (%d)\n", ret))
+		goto err_clk;
 
 	return 0;
 
-err_tsctr:
-	clk_disable(ptm.qdss_traceclkin_clk);
-err_traceclkin:
-	clk_disable(ptm.qdss_pclk);
-err_pclk:
-	clk_disable(ptm.qdss_pclkdbg_clk);
-err_pclkdbg:
-	clk_disable(ptm.qdss_at_clk);
-err:
+err_clk:
 	return ret;
 }
 
-static void ptm_clock_disable(void)
+void qdss_clk_disable(void)
 {
-	clk_disable(ptm.qdss_tsctr_clk);
-	clk_disable(ptm.qdss_traceclkin_clk);
-	clk_disable(ptm.qdss_pclk);
-	clk_disable(ptm.qdss_pclkdbg_clk);
-	clk_disable(ptm.qdss_at_clk);
+	int ret;
+	struct msm_rpm_iv_pair iv;
+
+	iv.id = MSM_RPM_ID_QDSS_CLK;
+	iv.value = QDSS_CLK_OFF;
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
+	WARN(ret, "qdss clks not disabled (%d)\n", ret);
 }
 
 /* ETM clock is derived from the processor clock and gets enabled on a
@@ -357,7 +338,7 @@ static int ptm_trace_enable(void)
 {
 	int ret, cpu;
 
-	ret = ptm_clock_enable();
+	ret = qdss_clk_enable();
 	if (ret)
 		return ret;
 
@@ -425,7 +406,7 @@ static void ptm_trace_disable(void)
 	pm_qos_update_request(&ptm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&ptm.wake_lock);
 
-	ptm_clock_disable();
+	qdss_clk_disable();
 }
 
 static int ptm_open(struct inode *inode, struct file *file)
@@ -690,61 +671,9 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_misc;
 
-	ptm.qdss_at_clk = clk_get(NULL, "qdss_at_clk");
-	if (IS_ERR(ptm.qdss_at_clk)) {
-		ret = PTR_ERR(ptm.qdss_at_clk);
-		goto err_at;
-	}
-	ret = clk_set_rate(ptm.qdss_at_clk, 300000000);
+	ret = qdss_clk_enable();
 	if (ret)
-		goto err_at_rate;
-	ret = clk_enable(ptm.qdss_at_clk);
-	if (ret)
-		goto err_at_enable;
-
-	ptm.qdss_pclkdbg_clk = clk_get(NULL, "qdss_pclkdbg_clk");
-	if (IS_ERR(ptm.qdss_pclkdbg_clk)) {
-		ret = PTR_ERR(ptm.qdss_pclkdbg_clk);
-		goto err_pclkdbg;
-	}
-	ret = clk_enable(ptm.qdss_pclkdbg_clk);
-	if (ret)
-		goto err_pclkdbg_enable;
-
-	ptm.qdss_pclk = clk_get(NULL, "qdss_pclk");
-	if (IS_ERR(ptm.qdss_pclk)) {
-		ret = PTR_ERR(ptm.qdss_pclk);
-		goto err_pclk;
-	}
-
-	ret = clk_enable(ptm.qdss_pclk);
-	if (ret)
-		goto err_pclk_enable;
-
-	ptm.qdss_traceclkin_clk = clk_get(NULL, "qdss_traceclkin_clk");
-	if (IS_ERR(ptm.qdss_traceclkin_clk)) {
-		ret = PTR_ERR(ptm.qdss_traceclkin_clk);
-		goto err_traceclkin;
-	}
-	ret = clk_set_rate(ptm.qdss_traceclkin_clk, 300000000);
-	if (ret)
-		goto err_traceclkin_rate;
-	ret = clk_enable(ptm.qdss_traceclkin_clk);
-	if (ret)
-		goto err_traceclkin_enable;
-
-	ptm.qdss_tsctr_clk = clk_get(NULL, "qdss_tsctr_clk");
-	if (IS_ERR(ptm.qdss_tsctr_clk)) {
-		ret = PTR_ERR(ptm.qdss_tsctr_clk);
-		goto err_tsctr;
-	}
-	ret = clk_set_rate(ptm.qdss_tsctr_clk, 400000000);
-	if (ret)
-		goto err_tsctr_rate;
-
-	ret = clk_enable(ptm.qdss_tsctr_clk);
-	if (ret)
-		goto err_tsctr_enable;
+		goto err_clk;
 
 	ptm_cfg_ro_init();
 	ptm_cfg_rw_init();
@@ -756,11 +685,7 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 						PM_QOS_DEFAULT_VALUE);
 	atomic_set(&ptm.in_use, 0);
 
-	clk_disable(ptm.qdss_tsctr_clk);
-	clk_disable(ptm.qdss_traceclkin_clk);
-	clk_disable(ptm.qdss_pclk);
-	clk_disable(ptm.qdss_pclkdbg_clk);
-	clk_disable(ptm.qdss_at_clk);
+	qdss_clk_disable();
 
 	dev_info(ptm.dev, "PTM intialized.\n");
 
@@ -773,28 +698,7 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_tsctr_enable:
-err_tsctr_rate:
-	clk_put(ptm.qdss_tsctr_clk);
-err_tsctr:
-	clk_disable(ptm.qdss_traceclkin_clk);
-err_traceclkin_enable:
-err_traceclkin_rate:
-	clk_put(ptm.qdss_traceclkin_clk);
-err_traceclkin:
-	clk_disable(ptm.qdss_pclk);
-err_pclk_enable:
-	clk_put(ptm.qdss_pclk);
-err_pclk:
-	clk_disable(ptm.qdss_pclkdbg_clk);
-err_pclkdbg_enable:
-	clk_put(ptm.qdss_pclkdbg_clk);
-err_pclkdbg:
-	clk_disable(ptm.qdss_at_clk);
-err_at_enable:
-err_at_rate:
-	clk_put(ptm.qdss_at_clk);
-err_at:
+err_clk:
 	misc_deregister(&ptm_misc);
 err_misc:
 	iounmap(ptm.base);
@@ -809,11 +713,6 @@ static int __devexit ptm_remove(struct platform_device *pdev)
 		ptm_trace_disable();
 	pm_qos_remove_request(&ptm.qos_req);
 	wake_lock_destroy(&ptm.wake_lock);
-	clk_put(ptm.qdss_tsctr_clk);
-	clk_put(ptm.qdss_traceclkin_clk);
-	clk_put(ptm.qdss_pclk);
-	clk_put(ptm.qdss_pclkdbg_clk);
-	clk_put(ptm.qdss_at_clk);
 	misc_deregister(&ptm_misc);
 	iounmap(ptm.base);
 
