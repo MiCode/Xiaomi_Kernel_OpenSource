@@ -327,6 +327,15 @@ config REGULATOR_PM8921
 	  switching regulators.  It also provides a negative charge pump and
 	  voltage switches.
 
+config REGULATOR_PM8XXX
+	tristate "Qualcomm PM8XXX PMIC Voltage regulators"
+	depends on MFD_PM8XXX
+	help
+	  This driver supports voltage regulators in Qualcomm PM8XXX PMIC chips.
+	  PM8XXX chips provide several different varieties of LDO and switching
+	  regulators.  They also provide negative charge pumps and voltage
+	  switches.
+
 config REGULATOR_GPIO
 	tristate "GPIO regulator"
 	depends on GPIOLIB
