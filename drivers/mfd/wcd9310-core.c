@@ -27,6 +27,7 @@
 
 #define TABLA_SLIM_GLA_MAX_RETRIES 5
 #define TABLA_REGISTER_START_OFFSET 0x800
+#define TABLA_SLIM_RW_MAX_TRIES 3
 
 #define MAX_TABLA_DEVICE	4
 #define TABLA_I2C_MODE	0x03
@@ -183,21 +184,25 @@ static int tabla_slim_read_device(struct tabla *tabla, unsigned short reg,
 {
 	int ret;
 	struct slim_ele_access msg;
+	int slim_read_tries = TABLA_SLIM_RW_MAX_TRIES;
 	msg.start_offset = TABLA_REGISTER_START_OFFSET + reg;
 	msg.num_bytes = bytes;
 	msg.comp = NULL;
 
-	mutex_lock(&tabla->xfer_lock);
-	if (interface)
-		ret = slim_request_val_element(tabla->slim_slave, &msg, dest,
-			bytes);
-	else
-		ret = slim_request_val_element(tabla->slim, &msg, dest, bytes);
+	while (1) {
+		mutex_lock(&tabla->xfer_lock);
+		ret = slim_request_val_element(interface ?
+					       tabla->slim_slave : tabla->slim,
+					       &msg, dest, bytes);
+		mutex_unlock(&tabla->xfer_lock);
+		if (likely(ret == 0) || (--slim_read_tries == 0))
+			break;
+		usleep_range(5000, 5000);
+	}
 
 	if (ret)
-		pr_err("%s: Error, Tabla read failed\n", __func__);
+		pr_err("%s: Error, Tabla read failed (%d)\n", __func__, ret);
 
-	mutex_unlock(&tabla->xfer_lock);
 	return ret;
 }
 /* Interface specifies whether the write is to the interface or general
@@ -208,20 +213,25 @@ static int tabla_slim_write_device(struct tabla *tabla, unsigned short reg,
 {
 	int ret;
 	struct slim_ele_access msg;
+	int slim_write_tries = TABLA_SLIM_RW_MAX_TRIES;
 	msg.start_offset = TABLA_REGISTER_START_OFFSET + reg;
 	msg.num_bytes = bytes;
 	msg.comp = NULL;
 
-	mutex_lock(&tabla->xfer_lock);
-	if (interface)
-		ret = slim_change_val_element(tabla->slim_slave, &msg, src,
-			bytes);
-	else
-		ret = slim_change_val_element(tabla->slim, &msg, src, bytes);
-	if (ret)
-		pr_err("%s: Error, Tabla write failed\n", __func__);
+	while (1) {
+		mutex_lock(&tabla->xfer_lock);
+		ret = slim_change_val_element(interface ?
+					      tabla->slim_slave : tabla->slim,
+					      &msg, src, bytes);
+		mutex_unlock(&tabla->xfer_lock);
+		if (likely(ret == 0) || (--slim_write_tries == 0))
+			break;
+		usleep_range(5000, 5000);
+	}
 
-	mutex_unlock(&tabla->xfer_lock);
+	if (ret)
+		pr_err("%s: Error, Tabla write failed (%d)\n", __func__, ret);
+
 	return ret;
 }
 
