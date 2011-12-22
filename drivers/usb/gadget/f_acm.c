@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/usb/android_composite.h>
+#include <mach/usb_gadget_xport.h>
 
 #include "u_serial.h"
 #include "gadget_chips.h"
@@ -86,12 +87,12 @@ struct f_acm {
 #define ACM_CTRL_DCD		(1 << 0)
 };
 
-static unsigned int no_tty_ports;
-static unsigned int no_sdio_ports;
-static unsigned int no_smd_ports;
-static unsigned int nr_ports;
+static unsigned int no_acm_tty_ports;
+static unsigned int no_acm_sdio_ports;
+static unsigned int no_acm_smd_ports;
+static unsigned int nr_acm_ports;
 
-static struct port_info {
+static struct acm_port_info {
 	enum transport_type	transport;
 	unsigned		port_num;
 	unsigned		client_port_num;
@@ -107,24 +108,25 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 	return container_of(p, struct f_acm, port);
 }
 
-static int gport_setup(struct usb_configuration *c)
+static int acm_port_setup(struct usb_configuration *c)
 {
 	int ret = 0;
 
-	pr_debug("%s: no_tty_ports:%u no_sdio_ports: %u nr_ports:%u\n",
-			__func__, no_tty_ports, no_sdio_ports, nr_ports);
+	pr_debug("%s: no_acm_tty_ports:%u no_acm_sdio_ports: %u nr_acm_ports:%u\n",
+			__func__, no_acm_tty_ports, no_acm_sdio_ports,
+				nr_acm_ports);
 
-	if (no_tty_ports)
-		ret = gserial_setup(c->cdev->gadget, no_tty_ports);
-	if (no_sdio_ports)
-		ret = gsdio_setup(c->cdev->gadget, no_sdio_ports);
-	if (no_smd_ports)
-		ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
+	if (no_acm_tty_ports)
+		ret = gserial_setup(c->cdev->gadget, no_acm_tty_ports);
+	if (no_acm_sdio_ports)
+		ret = gsdio_setup(c->cdev->gadget, no_acm_sdio_ports);
+	if (no_acm_smd_ports)
+		ret = gsmd_setup(c->cdev->gadget, no_acm_smd_ports);
 
 	return ret;
 }
 
-static int gport_connect(struct f_acm *acm)
+static int acm_port_connect(struct f_acm *acm)
 {
 	unsigned port_num;
 
@@ -136,13 +138,13 @@ static int gport_connect(struct f_acm *acm)
 			acm, &acm->port, acm->port_num, port_num);
 
 	switch (acm->transport) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		gserial_connect(&acm->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		gsdio_connect(&acm->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		gsmd_connect(&acm->port, port_num);
 		break;
 	default:
@@ -154,7 +156,7 @@ static int gport_connect(struct f_acm *acm)
 	return 0;
 }
 
-static int gport_disconnect(struct f_acm *acm)
+static int acm_port_disconnect(struct f_acm *acm)
 {
 	unsigned port_num;
 
@@ -165,13 +167,13 @@ static int gport_disconnect(struct f_acm *acm)
 			acm, &acm->port, acm->port_num, port_num);
 
 	switch (acm->transport) {
-	case USB_GADGET_FSERIAL_TRANSPORT_TTY:
+	case USB_GADGET_XPORT_TTY:
 		gserial_disconnect(&acm->port);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
+	case USB_GADGET_XPORT_SDIO:
 		gsdio_disconnect(&acm->port, port_num);
 		break;
-	case USB_GADGET_FSERIAL_TRANSPORT_SMD:
+	case USB_GADGET_XPORT_SMD:
 		gsmd_disconnect(&acm->port, port_num);
 		break;
 	default:
@@ -504,7 +506,7 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else if (intf == acm->data_id) {
 		if (acm->port.in->driver_data) {
 			DBG(cdev, "reset acm ttyGS%d\n", acm->port_num);
-			gport_disconnect(acm);
+			acm_port_disconnect(acm);
 		} else {
 			DBG(cdev, "activate acm ttyGS%d\n", acm->port_num);
 		}
@@ -512,7 +514,7 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				acm->hs.in, acm->fs.in);
 		acm->port.out_desc = ep_choose(cdev->gadget,
 				acm->hs.out, acm->fs.out);
-		gport_connect(acm);
+		acm_port_connect(acm);
 
 	} else
 		return -EINVAL;
@@ -526,7 +528,7 @@ static void acm_disable(struct usb_function *f)
 	struct usb_composite_dev *cdev = f->config->cdev;
 
 	DBG(cdev, "acm ttyGS%d deactivated\n", acm->port_num);
-	gport_disconnect(acm);
+	acm_port_disconnect(acm);
 	usb_ep_disable(acm->notify);
 	acm->notify->driver_data = NULL;
 }
@@ -888,116 +890,43 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	return status;
 }
 
-#ifdef CONFIG_USB_ANDROID_ACM
-#include <linux/platform_device.h>
-
-static struct acm_platform_data *acm_pdata;
-
-static int acm_probe(struct platform_device *pdev)
+/**
+ * acm_init_port - bind a acm_port to its transport
+ */
+static int acm_init_port(int port_num, const char *name)
 {
-	acm_pdata = pdev->dev.platform_data;
-	return 0;
-}
+	enum transport_type transport;
 
-static struct platform_driver acm_platform_driver = {
-	.driver = { .name = "acm", },
-	.probe = acm_probe,
-};
+	if (port_num >= GSERIAL_NO_PORTS)
+		return -ENODEV;
 
-int acm1_function_bind_config(struct usb_configuration *c)
-{
-	int ret = acm_bind_config(c, 0);
-	if (ret == 0)
-		gport_setup(c);
-	return ret;
-}
+	transport = str_to_xport(name);
+	pr_debug("%s, port:%d, transport:%s\n", __func__,
+			port_num, xport_to_str(transport));
 
-int acm2_function_bind_config(struct usb_configuration *c)
-{
-	int ret = acm_bind_config(c, 1);
+	gacm_ports[port_num].transport = transport;
+	gacm_ports[port_num].port_num = port_num;
 
-	return ret;
-}
-
-static struct android_usb_function acm1_function = {
-	.name = "acm1",
-	.bind_config = acm1_function_bind_config,
-};
-
-static struct android_usb_function acm2_function = {
-	.name = "acm2",
-	.bind_config = acm2_function_bind_config,
-};
-
-static int facm_remove(struct platform_device *pdev)
-{
-	gserial_cleanup();
-
-	return 0;
-}
-
-static struct platform_driver usb_facm = {
-	.remove		= facm_remove,
-	.driver = {
-		.name = "usb_facm",
-		.owner = THIS_MODULE,
-	},
-};
-
-static int __init facm_probe(struct platform_device *pdev)
-{
-	struct usb_gadget_facm_pdata *pdata = pdev->dev.platform_data;
-	int i;
-
-	dev_dbg(&pdev->dev, "%s: probe\n", __func__);
-
-	if (!pdata)
-		goto probe_android_register;
-
-	for (i = 0; i < GSERIAL_NO_PORTS; i++) {
-		gacm_ports[i].transport = pdata->transport[i];
-		gacm_ports[i].port_num = i;
-
-		switch (gacm_ports[i].transport) {
-		case USB_GADGET_FSERIAL_TRANSPORT_TTY:
-			gacm_ports[i].client_port_num = no_tty_ports;
-			no_tty_ports++;
-			break;
-		case USB_GADGET_FSERIAL_TRANSPORT_SDIO:
-			gacm_ports[i].client_port_num = no_sdio_ports;
-			no_sdio_ports++;
-			break;
-		case USB_GADGET_FSERIAL_TRANSPORT_SMD:
-			gacm_ports[i].client_port_num = no_smd_ports;
-			no_smd_ports++;
-			break;
-		default:
-			pr_err("%s: Un-supported transport transport: %u\n",
-					__func__, gacm_ports[i].transport);
-			return -ENODEV;
-		}
-
-		nr_ports++;
+	switch (transport) {
+	case USB_GADGET_XPORT_TTY:
+		gacm_ports[port_num].client_port_num = no_acm_tty_ports;
+		no_acm_tty_ports++;
+		break;
+	case USB_GADGET_XPORT_SDIO:
+		gacm_ports[port_num].client_port_num = no_acm_sdio_ports;
+		no_acm_sdio_ports++;
+		break;
+	case USB_GADGET_XPORT_SMD:
+		gacm_ports[port_num].client_port_num = no_acm_smd_ports;
+		no_acm_smd_ports++;
+		break;
+	default:
+		pr_err("%s: Un-supported transport transport: %u\n",
+				__func__, gacm_ports[port_num].transport);
+		return -ENODEV;
 	}
 
-	pr_info("%s:gport:tty_ports:%u sdio_ports:%u "
-			"smd_ports:%u nr_ports:%u\n",
-			__func__, no_tty_ports, no_sdio_ports,
-			no_smd_ports, nr_ports);
-
-probe_android_register:
-	android_register_function(&acm1_function);
-	android_register_function(&acm2_function);
+	nr_acm_ports++;
 
 	return 0;
 }
-
-static int __init init(void)
-{
-	printk(KERN_INFO "f_acm init\n");
-
-	return platform_driver_probe(&usb_facm, facm_probe);
-}
-module_init(init);
-
-#endif /* CONFIG_USB_ANDROID_ACM */
