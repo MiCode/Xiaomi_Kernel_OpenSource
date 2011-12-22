@@ -80,6 +80,7 @@
 #define MXT_PROCI_PALM_T41		41
 #define MXT_PROCI_TOUCHSUPPRESSION_T42	42
 #define MXT_PROCI_STYLUS_T47		47
+#define MXT_PROCI_SHIELDLESS_T56	56
 #define MXT_PROCG_NOISESUPPRESSION_T48	48
 #define MXT_SPT_COMMSCONFIG_T18		18
 #define MXT_SPT_GPIOPWM_T19		19
@@ -206,11 +207,11 @@
 #define MXT_BOOT_VALUE		0xa5
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		25	/* msec */
-#define MXT224_RESET_TIME		65	/* msec */
-#define MXT224E_RESET_TIME		22	/* msec */
-#define MXT1386_RESET_TIME		250	/* msec */
+#define MXT224_RESET_TIME	65	/* msec */
+#define MXT224E_RESET_TIME	22	/* msec */
+#define MXT1386_RESET_TIME	250	/* msec */
 #define MXT_RESET_TIME		250	/* msec */
-#define MXT_RESET_NOCHGREAD		400	/* msec */
+#define MXT_RESET_NOCHGREAD	400	/* msec */
 
 #define MXT_FWRESET_TIME	175	/* msec */
 
@@ -337,6 +338,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_PROCI_PALM_T41:
 	case MXT_PROCI_TOUCHSUPPRESSION_T42:
 	case MXT_PROCI_STYLUS_T47:
+	case MXT_PROCI_SHIELDLESS_T56:
 	case MXT_PROCG_NOISESUPPRESSION_T48:
 	case MXT_SPT_COMMSCONFIG_T18:
 	case MXT_SPT_GPIOPWM_T19:
@@ -369,6 +371,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_PROCI_PALM_T41:
 	case MXT_PROCI_TOUCHSUPPRESSION_T42:
 	case MXT_PROCI_STYLUS_T47:
+	case MXT_PROCI_SHIELDLESS_T56:
 	case MXT_PROCG_NOISESUPPRESSION_T48:
 	case MXT_SPT_COMMSCONFIG_T18:
 	case MXT_SPT_GPIOPWM_T19:
