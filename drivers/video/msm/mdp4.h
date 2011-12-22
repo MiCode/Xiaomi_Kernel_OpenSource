@@ -673,10 +673,8 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 void mdp4_writeback_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_overlay1_done_writeback(struct mdp_dma_data *dma);
 
-int mdp4_writeback_register_buffer(struct fb_info *info,
-		struct msmfb_writeback_data *data);
-int mdp4_writeback_unregister_buffer(struct fb_info *info,
-		struct msmfb_writeback_data *data);
+int mdp4_writeback_start(struct fb_info *info);
+int mdp4_writeback_stop(struct fb_info *info);
 int mdp4_writeback_dequeue_buffer(struct fb_info *info,
 		struct msmfb_data *data);
 int mdp4_writeback_queue_buffer(struct fb_info *info,
