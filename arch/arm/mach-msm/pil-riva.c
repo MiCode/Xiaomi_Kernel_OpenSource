@@ -20,9 +20,12 @@
 #include <linux/platform_device.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/msm_xo.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+
+#define PROXY_VOTE_TIMEOUT		10000
 
 #define RIVA_PMU_A2XB_CFG		0xB8
 #define RIVA_PMU_A2XB_CFG_EN		BIT(0)
@@ -72,7 +75,39 @@
 struct riva_data {
 	void __iomem *base;
 	unsigned long start_addr;
+	struct msm_xo_voter *xo;
+	struct timer_list xo_timer;
 };
+
+static void pil_riva_make_xo_proxy_votes(struct device *dev)
+{
+	struct riva_data *drv = dev_get_drvdata(dev);
+
+	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_ON);
+	mod_timer(&drv->xo_timer, jiffies+msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+}
+
+static void pil_riva_remove_xo_proxy_votes(unsigned long data)
+{
+	struct riva_data *drv = (struct riva_data *)data;
+
+	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_OFF);
+}
+
+static void pil_riva_remove_xo_proxy_votes_now(struct device *dev)
+{
+	struct riva_data *drv = dev_get_drvdata(dev);
+
+	if (del_timer(&drv->xo_timer))
+		pil_riva_remove_xo_proxy_votes((unsigned long)drv);
+}
+
+static bool cxo_is_needed(struct riva_data *drv)
+{
+	u32 reg = readl_relaxed(drv->base + RIVA_PMU_CFG);
+	return (reg & RIVA_PMU_CFG_IRIS_XO_MODE)
+		!= RIVA_PMU_CFG_IRIS_XO_MODE_48;
+}
 
 static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
 {
@@ -91,7 +126,7 @@ static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
 static int pil_riva_reset(struct pil_desc *pil)
 {
 	u32 reg, sel;
-	bool xo;
+	bool use_cxo;
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
 	unsigned long start_addr = drv->start_addr;
@@ -101,26 +136,27 @@ static int pil_riva_reset(struct pil_desc *pil)
 	reg |= RIVA_PMU_A2XB_CFG_EN;
 	writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
 
-	/* Determine which XO to use */
-	reg = readl_relaxed(base + RIVA_PMU_CFG);
-	xo = (reg & RIVA_PMU_CFG_IRIS_XO_MODE) == RIVA_PMU_CFG_IRIS_XO_MODE_48;
+	/* Proxy-vote for CXO if it's needed */
+	use_cxo = cxo_is_needed(drv);
+	if (use_cxo)
+		pil_riva_make_xo_proxy_votes(pil->dev);
 
 	/* Program PLL 13 to 960 MHz */
 	reg = readl_relaxed(RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_BYPASSNL | PLL_MODE_OUTCTRL | PLL_MODE_RESET_N);
 	writel_relaxed(reg, RIVA_PLL_MODE);
 
-	if (xo)
-		writel_relaxed(0x40000C00 | 40, RIVA_PLL_L_VAL);
-	else
+	if (use_cxo)
 		writel_relaxed(0x40000C00 | 50, RIVA_PLL_L_VAL);
+	else
+		writel_relaxed(0x40000C00 | 40, RIVA_PLL_L_VAL);
 	writel_relaxed(0, RIVA_PLL_M_VAL);
 	writel_relaxed(1, RIVA_PLL_N_VAL);
 	writel_relaxed(0x01495227, RIVA_PLL_CONFIG);
 
 	reg = readl_relaxed(RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_REF_XO_SEL);
-	reg |= xo ? PLL_MODE_REF_XO_SEL_RF : PLL_MODE_REF_XO_SEL_CXO;
+	reg |= use_cxo ? PLL_MODE_REF_XO_SEL_CXO : PLL_MODE_REF_XO_SEL_RF;
 	writel_relaxed(reg, RIVA_PLL_MODE);
 
 	/* Enable PLL 13 */
@@ -198,6 +234,8 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	reg &= ~(RIVA_PMU_OVRD_VAL_CCPU_RESET | RIVA_PMU_OVRD_VAL_CCPU_CLK);
 	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_VAL);
 
+	pil_riva_remove_xo_proxy_votes_now(pil->dev);
+
 	return 0;
 }
 
@@ -216,12 +254,22 @@ static int pil_riva_init_image_trusted(struct pil_desc *pil,
 
 static int pil_riva_reset_trusted(struct pil_desc *pil)
 {
+	struct riva_data *drv = dev_get_drvdata(pil->dev);
+
+	/* Proxy-vote for CXO if it's needed */
+	if (cxo_is_needed(drv))
+		pil_riva_make_xo_proxy_votes(pil->dev);
+
 	return pas_auth_and_reset(PAS_RIVA);
 }
 
 static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 {
-	return pas_shutdown(PAS_RIVA);
+	int ret = pas_shutdown(PAS_RIVA);
+
+	pil_riva_remove_xo_proxy_votes_now(pil->dev);
+
+	return ret;
 }
 
 static struct pil_reset_ops pil_riva_ops_trusted = {
@@ -264,6 +312,13 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		desc->ops = &pil_riva_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
+
+	setup_timer(&drv->xo_timer, pil_riva_remove_xo_proxy_votes,
+		    (unsigned long)drv);
+	drv->xo = msm_xo_get(MSM_XO_CXO, desc->name);
+	if (IS_ERR(drv->xo))
+		return PTR_ERR(drv->xo);
+
 	return msm_pil_register(desc);
 }
 
