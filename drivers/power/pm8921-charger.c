@@ -1647,7 +1647,6 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
 
-	chip->bms_notify.is_battery_full = 1;
 	bms_notify_check(chip);
 
 	return IRQ_HANDLED;
@@ -1913,6 +1912,7 @@ static void eoc_worker(struct work_struct *work)
 	int regulation_loop, fast_chg, vcp;
 	int rc;
 	static int count;
+	static int last_vbat_programmed = -EINVAL;
 
 	if (!is_ext_charging(chip)) {
 		/* return if the battery is not being fastcharged */
@@ -1951,6 +1951,31 @@ static void eoc_worker(struct work_struct *work)
 			 vbat_programmed, vbat_meas_mv);
 		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
 			goto reset_and_reschedule;
+
+		if (last_vbat_programmed == -EINVAL)
+			last_vbat_programmed = vbat_programmed;
+		if (last_vbat_programmed !=  vbat_programmed) {
+			/* vddmax changed, reset and check again */
+			pr_debug("vddmax = %d last_vdd_max=%d\n",
+				 vbat_programmed, last_vbat_programmed);
+			last_vbat_programmed = vbat_programmed;
+			goto reset_and_reschedule;
+		}
+
+		/*
+		 * TODO if charging from an external charger
+		 * check SOC instead of regulation loop
+		 */
+		regulation_loop = pm_chg_get_regulation_loop(chip);
+		if (regulation_loop < 0) {
+			pr_err("couldnt read the regulation loop err=%d\n",
+				regulation_loop);
+			goto reset_and_reschedule;
+		}
+		pr_debug("regulation_loop=%d\n", regulation_loop);
+
+		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
+			goto reset_and_reschedule;
 	} /* !is_ext_charging */
 
 	/* reset count if battery chg current is more than iterm */
@@ -1973,23 +1998,6 @@ static void eoc_worker(struct work_struct *work)
 	if (ichg_meas_ma * -1 > iterm_programmed)
 		goto reset_and_reschedule;
 
-	if (!is_ext_charging(chip)) {
-		/*
-		 * TODO if charging from an external charger
-		 * check SOC instead of regulation loop
-		 */
-		regulation_loop = pm_chg_get_regulation_loop(chip);
-		if (regulation_loop < 0) {
-			pr_err("couldnt read the regulation loop err=%d\n",
-				regulation_loop);
-			goto reset_and_reschedule;
-		}
-		pr_debug("regulation_loop=%d\n", regulation_loop);
-
-		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
-			goto reset_and_reschedule;
-	} /* !is_ext_charging */
-
 	count++;
 	if (count == CONSECUTIVE_COUNT) {
 		count = 0;
@@ -2000,6 +2008,10 @@ static void eoc_worker(struct work_struct *work)
 		if (is_ext_charging(chip))
 			chip->ext_charge_done = true;
 
+		if (chip->is_bat_warm || chip->is_bat_cool)
+			chip->bms_notify.is_battery_full = 0;
+		else
+			chip->bms_notify.is_battery_full = 1;
 		/* declare end of charging by invoking chgdone interrupt */
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
 		wake_unlock(&chip->eoc_wake_lock);
