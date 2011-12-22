@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -52,6 +53,11 @@
 #define GPIO_AUX_PCM_SYNC 45
 #define GPIO_AUX_PCM_CLK 46
 
+#define TABLA_EXT_CLK_RATE 12288000
+
+#define TABLA_MBHC_DEF_BUTTONS 3
+#define TABLA_MBHC_DEF_RLOADS 5
+
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
 static int msm_spk_control;
@@ -63,17 +69,6 @@ static int msm_slim_0_tx_ch = 1;
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
-struct tabla_mbhc_calibration tabla_calib = {
-	.bias = TABLA_MICBIAS2,
-	.tldoh = 100,
-	.bg_fast_settle = 100,
-	.mic_current = TABLA_PID_MIC_5_UA,
-	.mic_pid = 100,
-	.hph_current = TABLA_PID_MIC_5_UA,
-	.setup_plug_removal_delay = 1000000,
-	.shutdown_plug_removal = 100000,
-};
-
 static struct clk *codec_clk;
 static int clk_users;
 
@@ -81,6 +76,8 @@ static int msm_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+
+static void *tabla_mbhc_cal;
 
 static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 {
@@ -298,6 +295,42 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
 			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+int msm_enable_codec_ext_clk(
+		struct snd_soc_codec *codec, int enable)
+{
+	pr_debug("%s: enable = %d\n", __func__, enable);
+	if (enable) {
+		clk_users++;
+		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
+		if (clk_users != 1)
+			return 0;
+
+		codec_clk = clk_get(NULL, "i2s_spkr_osr_clk");
+		if (codec_clk) {
+			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
+			clk_enable(codec_clk);
+			tabla_mclk_enable(codec, 1);
+		} else {
+			pr_err("%s: Error setting Tabla MCLK\n", __func__);
+			clk_users--;
+			return -EINVAL;
+		}
+	} else {
+		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
+		if (clk_users == 0)
+			return 0;
+		clk_users--;
+		if (!clk_users) {
+			pr_debug("%s: disabling MCLK. clk_users = %d\n",
+					 __func__, clk_users);
+			clk_disable(codec_clk);
+			clk_put(codec_clk);
+			tabla_mclk_enable(codec, 0);
 		}
 	}
 	return 0;
@@ -570,6 +603,74 @@ static int msm_btsco_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static void *def_tabla_mbhc_cal(void)
+{
+	void *tabla_cal;
+	struct tabla_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_low, *btn_high;
+	u8 *n_cic, *gain;
+
+	tabla_cal = kzalloc(TABLA_MBHC_CAL_SIZE(TABLA_MBHC_DEF_BUTTONS,
+						TABLA_MBHC_DEF_RLOADS),
+			    GFP_KERNEL);
+	if (!tabla_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+#define S(X, Y) ((TABLA_MBHC_CAL_GENERAL_PTR(tabla_cal)->X) = (Y))
+	S(t_ldoh, 100);
+	S(t_bg_fast_settle, 100);
+	S(t_shutdown_plug_rem, 255);
+	S(mbhc_nsa, 4);
+	S(mbhc_navg, 4);
+#undef S
+#define S(X, Y) ((TABLA_MBHC_CAL_PLUG_DET_PTR(tabla_cal)->X) = (Y))
+	S(mic_current, TABLA_PID_MIC_5_UA);
+	S(hph_current, TABLA_PID_MIC_5_UA);
+	S(t_mic_pid, 100);
+	S(t_ins_complete, 1000);
+	S(t_ins_retry, 200);
+#undef S
+#define S(X, Y) ((TABLA_MBHC_CAL_PLUG_TYPE_PTR(tabla_cal)->X) = (Y))
+	S(v_no_mic, 30);
+	S(v_hs_max, 1450);
+#undef S
+#define S(X, Y) ((TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal)->X) = (Y))
+	S(c[0], 6);
+	S(c[1], 10);
+	S(c[2], 10);
+	S(c[3], 14);
+	S(c[4], 14);
+	S(c[5], 16);
+	S(c[6], 0);
+	S(c[7], 0);
+	S(nc, 5);
+	S(n_meas, 11);
+	S(mbhc_nsc, 11);
+	S(num_btn, TABLA_MBHC_DEF_BUTTONS);
+	S(v_btn_press_delta_sta, 100);
+	S(v_btn_press_delta_cic, 50);
+#undef S
+	btn_cfg = TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal);
+	btn_low = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_LOW);
+	btn_high = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_HIGH);
+	btn_low[0] = 0;
+	btn_high[0] = 40;
+	btn_low[1] = 60;
+	btn_high[1] = 140;
+	btn_low[2] = 160;
+	btn_high[2] = 240;
+	n_cic = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_CIC);
+	n_cic[0] = 120;
+	n_cic[1] = 94;
+	gain = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_GAIN);
+	gain[0] = 11;
+	gain[1] = 9;
+
+	return tabla_cal;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -618,7 +719,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 
-	tabla_hs_detect(codec, &hs_jack, &button_jack, &tabla_calib);
+	tabla_hs_detect(codec, &hs_jack, &button_jack, tabla_mbhc_cal,
+			TABLA_MICBIAS2, msm_enable_codec_ext_clk, 0,
+			TABLA_EXT_CLK_RATE);
 
 	return 0;
 }
@@ -1122,9 +1225,16 @@ static int __init msm_audio_init(void)
 		return -ENODEV;
 	}
 
+	tabla_mbhc_cal = def_tabla_mbhc_cal();
+	if (!tabla_mbhc_cal) {
+		pr_err("Calibration data allocation failed\n");
+		return -ENOMEM;
+	}
+
 	msm_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm_snd_device) {
 		pr_err("Platform device allocation failed\n");
+		kfree(tabla_mbhc_cal);
 		return -ENOMEM;
 	}
 
@@ -1132,6 +1242,7 @@ static int __init msm_audio_init(void)
 	ret = platform_device_add(msm_snd_device);
 	if (ret) {
 		platform_device_put(msm_snd_device);
+		kfree(tabla_mbhc_cal);
 		return ret;
 	}
 
