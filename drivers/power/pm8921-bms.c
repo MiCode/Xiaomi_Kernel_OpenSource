@@ -1087,7 +1087,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	 * the device must be charging for reporting a higher soc, if not ignore
 	 * this soc and continue reporting the last_soc
 	 */
-	if (the_chip->start_percent != 0) {
+	if (the_chip->start_percent != -EINVAL) {
 		last_soc = soc;
 	} else {
 		pr_debug("soc = %d reporting last_soc = %d\n", soc, last_soc);
@@ -1340,8 +1340,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 			the_chip->end_percent,
 			last_charge_increase,
 			last_chargecycles);
-	the_chip->start_percent = 0;
-	the_chip->end_percent = 0;
+	the_chip->start_percent = -EINVAL;
+	the_chip->end_percent = -EINVAL;
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_end);
 
@@ -1825,6 +1825,8 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->v_failure = pdata->v_failure;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
+	chip->start_percent = -EINVAL;
+	chip->end_percent = -EINVAL;
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("%s bad battery data %d\n", __func__, rc);
