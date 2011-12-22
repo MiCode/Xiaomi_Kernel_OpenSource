@@ -824,6 +824,12 @@ int sps_connect(struct sps_pipe *h, struct sps_connect *connect)
 		return -EAGAIN;
 	}
 
+	if ((connect->lock_group != SPSRM_CLEAR)
+		&& (connect->lock_group > BAM_MAX_P_LOCK_GROUP_NUM)) {
+		SPS_ERR("sps:The value of pipe lock group is invalid.\n");
+		return SPS_ERROR;
+	}
+
 	mutex_lock(&sps->lock);
 	/*
 	 * Must lock the BAM device at the top level function, so must
@@ -1059,6 +1065,34 @@ int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
 	int result;
 
 	SPS_DBG("sps:%s.", __func__);
+
+	if ((flags & SPS_IOVEC_FLAG_NWD) &&
+		!(flags & (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_CMD))) {
+		SPS_ERR("sps:NWD is only valid with EOT or CMD.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_EOT) &&
+		(flags & SPS_IOVEC_FLAG_CMD)) {
+		SPS_ERR("sps:EOT and CMD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	} else if (!(flags & SPS_IOVEC_FLAG_CMD) &&
+		(flags & (SPS_IOVEC_FLAG_LOCK | SPS_IOVEC_FLAG_UNLOCK))) {
+		SPS_ERR("sps:pipe lock and unlock flags are only valid with "
+			"Command Descriptor.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_LOCK) &&
+		(flags & SPS_IOVEC_FLAG_UNLOCK)) {
+		SPS_ERR("sps:Can't lock and unlock a pipe by the same"
+			"Command Descriptor.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
+		(flags & SPS_IOVEC_FLAG_CMD)) {
+		SPS_ERR("sps:Immediate and CMD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
+		(flags & SPS_IOVEC_FLAG_NWD)) {
+		SPS_ERR("sps:Immediate and NWD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)

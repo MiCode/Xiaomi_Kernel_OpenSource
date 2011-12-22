@@ -22,9 +22,6 @@
 #include "spsi.h"
 #include "sps_core.h"
 
-/* "Clear" value for the connection parameter struct */
-#define SPSRM_CLEAR     0xcccccccc
-
 /* Max BAM FIFO sizes */
 #define SPSRM_MAX_DESC_FIFO_SIZE    0xffff
 #define SPSRM_MAX_DATA_FIFO_SIZE    0xffff
@@ -198,6 +195,8 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 		pipe->pipe_index = map->src.pipe_index;
 		if (pipe->connect.event_thresh != SPSRM_CLEAR)
 			map->src.event_threshold = pipe->connect.event_thresh;
+		if (pipe->connect.lock_group != SPSRM_CLEAR)
+			map->src.lock_group = pipe->connect.lock_group;
 	} else {
 		map->client_dest = pipe;
 		pipe->bam = map->dest.bam;
@@ -205,6 +204,8 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 		if (pipe->connect.event_thresh != SPSRM_CLEAR)
 			map->dest.event_threshold =
 			pipe->connect.event_thresh;
+		if (pipe->connect.lock_group != SPSRM_CLEAR)
+			map->dest.lock_group = pipe->connect.lock_group;
 	}
 	pipe->map = map;
 

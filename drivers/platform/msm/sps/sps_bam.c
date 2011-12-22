@@ -35,7 +35,9 @@
 
 /* Mask for valid hardware descriptor flags */
 #define BAM_IOVEC_FLAG_MASK   \
-	(SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_EOB)
+	(SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_EOB |   \
+	SPS_IOVEC_FLAG_NWD | SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_LOCK |   \
+	SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_IMME)
 
 /* Mask for invalid BAM-to-BAM pipe options */
 #define BAM2BAM_O_INVALID   \
@@ -712,6 +714,7 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 	}
 	hw_params.event_threshold = (u16) map_pipe->event_threshold;
 	hw_params.ee = dev->props.ee;
+	hw_params.lock_group = map_pipe->lock_group;
 
 	/* Verify that control of this pipe is allowed */
 	if ((dev->props.manage & SPS_BAM_MGR_PIPE_NO_CTRL) ||
@@ -751,6 +754,14 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 		/* Clear the data FIFO for debug */
 		if (map->data.base != NULL && bam_pipe->mode == SPS_MODE_SRC)
 			memset(map->data.base, 0, hw_params.data_size);
+
+		/* set NWD bit for BAM2BAM producer pipe */
+		if (bam_pipe->mode == SPS_MODE_SRC) {
+			if ((params->options & SPS_O_WRITE_NWD) == 0)
+				hw_params.write_nwd = BAM_WRITE_NWD_DISABLE;
+			else
+				hw_params.write_nwd = BAM_WRITE_NWD_ENABLE;
+		}
 	} else {
 		/* System mode */
 		hw_params.mode = BAM_PIPE_MODE_SYSTEM;
