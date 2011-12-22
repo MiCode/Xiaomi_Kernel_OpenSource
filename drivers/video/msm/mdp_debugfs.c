@@ -297,6 +297,10 @@ static ssize_t mdp_stat_read(
 					mdp4_stat.intr_overlay1);
 	bp += len;
 	dlen -= len;
+	len = snprintf(bp, dlen, "int_overlay1: %08lu\n",
+					mdp4_stat.intr_overlay2);
+	bp += len;
+	dlen -= len;
 
 	len = snprintf(bp, dlen, "int_dmap: %08lu\t",
 					mdp4_stat.intr_dma_p);
