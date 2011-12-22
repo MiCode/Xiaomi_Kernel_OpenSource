@@ -23,6 +23,7 @@
 #include <linux/power/ltc4088-charger.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/gpio.h>
@@ -468,6 +469,7 @@ static void __init msm9615_mtp_init(void)
 MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.map_io = msm9615_map_io,
 	.init_irq = msm9615_init_irq,
+	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = msm9615_cdp_init,
 	.reserve = msm9615_reserve,
@@ -476,6 +478,7 @@ MACHINE_END
 MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
 	.map_io = msm9615_map_io,
 	.init_irq = msm9615_init_irq,
+	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = msm9615_mtp_init,
 	.reserve = msm9615_reserve,

@@ -600,6 +600,7 @@ MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
 	.map_io = apq8064_map_io,
 	.reserve = apq8064_reserve,
 	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_sim_init,
 MACHINE_END
@@ -608,6 +609,7 @@ MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
 	.map_io = apq8064_map_io,
 	.reserve = apq8064_reserve,
 	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_rumi3_init,
 MACHINE_END

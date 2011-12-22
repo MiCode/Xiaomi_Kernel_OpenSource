@@ -78,7 +78,6 @@ config ARCH_MSM8X60
 	select MSM_RPM_REGULATOR
 	select MSM_V2_TLMM
 	select MSM_PIL
-	select MSM_SCM
 	select ARCH_HAS_CPU_IDLE_WAIT
 	select MSM_DIRECT_SCLK_ACCESS
 	select MSM_RPM
@@ -118,6 +117,8 @@ config ARCH_MSM8X60
 	select ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
 	select CPU_HAS_L2_PMU
 	select MSM_SPM_V1
+	select MSM_SCM if SMP
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -156,6 +157,7 @@ config ARCH_MSM8960
 	select CLEANCACHE
 	select QCACHE
 	select MSM_MULTIMEDIA_USE_ION
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -190,6 +192,7 @@ config ARCH_MSM8930
 	select ARCH_MEMORY_REMOVE
 	select FIX_MOVABLE_ZONE
 	select MSM_ULTRASOUND
+	select MULTI_IRQ_HANDLER
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -204,6 +207,7 @@ config ARCH_APQ8064
 	select MSM_PIL
 	select MSM_QDSP6_APR
 	select MSM_AUDIO_QDSP6 if SND_SOC
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSMCOPPER
 	bool "MSM Copper"
@@ -213,6 +217,7 @@ config ARCH_MSMCOPPER
 	select CPU_V7
 	select MSM_SCM if SMP
 	select MSM_GPIOMUX
+	select MULTI_IRQ_HANDLER
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -221,6 +226,7 @@ config ARCH_FSM9XXX
 	select CPU_V7
 	select MSM_REMOTE_SPINLOCK_LDREX
 	select FSM9XXX_TLMM
+	select MULTI_IRQ_HANDLER
 
 config ARCH_MSM9615
 	bool "MSM9615"
@@ -234,6 +240,7 @@ config ARCH_MSM9615
 	select MSM_NATIVE_RESTART
 	select REGULATOR
 	select MSM_RPM_REGULATOR
+	select MULTI_IRQ_HANDLER
 
 endmenu
 

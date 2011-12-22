@@ -53,6 +53,7 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
+#include <asm/hardware/gic.h>
 
 #include <mach/dma.h>
 #include <mach/board.h>
@@ -10278,6 +10279,7 @@ MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_rumi3_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10287,6 +10289,7 @@ MACHINE_START(MSM8X60_SIM, "QCT MSM8X60 SIMULATOR")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_sim_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10296,6 +10299,7 @@ MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_surf_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10305,6 +10309,7 @@ MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_ffa_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10314,6 +10319,7 @@ MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_fluid_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10323,6 +10329,7 @@ MACHINE_START(MSM8X60_FUSION, "QCT MSM8X60 FUSION SURF")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_charm_surf_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10332,6 +10339,7 @@ MACHINE_START(MSM8X60_FUSN_FFA, "QCT MSM8X60 FUSION FFA")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_charm_ffa_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
@@ -10341,6 +10349,7 @@ MACHINE_START(MSM8X60_DRAGON, "QCT MSM8X60 DRAGON")
 	.map_io = msm8x60_map_io,
 	.reserve = msm8x60_reserve,
 	.init_irq = msm8x60_init_irq,
+	.handle_irq = gic_handle_irq,
 	.init_machine = msm8x60_dragon_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
