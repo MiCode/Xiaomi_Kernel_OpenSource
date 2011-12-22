@@ -419,6 +419,7 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 	if (rc < 0) {
 		BT_ERR("Cannot open the command channel");
 		hci_free_dev(hdev);
+		hdev = NULL;
 		return -ENODEV;
 	}
 
@@ -427,6 +428,7 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 	if (rc < 0) {
 		BT_ERR("Failed to open the Data channel");
 		hci_free_dev(hdev);
+		hdev = NULL;
 		return -ENODEV;
 	}
 
@@ -443,6 +445,15 @@ static int hci_smd_register_dev(struct hci_smd_data *hsmd)
 
 static void hci_smd_deregister_dev(struct hci_smd_data *hsmd)
 {
+	if (hsmd->hdev) {
+		if (hci_unregister_dev(hsmd->hdev) < 0)
+			BT_ERR("Can't unregister HCI device %s",
+				hsmd->hdev->name);
+
+		hci_free_dev(hsmd->hdev);
+		hsmd->hdev = NULL;
+	}
+
 	smd_close(hs.event_channel);
 	smd_close(hs.data_channel);
 
@@ -452,13 +463,14 @@ static void hci_smd_deregister_dev(struct hci_smd_data *hsmd)
 		wake_unlock(&hs.wake_lock_tx);
 
 	/*Destroy the timer used to monitor the Rx queue for emptiness */
-	del_timer_sync(&hs.rx_q_timer);
+	if (hs.rx_q_timer.function) {
+		del_timer_sync(&hs.rx_q_timer);
+		hs.rx_q_timer.function = NULL;
+		hs.rx_q_timer.data = 0;
+	}
+
 	tasklet_kill(&hs.hci_event_task);
 	tasklet_kill(&hs.hci_data_task);
-	if (hci_unregister_dev(hsmd->hdev) < 0)
-		BT_ERR("Can't unregister HCI device %s", hsmd->hdev->name);
-
-	hci_free_dev(hsmd->hdev);
 }
 
 static int hcismd_set_enable(const char *val, struct kernel_param *kp)
