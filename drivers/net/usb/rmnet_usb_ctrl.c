@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,7 @@ static ssize_t modem_wait_show(struct device *d, struct device_attribute *attr,
 	return snprintf(buf, PAGE_SIZE, "%u\n", dev->mdm_wait_timeout);
 }
 
-static DEVICE_ATTR(modem_wait, 0666, modem_wait_show, modem_wait_store);
+static DEVICE_ATTR(modem_wait, 0664, modem_wait_show, modem_wait_store);
 
 static int	ctl_msg_dbg_mask;
 module_param_named(dump_ctrl_msg, ctl_msg_dbg_mask, int,
