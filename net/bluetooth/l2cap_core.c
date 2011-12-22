@@ -1454,10 +1454,6 @@ int l2cap_ertm_send(struct sock *sk)
 		tx_skb->destructor = l2cap_skb_destructor;
 		atomic_inc(&pi->ertm_queued);
 
-		l2cap_do_send(sk, tx_skb);
-
-		BT_DBG("Sent txseq %d", (int)control->txseq);
-
 		l2cap_ertm_start_retrans_timer(pi);
 
 		pi->next_tx_seq = __next_seq(pi->next_tx_seq, pi);
@@ -1469,6 +1465,9 @@ int l2cap_ertm_send(struct sock *sk)
 			sk->sk_send_head = NULL;
 		else
 			sk->sk_send_head = skb_queue_next(TX_QUEUE(sk), skb);
+
+		l2cap_do_send(sk, tx_skb);
+		BT_DBG("Sent txseq %d", (int)control->txseq);
 	}
 
 	BT_DBG("Sent %d, %d unacked, %d in ERTM queue, %d in HCI queue", sent,
