@@ -178,10 +178,16 @@
 #define MXT_VOLTAGE_DEFAULT	2700000
 #define MXT_VOLTAGE_STEP	10000
 
+/* Analog voltage @2.7 V */
 #define MXT_VTG_MIN_UV		2700000
 #define MXT_VTG_MAX_UV		3300000
 #define MXT_ACTIVE_LOAD_UA	15000
 #define MXT_LPM_LOAD_UA		10
+/* Digital voltage @1.8 V */
+#define MXT_VTG_DIG_MIN_UV	1800000
+#define MXT_VTG_DIG_MAX_UV	1800000
+#define MXT_ACTIVE_LOAD_DIG_UA	10000
+#define MXT_LPM_LOAD_DIG_UA	10
 
 #define MXT_I2C_VTG_MIN_UV	1800000
 #define MXT_I2C_VTG_MAX_UV	1800000
@@ -269,6 +275,7 @@ struct mxt_finger {
 	int x;
 	int y;
 	int area;
+	int pressure;
 };
 
 /* Each client has this additional data */
@@ -280,7 +287,8 @@ struct mxt_data {
 	struct mxt_info info;
 	struct mxt_finger finger[MXT_MAX_FINGER];
 	unsigned int irq;
-	struct regulator *vcc;
+	struct regulator *vcc_ana;
+	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
@@ -568,6 +576,8 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 				finger[id].x);
 		input_report_abs(input_dev, ABS_MT_POSITION_Y,
 				finger[id].y);
+		input_report_abs(input_dev, ABS_MT_PRESSURE,
+					finger[id].pressure);
 		input_mt_sync(input_dev);
 
 		if (finger[id].status == MXT_RELEASE)
@@ -581,6 +591,8 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 	if (status != MXT_RELEASE) {
 		input_report_abs(input_dev, ABS_X, finger[single_id].x);
 		input_report_abs(input_dev, ABS_Y, finger[single_id].y);
+		input_report_abs(input_dev,
+			ABS_PRESSURE, finger[single_id].pressure);
 	}
 
 	input_sync(input_dev);
@@ -595,6 +607,7 @@ static void mxt_input_touchevent(struct mxt_data *data,
 	int x;
 	int y;
 	int area;
+	int pressure;
 
 	/* Check the touch is present on the screen */
 	if (!(status & MXT_DETECT)) {
@@ -619,6 +632,7 @@ static void mxt_input_touchevent(struct mxt_data *data,
 		y = y >> 2;
 
 	area = message->message[4];
+	pressure = message->message[5];
 
 	dev_dbg(dev, "[%d] %s x: %d, y: %d, area: %d\n", id,
 		status & MXT_MOVE ? "moved" : "pressed",
@@ -629,6 +643,7 @@ static void mxt_input_touchevent(struct mxt_data *data,
 	finger[id].x = x;
 	finger[id].y = y;
 	finger[id].area = area;
+	finger[id].pressure = pressure;
 
 	mxt_input_report(data, id);
 }
@@ -1163,32 +1178,50 @@ static int mxt_power_on(struct mxt_data *data, bool on)
 	if (on == false)
 		goto power_off;
 
-	rc = regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	rc = regulator_set_optimum_mode(data->vcc_ana, MXT_ACTIVE_LOAD_UA);
 	if (rc < 0) {
-		dev_err(&data->client->dev, "Regulator set_opt failed rc=%d\n",
-									rc);
+		dev_err(&data->client->dev,
+			"Regulator vcc_ana set_opt failed rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = regulator_enable(data->vcc);
+	rc = regulator_enable(data->vcc_ana);
 	if (rc) {
-		dev_err(&data->client->dev, "Regulator enable failed rc=%d\n",
-									rc);
-		goto error_reg_en_vcc;
+		dev_err(&data->client->dev,
+			"Regulator vcc_ana enable failed rc=%d\n", rc);
+		goto error_reg_en_vcc_ana;
+	}
+
+	if (data->pdata->digital_pwr_regulator) {
+		rc = regulator_set_optimum_mode(data->vcc_dig,
+						MXT_ACTIVE_LOAD_DIG_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator vcc_dig set_opt failed rc=%d\n",
+				rc);
+			goto error_reg_opt_vcc_dig;
+		}
+
+		rc = regulator_enable(data->vcc_dig);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vcc_dig enable failed rc=%d\n", rc);
+			goto error_reg_en_vcc_dig;
+		}
 	}
 
 	if (data->pdata->i2c_pull_up) {
 		rc = regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
 		if (rc < 0) {
 			dev_err(&data->client->dev,
-				"Regulator set_opt failed rc=%d\n", rc);
+				"Regulator vcc_i2c set_opt failed rc=%d\n", rc);
 			goto error_reg_opt_i2c;
 		}
 
 		rc = regulator_enable(data->vcc_i2c);
 		if (rc) {
 			dev_err(&data->client->dev,
-				"Regulator enable failed rc=%d\n", rc);
+				"Regulator vcc_i2c enable failed rc=%d\n", rc);
 			goto error_reg_en_vcc_i2c;
 		}
 	}
@@ -1201,14 +1234,24 @@ error_reg_en_vcc_i2c:
 	if (data->pdata->i2c_pull_up)
 		regulator_set_optimum_mode(data->vcc_i2c, 0);
 error_reg_opt_i2c:
-	regulator_disable(data->vcc);
-error_reg_en_vcc:
-	regulator_set_optimum_mode(data->vcc, 0);
+	if (data->pdata->digital_pwr_regulator)
+		regulator_disable(data->vcc_dig);
+error_reg_en_vcc_dig:
+	if (data->pdata->digital_pwr_regulator)
+		regulator_set_optimum_mode(data->vcc_dig, 0);
+error_reg_opt_vcc_dig:
+	regulator_disable(data->vcc_ana);
+error_reg_en_vcc_ana:
+	regulator_set_optimum_mode(data->vcc_ana, 0);
 	return rc;
 
 power_off:
-	regulator_set_optimum_mode(data->vcc, 0);
-	regulator_disable(data->vcc);
+	regulator_set_optimum_mode(data->vcc_ana, 0);
+	regulator_disable(data->vcc_ana);
+	if (data->pdata->digital_pwr_regulator) {
+		regulator_set_optimum_mode(data->vcc_dig, 0);
+		regulator_disable(data->vcc_dig);
+	}
 	if (data->pdata->i2c_pull_up) {
 		regulator_set_optimum_mode(data->vcc_i2c, 0);
 		regulator_disable(data->vcc_i2c);
@@ -1224,24 +1267,42 @@ static int mxt_regulator_configure(struct mxt_data *data, bool on)
 	if (on == false)
 		goto hw_shutdown;
 
-	data->vcc = regulator_get(&data->client->dev, "vdd");
-	if (IS_ERR(data->vcc)) {
-		rc = PTR_ERR(data->vcc);
-		dev_err(&data->client->dev, "Regulator get failed rc=%d\n",
-									rc);
+	data->vcc_ana = regulator_get(&data->client->dev, "vdd_ana");
+	if (IS_ERR(data->vcc_ana)) {
+		rc = PTR_ERR(data->vcc_ana);
+		dev_err(&data->client->dev,
+			"Regulator get failed vcc_ana rc=%d\n", rc);
 		return rc;
 	}
 
-	if (regulator_count_voltages(data->vcc) > 0) {
-		rc = regulator_set_voltage(data->vcc, MXT_VTG_MIN_UV,
+	if (regulator_count_voltages(data->vcc_ana) > 0) {
+		rc = regulator_set_voltage(data->vcc_ana, MXT_VTG_MIN_UV,
 							MXT_VTG_MAX_UV);
 		if (rc) {
 			dev_err(&data->client->dev,
 				"regulator set_vtg failed rc=%d\n", rc);
-			goto error_set_vtg_vcc;
+			goto error_set_vtg_vcc_ana;
 		}
 	}
+	if (data->pdata->digital_pwr_regulator) {
+		data->vcc_dig = regulator_get(&data->client->dev, "vdd_dig");
+		if (IS_ERR(data->vcc_dig)) {
+			rc = PTR_ERR(data->vcc_dig);
+			dev_err(&data->client->dev,
+				"Regulator get dig failed rc=%d\n", rc);
+			goto error_get_vtg_vcc_dig;
+		}
 
+		if (regulator_count_voltages(data->vcc_dig) > 0) {
+			rc = regulator_set_voltage(data->vcc_dig,
+				MXT_VTG_DIG_MIN_UV, MXT_VTG_DIG_MAX_UV);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"regulator set_vtg failed rc=%d\n", rc);
+				goto error_set_vtg_vcc_dig;
+			}
+		}
+	}
 	if (data->pdata->i2c_pull_up) {
 		data->vcc_i2c = regulator_get(&data->client->dev, "vcc_i2c");
 		if (IS_ERR(data->vcc_i2c)) {
@@ -1266,16 +1327,30 @@ static int mxt_regulator_configure(struct mxt_data *data, bool on)
 error_set_vtg_i2c:
 	regulator_put(data->vcc_i2c);
 error_get_vtg_i2c:
-	if (regulator_count_voltages(data->vcc) > 0)
-		regulator_set_voltage(data->vcc, 0, MXT_VTG_MAX_UV);
-error_set_vtg_vcc:
-	regulator_put(data->vcc);
+	if (data->pdata->digital_pwr_regulator)
+		if (regulator_count_voltages(data->vcc_dig) > 0)
+			regulator_set_voltage(data->vcc_dig, 0,
+				MXT_VTG_DIG_MAX_UV);
+error_set_vtg_vcc_dig:
+	if (data->pdata->digital_pwr_regulator)
+		regulator_put(data->vcc_dig);
+error_get_vtg_vcc_dig:
+	if (regulator_count_voltages(data->vcc_ana) > 0)
+		regulator_set_voltage(data->vcc_ana, 0, MXT_VTG_MAX_UV);
+error_set_vtg_vcc_ana:
+	regulator_put(data->vcc_ana);
 	return rc;
 
 hw_shutdown:
-	if (regulator_count_voltages(data->vcc) > 0)
-		regulator_set_voltage(data->vcc, 0, MXT_VTG_MAX_UV);
-	regulator_put(data->vcc);
+	if (regulator_count_voltages(data->vcc_ana) > 0)
+		regulator_set_voltage(data->vcc_ana, 0, MXT_VTG_MAX_UV);
+	regulator_put(data->vcc_ana);
+	if (data->pdata->digital_pwr_regulator) {
+		if (regulator_count_voltages(data->vcc_dig) > 0)
+			regulator_set_voltage(data->vcc_dig, 0,
+						MXT_VTG_DIG_MAX_UV);
+		regulator_put(data->vcc_dig);
+	}
 	if (data->pdata->i2c_pull_up) {
 		if (regulator_count_voltages(data->vcc_i2c) > 0)
 			regulator_set_voltage(data->vcc_i2c, 0,
@@ -1294,11 +1369,21 @@ static int mxt_regulator_lpm(struct mxt_data *data, bool on)
 	if (on == false)
 		goto regulator_hpm;
 
-	rc = regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	rc = regulator_set_optimum_mode(data->vcc_ana, MXT_LPM_LOAD_UA);
 	if (rc < 0) {
 		dev_err(&data->client->dev,
-			"Regulator set_opt failed rc=%d\n", rc);
+			"Regulator vcc_ana set_opt failed rc=%d\n", rc);
 		goto fail_regulator_lpm;
+	}
+
+	if (data->pdata->digital_pwr_regulator) {
+		rc = regulator_set_optimum_mode(data->vcc_dig,
+						MXT_LPM_LOAD_DIG_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator vcc_dig set_opt failed rc=%d\n", rc);
+			goto fail_regulator_lpm;
+		}
 	}
 
 	if (data->pdata->i2c_pull_up) {
@@ -1306,7 +1391,7 @@ static int mxt_regulator_lpm(struct mxt_data *data, bool on)
 						MXT_I2C_LPM_LOAD_UA);
 		if (rc < 0) {
 			dev_err(&data->client->dev,
-				"Regulator set_opt failed rc=%d\n", rc);
+				"Regulator vcc_i2c set_opt failed rc=%d\n", rc);
 			goto fail_regulator_lpm;
 		}
 	}
@@ -1315,18 +1400,28 @@ static int mxt_regulator_lpm(struct mxt_data *data, bool on)
 
 regulator_hpm:
 
-	rc = regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	rc = regulator_set_optimum_mode(data->vcc_ana, MXT_ACTIVE_LOAD_UA);
 	if (rc < 0) {
 		dev_err(&data->client->dev,
-			"Regulator set_opt failed rc=%d\n", rc);
+			"Regulator vcc_ana set_opt failed rc=%d\n", rc);
 		goto fail_regulator_hpm;
+	}
+
+	if (data->pdata->digital_pwr_regulator) {
+		rc = regulator_set_optimum_mode(data->vcc_dig,
+						 MXT_ACTIVE_LOAD_DIG_UA);
+		if (rc < 0) {
+			dev_err(&data->client->dev,
+				"Regulator vcc_dig set_opt failed rc=%d\n", rc);
+			goto fail_regulator_hpm;
+		}
 	}
 
 	if (data->pdata->i2c_pull_up) {
 		rc = regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
 		if (rc < 0) {
 			dev_err(&data->client->dev,
-				"Regulator set_opt failed rc=%d\n", rc);
+				"Regulator vcc_i2c set_opt failed rc=%d\n", rc);
 			goto fail_regulator_hpm;
 		}
 	}
@@ -1334,14 +1429,19 @@ regulator_hpm:
 	return 0;
 
 fail_regulator_lpm:
-	regulator_set_optimum_mode(data->vcc, MXT_ACTIVE_LOAD_UA);
+	regulator_set_optimum_mode(data->vcc_ana, MXT_ACTIVE_LOAD_UA);
+	if (data->pdata->digital_pwr_regulator)
+		regulator_set_optimum_mode(data->vcc_dig,
+						MXT_ACTIVE_LOAD_DIG_UA);
 	if (data->pdata->i2c_pull_up)
 		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LOAD_UA);
 
 	return rc;
 
 fail_regulator_hpm:
-	regulator_set_optimum_mode(data->vcc, MXT_LPM_LOAD_UA);
+	regulator_set_optimum_mode(data->vcc_ana, MXT_LPM_LOAD_UA);
+	if (data->pdata->digital_pwr_regulator)
+		regulator_set_optimum_mode(data->vcc_dig, MXT_LPM_LOAD_DIG_UA);
 	if (data->pdata->i2c_pull_up)
 		regulator_set_optimum_mode(data->vcc_i2c, MXT_I2C_LPM_LOAD_UA);
 
@@ -1472,6 +1572,8 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			     0, data->pdata->x_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y,
 			     0, data->pdata->y_size, 0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE,
+			     0, 255, 0, 0);
 
 	/* For multi touch */
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
@@ -1480,6 +1582,8 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			     0, data->pdata->x_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
 			     0, data->pdata->y_size, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
+			     0, 255, 0, 0);
 
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
