@@ -80,6 +80,8 @@
 
 /* check EOC every 10 seconds */
 #define EOC_CHECK_PERIOD_MS	10000
+/* check for USB unplug every 200 msecs */
+#define UNPLUG_CHECK_WAIT_PERIOD_MS 200
 
 enum chg_fsm_state {
 	FSM_STATE_OFF_0 = 0,
@@ -254,6 +256,9 @@ struct pm8921_chg_chip {
 	int				thermal_levels;
 	struct delayed_work		update_heartbeat_work;
 	struct delayed_work		eoc_work;
+	struct delayed_work		unplug_wrkarnd_restore_work;
+	struct delayed_work		unplug_check_work;
+	struct wake_lock		unplug_wrkarnd_restore_wake_lock;
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
@@ -484,6 +489,20 @@ static int pm_chg_vinmin_set(struct pm8921_chg_chip *chip, int voltage)
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
 	return pm_chg_masked_write(chip, CHG_VIN_MIN, PM8921_CHG_VINMIN_MASK,
 									temp);
+}
+
+static int pm_chg_vinmin_get(struct pm8921_chg_chip *chip)
+{
+	u8 temp;
+	int rc, voltage_mv;
+
+	rc = pm8xxx_readb(chip->dev->parent, CHG_VIN_MIN, &temp);
+	temp &= PM8921_CHG_VINMIN_MASK;
+
+	voltage_mv = PM8921_CHG_VINMIN_MIN_MV +
+			(int)temp * PM8921_CHG_VINMIN_STEP_MV;
+
+	return voltage_mv;
 }
 
 #define PM8921_CHG_IBATMAX_MIN	325
@@ -797,6 +816,11 @@ static void pm8921_chg_disable_irq(struct pm8921_chg_chip *chip, int interrupt)
 		dev_dbg(chip->dev, "%d\n", chip->pmic_chg_irq[interrupt]);
 		disable_irq_nosync(chip->pmic_chg_irq[interrupt]);
 	}
+}
+
+static int pm8921_chg_is_enabled(struct pm8921_chg_chip *chip, int interrupt)
+{
+	return test_bit(interrupt, chip->enabled_irqs);
 }
 
 static int pm_chg_get_rt_status(struct pm8921_chg_chip *chip, int irq_id)
@@ -1346,11 +1370,18 @@ EXPORT_SYMBOL(pm8921_disable_source_current);
 
 int pm8921_regulate_input_voltage(int voltage)
 {
+	int rc;
+
 	if (!the_chip) {
 		pr_err("called before init\n");
 		return -EINVAL;
 	}
-	return pm_chg_vinmin_set(the_chip, voltage);
+	rc = pm_chg_vinmin_set(the_chip, voltage);
+
+	if (rc == 0)
+		the_chip->vin_min = voltage;
+
+	return rc;
 }
 
 #define USB_OV_THRESHOLD_MASK  0x60
@@ -1491,6 +1522,11 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 		power_supply_changed(&chip->usb_psy);
 		power_supply_changed(&chip->batt_psy);
 	}
+	if (usb_present) {
+		schedule_delayed_work(&chip->unplug_check_work,
+			round_jiffies_relative(msecs_to_jiffies
+				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+	}
 	bms_notify_check(chip);
 }
 
@@ -1579,6 +1615,27 @@ static void handle_dc_removal_insertion(struct pm8921_chg_chip *chip)
 	bms_notify_check(chip);
 }
 
+#define WRITE_BANK_4		0xC0
+static void unplug_wrkarnd_restore_worker(struct work_struct *work)
+{
+	u8 temp;
+	int rc;
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_chg_chip *chip = container_of(dwork,
+				struct pm8921_chg_chip,
+				unplug_wrkarnd_restore_work);
+
+	pr_debug("restoring vin_min to %d mV\n", chip->vin_min);
+	rc = pm_chg_vinmin_set(the_chip, chip->vin_min);
+
+	temp = WRITE_BANK_4 | 0xA;
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
+	if (rc) {
+		pr_err("Error %d writing %d to addr %d\n", rc,
+					temp, CHG_BUCK_CTRL_TEST3);
+	}
+	wake_unlock(&chip->unplug_wrkarnd_restore_wake_lock);
+}
 static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 {
 	handle_usb_insertion_removal(data);
@@ -1723,9 +1780,71 @@ static irqreturn_t chgstate_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define VIN_ACTIVE_BIT BIT(0)
+#define UNPLUG_WRKARND_RESTORE_WAIT_PERIOD_US 200
+#define VIN_MIN_INCREASE_MV 100
+static void unplug_check_worker(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_chg_chip *chip = container_of(dwork,
+				struct pm8921_chg_chip, unplug_check_work);
+	u8 reg_loop;
+	int ibat, usb_chg_plugged_in;
+
+	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
+	if (!usb_chg_plugged_in) {
+		pr_debug("Stopping Unplug Check Worker since USB is removed"
+			"reg_loop = %d, fsm = %d ibat = %d\n",
+			pm_chg_get_regulation_loop(chip),
+			pm_chg_get_fsm_state(chip),
+			get_prop_batt_current(chip)
+			);
+		return;
+	}
+	reg_loop = pm_chg_get_regulation_loop(chip);
+	pr_debug("reg_loop=0x%x\n", reg_loop);
+
+	if (reg_loop & VIN_ACTIVE_BIT) {
+		ibat = get_prop_batt_current(chip);
+
+		pr_debug("ibat = %d fsm = %d reg_loop = 0x%x\n",
+				ibat, pm_chg_get_fsm_state(chip), reg_loop);
+		if (ibat > 0) {
+			int err;
+			u8 temp;
+
+			temp = WRITE_BANK_4 | 0xE;
+			err = pm8xxx_writeb(chip->dev->parent,
+						CHG_BUCK_CTRL_TEST3, temp);
+			if (err) {
+				pr_err("Error %d writing %d to addr %d\n", err,
+						temp, CHG_BUCK_CTRL_TEST3);
+			}
+
+			pm_chg_vinmin_set(chip,
+					chip->vin_min + VIN_MIN_INCREASE_MV);
+
+			wake_lock(&chip->unplug_wrkarnd_restore_wake_lock);
+			schedule_delayed_work(
+				&chip->unplug_wrkarnd_restore_work,
+				round_jiffies_relative(usecs_to_jiffies
+				(UNPLUG_WRKARND_RESTORE_WAIT_PERIOD_US)));
+		}
+	}
+
+	schedule_delayed_work(&chip->unplug_check_work,
+		      round_jiffies_relative(msecs_to_jiffies
+				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+}
+
 static irqreturn_t loop_change_irq_handler(int irq, void *data)
 {
-	pr_debug("fsm_state=%d\n", pm_chg_get_fsm_state(data));
+	struct pm8921_chg_chip *chip = data;
+
+	pr_debug("fsm_state=%d reg_loop=0x%x\n",
+		pm_chg_get_fsm_state(data),
+		pm_chg_get_regulation_loop(data));
+	unplug_check_worker(&(chip->unplug_check_work.work));
 	return IRQ_HANDLED;
 }
 
@@ -2302,6 +2421,11 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	chip->usb_present = !!is_usb_chg_plugged_in(chip);
 
 	notify_usb_of_the_plugin_event(chip->usb_present);
+	if (chip->usb_present) {
+		schedule_delayed_work(&chip->unplug_check_work,
+			round_jiffies_relative(msecs_to_jiffies
+				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+	}
 
 	pm8921_chg_enable_irq(chip, DCIN_VALID_IRQ);
 	pm8921_chg_enable_irq(chip, USBIN_VALID_IRQ);
@@ -2533,6 +2657,8 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 							chip->vin_min, rc);
 			return rc;
 		}
+	} else {
+		chip->vin_min = pm_chg_vinmin_get(chip);
 	}
 
 	rc = pm_chg_disable_wd(chip);
@@ -2824,6 +2950,10 @@ static int pm8921_charger_resume(struct device *dev)
 		if (rc)
 			pr_err("couldn't restart btm rc=%d\n", rc);
 	}
+	if (pm8921_chg_is_enabled(chip, LOOP_CHANGE_IRQ)) {
+		disable_irq_wake(chip->pmic_chg_irq[LOOP_CHANGE_IRQ]);
+		pm8921_chg_disable_irq(chip, LOOP_CHANGE_IRQ);
+	}
 	return 0;
 }
 
@@ -2837,6 +2967,11 @@ static int pm8921_charger_suspend(struct device *dev)
 		rc = pm8xxx_adc_btm_end();
 		if (rc)
 			pr_err("Failed to disable BTM on suspend rc=%d\n", rc);
+	}
+
+	if (is_usb_chg_plugged_in(chip)) {
+		pm8921_chg_enable_irq(chip, LOOP_CHANGE_IRQ);
+		enable_irq_wake(chip->pmic_chg_irq[LOOP_CHANGE_IRQ]);
 	}
 	return 0;
 }
@@ -2942,7 +3077,12 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	the_chip = chip;
 
 	wake_lock_init(&chip->eoc_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_eoc");
+	wake_lock_init(&chip->unplug_wrkarnd_restore_wake_lock,
+			WAKE_LOCK_SUSPEND, "pm8921_unplug_wrkarnd");
 	INIT_DELAYED_WORK(&chip->eoc_work, eoc_worker);
+	INIT_DELAYED_WORK(&chip->unplug_wrkarnd_restore_work,
+					unplug_wrkarnd_restore_worker);
+	INIT_DELAYED_WORK(&chip->unplug_check_work, unplug_check_worker);
 
 	rc = request_irqs(chip, pdev);
 	if (rc) {
