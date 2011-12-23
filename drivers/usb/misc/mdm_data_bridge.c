@@ -24,7 +24,7 @@
 #define MAX_RX_URBS			50
 #define RMNET_RX_BUFSIZE		2048
 
-#define STOP_SUBMIT_URB_LIMIT		400
+#define STOP_SUBMIT_URB_LIMIT		500
 #define FLOW_CTRL_EN_THRESHOLD		500
 #define FLOW_CTRL_DISABLE		300
 #define FLOW_CTRL_SUPPORT		1
@@ -157,12 +157,9 @@ static void data_bridge_process_rx(struct work_struct *work)
 	}
 
 	spin_lock_irqsave(&dev->rx_done.lock, flags);
-	if (dev->rx_done.qlen > stop_submit_urb_limit && rx_throttled(brdg)) {
-		spin_unlock_irqrestore(&dev->rx_done.lock, flags);
-		return;
-	}
-
 	while (!list_empty(&dev->rx_idle)) {
+		if (dev->rx_done.qlen > stop_submit_urb_limit)
+			break;
 
 		rx_idle = list_first_entry(&dev->rx_idle, struct urb, urb_list);
 		list_del(&rx_idle->urb_list);
