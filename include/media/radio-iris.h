@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
  *
  * This file is based on include/net/bluetooth/hci_core.h
  *
@@ -354,6 +354,8 @@ struct hci_ev_tune_status {
 	__u8    stereo_prg;
 	__u8    rds_sync_status;
 	__u8    mute_mode;
+	char    sinr;
+	__u8	intf_det_th;
 } __packed;
 
 struct hci_ev_rds_rx_data {
@@ -548,6 +550,7 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_SET_AUDIO_PATH, /* TAVARUA specific command */
 	V4L2_CID_PRIVATE_IRIS_DO_CALIBRATION,
 	V4L2_CID_PRIVATE_IRIS_SRCH_ALGORITHM, /* TAVARUA specific command */
+	V4L2_CID_PRIVATE_IRIS_GET_SINR,
 
 	/*using private CIDs under userclass*/
 	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,

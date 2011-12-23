@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved
+/* Copyright (c) 2011-12, Code Aurora Forum. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -418,6 +418,13 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.name	=	"SET Calibration",
 	.minimum	=	0,
 	.maximum	=	1,
+	},
+	{
+	.id     =       V4L2_CID_PRIVATE_IRIS_GET_SINR,
+	.type   =       V4L2_CTRL_TYPE_INTEGER,
+	.name   =       "GET SINR",
+	.minimum        =       -128,
+	.maximum        =       127,
 	},
 };
 
@@ -1908,7 +1915,7 @@ static inline void hci_ev_tune_status(struct radio_hci_dev *hdev,
 		if (i >= IRIS_BUF_RT_RDS)
 			kfifo_reset(&radio->data_buf[i]);
 	}
-	if (radio->fm_st_rsp.station_rsp.rssi)
+	if (radio->fm_st_rsp.station_rsp.serv_avble)
 		iris_q_event(radio, IRIS_EVT_ABOVE_TH);
 	else
 		iris_q_event(radio, IRIS_EVT_BELOW_TH);
@@ -2499,6 +2506,20 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_DO_CALIBRATION:
 		retval = iris_do_calibration(radio);
 		break;
+	case V4L2_CID_PRIVATE_IRIS_GET_SINR:
+		if (radio->mode == FM_RECV) {
+			retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD,
+						 radio->fm_hdev);
+			if (retval < 0) {
+				FMDERR("Get SINR Failed");
+				return retval;
+			}
+			ctrl->value = radio->fm_st_rsp.station_rsp.sinr;
+
+		} else
+			retval = -EINVAL;
+
+		break;
 	default:
 		retval = -EINVAL;
 	}
@@ -2609,9 +2630,8 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 				hci_fm_set_cal_req_proc,
 				(unsigned long)&proc_cal_req,
 				 RADIO_HCI_TIMEOUT);
-		if (retval < 0) {
+		if (retval < 0)
 			FMDERR("Set Process calibration failed %d", retval);
-		}
 		break;
 	default:
 		FMDBG("Shouldn't reach here\n");
