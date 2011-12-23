@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <asm/mach/irq.h>
 #include <mach/gpiomux.h>
 #include "gpio_hw.h"
 #include "proc_comm.h"
@@ -337,6 +338,9 @@ static void msm_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i, j, mask;
 	unsigned val;
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	chained_irq_enter(chip, desc);
 
 	for (i = 0; i < ARRAY_SIZE(msm_gpio_chips); i++) {
 		struct msm_gpio_chip *msm_chip = &msm_gpio_chips[i];
@@ -353,7 +357,8 @@ static void msm_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 					   msm_chip->chip.base + j);
 		}
 	}
-	desc->irq_data.chip->irq_ack(&desc->irq_data);
+
+	chained_irq_exit(chip, desc);
 }
 
 static struct irq_chip msm_gpio_irq_chip = {
