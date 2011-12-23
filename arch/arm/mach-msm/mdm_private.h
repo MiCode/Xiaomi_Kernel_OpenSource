@@ -38,6 +38,7 @@ struct mdm_modem_drv {
 	void (*normal_boot_done_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*power_down_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*debug_state_changed_cb)(int value);
+	void (*status_cb)(int value);
 };
 
 struct mdm_callbacks {
@@ -45,6 +46,7 @@ struct mdm_callbacks {
 	void (*normal_boot_done_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*power_down_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*debug_state_changed_cb)(int value);
+	void (*status_cb)(int value);
 };
 
 int mdm_common_create(struct platform_device  *pdev,

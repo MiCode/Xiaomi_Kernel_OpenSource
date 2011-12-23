@@ -172,6 +172,12 @@ static struct resource resources_hsic_host[] = {
 		.end	= USB_HSIC_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.start	= MSM_GPIO_TO_INT(69),
+		.end	= MSM_GPIO_TO_INT(69),
+		.name	= "peripheral_status_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device msm_device_hsic_host = {

@@ -33,6 +33,7 @@
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/mdm2.h>
+#include <mach/mdm-peripheral.h>
 #include <mach/restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
@@ -49,7 +50,6 @@
 #define IFLINE_DOWN			0
 
 static int mdm_debug_on;
-static int ifline_status = IFLINE_UP;
 static struct mdm_callbacks mdm_cb;
 
 #define MDM_DBG(...)	do { if (mdm_debug_on) \
@@ -58,12 +58,7 @@ static struct mdm_callbacks mdm_cb;
 
 static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
-	/* Remove hsic driver before powering on the modem. */
-	if (ifline_status == IFLINE_UP) {
-		MDM_DBG("%s: Removing hsic device\n", __func__);
-		platform_device_del(&msm_device_hsic_host);
-		ifline_status = IFLINE_DOWN;
-	}
+	peripheral_disconnect();
 
 	/* Pull both ERR_FATAL and RESET low */
 	MDM_DBG("Pulling PWR and RESET gpio's low\n");
@@ -82,10 +77,7 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
 	usleep(1000);
 
-	/* Add back hsic device after modem power up */
-	MDM_DBG("%s: Adding hsic device\n", __func__);
-	platform_device_add(&msm_device_hsic_host);
-	ifline_status = IFLINE_UP;
+	peripheral_connect();
 
 	msleep(200);
 }
@@ -111,12 +103,8 @@ static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
 			msleep(MDM_MODEM_DELTA);
 		}
 	}
-	/* Also remove the hsic device on 9k power down. */
-	MDM_DBG("%s: Removing hsic device\n", __func__);
-	if (ifline_status == IFLINE_UP) {
-		platform_device_del(&msm_device_hsic_host);
-		ifline_status = IFLINE_DOWN;
-	}
+
+	peripheral_disconnect();
 }
 
 static void normal_boot_done(struct mdm_modem_drv *mdm_drv)
@@ -128,6 +116,16 @@ static void debug_state_changed(int value)
 	mdm_debug_on = value;
 }
 
+static void mdm_status_changed(int value)
+{
+	MDM_DBG("%s: value:%d\n", __func__, value);
+
+	if (value) {
+		peripheral_disconnect();
+		peripheral_connect();
+	}
+}
+
 static int __init mdm_modem_probe(struct platform_device *pdev)
 {
 	/* Instantiate driver object. */
@@ -135,6 +133,7 @@ static int __init mdm_modem_probe(struct platform_device *pdev)
 	mdm_cb.power_down_mdm_cb = power_down_mdm;
 	mdm_cb.normal_boot_done_cb = normal_boot_done;
 	mdm_cb.debug_state_changed_cb = debug_state_changed;
+	mdm_cb.status_cb = mdm_status_changed;
 	return mdm_common_create(pdev, &mdm_cb);
 }
 
