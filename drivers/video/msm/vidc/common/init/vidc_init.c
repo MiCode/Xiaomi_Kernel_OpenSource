@@ -450,7 +450,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	unsigned long length)
 {
 	unsigned long len, phys_addr;
-	struct file *file;
+	struct file *file = NULL;
 	u32 *num_of_buffers = NULL;
 	u32 i, flags;
 	struct buf_addr_table *buf_addr_table;
