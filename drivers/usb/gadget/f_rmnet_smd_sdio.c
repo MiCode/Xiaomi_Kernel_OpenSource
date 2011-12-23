@@ -1395,9 +1395,7 @@ static ssize_t transport_store(
 		struct device *device, struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	struct usb_function *f = dev_get_drvdata(device);
-	struct rmnet_mux_dev *dev = container_of(f, struct rmnet_mux_dev,
-								function);
+	struct rmnet_mux_dev *dev =  rmux_dev;
 	int value;
 	enum transport_type given_xport;
 	enum transport_type t;
