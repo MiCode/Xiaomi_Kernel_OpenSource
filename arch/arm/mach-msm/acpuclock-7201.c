@@ -487,6 +487,14 @@ static int acpuclk_set_vdd_level(int vdd)
 {
 	uint32_t current_vdd;
 
+	/*
+	* NOTE: v1.0 of 7x27a/7x25a chip doesn't have working
+	* VDD switching support.
+	*/
+	if ((cpu_is_msm7x27a() || cpu_is_msm7x25a()) &&
+		(SOCINFO_VERSION_MINOR(socinfo_get_version()) < 1))
+		return 0;
+
 	current_vdd = readl_relaxed(A11S_VDD_SVS_PLEVEL_ADDR) & 0x07;
 
 	pr_debug("Switching VDD from %u mV -> %d mV\n",
