@@ -1540,6 +1540,8 @@ static void ddl_set_default_enc_property(struct ddl_client_context *ddl)
 	encoder->hdr_ext_control = 0;
 	encoder->mb_info_enable  = false;
 	encoder->num_references_for_p_frame = DDL_MIN_NUM_REF_FOR_P_FRAME;
+	if (encoder->codec.codec == VCD_CODEC_MPEG4)
+		encoder->closed_gop = true;
 	ddl_set_default_metadata_flag(ddl);
 	ddl_set_default_encoder_buffer_req(encoder);
 }
