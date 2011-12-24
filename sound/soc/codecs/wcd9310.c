@@ -46,6 +46,8 @@
 
 #define TABLA_I2S_MASTER_MODE_MASK 0x08
 
+#define TABLA_OCP_ATTEMPT 1
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -81,6 +83,16 @@ enum {
 	BAND_MAX,
 };
 
+/* Flags to track of PA and DAC state.
+ * PA and DAC should be tracked separately as AUXPGA loopback requires
+ * only PA to be turned on without DAC being on. */
+enum tabla_priv_ack_flags {
+	TABLA_HPHL_PA_OFF_ACK = 0,
+	TABLA_HPHR_PA_OFF_ACK,
+	TABLA_HPHL_DAC_OFF_ACK,
+	TABLA_HPHR_DAC_OFF_ACK
+};
+
 struct tabla_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -112,6 +124,9 @@ struct tabla_priv {
 	u8 cfilt_k_value;
 	bool mbhc_micbias_switched;
 
+	/* track PA/DAC state */
+	unsigned long hph_pa_dac_state;
+
 	/*track tabla interface type*/
 	u8 intf_type;
 
@@ -127,6 +142,9 @@ struct tabla_priv {
 	 * so if pm_cnt is 1 system is sleep-able. */
 	atomic_t pm_cnt;
 	wait_queue_head_t pm_wq;
+
+	u8 hphlocp_cnt; /* headphone left ocp retry */
+	u8 hphrocp_cnt; /* headphone right ocp retry */
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1353,6 +1371,19 @@ static bool tabla_is_hph_pa_on(struct snd_soc_codec *codec)
 	return (hph_reg_val & 0x30) ? true : false;
 }
 
+static bool tabla_is_hph_dac_on(struct snd_soc_codec *codec, int left)
+{
+	u8 hph_reg_val = 0;
+	if (left)
+		hph_reg_val = snd_soc_read(codec,
+					   TABLA_A_RX_HPH_L_DAC_CTL);
+	else
+		hph_reg_val = snd_soc_read(codec,
+					   TABLA_A_RX_HPH_R_DAC_CTL);
+
+	return (hph_reg_val & 0xC0) ? true : false;
+}
+
 static void tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 	int vddio_switch)
 {
@@ -1633,6 +1664,13 @@ static void hphocp_off_report(struct tabla_priv *tabla,
 		0x00);
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
 		0x10);
+		/* reset retry counter as PA is turned off signifying
+		 * start of new OCP detection session
+		 */
+		if (TABLA_IRQ_HPH_PA_OCPL_FAULT)
+			tabla->hphlocp_cnt = 0;
+		else
+			tabla->hphrocp_cnt = 0;
 		tabla_enable_irq(codec->control_data, irq);
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
@@ -1678,12 +1716,22 @@ static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 		 * would have been locked while snd_soc_jack_report also
 		 * attempts to acquire same lock.
 		 */
-		if ((tabla->hph_status & SND_JACK_OC_HPHL) &&
-			strnstr(w->name, "HPHL", 4))
-			schedule_work(&tabla->hphlocp_work);
-		else if ((tabla->hph_status & SND_JACK_OC_HPHR) &&
-			strnstr(w->name, "HPHR", 4))
-			schedule_work(&tabla->hphrocp_work);
+		if (w->shift == 5) {
+			clear_bit(TABLA_HPHL_PA_OFF_ACK,
+				  &tabla->hph_pa_dac_state);
+			clear_bit(TABLA_HPHL_DAC_OFF_ACK,
+				  &tabla->hph_pa_dac_state);
+			if (tabla->hph_status & SND_JACK_OC_HPHL)
+				schedule_work(&tabla->hphlocp_work);
+		} else if (w->shift == 4) {
+			clear_bit(TABLA_HPHR_PA_OFF_ACK,
+				  &tabla->hph_pa_dac_state);
+			clear_bit(TABLA_HPHR_DAC_OFF_ACK,
+				  &tabla->hph_pa_dac_state);
+			if (tabla->hph_status & SND_JACK_OC_HPHR)
+				schedule_work(&tabla->hphrocp_work);
+		}
+
 		if (tabla->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
 
@@ -3310,13 +3358,22 @@ static irqreturn_t tabla_hphl_ocp_irq(int irq, void *data)
 
 	if (tabla) {
 		codec = tabla->codec;
-		tabla_disable_irq(codec->control_data,
-			TABLA_IRQ_HPH_PA_OCPL_FAULT);
-		tabla->hph_status |= SND_JACK_OC_HPHL;
-		if (tabla->headset_jack) {
-			tabla_snd_soc_jack_report(tabla, tabla->headset_jack,
-						  tabla->hph_status,
-						  TABLA_JACK_MASK);
+		if (tabla->hphlocp_cnt++ < TABLA_OCP_ATTEMPT) {
+			pr_info("%s: retry\n", __func__);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x00);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x10);
+		} else {
+			tabla_disable_irq(codec->control_data,
+					  TABLA_IRQ_HPH_PA_OCPL_FAULT);
+			tabla->hphlocp_cnt = 0;
+			tabla->hph_status |= SND_JACK_OC_HPHL;
+			if (tabla->headset_jack)
+				tabla_snd_soc_jack_report(tabla,
+							  tabla->headset_jack,
+							  tabla->hph_status,
+							  TABLA_JACK_MASK);
 		}
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
@@ -3334,19 +3391,57 @@ static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
 
 	if (tabla) {
 		codec = tabla->codec;
-		tabla_disable_irq(codec->control_data,
-			TABLA_IRQ_HPH_PA_OCPR_FAULT);
-		tabla->hph_status |= SND_JACK_OC_HPHR;
-		if (tabla->headset_jack) {
-			tabla_snd_soc_jack_report(tabla, tabla->headset_jack,
-						  tabla->hph_status,
-						  TABLA_JACK_MASK);
+		if (tabla->hphrocp_cnt++ < TABLA_OCP_ATTEMPT) {
+			pr_info("%s: retry\n", __func__);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x00);
+			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
+					    0x10);
+		} else {
+			tabla_disable_irq(codec->control_data,
+					  TABLA_IRQ_HPH_PA_OCPR_FAULT);
+			tabla->hphrocp_cnt = 0;
+			tabla->hph_status |= SND_JACK_OC_HPHR;
+			if (tabla->headset_jack)
+				tabla_snd_soc_jack_report(tabla,
+							  tabla->headset_jack,
+							  tabla->hph_status,
+							  TABLA_JACK_MASK);
 		}
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void tabla_sync_hph_state(struct tabla_priv *tabla)
+{
+	if (test_and_clear_bit(TABLA_HPHR_PA_OFF_ACK,
+			       &tabla->hph_pa_dac_state)) {
+		pr_debug("%s: HPHR clear flag and enable PA\n", __func__);
+		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_CNP_EN, 0x10,
+				    1 << 4);
+	}
+	if (test_and_clear_bit(TABLA_HPHL_PA_OFF_ACK,
+			       &tabla->hph_pa_dac_state)) {
+		pr_debug("%s: HPHL clear flag and enable PA\n", __func__);
+		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_CNP_EN, 0x20,
+				    1 << 5);
+	}
+
+	if (test_and_clear_bit(TABLA_HPHR_DAC_OFF_ACK,
+			       &tabla->hph_pa_dac_state)) {
+		pr_debug("%s: HPHR clear flag and enable DAC\n", __func__);
+		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_R_DAC_CTL,
+				    0xC0, 0xC0);
+	}
+	if (test_and_clear_bit(TABLA_HPHL_DAC_OFF_ACK,
+			       &tabla->hph_pa_dac_state)) {
+		pr_debug("%s: HPHL clear flag and enable DAC\n", __func__);
+		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_L_DAC_CTL,
+				    0xC0, 0xC0);
+	}
 }
 
 static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
@@ -3408,6 +3503,21 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		if (priv->mbhc_micbias_switched)
 			tabla_codec_switch_micbias(codec, 0);
 		priv->hph_status &= ~SND_JACK_HEADPHONE;
+
+		/* If headphone PA is on, check if userspace receives
+		 * removal event to sync-up PA's state */
+		if (tabla_is_hph_pa_on(codec)) {
+			set_bit(TABLA_HPHL_PA_OFF_ACK, &priv->hph_pa_dac_state);
+			set_bit(TABLA_HPHR_PA_OFF_ACK, &priv->hph_pa_dac_state);
+		}
+
+		if (tabla_is_hph_dac_on(codec, 1))
+			set_bit(TABLA_HPHL_DAC_OFF_ACK,
+				&priv->hph_pa_dac_state);
+		if (tabla_is_hph_dac_on(codec, 0))
+			set_bit(TABLA_HPHR_DAC_OFF_ACK,
+				&priv->hph_pa_dac_state);
+
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting removal\n", __func__);
 			tabla_snd_soc_jack_report(priv, priv->headset_jack,
@@ -3457,7 +3567,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		}
 		tabla_codec_shutdown_hs_polling(codec);
 		tabla_codec_enable_hs_detect(codec, 0);
-
+		tabla_sync_hph_state(priv);
 	} else {
 		pr_debug("%s: Headset detected, mic_voltage = %x\n",
 			__func__, mic_voltage);
@@ -3470,6 +3580,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 						  TABLA_JACK_MASK);
 		}
 		tabla_codec_start_hs_polling(codec);
+		tabla_sync_hph_state(priv);
 	}
 
 	tabla_unlock_sleep(priv);
@@ -3727,8 +3838,11 @@ static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 }
 
 static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
-	/* Initialize current threshold to 350MA */
+	/* Initialize current threshold to 350MA
+	 * number of wait and run cycles to 4096
+	 */
 	{TABLA_A_RX_HPH_OCP_CTL, 0xE0, 0x60},
+	{TABLA_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 
 	{TABLA_A_QFUSE_CTL, 0xFF, 0x03},
 
