@@ -171,3 +171,12 @@ int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
 	return iommu_ops->unmap_range(domain, iova, len);
 }
 EXPORT_SYMBOL_GPL(iommu_unmap_range);
+
+phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain)
+{
+	if (!iommu_found())
+		return 0;
+
+	return iommu_ops->get_pt_base_addr(domain);
+}
+EXPORT_SYMBOL_GPL(iommu_get_pt_base_addr);
