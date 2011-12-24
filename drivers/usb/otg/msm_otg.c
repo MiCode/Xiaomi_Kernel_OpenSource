@@ -61,6 +61,7 @@
 #define USB_PHY_VDD_DIG_VOL_MIN	1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
 
+static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
 
@@ -87,6 +88,7 @@ static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vddcx;
 
+static bool aca_id_turned_on;
 static inline bool aca_enabled(void)
 {
 #ifdef CONFIG_USB_MSM_ACA
@@ -527,6 +529,7 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 		return ret;
 	}
 
+	aca_id_turned_on = false;
 	ret = msm_otg_link_reset(motg);
 	if (ret) {
 		dev_err(otg->dev, "link reset failed\n");
@@ -541,17 +544,19 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 
 	clk_disable(motg->clk);
 
-	val = readl_relaxed(USB_OTGSC);
-	if (pdata->mode == USB_OTG) {
-		ulpi_val = ULPI_INT_IDGRD | ULPI_INT_SESS_VALID;
-		val |= OTGSC_IDIE | OTGSC_BSVIE;
-	} else if (pdata->mode == USB_PERIPHERAL) {
-		ulpi_val = ULPI_INT_SESS_VALID;
-		val |= OTGSC_BSVIE;
+	if (pdata->otg_control == OTG_PHY_CONTROL) {
+		val = readl_relaxed(USB_OTGSC);
+		if (pdata->mode == USB_OTG) {
+			ulpi_val = ULPI_INT_IDGRD | ULPI_INT_SESS_VALID;
+			val |= OTGSC_IDIE | OTGSC_BSVIE;
+		} else if (pdata->mode == USB_PERIPHERAL) {
+			ulpi_val = ULPI_INT_SESS_VALID;
+			val |= OTGSC_BSVIE;
+		}
+		writel_relaxed(val, USB_OTGSC);
+		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_RISE);
+		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_FALL);
 	}
-	writel_relaxed(val, USB_OTGSC);
-	ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_RISE);
-	ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_FALL);
 
 	return 0;
 }
@@ -588,8 +593,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct usb_bus *bus = otg->host;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
-	bool session_active;
-	u32 phy_ctrl_val = 0;
+	bool host_bus_suspend;
+	u32 phy_ctrl_val = 0, cmd_val;
 	unsigned ret;
 	u32 portsc;
 
@@ -597,8 +602,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		return 0;
 
 	disable_irq(motg->irq);
-	session_active = (otg->host && !test_bit(ID, &motg->inputs)) ||
-				test_bit(B_SESS_VLD, &motg->inputs);
+	host_bus_suspend = otg->host && !test_bit(ID, &motg->inputs);
 	/*
 	 * Chipidea 45-nm PHY suspend sequence:
 	 *
@@ -627,7 +631,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * Turn off the OTG comparators, if depends on PMIC for
 	 * VBUS and ID notifications.
 	 */
-	if ((motg->caps & ALLOW_PHY_COMP_DISABLE) && !session_active) {
+	if ((motg->caps & ALLOW_PHY_COMP_DISABLE) && !host_bus_suspend) {
 		ulpi_write(otg, OTG_COMP_DISABLE,
 			ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 		motg->lpm_flags |= PHY_OTG_COMP_DISABLED;
@@ -664,9 +668,14 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * in USBCMD register. Assert STP (ULPI interface STOP signal) to
 	 * block data communication from PHY.
 	 */
-	writel(readl(USB_USBCMD) | ASYNC_INTR_CTRL | ULPI_STP_CTRL, USB_USBCMD);
+	cmd_val = readl_relaxed(USB_USBCMD);
+	if (host_bus_suspend)
+		cmd_val |= ASYNC_INTR_CTRL | ULPI_STP_CTRL;
+	else
+		cmd_val |= ULPI_STP_CTRL;
+	writel_relaxed(cmd_val, USB_USBCMD);
 
-	if (motg->caps & ALLOW_PHY_RETENTION && !session_active) {
+	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
 			/* Enable PHY HV interrupts to wake MPM/Link */
@@ -695,7 +704,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		dev_err(otg->dev, "%s failed to devote for "
 			"TCXO D0 buffer%d\n", __func__, ret);
 
-	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !session_active) {
+	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !host_bus_suspend) {
 		msm_hsusb_ldo_enable(motg, 0);
 		motg->lpm_flags |= PHY_PWR_COLLAPSED;
 	}
@@ -817,11 +826,6 @@ skip_phy_resume:
 		set_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
 
 	atomic_set(&motg->in_lpm, 0);
-
-	if (aca_enabled() && !irq_read_line(motg->pdata->pmic_id_irq)) {
-		clear_bit(ID, &motg->inputs);
-		schedule_work(&motg->sm_work);
-	}
 
 	if (motg->async_int) {
 		motg->async_int = 0;
@@ -1164,6 +1168,7 @@ static void msm_chg_enable_aca_det(struct msm_otg *motg)
 		ulpi_write(otg, 0x10, 0x12);
 		/* Enable ACA ID detection */
 		ulpi_write(otg, 0x20, 0x85);
+		aca_id_turned_on = true;
 		break;
 	default:
 		break;
@@ -1611,24 +1616,26 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 				set_bit(ID, &motg->inputs);
 				clear_bit(B_SESS_VLD, &motg->inputs);
 			}
-		} else {
-			if (aca_enabled()) {
-				if (irq_read_line(motg->pdata->pmic_id_irq))
-					set_bit(ID, &motg->inputs);
-				else
-					clear_bit(ID, &motg->inputs);
-
-			} else {
-				if (otgsc & OTGSC_ID)
-					set_bit(ID, &motg->inputs);
-				else
-					clear_bit(ID, &motg->inputs);
-			}
-
+		} else if (pdata->otg_control == OTG_PHY_CONTROL) {
+			if (otgsc & OTGSC_ID)
+				set_bit(ID, &motg->inputs);
+			else
+				clear_bit(ID, &motg->inputs);
 			if (otgsc & OTGSC_BSV)
 				set_bit(B_SESS_VLD, &motg->inputs);
 			else
 				clear_bit(B_SESS_VLD, &motg->inputs);
+		} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
+			if (irq_read_line(motg->pdata->pmic_id_irq))
+				set_bit(ID, &motg->inputs);
+			else
+				clear_bit(ID, &motg->inputs);
+
+			/*
+			 * VBUS initial state is reported after PMIC
+			 * driver initialization. Wait for it.
+			 */
+			wait_for_completion(&pmic_vbus_init);
 		}
 		break;
 	case USB_HOST:
@@ -1809,6 +1816,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 	u32 otgsc = 0, usbsts;
 
 	if (atomic_read(&motg->in_lpm)) {
+		pr_debug("OTG IRQ: in LPM\n");
 		disable_irq_nosync(irq);
 		motg->async_int = 1;
 		pm_request_resume(otg->dev);
@@ -1858,25 +1866,44 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 static void msm_otg_set_vbus_state(int online)
 {
+	static bool init;
 	struct msm_otg *motg = the_msm_otg;
 
-	/* We depend on PMIC for only VBUS ON interrupt */
-	if (!atomic_read(&motg->in_lpm) || !online || motg->async_int)
-		return;
+	if (online) {
+		pr_debug("PMIC: BSV set\n");
+		set_bit(B_SESS_VLD, &motg->inputs);
+	} else {
+		pr_debug("PMIC: BSV clear\n");
+		clear_bit(B_SESS_VLD, &motg->inputs);
+	}
 
-	/*
-	 * Let interrupt handler take care of resuming
-	 * the hardware.
-	 */
-	msm_otg_irq(motg->irq, (void *) motg);
+	if (!init) {
+		init = true;
+		complete(&pmic_vbus_init);
+		pr_debug("PMIC: BSV init complete\n");
+		return;
+	}
+
+	schedule_work(&motg->sm_work);
 }
 
 static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
 
-	if (atomic_read(&motg->in_lpm) && !motg->async_int)
-		msm_otg_irq(motg->irq, motg);
+	if (aca_id_turned_on)
+		return IRQ_HANDLED;
+
+	if (irq_read_line(motg->pdata->pmic_id_irq)) {
+		pr_debug("PMIC: ID set\n");
+		set_bit(ID, &motg->inputs);
+	} else {
+		pr_debug("PMIC: ID clear\n");
+		clear_bit(ID, &motg->inputs);
+	}
+
+	if (motg->otg.state != OTG_STATE_UNDEFINED)
+		schedule_work(&motg->sm_work);
 
 	return IRQ_HANDLED;
 }
