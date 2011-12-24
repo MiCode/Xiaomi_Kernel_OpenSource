@@ -432,11 +432,8 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 {
 	struct mipi_panel_info *mipi;
-	static int bl_level_old;
 
 	mipi  = &mfd->panel_info.mipi;
-	if (bl_level_old == mfd->bl_level)
-		return;
 
 	mutex_lock(&mfd->dma->ov_mutex);
 	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
@@ -451,7 +448,6 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 	led_pwm1[1] = (unsigned char)(mfd->bl_level);
 	mipi_dsi_cmds_tx(mfd, &novatek_tx_buf, novatek_cmd_backlight_cmds,
 			ARRAY_SIZE(novatek_cmd_backlight_cmds));
-	bl_level_old = mfd->bl_level;
 	mutex_unlock(&mfd->dma->ov_mutex);
 	return;
 }
