@@ -51,11 +51,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     320 * 16,
+	.buffer_bytes_max =     320 * 8,
 	.period_bytes_min =	320,
 	.period_bytes_max =     320,
-	.periods_min =          16,
-	.periods_max =          16,
+	.periods_min =          8,
+	.periods_max =          8,
 	.fifo_size =            0,
 };
 
