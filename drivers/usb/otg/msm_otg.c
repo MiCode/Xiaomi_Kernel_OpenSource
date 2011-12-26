@@ -87,6 +87,7 @@ static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vddcx;
+static struct regulator *vbus_otg;
 
 static bool aca_id_turned_on;
 static inline bool aca_enabled(void)
@@ -952,6 +953,41 @@ out:
 	return NOTIFY_OK;
 }
 
+static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
+{
+	int ret;
+	static bool vbus_is_on;
+
+	if (vbus_is_on == on)
+		return;
+
+	if (motg->pdata->vbus_power) {
+		motg->pdata->vbus_power(on);
+		return;
+	}
+
+	if (!vbus_otg) {
+		pr_err("vbus_otg is NULL.");
+		return;
+	}
+
+	if (on) {
+		ret = regulator_enable(vbus_otg);
+		if (ret) {
+			pr_err("unable to enable vbus_otg\n");
+			return;
+		}
+		vbus_is_on = true;
+	} else {
+		ret = regulator_disable(vbus_otg);
+		if (ret) {
+			pr_err("unable to disable vbus_otg\n");
+			return;
+		}
+		vbus_is_on = false;
+	}
+}
+
 static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 {
 	struct msm_otg *motg = container_of(otg, struct msm_otg, otg);
@@ -966,19 +1002,29 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 		return -ENODEV;
 	}
 
+	if (!motg->pdata->vbus_power && host) {
+		vbus_otg = regulator_get(motg->otg.dev, "vbus_otg");
+		if (IS_ERR(vbus_otg)) {
+			pr_err("Unable to get vbus_otg\n");
+			return -ENODEV;
+		}
+	}
+
 	if (!host) {
 		if (otg->state == OTG_STATE_A_HOST) {
 			pm_runtime_get_sync(otg->dev);
 			usb_unregister_notify(&motg->usbdev_nb);
 			msm_otg_start_host(otg, 0);
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(0);
+			msm_hsusb_vbus_power(motg, 0);
 			otg->host = NULL;
 			otg->state = OTG_STATE_UNDEFINED;
 			schedule_work(&motg->sm_work);
 		} else {
 			otg->host = NULL;
 		}
+
+		if (vbus_otg)
+			regulator_put(vbus_otg);
 
 		return 0;
 	}
@@ -1682,8 +1728,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			else if (test_bit(ID_A, &motg->inputs))
 				msm_otg_notify_charger(motg,
 						IDEV_ACA_CHG_MAX - IUNIT);
-			else if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(1);
+			else
+				msm_hsusb_vbus_power(motg, 1);
 			msm_otg_start_host(otg, 1);
 			/*
 			 * Link can not generate PHY_ALT interrupt
@@ -1769,10 +1815,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 		if (test_bit(ID, &motg->inputs) &&
 				!test_bit(ID_A, &motg->inputs)) {
 			msm_otg_start_host(otg, 0);
-			if (motg->pdata->vbus_power) {
-				motg->pdata->vbus_power(0);
-				msleep(100); /* TA_WAIT_VFALL */
-			}
+			msm_hsusb_vbus_power(motg, 0);
+			msleep(100); /* TA_WAIT_VFALL */
 			/*
 			 * Exit point of host mode.
 			 *
@@ -1794,14 +1838,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 			otg->state = OTG_STATE_B_IDLE;
 			schedule_work(w);
 		} else if (test_bit(ID_A, &motg->inputs)) {
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(0);
+			msm_hsusb_vbus_power(motg, 0);
 			msm_otg_notify_charger(motg,
 					IDEV_ACA_CHG_MAX - motg->mA_port);
 		} else if (!test_bit(ID, &motg->inputs)) {
 			msm_otg_notify_charger(motg, 0);
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(1);
+			msm_hsusb_vbus_power(motg, 1);
 		}
 		break;
 	default:
