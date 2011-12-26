@@ -665,6 +665,8 @@ __acquires(mEp->lock)
 		}
 		mReq->req.status = -ESHUTDOWN;
 
+		usb_gadget_map_request(&mEp->ci->gadget, &mReq->req, mEp->dir);
+
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
 			if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
