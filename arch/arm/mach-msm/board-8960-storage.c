@@ -227,7 +227,7 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 	.pclk_src_dfab	= 1,
 	.nonremovable	= 1,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
-	.pin_data	= &mmc_slot_pin_data[SDCC1]
+	.pin_data	= &mmc_slot_pin_data[SDCC1],
 };
 #endif
 
@@ -259,10 +259,12 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 void __init msm8960_init_mmc(void)
 {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+	msm8960_sdc1_data.swfi_latency = msm_rpm_get_swfi_latency();
 	/* SDC1 : eMMC card connected */
 	msm_add_sdcc(1, &msm8960_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+	msm8960_sdc3_data.swfi_latency = msm_rpm_get_swfi_latency();
 	/* SDC3: External card slot */
 	msm_add_sdcc(3, &msm8960_sdc3_data);
 #endif
