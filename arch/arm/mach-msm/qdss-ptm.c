@@ -27,14 +27,8 @@
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
 #include <asm/atomic.h>
-#include <mach/rpm.h>
 
-#include "rpm_resources.h"
 #include "qdss.h"
-
-#define QDSS_CLK_ON_DBG			0x1
-#define QDSS_CLK_ON_HSDBG		0x2
-#define QDSS_CLK_OFF			0x0
 
 #define ptm_writel(ptm, cpu, val, off)	\
 			__raw_writel((val), ptm.base + (SZ_4K * cpu) + off)
@@ -188,34 +182,6 @@ struct ptm_ctx {
 
 static struct ptm_ctx ptm;
 
-
-int qdss_clk_enable(void)
-{
-	int ret;
-
-	struct msm_rpm_iv_pair iv;
-	iv.id = MSM_RPM_ID_QDSS_CLK;
-	iv.value = QDSS_CLK_ON_DBG;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-	if (WARN(ret, "qdss clks not enabled (%d)\n", ret))
-		goto err_clk;
-
-	return 0;
-
-err_clk:
-	return ret;
-}
-
-void qdss_clk_disable(void)
-{
-	int ret;
-	struct msm_rpm_iv_pair iv;
-
-	iv.id = MSM_RPM_ID_QDSS_CLK;
-	iv.value = QDSS_CLK_OFF;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-	WARN(ret, "qdss clks not disabled (%d)\n", ret);
-}
 
 /* ETM clock is derived from the processor clock and gets enabled on a
  * logical OR of below items on Krait (pass2 onwards):

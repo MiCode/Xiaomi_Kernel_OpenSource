@@ -64,6 +64,8 @@ void etb_dump(void);
 void tpiu_disable(void);
 void funnel_enable(uint8_t id, uint32_t port_mask);
 void funnel_disable(uint8_t id, uint32_t port_mask);
+int qdss_clk_enable(void);
+void qdss_clk_disable(void);
 
 #ifdef CONFIG_MSM_JTAG
 extern void msm_jtag_save_state(void);
