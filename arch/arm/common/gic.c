@@ -30,11 +30,15 @@
 #include <linux/cpumask.h>
 #include <linux/io.h>
 #include <linux/syscore_ops.h>
+#include <linux/interrupt.h>
+#include <linux/percpu.h>
+#include <linux/slab.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
 #include <asm/system.h>
+#include <asm/localtimer.h>
 
 static DEFINE_RAW_SPINLOCK(irq_controller_lock);
 
@@ -383,6 +387,7 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	u32 cpumask;
 	void __iomem *base = gic->dist_base;
 	u32 cpu = 0;
+	u32 nrppis = 0, ppi_base = 0;
 
 #ifdef CONFIG_SMP
 	cpu = cpu_logical_map(smp_processor_id());
@@ -404,6 +409,23 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 		gic_irqs = 1020;
 
 	gic->gic_irqs = gic_irqs;
+
+	/*
+	 * Nobody would be insane enough to use PPIs on a secondary
+	 * GIC, right?
+	 */
+	if (gic == &gic_data[0]) {
+		nrppis = (32 - irq_start) & 31;
+
+		/* The GIC only supports up to 16 PPIs. */
+		if (nrppis > 16)
+			BUG();
+
+		ppi_base = gic->irq_offset + 32 - nrppis;
+	}
+
+	pr_info("Configuring GIC with %d sources (%d PPIs)\n",
+		gic_irqs, (gic == &gic_data[0]) ? nrppis : 0);
 
 	/*
 	 * Set all global interrupts to be level triggered, active low.
@@ -440,7 +462,17 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	/*
 	 * Setup the Linux IRQ subsystem.
 	 */
-	for (i = irq_start; i < irq_limit; i++) {
+	for (i = 0; i < nrppis; i++) {
+		int ppi = i + ppi_base;
+
+		irq_set_percpu_devid(ppi);
+		irq_set_chip_and_handler(ppi, &gic_chip,
+					 handle_percpu_devid_irq);
+		irq_set_chip_data(ppi, gic);
+		set_irq_flags(ppi, IRQF_VALID | IRQF_NOAUTOEN);
+	}
+
+	for (i = irq_start + nrppis; i < irq_limit; i++) {
 		irq_set_chip_and_handler(i, &gic_chip, handle_fasteoi_irq);
 		irq_set_chip_data(i, gic);
 		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
@@ -685,16 +717,6 @@ void __cpuinit gic_secondary_init(unsigned int gic_nr)
 	BUG_ON(gic_nr >= MAX_GIC_NR);
 
 	gic_cpu_init(&gic_data[gic_nr]);
-}
-
-void __cpuinit gic_enable_ppi(unsigned int irq)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	irq_set_status_flags(irq, IRQ_NOPROBE);
-	gic_unmask_irq(irq_get_irq_data(irq));
-	local_irq_restore(flags);
 }
 
 #ifdef CONFIG_SMP

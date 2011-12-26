@@ -885,8 +885,6 @@ void __init msm9615_map_io(void)
 
 void __init msm9615_init_irq(void)
 {
-	unsigned int i;
-
 	msm_mpm_irq_extn_init();
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
@@ -896,16 +894,6 @@ void __init msm9615_init_irq(void)
 
 	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 	mb();
-
-	/*
-	 * FIXME: Not installing AVS_SVICINT and AVS_SVICINTSWDONE yet
-	 * as they are configured as level, which does not play nice with
-	 * handle_percpu_irq.
-	 */
-	for (i = GIC_PPI_START; i < GIC_SPI_START; i++) {
-		if (i != AVS_SVICINT && i != AVS_SVICINTSWDONE)
-			irq_set_handler(i, handle_percpu_irq);
-	}
 }
 
 struct platform_device msm_bus_9615_sys_fabric = {

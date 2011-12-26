@@ -50,8 +50,6 @@ static struct of_device_id msm_copper_gic_match[] __initdata = {
 
 void __init msm_copper_init_irq(void)
 {
-	unsigned int i;
-
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 			(void *)MSM_QGIC_CPU_BASE);
 
@@ -61,14 +59,6 @@ void __init msm_copper_init_irq(void)
 	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 	mb();
 
-	/* FIXME: Not installing AVS_SVICINT and AVS_SVICINTSWDONE yet
-	 * as they are configured as level, which does not play nice with
-	 * handle_percpu_irq.
-	 */
-	for (i = GIC_PPI_START; i < GIC_SPI_START; i++) {
-		if (i != AVS_SVICINT && i != AVS_SVICINTSWDONE)
-			irq_set_handler(i, handle_percpu_irq);
-	}
 	irq_domain_generate_simple(msm_copper_gic_match,
 		COPPER_QGIC_DIST_PHYS, GIC_SPI_START);
 }
