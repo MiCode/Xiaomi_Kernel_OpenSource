@@ -103,7 +103,7 @@ static int dsps_load(const char *name)
 		pr_err("%s: fail to load DSPS firmware %s.\n", __func__, name);
 		return -ENODEV;
 	}
-
+	msleep(20);
 	return 0;
 }
 
