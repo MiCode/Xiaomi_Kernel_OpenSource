@@ -57,3 +57,45 @@ void qdss_clk_disable(void)
 	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
 	WARN(ret, "qdss clks not disabled (%d)\n", ret);
 }
+
+static int __init qdss_init(void)
+{
+	int ret;
+
+	ret = etb_init();
+	if (ret)
+		goto err_etb;
+	ret = tpiu_init();
+	if (ret)
+		goto err_tpiu;
+	ret = funnel_init();
+	if (ret)
+		goto err_funnel;
+	ret = ptm_init();
+	if (ret)
+		goto err_ptm;
+
+	return 0;
+
+err_ptm:
+	funnel_exit();
+err_funnel:
+	tpiu_exit();
+err_tpiu:
+	etb_exit();
+err_etb:
+	return ret;
+}
+module_init(qdss_init);
+
+static void __exit qdss_exit(void)
+{
+	ptm_exit();
+	funnel_exit();
+	tpiu_exit();
+	etb_exit();
+}
+module_exit(qdss_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Qualcomm Debug SubSystem Driver");

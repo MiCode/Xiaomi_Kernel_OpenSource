@@ -673,7 +673,7 @@ err_res:
 	return ret;
 }
 
-static int __devexit ptm_remove(struct platform_device *pdev)
+static int ptm_remove(struct platform_device *pdev)
 {
 	if (ptm.trace_enabled)
 		ptm_trace_disable();
@@ -687,23 +687,18 @@ static int __devexit ptm_remove(struct platform_device *pdev)
 
 static struct platform_driver ptm_driver = {
 	.probe          = ptm_probe,
-	.remove         = __devexit_p(ptm_remove),
+	.remove         = ptm_remove,
 	.driver         = {
 		.name   = "msm_ptm",
 	},
 };
 
-static int __init ptm_init(void)
+int __init ptm_init(void)
 {
 	return platform_driver_register(&ptm_driver);
 }
-module_init(ptm_init);
 
-static void __exit ptm_exit(void)
+void ptm_exit(void)
 {
 	platform_driver_unregister(&ptm_driver);
 }
-module_exit(ptm_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Coresight Program Flow Trace driver");

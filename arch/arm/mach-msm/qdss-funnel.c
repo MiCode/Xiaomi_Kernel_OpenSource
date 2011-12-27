@@ -129,7 +129,7 @@ err_res:
 	return ret;
 }
 
-static int __devexit funnel_remove(struct platform_device *pdev)
+static int funnel_remove(struct platform_device *pdev)
 {
 	if (funnel.enabled)
 		funnel_disable(0x0, 0xFF);
@@ -140,23 +140,18 @@ static int __devexit funnel_remove(struct platform_device *pdev)
 
 static struct platform_driver funnel_driver = {
 	.probe          = funnel_probe,
-	.remove         = __devexit_p(funnel_remove),
+	.remove         = funnel_remove,
 	.driver         = {
 		.name   = "msm_funnel",
 	},
 };
 
-static int __init funnel_init(void)
+int __init funnel_init(void)
 {
 	return platform_driver_register(&funnel_driver);
 }
-module_init(funnel_init);
 
-static void __exit funnel_exit(void)
+void funnel_exit(void)
 {
 	platform_driver_unregister(&funnel_driver);
 }
-module_exit(funnel_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Coresight Funnel");
