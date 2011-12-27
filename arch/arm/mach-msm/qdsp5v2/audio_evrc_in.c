@@ -1470,7 +1470,7 @@ static int audevrc_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	audio->out_frame_cnt++;
 	audio->build_id = socinfo_get_build_id();
-	MM_ERR("build id used is = %s\n", audio->build_id);
+	MM_DBG("Modem build id = %s\n", audio->build_id);
 
 done:
 	mutex_unlock(&audio->lock);

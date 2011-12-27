@@ -638,7 +638,6 @@ static long audpcm_in_ioctl(struct file *file,
 			rc = -EFAULT;
 			break;
 		}
-		MM_ERR("build_id[17] = %c\n", audio->build_id[17]);
 		if (audio->build_id[17] == '1') {
 			audio->enc_type = ENC_TYPE_EXT_WAV | audio->mode;
 			if (cfg.channel_count == 1) {
@@ -683,7 +682,6 @@ static long audpcm_in_ioctl(struct file *file,
 			MM_ERR("wrong build_id = %s\n", audio->build_id);
 			return -ENODEV;
 		}
-		MM_ERR("buffer size configured is = %d\n", audio->buffer_size);
 		audio->samp_rate = cfg.sample_rate;
 		audio->channel_mode = cfg.channel_count;
 		break;
@@ -941,7 +939,7 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	rc = 0;
 	audio->build_id = socinfo_get_build_id();
-	MM_ERR("build id used is = %s\n", audio->build_id);
+	MM_DBG("Modem build id = %s\n", audio->build_id);
 done:
 	mutex_unlock(&audio->lock);
 	return rc;
