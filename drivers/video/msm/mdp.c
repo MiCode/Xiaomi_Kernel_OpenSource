@@ -875,15 +875,16 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 
 	/* LCDC Frame Start */
 	if (mdp_interrupt & LCDC_FRAME_START) {
+		dma = &dma2_data;
+		spin_lock_irqsave(&mdp_spin_lock, flag);
 		/* let's disable LCDC interrupt */
 		mdp_intr_mask &= ~LCDC_FRAME_START;
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-
-		dma = &dma2_data;
 		if (dma->waiting) {
 			dma->waiting = FALSE;
 			complete(&dma->comp);
 		}
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	}
 
 	/* DMA2 LCD-Out Complete */
