@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -72,6 +71,10 @@ do {									\
 
 int chk_config_get_id(void)
 {
+	/* For all Fusion targets, Modem will always be present */
+	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
+		return 0;
+
 	switch (socinfo_get_id()) {
 	case APQ8060_MACHINE_ID:
 	case MSM8660_MACHINE_ID:
@@ -191,6 +194,13 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			queue_work(driver->diag_wq, &(driver->
 				diag_read_smd_wcnss_work));
 		}
+#ifdef CONFIG_DIAG_SDIO_PIPE
+		else if (proc_num == SDIO_DATA) {
+			driver->in_busy_sdio = 0;
+			queue_work(driver->diag_sdio_wq,
+				&(driver->diag_read_sdio_work));
+		}
+#endif
 		err = -1;
 	}
 #ifdef CONFIG_DIAG_OVER_USB
@@ -226,7 +236,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		else if (proc_num == SDIO_DATA) {
 			if (machine_is_msm8x60_fusion() ||
-					machine_is_msm8x60_fusn_ffa()) {
+					 machine_is_msm8x60_fusn_ffa()) {
 				write_ptr->buf = buf;
 				err = usb_diag_write(driver->mdm_ch, write_ptr);
 			} else
@@ -1051,7 +1061,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	else if (buf == (void *)driver->buf_in_sdio)
 		if (machine_is_msm8x60_fusion() ||
-					 machine_is_msm8x60_fusn_ffa())
+			 machine_is_msm8x60_fusn_ffa())
 			diagfwd_write_complete_sdio();
 		else
 			pr_err("diag: Incorrect buffer pointer while WRITE");
@@ -1093,7 +1103,7 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	else if (buf == (void *)driver->usb_buf_mdm_out) {
 		if (machine_is_msm8x60_fusion() ||
-					 machine_is_msm8x60_fusn_ffa()) {
+				 machine_is_msm8x60_fusn_ffa()) {
 			driver->read_len_mdm = diag_read_ptr->actual;
 			diagfwd_read_complete_sdio();
 		} else
