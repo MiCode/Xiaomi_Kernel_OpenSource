@@ -667,6 +667,8 @@ u32 msm_io_r_mb(void __iomem *addr);
 void msm_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
+void msm_camio_bus_scale_cfg(
+	struct msm_bus_scale_pdata *, enum msm_bus_perf_setting);
 
 void *msm_isp_sync_alloc(int size, gfp_t gfp);
 
@@ -674,4 +676,7 @@ void msm_isp_sync_free(void *ptr);
 
 int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		struct clk **clk_ptr, int num_clk, int enable);
+
+int msm_sensor_probe_on(struct device *);
+int msm_sensor_probe_off(struct device *);
 #endif

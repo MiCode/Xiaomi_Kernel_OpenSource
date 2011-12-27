@@ -1947,6 +1947,14 @@ static void __init register_i2c_devices(void)
 #ifdef CONFIG_I2C
 	u8 mach_mask = 0;
 	int i;
+#ifdef CONFIG_MSM_CAMERA
+	struct i2c_registry msm8930_camera_i2c_devices = {
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
+		MSM_8930_GSBI4_QUP_I2C_BUS_ID,
+		msm8930_camera_board_info.board_info,
+		msm8930_camera_board_info.num_i2c_board_info,
+	};
+#endif
 
 	/* Build the matching 'supported_machs' bitmask */
 	if (machine_is_msm8930_cdp() || machine_is_msm8627_cdp())
@@ -1965,6 +1973,12 @@ static void __init register_i2c_devices(void)
 						msm8960_i2c_devices[i].info,
 						msm8960_i2c_devices[i].len);
 	}
+#ifdef CONFIG_MSM_CAMERA
+	if (msm8930_camera_i2c_devices.machs & mach_mask)
+		i2c_register_board_info(msm8930_camera_i2c_devices.bus,
+			msm8930_camera_i2c_devices.info,
+			msm8930_camera_i2c_devices.len);
+#endif
 #endif
 }
 

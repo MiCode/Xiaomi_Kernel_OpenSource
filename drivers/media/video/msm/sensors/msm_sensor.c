@@ -177,7 +177,7 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 {
 	int32_t rc = 0;
 
-	v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+	v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 		NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(
 		PIX0, ISPIF_OFF_IMMEDIATELY));
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
@@ -190,23 +190,23 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 		msm_sensor_write_res_settings(s_ctrl, res);
 		if (s_ctrl->curr_csi_params != s_ctrl->csi_params[res]) {
 			s_ctrl->curr_csi_params = s_ctrl->csi_params[res];
-			v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 				NOTIFY_CSID_CFG,
 				&s_ctrl->curr_csi_params->csid_params);
-			v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 						NOTIFY_CID_CHANGE, NULL);
 			mb();
-			v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 				NOTIFY_CSIPHY_CFG,
 				&s_ctrl->curr_csi_params->csiphy_params);
 			mb();
 			msleep(20);
 		}
 
-		v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 			NOTIFY_PCLK_CHANGE, &s_ctrl->msm_sensor_reg->
 			output_settings[res].op_pixel_clk);
-		v4l2_subdev_notify(s_ctrl->sensor_v4l2_subdev,
+		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 			NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(
 			PIX0, ISPIF_ON_FRAME_BOUNDARY));
 		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
@@ -267,6 +267,19 @@ int32_t msm_sensor_get_output_info(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = -EFAULT;
 
 	return rc;
+}
+
+long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
+			unsigned int cmd, void *arg)
+{
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
+	void __user *argp = (void __user *)arg;
+	switch (cmd) {
+	case VIDIOC_MSM_SENSOR_CFG:
+		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+	default:
+		return -ENOIOCTLCMD;
+	}
 }
 
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
@@ -396,10 +409,12 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	return rc;
 }
 
-int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data)
+int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
+	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s: %d\n", __func__, __LINE__);
+	msm_sensor_probe_on(&s_ctrl->sensor_i2c_client->client->dev);
 	msm_camio_clk_rate_set(MSM_SENSOR_MCLK_24HZ);
 	rc = gpio_request(data->sensor_platform_info->sensor_reset,
 		"SENSOR_NAME");
@@ -417,9 +432,11 @@ int32_t msm_sensor_power_up(const struct msm_camera_sensor_info *data)
 	return rc;
 }
 
-int32_t msm_sensor_power_down(const struct msm_camera_sensor_info *data)
+int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
+	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s\n", __func__);
+	msm_sensor_probe_off(&s_ctrl->sensor_i2c_client->client->dev);
 	gpio_set_value_cansleep(data->sensor_platform_info->sensor_reset, 0);
 	usleep_range(1000, 2000);
 	gpio_free(data->sensor_platform_info->sensor_reset);
@@ -448,64 +465,37 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd)
+{
+	return container_of(sd, struct msm_sensor_ctrl_t, sensor_v4l2_subdev);
+}
+
 int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	int rc = 0;
-	struct msm_sensor_ctrl_t *this_ctrl;
+	struct msm_sensor_ctrl_t *s_ctrl;
 	CDBG("%s_i2c_probe called\n", client->name);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		CDBG("i2c_check_functionality failed\n");
 		rc = -EFAULT;
-		goto probe_failure;
+		return rc;
 	}
 
-	this_ctrl = (struct msm_sensor_ctrl_t *)(id->driver_data);
-	if (this_ctrl->sensor_i2c_client != NULL) {
-		this_ctrl->sensor_i2c_client->client = client;
-		if (this_ctrl->sensor_i2c_addr != 0)
-			this_ctrl->sensor_i2c_client->client->addr =
-				this_ctrl->sensor_i2c_addr;
+	s_ctrl = (struct msm_sensor_ctrl_t *)(id->driver_data);
+	if (s_ctrl->sensor_i2c_client != NULL) {
+		s_ctrl->sensor_i2c_client->client = client;
+		if (s_ctrl->sensor_i2c_addr != 0)
+			s_ctrl->sensor_i2c_client->client->addr =
+				s_ctrl->sensor_i2c_addr;
 	} else {
 		rc = -EFAULT;
+		return rc;
 	}
 
-probe_failure:
-	CDBG("%s_i2c_probe failed\n", client->name);
-	return rc;
-}
+	s_ctrl->sensordata = client->dev.platform_data;
 
-int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	mutex_lock(s_ctrl->msm_sensor_mutex);
-	s_ctrl->func_tbl->sensor_power_down(s_ctrl->sensordata);
-	mutex_unlock(s_ctrl->msm_sensor_mutex);
-	CDBG("%s completed\n", __func__);
-	return 0;
-}
-
-int32_t msm_sensor_open_init(struct msm_sensor_ctrl_t *s_ctrl,
-				const struct msm_camera_sensor_info *data)
-{
-	if (data)
-		s_ctrl->sensordata = data;
-
-	return s_ctrl->func_tbl->sensor_power_up(data);
-}
-
-int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
-		const struct msm_camera_sensor_info *info,
-		struct msm_sensor_ctrl *s)
-{
-	int rc = 0;
-	rc = i2c_add_driver(s_ctrl->sensor_i2c_driver);
-	if (rc < 0 || s_ctrl->sensor_i2c_client->client == NULL) {
-		rc = -ENOTSUPP;
-		CDBG("I2C add driver failed");
-		goto probe_fail;
-	}
-
-	rc = s_ctrl->func_tbl->sensor_power_up(info);
+	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 	if (rc < 0)
 		goto probe_fail;
 
@@ -532,45 +522,38 @@ int32_t msm_sensor_probe(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 	}
 
-	s->s_init = s_ctrl->func_tbl->sensor_open_init;
-	s->s_release = s_ctrl->func_tbl->sensor_release;
-	s->s_config  = s_ctrl->func_tbl->sensor_config;
-	s->s_camera_type = info->camera_type;
-	if (info->sensor_platform_info != NULL)
-		s->s_mount_angle = info->sensor_platform_info->mount_angle;
-	else
-		s->s_mount_angle = 0;
+	snprintf(s_ctrl->sensor_v4l2_subdev.name,
+		sizeof(s_ctrl->sensor_v4l2_subdev.name), "%s", id->name);
+	v4l2_i2c_subdev_init(&s_ctrl->sensor_v4l2_subdev, client,
+		s_ctrl->sensor_v4l2_subdev_ops);
 
+	msm_sensor_register(&s_ctrl->sensor_v4l2_subdev);
 	goto power_down;
 probe_fail:
-	i2c_del_driver(s_ctrl->sensor_i2c_driver);
+	CDBG("%s_i2c_probe failed\n", client->name);
 power_down:
-	s_ctrl->func_tbl->sensor_power_down(info);
+	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 	return rc;
 }
 
-int32_t msm_sensor_v4l2_probe(struct msm_sensor_ctrl_t *s_ctrl,
-	const struct msm_camera_sensor_info *info,
-	struct v4l2_subdev *sdev, struct msm_sensor_ctrl *s)
+int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 {
-	int32_t rc = 0;
-	rc = s_ctrl->func_tbl->sensor_probe(s_ctrl, info, s);
-	if (rc < 0)
-		return rc;
-
-	s_ctrl->sensor_v4l2_subdev = sdev;
-	v4l2_i2c_subdev_init(s_ctrl->sensor_v4l2_subdev,
-		s_ctrl->sensor_i2c_client->client,
-		s_ctrl->sensor_v4l2_subdev_ops);
-	s_ctrl->sensor_v4l2_subdev->dev_priv = (void *) s_ctrl;
+	int rc = 0;
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
+	mutex_lock(s_ctrl->msm_sensor_mutex);
+	if (on)
+		rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+	else
+		rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return rc;
 }
 
 int32_t msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			   enum v4l2_mbus_pixelcode *code)
 {
-	struct msm_sensor_ctrl_t *s_ctrl =
-		(struct msm_sensor_ctrl_t *) sd->dev_priv;
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
+
 	if ((unsigned int)index >= s_ctrl->sensor_v4l2_subdev_info_size)
 		return -EINVAL;
 

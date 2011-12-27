@@ -219,6 +219,11 @@ struct msm_camera_sensor_info {
 	struct msm_actuator_info *actuator_info;
 };
 
+struct msm_camera_board_info {
+	struct i2c_board_info *board_info;
+	uint8_t num_i2c_board_info;
+};
+
 int msm_get_cam_resources(struct msm_camera_sensor_info *);
 
 struct clk_lookup;

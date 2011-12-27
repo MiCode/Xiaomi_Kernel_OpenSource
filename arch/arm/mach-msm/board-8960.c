@@ -1974,31 +1974,6 @@ struct i2c_registry {
 	int                    len;
 };
 
-#ifdef CONFIG_MSM_CAMERA
-static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
-#ifdef CONFIG_IMX074
-	{
-	I2C_BOARD_INFO("imx074", 0x1A),
-	},
-#endif
-#ifdef CONFIG_OV2720
-	{
-	I2C_BOARD_INFO("ov2720", 0x6C),
-	},
-#endif
-#ifdef CONFIG_MT9M114
-	{
-	I2C_BOARD_INFO("mt9m114", 0x48),
-	},
-#endif
-#ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
-	{
-	I2C_BOARD_INFO("sc628a", 0x6E),
-	},
-#endif
-};
-#endif
-
 /* Sensors DSPS platform data */
 #ifdef CONFIG_MSM_DSPS
 #define DSPS_PIL_GENERIC_NAME		"dsps"
@@ -2085,14 +2060,6 @@ static struct i2c_board_info liquid_io_expander_i2c_info[] __initdata = {
 };
 
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
-#ifdef CONFIG_MSM_CAMERA
-	{
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
-		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
-		msm_camera_boardinfo,
-		ARRAY_SIZE(msm_camera_boardinfo),
-	},
-#endif
 #ifdef CONFIG_ISL9519_CHARGER
 	{
 		I2C_LIQUID,
@@ -2139,6 +2106,14 @@ static void __init register_i2c_devices(void)
 #ifdef CONFIG_I2C
 	u8 mach_mask = 0;
 	int i;
+#ifdef CONFIG_MSM_CAMERA
+	struct i2c_registry msm8960_camera_i2c_devices = {
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
+		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+		msm8960_camera_board_info.board_info,
+		msm8960_camera_board_info.num_i2c_board_info,
+	};
+#endif
 
 	/* Build the matching 'supported_machs' bitmask */
 	if (machine_is_msm8960_cdp())
@@ -2163,6 +2138,12 @@ static void __init register_i2c_devices(void)
 						msm8960_i2c_devices[i].info,
 						msm8960_i2c_devices[i].len);
 	}
+#ifdef CONFIG_MSM_CAMERA
+	if (msm8960_camera_i2c_devices.machs & mach_mask)
+		i2c_register_board_info(msm8960_camera_i2c_devices.bus,
+			msm8960_camera_i2c_devices.info,
+			msm8960_camera_i2c_devices.len);
+#endif
 #endif
 }
 

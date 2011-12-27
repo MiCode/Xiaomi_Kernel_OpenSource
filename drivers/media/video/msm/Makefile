@@ -5,6 +5,8 @@ endif
 
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/video/msm/csi
+  EXTRA_CFLAGS += -Idrivers/media/video/msm/io
+  EXTRA_CFLAGS += -Idrivers/media/video/msm/sensors
   obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o
   obj-$(CONFIG_MSM_CAMERA) += io/ sensors/ actuators/ csi/
 else
