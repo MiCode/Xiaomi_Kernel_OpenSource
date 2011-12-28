@@ -48,11 +48,10 @@ int mdp4_overlay_writeback_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	uint8 *buf;
-	int ptype;
 	struct mdp4_overlay_pipe *pipe;
 	int bpp;
 	int ret;
-	uint32 format;
+	uint32 data;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
@@ -71,27 +70,17 @@ int mdp4_overlay_writeback_on(struct platform_device *pdev)
 	buf += fbi->var.xoffset * bpp +
 		fbi->var.yoffset * fbi->fix.line_length;
 
-	if (bpp == 2)
-		format = MDP_RGB_565;
-	else if (bpp == 3)
-		format = MDP_RGB_888;
-	else
-		format = MDP_ARGB_8888;
-
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	if (writeback_pipe == NULL) {
-		ptype = mdp4_overlay_format2type(format);
-		if (ptype < 0)
-			pr_err("%s: format2type failed\n", __func__);
-		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER1);
+		pipe = mdp4_overlay_pipe_alloc(OVERLAY_TYPE_BF, MDP4_MIXER2);
 		if (pipe == NULL)
 			pr_info("%s: pipe_alloc failed\n", __func__);
 		pipe->pipe_used++;
 		pipe->mixer_stage  = MDP4_MIXER_STAGE_BASE;
-		pipe->mixer_num  = MDP4_MIXER1;
-		pipe->src_format = format;
+		pipe->mixer_num  = MDP4_MIXER2;
+		pipe->src_format = MDP_ARGB_8888;
 		mdp4_overlay_panel_mode(pipe->mixer_num, MDP4_PANEL_WRITEBACK);
 		ret = mdp4_overlay_format2pipe(pipe);
 		if (ret < 0)
@@ -103,6 +92,18 @@ int mdp4_overlay_writeback_on(struct platform_device *pdev)
 		pipe = writeback_pipe;
 	}
 	ret = panel_next_on(pdev);
+	/* MDP_LAYERMIXER_WB_MUX_SEL to use mixer1 axi for mixer2 writeback */
+	data = inpdw(MDP_BASE + 0x100F4);
+	data &= ~0x02; /* clear the mixer1 mux bit */
+	data |= 0x02;
+	outpdw(MDP_BASE + 0x100F4, data);
+	MDP_OUTP(MDP_BASE + MDP4_OVERLAYPROC1_BASE + 0x5004,
+		((0x0 & 0xFFF) << 16) | /* 12-bit B */
+			(0x0 & 0xFFF));         /* 12-bit G */
+	/* MSP_BORDER_COLOR */
+	MDP_OUTP(MDP_BASE + MDP4_OVERLAYPROC1_BASE + 0x5008,
+		(0x0 & 0xFFF));         /* 12-bit R */
+
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	return ret;
 }
@@ -110,14 +111,24 @@ int mdp4_overlay_writeback_on(struct platform_device *pdev)
 int mdp4_overlay_writeback_off(struct platform_device *pdev)
 {
 	int ret;
+	uint32 data;
 	struct msm_fb_data_type *mfd =
 			(struct msm_fb_data_type *)platform_get_drvdata(pdev);
 	if (mfd && writeback_pipe) {
 		mdp4_writeback_dma_busy_wait(mfd);
 		mdp4_overlay_pipe_free(writeback_pipe);
+		mdp4_overlay_panel_mode_unset(writeback_pipe->mixer_num,
+						MDP4_PANEL_WRITEBACK);
 		writeback_pipe = NULL;
 	}
 	ret = panel_next_off(pdev);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	/* MDP_LAYERMIXER_WB_MUX_SEL to restore
+	 * mixer1 axi for mixer1 writeback */
+	data = inpdw(MDP_BASE + 0x100F4);
+	data &= ~0x02; /* clear the mixer1 mux bit */
+	outpdw(MDP_BASE + 0x100F4, data);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	return ret;
 }
 int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
@@ -158,8 +169,6 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	pipe->dst_x = 0;
 	pipe->srcp0_addr = (uint32)buf;
 
-
-	mdp4_overlay_rgb_setup(pipe);
 
 	mdp4_mixer_stage_up(pipe);
 
@@ -202,7 +211,7 @@ void mdp4_overlay1_done_writeback(struct mdp_dma_data *dma)
 	if (busy_wait_cnt)
 		busy_wait_cnt--;
 
-	mdp_disable_irq_nosync(MDP_OVERLAY1_TERM);
+	mdp_disable_irq_nosync(MDP_OVERLAY2_TERM);
 	pr_debug("%s ovdone interrupt\n", __func__);
 
 }
@@ -211,17 +220,17 @@ void mdp4_writeback_overlay_kickoff(struct msm_fb_data_type *mfd,
 {
 	unsigned long flag;
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	mdp_enable_irq(MDP_OVERLAY1_TERM);
+	mdp_enable_irq(MDP_OVERLAY2_TERM);
 	INIT_COMPLETION(writeback_pipe->comp);
 	mfd->dma->busy = TRUE;
-	outp32(MDP_INTR_CLEAR, INTR_OVERLAY1_DONE);
-	mdp_intr_mask |= INTR_OVERLAY1_DONE;
+	outp32(MDP_INTR_CLEAR, INTR_OVERLAY2_DONE);
+	mdp_intr_mask |= INTR_OVERLAY2_DONE;
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 
 	wmb();	/* make sure all registers updated */
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	/* start OVERLAY pipe */
-	mdp_pipe_kickoff(MDP_OVERLAY1_TERM, mfd);
+	mdp_pipe_kickoff(MDP_OVERLAY2_TERM, mfd);
 	wmb();
 	pr_debug("%s: before ov done interrupt\n", __func__);
 	wait_for_completion_killable(&mfd->dma->comp);
