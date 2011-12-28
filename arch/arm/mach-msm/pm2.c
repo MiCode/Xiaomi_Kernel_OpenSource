@@ -58,7 +58,7 @@
 #include "irq.h"
 #include "gpio.h"
 #include "timer.h"
-#include "pm.h"
+#include <mach/pm.h>
 #include "spm.h"
 #include "sirc.h"
 #include "pm-boot.h"

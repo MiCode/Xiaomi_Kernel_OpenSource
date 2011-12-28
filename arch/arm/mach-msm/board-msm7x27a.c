@@ -49,7 +49,7 @@
 #include "timer.h"
 #include "board-msm7x27a-regulator.h"
 #include "devices-msm7x2xa.h"
-#include "pm.h"
+#include <mach/pm.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/socinfo.h>
 #include "pm-boot.h"

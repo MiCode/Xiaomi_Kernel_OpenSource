@@ -48,7 +48,7 @@
 #include "board-msm7x27a-regulator.h"
 #include "devices.h"
 #include "devices-msm7x2xa.h"
-#include "pm.h"
+#include <mach/pm.h>
 #include "timer.h"
 #include "pm-boot.h"
 #include "board-msm7x27a-regulator.h"

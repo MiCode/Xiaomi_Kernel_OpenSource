@@ -88,8 +88,8 @@
 
 #include "devices.h"
 #include "devices-msm8x60.h"
-#include "cpuidle.h"
-#include "pm.h"
+#include <mach/cpuidle.h>
+#include <mach/pm.h>
 #include "mpm.h"
 #include "spm.h"
 #include "rpm_log.h"

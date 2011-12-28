@@ -13,9 +13,10 @@
 #include <asm/cacheflush.h>
 #include <asm/vfp.h>
 
+#include <mach/pm.h>
+
 #include "qdss.h"
 #include "spm.h"
-#include "pm.h"
 
 extern volatile int pen_release;
 

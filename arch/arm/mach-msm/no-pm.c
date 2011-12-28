@@ -13,9 +13,9 @@
 
 #include <linux/module.h>
 
-#include "cpuidle.h"
+#include <mach/cpuidle.h>
 #include "idle.h"
-#include "pm.h"
+#include <mach/pm.h>
 
 void arch_idle(void)
 { }

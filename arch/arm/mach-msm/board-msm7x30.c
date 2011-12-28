@@ -78,7 +78,7 @@
 #include <linux/usb/android.h>
 #include <mach/usbdiag.h>
 #endif
-#include "pm.h"
+#include <mach/pm.h>
 #include "pm-boot.h"
 #include "spm.h"
 #include "acpuclock.h"

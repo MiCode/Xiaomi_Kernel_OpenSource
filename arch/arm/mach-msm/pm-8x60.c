@@ -41,9 +41,9 @@
 #include "acpuclock.h"
 #include "clock.h"
 #include "avs.h"
-#include "cpuidle.h"
+#include <mach/cpuidle.h>
 #include "idle.h"
-#include "pm.h"
+#include <mach/pm.h>
 #include "rpm_resources.h"
 #include "scm-boot.h"
 #include "spm.h"

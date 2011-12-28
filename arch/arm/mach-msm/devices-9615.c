@@ -33,7 +33,7 @@
 #include "devices.h"
 #include "mpm.h"
 #include "spm.h"
-#include "pm.h"
+#include <mach/pm.h>
 #include "rpm_resources.h"
 #include "msm_watchdog.h"
 
