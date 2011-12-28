@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -31,6 +31,7 @@
 #include <linux/ctype.h>
 #include <linux/remote_spinlock.h>
 #include <linux/uaccess.h>
+#include <linux/kfifo.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -61,6 +62,7 @@
 #define MODULE_NAME "msm_smd"
 #define SMEM_VERSION 0x000B
 #define SMD_VERSION 0x00020000
+#define SMSM_SNAPSHOT_CNT 64
 
 uint32_t SMSM_NUM_ENTRIES = 8;
 uint32_t SMSM_NUM_HOSTS = 3;
@@ -79,6 +81,7 @@ struct smsm_shared_info {
 };
 
 static struct smsm_shared_info smsm_info;
+struct kfifo smsm_snapshot_fifo;
 
 struct smsm_size_info_type {
 	uint32_t num_hosts;
@@ -239,6 +242,7 @@ static remote_spinlock_t remote_spinlock;
 static LIST_HEAD(smd_ch_list_loopback);
 static irqreturn_t smsm_irq_handler(int irq, void *data);
 static void smd_fake_irq_handler(unsigned long arg);
+static void smsm_cb_snapshot(void);
 
 static void notify_smsm_cb_clients_worker(struct work_struct *work);
 static DECLARE_WORK(smsm_cb_work, notify_smsm_cb_clients_worker);
@@ -308,7 +312,7 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 		MSM_TRIG_A2DSPS_SMSM_INT;
 	}
 
-	schedule_work(&smsm_cb_work);
+	smsm_cb_snapshot();
 }
 
 static inline void notify_modem_smd(void)
@@ -1955,6 +1959,14 @@ static int smsm_init(void)
 		SMSM_NUM_HOSTS = smsm_size_info->num_hosts;
 	}
 
+	i = kfifo_alloc(&smsm_snapshot_fifo,
+			sizeof(uint32_t) * SMSM_NUM_ENTRIES * SMSM_SNAPSHOT_CNT,
+			GFP_KERNEL);
+	if (i) {
+		pr_err("%s: SMSM state fifo alloc failed %d\n", __func__, i);
+		return i;
+	}
+
 	if (!smsm_info.state) {
 		smsm_info.state = smem_alloc2(ID_SHARED_STATE,
 					      SMSM_NUM_ENTRIES *
@@ -2024,6 +2036,31 @@ void smsm_reset_modem_cont(void)
 }
 EXPORT_SYMBOL(smsm_reset_modem_cont);
 
+static void smsm_cb_snapshot(void)
+{
+	int n;
+	uint32_t new_state;
+	int ret;
+
+	ret = kfifo_avail(&smsm_snapshot_fifo);
+	if (ret < (SMSM_NUM_ENTRIES * 4)) {
+		pr_err("%s: SMSM snapshot full %d\n", __func__, ret);
+		return;
+	}
+
+	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
+		new_state = __raw_readl(SMSM_STATE_ADDR(n));
+
+		ret = kfifo_in(&smsm_snapshot_fifo,
+				&new_state, sizeof(new_state));
+		if (ret != sizeof(new_state)) {
+			pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
+			return;
+		}
+	}
+	schedule_work(&smsm_cb_work);
+}
+
 static irqreturn_t smsm_irq_handler(int irq, void *data)
 {
 	unsigned long flags;
@@ -2039,7 +2076,9 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 				prev_smem_q6_apps_smsm = mux_val;
 		}
 
-		schedule_work(&smsm_cb_work);
+		spin_lock_irqsave(&smem_lock, flags);
+		smsm_cb_snapshot();
+		spin_unlock_irqrestore(&smem_lock, flags);
 		return IRQ_HANDLED;
 	}
 
@@ -2097,7 +2136,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			notify_other_smsm(SMSM_APPS_STATE, (old_apps ^ apps));
 		}
 
-		schedule_work(&smsm_cb_work);
+		smsm_cb_snapshot();
 	}
 	spin_unlock_irqrestore(&smem_lock, flags);
 	return IRQ_HANDLED;
@@ -2212,35 +2251,41 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 	int n;
 	uint32_t new_state;
 	uint32_t state_changes;
+	int ret;
+	int snapshot_size = SMSM_NUM_ENTRIES * sizeof(uint32_t);
 
-	mutex_lock(&smsm_lock);
-
-	if (!smsm_states) {
-		/* smsm not yet initialized */
-		mutex_unlock(&smsm_lock);
+	if (!smd_initialized)
 		return;
-	}
 
-	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
-		state_info = &smsm_states[n];
-		new_state = __raw_readl(SMSM_STATE_ADDR(n));
+	while (kfifo_len(&smsm_snapshot_fifo) >= snapshot_size) {
+		mutex_lock(&smsm_lock);
+		for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
+			state_info = &smsm_states[n];
 
-		if (new_state != state_info->last_value) {
-			state_changes = state_info->last_value ^ new_state;
-
-			list_for_each_entry(cb_info,
-				&state_info->callbacks, cb_list) {
-
-				if (cb_info->mask & state_changes)
-					cb_info->notify(cb_info->data,
-						state_info->last_value,
-						new_state);
+			ret = kfifo_out(&smsm_snapshot_fifo, &new_state,
+					sizeof(new_state));
+			if (ret != sizeof(new_state)) {
+				pr_err("%s: snapshot underflow %d\n",
+					__func__, ret);
+				mutex_unlock(&smsm_lock);
+				return;
 			}
-			state_info->last_value = new_state;
-		}
-	}
 
-	mutex_unlock(&smsm_lock);
+			state_changes = state_info->last_value ^ new_state;
+			if (state_changes) {
+				list_for_each_entry(cb_info,
+					&state_info->callbacks, cb_list) {
+
+					if (cb_info->mask & state_changes)
+						cb_info->notify(cb_info->data,
+							state_info->last_value,
+							new_state);
+				}
+				state_info->last_value = new_state;
+			}
+		}
+		mutex_unlock(&smsm_lock);
+	}
 }
 
 
