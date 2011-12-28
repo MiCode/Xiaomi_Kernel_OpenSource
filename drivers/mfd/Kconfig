@@ -158,7 +158,6 @@ config PMIC8058
 	depends on MSM_SSBI
 	select MFD_CORE
 	select MFD_PM8XXX
-	select MSM_SHOW_RESUME_IRQ
 	help
 	  Say yes here for Qualcomm PM8058 chip.
 
