@@ -38,4 +38,5 @@ msm_rpm_regulator_9615_pdata __devinitdata;
 extern struct gpio_regulator_platform_data msm_gpio_regulator_pdata[];
 
 int msm9615_init_gpiomux(void);
+void msm9615_init_mmc(void);
 #endif
