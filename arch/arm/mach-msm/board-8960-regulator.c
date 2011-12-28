@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/regulator/pm8921-regulator.h>
+#include <linux/regulator/pm8xxx-regulator.h>
 #include <linux/regulator/gpio-regulator.h>
 #include <mach/rpm-regulator.h>
 
@@ -240,9 +240,9 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 
-#define PM8921_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
-			 _pull_down, _always_on, _supply_regulator, \
-			 _system_uA, _enable_time) \
+#define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
+			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
+			 _system_uA, _enable_time, _reg_id) \
 	{ \
 		.init_data = { \
 			.constraints = { \
@@ -253,81 +253,86 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 				.input_uV		= _max_uV, \
 				.apply_uV		= _apply_uV, \
 				.always_on		= _always_on, \
+				.name			= _name, \
 			}, \
 			.num_consumer_supplies	= \
 					ARRAY_SIZE(vreg_consumers_##_id), \
 			.consumer_supplies	= vreg_consumers_##_id, \
 			.supply_regulator	= _supply_regulator, \
 		}, \
-		.id			= PM8921_VREG_ID_##_id, \
+		.id			= _reg_id, \
 		.pull_down_enable	= _pull_down, \
 		.system_uA		= _system_uA, \
 		.enable_time		= _enable_time, \
 	}
 
-#define PM8921_VREG_INIT_LDO(_id, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA) \
-	PM8921_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_LDO(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
+		_enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8921_VREG_INIT_NLDO1200(_id, _always_on, _pull_down, _min_uV, \
-		_max_uV, _enable_time, _supply_regulator, _system_uA) \
-	PM8921_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_NLDO1200(_id, _name, _always_on, _pull_down, _min_uV, \
+		_max_uV, _enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8921_VREG_INIT_SMPS(_id, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA) \
-	PM8921_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_SMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
+		_enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8921_VREG_INIT_FTSMPS(_id, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA) \
-	PM8921_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL, \
+#define PM8XXX_FTSMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
+		_enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL, \
 		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS \
 		| REGULATOR_CHANGE_MODE, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8921_VREG_INIT_VS(_id, _always_on, _pull_down, _enable_time, \
-		_supply_regulator) \
-	PM8921_VREG_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, _pull_down, \
-		_always_on, _supply_regulator, 0, _enable_time)
+#define PM8XXX_VS(_id, _name, _always_on, _pull_down, _enable_time, \
+		_supply_regulator, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
+		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
+		_reg_id)
 
-#define PM8921_VREG_INIT_VS300(_id, _always_on, _pull_down, _enable_time, \
-		_supply_regulator) \
-	PM8921_VREG_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, _pull_down, \
-		_always_on, _supply_regulator, 0, _enable_time)
+#define PM8XXX_VS300(_id, _name, _always_on, _pull_down, _enable_time, \
+		_supply_regulator, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
+		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
+		_reg_id)
 
-#define PM8921_VREG_INIT_NCP(_id, _always_on, _min_uV, _max_uV, _enable_time, \
-		_supply_regulator) \
-	PM8921_VREG_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE | \
-		REGULATOR_CHANGE_STATUS, 0, 0, _always_on, _supply_regulator, \
-		0, _enable_time)
+#define PM8XXX_NCP(_id, _name, _always_on, _min_uV, _max_uV, _enable_time, \
+		_supply_regulator, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, 0, \
+		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS, 0, 0, \
+		_always_on, _supply_regulator, 0, _enable_time, _reg_id)
 
 /* Pin control initialization */
-#define PM8921_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
+#define PM8XXX_PC(_id, _name, _always_on, _pin_fn, _pin_ctrl, \
+		  _supply_regulator, _reg_id) \
 	{ \
 		.init_data = { \
 			.constraints = { \
 				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
 				.always_on	= _always_on, \
+				.name		= _name, \
 			}, \
 			.num_consumer_supplies	= \
 					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
 			.consumer_supplies	= vreg_consumers_##_id##_PC, \
 			.supply_regulator  = _supply_regulator, \
 		}, \
-		.id	  = PM8921_VREG_ID_##_id##_PC, \
-		.pin_fn	  = PM8921_VREG_PIN_FN_##_pin_fn, \
-		.pin_ctrl = _pin_ctrl, \
+		.id		= _reg_id, \
+		.pin_fn		= PM8XXX_VREG_PIN_FN_##_pin_fn, \
+		.pin_ctrl	= _pin_ctrl, \
 	}
 
 #define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator) \
@@ -468,24 +473,24 @@ struct regulator_init_data msm_saw_regulator_pdata_s6 =
 	SAW_VREG_INIT(S6, "8921_s6",	       850000, 1300000);
 
 /* PM8921 regulator constraints */
-struct pm8921_regulator_platform_data
+struct pm8xxx_regulator_platform_data
 msm_pm8921_regulator_pdata[] __devinitdata = {
 	/*
-	 *			  ID a_on pd min_uV   max_uV   en_t  supply
-	 *	system_uA
+	 *		ID   name always_on pd min_uV   max_uV   en_t supply
+	 *	system_uA reg_ID
 	 */
-	PM8921_VREG_INIT_NLDO1200(L26, 0, 1, 1050000, 1050000, 200, "8921_s7",
-		0),
-	PM8921_VREG_INIT_NLDO1200(L27, 0, 1, 1050000, 1050000, 200, "8921_s7",
-		0),
-	PM8921_VREG_INIT_NLDO1200(L28, 0, 1, 1050000, 1050000, 200, "8921_s7",
-		0),
-	PM8921_VREG_INIT_LDO(L29,      0, 1, 2050000, 2100000, 200, "8921_s8",
-		0),
+	PM8XXX_NLDO1200(L26, "8921_l26", 0, 1, 1050000, 1050000, 200, "8921_s7",
+		0, 1),
+	PM8XXX_NLDO1200(L27, "8921_l27", 0, 1, 1050000, 1050000, 200, "8921_s7",
+		0, 2),
+	PM8XXX_NLDO1200(L28, "8921_l28", 0, 1, 1050000, 1050000, 200, "8921_s7",
+		0, 3),
+	PM8XXX_LDO(L29,      "8921_l29", 0, 1, 2050000, 2100000, 200, "8921_s8",
+		0, 4),
 
-	/*			ID       always_on pd enable_time supply */
-	PM8921_VREG_INIT_VS300(USB_OTG,  0,	   1, 0,	  "ext_5v"),
-	PM8921_VREG_INIT_VS300(HDMI_MVS, 0,	   1, 0,	  "ext_5v"),
+	/*	     ID        name      always_on pd en_t supply    reg_ID */
+	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 1, 0,   "ext_5v", 5),
+	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1, 0,   "ext_5v", 6),
 };
 
 static struct rpm_regulator_init_data
