@@ -33,6 +33,20 @@ enum pm8921_chg_hot_thr	{
 	PM_SMBC_BATT_TEMP_HOT_THR__HIGH
 };
 
+enum pm8921_usb_ov_threshold {
+	PM_USB_OV_5P5V,
+	PM_USB_OV_6V,
+	PM_USB_OV_6P5V,
+	PM_USB_OV_7V,
+};
+
+enum pm8921_usb_debounce_time {
+	PM_USB_BYPASS_DEBOUNCER,
+	PM_USB_DEBOUNCE_20P5MS,
+	PM_USB_DEBOUNCE_40P5MS,
+	PM_USB_DEBOUNCE_80P5MS,
+};
+
 /**
  * struct pm8921_charger_platform_data -
  * @safety_time:	max charging time in minutes incl. fast and trkl
@@ -247,6 +261,31 @@ int register_external_dc_charger(struct ext_chg_pm8921 *ext);
  */
 void unregister_external_dc_charger(struct ext_chg_pm8921 *ext);
 
+/**
+ * pm8921_usb_ovp_set_threshold -
+ * Set the usb threshold as defined in by
+ * enum usb_ov_threshold
+ */
+int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov);
+
+/**
+ * pm8921_usb_ovp_set_hystersis -
+ * @ms: the debounce time enum
+ *
+ * Sets the debounce time for usb insertion/removal detection
+ *
+ */
+int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms);
+
+/**
+ * pm8921_usb_ovp_disable -
+ *
+ * when disabled there is no over voltage protection. The usb voltage is
+ * fed to the pmic as is. This should be disabled only when there is
+ * over voltage protection circuitry present outside the pmic chip.
+ *
+ */
+int pm8921_usb_ovp_disable(int disable);
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -307,6 +346,18 @@ static inline int register_external_dc_charger(struct ext_chg_pm8921 *ext)
 static inline void unregister_external_dc_charger(struct ext_chg_pm8921 *ext)
 {
 	pr_err("%s.not implemented.\n", __func__);
+}
+static inline int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
+{
+	return -ENXIO;
+}
+static inline int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms)
+{
+	return -ENXIO;
+}
+static inline int pm8921_usb_ovp_disable(int disable)
+{
+	return -ENXIO;
 }
 #endif
 
