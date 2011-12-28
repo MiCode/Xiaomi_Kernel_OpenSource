@@ -83,6 +83,8 @@ int chk_config_get_id(void)
 		return AO8960_TOOLS_ID;
 	case APQ8064_MACHINE_ID:
 		return APQ8064_TOOLS_ID;
+	case MSM8930_MACHINE_ID:
+		return MSM8930_TOOLS_ID;
 	default:
 		return 0;
 	}
@@ -97,6 +99,12 @@ int chk_apps_only(void)
 	switch (socinfo_get_id()) {
 	case AO8960_MACHINE_ID:
 	case APQ8064_MACHINE_ID:
+	case MSM8930_MACHINE_ID:
+	case MSM8630_MACHINE_ID:
+	case MSM8230_MACHINE_ID:
+	case APQ8030_MACHINE_ID:
+	case MSM8627_MACHINE_ID:
+	case MSM8227_MACHINE_ID:
 		return 1;
 	default:
 		return 0;
