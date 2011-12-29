@@ -184,6 +184,8 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	 * and resets should be asserted before power is restored.
 	 */
 	for (clock = fs->clk_data; clock->clk; clock++)
+		; /* Do nothing */
+	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
 	udelay(RESET_DELAY_US);
@@ -260,6 +262,8 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	 * outputs settle prior to clamping.
 	 */
 	for (clock = fs->clk_data; clock->clk; clock++)
+		; /* Do nothing */
+	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
 	udelay(RESET_DELAY_US);
@@ -331,6 +335,8 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	 * and resets should be asserted before power is restored.
 	 */
 	for (clock = fs->clk_data; clock->clk; clock++)
+		; /* Do nothing */
+	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
 	udelay(RESET_DELAY_US);
@@ -397,6 +403,8 @@ static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
 	 * outputs settle prior to clamping.
 	 */
 	for (clock = fs->clk_data; clock->clk; clock++)
+		; /* Do nothing */
+	for (clock--; clock >= fs->clk_data; clock--)
 		clk_reset(clock->clk, CLK_RESET_ASSERT);
 	/* Wait for synchronous resets to propagate. */
 	udelay(5);
