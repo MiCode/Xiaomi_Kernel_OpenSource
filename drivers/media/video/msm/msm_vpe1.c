@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -709,15 +709,15 @@ static int vpe_update_scaler_with_dis(struct video_crop_t *pcrop,
 	return 1;
 }
 
-void msm_send_frame_to_vpe(uint32_t pyaddr, uint32_t pcbcraddr,
+void msm_send_frame_to_vpe(uint32_t p0_phy_add, uint32_t p1_phy_add,
 		struct timespec *ts, int output_type)
 {
 	uint32_t temp_pyaddr = 0, temp_pcbcraddr = 0;
 
-	CDBG("vpe input, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
-		pyaddr, pcbcraddr);
-	msm_io_w(pyaddr, vpe_device->vpebase + VPE_SRCP0_ADDR_OFFSET);
-	msm_io_w(pcbcraddr, vpe_device->vpebase + VPE_SRCP1_ADDR_OFFSET);
+	CDBG("vpe input, p0_phy_add = 0x%x, p1_phy_add = 0x%x\n",
+		p0_phy_add, p1_phy_add);
+	msm_io_w(p0_phy_add, vpe_device->vpebase + VPE_SRCP0_ADDR_OFFSET);
+	msm_io_w(p1_phy_add, vpe_device->vpebase + VPE_SRCP1_ADDR_OFFSET);
 
 	if (vpe_ctrl->state == VPE_STATE_ACTIVE)
 		CDBG(" =====VPE is busy!!!  Wrong!========\n");
@@ -881,7 +881,7 @@ static int vpe_proc_general(struct msm_vpe_cmd *cmd)
 		vpe_update_scaler_with_dis(&(vpe_buf->vpe_crop),
 					&(vpe_ctrl->dis_offset));
 
-		msm_send_frame_to_vpe(vpe_buf->y_phy, vpe_buf->cbcr_phy,
+		msm_send_frame_to_vpe(vpe_buf->p0_phy, vpe_buf->p1_phy,
 						&(vpe_buf->ts), OUTPUT_TYPE_V);
 
 		if (!qcmd || !atomic_read(&qcmd->on_heap)) {
@@ -919,10 +919,10 @@ static void vpe_addr_convert(struct msm_vpe_phy_info *pinfo,
 
 	CDBG("In vpe_addr_convert output_id = %d\n", pinfo->output_id);
 
-	pinfo->y_phy =
-		((struct vpe_message *)data)->_u.msgOut.yBuffer;
-	pinfo->cbcr_phy =
-		((struct vpe_message *)data)->_u.msgOut.cbcrBuffer;
+	pinfo->p0_phy =
+		((struct vpe_message *)data)->_u.msgOut.p0_Buffer;
+	pinfo->p1_phy =
+		((struct vpe_message *)data)->_u.msgOut.p1_Buffer;
 	*ext  = vpe_ctrl->extdata;
 	*elen = vpe_ctrl->extlen;
 }
@@ -987,10 +987,10 @@ int vpe_config_axi(struct axidata *ad)
 
 	regp1 = &(ad->region[0]);
 	/* for video  Y address */
-	p1 = (regp1->paddr + regp1->info.y_off);
+	p1 = (regp1->paddr + regp1->info.planar0_off);
 	msm_io_w(p1, vpe_device->vpebase + VPE_OUTP0_ADDR_OFFSET);
 	/* for video  CbCr address */
-	p1 = (regp1->paddr + regp1->info.cbcr_off);
+	p1 = (regp1->paddr + regp1->info.planar1_off);
 	msm_io_w(p1, vpe_device->vpebase + VPE_OUTP1_ADDR_OFFSET);
 
 	return 0;
@@ -1048,8 +1048,8 @@ void msm_vpe_offset_update(int frame_pack, uint32_t pyaddr, uint32_t pcbcraddr,
 	vpe_ctrl->frame_pack = frame_pack;
 	vpe_ctrl->output_type = output_id;
 
-	input_stride = (st_half.buf_cbcr_stride * (1<<16)) +
-		st_half.buf_y_stride;
+	input_stride = (st_half.buf_p1_stride * (1<<16)) +
+		st_half.buf_p0_stride;
 
 	msm_io_w(input_stride, vpe_device->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
 
@@ -1059,15 +1059,16 @@ void msm_vpe_offset_update(int frame_pack, uint32_t pyaddr, uint32_t pcbcraddr,
 	msm_send_frame_to_vpe(pyaddr, pcbcraddr, ts, output_id);
 }
 
-static void vpe_send_outmsg(uint8_t msgid, uint32_t pyaddr,
-	uint32_t pcbcraddr)
+static void vpe_send_outmsg(uint8_t msgid, uint32_t p0_addr,
+	uint32_t p1_addr, uint32_t p2_addr)
 {
 	struct vpe_message msg;
 	uint8_t outid;
 	msg._d = outid = msgid;
 	msg._u.msgOut.output_id   = msgid;
-	msg._u.msgOut.yBuffer     = pyaddr;
-	msg._u.msgOut.cbcrBuffer  = pcbcraddr;
+	msg._u.msgOut.p0_Buffer = p0_addr;
+	msg._u.msgOut.p1_Buffer = p1_addr;
+	msg._u.msgOut.p2_Buffer = p2_addr;
 	vpe_proc_ops(outid, &msg, sizeof(struct vpe_message));
 	return;
 }
@@ -1203,10 +1204,11 @@ static void vpe_do_tasklet(unsigned long data)
 		if (vpe_ctrl->output_type == OUTPUT_TYPE_ST_R) {
 			CDBG("vpe send out R msg.\n");
 			vpe_send_outmsg(MSG_ID_VPE_OUTPUT_ST_R, pyaddr,
-				pcbcraddr);
+				pcbcraddr, pyaddr);
 		} else if (vpe_ctrl->output_type == OUTPUT_TYPE_V) {
 			CDBG("vpe send out V msg.\n");
-			vpe_send_outmsg(MSG_ID_VPE_OUTPUT_V, pyaddr, pcbcraddr);
+			vpe_send_outmsg(MSG_ID_VPE_OUTPUT_V, pyaddr,
+				pcbcraddr, pyaddr);
 		}
 
 		vpe_ctrl->output_type = 0;

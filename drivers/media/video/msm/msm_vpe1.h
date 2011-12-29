@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,8 +212,9 @@ struct vpe_msg_stats{
 
 struct vpe_msg_output {
 	uint8_t   output_id;
-	uint32_t  yBuffer;
-	uint32_t  cbcrBuffer;
+	uint32_t  p0_Buffer;
+	uint32_t  p1_Buffer;
+	uint32_t  p2_Buffer;
 	uint32_t  frameCounter;
 };
 

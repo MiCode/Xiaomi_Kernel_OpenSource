@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,11 +608,12 @@ static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
 	switch (type) {
 	case VFE_MSG_OUTPUT_P:
 	case VFE_MSG_OUTPUT_V:{
-		pinfo->y_phy =
+		pinfo->planar0_off =
 			((struct vfe_message *)data)->_u.msgOutput2.yBuffer;
-		pinfo->cbcr_phy =
+		pinfo->planar1_off =
 			((struct vfe_message *)data)->_u.msgOutput2.
 			cbcrBuffer;
+		pinfo->planar2_off = pinfo->planar0_off;
 		ctrl->extdata.bpcInfo =
 			((struct vfe_message *)data)->_u.msgOutput2.bpcInfo;
 		ctrl->extdata.asfInfo =
