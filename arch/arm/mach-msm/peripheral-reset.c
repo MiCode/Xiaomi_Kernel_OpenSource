@@ -81,7 +81,7 @@ static int shutdown_dsps_trusted(struct pil_desc *pil)
 
 static int shutdown_dsps_untrusted(struct pil_desc *pil)
 {
-	__raw_writel(0x2, PPSS_RESET);
+	__raw_writel(0x3, PPSS_RESET);
 	__raw_writel(0x0, PPSS_PROC_CLK_CTL);
 	return 0;
 }
