@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1416,93 +1416,49 @@ static int tavarua_set_region(struct tavarua_device *radio,
 	adie_type_bahma = is_bahama();
 
 	/* Set freq band */
-	switch (region) {
-	case TAVARUA_REGION_US:
-	case TAVARUA_REGION_EU:
+	if (region == TAVARUA_REGION_JAPAN)
+		SET_REG_FIELD(radio->registers[RDCTRL], 1,
+			RDCTRL_BAND_OFFSET, RDCTRL_BAND_MASK);
+	else
 		SET_REG_FIELD(radio->registers[RDCTRL], 0,
 			RDCTRL_BAND_OFFSET, RDCTRL_BAND_MASK);
-		break;
-	case TAVARUA_REGION_JAPAN_WIDE:
-	case TAVARUA_REGION_JAPAN:
-	default:
-		retval = sync_read_xfr(radio, RADIO_CONFIG, xfr_buf);
-		if (retval < 0) {
-			FMDERR("failed to get RADIO_CONFIG\n");
-			return retval;
-		}
-		band_low = (radio->region_params.band_low -
-					low_band_limit) / spacing;
-		band_high = (radio->region_params.band_high -
-					low_band_limit) / spacing;
-		FMDBG("low_band: %x, high_band: %x\n", band_low, band_high);
-		xfr_buf[0] = band_low >> 8;
-		xfr_buf[1] = band_low & 0xFF;
-		xfr_buf[2] = band_high >> 8;
-		xfr_buf[3] = band_high & 0xFF;
-		retval = sync_write_xfr(radio, RADIO_CONFIG, xfr_buf);
-		if (retval < 0) {
-			FMDERR("Could not set regional settings\n");
-			return retval;
-		}
-		break;
-	}
 
 	/* Set De-emphasis and soft band range*/
-	switch (region) {
-	case TAVARUA_REGION_US:
-	case TAVARUA_REGION_JAPAN:
-	case TAVARUA_REGION_JAPAN_WIDE:
-		value = EMP_75;
-		break;
-	case TAVARUA_REGION_EU:
-		value = EMP_50;
-		break;
-	default:
-		value = radio->region_params.emphasis;
-	}
-
-	SET_REG_FIELD(radio->registers[RDCTRL], value,
+	SET_REG_FIELD(radio->registers[RDCTRL], radio->region_params.emphasis,
 		RDCTRL_DEEMPHASIS_OFFSET, RDCTRL_DEEMPHASIS_MASK);
 
 	/* set RDS standard */
-	switch (region) {
-	default:
-		value = radio->region_params.rds_std;
-		break;
-	case TAVARUA_REGION_US:
-		value = RBDS_STD;
-		break;
-	case TAVARUA_REGION_EU:
-		value = RDS_STD;
-		break;
-	}
-	SET_REG_FIELD(radio->registers[RDSCTRL], value,
+	SET_REG_FIELD(radio->registers[RDSCTRL], radio->region_params.rds_std,
 		RDSCTRL_STANDARD_OFFSET, RDSCTRL_STANDARD_MASK);
 
 	FMDBG("RDSCTRLL %x\n", radio->registers[RDSCTRL]);
 	retval = tavarua_write_register(radio, RDSCTRL,
 					radio->registers[RDSCTRL]);
-	if (retval < 0)
+	if (retval < 0) {
+		FMDERR("Failed to set RDS/RBDS standard\n");
 		return retval;
+	}
 
+	/* Set the lower and upper band limits*/
+	retval = sync_read_xfr(radio, RADIO_CONFIG, xfr_buf);
+	if (retval < 0) {
+		FMDERR("failed to get RADIO_CONFIG\n");
+		return retval;
+	}
 
-	/* setting soft band */
-	switch (region) {
-	case TAVARUA_REGION_US:
-	case TAVARUA_REGION_EU:
-		radio->region_params.band_low = 87.5 * FREQ_MUL;
-		radio->region_params.band_high = 108 * FREQ_MUL;
-		break;
-	case TAVARUA_REGION_JAPAN:
-		radio->region_params.band_low = 76 * FREQ_MUL;
-		radio->region_params.band_high = 90 * FREQ_MUL;
-		break;
-	case TAVARUA_REGION_JAPAN_WIDE:
-		radio->region_params.band_low = 90 * FREQ_MUL;
-		radio->region_params.band_high = 108 * FREQ_MUL;
-		break;
-	default:
-		break;
+	band_low = (radio->region_params.band_low -
+				low_band_limit) / spacing;
+	band_high = (radio->region_params.band_high -
+				low_band_limit) / spacing;
+
+	xfr_buf[0] = RSH_DATA(band_low, 8);
+	xfr_buf[1] = GET_ABS_VAL(band_low);
+	xfr_buf[2] = RSH_DATA(band_high, 8);
+	xfr_buf[3] = GET_ABS_VAL(band_high);
+	retval = sync_write_xfr(radio, RADIO_CONFIG, xfr_buf);
+	if (retval < 0) {
+		FMDERR("Could not set regional settings\n");
+		return retval;
 	}
 	radio->region_params.region = region;
 
@@ -1555,8 +1511,7 @@ static int tavarua_set_region(struct tavarua_device *radio,
 		}
 
 		/* Set channel spacing */
-		switch (region) {
-		case TAVARUA_REGION_US:
+		if (region == TAVARUA_REGION_US) {
 			if (adie_type_bahma) {
 				FMDBG("Adie type : Bahama\n");
 				/*
@@ -1569,23 +1524,13 @@ static int tavarua_set_region(struct tavarua_device *radio,
 				FMDBG("Adie type : Marimba\n");
 				value = FM_CH_SPACE_200KHZ;
 			}
-			break;
-		case TAVARUA_REGION_JAPAN:
-			value = FM_CH_SPACE_100KHZ;
-			break;
-		case TAVARUA_REGION_EU:
-		case TAVARUA_REGION_JAPAN_WIDE:
-			value = FM_CH_SPACE_50KHZ;
-			break;
-		default:
+		} else {
 			/*
 			Set the channel spacing as configured from
 			the upper layers.
 			*/
 			value = radio->region_params.spacing;
-			break;
 		}
-
 		SET_REG_FIELD(radio->registers[RDCTRL], value,
 			RDCTRL_CHSPACE_OFFSET, RDCTRL_CHSPACE_MASK);
 
