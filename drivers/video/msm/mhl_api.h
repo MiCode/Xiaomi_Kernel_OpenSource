@@ -14,7 +14,7 @@
 #ifndef __MHL_API_H__
 #define __MHL_API_H__
 
-#ifdef CONFIG_MHL
+#ifdef CONFIG_FB_MSM_HDMI_MHL
 bool mhl_is_connected(void);
 #else
 static bool mhl_is_connected(void)
