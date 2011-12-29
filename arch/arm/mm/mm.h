@@ -68,6 +68,8 @@ extern u32 arm_dma_limit;
 #endif
 
 struct map_desc;
+extern phys_addr_t arm_lowmem_limit;
 
 void __init bootmem_init(void);
 void arm_mm_memblock_reserve(void);
+void dma_contiguous_remap(void);
