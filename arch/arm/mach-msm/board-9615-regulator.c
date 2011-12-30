@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/regulator/pm8018-regulator.h>
+#include <linux/regulator/pm8xxx-regulator.h>
 #include <linux/regulator/gpio-regulator.h>
 #include <mach/rpm-regulator.h>
 
@@ -91,9 +91,9 @@ VREG_CONSUMERS(EXT_2P95V) = {
 	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
 
-#define PM8018_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
-			 _pull_down, _always_on, _supply_regulator, \
-			 _system_uA, _enable_time) \
+#define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
+			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
+			 _system_uA, _enable_time, _reg_id) \
 	{ \
 		.init_data = { \
 			.constraints = { \
@@ -104,63 +104,67 @@ VREG_CONSUMERS(EXT_2P95V) = {
 				.input_uV		= _max_uV, \
 				.apply_uV		= _apply_uV, \
 				.always_on		= _always_on, \
+				.name			= _name, \
 			}, \
 			.num_consumer_supplies	= \
 					ARRAY_SIZE(vreg_consumers_##_id), \
 			.consumer_supplies	= vreg_consumers_##_id, \
 			.supply_regulator	= _supply_regulator, \
 		}, \
-		.id			= PM8018_VREG_ID_##_id, \
+		.id			= _reg_id, \
 		.pull_down_enable	= _pull_down, \
 		.system_uA		= _system_uA, \
 		.enable_time		= _enable_time, \
 	}
 
-#define PM8018_VREG_INIT_LDO(_id, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA) \
-	PM8018_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_LDO(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
+		_enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8018_VREG_INIT_NLDO1200(_id, _always_on, _pull_down, _min_uV, \
-		_max_uV, _enable_time, _supply_regulator, _system_uA) \
-	PM8018_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_NLDO1200(_id, _name, _always_on, _pull_down, _min_uV, \
+		_max_uV, _enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8018_VREG_INIT_SMPS(_id, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA) \
-	PM8018_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+#define PM8XXX_SMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
+		_enable_time, _supply_regulator, _system_uA, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time)
+		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
-#define PM8018_VREG_INIT_VS(_id, _always_on, _pull_down, _enable_time, \
-		_supply_regulator) \
-	PM8018_VREG_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, _pull_down, \
-		_always_on, _supply_regulator, 0, _enable_time)
+#define PM8XXX_VS(_id, _name, _always_on, _pull_down, _enable_time, \
+		_supply_regulator, _reg_id) \
+	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
+		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
+		_reg_id)
 
 /* Pin control initialization */
-#define PM8018_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
+#define PM8XXX_PC(_id, _name, _always_on, _pin_fn, _pin_ctrl, \
+		  _supply_regulator, _reg_id) \
 	{ \
 		.init_data = { \
 			.constraints = { \
 				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
 				.always_on	= _always_on, \
+				.name		= _name, \
 			}, \
 			.num_consumer_supplies	= \
 					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
 			.consumer_supplies	= vreg_consumers_##_id##_PC, \
 			.supply_regulator  = _supply_regulator, \
 		}, \
-		.id	  = PM8018_VREG_ID_##_id##_PC, \
-		.pin_fn	  = PM8018_VREG_PIN_FN_##_pin_fn, \
-		.pin_ctrl = _pin_ctrl, \
+		.id		= _reg_id, \
+		.pin_fn		= PM8XXX_VREG_PIN_FN_##_pin_fn, \
+		.pin_ctrl	= _pin_ctrl, \
 	}
 
 #define RPM_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, _default_uV, \
@@ -266,7 +270,7 @@ struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] = {
 };
 
 /* PM8018 regulator constraints */
-struct pm8018_regulator_platform_data
+struct pm8xxx_regulator_platform_data
 msm_pm8018_regulator_pdata[] __devinitdata = {
 };
 

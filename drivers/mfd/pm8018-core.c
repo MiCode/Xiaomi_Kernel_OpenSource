@@ -16,11 +16,13 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/err.h>
 #include <linux/msm_ssbi.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/pm8xxx/pm8018.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/mfd/pm8xxx/regulator.h>
 #include <linux/leds-pm8xxx.h>
 
 
@@ -53,10 +55,11 @@
 }
 
 struct pm8018 {
-	struct device			*dev;
-	struct pm_irq_chip		*irq_chip;
-	struct mfd_cell			*mfd_regulators;
-	u32				rev_registers;
+	struct device					*dev;
+	struct pm_irq_chip				*irq_chip;
+	struct mfd_cell					*mfd_regulators;
+	struct pm8xxx_regulator_core_platform_data	*regulator_cdata;
+	u32						rev_registers;
 };
 
 static int pm8018_readb(const struct device *dev, u16 addr, u8 *val)
@@ -227,14 +230,136 @@ static struct mfd_cell leds_cell __devinitdata = {
 	.id		= -1,
 };
 
+static struct pm8xxx_vreg regulator_data[] = {
+	/*   name	     pc_name	    ctrl   test   hpm_min */
+	PLDO("8018_l2",      "8018_l2_pc",  0x0B0, 0x0B1, LDO_50),
+	PLDO("8018_l3",      "8018_l3_pc",  0x0B2, 0x0B3, LDO_50),
+	PLDO("8018_l4",      "8018_l4_pc",  0x0B4, 0x0B5, LDO_300),
+	PLDO("8018_l5",      "8018_l5_pc",  0x0B6, 0x0B7, LDO_150),
+	PLDO("8018_l6",      "8018_l6_pc",  0x0B8, 0x0B9, LDO_150),
+	PLDO("8018_l7",      "8018_l7_pc",  0x0BA, 0x0BB, LDO_300),
+	NLDO("8018_l8",      "8018_l8_pc",  0x0BC, 0x0BD, LDO_150),
+	NLDO1200("8018_l9",		    0x0BE, 0x0BF, LDO_1200),
+	NLDO1200("8018_l10",		    0x0C0, 0x0C1, LDO_1200),
+	NLDO1200("8018_l11",		    0x0C2, 0x0C3, LDO_1200),
+	NLDO1200("8018_l12",		    0x0C4, 0x0C5, LDO_1200),
+	PLDO("8018_l13",     "8018_l13_pc", 0x0C8, 0x0C9, LDO_50),
+	PLDO("8018_l14",     "8018_l14_pc", 0x0CA, 0x0CB, LDO_50),
+
+	/*   name	pc_name       ctrl   test2  clk    sleep  hpm_min */
+	SMPS("8018_s1", "8018_s1_pc", 0x1D0, 0x1D5, 0x009, 0x1D2, SMPS_1500),
+	SMPS("8018_s2", "8018_s2_pc", 0x1D8, 0x1DD, 0x00A, 0x1DA, SMPS_1500),
+	SMPS("8018_s3", "8018_s3_pc", 0x1E0, 0x1E5, 0x00B, 0x1E2, SMPS_1500),
+	SMPS("8018_s4", "8018_s4_pc", 0x1E8, 0x1ED, 0x00C, 0x1EA, SMPS_1500),
+	SMPS("8018_s5", "8018_s5_pc", 0x1F0, 0x1F5, 0x00D, 0x1F2, SMPS_1500),
+
+	/* name		     pc_name	     ctrl */
+	VS("8018_lvs1",      "8018_lvs1_pc", 0x060),
+};
+
+#define MAX_NAME_COMPARISON_LEN 32
+
+static int __devinit match_regulator(
+	struct pm8xxx_regulator_core_platform_data *core_data, char *name)
+{
+	int found = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++) {
+		if (regulator_data[i].rdesc.name
+		    && strncmp(regulator_data[i].rdesc.name, name,
+				MAX_NAME_COMPARISON_LEN) == 0) {
+			core_data->is_pin_controlled = false;
+			core_data->vreg = &regulator_data[i];
+			found = 1;
+			break;
+		} else if (regulator_data[i].rdesc_pc.name
+			   && strncmp(regulator_data[i].rdesc_pc.name, name,
+				MAX_NAME_COMPARISON_LEN) == 0) {
+			core_data->is_pin_controlled = true;
+			core_data->vreg = &regulator_data[i];
+			found = 1;
+			break;
+		}
+	}
+
+	if (!found)
+		pr_err("could not find a match for regulator: %s\n", name);
+
+	return found;
+}
+
+static int __devinit
+pm8018_add_regulators(const struct pm8018_platform_data *pdata,
+		      struct pm8018 *pmic, int irq_base)
+{
+	int ret = 0;
+	struct mfd_cell *mfd_regulators;
+	struct pm8xxx_regulator_core_platform_data *cdata;
+	int i;
+
+	/* Add one device for each regulator used by the board. */
+	mfd_regulators = kzalloc(sizeof(struct mfd_cell)
+				 * (pdata->num_regulators), GFP_KERNEL);
+	if (!mfd_regulators) {
+		pr_err("Cannot allocate %d bytes for pm8018 regulator "
+			"mfd cells\n", sizeof(struct mfd_cell)
+					* (pdata->num_regulators));
+		return -ENOMEM;
+	}
+	cdata = kzalloc(sizeof(struct pm8xxx_regulator_core_platform_data)
+			* pdata->num_regulators, GFP_KERNEL);
+	if (!cdata) {
+		pr_err("Cannot allocate %d bytes for pm8018 regulator "
+			"core data\n", pdata->num_regulators
+			  * sizeof(struct pm8xxx_regulator_core_platform_data));
+		kfree(mfd_regulators);
+		return -ENOMEM;
+	}
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+		mutex_init(&regulator_data[i].pc_lock);
+
+	for (i = 0; i < pdata->num_regulators; i++) {
+		if (!pdata->regulator_pdatas[i].init_data.constraints.name) {
+			pr_err("name missing for regulator %d\n", i);
+			ret = -EINVAL;
+			goto bail;
+		}
+		if (!match_regulator(&cdata[i],
+		      pdata->regulator_pdatas[i].init_data.constraints.name)) {
+			ret = -ENODEV;
+			goto bail;
+		}
+		cdata[i].pdata = &(pdata->regulator_pdatas[i]);
+		mfd_regulators[i].name = PM8XXX_REGULATOR_DEV_NAME;
+		mfd_regulators[i].id = cdata[i].pdata->id;
+		mfd_regulators[i].platform_data = &cdata[i];
+		mfd_regulators[i].pdata_size =
+			sizeof(struct pm8xxx_regulator_core_platform_data);
+	}
+	ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
+			pdata->num_regulators, NULL, irq_base);
+	if (ret)
+		goto bail;
+
+	pmic->mfd_regulators = mfd_regulators;
+	pmic->regulator_cdata = cdata;
+	return ret;
+
+bail:
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+		mutex_destroy(&regulator_data[i].pc_lock);
+	kfree(mfd_regulators);
+	kfree(cdata);
+	return ret;
+}
+
 static int __devinit
 pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		      struct pm8018 *pmic)
 {
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
-	static struct mfd_cell *mfd_regulators;
-	int i;
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8018_NR_IRQS;
@@ -341,35 +466,15 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		goto bail;
 	}
 
-	/* Add one device for each regulator used by the board. */
 	if (pdata->num_regulators > 0 && pdata->regulator_pdatas) {
-		mfd_regulators = kzalloc(sizeof(struct mfd_cell)
-					 * (pdata->num_regulators), GFP_KERNEL);
-		if (!mfd_regulators) {
-			pr_err("Cannot allocate %d bytes for pm8018 regulator "
-				"mfd cells\n", sizeof(struct mfd_cell)
-						* (pdata->num_regulators));
-			ret = -ENOMEM;
-			goto bail;
-		}
-		for (i = 0; i < pdata->num_regulators; i++) {
-			mfd_regulators[i].name = PM8018_REGULATOR_DEV_NAME;
-			mfd_regulators[i].id = pdata->regulator_pdatas[i].id;
-			mfd_regulators[i].platform_data =
-				&(pdata->regulator_pdatas[i]);
-			mfd_regulators[i].pdata_size =
-				sizeof(struct pm8018_regulator_platform_data);
-		}
-		ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
-				pdata->num_regulators, NULL, irq_base);
+		ret = pm8018_add_regulators(pdata, pmic, irq_base);
 		if (ret) {
 			pr_err("Failed to add regulator subdevices ret=%d\n",
 				ret);
-			kfree(mfd_regulators);
 			goto bail;
 		}
-		pmic->mfd_regulators = mfd_regulators;
 	}
+
 
 	return 0;
 bail:
@@ -475,6 +580,8 @@ static int __devinit pm8018_probe(struct platform_device *pdev)
 err:
 	mfd_remove_devices(pmic->dev);
 	platform_set_drvdata(pdev, NULL);
+	kfree(pmic->mfd_regulators);
+	kfree(pmic->regulator_cdata);
 err_read_rev:
 	kfree(pmic);
 	return rc;
@@ -484,19 +591,27 @@ static int __devexit pm8018_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_drvdata *drvdata;
 	struct pm8018 *pmic = NULL;
+	int i;
 
 	drvdata = platform_get_drvdata(pdev);
 	if (drvdata)
 		pmic = drvdata->pm_chip_data;
-	if (pmic)
-		mfd_remove_devices(pmic->dev);
-	if (pmic->irq_chip) {
-		pm8xxx_irq_exit(pmic->irq_chip);
-		pmic->irq_chip = NULL;
+	if (pmic) {
+		if (pmic->dev)
+			mfd_remove_devices(pmic->dev);
+		if (pmic->irq_chip) {
+			pm8xxx_irq_exit(pmic->irq_chip);
+			pmic->irq_chip = NULL;
+		}
+		if (pmic->mfd_regulators) {
+			for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+				mutex_destroy(&regulator_data[i].pc_lock);
+		}
+		kfree(pmic->mfd_regulators);
+		kfree(pmic->regulator_cdata);
+		kfree(pmic);
 	}
 	platform_set_drvdata(pdev, NULL);
-	kfree(pmic->mfd_regulators);
-	kfree(pmic);
 
 	return 0;
 }

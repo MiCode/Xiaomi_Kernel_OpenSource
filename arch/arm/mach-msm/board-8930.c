@@ -1484,21 +1484,14 @@ static struct platform_device fish_battery_device = {
 };
 #endif
 
+#ifndef MSM8930_PHASE_2
+
+/* 8930 Phase 1 */
 static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
-/* TODO: Replace this with right MPP for 8038 */
-#ifndef MSM8930_PHASE_2
 	.id	= PM8921_MPP_PM_TO_SYS(7),
-#endif
 	.dev	= {
-	/*
-	 * TODO: When physical 8930/PM8038 hardware becomes
-	 * available, replace msm_gpio_regulator_pdata
-	 * with 8930 gpio regulator object.
-	 */
-#if     !defined(MSM8930_PHASE_2)
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
-#endif
 	},
 };
 
@@ -1506,16 +1499,32 @@ static struct platform_device msm8930_device_ext_l2_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 91,
 	.dev	= {
-	 /*
-	 * TODO: When physical 8930/PM8038 hardware becomes
-	 * available, replace msm_gpio_regulator_pdata
-	 * with 8930 gpio regulator object.
-	 */
-#if     !defined(MSM8930_PHASE_2)
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
-#endif
 	},
 };
+
+#else
+
+/* 8930 Phase 2 */
+static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 63,
+	.dev	= {
+		.platform_data =
+		     &msm8930_gpio_regulator_pdata[MSM8930_GPIO_VREG_ID_EXT_5V],
+	},
+};
+
+static struct platform_device msm8930_device_ext_otg_sw_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 97,
+	.dev	= {
+		.platform_data =
+		 &msm8930_gpio_regulator_pdata[MSM8930_GPIO_VREG_ID_EXT_OTG_SW],
+	},
+};
+
+#endif
 
 static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
@@ -1560,8 +1569,13 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8930_device_ext_5v_vreg,
+#ifndef MSM8930_PHASE_2
 	&msm8930_device_ext_l2_vreg,
+#endif
 	&msm8960_device_ssbi_pmic,
+#ifdef MSM8930_PHASE_2
+	&msm8930_device_ext_otg_sw_vreg,
+#endif
 	&msm_8960_q6_lpass,
 	&msm_8960_q6_mss_fw,
 	&msm_8960_q6_mss_sw,
