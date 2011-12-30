@@ -56,6 +56,7 @@ struct snd_compr_tstamp {
 	size_t decoded;
 	size_t rendered;
 	__u32 sampling_rate;
+	uint64_t timestamp;
 };
 
 /**
