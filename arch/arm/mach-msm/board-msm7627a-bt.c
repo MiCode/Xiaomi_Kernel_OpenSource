@@ -862,6 +862,11 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			pr_err("%s: bahama_bt rc = %d", __func__, rc);
 
+		rc = msm_bahama_setup_pcm_i2s(BT_PCM_OFF);
+		if (rc < 0) {
+			pr_err("%s: msm_bahama_setup_pcm_i2s, rc =%d\n",
+				__func__, rc);
+		}
 		rc = bt_set_gpio(on);
 		if (rc) {
 			pr_err("%s: bt_set_gpio = %d\n",
@@ -883,11 +888,6 @@ fail_clock:
 					__func__,
 					bt_config_power_off[pin], rc);
 			}
-		}
-		rc = msm_bahama_setup_pcm_i2s(BT_PCM_OFF);
-		if (rc < 0) {
-			pr_err("%s: msm_bahama_setup_pcm_i2s, rc =%d\n",
-				__func__, rc);
 		}
 fail_power:
 		rc = bluetooth_switch_regulators(0);
