@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/workqueue.h>
 
 #include <mach/msm_bus.h>
 #include <mach/msm_iomap.h>
@@ -68,9 +69,10 @@ struct q6v4_data {
 	void __iomem *modem_base;
 	unsigned long start_addr;
 	struct regulator *vreg;
+	struct regulator *pll_supply;
 	bool vreg_enabled;
 	struct msm_xo_voter *xo;
-	struct timer_list xo_timer;
+	struct delayed_work work;
 };
 
 static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -87,27 +89,32 @@ static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
 	return 0;
 }
 
-static void pil_q6v4_make_xo_proxy_votes(struct device *dev)
+static void pil_q6v4_make_proxy_votes(struct device *dev)
 {
 	struct q6v4_data *drv = dev_get_drvdata(dev);
+	int ret;
 
 	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_ON);
-	mod_timer(&drv->xo_timer, jiffies+msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+	if (drv->pll_supply) {
+		ret = regulator_enable(drv->pll_supply);
+		if (ret)
+			dev_err(dev, "failed to enable pll supply\n");
+	}
+	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
 }
 
-static void pil_q6v4_remove_xo_proxy_votes(unsigned long data)
+static void pil_q6v4_remove_proxy_votes(struct work_struct *work)
 {
-	struct q6v4_data *drv = (struct q6v4_data *)data;
-
+	struct q6v4_data *drv = container_of(work, struct q6v4_data, work.work);
+	if (drv->pll_supply)
+		regulator_disable(drv->pll_supply);
 	msm_xo_mode_vote(drv->xo, MSM_XO_MODE_OFF);
 }
 
-static void pil_q6v4_remove_xo_proxy_votes_now(struct device *dev)
+static void pil_q6v4_remove_proxy_votes_now(struct device *dev)
 {
 	struct q6v4_data *drv = dev_get_drvdata(dev);
-
-	if (del_timer(&drv->xo_timer))
-		pil_q6v4_remove_xo_proxy_votes((unsigned long)drv);
+	flush_delayed_work(&drv->work);
 }
 
 static int pil_q6v4_power_up(struct device *dev)
@@ -184,7 +191,7 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
 
-	pil_q6v4_make_xo_proxy_votes(pil->dev);
+	pil_q6v4_make_proxy_votes(pil->dev);
 
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
@@ -300,7 +307,7 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 		drv->vreg_enabled = false;
 	}
 
-	pil_q6v4_remove_xo_proxy_votes_now(pil->dev);
+	pil_q6v4_remove_proxy_votes_now(pil->dev);
 
 	return 0;
 }
@@ -324,7 +331,7 @@ static int pil_q6v4_reset_trusted(struct pil_desc *pil)
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
 	int err;
 
-	pil_q6v4_make_xo_proxy_votes(pil->dev);
+	pil_q6v4_make_proxy_votes(pil->dev);
 
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
@@ -355,7 +362,7 @@ static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 		drv->vreg_enabled = false;
 	}
 
-	pil_q6v4_remove_xo_proxy_votes_now(pil->dev);
+	pil_q6v4_remove_proxy_votes_now(pil->dev);
 
 	return ret;
 }
@@ -373,6 +380,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	struct q6v4_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
+	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -396,8 +404,25 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	}
 
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!drv)
+	if (!desc)
 		return -ENOMEM;
+
+	drv->pll_supply = regulator_get(&pdev->dev, "pll_vdd");
+	if (IS_ERR(drv->pll_supply)) {
+		drv->pll_supply = NULL;
+	} else {
+		ret = regulator_set_voltage(drv->pll_supply, 1800000, 1800000);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to set pll voltage\n");
+			goto err;
+		}
+
+		ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to set pll optimum mode\n");
+			goto err;
+		}
+	}
 
 	desc->name = pdata->name;
 	desc->depends_on = pdata->depends;
@@ -412,26 +437,39 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->vreg = regulator_get(&pdev->dev, "core_vdd");
-	if (IS_ERR(drv->vreg))
-		return PTR_ERR(drv->vreg);
-
-	setup_timer(&drv->xo_timer, pil_q6v4_remove_xo_proxy_votes,
-		    (unsigned long)drv);
-	drv->xo = msm_xo_get(pdata->xo_id, pdata->name);
-	if (IS_ERR(drv->xo))
-		return PTR_ERR(drv->xo);
-
-	if (msm_pil_register(desc)) {
-		regulator_put(drv->vreg);
-		return -EINVAL;
+	if (IS_ERR(drv->vreg)) {
+		ret = PTR_ERR(drv->vreg);
+		goto err;
 	}
+
+	drv->xo = msm_xo_get(pdata->xo_id, pdata->name);
+	if (IS_ERR(drv->xo)) {
+		ret = PTR_ERR(drv->xo);
+		goto err_xo;
+	}
+	INIT_DELAYED_WORK(&drv->work, pil_q6v4_remove_proxy_votes);
+
+	ret = msm_pil_register(desc);
+	if (ret)
+		goto err_pil;
 	return 0;
+err_pil:
+	cancel_delayed_work_sync(&drv->work);
+	msm_xo_put(drv->xo);
+err_xo:
+	regulator_put(drv->vreg);
+err:
+	regulator_put(drv->pll_supply);
+	return ret;
 }
 
 static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
+	cancel_delayed_work_sync(&drv->work);
+	msm_xo_put(drv->xo);
 	regulator_put(drv->vreg);
+	regulator_put(drv->pll_supply);
 	return 0;
 }
 

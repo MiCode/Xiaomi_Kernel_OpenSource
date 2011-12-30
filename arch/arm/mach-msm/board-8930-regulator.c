@@ -111,6 +111,8 @@ VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("hdmi_avdd",		"hdmi_msm.0"),
 	REGULATOR_SUPPLY("hdmi_vcc",		"hdmi_msm.0"),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
+	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.1"),
+	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.2"),
 };
 VREG_CONSUMERS(L24) = {
 	REGULATOR_SUPPLY("8038_l24",		NULL),
