@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -550,19 +550,11 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_42,
-	.mdp_writeback_memtype = MEMTYPE_EBI1,
-	.mdp_writeback_phys = NULL,
 };
 
 void __init msm8960_mdp_writeback(struct memtype_reserve* reserve_table)
 {
-	mdp_pdata.mdp_writeback_size_ov0 = MSM_FB_OVERLAY0_WRITEBACK_SIZE;
-	mdp_pdata.mdp_writeback_size_ov1 = MSM_FB_OVERLAY1_WRITEBACK_SIZE;
 
-	reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
-		mdp_pdata.mdp_writeback_size_ov0;
-	reserve_table[mdp_pdata.mdp_writeback_memtype].size +=
-		mdp_pdata.mdp_writeback_size_ov1;
 }
 
 static struct platform_device mipi_dsi_renesas_panel_device = {
