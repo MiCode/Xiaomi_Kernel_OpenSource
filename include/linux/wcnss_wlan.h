@@ -40,7 +40,8 @@ struct wcnss_wlan_config *wcnss_get_wlan_config(void);
 int wcnss_wlan_power(struct device *dev,
 				struct wcnss_wlan_config *cfg,
 				enum wcnss_opcode opcode);
-
+int req_riva_power_on_lock(char *driver_name);
+int free_riva_power_on_lock(char *driver_name);
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
 
