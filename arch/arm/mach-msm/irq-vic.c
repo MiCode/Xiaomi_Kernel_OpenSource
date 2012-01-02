@@ -24,6 +24,7 @@
 
 #include <asm/cacheflush.h>
 #include <asm/io.h>
+#include <asm/exception.h>
 
 #include <mach/hardware.h>
 
