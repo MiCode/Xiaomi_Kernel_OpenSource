@@ -1750,6 +1750,12 @@ static int __devexit mxt_remove(struct i2c_client *client)
 	else
 		mxt_regulator_configure(data, false);
 
+	if (gpio_is_valid(data->pdata->reset_gpio))
+		gpio_free(data->pdata->reset_gpio);
+
+	if (gpio_is_valid(data->pdata->irq_gpio))
+		gpio_free(data->pdata->irq_gpio);
+
 	kfree(data->object_table);
 	kfree(data);
 
