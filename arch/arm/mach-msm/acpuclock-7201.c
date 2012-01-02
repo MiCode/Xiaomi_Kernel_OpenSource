@@ -2,7 +2,7 @@
  * MSM architecture clock driver
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2012, Code Aurora Forum. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -270,14 +270,14 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
 };
 
 /* 7x25a pll2 at 1200mhz with GSM capable modem */
-static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_800_25a[] = {
+static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_25a[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
 	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 1,  61440 },
 	{ 1, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 2,  61440 },
 	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 3,  61440 },
 	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 4, 150000 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
-	{ 0, 400000, ACPU_PLL_4, 6, 1, 50000, 3, 4, 122880 },
+	{ 0, 400000, ACPU_PLL_2, 2, 2, 50000, 3, 4, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
@@ -344,14 +344,14 @@ static struct clkctl_acpu_speed pll0_960_pll1_589_pll2_1200_pll4_1008[] = {
 };
 
 /* 7x25a pll2 at 1200mhz with GSM capable modem */
-static struct clkctl_acpu_speed pll0_960_pll1_737_pll2_1200_pll4_800_25a[] = {
+static struct clkctl_acpu_speed pll0_960_pll1_737_pll2_1200_25a[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
 	{ 0, 61440, ACPU_PLL_1, 1, 11,  7680, 3, 1,  61440 },
 	{ 1, 122880, ACPU_PLL_1, 1, 5,  15360, 3, 2,  61440 },
 	{ 1, 245760, ACPU_PLL_1, 1, 2, 30720, 3, 3,  61440 },
 	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 4, 150000 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
-	{ 0, 400000, ACPU_PLL_4, 6, 1, 50000, 3, 4, 122880 },
+	{ 0, 400000, ACPU_PLL_2, 2, 2, 50000, 3, 4, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
@@ -848,10 +848,10 @@ static void __init acpu_freq_tbl_fixup(void)
 	if (cpu_is_msm7x25a()) {
 		if (pll1_l == PLL_245_MHZ) {
 			acpu_freq_tbl =
-				pll0_960_pll1_245_pll2_1200_pll4_800_25a;
+				pll0_960_pll1_245_pll2_1200_25a;
 		} else if (pll1_l == PLL_737_MHZ) {
 			acpu_freq_tbl =
-				pll0_960_pll1_737_pll2_1200_pll4_800_25a;
+				pll0_960_pll1_737_pll2_1200_25a;
 		}
 	} else {
 		/* Select the right table to use. */
