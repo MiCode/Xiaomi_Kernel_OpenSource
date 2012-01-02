@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -26,6 +26,9 @@
 #define MXT_ROTATED_180		0x6
 #define MXT_DIAGONAL_COUNTER	0x7
 
+/* MXT_TOUCH_KEYARRAY_T15 */
+#define MXT_KEYARRAY_MAX_KEYS	32
+
 /* The platform data for the Atmel maXTouch touchscreen driver */
 struct mxt_platform_data {
 	const u8 *config;
@@ -38,6 +41,7 @@ struct mxt_platform_data {
 	bool	digital_pwr_regulator;
 	int reset_gpio;
 	int irq_gpio;
+	int *key_codes;
 
 	u8(*read_chg) (void);
 	int (*init_hw) (bool);
