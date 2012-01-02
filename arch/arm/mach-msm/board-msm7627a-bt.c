@@ -100,6 +100,8 @@ static void gpio_bt_config(void)
 {
 	if (machine_is_msm7627a_qrd1())
 		gpio_bt_sys_rest_en = 114;
+	if (machine_is_msm7627a_evb())
+		gpio_bt_sys_rest_en = 16;
 }
 
 static int bt_set_gpio(int on)
@@ -932,9 +934,6 @@ void __init msm7627a_bt_power_init(void)
 {
 	int i, rc = 0;
 	struct device *dev;
-
-	if (machine_is_msm7627a_evb())
-		return;
 
 	gpio_bt_config();
 
