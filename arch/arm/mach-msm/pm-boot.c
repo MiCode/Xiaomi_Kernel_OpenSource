@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,8 +109,6 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 		msm_pm_boot_after_pc = NULL;
 		break;
 	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS:
-		if (!pdata->p_addr)
-			return -ENODEV;
 		pdata->v_addr = ioremap(pdata->p_addr, PAGE_SIZE);
 		/* Fall through */
 	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT:
