@@ -1832,15 +1832,13 @@ static int mxt_resume(struct device *dev)
 	if (error < 0)
 		goto err_write_block;
 
-	enable_irq(mxt->irq);
+	/* Make sure we just didn't miss a interrupt. */
+	if (mxt->read_chg() == 0)
+		schedule_delayed_work(&mxt->dwork, 0);
+	else
+		enable_irq(mxt->irq);
 
 	mxt->is_suspended = false;
-
-	/* Make sure we just didn't miss a interrupt. */
-	if (mxt->read_chg() == 0) {
-		disable_irq(mxt->irq);
-		schedule_delayed_work(&mxt->dwork, 0);
-	}
 
 	return 0;
 
