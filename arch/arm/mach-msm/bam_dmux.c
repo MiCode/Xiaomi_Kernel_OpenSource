@@ -416,17 +416,31 @@ static void bam_mux_write_done(struct work_struct *work)
 	struct sk_buff *skb;
 	struct bam_mux_hdr *hdr;
 	struct tx_pkt_info *info;
+	struct tx_pkt_info *info_expected;
 	unsigned long event_data;
-	struct list_head *node;
 	unsigned long flags;
 
 	if (in_global_reset)
 		return;
-	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
-	node = bam_tx_pool.next;
-	list_del(node);
-	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+
 	info = container_of(work, struct tx_pkt_info, work);
+
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
+	info_expected = list_first_entry(&bam_tx_pool,
+			struct tx_pkt_info, list_node);
+	if (unlikely(info != info_expected)) {
+		struct list_head *node;
+
+		pr_err("%s: bam_tx_pool mismatch .next=%p, list_node=%p\n",
+				__func__, bam_tx_pool.next, &info->list_node);
+		list_for_each(node, &bam_tx_pool)
+			pr_err("%s: node=%p\n", __func__, node);
+		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+		BUG();
+	}
+	list_del(&info->list_node);
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+
 	if (info->is_cmd) {
 		kfree(info->skb);
 		kfree(info);
