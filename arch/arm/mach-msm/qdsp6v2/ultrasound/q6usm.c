@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include "q6usm.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.0"
+#define DRV_VERSION "1.1"
 
 #define SESSION_MAX 0x02 /* aDSP:USM limit */
 
@@ -39,9 +39,6 @@
 
 /* Standard timeout in the asynchronous ops */
 #define Q6USM_TIMEOUT_JIFFIES	(3*HZ) /* 3 sec */
-
-/* cyclic buffer with 1 gap support */
-#define USM_MIN_BUF_CNT 3
 
 static DEFINE_MUTEX(session_lock);
 
@@ -236,8 +233,7 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 
 	if ((usc == NULL) ||
 	    ((dir != IN) && (dir != OUT)) || (size == 0) ||
-	    (usc->session <= 0 || usc->session > SESSION_MAX) ||
-	    (bufcnt < USM_MIN_BUF_CNT)) {
+	    (usc->session <= 0 || usc->session > SESSION_MAX)) {
 		pr_err("%s: wrong parameters: size=%d; bufcnt=%d\n",
 		       __func__, size, bufcnt);
 		return -EINVAL;
@@ -345,6 +341,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 			case USM_STREAM_CMD_OPEN_WRITE:
 			case USM_STREAM_CMD_SET_ENC_PARAM:
 			case USM_DATA_CMD_MEDIA_FORMAT_UPDATE:
+			case USM_SESSION_CMD_SIGNAL_DETECT_MODE:
 				if (atomic_read(&usc->cmd_state)) {
 					atomic_set(&usc->cmd_state, 0);
 					wake_up(&usc->cmd_wait);
@@ -448,6 +445,14 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 
 		break;
 	} /* case USM_DATA_EVENT_WRITE_DONE */
+
+	case USM_SESSION_EVENT_SIGNAL_DETECT_RESULT: {
+		pr_debug("%s: US detect result: result=%d",
+			 __func__,
+			 payload[0]);
+
+		break;
+	} /* case USM_SESSION_EVENT_SIGNAL_DETECT_RESULT */
 
 	default:
 		pr_debug("%s: not supported code [0x%x]",
@@ -1147,6 +1152,46 @@ fail_cmd:
 	return rc;
 }
 
+int q6usm_set_us_detection(struct us_client *usc,
+			   struct usm_session_cmd_detect_info *detect_info,
+			   uint16_t detect_info_size)
+{
+	int rc = 0;
+
+	if ((usc == NULL) ||
+	    (detect_info_size == 0) ||
+	    (detect_info == NULL)) {
+		pr_err("%s: wrong input: usc=0x%p, inf_size=%d; info=0x%p",
+		       __func__,
+		       usc,
+		       detect_info_size,
+		       detect_info);
+		return -EINVAL;
+	}
+
+	q6usm_add_hdr(usc, &detect_info->hdr,
+		      detect_info_size - APR_HDR_SIZE, true);
+
+	detect_info->hdr.opcode = USM_SESSION_CMD_SIGNAL_DETECT_MODE;
+
+	rc = apr_send_pkt(usc->apr, (uint32_t *)detect_info);
+	if (rc < 0) {
+		pr_err("%s:Comamnd signal detect failed\n", __func__);
+		return -EINVAL;
+	}
+	rc = wait_event_timeout(usc->cmd_wait,
+				(atomic_read(&usc->cmd_state) == 0),
+				Q6USM_TIMEOUT_JIFFIES);
+	if (!rc) {
+		rc = -ETIME;
+		pr_err("%s: CMD_SIGNAL_DETECT_MODE: timeout=%d\n",
+		       __func__, Q6USM_TIMEOUT_JIFFIES);
+	} else
+		rc = 0;
+
+	return rc;
+}
+
 static int __init q6usm_init(void)
 {
 	pr_debug("%s\n", __func__);
@@ -1159,4 +1204,3 @@ device_initcall(q6usm_init);
 
 MODULE_DESCRIPTION("Interface with QDSP6:USM");
 MODULE_VERSION(DRV_VERSION);
-MODULE_LICENSE("GPL v2");

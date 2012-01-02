@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,12 +33,40 @@
 #define US_STOP_TX      _IO(USF_IOCTL_MAGIC, 6)
 #define US_STOP_RX      _IO(USF_IOCTL_MAGIC, 7)
 
+#define US_SET_DETECTION _IOWR(USF_IOCTL_MAGIC, 8, \
+				struct us_detect_info_type)
+
+/* Special timeout values */
+#define USF_NO_WAIT_TIMEOUT	0x00000000
+/* Infinitive */
+#define USF_INFINITIVE_TIMEOUT	0xffffffff
+/* Default value, used by the driver */
+#define USF_DEFAULT_TIMEOUT	0xfffffffe
+
+/* US detection place (HW|FW) */
+enum us_detect_place_enum {
+/* US is detected in HW */
+	US_DETECT_HW,
+/* US is detected in FW */
+	US_DETECT_FW
+};
+
+/* US detection mode */
+enum us_detect_mode_enum {
+/* US detection is disabled */
+	US_DETECT_DISABLED_MODE,
+/* US detection is enabled in continue mode */
+	US_DETECT_CONTINUE_MODE,
+/* US detection is enabled in one shot mode */
+	US_DETECT_SHOT_MODE
+};
 
 /* Encoder (TX), decoder (RX) supported US data formats */
 #define USF_POINT_EPOS_FORMAT	0
-#define USF_RAW_FORMAT		    1
+#define USF_RAW_FORMAT		1
 
 /* Types of events, produced by the calculators */
+#define USF_NO_EVENT 0
 #define USF_TSC_EVENT 1
 #define USF_MOUSE_EVENT 2
 #define USF_KEYBOARD_EVENT 4
@@ -155,6 +183,10 @@ struct us_tx_update_info_type {
 /* Pointer (read index) to the end of available region */
 /* in the shared US data memory */
 	uint32_t free_region;
+/* Time (sec) to wait for data or special values: */
+/* USF_NO_WAIT_TIMEOUT, USF_INFINITIVE_TIMEOUT, USF_DEFAULT_TIMEOUT */
+	uint32_t timeout;
+
 /* Input  transparent data: */
 /* Parameters size */
 	uint16_t params_data_size;
@@ -180,6 +212,24 @@ struct us_rx_update_info_type {
 /* Pointer (read index) to the end of available region */
 /* in the shared US data memory */
 	uint32_t free_region;
+};
+
+struct us_detect_info_type {
+/* US detection place (HW|FW) */
+/* NA in the Active and OFF states */
+	enum us_detect_place_enum us_detector;
+/* US detection mode */
+	enum us_detect_mode_enum  us_detect_mode;
+/* US data dropped during this time (msec) */
+	uint32_t skip_time;
+/* Transparent data size */
+	uint16_t params_data_size;
+/* Pointer to the transparent data */
+	uint8_t *params_data;
+/* Time (sec) to wait for US presence event */
+	uint32_t detect_timeout;
+/* Out parameter: US presence */
+	bool is_us;
 };
 
 #endif /* __USF_H__ */
