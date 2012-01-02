@@ -448,6 +448,8 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 		return -ENODEV;
 
 	brdg = dev->brdg;
+	if (!brdg)
+		return -ENODEV;
 
 	dev_dbg(&dev->udev->dev, "%s: write (%d bytes)\n", __func__, skb->len);
 
