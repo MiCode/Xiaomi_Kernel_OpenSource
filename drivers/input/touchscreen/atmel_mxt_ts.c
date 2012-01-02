@@ -301,6 +301,12 @@ struct mxt_data {
 	u8 t7_data[T7_DATA_SIZE];
 	u16 t7_start_addr;
 	u8 t9_ctrl;
+	u32 keyarray_old;
+	u32 keyarray_new;
+	u8 t9_max_reportid;
+	u8 t9_min_reportid;
+	u8 t15_max_reportid;
+	u8 t15_min_reportid;
 };
 
 static bool mxt_object_readable(unsigned int type)
@@ -636,14 +642,48 @@ static bool mxt_is_T9_message(struct mxt_data *data, struct mxt_message *msg)
 	return (id >= data->T9_reportid_min && id <= data->T9_reportid_max);
 }
 
+static void mxt_handle_key_array(struct mxt_data *data,
+				struct mxt_message *message)
+{
+	u32 keys_changed;
+	int i;
+
+	if (!data->pdata->key_codes) {
+		dev_err(&data->client->dev, "keyarray is not supported\n");
+		return;
+	}
+
+	data->keyarray_new = message->message[1] |
+				(message->message[2] << 8) |
+				(message->message[3] << 16) |
+				(message->message[4] << 24);
+
+	keys_changed = data->keyarray_old ^ data->keyarray_new;
+
+	if (!keys_changed) {
+		dev_dbg(&data->client->dev, "no keys changed\n");
+		return;
+	}
+
+	for (i = 0; i < MXT_KEYARRAY_MAX_KEYS; i++) {
+		if (!(keys_changed & (1 << i)))
+			continue;
+
+		input_report_key(data->input_dev, data->pdata->key_codes[i],
+					(data->keyarray_new & (1 << i)));
+		input_sync(data->input_dev);
+	}
+
+	data->keyarray_old = data->keyarray_new;
+}
+
 static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
 	struct mxt_data *data = dev_id;
 	struct mxt_message message;
-	const u8 *payload = &message.message[0];
 	struct device *dev = &data->client->dev;
 	u8 reportid;
-	bool update_input = false;
+	int id;
 
 	do {
 		if (mxt_read_message(data, &message)) {
@@ -651,23 +691,22 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 			goto end;
 		}
 
-		reportid = message.reportid;
-
-		if (reportid == data->T6_reportid) {
-			u8 status = payload[0];
-			unsigned csum = mxt_extract_T6_csum(&payload[1]);
-			dev_dbg(dev, "Status: %02x Config Checksum: %06x\n",
-				status, csum);
-		} else if (mxt_is_T9_message(data, &message)) {
-			int id = reportid - data->T9_reportid_min;
-			mxt_input_touchevent(data, &message, id);
-			update_input = true;
-		} else if (message.reportid == data->T19_reportid) {
-			mxt_input_button(data, &message);
-			update_input = true;
-		} else {
-			mxt_dump_message(dev, &message);
+		if (!reportid) {
+			dev_dbg(dev, "Report id 0 is reserved\n");
+			continue;
 		}
+
+		/* check whether report id is part of T9 or T15 */
+		id = reportid - data->t9_min_reportid;
+
+		if (reportid >= data->t9_min_reportid &&
+					reportid <= data->t9_max_reportid)
+			mxt_input_touchevent(data, &message, id);
+		else if (reportid >= data->t15_min_reportid &&
+					reportid <= data->t15_max_reportid)
+			mxt_handle_key_array(data, &message);
+		else
+			mxt_dump_message(dev, &message);
 	} while (reportid != 0xff);
 
 	if (update_input) {
@@ -843,6 +882,8 @@ static int mxt_initialize(struct mxt_data *data)
 	u8 val;
 	u8 command_register;
 	struct mxt_object *t7_object;
+	struct mxt_object *t9_object;
+	struct mxt_object *t15_object;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -887,6 +928,28 @@ static int mxt_initialize(struct mxt_data *data)
 	if (error < 0) {
 		dev_err(&client->dev, "Failed to save current touch object\n");
 		goto err_free_object_table;
+	}
+
+	/* Store T9, T15's min and max report ids */
+	t9_object = mxt_get_object(data, MXT_TOUCH_MULTI_T9);
+	if (!t9_object) {
+		dev_err(&client->dev, "Failed to get T9 object\n");
+		error = -EINVAL;
+		goto free_object_table;
+	}
+	data->t9_max_reportid = t9_object->max_reportid;
+	data->t9_min_reportid = t9_object->max_reportid -
+					t9_object->num_report_ids + 1;
+
+	if (data->pdata->key_codes) {
+		t15_object = mxt_get_object(data, MXT_TOUCH_KEYARRAY_T15);
+		if (!t15_object)
+			dev_dbg(&client->dev, "T15 object is not available\n");
+		else {
+			data->t15_max_reportid = t15_object->max_reportid;
+			data->t15_min_reportid = t15_object->max_reportid -
+						t15_object->num_report_ids + 1;
+		}
 	}
 
 	/* Backup to memory */
@@ -1411,7 +1474,7 @@ static int mxt_probe(struct i2c_client *client,
 	const struct mxt_platform_data *pdata = client->dev.platform_data;
 	struct mxt_data *data;
 	struct input_dev *input_dev;
-	int error;
+	int error, i;
 	unsigned int num_mt_slots;
 
 	if (!pdata)
@@ -1552,6 +1615,15 @@ static int mxt_probe(struct i2c_client *client,
 			     0, data->pdata->y_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
 			     0, 255, 0, 0);
+
+	/* set key array supported keys */
+	if (pdata->key_codes) {
+		for (i = 0; i < MXT_KEYARRAY_MAX_KEYS; i++) {
+			if (pdata->key_codes[i])
+				input_set_capability(input_dev, EV_KEY,
+							pdata->key_codes[i]);
+		}
+	}
 
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
