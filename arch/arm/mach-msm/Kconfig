@@ -422,6 +422,14 @@ config MACH_MSM7627A_QRD1
         help
           Support for the Qualcomm MSM7627A Refrence Design.
 
+config MACH_MSM7627A_EVB
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        default y
+        bool "MSM7627A EVB"
+        help
+          Support for the Qualcomm MSM7627A Reference Design.
+
 config MACH_MSM7X30_SURF
        depends on ARCH_MSM7X30
        depends on !MSM_STACKED_MEMORY

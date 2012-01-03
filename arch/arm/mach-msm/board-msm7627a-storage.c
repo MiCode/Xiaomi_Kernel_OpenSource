@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,7 +148,7 @@ static struct sdcc_gpio sdcc_cfg_data[] = {
 static int gpio_sdc1_hw_det = 85;
 static void gpio_sdc1_config(void)
 {
-	if (machine_is_msm7627a_qrd1())
+	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb())
 		gpio_sdc1_hw_det = 42;
 }
 
@@ -248,7 +248,8 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 	} else {
 		status = gpio_direction_input(gpio_sdc1_hw_det);
 		if (!status) {
-			if (machine_is_msm7627a_qrd1())
+			if (machine_is_msm7627a_qrd1() ||
+					machine_is_msm7627a_evb())
 				status = !gpio_get_value(gpio_sdc1_hw_det);
 			else
 				status = gpio_get_value(gpio_sdc1_hw_det);
