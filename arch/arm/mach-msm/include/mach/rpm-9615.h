@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,17 +191,17 @@ enum {
 /* VDD values are in microvolts */
 #define MSM_RPMRS_VDD_MASK  0x7fffff
 enum {
-	MSM_RPMRS_VDD_MEM_RET_LOW = 750500,
-	MSM_RPMRS_VDD_MEM_RET_HIGH = 1050000,
-	MSM_RPMRS_VDD_MEM_ACTIVE = 1050000,
-	MSM_RPMRS_VDD_MEM_MAX = 1250000,
+	MSM_RPMRS_VDD_MEM_RET_LOW	=  750000,
+	MSM_RPMRS_VDD_MEM_RET_HIGH	=  750000,
+	MSM_RPMRS_VDD_MEM_ACTIVE	= 1050000,
+	MSM_RPMRS_VDD_MEM_MAX		= 1150000,
 };
 
 enum {
-	MSM_RPMRS_VDD_DIG_RET_LOW = 537500,
-	MSM_RPMRS_VDD_DIG_RET_HIGH = 950000,
-	MSM_RPMRS_VDD_DIG_ACTIVE = 1050000,
-	MSM_RPMRS_VDD_DIG_MAX = 1250000,
+	MSM_RPMRS_VDD_DIG_RET_LOW	=  500000,
+	MSM_RPMRS_VDD_DIG_RET_HIGH	=  750000,
+	MSM_RPMRS_VDD_DIG_ACTIVE	=  950000,
+	MSM_RPMRS_VDD_DIG_MAX		= 1150000,
 };
 
 /* RPM status ID enum */
