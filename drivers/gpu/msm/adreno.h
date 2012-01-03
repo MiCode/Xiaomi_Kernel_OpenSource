@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,12 @@ struct adreno_gpudev {
 };
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
+
+/* A2XX register sets defined in adreno_a2xx.c */
+extern const unsigned int a200_registers[];
+extern const unsigned int a220_registers[];
+extern const unsigned int a200_registers_count;
+extern const unsigned int a220_registers_count;
 
 int adreno_idle(struct kgsl_device *device, unsigned int timeout);
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
