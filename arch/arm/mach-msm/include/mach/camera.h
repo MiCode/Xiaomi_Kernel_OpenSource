@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -676,7 +676,7 @@ void msm_isp_sync_free(void *ptr);
 
 int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		struct clk **clk_ptr, int num_clk, int enable);
-
 int msm_sensor_probe_on(struct device *);
 int msm_sensor_probe_off(struct device *);
+int msm_cam_core_reset(void);
 #endif
