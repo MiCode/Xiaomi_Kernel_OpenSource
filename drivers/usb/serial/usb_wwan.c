@@ -407,8 +407,8 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	intfdata = serial->private;
 
 	/* explicitly set the driver mode to raw */
-	tty->raw = 0;
-	tty->real_raw = 0;
+	tty->raw = 1;
+	tty->real_raw = 1;
 
 	dbg("%s", __func__);
 
