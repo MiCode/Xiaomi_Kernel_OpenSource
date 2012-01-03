@@ -2205,18 +2205,21 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		mdp4_overlay_dtv_set(mfd, pipe);
 
 	if (new_perf_level != perf_level) {
+		u32 old_level = new_perf_level;
 		mdp4_update_perf_level(perf_level);
 
 		/* change clck base on perf level */
 		if (pipe->mixer_num == MDP4_MIXER0) {
 			if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
-				mdp4_overlay_dsi_video_set_perf(mfd);
+				if (old_level > perf_level)
+					mdp4_set_perf_level();
 			} else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
 				mdp4_dsi_cmd_dma_busy_wait(mfd);
 				mdp4_dsi_blt_dmap_busy_wait(mfd);
 				mdp4_set_perf_level();
 			} else if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
-				mdp4_overlay_lcdc_set_perf(mfd);
+				if (old_level > perf_level)
+					mdp4_set_perf_level();
 			} else if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
 				mdp4_mddi_dma_busy_wait(mfd);
 				mdp4_set_perf_level();
