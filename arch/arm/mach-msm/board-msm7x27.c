@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1626,8 +1626,8 @@ static struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 };
 
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
-	.mode = MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
-	.v_addr = (uint32_t *)PAGE_OFFSET,
+	.mode = MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS,
+	.p_addr = 0,
 };
 
 static void
