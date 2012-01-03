@@ -2905,3 +2905,14 @@ int mgmt_encrypt_change(u16 index, bdaddr_t *bdaddr, u8 status)
 									NULL);
 }
 
+int mgmt_remote_class(u16 index, bdaddr_t *bdaddr, u8 dev_class[3])
+{
+	struct mgmt_ev_remote_class ev;
+
+	memset(&ev, 0, sizeof(ev));
+
+	bacpy(&ev.bdaddr, bdaddr);
+	memcpy(ev.dev_class, dev_class, 3);
+
+	return mgmt_event(MGMT_EV_REMOTE_CLASS, index, &ev, sizeof(ev), NULL);
+}
