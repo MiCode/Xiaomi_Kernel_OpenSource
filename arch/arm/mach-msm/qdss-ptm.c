@@ -114,7 +114,11 @@ do {									\
 /* Forward declarations */
 static void ptm_cfg_rw_init(void);
 
+#ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
+static int trace_on_boot = 1;
+#else
 static int trace_on_boot;
+#endif
 module_param_named(
 	trace_on_boot, trace_on_boot, int, S_IRUGO
 );

@@ -1831,6 +1831,13 @@ config MSM_QDSS
 	help
 	  Enables support for Qualcomm Debug Subsystem.
 
+config MSM_QDSS_ETM_DEFAULT_ENABLE
+	bool "Turn on QDSS ETM Tracing by Default"
+	depends on MSM_QDSS
+	help
+	  Turns on QDSS ETM tracing by default. Otherwise, tracing is
+	  disabled by default but can be enabled by other means.
+
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
 	depends on CPU_IDLE
