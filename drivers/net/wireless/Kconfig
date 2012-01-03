@@ -279,6 +279,16 @@ config LIBRA_SDIOIF
 	---help---
 	  A driver for Qualcomm WLAN SDIO Libra chipset.
 
+config ATH6K_LEGACY_EXT
+	tristate "QCA AR6003 wlan SDIO driver - External"
+	depends on MMC_MSM && WLAN
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	---help---
+	  This module adds support for wireless adapters based on QCA AR6003 chipset
+	  running over SDIO. Driver is built outside of kernel tree, this config
+	  only enables configurations required for QCA AR6003 wlan driver.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
