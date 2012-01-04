@@ -1560,6 +1560,10 @@ static int __devinit msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev)
 	struct sps_register_event sps_error_event; /* SPS_ERROR */
 	struct sps_register_event sps_descr_event; /* DESCR_DONE */
 
+	init_completion(notify);
+	if (!dev->use_rx_msgqs)
+		goto rx_thread_create;
+
 	/* Allocate the endpoint */
 	ret = msm_slim_init_endpoint(dev, endpoint);
 	if (ret) {
@@ -1641,12 +1645,17 @@ static int __devinit msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev)
 		}
 	}
 
+rx_thread_create:
 	/* Fire up the Rx message queue thread */
 	dev->rx_msgq_thread = kthread_run(msm_slim_rx_msgq_thread, dev,
 					MSM_SLIM_NAME "_rx_msgq_thread");
 	if (!dev->rx_msgq_thread) {
 		dev_err(dev->dev, "Failed to start Rx message queue thread\n");
-		ret = -EIO;
+		/* Tear-down BAMs or return? */
+		if (!dev->use_rx_msgqs)
+			return -EIO;
+		else
+			ret = -EIO;
 	} else
 		return 0;
 
@@ -1662,6 +1671,7 @@ sps_connect_failed:
 alloc_descr_failed:
 	msm_slim_free_endpoint(endpoint);
 sps_init_endpoint_failed:
+	dev->use_rx_msgqs = 0;
 	return ret;
 }
 
@@ -1690,6 +1700,9 @@ msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem)
 		},
 	};
 
+	if (!dev->use_rx_msgqs)
+		goto init_rx_msgq;
+
 	bam_props.ee = dev->ee;
 	bam_props.virt_addr = dev->bam.base;
 	bam_props.phys_addr = bam_mem->start;
@@ -1714,22 +1727,21 @@ msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem)
 	/* Register the BAM device with the SPS driver */
 	ret = sps_register_bam_device(&bam_props, &bam_handle);
 	if (ret) {
-		dev_err(dev->dev, "sps_register_bam_device failed 0x%x\n", ret);
-		return ret;
+		dev_err(dev->dev, "disabling BAM: reg-bam failed 0x%x\n", ret);
+		dev->use_rx_msgqs = 0;
+		goto init_rx_msgq;
 	}
 	dev->bam.hdl = bam_handle;
 	dev_dbg(dev->dev, "SLIM BAM registered, handle = 0x%x\n", bam_handle);
 
+init_rx_msgq:
 	ret = msm_slim_init_rx_msgq(dev);
-	if (ret) {
+	if (ret)
 		dev_err(dev->dev, "msm_slim_init_rx_msgq failed 0x%x\n", ret);
-		goto rx_msgq_init_failed;
+	if (!dev->use_rx_msgqs && bam_handle) {
+		sps_deregister_bam_device(bam_handle);
+		dev->bam.hdl = 0L;
 	}
-
-	return 0;
-rx_msgq_init_failed:
-	sps_deregister_bam_device(bam_handle);
-	dev->bam.hdl = 0L;
 	return ret;
 }
 
@@ -1747,8 +1759,8 @@ static void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
 		sps_disconnect(endpoint->sps);
 		msm_slim_sps_mem_free(dev, descr);
 		msm_slim_free_endpoint(endpoint);
+		sps_deregister_bam_device(dev->bam.hdl);
 	}
-	sps_deregister_bam_device(dev->bam.hdl);
 }
 
 static void msm_slim_prg_slew(struct platform_device *pdev,
