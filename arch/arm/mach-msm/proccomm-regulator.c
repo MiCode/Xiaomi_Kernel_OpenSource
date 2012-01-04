@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -245,6 +245,7 @@ static struct regulator_dev *__devinit create_proccomm_rdev(
 	d->rise_time	= info->rise_time;
 	d->enabled	= 0;
 	d->negative	= info->negative;
+	d->rdesc.n_voltages = info->n_voltages;
 
 	rdev = regulator_register(&d->rdesc, parent, &info->init_data, d);
 
