@@ -919,6 +919,7 @@ MACHINE_START(FSM9XXX_SURF, "QCT FSM9XXX")
 	.boot_params = PHYS_OFFSET + 0x100,
 	.map_io = fsm9xxx_map_io,
 	.init_irq = fsm9xxx_init_irq,
+	.handle_irq = vic_handle_irq,
 	.init_machine = fsm9xxx_init,
 	.timer = &msm_timer,
 MACHINE_END
