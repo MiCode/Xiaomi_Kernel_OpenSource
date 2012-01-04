@@ -1072,7 +1072,7 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	if (fsm_state == FSM_STATE_ON_CHG_HIGHI_1) {
 		if (!pm_chg_get_rt_status(chip, BATT_INSERTED_IRQ)
 			|| !pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ)
-			|| !pm_chg_get_rt_status(chip, CHGHOT_IRQ))
+			|| pm_chg_get_rt_status(chip, CHGHOT_IRQ))
 
 			batt_state = POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
