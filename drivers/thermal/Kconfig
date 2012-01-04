@@ -23,31 +23,6 @@ config THERMAL_HWMON
 
 	  Say Y if your user-space is new enough.
 
-config THERMAL_PM8901
-	tristate "Qualcomm PM8901 Temperature Alarm"
-	depends on PMIC8901
-	depends on THERMAL
-	default n
-	help
-	  This enables a thermal Sysfs driver for the PMIC 8901 device. It
-	  shows up in Sysfs as a thermal zone with multiple trip points.
-	  Enabling the thermal zone device via the mode file results in
-	  shifting over temperature shutdown control of the PMIC from hardware
-	  to software.
-
-config THERMAL_PM8058
-	tristate "Qualcomm PM8058 Temperature Alarm"
-	depends on PMIC8058
-	depends on THERMAL
-	depends on SENSORS_MSM_ADC
-	default n
-	help
-	  This enables a thermal Sysfs driver for the PMIC 8058 device. It
-	  shows up in Sysfs as a thermal zone with multiple trip points.
-	  Enabling the thermal zone device via the mode file results in
-	  shifting over temperature shutdown control of the PMIC from hardware
-	  to software.
-
 config THERMAL_MSM_POPMEM
 	tristate "Qualcomm MSM POP memory temperature sensor"
 	depends on THERMAL
