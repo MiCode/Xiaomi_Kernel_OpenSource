@@ -13,20 +13,30 @@ static DEFINE_MUTEX(irq_domain_mutex);
  * irq_domain_add() - Register an irq_domain
  * @domain: ptr to initialized irq_domain structure
  *
- * Registers an irq_domain structure.  The irq_domain must at a minimum be
+ * Adds a irq_domain structure.  The irq_domain must at a minimum be
  * initialized with an ops structure pointer, and either a ->to_irq hook or
  * a valid irq_base value.  Everything else is optional.
  */
 void irq_domain_add(struct irq_domain *domain)
 {
+	mutex_lock(&irq_domain_mutex);
+	list_add(&domain->list, &irq_domain_list);
+	mutex_unlock(&irq_domain_mutex);
+}
+
+/**
+ * irq_domain_register() - Register an entire irq_domain
+ * @domain: ptr to initialized irq_domain structure
+ *
+ * Registers the entire irq_domain.  The irq_domain must at a minimum be
+ * initialized with an ops structure pointer, and either a ->to_irq hook or
+ * a valid irq_base value.  Everything else is optional.
+ */
+void irq_domain_register(struct irq_domain *domain)
+{
 	struct irq_data *d;
 	int hwirq, irq;
 
-	/*
-	 * This assumes that the irq_domain owner has already allocated
-	 * the irq_descs.  This block will be removed when support for dynamic
-	 * allocation of irq_descs is added to irq_domain.
-	 */
 	irq_domain_for_each_irq(domain, hwirq, irq) {
 		d = irq_get_irq_data(irq);
 		if (!d) {
@@ -41,30 +51,75 @@ void irq_domain_add(struct irq_domain *domain)
 		d->domain = domain;
 		d->hwirq = hwirq;
 	}
-
-	mutex_lock(&irq_domain_mutex);
-	list_add(&domain->list, &irq_domain_list);
-	mutex_unlock(&irq_domain_mutex);
 }
 
 /**
- * irq_domain_del() - Unregister an irq_domain
+ * irq_domain_register_irq() - Register an irq_domain
+ * @domain: ptr to initialized irq_domain structure
+ * @hwirq: irq_domain hwirq to register
+ *
+ * Registers a specific hwirq within the irq_domain.  The irq_domain
+ * must at a minimum be initialized with an ops structure pointer, and
+ * either a ->to_irq hook or a valid irq_base value.  Everything else is
+ * optional.
+ */
+void irq_domain_register_irq(struct irq_domain *domain, int hwirq)
+{
+	struct irq_data *d;
+
+	d = irq_get_irq_data(irq_domain_to_irq(domain, hwirq));
+	if (!d) {
+		WARN(1, "error: assigning domain to non existant irq_desc");
+		return;
+	}
+	if (d->domain) {
+		/* things are broken; just report, don't clean up */
+		WARN(1, "error: irq_desc already assigned to a domain");
+		return;
+	}
+	d->domain = domain;
+	d->hwirq = hwirq;
+}
+
+/**
+ * irq_domain_del() - Removes a irq_domain from the system
  * @domain: ptr to registered irq_domain.
  */
 void irq_domain_del(struct irq_domain *domain)
 {
-	struct irq_data *d;
-	int hwirq, irq;
-
 	mutex_lock(&irq_domain_mutex);
 	list_del(&domain->list);
 	mutex_unlock(&irq_domain_mutex);
+}
+
+/**
+ * irq_domain_unregister() - Unregister an irq_domain
+ * @domain: ptr to registered irq_domain.
+ */
+void irq_domain_unregister(struct irq_domain *domain)
+{
+	struct irq_data *d;
+	int hwirq, irq;
 
 	/* Clear the irq_domain assignments */
 	irq_domain_for_each_irq(domain, hwirq, irq) {
 		d = irq_get_irq_data(irq);
 		d->domain = NULL;
 	}
+}
+
+/**
+ * irq_domain_unregister_irq() - Unregister a hwirq within a irq_domain
+ * @domain: ptr to registered irq_domain.
+ * @hwirq: irq_domain hwirq to unregister.
+ */
+void irq_domain_unregister_irq(struct irq_domain *domain, int hwirq)
+{
+	struct irq_data *d;
+
+	/* Clear the irq_domain assignment */
+	d = irq_get_irq_data(irq_domain_to_irq(domain, hwirq));
+	d->domain = NULL;
 }
 
 #if defined(CONFIG_OF_IRQ)
@@ -165,6 +220,7 @@ void irq_domain_add_simple(struct device_node *controller, int irq_base)
 	domain->of_node = of_node_get(controller);
 	domain->ops = &irq_domain_simple_ops;
 	irq_domain_add(domain);
+	irq_domain_register(domain);
 }
 EXPORT_SYMBOL_GPL(irq_domain_add_simple);
 

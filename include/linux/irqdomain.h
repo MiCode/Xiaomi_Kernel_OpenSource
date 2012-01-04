@@ -91,6 +91,11 @@ static inline unsigned int irq_domain_to_irq(struct irq_domain *d,
 
 extern void irq_domain_add(struct irq_domain *domain);
 extern void irq_domain_del(struct irq_domain *domain);
+extern void irq_domain_register(struct irq_domain *domain);
+extern void irq_domain_register_irq(struct irq_domain *domain, int hwirq);
+extern void irq_domain_unregister(struct irq_domain *domain);
+extern void irq_domain_unregister_irq(struct irq_domain *domain, int hwirq);
+
 #endif /* CONFIG_IRQ_DOMAIN */
 
 #if defined(CONFIG_IRQ_DOMAIN) && defined(CONFIG_OF_IRQ)
