@@ -391,6 +391,14 @@ static int pm_chg_charge_dis(struct pm8921_chg_chip *chip, int disable)
 				disable ? CHG_CHARGE_DIS_BIT : 0);
 }
 
+static bool pm_is_chg_charge_dis_bit_set(struct pm8921_chg_chip *chip)
+{
+	u8 temp = 0;
+
+	pm8xxx_readb(chip->dev->parent, CHG_CNTRL, &temp);
+	return !!(temp & CHG_CHARGE_DIS_BIT);
+}
+
 #define PM8921_CHG_V_MIN_MV	3240
 #define PM8921_CHG_V_STEP_MV	20
 #define PM8921_CHG_VDDMAX_MAX	4500
@@ -901,7 +909,10 @@ static int pm_power_get_property(struct power_supply *psy,
 			psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
 			chip = container_of(psy, struct pm8921_chg_chip,
 							usb_psy);
-			val->intval = is_usb_chg_plugged_in(chip);
+			if (pm_is_chg_charge_dis_bit_set(chip))
+				val->intval = 0;
+			else
+				val->intval = is_usb_chg_plugged_in(chip);
 		}
 		break;
 	default:
