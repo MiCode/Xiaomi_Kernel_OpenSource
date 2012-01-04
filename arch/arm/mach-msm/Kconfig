@@ -292,8 +292,10 @@ config  ARCH_MSM_KRAITMP
 	bool
 
 config  ARCH_MSM_CORTEX_A5
-	bool
+	select PERF_EVENTS
+	select HAVE_HW_BREAKPOINT
 	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
+	bool
 
 config ARCH_MSM7X27A
 	bool
