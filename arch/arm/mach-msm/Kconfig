@@ -1588,7 +1588,7 @@ config MSM_IDLE_WAIT_ON_MODEM
 
 config MSM_RPM_REGULATOR
 	bool "RPM regulator driver"
-	depends on RPM && REGULATOR
+	depends on MSM_RPM && REGULATOR
 	help
 	  Compile in support for the RPM regulator driver, used for setting
 	  voltages and other parameters of the various power rails supplied
