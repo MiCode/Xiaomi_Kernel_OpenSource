@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,17 +124,6 @@ struct usm_stream_cmd_read {
 } __packed;
 
 #define USM_DATA_EVENT_READ_DONE			0x0001230F
-struct usm_data_event_read_done {
-	u32            status;
-	u32            buffer_add;
-	u32            enc_frame_size;
-	u32            offset;
-	u32            msw_ts;
-	u32            lsw_ts;
-	u32            flags;
-	u32            num_frames;
-	u32            id;
-} __packed;
 
 #define USM_DATA_CMD_WRITE				0x00011273
 struct usm_stream_cmd_write {
@@ -148,9 +137,18 @@ struct usm_stream_cmd_write {
 } __packed;
 
 #define USM_DATA_EVENT_WRITE_DONE			0x00011274
-struct usm_data_event_write_done {
-	u32 buf_add;
-	u32 status;
+
+/* Start/stop US signal detection */
+#define USM_SESSION_CMD_SIGNAL_DETECT_MODE		0x00012719
+
+struct usm_session_cmd_detect_info {
+	struct apr_hdr hdr;
+	u32 detect_mode;
+	u32 skip_interval;
+	u32 algorithm_cfg_size;
 } __packed;
+
+/* US signal detection result */
+#define USM_SESSION_EVENT_SIGNAL_DETECT_RESULT		0x00012720
 
 #endif /* __APR_US_H__ */

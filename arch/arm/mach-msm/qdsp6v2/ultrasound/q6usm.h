@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,9 @@
 #define __Q6_USM_H__
 
 #include <mach/qdsp6v2/apr_us.h>
+
+/* cyclic buffer with 1 gap support */
+#define USM_MIN_BUF_CNT 3
 
 #define FORMAT_USPS_EPOS	0x00000000
 #define FORMAT_USRAW		0x00000001
@@ -105,5 +108,9 @@ uint32_t q6usm_get_virtual_address(int dir, struct us_client *usc,
 int q6usm_open_write(struct us_client *usc,  uint32_t format);
 int q6usm_write(struct us_client *usc, uint32_t write_ind);
 bool q6usm_is_write_buf_full(struct us_client *usc, uint32_t* free_region);
+
+int q6usm_set_us_detection(struct us_client *usc,
+			   struct usm_session_cmd_detect_info *detect_info,
+			   uint16_t detect_info_size);
 
 #endif /* __Q6_USM_H__ */

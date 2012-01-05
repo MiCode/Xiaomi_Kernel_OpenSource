@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include "q6usm.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.0"
+#define DRV_VERSION "1.1.1"
 
 /* Standard timeout in the asynchronous ops */
 #define USF_TIMEOUT_JIFFIES (3*HZ) /* 3 sec */
@@ -37,6 +37,9 @@
 /* RX memory mapping flag */
 #define	USF_VM_WRITE	2
 
+/* Number of events, copied from the user space to kernel one */
+#define USF_EVENTS_PORTION_SIZE 20
+
 /* The driver states */
 enum usf_state_type {
 	USF_IDLE_STATE,
@@ -44,6 +47,13 @@ enum usf_state_type {
 	USF_CONFIGURED_STATE,
 	USF_WORK_STATE,
 	USF_ERROR_STATE
+};
+
+/* The US detection status upon FW/HW based US detection results */
+enum usf_us_detect_type {
+	USF_US_DETECT_UNDEF,
+	USF_US_DETECT_YES,
+	USF_US_DETECT_NO
 };
 
 struct usf_xx_type {
@@ -66,6 +76,8 @@ struct usf_xx_type {
 	uint32_t prev_region;
 	/* Q6:USM's events handler */
 	void (*cb)(uint32_t, uint32_t, uint32_t *, void *);
+	/* US detection result */
+	enum usf_us_detect_type us_detect_type;
 	/* User's update info isn't acceptable */
 	u8 user_upd_info_na;
 };
@@ -124,6 +136,14 @@ static void usf_tx_cb(uint32_t opcode, uint32_t token,
 		if (token == USM_WRONG_TOKEN)
 			usf_xx->usf_state = USF_ERROR_STATE;
 		usf_xx->new_region = token;
+		wake_up(&usf_xx->wait);
+		break;
+
+	case USM_SESSION_EVENT_SIGNAL_DETECT_RESULT:
+		usf_xx->us_detect_type = (payload[0]) ?
+					USF_US_DETECT_YES :
+					USF_US_DETECT_NO;
+
 		wake_up(&usf_xx->wait);
 		break;
 
@@ -250,7 +270,7 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 			       __func__);
 			kfree(usf_xx->encdec_cfg.params);
 			usf_xx->encdec_cfg.params = NULL;
-			return -EINVAL;
+			return -EFAULT;
 		}
 		pr_debug("%s: params_size[%d]; params[%d,%d,%d,%d, %d]\n",
 			 __func__,
@@ -330,7 +350,9 @@ static int register_input_device(struct usf_type *usf_info,
 		input_dev->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) |
 							BIT_MASK(BTN_RIGHT) |
 							BIT_MASK(BTN_MIDDLE);
-		input_dev->relbit[0] = BIT_MASK(REL_X) | BIT_MASK(REL_Y);
+		input_dev->relbit[0] =  BIT_MASK(REL_X) |
+					BIT_MASK(REL_Y) |
+					BIT_MASK(REL_Z);
 	}
 
 	if (input_info->event_types & USF_KEYBOARD_EVENT) {
@@ -386,6 +408,7 @@ static void notify_mouse_event(struct input_dev *input_if,
 
 	input_report_rel(input_if, REL_X, me->rels[0]);
 	input_report_rel(input_if, REL_Y, me->rels[1]);
+	input_report_rel(input_if, REL_Z, me->rels[2]);
 
 	input_report_key(input_if, BTN_LEFT,
 			 me->buttons_states & USF_BUTTON_LEFT_MASK);
@@ -423,6 +446,9 @@ static void handle_input_event(struct usf_type *usf_info,
 {
 	struct input_dev *input_if = NULL;
 	uint16_t ind = 0;
+	uint16_t events_num = 0;
+	struct usf_event_type usf_events[USF_EVENTS_PORTION_SIZE];
+	int rc = 0;
 
 	if ((usf_info == NULL) || (usf_info->input_if == NULL) ||
 	    (event == NULL) || (!event_counter)) {
@@ -431,40 +457,49 @@ static void handle_input_event(struct usf_type *usf_info,
 
 	input_if = usf_info->input_if;
 
-	for (ind = 0; ind < event_counter; ++ind) {
-		event += ind;
-		if (event->event_type & usf_info->event_types) {
-			/* the event is supported */
-			if (event->event_type & USF_TSC_EVENT) {
+	while (event_counter > 0) {
+		if (event_counter > USF_EVENTS_PORTION_SIZE) {
+			events_num = USF_EVENTS_PORTION_SIZE;
+			event_counter -= USF_EVENTS_PORTION_SIZE;
+		} else {
+			events_num = event_counter;
+			event_counter = 0;
+		}
+		rc = copy_from_user(usf_events,
+				event,
+				events_num * sizeof(struct usf_event_type));
+		if (rc) {
+			pr_err("%s: copy upd_rx_info from user; rc=%d\n",
+				__func__, rc);
+			return;
+		}
+		for (ind = 0; ind < events_num; ++ind) {
+			struct usf_event_type *p_event = &usf_events[ind];
+			if (p_event->event_type & USF_TSC_EVENT) {
 				struct point_event_type *pe =
-					&(event->event_data.point_event);
+					&(p_event->event_data.point_event);
 				if (pe->coordinates_type ==
-				    USF_PIX_COORDINATE) {
+					USF_PIX_COORDINATE)
 					notify_tsc_event(input_if,
-							 pe->coordinates[0],
-							 pe->coordinates[1],
-							 pe->pressure);
-				} else
-					pr_debug("%s: wrong coord type:%d\n",
-						 __func__,
-						 pe->coordinates_type);
-
+						pe->coordinates[0],
+						pe->coordinates[1],
+						pe->pressure);
+				else
+					pr_debug("%s: wrong coord type: %d",
+						__func__,
+						pe->coordinates_type);
 				continue;
 			}
-
-			if (event->event_type & USF_MOUSE_EVENT) {
+			if (p_event->event_type & USF_MOUSE_EVENT) {
 				notify_mouse_event(input_if,
-					&(event->event_data.mouse_event));
+					&(p_event->event_data.mouse_event));
 				continue;
 			}
-
-			if (event->event_type & USF_KEYBOARD_EVENT) {
+			if (event->event_type & USF_KEYBOARD_EVENT)
 				notify_key_event(input_if,
 					&(event->event_data.key_event));
-				continue;
-			}
-		} /* the event is supported */
-	}
+		} /* loop in the portion */
+	} /* all events loop */
 }
 
 static int usf_start_tx(struct usf_xx_type *usf_xx)
@@ -473,16 +508,20 @@ static int usf_start_tx(struct usf_xx_type *usf_xx)
 
 	pr_debug("%s: tx: q6usm_run; rc=%d\n", __func__, rc);
 	if (!rc) {
-		/* supply all buffers */
-		rc = q6usm_read(usf_xx->usc,
-				usf_xx->buffer_count);
-		pr_debug("%s: q6usm_read[%d]\n",
-			 __func__, rc);
+		if (usf_xx->buffer_count >= USM_MIN_BUF_CNT) {
+			/* supply all buffers */
+			rc = q6usm_read(usf_xx->usc,
+					usf_xx->buffer_count);
+			pr_debug("%s: q6usm_read[%d]\n",
+				 __func__, rc);
 
-		if (rc)
-			pr_err("%s: buf read failed",
-			       __func__);
-		else
+			if (rc)
+				pr_err("%s: buf read failed",
+				       __func__);
+			else
+				usf_xx->usf_state =
+					USF_WORK_STATE;
+		} else
 			usf_xx->usf_state =
 				USF_WORK_STATE;
 	}
@@ -502,6 +541,109 @@ static int usf_start_rx(struct usf_xx_type *usf_xx)
 	return rc;
 } /* usf_start_rx */
 
+static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
+{
+	uint32_t timeout = 0;
+	struct us_detect_info_type detect_info;
+	struct usm_session_cmd_detect_info usm_detect_info;
+	struct usm_session_cmd_detect_info *p_usm_detect_info =
+						&usm_detect_info;
+	uint32_t detect_info_size = sizeof(struct usm_session_cmd_detect_info);
+	struct usf_xx_type *usf_xx =  &usf->usf_tx;
+	int rc = copy_from_user(&detect_info,
+				(void *) arg,
+				sizeof(detect_info));
+
+	if (rc) {
+		pr_err("%s: copy detect_info from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	if (detect_info.us_detector != US_DETECT_FW) {
+		pr_err("%s: unsupported detector: %d\n",
+			__func__, detect_info.us_detector);
+		return -EINVAL;
+	}
+
+	if ((detect_info.params_data_size != 0) &&
+	    (detect_info.params_data != NULL)) {
+		uint8_t *p_data = NULL;
+
+		detect_info_size += detect_info.params_data_size;
+		p_usm_detect_info = kzalloc(detect_info_size, GFP_KERNEL);
+		if (p_usm_detect_info == NULL) {
+			pr_err("%s: detect_info[%d] allocation failed\n",
+			       __func__, detect_info_size);
+			return -ENOMEM;
+		}
+		p_data = (uint8_t *)p_usm_detect_info +
+			sizeof(struct usm_session_cmd_detect_info);
+
+		rc = copy_from_user(p_data,
+				    (void *)detect_info.params_data,
+				    detect_info.params_data_size);
+		if (rc) {
+			pr_err("%s: copy params from user; rc=%d\n",
+				__func__, rc);
+			kfree(p_usm_detect_info);
+			return -EFAULT;
+		}
+		p_usm_detect_info->algorithm_cfg_size = detect_info_size;
+	} else
+		usm_detect_info.algorithm_cfg_size = 0;
+
+	p_usm_detect_info->detect_mode = detect_info.us_detect_mode;
+	p_usm_detect_info->skip_interval = detect_info.skip_time;
+
+	usf_xx->us_detect_type = USF_US_DETECT_UNDEF;
+
+	rc = q6usm_set_us_detection(usf_xx->usc,
+				    p_usm_detect_info,
+				    detect_info_size);
+	if (rc || (detect_info.detect_timeout == USF_NO_WAIT_TIMEOUT)) {
+		if (detect_info_size >
+		    sizeof(struct usm_session_cmd_detect_info))
+			kfree(p_usm_detect_info);
+		return rc;
+	}
+
+	/* Get US detection result */
+	if (detect_info.detect_timeout == USF_INFINITIVE_TIMEOUT) {
+		wait_event(usf_xx->wait,
+				(usf_xx->us_detect_type !=
+				 USF_US_DETECT_UNDEF));
+	} else {
+		if (detect_info.detect_timeout == USF_DEFAULT_TIMEOUT)
+			timeout = USF_TIMEOUT_JIFFIES;
+		else
+			timeout = detect_info.detect_timeout * HZ;
+
+		rc = wait_event_timeout(usf_xx->wait,
+					(usf_xx->us_detect_type !=
+					 USF_US_DETECT_UNDEF),
+					timeout);
+		/* In the case of timeout, "no US" is assumed */
+	}
+
+	usf->usf_rx.us_detect_type = usf->usf_tx.us_detect_type;
+
+	detect_info.is_us = (usf_xx->us_detect_type == USF_US_DETECT_YES);
+	rc = copy_to_user((void __user *)arg,
+			  &detect_info,
+			  sizeof(detect_info));
+	if (rc) {
+		pr_err("%s: copy detect_info to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	if (detect_info_size > sizeof(struct usm_session_cmd_detect_info))
+		kfree(p_usm_detect_info);
+
+	return rc;
+} /* usf_set_us_detection */
+
 static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 {
 	struct us_tx_info_type config_tx;
@@ -512,9 +654,9 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 			    sizeof(config_tx));
 
 	if (rc) {
-		pr_err("%s: copy error[%d]\n",
+		pr_err("%s: copy config_tx from user; rc=%d\n",
 			__func__, rc);
-		return -EINVAL;
+		return -EFAULT;
 	}
 
 	name = config_tx.us_xx_info.client_name;
@@ -554,12 +696,14 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 
 	rc = q6usm_enc_cfg_blk(usf_xx->usc,
 			       &usf_xx->encdec_cfg);
-	if (!rc) {
+	if (!rc &&
+	     (config_tx.input_info.event_types != USF_NO_EVENT)) {
 		rc = register_input_device(usf,
 					   &config_tx.input_info);
-		if (!rc)
-			usf_xx->usf_state = USF_CONFIGURED_STATE;
 	}
+
+	if (!rc)
+		usf_xx->usf_state = USF_CONFIGURED_STATE;
 
 	return rc;
 } /* usf_set_tx_info */
@@ -573,9 +717,9 @@ static int usf_set_rx_info(struct usf_type *usf, unsigned long arg)
 			    sizeof(config_rx));
 
 	if (rc) {
-		pr_err("%s: copy_from_user() failed[%d]\n",
+		pr_err("%s: copy config_rx from user; rc=%d\n",
 			__func__, rc);
-		return -EINVAL;
+		return -EFAULT;
 	}
 
 	usf_xx->new_region = USM_UNDEF_TOKEN;
@@ -617,14 +761,15 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 {
 	struct us_tx_update_info_type upd_tx_info;
 	unsigned long prev_jiffies = 0;
+	uint32_t timeout = 0;
 	struct usf_xx_type *usf_xx =  &usf->usf_tx;
 	int rc = copy_from_user(&upd_tx_info, (void *) arg,
 			    sizeof(upd_tx_info));
 
 	if (rc) {
-		pr_err("%s: get_update: copy_from_user() failed[%d]\n",
-		       __func__, rc);
-		return -EINVAL;
+		pr_err("%s: copy upd_tx_info from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
 	}
 
 	if (!usf_xx->user_upd_info_na) {
@@ -641,27 +786,43 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 		usf_xx->user_upd_info_na = 0;
 
 	/* Get data ready regions */
-	prev_jiffies = jiffies;
-	rc = wait_event_timeout(usf_xx->wait,
-				(usf_xx->prev_region !=
-				 usf_xx->new_region) ||
-				(usf_xx->usf_state !=
-				 USF_WORK_STATE),
-				USF_TIMEOUT_JIFFIES);
+	if (upd_tx_info.timeout == USF_INFINITIVE_TIMEOUT) {
+		wait_event(usf_xx->wait,
+			   (usf_xx->prev_region !=
+			    usf_xx->new_region) ||
+			   (usf_xx->usf_state !=
+			    USF_WORK_STATE));
+	} else {
+		if (upd_tx_info.timeout == USF_NO_WAIT_TIMEOUT)
+			rc = (usf_xx->prev_region != usf_xx->new_region);
+		else {
+			if (upd_tx_info.timeout == USF_DEFAULT_TIMEOUT)
+				timeout = USF_TIMEOUT_JIFFIES;
+			else
+				timeout = upd_tx_info.timeout * HZ;
 
-	if (!rc) {
-		pr_debug("%s: timeout. prev_j=%lu; j=%lu\n",
-			__func__, prev_jiffies, jiffies);
-		pr_debug("%s: timeout. prev=%d; new=%d\n",
-			__func__, usf_xx->prev_region,
-			usf_xx->new_region);
-		pr_debug("%s: timeout. free_region=%d;\n",
-			__func__, upd_tx_info.free_region);
-		if (usf_xx->prev_region ==
-		    usf_xx->new_region) {
-			pr_err("%s:read data: timeout\n",
-			       __func__);
-			return -ETIME;
+			prev_jiffies = jiffies;
+			rc = wait_event_timeout(usf_xx->wait,
+						(usf_xx->prev_region !=
+						 usf_xx->new_region) ||
+						(usf_xx->usf_state !=
+						 USF_WORK_STATE),
+						timeout);
+		}
+		if (!rc) {
+			pr_debug("%s: timeout. prev_j=%lu; j=%lu\n",
+				__func__, prev_jiffies, jiffies);
+			pr_debug("%s: timeout. prev=%d; new=%d\n",
+				__func__, usf_xx->prev_region,
+				usf_xx->new_region);
+			pr_debug("%s: timeout. free_region=%d;\n",
+				__func__, upd_tx_info.free_region);
+			if (usf_xx->prev_region ==
+			    usf_xx->new_region) {
+				pr_err("%s:read data: timeout\n",
+				       __func__);
+				return -ETIME;
+			}
 		}
 	}
 
@@ -672,14 +833,21 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 	}
 
 	upd_tx_info.ready_region = usf_xx->new_region;
-	rc = copy_to_user((void __user *)arg, &upd_tx_info,
-			  sizeof(upd_tx_info));
+	usf_xx->prev_region = upd_tx_info.ready_region;
+
 	if (upd_tx_info.ready_region == USM_WRONG_TOKEN) {
 		pr_err("%s: TX path corrupted; prev=%d\n",
 		       __func__, usf_xx->prev_region);
-		rc = -EIO;
+		return -EIO;
 	}
-	usf_xx->prev_region = upd_tx_info.ready_region;
+
+	rc = copy_to_user((void __user *)arg, &upd_tx_info,
+			  sizeof(upd_tx_info));
+	if (rc) {
+		pr_err("%s: copy upd_tx_info to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
 
 	return rc;
 } /* usf_get_tx_update */
@@ -691,9 +859,9 @@ static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
 			    sizeof(upd_rx_info));
 
 	if (rc) {
-		pr_err("%s: get_update: copy_from_user() failed[%d]\n",
-		       __func__, rc);
-		return -EINVAL;
+		pr_err("%s: copy upd_rx_info from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
 	}
 
 	/* Send available data regions */
@@ -726,11 +894,17 @@ static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
 			       __func__,
 			       usf_xx->usf_state);
 			rc = -EINTR;
-		} else
+		} else {
 			rc = copy_to_user(
 				(void __user *)arg,
 				&upd_rx_info,
 				sizeof(upd_rx_info));
+			if (rc) {
+				pr_err("%s: copy rx_info to user; rc=%d\n",
+					__func__, rc);
+				rc = -EFAULT;
+			}
+		}
 	}
 
 	return rc;
@@ -863,6 +1037,19 @@ static long usf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	} /* US_STOP_RX */
 
+	case US_SET_DETECTION: {
+		struct usf_xx_type *usf_xx = &usf->usf_tx;
+		if (usf_xx->usf_state == USF_WORK_STATE)
+			rc = usf_set_us_detection(usf, arg);
+		else {
+			pr_err("%s: set us detection: wrong state[%d]\n",
+			       __func__,
+			       usf_xx->usf_state);
+			rc = -EBADFD;
+		}
+		break;
+	} /* US_GET_TX_UPDATE */
+
 	default:
 		rc = -EINVAL;
 		break;
@@ -936,6 +1123,9 @@ static int usf_open(struct inode *inode, struct file *file)
 	usf->usf_tx.usf_state = USF_OPENED_STATE;
 	usf->usf_rx.usf_state = USF_OPENED_STATE;
 
+	usf->usf_tx.us_detect_type = USF_US_DETECT_UNDEF;
+	usf->usf_rx.us_detect_type = USF_US_DETECT_UNDEF;
+
 	pr_info("%s:usf in open\n", __func__);
 	return 0;
 }
@@ -1003,4 +1193,3 @@ device_initcall(usf_init);
 
 MODULE_DESCRIPTION("Ultrasound framework driver");
 MODULE_VERSION(DRV_VERSION);
-MODULE_LICENSE("GPL v2");
