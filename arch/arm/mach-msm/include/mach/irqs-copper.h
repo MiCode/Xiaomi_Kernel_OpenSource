@@ -36,7 +36,8 @@
 
 #define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
 #define NR_GPIO_IRQS 156
-#define NR_BOARD_IRQS 100
+#define NR_QPNP_IRQS 32768 /* SPARSE_IRQ is required to support this */
+#define NR_BOARD_IRQS NR_QPNP_IRQS
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8
 #define NR_MSM_GPIOS NR_GPIO_IRQS
 
