@@ -729,6 +729,12 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 	F_END
 };
 
+static struct clk_freq_tbl clk_tbl_usb_hsic_sys[] = {
+	F_USB(       0, gnd,  1, 0, 0),
+	F_USB(64000000, pll8, 1, 1, 6),
+	F_END
+};
+
 static struct rcg_clk usb_hs1_xcvr_clk = {
 	.b = {
 		.ctl_reg = USB_HS1_XCVR_FS_CLK_NS_REG,
@@ -796,7 +802,7 @@ static struct rcg_clk usb_hsic_xcvr_clk = {
 	.c = {
 		.dbg_name = "usb_hsic_xcvr_clk",
 		.ops = &clk_ops_rcg_9615,
-		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
+		VDD_DIG_FMAX_MAP1(LOW, 60000000),
 		CLK_INIT(usb_hsic_xcvr_clk.c),
 	},
 };
@@ -815,19 +821,19 @@ static struct rcg_clk usb_hsic_sys_clk = {
 	.root_en_mask = BIT(11),
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_usb,
+	.freq_tbl = clk_tbl_usb_hsic_sys,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hsic_sys_clk",
 		.ops = &clk_ops_rcg_9615,
-		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
+		VDD_DIG_FMAX_MAP1(LOW, 64000000),
 		CLK_INIT(usb_hsic_sys_clk.c),
 	},
 };
 
 static struct clk_freq_tbl clk_tbl_usb_hsic[] = {
 	F_USB(        0, gnd,   1, 0, 0),
-	F_USB(480000000, pll14, 1, 0, 1),
+	F_USB(480000000, pll14, 1, 0, 0),
 	F_END
 };
 
@@ -837,8 +843,7 @@ static struct rcg_clk usb_hsic_clk = {
 		.en_mask = BIT(9),
 		.reset_reg = USB_HSIC_RESET_REG,
 		.reset_mask = BIT(0),
-		.halt_reg = CLK_HALT_DFAB_STATE_REG,
-		.halt_bit = 7,
+		.halt_check = DELAY,
 	},
 	.ns_reg = USB_HSIC_CLK_NS_REG,
 	.md_reg = USB_HSIC_CLK_MD_REG,
@@ -850,7 +855,7 @@ static struct rcg_clk usb_hsic_clk = {
 	.c = {
 		.dbg_name = "usb_hsic_clk",
 		.ops = &clk_ops_rcg_9615,
-		VDD_DIG_FMAX_MAP1(NOMINAL, 480000000),
+		VDD_DIG_FMAX_MAP1(LOW, 480000000),
 		CLK_INIT(usb_hsic_clk.c),
 	},
 };
@@ -1448,6 +1453,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_a_clk.c },
+	{ TEST_PER_HS(0x3E), &usb_hsic_clk.c },
 	{ TEST_LPA(0x0F), &mi2s_bit_clk.c },
 	{ TEST_LPA(0x10), &codec_i2s_mic_bit_clk.c },
 	{ TEST_LPA(0x11), &codec_i2s_spkr_bit_clk.c },
@@ -1671,6 +1677,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("usb_hsic_hsio_cal_clk", usb_hsic_hsio_cal_clk.c,	NULL),
 	CLK_LOOKUP("usb_hsic_sys_clk",		usb_hsic_sys_clk.c,	NULL),
 	CLK_LOOKUP("usb_hsic_p_clk",		usb_hsic_p_clk.c,	NULL),
+	CLK_LOOKUP("usb_hsic_clk",		usb_hsic_clk.c,		NULL),
 
 	CLK_LOOKUP("iface_clk",		sdc1_p_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",		sdc2_p_clk.c,		"msm_sdcc.2"),
@@ -1871,8 +1878,8 @@ static void __init msm9615_clock_init(void)
 	clk_set_rate(&usb_hs1_xcvr_clk.c, 60000000);
 	clk_set_rate(&usb_hs1_sys_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_clk.c, 60000000);
-	clk_set_rate(&usb_hsic_sys_clk.c, 60000000);
-	clk_set_rate(&usb_hsic_clk.c, 48000000);
+	clk_set_rate(&usb_hsic_sys_clk.c, 64000000);
+	clk_set_rate(&usb_hsic_clk.c, 480000000);
 
 	/*
 	 * The halt status bits for PDM may be incorrect at boot.
