@@ -190,7 +190,10 @@ EXPORT_SYMBOL(pas_supported);
 
 static int __init scm_pas_init(void)
 {
-	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
+	/* TODO: Remove once bus scaling driver is in place */
+	if (!cpu_is_apq8064())
+		scm_perf_client = msm_bus_scale_register_client(
+				&scm_pas_bus_pdata);
 	if (!scm_perf_client)
 		pr_warn("unable to register bus client\n");
 	scm_bus_clk = clk_get_sys("scm", "bus_clk");
