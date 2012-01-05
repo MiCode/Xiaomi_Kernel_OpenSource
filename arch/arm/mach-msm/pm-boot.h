@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@ struct msm_pm_boot_platform_data {
 int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata);
 #else
 static inline int __init msm_pm_boot_init(
-		struct msm_pm_boot_platform_data *pdata);
+		struct msm_pm_boot_platform_data *pdata)
 {
 	return 0;
 }
