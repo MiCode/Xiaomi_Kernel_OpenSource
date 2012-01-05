@@ -196,12 +196,12 @@ SECTIONS
 
 		NOSAVE_DATA
 		CACHELINE_ALIGNED_DATA(L1_CACHE_BYTES)
-		READ_MOSTLY_DATA(32)
+		READ_MOSTLY_DATA(L1_CACHE_BYTES)
 
 		/*
 		 * The exception fixup table (might need resorting at runtime)
 		 */
-		. = ALIGN(32);
+		. = ALIGN(L1_CACHE_BYTES);
 		__start___ex_table = .;
 #ifdef CONFIG_MMU
 		*(__ex_table)
