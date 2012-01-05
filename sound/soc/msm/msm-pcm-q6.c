@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,11 +51,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     320 * 8,
+	.buffer_bytes_max =     320 * 16,
 	.period_bytes_min =	320,
 	.period_bytes_max =     320,
-	.periods_min =          8,
-	.periods_max =          8,
+	.periods_min =          16,
+	.periods_max =          16,
 	.fifo_size =            0,
 };
 
