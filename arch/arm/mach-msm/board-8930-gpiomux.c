@@ -155,7 +155,35 @@ static struct gpiomux_setting atmel_int_sus_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+#ifdef MSM8930_PHASE_2
+static struct gpiomux_setting hsusb_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
 
+static struct gpiomux_setting hsusb_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+static struct msm_gpiomux_config msm8930_hsusb_configs[] = {
+	{
+		.gpio = 63,     /* HSUSB_EXTERNAL_5V_LDO_EN */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsusb_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
+		},
+	},
+	{
+		.gpio = 97,     /* HSUSB_5V_EN */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsusb_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
+		},
+	},
+};
+#endif
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 static struct gpiomux_setting hsic_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
@@ -635,9 +663,14 @@ int __init msm8930_init_gpiomux(void)
 			ARRAY_SIZE(wcnss_5wire_interface));
 
 	if (machine_is_msm8930_mtp() || machine_is_msm8930_fluid() ||
-		machine_is_msm8930_cdp())
+		machine_is_msm8930_cdp()) {
 		msm_gpiomux_install(hap_lvl_shft_config,
 			ARRAY_SIZE(hap_lvl_shft_config));
+#ifdef MSM8930_PHASE_2
+		msm_gpiomux_install(msm8930_hsusb_configs,
+			ARRAY_SIZE(msm8930_hsusb_configs));
+#endif
+	}
 
 	if (PLATFORM_IS_CHARM25())
 		msm_gpiomux_install(mdm_configs,
