@@ -13,6 +13,8 @@
 #ifndef __ARCH_ARM_MACH_MSM_BOARD_MSM8930_H
 #define __ARCH_ARM_MACH_MSM_BOARD_MSM8930_H
 
+#define MSM8930_PHASE_2
+
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
 #include <linux/i2c.h>
