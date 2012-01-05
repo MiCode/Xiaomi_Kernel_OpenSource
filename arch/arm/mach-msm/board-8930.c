@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1415,14 +1415,7 @@ static struct platform_device msm_device_saw_core0 = {
 	.name	= "saw-regulator",
 	.id	= 0,
 	.dev	= {
-	/*
-	 * TODO: When physical 8930/PM8038 hardware becomes
-	 * available, replace msm_saw_regulator_pdata_s5
-	 * with 8930 saw regulator object.
-	 */
-#ifndef MSM8930_PHASE_2
-		.platform_data = &msm_saw_regulator_pdata_s5,
-#endif
+		.platform_data = &msm8930_saw_regulator_core0_pdata,
 	},
 };
 
@@ -1430,14 +1423,7 @@ static struct platform_device msm_device_saw_core1 = {
 	.name	= "saw-regulator",
 	.id	= 1,
 	.dev	= {
-	/*
-	 * TODO: When physical 8930/PM8038 hardware becomes
-	 * available, replace msm_saw_regulator_pdata_s5
-	 * with 8930 saw regulator object.
-	 */
-#if     !defined(MSM8930_PHASE_2)
-		.platform_data = &msm_saw_regulator_pdata_s6,
-#endif
+		.platform_data = &msm8930_saw_regulator_core1_pdata,
 	},
 };
 

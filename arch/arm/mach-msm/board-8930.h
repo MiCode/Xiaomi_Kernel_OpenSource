@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +46,6 @@
  * declarations.
  */
 #ifndef MSM8930_PHASE_2
-extern struct regulator_init_data msm_saw_regulator_pdata_s5;
-extern struct regulator_init_data msm_saw_regulator_pdata_s6;
-
 extern struct pm8xxx_regulator_platform_data
 	msm_pm8921_regulator_pdata[] __devinitdata;
 
@@ -63,6 +60,9 @@ extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
 #define GPIO_VREG_ID_EXT_L2		1
 #define GPIO_VREG_ID_EXT_3P3V		2
 #endif
+
+extern struct regulator_init_data msm8930_saw_regulator_core0_pdata;
+extern struct regulator_init_data msm8930_saw_regulator_core1_pdata;
 
 extern struct pm8xxx_regulator_platform_data
 	msm8930_pm8038_regulator_pdata[] __devinitdata;
