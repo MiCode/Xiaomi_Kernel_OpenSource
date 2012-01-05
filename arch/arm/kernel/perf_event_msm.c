@@ -474,24 +474,31 @@ static void scorpion_pre_vlpm(void)
 {
 	u32 venum_new_val;
 	u32 fp_new_val;
+	u32 v_orig_val;
+	u32 f_orig_val;
 
-	/* CPACR Enable CP10 access*/
-	venum_orig_val = get_copro_access();
-	venum_new_val = venum_orig_val | CPACC_SVC(10);
+	/* CPACR Enable CP10 access */
+	v_orig_val = get_copro_access();
+	venum_new_val = v_orig_val | CPACC_SVC(10);
 	set_copro_access(venum_new_val);
+	/* Store orig venum val */
+	__get_cpu_var(venum_orig_val) = v_orig_val;
+
 	/* Enable FPEXC */
-	fp_orig_val = fmrx(FPEXC);
-	fp_new_val = fp_orig_val | FPEXC_EN;
+	f_orig_val = fmrx(FPEXC);
+	fp_new_val = f_orig_val | FPEXC_EN;
 	fmxr(FPEXC, fp_new_val);
+	/* Store orig fp val */
+	__get_cpu_var(fp_orig_val) = f_orig_val;
 }
 
 static void scorpion_post_vlpm(void)
 {
-	/* Restore FPEXC*/
-	fmxr(FPEXC, fp_orig_val);
+	/* Restore FPEXC */
+	fmxr(FPEXC, __get_cpu_var(fp_orig_val));
 	isb();
-	/* Restore CPACR*/
-	set_copro_access(venum_orig_val);
+	/* Restore CPACR */
+	set_copro_access(__get_cpu_var(venum_orig_val));
 }
 
 struct scorpion_access_funcs {
