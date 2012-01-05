@@ -1,0 +1,72 @@
+* SPMI
+
+The spmi Device Tree support interprets up to two levels of Device Tree
+topology. The first level is required and specifies only a slave address.
+The second level is optional and allows for the specification of different
+offsets within the same 16-bit address space underneath a particular SPMI
+slave ID. Within the second level, any number of address ranges can be
+associated with a particular device within that 16-bit range.
+
+First level
+
+Required properites :
+
+ - reg: SPMI Slave ID (0-15) with no size cell.
+ - compatible : "qcom," prefixed string to match against the driver.
+
+Recommended properties :
+
+ - interrupts : <a b c> where a is the slave ID, b is the peripheral ID,
+   c is the device interrupt number (0-7). Each device supports any arbitrary
+   number of interrupts.
+ - interrupt-parent : the phandle for the interrupt controller that
+   services interrupts for this device.
+
+Second level
+
+Required properties :
+ - spmi-dev-container: Used by the parser to understand that this is the second
+   level of the tree.
+ - reg: <a b> where a is < 65536 and b is a size. Each device supports an
+   arbitrary number of address ranges.
+ - compatible : "qcom," prefixed string to match against the driver.
+
+Recommended properties :
+
+ - interrupts : <a b c> where a is the slave ID, b is is the peripheral ID,
+   c is the device interrupt number (0-7). Each device supports any arbitrary
+   number of interrupts.
+ - interrupt-parent : the phandle for the interrupt controller that
+   services interrupts for this device.
+
+Example:
+
+/ {
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&qpnpint>;
+		pmic8941@d {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0xd>;
+			spmi-dev-container;
+
+			coincell@2800 {
+				compatible = "qcom,qpnp-coincell";
+				reg = <0x2800 0x4000>;
+				interrupts = <0xd 0x28 0x6  0xd 0x28 0x3>;
+
+			};
+			pon@800 {
+				compatible = "qcom,qpnp-pon";
+				reg = <0x800 0x4000>;
+			};
+		};
+		customer_dev@2 {
+			compatible = "qcom,qpnp-pon";
+			reg = <0x2>;
+			interrupts = <0x2 0x08 0x1  0x2 0x8 0x3>;
+		};
+	};
+};
