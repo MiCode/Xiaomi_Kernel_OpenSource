@@ -143,12 +143,11 @@ module_param_cb(last_ocv_uv, &bms_param_ops, &last_ocv_uv, 0644);
 module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
 
 /*
- * bms_fake_battery is write only, this value is set in setups where a
- * battery emulator is used instead of a real battery. This makes the
- * bms driver report a higher value of charge regardless of the calculated
- * state of charge.
+ * bms_fake_battery is set in setups where a battery emulator is used instead
+ * of a real battery. This makes the bms driver report a different/fake value
+ * regardless of the calculated state of charge.
  */
-static int bms_fake_battery;
+static int bms_fake_battery = -EINVAL;
 module_param(bms_fake_battery, int, 0644);
 
 /* bms_start_XXX and bms_end_XXX are read only */
@@ -1056,7 +1055,6 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
  *				- unusable charge (due to battery resistance)
  * SOC% = (remaining usable charge/ fcc - usable_charge);
  */
-#define BATTERY_POWER_SUPPLY_SOC	53
 static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 					struct pm8921_soc_params *raw,
 					int batt_temp, int chargecycles)
@@ -1085,6 +1083,11 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 100;
 	pr_debug("SOC = %u%%\n", soc);
 
+	if (bms_fake_battery != -EINVAL) {
+		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
+		return bms_fake_battery;
+	}
+
 	if (soc < 0) {
 		pr_err("bad rem_usb_chg = %d rem_chg %d,"
 				"cc_uah %d, unusb_chg %d\n",
@@ -1103,7 +1106,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	if (last_soc == -EINVAL || soc <= last_soc) {
 		last_soc = update_userspace ? soc : last_soc;
-		return bms_fake_battery ? BATTERY_POWER_SUPPLY_SOC : soc;
+		return soc;
 	}
 
 	/*
@@ -1118,7 +1121,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = last_soc;
 	}
 
-	return bms_fake_battery ? BATTERY_POWER_SUPPLY_SOC : soc;
+	return soc;
 }
 
 static void calib_hkadc(struct pm8921_bms_chip *chip)
