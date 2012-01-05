@@ -75,4 +75,10 @@ config OF_PCI
 	help
 	  OpenFirmware PCI bus accessors
 
+config OF_SPMI
+	def_tristate SPMI
+	depends on SPMI
+	help
+	  OpenFirmware SPMI bus accessors
+
 endmenu # OF
