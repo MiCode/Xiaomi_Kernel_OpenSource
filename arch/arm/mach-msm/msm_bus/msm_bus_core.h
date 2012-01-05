@@ -24,13 +24,9 @@
 
 #define MSM_BUS_DBG(msg, ...) \
 	printk(KERN_DEBUG "AXI: %s(): " msg, __func__, ## __VA_ARGS__)
-#define MSM_FAB_DBG(msg, ...) \
-	dev_dbg(&fabric->fabdev.dev, "AXI: %s(): " msg, __func__, ## \
-	__VA_ARGS__)
 
 #else
 #define MSM_BUS_DBG(msg, ...) no_printk("AXI")
-#define MSM_FAB_DBG(msg, ...) no_printk("AXI")
 #endif
 
 #define MSM_BUS_ERR(msg, ...) \

@@ -540,14 +540,14 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 
 	*cd = kzalloc(sizeof(struct commit_data), GFP_KERNEL);
 	if (!*cdata) {
-		MSM_FAB_DBG("Couldn't alloc mem for cdata\n");
+		MSM_BUS_DBG("Couldn't alloc mem for cdata\n");
 		goto cdata_err;
 	}
 
 	(*cd)->bwsum = kzalloc((sizeof(uint16_t) * fab_pdata->nslaves),
 			GFP_KERNEL);
 	if (!(*cd)->bwsum) {
-		MSM_FAB_DBG("Couldn't alloc mem for slaves\n");
+		MSM_BUS_DBG("Couldn't alloc mem for slaves\n");
 		goto bwsum_err;
 	}
 
@@ -556,7 +556,7 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 			(fab_pdata->ntieredslaves * fab_pdata->nmasters) + 1),
 			GFP_KERNEL);
 		if (!(*cd)->arb[i]) {
-			MSM_FAB_DBG("Couldn't alloc memory for"
+			MSM_BUS_DBG("Couldn't alloc memory for"
 				" slaves\n");
 			goto arb_err;
 		}
@@ -565,7 +565,7 @@ int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
 			(fab_pdata->ntieredslaves * fab_pdata->nmasters) + 1),
 			GFP_KERNEL);
 		if (!(*cd)->actarb[i]) {
-			MSM_FAB_DBG("Couldn't alloc memory for"
+			MSM_BUS_DBG("Couldn't alloc memory for"
 					" slaves\n");
 			kfree((*cd)->arb[i]);
 			goto arb_err;
@@ -691,11 +691,11 @@ static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
 
 	MSM_BUS_DBG("rpm data for fab: %d\n", fab_pdata->id);
 	for (i = 0; i < count; i++)
-		MSM_FAB_DBG("%d %x\n", rpm_data[i].id, rpm_data[i].value);
+		MSM_BUS_DBG("%d %x\n", rpm_data[i].id, rpm_data[i].value);
 
 	MSM_BUS_DBG("Commit Data: Fab: %d BWSum:\n", fab_pdata->id);
 	for (i = 0; i < fab_pdata->nslaves; i++)
-		MSM_FAB_DBG("fab_slaves:0x%x\n", cd->bwsum[i]);
+		MSM_BUS_DBG("fab_slaves:0x%x\n", cd->bwsum[i]);
 	MSM_BUS_DBG("Commit Data: Fab: %d Arb:\n", fab_pdata->id);
 	for (k = 0; k < NUM_TIERS; k++) {
 		MSM_BUS_DBG("Tier: %d\n", k);
@@ -708,7 +708,7 @@ static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
 		}
 	}
 
-	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
+	MSM_BUS_DBG("calling msm_rpm_set:  %d\n", status);
 	msm_bus_dbg_commit_data(fab_pdata->name, (void *)cd, fab_pdata->
 		nmasters, fab_pdata->nslaves, fab_pdata->ntieredslaves,
 		MSM_BUS_DBG_OP);
