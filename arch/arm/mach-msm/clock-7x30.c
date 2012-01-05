@@ -2749,7 +2749,7 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("ebi1_clk",	ebi1_clk.c,	NULL) },
 	{ CLK_LOOKUP("ebi1_fixed_clk",	ebi1_fixed_clk.c,	NULL) },
 	{ CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL) },
-	{ CLK_LOOKUP("core_clk",	gp_clk.c,	NULL) },
+	{ CLK_LOOKUP("core_clk",	gp_clk.c,	"") },
 	{ CLK_LOOKUP("core_clk",	uart3_clk.c,	"msm_serial.2") },
 	{ CLK_LOOKUP("phy_clk",		usb_phy_clk.c,	"msm_otg") },
 
@@ -2836,9 +2836,9 @@ static struct clk_local_ownership {
 	OWN(ROW1,  2, "alt_core_clk",	usb_hs2_clk,	"msm_hsusb_host.0"),
 	OWN(ROW1,  2, "core_clk",	usb_hs2_core_clk, "msm_hsusb_host.0"),
 	OWN(ROW1,  2, "iface_clk",	usb_hs2_p_clk,	"msm_hsusb_host.0"),
-	OWN(ROW1,  4, "alt_core_clk",	usb_hs3_clk,	NULL),
-	OWN(ROW1,  4, "core_clk",	usb_hs3_core_clk, NULL),
-	OWN(ROW1,  4, "iface_clk",	usb_hs3_p_clk,	NULL),
+	OWN(ROW1,  4, "alt_core_clk",	usb_hs3_clk,	""),
+	OWN(ROW1,  4, "core_clk",	usb_hs3_core_clk, ""),
+	OWN(ROW1,  4, "iface_clk",	usb_hs3_p_clk,	""),
 
 	OWN(ROW2,  3, "core_clk",	qup_i2c_clk,	"qup_i2c.4"),
 	OWN(ROW2,  1, "core_clk",	spi_clk,	"spi_qsd.0"),
