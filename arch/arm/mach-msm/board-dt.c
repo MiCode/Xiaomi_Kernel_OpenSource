@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
+#include <asm/hardware/gic.h>
 #include <asm/arch_timer.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
@@ -94,6 +95,7 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.map_io = msm_dt_map_io,
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msm_dt_init,
+	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm_dt_match,
 MACHINE_END
