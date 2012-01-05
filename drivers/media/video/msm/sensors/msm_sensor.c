@@ -502,6 +502,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		goto enable_clk_failed;
 	}
 
+	usleep_range(1000, 2000);
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(1);
 
