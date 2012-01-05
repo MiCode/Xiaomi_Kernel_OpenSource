@@ -226,4 +226,8 @@
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <24000000>;
 	};
+
+	qcom,acpuclk@0xf900000 {
+		compatible = "qcom,acpuclk-copper";
+	};
 };
