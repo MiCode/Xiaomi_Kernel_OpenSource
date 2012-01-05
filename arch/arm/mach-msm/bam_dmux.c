@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -747,78 +747,105 @@ int msm_bam_dmux_is_ch_low(uint32_t id)
 	return ret;
 }
 
+static void rx_switch_to_interrupt_mode(void)
+{
+	struct sps_connect cur_rx_conn;
+	struct sps_iovec iov;
+	struct rx_pkt_info *info;
+	int ret;
+
+	/*
+	 * Attempt to enable interrupts - if this fails,
+	 * continue polling and we will retry later.
+	 */
+	ret = sps_get_config(bam_rx_pipe, &cur_rx_conn);
+	if (ret) {
+		pr_err("%s: sps_get_config() failed %d\n", __func__, ret);
+		goto fail;
+	}
+
+	rx_register_event.options = SPS_O_EOT;
+	ret = sps_register_event(bam_rx_pipe, &rx_register_event);
+	if (ret) {
+		pr_err("%s: sps_register_event() failed %d\n", __func__, ret);
+		goto fail;
+	}
+
+	cur_rx_conn.options = SPS_O_AUTO_ENABLE |
+		SPS_O_EOT | SPS_O_ACK_TRANSFERS;
+	ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
+	if (ret) {
+		pr_err("%s: sps_set_config() failed %d\n", __func__, ret);
+		goto fail;
+	}
+	polling_mode = 0;
+
+	/* handle any rx packets before interrupt was enabled */
+	while (bam_connection_is_active && !polling_mode) {
+		ret = sps_get_iovec(bam_rx_pipe, &iov);
+		if (ret) {
+			pr_err("%s: sps_get_iovec failed %d\n",
+					__func__, ret);
+			break;
+		}
+		if (iov.addr == 0)
+			break;
+
+		mutex_lock(&bam_rx_pool_mutexlock);
+		if (unlikely(list_empty(&bam_rx_pool))) {
+			mutex_unlock(&bam_rx_pool_mutexlock);
+			continue;
+		}
+		info = list_first_entry(&bam_rx_pool, struct rx_pkt_info,
+							list_node);
+		list_del(&info->list_node);
+		mutex_unlock(&bam_rx_pool_mutexlock);
+		handle_bam_mux_cmd(&info->work);
+	}
+	return;
+
+fail:
+	pr_err("%s: reverting to polling\n", __func__);
+	queue_work(bam_mux_rx_workqueue, &rx_timer_work);
+}
+
 static void rx_timer_work_func(struct work_struct *work)
 {
 	struct sps_iovec iov;
-	struct list_head *node;
 	struct rx_pkt_info *info;
 	int inactive_cycles = 0;
 	int ret;
-	struct sps_connect cur_rx_conn;
 
-	while (1) { /* timer loop */
+	while (bam_connection_is_active) { /* timer loop */
 		++inactive_cycles;
-		while (1) { /* deplete queue loop */
+		while (bam_connection_is_active) { /* deplete queue loop */
 			if (in_global_reset)
 				return;
-			sps_get_iovec(bam_rx_pipe, &iov);
+
+			ret = sps_get_iovec(bam_rx_pipe, &iov);
+			if (ret) {
+				pr_err("%s: sps_get_iovec failed %d\n",
+						__func__, ret);
+				break;
+			}
 			if (iov.addr == 0)
 				break;
 			inactive_cycles = 0;
 			mutex_lock(&bam_rx_pool_mutexlock);
-			node = bam_rx_pool.next;
-			list_del(node);
+			if (unlikely(list_empty(&bam_rx_pool))) {
+				mutex_unlock(&bam_rx_pool_mutexlock);
+				continue;
+			}
+			info = list_first_entry(&bam_rx_pool,
+					struct rx_pkt_info,	list_node);
+			list_del(&info->list_node);
 			mutex_unlock(&bam_rx_pool_mutexlock);
-			info = container_of(node, struct rx_pkt_info,
-							list_node);
 			handle_bam_mux_cmd(&info->work);
 		}
 
 		if (inactive_cycles == POLLING_INACTIVITY) {
-			/*
-			 * attempt to enable interrupts in this pipe
-			 * if enabling interrupts fails, continue polling
-			 */
-			ret = sps_get_config(bam_rx_pipe, &cur_rx_conn);
-			if (ret) {
-				pr_err("%s: sps_get_config() failed, interrupts"
-						" not enabled\n", __func__);
-				queue_work(bam_mux_rx_workqueue,
-						&rx_timer_work);
-				return;
-			} else {
-				rx_register_event.options = SPS_O_EOT;
-				/* should check return value */
-				sps_register_event(bam_rx_pipe,
-							&rx_register_event);
-				cur_rx_conn.options = SPS_O_AUTO_ENABLE |
-					SPS_O_EOT | SPS_O_ACK_TRANSFERS;
-				ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
-				if (ret) {
-					pr_err("%s: sps_set_config() failed, "
-						"interrupts not enabled\n",
-						__func__);
-					queue_work(bam_mux_rx_workqueue,
-							&rx_timer_work);
-					return;
-				}
-				polling_mode = 0;
-			}
-			if (in_global_reset)
-				return;
-			/* handle race condition - missed packet? */
-			sps_get_iovec(bam_rx_pipe, &iov);
-			if (iov.addr == 0)
-				return;
-			inactive_cycles = 0;
-			mutex_lock(&bam_rx_pool_mutexlock);
-			node = bam_rx_pool.next;
-			list_del(node);
-			mutex_unlock(&bam_rx_pool_mutexlock);
-			info = container_of(node, struct rx_pkt_info,
-							list_node);
-			handle_bam_mux_cmd(&info->work);
-			return;
+			rx_switch_to_interrupt_mode();
+			break;
 		}
 
 		usleep_range(POLLING_MIN_SLEEP, POLLING_MAX_SLEEP);
@@ -869,16 +896,16 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 		if (!polling_mode) {
 			ret = sps_get_config(bam_rx_pipe, &cur_rx_conn);
 			if (ret) {
-				pr_err("%s: sps_get_config() failed, interrupts"
-					" not disabled\n", __func__);
+				pr_err("%s: sps_get_config() failed %d, interrupts"
+					" not disabled\n", __func__, ret);
 				break;
 			}
 			cur_rx_conn.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			ret = sps_set_config(bam_rx_pipe, &cur_rx_conn);
 			if (ret) {
-				pr_err("%s: sps_set_config() failed, interrupts"
-					" not disabled\n", __func__);
+				pr_err("%s: sps_set_config() failed %d, interrupts"
+					" not disabled\n", __func__, ret);
 				break;
 			}
 			polling_mode = 1;
@@ -1083,10 +1110,16 @@ static void reconnect_to_bam(void)
 	i = sps_register_event(bam_rx_pipe, &rx_register_event);
 	if (i)
 		pr_err("%s: rx event reg failed rc = %d\n", __func__, i);
+
+	bam_connection_is_active = 1;
+
+	if (polling_mode)
+		rx_switch_to_interrupt_mode();
+
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		queue_rx();
+
 	toggle_apps_ack();
-	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
 }
 
@@ -1102,6 +1135,8 @@ static void disconnect_to_bam(void)
 	unvote_dfab();
 	__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
 	__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+
+	mutex_lock(&bam_rx_pool_mutexlock);
 	while (!list_empty(&bam_rx_pool)) {
 		node = bam_rx_pool.next;
 		list_del(node);
@@ -1111,6 +1146,7 @@ static void disconnect_to_bam(void)
 		dev_kfree_skb_any(info->skb);
 		kfree(info);
 	}
+	mutex_unlock(&bam_rx_pool_mutexlock);
 }
 
 static void vote_dfab(void)
