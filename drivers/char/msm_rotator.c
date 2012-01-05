@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -482,6 +482,11 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 	}
 	if (info->dst.format  != dst_format)
 		return -EINVAL;
+
+	/* rotator expects YCbCr for planar input format */
+	if (info->src.format == MDP_Y_CR_CB_H2V2 ||
+	    info->src.format == MDP_Y_CR_CB_GH2V2)
+		swap(in_chroma_paddr, in_chroma2_paddr);
 
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
 	iowrite32(in_chroma_paddr, MSM_ROTATOR_SRCP1_ADDR);
