@@ -3022,6 +3022,8 @@ static short tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce)
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	short bias_value;
 
+	/* Turn on the override */
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x4, 0x4);
 	if (dce) {
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x4);
@@ -3042,6 +3044,8 @@ static short tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce)
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x0);
 	}
+	/* Turn off the override after measuring mic voltage */
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x04, 0x00);
 
 	pr_debug("read microphone bias value %04x\n", bias_value);
 	return bias_value;
@@ -3087,7 +3091,7 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x00);
 
-	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x6, 0x6);
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 
 	tabla_codec_calibrate_hs_polling(codec);
