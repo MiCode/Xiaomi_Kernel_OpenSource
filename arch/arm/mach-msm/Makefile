@@ -301,7 +301,8 @@ obj-y	+= gpio.o
 endif
 endif
 
-obj-$(CONFIG_MSM_SLEEP_STATS) += msm_rq_stats.o idle_stats.o idle_stats_device.o
+obj-$(CONFIG_MSM_SLEEP_STATS) += msm_rq_stats.o idle_stats.o
+obj-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += idle_stats_device.o
 obj-$(CONFIG_MSM_SHOW_RESUME_IRQ) += msm_show_resume_irq.o
 obj-$(CONFIG_BT_MSM_PINTEST)  += btpintest.o
 obj-$(CONFIG_MSM_FAKE_BATTERY) += fish_battery.o
