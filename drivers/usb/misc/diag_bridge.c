@@ -293,7 +293,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 
 #define VALID_INTERFACE_NUM	0
 static const struct usb_device_id diag_bridge_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9001),
+	{ USB_DEVICE(0x5c6, 0x9048),
 	.driver_info = VALID_INTERFACE_NUM, },
 
 	{} /* terminating entry */
