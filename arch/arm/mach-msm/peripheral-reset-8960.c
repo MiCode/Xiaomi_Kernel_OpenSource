@@ -55,7 +55,7 @@ static int reset_dsps_untrusted(struct pil_desc *pil)
 
 static int shutdown_dsps_untrusted(struct pil_desc *pil)
 {
-	writel_relaxed(0x2, PPSS_RESET);
+	writel_relaxed(0x3, PPSS_RESET);
 	writel_relaxed(0x0, PPSS_PROC_CLK_CTL);
 	return 0;
 }
