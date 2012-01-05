@@ -348,6 +348,8 @@ enum audio_path {
 #define SET_REG_FIELD(reg, val, offset, mask) \
 	(reg = (reg & ~mask) | (((val) << offset) & mask))
 #define GET_REG_FIELD(reg, offset, mask) ((reg & mask) >> offset)
+#define RSH_DATA(val, offset)    ((val) >> (offset))
+#define GET_ABS_VAL(val)        ((val) & (0xFF))
 
 enum radio_state_t {
 	FM_OFF,
