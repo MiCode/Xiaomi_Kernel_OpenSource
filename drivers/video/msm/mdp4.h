@@ -368,6 +368,9 @@ struct mdp4_statistic {
 	ulong err_size;
 	ulong err_scale;
 	ulong err_format;
+	ulong err_stage;
+	ulong err_play;
+	ulong err_underflow;
 };
 
 struct mdp4_overlay_pipe *mdp4_overlay_ndx2pipe(int ndx);

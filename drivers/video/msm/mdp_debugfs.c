@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -458,7 +458,17 @@ static ssize_t mdp_stat_read(
 	len = snprintf(bp, dlen, "err_scale: %08lu\t", mdp4_stat.err_scale);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_format: %08lu\n\n", mdp4_stat.err_format);
+	len = snprintf(bp, dlen, "err_format: %08lu\n", mdp4_stat.err_format);
+	bp += len;
+	dlen -= len;
+	len = snprintf(bp, dlen, "err_play:  %08lu\t", mdp4_stat.err_play);
+	bp += len;
+	dlen -= len;
+	len = snprintf(bp, dlen, "err_stage: %08lu\n", mdp4_stat.err_stage);
+	bp += len;
+	dlen -= len;
+	len = snprintf(bp, dlen, "err_underflow: %08lu\n\n",
+		       mdp4_stat.err_underflow);
 	bp += len;
 	dlen -= len;
 
