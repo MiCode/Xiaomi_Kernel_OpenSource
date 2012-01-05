@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -753,9 +753,6 @@ static void data_bridge_debugfs_init(void) { }
 static void data_bridge_debugfs_exit(void) { }
 #endif
 
-#define DUN_IFACE_NUM			3
-#define TETHERED_RMNET_IFACE_NUM	4
-
 static int __devinit
 bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
@@ -767,7 +764,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	int				i;
 	int				status = 0;
 	int				numends;
-	int				iface_num;
+	unsigned int			iface_num;
 
 	iface_num = iface->cur_altsetting->desc.bInterfaceNumber;
 
@@ -780,7 +777,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	udev = interface_to_usbdev(iface);
 	usb_get_dev(udev);
 
-	if (iface_num != DUN_IFACE_NUM && iface_num != TETHERED_RMNET_IFACE_NUM)
+	if (!test_bit(iface_num, &id->driver_info))
 		return -ENODEV;
 
 	numends = iface->cur_altsetting->desc.bNumEndpoints;
@@ -818,6 +815,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 		dev_err(&udev->dev, "ctrl_bridge_probe failed %d\n", status);
 		goto free_data_bridge;
 	}
+
 	ch_id++;
 
 	return 0;
@@ -839,16 +837,11 @@ static void bridge_disconnect(struct usb_interface *intf)
 	struct list_head	*head;
 	struct urb		*rx_urb;
 	unsigned long		flags;
-	int			iface_num;
 
 	if (!dev) {
 		err("%s: data device not found\n", __func__);
 		return;
 	}
-
-	iface_num = intf->cur_altsetting->desc.bInterfaceNumber;
-	if (iface_num != DUN_IFACE_NUM && iface_num != TETHERED_RMNET_IFACE_NUM)
-		return;
 
 	ch_id--;
 	ctrl_bridge_disconnect(ch_id);
@@ -873,12 +866,24 @@ static void bridge_disconnect(struct usb_interface *intf)
 	kfree(dev);
 }
 
+/*bit position represents interface number*/
+#define PID9001_IFACE_MASK	0xC
+#define PID9034_IFACE_MASK	0xC
+#define PID9048_IFACE_MASK	0x18
+
 static const struct usb_device_id bridge_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9048) },
+	{ USB_DEVICE(0x5c6, 0x9001),
+	.driver_info = PID9001_IFACE_MASK,
+	},
+	{ USB_DEVICE(0x5c6, 0x9034),
+	.driver_info = PID9034_IFACE_MASK,
+	},
+	{ USB_DEVICE(0x5c6, 0x9048),
+	.driver_info = PID9048_IFACE_MASK,
+	},
 
 	{ } /* Terminating entry */
 };
-
 MODULE_DEVICE_TABLE(usb, bridge_ids);
 
 static struct usb_driver bridge_driver = {
