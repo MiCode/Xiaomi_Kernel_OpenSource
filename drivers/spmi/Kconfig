@@ -25,5 +25,13 @@ config MSM_QPNP
 	bool "MSM QPNP"
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP
+
+config MSM_QPNP_INT
+	depends on SPARSE_IRQ
+	depends on ARCH_MSMCOPPER
+	depends on OF_SPMI
+	bool "MSM QPNP INT"
+	help
+	  Say 'y' here to include support for the Qualcomm QPNP interrupt
 	  support. QPNP is a SPMI based PMIC implementation.
 endif
