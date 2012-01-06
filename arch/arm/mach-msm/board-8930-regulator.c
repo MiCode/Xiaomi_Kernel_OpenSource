@@ -257,6 +257,97 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		.pin_ctrl	= _pin_ctrl, \
 	}
 
+#define RPM_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, _default_uV, \
+		 _peak_uA, _avg_uA, _pull_down, _pin_ctrl, _freq, _pin_fn, \
+		 _force_mode, _power_mode, _state, _sleep_selectable, \
+		 _always_on, _supply_regulator, _system_uA) \
+	{ \
+		.init_data = { \
+			.constraints = { \
+				.valid_modes_mask	= _modes, \
+				.valid_ops_mask		= _ops, \
+				.min_uV			= _min_uV, \
+				.max_uV			= _max_uV, \
+				.input_uV		= _min_uV, \
+				.apply_uV		= _apply_uV, \
+				.always_on		= _always_on, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id), \
+			.consumer_supplies	= vreg_consumers_##_id, \
+			.supply_regulator	= _supply_regulator, \
+		}, \
+		.id			= RPM_VREG_ID_PM8038_##_id, \
+		.default_uV		= _default_uV, \
+		.peak_uA		= _peak_uA, \
+		.avg_uA			= _avg_uA, \
+		.pull_down_enable	= _pull_down, \
+		.pin_ctrl		= _pin_ctrl, \
+		.freq			= RPM_VREG_FREQ_##_freq, \
+		.pin_fn			= _pin_fn, \
+		.force_mode		= _force_mode, \
+		.power_mode		= _power_mode, \
+		.state			= _state, \
+		.sleep_selectable	= _sleep_selectable, \
+		.system_uA		= _system_uA, \
+	}
+
+#define RPM_LDO(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		_supply_regulator, _system_uA, _init_peak_uA) \
+	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
+		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _init_peak_uA, 0, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8930_NONE, \
+		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, _system_uA)
+
+#define RPM_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
+		 _supply_regulator, _system_uA, _freq) \
+	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
+		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8930_NONE, \
+		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, _system_uA)
+
+#define RPM_VS(_id, _always_on, _pd, _sleep_selectable, _supply_regulator) \
+	RPM_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, 0, 1000, 1000, _pd, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8930_NONE, \
+		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, 0)
+
+#define RPM_NCP(_id, _always_on, _sleep_selectable, _min_uV, _max_uV, \
+		_supply_regulator, _freq) \
+	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 1000, 1000, 0, \
+		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8930_NONE, \
+		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, 0)
+
+/* Pin control initialization */
+#define RPM_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
+	{ \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+				.always_on	= _always_on, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
+			.consumer_supplies	= vreg_consumers_##_id##_PC, \
+			.supply_regulator	= _supply_regulator, \
+		}, \
+		.id	  = RPM_VREG_ID_PM8038_##_id##_PC, \
+		.pin_fn	  = RPM_VREG_PIN_FN_8930_##_pin_fn, \
+		.pin_ctrl = _pin_ctrl, \
+	}
+
 #define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator) \
 	[MSM8930_GPIO_VREG_ID_##_id] = { \
 		.init_data = { \
@@ -307,60 +398,58 @@ msm8930_pm8038_regulator_pdata[] __devinitdata = {
 	 *	    ID  name always_on pd min_uV   max_uV   en_t supply
 	 *	system_uA reg_ID
 	 */
-	PM8XXX_SMPS(S1, "8038_s1", 1, 1,  1150000, 1150000, 500, NULL, 100000,
-		26),
-	PM8XXX_SMPS(S2, "8038_s2", 1, 1,  1400000, 1400000, 500, NULL, 100000,
-		27),
-	PM8XXX_SMPS(S3, "8038_s3", 0, 1,  1150000, 1150000, 500, NULL, 0, 28),
-	PM8XXX_SMPS(S4, "8038_s4", 1, 1,  2200000, 2200000, 500, NULL, 100000,
-		29),
-
-	PM8XXX_NLDO1200(L1, "8038_l1",  0, 1, 1300000, 1300000, 200, "8038_s2",
-		0, 1),
-	PM8XXX_LDO(L2,  "8038_l2",  0, 1, 1200000, 1200000, 200, "8038_s2", 0,
-		2),
-	PM8XXX_LDO(L3,  "8038_l3",  0, 1, 3075000, 3075000, 200, NULL, 0, 3),
-	PM8XXX_LDO(L4,  "8038_l4",  1, 1, 1800000, 1800000, 200, NULL, 10000,
-		4),
-	PM8XXX_LDO(L5,  "8038_l5",  0, 1, 2950000, 2950000, 200, NULL, 0, 5),
-	PM8XXX_LDO(L6,  "8038_l6",  0, 1, 2950000, 2950000, 200, NULL, 0, 6),
-	PM8XXX_LDO(L7,  "8038_l7",  0, 1, 2050000, 2050000, 200, "8038_s4", 0,
-		7),
-	PM8XXX_LDO(L8,  "8038_l8",  0, 1, 2800000, 2800000, 200, NULL, 0, 8),
-	PM8XXX_LDO(L9,  "8038_l9",  0, 1, 2850000, 2850000, 200, NULL, 0, 9),
-	PM8XXX_LDO(L10, "8038_l10", 0, 1, 2900000, 2900000, 200, NULL, 0, 10),
-	PM8XXX_LDO(L11, "8038_l11", 1, 1, 1800000, 1800000, 200, "8038_s4",
-		10000, 11),
-	PM8XXX_LDO(L12, "8038_l12", 0, 1, 1200000, 1200000, 200, "8038_s2", 0,
-		12),
-	PM8XXX_LDO(L14, "8038_l14", 0, 1, 1800000, 1800000, 200, NULL, 0, 13),
-	PM8XXX_LDO(L15, "8038_l15", 0, 1, 1800000, 2950000, 200, NULL, 0, 14),
 	PM8XXX_NLDO1200(L16, "8038_l16", 0, 1, 1050000, 1050000, 200, "8038_s3",
-		0, 15),
-	PM8XXX_LDO(L17, "8038_l17", 0, 1, 1800000, 2950000, 200, NULL, 0, 16),
-	PM8XXX_LDO(L18, "8038_l18", 0, 1, 1800000, 1800000, 200, NULL, 0, 17),
+		0, 0),
 	PM8XXX_NLDO1200(L19, "8038_l19", 0, 1, 1050000, 1050000, 200, "8038_s3",
-		0, 18),
-	PM8XXX_NLDO1200(L20, "8038_l20", 1, 1, 1200000, 1200000, 200, "8038_s2",
-		10000, 19),
-	PM8XXX_LDO(L21, "8038_l21", 0, 1, 1900000, 1900000, 200, "8038_s4", 0,
-		20),
-	PM8XXX_LDO(L22, "8038_l22", 1, 1, 2950000, 2950000, 200, NULL, 10000,
-		21),
-	PM8XXX_LDO(L23, "8038_l23", 0, 1, 1800000, 1800000, 200, "8038_s4", 0,
-		22),
-	PM8XXX_NLDO1200(L24, "8038_l24", 1, 1, 1150000, 1150000, 200, "8038_s2",
-		10000, 23),
-	PM8XXX_LDO(L26, "8038_l26", 1, 1, 1050000, 1050000, 200, "8038_s2",
-		10000, 24),
+		0, 1),
 	PM8XXX_NLDO1200(L27, "8038_l27", 0, 1, 1050000, 1050000, 200, "8038_s3",
-		0, 25),
+		0, 2),
+};
 
-	/*	  ID	name  always_on pd		   en_t supply reg_ID */
-	PM8XXX_VS(LVS1, "8038_lvs1", 0, 1,		     0, "8038_l11", 32),
-	PM8XXX_VS(LVS2, "8038_lvs2", 0, 1,		     0, "8038_l11", 33),
+static struct rpm_regulator_init_data
+msm8930_rpm_regulator_init_data[] __devinitdata = {
+	/*	 ID    a_on pd ss min_uV   max_uV  supply sys_uA freq */
+	RPM_SMPS(S1,	 1, 1, 1,  500000, 1150000, NULL, 100000, 4p80),
+	RPM_SMPS(S2,	 1, 1, 0, 1400000, 1400000, NULL, 100000, 1p60),
+	RPM_SMPS(S3,	 0, 1, 0, 1150000, 1150000, NULL, 100000, 3p20),
+	RPM_SMPS(S4,	 1, 1, 0, 2200000, 2200000, NULL, 100000, 1p60),
 
+	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
+	RPM_LDO(L1,	 0, 1, 0, 1300000, 1300000, "8038_s2", 0, 0),
+	RPM_LDO(L2,	 0, 1, 0, 1200000, 1200000, "8038_s2", 0, 0),
+	RPM_LDO(L3,	 0, 1, 0, 3075000, 3075000, NULL,      0, 0),
+	RPM_LDO(L4,	 1, 1, 0, 1800000, 1800000, NULL,      10000, 10000),
+	RPM_LDO(L5,	 0, 1, 0, 2950000, 2950000, NULL,      0, 0),
+	RPM_LDO(L6,	 0, 1, 0, 2950000, 2950000, NULL,      0, 0),
+	RPM_LDO(L7,	 0, 1, 0, 2050000, 2050000, "8038_s4", 0, 0),
+	RPM_LDO(L8,	 0, 1, 0, 2800000, 2800000, NULL,      0, 0),
+	RPM_LDO(L9,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
+	RPM_LDO(L10,	 0, 1, 0, 2900000, 2900000, NULL,      0, 0),
+	RPM_LDO(L11,	 1, 1, 0, 1800000, 1800000, "8038_s4", 10000, 10000),
+	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8038_s2", 0, 0),
+	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
+	RPM_LDO(L15,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
+	RPM_LDO(L17,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
+	RPM_LDO(L18,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
+	RPM_LDO(L20,	 1, 1, 0, 1200000, 1200000, "8038_s2", 10000, 10000),
+	RPM_LDO(L21,	 0, 1, 0, 1900000, 1900000, "8038_s4", 0, 0),
+	RPM_LDO(L22,	 1, 1, 0, 1850000, 2950000, NULL,      10000, 10000),
+	RPM_LDO(L23,	 1, 1, 1, 1800000, 1800000, "8038_s4", 0, 0),
+	RPM_LDO(L24,	 1, 1, 1,  500000, 1150000, "8038_s2", 10000, 10000),
+	RPM_LDO(L26,     1, 1, 0, 1050000, 1050000, "8038_s2", 10000, 10000),
+
+	/*	ID     a_on pd ss		    supply */
+	RPM_VS(LVS1,	 0, 1, 0,		    "8038_l11"),
+	RPM_VS(LVS2,	 0, 1, 0,		    "8038_l11"),
 };
 
 int msm8930_pm8038_regulator_pdata_len __devinitdata =
 	ARRAY_SIZE(msm8930_pm8038_regulator_pdata);
+
+struct rpm_regulator_platform_data msm8930_rpm_regulator_pdata __devinitdata = {
+	.init_data		= msm8930_rpm_regulator_init_data,
+	.num_regulators		= ARRAY_SIZE(msm8930_rpm_regulator_init_data),
+	.version		= RPM_VREG_VERSION_8930,
+	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8038_L24,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8038_S1,
+};
