@@ -832,7 +832,8 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst = %p\n", __func__, pcam_inst);
+	D("%s Inst=%p, mode=%d, idx=%d\n", __func__, pcam_inst,
+		pcam_inst->image_mode, pb->index);
 	WARN_ON(pctx != f->private_data);
 
 	if (!pcam_inst->buf_offset) {
@@ -862,7 +863,8 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	}
 
 	rc = vb2_qbuf(&pcam_inst->vid_bufq, pb);
-	D("%s, videobuf_qbuf returns %d\n", __func__, rc);
+	D("%s, videobuf_qbuf mode %d and idx %d returns %d\n", __func__,
+		pcam_inst->image_mode, pb->index, rc);
 
 	return rc;
 }

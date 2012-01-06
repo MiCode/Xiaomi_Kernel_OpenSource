@@ -127,7 +127,7 @@ static int msm_vpe_cfg_update(void *pinfo)
 	rot_flag = msm_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
-		pr_debug("%s: Crop info in2_w = %d, in2_h = %d "
+		CDBG("%s: Crop info in2_w = %d, in2_h = %d "
 			"out2_w = %d out2_h = %d\n",
 			__func__, pcrop->src_w, pcrop->src_h,
 			pcrop->dst_w, pcrop->dst_h);
@@ -156,9 +156,7 @@ void vpe_input_plane_config(uint32_t *p)
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_IMAGE_SIZE_OFFSET);
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
-	vpe_ctrl->in_h_w = *p;
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
-	CDBG("%s: in_h_w=0x%x", __func__, vpe_ctrl->in_h_w);
 }
 
 void vpe_output_plane_config(uint32_t *p)
@@ -168,7 +166,6 @@ void vpe_output_plane_config(uint32_t *p)
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_YSTRIDE1_OFFSET);
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
 	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_XY_OFFSET);
-	vpe_ctrl->pcbcr_dis_offset = *(++p);
 }
 
 static int vpe_operation_config(uint32_t *p)
@@ -187,9 +184,8 @@ static int vpe_operation_config(uint32_t *p)
 		vpe_ctrl->out_w = w;
 		vpe_ctrl->out_h = h;
 	}
-	vpe_ctrl->dis_en = *p;
-	CDBG("%s: out_w=%d, out_h=%d, dis_en=%d",
-		__func__, vpe_ctrl->out_w, vpe_ctrl->out_h, vpe_ctrl->dis_en);
+	CDBG("%s: out_w=%d, out_h=%d", __func__, vpe_ctrl->out_w,
+		vpe_ctrl->out_h);
 	return 0;
 }
 
@@ -202,7 +198,6 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	uint32_t out_ROI_width, out_ROI_height;
 	uint32_t src_ROI_width, src_ROI_height;
 
-	uint32_t rc = 0;  /* default to no zoom. */
 	/*
 	* phase_step_x, phase_step_y, phase_init_x and phase_init_y
 	* are represented in fixed-point, unsigned 3.29 format
@@ -216,30 +211,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	uint32_t yscale_filter_sel, xscale_filter_sel;
 	uint32_t scale_unit_sel_x, scale_unit_sel_y;
 	uint64_t numerator, denominator;
-	if ((pcrop->src_w >= pcrop->dst_w) &&
-		(pcrop->src_h >= pcrop->dst_h)) {
 
-		if (pcrop->src_x != 0 || pcrop->src_y != 0) {
-			pr_debug(" =======VPE Down Scaling is needed.\n");
-		} else {
-			pr_debug(" =======VPE no zoom needed.\n");
-
-			temp = msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET)
-			& 0xfffffffc;
-			msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
-
-			msm_io_w(0, vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
-
-			pr_debug("vpe_ctrl->in_h_w = %d\n", vpe_ctrl->in_h_w);
-			msm_io_w(vpe_ctrl->in_h_w , vpe_ctrl->vpebase +
-					VPE_SRC_SIZE_OFFSET);
-
-			return rc;
-		}
-	}
-	/* If fall through then scaler is needed.*/
-
-	pr_debug("========VPE zoom needed.\n");
 	/* assumption is both direction need zoom. this can be
 	improved. */
 	temp =
@@ -251,7 +223,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	out_ROI_width = pcrop->dst_w;
 	out_ROI_height = pcrop->dst_h;
 
-	pr_debug("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
+	CDBG("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
 		src_ROI_width, src_ROI_height, out_ROI_width,
 		out_ROI_height);
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
@@ -261,12 +233,12 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	src_x = pcrop->src_x;
 	src_y = pcrop->src_y;
 
-	pr_debug("src_x = %d, src_y=%d.\n", src_x, src_y);
+	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
 
 	src_xy = src_y*(1<<16) + src_x;
 	msm_io_w(src_xy, vpe_ctrl->vpebase +
 			VPE_SRC_XY_OFFSET);
-	pr_debug("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
+	CDBG("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
 
 	/* decide whether to use FIR or M/N for scaling */
 	if ((out_ROI_width == 1 && src_ROI_width < 4) ||
@@ -416,18 +388,6 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 			VPE_SCALE_PHASEY_INIT_OFFSET);
 
 	return 1;
-}
-
-static inline void vpe_get_zoom_dis_xy(
-		struct dis_offset_type *dis_offset,
-		struct msm_pp_crop *pcrop,
-		int32_t  *zoom_dis_x,
-		int32_t *zoom_dis_y)
-{
-	*zoom_dis_x = dis_offset->dis_offset_x *
-	pcrop->src_w / pcrop->dst_w;
-	*zoom_dis_y = dis_offset->dis_offset_y *
-	pcrop->src_h / pcrop->dst_h;
 }
 
 int msm_vpe_is_busy(void)
@@ -600,7 +560,10 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	vpe_ctrl->pp_frame_info = pp_frame_info;
 	msm_vpe_cfg_update(
-			&vpe_ctrl->pp_frame_info->pp_frame_cmd.crop);
+		&vpe_ctrl->pp_frame_info->pp_frame_cmd.crop);
+	CDBG("%s Sending frame idx %d id %d to VPE ", __func__,
+		pp_frame_info->src_frame.buf_idx,
+		pp_frame_info->src_frame.frame_id);
 	rc = msm_send_frame_to_vpe();
 	return rc;
 }
@@ -648,7 +611,6 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VPE_CMD_INPUT_PLANE_UPDATE:
 	case VPE_CMD_FLUSH:
-	case VPE_CMD_DIS_OFFSET_CFG:
 	default:
 		break;
 	}

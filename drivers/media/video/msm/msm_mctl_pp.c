@@ -315,7 +315,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 		struct msm_vpe_clock_rate clk_rate;
 		if (sizeof(struct msm_vpe_clock_rate) !=
 			pp_cmd->length) {
-			D("%s: vpe cmd size mismatch "
+			pr_err("%s: vpe cmd size mismatch "
 				"(id=%d, length = %d, expect size = %d",
 				__func__, pp_cmd->id, pp_cmd->length,
 				sizeof(struct msm_vpe_clock_rate));
@@ -324,7 +324,7 @@ int msm_mctl_pp_proc_vpe_cmd(
 		}
 		if (copy_from_user(&clk_rate, pp_cmd->value,
 			sizeof(struct msm_vpe_clock_rate))) {
-			D("%s:clk_rate copy failed", __func__);
+			pr_err("%s:clk_rate copy failed", __func__);
 			return -EFAULT;
 		}
 		pp_cmd->value = (void *)&clk_rate;

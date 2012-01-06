@@ -735,12 +735,6 @@ static void vfe32_start_liveshot(void){
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 }
 
-static void vfe32_stop_liveshot(void)
-{
-	vfe32_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
-	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-}
-
 static int vfe32_zsl(void)
 {
 	struct msm_sync *sync = vfe_syncdata;
@@ -1728,10 +1722,6 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		}
 		vfe32_start_liveshot();
 		break;
-	case VFE_CMD_STOP_LIVESHOT:
-		pr_info("%s Stopping liveshot ", __func__);
-		vfe32_stop_liveshot();
-		break;
 
 	case VFE_CMD_LINEARIZATION_CFG:
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
@@ -2467,7 +2457,6 @@ static inline void vfe32_read_irq_status(struct vfe32_irq_status *out)
 static void vfe32_process_reg_update_irq(void)
 {
 	unsigned long flags;
-	uint32_t  old_val;
 
 	if (vfe32_ctrl->recording_state == VFE_STATE_START_REQUESTED) {
 		if (vfe32_ctrl->operation_mode ==
@@ -2501,10 +2490,6 @@ static void vfe32_process_reg_update_irq(void)
 			msm_io_w(0, vfe32_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
 		}
-		/* Disable rs& cs when stop recording. */
-		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
-		old_val &= (~RS_CS_ENABLE_MASK);
-		msm_io_w(old_val, vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		CDBG("stop video triggered .\n");
 	}
 
@@ -2547,21 +2532,26 @@ static void vfe32_process_reg_update_irq(void)
 			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
 			vfe32_ctrl->liveshot_state = VFE_STATE_STARTED;
 		}
-	} else if (vfe32_ctrl->liveshot_state == VFE_STATE_STOP_REQUESTED) {
+	}
+
+	if (vfe32_ctrl->liveshot_state == VFE_STATE_STARTED) {
 		vfe32_ctrl->vfe_capture_count--;
-		if (vfe32_ctrl->vfe_capture_count == 0) {
-			pr_info("%s disabling liveshot output\n", __func__);
-			if (vfe32_ctrl->outpath.output_mode &
-				VFE32_OUTPUT_MODE_PRIMARY) {
-				msm_io_w(0, vfe32_ctrl->vfebase +
+		if (!vfe32_ctrl->vfe_capture_count)
+			vfe32_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
+		msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+	} else if (vfe32_ctrl->liveshot_state == VFE_STATE_STOP_REQUESTED) {
+		CDBG("%s: disabling liveshot output\n", __func__);
+		if (vfe32_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_PRIMARY) {
+			msm_io_w(0, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-				msm_io_w(0, vfe32_ctrl->vfebase +
+			msm_io_w(0, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-				vfe32_ctrl->liveshot_state = VFE_STATE_STOPPED;
-			}
+			vfe32_ctrl->liveshot_state = VFE_STATE_STOPPED;
+			msm_io_w_mb(1, vfe32_ctrl->vfebase +
+				VFE_REG_UPDATE_CMD);
 		}
 	} else if (vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED) {
-		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_STOP_REC_ACK);
 		vfe32_ctrl->liveshot_state = VFE_STATE_IDLE;
 	}
 
@@ -2650,7 +2640,6 @@ static void vfe32_process_reset_irq(void)
 
 static void vfe32_process_camif_sof_irq(void)
 {
-	/* in raw snapshot mode */
 	if (vfe32_ctrl->operation_mode ==
 		VFE_OUTPUTS_RAW) {
 		if (vfe32_ctrl->start_ack_pending) {
@@ -2665,10 +2654,8 @@ static void vfe32_process_camif_sof_irq(void)
 			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 		}
-	} /* if raw snapshot mode. */
+	}
 	vfe32_ctrl->vfeFrameId++;
-	if (vfe32_ctrl->vfeFrameId == 0)
-		vfe32_ctrl->vfeFrameId = 1; /* wrapped back */
 	vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_SOF_ACK);
 	CDBG("camif_sof_irq, frameId = %d\n", vfe32_ctrl->vfeFrameId);
 
@@ -2682,14 +2669,12 @@ static void vfe32_process_camif_sof_irq(void)
 
 static void vfe32_process_error_irq(uint32_t errStatus)
 {
-	uint32_t camifStatus;
-	uint32_t *temp;
+	uint32_t reg_value;
 
 	if (errStatus & VFE32_IMASK_CAMIF_ERROR) {
 		pr_err("vfe32_irq: camif errors\n");
-		temp = (uint32_t *)(vfe32_ctrl->vfebase + VFE_CAMIF_STATUS);
-		camifStatus = msm_io_r(temp);
-		pr_err("camifStatus  = 0x%x\n", camifStatus);
+		reg_value = msm_io_r(vfe32_ctrl->vfebase + VFE_CAMIF_STATUS);
+		pr_err("camifStatus  = 0x%x\n", reg_value);
 		vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_CAMIF_ERROR);
 	}
 
@@ -2711,8 +2696,12 @@ static void vfe32_process_error_irq(uint32_t errStatus)
 	if (errStatus & VFE32_IMASK_REALIGN_BUF_CR_OVFL)
 		pr_err("vfe32_irq: realign bug CR overflow\n");
 
-	if (errStatus & VFE32_IMASK_VIOLATION)
+	if (errStatus & VFE32_IMASK_VIOLATION) {
 		pr_err("vfe32_irq: violation interrupt\n");
+		reg_value =
+			msm_io_r(vfe32_ctrl->vfebase + VFE_VIOLATION_STATUS);
+		pr_err("%s: violationStatus  = 0x%x\n", __func__, reg_value);
+	}
 
 	if (errStatus & VFE32_IMASK_IMG_MAST_0_BUS_OVFL)
 		pr_err("vfe32_irq: image master 0 bus overflow\n");
@@ -2793,14 +2782,14 @@ static void vfe32_process_output_path_irq_0(void)
 	when pending snapshot count is <=1,  then no need to use
 	free buffer.
 	*/
-	out_bool = ((vfe32_ctrl->operation_mode ==
-				VFE_OUTPUTS_THUMB_AND_MAIN ||
-			vfe32_ctrl->operation_mode ==
-				VFE_OUTPUTS_MAIN_AND_THUMB ||
-			vfe32_ctrl->operation_mode ==
-				VFE_OUTPUTS_RAW) &&
-			(vfe32_ctrl->vfe_capture_count <= 1)) ||
-			free_buf;
+	out_bool = ((vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_RAW ||
+		vfe32_ctrl->liveshot_state == VFE_STATE_STARTED ||
+		vfe32_ctrl->liveshot_state == VFE_STATE_STOP_REQUESTED ||
+		vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED) &&
+		(vfe32_ctrl->vfe_capture_count <= 1)) || free_buf;
+
 	if (out_bool) {
 		ping_pong = msm_io_r(vfe32_ctrl->vfebase +
 			VFE_BUS_PING_PONG_STATUS);
@@ -2837,12 +2826,16 @@ static void vfe32_process_output_path_irq_0(void)
 				VFE_OUTPUTS_MAIN_AND_THUMB ||
 			vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_RAW ||
-			vfe32_ctrl->liveshot_state == VFE_STATE_STARTED)
+			vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED)
 			vfe32_ctrl->outpath.out0.capture_cnt--;
 
 		vfe_send_outmsg(&vfe32_ctrl->subdev,
 			MSG_ID_OUTPUT_PRIMARY, ch0_paddr,
 			ch1_paddr, ch2_paddr);
+
+		if (vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED)
+			vfe32_ctrl->liveshot_state = VFE_STATE_IDLE;
+
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
 		CDBG("path_irq_0 - no free buffer!\n");
@@ -3019,6 +3012,8 @@ static void vfe32_process_stats_ae_irq(void)
 	} else{
 		spin_unlock_irqrestore(&vfe32_ctrl->aec_ack_lock, flags);
 		vfe32_ctrl->aecStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->aecStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -3037,6 +3032,8 @@ static void vfe32_process_stats_awb_irq(void)
 	} else{
 		spin_unlock_irqrestore(&vfe32_ctrl->awb_ack_lock, flags);
 		vfe32_ctrl->awbStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->awbStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -3055,6 +3052,8 @@ static void vfe32_process_stats_af_irq(void)
 	} else{
 		spin_unlock_irqrestore(&vfe32_ctrl->af_ack_lock, flags);
 		vfe32_ctrl->afStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->afStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -3067,8 +3066,11 @@ static void vfe32_process_stats_ihist_irq(void)
 
 		vfe_send_stats_msg(vfe32_ctrl->ihistStatsControl.bufToRender,
 						statsIhistNum);
-	} else
+	} else {
 		vfe32_ctrl->ihistStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->ihistStatsControl.droppedStatsFrameCount);
+	}
 }
 
 static void vfe32_process_stats_rs_irq(void)
@@ -3080,8 +3082,11 @@ static void vfe32_process_stats_rs_irq(void)
 
 		vfe_send_stats_msg(vfe32_ctrl->rsStatsControl.bufToRender,
 						statsRsNum);
-	} else
+	} else {
 		vfe32_ctrl->rsStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->rsStatsControl.droppedStatsFrameCount);
+	}
 }
 
 static void vfe32_process_stats_cs_irq(void)
@@ -3093,8 +3098,11 @@ static void vfe32_process_stats_cs_irq(void)
 
 		vfe_send_stats_msg(vfe32_ctrl->csStatsControl.bufToRender,
 						statsCsNum);
-	} else
+	} else {
 		vfe32_ctrl->csStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe32_ctrl->csStatsControl.droppedStatsFrameCount);
+	}
 }
 
 static void vfe32_do_tasklet(unsigned long data)
