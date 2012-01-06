@@ -475,8 +475,6 @@ static int read_cc(struct pm8921_bms_chip *chip, int *result)
 	}
 	*result = msw << 16 | lsw;
 	pr_debug("msw = %04x lsw = %04x cc = %d\n", msw, lsw, *result);
-	pr_debug("cc = %d after subtracting %d\n",
-					*result, chip->cc_reading_at_100);
 	return 0;
 }
 
@@ -923,14 +921,15 @@ static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv, int batt_temp,
  * RETURNS: in val pointer coulumb counter based charger in uAh
  *          (micro Amp hour)
  */
-static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val,
-			int *coulumb_counter)
+static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 {
 	int64_t cc_voltage_uv, cc_nvh, cc_uah;
 
-	*coulumb_counter = cc;
-	*coulumb_counter -= chip->cc_reading_at_100;
-	cc_voltage_uv = (int64_t)*coulumb_counter;
+	cc_voltage_uv = cc;
+	cc_voltage_uv -= chip->cc_reading_at_100;
+	pr_debug("cc = %d. after subtracting %d cc = %lld\n",
+					cc, chip->cc_reading_at_100,
+					cc_voltage_uv);
 	cc_voltage_uv = cc_to_microvolt(chip, cc_voltage_uv);
 	cc_voltage_uv = pm8xxx_cc_adjust_for_gain(cc_voltage_uv);
 	pr_debug("cc_voltage_uv = %lld microvolts\n", cc_voltage_uv);
@@ -1002,7 +1001,6 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 						int *remaining_charge_uah,
 						int *cc_uah)
 {
-	int coulumb_counter;
 	unsigned long flags;
 
 	*fcc_uah = calculate_fcc_uah(chip, batt_temp, chargecycles);
@@ -1021,9 +1019,11 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 	pr_debug("RC = %uuAh\n", *remaining_charge_uah);
 
 	/* calculate cc micro_volt_hour */
-	calculate_cc_uah(chip, raw->cc, cc_uah, &coulumb_counter);
-	pr_debug("cc_uah = %duAh raw->cc = %x cc = %x\n",
-					*cc_uah, raw->cc, coulumb_counter);
+	calculate_cc_uah(chip, raw->cc, cc_uah);
+	pr_debug("cc_uah = %duAh raw->cc = %x cc = %lld after subtracting %d\n",
+				*cc_uah, raw->cc,
+				(int64_t)raw->cc - chip->cc_reading_at_100,
+				chip->cc_reading_at_100);
 	spin_unlock_irqrestore(&chip->bms_100_lock, flags);
 }
 
@@ -1270,7 +1270,7 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 
 void pm8921_bms_charging_began(void)
 {
-	int batt_temp, coulumb_counter, rc;
+	int batt_temp, rc;
 	struct pm8xxx_adc_chan_result result;
 	struct pm8921_soc_params raw;
 
@@ -1290,7 +1290,7 @@ void pm8921_bms_charging_began(void)
 					batt_temp, last_chargecycles);
 	bms_start_percent = the_chip->start_percent;
 	bms_start_ocv_uv = raw.last_good_ocv_uv;
-	calculate_cc_uah(the_chip, raw.cc, &bms_start_cc_uah, &coulumb_counter);
+	calculate_cc_uah(the_chip, raw.cc, &bms_start_cc_uah);
 
 	pr_debug("start_percent = %u%%\n", the_chip->start_percent);
 }
@@ -1299,7 +1299,7 @@ EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 #define DELTA_FCC_PERCENT	3
 void pm8921_bms_charging_end(int is_battery_full)
 {
-	int batt_temp, coulumb_counter, rc;
+	int batt_temp, rc;
 	struct pm8xxx_adc_chan_result result;
 	struct pm8921_soc_params raw;
 
@@ -1355,7 +1355,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	bms_end_percent = the_chip->end_percent;
 	bms_end_ocv_uv = raw.last_good_ocv_uv;
-	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah, &coulumb_counter);
+	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
 
 	if (the_chip->end_percent > the_chip->start_percent) {
 		last_charge_increase =
