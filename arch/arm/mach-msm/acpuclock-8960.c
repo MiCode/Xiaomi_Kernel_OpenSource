@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1301,6 +1301,13 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 	.notifier_call = acpuclock_cpu_callback,
 };
 
+static void kraitv2_apply_vmin(struct acpu_level *tbl)
+{
+	for (; tbl->speed.khz != 0; tbl++)
+		if (tbl->vdd_core < 1150000)
+			tbl->vdd_core = 1150000;
+}
+
 static struct acpu_level * __init select_freq_plan(void)
 {
 	struct acpu_level *l, *max_acpu_level = NULL;
@@ -1346,6 +1353,7 @@ static struct acpu_level * __init select_freq_plan(void)
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv1);
 		} else {
 			acpu_freq_tbl = v2;
+			kraitv2_apply_vmin(acpu_freq_tbl);
 			l2_freq_tbl = l2_freq_tbl_8960_kraitv2;
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv2);
 		}
