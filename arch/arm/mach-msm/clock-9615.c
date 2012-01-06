@@ -1854,6 +1854,10 @@ static void __init reg_init(void)
 	regval = readl_relaxed(USB_HS1_HCLK_CTL_REG);
 	regval &= ~BIT(6);
 	writel_relaxed(regval, USB_HS1_HCLK_CTL_REG);
+
+	regval = readl_relaxed(DMA_BAM_HCLK_CTL);
+	regval &= ~BIT(6);
+	writel_relaxed(regval, DMA_BAM_HCLK_CTL);
 }
 
 /* Local clock driver initialization. */
