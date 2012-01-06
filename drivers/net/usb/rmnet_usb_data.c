@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,9 +21,6 @@
 
 #define RMNET_DATA_LEN			2000
 #define HEADROOM_FOR_QOS		8
-
-#define FIRST_RMNET_USB_INTERFACE	5
-#define NUM_EMBEDDED_RMNET_IFACE	4
 
 static int	data_msg_dbg_mask;
 
@@ -419,9 +416,10 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 {
 	struct usbnet		*unet;
 	struct usb_device	*udev;
-	int			iface_num;
-	int			last_rmnet_iface_num;
-	int			status = -ENODEV;
+	struct driver_info	*info;
+	unsigned int		iface_num;
+	static int		first_rmnet_iface_num = -EINVAL;
+	int			status = 0;
 
 	udev = interface_to_usbdev(iface);
 	iface_num = iface->cur_altsetting->desc.bInterfaceNumber;
@@ -432,38 +430,37 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		goto out;
 	}
 
-	last_rmnet_iface_num = (FIRST_RMNET_USB_INTERFACE +
-		 NUM_EMBEDDED_RMNET_IFACE - 1);
+	info = (struct driver_info *)prod->driver_info;
+	if (!test_bit(iface_num, &info->data))
+		return -ENODEV;
 
-	if (iface_num >= FIRST_RMNET_USB_INTERFACE &&
-		iface_num <= last_rmnet_iface_num) {
-		status = usbnet_probe(iface, prod);
-		if (status < 0) {
-			dev_err(&udev->dev, "usbnet_probe failed %d\n",
-				status);
-			goto out;
-		}
-		unet = usb_get_intfdata(iface);
-
-		/*set rmnet operation mode to eth by default*/
-		set_bit(RMNET_MODE_LLP_ETH, &unet->data[0]);
-
-		/*update net device*/
-		rmnet_usb_setup(unet->net);
-
-		/*create /sys/class/net/rmnet_usbx/dbg_mask*/
-		status = device_create_file(&unet->net->dev,
-				&dev_attr_dbg_mask);
-		if (status)
-			goto out;
-
-		/*save control device intstance */
-		unet->data[1] = (unsigned long)ctrl_dev	\
-		[iface_num - FIRST_RMNET_USB_INTERFACE];
-
-		status = rmnet_usb_ctrl_probe(iface, unet->status,
-			(struct rmnet_ctrl_dev *)unet->data[1]);
+	status = usbnet_probe(iface, prod);
+	if (status < 0) {
+		dev_err(&udev->dev, "usbnet_probe failed %d\n", status);
+		goto out;
 	}
+	unet = usb_get_intfdata(iface);
+
+	/*set rmnet operation mode to eth by default*/
+	set_bit(RMNET_MODE_LLP_ETH, &unet->data[0]);
+
+	/*update net device*/
+	rmnet_usb_setup(unet->net);
+
+	/*create /sys/class/net/rmnet_usbx/dbg_mask*/
+	status = device_create_file(&unet->net->dev, &dev_attr_dbg_mask);
+	if (status)
+		goto out;
+
+	if (first_rmnet_iface_num == -EINVAL)
+		first_rmnet_iface_num = iface_num;
+
+	/*save control device intstance */
+	unet->data[1] = (unsigned long)ctrl_dev	\
+			[iface_num - first_rmnet_iface_num];
+
+	status = rmnet_usb_ctrl_probe(iface, unet->status,
+		(struct rmnet_ctrl_dev *)unet->data[1]);
 out:
 	return status;
 }
@@ -473,51 +470,58 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	struct usbnet		*unet;
 	struct usb_device	*udev;
 	struct rmnet_ctrl_dev	*dev;
-	int			iface_num;
-	int			last_rmnet_iface_num;
 
 	udev = interface_to_usbdev(intf);
-	iface_num = intf->cur_altsetting->desc.bInterfaceNumber;
 
-	last_rmnet_iface_num = (FIRST_RMNET_USB_INTERFACE +
-			 NUM_EMBEDDED_RMNET_IFACE - 1);
-
-	if (iface_num >= FIRST_RMNET_USB_INTERFACE &&
-		iface_num <= last_rmnet_iface_num) {
-		unet = usb_get_intfdata(intf);
-		if (!unet) {
-			dev_err(&udev->dev, "%s:data device not found\n",
-					__func__);
-			return;
-		}
-		dev = (struct rmnet_ctrl_dev *)unet->data[1];
-		if (!dev) {
-			dev_err(&udev->dev, "%s:ctrl device not found\n",
-					__func__);
-			return;
-		}
-		unet->data[0] = 0;
-		unet->data[1] = 0;
-		rmnet_usb_ctrl_disconnect(dev);
-		device_remove_file(&unet->net->dev, &dev_attr_dbg_mask);
-		usbnet_disconnect(intf);
+	unet = usb_get_intfdata(intf);
+	if (!unet) {
+		dev_err(&udev->dev, "%s:data device not found\n", __func__);
+		return;
 	}
+
+	dev = (struct rmnet_ctrl_dev *)unet->data[1];
+	if (!dev) {
+		dev_err(&udev->dev, "%s:ctrl device not found\n", __func__);
+		return;
+	}
+	unet->data[0] = 0;
+	unet->data[1] = 0;
+	rmnet_usb_ctrl_disconnect(dev);
+	device_remove_file(&unet->net->dev, &dev_attr_dbg_mask);
+	usbnet_disconnect(intf);
 }
 
-static const struct driver_info rmnet_info = {
+/*bit position represents interface number*/
+#define PID9034_IFACE_MASK	0xF0
+#define PID9048_IFACE_MASK	0x1E0
+
+static const struct driver_info rmnet_info_pid9034 = {
 	.description   = "RmNET net device",
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
-	.data          = 0,
+	.data          = PID9034_IFACE_MASK,
+};
+
+static const struct driver_info rmnet_info_pid9048 = {
+	.description   = "RmNET net device",
+	.bind          = rmnet_usb_bind,
+	.tx_fixup      = rmnet_usb_tx_fixup,
+	.rx_fixup      = rmnet_usb_rx_fixup,
+	.data          = PID9048_IFACE_MASK,
 };
 
 static const struct usb_device_id vidpids[] = {
 	{
-		USB_DEVICE(0x05c6, 0x9048),	/* MDM9x15*/
-		.driver_info = (unsigned long)&rmnet_info,
+		USB_DEVICE(0x05c6, 0x9034), /* MDM9x15*/
+		.driver_info = (unsigned long)&rmnet_info_pid9034,
 	},
-	{ },
+	{
+		USB_DEVICE(0x05c6, 0x9048), /* MDM9x15*/
+		.driver_info = (unsigned long)&rmnet_info_pid9048,
+	},
+
+	{ }, /* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, vidpids);
