@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -428,7 +428,9 @@ static inline void mdp4_dtv_set_black_screen(void)
 static inline int mdp4_overlay_borderfill_supported(void)
 {
 	unsigned int mdp_hw_version;
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	mdp_hw_version = inpdw(MDP_BASE + 0x0); /* MDP_HW_VERSION */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	return (mdp_hw_version >= 0x0402030b);
 }
 
