@@ -234,7 +234,7 @@ static struct tabla_pdata apq8064_tabla_platform_data = {
 		.name = "tabla-slave",
 		.e_addr = {0, 0, 0x10, 0, 0x17, 2},
 	},
-	.irq = MSM_GPIO_TO_INT(62),
+	.irq = MSM_GPIO_TO_INT(42),
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
@@ -255,6 +255,35 @@ static struct slim_device apq8064_slim_tabla = {
 	.e_addr = {0, 1, 0x10, 0, 0x17, 2},
 	.dev = {
 		.platform_data = &apq8064_tabla_platform_data,
+	},
+};
+
+static struct tabla_pdata apq8064_tabla20_platform_data = {
+	.slimbus_slave_device = {
+		.name = "tabla-slave",
+		.e_addr = {0, 0, 0x60, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(42),
+	.irq_base = TABLA_INTERRUPT_BASE,
+	.num_irqs = NR_TABLA_IRQS,
+	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	}
+};
+
+static struct slim_device apq8064_slim_tabla20 = {
+	.name = "tabla2x-slim",
+	.e_addr = {0, 1, 0x60, 0, 0x17, 2},
+	.dev = {
+		.platform_data = &apq8064_tabla20_platform_data,
 	},
 };
 
@@ -510,8 +539,12 @@ static struct spi_board_info spi_board_info[] __initdata = {
 
 static struct slim_boardinfo apq8064_slim_devices[] = {
 	{
-	.bus_num = 1,
-	.slim_slave = &apq8064_slim_tabla,
+		.bus_num = 1,
+		.slim_slave = &apq8064_slim_tabla,
+	},
+	{
+		.bus_num = 1,
+		.slim_slave = &apq8064_slim_tabla20,
 	},
 	/* add more slimbus slaves as needed */
 };
