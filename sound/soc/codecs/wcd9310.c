@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -968,6 +968,7 @@ static int tabla_codec_enable_adc(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	u16 adc_reg;
+	u8 init_bit_shift;
 
 	pr_debug("%s %d\n", __func__, event);
 
@@ -982,16 +983,28 @@ static int tabla_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
+	if (w->shift == 3)
+		init_bit_shift = 6;
+	else if  (w->shift == 7)
+		init_bit_shift = 7;
+	else {
+		pr_err("%s: Error, invalid init bit postion adc register\n",
+				__func__);
+		return -EINVAL;
+	}
+
+
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		tabla_codec_enable_adc_block(codec, 1);
+		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
+				1 << init_bit_shift);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_update_bits(codec, adc_reg, 1 << w->shift,
-			1 << w->shift);
-		usleep_range(1000, 1000);
-		snd_soc_update_bits(codec, adc_reg, 1 << w->shift, 0x00);
-		usleep_range(1000, 1000);
+
+		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
+
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tabla_codec_enable_adc_block(codec, 0);
