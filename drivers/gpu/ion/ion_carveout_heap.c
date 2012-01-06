@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_carveout_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -409,6 +409,7 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	ret = gen_pool_add(carveout_heap->pool, carveout_heap->base,
 			heap_data->size, -1);
 	if (ret < 0) {
+		gen_pool_destroy(carveout_heap->pool);
 		kfree(carveout_heap);
 		return ERR_PTR(-EINVAL);
 	}
