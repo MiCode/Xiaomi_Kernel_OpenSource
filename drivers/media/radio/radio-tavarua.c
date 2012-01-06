@@ -2107,7 +2107,7 @@ static int tavarua_fops_release(struct file *file)
 			 1, internal_vreg_ctl[index][0]);
 		if (retval < 0) {
 			printk(KERN_ERR "%s:0xF0 write failed\n", __func__);
-			return retval;
+			goto exit;
 		}
 		/* actual value itself used as mask*/
 		retval = marimba_write_bit_mask(radio->marimba,
@@ -2115,7 +2115,7 @@ static int tavarua_fops_release(struct file *file)
 			1, internal_vreg_ctl[index][1]);
 		if (retval < 0) {
 			printk(KERN_ERR "%s:0xF4 write failed\n", __func__);
-			return retval;
+			goto exit;
 		}
 	} else    {
 		/* disable fm core */
@@ -2127,8 +2127,9 @@ static int tavarua_fops_release(struct file *file)
 							&value, 1, FM_ENABLE);
 	if (retval < 0) {
 		printk(KERN_ERR "%s:XO_BUFF_CNTRL write failed\n", __func__);
-		return retval;
+		goto exit;
 	}
+exit:
 	FMDBG("%s, Calling fm_shutdown\n", __func__);
 	/* teardown gpio and pmic */
 
@@ -2139,7 +2140,7 @@ static int tavarua_fops_release(struct file *file)
 	radio->handle_irq = 1;
 	atomic_inc(&radio->users);
 	radio->marimba->mod_id = SLAVE_ID_BAHAMA;
-	return 0;
+	return retval;
 }
 
 /*
@@ -2864,6 +2865,7 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 	unsigned char value;
 	unsigned char xfr_buf[XFR_REG_NUM];
 	unsigned char tx_data[XFR_REG_NUM];
+	unsigned char dis_buf[XFR_REG_NUM];
 
 	switch (ctrl->id) {
 	case V4L2_CID_AUDIO_VOLUME:
@@ -2915,20 +2917,26 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		/* check if off */
 		else if ((ctrl->value == FM_OFF) && radio->registers[RDCTRL]) {
 			FMDBG("turning off...\n");
-			retval = tavarua_write_register(radio, RDCTRL,
-							ctrl->value);
-			/*Make it synchronous
-			Block it till READY interrupt
-			Wait for interrupt i.e.
-			complete(&radio->sync_req_done)
-			*/
+			tavarua_write_register(radio, RDCTRL, ctrl->value);
+			/* flush the event and work queues */
+			kfifo_reset(&radio->data_buf[TAVARUA_BUF_EVENTS]);
+			flush_workqueue(radio->wqueue);
+			/*
+			 * queue the READY event from the host side
+			 * in case of FM off
+			 */
+			tavarua_q_event(radio, TAVARUA_EVT_RADIO_READY);
 
-			if (retval >= 0) {
-
-				if (!wait_for_completion_timeout(
-					&radio->sync_req_done,
-					msecs_to_jiffies(wait_timeout)))
-					FMDBG("turning off timedout...\n");
+			FMDBG("%s, Disable All Interrupts\n", __func__);
+			/* disable irq */
+			dis_buf[STATUS_REG1] = 0x00;
+			dis_buf[STATUS_REG2] = 0x00;
+			dis_buf[STATUS_REG3] = TRANSFER;
+			retval = sync_write_xfr(radio, INT_CTRL, dis_buf);
+			if (retval < 0) {
+				pr_err("%s: failed to disable"
+						"Interrupts\n", __func__);
+				return retval;
 			}
 		}
 		break;
