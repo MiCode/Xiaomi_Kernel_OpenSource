@@ -4563,6 +4563,13 @@ sub process {
 		     "Non gpiomux board file cannot have a gpiomux config declarations. Please declare gpiomux configs in board-*-gpiomux.c file.\n" . $herecurr);
 	}
 
+# MSM - check if vreg_xxx function are used
+	if ($line =~ /\b(vreg_(get|put|set_level|enable|disable))\b/) {
+		WARN("DEPRECATED_VREG_APIS",
+		     "Use of $1 API is deprecated: " .
+			"use regulator APIs\n" . $herecurr);
+	}
+
 # unbounded string functions are overflow risks
 		my %str_fns = (
 			"sprintf" => "snprintf",
