@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -702,14 +702,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
 	clk_disable(motg->pclk);
-	if (motg->core_clk)
-		clk_disable(motg->core_clk);
-
-	if (!IS_ERR(motg->system_clk))
-		clk_disable(motg->system_clk);
-
-	if (!IS_ERR(motg->pclk_src))
-		clk_disable(motg->pclk_src);
+	clk_disable(motg->core_clk);
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
 	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
@@ -764,15 +757,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 		dev_err(otg->dev, "%s failed to vote for "
 			"TCXO D0 buffer%d\n", __func__, ret);
 
-	if (!IS_ERR(motg->pclk_src))
-		clk_enable(motg->pclk_src);
-
-	if (!IS_ERR(motg->system_clk))
-		clk_enable(motg->system_clk);
+	clk_enable(motg->core_clk);
 
 	clk_enable(motg->pclk);
-	if (motg->core_clk)
-		clk_enable(motg->core_clk);
 
 	if (motg->lpm_flags & PHY_PWR_COLLAPSED) {
 		msm_hsusb_ldo_enable(motg, 1);
@@ -2291,8 +2278,6 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				&pdata->phy_type);
 	of_property_read_u32(node, "qcom,hsusb-otg-pmic-id-irq",
 				&pdata->pmic_id_irq);
-	of_property_read_string(node, "qcom,hsusb-otg-pclk-src-name",
-				&pdata->pclk_src_name);
 	return pdata;
 }
 
@@ -2349,13 +2334,13 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	motg->reset_counter = 0;
 
 	/* Some targets don't support PHY clock. */
-	motg->phy_reset_clk = clk_get(&pdev->dev, "usb_phy_clk");
+	motg->phy_reset_clk = clk_get(&pdev->dev, "phy_clk");
 	if (IS_ERR(motg->phy_reset_clk))
-		dev_err(&pdev->dev, "failed to get usb_phy_clk\n");
+		dev_err(&pdev->dev, "failed to get phy_clk\n");
 
-	motg->clk = clk_get(&pdev->dev, "usb_hs_clk");
+	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
 	if (IS_ERR(motg->clk)) {
-		dev_err(&pdev->dev, "failed to get usb_hs_clk\n");
+		dev_err(&pdev->dev, "failed to get alt_core_clk\n");
 		ret = PTR_ERR(motg->clk);
 		goto put_phy_reset_clk;
 	}
@@ -2365,55 +2350,42 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (motg->pdata->swfi_latency)
 		pm_qos_add_request(&motg->pm_qos_req_dma,
 			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+
 	/*
-	 * If USB Core is running its protocol engine based on CORE CLK,
+	 * USB Core is running its protocol engine based on CORE CLK,
 	 * CORE CLK  must be running at >55Mhz for correct HSUSB
 	 * operation and USB core cannot tolerate frequency changes on
 	 * CORE CLK. For such USB cores, vote for maximum clk frequency
 	 * on pclk source
 	 */
-	 if (motg->pdata->pclk_src_name) {
-		motg->pclk_src = clk_get(&pdev->dev,
-			motg->pdata->pclk_src_name);
-		if (IS_ERR(motg->pclk_src))
-			goto put_clk;
-		clk_set_rate(motg->pclk_src, INT_MAX);
-		clk_enable(motg->pclk_src);
-	} else
-		motg->pclk_src = ERR_PTR(-ENOENT);
-
-	motg->pclk = clk_get(&pdev->dev, "usb_hs_pclk");
-	if (IS_ERR(motg->pclk)) {
-		dev_err(&pdev->dev, "failed to get usb_hs_pclk\n");
-		ret = PTR_ERR(motg->pclk);
-		goto put_pclk_src;
-	}
-
-	motg->system_clk = clk_get(&pdev->dev, "usb_hs_system_clk");
-	if (!IS_ERR(motg->system_clk))
-		clk_enable(motg->system_clk);
-
-	/*
-	 * USB core clock is not present on all MSM chips. This
-	 * clock is introduced to remove the dependency on AXI
-	 * bus frequency.
-	 */
-	motg->core_clk = clk_get(&pdev->dev, "usb_hs_core_clk");
-	if (IS_ERR(motg->core_clk))
+	motg->core_clk = clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(motg->core_clk)) {
 		motg->core_clk = NULL;
+		dev_err(&pdev->dev, "failed to get core_clk\n");
+		ret = PTR_ERR(motg->clk);
+		goto put_clk;
+	}
+	clk_set_rate(motg->core_clk, INT_MAX);
+
+	motg->pclk = clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(motg->pclk)) {
+		dev_err(&pdev->dev, "failed to get iface_clk\n");
+		ret = PTR_ERR(motg->pclk);
+		goto put_core_clk;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "failed to get platform resource mem\n");
 		ret = -ENODEV;
-		goto put_core_clk;
+		goto put_pclk;
 	}
 
 	motg->regs = ioremap(res->start, resource_size(res));
 	if (!motg->regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENOMEM;
-		goto put_core_clk;
+		goto put_pclk;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
 
@@ -2464,9 +2436,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
 		goto free_ldo_init;
 	}
-
-	if (motg->core_clk)
-		clk_enable(motg->core_clk);
+	clk_enable(motg->core_clk);
 
 	writel(0, USB_USBINTR);
 	writel(0, USB_OTGSC);
@@ -2554,31 +2524,23 @@ free_irq:
 	free_irq(motg->irq, motg);
 destroy_wlock:
 	wake_lock_destroy(&motg->wlock);
-	clk_disable(motg->pclk);
+	clk_disable(motg->core_clk);
 	msm_hsusb_ldo_enable(motg, 0);
 free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
 free_init_vddcx:
 	msm_hsusb_init_vddcx(motg, 0);
 devote_xo_handle:
+	clk_disable(motg->pclk);
 	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
 free_xo_handle:
 	msm_xo_put(motg->xo_handle);
 free_regs:
 	iounmap(motg->regs);
+put_pclk:
+	clk_put(motg->pclk);
 put_core_clk:
-	if (motg->core_clk)
-		clk_put(motg->core_clk);
-
-	if (!IS_ERR(motg->system_clk)) {
-		clk_disable(motg->system_clk);
-		clk_put(motg->system_clk);
-	}
-put_pclk_src:
-	if (!IS_ERR(motg->pclk_src)) {
-		clk_disable(motg->pclk_src);
-		clk_put(motg->pclk_src);
-	}
+	clk_put(motg->core_clk);
 put_clk:
 	clk_put(motg->clk);
 put_phy_reset_clk:
@@ -2637,14 +2599,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 		dev_err(otg->dev, "Unable to suspend PHY\n");
 
 	clk_disable(motg->pclk);
-	if (motg->core_clk)
-		clk_disable(motg->core_clk);
-	if (!IS_ERR(motg->system_clk))
-		clk_disable(motg->system_clk);
-	if (!IS_ERR(motg->pclk_src)) {
-		clk_disable(motg->pclk_src);
-		clk_put(motg->pclk_src);
-	}
+	clk_disable(motg->core_clk);
 	msm_xo_put(motg->xo_handle);
 	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
@@ -2657,10 +2612,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 		clk_put(motg->phy_reset_clk);
 	clk_put(motg->pclk);
 	clk_put(motg->clk);
-	if (motg->core_clk)
-		clk_put(motg->core_clk);
-	if (!IS_ERR(motg->system_clk))
-		clk_put(motg->system_clk);
+	clk_put(motg->core_clk);
 
 	if (motg->pdata->swfi_latency)
 		pm_qos_remove_request(&motg->pm_qos_req_dma);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3635,14 +3635,14 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("ref_clk",		tsif_ref_clk.c,		"msm_tsif.0"),
 	CLK_LOOKUP("ref_clk",		tsif_ref_clk.c,		"msm_tsif.1"),
 	CLK_LOOKUP("core_clk",		tssc_clk.c,		NULL),
-	CLK_LOOKUP("usb_hs_clk",	usb_hs1_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("usb_phy_clk",	usb_phy0_clk.c,		NULL),
-	CLK_LOOKUP("usb_fs_clk",	usb_fs1_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("usb_fs_sys_clk",	usb_fs1_sys_clk.c,	NULL),
-	CLK_LOOKUP("usb_fs_src_clk",	usb_fs1_src_clk.c,	NULL),
-	CLK_LOOKUP("usb_fs_clk",	usb_fs2_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("usb_fs_sys_clk",	usb_fs2_sys_clk.c,	NULL),
-	CLK_LOOKUP("usb_fs_src_clk",	usb_fs2_src_clk.c,	NULL),
+	CLK_LOOKUP("alt_core_clk",	usb_hs1_xcvr_clk.c,	"msm_otg"),
+	CLK_LOOKUP("phy_clk",		usb_phy0_clk.c,		"msm_otg"),
+	CLK_LOOKUP("alt_core_clk",	usb_fs1_xcvr_clk.c,	NULL),
+	CLK_LOOKUP("sys_clk",		usb_fs1_sys_clk.c,	NULL),
+	CLK_LOOKUP("src_clk",		usb_fs1_src_clk.c,	NULL),
+	CLK_LOOKUP("alt_core_clk",	usb_fs2_xcvr_clk.c,	NULL),
+	CLK_LOOKUP("sys_clk",		usb_fs2_sys_clk.c,	NULL),
+	CLK_LOOKUP("src_clk",		usb_fs2_src_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		ce2_p_clk.c,		"qce.0"),
 	CLK_LOOKUP("core_clk",		ce2_p_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,		"spi_qsd.0"),
@@ -3664,9 +3664,9 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("ppss_pclk",		ppss_p_clk.c,		NULL),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		"msm_tsif.0"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		"msm_tsif.1"),
-	CLK_LOOKUP("usb_fs_pclk",	usb_fs1_p_clk.c,		NULL),
-	CLK_LOOKUP("usb_fs_pclk",	usb_fs2_p_clk.c,		NULL),
-	CLK_LOOKUP("usb_hs_pclk",	usb_hs1_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		usb_fs1_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		usb_fs2_p_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",		usb_hs1_p_clk.c,	"msm_otg"),
 	CLK_LOOKUP("iface_clk",		sdc1_p_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",		sdc2_p_clk.c, "msm_sdcc.2"),
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c, "msm_sdcc.3"),
@@ -3788,7 +3788,7 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("core_clk",		gfx2d1_clk.c,		"msm_iommu.11"),
 
 	CLK_LOOKUP("dfab_dsps_clk",	dfab_dsps_clk.c, NULL),
-	CLK_LOOKUP("dfab_usb_hs_clk",	dfab_usb_hs_clk.c, NULL),
+	CLK_LOOKUP("core_clk",		dfab_usb_hs_clk.c,	"msm_otg"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc1_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc2_clk.c, "msm_sdcc.2"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc3_clk.c, "msm_sdcc.3"),

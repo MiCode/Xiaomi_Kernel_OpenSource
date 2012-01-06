@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -779,13 +779,13 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("core_clk",		SDC4_CLK,		NULL, OFF),
 	CLK_DUMMY("ref_clk",		TSIF_REF_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		TSSC_CLK,		NULL, OFF),
-	CLK_DUMMY("usb_hs_clk",		USB_HS1_XCVR_CLK,	NULL, OFF),
-	CLK_DUMMY("usb_hs_clk",         USB_HS3_XCVR_CLK,       NULL, OFF),
-	CLK_DUMMY("usb_hs_clk",         USB_HS4_XCVR_CLK,       NULL, OFF),
-	CLK_DUMMY("usb_phy_clk",	USB_PHY0_CLK,		NULL, OFF),
-	CLK_DUMMY("usb_fs_src_clk",	USB_FS1_SRC_CLK,	NULL, OFF),
-	CLK_DUMMY("usb_fs_clk",		USB_FS1_XCVR_CLK,	NULL, OFF),
-	CLK_DUMMY("usb_fs_sys_clk",	USB_FS1_SYS_CLK,	NULL, OFF),
+	CLK_DUMMY("alt_core_clk",	USB_HS1_XCVR_CLK,	NULL, OFF),
+	CLK_DUMMY("alt_core_clk",       USB_HS3_XCVR_CLK,       NULL, OFF),
+	CLK_DUMMY("alt_core_clk",       USB_HS4_XCVR_CLK,       NULL, OFF),
+	CLK_DUMMY("phy_clk",		USB_PHY0_CLK,		NULL, OFF),
+	CLK_DUMMY("src_clk",		USB_FS1_SRC_CLK,	NULL, OFF),
+	CLK_DUMMY("alt_core_clk",	USB_FS1_XCVR_CLK,	NULL, OFF),
+	CLK_DUMMY("sys_clk",		USB_FS1_SYS_CLK,	NULL, OFF),
 	CLK_DUMMY("core_clk",		CE2_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		CE1_CORE_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",		CE3_CORE_CLK,           NULL, OFF),
@@ -803,10 +803,10 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("iface_clk",		GSBI6_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		GSBI7_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		TSIF_P_CLK,		NULL, OFF),
-	CLK_DUMMY("usb_fs_pclk",	USB_FS1_P_CLK,		NULL, OFF),
-	CLK_DUMMY("usb_hs_pclk",	USB_HS1_P_CLK,		NULL, OFF),
-	CLK_DUMMY("usb_hs_pclk",        USB_HS3_P_CLK,          NULL, OFF),
-	CLK_DUMMY("usb_hs_pclk",        USB_HS4_P_CLK,          NULL, OFF),
+	CLK_DUMMY("iface_clk",		USB_FS1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		USB_HS1_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		USB_HS3_P_CLK,          NULL, OFF),
+	CLK_DUMMY("iface_clk",		USB_HS4_P_CLK,          NULL, OFF),
 	CLK_DUMMY("iface_clk",		SDC1_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		SDC2_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		SDC3_P_CLK,		NULL, OFF),
@@ -900,7 +900,7 @@ static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("audio_slimbus_clk",  AUDIO_SLIMBUS_CLK,      NULL, OFF),
 
 	CLK_DUMMY("dfab_dsps_clk",	DFAB_DSPS_CLK,		NULL, 0),
-	CLK_DUMMY("dfab_usb_hs_clk",	DFAB_USB_HS_CLK,	NULL, 0),
+	CLK_DUMMY("core_clk",		DFAB_USB_HS_CLK,	NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC1_CLK,		NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC2_CLK,		NULL, 0),
 	CLK_DUMMY("bus_clk",		DFAB_SDC3_CLK,		NULL, 0),

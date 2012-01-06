@@ -1435,7 +1435,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	 * usb pclk as dayatona fabric clock will be
 	 * used instead
 	 */
-	.pclk_src_name		 = "dfab_usb_hs_clk",
 	.pemp_level		 = PRE_EMPHASIS_WITH_20_PERCENT,
 	.cdr_autoreset		 = CDR_AUTO_RESET_DISABLE,
 	.se1_gating		 = SE1_GATING_DISABLE,
