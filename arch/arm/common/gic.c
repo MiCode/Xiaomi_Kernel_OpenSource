@@ -858,6 +858,7 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 	domain->priv = gic;
 	domain->ops = &gic_irq_domain_ops;
 	irq_domain_add(domain);
+	irq_domain_register(domain);
 
 	gic_chip.flags |= gic_arch_extn.flags;
 	gic_dist_init(gic);
