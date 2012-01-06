@@ -512,19 +512,10 @@ static struct clk_data rot_clks[] = {
 	{ 0 }
 };
 
-static struct clk_data ved_8660_clks[] = {
+static struct clk_data ved_clks[] = {
 	{ .name = "core_clk" },
 	{ .name = "iface_clk" },
 	{ .name = "bus_clk" },
-	{ 0 }
-};
-
-static struct clk_data ved_8960_clks[] = {
-	{ .name = "core_clk" },
-	{ .name = "iface_clk" },
-	{ .name = "bus_clk" },
-	{ .name = "bus_a_clk" },
-	{ .name = "bus_b_clk" },
 	{ 0 }
 };
 
@@ -586,7 +577,7 @@ static struct footswitch footswitches[] = {
 		ROT_GFS_CTL_REG, 31, rot_clks,
 		MSM_BUS_MASTER_ROTATOR, 0),
 	FOOTSWITCH(FS_VED, "fs_ved", &standard_fs_ops,
-		VED_GFS_CTL_REG, 31, NULL,
+		VED_GFS_CTL_REG, 31, ved_clks,
 		MSM_BUS_MASTER_HD_CODEC_PORT0,
 		MSM_BUS_MASTER_HD_CODEC_PORT1),
 	FOOTSWITCH(FS_VFE, "fs_vfe", &standard_fs_ops,
@@ -621,14 +612,6 @@ static int footswitch_probe(struct platform_device *pdev)
 			fs->clk_data = mdp_8960_clks;
 		else if (cpu_is_msm8x60())
 			fs->clk_data = mdp_8660_clks;
-		else
-			BUG();
-	}
-	if (pdev->id == FS_VED) {
-		if (cpu_is_msm8960() || cpu_is_msm8930())
-			fs->clk_data = ved_8960_clks;
-		else if (cpu_is_msm8x60())
-			fs->clk_data = ved_8660_clks;
 		else
 			BUG();
 	}

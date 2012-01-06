@@ -742,8 +742,6 @@ static struct branch_clk vcodec_axi_b_clk = {
 		.en_mask = BIT(23),
 		.hwcg_reg = MAXI_EN4_REG,
 		.hwcg_mask = BIT(22),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(4),
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 25,
 	},
@@ -760,8 +758,6 @@ static struct branch_clk vcodec_axi_a_clk = {
 		.en_mask = BIT(25),
 		.hwcg_reg = MAXI_EN4_REG,
 		.hwcg_mask = BIT(24),
-		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(5),
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 26,
 	},
@@ -780,7 +776,7 @@ static struct branch_clk vcodec_axi_clk = {
 		.hwcg_reg = MAXI_EN_REG,
 		.hwcg_mask = BIT(13),
 		.reset_reg = SW_RESET_AXI_REG,
-		.reset_mask = BIT(7),
+		.reset_mask = BIT(4)|BIT(5)|BIT(7),
 		.halt_reg = DBG_BUS_VEC_E_REG,
 		.halt_bit = 3,
 	},
@@ -5744,7 +5740,7 @@ static void __init reg_init(void)
 			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
 		rmwreg(0x0003AFF9, MAXI_EN_REG,  0x0803FFFF);
 		rmwreg(0x3A27FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
-		rmwreg(0x0167FCFF, MAXI_EN4_REG, 0x017FFFFF);
+		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
 	} else {
 		rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
 		rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
