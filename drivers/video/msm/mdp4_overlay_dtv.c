@@ -360,13 +360,7 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe)
 {
-	unsigned int flags;
 	int result = 0;
-
-	flags = pipe->flags;
-	pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
-	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
-	pipe->flags = flags;
 
 	if (pipe->mixer_stage == MDP4_MIXER_STAGE_BASE &&
 			pipe->pipe_type == OVERLAY_TYPE_RGB) {
@@ -468,8 +462,6 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 void mdp4_overlay_dtv_ov_done_push(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe)
 {
-
-	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_overlay_dtv_ov_start(mfd);
 
 	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
@@ -535,7 +527,7 @@ void mdp4_dtv_set_black_screen(void)
 	*/
 	temp_src_format = inpdw(rgb_base + 0x0050);
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
-	mdp4_overlay_reg_flush(dtv_pipe, 1);
+	mdp4_mixer_stage_up(pipe);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 #endif
@@ -625,6 +617,7 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 		pipe->srcp0_addr = (uint32) mfd->ibuf.buf;
 		mdp4_overlay_rgb_setup(pipe);
 	}
+	mdp4_mixer_stage_up(pipe);
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }

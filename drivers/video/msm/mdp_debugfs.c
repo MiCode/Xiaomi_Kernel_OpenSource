@@ -437,16 +437,20 @@ static ssize_t mdp_stat_read(
 	len = snprintf(bp, dlen, "frame_push:\n");
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t", mdp4_stat.pipe[0]);
+	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t",
+		       mdp4_stat.pipe[OVERLAY_PIPE_RGB1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb2:  %08lu\n", mdp4_stat.pipe[1]);
+	len = snprintf(bp, dlen, "rgb2:  %08lu\n",
+		       mdp4_stat.pipe[OVERLAY_PIPE_RGB2]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg1:   %08lu\t\t", mdp4_stat.pipe[2]);
+	len = snprintf(bp, dlen, "vg1:   %08lu\t\t",
+		       mdp4_stat.pipe[OVERLAY_PIPE_VG1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg2:   %08lu\n", mdp4_stat.pipe[3]);
+	len = snprintf(bp, dlen, "vg2:   %08lu\n",
+		       mdp4_stat.pipe[OVERLAY_PIPE_VG2]);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "err_mixer: %08lu\t", mdp4_stat.err_mixer);

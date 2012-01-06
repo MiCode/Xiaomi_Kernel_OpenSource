@@ -166,7 +166,7 @@ void mdp4_atv_overlay(struct msm_fb_data_type *mfd)
 	pipe = atv_pipe;
 	pipe->srcp0_addr = (uint32) buf;
 	mdp4_overlay_rgb_setup(pipe);
-	mdp4_overlay_reg_flush(pipe, 1); /* rgb2 and mixer1 */
+	mdp4_mixer_stage_up(pipe);
 
 	printk(KERN_INFO "mdp4_atv_overlay: pipe=%x ndx=%d\n",
 					(int)pipe, pipe->pipe_ndx);
