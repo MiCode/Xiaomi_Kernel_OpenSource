@@ -183,6 +183,12 @@
 #define MSM_CAM_IOCTL_SET_VFE_OUTPUT_TYPE \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 51, uint32_t *)
 
+#define MSM_CAM_IOCTL_GET_MCTL_INFO \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 51, struct msm_mctl_node_info *)
+
+#define MSM_CAM_IOCTL_MCTL_DIVERT_DONE \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_cam_evt_divert_frame *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -667,7 +673,8 @@ struct msm_stats_buf {
 #define MSM_V4L2_PID_STROBE_FLASH           (V4L2_CID_PRIVATE_BASE+15)
 #define MSM_V4L2_PID_MMAP_ENTRY             (V4L2_CID_PRIVATE_BASE+16)
 #define MSM_V4L2_PID_MMAP_INST              (V4L2_CID_PRIVATE_BASE+17)
-#define MSM_V4L2_PID_MAX                    MSM_V4L2_PID_MMAP_INST
+#define MSM_V4L2_PID_PP_PLANE_INFO          (V4L2_CID_PRIVATE_BASE+18)
+#define MSM_V4L2_PID_MAX                    MSM_V4L2_PID_PP_PLANE_INFO
 
 /* camera operation mode for video recording - two frame output queues */
 #define MSM_V4L2_CAM_OP_DEFAULT         0
@@ -1168,6 +1175,11 @@ struct msm_cam_config_dev_info {
 	int num_config_nodes;
 	const char *config_dev_name[MSM_MAX_CAMERA_CONFIGS];
 	int config_dev_id[MSM_MAX_CAMERA_CONFIGS];
+};
+
+struct msm_mctl_node_info {
+	int num_mctl_nodes;
+	const char *mctl_node_name[MSM_MAX_CAMERA_SENSORS];
 };
 
 struct flash_ctrl_data {

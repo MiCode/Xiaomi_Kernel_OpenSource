@@ -164,13 +164,15 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_V2X_PREVIEW:
 		D("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, image_mode, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-		msm_mctl_reserve_free_buf(&pcam->mctl, image_mode, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -181,7 +183,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_V2X_CAPTURE:
 		pr_err("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, image_mode, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -197,7 +200,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_OUTPUT_IRQ:
 		D("%s Got OUTPUT_IRQ: Getting free buf id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, image_mode, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_FREE_BUF_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;

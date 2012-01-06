@@ -127,7 +127,7 @@ static int msm_vpe_cfg_update(void *pinfo)
 	rot_flag = msm_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
-		CDBG("%s: Crop info in2_w = %d, in2_h = %d "
+		pr_debug("%s: Crop info in2_w = %d, in2_h = %d "
 			"out2_w = %d out2_h = %d\n",
 			__func__, pcrop->src_w, pcrop->src_h,
 			pcrop->dst_w, pcrop->dst_h);
@@ -218,24 +218,28 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	uint64_t numerator, denominator;
 	if ((pcrop->src_w >= pcrop->dst_w) &&
 		(pcrop->src_h >= pcrop->dst_h)) {
-		CDBG(" =======VPE no zoom needed.\n");
 
-		temp = msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET)
-		& 0xfffffffc;
-		msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
+		if (pcrop->src_x != 0 || pcrop->src_y != 0) {
+			pr_debug(" =======VPE Down Scaling is needed.\n");
+		} else {
+			pr_debug(" =======VPE no zoom needed.\n");
 
+			temp = msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET)
+			& 0xfffffffc;
+			msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
-		msm_io_w(0, vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
+			msm_io_w(0, vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
 
-		CDBG("vpe_ctrl->in_h_w = %d\n", vpe_ctrl->in_h_w);
-		msm_io_w(vpe_ctrl->in_h_w , vpe_ctrl->vpebase +
-				VPE_SRC_SIZE_OFFSET);
+			pr_debug("vpe_ctrl->in_h_w = %d\n", vpe_ctrl->in_h_w);
+			msm_io_w(vpe_ctrl->in_h_w , vpe_ctrl->vpebase +
+					VPE_SRC_SIZE_OFFSET);
 
-		return rc;
+			return rc;
+		}
 	}
 	/* If fall through then scaler is needed.*/
 
-	CDBG("========VPE zoom needed.\n");
+	pr_debug("========VPE zoom needed.\n");
 	/* assumption is both direction need zoom. this can be
 	improved. */
 	temp =
@@ -247,7 +251,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	out_ROI_width = pcrop->dst_w;
 	out_ROI_height = pcrop->dst_h;
 
-	CDBG("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
+	pr_debug("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
 		src_ROI_width, src_ROI_height, out_ROI_width,
 		out_ROI_height);
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
@@ -257,12 +261,12 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	src_x = pcrop->src_x;
 	src_y = pcrop->src_y;
 
-	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
+	pr_debug("src_x = %d, src_y=%d.\n", src_x, src_y);
 
 	src_xy = src_y*(1<<16) + src_x;
 	msm_io_w(src_xy, vpe_ctrl->vpebase +
 			VPE_SRC_XY_OFFSET);
-	CDBG("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
+	pr_debug("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
 
 	/* decide whether to use FIR or M/N for scaling */
 	if ((out_ROI_width == 1 && src_ROI_width < 4) ||

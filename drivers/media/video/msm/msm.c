@@ -38,9 +38,6 @@ static int vnode_count;
 module_param(msm_camera_v4l2_nr, uint, 0644);
 MODULE_PARM_DESC(msm_camera_v4l2_nr, "videoX start number, -1 is autodetect");
 
-static int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
-				  struct video_device *pvdev);
-
 static void msm_queue_init(struct msm_device_queue *queue, const char *name)
 {
 	D("%s\n", __func__);
@@ -1677,6 +1674,7 @@ static long msm_ioctl_server(struct file *fp, unsigned int cmd,
 	struct v4l2_event ev;
 	struct msm_camera_info temp_cam_info;
 	struct msm_cam_config_dev_info temp_config_info;
+	struct msm_mctl_node_info temp_mctl_info;
 	struct v4l2_event_subscription temp_sub;
 	int i;
 
@@ -1744,6 +1742,34 @@ static long msm_ioctl_server(struct file *fp, unsigned int cmd,
 		}
 		rc = 0;
 		break;
+	case MSM_CAM_IOCTL_GET_MCTL_INFO:
+		if (copy_from_user(&temp_mctl_info, (void __user *)arg,
+				  sizeof(struct msm_mctl_node_info))) {
+			rc = -EINVAL;
+			return rc;
+		}
+
+		for (i = 0; i < g_server_dev.mctl_node_info.num_mctl_nodes;
+				i++) {
+			if (copy_to_user((void __user *)
+			temp_mctl_info.mctl_node_name[i],
+			g_server_dev.mctl_node_info.mctl_node_name[i], strnlen(
+			g_server_dev.mctl_node_info.mctl_node_name[i],
+			MAX_DEV_NAME_LEN))) {
+				rc = -EINVAL;
+				return rc;
+			}
+		}
+		temp_mctl_info.num_mctl_nodes =
+			g_server_dev.mctl_node_info.num_mctl_nodes;
+		if (copy_to_user((void __user *)arg,
+							  &temp_mctl_info,
+				sizeof(struct msm_mctl_node_info))) {
+			rc = -EINVAL;
+			return rc;
+		}
+		rc = 0;
+	break;
 
 	case VIDIOC_SUBSCRIBE_EVENT:
 		if (copy_from_user(&temp_sub, (void __user *)arg,
@@ -2151,7 +2177,7 @@ static const struct file_operations msm_fops_config = {
 	.mmap	= msm_mmap_config,
 };
 
-static int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
+int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
 					struct video_device *pvdev)
 {
 	int rc = 0;
@@ -2475,6 +2501,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	/* init the user count and lock*/
 	pcam->use_count = 0;
 	mutex_init(&pcam->vid_lock);
+	mutex_init(&pcam->mctl_node.dev_lock);
 
 	/* Initialize the formats supported */
 	rc  = msm_mctl_init_user_formats(pcam);
@@ -2485,11 +2512,18 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	if (rc < 0)
 		goto failure;
 
+	rc = msm_setup_mctl_node(pcam);
+	if (rc < 0) {
+		pr_err("%s:failed to create mctl device: %d\n",
+			 __func__, rc);
+		goto failure;
+	}
+
 	g_server_dev.camera_info.video_dev_name
 	[g_server_dev.camera_info.num_cameras]
 	= video_device_node_name(pcam->pvdev);
 	D("%s Connected video device %s\n", __func__,
-	  g_server_dev.camera_info.video_dev_name
+		g_server_dev.camera_info.video_dev_name
 		[g_server_dev.camera_info.num_cameras]);
 
 	g_server_dev.camera_info.s_mount_angle
@@ -2500,7 +2534,17 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	[g_server_dev.camera_info.num_cameras]
 	= sdata->camera_type;
 
+	g_server_dev.mctl_node_info.mctl_node_name
+	[g_server_dev.mctl_node_info.num_mctl_nodes]
+	= video_device_node_name(pcam->mctl_node.pvdev);
+
+	pr_info("%s mctl_node_name[%d] = %s\n", __func__,
+		g_server_dev.mctl_node_info.num_mctl_nodes,
+		g_server_dev.mctl_node_info.mctl_node_name
+		[g_server_dev.mctl_node_info.num_mctl_nodes]);
+
 	g_server_dev.camera_info.num_cameras++;
+	g_server_dev.mctl_node_info.num_mctl_nodes++;
 
 	D("%s done, rc = %d\n", __func__, rc);
 	D("%s number of sensors connected is %d\n", __func__,

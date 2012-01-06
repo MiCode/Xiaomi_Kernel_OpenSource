@@ -294,6 +294,16 @@ struct msm_cam_v4l2_dev_inst {
 	struct img_plane_info plane_info;
 	int vbqueue_initialized;
 };
+
+struct msm_cam_mctl_node {
+	/* MCTL V4l2 device */
+	struct v4l2_device v4l2_dev;
+	struct video_device *pvdev;
+	struct msm_cam_v4l2_dev_inst *dev_inst[MSM_DEV_INST_MAX];
+	struct msm_cam_v4l2_dev_inst *dev_inst_map[MSM_MAX_IMG_MODE];
+	struct mutex dev_lock;
+};
+
 /* abstract camera device for each sensor successfully probed*/
 struct msm_cam_v4l2_device {
 	/* standard device interfaces */
@@ -344,6 +354,7 @@ struct msm_cam_v4l2_device {
 	uint8_t ctrl_data[max_control_command_size];
 	struct msm_ctrl_cmd ctrl;
 	uint32_t event_mask;
+	struct msm_cam_mctl_node mctl_node;
 };
 static inline struct msm_cam_v4l2_device *to_pcam(
 	struct v4l2_device *v4l2_dev)
@@ -391,7 +402,8 @@ struct msm_cam_server_dev {
 	int use_count;
 	/* all the registered ISP subdevice*/
 	struct msm_isp_ops *isp_subdev[MSM_MAX_CAMERA_CONFIGS];
-
+	/* info of MCTL nodes successfully probed*/
+	struct msm_mctl_node_info mctl_node_info;
 };
 
 /* camera server related functions */
@@ -416,8 +428,10 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 			int msg_type, struct msm_free_buf *frame, int dirty);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
+				struct msm_cam_v4l2_dev_inst *pcam_inst,
 				int path, struct msm_free_buf *free_buf);
 int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
+				struct msm_cam_v4l2_dev_inst *pcam_inst,
 				int path, struct msm_free_buf *free_buf);
 /*Memory(PMEM) functions*/
 int msm_register_pmem(struct hlist_head *ptype, void __user *arg,
@@ -494,7 +508,16 @@ int msm_mctl_pp_done(
 int msm_mctl_pp_divert_done(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
-
+int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
+					struct video_device *pvdev);
+int msm_setup_mctl_node(struct msm_cam_v4l2_device *pcam);
+struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
+		struct msm_cam_media_controller *pmctl,
+		int image_mode);
+int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
+			int image_mode, struct msm_frame_buffer *buf);
+int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
+					void __user *arg);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */
