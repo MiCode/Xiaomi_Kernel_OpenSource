@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -589,19 +589,11 @@ static int acdb_open(struct inode *inode, struct file *f)
 
 static int deregister_pmem(void)
 {
-	int result;
-
-	result = adm_memory_unmap_regions((uint32_t *)&acdb_data.paddr,
-			(uint32_t *)&acdb_data.pmem_len, 1);
-
-	if (result < 0)
-		pr_err("Audcal unmap did not work!\n");
-
 	if (acdb_data.pmem_fd) {
 		put_pmem_file(acdb_data.file);
 		acdb_data.pmem_fd = 0;
 	}
-	return result;
+	return 0;
 }
 
 static int register_pmem(void)
@@ -620,11 +612,6 @@ static int register_pmem(void)
 	pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
 		"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
 		acdb_data.kvaddr, acdb_data.pmem_len);
-	result = adm_memory_map_regions((uint32_t *)&acdb_data.paddr, 0,
-			(uint32_t *)&acdb_data.pmem_len, 1);
-	if (result < 0)
-		pr_err("Audcal mmap did not work!\n");
-	goto done;
 
 done:
 	return result;

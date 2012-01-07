@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,9 @@ struct adm_ctl {
 	atomic_t copp_stat[AFE_MAX_PORTS];
 	wait_queue_head_t wait;
 };
+
+static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
+static struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
 
 static struct adm_ctl			this_adm;
 
@@ -130,7 +133,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
+static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 {
 	s32				result = 0;
 	struct adm_set_params_command	adm_params;
@@ -186,8 +189,9 @@ done:
 	return result;
 }
 
-void send_adm_cal(int port_id, int path)
+static void send_adm_cal(int port_id, int path)
 {
+	int			result = 0;
 	s32			acdb_path;
 	struct acdb_cal_block	aud_cal;
 
@@ -198,20 +202,58 @@ void send_adm_cal(int port_id, int path)
 
 	pr_debug("%s: Sending audproc cal\n", __func__);
 	get_audproc_cal(acdb_path, &aud_cal);
+
+	/* map & cache buffers used */
+	if ((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0)) {
+		if (mem_addr_audproc[acdb_path].cal_paddr != 0)
+			adm_memory_unmap_regions(
+				&mem_addr_audproc[acdb_path].cal_paddr,
+				&mem_addr_audproc[acdb_path].cal_size, 1);
+
+		result = adm_memory_map_regions(&aud_cal.cal_paddr, 0,
+					&aud_cal.cal_size, 1);
+		if (result < 0)
+			pr_err("ADM audproc mmap did not work! path = %d, "
+				"addr = 0x%x, size = %d\n", acdb_path,
+				aud_cal.cal_paddr, aud_cal.cal_size);
+		else
+			mem_addr_audproc[acdb_path] = aud_cal;
+	}
+
 	if (!send_adm_cal_block(port_id, &aud_cal))
-		pr_info("%s: Audproc cal sent for port id: %d, path %d\n",
+		pr_debug("%s: Audproc cal sent for port id: %d, path %d\n",
 			__func__, port_id, acdb_path);
 	else
-		pr_info("%s: Audproc cal not sent for port id: %d, path %d\n",
+		pr_debug("%s: Audproc cal not sent for port id: %d, path %d\n",
 			__func__, port_id, acdb_path);
 
 	pr_debug("%s: Sending audvol cal\n", __func__);
 	get_audvol_cal(acdb_path, &aud_cal);
+
+	/* map & cache buffers used */
+	if ((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0)) {
+		if (mem_addr_audvol[acdb_path].cal_paddr != 0)
+			adm_memory_unmap_regions(
+				&mem_addr_audvol[acdb_path].cal_paddr,
+				&mem_addr_audvol[acdb_path].cal_size, 1);
+
+		result = adm_memory_map_regions(&aud_cal.cal_paddr, 0,
+					&aud_cal.cal_size, 1);
+		if (result < 0)
+			pr_err("ADM audvol mmap did not work! path = %d, "
+				"addr = 0x%x, size = %d\n", acdb_path,
+				aud_cal.cal_paddr, aud_cal.cal_size);
+		else
+			mem_addr_audvol[acdb_path] = aud_cal;
+	}
+
 	if (!send_adm_cal_block(port_id, &aud_cal))
-		pr_info("%s: Audvol cal sent for port id: %d, path %d\n",
+		pr_debug("%s: Audvol cal sent for port id: %d, path %d\n",
 			__func__, port_id, acdb_path);
 	else
-		pr_info("%s: Audvol cal not sent for port id: %d, path %d\n",
+		pr_debug("%s: Audvol cal not sent for port id: %d, path %d\n",
 			__func__, port_id, acdb_path);
 }
 
