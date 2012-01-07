@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,6 @@
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/interrupt.h>
-#include <linux/power_supply.h>
 #include <linux/delay.h>
 #include <linux/bitops.h>
 #include <linux/workqueue.h>
@@ -896,7 +895,10 @@ static int pm_power_get_property(struct power_supply *psy,
 							dc_psy);
 			val->intval = is_dc_chg_plugged_in(chip);
 		}
-		if (psy->type == POWER_SUPPLY_TYPE_USB) {
+		if (psy->type == POWER_SUPPLY_TYPE_USB ||
+			psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
+			psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
+			psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
 			chip = container_of(psy, struct pm8921_chg_chip,
 							usb_psy);
 			val->intval = is_usb_chg_plugged_in(chip);
@@ -1066,6 +1068,7 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	return batt_state;
 }
 
+#define MAX_TOLERABLE_BATT_TEMP_DDC	680
 static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 {
 	int rc;
@@ -1079,6 +1082,10 @@ static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 	}
 	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
 						result.measurement);
+	if (result.physical > MAX_TOLERABLE_BATT_TEMP_DDC)
+		pr_err("BATT_TEMP= %d > 68degC, device will be shutdown\n",
+							(int) result.physical);
+
 	return (int)result.physical;
 }
 
@@ -1436,6 +1443,22 @@ bool pm8921_is_battery_charging(int *source)
 }
 EXPORT_SYMBOL(pm8921_is_battery_charging);
 
+int pm8921_set_usb_power_supply_type(enum power_supply_type type)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if (type < POWER_SUPPLY_TYPE_USB)
+		return -EINVAL;
+
+	the_chip->usb_psy.type = type;
+	power_supply_changed(&the_chip->usb_psy);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pm8921_set_usb_power_supply_type);
+
 int pm8921_batt_temperature(void)
 {
 	if (!the_chip) {
@@ -1647,7 +1670,6 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 	power_supply_changed(&chip->usb_psy);
 	power_supply_changed(&chip->dc_psy);
 
-	chip->bms_notify.is_battery_full = 1;
 	bms_notify_check(chip);
 
 	return IRQ_HANDLED;
@@ -1913,6 +1935,7 @@ static void eoc_worker(struct work_struct *work)
 	int regulation_loop, fast_chg, vcp;
 	int rc;
 	static int count;
+	static int last_vbat_programmed = -EINVAL;
 
 	if (!is_ext_charging(chip)) {
 		/* return if the battery is not being fastcharged */
@@ -1951,6 +1974,31 @@ static void eoc_worker(struct work_struct *work)
 			 vbat_programmed, vbat_meas_mv);
 		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
 			goto reset_and_reschedule;
+
+		if (last_vbat_programmed == -EINVAL)
+			last_vbat_programmed = vbat_programmed;
+		if (last_vbat_programmed !=  vbat_programmed) {
+			/* vddmax changed, reset and check again */
+			pr_debug("vddmax = %d last_vdd_max=%d\n",
+				 vbat_programmed, last_vbat_programmed);
+			last_vbat_programmed = vbat_programmed;
+			goto reset_and_reschedule;
+		}
+
+		/*
+		 * TODO if charging from an external charger
+		 * check SOC instead of regulation loop
+		 */
+		regulation_loop = pm_chg_get_regulation_loop(chip);
+		if (regulation_loop < 0) {
+			pr_err("couldnt read the regulation loop err=%d\n",
+				regulation_loop);
+			goto reset_and_reschedule;
+		}
+		pr_debug("regulation_loop=%d\n", regulation_loop);
+
+		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
+			goto reset_and_reschedule;
 	} /* !is_ext_charging */
 
 	/* reset count if battery chg current is more than iterm */
@@ -1973,23 +2021,6 @@ static void eoc_worker(struct work_struct *work)
 	if (ichg_meas_ma * -1 > iterm_programmed)
 		goto reset_and_reschedule;
 
-	if (!is_ext_charging(chip)) {
-		/*
-		 * TODO if charging from an external charger
-		 * check SOC instead of regulation loop
-		 */
-		regulation_loop = pm_chg_get_regulation_loop(chip);
-		if (regulation_loop < 0) {
-			pr_err("couldnt read the regulation loop err=%d\n",
-				regulation_loop);
-			goto reset_and_reschedule;
-		}
-		pr_debug("regulation_loop=%d\n", regulation_loop);
-
-		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
-			goto reset_and_reschedule;
-	} /* !is_ext_charging */
-
 	count++;
 	if (count == CONSECUTIVE_COUNT) {
 		count = 0;
@@ -2000,6 +2031,10 @@ static void eoc_worker(struct work_struct *work)
 		if (is_ext_charging(chip))
 			chip->ext_charge_done = true;
 
+		if (chip->is_bat_warm || chip->is_bat_cool)
+			chip->bms_notify.is_battery_full = 0;
+		else
+			chip->bms_notify.is_battery_full = 1;
 		/* declare end of charging by invoking chgdone interrupt */
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
 		wake_unlock(&chip->eoc_wake_lock);

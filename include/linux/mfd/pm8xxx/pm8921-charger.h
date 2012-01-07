@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define __PM8XXX_CHARGER_H
 
 #include <linux/errno.h>
+#include <linux/power_supply.h>
 
 #define PM8921_CHARGER_DEV_NAME	"pm8921-charger"
 
@@ -211,6 +212,18 @@ int pm8921_set_max_battery_charge_current(int ma);
 int pm8921_disable_input_current_limit(bool disable);
 
 /**
+ * pm8921_set_usb_power_supply_type - set USB supply type
+ *
+ * @type: power_supply_type enum
+ *
+ * This api lets one set a specific usb power_supply_type.
+ * USB drivers can distinguish between types of USB connections
+ * and set the appropriate type for the USB supply.
+ */
+
+int pm8921_set_usb_power_supply_type(enum power_supply_type type);
+
+/**
  * pm8921_disable_source_current - disable drawing current from source
  * @disable: true to disable current drawing from source false otherwise
  *
@@ -314,6 +327,10 @@ static inline int pm8921_is_battery_present(void)
 	return -ENXIO;
 }
 static inline int pm8921_disable_input_current_limit(bool disable)
+{
+	return -ENXIO;
+}
+static inline int pm8921_set_usb_power_supply_type(enum power_supply_type type)
 {
 	return -ENXIO;
 }
