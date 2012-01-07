@@ -1,6 +1,7 @@
 /* arch/arm/mach-msm/include/mach/uncompress.h
  *
  * Copyright (C) 2007 Google, Inc.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -34,18 +35,18 @@ static void putc(int c)
 	 * Wait for TX_READY to be set; but skip it if we have a
 	 * TX underrun.
 	 */
-	if (!(__raw_readl(base + UARTDM_SR_OFFSET) & 0x08))
-		while (!(__raw_readl(base + UARTDM_ISR_OFFSET) & 0x80))
+	if (!(__raw_readl_no_log(base + UARTDM_SR_OFFSET) & 0x08))
+		while (!(__raw_readl_no_log(base + UARTDM_ISR_OFFSET) & 0x80))
 			cpu_relax();
 
-	__raw_writel(0x300, base + UARTDM_CR_OFFSET);
-	__raw_writel(0x1, base + UARTDM_NCF_TX_OFFSET);
-	__raw_writel(c, base + UARTDM_TF_OFFSET);
+	__raw_writel_no_log(0x300, base + UARTDM_CR_OFFSET);
+	__raw_writel_no_log(0x1, base + UARTDM_NCF_TX_OFFSET);
+	__raw_writel_no_log(c, base + UARTDM_TF_OFFSET);
 #else
 	/* Wait for TX_READY to be set */
-	while (!(__raw_readl(base + 0x08) & 0x04))
+	while (!(__raw_readl_no_log(base + 0x08) & 0x04))
 		cpu_relax();
-	__raw_writel(c, base + 0x0c);
+	__raw_writel_no_log(c, base + 0x0c);
 #endif
 #endif
 }
