@@ -334,6 +334,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
 	.pclk_src_name	= "dfab_usb_hs_clk",
 	.vbus_power		= msm_hsusb_vbus_power,
+	.disable_reset_on_disconnect	= true,
 };
 
 static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
