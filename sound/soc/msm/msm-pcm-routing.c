@@ -1348,7 +1348,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 
 	mutex_lock(&routing_lock);
 
-	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_MAX_ID) {
+	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION)
 			adm_close(bedai->port_id);
 	}
@@ -1402,7 +1402,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	 */
 	bedai->active = 1;
 
-	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_MAX_ID) {
+	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 			adm_open(bedai->port_id, path_type,
 				params_rate(bedai->hw_params),
