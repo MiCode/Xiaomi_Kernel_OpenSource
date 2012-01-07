@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/timer.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1014,7 +1014,7 @@ static void __init msm_timer_init(void)
 			dgt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
 		}
 	} else {
-		WARN_ON("Timer running on unknown hardware. Configure this! "
+		WARN(1, "Timer running on unknown hardware. Configure this! "
 			"Assuming default configuration.\n");
 		dgt->freq = 6750000;
 	}
