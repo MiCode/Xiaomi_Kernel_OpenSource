@@ -10,26 +10,26 @@
 	intc: interrupt-controller@F9000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
-		#interrupt-cells = <1>;
+		#interrupt-cells = <3>;
 		reg = <0xF9000000 0x1000>,
 		      <0xF9002000 0x1000>;
 	};
 
 	timer {
 		compatible = "qcom,msm-qtimer";
-		interrupts = <18>;
+		interrupts = <1 2 0>;
 	};
 
 	serial@F991F000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xF991F000 0x1000>;
-		interrupts = <109>;
+		interrupts = <0 109 0>;
 	};
 
 	usb@F9A55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xF9A55000 0x400>;
-		interrupts = <134>;
+		interrupts = <0 134 0>;
 
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
@@ -40,7 +40,7 @@
 		cell-index = <1>;
 		compatible = "qcom,msm-sdcc";
 		reg = <0xF980B000 0x1000>;
-		interrupts = <123>;
+		interrupts = <0 123 0>;
 
 		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
 		qcom,sdcc-sup-voltages = <3300 3300>;
@@ -53,7 +53,7 @@
 		cell-index = <3>;
 		compatible = "qcom,msm-sdcc";
 		reg = <0xF984B000 0x1000>;
-		interrupts = <127>;
+		interrupts = <0 127 0>;
 
 		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
 		qcom,sdcc-sup-voltages = <3300 3300>;
@@ -65,7 +65,7 @@
 		compatible = "qcom,msm_sps";
 		reg = <0xF9984000 0x15000>,
 		      <0xF9999000 0xB000>;
-		interrupts = <94>;
+		interrupts = <0 94 0>;
 
 		qcom,bam-dma-res-pipes = <6>;
 	};

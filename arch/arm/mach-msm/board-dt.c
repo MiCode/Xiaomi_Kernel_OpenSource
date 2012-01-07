@@ -28,7 +28,7 @@ static void __init msm_dt_timer_init(void)
 {
 	struct device_node *node;
 	struct resource res;
-	struct of_irq oirq;
+	int rc;
 
 	node = of_find_compatible_node(NULL, NULL, "qcom,msm-qtimer");
 	if (!node) {
@@ -36,13 +36,12 @@ static void __init msm_dt_timer_init(void)
 		return;
 	}
 
-	if (of_irq_map_one(node, 0, &oirq)) {
+	rc = of_irq_to_resource(node, 0, &res);
+	if (rc < 0)
 		pr_err("interrupt not specified in timer node\n");
-	} else {
-		res.start = res.end = oirq.specifier[0];
-		res.flags = IORESOURCE_IRQ;
+	else
 		arch_timer_register(&res, 1);
-	}
+
 	of_node_put(node);
 }
 
