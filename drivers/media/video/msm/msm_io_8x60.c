@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -878,4 +878,71 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 	default:
 		pr_warning("%s: INVALID CASE\n", __func__);
 	}
+}
+
+int msm_cam_core_reset(void)
+{
+	struct clk *clk1;
+	int rc = 0;
+	clk1 = clk_get(&camio_dev->dev, "csi_vfe_clk");
+	if (IS_ERR(clk1)) {
+		pr_err("%s: did not get csi_vfe_clk\n", __func__);
+		return PTR_ERR(clk1);
+	}
+	rc = clk_reset(clk1, CLK_RESET_ASSERT);
+	if (rc) {
+		pr_err("%s:csi_vfe_clk assert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	usleep_range(1000, 1200);
+	rc = clk_reset(clk1, CLK_RESET_DEASSERT);
+	if (rc) {
+		pr_err("%s:csi_vfe_clk deassert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	clk_put(clk1);
+
+	clk1 = clk_get(&camio_dev->dev, "csi_clk");
+	if (IS_ERR(clk1)) {
+		pr_err("%s: did not get csi_clk\n", __func__);
+		return PTR_ERR(clk1);
+	}
+	rc = clk_reset(clk1, CLK_RESET_ASSERT);
+	if (rc) {
+		pr_err("%s:csi_clk assert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	usleep_range(1000, 1200);
+	rc = clk_reset(clk1, CLK_RESET_DEASSERT);
+	if (rc) {
+		pr_err("%s:csi_clk deassert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	clk_put(clk1);
+
+	clk1 = clk_get(&camio_dev->dev, "csi_pclk");
+	if (IS_ERR(clk1)) {
+		pr_err("%s: did not get csi_pclk\n", __func__);
+		return PTR_ERR(clk1);
+	}
+	rc = clk_reset(clk1, CLK_RESET_ASSERT);
+	if (rc) {
+		pr_err("%s:csi_pclk assert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	usleep_range(1000, 1200);
+	rc = clk_reset(clk1, CLK_RESET_DEASSERT);
+	if (rc) {
+		pr_err("%s:csi_pclk deassert failed\n", __func__);
+		clk_put(clk1);
+		return rc;
+	}
+	clk_put(clk1);
+
+	return rc;
 }
