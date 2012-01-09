@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,18 @@ struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 	return ion_client_create(idev, heap_mask, name);
 }
 EXPORT_SYMBOL(msm_ion_client_create);
+
+int msm_ion_secure_heap(int heap_id)
+{
+	return ion_secure_heap(idev, heap_id);
+}
+EXPORT_SYMBOL(msm_ion_secure_heap);
+
+int msm_ion_unsecure_heap(int heap_id)
+{
+	return ion_unsecure_heap(idev, heap_id);
+}
+EXPORT_SYMBOL(msm_ion_unsecure_heap);
 
 static unsigned long msm_ion_get_base(unsigned long size, int memory_type)
 {

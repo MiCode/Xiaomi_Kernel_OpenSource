@@ -327,17 +327,19 @@ static struct ion_platform_data ion_pdata = {
 		},
 		{
 			.id	= ION_CP_MM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
+			.permission_type = IPT_TYPE_MM_CARVEOUT,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_EBI_TYPE,
+			.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 		},
 		{
 			.id	= ION_IOMMU_HEAP_ID,

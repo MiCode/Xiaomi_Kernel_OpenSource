@@ -5257,13 +5257,14 @@ static struct ion_platform_data ion_pdata = {
 		},
 		{
 			.id	= ION_CP_MM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_SMI_TYPE,
 			.request_region = request_smi_region,
 			.release_region = release_smi_region,
 			.setup_region = setup_smi_region,
+			.permission_type = IPT_TYPE_MM_CARVEOUT,
 		},
 		{
 			.id	= ION_CAMERA_HEAP_ID,
@@ -5274,20 +5275,22 @@ static struct ion_platform_data ion_pdata = {
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_SMI_TYPE,
 			.request_region = request_smi_region,
 			.release_region = release_smi_region,
 			.setup_region = setup_smi_region,
+			.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 		},
 		{
 			.id	= ION_CP_WB_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_WB_HEAP_NAME,
 			.size	= MSM_ION_WB_SIZE,
 			.memory_type = ION_EBI_TYPE,
+			.permission_type = IPT_TYPE_MDP_WRITEBACK,
 		},
 #endif
 	}
