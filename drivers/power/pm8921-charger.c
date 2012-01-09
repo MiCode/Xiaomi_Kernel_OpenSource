@@ -1072,7 +1072,8 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	if (fsm_state == FSM_STATE_ON_CHG_HIGHI_1) {
 		if (!pm_chg_get_rt_status(chip, BATT_INSERTED_IRQ)
 			|| !pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ)
-			|| pm_chg_get_rt_status(chip, CHGHOT_IRQ))
+			|| pm_chg_get_rt_status(chip, CHGHOT_IRQ)
+			|| pm_chg_get_rt_status(chip, VBATDET_LOW_IRQ))
 
 			batt_state = POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
@@ -1622,6 +1623,8 @@ static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 	if (high_transition) {
 		/* enable auto charging */
 		pm_chg_auto_enable(chip, !charging_disabled);
+		pr_info("batt fell below resume voltage %s\n",
+			charging_disabled ? "" : "charger enabled");
 	}
 	pr_debug("fsm_state=%d\n", pm_chg_get_fsm_state(data));
 
@@ -1922,6 +1925,110 @@ static void update_heartbeat(struct work_struct *work)
 						     (chip->update_time)));
 }
 
+enum {
+	CHG_IN_PROGRESS,
+	CHG_NOT_IN_PROGRESS,
+	CHG_FINISHED,
+};
+
+#define VBAT_TOLERANCE_MV	70
+#define CHG_DISABLE_MSLEEP	100
+static int is_charging_finished(struct pm8921_chg_chip *chip)
+{
+	int vbat_meas_uv, vbat_meas_mv, vbat_programmed, vbatdet_low;
+	int ichg_meas_ma, iterm_programmed;
+	int regulation_loop, fast_chg, vcp;
+	int rc;
+	static int last_vbat_programmed = -EINVAL;
+
+	if (!is_ext_charging(chip)) {
+		/* return if the battery is not being fastcharged */
+		fast_chg = pm_chg_get_rt_status(chip, FASTCHG_IRQ);
+		pr_debug("fast_chg = %d\n", fast_chg);
+		if (fast_chg == 0)
+			return CHG_NOT_IN_PROGRESS;
+
+		vcp = pm_chg_get_rt_status(chip, VCP_IRQ);
+		pr_debug("vcp = %d\n", vcp);
+		if (vcp == 1)
+			return CHG_IN_PROGRESS;
+
+		vbatdet_low = pm_chg_get_rt_status(chip, VBATDET_LOW_IRQ);
+		pr_debug("vbatdet_low = %d\n", vbatdet_low);
+		if (vbatdet_low == 1)
+			return CHG_IN_PROGRESS;
+
+		/* reset count if battery is hot/cold */
+		rc = pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ);
+		pr_debug("batt_temp_ok = %d\n", rc);
+		if (rc == 0)
+			return CHG_IN_PROGRESS;
+
+		/* reset count if battery voltage is less than vddmax */
+		vbat_meas_uv = get_prop_battery_uvolts(chip);
+		if (vbat_meas_uv < 0)
+			return CHG_IN_PROGRESS;
+		vbat_meas_mv = vbat_meas_uv / 1000;
+
+		rc = pm_chg_vddmax_get(chip, &vbat_programmed);
+		if (rc) {
+			pr_err("couldnt read vddmax rc = %d\n", rc);
+			return CHG_IN_PROGRESS;
+		}
+		pr_debug("vddmax = %d vbat_meas_mv=%d\n",
+			 vbat_programmed, vbat_meas_mv);
+		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
+			return CHG_IN_PROGRESS;
+
+		if (last_vbat_programmed == -EINVAL)
+			last_vbat_programmed = vbat_programmed;
+		if (last_vbat_programmed !=  vbat_programmed) {
+			/* vddmax changed, reset and check again */
+			pr_debug("vddmax = %d last_vdd_max=%d\n",
+				 vbat_programmed, last_vbat_programmed);
+			last_vbat_programmed = vbat_programmed;
+			return CHG_IN_PROGRESS;
+		}
+
+		/*
+		 * TODO if charging from an external charger
+		 * check SOC instead of regulation loop
+		 */
+		regulation_loop = pm_chg_get_regulation_loop(chip);
+		if (regulation_loop < 0) {
+			pr_err("couldnt read the regulation loop err=%d\n",
+				regulation_loop);
+			return CHG_IN_PROGRESS;
+		}
+		pr_debug("regulation_loop=%d\n", regulation_loop);
+
+		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
+			return CHG_IN_PROGRESS;
+	} /* !is_ext_charging */
+
+	/* reset count if battery chg current is more than iterm */
+	rc = pm_chg_iterm_get(chip, &iterm_programmed);
+	if (rc) {
+		pr_err("couldnt read iterm rc = %d\n", rc);
+		return CHG_IN_PROGRESS;
+	}
+
+	ichg_meas_ma = (get_prop_batt_current(chip)) / 1000;
+	pr_debug("iterm_programmed = %d ichg_meas_ma=%d\n",
+				iterm_programmed, ichg_meas_ma);
+	/*
+	 * ichg_meas_ma < 0 means battery is drawing current
+	 * ichg_meas_ma > 0 means battery is providing current
+	 */
+	if (ichg_meas_ma > 0)
+		return CHG_IN_PROGRESS;
+
+	if (ichg_meas_ma * -1 > iterm_programmed)
+		return CHG_IN_PROGRESS;
+
+	return CHG_FINISHED;
+}
+
 /**
  * eoc_worker - internal function to check if battery EOC
  *		has happened
@@ -1934,105 +2041,27 @@ static void update_heartbeat(struct work_struct *work)
  * happened
  */
 #define CONSECUTIVE_COUNT	3
-#define VBAT_TOLERANCE_MV	70
-#define CHG_DISABLE_MSLEEP	100
 static void eoc_worker(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, eoc_work);
-	int vbat_meas_uv, vbat_meas_mv, vbat_programmed;
-	int ichg_meas_ma, iterm_programmed;
-	int regulation_loop, fast_chg, vcp;
-	int rc;
 	static int count;
-	static int last_vbat_programmed = -EINVAL;
+	int end = is_charging_finished(chip);
 
-	if (!is_ext_charging(chip)) {
-		/* return if the battery is not being fastcharged */
-		fast_chg = pm_chg_get_rt_status(chip, FASTCHG_IRQ);
-		pr_debug("fast_chg = %d\n", fast_chg);
-		if (fast_chg == 0) {
+	if (end == CHG_NOT_IN_PROGRESS) {
 			/* enable fastchg irq */
 			count = 0;
 			wake_unlock(&chip->eoc_wake_lock);
 			return;
-		}
-
-		vcp = pm_chg_get_rt_status(chip, VCP_IRQ);
-		pr_debug("vcp = %d\n", vcp);
-		if (vcp == 1)
-			goto reset_and_reschedule;
-
-		/* reset count if battery is hot/cold */
-		rc = pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ);
-		pr_debug("batt_temp_ok = %d\n", rc);
-		if (rc == 0)
-			goto reset_and_reschedule;
-
-		/* reset count if battery voltage is less than vddmax */
-		vbat_meas_uv = get_prop_battery_uvolts(chip);
-		if (vbat_meas_uv < 0)
-			goto reset_and_reschedule;
-		vbat_meas_mv = vbat_meas_uv / 1000;
-
-		rc = pm_chg_vddmax_get(chip, &vbat_programmed);
-		if (rc) {
-			pr_err("couldnt read vddmax rc = %d\n", rc);
-			goto reset_and_reschedule;
-		}
-		pr_debug("vddmax = %d vbat_meas_mv=%d\n",
-			 vbat_programmed, vbat_meas_mv);
-		if (vbat_meas_mv < vbat_programmed - VBAT_TOLERANCE_MV)
-			goto reset_and_reschedule;
-
-		if (last_vbat_programmed == -EINVAL)
-			last_vbat_programmed = vbat_programmed;
-		if (last_vbat_programmed !=  vbat_programmed) {
-			/* vddmax changed, reset and check again */
-			pr_debug("vddmax = %d last_vdd_max=%d\n",
-				 vbat_programmed, last_vbat_programmed);
-			last_vbat_programmed = vbat_programmed;
-			goto reset_and_reschedule;
-		}
-
-		/*
-		 * TODO if charging from an external charger
-		 * check SOC instead of regulation loop
-		 */
-		regulation_loop = pm_chg_get_regulation_loop(chip);
-		if (regulation_loop < 0) {
-			pr_err("couldnt read the regulation loop err=%d\n",
-				regulation_loop);
-			goto reset_and_reschedule;
-		}
-		pr_debug("regulation_loop=%d\n", regulation_loop);
-
-		if (regulation_loop != 0 && regulation_loop != VDD_LOOP)
-			goto reset_and_reschedule;
-	} /* !is_ext_charging */
-
-	/* reset count if battery chg current is more than iterm */
-	rc = pm_chg_iterm_get(chip, &iterm_programmed);
-	if (rc) {
-		pr_err("couldnt read iterm rc = %d\n", rc);
-		goto reset_and_reschedule;
 	}
 
-	ichg_meas_ma = (get_prop_batt_current(chip)) / 1000;
-	pr_debug("iterm_programmed = %d ichg_meas_ma=%d\n",
-				iterm_programmed, ichg_meas_ma);
-	/*
-	 * ichg_meas_ma < 0 means battery is drawing current
-	 * ichg_meas_ma > 0 means battery is providing current
-	 */
-	if (ichg_meas_ma > 0)
-		goto reset_and_reschedule;
+	if (end == CHG_FINISHED) {
+		count++;
+	} else {
+		count = 0;
+	}
 
-	if (ichg_meas_ma * -1 > iterm_programmed)
-		goto reset_and_reschedule;
-
-	count++;
 	if (count == CONSECUTIVE_COUNT) {
 		count = 0;
 		pr_info("End of Charging\n");
@@ -2049,18 +2078,12 @@ static void eoc_worker(struct work_struct *work)
 		/* declare end of charging by invoking chgdone interrupt */
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
 		wake_unlock(&chip->eoc_wake_lock);
-		return;
 	} else {
 		pr_debug("EOC count = %d\n", count);
-		goto reschedule;
-	}
-
-reset_and_reschedule:
-	count = 0;
-reschedule:
-	schedule_delayed_work(&chip->eoc_work,
+		schedule_delayed_work(&chip->eoc_work,
 			      round_jiffies_relative(msecs_to_jiffies
 						     (EOC_CHECK_PERIOD_MS)));
+	}
 }
 
 static void btm_configure_work(struct work_struct *work)
