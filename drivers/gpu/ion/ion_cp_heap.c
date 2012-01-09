@@ -102,10 +102,10 @@ static int ion_cp_protect(struct ion_heap *heap)
 				cp_heap->secure_size, cp_heap->permission_type);
 		if (ret_value) {
 			pr_err("Failed to protect memory for heap %s - "
-				"error code: %d", heap->name, ret_value);
+				"error code: %d\n", heap->name, ret_value);
 		} else {
 			cp_heap->heap_secured = SECURED_HEAP;
-			pr_debug("Protected heap %s @ 0x%x",
+			pr_debug("Protected heap %s @ 0x%x\n",
 				heap->name, (unsigned int) cp_heap->base);
 		}
 	}
@@ -127,10 +127,10 @@ static void ion_cp_unprotect(struct ion_heap *heap)
 			cp_heap->permission_type);
 		if (error_code) {
 			pr_err("Failed to un-protect memory for heap %s - "
-				"error code: %d", heap->name, error_code);
+				"error code: %d\n", heap->name, error_code);
 		} else  {
 			cp_heap->heap_secured = NON_SECURED_HEAP;
-			pr_debug("Un-protected heap %s @ 0x%x", heap->name,
+			pr_debug("Un-protected heap %s @ 0x%x\n", heap->name,
 				(unsigned int) cp_heap->base);
 		}
 	}
@@ -152,14 +152,14 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 	if (!secure_allocation && cp_heap->heap_secured == SECURED_HEAP) {
 		mutex_unlock(&cp_heap->lock);
 		pr_err("ION cannot allocate un-secure memory from protected"
-			" heap %s", heap->name);
+			" heap %s\n", heap->name);
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
 	if (secure_allocation && cp_heap->umap_count > 0) {
 		mutex_unlock(&cp_heap->lock);
 		pr_err("ION cannot allocate secure memory from heap with "
-			"outstanding user space mappings for heap %s",
+			"outstanding user space mappings for heap %s\n",
 			heap->name);
 		return ION_CP_ALLOCATE_FAIL;
 	}
@@ -182,7 +182,7 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		      cp_heap->allocated_bytes) > size)
 			pr_debug("%s: heap %s has enough memory (%lx) but"
 				" the allocation of size %lx still failed."
-				" Memory is probably fragmented.",
+				" Memory is probably fragmented.\n",
 				__func__, heap->name,
 				cp_heap->total_size -
 				cp_heap->allocated_bytes, size);
@@ -332,7 +332,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap,
 	mutex_lock(&cp_heap->lock);
 
 	if (cp_heap->heap_secured == SECURED_HEAP && ION_IS_CACHED(flags)) {
-		pr_err("Unable to map secured heap %s as cached", heap->name);
+		pr_err("Unable to map secured heap %s as cached\n", heap->name);
 		mutex_unlock(&cp_heap->lock);
 		return NULL;
 	}
