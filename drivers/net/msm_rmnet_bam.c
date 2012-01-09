@@ -311,13 +311,13 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* if write() succeeds, skb access is unsafe in this process */
 	bam_ret = msm_bam_dmux_write(p->ch_id, skb);
 
-	if (bam_ret != 0) {
+	if (bam_ret != 0 && bam_ret != -EAGAIN) {
 		pr_err("[%s] %s: write returned error %d",
 			dev->name, __func__, bam_ret);
-		return -EAGAIN;
+		return -EPERM;
 	}
 
-	return 0;
+	return bam_ret;
 }
 
 static void bam_write_done(void *dev, struct sk_buff *skb)
@@ -455,13 +455,25 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	if (!ul_is_connected) {
+		netif_stop_queue(dev);
 		p->waiting_for_ul = 1;
 		msm_bam_dmux_kickoff_ul_wakeup();
 		return NETDEV_TX_BUSY;
 	}
 	ret = _rmnet_xmit(skb, dev);
+	if (ret == -EPERM)
+		return NETDEV_TX_BUSY;
+
 	if (ret == -EAGAIN) {
-		netif_start_queue(dev);
+		/*
+		 * This should not happen
+		 * EAGAIN means we attempted to overflow the high watermark
+		 * Clearly the queue is not stopped like it should be, so
+		 * stop it and return BUSY to the TCP/IP framework.  It will
+		 * retry this packet with the queue is restarted which happens
+		 * in the write_done callback when the low watermark is hit.
+		 */
+		netif_stop_queue(dev);
 		return NETDEV_TX_BUSY;
 	}
 
