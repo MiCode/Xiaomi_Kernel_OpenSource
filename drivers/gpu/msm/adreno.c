@@ -585,6 +585,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	adreno_gmeminit(adreno_dev);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	device->ftbl->irqctrl(device, 1);
 
 	status = adreno_ringbuffer_start(&adreno_dev->ringbuffer, init_ram);
 	if (status != 0)
@@ -612,6 +613,7 @@ static int adreno_stop(struct kgsl_device *device)
 
 	kgsl_mmu_stop(device);
 
+	device->ftbl->irqctrl(device, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 	del_timer_sync(&device->idle_timer);
 
