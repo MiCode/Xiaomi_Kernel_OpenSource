@@ -27,6 +27,7 @@
 
 #include "pm.h"
 #include "scm-boot.h"
+#include "spm.h"
 
 int pen_release = -1;
 
@@ -89,6 +90,8 @@ static int __cpuinit krait_release_secondary(int cpu)
 	void *base_ptr = ioremap_nocache(0x02088000 + (cpu * 0x10000), SZ_4K);
 	if (!base_ptr)
 		return -ENODEV;
+
+	msm_spm_turn_on_cpu_rail(cpu);
 
 	writel_relaxed(0x109, base_ptr+0x04);
 	writel_relaxed(0x101, base_ptr+0x04);
