@@ -74,10 +74,22 @@ VREG_CONSUMERS(S1) = {
 };
 VREG_CONSUMERS(S2) = {
 	REGULATOR_SUPPLY("8018_s2",		NULL),
+	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"tabla-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"tabla2x-slim"),
+	REGULATOR_SUPPLY("VDDD_CDC_D",		"tabla-slim"),
+	REGULATOR_SUPPLY("VDDD_CDC_D",		"tabla2x-slim"),
 };
 VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("8018_s3",		NULL),
 	REGULATOR_SUPPLY("wlan_vreg",		"wlan_ar6000_pm_dev"),
+	REGULATOR_SUPPLY("CDC_VDD_CP",		"tabla-slim"),
+	REGULATOR_SUPPLY("CDC_VDD_CP",		"tabla2x-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_RX",		"tabla-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_RX",		"tabla2x-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_TX",		"tabla-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_TX",		"tabla2x-slim"),
+	REGULATOR_SUPPLY("VDDIO_CDC",		"tabla-slim"),
+	REGULATOR_SUPPLY("VDDIO_CDC",		"tabla2x-slim"),
 };
 VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("8018_s4",		NULL),

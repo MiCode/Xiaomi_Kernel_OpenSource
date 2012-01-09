@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,21 @@ static struct gpiomux_setting sdcc2_suspend_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting cdc_mclk = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
+	{
+		.gpio = 24,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &cdc_mclk,
+		},
+	},
 };
 
 static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
@@ -271,6 +286,8 @@ int __init msm9615_init_gpiomux(void)
 	msm_gpiomux_install(msm9615_ltc4088_charger_config,
 			ARRAY_SIZE(msm9615_ltc4088_charger_config));
 #endif
+	msm_gpiomux_install(msm9615_audio_codec_configs,
+			ARRAY_SIZE(msm9615_audio_codec_configs));
 
 	return 0;
 }
