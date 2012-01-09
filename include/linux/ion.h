@@ -2,6 +2,7 @@
  * include/linux/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -41,6 +42,8 @@ struct ion_buffer;
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
+ * @memory_type:	Memory type used for the heap
+ * @ion_memory_id:		Memory ID used to identify the memory to TZ
  * @request_region: function to be called when the number of allocations goes
  *						from 0 -> 1
  * @release_region: function to be called when the number of allocations goes
@@ -56,6 +59,7 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
+	enum ion_permission_type permission_type;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
@@ -287,6 +291,48 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num);
 
 
+/**
+ * ion_secure_heap - secure a heap
+ *
+ * @client - a client that has allocated from the heap heap_id
+ * @heap_id - heap id to secure.
+ *
+ * Secure a heap
+ * Returns 0 on success
+ */
+int ion_secure_heap(struct ion_device *dev, int heap_id);
+
+/**
+ * ion_unsecure_heap - un-secure a heap
+ *
+ * @client - a client that has allocated from the heap heap_id
+ * @heap_id - heap id to un-secure.
+ *
+ * Un-secure a heap
+ * Returns 0 on success
+ */
+int ion_unsecure_heap(struct ion_device *dev, int heap_id);
+
+/**
+ * msm_ion_secure_heap - secure a heap. Wrapper around ion_secure_heap.
+ *
+  * @heap_id - heap id to secure.
+ *
+ * Secure a heap
+ * Returns 0 on success
+ */
+int msm_ion_secure_heap(int heap_id);
+
+/**
+ * msm_ion_unsecure_heap - unsecure a heap. Wrapper around ion_unsecure_heap.
+ *
+  * @heap_id - heap id to secure.
+ *
+ * Un-secure a heap
+ * Returns 0 on success
+ */
+int msm_ion_unsecure_heap(int heap_id);
+
 #else
 static inline void ion_reserve(struct ion_platform_data *data)
 {
@@ -370,6 +416,26 @@ static inline void ion_unmap_iommu(struct ion_client *client,
 	return;
 }
 
+static inline int ion_secure_heap(struct ion_device *dev, int heap_id)
+{
+	return -ENODEV;
 
+}
+
+static inline int ion_unsecure_heap(struct ion_device *dev, int heap_id)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_secure_heap(int heap_id)
+{
+	return -ENODEV;
+
+}
+
+static inline int msm_ion_unsecure_heap(int heap_id)
+{
+	return -ENODEV;
+}
 #endif /* CONFIG_ION */
 #endif /* _LINUX_ION_H */
