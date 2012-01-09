@@ -19,6 +19,9 @@
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/wcnss_wlan.h>
+#include <linux/semaphore.h>
+#include <linux/list.h>
+#include <linux/slab.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
 
@@ -26,6 +29,9 @@
 static void __iomem *msm_riva_base;
 static struct msm_xo_voter *wlan_clock;
 static const char *id = "WLAN";
+static LIST_HEAD(power_on_lock_list);
+static DEFINE_MUTEX(list_lock);
+static DEFINE_SEMAPHORE(riva_power_on_lock);
 
 #define MSM_RIVA_PHYS                     0x03204000
 #define RIVA_PMU_CFG                      (msm_riva_base + 0x28)
@@ -66,6 +72,12 @@ static struct vregs_info riva_vregs[] = {
 	{"riva_vddcx",  VREG_NULL_CONFIG, 1050000, 0, 1150000, 0,      NULL},
 	{"riva_vddpx",  VREG_NULL_CONFIG, 1800000, 0, 1800000, 0,      NULL},
 };
+
+struct host_driver {
+	char name[20];
+	struct list_head list;
+};
+
 
 static int configure_iris_xo(bool use_48mhz_xo, int on)
 {
@@ -278,6 +290,7 @@ int wcnss_wlan_power(struct device *dev,
 	int rc = 0;
 
 	if (on) {
+		down(&riva_power_on_lock);
 		/* RIVA regulator settings */
 		rc = wcnss_riva_vregs_on(dev);
 		if (rc)
@@ -292,6 +305,7 @@ int wcnss_wlan_power(struct device *dev,
 		rc = configure_iris_xo(cfg->use_48mhz_xo, WCNSS_WLAN_SWITCH_ON);
 		if (rc)
 			goto fail_iris_xo;
+		up(&riva_power_on_lock);
 
 	} else {
 		configure_iris_xo(cfg->use_48mhz_xo, WCNSS_WLAN_SWITCH_OFF);
@@ -308,7 +322,62 @@ fail_iris_on:
 	wcnss_riva_vregs_off();
 
 fail_riva_on:
+	up(&riva_power_on_lock);
 	return rc;
 }
 EXPORT_SYMBOL(wcnss_wlan_power);
 
+/*
+ * During SSR Riva should not be 'powered on' until all the host drivers
+ * finish their shutdown routines.  Host drivers use below APIs to
+ * synchronize power-on. Riva will not be 'powered on' until all the
+ * requests(to lock power-on) are freed.
+ */
+int req_riva_power_on_lock(char *driver_name)
+{
+	struct host_driver *node;
+
+	if (!driver_name)
+		goto err;
+
+	node = kmalloc(sizeof(struct host_driver), GFP_KERNEL);
+	if (!node)
+		goto err;
+	strncpy(node->name, driver_name, sizeof(node->name));
+
+	mutex_lock(&list_lock);
+	/* Lock when the first request is added */
+	if (list_empty(&power_on_lock_list))
+		down(&riva_power_on_lock);
+	list_add(&node->list, &power_on_lock_list);
+	mutex_unlock(&list_lock);
+
+	return 0;
+
+err:
+	return -EINVAL;
+}
+EXPORT_SYMBOL(req_riva_power_on_lock);
+
+int free_riva_power_on_lock(char *driver_name)
+{
+	int ret = -1;
+	struct host_driver *node;
+
+	mutex_lock(&list_lock);
+	list_for_each_entry(node, &power_on_lock_list, list) {
+		if (!strncmp(node->name, driver_name, sizeof(node->name))) {
+			list_del(&node->list);
+			kfree(node);
+			ret = 0;
+			break;
+		}
+	}
+	/* unlock when the last host driver frees the lock */
+	if (list_empty(&power_on_lock_list))
+		up(&riva_power_on_lock);
+	mutex_unlock(&list_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(free_riva_power_on_lock);
