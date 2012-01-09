@@ -1595,6 +1595,8 @@ static int mipi_dsi_panel_power(int on)
 					__func__, rc);
 			goto fail_vreg;
 		}
+		if (pmapp_disp_backlight_set_brightness(100))
+			pr_err("backlight set brightness failed\n");
 
 		dsi_gpio_initialized = 1;
 	}
@@ -1638,9 +1640,6 @@ static int mipi_dsi_panel_power(int on)
 			msleep(20);
 			gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 1);
 		}
-
-		if (pmapp_disp_backlight_set_brightness(100))
-			pr_err("backlight set brightness failed\n");
 	} else {
 		gpio_set_value_cansleep(GPIO_LCDC_BRDG_PD, 1);
 
