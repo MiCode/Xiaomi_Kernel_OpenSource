@@ -156,29 +156,22 @@ static struct gpiomux_setting atmel_int_sus_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 #ifdef MSM8930_PHASE_2
-static struct gpiomux_setting hsusb_act_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
 static struct gpiomux_setting hsusb_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
 };
 static struct msm_gpiomux_config msm8930_hsusb_configs[] = {
 	{
 		.gpio = 63,     /* HSUSB_EXTERNAL_5V_LDO_EN */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &hsusb_act_cfg,
 			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
 		},
 	},
 	{
 		.gpio = 97,     /* HSUSB_5V_EN */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &hsusb_act_cfg,
 			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
 		},
 	},

@@ -198,8 +198,47 @@ static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.wakeup			= 1,
 };
 
+static int pm8921_therm_mitigation[] = {
+	1100,
+	700,
+	600,
+	325,
+};
+
+#define MAX_VOLTAGE_MV		4200
+static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
+	.safety_time		= 180,
+	.update_time		= 60000,
+	.max_voltage		= MAX_VOLTAGE_MV,
+	.min_voltage		= 3200,
+	.resume_voltage_delta	= 100,
+	.term_current		= 100,
+	.cool_temp		= 10,
+	.warm_temp		= 40,
+	.temp_check_period	= 1,
+	.max_bat_chg_current	= 1100,
+	.cool_bat_chg_current	= 350,
+	.warm_bat_chg_current	= 350,
+	.cool_bat_voltage	= 4100,
+	.warm_bat_voltage	= 4100,
+	.thermal_mitigation	= pm8921_therm_mitigation,
+	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
+};
+
+static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
+	.r_sense		= 10,
+};
+
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 	.priority		= 0,
+};
+
+static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
+	.r_sense		= 10,
+	.i_test			= 2500,
+	.v_failure		= 3000,
+	.calib_delay_ms		= 600000,
+	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
@@ -210,7 +249,10 @@ static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
 	.regulator_pdatas	= msm8930_pm8038_regulator_pdata,
+	.charger_pdata		= &pm8921_chg_pdata,
+	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8xxx_adc_pdata,
+	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
 };
 
 static struct msm_ssbi_platform_data msm8930_ssbi_pm8038_pdata __devinitdata = {
