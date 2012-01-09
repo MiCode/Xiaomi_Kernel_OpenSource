@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,6 +441,8 @@ void res_trk_init(struct device *device, u32 irq)
 			}
 			resource_context.disable_dmx =
 			resource_context.vidc_platform_data->disable_dmx;
+			resource_context.disable_fullhd =
+			resource_context.vidc_platform_data->disable_fullhd;
 #ifdef CONFIG_MSM_BUS_SCALING
 			resource_context.vidc_bus_client_pdata =
 			resource_context.vidc_platform_data->
@@ -512,4 +514,9 @@ void res_trk_set_mem_type(enum ddl_mem_area mem_type)
 {
 	resource_context.res_mem_type = mem_type;
 	return;
+}
+
+u32 res_trk_get_disable_fullhd(void)
+{
+	return resource_context.disable_fullhd;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,7 @@ struct res_trk_context {
 	struct ddl_buf_addr firmware_addr;
 	struct ion_client *res_ion_client;
 	u32 disable_dmx;
+	u32 disable_fullhd;
 	enum ddl_mem_area res_mem_type;
 };
 

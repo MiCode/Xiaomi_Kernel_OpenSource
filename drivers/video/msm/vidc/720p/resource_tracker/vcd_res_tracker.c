@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -722,4 +722,9 @@ struct ion_client *res_trk_get_ion_client(void)
 void res_trk_set_mem_type(enum ddl_mem_area mem_type)
 {
 	return;
+}
+
+u32 res_trk_get_disable_fullhd(void)
+{
+	return 0;
 }
