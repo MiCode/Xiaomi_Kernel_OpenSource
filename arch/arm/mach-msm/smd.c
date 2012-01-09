@@ -667,7 +667,8 @@ void smd_channel_reset(uint32_t restart_pid)
 		/* restart SMSM init handshake */
 		if (restart_pid == SMSM_MODEM) {
 			smsm_change_state(SMSM_APPS_STATE,
-					SMSM_INIT | SMSM_SMD_LOOPBACK, 0);
+				SMSM_INIT | SMSM_SMD_LOOPBACK | SMSM_RESET,
+				0);
 		}
 
 		/* notify SMSM processors */
