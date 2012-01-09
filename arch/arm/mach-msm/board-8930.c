@@ -1338,6 +1338,9 @@ static struct mxt_platform_data mxt_platform_data_8930 = {
 	.x_size			= 1067,
 	.y_size			= 566,
 	.irqflags		= IRQF_TRIGGER_FALLING,
+#ifdef MSM8930_PHASE_2
+	.digital_pwr_regulator	= true,
+#endif
 	.i2c_pull_up		= true,
 	.reset_gpio		= MXT_TS_RESET_GPIO,
 	.irq_gpio		= MXT_TS_GPIO_IRQ,
