@@ -85,8 +85,7 @@ struct gdata_port {
 	unsigned		port_num;
 
 	/* gadget */
-	spinlock_t		port_lock;
-	void			*port_usb;
+	atomic_t		connected;
 	struct usb_ep		*in;
 	struct usb_ep		*out;
 
@@ -96,10 +95,12 @@ struct gdata_port {
 	unsigned int		tx_q_size;
 	struct list_head	tx_idle;
 	struct sk_buff_head	tx_skb_q;
+	spinlock_t		tx_lock;
 
 	unsigned int		rx_q_size;
 	struct list_head	rx_idle;
 	struct sk_buff_head	rx_skb_q;
+	spinlock_t		rx_lock;
 
 	/* work */
 	struct workqueue_struct	*wq;
@@ -175,17 +176,16 @@ static void ghsic_data_unthrottle_tx(void *ctx)
 	struct gdata_port	*port = ctx;
 	unsigned long		flags;
 
-	if (!port)
+	if (!port || !atomic_read(&port->connected))
 		return;
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (port->port_usb) {
-		port->tx_unthrottled_cnt++;
-		queue_work(port->wq, &port->write_tomdm_w);
-		pr_debug("%s: port num =%d unthrottled\n", __func__,
-			port->port_num);
-	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_lock_irqsave(&port->rx_lock, flags);
+	port->tx_unthrottled_cnt++;
+	spin_unlock_irqrestore(&port->rx_lock, flags);
+
+	queue_work(port->wq, &port->write_tomdm_w);
+	pr_debug("%s: port num =%d unthrottled\n", __func__,
+		port->port_num);
 }
 
 static void ghsic_data_write_tohost(struct work_struct *w)
@@ -200,13 +200,15 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 
 	port = container_of(w, struct gdata_port, write_tohost_w);
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+	if (!port)
+		return;
+
+	spin_lock_irqsave(&port->tx_lock, flags);
+	ep = port->in;
+	if (!ep) {
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 		return;
 	}
-
-	ep = port->in;
 
 	while (!list_empty(&port->tx_idle)) {
 		skb = __skb_dequeue(&port->tx_skb_q);
@@ -231,9 +233,9 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 
 		info = (struct timestamp_info *)skb->cb;
 		info->tx_queued = get_timestamp();
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 		ret = usb_ep_queue(ep, req, GFP_KERNEL);
-		spin_lock_irqsave(&port->port_lock, flags);
+		spin_lock_irqsave(&port->tx_lock, flags);
 		if (ret) {
 			pr_err("%s: usb epIn failed\n", __func__);
 			list_add(&req->list, &port->tx_idle);
@@ -252,7 +254,7 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 			data_bridge_unthrottle_rx(port->brdg.ch_id);
 		}
 	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->tx_lock, flags);
 }
 
 static int ghsic_data_receive(void *p, void *data, size_t len)
@@ -261,21 +263,15 @@ static int ghsic_data_receive(void *p, void *data, size_t len)
 	unsigned long		flags;
 	struct sk_buff		*skb = data;
 
-	if (!port) {
+	if (!port || !atomic_read(&port->connected)) {
 		dev_kfree_skb_any(skb);
-		return -EINVAL;
+		return -ENOTCONN;
 	}
 
 	pr_debug("%s: p:%p#%d skb_len:%d\n", __func__,
 			port, port->port_num, skb->len);
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		dev_kfree_skb_any(skb);
-		return -ENOTCONN;
-	}
-
+	spin_lock_irqsave(&port->tx_lock, flags);
 	__skb_queue_tail(&port->tx_skb_q, skb);
 
 	if (ghsic_data_fctrl_support &&
@@ -284,12 +280,12 @@ static int ghsic_data_receive(void *p, void *data, size_t len)
 		port->rx_throttled_cnt++;
 		pr_debug_ratelimited("%s: flow ctrl enabled: tx skbq len: %u\n",
 					__func__, port->tx_skb_q.qlen);
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 		queue_work(port->wq, &port->write_tohost_w);
 		return -EBUSY;
 	}
 
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->tx_lock, flags);
 
 	queue_work(port->wq, &port->write_tohost_w);
 
@@ -306,14 +302,12 @@ static void ghsic_data_write_tomdm(struct work_struct *w)
 
 	port = container_of(w, struct gdata_port, write_tomdm_w);
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+	if (!port || !atomic_read(&port->connected))
 		return;
-	}
 
+	spin_lock_irqsave(&port->rx_lock, flags);
 	if (test_bit(TX_THROTTLED, &port->brdg.flags)) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 		goto start_rx;
 	}
 
@@ -323,9 +317,9 @@ static void ghsic_data_write_tomdm(struct work_struct *w)
 
 		info = (struct timestamp_info *)skb->cb;
 		info->rx_done_sent = get_timestamp();
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 		ret = data_bridge_write(port->brdg.ch_id, skb);
-		spin_lock_irqsave(&port->port_lock, flags);
+		spin_lock_irqsave(&port->rx_lock, flags);
 		if (ret < 0) {
 			if (ret == -EBUSY) {
 				/*flow control*/
@@ -340,7 +334,7 @@ static void ghsic_data_write_tomdm(struct work_struct *w)
 		}
 		port->to_modem++;
 	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->rx_lock, flags);
 start_rx:
 	ghsic_data_start_rx(port);
 }
@@ -370,9 +364,9 @@ static void ghsic_data_epin_complete(struct usb_ep *ep, struct usb_request *req)
 
 	dev_kfree_skb_any(skb);
 
-	spin_lock(&port->port_lock);
+	spin_lock(&port->tx_lock);
 	list_add_tail(&req->list, &port->tx_idle);
-	spin_unlock(&port->port_lock);
+	spin_unlock(&port->tx_lock);
 
 	queue_work(port->wq, &port->write_tohost_w);
 }
@@ -406,14 +400,14 @@ ghsic_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	}
 
-	spin_lock(&port->port_lock);
+	spin_lock(&port->rx_lock);
 	if (queue) {
 		info->rx_done = get_timestamp();
 		__skb_queue_tail(&port->rx_skb_q, skb);
 		list_add_tail(&req->list, &port->rx_idle);
 		queue_work(port->wq, &port->write_tomdm_w);
 	}
-	spin_unlock(&port->port_lock);
+	spin_unlock(&port->rx_lock);
 }
 
 static void ghsic_data_start_rx(struct gdata_port *port)
@@ -427,15 +421,17 @@ static void ghsic_data_start_rx(struct gdata_port *port)
 	unsigned int		created;
 
 	pr_debug("%s: port:%p\n", __func__, port);
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+	if (!port)
+		return;
+
+	spin_lock_irqsave(&port->rx_lock, flags);
+	ep = port->out;
+	if (!ep) {
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 		return;
 	}
 
-	ep = port->out;
-
-	while (port->port_usb && !list_empty(&port->rx_idle)) {
+	while (atomic_read(&port->connected) && !list_empty(&port->rx_idle)) {
 		if (port->rx_skb_q.qlen > ghsic_data_pend_limit_with_bridge)
 			break;
 
@@ -454,22 +450,22 @@ static void ghsic_data_start_rx(struct gdata_port *port)
 		req->context = skb;
 
 		info->rx_queued = get_timestamp();
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 		ret = usb_ep_queue(ep, req, GFP_KERNEL);
-		spin_lock_irqsave(&port->port_lock, flags);
+		spin_lock_irqsave(&port->rx_lock, flags);
 		if (ret) {
 			dev_kfree_skb_any(skb);
 
 			pr_err_ratelimited("%s: rx queue failed\n", __func__);
 
-			if (port->port_usb)
+			if (atomic_read(&port->connected))
 				list_add(&req->list, &port->rx_idle);
 			else
 				usb_ep_free_request(ep, req);
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->rx_lock, flags);
 }
 
 static void ghsic_data_start_io(struct gdata_port *port)
@@ -480,32 +476,41 @@ static void ghsic_data_start_io(struct gdata_port *port)
 
 	pr_debug("%s: port:%p\n", __func__, port);
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+	if (!port)
+		return;
+
+	spin_lock_irqsave(&port->rx_lock, flags);
+	ep = port->out;
+	if (!ep) {
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 		return;
 	}
 
-	ep = port->out;
 	ret = ghsic_data_alloc_requests(ep, &port->rx_idle,
 		port->rx_q_size, ghsic_data_epout_complete, GFP_ATOMIC);
 	if (ret) {
 		pr_err("%s: rx req allocation failed\n", __func__);
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->rx_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&port->rx_lock, flags);
+
+	spin_lock_irqsave(&port->tx_lock, flags);
+	ep = port->in;
+	if (!ep) {
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 		return;
 	}
 
-	ep = port->in;
 	ret = ghsic_data_alloc_requests(ep, &port->tx_idle,
 		port->tx_q_size, ghsic_data_epin_complete, GFP_ATOMIC);
 	if (ret) {
 		pr_err("%s: tx req allocation failed\n", __func__);
 		ghsic_data_free_requests(ep, &port->rx_idle);
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 		return;
 	}
-
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->tx_lock, flags);
 
 	/* queue out requests */
 	ghsic_data_start_rx(port);
@@ -517,7 +522,8 @@ static void ghsic_data_connect_w(struct work_struct *w)
 		container_of(w, struct gdata_port, connect_w);
 	int			ret;
 
-	if (!port || !test_bit(CH_READY, &port->bridge_sts))
+	if (!port || !atomic_read(&port->connected) ||
+		!test_bit(CH_READY, &port->bridge_sts))
 		return;
 
 	pr_debug("%s: port:%p\n", __func__, port);
@@ -551,28 +557,37 @@ static void ghsic_data_free_buffers(struct gdata_port *port)
 	struct sk_buff	*skb;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port)
+		return;
 
-	if (!port || !port->port_usb)
-		goto free_buf_out;
+	spin_lock_irqsave(&port->tx_lock, flags);
+	if (!port->in) {
+		spin_unlock_irqrestore(&port->tx_lock, flags);
+		return;
+	}
 
 	ghsic_data_free_requests(port->in, &port->tx_idle);
-	ghsic_data_free_requests(port->out, &port->rx_idle);
 
 	while ((skb = __skb_dequeue(&port->tx_skb_q)))
 		dev_kfree_skb_any(skb);
+	spin_unlock_irqrestore(&port->tx_lock, flags);
+
+	spin_lock_irqsave(&port->rx_lock, flags);
+	if (!port->out) {
+		spin_unlock_irqrestore(&port->rx_lock, flags);
+		return;
+	}
+
+	ghsic_data_free_requests(port->out, &port->rx_idle);
 
 	while ((skb = __skb_dequeue(&port->rx_skb_q)))
 		dev_kfree_skb_any(skb);
-
-free_buf_out:
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->rx_lock, flags);
 }
 
 static int ghsic_data_probe(struct platform_device *pdev)
 {
 	struct gdata_port *port;
-	unsigned long flags;
 
 	pr_debug("%s: name:%s no_data_ports= %d\n",
 		__func__, pdev->name, no_data_ports);
@@ -585,11 +600,9 @@ static int ghsic_data_probe(struct platform_device *pdev)
 	port = gdata_ports[pdev->id].port;
 	set_bit(CH_READY, &port->bridge_sts);
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	/* if usb is online, try opening bridge */
-	if (port->port_usb)
+	if (atomic_read(&port->connected))
 		queue_work(port->wq, &port->connect_w);
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	return 0;
 }
@@ -598,9 +611,8 @@ static int ghsic_data_probe(struct platform_device *pdev)
 static int ghsic_data_remove(struct platform_device *pdev)
 {
 	struct gdata_port *port;
-	struct usb_ep *ep_in = NULL;
-	struct usb_ep *ep_out = NULL;
-	unsigned long flags;
+	struct usb_ep	*ep_in;
+	struct usb_ep	*ep_out;
 
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
@@ -611,15 +623,11 @@ static int ghsic_data_remove(struct platform_device *pdev)
 
 	port = gdata_ports[pdev->id].port;
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (port->port_usb) {
-		ep_in = port->in;
-		ep_out = port->out;
-	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
-
+	ep_in = port->in;
 	if (ep_in)
 		usb_ep_fifo_flush(ep_in);
+
+	ep_out = port->out;
 	if (ep_out)
 		usb_ep_fifo_flush(ep_out);
 
@@ -663,7 +671,8 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 	port->port_num = port_num;
 
 	/* port initialization */
-	spin_lock_init(&port->port_lock);
+	spin_lock_init(&port->rx_lock);
+	spin_lock_init(&port->tx_lock);
 
 	INIT_WORK(&port->connect_w, ghsic_data_connect_w);
 	INIT_WORK(&port->disconnect_w, ghsic_data_disconnect_w);
@@ -724,14 +733,18 @@ void ghsic_data_disconnect(void *gptr, int port_num)
 	if (port->out)
 		usb_ep_disable(port->in);
 
-	spin_lock_irqsave(&port->port_lock, flags);
-	port->port_usb = 0;
+	atomic_set(&port->connected, 0);
+
+	spin_lock_irqsave(&port->tx_lock, flags);
 	port->in = NULL;
-	port->out = NULL;
 	port->n_tx_req_queued = 0;
-	clear_bit(TX_THROTTLED, &port->brdg.flags);
 	clear_bit(RX_THROTTLED, &port->brdg.flags);
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->tx_lock, flags);
+
+	spin_lock_irqsave(&port->rx_lock, flags);
+	port->out = NULL;
+	clear_bit(TX_THROTTLED, &port->brdg.flags);
+	spin_unlock_irqrestore(&port->rx_lock, flags);
 
 	queue_work(port->wq, &port->disconnect_w);
 }
@@ -762,8 +775,15 @@ int ghsic_data_connect(void *gptr, int port_num)
 
 	if (port->gtype == USB_GADGET_SERIAL) {
 		gser = gptr;
+
+		spin_lock_irqsave(&port->tx_lock, flags);
 		port->in = gser->in;
+		spin_unlock_irqrestore(&port->tx_lock, flags);
+
+		spin_lock_irqsave(&port->rx_lock, flags);
 		port->out = gser->out;
+		spin_unlock_irqrestore(&port->rx_lock, flags);
+
 		port->tx_q_size = ghsic_data_serial_tx_q_size;
 		port->rx_q_size = ghsic_data_serial_rx_q_size;
 		gser->in->driver_data = port;
@@ -772,8 +792,15 @@ int ghsic_data_connect(void *gptr, int port_num)
 		out_desc = gser->out_desc;
 	} else {
 		gr = gptr;
+
+		spin_lock_irqsave(&port->tx_lock, flags);
 		port->in = gr->in;
+		spin_unlock_irqrestore(&port->tx_lock, flags);
+
+		spin_lock_irqsave(&port->rx_lock, flags);
 		port->out = gr->out;
+		spin_unlock_irqrestore(&port->rx_lock, flags);
+
 		port->tx_q_size = ghsic_data_rmnet_tx_q_size;
 		port->rx_q_size = ghsic_data_rmnet_rx_q_size;
 		gr->in->driver_data = port;
@@ -796,17 +823,22 @@ int ghsic_data_connect(void *gptr, int port_num)
 		usb_ep_disable(port->in);
 		goto fail;
 	}
-	spin_lock_irqsave(&port->port_lock, flags);
-	port->port_usb = gptr;
+
+	atomic_set(&port->connected, 1);
+
+	spin_lock_irqsave(&port->tx_lock, flags);
 	port->to_host = 0;
-	port->to_modem = 0;
-	port->tomodem_drp_cnt = 0;
 	port->rx_throttled_cnt = 0;
 	port->rx_unthrottled_cnt = 0;
+	port->unthrottled_pnd_skbs = 0;
+	spin_unlock_irqrestore(&port->tx_lock, flags);
+
+	spin_lock_irqsave(&port->rx_lock, flags);
+	port->to_modem = 0;
+	port->tomodem_drp_cnt = 0;
 	port->tx_throttled_cnt = 0;
 	port->tx_unthrottled_cnt = 0;
-	port->unthrottled_pnd_skbs = 0;
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	spin_unlock_irqrestore(&port->rx_lock, flags);
 
 	queue_work(port->wq, &port->connect_w);
 fail:
@@ -932,42 +964,49 @@ static ssize_t ghsic_data_read_stats(struct file *file,
 		if (!port)
 			continue;
 		pdrv = &gdata_ports[i].pdrv;
-		spin_lock_irqsave(&port->port_lock, flags);
 
+		spin_lock_irqsave(&port->rx_lock, flags);
 		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
 				"\nName:           %s\n"
 				"#PORT:%d port#:   %p\n"
-				"dpkts_to_usbhost: %lu\n"
+				"data_ch_open:	   %d\n"
+				"data_ch_ready:    %d\n"
+				"\n******UL INFO*****\n\n"
 				"dpkts_to_modem:   %lu\n"
 				"tomodem_drp_cnt:  %u\n"
-				"tx_buf_len:       %u\n"
 				"rx_buf_len:       %u\n"
-				"rx thld cnt       %u\n"
-				"rx unthld cnt     %u\n"
 				"tx thld cnt       %u\n"
 				"tx unthld cnt     %u\n"
-				"uthld pnd skbs    %u\n"
-				"RX_THROTTLED      %d\n"
-				"TX_THROTTLED      %d\n"
-				"data_ch_open:     %d\n"
-				"data_ch_ready:    %d\n",
+				"TX_THROTTLED      %d\n",
 				pdrv->driver.name,
 				i, port,
-				port->to_host, port->to_modem,
+				test_bit(CH_OPENED, &port->bridge_sts),
+				test_bit(CH_READY, &port->bridge_sts),
+				port->to_modem,
 				port->tomodem_drp_cnt,
-				port->tx_skb_q.qlen,
 				port->rx_skb_q.qlen,
-				port->rx_throttled_cnt,
-				port->rx_unthrottled_cnt,
 				port->tx_throttled_cnt,
 				port->tx_unthrottled_cnt,
-				port->unthrottled_pnd_skbs,
-				test_bit(RX_THROTTLED, &port->brdg.flags),
-				test_bit(TX_THROTTLED, &port->brdg.flags),
-				test_bit(CH_OPENED, &port->bridge_sts),
-				test_bit(CH_READY, &port->bridge_sts));
+				test_bit(TX_THROTTLED, &port->brdg.flags));
+		spin_unlock_irqrestore(&port->rx_lock, flags);
 
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_lock_irqsave(&port->tx_lock, flags);
+		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+				"\n******DL INFO******\n\n"
+				"dpkts_to_usbhost: %lu\n"
+				"tx_buf_len:	   %u\n"
+				"rx thld cnt	   %u\n"
+				"rx unthld cnt	   %u\n"
+				"uthld pnd skbs    %u\n"
+				"RX_THROTTLED	   %d\n",
+				port->to_host,
+				port->tx_skb_q.qlen,
+				port->rx_throttled_cnt,
+				port->rx_unthrottled_cnt,
+				port->unthrottled_pnd_skbs,
+				test_bit(RX_THROTTLED, &port->brdg.flags));
+		spin_unlock_irqrestore(&port->tx_lock, flags);
+
 	}
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
@@ -989,16 +1028,19 @@ static ssize_t ghsic_data_reset_stats(struct file *file,
 		if (!port)
 			continue;
 
-		spin_lock_irqsave(&port->port_lock, flags);
-		port->to_host = 0;
+		spin_lock_irqsave(&port->rx_lock, flags);
 		port->to_modem = 0;
 		port->tomodem_drp_cnt = 0;
-		port->rx_throttled_cnt = 0;
-		port->rx_unthrottled_cnt = 0;
 		port->tx_throttled_cnt = 0;
 		port->tx_unthrottled_cnt = 0;
+		spin_unlock_irqrestore(&port->rx_lock, flags);
+
+		spin_lock_irqsave(&port->tx_lock, flags);
+		port->to_host = 0;
+		port->rx_throttled_cnt = 0;
+		port->rx_unthrottled_cnt = 0;
 		port->unthrottled_pnd_skbs = 0;
-		spin_unlock_irqrestore(&port->port_lock, flags);
+		spin_unlock_irqrestore(&port->tx_lock, flags);
 	}
 	return count;
 }
