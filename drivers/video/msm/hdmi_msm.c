@@ -775,6 +775,9 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		DEV_INFO("HDMI HPD: QDSP OFF\n");
 		kobject_uevent_env(external_common_state->uevent_kobj,
 				   KOBJ_CHANGE, envp);
+		switch_set_state(&external_common_state->sdev, 0);
+		DEV_INFO("Hdmi state switch to %d: %s\n",
+			external_common_state->sdev.state,  __func__);
 		if (hpd_state) {
 			hdmi_msm_read_edid();
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
@@ -793,12 +796,18 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			DEV_INFO("HDMI HPD: sense : send HDCP_PASS\n");
 			kobject_uevent_env(external_common_state->uevent_kobj,
 				KOBJ_CHANGE, envp);
+			switch_set_state(&external_common_state->sdev, 1);
+			DEV_INFO("Hdmi state switch to %d: %s\n",
+				external_common_state->sdev.state, __func__);
 #endif
 		} else {
 			DEV_INFO("HDMI HPD: sense DISCONNECTED: send OFFLINE\n"
 				);
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_OFFLINE);
+			switch_set_state(&external_common_state->sdev, 0);
+			DEV_INFO("Hdmi state switch to %d: %s\n",
+				external_common_state->sdev.state,  __func__);
 		}
 	}
 
@@ -1022,6 +1031,9 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 			DEV_INFO("HDMI HPD:QDSP OFF\n");
 			kobject_uevent_env(external_common_state->uevent_kobj,
 			KOBJ_CHANGE, envp);
+			switch_set_state(&external_common_state->sdev, 0);
+			DEV_INFO("Hdmi state switch to %d: %s\n",
+				external_common_state->sdev.state,  __func__);
 			mutex_lock(&hdcp_auth_state_mutex);
 			hdmi_msm_state->full_auth_done = FALSE;
 			mutex_unlock(&hdcp_auth_state_mutex);
@@ -2853,8 +2865,12 @@ static void hdmi_msm_hdcp_enable(void)
 	uint32 found_repeater = 0x0;
 	char *envp[2];
 
-	if (!hdmi_msm_has_hdcp())
+	if (!hdmi_msm_has_hdcp()) {
+		switch_set_state(&external_common_state->sdev, 1);
+		DEV_INFO("Hdmi state switch to %d: %s\n",
+			external_common_state->sdev.state, __func__);
 		return;
+	}
 
 	mutex_lock(&hdmi_msm_state_mutex);
 	hdmi_msm_state->hdcp_activating = TRUE;
@@ -2925,6 +2941,9 @@ static void hdmi_msm_hdcp_enable(void)
 		kobject_uevent_env(external_common_state->uevent_kobj,
 		    KOBJ_CHANGE, envp);
 	}
+	switch_set_state(&external_common_state->sdev, 1);
+	DEV_INFO("Hdmi state switch to %d: %s\n",
+		external_common_state->sdev.state, __func__);
 	return;
 
 error:
@@ -2944,6 +2963,9 @@ error:
 			queue_work(hdmi_work_queue,
 			    &hdmi_msm_state->hdcp_reauth_work);
 	}
+	switch_set_state(&external_common_state->sdev, 0);
+	DEV_INFO("Hdmi state switch to %d: %s\n",
+		external_common_state->sdev.state, __func__);
 }
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
@@ -4239,6 +4261,12 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	}
 
 	queue_work(hdmi_work_queue, &hdmi_msm_state->hpd_read_work);
+
+	/* Initialize hdmi node and register with switch driver */
+	external_common_state->sdev.name = "hdmi";
+	if (switch_dev_register(&external_common_state->sdev) < 0)
+		DEV_ERR("Hdmi switch registration failed\n");
+
 	return 0;
 
 error:
@@ -4271,6 +4299,10 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	DEV_INFO("HDMI device: remove\n");
 
 	DEV_INFO("HDMI HPD: OFF\n");
+
+	/* Unregister hdmi node from switch driver */
+	switch_dev_unregister(&external_common_state->sdev);
+
 	hdmi_msm_hpd_off();
 	free_irq(hdmi_msm_state->irq, NULL);
 
@@ -4306,10 +4338,13 @@ static int hdmi_msm_hpd_feature(int on)
 	int rc = 0;
 
 	DEV_INFO("%s: %d\n", __func__, on);
-	if (on)
+	if (on) {
 		rc = hdmi_msm_hpd_on(true);
-	else
+	} else {
 		hdmi_msm_hpd_off();
+		/* Set HDMI switch node to 0 on HPD feature disable */
+		switch_set_state(&external_common_state->sdev, 0);
+	}
 
 	return rc;
 }
