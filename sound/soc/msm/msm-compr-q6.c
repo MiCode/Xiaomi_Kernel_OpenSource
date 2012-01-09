@@ -88,10 +88,10 @@ static void compr_event_handler(uint32_t opcode,
 		atomic_inc(&prtd->out_count);
 		wake_up(&the_locks.write_wait);
 		if (!atomic_read(&prtd->start)) {
-			prtd->pending_buffer = 1;
+			atomic_set(&prtd->pending_buffer, 1);
 			break;
 		} else
-			prtd->pending_buffer = 0;
+			atomic_set(&prtd->pending_buffer, 0);
 
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr)
 			break;
@@ -131,8 +131,7 @@ static void compr_event_handler(uint32_t opcode,
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
 		case ASM_SESSION_CMD_RUN: {
-			if (!prtd->pending_buffer &&
-				!atomic_read(&prtd->start))
+			if (!atomic_read(&prtd->pending_buffer))
 				break;
 			pr_debug("%s:writing %d bytes"
 				" of buffer[%d] to dsp\n",
@@ -156,6 +155,7 @@ static void compr_event_handler(uint32_t opcode,
 				prtd->out_head =
 					(prtd->out_head + 1)
 					& (runtime->periods - 1);
+			atomic_set(&prtd->pending_buffer, 0);
 		}
 			break;
 		case ASM_STREAM_CMD_FLUSH:
@@ -302,7 +302,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 		pr_info("snd_pcm_hw_constraint_integer failed\n");
 
 	prtd->dsp_cnt = 0;
-	prtd->pending_buffer = 1;
+	atomic_set(&prtd->pending_buffer, 1);
 	compr->codec = FORMAT_MP3;
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
@@ -321,7 +321,7 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	pr_debug("%s\n", __func__);
 
 	dir = IN;
-
+	atomic_set(&prtd->pending_buffer, 0);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);

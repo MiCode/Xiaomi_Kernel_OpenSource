@@ -77,7 +77,7 @@ struct msm_audio {
 	int out_head;
 	int periods;
 	int mmap_flag;
-	int pending_buffer;
+	atomic_t pending_buffer;
 };
 
 #endif /*_MSM_PCM_H*/
