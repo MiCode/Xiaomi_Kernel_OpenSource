@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -424,6 +424,15 @@ static int tsens_tz_get_crit_temp(struct thermal_zone_device *thermal,
 	return tsens_tz_get_trip_temp(thermal, TSENS_TRIP_STAGE3, temp);
 }
 
+static int tsens_tz_notify(struct thermal_zone_device *thermal,
+				int count, enum thermal_trip_type type)
+{
+	/* TSENS driver does not shutdown the device.
+	   All Thermal notification are sent to the
+	   thermal daemon to take appropriate action */
+	return 1;
+}
+
 static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 				   int trip, long temp)
 {
@@ -519,6 +528,7 @@ static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_trip_temp = tsens_tz_get_trip_temp,
 	.set_trip_temp = tsens_tz_set_trip_temp,
 	.get_crit_temp = tsens_tz_get_crit_temp,
+	.notify = tsens_tz_notify,
 };
 
 static void notify_uspace_tsens_fn(struct work_struct *work)
