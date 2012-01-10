@@ -141,7 +141,7 @@
  * T = Pre-divide * 2^m, where m = 0..7 (exponent)
  *
  * This is the formula to figure out m for the best pre-divide and clock:
- * (PWM Period / N) / 2^m = (Pre-divide * Clock Period)
+ * (PWM Period / N) = (Pre-divide * Clock Period) * 2^m
  */
 #define NUM_CLOCKS	3
 
@@ -335,8 +335,8 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 {
 	int	n, m, clk, div;
 	int	best_m, best_div, best_clk;
-	int	last_err, cur_err, better_err, better_m;
-	unsigned int	tmp_p, last_p, min_err, period_n;
+	unsigned int	last_err, cur_err, min_err;
+	unsigned int	tmp_p, period_n;
 
 	/* PWM Period / N */
 	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
@@ -347,47 +347,34 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 		n = 9;
 	}
 
-	min_err = (unsigned)(-1);
+	min_err = last_err = (unsigned)(-1);
 	best_m = 0;
 	best_clk = 0;
 	best_div = 0;
 	for (clk = 0; clk < NUM_CLOCKS; clk++) {
 		for (div = 0; div < pwm_chip->pwm_total_pre_divs; div++) {
-			tmp_p = period_n;
-			last_p = tmp_p;
+			/* period_n = (PWM Period / N) */
+			/* tmp_p = (Pre-divide * Clock Period) * 2^m */
+			tmp_p = pt_t[div][clk];
 			for (m = 0; m <= PM8XXX_PWM_M_MAX; m++) {
-				if (tmp_p <= pt_t[div][clk]) {
-					/* Found local best */
-					if (!m) {
-						better_err = pt_t[div][clk] -
-							tmp_p;
-						better_m = m;
-					} else {
-						last_err = last_p -
-							pt_t[div][clk];
-						cur_err = pt_t[div][clk] -
-							tmp_p;
+				if (period_n > tmp_p)
+					cur_err = period_n - tmp_p;
+				else
+					cur_err = tmp_p - period_n;
 
-						if (cur_err < last_err) {
-							better_err = cur_err;
-							better_m = m;
-						} else {
-							better_err = last_err;
-							better_m = m - 1;
-						}
-					}
-
-					if (better_err < min_err) {
-						min_err = better_err;
-						best_m = better_m;
-						best_clk = clk;
-						best_div = div;
-					}
-					break;
-				} else {
-					last_p = tmp_p;
-					tmp_p >>= 1;
+				if (cur_err < min_err) {
+					min_err = cur_err;
+					best_m = m;
+					best_clk = clk;
+					best_div = div;
 				}
+
+				if (m && cur_err > last_err)
+					/* Break for bigger cur_err */
+					break;
+
+				last_err = cur_err;
+				tmp_p <<= 1;
 			}
 		}
 	}
