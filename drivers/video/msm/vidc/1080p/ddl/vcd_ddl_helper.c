@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -751,6 +751,7 @@ u32 ddl_calc_enc_hw_buffers_size(enum vcd_codec codec, u32 width,
 		sz_cur_c = sz_dpb_c;
 	} else
 		status = VCD_ERR_NOT_SUPPORTED;
+	sz_context = DDL_FW_OTHER_CONTEXT_SPACE_SIZE;
 	if (!status) {
 		sz_strm = DDL_ALIGN(ddl_get_yuv_buf_size(width, height,
 			DDL_YUV_BUF_TYPE_LINEAR) + ddl_get_yuv_buf_size(width,
@@ -768,6 +769,7 @@ u32 ddl_calc_enc_hw_buffers_size(enum vcd_codec codec, u32 width,
 		} else if (codec == VCD_CODEC_H264) {
 			sz_md = DDL_ALIGN(mb_x * 48, DDL_KILO_BYTE(2));
 			sz_pred = DDL_ALIGN(2 * 8 * 1024, DDL_KILO_BYTE(2));
+			sz_context = DDL_FW_H264ENC_CONTEXT_SPACE_SIZE;
 			if (ddl) {
 				if (ddl->codec_data.encoder.
 					entropy_control.entropy_sel ==
@@ -792,7 +794,6 @@ u32 ddl_calc_enc_hw_buffers_size(enum vcd_codec codec, u32 width,
 			sz_mb_info = DDL_ALIGN(mb_x * mb_y * 6 * 8,
 					DDL_KILO_BYTE(2));
 		}
-		sz_context = DDL_FW_OTHER_CONTEXT_SPACE_SIZE;
 		if (buf_size) {
 			buf_size->sz_cur_y      = sz_cur_y;
 			buf_size->sz_cur_c      = sz_cur_c;
