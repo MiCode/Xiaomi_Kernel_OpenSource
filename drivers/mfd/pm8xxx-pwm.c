@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -342,7 +342,7 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 	unsigned int	tmp_p, last_p, min_err, period_n;
 
 	/* PWM Period / N */
-	if (period_us < (40 * USEC_PER_SEC)) {  /* ~6-bit max */
+	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
 		period_n = (period_us * NSEC_PER_USEC) >> 6;
 		n = 6;
 	} else if (period_us < (274 * USEC_PER_SEC)) { /* overflow threshold */
