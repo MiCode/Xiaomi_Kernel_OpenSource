@@ -51,6 +51,8 @@
 #define TABLA_MCLK_RATE_12288KHZ 12288000
 #define TABLA_MCLK_RATE_9600KHZ 9600000
 
+#define TABLA_FAKE_INS_THRESHOLD_MS 2500
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -131,7 +133,7 @@ struct tabla_priv {
 	bool clock_active;
 	bool config_mode_active;
 	bool mbhc_polling_active;
-	bool fake_insert_context;
+	unsigned long mbhc_fake_ins_start;
 	int buttons_pressed;
 
 	enum tabla_micbias_num micbias;
@@ -3069,13 +3071,10 @@ static short tabla_codec_setup_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_TX_COM_BIAS, 0xE0, 0xE0);
 
 	/* Make sure CFILT is in fast mode, save current mode */
-	cfilt_mode = snd_soc_read(codec,
-		tabla->mbhc_bias_regs.cfilt_ctl);
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl,
-		0x70, 0x00);
+	cfilt_mode = snd_soc_read(codec, tabla->mbhc_bias_regs.cfilt_ctl);
+	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl, 0x70, 0x00);
 
-	snd_soc_update_bits(codec,
-		tabla->mbhc_bias_regs.ctl_reg, 0x1F, 0x16);
+	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg, 0x1F, 0x16);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
@@ -3833,7 +3832,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	u8 is_removal;
 	int mic_mv;
 
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: enter\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 	tabla_lock_sleep(priv);
 
@@ -3844,10 +3843,12 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg, 0x90, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 
-	if (priv->fake_insert_context) {
+	if (priv->mbhc_fake_ins_start &&
+	    time_after(jiffies, priv->mbhc_fake_ins_start +
+		       msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
 		pr_debug("%s: fake context interrupt, reset insertion\n",
-			__func__);
-		priv->fake_insert_context = false;
+			 __func__);
+		priv->mbhc_fake_ins_start = 0;
 		tabla_codec_shutdown_hs_polling(codec);
 		tabla_codec_enable_hs_detect(codec, 1);
 		return IRQ_HANDLED;
@@ -3913,29 +3914,48 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	mic_mv = tabla_codec_sta_dce_v(codec, 0, mb_v);
 
 	if (mb_v > (short) priv->mbhc_data.v_ins_hu) {
-		pr_debug("%s: Fake insertion interrupt, STA: %d,%d\n",
-			 __func__, mb_v, mic_mv);
-
-		/* Disable HPH trigger and enable MIC line trigger */
-		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12, 0x00);
-
-		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg, 0x60,
-				    plug_det->mic_current << 5);
-		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
-				    0x80, 0x80);
-		usleep_range(plug_det->t_mic_pid, plug_det->t_mic_pid);
-		snd_soc_update_bits(codec, priv->mbhc_bias_regs.mbhc_reg,
-				    0x10, 0x10);
-
+		pr_debug("%s: Fake insertion interrupt since %dmsec ago, "
+			 "STA : %d,%d\n", __func__,
+			 (priv->mbhc_fake_ins_start ?
+			     jiffies_to_msecs(jiffies -
+					      priv->mbhc_fake_ins_start) :
+			     0),
+			 mb_v, mic_mv);
+		if (time_after(jiffies,
+			       priv->mbhc_fake_ins_start +
+			       msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
+			/* Disable HPH trigger and enable MIC line trigger */
+			snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12,
+					    0x00);
+			snd_soc_update_bits(codec,
+					    priv->mbhc_bias_regs.mbhc_reg, 0x60,
+					    plug_det->mic_current << 5);
+			snd_soc_update_bits(codec,
+					    priv->mbhc_bias_regs.mbhc_reg,
+					    0x80, 0x80);
+			usleep_range(plug_det->t_mic_pid, plug_det->t_mic_pid);
+			snd_soc_update_bits(codec,
+					    priv->mbhc_bias_regs.mbhc_reg,
+					    0x10, 0x10);
+		} else {
+			if (priv->mbhc_fake_ins_start == 0)
+				priv->mbhc_fake_ins_start = jiffies;
+			/* Setup normal insert detection
+			 * Enable HPH Schmitt Trigger
+			 */
+			snd_soc_update_bits(codec, TABLA_A_MBHC_HPH,
+					    0x13 | 0x0C,
+					    0x13 | plug_det->hph_current << 2);
+		}
 		/* Setup for insertion detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
-		priv->fake_insert_context = true;
 		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
 
 	} else if (mb_v < (short) priv->mbhc_data.v_no_mic) {
 		pr_debug("%s: Headphone Detected, mb_v: %d,%d\n",
 			 __func__, mb_v, mic_mv);
+		priv->mbhc_fake_ins_start = 0;
 		priv->hph_status |= SND_JACK_HEADPHONE;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
@@ -3950,6 +3970,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	} else {
 		pr_debug("%s: Headset detected, mb_v: %d,%d\n",
 			__func__, mb_v, mic_mv);
+		priv->mbhc_fake_ins_start = 0;
 		priv->hph_status |= SND_JACK_HEADSET;
 		if (priv->headset_jack) {
 			pr_debug("%s: Reporting insertion %d\n", __func__,
@@ -3958,6 +3979,8 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 						  priv->hph_status,
 						  TABLA_JACK_MASK);
 		}
+		/* avoid false button press detect */
+		msleep(50);
 		tabla_codec_start_hs_polling(codec);
 		tabla_sync_hph_state(priv);
 	}
@@ -4321,7 +4344,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->clock_active = false;
 	tabla->config_mode_active = false;
 	tabla->mbhc_polling_active = false;
-	tabla->fake_insert_context = false;
+	tabla->mbhc_fake_ins_start = 0;
 	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
