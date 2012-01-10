@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,7 +73,7 @@ static void idlestats_get_sample(struct msm_idle_stats_device *idledev,
 	/* If the GPU is asleep, don't wake it up - assume that we
 	   are idle */
 
-	if (!(device->state & (KGSL_STATE_SLEEP | KGSL_STATE_NAP))) {
+	if (device->state == KGSL_STATE_ACTIVE) {
 		device->ftbl->power_stats(device, &stats);
 		pulse->busy_start_time = pwr->time - stats.busy_time;
 		pulse->busy_interval = stats.busy_time;
