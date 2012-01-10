@@ -81,7 +81,7 @@ enum tsens_trip_type {
 /* Initial temperature threshold values */
 #define TSENS_LOWER_LIMIT_TH				0x50
 #define TSENS_UPPER_LIMIT_TH				0xdf
-#define TSENS_MIN_LIMIT_TH				0x38
+#define TSENS_MIN_LIMIT_TH				0x0
 #define TSENS_MAX_LIMIT_TH				0xff
 
 #define TSENS_S0_STATUS_ADDR			(MSM_CLK_CTL_BASE + 0x00003628)
