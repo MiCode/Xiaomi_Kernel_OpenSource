@@ -177,9 +177,6 @@ static unsigned int pt_t[NUM_LPG_PRE_DIVIDE][NUM_CLOCKS] = {
 	},
 };
 
-#define MIN_MPT	((PRE_DIVIDE_MIN * CLK_PERIOD_MIN) << PM8XXX_PWM_M_MIN)
-#define MAX_MPT	((PRE_DIVIDE_MAX * CLK_PERIOD_MAX) << PM8XXX_PWM_M_MAX)
-
 /* Private data */
 struct pm8xxx_pwm_chip;
 
@@ -345,20 +342,12 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
 		period_n = (period_us * NSEC_PER_USEC) >> 6;
 		n = 6;
-	} else if (period_us < (274 * USEC_PER_SEC)) { /* overflow threshold */
-		period_n = (period_us >> 6) * NSEC_PER_USEC;
-		if (period_n >= MAX_MPT) {
-			n = 9;
-			period_n >>= 3;
-		} else {
-			n = 6;
-		}
 	} else {
 		period_n = (period_us >> 9) * NSEC_PER_USEC;
 		n = 9;
 	}
 
-	min_err = MAX_MPT;
+	min_err = (unsigned)(-1);
 	best_m = 0;
 	best_clk = 0;
 	best_div = 0;
