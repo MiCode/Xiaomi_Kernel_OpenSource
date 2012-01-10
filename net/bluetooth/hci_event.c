@@ -1396,10 +1396,10 @@ static void hci_cs_accept_logical_link(struct hci_dev *hdev, __u8 status)
 		if (chan && chan->state == BT_CONNECT) {
 			chan->state = BT_CLOSED;
 			hci_proto_create_cfm(chan, status);
-			hci_chan_del(chan);
 		}
-	} else if (chan)
-			chan->state = BT_CONNECT2;
+	} else if (chan) {
+		chan->state = BT_CONNECT2;
+	}
 
 	hci_dev_unlock(hdev);
 }
@@ -1425,7 +1425,6 @@ static void hci_cs_create_logical_link(struct hci_dev *hdev, __u8 status)
 		if (chan && chan->state == BT_CONNECT) {
 			chan->state = BT_CLOSED;
 			hci_proto_create_cfm(chan, status);
-			hci_chan_del(chan);
 		}
 	} else if (chan)
 			chan->state = BT_CONNECT2;
@@ -3201,19 +3200,15 @@ static inline void hci_log_link_complete(struct hci_dev *hdev,
 
 	chan = hci_chan_list_lookup_id(hdev, ev->phy_handle);
 
-	if (ev->status == 0) {
-		if (chan) {
+	if (chan) {
+		if (ev->status == 0) {
 			chan->ll_handle = __le16_to_cpu(ev->log_handle);
 			chan->state = BT_CONNECTED;
-			hci_proto_create_cfm(chan, ev->status);
-			hci_chan_hold(chan);
-		}
-	} else {
-		if (chan) {
+		} else {
 			chan->state = BT_CLOSED;
-			hci_proto_create_cfm(chan, ev->status);
-			hci_chan_del(chan);
 		}
+
+		hci_proto_create_cfm(chan, ev->status);
 	}
 
 	hci_dev_unlock(hdev);
@@ -3252,10 +3247,8 @@ static inline void hci_disconn_log_link_complete_evt(struct hci_dev *hdev,
 	hci_dev_lock(hdev);
 
 	chan = hci_chan_list_lookup_handle(hdev, __le16_to_cpu(ev->log_handle));
-	if (chan) {
+	if (chan)
 		hci_proto_destroy_cfm(chan, ev->reason);
-		hci_chan_del(chan);
-	}
 
 	hci_dev_unlock(hdev);
 }

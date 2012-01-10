@@ -511,18 +511,24 @@ int hci_chan_del(struct hci_chan *chan)
 int hci_chan_put(struct hci_chan *chan)
 {
 	struct hci_cp_disconn_logical_link cp;
+	struct hci_conn *hcon;
+	u16 ll_handle;
 
 	BT_DBG("chan %p refcnt %d", chan, atomic_read(&chan->refcnt));
 	if (!atomic_dec_and_test(&chan->refcnt))
 		return 0;
 
-	BT_DBG("chan->conn->state %d", chan->conn->state);
-	if (chan->conn->state == BT_CONNECTED) {
-		cp.log_handle = cpu_to_le16(chan->ll_handle);
-		hci_send_cmd(chan->conn->hdev, HCI_OP_DISCONN_LOGICAL_LINK,
+	hcon = chan->conn;
+	ll_handle = chan->ll_handle;
+
+	hci_chan_del(chan);
+
+	BT_DBG("chan->conn->state %d", hcon->state);
+	if (hcon->state == BT_CONNECTED) {
+		cp.log_handle = cpu_to_le16(ll_handle);
+		hci_send_cmd(hcon->hdev, HCI_OP_DISCONN_LOGICAL_LINK,
 				sizeof(cp), &cp);
-	} else
-		hci_chan_del(chan);
+	}
 
 	return 1;
 }
