@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2002 ARM Ltd.
  *  All Rights Reserved
- *  Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,52 +49,82 @@ void __init smp_init_cpus(void)
 	set_smp_cross_call(gic_raise_softirq);
 }
 
-static void __cpuinit release_secondary(unsigned int cpu)
+static int __cpuinit scorpion_release_secondary(void)
 {
-	void *base_ptr;
+	void *base_ptr = ioremap_nocache(0x00902000, SZ_4K*2);
+	if (!base_ptr)
+		return -EINVAL;
 
+	writel_relaxed(0x0, base_ptr+0x15A0);
+	dmb();
+	writel_relaxed(0x0, base_ptr+0xD80);
+	writel_relaxed(0x3, base_ptr+0xE64);
+	mb();
+	iounmap(base_ptr);
+
+	return 0;
+}
+
+static int __cpuinit krait_release_secondary_sim(int cpu)
+{
+	void *base_ptr = ioremap_nocache(0x02088000 + (cpu * 0x10000), SZ_4K);
+	if (!base_ptr)
+		return -ENODEV;
+
+	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3()) {
+		writel_relaxed(0x10, base_ptr+0x04);
+		writel_relaxed(0x80, base_ptr+0x04);
+	}
+
+	if (machine_is_apq8064_sim())
+		writel_relaxed(0xf0000, base_ptr+0x04);
+
+	mb();
+	iounmap(base_ptr);
+	return 0;
+}
+
+static int __cpuinit krait_release_secondary(int cpu)
+{
+	void *base_ptr = ioremap_nocache(0x02088000 + (cpu * 0x10000), SZ_4K);
+	if (!base_ptr)
+		return -ENODEV;
+
+	writel_relaxed(0x109, base_ptr+0x04);
+	writel_relaxed(0x101, base_ptr+0x04);
+	ndelay(300);
+
+	writel_relaxed(0x121, base_ptr+0x04);
+	udelay(2);
+
+	writel_relaxed(0x020, base_ptr+0x04);
+	udelay(2);
+
+	writel_relaxed(0x000, base_ptr+0x04);
+	udelay(100);
+
+	writel_relaxed(0x080, base_ptr+0x04);
+	mb();
+	iounmap(base_ptr);
+	return 0;
+}
+
+static int __cpuinit release_secondary(unsigned int cpu)
+{
 	BUG_ON(cpu >= get_core_count());
 
-	/* KraitMP or ScorpionMP ? */
-	if ((read_cpuid_id() & 0xFF0) >> 4 != 0x2D) {
-		base_ptr = ioremap_nocache(0x02088000 + (cpu * 0x10000), SZ_4K);
-		if (base_ptr) {
-			if (machine_is_msm8960_sim() ||
-			    machine_is_msm8960_rumi3()) {
-				writel_relaxed(0x10, base_ptr+0x04);
-				writel_relaxed(0x80, base_ptr+0x04);
-			} else if (machine_is_apq8064_sim()) {
-				writel_relaxed(0xf0000, base_ptr+0x04);
-			} else if (get_core_count() == 2) {
-				writel_relaxed(0x109, base_ptr+0x04);
-				writel_relaxed(0x101, base_ptr+0x04);
-				ndelay(300);
+	if (cpu_is_msm8x60())
+		return scorpion_release_secondary();
 
-				writel_relaxed(0x121, base_ptr+0x04);
-				udelay(2);
+	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3() ||
+	    machine_is_apq8064_sim())
+		return krait_release_secondary_sim(cpu);
 
-				writel_relaxed(0x020, base_ptr+0x04);
-				udelay(2);
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064())
+		return krait_release_secondary(cpu);
 
-				writel_relaxed(0x000, base_ptr+0x04);
-				udelay(100);
-
-				writel_relaxed(0x080, base_ptr+0x04);
-			}
-			mb();
-			iounmap(base_ptr);
-		}
-	} else {
-		base_ptr = ioremap_nocache(0x00902000, SZ_4K*2);
-		if (base_ptr) {
-			writel_relaxed(0x0, base_ptr+0x15A0);
-			dmb();
-			writel_relaxed(0x0, base_ptr+0xD80);
-			writel_relaxed(0x3, base_ptr+0xE64);
-			mb();
-			iounmap(base_ptr);
-		}
-	}
+	WARN(1, "unknown CPU case in release_secondary\n");
+	return -EINVAL;
 }
 
 DEFINE_PER_CPU(int, cold_boot_done);
