@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1670,14 +1670,14 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, "qup_i2c.0"),
 
-	CLK_LOOKUP("usb_hs_pclk",		usb_hs1_p_clk.c,	NULL),
-	CLK_LOOKUP("usb_hs_system_clk",		usb_hs1_sys_clk.c,	NULL),
-	CLK_LOOKUP("usb_hs_clk",		usb_hs1_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("usb_hsic_xcvr_clk",		usb_hsic_xcvr_clk.c,	NULL),
-	CLK_LOOKUP("usb_hsic_hsio_cal_clk", usb_hsic_hsio_cal_clk.c,	NULL),
-	CLK_LOOKUP("usb_hsic_sys_clk",		usb_hsic_sys_clk.c,	NULL),
-	CLK_LOOKUP("usb_hsic_p_clk",		usb_hsic_p_clk.c,	NULL),
-	CLK_LOOKUP("usb_hsic_clk",		usb_hsic_clk.c,		NULL),
+	CLK_LOOKUP("iface_clk",	     usb_hs1_p_clk.c,		"msm_otg"),
+	CLK_LOOKUP("core_clk",       usb_hs1_sys_clk.c,		"msm_otg"),
+	CLK_LOOKUP("alt_core_clk",   usb_hs1_xcvr_clk.c,	"msm_otg"),
+	CLK_LOOKUP("alt_core_clk",   usb_hsic_xcvr_clk.c,      "msm_hsic_host"),
+	CLK_LOOKUP("cal_clk",	     usb_hsic_hsio_cal_clk.c,  "msm_hsic_host"),
+	CLK_LOOKUP("core_clk",	     usb_hsic_sys_clk.c,       "msm_hsic_host"),
+	CLK_LOOKUP("iface_clk",	     usb_hsic_p_clk.c,	       "msm_hsic_host"),
+	CLK_LOOKUP("phy_clk",        usb_hsic_clk.c,	       "msm_hsic_host"),
 
 	CLK_LOOKUP("iface_clk",		sdc1_p_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",		sdc2_p_clk.c,		"msm_sdcc.2"),
@@ -1702,7 +1702,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 	CLK_LOOKUP("sps_slimbus_clk",	sps_slimbus_clk.c,	NULL),
 	CLK_LOOKUP("audio_slimbus_clk",	audio_slimbus_clk.c,	NULL),
-	CLK_LOOKUP("dfab_usb_hs_clk",	dfab_usb_hs_clk.c,	NULL),
+	CLK_LOOKUP("core_clk",		dfab_usb_hs_clk.c,	"msm_otg"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc1_clk.c,	"msm_sdcc.1"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc2_clk.c,	"msm_sdcc.2"),
 	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,		"msm_sps"),

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2754,7 +2754,7 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("ecodec_clk",	ecodec_clk.c,	NULL) },
 	{ CLK_LOOKUP("core_clk",	gp_clk.c,	NULL) },
 	{ CLK_LOOKUP("core_clk",	uart3_clk.c,	"msm_serial.2") },
-	{ CLK_LOOKUP("usb_phy_clk",	usb_phy_clk.c,	NULL) },
+	{ CLK_LOOKUP("phy_clk",		usb_phy_clk.c,	"msm_otg") },
 
 	/* Voters */
 	{ CLK_LOOKUP("ebi1_dtv_clk",	ebi_dtv_clk.c,	NULL) },
@@ -2836,12 +2836,12 @@ static struct clk_local_ownership {
 	OWN(ROW1, 29, "core_clk",	sdc4_clk,	"msm_sdcc.4"),
 	OWN(ROW1, 29, "iface_clk",	sdc4_p_clk,	"msm_sdcc.4"),
 	OWN(ROW1,  0, "core_clk",	uart2_clk,	"msm_serial.1"),
-	OWN(ROW1,  2, "usb_hs2_clk",	usb_hs2_clk,	NULL),
-	OWN(ROW1,  2, "usb_hs2_core_clk", usb_hs2_core_clk, NULL),
-	OWN(ROW1,  2, "usb_hs2_pclk",	usb_hs2_p_clk,	NULL),
-	OWN(ROW1,  4, "usb_hs3_clk",	usb_hs3_clk,	NULL),
-	OWN(ROW1,  4, "usb_hs3_core_clk", usb_hs3_core_clk, NULL),
-	OWN(ROW1,  4, "usb_hs3_pclk",	usb_hs3_p_clk,	NULL),
+	OWN(ROW1,  2, "alt_core_clk",	usb_hs2_clk,	"msm_hsusb_host.0"),
+	OWN(ROW1,  2, "core_clk",	usb_hs2_core_clk, "msm_hsusb_host.0"),
+	OWN(ROW1,  2, "iface_clk",	usb_hs2_p_clk,	"msm_hsusb_host.0"),
+	OWN(ROW1,  4, "alt_core_clk",	usb_hs3_clk,	NULL),
+	OWN(ROW1,  4, "core_clk",	usb_hs3_core_clk, NULL),
+	OWN(ROW1,  4, "iface_clk",	usb_hs3_p_clk,	NULL),
 
 	OWN(ROW2,  3, "core_clk",	qup_i2c_clk,	"qup_i2c.4"),
 	OWN(ROW2,  1, "core_clk",	spi_clk,	"spi_qsd.0"),
@@ -2849,9 +2849,9 @@ static struct clk_local_ownership {
 	OWN(ROW2,  9, "core_clk",	uart1_clk,	"msm_serial.0"),
 	OWN(ROW2,  6, "core_clk",	uart1dm_clk,	"msm_serial_hs.0"),
 	OWN(ROW2,  8, "core_clk",	uart2dm_clk,	"msm_serial_hs.1"),
-	OWN(ROW2, 11, "usb_hs_clk",	usb_hs_clk,	NULL),
-	OWN(ROW2, 11, "usb_hs_core_clk", usb_hs_core_clk, NULL),
-	OWN(ROW2, 11, "usb_hs_pclk",	usb_hs_p_clk,	NULL),
+	OWN(ROW2, 11, "alt_core_clk",	usb_hs_clk,	"msm_otg"),
+	OWN(ROW2, 11, "core_clk",	usb_hs_core_clk, "msm_otg"),
+	OWN(ROW2, 11, "iface_clk",	usb_hs_p_clk,	"msm_otg"),
 
 	OWN(APPS3,  6, "cam_m_clk",	cam_m_clk,	NULL),
 	OWN(APPS3,  6, "camif_pad_pclk", camif_pad_p_clk, NULL),

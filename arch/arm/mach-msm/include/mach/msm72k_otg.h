@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,12 +113,9 @@ struct msm_otg {
 	struct otg_transceiver otg;
 
 	/* usb clocks */
-	struct clk		*hs_clk;
-	struct clk		*hs_pclk;
-	struct clk		*hs_cclk;
-
-	/* pclk source for voting */
-	struct clk		*pclk_src;
+	struct clk		*alt_core_clk;
+	struct clk		*iface_clk;
+	struct clk		*core_clk;
 
 	/* clk regime has created dummy clock id for phy so
 	 * that generic clk_reset api can be used to reset phy
@@ -162,21 +159,6 @@ struct msm_otg {
 	unsigned		b_max_power;	/* ACA: max power of accessory*/
 #endif
 };
-
-static inline int pclk_requires_voting(struct otg_transceiver *xceiv)
-{
-	struct msm_otg *dev;
-
-	if (!xceiv)
-		return 0;
-
-	dev = container_of(xceiv, struct msm_otg, otg);
-
-	if (dev->pdata->pclk_src_name)
-		return 1;
-	else
-		return 0;
-}
 
 static inline int can_phy_power_collapse(struct msm_otg *dev)
 {

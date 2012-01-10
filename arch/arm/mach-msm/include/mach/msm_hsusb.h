@@ -1,7 +1,7 @@
 /* linux/include/mach/hsusb.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -126,7 +126,6 @@ struct msm_hsusb_gadget_platform_data {
 struct msm_otg_platform_data {
 	int (*rpc_connect)(int);
 	int (*phy_reset)(void __iomem *);
-	unsigned int core_clk;
 	int pmic_vbus_irq;
 	int pmic_id_irq;
 	/* if usb link is in sps there is no need for
@@ -148,7 +147,6 @@ struct msm_otg_platform_data {
 	 * now being disabled because of H/w issues
 	 */
 	int			pclk_is_hw_gated;
-	char			*pclk_src_name;
 
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);

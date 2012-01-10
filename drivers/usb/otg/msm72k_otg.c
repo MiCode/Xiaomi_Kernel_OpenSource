@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -369,22 +369,6 @@ static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
 				PM_QOS_DEFAULT_VALUE);
 }
 
-/* If USB Core is running its protocol engine based on PCLK,
- * PCLK must be running at >60Mhz for correct HSUSB operation and
- * USB core cannot tolerate frequency changes on PCLK. For such
- * USB cores, vote for maximum clk frequency on pclk source
- */
-static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
-{
-	if (dev->pclk_src && pclk_requires_voting(&dev->otg)) {
-
-		if (vote)
-			clk_enable(dev->pclk_src);
-		else
-			clk_disable(dev->pclk_src);
-	}
-}
-
 /* Controller gives interrupt for every 1 mesc if 1MSIE is set in OTGSC.
  * This interrupt can be used as a timer source and OTG timers can be
  * implemented. But hrtimers on MSM hardware can give atleast 1/32 KHZ
@@ -578,9 +562,9 @@ static int msm_otg_set_clk(struct otg_transceiver *xceiv, int on)
 
 	if (on)
 		/* enable clocks */
-		clk_enable(dev->hs_clk);
+		clk_enable(dev->alt_core_clk);
 	else
-		clk_disable(dev->hs_clk);
+		clk_disable(dev->alt_core_clk);
 
 	return 0;
 }
@@ -605,7 +589,7 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		 * low power mode routine
 		 */
 		if (dev->pdata->pclk_required_during_lpm)
-			clk_enable(dev->hs_pclk);
+			clk_enable(dev->iface_clk);
 
 		usb_gadget_vbus_connect(xceiv->gadget);
 	} else {
@@ -617,7 +601,7 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		 * low power mode routine
 		 */
 		if (dev->pdata->pclk_required_during_lpm)
-			clk_disable(dev->hs_pclk);
+			clk_disable(dev->iface_clk);
 
 		otg_pm_qos_update_latency(dev, 0);
 		if (pdata->setup_gpio)
@@ -644,9 +628,9 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 		 */
 		if (dev->pdata->pclk_required_during_lpm) {
 			if (on)
-				clk_enable(dev->hs_pclk);
+				clk_enable(dev->iface_clk);
 			else
-				clk_disable(dev->hs_pclk);
+				clk_disable(dev->iface_clk);
 		}
 
 		dev->start_host(xceiv->host, on);
@@ -774,10 +758,10 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
 
-	if (dev->hs_pclk)
-		clk_disable(dev->hs_pclk);
-	if (dev->hs_cclk)
-		clk_disable(dev->hs_cclk);
+	if (dev->iface_clk)
+		clk_disable(dev->iface_clk);
+
+	clk_disable(dev->core_clk);
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable*/
 	ret = msm_xo_mode_vote(dev->xo_handle, MSM_XO_MODE_OFF);
 	if (ret)
@@ -791,8 +775,6 @@ static int msm_otg_suspend(struct msm_otg *dev)
 		if (dev->id_irq)
 			enable_irq_wake(dev->id_irq);
 	}
-
-	msm_otg_vote_for_pclk_source(dev, 0);
 
 	atomic_set(&dev->in_lpm, 1);
 
@@ -853,12 +835,10 @@ static int msm_otg_resume(struct msm_otg *dev)
 		pr_err("%s failed to vote for"
 			"TCXO D1 buffer%d\n", __func__, ret);
 
-	msm_otg_vote_for_pclk_source(dev, 1);
+	clk_enable(dev->core_clk);
 
-	if (dev->hs_pclk)
-		clk_enable(dev->hs_pclk);
-	if (dev->hs_cclk)
-		clk_enable(dev->hs_cclk);
+	if (dev->iface_clk)
+		clk_enable(dev->iface_clk);
 
 	temp = readl(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
@@ -1503,7 +1483,7 @@ static int msm_otg_phy_reset(struct msm_otg *dev)
 	unsigned temp;
 	unsigned long timeout;
 
-	rc = clk_reset(dev->hs_clk, CLK_RESET_ASSERT);
+	rc = clk_reset(dev->alt_core_clk, CLK_RESET_ASSERT);
 	if (rc) {
 		pr_err("%s: usb hs clk assert failed\n", __func__);
 		return -1;
@@ -1511,7 +1491,7 @@ static int msm_otg_phy_reset(struct msm_otg *dev)
 
 	phy_clk_reset(dev);
 
-	rc = clk_reset(dev->hs_clk, CLK_RESET_DEASSERT);
+	rc = clk_reset(dev->alt_core_clk, CLK_RESET_DEASSERT);
 	if (rc) {
 		pr_err("%s: usb hs clk deassert failed\n", __func__);
 		return -1;
@@ -1570,7 +1550,7 @@ static void otg_reset(struct otg_transceiver *xceiv, int phy_reset)
 	unsigned long timeout;
 	u32 mode, work = 0;
 
-	clk_enable(dev->hs_clk);
+	clk_enable(dev->alt_core_clk);
 
 	if (!phy_reset)
 		goto reset_link;
@@ -1616,7 +1596,7 @@ reset_link:
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 
-	clk_disable(dev->hs_clk);
+	clk_disable(dev->alt_core_clk);
 
 	if ((xceiv->gadget && xceiv->gadget->is_a_peripheral) ||
 			test_bit(ID, &dev->inputs))
@@ -2518,30 +2498,26 @@ static ssize_t otg_info_read(struct file *file, char __user *ubuf,
 			"Charger Type:          %d\n"
 			"PMIC VBUS Support:     %u\n"
 			"PMIC ID Support:       %u\n"
-			"Core Clock:            %u\n"
 			"USB In SPS:            %d\n"
 			"pre_emphasis_level:    0x%x\n"
 			"cdr_auto_reset:        0x%x\n"
 			"hs_drv_amplitude:      0x%x\n"
 			"se1_gate_state:        0x%x\n"
 			"swfi_latency:          0x%x\n"
-			"PHY Powercollapse:     0x%x\n"
-			"PCLK Voting:           0x%x\n",
+			"PHY Powercollapse:     0x%x\n",
 			state_string(dev->otg.state),
 			dev->pdata->otg_mode,
 			dev->inputs,
 			atomic_read(&dev->chg_type),
 			dev->pmic_vbus_notif_supp,
 			dev->pmic_id_notif_supp,
-			dev->pdata->core_clk,
 			dev->pdata->usb_in_sps,
 			dev->pdata->pemp_level,
 			dev->pdata->cdr_autoreset,
 			dev->pdata->drv_ampl,
 			dev->pdata->se1_gating,
 			dev->pdata->swfi_latency,
-			dev->pdata->phy_can_powercollapse,
-			pclk_requires_voting(&dev->otg));
+			dev->pdata->phy_can_powercollapse);
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
 
@@ -2646,57 +2622,48 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
-	dev->hs_clk = clk_get(&pdev->dev, "usb_hs_clk");
-	if (IS_ERR(dev->hs_clk)) {
-		pr_err("%s: failed to get usb_hs_clk\n", __func__);
-		ret = PTR_ERR(dev->hs_clk);
+	dev->alt_core_clk = clk_get(&pdev->dev, "alt_core_clk");
+	if (IS_ERR(dev->alt_core_clk)) {
+		pr_err("%s: failed to get alt_core_clk\n", __func__);
+		ret = PTR_ERR(dev->alt_core_clk);
 		goto rpc_fail;
 	}
-	clk_set_rate(dev->hs_clk, 60000000);
+	clk_set_rate(dev->alt_core_clk, 60000000);
 
 	/* pm qos request to prevent apps idle power collapse */
 	pm_qos_add_request(&dev->pdata->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
 			   PM_QOS_DEFAULT_VALUE);
 
-	/* If USB Core is running its protocol engine based on PCLK,
-	 * PCLK must be running at >60Mhz for correct HSUSB operation and
-	 * USB core cannot tolerate frequency changes on PCLK. For such
-	 * USB cores, vote for maximum clk frequency on pclk source
-	 */
-	if (dev->pdata->pclk_src_name) {
-		dev->pclk_src = clk_get(0, dev->pdata->pclk_src_name);
-		if (IS_ERR(dev->pclk_src))
-			goto put_hs_clk;
-		clk_set_rate(dev->pclk_src, INT_MAX);
-		msm_otg_vote_for_pclk_source(dev, 1);
+	dev->core_clk = clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(dev->core_clk)) {
+		pr_err("%s: failed to get core_clk\n", __func__);
+		ret = PTR_ERR(dev->core_clk);
+		goto put_alt_core_clk;
 	}
+	/* CORE clk must be running at >60Mhz for correct HSUSB operation
+	 * and USB core cannot tolerate frequency changes on CORE CLK.
+	 * Vote for maximum clk frequency for CORE clock.
+	 */
+	clk_set_rate(dev->core_clk, INT_MAX);
+
+	clk_enable(dev->core_clk);
 
 	if (!dev->pdata->pclk_is_hw_gated) {
-		dev->hs_pclk = clk_get(&pdev->dev, "usb_hs_pclk");
-		if (IS_ERR(dev->hs_pclk)) {
-			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
-			ret = PTR_ERR(dev->hs_pclk);
-			goto put_pclk_src;
+		dev->iface_clk = clk_get(&pdev->dev, "iface_clk");
+		if (IS_ERR(dev->iface_clk)) {
+			pr_err("%s: failed to get abh_clk\n", __func__);
+			ret = PTR_ERR(dev->iface_clk);
+			goto put_core_clk;
 		}
-		clk_enable(dev->hs_pclk);
-	}
-
-	if (dev->pdata->core_clk) {
-		dev->hs_cclk = clk_get(&pdev->dev, "usb_hs_core_clk");
-		if (IS_ERR(dev->hs_cclk)) {
-			pr_err("%s: failed to get usb_hs_core_clk\n", __func__);
-			ret = PTR_ERR(dev->hs_cclk);
-			goto put_hs_pclk;
-		}
-		clk_enable(dev->hs_cclk);
+		clk_enable(dev->iface_clk);
 	}
 
 	if (!dev->pdata->phy_reset) {
-		dev->phy_reset_clk = clk_get(&pdev->dev, "usb_phy_clk");
+		dev->phy_reset_clk = clk_get(&pdev->dev, "phy_clk");
 		if (IS_ERR(dev->phy_reset_clk)) {
-			pr_err("%s: failed to get usb_phy_clk\n", __func__);
+			pr_err("%s: failed to get phy_clk\n", __func__);
 			ret = PTR_ERR(dev->phy_reset_clk);
-			goto put_hs_cclk;
+			goto put_iface_clk;
 		}
 	}
 
@@ -2919,24 +2886,16 @@ free_regs:
 put_phy_clk:
 	if (dev->phy_reset_clk)
 		clk_put(dev->phy_reset_clk);
-put_hs_cclk:
-	if (dev->hs_cclk) {
-		clk_disable(dev->hs_cclk);
-		clk_put(dev->hs_cclk);
+put_iface_clk:
+	if (dev->iface_clk) {
+		clk_disable(dev->iface_clk);
+		clk_put(dev->iface_clk);
 	}
-put_hs_pclk:
-	if (dev->hs_pclk) {
-		clk_disable(dev->hs_pclk);
-		clk_put(dev->hs_pclk);
-	}
-put_pclk_src:
-	if (dev->pclk_src) {
-		msm_otg_vote_for_pclk_source(dev, 0);
-		clk_put(dev->pclk_src);
-	}
-put_hs_clk:
-	if (dev->hs_clk)
-		clk_put(dev->hs_clk);
+put_core_clk:
+	clk_disable(dev->core_clk);
+	clk_put(dev->core_clk);
+put_alt_core_clk:
+	clk_put(dev->alt_core_clk);
 rpc_fail:
 	if (dev->pdata->rpc_connect)
 		dev->pdata->rpc_connect(0);
@@ -2983,24 +2942,18 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 		dev->pdata->chg_init(0);
 	free_irq(dev->irq, pdev);
 	iounmap(dev->regs);
-	if (dev->hs_cclk) {
-		clk_disable(dev->hs_cclk);
-		clk_put(dev->hs_cclk);
+	clk_disable(dev->core_clk);
+	clk_put(dev->core_clk);
+	if (dev->iface_clk) {
+		clk_disable(dev->iface_clk);
+		clk_put(dev->iface_clk);
 	}
-	if (dev->hs_pclk) {
-		clk_disable(dev->hs_pclk);
-		clk_put(dev->hs_pclk);
-	}
-	if (dev->hs_clk)
-		clk_put(dev->hs_clk);
+	if (dev->alt_core_clk)
+		clk_put(dev->alt_core_clk);
 	if (dev->phy_reset_clk)
 		clk_put(dev->phy_reset_clk);
 	if (dev->pdata->rpc_connect)
 		dev->pdata->rpc_connect(0);
-	if (dev->pclk_src) {
-		msm_otg_vote_for_pclk_source(dev, 0);
-		clk_put(dev->pclk_src);
-	}
 	msm_xo_put(dev->xo_handle);
 	pm_qos_remove_request(&dev->pdata->pm_qos_req_dma);
 
