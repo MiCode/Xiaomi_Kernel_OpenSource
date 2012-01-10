@@ -43,6 +43,7 @@ struct video_client_ctx {
 	struct buf_addr_table output_buf_addr_table[MAX_VIDEO_NUM_OF_BUFF];
 	struct list_head msg_queue;
 	struct mutex msg_queue_lock;
+	struct mutex enrty_queue_lock;
 	wait_queue_head_t msg_wait;
 	struct completion event;
 	struct vcd_property_h264_mv_buffer vcd_h264_mv_buffer;
