@@ -1247,8 +1247,7 @@ void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe)
 
 	spipe = mdp4_overlay_stage_pipe(pipe->mixer_num, pipe->mixer_stage);
 	if ((spipe != NULL) && (spipe->pipe_num != pipe->pipe_num)) {
-		pr_err("%s: unable to stage pipe=%d at mixer_stage=%d\n",
-				__func__, pipe->pipe_ndx, pipe->mixer_stage);
+		mdp4_stat.err_stage++;
 		return;
 	}
 
@@ -1662,8 +1661,7 @@ static int mdp4_overlay_validate_downscale(struct mdp_overlay *req,
 	pr_debug("fillratex100 %lu, mdp_pixels_produced %lu\n",
 		fillratex100, mdp_pixels_produced);
 	if (mdp_pixels_produced <= mfd->panel_info.xres) {
-		pr_err("%s():display underflow detected with downscale"
-			" params\n", __func__);
+		mdp4_stat.err_underflow++;
 		return -ERANGE;
 	}
 
@@ -2436,7 +2434,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 
 	pipe = mdp4_overlay_ndx2pipe(req->id);
 	if (pipe == NULL) {
-		pr_err("%s: req_id=%d Error\n", __func__, req->id);
+		mdp4_stat.err_play++;
 		return -ENODEV;
 	}
 
