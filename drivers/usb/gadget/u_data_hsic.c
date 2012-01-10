@@ -131,6 +131,8 @@ static struct {
 	struct platform_driver	pdrv;
 } gdata_ports[NUM_PORTS];
 
+static unsigned int get_timestamp(void);
+static void dbg_timestamp(char *, struct sk_buff *);
 static void ghsic_data_start_rx(struct gdata_port *port);
 
 static void ghsic_data_free_requests(struct usb_ep *ep, struct list_head *head)
@@ -194,6 +196,7 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 	struct usb_request	*req;
 	struct usb_ep		*ep;
 	struct gdata_port	*port;
+	struct timestamp_info	*info;
 
 	port = container_of(w, struct gdata_port, write_tohost_w);
 
@@ -226,6 +229,8 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 
 		list_del(&req->list);
 
+		info = (struct timestamp_info *)skb->cb;
+		info->tx_queued = get_timestamp();
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		ret = usb_ep_queue(ep, req, GFP_KERNEL);
 		spin_lock_irqsave(&port->port_lock, flags);
@@ -295,6 +300,7 @@ static void ghsic_data_write_tomdm(struct work_struct *w)
 {
 	struct gdata_port	*port;
 	struct sk_buff		*skb;
+	struct timestamp_info	*info;
 	unsigned long		flags;
 	int			ret;
 
@@ -315,6 +321,8 @@ static void ghsic_data_write_tomdm(struct work_struct *w)
 		pr_debug("%s: port:%p tom:%lu pno:%d\n", __func__,
 				port, port->to_modem, port->port_num);
 
+		info = (struct timestamp_info *)skb->cb;
+		info->rx_done_sent = get_timestamp();
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		ret = data_bridge_write(port->brdg.ch_id, skb);
 		spin_lock_irqsave(&port->port_lock, flags);
@@ -346,6 +354,7 @@ static void ghsic_data_epin_complete(struct usb_ep *ep, struct usb_request *req)
 	switch (status) {
 	case 0:
 		/* successful completion */
+		dbg_timestamp("DL", skb);
 		break;
 	case -ECONNRESET:
 	case -ESHUTDOWN:
@@ -373,6 +382,7 @@ ghsic_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct gdata_port	*port = ep->driver_data;
 	struct sk_buff		*skb = req->context;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
 	int			status = req->status;
 	int			queue = 0;
 
@@ -398,6 +408,7 @@ ghsic_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 
 	spin_lock(&port->port_lock);
 	if (queue) {
+		info->rx_done = get_timestamp();
 		__skb_queue_tail(&port->rx_skb_q, skb);
 		list_add_tail(&req->list, &port->rx_idle);
 		queue_work(port->wq, &port->write_tomdm_w);
@@ -412,6 +423,8 @@ static void ghsic_data_start_rx(struct gdata_port *port)
 	unsigned long		flags;
 	int			ret;
 	struct sk_buff		*skb;
+	struct timestamp_info	*info;
+	unsigned int		created;
 
 	pr_debug("%s: port:%p\n", __func__, port);
 	spin_lock_irqsave(&port->port_lock, flags);
@@ -429,15 +442,18 @@ static void ghsic_data_start_rx(struct gdata_port *port)
 		req = list_first_entry(&port->rx_idle,
 					struct usb_request, list);
 
+		created = get_timestamp();
 		skb = alloc_skb(ghsic_data_rx_req_size, GFP_ATOMIC);
 		if (!skb)
 			break;
-
+		info = (struct timestamp_info *)skb->cb;
+		info->created = created;
 		list_del(&req->list);
 		req->buf = skb->data;
 		req->length = ghsic_data_rx_req_size;
 		req->context = skb;
 
+		info->rx_queued = get_timestamp();
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		ret = usb_ep_queue(ep, req, GFP_KERNEL);
 		spin_lock_irqsave(&port->port_lock, flags);
@@ -799,6 +815,103 @@ fail:
 
 #if defined(CONFIG_DEBUG_FS)
 #define DEBUG_BUF_SIZE 1024
+
+static unsigned int	record_timestamp;
+module_param(record_timestamp, uint, S_IRUGO | S_IWUSR);
+
+static struct timestamp_buf dbg_data = {
+	.idx = 0,
+	.lck = __RW_LOCK_UNLOCKED(lck)
+};
+
+/*get_timestamp - returns time of day in us */
+static unsigned int get_timestamp(void)
+{
+	struct timeval	tval;
+	unsigned int	stamp;
+
+	if (!record_timestamp)
+		return 0;
+
+	do_gettimeofday(&tval);
+	/* 2^32 = 4294967296. Limit to 4096s. */
+	stamp = tval.tv_sec & 0xFFF;
+	stamp = stamp * 1000000 + tval.tv_usec;
+	return stamp;
+}
+
+static void dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DBG_DATA_MAX-1);
+}
+
+/**
+* dbg_timestamp - Stores timestamp values of a SKB life cycle
+*	to debug buffer
+* @event: "DL": Downlink Data
+* @skb: SKB used to store timestamp values to debug buffer
+*/
+static void dbg_timestamp(char *event, struct sk_buff * skb)
+{
+	unsigned long		flags;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
+
+	if (!record_timestamp)
+		return;
+
+	write_lock_irqsave(&dbg_data.lck, flags);
+
+	scnprintf(dbg_data.buf[dbg_data.idx], DBG_DATA_MSG,
+		  "%p %u[%s] %u %u %u %u %u %u\n",
+		  skb, skb->len, event, info->created, info->rx_queued,
+		  info->rx_done, info->rx_done_sent, info->tx_queued,
+		  get_timestamp());
+
+	dbg_inc(&dbg_data.idx);
+
+	write_unlock_irqrestore(&dbg_data.lck, flags);
+}
+
+/* show_timestamp: displays the timestamp buffer */
+static ssize_t show_timestamp(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	unsigned long	flags;
+	unsigned	i;
+	unsigned	j = 0;
+	char		*buf;
+	int		ret = 0;
+
+	if (!record_timestamp)
+		return 0;
+
+	buf = kzalloc(sizeof(char) * 4 * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	read_lock_irqsave(&dbg_data.lck, flags);
+
+	i = dbg_data.idx;
+	for (dbg_inc(&i); i != dbg_data.idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_data.buf[i], DBG_DATA_MSG))
+			continue;
+		j += scnprintf(buf + j, (4 * DEBUG_BUF_SIZE) - j,
+			       "%s\n", dbg_data.buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_data.lck, flags);
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, j);
+
+	kfree(buf);
+
+	return ret;
+}
+
+const struct file_operations gdata_timestamp_ops = {
+	.read = show_timestamp,
+};
+
 static ssize_t ghsic_data_read_stats(struct file *file,
 	char __user *ubuf, size_t count, loff_t *ppos)
 {
@@ -896,7 +1009,8 @@ const struct file_operations ghsic_stats_ops = {
 };
 
 static struct dentry	*gdata_dent;
-static struct dentry	*gdata_dfile;
+static struct dentry	*gdata_dfile_stats;
+static struct dentry	*gdata_dfile_tstamp;
 
 static void ghsic_data_debugfs_init(void)
 {
@@ -904,21 +1018,37 @@ static void ghsic_data_debugfs_init(void)
 	if (IS_ERR(gdata_dent))
 		return;
 
-	gdata_dfile = debugfs_create_file("status", 0444, gdata_dent, 0,
+	gdata_dfile_stats = debugfs_create_file("status", 0444, gdata_dent, 0,
 			&ghsic_stats_ops);
-	if (!gdata_dfile || IS_ERR(gdata_dfile))
+	if (!gdata_dfile_stats || IS_ERR(gdata_dfile_stats)) {
 		debugfs_remove(gdata_dent);
+		return;
+	}
+
+	gdata_dfile_tstamp = debugfs_create_file("timestamp", 0644, gdata_dent,
+				0, &gdata_timestamp_ops);
+		if (!gdata_dfile_tstamp || IS_ERR(gdata_dfile_tstamp))
+			debugfs_remove(gdata_dent);
 }
 
 static void ghsic_data_debugfs_exit(void)
 {
-	debugfs_remove(gdata_dfile);
+	debugfs_remove(gdata_dfile_stats);
+	debugfs_remove(gdata_dfile_tstamp);
 	debugfs_remove(gdata_dent);
 }
 
 #else
 static void ghsic_data_debugfs_init(void) { }
 static void ghsic_data_debugfs_exit(void) { }
+static void dbg_timestamp(char *event, struct sk_buff * skb)
+{
+	return;
+}
+static unsigned int get_timestamp(void)
+{
+	return 0;
+}
 
 #endif
 
