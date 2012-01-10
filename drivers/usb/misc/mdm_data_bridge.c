@@ -51,6 +51,9 @@ module_param(max_rx_urbs, uint, S_IRUGO | S_IWUSR);
 unsigned int	stop_submit_urb_limit = STOP_SUBMIT_URB_LIMIT;
 module_param(stop_submit_urb_limit, uint, S_IRUGO | S_IWUSR);
 
+static unsigned tx_urb_mult = 20;
+module_param(tx_urb_mult, uint, S_IRUGO|S_IWUSR);
+
 #define TX_HALT   BIT(0)
 #define RX_HALT   BIT(1)
 #define SUSPENDED BIT(2)
@@ -482,6 +485,9 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 
 	pending = atomic_inc_return(&dev->pending_txurbs);
 	usb_anchor_urb(txurb, &dev->tx_active);
+
+	if (atomic_read(&dev->pending_txurbs) % tx_urb_mult)
+		txurb->transfer_flags |= URB_NO_INTERRUPT;
 
 	result = usb_submit_urb(txurb, GFP_KERNEL);
 	if (result < 0) {
