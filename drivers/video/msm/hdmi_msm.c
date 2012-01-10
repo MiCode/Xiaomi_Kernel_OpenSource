@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3073,7 +3073,7 @@ static const struct hdmi_msm_audio_arcs hdmi_msm_audio_acr_lut[] = {
 		{4096, 27000}, {6272, 30000}, {6144, 27000}, {12544, 30000},
 		{12288, 27000}, {25088, 30000}, {24576, 27000} }),
 	/*  27.027MHz */
-	HDMI_MSM_AUDIO_ARCS(27027, {
+	HDMI_MSM_AUDIO_ARCS(27030, {
 		{4096, 27027}, {6272, 30030}, {6144, 27027}, {12544, 30030},
 		{12288, 27027}, {25088, 30030}, {24576, 27027} }),
 	/*  74.250MHz */
