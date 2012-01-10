@@ -1532,6 +1532,36 @@ struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clock_8625_dummy),
 };
 
+enum {
+	MSM8625,
+	MSM8625A,
+};
+
+static int __init msm8625_cpu_id(void)
+{
+	int raw_id, cpu;
+
+	raw_id = socinfo_get_raw_id();
+	switch (raw_id) {
+	/* Part number for 1GHz part */
+	case 0x770:
+	case 0x771:
+	case 0x780:
+		cpu = MSM8625;
+		break;
+	/* Part number for 1.2GHz part */
+	case 0x773:
+	case 0x774:
+	case 0x781:
+		cpu = MSM8625A;
+		break;
+	default:
+		pr_err("Invalid Raw ID\n");
+		return -ENODEV;
+	}
+	return cpu;
+}
+
 int __init msm7x2x_misc_init(void)
 {
 	if (machine_is_msm8625_rumi3()) {
@@ -1540,10 +1570,16 @@ int __init msm7x2x_misc_init(void)
 	}
 
 	msm_clock_init(&msm7x27a_clock_init_data);
-	if (cpu_is_msm7x27aa() || cpu_is_msm8625())
+	if (cpu_is_msm7x27aa())
 		acpuclk_init(&acpuclk_7x27aa_soc_data);
-	else
+	else if (cpu_is_msm8625()) {
+		if (msm8625_cpu_id() == MSM8625)
+			acpuclk_init(&acpuclk_7x27aa_soc_data);
+		else if (msm8625_cpu_id() == MSM8625A)
+			acpuclk_init(&acpuclk_8625_soc_data);
+	 } else {
 		acpuclk_init(&acpuclk_7x27a_soc_data);
+	 }
 
 
 	return 0;

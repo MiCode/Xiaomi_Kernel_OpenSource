@@ -219,6 +219,34 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
 };
 
+/* 8625 PLL4 @ 1209MHz with GSM capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1209[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 1, 61440 },
+	{ 1, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 2, 61440 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 3, 61440 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
+	{ 0, 604800, ACPU_PLL_4, 6, 1, 75600, 3, 6, 200000 },
+	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 7, 200000},
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
+};
+
+/* 8625 PLL4 @ 1209MHz with CDMA capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1209[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
+	{ 1, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 200000 },
+	{ 0, 604800, ACPU_PLL_4, 6, 1, 75600, 3, 6, 200000 },
+	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 7, 200000},
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
+};
+
 /* 7625a PLL2 @ 1200MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_25a[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
@@ -333,6 +361,8 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 	PLL_CONFIG(960, 589, 1200, 800),
 	PLL_CONFIG(960, 737, 1200, 1008),
 	PLL_CONFIG(960, 589, 1200, 1008),
+	PLL_CONFIG(960, 245, 1200, 1209),
+	PLL_CONFIG(960, 196, 1200, 1209),
 	{ 0, 0, 0, 0, 0 }
 };
 
@@ -873,5 +903,11 @@ struct acpuclk_soc_data acpuclk_7x27a_soc_data __initdata = {
 
 struct acpuclk_soc_data acpuclk_7x27aa_soc_data __initdata = {
 	.max_speed_delta_khz = 504000,
+	.init = acpuclk_7627_init,
+};
+
+struct acpuclk_soc_data acpuclk_8625_soc_data __initdata = {
+	/* TODO: Need to update speed delta from H/w Team */
+	.max_speed_delta_khz = 604800,
 	.init = acpuclk_7627_init,
 };
