@@ -121,6 +121,7 @@
 #define SLIMBUS_XO_SRC_CLK_CTL_REG		REG(0x2628)
 
 /* Low-power Audio clock registers. */
+#define LCC_CLK_HS_DEBUG_CFG_REG		REG_LPA(0x00A4)
 #define LCC_CLK_LS_DEBUG_CFG_REG		REG_LPA(0x00A8)
 #define LCC_CODEC_I2S_MIC_MD_REG		REG_LPA(0x0064)
 #define LCC_CODEC_I2S_MIC_NS_REG		REG_LPA(0x0060)
@@ -164,12 +165,14 @@
 #define TEST_TYPE_PER_LS	1
 #define TEST_TYPE_PER_HS	2
 #define TEST_TYPE_LPA		5
+#define TEST_TYPE_LPA_HS	6
 #define TEST_TYPE_SHIFT		24
 #define TEST_CLK_SEL_MASK	BM(23, 0)
 #define TEST_VECTOR(s, t)	(((t) << TEST_TYPE_SHIFT) | BVAL(23, 0, (s)))
 #define TEST_PER_LS(s)		TEST_VECTOR((s), TEST_TYPE_PER_LS)
 #define TEST_PER_HS(s)		TEST_VECTOR((s), TEST_TYPE_PER_HS)
 #define TEST_LPA(s)		TEST_VECTOR((s), TEST_TYPE_LPA)
+#define TEST_LPA_HS(s)		TEST_VECTOR((s), TEST_TYPE_LPA_HS)
 
 #define MN_MODE_DUAL_EDGE 0x2
 
@@ -1402,6 +1405,10 @@ struct measure_sel {
 	struct clk *clk;
 };
 
+static DEFINE_CLK_MEASURE(q6sw_clk);
+static DEFINE_CLK_MEASURE(q6fw_clk);
+static DEFINE_CLK_MEASURE(q6_func_clk);
+
 static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x08), &slimbus_xo_src_clk.c },
 	{ TEST_PER_LS(0x12), &sdc1_p_clk.c },
@@ -1449,6 +1456,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x92), &ce1_p_clk.c },
 	{ TEST_PER_HS(0x18), &sfab_clk.c },
 	{ TEST_PER_HS(0x18), &sfab_a_clk.c },
+	{ TEST_PER_HS(0x26), &q6sw_clk },
+	{ TEST_PER_HS(0x27), &q6fw_clk },
 	{ TEST_PER_LS(0xA4), &ce1_core_clk.c },
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_clk.c },
@@ -1461,6 +1470,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_LPA(0x13), &spare_i2s_spkr_bit_clk.c },
 	{ TEST_LPA(0x14), &pcm_clk.c },
 	{ TEST_LPA(0x1D), &audio_slimbus_clk.c },
+	{ TEST_LPA_HS(0x00), &q6_func_clk },
 };
 
 static struct measure_sel *find_measure_sel(struct clk *clk)
@@ -1508,6 +1518,11 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(0x4030D98, CLK_TEST_REG);
 		writel_relaxed(BVAL(6, 1, clk_sel)|BIT(0),
 				LCC_CLK_LS_DEBUG_CFG_REG);
+		break;
+	case TEST_TYPE_LPA_HS:
+		writel_relaxed(0x402BC00, CLK_TEST_REG);
+		writel_relaxed(BVAL(2, 1, clk_sel)|BIT(0),
+				LCC_CLK_HS_DEBUG_CFG_REG);
 		break;
 	default:
 		ret = -EPERM;
@@ -1713,6 +1728,10 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("iface_clk",		ce1_p_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qce.0"),
 	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qcrypto.0"),
+
+	CLK_LOOKUP("q6sw_clk",		q6sw_clk, NULL),
+	CLK_LOOKUP("q6fw_clk",		q6fw_clk, NULL),
+	CLK_LOOKUP("q6_func_clk",	q6_func_clk, NULL),
 
 	/* TODO: Make this real when RPM's ready. */
 	CLK_DUMMY("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL, OFF),
