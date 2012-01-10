@@ -41,6 +41,17 @@ struct msm_dai_q6_dai_data {
 
 static struct clk *pcm_clk;
 
+static u8 num_of_bits_set(u8 sd_line_mask)
+{
+	u8 num_bits_set = 0;
+
+	while (sd_line_mask) {
+		num_bits_set++;
+		sd_line_mask = sd_line_mask & (sd_line_mask - 1);
+	}
+	return num_bits_set;
+}
+
 static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai, int stream)
 {
@@ -66,8 +77,116 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 	/* Q6 only supports 16 as now */
 	dai_data->port_config.mi2s.bitwidth = 16;
 	dai_data->port_config.mi2s.line = 1;
+	return 0;
+}
+
+static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_hw_params *params,
+				    struct snd_soc_dai *dai, int stream)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	struct msm_mi2s_data *mi2s_pdata =
+			(struct msm_mi2s_data *) dai->dev->platform_data;
+
+	dai_data->channels = params_channels(params);
+	if (num_of_bits_set(mi2s_pdata->sd_lines) == 1) {
+		switch (dai_data->channels) {
+		case 2:
+			dai_data->port_config.mi2s.channel = MSM_AFE_STEREO;
+			break;
+		case 1:
+			dai_data->port_config.mi2s.channel = MSM_AFE_MONO;
+			break;
+		default:
+			pr_warn("greater than stereo has not been validated");
+			break;
+		}
+	}
+	/* Q6 only supports 16 as now */
+	dai_data->port_config.mi2s.bitwidth = 16;
 
 	return 0;
+}
+
+static int msm_dai_q6_mi2s_platform_data_validation(
+					struct snd_soc_dai *dai)
+{
+	u8 num_of_sd_lines;
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	struct msm_mi2s_data *mi2s_pdata =
+			(struct msm_mi2s_data *)dai->dev->platform_data;
+	struct snd_soc_dai_driver *dai_driver =
+			(struct snd_soc_dai_driver *)dai->driver;
+
+	num_of_sd_lines = num_of_bits_set(mi2s_pdata->sd_lines);
+
+	switch (num_of_sd_lines) {
+	case 1:
+		switch (mi2s_pdata->sd_lines) {
+		case MSM_MI2S_SD0:
+			dai_data->port_config.mi2s.line = AFE_I2S_SD0;
+			break;
+		case MSM_MI2S_SD1:
+			dai_data->port_config.mi2s.line = AFE_I2S_SD1;
+			break;
+		case MSM_MI2S_SD2:
+			dai_data->port_config.mi2s.line = AFE_I2S_SD2;
+			break;
+		case MSM_MI2S_SD3:
+			dai_data->port_config.mi2s.line = AFE_I2S_SD3;
+			break;
+		default:
+			pr_err("%s: invalid SD line\n",
+				   __func__);
+			goto error_invalid_data;
+		}
+		break;
+	case 2:
+		switch (mi2s_pdata->sd_lines) {
+		case MSM_MI2S_SD0 | MSM_MI2S_SD1:
+			dai_data->port_config.mi2s.line = AFE_I2S_QUAD01;
+			break;
+		case MSM_MI2S_SD2 | MSM_MI2S_SD3:
+			dai_data->port_config.mi2s.line = AFE_I2S_QUAD23;
+			break;
+		default:
+			pr_err("%s: invalid SD line\n",
+				   __func__);
+			goto error_invalid_data;
+		}
+		break;
+	case 3:
+		switch (mi2s_pdata->sd_lines) {
+		case MSM_MI2S_SD0 | MSM_MI2S_SD1 | MSM_MI2S_SD2:
+			dai_data->port_config.mi2s.line = AFE_I2S_6CHS;
+			break;
+		default:
+			pr_err("%s: invalid SD lines\n",
+				   __func__);
+			goto error_invalid_data;
+		}
+		break;
+	case 4:
+		switch (mi2s_pdata->sd_lines) {
+		case MSM_MI2S_SD0 | MSM_MI2S_SD1 | MSM_MI2S_SD2 | MSM_MI2S_SD3:
+			dai_data->port_config.mi2s.line = AFE_I2S_8CHS;
+			break;
+		default:
+			pr_err("%s: invalid SD lines\n",
+				   __func__);
+			goto error_invalid_data;
+		}
+		break;
+	default:
+		pr_err("%s: invalid SD lines\n", __func__);
+		goto error_invalid_data;
+	}
+	if (mi2s_pdata->capability == MSM_MI2S_CAP_RX)
+		dai_driver->playback.channels_max = num_of_sd_lines << 1;
+
+	return 0;
+
+error_invalid_data:
+	return -EINVAL;
 }
 
 static int msm_dai_q6_cdc_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
@@ -279,6 +398,9 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 		rc = msm_dai_q6_cdc_hw_params(params, dai, substream->stream);
+		break;
+	case MI2S_RX:
+		rc = msm_dai_q6_mi2s_hw_params(params, dai, substream->stream);
 		break;
 	case HDMI_RX:
 		rc = msm_dai_q6_hdmi_hw_params(params, dai);
@@ -592,6 +714,31 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 
 	return 0;
 }
+static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data;
+	int rc = 0;
+
+	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data),
+		GFP_KERNEL);
+
+	if (!dai_data) {
+		dev_err(dai->dev, "DAI-%d: fail to allocate dai data\n",
+		dai->id);
+		rc = -ENOMEM;
+		goto rtn;
+	} else
+		dev_set_drvdata(dai->dev, dai_data);
+
+	rc = msm_dai_q6_mi2s_platform_data_validation(dai);
+	if (rc != 0) {
+		pr_err("%s: The msm_dai_q6_mi2s_platform_data_validation failed\n",
+			    __func__);
+		kfree(dai_data);
+	}
+rtn:
+	return rc;
+}
 
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 {
@@ -649,6 +796,7 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	switch (dai->id) {
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
+	case MI2S_RX:
 		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
 		break;
 	default:
@@ -892,6 +1040,20 @@ static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_tx_dai = {
 	},
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_mi2s_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.rate_min =     8000,
+		.rate_max =	48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_mi2s_probe,
+	.remove = msm_dai_q6_dai_probe,
+};
+
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 {
@@ -913,6 +1075,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case PCM_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_aux_pcm_tx_dai);
+		break;
+	case MI2S_RX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_mi2s_rx_dai);
 		break;
 	case HDMI_RX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_hdmi_rx_dai);

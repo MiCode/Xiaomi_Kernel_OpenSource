@@ -13,10 +13,13 @@
 #define __Q6AFE_H__
 #include <sound/apr_audio.h>
 
-#define MSM_AFE_MONO		0
-#define MSM_AFE_MONO_RIGHT	1
-#define MSM_AFE_MONO_LEFT	2
-#define MSM_AFE_STEREO		3
+#define MSM_AFE_MONO        0
+#define MSM_AFE_MONO_RIGHT  1
+#define MSM_AFE_MONO_LEFT   2
+#define MSM_AFE_STEREO      3
+#define MSM_AFE_4CHANNELS   4
+#define MSM_AFE_6CHANNELS   6
+#define MSM_AFE_8CHANNELS   8
 
 #define MSM_AFE_PORT_TYPE_RX 0
 #define MSM_AFE_PORT_TYPE_TX 1
