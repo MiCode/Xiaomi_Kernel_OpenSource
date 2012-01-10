@@ -336,7 +336,8 @@ static bool msm_is_sat_dev(u8 *e_addr)
 
 static int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
 {
-	int ref;
+#ifdef CONFIG_PM_RUNTIME
+	int ref = 0;
 	int ret = pm_runtime_get_sync(dev->dev);
 	if (ret >= 0) {
 		ref = atomic_read(&dev->dev->power.usage_count);
@@ -346,11 +347,16 @@ static int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
 		}
 	}
 	return ret;
+#else
+	return -ENODEV;
+#endif
 }
 static void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 {
+#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_mark_last_busy(dev->dev);
 	pm_runtime_put(dev->dev);
+#endif
 }
 
 static irqreturn_t msm_slim_interrupt(int irq, void *d)
@@ -1913,6 +1919,7 @@ static int msm_slim_runtime_idle(struct device *device)
  * functions to be called from system suspend/resume. So they are not
  * inside ifdef CONFIG_PM_RUNTIME
  */
+#ifdef CONFIG_PM_SLEEP
 static int msm_slim_runtime_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -1947,7 +1954,6 @@ static int msm_slim_runtime_resume(struct device *device)
 	return ret;
 }
 
-#ifdef CONFIG_PM_SLEEP
 static int msm_slim_suspend(struct device *dev)
 {
 	int ret = 0;
