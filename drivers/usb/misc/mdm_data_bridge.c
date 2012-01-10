@@ -166,8 +166,10 @@ static void data_bridge_process_rx(struct work_struct *work)
 		spin_unlock_irqrestore(&dev->rx_done.lock, flags);
 		retval = submit_rx_urb(dev, rx_idle, GFP_KERNEL);
 		spin_lock_irqsave(&dev->rx_done.lock, flags);
-		if (retval)
+		if (retval) {
+			list_add_tail(&rx_idle->urb_list, &dev->rx_idle);
 			break;
+		}
 	}
 	spin_unlock_irqrestore(&dev->rx_done.lock, flags);
 }
@@ -229,10 +231,8 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	int		retval = -EINVAL;
 
 	skb = alloc_skb(RMNET_RX_BUFSIZE, flags);
-	if (!skb) {
-		usb_free_urb(rx_urb);
+	if (!skb)
 		return -ENOMEM;
-	}
 
 	*((struct data_bridge **)skb->cb) = dev;
 
@@ -253,7 +253,7 @@ fail:
 	usb_unanchor_urb(rx_urb);
 suspended:
 	dev_kfree_skb_any(skb);
-	usb_free_urb(rx_urb);
+
 	return retval;
 }
 
