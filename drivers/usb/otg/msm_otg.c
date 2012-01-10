@@ -2450,7 +2450,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
-	motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
+	motg->xo_handle = msm_xo_get(MSM_XO_CXO, "usb");
 	if (IS_ERR(motg->xo_handle)) {
 		dev_err(&pdev->dev, "%s not able to get the handle "
 			"to vote for TCXO D0 buffer\n", __func__);
