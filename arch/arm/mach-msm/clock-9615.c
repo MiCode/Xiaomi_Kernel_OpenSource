@@ -1745,7 +1745,7 @@ static void set_fsm_mode(void __iomem *mode_reg)
  */
 static void __init reg_init(void)
 {
-	u32 regval, is_pll_enabled;
+	u32 regval, is_pll_enabled, pll9_lval;
 
 	/* Enable PDM CXO source. */
 	regval = readl_relaxed(PDM_CLK_NS_REG);
@@ -1807,6 +1807,12 @@ static void __init reg_init(void)
 
 	} else if (!(readl_relaxed(BB_PLL14_MODE_REG) & BIT(20)))
 		WARN(1, "PLL14 enabled in non-FSM mode!\n");
+
+	/* Detect PLL9 rate and fixup structure accordingly */
+	pll9_lval = readl_relaxed(SC_PLL0_L_VAL_REG);
+
+	if (pll9_lval == 0x1C)
+		pll9_acpu_clk.rate = 550000000;
 
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);

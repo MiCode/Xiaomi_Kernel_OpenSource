@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,7 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[2] =  BW_MBPS(552), /* At least  69 MHz on bus. */
 	[3] =  BW_MBPS(736), /* At least  92 MHz on bus. */
 	[4] = BW_MBPS(1064), /* At least 133 MHz on bus. */
+	[5] = BW_MBPS(1536), /* At least 192 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -114,6 +115,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 1, 138000, SRC_PLL0, 6, 1,  950000, 1050000, 2 },
 	{ 1, 276000, SRC_PLL0, 6, 0, 1050000, 1050000, 2 },
 	{ 1, 384000, SRC_PLL8, 3, 0, 1150000, 1150000, 4 },
+	/* The row below may be changed at runtime depending on hw rev. */
 	{ 1, 440000, SRC_PLL9, 2, 0, 1150000, 1150000, 4 },
 	{ 0 }
 };
@@ -322,6 +324,15 @@ static int __init acpuclk_9615_init(struct acpuclk_soc_data *soc_data)
 			clocks[i].clk = clk_get_sys("acpu", clocks[i].name);
 			BUG_ON(IS_ERR(clocks[i].clk));
 		}
+	}
+
+	/* Determine the rate of PLL9 and fixup tables accordingly */
+	if (clk_get_rate(clocks[SRC_PLL9].clk) == 550000000) {
+		for (i = 0; i < ARRAY_SIZE(acpu_freq_tbl); i++)
+			if (acpu_freq_tbl[i].src == SRC_PLL9) {
+				acpu_freq_tbl[i].khz = 550000;
+				acpu_freq_tbl[i].bw_level = 5;
+			}
 	}
 
 	/* Improve boot time by ramping up CPU immediately. */
