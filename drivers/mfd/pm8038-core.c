@@ -142,6 +142,19 @@ static struct mfd_cell gpio_cell __devinitdata = {
 	.num_resources	= ARRAY_SIZE(gpio_cell_resources),
 };
 
+static const struct resource adc_cell_resources[] __devinitconst = {
+	SINGLE_IRQ_RESOURCE(NULL, PM8038_ADC_EOC_USR_IRQ),
+	SINGLE_IRQ_RESOURCE(NULL, PM8038_ADC_BATT_TEMP_WARM_IRQ),
+	SINGLE_IRQ_RESOURCE(NULL, PM8038_ADC_BATT_TEMP_COLD_IRQ),
+};
+
+static struct mfd_cell adc_cell __devinitdata = {
+	.name		= PM8XXX_ADC_DEV_NAME,
+	.id		= -1,
+	.resources	= adc_cell_resources,
+	.num_resources	= ARRAY_SIZE(adc_cell_resources),
+};
+
 static const struct resource mpp_cell_resources[] __devinitconst = {
 	{
 		.start	= PM8038_IRQ_BLOCK_BIT(PM8038_MPP_BLOCK_START, 0),
@@ -443,6 +456,18 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 	if (ret) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
 		goto bail;
+	}
+
+	if (pdata->adc_pdata) {
+		adc_cell.platform_data = pdata->adc_pdata;
+		adc_cell.pdata_size =
+			sizeof(struct pm8xxx_adc_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &adc_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add adc subdevices ret=%d\n",
+					ret);
+		}
 	}
 
 	return 0;
