@@ -1229,7 +1229,7 @@ static int bam_init(void)
 	if (!a2_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		ret = -ENOMEM;
-		goto register_bam_failed;
+		goto ioremap_failed;
 	}
 	a2_props.phys_addr = A2_PHYS_BASE;
 	a2_props.virt_addr = a2_virt_addr;
@@ -1370,6 +1370,8 @@ tx_get_config_failed:
 tx_mem_failed:
 	sps_deregister_bam_device(h);
 register_bam_failed:
+	iounmap(a2_virt_addr);
+ioremap_failed:
 	/*destroy_workqueue(bam_mux_workqueue);*/
 	return ret;
 }
