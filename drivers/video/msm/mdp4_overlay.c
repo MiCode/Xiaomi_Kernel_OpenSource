@@ -535,11 +535,6 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	dst_xy = ((pipe->dst_y << 16) | pipe->dst_x);
 
 	ptype = mdp4_overlay_format2type(pipe->src_format);
-	if (pipe->src_format == MDP_Y_CR_CB_GH2V2) {
-		frame_size = ((pipe->src_height << 16) |
-					ALIGN(pipe->src_width, 16));
-		src_size = ((pipe->src_h << 16) | ALIGN(pipe->src_w, 16));
-	}
 	format = mdp4_overlay_format(pipe);
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
