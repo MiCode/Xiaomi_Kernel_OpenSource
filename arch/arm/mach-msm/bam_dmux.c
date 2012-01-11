@@ -1370,7 +1370,6 @@ tx_get_config_failed:
 tx_mem_failed:
 	sps_deregister_bam_device(h);
 register_bam_failed:
-	iounmap(a2_virt_addr);
 ioremap_failed:
 	/*destroy_workqueue(bam_mux_workqueue);*/
 	return ret;
@@ -1409,7 +1408,6 @@ static int bam_init_fallback(void)
 	return 0;
 
 register_bam_failed:
-	iounmap(a2_virt_addr);
 ioremap_failed:
 	return ret;
 }
