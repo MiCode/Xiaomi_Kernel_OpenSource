@@ -42,18 +42,115 @@ int msm_ion_unsecure_heap(int heap_id)
 }
 EXPORT_SYMBOL(msm_ion_unsecure_heap);
 
-static unsigned long msm_ion_get_base(unsigned long size, int memory_type)
+static unsigned long msm_ion_get_base(unsigned long size, int memory_type,
+				    unsigned int align)
 {
 	switch (memory_type) {
 	case ION_EBI_TYPE:
-		return allocate_contiguous_ebi_nomap(size, PAGE_SIZE);
+		return allocate_contiguous_ebi_nomap(size, align);
 		break;
 	case ION_SMI_TYPE:
 		return allocate_contiguous_memory_nomap(size, MEMTYPE_SMI,
-							PAGE_SIZE);
+							align);
 		break;
 	default:
 		return 0;
+	}
+}
+
+static struct ion_platform_heap *find_heap(const struct ion_platform_heap
+					   heap_data[],
+					   unsigned int nr_heaps,
+					   int heap_id)
+{
+	unsigned int i;
+	for (i = 0; i < nr_heaps; ++i) {
+		const struct ion_platform_heap *heap = &heap_data[i];
+		if (heap->id == heap_id)
+			return (struct ion_platform_heap *) heap;
+	}
+	return 0;
+}
+
+static void allocate_co_memory(struct ion_platform_heap *heap,
+			       struct ion_platform_heap heap_data[],
+			       unsigned int nr_heaps)
+{
+	struct ion_co_heap_pdata *co_heap_data =
+		(struct ion_co_heap_pdata *) heap->extra_data;
+	if (co_heap_data->adjacent_mem_id != INVALID_HEAP_ID) {
+		struct ion_platform_heap *shared_heap =
+			find_heap(heap_data, nr_heaps,
+				  co_heap_data->adjacent_mem_id);
+		if (shared_heap) {
+			struct ion_cp_heap_pdata *cp_data =
+			   (struct ion_cp_heap_pdata *) shared_heap->extra_data;
+			heap->base = msm_ion_get_base(
+				heap->size + shared_heap->size,
+				shared_heap->memory_type,
+				co_heap_data->align);
+			if (heap->base) {
+				shared_heap->base = heap->base + heap->size;
+				cp_data->secure_base = heap->base;
+				cp_data->secure_size =
+						heap->size + shared_heap->size;
+			} else {
+				pr_err("%s: could not get memory for heap %s "
+				   "(id %x)\n", __func__, heap->name, heap->id);
+			}
+
+		}
+	}
+}
+
+/* Fixup heaps in board file to support two heaps being adjacent to each other.
+ * A flag (adjacent_mem_id) in the platform data tells us that the heap phy
+ * memory location must be adjacent to the specified heap. We do this by
+ * carving out memory for both heaps and then splitting up the memory to the
+ * two heaps. The heap specifying the "adjacent_mem_id" get the base of the
+ * memory while heap specified in "adjacent_mem_id" get base+size as its
+ * base address.
+ * Note: Modifies platform data and allocates memory.
+ */
+static void msm_ion_heap_fixup(struct ion_platform_heap heap_data[],
+			       unsigned int nr_heaps)
+{
+	unsigned int i;
+
+	for (i = 0; i < nr_heaps; i++) {
+		struct ion_platform_heap *heap = &heap_data[i];
+		if (!heap->base && heap->type == ION_HEAP_TYPE_CARVEOUT) {
+			if (heap->extra_data)
+				allocate_co_memory(heap, heap_data, nr_heaps);
+		}
+	}
+}
+
+static void msm_ion_allocate(struct ion_platform_heap *heap)
+{
+
+	if (!heap->base && heap->extra_data) {
+		unsigned int align = 0;
+		switch (heap->type) {
+		case ION_HEAP_TYPE_CARVEOUT:
+			align =
+			((struct ion_co_heap_pdata *) heap->extra_data)->align;
+			break;
+		case ION_HEAP_TYPE_CP:
+			align =
+			((struct ion_cp_heap_pdata *) heap->extra_data)->align;
+			break;
+		default:
+			break;
+		}
+		if (align) {
+			heap->base = msm_ion_get_base(heap->size,
+						      heap->memory_type,
+						      align);
+			if (!heap->base)
+				pr_err("%s: could not get memory for heap %s "
+				   "(id %x)\n", __func__, heap->name, heap->id);
+		}
 	}
 }
 
@@ -78,20 +175,12 @@ static int msm_ion_probe(struct platform_device *pdev)
 		goto freeheaps;
 	}
 
+	msm_ion_heap_fixup(pdata->heaps, num_heaps);
+
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
-
-		if (heap_data->type == ION_HEAP_TYPE_CARVEOUT) {
-			heap_data->base = msm_ion_get_base(heap_data->size,
-							heap_data->memory_type);
-			if (!heap_data->base) {
-				pr_err("%s: could not get memory for heap %s"
-					" (id %x)\n", __func__, heap_data->name,
-					heap_data->id);
-				continue;
-			}
-		}
+		msm_ion_allocate(heap_data);
 
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
