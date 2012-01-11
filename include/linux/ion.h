@@ -64,12 +64,17 @@ struct ion_platform_heap {
 
 struct ion_cp_heap_pdata {
 	enum ion_permission_type permission_type;
+	unsigned int align;
+	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
+	size_t secure_size; /* Size used for securing heap when heap is shared*/
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
 };
 
 struct ion_co_heap_pdata {
+	int adjacent_mem_id;
+	unsigned int align;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
