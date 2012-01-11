@@ -2705,6 +2705,18 @@ static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
 	tabla->clock_active = false;
 }
 
+static int tabla_codec_mclk_index(const struct tabla_priv *tabla)
+{
+	if (tabla->mclk_freq == TABLA_MCLK_RATE_12288KHZ)
+		return 0;
+	else if (tabla->mclk_freq == TABLA_MCLK_RATE_9600KHZ)
+		return 1;
+	else {
+		BUG_ON(1);
+		return -EINVAL;
+	}
+}
+
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
 	u8 *n_cic;
@@ -2746,7 +2758,8 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 		      tabla->mbhc_data.nbounce_wait);
 
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_CIC);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B6_CTL, n_cic[0]);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B6_CTL,
+		      n_cic[tabla_codec_mclk_index(tabla)]);
 }
 
 static int tabla_startup(struct snd_pcm_substream *substream,
@@ -3388,7 +3401,7 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	 */
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration);
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_CIC);
-	ncic = n_cic[0];
+	ncic = n_cic[tabla_codec_mclk_index(tabla)];
 	nmeas = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration)->n_meas;
 	navg = TABLA_MBHC_CAL_GENERAL_PTR(tabla->calibration)->mbhc_navg;
 	mclk_rate = tabla->mclk_freq;
@@ -3573,10 +3586,11 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_CIC);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_TIMER_B6_CTL, 0xFF,
-			    n_cic[0]);
+			    n_cic[tabla_codec_mclk_index(tabla)]);
 
 	gain = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_GAIN);
-	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B2_CTL, 0x78, gain[0] << 3);
+	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B2_CTL, 0x78,
+			    gain[tabla_codec_mclk_index(tabla)] << 3);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_TIMER_B4_CTL, 0x70,
 			    generic->mbhc_nsa << 4);
@@ -3695,6 +3709,16 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 		pr_err("Error: no codec or calibration\n");
 		return -EINVAL;
 	}
+
+	if (mclk_rate != TABLA_MCLK_RATE_12288KHZ) {
+		if (mclk_rate == TABLA_MCLK_RATE_9600KHZ)
+			pr_err("Error: clock rate %dHz is not yet supported\n",
+			       mclk_rate);
+		else
+			pr_err("Error: unsupported clock rate %d\n", mclk_rate);
+		return -EINVAL;
+	}
+
 	tabla = snd_soc_codec_get_drvdata(codec);
 	tabla->headset_jack = headset_jack;
 	tabla->button_jack = button_jack;
