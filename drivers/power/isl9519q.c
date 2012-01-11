@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -20,7 +21,7 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/msm-charger.h>
-#include <linux/mfd/pm8xxx/pm8921-charger.h>
+#include <linux/power_supply.h>
 #include <linux/slab.h>
 #include <linux/i2c/isl9519.h>
 #include <linux/msm_adc.h>
@@ -54,7 +55,7 @@ struct isl9519q_struct {
 	struct msm_hardware_charger	adapter_hw_chg;
 	int				suspended;
 	int				charge_at_resume;
-	struct ext_chg_pm8921		ext_chg;
+	struct power_supply		dc_psy;
 	spinlock_t			lock;
 	bool				notify_by_pmic;
 	bool				trickle;
@@ -75,10 +76,11 @@ static int isl9519q_read_reg(struct i2c_client *client, int reg,
 		dev_err(&isl_chg->client->dev,
 			"i2c read fail: can't read from %02x: %d\n", reg, ret);
 		return -EAGAIN;
-	} else
+	} else {
 		*val = ret;
+	}
 
-	pr_debug("%s.reg=0x%x.val=0x%x.\n", __func__, reg, *val);
+	pr_debug("reg=0x%x.val=0x%x.\n", reg, *val);
 
 	return 0;
 }
@@ -89,7 +91,7 @@ static int isl9519q_write_reg(struct i2c_client *client, int reg,
 	int ret;
 	struct isl9519q_struct *isl_chg;
 
-	pr_debug("%s.reg=0x%x.val=0x%x.\n", __func__, reg, val);
+	pr_debug("reg=0x%x.val=0x%x.\n", reg, val);
 
 	isl_chg = i2c_get_clientdata(client);
 	ret = i2c_smbus_write_word_data(isl_chg->client, reg, val);
@@ -118,44 +120,41 @@ static int isl_read_adc(int channel, int *mv_reading)
 	struct adc_chan_result adc_chan_result;
 	struct completion  conv_complete_evt;
 
-	pr_debug("%s: called for %d\n", __func__, channel);
+	pr_debug("called for %d\n", channel);
 	ret = adc_channel_open(channel, &h);
 	if (ret) {
-		pr_err("%s: couldnt open channel %d ret=%d\n",
-					__func__, channel, ret);
+		pr_err("couldnt open channel %d ret=%d\n", channel, ret);
 		goto out;
 	}
 	init_completion(&conv_complete_evt);
 	ret = adc_channel_request_conv(h, &conv_complete_evt);
 	if (ret) {
-		pr_err("%s: couldnt request conv channel %d ret=%d\n",
-						__func__, channel, ret);
+		pr_err("couldnt request conv channel %d ret=%d\n",
+						channel, ret);
 		goto out;
 	}
 	ret = wait_for_completion_interruptible(&conv_complete_evt);
 	if (ret) {
-		pr_err("%s: wait interrupted channel %d ret=%d\n",
-						__func__, channel, ret);
+		pr_err("wait interrupted channel %d ret=%d\n", channel, ret);
 		goto out;
 	}
 	ret = adc_channel_read_result(h, &adc_chan_result);
 	if (ret) {
-		pr_err("%s: couldnt read result channel %d ret=%d\n",
-						__func__, channel, ret);
+		pr_err("couldnt read result channel %d ret=%d\n",
+						channel, ret);
 		goto out;
 	}
 	ret = adc_channel_close(h);
 	if (ret)
-		pr_err("%s: couldnt close channel %d ret=%d\n",
-					__func__, channel, ret);
+		pr_err("couldnt close channel %d ret=%d\n", channel, ret);
 	if (mv_reading)
 		*mv_reading = (int)adc_chan_result.measurement;
 
-	pr_debug("%s: done for %d\n", __func__, channel);
+	pr_debug("done for %d\n", channel);
 	return adc_chan_result.physical;
 out:
 	*mv_reading = 0;
-	pr_debug("%s: done with error for %d\n", __func__, channel);
+	pr_debug("done with error for %d\n", channel);
 
 	return -EINVAL;
 }
@@ -168,7 +167,7 @@ static bool is_trickle_charging(struct isl9519q_struct *isl_chg)
 	ret = isl9519q_read_reg(isl_chg->client, CONTROL_REG, &ctrl);
 
 	if (!ret) {
-		pr_debug("%s.control_reg=0x%x.\n", __func__, ctrl);
+		pr_debug("control_reg=0x%x.\n", ctrl);
 	} else {
 		dev_err(&isl_chg->client->dev,
 			"%s couldnt read cntrl reg\n", __func__);
@@ -220,7 +219,7 @@ static void isl9519q_worker(struct work_struct *isl9519_work)
 	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 
 	if (!isl_chg->charging) {
-		pr_info("%s.stop charging.\n", __func__);
+		pr_debug("stop charging.\n");
 		isl9519q_write_reg(isl_chg->client, CHG_CURRENT_REG, 0);
 		return; /* Stop periodic worker */
 	}
@@ -241,17 +240,15 @@ static void isl9519q_worker(struct work_struct *isl9519_work)
 static int isl9519q_start_charging(struct isl9519q_struct *isl_chg,
 				   int chg_voltage, int chg_current)
 {
-	int ret = 0;
-
-	pr_info("%s.\n", __func__);
+	pr_debug("\n");
 
 	if (isl_chg->charging) {
-		pr_warn("%s.already charging.\n", __func__);
+		pr_warn("already charging.\n");
 		return 0;
 	}
 
 	if (isl_chg->suspended) {
-		pr_warn("%s.suspended - can't start charging.\n", __func__);
+		pr_warn("suspended - can't start charging.\n");
 		isl_chg->charge_at_resume = 1;
 		return 0;
 	}
@@ -268,15 +265,15 @@ static int isl9519q_start_charging(struct isl9519q_struct *isl_chg,
 
 	isl_chg->charging = true;
 
-	return ret;
+	return 0;
 }
 
 static int isl9519q_stop_charging(struct isl9519q_struct *isl_chg)
 {
-	pr_info("%s.\n", __func__);
+	pr_debug("\n");
 
 	if (!(isl_chg->charging)) {
-		pr_warn("%s.already not charging.\n", __func__);
+		pr_warn("already not charging.\n");
 		return 0;
 	}
 
@@ -296,39 +293,6 @@ static int isl9519q_stop_charging(struct isl9519q_struct *isl_chg)
 	schedule_delayed_work(&isl_chg->charge_work, 1);
 
 	return 0;
-}
-
-static int isl_ext_start_charging(void *ctx)
-{
-	int rc;
-	struct isl9519q_struct *isl_chg = ctx;
-	unsigned long flags;
-
-	spin_lock_irqsave(&isl_chg->lock, flags);
-	rc = isl9519q_start_charging(isl_chg, 0, isl_chg->chgcurrent);
-	spin_unlock_irqrestore(&isl_chg->lock, flags);
-
-	return rc;
-}
-
-static int isl_ext_stop_charging(void *ctx)
-{
-	int rc;
-	struct isl9519q_struct *isl_chg = ctx;
-	unsigned long flags;
-
-	spin_lock_irqsave(&isl_chg->lock, flags);
-	rc = isl9519q_stop_charging(isl_chg);
-	spin_unlock_irqrestore(&isl_chg->lock, flags);
-
-	return rc;
-}
-
-static bool isl_ext_is_trickle(void *ctx)
-{
-	struct isl9519q_struct *isl_chg = ctx;
-
-	return isl_chg->trickle;
 }
 
 static int isl_adapter_start_charging(struct msm_hardware_charger *hw_chg,
@@ -396,6 +360,114 @@ err:
 	return IRQ_HANDLED;
 }
 
+static enum power_supply_property pm_power_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
+};
+
+static char *pm_power_supplied_to[] = {
+	"battery",
+};
+
+static int get_prop_charge_type(struct isl9519q_struct *isl_chg)
+{
+	if (!isl_chg->present)
+		return POWER_SUPPLY_CHARGE_TYPE_NONE;
+
+	if (isl_chg->trickle)
+		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
+
+	if (isl_chg->charging)
+		return POWER_SUPPLY_CHARGE_TYPE_FAST;
+
+	return POWER_SUPPLY_CHARGE_TYPE_NONE;
+}
+static int pm_power_get_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  union power_supply_propval *val)
+{
+	struct isl9519q_struct *isl_chg = container_of(psy,
+						struct isl9519q_struct,
+						dc_psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = isl_chg->chgcurrent;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = (int)isl_chg->present;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		val->intval = get_prop_charge_type(isl_chg);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int pm_power_set_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  const union power_supply_propval *val)
+{
+	struct isl9519q_struct *isl_chg = container_of(psy,
+						struct isl9519q_struct,
+						dc_psy);
+	unsigned long flags;
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		if (val->intval) {
+			isl_chg->present = val->intval;
+		} else {
+			isl_chg->present = 0;
+			if (isl_chg->charging)
+				goto stop_charging;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (val->intval) {
+			if (isl_chg->chgcurrent != val->intval)
+				return -EINVAL;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		if (val->intval && isl_chg->present) {
+			if (val->intval == POWER_SUPPLY_CHARGE_TYPE_FAST)
+				goto start_charging;
+			if (val->intval == POWER_SUPPLY_CHARGE_TYPE_NONE)
+				goto stop_charging;
+		} else {
+			return -EINVAL;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	power_supply_changed(&isl_chg->dc_psy);
+	return 0;
+
+start_charging:
+	spin_lock_irqsave(&isl_chg->lock, flags);
+	rc = isl9519q_start_charging(isl_chg, 0, isl_chg->chgcurrent);
+	if (rc)
+		pr_err("Failed to start charging rc=%d\n", rc);
+	spin_unlock_irqrestore(&isl_chg->lock, flags);
+	power_supply_changed(&isl_chg->dc_psy);
+	return rc;
+
+stop_charging:
+	spin_lock_irqsave(&isl_chg->lock, flags);
+	rc = isl9519q_stop_charging(isl_chg);
+	if (rc)
+		pr_err("Failed to start charging rc=%d\n", rc);
+	spin_unlock_irqrestore(&isl_chg->lock, flags);
+	power_supply_changed(&isl_chg->dc_psy);
+	return rc;
+}
+
 #define MAX_VOLTAGE_REG_MASK  0x3FF0
 #define MIN_VOLTAGE_REG_MASK  0x3F00
 #define DEFAULT_MAX_VOLTAGE_REG_VALUE	0x1070
@@ -404,8 +476,8 @@ err:
 static int __devinit isl9519q_init_adapter(struct isl9519q_struct *isl_chg)
 {
 	int ret;
-	struct isl_platform_data *pdata = isl_chg->client->dev.platform_data;
 	struct i2c_client *client = isl_chg->client;
+	struct isl_platform_data *pdata = client->dev.platform_data;
 
 	isl_chg->adapter_hw_chg.type = CHG_TYPE_AC;
 	isl_chg->adapter_hw_chg.rating = 2;
@@ -473,15 +545,18 @@ static int __devinit isl9519q_init_ext_chg(struct isl9519q_struct *isl_chg)
 {
 	int ret;
 
-	isl_chg->ext_chg.name = "isl9519q";
-	isl_chg->ext_chg.ctx = isl_chg;
-	isl_chg->ext_chg.start_charging = isl_ext_start_charging;
-	isl_chg->ext_chg.stop_charging = isl_ext_stop_charging;
-	isl_chg->ext_chg.is_trickle = isl_ext_is_trickle;
-	ret = register_external_dc_charger(&isl_chg->ext_chg);
+	isl_chg->dc_psy.name = "dc";
+	isl_chg->dc_psy.type = POWER_SUPPLY_TYPE_MAINS;
+	isl_chg->dc_psy.supplied_to = pm_power_supplied_to;
+	isl_chg->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to);
+	isl_chg->dc_psy.properties = pm_power_props;
+	isl_chg->dc_psy.num_properties = ARRAY_SIZE(pm_power_props);
+	isl_chg->dc_psy.get_property = pm_power_get_property;
+	isl_chg->dc_psy.set_property = pm_power_set_property;
+
+	ret = power_supply_register(&isl_chg->client->dev, &isl_chg->dc_psy);
 	if (ret) {
-		pr_err("%s.failed to register external dc charger.ret=%d.\n",
-		       __func__, ret);
+		pr_err("failed to register dc charger.ret=%d.\n", ret);
 		return ret;
 	}
 
@@ -553,6 +628,36 @@ static void remove_debugfs_entries(struct isl9519q_struct *isl_chg)
 		debugfs_remove_recursive(isl_chg->dent);
 }
 
+static int __devinit isl9519q_hwinit(struct isl9519q_struct *isl_chg)
+{
+	int ret;
+
+	ret = isl9519q_write_reg(isl_chg->client, MAX_SYS_VOLTAGE_REG,
+			isl_chg->max_system_voltage);
+	if (ret) {
+		pr_err("Failed to set MAX_SYS_VOLTAGE rc=%d\n", ret);
+		return ret;
+	}
+
+	ret = isl9519q_write_reg(isl_chg->client, MIN_SYS_VOLTAGE_REG,
+			isl_chg->min_system_voltage);
+	if (ret) {
+		pr_err("Failed to set MIN_SYS_VOLTAGE rc=%d\n", ret);
+		return ret;
+	}
+
+	if (isl_chg->input_current) {
+		ret = isl9519q_write_reg(isl_chg->client,
+				INPUT_CURRENT_REG,
+				isl_chg->input_current);
+		if (ret) {
+			pr_err("Failed to set INPUT_CURRENT rc=%d\n", ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int __devinit isl9519q_probe(struct i2c_client *client,
 				    const struct i2c_device_id *id)
 {
@@ -563,7 +668,7 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 	ret = 0;
 	pdata = client->dev.platform_data;
 
-	pr_info("%s.\n", __func__);
+	pr_debug("\n");
 
 	if (pdata == NULL) {
 		dev_err(&client->dev, "%s no platform data\n", __func__);
@@ -623,23 +728,9 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 	if (isl_chg->min_system_voltage == 0)
 		isl_chg->min_system_voltage = DEFAULT_MIN_VOLTAGE_REG_VALUE;
 
-	ret = isl9519q_write_reg(isl_chg->client, MAX_SYS_VOLTAGE_REG,
-			isl_chg->max_system_voltage);
+	ret = isl9519q_hwinit(isl_chg);
 	if (ret)
 		goto free_isl_chg;
-
-	ret = isl9519q_write_reg(isl_chg->client, MIN_SYS_VOLTAGE_REG,
-			isl_chg->min_system_voltage);
-	if (ret)
-		goto free_isl_chg;
-
-	if (isl_chg->input_current) {
-		ret = isl9519q_write_reg(isl_chg->client,
-				INPUT_CURRENT_REG,
-				isl_chg->input_current);
-		if (ret)
-			goto free_isl_chg;
-	}
 
 	if (isl_chg->notify_by_pmic)
 		ret = isl9519q_init_ext_chg(isl_chg);
@@ -652,7 +743,7 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 	the_isl_chg = isl_chg;
 	create_debugfs_entries(isl_chg);
 
-	pr_info("%s OK.\n", __func__);
+	pr_info("OK.\n");
 
 	return 0;
 
@@ -671,8 +762,13 @@ static int __devexit isl9519q_remove(struct i2c_client *client)
 	gpio_free(pdata->valid_n_gpio);
 	free_irq(client->irq, client);
 	cancel_delayed_work_sync(&isl_chg->charge_work);
-	msm_charger_notify_event(&isl_chg->adapter_hw_chg, CHG_REMOVED_EVENT);
-	msm_charger_unregister(&isl_chg->adapter_hw_chg);
+	if (isl_chg->notify_by_pmic) {
+		power_supply_unregister(&isl_chg->dc_psy);
+	} else {
+		msm_charger_notify_event(&isl_chg->adapter_hw_chg,
+							CHG_REMOVED_EVENT);
+		msm_charger_unregister(&isl_chg->adapter_hw_chg);
+	}
 	remove_debugfs_entries(isl_chg);
 	the_isl_chg = NULL;
 	kfree(isl_chg);
@@ -736,8 +832,6 @@ static struct i2c_driver isl9519q_driver = {
 
 static int __init isl9519q_init(void)
 {
-	pr_info("%s. isl9519q SW rev 1.01\n", __func__);
-
 	return i2c_add_driver(&isl9519q_driver);
 }
 
