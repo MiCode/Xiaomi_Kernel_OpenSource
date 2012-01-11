@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,11 +56,11 @@
 #define ETB_LOCK()							\
 do {									\
 	mb();								\
-	etb_writel(etb, MAGIC2, CS_LAR);				\
+	etb_writel(etb, 0x0, CS_LAR);					\
 } while (0)
 #define ETB_UNLOCK()							\
 do {									\
-	etb_writel(etb, MAGIC1, CS_LAR);				\
+	etb_writel(etb, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
@@ -296,7 +296,7 @@ err_res:
 	return ret;
 }
 
-static int __devexit etb_remove(struct platform_device *pdev)
+static int etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
@@ -310,23 +310,18 @@ static int __devexit etb_remove(struct platform_device *pdev)
 
 static struct platform_driver etb_driver = {
 	.probe          = etb_probe,
-	.remove         = __devexit_p(etb_remove),
+	.remove         = etb_remove,
 	.driver         = {
 		.name   = "msm_etb",
 	},
 };
 
-static int __init etb_init(void)
+int __init etb_init(void)
 {
 	return platform_driver_register(&etb_driver);
 }
-module_init(etb_init);
 
-static void __exit etb_exit(void)
+void etb_exit(void)
 {
 	platform_driver_unregister(&etb_driver);
 }
-module_exit(etb_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Coresight Embedded Trace Buffer");

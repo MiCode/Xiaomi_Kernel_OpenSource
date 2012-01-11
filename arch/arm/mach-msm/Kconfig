@@ -138,7 +138,6 @@ config ARCH_MSM8960
 	select MSM_AUDIO_QDSP6 if SND_SOC
 	select CPU_HAS_L2_PMU
 	select MSM_SPM_V2
-	select HAS_QDSS
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
@@ -1814,43 +1813,30 @@ config MSM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
-config HAS_QDSS
-	bool "QDSS Present"
+config MSM_JTAG
+        bool "JTAG debug and trace support"
 	help
-	 Select this if the chip has Qualcomm Debug Subsystem implemented.
-
-config MSM_DEBUG_ACROSS_PC
-	bool "Debug support across power collapse"
-	help
-	  Enables debug state to be saved and restored across power collapse.
-
-config MSM_JTAG_V7
-	depends on CPU_V7 && !HAS_QDSS
-	default y if DEBUG_KERNEL
-	bool "JTAG debug support"
-	select MSM_DEBUG_ACROSS_PC
-	help
-          Add additional support for JTAG kernel debugging.
-
-config MSM_TRACE_ACROSS_PC
-	bool "Trace support across power collapse"
-	help
-	  Enables trace state to be saved and restored across power collapse.
+          Add additional support for JTAG kernel debugging and tracing.
 
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"
-	depends on ARCH_MSM8X60 && !HAS_QDSS
-	select MSM_TRACE_ACROSS_PC
+	depends on ARCH_MSM8X60
+	select MSM_JTAG
 	help
-	  Enables embedded trace collection on Qualcomm v7 CPUs.
+	  Enables embedded trace collection on MSM8660
 
 config MSM_QDSS
 	bool "Qualcomm Debug Subsystem"
-	depends on HAS_QDSS
-	select MSM_DEBUG_ACROSS_PC
-	select MSM_TRACE_ACROSS_PC
+	select MSM_JTAG
 	help
 	  Enables support for Qualcomm Debug Subsystem.
+
+config MSM_QDSS_ETM_DEFAULT_ENABLE
+	bool "Turn on QDSS ETM Tracing by Default"
+	depends on MSM_QDSS
+	help
+	  Turns on QDSS ETM tracing by default. Otherwise, tracing is
+	  disabled by default but can be enabled by other means.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"

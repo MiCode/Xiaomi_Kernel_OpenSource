@@ -45,17 +45,11 @@ obj-$(CONFIG_MSM_CPU_AVS) += avs.o
 obj-$(CONFIG_MSM_AVS_HW) += avs_hw.o
 obj-$(CONFIG_CPU_V6) += idle-v6.o
 obj-$(CONFIG_CPU_V7) += idle-v7.o
-obj-$(CONFIG_MSM_JTAG_V7) += jtag-v7.o
+obj-$(CONFIG_MSM_JTAG) += jtag.o
 
-msm-etm-objs := cp14.o etm.o
+msm-etm-objs := etm.o
 obj-$(CONFIG_MSM_ETM) += msm-etm.o
-
-ifdef CONFIG_MSM_QDSS
-	obj-y += qdss-debug.o
-	obj-y += qdss-etb.o qdss-tpiu.o
-	obj-y += qdss-funnel.o
-	obj-y += qdss-ptm.o
-endif
+obj-$(CONFIG_MSM_QDSS) += qdss.o qdss-etb.o qdss-tpiu.o qdss-funnel.o qdss-ptm.o
 
 quiet_cmd_mkrpcsym = MKCAP   $@
       cmd_mkrpcsym = $(PERL) $(srctree)/$(src)/mkrpcsym.pl $< $@

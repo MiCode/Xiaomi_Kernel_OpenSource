@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,10 @@
 
 #include <linux/bitops.h>
 
-/* Coresight management registers (0xF00-0xFCC) */
+/* Coresight management registers (0xF00-0xFCC)
+ * 0xFA0 - 0xFA4: Management	registers in PFTv1.0
+ *		  Trace		registers in PFTv1.1
+ */
 #define CS_ITCTRL		(0xF00)
 #define CS_CLAIMSET		(0xFA0)
 #define CS_CLAIMCLR		(0xFA4)
@@ -39,36 +42,46 @@
 #define CS_CIDR2		(0xFF8)
 #define CS_CIDR3		(0xFFC)
 
+/* DBGv7 with baseline CP14 registers implemented */
+#define ARM_DEBUG_ARCH_V7B	(0x3)
+/* DBGv7 with all CP14 registers implemented */
+#define ARM_DEBUG_ARCH_V7	(0x4)
+#define ARM_DEBUG_ARCH_V7_1	(0x5)
+#define ETM_ARCH_V3_3		(0x23)
+#define PFT_ARCH_V1_1		(0x31)
 
-#define TIMEOUT_US		100
-#define MAGIC1			0xC5ACCE55
-#define MAGIC2			0x0
+#define TIMEOUT_US		(100)
+#define OSLOCK_MAGIC		(0xC5ACCE55)
+#define CS_UNLOCK_MAGIC		(0xC5ACCE55)
 
 #define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
-/* TODO: clean this up */
+int etb_init(void);
+void etb_exit(void);
+int tpiu_init(void);
+void tpiu_exit(void);
+int funnel_init(void);
+void funnel_exit(void);
+int ptm_init(void);
+void ptm_exit(void);
+
 void etb_enable(void);
 void etb_disable(void);
 void etb_dump(void);
 void tpiu_disable(void);
 void funnel_enable(uint8_t id, uint32_t port_mask);
 void funnel_disable(uint8_t id, uint32_t port_mask);
+int qdss_clk_enable(void);
+void qdss_clk_disable(void);
 
-#ifdef CONFIG_MSM_DEBUG_ACROSS_PC
-extern void msm_save_jtag_debug(void);
-extern void msm_restore_jtag_debug(void);
+#ifdef CONFIG_MSM_JTAG
+extern void msm_jtag_save_state(void);
+extern void msm_jtag_restore_state(void);
 #else
-static inline void msm_save_jtag_debug(void) {}
-static inline void msm_restore_jtag_debug(void) {}
-#endif
-#ifdef CONFIG_MSM_TRACE_ACROSS_PC
-extern void etm_save_reg_check(void);
-extern void etm_restore_reg_check(void);
-#else
-static inline void etm_save_reg_check(void) {}
-static inline void etm_restore_reg_check(void) {}
+static inline void msm_jtag_save_state(void) {}
+static inline void msm_jtag_restore_state(void) {}
 #endif
 
 #endif

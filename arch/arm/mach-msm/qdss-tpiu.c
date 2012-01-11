@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,11 +47,11 @@
 #define TPIU_LOCK()							\
 do {									\
 	mb();								\
-	tpiu_writel(tpiu, MAGIC2, CS_LAR);				\
+	tpiu_writel(tpiu, 0x0, CS_LAR);					\
 } while (0)
 #define TPIU_UNLOCK()							\
 do {									\
-	tpiu_writel(tpiu, MAGIC1, CS_LAR);				\
+	tpiu_writel(tpiu, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
@@ -106,7 +106,7 @@ err_res:
 	return ret;
 }
 
-static int __devexit tpiu_remove(struct platform_device *pdev)
+static int tpiu_remove(struct platform_device *pdev)
 {
 	if (tpiu.enabled)
 		tpiu_disable();
@@ -117,23 +117,18 @@ static int __devexit tpiu_remove(struct platform_device *pdev)
 
 static struct platform_driver tpiu_driver = {
 	.probe          = tpiu_probe,
-	.remove         = __devexit_p(tpiu_remove),
+	.remove         = tpiu_remove,
 	.driver         = {
 		.name   = "msm_tpiu",
 	},
 };
 
-static int __init tpiu_init(void)
+int __init tpiu_init(void)
 {
 	return platform_driver_register(&tpiu_driver);
 }
-module_init(tpiu_init);
 
-static void __exit tpiu_exit(void)
+void tpiu_exit(void)
 {
 	platform_driver_unregister(&tpiu_driver);
 }
-module_exit(tpiu_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Coresight Trace Port Interface Unit");

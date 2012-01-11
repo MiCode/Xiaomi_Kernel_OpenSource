@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,6 @@
 #include <linux/smp.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
-#include <linux/clk.h>
 #include <asm/atomic.h>
 
 #include "qdss.h"
@@ -100,37 +99,26 @@
 #define ETMPDCR			(0x310)
 #define ETMPDSR			(0x314)
 
-
 #define PTM_LOCK(cpu)							\
 do {									\
 	mb();								\
-	ptm_writel(ptm, cpu, MAGIC2, CS_LAR);				\
+	ptm_writel(ptm, cpu, 0x0, CS_LAR);				\
 } while (0)
 #define PTM_UNLOCK(cpu)							\
 do {									\
-	ptm_writel(ptm, cpu, MAGIC1, CS_LAR);				\
+	ptm_writel(ptm, cpu, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
-#define PTM_OS_LOCK(cpu)						\
-do {									\
-	ptm_writel(ptm, cpu, MAGIC1, ETMOSLAR);				\
-	mb();								\
-} while (0)
-#define PTM_OS_UNLOCK(cpu)						\
-do {									\
-	mb();								\
-	ptm_writel(ptm, cpu, MAGIC2, ETMOSLAR);				\
-	mb();								\
-} while (0)
-
-#define MAX_TRACE_REGS		(78)
-#define MAX_STATE_SIZE		(MAX_TRACE_REGS * num_possible_cpus())
 
 /* Forward declarations */
 static void ptm_cfg_rw_init(void);
 
+#ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
+static int trace_on_boot = 1;
+#else
 static int trace_on_boot;
+#endif
 module_param_named(
 	trace_on_boot, trace_on_boot, int, S_IRUGO
 );
@@ -189,77 +177,31 @@ struct ptm_config {
 struct ptm_ctx {
 	struct ptm_config		cfg;
 	void __iomem			*base;
-	uint32_t			*state;
 	bool				trace_enabled;
 	struct wake_lock		wake_lock;
 	struct pm_qos_request_list	qos_req;
 	atomic_t			in_use;
 	struct device			*dev;
-	struct clk			*qdss_at_clk;
-	struct clk			*qdss_pclkdbg_clk;
-	struct clk			*qdss_pclk;
-	struct clk			*qdss_traceclkin_clk;
-	struct clk			*qdss_tsctr_clk;
 };
 
 static struct ptm_ctx ptm;
 
-/* Memory mapped writes to clear os lock don't work */
-static void ptm_os_unlock(void *unused)
-{
-	unsigned long value = 0x0;
 
-	asm("mcr p14, 1, %0, c1, c0, 4\n\t" : : "r" (value));
-	asm("isb\n\t");
-}
-
-static int ptm_clock_enable(void)
-{
-	int ret;
-
-	ret = clk_enable(ptm.qdss_at_clk);
-	if (WARN(ret, "qdss_at_clk not enabled (%d)\n", ret))
-		goto err;
-
-	ret = clk_enable(ptm.qdss_pclkdbg_clk);
-	if (WARN(ret, "qdss_pclkdbg_clk not enabled (%d)\n", ret))
-		goto err_pclkdbg;
-
-	ret = clk_enable(ptm.qdss_pclk);
-	if (WARN(ret, "qdss_pclk not enabled (%d)\n", ret))
-		goto err_pclk;
-
-	ret = clk_enable(ptm.qdss_traceclkin_clk);
-	if (WARN(ret, "qdss_traceclkin_clk not enabled (%d)\n", ret))
-		goto err_traceclkin;
-
-	ret = clk_enable(ptm.qdss_tsctr_clk);
-	if (WARN(ret, "qdss_tsctr_clk not enabled (%d)\n", ret))
-		goto err_tsctr;
-
-	return 0;
-
-err_tsctr:
-	clk_disable(ptm.qdss_traceclkin_clk);
-err_traceclkin:
-	clk_disable(ptm.qdss_pclk);
-err_pclk:
-	clk_disable(ptm.qdss_pclkdbg_clk);
-err_pclkdbg:
-	clk_disable(ptm.qdss_at_clk);
-err:
-	return ret;
-}
-
-static void ptm_clock_disable(void)
-{
-	clk_disable(ptm.qdss_tsctr_clk);
-	clk_disable(ptm.qdss_traceclkin_clk);
-	clk_disable(ptm.qdss_pclk);
-	clk_disable(ptm.qdss_pclkdbg_clk);
-	clk_disable(ptm.qdss_at_clk);
-}
-
+/* ETM clock is derived from the processor clock and gets enabled on a
+ * logical OR of below items on Krait (pass2 onwards):
+ * 1.CPMR[ETMCLKEN] is 1
+ * 2.ETMCR[PD] is 0
+ * 3.ETMPDCR[PU] is 1
+ * 4.Reset is asserted (core or debug)
+ * 5.APB memory mapped requests (eg. EDAP access)
+ *
+ * 1., 2. and 3. above are permanent enables whereas 4. and 5. are temporary
+ * enables
+ *
+ * We rely on 5. to be able to access ETMCR and then use 2. above for ETM
+ * clock vote in the driver and the save-restore code uses 1. above
+ * for its vote
+ */
 static void ptm_set_powerdown(int cpu)
 {
 	uint32_t etmcr;
@@ -308,68 +250,65 @@ static void ptm_clear_prog(int cpu)
 	WARN(count == 0, "timeout while clearing prog bit\n");
 }
 
-static void __ptm_trace_enable(void)
+static void __ptm_trace_enable(int cpu)
 {
-	int i, cpu;
+	int i;
 
-	for_each_online_cpu(cpu) {
-		PTM_UNLOCK(cpu);
-		ptm_clear_powerdown(cpu);
-		ptm_set_prog(cpu);
+	PTM_UNLOCK(cpu);
+	/* Vote for ETM power/clock enable */
+	ptm_clear_powerdown(cpu);
+	ptm_set_prog(cpu);
 
-		ptm_writel(ptm, cpu, ptm.cfg.main_control | BIT(10), ETMCR);
-		ptm_writel(ptm, cpu, ptm.cfg.trigger_event, ETMTRIGGER);
-		ptm_writel(ptm, cpu, ptm.cfg.te_start_stop_control, ETMTSSCR);
-		ptm_writel(ptm, cpu, ptm.cfg.te_event, ETMTEEVR);
-		ptm_writel(ptm, cpu, ptm.cfg.te_control, ETMTECR1);
-		ptm_writel(ptm, cpu, ptm.cfg.fifofull_level, ETMFFLR);
-		for (i = 0; i < ptm.cfg.nr_addr_comp; i++) {
-			ptm_writel(ptm, cpu, ptm.cfg.addr_comp_value[i],
-							ETMACVRn(i));
-			ptm_writel(ptm, cpu, ptm.cfg.addr_comp_access_type[i],
+	ptm_writel(ptm, cpu, ptm.cfg.main_control | BIT(10), ETMCR);
+	ptm_writel(ptm, cpu, ptm.cfg.trigger_event, ETMTRIGGER);
+	ptm_writel(ptm, cpu, ptm.cfg.te_start_stop_control, ETMTSSCR);
+	ptm_writel(ptm, cpu, ptm.cfg.te_event, ETMTEEVR);
+	ptm_writel(ptm, cpu, ptm.cfg.te_control, ETMTECR1);
+	ptm_writel(ptm, cpu, ptm.cfg.fifofull_level, ETMFFLR);
+	for (i = 0; i < ptm.cfg.nr_addr_comp; i++) {
+		ptm_writel(ptm, cpu, ptm.cfg.addr_comp_value[i], ETMACVRn(i));
+		ptm_writel(ptm, cpu, ptm.cfg.addr_comp_access_type[i],
 							ETMACTRn(i));
-		}
-		for (i = 0; i < ptm.cfg.nr_cntr; i++) {
-			ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_value[i],
-							ETMCNTRLDVRn(i));
-			ptm_writel(ptm, cpu, ptm.cfg.cntr_enable_event[i],
-							ETMCNTENRn(i));
-			ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_event[i],
-							ETMCNTRLDEVRn(i));
-			ptm_writel(ptm, cpu, ptm.cfg.cntr_value[i],
-							ETMCNTVRn(i));
-		}
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_12_event, ETMSQ12EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_21_event, ETMSQ21EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_23_event, ETMSQ23EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_32_event, ETMSQ32EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_13_event, ETMSQ13EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.seq_state_31_event, ETMSQ31EVR);
-		ptm_writel(ptm, cpu, ptm.cfg.current_seq_state, ETMSQR);
-		for (i = 0; i < ptm.cfg.nr_ext_output; i++)
-			ptm_writel(ptm, cpu, ptm.cfg.ext_output_event[i],
-							ETMEXTOUTEVRn(i));
-		for (i = 0; i < ptm.cfg.nr_context_id_comp; i++)
-			ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_value[i],
-							ETMCIDCVRn(i));
-		ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_mask, ETMCIDCMR);
-		ptm_writel(ptm, cpu, ptm.cfg.sync_freq, ETMSYNCFR);
-		ptm_writel(ptm, cpu, ptm.cfg.extnd_ext_input_sel, ETMEXTINSELR);
-		ptm_writel(ptm, cpu, ptm.cfg.ts_event, ETMTSEVR);
-		ptm_writel(ptm, cpu, ptm.cfg.aux_control, ETMAUXCR);
-		ptm_writel(ptm, cpu, cpu+1, ETMTRACEIDR);
-		ptm_writel(ptm, cpu, ptm.cfg.vmid_comp_value, ETMVMIDCVR);
-
-		ptm_clear_prog(cpu);
-		PTM_LOCK(cpu);
 	}
+	for (i = 0; i < ptm.cfg.nr_cntr; i++) {
+		ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_value[i],
+							ETMCNTRLDVRn(i));
+		ptm_writel(ptm, cpu, ptm.cfg.cntr_enable_event[i],
+							ETMCNTENRn(i));
+		ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_event[i],
+							ETMCNTRLDEVRn(i));
+		ptm_writel(ptm, cpu, ptm.cfg.cntr_value[i], ETMCNTVRn(i));
+	}
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_12_event, ETMSQ12EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_21_event, ETMSQ21EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_23_event, ETMSQ23EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_32_event, ETMSQ32EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_13_event, ETMSQ13EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.seq_state_31_event, ETMSQ31EVR);
+	ptm_writel(ptm, cpu, ptm.cfg.current_seq_state, ETMSQR);
+	for (i = 0; i < ptm.cfg.nr_ext_output; i++)
+		ptm_writel(ptm, cpu, ptm.cfg.ext_output_event[i],
+							ETMEXTOUTEVRn(i));
+	for (i = 0; i < ptm.cfg.nr_context_id_comp; i++)
+		ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_value[i],
+							ETMCIDCVRn(i));
+	ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_mask, ETMCIDCMR);
+	ptm_writel(ptm, cpu, ptm.cfg.sync_freq, ETMSYNCFR);
+	ptm_writel(ptm, cpu, ptm.cfg.extnd_ext_input_sel, ETMEXTINSELR);
+	ptm_writel(ptm, cpu, ptm.cfg.ts_event, ETMTSEVR);
+	ptm_writel(ptm, cpu, ptm.cfg.aux_control, ETMAUXCR);
+	ptm_writel(ptm, cpu, cpu+1, ETMTRACEIDR);
+	ptm_writel(ptm, cpu, ptm.cfg.vmid_comp_value, ETMVMIDCVR);
+
+	ptm_clear_prog(cpu);
+	PTM_LOCK(cpu);
 }
 
 static int ptm_trace_enable(void)
 {
-	int ret;
+	int ret, cpu;
 
-	ret = ptm_clock_enable();
+	ret = qdss_clk_enable();
 	if (ret)
 		return ret;
 
@@ -388,9 +327,8 @@ static int ptm_trace_enable(void)
 	/* enable ETB first to avoid loosing any trace data */
 	etb_enable();
 	funnel_enable(0x0, 0x3);
-	ptm_os_unlock(NULL);
-	smp_call_function(ptm_os_unlock, NULL, 1);
-	__ptm_trace_enable();
+	for_each_online_cpu(cpu)
+		__ptm_trace_enable(cpu);
 
 	ptm.trace_enabled = true;
 
@@ -400,24 +338,23 @@ static int ptm_trace_enable(void)
 	return 0;
 }
 
-static void __ptm_trace_disable(void)
+static void __ptm_trace_disable(int cpu)
 {
-	int cpu;
+	PTM_UNLOCK(cpu);
+	ptm_set_prog(cpu);
 
-	for_each_online_cpu(cpu) {
-		PTM_UNLOCK(cpu);
-		ptm_set_prog(cpu);
+	/* program trace enable to low by using always false event */
+	ptm_writel(ptm, cpu, 0x6F | BIT(14), ETMTEEVR);
 
-		/* program trace enable to low by using always false event */
-		ptm_writel(ptm, cpu, 0x6F | BIT(14), ETMTEEVR);
-
-		ptm_set_powerdown(cpu);
-		PTM_LOCK(cpu);
-	}
+	/* Vote for ETM power/clock disable */
+	ptm_set_powerdown(cpu);
+	PTM_LOCK(cpu);
 }
 
 static void ptm_trace_disable(void)
 {
+	int cpu;
+
 	wake_lock(&ptm.wake_lock);
 	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is disabled atomically
@@ -428,7 +365,8 @@ static void ptm_trace_disable(void)
 	 */
 	pm_qos_update_request(&ptm.qos_req, 0);
 
-	__ptm_trace_disable();
+	for_each_online_cpu(cpu)
+		__ptm_trace_disable(cpu);
 	etb_dump();
 	etb_disable();
 	funnel_disable(0x0, 0x3);
@@ -438,7 +376,7 @@ static void ptm_trace_disable(void)
 	pm_qos_update_request(&ptm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&ptm.wake_lock);
 
-	ptm_clock_disable();
+	qdss_clk_disable();
 }
 
 static int ptm_open(struct inode *inode, struct file *file)
@@ -597,151 +535,6 @@ static struct miscdevice ptm_misc = {
 	.fops =		&ptm_fops,
 };
 
-static void ptm_save_reg(int cpu)
-{
-	uint32_t i;
-	int j;
-
-	PTM_UNLOCK(cpu);
-
-	i = cpu * MAX_TRACE_REGS;
-
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMCR);
-	ptm_set_prog(cpu);
-
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTRIGGER);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTSSCR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTEEVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTECR1);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMFFLR);
-	for (j = 0; j < ptm.cfg.nr_addr_comp; j++) {
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMACVRn(j));
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMACTRn(j));
-	}
-	for (j = 0; j < ptm.cfg.nr_cntr; j++) {
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMCNTRLDVRn(j));
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMCNTENRn(j));
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMCNTRLDEVRn(j));
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMCNTVRn(j));
-	}
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ12EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ21EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ23EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ32EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ13EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQ31EVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSQR);
-	for (j = 0; j < ptm.cfg.nr_ext_output; j++)
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMEXTOUTEVRn(j));
-	for (j = 0; j < ptm.cfg.nr_context_id_comp; j++)
-		ptm.state[i++] = ptm_readl(ptm, cpu, ETMCIDCVRn(j));
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMCIDCMR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMSYNCFR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMEXTINSELR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTSEVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMAUXCR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMTRACEIDR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, ETMVMIDCVR);
-	ptm.state[i++] = ptm_readl(ptm, cpu, CS_CLAIMSET);
-	ptm.state[i++] = ptm_readl(ptm, cpu, CS_CLAIMCLR);
-
-	PTM_LOCK(cpu);
-}
-
-static void ptm_restore_reg(int cpu)
-{
-	uint32_t i;
-	int j;
-
-	ptm_os_unlock(NULL);
-	PTM_UNLOCK(cpu);
-
-	i = cpu * MAX_TRACE_REGS;
-
-	ptm_clear_powerdown(cpu);
-	ptm_set_prog(cpu);
-	/* Ensure prog bit doesn't get cleared since we have set it above.
-	 * Power down bit should already be clear in the saved state.
-	 */
-	ptm_writel(ptm, cpu, ptm.state[i++] | BIT(10), ETMCR);
-
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTRIGGER);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTSSCR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTEEVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTECR1);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMFFLR);
-	for (j = 0; j < ptm.cfg.nr_addr_comp; j++) {
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMACVRn(j));
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMACTRn(j));
-	}
-	for (j = 0; j < ptm.cfg.nr_cntr; j++) {
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMCNTRLDVRn(j));
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMCNTENRn(j));
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMCNTRLDEVRn(j));
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMCNTVRn(j));
-	}
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ12EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ21EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ23EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ32EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ13EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQ31EVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSQR);
-	for (j = 0; j < ptm.cfg.nr_ext_output; j++)
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMEXTOUTEVRn(j));
-	for (j = 0; j < ptm.cfg.nr_context_id_comp; j++)
-		ptm_writel(ptm, cpu, ptm.state[i++], ETMCIDCVRn(j));
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMCIDCMR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMSYNCFR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMEXTINSELR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTSEVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMAUXCR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMTRACEIDR);
-	ptm_writel(ptm, cpu, ptm.state[i++], ETMVMIDCVR);
-	ptm_writel(ptm, cpu, ptm.state[i++], CS_CLAIMSET);
-	ptm_writel(ptm, cpu, ptm.state[i++], CS_CLAIMCLR);
-
-	ptm_clear_prog(cpu);
-
-	PTM_LOCK(cpu);
-}
-
-/* etm_save_reg_check and etm_restore_reg_check should be fast
- *
- * These functions will be called either from:
- * 1. per_cpu idle thread context for idle power collapses.
- * 2. per_cpu idle thread context for hotplug/suspend power collapse for
- *    nonboot cpus.
- * 3. suspend thread context for core0.
- *
- * In all cases we are guaranteed to be running on the same cpu for the
- * entire duration.
- *
- * Another assumption is that etm registers won't change after trace_enabled
- * is set. Current usage model guarantees this doesn't happen.
- *
- * Also disabling all types of power_collapses when enabling and disabling
- * trace provides mutual exclusion to be able to safely access
- * ptm.trace_enabled here.
- */
-void etm_save_reg_check(void)
-{
-	if (ptm.trace_enabled) {
-		int cpu = smp_processor_id();
-		ptm_save_reg(cpu);
-	}
-}
-
-void etm_restore_reg_check(void)
-{
-	if (ptm.trace_enabled) {
-		int cpu = smp_processor_id();
-		ptm_restore_reg(cpu);
-	}
-}
-
 static void ptm_cfg_rw_init(void)
 {
 	int i;
@@ -781,14 +574,25 @@ static void ptm_cfg_rw_init(void)
 	ptm.cfg.vmid_comp_value =			0x00000000;
 }
 
+/* Memory mapped writes to clear os lock not supported */
+static void ptm_os_unlock(void *unused)
+{
+	unsigned long value = 0x0;
+
+	asm("mcr p14, 1, %0, c1, c0, 4\n\t" : : "r" (value));
+	asm("isb\n\t");
+}
+
 static void ptm_cfg_ro_init(void)
 {
 	/* use cpu 0 for setup */
 	int cpu = 0;
 
+	/* Unlock OS lock first to allow memory mapped reads and writes */
 	ptm_os_unlock(NULL);
 	smp_call_function(ptm_os_unlock, NULL, 1);
 	PTM_UNLOCK(cpu);
+	/* Vote for ETM power/clock enable */
 	ptm_clear_powerdown(cpu);
 	ptm_set_prog(cpu);
 
@@ -809,6 +613,7 @@ static void ptm_cfg_ro_init(void)
 	ptm.cfg.fifofull_supported =	BVAL(ptm.cfg.system_config, 8);
 	ptm.cfg.nr_procs_supported =	BMVAL(ptm.cfg.system_config, 12, 14);
 
+	/* Vote for ETM power/clock disable */
 	ptm_set_powerdown(cpu);
 	PTM_LOCK(cpu);
 }
@@ -832,71 +637,13 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 
 	ptm.dev = &pdev->dev;
 
-	ptm.state = kzalloc(MAX_STATE_SIZE * sizeof(uint32_t), GFP_KERNEL);
-	if (!ptm.state) {
-		ret = -ENOMEM;
-		goto err_kzalloc;
-	}
-
 	ret = misc_register(&ptm_misc);
 	if (ret)
 		goto err_misc;
 
-	ptm.qdss_at_clk = clk_get(NULL, "qdss_at_clk");
-	if (IS_ERR(ptm.qdss_at_clk)) {
-		ret = PTR_ERR(ptm.qdss_at_clk);
-		goto err_at;
-	}
-	ret = clk_set_rate(ptm.qdss_at_clk, 300000000);
+	ret = qdss_clk_enable();
 	if (ret)
-		goto err_at_rate;
-	ret = clk_enable(ptm.qdss_at_clk);
-	if (ret)
-		goto err_at_enable;
-
-	ptm.qdss_pclkdbg_clk = clk_get(NULL, "qdss_pclkdbg_clk");
-	if (IS_ERR(ptm.qdss_pclkdbg_clk)) {
-		ret = PTR_ERR(ptm.qdss_pclkdbg_clk);
-		goto err_pclkdbg;
-	}
-	ret = clk_enable(ptm.qdss_pclkdbg_clk);
-	if (ret)
-		goto err_pclkdbg_enable;
-
-	ptm.qdss_pclk = clk_get(NULL, "qdss_pclk");
-	if (IS_ERR(ptm.qdss_pclk)) {
-		ret = PTR_ERR(ptm.qdss_pclk);
-		goto err_pclk;
-	}
-
-	ret = clk_enable(ptm.qdss_pclk);
-	if (ret)
-		goto err_pclk_enable;
-
-	ptm.qdss_traceclkin_clk = clk_get(NULL, "qdss_traceclkin_clk");
-	if (IS_ERR(ptm.qdss_traceclkin_clk)) {
-		ret = PTR_ERR(ptm.qdss_traceclkin_clk);
-		goto err_traceclkin;
-	}
-	ret = clk_set_rate(ptm.qdss_traceclkin_clk, 300000000);
-	if (ret)
-		goto err_traceclkin_rate;
-	ret = clk_enable(ptm.qdss_traceclkin_clk);
-	if (ret)
-		goto err_traceclkin_enable;
-
-	ptm.qdss_tsctr_clk = clk_get(NULL, "qdss_tsctr_clk");
-	if (IS_ERR(ptm.qdss_tsctr_clk)) {
-		ret = PTR_ERR(ptm.qdss_tsctr_clk);
-		goto err_tsctr;
-	}
-	ret = clk_set_rate(ptm.qdss_tsctr_clk, 400000000);
-	if (ret)
-		goto err_tsctr_rate;
-
-	ret = clk_enable(ptm.qdss_tsctr_clk);
-	if (ret)
-		goto err_tsctr_enable;
+		goto err_clk;
 
 	ptm_cfg_ro_init();
 	ptm_cfg_rw_init();
@@ -908,11 +655,7 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 						PM_QOS_DEFAULT_VALUE);
 	atomic_set(&ptm.in_use, 0);
 
-	clk_disable(ptm.qdss_tsctr_clk);
-	clk_disable(ptm.qdss_traceclkin_clk);
-	clk_disable(ptm.qdss_pclk);
-	clk_disable(ptm.qdss_pclkdbg_clk);
-	clk_disable(ptm.qdss_at_clk);
+	qdss_clk_disable();
 
 	dev_info(ptm.dev, "PTM intialized.\n");
 
@@ -925,51 +668,22 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_tsctr_enable:
-err_tsctr_rate:
-	clk_put(ptm.qdss_tsctr_clk);
-err_tsctr:
-	clk_disable(ptm.qdss_traceclkin_clk);
-err_traceclkin_enable:
-err_traceclkin_rate:
-	clk_put(ptm.qdss_traceclkin_clk);
-err_traceclkin:
-	clk_disable(ptm.qdss_pclk);
-err_pclk_enable:
-	clk_put(ptm.qdss_pclk);
-err_pclk:
-	clk_disable(ptm.qdss_pclkdbg_clk);
-err_pclkdbg_enable:
-	clk_put(ptm.qdss_pclkdbg_clk);
-err_pclkdbg:
-	clk_disable(ptm.qdss_at_clk);
-err_at_enable:
-err_at_rate:
-	clk_put(ptm.qdss_at_clk);
-err_at:
+err_clk:
 	misc_deregister(&ptm_misc);
 err_misc:
-	kfree(ptm.state);
-err_kzalloc:
 	iounmap(ptm.base);
 err_ioremap:
 err_res:
 	return ret;
 }
 
-static int __devexit ptm_remove(struct platform_device *pdev)
+static int ptm_remove(struct platform_device *pdev)
 {
 	if (ptm.trace_enabled)
 		ptm_trace_disable();
 	pm_qos_remove_request(&ptm.qos_req);
 	wake_lock_destroy(&ptm.wake_lock);
-	clk_put(ptm.qdss_tsctr_clk);
-	clk_put(ptm.qdss_traceclkin_clk);
-	clk_put(ptm.qdss_pclk);
-	clk_put(ptm.qdss_pclkdbg_clk);
-	clk_put(ptm.qdss_at_clk);
 	misc_deregister(&ptm_misc);
-	kfree(ptm.state);
 	iounmap(ptm.base);
 
 	return 0;
@@ -977,23 +691,18 @@ static int __devexit ptm_remove(struct platform_device *pdev)
 
 static struct platform_driver ptm_driver = {
 	.probe          = ptm_probe,
-	.remove         = __devexit_p(ptm_remove),
+	.remove         = ptm_remove,
 	.driver         = {
 		.name   = "msm_ptm",
 	},
 };
 
-static int __init ptm_init(void)
+int __init ptm_init(void)
 {
 	return platform_driver_register(&ptm_driver);
 }
-module_init(ptm_init);
 
-static void __exit ptm_exit(void)
+void ptm_exit(void)
 {
 	platform_driver_unregister(&ptm_driver);
 }
-module_exit(ptm_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Coresight Program Flow Trace driver");
