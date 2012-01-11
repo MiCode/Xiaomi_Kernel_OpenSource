@@ -176,6 +176,12 @@ static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe,
 	if (!paths)
 		goto out;
 
+	if (list == NULL) {
+		pr_err("%s:Widget list is not configured. paths=%d",
+		__func__, paths);
+		goto out;
+	}
+
 	/* find BE DAI widgets and and connect the to FE */
 	for (i = 0; i < list->num_widgets; i++) {
 
