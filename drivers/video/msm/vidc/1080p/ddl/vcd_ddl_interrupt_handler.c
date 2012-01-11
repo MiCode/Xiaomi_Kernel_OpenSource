@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include "vcd_ddl.h"
 #include "vcd_ddl_shared_mem.h"
 #include "vcd_ddl_metadata.h"
+#include "vcd_res_tracker_api.h"
 #include <linux/delay.h>
 
 static void ddl_decoder_input_done_callback(
@@ -254,6 +255,13 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 		DDL_MSG_LOW("HEADER_DONE");
 		vidc_1080p_get_decode_seq_start_result(&seq_hdr_info);
 		parse_hdr_size_data(ddl, &seq_hdr_info);
+		if (res_trk_get_disable_fullhd() &&
+			(seq_hdr_info.img_size_x * seq_hdr_info.img_size_y >
+				1280 * 720)) {
+			DDL_MSG_ERROR("FATAL:Resolution greater than 720P HD");
+			ddl_client_fatal_cb(ddl);
+			return process_further;
+		}
 		if (!seq_hdr_info.img_size_x || !seq_hdr_info.img_size_y) {
 			DDL_MSG_ERROR("FATAL:ZeroImageSize");
 			ddl_client_fatal_cb(ddl);
