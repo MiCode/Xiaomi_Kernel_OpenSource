@@ -757,7 +757,7 @@ static void __init acpuclk_hw_init(void)
 	res = clk_set_rate(drv_state.ebi1_clk, speed->axiclk_khz * 1000);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed (%d)\n", res);
-	res = clk_enable(drv_state.ebi1_clk);
+	res = clk_prepare_enable(drv_state.ebi1_clk);
 	if (res < 0)
 		pr_warning("Enabling AXI clock failed (%d)\n", res);
 
