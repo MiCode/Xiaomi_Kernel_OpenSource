@@ -3900,7 +3900,8 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	int ret, mb_v;
+	int ret;
+	short mb_v;
 
 	pr_debug("%s: enter\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
@@ -3924,7 +3925,8 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 				 __func__, mb_v,
 				 tabla_codec_sta_dce_v(codec, 0, mb_v));
 
-			if (mb_v < -2000 || mb_v > -670)
+			if (mb_v < (short)priv->mbhc_data.v_b1_hu ||
+			    mb_v > (short)priv->mbhc_data.v_ins_hu)
 				pr_debug("%s: Fake buttton press interrupt\n",
 					 __func__);
 			else if (priv->button_jack) {
