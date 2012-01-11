@@ -61,7 +61,7 @@ struct iris_device {
 	__u8 pty;
 	__u8 ps_repeatcount;
 	__u8 prev_trans_rds;
-
+	__u8 af_jump_bit;
 	struct video_device *videodev;
 
 	struct mutex lock;
@@ -2312,7 +2312,10 @@ static int set_low_power_mode(struct iris_device *radio, int power_mode)
 
 		if (power_mode) {
 			radio->event_mask = 0x00;
-			rds_grps_proc = 0x00 | AF_JUMP_ENABLE ;
+			if (radio->af_jump_bit)
+				rds_grps_proc = 0x00 | AF_JUMP_ENABLE;
+			else
+				rds_grps_proc = 0x00;
 			retval = hci_fm_rds_grps_process(
 				&rds_grps_proc,
 				radio->fm_hdev);
@@ -3010,6 +3013,10 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				radio->fm_hdev);
 		break;
 	case V4L2_CID_PRIVATE_IRIS_AF_JUMP:
+		/*Clear the current AF jump settings*/
+		radio->g_rds_grp_proc_ps &= ~(1 << RDS_AF_JUMP_OFFSET);
+		radio->af_jump_bit = ctrl->value;
+		rds_grps_proc = 0x00;
 		rds_grps_proc = (ctrl->value << RDS_AF_JUMP_OFFSET);
 		radio->g_rds_grp_proc_ps |= rds_grps_proc;
 		retval = hci_fm_rds_grps_process(
