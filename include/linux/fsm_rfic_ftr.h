@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,9 +52,6 @@ struct rfic_grfc_param {
 };
 
 #define RFIC_IOCTL_MAGIC				'f'
-#define RFIC_IOCTL_IS_UMTS \
-	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x00, \
-		0)
 #define RFIC_IOCTL_READ_REGISTER \
 	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x01, \
 		sizeof(unsigned int *))

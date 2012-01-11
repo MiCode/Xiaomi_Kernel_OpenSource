@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,9 +159,6 @@ static long hh_ioctl(struct file *file,
 		(struct hh_dev_file_info *) file->private_data;
 
 	switch (cmd) {
-	case DFE_IOCTL_IS_UMTS:
-		return __raw_readl(MSM_TCSR_BASE + 0x0008) & 0x01;
-
 	case DFE_IOCTL_READ_REGISTER:
 		{
 			unsigned int offset, value;

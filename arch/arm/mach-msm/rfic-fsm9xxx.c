@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,9 +158,6 @@ static long ftr_ioctl(struct file *file,
 	pdev = ftr_dev_info + pdfi->ftrId;
 
 	switch (cmd) {
-	case RFIC_IOCTL_IS_UMTS:
-		return __raw_readl(MSM_TCSR_BASE + 0x0008) & 0x01;
-
 	case RFIC_IOCTL_READ_REGISTER:
 		{
 			int ret;

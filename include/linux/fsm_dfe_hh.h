@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,9 +60,6 @@ struct dfe_command_param {
 };
 
 #define DFE_IOCTL_MAGIC				'h'
-#define DFE_IOCTL_IS_UMTS \
-	_IOC(_IOC_READ, DFE_IOCTL_MAGIC, 0x00, \
-		0)
 #define DFE_IOCTL_READ_REGISTER \
 	_IOC(_IOC_READ, DFE_IOCTL_MAGIC, 0x01, \
 		sizeof(unsigned int *))
