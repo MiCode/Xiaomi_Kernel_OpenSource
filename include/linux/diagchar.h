@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
 #define APQ8060_MACHINE_ID	86
 #define AO8960_MACHINE_ID	87
 #define MSM8660_MACHINE_ID	71
+#define MDM9615_MACHINE_ID	104
 #define APQ8064_MACHINE_ID	109
 #define MSM8930_MACHINE_ID	116
 #define MSM8630_MACHINE_ID	117
@@ -47,10 +48,13 @@
 #define APQ8030_MACHINE_ID	119
 #define MSM8627_MACHINE_ID	120
 #define MSM8227_MACHINE_ID	121
+#define MSM8260A_MACHINE_ID	123
+#define MSM8974_MACHINE_ID	126
 #define APQ8060_TOOLS_ID	4062
 #define AO8960_TOOLS_ID		4064
 #define APQ8064_TOOLS_ID	4072
 #define MSM8930_TOOLS_ID	4072
+#define MSM8974_TOOLS_ID	4072
 
 #define MSG_MASK_0			(0x00000001)
 #define MSG_MASK_1			(0x00000002)
