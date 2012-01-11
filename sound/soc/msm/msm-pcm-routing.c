@@ -118,6 +118,7 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ VOICE_RECORD_RX, 0, NULL, 0, 0},
 	{ VOICE_RECORD_TX, 0, NULL, 0, 0},
 	{ MI2S_RX, 0, NULL, 0, 0},
+	{ SECONDARY_I2S_RX, 0, NULL, 0, 0},
 };
 
 
@@ -668,6 +669,21 @@ static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 };
 
+static const struct snd_kcontrol_new sec_i2s_rx_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_SEC_I2S_RX ,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia2", MSM_BACKEND_DAI_SEC_I2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia3", MSM_BACKEND_DAI_SEC_I2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia4", MSM_BACKEND_DAI_SEC_I2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+};
+
 static const struct snd_kcontrol_new slimbus_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_SLIMBUS_0_RX ,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
@@ -820,6 +836,15 @@ static const struct snd_kcontrol_new pri_rx_voice_mixer_controls[] = {
 	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
 	msm_routing_put_voice_mixer),
 	SOC_SINGLE_EXT("Voip", MSM_BACKEND_DAI_PRI_I2S_RX,
+	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+};
+
+static const struct snd_kcontrol_new sec_i2s_rx_voice_mixer_controls[] = {
+	SOC_SINGLE_EXT("CSVoice", MSM_BACKEND_DAI_SEC_I2S_RX,
+	MSM_FRONTEND_DAI_CS_VOICE, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_SINGLE_EXT("Voip", MSM_BACKEND_DAI_SEC_I2S_RX,
 	MSM_FRONTEND_DAI_VOIP, 1, 0, msm_routing_get_voice_mixer,
 	msm_routing_put_voice_mixer),
 };
@@ -1134,6 +1159,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Stream name equals to backend dai link stream name
 	 */
 	SND_SOC_DAPM_AIF_OUT("PRI_I2S_RX", "Primary I2S Playback", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("SEC_I2S_RX", "Secondary I2S Playback",
+				0, 0, 0 , 0),
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_0_RX", "Slimbus Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("HDMI", "HDMI Playback", 0, 0, 0 , 0),
 	SND_SOC_DAPM_AIF_OUT("MI2S_RX", "MI2S Playback", 0, 0, 0, 0),
@@ -1166,6 +1193,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Mixer definitions */
 	SND_SOC_DAPM_MIXER("PRI_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	pri_i2s_rx_mixer_controls, ARRAY_SIZE(pri_i2s_rx_mixer_controls)),
+	SND_SOC_DAPM_MIXER("SEC_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
+	sec_i2s_rx_mixer_controls, ARRAY_SIZE(sec_i2s_rx_mixer_controls)),
 	SND_SOC_DAPM_MIXER("SLIMBUS_0_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	slimbus_rx_mixer_controls, ARRAY_SIZE(slimbus_rx_mixer_controls)),
 	SND_SOC_DAPM_MIXER("HDMI Mixer", SND_SOC_NOPM, 0, 0,
@@ -1186,6 +1215,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_MIXER("PRI_RX_Voice Mixer",
 				SND_SOC_NOPM, 0, 0, pri_rx_voice_mixer_controls,
 				ARRAY_SIZE(pri_rx_voice_mixer_controls)),
+	SND_SOC_DAPM_MIXER("SEC_RX_Voice Mixer",
+				SND_SOC_NOPM, 0, 0,
+				sec_i2s_rx_voice_mixer_controls,
+				ARRAY_SIZE(sec_i2s_rx_voice_mixer_controls)),
 	SND_SOC_DAPM_MIXER("SLIM_0_RX_Voice Mixer",
 				SND_SOC_NOPM, 0, 0,
 				slimbus_rx_voice_mixer_controls,
@@ -1229,6 +1262,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
 	{"PRI_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
 	{"PRI_I2S_RX", NULL, "PRI_RX Audio Mixer"},
+
+	{"SEC_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"SEC_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"SEC_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
+	{"SEC_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
+	{"SEC_I2S_RX", NULL, "SEC_RX Audio Mixer"},
 
 	{"SLIMBUS_0_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"SLIMBUS_0_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
@@ -1294,6 +1333,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
 	{"PRI_RX_Voice Mixer", "Voip", "VOIP_DL"},
 	{"PRI_I2S_RX", NULL, "PRI_RX_Voice Mixer"},
+
+	{"SEC_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
+	{"SEC_RX_Voice Mixer", "Voip", "VOIP_DL"},
+	{"SEC_I2S_RX", NULL, "SEC_RX_Voice Mixer"},
 
 	{"SLIM_0_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
 	{"SLIM_0_RX_Voice Mixer", "Voip", "VOIP_DL"},

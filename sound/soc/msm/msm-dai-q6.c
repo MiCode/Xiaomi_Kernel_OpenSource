@@ -420,6 +420,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	switch (dai->id) {
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
+	case SECONDARY_I2S_RX:
 		rc = msm_dai_q6_cdc_hw_params(params, dai, substream->stream);
 		break;
 	case MI2S_RX:
@@ -820,6 +821,7 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case MI2S_RX:
+	case SECONDARY_I2S_RX:
 		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
 		break;
 	default:
@@ -1086,6 +1088,7 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 
 	switch (pdev->id) {
 	case PRIMARY_I2S_RX:
+	case SECONDARY_I2S_RX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_rx_dai);
 		break;
 	case PRIMARY_I2S_TX:
