@@ -807,8 +807,7 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 		update_process_times(user_mode(regs));
 		profile_tick(CPU_PROFILING);
 
-
-		if ((rq_info.init == 1) && (cpu == 0)) {
+		if ((rq_info.init == 1) && (tick_do_timer_cpu == cpu)) {
 
 			/*
 			 * update run queue statistics
