@@ -47,11 +47,11 @@ int power_supply_set_current_limit(struct power_supply *psy, int limit)
 EXPORT_SYMBOL_GPL(power_supply_set_current_limit);
 
 /**
- * power_supply_set_charging_by - set charging state of the charger
+ * power_supply_set_online - set online state of the power supply
  * @psy:	the power supply to control
- * @enable:	enables or disables the charger
+ * @enable:	sets online property of power supply
  */
-int power_supply_set_charging_by(struct power_supply *psy, bool enable)
+int power_supply_set_online(struct power_supply *psy, bool enable)
 {
 	const union power_supply_propval ret = {enable,};
 
@@ -61,7 +61,24 @@ int power_supply_set_charging_by(struct power_supply *psy, bool enable)
 
 	return -ENXIO;
 }
-EXPORT_SYMBOL_GPL(power_supply_set_charging_by);
+EXPORT_SYMBOL_GPL(power_supply_set_online);
+
+/**
+ * power_supply_set_charge_type - set charge type of the power supply
+ * @psy:	the power supply to control
+ * @enable:	sets charge type property of power supply
+ */
+int power_supply_set_charge_type(struct power_supply *psy, int charge_type)
+{
+	const union power_supply_propval ret = {charge_type,};
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_CHARGE_TYPE,
+								&ret);
+
+	return -ENXIO;
+}
+EXPORT_SYMBOL_GPL(power_supply_set_charge_type);
 
 static int __power_supply_changed_work(struct device *dev, void *data)
 {
