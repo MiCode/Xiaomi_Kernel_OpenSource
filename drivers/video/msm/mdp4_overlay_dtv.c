@@ -358,6 +358,12 @@ static void mdp4_overlay_dtv_alloc_pipe(struct msm_fb_data_type *mfd,
 
 	mdp4_overlay_dmae_xy(pipe);	/* dma_e */
 	mdp4_overlayproc_cfg(pipe);
+
+	if (pipe->pipe_type == OVERLAY_TYPE_RGB) {
+		pipe->srcp0_addr = (uint32) mfd->ibuf.buf;
+		mdp4_overlay_rgb_setup(pipe);
+	}
+
 	mdp4_mixer_stage_up(pipe);
 
 	dtv_pipe = pipe; /* keep it */
