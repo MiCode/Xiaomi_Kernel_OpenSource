@@ -15,13 +15,34 @@ static DEFINE_MUTEX(irq_domain_mutex);
  *
  * Adds a irq_domain structure.  The irq_domain must at a minimum be
  * initialized with an ops structure pointer, and either a ->to_irq hook or
- * a valid irq_base value.  Everything else is optional.
+ * a valid irq_base value.  The irq range must be mutually exclusive with
+ * domains already registered. Everything else is optional.
  */
-void irq_domain_add(struct irq_domain *domain)
+int irq_domain_add(struct irq_domain *domain)
 {
+	struct irq_domain *curr;
+	uint32_t d_highirq = domain->irq_base + domain->nr_irq - 1;
+
+	if (!domain->nr_irq)
+		return -EINVAL;
+
 	mutex_lock(&irq_domain_mutex);
-	list_add(&domain->list, &irq_domain_list);
+	/* insert in ascending order of domain->irq_base */
+	list_for_each_entry(curr, &irq_domain_list, list) {
+		uint32_t c_highirq = curr->irq_base + curr->nr_irq - 1;
+		if (domain->irq_base < curr->irq_base &&
+		    d_highirq < curr->irq_base) {
+			break;
+		}
+		if (d_highirq <= c_highirq) {
+			mutex_unlock(&irq_domain_mutex);
+			return -EINVAL;
+		}
+	}
+	list_add_tail(&domain->list, &curr->list);
 	mutex_unlock(&irq_domain_mutex);
+
+	return 0;
 }
 
 /**
@@ -146,6 +167,7 @@ unsigned int irq_create_of_mapping(struct device_node *controller,
 	list_for_each_entry(domain, &irq_domain_list, list) {
 		if (!domain->ops->dt_translate)
 			continue;
+
 		rc = domain->ops->dt_translate(domain, controller,
 					intspec, intsize, &hwirq, &type);
 		if (rc == 0)
@@ -209,6 +231,7 @@ EXPORT_SYMBOL_GPL(irq_domain_simple_ops);
 void irq_domain_add_simple(struct device_node *controller, int irq_base)
 {
 	struct irq_domain *domain;
+	int rc;
 
 	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
 	if (!domain) {
@@ -219,7 +242,11 @@ void irq_domain_add_simple(struct device_node *controller, int irq_base)
 	domain->irq_base = irq_base;
 	domain->of_node = of_node_get(controller);
 	domain->ops = &irq_domain_simple_ops;
-	irq_domain_add(domain);
+	rc = irq_domain_add(domain);
+	if (rc) {
+		WARN(1, "Unable to create irq domain\n");
+		return;
+	}
 	irq_domain_register(domain);
 }
 EXPORT_SYMBOL_GPL(irq_domain_add_simple);

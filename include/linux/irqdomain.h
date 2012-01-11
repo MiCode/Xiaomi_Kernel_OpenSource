@@ -89,7 +89,7 @@ static inline unsigned int irq_domain_to_irq(struct irq_domain *d,
 	     hw < d->hwirq_base + d->nr_irq; \
 	     hw++, irq = irq_domain_to_irq(d, hw))
 
-extern void irq_domain_add(struct irq_domain *domain);
+extern int irq_domain_add(struct irq_domain *domain);
 extern void irq_domain_del(struct irq_domain *domain);
 extern void irq_domain_register(struct irq_domain *domain);
 extern void irq_domain_register_irq(struct irq_domain *domain, int hwirq);
