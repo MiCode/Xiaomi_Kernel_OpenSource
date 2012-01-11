@@ -118,7 +118,6 @@ struct mbhc_internal_cal_data {
 	u16 v_brh;
 	u16 v_brl;
 	u16 v_no_mic;
-	u8 nready;
 	u8 npoll;
 	u8 nbounce_wait;
 };
@@ -2719,7 +2718,7 @@ static int tabla_codec_mclk_index(const struct tabla_priv *tabla)
 
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
-	u8 *n_cic;
+	u8 *n_ready, *n_cic;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
@@ -2750,8 +2749,9 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B12_CTL,
 		      (tabla->mbhc_data.v_brl >> 8) & 0xFF);
 
+	n_ready = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_READY);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B1_CTL,
-		      tabla->mbhc_data.nready);
+		      n_ready[tabla_codec_mclk_index(tabla)]);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B2_CTL,
 		      tabla->mbhc_data.npoll);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B3_CTL,
@@ -3488,7 +3488,7 @@ void *tabla_mbhc_cal_btn_det_mp(const struct tabla_mbhc_btn_detect_cfg* btn_det,
 		ret += sizeof(btn_det->_n_cic);
 	case TABLA_BTN_DET_N_CIC:
 		ret += sizeof(btn_det->_n_ready);
-	case TABLA_BTN_DET_V_N_READY:
+	case TABLA_BTN_DET_N_READY:
 		ret += sizeof(btn_det->_v_btn_high[0]) * btn_det->num_btn;
 	case TABLA_BTN_DET_V_BTN_HIGH:
 		ret += sizeof(btn_det->_v_btn_low[0]) * btn_det->num_btn;
@@ -3509,25 +3509,25 @@ static void tabla_mbhc_calc_thres(struct snd_soc_codec *codec)
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	struct tabla_mbhc_plug_type_cfg *plug_type;
 	u16 *btn_high;
+	u8 *n_ready;
 	int i;
 
 	tabla = snd_soc_codec_get_drvdata(codec);
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration);
 	plug_type = TABLA_MBHC_CAL_PLUG_TYPE_PTR(tabla->calibration);
 
+	n_ready = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_READY);
 	if (tabla->mclk_freq == TABLA_MCLK_RATE_12288KHZ) {
-		tabla->mbhc_data.nready = 3;
 		tabla->mbhc_data.npoll = 9;
 		tabla->mbhc_data.nbounce_wait = 30;
 	} else if (tabla->mclk_freq == TABLA_MCLK_RATE_9600KHZ) {
-		tabla->mbhc_data.nready = 2;
 		tabla->mbhc_data.npoll = 7;
 		tabla->mbhc_data.nbounce_wait = 23;
-	} else
-		WARN(1, "Unsupported mclk freq %d\n", tabla->mclk_freq);
+	}
 
 	tabla->mbhc_data.t_sta_dce = ((1000 * 256) / (tabla->mclk_freq / 1000) *
-				      tabla->mbhc_data.nready) + 10;
+				      n_ready[tabla_codec_mclk_index(tabla)]) +
+				     10;
 	tabla->mbhc_data.v_ins_hu =
 	    tabla_codec_v_sta_dce(codec, STA, plug_type->v_hs_max);
 	tabla->mbhc_data.v_ins_h =

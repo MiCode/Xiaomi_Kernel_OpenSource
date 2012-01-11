@@ -66,7 +66,7 @@ enum tabla_mbhc_analog_pwr_cfg {
 enum tabla_mbhc_btn_det_mem {
 	TABLA_BTN_DET_V_BTN_LOW,
 	TABLA_BTN_DET_V_BTN_HIGH,
-	TABLA_BTN_DET_V_N_READY,
+	TABLA_BTN_DET_N_READY,
 	TABLA_BTN_DET_N_CIC,
 	TABLA_BTN_DET_GAIN
 };
