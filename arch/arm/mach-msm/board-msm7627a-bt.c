@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -677,11 +677,9 @@ static unsigned int msm_bahama_setup_power(void)
 		pr_err("%s: could not enable regulator: %d\n", __func__, rc);
 		goto reg_fail;
 	}
-	if (machine_is_msm7627a_qrd1())
-		gpio_tlmm_config(GPIO_CFG(gpio_bt_sys_rest_en, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-			GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-
+	gpio_tlmm_config(GPIO_CFG(gpio_bt_sys_rest_en, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
 	/*setup Bahama_sys_reset_n*/
 	rc = gpio_request(gpio_bt_sys_rest_en, "bahama sys_rst_n");
