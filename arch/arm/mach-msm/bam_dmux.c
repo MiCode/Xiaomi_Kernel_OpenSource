@@ -1241,9 +1241,25 @@ static void debug_create(const char *name, mode_t mode,
 				struct dentry *dent,
 				int (*fill)(char *buf, int max))
 {
-	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	struct dentry *file;
+
+	file = debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	if (IS_ERR(file))
+		pr_err("%s: debugfs create failed %d\n", __func__,
+				(int)PTR_ERR(file));
 }
 
+static void debug_create_multiple(const char *name, mode_t mode,
+				struct dentry *dent,
+				int (*fill)(char *buf, int max, loff_t *ppos))
+{
+	struct dentry *file;
+
+	file = debugfs_create_file(name, mode, dent, fill, &debug_ops_multiple);
+	if (IS_ERR(file))
+		pr_err("%s: debugfs create failed %d\n", __func__,
+				(int)PTR_ERR(file));
+}
 #endif
 
 static void notify_all(int event, unsigned long data)
@@ -1986,8 +2002,7 @@ static int __init bam_dmux_init(void)
 		debug_create("tbl", 0444, dent, debug_tbl);
 		debug_create("ul_pkt_cnt", 0444, dent, debug_ul_pkt_cnt);
 		debug_create("stats", 0444, dent, debug_stats);
-		debugfs_create_file("log", 0444, dent, debug_log,
-				&debug_ops_multiple);
+		debug_create_multiple("log", 0444, dent, debug_log);
 	}
 #endif
 	ret = kfifo_alloc(&bam_dmux_state_log, PAGE_SIZE, GFP_KERNEL);
