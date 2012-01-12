@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,6 +466,11 @@ static void vpe_send_outmsg(void)
 	struct msm_vpe_resp rp;
 	memset(&rp, 0, sizeof(rp));
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	if (vpe_ctrl->state == VPE_STATE_IDLE) {
+		pr_err("%s VPE is in IDLE state. Ignore the ack msg", __func__);
+		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
+		return;
+	}
 	rp.type = vpe_ctrl->pp_frame_info->pp_frame_cmd.path;
 	rp.extdata = (void *)vpe_ctrl->pp_frame_info;
 	rp.extlen = sizeof(*vpe_ctrl->pp_frame_info);
@@ -558,7 +563,6 @@ int vpe_disable(void)
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return rc;
 	}
-	vpe_ctrl->state = VPE_STATE_IDLE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
 	msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
@@ -569,6 +573,9 @@ int vpe_disable(void)
 	vpe_ctrl->fs_vpe = NULL;
 	disable_irq(vpe_ctrl->vpeirq->start);
 	tasklet_kill(&vpe_tasklet);
+	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	vpe_ctrl->state = VPE_STATE_IDLE;
+	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	return rc;
 }
 
