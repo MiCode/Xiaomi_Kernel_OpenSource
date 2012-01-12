@@ -94,7 +94,17 @@ static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
 		 * during sleep.
 		 */
 		.lpm_uA = 2000,
-	}
+	},
+	/* SDCC4 : SDIO slot connected */
+	[SDCC4] = {
+		.name = "sdc_vddp",
+		.high_vol_level = 1800000,
+		.low_vol_level = 1800000,
+		.always_on = 1,
+		.lpm_sup = 1,
+		.hpm_uA = 200000, /* 200mA */
+		.lpm_uA = 2000,
+	},
 };
 
 static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
@@ -111,7 +121,11 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC3] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC3],
 		.vddp_data = &mmc_vddp_reg_data[SDCC3],
-	}
+	},
+	/* SDCC4 : SDIO card slot connected */
+	[SDCC4] = {
+		.vddp_data = &mmc_vddp_reg_data[SDCC4],
+	},
 };
 
 /* SDC1 pad data */
@@ -209,11 +223,24 @@ struct msm_mmc_gpio sdc2_gpio[] = {
 	{98, "sdc2_clk"}
 };
 
+struct msm_mmc_gpio sdc4_gpio[] = {
+	{83, "sdc4_dat_3"},
+	{84, "sdc4_dat_2"},
+	{85, "sdc4_dat_1"},
+	{86, "sdc4_dat_0"},
+	{87, "sdc4_cmd"},
+	{88, "sdc4_clk"}
+};
+
 struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC2] = {
 		.gpio = sdc2_gpio,
 		.size = ARRAY_SIZE(sdc2_gpio),
-	}
+	},
+	[SDCC4] = {
+		.gpio = sdc4_gpio,
+		.size = ARRAY_SIZE(sdc4_gpio),
+	},
 };
 
 static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
@@ -237,6 +264,10 @@ static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	},
 	[SDCC3] = {
 		.pad_data = &mmc_pad_data[SDCC3],
+	},
+	[SDCC4] = {
+		.is_gpio = 1,
+		.gpio_data = &mmc_gpio_data[SDCC4],
 	},
 };
 
@@ -314,6 +345,23 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 };
 #endif
 
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+static unsigned int sdc4_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data msm8960_sdc4_data = {
+	.ocr_mask       = MMC_VDD_165_195,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table  = sdc4_sup_clk_rates,
+	.sup_clk_cnt    = ARRAY_SIZE(sdc4_sup_clk_rates),
+	.pclk_src_dfab  = 1,
+	.vreg_data      = &mmc_slot_vreg_data[SDCC4],
+	.pin_data       = &mmc_slot_pin_data[SDCC4],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(85),
+};
+#endif
+
 void __init msm8960_init_mmc(void)
 {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
@@ -327,5 +375,9 @@ void __init msm8960_init_mmc(void)
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/* SDC3: External card slot */
 	msm_add_sdcc(3, &msm8960_sdc3_data);
+#endif
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+	/* SDC4: SDIO slot for WLAN */
+	msm_add_sdcc(4, &msm8960_sdc4_data);
 #endif
 }
