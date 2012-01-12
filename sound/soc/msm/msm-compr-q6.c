@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
+	struct asm_aac_cfg aac_cfg;
 	int ret;
 
 	pr_debug("%s\n", __func__);
@@ -189,14 +190,33 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 	prtd->out_head = 0;
+	atomic_set(&prtd->out_count, runtime->periods);
+
 	if (prtd->enabled)
 		return 0;
 
-	ret = q6asm_media_format_block(prtd->audio_client, compr->codec);
-	if (ret < 0)
-		pr_info("%s: CMD Format block failed\n", __func__);
-
-	atomic_set(&prtd->out_count, runtime->periods);
+	switch (compr->info.codec_param.codec.id) {
+	case SND_AUDIOCODEC_MP3:
+		ret = q6asm_media_format_block(prtd->audio_client,
+				compr->codec);
+		if (ret < 0)
+			pr_info("%s: CMD Format block failed\n", __func__);
+		break;
+	case SND_AUDIOCODEC_AAC:
+		pr_debug("SND_AUDIOCODEC_AAC\n");
+		memset(&aac_cfg, 0x0, sizeof(struct asm_aac_cfg));
+		aac_cfg.aot = AAC_ENC_MODE_EAAC_P;
+		aac_cfg.format = 0x03;
+		aac_cfg.ch_cfg = runtime->channels;
+		aac_cfg.sample_rate =  runtime->rate;
+		ret = q6asm_media_format_block_aac(prtd->audio_client,
+					&aac_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	prtd->enabled = 1;
 	prtd->cmd_ack = 0;
@@ -250,6 +270,7 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
 	compr->info.compr_cap.max_fragments = runtime->hw.periods_max;
 	compr->info.compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
+	compr->info.compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	/* Add new codecs here */
 }
 
@@ -503,6 +524,10 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			/* For MP3 we dont need any other parameter */
 			pr_debug("SND_AUDIOCODEC_MP3\n");
 			compr->codec = FORMAT_MP3;
+			break;
+		case SND_AUDIOCODEC_AAC:
+			pr_debug("SND_AUDIOCODEC_AAC\n");
+			compr->codec = FORMAT_MPEG4_AAC;
 			break;
 		default:
 			pr_debug("FORMAT_LINEAR_PCM\n");
