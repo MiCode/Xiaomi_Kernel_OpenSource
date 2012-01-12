@@ -255,14 +255,14 @@ int _mdp_histogram_ctrl(boolean en)
 		hist_base = 0x94000;
 
 	if (en == TRUE) {
-		if (mdp_is_hist_start)
+		if (mdp_is_hist_data)
 			return -EINVAL;
 
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		mdp_hist_frame_cnt = 1;
 		mdp_enable_irq(MDP_HISTOGRAM_TERM);
 		spin_lock_irqsave(&mdp_spin_lock, flag);
-		if (mdp_is_hist_start == FALSE && mdp_rev >= MDP_REV_40) {
+		if (mdp_rev >= MDP_REV_40) {
 			MDP_OUTP(MDP_BASE + hist_base + 0x10, 1);
 			MDP_OUTP(MDP_BASE + hist_base + 0x1c, INTR_HIST_DONE);
 		}
@@ -272,7 +272,7 @@ int _mdp_histogram_ctrl(boolean en)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 		mdp_is_hist_data = TRUE;
 	} else {
-		if (!mdp_is_hist_start && !mdp_is_hist_data)
+		if (!mdp_is_hist_data)
 			return -EINVAL;
 
 		mdp_is_hist_data = FALSE;
@@ -299,7 +299,8 @@ int mdp_histogram_ctrl(boolean en)
 {
 	int ret = 0;
 	mutex_lock(&mdp_hist_mutex);
-	ret = _mdp_histogram_ctrl(en);
+	if (mdp_is_hist_start)
+		ret = _mdp_histogram_ctrl(en);
 	mutex_unlock(&mdp_hist_mutex);
 	return ret;
 }
