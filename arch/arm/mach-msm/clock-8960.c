@@ -5090,6 +5090,12 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	struct measure_clk *clk = to_measure_clk(c);
 	unsigned ret;
 
+	ret = clk_enable(&cxo_clk.c);
+	if (ret) {
+		pr_warning("CXO clock failed to enable. Can't measure\n");
+		return 0;
+	}
+
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 
 	/* Enable CXO/4 and RINGOSC branch and root. */
@@ -5126,6 +5132,8 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	/* Route dbg_hs_clk to PLLTEST.  300mV single-ended amplitude. */
 	writel_relaxed(0x38F8, PLLTEST_PAD_CFG_REG);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	clk_disable(&cxo_clk.c);
 
 	return ret;
 }
