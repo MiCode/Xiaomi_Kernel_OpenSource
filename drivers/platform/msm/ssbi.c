@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Copyright (c) 2010, Google Inc.
  *
  * Original authors: Code Aurora Forum
@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/msm_ssbi.h>
+#include <linux/remote_spinlock.h>
 
 /* SSBI 2.0 controller registers */
 #define SSBI2_CMD			0x0008
@@ -75,7 +76,9 @@ struct msm_ssbi {
 	struct device		*dev;
 	struct device		*slave;
 	void __iomem		*base;
+	bool			 use_rlock;
 	spinlock_t		lock;
+	remote_spinlock_t	 rspin_lock;
 	enum msm_ssbi_controller_type controller_type;
 	int (*read)(struct msm_ssbi *, u16 addr, u8 *buf, int len);
 	int (*write)(struct msm_ssbi *, u16 addr, u8 *buf, int len);
@@ -255,9 +258,15 @@ int msm_ssbi_read(struct device *dev, u16 addr, u8 *buf, int len)
 	if (ssbi->dev != dev)
 		return -ENXIO;
 
-	spin_lock_irqsave(&ssbi->lock, flags);
-	ret = ssbi->read(ssbi, addr, buf, len);
-	spin_unlock_irqrestore(&ssbi->lock, flags);
+	if (ssbi->use_rlock) {
+		remote_spin_lock_irqsave(&ssbi->rspin_lock, flags);
+		ret = ssbi->read(ssbi, addr, buf, len);
+		remote_spin_unlock_irqrestore(&ssbi->rspin_lock, flags);
+	} else {
+		spin_lock_irqsave(&ssbi->lock, flags);
+		ret = ssbi->read(ssbi, addr, buf, len);
+		spin_unlock_irqrestore(&ssbi->lock, flags);
+	}
 
 	return ret;
 }
@@ -272,9 +281,15 @@ int msm_ssbi_write(struct device *dev, u16 addr, u8 *buf, int len)
 	if (ssbi->dev != dev)
 		return -ENXIO;
 
-	spin_lock_irqsave(&ssbi->lock, flags);
-	ret = ssbi->write(ssbi, addr, buf, len);
-	spin_unlock_irqrestore(&ssbi->lock, flags);
+	if (ssbi->use_rlock) {
+		remote_spin_lock_irqsave(&ssbi->rspin_lock, flags);
+		ret = ssbi->write(ssbi, addr, buf, len);
+		remote_spin_unlock_irqrestore(&ssbi->rspin_lock, flags);
+	} else {
+		spin_lock_irqsave(&ssbi->lock, flags);
+		ret = ssbi->write(ssbi, addr, buf, len);
+		spin_unlock_irqrestore(&ssbi->lock, flags);
+	}
 
 	return ret;
 }
@@ -360,6 +375,15 @@ static int __devinit msm_ssbi_probe(struct platform_device *pdev)
 	} else {
 		ssbi->read = msm_ssbi_read_bytes;
 		ssbi->write = msm_ssbi_write_bytes;
+	}
+
+	if (pdata->rsl_id) {
+		ret = remote_spin_lock_init(&ssbi->rspin_lock, pdata->rsl_id);
+		if (ret) {
+			dev_err(&pdev->dev, "remote spinlock init failed\n");
+			goto err_ssbi_add_slave;
+		}
+		ssbi->use_rlock = 1;
 	}
 
 	spin_lock_init(&ssbi->lock);
