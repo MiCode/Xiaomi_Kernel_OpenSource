@@ -2893,3 +2893,18 @@ int mgmt_remote_class(u16 index, bdaddr_t *bdaddr, u8 dev_class[3])
 
 	return mgmt_event(MGMT_EV_REMOTE_CLASS, index, &ev, sizeof(ev), NULL);
 }
+
+int mgmt_remote_version(u16 index, bdaddr_t *bdaddr, u8 ver, u16 mnf,
+							u16 sub_ver)
+{
+	struct mgmt_ev_remote_version ev;
+
+	memset(&ev, 0, sizeof(ev));
+
+	bacpy(&ev.bdaddr, bdaddr);
+	ev.lmp_ver = ver;
+	ev.manufacturer = mnf;
+	ev.lmp_subver = sub_ver;
+
+	return mgmt_event(MGMT_EV_REMOTE_VERSION, index, &ev, sizeof(ev), NULL);
+}
