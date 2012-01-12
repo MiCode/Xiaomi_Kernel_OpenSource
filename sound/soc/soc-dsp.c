@@ -503,6 +503,7 @@ static int soc_dsp_be_dai_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 			dsp_params->fe->dai_link->name);
 
 		soc_pcm_close(be_substream);
+		dsp_params->be->dsp[stream].hwparam_set = false;
 		be_substream->runtime = NULL;
 	}
 	return 0;
@@ -557,7 +558,8 @@ static int soc_dsp_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 			continue;
 
 		/* first time the dsp_params is open ? */
-		if (dsp_params->be->dsp[stream].users != 1)
+		if ((dsp_params->be->dsp[stream].users != 1) &&
+		    (dsp_params->be->dsp[stream].hwparam_set == true))
 			continue;
 
 		dev_dbg(&dsp_params->be->dev, "dsp: hw_params BE %s\n",
@@ -583,6 +585,7 @@ static int soc_dsp_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 			dev_err(&dsp_params->be->dev, "dsp: hw_params BE failed %d\n", ret);
 			return ret;
 		}
+		dsp_params->be->dsp[stream].hwparam_set = true;
 	}
 	return 0;
 }
@@ -858,6 +861,7 @@ static int soc_dsp_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream)
 			dsp_params->fe->dai_link->name);
 
 		soc_pcm_hw_free(be_substream);
+		dsp_params->be->dsp[stream].hwparam_set = false;
 	}
 
 	return 0;

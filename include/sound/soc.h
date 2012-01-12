@@ -896,6 +896,7 @@ struct snd_soc_dsp_runtime {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_hw_params params;
 	int runtime_update;
+	bool hwparam_set;
 };
 
 /* SoC machine DAI configuration, glues a codec and cpu DAI together */
