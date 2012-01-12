@@ -127,6 +127,41 @@ static void unvote_rate_vdd(struct clk *clk, unsigned long rate)
 	unvote_vdd_level(clk->vdd_class, level);
 }
 
+int clk_prepare(struct clk *clk)
+{
+	int ret = 0;
+	struct clk *parent;
+	if (!clk)
+		return 0;
+
+	mutex_lock(&clk->prepare_lock);
+	if (clk->prepare_count == 0) {
+		parent = clk_get_parent(clk);
+
+		ret = clk_prepare(parent);
+		if (ret)
+			goto out;
+		ret = clk_prepare(clk->depends);
+		if (ret)
+			goto err_prepare_depends;
+
+		if (clk->ops->prepare)
+			ret = clk->ops->prepare(clk);
+		if (ret)
+			goto err_prepare_clock;
+	}
+	clk->prepare_count++;
+out:
+	mutex_unlock(&clk->prepare_lock);
+	return ret;
+err_prepare_clock:
+	clk_unprepare(clk->depends);
+err_prepare_depends:
+	clk_unprepare(parent);
+	goto out;
+}
+EXPORT_SYMBOL(clk_prepare);
+
 /*
  * Standard clock functions defined in include/linux/clk.h
  */
@@ -140,6 +175,10 @@ int clk_enable(struct clk *clk)
 		return 0;
 
 	spin_lock_irqsave(&clk->lock, flags);
+	if (WARN(!clk->warned && !clk->prepare_count,
+				"%s: Don't call enable on unprepared clocks\n",
+				clk->dbg_name))
+		clk->warned = true;
 	if (clk->count == 0) {
 		parent = clk_get_parent(clk);
 
@@ -193,6 +232,11 @@ void clk_disable(struct clk *clk)
 		return;
 
 	spin_lock_irqsave(&clk->lock, flags);
+	if (WARN(!clk->warned && !clk->prepare_count,
+				"%s: Never called prepare or calling disable "
+				"after unprepare\n",
+				clk->dbg_name))
+		clk->warned = true;
 	if (WARN(clk->count == 0, "%s is unbalanced", clk->dbg_name))
 		goto out;
 	if (clk->count == 1) {
@@ -209,6 +253,37 @@ out:
 	spin_unlock_irqrestore(&clk->lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
+
+void clk_unprepare(struct clk *clk)
+{
+	if (!clk)
+		return;
+
+	mutex_lock(&clk->prepare_lock);
+	if (!clk->prepare_count) {
+		if (WARN(!clk->warned, "%s is unbalanced (prepare)",
+				clk->dbg_name))
+			clk->warned = true;
+		goto out;
+	}
+	if (clk->prepare_count == 1) {
+		struct clk *parent = clk_get_parent(clk);
+
+		if (WARN(!clk->warned && clk->count,
+			"%s: Don't call unprepare when the clock is enabled\n",
+				clk->dbg_name))
+			clk->warned = true;
+
+		if (clk->ops->unprepare)
+			clk->ops->unprepare(clk);
+		clk_unprepare(clk->depends);
+		clk_unprepare(parent);
+	}
+	clk->prepare_count--;
+out:
+	mutex_unlock(&clk->prepare_lock);
+}
+EXPORT_SYMBOL(clk_unprepare);
 
 int clk_reset(struct clk *clk, enum clk_reset_action action)
 {
@@ -335,7 +410,7 @@ void __init msm_clock_init(struct clock_init_data *data)
 		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE)) {
 			if (clk->ops->handoff(clk)) {
 				clk->flags |= CLKFLAG_HANDOFF_RATE;
-				clk_enable(clk);
+				clk_prepare_enable(clk);
 			}
 		}
 	}
@@ -372,11 +447,11 @@ static int __init clock_late_init(void)
 			}
 			spin_unlock_irqrestore(&clk->lock, flags);
 			/*
-			 * Calling clk_disable() outside the lock is safe since
+			 * Calling this outside the lock is safe since
 			 * it doesn't need to be atomic with the flag change.
 			 */
 			if (handoff)
-				clk_disable(clk);
+				clk_disable_unprepare(clk);
 		}
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);

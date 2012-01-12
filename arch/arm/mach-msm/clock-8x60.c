@@ -310,6 +310,7 @@ static struct pll_vote_clk pll8_clk = {
 		.rate = 384000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll8_clk.c),
+		.warned = true,
 	},
 };
 
@@ -321,6 +322,7 @@ static struct pll_clk pll2_clk = {
 		.rate = 800000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll2_clk.c),
+		.warned = true,
 	},
 };
 
@@ -332,6 +334,7 @@ static struct pll_clk pll3_clk = {
 		.rate = 0, /* TODO: Detect rate dynamically */
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll3_clk.c),
+		.warned = true,
 	},
 };
 
@@ -370,6 +373,7 @@ static struct fixed_clk pll4_clk = {
 		.rate = 540672000,
 		.ops = &clk_ops_pll4,
 		CLK_INIT(pll4_clk.c),
+		.warned = true,
 	},
 };
 

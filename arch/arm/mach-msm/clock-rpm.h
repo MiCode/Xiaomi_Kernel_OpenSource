@@ -82,6 +82,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.dbg_name = #name, \
 			.rate = (r), \
 			CLK_INIT(name.c), \
+			.warned = true, \
 		}, \
 	}; \
 	static struct rpm_clk active = { \
@@ -97,6 +98,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.dbg_name = #active, \
 			.rate = (r), \
 			CLK_INIT(active.c), \
+			.warned = true, \
 		}, \
 	};
 
