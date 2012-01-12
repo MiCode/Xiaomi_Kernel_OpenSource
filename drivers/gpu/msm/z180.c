@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -570,6 +570,7 @@ static int z180_start(struct kgsl_device *device, unsigned int init_ram)
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	device->ftbl->irqctrl(device, 1);
 	return 0;
 
 error_clk_off:
@@ -580,6 +581,7 @@ error_clk_off:
 
 static int z180_stop(struct kgsl_device *device)
 {
+	device->ftbl->irqctrl(device, 0);
 	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
 
 	del_timer_sync(&device->idle_timer);
