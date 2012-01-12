@@ -4813,6 +4813,7 @@ static struct measure_clk measure_clk = {
 
 static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
+	CLK_LOOKUP("cxo",		cxo_clk.c,		"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,		"pil_riva"),
 	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
 	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
@@ -5051,6 +5052,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 
 static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
 	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
+	CLK_LOOKUP("cxo",		cxo_clk.c,		"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,		"pil_riva"),
 	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
 	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
