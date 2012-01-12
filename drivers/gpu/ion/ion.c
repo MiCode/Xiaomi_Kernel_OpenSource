@@ -78,7 +78,7 @@ struct ion_client {
 	struct rb_root handles;
 	struct mutex lock;
 	unsigned int heap_mask;
-	const char *name;
+	char *name;
 	struct task_struct *task;
 	pid_t pid;
 	struct dentry *debug_root;
@@ -859,6 +859,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	struct rb_node *parent = NULL;
 	struct ion_client *entry;
 	pid_t pid;
+	unsigned int name_len = strnlen(name, 64);
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
@@ -883,7 +884,17 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->dev = dev;
 	client->handles = RB_ROOT;
 	mutex_init(&client->lock);
-	client->name = name;
+
+	client->name = kzalloc(sizeof(name_len+1), GFP_KERNEL);
+	if (!client->name) {
+		put_task_struct(current->group_leader);
+		kfree(client);
+		return ERR_PTR(-ENOMEM);
+	} else {
+		strncpy(client->name, name, name_len);
+		client->name[name_len] = '\0';
+	}
+
 	client->heap_mask = heap_mask;
 	client->task = task;
 	client->pid = pid;
@@ -929,6 +940,7 @@ void ion_client_destroy(struct ion_client *client)
 	debugfs_remove_recursive(client->debug_root);
 	mutex_unlock(&dev->lock);
 
+	kfree(client->name);
 	kfree(client);
 }
 
