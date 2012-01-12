@@ -95,6 +95,7 @@ extern void irq_domain_register(struct irq_domain *domain);
 extern void irq_domain_register_irq(struct irq_domain *domain, int hwirq);
 extern void irq_domain_unregister(struct irq_domain *domain);
 extern void irq_domain_unregister_irq(struct irq_domain *domain, int hwirq);
+extern int irq_domain_find_free_range(unsigned int from, unsigned int cnt);
 
 #endif /* CONFIG_IRQ_DOMAIN */
 

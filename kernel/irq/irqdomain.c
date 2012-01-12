@@ -143,6 +143,46 @@ void irq_domain_unregister_irq(struct irq_domain *domain, int hwirq)
 	d->domain = NULL;
 }
 
+/**
+ * irq_domain_find_free_range() - Find an available irq range
+ * @from: lowest logical irq number to request from
+ * @cnt: number of interrupts to search for
+ *
+ * Finds an available logical irq range from the domains specified
+ * on the system. The from parameter can be used to allocate a range
+ * at least as great as the specified irq number.
+ */
+int irq_domain_find_free_range(unsigned int from, unsigned int cnt)
+{
+	struct irq_domain *curr, *prev = NULL;
+
+	if (list_empty(&irq_domain_list))
+		return from;
+
+	list_for_each_entry(curr, &irq_domain_list, list) {
+		if (prev == NULL) {
+			if ((from + cnt - 1) < curr->irq_base)
+				return from;
+		} else {
+			uint32_t p_next_irq = prev->irq_base + prev->nr_irq;
+			uint32_t start_irq;
+			if (from >= curr->irq_base)
+				continue;
+			if (from < p_next_irq)
+				start_irq = p_next_irq;
+			else
+				start_irq = from;
+			if ((curr->irq_base - start_irq) >= cnt)
+				return p_next_irq;
+		}
+		prev = curr;
+	}
+	curr = list_entry(curr->list.prev, struct irq_domain, list);
+
+	return from > curr->irq_base + curr->nr_irq ?
+	       from : curr->irq_base + curr->nr_irq;
+}
+
 #if defined(CONFIG_OF_IRQ)
 /**
  * irq_create_of_mapping() - Map a linux irq number from a DT interrupt spec
