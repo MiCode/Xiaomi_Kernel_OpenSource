@@ -373,33 +373,12 @@ static struct pll_vote_clk pll8_acpu_clk = {
 	},
 };
 
-static unsigned int soft_vote_pll9;
-
-static struct pll_vote_clk pll9_clk = {
+static struct pll_clk pll9_acpu_clk = {
 	.rate = 440000000,
-	.en_reg = BB_PLL_ENA_SC0_REG,
-	.en_mask = BIT(9),
-	.status_reg = SC_PLL0_STATUS_REG,
-	.parent = &cxo_clk.c,
-	.soft_vote = &soft_vote_pll9,
-	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
-	.c = {
-		.dbg_name = "pll9_clk",
-		.ops = &clk_ops_pll_acpu_vote,
-		CLK_INIT(pll9_clk.c),
-	},
-};
-
-static struct pll_vote_clk pll9_acpu_clk = {
-	.rate = 440000000,
-	.en_reg = BB_PLL_ENA_SC0_REG,
-	.en_mask = BIT(9),
-	.soft_vote = &soft_vote_pll9,
-	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
-	.status_reg = SC_PLL0_STATUS_REG,
+	.mode_reg = SC_PLL0_MODE_REG,
 	.c = {
 		.dbg_name = "pll9_acpu_clk",
-		.ops = &clk_ops_pll_acpu_vote,
+		.ops = &clk_ops_pll,
 		CLK_INIT(pll9_acpu_clk.c),
 	},
 };
@@ -1638,7 +1617,6 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("cxo",	cxo_clk.c,	NULL),
 	CLK_LOOKUP("pll0",	pll0_clk.c,	NULL),
 	CLK_LOOKUP("pll8",	pll8_clk.c,	NULL),
-	CLK_LOOKUP("pll9",	pll9_clk.c,	NULL),
 	CLK_LOOKUP("pll14",	pll14_clk.c,	NULL),
 
 	CLK_LOOKUP("pll0", pll0_acpu_clk.c, "acpu"),
@@ -1802,33 +1780,6 @@ static void __init reg_init(void)
 
 		set_fsm_mode(BB_PLL0_MODE_REG);
 	}
-
-	/* Check if PLL9 (SC_PLL0) is enabled in FSM mode */
-	is_pll_enabled  = readl_relaxed(SC_PLL0_STATUS_REG) & BIT(16);
-
-	if (!is_pll_enabled) {
-		writel_relaxed(0x16, SC_PLL0_L_VAL_REG);
-		writel_relaxed(0xB, SC_PLL0_M_VAL_REG);
-		writel_relaxed(0xC, SC_PLL0_N_VAL_REG);
-
-		regval = readl_relaxed(SC_PLL0_CONFIG_REG);
-
-		/* Enable main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		/* Set VCO frequency */
-		regval &= ~BM(17, 16);
-
-		writel_relaxed(regval, SC_PLL0_CONFIG_REG);
-
-		set_fsm_mode(SC_PLL0_MODE_REG);
-
-	} else if (!(readl_relaxed(SC_PLL0_MODE_REG) & BIT(20)))
-		WARN(1, "PLL9 enabled in non-FSM mode!\n");
 
 	/* Check if PLL14 is enabled in FSM mode */
 	is_pll_enabled  = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
