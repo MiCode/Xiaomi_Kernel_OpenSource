@@ -1464,6 +1464,10 @@ int hci_register_dev(struct hci_dev *hdev)
 	skb_queue_head_init(&hdev->raw_q);
 
 	setup_timer(&hdev->cmd_timer, hci_cmd_timer, (unsigned long) hdev);
+	setup_timer(&hdev->disco_timer, mgmt_disco_timeout,
+						(unsigned long) hdev);
+	setup_timer(&hdev->disco_le_timer, mgmt_disco_le_timeout,
+						(unsigned long) hdev);
 
 	for (i = 0; i < NUM_REASSEMBLY; i++)
 		hdev->reassembly[i] = NULL;
@@ -1575,8 +1579,8 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	hci_del_off_timer(hdev);
 	del_timer(&hdev->adv_timer);
 	del_timer(&hdev->cmd_timer);
-	del_timer(&hdev->disc_timer);
-	del_timer(&hdev->disc_le_timer);
+	del_timer(&hdev->disco_timer);
+	del_timer(&hdev->disco_le_timer);
 
 	destroy_workqueue(hdev->workqueue);
 
