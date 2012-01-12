@@ -336,11 +336,16 @@ static inline void verify_tx_queue_is_empty(const char *func)
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_for_each_entry(info, &bam_tx_pool, list_node) {
 		if (!reported) {
-			DMUX_LOG_KERR("%s: tx pool not empty\n", func);
+			bam_dmux_log("%s: tx pool not empty\n", func);
+			if (!in_global_reset)
+				pr_err("%s: tx pool not empty\n", func);
 			reported = 1;
 		}
-		DMUX_LOG_KERR("%s: node=%p ts=%u.%09lu\n", __func__,
-		&info->list_node, info->ts_sec, info->ts_nsec);
+		bam_dmux_log("%s: node=%p ts=%u.%09lu\n", __func__,
+			&info->list_node, info->ts_sec, info->ts_nsec);
+		if (!in_global_reset)
+			pr_err("%s: node=%p ts=%u.%09lu\n", __func__,
+			&info->list_node, info->ts_sec, info->ts_nsec);
 	}
 	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 }
@@ -1245,8 +1250,11 @@ static void notify_all(int event, unsigned long data)
 	int i;
 
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
-		if (bam_ch_is_open(i))
+		if (bam_ch_is_open(i)) {
 			bam_ch[i].notify(bam_ch[i].priv, event, data);
+			bam_dmux_log("%s: cid=%d, event=%d, data=%lu\n",
+					__func__, i, event, data);
+		}
 	}
 }
 
@@ -1283,6 +1291,36 @@ static void power_vote(int vote)
 		smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
 }
 
+/*
+ * @note:  Must be called with ul_wakeup_lock locked.
+ */
+static inline void ul_powerdown(void)
+{
+	bam_dmux_log("%s: powerdown\n", __func__);
+	verify_tx_queue_is_empty(__func__);
+
+	if (a2_pc_disabled) {
+		wait_for_dfab = 1;
+		INIT_COMPLETION(dfab_unvote_completion);
+		release_wakelock();
+	} else {
+		wait_for_ack = 1;
+		INIT_COMPLETION(ul_wakeup_ack_completion);
+		power_vote(0);
+	}
+	bam_is_connected = 0;
+	notify_all(BAM_DMUX_UL_DISCONNECTED, (unsigned long)(NULL));
+}
+
+static inline void ul_powerdown_finish(void)
+{
+	if (a2_pc_disabled && wait_for_dfab) {
+		unvote_dfab();
+		complete_all(&dfab_unvote_completion);
+		wait_for_dfab = 0;
+	}
+}
+
 static void ul_timeout(struct work_struct *work)
 {
 	unsigned long flags;
@@ -1296,33 +1334,18 @@ static void ul_timeout(struct work_struct *work)
 				msecs_to_jiffies(UL_TIMEOUT_DELAY));
 		return;
 	}
-	if (ul_packet_written) {
-		bam_dmux_log("%s: packet written\n", __func__);
-		ul_packet_written = 0;
-		schedule_delayed_work(&ul_timeout_work,
-				msecs_to_jiffies(UL_TIMEOUT_DELAY));
-	} else {
-		bam_dmux_log("%s: powerdown\n", __func__);
-		verify_tx_queue_is_empty(__func__);
-
-		if (a2_pc_disabled) {
-			wait_for_dfab = 1;
-			INIT_COMPLETION(dfab_unvote_completion);
-			release_wakelock();
+	if (bam_is_connected) {
+		if (ul_packet_written) {
+			bam_dmux_log("%s: packet written\n", __func__);
+			ul_packet_written = 0;
+			schedule_delayed_work(&ul_timeout_work,
+					msecs_to_jiffies(UL_TIMEOUT_DELAY));
 		} else {
-			wait_for_ack = 1;
-			INIT_COMPLETION(ul_wakeup_ack_completion);
-			power_vote(0);
+			ul_powerdown();
 		}
-		bam_is_connected = 0;
-		notify_all(BAM_DMUX_UL_DISCONNECTED, (unsigned long)(NULL));
 	}
 	write_unlock_irqrestore(&ul_wakeup_lock, flags);
-	if (a2_pc_disabled && wait_for_dfab) {
-		unvote_dfab();
-		complete_all(&dfab_unvote_completion);
-		wait_for_dfab = 0;
-	}
+	ul_powerdown_finish();
 }
 static void ul_wakeup(void)
 {
@@ -1426,8 +1449,20 @@ static void disconnect_to_bam(void)
 {
 	struct list_head *node;
 	struct rx_pkt_info *info;
+	unsigned long flags;
 
 	bam_connection_is_active = 0;
+
+	/* handle disconnect during active UL */
+	write_lock_irqsave(&ul_wakeup_lock, flags);
+	if (bam_is_connected) {
+		bam_dmux_log("%s: UL active - forcing powerdown\n", __func__);
+		ul_powerdown();
+	}
+	write_unlock_irqrestore(&ul_wakeup_lock, flags);
+	ul_powerdown_finish();
+
+	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
 	sps_disconnect(bam_tx_pipe);
 	sps_disconnect(bam_rx_pipe);
@@ -1531,7 +1566,18 @@ static int restart_notifier_cb(struct notifier_block *this,
 
 	bam_dmux_log("%s: begin\n", __func__);
 	in_global_reset = 1;
+
+	/* Handle uplink Powerdown */
+	write_lock_irqsave(&ul_wakeup_lock, flags);
+	if (bam_is_connected) {
+		ul_powerdown();
+		wait_for_ack = 0;
+	}
+	write_unlock_irqrestore(&ul_wakeup_lock, flags);
+	ul_powerdown_finish();
 	a2_pc_disabled = 0;
+
+	/* Cleanup Channel States */
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
 		temp_remote_status = bam_ch_is_remote_open(i);
 		bam_ch[i].status &= ~BAM_CH_REMOTE_OPEN;
@@ -1544,7 +1590,8 @@ static int restart_notifier_cb(struct notifier_block *this,
 						bam_ch[i].name, 2);
 		}
 	}
-	/*cleanup UL*/
+
+	/* Cleanup pending UL data */
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	while (!list_empty(&bam_tx_pool)) {
 		node = bam_tx_pool.next;
@@ -1565,7 +1612,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 		kfree(info);
 	}
 	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
-	power_vote(0);
+
 	bam_dmux_log("%s: complete\n", __func__);
 	return NOTIFY_DONE;
 }
