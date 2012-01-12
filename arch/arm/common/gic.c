@@ -788,7 +788,7 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 {
 	struct gic_chip_data *gic;
 	struct irq_domain *domain;
-	int gic_irqs;
+	int gic_irqs, rc;
 
 	BUG_ON(gic_nr >= MAX_GIC_NR);
 
@@ -801,11 +801,8 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 		gic->dist_base.percpu_base = alloc_percpu(void __iomem *);
 		gic->cpu_base.percpu_base = alloc_percpu(void __iomem *);
 		if (WARN_ON(!gic->dist_base.percpu_base ||
-			    !gic->cpu_base.percpu_base)) {
-			free_percpu(gic->dist_base.percpu_base);
-			free_percpu(gic->cpu_base.percpu_base);
-			return;
-		}
+			    !gic->cpu_base.percpu_base))
+			goto init_bases_err;
 
 		for_each_possible_cpu(cpu) {
 			unsigned long offset = percpu_offset * cpu_logical_map(cpu);
@@ -857,13 +854,23 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 	}
 	domain->priv = gic;
 	domain->ops = &gic_irq_domain_ops;
-	irq_domain_add(domain);
+	rc = irq_domain_add(domain);
+	if (rc) {
+		WARN(1, "Unable to create irq_domain\n");
+		goto init_bases_err;
+	}
 	irq_domain_register(domain);
 
 	gic_chip.flags |= gic_arch_extn.flags;
 	gic_dist_init(gic);
 	gic_cpu_init(gic);
 	gic_pm_init(gic);
+
+	return;
+
+init_bases_err:
+	free_percpu(gic->dist_base.percpu_base);
+	free_percpu(gic->cpu_base.percpu_base);
 }
 
 void __cpuinit gic_secondary_init(unsigned int gic_nr)
