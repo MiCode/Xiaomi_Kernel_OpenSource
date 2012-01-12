@@ -29,6 +29,7 @@
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/consumer.h>
 #include <linux/memblock.h>
+#include <linux/input/ft5x06_ts.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -258,6 +259,89 @@ static int synaptics_touchpad_setup(void)
 }
 #endif
 
+#define FT5X06_IRQ_GPIO		48
+#define FT5X06_RESET_GPIO	26
+
+static ssize_t
+ft5x06_virtual_keys_register(struct kobject *kobj,
+			     struct kobj_attribute *attr,
+			     char *buf)
+{
+	return snprintf(buf, 200,
+	__stringify(EV_KEY) ":" __stringify(KEY_MENU)  ":40:510:80:60"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME)   ":120:510:80:60"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":200:510:80:60"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_BACK)   ":280:510:80:60"
+	"\n");
+}
+
+static struct kobj_attribute ft5x06_virtual_keys_attr = {
+	.attr = {
+		.name = "virtualkeys.ft5x06_ts",
+		.mode = S_IRUGO,
+	},
+	.show = &ft5x06_virtual_keys_register,
+};
+
+static struct attribute *ft5x06_virtual_key_properties_attrs[] = {
+	&ft5x06_virtual_keys_attr.attr,
+	NULL,
+};
+
+static struct attribute_group ft5x06_virtual_key_properties_attr_group = {
+	.attrs = ft5x06_virtual_key_properties_attrs,
+};
+
+struct kobject *ft5x06_virtual_key_properties_kobj;
+
+static struct ft5x06_ts_platform_data ft5x06_platformdata = {
+	.x_max		= 320,
+	.y_max		= 480,
+	.reset_gpio	= FT5X06_RESET_GPIO,
+	.irq_gpio	= FT5X06_IRQ_GPIO,
+	.irqflags	= IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+};
+
+static struct i2c_board_info ft5x06_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("ft5x06_ts", 0x38),
+		.platform_data = &ft5x06_platformdata,
+		.irq = MSM_GPIO_TO_INT(FT5X06_IRQ_GPIO),
+	},
+};
+
+static void ft5x06_touchpad_setup(void)
+{
+	int rc;
+
+	rc = gpio_tlmm_config(GPIO_CFG(FT5X06_IRQ_GPIO, 0,
+			GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
+			GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+	if (rc)
+		pr_err("%s: gpio_tlmm_config for %d failed\n",
+			__func__, FT5X06_IRQ_GPIO);
+
+	rc = gpio_tlmm_config(GPIO_CFG(FT5X06_RESET_GPIO, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN,
+			GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+	if (rc)
+		pr_err("%s: gpio_tlmm_config for %d failed\n",
+			__func__, FT5X06_RESET_GPIO);
+
+	ft5x06_virtual_key_properties_kobj =
+			kobject_create_and_add("board_properties", NULL);
+
+	if (ft5x06_virtual_key_properties_kobj)
+		rc = sysfs_create_group(ft5x06_virtual_key_properties_kobj,
+				&ft5x06_virtual_key_properties_attr_group);
+
+	if (!ft5x06_virtual_key_properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n", __func__);
+
+	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+				ft5x06_device_info,
+				ARRAY_SIZE(ft5x06_device_info));
+}
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
@@ -1096,6 +1180,8 @@ static void msm7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					mxt_device_info,
 					ARRAY_SIZE(mxt_device_info));
+	} else if (machine_is_msm7627a_qrd3()) {
+		ft5x06_touchpad_setup();
 	}
 
 	/* headset */
