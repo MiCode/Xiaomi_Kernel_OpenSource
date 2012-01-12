@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2007 Google Inc,
  *  Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
- *  Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -3014,8 +3014,11 @@ msmsdcc_slot_status(struct msmsdcc_host *host)
 			mmc_hostname(host->mmc), __func__, gpio_no);
 	} else {
 		status = gpio_direction_input(gpio_no);
-		if (!status)
+		if (!status) {
 			status = gpio_get_value_cansleep(gpio_no);
+			if (host->plat->is_status_gpio_active_low)
+				status = !status;
+		}
 		gpio_free(gpio_no);
 	}
 	return status;
@@ -3028,17 +3031,12 @@ msmsdcc_check_status(unsigned long data)
 	unsigned int status;
 
 	if (host->plat->status || host->plat->status_gpio) {
-		if (host->plat->status) {
+		if (host->plat->status)
 			status = host->plat->status(mmc_dev(host->mmc));
-			host->eject = !status;
-		} else {
+		else
 			status = msmsdcc_slot_status(host);
 
-			if (host->plat->is_status_gpio_active_low)
-				host->eject = status;
-			else
-				host->eject = !status;
-		}
+		host->eject = !status;
 
 		if (status ^ host->oldstat) {
 			if (host->plat->status)
@@ -4188,17 +4186,12 @@ msmsdcc_probe(struct platform_device *pdev)
 	 */
 
 	if (plat->status || plat->status_gpio) {
-		if (plat->status) {
+		if (plat->status)
 			host->oldstat = plat->status(mmc_dev(host->mmc));
-			host->eject = !host->oldstat;
-		} else {
+		else
 			host->oldstat = msmsdcc_slot_status(host);
 
-			if (host->plat->is_status_gpio_active_low)
-				host->eject = host->oldstat;
-			else
-				host->eject = !host->oldstat;
-		}
+		host->eject = !host->oldstat;
 	}
 
 	if (plat->status_irq) {

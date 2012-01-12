@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,11 +261,12 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 26),
 #endif
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.is_status_gpio_active_low = true,
 #endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
-			MMC_CAP_MAX_CURRENT_600)
+			MMC_CAP_MAX_CURRENT_600),
 };
 #endif
 
