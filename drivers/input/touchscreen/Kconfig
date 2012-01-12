@@ -1153,4 +1153,17 @@ config TOUCHSCREEN_GEN_VKEYS
          To compile this driver as a module, choose M here: the
          module will be called gen_vkeys.
 
+config TOUCHSCREEN_FT5X06
+       tristate "FocalTech touchscreens"
+       depends on I2C
+       help
+         Say Y here if you have a ft5X06 touchscreen.
+	 Ft5x06 controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called ft5x06_ts.
+
 endif
