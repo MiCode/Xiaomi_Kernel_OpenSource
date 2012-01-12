@@ -1328,6 +1328,18 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 	.notifier_call = acpuclock_cpu_callback,
 };
 
+static const int krait_needs_vmin(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x511F04D0:
+	case 0x511F04D1:
+	case 0x510F06F0:
+		return 1;
+	default:
+		return 0;
+	};
+}
+
 static void kraitv2_apply_vmin(struct acpu_level *tbl)
 {
 	for (; tbl->speed.khz != 0; tbl++)
@@ -1380,7 +1392,6 @@ static struct acpu_level * __init select_freq_plan(void)
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv1);
 		} else {
 			acpu_freq_tbl = v2;
-			kraitv2_apply_vmin(acpu_freq_tbl);
 			l2_freq_tbl = l2_freq_tbl_8960_kraitv2;
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv2);
 		}
@@ -1402,6 +1413,8 @@ static struct acpu_level * __init select_freq_plan(void)
 	} else {
 		BUG();
 	}
+	if (krait_needs_vmin())
+		kraitv2_apply_vmin(acpu_freq_tbl);
 
 	/* Find the max supported scaling frequency. */
 	for (l = acpu_freq_tbl; l->speed.khz != 0; l++)
