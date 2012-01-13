@@ -1087,7 +1087,8 @@ static void __init msm_timer_init(void)
 			res = request_percpu_irq(ce->irq, msm_timer_interrupt,
 						 ce->name, clock->percpu_evt);
 			if (!res)
-				enable_percpu_irq(ce->irq, 0);
+				enable_percpu_irq(ce->irq,
+						 IRQ_TYPE_EDGE_RISING);
 		} else {
 			clock->evt = ce;
 			res = request_irq(ce->irq, msm_timer_interrupt,
@@ -1150,7 +1151,7 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 	*__this_cpu_ptr(clock->percpu_evt) = evt;
 
 	clockevents_register_device(evt);
-	enable_percpu_irq(evt->irq, 0);
+	enable_percpu_irq(evt->irq, IRQ_TYPE_EDGE_RISING);
 
 	return 0;
 }
