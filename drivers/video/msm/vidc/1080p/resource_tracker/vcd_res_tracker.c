@@ -487,7 +487,7 @@ u32 res_trk_get_mem_type(void)
 	case DDL_MM_MEM:
 		return resource_context.memtype;
 	case DDL_CMD_MEM:
-		return resource_context.cmd_mem_type;
+		return resource_context.memtype;
 	default:
 		return 0;
 	}
