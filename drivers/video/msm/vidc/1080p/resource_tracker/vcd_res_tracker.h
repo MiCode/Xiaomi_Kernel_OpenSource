@@ -28,6 +28,7 @@
 
 #define RESTRK_1080P_MIN_PERF_LEVEL RESTRK_1080P_VGA_PERF_LEVEL
 #define RESTRK_1080P_MAX_PERF_LEVEL RESTRK_1080P_1080P_PERF_LEVEL
+
 struct res_trk_context {
 	struct device *device;
 	u32 irq_num;
@@ -52,6 +53,7 @@ struct res_trk_context {
 	u32 disable_dmx;
 	u32 disable_fullhd;
 	enum ddl_mem_area res_mem_type;
+	u32 mmu_clks_on;
 };
 
 #if DEBUG

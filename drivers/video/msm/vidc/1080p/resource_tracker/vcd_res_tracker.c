@@ -33,6 +33,17 @@ static struct res_trk_context resource_context;
 #define VIDC_FW	"vidc_1080p.fw"
 #define VIDC_FW_SIZE SZ_1M
 
+struct res_trk_vidc_mmu_clk {
+	char *mmu_clk_name;
+	struct clk *mmu_clk;
+};
+
+static struct res_trk_vidc_mmu_clk vidc_mmu_clks[] = {
+	{"mdp_iommu_clk"}, {"rot_iommu_clk"},
+	{"vcodec_iommu0_clk"}, {"vcodec_iommu1_clk"},
+	{"smmu_iface_clk"}
+};
+
 unsigned char *vidc_video_codec_fw;
 u32 vidc_video_codec_fw_size;
 static u32 res_trk_get_clk(void);
@@ -519,4 +530,57 @@ void res_trk_set_mem_type(enum ddl_mem_area mem_type)
 u32 res_trk_get_disable_fullhd(void)
 {
 	return resource_context.disable_fullhd;
+}
+
+int res_trk_enable_iommu_clocks(void)
+{
+	int ret = 0, i;
+	if (resource_context.mmu_clks_on) {
+		pr_err(" %s: Clocks are already on", __func__);
+		return -EINVAL;
+	}
+	resource_context.mmu_clks_on = 1;
+	for (i = 0; i < ARRAY_SIZE(vidc_mmu_clks); i++) {
+		vidc_mmu_clks[i].mmu_clk = clk_get(resource_context.device,
+			vidc_mmu_clks[i].mmu_clk_name);
+		if (IS_ERR(vidc_mmu_clks[i].mmu_clk)) {
+			pr_err(" %s: Get failed for clk %s", __func__,
+				   vidc_mmu_clks[i].mmu_clk_name);
+			ret = PTR_ERR(vidc_mmu_clks[i].mmu_clk);
+		}
+		if (!ret) {
+			ret = clk_enable(vidc_mmu_clks[i].mmu_clk);
+			if (ret) {
+				clk_put(vidc_mmu_clks[i].mmu_clk);
+				vidc_mmu_clks[i].mmu_clk = NULL;
+			}
+		}
+		if (ret) {
+			for (i--; i >= 0; i--) {
+				clk_disable(vidc_mmu_clks[i].mmu_clk);
+				clk_put(vidc_mmu_clks[i].mmu_clk);
+				vidc_mmu_clks[i].mmu_clk = NULL;
+			}
+			resource_context.mmu_clks_on = 0;
+			pr_err("%s() clocks enable failed", __func__);
+			break;
+		}
+	}
+	return ret;
+}
+
+int res_trk_disable_iommu_clocks(void)
+{
+	int i;
+	if (!resource_context.mmu_clks_on) {
+		pr_err(" %s: clks are already off", __func__);
+		return -EINVAL;
+	}
+	resource_context.mmu_clks_on = 0;
+	for (i = 0; i < ARRAY_SIZE(vidc_mmu_clks); i++) {
+		clk_disable(vidc_mmu_clks[i].mmu_clk);
+		clk_put(vidc_mmu_clks[i].mmu_clk);
+		vidc_mmu_clks[i].mmu_clk = NULL;
+	}
+	return 0;
 }
