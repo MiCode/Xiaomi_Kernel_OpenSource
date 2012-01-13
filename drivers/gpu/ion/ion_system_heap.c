@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/iommu.h>
+#include <linux/seq_file.h>
 #include <mach/iommu_domains.h>
 #include "ion_priv.h"
 #include <mach/memory.h>
@@ -218,9 +219,12 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-static unsigned long ion_system_heap_get_allocated(struct ion_heap *heap)
+static int ion_system_print_debug(struct ion_heap *heap, struct seq_file *s)
 {
-	return atomic_read(&system_heap_allocated);
+	seq_printf(s, "total bytes currently allocated: %lx\n",
+			(unsigned long) atomic_read(&system_heap_allocated));
+
+	return 0;
 }
 
 int ion_system_heap_map_iommu(struct ion_buffer *buffer,
@@ -303,7 +307,7 @@ static struct ion_heap_ops vmalloc_ops = {
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_heap_map_user,
 	.cache_op = ion_system_heap_cache_ops,
-	.get_allocated = ion_system_heap_get_allocated,
+	.print_debug = ion_system_print_debug,
 	.map_iommu = ion_system_heap_map_iommu,
 	.unmap_iommu = ion_system_heap_unmap_iommu,
 };
@@ -421,9 +425,13 @@ int ion_system_contig_heap_cache_ops(struct ion_heap *heap,
 	return 0;
 }
 
-static unsigned long ion_system_contig_heap_get_allocated(struct ion_heap *heap)
+static int ion_system_contig_print_debug(struct ion_heap *heap,
+					 struct seq_file *s)
 {
-	return atomic_read(&system_contig_heap_allocated);
+	seq_printf(s, "total bytes currently allocated: %lx\n",
+		(unsigned long) atomic_read(&system_contig_heap_allocated));
+
+	return 0;
 }
 
 int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
@@ -504,7 +512,7 @@ static struct ion_heap_ops kmalloc_ops = {
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
 	.cache_op = ion_system_contig_heap_cache_ops,
-	.get_allocated = ion_system_contig_heap_get_allocated,
+	.print_debug = ion_system_contig_print_debug,
 	.map_iommu = ion_system_contig_heap_map_iommu,
 	.unmap_iommu = ion_system_heap_unmap_iommu,
 };
