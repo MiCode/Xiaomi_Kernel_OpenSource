@@ -1713,11 +1713,12 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 			else
 				clear_bit(B_SESS_VLD, &motg->inputs);
 		} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
-			if (irq_read_line(motg->pdata->pmic_id_irq))
-				set_bit(ID, &motg->inputs);
-			else
-				clear_bit(ID, &motg->inputs);
-
+			if (pdata->pmic_id_irq) {
+				if (irq_read_line(pdata->pmic_id_irq))
+					set_bit(ID, &motg->inputs);
+				else
+					clear_bit(ID, &motg->inputs);
+			}
 			/*
 			 * VBUS initial state is reported after PMIC
 			 * driver initialization. Wait for it.
@@ -1730,10 +1731,18 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 		break;
 	case USB_PERIPHERAL:
 		set_bit(ID, &motg->inputs);
-		if (otgsc & OTGSC_BSV)
-			set_bit(B_SESS_VLD, &motg->inputs);
-		else
-			clear_bit(B_SESS_VLD, &motg->inputs);
+		if (pdata->otg_control == OTG_PHY_CONTROL) {
+			if (otgsc & OTGSC_BSV)
+				set_bit(B_SESS_VLD, &motg->inputs);
+			else
+				clear_bit(B_SESS_VLD, &motg->inputs);
+		} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
+			/*
+			 * VBUS initial state is reported after PMIC
+			 * driver initialization. Wait for it.
+			 */
+			wait_for_completion(&pmic_vbus_init);
+		}
 		break;
 	default:
 		break;
@@ -2511,7 +2520,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_irq;
 	}
 
-	if (motg->pdata->otg_control == OTG_PMIC_CONTROL) {
+	if (motg->pdata->mode == USB_OTG &&
+		motg->pdata->otg_control == OTG_PMIC_CONTROL) {
 		if (motg->pdata->pmic_id_irq) {
 			ret = request_irq(motg->pdata->pmic_id_irq,
 						msm_pmic_id_irq,
@@ -2545,7 +2555,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) {
 		if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
-			motg->pdata->pmic_id_irq)
+			(!(motg->pdata->mode == USB_OTG) ||
+			 motg->pdata->pmic_id_irq))
 			motg->caps = ALLOW_PHY_POWER_COLLAPSE |
 				ALLOW_PHY_RETENTION |
 				ALLOW_PHY_COMP_DISABLE;
