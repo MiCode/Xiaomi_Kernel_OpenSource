@@ -1497,7 +1497,7 @@ static void vote_dfab(void)
 		mutex_unlock(&dfab_status_lock);
 		return;
 	}
-	rc = clk_enable(dfab_clk);
+	rc = clk_prepare_enable(dfab_clk);
 	if (rc)
 		DMUX_LOG_KERR("bam_dmux vote for dfab failed rc = %d\n", rc);
 	dfab_is_on = 1;
@@ -1514,7 +1514,7 @@ static void unvote_dfab(void)
 		mutex_unlock(&dfab_status_lock);
 		return;
 	}
-	clk_disable(dfab_clk);
+	clk_disable_unprepare(dfab_clk);
 	dfab_is_on = 0;
 	mutex_unlock(&dfab_status_lock);
 }
