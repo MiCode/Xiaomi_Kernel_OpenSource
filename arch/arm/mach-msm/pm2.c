@@ -118,18 +118,6 @@ module_param_named(
  * Sleep Modes and Parameters
  *****************************************************************************/
 
-static int msm_pm_sleep_mode = CONFIG_MSM7X00A_SLEEP_MODE;
-module_param_named(
-	sleep_mode, msm_pm_sleep_mode,
-	int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
-static int msm_pm_idle_sleep_mode = CONFIG_MSM7X00A_IDLE_SLEEP_MODE;
-module_param_named(
-	idle_sleep_mode, msm_pm_idle_sleep_mode,
-	int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
 static int msm_pm_idle_sleep_min_time = CONFIG_MSM7X00A_IDLE_SLEEP_MIN_TIME;
 module_param_named(
 	idle_sleep_min_time, msm_pm_idle_sleep_min_time,
@@ -1407,7 +1395,7 @@ void arch_idle(void)
 	int64_t t1;
 	static int64_t t2;
 	int exit_stat;
-#endif /* CONFIG_MSM_IDLE_STATS */
+ #endif /* CONFIG_MSM_IDLE_STATS */
 
 	if (!atomic_read(&msm_pm_init_done))
 		return;
@@ -1421,38 +1409,13 @@ void arch_idle(void)
 	t1 = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - t2);
 	msm_pm_add_stat(MSM_PM_STAT_REQUESTED_IDLE, timer_expiration);
+
+	exit_stat = MSM_PM_STAT_IDLE_SPIN;
+	low_power = 0;
 #endif /* CONFIG_MSM_IDLE_STATS */
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
 		allow[i] = true;
-
-	switch (msm_pm_idle_sleep_mode) {
-	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] =
-			false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_APPS_SLEEP:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND:
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-		break;
-	default:
-		printk(KERN_ERR "idle sleep mode is invalid: %d\n",
-			msm_pm_idle_sleep_mode);
-#ifdef CONFIG_MSM_IDLE_STATS
-		exit_stat = MSM_PM_STAT_IDLE_SPIN;
-#endif /* CONFIG_MSM_IDLE_STATS */
-		low_power = 0;
-		goto arch_idle_exit;
-	}
 
 	if ((timer_expiration < msm_pm_idle_sleep_min_time) ||
 #ifdef CONFIG_HAS_WAKELOCK
@@ -1580,7 +1543,6 @@ void arch_idle(void)
 #endif /* CONFIG_MSM_IDLE_STATS */
 	}
 
-arch_idle_exit:
 	msm_timer_exit_idle(low_power);
 
 #ifdef CONFIG_MSM_IDLE_STATS
@@ -1619,30 +1581,6 @@ static int msm_pm_enter(suspend_state_t state)
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
 		allow[i] = true;
-
-	switch (msm_pm_sleep_mode) {
-	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] =
-			false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_APPS_SLEEP:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND:
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-		break;
-	default:
-		printk(KERN_ERR "suspend sleep mode is invalid: %d\n",
-			msm_pm_sleep_mode);
-		return -EINVAL;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++) {
 		struct msm_pm_platform_data *mode;
