@@ -30,6 +30,8 @@ config ARCH_MSM7X27
 	select REGULATOR
 	select MULTI_IRQ_HANDLER
 	select MSM_PROC_COMM_REGULATOR
+	select CLEANCACHE
+	select QCACHE
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
