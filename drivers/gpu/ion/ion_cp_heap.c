@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/memory_alloc.h>
+#include <linux/seq_file.h>
 #include <mach/msm_memtypes.h>
 #include <mach/scm.h>
 #include "ion_priv.h"
@@ -454,77 +455,34 @@ int ion_cp_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-static unsigned long ion_cp_get_allocated(struct ion_heap *heap)
+static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s)
 {
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long allocated_bytes;
-
-	mutex_lock(&cp_heap->lock);
-	allocated_bytes = cp_heap->allocated_bytes;
-	mutex_unlock(&cp_heap->lock);
-
-	return allocated_bytes;
-}
-
-static unsigned long ion_cp_get_total(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-
-	return cp_heap->total_size;
-}
-
-static unsigned long ion_cp_get_umap_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long umap_count;
-
-	mutex_lock(&cp_heap->lock);
-	umap_count = cp_heap->umap_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return umap_count;
-}
-
-static unsigned long ion_cp_get_kmap_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long kmap_count;
-
-	mutex_lock(&cp_heap->lock);
-	kmap_count = cp_heap->kmap_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return kmap_count;
-}
-
-static unsigned long ion_cp_get_alloc_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long total_alloc;
+	unsigned long total_size;
 	unsigned long alloc_count;
-
-	mutex_lock(&cp_heap->lock);
-	alloc_count = cp_heap->alloc_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return alloc_count;
-}
-
-static unsigned long ion_cp_get_secured(struct ion_heap *heap)
-{
+	unsigned long umap_count;
+	unsigned long kmap_count;
+	unsigned long heap_secured;
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long secured_heap = 0;
 
 	mutex_lock(&cp_heap->lock);
-	secured_heap = cp_heap->heap_secured == SECURED_HEAP;
+	total_alloc = cp_heap->allocated_bytes;
+	total_size = cp_heap->total_size;
+	alloc_count = cp_heap->alloc_count;
+	umap_count = cp_heap->umap_count;
+	kmap_count = cp_heap->kmap_count;
+	heap_secured = cp_heap->heap_secured == SECURED_HEAP;
 	mutex_unlock(&cp_heap->lock);
 
-	return secured_heap;
+	seq_printf(s, "total bytes currently allocated: %lx\n", total_alloc);
+	seq_printf(s, "total heap size: %lx\n", total_size);
+	seq_printf(s, "allocation count: %lx\n", alloc_count);
+	seq_printf(s, "umapping count: %lx\n", umap_count);
+	seq_printf(s, "kmapping count: %lx\n", kmap_count);
+	seq_printf(s, "secured heap: %s\n", heap_secured ? "Yes" : "No");
+
+	return 0;
 }
 
 int ion_cp_secure_heap(struct ion_heap *heap)
@@ -561,12 +519,7 @@ static struct ion_heap_ops cp_heap_ops = {
 	.map_dma = ion_cp_heap_map_dma,
 	.unmap_dma = ion_cp_heap_unmap_dma,
 	.cache_op = ion_cp_cache_ops,
-	.get_allocated = ion_cp_get_allocated,
-	.get_total = ion_cp_get_total,
-	.get_umap_cnt = ion_cp_get_umap_count,
-	.get_kmap_cnt = ion_cp_get_kmap_count,
-	.get_alloc_cnt = ion_cp_get_alloc_count,
-	.get_secured = ion_cp_get_secured,
+	.print_debug = ion_cp_print_debug,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
 };
