@@ -863,8 +863,8 @@ int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 	 */
 retry:
 	if (rb->flags & KGSL_FLAGS_STARTED) {
+		adreno_poke(device);
 		do {
-			adreno_poke(device);
 			GSL_RB_GET_READPTR(rb, &rb->rptr);
 			if (time_after(jiffies, wait_time)) {
 				KGSL_DRV_ERR(device, "rptr: %x, wptr: %x\n",
