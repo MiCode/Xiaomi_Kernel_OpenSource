@@ -18,6 +18,7 @@
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
+#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/mmc.h>
 #include <mach/msm_bus_board.h>
@@ -201,6 +202,50 @@ static struct pm8xxx_led_platform_data apq8064_pm8921_leds_pdata = {
 		.num_configs = ARRAY_SIZE(pm8921_led_configs),
 };
 
+static struct pm8xxx_adc_amux apq8064_pm8921_adc_channels_data[] = {
+	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vbat", CHANNEL_VBAT, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"dcin", CHANNEL_DCIN, CHAN_PATH_SCALING4, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"ichg", CHANNEL_ICHG, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vph_pwr", CHANNEL_VPH_PWR, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"ibat", CHANNEL_IBAT, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"batt_therm", CHANNEL_BATT_THERM, CHAN_PATH_SCALING1, AMUX_RSV2,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+	{"batt_id", CHANNEL_BATT_ID, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"usbin", CHANNEL_USBIN, CHAN_PATH_SCALING3, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
+	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"125v", CHANNEL_125V, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"chg_temp", CHANNEL_CHG_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+};
+
+static struct pm8xxx_adc_properties apq8064_pm8921_adc_data = {
+	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
+	.bitresolution		= 15,
+	.bipolar                = 0,
+};
+
+static struct pm8xxx_adc_platform_data apq8064_pm8921_adc_pdata = {
+	.adc_channel		= apq8064_pm8921_adc_channels_data,
+	.adc_num_board_channel	= ARRAY_SIZE(apq8064_pm8921_adc_channels_data),
+	.adc_prop		= &apq8064_pm8921_adc_data,
+	.adc_mpp_base		= PM8921_MPP_PM_TO_SYS(1),
+};
+
 static struct pm8xxx_mpp_platform_data
 apq8064_pm8921_mpp_pdata __devinitdata = {
 	.mpp_base	= PM8921_MPP_PM_TO_SYS(1),
@@ -235,6 +280,7 @@ apq8064_pm8921_platform_data __devinitdata = {
 	.pwrkey_pdata		= &apq8064_pm8921_pwrkey_pdata,
 	.misc_pdata		= &apq8064_pm8921_misc_pdata,
 	.leds_pdata		= &apq8064_pm8921_leds_pdata,
+	.adc_pdata		= &apq8064_pm8921_adc_pdata,
 };
 
 static struct pm8xxx_irq_platform_data
