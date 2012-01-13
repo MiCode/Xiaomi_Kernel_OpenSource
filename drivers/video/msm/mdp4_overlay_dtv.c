@@ -56,6 +56,12 @@ static int dtv_enabled;
 static struct mdp4_overlay_pipe *dtv_pipe;
 static DECLARE_COMPLETION(dtv_comp);
 
+void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe)
+{
+	if (hdmi_prim_display)
+		dtv_pipe = pipe;
+}
+
 static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 {
 	int dtv_width;
@@ -208,7 +214,6 @@ static int mdp4_dtv_stop(struct msm_fb_data_type *mfd)
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	mdp4_mixer_pipe_cleanup(dtv_pipe->mixer_num);
 	msleep(20);
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0);
 	dtv_enabled = 0;
@@ -262,14 +267,20 @@ int mdp4_dtv_off(struct platform_device *pdev)
 
 	if (dtv_pipe != NULL) {
 		mdp4_dtv_stop(mfd);
+		if (hdmi_prim_display && mfd->ref_cnt == 0) {
+			/* adb stop */
+			if (dtv_pipe->pipe_type == OVERLAY_TYPE_BF)
+				mdp4_overlay_borderfill_stage_down(dtv_pipe);
 
-		/* delay to make sure the last frame finishes */
-		msleep(20);
-
-		mdp4_mixer_stage_down(dtv_pipe);
-		mdp4_overlay_pipe_free(dtv_pipe);
-		mdp4_iommu_unmap(dtv_pipe);
-		dtv_pipe = NULL;
+			/* dtv_pipe == rgb1 */
+			mdp4_overlay_unset_mixer(dtv_pipe->mixer_num);
+			dtv_pipe = NULL;
+		} else {
+			mdp4_mixer_stage_down(dtv_pipe);
+			mdp4_overlay_pipe_free(dtv_pipe);
+			mdp4_iommu_unmap(dtv_pipe);
+			dtv_pipe = NULL;
+		}
 	}
 	mdp4_overlay_panel_mode_unset(MDP4_MIXER1, MDP4_PANEL_DTV);
 
@@ -610,7 +621,8 @@ void mdp4_dtv_set_black_screen(void)
 	*/
 	temp_src_format = inpdw(rgb_base + 0x0050);
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
-	mdp4_overlay_reg_flush(dtv_pipe, 0);
+	mdp4_overlay_reg_flush(dtv_pipe, 1);
+	mdp4_mixer_stage_up(dtv_pipe);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
@@ -696,11 +708,19 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	}
 	mutex_lock(&mfd->dma->ov_mutex);
 	pipe = dtv_pipe;
+
+	if (hdmi_prim_display && (pipe->pipe_used == 0 ||
+			pipe->mixer_stage != MDP4_MIXER_STAGE_BASE)) {
+		pr_err("%s: NOT baselayer\n", __func__);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return;
+	}
+
 	if (pipe->pipe_type == OVERLAY_TYPE_RGB) {
 		pipe->srcp0_addr = (uint32) mfd->ibuf.buf;
 		mdp4_overlay_rgb_setup(pipe);
 	}
-	mdp4_overlay_reg_flush(pipe, 0);
+	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_mixer_stage_up(pipe);
 	mdp4_overlay_dtv_start();
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
