@@ -414,6 +414,10 @@ void mdp4_overlay_dtv_ov_done_push(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_dtv_wait_for_ov(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe);
+int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe);
+int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe);
 #else
 static inline void mdp4_overlay_dtv_vsync_push(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe)
@@ -429,6 +433,16 @@ static inline void  mdp4_overlay_dtv_wait_for_ov(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe)
 {
 	/* empty */
+}
+static inline int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe)
+{
+	return 0;
+}
+static inline int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
+			struct mdp4_overlay_pipe *pipe)
+{
+	return 0;
 }
 #endif
 
