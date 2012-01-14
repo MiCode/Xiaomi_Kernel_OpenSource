@@ -137,26 +137,6 @@ enum pm8921_charger_source {
 	PM8921_CHG_SRC_DC,
 };
 
-/**
- * struct ext_chg_pm8921 -
- * @name:		name of the external charger
- * @ctx:		client context.
- * @start_charging:	callback to start charging. Can be called from an
- *			interrupt context
- * @stop_charging:	callback to stop charging. Can be called from an
- *			interrupt context
- * @is_trickle:		callback to check if trickle charging.
- *			Can be called from an interrupt context
- *
- */
-struct ext_chg_pm8921 {
-	const char	*name;
-	void		*ctx;
-	int		(*start_charging) (void *ctx);
-	int		(*stop_charging) (void *ctx);
-	bool		(*is_trickle) (void *ctx);
-};
-
 #if defined(CONFIG_PM8921_CHARGER) || defined(CONFIG_PM8921_CHARGER_MODULE)
 void pm8921_charger_vbus_draw(unsigned int mA);
 int pm8921_charger_register_vbus_sn(void (*callback)(int));
@@ -253,28 +233,6 @@ bool pm8921_is_battery_charging(int *source);
  */
 int pm8921_batt_temperature(void);
 /**
- * register_external_dc_charger -
- * @ext:	The structure representing an external charger
- *
- * RETURNS:	Negative error code is there was a problem. Zero for sucess
- *
- * The charger callbacks might be called even before this function
- * completes. The external charger driver should be ready to handle
- * it.
- */
-int register_external_dc_charger(struct ext_chg_pm8921 *ext);
-
-/**
- * unregister_external_dc_charger -
- * @ext:	The structure representing an external charger
- *
- * The charger callbacks might be called even before this function
- * completes. The external charger driver should be ready to handle
- * it.
- */
-void unregister_external_dc_charger(struct ext_chg_pm8921 *ext);
-
-/**
  * pm8921_usb_ovp_set_threshold -
  * Set the usb threshold as defined in by
  * enum usb_ov_threshold
@@ -354,15 +312,6 @@ static inline bool pm8921_is_battery_charging(int *source)
 static inline int pm8921_batt_temperature(void)
 {
 	return -ENXIO;
-}
-static inline int register_external_dc_charger(struct ext_chg_pm8921 *ext)
-{
-	pr_err("%s.not implemented.\n", __func__);
-	return -ENODEV;
-}
-static inline void unregister_external_dc_charger(struct ext_chg_pm8921 *ext)
-{
-	pr_err("%s.not implemented.\n", __func__);
 }
 static inline int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
 {

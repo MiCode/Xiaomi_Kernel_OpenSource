@@ -235,11 +235,10 @@ struct pm8921_chg_chip {
 	unsigned int			batt_temp_channel;
 	unsigned int			batt_id_channel;
 	struct power_supply		usb_psy;
-	struct power_supply		dc_psy;
+	struct power_supply		*ext_psy;
 	struct power_supply		batt_psy;
 	struct dentry			*dent;
 	struct bms_notify		bms_notify;
-	struct ext_chg_pm8921		*ext;
 	bool				keep_btm_on_suspend;
 	bool				ext_charging;
 	bool				ext_charge_done;
@@ -843,21 +842,29 @@ static int is_dc_chg_plugged_in(struct pm8921_chg_chip *chip)
 
 static bool is_ext_charging(struct pm8921_chg_chip *chip)
 {
-	if (chip->ext == NULL)
-		return false;
+	union power_supply_propval ret = {0,};
 
-	if (chip->ext_charging)
-		return true;
+	if (!chip->ext_psy)
+		return false;
+	if (chip->ext_psy->get_property(chip->ext_psy,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, &ret))
+		return false;
+	if (ret.intval > POWER_SUPPLY_CHARGE_TYPE_NONE)
+		return ret.intval;
 
 	return false;
 }
 
 static bool is_ext_trickle_charging(struct pm8921_chg_chip *chip)
 {
-	if (chip->ext == NULL)
-		return false;
+	union power_supply_propval ret = {0,};
 
-	if (chip->ext->is_trickle(chip->ext->ctx))
+	if (!chip->ext_psy)
+		return false;
+	if (chip->ext_psy->get_property(chip->ext_psy,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, &ret))
+		return false;
+	if (ret.intval == POWER_SUPPLY_CHARGE_TYPE_TRICKLE)
 		return true;
 
 	return false;
@@ -922,11 +929,6 @@ static int pm_power_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
-			chip = container_of(psy, struct pm8921_chg_chip,
-							dc_psy);
-			val->intval = is_dc_chg_plugged_in(chip);
-		}
 		if (psy->type == POWER_SUPPLY_TYPE_USB ||
 			psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
 			psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
@@ -1082,7 +1084,7 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	int fsm_state = pm_chg_get_fsm_state(chip);
 	int i;
 
-	if (chip->ext) {
+	if (chip->ext_psy) {
 		if (chip->ext_charge_done)
 			return POWER_SUPPLY_STATUS_FULL;
 		if (chip->ext_charging)
@@ -1532,7 +1534,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 
 static void handle_stop_ext_chg(struct pm8921_chg_chip *chip)
 {
-	if (chip->ext == NULL) {
+	if (!chip->ext_psy) {
 		pr_debug("external charger not registered.\n");
 		return;
 	}
@@ -1542,9 +1544,12 @@ static void handle_stop_ext_chg(struct pm8921_chg_chip *chip)
 		return;
 	}
 
-	chip->ext->stop_charging(chip->ext->ctx);
+	power_supply_set_charge_type(chip->ext_psy,
+					POWER_SUPPLY_CHARGE_TYPE_NONE);
+	pm8921_disable_source_current(false); /* release BATFET */
 	chip->ext_charging = false;
 	chip->ext_charge_done = false;
+	bms_notify_check(chip);
 }
 
 static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
@@ -1553,11 +1558,10 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	int batt_present;
 	int batt_temp_ok;
 	int vbat_ov;
-	int batfet;
 	unsigned long delay =
 		round_jiffies_relative(msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 
-	if (chip->ext == NULL) {
+	if (!chip->ext_psy) {
 		pr_debug("external charger not registered.\n");
 		return;
 	}
@@ -1567,11 +1571,9 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 		return;
 	}
 
-	dc_present = is_dc_chg_plugged_in(chip);
+	dc_present = is_dc_chg_plugged_in(the_chip);
 	batt_present = pm_chg_get_rt_status(chip, BATT_INSERTED_IRQ);
 	batt_temp_ok = pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ);
-	vbat_ov = pm_chg_get_rt_status(chip, VBAT_OV_IRQ);
-	batfet = pm_chg_get_rt_status(chip, BATFET_IRQ);
 
 	if (!dc_present) {
 		pr_warn("%s. dc not present.\n", __func__);
@@ -1585,34 +1587,21 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 		pr_warn("%s. battery temperature not ok.\n", __func__);
 		return;
 	}
+	pm8921_disable_source_current(true); /* Force BATFET=ON */
+	vbat_ov = pm_chg_get_rt_status(chip, VBAT_OV_IRQ);
 	if (vbat_ov) {
 		pr_warn("%s. battery over voltage.\n", __func__);
 		return;
 	}
-	if (!batfet) {
-		pr_warn("%s. battery FET not closed.\n", __func__);
-		return;
-	}
 
-	chip->ext->start_charging(chip->ext->ctx);
+	power_supply_set_charge_type(chip->ext_psy,
+					POWER_SUPPLY_CHARGE_TYPE_FAST);
 	chip->ext_charging = true;
 	chip->ext_charge_done = false;
+	bms_notify_check(chip);
 	/* Start BMS */
 	schedule_delayed_work(&chip->eoc_work, delay);
 	wake_lock(&chip->eoc_wake_lock);
-}
-
-static void handle_dc_removal_insertion(struct pm8921_chg_chip *chip)
-{
-	int dc_present;
-
-	dc_present = is_dc_chg_plugged_in(chip);
-	if (chip->dc_present ^ dc_present) {
-		chip->dc_present = dc_present;
-		power_supply_changed(&chip->dc_psy);
-		power_supply_changed(&chip->batt_psy);
-	}
-	bms_notify_check(chip);
 }
 
 #define WRITE_BANK_4		0xC0
@@ -1687,7 +1676,6 @@ static irqreturn_t vbatdet_low_irq_handler(int irq, void *data)
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 
 	return IRQ_HANDLED;
 }
@@ -1739,7 +1727,6 @@ static irqreturn_t chgdone_irq_handler(int irq, void *data)
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 
 	bms_notify_check(chip);
 
@@ -1762,7 +1749,6 @@ static irqreturn_t chgfail_irq_handler(int irq, void *data)
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 	return IRQ_HANDLED;
 }
 
@@ -1773,7 +1759,6 @@ static irqreturn_t chgstate_irq_handler(int irq, void *data)
 	pr_debug("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 
 	bms_notify_check(chip);
 
@@ -1902,7 +1887,7 @@ static irqreturn_t chghot_irq_handler(int irq, void *data)
 	pr_debug("Chg hot fsm_state=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
+	handle_stop_ext_chg(chip);
 	return IRQ_HANDLED;
 }
 
@@ -1915,7 +1900,6 @@ static irqreturn_t batttemp_cold_irq_handler(int irq, void *data)
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 	return IRQ_HANDLED;
 }
 
@@ -1926,7 +1910,6 @@ static irqreturn_t chg_gone_irq_handler(int irq, void *data)
 	pr_debug("Chg gone fsm_state=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 	return IRQ_HANDLED;
 }
 /*
@@ -1957,7 +1940,6 @@ static irqreturn_t bat_temp_ok_irq_handler(int irq, void *data)
 
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
-	power_supply_changed(&chip->dc_psy);
 	bms_notify_check(chip);
 	return IRQ_HANDLED;
 }
@@ -1998,11 +1980,16 @@ static irqreturn_t batfet_irq_handler(int irq, void *data)
 static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
+	int dc_present;
 
-	pm8921_disable_source_current(true); /* Force BATFET=ON */
-
-	handle_dc_removal_insertion(chip);
-	handle_start_ext_chg(chip);
+	dc_present = pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
+	if (chip->ext_psy)
+		power_supply_set_online(chip->ext_psy, dc_present);
+	chip->dc_present = dc_present;
+	if (dc_present)
+		handle_start_ext_chg(chip);
+	else
+		handle_stop_ext_chg(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2010,9 +1997,6 @@ static irqreturn_t dcin_ov_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
 
-	pm8921_disable_source_current(false); /* release BATFET */
-
-	handle_dc_removal_insertion(chip);
 	handle_stop_ext_chg(chip);
 	return IRQ_HANDLED;
 }
@@ -2021,10 +2005,39 @@ static irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
 
-	pm8921_disable_source_current(false); /* release BATFET */
 	handle_stop_ext_chg(chip);
 
 	return IRQ_HANDLED;
+}
+
+static int __pm_batt_external_power_changed_work(struct device *dev, void *data)
+{
+	struct power_supply *psy = &the_chip->batt_psy;
+	struct power_supply *epsy = dev_get_drvdata(dev);
+	int i, dcin_irq;
+
+	/* Only search for external supply if none is registered */
+	if (!the_chip->ext_psy) {
+		dcin_irq = the_chip->pmic_chg_irq[DCIN_VALID_IRQ];
+		for (i = 0; i < epsy->num_supplicants; i++) {
+			if (!strncmp(epsy->supplied_to[i], psy->name, 7)) {
+				if (!strncmp(epsy->name, "dc", 2)) {
+					the_chip->ext_psy = epsy;
+					dcin_valid_irq_handler(dcin_irq,
+							the_chip);
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+static void pm_batt_external_power_changed(struct power_supply *psy)
+{
+	/* Only look for an external supply if it hasn't been registered */
+	if (!the_chip->ext_psy)
+		class_for_each_device(power_supply_class, NULL, psy,
+					 __pm_batt_external_power_changed_work);
 }
 
 /**
@@ -2303,36 +2316,6 @@ static int configure_btm(struct pm8921_chg_chip *chip)
 	return rc;
 }
 
-int register_external_dc_charger(struct ext_chg_pm8921 *ext)
-{
-	if (the_chip == NULL) {
-		pr_err("called too early\n");
-		return -EINVAL;
-	}
-	/* TODO check function pointers */
-	the_chip->ext = ext;
-	the_chip->ext_charging = false;
-
-	if (is_dc_chg_plugged_in(the_chip))
-		pm8921_disable_source_current(true); /* Force BATFET=ON */
-
-	handle_start_ext_chg(the_chip);
-
-	return 0;
-}
-EXPORT_SYMBOL(register_external_dc_charger);
-
-void unregister_external_dc_charger(struct ext_chg_pm8921 *ext)
-{
-	if (the_chip == NULL) {
-		pr_err("called too early\n");
-		return;
-	}
-	handle_stop_ext_chg(the_chip);
-	the_chip->ext = NULL;
-}
-EXPORT_SYMBOL(unregister_external_dc_charger);
-
 /**
  * set_disable_status_param -
  *
@@ -2411,7 +2394,7 @@ static void free_irqs(struct pm8921_chg_chip *chip)
 		}
 }
 
-/* determines the initial present states and notifies msm_charger */
+/* determines the initial present states */
 static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 {
 	unsigned long flags;
@@ -3041,36 +3024,22 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->usb_psy.num_properties = ARRAY_SIZE(pm_power_props),
 	chip->usb_psy.get_property = pm_power_get_property,
 
-	chip->dc_psy.name = "ac",
-	chip->dc_psy.type = POWER_SUPPLY_TYPE_MAINS,
-	chip->dc_psy.supplied_to = pm_power_supplied_to,
-	chip->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to),
-	chip->dc_psy.properties = pm_power_props,
-	chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props),
-	chip->dc_psy.get_property = pm_power_get_property,
-
 	chip->batt_psy.name = "battery",
 	chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY,
 	chip->batt_psy.properties = msm_batt_power_props,
 	chip->batt_psy.num_properties = ARRAY_SIZE(msm_batt_power_props),
 	chip->batt_psy.get_property = pm_batt_power_get_property,
-
+	chip->batt_psy.external_power_changed = pm_batt_external_power_changed,
 	rc = power_supply_register(chip->dev, &chip->usb_psy);
 	if (rc < 0) {
 		pr_err("power_supply_register usb failed rc = %d\n", rc);
 		goto free_chip;
 	}
 
-	rc = power_supply_register(chip->dev, &chip->dc_psy);
-	if (rc < 0) {
-		pr_err("power_supply_register dc failed rc = %d\n", rc);
-		goto unregister_usb;
-	}
-
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
 		pr_err("power_supply_register batt failed rc = %d\n", rc);
-		goto unregister_dc;
+		goto unregister_usb;
 	}
 
 	platform_set_drvdata(pdev, chip);
@@ -3128,8 +3097,6 @@ free_irq:
 	free_irqs(chip);
 unregister_batt:
 	power_supply_unregister(&chip->batt_psy);
-unregister_dc:
-	power_supply_unregister(&chip->dc_psy);
 unregister_usb:
 	power_supply_unregister(&chip->usb_psy);
 free_chip:
