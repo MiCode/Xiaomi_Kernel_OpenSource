@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,10 @@
 #define RIVA_PMU_CFG_IRIS_XO_MODE	0x6
 #define RIVA_PMU_CFG_IRIS_XO_MODE_48	(3 << 1)
 
+#define RIVA_PMU_OVRD_EN		0x2C
+#define RIVA_PMU_OVRD_EN_CCPU_RESET	BIT(0)
+#define RIVA_PMU_OVRD_EN_CCPU_CLK	BIT(1)
+
 #define RIVA_PMU_OVRD_VAL		0x30
 #define RIVA_PMU_OVRD_VAL_CCPU_RESET	BIT(0)
 #define RIVA_PMU_OVRD_VAL_CCPU_CLK	BIT(1)
@@ -57,6 +61,7 @@
 #define RIVA_PLL_N_VAL			(MSM_CLK_CTL_BASE + 0x31Ac)
 #define RIVA_PLL_CONFIG			(MSM_CLK_CTL_BASE + 0x31B4)
 #define RIVA_PLL_STATUS			(MSM_CLK_CTL_BASE + 0x31B8)
+#define RIVA_RESET			(MSM_CLK_CTL_BASE + 0x35E0)
 
 #define RIVA_PMU_ROOT_CLK_SEL		0xC8
 #define RIVA_PMU_ROOT_CLK_SEL_3		BIT(2)
@@ -230,9 +235,23 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	u32 reg;
 
+	/* Put cCPU and cCPU clock into reset */
 	reg = readl_relaxed(drv->base + RIVA_PMU_OVRD_VAL);
 	reg &= ~(RIVA_PMU_OVRD_VAL_CCPU_RESET | RIVA_PMU_OVRD_VAL_CCPU_CLK);
 	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_VAL);
+	reg = readl_relaxed(drv->base + RIVA_PMU_OVRD_EN);
+	reg |= RIVA_PMU_OVRD_EN_CCPU_RESET | RIVA_PMU_OVRD_EN_CCPU_CLK;
+	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_EN);
+	mb();
+
+	/* Assert reset to Riva */
+	writel_relaxed(1, RIVA_RESET);
+	mb();
+	usleep_range(1000, 2000);
+
+	/* Deassert reset to Riva */
+	writel_relaxed(0, RIVA_RESET);
+	mb();
 
 	pil_riva_remove_xo_proxy_votes_now(pil->dev);
 
