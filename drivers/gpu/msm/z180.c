@@ -251,7 +251,7 @@ static irqreturn_t z180_isr(int irq, void *data)
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 		queue_work(device->work_queue, &device->idle_check_ws);
 	}
-	mod_timer(&device->idle_timer,
+	mod_timer_pending(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
 
 	return result;
@@ -583,8 +583,6 @@ static int z180_stop(struct kgsl_device *device)
 {
 	device->ftbl->irqctrl(device, 0);
 	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
-
-	del_timer_sync(&device->idle_timer);
 
 	kgsl_mmu_stop(device);
 

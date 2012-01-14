@@ -362,6 +362,7 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state)
 		}
 	}
 }
+EXPORT_SYMBOL(kgsl_pwrctrl_clk);
 
 void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
@@ -848,6 +849,16 @@ void kgsl_pwrctrl_disable(struct kgsl_device *device)
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_OFF);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_disable);
+
+void kgsl_pwrctrl_stop_work(struct kgsl_device *device)
+{
+	del_timer_sync(&device->idle_timer);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	mutex_unlock(&device->mutex);
+	flush_workqueue(device->work_queue);
+	mutex_lock(&device->mutex);
+}
+EXPORT_SYMBOL(kgsl_pwrctrl_stop_work);
 
 void kgsl_pwrctrl_set_state(struct kgsl_device *device, unsigned int state)
 {
