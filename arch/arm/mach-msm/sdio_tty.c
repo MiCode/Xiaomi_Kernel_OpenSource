@@ -30,11 +30,6 @@
 #define MAX_SDIO_TTY_DEV_NAME_SIZE	25
 
 /* Configurations per channel device */
-/* CIQ */
-#define SDIO_TTY_CIQ_DEV		"sdio_tty_ciq_0"
-#define SDIO_TTY_CIQ_TEST_DEV		"sdio_tty_ciq_test_0"
-#define SDIO_TTY_CH_CIQ			"SDIO_CIQ"
-
 /* CSVT */
 #define SDIO_TTY_CSVT_DEV		"sdio_tty_csvt_0"
 #define SDIO_TTY_CSVT_TEST_DEV		"sdio_tty_csvt_test_0"
@@ -48,15 +43,11 @@ enum sdio_tty_state {
 };
 
 enum sdio_tty_devices {
-	SDIO_CIQ,
-	SDIO_CIQ_TEST_APP,
 	SDIO_CSVT,
 	SDIO_CSVT_TEST_APP,
 };
 
 static const struct platform_device_id sdio_tty_id_table[] = {
-	{ "SDIO_CIQ",		SDIO_CIQ },
-	{ "SDIO_CIQ_TEST_APP",	SDIO_CIQ_TEST_APP },
 	{ "SDIO_CSVT",		SDIO_CSVT },
 	{ "SDIO_CSVT_TEST_APP",	SDIO_CSVT_TEST_APP },
 	{ },
@@ -95,8 +86,6 @@ struct dentry *sdio_tty_debug_info;
  * Enable sdio_tty debug messages
  * By default the sdio_tty debug messages are turned off
  */
-static int ciq_debug_msg_on;
-module_param(ciq_debug_msg_on, int, 0);
 static int csvt_debug_msg_on;
 module_param(csvt_debug_msg_on, int, 0);
 
@@ -677,16 +666,6 @@ static int sdio_tty_probe(struct platform_device *pdev)
 	pr_debug(SDIO_TTY_MODULE_NAME ": %s for %s", __func__, pdev->name);
 
 	switch (device_id) {
-	case SDIO_CIQ:
-		device_name = SDIO_TTY_CIQ_DEV;
-		channel_name = SDIO_TTY_CH_CIQ;
-		debug_msg_on = ciq_debug_msg_on;
-		break;
-	case SDIO_CIQ_TEST_APP:
-		device_name = SDIO_TTY_CIQ_TEST_DEV;
-		channel_name = SDIO_TTY_CH_CIQ;
-		debug_msg_on = ciq_debug_msg_on;
-		break;
 	case SDIO_CSVT:
 		device_name = SDIO_TTY_CSVT_DEV;
 		channel_name = SDIO_TTY_CH_CSVT;
