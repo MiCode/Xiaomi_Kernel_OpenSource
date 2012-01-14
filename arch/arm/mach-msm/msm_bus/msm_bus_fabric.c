@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,13 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	struct nodeclk *nodeclk;
 
+	/**
+	 * Integration for clock rates is not required if context is not
+	 * same as client's active-only flag
+	 */
+	if (ctx != cl_active_flag)
+		goto skip_set_clks;
+
 	/* Maximum for this gateway */
 	for (i = 0; i <= slave->num_pnodes; i++) {
 		if (i == index && (req_clk_hz < curr_clk_hz))
@@ -272,13 +279,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 
 	if (clk_flag) {
 		nodeclk = &fabric->info.nodeclk[ctx];
-		/**
-		 * Send a clock request only when the client requests in active
-		 * context and the ACTIVE_CTX clock rate is selected OR the
-		 * client request is in normal context and normal clock rate
-		 * is selected.
-		 */
-		if (nodeclk->clk && (!((ctx == ACTIVE_CTX) ^ cl_active_flag))) {
+		if (nodeclk->clk) {
 			MSM_BUS_DBG("clks: id: %d set-clk: %lu bwsum_hz:%lu\n",
 			fabric->fabdev.id, *pclk, bwsum_hz);
 			if (nodeclk->rate != *pclk) {
@@ -289,7 +290,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		}
 	} else {
 		nodeclk = &slave->nodeclk[ctx];
-		if (nodeclk->clk && (!((ctx == ACTIVE_CTX) ^ cl_active_flag))) {
+		if (nodeclk->clk) {
 			rate = *pclk;
 			MSM_BUS_DBG("AXI_clks: id: %d set-clk: %lu "
 			"bwsum_hz: %lu\n" , slave->node_info->priv_id, rate,
@@ -299,8 +300,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 				nodeclk->rate = rate;
 			}
 		}
-		if (!status && slave->memclk.clk &&
-			(!((ctx == ACTIVE_CTX) ^ cl_active_flag))) {
+		if (!status && slave->memclk.clk) {
 			rate = *slave->link_info.sel_clk;
 			if (slave->memclk.rate != rate) {
 				slave->memclk.rate = rate;
