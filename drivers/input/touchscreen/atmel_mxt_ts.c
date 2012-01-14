@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -598,7 +598,8 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 		input_report_abs(input_dev, ABS_MT_POSITION_Y,
 				finger[id].y);
 		input_report_abs(input_dev, ABS_MT_PRESSURE,
-					finger[id].pressure);
+				finger[id].status != MXT_RELEASE ?
+				finger[id].pressure : 0);
 		input_mt_sync(input_dev);
 
 		if (finger[id].status == MXT_RELEASE)
