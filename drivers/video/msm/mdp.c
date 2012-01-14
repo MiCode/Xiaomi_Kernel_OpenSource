@@ -1642,8 +1642,8 @@ static int mdp_probe(struct platform_device *pdev)
 			if (mdp_version < 0x04030303) {
 				pr_err("%s: writeback panel not supprted\n",
 					 __func__);
-				rc = -ENODEV;
-				goto mdp_probe_err;
+				platform_device_put(msm_fb_dev);
+				return -ENODEV;
 			}
 			pdata->on = mdp4_overlay_writeback_on;
 			pdata->off = mdp4_overlay_writeback_off;
