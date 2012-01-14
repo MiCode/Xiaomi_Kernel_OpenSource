@@ -72,6 +72,8 @@ void msm_idle_stats_abort_idle_start(struct msm_idle_stats_device *device);
 void msm_idle_stats_idle_start(struct msm_idle_stats_device *device);
 void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 				struct msm_idle_pulse *pulse);
+void msm_idle_stats_update_event(struct msm_idle_stats_device *device,
+				__u32 event);
 #endif
 
 #endif  /* __ARCH_ARM_MACH_MSM_IDLE_STATS_DEVICE_H */
