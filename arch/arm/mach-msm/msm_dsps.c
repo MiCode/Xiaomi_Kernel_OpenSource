@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +39,10 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 
+#include <timer.h>
+
 #define DRV_NAME	"msm_dsps"
-#define DRV_VERSION	"3.01"
+#define DRV_VERSION	"3.02"
 
 #define PPSS_PAUSE_REG	0x1804
 
@@ -146,9 +148,9 @@ static u32 dsps_read_slow_timer(void)
 {
 	u32 val;
 
-	val = readl_relaxed(drv->ppss_base + PPSS_TIMER0_32KHZ_REG);
-	rmb(); /* order reads from the user output buffer */
-
+	/* Read the timer value from the MSM sclk. The MSM slow clock & DSPS
+	 * timers are in sync, so these are the same value */
+	val = msm_timer_get_sclk_ticks();
 	pr_debug("%s.count=%d.\n", __func__, val);
 
 	return val;
