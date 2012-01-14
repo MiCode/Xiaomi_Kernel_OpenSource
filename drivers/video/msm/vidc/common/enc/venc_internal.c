@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1745,7 +1745,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 	} else {
 		client_ctx->recon_buffer_ion_handle[i] = ion_import_fd(
 				client_ctx->user_ion_client, control->pmem_fd);
-		if (!client_ctx->recon_buffer_ion_handle[i]) {
+		if (IS_ERR_OR_NULL(client_ctx->recon_buffer_ion_handle[i])) {
 			ERR("%s(): get_ION_handle failed\n", __func__);
 			goto ion_error;
 		}
