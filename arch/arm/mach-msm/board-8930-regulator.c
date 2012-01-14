@@ -29,6 +29,7 @@ VREG_CONSUMERS(L1) = {
 VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("8038_l2",		NULL),
 	REGULATOR_SUPPLY("iris_vdddig",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.1"),
 };
 VREG_CONSUMERS(L3) = {
 	REGULATOR_SUPPLY("8038_l3",		NULL),
@@ -50,6 +51,7 @@ VREG_CONSUMERS(L7) = {
 };
 VREG_CONSUMERS(L8) = {
 	REGULATOR_SUPPLY("8038_l8",		NULL),
+	REGULATOR_SUPPLY("dsi_vdc",		"mipi_dsi.1"),
 };
 VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("8038_l9",		NULL),
@@ -100,6 +102,9 @@ VREG_CONSUMERS(L22) = {
 };
 VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8038_l23",		NULL),
+	REGULATOR_SUPPLY("dsi_vddio",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("hdmi_avdd",		"hdmi_msm.0"),
+	REGULATOR_SUPPLY("hdmi_vcc",		"hdmi_msm.0"),
 };
 VREG_CONSUMERS(L24) = {
 	REGULATOR_SUPPLY("8038_l24",		NULL),
@@ -144,6 +149,7 @@ VREG_CONSUMERS(LVS2) = {
 };
 VREG_CONSUMERS(EXT_5V) = {
 	REGULATOR_SUPPLY("ext_5v",		NULL),
+	REGULATOR_SUPPLY("hdmi_mvs",		"hdmi_msm.0"),
 };
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
