@@ -369,8 +369,12 @@ long diagchar_ioctl(struct file *filp,
 		mutex_lock(&driver->diagchar_mutex);
 		temp = driver->logging_mode;
 		driver->logging_mode = (int)ioarg;
-		if (driver->logging_mode == UART_MODE)
+		if (driver->logging_mode == MEMORY_DEVICE_MODE)
+			driver->mask_check = 1;
+		if (driver->logging_mode == UART_MODE) {
+			driver->mask_check = 0;
 			driver->logging_mode = MEMORY_DEVICE_MODE;
+		}
 		driver->logging_process_id = current->tgid;
 		mutex_unlock(&driver->diagchar_mutex);
 		if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
@@ -693,7 +697,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = copy_from_user(driver->user_space_data, buf + 4,
 							 payload_size);
 		/* Check masks for On-Device logging */
-		if (pkt_type == USER_SPACE_LOG_TYPE) {
+		if (driver->mask_check) {
 			if (!mask_request_validate(driver->user_space_data)) {
 				pr_alert("diag: mask request Invalid\n");
 				return -EFAULT;
@@ -1018,6 +1022,7 @@ static int __init diagchar_init(void)
 		driver->poolsize_write_struct = poolsize_write_struct;
 		driver->num_clients = max_clients;
 		driver->logging_mode = USB_MODE;
+		driver->mask_check = 0;
 		mutex_init(&driver->diagchar_mutex);
 		init_waitqueue_head(&driver->wait_q);
 		INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
