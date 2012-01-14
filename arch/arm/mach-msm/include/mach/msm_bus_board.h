@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,6 +237,7 @@ enum msm_bus_fabric_slave_type {
 	MSM_BUS_MMSS_SLAVE_FAB_APPS,
 	MSM_BUS_MMSS_SLAVE_FAB_APPS_1,
 	MSM_BUS_SLAVE_MM_IMEM,
+	MSM_BUS_SLAVE_CRYPTO,
 
 	MSM_BUS_SLAVE_SPDM,
 	MSM_BUS_SLAVE_RPM,
