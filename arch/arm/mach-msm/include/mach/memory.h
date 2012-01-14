@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/memory.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,8 +23,13 @@
 #define MAX_PHYSMEM_BITS 32
 #define SECTION_SIZE_BITS 28
 
-/* Maximum number of Memory Regions */
-#define MAX_NR_REGIONS 4
+/* Maximum number of Memory Regions
+*  The largest system can have 4 memory banks, each divided into 8 regions
+*/
+#define MAX_NR_REGIONS 32
+
+/* The number of regions each memory bank is divided into */
+#define NR_REGIONS_PER_BANK 8
 
 /* Certain configurations of MSM7x30 have multiple memory banks.
 *  One or more of these banks can contain holes in the memory map as well.
