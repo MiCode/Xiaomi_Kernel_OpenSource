@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,26 +237,49 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 {
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	u8 pgd_la, inf_la;
+	u16 *slave_port_mapping;
 
 	memset(dai_data->port_config.slimbus.slave_port_mapping, 0,
 		sizeof(dai_data->port_config.slimbus.slave_port_mapping));
 
 	dai_data->channels = params_channels(params);
+
+	slave_port_mapping = dai_data->port_config.slimbus.slave_port_mapping;
+
 	switch (dai_data->channels) {
+	case 4:
+		if (dai->id == SLIMBUS_0_TX) {
+			slave_port_mapping[0] = 7;
+			slave_port_mapping[1] = 8;
+			slave_port_mapping[2] = 9;
+			slave_port_mapping[3] = 10;
+		} else {
+			return -EINVAL;
+		}
+		break;
+	case 3:
+		if (dai->id == SLIMBUS_0_TX) {
+			slave_port_mapping[0] = 7;
+			slave_port_mapping[1] = 8;
+			slave_port_mapping[2] = 9;
+		} else {
+			return -EINVAL;
+		}
+		break;
 	case 2:
 		if (dai->id == SLIMBUS_0_RX) {
-			dai_data->port_config.slimbus.slave_port_mapping[0] = 1;
-			dai_data->port_config.slimbus.slave_port_mapping[1] = 2;
+			slave_port_mapping[0] = 1;
+			slave_port_mapping[1] = 2;
 		} else {
-			dai_data->port_config.slimbus.slave_port_mapping[0] = 7;
-			dai_data->port_config.slimbus.slave_port_mapping[1] = 8;
+			slave_port_mapping[0] = 7;
+			slave_port_mapping[1] = 8;
 		}
 		break;
 	case 1:
 		if (dai->id == SLIMBUS_0_RX)
-			dai_data->port_config.slimbus.slave_port_mapping[0] = 1;
+			slave_port_mapping[0] = 1;
 		else
-			dai_data->port_config.slimbus.slave_port_mapping[0] = 7;
+			slave_port_mapping[0] = 7;
 		break;
 	default:
 		return -EINVAL;
@@ -829,7 +852,7 @@ static struct snd_soc_dai_driver msm_dai_q6_i2s_rx_dai = {
 		SNDRV_PCM_RATE_16000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
-		.channels_max = 2,
+		.channels_max = 4,
 		.rate_min =     8000,
 		.rate_max =	48000,
 	},
