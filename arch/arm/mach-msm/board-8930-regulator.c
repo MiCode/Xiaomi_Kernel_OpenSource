@@ -146,6 +146,7 @@ VREG_CONSUMERS(LVS2) = {
 	REGULATOR_SUPPLY("8038_lvs2",		NULL),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-004a"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
+	REGULATOR_SUPPLY("vddp",		"12-0048"),
 };
 VREG_CONSUMERS(EXT_5V) = {
 	REGULATOR_SUPPLY("ext_5v",		NULL),
@@ -153,7 +154,7 @@ VREG_CONSUMERS(EXT_5V) = {
 };
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
-	REGULATOR_SUPPLY("vbus_otg",          "msm_otg"),
+	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
