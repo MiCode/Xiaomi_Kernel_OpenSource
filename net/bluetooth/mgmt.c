@@ -2040,10 +2040,13 @@ static int start_discovery(struct sock *sk, u16 index)
 	if (err < 0)
 		mgmt_pending_remove(cmd);
 	else if (lmp_le_capable(hdev)) {
+		cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
+		if (!cmd)
+			mgmt_pending_add(sk, MGMT_OP_STOP_DISCOVERY, index,
+								NULL, 0);
 		hdev->disco_int_phase = 1;
 		hdev->disco_int_count = 0;
 		hdev->disco_state = SCAN_BR;
-		mgmt_pending_add(sk, MGMT_OP_STOP_DISCOVERY, index, NULL, 0);
 		del_timer(&hdev->disco_le_timer);
 		del_timer(&hdev->disco_timer);
 		mod_timer(&hdev->disco_timer,
