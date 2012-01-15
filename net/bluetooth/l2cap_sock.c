@@ -626,6 +626,7 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 		l2cap_pi(sk)->fcs  = opts.fcs;
 		l2cap_pi(sk)->max_tx = opts.max_tx;
 		l2cap_pi(sk)->tx_win = opts.txwin_size;
+		l2cap_pi(sk)->flush_to = opts.flush_to;
 		break;
 
 	case L2CAP_LM:
@@ -763,6 +764,15 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 		if ((sk->sk_state == BT_CONNECTED) &&
 			(l2cap_pi(sk)->amp_move_role == L2CAP_AMP_MOVE_NONE))
 			l2cap_amp_move_init(sk);
+
+		break;
+
+	case BT_FLUSHABLE:
+		if (get_user(opt, (u32 __user *) optval)) {
+			err = -EFAULT;
+			break;
+		}
+		l2cap_pi(sk)->flushable = opt;
 
 		break;
 

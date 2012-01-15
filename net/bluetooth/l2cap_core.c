@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2011 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2000-2001, 2010-2012 Code Aurora Forum.  All rights reserved.
    Copyright (C) 2009-2010 Gustavo F. Padovan <gustavo@padovan.org>
    Copyright (C) 2010 Google Inc.
 
@@ -90,6 +90,8 @@ static int l2cap_create_cfm(struct hci_chan *chan, u8 status);
 static int l2cap_deaggregate(struct hci_chan *chan, struct l2cap_pinfo *pi);
 static void l2cap_chan_ready(struct sock *sk);
 static void l2cap_conn_del(struct hci_conn *hcon, int err);
+static u16 l2cap_get_smallest_flushto(struct l2cap_chan_list *l);
+static void l2cap_set_acl_flushto(struct hci_conn *hcon, u16 flush_to);
 
 /* ---- L2CAP channels ---- */
 static struct sock *__l2cap_get_chan_by_dcid(struct l2cap_chan_list *l, u16 cid)
@@ -519,6 +521,11 @@ static void __l2cap_chan_add(struct l2cap_conn *conn, struct sock *sk)
 		l2cap_pi(sk)->dcid = L2CAP_CID_SIGNALING;
 		l2cap_pi(sk)->omtu = L2CAP_DEFAULT_MTU;
 	}
+
+	if (l2cap_get_smallest_flushto(l) > l2cap_pi(sk)->flush_to) {
+		/*if flush timeout of the channel is lesser than existing */
+		l2cap_set_acl_flushto(conn->hcon, l2cap_pi(sk)->flush_to);
+	}
 	/* Otherwise, do not set scid/dcid/omtu.  These will be set up
 	 * by l2cap_fixed_channel_config()
 	 */
@@ -538,11 +545,18 @@ void l2cap_chan_del(struct sock *sk, int err)
 	BT_DBG("sk %p, conn %p, err %d", sk, conn, err);
 
 	if (conn) {
+		struct l2cap_chan_list *l = &conn->chan_list;
 		/* Unlink from channel list */
-		l2cap_chan_unlink(&conn->chan_list, sk);
+		l2cap_chan_unlink(l, sk);
 		l2cap_pi(sk)->conn = NULL;
 		if (!l2cap_pi(sk)->fixed_channel)
 			hci_conn_put(conn->hcon);
+
+		read_lock(&l->lock);
+		if (l2cap_pi(sk)->flush_to < l2cap_get_smallest_flushto(l))
+			l2cap_set_acl_flushto(conn->hcon,
+				l2cap_get_smallest_flushto(l));
+		read_unlock(&l->lock);
 	}
 
 	if (l2cap_pi(sk)->ampcon) {
@@ -7588,6 +7602,33 @@ static int l2cap_recv_acldata(struct hci_conn *hcon, struct sk_buff *skb, u16 fl
 drop:
 	kfree_skb(skb);
 	return 0;
+}
+
+static void l2cap_set_acl_flushto(struct hci_conn *hcon, u16 flush_to)
+{
+	struct hci_cp_write_automatic_flush_timeout flush_tm;
+	if (hcon && hcon->hdev) {
+		flush_tm.handle = hcon->handle;
+		if (flush_to == L2CAP_DEFAULT_FLUSH_TO)
+			flush_to = 0;
+		flush_tm.timeout = (flush_to < L2CAP_MAX_FLUSH_TO) ?
+				flush_to : L2CAP_MAX_FLUSH_TO;
+		hci_send_cmd(hcon->hdev,
+			HCI_OP_WRITE_AUTOMATIC_FLUSH_TIMEOUT,
+			4, &(flush_tm));
+	}
+}
+
+static u16 l2cap_get_smallest_flushto(struct l2cap_chan_list *l)
+{
+	int ret_flush_to = L2CAP_DEFAULT_FLUSH_TO;
+	struct sock *s;
+	for (s = l->head; s; s = l2cap_pi(s)->next_c) {
+		if (l2cap_pi(s)->flush_to > 0 &&
+				l2cap_pi(s)->flush_to < ret_flush_to)
+			ret_flush_to = l2cap_pi(s)->flush_to;
+	}
+	return ret_flush_to;
 }
 
 static int l2cap_debugfs_show(struct seq_file *f, void *p)
