@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2011 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2000-2001, 2010-2012 Code Aurora Forum.  All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -1571,8 +1571,12 @@ int hci_unregister_dev(struct hci_dev *hdev)
 
 	hci_unregister_sysfs(hdev);
 
+	/* Disable all timers */
 	hci_del_off_timer(hdev);
 	del_timer(&hdev->adv_timer);
+	del_timer(&hdev->cmd_timer);
+	del_timer(&hdev->disc_timer);
+	del_timer(&hdev->disc_le_timer);
 
 	destroy_workqueue(hdev->workqueue);
 
