@@ -43,6 +43,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/pm_qos_params.h>
+#include <linux/power_supply.h>
 
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
@@ -848,6 +849,35 @@ skip_phy_resume:
 }
 #endif
 
+static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
+{
+	struct power_supply *psy;
+
+	psy = power_supply_get_by_name("usb");
+	if (!psy)
+		goto psy_not_supported;
+
+	if (motg->cur_power == 0 && mA > 0) {
+		/* Enable charging */
+		if (power_supply_set_online(psy, true))
+			goto psy_not_supported;
+	} else if (motg->cur_power > 0 && mA == 0) {
+		/* Disable charging */
+		if (power_supply_set_online(psy, false))
+			goto psy_not_supported;
+		return 0;
+	}
+	/* Set max current limit */
+	if (power_supply_set_current_limit(psy, 1000*mA))
+		goto psy_not_supported;
+
+	return 0;
+
+psy_not_supported:
+	dev_dbg(motg->phy.dev, "Power Supply doesn't support USB charger\n");
+	return -ENXIO;
+}
+
 static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 {
 	if ((motg->chg_type == USB_ACA_DOCK_CHARGER ||
@@ -861,7 +891,14 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		return;
 
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
-	pm8921_charger_vbus_draw(mA);
+
+	/*
+	 *  Use Power Supply API if supported, otherwise fallback
+	 *  to legacy pm8921 API.
+	 */
+	if (msm_otg_notify_power_supply(motg, mA))
+		pm8921_charger_vbus_draw(mA);
+
 	motg->cur_power = mA;
 }
 
