@@ -141,9 +141,9 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
-#define MSM_ION_SF_SIZE		0x2800000 /* (40MB) */
+#define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
 #define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
-#define MSM_ION_MM_SIZE		0x4000000 /* (64MB) */
+#define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
 #define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_HEAP_NUM	7
