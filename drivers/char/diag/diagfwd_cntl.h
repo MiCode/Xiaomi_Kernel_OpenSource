@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,39 +28,6 @@ struct diag_ctrl_msg {
 	uint16_t count_entries;
 	uint16_t port;
 };
-
-struct diag_ctrl_event_mask {
-	uint32_t cmd_type;
-	uint32_t data_len;
-	uint8_t stream_id;
-	uint8_t status;
-	uint8_t event_config;
-	uint32_t event_mask_size;
-	/* Copy event mask here */
-} __packed;
-
-struct diag_ctrl_log_mask {
-	uint32_t cmd_type;
-	uint32_t data_len;
-	uint8_t stream_id;
-	uint8_t status;
-	uint8_t equip_id;
-	uint32_t num_items; /* Last log code for this equip_id */
-	uint32_t log_mask_size; /* Size of log mask stored in log_mask[] */
-	/* Copy log mask here */
-} __packed;
-
-struct diag_ctrl_msg_mask {
-	uint32_t cmd_type;
-	uint32_t data_len;
-	uint8_t stream_id;
-	uint8_t status;
-	uint8_t msg_mode;
-	uint16_t ssid_first; /* Start of range of supported SSIDs */
-	uint16_t ssid_last; /* Last SSID in range */
-	uint32_t msg_mask_size; /* ssid_last - ssid_first + 1 */
-	/* Copy msg mask here */
-} __packed;
 
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
