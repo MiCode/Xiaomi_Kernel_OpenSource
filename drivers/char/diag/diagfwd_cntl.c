@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,31 +118,16 @@ void diag_read_smd_wcnss_cntl_work_fn(struct work_struct *work)
 
 static void diag_smd_cntl_notify(void *ctxt, unsigned event)
 {
-	if (event == SMD_EVENT_OPEN) {
-		diag_send_event_mask_update(driver->ch_cntl);
-		diag_send_msg_mask_update(driver->ch_cntl);
-		diag_send_log_mask_update(driver->ch_cntl);
-	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
 }
 
 static void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
 {
-	if (event == SMD_EVENT_OPEN) {
-		diag_send_event_mask_update(driver->chqdsp_cntl);
-		diag_send_msg_mask_update(driver->chqdsp_cntl);
-		diag_send_log_mask_update(driver->chqdsp_cntl);
-	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_cntl_work));
 }
 
 static void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
 {
-	if (event == SMD_EVENT_OPEN) {
-		diag_send_event_mask_update(driver->ch_wcnss_cntl);
-		diag_send_msg_mask_update(driver->ch_wcnss_cntl);
-		diag_send_log_mask_update(driver->ch_wcnss_cntl);
-	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_cntl_work));
 }
 

@@ -50,9 +50,6 @@
 #define USER_SPACE_DATA 8000
 #define PKT_SIZE 4096
 #define MAX_EQUIP_ID 12
-#define DIAG_CTRL_MSG_LOG_MASK	9
-#define DIAG_CTRL_MSG_EVENT_MASK	10
-#define DIAG_CTRL_MSG_F3_MASK	11
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_registration;
@@ -150,10 +147,7 @@ struct diagchar_dev {
 	int count_hdlc_pool;
 	int count_write_struct_pool;
 	int used;
-	/* Buffers for masks */
-	struct diag_ctrl_event_mask *event_mask;
-	struct diag_ctrl_log_mask *log_mask;
-	struct diag_ctrl_msg_mask *msg_mask;
+
 	/* State for diag forwarding */
 	unsigned char *buf_in_1;
 	unsigned char *buf_in_2;
