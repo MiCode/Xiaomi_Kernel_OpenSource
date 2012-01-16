@@ -292,6 +292,7 @@ struct mxt_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	const struct mxt_platform_data *pdata;
+	const struct mxt_config_info *config_info;
 	struct mxt_object *object_table;
 	struct mxt_info info;
 	struct mxt_finger finger[MXT_MAX_FINGER];
@@ -312,6 +313,8 @@ struct mxt_data {
 	u8 t9_min_reportid;
 	u8 t15_max_reportid;
 	u8 t15_min_reportid;
+	u8 curr_cfg_version;
+	int cfg_version_idx;
 };
 
 static bool mxt_object_readable(unsigned int type)
@@ -750,13 +753,13 @@ end:
 
 static int mxt_check_reg_init(struct mxt_data *data)
 {
-	const struct mxt_platform_data *pdata = data->pdata;
+	const struct mxt_config_info *config_info = data->config_info;
 	struct mxt_object *object;
 	struct device *dev = &data->client->dev;
 	int index = 0;
 	int i, j, config_offset;
 
-	if (!pdata->config) {
+	if (!config_info) {
 		dev_dbg(dev, "No cfg data defined, skipping reg init\n");
 		return 0;
 	}
@@ -769,12 +772,12 @@ static int mxt_check_reg_init(struct mxt_data *data)
 
 		for (j = 0; j < object->size + 1; j++) {
 			config_offset = index + j;
-			if (config_offset > pdata->config_length) {
+			if (config_offset > config_info->config_length) {
 				dev_err(dev, "Not enough config data!\n");
 				return -EINVAL;
 			}
 			mxt_write_object(data, object->type, j,
-					 pdata->config[config_offset]);
+					 config_info->config[config_offset]);
 		}
 		index += object->size + 1;
 	}
@@ -846,6 +849,7 @@ static int mxt_get_object_table(struct mxt_data *data)
 	u16 reg;
 	u8 reportid = 0;
 	u8 buf[MXT_OBJECT_SIZE];
+	bool found_t38 = false;
 
 	for (i = 0; i < data->info.object_num; i++) {
 		struct mxt_object *object = data->object_table + i;
@@ -866,11 +870,94 @@ static int mxt_get_object_table(struct mxt_data *data)
 					(object->instances + 1);
 			object->max_reportid = reportid;
 		}
+
+		/* Calculate index for config major version in config array.
+		 * Major version is the first byte in object T38.
+		 */
+		if (object->type == MXT_SPT_USERDATA_T38)
+			found_t38 = true;
+		if (!found_t38 && mxt_object_writable(object->type))
+			data->cfg_version_idx += object->size + 1;
 	}
 
 	return 0;
 }
 
+static int mxt_search_config_array(struct mxt_data *data, bool version_match)
+{
+
+	const struct mxt_platform_data *pdata = data->pdata;
+	const struct mxt_config_info *cfg_info;
+	struct mxt_info *info = &data->info;
+	int i;
+	u8 cfg_version;
+
+	for (i = 0; i < pdata->config_array_size; i++) {
+
+		cfg_info = &pdata->config_array[i];
+
+		if (!cfg_info->config || !cfg_info->config_length)
+			continue;
+
+		if (info->family_id == cfg_info->family_id &&
+			info->variant_id == cfg_info->variant_id &&
+			info->version == cfg_info->version &&
+			info->build == cfg_info->build) {
+
+			cfg_version = cfg_info->config[data->cfg_version_idx];
+			if (data->curr_cfg_version == cfg_version ||
+				!version_match) {
+				data->config_info = cfg_info;
+				return 0;
+			}
+		}
+	}
+
+	dev_info(&data->client->dev,
+		"Config not found: F: %d, V: %d, FW: %d.%d.%d, CFG: %d\n",
+		info->family_id, info->variant_id,
+		info->version >> 4, info->version & 0xF, info->build,
+		data->curr_cfg_version);
+	return -EINVAL;
+}
+
+static int mxt_get_config(struct mxt_data *data)
+{
+	const struct mxt_platform_data *pdata = data->pdata;
+	struct device *dev = &data->client->dev;
+	struct mxt_object *object;
+	int error;
+
+	if (!pdata->config_array || !pdata->config_array_size) {
+		dev_dbg(dev, "No cfg data provided by platform data\n");
+		return 0;
+	}
+
+	/* Get current config version */
+	object = mxt_get_object(data, MXT_SPT_USERDATA_T38);
+	if (!object) {
+		dev_err(dev, "Unable to obtain USERDATA object\n");
+		return -EINVAL;
+	}
+
+	error = mxt_read_reg(data->client, object->start_address,
+				&data->curr_cfg_version);
+	if (error) {
+		dev_err(dev, "Unable to read config version\n");
+		return error;
+	}
+
+	/* It is possible that the config data on the controller is not
+	 * versioned and the version number returns 0. In this case,
+	 * find a match without the config version checking.
+	 */
+	error = mxt_search_config_array(data,
+				data->curr_cfg_version != 0 ? true : false);
+	if (error)
+		return error;
+
+	return 0;
+}
 static void mxt_reset_delay(struct mxt_data *data)
 {
 	struct mxt_info *info = &data->info;
@@ -918,6 +1005,11 @@ static int mxt_initialize(struct mxt_data *data)
 	error = mxt_get_object_table(data);
 	if (error)
 		goto free_object_table;
+
+	/* Get config data from platform data */
+	error = mxt_get_config(data);
+	if (error)
+		dev_dbg(&client->dev, "Config info not found.\n");
 
 	/* Check register init values */
 	error = mxt_check_reg_init(data);

@@ -29,10 +29,20 @@
 /* MXT_TOUCH_KEYARRAY_T15 */
 #define MXT_KEYARRAY_MAX_KEYS	32
 
-/* The platform data for the Atmel maXTouch touchscreen driver */
-struct mxt_platform_data {
+/* Config data for a given maXTouch controller with a specific firmware */
+struct mxt_config_info {
 	const u8 *config;
 	size_t config_length;
+	u8 family_id;
+	u8 variant_id;
+	u8 version;
+	u8 build;
+};
+
+/* The platform data for the Atmel maXTouch touchscreen driver */
+struct mxt_platform_data {
+	const struct mxt_config_info *config_array;
+	size_t config_array_size;
 
 	unsigned int x_size;
 	unsigned int y_size;

@@ -1554,9 +1554,20 @@ static void mxt_init_vkeys_8930(void)
 	return;
 }
 
+static struct mxt_config_info mxt_config_array[] = {
+	{
+		.config			= mxt_config_data_8930,
+		.config_length		= ARRAY_SIZE(mxt_config_data_8930),
+		.family_id		= 0x81,
+		.variant_id		= 0x01,
+		.version		= 0x10,
+		.build			= 0xAA,
+	},
+};
+
 static struct mxt_platform_data mxt_platform_data_8930 = {
-	.config			= mxt_config_data_8930,
-	.config_length		= ARRAY_SIZE(mxt_config_data_8930),
+	.config_array		= mxt_config_array,
+	.config_array_size	= ARRAY_SIZE(mxt_config_array),
 	.x_size			= 1067,
 	.y_size			= 566,
 	.irqflags		= IRQF_TRIGGER_FALLING,

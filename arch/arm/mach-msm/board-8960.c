@@ -1397,8 +1397,8 @@ static struct i2c_board_info cyttsp_info[] __initdata = {
 	},
 };
 
-/* configuration data */
-static const u8 mxt_config_data[] = {
+/* configuration data for mxt1386 */
+static const u8 mxt1386_config_data[] = {
 	/* T6 Object */
 	0, 0, 0, 0, 0, 0,
 	/* T38 Object */
@@ -1472,9 +1472,20 @@ err_ldo_gpio_req:
 	gpio_free(MXT_TS_LDO_EN_GPIO);
 }
 
+static struct mxt_config_info mxt_config_array[] = {
+	{
+		.config		= mxt1386_config_data,
+		.config_length	= ARRAY_SIZE(mxt1386_config_data),
+		.family_id	= 0xA0,
+		.variant_id	= 0x0,
+		.version	= 0x10,
+		.build		= 0xAA,
+	},
+};
+
 static struct mxt_platform_data mxt_platform_data = {
-	.config			= mxt_config_data,
-	.config_length		= ARRAY_SIZE(mxt_config_data),
+	.config_array		= mxt_config_array,
+	.config_array_size	= ARRAY_SIZE(mxt_config_array),
 	.x_size			= 1365,
 	.y_size			= 767,
 	.irqflags		= IRQF_TRIGGER_FALLING,
