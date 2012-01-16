@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/msm_ssbi.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
 
@@ -155,6 +156,63 @@ static struct mfd_cell adc_cell __devinitdata = {
 	.num_resources	= ARRAY_SIZE(adc_cell_resources),
 };
 
+static const struct resource charger_cell_resources[] __devinitconst = {
+	SINGLE_IRQ_RESOURCE("USBIN_VALID_IRQ", PM8921_USBIN_VALID_IRQ),
+	SINGLE_IRQ_RESOURCE("USBIN_OV_IRQ", PM8921_USBIN_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("BATT_INSERTED_IRQ", PM8921_BATT_INSERTED_IRQ),
+	SINGLE_IRQ_RESOURCE("VBATDET_LOW_IRQ", PM8921_VBATDET_LOW_IRQ),
+	SINGLE_IRQ_RESOURCE("USBIN_UV_IRQ", PM8921_USBIN_UV_IRQ),
+	SINGLE_IRQ_RESOURCE("VBAT_OV_IRQ", PM8921_VBAT_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGWDOG_IRQ", PM8921_CHGWDOG_IRQ),
+	SINGLE_IRQ_RESOURCE("VCP_IRQ", PM8921_VCP_IRQ),
+	SINGLE_IRQ_RESOURCE("ATCDONE_IRQ", PM8921_ATCDONE_IRQ),
+	SINGLE_IRQ_RESOURCE("ATCFAIL_IRQ", PM8921_ATCFAIL_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGDONE_IRQ", PM8921_CHGDONE_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGFAIL_IRQ", PM8921_CHGFAIL_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGSTATE_IRQ", PM8921_CHGSTATE_IRQ),
+	SINGLE_IRQ_RESOURCE("LOOP_CHANGE_IRQ", PM8921_LOOP_CHANGE_IRQ),
+	SINGLE_IRQ_RESOURCE("FASTCHG_IRQ", PM8921_FASTCHG_IRQ),
+	SINGLE_IRQ_RESOURCE("TRKLCHG_IRQ", PM8921_TRKLCHG_IRQ),
+	SINGLE_IRQ_RESOURCE("BATT_REMOVED_IRQ", PM8921_BATT_REMOVED_IRQ),
+	SINGLE_IRQ_RESOURCE("BATTTEMP_HOT_IRQ", PM8921_BATTTEMP_HOT_IRQ),
+	SINGLE_IRQ_RESOURCE("CHGHOT_IRQ", PM8921_CHGHOT_IRQ),
+	SINGLE_IRQ_RESOURCE("BATTTEMP_COLD_IRQ", PM8921_BATTTEMP_COLD_IRQ),
+	SINGLE_IRQ_RESOURCE("CHG_GONE_IRQ", PM8921_CHG_GONE_IRQ),
+	SINGLE_IRQ_RESOURCE("BAT_TEMP_OK_IRQ", PM8921_BAT_TEMP_OK_IRQ),
+	SINGLE_IRQ_RESOURCE("COARSE_DET_LOW_IRQ", PM8921_COARSE_DET_LOW_IRQ),
+	SINGLE_IRQ_RESOURCE("VDD_LOOP_IRQ", PM8921_VDD_LOOP_IRQ),
+	SINGLE_IRQ_RESOURCE("VREG_OV_IRQ", PM8921_VREG_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("VBATDET_IRQ", PM8921_VBATDET_IRQ),
+	SINGLE_IRQ_RESOURCE("BATFET_IRQ", PM8921_BATFET_IRQ),
+	SINGLE_IRQ_RESOURCE("PSI_IRQ", PM8921_PSI_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_VALID_IRQ", PM8921_DCIN_VALID_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_OV_IRQ", PM8921_DCIN_OV_IRQ),
+	SINGLE_IRQ_RESOURCE("DCIN_UV_IRQ", PM8921_DCIN_UV_IRQ),
+};
+
+static const struct resource bms_cell_resources[] __devinitconst = {
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_SBI_WRITE_OK", PM8921_BMS_SBI_WRITE_OK),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_CC_THR", PM8921_BMS_CC_THR),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_THR", PM8921_BMS_VSENSE_THR),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_FOR_R", PM8921_BMS_VSENSE_FOR_R),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_OCV_FOR_R", PM8921_BMS_OCV_FOR_R),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_GOOD_OCV", PM8921_BMS_GOOD_OCV),
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_AVG", PM8921_BMS_VSENSE_AVG),
+};
+
+static struct mfd_cell charger_cell __devinitdata = {
+	.name		= PM8921_CHARGER_DEV_NAME,
+	.id		= -1,
+	.resources	= charger_cell_resources,
+	.num_resources	= ARRAY_SIZE(charger_cell_resources),
+};
+
+static struct mfd_cell bms_cell __devinitdata = {
+	.name		= PM8921_BMS_DEV_NAME,
+	.id		= -1,
+	.resources	= bms_cell_resources,
+	.num_resources	= ARRAY_SIZE(bms_cell_resources),
+};
 static const struct resource mpp_cell_resources[] __devinitconst = {
 	{
 		.start	= PM8038_IRQ_BLOCK_BIT(PM8038_MPP_BLOCK_START, 0),
@@ -470,6 +528,39 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 		}
 	}
 
+	if (pdata->charger_pdata) {
+		pdata->charger_pdata->charger_cdata.vbat_channel = CHANNEL_VBAT;
+		pdata->charger_pdata->charger_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
+		pdata->charger_pdata->charger_cdata.batt_id_channel
+						= CHANNEL_BATT_ID;
+		charger_cell.platform_data = pdata->charger_pdata;
+		charger_cell.pdata_size =
+				sizeof(struct pm8921_charger_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &charger_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add charger subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->bms_pdata) {
+		pdata->bms_pdata->bms_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
+		pdata->bms_pdata->bms_cdata.vbat_channel = CHANNEL_VBAT;
+		pdata->bms_pdata->bms_cdata.ref625mv_channel = CHANNEL_625MV;
+		pdata->bms_pdata->bms_cdata.ref1p25v_channel = CHANNEL_125V;
+		pdata->bms_pdata->bms_cdata.batt_id_channel = CHANNEL_BATT_ID;
+		bms_cell.platform_data = pdata->bms_pdata;
+		bms_cell.pdata_size = sizeof(struct pm8921_bms_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &bms_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add bms subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
 	return 0;
 bail:
 	if (pmic->irq_chip) {
