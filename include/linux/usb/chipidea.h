@@ -23,6 +23,7 @@ struct ci13xxx_platform_data {
 #define CI13XXX_IS_OTG			BIT(5)
 
 #define CI13XXX_CONTROLLER_RESET_EVENT		0
+#define CI13XXX_CONTROLLER_CONNECT_EVENT	1
 	void	(*notify_event) (struct ci13xxx *ci, unsigned event);
 };
 
