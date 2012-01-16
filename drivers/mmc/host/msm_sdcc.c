@@ -477,11 +477,7 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 			goto out;
 		}
 		msmsdcc_stop_data(host);
-
-		if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
-				|| !mrq->sbc)) {
-			msmsdcc_start_command(host, mrq->data->stop, 0);
-		} else if (!mrq->data->stop || mrq->cmd->error ||
+		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
 			host->curr.mrq = NULL;
 			host->curr.cmd = NULL;
@@ -491,6 +487,9 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 
 			mmc_request_done(host->mmc, mrq);
 			return;
+		} else if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
+				|| !mrq->sbc)) {
+			msmsdcc_start_command(host, mrq->data->stop, 0);
 		}
 	}
 
@@ -635,10 +634,7 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 			return;
 		}
 		msmsdcc_stop_data(host);
-		if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
-				|| !mrq->sbc)) {
-			msmsdcc_start_command(host, mrq->data->stop, 0);
-		} else if (!mrq->data->stop || mrq->cmd->error ||
+		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
 			host->curr.mrq = NULL;
 			host->curr.cmd = NULL;
@@ -648,6 +644,9 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 
 			mmc_request_done(host->mmc, mrq);
 			return;
+		} else if (mrq->data->stop && ((mrq->sbc && mrq->data->error)
+				|| !mrq->sbc)) {
+			msmsdcc_start_command(host, mrq->data->stop, 0);
 		}
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
@@ -944,7 +943,7 @@ static void
 msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 				struct mmc_command *cmd, u32 *c)
 {
-	DBG(host, "op %d arg %08x flags %08x\n",
+	DBG(host, "op %02x arg %08x flags %08x\n",
 	    cmd->opcode, cmd->arg, cmd->flags);
 
 	*c |= (cmd->opcode | MCI_CPSM_ENABLE);
@@ -1393,16 +1392,9 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 		else if (host->curr.data) { /* Non DMA */
 			msmsdcc_reset_and_restore(host);
 			msmsdcc_stop_data(host);
-			if (cmd->data && cmd->data->stop)
-				msmsdcc_start_command(host,
-						cmd->data->stop, 0);
-			else
-				msmsdcc_request_end(host, cmd->mrq);
+			msmsdcc_request_end(host, cmd->mrq);
 		} else { /* host->data == NULL */
-			if (cmd->data && cmd->data->stop) {
-				msmsdcc_start_command(host,
-						cmd->data->stop, 0);
-			} else if (!cmd->error && host->prog_enable) {
+			if (!cmd->error && host->prog_enable) {
 				if (status & MCI_PROGDONE) {
 					host->prog_enable = 0;
 					msmsdcc_request_end(host, cmd->mrq);
