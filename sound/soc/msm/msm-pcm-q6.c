@@ -39,6 +39,11 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
+#define PLAYBACK_NUM_PERIODS	8
+#define PLAYBACK_PERIOD_SIZE	2048
+#define CAPTURE_NUM_PERIODS	16
+#define CAPTURE_PERIOD_SIZE	320
+
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -51,11 +56,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     320 * 16,
-	.period_bytes_min =	320,
-	.period_bytes_max =     320,
-	.periods_min =          16,
-	.periods_max =          16,
+	.buffer_bytes_max =     CAPTURE_NUM_PERIODS * CAPTURE_PERIOD_SIZE,
+	.period_bytes_min =	CAPTURE_PERIOD_SIZE,
+	.period_bytes_max =     CAPTURE_PERIOD_SIZE,
+	.periods_min =          CAPTURE_NUM_PERIODS,
+	.periods_max =          CAPTURE_NUM_PERIODS,
 	.fifo_size =            0,
 };
 
@@ -71,11 +76,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     2048 * 8,
-	.period_bytes_min =	2048,
-	.period_bytes_max =     2048,
-	.periods_min =          8,
-	.periods_max =          8,
+	.buffer_bytes_max =     PLAYBACK_NUM_PERIODS * PLAYBACK_PERIOD_SIZE,
+	.period_bytes_min =	PLAYBACK_PERIOD_SIZE,
+	.period_bytes_max =     PLAYBACK_PERIOD_SIZE,
+	.periods_min =          PLAYBACK_NUM_PERIODS,
+	.periods_max =          PLAYBACK_NUM_PERIODS,
 	.fifo_size =            0,
 };
 
@@ -84,7 +89,7 @@ static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
 };
 
-static uint32_t in_frame_info[8][2];
+static uint32_t in_frame_info[CAPTURE_NUM_PERIODS][2];
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.count = ARRAY_SIZE(supported_sample_rates),
