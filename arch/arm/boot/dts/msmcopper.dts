@@ -187,4 +187,15 @@
 					 <0x07100059>, /* PBS_CLIENT1 */
 					 <0x0720005a>; /* PBS_CLIENT2 */
 	};
+
+	i2c@f9966000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0Xf9966000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 104 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
 };
