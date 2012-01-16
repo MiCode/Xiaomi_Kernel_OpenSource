@@ -32,6 +32,7 @@ obj-$(CONFIG_USB_LPC32XX)	+= lpc32xx_udc.o
 obj-$(CONFIG_USB_EG20T)		+= pch_udc.o
 obj-$(CONFIG_USB_MV_UDC)	+= mv_udc.o
 mv_udc-y			:= mv_udc_core.o
+obj-$(CONFIG_USB_CI13XXX_MSM_HSIC)	+= ci13xxx_msm_hsic.o
 obj-$(CONFIG_USB_FUSB300)	+= fusb300_udc.o
 obj-$(CONFIG_USB_MV_U3D)	+= mv_u3d_core.o
 
