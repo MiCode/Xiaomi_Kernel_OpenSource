@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -76,6 +76,9 @@
 
 #define MSM9615_HSUSB_PHYS		0x12500000
 #define MSM9615_HSUSB_SIZE		SZ_4K
+
+#define MSM9615_HSIC_PHYS		0x12540000
+#define MSM9615_HSIC_SIZE		SZ_4K
 
 #define MSM9615_QFPROM_PHYS		0x00700000
 #define MSM9615_QFPROM_SIZE		SZ_4K

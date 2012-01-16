@@ -2816,8 +2816,12 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
-	if (is_active)
+	if (is_active) {
 		hw_device_state(udc->ep0out.qh.dma);
+		if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+				CI13XXX_CONTROLLER_CONNECT_EVENT);
+	}
 	else
 		hw_device_state(0);
 
