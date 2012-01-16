@@ -70,9 +70,10 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	NULL,			OFF),
 	CLK_DUMMY("core_clk",	SDC3_CLK,	NULL,			OFF),
 	CLK_DUMMY("iface_clk",	SDC3_P_CLK,	NULL,			OFF),
-	CLK_DUMMY("usb_phy_clk", NULL, NULL, OFF),
-	CLK_DUMMY("usb_hs_clk", NULL, NULL, OFF),
-	CLK_DUMMY("usb_hs_pclk", NULL, NULL, OFF),
+	CLK_DUMMY("phy_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
 	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
@@ -86,6 +87,8 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
+	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
+			"msm_otg", NULL),
 	{}
 };
 
