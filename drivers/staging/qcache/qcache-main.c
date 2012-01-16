@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2010,2011, Dan Magenheimer, Oracle Corp.
  * Copyright (c) 2010,2011, Nitin Gupta
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * Qcache provides an in-kernel "host implementation" for transcendent memory
  * and, thus indirectly, for cleancache and frontswap.  Qcache includes a
@@ -230,7 +230,6 @@ static char *zbud_data(struct zbud_hdr *zh, unsigned size)
 	budnum = zbud_budnum(zh);
 	BUG_ON(size == 0 || size > zbud_max_buddy_size());
 	zbpg = container_of(zh, struct zbud_page, buddy[budnum]);
-	ASSERT_SPINLOCK(&zbpg->lock);
 	p = (char *)zbpg;
 	if (budnum == 0)
 		p += ((sizeof(struct zbud_page) + CHUNK_SIZE - 1) &
@@ -270,7 +269,6 @@ static void zbud_free_raw_page(struct zbud_page *zbpg)
 
 	ASSERT_SENTINEL(zbpg, ZBPG);
 	BUG_ON(!list_empty(&zbpg->bud_list));
-	ASSERT_SPINLOCK(&zbpg->lock);
 	BUG_ON(zh0->size != 0 || tmem_oid_valid(&zh0->oid));
 	BUG_ON(zh1->size != 0 || tmem_oid_valid(&zh1->oid));
 	INVERT_SENTINEL(zbpg, ZBPG);
@@ -312,7 +310,6 @@ static void zbud_free_and_delist(struct zbud_hdr *zh)
 		return;
 	}
 	size = zbud_free(zh);
-	ASSERT_SPINLOCK(&zbpg->lock);
 	zh_other = &zbpg->buddy[(budnum == 0) ? 1 : 0];
 	if (zh_other->size == 0) { /* was unbuddied: unlist and free */
 		chunks = zbud_size_to_chunks(size) ;
@@ -372,7 +369,6 @@ static struct zbud_hdr *zbud_create(uint16_t client_id, uint16_t pool_id,
 	goto init_zh;
 
 found_unbuddied:
-	ASSERT_SPINLOCK(&zbpg->lock);
 	zh0 = &zbpg->buddy[0]; zh1 = &zbpg->buddy[1];
 	BUG_ON(!((zh0->size == 0) ^ (zh1->size == 0)));
 	if (zh0->size != 0) { /* buddy0 in use, buddy1 is vacant */
