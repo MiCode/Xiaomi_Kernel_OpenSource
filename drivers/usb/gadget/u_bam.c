@@ -822,6 +822,9 @@ static int gbam_data_ch_remove(struct platform_device *pdev)
 
 			msm_bam_dmux_close(d->id);
 
+			/* bam dmux will free all pending skbs */
+			d->pending_with_bam = 0;
+
 			clear_bit(BAM_CH_READY, &d->flags);
 			clear_bit(BAM_CH_OPENED, &d->flags);
 		}
