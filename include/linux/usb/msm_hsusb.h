@@ -165,6 +165,9 @@ enum usb_chg_type {
  * @disable_reset_on_disconnect: perform USB PHY and LINK reset
  *              on USB cable disconnection.
  * @swfi_latency: miminum latency to allow swfi.
+ * @enable_dcd: Enable Data Contact Detection circuit. if not set
+ *              wait for 600msec before proceeding to primary
+ *              detection.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -179,6 +182,7 @@ struct msm_otg_platform_data {
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
 	u32 swfi_latency;
+	bool enable_dcd;
 };
 
 /**
