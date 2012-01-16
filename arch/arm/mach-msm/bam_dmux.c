@@ -212,6 +212,7 @@ static int wait_for_dfab;
 static struct completion dfab_unvote_completion;
 static DEFINE_SPINLOCK(wakelock_reference_lock);
 static int wakelock_reference_count;
+static struct delayed_work msm9615_bam_init_work;
 /* End A2 power collaspe */
 
 /* subsystem restart */
@@ -1814,6 +1815,19 @@ ioremap_failed:
 	return ret;
 }
 
+static void msm9615_bam_init(struct work_struct *work)
+{
+	int ret = 0;
+
+	ret = bam_init();
+	if (ret) {
+		ret = bam_init_fallback();
+		if (ret)
+			pr_err("%s: bam init fallback failed: %d",
+					__func__, ret);
+	}
+}
+
 static void toggle_apps_ack(void)
 {
 	static unsigned int clear_bit; /* 0 = set the bit, else clear bit */
@@ -1828,8 +1842,6 @@ static void toggle_apps_ack(void)
 
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
-	int ret = 0;
-
 	bam_dmux_power_state = new_state & SMSM_A2_POWER_CONTROL ? 1 : 0;
 	bam_dmux_log("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
@@ -1846,12 +1858,18 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 	} else if (new_state & SMSM_A2_POWER_CONTROL) {
 		bam_dmux_log("%s: init\n", __func__);
 		grab_wakelock();
-		ret = bam_init();
-		if (ret) {
-			ret = bam_init_fallback();
-			if (ret)
-				pr_err("%s: bam init fallback failed: %d",
-						__func__, ret);
+		if (cpu_is_msm9615()) {
+			/*
+			 * even though a2 has signaled it is ready via the
+			 * SMSM_A2_POWER_CONTROL bit, it has not yet
+			 * enabled the pipes as needed by sps_connect
+			 * in satallite mode.  Add a short delay to give modem
+			 * time to enable the pipes.
+			 */
+			schedule_delayed_work(&msm9615_bam_init_work,
+						msecs_to_jiffies(100));
+		} else {
+			bam_init();
 		}
 	} else {
 		bam_dmux_log("%s: bad state change\n", __func__);
@@ -1914,6 +1932,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	init_completion(&bam_connection_completion);
 	init_completion(&dfab_unvote_completion);
 	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
+	INIT_DELAYED_WORK(&msm9615_bam_init_work, msm9615_bam_init);
 	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
 
 	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
