@@ -551,16 +551,16 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	INIT_WORK(&pkt->work, bam_mux_write_done);
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
-		spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 		kfree(pkt);
+	} else {
+		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	}
 
 	ul_packet_written = 1;
@@ -718,12 +718,10 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	INIT_WORK(&pkt->work, bam_mux_write_done);
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
-	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
-		spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
@@ -731,6 +729,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		if (new_skb)
 			dev_kfree_skb_any(new_skb);
 	} else {
+		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 		spin_lock_irqsave(&bam_ch[id].lock, flags);
 		bam_ch[id].num_tx_pkts++;
 		spin_unlock_irqrestore(&bam_ch[id].lock, flags);
