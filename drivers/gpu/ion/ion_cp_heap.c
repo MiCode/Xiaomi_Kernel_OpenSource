@@ -649,7 +649,7 @@ struct cp_lock_msg {
 	unsigned int end;
 	unsigned int permission_type;
 	unsigned char lock;
-};
+} __attribute__ ((__packed__));
 
 
 static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
