@@ -61,6 +61,11 @@ struct msm_camera_device_platform_data {
 	struct msm_camera_io_ext ioext;
 	struct msm_camera_io_clk ioclk;
 	uint8_t csid_core;
+	uint8_t is_csiphy;
+	uint8_t is_csic;
+	uint8_t is_csid;
+	uint8_t is_ispif;
+	uint8_t is_vpe;
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 };
 enum msm_camera_csi_data_format {
