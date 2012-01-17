@@ -523,6 +523,73 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	return platform_device_register(pdev);
 }
 
+#ifdef CONFIG_MSM_CAMERA_V4L2
+static struct resource msm_csic0_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA0F00000,
+		.end    = 0xA0F00000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = INT_CSI_IRQ_0,
+		.end    = INT_CSI_IRQ_0,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource msm_csic1_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA1000000,
+		.end    = 0xA1000000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = INT_CSI_IRQ_1,
+		.end    = INT_CSI_IRQ_1,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm7x27a_device_csic0 = {
+	.name           = "msm_csic",
+	.id             = 0,
+	.resource       = msm_csic0_resources,
+	.num_resources  = ARRAY_SIZE(msm_csic0_resources),
+};
+
+struct platform_device msm7x27a_device_csic1 = {
+	.name           = "msm_csic",
+	.id             = 1,
+	.resource       = msm_csic1_resources,
+	.num_resources  = ARRAY_SIZE(msm_csic1_resources),
+};
+
+static struct resource msm_clkctl_resources[] = {
+	{
+		.name   = "clk_ctl",
+		.start  = MSM_CLK_CTL_PHYS,
+		.end    = MSM_CLK_CTL_PHYS + MSM_CLK_CTL_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+struct platform_device msm7x27a_device_clkctl = {
+	.name           = "msm_clk_ctl",
+	.id             = 0,
+	.resource       = msm_clkctl_resources,
+	.num_resources  = ARRAY_SIZE(msm_clkctl_resources),
+};
+
+struct platform_device msm7x27a_device_vfe = {
+	.name           = "msm_vfe",
+	.id             = 0,
+};
+
+#endif
+
 #define MDP_BASE		0xAA200000
 #define MIPI_DSI_HW_BASE	0xA1100000
 
