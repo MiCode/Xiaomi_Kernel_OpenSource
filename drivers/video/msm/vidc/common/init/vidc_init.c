@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -502,7 +502,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		} else {
 			buff_ion_handle = ion_import_fd(
 				client_ctx->user_ion_client, pmem_fd);
-			if (!buff_ion_handle) {
+			if (IS_ERR_OR_NULL(buff_ion_handle)) {
 				ERR("%s(): get_ION_handle failed\n",
 				 __func__);
 				goto ion_error;
@@ -558,7 +558,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 ion_error:
 	if (*kernel_vaddr)
 		ion_unmap_kernel(client_ctx->user_ion_client, buff_ion_handle);
-	if (buff_ion_handle)
+	if (!IS_ERR_OR_NULL(buff_ion_handle))
 		ion_free(client_ctx->user_ion_client, buff_ion_handle);
 bail_out_add:
 	mutex_unlock(&client_ctx->enrty_queue_lock);
