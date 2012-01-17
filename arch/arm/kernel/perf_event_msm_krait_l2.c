@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -652,6 +652,8 @@ static const struct arm_pmu *__init krait_l2_pmu_init(void)
 
 	/* Avoid spurious interrupt if any */
 	get_reset_pmovsr();
+
+	raw_spin_lock_init(&hw_krait_l2_pmu.lock);
 
 	/* Don't return an arm_pmu here */
 	return NULL;
