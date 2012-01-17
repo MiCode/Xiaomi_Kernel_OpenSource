@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -819,6 +819,14 @@ static const struct soc_enum sb_tx8_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B8_CTL, 0, 18,
 			sb_tx7_to_tx10_mux_text);
 
+static const struct soc_enum sb_tx9_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B9_CTL, 0, 18,
+			sb_tx7_to_tx10_mux_text);
+
+static const struct soc_enum sb_tx10_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B10_CTL, 0, 18,
+			sb_tx7_to_tx10_mux_text);
+
 static const struct soc_enum sb_tx1_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B1_CTL, 0, 9, sb_tx1_mux_text);
 
@@ -923,6 +931,12 @@ static const struct snd_kcontrol_new sb_tx7_mux =
 
 static const struct snd_kcontrol_new sb_tx8_mux =
 	SOC_DAPM_ENUM("SLIM TX8 MUX Mux", sb_tx8_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx9_mux =
+	SOC_DAPM_ENUM("SLIM TX9 MUX Mux", sb_tx9_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx10_mux =
+	SOC_DAPM_ENUM("SLIM TX10 MUX Mux", sb_tx10_mux_enum);
 
 static const struct snd_kcontrol_new sb_tx1_mux =
 	SOC_DAPM_ENUM("SLIM TX1 MUX Mux", sb_tx1_mux_enum);
@@ -2143,6 +2157,14 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("SLIM TX8", "AIF1 Capture", NULL, SND_SOC_NOPM,
 			0, 0),
 
+	SND_SOC_DAPM_MUX("SLIM TX9 MUX", SND_SOC_NOPM, 0, 0, &sb_tx9_mux),
+	SND_SOC_DAPM_AIF_OUT("SLIM TX9", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			0, 0),
+
+	SND_SOC_DAPM_MUX("SLIM TX10 MUX", SND_SOC_NOPM, 0, 0, &sb_tx10_mux),
+	SND_SOC_DAPM_AIF_OUT("SLIM TX10", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			0, 0),
+
 	/* Digital Mic Inputs */
 	SND_SOC_DAPM_ADC_E("DMIC1", NULL, SND_SOC_NOPM, 0, 0,
 		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
@@ -2217,6 +2239,31 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX8 MUX", "DEC4", "DEC4 MUX"},
 	{"SLIM TX8 MUX", "DEC5", "DEC5 MUX"},
 	{"SLIM TX8 MUX", "DEC6", "DEC6 MUX"},
+
+	{"SLIM TX9", NULL, "SLIM TX9 MUX"},
+	{"SLIM TX9 MUX", "DEC1", "DEC1 MUX"},
+	{"SLIM TX9 MUX", "DEC2", "DEC2 MUX"},
+	{"SLIM TX9 MUX", "DEC3", "DEC3 MUX"},
+	{"SLIM TX9 MUX", "DEC4", "DEC4 MUX"},
+	{"SLIM TX9 MUX", "DEC5", "DEC5 MUX"},
+	{"SLIM TX9 MUX", "DEC6", "DEC6 MUX"},
+	{"SLIM TX9 MUX", "DEC7", "DEC7 MUX"},
+	{"SLIM TX9 MUX", "DEC8", "DEC8 MUX"},
+	{"SLIM TX9 MUX", "DEC9", "DEC9 MUX"},
+	{"SLIM TX9 MUX", "DEC10", "DEC10 MUX"},
+
+	{"SLIM TX10", NULL, "SLIM TX10 MUX"},
+	{"SLIM TX10 MUX", "DEC1", "DEC1 MUX"},
+	{"SLIM TX10 MUX", "DEC2", "DEC2 MUX"},
+	{"SLIM TX10 MUX", "DEC3", "DEC3 MUX"},
+	{"SLIM TX10 MUX", "DEC4", "DEC4 MUX"},
+	{"SLIM TX10 MUX", "DEC5", "DEC5 MUX"},
+	{"SLIM TX10 MUX", "DEC6", "DEC6 MUX"},
+	{"SLIM TX10 MUX", "DEC7", "DEC7 MUX"},
+	{"SLIM TX10 MUX", "DEC8", "DEC8 MUX"},
+	{"SLIM TX10 MUX", "DEC9", "DEC9 MUX"},
+	{"SLIM TX10 MUX", "DEC10", "DEC10 MUX"},
+
 
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
@@ -2945,7 +2992,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 4,
 		},
 		.ops = &tabla_dai_ops,
 	},
