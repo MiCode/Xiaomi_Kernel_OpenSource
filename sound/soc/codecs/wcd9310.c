@@ -122,8 +122,15 @@ struct mbhc_internal_cal_data {
 	u8 nbounce_wait;
 };
 
+struct tabla_reg_address {
+	u16 micb_4_ctl;
+	u16 micb_4_int_rbias;
+	u16 micb_4_mbhc;
+};
+
 struct tabla_priv {
 	struct snd_soc_codec *codec;
+	struct tabla_reg_address reg_addr;
 	u32 mclk_freq;
 	u32 adc_count;
 	u32 cfilt1_cnt;
@@ -594,7 +601,6 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch", TABLA_A_MICB_1_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS2 CAPLESS Switch", TABLA_A_MICB_2_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS3 CAPLESS Switch", TABLA_A_MICB_3_CTL, 4, 1, 1),
-	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_A_MICB_4_CTL, 4, 1, 1),
 
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, tabla_get_anc_slot,
 		tabla_put_anc_slot),
@@ -677,6 +683,14 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
 	SOC_SINGLE_MULTI_EXT("IIR2 Band5", IIR2, BAND5, 255, 0, 5,
 	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+};
+
+static const struct snd_kcontrol_new tabla_1_x_snd_controls[] = {
+	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_1_A_MICB_4_CTL, 4, 1, 1),
+};
+
+static const struct snd_kcontrol_new tabla_2_higher_snd_controls[] = {
+	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_2_A_MICB_4_CTL, 4, 1, 1),
 };
 
 static const char *rx_mix1_text[] = {
@@ -1545,8 +1559,9 @@ static int tabla_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		cfilt_sel_val = tabla->pdata->micbias.bias3_cfilt_sel;
 		micb_line = TABLA_MICBIAS3;
 		break;
-	case TABLA_A_MICB_4_CTL:
-		micb_int_reg = TABLA_A_MICB_4_INT_RBIAS;
+	case TABLA_1_A_MICB_4_CTL:
+	case TABLA_2_A_MICB_4_CTL:
+		micb_int_reg = tabla->reg_addr.micb_4_int_rbias;
 		cfilt_sel_val = tabla->pdata->micbias.bias4_cfilt_sel;
 		micb_line = TABLA_MICBIAS4;
 		break;
@@ -1815,7 +1830,7 @@ static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 }
 
 static void tabla_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
-		struct mbhc_micbias_regs *micbias_regs)
+					struct mbhc_micbias_regs *micbias_regs)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	unsigned int cfilt;
@@ -1841,9 +1856,9 @@ static void tabla_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
 		break;
 	case TABLA_MICBIAS4:
 		cfilt = tabla->pdata->micbias.bias4_cfilt_sel;
-		micbias_regs->mbhc_reg = TABLA_A_MICB_4_MBHC;
-		micbias_regs->int_rbias = TABLA_A_MICB_4_INT_RBIAS;
-		micbias_regs->ctl_reg = TABLA_A_MICB_4_CTL;
+		micbias_regs->mbhc_reg = tabla->reg_addr.micb_4_mbhc;
+		micbias_regs->int_rbias = tabla->reg_addr.micb_4_int_rbias;
+		micbias_regs->ctl_reg = tabla->reg_addr.micb_4_ctl;
 		break;
 	default:
 		/* Should never reach here */
@@ -2066,10 +2081,6 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_A_MICB_4_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
 	SND_SOC_DAPM_INPUT("AMIC5"),
 	SND_SOC_DAPM_ADC_E("ADC5", NULL, TABLA_A_TX_5_6_EN, 7, 0,
 		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
@@ -2199,6 +2210,20 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
 	SND_SOC_DAPM_PGA("IIR1", TABLA_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+};
+
+static const struct snd_soc_dapm_widget tabla_1_x_dapm_widgets[] = {
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_1_A_MICB_4_CTL, 7,
+			       0, tabla_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+};
+
+static const struct snd_soc_dapm_widget tabla_2_higher_dapm_widgets[] = {
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_2_A_MICB_4_CTL, 7,
+			       0, tabla_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route audio_i2s_map[] = {
@@ -2519,6 +2544,21 @@ static const struct snd_soc_dapm_route tabla_2_x_lineout_2_to_4_map[] = {
 
 static int tabla_readable(struct snd_soc_codec *ssc, unsigned int reg)
 {
+	int i;
+	struct tabla *tabla_core = dev_get_drvdata(ssc->dev->parent);
+
+	if (TABLA_IS_1_X(tabla_core->version)) {
+		for (i = 0; i < ARRAY_SIZE(tabla_1_reg_readable); i++) {
+			if (tabla_1_reg_readable[i] == reg)
+				return 1;
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(tabla_2_reg_readable); i++) {
+			if (tabla_2_reg_readable[i] == reg)
+				return 1;
+		}
+	}
+
 	return tabla_reg_readable[reg];
 }
 
@@ -3283,7 +3323,8 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, TABLA_A_PIN_CTL_OE1, 0x1, 0);
 	}
 
-	snd_soc_update_bits(codec, TABLA_A_MICB_4_MBHC, 0x3, tabla->micbias);
+	snd_soc_update_bits(codec, tabla->reg_addr.micb_4_mbhc, 0x3,
+			    tabla->micbias);
 
 	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
@@ -3610,7 +3651,8 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x78,
 			    btn_det->mbhc_nsc << 3);
 
-	snd_soc_update_bits(codec, TABLA_A_MICB_4_MBHC, 0x03, TABLA_MICBIAS2);
+	snd_soc_update_bits(codec, tabla->reg_addr.micb_4_mbhc, 0x03,
+			    TABLA_MICBIAS2);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x02, 0x02);
 }
@@ -4416,8 +4458,8 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 		(pdata->micbias.bias2_cfilt_sel << 5));
 	snd_soc_update_bits(codec, TABLA_A_MICB_3_CTL, 0x60,
 		(pdata->micbias.bias3_cfilt_sel << 5));
-	snd_soc_update_bits(codec, TABLA_A_MICB_4_CTL, 0x60,
-		(pdata->micbias.bias4_cfilt_sel << 5));
+	snd_soc_update_bits(codec, tabla->reg_addr.micb_4_ctl, 0x60,
+			    (pdata->micbias.bias4_cfilt_sel << 5));
 
 	for (i = 0; i < 6; j++, i += 2) {
 		if (flag & (0x01 << i)) {
@@ -4476,7 +4518,6 @@ static const struct tabla_reg_mask_val tabla_1_1_reg_defaults[] = {
 	TABLA_REG_VAL(TABLA_A_MICB_1_INT_RBIAS, 0x24),
 	TABLA_REG_VAL(TABLA_A_MICB_2_INT_RBIAS, 0x24),
 	TABLA_REG_VAL(TABLA_A_MICB_3_INT_RBIAS, 0x24),
-	TABLA_REG_VAL(TABLA_A_MICB_4_INT_RBIAS, 0x24),
 
 	/* Tabla 1.1 HPH changes */
 	TABLA_REG_VAL(TABLA_A_RX_HPH_BIAS_PA, 0x57),
@@ -4515,14 +4556,22 @@ static const struct tabla_reg_mask_val tabla_1_1_reg_defaults[] = {
 };
 
 static const struct tabla_reg_mask_val tabla_2_0_reg_defaults[] = {
-
 	/* Tabla 2.0 MICBIAS changes */
 	TABLA_REG_VAL(TABLA_A_MICB_2_MBHC, 0x02),
+};
+
+static const struct tabla_reg_mask_val tabla_1_x_only_reg_2_0_defaults[] = {
+	TABLA_REG_VAL(TABLA_1_A_MICB_4_INT_RBIAS, 0x24),
+};
+
+static const struct tabla_reg_mask_val tabla_2_only_reg_2_0_defaults[] = {
+	TABLA_REG_VAL(TABLA_2_A_MICB_4_INT_RBIAS, 0x24),
 };
 
 static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 {
 	u32 i;
+	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < ARRAY_SIZE(tabla_1_1_reg_defaults); i++)
 		snd_soc_write(codec, tabla_1_1_reg_defaults[i].reg,
@@ -4531,6 +4580,19 @@ static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 	for (i = 0; i < ARRAY_SIZE(tabla_2_0_reg_defaults); i++)
 		snd_soc_write(codec, tabla_2_0_reg_defaults[i].reg,
 				tabla_2_0_reg_defaults[i].val);
+
+	if (TABLA_IS_1_X(tabla_core->version)) {
+		for (i = 0; i < ARRAY_SIZE(tabla_1_x_only_reg_2_0_defaults);
+		     i++)
+			snd_soc_write(codec,
+				      tabla_1_x_only_reg_2_0_defaults[i].reg,
+				      tabla_1_x_only_reg_2_0_defaults[i].val);
+	} else {
+		for (i = 0; i < ARRAY_SIZE(tabla_2_only_reg_2_0_defaults); i++)
+			snd_soc_write(codec,
+				      tabla_2_only_reg_2_0_defaults[i].reg,
+				      tabla_2_only_reg_2_0_defaults[i].val);
+	}
 }
 
 static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
@@ -4554,7 +4616,6 @@ static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 	{TABLA_A_MICB_1_INT_RBIAS, 0x24, 0x24},
 	{TABLA_A_MICB_2_INT_RBIAS, 0x24, 0x24},
 	{TABLA_A_MICB_3_INT_RBIAS, 0x24, 0x24},
-	{TABLA_A_MICB_4_INT_RBIAS, 0x24, 0x24},
 
 	{TABLA_A_CDC_CONN_CLSG_CTL, 0x3C, 0x14},
 
@@ -4589,14 +4650,55 @@ static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 	{TABLA_A_CDC_TX10_MUX_CTL, 0x8, 0x0},
 };
 
+static const struct tabla_reg_mask_val tabla_1_x_codec_reg_init_val[] = {
+	/* Initialize mic biases to differential mode */
+	{TABLA_1_A_MICB_4_INT_RBIAS, 0x24, 0x24},
+};
+
+static const struct tabla_reg_mask_val tabla_2_higher_codec_reg_init_val[] = {
+	/* Initialize mic biases to differential mode */
+	{TABLA_2_A_MICB_4_INT_RBIAS, 0x24, 0x24},
+};
+
 static void tabla_codec_init_reg(struct snd_soc_codec *codec)
 {
 	u32 i;
+	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < ARRAY_SIZE(tabla_codec_reg_init_val); i++)
 		snd_soc_update_bits(codec, tabla_codec_reg_init_val[i].reg,
 				tabla_codec_reg_init_val[i].mask,
 				tabla_codec_reg_init_val[i].val);
+	if (TABLA_IS_1_X(tabla_core->version)) {
+		for (i = 0; i < ARRAY_SIZE(tabla_1_x_codec_reg_init_val); i++)
+			snd_soc_update_bits(codec,
+					   tabla_1_x_codec_reg_init_val[i].reg,
+					   tabla_1_x_codec_reg_init_val[i].mask,
+					   tabla_1_x_codec_reg_init_val[i].val);
+	} else {
+		for (i = 0; i < ARRAY_SIZE(tabla_2_higher_codec_reg_init_val);
+		     i++)
+			snd_soc_update_bits(codec,
+				      tabla_2_higher_codec_reg_init_val[i].reg,
+				      tabla_2_higher_codec_reg_init_val[i].mask,
+				      tabla_2_higher_codec_reg_init_val[i].val);
+	}
+}
+
+static void tabla_update_reg_address(struct tabla_priv *priv)
+{
+	struct tabla *tabla_core = dev_get_drvdata(priv->codec->dev->parent);
+	struct tabla_reg_address *reg_addr = &priv->reg_addr;
+
+	if (TABLA_IS_1_X(tabla_core->version)) {
+		reg_addr->micb_4_ctl = TABLA_1_A_MICB_4_CTL;
+		reg_addr->micb_4_int_rbias = TABLA_1_A_MICB_4_INT_RBIAS;
+		reg_addr->micb_4_int_rbias = TABLA_1_A_MICB_4_INT_RBIAS;
+	} else if (TABLA_IS_2_0(tabla_core->version)) {
+		reg_addr->micb_4_ctl = TABLA_2_A_MICB_4_CTL;
+		reg_addr->micb_4_int_rbias = TABLA_2_A_MICB_4_INT_RBIAS;
+		reg_addr->micb_4_int_rbias = TABLA_2_A_MICB_4_INT_RBIAS;
+	}
 }
 
 static int tabla_codec_probe(struct snd_soc_codec *codec)
@@ -4606,7 +4708,6 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
 	int i;
-	u8 tabla_version;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -4644,9 +4745,9 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	atomic_set(&tabla->pm_cnt, 1);
 	init_waitqueue_head(&tabla->pm_wq);
 
+	tabla_update_reg_address(tabla);
 	tabla_update_reg_defaults(codec);
 	tabla_codec_init_reg(codec);
-
 	ret = tabla_handle_pdata(tabla);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: bad pdata\n", __func__);
@@ -4654,9 +4755,23 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	snd_soc_add_controls(codec, tabla_snd_controls,
-		ARRAY_SIZE(tabla_snd_controls));
+			     ARRAY_SIZE(tabla_snd_controls));
+	if (TABLA_IS_1_X(control->version))
+		snd_soc_add_controls(codec, tabla_1_x_snd_controls,
+				     ARRAY_SIZE(tabla_1_x_snd_controls));
+	else
+		snd_soc_add_controls(codec, tabla_2_higher_snd_controls,
+				     ARRAY_SIZE(tabla_2_higher_snd_controls));
+
 	snd_soc_dapm_new_controls(dapm, tabla_dapm_widgets,
-		ARRAY_SIZE(tabla_dapm_widgets));
+				  ARRAY_SIZE(tabla_dapm_widgets));
+	if (TABLA_IS_1_X(control->version))
+		snd_soc_dapm_new_controls(dapm, tabla_1_x_dapm_widgets,
+					  ARRAY_SIZE(tabla_1_x_dapm_widgets));
+	else
+		snd_soc_dapm_new_controls(dapm, tabla_2_higher_dapm_widgets,
+				    ARRAY_SIZE(tabla_2_higher_dapm_widgets));
+
 	if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
 		snd_soc_dapm_new_controls(dapm, tabla_dapm_i2s_widgets,
 			ARRAY_SIZE(tabla_dapm_i2s_widgets));
@@ -4665,24 +4780,15 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	}
 	snd_soc_dapm_add_routes(dapm, audio_map, ARRAY_SIZE(audio_map));
 
-	tabla_version = snd_soc_read(codec, TABLA_A_CHIP_VERSION);
-	pr_info("%s : Tabla version reg 0x%2x\n", __func__,
-			(u32)tabla_version);
-
-	tabla_version &=  0x1F;
-	pr_info("%s : Tabla version %u\n", __func__, (u32)tabla_version);
-
-	if ((tabla_version == TABLA_VERSION_1_0) ||
-		(tabla_version == TABLA_VERSION_1_1)) {
+	if (TABLA_IS_1_X(control->version)) {
 		snd_soc_dapm_add_routes(dapm, tabla_1_x_lineout_2_to_4_map,
-			 ARRAY_SIZE(tabla_1_x_lineout_2_to_4_map));
-
-	} else if (tabla_version == TABLA_VERSION_2_0) {
+				      ARRAY_SIZE(tabla_1_x_lineout_2_to_4_map));
+	} else if (TABLA_IS_2_0(control->version)) {
 		snd_soc_dapm_add_routes(dapm, tabla_2_x_lineout_2_to_4_map,
-			 ARRAY_SIZE(tabla_2_x_lineout_2_to_4_map));
+				      ARRAY_SIZE(tabla_2_x_lineout_2_to_4_map));
 	} else  {
 		pr_err("%s : ERROR.  Unsupported Tabla version 0x%2x\n",
-				__func__, (u32)tabla_version);
+		       __func__, control->version);
 		goto err_pdata;
 	}
 

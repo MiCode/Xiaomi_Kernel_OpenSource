@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,13 @@
 
 #define TABLA_INTERFACE_TYPE_SLIMBUS	0x00
 #define TABLA_INTERFACE_TYPE_I2C	0x01
+
+#define TABLA_VERSION_1_0	0
+#define TABLA_VERSION_1_1	1
+#define TABLA_VERSION_2_0	2
+#define TABLA_IS_1_X(ver) \
+	(((ver == TABLA_VERSION_1_0) || (ver == TABLA_VERSION_1_1)) ? 1 : 0)
+#define TABLA_IS_2_0(ver) ((ver == TABLA_VERSION_2_0) ? 1 : 0)
 
 enum {
 	TABLA_IRQ_SLIMBUS = 0,
@@ -55,6 +62,7 @@ struct tabla {
 	struct mutex io_lock;
 	struct mutex xfer_lock;
 	struct mutex irq_lock;
+	u8 version;
 
 	unsigned int irq_base;
 	unsigned int irq;
