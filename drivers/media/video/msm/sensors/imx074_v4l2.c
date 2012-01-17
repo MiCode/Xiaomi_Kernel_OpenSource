@@ -38,7 +38,7 @@ static struct msm_camera_i2c_reg_conf imx074_groupoff_settings[] = {
 static struct msm_camera_i2c_reg_conf imx074_prev_settings[] = {
 	{0x0307, 0x2D}, /*pll_multiplier*/
 	{0x0340, 0x06}, /*frame_length_lines_hi*/
-	{0x0341, 0x2D}, /*frame_length_lines_lo*/
+	{0x0341, 0x34}, /*frame_length_lines_lo*/
 	{0x0342, 0x11}, /*line_length_pclk_hi*/
 	{0x0343, 0x78}, /*line_length_pclk_lo*/
 	{0x0347, 0x00}, /*y_addr_start*/
@@ -161,9 +161,9 @@ static struct msm_sensor_output_info_t imx074_dimensions[] = {
 		.x_output = 0x838,
 		.y_output = 0x618,
 		.line_length_pclk = 0x1178,
-		.frame_length_lines = 0x62D,
+		.frame_length_lines = 0x634,
 		.vt_pixel_clk = 216000000,
-		.op_pixel_clk = 216000000,
+		.op_pixel_clk = 108000000,
 		.binning_factor = 2,
 	},
 };
