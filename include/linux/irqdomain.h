@@ -89,8 +89,14 @@ static inline unsigned int irq_domain_to_irq(struct irq_domain *d,
 	     hw < d->hwirq_base + d->nr_irq; \
 	     hw++, irq = irq_domain_to_irq(d, hw))
 
-extern void irq_domain_add(struct irq_domain *domain);
+extern int irq_domain_add(struct irq_domain *domain);
 extern void irq_domain_del(struct irq_domain *domain);
+extern void irq_domain_register(struct irq_domain *domain);
+extern void irq_domain_register_irq(struct irq_domain *domain, int hwirq);
+extern void irq_domain_unregister(struct irq_domain *domain);
+extern void irq_domain_unregister_irq(struct irq_domain *domain, int hwirq);
+extern int irq_domain_find_free_range(unsigned int from, unsigned int cnt);
+
 #endif /* CONFIG_IRQ_DOMAIN */
 
 #if defined(CONFIG_IRQ_DOMAIN) && defined(CONFIG_OF_IRQ)
