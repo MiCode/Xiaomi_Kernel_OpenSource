@@ -241,6 +241,12 @@ static struct mfd_cell tabla_devs[] = {
 	},
 };
 
+static struct mfd_cell tabla1x_devs[] = {
+	{
+		.name = "tabla1x_codec",
+	},
+};
+
 static void tabla_bring_up(struct tabla *tabla)
 {
 	tabla_reg_write(tabla, TABLA_A_LEAKAGE_CTL, 0x4);
@@ -367,6 +373,8 @@ static struct tabla_regulator tabla_regulators[] = {
 static int tabla_device_init(struct tabla *tabla, int irq)
 {
 	int ret;
+	struct mfd_cell *tabla_dev;
+	int tabla_dev_size;
 
 	mutex_init(&tabla->io_lock);
 	mutex_init(&tabla->xfer_lock);
@@ -386,9 +394,19 @@ static int tabla_device_init(struct tabla *tabla, int irq)
 		pr_err("IRQ initialization failed\n");
 		goto err;
 	}
+	tabla->version = tabla_reg_read(tabla, TABLA_A_CHIP_VERSION) & 0x1F;
+	pr_info("%s : Tabla version %u initialized\n",
+		__func__, tabla->version);
 
+	if (TABLA_IS_1_X(tabla->version)) {
+		tabla_dev = tabla1x_devs;
+		tabla_dev_size = ARRAY_SIZE(tabla1x_devs);
+	} else {
+		tabla_dev = tabla_devs;
+		tabla_dev_size = ARRAY_SIZE(tabla_devs);
+	}
 	ret = mfd_add_devices(tabla->dev, -1,
-			      tabla_devs, ARRAY_SIZE(tabla_devs),
+			      tabla_dev, tabla_dev_size,
 			      NULL, 0);
 	if (ret != 0) {
 		dev_err(tabla->dev, "Failed to add children: %d\n", ret);
