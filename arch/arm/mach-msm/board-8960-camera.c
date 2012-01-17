@@ -411,6 +411,12 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 		.is_vpe    = 1,
 		.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
+	{
+		.ioclk.mclk_clk_rate = 24000000,
+		.ioclk.vfe_clk_rate  = 228570000,
+		.csid_core = 2,
+		.cam_bus_scale_table = &cam_bus_client_pdata,
+	},
 };
 
 static struct camera_vreg_t msm_8960_back_cam_vreg[] = {
@@ -643,8 +649,10 @@ void __init msm8960_init_cam(void)
 
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
+	platform_device_register(&msm8960_device_csiphy2);
 	platform_device_register(&msm8960_device_csid0);
 	platform_device_register(&msm8960_device_csid1);
+	platform_device_register(&msm8960_device_csid2);
 	platform_device_register(&msm8960_device_ispif);
 	platform_device_register(&msm8960_device_vfe);
 	platform_device_register(&msm8960_device_vpe);

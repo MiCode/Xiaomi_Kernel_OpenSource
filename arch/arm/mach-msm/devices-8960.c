@@ -1186,6 +1186,21 @@ static struct resource msm_csiphy1_resources[] = {
 	},
 };
 
+static struct resource msm_csiphy2_resources[] = {
+	{
+		.name	= "csiphy",
+		.start	= 0x04801400,
+		.end	= 0x04801400 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csiphy",
+		.start	= MSM8960_CSIPHY_2_2LN_IRQ,
+		.end	= MSM8960_CSIPHY_2_2LN_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 struct platform_device msm8960_device_csiphy0 = {
 	.name           = "msm_csiphy",
 	.id             = 0,
@@ -1198,6 +1213,13 @@ struct platform_device msm8960_device_csiphy1 = {
 	.id             = 1,
 	.resource       = msm_csiphy1_resources,
 	.num_resources  = ARRAY_SIZE(msm_csiphy1_resources),
+};
+
+struct platform_device msm8960_device_csiphy2 = {
+	.name           = "msm_csiphy",
+	.id             = 2,
+	.resource       = msm_csiphy2_resources,
+	.num_resources  = ARRAY_SIZE(msm_csiphy2_resources),
 };
 
 static struct resource msm_csid0_resources[] = {
@@ -1230,6 +1252,21 @@ static struct resource msm_csid1_resources[] = {
 	},
 };
 
+static struct resource msm_csid2_resources[] = {
+	{
+		.name	= "csid",
+		.start	= 0x04801800,
+		.end	= 0x04801800 + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "csid",
+		.start	= CSI_2_IRQ,
+		.end	= CSI_2_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 struct platform_device msm8960_device_csid0 = {
 	.name           = "msm_csid",
 	.id             = 0,
@@ -1242,6 +1279,13 @@ struct platform_device msm8960_device_csid1 = {
 	.id             = 1,
 	.resource       = msm_csid1_resources,
 	.num_resources  = ARRAY_SIZE(msm_csid1_resources),
+};
+
+struct platform_device msm8960_device_csid2 = {
+	.name           = "msm_csid",
+	.id             = 2,
+	.resource       = msm_csid2_resources,
+	.num_resources  = ARRAY_SIZE(msm_csid2_resources),
 };
 
 struct resource msm_ispif_resources[] = {
