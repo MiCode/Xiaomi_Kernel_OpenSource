@@ -15,6 +15,13 @@
 		      <0xF9002000 0x1000>;
 	};
 
+	msmgpio: gpio@fd400000 {
+		compatible = "qcom,msm-gpio";
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd400000 0x4000>;
+	};
+
 	timer {
 		compatible = "qcom,msm-qtimer";
 		interrupts = <1 2 0>;
