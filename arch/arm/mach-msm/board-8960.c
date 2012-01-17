@@ -1491,6 +1491,12 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 	.msm_apps_ipc_rpm_val = 4,
 };
 
+static struct msm_pm_sleep_status_data msm_pm_slp_sts_data = {
+	.base_addr = MSM_ACC0_BASE + 0x08,
+	.cpu_offset = MSM_ACC1_BASE - MSM_ACC0_BASE,
+	.mask = 1UL << 13,
+};
+
 static struct ks8851_pdata spi_eth_pdata = {
 	.irq_gpio = KS8851_IRQ_GPIO,
 	.rst_gpio = KS8851_RST_GPIO,
@@ -2167,6 +2173,7 @@ static void __init msm8960_sim_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
 }
 
 static void __init msm8960_rumi3_init(void)
@@ -2198,6 +2205,7 @@ static void __init msm8960_rumi3_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
 }
 
 static void __init msm8960_cdp_init(void)
@@ -2273,6 +2281,7 @@ static void __init msm8960_cdp_init(void)
 				msm_pm_data);
 	change_memory_power = &msm8960_change_memory_power;
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
 }

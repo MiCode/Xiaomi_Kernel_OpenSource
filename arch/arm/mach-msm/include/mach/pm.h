@@ -51,11 +51,19 @@ struct msm_pm_platform_data {
 				staying in the low power mode saves power */
 };
 
+struct msm_pm_sleep_status_data {
+	void *base_addr;
+	uint32_t cpu_offset;
+	uint32_t mask;
+};
+
 void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count);
 int msm_pm_idle_prepare(struct cpuidle_device *dev);
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode);
 void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 
+void __init msm_pm_init_sleep_status_data(
+		struct msm_pm_sleep_status_data *sleep_data);
 #ifdef CONFIG_PM
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 #else
