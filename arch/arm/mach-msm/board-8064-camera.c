@@ -13,9 +13,9 @@
 
 #include <asm/mach-types.h>
 #include <linux/i2c.h>
+#include <linux/gpio.h>
 #include <mach/board.h>
 #include <mach/msm_bus_board.h>
-#include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
 #include "devices.h"
@@ -157,19 +157,6 @@ static struct msm_gpiomux_config apq8064_cam_2d_configs[] = {
 
 #ifdef CONFIG_MSM_CAMERA
 
-static uint16_t msm_cam_gpio_2d_tbl[] = {
-	5, /*CAMIF_MCLK*/
-	10, /*CAMIF_I2C_DATA*/
-	11, /*CAMIF_I2C_CLK*/
-};
-
-static struct msm_camera_gpio_conf gpio_conf = {
-	.cam_gpiomux_conf_tbl = apq8064_cam_2d_configs,
-	.cam_gpiomux_conf_tbl_size = ARRAY_SIZE(apq8064_cam_2d_configs),
-	.cam_gpio_tbl = msm_cam_gpio_2d_tbl,
-	.cam_gpio_tbl_size = ARRAY_SIZE(msm_cam_gpio_2d_tbl),
-};
-
 static struct msm_bus_vectors cam_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
@@ -306,17 +293,55 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 
 static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
-		.ioclk.mclk_clk_rate = 24000000,
-		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 0,
+		.is_csiphy = 1,
+		.is_csid   = 1,
+		.is_ispif  = 1,
+		.is_vpe    = 1,
 		.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
 	{
-		.ioclk.mclk_clk_rate = 24000000,
-		.ioclk.vfe_clk_rate  = 228570000,
 		.csid_core = 1,
+		.is_csiphy = 1,
+		.is_csid   = 1,
+		.is_ispif  = 1,
+		.is_vpe    = 1,
 		.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
+};
+
+static struct camera_vreg_t msm_8064_back_cam_vreg[] = {
+	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
+	{"cam_vio", REG_LDO, 1800000, 1800000, 16000},
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
+};
+
+static struct gpio apq8064_common_cam_gpio[] = {
+	{5, GPIOF_DIR_IN, "CAMIF_MCLK"},
+	{20, GPIOF_DIR_IN, "CAMIF_I2C_DATA"},
+	{21, GPIOF_DIR_IN, "CAMIF_I2C_CLK"},
+};
+
+static struct gpio apq8064_back_cam_gpio[] = {
+	{107, GPIOF_DIR_OUT, "CAM_RESET"},
+};
+
+static struct msm_gpio_set_tbl apq8064_back_cam_gpio_set_tbl[] = {
+	{107, GPIOF_OUT_INIT_LOW, 1000},
+	{107, GPIOF_OUT_INIT_HIGH, 4000},
+};
+
+static struct msm_camera_gpio_conf apq8064_back_cam_gpio_conf = {
+	.cam_gpiomux_conf_tbl = apq8064_cam_2d_configs,
+	.cam_gpiomux_conf_tbl_size = ARRAY_SIZE(apq8064_cam_2d_configs),
+	.cam_gpio_common_tbl = apq8064_common_cam_gpio,
+	.cam_gpio_common_tbl_size = ARRAY_SIZE(apq8064_common_cam_gpio),
+	.cam_gpio_req_tbl = apq8064_back_cam_gpio,
+	.cam_gpio_req_tbl_size = ARRAY_SIZE(apq8064_back_cam_gpio),
+	.cam_gpio_set_tbl = apq8064_back_cam_gpio_set_tbl,
+	.cam_gpio_set_tbl_size = ARRAY_SIZE(apq8064_back_cam_gpio_set_tbl),
 };
 
 #ifdef CONFIG_IMX074
@@ -326,10 +351,9 @@ static struct msm_camera_sensor_flash_data flash_imx074 = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
 	.mount_angle	= 90,
-	.sensor_reset	= 107,
-	.sensor_pwd	= 85,
-	.vcm_pwd	= 0,
-	.vcm_enable	= 1,
+	.cam_vreg = msm_8064_back_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8064_back_cam_vreg),
+	.gpio_conf = &apq8064_back_cam_gpio_conf,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
@@ -337,7 +361,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.pdata	= &msm_camera_csi_device_data[0],
 	.flash_data	= &flash_imx074,
 	.sensor_platform_info = &sensor_board_info_imx074,
-	.gpio_conf = &gpio_conf,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
 };

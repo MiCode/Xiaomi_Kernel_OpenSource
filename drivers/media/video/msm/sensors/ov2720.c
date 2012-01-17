@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,6 +492,7 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov2720_subdev_info),
 	.sensor_v4l2_subdev_ops = &ov2720_subdev_ops,
 	.func_tbl = &ov2720_func_tbl,
+	.clk_rate = MSM_SENSOR_MCLK_24HZ,
 };
 
 module_init(msm_sensor_init_module);
