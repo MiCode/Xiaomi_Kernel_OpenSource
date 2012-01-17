@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -498,10 +498,8 @@ static void krait_pmu_reset(void *info)
 
 static struct arm_pmu krait_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
-#ifdef CONFIG_SMP
-	.secondary_enable       = scorpion_secondary_enable,
-	.secondary_disable      = scorpion_secondary_disable,
-#endif
+	.request_pmu_irq	= msm_request_irq,
+	.free_pmu_irq		= msm_free_irq,
 	.enable			= krait_pmu_enable_event,
 	.disable		= krait_pmu_disable_event,
 	.read_counter		= armv7pmu_read_counter,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <linux/cpumask.h>
 
 #include <asm/vfp.h>
 #include <asm/system.h>
@@ -670,32 +672,52 @@ scorpion_out:
 	raw_spin_unlock_irqrestore(&pmu_lock, flags);
 }
 
-#ifdef CONFIG_SMP
-static void scorpion_secondary_enable_callback(void *info)
+static void enable_irq_callback(void *info)
 {
 	int irq = *(unsigned int *)info;
 
-	if (irq_get_chip(irq)->irq_unmask)
-		irq_get_chip(irq)->irq_unmask(irq_get_irq_data(irq));
+	enable_percpu_irq(irq, 0);
 }
-static void scorpion_secondary_disable_callback(void *info)
+
+static void disable_irq_callback(void *info)
 {
 	int irq = *(unsigned int *)info;
 
-	if (irq_get_chip(irq)->irq_mask)
-		irq_get_chip(irq)->irq_mask(irq_get_irq_data(irq));
+	disable_percpu_irq(irq);
 }
 
-static void scorpion_secondary_enable(unsigned int irq)
+static int
+msm_request_irq(int irq, irq_handler_t *handle_irq)
 {
-	smp_call_function(scorpion_secondary_enable_callback, &irq, 1);
+	int err = 0;
+	int cpu;
+
+	err = request_percpu_irq(irq, *handle_irq, "armpmu",
+			&cpu_hw_events);
+
+	if (!err) {
+		for_each_cpu(cpu, cpu_online_mask) {
+			smp_call_function_single(cpu,
+					enable_irq_callback, &irq, 1);
+		}
+	}
+
+	return err;
 }
 
-static void scorpion_secondary_disable(unsigned int irq)
+static void
+msm_free_irq(int irq)
 {
-	smp_call_function(scorpion_secondary_disable_callback, &irq, 1);
+	int cpu;
+
+	if (irq >= 0) {
+		for_each_cpu(cpu, cpu_online_mask) {
+			smp_call_function_single(cpu,
+					disable_irq_callback, &irq, 1);
+		}
+		free_percpu_irq(irq, &cpu_hw_events);
+	}
 }
-#endif
 
 static void scorpion_pmu_reset(void *info)
 {
@@ -719,10 +741,8 @@ static void scorpion_pmu_reset(void *info)
 
 static struct arm_pmu scorpion_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
-#ifdef CONFIG_SMP
-	.secondary_enable       = scorpion_secondary_enable,
-	.secondary_disable      = scorpion_secondary_disable,
-#endif
+	.request_pmu_irq	= msm_request_irq,
+	.free_pmu_irq		= msm_free_irq,
 	.enable			= scorpion_pmu_enable_event,
 	.disable		= scorpion_pmu_disable_event,
 	.read_counter		= armv7pmu_read_counter,
