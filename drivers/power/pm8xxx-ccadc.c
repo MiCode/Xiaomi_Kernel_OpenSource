@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,7 +209,7 @@ static int calib_start_conv(struct pm8xxx_ccadc_chip *chip,
 			return rc;
 		}
 		if ((reg & (START_CONV_BIT | EOC_CONV_BIT)) != EOC_CONV_BIT)
-			msleep(60);
+			msleep(20);
 		else
 			break;
 	}
