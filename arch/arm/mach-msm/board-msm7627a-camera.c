@@ -23,6 +23,289 @@
 #include "devices-msm7x2xa.h"
 #include "board-msm7627a.h"
 
+#ifdef CONFIG_MSM_CAMERA_V4L2
+static uint32_t camera_off_gpio_table[] = {
+	GPIO_CFG(15, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+};
+
+static uint32_t camera_on_gpio_table[] = {
+	GPIO_CFG(15, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+};
+
+#ifdef CONFIG_MSM_CAMERA_FLASH
+static struct msm_camera_sensor_flash_src msm_flash_src = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	._fsrc.ext_driver_src.led_en = GPIO_CAM_GP_LED_EN1,
+	._fsrc.ext_driver_src.led_flash_en = GPIO_CAM_GP_LED_EN2,
+};
+#endif
+
+static struct regulator_bulk_data regs_camera[] = {
+	{ .supply = "msme1", .min_uV = 1800000, .max_uV = 1800000 },
+	{ .supply = "gp2",   .min_uV = 2850000, .max_uV = 2850000 },
+	{ .supply = "usb2",  .min_uV = 1800000, .max_uV = 1800000 },
+};
+
+static void msm_camera_vreg_config(int vreg_en)
+{
+	int rc = vreg_en ?
+		regulator_bulk_enable(ARRAY_SIZE(regs_camera), regs_camera) :
+		regulator_bulk_disable(ARRAY_SIZE(regs_camera), regs_camera);
+
+	if (rc)
+		pr_err("%s: could not %sable regulators: %d\n",
+				__func__, vreg_en ? "en" : "dis", rc);
+}
+
+static int config_gpio_table(uint32_t *table, int len)
+{
+	int rc = 0, i = 0;
+
+	for (i = 0; i < len; i++) {
+		rc = gpio_tlmm_config(table[i], GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s not able to get gpio\n", __func__);
+			for (i--; i >= 0; i--)
+				gpio_tlmm_config(camera_off_gpio_table[i],
+							GPIO_CFG_ENABLE);
+			break;
+		}
+	}
+	return rc;
+}
+
+static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data;
+/* TODO: static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data; */
+static int config_camera_on_gpios_rear(void)
+{
+	int rc = 0;
+
+	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
+		msm_camera_vreg_config(1);
+
+	rc = config_gpio_table(camera_on_gpio_table,
+			ARRAY_SIZE(camera_on_gpio_table));
+	if (rc < 0) {
+		pr_err("%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static void config_camera_off_gpios_rear(void)
+{
+	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
+		msm_camera_vreg_config(0);
+
+	config_gpio_table(camera_off_gpio_table,
+			ARRAY_SIZE(camera_off_gpio_table));
+}
+
+static int config_camera_on_gpios_front(void)
+{
+	int rc = 0;
+
+	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
+		msm_camera_vreg_config(1);
+
+	rc = config_gpio_table(camera_on_gpio_table,
+			ARRAY_SIZE(camera_on_gpio_table));
+	if (rc < 0) {
+		pr_err("%s: CAMSENSOR gpio table request"
+			"failed\n", __func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static void config_camera_off_gpios_front(void)
+{
+	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
+		msm_camera_vreg_config(0);
+
+	config_gpio_table(camera_off_gpio_table,
+			ARRAY_SIZE(camera_off_gpio_table));
+}
+
+struct msm_camera_device_platform_data msm_camera_device_data_csi1 = {
+	.camera_gpio_on  = config_camera_on_gpios_rear,
+	.camera_gpio_off = config_camera_off_gpios_rear,
+	.ioclk.mclk_clk_rate = 24000000,
+	.ioclk.vfe_clk_rate  = 192000000,
+	.csid_core = 1,
+	.is_csic = 1,
+};
+
+struct msm_camera_device_platform_data msm_camera_device_data_csi0 = {
+	.camera_gpio_on  = config_camera_on_gpios_front,
+	.camera_gpio_off = config_camera_off_gpios_front,
+	.ioclk.mclk_clk_rate = 24000000,
+	.ioclk.vfe_clk_rate  = 192000000,
+	.csid_core = 0,
+};
+
+#ifdef CONFIG_DW9712_ACT
+static struct i2c_board_info s5k4e1_actuator_i2c_info = {
+	I2C_BOARD_INFO("dw9712_act", 0x8C >> 1),
+};
+
+static struct msm_actuator_info s5k4e1_actuator_info = {
+	.board_info     = &s5k4e1_actuator_i2c_info,
+	.bus_id         = MSM_GSBI0_QUP_I2C_BUS_ID,
+	.vcm_pwd        = GPIO_CAM_GP_CAM_PWDN,
+	.vcm_enable     = 1,
+};
+#endif
+
+#ifdef CONFIG_S5K4E1
+static struct msm_camera_sensor_flash_data flash_s5k4e1 = {
+	.flash_type             = MSM_CAMERA_FLASH_LED,
+	.flash_src              = &msm_flash_src
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_s5k4e1 = {
+	.mount_angle	= 90,
+	.sensor_reset	= GPIO_CAM_GP_CAMIF_RESET_N,
+	.sensor_pwd	= 85,
+	.vcm_pwd	= GPIO_CAM_GP_CAM_PWDN,
+	.vcm_enable	= 1,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
+	.sensor_name    = "s5k4e1",
+	.sensor_reset_enable = 1,
+	.pdata                  = &msm_camera_device_data_csi1,
+	.flash_data             = &flash_s5k4e1,
+	.sensor_platform_info   = &sensor_board_info_s5k4e1,
+	.csi_if                 = 1,
+	.camera_type = BACK_CAMERA_2D,
+#ifdef CONFIG_DW9712_ACT
+	.actuator_info = &s5k4e1_actuator_info
+#endif
+};
+#endif
+
+#ifdef CONFIG_MT9E013
+static struct msm_camera_sensor_flash_data flash_mt9e013 = {
+	.flash_type             = MSM_CAMERA_FLASH_LED,
+	.flash_src              = &msm_flash_src
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_mt9e013 = {
+	.mount_angle	= 90,
+	.sensor_reset	= 0,
+	.sensor_pwd	= 85,
+	.vcm_pwd	= 1,
+	.vcm_enable	= 0,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
+	.sensor_name    = "mt9e013",
+	.sensor_reset_enable = 1,
+	.pdata                  = &msm_camera_device_data_csi1,
+	.flash_data             = &flash_mt9e013,
+	.sensor_platform_info   = &sensor_board_info_mt9e013,
+	.csi_if                 = 1,
+	.camera_type = BACK_CAMERA_2D,
+};
+#endif
+
+#ifdef CONFIG_IMX072
+static struct msm_camera_sensor_platform_info imx072_sensor_7627a_info = {
+	.mount_angle = 90
+};
+
+static struct msm_camera_sensor_flash_data flash_imx072 = {
+	.flash_type             = MSM_CAMERA_FLASH_LED,
+	.flash_src              = &msm_flash_src
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_imx072_data = {
+	.sensor_name    = "imx072",
+	.sensor_reset_enable = 1,
+	.sensor_reset   = GPIO_CAM_GP_CAMIF_RESET_N, /* TODO 106,*/
+	.sensor_pwd             = 85,
+	.vcm_pwd                = GPIO_CAM_GP_CAM_PWDN,
+	.vcm_enable             = 1,
+	.pdata                  = &msm_camera_device_data_csi1,
+	.flash_data             = &flash_imx072,
+	.sensor_platform_info = &imx072_sensor_7627a_info,
+	.csi_if                 = 1
+};
+
+static struct platform_device msm_camera_sensor_imx072 = {
+	.name   = "msm_camera_imx072",
+	.dev    = {
+		.platform_data = &msm_camera_sensor_imx072_data,
+	},
+};
+#endif
+
+#ifdef CONFIG_WEBCAM_OV9726
+static struct msm_camera_sensor_flash_data flash_ov9726 = {
+	.flash_type             = MSM_CAMERA_FLASH_LED,
+	.flash_src              = &msm_flash_src
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_ov9726 = {
+	.mount_angle	= 90,
+	.sensor_reset	= GPIO_CAM_GP_CAM1MP_XCLR,
+	.sensor_pwd	= 85,
+	.vcm_pwd	= 1,
+	.vcm_enable	= 0,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
+	.sensor_name    = "ov9726",
+	.sensor_reset_enable = 0,
+	.pdata                  = &msm_camera_device_data_csi0,
+	.flash_data             = &flash_ov9726,
+	.sensor_platform_info   = &sensor_board_info_ov9726,
+	.csi_if                 = 1,
+	.camera_type = FRONT_CAMERA_2D,
+};
+#endif
+
+static void __init msm7x27a_init_cam(void)
+{
+	platform_device_register(&msm7x27a_device_csic0);
+	platform_device_register(&msm7x27a_device_csic1);
+	platform_device_register(&msm7x27a_device_clkctl);
+	platform_device_register(&msm7x27a_device_vfe);
+}
+
+static struct i2c_board_info i2c_camera_devices[] = {
+	#ifdef CONFIG_S5K4E1
+	{
+		I2C_BOARD_INFO("s5k4e1", 0x36),
+		.platform_data = &msm_camera_sensor_s5k4e1_data,
+	},
+	#endif
+	#ifdef CONFIG_WEBCAM_OV9726
+	{
+		I2C_BOARD_INFO("ov9726", 0x10),
+		.platform_data = &msm_camera_sensor_ov9726_data,
+	},
+	#endif
+	#ifdef CONFIG_IMX072
+	{
+		I2C_BOARD_INFO("imx072", 0x34),
+	},
+	#endif
+	#ifdef CONFIG_MT9E013
+	{
+		I2C_BOARD_INFO("mt9e013", 0x6C >> 2),
+		.platform_data = &msm_camera_sensor_mt9e013_data,
+	},
+	#endif
+	{
+		I2C_BOARD_INFO("sc628a", 0x6E),
+	},
+};
+#else
 static uint32_t camera_off_gpio_table[] = {
 	GPIO_CFG(15, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
@@ -406,28 +689,6 @@ static struct platform_device msm_camera_sensor_ov7692 = {
 };
 #endif
 
-enum {
-	SX150X_CAM,
-};
-
-static struct sx150x_platform_data sx150x_data[] __initdata = {
-	[SX150X_CAM]    = {
-		.gpio_base	      = GPIO_CAM_EXPANDER_BASE,
-		.oscio_is_gpo	   = false,
-		.io_pullup_ena	  = 0,
-		.io_pulldn_ena	  = 0,
-		.io_open_drain_ena      = 0x23,
-		.irq_summary	    = -1,
-	},
-};
-
-static struct i2c_board_info cam_exp_i2c_info[] __initdata = {
-	{
-		I2C_BOARD_INFO("sx1508q", 0x22),
-		.platform_data  = &sx150x_data[SX150X_CAM],
-	},
-};
-
 static struct i2c_board_info i2c_camera_devices[] = {
 	#ifdef CONFIG_S5K4E1
 	{
@@ -493,6 +754,29 @@ static struct platform_device *camera_devices_qrd[] __initdata = {
 	&msm_camera_sensor_ov7692,
 #endif
 };
+#endif
+
+enum {
+	SX150X_CAM,
+};
+
+static struct sx150x_platform_data sx150x_data[] __initdata = {
+	[SX150X_CAM]    = {
+		.gpio_base	      = GPIO_CAM_EXPANDER_BASE,
+		.oscio_is_gpo	   = false,
+		.io_pullup_ena	  = 0,
+		.io_pulldn_ena	  = 0,
+		.io_open_drain_ena      = 0x23,
+		.irq_summary	    = -1,
+	},
+};
+
+static struct i2c_board_info cam_exp_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("sx1508q", 0x22),
+		.platform_data  = &sx150x_data[SX150X_CAM],
+	},
+};
 
 static void __init register_i2c_devices(void)
 {
@@ -505,6 +789,7 @@ void __init msm7627a_camera_init(void)
 {
 	int rc;
 
+#ifndef CONFIG_MSM_CAMERA_V4L2
 	if (machine_is_msm7627a_qrd1()) {
 		qrd1_camera_gpio_cfg();
 		platform_add_devices(camera_devices_qrd,
@@ -514,10 +799,9 @@ void __init msm7627a_camera_init(void)
 	else
 		platform_add_devices(camera_devices_msm,
 				ARRAY_SIZE(camera_devices_msm));
-
+#endif
 	if (!machine_is_msm7627a_qrd1())
 		register_i2c_devices();
-
 	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
 
 	if (rc) {
@@ -532,11 +816,16 @@ void __init msm7627a_camera_init(void)
 		return;
 	}
 
+#if defined(CONFIG_MSM_CAMERA_V4L2)
+	msm7x27a_init_cam();
+#endif
+#ifndef CONFIG_MSM_CAMERA_V4L2
 	if (machine_is_msm7627a_qrd1())
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices_qrd,
 				ARRAY_SIZE(i2c_camera_devices_qrd));
 	else
+#endif
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices,
 				ARRAY_SIZE(i2c_camera_devices));
