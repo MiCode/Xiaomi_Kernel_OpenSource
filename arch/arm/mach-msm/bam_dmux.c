@@ -1795,7 +1795,7 @@ static int bam_init(void)
 	if (bam_tx_pipe == NULL) {
 		pr_err("%s: tx alloc endpoint failed\n", __func__);
 		ret = -ENOMEM;
-		goto register_bam_failed;
+		goto tx_alloc_endpoint_failed;
 	}
 	ret = sps_get_config(bam_tx_pipe, &tx_connection);
 	if (ret) {
@@ -1815,7 +1815,7 @@ static int bam_init(void)
 	if (tx_desc_mem_buf.base == NULL) {
 		pr_err("%s: tx memory alloc failed\n", __func__);
 		ret = -ENOMEM;
-		goto tx_mem_failed;
+		goto tx_get_config_failed;
 	}
 	tx_desc_mem_buf.phys_base = dma_addr;
 	memset(tx_desc_mem_buf.base, 0x0, tx_desc_mem_buf.size);
@@ -1832,7 +1832,7 @@ static int bam_init(void)
 	if (bam_rx_pipe == NULL) {
 		pr_err("%s: rx alloc endpoint failed\n", __func__);
 		ret = -ENOMEM;
-		goto tx_connect_failed;
+		goto rx_alloc_endpoint_failed;
 	}
 	ret = sps_get_config(bam_rx_pipe, &rx_connection);
 	if (ret) {
@@ -1901,15 +1901,16 @@ rx_connect_failed:
 	dma_free_coherent(NULL, rx_desc_mem_buf.size, rx_desc_mem_buf.base,
 				rx_desc_mem_buf.phys_base);
 rx_mem_failed:
-	sps_disconnect(bam_tx_pipe);
 rx_get_config_failed:
 	sps_free_endpoint(bam_rx_pipe);
+rx_alloc_endpoint_failed:
+	sps_disconnect(bam_tx_pipe);
 tx_connect_failed:
 	dma_free_coherent(NULL, tx_desc_mem_buf.size, tx_desc_mem_buf.base,
 				tx_desc_mem_buf.phys_base);
 tx_get_config_failed:
 	sps_free_endpoint(bam_tx_pipe);
-tx_mem_failed:
+tx_alloc_endpoint_failed:
 	sps_deregister_bam_device(h);
 	/*
 	 * sps_deregister_bam_device() calls iounmap.  calling iounmap on the
