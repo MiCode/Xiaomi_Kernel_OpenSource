@@ -40,6 +40,7 @@
 #include <linux/ks8851.h>
 #include <linux/i2c/isa1200.h>
 #include <linux/gpio_keys.h>
+#include <linux/memory.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -429,12 +430,9 @@ static void __init locate_unstable_memory(void)
 
 	if (high - low <= bank_size)
 		return;
-	msm8930_reserve_info.low_unstable_address = low + bank_size;
-	/* To avoid overflow of u32 compute max_unstable_size
-	 * by first subtracting low from mb->start)
-	 * */
-	msm8930_reserve_info.max_unstable_size = (mb->start - low) +
-						mb->size - bank_size;
+	msm8930_reserve_info.low_unstable_address = mb->start -
+					MIN_MEMORY_BLOCK_SIZE + mb->size;
+	msm8930_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
 
 	msm8930_reserve_info.bank_size = bank_size;
 	pr_info("low unstable address %lx max size %lx bank size %lx\n",
