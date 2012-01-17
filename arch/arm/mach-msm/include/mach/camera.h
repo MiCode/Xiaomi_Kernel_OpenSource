@@ -87,6 +87,8 @@ enum vfe_resp_msg {
 	VFE_MSG_V32_START_RECORDING,
 	VFE_MSG_V32_CAPTURE,
 	VFE_MSG_OUTPUT_IRQ,
+	VFE_MSG_V2X_PREVIEW,
+	VFE_MSG_V2X_CAPTURE,
 };
 
 enum vpe_resp_msg {

@@ -1478,15 +1478,14 @@ static int msm_open(struct file *f)
 				__func__, rc);
 			return rc;
 		}
-		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
-					pcam->mctl.isp_sdev->sd_vpe);
-		if (rc < 0) {
-			mutex_unlock(&pcam->vid_lock);
-			pr_err("%s: vpe v4l2_device_register_subdev failed rc = %d\n",
-				__func__, rc);
-			return rc;
+		if (pcam->mctl.isp_sdev->sd_vpe) {
+			rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+						pcam->mctl.isp_sdev->sd_vpe);
+			if (rc < 0) {
+				mutex_unlock(&pcam->vid_lock);
+				return rc;
+			}
 		}
-
 		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 							pcam->pvdev);
 		if (rc < 0) {
@@ -2395,7 +2394,7 @@ static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
 		goto client_fail;
 
 	*actctrl = *a_ext_ctrl;
-	a_ext_ctrl->a_create_subdevice((void *)actuator_info->board_info,
+	a_ext_ctrl->a_create_subdevice((void *)actuator_info,
 				       (void *)act_sdev);
 	return rc;
 

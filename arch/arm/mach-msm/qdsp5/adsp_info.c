@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/adsp_info.c
  *
- * Copyright (c) 2008-2009, 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2011-2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -89,7 +89,7 @@ static struct adsp_module_info module_info[] = {
 	QDSP_MODULE(RMTASK, NULL, 0, NULL, NULL),
 #if !defined(CONFIG_ARCH_MSM7X30)
 	QDSP_MODULE(AUDRECTASK, NULL, 0, NULL, NULL),
-	QDSP_MODULE(VFETASK, "vfe_clk", 0, adsp_vfe_verify_cmd,
+	QDSP_MODULE(VFETASK, NULL, 0, adsp_vfe_verify_cmd,
 		adsp_vfe_patch_event),
 	QDSP_MODULE(QCAMTASK, NULL, 0, NULL, NULL),
 	QDSP_MODULE(LPMTASK, NULL, 0, adsp_lpm_verify_cmd, NULL),

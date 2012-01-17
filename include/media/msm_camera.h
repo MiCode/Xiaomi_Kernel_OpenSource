@@ -401,6 +401,7 @@ struct msm_camera_cfg_cmd {
 #define CMD_CONFIG_FREE_BUF_ADDR 48
 #define CMD_AXI_CFG_ZSL_ALL_CHNLS 49
 #define CMD_AXI_CFG_VIDEO_ALL_CHNLS 50
+#define CMD_VFE_BUFFER_RELEASE 51
 
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {

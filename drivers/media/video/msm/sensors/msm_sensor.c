@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -172,6 +172,42 @@ int32_t msm_sensor_write_exp_gain2(struct msm_sensor_ctrl_t *s_ctrl,
 	return 0;
 }
 
+int32_t msm_sensor_setting1(struct msm_sensor_ctrl_t *s_ctrl,
+			int update_type, int res)
+{
+	int32_t rc = 0;
+	static int csi_config;
+
+	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+	msleep(30);
+	if (update_type == MSM_SENSOR_REG_INIT) {
+		CDBG("Register INIT\n");
+		s_ctrl->curr_csi_params = NULL;
+		msm_sensor_enable_debugfs(s_ctrl);
+		msm_sensor_write_init_settings(s_ctrl);
+		csi_config = 0;
+	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
+		CDBG("PERIODIC : %d\n", res);
+		msm_sensor_write_conf_array(
+			s_ctrl->sensor_i2c_client,
+			s_ctrl->msm_sensor_reg->mode_settings, res);
+		msleep(30);
+		if (!csi_config) {
+			s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
+			CDBG("CSI config in progress\n");
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_CSIC_CFG,
+				s_ctrl->curr_csic_params);
+			CDBG("CSI config is done\n");
+			mb();
+			msleep(30);
+			csi_config = 1;
+		}
+		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
+		msleep(50);
+	}
+	return rc;
+}
 int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
@@ -532,6 +568,8 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 probe_fail:
 	CDBG("%s_i2c_probe failed\n", client->name);
 power_down:
+	if (rc > 0)
+		rc = 0;
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 	return rc;
 }
