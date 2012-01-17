@@ -808,6 +808,18 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 	if (raw->last_good_ocv_uv)
 		last_ocv_uv = raw->last_good_ocv_uv;
 
+	pr_debug("0p625 = %duV\n", chip->xoadc_v0625);
+	pr_debug("1p25 = %duV\n", chip->xoadc_v125);
+
+	pr_debug("vbatt_for_rbatt_raw = 0x%x, vbatt_for_rbatt= %duV\n",
+			raw->vbatt_for_rbatt_raw, raw->vbatt_for_rbatt_uv);
+	pr_debug("ocv_for_rbatt_raw = 0x%x, ocv_for_rbatt= %duV\n",
+			raw->ocv_for_rbatt_raw, raw->ocv_for_rbatt_uv);
+	pr_debug("vsense_for_rbatt_raw = 0x%x, vsense_for_rbatt= %duV\n",
+			raw->vsense_for_rbatt_raw, raw->vsense_for_rbatt_uv);
+	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
+			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
+	pr_debug("cc_raw= 0x%x\n", raw->cc);
 	return 0;
 }
 
@@ -1168,12 +1180,18 @@ static void calibrate_hkadc_work(struct work_struct *work)
 	calib_hkadc(chip);
 }
 
+void pm8921_bms_calibrate_hkadc(void)
+{
+	schedule_work(&the_chip->calib_hkadc_work);
+}
+
 static void calibrate_ccadc_work(struct work_struct *work)
 {
 	struct pm8921_bms_chip *chip = container_of(work,
 				struct pm8921_bms_chip, calib_ccadc_work.work);
 
 	pm8xxx_calib_ccadc();
+	calib_hkadc(chip);
 	schedule_delayed_work(&chip->calib_ccadc_work,
 			round_jiffies_relative(msecs_to_jiffies
 			(chip->calib_delay_ms)));

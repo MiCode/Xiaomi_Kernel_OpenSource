@@ -175,6 +175,8 @@ void pm8921_bms_charging_began(void);
  *				track of chargecycles
  */
 void pm8921_bms_charging_end(int is_battery_full);
+
+void pm8921_bms_calibrate_hkadc(void);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -196,6 +198,9 @@ static inline void pm8921_bms_charging_began(void)
 {
 }
 static inline void pm8921_bms_charging_end(int is_battery_full)
+{
+}
+static inline void pm8921_bms_calibrate_hkadc(void)
 {
 }
 #endif
