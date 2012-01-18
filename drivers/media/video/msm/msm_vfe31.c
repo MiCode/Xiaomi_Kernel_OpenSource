@@ -3892,6 +3892,7 @@ static int vfe31_resource_init(struct msm_vfe_callback *presp,
 	spin_lock_init(&vfe31_ctrl->io_lock);
 	spin_lock_init(&vfe31_ctrl->update_ack_lock);
 	spin_lock_init(&vfe31_ctrl->tasklet_lock);
+	spin_lock_init(&vfe31_ctrl->xbar_lock);
 
 	INIT_LIST_HEAD(&vfe31_ctrl->tasklet_q);
 	vfe31_init_free_buf_queue();
