@@ -405,11 +405,7 @@ void __iomem *msm_timer_get_timer0_base(void)
  */
 static void (*msm_timer_sync_timeout)(void);
 #if defined(CONFIG_MSM_DIRECT_SCLK_ACCESS)
-static uint32_t msm_timer_do_sync_to_sclk(
-	void (*time_start)(struct msm_timer_sync_data_t *data),
-	bool (*time_expired)(struct msm_timer_sync_data_t *data),
-	void (*update)(struct msm_timer_sync_data_t *, uint32_t, uint32_t),
-	struct msm_timer_sync_data_t *data)
+uint32_t msm_timer_get_sclk_ticks(void)
 {
 	uint32_t t1, t2;
 	int loop_count = 10;
@@ -442,7 +438,18 @@ static uint32_t msm_timer_do_sync_to_sclk(
 		return 0;
 	}
 
-	if (update != NULL)
+	return t1;
+}
+
+static uint32_t msm_timer_do_sync_to_sclk(
+	void (*time_start)(struct msm_timer_sync_data_t *data),
+	bool (*time_expired)(struct msm_timer_sync_data_t *data),
+	void (*update)(struct msm_timer_sync_data_t *, uint32_t, uint32_t),
+	struct msm_timer_sync_data_t *data)
+{
+	unsigned t1 = msm_timer_get_sclk_ticks();
+
+	if (t1 && update != NULL)
 		update(data, t1, sclk_hz);
 	return t1;
 }
