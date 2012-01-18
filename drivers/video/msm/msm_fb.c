@@ -3148,6 +3148,9 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case MSMFB_HISTOGRAM_START:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+
 		if (!mfd->do_histogram)
 			return -ENODEV;
 		ret = mdp_start_histogram(info);
