@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -435,6 +435,7 @@ static void frmnet_disable(struct usb_function *f)
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
 	usb_ep_disable(dev->notify);
+	dev->notify->driver_data = NULL;
 
 	atomic_set(&dev->online, 0);
 
