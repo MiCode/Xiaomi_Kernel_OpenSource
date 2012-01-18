@@ -22,6 +22,7 @@
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/ion.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -29,6 +30,7 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/ion.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/android.h>
 #include <mach/socinfo.h>
@@ -37,7 +39,9 @@
 #include "devices.h"
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
+#endif
 #include <mach/msm_memtypes.h>
 #include <linux/bootmem.h>
 #include <asm/setup.h>
@@ -46,27 +50,36 @@
 #include "msm_watchdog.h"
 #include "board-8064.h"
 
-#define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
-#define MSM_PMEM_ADSP_SIZE         0x3800000
+#define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x2B4000
-#define MSM_PMEM_SIZE 0x1800000 /* 24 Mbytes */
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+#define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
+#else
+#define MSM_PMEM_SIZE 0x2800000 /* 40 Mbytes */
+#endif
 
-static struct memtype_reserve apq8064_reserve_table[] __initdata = {
-	[MEMTYPE_SMI] = {
-	},
-	[MEMTYPE_EBI0] = {
-		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
-	},
-	[MEMTYPE_EBI1] = {
-		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
-	},
-};
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
+#define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
+#define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
+#define MSM_ION_MFC_SIZE	SZ_8K
+#define MSM_ION_HEAP_NUM	5
+#else
+#define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
+#define MSM_ION_HEAP_NUM	1
+#endif
 
-static int apq8064_paddr_to_memtype(unsigned int paddr)
+#ifdef CONFIG_KERNEL_PMEM_EBI_REGION
+static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
+static int __init pmem_kernel_ebi1_size_setup(char *p)
 {
-	return MEMTYPE_EBI1;
+	pmem_kernel_ebi1_size = memparse(p, NULL);
+	return 0;
 }
+early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
+#endif
 
+#ifdef CONFIG_ANDROID_PMEM
 static unsigned pmem_size = MSM_PMEM_SIZE;
 static int __init pmem_size_setup(char *p)
 {
@@ -92,7 +105,10 @@ static int __init pmem_audio_size_setup(char *p)
 	return 0;
 }
 early_param("pmem_audio_size", pmem_audio_size_setup);
+#endif
 
+#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct android_pmem_platform_data android_pmem_pdata = {
 	.name = "pmem",
 	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
@@ -112,20 +128,12 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.cached = 0,
 	.memory_type = MEMTYPE_EBI1,
 };
-
-static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
-static int __init pmem_kernel_ebi1_size_setup(char *p)
-{
-	pmem_kernel_ebi1_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
-
 static struct platform_device android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
 };
+#endif
 
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.name = "pmem_audio",
@@ -139,12 +147,28 @@ static struct platform_device android_pmem_audio_device = {
 	.id = 4,
 	.dev = { .platform_data = &android_pmem_audio_pdata },
 };
+#endif
+
+static struct memtype_reserve apq8064_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
 
 static void __init size_pmem_devices(void)
 {
+#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	android_pmem_adsp_pdata.size = pmem_adsp_size;
 	android_pmem_pdata.size = pmem_size;
+#endif
 	android_pmem_audio_pdata.size = MSM_PMEM_AUDIO_SIZE;
+#endif
 }
 
 static void __init reserve_memory_for(struct android_pmem_platform_data *p)
@@ -154,16 +178,97 @@ static void __init reserve_memory_for(struct android_pmem_platform_data *p)
 
 static void __init reserve_pmem_memory(void)
 {
+#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	reserve_memory_for(&android_pmem_adsp_pdata);
 	reserve_memory_for(&android_pmem_pdata);
+#endif
 	reserve_memory_for(&android_pmem_audio_pdata);
 	apq8064_reserve_table[MEMTYPE_EBI1].size += pmem_kernel_ebi1_size;
+#endif
+}
+
+static int apq8064_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+#ifdef CONFIG_ION_MSM
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
+	.permission_type = IPT_TYPE_MM_CARVEOUT,
+};
+
+static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
+	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+};
+
+static struct ion_co_heap_pdata co_ion_pdata = {
+};
+#endif
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = {
+		{
+			.id	= ION_SYSTEM_HEAP_ID,
+			.type	= ION_HEAP_TYPE_SYSTEM,
+			.name	= ION_VMALLOC_HEAP_NAME,
+		},
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		{
+			.id	= ION_SF_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_SF_HEAP_NAME,
+			.size	= MSM_ION_SF_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
+		},
+		{
+			.id	= ION_CP_MM_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CP,
+			.name	= ION_MM_HEAP_NAME,
+			.size	= MSM_ION_MM_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &cp_mm_ion_pdata,
+		},
+		{
+			.id	= ION_CP_MFC_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CP,
+			.name	= ION_MFC_HEAP_NAME,
+			.size	= MSM_ION_MFC_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &cp_mfc_ion_pdata,
+		},
+		{
+			.id	= ION_IOMMU_HEAP_ID,
+			.type	= ION_HEAP_TYPE_IOMMU,
+			.name	= ION_IOMMU_HEAP_NAME,
+		},
+#endif
+	}
+};
+
+static struct platform_device ion_dev = {
+	.name = "ion-msm",
+	.id = 1,
+	.dev = { .platform_data = &ion_pdata },
+};
+#endif
+
+static void reserve_ion_memory(void)
+{
+#if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
+#endif
 }
 
 static void __init apq8064_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
+	reserve_ion_memory();
 }
 
 static struct reserve_info apq8064_reserve_info __initdata = {
@@ -464,9 +569,16 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_otg,
 	&apq8064_device_gadget_peripheral,
 	&android_usb_device,
+#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
 	&android_pmem_adsp_device,
+#endif
 	&android_pmem_audio_device,
+#endif
+#ifdef CONFIG_ION_MSM
+	&ion_dev,
+#endif
 	&msm8064_device_watchdog,
 	&msm8064_device_saw_regulator_core0,
 	&msm8064_device_saw_regulator_core1,
