@@ -58,14 +58,17 @@
 int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 {
 	int rc = 0;
-	int i = 0;
+	int j = 0;
 	uint32_t val = 0;
+	uint8_t lane_cnt = 0, lane_mask = 0;
 	struct csiphy_device *csiphy_dev;
 	struct msm_camera_csiphy_params *csiphy_params;
 	void __iomem *csiphybase;
 	csiphy_dev = v4l2_get_subdevdata(cfg_params->subdev);
 	csiphybase = csiphy_dev->base;
 	csiphy_params = cfg_params->parms;
+	lane_mask = csiphy_params->lane_mask;
+	lane_cnt = csiphy_params->lane_cnt;
 	if (csiphy_params->lane_cnt < 1 || csiphy_params->lane_cnt > 4) {
 		CDBG("%s: unsupported lane cnt %d\n",
 			__func__, csiphy_params->lane_cnt);
@@ -73,15 +76,28 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 	}
 
 	val = 0x3;
-	msm_io_w((((1 << csiphy_params->lane_cnt) - 1) << 2) | val,
-			 csiphybase + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
+	msm_io_w((csiphy_params->lane_mask << 2) | val,
+			csiphybase + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
 	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
 
-	for (i = 0; i < csiphy_params->lane_cnt; i++) {
-		msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
+	while (lane_mask & 0xf) {
+		if (!(lane_mask & 0x1)) {
+			j++;
+			lane_mask >>= 1;
+			continue;
+		}
+		msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*j);
 		msm_io_w(csiphy_params->settle_cnt,
-			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*i);
+			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*j);
+		msm_io_w(0x6F,
+			csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR +
+				0x4*(j+1));
+		msm_io_w(0x6F,
+			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR +
+				0x4*(j+1));
+		j++;
+		lane_mask >>= 1;
 	}
 
 	msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNCK_CFG2_ADDR);
@@ -92,13 +108,6 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 		csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR);
 	msm_io_w(0x24,
 		csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
-
-	for (i = 1; i <= csiphy_params->lane_cnt; i++) {
-		msm_io_w(0x6F,
-			csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR + 0x4*i);
-		msm_io_w(0x6F,
-			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
-	}
 	return rc;
 }
 

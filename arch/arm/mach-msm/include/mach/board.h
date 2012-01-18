@@ -191,6 +191,11 @@ struct msm_gpio_set_tbl {
 	uint32_t delay;
 };
 
+struct msm_camera_csi_lane_params {
+	uint8_t csi_lane_assign;
+	uint8_t csi_lane_mask;
+};
+
 struct msm_camera_gpio_conf {
 	void *cam_gpiomux_conf_tbl;
 	uint8_t cam_gpiomux_conf_tbl_size;
@@ -227,6 +232,7 @@ struct msm_camera_sensor_platform_info {
 	int32_t (*ext_power_ctrl) (int enable);
 	struct msm_camera_gpio_conf *gpio_conf;
 	struct msm_camera_i2c_conf *i2c_conf;
+	struct msm_camera_csi_lane_params *csi_lane_params;
 };
 
 struct msm_actuator_info {

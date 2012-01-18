@@ -175,7 +175,6 @@ static struct msm_camera_csid_vc_cfg imx074_cid_cfg[] = {
 
 static struct msm_camera_csi2_params imx074_csi_params = {
 	.csid_params = {
-		.lane_assign = 0xe4,
 		.lane_cnt = 4,
 		.lut_params = {
 			.num_cid = 2,

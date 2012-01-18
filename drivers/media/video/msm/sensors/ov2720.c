@@ -341,7 +341,6 @@ static struct msm_camera_csid_vc_cfg ov2720_cid_cfg[] = {
 
 static struct msm_camera_csi2_params ov2720_csi_params = {
 	.csid_params = {
-		.lane_assign = 0xe4,
 		.lane_cnt = 2,
 		.lut_params = {
 			.num_cid = 2,

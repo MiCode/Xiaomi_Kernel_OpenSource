@@ -440,12 +440,18 @@ static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_src	= &msm_flash_src
 };
 
+static struct msm_camera_csi_lane_params imx074_csi_lane_params = {
+	.csi_lane_assign = 0xE4,
+	.csi_lane_mask = 0xF,
+};
+
 static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
 	.mount_angle	= 90,
 	.cam_vreg = apq_8064_back_cam_vreg,
 	.num_vreg = ARRAY_SIZE(apq_8064_back_cam_vreg),
 	.gpio_conf = &apq8064_back_cam_gpio_conf,
 	.i2c_conf = &apq8064_back_cam_i2c_conf,
+	.csi_lane_params = &imx074_csi_lane_params,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
@@ -469,12 +475,18 @@ static struct msm_camera_sensor_flash_data flash_mt9m114 = {
 	.flash_type = MSM_CAMERA_FLASH_NONE
 };
 
+static struct msm_camera_csi_lane_params mt9m114_csi_lane_params = {
+	.csi_lane_assign = 0xE4,
+	.csi_lane_mask = 0x1,
+};
+
 static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
 	.mount_angle = 90,
 	.cam_vreg = apq_8064_mt9m114_vreg,
 	.num_vreg = ARRAY_SIZE(apq_8064_mt9m114_vreg),
 	.gpio_conf = &apq8064_front_cam_gpio_conf,
 	.i2c_conf = &apq8064_front_cam_i2c_conf,
+	.csi_lane_params = &mt9m114_csi_lane_params,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
@@ -490,12 +502,18 @@ static struct msm_camera_sensor_flash_data flash_ov2720 = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
 
+static struct msm_camera_csi_lane_params ov2720_csi_lane_params = {
+	.csi_lane_assign = 0xE4,
+	.csi_lane_mask = 0x3,
+};
+
 static struct msm_camera_sensor_platform_info sensor_board_info_ov2720 = {
 	.mount_angle	= 0,
 	.cam_vreg = apq_8064_front_cam_vreg,
 	.num_vreg = ARRAY_SIZE(apq_8064_front_cam_vreg),
 	.gpio_conf = &apq8064_front_cam_gpio_conf,
 	.i2c_conf = &apq8064_front_cam_i2c_conf,
+	.csi_lane_params = &ov2720_csi_lane_params,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
