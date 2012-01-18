@@ -860,6 +860,11 @@ int usb_gadget_get_string(struct usb_gadget_strings *table, int id, u8 *buf);
 
 /* utility to simplify managing config descriptors */
 
+/* Find and fill the requested descriptor into buffer */
+int
+usb_find_descriptor_fillbuf(void *, unsigned,
+		const struct usb_descriptor_header **, u8);
+
 /* write vector of descriptors into buffer */
 int usb_descriptor_fillbuf(void *, unsigned,
 		const struct usb_descriptor_header **);
