@@ -1,6 +1,6 @@
 /* Qualcomm TrustZone communicator driver
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/mutex.h>
 #include <linux/android_pmem.h>
 #include <linux/io.h>
+#include <linux/ion.h>
 #include <mach/scm.h>
 #include <mach/peripheral-loader.h>
 #include <linux/tzcom.h>
@@ -53,7 +54,7 @@
 static struct class *driver_class;
 static dev_t tzcom_device_no;
 static struct cdev tzcom_cdev;
-
+struct ion_client *ion_clnt;
 static u8 *sb_in_virt;
 static s32 sb_in_phys;
 static size_t sb_in_length = 20 * SZ_1K;
@@ -280,13 +281,13 @@ static int __tzcom_is_cont_cmd(struct tzcom_data_t *data)
  *      _________________________________________________________
  *                              OUTPUT SHARED BUFFER
  */
-static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
+static int __tzcom_send_cmd(struct tzcom_data_t *data,
+			struct tzcom_send_cmd_op_req *req)
 {
 	int ret = 0;
 	unsigned long flags;
 	u32 reqd_len_sb_in = 0;
 	u32 reqd_len_sb_out = 0;
-	struct tzcom_send_cmd_op_req req;
 	struct tzcom_command cmd;
 	struct tzcom_response resp;
 	struct tzcom_callback *next_callback;
@@ -296,30 +297,24 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 	size_t new_entry_len = 0;
 	struct tzcom_registered_svc_list *ptr_svc;
 
-	ret = copy_from_user(&req, argp, sizeof(req));
-	if (ret) {
-		PERR("copy_from_user failed");
-		return ret;
-	}
-
-	if (req.cmd_buf == NULL || req.resp_buf == NULL) {
+	if (req->cmd_buf == NULL || req->resp_buf == NULL) {
 		PERR("cmd buffer or response buffer is null");
 		return -EINVAL;
 	}
 
-	if (req.cmd_len <= 0 || req.resp_len <= 0 ||
-		req.cmd_len > sb_in_length || req.resp_len > sb_in_length) {
+	if (req->cmd_len <= 0 || req->resp_len <= 0 ||
+		req->cmd_len > sb_in_length || req->resp_len > sb_in_length) {
 		PERR("cmd buffer length or "
 				"response buffer length not valid");
 		return -EINVAL;
 	}
 	PDEBUG("received cmd_req.req: 0x%p",
-				req.cmd_buf);
+				req->cmd_buf);
 	PDEBUG("received cmd_req.rsp size: %u, ptr: 0x%p",
-			req.resp_len,
-			req.resp_buf);
+			req->resp_len,
+			req->resp_buf);
 
-	reqd_len_sb_in = req.cmd_len + req.resp_len;
+	reqd_len_sb_in = req->cmd_len + req->resp_len;
 	if (reqd_len_sb_in > sb_in_length) {
 		PDEBUG("Not enough memory to fit cmd_buf and "
 				"resp_buf. Required: %u, Available: %u",
@@ -327,23 +322,25 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		return -ENOMEM;
 	}
 
-	/* Copy req.cmd_buf to SB in and set req.resp_buf to SB in + cmd_len */
+	/* Copy req->cmd_buf to SB in and set
+	 * req->resp_buf to SB in + cmd_len
+	 */
 	mutex_lock(&sb_in_lock);
 	PDEBUG("Before memcpy on sb_in");
-	memcpy(sb_in_virt, req.cmd_buf, req.cmd_len);
+	memcpy(sb_in_virt, req->cmd_buf, req->cmd_len);
 	PDEBUG("After memcpy on sb_in");
 
 	/* cmd_type will always be a new here */
 	cmd.cmd_type = TZ_SCHED_CMD_NEW;
 	cmd.sb_in_cmd_addr = (u8 *) tzcom_virt_to_phys(sb_in_virt);
-	cmd.sb_in_cmd_len = req.cmd_len;
+	cmd.sb_in_cmd_len = req->cmd_len;
 
 	resp.cmd_status = TZ_SCHED_STATUS_INCOMPLETE;
 	resp.sb_in_rsp_addr = (u8 *) tzcom_virt_to_phys(sb_in_virt +
-			req.cmd_len);
-	resp.sb_in_rsp_len = req.resp_len;
+			req->cmd_len);
+	resp.sb_in_rsp_len = req->resp_len;
 
-	PDEBUG("before call tzcom_scm_call, cmd_id = : %u", req.cmd_id);
+	PDEBUG("before call tzcom_scm_call, cmd_id = : %u", req->cmd_id);
 	PDEBUG("before call tzcom_scm_call, sizeof(cmd) = : %u", sizeof(cmd));
 
 	ret = tzcom_scm_call((const void *) &cmd, sizeof(cmd),
@@ -442,13 +439,31 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 
 	mutex_lock(&sb_in_lock);
 	resp.sb_in_rsp_addr = sb_in_virt + cmd.sb_in_cmd_len;
-	resp.sb_in_rsp_len = req.resp_len;
-	memcpy(req.resp_buf, resp.sb_in_rsp_addr, resp.sb_in_rsp_len);
+	resp.sb_in_rsp_len = req->resp_len;
+	memcpy(req->resp_buf, resp.sb_in_rsp_addr, resp.sb_in_rsp_len);
 	/* Zero out memory for security purpose */
 	memset(sb_in_virt, 0, reqd_len_sb_in);
 	mutex_unlock(&sb_in_lock);
 
-	PDEBUG("sending cmd_req.rsp "
+	return ret;
+}
+
+
+static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
+{
+	int ret = 0;
+	struct tzcom_send_cmd_op_req req;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		PERR("copy_from_user failed");
+		return ret;
+	}
+	ret = __tzcom_send_cmd(data, &req);
+	if (ret)
+		return ret;
+
+	PDEBUG("sending cmd_req->rsp "
 			"size: %u, ptr: 0x%p", req.resp_len,
 			req.resp_buf);
 	ret = copy_to_user(argp, &req, sizeof(req));
@@ -456,7 +471,99 @@ static int tzcom_send_cmd(struct tzcom_data_t *data, void __user *argp)
 		PDEBUG("copy_to_user failed");
 		return ret;
 	}
+	return ret;
+}
 
+static int __tzcom_send_cmd_req_clean_up(
+			struct tzcom_send_cmd_fd_op_req *req)
+{
+	char *field;
+	uint32_t *update;
+	int ret = 0;
+	int i = 0;
+
+	for (i = 0; i < MAX_ION_FD; i++) {
+		if (req->ifd_data[i].fd != 0) {
+			field = (char *)req->cmd_buf +
+					req->ifd_data[i].cmd_buf_offset;
+			update = (uint32_t *) field;
+			*update = 0;
+		}
+	}
+	return ret;
+}
+
+static int __tzcom_update_with_phy_addr(
+			struct tzcom_send_cmd_fd_op_req *req)
+{
+	struct ion_handle *ihandle;
+	char *field;
+	uint32_t *update;
+	ion_phys_addr_t pa;
+	int ret = 0;
+	int i = 0;
+	uint32_t length;
+
+	for (i = 0; i < MAX_ION_FD; i++) {
+		if (req->ifd_data[i].fd != 0) {
+			/* Get the handle of the shared fd */
+			ihandle = ion_import_fd(ion_clnt, req->ifd_data[i].fd);
+			if (ihandle == NULL) {
+				PERR("Ion client can't retrieve the handle\n");
+				return -ENOMEM;
+			}
+			field = (char *) req->cmd_buf +
+						req->ifd_data[i].cmd_buf_offset;
+			update = (uint32_t *) field;
+
+			/* Populate the cmd data structure with the phys_addr */
+			ret = ion_phys(ion_clnt, ihandle, &pa, &length);
+			if (ret)
+				return -ENOMEM;
+
+			*update = (uint32_t)pa;
+			ion_free(ion_clnt, ihandle);
+		}
+	}
+	return ret;
+}
+
+static int tzcom_send_cmd_with_fd(struct tzcom_data_t *data,
+					void __user *argp)
+{
+	int ret = 0;
+	struct tzcom_send_cmd_fd_op_req req;
+	struct tzcom_send_cmd_op_req send_cmd_req;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		PERR("copy_from_user failed");
+		return ret;
+	}
+
+	send_cmd_req.cmd_id = req.cmd_id;
+	send_cmd_req.cmd_buf = req.cmd_buf;
+	send_cmd_req.cmd_len = req.cmd_len;
+	send_cmd_req.resp_buf = req.resp_buf;
+	send_cmd_req.resp_len = req.resp_len;
+
+	ret = __tzcom_update_with_phy_addr(&req);
+	if (ret)
+		return ret;
+	ret = __tzcom_send_cmd(data, &send_cmd_req);
+	__tzcom_send_cmd_req_clean_up(&req);
+
+	if (ret)
+		return ret;
+
+	PDEBUG("sending cmd_req->rsp "
+			"size: %u, ptr: 0x%p", req.resp_len,
+			req.resp_buf);
+	ret = copy_to_user(argp, &req, sizeof(req));
+	if (ret) {
+		PDEBUG("copy_to_user failed");
+		return ret;
+	}
 	return ret;
 }
 
@@ -706,6 +813,19 @@ static long tzcom_ioctl(struct file *file, unsigned cmd,
 		mutex_lock(&send_cmd_lock);
 		atomic_inc(&tzcom_data->ioctl_count);
 		ret = tzcom_send_cmd(tzcom_data, argp);
+		atomic_dec(&tzcom_data->ioctl_count);
+		wake_up_interruptible(&tzcom_data->abort_wq);
+		mutex_unlock(&send_cmd_lock);
+		if (ret)
+			PERR("failed tzcom_send_cmd: %d", ret);
+		break;
+	}
+	case TZCOM_IOCTL_SEND_CMD_FD_REQ: {
+		PDEBUG("ioctl send_cmd_req()");
+		/* Only one client allowed here at a time */
+		mutex_lock(&send_cmd_lock);
+		atomic_inc(&tzcom_data->ioctl_count);
+		ret = tzcom_send_cmd_with_fd(tzcom_data, argp);
 		atomic_dec(&tzcom_data->ioctl_count);
 		wake_up_interruptible(&tzcom_data->abort_wq);
 		mutex_unlock(&send_cmd_lock);
@@ -971,7 +1091,7 @@ static int __init tzcom_init(void)
 	}
 	PDEBUG("sb_out virt address: %p, phys address: 0x%x",
 			sb_out_virt, tzcom_virt_to_phys(sb_out_virt));
-
+	ion_clnt = msm_ion_client_create(0x03, "tzcom");
 	/* Initialized in tzcom_open */
 	pil = NULL;
 
@@ -1012,6 +1132,7 @@ static void __exit tzcom_exit(void)
 	device_destroy(driver_class, tzcom_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(tzcom_device_no, 1);
+	ion_client_destroy(ion_clnt);
 }
 
 

@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
+#define MAX_ION_FD  4
 /**
  * struct tzcom_register_svc_op_req - for register service ioctl request
  * @svc_id - service id (shared between userspace and TZ)
@@ -49,6 +50,8 @@ struct tzcom_next_cmd_op_req {
 /**
  * struct tzcom_send_cmd_op_req - for send command ioctl request
  * @cmd_id - command to execute on TZBSP side
+ * @ifd_data_fd - ion handle to some memory allocated in user space
+ * @cmd_buf_offset - command buffer offset
  * @cmd_len - command buffer length
  * @cmd_buf - command buffer
  * @resp_len - response buffer length
@@ -62,6 +65,34 @@ struct tzcom_send_cmd_op_req {
 	void *resp_buf; /* in/out */
 };
 
+/**
+ * struct tzcom_ion_fd_info - ion fd handle data information
+ * @fd - ion handle to some memory allocated in user space
+ * @cmd_buf_offset - command buffer offset
+ */
+struct tzcom_ion_fd_info {
+	int32_t fd;
+	uint32_t cmd_buf_offset;
+};
+
+/**
+ * struct tzcom_send_cmd_op_req - for send command ioctl request
+ * @cmd_id - command to execute on TZBSP side
+ * @ifd_data_fd - ion handle to some memory allocated in user space
+ * @cmd_buf_offset - command buffer offset
+ * @cmd_len - command buffer length
+ * @cmd_buf - command buffer
+ * @resp_len - response buffer length
+ * @resp_buf - response buffer
+ */
+struct tzcom_send_cmd_fd_op_req {
+	uint32_t cmd_id; /* in */
+	struct tzcom_ion_fd_info ifd_data[MAX_ION_FD];
+	unsigned int cmd_len; /* in */
+	void *cmd_buf; /* in */
+	unsigned int resp_len; /* in/out */
+	void *resp_buf; /* in/out */
+};
 /**
  * struct tzcom_cont_cmd_op_req - for continue command ioctl request. used
  * as a trigger from HLOS service to notify TZCOM that it's done with its
@@ -99,5 +130,7 @@ struct tzcom_cont_cmd_op_req {
 	_IOWR(TZCOM_IOC_MAGIC, 5, struct tzcom_cont_cmd_op_req)
 
 #define TZCOM_IOCTL_ABORT_REQ _IO(TZCOM_IOC_MAGIC, 6)
-
+/* For TZ service */
+#define TZCOM_IOCTL_SEND_CMD_FD_REQ \
+	_IOWR(TZCOM_IOC_MAGIC, 7, struct tzcom_send_cmd_fd_op_req)
 #endif /* __TZCOM_H_ */
