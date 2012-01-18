@@ -690,7 +690,7 @@ enum search_t {
 #define MAX_PS_LENGTH	(96)
 #define MAX_RT_LENGTH	(64)
 #define RDS_GRP_CNTR_LEN (36)
-
+#define RX_RT_DATA_LENGTH (63)
 /* Search direction */
 #define SRCH_DIR_UP		(0)
 #define SRCH_DIR_DOWN		(1)

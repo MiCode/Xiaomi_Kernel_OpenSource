@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-12, Code Aurora Forum. All rights reserved
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2034,10 +2034,8 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 
 	iris_q_event(radio, IRIS_EVT_NEW_RT_RDS);
 
-	while (skb->data[len+RDS_OFFSET] != 0x0d)
+	while ((skb->data[len+RDS_OFFSET] != 0x0d) && (len < RX_RT_DATA_LENGTH))
 		len++;
-	len++;
-
 	data = kmalloc(len+RDS_OFFSET, GFP_ATOMIC);
 	if (!data) {
 		FMDERR("Failed to allocate memory");
@@ -3255,7 +3253,7 @@ static int __init iris_probe(struct platform_device *pdev)
 		if ((i == IRIS_BUF_RAW_RDS) || (i == IRIS_BUF_PEEK))
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				rds_buf*3, GFP_KERNEL);
-		else if (i == IRIS_BUF_CAL_DATA)
+		else if ((i == IRIS_BUF_CAL_DATA) || (i == IRIS_BUF_RT_RDS))
 			kfifo_alloc_rc = kfifo_alloc(&radio->data_buf[i],
 				STD_BUF_SIZE*2, GFP_KERNEL);
 		else
