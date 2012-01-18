@@ -160,6 +160,13 @@
 #define gadget_is_ci13xxx_msm(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
+#define gadget_is_ci13xxx_msm_hsic(g)	\
+		(!strncmp("ci13xxx_msm_hsic", (g)->name, 16))
+#else
+#define gadget_is_ci13xxx_msm_hsic(g)	0
+#endif
+
 #ifdef CONFIG_USB_GADGET_RENESAS_USBHS
 #define	gadget_is_renesas_usbhs(g) (!strcmp("renesas_usbhs_udc", (g)->name))
 #else
@@ -231,6 +238,8 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x30;
 	else if (gadget_is_msm72k(gadget))
 		return 0x31;
+	else if (gadget_is_ci13xxx_msm_hsic(gadget))
+		return 0x32;
 
 	return -ENOENT;
 }

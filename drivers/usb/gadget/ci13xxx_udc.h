@@ -127,6 +127,7 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_ZERO_ITC		BIT(4)
 
 #define CI13XXX_CONTROLLER_RESET_EVENT		0
+#define CI13XXX_CONTROLLER_CONNECT_EVENT	1
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
 };
 
@@ -233,7 +234,10 @@ do { \
 			   "[%s] " format "\n", __func__, ## args); \
 } while (0)
 
+#ifndef err
 #define err(format, args...)    ci13xxx_printk(KERN_ERR, format, ## args)
+#endif
+
 #define warn(format, args...)   ci13xxx_printk(KERN_WARNING, format, ## args)
 #define info(format, args...)   ci13xxx_printk(KERN_INFO, format, ## args)
 

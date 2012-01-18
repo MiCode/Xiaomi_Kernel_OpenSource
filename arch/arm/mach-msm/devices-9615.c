@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,6 +165,29 @@ struct platform_device msm_device_gadget_peripheral = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(resources_hsusb),
 	.resource	= resources_hsusb,
+	.dev		= {
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
+
+static struct resource resources_hsic_peripheral[] = {
+	{
+		.start	= MSM9615_HSIC_PHYS,
+		.end	= MSM9615_HSIC_PHYS + MSM9615_HSIC_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= USB_HSIC_IRQ,
+		.end	= USB_HSIC_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_hsic_peripheral = {
+	.name		= "msm_hsic_peripheral",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_hsic_peripheral),
+	.resource	= resources_hsic_peripheral,
 	.dev		= {
 		.coherent_dma_mask	= DMA_BIT_MASK(32),
 	},
