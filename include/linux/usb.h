@@ -338,6 +338,13 @@ struct usb_bus {
 					 * with the URB_SHORT_NOT_OK flag set.
 					 */
 	unsigned hnp_support:1;		/* OTG: HNP is supported on OTG port */
+	unsigned quick_hnp:1;		/* OTG: Indiacates if hnp is required
+					   irrespective of host_request flag
+					 */
+	unsigned otg_vbus_off:1;	/* OTG: OTG test device feature bit that
+					 * tells A-device to turn off VBUS after
+					 * B-device is disconnected.
+					 */
 	struct delayed_work hnp_polling;/* OTG: HNP polling work */
 	unsigned sg_tablesize;		/* 0 or largest number of sg list entries */
 

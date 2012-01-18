@@ -2156,6 +2156,7 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 	int err = 0;
 
 #ifdef	CONFIG_USB_OTG
+	bool old_otg = false;
 	/*
 	 * OTG-aware devices on OTG-capable root hubs may be able to use SRP,
 	 * to wake us after we've powered off VBUS; and HNP, switching roles
@@ -2221,6 +2222,13 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 		}
 	}
 out:
+	if ((udev->quirks & USB_QUIRK_OTG_PET)) {
+		if (le16_to_cpu(udev->descriptor.bcdDevice) &
+			OTG_TTST_VBUS_OFF)
+			udev->bus->otg_vbus_off = 1;
+		if (udev->bus->is_b_host || old_otg)
+			udev->bus->quick_hnp = 1;
+	}
 
 	if (!is_targeted(udev)) {
 
