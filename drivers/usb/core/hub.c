@@ -1690,7 +1690,7 @@ void usb_disconnect(struct usb_device **pdev)
 
 #ifdef CONFIG_USB_OTG
 	if (udev->bus->hnp_support && udev->portnum == udev->bus->otg_port) {
-		cancel_delayed_work(&udev->bus->hnp_polling);
+		cancel_delayed_work_sync(&udev->bus->hnp_polling);
 		udev->bus->hnp_support = 0;
 	}
 #endif
@@ -1811,7 +1811,10 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 				 * compliant to revision 2.0 or subsequent
 				 * versions.
 				 */
-				if (le16_to_cpu(desc->bcdOTG) >= 0x0200)
+
+				if ((le16_to_cpu(desc->bLength) ==
+						USB_DT_OTG_SIZE) &&
+					le16_to_cpu(desc->bcdOTG) >= 0x0200)
 					goto out;
 
 				/* Legacy B-device i.e compliant to spec
