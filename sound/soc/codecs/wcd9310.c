@@ -2640,6 +2640,7 @@ static int tabla_codec_enable_config_mode(struct snd_soc_codec *codec,
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
+	pr_debug("%s: enable = %d\n", __func__, enable);
 	if (enable) {
 		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x10, 0);
 		snd_soc_write(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x17);
@@ -2656,6 +2657,7 @@ static int tabla_codec_enable_config_mode(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x1,
 			0);
 		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x80, 0);
+		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x00);
 	}
 	tabla->config_mode_active = enable ? true : false;
 
@@ -2667,7 +2669,7 @@ static int tabla_codec_enable_clock_block(struct snd_soc_codec *codec,
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: config_mode = %d\n", __func__, config_mode);
 
 	if (config_mode) {
 		tabla_codec_enable_config_mode(codec, 1);
