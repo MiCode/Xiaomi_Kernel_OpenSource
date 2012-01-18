@@ -56,6 +56,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		pr_debug("task_name = %s pid = %d\n",
 			this_afe.task->comm, this_afe.task->pid);
 		send_sig(SIGUSR1, this_afe.task, 0);
+		return 0;
 	}
 	if (data->payload_size) {
 		uint32_t *payload;
