@@ -67,7 +67,8 @@
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
 #define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
-#define MSM_ION_HEAP_NUM	7
+#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
+#define MSM_ION_HEAP_NUM	8
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	1
@@ -273,6 +274,14 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &co_ion_pdata,
 		},
+		{
+			.id	= ION_AUDIO_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_AUDIO_HEAP_NAME,
+			.size	= MSM_ION_AUDIO_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
+		},
 #endif
 	}
 };
@@ -292,6 +301,7 @@ static void reserve_ion_memory(void)
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
 #endif
 }
 
