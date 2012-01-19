@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ struct res_trk_context {
 	struct msm_vidc_platform_data *vidc_platform_data;
 	u32 core_type;
 	int memtype;
+	u32 secure_session;
 };
 
 #if DEBUG
