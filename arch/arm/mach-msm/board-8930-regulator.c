@@ -42,9 +42,11 @@ VREG_CONSUMERS(L4) = {
 };
 VREG_CONSUMERS(L5) = {
 	REGULATOR_SUPPLY("8038_l5",		NULL),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(L6) = {
 	REGULATOR_SUPPLY("8038_l6",		NULL),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.3"),
 };
 VREG_CONSUMERS(L7) = {
 	REGULATOR_SUPPLY("8038_l7",		NULL),
@@ -67,6 +69,7 @@ VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("vdd_dig",		"3-004a"),
 	REGULATOR_SUPPLY("iris_vddio",		"wcnss_wlan.0"),
 	REGULATOR_SUPPLY("riva_vddpx",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("sdc_vccq",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8038_l12",		NULL),
@@ -99,6 +102,7 @@ VREG_CONSUMERS(L21) = {
 };
 VREG_CONSUMERS(L22) = {
 	REGULATOR_SUPPLY("8038_l22",		NULL),
+	REGULATOR_SUPPLY("sdc_vddp",		"msm_sdcc.3"),
 };
 VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8038_l23",		NULL),
