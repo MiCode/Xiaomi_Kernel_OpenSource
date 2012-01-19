@@ -418,6 +418,7 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	char *rgb_base;
 	uint32 src_size, src_xy, dst_size, dst_xy;
 	uint32 format, pattern;
+	uint32 offset = 0;
 
 	rgb_base = MDP_BASE + MDP4_RGB_BASE;
 	rgb_base += (MDP4_RGB_OFF * pipe->pipe_num);
@@ -426,6 +427,16 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	src_xy = ((pipe->src_y << 16) | pipe->src_x);
 	dst_size = ((pipe->dst_h << 16) | pipe->dst_w);
 	dst_xy = ((pipe->dst_y << 16) | pipe->dst_x);
+
+	if ((pipe->src_x + pipe->src_w) > 0x7FF) {
+		offset += pipe->src_x * pipe->bpp;
+		src_xy &= 0xFFFF0000;
+	}
+
+	if ((pipe->src_y + pipe->src_h) > 0x7FF) {
+		offset += pipe->src_y * pipe->src_width * pipe->bpp;
+		src_xy &= 0x0000FFFF;
+	}
 
 	format = mdp4_overlay_format(pipe);
 	pattern = mdp4_overlay_unpack_pattern(pipe);
@@ -443,7 +454,7 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	outpdw(rgb_base + 0x0008, dst_size);	/* MDP_RGB_DST_SIZE */
 	outpdw(rgb_base + 0x000c, dst_xy);	/* MDP_RGB_DST_XY */
 
-	outpdw(rgb_base + 0x0010, pipe->srcp0_addr);
+	outpdw(rgb_base + 0x0010, pipe->srcp0_addr + offset);
 	outpdw(rgb_base + 0x0040, pipe->srcp0_ystride);
 
 	outpdw(rgb_base + 0x0050, format);/* MDP_RGB_SRC_FORMAT */
@@ -548,6 +559,21 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 
 	mdp4_scale_setup(pipe);
 
+	luma_offset = 0;
+	chroma_offset = 0;
+
+	if (ptype == OVERLAY_TYPE_RGB) {
+		if ((pipe->src_y + pipe->src_h) > 0x7FF) {
+			luma_offset = pipe->src_y * pipe->src_width * pipe->bpp;
+			src_xy &= 0x0000FFFF;
+		}
+
+		if ((pipe->src_x + pipe->src_w) > 0x7FF) {
+			luma_offset += pipe->src_x * pipe->bpp;
+			src_xy &= 0xFFFF0000;
+		}
+	}
+
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	outpdw(vg_base + 0x0000, src_size);	/* MDP_RGB_SRC_SIZE */
@@ -567,9 +593,6 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	if (ptype != OVERLAY_TYPE_RGB) {
 		mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset,
 			&chroma_offset);
-	} else {
-		luma_offset = 0;
-		chroma_offset = 0;
 	}
 
 	/* luma component plane */
@@ -1804,8 +1827,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 
 	}
 
-	pipe->src_width = req->src.width & 0x07ff;	/* source img width */
-	pipe->src_height = req->src.height & 0x07ff;	/* source img height */
+	pipe->src_width = req->src.width & 0x1fff;	/* source img width */
+	pipe->src_height = req->src.height & 0x1fff;	/* source img height */
 	pipe->src_h = req->src_rect.h & 0x07ff;
 	pipe->src_w = req->src_rect.w & 0x07ff;
 	pipe->src_y = req->src_rect.y & 0x07ff;
