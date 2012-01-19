@@ -63,6 +63,7 @@ static uint32_t bam_dmux_write_cnt;
 static uint32_t bam_dmux_write_cpy_cnt;
 static uint32_t bam_dmux_write_cpy_bytes;
 static uint32_t bam_dmux_tx_sps_failure_cnt;
+static uint32_t bam_dmux_tx_stall_cnt;
 
 #define DBG(x...) do {		                 \
 		if (msm_bam_dmux_debug_enable)  \
@@ -96,12 +97,17 @@ static uint32_t bam_dmux_tx_sps_failure_cnt;
 		bam_dmux_tx_sps_failure_cnt++;		\
 } while (0)
 
+#define DBG_INC_TX_STALL_CNT() do { \
+	bam_dmux_tx_stall_cnt++; \
+} while (0)
+
 #else
 #define DBG(x...) do { } while (0)
 #define DBG_INC_READ_CNT(x...) do { } while (0)
 #define DBG_INC_WRITE_CNT(x...) do { } while (0)
 #define DBG_INC_WRITE_CPY(x...) do { } while (0)
 #define DBG_INC_TX_SPS_FAILURE_CNT() do { } while (0)
+#define DBG_INC_TX_STALL_CNT() do { } while (0)
 #endif
 
 struct bam_ch_info {
@@ -1123,10 +1129,12 @@ static int debug_stats(char *buf, int max)
 	i += scnprintf(buf + i, max - i,
 			"skb copy cnt:    %u\n"
 			"skb copy bytes:  %u\n"
-			"sps tx failures: %u\n",
+			"sps tx failures: %u\n"
+			"sps tx stalls:   %u\n",
 			bam_dmux_write_cpy_cnt,
 			bam_dmux_write_cpy_bytes,
-			bam_dmux_tx_sps_failure_cnt
+			bam_dmux_tx_sps_failure_cnt,
+			bam_dmux_tx_stall_cnt
 			);
 
 	return i;
@@ -1351,6 +1359,21 @@ static void ul_timeout(struct work_struct *work)
 		return;
 	}
 	if (bam_is_connected) {
+		if (!ul_packet_written) {
+			spin_lock(&bam_tx_pool_spinlock);
+			if (!list_empty(&bam_tx_pool)) {
+				struct tx_pkt_info *info;
+
+				info = list_first_entry(&bam_tx_pool,
+						struct tx_pkt_info, list_node);
+				DMUX_LOG_KERR("%s: UL delayed ts=%u.%09lu\n",
+					__func__, info->ts_sec, info->ts_nsec);
+				DBG_INC_TX_STALL_CNT();
+				ul_packet_written = 1;
+			}
+			spin_unlock(&bam_tx_pool_spinlock);
+		}
+
 		if (ul_packet_written) {
 			bam_dmux_log("%s: packet written\n", __func__);
 			ul_packet_written = 0;
