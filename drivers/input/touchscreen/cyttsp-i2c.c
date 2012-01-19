@@ -2407,27 +2407,29 @@ static int cyttsp_power_device(struct cyttsp *ts, bool on)
 				regulator_put(ts->vdd[i]);
 				goto error_vdd;
 			}
-		}
 
-		rc = regulator_set_optimum_mode(ts->vdd[i],
+			rc = regulator_set_optimum_mode(ts->vdd[i],
 						reg_info[i].hpm_load_uA);
-		if (rc < 0) {
-			pr_err("%s: regulator_set_optimum_mode failed rc=%d\n",
-								__func__, rc);
+			if (rc < 0) {
+				pr_err("%s: regulator_set_optimum_mode failed "
+				       "rc=%d\n", __func__, rc);
 
-			regulator_set_voltage(ts->vdd[i], 0,
-						reg_info[i].max_uV);
-			regulator_put(ts->vdd[i]);
-			goto error_vdd;
+				regulator_set_voltage(ts->vdd[i], 0,
+							reg_info[i].max_uV);
+				regulator_put(ts->vdd[i]);
+				goto error_vdd;
+			}
 		}
 
 		rc = regulator_enable(ts->vdd[i]);
 		if (rc) {
 			pr_err("%s: regulator_enable failed rc =%d\n",
 								__func__, rc);
-			regulator_set_optimum_mode(ts->vdd[i], 0);
-			regulator_set_voltage(ts->vdd[i], 0,
-						reg_info[i].max_uV);
+			if (regulator_count_voltages(ts->vdd[i]) > 0) {
+				regulator_set_optimum_mode(ts->vdd[i], 0);
+				regulator_set_voltage(ts->vdd[i], 0,
+						      reg_info[i].max_uV);
+			}
 			regulator_put(ts->vdd[i]);
 			goto error_vdd;
 		}
@@ -2439,10 +2441,11 @@ ts_reg_disable:
 	i = ts->platform_data->num_regulators;
 error_vdd:
 	while (--i >= 0) {
-		if (regulator_count_voltages(ts->vdd[i]) > 0)
+		if (regulator_count_voltages(ts->vdd[i]) > 0) {
 			regulator_set_voltage(ts->vdd[i], 0,
 						reg_info[i].max_uV);
-		regulator_set_optimum_mode(ts->vdd[i], 0);
+			regulator_set_optimum_mode(ts->vdd[i], 0);
+		}
 		regulator_disable(ts->vdd[i]);
 		regulator_put(ts->vdd[i]);
 	}
@@ -2834,6 +2837,8 @@ static int cyttsp_regulator_lpm(struct cyttsp *ts, bool on)
 		goto regulator_hpm;
 
 	for (i = 0; i < num_reg; i++) {
+		if (regulator_count_voltages(ts->vdd[i]) < 0)
+			continue;
 		rc = regulator_set_optimum_mode(ts->vdd[i],
 					reg_info[i].lpm_load_uA);
 		if (rc < 0) {
@@ -2848,6 +2853,8 @@ static int cyttsp_regulator_lpm(struct cyttsp *ts, bool on)
 
 regulator_hpm:
 	for (i = 0; i < num_reg; i++) {
+		if (regulator_count_voltages(ts->vdd[i]) < 0)
+			continue;
 		rc = regulator_set_optimum_mode(ts->vdd[i],
 					reg_info[i].hpm_load_uA);
 		if (rc < 0) {
@@ -2860,16 +2867,22 @@ regulator_hpm:
 	return 0;
 
 fail_regulator_lpm:
-	while (i--)
+	while (i--) {
+		if (regulator_count_voltages(ts->vdd[i]) < 0)
+			continue;
 		regulator_set_optimum_mode(ts->vdd[i],
 					reg_info[i].hpm_load_uA);
+	}
 
 	return rc;
 
 fail_regulator_hpm:
-	while (i--)
+	while (i--) {
+		if (regulator_count_voltages(ts->vdd[i]) < 0)
+			continue;
 		regulator_set_optimum_mode(ts->vdd[i],
 					reg_info[i].lpm_load_uA);
+	}
 
 	return rc;
 }
