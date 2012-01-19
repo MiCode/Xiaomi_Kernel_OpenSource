@@ -2,7 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1472,13 +1472,23 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
+static void android_destroy_device(struct android_dev *dev)
+{
+	struct device_attribute **attrs = android_usb_attributes;
+	struct device_attribute *attr;
+
+	while ((attr = *attrs++))
+		device_remove_file(dev->dev, attr);
+	device_destroy(android_class, dev->dev->devt);
+}
+
 static int __devinit android_probe(struct platform_device *pdev)
 {
 	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
 	struct android_dev *dev = _android_dev;
 
 	dev->pdata = pdata;
-	
+
 	return 0;
 }
 
@@ -1489,36 +1499,55 @@ static struct platform_driver android_platform_driver = {
 static int __init init(void)
 {
 	struct android_dev *dev;
-	int err;
+	int ret;
 
 	android_class = class_create(THIS_MODULE, "android_usb");
 	if (IS_ERR(android_class))
 		return PTR_ERR(android_class);
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
+	if (!dev) {
+		pr_err("%s(): Failed to alloc memory for android_dev\n",
+				__func__);
+		class_destroy(android_class);
 		return -ENOMEM;
-
+	}
 	dev->functions = supported_functions;
 	INIT_LIST_HEAD(&dev->enabled_functions);
 	INIT_WORK(&dev->work, android_work);
 
-	err = android_create_device(dev);
-	if (err) {
-		class_destroy(android_class);
-		kfree(dev);
-		return err;
+	ret = android_create_device(dev);
+	if (ret) {
+		pr_err("%s(): android_create_device failed\n", __func__);
+		goto err_dev;
 	}
-
 	_android_dev = dev;
 
 	/* Override composite driver functions */
 	composite_driver.setup = android_setup;
 	composite_driver.disconnect = android_disconnect;
 
-	platform_driver_probe(&android_platform_driver, android_probe);
+	ret = platform_driver_probe(&android_platform_driver, android_probe);
+	if (ret) {
+		pr_err("%s(): Failed to register android"
+				 "platform driver\n", __func__);
+		goto err_probe;
+	}
+	ret = usb_composite_probe(&android_usb_driver, android_bind);
+	if (ret) {
+		pr_err("%s(): Failed to register android"
+				 "composite driver\n", __func__);
+		platform_driver_unregister(&android_platform_driver);
+		goto err_probe;
+	}
+	return ret;
 
-	return usb_composite_probe(&android_usb_driver, android_bind);
+err_probe:
+	android_destroy_device(dev);
+err_dev:
+	kfree(dev);
+	class_destroy(android_class);
+	return ret;
 }
 module_init(init);
 
