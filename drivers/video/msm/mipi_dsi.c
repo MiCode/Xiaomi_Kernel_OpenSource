@@ -430,7 +430,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	mipi_dsi_clk_init(&pdev->dev);
+	mipi_dsi_clk_init(pdev);
 
 	if (!mipi_dsi_resource_initialized)
 		return -EPERM;

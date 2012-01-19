@@ -33,7 +33,7 @@ static struct clk *dsi_s_pclk;
 
 static struct clk *amp_pclk;
 
-void mipi_dsi_clk_init(struct device *dev)
+void mipi_dsi_clk_init(struct platform_device *pdev)
 {
 	amp_pclk = clk_get(NULL, "amp_pclk");
 	if (IS_ERR(amp_pclk)) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ static struct clk *ahb_m_clk;
 static struct clk *ahb_s_clk;
 static struct clk *ebi1_dsi_clk;
 
-void mipi_dsi_clk_init(struct device *dev)
+void mipi_dsi_clk_init(struct platform_device *pdev)
 {
 	dsi_esc_clk = clk_get(NULL, "dsi_esc_clk");
 	if (IS_ERR(dsi_esc_clk)) {

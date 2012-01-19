@@ -63,8 +63,13 @@ static struct clk *dsi_s_pclk;
 
 static struct clk *amp_pclk;
 
-void mipi_dsi_clk_init(struct device *dev)
+void mipi_dsi_clk_init(struct platform_device *pdev)
 {
+	struct msm_fb_data_type *mfd;
+	struct device *dev = &pdev->dev;
+
+	mfd = platform_get_drvdata(pdev);
+
 	amp_pclk = clk_get(NULL, "amp_pclk");
 	if (IS_ERR(amp_pclk)) {
 		pr_err("can't find amp_pclk\n");
@@ -93,6 +98,14 @@ void mipi_dsi_clk_init(struct device *dev)
 	if (IS_ERR(dsi_esc_clk)) {
 		printk(KERN_ERR "can't find dsi_esc_clk\n");
 		goto mipi_dsi_clk_err;
+	}
+
+	if (!(mfd->cont_splash_done)) {
+		clk_enable(amp_pclk); /* clock for AHB-master to AXI */
+		clk_enable(dsi_m_pclk);
+		clk_enable(dsi_s_pclk);
+		clk_enable(dsi_byte_div_clk);
+		clk_enable(dsi_esc_clk);
 	}
 
 	return;
