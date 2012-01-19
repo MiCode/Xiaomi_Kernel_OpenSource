@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,15 @@ int vos_chip_power_qrf8615(int on)
 		1200000,
 		1300000,
 		1250000,
+	};
+	static const int vregs_qwlan_peek_current[] = {
+		4000,
+		150000,
+		200000,
+		0,
+		32000,
+		130000,
+		0,
 	};
 	static const bool vregs_is_pin_controlled_default[] = {
 		1,
@@ -180,6 +189,15 @@ int vos_chip_power_qrf8615(int on)
 			}
 		}
 		if (on && !wlan_on) {
+			if (vregs_qwlan_peek_current[i]) {
+				rc = regulator_set_optimum_mode(vregs_qwlan[i],
+						vregs_qwlan_peek_current[i]);
+				if (rc < 0)
+					pr_err("vreg %s set optimum mode"
+						" failed to %d (%d)\n",
+						vregs_qwlan_name[i], rc,
+						 vregs_qwlan_peek_current[i]);
+			}
 			rc = regulator_enable(vregs_qwlan[i]);
 			if (rc < 0) {
 				pr_err("vreg %s enable failed (%d)\n",
@@ -195,6 +213,26 @@ int vos_chip_power_qrf8615(int on)
 				}
 			}
 		} else if (!on && wlan_on) {
+
+			if (vregs_qwlan_peek_current[i]) {
+				/* For legacy reasons we pass 1mA current to
+				 * put regulator in LPM mode.
+				 */
+				rc = regulator_set_optimum_mode(vregs_qwlan[i],
+									 1000);
+				if (rc < 0)
+					pr_info("vreg %s set optimum mode"
+								"failed (%d)\n",
+						vregs_qwlan_name[i], rc);
+				rc = regulator_set_voltage(vregs_qwlan[i], 0 ,
+							vregs_qwlan_val_max[i]);
+				if (rc)
+					pr_err("regulator_set_voltage(%s)"
+								"failed (%d)\n",
+						vregs_qwlan_name[i], rc);
+
+			}
+
 			if (vregs_is_pin_controlled[i]) {
 				rc = regulator_disable(vregs_pc_qwlan[i]);
 				if (rc < 0) {
@@ -202,13 +240,16 @@ int vos_chip_power_qrf8615(int on)
 						vregs_qwlan_pc_name[i], rc);
 					goto vreg_fail;
 				}
+				regulator_put(vregs_pc_qwlan[i]);
 			}
+
 			rc = regulator_disable(vregs_qwlan[i]);
 			if (rc < 0) {
 				pr_err("vreg %s disable failed (%d)\n",
 						vregs_qwlan_name[i], rc);
 				goto vreg_fail;
 			}
+			regulator_put(vregs_qwlan[i]);
 		}
 	}
 	if (on) {
