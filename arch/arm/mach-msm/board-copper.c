@@ -77,6 +77,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
 	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
+	CLK_DUMMY("core_clk",	SPI_CLK,	"spi_qsd.1",	OFF),
+	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"spi_qsd.1",	OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -89,6 +91,8 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 			"msm_serial_hsl.0", NULL),
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
 			"msm_otg", NULL),
+	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9924000, \
+			"spi_qsd.1", NULL),
 	{}
 };
 

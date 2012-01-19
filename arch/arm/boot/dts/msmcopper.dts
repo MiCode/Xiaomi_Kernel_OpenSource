@@ -70,4 +70,10 @@
 		qcom,bam-dma-res-pipes = <6>;
 	};
 
+	spi@f9924000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9924000 0x1000>;
+		interrupts = <96>;
+		spi-max-frequency = <24000000>;
+	};
 };

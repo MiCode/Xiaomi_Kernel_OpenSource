@@ -1,0 +1,16 @@
+Qualcomm Serial Peripheral Interface (SPI)
+
+Required properties:
+- compatible : should be "qcom,spi-qup-v2".
+- reg : offset and length of the QUP register map.
+- interrupts : should contain the QUP core interrupt.
+- spi-max-frequency : specifies maximum SPI clock frequency, Units - Hz.
+
+Example:
+	spi@f9924000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9924000 0x1000>;
+		interrupts = <96>;
+		spi-max-frequency = <24000000>;
+	};
+
