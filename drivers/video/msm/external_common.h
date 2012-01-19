@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -136,10 +136,10 @@ struct hdmi_disp_mode_timing_type {
 	 480, 10, 2, 33, TRUE, 25200, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_720x480p60_4_3					\
 	{HDMI_VFRMT_720x480p60_4_3,      720,  16,  62,  60,  TRUE,	\
-	 480, 9, 6, 30,  TRUE, 27027, 60000, FALSE, TRUE}
+	 480, 9, 6, 30,  TRUE, 27030, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_720x480p60_16_9					\
 	{HDMI_VFRMT_720x480p60_16_9,     720,  16,  62,  60,  TRUE,	\
-	 480, 9, 6, 30,  TRUE, 27027, 60000, FALSE, TRUE}
+	 480, 9, 6, 30,  TRUE, 27030, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_1280x720p60_16_9					\
 	{HDMI_VFRMT_1280x720p60_16_9,    1280, 110, 40,  220, FALSE,	\
 	 720, 5, 5, 20, FALSE, 74250, 60000, FALSE, TRUE}
