@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -525,6 +525,7 @@ static int diag_function_set_alt(struct usb_function *f,
 	if (rc) {
 		ERROR(dev->cdev, "can't enable %s, result %d\n",
 						dev->in->name, rc);
+		dev->in->driver_data = NULL;
 		return rc;
 	}
 	dev->out->driver_data = dev;
@@ -533,6 +534,8 @@ static int diag_function_set_alt(struct usb_function *f,
 		ERROR(dev->cdev, "can't enable %s, result %d\n",
 						dev->out->name, rc);
 		usb_ep_disable(dev->in);
+		dev->in->driver_data = NULL;
+		dev->out->driver_data = NULL;
 		return rc;
 	}
 	schedule_work(&dev->config_work);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -652,6 +652,8 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	usb_ep_disable(port->gr->out);
 	usb_ep_disable(port->gr->in);
 
+	port->gr->in->driver_data = NULL;
+	port->gr->out->driver_data = NULL;
 }
 
 static void gbam_connect_work(struct work_struct *w)
