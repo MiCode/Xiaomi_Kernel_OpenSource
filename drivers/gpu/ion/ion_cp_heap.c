@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/memory_alloc.h>
+#include <linux/seq_file.h>
 #include <mach/msm_memtypes.h>
 #include <mach/scm.h>
 #include "ion_priv.h"
@@ -39,6 +40,8 @@
  * @base:	the base address of the memory pool.
  * @permission_type:	Identifier for the memory used by SCM for protecting
  *			and unprotecting memory.
+ * @secure_base:	Base address used when securing a heap that is shared.
+ * @secure_size:	Size used when securing a heap that is shared.
  * @lock:	mutex to protect shared access.
  * @heap_secured:	Identifies the heap_id as secure or not.
  * @allocated_bytes:	the total number of allocated bytes from the pool.
@@ -59,6 +62,8 @@ struct ion_cp_heap {
 	struct gen_pool *pool;
 	ion_phys_addr_t base;
 	unsigned int permission_type;
+	ion_phys_addr_t secure_base;
+	size_t secure_size;
 	struct mutex lock;
 	unsigned int heap_secured;
 	unsigned long allocated_bytes;
@@ -94,14 +99,14 @@ static int ion_cp_protect(struct ion_heap *heap)
 	int ret_value = 0;
 
 	if (cp_heap->heap_secured == NON_SECURED_HEAP) {
-		int ret_value = ion_cp_protect_mem(cp_heap->base,
-				cp_heap->total_size, cp_heap->permission_type);
+		int ret_value = ion_cp_protect_mem(cp_heap->secure_base,
+				cp_heap->secure_size, cp_heap->permission_type);
 		if (ret_value) {
 			pr_err("Failed to protect memory for heap %s - "
-				"error code: %d", heap->name, ret_value);
+				"error code: %d\n", heap->name, ret_value);
 		} else {
 			cp_heap->heap_secured = SECURED_HEAP;
-			pr_debug("Protected heap %s @ 0x%x",
+			pr_debug("Protected heap %s @ 0x%x\n",
 				heap->name, (unsigned int) cp_heap->base);
 		}
 	}
@@ -119,14 +124,14 @@ static void ion_cp_unprotect(struct ion_heap *heap)
 
 	if (cp_heap->heap_secured == SECURED_HEAP) {
 		int error_code = ion_cp_unprotect_mem(
-			cp_heap->base, cp_heap->total_size,
+			cp_heap->secure_base, cp_heap->secure_size,
 			cp_heap->permission_type);
 		if (error_code) {
 			pr_err("Failed to un-protect memory for heap %s - "
-				"error code: %d", heap->name, error_code);
+				"error code: %d\n", heap->name, error_code);
 		} else  {
 			cp_heap->heap_secured = NON_SECURED_HEAP;
-			pr_debug("Un-protected heap %s @ 0x%x", heap->name,
+			pr_debug("Un-protected heap %s @ 0x%x\n", heap->name,
 				(unsigned int) cp_heap->base);
 		}
 	}
@@ -148,14 +153,14 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 	if (!secure_allocation && cp_heap->heap_secured == SECURED_HEAP) {
 		mutex_unlock(&cp_heap->lock);
 		pr_err("ION cannot allocate un-secure memory from protected"
-			" heap %s", heap->name);
+			" heap %s\n", heap->name);
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
 	if (secure_allocation && cp_heap->umap_count > 0) {
 		mutex_unlock(&cp_heap->lock);
 		pr_err("ION cannot allocate secure memory from heap with "
-			"outstanding user space mappings for heap %s",
+			"outstanding user space mappings for heap %s\n",
 			heap->name);
 		return ION_CP_ALLOCATE_FAIL;
 	}
@@ -178,7 +183,7 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		      cp_heap->allocated_bytes) > size)
 			pr_debug("%s: heap %s has enough memory (%lx) but"
 				" the allocation of size %lx still failed."
-				" Memory is probably fragmented.",
+				" Memory is probably fragmented.\n",
 				__func__, heap->name,
 				cp_heap->total_size -
 				cp_heap->allocated_bytes, size);
@@ -328,7 +333,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap,
 	mutex_lock(&cp_heap->lock);
 
 	if (cp_heap->heap_secured == SECURED_HEAP && ION_IS_CACHED(flags)) {
-		pr_err("Unable to map secured heap %s as cached", heap->name);
+		pr_err("Unable to map secured heap %s as cached\n", heap->name);
 		mutex_unlock(&cp_heap->lock);
 		return NULL;
 	}
@@ -450,77 +455,34 @@ int ion_cp_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-static unsigned long ion_cp_get_allocated(struct ion_heap *heap)
+static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s)
 {
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long allocated_bytes;
-
-	mutex_lock(&cp_heap->lock);
-	allocated_bytes = cp_heap->allocated_bytes;
-	mutex_unlock(&cp_heap->lock);
-
-	return allocated_bytes;
-}
-
-static unsigned long ion_cp_get_total(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-
-	return cp_heap->total_size;
-}
-
-static unsigned long ion_cp_get_umap_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long umap_count;
-
-	mutex_lock(&cp_heap->lock);
-	umap_count = cp_heap->umap_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return umap_count;
-}
-
-static unsigned long ion_cp_get_kmap_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long kmap_count;
-
-	mutex_lock(&cp_heap->lock);
-	kmap_count = cp_heap->kmap_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return kmap_count;
-}
-
-static unsigned long ion_cp_get_alloc_count(struct ion_heap *heap)
-{
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct ion_cp_heap, heap);
+	unsigned long total_alloc;
+	unsigned long total_size;
 	unsigned long alloc_count;
-
-	mutex_lock(&cp_heap->lock);
-	alloc_count = cp_heap->alloc_count;
-	mutex_unlock(&cp_heap->lock);
-
-	return alloc_count;
-}
-
-static unsigned long ion_cp_get_secured(struct ion_heap *heap)
-{
+	unsigned long umap_count;
+	unsigned long kmap_count;
+	unsigned long heap_secured;
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
-	unsigned long secured_heap = 0;
 
 	mutex_lock(&cp_heap->lock);
-	secured_heap = cp_heap->heap_secured == SECURED_HEAP;
+	total_alloc = cp_heap->allocated_bytes;
+	total_size = cp_heap->total_size;
+	alloc_count = cp_heap->alloc_count;
+	umap_count = cp_heap->umap_count;
+	kmap_count = cp_heap->kmap_count;
+	heap_secured = cp_heap->heap_secured == SECURED_HEAP;
 	mutex_unlock(&cp_heap->lock);
 
-	return secured_heap;
+	seq_printf(s, "total bytes currently allocated: %lx\n", total_alloc);
+	seq_printf(s, "total heap size: %lx\n", total_size);
+	seq_printf(s, "allocation count: %lx\n", alloc_count);
+	seq_printf(s, "umapping count: %lx\n", umap_count);
+	seq_printf(s, "kmapping count: %lx\n", kmap_count);
+	seq_printf(s, "secured heap: %s\n", heap_secured ? "Yes" : "No");
+
+	return 0;
 }
 
 int ion_cp_secure_heap(struct ion_heap *heap)
@@ -557,31 +519,10 @@ static struct ion_heap_ops cp_heap_ops = {
 	.map_dma = ion_cp_heap_map_dma,
 	.unmap_dma = ion_cp_heap_unmap_dma,
 	.cache_op = ion_cp_cache_ops,
-	.get_allocated = ion_cp_get_allocated,
-	.get_total = ion_cp_get_total,
-	.get_umap_cnt = ion_cp_get_umap_count,
-	.get_kmap_cnt = ion_cp_get_kmap_count,
-	.get_alloc_cnt = ion_cp_get_alloc_count,
-	.get_secured = ion_cp_get_secured,
+	.print_debug = ion_cp_print_debug,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
 };
-
-static unsigned long ion_cp_get_base(unsigned long size, int memory_type)
-{
-	switch (memory_type) {
-	case ION_EBI_TYPE:
-		return allocate_contiguous_ebi_nomap(size, PAGE_SIZE);
-		break;
-	case ION_SMI_TYPE:
-		return allocate_contiguous_memory_nomap(size, MEMTYPE_SMI,
-							PAGE_SIZE);
-		break;
-	default:
-		return 0;
-	}
-}
-
 
 struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 {
@@ -591,15 +532,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	cp_heap = kzalloc(sizeof(*cp_heap), GFP_KERNEL);
 	if (!cp_heap)
 		return ERR_PTR(-ENOMEM);
-
-	heap_data->base = ion_cp_get_base(heap_data->size,
-					heap_data->memory_type);
-	if (!heap_data->base) {
-		pr_err("%s: could not get memory for heap %s"
-			" (id %x)\n", __func__, heap_data->name,
-			heap_data->id);
-		goto free_heap;
-	}
 
 	mutex_init(&cp_heap->lock);
 
@@ -620,10 +552,16 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	cp_heap->heap.ops = &cp_heap_ops;
 	cp_heap->heap.type = ION_HEAP_TYPE_CP;
 	cp_heap->heap_secured = NON_SECURED_HEAP;
+	cp_heap->secure_base = cp_heap->base;
+	cp_heap->secure_size = heap_data->size;
 	if (heap_data->extra_data) {
 		struct ion_cp_heap_pdata *extra_data =
 				heap_data->extra_data;
 		cp_heap->permission_type = extra_data->permission_type;
+		if (extra_data->secure_size) {
+			cp_heap->secure_base = extra_data->secure_base;
+			cp_heap->secure_size = extra_data->secure_size;
+		}
 		if (extra_data->setup_region)
 			cp_heap->bus_id = extra_data->setup_region();
 		if (extra_data->request_region)
@@ -664,7 +602,7 @@ struct cp_lock_msg {
 	unsigned int end;
 	unsigned int permission_type;
 	unsigned char lock;
-};
+} __attribute__ ((__packed__));
 
 
 static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,

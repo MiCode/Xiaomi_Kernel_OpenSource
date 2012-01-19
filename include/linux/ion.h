@@ -63,6 +63,7 @@ enum ion_heap_type {
  */
 
 enum ion_heap_ids {
+	INVALID_HEAP_ID = -1,
 	ION_IOMMU_HEAP_ID = 4,
 	ION_CP_MM_HEAP_ID = 8,
 	ION_CP_MFC_HEAP_ID = 12,
@@ -71,6 +72,7 @@ enum ion_heap_ids {
 	ION_SF_HEAP_ID = 24,
 	ION_AUDIO_HEAP_ID = 28,
 
+	ION_MM_FIRMWARE_HEAP_ID = 29,
 	ION_SYSTEM_HEAP_ID = 30,
 
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
@@ -94,6 +96,7 @@ enum ion_heap_ids {
 #define ION_IOMMU_HEAP_NAME	"iommu"
 #define ION_MFC_HEAP_NAME	"mfc"
 #define ION_WB_HEAP_NAME	"wb"
+#define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 
 #define CACHED          1
 #define UNCACHED        0
@@ -149,12 +152,17 @@ struct ion_platform_heap {
 
 struct ion_cp_heap_pdata {
 	enum ion_permission_type permission_type;
+	unsigned int align;
+	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
+	size_t secure_size; /* Size used for securing heap when heap is shared*/
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
 };
 
 struct ion_co_heap_pdata {
+	int adjacent_mem_id;
+	unsigned int align;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);

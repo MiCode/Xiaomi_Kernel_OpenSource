@@ -142,9 +142,10 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
 #define MSM_ION_SF_SIZE		0x2800000 /* (40MB) */
+#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
 #define MSM_ION_MM_SIZE		0x4000000 /* (64MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
-#define MSM_ION_HEAP_NUM	5
+#define MSM_ION_HEAP_NUM	6
 #define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
 static unsigned int msm_ion_cp_mm_size = MSM_ION_MM_SIZE;
 #else
@@ -312,16 +313,24 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
+	.align = PAGE_SIZE,
 };
 
 static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
 	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+	.align = PAGE_SIZE,
 };
 
 static struct ion_co_heap_pdata co_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+
+static struct ion_co_heap_pdata fw_co_ion_pdata = {
+	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
+	.align = SZ_128K,
 };
 #endif
-
 static struct ion_platform_data ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
@@ -337,7 +346,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SF_HEAP_NAME,
 			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = &co_ion_pdata,
+			.extra_data = (void *) &co_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MM_HEAP_ID,
@@ -346,6 +355,14 @@ static struct ion_platform_data ion_pdata = {
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &cp_mm_ion_pdata,
+		},
+		{
+			.id	= ION_MM_FIRMWARE_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_MM_FIRMWARE_HEAP_NAME,
+			.size	= MSM_ION_MM_FW_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &fw_co_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
@@ -394,6 +411,7 @@ static void reserve_ion_memory(void)
 		}
 	}
 	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_ion_cp_mm_size;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
 	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
 	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
 #endif

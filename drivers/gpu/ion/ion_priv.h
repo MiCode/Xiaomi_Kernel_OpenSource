@@ -139,8 +139,6 @@ struct ion_heap_ops {
 	int (*cache_op)(struct ion_heap *heap, struct ion_buffer *buffer,
 			void *vaddr, unsigned int offset,
 			unsigned int length, unsigned int cmd);
-	unsigned long (*get_allocated)(struct ion_heap *heap);
-	unsigned long (*get_total)(struct ion_heap *heap);
 	int (*map_iommu)(struct ion_buffer *buffer,
 				struct ion_iommu_map *map_data,
 				unsigned int domain_num,
@@ -149,10 +147,7 @@ struct ion_heap_ops {
 				unsigned long iova_length,
 				unsigned long flags);
 	void (*unmap_iommu)(struct ion_iommu_map *data);
-	unsigned long (*get_umap_cnt)(struct ion_heap *heap);
-	unsigned long (*get_kmap_cnt)(struct ion_heap *heap);
-	unsigned long (*get_alloc_cnt)(struct ion_heap *heap);
-	unsigned long (*get_secured)(struct ion_heap *heap);
+	int (*print_debug)(struct ion_heap *heap, struct seq_file *s);
 	int (*secure_heap)(struct ion_heap *heap);
 	int (*unsecure_heap)(struct ion_heap *heap);
 };
