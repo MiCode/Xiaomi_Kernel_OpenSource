@@ -37,6 +37,7 @@ struct msm_bus_fabric_registration {
 	const unsigned int ntieredslaves;
 	bool il_flag;
 	const struct msm_bus_board_algorithm *board_algo;
+	int hw_sel;
 };
 
 enum msm_bus_bw_tier_type {
