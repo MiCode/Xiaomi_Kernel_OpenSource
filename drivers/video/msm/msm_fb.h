@@ -177,6 +177,7 @@ struct msm_fb_data_type {
 	u32 mem_hid;
 	u32 mdp_rev;
 	u32 use_ov0_blt, ov0_blt_state;
+	u32 use_ov1_blt, ov1_blt_state;
 	u32 writeback_state;
 };
 

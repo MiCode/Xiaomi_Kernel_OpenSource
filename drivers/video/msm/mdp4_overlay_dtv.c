@@ -596,13 +596,11 @@ static void mdp4_dtv_do_blt(struct msm_fb_data_type *mfd, int enable)
 
 void mdp4_dtv_overlay_blt_start(struct msm_fb_data_type *mfd)
 {
-	mdp4_allocate_writeback_buf(mfd, MDP4_MIXER1);
 	mdp4_dtv_do_blt(mfd, 1);
 }
 
 void mdp4_dtv_overlay_blt_stop(struct msm_fb_data_type *mfd)
 {
-	mdp4_free_writeback_buf(mfd, MDP4_MIXER1);
 	mdp4_dtv_do_blt(mfd, 0);
 }
 
