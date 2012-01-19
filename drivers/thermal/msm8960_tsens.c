@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +81,7 @@ enum tsens_trip_type {
 /* Initial temperature threshold values */
 #define TSENS_LOWER_LIMIT_TH				0x50
 #define TSENS_UPPER_LIMIT_TH				0xdf
-#define TSENS_MIN_LIMIT_TH				0x38
+#define TSENS_MIN_LIMIT_TH				0x0
 #define TSENS_MAX_LIMIT_TH				0xff
 
 #define TSENS_S0_STATUS_ADDR			(MSM_CLK_CTL_BASE + 0x00003628)
@@ -424,6 +424,15 @@ static int tsens_tz_get_crit_temp(struct thermal_zone_device *thermal,
 	return tsens_tz_get_trip_temp(thermal, TSENS_TRIP_STAGE3, temp);
 }
 
+static int tsens_tz_notify(struct thermal_zone_device *thermal,
+				int count, enum thermal_trip_type type)
+{
+	/* TSENS driver does not shutdown the device.
+	   All Thermal notification are sent to the
+	   thermal daemon to take appropriate action */
+	return 1;
+}
+
 static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 				   int trip, long temp)
 {
@@ -519,6 +528,7 @@ static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_trip_temp = tsens_tz_get_trip_temp,
 	.set_trip_temp = tsens_tz_set_trip_temp,
 	.get_crit_temp = tsens_tz_get_crit_temp,
+	.notify = tsens_tz_notify,
 };
 
 static void notify_uspace_tsens_fn(struct work_struct *work)
