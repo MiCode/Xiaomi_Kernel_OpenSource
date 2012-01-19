@@ -1358,7 +1358,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
 
 	if (the_chip->end_percent > the_chip->start_percent) {
-		last_charge_increase =
+		last_charge_increase +=
 			the_chip->end_percent - the_chip->start_percent;
 		if (last_charge_increase > 100) {
 			last_chargecycles++;
