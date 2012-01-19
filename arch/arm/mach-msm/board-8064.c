@@ -23,6 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/ion.h>
+#include <linux/memory.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -301,12 +302,10 @@ static void __init locate_unstable_memory(void)
 
 	if (high - low <= bank_size)
 		return;
-	apq8064_reserve_info.low_unstable_address = low + bank_size;
-	/* To avoid overflow of u32 compute max_unstable_size
-	 * by first subtracting low from mb->start)
-	 */
-	apq8064_reserve_info.max_unstable_size = (mb->start - low) +
-						mb->size - bank_size;
+	apq8064_reserve_info.low_unstable_address = mb->start -
+					MIN_MEMORY_BLOCK_SIZE + mb->size;
+	apq8064_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
+
 	apq8064_reserve_info.bank_size = bank_size;
 	pr_info("low unstable address %lx max size %lx bank size %lx\n",
 		apq8064_reserve_info.low_unstable_address,
