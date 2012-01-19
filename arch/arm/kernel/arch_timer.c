@@ -18,6 +18,7 @@
 #include <linux/jiffies.h>
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
+#include <linux/of_irq.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 
@@ -272,12 +273,9 @@ static struct local_timer_ops arch_timer_ops __cpuinitdata = {
 	.stop	= arch_timer_stop,
 };
 
-int __init arch_timer_register(struct arch_timer *at)
+static int __init arch_timer_common_register(void)
 {
 	int err;
-
-	if (at->res[0].start <= 0 || !(at->res[0].flags & IORESOURCE_IRQ))
-		return -EINVAL;
 
 	err = arch_timer_available();
 	if (err)
@@ -296,7 +294,6 @@ int __init arch_timer_register(struct arch_timer *at)
 	set_delay_fn(read_current_timer_delay_loop);
 #endif
 
-	arch_timer_ppi = at->res[0].start;
 	err = request_percpu_irq(arch_timer_ppi, arch_timer_handler,
 				 "arch_timer", arch_timer_evt);
 	if (err) {
@@ -305,8 +302,7 @@ int __init arch_timer_register(struct arch_timer *at)
 		goto out_free;
 	}
 
-	if (at->res[1].start > 0 && (at->res[1].flags & IORESOURCE_IRQ)) {
-		arch_timer_ppi2 = at->res[1].start;
+	if (arch_timer_ppi2) {
 		err = request_percpu_irq(arch_timer_ppi2, arch_timer_handler,
 					 "arch_timer", arch_timer_evt);
 		if (err) {
@@ -334,3 +330,54 @@ out_free:
 
 	return err;
 }
+
+int __init arch_timer_register(struct arch_timer *at)
+{
+	if (at->res[0].start <= 0 || !(at->res[0].flags & IORESOURCE_IRQ))
+		return -EINVAL;
+
+	arch_timer_ppi = at->res[0].start;
+
+	if (at->res[1].start > 0 && (at->res[1].flags & IORESOURCE_IRQ))
+		arch_timer_ppi2 = at->res[1].start;
+
+	return arch_timer_common_register();
+}
+
+#ifdef CONFIG_OF
+static const struct of_device_id arch_timer_of_match[] __initconst = {
+	{ .compatible	= "arm,armv7-timer",	},
+	{},
+};
+
+int __init arch_timer_of_register(void)
+{
+	struct device_node *np;
+	u32 freq;
+	int ret;
+
+	np = of_find_matching_node(NULL, arch_timer_of_match);
+	if (!np) {
+		pr_err("arch_timer: can't find DT node\n");
+		return -ENODEV;
+	}
+
+	/* Try to determine the frequency from the device tree or CNTFRQ */
+	if (!of_property_read_u32(np, "clock-frequency", &freq))
+		arch_timer_rate = freq;
+
+	ret = irq_of_parse_and_map(np, 0);
+	if (ret <= 0) {
+		pr_err("arch_timer: interrupt not specified in timer node\n");
+		return -ENODEV;
+	}
+	arch_timer_ppi = ret;
+	ret = irq_of_parse_and_map(np, 1);
+	if (ret > 0)
+		arch_timer_ppi2 = ret;
+	pr_info("arch_timer: found %s irqs %d %d\n",
+		np->name, arch_timer_ppi, arch_timer_ppi2);
+
+	return arch_timer_common_register();
+}
+#endif
