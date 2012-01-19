@@ -569,11 +569,18 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 			      unsigned int in_paddr,
 			      unsigned int out_paddr,
 			      unsigned int use_imem,
-			      int new_session)
+			      int new_session,
+			      unsigned int out_chroma_paddr)
 {
 	int bpp;
+	uint32_t dst_format;
 
-	if (info->src.format != info->dst.format)
+	if (info->src.format == MDP_YCRYCB_H2V1)
+		dst_format = MDP_Y_CRCB_H2V1;
+	else
+		return -EINVAL;
+
+	if (info->dst.format != dst_format)
 		return -EINVAL;
 
 	bpp = get_bpp(info->src.format);
@@ -584,15 +591,25 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
+	iowrite32(out_chroma_paddr +
+			((info->dst_y * info->dst.width)/2 + info->dst_x),
+		  MSM_ROTATOR_OUTP1_ADDR);
 
 	if (new_session) {
-		iowrite32(info->src.width,
+		iowrite32(info->src.width * bpp,
 			  MSM_ROTATOR_SRC_YSTRIDE1);
-		iowrite32(info->dst.width,
-			  MSM_ROTATOR_OUT_YSTRIDE1);
+		if (info->rotations & MDP_ROT_90)
+			iowrite32(info->dst.width |
+				  (info->dst.width*2) << 16,
+				  MSM_ROTATOR_OUT_YSTRIDE1);
+		else
+			iowrite32(info->dst.width |
+				  (info->dst.width) << 16,
+				  MSM_ROTATOR_OUT_YSTRIDE1);
+
 		iowrite32(GET_PACK_PATTERN(CLR_Y, CLR_CR, CLR_Y, CLR_CB, 8),
 			  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
-		iowrite32(GET_PACK_PATTERN(CLR_Y, CLR_CR, CLR_Y, CLR_CB, 8),
+		iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
 			  MSM_ROTATOR_OUT_PACK_PATTERN1);
 		iowrite32((1  << 18) | 		/* chroma sampling 1=H2V1 */
 			  (ROTATIONS_TO_BITMASK(info->rotations) << 9) |
@@ -1036,7 +1053,8 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	case MDP_YCRYCB_H2V1:
 		rc = msm_rotator_ycrycb(msm_rotator_dev->img_info[s],
 				in_paddr, out_paddr, use_imem,
-				msm_rotator_dev->last_session_idx != s);
+				msm_rotator_dev->last_session_idx != s,
+				out_chroma_paddr);
 		break;
 	default:
 		rc = -EINVAL;
