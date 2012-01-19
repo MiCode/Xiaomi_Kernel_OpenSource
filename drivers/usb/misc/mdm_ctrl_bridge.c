@@ -333,6 +333,7 @@ EXPORT_SYMBOL(ctrl_bridge_close);
 
 static void ctrl_write_callback(struct urb *urb)
 {
+	struct ctrl_bridge	*dev = urb->context;
 
 	if (urb->status) {
 		pr_debug("Write status/size %d/%d\n",
@@ -342,6 +343,7 @@ static void ctrl_write_callback(struct urb *urb)
 	kfree(urb->transfer_buffer);
 	kfree(urb->setup_packet);
 	usb_free_urb(urb);
+	usb_autopm_put_interface_async(dev->intf);
 }
 
 int ctrl_bridge_write(unsigned int id, char *data, size_t size)
@@ -406,7 +408,7 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 				 usb_sndctrlpipe(udev, 0),
 				 (unsigned char *)out_ctlreq,
 				 (void *)data, size,
-				 ctrl_write_callback, NULL);
+				 ctrl_write_callback, dev);
 
 	result = usb_autopm_get_interface_async(dev->intf);
 	if (result < 0) {
