@@ -679,7 +679,6 @@ static struct platform_device *qrd_common_devices[] __initdata = {
 #ifdef CONFIG_BT
 	&msm_bt_power_device,
 #endif
-	&msm_wlan_ar6000_pm_device,
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
@@ -1011,6 +1010,12 @@ static void msm7627a_add_io_devices(void)
 	}
 }
 
+static int __init msm_qrd_init_ar6000pm(void)
+{
+	msm_wlan_ar6000_pm_device.dev.platform_data = &ar600x_wlan_power;
+	return platform_device_register(&msm_wlan_ar6000_pm_device);
+}
+
 #define UART1DM_RX_GPIO		45
 static void __init msm_qrd_init(void)
 {
@@ -1033,6 +1038,8 @@ static void __init msm_qrd_init(void)
 	platform_add_devices(qrd_common_devices,
 			ARRAY_SIZE(qrd_common_devices));
 
+	/* Ensure ar6000pm device is registered before MMC/SDC */
+	msm_qrd_init_ar6000pm();
 	msm7627a_init_mmc();
 
 #ifdef CONFIG_USB_EHCI_MSM_72K
