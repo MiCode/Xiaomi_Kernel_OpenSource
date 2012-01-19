@@ -77,16 +77,13 @@ struct rmnet_private {
 	unsigned long wakeups_rcv;
 	unsigned long timeout_us;
 #endif
-	struct sk_buff *skb;
+	struct sk_buff *waiting_for_ul_skb;
 	spinlock_t lock;
 	struct tasklet_struct tsklt;
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
-	uint8_t waiting_for_ul;
 	uint8_t in_reset;
 };
-
-static uint8_t ul_is_connected;
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 static unsigned long timeout_us;
@@ -349,6 +346,7 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 static void bam_notify(void *dev, int event, unsigned long data)
 {
 	struct rmnet_private *p = netdev_priv(dev);
+	unsigned long flags;
 
 	switch (event) {
 	case BAM_DMUX_RECEIVE:
@@ -358,14 +356,26 @@ static void bam_notify(void *dev, int event, unsigned long data)
 		bam_write_done(dev, (struct sk_buff *)(data));
 		break;
 	case BAM_DMUX_UL_CONNECTED:
-		ul_is_connected = 1;
-		if (p->waiting_for_ul) {
+		spin_lock_irqsave(&p->lock, flags);
+		if (p->waiting_for_ul_skb != NULL) {
+			struct sk_buff *skb;
+			int ret;
+
+			skb = p->waiting_for_ul_skb;
+			p->waiting_for_ul_skb = NULL;
+			spin_unlock_irqrestore(&p->lock, flags);
+			ret = _rmnet_xmit(skb, dev);
+			if (ret) {
+				pr_err("%s: error %d dropping delayed TX SKB %p\n",
+						__func__, ret, skb);
+				dev_kfree_skb_any(skb);
+			}
 			netif_wake_queue(dev);
-			p->waiting_for_ul = 0;
+		} else {
+			spin_unlock_irqrestore(&p->lock, flags);
 		}
 		break;
 	case BAM_DMUX_UL_DISCONNECTED:
-		ul_is_connected = 0;
 		break;
 	}
 }
@@ -446,6 +456,8 @@ static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
 static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
+	unsigned long flags;
+	int awake;
 	int ret = 0;
 
 	if (netif_queue_stopped(dev)) {
@@ -454,15 +466,23 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		return 0;
 	}
 
-	if (!ul_is_connected) {
+	spin_lock_irqsave(&p->lock, flags);
+	awake = msm_bam_dmux_ul_power_vote();
+	if (!awake) {
+		/* send SKB once wakeup is complete */
 		netif_stop_queue(dev);
-		p->waiting_for_ul = 1;
-		msm_bam_dmux_kickoff_ul_wakeup();
-		return NETDEV_TX_BUSY;
+		p->waiting_for_ul_skb = skb;
+		spin_unlock_irqrestore(&p->lock, flags);
+		ret = 0;
+		goto exit;
 	}
+	spin_unlock_irqrestore(&p->lock, flags);
+
 	ret = _rmnet_xmit(skb, dev);
-	if (ret == -EPERM)
-		return NETDEV_TX_BUSY;
+	if (ret == -EPERM) {
+		ret = NETDEV_TX_BUSY;
+		goto exit;
+	}
 
 	/*
 	 * detected SSR a bit early.  shut some things down now, and leave
@@ -471,7 +491,8 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (ret == -EFAULT) {
 		netif_carrier_off(dev);
 		dev_kfree_skb_any(skb);
-		return 0;
+		ret = 0;
+		goto exit;
 	}
 
 	if (ret == -EAGAIN) {
@@ -484,7 +505,8 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		 * in the write_done callback when the low watermark is hit.
 		 */
 		netif_stop_queue(dev);
-		return NETDEV_TX_BUSY;
+		ret = NETDEV_TX_BUSY;
+		goto exit;
 	}
 
 	if (msm_bam_dmux_is_ch_full(p->ch_id)) {
@@ -492,7 +514,9 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		DBG0("%s: High WM hit, stopping queue=%p\n",    __func__, skb);
 	}
 
-	return 0;
+exit:
+	msm_bam_dmux_ul_power_unvote();
+	return ret;
 }
 
 static struct net_device_stats *rmnet_get_stats(struct net_device *dev)
@@ -700,7 +724,10 @@ static int bam_rmnet_remove(struct platform_device *pdev)
 
 	p = netdev_priv(netdevs[i]);
 	p->in_reset = 1;
-	p->waiting_for_ul = 0;
+	if (p->waiting_for_ul_skb != NULL) {
+		dev_kfree_skb_any(p->waiting_for_ul_skb);
+		p->waiting_for_ul_skb = NULL;
+	}
 	msm_bam_dmux_close(p->ch_id);
 	netif_carrier_off(netdevs[i]);
 	netif_stop_queue(netdevs[i]);
@@ -740,7 +767,7 @@ static int __init rmnet_init(void)
 		/* Initial config uses Ethernet */
 		p->operation_mode = RMNET_MODE_LLP_ETH;
 		p->ch_id = n;
-		p->waiting_for_ul = 0;
+		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
 		spin_lock_init(&p->lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
