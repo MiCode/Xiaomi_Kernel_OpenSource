@@ -1671,6 +1671,11 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk",	     usb_hsic_sys_clk.c,       "msm_hsic_host"),
 	CLK_LOOKUP("iface_clk",	     usb_hsic_p_clk.c,	       "msm_hsic_host"),
 	CLK_LOOKUP("phy_clk",        usb_hsic_clk.c,	       "msm_hsic_host"),
+	CLK_LOOKUP("alt_core_clk",  usb_hsic_xcvr_clk.c, "msm_hsic_peripheral"),
+	CLK_LOOKUP("cal_clk",  usb_hsic_hsio_cal_clk.c,  "msm_hsic_peripheral"),
+	CLK_LOOKUP("core_clk",      usb_hsic_sys_clk.c,  "msm_hsic_peripheral"),
+	CLK_LOOKUP("iface_clk",     usb_hsic_p_clk.c,    "msm_hsic_peripheral"),
+	CLK_LOOKUP("phy_clk",       usb_hsic_clk.c,      "msm_hsic_peripheral"),
 
 	CLK_LOOKUP("iface_clk",		sdc1_p_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("iface_clk",		sdc2_p_clk.c,		"msm_sdcc.2"),
