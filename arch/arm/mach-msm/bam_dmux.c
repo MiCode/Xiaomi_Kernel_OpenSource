@@ -165,6 +165,7 @@ static int polling_mode;
 
 static LIST_HEAD(bam_rx_pool);
 static DEFINE_MUTEX(bam_rx_pool_mutexlock);
+static int bam_rx_pool_len;
 static LIST_HEAD(bam_tx_pool);
 static DEFINE_SPINLOCK(bam_tx_pool_spinlock);
 
@@ -362,36 +363,78 @@ static void queue_rx(void)
 {
 	void *ptr;
 	struct rx_pkt_info *info;
-
-	if (in_global_reset)
-		return;
-
-	info = kmalloc(sizeof(struct rx_pkt_info), GFP_KERNEL);
-	if (!info) {
-		pr_err("%s: unable to alloc rx_pkt_info\n", __func__);
-		return;
-	}
-
-	INIT_WORK(&info->work, handle_bam_mux_cmd);
-
-	info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
-	if (info->skb == NULL) {
-		pr_err("%s: unable to alloc skb\n", __func__);
-		kfree(info);
-		return;
-	}
-	ptr = skb_put(info->skb, BUFFER_SIZE);
+	int ret;
+	int rx_len_cached;
 
 	mutex_lock(&bam_rx_pool_mutexlock);
-	list_add_tail(&info->list_node, &bam_rx_pool);
+	rx_len_cached = bam_rx_pool_len;
 	mutex_unlock(&bam_rx_pool_mutexlock);
 
-	/* need a way to handle error case */
-	info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
-						DMA_FROM_DEVICE);
-	sps_transfer_one(bam_rx_pipe, info->dma_address,
-				BUFFER_SIZE, info,
-				SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+	while (rx_len_cached < NUM_BUFFERS) {
+		if (in_global_reset)
+			goto fail;
+
+		info = kmalloc(sizeof(struct rx_pkt_info), GFP_KERNEL);
+		if (!info) {
+			pr_err("%s: unable to alloc rx_pkt_info\n", __func__);
+			goto fail;
+		}
+
+		INIT_WORK(&info->work, handle_bam_mux_cmd);
+
+		info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
+		if (info->skb == NULL) {
+			DMUX_LOG_KERR("%s: unable to alloc skb\n", __func__);
+			goto fail_info;
+		}
+		ptr = skb_put(info->skb, BUFFER_SIZE);
+
+		info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
+							DMA_FROM_DEVICE);
+		if (info->dma_address == 0 || info->dma_address == ~0) {
+			DMUX_LOG_KERR("%s: dma_map_single failure %p for %p\n",
+				__func__, (void *)info->dma_address, ptr);
+			goto fail_skb;
+		}
+
+		mutex_lock(&bam_rx_pool_mutexlock);
+		list_add_tail(&info->list_node, &bam_rx_pool);
+		rx_len_cached = ++bam_rx_pool_len;
+		mutex_unlock(&bam_rx_pool_mutexlock);
+
+		ret = sps_transfer_one(bam_rx_pipe, info->dma_address,
+			BUFFER_SIZE, info,
+			SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+
+		if (ret) {
+			DMUX_LOG_KERR("%s: sps_transfer_one failed %d\n",
+				__func__, ret);
+			goto fail_transfer;
+		}
+	}
+	return;
+
+fail_transfer:
+	mutex_lock(&bam_rx_pool_mutexlock);
+	list_del(&info->list_node);
+	--bam_rx_pool_len;
+	rx_len_cached = bam_rx_pool_len;
+	mutex_unlock(&bam_rx_pool_mutexlock);
+
+	dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+				DMA_FROM_DEVICE);
+
+fail_skb:
+	dev_kfree_skb_any(info->skb);
+
+fail_info:
+	kfree(info);
+
+fail:
+	if (rx_len_cached == 0) {
+		DMUX_LOG_KERR("%s: RX queue failure\n", __func__);
+		in_global_reset = 1;
+	}
 }
 
 static void bam_mux_process_data(struct sk_buff *rx_skb)
@@ -561,10 +604,14 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
-		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
+		DMUX_LOG_KERR("%s sps_transfer_one failed rc=%d\n",
+			__func__, rc);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+		dma_unmap_single(NULL, pkt->dma_address,
+					pkt->len,
+					DMA_TO_DEVICE);
 		kfree(pkt);
 	} else {
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
@@ -730,10 +777,13 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
-		DBG("%s sps_transfer_one failed rc=%d\n", __func__, rc);
+		DMUX_LOG_KERR("%s sps_transfer_one failed rc=%d\n",
+			__func__, rc);
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+		dma_unmap_single(NULL, pkt->dma_address,
+					pkt->skb->len,	DMA_TO_DEVICE);
 		kfree(pkt);
 		if (new_skb)
 			dev_kfree_skb_any(new_skb);
@@ -977,7 +1027,12 @@ static void rx_switch_to_interrupt_mode(void)
 		info = list_first_entry(&bam_rx_pool, struct rx_pkt_info,
 							list_node);
 		list_del(&info->list_node);
+		--bam_rx_pool_len;
 		mutex_unlock(&bam_rx_pool_mutexlock);
+		if (info->dma_address != iov.addr)
+			DMUX_LOG_KERR("%s: iovec %p != dma %p\n",
+				__func__,
+				(void *)info->dma_address, (void *)iov.addr);
 		handle_bam_mux_cmd(&info->work);
 	}
 	return;
@@ -1016,6 +1071,7 @@ static void rx_timer_work_func(struct work_struct *work)
 			}
 			info = list_first_entry(&bam_rx_pool,
 					struct rx_pkt_info,	list_node);
+			--bam_rx_pool_len;
 			list_del(&info->list_node);
 			mutex_unlock(&bam_rx_pool_mutexlock);
 			handle_bam_mux_cmd(&info->work);
@@ -1137,11 +1193,13 @@ static int debug_stats(char *buf, int max)
 			"skb copy cnt:    %u\n"
 			"skb copy bytes:  %u\n"
 			"sps tx failures: %u\n"
-			"sps tx stalls:   %u\n",
+			"sps tx stalls:   %u\n"
+			"rx queue len:    %d\n",
 			bam_dmux_write_cpy_cnt,
 			bam_dmux_write_cpy_bytes,
 			bam_dmux_tx_sps_failure_cnt,
-			bam_dmux_tx_stall_cnt
+			bam_dmux_tx_stall_cnt,
+			bam_rx_pool_len
 			);
 
 	return i;
@@ -1516,8 +1574,7 @@ static void reconnect_to_bam(void)
 	if (polling_mode)
 		rx_switch_to_interrupt_mode();
 
-	for (i = 0; i < NUM_BUFFERS; ++i)
-		queue_rx();
+	queue_rx();
 
 	toggle_apps_ack();
 	complete_all(&bam_connection_completion);
@@ -1558,6 +1615,7 @@ static void disconnect_to_bam(void)
 		dev_kfree_skb_any(info->skb);
 		kfree(info);
 	}
+	bam_rx_pool_len = 0;
 	mutex_unlock(&bam_rx_pool_mutexlock);
 
 	verify_tx_queue_is_empty(__func__);
@@ -1706,7 +1764,6 @@ static int bam_init(void)
 	dma_addr_t dma_addr;
 	int ret;
 	void *a2_virt_addr;
-	int i;
 	int skip_iounmap = 0;
 
 	vote_dfab();
@@ -1832,8 +1889,7 @@ static int bam_init(void)
 	}
 
 	bam_mux_initialized = 1;
-	for (i = 0; i < NUM_BUFFERS; ++i)
-		queue_rx();
+	queue_rx();
 	toggle_apps_ack();
 	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
