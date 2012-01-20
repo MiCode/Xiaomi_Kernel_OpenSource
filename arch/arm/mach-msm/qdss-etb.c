@@ -110,10 +110,20 @@ void etb_enable(void)
 static void __etb_disable(void)
 {
 	int count;
+	uint32_t ffcr;
 
 	ETB_UNLOCK();
 
-	etb_writel(etb, BIT(12) | BIT(13), ETB_FFCR);
+	ffcr = etb_readl(etb, ETB_FFCR);
+	ffcr |= (BIT(12) | BIT(6));
+	etb_writel(etb, ffcr, ETB_FFCR);
+
+	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFCR), 6) != 0
+				&& count > 0; count--)
+		udelay(1);
+	WARN(count == 0, "timeout while flushing ETB, ETB_FFCR: %#x\n",
+	     etb_readl(etb, ETB_FFCR));
+
 	etb_writel(etb, 0x0, ETB_CTL_REG);
 
 	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFSR), 1) != 1
