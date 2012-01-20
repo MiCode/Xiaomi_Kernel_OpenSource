@@ -231,8 +231,15 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		return -EINVAL;
 
 	mdp4_overlay_panel_mode(MDP4_MIXER1, MDP4_PANEL_DTV);
-	if (dtv_pipe != NULL)
-		ret = mdp4_dtv_start(mfd);
+
+	/* Allocate dtv_pipe at dtv_on*/
+	if (dtv_pipe == NULL) {
+		if (mdp4_overlay_dtv_set(mfd, NULL)) {
+			pr_warn("%s: dtv_pipe is NULL, dtv_set failed\n",
+				__func__);
+			return -EINVAL;
+		}
+	}
 
 	ret = panel_next_on(pdev);
 	if (ret != 0)
@@ -604,14 +611,6 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 		return;
 
 	mutex_lock(&mfd->dma->ov_mutex);
-	if (dtv_pipe == NULL) {
-		if (mdp4_overlay_dtv_set(mfd, NULL)) {
-			pr_warn("%s: dtv_pipe == NULL\n", __func__);
-			mutex_unlock(&mfd->dma->ov_mutex);
-			return;
-		}
-	}
-
 	pipe = dtv_pipe;
 	if (pipe->pipe_type == OVERLAY_TYPE_RGB) {
 		pipe->srcp0_addr = (uint32) mfd->ibuf.buf;
