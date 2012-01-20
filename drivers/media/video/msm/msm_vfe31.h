@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -842,8 +842,9 @@ struct vfe31_irq_status {
 
 struct vfe_msg_output {
 	uint8_t   output_id;
-	uint32_t  yBuffer;
-	uint32_t  cbcrBuffer;
+	uint32_t  p0_addr;
+	uint32_t  p1_addr;
+	uint32_t  p2_addr;
 	struct vfe_frame_bpc_info bpcInfo;
 	struct vfe_frame_asf_info asfInfo;
 	uint32_t  frameCounter;
@@ -878,7 +879,9 @@ struct vfe31_cmd_type {
 struct vfe31_free_buf {
 	struct list_head node;
 	uint32_t paddr;
-	uint32_t y_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
+	uint32_t planar2_off;
 	uint32_t cbcr_off;
 };
 
