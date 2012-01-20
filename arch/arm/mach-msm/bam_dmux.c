@@ -1241,9 +1241,25 @@ static void debug_create(const char *name, mode_t mode,
 				struct dentry *dent,
 				int (*fill)(char *buf, int max))
 {
-	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	struct dentry *file;
+
+	file = debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	if (IS_ERR(file))
+		pr_err("%s: debugfs create failed %d\n", __func__,
+				(int)PTR_ERR(file));
 }
 
+static void debug_create_multiple(const char *name, mode_t mode,
+				struct dentry *dent,
+				int (*fill)(char *buf, int max, loff_t *ppos))
+{
+	struct dentry *file;
+
+	file = debugfs_create_file(name, mode, dent, fill, &debug_ops_multiple);
+	if (IS_ERR(file))
+		pr_err("%s: debugfs create failed %d\n", __func__,
+				(int)PTR_ERR(file));
+}
 #endif
 
 static void notify_all(int event, unsigned long data)
@@ -1370,7 +1386,7 @@ static void ul_wakeup(void)
 		else
 			called_before = 1;
 		if (wait_for_dfab) {
-			ret = wait_for_completion_interruptible_timeout(
+			ret = wait_for_completion_timeout(
 					&dfab_unvote_completion, HZ);
 			BUG_ON(ret == 0);
 		}
@@ -1389,7 +1405,7 @@ static void ul_wakeup(void)
 	 */
 	if (wait_for_ack) {
 		bam_dmux_log("%s waiting for previous ack\n", __func__);
-		ret = wait_for_completion_interruptible_timeout(
+		ret = wait_for_completion_timeout(
 					&ul_wakeup_ack_completion, HZ);
 		BUG_ON(ret == 0);
 		wait_for_ack = 0;
@@ -1397,12 +1413,10 @@ static void ul_wakeup(void)
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	power_vote(1);
 	bam_dmux_log("%s waiting for wakeup ack\n", __func__);
-	ret = wait_for_completion_interruptible_timeout(
-						&ul_wakeup_ack_completion, HZ);
+	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, HZ);
 	BUG_ON(ret == 0);
 	bam_dmux_log("%s waiting completion\n", __func__);
-	ret = wait_for_completion_interruptible_timeout(
-						&bam_connection_completion, HZ);
+	ret = wait_for_completion_timeout(&bam_connection_completion, HZ);
 	BUG_ON(ret == 0);
 
 	bam_is_connected = 1;
@@ -1986,8 +2000,7 @@ static int __init bam_dmux_init(void)
 		debug_create("tbl", 0444, dent, debug_tbl);
 		debug_create("ul_pkt_cnt", 0444, dent, debug_ul_pkt_cnt);
 		debug_create("stats", 0444, dent, debug_stats);
-		debugfs_create_file("log", 0444, dent, debug_log,
-				&debug_ops_multiple);
+		debug_create_multiple("log", 0444, dent, debug_log);
 	}
 #endif
 	ret = kfifo_alloc(&bam_dmux_state_log, PAGE_SIZE, GFP_KERNEL);
