@@ -21,7 +21,7 @@
 
 #define TABLA_REG_VAL(reg, val)		{reg, 0, val}
 
-
+#define DEFAULT_DCE_STA_WAIT 55
 #define DEFAULT_DCE_WAIT 60000
 #define DEFAULT_STA_WAIT 5000
 

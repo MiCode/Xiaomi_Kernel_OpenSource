@@ -106,6 +106,7 @@ struct mbhc_internal_cal_data {
 	u16 dce_mb;
 	u16 sta_z;
 	u16 sta_mb;
+	u32 t_sta_dce;
 	u32 t_dce;
 	u32 t_sta;
 	u32 micb_mv;
@@ -3081,6 +3082,8 @@ static short tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce)
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x4);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
+		usleep_range(tabla->mbhc_data.t_sta_dce,
+			     tabla->mbhc_data.t_sta_dce);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x4);
 		usleep_range(tabla->mbhc_data.t_dce,
 			     tabla->mbhc_data.t_dce);
@@ -3089,7 +3092,8 @@ static short tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce)
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x2);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x0);
-		usleep_range(50, 50);
+		usleep_range(tabla->mbhc_data.t_sta_dce,
+			     tabla->mbhc_data.t_sta_dce);
 		snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x2);
 		usleep_range(tabla->mbhc_data.t_sta,
 			     tabla->mbhc_data.t_sta);
@@ -3386,19 +3390,8 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	nmeas = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration)->n_meas;
 	navg = TABLA_MBHC_CAL_GENERAL_PTR(tabla->calibration)->mbhc_navg;
 	mclk_rate = tabla->mclk_freq;
-	dce_wait = (1000 * 512 * ncic * nmeas) / (mclk_rate / 1000);
-	if (tabla->mclk_freq == TABLA_MCLK_RATE_12288KHZ)
-		dce_wait = dce_wait + 10000;
-	else if (tabla->mclk_freq == TABLA_MCLK_RATE_9600KHZ)
-		dce_wait = dce_wait + 9810;
-	else
-		WARN(1, "Unsupported mclk freq %d\n", tabla->mclk_freq);
-
-	sta_wait = (1000 * 128 * navg) / (mclk_rate / 1000);
-
-	/* Add 10 microseconds to handle error margin */
-	dce_wait = dce_wait + 10;
-	sta_wait = sta_wait + 10;
+	dce_wait = (1000 * 512 * ncic * (nmeas + 1)) / (mclk_rate / 1000);
+	sta_wait = (1000 * 128 * (navg + 1)) / (mclk_rate / 1000);
 
 	tabla->mbhc_data.t_dce = dce_wait;
 	tabla->mbhc_data.t_sta = sta_wait;
@@ -3515,8 +3508,11 @@ static void tabla_mbhc_calc_thres(struct snd_soc_codec *codec)
 		tabla->mbhc_data.nready = 2;
 		tabla->mbhc_data.npoll = 7;
 		tabla->mbhc_data.nbounce_wait = 23;
-	}
+	} else
+		WARN(1, "Unsupported mclk freq %d\n", tabla->mclk_freq);
 
+	tabla->mbhc_data.t_sta_dce = ((1000 * 256) / (tabla->mclk_freq / 1000) *
+				      tabla->mbhc_data.nready) + 10;
 	tabla->mbhc_data.v_ins_hu =
 	    tabla_codec_v_sta_dce(codec, STA, plug_type->v_hs_max);
 	tabla->mbhc_data.v_ins_h =
@@ -4477,6 +4473,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	/* Make sure mbhc intenal calibration data is zeroed out */
 	memset(&tabla->mbhc_data, 0,
 		sizeof(struct mbhc_internal_cal_data));
+	tabla->mbhc_data.t_sta_dce = DEFAULT_DCE_STA_WAIT;
 	tabla->mbhc_data.t_dce = DEFAULT_DCE_WAIT;
 	tabla->mbhc_data.t_sta = DEFAULT_STA_WAIT;
 	snd_soc_codec_set_drvdata(codec, tabla);
