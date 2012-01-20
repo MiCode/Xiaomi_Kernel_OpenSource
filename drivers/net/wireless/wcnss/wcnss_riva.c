@@ -61,11 +61,11 @@ struct vregs_info {
 };
 
 static struct vregs_info iris_vregs[] = {
-	{"iris_vddio",  VREG_NULL_CONFIG, 0000000, 0, 0000000, 0,      NULL},
+	{"iris_vddio",  VREG_NULL_CONFIG, 1800000, 0, 1800000, 4000,   NULL},
 	{"iris_vddxo",  VREG_NULL_CONFIG, 1800000, 0, 1800000, 10000,  NULL},
 	{"iris_vddrfa", VREG_NULL_CONFIG, 1300000, 0, 1300000, 100000, NULL},
-	{"iris_vddpa",  VREG_NULL_CONFIG, 3000000, 0, 3000000, 515000, NULL},
-	{"iris_vdddig", VREG_NULL_CONFIG, 0000000, 0, 0000000, 0,      NULL},
+	{"iris_vddpa",  VREG_NULL_CONFIG, 2900000, 0, 3000000, 515000, NULL},
+	{"iris_vdddig", VREG_NULL_CONFIG, 1200000, 0, 1200000, 10000,  NULL},
 };
 
 static struct vregs_info riva_vregs[] = {
@@ -220,7 +220,7 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 static int wcnss_vregs_on(struct device *dev,
 		struct vregs_info regulators[], uint size)
 {
-	int i, rc = 0;
+	int i, rc = 0, reg_cnt;
 
 	for (i = 0; i < size; i++) {
 			/* Get regulator source */
@@ -233,9 +233,10 @@ static int wcnss_vregs_on(struct device *dev,
 				goto fail;
 		}
 		regulators[i].state |= VREG_GET_REGULATOR_MASK;
-
+		reg_cnt = regulator_count_voltages(regulators[i].regulator);
 		/* Set voltage to nominal. Exclude swtiches e.g. LVS */
-		if (regulators[i].nominal_min || regulators[i].max_voltage) {
+		if ((regulators[i].nominal_min || regulators[i].max_voltage)
+				&& (reg_cnt > 0)) {
 			rc = regulator_set_voltage(regulators[i].regulator,
 					regulators[i].nominal_min,
 					regulators[i].max_voltage);
@@ -248,7 +249,7 @@ static int wcnss_vregs_on(struct device *dev,
 		}
 
 		/* Vote for PWM/PFM mode if needed */
-		if (regulators[i].uA_load) {
+		if (regulators[i].uA_load && (reg_cnt > 0)) {
 			rc = regulator_set_optimum_mode(regulators[i].regulator,
 					regulators[i].uA_load);
 			if (rc < 0) {
