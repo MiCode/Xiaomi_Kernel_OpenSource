@@ -1293,10 +1293,10 @@ static CLK_GP(gp2, 2, CLK_HALT_SFPB_MISC_STATE_REG, 5);
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_uart[] = {
 	F_GSBI_UART(       0, gnd,  1,  0,   0),
-	F_GSBI_UART( 1843200, pll8, 1,  3, 625),
-	F_GSBI_UART( 3686400, pll8, 1,  6, 625),
-	F_GSBI_UART( 7372800, pll8, 1, 12, 625),
-	F_GSBI_UART(14745600, pll8, 1, 24, 625),
+	F_GSBI_UART( 1843200, pll8, 2,  6, 625),
+	F_GSBI_UART( 3686400, pll8, 2, 12, 625),
+	F_GSBI_UART( 7372800, pll8, 2, 24, 625),
+	F_GSBI_UART(14745600, pll8, 2, 48, 625),
 	F_GSBI_UART(16000000, pll8, 4,  1,   6),
 	F_GSBI_UART(24000000, pll8, 4,  1,   4),
 	F_GSBI_UART(32000000, pll8, 4,  1,   3),
