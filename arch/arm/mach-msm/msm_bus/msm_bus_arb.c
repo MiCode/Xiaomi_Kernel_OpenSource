@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -305,7 +305,13 @@ static int update_path(int curr, int pnode, unsigned long req_clk, unsigned
 	*info->link_info.sel_bw += add_bw;
 
 	info->pnode[index].sel_bw = &info->pnode[index].bw[ctx];
-	info->pnode[index].sel_clk = &info->pnode[index].clk[ctx];
+
+	/**
+	 * To select the right clock, AND the context with
+	 * client active flag.
+	 */
+	info->pnode[index].sel_clk = &info->pnode[index].clk[ctx &
+		cl_active_flag];
 	*info->pnode[index].sel_bw += add_bw;
 
 	info->link_info.num_tiers = info->node_info->num_tiers;
@@ -345,7 +351,8 @@ static int update_path(int curr, int pnode, unsigned long req_clk, unsigned
 		*hop->link_info.sel_bw += add_bw;
 
 		hop->pnode[index].sel_bw = &hop->pnode[index].bw[ctx];
-		hop->pnode[index].sel_clk = &hop->pnode[index].clk[ctx];
+		hop->pnode[index].sel_clk = &hop->pnode[index].clk[ctx &
+			cl_active_flag];
 
 		if (!hop->node_info->buswidth) {
 			MSM_BUS_WARN("No bus width found. Using default\n");
