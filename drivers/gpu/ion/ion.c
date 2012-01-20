@@ -1315,12 +1315,14 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma,
 						flags);
-	mutex_unlock(&buffer->lock);
+
+	buffer->umap_cnt++;
 	if (ret) {
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
 		goto err2;
 	}
+	mutex_unlock(&buffer->lock);
 
 	vma->vm_ops = &ion_vm_ops;
 	/* move the handle into the vm_private_data so we can access it from
@@ -1335,6 +1337,7 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 
 err2:
 	buffer->umap_cnt--;
+	mutex_unlock(&buffer->lock);
 	/* drop the reference to the handle */
 err1:
 	ion_handle_put(handle);
