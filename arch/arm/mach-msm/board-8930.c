@@ -1701,14 +1701,6 @@ static struct tsens_platform_data msm_tsens_pdata  = {
 	.tsens_num_sensor	= 5,
 };
 
-static struct platform_device msm_tsens_device = {
-	.name	= "tsens8960-tm",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &msm_tsens_pdata,
-	},
-};
-
 #ifdef CONFIG_MSM_FAKE_BATTERY
 static struct platform_device fish_battery_device = {
 	.name = "fish_battery",
@@ -1891,7 +1883,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_bus_mm_fabric,
 	&msm_bus_sys_fpb,
 	&msm_bus_cpss_fpb,
-	&msm_tsens_device,
 };
 
 static void __init msm8930_i2c_init(void)
@@ -2213,6 +2204,7 @@ static void __init msm8930_cdp_init(void)
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 
+	msm_tsens_early_init(&msm_tsens_pdata);
 	BUG_ON(msm_rpm_init(&msm8930_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 
