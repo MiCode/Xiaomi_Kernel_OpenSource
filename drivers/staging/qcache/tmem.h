@@ -4,7 +4,7 @@
  * Transcendent memory
  *
  * Copyright (c) 2009-2011, Dan Magenheimer, Oracle Corp.
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  */
 
 #ifndef _TMEM_H_
@@ -48,8 +48,6 @@
 #define ASSERT_SENTINEL(_x, _y) do { } while (0)
 #define ASSERT_INVERTED_SENTINEL(_x, _y) do { } while (0)
 #endif
-
-#define ASSERT_SPINLOCK(_l)	WARN_ON(!spin_is_locked(_l))
 
 /*
  * A pool is the highest-level data structure managed by tmem and
