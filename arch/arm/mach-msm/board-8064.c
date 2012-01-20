@@ -46,6 +46,7 @@
 #include <linux/bootmem.h>
 #include <asm/setup.h>
 #include <mach/dma.h>
+#include <mach/msm_bus_board.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -558,6 +559,22 @@ static struct platform_device msm8064_device_saw_regulator_core3 = {
 	},
 };
 
+static void __init apq8064_init_buses(void)
+{
+	msm_bus_rpm_set_mt_mask();
+	msm_bus_8064_apps_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8064_sys_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8064_mm_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8064_apps_fabric.dev.platform_data =
+		&msm_bus_8064_apps_fabric_pdata;
+	msm_bus_8064_sys_fabric.dev.platform_data =
+		&msm_bus_8064_sys_fabric_pdata;
+	msm_bus_8064_mm_fabric.dev.platform_data =
+		&msm_bus_8064_mm_fabric_pdata;
+	msm_bus_8064_sys_fpb.dev.platform_data = &msm_bus_8064_sys_fpb_pdata;
+	msm_bus_8064_cpss_fpb.dev.platform_data = &msm_bus_8064_cpss_fpb_pdata;
+}
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi4,
@@ -619,6 +636,11 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_pcm_afe,
 	&apq_cpudai_auxpcm_rx,
 	&apq_cpudai_auxpcm_tx,
+	&msm_bus_8064_apps_fabric,
+	&msm_bus_8064_sys_fabric,
+	&msm_bus_8064_mm_fabric,
+	&msm_bus_8064_sys_fpb,
+	&msm_bus_8064_cpss_fpb,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -712,6 +734,7 @@ static void __init apq8064_common_init(void)
 						&apq8064_qup_spi_gsbi5_pdata;
 	apq8064_init_pmic();
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
+	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_init_mmc();
 	slim_register_board_info(apq8064_slim_devices,

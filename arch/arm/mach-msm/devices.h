@@ -264,3 +264,9 @@ extern struct platform_device msm_tpiu_device;
 extern struct platform_device msm_funnel_device;
 extern struct platform_device msm_ptm_device;
 #endif
+
+extern struct platform_device msm_bus_8064_apps_fabric;
+extern struct platform_device msm_bus_8064_sys_fabric;
+extern struct platform_device msm_bus_8064_mm_fabric;
+extern struct platform_device msm_bus_8064_sys_fpb;
+extern struct platform_device msm_bus_8064_cpss_fpb;
