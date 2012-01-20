@@ -160,6 +160,18 @@ int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config);
  */
 int pm8xxx_stay_on(void);
 
+/**
+ * pm8xxx_preload_dVdd - preload the dVdd regulator during off state.
+ *
+ * This can help to reduce fluctuations in the dVdd voltage during startup
+ * at the cost of additional off state current draw.
+ *
+ * This API should only be called if dVdd startup issues are suspected.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_preload_dVdd(void);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -193,6 +205,10 @@ static inline int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
 	return -ENODEV;
 }
 static inline int pm8xxx_stay_on(void)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_preload_dVdd(void)
 {
 	return -ENODEV;
 }

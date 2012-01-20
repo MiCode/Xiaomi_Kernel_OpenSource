@@ -944,6 +944,63 @@ int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 }
 EXPORT_SYMBOL(pm8xxx_uart_gpio_mux_ctrl);
 
+static int __pm8901_preload_dVdd(struct pm8xxx_misc_chip *chip)
+{
+	int rc;
+
+	rc = pm8xxx_writeb(chip->dev->parent, 0x0BD, 0x0F);
+	if (rc)
+		pr_err("pm8xxx_writeb failed for 0x0BD, rc=%d\n", rc);
+
+	rc = pm8xxx_writeb(chip->dev->parent, 0x001, 0xB4);
+	if (rc)
+		pr_err("pm8xxx_writeb failed for 0x001, rc=%d\n", rc);
+
+	pr_info("dVdd preloaded\n");
+
+	return rc;
+}
+
+/**
+ * pm8xxx_preload_dVdd - preload the dVdd regulator during off state.
+ *
+ * This can help to reduce fluctuations in the dVdd voltage during startup
+ * at the cost of additional off state current draw.
+ *
+ * This API should only be called if dVdd startup issues are suspected.
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_preload_dVdd(void)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8901:
+			rc = __pm8901_preload_dVdd(chip);
+			break;
+		default:
+			/* PMIC doesn't have preload_dVdd; do nothing. */
+			break;
+		}
+		if (rc) {
+			pr_err("preload_dVdd failed, rc=%d\n", rc);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(pm8xxx_preload_dVdd);
+
 static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_misc_platform_data *pdata = pdev->dev.platform_data;
