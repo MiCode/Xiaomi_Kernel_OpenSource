@@ -59,6 +59,7 @@
 #include "mpm.h"
 #include "rpm_resources.h"
 #include "pm-boot.h"
+#include "devices-msm8x60.h"
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x2B4000
@@ -1068,6 +1069,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_bus_8064_mm_fabric,
 	&msm_bus_8064_sys_fpb,
 	&msm_bus_8064_cpss_fpb,
+	&msm_device_vidc,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
