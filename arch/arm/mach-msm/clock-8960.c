@@ -4450,11 +4450,7 @@ static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c);
 
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
-/*
- * TODO: replace dummy_clk below with ebi1_clk.c once the
- * bus driver starts voting on ebi1 rates.
- */
-static DEFINE_CLK_VOTER(ebi1_adm_clk,    &dummy_clk);
+static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c);
 
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
