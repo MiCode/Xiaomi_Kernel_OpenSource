@@ -515,6 +515,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 						pr_err("%s:map_buffer failed,"
 							"error = %ld\n",
 				__func__, PTR_ERR((void *)buf[cnt].mem_buffer));
+						mutex_unlock(&ac->cmd_lock);
 						goto fail;
 					}
 					buf[cnt].data =
@@ -522,6 +523,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					if (!buf[cnt].data) {
 						pr_err("%s:invalid vaddr,"
 						" iomap failed\n", __func__);
+						mutex_unlock(&ac->cmd_lock);
 						goto fail;
 					}
 					buf[cnt].used = 1;
@@ -944,6 +946,7 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 		idx = port->cpu_buf;
 		if (port->buf == NULL) {
 			pr_debug("%s:Buffer pointer null\n", __func__);
+			mutex_unlock(&port->lock);
 			return NULL;
 		}
 		/*  dir 0: used = 0 means buf in use
