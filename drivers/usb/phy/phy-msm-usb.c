@@ -1041,7 +1041,9 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 		return;
 
 	if (motg->pdata->vbus_power) {
-		motg->pdata->vbus_power(on);
+		ret = motg->pdata->vbus_power(on);
+		if (!ret)
+			vbus_is_on = on;
 		return;
 	}
 
