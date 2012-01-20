@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (C) 2000-2001 Qualcomm Incorporated
+   Copyright (c) 2000-2001, 2011-2012 Code Aurora Forum.  All rights reserved.
    Copyright (C) 2009-2010 Gustavo F. Padovan <gustavo@padovan.org>
    Copyright (C) 2010 Google Inc.
 
@@ -1123,8 +1123,6 @@ static void l2cap_sock_destruct(struct sock *sk)
 static void set_default_config(struct l2cap_conf_prm *conf_prm)
 {
 	conf_prm->fcs = L2CAP_FCS_CRC16;
-	conf_prm->retrans_timeout = 0;
-	conf_prm->monitor_timeout = 0;
 	conf_prm->flush_to = L2CAP_DEFAULT_FLUSH_TO;
 }
 
@@ -1186,14 +1184,6 @@ void l2cap_sock_init(struct sock *sk, struct sock *parent)
 	pi->extended_control = 0;
 
 	pi->local_conf.fcs = pi->fcs;
-	if (pi->mode == L2CAP_MODE_BASIC) {
-		pi->local_conf.retrans_timeout = 0;
-		pi->local_conf.monitor_timeout = 0;
-	} else {
-		pi->local_conf.retrans_timeout = L2CAP_DEFAULT_RETRANS_TO;
-		pi->local_conf.monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
-	}
-
 	pi->local_conf.flush_to = pi->flush_to;
 
 	set_default_config(&pi->remote_conf);
