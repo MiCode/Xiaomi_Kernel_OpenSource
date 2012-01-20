@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include <linux/clk.h>
 #include <linux/timer.h>
 #include <mach/msm_subsystem_map.h>
+#include "vcd_res_tracker_api.h"
 #include "vidc_type.h"
 #include "vcd_api.h"
 #include "vdec_internal.h"
@@ -40,11 +41,13 @@
 #define INFO(x...) pr_info(x)
 #define ERR(x...) pr_err(x)
 
-#define VID_DEC_NAME		"msm_vidc_dec"
+#define VID_DEC_NAME "msm_vidc_dec"
 
+static char *node_name[2] = {"", "_sec"};
 static struct vid_dec_dev *vid_dec_device_p;
 static dev_t vid_dec_dev_num;
 static struct class *vid_dec_class;
+
 static unsigned int vidc_mmu_subsystem[] = {
 	MSM_SUBSYSTEM_VIDEO};
 static s32 vid_dec_get_empty_client_index(void)
@@ -1958,34 +1961,30 @@ static u32 vid_dec_close_client(struct video_client_ctx *client_ctx)
 	return true;
 }
 
-static int vid_dec_open(struct inode *inode, struct file *file)
+struct video_client_ctx *vid_dec_open_client(void)
 {
 	s32 client_index;
 	struct video_client_ctx *client_ctx;
 	u32 vcd_status = VCD_ERR_FAIL;
-	u8 client_count = 0;
-
-	DBG("msm_vidc_dec: Inside %s()", __func__);
-	mutex_lock(&vid_dec_device_p->lock);
+	u8 client_count;
 
 	client_count = vcd_get_num_of_clients();
 	if (client_count == VIDC_MAX_NUM_CLIENTS) {
 		ERR("ERROR : vid_dec_open() max number of clients"
-		    "limit reached\n");
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
+			"limit reached\n");
+		goto client_failure;
 	}
 
 	DBG(" Virtual Address of ioremap is %p\n", vid_dec_device_p->virt_base);
 	if (!vid_dec_device_p->num_clients) {
 		if (!vidc_load_firmware())
-			return -ENODEV;
+			goto client_failure;
 	}
 
 	client_index = vid_dec_get_empty_client_index();
 	if (client_index == -1) {
 		ERR("%s() : No free clients client_index == -1\n", __func__);
-		return -ENODEV;
+		goto client_failure;
 	}
 	client_ctx = &vid_dec_device_p->vdec_clients[client_index];
 	vid_dec_device_p->num_clients++;
@@ -2002,27 +2001,81 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 		client_ctx->user_ion_client = vcd_get_ion_client();
 		if (!client_ctx->user_ion_client) {
 			ERR("vcd_open ion client get failed");
-			return -EFAULT;
+			goto client_failure;
 		}
 	}
 	vcd_status = vcd_open(vid_dec_device_p->device_handle, true,
-			      vid_dec_vcd_cb, client_ctx);
+				  vid_dec_vcd_cb, client_ctx);
 	if (!vcd_status) {
 		wait_for_completion(&client_ctx->event);
 		if (client_ctx->event_status) {
 			ERR("callback for vcd_open returned error: %u",
 				client_ctx->event_status);
-			mutex_unlock(&vid_dec_device_p->lock);
-			return -EFAULT;
+			goto client_failure;
 		}
 	} else {
 		ERR("vcd_open returned error: %u", vcd_status);
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -EFAULT;
+		goto client_failure;
 	}
 	client_ctx->seq_header_set = false;
-	file->private_data = client_ctx;
+	return client_ctx;
+client_failure:
+	return NULL;
+}
+
+static int vid_dec_open_secure(struct inode *inode, struct file *file)
+{
+	mutex_lock(&vid_dec_device_p->lock);
+	if (res_trk_check_for_sec_session() || vcd_get_num_of_clients()) {
+		ERR("Secure session present return failure\n");
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENODEV;
+	}
+	if (res_trk_open_secure_session()) {
+		ERR("Secure session operation failure\n");
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENODEV;
+	}
+	file->private_data = vid_dec_open_client();
+	if (!file->private_data) {
+		res_trk_close_secure_session();
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENODEV;
+	}
 	mutex_unlock(&vid_dec_device_p->lock);
+	return 0;
+}
+
+static int vid_dec_open(struct inode *inode, struct file *file)
+{
+	INFO("msm_vidc_dec: Inside %s()", __func__);
+	mutex_lock(&vid_dec_device_p->lock);
+	if (res_trk_check_for_sec_session()) {
+		ERR("Secure session present return failure\n");
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENODEV;
+	}
+	file->private_data = vid_dec_open_client();
+	if (!file->private_data) {
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENODEV;
+	}
+	mutex_unlock(&vid_dec_device_p->lock);
+	return 0;
+}
+
+static int vid_dec_release_secure(struct inode *inode, struct file *file)
+{
+	struct video_client_ctx *client_ctx = file->private_data;
+
+	INFO("msm_vidc_dec: Inside %s()", __func__);
+	res_trk_close_secure_session();
+	vid_dec_close_client(client_ctx);
+	vidc_release_firmware();
+#ifndef USE_RES_TRACKER
+	vidc_disable_clk();
+#endif
+	INFO("msm_vidc_dec: Return from %s()", __func__);
 	return 0;
 }
 
@@ -2040,11 +2093,20 @@ static int vid_dec_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations vid_dec_fops = {
-	.owner = THIS_MODULE,
-	.open = vid_dec_open,
-	.release = vid_dec_release,
-	.unlocked_ioctl = vid_dec_ioctl,
+static const struct file_operations vid_dec_fops[2] = {
+	{
+		.owner = THIS_MODULE,
+		.open = vid_dec_open,
+		.release = vid_dec_release,
+		.unlocked_ioctl = vid_dec_ioctl,
+	},
+	{
+		.owner = THIS_MODULE,
+		.open = vid_dec_open_secure,
+		.release = vid_dec_release_secure,
+		.unlocked_ioctl = vid_dec_ioctl,
+	},
+
 };
 
 void vid_dec_interrupt_deregister(void)
@@ -2110,7 +2172,7 @@ static int vid_dec_vcd_init(void)
 
 static int __init vid_dec_init(void)
 {
-	int rc = 0;
+	int rc = 0, i = 0, j = 0;
 	struct device *class_devp;
 
 	DBG("msm_vidc_dec: Inside %s()", __func__);
@@ -2121,7 +2183,8 @@ static int __init vid_dec_init(void)
 		return -ENOMEM;
 	}
 
-	rc = alloc_chrdev_region(&vid_dec_dev_num, 0, 1, VID_DEC_NAME);
+	rc = alloc_chrdev_region(&vid_dec_dev_num, 0, NUM_OF_DRIVER_NODES,
+		VID_DEC_NAME);
 	if (rc < 0) {
 		ERR("%s: alloc_chrdev_region Failed rc = %d\n",
 		       __func__, rc);
@@ -2136,49 +2199,59 @@ static int __init vid_dec_init(void)
 
 		goto error_vid_dec_class_create;
 	}
+	for (i = 0; i < NUM_OF_DRIVER_NODES; i++) {
+		class_devp = device_create(vid_dec_class, NULL,
+						(vid_dec_dev_num + i),
+						NULL, VID_DEC_NAME "%s",
+						node_name[i]);
 
-	class_devp = device_create(vid_dec_class, NULL, vid_dec_dev_num, NULL,
-				   VID_DEC_NAME);
+		if (IS_ERR(class_devp)) {
+			rc = PTR_ERR(class_devp);
+			ERR("%s: class device_create failed %d\n",
+				   __func__, rc);
+			if (!i)
+				goto error_vid_dec_class_device_create;
+			else
+				goto error_vid_dec_cdev_add;
+		}
 
-	if (IS_ERR(class_devp)) {
-		rc = PTR_ERR(class_devp);
-		ERR("%s: class device_create failed %d\n",
-		       __func__, rc);
-		goto error_vid_dec_class_device_create;
-	}
+	  vid_dec_device_p->device[i] = class_devp;
 
-  vid_dec_device_p->device = class_devp;
+		cdev_init(&vid_dec_device_p->cdev[i], &vid_dec_fops[i]);
+		vid_dec_device_p->cdev[i].owner = THIS_MODULE;
+		rc = cdev_add(&(vid_dec_device_p->cdev[i]),
+				(vid_dec_dev_num+i), 1);
 
-	cdev_init(&vid_dec_device_p->cdev, &vid_dec_fops);
-	vid_dec_device_p->cdev.owner = THIS_MODULE;
-	rc = cdev_add(&(vid_dec_device_p->cdev), vid_dec_dev_num, 1);
-
-	if (rc < 0) {
-		ERR("%s: cdev_add failed %d\n", __func__, rc);
-		goto error_vid_dec_cdev_add;
+		if (rc < 0) {
+			ERR("%s: cdev_add failed %d\n", __func__, rc);
+			goto error_vid_dec_cdev_add;
+		}
 	}
 	vid_dec_vcd_init();
 	return 0;
 
 error_vid_dec_cdev_add:
+	for (j = i-1; j >= 0; j--)
+		cdev_del(&(vid_dec_device_p->cdev[j]));
 	device_destroy(vid_dec_class, vid_dec_dev_num);
 error_vid_dec_class_device_create:
 	class_destroy(vid_dec_class);
 error_vid_dec_class_create:
-	unregister_chrdev_region(vid_dec_dev_num, 1);
+	unregister_chrdev_region(vid_dec_dev_num, NUM_OF_DRIVER_NODES);
 error_vid_dec_alloc_chrdev_region:
 	kfree(vid_dec_device_p);
-
 	return rc;
 }
 
 static void __exit vid_dec_exit(void)
 {
-	DBG("msm_vidc_dec: Inside %s()", __func__);
-	cdev_del(&(vid_dec_device_p->cdev));
+	int i = 0;
+	INFO("msm_vidc_dec: Inside %s()", __func__);
+	for (i = 0; i < NUM_OF_DRIVER_NODES; i++)
+		cdev_del(&(vid_dec_device_p->cdev[i]));
 	device_destroy(vid_dec_class, vid_dec_dev_num);
 	class_destroy(vid_dec_class);
-	unregister_chrdev_region(vid_dec_dev_num, 1);
+	unregister_chrdev_region(vid_dec_dev_num, NUM_OF_DRIVER_NODES);
 	kfree(vid_dec_device_p);
 	DBG("msm_vidc_dec: Return from %s()", __func__);
 }

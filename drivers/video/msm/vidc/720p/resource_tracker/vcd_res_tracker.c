@@ -728,3 +728,18 @@ u32 res_trk_get_disable_fullhd(void)
 {
 	return 0;
 }
+
+int res_trk_check_for_sec_session()
+{
+	return 0;
+}
+
+int res_trk_open_secure_session()
+{
+	return -EINVAL;
+}
+
+int res_trk_close_secure_session()
+{
+	return 0;
+}
