@@ -466,6 +466,7 @@ int __ref online_pages(unsigned long pfn, unsigned long nr_pages)
 
 	zone->present_pages += onlined_pages;
 	zone->zone_pgdat->node_present_pages += onlined_pages;
+	drain_all_pages();
 	if (need_zonelists_rebuild)
 		build_all_zonelists(zone);
 	else
