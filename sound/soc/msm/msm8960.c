@@ -724,6 +724,14 @@ static struct snd_soc_dsp_link int_fm_hl_media = {
 	},
 };
 
+static struct snd_soc_dsp_link hdmi_rx_hl = {
+	.playback = true,
+	.trigger = {
+		SND_SOC_DSP_TRIGGER_POST,
+		SND_SOC_DSP_TRIGGER_POST
+	},
+};
+
 static int msm8960_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -1009,6 +1017,18 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.dynamic = 1,
 		.dsp_link = &lpa_fe_media,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA4,
+	},
+	/* HDMI Hostless */
+	{
+		.name = "HDMI_RX_HOSTLESS",
+		.stream_name = "HDMI_RX_HOSTLESS",
+		.cpu_dai_name = "HDMI_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dsp_link = &hdmi_rx_hl,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.no_codec = 1,
+		.ignore_suspend = 1,
 	},
 	/* Backend DAI Links */
 	{
