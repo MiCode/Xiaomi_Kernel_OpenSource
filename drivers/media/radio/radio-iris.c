@@ -97,6 +97,7 @@ struct iris_device {
 	struct hci_fm_riva_poke   riva_data_req;
 	struct hci_fm_ssbi_req    ssbi_data_accs;
 	struct hci_fm_ssbi_peek   ssbi_peek_reg;
+	struct hci_fm_sig_threshold_rsp sig_th;
 };
 
 static struct video_device *priv_videodev;
@@ -1587,13 +1588,11 @@ static void hci_cc_sig_threshold_rsp(struct radio_hci_dev *hdev,
 {
 	struct hci_fm_sig_threshold_rsp  *rsp = (void *)skb->data;
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
-	struct v4l2_control *v4l_ctl = radio->g_ctl;
 
 	if (rsp->status)
 		return;
 
-	v4l_ctl->value = rsp->sig_threshold;
-
+	memcpy(&radio->sig_th, rsp, sizeof(struct hci_fm_sig_threshold_rsp));
 	radio_hci_req_complete(hdev, rsp->status);
 }
 
@@ -2433,6 +2432,11 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SIGNAL_TH:
 		retval = hci_cmd(HCI_FM_GET_SIGNAL_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Error in get signal threshold %d\n", retval);
+			return retval;
+		}
+		ctrl->value = radio->sig_th.sig_threshold;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SRCH_PTY:
 		ctrl->value = radio->srch_rds.srch_pty;
