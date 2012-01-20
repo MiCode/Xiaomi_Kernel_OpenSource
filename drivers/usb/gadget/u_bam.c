@@ -602,7 +602,7 @@ static void gbam_free_buffers(struct gbam_port *port)
 	struct bam_ch_info	*d;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 
 	if (!port || !port->port_usb)
 		goto free_buf_out;
@@ -619,7 +619,7 @@ static void gbam_free_buffers(struct gbam_port *port)
 		dev_kfree_skb_any(skb);
 
 free_buf_out:
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 }
 
@@ -643,9 +643,9 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	unsigned long		flags;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 	port->port_usb = 0;
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	/* disable endpoints */
@@ -664,13 +664,13 @@ static void gbam_connect_work(struct work_struct *w)
 	unsigned long flags;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock_dl, flags);
+		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		return;
 	}
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	if (!test_bit(BAM_CH_READY, &d->flags))
@@ -714,9 +714,9 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 	port->gr->out->driver_data = port;
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 	port->port_usb = port->gr;
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
@@ -775,10 +775,10 @@ static int gbam_data_ch_probe(struct platform_device *pdev)
 
 			/* if usb is online, try opening bam_ch */
 			spin_lock_irqsave(&port->port_lock_ul, flags);
-			spin_lock_irqsave(&port->port_lock_dl, flags);
+			spin_lock(&port->port_lock_dl);
 			if (port->port_usb)
 				queue_work(gbam_wq, &port->connect_w);
-			spin_unlock_irqrestore(&port->port_lock_dl, flags);
+			spin_unlock(&port->port_lock_dl);
 			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 			break;
@@ -807,12 +807,12 @@ static int gbam_data_ch_remove(struct platform_device *pdev)
 			d = &port->data_ch;
 
 			spin_lock_irqsave(&port->port_lock_ul, flags);
-			spin_lock_irqsave(&port->port_lock_dl, flags);
+			spin_lock(&port->port_lock_dl);
 			if (port->port_usb) {
 				ep_in = port->port_usb->in;
 				ep_out = port->port_usb->out;
 			}
-			spin_unlock_irqrestore(&port->port_lock_dl, flags);
+			spin_unlock(&port->port_lock_dl);
 			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 			if (ep_in)
@@ -946,7 +946,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 		if (!port)
 			continue;
 		spin_lock_irqsave(&port->port_lock_ul, flags);
-		spin_lock_irqsave(&port->port_lock_dl, flags);
+		spin_lock(&port->port_lock_dl);
 
 		d = &port->data_ch;
 
@@ -969,7 +969,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				test_bit(BAM_CH_OPENED, &d->flags),
 				test_bit(BAM_CH_READY, &d->flags));
 
-		spin_unlock_irqrestore(&port->port_lock_dl, flags);
+		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	}
 
@@ -994,7 +994,7 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 			continue;
 
 		spin_lock_irqsave(&port->port_lock_ul, flags);
-		spin_lock_irqsave(&port->port_lock_dl, flags);
+		spin_lock(&port->port_lock_dl);
 
 		d = &port->data_ch;
 
@@ -1004,7 +1004,7 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
 
-		spin_unlock_irqrestore(&port->port_lock_dl, flags);
+		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	}
 	return count;
@@ -1071,10 +1071,10 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		gbam_free_buffers(port);
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 	port->port_usb = 0;
 	n_tx_req_queued = 0;
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 		/* disable endpoints */
@@ -1136,7 +1136,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		gr->out->driver_data = port;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock_irqsave(&port->port_lock_dl, flags);
+	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 
 		d->to_host = 0;
@@ -1144,7 +1144,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->pending_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
-	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	}
 
