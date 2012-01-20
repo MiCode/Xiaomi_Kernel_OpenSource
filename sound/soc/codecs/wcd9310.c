@@ -2610,14 +2610,15 @@ static void tabla_codec_enable_bandgap(struct snd_soc_codec *codec,
 	if ((tabla->bandgap_type == TABLA_BANDGAP_OFF) &&
 		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
 		tabla_codec_enable_audio_mode_bandgap(codec);
-	} else if ((tabla->bandgap_type == TABLA_BANDGAP_AUDIO_MODE) &&
-		(choice == TABLA_BANDGAP_MBHC_MODE)) {
+	} else if (choice == TABLA_BANDGAP_MBHC_MODE) {
 		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x2,
 			0x2);
 		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
 			0x80);
 		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x4,
 			0x4);
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x01,
+			0x01);
 		usleep_range(1000, 1000);
 		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
 			0x00);
@@ -2793,6 +2794,10 @@ int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
 			tabla_codec_enable_clock_block(codec, 0);
 			tabla_codec_calibrate_hs_polling(codec);
 			tabla_codec_start_hs_polling(codec);
+		} else {
+			tabla_codec_enable_bandgap(codec,
+					TABLA_BANDGAP_AUDIO_MODE);
+			tabla_codec_enable_clock_block(codec, 0);
 		}
 	} else {
 
@@ -2814,6 +2819,10 @@ int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
 			}
 			snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1,
 					0x05, 0x01);
+		} else {
+			tabla_codec_disable_clock_block(codec);
+			tabla_codec_enable_bandgap(codec,
+				TABLA_BANDGAP_OFF);
 		}
 	}
 	return 0;
@@ -3993,8 +4002,8 @@ static void tabla_codec_shutdown_hs_polling(struct snd_soc_codec *codec)
 
 	if (!tabla->mclk_enabled) {
 		snd_soc_update_bits(codec, TABLA_A_TX_COM_BIAS, 0xE0, 0x00);
-		tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_AUDIO_MODE);
-		tabla_codec_enable_clock_block(codec, 0);
+		tabla_codec_disable_clock_block(codec);
+		tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_OFF);
 	}
 
 	tabla->mbhc_polling_active = false;
@@ -4645,10 +4654,6 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		pr_err("%s: bad pdata\n", __func__);
 		goto err_pdata;
 	}
-
-	/* TODO only enable bandgap when necessary in order to save power */
-	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_AUDIO_MODE);
-	tabla_codec_enable_clock_block(codec, 0);
 
 	snd_soc_add_controls(codec, tabla_snd_controls,
 		ARRAY_SIZE(tabla_snd_controls));
