@@ -1225,7 +1225,6 @@ static struct msm_spm_seq_entry msm_spm_l2_seq_list[] __initdata = {
 static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 	[0] = {
 		.reg_base_addr = MSM_SAW_L2_BASE,
-		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
 		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x00A000AE,
@@ -1238,9 +1237,7 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	[0] = {
 		.reg_base_addr = MSM_SAW0_BASE,
-		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
@@ -1255,9 +1252,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 	[1] = {
 		.reg_base_addr = MSM_SAW1_BASE,
-		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
@@ -1272,9 +1267,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 	[2] = {
 		.reg_base_addr = MSM_SAW2_BASE,
-		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
@@ -1289,9 +1282,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 	[3] = {
 		.reg_base_addr = MSM_SAW3_BASE,
-		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
-		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
 #if defined(CONFIG_MSM_AVS_HW)
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
