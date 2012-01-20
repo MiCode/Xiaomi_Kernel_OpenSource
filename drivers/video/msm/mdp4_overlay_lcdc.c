@@ -451,6 +451,29 @@ void mdp4_overlay0_done_lcdc(struct mdp_dma_data *dma)
 	complete(&dma->comp);
 }
 
+static void mdp4_overlay_lcdc_prefill(struct msm_fb_data_type *mfd)
+{
+	unsigned long flag;
+
+	if (lcdc_pipe->blt_addr) {
+		mdp4_overlay_lcdc_dma_busy_wait(mfd);
+
+		mdp4_lcdc_blt_ov_update(lcdc_pipe);
+		lcdc_pipe->ov_cnt++;
+
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
+		mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		mdp_enable_irq(MDP_OVERLAY0_TERM);
+		mfd->dma->busy = TRUE;
+		mb();	/* make sure all registers updated */
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		outpdw(MDP_BASE + 0x0004, 0); /* kickoff overlay engine */
+		mdp4_stat.kickoff_ov0++;
+		mb();
+	}
+}
 /*
  * make sure the MIPI_DSI_WRITEBACK_SIZE defined at boardfile
  * has enough space h * w * 3 * 2
@@ -490,6 +513,10 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 	msleep(20);
 	mdp4_overlayproc_cfg(lcdc_pipe);
 	mdp4_overlay_dmap_xy(lcdc_pipe);
+	if (lcdc_pipe->blt_addr) {
+		mdp4_overlay_lcdc_prefill(mfd);
+		mdp4_overlay_lcdc_prefill(mfd);
+	}
 	MDP_OUTP(MDP_BASE + LCDC_BASE, 1);	/* start lcdc */
 }
 
