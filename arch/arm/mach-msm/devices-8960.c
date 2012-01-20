@@ -1537,6 +1537,7 @@ struct platform_device msm_pcm_afe = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
+	FS_8X60(FS_MDP,    "fs_mdp"),
 	FS_8X60(FS_ROT,    "fs_rot"),
 	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
 	FS_8X60(FS_VFE,    "fs_vfe"),
