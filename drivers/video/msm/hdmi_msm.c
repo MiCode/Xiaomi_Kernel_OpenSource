@@ -2324,29 +2324,6 @@ static int hdcp_authentication_part1(void)
 
 		msm_hdmi_init_ddc();
 
-		/* Read Bksv 5 bytes at 0x00 in HDCP port */
-		ret = hdmi_msm_ddc_read(0x74, 0x00, bksv, 5, 5, "Bksv", TRUE);
-		if (ret) {
-			DEV_ERR("%s(%d): Read BKSV failed", __func__, __LINE__);
-			goto error;
-		}
-		/* check there are 20 ones in BKSV */
-		if (hdmi_msm_count_one(bksv, 5) != 20) {
-			DEV_ERR("HDCP: BKSV read from Sink doesn't have "
-				"20 1's and 20 0's, FAIL (BKSV="
-				"%02x%02x%02x%02x%02x)\n",
-				bksv[4], bksv[3], bksv[2], bksv[1], bksv[0]);
-			ret = -EINVAL;
-			goto error;
-		}
-
-		link0_bksv_0 = bksv[3];
-		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[2];
-		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[1];
-		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[0];
-		link0_bksv_1 = bksv[4];
-		DEV_DBG("HDCP: BKSV=%02x%08x\n", link0_bksv_1, link0_bksv_0);
-
 		/* read Bcaps at 0x40 in HDCP Port */
 		ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, 5, "Bcaps",
 			TRUE);
@@ -2493,6 +2470,29 @@ static int hdcp_authentication_part1(void)
 		}
 		DEV_DBG("HDCP: Link0-AKSV=%02x%08x\n",
 			link0_aksv_1 & 0xFF, link0_aksv_0);
+
+		/* Read Bksv 5 bytes at 0x00 in HDCP port */
+		ret = hdmi_msm_ddc_read(0x74, 0x00, bksv, 5, 5, "Bksv", TRUE);
+		if (ret) {
+			DEV_ERR("%s(%d): Read BKSV failed", __func__, __LINE__);
+			goto error;
+		}
+		/* check there are 20 ones in BKSV */
+		if (hdmi_msm_count_one(bksv, 5) != 20) {
+			DEV_ERR("HDCP: BKSV read from Sink doesn't have "
+				"20 1's and 20 0's, FAIL (BKSV="
+				"%02x%02x%02x%02x%02x)\n",
+				bksv[4], bksv[3], bksv[2], bksv[1], bksv[0]);
+			ret = -EINVAL;
+			goto error;
+		}
+
+		link0_bksv_0 = bksv[3];
+		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[2];
+		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[1];
+		link0_bksv_0 = (link0_bksv_0 << 8) | bksv[0];
+		link0_bksv_1 = bksv[4];
+		DEV_DBG("HDCP: BKSV=%02x%08x\n", link0_bksv_1, link0_bksv_0);
 
 		/* 0x0134 HDCP_RCVPORT_DATA0
 		   [31:0] LINK0_BKSV_0 */
