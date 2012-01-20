@@ -5771,15 +5771,6 @@ static void __init msm8960_clock_init(void)
 	} else
 		/* CSI2 hardware not present on 8960v1 devices */
 		pix_rdi_mux_map[2] = NULL;
-
-	if (machine_is_msm8960_sim()) {
-		clk_set_rate(&sdc1_clk.c, 48000000);
-		clk_enable(&sdc1_clk.c);
-		clk_enable(&sdc1_p_clk.c);
-		clk_set_rate(&sdc3_clk.c, 48000000);
-		clk_enable(&sdc3_clk.c);
-		clk_enable(&sdc3_p_clk.c);
-	}
 }
 
 static int __init msm8960_clock_late_init(void)
