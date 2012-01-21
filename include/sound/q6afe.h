@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,7 +76,9 @@ int afe_get_port_index(u16 port_id);
 int afe_start_pseudo_port(u16 port_id);
 int afe_stop_pseudo_port(u16 port_id);
 int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
+int afe_cmd_memory_map_nowait(u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_unmap(u32 dma_addr_p);
+int afe_cmd_memory_unmap_nowait(u32 dma_addr_p);
 
 int afe_register_get_events(u16 port_id,
 		void (*cb) (uint32_t opcode,

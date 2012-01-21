@@ -1,7 +1,6 @@
-
 /*
  *
- * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -353,6 +352,12 @@ struct afe_port_cmd_set_param {
 	struct afe_param_payload payload;
 } __attribute__ ((packed));
 
+struct afe_port_cmd_set_param_no_payload {
+	struct apr_hdr hdr;
+	u16 port_id;
+	u16 payload_size;
+	u32 payload_address;
+} __packed;
 
 #define AFE_EVENT_GET_ACTIVE_PORTS 0x00010100
 struct afe_get_active_ports_rsp {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -791,7 +791,7 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 	struct apr_hdr cvs_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
 	int index = 0;
@@ -830,11 +830,12 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 	pr_debug("cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
 		pr_debug(" cal size =%d\n", cal_size_per_network);
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
 			pr_err("Cal size is too big\n");
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
 		cvs_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
 			cal_size_per_network);
@@ -868,7 +869,7 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 	struct apr_hdr cvp_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
 	int index = 0;
@@ -907,11 +908,12 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 	pr_debug(" cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
 			pr_err("Cal size is too big\n");
 		pr_debug(" cal size =%d\n", cal_size_per_network);
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
 
 		cvp_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
@@ -945,11 +947,9 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	struct apr_hdr cvp_vol_cal_cmd_hdr;
 	uint32_t *cmd_buf;
 	struct acdb_cal_data cal_data;
-	struct acdb_cal_block *cal_blk;
+	struct acdb_atomic_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
-	uint32_t num_volume_steps;
-	int offset = 0;
 	int index = 0;
 	int ret = 0;
 	void *apr_cvp = voice_get_apr_cvp();
@@ -986,27 +986,18 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	pr_debug("Cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
 	for (; index < cal_data.num_cal_blocks; index++) {
-		cal_size_per_network = cal_blk[index].cal_size;
-		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
-
-		/* Number of volume steps are only included in the */
-		/* first block, need to be inserted into the rest */
-		if (index != 0) {
-			offset = sizeof(num_volume_steps);
-			memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
-				&num_volume_steps, offset);
-		} else {
-			num_volume_steps = *cal_data_per_network;
-		}
+		cal_size_per_network = atomic_read(&cal_blk[index].cal_size);
+		cal_data_per_network =
+			(u32 *)atomic_read(&cal_blk[index].cal_kvaddr);
 
 		pr_debug("Cal size =%d, index=%d\n", cal_size_per_network,
 			index);
 		pr_debug("Cal data=%x\n", (uint32_t)cal_data_per_network);
 		cvp_vol_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-			cal_size_per_network + offset);
+			cal_size_per_network);
 		memcpy(cmd_buf, &cvp_vol_cal_cmd_hdr,  APR_HDR_SIZE);
-		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)) +
-			offset, cal_data_per_network, cal_size_per_network);
+		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
+			cal_data_per_network, cal_size_per_network);
 		pr_debug("Send vol table\n");
 
 		v->cvp_state = CMD_STATUS_FAIL;
