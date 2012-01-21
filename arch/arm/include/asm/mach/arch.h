@@ -21,7 +21,7 @@ struct machine_desc {
 	const char		**dt_compat;	/* array of device tree
 						 * 'compatible' strings	*/
 
-	unsigned int		nr_irqs;	/* number of IRQs */
+	int			nr_irqs;	/* number of IRQs */
 
 	unsigned int		video_start;	/* start of video RAM	*/
 	unsigned int		video_end;	/* end of video RAM	*/

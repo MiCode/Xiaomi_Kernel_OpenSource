@@ -34,7 +34,7 @@
 #define TLMM_MSM_SUMMARY_IRQ		(GIC_SPI_START + 16)
 #define SPS_BAM_DMA_IRQ			(GIC_SPI_START + 105)
 
-#define NR_MSM_IRQS 256
+#define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
 #define NR_GPIO_IRQS 156
 #define NR_BOARD_IRQS 100
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8

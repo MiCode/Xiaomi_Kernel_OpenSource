@@ -134,8 +134,18 @@ void __init init_IRQ(void)
 #ifdef CONFIG_SPARSE_IRQ
 int __init arch_probe_nr_irqs(void)
 {
-	nr_irqs = machine_desc->nr_irqs ? machine_desc->nr_irqs : NR_IRQS;
-	return nr_irqs;
+	/*
+	 * machine_desc->nr_irqs < 0 is a special case that
+	 * specifies not to preallocate any irq_descs.
+	 */
+	if (machine_desc->nr_irqs < 0) {
+		nr_irqs = 0;
+		return nr_irqs;
+	} else {
+		nr_irqs = machine_desc->nr_irqs ?
+			  machine_desc->nr_irqs : NR_IRQS;
+		return nr_irqs;
+	}
 }
 #endif
 

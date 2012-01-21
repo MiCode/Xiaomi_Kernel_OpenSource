@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/of_irq.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <mach/board.h>
@@ -43,24 +44,20 @@ void __init msm_copper_add_devices(void)
 {
 }
 
-static struct of_device_id msm_copper_gic_match[] __initdata = {
-	{ .compatible = "qcom,msm-qgic2", },
+static struct of_device_id irq_match[] __initdata  = {
+	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{}
 };
 
 void __init msm_copper_init_irq(void)
 {
-	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
-			(void *)MSM_QGIC_CPU_BASE);
-
 	/* Edge trigger PPIs except AVS_SVICINT and AVS_SVICINTSWDONE */
 	writel_relaxed(0xFFFFD7FF, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
 
 	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 	mb();
 
-	irq_domain_generate_simple(msm_copper_gic_match,
-		COPPER_QGIC_DIST_PHYS, GIC_SPI_START);
+	of_irq_init(irq_match);
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
