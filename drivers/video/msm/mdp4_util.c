@@ -554,7 +554,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		mdp_intr_mask &= ~INTR_DMA_E_DONE;
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 		dma->busy = FALSE;
-
+		mdp4_dma_e_done_dtv();
 		if (dma->waiting) {
 			dma->waiting = FALSE;
 			complete(&dma->comp);

@@ -239,13 +239,27 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe)
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	/* dma_p source */
 	MDP_OUTP(MDP_BASE + 0xb0004,
 			(pipe->src_height << 16 | pipe->src_width));
-	MDP_OUTP(MDP_BASE + 0xb0008, pipe->srcp0_addr);
-	MDP_OUTP(MDP_BASE + 0xb000c, pipe->srcp0_ystride);
-
-	/* dma_p dest */
+	if (pipe->blt_addr) {
+		uint32 off, bpp;
+#ifdef BLT_RGB565
+		bpp = 2; /* overlay ouput is RGB565 */
+#else
+		bpp = 3; /* overlay ouput is RGB888 */
+#endif
+		off = 0;
+		if (pipe->ov_cnt & 0x01)
+			off = pipe->src_height * pipe->src_width * bpp;
+		MDP_OUTP(MDP_BASE + 0xb0008, pipe->blt_addr + off);
+		/* RGB888, output of overlay blending */
+		MDP_OUTP(MDP_BASE + 0xb000c, pipe->src_width * bpp);
+	} else {
+		/* dma_e source */
+		MDP_OUTP(MDP_BASE + 0xb0008, pipe->srcp0_addr);
+		MDP_OUTP(MDP_BASE + 0xb000c, pipe->srcp0_ystride);
+	}
+	/* dma_e dest */
 	MDP_OUTP(MDP_BASE + 0xb0010, (pipe->dst_y << 16 | pipe->dst_x));
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
@@ -1114,7 +1128,7 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	/*
-	 * BLT only siupport at primary display
+	 * BLT support both primary and external external
 	 */
 	if (pipe->blt_addr) {
 		int off, bpp;
@@ -1127,7 +1141,8 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 		data <<= 16;
 		data |= pipe->src_width;
 		outpdw(overlay_base + 0x0008, data); /* ROI, height + width */
-		if (pipe->mixer_num == MDP4_MIXER0) {
+		if (pipe->mixer_num == MDP4_MIXER0 ||
+		    pipe->mixer_num == MDP4_MIXER1) {
 			off = 0;
 			if (pipe->ov_cnt & 0x01)
 				off = pipe->src_height * pipe->src_width * bpp;
