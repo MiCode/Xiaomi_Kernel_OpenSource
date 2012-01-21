@@ -480,8 +480,8 @@ static void __init locate_unstable_memory(void)
 
 	if (high - low <= bank_size)
 		return;
-	msm8960_reserve_info.low_unstable_address = high -
-						MIN_MEMORY_BLOCK_SIZE;
+	msm8960_reserve_info.low_unstable_address = mb->start -
+					MIN_MEMORY_BLOCK_SIZE + mb->size;
 	msm8960_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
 
 	msm8960_reserve_info.bank_size = bank_size;
