@@ -924,6 +924,38 @@ void branch_clk_disable_hwcg(struct clk *clk)
 	branch_disable_hwcg(&branch->b);
 }
 
+static int branch_set_flags(struct branch *b, unsigned flags)
+{
+	unsigned long irq_flags;
+	u32 reg_val;
+	int ret = 0;
+
+	if (!b->retain_reg)
+		return -EPERM;
+
+	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
+	reg_val = readl_relaxed(b->retain_reg);
+	switch (flags) {
+	case CLKFLAG_RETAIN:
+		reg_val |= b->retain_mask;
+		break;
+	case CLKFLAG_NORETAIN:
+		reg_val &= ~b->retain_mask;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	writel_relaxed(reg_val, b->retain_reg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
+
+	return ret;
+}
+
+int branch_clk_set_flags(struct clk *clk, unsigned flags)
+{
+	return branch_set_flags(&to_branch_clk(clk)->b, flags);
+}
+
 int branch_clk_in_hwcg_mode(struct clk *c)
 {
 	struct branch_clk *clk = to_branch_clk(c);
@@ -946,6 +978,11 @@ int rcg_clk_in_hwcg_mode(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	return branch_in_hwcg_mode(&clk->b);
+}
+
+int rcg_clk_set_flags(struct clk *clk, unsigned flags)
+{
+	return branch_set_flags(&to_rcg_clk(clk)->b, flags);
 }
 
 int branch_reset(struct branch *b, enum clk_reset_action action)
