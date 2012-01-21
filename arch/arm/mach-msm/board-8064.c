@@ -653,6 +653,11 @@ static struct platform_device *rumi3_devices[] __initdata = {
 	&msm_device_sps_apq8064,
 };
 
+static struct platform_device *cdp_devices[] __initdata = {
+	&apq8064_device_uart_gsbi1,
+	&msm_device_sps_apq8064,
+};
+
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 	.max_clock_speed = 24000000,
 };
@@ -759,6 +764,14 @@ static void __init apq8064_rumi3_init(void)
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 }
 
+static void __init apq8064_cdp_init(void)
+{
+	apq8064_common_init();
+	ethernet_init();
+	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+}
+
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
 	.map_io = apq8064_map_io,
 	.reserve = apq8064_reserve,
@@ -775,5 +788,32 @@ MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_rumi3_init,
+MACHINE_END
+
+MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
+	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
+	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = apq8064_cdp_init,
+MACHINE_END
+
+MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
+	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
+	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = apq8064_cdp_init,
+MACHINE_END
+
+MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
+	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
+	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = apq8064_cdp_init,
 MACHINE_END
 

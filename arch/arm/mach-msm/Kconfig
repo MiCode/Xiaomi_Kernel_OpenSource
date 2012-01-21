@@ -198,7 +198,6 @@ config ARCH_MSM8930
 config ARCH_APQ8064
 	bool "APQ8064"
 	select ARCH_MSM_KRAITMP
-	select MACH_APQ8064_SIM if !MACH_APQ8064_RUMI3
 	select MSM_V2_TLMM
 	select ARM_GIC
 	select CPU_V7
@@ -674,6 +673,24 @@ config MACH_APQ8064_RUMI3
 	bool "APQ8064 RUMI3"
 	help
 	  Support for the Qualcomm APQ8064 RUMI3 emulator.
+
+config MACH_APQ8064_CDP
+	depends on ARCH_APQ8064
+	bool "APQ8064 CDP"
+	help
+	  Support for the Qualcomm APQ8064 CDP device.
+
+config MACH_APQ8064_MTP
+	depends on ARCH_APQ8064
+	bool "APQ8064 MTP"
+	help
+	  Support for the Qualcomm APQ8064 MTP device.
+
+config MACH_APQ8064_LIQUID
+	depends on ARCH_APQ8064
+	bool "APQ8064 LIQUID"
+	help
+	  Support for the Qualcomm APQ8064 LIQUID device.
 
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
