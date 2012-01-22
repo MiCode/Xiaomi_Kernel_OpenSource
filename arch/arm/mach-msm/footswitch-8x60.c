@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +103,8 @@ static int setup_clocks(struct footswitch *fs)
 					clock->name, clock->rate);
 				for (clock--; clock >= fs->clk_data; clock--) {
 					if (clock->enabled)
-						clk_disable(clock->clk);
+						clk_disable_unprepare(
+								clock->clk);
 					clk_set_rate(clock->clk, clock->rate);
 				}
 				return rc;
@@ -115,7 +116,7 @@ static int setup_clocks(struct footswitch *fs)
 		 * we don't try to disable them later and crash due to
 		 * unbalanced calls.
 		 */
-		clock->enabled = !clk_enable(clock->clk);
+		clock->enabled = !clk_prepare_enable(clock->clk);
 	}
 
 	return 0;
@@ -128,7 +129,7 @@ static void restore_clocks(struct footswitch *fs)
 	/* Restore clocks to their orignal states before setup_clocks(). */
 	for (clock = fs->clk_data; clock->clk; clock++) {
 		if (clock->enabled)
-			clk_disable(clock->clk);
+			clk_disable_unprepare(clock->clk);
 		if (clock->rate && clk_set_rate(clock->clk, clock->rate))
 			pr_err("Failed to restore %s rate to %lu Hz.\n",
 				clock->name, clock->rate);
@@ -327,7 +328,7 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	}
 
 	/* Disable core clock. */
-	clk_disable(fs->core_clk);
+	clk_disable_unprepare(fs->core_clk);
 
 	/*
 	 * (Re-)Assert resets for all clocks in the clock domain, since
@@ -357,7 +358,7 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	udelay(RESET_DELAY_US);
 
 	/* Re-enable core clock. */
-	clk_enable(fs->core_clk);
+	clk_prepare_enable(fs->core_clk);
 
 	/* Return clocks to their state before this function. */
 	restore_clocks(fs);
@@ -396,7 +397,7 @@ static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
 	}
 
 	/* Disable core clock. */
-	clk_disable(fs->core_clk);
+	clk_disable_unprepare(fs->core_clk);
 
 	/*
 	 * Assert resets for all clocks in the clock domain so that
@@ -421,7 +422,7 @@ static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 
 	/* Re-enable core clock. */
-	clk_enable(fs->core_clk);
+	clk_prepare_enable(fs->core_clk);
 
 	/* Return clocks to their state before this function. */
 	restore_clocks(fs);
