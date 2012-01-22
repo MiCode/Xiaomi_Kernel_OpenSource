@@ -12,6 +12,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/io.h>
 #include <linux/i2c.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/msm_ssbi.h>
@@ -341,8 +342,55 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.disable_reset_on_disconnect	= true,
 };
 
+#define PID_MAGIC_ID		0x71432909
+#define SERIAL_NUM_MAGIC_ID	0x61945374
+#define SERIAL_NUMBER_LENGTH	127
+#define DLOAD_USB_BASE_ADD	0x2B0000C8
+
+struct magic_num_struct {
+	uint32_t pid;
+	uint32_t serial_num;
+};
+
+struct dload_struct {
+	uint32_t	reserved1;
+	uint32_t	reserved2;
+	uint32_t	reserved3;
+	uint16_t	reserved4;
+	uint16_t	pid;
+	char		serial_number[SERIAL_NUMBER_LENGTH];
+	uint16_t	reserved5;
+	struct magic_num_struct magic_struct;
+};
+
 static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 {
+	struct dload_struct __iomem *dload = 0;
+
+	dload = ioremap(DLOAD_USB_BASE_ADD, sizeof(*dload));
+	if (!dload) {
+		pr_err("%s: cannot remap I/O memory region: %08x\n",
+					__func__, DLOAD_USB_BASE_ADD);
+		return -ENXIO;
+	}
+
+	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+				__func__, dload, pid, snum);
+	/* update pid */
+	dload->magic_struct.pid = PID_MAGIC_ID;
+	dload->pid = pid;
+
+	/* update serial number */
+	dload->magic_struct.serial_num = 0;
+	if (!snum) {
+		memset(dload->serial_number, 0, SERIAL_NUMBER_LENGTH);
+		goto out;
+	}
+
+	dload->magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
+	strlcpy(dload->serial_number, snum, SERIAL_NUMBER_LENGTH);
+out:
+	iounmap(dload);
 	return 0;
 }
 
