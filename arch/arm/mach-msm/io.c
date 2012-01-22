@@ -278,6 +278,7 @@ static struct map_desc apq8064_io_desc[] __initdata = {
 		.length =   MSM_SHARED_RAM_SIZE,
 		.type =     MT_DEVICE,
 	},
+	MSM_CHIP_DEVICE(QFPROM, APQ8064),
 };
 
 void __init msm_map_apq8064_io(void)
