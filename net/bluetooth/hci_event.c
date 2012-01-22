@@ -1606,12 +1606,12 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		if (test_bit(HCI_ENCRYPT, &hdev->flags))
 			conn->link_mode |= HCI_LM_ENCRYPT;
 
-		/* Get remote features */
+		/* Get remote version */
 		if (conn->type == ACL_LINK) {
-			struct hci_cp_read_remote_features cp;
+			struct hci_cp_read_remote_version cp;
 			cp.handle = ev->handle;
-			hci_send_cmd(hdev, HCI_OP_READ_REMOTE_FEATURES,
-							sizeof(cp), &cp);
+			hci_send_cmd(hdev, HCI_OP_READ_REMOTE_VERSION,
+				sizeof(cp), &cp);
 		}
 
 		/* Set packet type for incoming connection */
@@ -1959,7 +1959,24 @@ unlock:
 
 static inline void hci_remote_version_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
-	BT_DBG("%s", hdev->name);
+	struct hci_ev_remote_version *ev = (void *) skb->data;
+	struct hci_cp_read_remote_features cp;
+	struct hci_conn *conn;
+	BT_DBG("%s status %d", hdev->name, ev->status);
+
+	hci_dev_lock(hdev);
+	cp.handle = ev->handle;
+	hci_send_cmd(hdev, HCI_OP_READ_REMOTE_FEATURES,
+				sizeof(cp), &cp);
+
+	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
+	if (!conn)
+		goto unlock;
+	if (!ev->status)
+		mgmt_remote_version(hdev->id, &conn->dst, ev->lmp_ver,
+				ev->manufacturer, ev->lmp_subver);
+unlock:
+	hci_dev_unlock(hdev);
 }
 
 static inline void hci_qos_setup_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)

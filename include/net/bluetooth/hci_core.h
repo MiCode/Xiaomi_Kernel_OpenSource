@@ -1047,6 +1047,8 @@ int mgmt_encrypt_change(u16 index, bdaddr_t *bdaddr, u8 status);
 /* LE SMP Management interface */
 int le_user_confirm_reply(struct hci_conn *conn, u16 mgmt_op, void *cp);
 int mgmt_remote_class(u16 index, bdaddr_t *bdaddr, u8 dev_class[3]);
+int mgmt_remote_version(u16 index, bdaddr_t *bdaddr, u8 ver, u16 mnf,
+							u16 sub_ver);
 
 /* HCI info for socket */
 #define hci_pi(sk) ((struct hci_pinfo *) sk)
