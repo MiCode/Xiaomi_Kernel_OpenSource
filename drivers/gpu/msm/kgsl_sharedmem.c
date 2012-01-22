@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,7 +421,7 @@ _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 	memdesc->ops = &kgsl_vmalloc_ops;
 	memdesc->hostptr = (void *) ptr;
 
-	memdesc->sg = kmalloc(sglen * sizeof(struct scatterlist), GFP_KERNEL);
+	memdesc->sg = vmalloc(sglen * sizeof(struct scatterlist));
 	if (memdesc->sg == NULL) {
 		ret = -ENOMEM;
 		goto done;
@@ -554,7 +554,7 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (memdesc->ops && memdesc->ops->free)
 		memdesc->ops->free(memdesc);
 
-	kfree(memdesc->sg);
+	vfree(memdesc->sg);
 
 	memset(memdesc, 0, sizeof(*memdesc));
 }
