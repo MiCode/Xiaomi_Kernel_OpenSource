@@ -622,7 +622,10 @@ void kgsl_timer(unsigned long data)
 
 	KGSL_PWR_INFO(device, "idle timer expired device %d\n", device->id);
 	if (device->requested_state == KGSL_STATE_NONE) {
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLEEP);
+		if (device->pwrctrl.restore_slumber)
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
+		else
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_SLEEP);
 		/* Have work run in a non-interrupt context. */
 		queue_work(device->work_queue, &device->idle_check_ws);
 	}
@@ -788,17 +791,10 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 	/* Work through the legal state transitions */
 	switch (device->requested_state) {
 	case KGSL_STATE_NAP:
-		if (device->pwrctrl.restore_slumber) {
-			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-			break;
-		}
 		status = _nap(device);
 		break;
 	case KGSL_STATE_SLEEP:
-		if (device->pwrctrl.restore_slumber)
-			status = _slumber(device);
-		else
-			status = _sleep(device);
+		status = _sleep(device);
 		break;
 	case KGSL_STATE_SLUMBER:
 		status = _slumber(device);
