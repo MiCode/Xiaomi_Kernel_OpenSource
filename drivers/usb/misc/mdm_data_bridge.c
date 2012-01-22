@@ -60,6 +60,7 @@ struct data_bridge {
 	struct usb_device		*udev;
 	unsigned int			bulk_in;
 	unsigned int			bulk_out;
+	int				err;
 
 	/* keep track of in-flight URBs */
 	struct usb_anchor		tx_active;
@@ -293,6 +294,7 @@ int data_bridge_open(struct bridge *brdg)
 	dev_dbg(&dev->udev->dev, "%s: dev:%p\n", __func__, dev);
 
 	dev->brdg = brdg;
+	dev->err = 0;
 	atomic_set(&dev->pending_txurbs, 0);
 	dev->to_host = 0;
 	dev->to_modem = 0;
@@ -399,6 +401,9 @@ static void data_bridge_write_cb(struct urb *urb)
 	switch (urb->status) {
 	case 0: /*success*/
 		break;
+	case -EPROTO:
+		dev->err = -EPROTO;
+		break;
 	case -EPIPE:
 		set_bit(TX_HALT, &dev->flags);
 		dev_err(&dev->udev->dev, "%s: epout halted\n", __func__);
@@ -441,7 +446,7 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	struct data_bridge	*dev = __dev[id];
 	struct bridge		*brdg;
 
-	if (!dev || !dev->brdg || !usb_get_intfdata(dev->intf))
+	if (!dev || !dev->brdg || dev->err || !usb_get_intfdata(dev->intf))
 		return -ENODEV;
 
 	brdg = dev->brdg;
@@ -675,6 +680,7 @@ static ssize_t data_bridge_read_stats(struct file *file, char __user *ubuf,
 				"rx throttled cnt:   %u\n"
 				"rx unthrottled cnt: %u\n"
 				"rx done skb qlen:   %u\n"
+				"dev err:            %d\n"
 				"suspended:          %d\n"
 				"TX_HALT:            %d\n"
 				"RX_HALT:            %d\n",
@@ -688,6 +694,7 @@ static ssize_t data_bridge_read_stats(struct file *file, char __user *ubuf,
 				dev->rx_throttled_cnt,
 				dev->rx_unthrottled_cnt,
 				dev->rx_done.qlen,
+				dev->err,
 				test_bit(SUSPENDED, &dev->flags),
 				test_bit(TX_HALT, &dev->flags),
 				test_bit(RX_HALT, &dev->flags));
