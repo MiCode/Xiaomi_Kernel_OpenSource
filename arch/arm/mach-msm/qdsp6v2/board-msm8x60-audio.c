@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2699,7 +2699,10 @@ void __init msm_snddev_init(void)
 
 		platform_add_devices(snd_devices_fluid,
 		ARRAY_SIZE(snd_devices_fluid));
-	} else if (machine_is_msm8x60_surf()) {
+	}
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()
+		|| machine_is_msm8x60_fusion()
+		|| machine_is_msm8x60_fusn_ffa()) {
 		for (i = 0; i < ARRAY_SIZE(snd_devices_ftm); i++)
 			snd_devices_ftm[i]->id = dev_id++;
 
