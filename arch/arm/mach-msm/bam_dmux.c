@@ -33,6 +33,7 @@
 #include <mach/msm_smsm.h>
 #include <mach/subsystem_notif.h>
 #include <mach/socinfo.h>
+#include <mach/subsystem_restart.h>
 
 #define BAM_CH_LOCAL_OPEN       0x1
 #define BAM_CH_REMOTE_OPEN      0x2
@@ -668,6 +669,8 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	if (!bam_is_connected) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		if (unlikely(in_global_reset == 1))
+			return -EFAULT;
 		read_lock(&ul_wakeup_lock);
 		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
@@ -805,6 +808,8 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	if (!bam_is_connected) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		if (unlikely(in_global_reset == 1))
+			return -EFAULT;
 		read_lock(&ul_wakeup_lock);
 		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
@@ -840,6 +845,8 @@ int msm_bam_dmux_close(uint32_t id)
 	if (!bam_is_connected && !bam_ch_is_in_reset(id)) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		if (unlikely(in_global_reset == 1))
+			return -EFAULT;
 		read_lock(&ul_wakeup_lock);
 		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
@@ -1288,6 +1295,8 @@ static void kickoff_ul_wakeup_func(struct work_struct *work)
 	if (!bam_is_connected) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
+		if (unlikely(in_global_reset == 1))
+			return;
 		read_lock(&ul_wakeup_lock);
 		ul_packet_written = 1;
 		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
@@ -1386,6 +1395,26 @@ static void ul_timeout(struct work_struct *work)
 	write_unlock_irqrestore(&ul_wakeup_lock, flags);
 	ul_powerdown_finish();
 }
+
+static int ssrestart_check(void)
+{
+	/*
+	 * if the restart level is RESET_SOC, SSR is not on
+	 * so the crashed modem will end up crashing the system
+	 * anyways, so use BUG() to report the error
+	 * else prepare for the restart event which should
+	 * happen soon
+	 */
+	DMUX_LOG_KERR("%s: modem timeout\n", __func__);
+	if (get_restart_level() <= RESET_SOC) {
+		BUG();
+		return 0;
+	} else {
+		in_global_reset = 1;
+		return 1;
+	}
+}
+
 static void ul_wakeup(void)
 {
 	int ret;
@@ -1429,17 +1458,29 @@ static void ul_wakeup(void)
 		bam_dmux_log("%s waiting for previous ack\n", __func__);
 		ret = wait_for_completion_timeout(
 					&ul_wakeup_ack_completion, HZ);
-		BUG_ON(ret == 0);
 		wait_for_ack = 0;
+		if (unlikely(ret == 0) && ssrestart_check()) {
+			mutex_unlock(&wakeup_lock);
+			bam_dmux_log("%s timeout previous ack\n", __func__);
+			return;
+		}
 	}
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	power_vote(1);
 	bam_dmux_log("%s waiting for wakeup ack\n", __func__);
 	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, HZ);
-	BUG_ON(ret == 0);
+	if (unlikely(ret == 0) && ssrestart_check()) {
+		mutex_unlock(&wakeup_lock);
+		bam_dmux_log("%s timeout wakeup ack\n", __func__);
+		return;
+	}
 	bam_dmux_log("%s waiting completion\n", __func__);
 	ret = wait_for_completion_timeout(&bam_connection_completion, HZ);
-	BUG_ON(ret == 0);
+	if (unlikely(ret == 0) && ssrestart_check()) {
+		mutex_unlock(&wakeup_lock);
+		bam_dmux_log("%s timeout power on\n", __func__);
+		return;
+	}
 
 	bam_is_connected = 1;
 	bam_dmux_log("%s complete\n", __func__);
@@ -1610,6 +1651,11 @@ static int restart_notifier_cb(struct notifier_block *this,
 		ul_powerdown();
 		wait_for_ack = 0;
 	}
+	/*
+	 * if modem crash during ul_wakeup(), power_vote is 1, needs to be
+	 * reset to 0.  harmless if bam_is_connected check above passes
+	 */
+	power_vote(0);
 	write_unlock_irqrestore(&ul_wakeup_lock, flags);
 	ul_powerdown_finish();
 	a2_pc_disabled = 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -311,7 +311,7 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* if write() succeeds, skb access is unsafe in this process */
 	bam_ret = msm_bam_dmux_write(p->ch_id, skb);
 
-	if (bam_ret != 0 && bam_ret != -EAGAIN) {
+	if (bam_ret != 0 && bam_ret != -EAGAIN && bam_ret != -EFAULT) {
 		pr_err("[%s] %s: write returned error %d",
 			dev->name, __func__, bam_ret);
 		return -EPERM;
@@ -463,6 +463,16 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	ret = _rmnet_xmit(skb, dev);
 	if (ret == -EPERM)
 		return NETDEV_TX_BUSY;
+
+	/*
+	 * detected SSR a bit early.  shut some things down now, and leave
+	 * the rest to the main ssr handling code when that happens later
+	 */
+	if (ret == -EFAULT) {
+		netif_carrier_off(dev);
+		dev_kfree_skb_any(skb);
+		return 0;
+	}
 
 	if (ret == -EAGAIN) {
 		/*
@@ -690,6 +700,7 @@ static int bam_rmnet_remove(struct platform_device *pdev)
 
 	p = netdev_priv(netdevs[i]);
 	p->in_reset = 1;
+	p->waiting_for_ul = 0;
 	msm_bam_dmux_close(p->ch_id);
 	netif_carrier_off(netdevs[i]);
 	netif_stop_queue(netdevs[i]);
