@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,9 +133,11 @@ VREG_CONSUMERS(S4) = {
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8921_s5",		NULL),
+	REGULATOR_SUPPLY("krait0",		NULL),
 };
 VREG_CONSUMERS(S6) = {
 	REGULATOR_SUPPLY("8921_s6",		NULL),
+	REGULATOR_SUPPLY("krait1",		NULL),
 };
 VREG_CONSUMERS(S7) = {
 	REGULATOR_SUPPLY("8921_s7",		NULL),
@@ -174,9 +176,11 @@ VREG_CONSUMERS(NCP) = {
 };
 VREG_CONSUMERS(8821_S0) = {
 	REGULATOR_SUPPLY("8821_s0",		NULL),
+	REGULATOR_SUPPLY("krait2",		NULL),
 };
 VREG_CONSUMERS(8821_S1) = {
 	REGULATOR_SUPPLY("8821_s1",		NULL),
+	REGULATOR_SUPPLY("krait3",		NULL),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \

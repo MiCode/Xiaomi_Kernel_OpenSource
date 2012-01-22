@@ -741,20 +741,18 @@ static void hfpll_enable(struct scalable *sc)
 {
 	int rc;
 
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8627()) {
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2100000,
-				sc->vreg[VREG_HFPLL_A].max_vdd, 0);
-		if (rc)
-			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_A].name, rc);
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
-				sc->vreg[VREG_HFPLL_B].max_vdd, 0);
-		if (rc)
-			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_B].name, rc);
-	}
+	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+			sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2100000,
+			sc->vreg[VREG_HFPLL_A].max_vdd, 0);
+	if (rc)
+		pr_err("%s regulator enable failed (%d)\n",
+			sc->vreg[VREG_HFPLL_A].name, rc);
+	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+			sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
+			sc->vreg[VREG_HFPLL_B].max_vdd, 0);
+	if (rc)
+		pr_err("%s regulator enable failed (%d)\n",
+			sc->vreg[VREG_HFPLL_B].name, rc);
 
 	/* Disable PLL bypass mode. */
 	writel_relaxed(0x2, sc->hfpll_base + HFPLL_MODE);
@@ -788,20 +786,18 @@ static void hfpll_disable(struct scalable *sc)
 	 */
 	writel_relaxed(0, sc->hfpll_base + HFPLL_MODE);
 
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8627()) {
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
-				0, 0);
-		if (rc)
-			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_B].name, rc);
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
-				0, 0);
-		if (rc)
-			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_A].name, rc);
-	}
+	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+			sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
+			0, 0);
+	if (rc)
+		pr_err("%s regulator enable failed (%d)\n",
+			sc->vreg[VREG_HFPLL_B].name, rc);
+	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+			sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
+			0, 0);
+	if (rc)
+		pr_err("%s regulator enable failed (%d)\n",
+			sc->vreg[VREG_HFPLL_A].name, rc);
 }
 
 /* Program the HFPLL rate. Assumes HFPLL is already disabled. */
@@ -1457,5 +1453,9 @@ struct acpuclk_soc_data acpuclk_8960_soc_data __initdata = {
 };
 
 struct acpuclk_soc_data acpuclk_8930_soc_data __initdata = {
+	.init = acpuclk_8960_init,
+};
+
+struct acpuclk_soc_data acpuclk_8064_soc_data __initdata = {
 	.init = acpuclk_8960_init,
 };
