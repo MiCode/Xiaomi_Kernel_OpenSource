@@ -124,13 +124,6 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #ifdef CONFIG_ARCH_MSM7X27A
 #define MSM_PMEM_MDP_SIZE       0x1DD1000
 #define MSM_PMEM_ADSP_SIZE      0x1000000
-
-#ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_SIZE		0x260000
-#else
-#define MSM_FB_SIZE		0x195000
-#endif
-
 #endif
 
 #if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
@@ -474,66 +467,6 @@ static int __init pmem_adsp_size_setup(char *p)
 
 early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
-static unsigned fb_size = MSM_FB_SIZE;
-static int __init fb_size_setup(char *p)
-{
-	fb_size = memparse(p, NULL);
-	return 0;
-}
-
-early_param("fb_size", fb_size_setup);
-
-static struct resource msm_fb_resources[] = {
-	{
-		.flags	= IORESOURCE_DMA,
-	}
-};
-
-static int msm_fb_detect_panel(const char *name)
-{
-	int ret;
-
-	if (!strncmp(name, "mipi_video_truly_wvga", 21))
-		ret = 0;
-	else
-		ret = -ENODEV;
-
-	return ret;
-}
-
-static int mipi_truly_set_bl(int on)
-{
-	gpio_set_value_cansleep(QRD_GPIO_BACKLIGHT_EN, !!on);
-
-	return 1;
-}
-
-static struct msm_fb_platform_data msm_fb_pdata = {
-	.detect_client = msm_fb_detect_panel,
-};
-
-static struct platform_device msm_fb_device = {
-	.name   = "msm_fb",
-	.id     = 0,
-	.num_resources  = ARRAY_SIZE(msm_fb_resources),
-	.resource       = msm_fb_resources,
-	.dev    = {
-		.platform_data = &msm_fb_pdata,
-	}
-};
-
-static struct msm_panel_common_pdata mipi_truly_pdata = {
-	.pmic_backlight = mipi_truly_set_bl,
-};
-
-static struct platform_device mipi_dsi_truly_panel_device = {
-	.name	= "mipi_truly",
-	.id	= 0,
-	.dev	= {
-		.platform_data = &mipi_truly_pdata,
-	}
-};
-
 #define SND(desc, num) { .name = #desc, .id = num }
 static struct snd_endpoint snd_endpoints_list[] = {
 	SND(HANDSET, 0),
@@ -737,7 +670,6 @@ static struct platform_device *qrd1_devices[] __initdata = {
 	&android_usb_device,
 	&android_pmem_device,
 	&android_pmem_adsp_device,
-	&msm_fb_device,
 	&android_pmem_audio_device,
 	&msm_device_snd,
 	&msm_device_adspdec,
@@ -746,7 +678,6 @@ static struct platform_device *qrd1_devices[] __initdata = {
 #ifdef CONFIG_BT
 	&msm_bt_power_device,
 #endif
-	&mipi_dsi_truly_panel_device,
 	&msm_wlan_ar6000_pm_device,
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
@@ -769,19 +700,6 @@ static int __init pmem_audio_size_setup(char *p)
 }
 early_param("pmem_audio_size", pmem_audio_size_setup);
 
-static void __init msm_msm7627a_allocate_memory_regions(void)
-{
-	void *addr;
-	unsigned long size;
-
-	size = fb_size ? : MSM_FB_SIZE;
-	addr = alloc_bootmem_align(size, 0x1000);
-	msm_fb_resources[0].start = __pa(addr);
-	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
-	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n", size,
-						addr, __pa(addr));
-}
-
 static struct memtype_reserve msm7627a_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -792,167 +710,6 @@ static struct memtype_reserve msm7627a_reserve_table[] __initdata = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
 };
-
-static struct msm_panel_common_pdata mdp_pdata = {
-	.gpio = 97,
-	.mdp_rev = MDP_REV_303,
-};
-
-#define GPIO_LCDC_BRDG_PD      128
-#define GPIO_LCDC_BRDG_RESET_N 129
-#define GPIO_LCD_DSI_SEL 125
-
-static unsigned mipi_dsi_gpio[] = {
-		GPIO_CFG(GPIO_LCDC_BRDG_RESET_N, 0, GPIO_CFG_OUTPUT,
-		GPIO_CFG_NO_PULL, GPIO_CFG_2MA), /* LCDC_BRDG_RESET_N */
-		GPIO_CFG(GPIO_LCDC_BRDG_PD, 0, GPIO_CFG_OUTPUT,
-		GPIO_CFG_NO_PULL, GPIO_CFG_2MA), /* LCDC_BRDG_PD */
-};
-
-static unsigned lcd_dsi_sel_gpio[] = {
-	GPIO_CFG(GPIO_LCD_DSI_SEL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
-			GPIO_CFG_2MA),
-};
-
-enum {
-	DSI_SINGLE_LANE = 1,
-	DSI_TWO_LANES,
-};
-
-static int msm_fb_get_lane_config(void)
-{
-	pr_info("DSI_TWO_LANES\n");
-	return DSI_TWO_LANES;
-}
-
-static int mipi_truly_sel_mode(int video_mode)
-{
-	int rc = 0;
-
-	rc = gpio_request(GPIO_LCD_DSI_SEL, "lcd_dsi_sel");
-	if (rc < 0)
-		goto gpio_error;
-
-	rc = gpio_tlmm_config(lcd_dsi_sel_gpio[0], GPIO_CFG_ENABLE);
-	if (rc)
-		goto gpio_error;
-
-	rc = gpio_direction_output(GPIO_LCD_DSI_SEL, 1);
-	if (!rc) {
-		gpio_set_value_cansleep(GPIO_LCD_DSI_SEL, video_mode);
-		return rc;
-	} else {
-		goto gpio_error;
-	}
-
-gpio_error:
-	pr_err("mipi_truly_sel_mode failed\n");
-	gpio_free(GPIO_LCD_DSI_SEL);
-	return rc;
-}
-
-static int msm_fb_dsi_client_qrd1_reset(void)
-{
-	int rc = 0;
-
-	rc = gpio_request(GPIO_LCDC_BRDG_RESET_N, "lcdc_brdg_reset_n");
-	if (rc < 0) {
-		pr_err("failed to request lcd brdg reset_n\n");
-		return rc;
-	}
-
-	rc = gpio_tlmm_config(mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
-	if (rc < 0) {
-		pr_err("Failed to enable LCDC Bridge reset enable\n");
-		return rc;
-	}
-
-	rc = gpio_direction_output(GPIO_LCDC_BRDG_RESET_N, 1);
-	if (rc < 0) {
-		pr_err("Failed GPIO bridge pd\n");
-		gpio_free(GPIO_LCDC_BRDG_RESET_N);
-		return rc;
-	}
-
-	mipi_truly_sel_mode(1);
-
-	return rc;
-}
-
-static int msm_fb_dsi_client_reset(void)
-{
-	int rc = 0;
-
-	rc = msm_fb_dsi_client_qrd1_reset();
-	return rc;
-}
-
-static int dsi_gpio_initialized;
-
-static int mipi_dsi_panel_qrd1_power(int on)
-{
-	int rc = 0;
-
-	if (!dsi_gpio_initialized) {
-		rc = gpio_request(QRD_GPIO_BACKLIGHT_EN, "gpio_bkl_en");
-		if (rc < 0)
-			return rc;
-
-		rc = gpio_tlmm_config(GPIO_CFG(QRD_GPIO_BACKLIGHT_EN, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-			GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("failed GPIO_BACKLIGHT_EN tlmm config\n");
-			return rc;
-		}
-
-		rc = gpio_direction_output(QRD_GPIO_BACKLIGHT_EN, 1);
-		if (rc < 0) {
-			pr_err("failed to enable backlight\n");
-			gpio_free(QRD_GPIO_BACKLIGHT_EN);
-			return rc;
-		}
-		dsi_gpio_initialized = 1;
-	}
-
-	gpio_set_value_cansleep(QRD_GPIO_BACKLIGHT_EN, !!on);
-
-	if (!on) {
-		gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 1);
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 0);
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 1);
-
-	}
-
-	return rc;
-}
-
-static int mipi_dsi_panel_power(int on)
-{
-	int rc = 0;
-
-	rc = mipi_dsi_panel_qrd1_power(on);
-	return rc;
-}
-
-#define MDP_303_VSYNC_GPIO 97
-
-#ifdef CONFIG_FB_MSM_MDP303
-static struct mipi_dsi_platform_data mipi_dsi_pdata = {
-	.vsync_gpio		= MDP_303_VSYNC_GPIO,
-	.dsi_power_save		= mipi_dsi_panel_power,
-	.dsi_client_reset	= msm_fb_dsi_client_reset,
-	.get_lane_config	= msm_fb_get_lane_config,
-};
-#endif
-
-static void __init msm_fb_add_devices(void)
-{
-	msm_fb_register_device("mdp", &mdp_pdata);
-	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
-}
 
 static void __init size_pmem_devices(void)
 {
