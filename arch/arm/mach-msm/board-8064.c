@@ -23,6 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/ion.h>
+#include <linux/memory.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -62,9 +63,12 @@
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0xB0C000
 #define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
+#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
+#define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
-#define MSM_ION_HEAP_NUM	5
+#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
+#define MSM_ION_HEAP_NUM	8
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	1
@@ -198,13 +202,22 @@ static int apq8064_paddr_to_memtype(unsigned int paddr)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
+	.align = PAGE_SIZE,
 };
 
 static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
 	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+	.align = PAGE_SIZE,
 };
 
 static struct ion_co_heap_pdata co_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+
+static struct ion_co_heap_pdata fw_co_ion_pdata = {
+	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
+	.align = SZ_128K,
 };
 #endif
 static struct ion_platform_data ion_pdata = {
@@ -233,6 +246,14 @@ static struct ion_platform_data ion_pdata = {
 			.extra_data = (void *) &cp_mm_ion_pdata,
 		},
 		{
+			.id	= ION_MM_FIRMWARE_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_MM_FIRMWARE_HEAP_NAME,
+			.size	= MSM_ION_MM_FW_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &fw_co_ion_pdata,
+		},
+		{
 			.id	= ION_CP_MFC_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MFC_HEAP_NAME,
@@ -244,6 +265,22 @@ static struct ion_platform_data ion_pdata = {
 			.id	= ION_IOMMU_HEAP_ID,
 			.type	= ION_HEAP_TYPE_IOMMU,
 			.name	= ION_IOMMU_HEAP_NAME,
+		},
+		{
+			.id	= ION_QSECOM_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_QSECOM_HEAP_NAME,
+			.size	= MSM_ION_QSECOM_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
+		},
+		{
+			.id	= ION_AUDIO_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_AUDIO_HEAP_NAME,
+			.size	= MSM_ION_AUDIO_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
 		},
 #endif
 	}
@@ -260,8 +297,11 @@ static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
 #endif
 }
 
@@ -292,12 +332,19 @@ static void __init locate_unstable_memory(void)
 	bank_size = apq8064_memory_bank_size();
 	low = meminfo.bank[0].start;
 	high = mb->start + mb->size;
+
+	/* Check if 32 bit overflow occured */
+	if (high < mb->start)
+		high = ~0UL;
+
 	low &= ~(bank_size - 1);
 
 	if (high - low <= bank_size)
 		return;
-	apq8064_reserve_info.low_unstable_address = low + bank_size;
-	apq8064_reserve_info.max_unstable_size = high - low - bank_size;
+	apq8064_reserve_info.low_unstable_address = mb->start -
+					MIN_MEMORY_BLOCK_SIZE + mb->size;
+	apq8064_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
+
 	apq8064_reserve_info.bank_size = bank_size;
 	pr_info("low unstable address %lx max size %lx bank size %lx\n",
 		apq8064_reserve_info.low_unstable_address,
