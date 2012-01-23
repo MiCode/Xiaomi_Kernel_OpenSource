@@ -23,7 +23,6 @@
 #include <sound/soc.h>
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
-#include <sound/q6adm.h>
 #include <sound/msm-dai-q6.h>
 #include <mach/clk.h>
 
@@ -465,10 +464,6 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 {
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
-
-	rc = adm_close(dai->id);
-	if (IS_ERR_VALUE(rc))
-		dev_err(dai->dev, "fail to close ADM COPP\n");
 
 	pr_debug("%s: dai->id = %d", __func__, dai->id);
 
