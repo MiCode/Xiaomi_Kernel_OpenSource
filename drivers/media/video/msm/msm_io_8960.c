@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,6 +417,11 @@ void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 int msm_camio_jpeg_clk_disable(void)
 {
 	int rc = 0;
+	rc = msm_camio_clk_disable(CAMIO_JPEG_PCLK);
+	if (rc < 0)
+		return rc;
+	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
+
 	if (fs_ijpeg) {
 		rc = regulator_disable(fs_ijpeg);
 		if (rc < 0) {
@@ -426,10 +431,6 @@ int msm_camio_jpeg_clk_disable(void)
 		}
 		regulator_put(fs_ijpeg);
 	}
-	rc = msm_camio_clk_disable(CAMIO_JPEG_PCLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
 	CDBG("%s: exit %d\n", __func__, rc);
 	return rc;
 }
@@ -437,12 +438,6 @@ int msm_camio_jpeg_clk_disable(void)
 int msm_camio_jpeg_clk_enable(void)
 {
 	int rc = 0;
-	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
-	if (rc < 0)
-		return rc;
 	fs_ijpeg = regulator_get(NULL, "fs_ijpeg");
 	if (IS_ERR(fs_ijpeg)) {
 		pr_err("%s: Regulator FS_IJPEG get failed %ld\n",
@@ -452,6 +447,14 @@ int msm_camio_jpeg_clk_enable(void)
 		pr_err("%s: Regulator FS_IJPEG enable failed\n", __func__);
 		regulator_put(fs_ijpeg);
 	}
+
+	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
+	if (rc < 0)
+		return rc;
+	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
+	if (rc < 0)
+		return rc;
+
 	CDBG("%s: exit %d\n", __func__, rc);
 	return rc;
 }
