@@ -71,7 +71,7 @@ struct gsmd_port {
 	struct gserial		*port_usb;
 
 	struct smd_port_info	*pi;
-	struct work_struct	connect_work;
+	struct delayed_work	connect_work;
 
 	/* At present, smd does not notify
 	 * control bit change info from modem
@@ -562,7 +562,7 @@ static void gsmd_connect_work(struct work_struct *w)
 	struct smd_port_info *pi;
 	int ret;
 
-	port = container_of(w, struct gsmd_port, connect_work);
+	port = container_of(w, struct gsmd_port, connect_work.work);
 	pi = port->pi;
 
 	pr_debug("%s: port:%p port#%d\n", __func__, port, port->port_num);
@@ -573,9 +573,16 @@ static void gsmd_connect_work(struct work_struct *w)
 	ret = smd_named_open_on_edge(pi->name, SMD_APPS_MODEM,
 				&pi->ch, port, gsmd_notify);
 	if (ret) {
-		pr_err("%s: unable to open smd port:%s err:%d\n",
-				__func__, pi->name, ret);
-		return;
+		if (ret == -EAGAIN) {
+			/* port not ready  - retry */
+			pr_debug("%s: SMD port not ready - rescheduling:%s err:%d\n",
+					__func__, pi->name, ret);
+			queue_delayed_work(gsmd_wq, &port->connect_work,
+				msecs_to_jiffies(250));
+		} else {
+			pr_err("%s: unable to open smd port:%s err:%d\n",
+					__func__, pi->name, ret);
+		}
 	}
 }
 
@@ -672,7 +679,7 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	}
 	gser->out->driver_data = port;
 
-	queue_work(gsmd_wq, &port->connect_work);
+	queue_delayed_work(gsmd_wq, &port->connect_work, msecs_to_jiffies(0));
 
 	return 0;
 }
@@ -743,7 +750,8 @@ static int gsmd_ch_probe(struct platform_device *pdev)
 			set_bit(CH_READY, &pi->flags);
 			spin_lock_irqsave(&port->port_lock, flags);
 			if (port->port_usb)
-				queue_work(gsmd_wq, &port->connect_work);
+				queue_delayed_work(gsmd_wq, &port->connect_work,
+					msecs_to_jiffies(0));
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			break;
 		}
@@ -805,7 +813,7 @@ static int gsmd_port_alloc(int portno, struct usb_cdc_line_coding *coding)
 	INIT_LIST_HEAD(&port->write_pool);
 	INIT_WORK(&port->pull, gsmd_tx_pull);
 
-	INIT_WORK(&port->connect_work, gsmd_connect_work);
+	INIT_DELAYED_WORK(&port->connect_work, gsmd_connect_work);
 
 	smd_ports[portno].port = port;
 	pdrv = &smd_ports[portno].pdrv;
