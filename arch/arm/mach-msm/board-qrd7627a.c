@@ -658,7 +658,7 @@ static struct platform_device msm_batt_device = {
 	.dev.platform_data  = &msm_psy_batt_data,
 };
 
-static struct platform_device *qrd1_devices[] __initdata = {
+static struct platform_device *qrd_common_devices[] __initdata = {
 	&msm_device_dmov,
 	&msm_device_smd,
 	&msm_device_uart1,
@@ -793,8 +793,27 @@ static void __init msm7627a_init_regulators(void)
 				__func__, rc);
 }
 
+static void msm7627a_add_io_devices(void)
+{
+	if (machine_is_msm7627a_evb())
+		return;
+
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
+	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
+	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+				synaptic_i2c_clearpad3k,
+				ARRAY_SIZE(synaptic_i2c_clearpad3k));
+#endif
+	platform_device_register(&hs_pdev);
+
+#ifdef CONFIG_MSM_RPC_VIBRATOR
+	msm_init_pmic_vibrator();
+#endif
+
+}
+
 #define UART1DM_RX_GPIO		45
-static void __init msm_qrd1_init(void)
+static void __init msm_qrd_init(void)
 {
 	msm7x2x_misc_init();
 	msm7627a_init_regulators();
@@ -811,8 +830,10 @@ static void __init msm_qrd1_init(void)
 #endif
 	msm_device_gadget_peripheral.dev.platform_data =
 		&msm_gadget_pdata;
-	platform_add_devices(qrd1_devices,
-			ARRAY_SIZE(qrd1_devices));
+
+	platform_add_devices(qrd_common_devices,
+			ARRAY_SIZE(qrd_common_devices));
+
 	msm7627a_init_mmc();
 
 #ifdef CONFIG_USB_EHCI_MSM_72K
@@ -830,17 +851,7 @@ static void __init msm_qrd1_init(void)
 
 	msm7627a_camera_init();
 
-#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
-	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
-	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
-				synaptic_i2c_clearpad3k,
-				ARRAY_SIZE(synaptic_i2c_clearpad3k));
-#endif
-	platform_device_register(&hs_pdev);
-
-#ifdef CONFIG_MSM_RPC_VIBRATOR
-	msm_init_pmic_vibrator();
-#endif
+	msm7627a_add_io_devices();
 }
 
 static void __init qrd7627a_init_early(void)
@@ -853,7 +864,17 @@ MACHINE_START(MSM7627A_QRD1, "QRD MSM7627a QRD1")
 	.map_io		= msm_common_io_init,
 	.reserve	= msm7627a_reserve,
 	.init_irq	= msm_init_irq,
-	.init_machine	= msm_qrd1_init,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= vic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM7627A_EVB, "QRD MSM7627a EVB")
+	.boot_params	= PHYS_OFFSET + 0x100,
+	.map_io		= msm_common_io_init,
+	.reserve	= msm7627a_reserve,
+	.init_irq	= msm_init_irq,
+	.init_machine	= msm_qrd_init,
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= vic_handle_irq,

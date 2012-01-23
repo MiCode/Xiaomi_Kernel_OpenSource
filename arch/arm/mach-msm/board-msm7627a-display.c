@@ -316,6 +316,10 @@ static struct platform_device *qrd_fb_devices[] __initdata = {
 	&mipi_dsi_truly_panel_device,
 };
 
+static struct platform_device *evb_fb_devices[] __initdata = {
+
+};
+
 void __init msm_msm7627a_allocate_memory_regions(void)
 {
 	void *addr;
@@ -688,6 +692,9 @@ void __init msm_fb_add_devices(void)
 	if (machine_is_msm7627a_qrd1())
 		platform_add_devices(qrd_fb_devices,
 				ARRAY_SIZE(qrd_fb_devices));
+	else if (machine_is_msm7627a_evb())
+		platform_add_devices(evb_fb_devices,
+				ARRAY_SIZE(evb_fb_devices));
 	else
 		platform_add_devices(msm_fb_devices,
 				ARRAY_SIZE(msm_fb_devices));
