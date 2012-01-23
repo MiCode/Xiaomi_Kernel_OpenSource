@@ -3652,6 +3652,7 @@ static void msm_vpe_sync(struct msm_vpe_resp *vdata,
 			vdata->phy.output_id |= OUTPUT_TYPE_L;
 			sync->liveshot_enabled = false;
 		}
+		vdata->phy.p2_phy = vdata->phy.p0_phy;
 		if (sync->frame_q.len <= 100 && sync->event_q.len <= 100) {
 			CDBG("%s: enqueue to frame_q from VPE\n", __func__);
 			msm_enqueue(&sync->frame_q, &qcmd->list_frame);
