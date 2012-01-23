@@ -65,6 +65,7 @@ static atomic_t msm_rtb_idx;
 
 struct msm_rtb_state msm_rtb = {
 	.size = SZ_1M,
+	.filter = 1 << LOGK_LOGBUF,
 };
 
 module_param_named(filter, msm_rtb.filter, uint, 0644);
