@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ static const char *data_bridge_names[] = {
 #define GHSIC_DATA_SERIAL_RX_Q_SIZE		2
 #define GHSIC_DATA_SERIAL_TX_Q_SIZE		2
 #define GHSIC_DATA_RX_REQ_SIZE			2048
+#define GHSIC_DATA_TX_INTR_THRESHOLD		20
 
 static unsigned int ghsic_data_rmnet_tx_q_size = GHSIC_DATA_RMNET_TX_Q_SIZE;
 module_param(ghsic_data_rmnet_tx_q_size, uint, S_IRUGO | S_IWUSR);
@@ -52,6 +53,9 @@ module_param(ghsic_data_serial_rx_q_size, uint, S_IRUGO | S_IWUSR);
 
 static unsigned int ghsic_data_rx_req_size = GHSIC_DATA_RX_REQ_SIZE;
 module_param(ghsic_data_rx_req_size, uint, S_IRUGO | S_IWUSR);
+
+unsigned int ghsic_data_tx_intr_thld = GHSIC_DATA_TX_INTR_THRESHOLD;
+module_param(ghsic_data_tx_intr_thld, uint, S_IRUGO | S_IWUSR);
 
 /*flow ctrl*/
 #define GHSIC_DATA_FLOW_CTRL_EN_THRESHOLD	500
@@ -108,6 +112,8 @@ struct gdata_port {
 
 	/*bridge status*/
 	unsigned long		bridge_sts;
+
+	unsigned int		n_tx_req_queued;
 
 	/*counters*/
 	unsigned long		to_modem;
@@ -209,6 +215,14 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 		req->context = skb;
 		req->buf = skb->data;
 		req->length = skb->len;
+
+		port->n_tx_req_queued++;
+		if (port->n_tx_req_queued == ghsic_data_tx_intr_thld) {
+			req->no_interrupt = 0;
+			port->n_tx_req_queued = 0;
+		} else {
+			req->no_interrupt = 1;
+		}
 
 		list_del(&req->list);
 
@@ -698,6 +712,7 @@ void ghsic_data_disconnect(void *gptr, int port_num)
 	port->port_usb = 0;
 	port->in = NULL;
 	port->out = NULL;
+	port->n_tx_req_queued = 0;
 	clear_bit(TX_THROTTLED, &port->brdg.flags);
 	clear_bit(RX_THROTTLED, &port->brdg.flags);
 	spin_unlock_irqrestore(&port->port_lock, flags);
