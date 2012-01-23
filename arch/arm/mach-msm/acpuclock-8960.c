@@ -68,7 +68,8 @@
 #define STBY_KHZ		1
 
 #define HFPLL_NOMINAL_VDD	1050000
-#define HFPLL_LOW_VDD		 850000
+#define HFPLL_LOW_VDD_8960	 850000
+#define HFPLL_LOW_VDD		 945000
 #define HFPLL_LOW_VDD_PLL_L_MAX	0x28
 
 #define SECCLKAGD		BIT(4)
@@ -259,7 +260,6 @@ static struct scalable scalable_8064[] = {
 		},
 };
 
-/*TODO: Update the rpm vreg id when the rpm driver is ready */
 static struct scalable scalable_8930[] = {
 	[CPU0] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x200,
@@ -268,16 +268,13 @@ static struct scalable scalable_8930[] = {
 			.vreg[VREG_CORE] = { "krait0",     1300000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_L24 },
+					     RPM_VREG_ID_PM8038_L24 },
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_S3 },
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_S8 },
+					     RPM_VREG_ID_PM8038_S1 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 	[CPU1] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x300,
@@ -286,27 +283,21 @@ static struct scalable scalable_8930[] = {
 			.vreg[VREG_CORE] = { "krait1",     1300000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_L24 },
+					     RPM_VREG_ID_PM8038_L24 },
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_S3 },
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_S8 },
+					     RPM_VREG_ID_PM8038_S1 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 	[L2] = {
 			.hfpll_base   = MSM_HFPLL_BASE    + 0x400,
 			.aux_clk_sel  = MSM_APCS_GCC_BASE + 0x028,
 			.l2cpmr_iaddr = L2CPMR_IADDR,
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER6,
-					     RPM_VREG_ID_PM8921_S8 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER6,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 };
 
@@ -319,16 +310,13 @@ static struct scalable scalable_8627[] = {
 			.vreg[VREG_CORE] = { "krait0",     1300000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_L24 },
+					     RPM_VREG_ID_PM8038_L24 },
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_S3 },
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_S8 },
+					     RPM_VREG_ID_PM8038_S1 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER1,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 	[CPU1] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x300,
@@ -337,27 +325,21 @@ static struct scalable scalable_8627[] = {
 			.vreg[VREG_CORE] = { "krait1",     1300000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_L24 },
+					     RPM_VREG_ID_PM8038_L24 },
 			.vreg[VREG_DIG]  = { "krait0_dig", 1150000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_S3 },
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_S8 },
+					     RPM_VREG_ID_PM8038_S1 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER2,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 	[L2] = {
 			.hfpll_base   = MSM_HFPLL_BASE    + 0x400,
 			.aux_clk_sel  = MSM_APCS_GCC_BASE + 0x028,
 			.l2cpmr_iaddr = L2CPMR_IADDR,
-			.vreg[VREG_HFPLL_A] = { "hfpll", 2100000,
-					     RPM_VREG_VOTER6,
-					     RPM_VREG_ID_PM8921_S8 },
 			.vreg[VREG_HFPLL_B] = { "hfpll", 1800000,
 					     RPM_VREG_VOTER6,
-					     RPM_VREG_ID_PM8921_L23 },
+					     RPM_VREG_ID_PM8038_L23 },
 		},
 };
 
@@ -756,7 +738,7 @@ static void hfpll_enable(struct scalable *sc)
 {
 	int rc;
 
-	if (!cpu_is_apq8064()) {
+	if (cpu_is_msm8960()) {
 		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
 				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2100000,
 				sc->vreg[VREG_HFPLL_A].max_vdd, 0);
@@ -809,7 +791,8 @@ static void hfpll_disable(struct scalable *sc)
 	if (rc)
 		pr_err("%s regulator enable failed (%d)\n",
 			sc->vreg[VREG_HFPLL_B].name, rc);
-	if (!cpu_is_apq8064()) {
+
+	if (cpu_is_msm8960()) {
 		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
 				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
 				0, 0);
@@ -1041,9 +1024,12 @@ static unsigned int calculate_vdd_dig(struct acpu_level *tgt)
 		pll_vdd_dig = 0;
 	else if (tgt->l2_level->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
 		pll_vdd_dig = HFPLL_NOMINAL_VDD;
-	else
-		pll_vdd_dig = HFPLL_LOW_VDD;
-
+	else {
+		if (cpu_is_msm8960())
+			pll_vdd_dig = HFPLL_LOW_VDD_8960;
+		else
+			pll_vdd_dig = HFPLL_LOW_VDD;
+	}
 	return max(tgt->l2_level->vdd_dig, pll_vdd_dig);
 }
 
@@ -1055,9 +1041,12 @@ static unsigned int calculate_vdd_core(struct acpu_level *tgt)
 		pll_vdd_core = 0;
 	else if (tgt->speed.pll_l_val > HFPLL_LOW_VDD_PLL_L_MAX)
 		pll_vdd_core = HFPLL_NOMINAL_VDD;
-	else
-		pll_vdd_core = HFPLL_LOW_VDD;
-
+	else {
+		if (cpu_is_msm8960())
+			pll_vdd_core = HFPLL_LOW_VDD_8960;
+		else
+			pll_vdd_core = HFPLL_LOW_VDD;
+	}
 	return max(tgt->vdd_core, pll_vdd_core);
 }
 
