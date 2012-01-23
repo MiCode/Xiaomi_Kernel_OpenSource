@@ -49,7 +49,7 @@ static struct clk *mdp_clk;
 static struct clk *mdp_pclk;
 static struct clk *mdp_lut_clk;
 int mdp_rev;
-static boolean mdp_hist_force_stop = FALSE;
+
 static struct regulator *footswitch;
 static unsigned int mdp_footswitch_on;
 
@@ -429,11 +429,6 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 		goto error;
 	}
 
-	if (mdp_hist_force_stop && (mdp_rev == MDP_REV_303)) {
-		ret = -EINVAL;
-		goto error;
-	}
-
 	if (!mdp_is_hist_start) {
 		printk(KERN_ERR "%s histogram not started\n", __func__);
 		ret = -EPERM;
@@ -447,14 +442,8 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 	wait_for_completion_killable(&mdp_hist_comp);
 
 	mutex_lock(&mdp_hist_mutex);
-	if (mdp_is_hist_data) {
-		if (mdp_hist_force_stop && (mdp_rev == MDP_REV_303)) {
-			pr_debug("%s histogram stopped\n", __func__);
-			ret = -EINVAL;
-			goto error;
-		}
+	if (mdp_is_hist_data)
 		ret =  _mdp_copy_hist_data(hist);
-	}
 error:
 	mutex_unlock(&mdp_hist_mutex);
 	return ret;
@@ -740,12 +729,6 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		if ((mdp_all_blocks_off) && (mdp_current_clk_on)) {
 			mutex_lock(&mdp_suspend_mutex);
 			if (block == MDP_MASTER_BLOCK || mdp_suspended) {
-				if ((mdp_prim_panel_type == MIPI_CMD_PANEL) &&
-					(mdp_rev == MDP_REV_303)) {
-					mdp_hist_force_stop = TRUE;
-					complete(&mdp_hist_comp);
-				}
-
 				mdp_current_clk_on = FALSE;
 				mb();
 				/* turn off MDP clks */
@@ -920,7 +903,6 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 				dma->busy = FALSE;
 				mdp_pipe_ctrl(MDP_DMA2_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
-				mdp_hist_force_stop = FALSE;
 				complete(&dma->comp);
 			}
 #endif
