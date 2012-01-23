@@ -149,7 +149,8 @@ enum usb_bam_pipe_dir {
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
  *              terminated by -1.
- * @vbus_power: VBUS power on/off routine.
+ * @vbus_power: VBUS power on/off routine.It should return result
+ *		as success(zero value) or failure(non-zero value).
  * @power_budget: VBUS power budget in mA (0 will be treated as 500mA).
  * @mode: Supported mode (OTG/peripheral/host).
  * @otg_control: OTG switch controlled by user/Id pin
@@ -166,7 +167,7 @@ enum usb_bam_pipe_dir {
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
-	void (*vbus_power)(bool on);
+	int (*vbus_power)(bool on);
 	unsigned power_budget;
 	enum usb_mode_type mode;
 	enum otg_control_type otg_control;
