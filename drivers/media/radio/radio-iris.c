@@ -3029,6 +3029,11 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_ANTENNA:
 		temp_val = ctrl->value;
 		retval = hci_fm_set_antenna(&temp_val, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Set Antenna failed retval = %x", retval);
+			return retval;
+		}
+		radio->g_antenna =  ctrl->value;
 		break;
 	case V4L2_CID_RDS_TX_PTY:
 		radio->pty = ctrl->value;
