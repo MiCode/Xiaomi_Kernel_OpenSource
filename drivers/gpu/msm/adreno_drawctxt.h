@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,12 +30,16 @@
 #define CTXT_FLAGS_GMEM_SAVE		0x00000200
 /* gmem can be restored from shadow */
 #define CTXT_FLAGS_GMEM_RESTORE		0x00000400
+/* preamble packed in cmdbuffer for context switching */
+#define CTXT_FLAGS_PREAMBLE		0x00000800
 /* shader must be copied to shadow */
 #define CTXT_FLAGS_SHADER_SAVE		0x00002000
 /* shader can be restored from shadow */
 #define CTXT_FLAGS_SHADER_RESTORE	0x00004000
 /* Context has caused a GPU hang */
 #define CTXT_FLAGS_GPU_HANG		0x00008000
+/* Specifies there is no need to save GMEM */
+#define CTXT_FLAGS_NOGMEMALLOC          0x00010000
 
 struct kgsl_device;
 struct adreno_device;
@@ -91,7 +95,7 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags);
 void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
-				      struct kgsl_context *context,
+					struct kgsl_context *context,
 					unsigned int offset);
 
 /* GPU context switch helper functions */

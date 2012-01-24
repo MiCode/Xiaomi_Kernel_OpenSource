@@ -77,10 +77,7 @@ struct adreno_device {
 };
 
 struct adreno_gpudev {
-	int (*ctxt_gpustate_shadow)(struct adreno_device *,
-		struct adreno_context *);
-	int (*ctxt_gmem_shadow)(struct adreno_device *,
-		struct adreno_context *);
+	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_save)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_restore)(struct adreno_device *, struct adreno_context *);
 	irqreturn_t (*irq_handler)(struct adreno_device *);
