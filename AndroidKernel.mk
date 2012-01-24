@@ -8,6 +8,29 @@ TARGET_PREBUILT_INT_KERNEL := $(KERNEL_OUT)/arch/arm/boot/zImage
 KERNEL_HEADERS_INSTALL := $(KERNEL_OUT)/usr
 KERNEL_MODULES_INSTALL := system
 KERNEL_MODULES_OUT := $(TARGET_OUT)/lib/modules
+KERNEL_IMG=$(KERNEL_OUT)/arch/arm/boot/Image
+
+MSM_ARCH ?= $(shell $(PERL) -e 'while (<>) {$$a = $$1 if /CONFIG_ARCH_((?:MSM|QSD)[a-zA-Z0-9]+)=y/; $$r = $$1 if /CONFIG_MSM_SOC_REV_(?!NONE)(\w+)=y/;} print lc("$$a$$r\n");' $(KERNEL_CONFIG))
+KERNEL_USE_OF ?= $(shell $(PERL) -e '$$of = "n"; while (<>) { if (/CONFIG_USE_OF=y/) { $$of = "y"; break; } } print $$of;' kernel/arch/arm/configs/$(KERNEL_DEFCONFIG))
+
+ifeq "$(KERNEL_USE_OF)" "y"
+KERNEL_ZIMG = $(KERNEL_OUT)/arch/arm/boot/zImage
+DTB_FILE = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH).dtb
+DTS_FILE = $(KERNEL_OUT)/../../../../../../kernel/arch/arm/boot/dts/$(MSM_ARCH).dts
+FULL_KERNEL = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH)-zImage
+DTC = $(KERNEL_OUT)/scripts/dtc/dtc
+
+define append-dtb
+md $(KERNEL_OUT)/arch/arm/boot;\
+$(DTC) -p 1024 -O dtb -o $(DTB_FILE) $(DTS_FILE);\
+cat $(KERNEL_ZIMG) $(DTB_FILE) > $(FULL_KERNEL)
+endef
+else
+FULL_KERNEL = $(KERNEL_IMG)
+
+define append-dtb
+endef
+endif
 
 ifeq ($(TARGET_USES_UNCOMPRESSED_KERNEL),true)
 $(info Using uncompressed kernel)
@@ -47,6 +70,7 @@ $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_CONFIG) $(KERNEL_HEADERS_I
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) INSTALL_MOD_PATH=../../$(KERNEL_MODULES_INSTALL) ARCH=arm CROSS_COMPILE=arm-eabi- modules_install
 	$(mv-modules)
 	$(clean-module-folder)
+	$(append-dtb)
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- headers_install
