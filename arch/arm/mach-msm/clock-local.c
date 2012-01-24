@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,12 +454,20 @@ void rcg_clk_disable(struct clk *c)
  * Frequency-related functions
  */
 
-/* Set a clock's frequency. */
-static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
+/* Set a clock to an exact rate. */
+int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 {
-	struct clk_freq_tbl *cf;
-	int rc = 0;
+	struct rcg_clk *clk = to_rcg_clk(c);
+	struct clk_freq_tbl *nf, *cf;
 	struct clk *chld;
+	int rc = 0;
+
+	for (nf = clk->freq_tbl; nf->freq_hz != FREQ_END
+			&& nf->freq_hz != rate; nf++)
+		;
+
+	if (nf->freq_hz == FREQ_END)
+		return -EINVAL;
 
 	/* Check if frequency is actually changed. */
 	cf = clk->current_freq;
@@ -521,22 +529,6 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 		clk_disable(cf->src_clk);
 
 	return rc;
-}
-
-/* Set a clock to an exact rate. */
-int rcg_clk_set_rate(struct clk *c, unsigned long rate)
-{
-	struct rcg_clk *clk = to_rcg_clk(c);
-	struct clk_freq_tbl *nf;
-
-	for (nf = clk->freq_tbl; nf->freq_hz != FREQ_END
-			&& nf->freq_hz != rate; nf++)
-		;
-
-	if (nf->freq_hz == FREQ_END)
-		return -EINVAL;
-
-	return _rcg_clk_set_rate(clk, nf);
 }
 
 /* Get the currently-set rate of a clock in Hz. */
