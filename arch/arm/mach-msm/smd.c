@@ -1459,18 +1459,16 @@ static void finalize_channel_close_fn(struct work_struct *work)
 	struct smd_channel *ch;
 	struct smd_channel *index;
 
+	mutex_lock(&smd_creation_mutex);
 	spin_lock_irqsave(&smd_lock, flags);
 	list_for_each_entry_safe(ch, index,  &smd_ch_to_close_list, ch_list) {
 		list_del(&ch->ch_list);
-		spin_unlock_irqrestore(&smd_lock, flags);
-		mutex_lock(&smd_creation_mutex);
 		list_add(&ch->ch_list, &smd_ch_closed_list);
-		mutex_unlock(&smd_creation_mutex);
 		ch->notify(ch->priv, SMD_EVENT_REOPEN_READY);
 		ch->notify = do_nothing_notify;
-		spin_lock_irqsave(&smd_lock, flags);
 	}
 	spin_unlock_irqrestore(&smd_lock, flags);
+	mutex_unlock(&smd_creation_mutex);
 }
 
 struct smd_channel *smd_get_channel(const char *name, uint32_t type)
@@ -1506,8 +1504,37 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	SMD_DBG("smd_open('%s', %p, %p)\n", name, priv, notify);
 
 	ch = smd_get_channel(name, edge);
-	if (!ch)
-		return -ENODEV;
+	if (!ch) {
+		unsigned long flags;
+		struct smd_channel *ch;
+
+		/* check closing list for port */
+		spin_lock_irqsave(&smd_lock, flags);
+		list_for_each_entry(ch, &smd_ch_closing_list, ch_list) {
+			if (!strncmp(name, ch->name, 20) &&
+				(edge == ch->type)) {
+				/* channel exists, but is being closed */
+				spin_unlock_irqrestore(&smd_lock, flags);
+				return -EAGAIN;
+			}
+		}
+
+		/* check closing workqueue list for port */
+		list_for_each_entry(ch, &smd_ch_to_close_list, ch_list) {
+			if (!strncmp(name, ch->name, 20) &&
+				(edge == ch->type)) {
+				/* channel exists, but is being closed */
+				spin_unlock_irqrestore(&smd_lock, flags);
+				return -EAGAIN;
+			}
+		}
+		spin_unlock_irqrestore(&smd_lock, flags);
+
+		/* one final check to handle closing->closed race condition */
+		ch = smd_get_channel(name, edge);
+		if (!ch)
+			return -ENODEV;
+	}
 
 	if (notify == 0)
 		notify = do_nothing_notify;
