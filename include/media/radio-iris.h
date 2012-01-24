@@ -129,7 +129,8 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_EN_WAN_AVD_CTRL          0x0014
 #define HCI_OCF_FM_EN_NOTCH_CTRL            0x0015
 #define HCI_OCF_FM_SET_EVENT_MASK           0x0016
-
+#define HCI_OCF_FM_SET_CH_DET_THRESHOLD     0x0017
+#define HCI_OCF_FM_GET_CH_DET_THRESHOLD     0x0018
 /* HCI trans control commans opcode*/
 #define HCI_OCF_FM_ENABLE_TRANS_REQ         0x0001
 #define HCI_OCF_FM_DISABLE_TRANS_REQ        0x0002
@@ -199,7 +200,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_FM_ENABLE_TRANS_CMD 13
 #define HCI_FM_DISABLE_TRANS_CMD 14
 #define HCI_FM_GET_TX_CONFIG 15
-
+#define HCI_FM_GET_DET_CH_TH_CMD 16
 
 /* Defines for FM TX*/
 #define TX_PS_DATA_LENGTH 96
@@ -317,6 +318,14 @@ struct hci_fm_ssbi_req {
 } __packed;
 struct hci_fm_ssbi_peek {
 	__u16 start_address;
+} __packed;
+
+struct hci_fm_ch_det_threshold {
+	char sinr;
+	__u8 sinr_samples;
+	__u8 low_th;
+	__u8 high_th;
+
 } __packed;
 
 /*HCI events*/
@@ -551,6 +560,10 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_DO_CALIBRATION,
 	V4L2_CID_PRIVATE_IRIS_SRCH_ALGORITHM, /* TAVARUA specific command */
 	V4L2_CID_PRIVATE_IRIS_GET_SINR,
+	V4L2_CID_PRIVATE_INTF_LOW_THRESHOLD,
+	V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD,
+	V4L2_CID_PRIVATE_SINR_THRESHOLD,
+	V4L2_CID_PRIVATE_SINR_SAMPLES,
 
 	/*using private CIDs under userclass*/
 	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,

@@ -98,6 +98,7 @@ struct iris_device {
 	struct hci_fm_ssbi_req    ssbi_data_accs;
 	struct hci_fm_ssbi_peek   ssbi_peek_reg;
 	struct hci_fm_sig_threshold_rsp sig_th;
+	struct hci_fm_ch_det_threshold ch_det_threshold;
 };
 
 static struct video_device *priv_videodev;
@@ -426,6 +427,38 @@ static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	.name   =       "GET SINR",
 	.minimum        =       -128,
 	.maximum        =       127,
+	},
+	{
+	.id     =       V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD,
+	.type   =       V4L2_CTRL_TYPE_INTEGER,
+	.name   =       "Intf High Threshold",
+	.minimum        =       0,
+	.maximum        =       0xFF,
+	.default_value  =       0,
+	},
+	{
+	.id     =       V4L2_CID_PRIVATE_INTF_LOW_THRESHOLD,
+	.type   =       V4L2_CTRL_TYPE_INTEGER,
+	.name   =       "Intf low Threshold",
+	.minimum        =       0,
+	.maximum        =       0xFF,
+	.default_value  =       0,
+	},
+	{
+	.id     =       V4L2_CID_PRIVATE_SINR_THRESHOLD,
+	.type   =       V4L2_CTRL_TYPE_INTEGER,
+	.name   =       "SINR Threshold",
+	.minimum        =       -128,
+	.maximum        =       127,
+	.default_value  =       0,
+	},
+	{
+	.id     =       V4L2_CID_PRIVATE_SINR_SAMPLES,
+	.type   =       V4L2_CTRL_TYPE_INTEGER,
+	.name   =       "SINR samples",
+	.minimum        =       1,
+	.maximum        =       0xFF,
+	.default_value  =       0,
 	},
 };
 
@@ -1046,6 +1079,25 @@ static int hci_fm_get_station_dbg_param_req(struct radio_hci_dev *hdev,
 	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
 }
 
+static int hci_fm_set_ch_det_th(struct radio_hci_dev *hdev,
+	unsigned long param)
+{
+	struct hci_fm_ch_det_threshold *ch_det_th =
+			 (struct hci_fm_ch_det_threshold *) param;
+	u16 opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+		HCI_OCF_FM_SET_CH_DET_THRESHOLD);
+	return radio_hci_send_cmd(hdev, opcode, sizeof((*ch_det_th)),
+		ch_det_th);
+}
+
+static int hci_fm_get_ch_det_th(struct radio_hci_dev *hdev,
+		unsigned long param)
+{
+	u16 opcode = hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ,
+			HCI_OCF_FM_GET_CH_DET_THRESHOLD);
+	return radio_hci_send_cmd(hdev, opcode, 0, NULL);
+}
+
 static int radio_hci_err(__u16 code)
 {
 	switch (code) {
@@ -1369,6 +1421,16 @@ static int hci_ssbi_poke_reg(struct hci_fm_ssbi_req *arg,
 	return ret;
 }
 
+static int hci_set_ch_det_thresholds_req(struct hci_fm_ch_det_threshold *arg,
+		struct radio_hci_dev *hdev)
+{
+	int ret = 0;
+	struct hci_fm_ch_det_threshold *ch_det_threshold = arg;
+	ret = radio_hci_request(hdev, hci_fm_set_ch_det_th,
+		 (unsigned long)ch_det_threshold, RADIO_HCI_TIMEOUT);
+	return ret;
+}
+
 static int hci_fm_set_cal_req_proc(struct radio_hci_dev *hdev,
 		unsigned long param)
 {
@@ -1481,6 +1543,10 @@ static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
 	case HCI_FM_GET_TX_CONFIG:
 		ret = radio_hci_request(hdev, hci_get_fm_trans_conf_req, arg,
 			msecs_to_jiffies(RADIO_HCI_TIMEOUT));
+		break;
+	case HCI_FM_GET_DET_CH_TH_CMD:
+		ret = radio_hci_request(hdev, hci_fm_get_ch_det_th, arg,
+					msecs_to_jiffies(RADIO_HCI_TIMEOUT));
 		break;
 	default:
 		ret = -EINVAL;
@@ -1786,6 +1852,21 @@ static void hci_cc_do_calibration_rsp(struct radio_hci_dev *hdev,
 
 	radio_hci_req_complete(hdev, rsp.status);
 }
+
+static void hci_cc_get_ch_det_threshold_rsp(struct radio_hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	u8  status = skb->data[0];
+	if (status) {
+		FMDERR("status = %d", status);
+		return;
+	}
+	memcpy(&radio->ch_det_threshold, &skb->data[1],
+		sizeof(struct hci_fm_ch_det_threshold));
+	radio_hci_req_complete(hdev, status);
+}
+
 static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 		struct sk_buff *skb)
 {
@@ -1818,6 +1899,7 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_GRP_PROCESS):
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_EN_WAN_AVD_CTRL):
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_EN_NOTCH_CTRL):
+	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_SET_CH_DET_THRESHOLD):
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_ENABLE_TRANS_REQ):
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_DISABLE_TRANS_REQ):
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_RDS_RT_REQ):
@@ -1885,6 +1967,9 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_GET_TRANS_CONF_REQ):
 		hci_cc_fm_trans_get_conf_rsp(hdev, skb);
+		break;
+	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_GET_CH_DET_THRESHOLD):
+		hci_cc_get_ch_det_threshold_rsp(hdev, skb);
 		break;
 	default:
 		FMDERR("%s opcode 0x%x", hdev->name, opcode);
@@ -2522,6 +2607,38 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		} else
 			retval = -EINVAL;
 
+	case V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Get High det threshold failed %x", retval);
+			return retval;
+		}
+		ctrl->value = radio->ch_det_threshold.high_th;
+		break;
+	case V4L2_CID_PRIVATE_INTF_LOW_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Get Low det threshold failed %x", retval);
+			return retval;
+		}
+		ctrl->value = radio->ch_det_threshold.low_th;
+		break;
+	case V4L2_CID_PRIVATE_SINR_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Get SINR threshold failed %x", retval);
+			return retval;
+		}
+		ctrl->value = radio->ch_det_threshold.sinr;
+		break;
+	case V4L2_CID_PRIVATE_SINR_SAMPLES:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Get SINR samples failed %x", retval);
+			return retval;
+		}
+
+		ctrl->value = radio->ch_det_threshold.sinr_samples;
 		break;
 	default:
 		retval = -EINVAL;
@@ -2983,6 +3100,66 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		temp_val = ctrl->value;
 		retval = hci_set_notch_filter(&temp_val, radio->fm_hdev);
 		break;
+	case V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to get chnl det thresholds  %d", retval);
+			return retval;
+		}
+		radio->ch_det_threshold.high_th = ctrl->value;
+		retval = hci_set_ch_det_thresholds_req(&radio->ch_det_threshold,
+							 radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to set High det threshold %d ", retval);
+			return retval;
+		}
+		break;
+
+	case V4L2_CID_PRIVATE_INTF_LOW_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to get chnl det thresholds  %d", retval);
+			return retval;
+		}
+		radio->ch_det_threshold.low_th = ctrl->value;
+		retval = hci_set_ch_det_thresholds_req(&radio->ch_det_threshold,
+							 radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to Set Low det threshold %d", retval);
+			return retval;
+		}
+		break;
+
+	case V4L2_CID_PRIVATE_SINR_THRESHOLD:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to get chnl det thresholds  %d", retval);
+			return retval;
+		}
+		radio->ch_det_threshold.sinr = ctrl->value;
+		retval = hci_set_ch_det_thresholds_req(&radio->ch_det_threshold,
+							 radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to set SINR threshold %d", retval);
+			return retval;
+		}
+		break;
+
+	case V4L2_CID_PRIVATE_SINR_SAMPLES:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("Failed to get chnl det thresholds  %d", retval);
+			return retval;
+		}
+		radio->ch_det_threshold.sinr_samples = ctrl->value;
+		retval = hci_set_ch_det_thresholds_req(&radio->ch_det_threshold,
+							 radio->fm_hdev);
+	       if (retval < 0) {
+			FMDERR("Failed to set SINR samples  %d", retval);
+			return retval;
+		}
+		break;
+
 	case V4L2_CID_PRIVATE_IRIS_SRCH_ALGORITHM:
 	case V4L2_CID_PRIVATE_IRIS_SET_AUDIO_PATH:
 		/*
