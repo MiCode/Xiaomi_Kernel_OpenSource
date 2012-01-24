@@ -38,6 +38,8 @@
 #define MIPI_CSIPHY_LNCK_MISC1_ADDR              0x128
 #define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1E0
 #define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1E8
+#define MIPI_CSIPHY_T_WAKEUP_CFG1_ADDR           0x1EC
+#define MIPI_CSIPHY_GLBL_RESET_ADDR             0x0140
 #define MIPI_CSIPHY_GLBL_PWR_CFG_ADDR           0x0144
 #define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR      0x0180
 #define MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR      0x0184
@@ -140,6 +142,13 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
+static void msm_csiphy_reset(struct csiphy_device *csiphy_dev)
+{
+	msm_io_w(0x1, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
+	usleep_range(5000, 8000);
+	msm_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
+}
+
 static int msm_csiphy_subdev_g_chip_ident(struct v4l2_subdev *sd,
 			struct v4l2_dbg_chip_ident *chip)
 {
@@ -182,6 +191,7 @@ static int msm_csiphy_init(struct v4l2_subdev *sd)
 #if DBG_CSIPHY
 	enable_irq(csiphy_dev->irq->start);
 #endif
+	msm_csiphy_reset(csiphy_dev);
 
 	return 0;
 }
