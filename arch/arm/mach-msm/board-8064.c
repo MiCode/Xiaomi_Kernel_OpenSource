@@ -40,6 +40,7 @@
 #include "devices.h"
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/rpm.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
@@ -48,10 +49,16 @@
 #include <asm/setup.h>
 #include <mach/dma.h>
 #include <mach/msm_bus_board.h>
+#include <mach/pm.h>
+#include <mach/cpuidle.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
 #include "acpuclock.h"
+#include "spm.h"
+#include "mpm.h"
+#include "rpm_resources.h"
+#include "pm-boot.h"
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x2B4000
@@ -565,6 +572,13 @@ static void __init apq8064_map_io(void)
 
 static void __init apq8064_init_irq(void)
 {
+	struct msm_mpm_device_data *data = NULL;
+
+#ifdef CONFIG_MSM_MPM
+	data = &apq8064_mpm_dev_data;
+#endif
+
+	msm_mpm_irq_extn_init(data);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
 
@@ -604,6 +618,368 @@ static struct platform_device msm8064_device_saw_regulator_core3 = {
 	.id	= 3,
 	.dev	= {
 		.platform_data = &msm8064_saw_regulator_pdata_8821_s1,
+
+	},
+};
+
+static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
+	{
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		true,
+		100, 8000, 100000, 1,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		true,
+		2000, 6000, 60100000, 3000,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(ON, GDHS, MAX, ACTIVE),
+		false,
+		4200, 5000, 60350000, 3500,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, MAX, ACTIVE),
+		false,
+		6300, 4500, 65350000, 4800,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(OFF, GDHS, MAX, ACTIVE),
+		false,
+		11700, 2500, 67850000, 5500,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
+		false,
+		13800, 2000, 71850000, 6800,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
+		false,
+		29700, 500, 75850000, 8800,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
+		false,
+		29700, 0, 76350000, 9800,
+	},
+};
+
+static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
+	.mode = MSM_PM_BOOT_CONFIG_TZ,
+};
+
+static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
+	.levels = &msm_rpmrs_levels[0],
+	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
+	.vdd_mem_levels  = {
+		[MSM_RPMRS_VDD_MEM_RET_LOW]	= 750000,
+		[MSM_RPMRS_VDD_MEM_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_MEM_ACTIVE]	= 1050000,
+		[MSM_RPMRS_VDD_MEM_MAX]		= 1150000,
+	},
+	.vdd_dig_levels = {
+		[MSM_RPMRS_VDD_DIG_RET_LOW]	= 500000,
+		[MSM_RPMRS_VDD_DIG_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_DIG_ACTIVE]	= 950000,
+		[MSM_RPMRS_VDD_DIG_MAX]		= 1150000,
+	},
+	.vdd_mask = 0x7FFFFF,
+	.rpmrs_target_id = {
+		[MSM_RPMRS_ID_PXO_CLK]		= MSM_RPM_ID_PXO_CLK,
+		[MSM_RPMRS_ID_L2_CACHE_CTL]	= MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_DIG_0]	= MSM_RPM_ID_PM8921_S3_0,
+		[MSM_RPMRS_ID_VDD_DIG_1]	= MSM_RPM_ID_PM8921_S3_1,
+		[MSM_RPMRS_ID_VDD_MEM_0]	= MSM_RPM_ID_PM8921_L24_0,
+		[MSM_RPMRS_ID_VDD_MEM_1]	= MSM_RPM_ID_PM8921_L24_1,
+		[MSM_RPMRS_ID_RPM_CTL]		= MSM_RPM_ID_RPM_CTL,
+	},
+};
+
+static struct msm_cpuidle_state msm_cstates[] __initdata = {
+	{0, 0, "C0", "WFI",
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{0, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+
+	{0, 2, "C2", "POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE},
+
+	{1, 0, "C0", "WFI",
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{1, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+
+	{2, 0, "C0", "WFI",
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{2, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+
+	{3, 0, "C0", "WFI",
+		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{3, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+};
+
+static struct msm_pm_platform_data msm_pm_data[] = {
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 1,
+		.suspend_enabled = 1,
+	},
+
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+		.idle_supported = 0,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+		.idle_supported = 1,
+		.suspend_supported = 0,
+		.idle_enabled = 1,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+		.idle_supported = 0,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+		.idle_supported = 1,
+		.suspend_supported = 0,
+		.idle_enabled = 1,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+		.idle_supported = 0,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
+	},
+
+	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+		.idle_supported = 1,
+		.suspend_supported = 0,
+		.idle_enabled = 1,
+		.suspend_enabled = 0,
+	},
+};
+
+static uint8_t spm_wfi_cmd_sequence[] __initdata = {
+	0x03, 0x0f,
+};
+
+static uint8_t spm_power_collapse_without_rpm[] __initdata = {
+	0x00, 0x24, 0x54, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm[] __initdata = {
+	0x00, 0x24, 0x54, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
+	[0] = {
+		.mode = MSM_SPM_MODE_CLOCK_GATING,
+		.notify_rpm = false,
+		.cmd = spm_wfi_cmd_sequence,
+	},
+	[1] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = false,
+		.cmd = spm_power_collapse_without_rpm,
+	},
+	[2] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = true,
+		.cmd = spm_power_collapse_with_rpm,
+	},
+};
+
+static uint8_t l2_spm_wfi_cmd_sequence[] __initdata = {
+	0x00, 0x20, 0x03, 0x20,
+	0x00, 0x0f,
+};
+
+static uint8_t l2_spm_gdhs_cmd_sequence[] __initdata = {
+	0x00, 0x20, 0x34, 0x64,
+	0x48, 0x07, 0x48, 0x20,
+	0x50, 0x64, 0x04, 0x34,
+	0x50, 0x0f,
+};
+static uint8_t l2_spm_power_off_cmd_sequence[] __initdata = {
+	0x00, 0x10, 0x34, 0x64,
+	0x48, 0x07, 0x48, 0x10,
+	0x50, 0x64, 0x04, 0x34,
+	0x50, 0x0F,
+};
+
+static struct msm_spm_seq_entry msm_spm_l2_seq_list[] __initdata = {
+	[0] = {
+		.mode = MSM_SPM_L2_MODE_RETENTION,
+		.notify_rpm = false,
+		.cmd = l2_spm_wfi_cmd_sequence,
+	},
+	[1] = {
+		.mode = MSM_SPM_L2_MODE_GDHS,
+		.notify_rpm = true,
+		.cmd = l2_spm_gdhs_cmd_sequence,
+	},
+	[2] = {
+		.mode = MSM_SPM_L2_MODE_POWER_COLLAPSE,
+		.notify_rpm = true,
+		.cmd = l2_spm_power_off_cmd_sequence,
+	},
+};
+
+
+static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW_L2_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x00A000AE,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x00A00020,
+		.modes = msm_spm_l2_seq_list,
+		.num_modes = ARRAY_SIZE(msm_spm_l2_seq_list),
+	},
+};
+
+static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW0_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+#if defined(CONFIG_MSM_AVS_HW)
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.vctl_timeout_us = 50,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[1] = {
+		.reg_base_addr = MSM_SAW1_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+#if defined(CONFIG_MSM_AVS_HW)
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.vctl_timeout_us = 50,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[2] = {
+		.reg_base_addr = MSM_SAW2_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+#if defined(CONFIG_MSM_AVS_HW)
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.vctl_timeout_us = 50,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[3] = {
+		.reg_base_addr = MSM_SAW3_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_SECURE] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW2_VCTL] = 0x9C,
+#if defined(CONFIG_MSM_AVS_HW)
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020202,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.vctl_timeout_us = 50,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
 	},
 };
 
@@ -684,6 +1060,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_pcm_afe,
 	&apq_cpudai_auxpcm_rx,
 	&apq_cpudai_auxpcm_tx,
+	&apq8064_rpm_device,
+	&apq8064_rpm_log_device,
+	&apq8064_rpm_stat_device,
 	&msm_bus_8064_apps_fabric,
 	&msm_bus_8064_sys_fabric,
 	&msm_bus_8064_mm_fabric,
@@ -779,6 +1158,8 @@ static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
+	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
+	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 	apq8064_clock_init();
 	apq8064_init_gpiomux();
 	apq8064_i2c_init();
@@ -793,6 +1174,13 @@ static void __init apq8064_common_init(void)
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
 	acpuclk_init(&acpuclk_8064_soc_data);
+	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	msm_spm_l2_init(msm_spm_l2_data);
+	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
+	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
+	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
+				msm_pm_data);
+	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 }
 
 static void __init apq8064_sim_init(void)

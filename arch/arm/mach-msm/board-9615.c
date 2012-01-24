@@ -448,7 +448,7 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_tsens,
 	&msm_device_nand,
 	&msm_device_bam_dmux,
-	&msm_rpm_device,
+	&msm9615_rpm_device,
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
 #endif
@@ -465,6 +465,8 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_watchdog,
 	&msm_bus_9615_sys_fabric,
 	&msm_bus_def_fab,
+	&msm9615_rpm_log_device,
+	&msm9615_rpm_stat_device,
 };
 
 static void __init msm9615_i2c_init(void)

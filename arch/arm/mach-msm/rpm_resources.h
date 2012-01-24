@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,17 +17,15 @@
 #include <mach/rpm.h>
 #include <mach/pm.h>
 
-
-struct msm_rpmrs_limits {
-	uint32_t pxo;
-	uint32_t l2_cache;
-	uint32_t vdd_mem_upper_bound;
-	uint32_t vdd_mem;
-	uint32_t vdd_dig_upper_bound;
-	uint32_t vdd_dig;
-
-	uint32_t latency_us[NR_CPUS];
-	uint32_t power[NR_CPUS];
+enum {
+	MSM_RPMRS_ID_PXO_CLK = 0,
+	MSM_RPMRS_ID_L2_CACHE_CTL = 1,
+	MSM_RPMRS_ID_VDD_DIG_0 = 2,
+	MSM_RPMRS_ID_VDD_DIG_1 = 3,
+	MSM_RPMRS_ID_VDD_MEM_0 = 4,
+	MSM_RPMRS_ID_VDD_MEM_1 = 5,
+	MSM_RPMRS_ID_RPM_CTL = 6,
+	MSM_RPMRS_ID_LAST,
 };
 
 enum {
@@ -47,6 +45,22 @@ enum {
 	MSM_RPMRS_MASK_RPM_CTL_MULTI_TIER = 2,
 };
 
+enum {
+	MSM_RPMRS_VDD_MEM_RET_LOW = 0,
+	MSM_RPMRS_VDD_MEM_RET_HIGH = 1,
+	MSM_RPMRS_VDD_MEM_ACTIVE = 2,
+	MSM_RPMRS_VDD_MEM_MAX = 3,
+	MSM_RPMRS_VDD_MEM_LAST,
+};
+
+enum {
+	MSM_RPMRS_VDD_DIG_RET_LOW = 0,
+	MSM_RPMRS_VDD_DIG_RET_HIGH = 1,
+	MSM_RPMRS_VDD_DIG_ACTIVE = 2,
+	MSM_RPMRS_VDD_DIG_MAX = 3,
+	MSM_RPMRS_VDD_DIG_LAST,
+};
+
 #define MSM_RPMRS_LIMITS(_pxo, _l2, _vdd_upper_b, _vdd) { \
 	MSM_RPMRS_PXO_##_pxo, \
 	MSM_RPMRS_L2_CACHE_##_l2, \
@@ -57,6 +71,18 @@ enum {
 	{0}, {0}, \
 }
 
+struct msm_rpmrs_limits {
+	uint32_t pxo;
+	uint32_t l2_cache;
+	uint32_t vdd_mem_upper_bound;
+	uint32_t vdd_mem;
+	uint32_t vdd_dig_upper_bound;
+	uint32_t vdd_dig;
+
+	uint32_t latency_us[NR_CPUS];
+	uint32_t power[NR_CPUS];
+};
+
 struct msm_rpmrs_level {
 	enum msm_pm_sleep_mode sleep_mode;
 	struct msm_rpmrs_limits rs_limits;
@@ -65,6 +91,15 @@ struct msm_rpmrs_level {
 	uint32_t steady_state_power;
 	uint32_t energy_overhead;
 	uint32_t time_overhead_us;
+};
+
+struct msm_rpmrs_platform_data {
+	struct msm_rpmrs_level *levels;
+	unsigned int num_levels;
+	unsigned int vdd_mem_levels[MSM_RPMRS_VDD_MEM_LAST];
+	unsigned int vdd_dig_levels[MSM_RPMRS_VDD_DIG_LAST];
+	unsigned int vdd_mask;
+	unsigned int rpmrs_target_id[MSM_RPMRS_ID_LAST];
 };
 
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
@@ -112,6 +147,6 @@ int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
 		bool notify_rpm, bool collapsed);
 
-int msm_rpmrs_levels_init(struct msm_rpmrs_level *levels, int size);
+int msm_rpmrs_levels_init(struct msm_rpmrs_platform_data *data);
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */

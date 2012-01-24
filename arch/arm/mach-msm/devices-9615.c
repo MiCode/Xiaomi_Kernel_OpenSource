@@ -30,12 +30,14 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
+#include <mach/pm.h>
 #include "devices.h"
 #include "mpm.h"
 #include "spm.h"
-#include <mach/pm.h>
 #include "rpm_resources.h"
 #include "msm_watchdog.h"
+#include "rpm_stats.h"
+#include "rpm_log.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS          0x16000000
@@ -724,72 +726,148 @@ static int __init l2x0_cache_init(void)
 static int __init l2x0_cache_init(void){ return 0; }
 #endif
 
-struct msm_rpm_map_data rpm_map_data[] __initdata = {
-	MSM_RPM_MAP(TRIGGER_TIMED_TO, TRIGGER_TIMED, 1),
-	MSM_RPM_MAP(TRIGGER_TIMED_SCLK_COUNT, TRIGGER_TIMED, 1),
-
-	MSM_RPM_MAP(RPM_CTL, RPM_CTL, 1),
-
-	MSM_RPM_MAP(CXO_CLK, CXO_CLK, 1),
-	MSM_RPM_MAP(SYSTEM_FABRIC_CLK, SYSTEM_FABRIC_CLK, 1),
-	MSM_RPM_MAP(DAYTONA_FABRIC_CLK, DAYTONA_FABRIC_CLK, 1),
-	MSM_RPM_MAP(SFPB_CLK, SFPB_CLK, 1),
-	MSM_RPM_MAP(CFPB_CLK, CFPB_CLK, 1),
-	MSM_RPM_MAP(EBI1_CLK, EBI1_CLK, 1),
-
-	MSM_RPM_MAP(SYS_FABRIC_CFG_HALT_0, SYS_FABRIC_CFG_HALT, 2),
-	MSM_RPM_MAP(SYS_FABRIC_CFG_CLKMOD_0, SYS_FABRIC_CFG_CLKMOD, 3),
-	MSM_RPM_MAP(SYS_FABRIC_CFG_IOCTL, SYS_FABRIC_CFG_IOCTL, 1),
-	MSM_RPM_MAP(SYSTEM_FABRIC_ARB_0, SYSTEM_FABRIC_ARB, 27),
-
-	MSM_RPM_MAP(PM8018_S1_0, PM8018_S1, 2),
-	MSM_RPM_MAP(PM8018_S2_0, PM8018_S2, 2),
-	MSM_RPM_MAP(PM8018_S3_0, PM8018_S3, 2),
-	MSM_RPM_MAP(PM8018_S4_0, PM8018_S4, 2),
-	MSM_RPM_MAP(PM8018_S5_0, PM8018_S5, 2),
-	MSM_RPM_MAP(PM8018_L1_0, PM8018_L1, 2),
-	MSM_RPM_MAP(PM8018_L2_0, PM8018_L2, 2),
-	MSM_RPM_MAP(PM8018_L3_0, PM8018_L3, 2),
-	MSM_RPM_MAP(PM8018_L4_0, PM8018_L4, 2),
-	MSM_RPM_MAP(PM8018_L5_0, PM8018_L5, 2),
-	MSM_RPM_MAP(PM8018_L6_0, PM8018_L6, 2),
-	MSM_RPM_MAP(PM8018_L7_0, PM8018_L7, 2),
-	MSM_RPM_MAP(PM8018_L8_0, PM8018_L8, 2),
-	MSM_RPM_MAP(PM8018_L9_0, PM8018_L9, 2),
-	MSM_RPM_MAP(PM8018_L10_0, PM8018_L10, 2),
-	MSM_RPM_MAP(PM8018_L11_0, PM8018_L11, 2),
-	MSM_RPM_MAP(PM8018_L12_0, PM8018_L12, 2),
-	MSM_RPM_MAP(PM8018_L13_0, PM8018_L13, 2),
-	MSM_RPM_MAP(PM8018_L14_0, PM8018_L14, 2),
-	MSM_RPM_MAP(PM8018_LVS1, PM8018_LVS1, 1),
-	MSM_RPM_MAP(NCP_0, NCP, 2),
-	MSM_RPM_MAP(CXO_BUFFERS, CXO_BUFFERS, 1),
-	MSM_RPM_MAP(USB_OTG_SWITCH, USB_OTG_SWITCH, 1),
-	MSM_RPM_MAP(HDMI_SWITCH, HDMI_SWITCH, 1),
-};
-unsigned int rpm_map_data_size = ARRAY_SIZE(rpm_map_data);
-
-static struct msm_rpm_platform_data msm_rpm_data = {
+struct msm_rpm_platform_data msm9615_rpm_data __initdata = {
 	.reg_base_addrs = {
 		[MSM_RPM_PAGE_STATUS] = MSM_RPM_BASE,
 		[MSM_RPM_PAGE_CTRL] = MSM_RPM_BASE + 0x400,
 		[MSM_RPM_PAGE_REQ] = MSM_RPM_BASE + 0x600,
 		[MSM_RPM_PAGE_ACK] = MSM_RPM_BASE + 0xa00,
 	},
-
 	.irq_ack = RPM_APCC_CPU0_GP_HIGH_IRQ,
-	.irq_err = RPM_APCC_CPU0_GP_LOW_IRQ,
-	.irq_vmpm = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
-	.msm_apps_ipc_rpm_reg = MSM_APCS_GCC_BASE + 0x008,
-	.msm_apps_ipc_rpm_val = 4,
+	.ipc_rpm_reg = MSM_APCS_GCC_BASE + 0x008,
+	.ipc_rpm_val = 4,
+	.target_id = {
+		MSM_RPM_MAP(9615, NOTIFICATION_CONFIGURED_0, NOTIFICATION, 4),
+		MSM_RPM_MAP(9615, NOTIFICATION_REGISTERED_0, NOTIFICATION, 4),
+		MSM_RPM_MAP(9615, INVALIDATE_0, INVALIDATE, 8),
+		MSM_RPM_MAP(9615, TRIGGER_TIMED_TO, TRIGGER_TIMED, 1),
+		MSM_RPM_MAP(9615, TRIGGER_TIMED_SCLK_COUNT, TRIGGER_TIMED, 1),
+		MSM_RPM_MAP(9615, RPM_CTL, RPM_CTL, 1),
+		MSM_RPM_MAP(9615, CXO_CLK, CXO_CLK, 1),
+		MSM_RPM_MAP(9615, SYSTEM_FABRIC_CLK, SYSTEM_FABRIC_CLK, 1),
+		MSM_RPM_MAP(9615, DAYTONA_FABRIC_CLK, DAYTONA_FABRIC_CLK, 1),
+		MSM_RPM_MAP(9615, SFPB_CLK, SFPB_CLK, 1),
+		MSM_RPM_MAP(9615, CFPB_CLK, CFPB_CLK, 1),
+		MSM_RPM_MAP(9615, EBI1_CLK, EBI1_CLK, 1),
+		MSM_RPM_MAP(9615, SYS_FABRIC_CFG_HALT_0,
+				SYS_FABRIC_CFG_HALT, 2),
+		MSM_RPM_MAP(9615, SYS_FABRIC_CFG_CLKMOD_0,
+				SYS_FABRIC_CFG_CLKMOD, 3),
+		MSM_RPM_MAP(9615, SYS_FABRIC_CFG_IOCTL,
+				SYS_FABRIC_CFG_IOCTL, 1),
+		MSM_RPM_MAP(9615, SYSTEM_FABRIC_ARB_0,
+				SYSTEM_FABRIC_ARB, 27),
+		MSM_RPM_MAP(9615, PM8018_S1_0, PM8018_S1, 2),
+		MSM_RPM_MAP(9615, PM8018_S2_0, PM8018_S2, 2),
+		MSM_RPM_MAP(9615, PM8018_S3_0, PM8018_S3, 2),
+		MSM_RPM_MAP(9615, PM8018_S4_0, PM8018_S4, 2),
+		MSM_RPM_MAP(9615, PM8018_S5_0, PM8018_S5, 2),
+		MSM_RPM_MAP(9615, PM8018_L1_0, PM8018_L1, 2),
+		MSM_RPM_MAP(9615, PM8018_L2_0, PM8018_L2, 2),
+		MSM_RPM_MAP(9615, PM8018_L3_0, PM8018_L3, 2),
+		MSM_RPM_MAP(9615, PM8018_L4_0, PM8018_L4, 2),
+		MSM_RPM_MAP(9615, PM8018_L5_0, PM8018_L5, 2),
+		MSM_RPM_MAP(9615, PM8018_L6_0, PM8018_L6, 2),
+		MSM_RPM_MAP(9615, PM8018_L7_0, PM8018_L7, 2),
+		MSM_RPM_MAP(9615, PM8018_L8_0, PM8018_L8, 2),
+		MSM_RPM_MAP(9615, PM8018_L9_0, PM8018_L9, 2),
+		MSM_RPM_MAP(9615, PM8018_L10_0, PM8018_L10, 2),
+		MSM_RPM_MAP(9615, PM8018_L11_0, PM8018_L11, 2),
+		MSM_RPM_MAP(9615, PM8018_L12_0, PM8018_L12, 2),
+		MSM_RPM_MAP(9615, PM8018_L13_0, PM8018_L13, 2),
+		MSM_RPM_MAP(9615, PM8018_L14_0, PM8018_L14, 2),
+		MSM_RPM_MAP(9615, PM8018_LVS1, PM8018_LVS1, 1),
+		MSM_RPM_MAP(9615, NCP_0, NCP, 2),
+		MSM_RPM_MAP(9615, CXO_BUFFERS, CXO_BUFFERS, 1),
+		MSM_RPM_MAP(9615, USB_OTG_SWITCH, USB_OTG_SWITCH, 1),
+		MSM_RPM_MAP(9615, HDMI_SWITCH, HDMI_SWITCH, 1),
+	},
+	.target_status = {
+		MSM_RPM_STATUS_ID_MAP(9615, VERSION_MAJOR),
+		MSM_RPM_STATUS_ID_MAP(9615, VERSION_MINOR),
+		MSM_RPM_STATUS_ID_MAP(9615, VERSION_BUILD),
+		MSM_RPM_STATUS_ID_MAP(9615, SUPPORTED_RESOURCES_0),
+		MSM_RPM_STATUS_ID_MAP(9615, SUPPORTED_RESOURCES_1),
+		MSM_RPM_STATUS_ID_MAP(9615, SUPPORTED_RESOURCES_2),
+		MSM_RPM_STATUS_ID_MAP(9615, RESERVED_SUPPORTED_RESOURCES_0),
+		MSM_RPM_STATUS_ID_MAP(9615, SEQUENCE),
+		MSM_RPM_STATUS_ID_MAP(9615, RPM_CTL),
+		MSM_RPM_STATUS_ID_MAP(9615, CXO_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, SYSTEM_FABRIC_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, DAYTONA_FABRIC_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, SFPB_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, CFPB_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, EBI1_CLK),
+		MSM_RPM_STATUS_ID_MAP(9615, SYS_FABRIC_CFG_HALT),
+		MSM_RPM_STATUS_ID_MAP(9615, SYS_FABRIC_CFG_CLKMOD),
+		MSM_RPM_STATUS_ID_MAP(9615, SYS_FABRIC_CFG_IOCTL),
+		MSM_RPM_STATUS_ID_MAP(9615, SYSTEM_FABRIC_ARB),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S1_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S1_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S2_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S2_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S3_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S3_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S4_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S4_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S5_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_S5_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L1_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L1_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L2_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L2_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L3_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L3_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L4_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L4_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L5_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L5_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L6_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L6_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L7_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L7_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L8_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L8_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L9_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L9_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L10_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L10_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L11_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L11_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L12_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L12_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L13_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L13_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L14_0),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_L14_1),
+		MSM_RPM_STATUS_ID_MAP(9615, PM8018_LVS1),
+		MSM_RPM_STATUS_ID_MAP(9615, NCP_0),
+		MSM_RPM_STATUS_ID_MAP(9615, NCP_1),
+		MSM_RPM_STATUS_ID_MAP(9615, CXO_BUFFERS),
+		MSM_RPM_STATUS_ID_MAP(9615, USB_OTG_SWITCH),
+		MSM_RPM_STATUS_ID_MAP(9615, HDMI_SWITCH),
+	},
+	.target_ctrl_id = {
+		MSM_RPM_CTRL_MAP(9615, VERSION_MAJOR),
+		MSM_RPM_CTRL_MAP(9615, VERSION_MINOR),
+		MSM_RPM_CTRL_MAP(9615, VERSION_BUILD),
+		MSM_RPM_CTRL_MAP(9615, REQ_CTX_0),
+		MSM_RPM_CTRL_MAP(9615, REQ_SEL_0),
+		MSM_RPM_CTRL_MAP(9615, ACK_CTX_0),
+		MSM_RPM_CTRL_MAP(9615, ACK_SEL_0),
+	},
+	.sel_invalidate = MSM_RPM_9615_SEL_INVALIDATE,
+	.sel_notification = MSM_RPM_9615_SEL_NOTIFICATION,
+	.sel_last = MSM_RPM_9615_SEL_LAST,
+	.ver = {3, 0, 0},
 };
 
-struct platform_device msm_rpm_device = {
+struct platform_device msm9615_rpm_device = {
 	.name   = "msm_rpm",
 	.id     = -1,
 };
 
-static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] = {
+static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] __initdata = {
 	[4] = MSM_GPIO_TO_INT(30),
 	[5] = MSM_GPIO_TO_INT(59),
 	[6] = MSM_GPIO_TO_INT(81),
@@ -833,7 +911,7 @@ static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] = {
 	[55] = MSM_GPIO_TO_INT(27),
 };
 
-static uint16_t msm_mpm_bypassed_apps_irqs[] = {
+static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	TLMM_MSM_SUMMARY_IRQ,
 	RPM_APCC_CPU0_GP_HIGH_IRQ,
 	RPM_APCC_CPU0_GP_MEDIUM_IRQ,
@@ -848,7 +926,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	A2_BAM_IRQ,
 };
 
-struct msm_mpm_device_data msm_mpm_dev_data = {
+struct msm_mpm_device_data msm9615_mpm_dev_data __initdata = {
 	.irqs_m2a = msm_mpm_irqs_m2a,
 	.irqs_m2a_size = ARRAY_SIZE(msm_mpm_irqs_m2a),
 	.bypassed_apps_irqs = msm_mpm_bypassed_apps_irqs,
@@ -911,7 +989,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		true,
 		100, 8000, 100000, 1,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
@@ -938,12 +1015,70 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 	},
 };
 
+static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
+	.levels = &msm_rpmrs_levels[0],
+	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
+	.vdd_mem_levels  = {
+		[MSM_RPMRS_VDD_MEM_RET_LOW]     = 750000,
+		[MSM_RPMRS_VDD_MEM_RET_HIGH]    = 750000,
+		[MSM_RPMRS_VDD_MEM_ACTIVE]      = 1050000,
+		[MSM_RPMRS_VDD_MEM_MAX]         = 1150000,
+	},
+	.vdd_dig_levels = {
+		[MSM_RPMRS_VDD_DIG_RET_LOW]     = 500000,
+		[MSM_RPMRS_VDD_DIG_RET_HIGH]    = 750000,
+		[MSM_RPMRS_VDD_DIG_ACTIVE]      = 950000,
+		[MSM_RPMRS_VDD_DIG_MAX]         = 1150000,
+	},
+	.vdd_mask = 0x7FFFFF,
+	.rpmrs_target_id = {
+		[MSM_RPMRS_ID_PXO_CLK]          = MSM_RPM_ID_CXO_CLK,
+		[MSM_RPMRS_ID_L2_CACHE_CTL]     = MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_DIG_0]        = MSM_RPM_ID_PM8018_S1_0,
+		[MSM_RPMRS_ID_VDD_DIG_1]        = MSM_RPM_ID_PM8018_S1_1,
+		[MSM_RPMRS_ID_VDD_MEM_0]        = MSM_RPM_ID_PM8018_L9_0,
+		[MSM_RPMRS_ID_VDD_MEM_1]        = MSM_RPM_ID_PM8018_L9_1,
+		[MSM_RPMRS_ID_RPM_CTL]          = MSM_RPM_ID_RPM_CTL,
+	},
+};
+
+static struct msm_rpmstats_platform_data msm_rpm_stat_pdata = {
+	.phys_addr_base = 0x0010D204,
+	.phys_size = SZ_8K,
+};
+
+struct platform_device msm9615_rpm_stat_device = {
+	.name = "msm_rpm_stat",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_rpm_stat_pdata,
+	},
+};
+
+static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
+	.phys_addr_base = 0x0010AC00,
+	.reg_offsets = {
+		[MSM_RPM_LOG_PAGE_INDICES] = 0x00000080,
+		[MSM_RPM_LOG_PAGE_BUFFER]  = 0x000000A0,
+	},
+	.phys_size = SZ_8K,
+	.log_len = 4096,		  /* log's buffer length in bytes */
+	.log_len_mask = (4096 >> 2) - 1,  /* length mask in units of u32 */
+};
+
+struct platform_device msm9615_rpm_log_device = {
+	.name	= "msm_rpm_log",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_rpm_log_pdata,
+	},
+};
+
 void __init msm9615_device_init(void)
 {
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
-	BUG_ON(msm_rpm_init(&msm_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
-			ARRAY_SIZE(msm_rpmrs_levels)));
+	BUG_ON(msm_rpm_init(&msm9615_rpm_data));
+	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 }
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
@@ -958,7 +1093,13 @@ void __init msm9615_map_io(void)
 
 void __init msm9615_init_irq(void)
 {
-	msm_mpm_irq_extn_init();
+	struct msm_mpm_device_data *data = NULL;
+
+#ifdef CONFIG_MSM_MPM
+	data = &msm9615_mpm_dev_data;
+#endif
+
+	msm_mpm_irq_extn_init(data);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
 

@@ -87,7 +87,6 @@
 #include "rpm_resources.h"
 #include "mpm.h"
 #include "acpuclock.h"
-#include "rpm_log.h"
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
@@ -787,6 +786,102 @@ static struct platform_device *mdm_devices[] __initdata = {
 	&mdm_device,
 };
 
+#ifdef CONFIG_MSM_MPM
+static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] __initdata = {
+	[1] = MSM_GPIO_TO_INT(46),
+	[2] = MSM_GPIO_TO_INT(150),
+	[4] = MSM_GPIO_TO_INT(103),
+	[5] = MSM_GPIO_TO_INT(104),
+	[6] = MSM_GPIO_TO_INT(105),
+	[7] = MSM_GPIO_TO_INT(106),
+	[8] = MSM_GPIO_TO_INT(107),
+	[9] = MSM_GPIO_TO_INT(7),
+	[10] = MSM_GPIO_TO_INT(11),
+	[11] = MSM_GPIO_TO_INT(15),
+	[12] = MSM_GPIO_TO_INT(19),
+	[13] = MSM_GPIO_TO_INT(23),
+	[14] = MSM_GPIO_TO_INT(27),
+	[15] = MSM_GPIO_TO_INT(31),
+	[16] = MSM_GPIO_TO_INT(35),
+	[19] = MSM_GPIO_TO_INT(90),
+	[20] = MSM_GPIO_TO_INT(92),
+	[23] = MSM_GPIO_TO_INT(85),
+	[24] = MSM_GPIO_TO_INT(83),
+	[25] = USB1_HS_IRQ,
+	[27] = HDMI_IRQ,
+	[29] = MSM_GPIO_TO_INT(10),
+	[30] = MSM_GPIO_TO_INT(102),
+	[31] = MSM_GPIO_TO_INT(81),
+	[32] = MSM_GPIO_TO_INT(78),
+	[33] = MSM_GPIO_TO_INT(94),
+	[34] = MSM_GPIO_TO_INT(72),
+	[35] = MSM_GPIO_TO_INT(39),
+	[36] = MSM_GPIO_TO_INT(43),
+	[37] = MSM_GPIO_TO_INT(61),
+	[38] = MSM_GPIO_TO_INT(50),
+	[39] = MSM_GPIO_TO_INT(42),
+	[41] = MSM_GPIO_TO_INT(62),
+	[42] = MSM_GPIO_TO_INT(76),
+	[43] = MSM_GPIO_TO_INT(75),
+	[44] = MSM_GPIO_TO_INT(70),
+	[45] = MSM_GPIO_TO_INT(69),
+	[46] = MSM_GPIO_TO_INT(67),
+	[47] = MSM_GPIO_TO_INT(65),
+	[48] = MSM_GPIO_TO_INT(58),
+	[49] = MSM_GPIO_TO_INT(54),
+	[50] = MSM_GPIO_TO_INT(52),
+	[51] = MSM_GPIO_TO_INT(49),
+	[52] = MSM_GPIO_TO_INT(40),
+	[53] = MSM_GPIO_TO_INT(37),
+	[54] = MSM_GPIO_TO_INT(24),
+	[55] = MSM_GPIO_TO_INT(14),
+};
+
+static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
+	TLMM_MSM_SUMMARY_IRQ,
+	RPM_APCC_CPU0_GP_HIGH_IRQ,
+	RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+	RPM_APCC_CPU0_GP_LOW_IRQ,
+	RPM_APCC_CPU0_WAKE_UP_IRQ,
+	RPM_APCC_CPU1_GP_HIGH_IRQ,
+	RPM_APCC_CPU1_GP_MEDIUM_IRQ,
+	RPM_APCC_CPU1_GP_LOW_IRQ,
+	RPM_APCC_CPU1_WAKE_UP_IRQ,
+	MSS_TO_APPS_IRQ_0,
+	MSS_TO_APPS_IRQ_1,
+	MSS_TO_APPS_IRQ_2,
+	MSS_TO_APPS_IRQ_3,
+	MSS_TO_APPS_IRQ_4,
+	MSS_TO_APPS_IRQ_5,
+	MSS_TO_APPS_IRQ_6,
+	MSS_TO_APPS_IRQ_7,
+	MSS_TO_APPS_IRQ_8,
+	MSS_TO_APPS_IRQ_9,
+	LPASS_SCSS_GP_LOW_IRQ,
+	LPASS_SCSS_GP_MEDIUM_IRQ,
+	LPASS_SCSS_GP_HIGH_IRQ,
+	SPS_MTI_30,
+	SPS_MTI_31,
+	RIVA_APSS_SPARE_IRQ,
+	RIVA_APPS_WLAN_SMSM_IRQ,
+	RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+};
+
+struct msm_mpm_device_data msm8930_mpm_dev_data __initdata = {
+	.irqs_m2a = msm_mpm_irqs_m2a,
+	.irqs_m2a_size = ARRAY_SIZE(msm_mpm_irqs_m2a),
+	.bypassed_apps_irqs = msm_mpm_bypassed_apps_irqs,
+	.bypassed_apps_irqs_size = ARRAY_SIZE(msm_mpm_bypassed_apps_irqs),
+	.mpm_request_reg_base = MSM_RPM_BASE + 0x9d8,
+	.mpm_status_reg_base = MSM_RPM_BASE + 0xdf8,
+	.mpm_apps_ipc_reg = MSM_APCS_GCC_BASE + 0x008,
+	.mpm_apps_ipc_val =  BIT(1),
+	.mpm_ipc_irq = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
+
+};
+#endif
+
 #define MSM_SHARED_RAM_PHYS 0x80000000
 
 static void __init msm8930_map_io(void)
@@ -800,7 +895,12 @@ static void __init msm8930_map_io(void)
 
 static void __init msm8930_init_irq(void)
 {
-	msm_mpm_irq_extn_init();
+	struct msm_mpm_device_data *data = NULL;
+#ifdef CONFIG_MSM_MPM
+	data = &msm8930_mpm_dev_data;
+#endif
+
+	msm_mpm_irq_extn_init(data);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
 
@@ -918,21 +1018,21 @@ static struct platform_device android_usb_device = {
 };
 
 static uint8_t spm_wfi_cmd_sequence[] __initdata = {
-			0x03, 0x0f,
+	0x03, 0x0f,
 };
 
 static uint8_t spm_power_collapse_without_rpm[] __initdata = {
-			0x00, 0x24, 0x54, 0x10,
-			0x09, 0x03, 0x01,
-			0x10, 0x54, 0x30, 0x0C,
-			0x24, 0x30, 0x0f,
+	0x00, 0x24, 0x54, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
 };
 
 static uint8_t spm_power_collapse_with_rpm[] __initdata = {
-			0x00, 0x24, 0x54, 0x10,
-			0x09, 0x07, 0x01, 0x0B,
-			0x10, 0x54, 0x30, 0x0C,
-			0x24, 0x30, 0x0f,
+	0x00, 0x24, 0x54, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
 };
 
 static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
@@ -991,21 +1091,21 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 };
 
 static uint8_t l2_spm_wfi_cmd_sequence[] __initdata = {
-			0x00, 0x20, 0x03, 0x20,
-			0x00, 0x0f,
+	0x00, 0x20, 0x03, 0x20,
+	0x00, 0x0f,
 };
 
 static uint8_t l2_spm_gdhs_cmd_sequence[] __initdata = {
-			0x00, 0x20, 0x34, 0x64,
-			0x48, 0x07, 0x48, 0x20,
-			0x50, 0x64, 0x04, 0x34,
-			0x50, 0x0f,
+	0x00, 0x20, 0x34, 0x64,
+	0x48, 0x07, 0x48, 0x20,
+	0x50, 0x64, 0x04, 0x34,
+	0x50, 0x0f,
 };
 static uint8_t l2_spm_power_off_cmd_sequence[] __initdata = {
-			0x00, 0x10, 0x34, 0x64,
-			0x48, 0x07, 0x48, 0x10,
-			0x50, 0x64, 0x04, 0x34,
-			0x50, 0x0F,
+	0x00, 0x10, 0x34, 0x64,
+	0x48, 0x07, 0x48, 0x10,
+	0x50, 0x64, 0x04, 0x34,
+	0x50, 0x0F,
 };
 
 static struct msm_spm_seq_entry msm_spm_l2_seq_list[] __initdata = {
@@ -1553,20 +1653,6 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi12_pdata = {
 	.src_clk_rate = 24000000,
 };
 
-static struct msm_rpm_platform_data msm_rpm_data = {
-	.reg_base_addrs = {
-		[MSM_RPM_PAGE_STATUS] = MSM_RPM_BASE,
-		[MSM_RPM_PAGE_CTRL] = MSM_RPM_BASE + 0x400,
-		[MSM_RPM_PAGE_REQ] = MSM_RPM_BASE + 0x600,
-		[MSM_RPM_PAGE_ACK] = MSM_RPM_BASE + 0xa00,
-	},
-
-	.irq_ack = RPM_APCC_CPU0_GP_HIGH_IRQ,
-	.irq_err = RPM_APCC_CPU0_GP_LOW_IRQ,
-	.irq_vmpm = RPM_APCC_CPU0_GP_MEDIUM_IRQ,
-	.msm_apps_ipc_rpm_reg = MSM_APCS_GCC_BASE + 0x008,
-	.msm_apps_ipc_rpm_val = 4,
-};
 
 static struct ks8851_pdata spi_eth_pdata = {
 	.irq_gpio = KS8851_IRQ_GPIO,
@@ -1687,25 +1773,6 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	},
 };
 
-static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
-	.phys_addr_base = 0x0010C000,
-	.reg_offsets = {
-		[MSM_RPM_LOG_PAGE_INDICES] = 0x00000080,
-		[MSM_RPM_LOG_PAGE_BUFFER]  = 0x000000A0,
-	},
-	.phys_size = SZ_8K,
-	.log_len = 4096,		  /* log's buffer length in bytes */
-	.log_len_mask = (4096 >> 2) - 1,  /* length mask in units of u32 */
-};
-
-static struct platform_device msm_rpm_log_device = {
-	.name	= "msm_rpm_log",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &msm_rpm_log_pdata,
-	},
-};
-
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
@@ -1763,12 +1830,12 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
 #endif
-	&msm_rpm_device,
+	&msm8930_rpm_device,
+	&msm8930_rpm_log_device,
+	&msm8930_rpm_stat_device,
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
-	&msm_rpm_log_device,
-	&msm_rpm_stat_device,
 	&msm_device_tz_log,
 
 #ifdef CONFIG_MSM_QDSS
@@ -1982,6 +2049,33 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 	},
 };
 
+static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
+	.levels = &msm_rpmrs_levels[0],
+	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
+	.vdd_mem_levels  = {
+		[MSM_RPMRS_VDD_MEM_RET_LOW]	= 750000,
+		[MSM_RPMRS_VDD_MEM_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_MEM_ACTIVE]	= 1050000,
+		[MSM_RPMRS_VDD_MEM_MAX]		= 1150000,
+	},
+	.vdd_dig_levels = {
+		[MSM_RPMRS_VDD_DIG_RET_LOW]	= 500000,
+		[MSM_RPMRS_VDD_DIG_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_DIG_ACTIVE]	= 950000,
+		[MSM_RPMRS_VDD_DIG_MAX]		= 1150000,
+	},
+	.vdd_mask = 0x7FFFFF,
+	.rpmrs_target_id = {
+		[MSM_RPMRS_ID_PXO_CLK]		= MSM_RPM_ID_PXO_CLK,
+		[MSM_RPMRS_ID_L2_CACHE_CTL]	= MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_DIG_0]	= MSM_RPM_ID_PM8038_S1_0,
+		[MSM_RPMRS_ID_VDD_DIG_1]	= MSM_RPM_ID_PM8038_S1_1,
+		[MSM_RPMRS_ID_VDD_MEM_0]	= MSM_RPM_ID_PM8038_L24_0,
+		[MSM_RPMRS_ID_VDD_MEM_1]	= MSM_RPM_ID_PM8038_L24_1,
+		[MSM_RPMRS_ID_RPM_CTL]		= MSM_RPM_ID_RPM_CTL,
+	},
+};
+
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_TZ,
 };
@@ -2123,9 +2217,8 @@ static void __init msm8930_cdp_init(void)
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 
-	BUG_ON(msm_rpm_init(&msm_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
-				ARRAY_SIZE(msm_rpmrs_levels)));
+	BUG_ON(msm_rpm_init(&msm8930_rpm_data));
+	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
