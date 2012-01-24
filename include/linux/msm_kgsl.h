@@ -51,6 +51,7 @@ enum kgsl_user_mem_type {
 	KGSL_USER_MEM_TYPE_ASHMEM	= 0x00000001,
 	KGSL_USER_MEM_TYPE_ADDR		= 0x00000002,
 	KGSL_USER_MEM_TYPE_ION		= 0x00000003,
+	KGSL_USER_MEM_TYPE_MAX		= 0x00000004,
 };
 
 struct kgsl_devinfo {
