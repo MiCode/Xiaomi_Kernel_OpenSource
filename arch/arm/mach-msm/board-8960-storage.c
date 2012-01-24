@@ -121,8 +121,8 @@ static struct msm_mmc_pad_pull sdc1_pad_pull_on_cfg[] = {
 
 static struct msm_mmc_pad_pull sdc1_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC1_CLK, GPIO_CFG_NO_PULL},
-	{TLMM_PULL_SDC1_CMD, GPIO_CFG_PULL_DOWN},
-	{TLMM_PULL_SDC1_DATA, GPIO_CFG_PULL_DOWN}
+	{TLMM_PULL_SDC1_CMD, GPIO_CFG_PULL_UP},
+	{TLMM_PULL_SDC1_DATA, GPIO_CFG_PULL_UP}
 };
 
 /* SDC3 pad data */
