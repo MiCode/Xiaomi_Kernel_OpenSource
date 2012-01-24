@@ -2598,7 +2598,7 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 	u64 raw_count_short, raw_count_full;
 	unsigned ret;
 
-	clk_enable(&tcxo_clk.c);
+	clk_prepare_enable(&tcxo_clk.c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 
@@ -2634,7 +2634,7 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 		ret = raw_count_full;
 	}
 
-	clk_disable(&tcxo_clk.c);
+	clk_disable_unprepare(&tcxo_clk.c);
 
 	return ret;
 }

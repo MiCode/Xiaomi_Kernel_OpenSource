@@ -4780,7 +4780,7 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	struct measure_clk *clk = to_measure_clk(c);
 	unsigned ret;
 
-	ret = clk_enable(&cxo_clk.c);
+	ret = clk_prepare_enable(&cxo_clk.c);
 	if (ret) {
 		pr_warning("CXO clock failed to enable. Can't measure\n");
 		return 0;
@@ -4823,7 +4823,7 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	writel_relaxed(0x38F8, PLLTEST_PAD_CFG_REG);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
-	clk_disable(&cxo_clk.c);
+	clk_disable_unprepare(&cxo_clk.c);
 
 	return ret;
 }
@@ -5574,14 +5574,14 @@ static void __init reg_init(void)
 	/* Reset 3D core once more, with its clock enabled. This can
 	 * eventually be done as part of the GDFS footswitch driver. */
 	clk_set_rate(&gfx3d_clk.c, 27000000);
-	clk_enable(&gfx3d_clk.c);
+	clk_prepare_enable(&gfx3d_clk.c);
 	writel_relaxed(BIT(12), SW_RESET_CORE_REG);
 	mb();
 	udelay(5);
 	writel_relaxed(0, SW_RESET_CORE_REG);
 	/* Make sure reset is de-asserted before clock is disabled. */
 	mb();
-	clk_disable(&gfx3d_clk.c);
+	clk_disable_unprepare(&gfx3d_clk.c);
 
 	/* Enable TSSC and PDM PXO sources. */
 	writel_relaxed(BIT(11), TSSC_CLK_CTL_REG);
@@ -5730,8 +5730,8 @@ static void __init msm8960_clock_init(void)
 	rcg_clk_disable(&pdm_clk.c);
 	rcg_clk_enable(&tssc_clk.c);
 	rcg_clk_disable(&tssc_clk.c);
-	clk_enable(&usb_hsic_hsic_clk.c);
-	clk_disable(&usb_hsic_hsic_clk.c);
+	clk_prepare_enable(&usb_hsic_hsic_clk.c);
+	clk_disable_unprepare(&usb_hsic_hsic_clk.c);
 
 	/*
 	 * Keep sfab floor @ 54MHz so that Krait AHB is at least 27MHz at all
@@ -5739,7 +5739,7 @@ static void __init msm8960_clock_init(void)
 	 * of Krait AHB running 4 times as fast as the timer itself.
 	 */
 	clk_set_rate(&sfab_tmr_a_clk.c, 54000000);
-	clk_enable(&sfab_tmr_a_clk.c);
+	clk_prepare_enable(&sfab_tmr_a_clk.c);
 }
 
 static int __init msm8960_clock_late_init(void)
@@ -5755,7 +5755,7 @@ static int __init msm8960_clock_late_init(void)
 	rc = clk_set_rate(mmfpb_a_clk, 76800000);
 	if (WARN(rc, "mmfpb_a_clk rate was not set (%d)\n", rc))
 		return rc;
-	rc = clk_enable(mmfpb_a_clk);
+	rc = clk_prepare_enable(mmfpb_a_clk);
 	if (WARN(rc, "mmfpb_a_clk not enabled (%d)\n", rc))
 		return rc;
 
@@ -5766,7 +5766,7 @@ static int __init msm8960_clock_late_init(void)
 	rc = clk_set_rate(cfpb_a_clk, 64000000);
 	if (WARN(rc, "cfpb_a_clk rate was not set (%d)\n", rc))
 		return rc;
-	rc = clk_enable(cfpb_a_clk);
+	rc = clk_prepare_enable(cfpb_a_clk);
 	if (WARN(rc, "cfpb_a_clk not enabled (%d)\n", rc))
 		return rc;
 
