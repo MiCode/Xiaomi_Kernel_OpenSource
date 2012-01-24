@@ -14,6 +14,7 @@
 #define __MFD_TABLA_CORE_H__
 
 #include <linux/interrupt.h>
+#include <linux/wakelock.h>
 
 #define TABLA_NUM_IRQ_REGS 3
 
@@ -55,6 +56,12 @@ enum {
 	TABLA_NUM_IRQS,
 };
 
+enum tabla_pm_state {
+	TABLA_PM_SLEEPABLE,
+	TABLA_PM_AWAKE,
+	TABLA_PM_ASLEEP,
+};
+
 struct tabla {
 	struct device *dev;
 	struct slim_device *slim;
@@ -78,22 +85,32 @@ struct tabla {
 			 int bytes, void *src, bool interface_reg);
 
 	struct regulator_bulk_data *supplies;
+
+	enum tabla_pm_state pm_state;
+	struct mutex pm_lock;
+	/* pm_wq notifies change of pm_state */
+	wait_queue_head_t pm_wq;
+	struct wake_lock wlock;
+	int wlock_holders;
 };
 
 int tabla_reg_read(struct tabla *tabla, unsigned short reg);
-int tabla_reg_write(struct tabla *tabla, unsigned short reg,
-		u8 val);
+int tabla_reg_write(struct tabla *tabla, unsigned short reg, u8 val);
 int tabla_interface_reg_read(struct tabla *tabla, unsigned short reg);
-int tabla_interface_reg_write(struct tabla *tabla, unsigned short reg,
-		u8 val);
-int tabla_bulk_read(struct tabla *tabla, unsigned short reg,
-			int count, u8 *buf);
-int tabla_bulk_write(struct tabla *tabla, unsigned short reg,
-			int count, u8 *buf);
+int tabla_interface_reg_write(struct tabla *tabla, unsigned short reg, u8 val);
+int tabla_bulk_read(struct tabla *tabla, unsigned short reg, int count,
+		    u8 *buf);
+int tabla_bulk_write(struct tabla *tabla, unsigned short reg, int count,
+		     u8 *buf);
 int tabla_irq_init(struct tabla *tabla);
 void tabla_irq_exit(struct tabla *tabla);
 int tabla_get_logical_addresses(u8 *pgd_la, u8 *inf_la);
 int tabla_get_intf_type(void);
+
+void tabla_lock_sleep(struct tabla *tabla);
+void tabla_unlock_sleep(struct tabla *tabla);
+enum tabla_pm_state tabla_pm_cmpxchg(struct tabla *tabla, enum tabla_pm_state o,
+				     enum tabla_pm_state n);
 
 static inline int tabla_request_irq(struct tabla *tabla, int irq,
 				     irq_handler_t handler, const char *name,
