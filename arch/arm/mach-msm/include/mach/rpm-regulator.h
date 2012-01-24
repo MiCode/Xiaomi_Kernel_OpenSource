@@ -21,6 +21,7 @@
 #include <mach/rpm-regulator-8960.h>
 #include <mach/rpm-regulator-9615.h>
 #include <mach/rpm-regulator-copper.h>
+#include <mach/rpm-regulator-8930.h>
 
 /**
  * enum rpm_vreg_version - supported RPM regulator versions
@@ -29,7 +30,8 @@ enum rpm_vreg_version {
 	RPM_VREG_VERSION_8660,
 	RPM_VREG_VERSION_8960,
 	RPM_VREG_VERSION_9615,
-	RPM_VREG_VERSION_MAX = RPM_VREG_VERSION_9615,
+	RPM_VREG_VERSION_8930,
+	RPM_VREG_VERSION_MAX = RPM_VREG_VERSION_8930,
 };
 
 #define RPM_VREG_PIN_CTRL_NONE		0x00

@@ -170,6 +170,7 @@ config ARCH_MSM8930
 	select MSM_SCM if SMP
 	select MSM_DIRECT_SCLK_ACCESS
 	select REGULATOR
+	select MSM_RPM_REGULATOR
 	select MSM_RPM
 	select MSM_XO
 	select MSM_QDSP6_APR

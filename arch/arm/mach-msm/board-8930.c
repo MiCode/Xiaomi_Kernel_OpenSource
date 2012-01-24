@@ -1761,14 +1761,10 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
 	.dev	= {
-	/*
-	 * TODO: When physical 8930/PM8038 hardware becomes
-	 * available, replace msm_rpm_regulator_pdata
-	 * with 8930 rpm regulator object.
-	 */
-#if     !defined(MSM8930_PHASE_2)
-
+#ifndef MSM8930_PHASE_2
 		.platform_data = &msm_rpm_regulator_pdata,
+#else
+		.platform_data = &msm8930_rpm_regulator_pdata,
 #endif
 	},
 };
