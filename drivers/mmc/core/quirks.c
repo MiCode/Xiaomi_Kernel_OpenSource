@@ -21,6 +21,14 @@
 #define SDIO_DEVICE_ID_TI_WL1271	0x4076
 #endif
 
+#ifndef SDIO_VENDOR_ID_MSM
+#define SDIO_VENDOR_ID_MSM		0x0070
+#endif
+
+#ifndef SDIO_DEVICE_ID_MSM_WCN1314
+#define SDIO_DEVICE_ID_MSM_WCN1314	0x2881
+#endif
+
 /*
  * This hook just adds a quirk for all sdio devices
  */
@@ -38,6 +46,9 @@ static const struct mmc_fixup mmc_fixup_methods[] = {
 		   MMC_QUIRK_BROKEN_CLK_GATING),
 
 	SDIO_FIXUP(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271,
+		   remove_quirk, MMC_QUIRK_BROKEN_CLK_GATING),
+
+	SDIO_FIXUP(SDIO_VENDOR_ID_MSM, SDIO_DEVICE_ID_MSM_WCN1314,
 		   remove_quirk, MMC_QUIRK_BROKEN_CLK_GATING),
 
 	SDIO_FIXUP(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271,
