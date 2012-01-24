@@ -1184,8 +1184,8 @@ static void __init apq8064_common_init(void)
 	apq8064_init_mmc();
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
-	acpuclk_init(&acpuclk_8064_soc_data);
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	acpuclk_init(&acpuclk_8064_soc_data);
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
