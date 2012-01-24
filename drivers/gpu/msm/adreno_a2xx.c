@@ -1704,6 +1704,10 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 	wmb();
 }
 
+/* Defined in adreno_a2xx_snapshot.c */
+void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
+	int *remain, int hang);
+
 struct adreno_gpudev adreno_a2xx_gpudev = {
 	.ctxt_gpustate_shadow = a2xx_ctxt_gpustate_shadow,
 	.ctxt_gmem_shadow = a2xx_ctxt_gmem_shadow,
@@ -1711,4 +1715,5 @@ struct adreno_gpudev adreno_a2xx_gpudev = {
 	.ctxt_restore = a2xx_ctxt_restore,
 	.irq_handler = a2xx_irq_handler,
 	.irq_control = a2xx_irq_control,
+	.snapshot = a2xx_snapshot,
 };

@@ -728,8 +728,21 @@ adreno_dump_and_recover(struct kgsl_device *device)
 	} else {
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_DUMP_AND_RECOVER);
 		INIT_COMPLETION(device->recovery_gate);
-		/* Detected a hang - trigger an automatic dump */
+		/* Detected a hang */
+
+
+		/*
+		 * Trigger an automatic dump of the state to
+		 * the console
+		 */
 		adreno_postmortem_dump(device, 0);
+
+		/*
+		 * Make a GPU snapshot.  For now, do it after the PM dump so we
+		 * can at least be sure the PM dump will work as it always has
+		 */
+		kgsl_device_snapshot(device, 1);
+
 		result = adreno_recover_hang(device);
 		if (result)
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
@@ -1341,6 +1354,7 @@ static const struct kgsl_functable adreno_functable = {
 	.power_stats = adreno_power_stats,
 	.irqctrl = adreno_irqctrl,
 	.gpuid = adreno_gpuid,
+	.snapshot = adreno_snapshot,
 	/* Optional functions */
 	.setstate = adreno_setstate,
 	.drawctxt_create = adreno_drawctxt_create,

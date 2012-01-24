@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +90,8 @@ struct kgsl_functable {
 		struct kgsl_power_stats *stats);
 	void (*irqctrl)(struct kgsl_device *device, int state);
 	unsigned int (*gpuid)(struct kgsl_device *device);
+	void * (*snapshot)(struct kgsl_device *device, void *snapshot,
+		int *remain, int hang);
 	/* Optional functions - these functions are not mandatory.  The
 	   driver will check that the function pointer is not NULL before
 	   calling the hook */
@@ -163,6 +165,15 @@ struct kgsl_device {
 	struct dentry *d_debugfs;
 	struct idr context_idr;
 	struct early_suspend display_off;
+
+	void *snapshot;		/* Pointer to the snapshot memory region */
+	int snapshot_maxsize;   /* Max size of the snapshot region */
+	int snapshot_size;      /* Current size of the snapshot region */
+	u32 snapshot_timestamp;	/* Timestamp of the last valid snapshot */
+	int snapshot_frozen;	/* 1 if the snapshot output is frozen until
+				   it gets read by the user.  This avoids
+				   losing the output on multiple hangs  */
+	struct kobject snapshot_kobj;
 
 	/* Logging levels */
 	int cmd_log;
@@ -319,5 +330,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 void kgsl_device_platform_remove(struct kgsl_device *device);
 
 const char *kgsl_pwrstate_to_str(unsigned int state);
+
+int kgsl_device_snapshot_init(struct kgsl_device *device);
+int kgsl_device_snapshot(struct kgsl_device *device, int hang);
+void kgsl_device_snapshot_close(struct kgsl_device *device);
 
 #endif  /* __KGSL_DEVICE_H */

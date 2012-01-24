@@ -2097,6 +2097,8 @@ void kgsl_unregister_device(struct kgsl_device *device)
 	if (minor == KGSL_DEVICE_MAX)
 		return;
 
+	kgsl_device_snapshot_close(device);
+
 	kgsl_cffdump_close(device->id);
 	kgsl_pwrctrl_uninit_sysfs(device);
 
@@ -2198,6 +2200,9 @@ kgsl_register_device(struct kgsl_device *device)
 					   WAKE_LOCK_IDLE, device->name);
 
 	idr_init(&device->context_idr);
+
+	/* Initalize the snapshot engine */
+	kgsl_device_snapshot_init(device);
 
 	/* sysfs and debugfs initalization - failure here is non fatal */
 
