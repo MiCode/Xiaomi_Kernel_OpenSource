@@ -120,11 +120,8 @@
 #define SRC_SEL_gnd		7 /* No clock */
 
 /* Clock declaration macros. */
-#define MN_MODE_DUAL_EDGE	0x2
-#define MD8(m, n)		(BVAL(15, 8, m) | BVAL(7, 0, ~(n)))
 #define N8(msb, lsb, m, n)	(BVAL(msb, lsb, ~(n-m)) | BVAL(6, 5, \
 					(MN_MODE_DUAL_EDGE * !!(n))))
-#define MD16(m, n)		(BVAL(31, 16, m) | BVAL(15, 0, ~(n)))
 #define N16(m, n)		(BVAL(31, 16, ~(n-m)) | BVAL(6, 5, \
 					(MN_MODE_DUAL_EDGE * !!(n))))
 #define SPDIV(s, d)		(BVAL(4, 3, d-1) | BVAL(2, 0, s))
@@ -156,7 +153,7 @@
 	{ \
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
-		.md_val = MD8(m, n), \
+		.md_val = MD8(8, m, 0, n), \
 		.ns_val = N8(nmsb, nlsb, m, n) | SPDIV(SRC_SEL_##s, div), \
 		.mnd_en_mask = BIT(8) * !!(n), \
 	}
