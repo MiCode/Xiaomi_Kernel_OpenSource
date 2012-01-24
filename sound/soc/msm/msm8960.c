@@ -55,7 +55,7 @@
 
 #define TABLA_EXT_CLK_RATE 12288000
 
-#define TABLA_MBHC_DEF_BUTTONS 3
+#define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
@@ -597,20 +597,16 @@ static void *def_tabla_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_PLUG_TYPE_PTR(tabla_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 1450);
+	S(v_hs_max, 1550);
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal)->X) = (Y))
-	S(c[0], 6);
-	S(c[1], 10);
-	S(c[2], 10);
-	S(c[3], 14);
-	S(c[4], 14);
-	S(c[5], 16);
-	S(c[6], 0);
-	S(c[7], 0);
-	S(nc, 5);
-	S(n_meas, 11);
+	S(c[0], 62);
+	S(c[1], 124);
+	S(nc, 1);
+	S(n_meas, 3);
 	S(mbhc_nsc, 11);
+	S(n_btn_meas, 1);
+	S(n_btn_con, 2);
 	S(num_btn, TABLA_MBHC_DEF_BUTTONS);
 	S(v_btn_press_delta_sta, 100);
 	S(v_btn_press_delta_cic, 50);
@@ -618,18 +614,28 @@ static void *def_tabla_mbhc_cal(void)
 	btn_cfg = TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal);
 	btn_low = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_LOW);
 	btn_high = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_HIGH);
-	btn_low[0] = 0;
-	btn_high[0] = 40;
-	btn_low[1] = 60;
-	btn_high[1] = 140;
-	btn_low[2] = 160;
-	btn_high[2] = 240;
+	btn_low[0] = -50;
+	btn_high[0] = 10;
+	btn_low[1] = 11;
+	btn_high[1] = 38;
+	btn_low[2] = 39;
+	btn_high[2] = 64;
+	btn_low[3] = 65;
+	btn_high[3] = 91;
+	btn_low[4] = 92;
+	btn_high[4] = 115;
+	btn_low[5] = 116;
+	btn_high[5] = 141;
+	btn_low[6] = 142;
+	btn_high[6] = 163;
+	btn_low[7] = 164;
+	btn_high[7] = 250;
 	n_ready = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_READY);
 	n_ready[0] = 48;
 	n_ready[1] = 38;
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_CIC);
-	n_cic[0] = 120;
-	n_cic[1] = 94;
+	n_cic[0] = 60;
+	n_cic[1] = 47;
 	gain = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_GAIN);
 	gain[0] = 11;
 	gain[1] = 9;
@@ -671,15 +677,16 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_sync(dapm);
 
 	err = snd_soc_jack_new(codec, "Headset Jack",
-		(SND_JACK_HEADSET | SND_JACK_OC_HPHL | SND_JACK_OC_HPHR),
-		&hs_jack);
+			       (SND_JACK_HEADSET | SND_JACK_OC_HPHL |
+				SND_JACK_OC_HPHR),
+			       &hs_jack);
 	if (err) {
 		pr_err("failed to create new jack\n");
 		return err;
 	}
 
 	err = snd_soc_jack_new(codec, "Button Jack",
-				SND_JACK_BTN_0, &button_jack);
+			       TABLA_JACK_BUTTON_MASK, &button_jack);
 	if (err) {
 		pr_err("failed to create new jack\n");
 		return err;
