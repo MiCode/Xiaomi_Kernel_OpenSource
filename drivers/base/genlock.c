@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,11 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 {
 	struct genlock *lock;
 
+	if (IS_ERR_OR_NULL(handle)) {
+		GENLOCK_LOG_ERR("Invalid handle\n");
+		return ERR_PTR(-EINVAL);
+	}
+
 	if (handle->lock != NULL) {
 		GENLOCK_LOG_ERR("Handle already has a lock attached\n");
 		return ERR_PTR(-EINVAL);
@@ -176,6 +181,11 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 {
 	struct file *file;
 	struct genlock *lock;
+
+	if (IS_ERR_OR_NULL(handle)) {
+		GENLOCK_LOG_ERR("Invalid handle\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	if (handle->lock != NULL) {
 		GENLOCK_LOG_ERR("Handle already has a lock attached\n");
@@ -392,8 +402,16 @@ done:
 int genlock_lock(struct genlock_handle *handle, int op, int flags,
 	uint32_t timeout)
 {
-	struct genlock *lock = handle->lock;
+	struct genlock *lock;
+
 	int ret = 0;
+
+	if (IS_ERR_OR_NULL(handle)) {
+		GENLOCK_LOG_ERR("Invalid handle\n");
+		return -EINVAL;
+	}
+
+	lock = handle->lock;
 
 	if (lock == NULL) {
 		GENLOCK_LOG_ERR("Handle does not have a lock attached\n");
@@ -426,10 +444,17 @@ EXPORT_SYMBOL(genlock_lock);
 
 int genlock_wait(struct genlock_handle *handle, uint32_t timeout)
 {
-	struct genlock *lock = handle->lock;
+	struct genlock *lock;
 	unsigned long irqflags;
 	int ret = 0;
 	unsigned int ticks = msecs_to_jiffies(timeout);
+
+	if (IS_ERR_OR_NULL(handle)) {
+		GENLOCK_LOG_ERR("Invalid handle\n");
+		return -EINVAL;
+	}
+
+	lock = handle->lock;
 
 	if (lock == NULL) {
 		GENLOCK_LOG_ERR("Handle does not have a lock attached\n");
@@ -588,6 +613,9 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 	struct genlock_handle *handle = filep->private_data;
 	struct genlock *lock;
 	int ret;
+
+	if (IS_ERR_OR_NULL(handle))
+		return -EINVAL;
 
 	switch (cmd) {
 	case GENLOCK_IOC_NEW: {
