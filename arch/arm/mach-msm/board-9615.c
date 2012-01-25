@@ -276,9 +276,10 @@ static int shelby_phy_init_seq[] = {
 	-1};
 
 #define USB_BAM_PHY_BASE	0x12502000
-#define USB_BAM_PHY_SIZE	0x10000
+#define HSIC_BAM_PHY_BASE	0x12542000
 #define A2_BAM_PHY_BASE		0x124C2000
 static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
+#ifndef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
 	[0][USB_TO_PEER_PERIPHERAL] = {
 		.src_phy_addr = USB_BAM_PHY_BASE,
 		.src_pipe_index = 11,
@@ -299,13 +300,39 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 		.desc_fifo_base_offset = 0x1000,
 		.desc_fifo_size = 0x100,
 	},
+#else
+	[0][USB_TO_PEER_PERIPHERAL] = {
+		.src_phy_addr = HSIC_BAM_PHY_BASE,
+		.src_pipe_index = 1,
+		.dst_phy_addr = A2_BAM_PHY_BASE,
+		.dst_pipe_index = 0,
+		.data_fifo_base_offset = 0x1100,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1700,
+		.desc_fifo_size = 0x300,
+	},
+	[0][PEER_PERIPHERAL_TO_USB] = {
+		.src_phy_addr = A2_BAM_PHY_BASE,
+		.src_pipe_index = 1,
+		.dst_phy_addr = HSIC_BAM_PHY_BASE,
+		.dst_pipe_index = 0,
+		.data_fifo_base_offset = 0xa00,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1000,
+		.desc_fifo_size = 0x100,
+	},
+#endif
 };
 
 static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 	.connections = &msm_usb_bam_connections[0][0],
-	.usb_bam_phy_base = USB_BAM_PHY_BASE,
-	.usb_bam_phy_size = USB_BAM_PHY_SIZE,
-	.usb_bam_num_pipes = 32,
+#ifndef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
+	.usb_active_bam = HSUSB_BAM,
+	.usb_bam_num_pipes = 16,
+#else
+	.usb_active_bam = HSIC_BAM,
+	.usb_bam_num_pipes = 16,
+#endif
 };
 
 static struct msm_otg_platform_data msm_otg_pdata = {
