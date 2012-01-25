@@ -81,6 +81,10 @@ struct tsc2007 {
 	u16			max_rt;
 	unsigned long		poll_delay;
 	unsigned long		poll_period;
+	u16			min_x;
+	u16			max_x;
+	u16			min_y;
+	u16			max_y;
 
 	bool			pendown;
 	int			irq;
@@ -396,6 +400,10 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	ts->invert_y	      = pdata->invert_y;
 	ts->invert_z1	      = pdata->invert_z1;
 	ts->invert_z2	      = pdata->invert_z2;
+	ts->min_x	      = pdata->min_x ? pdata->min_x : 0;
+	ts->max_x	      = pdata->max_x ? pdata->max_x : MAX_12BIT;
+	ts->min_y	      = pdata->min_y ? pdata->min_y : 0;
+	ts->max_y	      = pdata->max_y ? pdata->max_y : MAX_12BIT;
 	ts->power_shutdown    = pdata->power_shutdown;
 
 	snprintf(ts->phys, sizeof(ts->phys),
@@ -408,8 +416,10 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, pdata->fuzzx, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, pdata->fuzzy, 0);
+	input_set_abs_params(input_dev, ABS_X, ts->min_x,
+				ts->max_x, pdata->fuzzx, 0);
+	input_set_abs_params(input_dev, ABS_Y, ts->min_y,
+				ts->max_y, pdata->fuzzy, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT,
 			pdata->fuzzz, 0);
 
