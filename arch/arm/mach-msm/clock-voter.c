@@ -12,13 +12,13 @@
  */
 
 #include <linux/err.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/clk.h>
 
 #include "clock.h"
 #include "clock-voter.h"
 
-static DEFINE_SPINLOCK(voter_clk_lock);
+static DEFINE_MUTEX(voter_clk_lock);
 
 /* Aggregate the rate of clocks that are currently on. */
 static unsigned long voter_clk_aggregate_rate(const struct clk *parent)
@@ -37,12 +37,11 @@ static unsigned long voter_clk_aggregate_rate(const struct clk *parent)
 static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int ret = 0;
-	unsigned long flags;
 	struct clk *clkp;
 	struct clk_voter *clkh, *v = to_clk_voter(clk);
 	unsigned long cur_rate, new_rate, other_rate = 0;
 
-	spin_lock_irqsave(&voter_clk_lock, flags);
+	mutex_lock(&voter_clk_lock);
 
 	if (v->enabled) {
 		struct clk *parent = v->parent;
@@ -68,20 +67,19 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 	}
 	clk->rate = rate;
 unlock:
-	spin_unlock_irqrestore(&voter_clk_lock, flags);
+	mutex_unlock(&voter_clk_lock);
 
 	return ret;
 }
 
-static int voter_clk_enable(struct clk *clk)
+static int voter_clk_prepare(struct clk *clk)
 {
 	int ret = 0;
-	unsigned long flags;
 	unsigned long cur_rate;
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
-	spin_lock_irqsave(&voter_clk_lock, flags);
+	mutex_lock(&voter_clk_lock);
 	parent = v->parent;
 
 	/*
@@ -96,18 +94,18 @@ static int voter_clk_enable(struct clk *clk)
 	}
 	v->enabled = true;
 out:
-	spin_unlock_irqrestore(&voter_clk_lock, flags);
+	mutex_unlock(&voter_clk_lock);
 
 	return ret;
 }
 
-static void voter_clk_disable(struct clk *clk)
+static void voter_clk_unprepare(struct clk *clk)
 {
-	unsigned long flags, cur_rate, new_rate;
+	unsigned long cur_rate, new_rate;
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
-	spin_lock_irqsave(&voter_clk_lock, flags);
+	mutex_lock(&voter_clk_lock);
 	parent = v->parent;
 
 	/*
@@ -121,7 +119,7 @@ static void voter_clk_disable(struct clk *clk)
 	if (new_rate < cur_rate)
 		clk_set_rate(parent, new_rate);
 
-	spin_unlock_irqrestore(&voter_clk_lock, flags);
+	mutex_unlock(&voter_clk_lock);
 }
 
 static int voter_clk_is_enabled(struct clk *clk)
@@ -157,8 +155,8 @@ static enum handoff voter_clk_handoff(struct clk *clk)
 }
 
 struct clk_ops clk_ops_voter = {
-	.enable = voter_clk_enable,
-	.disable = voter_clk_disable,
+	.prepare = voter_clk_prepare,
+	.unprepare = voter_clk_unprepare,
 	.set_rate = voter_clk_set_rate,
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,

@@ -2883,6 +2883,7 @@ static struct clk *pix_rdi_mux_map[] = {
 };
 
 struct pix_rdi_clk {
+	bool prepared;
 	bool enabled;
 	unsigned long cur_rate;
 
@@ -2908,6 +2909,7 @@ static int pix_rdi_clk_set_rate(struct clk *c, unsigned long rate)
 	unsigned long flags;
 	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
 	struct clk **mux_map = pix_rdi_mux_map;
+	unsigned long old_rate = rdi->cur_rate;
 
 	/*
 	 * These clocks select three inputs via two muxes. One mux selects
@@ -2918,7 +2920,7 @@ static int pix_rdi_clk_set_rate(struct clk *c, unsigned long rate)
 	 * needs to be on at what time.
 	 */
 	for (i = 0; mux_map[i]; i++) {
-		ret = clk_enable(mux_map[i]);
+		ret = clk_prepare_enable(mux_map[i]);
 		if (ret)
 			goto err;
 	}
@@ -2927,11 +2929,21 @@ static int pix_rdi_clk_set_rate(struct clk *c, unsigned long rate)
 		goto err;
 	}
 	/* Keep the new source on when switching inputs of an enabled clock */
-	if (rdi->enabled) {
-		clk_disable(mux_map[rdi->cur_rate]);
-		clk_enable(mux_map[rate]);
+	if (rdi->prepared) {
+		ret = clk_prepare(mux_map[rate]);
+		if (ret)
+			goto err;
 	}
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	spin_lock_irqsave(&c->lock, flags);
+	if (rdi->enabled) {
+		ret = clk_enable(mux_map[rate]);
+		if (ret) {
+			spin_unlock_irqrestore(&c->lock, flags);
+			clk_unprepare(mux_map[rate]);
+			goto err;
+		}
+	}
+	spin_lock(&local_clock_reg_lock);
 	reg = readl_relaxed(rdi->s2_reg);
 	reg &= ~rdi->s2_mask;
 	reg |= rate == 2 ? rdi->s2_mask : 0;
@@ -2953,10 +2965,16 @@ static int pix_rdi_clk_set_rate(struct clk *c, unsigned long rate)
 	mb();
 	udelay(1);
 	rdi->cur_rate = rate;
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	spin_unlock(&local_clock_reg_lock);
+
+	if (rdi->enabled)
+		clk_disable(mux_map[old_rate]);
+	spin_unlock_irqrestore(&c->lock, flags);
+	if (rdi->prepared)
+		clk_unprepare(mux_map[old_rate]);
 err:
 	for (i--; i >= 0; i--)
-		clk_disable(mux_map[i]);
+		clk_disable_unprepare(mux_map[i]);
 
 	return 0;
 }
@@ -2964,6 +2982,13 @@ err:
 static unsigned long pix_rdi_clk_get_rate(struct clk *c)
 {
 	return to_pix_rdi_clk(c)->cur_rate;
+}
+
+static int pix_rdi_clk_prepare(struct clk *c)
+{
+	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
+	rdi->prepared = true;
+	return 0;
 }
 
 static int pix_rdi_clk_enable(struct clk *c)
@@ -2988,6 +3013,12 @@ static void pix_rdi_clk_disable(struct clk *c)
 	__branch_disable_reg(&rdi->b, rdi->c.dbg_name);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 	rdi->enabled = false;
+}
+
+static void pix_rdi_clk_unprepare(struct clk *c)
+{
+	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
+	rdi->prepared = false;
 }
 
 static int pix_rdi_clk_reset(struct clk *c, enum clk_reset_action action)
@@ -3026,8 +3057,10 @@ static enum handoff pix_rdi_clk_handoff(struct clk *c)
 }
 
 static struct clk_ops clk_ops_pix_rdi_8960 = {
+	.prepare = pix_rdi_clk_prepare,
 	.enable = pix_rdi_clk_enable,
 	.disable = pix_rdi_clk_disable,
+	.unprepare = pix_rdi_clk_unprepare,
 	.handoff = pix_rdi_clk_handoff,
 	.set_rate = pix_rdi_clk_set_rate,
 	.get_rate = pix_rdi_clk_get_rate,

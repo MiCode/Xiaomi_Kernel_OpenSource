@@ -164,6 +164,7 @@ enum handoff branch_handoff(struct branch *b, struct clk *c);
  * Generic clock-definition struct and macros
  */
 struct rcg_clk {
+	bool		prepared;
 	bool		enabled;
 	void		*const ns_reg;
 	void		*const md_reg;
