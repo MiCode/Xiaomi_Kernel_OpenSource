@@ -364,6 +364,7 @@ struct pll_rate {
 #define PLL_RATE(l, m, n, v, d, i) { l, m, n, v, (d>>1), i }
 
 static int rpm_vreg_id_vdd_dig;
+static int rpm_vreg_id_vdd_sr2_pll;
 
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
@@ -399,16 +400,16 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 	.fmax[VDD_DIG_##l2] = (f2), \
 	.fmax[VDD_DIG_##l3] = (f3)
 
-enum vdd_l23_levels {
-	VDD_L23_OFF,
-	VDD_L23_ON
+enum vdd_sr2_pll_levels {
+	VDD_SR2_PLL_OFF,
+	VDD_SR2_PLL_ON
 };
 
-static int set_vdd_l23(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
 {
 	int rc = 0;
 	if (cpu_is_msm8960()) {
-		if (level == VDD_L23_OFF) {
+		if (level == VDD_SR2_PLL_OFF) {
 			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
 					RPM_VREG_VOTER3, 0, 0, 1);
 			if (rc)
@@ -429,14 +430,14 @@ static int set_vdd_l23(struct clk_vdd_class *vdd_class, int level)
 				rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
 						RPM_VREG_VOTER3, 0, 0, 1);
 		}
-	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
-		if (level == VDD_L23_OFF) {
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_L23,
+	} else {
+		if (level == VDD_SR2_PLL_OFF) {
+			rc = rpm_vreg_set_voltage(rpm_vreg_id_vdd_sr2_pll,
 					RPM_VREG_VOTER3, 0, 0, 1);
 			if (rc)
 				return rc;
 		} else {
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_L23,
+			rc = rpm_vreg_set_voltage(rpm_vreg_id_vdd_sr2_pll,
 					RPM_VREG_VOTER3, 1800000, 1800000, 1);
 			if (rc)
 				return rc;
@@ -446,7 +447,7 @@ static int set_vdd_l23(struct clk_vdd_class *vdd_class, int level)
 	return rc;
 }
 
-static DEFINE_VDD_CLASS(vdd_l23, set_vdd_l23);
+static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll);
 
 /*
  * Clock Descriptions
@@ -524,8 +525,8 @@ static struct pll_clk pll3_clk = {
 	.c = {
 		.dbg_name = "pll3_clk",
 		.ops = &clk_ops_pll,
-		.vdd_class = &vdd_l23,
-		.fmax[VDD_L23_ON] = ULONG_MAX,
+		.vdd_class = &vdd_sr2_pll,
+		.fmax[VDD_SR2_PLL_ON] = ULONG_MAX,
 		CLK_INIT(pll3_clk.c),
 	},
 };
@@ -5716,12 +5717,17 @@ static void __init msm8960_clock_init(void)
 {
 	size_t num_lookups = ARRAY_SIZE(msm_clocks_8960_v1);
 
-	if (cpu_is_msm8960() || cpu_is_apq8064())
+	if (cpu_is_msm8960()) {
 		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8921_S3;
-	else if (cpu_is_msm8930() || cpu_is_msm8627())
+	} else if (cpu_is_apq8064()) {
+		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8921_S3;
+		rpm_vreg_id_vdd_sr2_pll = RPM_VREG_ID_PM8921_LVS7;
+	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
 		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8038_S1;
-	else
+		rpm_vreg_id_vdd_sr2_pll = RPM_VREG_ID_PM8038_L23;
+	} else {
 		BUG();
+	}
 
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8960");
 	if (IS_ERR(xo_pxo)) {
