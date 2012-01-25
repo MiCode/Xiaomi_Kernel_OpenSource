@@ -51,6 +51,9 @@ module_param(max_rx_urbs, uint, S_IRUGO | S_IWUSR);
 unsigned int	stop_submit_urb_limit = STOP_SUBMIT_URB_LIMIT;
 module_param(stop_submit_urb_limit, uint, S_IRUGO | S_IWUSR);
 
+static unsigned tx_urb_mult = 20;
+module_param(tx_urb_mult, uint, S_IRUGO|S_IWUSR);
+
 #define TX_HALT   BIT(0)
 #define RX_HALT   BIT(1)
 #define SUSPENDED BIT(2)
@@ -100,6 +103,8 @@ static struct data_bridge	*__dev[MAX_BRIDGE_DEVICES];
 /* counter used for indexing data bridge devices */
 static int	ch_id;
 
+static unsigned int get_timestamp(void);
+static void dbg_timestamp(char *, struct sk_buff *);
 static int submit_rx_urb(struct data_bridge *dev, struct urb *urb,
 		gfp_t flags);
 
@@ -137,6 +142,7 @@ static void data_bridge_process_rx(struct work_struct *work)
 	unsigned long		flags;
 	struct urb		*rx_idle;
 	struct sk_buff		*skb;
+	struct timestamp_info	*info;
 	struct data_bridge	*dev =
 		container_of(work, struct data_bridge, process_rx_w);
 
@@ -147,6 +153,8 @@ static void data_bridge_process_rx(struct work_struct *work)
 
 	while (!rx_throttled(brdg) && (skb = skb_dequeue(&dev->rx_done))) {
 		dev->to_host++;
+		info = (struct timestamp_info *)skb->cb;
+		info->rx_done_sent = get_timestamp();
 		/* hand off sk_buff to client,they'll need to free it */
 		retval = brdg->ops.send_pkt(brdg->ctx, skb, skb->len);
 		if (retval == -ENOTCONN || retval == -EINVAL) {
@@ -179,16 +187,17 @@ static void data_bridge_read_cb(struct urb *urb)
 {
 	struct bridge		*brdg;
 	struct sk_buff		*skb = urb->context;
-	struct data_bridge	*dev = *(struct data_bridge **)skb->cb;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
+	struct data_bridge	*dev = info->dev;
 	bool			queue = 0;
 
 	brdg = dev->brdg;
-
 	skb_put(skb, urb->actual_length);
 
 	switch (urb->status) {
 	case 0: /* success */
 		queue = 1;
+		info->rx_done = get_timestamp();
 		spin_lock(&dev->rx_done.lock);
 		__skb_queue_tail(&dev->rx_done, skb);
 		spin_unlock(&dev->rx_done.lock);
@@ -228,14 +237,19 @@ static void data_bridge_read_cb(struct urb *urb)
 static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	gfp_t flags)
 {
-	struct sk_buff	*skb;
-	int		retval = -EINVAL;
+	struct sk_buff		*skb;
+	struct timestamp_info	*info;
+	int			retval = -EINVAL;
+	unsigned int		created;
 
+	created = get_timestamp();
 	skb = alloc_skb(RMNET_RX_BUFSIZE, flags);
 	if (!skb)
 		return -ENOMEM;
 
-	*((struct data_bridge **)skb->cb) = dev;
+	info = (struct timestamp_info *)skb->cb;
+	info->dev = dev;
+	info->created = created;
 
 	usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in,
 			  skb->data, RMNET_RX_BUFSIZE,
@@ -245,6 +259,7 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 		goto suspended;
 
 	usb_anchor_urb(rx_urb, &dev->rx_active);
+	info->rx_queued = get_timestamp();
 	retval = usb_submit_urb(rx_urb, flags);
 	if (retval)
 		goto fail;
@@ -392,7 +407,8 @@ static void defer_kevent(struct work_struct *work)
 static void data_bridge_write_cb(struct urb *urb)
 {
 	struct sk_buff		*skb = urb->context;
-	struct data_bridge	*dev = *(struct data_bridge **)skb->cb;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
+	struct data_bridge	*dev = info->dev;
 	struct bridge		*brdg = dev->brdg;
 	int			pending;
 
@@ -400,6 +416,7 @@ static void data_bridge_write_cb(struct urb *urb)
 
 	switch (urb->status) {
 	case 0: /*success*/
+		dbg_timestamp("UL", skb);
 		break;
 	case -EPROTO:
 		dev->err = -EPROTO;
@@ -443,6 +460,7 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	int			size = skb->len;
 	int			pending;
 	struct urb		*txurb;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
 	struct data_bridge	*dev = __dev[id];
 	struct bridge		*brdg;
 
@@ -470,7 +488,8 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	}
 
 	/* store dev pointer in skb */
-	*((struct data_bridge **)skb->cb) = dev;
+	info->dev = dev;
+	info->tx_queued = get_timestamp();
 
 	usb_fill_bulk_urb(txurb, dev->udev, dev->bulk_out,
 			skb->data, skb->len, data_bridge_write_cb, skb);
@@ -482,6 +501,9 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 
 	pending = atomic_inc_return(&dev->pending_txurbs);
 	usb_anchor_urb(txurb, &dev->tx_active);
+
+	if (atomic_read(&dev->pending_txurbs) % tx_urb_mult)
+		txurb->transfer_flags |= URB_NO_INTERRUPT;
 
 	result = usb_submit_urb(txurb, GFP_KERNEL);
 	if (result < 0) {
@@ -651,6 +673,103 @@ static int data_bridge_probe(struct usb_interface *iface,
 
 #if defined(CONFIG_DEBUG_FS)
 #define DEBUG_BUF_SIZE	1024
+
+static unsigned int	record_timestamp;
+module_param(record_timestamp, uint, S_IRUGO | S_IWUSR);
+
+static struct timestamp_buf dbg_data = {
+	.idx = 0,
+	.lck = __RW_LOCK_UNLOCKED(lck)
+};
+
+/*get_timestamp - returns time of day in us */
+static unsigned int get_timestamp(void)
+{
+	struct timeval	tval;
+	unsigned int	stamp;
+
+	if (!record_timestamp)
+		return 0;
+
+	do_gettimeofday(&tval);
+	/* 2^32 = 4294967296. Limit to 4096s. */
+	stamp = tval.tv_sec & 0xFFF;
+	stamp = stamp * 1000000 + tval.tv_usec;
+	return stamp;
+}
+
+static void dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DBG_DATA_MAX-1);
+}
+
+/**
+* dbg_timestamp - Stores timestamp values of a SKB life cycle
+*	to debug buffer
+* @event: "UL": Uplink Data
+* @skb: SKB used to store timestamp values to debug buffer
+*/
+static void dbg_timestamp(char *event, struct sk_buff * skb)
+{
+	unsigned long		flags;
+	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
+
+	if (!record_timestamp)
+		return;
+
+	write_lock_irqsave(&dbg_data.lck, flags);
+
+	scnprintf(dbg_data.buf[dbg_data.idx], DBG_DATA_MSG,
+		  "%p %u[%s] %u %u %u %u %u %u\n",
+		  skb, skb->len, event, info->created, info->rx_queued,
+		  info->rx_done, info->rx_done_sent, info->tx_queued,
+		  get_timestamp());
+
+	dbg_inc(&dbg_data.idx);
+
+	write_unlock_irqrestore(&dbg_data.lck, flags);
+}
+
+/* show_timestamp: displays the timestamp buffer */
+static ssize_t show_timestamp(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	unsigned long	flags;
+	unsigned	i;
+	unsigned	j = 0;
+	char		*buf;
+	int		ret = 0;
+
+	if (!record_timestamp)
+		return 0;
+
+	buf = kzalloc(sizeof(char) * 4 * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	read_lock_irqsave(&dbg_data.lck, flags);
+
+	i = dbg_data.idx;
+	for (dbg_inc(&i); i != dbg_data.idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_data.buf[i], DBG_DATA_MSG))
+			continue;
+		j += scnprintf(buf + j, (4 * DEBUG_BUF_SIZE) - j,
+			       "%s\n", dbg_data.buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_data.lck, flags);
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, j);
+
+	kfree(buf);
+
+	return ret;
+}
+
+const struct file_operations data_timestamp_ops = {
+	.read = show_timestamp,
+};
+
 static ssize_t data_bridge_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -735,29 +854,49 @@ const struct file_operations data_stats_ops = {
 	.write = data_bridge_reset_stats,
 };
 
-struct dentry	*data_dent;
-struct dentry	*data_dfile;
+static struct dentry	*data_dent;
+static struct dentry	*data_dfile_stats;
+static struct dentry	*data_dfile_tstamp;
+
 static void data_bridge_debugfs_init(void)
 {
 	data_dent = debugfs_create_dir("data_hsic_bridge", 0);
 	if (IS_ERR(data_dent))
 		return;
 
-	data_dfile = debugfs_create_file("status", 0644, data_dent, 0,
-			&data_stats_ops);
-	if (!data_dfile || IS_ERR(data_dfile))
+	data_dfile_stats = debugfs_create_file("status", 0644, data_dent, 0,
+				&data_stats_ops);
+	if (!data_dfile_stats || IS_ERR(data_dfile_stats)) {
+		debugfs_remove(data_dent);
+		return;
+	}
+
+	data_dfile_tstamp = debugfs_create_file("timestamp", 0644, data_dent,
+				0, &data_timestamp_ops);
+	if (!data_dfile_tstamp || IS_ERR(data_dfile_tstamp))
 		debugfs_remove(data_dent);
 }
 
 static void data_bridge_debugfs_exit(void)
 {
-	debugfs_remove(data_dfile);
+	debugfs_remove(data_dfile_stats);
+	debugfs_remove(data_dfile_tstamp);
 	debugfs_remove(data_dent);
 }
 
 #else
 static void data_bridge_debugfs_init(void) { }
 static void data_bridge_debugfs_exit(void) { }
+static void dbg_timestamp(char *event, struct sk_buff * skb)
+{
+	return;
+}
+
+static unsigned int get_timestamp(void)
+{
+	return 0;
+}
+
 #endif
 
 static int __devinit
