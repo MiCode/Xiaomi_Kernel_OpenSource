@@ -50,6 +50,7 @@
 #include <mach/dma.h>
 #include <mach/msm_bus_board.h>
 #include <mach/cpuidle.h>
+#include <mach/mdm2.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -569,6 +570,10 @@ static struct platform_device qcedev_device = {
 };
 #endif
 
+static struct mdm_platform_data mdm_platform_data = {
+	.mdm_version = "3.0",
+	.ramdump_delay_ms = 2000,
+};
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
@@ -1219,6 +1224,10 @@ static void __init apq8064_common_init(void)
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 
+	if (machine_is_apq8064_mtp()) {
+		mdm_8064_device.dev.platform_data = &mdm_platform_data;
+		platform_device_register(&mdm_8064_device);
+	}
 }
 
 static void __init apq8064_allocate_memory_regions(void)

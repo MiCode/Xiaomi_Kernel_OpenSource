@@ -293,3 +293,5 @@ extern struct platform_device msm_bus_8064_sys_fabric;
 extern struct platform_device msm_bus_8064_mm_fabric;
 extern struct platform_device msm_bus_8064_sys_fpb;
 extern struct platform_device msm_bus_8064_cpss_fpb;
+
+extern struct platform_device mdm_8064_device;

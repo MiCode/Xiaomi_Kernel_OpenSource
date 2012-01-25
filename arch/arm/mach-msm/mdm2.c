@@ -47,6 +47,7 @@
 #define MDM_MODEM_DELTA		100
 
 static int mdm_debug_on;
+static int first_power_on = 1;
 static int hsic_peripheral_status = 1;
 static DEFINE_MUTEX(hsic_status_lock);
 
@@ -78,11 +79,9 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
 	mdm_peripheral_disconnect(mdm_drv);
 
-	/* Pull both ERR_FATAL and RESET low */
-	pr_debug("Pulling PWR and RESET gpio's low\n");
+	/* Pull RESET gpio low and wait for it to settle. */
+	pr_debug("Pulling RESET gpio low\n");
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
-	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
-	/* Wait for them to settle. */
 	usleep(1000);
 
 	/* Deassert RESET first and wait for ir to settle. */
@@ -90,11 +89,18 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
 	usleep(1000);
 
-	/* Pull PWR gpio high and wait for it to settle. */
-	pr_debug("%s: Powering on mdm modem\n", __func__);
-	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
-	usleep(1000);
-
+	/* Pull PWR gpio high and wait for it to settle, but only
+	 * the first time the mdm is powered up.
+	 * Some targets do not use ap2mdm_kpdpwr_n_gpio.
+	 */
+	if (first_power_on) {
+		if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
+			pr_debug("%s: Powering on mdm modem\n", __func__);
+			gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
+			usleep(1000);
+		}
+		first_power_on = 0;
+	}
 	mdm_peripheral_connect(mdm_drv);
 
 	msleep(200);
@@ -110,7 +116,6 @@ static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
 		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
 			break;
 	}
-
 	if (i <= 0) {
 		pr_err("%s: MDM2AP_STATUS never went low.\n",
 			 __func__);
@@ -121,7 +126,8 @@ static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
 			msleep(MDM_MODEM_DELTA);
 		}
 	}
-
+	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
 	mdm_peripheral_disconnect(mdm_drv);
 }
 

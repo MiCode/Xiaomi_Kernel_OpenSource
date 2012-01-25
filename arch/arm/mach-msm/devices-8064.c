@@ -27,6 +27,7 @@
 #include <sound/apr_audio.h>
 #include <mach/msm_bus_board.h>
 #include <mach/rpm.h>
+#include <mach/mdm2.h>
 #include "clock.h"
 #include "devices.h"
 #include "msm_watchdog.h"
@@ -1355,3 +1356,50 @@ struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
 
 };
 #endif
+
+#define MDM2AP_ERRFATAL			19
+#define AP2MDM_ERRFATAL			18
+#define MDM2AP_STATUS			49
+#define AP2MDM_STATUS			48
+#define AP2MDM_PMIC_RESET_N		27
+
+static struct resource mdm_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_PMIC_RESET_N,
+		.end	= AP2MDM_PMIC_RESET_N,
+		.name	= "AP2MDM_PMIC_RESET_N",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device mdm_8064_device = {
+	.name		= "mdm2_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(mdm_resources),
+	.resource	= mdm_resources,
+};
+
