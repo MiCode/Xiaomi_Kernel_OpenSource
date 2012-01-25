@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -643,9 +643,6 @@ void hdmi_msm_init_phy(int video_format)
 
 	HDMI_OUTP(HDMI_PHY_REG_0, 0x1B);
 	HDMI_OUTP(HDMI_PHY_REG_1, 0xf2);
-	HDMI_OUTP(HDMI_PHY_REG_2, 0x7F);
-	HDMI_OUTP(HDMI_PHY_REG_2, 0x3F);
-	HDMI_OUTP(HDMI_PHY_REG_2, 0x1F);
 
 	offset = HDMI_PHY_REG_4;
 	while (offset <= HDMI_PHY_REG_11) {
@@ -653,12 +650,7 @@ void hdmi_msm_init_phy(int video_format)
 		offset += 0x4;
 	}
 
-	HDMI_OUTP(HDMI_PHY_REG_12, HDMI_INP(HDMI_PHY_REG_12) | PWRDN_B);
-	msleep(100);
-
 	HDMI_OUTP(HDMI_PHY_REG_3, 0x20);
-	HDMI_OUTP(HDMI_PHY_REG_12, 0x81);
-	HDMI_OUTP(HDMI_PHY_REG_2, 0x81);
 }
 
 void hdmi_msm_powerdown_phy(void)
