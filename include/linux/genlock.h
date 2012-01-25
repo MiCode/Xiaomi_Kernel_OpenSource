@@ -12,7 +12,7 @@ void genlock_put_handle(struct genlock_handle *handle);
 struct genlock *genlock_create_lock(struct genlock_handle *);
 struct genlock *genlock_attach_lock(struct genlock_handle *, int fd);
 int genlock_wait(struct genlock_handle *handle, u32 timeout);
-void genlock_release_lock(struct genlock_handle *);
+/* genlock_release_lock was deprecated */
 int genlock_lock(struct genlock_handle *handle, int op, int flags,
 	u32 timeout);
 #endif
@@ -39,6 +39,8 @@ struct genlock_lock {
 	struct genlock_lock)
 #define GENLOCK_IOC_LOCK _IOW(GENLOCK_IOC_MAGIC, 3, \
 	struct genlock_lock)
+
+/* Deprecated */
 #define GENLOCK_IOC_RELEASE _IO(GENLOCK_IOC_MAGIC, 4)
 #define GENLOCK_IOC_WAIT _IOW(GENLOCK_IOC_MAGIC, 5, \
 	struct genlock_lock)
