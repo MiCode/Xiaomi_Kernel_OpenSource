@@ -44,7 +44,11 @@
 #define EBI0_PAGE_OFFSET PAGE_OFFSET
 #define EBI0_SIZE 0x10000000
 
-#define EBI1_PHYS_OFFSET 0x40000000
+#ifndef __ASSEMBLY__
+
+extern unsigned long ebi1_phys_offset;
+
+#define EBI1_PHYS_OFFSET (ebi1_phys_offset)
 #define EBI1_PAGE_OFFSET (EBI0_PAGE_OFFSET + EBI0_SIZE)
 
 #if (defined(CONFIG_SPARSEMEM) && defined(CONFIG_VMSPLIT_3G))
@@ -59,6 +63,7 @@
 	(virt) - EBI1_PAGE_OFFSET + EBI1_PHYS_OFFSET :	\
 	(virt) - EBI0_PAGE_OFFSET + EBI0_PHYS_OFFSET)
 
+#endif
 #endif
 
 #endif
