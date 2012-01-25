@@ -102,16 +102,38 @@ int hdmi_pll_enable(void)
 	ahb_enabled = ahb_en_reg & BIT(4);
 	if (!ahb_enabled) {
 		writel_relaxed(ahb_en_reg | BIT(4), AHB_EN_REG);
+		/* Make sure iface clock is enabled before register access */
 		mb();
 	}
 
+	/* Assert PLL S/W reset */
+	writel_relaxed(0x8D, HDMI_PHY_PLL_LOCKDET_CFG2);
+	writel_relaxed(0x10, HDMI_PHY_PLL_LOCKDET_CFG0);
+	writel_relaxed(0x1A, HDMI_PHY_PLL_LOCKDET_CFG1);
+	/* De-assert PLL S/W reset */
+	writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
+
+	val = readl_relaxed(HDMI_PHY_REG_12);
+	val |= BIT(5);
+	/* Assert PHY S/W reset */
+	writel_relaxed(val, HDMI_PHY_REG_12);
+	val &= ~BIT(5);
+	/* De-assert PHY S/W reset */
+	writel_relaxed(val, HDMI_PHY_REG_12);
+	writel_relaxed(0x3f, HDMI_PHY_REG_2);
+
+	val = readl_relaxed(HDMI_PHY_REG_12);
+	val |= PWRDN_B;
+	writel_relaxed(val, HDMI_PHY_REG_12);
+	/* Wait 10 us for enabling global power for PHY */
+	mb();
+	udelay(10);
+
 	val = readl_relaxed(HDMI_PHY_PLL_PWRDN_B);
 	val |= PLL_PWRDN_B;
-	writel_relaxed(val, HDMI_PHY_PLL_PWRDN_B);
-	mb();
 	val &= ~PD_PLL;
 	writel_relaxed(val, HDMI_PHY_PLL_PWRDN_B);
-	mb();
+	writel_relaxed(0x80, HDMI_PHY_REG_2);
 
 	while (!(readl_relaxed(HDMI_PHY_PLL_STATUS0) & BIT(0)))
 		cpu_relax();
@@ -134,13 +156,15 @@ void hdmi_pll_disable(void)
 		mb();
 	}
 
+	val = readl_relaxed(HDMI_PHY_REG_12);
+	val &= (~PWRDN_B);
+	writel_relaxed(val, HDMI_PHY_REG_12);
+
 	val = readl_relaxed(HDMI_PHY_PLL_PWRDN_B);
 	val |= PD_PLL;
+	val &= (~PLL_PWRDN_B);
 	writel_relaxed(val, HDMI_PHY_PLL_PWRDN_B);
-	mb();
-
-	val = val & (~PLL_PWRDN_B);
-	writel_relaxed(val, HDMI_PHY_PLL_PWRDN_B);
+	/* Make sure HDMI PHY/PLL are powered down */
 	mb();
 
 	if (!ahb_enabled)
@@ -156,25 +180,15 @@ unsigned hdmi_pll_get_rate(void)
 int hdmi_pll_set_rate(unsigned rate)
 {
 	unsigned int set_power_dwn = 0;
-	unsigned int val;
 	u32 ahb_en_reg = readl_relaxed(AHB_EN_REG);
 	u32 ahb_enabled = ahb_en_reg & BIT(4);
 
 	if (!ahb_enabled) {
 		writel_relaxed(ahb_en_reg | BIT(4), AHB_EN_REG);
+		/* Make sure iface clock is enabled before register access */
 		mb();
 	}
 
-	writel_relaxed(0x7f, HDMI_PHY_REG_2);
-	writel_relaxed(0x3f, HDMI_PHY_REG_2);
-	writel_relaxed(0x1f, HDMI_PHY_REG_2);
-
-	val = readl_relaxed(HDMI_PHY_REG_12);
-	val |= PWRDN_B;
-	writel_relaxed(val, HDMI_PHY_REG_12);
-	mb();
-
-	writel_relaxed(0x81, HDMI_PHY_REG_2);
 	if (hdmi_pll_on) {
 		hdmi_pll_disable();
 		set_power_dwn = 1;
@@ -198,9 +212,6 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG1);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG2);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG3);
-		writel_relaxed(0x10, HDMI_PHY_PLL_LOCKDET_CFG0);
-		writel_relaxed(0x1A, HDMI_PHY_PLL_LOCKDET_CFG1);
-		writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
 		writel_relaxed(0x2A, HDMI_PHY_PLL_VCOCAL_CFG0);
 		writel_relaxed(0x03, HDMI_PHY_PLL_VCOCAL_CFG1);
 		writel_relaxed(0x2B, HDMI_PHY_PLL_VCOCAL_CFG2);
@@ -228,9 +239,6 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG1);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG2);
 		writel_relaxed(0x20, HDMI_PHY_PLL_SSC_CFG3);
-		writel_relaxed(0x10, HDMI_PHY_PLL_LOCKDET_CFG0);
-		writel_relaxed(0x1A, HDMI_PHY_PLL_LOCKDET_CFG1);
-		writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
 		writel_relaxed(0xF4, HDMI_PHY_PLL_VCOCAL_CFG0);
 		writel_relaxed(0x02, HDMI_PHY_PLL_VCOCAL_CFG1);
 		writel_relaxed(0x2B, HDMI_PHY_PLL_VCOCAL_CFG2);
@@ -258,9 +266,6 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG1);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG2);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG3);
-		writel_relaxed(0x10, HDMI_PHY_PLL_LOCKDET_CFG0);
-		writel_relaxed(0x1A, HDMI_PHY_PLL_LOCKDET_CFG1);
-		writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
 		writel_relaxed(0x2a, HDMI_PHY_PLL_VCOCAL_CFG0);
 		writel_relaxed(0x03, HDMI_PHY_PLL_VCOCAL_CFG1);
 		writel_relaxed(0x2B, HDMI_PHY_PLL_VCOCAL_CFG2);
@@ -300,9 +305,6 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG1);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG2);
 		writel_relaxed(0x00, HDMI_PHY_PLL_SSC_CFG3);
-		writel_relaxed(0x10, HDMI_PHY_PLL_LOCKDET_CFG0);
-		writel_relaxed(0x1A, HDMI_PHY_PLL_LOCKDET_CFG1);
-		writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
 		writel_relaxed(0xe6, HDMI_PHY_PLL_VCOCAL_CFG0);
 		writel_relaxed(0x02, HDMI_PHY_PLL_VCOCAL_CFG1);
 		writel_relaxed(0x2B, HDMI_PHY_PLL_VCOCAL_CFG2);
@@ -311,10 +313,10 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0x00, HDMI_PHY_PLL_VCOCAL_CFG5);
 		writel_relaxed(0x33, HDMI_PHY_PLL_VCOCAL_CFG6);
 		writel_relaxed(0x00, HDMI_PHY_PLL_VCOCAL_CFG7);
-		writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
 	break;
 	}
 
+	/* Make sure writes complete before disabling iface clock */
 	mb();
 
 	if (set_power_dwn)
