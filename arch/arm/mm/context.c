@@ -17,6 +17,8 @@
 #include <asm/thread_notify.h>
 #include <asm/tlbflush.h>
 
+#include <mach/msm_rtb.h>
+
 static DEFINE_RAW_SPINLOCK(cpu_asid_lock);
 unsigned int cpu_last_asid = ASID_FIRST_VERSION;
 #ifdef CONFIG_SMP
@@ -25,6 +27,7 @@ DEFINE_PER_CPU(struct mm_struct *, current_mm);
 
 static void write_contextidr(u32 contextidr)
 {
+	uncached_logk(LOGK_CTXID, (void *)contextidr);
 	asm("mcr	p15, 0, %0, c13, c0, 1" : : "r" (contextidr));
 	isb();
 }
