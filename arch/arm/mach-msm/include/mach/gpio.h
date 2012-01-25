@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -236,6 +236,11 @@ static inline int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 {
 	return -ENOSYS;
 }
+#endif
+
+#ifdef CONFIG_OF
+int __init msm_gpio_of_init(struct device_node *node,
+			    struct device_node *parent);
 #endif
 
 #endif /* __ASM_ARCH_MSM_GPIO_H */

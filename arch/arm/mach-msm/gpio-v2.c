@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
+#include <linux/irqdomain.h>
+#include <linux/of.h>
 
 #include <asm/mach/irq.h>
 
@@ -165,6 +167,7 @@ struct msm_gpio_dev {
 	DECLARE_BITMAP(enabled_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(wake_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(dual_edge_irqs, NR_MSM_GPIOS);
+	struct irq_domain domain;
 };
 
 static DEFINE_SPINLOCK(tlmm_lock);
@@ -223,6 +226,21 @@ static int msm_gpio_direction_output(struct gpio_chip *chip,
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
+{
+	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
+	struct irq_domain *domain = &g_dev->domain;
+	return domain->irq_base + (offset - chip->base);
+}
+
+static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
+{
+	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
+	struct irq_domain *domain = &g_dev->domain;
+	return irq - domain->irq_base;
+}
+#else
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
 	return MSM_GPIO_TO_INT(offset - chip->base);
@@ -232,6 +250,7 @@ static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 {
 	return irq - MSM_GPIO_TO_INT(chip->base);
 }
+#endif
 
 static int msm_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
@@ -672,6 +691,48 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpio_install_direct_irq);
+
+#ifdef CONFIG_OF
+static int msm_gpio_domain_dt_translate(struct irq_domain *d,
+					struct device_node *controller,
+					const u32 *intspec,
+					unsigned int intsize,
+					unsigned long *out_hwirq,
+					unsigned int *out_type)
+{
+	if (d->of_node != controller)
+		return -EINVAL;
+	if (intsize != 2)
+		return -EINVAL;
+
+	/* hwirq value */
+	*out_hwirq = intspec[0];
+
+	/* irq flags */
+	*out_type = intspec[1] & IRQ_TYPE_SENSE_MASK;
+	return 0;
+}
+
+static struct irq_domain_ops msm_gpio_irq_domain_ops = {
+	.dt_translate = msm_gpio_domain_dt_translate,
+};
+
+int __init msm_gpio_of_init(struct device_node *node,
+			    struct device_node *parent)
+{
+	struct irq_domain *domain = &msm_gpio.domain;
+
+	domain->irq_base = irq_domain_find_free_range(0, NR_MSM_GPIOS);
+	domain->nr_irq = NR_MSM_GPIOS;
+	domain->of_node = of_node_get(node);
+	domain->priv = &msm_gpio;
+	domain->ops = &msm_gpio_irq_domain_ops;
+	irq_domain_add(domain);
+	pr_debug("%s: irq_base = %u\n", __func__, domain->irq_base);
+
+	return 0;
+}
+#endif
 
 MODULE_AUTHOR("Gregory Bean <gbean@codeaurora.org>");
 MODULE_DESCRIPTION("Driver for Qualcomm MSM TLMMv2 SoC GPIOs");
