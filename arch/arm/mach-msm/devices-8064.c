@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/msm_rotator.h>
 #include <linux/clkdev.h>
+#include <linux/dma-mapping.h>
 #include <mach/irqs-8064.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -59,8 +60,8 @@
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
 /* Address of HS USBOTG1 */
-#define MSM_HSUSB_PHYS		0x12500000
-#define MSM_HSUSB_SIZE		SZ_4K
+#define MSM_HSUSB1_PHYS		0x12500000
+#define MSM_HSUSB1_SIZE		SZ_4K
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
@@ -413,8 +414,8 @@ struct platform_device apq8064_device_ssbi_pmic2 = {
 
 static struct resource resources_otg[] = {
 	{
-		.start	= MSM_HSUSB_PHYS,
-		.end	= MSM_HSUSB_PHYS + MSM_HSUSB_SIZE - 1,
+		.start	= MSM_HSUSB1_PHYS,
+		.end	= MSM_HSUSB1_PHYS + MSM_HSUSB1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -436,8 +437,8 @@ struct platform_device apq8064_device_otg = {
 
 static struct resource resources_hsusb[] = {
 	{
-		.start	= MSM_HSUSB_PHYS,
-		.end	= MSM_HSUSB_PHYS + MSM_HSUSB_SIZE - 1,
+		.start	= MSM_HSUSB1_PHYS,
+		.end	= MSM_HSUSB1_PHYS + MSM_HSUSB1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -454,6 +455,31 @@ struct platform_device apq8064_device_gadget_peripheral = {
 	.resource	= resources_hsusb,
 	.dev		= {
 		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+static struct resource resources_hsusb_host[] = {
+	{
+		.start  = MSM_HSUSB1_PHYS,
+		.end    = MSM_HSUSB1_PHYS + MSM_HSUSB1_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = USB1_HS_IRQ,
+		.end    = USB1_HS_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static u64 dma_mask = DMA_BIT_MASK(32);
+struct platform_device apq8064_device_hsusb_host = {
+	.name           = "msm_hsusb_host",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_hsusb_host),
+	.resource       = resources_hsusb_host,
+	.dev            = {
+		.dma_mask               = &dma_mask,
+		.coherent_dma_mask      = 0xffffffff,
 	},
 };
 
