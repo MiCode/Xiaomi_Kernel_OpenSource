@@ -973,6 +973,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	struct fb_var_screeninfo *var;
 	int *id;
 	int fbram_offset;
+	int remainder, remainder_mode2;
 
 	/*
 	 * fb info initialization
@@ -1109,15 +1110,28 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 
 	fix->line_length = msm_fb_line_length(mfd->index, panel_info->xres,
 					      bpp);
+
+	/* Make sure all buffers can be addressed on a page boundary by an x
+	 * and y offset */
+
+	remainder = (fix->line_length * panel_info->yres) % PAGE_SIZE;
+	if (!remainder)
+		remainder = PAGE_SIZE;
+	remainder_mode2 = (fix->line_length *
+				panel_info->mode2_yres) % PAGE_SIZE;
+	if (!remainder_mode2)
+		remainder_mode2 = PAGE_SIZE;
+
 	/* calculate smem_len based on max size of two supplied modes */
-	fix->smem_len = roundup(MAX(msm_fb_line_length(mfd->index,
-					       panel_info->xres,
-					       bpp) *
-			    panel_info->yres * mfd->fb_page,
-			    msm_fb_line_length(mfd->index,
+	fix->smem_len = MAX((msm_fb_line_length(mfd->index, panel_info->xres,
+					      bpp) *
+			    panel_info->yres + PAGE_SIZE -
+				remainder) * mfd->fb_page,
+			    (msm_fb_line_length(mfd->index,
 					       panel_info->mode2_xres,
 					       bpp) *
-			    panel_info->mode2_yres * mfd->fb_page), PAGE_SIZE);
+			    panel_info->mode2_yres + PAGE_SIZE -
+				remainder_mode2) * mfd->fb_page);
 
 
 

@@ -2643,15 +2643,19 @@ static void __init msm8x60_init_dsps(void)
 #endif /* CONFIG_MSM_DSPS */
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_PRIM_BUF_SIZE (1024 * 600 * 4 * 3) /* 4 bpp x 3 pages */
+#define MSM_FB_PRIM_BUF_SIZE \
+		(roundup((1024 * 600 * 4), 4096) * 3) /* 4 bpp x 3 pages */
 #else
-#define MSM_FB_PRIM_BUF_SIZE (1024 * 600 * 4 * 2) /* 4 bpp x 2 pages */
+#define MSM_FB_PRIM_BUF_SIZE \
+		(roundup((1024 * 600 * 4), 4096) * 2) /* 4 bpp x 2 pages */
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-#define MSM_FB_EXT_BUF_SIZE  (1920 * 1080 * 2 * 1) /* 2 bpp x 1 page */
+#define MSM_FB_EXT_BUF_SIZE  \
+		(roundup((1920 * 1080 * 2), 4096) * 1) /* 2 bpp x 1 page */
 #elif defined(CONFIG_FB_MSM_TVOUT)
-#define MSM_FB_EXT_BUF_SIZE  (720 * 576 * 2 * 2) /* 2 bpp x 2 pages */
+#define MSM_FB_EXT_BUF_SIZE  \
+		(roundup((720 * 576 * 2), 4096) * 2) /* 2 bpp x 2 pages */
 #else
 #define MSM_FB_EXT_BUFT_SIZE	0
 #endif
