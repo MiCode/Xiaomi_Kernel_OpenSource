@@ -109,6 +109,8 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 
 /* Initial PM8XXX MPP configurations */
 static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
+	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
+	PM8921_MPP_INIT(7, D_INPUT, PM8921_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
 };
 
 void __init apq8064_pm8xxx_gpio_mpp_init(void)

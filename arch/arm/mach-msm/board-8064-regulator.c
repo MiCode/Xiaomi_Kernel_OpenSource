@@ -194,6 +194,12 @@ VREG_CONSUMERS(8821_S1) = {
 	REGULATOR_SUPPLY("8821_s1",		NULL),
 	REGULATOR_SUPPLY("krait3",		NULL),
 };
+VREG_CONSUMERS(EXT_5V) = {
+	REGULATOR_SUPPLY("ext_5v",		NULL),
+};
+VREG_CONSUMERS(EXT_3P3V) = {
+	REGULATOR_SUPPLY("ext_3p3v",		NULL),
+};
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
@@ -290,6 +296,22 @@ VREG_CONSUMERS(8821_S1) = {
 		.pin_ctrl	= _pin_ctrl, \
 	}
 
+#define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator) \
+	[GPIO_VREG_ID_##_id] = { \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id), \
+			.consumer_supplies	= vreg_consumers_##_id, \
+			.supply_regulator	= _supply_regulator, \
+		}, \
+		.regulator_name = _reg_name, \
+		.gpio_label	= _gpio_label, \
+		.gpio		= _gpio, \
+	}
+
 #define SAW_VREG_INIT(_id, _name, _min_uV, _max_uV) \
 	{ \
 		.constraints = { \
@@ -301,6 +323,15 @@ VREG_CONSUMERS(8821_S1) = {
 		.num_consumer_supplies	= ARRAY_SIZE(vreg_consumers_##_id), \
 		.consumer_supplies	= vreg_consumers_##_id, \
 	}
+
+/* GPIO regulator constraints */
+struct gpio_regulator_platform_data
+apq8064_gpio_regulator_pdata[] __devinitdata = {
+	/*        ID      vreg_name gpio_label   gpio                  supply */
+	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en", PM8921_MPP_PM_TO_SYS(7), NULL),
+	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en",
+		  APQ8064_EXT_3P3V_REG_EN_GPIO, NULL),
+};
 
 /* SAW regulator constraints */
 struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5 =
@@ -375,8 +406,8 @@ msm8064_pm8921_regulator_pdata[] __devinitdata = {
 	PM8XXX_VS(LVS6,    "8921_lvs6", 0, 1,                 0, "8921_s4", 35),
 	PM8XXX_VS(LVS7,    "8921_lvs7", 1, 1,                 0, "8921_s4", 36),
 
-	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 1,         0, NULL, 37),
-	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1,         0, NULL, 38),
+	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0,         0, "ext_5v", 37),
+	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1,         0, "ext_5v", 38),
 
 	/*         ID   name  always_on   min_uV   max_uV  en_t supply reg_ID */
 	PM8XXX_NCP(NCP,	"8921_ncp", 0,    1800000, 1800000, 200, "8921_l6", 39),

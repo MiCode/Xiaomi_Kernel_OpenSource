@@ -1006,11 +1006,31 @@ static void __init apq8064_init_buses(void)
 	msm_bus_8064_cpss_fpb.dev.platform_data = &msm_bus_8064_cpss_fpb_pdata;
 }
 
+static struct platform_device apq8064_device_ext_5v_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8921_MPP_PM_TO_SYS(7),
+	.dev	= {
+		.platform_data
+			= &apq8064_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
+	},
+};
+
+static struct platform_device apq8064_device_ext_3p3v_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= APQ8064_EXT_3P3V_REG_EN_GPIO,
+	.dev	= {
+		.platform_data =
+			&apq8064_gpio_regulator_pdata[GPIO_VREG_ID_EXT_3P3V],
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_slim_ctrl,
+	&apq8064_device_ext_5v_vreg,
+	&apq8064_device_ext_3p3v_vreg,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
 	&msm_device_smd_apq8064,

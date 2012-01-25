@@ -89,6 +89,13 @@ static struct gpiomux_setting gsbi1_uart_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting ext_regulator_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 18,		/* GSBI1 UART TX */
@@ -185,6 +192,16 @@ static struct msm_gpiomux_config apq8064_audio_auxpcm_configs[] __initdata = {
 	},
 };
 
+/* External 3.3 V regulator enable */
+static struct msm_gpiomux_config apq8064_ext_regulator_configs[] __initdata = {
+	{
+		.gpio = APQ8064_EXT_3P3V_REG_EN_GPIO,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ext_regulator_config,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -211,4 +228,7 @@ void __init apq8064_init_gpiomux(void)
 
 	msm_gpiomux_install(apq8064_audio_auxpcm_configs,
 			ARRAY_SIZE(apq8064_audio_auxpcm_configs));
+
+	msm_gpiomux_install(apq8064_ext_regulator_configs,
+			ARRAY_SIZE(apq8064_ext_regulator_configs));
 }

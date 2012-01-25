@@ -13,9 +13,12 @@
 #ifndef __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 #define __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 
+#include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
 #include <mach/msm_memtypes.h>
+#include <mach/irqs.h>
+
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8921_GPIO_BASE)
@@ -31,6 +34,14 @@ extern struct pm8xxx_regulator_platform_data
 	msm8064_pm8921_regulator_pdata[] __devinitdata;
 
 extern int msm8064_pm8921_regulator_pdata_len __devinitdata;
+
+#define GPIO_VREG_ID_EXT_5V		0
+#define GPIO_VREG_ID_EXT_3P3V		1
+
+#define APQ8064_EXT_3P3V_REG_EN_GPIO	77
+
+extern struct gpio_regulator_platform_data
+	apq8064_gpio_regulator_pdata[] __devinitdata;
 
 extern struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5;
 extern struct regulator_init_data msm8064_saw_regulator_pdata_8921_s6;
