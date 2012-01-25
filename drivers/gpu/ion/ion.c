@@ -1044,14 +1044,13 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->handles = RB_ROOT;
 	mutex_init(&client->lock);
 
-	client->name = kzalloc(sizeof(name_len+1), GFP_KERNEL);
+	client->name = kzalloc(name_len+1, GFP_KERNEL);
 	if (!client->name) {
 		put_task_struct(current->group_leader);
 		kfree(client);
 		return ERR_PTR(-ENOMEM);
 	} else {
-		strncpy(client->name, name, name_len);
-		client->name[name_len] = '\0';
+		strlcpy(client->name, name, name_len+1);
 	}
 
 	client->heap_mask = heap_mask;
