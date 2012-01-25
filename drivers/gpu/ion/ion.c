@@ -149,7 +149,7 @@ static void ion_buffer_add(struct ion_device *dev,
 	rb_insert_color(&buffer->node, &dev->buffers);
 }
 
-void ion_iommu_add(struct ion_buffer *buffer,
+static void ion_iommu_add(struct ion_buffer *buffer,
 			  struct ion_iommu_map *iommu)
 {
 	struct rb_node **p = &buffer->iommu_maps.rb_node;
@@ -560,7 +560,7 @@ static void ion_handle_kmap_put(struct ion_handle *handle)
 		ion_buffer_kmap_put(buffer);
 }
 
-int __ion_iommu_map(struct ion_buffer *buffer,
+static int __ion_iommu_map(struct ion_buffer *buffer,
 		int domain_num, int partition_num, unsigned long align,
 		unsigned long iova_length, unsigned long flags,
 		unsigned long *iova)
@@ -802,7 +802,7 @@ out:
 	return ret;
 }
 
-int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+static int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd)
 {
@@ -1573,7 +1573,6 @@ int ion_secure_heap(struct ion_device *dev, int heap_id)
 	mutex_unlock(&dev->lock);
 	return ret_val;
 }
-EXPORT_SYMBOL(ion_secure_heap);
 
 int ion_unsecure_heap(struct ion_device *dev, int heap_id)
 {
@@ -1600,7 +1599,6 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id)
 	mutex_unlock(&dev->lock);
 	return ret_val;
 }
-EXPORT_SYMBOL(ion_unsecure_heap);
 
 static int ion_debug_leak_show(struct seq_file *s, void *unused)
 {
