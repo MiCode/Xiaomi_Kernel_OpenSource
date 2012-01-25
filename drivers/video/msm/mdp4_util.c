@@ -1232,15 +1232,60 @@ void mdp4_mixer_blend_init(mixer_num)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
+struct mdp_csc_cfg mdp_csc_convert[4] = {
+	{ /*RGB2RGB*/
+		0,
+		{
+			0x0200, 0x0000, 0x0000,
+			0x0000, 0x0200, 0x0000,
+			0x0000, 0x0000, 0x0200,
+		},
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+	},
+	{ /*YUV2RGB*/
+		0,
+		{
+			0x0254, 0x0000, 0x0331,
+			0x0254, 0xff37, 0xfe60,
+			0x0254, 0x0409, 0x0000,
+		},
+		{ 0xfff0, 0xff80, 0xff80, },
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+	},
+	{ /*RGB2YUV*/
+		0,
+		{
+			0x0083, 0x0102, 0x0032,
+			0x1fb5, 0x1f6c, 0x00e1,
+			0x00e1, 0x1f45, 0x1fdc
+		},
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0010, 0x0080, 0x0080, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+		{ 0x0010, 0x00eb, 0x0010, 0x00f0, 0x0010, 0x00f0, },
+	},
+	{ /*YUV2YUV ???*/
+		0,
+		{
+			0x0200, 0x0000, 0x0000,
+			0x0000, 0x0200, 0x0000,
+			0x0000, 0x0000, 0x0200,
+		},
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0, 0x0, 0x0, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
+	},
+};
 
-struct mdp4_csc_matrix {
-uint32 csc_mv[9];
-uint32 csc_pre_bv[3];
-uint32 csc_post_bv[3];
-uint32 csc_pre_lv[6];
-uint32 csc_post_lv[6];
-} csc_matrix[3] = {
+struct mdp_csc_cfg csc_matrix[3] = {
 	{
+		(MDP_CSC_FLAG_YUV_OUT),
 		{
 			0x0254, 0x0000, 0x0331,
 			0x0254, 0xff37, 0xfe60,
@@ -1260,6 +1305,7 @@ uint32 csc_post_lv[6];
 		},
 	},
 	{
+		(MDP_CSC_FLAG_YUV_OUT),
 		{
 			0x0254, 0x0000, 0x0331,
 			0x0254, 0xff37, 0xfe60,
@@ -1279,6 +1325,7 @@ uint32 csc_post_lv[6];
 		},
 	},
 	{
+		(0),
 		{
 			0x0200, 0x0000, 0x0000,
 			0x0000, 0x0200, 0x0000,
@@ -1392,6 +1439,25 @@ void mdp4_vg_csc_post_lv_setup(int vp_num)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
+void mdp4_vg_csc_convert_setup(int vp_num)
+{
+	struct mdp_csc_cfg_data cfg;
+
+	switch (vp_num) {
+	case 0:
+		cfg.block = MDP_BLOCK_VG_1;
+		break;
+	case 1:
+		cfg.block = MDP_BLOCK_VG_2;
+		break;
+	default:
+		pr_err("%s - invalid vp_num = %d", __func__, vp_num);
+		return;
+	}
+	cfg.csc_data = csc_matrix[vp_num];
+	mdp4_csc_enable(&cfg);
+}
+
 void mdp4_vg_csc_setup(int vp_num)
 {
 		/* yuv2rgb */
@@ -1400,6 +1466,7 @@ void mdp4_vg_csc_setup(int vp_num)
 		mdp4_vg_csc_post_bv_setup(vp_num);
 		mdp4_vg_csc_pre_lv_setup(vp_num);
 		mdp4_vg_csc_post_lv_setup(vp_num);
+		mdp4_vg_csc_convert_setup(vp_num);
 }
 void mdp4_vg_csc_update(struct mdp_csc *p)
 {
@@ -2347,13 +2414,15 @@ static uint32_t mdp4_csc_block2base(uint32_t block)
 	case MDP_BLOCK_DMA_P:
 		base = 0x93000;
 		break;
+	case MDP_BLOCK_DMA_S:
+		base = (mdp_rev >= MDP_REV_42) ? 0xA3000 : 0x0;
 	default:
 		break;
 	}
 	return base;
 }
 
-static int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
+int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
 {
 	uint32_t output, base, temp, mask;
 
@@ -2365,9 +2434,32 @@ static int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
 		output |= temp;
 		mask = 0x08 | 0x1800;
 		break;
+	case MDP_BLOCK_DMA_S:
+		base = 0xA0028;
+		output = (config->csc_data.flags << 3) & (0x08);
+		temp = (config->csc_data.flags << 10) & (0x1800);
+		output |= temp;
+		mask = 0x08 | 0x1800;
+		break;
 	case MDP_BLOCK_VG_1:
+		base = 0x20058;
+		output = (config->csc_data.flags << 11) & (0x800);
+		temp = (config->csc_data.flags << 8) & (0x600);
+		output |= temp;
+		mask = 0x800 | 0x600;
+		break;
 	case MDP_BLOCK_VG_2:
+		base = 0x30058;
+		output = (config->csc_data.flags << 11) & (0x800);
+		temp = (config->csc_data.flags << 8) & (0x600);
+		output |= temp;
+		mask = 0x800 | 0x600;
+		break;
 	case MDP_BLOCK_OVERLAY_1:
+		base = 0x18200;
+		output = config->csc_data.flags;
+		mask = 0x07;
+		break;
 	default:
 		pr_err("%s - CSC block does not exist on MDP_BLOCK = %d\n",
 						__func__, config->block);
@@ -2387,46 +2479,49 @@ static int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
 #define CSC_LV_OFF	0x600
 #define CSC_POST_OFF	0x80
 
-int mdp4_csc_config(struct mdp_csc_cfg_data *config)
+void mdp4_csc_write(struct mdp_csc_cfg *data, uint32_t base)
 {
-	int ret = 0;
 	int i;
-	uint32_t base, *off;
-
-	base = mdp4_csc_block2base(config->block);
-	if (!base)
-		return -EINVAL;
-
-	/* TODO: implement other CSC block support */
-	if (config->block != MDP_BLOCK_DMA_P) {
-		pr_warn("%s: Only DMA_P currently supported by CSC.\n",
-		__func__);
-		return -EINVAL;
-	}
+	uint32_t *off;
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	off = (uint32_t *) (MDP_BASE + base + CSC_MV_OFF);
+	off = (uint32_t *) ((uint32_t) base + CSC_MV_OFF);
 	for (i = 0; i < 9; i++) {
-		outpdw(off, config->csc_data.csc_mv[i]);
+		outpdw(off, data->csc_mv[i]);
 		off++;
 	}
 
-	off = (uint32_t *) (MDP_BASE + base + CSC_BV_OFF);
+	off = (uint32_t *) ((uint32_t) base + CSC_BV_OFF);
 	for (i = 0; i < 3; i++) {
-		outpdw(off, config->csc_data.csc_pre_bv[i]);
+		outpdw(off, data->csc_pre_bv[i]);
 		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
-					config->csc_data.csc_post_bv[i]);
+					data->csc_post_bv[i]);
 		off++;
 	}
 
-	off = (uint32_t *) (MDP_BASE + base + CSC_LV_OFF);
+	off = (uint32_t *) ((uint32_t) base + CSC_LV_OFF);
 	for (i = 0; i < 6; i++) {
-		outpdw(off, config->csc_data.csc_pre_lv[i]);
+		outpdw(off, data->csc_pre_lv[i]);
 		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
-					config->csc_data.csc_post_lv[i]);
+					data->csc_post_lv[i]);
 		off++;
 	}
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+int mdp4_csc_config(struct mdp_csc_cfg_data *config)
+{
+	int ret = 0;
+	uint32_t base;
+
+	base = mdp4_csc_block2base(config->block);
+	if (!base) {
+		pr_warn("%s: Block type %d isn't supported by CSC.\n",
+				__func__, config->block);
+		return -EINVAL;
+	}
+
+	mdp4_csc_write(&config->csc_data, (uint32_t) (MDP_BASE + base));
 
 	ret = mdp4_csc_enable(config);
 

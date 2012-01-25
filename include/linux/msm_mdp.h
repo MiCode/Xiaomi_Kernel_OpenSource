@@ -335,6 +335,10 @@ struct mdp_pcc_cfg_data {
 	struct mdp_pcc_coeff r, g, b;
 };
 
+#define MDP_CSC_FLAG_ENABLE	0x1
+#define MDP_CSC_FLAG_YUV_IN	0x2
+#define MDP_CSC_FLAG_YUV_OUT	0x4
+
 struct mdp_csc_cfg {
 	/* flags for enable CSC, toggling RGB,YUV input/output */
 	uint32_t flags;
