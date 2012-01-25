@@ -120,6 +120,17 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT_FUNC(44, 0, PM_GPIO_FUNC_2),
 	PM8921_GPIO_OUTPUT(33, 0, HIGH),
 	PM8921_GPIO_OUTPUT(20, 0, HIGH),
+	PM8921_GPIO_INPUT(35, PM_GPIO_PULL_UP_1P5),
+	PM8921_GPIO_INPUT(38, PM_GPIO_PULL_UP_1P5),
+};
+
+static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {
+	PM8921_GPIO_INPUT(3, PM_GPIO_PULL_UP_1P5),
+	PM8921_GPIO_INPUT(4, PM_GPIO_PULL_UP_1P5),
+};
+
+static struct pm8xxx_gpio_init pm8921_cdp_kp_gpios[] __initdata = {
+	PM8921_GPIO_INPUT(37, PM_GPIO_PULL_UP_1P5),
 };
 
 /* Initial PM8XXX MPP configurations */
@@ -142,6 +153,28 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 			break;
 		}
 	}
+
+	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
+		for (i = 0; i < ARRAY_SIZE(pm8921_cdp_kp_gpios); i++) {
+			rc = pm8xxx_gpio_config(pm8921_cdp_kp_gpios[i].gpio,
+						&pm8921_cdp_kp_gpios[i].config);
+			if (rc) {
+				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
+					__func__, rc);
+				break;
+			}
+		}
+
+	if (machine_is_apq8064_mtp())
+		for (i = 0; i < ARRAY_SIZE(pm8921_mtp_kp_gpios); i++) {
+			rc = pm8xxx_gpio_config(pm8921_mtp_kp_gpios[i].gpio,
+						&pm8921_mtp_kp_gpios[i].config);
+			if (rc) {
+				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
+					__func__, rc);
+				break;
+			}
+		}
 
 	for (i = 0; i < ARRAY_SIZE(pm8xxx_mpps); i++) {
 		rc = pm8xxx_mpp_config(pm8xxx_mpps[i].mpp,

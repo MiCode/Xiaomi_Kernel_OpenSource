@@ -28,6 +28,7 @@
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/cyttsp.h>
 #include <linux/i2c/isa1200.h>
+#include <linux/gpio_keys.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -1648,6 +1649,116 @@ static int ethernet_init(void)
 }
 #endif
 
+#define GPIO_KEY_HOME		PM8921_GPIO_PM_TO_SYS(27)
+#define GPIO_KEY_VOLUME_UP	PM8921_GPIO_PM_TO_SYS(35)
+#define GPIO_KEY_VOLUME_DOWN	PM8921_GPIO_PM_TO_SYS(38)
+#define GPIO_KEY_CAM_FOCUS	PM8921_GPIO_PM_TO_SYS(3)
+#define GPIO_KEY_CAM_SNAP	PM8921_GPIO_PM_TO_SYS(4)
+#define GPIO_KEY_ROTATION	46
+
+static struct gpio_keys_button cdp_keys[] = {
+	{
+		.code           = KEY_HOME,
+		.gpio           = GPIO_KEY_HOME,
+		.desc           = "home_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEUP,
+		.gpio           = GPIO_KEY_VOLUME_UP,
+		.desc           = "volume_up_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEDOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.desc           = "volume_down_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = SW_ROTATE_LOCK,
+		.gpio           = GPIO_KEY_ROTATION,
+		.desc           = "rotate_key",
+		.active_low     = 1,
+		.type		= EV_SW,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_platform_data cdp_keys_data = {
+	.buttons        = cdp_keys,
+	.nbuttons       = ARRAY_SIZE(cdp_keys),
+};
+
+static struct platform_device cdp_kp_pdev = {
+	.name           = "gpio-keys",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &cdp_keys_data,
+	},
+};
+
+static struct gpio_keys_button mtp_keys[] = {
+	{
+		.code           = KEY_CAMERA_FOCUS,
+		.gpio           = GPIO_KEY_CAM_FOCUS,
+		.desc           = "cam_focus_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEUP,
+		.gpio           = GPIO_KEY_VOLUME_UP,
+		.desc           = "volume_up_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEDOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.desc           = "volume_down_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_CAMERA_SNAPSHOT,
+		.gpio           = GPIO_KEY_CAM_SNAP,
+		.desc           = "cam_snap_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_platform_data mtp_keys_data = {
+	.buttons        = mtp_keys,
+	.nbuttons       = ARRAY_SIZE(mtp_keys),
+};
+
+static struct platform_device mtp_kp_pdev = {
+	.name           = "gpio-keys",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &mtp_keys_data,
+	},
+};
+
+
 static void __init apq8064_clock_init(void)
 {
 	if (machine_is_apq8064_rumi3())
@@ -1813,6 +1924,12 @@ static void __init apq8064_cdp_init(void)
 	platform_add_devices(msm_footswitch_devices,
 			     msm_num_footswitch_devices);
 	apq8064_init_cam();
+
+	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
+		platform_device_register(&cdp_kp_pdev);
+
+	if (machine_is_apq8064_mtp())
+		platform_device_register(&mtp_kp_pdev);
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
