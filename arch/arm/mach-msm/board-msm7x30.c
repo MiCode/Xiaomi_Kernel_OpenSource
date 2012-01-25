@@ -6348,6 +6348,10 @@ static int tsc2007_power_shutdown(bool enable)
 static struct tsc2007_platform_data tsc2007_ts_data = {
 	.model = 2007,
 	.x_plate_ohms = 300,
+	.min_x		= 210,
+	.max_x		= 3832,
+	.min_y		= 150,
+	.max_y		= 3936,
 	.irq_flags    = IRQF_TRIGGER_LOW,
 	.init_platform_hw = tsc2007_init,
 	.exit_platform_hw = tsc2007_exit,
