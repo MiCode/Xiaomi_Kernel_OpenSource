@@ -245,10 +245,9 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 #define USB_5V_EN		3
 #define PM_USB_5V_EN	PM8018_GPIO_PM_TO_SYS(USB_5V_EN)
 
-static void msm_hsusb_vbus_power(bool on)
+static int msm_hsusb_vbus_power(bool on)
 {
-	int rc;
-	static bool vbus_is_on;
+	int rc = 0;
 	struct pm_gpio usb_vbus = {
 			.direction      = PM_GPIO_DIR_OUT,
 			.pull           = PM_GPIO_PULL_NO,
@@ -260,21 +259,18 @@ static void msm_hsusb_vbus_power(bool on)
 			.inv_int_pol    = 0,
 	};
 
-	if (vbus_is_on == on)
-		return;
-
 	if (on) {
 		rc = pm8xxx_gpio_config(PM_USB_5V_EN, &usb_vbus);
 		if (rc) {
 			pr_err("failed to config usb_5v_en gpio\n");
-			return;
+			return rc;
 		}
 
 		rc = gpio_request(PM_USB_5V_EN,
 						"usb_5v_en");
 		if (rc < 0) {
 			pr_err("failed to request usb_5v_en gpio\n");
-			return;
+			return rc;
 		}
 
 		rc = gpio_direction_output(PM_USB_5V_EN, 1);
@@ -284,13 +280,12 @@ static void msm_hsusb_vbus_power(bool on)
 			goto free_usb_5v_en;
 		}
 
-		vbus_is_on = true;
-		return;
+		return rc;
 	}
 	gpio_set_value(PM_USB_5V_EN, 0);
 free_usb_5v_en:
 	gpio_free(PM_USB_5V_EN);
-	vbus_is_on = false;
+	return rc;
 }
 
 static int shelby_phy_init_seq[] = {
