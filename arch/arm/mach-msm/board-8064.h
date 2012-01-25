@@ -54,5 +54,6 @@ void apq8064_allocate_fb_region(void);
 void apq8064_mdp_writeback(struct memtype_reserve *reserve_table);
 
 void apq8064_init_gpu(void);
+void apq8064_pm8xxx_gpio_mpp_init(void);
 
 #endif
