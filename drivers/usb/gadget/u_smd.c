@@ -711,17 +711,18 @@ void gsmd_disconnect(struct gserial *gser, u8 portno)
 	port->n_read = 0;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (!test_bit(CH_OPENED, &port->pi->flags))
-		return;
+	if (test_and_clear_bit(CH_OPENED, &port->pi->flags)) {
+		/* lower the dtr */
+		port->cbits_to_modem = 0;
+		smd_tiocmset(port->pi->ch,
+				port->cbits_to_modem,
+				~port->cbits_to_modem);
+	}
 
-	/* lower the dtr */
-	port->cbits_to_modem = 0;
-	smd_tiocmset(port->pi->ch,
-			port->cbits_to_modem,
-			~port->cbits_to_modem);
-
-	smd_close(port->pi->ch);
-	clear_bit(CH_OPENED, &port->pi->flags);
+	if (port->pi->ch) {
+		smd_close(port->pi->ch);
+		port->pi->ch = NULL;
+	}
 }
 
 #define SMD_CH_MAX_LEN	20
@@ -765,7 +766,10 @@ static int gsmd_ch_remove(struct platform_device *pdev)
 		if (!strncmp(pi->name, pdev->name, SMD_CH_MAX_LEN)) {
 			clear_bit(CH_READY, &pi->flags);
 			clear_bit(CH_OPENED, &pi->flags);
-			smd_close(pi->ch);
+			if (pi->ch) {
+				smd_close(pi->ch);
+				pi->ch = NULL;
+			}
 			break;
 		}
 	}
@@ -821,6 +825,7 @@ static ssize_t debug_smd_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	struct gsmd_port *port;
+	struct smd_port_info *pi;
 	char *buf;
 	unsigned long flags;
 	int temp = 0;
@@ -833,6 +838,7 @@ static ssize_t debug_smd_read_stats(struct file *file, char __user *ubuf,
 
 	for (i = 0; i < n_smd_ports; i++) {
 		port = smd_ports[i].port;
+		pi = port->pi;
 		spin_lock_irqsave(&port->port_lock, flags);
 		temp += scnprintf(buf + temp, 512 - temp,
 				"###PORT:%d###\n"
@@ -848,10 +854,10 @@ static ssize_t debug_smd_read_stats(struct file *file, char __user *ubuf,
 				i, port->nbytes_tolaptop, port->nbytes_tomodem,
 				port->cbits_to_modem, port->cbits_to_laptop,
 				port->n_read,
-				smd_read_avail(port->pi->ch),
-				smd_write_avail(port->pi->ch),
-				test_bit(CH_OPENED, &port->pi->flags),
-				test_bit(CH_READY, &port->pi->flags));
+				pi->ch ? smd_read_avail(pi->ch) : 0,
+				pi->ch ? smd_write_avail(pi->ch) : 0,
+				test_bit(CH_OPENED, &pi->flags),
+				test_bit(CH_READY, &pi->flags));
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
 

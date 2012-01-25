@@ -412,10 +412,13 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (test_bit(CH_OPENED, &c->flags)) {
-		/* this should send the dtr zero */
+	if (test_and_clear_bit(CH_OPENED, &c->flags))
+		/* send dtr zero */
+		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
+
+	if (c->ch) {
 		smd_close(c->ch);
-		clear_bit(CH_OPENED, &c->flags);
+		c->ch = NULL;
 	}
 }
 
@@ -464,7 +467,10 @@ static int grmnet_ctrl_smd_ch_remove(struct platform_device *pdev)
 		if (!strncmp(c->name, pdev->name, SMD_CH_MAX_LEN)) {
 			clear_bit(CH_READY, &c->flags);
 			clear_bit(CH_OPENED, &c->flags);
-			smd_close(c->ch);
+			if (c->ch) {
+				smd_close(c->ch);
+				c->ch = NULL;
+			}
 			break;
 		}
 	}
@@ -603,8 +609,8 @@ static ssize_t gsmd_ctrl_read_stats(struct file *file, char __user *ubuf,
 				c->cbits_tomodem ? "HIGH" : "LOW",
 				test_bit(CH_OPENED, &c->flags),
 				test_bit(CH_READY, &c->flags),
-				smd_read_avail(c->ch),
-				smd_write_avail(c->ch));
+				c->ch ? smd_read_avail(c->ch) : 0,
+				c->ch ? smd_write_avail(c->ch) : 0);
 
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
