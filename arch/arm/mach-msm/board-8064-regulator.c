@@ -129,6 +129,7 @@ VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_otg"),
 	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_ehci_host.0"),
 	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_ehci_host.1"),
+	REGULATOR_SUPPLY("HSIC_VDDCX",		"msm_hsic_host"),
 	REGULATOR_SUPPLY("riva_vddcx",		"wcnss_wlan.0"),
 };
 VREG_CONSUMERS(S4) = {

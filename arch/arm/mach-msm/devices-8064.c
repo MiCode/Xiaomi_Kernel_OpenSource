@@ -472,6 +472,25 @@ static struct resource resources_hsusb_host[] = {
 	},
 };
 
+static struct resource resources_hsic_host[] = {
+	{
+		.start	= 0x12510000,
+		.end	= 0x12510000 + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= USB2_HSIC_IRQ,
+		.end	= USB2_HSIC_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_GPIO_TO_INT(49),
+		.end	= MSM_GPIO_TO_INT(49),
+		.name	= "peripheral_status_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static u64 dma_mask = DMA_BIT_MASK(32);
 struct platform_device apq8064_device_hsusb_host = {
 	.name           = "msm_hsusb_host",
@@ -481,6 +500,17 @@ struct platform_device apq8064_device_hsusb_host = {
 	.dev            = {
 		.dma_mask               = &dma_mask,
 		.coherent_dma_mask      = 0xffffffff,
+	},
+};
+
+struct platform_device apq8064_device_hsic_host = {
+	.name		= "msm_hsic_host",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_hsic_host),
+	.resource	= resources_hsic_host,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
 	},
 };
 

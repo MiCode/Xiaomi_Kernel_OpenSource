@@ -104,6 +104,38 @@ static struct gpiomux_setting ext_regulator_config = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+static struct gpiomux_setting hsic_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting hsic_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config apq8064_hsic_configs[] = {
+	{
+		.gpio = 88,               /*HSIC_STROBE */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+	{
+		.gpio = 89,               /* HSIC_DATA */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+};
+#endif
+
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 18,		/* GSBI1 UART TX */
@@ -329,4 +361,9 @@ void __init apq8064_init_gpiomux(void)
 	if (machine_is_apq8064_mtp())
 		msm_gpiomux_install(mdm_configs,
 			ARRAY_SIZE(mdm_configs));
+
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+	msm_gpiomux_install(apq8064_hsic_configs,
+			ARRAY_SIZE(apq8064_hsic_configs));
+#endif
 }

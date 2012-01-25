@@ -375,6 +375,15 @@ static void __init apq8064_reserve(void)
 	msm_reserve();
 }
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+static struct msm_hsic_host_platform_data msm_hsic_pdata = {
+	.strobe		= 88,
+	.data		= 89,
+};
+#else
+static struct msm_hsic_host_platform_data msm_hsic_pdata;
+#endif
+
 static struct platform_device android_usb_device = {
 	.name = "android_usb",
 	.id = -1,
@@ -573,6 +582,7 @@ static struct platform_device qcedev_device = {
 static struct mdm_platform_data mdm_platform_data = {
 	.mdm_version = "3.0",
 	.ramdump_delay_ms = 2000,
+	.peripheral_platform_device = &apq8064_device_hsic_host,
 };
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
@@ -1044,6 +1054,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_otg,
 	&apq8064_device_gadget_peripheral,
 	&apq8064_device_hsusb_host,
+	&apq8064_device_hsic_host,
 	&android_usb_device,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -1209,6 +1220,7 @@ static void __init apq8064_common_init(void)
 						&apq8064_qup_spi_gsbi5_pdata;
 	apq8064_init_pmic();
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
+	apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_pm8xxx_gpio_mpp_init();
