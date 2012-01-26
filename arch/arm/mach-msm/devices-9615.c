@@ -102,7 +102,9 @@ struct platform_device msm9615_device_dmov = {
 };
 
 #define MSM_USB_BAM_BASE     0x12502000
-#define MSM_USB_BAM_SIZE     0x3DFFF
+#define MSM_USB_BAM_SIZE     SZ_16K
+#define MSM_HSIC_BAM_BASE    0x12542000
+#define MSM_HSIC_BAM_SIZE    SZ_16K
 
 static struct resource resources_otg[] = {
 	{
@@ -144,13 +146,25 @@ static struct resource resources_usb_bam[] = {
 	{
 		.name	= "usb_bam_addr",
 		.start	= MSM_USB_BAM_BASE,
-		.end	= MSM_USB_BAM_BASE + MSM_USB_BAM_SIZE,
+		.end	= MSM_USB_BAM_BASE + MSM_USB_BAM_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
 		.name	= "usb_bam_irq",
 		.start	= USB1_HS_BAM_IRQ,
 		.end	= USB1_HS_BAM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "hsic_bam_addr",
+		.start	= MSM_HSIC_BAM_BASE,
+		.end	= MSM_HSIC_BAM_BASE + MSM_HSIC_BAM_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "hsic_bam_irq",
+		.start	= USB_HSIC_BAM_IRQ,
+		.end	= USB_HSIC_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
 };

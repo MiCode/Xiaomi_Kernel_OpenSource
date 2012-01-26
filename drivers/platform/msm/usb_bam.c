@@ -170,20 +170,34 @@ static int usb_bam_init(void)
 	struct msm_usb_bam_platform_data *pdata =
 		(struct msm_usb_bam_platform_data *)
 			(usb_bam_pdev->dev.platform_data);
+	struct resource *res;
+	int irq;
 
-	usb_virt_addr = ioremap_nocache(
-						pdata->usb_bam_phy_base,
-						pdata->usb_bam_phy_size);
+	res = platform_get_resource(usb_bam_pdev, IORESOURCE_MEM,
+						pdata->usb_active_bam);
+	if (!res) {
+		dev_err(&usb_bam_pdev->dev, "Unable to get memory resource\n");
+		return -ENODEV;
+	}
+
+	irq = platform_get_irq(usb_bam_pdev, pdata->usb_active_bam);
+	if (irq < 0) {
+		dev_err(&usb_bam_pdev->dev, "Unable to get IRQ resource\n");
+		return irq;
+	}
+
+	usb_virt_addr = ioremap(res->start, resource_size(res));
 	if (!usb_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		return -ENOMEM;
 	}
-	usb_props.phys_addr = pdata->usb_bam_phy_base;
+	usb_props.phys_addr = res->start;
 	usb_props.virt_addr = usb_virt_addr;
-	usb_props.virt_size = pdata->usb_bam_phy_size;
-	usb_props.irq = USB1_HS_BAM_IRQ;
-	usb_props.num_pipes = pdata->usb_bam_num_pipes;
+	usb_props.virt_size = resource_size(res);
+	usb_props.irq = irq;
 	usb_props.summing_threshold = USB_SUMMING_THRESHOLD;
+	usb_props.num_pipes = pdata->usb_bam_num_pipes;
+
 	ret = sps_register_bam_device(&usb_props, &h_usb);
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
@@ -210,7 +224,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 
 	ret = usb_bam_init();
 	if (ret) {
-		dev_err(&pdev->dev, "failed to get platform resource mem\n");
+		dev_err(&pdev->dev, "failed to initialize usb bam\n");
 		return ret;
 	}
 
