@@ -85,6 +85,20 @@ static struct gpiomux_setting audio_auxpcm[] = {
 	},
 };
 
+
+static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting wcnss_5wire_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv  = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+
 static struct gpiomux_setting slimbus = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -479,6 +493,44 @@ static struct msm_gpiomux_config apq8064_mxt_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config wcnss_5wire_interface[] = {
+	{
+		.gpio = 64,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 65,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 66,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 67,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 68,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -493,6 +545,9 @@ void __init apq8064_init_gpiomux(void)
 	msm_gpiomux_install(apq8064_ethernet_configs,
 			ARRAY_SIZE(apq8064_ethernet_configs));
 #endif
+
+	msm_gpiomux_install(wcnss_5wire_interface,
+			ARRAY_SIZE(wcnss_5wire_interface));
 
 	msm_gpiomux_install(apq8064_gsbi_configs,
 			ARRAY_SIZE(apq8064_gsbi_configs));
