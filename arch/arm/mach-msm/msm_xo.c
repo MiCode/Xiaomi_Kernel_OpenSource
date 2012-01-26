@@ -82,8 +82,6 @@ static int msm_xo_show_voters(struct seq_file *m, void *v)
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A1], "TCXO A1");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A2], "TCXO A2");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CORE], "TCXO Core");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_PXO], "PXO during sleep");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CXO], "CXO");
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
 	return 0;
@@ -116,7 +114,7 @@ static int __init msm_xo_debugfs_init(void) { return 0; }
 static int msm_xo_update_vote(struct msm_xo *xo)
 {
 	int ret;
-	unsigned vote, prev_vote = xo->mode, ctx_set;
+	unsigned vote, prev_vote = xo->mode;
 	struct msm_rpm_iv_pair cmd;
 
 	if (xo->votes[MSM_XO_MODE_ON])
@@ -134,36 +132,21 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 	 * command fails we'll rollback.
 	 */
 	xo->mode = vote;
-
-	if (xo == &msm_xo_sources[MSM_XO_PXO]) {
-		cmd.id = MSM_RPM_ID_PXO_CLK;
-		cmd.value = msm_xo_sources[MSM_XO_PXO].mode ? 1 : 0;
-		ret = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_SLEEP, &cmd, 1);
-	} else if (xo == &msm_xo_sources[MSM_XO_CXO]) {
-		cmd.id = MSM_RPM_ID_CXO_CLK;
-		cmd.value = msm_xo_sources[MSM_XO_CXO].mode ? 1 : 0;
-		if (cpu_is_msm9615())
-			ctx_set = MSM_RPM_CTX_SET_SLEEP;
-		else
-			ctx_set = MSM_RPM_CTX_SET_0;
-		ret = msm_rpmrs_set_noirq(ctx_set, &cmd, 1);
-	} else {
-		cmd.id = MSM_RPM_ID_CXO_BUFFERS;
-		cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
-			    (msm_xo_sources[MSM_XO_TCXO_D1].mode << 8)  |
-			    (msm_xo_sources[MSM_XO_TCXO_A0].mode << 16) |
-			    (msm_xo_sources[MSM_XO_TCXO_A1].mode << 24) |
-			    (msm_xo_sources[MSM_XO_TCXO_A2].mode << 28) |
-			    /*
-			     * 8660 RPM has XO_CORE at bit 18 and 8960 RPM has
-			     * XO_CORE at bit 20. Since the opposite bit is
-			     * reserved in both cases, just set both and be
-			     * done with it.
-			     */
-			    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 20) |
-			    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 18);
-		ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
-	}
+	cmd.id = MSM_RPM_ID_CXO_BUFFERS;
+	cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
+		    (msm_xo_sources[MSM_XO_TCXO_D1].mode << 8)  |
+		    (msm_xo_sources[MSM_XO_TCXO_A0].mode << 16) |
+		    (msm_xo_sources[MSM_XO_TCXO_A1].mode << 24) |
+		    (msm_xo_sources[MSM_XO_TCXO_A2].mode << 28) |
+		    /*
+		     * 8660 RPM has XO_CORE at bit 18 and 8960 RPM has
+		     * XO_CORE at bit 20. Since the opposite bit is
+		     * reserved in both cases, just set both and be
+		     * done with it.
+		     */
+		    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 20) |
+		    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 18);
+	ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
 
 	if (ret)
 		xo->mode = prev_vote;
@@ -300,40 +283,17 @@ EXPORT_SYMBOL(msm_xo_put);
 
 int __init msm_xo_init(void)
 {
-	int i;
-	int ret = 0;
-	struct msm_rpm_iv_pair cmd[2];
+	int i, ret;
+	struct msm_rpm_iv_pair cmd[1];
 
 	for (i = 0; i < ARRAY_SIZE(msm_xo_sources); i++)
 		INIT_LIST_HEAD(&msm_xo_sources[i].voters);
 
-	if (cpu_is_msm9615()) {
-		cmd[0].id = MSM_RPM_ID_CXO_CLK;
-		cmd[0].value = 1;
-		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, cmd, 1);
-		if (ret)
-			goto out;
-
-		cmd[0].id = MSM_RPM_ID_CXO_CLK;
-		cmd[0].value = 0;
-		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, cmd, 1);
-		goto out;
-	}
-
-	cmd[0].id = MSM_RPM_ID_PXO_CLK;
-	cmd[0].value = 1;
-	cmd[1].id = MSM_RPM_ID_CXO_BUFFERS;
-	cmd[1].value = 0;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, cmd, 2);
-	if (ret)
-		goto out;
-
-	cmd[0].id = MSM_RPM_ID_PXO_CLK;
+	cmd[0].id = MSM_RPM_ID_CXO_BUFFERS;
 	cmd[0].value = 0;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, cmd, 1);
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, cmd, ARRAY_SIZE(cmd));
 	if (ret)
-		goto out;
+		return ret;
 	msm_xo_debugfs_init();
-out:
-	return ret;
+	return 0;
 }

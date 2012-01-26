@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,6 @@ enum msm_xo_ids {
 	MSM_XO_TCXO_A1,
 	MSM_XO_TCXO_A2,
 	MSM_XO_CORE,
-	MSM_XO_PXO,
-	MSM_XO_CXO,
 	NUM_MSM_XO_IDS
 };
 
