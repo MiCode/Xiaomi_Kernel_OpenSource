@@ -27,14 +27,15 @@
 
 struct platform_device;
 
-struct kgsl_busy {
-	struct timeval start;
-	struct timeval stop;
-	int on_time;
-	int time;
-	int on_time_old;
-	int time_old;
+struct kgsl_clk_stats {
+	unsigned int old_clock_time[KGSL_MAX_PWRLEVELS];
+	unsigned int clock_time[KGSL_MAX_PWRLEVELS];
+	unsigned int on_time_old;
+	ktime_t start;
+	ktime_t stop;
 	unsigned int no_nap_cnt;
+	unsigned int elapsed;
+	unsigned int elapsed_old;
 };
 
 struct kgsl_pwrctrl {
@@ -56,8 +57,8 @@ struct kgsl_pwrctrl {
 	unsigned int idle_needed;
 	const char *irq_name;
 	s64 time;
-	struct kgsl_busy busy;
 	unsigned int restore_slumber;
+	struct kgsl_clk_stats clk_stats;
 };
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
