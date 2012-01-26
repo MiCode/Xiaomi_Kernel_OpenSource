@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,4 +44,7 @@ int __init apq8064_add_sdcc(unsigned int controller,
 void apq8064_init_mmc(void);
 void apq8064_init_gpiomux(void);
 void apq8064_init_pmic(void);
+extern struct msm_camera_board_info apq8064_camera_board_info;
+void apq8064_init_cam(void);
+#define APQ_8064_GSBI4_QUP_I2C_BUS_ID 4
 #endif
