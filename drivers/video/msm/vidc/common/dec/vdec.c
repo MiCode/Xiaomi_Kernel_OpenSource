@@ -804,6 +804,7 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 	u32 len = 0, flags = 0;
 	struct file *file;
 	int rc = 0;
+	unsigned long ionflag;
 
 	if (!client_ctx || !mv_data)
 		return false;
@@ -838,10 +839,18 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 			ERR("%s(): get_ION_handle failed\n", __func__);
 			goto ion_error;
 		}
+		rc = ion_handle_get_flags(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle,
+					&ionflag);
+		if (rc) {
+			ERR("%s():get_ION_flags fail\n",
+					 __func__);
+			goto ion_error;
+		}
 		vcd_h264_mv_buffer->kernel_virtual_addr = (u8 *) ion_map_kernel(
 			client_ctx->user_ion_client,
 			client_ctx->h264_mv_ion_handle,
-			0);
+			ionflag);
 		if (!vcd_h264_mv_buffer->kernel_virtual_addr) {
 			ERR("%s(): get_ION_kernel virtual addr failed\n",
 				 __func__);
@@ -1651,6 +1660,7 @@ static long vid_dec_ioctl(struct file *file,
 	{
 		struct vdec_seqheader seq_header;
 		struct vcd_sequence_hdr vcd_seq_hdr;
+		unsigned long ionflag;
 		DBG("VDEC_IOCTL_SET_SEQUENCE_HEADER\n");
 		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg))) {
 			ERR("Copy from user vdec_msg failed\n");
@@ -1681,9 +1691,19 @@ static long vid_dec_ioctl(struct file *file,
 				ERR("%s(): get_ION_handle failed\n", __func__);
 				return false;
 			}
+			rc = ion_handle_get_flags(client_ctx->user_ion_client,
+						client_ctx->seq_hdr_ion_handle,
+						&ionflag);
+			if (rc) {
+				ERR("%s():get_ION_flags fail\n",
+							 __func__);
+				ion_free(client_ctx->user_ion_client,
+					client_ctx->seq_hdr_ion_handle);
+				return false;
+			}
 			ker_vaddr = (unsigned long) ion_map_kernel(
 				client_ctx->user_ion_client,
-				client_ctx->seq_hdr_ion_handle, 0);
+				client_ctx->seq_hdr_ion_handle, ionflag);
 			if (!ker_vaddr) {
 				ERR("%s():get_ION_kernel virtual addr fail\n",
 							 __func__);

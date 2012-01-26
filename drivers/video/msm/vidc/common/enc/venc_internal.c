@@ -1710,6 +1710,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 	size_t ion_len = -1;
 	unsigned long phy_addr;
 	int rc = -1;
+	unsigned long ionflag;
 	if (!client_ctx || !venc_recon) {
 		pr_err("%s() Invalid params", __func__);
 		return false;
@@ -1749,10 +1750,18 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 			ERR("%s(): get_ION_handle failed\n", __func__);
 			goto ion_error;
 		}
+		rc = ion_handle_get_flags(client_ctx->user_ion_client,
+					client_ctx->recon_buffer_ion_handle[i],
+					&ionflag);
+		if (rc) {
+			ERR("%s():get_ION_flags fail\n",
+				 __func__);
+			goto ion_error;
+		}
 		control->kernel_virtual_addr = (u8 *) ion_map_kernel(
 			client_ctx->user_ion_client,
 			client_ctx->recon_buffer_ion_handle[i],
-			0);
+			ionflag);
 		if (!control->kernel_virtual_addr) {
 			ERR("%s(): get_ION_kernel virtual addr fail\n",
 				 __func__);
