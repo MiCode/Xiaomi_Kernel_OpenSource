@@ -474,12 +474,12 @@ void ion_free(struct ion_client *client, struct ion_handle *handle)
 
 	mutex_lock(&client->lock);
 	valid_handle = ion_handle_validate(client, handle);
-	mutex_unlock(&client->lock);
-
 	if (!valid_handle) {
+		mutex_unlock(&client->lock);
 		WARN("%s: invalid handle passed to free.\n", __func__);
 		return;
 	}
+	mutex_unlock(&client->lock);
 	ion_handle_put(handle);
 }
 EXPORT_SYMBOL(ion_free);
