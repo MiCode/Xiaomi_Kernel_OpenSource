@@ -56,6 +56,7 @@ enum vcd_power_state {
 struct vcd_frame_data {
 	u8 *virtual;
 	u8 *physical;
+	u32 ion_flag;
 	u32 alloc_len;
 	u32 data_len;
 	u32 offset;

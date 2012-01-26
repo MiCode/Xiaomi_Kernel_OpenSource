@@ -188,6 +188,36 @@ u8 *vcd_pmem_get_physical(struct video_client_ctx *client_ctx,
 
 }
 
+u32 vcd_get_ion_flag(struct video_client_ctx *client_ctx,
+			  unsigned long kernel_vaddr)
+{
+	unsigned long phy_addr, user_vaddr;
+	int pmem_fd;
+	struct file *file;
+	s32 buffer_index = -1;
+	u32 ion_flag = 0;
+
+	if (vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_INPUT,
+					  false, &user_vaddr, &kernel_vaddr,
+					  &phy_addr, &pmem_fd, &file,
+					  &buffer_index)) {
+
+		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_INPUT,
+				pmem_fd, kernel_vaddr, buffer_index);
+		return ion_flag;
+	} else if (vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT,
+		false, &user_vaddr, &kernel_vaddr, &phy_addr, &pmem_fd, &file,
+		&buffer_index)) {
+		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
+				pmem_fd, kernel_vaddr, buffer_index);
+		return ion_flag;
+	} else {
+		VCD_MSG_ERROR("Couldn't get ion flag");
+		return 0;
+	}
+
+}
+
 void vcd_reset_device_channels(struct vcd_dev_ctxt *dev_ctxt)
 {
 	dev_ctxt->ddl_frame_ch_free = dev_ctxt->ddl_frame_ch_depth;
@@ -523,6 +553,7 @@ u32 vcd_set_buffer_internal(
 {
 	struct vcd_buffer_entry *buf_entry;
 	u8 *physical;
+	u32 ion_flag = 0;
 
 	buf_entry = vcd_find_buffer_pool_entry(buf_pool, buffer);
 	if (buf_entry) {
@@ -533,6 +564,9 @@ u32 vcd_set_buffer_internal(
 
 	physical = (u8 *) vcd_pmem_get_physical(
 		cctxt->client_data, (unsigned long)buffer);
+
+	ion_flag = vcd_get_ion_flag(cctxt->client_data,
+				(unsigned long)buffer);
 
 	if (!physical) {
 		VCD_MSG_ERROR("Couldn't get physical address");
@@ -548,7 +582,6 @@ u32 vcd_set_buffer_internal(
 		VCD_MSG_ERROR("Can't allocate buffer pool is full");
 		return VCD_ERR_FAIL;
 	}
-
 	buf_entry->virtual = buffer;
 	buf_entry->physical = physical;
 	buf_entry->sz = buf_size;
@@ -557,6 +590,7 @@ u32 vcd_set_buffer_internal(
 
 	buf_entry->frame.virtual = buf_entry->virtual;
 	buf_entry->frame.physical = buf_entry->physical;
+	buf_entry->frame.ion_flag = ion_flag;
 
 	buf_pool->validated++;
 
