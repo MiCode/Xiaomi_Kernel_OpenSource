@@ -67,20 +67,20 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		}, \
 	};
 
-#define DEFINE_CLK_RPM_BRANCH(name, active, r_id, rate) \
+#define DEFINE_CLK_RPM_BRANCH(name, active, r_id, r) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_clk_id = MSM_RPM_ID_##r_id##_CLK, \
 		.rpm_status_id = MSM_RPM_STATUS_ID_##r_id##_CLK, \
 		.peer = &active, \
-		.last_set_khz = ((rate) / 1000), \
-		.last_set_sleep_khz = ((rate) / 1000), \
+		.last_set_khz = ((r) / 1000), \
+		.last_set_sleep_khz = ((r) / 1000), \
 		.branch = true, \
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
-			.rate = (rate), \
+			.rate = (r), \
 			CLK_INIT(name.c), \
 		}, \
 	}; \
@@ -88,14 +88,14 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.rpm_clk_id = MSM_RPM_ID_##r_id##_CLK, \
 		.rpm_status_id = MSM_RPM_STATUS_ID_##r_id##_CLK, \
 		.peer = &name, \
-		.last_set_khz = ((rate) / 1000), \
+		.last_set_khz = ((r) / 1000), \
 		.active_only = true, \
 		.branch = true, \
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
-			.rate = (rate), \
+			.rate = (r), \
 			CLK_INIT(active.c), \
 		}, \
 	};

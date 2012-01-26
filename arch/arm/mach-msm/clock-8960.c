@@ -26,7 +26,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
 #include <mach/rpm-regulator.h>
-#include <mach/msm_xo.h>
 #include <mach/socinfo.h>
 
 #include "clock-local.h"
@@ -468,57 +467,8 @@ static int set_vdd_sr2_pll_8930(struct clk_vdd_class *vdd_class, int level)
  * Clock Descriptions
  */
 
-static struct msm_xo_voter *xo_pxo, *xo_cxo;
-
-static int pxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_ON);
-}
-
-static void pxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_pxo = {
-	.enable = pxo_clk_enable,
-	.disable = pxo_clk_disable,
-	.is_local = local_clk_is_local,
-};
-
-static struct fixed_clk pxo_clk = {
-	.c = {
-		.dbg_name = "pxo_clk",
-		.rate = 27000000,
-		.ops = &clk_ops_pxo,
-		CLK_INIT(pxo_clk.c),
-	},
-};
-
-static int cxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_ON);
-}
-
-static void cxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_cxo = {
-	.enable = cxo_clk_enable,
-	.disable = cxo_clk_disable,
-	.is_local = local_clk_is_local,
-};
-
-static struct fixed_clk cxo_clk = {
-	.c = {
-		.dbg_name = "cxo_clk",
-		.rate = 19200000,
-		.ops = &clk_ops_cxo,
-		CLK_INIT(cxo_clk.c),
-	},
-};
+DEFINE_CLK_RPM_BRANCH(pxo_clk, pxo_a_clk, PXO, 27000000);
+DEFINE_CLK_RPM_BRANCH(cxo_clk, cxo_a_clk, CXO, 19200000);
 
 static struct pll_clk pll2_clk = {
 	.mode_reg = MM_PLL1_MODE_REG,
@@ -4896,6 +4846,8 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_8064[] = {
+	CLK_LOOKUP("xo",		cxo_a_clk.c,	""),
+	CLK_LOOKUP("xo",		pxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
@@ -5175,6 +5127,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 };
 
 static struct clk_lookup msm_clocks_8960[] = {
+	CLK_LOOKUP("xo",		cxo_a_clk.c,	""),
+	CLK_LOOKUP("xo",		pxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
@@ -5693,23 +5647,14 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm8960_clock_init(void)
 {
+	/* Keep PXO on whenever APPS cpu is active */
+	clk_prepare_enable(&pxo_a_clk.c);
 
 	if (cpu_is_apq8064()) {
 		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8064;
 	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
 		vdd_dig.set_vdd = set_vdd_dig_8930;
 		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8930;
-	}
-
-	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8960");
-	if (IS_ERR(xo_pxo)) {
-		pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
-		BUG();
-	}
-	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-8960");
-	if (IS_ERR(xo_cxo)) {
-		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
-		BUG();
 	}
 
 	/*

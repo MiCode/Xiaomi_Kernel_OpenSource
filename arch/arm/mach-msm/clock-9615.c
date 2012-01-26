@@ -25,7 +25,6 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
-#include <mach/msm_xo.h>
 #include <mach/rpm-9615.h>
 #include <mach/rpm-regulator.h>
 
@@ -208,32 +207,7 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
  * Clock Descriptions
  */
 
-static struct msm_xo_voter *xo_cxo;
-
-static int cxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_ON);
-}
-
-static void cxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_cxo = {
-	.enable = cxo_clk_enable,
-	.disable = cxo_clk_disable,
-	.is_local = local_clk_is_local,
-};
-
-static struct fixed_clk cxo_clk = {
-	.c = {
-		.dbg_name = "cxo_clk",
-		.rate = 19200000,
-		.ops = &clk_ops_cxo,
-		CLK_INIT(cxo_clk.c),
-	},
-};
+DEFINE_CLK_RPM_BRANCH(cxo_clk, cxo_a_clk, CXO, 19200000);
 
 static DEFINE_SPINLOCK(soft_vote_lock);
 
@@ -1618,6 +1592,7 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_9615[] = {
+	CLK_LOOKUP("xo",	cxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("pll0",	pll0_clk.c,	NULL),
@@ -1851,13 +1826,9 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm9615_clock_init(void)
 {
-	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-9615");
-	if (IS_ERR(xo_cxo)) {
-		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
-		BUG();
-	}
-
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	/* Keep CXO on whenever APPS cpu is active */
+	clk_prepare_enable(&cxo_a_clk.c);
 
 	clk_ops_pll.enable = sr_pll_clk_enable;
 
