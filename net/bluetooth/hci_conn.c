@@ -909,7 +909,9 @@ void hci_conn_enter_sniff_mode(struct hci_conn *conn)
 	if (!lmp_sniff_capable(hdev) || !lmp_sniff_capable(conn))
 		return;
 
-	if (conn->mode != HCI_CM_ACTIVE || !(conn->link_policy & HCI_LP_SNIFF))
+	if (conn->mode != HCI_CM_ACTIVE ||
+		!(conn->link_policy & HCI_LP_SNIFF) ||
+		(hci_find_link_key(hdev, &conn->dst) == NULL))
 		return;
 
 	if (lmp_sniffsubr_capable(hdev) && lmp_sniffsubr_capable(conn)) {
