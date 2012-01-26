@@ -2556,23 +2556,23 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 		return 0;
 
 	if (!buf->size) {
-		pr_err("%s:%d In valid size", __func__, __LINE__);
+		pr_err("%s:%d In valid size\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
 	if (!IS_ERR_OR_NULL(mfd->iclient)) {
-		pr_info("%s:%d ion based allocation", __func__, __LINE__);
+		pr_info("%s:%d ion based allocation\n", __func__, __LINE__);
 		buf->ihdl = ion_alloc(mfd->iclient, buf->size, 4,
 			(1 << mfd->mem_hid));
 		if (!IS_ERR_OR_NULL(buf->ihdl)) {
 			if (ion_phys(mfd->iclient, buf->ihdl,
 				&addr, &len)) {
-				pr_err("%s:%d: ion_phys map failed",
+				pr_err("%s:%d: ion_phys map failed\n",
 					__func__, __LINE__);
 				return -ENOMEM;
 			}
 		} else {
-			pr_err("%s:%d: ion_alloc failed", __func__,
+			pr_err("%s:%d: ion_alloc failed\n", __func__,
 				__LINE__);
 			return -ENOMEM;
 		}
@@ -2602,14 +2602,18 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 		buf = mfd->ov1_wb_buf;
 
 	if (!IS_ERR_OR_NULL(mfd->iclient)) {
-		if (!IS_ERR_OR_NULL(buf->ihdl))
+		if (!IS_ERR_OR_NULL(buf->ihdl)) {
 			ion_free(mfd->iclient, buf->ihdl);
-		buf->ihdl = NULL;
-		pr_info("%s:%d free writeback imem", __func__, __LINE__);
+			pr_info("%s:%d free writeback imem\n", __func__,
+				__LINE__);
+			buf->ihdl = NULL;
+		}
 	} else {
-		if (buf->phys_addr)
+		if (buf->phys_addr) {
 			free_contiguous_memory_by_paddr(buf->phys_addr);
-		pr_info("%s:%d free writeback pmem", __func__, __LINE__);
+			pr_info("%s:%d free writeback pmem\n", __func__,
+				__LINE__);
+		}
 	}
 	buf->phys_addr = 0;
 }
