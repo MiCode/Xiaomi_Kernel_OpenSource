@@ -797,6 +797,7 @@ static struct pm8058_platform_data pm8058_7x30_data = {
 
 #ifdef CONFIG_MSM_SSBI
 static struct msm_ssbi_platform_data msm7x30_ssbi_pm8058_pdata = {
+	.rsl_id = "D:PMIC_SSBI",
 	.controller_type = MSM_SBI_CTRL_SSBI2,
 	.slave	= {
 		.name			= "pm8058-core",
