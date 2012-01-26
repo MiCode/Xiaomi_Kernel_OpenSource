@@ -26,15 +26,7 @@
 #include <mach/ion.h>
 
 #include "devices.h"
-
-/* TODO: Remove this once PM8038 physically becomes
- * available.
- */
-#ifndef MSM8930_PHASE_2
-#include "board-8960.h"
-#else
 #include "board-8930.h"
-#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_PRIM_BUF_SIZE (1376 * 768 * 4 * 3) /* 4 bpp x 3 pages */

@@ -23,14 +23,7 @@
 #include <mach/gpiomux.h>
 #include "devices.h"
 
-/* TODO: Remove this once PM8038 physically becomes
- * available.
- */
-#ifndef MSM8930_PHASE_2
-#include "board-8960.h"
-#else
 #include "board-8930.h"
-#endif
 
 /* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
