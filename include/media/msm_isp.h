@@ -41,6 +41,7 @@
 #define MSG_ID_BUS_OVERFLOW             36
 #define MSG_ID_SOF_ACK                  37
 #define MSG_ID_STOP_REC_ACK             38
+#define MSG_ID_STATS_AWB_AEC            39
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -172,13 +173,19 @@
 #define VFE_CMD_GET_RGB_G_TABLE                         126
 #define VFE_CMD_GET_LA_TABLE                            127
 #define VFE_CMD_DEMOSAICV3_UPDATE                       128
+#define VFE_CMD_ACTIVE_REGION_CFG                       129
+#define VFE_CMD_COLOR_PROCESSING_CONFIG                 130
+#define VFE_CMD_STATS_WB_AEC_CONFIG                     131
+#define VFE_CMD_STATS_WB_AEC_UPDATE                     132
+#define VFE_CMD_Y_GAMMA_CONFIG                          133
+#define VFE_CMD_SCALE_OUTPUT1_CONFIG                    134
+#define VFE_CMD_SCALE_OUTPUT2_CONFIG                    135
 
 struct msm_isp_cmd {
 	int32_t  id;
 	uint16_t length;
 	void     *value;
 };
-
 
 #define VPE_CMD_DUMMY_0                                 0
 #define VPE_CMD_INIT                                    1

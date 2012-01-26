@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@
 
 #define MSM_CSIPHY_DRV_NAME "msm_csiphy"
 #define MSM_CSID_DRV_NAME "msm_csid"
+#define MSM_CSIC_DRV_NAME "msm_csic"
 #define MSM_ISPIF_DRV_NAME "msm_ispif"
 #define MSM_VFE_DRV_NAME "msm_vfe"
 #define MSM_VPE_DRV_NAME "msm_vpe"
@@ -121,6 +122,8 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_PCLK_CHANGE, /* arg = pclk */
 	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
 	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
+	NOTIFY_CSIC_CFG, /* arg = msm_camera_csic_params */
+	NOTIFY_VFE_BUF_FREE_EVT, /* arg = msm_camera_csic_params */
 	NOTIFY_INVALID
 };
 
@@ -225,6 +228,7 @@ struct msm_cam_media_controller {
 	struct msm_cam_config_dev *config_device;
 	struct v4l2_subdev *csiphy_sdev; /*csiphy sub device*/
 	struct v4l2_subdev *csid_sdev; /*csid sub device*/
+	struct v4l2_subdev *csic_sdev; /*csid sub device*/
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
 

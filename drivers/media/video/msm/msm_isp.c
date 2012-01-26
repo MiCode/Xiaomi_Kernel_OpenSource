@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,20 @@ void msm_isp_sync_free(void *ptr)
 	}
 }
 
+static int msm_isp_notify_VFE_BUF_FREE_EVT(struct v4l2_subdev *sd, void *arg)
+{
+	struct msm_vfe_cfg_cmd cfgcmd;
+	struct msm_camvfe_params vfe_params;
+	int rc;
+
+	cfgcmd.cmd_type = CMD_VFE_BUFFER_RELEASE;
+	cfgcmd.value = NULL;
+	vfe_params.vfe_cfg = &cfgcmd;
+	vfe_params.data = NULL;
+	rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+	return 0;
+}
+
 static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = -EINVAL;
@@ -89,6 +103,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	switch (vdata->type) {
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
+	case VFE_MSG_V2X_PREVIEW:
 		D("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
@@ -105,6 +120,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_V32_CAPTURE:
+	case VFE_MSG_V2X_CAPTURE:
 		pr_err("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
@@ -160,6 +176,9 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
+
+	if (notification == NOTIFY_VFE_BUF_FREE_EVT)
+		return msm_isp_notify_VFE_BUF_FREE_EVT(sd, arg);
 
 	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_ATOMIC);
 	if (!isp_event) {
@@ -367,6 +386,19 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_AWB, &region[0],
+			NUM_STAT_OUTPUT_BUFFERS);
+		if (!axi_data.bufnum1) {
+			pr_err("%s %d: pmem region lookup error\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		axi_data.region = &region[0];
+		return msm_isp_subdev_ioctl(sd, &cfgcmd,
+							&axi_data);
+	case CMD_STATS_AEC_AWB_ENABLE:
+		axi_data.bufnum1 =
+			msm_pmem_region_lookup(&sync->pmem_stats,
+			MSM_PMEM_AEC_AWB, &region[0],
 			NUM_STAT_OUTPUT_BUFFERS);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
@@ -614,6 +646,8 @@ static int msm_put_stats_buffer(struct v4l2_subdev *sd,
 			cfgcmd.cmd_type = CMD_STATS_RS_BUF_RELEASE;
 		else if (buf.type == STAT_CS)
 			cfgcmd.cmd_type = CMD_STATS_CS_BUF_RELEASE;
+		else if (buf.type == STAT_AEAW)
+			cfgcmd.cmd_type = CMD_STATS_BUF_RELEASE;
 
 		else {
 			pr_err("%s: invalid buf type %d\n",
