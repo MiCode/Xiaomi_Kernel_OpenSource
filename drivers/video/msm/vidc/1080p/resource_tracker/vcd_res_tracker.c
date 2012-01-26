@@ -255,11 +255,11 @@ u32 res_trk_enable_clocks(void)
 		VCDRES_MSG_LOW("%s(): Enabling the clocks\n", __func__);
 		if (resource_context.vcodec_clk &&
 			resource_context.vcodec_pclk) {
-			if (clk_enable(resource_context.vcodec_pclk)) {
+			if (clk_prepare_enable(resource_context.vcodec_pclk)) {
 				VCDRES_MSG_ERROR("vidc pclk Enable fail\n");
 				goto bail_out;
 			}
-			if (clk_enable(resource_context.vcodec_clk)) {
+			if (clk_prepare_enable(resource_context.vcodec_clk)) {
 				VCDRES_MSG_ERROR("vidc core clk Enable fail\n");
 				goto vidc_disable_pclk;
 			}
@@ -275,7 +275,7 @@ u32 res_trk_enable_clocks(void)
 	mutex_unlock(&resource_context.lock);
 	return true;
 vidc_disable_pclk:
-	clk_disable(resource_context.vcodec_pclk);
+	clk_disable_unprepare(resource_context.vcodec_pclk);
 bail_out:
 	mutex_unlock(&resource_context.lock);
 	return false;
@@ -322,9 +322,9 @@ u32 res_trk_disable_clocks(void)
 		VCDRES_MSG_LOW("%s(): Disabling the clocks ...\n", __func__);
 		resource_context.clock_enabled = 0;
 		if (resource_context.vcodec_clk)
-			clk_disable(resource_context.vcodec_clk);
+			clk_disable_unprepare(resource_context.vcodec_clk);
 		if (resource_context.vcodec_pclk)
-			clk_disable(resource_context.vcodec_pclk);
+			clk_disable_unprepare(resource_context.vcodec_pclk);
 		status = true;
 	}
 	mutex_unlock(&resource_context.lock);
@@ -696,7 +696,7 @@ int res_trk_enable_iommu_clocks(void)
 			ret = PTR_ERR(vidc_mmu_clks[i].mmu_clk);
 		}
 		if (!ret) {
-			ret = clk_enable(vidc_mmu_clks[i].mmu_clk);
+			ret = clk_prepare_enable(vidc_mmu_clks[i].mmu_clk);
 			if (ret) {
 				clk_put(vidc_mmu_clks[i].mmu_clk);
 				vidc_mmu_clks[i].mmu_clk = NULL;
@@ -704,7 +704,7 @@ int res_trk_enable_iommu_clocks(void)
 		}
 		if (ret) {
 			for (i--; i >= 0; i--) {
-				clk_disable(vidc_mmu_clks[i].mmu_clk);
+				clk_disable_unprepare(vidc_mmu_clks[i].mmu_clk);
 				clk_put(vidc_mmu_clks[i].mmu_clk);
 				vidc_mmu_clks[i].mmu_clk = NULL;
 			}
@@ -725,7 +725,7 @@ int res_trk_disable_iommu_clocks(void)
 	}
 	resource_context.mmu_clks_on = 0;
 	for (i = 0; i < ARRAY_SIZE(vidc_mmu_clks); i++) {
-		clk_disable(vidc_mmu_clks[i].mmu_clk);
+		clk_disable_unprepare(vidc_mmu_clks[i].mmu_clk);
 		clk_put(vidc_mmu_clks[i].mmu_clk);
 		vidc_mmu_clks[i].mmu_clk = NULL;
 	}
