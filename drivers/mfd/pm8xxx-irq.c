@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,6 +221,11 @@ static void pm8xxx_irq_mask(struct irq_data *d)
 	master = block / 8;
 	irq_bit = pmirq % 8;
 
+	if (chip->config[pmirq] == 0) {
+		pr_warn("masking rouge irq=%d pmirq=%d\n", d->irq, pmirq);
+		chip->config[pmirq] = irq_bit << PM_IRQF_BITS_SHIFT;
+	}
+
 	config = chip->config[pmirq] | PM_IRQF_MASK_ALL;
 	pm8xxx_write_config_irq(chip, block, config);
 }
@@ -235,6 +240,11 @@ static void pm8xxx_irq_mask_ack(struct irq_data *d)
 	block = pmirq / 8;
 	master = block / 8;
 	irq_bit = pmirq % 8;
+
+	if (chip->config[pmirq] == 0) {
+		pr_warn("mask acking rouge irq=%d pmirq=%d\n", d->irq, pmirq);
+		chip->config[pmirq] = irq_bit << PM_IRQF_BITS_SHIFT;
+	}
 
 	config = chip->config[pmirq] | PM_IRQF_MASK_ALL | PM_IRQF_CLR;
 	pm8xxx_write_config_irq(chip, block, config);
