@@ -268,6 +268,11 @@ static struct mfd_cell misc_cell __devinitdata = {
 	.id             = -1,
 };
 
+static struct mfd_cell leds_cell __devinitdata = {
+	.name		= PM8XXX_LEDS_DEV_NAME,
+	.id		= -1,
+};
+
 static struct mfd_cell debugfs_cell __devinitdata = {
 	.name		= "pm8xxx-debug",
 	.id		= 0,
@@ -497,6 +502,16 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 				      irq_base);
 		if (ret) {
 			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->leds_pdata) {
+		leds_cell.platform_data = pdata->leds_pdata;
+		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
