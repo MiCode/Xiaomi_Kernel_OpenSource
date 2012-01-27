@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,7 +135,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 {
 	int r = 0;
 
-	/* open control ports only on 8960 */
+	/* open control ports only on 8960 & newer targets */
 	if (chk_apps_only()) {
 		if (pdev->id == SMD_APPS_MODEM)
 			r = smd_open("DIAG_CNTL", &driver->ch_cntl, driver,

@@ -80,11 +80,14 @@ int chk_config_get_id(void)
 	case MSM8660_MACHINE_ID:
 		return APQ8060_TOOLS_ID;
 	case AO8960_MACHINE_ID:
+	case MSM8260A_MACHINE_ID:
 		return AO8960_TOOLS_ID;
 	case APQ8064_MACHINE_ID:
 		return APQ8064_TOOLS_ID;
 	case MSM8930_MACHINE_ID:
 		return MSM8930_TOOLS_ID;
+	case MSM8974_MACHINE_ID:
+		return MSM8974_TOOLS_ID;
 	default:
 		return 0;
 	}
@@ -105,10 +108,26 @@ int chk_apps_only(void)
 	case APQ8030_MACHINE_ID:
 	case MSM8627_MACHINE_ID:
 	case MSM8227_MACHINE_ID:
+	case MSM8974_MACHINE_ID:
+	case MDM9615_MACHINE_ID:
+	case MSM8260A_MACHINE_ID:
 		return 1;
 	default:
 		return 0;
 	}
+}
+
+/*
+ * This will return TRUE for targets which support apps as master.
+ * Thus, SW DLOAD and Mode Reset are supported on apps processor.
+ * This applies to 8960 and newer targets.
+ */
+int chk_apps_master(void)
+{
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615())
+		return 1;
+	else
+		return 0;
 }
 
 void __diag_smd_send_req(void)
@@ -532,8 +551,7 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	} else {
 		if (len > 0) {
 			if (entry.client_id == MODEM_PROC && driver->ch) {
-				if ((cpu_is_msm8960() || cpu_is_msm8930() ||
-					cpu_is_msm9615()) &&
+				if (chk_apps_master() &&
 					 (int)(*(char *)buf) == MODE_CMD)
 					if ((int)(*(char *)(buf+1)) ==
 						RESET_ID)
@@ -573,8 +591,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	temp += 2;
 	data_type = APPS_DATA;
 	/* Dont send any command other than mode reset */
-	if ((cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615()) &&
-		cmd_code == MODE_CMD) {
+	if (chk_apps_master() && cmd_code == MODE_CMD) {
 		if (subsys_id != RESET_ID)
 			data_type = MODEM_DATA;
 	}
@@ -858,8 +875,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Check for download command */
-	else if ((cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_msm8930()
-		|| cpu_is_msm9615()) && (*buf == 0x3A)) {
+	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
 		ENCODE_RSP_AND_SEND(0);
