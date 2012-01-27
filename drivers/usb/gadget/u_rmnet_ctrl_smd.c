@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,7 +59,7 @@ struct rmnet_ctrl_port {
 	struct grmnet		*port_usb;
 
 	spinlock_t		port_lock;
-	struct work_struct	connect_w;
+	struct delayed_work	connect_w;
 };
 
 static struct rmnet_ctrl_ports {
@@ -320,7 +320,7 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 {
 	struct rmnet_ctrl_port *port =
-			container_of(w, struct rmnet_ctrl_port, connect_w);
+			container_of(w, struct rmnet_ctrl_port, connect_w.work);
 	struct smd_ch_info *c = &port->ctrl_ch;
 	unsigned long flags;
 	int ret;
@@ -332,8 +332,16 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 
 	ret = smd_open(c->name, &c->ch, port, grmnet_ctrl_smd_notify);
 	if (ret) {
-		pr_err("%s: Unable to open smd ch:%s err:%d\n",
-				__func__, c->name, ret);
+		if (ret == -EAGAIN) {
+			/* port not ready  - retry */
+			pr_debug("%s: SMD port not ready - rescheduling:%s err:%d\n",
+					__func__, c->name, ret);
+			queue_delayed_work(grmnet_ctrl_wq, &port->connect_w,
+				msecs_to_jiffies(250));
+		} else {
+			pr_err("%s: unable to open smd port:%s err:%d\n",
+					__func__, c->name, ret);
+		}
 		return;
 	}
 
@@ -370,7 +378,7 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num)
 	gr->notify_modem = gsmd_ctrl_send_cbits_tomodem;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	queue_work(grmnet_ctrl_wq, &port->connect_w);
+	queue_delayed_work(grmnet_ctrl_wq, &port->connect_w, 0);
 
 	return 0;
 }
@@ -442,7 +450,8 @@ static int grmnet_ctrl_smd_ch_probe(struct platform_device *pdev)
 			/* if usb is online, try opening smd_ch */
 			spin_lock_irqsave(&port->port_lock, flags);
 			if (port->port_usb)
-				queue_work(grmnet_ctrl_wq, &port->connect_w);
+				queue_delayed_work(grmnet_ctrl_wq,
+							&port->connect_w, 0);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 
 			break;
@@ -503,7 +512,7 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	port->port_num = portno;
 
 	spin_lock_init(&port->port_lock);
-	INIT_WORK(&port->connect_w, grmnet_ctrl_smd_connect_w);
+	INIT_DELAYED_WORK(&port->connect_w, grmnet_ctrl_smd_connect_w);
 
 	c = &port->ctrl_ch;
 	c->name = rmnet_ctrl_names[portno];
