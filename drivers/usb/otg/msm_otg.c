@@ -609,7 +609,6 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	int cnt = 0;
 	bool host_bus_suspend;
 	u32 phy_ctrl_val = 0, cmd_val;
-	unsigned ret;
 	u32 portsc;
 
 	if (atomic_read(&motg->in_lpm))
@@ -706,10 +705,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	clk_disable(motg->core_clk);
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
-	if (ret)
-		dev_err(otg->dev, "%s failed to devote for "
-			"TCXO D0 buffer%d\n", __func__, ret);
+	clk_disable_unprepare(motg->xo_handle);
 
 	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE && !host_bus_suspend) {
 		msm_hsusb_ldo_enable(motg, 0);
@@ -753,7 +749,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 	wake_lock(&motg->wlock);
 
 	/* Vote for TCXO when waking up the phy */
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+	ret = clk_prepare_enable(motg->xo_handle);
 	if (ret)
 		dev_err(otg->dev, "%s failed to vote for "
 			"TCXO D0 buffer%d\n", __func__, ret);
@@ -2483,7 +2479,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
-	motg->xo_handle = msm_xo_get(MSM_XO_CXO, "usb");
+	motg->xo_handle = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(motg->xo_handle)) {
 		dev_err(&pdev->dev, "%s not able to get the handle "
 			"to vote for TCXO D0 buffer\n", __func__);
@@ -2491,7 +2487,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+	ret = clk_prepare_enable(motg->xo_handle);
 	if (ret) {
 		dev_err(&pdev->dev, "%s failed to vote for TCXO "
 			"D0 buffer%d\n", __func__, ret);
@@ -2621,9 +2617,9 @@ free_init_vddcx:
 	msm_hsusb_init_vddcx(motg, 0);
 devote_xo_handle:
 	clk_disable(motg->pclk);
-	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
+	clk_disable_unprepare(motg->xo_handle);
 free_xo_handle:
-	msm_xo_put(motg->xo_handle);
+	clk_put(motg->xo_handle);
 free_regs:
 	iounmap(motg->regs);
 put_pclk:
@@ -2689,7 +2685,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 
 	clk_disable(motg->pclk);
 	clk_disable(motg->core_clk);
-	msm_xo_put(motg->xo_handle);
+	clk_put(motg->xo_handle);
 	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
 	msm_hsusb_init_vddcx(motg, 0);
