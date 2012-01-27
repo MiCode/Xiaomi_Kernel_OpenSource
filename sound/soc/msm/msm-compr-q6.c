@@ -450,8 +450,37 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
+	uint64_t timestamp;
+	uint64_t temp;
 
 	switch (cmd) {
+	case SNDRV_COMPRESS_TSTAMP: {
+		struct snd_compr_tstamp tstamp;
+		pr_debug("SNDRV_COMPRESS_TSTAMP\n");
+
+		memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
+		timestamp = q6asm_get_session_time(prtd->audio_client);
+		if (timestamp < 0) {
+			pr_err("%s: Get Session Time return value =%lld\n",
+				__func__, timestamp);
+			return -EAGAIN;
+		}
+		temp = (timestamp * 2 * runtime->channels);
+		temp = temp * (runtime->rate/1000);
+		temp = div_u64(temp, 1000);
+		tstamp.sampling_rate = runtime->rate;
+		tstamp.rendered = (size_t)(temp & 0xFFFFFFFF);
+		tstamp.decoded  = (size_t)((temp >> 32) & 0xFFFFFFFF);
+		tstamp.timestamp = timestamp;
+		pr_debug("%s: bytes_consumed:lsb = %d, msb = %d,"
+			"timestamp = %lld,\n",
+			 __func__, tstamp.rendered, tstamp.decoded,
+			tstamp.timestamp);
+		if (copy_to_user((void *) arg, &tstamp,
+			sizeof(struct snd_compr_tstamp)))
+				return -EFAULT;
+		return 0;
+	}
 	case SNDRV_COMPRESS_GET_CAPS:
 		pr_debug("SNDRV_COMPRESS_GET_CAPS\n");
 		if (copy_to_user((void *) arg, &compr->info.compr_cap,
