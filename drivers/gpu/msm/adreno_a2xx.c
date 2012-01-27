@@ -1405,7 +1405,8 @@ static void a2xx_ctxt_save(struct adreno_device *adreno_dev,
 		"active context flags %08x\n", context->flags);
 
 	/* save registers and constants. */
-	adreno_ringbuffer_issuecmds(device, 0, context->reg_save, 3);
+	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		context->reg_save, 3);
 
 	if (context->flags & CTXT_FLAGS_SHADER_SAVE) {
 		/* save shader partitioning and instructions. */
@@ -1415,7 +1416,7 @@ static void a2xx_ctxt_save(struct adreno_device *adreno_dev,
 		/* fixup shader partitioning parameter for
 		 *  SET_SHADER_BASES.
 		 */
-		adreno_ringbuffer_issuecmds(device, 0,
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 			context->shader_fixup, 3);
 
 		context->flags |= CTXT_FLAGS_SHADER_RESTORE;
@@ -1430,7 +1431,7 @@ static void a2xx_ctxt_save(struct adreno_device *adreno_dev,
 			context->context_gmem_shadow.gmem_save, 3);
 
 		/* Restore TP0_CHICKEN */
-		adreno_ringbuffer_issuecmds(device, 0,
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 			context->chicken_restore, 3);
 
 		context->flags |= CTXT_FLAGS_GMEM_RESTORE;
@@ -1481,7 +1482,7 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
 	cmds[3] = device->memstore.gpuaddr +
 		KGSL_DEVICE_MEMSTORE_OFFSET(current_context);
 	cmds[4] = (unsigned int) context;
-	adreno_ringbuffer_issuecmds(device, 0, cmds, 5);
+	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE, cmds, 5);
 	kgsl_mmu_setstate(device, context->pagetable);
 
 #ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
@@ -1498,26 +1499,27 @@ static void a2xx_ctxt_restore(struct adreno_device *adreno_dev,
 			context->context_gmem_shadow.gmem_restore, 3);
 
 		/* Restore TP0_CHICKEN */
-		adreno_ringbuffer_issuecmds(device, 0,
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 			context->chicken_restore, 3);
 
 		context->flags &= ~CTXT_FLAGS_GMEM_RESTORE;
 	}
 
 	/* restore registers and constants. */
-	adreno_ringbuffer_issuecmds(device, 0,
+	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 		context->reg_restore, 3);
 
 	/* restore shader instructions & partitioning. */
 	if (context->flags & CTXT_FLAGS_SHADER_RESTORE) {
-		adreno_ringbuffer_issuecmds(device, 0,
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 			context->shader_restore, 3);
 	}
 
 	if (adreno_is_a20x(adreno_dev)) {
 		cmds[0] = cp_type3_packet(CP_SET_BIN_BASE_OFFSET, 1);
 		cmds[1] = context->bin_base_offset;
-		adreno_ringbuffer_issuecmds(device, 0, cmds, 2);
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+			cmds, 2);
 	}
 }
 
@@ -1704,6 +1706,10 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 	wmb();
 }
 
+/* Defined in adreno_a2xx_snapshot.c */
+void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
+	int *remain, int hang);
+
 struct adreno_gpudev adreno_a2xx_gpudev = {
 	.ctxt_gpustate_shadow = a2xx_ctxt_gpustate_shadow,
 	.ctxt_gmem_shadow = a2xx_ctxt_gmem_shadow,
@@ -1711,4 +1717,5 @@ struct adreno_gpudev adreno_a2xx_gpudev = {
 	.ctxt_restore = a2xx_ctxt_restore,
 	.irq_handler = a2xx_irq_handler,
 	.irq_control = a2xx_irq_control,
+	.snapshot = a2xx_snapshot,
 };
