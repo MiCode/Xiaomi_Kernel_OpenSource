@@ -4840,6 +4840,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
 	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.1"),
 	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.2"),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_gss"),
 	CLK_LOOKUP("pll2",		pll2_clk.c,	NULL),
 	CLK_LOOKUP("pll8",		pll8_clk.c,	NULL),
 	CLK_LOOKUP("pll4",		pll4_clk.c,	NULL),

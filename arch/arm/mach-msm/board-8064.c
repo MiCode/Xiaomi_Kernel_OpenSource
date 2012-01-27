@@ -1117,6 +1117,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_vidc,
 	&msm_8960_riva,
 	&msm_8960_q6_lpass,
+	&msm_gss,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

@@ -1705,6 +1705,13 @@ config MSM_PIL_TZAPPS
 	  used to decrypt data and perform secure operations on the behalf of
 	  the kernel.
 
+config MSM_PIL_GSS
+	tristate "GSS (Coretx A5) Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for booting and shutting down Cortex A5 processors which run
+	  GPS subsystem firmware.
+
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n

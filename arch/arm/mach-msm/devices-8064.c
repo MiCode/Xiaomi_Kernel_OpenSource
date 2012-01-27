@@ -811,6 +811,21 @@ struct platform_device apq8064_device_rng = {
 };
 #endif
 
+static struct resource msm_gss_resources[] = {
+	{
+		.start  = 0x10000000,
+		.end    = 0x10000000 + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_gss = {
+	.name = "pil_gss",
+	.id = -1,
+	.num_resources  = ARRAY_SIZE(msm_gss_resources),
+	.resource       = msm_gss_resources,
+};
+
 static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),
 	CLK_DUMMY("pll8",		PLL8,		NULL, 0),
