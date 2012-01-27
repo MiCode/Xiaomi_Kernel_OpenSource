@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include <sound/soc.h>
+#include <sound/jack.h>
 
 #define TABLA_VERSION_1_0	0
 #define TABLA_VERSION_1_1	1
@@ -27,6 +28,11 @@
 
 #define STA 0
 #define DCE 1
+
+#define TABLA_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
+				SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
+				SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
+				SND_JACK_BTN_6 | SND_JACK_BTN_7)
 
 extern const u8 tabla_reg_readable[TABLA_CACHE_SIZE];
 extern const u8 tabla_reg_defaults[TABLA_CACHE_SIZE];
