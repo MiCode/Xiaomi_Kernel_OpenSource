@@ -244,3 +244,10 @@ config S5K3L1YX
 		4 mipi lanes, preview config = 1984 * 1508 at 30 fps,
 		snapshot config = 4000 * 3000 at 20 fps,
 		hfr video at 60, 90 and 120 fps.
+
+config IMX091
+        bool "Sensor imx091 (Sony 13MP)"
+        depends on MSM_CAMERA
+	---help---
+	  Sony 13MP sensor back camera that uses 4 mipi lanes,
+	  runs at 30 fps preview and 14 fps snapshot
