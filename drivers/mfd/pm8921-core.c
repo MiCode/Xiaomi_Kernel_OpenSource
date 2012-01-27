@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 #define PM8921_VERSION_MASK	0xFFF0
 #define PM8921_VERSION_VALUE	0x06F0
 #define PM8922_VERSION_VALUE	0x0AF0
+#define PM8917_VERSION_VALUE	0x12F0
 #define PM8921_REVISION_MASK	0x000F
 
 #define REG_PM8921_PON_CNTRL_3	0x01D
@@ -116,6 +117,9 @@ static enum pm8xxx_version pm8921_get_version(const struct device *dev)
 	else if ((pmic->rev_registers & PM8921_VERSION_MASK)
 			== PM8922_VERSION_VALUE)
 		version = PM8XXX_VERSION_8922;
+	else if ((pmic->rev_registers & PM8921_VERSION_MASK)
+			== PM8917_VERSION_VALUE)
+		version = PM8XXX_VERSION_8917;
 
 	return version;
 }
@@ -138,7 +142,7 @@ static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_get_revision	= pm8921_get_revision,
 };
 
-static const struct resource gpio_cell_resources[] __devinitconst = {
+static struct resource gpio_cell_resources[] = {
 	[0] = {
 		.start = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0),
 		.end   = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0)
@@ -167,7 +171,7 @@ static struct mfd_cell adc_cell __devinitdata = {
 	.num_resources	= ARRAY_SIZE(adc_cell_resources),
 };
 
-static const struct resource mpp_cell_resources[] __devinitconst = {
+static struct resource mpp_cell_resources[] = {
 	{
 		.start	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0),
 		.end	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0)
@@ -545,7 +549,14 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->gpio_pdata) {
-		pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
+		if (version == PM8XXX_VERSION_8917) {
+			gpio_cell_resources[0].end = gpio_cell_resources[0].end
+							+ PM8917_NR_GPIOS
+							- PM8921_NR_GPIOS;
+			pdata->gpio_pdata->gpio_cdata.ngpios = PM8917_NR_GPIOS;
+		} else {
+			pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
+		}
 		gpio_cell.platform_data = pdata->gpio_pdata;
 		gpio_cell.pdata_size = sizeof(struct pm8xxx_gpio_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &gpio_cell, 1,
@@ -557,7 +568,14 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->mpp_pdata) {
-		pdata->mpp_pdata->core_data.nmpps = PM8921_NR_MPPS;
+		if (version == PM8XXX_VERSION_8917) {
+			mpp_cell_resources[0].end = mpp_cell_resources[0].end
+							+ PM8917_NR_MPPS
+							- PM8921_NR_MPPS;
+			pdata->mpp_pdata->core_data.nmpps = PM8917_NR_MPPS;
+		} else {
+			pdata->mpp_pdata->core_data.nmpps = PM8921_NR_MPPS;
+		}
 		pdata->mpp_pdata->core_data.base_addr = REG_MPP_BASE;
 		mpp_cell.platform_data = pdata->mpp_pdata;
 		mpp_cell.pdata_size = sizeof(struct pm8xxx_mpp_platform_data);
@@ -665,12 +683,6 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		goto bail;
 	}
 
-	ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
-	if (ret) {
-		pr_err("Failed to add pwm subdevice ret=%d\n", ret);
-		goto bail;
-	}
-
 	if (pdata->misc_pdata) {
 		misc_cell.platform_data = pdata->misc_pdata;
 		misc_cell.pdata_size = sizeof(struct pm8xxx_misc_platform_data);
@@ -678,16 +690,6 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 				      irq_base);
 		if (ret) {
 			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
-			goto bail;
-		}
-	}
-
-	if (pdata->leds_pdata) {
-		leds_cell.platform_data = pdata->leds_pdata;
-		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
-		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
-		if (ret) {
-			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
@@ -708,15 +710,36 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		goto bail;
 	}
 
-	if (pdata->vibrator_pdata) {
-		vibrator_cell.platform_data = pdata->vibrator_pdata;
-		vibrator_cell.pdata_size =
-				sizeof(struct pm8xxx_vibrator_platform_data);
-		ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell, 1, NULL, 0);
+	if (version != PM8XXX_VERSION_8917) {
+		ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
 		if (ret) {
-			pr_err("Failed to add vibrator subdevice ret=%d\n",
-									ret);
+			pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 			goto bail;
+		}
+
+		if (pdata->leds_pdata) {
+			leds_cell.platform_data = pdata->leds_pdata;
+			leds_cell.pdata_size =
+				sizeof(struct pm8xxx_led_platform_data);
+			ret = mfd_add_devices(pmic->dev, 0, &leds_cell,
+					      1, NULL, 0);
+			if (ret) {
+				pr_err("Failed to add leds subdevice ret=%d\n",
+						ret);
+				goto bail;
+			}
+		}
+
+		if (pdata->vibrator_pdata) {
+			vibrator_cell.platform_data = pdata->vibrator_pdata;
+			vibrator_cell.pdata_size =
+				sizeof(struct pm8xxx_vibrator_platform_data);
+			ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell,
+					      1, NULL, 0);
+			if (ret) {
+				pr_err("Failed to add vibrator ret=%d\n", ret);
+				goto bail;
+			}
 		}
 	}
 
@@ -766,6 +789,11 @@ static const char * const pm8922_rev_names[] = {
 	[PM8XXX_REVISION_8922_1p0]	= "1.0",
 	[PM8XXX_REVISION_8922_1p1]	= "1.1",
 	[PM8XXX_REVISION_8922_2p0]	= "2.0",
+};
+
+static const char * const pm8917_rev_names[] = {
+	[PM8XXX_REVISION_8917_TEST]	= "test",
+	[PM8XXX_REVISION_8917_1p0]	= "1.0",
 };
 
 static int __devinit pm8921_probe(struct platform_device *pdev)
@@ -823,9 +851,14 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8922_rev_names))
 			revision_name = pm8922_rev_names[revision];
 		pr_info("PMIC version: PM8922 rev %s\n", revision_name);
+	} else if (version == PM8XXX_VERSION_8917) {
+		if (revision >= 0 && revision < ARRAY_SIZE(pm8917_rev_names))
+			revision_name = pm8917_rev_names[revision];
+		pr_info("PMIC version: PM8917 rev %s\n", revision_name);
 	} else {
 		WARN_ON(version != PM8XXX_VERSION_8921
-			&& version != PM8XXX_VERSION_8922);
+			&& version != PM8XXX_VERSION_8922
+			&& version != PM8XXX_VERSION_8917);
 	}
 
 	/* Log human readable restart reason */
