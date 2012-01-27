@@ -426,6 +426,23 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(f->name);
 }
 
+static void frmnet_suspend(struct usb_function *f)
+{
+	struct f_rmnet *dev = func_to_rmnet(f);
+	unsigned port_num;
+
+	if (!atomic_read(&dev->online))
+		return;
+	/* This is a workaround for a bug in Windows 7/XP hosts in which
+	 * the DTR bit is not set low when going into suspend. Hence force it
+	 * low here when this function driver is suspended.
+	 */
+	if (dev->port.notify_modem) {
+		port_num = rmnet_ports[dev->port_num].ctrl_xport_num;
+		dev->port.notify_modem(&dev->port, port_num, ~ACM_CTRL_DTR);
+	}
+}
+
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
@@ -937,6 +954,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	f->disable = frmnet_disable;
 	f->set_alt = frmnet_set_alt;
 	f->setup = frmnet_setup;
+	f->suspend = frmnet_suspend;
 	dev->port.send_cpkt_response = frmnet_send_cpkt_response;
 	dev->port.disconnect = frmnet_disconnect;
 	dev->port.connect = frmnet_connect;
