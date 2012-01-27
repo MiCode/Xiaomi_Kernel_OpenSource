@@ -217,7 +217,8 @@ struct msm_mctl_post_proc_cmd {
 #define PP_SNAP  0x01
 #define PP_RAW_SNAP ((0x01)<<1)
 #define PP_PREV  ((0x01)<<2)
-#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV)
+#define PP_THUMB ((0x01)<<3)
+#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV|PP_THUMB)
 
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
@@ -295,6 +296,7 @@ struct msm_pp_frame {
 		struct msm_pp_frame_sp sp;
 		struct msm_pp_frame_mp mp[MAX_PLANES];
 	};
+	int node_type;
 };
 
 struct msm_cam_evt_divert_frame {
@@ -508,6 +510,9 @@ struct outputCfg {
 	uint32_t window_height_firstline;
 	uint32_t window_height_lastline;
 };
+
+#define VIDEO_NODE 0
+#define MCTL_NODE 1
 
 #define OUTPUT_1	0
 #define OUTPUT_2	1

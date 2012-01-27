@@ -169,6 +169,7 @@
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
 
 #define HFR_MODE_OFF 1
+#define VFE_FRAME_SKIP_PERIOD_MASK 0x0000001F /*bits 0 -4*/
 
 enum VFE32_DMI_RAM_SEL {
 	NO_MEM_SELECTED          = 0,
@@ -968,6 +969,9 @@ struct vfe32_ctrl_type {
 	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
 	uint32_t hfr_mode;
+	uint32_t frame_skip_cnt;
+	uint32_t frame_skip_pattern;
+	uint32_t snapshot_frame_cnt;
 };
 
 #define statsAeNum      0

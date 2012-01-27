@@ -547,6 +547,10 @@ static void vfe32_reset_internal_variables(void)
 
 	memset(&(vfe32_ctrl->csStatsControl), 0,
 		sizeof(struct vfe_stats_control));
+
+	vfe32_ctrl->frame_skip_cnt = 31;
+	vfe32_ctrl->frame_skip_pattern = 0xffffffff;
+	vfe32_ctrl->snapshot_frame_cnt = 0;
 }
 
 static void vfe32_reset(void)
@@ -2370,6 +2374,23 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			goto proc_general_done;
 		}
 		break;
+	case VFE_CMD_FRAME_SKIP_CFG:
+		if (cmd->length != vfe32_cmd[cmd->id].length)
+			return -EINVAL;
+
+		cmdp = kmalloc(vfe32_cmd[cmd->id].length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+
+		CHECKED_COPY_FROM_USER(cmdp);
+		msm_io_memcpy(vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
+			cmdp, (vfe32_cmd[cmd->id].length));
+		vfe32_ctrl->frame_skip_cnt = ((uint32_t)
+			*cmdp & VFE_FRAME_SKIP_PERIOD_MASK) + 1;
+		vfe32_ctrl->frame_skip_pattern = (uint32_t)(*(cmdp + 2));
+		break;
 	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
@@ -2592,30 +2613,43 @@ static void vfe32_process_reg_update_irq(void)
 		(vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB)) {
 		/* in snapshot mode */
 		/* later we need to add check for live snapshot mode. */
-		vfe32_ctrl->vfe_capture_count--;
-		/* if last frame to be captured: */
-		if (vfe32_ctrl->vfe_capture_count == 0) {
-			if (vfe32_ctrl->outpath.output_mode &
-					VFE32_OUTPUT_MODE_PRIMARY) {
-				msm_io_w(0, vfe32_ctrl->vfebase +
-				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-				msm_io_w(0, vfe32_ctrl->vfebase +
-				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-			}
-			if (vfe32_ctrl->outpath.output_mode &
-					VFE32_OUTPUT_MODE_SECONDARY) {
-				msm_io_w(0, vfe32_ctrl->vfebase +
-				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
-				msm_io_w(0, vfe32_ctrl->vfebase +
-				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
-			}
-			msm_io_w_mb(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
+		if (vfe32_ctrl->frame_skip_pattern & (0x1 <<
+			(vfe32_ctrl->snapshot_frame_cnt %
+				vfe32_ctrl->frame_skip_cnt))) {
+			vfe32_ctrl->vfe_capture_count--;
+			/* if last frame to be captured: */
+			if (vfe32_ctrl->vfe_capture_count == 0) {
+				/* stop the bus output:write master enable = 0*/
+				if (vfe32_ctrl->outpath.output_mode &
+						VFE32_OUTPUT_MODE_PRIMARY) {
+					msm_io_w(0, vfe32_ctrl->vfebase +
+						vfe32_AXI_WM_CFG[vfe32_ctrl->
+							outpath.out0.ch0]);
+					msm_io_w(0, vfe32_ctrl->vfebase +
+						vfe32_AXI_WM_CFG[vfe32_ctrl->
+							outpath.out0.ch1]);
+				}
+				if (vfe32_ctrl->outpath.output_mode &
+						VFE32_OUTPUT_MODE_SECONDARY) {
+					msm_io_w(0, vfe32_ctrl->vfebase +
+						vfe32_AXI_WM_CFG[vfe32_ctrl->
+							outpath.out1.ch0]);
+					msm_io_w(0, vfe32_ctrl->vfebase +
+						vfe32_AXI_WM_CFG[vfe32_ctrl->
+							outpath.out1.ch1]);
+				}
+				msm_io_w_mb
+				(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 				vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
-
-			/* then do reg_update. */
-			msm_io_w(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-		}
-	} /* in snapshot mode. */
+				vfe32_ctrl->snapshot_frame_cnt = -1;
+				vfe32_ctrl->frame_skip_cnt = 31;
+				vfe32_ctrl->frame_skip_pattern = 0xffffffff;
+			} /*if snapshot count is 0*/
+		} /*if frame is not being dropped*/
+		vfe32_ctrl->snapshot_frame_cnt++;
+		/* then do reg_update. */
+		msm_io_w(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+	} /* if snapshot mode. */
 }
 
 static void vfe32_set_default_reg_values(void)
