@@ -55,16 +55,16 @@ static DEFINE_SPINLOCK(pll_reg_lock);
 
 #define ENABLE_WAIT_MAX_LOOPS 200
 
-int pll_vote_clk_enable(struct clk *clk)
+int pll_vote_clk_enable(struct clk *c)
 {
 	u32 ena, count;
 	unsigned long flags;
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	ena = readl_relaxed(PLL_EN_REG(pll));
-	ena |= pll->en_mask;
-	writel_relaxed(ena, PLL_EN_REG(pll));
+	ena = readl_relaxed(PLL_EN_REG(pllv));
+	ena |= pllv->en_mask;
+	writel_relaxed(ena, PLL_EN_REG(pllv));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
 	/*
@@ -75,45 +75,44 @@ int pll_vote_clk_enable(struct clk *clk)
 
 	/* Wait for pll to enable. */
 	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
-		if (readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask)
+		if (readl_relaxed(PLL_STATUS_REG(pllv)) & pllv->status_mask)
 			return 0;
 		udelay(1);
 	}
 
-	WARN("PLL %s didn't enable after voting for it!\n", clk->dbg_name);
+	WARN("PLL %s didn't enable after voting for it!\n", c->dbg_name);
 
 	return -ETIMEDOUT;
 }
 
-void pll_vote_clk_disable(struct clk *clk)
+void pll_vote_clk_disable(struct clk *c)
 {
 	u32 ena;
 	unsigned long flags;
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	ena = readl_relaxed(PLL_EN_REG(pll));
-	ena &= ~(pll->en_mask);
-	writel_relaxed(ena, PLL_EN_REG(pll));
+	ena = readl_relaxed(PLL_EN_REG(pllv));
+	ena &= ~(pllv->en_mask);
+	writel_relaxed(ena, PLL_EN_REG(pllv));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
-struct clk *pll_vote_clk_get_parent(struct clk *clk)
+struct clk *pll_vote_clk_get_parent(struct clk *c)
 {
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	return pll->parent;
+	return to_pll_vote_clk(c)->parent;
 }
 
-int pll_vote_clk_is_enabled(struct clk *clk)
+int pll_vote_clk_is_enabled(struct clk *c)
 {
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	return !!(readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask);
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+	return !!(readl_relaxed(PLL_STATUS_REG(pllv)) & pllv->status_mask);
 }
 
-static enum handoff pll_vote_clk_handoff(struct clk *clk)
+static enum handoff pll_vote_clk_handoff(struct clk *c)
 {
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	if (readl_relaxed(PLL_EN_REG(pll)) & pll->en_mask)
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+	if (readl_relaxed(PLL_EN_REG(pllv)) & pllv->en_mask)
 		return HANDOFF_ENABLED_CLK;
 
 	return HANDOFF_DISABLED_CLK;
@@ -158,10 +157,10 @@ static void __pll_clk_enable_reg(void __iomem *mode_reg)
 	mb();
 }
 
-static int local_pll_clk_enable(struct clk *clk)
+static int local_pll_clk_enable(struct clk *c)
 {
 	unsigned long flags;
-	struct pll_clk *pll = to_pll_clk(clk);
+	struct pll_clk *pll = to_pll_clk(c);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 	__pll_clk_enable_reg(PLL_MODE_REG(pll));
@@ -177,10 +176,10 @@ static void __pll_clk_disable_reg(void __iomem *mode_reg)
 	writel_relaxed(mode, mode_reg);
 }
 
-static void local_pll_clk_disable(struct clk *clk)
+static void local_pll_clk_disable(struct clk *c)
 {
 	unsigned long flags;
-	struct pll_clk *pll = to_pll_clk(clk);
+	struct pll_clk *pll = to_pll_clk(c);
 
 	/*
 	 * Disable the PLL output, disable test mode, enable
@@ -191,9 +190,9 @@ static void local_pll_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
-static enum handoff local_pll_clk_handoff(struct clk *clk)
+static enum handoff local_pll_clk_handoff(struct clk *c)
 {
-	struct pll_clk *pll = to_pll_clk(clk);
+	struct pll_clk *pll = to_pll_clk(c);
 	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
 	u32 mask = PLL_BYPASSNL | PLL_RESET_N | PLL_OUTCTRL;
 
@@ -203,17 +202,16 @@ static enum handoff local_pll_clk_handoff(struct clk *clk)
 	return HANDOFF_DISABLED_CLK;
 }
 
-static struct clk *local_pll_clk_get_parent(struct clk *clk)
+static struct clk *local_pll_clk_get_parent(struct clk *c)
 {
-	struct pll_clk *pll = to_pll_clk(clk);
-	return pll->parent;
+	return to_pll_clk(c)->parent;
 }
 
-int sr_pll_clk_enable(struct clk *clk)
+int sr_pll_clk_enable(struct clk *c)
 {
 	u32 mode;
 	unsigned long flags;
-	struct pll_clk *pll = to_pll_clk(clk);
+	struct pll_clk *pll = to_pll_clk(c);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 	mode = readl_relaxed(PLL_MODE_REG(pll));
@@ -250,10 +248,10 @@ int sr_pll_clk_enable(struct clk *clk)
 
 #define PLL_LOCKED_BIT BIT(16)
 
-int copper_pll_clk_enable(struct clk *clk)
+int copper_pll_clk_enable(struct clk *c)
 {
 	unsigned long flags;
-	struct pll_clk *pll = to_pll_clk(clk);
+	struct pll_clk *pll = to_pll_clk(c);
 	u32 count, mode;
 	int ret = 0;
 
@@ -282,7 +280,7 @@ int copper_pll_clk_enable(struct clk *clk)
 	}
 
 	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT)) {
-		WARN("PLL %s didn't lock after enabling it!\n", clk->dbg_name);
+		WARN("PLL %s didn't lock after enabling it!\n", c->dbg_name);
 		ret = -ETIMEDOUT;
 		goto out;
 	}
@@ -379,9 +377,9 @@ void __init msm_shared_pll_control_init(void)
 
 }
 
-static int pll_clk_enable(struct clk *clk)
+static int pll_clk_enable(struct clk *c)
 {
-	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
+	struct pll_shared_clk *pll = to_pll_shared_clk(c);
 	unsigned int pll_id = pll->id;
 
 	remote_spin_lock(&pll_lock);
@@ -396,9 +394,9 @@ static int pll_clk_enable(struct clk *clk)
 	return 0;
 }
 
-static void pll_clk_disable(struct clk *clk)
+static void pll_clk_disable(struct clk *c)
 {
-	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
+	struct pll_shared_clk *pll = to_pll_shared_clk(c);
 	unsigned int pll_id = pll->id;
 
 	remote_spin_lock(&pll_lock);
@@ -413,16 +411,14 @@ static void pll_clk_disable(struct clk *clk)
 	remote_spin_unlock(&pll_lock);
 }
 
-static int pll_clk_is_enabled(struct clk *clk)
+static int pll_clk_is_enabled(struct clk *c)
 {
-	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
-
-	return readl_relaxed(PLL_MODE_REG(pll)) & BIT(0);
+	return readl_relaxed(PLL_MODE_REG(to_pll_shared_clk(c))) & BIT(0);
 }
 
-static enum handoff pll_clk_handoff(struct clk *clk)
+static enum handoff pll_clk_handoff(struct clk *c)
 {
-	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
+	struct pll_shared_clk *pll = to_pll_shared_clk(c);
 	unsigned int pll_lval;
 	struct pll_rate *l;
 
@@ -438,12 +434,12 @@ static enum handoff pll_clk_handoff(struct clk *clk)
 	/* Convert PLL L values to PLL Output rate */
 	for (l = pll_l_rate; l->rate != 0; l++) {
 		if (l->lvalue == pll_lval) {
-			clk->rate = l->rate;
+			c->rate = l->rate;
 			break;
 		}
 	}
 
-	if (!clk->rate) {
+	if (!c->rate) {
 		pr_crit("Unknown PLL's L value!\n");
 		BUG();
 	}
