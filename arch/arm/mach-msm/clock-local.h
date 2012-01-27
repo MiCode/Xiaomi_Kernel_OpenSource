@@ -156,9 +156,9 @@ extern struct clk_ops clk_ops_branch;
 extern struct clk_ops clk_ops_reset;
 
 int branch_reset(struct branch *b, enum clk_reset_action action);
-void __branch_clk_enable_reg(const struct branch *clk, const char *name);
-u32 __branch_clk_disable_reg(const struct branch *clk, const char *name);
-enum handoff branch_handoff(struct branch *clk, struct clk *c);
+void __branch_clk_enable_reg(const struct branch *b, const char *name);
+u32 __branch_clk_disable_reg(const struct branch *b, const char *name);
+enum handoff branch_handoff(struct branch *b, struct clk *c);
 
 /*
  * Generic clock-definition struct and macros
@@ -183,9 +183,9 @@ struct rcg_clk {
 	struct clk	c;
 };
 
-static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
+static inline struct rcg_clk *to_rcg_clk(struct clk *c)
 {
-	return container_of(clk, struct rcg_clk, c);
+	return container_of(c, struct rcg_clk, c);
 }
 
 extern struct clk_ops clk_ops_rcg;
@@ -214,9 +214,9 @@ struct cdiv_clk {
 	struct clk c;
 };
 
-static inline struct cdiv_clk *to_cdiv_clk(struct clk *clk)
+static inline struct cdiv_clk *to_cdiv_clk(struct clk *c)
 {
-	return container_of(clk, struct cdiv_clk, c);
+	return container_of(c, struct cdiv_clk, c);
 }
 
 extern struct clk_ops clk_ops_cdiv;
@@ -234,7 +234,7 @@ struct fixed_clk {
  * @enabled: true if clock is on, false otherwise
  * @b: branch
  * @parent: clock source
- * @c: clk
+ * @c: clock
  *
  * An on/off switch with a rate derived from the parent.
  */
@@ -245,9 +245,9 @@ struct branch_clk {
 	struct clk c;
 };
 
-static inline struct branch_clk *to_branch_clk(struct clk *clk)
+static inline struct branch_clk *to_branch_clk(struct clk *c)
 {
-	return container_of(clk, struct branch_clk, c);
+	return container_of(c, struct branch_clk, c);
 }
 
 /**
@@ -255,7 +255,7 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
  * @sample_ticks: sample period in reference clock ticks
  * @multiplier: measurement scale-up factor
  * @divider: measurement scale-down factor
- * @c: clk
+ * @c: clock
 */
 struct measure_clk {
 	u64 sample_ticks;
@@ -266,9 +266,9 @@ struct measure_clk {
 
 extern struct clk_ops clk_ops_empty;
 
-static inline struct measure_clk *to_measure_clk(struct clk *clk)
+static inline struct measure_clk *to_measure_clk(struct clk *c)
 {
-	return container_of(clk, struct measure_clk, c);
+	return container_of(c, struct measure_clk, c);
 }
 
 /*
@@ -280,11 +280,11 @@ extern struct fixed_clk		gnd_clk;
 /*
  * Generic set-rate implementations
  */
-void set_rate_mnd(struct rcg_clk *clk, struct clk_freq_tbl *nf);
-void set_rate_nop(struct rcg_clk *clk, struct clk_freq_tbl *nf);
-void set_rate_mnd_8(struct rcg_clk *clk, struct clk_freq_tbl *nf);
-void set_rate_mnd_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf);
-void set_rate_div_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf);
+void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf);
+void set_rate_nop(struct rcg_clk *rcg, struct clk_freq_tbl *nf);
+void set_rate_mnd_8(struct rcg_clk *rcg, struct clk_freq_tbl *nf);
+void set_rate_mnd_banked(struct rcg_clk *rcg, struct clk_freq_tbl *nf);
+void set_rate_div_banked(struct rcg_clk *rcg, struct clk_freq_tbl *nf);
 
 #endif /* __ARCH_ARM_MACH_MSM_CLOCK_LOCAL_H */
 
