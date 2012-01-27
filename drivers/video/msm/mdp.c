@@ -338,6 +338,8 @@ int mdp_stop_histogram(struct fb_info *info)
 {
 	unsigned long flag;
 	int ret = 0;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
 	mutex_lock(&mdp_hist_mutex);
 	if (!mdp_is_hist_start) {
 		printk(KERN_ERR "%s histogram already stopped\n", __func__);
@@ -348,6 +350,14 @@ int mdp_stop_histogram(struct fb_info *info)
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_is_hist_start = FALSE;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	if (!mfd->panel_power_on) {
+
+		mdp_is_hist_data = FALSE;
+		complete(&mdp_hist_comp);
+		ret = -EINVAL;
+		goto mdp_hist_stop_err;
+	}
 
 	ret = _mdp_histogram_ctrl(FALSE);
 
