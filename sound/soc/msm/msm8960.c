@@ -571,7 +571,7 @@ static void *def_tabla_mbhc_cal(void)
 	void *tabla_cal;
 	struct tabla_mbhc_btn_detect_cfg *btn_cfg;
 	u16 *btn_low, *btn_high;
-	u8 *n_cic, *gain;
+	u8 *n_ready, *n_cic, *gain;
 
 	tabla_cal = kzalloc(TABLA_MBHC_CAL_SIZE(TABLA_MBHC_DEF_BUTTONS,
 						TABLA_MBHC_DEF_RLOADS),
@@ -624,6 +624,9 @@ static void *def_tabla_mbhc_cal(void)
 	btn_high[1] = 140;
 	btn_low[2] = 160;
 	btn_high[2] = 240;
+	n_ready = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_READY);
+	n_ready[0] = 48;
+	n_ready[1] = 38;
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_CIC);
 	n_cic[0] = 120;
 	n_cic[1] = 94;
