@@ -410,6 +410,7 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	tty->raw = 1;
 	tty->real_raw = 1;
 
+	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	dbg("%s", __func__);
 
 	/* Start reading from the IN endpoint */
@@ -552,7 +553,7 @@ int usb_wwan_startup(struct usb_serial *serial)
 		init_usb_anchor(&portdata->delayed);
 
 		for (j = 0; j < N_IN_URB; j++) {
-			buffer = (u8 *) __get_free_page(GFP_KERNEL);
+			buffer = kmalloc(IN_BUFLEN, GFP_KERNEL);
 			if (!buffer)
 				goto bail_out_error;
 			portdata->in_buffer[j] = buffer;
@@ -581,8 +582,7 @@ bail_out_error2:
 		kfree(portdata->out_buffer[j]);
 bail_out_error:
 	for (j = 0; j < N_IN_URB; j++)
-		if (portdata->in_buffer[j])
-			free_page((unsigned long)portdata->in_buffer[j]);
+		kfree(portdata->in_buffer[j]);
 	kfree(portdata);
 	return 1;
 }
@@ -628,8 +628,7 @@ void usb_wwan_release(struct usb_serial *serial)
 
 		for (j = 0; j < N_IN_URB; j++) {
 			usb_free_urb(portdata->in_urbs[j]);
-			free_page((unsigned long)
-				  portdata->in_buffer[j]);
+			kfree(portdata->in_buffer[j]);
 			portdata->in_urbs[j] = NULL;
 		}
 		for (j = 0; j < N_OUT_URB; j++) {
