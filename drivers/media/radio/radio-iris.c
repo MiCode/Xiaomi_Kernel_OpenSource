@@ -1589,7 +1589,7 @@ static void hci_cc_fm_disable_rsp(struct radio_hci_dev *hdev,
 	if (status)
 		return;
 
-	iris_q_event(radio, IRIS_EVT_RADIO_READY);
+	iris_q_event(radio, IRIS_EVT_RADIO_DISABLED);
 
 	radio_hci_req_complete(hdev, status);
 }
