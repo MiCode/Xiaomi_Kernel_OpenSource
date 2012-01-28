@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,7 +74,7 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 	switch (cmd) {
 	case WAKE_CHARM:
 		MDM_DBG("%s: Powering on\n", __func__);
-		mdm_drv->power_on_mdm_cb(mdm_drv);
+		mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 		break;
 	case CHECK_FOR_BOOT:
 		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
@@ -91,8 +91,8 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			mdm_drv->mdm_boot_status = 0;
 		mdm_drv->mdm_ready = 1;
 
-		if (mdm_drv->normal_boot_done_cb != NULL)
-			mdm_drv->normal_boot_done_cb(mdm_drv);
+		if (mdm_drv->ops->normal_boot_done_cb != NULL)
+			mdm_drv->ops->normal_boot_done_cb(mdm_drv);
 
 		if (!first_boot)
 			complete(&mdm_boot);
@@ -138,7 +138,7 @@ static void mdm_status_fn(struct work_struct *work)
 {
 	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
 
-	mdm_drv->status_cb(value);
+	mdm_drv->ops->status_cb(value);
 
 	MDM_DBG("%s: status:%d\n", __func__, value);
 
@@ -229,13 +229,13 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
 	mdm_drv->mdm_ready = 0;
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
-	mdm_drv->power_down_mdm_cb(mdm_drv);
+	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	return 0;
 }
 
 static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 {
-	mdm_drv->power_on_mdm_cb(mdm_drv);
+	mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 	mdm_drv->boot_type = CHARM_NORMAL_BOOT;
 	complete(&mdm_needs_reload);
 	wait_for_completion(&mdm_boot);
@@ -254,7 +254,7 @@ static int mdm_subsys_ramdumps(int want_dumps,
 		wait_for_completion(&mdm_ram_dumps);
 		INIT_COMPLETION(mdm_ram_dumps);
 		gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
-		mdm_drv->power_down_mdm_cb(mdm_drv);
+		mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	}
 	return mdm_drv->mdm_ram_dump_status;
 }
@@ -269,8 +269,8 @@ static struct subsys_data mdm_subsystem = {
 static int mdm_debug_on_set(void *data, u64 val)
 {
 	mdm_debug_on = val;
-	if (mdm_drv->debug_state_changed_cb)
-		mdm_drv->debug_state_changed_cb(mdm_debug_on);
+	if (mdm_drv->ops->debug_state_changed_cb)
+		mdm_drv->ops->debug_state_changed_cb(mdm_debug_on);
 	return 0;
 }
 
@@ -298,7 +298,7 @@ static int mdm_debugfs_init(void)
 }
 
 static void mdm_modem_initialize_data(struct platform_device  *pdev,
-				struct mdm_callbacks *p_mdm_cb)
+				struct mdm_ops *mdm_ops)
 {
 	struct resource *pres;
 
@@ -352,15 +352,11 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
-	mdm_drv->power_on_mdm_cb            = p_mdm_cb->power_on_mdm_cb;
-	mdm_drv->power_down_mdm_cb          = p_mdm_cb->power_down_mdm_cb;
-	mdm_drv->normal_boot_done_cb        = p_mdm_cb->normal_boot_done_cb;
-	mdm_drv->debug_state_changed_cb     = p_mdm_cb->debug_state_changed_cb;
-	mdm_drv->status_cb                  = p_mdm_cb->status_cb;
+	mdm_drv->ops      = mdm_ops;
 }
 
 int mdm_common_create(struct platform_device  *pdev,
-					  struct mdm_callbacks *p_mdm_cb)
+					  struct mdm_ops *p_mdm_cb)
 {
 	int ret = -1, irq;
 
@@ -371,8 +367,8 @@ int mdm_common_create(struct platform_device  *pdev,
 	}
 
 	mdm_modem_initialize_data(pdev, p_mdm_cb);
-	if (mdm_drv->debug_state_changed_cb)
-		mdm_drv->debug_state_changed_cb(mdm_debug_on);
+	if (mdm_drv->ops->debug_state_changed_cb)
+		mdm_drv->ops->debug_state_changed_cb(mdm_debug_on);
 
 	gpio_request(mdm_drv->ap2mdm_status_gpio, "AP2MDM_STATUS");
 	gpio_request(mdm_drv->ap2mdm_errfatal_gpio, "AP2MDM_ERRFATAL");
@@ -504,7 +500,7 @@ void mdm_common_modem_shutdown(struct platform_device *pdev)
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 1);
 
-	mdm_drv->power_down_mdm_cb(mdm_drv);
+	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 0);

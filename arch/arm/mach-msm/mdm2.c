@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,12 +46,8 @@
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_HOLD_TIME		4000
 #define MDM_MODEM_DELTA		100
-#define IFLINE_UP			1
-#define IFLINE_DOWN			0
 
 static int mdm_debug_on;
-static struct mdm_callbacks mdm_cb;
-
 #define MDM_DBG(...)	do { if (mdm_debug_on) \
 					pr_info(__VA_ARGS__); \
 			} while (0);
@@ -107,10 +103,6 @@ static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
 	peripheral_disconnect();
 }
 
-static void normal_boot_done(struct mdm_modem_drv *mdm_drv)
-{
-}
-
 static void debug_state_changed(int value)
 {
 	mdm_debug_on = value;
@@ -126,14 +118,15 @@ static void mdm_status_changed(int value)
 	}
 }
 
+static struct mdm_ops mdm_cb = {
+	.power_on_mdm_cb = power_on_mdm,
+	.power_down_mdm_cb = power_down_mdm,
+	.debug_state_changed_cb = debug_state_changed,
+	.status_cb = mdm_status_changed,
+};
+
 static int __init mdm_modem_probe(struct platform_device *pdev)
 {
-	/* Instantiate driver object. */
-	mdm_cb.power_on_mdm_cb = power_on_mdm;
-	mdm_cb.power_down_mdm_cb = power_down_mdm;
-	mdm_cb.normal_boot_done_cb = normal_boot_done;
-	mdm_cb.debug_state_changed_cb = debug_state_changed;
-	mdm_cb.status_cb = mdm_status_changed;
 	return mdm_common_create(pdev, &mdm_cb);
 }
 
