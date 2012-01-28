@@ -49,6 +49,7 @@
 #define CE3_CORE_CLK_CTL_REG			REG(0x36CC)
 #define CE3_CLK_SRC_NS_REG			REG(0x36C0)
 #define DMA_BAM_HCLK_CTL			REG(0x25C0)
+#define CLK_HALT_AFAB_SFAB_STATEA_REG		REG(0x2FC0)
 #define CLK_HALT_AFAB_SFAB_STATEB_REG		REG(0x2FC4)
 #define CLK_HALT_CFPB_STATEA_REG		REG(0x2FCC)
 #define CLK_HALT_CFPB_STATEB_REG		REG(0x2FD0)
@@ -142,7 +143,9 @@
 #define USB_HSIC_XCVR_FS_CLK_NS_REG		REG(0x2928)
 #define USB_PHY0_RESET_REG			REG(0x2E20)
 #define PCIE_ALT_REF_CLK_NS_REG			REG(0x3860)
+#define PCIE_ACLK_CTL_REG			REG(0x22C0)
 #define PCIE_HCLK_CTL_REG			REG(0x22CC)
+#define PCIE_PCLK_CTL_REG			REG(0x22D0)
 #define GPLL1_MODE_REG				REG(0x3160)
 #define GPLL1_L_VAL_REG				REG(0x3164)
 #define GPLL1_M_VAL_REG				REG(0x3168)
@@ -1949,6 +1952,34 @@ static struct branch_clk pcie_p_clk = {
 		.dbg_name = "pcie_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pcie_p_clk.c),
+	},
+};
+
+static struct branch_clk pcie_phy_ref_clk = {
+	.b = {
+		.ctl_reg = PCIE_PCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 29,
+	},
+	.c = {
+		.dbg_name = "pcie_phy_ref_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(pcie_phy_ref_clk.c),
+	},
+};
+
+static struct branch_clk pcie_a_clk = {
+	.b = {
+		.ctl_reg = PCIE_ACLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_AFAB_SFAB_STATEA_REG,
+		.halt_bit = 13,
+	},
+	.c = {
+		.dbg_name = "pcie_a_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(pcie_a_clk.c),
 	},
 };
 
@@ -4575,6 +4606,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_HS(0x26), &q6sw_clk },
 	{ TEST_PER_HS(0x27), &q6fw_clk },
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
+	{ TEST_PER_HS(0x2D), &pcie_phy_ref_clk.c },
+	{ TEST_PER_HS(0x32), &pcie_a_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_a_clk.c },
 	{ TEST_PER_HS(0x50), &usb_hsic_hsic_clk.c },
@@ -4960,6 +4993,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c,		"msm_sdcc.3"),
 	CLK_LOOKUP("iface_clk",		sdc4_p_clk.c,		"msm_sdcc.4"),
 	CLK_LOOKUP("iface_clk",		pcie_p_clk.c,		""),
+	CLK_LOOKUP("ref_clk",		pcie_phy_ref_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		pcie_a_clk.c,		""),
 	CLK_LOOKUP("core_clk",		adm0_clk.c,		"msm_dmov"),
 	CLK_LOOKUP("iface_clk",		adm0_p_clk.c,		"msm_dmov"),
 	CLK_LOOKUP("iface_clk",		pmic_arb0_p_clk.c,	""),
