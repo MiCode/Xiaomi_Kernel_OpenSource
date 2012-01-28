@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,12 +308,12 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
 	dev->clk_state = state;
 	if (state != 0) {
-		clk_enable(dev->clk);
-		clk_enable(dev->pclk);
+		clk_prepare_enable(dev->clk);
+		clk_prepare_enable(dev->pclk);
 	} else {
 		qup_update_state(dev, QUP_RESET_STATE);
-		clk_disable(dev->clk);
-		clk_disable(dev->pclk);
+		clk_disable_unprepare(dev->clk);
+		clk_disable_unprepare(dev->pclk);
 	}
 }
 
