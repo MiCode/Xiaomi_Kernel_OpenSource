@@ -34,12 +34,12 @@
 
 /* NS Registers */
 #define NS(n_msb, n_lsb, n, m, mde_lsb, d_msb, d_lsb, d, s_msb, s_lsb, s) \
-		(BVAL(n_msb, n_lsb, ~(n-m)) \
+		(BVAL(n_msb, n_lsb, ~(n-m) * !!(n)) \
 		| (BVAL((mde_lsb+1), mde_lsb, MN_MODE_DUAL_EDGE) * !!(n)) \
 		| BVAL(d_msb, d_lsb, (d-1)) | BVAL(s_msb, s_lsb, s))
 
 #define NS_MM(n_msb, n_lsb, n, m, d_msb, d_lsb, d, s_msb, s_lsb, s) \
-		(BVAL(n_msb, n_lsb, ~(n-m)) | BVAL(d_msb, d_lsb, (d-1)) \
+		(BVAL(n_msb, n_lsb, ~(n-m) * !!(n))|BVAL(d_msb, d_lsb, (d-1)) \
 		| BVAL(s_msb, s_lsb, s))
 
 #define NS_DIVSRC(d_msb, d_lsb, d, s_msb, s_lsb, s) \
@@ -52,14 +52,14 @@
 		BVAL(s_msb, s_lsb, s)
 
 #define NS_MND_BANKED4(n0_lsb, n1_lsb, n, m, s0_lsb, s1_lsb, s) \
-		 (BVAL((n0_lsb+3), n0_lsb, ~(n-m)) \
-		| BVAL((n1_lsb+3), n1_lsb, ~(n-m)) \
+		 (BVAL((n0_lsb+3), n0_lsb, ~(n-m) * !!(n)) \
+		| BVAL((n1_lsb+3), n1_lsb, ~(n-m) * !!(n)) \
 		| BVAL((s0_lsb+2), s0_lsb, s) \
 		| BVAL((s1_lsb+2), s1_lsb, s))
 
 #define NS_MND_BANKED8(n0_lsb, n1_lsb, n, m, s0_lsb, s1_lsb, s) \
-		 (BVAL((n0_lsb+7), n0_lsb, ~(n-m)) \
-		| BVAL((n1_lsb+7), n1_lsb, ~(n-m)) \
+		 (BVAL((n0_lsb+7), n0_lsb, ~(n-m) * !!(n)) \
+		| BVAL((n1_lsb+7), n1_lsb, ~(n-m) * !!(n)) \
 		| BVAL((s0_lsb+2), s0_lsb, s) \
 		| BVAL((s1_lsb+2), s1_lsb, s))
 
