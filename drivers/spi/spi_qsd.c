@@ -1283,8 +1283,8 @@ static void msm_spi_workq(struct work_struct *work)
 	if (dd->use_rlock)
 		remote_mutex_lock(&dd->r_lock);
 
-	clk_enable(dd->clk);
-	clk_enable(dd->pclk);
+	clk_prepare_enable(dd->clk);
+	clk_prepare_enable(dd->pclk);
 	msm_spi_enable_irqs(dd);
 
 	if (!msm_spi_is_valid_state(dd)) {
@@ -1311,8 +1311,8 @@ static void msm_spi_workq(struct work_struct *work)
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
 
 	msm_spi_disable_irqs(dd);
-	clk_disable(dd->clk);
-	clk_disable(dd->pclk);
+	clk_disable_unprepare(dd->clk);
+	clk_disable_unprepare(dd->pclk);
 
 	if (dd->use_rlock)
 		remote_mutex_unlock(&dd->r_lock);
@@ -1400,8 +1400,8 @@ static int msm_spi_setup(struct spi_device *spi)
 	if (dd->use_rlock)
 		remote_mutex_lock(&dd->r_lock);
 
-	clk_enable(dd->clk);
-	clk_enable(dd->pclk);
+	clk_prepare_enable(dd->clk);
+	clk_prepare_enable(dd->pclk);
 
 	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	mask = SPI_IO_C_CS_N_POLARITY_0 << spi->chip_select;
@@ -1429,8 +1429,8 @@ static int msm_spi_setup(struct spi_device *spi)
 
 	/* Ensure previous write completed before disabling the clocks */
 	mb();
-	clk_disable(dd->clk);
-	clk_disable(dd->pclk);
+	clk_disable_unprepare(dd->clk);
+	clk_disable_unprepare(dd->pclk);
 
 	if (dd->use_rlock)
 		remote_mutex_unlock(&dd->r_lock);
@@ -1925,7 +1925,7 @@ skip_dma_resources:
 	if (pdata && pdata->max_clock_speed)
 		msm_spi_clock_set(dd, dd->pdata->max_clock_speed);
 
-	rc = clk_enable(dd->clk);
+	rc = clk_prepare_enable(dd->clk);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: unable to enable core_clk\n",
 			__func__);
@@ -1933,7 +1933,7 @@ skip_dma_resources:
 	}
 
 	clk_enabled = 1;
-	rc = clk_enable(dd->pclk);
+	rc = clk_prepare_enable(dd->pclk);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: unable to enable iface_clk\n",
 		__func__);
@@ -1966,8 +1966,8 @@ skip_dma_resources:
 	if (rc)
 		goto err_probe_state;
 
-	clk_disable(dd->clk);
-	clk_disable(dd->pclk);
+	clk_disable_unprepare(dd->clk);
+	clk_disable_unprepare(dd->pclk);
 	clk_enabled = 0;
 	pclk_enabled = 0;
 
@@ -2009,10 +2009,10 @@ err_probe_state:
 err_probe_dma:
 err_probe_gsbi:
 	if (pclk_enabled)
-		clk_disable(dd->pclk);
+		clk_disable_unprepare(dd->pclk);
 err_probe_pclk_enable:
 	if (clk_enabled)
-		clk_disable(dd->clk);
+		clk_disable_unprepare(dd->clk);
 err_probe_clk_enable:
 	clk_put(dd->pclk);
 err_probe_pclk_get:
