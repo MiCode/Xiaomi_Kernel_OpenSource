@@ -2229,7 +2229,7 @@ static struct platform_device ftm_spk_l_adie_lp_rx_device = {
 };
 
 static struct adie_codec_action_unit ftm_spkr_r_adie_lp_rx_actions[] =
-	FTM_SPKR_RX_LB;
+	SPKR_R_RX;
 
 static struct adie_codec_hwsetting_entry ftm_spkr_r_adie_lp_rx_settings[] = {
 	{
