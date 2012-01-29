@@ -34,6 +34,7 @@ struct msm_idle_read_stats {
 struct msm_idle_write_stats {
 	__u32 busy_timer;
 	__u32 next_busy_timer;
+	__u32 max_samples;
 };
 
 #define MSM_IDLE_STATS_IOC_MAGIC  0xD8
@@ -60,6 +61,7 @@ struct msm_idle_stats_device {
 	ktime_t busy_timer_interval;
 	ktime_t idle_start;
 	ktime_t remaining_time;
+	__u32 max_samples;
 
 	struct msm_idle_read_stats *stats;
 	struct msm_idle_read_stats stats_vector[2];
