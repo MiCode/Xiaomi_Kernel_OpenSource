@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,11 @@ static ssize_t open_timeout_store(struct device *d,
 		if (smd_pkt_devp[i]->devicep == d)
 			break;
 	}
+	if (i >= NUM_SMD_PKT_PORTS) {
+		pr_err("%s: unable to match device to valid smd_pkt port\n",
+			__func__);
+		return -EINVAL;
+	}
 	if (!strict_strtoul(buf, 10, &tmp)) {
 		smd_pkt_devp[i]->open_modem_wait = tmp;
 		return n;
@@ -132,6 +137,11 @@ static ssize_t open_timeout_show(struct device *d,
 	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
 		if (smd_pkt_devp[i]->devicep == d)
 			break;
+	}
+	if (i >= NUM_SMD_PKT_PORTS) {
+		pr_err("%s: unable to match device to valid smd_pkt port\n",
+			__func__);
+		return -EINVAL;
 	}
 	return snprintf(buf, PAGE_SIZE, "%d\n",
 			smd_pkt_devp[i]->open_modem_wait);
