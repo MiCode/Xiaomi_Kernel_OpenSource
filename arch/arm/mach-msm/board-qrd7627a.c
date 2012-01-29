@@ -26,6 +26,7 @@
 #include <linux/power_supply.h>
 #include <linux/input/rmi_platformdata.h>
 #include <linux/input/rmi_i2c.h>
+#include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/consumer.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
@@ -859,18 +860,127 @@ static struct platform_device gpio_leds_8625 = {
 	},
 };
 
+#define MXT_TS_IRQ_GPIO         48
+#define MXT_TS_RESET_GPIO       26
+
+static const u8 mxt_config_data[] = {
+	/* T6 Object */
+	0, 0, 0, 0, 0, 0,
+	/* T38 Object */
+	16, 0, 0, 0, 0, 0, 0, 0,
+	/* T7 Object */
+	255, 255, 10,
+	/* T8 Object */
+	30, 0, 20, 20, 0, 0, 20, 0, 50, 0,
+	/* T9 Object */
+	3, 0, 0, 18, 11, 0, 32, 75, 3, 3,
+	0, 1, 1, 0, 10, 10, 10, 10, 31, 3,
+	223, 1, 11, 11, 15, 15, 151, 43, 145, 80,
+	100, 15, 0, 0, 0,
+	/* T15 Object */
+	131, 0, 11, 11, 1, 1, 0, 45, 3, 0,
+	0,
+	/* T18 Object */
+	0, 0,
+	/* T19 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0,
+	/* T23 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	/* T25 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0,
+	/* T40 Object */
+	0, 0, 0, 0, 0,
+	/* T42 Object */
+	0, 0, 0, 0, 0, 0, 0, 0,
+	/* T46 Object */
+	0, 2, 32, 48, 0, 0, 0, 0, 0,
+	/* T47 Object */
+	1, 20, 60, 5, 2, 50, 40, 0, 0, 40,
+	/* T48 Object */
+	1, 12, 80, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 6, 6, 0, 0, 100, 4, 64,
+	10, 0, 20, 5, 0, 38, 0, 20, 0, 0,
+	0, 0, 0, 0, 16, 65, 3, 1, 1, 0,
+	10, 10, 10, 0, 0, 15, 15, 154, 58, 145,
+	80, 100, 15, 3,
+};
+
+static struct mxt_config_info mxt_config_array[] = {
+	{
+		.config		= mxt_config_data,
+		.config_length	= ARRAY_SIZE(mxt_config_data),
+		.family_id	= 0x81,
+		.variant_id	= 0x01,
+		.version	= 0x10,
+		.build		= 0xAA,
+	},
+};
+
+static int mxt_key_codes[MXT_KEYARRAY_MAX_KEYS] = {
+	[0] = KEY_HOME,
+	[1] = KEY_MENU,
+	[9] = KEY_BACK,
+	[10] = KEY_SEARCH,
+};
+
+static struct mxt_platform_data mxt_platform_data = {
+	.config_array		= mxt_config_array,
+	.config_array_size	= ARRAY_SIZE(mxt_config_array),
+	.x_size                 = 479,
+	.y_size                 = 799,
+	.irqflags               = IRQF_TRIGGER_FALLING,
+	.i2c_pull_up            = true,
+	.reset_gpio		= MXT_TS_RESET_GPIO,
+	.irq_gpio		= MXT_TS_IRQ_GPIO,
+	.key_codes		= mxt_key_codes,
+};
+
+static struct i2c_board_info mxt_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
+		.platform_data = &mxt_platform_data,
+		.irq = MSM_GPIO_TO_INT(MXT_TS_IRQ_GPIO),
+	},
+};
+
 static void msm7627a_add_io_devices(void)
 {
 	int rc;
 
-#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
-	defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
-	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
-				synaptic_i2c_clearpad3k,
-				ARRAY_SIZE(synaptic_i2c_clearpad3k));
-#endif
+	/* touchscreen */
+	if (machine_is_msm7627a_qrd1()) {
+		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+					synaptic_i2c_clearpad3k,
+					ARRAY_SIZE(synaptic_i2c_clearpad3k));
+	} else if (machine_is_msm7627a_evb()) {
+		rc = gpio_tlmm_config(GPIO_CFG(MXT_TS_IRQ_GPIO, 0,
+				GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
+				GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s: gpio_tlmm_config for %d failed\n",
+				__func__, MXT_TS_IRQ_GPIO);
+		}
+
+		rc = gpio_tlmm_config(GPIO_CFG(MXT_TS_RESET_GPIO, 0,
+				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN,
+				GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s: gpio_tlmm_config for %d failed\n",
+				__func__, MXT_TS_RESET_GPIO);
+		}
+
+		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+					mxt_device_info,
+					ARRAY_SIZE(mxt_device_info));
+	}
+
+	/* headset */
 	platform_device_register(&hs_pdev);
 
+	/* vibrator */
 #ifdef CONFIG_MSM_RPC_VIBRATOR
 	msm_init_pmic_vibrator();
 #endif
