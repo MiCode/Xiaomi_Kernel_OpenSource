@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ void __init msm_copper_add_devices(void)
 
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
+	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
 	{}
 };
 
