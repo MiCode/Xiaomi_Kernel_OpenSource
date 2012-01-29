@@ -396,6 +396,7 @@ struct mipi_dsi_panel_platform_data {
 	int fpga_3d_config_addr;
 	int *gpio;
 	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
+	char dlane_swap;
 };
 
 struct msm_fb_platform_data {
