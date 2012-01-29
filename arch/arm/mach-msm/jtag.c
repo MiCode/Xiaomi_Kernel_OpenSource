@@ -939,9 +939,9 @@ static inline void etm_restore_state(int cpu)
 		etm_write(etm.state[i++], ETMSQ12EVR);
 		etm_write(etm.state[i++], ETMSQ21EVR);
 		etm_write(etm.state[i++], ETMSQ23EVR);
+		etm_write(etm.state[i++], ETMSQ31EVR);
 		etm_write(etm.state[i++], ETMSQ32EVR);
 		etm_write(etm.state[i++], ETMSQ13EVR);
-		etm_write(etm.state[i++], ETMSQ31EVR);
 		etm_write(etm.state[i++], ETMSQR);
 		for (j = 0; j < etm.nr_ext_out; j++)
 			i = etm_write_extoutevr(etm.state, i, j);

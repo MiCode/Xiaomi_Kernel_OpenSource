@@ -377,9 +377,9 @@ static void __cpu_enable_trace(void *unused)
 	etm_write(etm_config.etm_addr_access_type[6], ETMACTR6);
 	etm_write(etm_config.etm_addr_access_type[7], ETMACTR7);
 	etm_write(etm_config.etm_data_comp_value[0], ETMDCVR0);
-	etm_write(etm_config.etm_data_comp_value[1], ETMDCVR1);
+	etm_write(etm_config.etm_data_comp_value[1], ETMDCVR2);
 	etm_write(etm_config.etm_data_comp_mask[0], ETMDCMR0);
-	etm_write(etm_config.etm_data_comp_mask[1], ETMDCMR1);
+	etm_write(etm_config.etm_data_comp_mask[1], ETMDCMR2);
 	etm_write(etm_config.etm_counter_reload_value[0], ETMCNTRLDVR0);
 	etm_write(etm_config.etm_counter_reload_value[1], ETMCNTRLDVR1);
 	etm_write(etm_config.etm_counter_enable[0], ETMCNTENR0);
@@ -564,9 +564,9 @@ static void generate_etm_dump(void)
 	emit_log_word(etm_read(ETMACTR6));
 	emit_log_word(etm_read(ETMACTR7));
 	emit_log_word(etm_read(ETMDCVR0));
-	emit_log_word(etm_read(ETMDCVR1));
+	emit_log_word(etm_read(ETMDCVR2));
 	emit_log_word(etm_read(ETMDCMR0));
-	emit_log_word(etm_read(ETMDCMR1));
+	emit_log_word(etm_read(ETMDCMR2));
 	emit_log_word(etm_read(ETMCNTRLDVR0));
 	emit_log_word(etm_read(ETMCNTRLDVR1));
 	emit_log_word(etm_read(ETMCNTENR0));
