@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/wakelock.h>
 #include <linux/earlysuspend.h>
+#include <linux/pm_qos_params.h>
 #include <mach/sps.h>
 
 #include <asm/sizes.h>
@@ -383,6 +384,7 @@ struct msmsdcc_host {
 	unsigned int	dummy_52_sent;
 
 	unsigned int	sdio_irq_disabled;
+	bool		is_resumed;
 	struct wake_lock	sdio_wlock;
 	struct wake_lock	sdio_suspend_wlock;
 	unsigned int    sdcc_suspending;
@@ -395,6 +397,7 @@ struct msmsdcc_host {
 	bool tuning_needed;
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
+	struct pm_qos_request_list pm_qos_req_dma;
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

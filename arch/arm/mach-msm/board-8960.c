@@ -2018,7 +2018,7 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
 	},
 };
 
-static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
+static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	{
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
@@ -2112,6 +2112,19 @@ static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_TZ,
 };
+
+uint32_t msm_rpm_get_swfi_latency(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_levels); i++) {
+		if (msm_rpmrs_levels[i].sleep_mode ==
+			MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)
+			return msm_rpmrs_levels[i].latency_us;
+	}
+
+	return 0;
+}
 
 #ifdef CONFIG_I2C
 #define I2C_SURF 1

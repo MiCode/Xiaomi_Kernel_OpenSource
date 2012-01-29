@@ -43,6 +43,7 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
+#include <linux/pm_qos_params.h>
 
 #include <asm/cacheflush.h>
 #include <asm/div64.h>
@@ -146,6 +147,24 @@ static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 	}
 
 	return ret;
+}
+
+/* Prevent idle power collapse(pc) while operating in peripheral mode */
+static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
+{
+	u32 swfi_latency = 0;
+
+	if (!host->plat->swfi_latency)
+		return;
+
+	swfi_latency = host->plat->swfi_latency + 1;
+
+	if (vote)
+		pm_qos_update_request(&host->pm_qos_req_dma,
+					swfi_latency);
+	else
+		pm_qos_update_request(&host->pm_qos_req_dma,
+					PM_QOS_DEFAULT_VALUE);
 }
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
@@ -2454,6 +2473,12 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 {
 	int rc;
 	struct device *dev = mmc->parent;
+	struct msmsdcc_host *host = mmc_priv(mmc);
+
+	msmsdcc_pm_qos_update_latency(host, 1);
+
+	if (mmc->card && mmc_card_sdio(mmc->card) && host->is_resumed)
+		return 0;
 
 	if (dev->power.runtime_status == RPM_SUSPENDING) {
 		if (mmc->suspend_task == current) {
@@ -2469,6 +2494,8 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 				__func__, rc);
 		return rc;
 	}
+
+	host->is_resumed = true;
 out:
 	return 0;
 }
@@ -2478,9 +2505,12 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	int rc;
 	struct msmsdcc_host *host = mmc_priv(mmc);
 
+	msmsdcc_pm_qos_update_latency(host, 0);
+
+	if (mmc->card && mmc_card_sdio(mmc->card))
+		return 0;
+
 	if (host->plat->disable_runtime_pm)
-		return -ENOTSUPP;
-	if (mmc->card && mmc->card->type == MMC_TYPE_SDIO)
 		return -ENOTSUPP;
 
 	rc = pm_runtime_put_sync(mmc->parent);
@@ -2488,6 +2518,9 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	if (rc < 0)
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
+	else
+		host->is_resumed = false;
+
 	return rc;
 }
 #else
@@ -2495,6 +2528,8 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
+
+	msmsdcc_pm_qos_update_latency(host, 1);
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clks_on) {
@@ -2511,8 +2546,10 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
 
+	msmsdcc_pm_qos_update_latency(host, 0);
+
 	if (mmc->card && mmc_card_sdio(mmc->card))
-		return -ENOTSUPP;
+		return 0;
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (host->clks_on) {
@@ -4048,6 +4085,11 @@ msmsdcc_probe(struct platform_device *pdev)
 	/* Apply Hard reset to SDCC to put it in power on default state */
 	msmsdcc_hard_reset(host);
 
+	/* pm qos request to prevent apps idle power collapse */
+	if (host->plat->swfi_latency)
+		pm_qos_add_request(&host->pm_qos_req_dma,
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+
 	ret = msmsdcc_vreg_init(host, true);
 	if (ret) {
 		pr_err("%s: msmsdcc_vreg_init() failed (%d)\n", __func__, ret);
@@ -4325,6 +4367,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	msmsdcc_vreg_init(host, false);
  clk_disable:
 	clk_disable(host->clk);
+	if (host->plat->swfi_latency)
+		pm_qos_remove_request(&host->pm_qos_req_dma);
  clk_put:
 	clk_put(host->clk);
  pclk_disable:
@@ -4396,6 +4440,9 @@ static int msmsdcc_remove(struct platform_device *pdev)
 		clk_put(host->pclk);
 	if (!IS_ERR_OR_NULL(host->dfab_pclk))
 		clk_put(host->dfab_pclk);
+
+	if (host->plat->swfi_latency)
+		pm_qos_remove_request(&host->pm_qos_req_dma);
 
 	msmsdcc_vreg_init(host, false);
 
