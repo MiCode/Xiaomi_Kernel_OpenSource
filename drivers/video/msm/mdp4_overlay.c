@@ -1589,7 +1589,7 @@ struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, int mixer)
 				continue;
 			init_completion(&pipe->comp);
 			init_completion(&pipe->dmas_comp);
-			pr_info("%s: pipe=%x ndx=%d num=%d\n", __func__,
+			pr_debug("%s: pipe=%x ndx=%d num=%d\n", __func__,
 				(int)pipe, pipe->pipe_ndx, pipe->pipe_num);
 			return pipe;
 		}
@@ -1605,7 +1605,7 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 {
 	uint32 ptype, num, ndx, mixer;
 
-	pr_info("%s: pipe=%x ndx=%d\n", __func__, (int)pipe, pipe->pipe_ndx);
+	pr_debug("%s: pipe=%x ndx=%d\n", __func__, (int)pipe, pipe->pipe_ndx);
 
 	ptype = pipe->pipe_type;
 	num = pipe->pipe_num;
