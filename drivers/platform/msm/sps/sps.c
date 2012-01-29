@@ -1535,7 +1535,7 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 		SPS_ERR("sps:fail to get pmem_clk.");
 		goto clk_err;
 	} else {
-		ret = clk_enable(sps->pmem_clk);
+		ret = clk_prepare_enable(sps->pmem_clk);
 		if (ret) {
 			SPS_ERR("sps:failed to enable pmem_clk. ret=%d", ret);
 			goto clk_err;
@@ -1548,14 +1548,14 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 		SPS_ERR("sps:fail to get bamdma_clk.");
 		goto clk_err;
 	} else {
-		ret = clk_enable(sps->bamdma_clk);
+		ret = clk_prepare_enable(sps->bamdma_clk);
 		if (ret) {
 			SPS_ERR("sps:failed to enable bamdma_clk. ret=%d", ret);
 			goto clk_err;
 		}
 	}
 
-	ret = clk_enable(sps->dfab_clk);
+	ret = clk_prepare_enable(sps->dfab_clk);
 	if (ret) {
 		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
 		goto clk_err;
@@ -1565,12 +1565,12 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 	if (ret) {
 		SPS_ERR("sps:sps_device_init err.");
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-		clk_disable(sps->dfab_clk);
+		clk_disable_unprepare(sps->dfab_clk);
 #endif
 		goto sps_device_init_err;
 	}
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-	clk_disable(sps->dfab_clk);
+	clk_disable_unprepare(sps->dfab_clk);
 #endif
 	sps->is_ready = true;
 
