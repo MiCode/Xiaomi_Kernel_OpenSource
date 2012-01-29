@@ -247,44 +247,23 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 
 static int msm_hsusb_vbus_power(bool on)
 {
-	int rc = 0;
+	int rc;
 	struct pm_gpio usb_vbus = {
 			.direction      = PM_GPIO_DIR_OUT,
 			.pull           = PM_GPIO_PULL_NO,
 			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-			.output_value   = 0,
 			.vin_sel        = 2,
 			.out_strength   = PM_GPIO_STRENGTH_HIGH,
 			.function       = PM_GPIO_FUNC_NORMAL,
 			.inv_int_pol    = 0,
 	};
 
-	if (on) {
-		rc = pm8xxx_gpio_config(PM_USB_5V_EN, &usb_vbus);
-		if (rc) {
-			pr_err("failed to config usb_5v_en gpio\n");
-			return rc;
-		}
+	usb_vbus.output_value = on;
 
-		rc = gpio_request(PM_USB_5V_EN,
-						"usb_5v_en");
-		if (rc < 0) {
-			pr_err("failed to request usb_5v_en gpio\n");
-			return rc;
-		}
+	rc = pm8xxx_gpio_config(PM_USB_5V_EN, &usb_vbus);
+	if (rc)
+		pr_err("failed to config usb_5v_en gpio\n");
 
-		rc = gpio_direction_output(PM_USB_5V_EN, 1);
-		if (rc) {
-			pr_err("%s: unable to set_direction for gpio [%d]\n",
-				__func__, PM_USB_5V_EN);
-			goto free_usb_5v_en;
-		}
-
-		return rc;
-	}
-	gpio_set_value(PM_USB_5V_EN, 0);
-free_usb_5v_en:
-	gpio_free(PM_USB_5V_EN);
 	return rc;
 }
 
