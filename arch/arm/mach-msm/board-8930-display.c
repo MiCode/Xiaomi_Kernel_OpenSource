@@ -228,6 +228,11 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("enable l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
+		usleep(10000);
+		gpio_set_value(DISP_RST_GPIO, 1);
+		usleep(10);
+		gpio_set_value(DISP_RST_GPIO, 0);
+		usleep(20);
 		gpio_set_value(DISP_RST_GPIO, 1);
 	} else {
 
