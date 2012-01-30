@@ -470,6 +470,8 @@ void msm_map_msm8625_io(void);
 void msm_init_irq(void);
 void msm_copper_init_irq(void);
 void vic_handle_irq(struct pt_regs *regs);
+void msm_copper_reserve(void);
+void msm_copper_very_early(void);
 
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,

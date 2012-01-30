@@ -90,6 +90,18 @@ static const char *msm_dt_match[] __initdata = {
 	NULL
 };
 
+static void __init msm_dt_reserve(void)
+{
+	if (early_machine_is_copper())
+		msm_copper_reserve();
+}
+
+static void __init msm_dt_init_very_early(void)
+{
+	if (early_machine_is_copper())
+		msm_copper_very_early();
+}
+
 DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.map_io = msm_dt_map_io,
 	.init_irq = msm_dt_init_irq,
@@ -98,4 +110,6 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.timer = &msm_dt_timer,
 	.dt_compat = msm_dt_match,
 	.nr_irqs = -1,
+	.reserve = msm_dt_reserve,
+	.init_very_early = msm_dt_init_very_early,
 MACHINE_END
