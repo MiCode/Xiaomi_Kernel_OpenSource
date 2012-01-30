@@ -525,7 +525,6 @@ static int diag_function_set_alt(struct usb_function *f,
 	if (rc) {
 		ERROR(dev->cdev, "can't enable %s, result %d\n",
 						dev->in->name, rc);
-		dev->in->driver_data = NULL;
 		return rc;
 	}
 	dev->out->driver_data = dev;
@@ -534,8 +533,6 @@ static int diag_function_set_alt(struct usb_function *f,
 		ERROR(dev->cdev, "can't enable %s, result %d\n",
 						dev->out->name, rc);
 		usb_ep_disable(dev->in);
-		dev->in->driver_data = NULL;
-		dev->out->driver_data = NULL;
 		return rc;
 	}
 	schedule_work(&dev->config_work);
