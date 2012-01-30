@@ -562,9 +562,9 @@ static int msm_otg_set_clk(struct otg_transceiver *xceiv, int on)
 
 	if (on)
 		/* enable clocks */
-		clk_enable(dev->alt_core_clk);
+		clk_prepare_enable(dev->alt_core_clk);
 	else
-		clk_disable(dev->alt_core_clk);
+		clk_disable_unprepare(dev->alt_core_clk);
 
 	return 0;
 }
@@ -589,7 +589,7 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		 * low power mode routine
 		 */
 		if (dev->pdata->pclk_required_during_lpm)
-			clk_enable(dev->iface_clk);
+			clk_prepare_enable(dev->iface_clk);
 
 		usb_gadget_vbus_connect(xceiv->gadget);
 	} else {
@@ -601,7 +601,7 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		 * low power mode routine
 		 */
 		if (dev->pdata->pclk_required_during_lpm)
-			clk_disable(dev->iface_clk);
+			clk_disable_unprepare(dev->iface_clk);
 
 		otg_pm_qos_update_latency(dev, 0);
 		if (pdata->setup_gpio)
@@ -628,9 +628,9 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 		 */
 		if (dev->pdata->pclk_required_during_lpm) {
 			if (on)
-				clk_enable(dev->iface_clk);
+				clk_prepare_enable(dev->iface_clk);
 			else
-				clk_disable(dev->iface_clk);
+				clk_disable_unprepare(dev->iface_clk);
 		}
 
 		dev->start_host(xceiv->host, on);
@@ -759,9 +759,9 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	mb();
 
 	if (dev->iface_clk)
-		clk_disable(dev->iface_clk);
+		clk_disable_unprepare(dev->iface_clk);
 
-	clk_disable(dev->core_clk);
+	clk_disable_unprepare(dev->core_clk);
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable*/
 	ret = msm_xo_mode_vote(dev->xo_handle, MSM_XO_MODE_OFF);
 	if (ret)
@@ -835,10 +835,10 @@ static int msm_otg_resume(struct msm_otg *dev)
 		pr_err("%s failed to vote for"
 			"TCXO D1 buffer%d\n", __func__, ret);
 
-	clk_enable(dev->core_clk);
+	clk_prepare_enable(dev->core_clk);
 
 	if (dev->iface_clk)
-		clk_enable(dev->iface_clk);
+		clk_prepare_enable(dev->iface_clk);
 
 	temp = readl(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
@@ -1550,7 +1550,7 @@ static void otg_reset(struct otg_transceiver *xceiv, int phy_reset)
 	unsigned long timeout;
 	u32 mode, work = 0;
 
-	clk_enable(dev->alt_core_clk);
+	clk_prepare_enable(dev->alt_core_clk);
 
 	if (!phy_reset)
 		goto reset_link;
@@ -1596,7 +1596,7 @@ reset_link:
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 
-	clk_disable(dev->alt_core_clk);
+	clk_disable_unprepare(dev->alt_core_clk);
 
 	if ((xceiv->gadget && xceiv->gadget->is_a_peripheral) ||
 			test_bit(ID, &dev->inputs))
@@ -2646,7 +2646,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	 */
 	clk_set_rate(dev->core_clk, INT_MAX);
 
-	clk_enable(dev->core_clk);
+	clk_prepare_enable(dev->core_clk);
 
 	if (!dev->pdata->pclk_is_hw_gated) {
 		dev->iface_clk = clk_get(&pdev->dev, "iface_clk");
@@ -2655,7 +2655,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			ret = PTR_ERR(dev->iface_clk);
 			goto put_core_clk;
 		}
-		clk_enable(dev->iface_clk);
+		clk_prepare_enable(dev->iface_clk);
 	}
 
 	if (!dev->pdata->phy_reset) {
@@ -2888,11 +2888,11 @@ put_phy_clk:
 		clk_put(dev->phy_reset_clk);
 put_iface_clk:
 	if (dev->iface_clk) {
-		clk_disable(dev->iface_clk);
+		clk_disable_unprepare(dev->iface_clk);
 		clk_put(dev->iface_clk);
 	}
 put_core_clk:
-	clk_disable(dev->core_clk);
+	clk_disable_unprepare(dev->core_clk);
 	clk_put(dev->core_clk);
 put_alt_core_clk:
 	clk_put(dev->alt_core_clk);
@@ -2942,10 +2942,10 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 		dev->pdata->chg_init(0);
 	free_irq(dev->irq, pdev);
 	iounmap(dev->regs);
-	clk_disable(dev->core_clk);
+	clk_disable_unprepare(dev->core_clk);
 	clk_put(dev->core_clk);
 	if (dev->iface_clk) {
-		clk_disable(dev->iface_clk);
+		clk_disable_unprepare(dev->iface_clk);
 		clk_put(dev->iface_clk);
 	}
 	if (dev->alt_core_clk)
