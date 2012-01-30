@@ -88,20 +88,29 @@ struct riva_data {
 	struct regulator *pll_supply;
 };
 
-static void pil_riva_make_proxy_votes(struct device *dev)
+static int pil_riva_make_proxy_votes(struct device *dev)
 {
 	struct riva_data *drv = dev_get_drvdata(dev);
 	int ret;
 
+	ret = regulator_enable(drv->pll_supply);
+	if (ret) {
+		dev_err(dev, "failed to enable pll supply\n");
+		goto err;
+	}
 	if (drv->use_cxo) {
 		ret = clk_prepare_enable(drv->xo);
-		if (ret)
+		if (ret) {
 			dev_err(dev, "failed to enable xo\n");
+			goto err_clk;
+		}
 	}
-	ret = regulator_enable(drv->pll_supply);
-	if (ret)
-		dev_err(dev, "failed to enable pll supply\n");
 	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+	return 0;
+err_clk:
+	regulator_disable(drv->pll_supply);
+err:
+	return ret;
 }
 
 static void pil_riva_remove_proxy_votes(struct work_struct *work)
@@ -156,7 +165,14 @@ static int pil_riva_reset(struct pil_desc *pil)
 	writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
 
 	drv->use_cxo = cxo_is_needed(drv);
-	pil_riva_make_proxy_votes(pil->dev);
+	ret = pil_riva_make_proxy_votes(pil->dev);
+	if (ret) {
+		reg &= ~RIVA_PMU_A2XB_CFG_EN;
+		writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
+		mb();
+		clk_disable_unprepare(drv->xo);
+		return ret;
+	}
 
 	/* Program PLL 13 to 960 MHz */
 	reg = readl_relaxed(RIVA_PLL_MODE);
@@ -298,8 +314,9 @@ static int pil_riva_reset_trusted(struct pil_desc *pil)
 	if (ret)
 		return ret;
 	/* Proxy-vote for resources RIVA needs */
-	pil_riva_make_proxy_votes(pil->dev);
-	ret = pas_auth_and_reset(PAS_RIVA);
+	ret = pil_riva_make_proxy_votes(pil->dev);
+	if (!ret)
+		ret = pas_auth_and_reset(PAS_RIVA);
 	clk_disable_unprepare(drv->xo);
 	return ret;
 }
