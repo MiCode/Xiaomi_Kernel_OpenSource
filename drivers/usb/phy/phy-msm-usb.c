@@ -548,7 +548,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 			motg->reset_counter++;
 	}
 
-	clk_enable(motg->clk);
+	clk_prepare_enable(motg->clk);
 	ret = msm_otg_phy_reset(motg);
 	if (ret) {
 		dev_err(phy->dev, "phy_reset failed\n");
@@ -568,7 +568,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 
-	clk_disable(motg->clk);
+	clk_disable_unprepare(motg->clk);
 
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
 		val = readl_relaxed(USB_OTGSC);
@@ -722,8 +722,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
-	clk_disable(motg->pclk);
-	clk_disable(motg->core_clk);
+	clk_disable_unprepare(motg->pclk);
+	clk_disable_unprepare(motg->core_clk);
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
 	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
@@ -779,9 +779,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 		dev_err(phy->dev, "%s failed to vote for "
 			"TCXO D0 buffer%d\n", __func__, ret);
 
-	clk_enable(motg->core_clk);
+	clk_prepare_enable(motg->core_clk);
 
-	clk_enable(motg->pclk);
+	clk_prepare_enable(motg->pclk);
 
 	if (motg->lpm_flags & PHY_PWR_COLLAPSED) {
 		msm_hsusb_ldo_enable(motg, 1);
@@ -2554,7 +2554,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_xo_handle;
 	}
 
-	clk_enable(motg->pclk);
+	clk_prepare_enable(motg->pclk);
 
 	ret = msm_hsusb_init_vddcx(motg, 1);
 	if (ret) {
@@ -2579,7 +2579,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
 		goto free_ldo_init;
 	}
-	clk_enable(motg->core_clk);
+	clk_prepare_enable(motg->core_clk);
 
 	writel(0, USB_USBINTR);
 	writel(0, USB_OTGSC);
@@ -2679,14 +2679,14 @@ free_irq:
 	free_irq(motg->irq, motg);
 destroy_wlock:
 	wake_lock_destroy(&motg->wlock);
-	clk_disable(motg->core_clk);
+	clk_disable_unprepare(motg->core_clk);
 	msm_hsusb_ldo_enable(motg, 0);
 free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
 free_init_vddcx:
 	msm_hsusb_init_vddcx(motg, 0);
 devote_xo_handle:
-	clk_disable(motg->pclk);
+	clk_disable_unprepare(motg->pclk);
 	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
 free_xo_handle:
 	msm_xo_put(motg->xo_handle);
@@ -2754,8 +2754,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 	if (cnt >= PHY_SUSPEND_TIMEOUT_USEC)
 		dev_err(phy->dev, "Unable to suspend PHY\n");
 
-	clk_disable(motg->pclk);
-	clk_disable(motg->core_clk);
+	clk_disable_unprepare(motg->pclk);
+	clk_disable_unprepare(motg->core_clk);
 	msm_xo_put(motg->xo_handle);
 	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
