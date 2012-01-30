@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
@@ -356,11 +357,20 @@ module_param_named(
 #define VS_PULL_DOWN_DISABLE		0x40
 #define VS_PULL_DOWN_ENABLE		0x00
 
+#define VS_MODE_MASK			0x30
+#define VS_MODE_NORMAL			0x10
+#define VS_MODE_LPM			0x20
+
 #define VS_PIN_CTRL_MASK		0x0F
 #define VS_PIN_CTRL_EN0			0x08
 #define VS_PIN_CTRL_EN1			0x04
 #define VS_PIN_CTRL_EN2			0x02
 #define VS_PIN_CTRL_EN3			0x01
+
+/* TEST register */
+#define VS_OCP_MASK			0x10
+#define VS_OCP_ENABLE			0x00
+#define VS_OCP_DISABLE			0x10
 
 /* VS300 masks and values */
 
@@ -371,6 +381,10 @@ module_param_named(
 
 #define VS300_PULL_DOWN_ENABLE_MASK	0x20
 #define VS300_PULL_DOWN_ENABLE		0x20
+
+#define VS300_MODE_MASK			0x18
+#define VS300_MODE_NORMAL		0x00
+#define VS300_MODE_LPM			0x08
 
 /* NCP masks and values */
 
@@ -1900,9 +1914,32 @@ static int pm8xxx_vs_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&vreg->pc_lock);
 
-	rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, VS_ENABLE,
-		VS_ENABLE_MASK, &vreg->ctrl_reg);
+	if (vreg->pdata.ocp_enable) {
+		/* Disable OCP. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->test_addr,
+			VS_OCP_DISABLE, VS_OCP_MASK, &vreg->test_reg[0]);
+		if (rc)
+			goto done;
 
+		/* Enable the switch while OCP is disabled. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr,
+			VS_ENABLE | VS_MODE_NORMAL,
+			VS_ENABLE_MASK | VS_MODE_MASK,
+			&vreg->ctrl_reg);
+		if (rc)
+			goto done;
+
+		/* Wait for inrush current to subside, then enable OCP. */
+		udelay(vreg->pdata.ocp_enable_time);
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->test_addr,
+			VS_OCP_ENABLE, VS_OCP_MASK, &vreg->test_reg[0]);
+	} else {
+		/* Enable the switch without touching OCP. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, VS_ENABLE,
+			VS_ENABLE_MASK, &vreg->ctrl_reg);
+	}
+
+done:
 	if (!rc)
 		vreg->is_enabled = true;
 
@@ -1944,13 +1981,39 @@ static int pm8xxx_vs300_enable(struct regulator_dev *rdev)
 	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
 	int rc;
 
-	rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, VS300_CTRL_ENABLE,
-		VS300_CTRL_ENABLE_MASK, &vreg->ctrl_reg);
+	if (vreg->pdata.ocp_enable) {
+		/* Disable OCP. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->test_addr,
+			VS_OCP_DISABLE, VS_OCP_MASK, &vreg->test_reg[0]);
+		if (rc)
+			goto done;
 
-	if (rc)
+		/* Enable the switch while OCP is disabled. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr,
+			VS300_CTRL_ENABLE | VS300_MODE_NORMAL,
+			VS300_CTRL_ENABLE_MASK | VS300_MODE_MASK,
+			&vreg->ctrl_reg);
+		if (rc)
+			goto done;
+
+		/* Wait for inrush current to subside, then enable OCP. */
+		udelay(vreg->pdata.ocp_enable_time);
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->test_addr,
+			VS_OCP_ENABLE, VS_OCP_MASK, &vreg->test_reg[0]);
+	} else {
+		/* Enable the regulator without touching OCP. */
+		rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr,
+			VS300_CTRL_ENABLE, VS300_CTRL_ENABLE_MASK,
+			&vreg->ctrl_reg);
+	}
+
+done:
+	if (rc) {
 		vreg_err(vreg, "pm8xxx_vreg_masked_write failed, rc=%d\n", rc);
-	else
+	} else {
+		vreg->is_enabled = true;
 		pm8xxx_vreg_show_state(rdev, PM8XXX_REGULATOR_ACTION_ENABLE);
+	}
 
 	return rc;
 }
@@ -2805,6 +2868,14 @@ static int pm8xxx_init_vs(struct pm8xxx_vreg *vreg, bool is_real)
 		return rc;
 	}
 
+	/* Save the current test register state. */
+	rc = pm8xxx_readb(vreg->dev->parent, vreg->test_addr,
+		&vreg->test_reg[0]);
+	if (rc) {
+		vreg_err(vreg, "pm8xxx_readb failed, rc=%d\n", rc);
+		return rc;
+	}
+
 	if (is_real) {
 		/* Set pull down enable based on platform data. */
 		rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr,
@@ -2828,6 +2899,14 @@ static int pm8xxx_init_vs300(struct pm8xxx_vreg *vreg)
 
 	/* Save the current control register state. */
 	rc = pm8xxx_readb(vreg->dev->parent, vreg->ctrl_addr, &vreg->ctrl_reg);
+	if (rc) {
+		vreg_err(vreg, "pm8xxx_readb failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Save the current test register state. */
+	rc = pm8xxx_readb(vreg->dev->parent, vreg->test_addr,
+		&vreg->test_reg[0]);
 	if (rc) {
 		vreg_err(vreg, "pm8xxx_readb failed, rc=%d\n", rc);
 		return rc;
