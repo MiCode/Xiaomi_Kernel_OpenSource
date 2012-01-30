@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,20 +227,22 @@ struct pm8xxx_regulator_core_platform_data {
 		.prev_write_count = -1, \
 	}
 
-#define VS(_name, _pc_name, _ctrl_addr) \
+#define VS(_name, _pc_name, _ctrl_addr, _test_addr) \
 	{ \
 		.type		= PM8XXX_REGULATOR_TYPE_VS, \
 		.ctrl_addr	= _ctrl_addr, \
+		.test_addr	= _test_addr, \
 		.rdesc.name	= _name, \
 		.rdesc_pc.name	= _pc_name, \
 		.write_count	= 0, \
 		.prev_write_count = -1, \
 	}
 
-#define VS300(_name, _ctrl_addr) \
+#define VS300(_name, _ctrl_addr, _test_addr) \
 	{ \
 		.type		= PM8XXX_REGULATOR_TYPE_VS300, \
 		.ctrl_addr	= _ctrl_addr, \
+		.test_addr	= _test_addr, \
 		.rdesc.name	= _name, \
 		.write_count	= 0, \
 		.prev_write_count = -1, \

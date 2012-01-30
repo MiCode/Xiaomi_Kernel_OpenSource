@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -253,8 +253,8 @@ static struct pm8xxx_vreg regulator_data[] = {
 	SMPS("8018_s4", "8018_s4_pc", 0x1E8, 0x1ED, 0x00C, 0x1EA, SMPS_1500),
 	SMPS("8018_s5", "8018_s5_pc", 0x1F0, 0x1F5, 0x00D, 0x1F2, SMPS_1500),
 
-	/* name		     pc_name	     ctrl */
-	VS("8018_lvs1",      "8018_lvs1_pc", 0x060),
+	/* name		     pc_name	     ctrl   test */
+	VS("8018_lvs1",      "8018_lvs1_pc", 0x060, 0x061),
 };
 
 #define MAX_NAME_COMPARISON_LEN 32

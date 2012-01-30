@@ -313,9 +313,9 @@ static struct pm8xxx_vreg regulator_data[] = {
 	FTSMPS("8038_s5", 0x025, 0x02E, 0x026, 0x032, SMPS_2000),
 	FTSMPS("8038_s6", 0x036, 0x03F, 0x037, 0x043, SMPS_2000),
 
-	/* name		       pc_name	       ctrl */
-	VS("8038_lvs1",        "8038_lvs1_pc", 0x060),
-	VS("8038_lvs2",        "8038_lvs2_pc", 0x062),
+	/* name		       pc_name	       ctrl   test */
+	VS("8038_lvs1",        "8038_lvs1_pc", 0x060, 0x061),
+	VS("8038_lvs2",        "8038_lvs2_pc", 0x062, 0x063),
 };
 
 #define MAX_NAME_COMPARISON_LEN 32

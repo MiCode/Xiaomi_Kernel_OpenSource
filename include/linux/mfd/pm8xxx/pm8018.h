@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,8 @@
 #define PM8018_ADC_EOC_USR_IRQ		PM8018_IRQ_BLOCK_BIT(9, 6)
 #define PM8018_ADC_BATT_TEMP_WARM_IRQ	PM8018_IRQ_BLOCK_BIT(9, 1)
 #define PM8018_ADC_BATT_TEMP_COLD_IRQ	PM8018_IRQ_BLOCK_BIT(9, 0)
+
+#define PM8018_LVS1_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 0)
 
 struct pm8018_platform_data {
 	struct pm8xxx_irq_platform_data		*irq_pdata;
