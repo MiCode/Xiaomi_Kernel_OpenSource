@@ -1320,7 +1320,6 @@ static int a2xx_ctxt_gpustate_shadow(struct adreno_device *adreno_dev,
 	    = (unsigned int *)((char *)drawctxt->gpustate.hostptr + CMD_OFFSET);
 
 	/* build indirect command buffers to save & restore regs/constants */
-	adreno_idle(&adreno_dev->dev, KGSL_TIMEOUT_DEFAULT);
 	build_regrestore_cmds(adreno_dev, drawctxt);
 	build_regsave_cmds(adreno_dev, drawctxt);
 
@@ -1366,8 +1365,6 @@ static int a2xx_ctxt_gmem_shadow(struct adreno_device *adreno_dev,
 	tmp_ctx.cmd = build_chicken_restore_cmds(drawctxt);
 
 	/* build indirect command buffers to save & restore gmem */
-	/* Idle because we are reading PM override registers */
-	adreno_idle(&adreno_dev->dev, KGSL_TIMEOUT_DEFAULT);
 	drawctxt->context_gmem_shadow.gmem_save_commands = tmp_ctx.cmd;
 	tmp_ctx.cmd =
 	    build_gmem2sys_cmds(adreno_dev, drawctxt,
