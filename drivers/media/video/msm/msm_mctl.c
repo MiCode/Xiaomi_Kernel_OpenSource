@@ -392,6 +392,45 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			break;
 	}
 
+	case MSM_CAM_IOCTL_GET_ACTUATOR_INFO: {
+		struct msm_actuator_cfg_data cdata;
+		CDBG("%s: act_config: %p\n", __func__,
+			p_mctl->sync.actctrl.a_config);
+		if (copy_from_user(&cdata,
+			(void *)argp,
+			sizeof(struct msm_actuator_cfg_data))) {
+			ERR_COPY_FROM_USER();
+			return -EFAULT;
+		}
+		cdata.is_af_supported = 0;
+		rc = 0;
+
+		if (p_mctl->sync.actctrl.a_config) {
+			struct msm_camera_sensor_info *sdata;
+
+			sdata = p_mctl->sync.sdata;
+			CDBG("%s: Act_cam_Name %d\n", __func__,
+				sdata->actuator_info->cam_name);
+
+			cdata.is_af_supported = 1;
+			cdata.cfg.cam_name =
+				(enum af_camera_name)sdata->
+				actuator_info->cam_name;
+
+			CDBG("%s: Af Support:%d\n", __func__,
+				cdata.is_af_supported);
+			CDBG("%s: Act_name:%d\n", __func__, cdata.cfg.cam_name);
+
+		}
+		if (copy_to_user((void *)argp,
+				&cdata,
+				sizeof(struct msm_actuator_cfg_data))) {
+			ERR_COPY_TO_USER();
+			rc = -EFAULT;
+		}
+		break;
+	}
+
 	case MSM_CAM_IOCTL_ACTUATOR_IO_CFG: {
 		struct msm_actuator_cfg_data act_data;
 		if (p_mctl->sync.actctrl.a_config) {

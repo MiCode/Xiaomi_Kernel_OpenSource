@@ -114,18 +114,17 @@ struct msm_camera_device_platform_data msm_camera_device_data_csi0 = {
 	.is_csic = 1,
 };
 
-#ifdef CONFIG_DW9712_ACT
-static struct i2c_board_info s5k4e1_actuator_i2c_info = {
-	I2C_BOARD_INFO("dw9712_act", 0x8C >> 1),
+static struct i2c_board_info msm_act_main_cam_i2c_info = {
+	I2C_BOARD_INFO("msm_actuator", 0x11),
 };
 
-static struct msm_actuator_info s5k4e1_actuator_info = {
-	.board_info     = &s5k4e1_actuator_i2c_info,
+static struct msm_actuator_info msm_act_main_cam_4_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_4,
 	.bus_id         = MSM_GSBI0_QUP_I2C_BUS_ID,
 	.vcm_pwd        = GPIO_CAM_GP_CAM_PWDN,
 	.vcm_enable     = 1,
 };
-#endif
 
 #ifdef CONFIG_S5K4E1
 static struct msm_camera_sensor_flash_data flash_s5k4e1 = {
@@ -150,9 +149,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
 	.csi_if                 = 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
-#ifdef CONFIG_DW9712_ACT
-	.actuator_info = &s5k4e1_actuator_info
-#endif
+	.actuator_info = &msm_act_main_cam_4_info,
 };
 #endif
 
@@ -185,18 +182,13 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 
 #ifdef CONFIG_OV5647
 
-#ifdef CONFIG_AD5046_ACT
-static struct i2c_board_info ad5046_actuator_i2c_info = {
-	I2C_BOARD_INFO("ad5046_act", 0x18 >> 1),
-};
-
-static struct msm_actuator_info ad5046_actuator_info = {
-	.board_info     = &ad5046_actuator_i2c_info,
+static struct msm_actuator_info msm_act_main_cam_5_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_5,
 	.bus_id         = MSM_GSBI0_QUP_I2C_BUS_ID,
 	.vcm_pwd        = GPIO_SKU3_CAM_5MP_CAM_DRIVER_PWDN,
 	.vcm_enable     = 1,
 };
-#endif
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov5647 = {
 	.mount_angle = 90,
@@ -228,10 +220,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 	.csi_if                 = 1,
 	.camera_type	= BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
-
-#ifdef CONFIG_AD5046_ACT
-	.actuator_info = &ad5046_actuator_info
-#endif
+	.actuator_info = &msm_act_main_cam_5_info,
 };
 
 #endif

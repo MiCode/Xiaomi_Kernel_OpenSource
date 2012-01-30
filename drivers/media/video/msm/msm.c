@@ -2558,7 +2558,6 @@ device_fail:
 	i2c_put_adapter(adapter);
 	adapter = NULL;
 probe_fail:
-	actctrl->a_init_table = NULL;
 	actctrl->a_power_up = NULL;
 	actctrl->a_power_down = NULL;
 	actctrl->a_config = NULL;

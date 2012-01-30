@@ -478,15 +478,16 @@ static struct msm_camera_gpio_conf msm_8960_back_cam_gpio_conf = {
 	.cam_gpio_set_tbl_size = ARRAY_SIZE(msm8960_back_cam_gpio_set_tbl),
 };
 
-static struct i2c_board_info imx074_actuator_i2c_info = {
-	I2C_BOARD_INFO("imx074_act", 0x11),
+static struct i2c_board_info msm_act_main_cam_i2c_info = {
+	I2C_BOARD_INFO("msm_actuator", 0x11),
 };
 
-static struct msm_actuator_info imx074_actuator_info = {
-	.board_info     = &imx074_actuator_i2c_info,
+static struct msm_actuator_info msm_act_main_cam_0_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_0,
 	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
 	.vcm_pwd        = 0,
-	.vcm_enable     = 1,
+	.vcm_enable     = 0,
 };
 
 static struct msm_camera_sensor_flash_data flash_imx074 = {
@@ -518,7 +519,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
-	.actuator_info = &imx074_actuator_info
+	.actuator_info = &msm_act_main_cam_0_info,
 };
 
 static struct camera_vreg_t msm_8960_mt9m114_vreg[] = {

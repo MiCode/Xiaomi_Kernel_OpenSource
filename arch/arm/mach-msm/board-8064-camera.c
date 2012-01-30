@@ -418,15 +418,16 @@ static struct msm_camera_i2c_conf apq8064_back_cam_i2c_conf = {
 	.i2c_mux_mode = MODE_L,
 };
 
-static struct i2c_board_info imx074_actuator_i2c_info = {
-	I2C_BOARD_INFO("imx074_act", 0x11),
+static struct i2c_board_info msm_act_main_cam_i2c_info = {
+	I2C_BOARD_INFO("msm_actuator", 0x11),
 };
 
-static struct msm_actuator_info imx074_actuator_info = {
-	.board_info     = &imx074_actuator_i2c_info,
+static struct msm_actuator_info msm_act_main_cam_0_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_0,
 	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
 	.vcm_pwd        = 0,
-	.vcm_enable     = 1,
+	.vcm_enable     = 0,
 };
 
 static struct msm_camera_i2c_conf apq8064_front_cam_i2c_conf = {
@@ -462,7 +463,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
-	.actuator_info = &imx074_actuator_info
+	.actuator_info = &msm_act_main_cam_0_info,
 };
 static struct msm_camera_csi_lane_params imx091_csi_lane_params = {
 	.csi_lane_assign = 0xE4,
