@@ -646,7 +646,7 @@ static int register_memory(void)
 		goto err;
 	}
 
-	acdb_data.ion_handle = ion_import_fd(acdb_data.ion_client,
+	acdb_data.ion_handle = ion_import_dma_buf(acdb_data.ion_client,
 		atomic_read(&acdb_data.map_handle));
 	if (IS_ERR_OR_NULL(acdb_data.ion_handle)) {
 		pr_err("%s: Could not import map handle!!!\n", __func__);

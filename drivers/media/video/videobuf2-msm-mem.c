@@ -185,7 +185,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	if (mem->phyaddr != 0)
 		return 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	mem->ion_handle = ion_import_fd(client, (int)mem->vaddr);
+	mem->ion_handle = ion_import_dma_buf(client, (int)mem->vaddr);
 	if (IS_ERR_OR_NULL(mem->ion_handle)) {
 		pr_err("%s ION import failed\n", __func__);
 		return PTR_ERR(mem->ion_handle);

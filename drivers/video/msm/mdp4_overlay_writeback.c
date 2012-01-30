@@ -413,7 +413,7 @@ static struct msmfb_writeback_data_list *get_if_registered(
 		else if (mfd->iclient) {
 			struct ion_handle *srcp_ihdl;
 			ulong len;
-			srcp_ihdl = ion_import_fd(mfd->iclient,
+			srcp_ihdl = ion_import_dma_buf(mfd->iclient,
 						  data->memory_id);
 			if (IS_ERR_OR_NULL(srcp_ihdl)) {
 				pr_err("%s: ion import fd failed\n", __func__);
