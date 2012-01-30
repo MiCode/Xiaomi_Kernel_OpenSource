@@ -68,19 +68,19 @@ int msm_bam_dmux_is_ch_full(uint32_t id);
 
 int msm_bam_dmux_is_ch_low(uint32_t id);
 #else
-int msm_bam_dmux_open(uint32_t id, void *priv,
+static inline int msm_bam_dmux_open(uint32_t id, void *priv,
 		       void (*notify)(void *priv, int event_type,
 						unsigned long data))
 {
 	return -ENODEV;
 }
 
-int msm_bam_dmux_close(uint32_t id)
+static inline int msm_bam_dmux_close(uint32_t id)
 {
 	return -ENODEV;
 }
 
-int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
+static inline int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 {
 	return -ENODEV;
 }
@@ -100,12 +100,12 @@ static inline int msm_bam_dmux_ul_power_unvote(void)
 	return -ENODEV;
 }
 
-int msm_bam_dmux_is_ch_full(uint32_t id)
+static inline int msm_bam_dmux_is_ch_full(uint32_t id)
 {
 	return -ENODEV;
 }
 
-int msm_bam_dmux_is_ch_low(uint32_t id)
+static inline int msm_bam_dmux_is_ch_low(uint32_t id)
 {
 	return -ENODEV;
 }
