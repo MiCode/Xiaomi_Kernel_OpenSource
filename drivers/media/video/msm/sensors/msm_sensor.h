@@ -166,6 +166,9 @@ struct msm_sensor_ctrl_t {
 	uint8_t sensor_v4l2_subdev_info_size;
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
+	struct regulator **reg_ptr;
+	struct clk *cam_clk;
+	long clk_rate;
 };
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
