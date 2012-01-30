@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/slab.h>
+#include <asm/mach-types.h>
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 #include <mach/qdsp6v2/apr.h>
@@ -373,7 +374,11 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		if (!q6.pil) {
 			pr_err("APR: Unable to load q6 image\n");
 			mutex_unlock(&q6.lock);
-			return svc;
+			/* Return failure if not intended for simulator */
+			if (!machine_is_apq8064_sim()) {
+				pr_debug("APR: Not apq8064 sim\n");
+				return svc;
+			}
 		}
 		q6.state = APR_Q6_LOADED;
 	}
