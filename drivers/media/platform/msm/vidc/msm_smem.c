@@ -26,7 +26,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	unsigned long ionflag;
 	size_t len;
 	int rc = 0;
-	hndl = ion_import_fd(client->clnt, fd);
+	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
 		pr_err("Failed to get handle: %p, %d, %d, %p\n",
 				client, fd, offset, hndl);

@@ -627,7 +627,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 			buf_addr_table[*num_of_buffers].dev_addr =
 				mapped_buffer->iova[0];
 		} else {
-			buff_ion_handle = ion_import_fd(
+			buff_ion_handle = ion_import_dma_buf(
 				client_ctx->user_ion_client, pmem_fd);
 			if (IS_ERR_OR_NULL(buff_ion_handle)) {
 				ERR("%s(): get_ION_handle failed\n",

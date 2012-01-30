@@ -1821,7 +1821,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 			control->client_data = (void *) mapped_buffer;
 			control->dev_addr = (u8 *)mapped_buffer->iova[0];
 	} else {
-		client_ctx->recon_buffer_ion_handle[i] = ion_import_fd(
+		client_ctx->recon_buffer_ion_handle[i] = ion_import_dma_buf(
 				client_ctx->user_ion_client, control->pmem_fd);
 		if (IS_ERR_OR_NULL(client_ctx->recon_buffer_ion_handle[i])) {
 			ERR("%s(): get_ION_handle failed\n", __func__);

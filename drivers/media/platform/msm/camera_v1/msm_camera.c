@@ -314,7 +314,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (!region)
 		goto out;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		region->handle = ion_import_fd(client_for_ion, info->fd);
+		region->handle = ion_import_dma_buf(client_for_ion, info->fd);
 		if (IS_ERR_OR_NULL(region->handle))
 			goto out1;
 		ion_phys(client_for_ion, region->handle,

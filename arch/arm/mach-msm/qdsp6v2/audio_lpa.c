@@ -481,7 +481,7 @@ static int audlpa_ion_add(struct audio *audio,
 		goto client_error;
 	}
 
-	handle = ion_import_fd(client, info->fd);
+	handle = ion_import_dma_buf(client, info->fd);
 	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("%s: could not get handle of the given fd\n", __func__);
 		goto import_error;

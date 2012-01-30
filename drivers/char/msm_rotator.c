@@ -177,13 +177,13 @@ int msm_rotator_iommu_map_buf(int mem_id, unsigned char src,
 	if (!msm_rotator_dev->client)
 		return -EINVAL;
 
-	*pihdl = ion_import_fd(msm_rotator_dev->client, mem_id);
+	*pihdl = ion_import_dma_buf(msm_rotator_dev->client, mem_id);
 	if (IS_ERR_OR_NULL(*pihdl)) {
-		pr_err("ion_import_fd() failed\n");
+		pr_err("ion_import_dma_buf() failed\n");
 		return PTR_ERR(*pihdl);
 	}
-	pr_debug("%s(): ion_hdl %p, ion_buf %p\n", __func__, *pihdl,
-		ion_share(msm_rotator_dev->client, *pihdl));
+	pr_debug("%s(): ion_hdl %p, ion_fd %d\n", __func__, *pihdl,
+		ion_share_dma_buf(msm_rotator_dev->client, *pihdl));
 
 	if (ion_map_iommu(msm_rotator_dev->client,
 		*pihdl,	ROTATOR_DOMAIN, GEN_POOL,

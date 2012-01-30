@@ -327,7 +327,7 @@ int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
 		}
 	} else if (iclient) {
 		data->iclient = iclient;
-		data->srcp_ihdl = ion_import_fd(iclient, img->memory_id);
+		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
 		if (IS_ERR_OR_NULL(data->srcp_ihdl))
 			return PTR_ERR(data->srcp_ihdl);
 		ret = ion_phys(iclient, data->srcp_ihdl,

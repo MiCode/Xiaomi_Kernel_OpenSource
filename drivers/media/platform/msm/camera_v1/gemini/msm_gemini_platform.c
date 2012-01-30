@@ -47,7 +47,7 @@ uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
 	unsigned long size;
 	int rc;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	*ionhandle = ion_import_fd(gemini_client, fd);
+	*ionhandle = ion_import_dma_buf(gemini_client, fd);
 	if (IS_ERR_OR_NULL(*ionhandle))
 		return 0;
 

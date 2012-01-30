@@ -339,7 +339,7 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 
 	buf = container_of(vb, struct vcap_buffer, vb);
 
-	buf->ion_handle = ion_import_fd(dev->ion_client, b->m.userptr);
+	buf->ion_handle = ion_import_dma_buf(dev->ion_client, b->m.userptr);
 	if (IS_ERR((void *)buf->ion_handle)) {
 		pr_err("%s: Could not alloc memory\n", __func__);
 		buf->ion_handle = NULL;
