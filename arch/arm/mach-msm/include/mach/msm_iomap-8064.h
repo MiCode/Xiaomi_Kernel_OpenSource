@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -99,5 +99,8 @@
 #define APQ8064_SAW_L2_SIZE		SZ_4K
 #define APQ8064_QFPROM_PHYS		0x00700000
 #define APQ8064_QFPROM_SIZE		SZ_4K
+
+#define APQ8064_SIC_NON_SECURE_PHYS	0x12100000
+#define APQ8064_SIC_NON_SECURE_SIZE	SZ_64K
 
 #endif
