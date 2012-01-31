@@ -681,9 +681,11 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 };
 
 #define FPGA_3D_GPIO_CONFIG_ADDR	0xB5
-static int dsi2lvds_gpio[2] = {
+static int dsi2lvds_gpio[4] = {
 	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
-	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
+	0x1F08, /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
+	GPIO_LIQUID_EXPANDER_BASE+6,	/* TN Enable */
+	GPIO_LIQUID_EXPANDER_BASE+7,	/* TN Mode */
 	};
 
 static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
