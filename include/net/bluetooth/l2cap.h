@@ -648,6 +648,8 @@ struct l2cap_pinfo {
 #define L2CAP_AMP_STATE_RESEGMENT		12
 
 #define L2CAP_ATT_ERROR				0x01
+#define L2CAP_ATT_MTU_REQ			0x02
+#define L2CAP_ATT_MTU_RSP			0x03
 #define L2CAP_ATT_RESPONSE_BIT			0x01
 #define L2CAP_ATT_INDICATE			0x1D
 #define L2CAP_ATT_NOT_SUPPORTED			0x06

@@ -7215,6 +7215,7 @@ static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid, struct 
 	struct sock *sk;
 	struct sk_buff *skb_rsp;
 	struct l2cap_hdr *lh;
+	u8 mtu_rsp[] = {L2CAP_ATT_MTU_RSP, 23, 0};
 	u8 err_rsp[] = {L2CAP_ATT_ERROR, 0x00, 0x00, 0x00,
 						L2CAP_ATT_NOT_SUPPORTED};
 
@@ -7231,6 +7232,22 @@ static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid, struct 
 
 	if (l2cap_pi(sk)->imtu < skb->len)
 		goto drop;
+
+	if (skb->data[0] == L2CAP_ATT_MTU_REQ) {
+		skb_rsp = bt_skb_alloc(sizeof(mtu_rsp) + L2CAP_HDR_SIZE,
+								GFP_ATOMIC);
+		if (!skb_rsp)
+			goto drop;
+
+		lh = (struct l2cap_hdr *) skb_put(skb_rsp, L2CAP_HDR_SIZE);
+		lh->len = cpu_to_le16(sizeof(mtu_rsp));
+		lh->cid = cpu_to_le16(L2CAP_CID_LE_DATA);
+		memcpy(skb_put(skb_rsp, sizeof(mtu_rsp)), mtu_rsp,
+							sizeof(mtu_rsp));
+		hci_send_acl(conn->hcon, NULL, skb_rsp, 0);
+
+		goto free_skb;
+	}
 
 	if (!sock_queue_rcv_skb(sk, skb))
 		goto done;
