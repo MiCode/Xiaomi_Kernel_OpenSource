@@ -217,6 +217,7 @@ VREG_CONSUMERS(LVS7) = {
 };
 VREG_CONSUMERS(USB_OTG) = {
 	REGULATOR_SUPPLY("8921_usb_otg",	NULL),
+	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 VREG_CONSUMERS(HDMI_MVS) = {
 	REGULATOR_SUPPLY("8921_hdmi_mvs",	NULL),
@@ -240,7 +241,6 @@ VREG_CONSUMERS(EXT_3P3V) = {
 };
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
-	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
@@ -465,7 +465,7 @@ struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] __devinitdata = {
 	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en",
 		PM8921_GPIO_PM_TO_SYS(17), NULL),
 	GPIO_VREG(EXT_OTG_SW, "ext_otg_sw", "ext_otg_sw_en",
-		PM8921_GPIO_PM_TO_SYS(42), "8921_usb_otg"),
+		PM8921_GPIO_PM_TO_SYS(42), "ext_5v"),
 };
 
 /* SAW regulator constraints */
@@ -492,7 +492,7 @@ msm_pm8921_regulator_pdata[] __devinitdata = {
 		0, 4),
 
 	/*	     ID        name      always_on pd en_t supply    reg_ID */
-	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 1, 0,   "ext_5v", 5),
+	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0, 0,   "ext_otg_sw", 5),
 	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1, 0,   "ext_5v", 6),
 };
 
