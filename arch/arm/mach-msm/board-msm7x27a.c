@@ -1071,6 +1071,7 @@ static void __init msm8625_rumi3_init(void)
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 static int __init msm7x27a_init_ar6000pm(void)
 {
+	msm_wlan_ar6000_pm_device.dev.platform_data = &ar600x_wlan_power;
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 #else

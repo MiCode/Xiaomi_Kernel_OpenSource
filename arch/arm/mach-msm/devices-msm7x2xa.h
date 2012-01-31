@@ -25,4 +25,5 @@ extern struct platform_device msm7x27a_device_csic1;
 extern struct platform_device msm7x27a_device_clkctl;
 void __init msm8625_init_irq(void);
 void __init msm8625_map_io(void);
+int  ar600x_wlan_power(bool on);
 #endif
