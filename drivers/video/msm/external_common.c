@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1000,14 +1000,15 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 		return;
 
 	external_common_state->speaker_allocation_block = sad[1];
-	DEV_DBG("EDID: speaker allocation data=%s%s%s%s%s%s%s\n",
+	DEV_DBG("EDID: speaker allocation data SP byte = %08x %s%s%s%s%s%s%s\n",
+		sad[1],
 		(sad[1] & BIT(0)) ? "FL/FR," : "",
 		(sad[1] & BIT(1)) ? "LFE," : "",
 		(sad[1] & BIT(2)) ? "FC," : "",
 		(sad[1] & BIT(3)) ? "RL/RR," : "",
 		(sad[1] & BIT(4)) ? "RC," : "",
 		(sad[1] & BIT(5)) ? "FLC/FRC," : "",
-		(sad[1] & BIT(6)) ? "LFE," : "");
+		(sad[1] & BIT(6)) ? "RLC/RRC," : "");
 }
 
 static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
