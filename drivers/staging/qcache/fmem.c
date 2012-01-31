@@ -177,7 +177,7 @@ int fmem_set_state(enum fmem_state new_state)
 
 	if (fmem_state == FMEM_UNINITIALIZED) {
 		if (new_state == FMEM_T_STATE) {
-			tmem_enable(false);
+			tmem_enable();
 			create_sysfs = 1;
 			goto out_set;
 		}
@@ -194,7 +194,7 @@ int fmem_set_state(enum fmem_state new_state)
 			ret = PTR_ERR(v);
 			goto out;
 		}
-		tmem_enable(true);
+		tmem_enable();
 	} else {
 		tmem_disable();
 		fmem_unmap_virtual_area();
