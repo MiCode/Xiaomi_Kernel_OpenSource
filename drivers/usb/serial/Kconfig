@@ -710,6 +710,15 @@ config USB_SERIAL_QT2
 	  To compile this driver as a module, choose M here: the
 	  module will be called quatech-serial.
 
+config USB_SERIAL_CSVT
+	tristate "USB serial driver for Circuit-Switched Video Telephony"
+	help
+	  Say Y here if you want to use usb serial driver for Circuit-Switched
+	  Video Telephony
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called csvt.
+
 config USB_SERIAL_DEBUG
 	tristate "USB Debugging Device"
 	help

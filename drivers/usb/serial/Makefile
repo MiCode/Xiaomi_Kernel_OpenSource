@@ -15,6 +15,7 @@ obj-$(CONFIG_USB_SERIAL_ARK3116)		+= ark3116.o
 obj-$(CONFIG_USB_SERIAL_BELKIN)			+= belkin_sa.o
 obj-$(CONFIG_USB_SERIAL_CH341)			+= ch341.o
 obj-$(CONFIG_USB_SERIAL_CP210X)			+= cp210x.o
+obj-$(CONFIG_USB_SERIAL_CSVT)			+= csvt.o
 obj-$(CONFIG_USB_SERIAL_CYBERJACK)		+= cyberjack.o
 obj-$(CONFIG_USB_SERIAL_CYPRESS_M8)		+= cypress_m8.o
 obj-$(CONFIG_USB_SERIAL_DEBUG)			+= usb_debug.o
