@@ -3064,7 +3064,7 @@ static CLK_AIF_BIT(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
-	F_PCM(       0, gnd,  1, 0,   0),
+	{ .ns_val = BIT(10) /* external input */ },
 	F_PCM(  512000, pll4, 4, 1, 264),
 	F_PCM(  768000, pll4, 4, 1, 176),
 	F_PCM( 1024000, pll4, 4, 1, 132),
@@ -3092,7 +3092,7 @@ static struct rcg_clk pcm_clk = {
 	.ns_reg = LCC_PCM_NS_REG,
 	.md_reg = LCC_PCM_MD_REG,
 	.root_en_mask = BIT(9),
-	.ns_mask = (BM(31, 16) | BM(6, 0)),
+	.ns_mask = BM(31, 16) | BIT(10) | BM(6, 0),
 	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_pcm,
