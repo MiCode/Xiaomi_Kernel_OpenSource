@@ -454,7 +454,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 		goto err_pil;
 	return 0;
 err_pil:
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
 	msm_xo_put(drv->xo);
 err_xo:
 	regulator_put(drv->vreg);
@@ -466,7 +466,7 @@ err:
 static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
 	msm_xo_put(drv->xo);
 	regulator_put(drv->vreg);
 	regulator_put(drv->pll_supply);
