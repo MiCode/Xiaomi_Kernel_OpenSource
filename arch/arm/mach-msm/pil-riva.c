@@ -390,7 +390,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		goto err_register;
 	return 0;
 err_register:
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 err:
 	regulator_put(drv->pll_supply);
@@ -400,7 +400,7 @@ err:
 static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 	regulator_put(drv->pll_supply);
 	return 0;
