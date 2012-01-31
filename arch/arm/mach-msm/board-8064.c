@@ -1159,10 +1159,10 @@ static int ethernet_init(void)
 
 static void __init apq8064_clock_init(void)
 {
-	if (machine_is_apq8064_sim())
-		msm_clock_init(&apq8064_clock_init_data);
-	else
+	if (machine_is_apq8064_rumi3())
 		msm_clock_init(&apq8064_dummy_clock_init_data);
+	else
+		msm_clock_init(&apq8064_clock_init_data);
 }
 
 static void __init apq8064_common_init(void)
