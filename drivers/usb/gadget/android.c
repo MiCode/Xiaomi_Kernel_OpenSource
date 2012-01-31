@@ -1493,6 +1493,7 @@ static int __devinit android_probe(struct platform_device *pdev)
 }
 
 static struct platform_driver android_platform_driver = {
+	.probe = android_probe,
 	.driver = { .name = "android_usb"},
 };
 
@@ -1527,7 +1528,7 @@ static int __init init(void)
 	composite_driver.setup = android_setup;
 	composite_driver.disconnect = android_disconnect;
 
-	ret = platform_driver_probe(&android_platform_driver, android_probe);
+	ret = platform_driver_register(&android_platform_driver);
 	if (ret) {
 		pr_err("%s(): Failed to register android"
 				 "platform driver\n", __func__);
