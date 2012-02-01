@@ -382,15 +382,16 @@ static inline void
 kgsl_pt_map_set(struct kgsl_gpummu_pt *pt, uint32_t pte, uint32_t val)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-
-	writel_relaxed(val, &baseptr[pte]);
+	BUG_ON(pte*sizeof(uint32_t) >= pt->base.size);
+	baseptr[pte] = val;
 }
 
 static inline uint32_t
 kgsl_pt_map_get(struct kgsl_gpummu_pt *pt, uint32_t pte)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	return readl_relaxed(&baseptr[pte]) & GSL_PT_PAGE_ADDR_MASK;
+	BUG_ON(pte*sizeof(uint32_t) >= pt->base.size);
+	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
 }
 
 static unsigned int kgsl_gpummu_pt_get_flags(struct kgsl_pagetable *pt,
