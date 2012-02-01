@@ -631,7 +631,8 @@ int rcg_clk_handoff(struct clk *c)
 			bank_info = &bank_masks->bank1_mask;
 
 		ns_mask = bank_info->ns_mask;
-		md_val = readl_relaxed(bank_info->md_reg);
+		md_val = bank_info->md_reg ?
+				readl_relaxed(bank_info->md_reg) : 0;
 	} else {
 		ns_mask = clk->ns_mask;
 		md_val = clk->md_reg ? readl_relaxed(clk->md_reg) : 0;
