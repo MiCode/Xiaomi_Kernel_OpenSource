@@ -523,6 +523,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct hci_dev *hdev;
 	struct sk_buff *skb;
+	int reserve = 0;
 	int err;
 
 	BT_DBG("sock %p sk %p", sock, sk);
@@ -560,9 +561,17 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 		goto done;
 	}
 
-	skb = bt_skb_send_alloc(sk, len, msg->msg_flags & MSG_DONTWAIT, &err);
+	/* Allocate extra headroom for Qualcomm PAL */
+	if (hdev->dev_type == HCI_AMP && hdev->manufacturer == 0x001d)
+		reserve = BT_SKB_RESERVE_80211;
+
+	skb = bt_skb_send_alloc(sk, len + reserve,
+					msg->msg_flags & MSG_DONTWAIT, &err);
 	if (!skb)
 		goto done;
+
+	if (reserve)
+		skb_reserve(skb, reserve);
 
 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
 		err = -EFAULT;
