@@ -49,6 +49,8 @@ struct mxt_platform_data {
 
 	unsigned int x_size;
 	unsigned int y_size;
+	unsigned int touch_x_size;
+	unsigned int touch_y_size;
 	unsigned long irqflags;
 	bool is_tp;
 	const unsigned int key_map[MXT_NUM_GPIO];
