@@ -263,6 +263,7 @@ struct pm8921_chg_chip {
 	enum pm8921_chg_hot_thr		hot_thr;
 };
 
+static int usb_max_current;
 static int charging_disabled;
 static int thermal_mitigation;
 
@@ -575,6 +576,22 @@ static int pm_chg_iterm_get(struct pm8921_chg_chip *chip, int *chg_current)
 	return 0;
 }
 
+struct usb_ma_limit_entry {
+	int usb_ma;
+	u8  chg_iusb_value;
+};
+
+static struct usb_ma_limit_entry usb_ma_table[] = {
+	{100, 0},
+	{500, 1},
+	{700, 2},
+	{850, 3},
+	{900, 4},
+	{1100, 5},
+	{1300, 6},
+	{1500, 7},
+};
+
 #define PM8921_CHG_IUSB_MASK 0x1C
 #define PM8921_CHG_IUSB_MAX  7
 #define PM8921_CHG_IUSB_MIN  0
@@ -589,6 +606,26 @@ static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
 	temp = reg_val << 2;
 	return pm_chg_masked_write(chip, PBL_ACCESS2, PM8921_CHG_IUSB_MASK,
 					 temp);
+}
+
+static int pm_chg_iusbmax_get(struct pm8921_chg_chip *chip, int *mA)
+{
+	u8 temp;
+	int i, rc;
+
+	*mA = 0;
+	rc = pm8xxx_readb(chip->dev->parent, PBL_ACCESS2, &temp);
+	if (rc) {
+		pr_err("err=%d reading PBL_ACCESS2\n", rc);
+		return rc;
+	}
+	temp &= PM8921_CHG_IUSB_MASK;
+	temp = temp >> 2;
+	for (i = ARRAY_SIZE(usb_ma_table) - 1; i >= 0; i--) {
+		if (usb_ma_table[i].chg_iusb_value == temp)
+			*mA = usb_ma_table[i].usb_ma;
+	}
+	return rc;
 }
 
 #define PM8921_CHG_WD_MASK 0x1F
@@ -1209,26 +1246,16 @@ static void notify_usb_of_the_plugin_event(int plugin)
 	}
 }
 
-struct usb_ma_limit_entry {
-	int usb_ma;
-	u8  chg_iusb_value;
-};
-
-static struct usb_ma_limit_entry usb_ma_table[] = {
-	{100, 0},
-	{500, 1},
-	{700, 2},
-	{850, 3},
-	{900, 4},
-	{1100, 5},
-	{1300, 6},
-	{1500, 7},
-};
-
 /* assumes vbus_lock is held */
 static void __pm8921_charger_vbus_draw(unsigned int mA)
 {
 	int i, rc;
+
+	if (usb_max_current && mA > usb_max_current) {
+		pr_warn("restricting usb current to %d instead of %d\n",
+					usb_max_current, mA);
+		mA = usb_max_current;
+	}
 
 	if (mA > 0 && mA <= 2) {
 		usb_chg_current = 0;
@@ -2391,6 +2418,28 @@ module_param_call(thermal_mitigation, set_therm_mitigation_level,
 					param_get_uint,
 					&thermal_mitigation, 0644);
 
+static int set_usb_max_current(const char *val, struct kernel_param *kp)
+{
+	int ret, mA;
+	struct pm8921_chg_chip *chip = the_chip;
+
+	ret = param_set_int(val, kp);
+	if (ret) {
+		pr_err("error setting value %d\n", ret);
+		return ret;
+	}
+	if (chip) {
+		pr_warn("setting current max to %d\n", usb_max_current);
+		pm_chg_iusbmax_get(chip, &mA);
+		if (mA > usb_max_current)
+			pm8921_charger_vbus_draw(usb_max_current);
+		return 0;
+	}
+	return -EINVAL;
+}
+module_param_call(usb_max_current, set_usb_max_current, param_get_uint,
+					&usb_max_current, 0644);
+
 static void free_irqs(struct pm8921_chg_chip *chip)
 {
 	int i;
@@ -3200,6 +3249,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	enable_irq_wake(chip->pmic_chg_irq[USBIN_UV_IRQ]);
 	enable_irq_wake(chip->pmic_chg_irq[BAT_TEMP_OK_IRQ]);
 	enable_irq_wake(chip->pmic_chg_irq[VBATDET_LOW_IRQ]);
+	enable_irq_wake(chip->pmic_chg_irq[FASTCHG_IRQ]);
 	/*
 	 * if both the cool_temp_dc and warm_temp_dc are invalid device doesnt
 	 * care for jeita compliance
