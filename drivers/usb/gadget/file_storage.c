@@ -2766,17 +2766,14 @@ reset:
 	if (fsg->bulk_in_enabled) {
 		usb_ep_disable(fsg->bulk_in);
 		fsg->bulk_in_enabled = 0;
-		fsg_bulk_in->driver_data = NULL;
 	}
 	if (fsg->bulk_out_enabled) {
 		usb_ep_disable(fsg->bulk_out);
 		fsg->bulk_out_enabled = 0;
-		fsg_bulk_out->driver_data = NULL;
 	}
 	if (fsg->intr_in_enabled) {
 		usb_ep_disable(fsg->intr_in);
 		fsg->intr_in_enabled = 0;
-		fsg_intr_in->driver_data = NULL;
 	}
 
 	fsg->running = 0;
