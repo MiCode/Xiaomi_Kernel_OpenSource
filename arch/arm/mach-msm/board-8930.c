@@ -1475,8 +1475,8 @@ static const u8 mxt_config_data_8930[] = {
 	 27, 0, 5, 1, 0, 0, 8, 8, 0, 0,
 	/* T9 Object */
 	 131, 0, 0, 19, 11, 0, 16, 35, 1, 3,
-	 10, 15, 1, 11, 4, 5, 40, 10, 54, 2,
-	 43, 4, 0, 0, 0, 0, 143, 40, 143, 80,
+	 10, 15, 1, 11, 4, 5, 40, 10, 43, 4,
+	 54, 2, 0, 0, 0, 0, 143, 40, 143, 80,
 	 18, 15, 50, 50, 2,
 	/* T15 Object */
 	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1513,10 +1513,10 @@ static ssize_t mxt224e_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	return snprintf(buf, 200,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":65:938:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":208:938:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":348:938:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":490:938:90:90"
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":57:1030:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":206:1030:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":366:1030:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":503:1030:90:90"
 	"\n");
 }
 
@@ -1568,8 +1568,10 @@ static struct mxt_config_info mxt_config_array[] = {
 static struct mxt_platform_data mxt_platform_data_8930 = {
 	.config_array		= mxt_config_array,
 	.config_array_size	= ARRAY_SIZE(mxt_config_array),
-	.x_size			= 1067,
-	.y_size			= 566,
+	.x_size			= 540,
+	.y_size			= 960,
+	.touch_x_size		= 566,
+	.touch_y_size		= 1067,
 	.irqflags		= IRQF_TRIGGER_FALLING,
 #ifdef MSM8930_PHASE_2
 	.digital_pwr_regulator	= true,
