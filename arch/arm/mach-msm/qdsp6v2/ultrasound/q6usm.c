@@ -192,7 +192,7 @@ struct us_client *q6usm_us_client_alloc(
 		pr_err("%s: Registration with APR failed\n", __func__);
 		goto fail;
 	}
-	pr_info("%s: Registering the common port with APR\n", __func__);
+	pr_debug("%s: Registering the common port with APR\n", __func__);
 	if (atomic_read(&this_mmap.ref_cnt) == 0) {
 		this_mmap.apr = apr_register("ADSP", "USM",
 					     (apr_fn)q6usm_mmapcallback,
@@ -393,7 +393,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 			u32 cpu_buf = port->cpu_buf;
 			pr_err("%s: expected[%d] != token[%d]\n",
 				__func__, port->expected_token, token);
-			pr_info("%s: dsp_buf=%d; cpu_buf=%d;\n",
+			pr_debug("%s: dsp_buf=%d; cpu_buf=%d;\n",
 				__func__,   port->dsp_buf, cpu_buf);
 
 			token = USM_WRONG_TOKEN;
@@ -439,7 +439,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 			port->dsp_buf = 0;
 		spin_unlock_irqrestore(&port->dsp_lock, dsp_flags);
 
-		pr_info("%s: WRITE_DONE: token=%d; dsp_buf=%d; cpu_buf=%d\n",
+		pr_debug("%s: WRITE_DONE: token=%d; dsp_buf=%d; cpu_buf=%d\n",
 			__func__,
 			token, port->dsp_buf, port->cpu_buf);
 
@@ -659,11 +659,11 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg* us_cfg)
 	/* Transparent data copy */
 	memcpy(enc_cfg->enc_blk.transp_data, us_cfg->params,
 	       us_cfg->params_size);
-	pr_info("%s: cfg_size[%d], params_size[%d]\n",
+	pr_debug("%s: cfg_size[%d], params_size[%d]\n",
 		__func__,
 		enc_cfg->enc_blk.cfg_size,
 		us_cfg->params_size);
-	pr_info("%s: params[%d,%d,%d,%d, %d,%d,%d,%d]\n",
+	pr_debug("%s: params[%d,%d,%d,%d, %d,%d,%d,%d]\n",
 		__func__,
 		enc_cfg->enc_blk.transp_data[0],
 		enc_cfg->enc_blk.transp_data[1],
@@ -674,7 +674,7 @@ int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg* us_cfg)
 		enc_cfg->enc_blk.transp_data[6],
 		enc_cfg->enc_blk.transp_data[7]
 	       );
-	pr_info("%s: srate:%d, ch=%d, bps= %d; dmap:0x%x; dev_id=0x%x\n",
+	pr_debug("%s: srate:%d, ch=%d, bps= %d; dmap:0x%x; dev_id=0x%x\n",
 		__func__, enc_cfg->enc_blk.cfg_common.sample_rate,
 		enc_cfg->enc_blk.cfg_common.ch_cfg,
 		enc_cfg->enc_blk.cfg_common.bits_per_sample,
@@ -759,7 +759,7 @@ int q6usm_dec_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 	       sizeof(struct usm_cfg_common));
 	/* Transparent data copy */
 	memcpy(dec_cfg->transp_data, us_cfg->params, us_cfg->params_size);
-	pr_info("%s: cfg_size[%d], params_size[%d]; parambytes[%d,%d,%d,%d]\n",
+	pr_debug("%s: cfg_size[%d], params_size[%d]; parambytes[%d,%d,%d,%d]\n",
 		__func__,
 		dec_cfg->cfg_size,
 		us_cfg->params_size,
