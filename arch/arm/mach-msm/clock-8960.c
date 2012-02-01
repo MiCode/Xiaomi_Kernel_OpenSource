@@ -4812,13 +4812,16 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_8064[] = {
-	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
-	CLK_LOOKUP("cxo",		cxo_clk.c,		"wcnss_wlan.0"),
-	CLK_LOOKUP("cxo",		cxo_clk.c,		"pil_riva"),
-	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
-	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
-	CLK_LOOKUP("pll4",		pll4_clk.c,		NULL),
-	CLK_LOOKUP("measure",		measure_clk.c,		"debug"),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
+	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.1"),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.2"),
+	CLK_LOOKUP("pll2",		pll2_clk.c,	NULL),
+	CLK_LOOKUP("pll8",		pll8_clk.c,	NULL),
+	CLK_LOOKUP("pll4",		pll4_clk.c,	NULL),
+	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
 	CLK_DUMMY("bus_clk",		AFAB_CLK,	"msm_apps_fab", 0),
 	CLK_DUMMY("bus_a_clk",		AFAB_A_CLK,	"msm_apps_fab", 0),
@@ -5051,13 +5054,16 @@ static struct clk_lookup msm_clocks_8064[] = {
 };
 
 static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
-	CLK_LOOKUP("cxo",		cxo_clk.c,		NULL),
-	CLK_LOOKUP("cxo",		cxo_clk.c,		"wcnss_wlan.0"),
-	CLK_LOOKUP("cxo",		cxo_clk.c,		"pil_riva"),
-	CLK_LOOKUP("pll2",		pll2_clk.c,		NULL),
-	CLK_LOOKUP("pll8",		pll8_clk.c,		NULL),
-	CLK_LOOKUP("pll4",		pll4_clk.c,		NULL),
-	CLK_LOOKUP("measure",		measure_clk.c,		"debug"),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
+	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
+	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.1"),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"pil_qdsp6v4.2"),
+	CLK_LOOKUP("pll2",		pll2_clk.c,	NULL),
+	CLK_LOOKUP("pll8",		pll8_clk.c,	NULL),
+	CLK_LOOKUP("pll4",		pll4_clk.c,	NULL),
+	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("bus_clk",		afab_clk.c,		"msm_apps_fab"),
 	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,		"msm_apps_fab"),
