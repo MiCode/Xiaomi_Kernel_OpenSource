@@ -36,6 +36,7 @@
 #include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
+#include "pm.h"
 
 /*
  * Source IDs.
@@ -377,10 +378,11 @@ static struct scalable scalable_8627[] = {
 		},
 };
 
-static struct scalable *scalable;
 static struct l2_level *l2_freq_tbl;
 static struct acpu_level *acpu_freq_tbl;
 static int l2_freq_tbl_size;
+static struct scalable *scalable;
+#define SCALABLE_TO_CPU(sc) ((sc) - scalable)
 
 /* Instantaneous bandwidth requests in MB/s. */
 #define BW_MBPS(_bw) \
@@ -912,28 +914,37 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	} else if (strt_s->src == HFPLL && tgt_s->src != HFPLL) {
 		/*
-		 * If responding to CPU_DEAD we must be running on another
-		 * CPU.  Therefore, we can't access the downed CPU's CP15
-		 * clock MUX registers from here and can't change clock sources.
-		 * Just turn off the PLL- since the CPU is down already, halting
-		 * its clock should be safe.
+		 * If responding to CPU_DEAD we must be running on another CPU.
+		 * Therefore, we can't access the downed CPU's clock MUX CP15
+		 * registers from here and can't change clock sources. If the
+		 * CPU is collapsed, however, it is still safe to turn off the
+		 * PLL without switching the MUX away from it.
 		 */
 		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2]) {
 			set_sec_clk_src(sc, tgt_s->sec_src_sel);
 			set_pri_clk_src(sc, tgt_s->pri_src_sel);
+			hfpll_disable(sc, 0);
+		} else if (reason == SETRATE_HOTPLUG
+			   && msm_pm_verify_cpu_pc(SCALABLE_TO_CPU(sc))) {
+			hfpll_disable(sc, 0);
 		}
-		hfpll_disable(sc, 0);
 	} else if (strt_s->src != HFPLL && tgt_s->src == HFPLL) {
-		hfpll_set_rate(sc, tgt_s);
-		hfpll_enable(sc, 0);
 		/*
 		 * If responding to CPU_UP_PREPARE, we can't change CP15
 		 * registers for the CPU that's coming up since we're not
 		 * running on that CPU.  That's okay though, since the MUX
 		 * source was not changed on the way down, either.
 		 */
-		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2])
+		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2]) {
+			hfpll_set_rate(sc, tgt_s);
+			hfpll_enable(sc, 0);
 			set_pri_clk_src(sc, tgt_s->pri_src_sel);
+		} else if (reason == SETRATE_HOTPLUG
+			   && msm_pm_verify_cpu_pc(SCALABLE_TO_CPU(sc))) {
+			/* PLL was disabled during hot-unplug. Re-enable it. */
+			hfpll_set_rate(sc, tgt_s);
+			hfpll_enable(sc, 0);
+		}
 	} else {
 		if (reason != SETRATE_HOTPLUG || sc == &scalable[L2])
 			set_sec_clk_src(sc, tgt_s->sec_src_sel);
