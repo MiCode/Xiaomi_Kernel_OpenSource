@@ -1326,10 +1326,9 @@ static int mdp_probe(struct platform_device *pdev)
 	struct msm_fb_panel_data *pdata = NULL;
 	int rc;
 	resource_size_t  size ;
+	unsigned long flag;
 #ifdef CONFIG_FB_MSM_MDP40
 	int intf, if_no;
-#else
-	unsigned long flag;
 #endif
 #if defined(CONFIG_FB_MSM_MIPI_DSI) && defined(CONFIG_FB_MSM_MDP40)
 	struct mipi_panel_info *mipi;
@@ -1474,6 +1473,17 @@ static int mdp_probe(struct platform_device *pdev)
 			mfd->vsync_gpio = -1;
 
 #ifdef CONFIG_FB_MSM_MDP40
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		if (mdp_hw_revision < MDP4_REVISION_V2_1) {
+			/* dmas dmap switch */
+			mdp_intr_mask |= INTR_DMA_S_DONE;
+		}
+		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
 		if (mfd->panel.type == EBI2_PANEL)
 			intf = EBI2_INTF;
 		else
@@ -1530,10 +1540,8 @@ static int mdp_probe(struct platform_device *pdev)
 	case MIPI_CMD_PANEL:
 #ifndef CONFIG_FB_MSM_MDP303
 		mfd->dma_fnc = mdp4_dsi_cmd_overlay;
-#ifdef CONFIG_FB_MSM_MDP40
 		mipi = &mfd->panel_info.mipi;
 		configure_mdp_core_clk_table((mipi->dsi_pclk_rate) * 3 / 2);
-#endif
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
@@ -1544,6 +1552,13 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->lut_update = mdp_lut_update_nonlcdc;
 		mfd->do_histogram = mdp_do_histogram;
 		mdp4_display_intf_sel(if_no, DSI_CMD_INTF);
+
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 #else
 		mfd->dma_fnc = mdp_dma2_update;
 		mfd->do_histogram = mdp_do_histogram;
