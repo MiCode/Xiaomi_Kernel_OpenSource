@@ -303,6 +303,8 @@ struct mxt_data {
 	struct mxt_info info;
 	struct mxt_finger finger[MXT_MAX_FINGER];
 	unsigned int irq;
+	unsigned int touch_x_size;
+	unsigned int touch_y_size;
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
@@ -667,9 +669,9 @@ static void mxt_input_touchevent(struct mxt_data *data,
 
 	x = (message->message[1] << 4) | ((message->message[3] >> 4) & 0xf);
 	y = (message->message[2] << 4) | ((message->message[3] & 0xf));
-	if (data->pdata->x_size < 1024)
+	if (data->touch_x_size < 1024)
 		x = x >> 2;
-	if (data->pdata->y_size < 1024)
+	if (data->touch_y_size < 1024)
 		y = y >> 2;
 
 	area = message->message[4];
@@ -1809,7 +1811,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		goto err_free_mem;
 	}
 
-	input_dev->name = "Atmel maXTouch Touchscreen";
+	input_dev->name = "atmel_mxt_ts";
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
 	input_dev->open = mxt_input_open;
@@ -1841,6 +1843,16 @@ static int __devinit mxt_probe(struct i2c_client *client,
 			     0, data->pdata->y_size, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
 			     0, 255, 0, 0);
+
+	if (pdata->touch_x_size)
+		data->touch_x_size = pdata->touch_x_size;
+	else
+		data->touch_x_size = pdata->x_size;
+
+	if (pdata->touch_y_size)
+		data->touch_y_size = pdata->touch_y_size;
+	else
+		data->touch_y_size = pdata->y_size;
 
 	/* set key array supported keys */
 	if (pdata->key_codes) {

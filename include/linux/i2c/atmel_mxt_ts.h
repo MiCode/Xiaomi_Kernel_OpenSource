@@ -46,6 +46,8 @@ struct mxt_platform_data {
 
 	unsigned int x_size;
 	unsigned int y_size;
+	unsigned int touch_x_size;
+	unsigned int touch_y_size;
 	unsigned long irqflags;
 	bool	i2c_pull_up;
 	bool	digital_pwr_regulator;
