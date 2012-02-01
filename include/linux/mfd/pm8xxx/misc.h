@@ -172,6 +172,15 @@ int pm8xxx_stay_on(void);
  */
 int pm8xxx_preload_dVdd(void);
 
+/**
+ * pm8xxx_usb_id_pullup - Control a pullup for USB ID
+ *
+ * @enable: enable (1) or disable (0) the pullup
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_usb_id_pullup(int enable);
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -209,6 +218,10 @@ static inline int pm8xxx_stay_on(void)
 	return -ENODEV;
 }
 static inline int pm8xxx_preload_dVdd(void)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_usb_id_pullup(int enable)
 {
 	return -ENODEV;
 }

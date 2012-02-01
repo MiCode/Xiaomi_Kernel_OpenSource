@@ -132,6 +132,9 @@
 #define UART_PATH_SEL_MASK			0x60
 #define UART_PATH_SEL_SHIFT			0x5
 
+#define USB_ID_PU_EN_MASK			0x10	/* PM8921 family only */
+#define USB_ID_PU_EN_SHIFT			4
+
 /* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
 #define PM8901_DELAY_AFTER_REG_DISABLE_MS	4
 #define PM8901_DELAY_BEFORE_SHUTDOWN_MS		8
@@ -943,6 +946,48 @@ int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 	return rc;
 }
 EXPORT_SYMBOL(pm8xxx_uart_gpio_mux_ctrl);
+
+/**
+ * pm8xxx_usb_id_pullup - Control a pullup for USB ID
+ *
+ * @enable: enable (1) or disable (0) the pullup
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_usb_id_pullup(int enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = -ENXIO;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8922:
+		case PM8XXX_VERSION_8917:
+		case PM8XXX_VERSION_8038:
+			rc = pm8xxx_misc_masked_write(chip,
+				REG_PM8XXX_GPIO_MUX_CTRL, USB_ID_PU_EN_MASK,
+				enable << USB_ID_PU_EN_SHIFT);
+
+			if (rc)
+				pr_err("Fail: reg=%x, rc=%d\n",
+				       REG_PM8XXX_GPIO_MUX_CTRL, rc);
+			break;
+		default:
+			/* Functionality not supported */
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_usb_id_pullup);
 
 static int __pm8901_preload_dVdd(struct pm8xxx_misc_chip *chip)
 {
