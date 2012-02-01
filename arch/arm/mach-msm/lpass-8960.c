@@ -66,6 +66,28 @@ static struct notifier_block rnb = {
 	.notifier_call = riva_notifier_cb,
 };
 
+static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
+								void *ss_handle)
+{
+	int ret;
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		pr_debug("%s: M-Notify: Shutdown started\n", __func__);
+		ret = sysmon_send_event(SYSMON_SS_LPASS, "modem",
+				SUBSYS_BEFORE_SHUTDOWN);
+		if (ret < 0)
+			pr_err("%s: sysmon_send_event error %d", __func__,
+				ret);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static void *ssr_modem_notif_hdle;
+static struct notifier_block mnb = {
+	.notifier_call = modem_notifier_cb,
+};
+
 static void lpass_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
@@ -213,6 +235,18 @@ static int __init lpass_fatal_init(void)
 		goto out;
 	}
 
+	ssr_modem_notif_hdle = subsys_notif_register_notifier("modem",
+							&mnb);
+	if (IS_ERR(ssr_modem_notif_hdle) < 0) {
+		ret = PTR_ERR(ssr_modem_notif_hdle);
+		pr_err("%s: subsys_register_notifier for Modem: err = %d\n",
+			__func__, ret);
+		subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
+		iounmap(q6_wakeup_intr);
+		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
+		goto out;
+	}
+
 	pr_info("%s: lpass SSR driver init'ed.\n", __func__);
 out:
 	return ret;
@@ -221,6 +255,7 @@ out:
 static void __exit lpass_fatal_exit(void)
 {
 	subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
+	subsys_notif_unregister_notifier(ssr_modem_notif_hdle, &mnb);
 	iounmap(q6_wakeup_intr);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
