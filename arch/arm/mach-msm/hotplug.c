@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2002 ARM Ltd.
  *  All Rights Reserved
+ *  Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -67,8 +68,13 @@ int platform_cpu_kill(unsigned int cpu)
 {
 	struct completion *killed =
 		&per_cpu(msm_hotplug_devices, cpu).cpu_killed;
+	int ret;
 
-	return wait_for_completion_timeout(killed, HZ * 5);
+	ret = wait_for_completion_timeout(killed, HZ * 5);
+	if (ret)
+		return ret;
+
+	return msm_pm_wait_cpu_shutdown(cpu);
 }
 
 /*
