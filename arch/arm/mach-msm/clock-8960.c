@@ -69,6 +69,7 @@
 #define PDM_CLK_NS_REG				REG(0x2CC0)
 /* 8064 name BB_PLL_ENA_APCS_REG */
 #define BB_PLL_ENA_SC0_REG			REG(0x34C0)
+#define BB_PLL_ENA_RPM_REG			REG(0x34A0)
 #define BB_PLL0_STATUS_REG			REG(0x30D8)
 #define BB_PLL5_STATUS_REG			REG(0x30F8)
 #define BB_PLL6_STATUS_REG			REG(0x3118)
@@ -5556,6 +5557,11 @@ static void __init reg_init(void)
 			writel_relaxed(regval, BB_PLL8_TEST_CTL_REG);
 
 			set_fsm_mode(BB_PLL8_MODE_REG);
+
+			/* Enable PLL8 by voting from RPM */
+			regval = readl_relaxed(BB_PLL_ENA_RPM_REG);
+			regval |= BIT(8);
+			writel_relaxed(regval, BB_PLL_ENA_RPM_REG);
 		}
 		/* Check if PLL3 is active */
 		is_pll_enabled = readl_relaxed(GPLL1_STATUS_REG) & BIT(16);
