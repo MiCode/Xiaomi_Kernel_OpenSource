@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <net/sock.h>
 
 #include <mach/peripheral-loader.h>
+#include <mach/socinfo.h>
 
 #include "ipc_router.h"
 
@@ -46,11 +47,18 @@ static void msm_ipc_router_unload_modem(void *pil)
 
 static void *msm_ipc_router_load_modem(void)
 {
-	void *pil;
+	void *pil = NULL;
 	int rc;
 
-	pil = pil_get("modem");
-	if (IS_ERR(pil)) {
+	/* Load GNSS for Standalone 8064 but not for Fusion 3 */
+	if (cpu_is_apq8064()) {
+		if (socinfo_get_platform_subtype() == 0x0)
+			pil = pil_get("gnss");
+	} else {
+		pil = pil_get("modem");
+	}
+
+	if (IS_ERR(pil) || !pil) {
 		pr_debug("%s: modem load failed\n", __func__);
 		pil = NULL;
 	} else {
