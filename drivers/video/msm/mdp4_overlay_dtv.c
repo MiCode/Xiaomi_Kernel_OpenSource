@@ -455,7 +455,7 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 	if (!(data & 0x1) || (pipe == NULL))
 		return;
 	wait_for_completion_timeout(&dtv_pipe->comp,
-		msecs_to_jiffies(VSYNC_PERIOD));
+			msecs_to_jiffies(VSYNC_PERIOD*2));
 	mdp_disable_irq(MDP_OVERLAY1_TERM);
 }
 
