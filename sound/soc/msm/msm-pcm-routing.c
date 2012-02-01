@@ -1636,6 +1636,23 @@ static struct platform_driver msm_routing_pcm_driver = {
 	.remove = __devexit_p(msm_routing_pcm_remove),
 };
 
+int msm_routing_check_backend_enabled(int fedai_id)
+{
+	int i;
+	if (fedai_id >= MSM_FRONTEND_DAI_MM_MAX_ID) {
+		/* bad ID assigned in machine driver */
+		pr_err("%s: bad MM ID\n", __func__);
+		return 0;
+	}
+	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
+		if ((test_bit(fedai_id,
+			&msm_bedais[i].fe_sessions))) {
+			return msm_bedais[i].active;
+		}
+	}
+	return 0;
+}
+
 static int __init msm_soc_routing_platform_init(void)
 {
 	mutex_init(&routing_lock);
