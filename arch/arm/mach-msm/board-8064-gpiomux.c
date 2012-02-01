@@ -34,15 +34,22 @@ static struct gpiomux_setting gpio_eth_config = {
 /* The SPI configurations apply to GSBI 5*/
 static struct gpiomux_setting gpio_spi_config = {
 	.func = GPIOMUX_FUNC_2,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
 /* The SPI configurations apply to GSBI 5 chip select 2*/
 static struct gpiomux_setting gpio_spi_cs2_config = {
 	.func = GPIOMUX_FUNC_3,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
+};
+
+/* Chip selects for SPI clients */
+static struct gpiomux_setting gpio_spi_cs_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 struct msm_gpiomux_config apq8064_ethernet_configs[] = {
@@ -123,6 +130,12 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 	{
+		.gpio      = 53,		/* Funny CS0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
 		.gpio      = 31,		/* GSBI5 QUP SPI_CS2_N */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_cs2_config,
@@ -135,6 +148,24 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 #endif
+	{
+		.gpio      = 30,		/* FP CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+		},
+	},
+	{
+		.gpio      = 32,		/* EPM CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+		},
+	},
+	{
+		.gpio      = 53,		/* NOR CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+		},
+	},
 };
 
 static struct msm_gpiomux_config apq8064_slimbus_config[] __initdata = {

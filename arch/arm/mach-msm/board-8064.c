@@ -1119,7 +1119,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
-	.max_clock_speed = 24000000,
+	.max_clock_speed = 1100000,
 };
 
 #define KS8851_IRQ_GPIO		43
@@ -1158,7 +1158,7 @@ static void __init apq8064_i2c_init(void)
 					&apq8064_i2c_qup_gsbi4_pdata;
 }
 
-#ifdef CONFIG_KS8851
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static int ethernet_init(void)
 {
 	int ret;
