@@ -8,6 +8,7 @@ config ARCH_MSM7X01A
 	select MSM_VIC
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
+	select MSM_PM if PM
 
 config ARCH_MSM7X25
 	bool "MSM7x25"
@@ -16,6 +17,7 @@ config ARCH_MSM7X25
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
 	select MULTI_IRQ_HANDLER
+	select MSM_PM if PM
 
 config ARCH_MSM7X27
 	bool "MSM7x27"
@@ -32,6 +34,7 @@ config ARCH_MSM7X27
 	select MSM_PROC_COMM_REGULATOR
 	select CLEANCACHE
 	select QCACHE
+	select MSM_PM2 if PM
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
@@ -55,6 +58,7 @@ config ARCH_MSM7X30
 	select REGULATOR
 	select MSM_PROC_COMM_REGULATOR
 	select MULTI_IRQ_HANDLER
+	select MSM_PM2 if PM
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
@@ -66,6 +70,7 @@ config ARCH_QSD8X50
 	select EMULATE_DOMAIN_MANAGER_V7
 	select MSM_GPIOMUX
 	select MSM_DALRPC
+	select MSM_PM2 if PM
 
 config ARCH_MSM8X60
 	bool "MSM8X60"
@@ -121,6 +126,7 @@ config ARCH_MSM8X60
 	select MSM_SPM_V1
 	select MSM_SCM if SMP
 	select MULTI_IRQ_HANDLER
+	select MSM_PM8X60 if PM
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -159,6 +165,7 @@ config ARCH_MSM8960
 	select QCACHE
 	select MSM_MULTIMEDIA_USE_ION
 	select MULTI_IRQ_HANDLER
+	select MSM_PM8X60 if PM
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -195,6 +202,7 @@ config ARCH_MSM8930
 	select FIX_MOVABLE_ZONE
 	select MSM_ULTRASOUND
 	select MULTI_IRQ_HANDLER
+	select MSM_PM8X60 if PM
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -212,6 +220,7 @@ config ARCH_APQ8064
 	select MSM_RPM
 	select MSM_SPM_V2
 	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
 
 config ARCH_MSMCOPPER
 	bool "MSM Copper"
@@ -247,6 +256,7 @@ config ARCH_MSM9615
 	select REGULATOR
 	select MSM_RPM_REGULATOR
 	select MULTI_IRQ_HANDLER
+	select MSM_PM8X60 if PM
 
 config ARCH_MSM8625
 	bool "MSM8625"
@@ -1838,6 +1848,22 @@ config MSM_SECURE_IO
 	bool
 
 config MSM_NATIVE_RESTART
+	bool
+
+config MSM_PM
+	depends on PM
+	bool
+
+config MSM_PM2
+	depends on PM
+	bool
+
+config MSM_PM8X60
+	depends on PM
+	bool
+
+config MSM_NOPM
+	default y if !PM
 	bool
 
 config MSM_BUS_SCALING
