@@ -26,6 +26,7 @@
 #include <linux/pm_qos_params.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <asm/sections.h>
 
 #include "qdss.h"
 
@@ -163,6 +164,7 @@ struct etm_ctx {
 	uint8_t				nr_ext_inp;
 	uint8_t				nr_ext_out;
 	uint8_t				nr_ctxid_cmp;
+	uint8_t				reset;
 	uint32_t			mode;
 	uint32_t			ctrl;
 	uint32_t			trigger_event;
@@ -171,7 +173,6 @@ struct etm_ctx {
 	uint32_t			enable_ctrl1;
 	uint32_t			fifofull_level;
 	uint8_t				addr_idx;
-	uint8_t				addr_reset;
 	uint32_t			addr_val[ETM_MAX_ADDR_CMP];
 	uint32_t			addr_acctype[ETM_MAX_ADDR_CMP];
 	uint32_t			addr_type[ETM_MAX_ADDR_CMP];
@@ -195,13 +196,14 @@ struct etm_ctx {
 };
 
 static struct etm_ctx etm = {
-	.mode			= 0x3,
+	.mode			= 0x2,
 	.ctrl			= 0x1000,
 	.trigger_event		= 0x406F,
 	.enable_event		= 0x6F,
-	.enable_ctrl1		= 0x1000000,
+	.enable_ctrl1		= 0x1,
 	.fifofull_level		= 0x28,
-	.addr_reset		= 0x1,
+	.addr_val		= {(uint32_t) _stext, (uint32_t) _etext},
+	.addr_type		= {ETM_ADDR_TYPE_RANGE, ETM_ADDR_TYPE_RANGE},
 	.cntr_event		= {[0 ... (ETM_MAX_CNTR - 1)] = 0x406F},
 	.cntr_rld_event		= {[0 ... (ETM_MAX_CNTR - 1)] = 0x406F},
 	.seq_12_event		= 0x406F,
@@ -493,6 +495,59 @@ ETM_ATTR_RO(nr_cntr);
 ETM_SHOW(nr_ctxid_cmp);
 ETM_ATTR_RO(nr_ctxid_cmp);
 
+/* Reset to trace everything i.e. exclude nothing. */
+static ssize_t reset_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	int i;
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	if (val) {
+		etm.mode = 0x3;
+		etm.ctrl = 0x1000;
+		etm.trigger_event = 0x406F;
+		etm.startstop_ctrl = 0x0;
+		etm.enable_event = 0x6F;
+		etm.enable_ctrl1 = 0x1000000;
+		etm.fifofull_level = 0x28;
+		etm.addr_idx = 0x0;
+		for (i = 0; i < etm.nr_addr_cmp; i++) {
+			etm.addr_val[i] = 0x0;
+			etm.addr_acctype[i] = 0x0;
+			etm.addr_type[i] = ETM_ADDR_TYPE_NONE;
+		}
+		etm.cntr_idx = 0x0;
+		for (i = 0; i < etm.nr_cntr; i++) {
+			etm.cntr_rld_val[i] = 0x0;
+			etm.cntr_event[i] = 0x406F;
+			etm.cntr_rld_event[i] = 0x406F;
+			etm.cntr_val[i] = 0x0;
+		}
+		etm.seq_12_event = 0x406F;
+		etm.seq_21_event = 0x406F;
+		etm.seq_23_event = 0x406F;
+		etm.seq_31_event = 0x406F;
+		etm.seq_32_event = 0x406F;
+		etm.seq_13_event = 0x406F;
+		etm.seq_curr_state = 0x0;
+		etm.ctxid_idx = 0x0;
+		for (i = 0; i < etm.nr_ctxid_cmp; i++)
+			etm.ctxid_val[i] = 0x0;
+		etm.ctxid_mask = 0x0;
+		etm.sync_freq = 0x80;
+		etm.timestamp_event = 0x406F;
+	}
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+ETM_SHOW(reset);
+ETM_ATTR(reset);
+
 static ssize_t mode_store(struct kobject *kobj,
 			struct kobj_attribute *attr,
 			const char *buf, size_t n)
@@ -569,38 +624,6 @@ static ssize_t addr_idx_store(struct kobject *kobj,
 ETM_SHOW(addr_idx);
 ETM_ATTR(addr_idx);
 
-/* Takes care of resetting addr_* nodes and the exclude/include
- * mode field. Does not reset enable_event.
- */
-static ssize_t addr_reset_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
-{
-	int i;
-	unsigned long val;
-
-	if (sscanf(buf, "%lx", &val) != 1)
-		return -EINVAL;
-
-	mutex_lock(&etm.mutex);
-	if (val) {
-		etm.addr_idx = 0x0;
-		for (i = 0; i < etm.nr_addr_cmp; i++) {
-			etm.addr_val[i] = 0x0;
-			etm.addr_acctype[i] = 0x0;
-			etm.addr_type[i] = ETM_ADDR_TYPE_NONE;
-		}
-		etm.startstop_ctrl = 0x0;
-		etm.mode |= ETM_MODE_EXCLUDE;
-		etm.enable_ctrl1 = 0x1000000;
-		etm.addr_reset = 0x1;
-	}
-	mutex_unlock(&etm.mutex);
-	return n;
-}
-ETM_SHOW(addr_reset);
-ETM_ATTR(addr_reset);
-
 static ssize_t addr_single_store(struct kobject *kobj,
 			struct kobj_attribute *attr,
 			const char *buf, size_t n)
@@ -621,7 +644,6 @@ static ssize_t addr_single_store(struct kobject *kobj,
 
 	etm.addr_val[idx] = val;
 	etm.addr_type[idx] = ETM_ADDR_TYPE_SINGLE;
-	etm.addr_reset = 0x0;
 	mutex_unlock(&etm.mutex);
 	return n;
 }
@@ -678,7 +700,6 @@ static ssize_t addr_range_store(struct kobject *kobj,
 	etm.addr_val[idx + 1] = val2;
 	etm.addr_type[idx + 1] = ETM_ADDR_TYPE_RANGE;
 	etm.enable_ctrl1 |= (1 << (idx/2));
-	etm.addr_reset = 0x0;
 	mutex_unlock(&etm.mutex);
 	return n;
 }
@@ -732,7 +753,6 @@ static ssize_t addr_start_store(struct kobject *kobj,
 	etm.addr_type[idx] = ETM_ADDR_TYPE_START;
 	etm.startstop_ctrl |= (1 << idx);
 	etm.enable_ctrl1 |= BIT(25);
-	etm.addr_reset = 0x0;
 	mutex_unlock(&etm.mutex);
 	return n;
 }
@@ -779,7 +799,6 @@ static ssize_t addr_stop_store(struct kobject *kobj,
 	etm.addr_type[idx] = ETM_ADDR_TYPE_STOP;
 	etm.startstop_ctrl |= (1 << (idx + 16));
 	etm.enable_ctrl1 |= BIT(25);
-	etm.addr_reset = 0x0;
 	mutex_unlock(&etm.mutex);
 	return n;
 }
@@ -815,7 +834,6 @@ static ssize_t addr_acctype_store(struct kobject *kobj,
 
 	mutex_lock(&etm.mutex);
 	etm.addr_acctype[etm.addr_idx] = val;
-	etm.addr_reset = 0x0;
 	mutex_unlock(&etm.mutex);
 	return n;
 }
@@ -1067,12 +1085,12 @@ static struct attribute *etm_attrs[] = {
 	&nr_addr_cmp_attr.attr,
 	&nr_cntr_attr.attr,
 	&nr_ctxid_cmp_attr.attr,
+	&reset_attr.attr,
 	&mode_attr.attr,
 	&trigger_event_attr.attr,
 	&enable_event_attr.attr,
 	&fifofull_level_attr.attr,
 	&addr_idx_attr.attr,
-	&addr_reset_attr.attr,
 	&addr_single_attr.attr,
 	&addr_range_attr.attr,
 	&addr_start_attr.attr,
