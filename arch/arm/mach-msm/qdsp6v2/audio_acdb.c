@@ -783,6 +783,7 @@ static long acdb_ioctl(struct file *f,
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
 		store_audvol_cal(TX_CAL, data);
+		break;
 	case AUDIO_SET_AUDPROC_RX_VOL_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
