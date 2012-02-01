@@ -82,14 +82,12 @@ descriptor.
 Release a handle.
 
 * struct genlock * genlock_create_lock(struct genlock_handle *)
-Create a new lock and attach it to the handle.
+Create a new lock and attach it to the handle.  Once a lock is attached to a
+handle it stays attached until the handle is destroyed.
 
 * struct genlock * genlock_attach_lock(struct genlock_handle *handle, int fd)
 Given a valid file descriptor, get the lock associated with it and attach it to
 the handle.
-
-* void genlock_release_lock(struct genlock_handle *)
-Release a lock attached to a handle.
 
 * int genlock_lock(struct genlock_handle *, int op, int flags, u32 timeout)
 Lock or unlock the lock attached to the handle. A zero timeout value will
@@ -155,7 +153,4 @@ passed in genlock_lock.timeout. Returns 0 when the lock has been released,
 -EINVAL if a zero timeout is passed, or -ETIMEDOUT if the timeout expires.
 
 * GENLOCK_IOC_RELEASE
-Use this to release an existing lock. This is useful if you wish to attach a
-different lock to the same handle. You do not need to call this under normal
-circumstances; when the handle is closed the reference to the lock is released.
-No data is passed from the user for this ioctl.
+This ioctl has been deprecated.  Do not use.
