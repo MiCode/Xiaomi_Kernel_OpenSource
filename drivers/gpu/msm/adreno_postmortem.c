@@ -24,6 +24,7 @@
 #include "kgsl_pwrctrl.h"
 
 #include "a2xx_reg.h"
+#include "a3xx_reg.h"
 
 #define INVALID_RB_CMD 0xaaaaaaaa
 #define NUM_DWORDS_OF_RINGBUFFER_HISTORY 100
@@ -362,29 +363,160 @@ static void adreno_dump_fields(struct kgsl_device *device,
 	}
 }
 
-static int adreno_dump(struct kgsl_device *device)
+static void adreno_dump_a3xx(struct kgsl_device *device)
 {
 	unsigned int r1, r2, r3, rbbm_status;
-	unsigned int cp_ib1_base, cp_ib1_bufsz, cp_stat;
-	unsigned int cp_ib2_base, cp_ib2_bufsz;
-	unsigned int pt_base, cur_pt_base;
-	unsigned int cp_rb_base, rb_count;
-	unsigned int cp_rb_wptr, cp_rb_rptr;
-	unsigned int i;
-	int result = 0;
-	uint32_t *rb_copy;
-	const uint32_t *rb_vaddr;
-	int num_item = 0;
-	int read_idx, write_idx;
-	unsigned int ts_processed;
-
-	static struct ib_list ib_list;
-
+	unsigned int cp_stat, rb_count;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	mb();
+	kgsl_regread(device, adreno_dev->gpudev->reg_rbbm_status, &rbbm_status);
+	KGSL_LOG_DUMP(device, "RBBM:   STATUS   = %08X\n", rbbm_status);
 
-	kgsl_regread(device, REG_RBBM_STATUS, &rbbm_status);
+	{
+		struct log_field lines[] = {
+			{rbbm_status & BIT(0),  "HI busy     "},
+			{rbbm_status & BIT(1),  "CP ME busy  "},
+			{rbbm_status & BIT(2),  "CP PFP busy "},
+			{rbbm_status & BIT(14), "CP NRT busy "},
+			{rbbm_status & BIT(15), "VBIF busy   "},
+			{rbbm_status & BIT(16), "TSE busy    "},
+			{rbbm_status & BIT(17), "RAS busy    "},
+			{rbbm_status & BIT(18), "RB busy     "},
+			{rbbm_status & BIT(19), "PC DCALL bsy"},
+			{rbbm_status & BIT(20), "PC VSD busy "},
+			{rbbm_status & BIT(21), "VFD busy    "},
+			{rbbm_status & BIT(22), "VPC busy    "},
+			{rbbm_status & BIT(23), "UCHE busy   "},
+			{rbbm_status & BIT(24), "SP busy     "},
+			{rbbm_status & BIT(25), "TPL1 busy   "},
+			{rbbm_status & BIT(26), "MARB busy   "},
+			{rbbm_status & BIT(27), "VSC busy    "},
+			{rbbm_status & BIT(28), "ARB busy    "},
+			{rbbm_status & BIT(29), "HLSQ busy   "},
+			{rbbm_status & BIT(30), "GPU bsy noHC"},
+			{rbbm_status & BIT(31), "GPU busy    "},
+			};
+		adreno_dump_fields(device, " STATUS=", lines,
+				ARRAY_SIZE(lines));
+	}
+
+	kgsl_regread(device, REG_CP_RB_BASE, &r1);
+	kgsl_regread(device, REG_CP_RB_CNTL, &r2);
+	rb_count = 2 << (r2 & (BIT(6) - 1));
+	kgsl_regread(device, REG_CP_RB_RPTR_ADDR, &r3);
+	KGSL_LOG_DUMP(device,
+		"CP_RB:  BASE = %08X | CNTL   = %08X | RPTR_ADDR = %08X"
+		"| rb_count = %08X\n", r1, r2, r3, rb_count);
+
+	kgsl_regread(device, REG_CP_RB_RPTR, &r1);
+	kgsl_regread(device, REG_CP_RB_WPTR, &r2);
+	kgsl_regread(device, REG_CP_RB_RPTR_WR, &r3);
+	KGSL_LOG_DUMP(device,
+		"        RPTR = %08X | WPTR   = %08X | RPTR_WR   = %08X"
+		"\n", r1, r2, r3);
+
+	kgsl_regread(device, REG_CP_IB1_BASE, &r1);
+	kgsl_regread(device, REG_CP_IB1_BUFSZ, &r2);
+	KGSL_LOG_DUMP(device, "CP_IB1: BASE = %08X | BUFSZ  = %d\n", r1, r2);
+
+	kgsl_regread(device, REG_CP_ME_CNTL, &r1);
+	kgsl_regread(device, REG_CP_ME_STATUS, &r2);
+	KGSL_LOG_DUMP(device, "CP_ME:  CNTL = %08X | STATUS = %08X\n", r1, r2);
+
+	kgsl_regread(device, REG_CP_STAT, &cp_stat);
+	KGSL_LOG_DUMP(device, "CP_STAT      = %08X\n", cp_stat);
+#ifndef CONFIG_MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
+	{
+		struct log_field lns[] = {
+			{cp_stat & BIT(0), "WR_BSY     0"},
+			{cp_stat & BIT(1), "RD_RQ_BSY  1"},
+			{cp_stat & BIT(2), "RD_RTN_BSY 2"},
+		};
+		adreno_dump_fields(device, "    MIU=", lns, ARRAY_SIZE(lns));
+	}
+	{
+		struct log_field lns[] = {
+			{cp_stat & BIT(5), "RING_BUSY  5"},
+			{cp_stat & BIT(6), "NDRCTS_BSY 6"},
+			{cp_stat & BIT(7), "NDRCT2_BSY 7"},
+			{cp_stat & BIT(9), "ST_BUSY    9"},
+			{cp_stat & BIT(10), "BUSY      10"},
+		};
+		adreno_dump_fields(device, "    CSF=", lns, ARRAY_SIZE(lns));
+	}
+	{
+		struct log_field lns[] = {
+			{cp_stat & BIT(11), "RNG_Q_BSY 11"},
+			{cp_stat & BIT(12), "NDRCTS_Q_B12"},
+			{cp_stat & BIT(13), "NDRCT2_Q_B13"},
+			{cp_stat & BIT(16), "ST_QUEUE_B16"},
+			{cp_stat & BIT(17), "PFP_BUSY  17"},
+		};
+		adreno_dump_fields(device, "   RING=", lns, ARRAY_SIZE(lns));
+	}
+	{
+		struct log_field lns[] = {
+			{cp_stat & BIT(3), "RBIU_BUSY  3"},
+			{cp_stat & BIT(4), "RCIU_BUSY  4"},
+			{cp_stat & BIT(8), "EVENT_BUSY 8"},
+			{cp_stat & BIT(18), "MQ_RG_BSY 18"},
+			{cp_stat & BIT(19), "MQ_NDRS_BS19"},
+			{cp_stat & BIT(20), "MQ_NDR2_BS20"},
+			{cp_stat & BIT(21), "MIU_WC_STL21"},
+			{cp_stat & BIT(22), "CP_NRT_BSY22"},
+			{cp_stat & BIT(23), "3D_BUSY   23"},
+			{cp_stat & BIT(26), "ME_BUSY   26"},
+			{cp_stat & BIT(27), "RB_FFO_BSY27"},
+			{cp_stat & BIT(28), "CF_FFO_BSY28"},
+			{cp_stat & BIT(29), "PS_FFO_BSY29"},
+			{cp_stat & BIT(30), "VS_FFO_BSY30"},
+			{cp_stat & BIT(31), "CP_BUSY   31"},
+		};
+		adreno_dump_fields(device, " CP_STT=", lns, ARRAY_SIZE(lns));
+	}
+#endif
+
+	kgsl_regread(device, A3XX_RBBM_INT_0_STATUS, &r1);
+	KGSL_LOG_DUMP(device, "MSTR_INT_SGNL = %08X\n", r1);
+	{
+		struct log_field ints[] = {
+			{r1 & BIT(0),  "RBBM_GPU_IDLE 0"},
+			{r1 & BIT(1),  "RBBM_AHB_ERROR 1"},
+			{r1 & BIT(2),  "RBBM_REG_TIMEOUT 2"},
+			{r1 & BIT(3),  "RBBM_ME_MS_TIMEOUT 3"},
+			{r1 & BIT(4),  "RBBM_PFP_MS_TIMEOUT 4"},
+			{r1 & BIT(5),  "RBBM_ATB_BUS_OVERFLOW 5"},
+			{r1 & BIT(6),  "VFD_ERROR 6"},
+			{r1 & BIT(7),  "CP_SW_INT 7"},
+			{r1 & BIT(8),  "CP_T0_PACKET_IN_IB 8"},
+			{r1 & BIT(9),  "CP_OPCODE_ERROR 9"},
+			{r1 & BIT(10), "CP_RESERVED_BIT_ERROR 10"},
+			{r1 & BIT(11), "CP_HW_FAULT 11"},
+			{r1 & BIT(12), "CP_DMA 12"},
+			{r1 & BIT(13), "CP_IB2_INT 13"},
+			{r1 & BIT(14), "CP_IB1_INT 14"},
+			{r1 & BIT(15), "CP_RB_INT 15"},
+			{r1 & BIT(16), "CP_REG_PROTECT_FAULT 16"},
+			{r1 & BIT(17), "CP_RB_DONE_TS 17"},
+			{r1 & BIT(18), "CP_VS_DONE_TS 18"},
+			{r1 & BIT(19), "CP_PS_DONE_TS 19"},
+			{r1 & BIT(20), "CACHE_FLUSH_TS 20"},
+			{r1 & BIT(21), "CP_AHB_ERROR_HALT 21"},
+			{r1 & BIT(24), "MISC_HANG_DETECT 24"},
+			{r1 & BIT(25), "UCHE_OOB_ACCESS 25"},
+		};
+		adreno_dump_fields(device, "INT_SGNL=", ints, ARRAY_SIZE(ints));
+	}
+}
+
+static void adreno_dump_a2xx(struct kgsl_device *device)
+{
+	unsigned int r1, r2, r3, rbbm_status;
+	unsigned int cp_stat, rb_count;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	kgsl_regread(device, adreno_dev->gpudev->reg_rbbm_status, &rbbm_status);
+
 	kgsl_regread(device, REG_RBBM_PM_OVERRIDE1, &r2);
 	kgsl_regread(device, REG_RBBM_PM_OVERRIDE2, &r3);
 	KGSL_LOG_DUMP(device, "RBBM:   STATUS   = %08X | PM_OVERRIDE1 = %08X | "
@@ -426,37 +558,33 @@ static int adreno_dump(struct kgsl_device *device)
 				ARRAY_SIZE(lines));
 	}
 
-	kgsl_regread(device, REG_CP_RB_BASE, &cp_rb_base);
+	kgsl_regread(device, REG_CP_RB_BASE, &r1);
 	kgsl_regread(device, REG_CP_RB_CNTL, &r2);
 	rb_count = 2 << (r2 & (BIT(6)-1));
 	kgsl_regread(device, REG_CP_RB_RPTR_ADDR, &r3);
 	KGSL_LOG_DUMP(device,
 		"CP_RB:  BASE = %08X | CNTL   = %08X | RPTR_ADDR = %08X"
-		" | rb_count = %08X\n", cp_rb_base, r2, r3, rb_count);
+		"| rb_count = %08X\n", r1, r2, r3, rb_count);
 	{
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 		if (rb->sizedwords != rb_count)
 			rb_count = rb->sizedwords;
 	}
 
-	kgsl_regread(device, REG_CP_RB_RPTR, &cp_rb_rptr);
-	kgsl_regread(device, REG_CP_RB_WPTR, &cp_rb_wptr);
+	kgsl_regread(device, REG_CP_RB_RPTR, &r1);
+	kgsl_regread(device, REG_CP_RB_WPTR, &r2);
 	kgsl_regread(device, REG_CP_RB_RPTR_WR, &r3);
 	KGSL_LOG_DUMP(device,
 		"        RPTR = %08X | WPTR   = %08X | RPTR_WR   = %08X"
-		"\n", cp_rb_rptr, cp_rb_wptr, r3);
+		"\n", r1, r2, r3);
 
-	kgsl_regread(device, REG_CP_IB1_BASE, &cp_ib1_base);
-	kgsl_regread(device, REG_CP_IB1_BUFSZ, &cp_ib1_bufsz);
-	KGSL_LOG_DUMP(device,
-		"CP_IB1: BASE = %08X | BUFSZ  = %d\n", cp_ib1_base,
-		cp_ib1_bufsz);
+	kgsl_regread(device, REG_CP_IB1_BASE, &r1);
+	kgsl_regread(device, REG_CP_IB1_BUFSZ, &r2);
+	KGSL_LOG_DUMP(device, "CP_IB1: BASE = %08X | BUFSZ  = %d\n", r1, r2);
 
-	kgsl_regread(device, REG_CP_IB2_BASE, &cp_ib2_base);
-	kgsl_regread(device, REG_CP_IB2_BUFSZ, &cp_ib2_bufsz);
-	KGSL_LOG_DUMP(device,
-		"CP_IB2: BASE = %08X | BUFSZ  = %d\n", cp_ib2_base,
-		cp_ib2_bufsz);
+	kgsl_regread(device, REG_CP_IB2_BASE, &r1);
+	kgsl_regread(device, REG_CP_IB2_BUFSZ, &r2);
+	KGSL_LOG_DUMP(device, "CP_IB2: BASE = %08X | BUFSZ  = %d\n", r1, r2);
 
 	kgsl_regread(device, REG_CP_INT_CNTL, &r1);
 	kgsl_regread(device, REG_CP_INT_STATUS, &r2);
@@ -541,11 +669,10 @@ static int adreno_dump(struct kgsl_device *device)
 
 	kgsl_regread(device, MH_MMU_MPU_END, &r1);
 	kgsl_regread(device, MH_MMU_VA_RANGE, &r2);
-	pt_base = kgsl_mmu_get_current_ptbase(device);
+	r3 = kgsl_mmu_get_current_ptbase(device);
 	KGSL_LOG_DUMP(device,
 		"        MPU_END    = %08X | VA_RANGE = %08X | PT_BASE  ="
-		" %08X\n", r1, r2, pt_base);
-	cur_pt_base = pt_base;
+		" %08X\n", r1, r2, r3);
 
 	KGSL_LOG_DUMP(device, "PAGETABLE SIZE: %08X ", KGSL_PAGETABLE_SIZE);
 
@@ -556,6 +683,46 @@ static int adreno_dump(struct kgsl_device *device)
 	kgsl_regread(device, MH_INTERRUPT_STATUS, &r2);
 	KGSL_LOG_DUMP(device,
 		"MH_INTERRUPT: MASK = %08X | STATUS   = %08X\n", r1, r2);
+}
+
+static int adreno_dump(struct kgsl_device *device)
+{
+	unsigned int cp_ib1_base, cp_ib1_bufsz;
+	unsigned int cp_ib2_base, cp_ib2_bufsz;
+	unsigned int pt_base, cur_pt_base;
+	unsigned int cp_rb_base, cp_rb_ctrl, rb_count;
+	unsigned int cp_rb_wptr, cp_rb_rptr;
+	unsigned int i;
+	int result = 0;
+	uint32_t *rb_copy;
+	const uint32_t *rb_vaddr;
+	int num_item = 0;
+	int read_idx, write_idx;
+	unsigned int ts_processed;
+
+	static struct ib_list ib_list;
+
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	mb();
+
+	if (adreno_is_a2xx(adreno_dev))
+		adreno_dump_a2xx(device);
+	else if (adreno_is_a3xx(adreno_dev))
+		adreno_dump_a3xx(device);
+
+	pt_base = kgsl_mmu_get_current_ptbase(device);
+	cur_pt_base = pt_base;
+
+	kgsl_regread(device, REG_CP_RB_BASE, &cp_rb_base);
+	kgsl_regread(device, REG_CP_RB_CNTL, &cp_rb_ctrl);
+	rb_count = 2 << (cp_rb_ctrl & (BIT(6) - 1));
+	kgsl_regread(device, REG_CP_RB_RPTR, &cp_rb_rptr);
+	kgsl_regread(device, REG_CP_RB_WPTR, &cp_rb_wptr);
+	kgsl_regread(device, REG_CP_IB1_BASE, &cp_ib1_base);
+	kgsl_regread(device, REG_CP_IB1_BUFSZ, &cp_ib1_bufsz);
+	kgsl_regread(device, REG_CP_IB2_BASE, &cp_ib2_base);
+	kgsl_regread(device, REG_CP_IB2_BUFSZ, &cp_ib2_bufsz);
 
 	ts_processed = device->ftbl->readtimestamp(device,
 		KGSL_TIMESTAMP_RETIRED);
@@ -689,6 +856,9 @@ static int adreno_dump(struct kgsl_device *device)
 	else if (adreno_is_a22x(adreno_dev))
 		adreno_dump_regs(device, a220_registers,
 			a220_registers_count);
+	else if (adreno_is_a3xx(adreno_dev))
+		adreno_dump_regs(device, a3xx_registers,
+			a3xx_registers_count);
 
 error_vfree:
 	vfree(rb_copy);

@@ -67,9 +67,15 @@
 #define A3XX_RBBM_RBBM_CTL 0x100
 #define A3XX_RBBM_PERFCTR_PWR_1_LO 0x0EC
 #define A3XX_RBBM_PERFCTR_PWR_1_HI 0x0ED
+#define A3XX_RBBM_DEBUG_BUS_CTL             0x111
+#define A3XX_RBBM_DEBUG_BUS_DATA_STATUS     0x112
 /* Following two are same as on A2XX, just in a different place */
 #define A3XX_CP_PFP_UCODE_ADDR 0x1C9
 #define A3XX_CP_PFP_UCODE_DATA 0x1CA
+#define A3XX_CP_ROQ_ADDR 0x1CC
+#define A3XX_CP_ROQ_DATA 0x1CD
+#define A3XX_CP_MEQ_ADDR 0x1DA
+#define A3XX_CP_MEQ_DATA 0x1DB
 #define A3XX_CP_HW_FAULT  0x45C
 #define A3XX_CP_AHB_FAULT 0x54D
 #define A3XX_CP_PROTECT_CTRL 0x45E
@@ -142,6 +148,8 @@
 #define A3XX_GRAS_CL_USER_PLANE_Y5 0xCB5
 #define A3XX_GRAS_CL_USER_PLANE_Z5 0xCB6
 #define A3XX_GRAS_CL_USER_PLANE_W5 0xCB7
+#define A3XX_VPC_VPC_DEBUG_RAM_SEL 0xE61
+#define A3XX_VPC_VPC_DEBUG_RAM_READ 0xE62
 #define A3XX_UCHE_CACHE_INVALIDATE0_REG 0xEA0
 #define A3XX_GRAS_CL_CLIP_CNTL 0x2040
 #define A3XX_GRAS_CL_GB_CLIP_ADJ 0x2044
@@ -449,5 +457,35 @@
 #define VPC_VPCVARPSREPLMODE_COMPONENT15 26
 #define VPC_VPCVARPSREPLMODE_COMPONENT16 28
 #define VPC_VPCVARPSREPLMODE_COMPONENT17 30
+
+/* RBBM Debug bus block IDs */
+#define RBBM_BLOCK_ID_NONE             0x0
+#define RBBM_BLOCK_ID_CP               0x1
+#define RBBM_BLOCK_ID_RBBM             0x2
+#define RBBM_BLOCK_ID_VBIF             0x3
+#define RBBM_BLOCK_ID_HLSQ             0x4
+#define RBBM_BLOCK_ID_UCHE             0x5
+#define RBBM_BLOCK_ID_PC               0x8
+#define RBBM_BLOCK_ID_VFD              0x9
+#define RBBM_BLOCK_ID_VPC              0xa
+#define RBBM_BLOCK_ID_TSE              0xb
+#define RBBM_BLOCK_ID_RAS              0xc
+#define RBBM_BLOCK_ID_VSC              0xd
+#define RBBM_BLOCK_ID_SP_0             0x10
+#define RBBM_BLOCK_ID_SP_1             0x11
+#define RBBM_BLOCK_ID_SP_2             0x12
+#define RBBM_BLOCK_ID_SP_3             0x13
+#define RBBM_BLOCK_ID_TPL1_0           0x18
+#define RBBM_BLOCK_ID_TPL1_1           0x19
+#define RBBM_BLOCK_ID_TPL1_2           0x1a
+#define RBBM_BLOCK_ID_TPL1_3           0x1b
+#define RBBM_BLOCK_ID_RB_0             0x20
+#define RBBM_BLOCK_ID_RB_1             0x21
+#define RBBM_BLOCK_ID_RB_2             0x22
+#define RBBM_BLOCK_ID_RB_3             0x23
+#define RBBM_BLOCK_ID_MARB_0           0x28
+#define RBBM_BLOCK_ID_MARB_1           0x29
+#define RBBM_BLOCK_ID_MARB_2           0x2a
+#define RBBM_BLOCK_ID_MARB_3           0x2b
 
 #endif

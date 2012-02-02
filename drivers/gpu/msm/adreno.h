@@ -107,6 +107,10 @@ extern const unsigned int a220_registers[];
 extern const unsigned int a200_registers_count;
 extern const unsigned int a220_registers_count;
 
+/* A3XX register set defined in adreno_a3xx.c */
+extern const unsigned int a3xx_registers[];
+extern const unsigned int a3xx_registers_count;
+
 int adreno_idle(struct kgsl_device *device, unsigned int timeout);
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
