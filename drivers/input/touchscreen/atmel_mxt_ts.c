@@ -25,6 +25,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/regulator/consumer.h>
+#include <linux/string.h>
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
@@ -63,6 +64,10 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 
 /* Firmware */
 #define MXT_FW_NAME		"maxtouch.fw"
+
+/* Firmware frame size including frame data and CRC */
+#define MXT_SINGLE_FW_MAX_FRAME_SIZE	278
+#define MXT_CHIPSET_FW_MAX_FRAME_SIZE	534
 
 /* Registers */
 #define MXT_FAMILY_ID		0x00
@@ -1307,6 +1312,17 @@ static ssize_t mxt_object_show(struct device *dev,
 	return count;
 }
 
+static int strtobyte(const char *data, u8 *value)
+{
+	char str[3];
+
+	str[0] = data[0];
+	str[1] = data[1];
+	str[2] = '\0';
+
+	return kstrtou8(str, 16, value);
+}
+
 static int mxt_load_fw(struct device *dev, const char *fn)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
@@ -1315,12 +1331,30 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 	unsigned int frame_size;
 	unsigned int retry = 0;
 	unsigned int pos = 0;
-	int ret;
+	int ret, i, max_frame_size;
+	u8 *frame;
+
+	switch (data->info.family_id) {
+	case MXT224_ID:
+		max_frame_size = MXT_SINGLE_FW_MAX_FRAME_SIZE;
+		break;
+	case MXT1386_ID:
+		max_frame_size = MXT_CHIPSET_FW_MAX_FRAME_SIZE;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	frame = kmalloc(max_frame_size, GFP_KERNEL);
+	if (!frame) {
+		dev_err(dev, "Unable to allocate memory for frame data\n");
+		return -ENOMEM;
+	}
 
 	ret = request_firmware(&fw, fn, dev);
 	if (ret < 0) {
 		dev_err(dev, "Unable to open firmware %s\n", fn);
-		return ret;
+		goto free_frame;
 	}
 
 	if (data->state != BOOTLOADER) {
@@ -1355,15 +1389,38 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 		if (ret)
 			goto release_firmware;
 
-		frame_size = ((*(fw->data + pos) << 8) | *(fw->data + pos + 1));
+		/* Get frame length MSB */
+		ret = strtobyte(fw->data + pos, frame);
+		if (ret)
+			goto release_firmware;
+
+		/* Get frame length LSB */
+		ret = strtobyte(fw->data + pos + 2, frame + 1);
+		if (ret)
+			goto release_firmware;
+
+		frame_size = ((*frame << 8) | *(frame + 1));
 
 		/* We should add 2 at frame size as the the firmware data is not
 		 * included the CRC bytes.
 		 */
 		frame_size += 2;
 
+		if (frame_size > max_frame_size) {
+			dev_err(dev, "Invalid frame size - %d\n", frame_size);
+			ret = -EINVAL;
+			goto release_firmware;
+		}
+
+		/* Convert frame data and CRC from hex to binary */
+		for (i = 2; i < frame_size; i++) {
+			ret = strtobyte(fw->data + pos + i * 2, frame + i);
+			if (ret)
+				goto release_firmware;
+		}
+
 		/* Write one frame to device */
-		mxt_fw_write(client, fw->data + pos, frame_size);
+		mxt_fw_write(client, frame, frame_size);
 
 		ret = mxt_check_bootloader(client,
 						MXT_FRAME_CRC_PASS);
@@ -1377,8 +1434,8 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 				goto release_firmware;
 		} else {
 			retry = 0;
-			pos += frame_size;
-			dev_info(dev, "Updated %d/%zd bytes\n", pos, fw->size);
+			pos += frame_size * 2;
+			dev_dbg(dev, "Updated %d/%zd bytes\n", pos, fw->size);
 		}
 	}
 
@@ -1386,6 +1443,8 @@ return_to_app_mode:
 	mxt_switch_to_appmode_address(data);
 release_firmware:
 	release_firmware(fw);
+free_frame:
+	kfree(frame);
 
 	return ret;
 }
@@ -1420,6 +1479,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 		data->state = INIT;
 		kfree(data->object_table);
 		data->object_table = NULL;
+		data->cfg_version_idx = 0;
 
 		mxt_initialize(data);
 	}
