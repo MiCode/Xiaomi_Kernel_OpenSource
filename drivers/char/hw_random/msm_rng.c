@@ -122,19 +122,19 @@ static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 				"failed to enable clock in probe\n");
 		return -EPERM;
 	}
-	val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET) &
-					PRNG_LFSR_CFG_MASK;
-	val |= PRNG_LFSR_CFG_MASK;
-	writel_relaxed(val, msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
-
-	/* The PRNG CONFIG register should be first written before reading */
-	mb();
-
 	/* Enable PRNG h/w only if it is NOT ON */
 	val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET) &
 					PRNG_HW_ENABLE;
 	/* PRNG H/W is not ON */
 	if (val != PRNG_HW_ENABLE) {
+		val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET) &
+					PRNG_LFSR_CFG_MASK;
+		val |= PRNG_LFSR_CFG_MASK;
+		writel_relaxed(val, msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
+
+		/* The PRNG CONFIG register should be first written */
+		mb();
+
 		reg_val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET)
 						& PRNG_CONFIG_MASK;
 		reg_val |= PRNG_HW_ENABLE;
