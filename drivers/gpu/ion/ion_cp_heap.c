@@ -51,8 +51,10 @@
  * @release_region:	function pointer to call when last mapping of memory
  *			unmapped.
  * @bus_id: token used with request/release region.
- * @kmap_count:	the total number of times this heap has been mapped in
- *		kernel space.
+ * @kmap_cached_count:	the total number of times this heap has been mapped in
+ *			kernel space (cached).
+ * @kmap_uncached_count:the total number of times this heap has been mapped in
+ *			kernel space (un-cached).
  * @umap_count:	the total number of times this heap has been mapped in
  *		user space.
  */
@@ -70,7 +72,8 @@ struct ion_cp_heap {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *bus_id;
-	unsigned long kmap_count;
+	unsigned long kmap_cached_count;
+	unsigned long kmap_uncached_count;
 	unsigned long umap_count;
 };
 
@@ -85,6 +88,15 @@ static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
 static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
 				unsigned int permission_type);
 
+/**
+ * Get the total number of kernel mappings.
+ * Must be called with heap->lock locked.
+ */
+static unsigned long ion_cp_get_total_kmap_count(
+					const struct ion_cp_heap *cp_heap)
+{
+	return cp_heap->kmap_cached_count + cp_heap->kmap_uncached_count;
+}
 
 /**
  * Protects memory if heap is unsecured heap.
@@ -154,11 +166,13 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
-	if (secure_allocation && cp_heap->umap_count > 0) {
+	if (secure_allocation &&
+	    (cp_heap->umap_count > 0 || cp_heap->kmap_cached_count > 0)) {
 		mutex_unlock(&cp_heap->lock);
 		pr_err("ION cannot allocate secure memory from heap with "
-			"outstanding user space mappings for heap %s\n",
-			heap->name);
+			"outstanding mappings: User space: %lu, kernel space "
+			"(cached): %lu\n", cp_heap->umap_count,
+					   cp_heap->kmap_cached_count);
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
@@ -274,7 +288,7 @@ void ion_cp_heap_unmap_dma(struct ion_heap *heap,
 static int ion_cp_request_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
-	if ((cp_heap->umap_count+cp_heap->kmap_count) == 0)
+	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
 		if (cp_heap->request_region)
 			ret_value = cp_heap->request_region(cp_heap->bus_id);
 	return ret_value;
@@ -286,7 +300,7 @@ static int ion_cp_request_region(struct ion_cp_heap *cp_heap)
 static int ion_cp_release_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
-	if ((cp_heap->umap_count + cp_heap->kmap_count) == 0)
+	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
 		if (cp_heap->release_region)
 			ret_value = cp_heap->release_region(cp_heap->bus_id);
 	return ret_value;
@@ -314,10 +328,14 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 		else
 			ret_value = ioremap(buffer->priv_phys, buffer->size);
 
-		if (!ret_value)
+		if (!ret_value) {
 			ion_cp_release_region(cp_heap);
-		else
-			++cp_heap->kmap_count;
+		} else {
+			if (ION_IS_CACHED(buffer->flags))
+				++cp_heap->kmap_cached_count;
+			else
+				++cp_heap->kmap_uncached_count;
+		}
 	}
 	mutex_unlock(&cp_heap->lock);
 	return ret_value;
@@ -333,7 +351,10 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 	buffer->vaddr = NULL;
 
 	mutex_lock(&cp_heap->lock);
-	--cp_heap->kmap_count;
+	if (ION_IS_CACHED(buffer->flags))
+		--cp_heap->kmap_cached_count;
+	else
+		--cp_heap->kmap_uncached_count;
 	ion_cp_release_region(cp_heap);
 	mutex_unlock(&cp_heap->lock);
 
@@ -428,7 +449,7 @@ static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s)
 	total_alloc = cp_heap->allocated_bytes;
 	total_size = cp_heap->total_size;
 	umap_count = cp_heap->umap_count;
-	kmap_count = cp_heap->kmap_count;
+	kmap_count = ion_cp_get_total_kmap_count(cp_heap);
 	heap_protected = cp_heap->heap_protected == HEAP_PROTECTED;
 	mutex_unlock(&cp_heap->lock);
 
@@ -447,11 +468,12 @@ int ion_cp_secure_heap(struct ion_heap *heap)
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	mutex_lock(&cp_heap->lock);
-	if (cp_heap->umap_count == 0) {
+	if (cp_heap->umap_count == 0 && cp_heap->kmap_cached_count == 0) {
 		ret_value = ion_cp_protect(heap);
 	} else {
 		pr_err("ION cannot secure heap with outstanding mappings: "
-		       "User space: %lu\n", cp_heap->umap_count);
+		       "User space: %lu, kernel space (cached): %lu\n",
+		       cp_heap->umap_count, cp_heap->kmap_cached_count);
 		ret_value = -EINVAL;
 	}
 
@@ -509,7 +531,8 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 
 	cp_heap->allocated_bytes = 0;
 	cp_heap->umap_count = 0;
-	cp_heap->kmap_count = 0;
+	cp_heap->kmap_cached_count = 0;
+	cp_heap->kmap_uncached_count = 0;
 	cp_heap->total_size = heap_data->size;
 	cp_heap->heap.ops = &cp_heap_ops;
 	cp_heap->heap.type = ION_HEAP_TYPE_CP;
