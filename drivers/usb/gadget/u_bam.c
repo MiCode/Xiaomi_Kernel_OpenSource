@@ -29,7 +29,7 @@
 #include "u_rmnet.h"
 
 #define BAM_N_PORTS	1
-#define BAM2BAM_N_PORTS	1
+#define BAM2BAM_N_PORTS	3
 
 static struct workqueue_struct *gbam_wq;
 static int n_bam_ports;

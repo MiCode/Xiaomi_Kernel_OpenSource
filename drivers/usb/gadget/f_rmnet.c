@@ -61,7 +61,7 @@ struct f_rmnet {
 	unsigned long			cpkts_len;
 };
 
-#define NR_RMNET_PORTS	1
+#define NR_RMNET_PORTS	3
 static unsigned int nr_rmnet_ports;
 static unsigned int no_ctrl_smd_ports;
 static unsigned int no_ctrl_hsic_ports;
@@ -334,10 +334,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
-		/* currently only one connection (idx 0)
-		   is supported */
 		ret = gbam_connect(&dev->port, port_num,
-						   dxport, 0);
+						   dxport, port_num);
 		if (ret) {
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);

@@ -24,9 +24,9 @@
 
 #include "u_rmnet.h"
 
-#define NR_CTRL_SMD_PORTS	1
+#define NR_CTRL_SMD_PORTS	3
 static int n_rmnet_ctrl_ports;
-static char *rmnet_ctrl_names[] = { "DATA40_CNTL" };
+static char *rmnet_ctrl_names[] = {"DATA40_CNTL", "DATA39_CNTL", "DATA38_CNTL"};
 static struct workqueue_struct *grmnet_ctrl_wq;
 
 #define SMD_CH_MAX_LEN	20
