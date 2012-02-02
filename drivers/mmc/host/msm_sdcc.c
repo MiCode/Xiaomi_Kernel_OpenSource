@@ -1002,6 +1002,12 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		}
 	}
 
+	/* Clear CDR_EN bit for write operations */
+	if (host->tuning_needed && cmd->mrq->data &&
+			(cmd->mrq->data->flags & MMC_DATA_WRITE))
+		writel_relaxed((readl_relaxed(host->base + MCI_DLL_CONFIG) &
+				~MCI_CDR_EN), host->base + MCI_DLL_CONFIG);
+
 	if ((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) {
 		*c |= MCI_CPSM_PROGENA;
 		host->prog_enable = 1;
@@ -2876,22 +2882,21 @@ out:
  * Select the 3/4 of the range and configure the DLL with the
  * selected DLL clock output phase.
 */
-
 static u8 find_most_appropriate_phase(struct msmsdcc_host *host,
 				u8 *phase_table, u8 total_phases)
 {
-	u8 ret, temp;
-	u8 ranges[16][16] = { {0}, {0} };
+	u8 ret, ranges[16][16] = { {0}, {0} };
 	u8 phases_per_row[16] = {0};
 	int row_index = 0, col_index = 0, selected_row_index = 0, curr_max = 0;
-	int cnt;
+	int i, cnt, phase_0_raw_index = 0, phase_15_raw_index = 0;
+	bool phase_0_found = false, phase_15_found = false;
 
-	for (cnt = 0; cnt <= total_phases; cnt++) {
+	for (cnt = 0; cnt < total_phases; cnt++) {
 		ranges[row_index][col_index] = phase_table[cnt];
 		phases_per_row[row_index] += 1;
 		col_index++;
 
-		if ((cnt + 1) > total_phases) {
+		if ((cnt + 1) == total_phases) {
 			continue;
 		/* check if next phase in phase_table is consecutive or not */
 		} else if ((phase_table[cnt] + 1) != phase_table[cnt + 1]) {
@@ -2900,15 +2905,50 @@ static u8 find_most_appropriate_phase(struct msmsdcc_host *host,
 		}
 	}
 
-	for (cnt = 0; cnt <= total_phases; cnt++) {
+	/* Check if phase-0 is present in first valid window? */
+	if (!ranges[0][0]) {
+		phase_0_found = true;
+		phase_0_raw_index = 0;
+		/* Check if cycle exist between 2 valid windows */
+		for (cnt = 1; cnt <= row_index; cnt++) {
+			if (phases_per_row[cnt]) {
+				for (i = 0; i <= phases_per_row[cnt]; i++) {
+					if (ranges[cnt][i] == 15) {
+						phase_15_found = true;
+						phase_15_raw_index = cnt;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	/* If 2 valid windows form cycle then merge them as single window */
+	if (phase_0_found && phase_15_found) {
+		/* number of phases in raw where phase 0 is present */
+		u8 phases_0 = phases_per_row[phase_0_raw_index];
+		/* number of phases in raw where phase 15 is present */
+		u8 phases_15 = phases_per_row[phase_15_raw_index];
+
+		cnt = 0;
+		for (i = phases_15; i < (phases_15 + phases_0); i++) {
+			ranges[phase_15_raw_index][i] =
+				ranges[phase_0_raw_index][cnt];
+			cnt++;
+		}
+		phases_per_row[phase_0_raw_index] = 0;
+		phases_per_row[phase_15_raw_index] = phases_15 + phases_0;
+	}
+
+	for (cnt = 0; cnt <= row_index; cnt++) {
 		if (phases_per_row[cnt] > curr_max) {
 			curr_max = phases_per_row[cnt];
 			selected_row_index = cnt;
 		}
 	}
 
-	temp = ((curr_max * 3) / 4);
-	ret = ranges[selected_row_index][temp];
+	i = ((curr_max * 3) / 4) - 1;
+	ret = ranges[selected_row_index][i];
 
 	return ret;
 }
@@ -2981,11 +3021,12 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc)
 			!memcmp(data_buf, cmd19_tuning_block, 64)) {
 			/* tuning is successful with this tuning point */
 			tuned_phases[tuned_phase_cnt++] = phase;
+			pr_debug("%s: %s: found good phase = %d\n",
+				mmc_hostname(mmc), __func__, phase);
 		}
 	} while (++phase < 16);
 
 	if (tuned_phase_cnt) {
-		tuned_phase_cnt--;
 		phase = find_most_appropriate_phase(host, tuned_phases,
 							tuned_phase_cnt);
 		/*
