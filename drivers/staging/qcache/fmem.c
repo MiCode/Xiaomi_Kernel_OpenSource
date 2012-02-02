@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,12 +51,14 @@ static int fmem_probe(struct platform_device *pdev)
 {
 	struct fmem_platform_data *pdata = pdev->dev.platform_data;
 
-	if (!pdata->size)
+	fmem_data.phys = pdata->phys + pdata->reserved_size;
+	fmem_data.size = pdata->size - pdata->reserved_size;
+	fmem_data.reserved_size = pdata->reserved_size;
+
+	if (!fmem_data.size)
 		return -ENODEV;
 
-	fmem_data.phys = pdata->phys;
-	fmem_data.size = pdata->size;
-	fmem_data.area = get_vm_area(pdata->size, VM_IOREMAP);
+	fmem_data.area = get_vm_area(fmem_data.size, VM_IOREMAP);
 	if (!fmem_data.area)
 		return -ENOMEM;
 
