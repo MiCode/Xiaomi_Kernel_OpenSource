@@ -54,6 +54,7 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/freezer.h>
+#include <linux/cleancache.h>
 
 #include <asm/div64.h>
 
@@ -1140,6 +1141,10 @@ static int yaffs_readpage_nolock(struct file *f, struct page *pg)
 		(unsigned)(pg->index << PAGE_CACHE_SHIFT),
 		(unsigned)PAGE_CACHE_SIZE);
 
+	ret = cleancache_get_page(pg);
+	if (!ret)
+		goto cleancache_got;
+
 	obj = yaffs_dentry_to_obj(f->f_dentry);
 
 	dev = obj->my_dev;
@@ -1159,11 +1164,13 @@ static int yaffs_readpage_nolock(struct file *f, struct page *pg)
 	if (ret >= 0)
 		ret = 0;
 
+cleancache_got:
 	if (ret) {
 		ClearPageUptodate(pg);
 		SetPageError(pg);
 	} else {
 		SetPageUptodate(pg);
+		SetPageMappedToDisk(pg);
 		ClearPageError(pg);
 	}
 
@@ -2365,6 +2372,7 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 		dev->is_checkpointed);
 
 	yaffs_trace(YAFFS_TRACE_OS, "yaffs_read_super: done");
+	cleancache_init_fs(sb);
 	return sb;
 }
 
