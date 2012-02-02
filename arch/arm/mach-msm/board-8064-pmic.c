@@ -270,6 +270,48 @@ apq8064_pm8921_rtc_pdata = {
 	.rtc_alarm_powerup      = false,
 };
 
+static int apq8064_pm8921_therm_mitigation[] = {
+	1100,
+	700,
+	600,
+	325,
+};
+
+#define MAX_VOLTAGE_MV          4200
+static struct pm8921_charger_platform_data
+apq8064_pm8921_chg_pdata __devinitdata = {
+	.safety_time		= 180,
+	.update_time		= 60000,
+	.max_voltage		= MAX_VOLTAGE_MV,
+	.min_voltage		= 3200,
+	.resume_voltage_delta	= 100,
+	.term_current		= 100,
+	.cool_temp		= 10,
+	.warm_temp		= 40,
+	.temp_check_period	= 1,
+	.max_bat_chg_current	= 1100,
+	.cool_bat_chg_current	= 350,
+	.warm_bat_chg_current	= 350,
+	.cool_bat_voltage	= 4100,
+	.warm_bat_voltage	= 4100,
+	.thermal_mitigation	= apq8064_pm8921_therm_mitigation,
+	.thermal_levels		= ARRAY_SIZE(apq8064_pm8921_therm_mitigation),
+};
+
+static struct pm8xxx_ccadc_platform_data
+apq8064_pm8xxx_ccadc_pdata = {
+	.r_sense		= 10,
+};
+
+static struct pm8921_bms_platform_data
+apq8064_pm8921_bms_pdata __devinitdata = {
+	.r_sense		= 10,
+	.i_test			= 2500,
+	.v_failure		= 3000,
+	.calib_delay_ms		= 600000,
+	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
+};
+
 static struct pm8921_platform_data
 apq8064_pm8921_platform_data __devinitdata = {
 	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
@@ -281,6 +323,9 @@ apq8064_pm8921_platform_data __devinitdata = {
 	.misc_pdata		= &apq8064_pm8921_misc_pdata,
 	.leds_pdata		= &apq8064_pm8921_leds_pdata,
 	.adc_pdata		= &apq8064_pm8921_adc_pdata,
+	.charger_pdata		= &apq8064_pm8921_chg_pdata,
+	.bms_pdata		= &apq8064_pm8921_bms_pdata,
+	.ccadc_pdata		= &apq8064_pm8xxx_ccadc_pdata,
 };
 
 static struct pm8xxx_irq_platform_data
