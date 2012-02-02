@@ -176,7 +176,6 @@ static void tsens8960_get_temp(int sensor_num, unsigned long *temp)
 				TSENS_TRDY_RDY_MAX_TIME);
 		tmdev->prev_reading_avail = true;
 	}
-
 	code = readl_relaxed(TSENS_S0_STATUS_ADDR +
 			(sensor_num << TSENS_STATUS_ADDR_OFFSET));
 	*temp = tsens_tz_code_to_degC(code, sensor_num);
@@ -726,7 +725,7 @@ static int tsens_calib_sensors8960(void)
 				tmdev->sensor[i].calib_data_backup;
 
 		if (!tmdev->sensor[i].calib_data) {
-			pr_err("%s: No temperature sensor:%d data for"
+			WARN(1, "%s: No temperature sensor:%d data for"
 			" calibration in QFPROM!\n", __func__, i);
 			return -ENODEV;
 		}
@@ -789,12 +788,14 @@ int msm_tsens_early_init(struct tsens_platform_data *pdata)
 	rc = tsens_check_version_support();
 	if (rc < 0) {
 		kfree(tmdev);
+		tmdev = NULL;
 		return rc;
 	}
 
 	rc = tsens_calib_sensors();
 	if (rc < 0) {
 		kfree(tmdev);
+		tmdev = NULL;
 		return rc;
 	}
 
@@ -846,6 +847,7 @@ static int __init tsens_tm_init(void)
 fail:
 	tsens_disable_mode();
 	kfree(tmdev);
+	tmdev = NULL;
 	mb();
 	return rc;
 }
@@ -860,6 +862,7 @@ static void __exit tsens_tm_remove(void)
 	for (i = 0; i < tmdev->tsens_num_sensor; i++)
 		thermal_zone_device_unregister(tmdev->sensor[i].tz_dev);
 	kfree(tmdev);
+	tmdev = NULL;
 }
 
 module_init(tsens_tm_init);
