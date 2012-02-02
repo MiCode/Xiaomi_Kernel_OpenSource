@@ -38,7 +38,7 @@
 #include "devices.h"
 #include "timer.h"
 #include "acpuclock.h"
-#include <mach/pm.h>
+#include "pm.h"
 #include "spm.h"
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/machine.h>

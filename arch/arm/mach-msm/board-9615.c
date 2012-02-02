@@ -35,7 +35,7 @@
 #include "devices.h"
 #include "board-9615.h"
 #include <mach/cpuidle.h>
-#include <mach/pm.h>
+#include "pm.h"
 #include "acpuclock.h"
 #include "pm-boot.h"
 

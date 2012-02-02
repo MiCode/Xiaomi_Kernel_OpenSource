@@ -54,7 +54,7 @@
 #include "timer.h"
 #include "msm-keypad-devices.h"
 #include "acpuclock.h"
-#include <mach/pm.h>
+#include "pm.h"
 #include "pm-boot.h"
 #include "proc_comm.h"
 #ifdef CONFIG_USB_ANDROID

@@ -87,7 +87,7 @@
 #include "devices-msm8x60.h"
 #include "spm.h"
 #include "board-8960.h"
-#include <mach/pm.h>
+#include "pm.h"
 #include <mach/cpuidle.h>
 #include "rpm_resources.h"
 #include "mpm.h"

@@ -30,7 +30,7 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
-#include <mach/pm.h>
+#include "pm.h"
 #include "devices.h"
 #include "mpm.h"
 #include "spm.h"

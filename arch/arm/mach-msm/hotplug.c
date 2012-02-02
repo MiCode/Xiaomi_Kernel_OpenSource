@@ -13,8 +13,7 @@
 #include <asm/cacheflush.h>
 #include <asm/vfp.h>
 
-#include <mach/pm.h>
-
+#include "pm.h"
 #include "qdss.h"
 #include "spm.h"
 

@@ -68,7 +68,7 @@
 #include "clock.h"
 #include "acpuclock.h"
 #include "msm-keypad-devices.h"
-#include <mach/pm.h>
+#include "pm.h"
 #include "pm-boot.h"
 
 #ifdef CONFIG_ARCH_MSM7X25
