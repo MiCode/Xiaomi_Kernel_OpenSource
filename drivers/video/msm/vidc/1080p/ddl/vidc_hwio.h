@@ -24,8 +24,8 @@
 #define VIDC_REG_IN(x...)
 #endif
 
-#define __inpdw(port) (*((u32 *) (port)))
-#define __outpdw(port, val) (*((u32 *) (port)) = ((u32) (val)))
+#define __inpdw(port) __raw_readl(port)
+#define __outpdw(port, val) __raw_writel(val, port)
 
 #define in_dword(addr) (__inpdw(addr))
 #define in_dword_masked(addr, mask) (__inpdw(addr) & (mask))
