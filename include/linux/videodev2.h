@@ -712,6 +712,11 @@ struct v4l2_captureparm {
 /*  Flags for 'capability' and 'capturemode' fields */
 #define V4L2_MODE_HIGHQUALITY	0x0001	/*  High quality imaging mode */
 #define V4L2_CAP_TIMEPERFRAME	0x1000	/*  timeperframe field is supported */
+#define V4L2_CAP_QCOM_FRAMESKIP	0x2000	/*  frame skipping is supported */
+
+struct v4l2_qcom_frameskip {
+	__u64		maxframeinterval;
+};
 
 struct v4l2_outputparm {
 	__u32		   capability;	 /*  Supported modes */
