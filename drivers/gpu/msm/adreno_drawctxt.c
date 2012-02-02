@@ -19,12 +19,21 @@
 
 /* quad for copying GMEM to context shadow */
 #define QUAD_LEN 12
+#define QUAD_RESTORE_LEN 14
 
 static unsigned int gmem_copy_quad[QUAD_LEN] = {
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000
+};
+
+static unsigned int gmem_restore_quad[QUAD_RESTORE_LEN] = {
+	0x00000000, 0x3f800000, 0x3f800000,
+	0x00000000, 0x00000000, 0x00000000,
+	0x3f800000, 0x00000000, 0x00000000,
+	0x3f800000, 0x00000000, 0x00000000,
+	0x3f800000, 0x3f800000,
 };
 
 #define TEXCOORD_LEN 8
@@ -73,12 +82,12 @@ static void set_gmem_copy_quad(struct gmem_shadow_t *shadow)
 	gmem_copy_quad[4] = uint2float(shadow->height);
 	gmem_copy_quad[9] = uint2float(shadow->width);
 
-	gmem_copy_quad[0] = 0;
-	gmem_copy_quad[6] = 0;
-	gmem_copy_quad[7] = 0;
-	gmem_copy_quad[10] = 0;
+	gmem_restore_quad[5] = uint2float(shadow->height);
+	gmem_restore_quad[7] = uint2float(shadow->width);
 
 	memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
+	memcpy(shadow->quad_vertices_restore.hostptr, gmem_copy_quad,
+		QUAD_RESTORE_LEN << 2);
 
 	memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord,
 		TEXCOORD_LEN << 2);
@@ -102,6 +111,13 @@ void build_quad_vtxbuff(struct adreno_context *drawctxt,
 	shadow->quad_vertices.gpuaddr = virt2gpu(cmd, &drawctxt->gpustate);
 
 	cmd += QUAD_LEN;
+
+	/* Used by A3XX, but define for both to make the code easier */
+	shadow->quad_vertices_restore.hostptr = cmd;
+	shadow->quad_vertices_restore.gpuaddr =
+		virt2gpu(cmd, &drawctxt->gpustate);
+
+	cmd += QUAD_RESTORE_LEN;
 
 	/* tex coord buffer location (in GPU space) */
 	shadow->quad_texcoords.hostptr = cmd;

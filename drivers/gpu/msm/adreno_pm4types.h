@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,6 +157,18 @@
 
 #define CP_SET_PROTECTED_MODE  0x5f /* sets the register protection mode */
 
+/*
+ * for a3xx
+ */
+
+#define CP_LOAD_STATE 0x30 /* load high level sequencer command */
+
+#define CP_LOADSTATE_DSTOFFSET_SHIFT 0x00000000
+#define CP_LOADSTATE_STATESRC_SHIFT 0x00000010
+#define CP_LOADSTATE_STATEBLOCKID_SHIFT 0x00000013
+#define CP_LOADSTATE_NUMOFUNITS_SHIFT 0x00000016
+#define CP_LOADSTATE_STATETYPE_SHIFT 0x00000000
+#define CP_LOADSTATE_EXTSRCADDR_SHIFT 0x00000002
 
 /* packet header building macros */
 #define cp_type0_packet(regindx, cnt) \
