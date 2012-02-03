@@ -4630,8 +4630,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_HS(0x32), &csi_rdi2_clk.c },
 	{ TEST_MM_HS(0x33), &vcap_clk.c },
 	{ TEST_MM_HS(0x34), &vcap_npl_clk.c },
-	{ TEST_MM_HS(0x36), &vcap_axi_clk.c },
-	{ TEST_MM_HS(0x39), &gfx3d_axi_clk.c },
+	{ TEST_MM_HS(0x35), &vcap_axi_clk.c },
+	{ TEST_MM_HS(0x38), &gfx3d_axi_clk.c },
 
 	{ TEST_LPA(0x0F), &mi2s_bit_clk.c },
 	{ TEST_LPA(0x10), &codec_i2s_mic_bit_clk.c },
