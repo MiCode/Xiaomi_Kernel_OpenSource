@@ -102,7 +102,7 @@ static struct pil_device *find_peripheral(const char *str)
 static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		struct pil_device *pil)
 {
-	int ret, count, paddr;
+	int ret = 0, count, paddr;
 	char fw_name[30];
 	const struct firmware *fw = NULL;
 	const u8 *data;
@@ -173,10 +173,12 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		paddr += size;
 	}
 
-	ret = pil->desc->ops->verify_blob(pil->desc, phdr->p_paddr,
+	if (pil->desc->ops->verify_blob) {
+		ret = pil->desc->ops->verify_blob(pil->desc, phdr->p_paddr,
 					  phdr->p_memsz);
-	if (ret)
-		dev_err(&pil->dev, "Blob %u failed verification\n", num);
+		if (ret)
+			dev_err(&pil->dev, "Blob%u failed verification\n", num);
+	}
 
 release_fw:
 	release_firmware(fw);

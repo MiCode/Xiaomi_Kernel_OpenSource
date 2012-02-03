@@ -19,11 +19,6 @@
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int pil_tzapps_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
@@ -42,7 +37,6 @@ static int pil_tzapps_shutdown(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_tzapps_ops = {
 	.init_image = pil_tzapps_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_tzapps_reset,
 	.shutdown = pil_tzapps_shutdown,
 };

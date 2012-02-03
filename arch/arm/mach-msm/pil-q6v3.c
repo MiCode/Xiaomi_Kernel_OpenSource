@@ -71,11 +71,6 @@ struct q6v3_data {
 	struct delayed_work work;
 };
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
@@ -191,7 +186,6 @@ static int pil_q6v3_shutdown(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_q6v3_ops = {
 	.init_image = pil_q6v3_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_q6v3_reset,
 	.shutdown = pil_q6v3_shutdown,
 };
@@ -227,7 +221,6 @@ static int pil_q6v3_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_q6v3_ops_trusted = {
 	.init_image = pil_q6v3_init_image_trusted,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_q6v3_reset_trusted,
 	.shutdown = pil_q6v3_shutdown_trusted,
 };

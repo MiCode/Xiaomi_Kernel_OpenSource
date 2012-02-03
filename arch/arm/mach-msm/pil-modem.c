@@ -58,11 +58,6 @@ struct modem_data {
 	struct delayed_work work;
 };
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int make_modem_proxy_votes(struct device *dev)
 {
 	int ret;
@@ -226,7 +221,6 @@ static int modem_shutdown(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_modem_ops = {
 	.init_image = modem_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = modem_reset,
 	.shutdown = modem_shutdown,
 };
@@ -268,7 +262,6 @@ static int modem_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_modem_ops_trusted = {
 	.init_image = modem_init_image_trusted,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = modem_reset_trusted,
 	.shutdown = modem_shutdown_trusted,
 };
