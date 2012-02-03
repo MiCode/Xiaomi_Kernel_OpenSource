@@ -46,6 +46,7 @@
 /* GSBI UART devices */
 #define MSM_UART1DM_PHYS	(MSM_GSBI1_PHYS + 0x10000)
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
+#define MSM_UART7DM_PHYS	(MSM_GSBI7_PHYS + 0x40000)
 
 /* GSBI QUP devices */
 #define MSM_GSBI3_QUP_PHYS	(MSM_GSBI3_PHYS + 0x80000)
@@ -127,7 +128,7 @@ static struct resource resources_uart_gsbi1[] = {
 
 struct platform_device apq8064_device_uart_gsbi1 = {
 	.name	= "msm_serial_hsl",
-	.id	= 0,
+	.id	= 1,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi1),
 	.resource	= resources_uart_gsbi1,
 };
@@ -213,6 +214,33 @@ struct platform_device apq8064_device_qup_spi_gsbi5 = {
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi5),
 	.resource	= resources_qup_spi_gsbi5,
+};
+
+static struct resource resources_uart_gsbi7[] = {
+	{
+		.start	= GSBI7_UARTDM_IRQ,
+		.end	= GSBI7_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART7DM_PHYS,
+		.end	= MSM_UART7DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI7_PHYS,
+		.end	= MSM_GSBI7_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq8064_device_uart_gsbi7 = {
+	.name	= "msm_serial_hsl",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi7),
+	.resource	= resources_uart_gsbi7,
 };
 
 struct platform_device apq_pcm = {
