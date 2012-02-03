@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2011, The Linux Foundation. All rights reserved.
+# Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@ import subprocess
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
 allowed_warnings = set([
+    "alignment.c:298",
     "alignment.c:720",
     "async.c:122",
     "async.c:270",
@@ -58,7 +59,8 @@ allowed_warnings = set([
     "msm_sdcc.c:128",
     "nf_conntrack_netlink.c:790",
     "nf_nat_standalone.c:118",
-    "return_address.c:61",
+    "return_address.c:62",
+    "sch_generic.c:678",
     "soc-core.c:1719",
     "xt_log.h:50",
  ])
