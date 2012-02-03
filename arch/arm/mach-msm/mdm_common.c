@@ -48,10 +48,6 @@ static struct workqueue_struct *mdm_queue;
 
 #define EXTERNAL_MODEM "external_modem"
 
-#define MDM_DBG(...)	do { if (mdm_debug_on) \
-					pr_info(__VA_ARGS__); \
-			} while (0);
-
 static struct mdm_modem_drv *mdm_drv;
 
 DECLARE_COMPLETION(mdm_needs_reload);
@@ -70,10 +66,10 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	MDM_DBG("%s: Entering ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
+	pr_debug("%s: Entering ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
 	switch (cmd) {
 	case WAKE_CHARM:
-		MDM_DBG("%s: Powering on\n", __func__);
+		pr_info("%s: Powering on mdm\n", __func__);
 		mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 		break;
 	case CHECK_FOR_BOOT:
@@ -83,12 +79,15 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			put_user(0, (unsigned long __user *) arg);
 		break;
 	case NORMAL_BOOT_DONE:
-		MDM_DBG("%s: check if mdm is booted up\n", __func__);
+		pr_debug("%s: check if mdm is booted up\n", __func__);
 		get_user(status, (unsigned long __user *) arg);
-		if (status)
+		if (status) {
+			pr_debug("%s: normal boot failed\n", __func__);
 			mdm_drv->mdm_boot_status = -EIO;
-		else
+		} else {
+			pr_info("%s: normal boot done\n", __func__);
 			mdm_drv->mdm_boot_status = 0;
+		}
 		mdm_drv->mdm_ready = 1;
 
 		if (mdm_drv->ops->normal_boot_done_cb != NULL)
@@ -100,16 +99,18 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			first_boot = 0;
 		break;
 	case RAM_DUMP_DONE:
-		MDM_DBG("%s: mdm done collecting RAM dumps\n", __func__);
+		pr_debug("%s: mdm done collecting RAM dumps\n", __func__);
 		get_user(status, (unsigned long __user *) arg);
 		if (status)
 			mdm_drv->mdm_ram_dump_status = -EIO;
-		else
+		else {
+			pr_info("%s: ramdump collection completed\n", __func__);
 			mdm_drv->mdm_ram_dump_status = 0;
+		}
 		complete(&mdm_ram_dumps);
 		break;
 	case WAIT_FOR_RESTART:
-		MDM_DBG("%s: wait for mdm to need images reloaded\n",
+		pr_debug("%s: wait for mdm to need images reloaded\n",
 				__func__);
 		ret = wait_for_completion_interruptible(&mdm_needs_reload);
 		if (!ret)
@@ -128,7 +129,7 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 
 static void mdm_fatal_fn(struct work_struct *work)
 {
-	MDM_DBG("%s: Reseting the mdm due to an errfatal\n", __func__);
+	pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
 	subsystem_restart(EXTERNAL_MODEM);
 }
 
@@ -140,13 +141,13 @@ static void mdm_status_fn(struct work_struct *work)
 
 	mdm_drv->ops->status_cb(value);
 
-	MDM_DBG("%s: status:%d\n", __func__, value);
+	pr_debug("%s: status:%d\n", __func__, value);
 
 	if ((value == 0) && mdm_drv->mdm_ready) {
-		MDM_DBG("%s: scheduling work now\n", __func__);
+		pr_info("%s: unexpected reset external modem\n", __func__);
 		subsystem_restart(EXTERNAL_MODEM);
 	} else if (value == 1) {
-		MDM_DBG("%s: mdm is now ready\n", __func__);
+		pr_info("%s: status = 1: mdm is now ready\n", __func__);
 	}
 }
 
@@ -161,10 +162,10 @@ static void mdm_disable_irqs(void)
 
 static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 {
-	MDM_DBG("%s: mdm got errfatal interrupt\n", __func__);
+	pr_debug("%s: mdm got errfatal interrupt\n", __func__);
 	if (mdm_drv->mdm_ready &&
 		(gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1)) {
-		MDM_DBG("%s: scheduling work now\n", __func__);
+		pr_debug("%s: scheduling work now\n", __func__);
 		queue_work(mdm_queue, &mdm_fatal_work);
 	}
 	return IRQ_HANDLED;
@@ -193,7 +194,7 @@ static int mdm_panic_prep(struct notifier_block *this,
 {
 	int i;
 
-	MDM_DBG("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
+	pr_debug("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
 			 __func__);
 	mdm_disable_irqs();
 	gpio_set_value(mdm_drv->ap2mdm_errfatal_gpio, 1);
@@ -218,7 +219,7 @@ static struct notifier_block mdm_panic_blk = {
 
 static irqreturn_t mdm_status_change(int irq, void *dev_id)
 {
-	MDM_DBG("%s: mdm sent status change interrupt\n", __func__);
+	pr_debug("%s: mdm sent status change interrupt\n", __func__);
 
 	queue_work(mdm_queue, &mdm_status_work);
 
@@ -497,7 +498,7 @@ int mdm_common_modem_remove(struct platform_device *pdev)
 
 void mdm_common_modem_shutdown(struct platform_device *pdev)
 {
-	MDM_DBG("%s: setting AP2MDM_STATUS low for a graceful restart\n",
+	pr_debug("%s: setting AP2MDM_STATUS low for a graceful restart\n",
 		__func__);
 
 	mdm_disable_irqs();

@@ -48,28 +48,25 @@
 #define MDM_MODEM_DELTA		100
 
 static int mdm_debug_on;
-#define MDM_DBG(...)	do { if (mdm_debug_on) \
-					pr_info(__VA_ARGS__); \
-			} while (0);
 
 static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
 	peripheral_disconnect();
 
 	/* Pull both ERR_FATAL and RESET low */
-	MDM_DBG("Pulling PWR and RESET gpio's low\n");
+	pr_debug("Pulling PWR and RESET gpio's low\n");
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
 	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
 	/* Wait for them to settle. */
 	usleep(1000);
 
 	/* Deassert RESET first and wait for ir to settle. */
-	MDM_DBG("%s: Pulling RESET gpio high\n", __func__);
+	pr_debug("%s: Pulling RESET gpio high\n", __func__);
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
 	usleep(1000);
 
 	/* Pull PWR gpio high and wait for it to settle. */
-	MDM_DBG("%s: Powering on mdm modem\n", __func__);
+	pr_debug("%s: Powering on mdm modem\n", __func__);
 	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
 	usleep(1000);
 
@@ -110,7 +107,7 @@ static void debug_state_changed(int value)
 
 static void mdm_status_changed(int value)
 {
-	MDM_DBG("%s: value:%d\n", __func__, value);
+	pr_debug("%s: value:%d\n", __func__, value);
 
 	if (value) {
 		peripheral_disconnect();
