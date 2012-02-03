@@ -1,6 +1,6 @@
 /* linux/sound/soc/msm/msm7201.c
  *
- * Copyright (c) 2008-2009, 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -40,6 +40,8 @@
 #include <mach/msm_rpcrouter.h>
 
 static struct msm_rpc_endpoint *snd_ep;
+static uint32_t snd_mute_ear_mute;
+static uint32_t snd_mute_mic_mute;
 
 struct msm_snd_rpc_ids {
 	unsigned long   prog;
@@ -99,7 +101,7 @@ static int snd_msm_device_info(struct snd_kcontrol *kcontrol,
 	 * The number of devices supported is 26 (0 to 25)
 	 */
 	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 25;
+	uinfo->value.integer.max = 36;
 	return 0;
 }
 
@@ -107,6 +109,8 @@ static int snd_msm_device_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = (uint32_t)snd_rpc_ids.device;
+	ucontrol->value.integer.value[1] = snd_mute_ear_mute;
+	ucontrol->value.integer.value[2] = snd_mute_mic_mute;
 	return 0;
 }
 
@@ -213,8 +217,11 @@ static int snd_msm_device_put(struct snd_kcontrol *kcontrol,
 	if (rc < 0) {
 		printk(KERN_ERR "%s: snd rpc call failed! rc = %d\n",
 			__func__, rc);
-	} else
-		printk(KERN_INFO "snd device connected \n");
+	} else {
+		printk(KERN_INFO "snd device connected\n");
+		snd_mute_ear_mute = ucontrol->value.integer.value[1];
+		snd_mute_mic_mute = ucontrol->value.integer.value[2];
+	}
 
 	return rc;
 }
