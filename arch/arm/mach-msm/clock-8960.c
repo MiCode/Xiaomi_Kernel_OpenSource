@@ -4441,6 +4441,8 @@ struct measure_sel {
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
+static DEFINE_CLK_MEASURE(krait2_m_clk);
+static DEFINE_CLK_MEASURE(krait3_m_clk);
 static DEFINE_CLK_MEASURE(q6sw_clk);
 static DEFINE_CLK_MEASURE(q6fw_clk);
 static DEFINE_CLK_MEASURE(q6_func_clk);
@@ -4643,6 +4645,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_CPUL2(0x2), &l2_m_clk },
 	{ TEST_CPUL2(0x0), &krait0_m_clk },
 	{ TEST_CPUL2(0x1), &krait1_m_clk },
+	{ TEST_CPUL2(0x4), &krait2_m_clk },
+	{ TEST_CPUL2(0x5), &krait3_m_clk },
 };
 
 static struct measure_sel *find_measure_sel(struct clk *clk)
@@ -5068,6 +5072,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
 	CLK_LOOKUP("krait1_mclk",	krait1_m_clk, ""),
+	CLK_LOOKUP("krait2_mclk",	krait2_m_clk, ""),
+	CLK_LOOKUP("krait3_mclk",	krait3_m_clk, ""),
 };
 
 static struct clk_lookup msm_clocks_8960[] = {
