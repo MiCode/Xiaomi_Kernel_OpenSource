@@ -1135,8 +1135,10 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 		return 0;
 
 	while ((xfer = ch_write_buffer(ch, &ptr)) != 0) {
-		if (!ch_is_open(ch))
+		if (!ch_is_open(ch)) {
+			len = orig_len;
 			break;
+		}
 		if (xfer > len)
 			xfer = len;
 		if (user_buf) {
