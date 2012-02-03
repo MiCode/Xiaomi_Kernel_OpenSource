@@ -167,21 +167,24 @@ int msm_spm_turn_on_cpu_rail(unsigned int cpu)
 	uint32_t val = 0;
 	uint32_t timeout = 0;
 	void *reg = NULL;
+	void *saw_bases[] = {
+		0,
+		MSM_SAW1_BASE,
+		MSM_SAW2_BASE,
+		MSM_SAW3_BASE
+	};
 
-	if (cpu >= num_possible_cpus())
+	if (cpu == 0 || cpu >= num_possible_cpus())
 		return -EINVAL;
 
-	switch (cpu) {
-	case 1:
-		reg = MSM_SAW1_BASE;
-		break;
-	case 0:
-	default:
-		return -EFAULT;
-	}
+	reg = saw_bases[cpu];
 
 	if (cpu_is_msm8960() || cpu_is_msm8930()) {
 		val = 0xB0;
+		reg += 0x14;
+		timeout = 512;
+	} else if (cpu_is_apq8064()) {
+		val = 0xA4;
 		reg += 0x14;
 		timeout = 512;
 	} else {
