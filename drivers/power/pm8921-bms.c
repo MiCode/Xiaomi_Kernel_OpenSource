@@ -1318,6 +1318,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	read_soc_params_raw(the_chip, &raw);
 
+	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
+
 	if (is_battery_full) {
 		unsigned long flags;
 		int fcc_uah, new_fcc_uah, delta_fcc_uah;
@@ -1355,10 +1357,9 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	bms_end_percent = the_chip->end_percent;
 	bms_end_ocv_uv = raw.last_good_ocv_uv;
-	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
 
 	if (the_chip->end_percent > the_chip->start_percent) {
-		last_charge_increase =
+		last_charge_increase +=
 			the_chip->end_percent - the_chip->start_percent;
 		if (last_charge_increase > 100) {
 			last_chargecycles++;
