@@ -229,6 +229,12 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
 	mdm_drv->mdm_ready = 0;
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
+	if (mdm_drv->pdata->ramdump_delay_ms > 0) {
+		/* Wait for the external modem to complete
+		 * its preparation for ramdumps.
+		 */
+		mdelay(mdm_drv->pdata->ramdump_delay_ms);
+	}
 	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	return 0;
 }
@@ -353,6 +359,7 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
 	mdm_drv->ops      = mdm_ops;
+	mdm_drv->pdata    = pdev->dev.platform_data;
 }
 
 int mdm_common_create(struct platform_device  *pdev,

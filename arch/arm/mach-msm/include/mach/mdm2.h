@@ -15,6 +15,7 @@
 
 struct mdm_platform_data {
 	char *mdm_version;
+	int ramdump_delay_ms;
 };
 
 #endif

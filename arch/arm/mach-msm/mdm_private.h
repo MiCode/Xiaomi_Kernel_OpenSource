@@ -43,6 +43,7 @@ struct mdm_modem_drv {
 	int mdm_debug_on;
 
 	struct mdm_ops *ops;
+	struct mdm_platform_data *pdata;
 };
 
 int mdm_common_create(struct platform_device  *pdev,
