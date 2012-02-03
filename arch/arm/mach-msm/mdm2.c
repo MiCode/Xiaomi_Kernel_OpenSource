@@ -33,7 +33,6 @@
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/mdm2.h>
-#include <mach/mdm-peripheral.h>
 #include <mach/restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
@@ -48,10 +47,36 @@
 #define MDM_MODEM_DELTA		100
 
 static int mdm_debug_on;
+static int hsic_peripheral_status = 1;
+static DEFINE_MUTEX(hsic_status_lock);
+
+static void mdm_peripheral_connect(struct mdm_modem_drv *mdm_drv)
+{
+	mutex_lock(&hsic_status_lock);
+	if (hsic_peripheral_status)
+		goto out;
+	if (mdm_drv->pdata->peripheral_platform_device)
+		platform_device_add(mdm_drv->pdata->peripheral_platform_device);
+	hsic_peripheral_status = 1;
+out:
+	mutex_unlock(&hsic_status_lock);
+}
+
+static void mdm_peripheral_disconnect(struct mdm_modem_drv *mdm_drv)
+{
+	mutex_lock(&hsic_status_lock);
+	if (!hsic_peripheral_status)
+		goto out;
+	if (mdm_drv->pdata->peripheral_platform_device)
+		platform_device_del(mdm_drv->pdata->peripheral_platform_device);
+	hsic_peripheral_status = 0;
+out:
+	mutex_unlock(&hsic_status_lock);
+}
 
 static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
-	peripheral_disconnect();
+	mdm_peripheral_disconnect(mdm_drv);
 
 	/* Pull both ERR_FATAL and RESET low */
 	pr_debug("Pulling PWR and RESET gpio's low\n");
@@ -70,7 +95,7 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
 	usleep(1000);
 
-	peripheral_connect();
+	mdm_peripheral_connect(mdm_drv);
 
 	msleep(200);
 }
@@ -97,7 +122,7 @@ static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
 		}
 	}
 
-	peripheral_disconnect();
+	mdm_peripheral_disconnect(mdm_drv);
 }
 
 static void debug_state_changed(int value)
@@ -105,13 +130,13 @@ static void debug_state_changed(int value)
 	mdm_debug_on = value;
 }
 
-static void mdm_status_changed(int value)
+static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 {
 	pr_debug("%s: value:%d\n", __func__, value);
 
 	if (value) {
-		peripheral_disconnect();
-		peripheral_connect();
+		mdm_peripheral_disconnect(mdm_drv);
+		mdm_peripheral_connect(mdm_drv);
 	}
 }
 

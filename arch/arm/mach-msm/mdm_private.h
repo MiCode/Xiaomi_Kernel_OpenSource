@@ -20,7 +20,7 @@ struct mdm_ops {
 	void (*normal_boot_done_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*power_down_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*debug_state_changed_cb)(int value);
-	void (*status_cb)(int value);
+	void (*status_cb)(struct mdm_modem_drv *mdm_drv, int value);
 };
 
 /* Private mdm2 data structure */

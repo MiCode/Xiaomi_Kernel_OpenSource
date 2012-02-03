@@ -139,7 +139,7 @@ static void mdm_status_fn(struct work_struct *work)
 {
 	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
 
-	mdm_drv->ops->status_cb(value);
+	mdm_drv->ops->status_cb(mdm_drv, value);
 
 	pr_debug("%s: status:%d\n", __func__, value);
 
