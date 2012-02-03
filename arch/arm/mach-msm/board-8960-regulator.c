@@ -245,7 +245,8 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
-			 _system_uA, _enable_time, _reg_id) \
+			 _system_uA, _enable_time, _reg_id, _ocp_enable, \
+			 _ocp_enable_time) \
 	{ \
 		.init_data = { \
 			.constraints = { \
@@ -267,6 +268,8 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		.pull_down_enable	= _pull_down, \
 		.system_uA		= _system_uA, \
 		.enable_time		= _enable_time, \
+		.ocp_enable		= _ocp_enable, \
+		.ocp_enable_time	= _ocp_enable_time, \
 	}
 
 #define PM8XXX_LDO(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
@@ -275,7 +278,7 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
+		_supply_regulator, _system_uA, _enable_time, _reg_id, 0, 0)
 
 #define PM8XXX_NLDO1200(_id, _name, _always_on, _pull_down, _min_uV, \
 		_max_uV, _enable_time, _supply_regulator, _system_uA, _reg_id) \
@@ -283,7 +286,7 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
+		_supply_regulator, _system_uA, _enable_time, _reg_id, 0, 0)
 
 #define PM8XXX_SMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
 		_enable_time, _supply_regulator, _system_uA, _reg_id) \
@@ -291,32 +294,32 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
+		_supply_regulator, _system_uA, _enable_time, _reg_id, 0, 0)
 
 #define PM8XXX_FTSMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
 		_enable_time, _supply_regulator, _system_uA, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL, \
 		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS \
 		| REGULATOR_CHANGE_MODE, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
+		_supply_regulator, _system_uA, _enable_time, _reg_id, 0, 0)
 
 #define PM8XXX_VS(_id, _name, _always_on, _pull_down, _enable_time, \
-		_supply_regulator, _reg_id) \
+		_ocp_enable, _ocp_enable_time, _supply_regulator, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
 		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
-		_reg_id)
+		_reg_id, _ocp_enable, _ocp_enable_time)
 
 #define PM8XXX_VS300(_id, _name, _always_on, _pull_down, _enable_time, \
-		_supply_regulator, _reg_id) \
+		_ocp_enable, _ocp_enable_time, _supply_regulator, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
 		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
-		_reg_id)
+		_reg_id, _ocp_enable, _ocp_enable_time)
 
 #define PM8XXX_NCP(_id, _name, _always_on, _min_uV, _max_uV, _enable_time, \
 		_supply_regulator, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, 0, \
 		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS, 0, 0, \
-		_always_on, _supply_regulator, 0, _enable_time, _reg_id)
+		_always_on, _supply_regulator, 0, _enable_time, _reg_id, 0, 0)
 
 /* Pin control initialization */
 #define PM8XXX_PC(_id, _name, _always_on, _pin_fn, _pin_ctrl, \
@@ -491,9 +494,13 @@ msm_pm8921_regulator_pdata[] __devinitdata = {
 	PM8XXX_LDO(L29,      "8921_l29", 0, 1, 2050000, 2100000, 200, "8921_s8",
 		0, 4),
 
-	/*	     ID        name      always_on pd en_t supply    reg_ID */
-	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0, 0,   "ext_otg_sw", 5),
-	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1, 0,   "ext_5v", 6),
+	/*
+	 *	     ID       name      always_on pd en_t ocp ocp_t supply
+	 *	reg_ID
+	 */
+	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0,   0, 1, 500, "ext_otg_sw",
+		5),
+	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1,   0, 0,   0, "ext_5v", 6),
 };
 
 static struct rpm_regulator_init_data
