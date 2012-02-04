@@ -252,6 +252,16 @@ static void adreno_setstate(struct kgsl_device *device,
 	unsigned int mh_mmu_invalidate = 0x00000003; /*invalidate all and tc */
 
 	/*
+	 * A3XX doesn't support the fast path (the registers don't even exist)
+	 * so just bail out early
+	 */
+
+	if (adreno_is_a3xx(adreno_dev)) {
+		kgsl_mmu_device_setstate(device, flags);
+		return;
+	}
+
+	/*
 	 * If possible, then set the state via the command stream to avoid
 	 * a CPU idle.  Otherwise, use the default setstate which uses register
 	 * writes For CFF dump we must idle and use the registers so that it is
