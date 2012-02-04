@@ -625,8 +625,11 @@ try_again:
 	/*
 	 * Call the optional HC's init_card function to handle quirks.
 	 */
-	if (host->ops->init_card)
+	if (host->ops->init_card) {
+		mmc_host_clk_hold(host);
 		host->ops->init_card(host, card);
+		mmc_host_clk_release(host);
+	}
 
 	/*
 	 * If the host and card support UHS-I mode request the card
