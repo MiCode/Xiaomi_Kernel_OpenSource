@@ -412,16 +412,16 @@ static struct pm8xxx_vreg regulator_data[] = {
 	SMPS("8921_s7", "8921_s7_pc", 0x1F0, 0x1F5, 0x012, 0x1F2, SMPS_1500),
 	SMPS("8921_s8", "8921_s8_pc", 0x1F8, 0x1FD, 0x013, 0x1FA, SMPS_1500),
 
-	/* name		       pc_name	       ctrl */
-	VS("8921_lvs1",        "8921_lvs1_pc", 0x060),
-	VS300("8921_lvs2",		       0x062),
-	VS("8921_lvs3",        "8921_lvs3_pc", 0x064),
-	VS("8921_lvs4",        "8921_lvs4_pc", 0x066),
-	VS("8921_lvs5",        "8921_lvs5_pc", 0x068),
-	VS("8921_lvs6",        "8921_lvs6_pc", 0x06A),
-	VS("8921_lvs7",        "8921_lvs7_pc", 0x06C),
-	VS300("8921_usb_otg",		       0x06E),
-	VS300("8921_hdmi_mvs",		       0x070),
+	/* name		       pc_name	       ctrl   test */
+	VS("8921_lvs1",        "8921_lvs1_pc", 0x060, 0x061),
+	VS300("8921_lvs2",		       0x062, 0x063),
+	VS("8921_lvs3",        "8921_lvs3_pc", 0x064, 0x065),
+	VS("8921_lvs4",        "8921_lvs4_pc", 0x066, 0x067),
+	VS("8921_lvs5",        "8921_lvs5_pc", 0x068, 0x069),
+	VS("8921_lvs6",        "8921_lvs6_pc", 0x06A, 0x06B),
+	VS("8921_lvs7",        "8921_lvs7_pc", 0x06C, 0x06D),
+	VS300("8921_usb_otg",		       0x06E, 0x06F),
+	VS300("8921_hdmi_mvs",		       0x070, 0x071),
 
 	/*  name	ctrl */
 	NCP("8921_ncp", 0x090),
