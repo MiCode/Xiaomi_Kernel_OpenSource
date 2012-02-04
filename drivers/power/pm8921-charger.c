@@ -235,6 +235,7 @@ struct pm8921_chg_chip {
 	unsigned int			batt_temp_channel;
 	unsigned int			batt_id_channel;
 	struct power_supply		usb_psy;
+	struct power_supply		dc_psy;
 	struct power_supply		*ext_psy;
 	struct power_supply		batt_psy;
 	struct dentry			*dent;
@@ -957,25 +958,41 @@ static char *pm_power_supplied_to[] = {
 	"battery",
 };
 
+#define USB_WALL_THRESHOLD_MA	500
 static int pm_power_get_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
-	struct pm8921_chg_chip *chip;
+	int current_max;
+
+	/* Check if called before init */
+	if (!the_chip)
+		return -EINVAL;
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		pm_chg_iusbmax_get(the_chip, &current_max);
+		val->intval = current_max;
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (psy->type == POWER_SUPPLY_TYPE_USB ||
-			psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
-			psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
-			psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
-			chip = container_of(psy, struct pm8921_chg_chip,
-							usb_psy);
-			if (pm_is_chg_charge_dis_bit_set(chip))
-				val->intval = 0;
+		if (pm_is_chg_charge_dis_bit_set(the_chip) ||
+				!is_usb_chg_plugged_in(the_chip))
+			val->intval = 0;
+		else if (psy->type == POWER_SUPPLY_TYPE_USB ||
+				psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
+				psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
+				psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
+			val->intval = 1;
+		} else if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
+			pm_chg_iusbmax_get(the_chip, &current_max);
+			if (current_max > USB_WALL_THRESHOLD_MA)
+				val->intval = 1;
 			else
-				val->intval = is_usb_chg_plugged_in(chip);
+				val->intval = 0;
+		} else {
+			val->intval = 0;
+			pr_err("Unkown POWER_SUPPLY_TYPE %d\n", psy->type);
 		}
 		break;
 	default:
@@ -3209,6 +3226,14 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->usb_psy.num_properties = ARRAY_SIZE(pm_power_props),
 	chip->usb_psy.get_property = pm_power_get_property,
 
+	chip->dc_psy.name = "pm8921-dc",
+	chip->dc_psy.type = POWER_SUPPLY_TYPE_MAINS,
+	chip->dc_psy.supplied_to = pm_power_supplied_to,
+	chip->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to),
+	chip->dc_psy.properties = pm_power_props,
+	chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props),
+	chip->dc_psy.get_property = pm_power_get_property,
+
 	chip->batt_psy.name = "battery",
 	chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY,
 	chip->batt_psy.properties = msm_batt_power_props,
@@ -3221,10 +3246,16 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 		goto free_chip;
 	}
 
+	rc = power_supply_register(chip->dev, &chip->dc_psy);
+	if (rc < 0) {
+		pr_err("power_supply_register usb failed rc = %d\n", rc);
+		goto unregister_usb;
+	}
+
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
 		pr_err("power_supply_register batt failed rc = %d\n", rc);
-		goto unregister_usb;
+		goto unregister_dc;
 	}
 
 	platform_set_drvdata(pdev, chip);
@@ -3283,6 +3314,8 @@ free_irq:
 	free_irqs(chip);
 unregister_batt:
 	power_supply_unregister(&chip->batt_psy);
+unregister_dc:
+	power_supply_unregister(&chip->dc_psy);
 unregister_usb:
 	power_supply_unregister(&chip->usb_psy);
 free_chip:
