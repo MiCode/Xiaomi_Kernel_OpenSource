@@ -43,12 +43,19 @@ apq8064_pm8921_irq_pdata __devinitdata = {
 	.dev_id			= 0,
 };
 
+static struct pm8xxx_rtc_platform_data
+apq8064_pm8921_rtc_pdata = {
+	.rtc_write_enable       = false,
+	.rtc_alarm_powerup      = false,
+};
+
 static struct pm8921_platform_data
 apq8064_pm8921_platform_data __devinitdata = {
 	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
 	.irq_pdata		= &apq8064_pm8921_irq_pdata,
 	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
 	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
+	.rtc_pdata		= &apq8064_pm8921_rtc_pdata,
 };
 
 static struct pm8xxx_irq_platform_data
