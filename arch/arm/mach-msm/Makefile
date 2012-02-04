@@ -140,21 +140,11 @@ obj-$(CONFIG_MSM_QDSP6) += qdsp6/
 obj-$(CONFIG_MSM8X60_AUDIO) += qdsp6v2/
 obj-$(CONFIG_MSM_AUDIO_QDSP6) += qdsp6v2/
 obj-$(CONFIG_MSM_HW3D) += hw3d.o
-ifdef CONFIG_PM
-	obj-$(CONFIG_ARCH_APQ8064) += pm-8x60.o
-	obj-$(CONFIG_ARCH_MSM8960) += pm-8x60.o
-	obj-$(CONFIG_ARCH_MSM8X60) += pm-8x60.o
-	obj-$(CONFIG_ARCH_MSM9615) += pm-8x60.o
-	obj-$(CONFIG_ARCH_QSD8X50) += pm2.o
-	obj-$(CONFIG_ARCH_MSM7X30) += pm2.o
-	obj-$(CONFIG_ARCH_MSM7X27) += pm2.o
-	obj-$(CONFIG_ARCH_MSM7X27A) += pm2.o
-	obj-$(CONFIG_ARCH_MSM7X25) += pm.o
-	obj-$(CONFIG_ARCH_MSM7X01A) += pm.o
-	obj-y += pm-boot.o
-else
-	obj-y += no-pm.o
-endif
+obj-$(CONFIG_PM) += pm-boot.o
+obj-$(CONFIG_MSM_PM8X60) += pm-8x60.o
+obj-$(CONFIG_MSM_PM2) += pm2.o
+obj-$(CONFIG_MSM_PM) += pm.o
+obj-$(CONFIG_MSM_NOPM) += no-pm.o
 
 obj-$(CONFIG_MSM_SPM_V1) += spm.o
 obj-$(CONFIG_MSM_SPM_V2) += spm-v2.o spm_devices.o
