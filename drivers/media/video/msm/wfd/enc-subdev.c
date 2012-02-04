@@ -403,11 +403,12 @@ static long venc_set_codec(struct video_client_ctx *client_ctx, __s32 codec)
 	vcd_property_hdr.prop_id = VCD_I_CODEC;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_codec);
 	vcd_property_codec.codec = VCD_CODEC_H264;
+
 	switch (codec) {
-	case V4L2_MPEG_VIDEO_ENCODING_MPEG_4_AVC:
+	case V4L2_PIX_FMT_H264:
 		vcd_property_codec.codec = VCD_CODEC_H264;
 		break;
-	case V4L2_MPEG_VIDEO_ENCODING_MPEG_1:
+	case V4L2_PIX_FMT_MPEG4:
 		vcd_property_codec.codec = VCD_CODEC_MPEG4;
 		break;
 	default:
@@ -416,39 +417,6 @@ static long venc_set_codec(struct video_client_ctx *client_ctx, __s32 codec)
 	}
 	return vcd_set_property(client_ctx->vcd_handle,
 				&vcd_property_hdr, &vcd_property_codec);
-}
-
-static long venc_get_codec(struct video_client_ctx *client_ctx, __s32 *codec)
-{
-	struct vcd_property_codec vcd_property_codec;
-	struct vcd_property_hdr vcd_property_hdr;
-	int rc = 0;
-
-	vcd_property_hdr.prop_id = VCD_I_CODEC;
-	vcd_property_hdr.sz = sizeof(struct vcd_property_codec);
-
-	rc = vcd_get_property(client_ctx->vcd_handle,
-				&vcd_property_hdr, &vcd_property_codec);
-
-	if (rc < 0) {
-		WFD_MSG_ERR("Failed to get codec property");
-		return rc;
-	}
-
-	switch (vcd_property_codec.codec) {
-	case VCD_CODEC_H264:
-		*codec = V4L2_MPEG_VIDEO_ENCODING_MPEG_4_AVC;
-		break;
-	case VCD_CODEC_MPEG4:
-		*codec = V4L2_MPEG_VIDEO_ENCODING_MPEG_1;
-		break;
-	default:
-		WFD_MSG_ERR("Unrecognized codec");
-		return -EINVAL;
-		break;
-	}
-
-	return rc;
 }
 
 static long venc_set_codec_level(struct video_client_ctx *client_ctx,
@@ -939,6 +907,12 @@ static long venc_set_format(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Invalid parameters\n");
 		return -EINVAL;
 	}
+	rc = venc_set_codec(client_ctx, fmt->fmt.pix.pixelformat);
+	if (rc) {
+		WFD_MSG_ERR("Failed to set codec, rc = %d\n", rc);
+		goto err;
+	}
+
 	rc = venc_set_frame_size(client_ctx, fmt->fmt.pix.height,
 				fmt->fmt.pix.width);
 	if (rc) {
@@ -1233,9 +1207,6 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 		rc = venc_set_bitrate_mode(client_ctx, ctrl->value);
 		break;
-	case V4L2_CID_MPEG_VIDEO_ENCODING:
-		rc = venc_set_codec(client_ctx, ctrl->value);
-		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
 		rc = venc_set_h264_intra_period(client_ctx, ctrl->value);
 		break;
@@ -1269,9 +1240,6 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 		rc = venc_get_bitrate_mode(client_ctx, &ctrl->value);
-		break;
-	case V4L2_CID_MPEG_VIDEO_ENCODING:
-		rc = venc_get_codec(client_ctx, &ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		rc = venc_get_codec_level(client_ctx, ctrl->id, &ctrl->value);

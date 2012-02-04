@@ -490,9 +490,9 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 		return -EINVAL;
 	}
 	if (fmt->type != V4L2_BUF_TYPE_VIDEO_CAPTURE ||
-		fmt->fmt.pix.pixelformat != V4L2_PIX_FMT_NV12) {
+		fmt->fmt.pix.pixelformat != V4L2_PIX_FMT_H264) {
 		WFD_MSG_ERR("Only V4L2_BUF_TYPE_VIDEO_CAPTURE and "
-				"V4L2_PIX_FMT_NV12 are supported\n");
+				"V4L2_PIX_FMT_H264 are supported\n");
 		return -EINVAL;
 	}
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, SET_FORMAT,
@@ -707,7 +707,7 @@ static int wfd_set_default_properties(struct file *filp)
 	fmt.fmt.pix.height = inst->height = DEFAULT_WFD_HEIGHT;
 	fmt.fmt.pix.width = inst->width = DEFAULT_WFD_WIDTH;
 	fmt.fmt.pix.pixelformat = inst->pixelformat
-			= V4L2_PIX_FMT_NV12;
+			= V4L2_PIX_FMT_H264;
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	wfdioc_s_fmt(filp, filp->private_data, &fmt);
 	return 0;
