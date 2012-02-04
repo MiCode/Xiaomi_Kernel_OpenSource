@@ -83,9 +83,64 @@ static int msm_isp_notify_VFE_BUF_FREE_EVT(struct v4l2_subdev *sd, void *arg)
 	return 0;
 }
 
+int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
+				int vfe_msg)
+{
+	int image_mode;
+	if (vfe_msg == VFE_MSG_OUTPUT_PRIMARY) {
+		switch (pmctl->vfe_output_mode) {
+		case VFE_OUTPUTS_MAIN_AND_PREVIEW:
+		case VFE_OUTPUTS_MAIN_AND_VIDEO:
+		case VFE_OUTPUTS_MAIN_AND_THUMB:
+		case VFE_OUTPUTS_RAW:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
+			break;
+		case VFE_OUTPUTS_THUMB_AND_MAIN:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
+			break;
+		case VFE_OUTPUTS_VIDEO:
+		case VFE_OUTPUTS_VIDEO_AND_PREVIEW:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_VIDEO;
+			break;
+		case VFE_OUTPUTS_PREVIEW:
+		case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+			break;
+		default:
+			image_mode = -1;
+			break;
+		}
+	} else if (vfe_msg == VFE_MSG_OUTPUT_SECONDARY) {
+		switch (pmctl->vfe_output_mode) {
+		case VFE_OUTPUTS_MAIN_AND_PREVIEW:
+		case VFE_OUTPUTS_VIDEO_AND_PREVIEW:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+			break;
+		case VFE_OUTPUTS_MAIN_AND_VIDEO:
+		case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_VIDEO;
+			break;
+		case VFE_OUTPUTS_MAIN_AND_THUMB:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
+			break;
+		case VFE_OUTPUTS_THUMB_AND_MAIN:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
+			break;
+		default:
+			image_mode = -1;
+			break;
+		}
+	} else
+		image_mode = -1;
+
+	D("%s Selected image mode %d vfe output mode %d, vfe msg %d\n",
+	  __func__, image_mode, pmctl->vfe_output_mode, vfe_msg);
+	return image_mode;
+}
+
 static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 {
-	int rc = -EINVAL;
+	int rc = -EINVAL, image_mode;
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
 	struct msm_free_buf free_buf;
 	struct msm_camvfe_params vfe_params;
@@ -100,19 +155,24 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		msm_isp_sync_free(vdata);
 		return rc;
 	}
+	/* Convert the vfe msg to the image mode */
+	image_mode = msm_isp_vfe_msg_to_img_mode(&pcam->mctl, vfe_id);
+	BUG_ON(image_mode < 0);
 	switch (vdata->type) {
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
 	case VFE_MSG_V2X_PREVIEW:
 		D("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -123,7 +183,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_V2X_CAPTURE:
 		pr_err("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -139,7 +200,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_OUTPUT_IRQ:
 		D("%s Got OUTPUT_IRQ: Getting free buf id = %d",
 						__func__, vfe_id);
-		msm_mctl_reserve_free_buf(&pcam->mctl, vfe_id, &free_buf);
+		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_FREE_BUF_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -219,6 +281,12 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		case MSG_ID_OUTPUT_S:
 			msgid = VFE_MSG_OUTPUT_S;
 			break;
+		case MSG_ID_OUTPUT_PRIMARY:
+			msgid = VFE_MSG_OUTPUT_PRIMARY;
+			break;
+		case MSG_ID_OUTPUT_SECONDARY:
+			msgid = VFE_MSG_OUTPUT_SECONDARY;
+			break;
 		default:
 			pr_err("%s: Invalid VFE output id: %d\n",
 				__func__, isp_output->output_id);
@@ -232,6 +300,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 			isp_event->isp_data.isp_msg.frame_id =
 				isp_output->frameCounter;
 			buf = isp_output->buf;
+			msgid = msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
+			BUG_ON(msgid < 0);
 			msm_mctl_buf_done(pmctl, msgid,
 				&buf, isp_output->frameCounter);
 		}
@@ -561,6 +631,11 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_VIDEO_ALL_CHNLS:
 	case CMD_AXI_CFG_ZSL_ALL_CHNLS:
 	case CMD_RAW_PICT_AXI_CFG:
+	case CMD_AXI_CFG_PRIM:
+	case CMD_AXI_CFG_PRIM_ALL_CHNLS:
+	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC:
+	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC_ALL_CHNLS:
+	case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC:
 		/* Dont need to pass buffer information.
 		 * subdev will get the buffer from media
 		 * controller free queue.

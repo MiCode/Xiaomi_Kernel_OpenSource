@@ -239,6 +239,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	}
 	paddr = mem->msm_buffer->iova[0];
 	mem->mapped_phyaddr = paddr + addr_offset;
+	mem->addr_offset = addr_offset;
 	return rc;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);

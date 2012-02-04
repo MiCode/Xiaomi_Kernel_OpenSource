@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,8 @@
 
 #ifndef __MSM_VFE32_H__
 #define __MSM_VFE32_H__
+
+#include <linux/bitops.h>
 
 #define TRUE  1
 #define FALSE 0
@@ -191,17 +193,12 @@ enum VFE32_DMI_RAM_SEL {
 	ROLLOFF_RAM1_BANK1       = 0x15,
 };
 
-enum  VFE_STATE {
+enum vfe_output_state {
 	VFE_STATE_IDLE,
-	VFE_STATE_ACTIVE
-};
-
-enum  vfe_recording_state {
-	VFE_REC_STATE_IDLE,
-	VFE_REC_STATE_START_REQUESTED,
-	VFE_REC_STATE_STARTED,
-	VFE_REC_STATE_STOP_REQUESTED,
-	VFE_REC_STATE_STOPPED,
+	VFE_STATE_START_REQUESTED,
+	VFE_STATE_STARTED,
+	VFE_STATE_STOP_REQUESTED,
+	VFE_STATE_STOPPED,
 };
 
 #define V32_CAMIF_OFF             0x000001E4
@@ -870,18 +867,23 @@ struct vfe32_frame_extra {
 #define VFE_DMI_CFG                     0x00000598
 #define VFE_DMI_ADDR                    0x0000059C
 #define VFE_DMI_DATA_LO                 0x000005A4
-#define VFE_BUS_IO_FORMAT_CFG		0x000006F8
+#define VFE_BUS_IO_FORMAT_CFG           0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
+#define VFE_VIOLATION_STATUS            0x000007B4
 
 #define VFE33_DMI_DATA_HI               0x000005A0
 #define VFE33_DMI_DATA_LO               0x000005A4
 
-#define VFE32_OUTPUT_MODE_PT (0x1 << 0)
-#define VFE32_OUTPUT_MODE_S (0x1 << 1)
-#define VFE32_OUTPUT_MODE_V (0x1 << 2)
-#define VFE32_OUTPUT_MODE_P (0x1 << 3)
-#define VFE32_OUTPUT_MODE_T (0x1 << 4)
-#define VFE32_OUTPUT_MODE_P_ALL_CHNLS (0x1 << 5)
+#define VFE32_OUTPUT_MODE_PT			BIT(0)
+#define VFE32_OUTPUT_MODE_S			BIT(1)
+#define VFE32_OUTPUT_MODE_V			BIT(2)
+#define VFE32_OUTPUT_MODE_P			BIT(3)
+#define VFE32_OUTPUT_MODE_T			BIT(4)
+#define VFE32_OUTPUT_MODE_P_ALL_CHNLS		BIT(5)
+#define VFE32_OUTPUT_MODE_PRIMARY		BIT(6)
+#define VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS	BIT(7)
+#define VFE32_OUTPUT_MODE_SECONDARY		BIT(8)
+#define VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS	BIT(9)
 
 struct vfe_stats_control {
 	uint8_t  ackPending;
@@ -912,11 +914,12 @@ struct vfe32_ctrl_type {
 	int8_t stop_ack_pending;
 	int8_t reset_ack_pending;
 	int8_t update_ack_pending;
-	enum vfe_recording_state recording_state;
+	enum vfe_output_state recording_state;
 	int8_t update_linear;
 	int8_t update_rolloff;
 	int8_t update_la;
 	int8_t update_gamma;
+	enum vfe_output_state liveshot_state;
 
 	spinlock_t  tasklet_lock;
 	struct list_head tasklet_q;
