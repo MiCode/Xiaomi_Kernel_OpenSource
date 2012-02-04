@@ -175,7 +175,7 @@ static int a3xx_snapshot_debugbus_block(struct kgsl_device *device,
 		return 0;
 	}
 
-	val = (id << 0x06) | (1 << 0x10);
+	val = (id << 8) | (1 << 16);
 
 	header->id = id;
 	header->count = DEBUGFS_BLOCK_SIZE;
