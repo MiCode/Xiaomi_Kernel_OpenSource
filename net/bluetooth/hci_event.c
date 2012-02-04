@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2011, Code Aurora Forum. All rights reserved.
+   Copyright (c) 2000-2001, 2010-2012, Code Aurora Forum. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -2492,6 +2492,7 @@ static inline void hci_pin_code_request_evt(struct hci_dev *hdev, struct sk_buff
 		hci_conn_hold(conn);
 		conn->disc_timeout = HCI_PAIRING_TIMEOUT;
 		hci_conn_put(conn);
+		hci_conn_enter_active_mode(conn, 0);
 	}
 
 	if (!test_bit(HCI_PAIRABLE, &hdev->flags))
@@ -2587,6 +2588,7 @@ static inline void hci_link_key_notify_evt(struct hci_dev *hdev, struct sk_buff 
 
 		pin_len = conn->pin_length;
 		hci_conn_put(conn);
+		hci_conn_enter_active_mode(conn, 0);
 	}
 
 	if (test_bit(HCI_LINK_KEYS, &hdev->flags))
