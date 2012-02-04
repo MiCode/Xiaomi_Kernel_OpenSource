@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,11 +41,52 @@ static struct {
 	struct resource	*rx_irq_res;
 	struct resource	*gpios_5wire;
 	const struct dev_pm_ops *pm_ops;
-	int             triggered;
-	int             smd_channel_ready;
+	int		triggered;
+	int		smd_channel_ready;
+	unsigned int	serial_number;
 	struct wcnss_wlan_config wlan_config;
 	struct delayed_work wcnss_work;
 } *penv = NULL;
+
+static ssize_t wcnss_serial_number_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	if (!penv)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%08X\n", penv->serial_number);
+}
+
+static ssize_t wcnss_serial_number_store(struct device *dev,
+		struct device_attribute *attr, const char * buf, size_t count)
+{
+	unsigned int value;
+
+	if (!penv)
+		return -ENODEV;
+
+	if (sscanf(buf, "%08X", &value) != 1)
+		return -EINVAL;
+
+	penv->serial_number = value;
+	return count;
+}
+
+static DEVICE_ATTR(serial_number, S_IRUSR | S_IWUSR,
+	wcnss_serial_number_show, wcnss_serial_number_store);
+
+static int wcnss_create_sysfs(struct device *dev)
+{
+	if (!dev)
+		return -ENODEV;
+	return device_create_file(dev, &dev_attr_serial_number);
+}
+
+static void wcnss_remove_sysfs(struct device *dev)
+{
+	if (dev)
+		device_remove_file(dev, &dev_attr_serial_number);
+}
 
 static void wcnss_post_bootup(struct work_struct *work)
 {
@@ -189,6 +230,14 @@ void wcnss_wlan_unregister_pm_ops(struct device *dev,
 }
 EXPORT_SYMBOL(wcnss_wlan_unregister_pm_ops);
 
+unsigned int wcnss_get_serial_number(void)
+{
+	if (penv)
+		return penv->serial_number;
+	return 0;
+}
+EXPORT_SYMBOL(wcnss_get_serial_number);
+
 static int wcnss_wlan_suspend(struct device *dev)
 {
 	if (penv && dev && (dev == &penv->pdev->dev) &&
@@ -272,8 +321,14 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail_res;
 	}
 
+	/* register sysfs entries */
+	ret = wcnss_create_sysfs(&pdev->dev);
+	if (ret)
+		goto fail_sysfs;
+
 	return 0;
 
+fail_sysfs:
 fail_res:
 	if (penv->pil)
 		pil_put(penv->pil);
@@ -360,6 +415,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 static int __devexit
 wcnss_wlan_remove(struct platform_device *pdev)
 {
+	wcnss_remove_sysfs(&pdev->dev);
 	return 0;
 }
 
