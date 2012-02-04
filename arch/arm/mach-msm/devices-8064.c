@@ -817,6 +817,11 @@ static struct resource msm_gss_resources[] = {
 		.end    = 0x10000000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
+	{
+		.start  = 0x10008000,
+		.end    = 0x10008000 + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
 };
 
 struct platform_device msm_gss = {
