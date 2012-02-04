@@ -202,6 +202,7 @@ VREG_CONSUMERS(EXT_5V) = {
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_io",		"spi0.2"),
+	REGULATOR_SUPPLY("mhl_ext_3p3v",	"msm_otg"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \

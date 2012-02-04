@@ -1219,6 +1219,8 @@ static void __init apq8064_common_init(void)
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
 	apq8064_init_pmic();
+	if (machine_is_apq8064_liquid())
+		msm_otg_pdata.mhl_enable = true;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
 	apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	apq8064_init_buses();
