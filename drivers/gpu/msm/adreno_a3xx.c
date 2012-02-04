@@ -2441,7 +2441,6 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 	 (1 << A3XX_INT_CP_RB_INT) |             \
 	 (1 << A3XX_INT_CP_REG_PROTECT_FAULT) |  \
 	 (1 << A3XX_INT_CP_AHB_ERROR_HALT) |     \
-	 (1 << A3XX_INT_MISC_HANG_DETECT) |      \
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
 
 static struct {
@@ -2471,7 +2470,7 @@ static struct {
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 21 - CP_AHB_ERROR_FAULT */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 22 - Unused */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 23 - Unused */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 24 - MISC_HANG_DETECT */
+	A3XX_IRQ_CALLBACK(NULL),	       /* 24 - MISC_HANG_DETECT */
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 25 - UCHE_OOB_ACCESS */
 	/* 26 to 31 - Unused */
 };
@@ -2574,6 +2573,13 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 
 	/* Turn on the power counters */
 	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, 0x00003000);
+
+	/* Turn on hang detection - this spews a lot of useful information
+	 * into the RBBM registers on a hang */
+
+	adreno_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+			(1 << 16) | 0xFFF);
+
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
