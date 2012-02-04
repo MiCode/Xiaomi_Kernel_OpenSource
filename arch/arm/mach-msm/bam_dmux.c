@@ -221,6 +221,7 @@ static struct completion dfab_unvote_completion;
 static DEFINE_SPINLOCK(wakelock_reference_lock);
 static int wakelock_reference_count;
 static struct delayed_work msm9615_bam_init_work;
+static int a2_pc_disabled_wakelock_skipped;
 /* End A2 power collaspe */
 
 /* subsystem restart */
@@ -1476,7 +1477,6 @@ static int ssrestart_check(void)
 static void ul_wakeup(void)
 {
 	int ret;
-	static int called_before;
 
 	mutex_lock(&wakeup_lock);
 	if (bam_is_connected) { /* bam got connected before lock grabbed */
@@ -1490,10 +1490,10 @@ static void ul_wakeup(void)
 		 * don't grab the wakelock the first time because it is
 		 * already grabbed when a2 powers on
 		 */
-		if (likely(called_before))
+		if (likely(a2_pc_disabled_wakelock_skipped))
 			grab_wakelock();
 		else
-			called_before = 1;
+			a2_pc_disabled_wakelock_skipped = 1;
 		if (wait_for_dfab) {
 			ret = wait_for_completion_timeout(
 					&dfab_unvote_completion, HZ);
@@ -1717,6 +1717,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 	write_unlock_irqrestore(&ul_wakeup_lock, flags);
 	ul_powerdown_finish();
 	a2_pc_disabled = 0;
+	a2_pc_disabled_wakelock_skipped = 0;
 
 	/* Cleanup Channel States */
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
