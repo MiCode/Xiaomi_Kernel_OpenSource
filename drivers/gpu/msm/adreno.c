@@ -446,6 +446,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->pm4_fwfile = adreno_gpulist[i].pm4fw;
 	adreno_dev->istore_size = adreno_gpulist[i].istore_size;
 	adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;
+	adreno_dev->instruction_size = adreno_gpulist[i].instruction_size;
 }
 
 static int __devinit

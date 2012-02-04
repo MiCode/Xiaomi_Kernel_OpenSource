@@ -80,7 +80,7 @@ static int a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
-	int i, size = adreno_dev->pm4_fw_size >> 2;
+	int i, size = adreno_dev->pm4_fw_size - 1;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP PM4 RAM DEBUG");
@@ -98,7 +98,7 @@ static int a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
 	 */
 
 	adreno_regwrite(device, REG_CP_ME_RAM_RADDR, 0x0);
-	for (i = 0; i < adreno_dev->pm4_fw_size >> 2; i++)
+	for (i = 0; i < size; i++)
 		adreno_regread(device, REG_CP_ME_RAM_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
@@ -110,7 +110,7 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
-	int i, size = adreno_dev->pfp_fw_size >> 2;
+	int i, size = adreno_dev->pfp_fw_size - 1;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP PFP RAM DEBUG");
@@ -127,7 +127,7 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	 * maintain always changing hardcoded constants
 	 */
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0x0);
-	for (i = 0; i < adreno_dev->pfp_fw_size >> 2; i++)
+	for (i = 0; i < size; i++)
 		adreno_regread(device, A3XX_CP_PFP_UCODE_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
