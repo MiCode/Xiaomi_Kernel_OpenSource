@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/memory_alloc.h>
+#include <linux/fmem.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include "../ion_priv.h"
@@ -86,10 +87,20 @@ static void allocate_co_memory(struct ion_platform_heap *heap,
 		if (shared_heap) {
 			struct ion_cp_heap_pdata *cp_data =
 			   (struct ion_cp_heap_pdata *) shared_heap->extra_data;
-			heap->base = msm_ion_get_base(
-				heap->size + shared_heap->size,
-				shared_heap->memory_type,
-				co_heap_data->align);
+			if (cp_data->reusable) {
+				const struct fmem_data *fmem_info =
+					fmem_get_info();
+				heap->base = fmem_info->phys -
+					     fmem_info->reserved_size;
+				cp_data->virt_addr = fmem_info->virt;
+				pr_info("ION heap %s using FMEM\n",
+							shared_heap->name);
+			} else {
+				heap->base = msm_ion_get_base(
+					heap->size + shared_heap->size,
+					shared_heap->memory_type,
+					co_heap_data->align);
+			}
 			if (heap->base) {
 				shared_heap->base = heap->base + heap->size;
 				cp_data->secure_base = heap->base;
@@ -138,13 +149,24 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 			((struct ion_co_heap_pdata *) heap->extra_data)->align;
 			break;
 		case ION_HEAP_TYPE_CP:
-			align =
-			((struct ion_cp_heap_pdata *) heap->extra_data)->align;
+		{
+			struct ion_cp_heap_pdata *data =
+				(struct ion_cp_heap_pdata *)
+				heap->extra_data;
+			if (data->reusable) {
+				const struct fmem_data *fmem_info =
+					fmem_get_info();
+				heap->base = fmem_info->phys;
+				data->virt_addr = fmem_info->virt;
+				pr_info("ION heap %s using FMEM\n", heap->name);
+			}
+			align = data->align;
 			break;
+		}
 		default:
 			break;
 		}
-		if (align) {
+		if (align && !heap->base) {
 			heap->base = msm_ion_get_base(heap->size,
 						      heap->memory_type,
 						      align);

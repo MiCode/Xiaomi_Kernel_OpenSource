@@ -230,6 +230,9 @@ void ion_iommu_heap_destroy(struct ion_heap *);
 struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *);
 void ion_cp_heap_destroy(struct ion_heap *);
 
+struct ion_heap *ion_reusable_heap_create(struct ion_platform_heap *);
+void ion_reusable_heap_destroy(struct ion_heap *);
+
 /**
  * kernel api to allocate/free from carveout -- used when carveout is
  * used to back an architecture specific custom heap
@@ -247,5 +250,25 @@ struct ion_heap *msm_get_contiguous_heap(void);
  */
 #define ION_CARVEOUT_ALLOCATE_FAIL -1
 #define ION_CP_ALLOCATE_FAIL -1
+
+/**
+ * The reserved heap returns physical addresses, since 0 may be a valid
+ * physical address, this is used to indicate allocation failed
+ */
+#define ION_RESERVED_ALLOCATE_FAIL -1
+
+/**
+ * ion_map_fmem_buffer - map fmem allocated memory into the kernel
+ * @buffer - buffer to map
+ * @phys_base - physical base of the heap
+ * @virt_base - virtual base of the heap
+ * @flags - flags for the heap
+ *
+ * Map fmem allocated memory into the kernel address space. This
+ * is designed to be used by other heaps that need fmem behavior.
+ * The virtual range must be pre-allocated.
+ */
+void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
+				void *virt_base, unsigned long flags);
 
 #endif /* _ION_PRIV_H */

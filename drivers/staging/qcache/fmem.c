@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,12 +51,14 @@ static int fmem_probe(struct platform_device *pdev)
 {
 	struct fmem_platform_data *pdata = pdev->dev.platform_data;
 
-	if (!pdata->size)
+	fmem_data.phys = pdata->phys + pdata->reserved_size;
+	fmem_data.size = pdata->size - pdata->reserved_size;
+	fmem_data.reserved_size = pdata->reserved_size;
+
+	if (!fmem_data.size)
 		return -ENODEV;
 
-	fmem_data.phys = pdata->phys;
-	fmem_data.size = pdata->size;
-	fmem_data.area = get_vm_area(pdata->size, VM_IOREMAP);
+	fmem_data.area = get_vm_area(fmem_data.size, VM_IOREMAP);
 	if (!fmem_data.area)
 		return -ENOMEM;
 
@@ -177,7 +179,7 @@ int fmem_set_state(enum fmem_state new_state)
 
 	if (fmem_state == FMEM_UNINITIALIZED) {
 		if (new_state == FMEM_T_STATE) {
-			tmem_enable(false);
+			tmem_enable();
 			create_sysfs = 1;
 			goto out_set;
 		}
@@ -194,7 +196,7 @@ int fmem_set_state(enum fmem_state new_state)
 			ret = PTR_ERR(v);
 			goto out;
 		}
-		tmem_enable(true);
+		tmem_enable();
 	} else {
 		tmem_disable();
 		fmem_unmap_virtual_area();
