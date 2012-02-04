@@ -479,8 +479,8 @@ struct msm_camera_device_platform_data msm_camera_device_data_rear = {
 	.ioext.csiirq		= INT_CSI_IRQ_1,
 	.ioclk.mclk_clk_rate	= 24000000,
 	.ioclk.vfe_clk_rate	= 192000000,
-	.ioext.appphy		= MSM_CLK_CTL_PHYS,
-	.ioext.appsz		= MSM_CLK_CTL_SIZE,
+	.ioext.appphy		= MSM7XXX_CLK_CTL_PHYS,
+	.ioext.appsz		= MSM7XXX_CLK_CTL_SIZE,
 };
 
 struct msm_camera_device_platform_data msm_camera_device_data_front = {
@@ -491,8 +491,8 @@ struct msm_camera_device_platform_data msm_camera_device_data_front = {
 	.ioext.csiirq		= INT_CSI_IRQ_0,
 	.ioclk.mclk_clk_rate	= 24000000,
 	.ioclk.vfe_clk_rate	= 192000000,
-	.ioext.appphy		= MSM_CLK_CTL_PHYS,
-	.ioext.appsz		= MSM_CLK_CTL_SIZE,
+	.ioext.appphy		= MSM7XXX_CLK_CTL_PHYS,
+	.ioext.appsz		= MSM7XXX_CLK_CTL_SIZE,
 };
 
 #ifdef CONFIG_S5K4E1

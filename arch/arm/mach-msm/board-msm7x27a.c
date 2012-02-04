@@ -151,6 +151,10 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 	.msm_i2c_config_gpio	= gsbi_qup_i2c_gpio_config,
 };
 
+static struct msm_i2c_platform_data msm8625_gsbi0_qup_i2c_pdata = {
+	.clk_freq		= 100000,
+};
+
 #ifdef CONFIG_ARCH_MSM7X27A
 #define MSM_PMEM_MDP_SIZE       0x2300000
 #define MSM7x25A_MSM_PMEM_MDP_SIZE       0x1500000
@@ -681,6 +685,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 static struct platform_device *msm8625_rumi3_devices[] __initdata = {
 	&msm8625_device_dmov,
 	&msm8625_device_uart1,
+	&msm8625_device_qup_i2c_gsbi0,
 };
 
 static struct platform_device *surf_ffa_devices[] __initdata = {
@@ -796,6 +801,12 @@ static void __init msm7x27a_reserve(void)
 
 static void __init msm_device_i2c_init(void)
 {
+	if (machine_is_msm8625_rumi3()) {
+		msm8625_device_qup_i2c_gsbi0.dev.platform_data =
+			&msm8625_gsbi0_qup_i2c_pdata;
+		return;
+	}
+
 	msm_gsbi0_qup_i2c_device.dev.platform_data = &msm_gsbi0_qup_i2c_pdata;
 	msm_gsbi1_qup_i2c_device.dev.platform_data = &msm_gsbi1_qup_i2c_pdata;
 }
@@ -1061,6 +1072,7 @@ static void __init msm7627a_rumi3_init(void)
 static void __init msm8625_rumi3_init(void)
 {
 	msm7x2x_misc_init();
+	msm_device_i2c_init();
 	platform_add_devices(msm8625_rumi3_devices,
 			ARRAY_SIZE(msm8625_rumi3_devices));
 }

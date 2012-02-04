@@ -228,8 +228,8 @@ static struct resource resources_uart1[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end	= MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7XXX_UART1_PHYS,
+		.end	= MSM7XXX_UART1_PHYS + MSM7XXX_UART1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -573,8 +573,8 @@ struct platform_device msm7x27a_device_csic1 = {
 static struct resource msm_clkctl_resources[] = {
 	{
 		.name   = "clk_ctl",
-		.start  = MSM_CLK_CTL_PHYS,
-		.end    = MSM_CLK_CTL_PHYS + MSM_CLK_CTL_SIZE - 1,
+		.start  = MSM7XXX_CLK_CTL_PHYS,
+		.end    = MSM7XXX_CLK_CTL_PHYS + MSM7XXX_CLK_CTL_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
@@ -802,8 +802,8 @@ static struct resource msm8625_resources_uart1[] = {
 		.flags  = IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end    = MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7XXX_UART1_PHYS,
+		.end    = MSM7XXX_UART1_PHYS + MSM7XXX_UART1_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
@@ -835,6 +835,35 @@ struct platform_device msm8625_device_dmov = {
 	.dev		= {
 		.platform_data = &msm_dmov_pdata,
 	},
+};
+
+static struct resource gsbi0_msm8625_qup_resources[] = {
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI0_QUP_PHYS,
+		.end	= MSM_GSBI0_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI0_PHYS,
+		.end	= MSM_GSBI0_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= MSM8625_INT_PWB_I2C,
+		.end	= MSM8625_INT_PWB_I2C,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+/* Use GSBI0 QUP for /dev/i2c-0 */
+struct platform_device msm8625_device_qup_i2c_gsbi0 = {
+	.name		= "qup_i2c",
+	.id		= MSM_GSBI0_QUP_I2C_BUS_ID,
+	.num_resources	= ARRAY_SIZE(gsbi0_msm8625_qup_resources),
+	.resource	= gsbi0_msm8625_qup_resources,
 };
 
 static struct clk_lookup msm_clock_8625_dummy[] = {
@@ -931,6 +960,13 @@ static int __init msm7x27x_cache_init(void)
 		   (0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
 		   (0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT);
 
+	if (cpu_is_msm8625()) {
+		/* Way Size 011(0x3) 64KB */
+		aux_ctrl |= (0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
+			    (0x1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) | \
+			    (0x1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT);
+	}
+
 	l2x0_init(MSM_L2CC_BASE, aux_ctrl, L2X0_AUX_CTRL_MASK);
 
 	return 0;
@@ -966,7 +1002,7 @@ void __init msm8625_map_io(void)
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n", __func__);
-
+	msm7x27x_cache_init();
 }
 
 static int msm7627a_init_gpio(void)

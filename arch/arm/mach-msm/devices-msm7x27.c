@@ -43,8 +43,8 @@ static struct resource resources_uart1[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end	= MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7XXX_UART1_PHYS,
+		.end	= MSM7XXX_UART1_PHYS + MSM7XXX_UART1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -56,8 +56,8 @@ static struct resource resources_uart2[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART2_PHYS,
-		.end	= MSM_UART2_PHYS + MSM_UART2_SIZE - 1,
+		.start	= MSM7XXX_UART2_PHYS,
+		.end	= MSM7XXX_UART2_PHYS + MSM7XXX_UART2_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
