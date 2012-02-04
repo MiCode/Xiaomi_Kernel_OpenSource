@@ -611,8 +611,16 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 		case L2CAP_MODE_BASIC:
 			l2cap_pi(sk)->conf_state &= ~L2CAP_CONF_STATE2_DEVICE;
 			break;
-		case L2CAP_MODE_ERTM:
 		case L2CAP_MODE_STREAMING:
+			if (!disable_ertm) {
+				/* No fallback to ERTM or Basic mode */
+				l2cap_pi(sk)->conf_state |=
+						L2CAP_CONF_STATE2_DEVICE;
+				break;
+			}
+			err = -EINVAL;
+			break;
+		case L2CAP_MODE_ERTM:
 			if (!disable_ertm)
 				break;
 			/* fall through */
