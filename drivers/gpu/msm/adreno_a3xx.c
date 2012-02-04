@@ -2547,6 +2547,9 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	/* GMEM size on A320 is 512K */
+	adreno_dev->gmemspace.sizebytes = SZ_512K;
+
 	/* Reset the core */
 	adreno_regwrite(device, A3XX_RBBM_SW_RESET_CMD,
 		0x00000001);

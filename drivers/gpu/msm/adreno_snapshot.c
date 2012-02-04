@@ -86,7 +86,7 @@ static int snapshot_istore(struct kgsl_device *device, void *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int count, i;
 
-	count = adreno_dev->istore_size * ADRENO_ISTORE_WORDS;
+	count = adreno_dev->istore_size * adreno_dev->instruction_size;
 
 	if (remain < (count * 4) + sizeof(*header)) {
 		KGSL_DRV_ERR(device,

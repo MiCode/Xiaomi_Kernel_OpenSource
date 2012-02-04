@@ -164,7 +164,8 @@ const unsigned int a220_registers_count = ARRAY_SIZE(a220_registers) / 2;
 
 static inline int _shader_shadow_size(struct adreno_device *adreno_dev)
 {
-	return adreno_dev->istore_size*ADRENO_ISTORE_BYTES;
+	return adreno_dev->istore_size *
+		(adreno_dev->instruction_size * sizeof(unsigned int));
 }
 
 static inline int _context_size(struct adreno_device *adreno_dev)
