@@ -3441,7 +3441,6 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x04);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x04);
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x81);
 	usleep_range(100, 100);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x04);
@@ -3461,7 +3460,6 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x02);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x02);
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x81);
 	usleep_range(100, 100);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_EN_CTL, 0x02);
