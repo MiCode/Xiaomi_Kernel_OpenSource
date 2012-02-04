@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,7 +83,25 @@ static struct gpiomux_setting slimbus = {
 	.pull = GPIOMUX_PULL_KEEPER,
 };
 
+static struct gpiomux_setting gsbi1_uart_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
+	{
+		.gpio      = 18,		/* GSBI1 UART TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi1_uart_config,
+		},
+	},
+	{
+		.gpio      = 19,		/* GSBI1 UART RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi1_uart_config,
+		},
+	},
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
 		.gpio      = 51,		/* GSBI5 QUP SPI_DATA_MOSI */
