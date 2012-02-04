@@ -449,14 +449,17 @@ static struct led_info pm8921_led_info_liquid[] = {
 	{
 		.name		= "led:red",
 		.flags		= PM8XXX_ID_LED_0,
+		.default_trigger	= "battery-charging",
 	},
 	{
 		.name		= "led:green",
 		.flags		= PM8XXX_ID_LED_0,
+		.default_trigger	= "battery-full",
 	},
 	{
 		.name		= "led:blue",
 		.flags		= PM8XXX_ID_LED_2,
+		.default_trigger	= "dc-online",
 	},
 };
 
