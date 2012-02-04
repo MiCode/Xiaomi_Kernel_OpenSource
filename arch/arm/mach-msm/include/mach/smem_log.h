@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@
 #define SMEM_LOG_PROC_ID_MODEM          0x00000000
 #define SMEM_LOG_PROC_ID_Q6             0x40000000
 #define SMEM_LOG_PROC_ID_APPS           0x80000000
+#define SMEM_LOG_PROC_ID_WCNSS          0xC0000000
 
 #define SMEM_LOG_CONT                   0x10000000
 

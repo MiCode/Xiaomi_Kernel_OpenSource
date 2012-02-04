@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +133,7 @@ struct sym id_syms[] = {
 	{ SMEM_LOG_PROC_ID_MODEM, "MODM" },
 	{ SMEM_LOG_PROC_ID_Q6, "QDSP" },
 	{ SMEM_LOG_PROC_ID_APPS, "APPS" },
+	{ SMEM_LOG_PROC_ID_WCNSS, "WCNSS" },
 };
 
 struct sym base_syms[] = {
