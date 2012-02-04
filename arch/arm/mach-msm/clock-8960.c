@@ -4248,7 +4248,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 			.ctl_reg = ns, \
 			.en_mask = BIT(19), \
 			.halt_reg = h_r, \
-			.halt_check = ENABLE, \
+			.halt_check = DELAY, \
 		}, \
 		.ns_reg = ns, \
 		.ext_mask = BIT(18), \
