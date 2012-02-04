@@ -258,13 +258,15 @@ static void build_regconstantsave_cmds(struct adreno_device *adreno_dev,
 				       struct adreno_context *drawctxt)
 {
 	unsigned int *cmd = tmp_ctx.cmd;
-	unsigned int *start = cmd;
+	unsigned int *start;
 	unsigned int i;
 
 	drawctxt->constant_save_commands[0].hostptr = cmd;
 	drawctxt->constant_save_commands[0].gpuaddr =
 	    virt2gpu(cmd, &drawctxt->gpustate);
 	cmd++;
+
+	start = cmd;
 
 	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
@@ -1329,7 +1331,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	/* SP_FS_OUT_REG */
 	*cmds++ = _SET(SP_FSOUTREG_PAD0, SP_PIXEL_BASED);
 
-	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_SP_FS_MRT_REG_0);
 	/* SP_FS_MRT_REG0 */
 	*cmds++ = _SET(SP_FSMRTREG_REGID, 4);
@@ -1426,7 +1428,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(VPC_VPCVARPSREPLMODE_COMPONENT16, 1) |
 		_SET(VPC_VPCVARPSREPLMODE_COMPONENT17, 2);
 
-	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 11);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_SP_SP_CTRL_REG);
 	/* SP_SP_CTRL_REG */
 	*cmds++ = _SET(SP_SPCTRLREG_SLEEPMODE, 1);
@@ -2130,24 +2132,17 @@ static int a3xx_create_gpustate_shadow(struct adreno_device *adreno_dev,
 static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 				 struct adreno_context *drawctxt)
 {
+	int result;
+
 	calc_gmemsize(&drawctxt->context_gmem_shadow,
 		adreno_dev->gmemspace.sizebytes);
 	tmp_ctx.gmem_base = adreno_dev->gmemspace.gpu_base;
 
-	if (drawctxt->flags & CTXT_FLAGS_GMEM_SHADOW) {
-		int result =
-		    kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
-			drawctxt->pagetable,
-			drawctxt->context_gmem_shadow.size);
+	result = kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
+		drawctxt->pagetable, drawctxt->context_gmem_shadow.size);
 
-		if (result)
-			return result;
-	} else {
-		memset(&drawctxt->context_gmem_shadow.gmemshadow, 0,
-		       sizeof(drawctxt->context_gmem_shadow.gmemshadow));
-
-		return 0;
-	}
+	if (result)
+		return result;
 
 	build_quad_vtxbuff(drawctxt, &drawctxt->context_gmem_shadow,
 		&tmp_ctx.cmd);
@@ -2162,6 +2157,8 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
 		KGSL_CACHE_OP_FLUSH);
+
+	drawctxt->flags |= CTXT_FLAGS_GMEM_SHADOW;
 
 	return 0;
 }
