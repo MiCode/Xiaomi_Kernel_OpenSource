@@ -372,16 +372,20 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get pll supply\n");
 		return PTR_ERR(drv->pll_supply);
 	}
-	ret = regulator_set_voltage(drv->pll_supply, 1800000, 1800000);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to set pll supply voltage\n");
-		goto err;
-	}
+	if (regulator_count_voltages(drv->pll_supply) > 0) {
+		ret = regulator_set_voltage(drv->pll_supply, 1800000, 1800000);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"failed to set pll supply voltage\n");
+			goto err;
+		}
 
-	ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to set pll supply optimum mode\n");
-		goto err;
+		ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+				"failed to set pll supply optimum mode\n");
+			goto err;
+		}
 	}
 
 	desc->name = "wcnss";
