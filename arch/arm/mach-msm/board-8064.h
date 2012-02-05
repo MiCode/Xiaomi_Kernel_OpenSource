@@ -44,6 +44,7 @@ int __init apq8064_add_sdcc(unsigned int controller,
 void apq8064_init_mmc(void);
 void apq8064_init_gpiomux(void);
 void apq8064_init_pmic(void);
+
 extern struct msm_camera_board_info apq8064_camera_board_info;
 void apq8064_init_cam(void);
 #define APQ_8064_GSBI4_QUP_I2C_BUS_ID 4
@@ -51,4 +52,7 @@ void apq8064_init_cam(void);
 void apq8064_init_fb(void);
 void apq8064_allocate_fb_region(void);
 void apq8064_mdp_writeback(struct memtype_reserve *reserve_table);
+
+void apq8064_init_gpu(void);
+
 #endif
