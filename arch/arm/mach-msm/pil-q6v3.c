@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/workqueue.h>
 
 #include <mach/msm_iomap.h>
 
@@ -66,7 +67,7 @@ struct q6v3_data {
 	void __iomem *base;
 	unsigned long start_addr;
 	struct clk *pll;
-	struct timer_list timer;
+	struct delayed_work work;
 };
 
 static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
@@ -83,36 +84,40 @@ static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 
-static void q6v3_remove_proxy_votes(unsigned long data)
+static void q6v3_remove_proxy_votes(struct work_struct *work)
 {
-	struct q6v3_data *drv = (struct q6v3_data *)data;
-	clk_disable(drv->pll);
+	struct q6v3_data *drv = container_of(work, struct q6v3_data, work.work);
+	clk_disable_unprepare(drv->pll);
 }
 
-static void q6v3_make_proxy_votes(struct device *dev)
+static int q6v3_make_proxy_votes(struct device *dev)
 {
 	int ret;
 	struct q6v3_data *drv = dev_get_drvdata(dev);
 
-	ret = clk_enable(drv->pll);
-	if (ret)
+	ret = clk_prepare_enable(drv->pll);
+	if (ret) {
 		dev_err(dev, "Failed to enable PLL\n");
-	mod_timer(&drv->timer, jiffies + msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+		return ret;
+	}
+	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+	return 0;
 }
 
 static void q6v3_remove_proxy_votes_now(struct q6v3_data *drv)
 {
-	/* If the proxy vote hasn't been removed yet, remove it immediately. */
-	if (del_timer(&drv->timer))
-		q6v3_remove_proxy_votes((unsigned long)drv);
+	flush_delayed_work(&drv->work);
 }
 
 static int pil_q6v3_reset(struct pil_desc *pil)
 {
 	u32 reg;
+	int ret;
 	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
 
-	q6v3_make_proxy_votes(pil->dev);
+	ret = q6v3_make_proxy_votes(pil->dev);
+	if (ret)
+		return ret;
 
 	/* Put Q6 into reset */
 	reg = readl_relaxed(LCC_Q6_FUNC);
@@ -198,7 +203,10 @@ static int pil_q6v3_init_image_trusted(struct pil_desc *pil,
 
 static int pil_q6v3_reset_trusted(struct pil_desc *pil)
 {
-	q6v3_make_proxy_votes(pil->dev);
+	int ret;
+	ret = q6v3_make_proxy_votes(pil->dev);
+	if (ret)
+		return ret;
 	return pas_auth_and_reset(PAS_Q6);
 }
 
@@ -250,7 +258,6 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pll))
 		return PTR_ERR(drv->pll);
 
-	setup_timer(&drv->timer, q6v3_remove_proxy_votes, (unsigned long)drv);
 	desc->name = "q6";
 	desc->dev = &pdev->dev;
 
@@ -262,15 +269,19 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	if (msm_pil_register(desc))
+	INIT_DELAYED_WORK(&drv->work, q6v3_remove_proxy_votes);
+
+	if (msm_pil_register(desc)) {
+		flush_delayed_work_sync(&drv->work);
 		return -EINVAL;
+	}
 	return 0;
 }
 
 static int __devexit pil_q6v3_driver_exit(struct platform_device *pdev)
 {
 	struct q6v3_data *drv = platform_get_drvdata(pdev);
-	del_timer_sync(&drv->timer);
+	flush_delayed_work_sync(&drv->work);
 	return 0;
 }
 
