@@ -300,28 +300,6 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 		.desc_fifo_base_offset = 0x1000,
 		.desc_fifo_size = 0x100,
 	},
-#else
-	[0][USB_TO_PEER_PERIPHERAL] = {
-		.src_phy_addr = HSIC_BAM_PHY_BASE,
-		.src_pipe_index = 1,
-		.dst_phy_addr = A2_BAM_PHY_BASE,
-		.dst_pipe_index = 0,
-		.data_fifo_base_offset = 0x1100,
-		.data_fifo_size = 0x600,
-		.desc_fifo_base_offset = 0x1700,
-		.desc_fifo_size = 0x300,
-	},
-	[0][PEER_PERIPHERAL_TO_USB] = {
-		.src_phy_addr = A2_BAM_PHY_BASE,
-		.src_pipe_index = 1,
-		.dst_phy_addr = HSIC_BAM_PHY_BASE,
-		.dst_pipe_index = 0,
-		.data_fifo_base_offset = 0xa00,
-		.data_fifo_size = 0x600,
-		.desc_fifo_base_offset = 0x1000,
-		.desc_fifo_size = 0x100,
-	},
-#endif
 	[1][USB_TO_PEER_PERIPHERAL] = {
 		.src_phy_addr = USB_BAM_PHY_BASE,
 		.src_pipe_index = 13,
@@ -362,6 +340,68 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 		.desc_fifo_base_offset = 0x3000,
 		.desc_fifo_size = 0x100,
 	}
+#else
+	[0][USB_TO_PEER_PERIPHERAL] = {
+		.src_phy_addr = HSIC_BAM_PHY_BASE,
+		.src_pipe_index = 1,
+		.dst_phy_addr = A2_BAM_PHY_BASE,
+		.dst_pipe_index = 0,
+		.data_fifo_base_offset = 0x1100,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1700,
+		.desc_fifo_size = 0x300,
+	},
+	[0][PEER_PERIPHERAL_TO_USB] = {
+		.src_phy_addr = A2_BAM_PHY_BASE,
+		.src_pipe_index = 1,
+		.dst_phy_addr = HSIC_BAM_PHY_BASE,
+		.dst_pipe_index = 0,
+		.data_fifo_base_offset = 0xa00,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x1000,
+		.desc_fifo_size = 0x100,
+	},
+	[1][USB_TO_PEER_PERIPHERAL] = {
+		.src_phy_addr = HSIC_BAM_PHY_BASE,
+		.src_pipe_index = 3,
+		.dst_phy_addr = A2_BAM_PHY_BASE,
+		.dst_pipe_index = 2,
+		.data_fifo_base_offset = 0x2100,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x2700,
+		.desc_fifo_size = 0x300,
+	},
+	[1][PEER_PERIPHERAL_TO_USB] = {
+		.src_phy_addr = A2_BAM_PHY_BASE,
+		.src_pipe_index = 3,
+		.dst_phy_addr = HSIC_BAM_PHY_BASE,
+		.dst_pipe_index = 2,
+		.data_fifo_base_offset = 0x1a00,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x2000,
+		.desc_fifo_size = 0x100,
+	},
+	[2][USB_TO_PEER_PERIPHERAL] = {
+		.src_phy_addr = HSIC_BAM_PHY_BASE,
+		.src_pipe_index = 5,
+		.dst_phy_addr = A2_BAM_PHY_BASE,
+		.dst_pipe_index = 4,
+		.data_fifo_base_offset = 0x3100,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x3700,
+		.desc_fifo_size = 0x300,
+	},
+	[2][PEER_PERIPHERAL_TO_USB] = {
+		.src_phy_addr = A2_BAM_PHY_BASE,
+		.src_pipe_index = 5,
+		.dst_phy_addr = HSIC_BAM_PHY_BASE,
+		.dst_pipe_index = 4,
+		.data_fifo_base_offset = 0x2a00,
+		.data_fifo_size = 0x600,
+		.desc_fifo_base_offset = 0x3000,
+		.desc_fifo_size = 0x100,
+	}
+#endif
 };
 
 static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
