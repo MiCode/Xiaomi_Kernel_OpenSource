@@ -12,13 +12,11 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 
-#define TABLA_VERSION_1_0	0
-#define TABLA_VERSION_1_1	1
-#define TABLA_VERSION_2_0	2
-
 #define TABLA_NUM_REGISTERS 0x400
 #define TABLA_MAX_REGISTER (TABLA_NUM_REGISTERS-1)
 #define TABLA_CACHE_SIZE TABLA_NUM_REGISTERS
+#define TABLA_1_X_ONLY_REGISTERS 3
+#define TABLA_2_HIGHER_ONLY_REGISTERS 3
 
 #define TABLA_REG_VAL(reg, val)		{reg, 0, val}
 
@@ -35,6 +33,8 @@
 				SND_JACK_BTN_6 | SND_JACK_BTN_7)
 
 extern const u8 tabla_reg_readable[TABLA_CACHE_SIZE];
+extern const u32 tabla_1_reg_readable[TABLA_1_X_ONLY_REGISTERS];
+extern const u32 tabla_2_reg_readable[TABLA_2_HIGHER_ONLY_REGISTERS];
 extern const u8 tabla_reg_defaults[TABLA_CACHE_SIZE];
 
 enum tabla_micbias_num {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,9 +117,6 @@ const u8 tabla_reg_readable[TABLA_CACHE_SIZE] = {
 	[TABLA_A_MICB_3_CTL] = 1,
 	[TABLA_A_MICB_3_INT_RBIAS] = 1,
 	[TABLA_A_MICB_3_MBHC] = 1,
-	[TABLA_A_MICB_4_CTL] = 1,
-	[TABLA_A_MICB_4_INT_RBIAS] = 1,
-	[TABLA_A_MICB_4_MBHC] = 1,
 	[TABLA_A_TX_COM_BIAS] = 1,
 	[TABLA_A_MBHC_SCALING_MUX_1] = 1,
 	[TABLA_A_MBHC_SCALING_MUX_2] = 1,
@@ -538,6 +535,18 @@ const u8 tabla_reg_readable[TABLA_CACHE_SIZE] = {
 	[TABLA_A_CDC_MBHC_SPARE] = 1,
 };
 
+const unsigned int tabla_1_reg_readable[TABLA_1_X_ONLY_REGISTERS] = {
+	TABLA_1_A_MICB_4_CTL,
+	TABLA_1_A_MICB_4_INT_RBIAS,
+	TABLA_1_A_MICB_4_MBHC,
+};
+
+const unsigned int tabla_2_reg_readable[TABLA_2_HIGHER_ONLY_REGISTERS] = {
+	TABLA_2_A_MICB_4_CTL,
+	TABLA_2_A_MICB_4_INT_RBIAS,
+	TABLA_2_A_MICB_4_MBHC,
+};
+
 const u8 tabla_reg_defaults[TABLA_CACHE_SIZE] = {
 	[TABLA_A_CHIP_CTL] = TABLA_A_CHIP_CTL__POR,
 	[TABLA_A_CHIP_STATUS] = TABLA_A_CHIP_STATUS__POR,
@@ -643,9 +652,12 @@ const u8 tabla_reg_defaults[TABLA_CACHE_SIZE] = {
 	[TABLA_A_MICB_3_CTL] = TABLA_A_MICB_3_CTL__POR,
 	[TABLA_A_MICB_3_INT_RBIAS] = TABLA_A_MICB_3_INT_RBIAS__POR,
 	[TABLA_A_MICB_3_MBHC] = TABLA_A_MICB_3_MBHC__POR,
-	[TABLA_A_MICB_4_CTL] = TABLA_A_MICB_4_CTL__POR,
-	[TABLA_A_MICB_4_INT_RBIAS] = TABLA_A_MICB_4_INT_RBIAS__POR,
-	[TABLA_A_MICB_4_MBHC] = TABLA_A_MICB_4_MBHC__POR,
+	[TABLA_1_A_MICB_4_CTL] = TABLA_A_MICB_4_CTL__POR,
+	[TABLA_1_A_MICB_4_INT_RBIAS] = TABLA_A_MICB_4_INT_RBIAS__POR,
+	[TABLA_1_A_MICB_4_MBHC] = TABLA_A_MICB_4_MBHC__POR,
+	[TABLA_2_A_MICB_4_CTL] = TABLA_A_MICB_4_CTL__POR,
+	[TABLA_2_A_MICB_4_INT_RBIAS] = TABLA_A_MICB_4_INT_RBIAS__POR,
+	[TABLA_2_A_MICB_4_MBHC] = TABLA_A_MICB_4_MBHC__POR,
 	[TABLA_A_TX_COM_BIAS] = TABLA_A_TX_COM_BIAS__POR,
 	[TABLA_A_MBHC_SCALING_MUX_1] = TABLA_A_MBHC_SCALING_MUX_1__POR,
 	[TABLA_A_MBHC_SCALING_MUX_2] = TABLA_A_MBHC_SCALING_MUX_2__POR,

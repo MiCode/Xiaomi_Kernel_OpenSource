@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,6 +387,10 @@ static int tabla_device_init(struct tabla *tabla, int irq)
 		dev_err(tabla->dev, "Failed to add children: %d\n", ret);
 		goto err_irq;
 	}
+
+	tabla->version = tabla_reg_read(tabla, TABLA_A_CHIP_VERSION) & 0x1F;
+	pr_info("%s : Tabla version %u initialized\n",
+		__func__, tabla->version);
 
 	return ret;
 err_irq:
@@ -917,7 +921,6 @@ static int tabla_slim_probe(struct slim_device *slim)
 		(void *) "poke", &codec_debug_ops);
 	}
 #endif
-
 
 	return ret;
 
