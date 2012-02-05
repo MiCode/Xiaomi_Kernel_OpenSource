@@ -1507,9 +1507,6 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 	ch = smd_get_channel(name, edge);
 	if (!ch) {
-		unsigned long flags;
-		struct smd_channel *ch;
-
 		/* check closing list for port */
 		spin_lock_irqsave(&smd_lock, flags);
 		list_for_each_entry(ch, &smd_ch_closing_list, ch_list) {
@@ -2622,6 +2619,7 @@ static struct restart_notifier_block restart_notifiers[] = {
 	{SMD_Q6, "lpass", .nb.notifier_call = restart_notifier_cb},
 	{SMD_WCNSS, "riva", .nb.notifier_call = restart_notifier_cb},
 	{SMD_DSPS, "dsps", .nb.notifier_call = restart_notifier_cb},
+	{SMD_MODEM, "gnss", .nb.notifier_call = restart_notifier_cb},
 };
 
 static int restart_notifier_cb(struct notifier_block *this,

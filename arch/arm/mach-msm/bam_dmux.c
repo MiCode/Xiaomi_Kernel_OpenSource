@@ -207,6 +207,7 @@ static struct completion ul_wakeup_ack_completion;
 static struct completion bam_connection_completion;
 static struct delayed_work ul_timeout_work;
 static int ul_packet_written;
+static atomic_t ul_ondemand_vote = ATOMIC_INIT(0);
 static struct clk *dfab_clk;
 static DEFINE_RWLOCK(ul_wakeup_lock);
 static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
@@ -292,9 +293,10 @@ static void bam_dmux_log(const char *fmt, ...)
 	 * U: 1 = Uplink active
 	 * W: 1 = Uplink Wait-for-ack
 	 * A: 1 = Uplink ACK received
+	 * #: >=1 On-demand uplink vote
 	 */
 	len += scnprintf(buff, sizeof(buff),
-		"<DMUX> %u.%09lu %c%c%c%c %c%c%c%c ",
+		"<DMUX> %u.%09lu %c%c%c%c %c%c%c%c%d ",
 		(unsigned)t_now, nanosec_rem,
 		a2_pc_disabled ? 'D' : 'd',
 		in_global_reset ? 'R' : 'r',
@@ -303,7 +305,8 @@ static void bam_dmux_log(const char *fmt, ...)
 		bam_dmux_uplink_vote ? 'V' : 'v',
 		bam_is_connected ?  'U' : 'u',
 		wait_for_ack ? 'W' : 'w',
-		ul_wakeup_ack_completion.done ? 'A' : 'a'
+		ul_wakeup_ack_completion.done ? 'A' : 'a',
+		atomic_read(&ul_ondemand_vote)
 		);
 
 	va_start(arg_list, fmt);
@@ -1229,6 +1232,7 @@ static int debug_log(char *buff, int max, loff_t *ppos)
 			"\tU: 1 = Uplink active\n"
 			"\tW: 1 = Uplink Wait-for-ack\n"
 			"\tA: 1 = Uplink ACK received\n"
+			"\t#: >=1 On-demand uplink vote\n"
 				);
 		buff += i;
 	}
@@ -1363,9 +1367,18 @@ static void kickoff_ul_wakeup_func(struct work_struct *work)
 	read_unlock(&ul_wakeup_lock);
 }
 
-void msm_bam_dmux_kickoff_ul_wakeup(void)
+int msm_bam_dmux_kickoff_ul_wakeup(void)
 {
-	queue_work(bam_mux_tx_workqueue, &kickoff_ul_wakeup);
+	int is_connected;
+
+	read_lock(&ul_wakeup_lock);
+	ul_packet_written = 1;
+	is_connected = bam_is_connected;
+	if (!is_connected)
+		queue_work(bam_mux_tx_workqueue, &kickoff_ul_wakeup);
+	read_unlock(&ul_wakeup_lock);
+
+	return is_connected;
 }
 
 static void power_vote(int vote)
@@ -1413,6 +1426,43 @@ static inline void ul_powerdown_finish(void)
 	}
 }
 
+/*
+ * Votes for UL power and returns current power state.
+ *
+ * @returns true if currently connected
+ */
+int msm_bam_dmux_ul_power_vote(void)
+{
+	int is_connected;
+
+	read_lock(&ul_wakeup_lock);
+	atomic_inc(&ul_ondemand_vote);
+	is_connected = bam_is_connected;
+	if (!is_connected)
+		queue_work(bam_mux_tx_workqueue, &kickoff_ul_wakeup);
+	read_unlock(&ul_wakeup_lock);
+
+	return is_connected;
+}
+
+/*
+ * Unvotes for UL power.
+ *
+ * @returns true if vote count is 0 (UL shutdown possible)
+ */
+int msm_bam_dmux_ul_power_unvote(void)
+{
+	int vote;
+
+	read_lock(&ul_wakeup_lock);
+	vote = atomic_dec_return(&ul_ondemand_vote);
+	if (unlikely(vote) < 0)
+		DMUX_LOG_KERR("%s: invalid power vote %d\n", __func__, vote);
+	read_unlock(&ul_wakeup_lock);
+
+	return vote == 0;
+}
+
 static void ul_timeout(struct work_struct *work)
 {
 	unsigned long flags;
@@ -1442,8 +1492,9 @@ static void ul_timeout(struct work_struct *work)
 			spin_unlock(&bam_tx_pool_spinlock);
 		}
 
-		if (ul_packet_written) {
-			bam_dmux_log("%s: packet written\n", __func__);
+		if (ul_packet_written || atomic_read(&ul_ondemand_vote)) {
+			bam_dmux_log("%s: pkt written %d\n",
+				__func__, ul_packet_written);
 			ul_packet_written = 0;
 			schedule_delayed_work(&ul_timeout_work,
 					msecs_to_jiffies(UL_TIMEOUT_DELAY));
