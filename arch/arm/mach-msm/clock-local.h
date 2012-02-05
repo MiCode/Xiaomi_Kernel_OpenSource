@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -164,12 +164,16 @@ struct branch {
 
 	void __iomem *const reset_reg;
 	const u32 reset_mask;
+
+	void __iomem *const retain_reg;
+	const u32 retain_mask;
 };
 
 int branch_reset(struct branch *b, enum clk_reset_action action);
 void __branch_clk_enable_reg(const struct branch *clk, const char *name);
 u32 __branch_clk_disable_reg(const struct branch *clk, const char *name);
 int branch_clk_handoff(struct clk *c);
+int branch_clk_set_flags(struct clk *clk, unsigned flags);
 
 /*
  * Generic clock-definition struct and macros
@@ -213,6 +217,7 @@ int rcg_clk_reset(struct clk *clk, enum clk_reset_action action);
 void rcg_clk_enable_hwcg(struct clk *clk);
 void rcg_clk_disable_hwcg(struct clk *clk);
 int rcg_clk_in_hwcg_mode(struct clk *c);
+int rcg_clk_set_flags(struct clk *clk, unsigned flags);
 
 /**
  * struct cdiv_clk - integer divider clock with external source selection
