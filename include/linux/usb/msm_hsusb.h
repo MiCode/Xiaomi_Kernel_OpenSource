@@ -286,8 +286,6 @@ struct usb_bam_pipe_connect {
 
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
-	unsigned long usb_bam_phy_base;
-	unsigned long usb_bam_phy_size;
 	int usb_active_bam;
 	int usb_bam_num_pipes;
 };
