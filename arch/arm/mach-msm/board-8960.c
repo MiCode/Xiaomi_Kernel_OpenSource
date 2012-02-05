@@ -2205,8 +2205,8 @@ static struct isl_platform_data isl_data __initdata = {
 	.chg_detection_config	= NULL,	/* Not required when notify-by-pmic */
 	.max_system_voltage	= 4200,
 	.min_system_voltage	= 3200,
-	.chgcurrent		= 1000, /* 1900, */
-	.term_current		= 400,	/* Need fine tuning */
+	.chgcurrent		= 1900,
+	.term_current		= 0,
 	.input_current		= 2048,
 };
 
