@@ -1278,6 +1278,50 @@ static void __init apq8064_clock_init(void)
 		msm_clock_init(&apq8064_clock_init_data);
 }
 
+#define I2C_SURF 1
+#define I2C_FFA  (1 << 1)
+#define I2C_RUMI (1 << 2)
+#define I2C_SIM  (1 << 3)
+#define I2C_LIQUID (1 << 4)
+
+struct i2c_registry {
+	u8                     machs;
+	int                    bus;
+	struct i2c_board_info *info;
+	int                    len;
+};
+
+static struct i2c_registry apq8064_i2c_devices[] __initdata = {
+};
+
+static void __init register_i2c_devices(void)
+{
+	u8 mach_mask = 0;
+	int i;
+
+	/* Build the matching 'supported_machs' bitmask */
+	if (machine_is_apq8064_cdp())
+		mach_mask = I2C_SURF;
+	else if (machine_is_apq8064_mtp())
+		mach_mask = I2C_FFA;
+	else if (machine_is_apq8064_liquid())
+		mach_mask = I2C_LIQUID;
+	else if (machine_is_apq8064_rumi3())
+		mach_mask = I2C_RUMI;
+	else if (machine_is_apq8064_sim())
+		mach_mask = I2C_SIM;
+	else
+		pr_err("unmatched machine ID in register_i2c_devices\n");
+
+	/* Run the array and install devices as appropriate */
+	for (i = 0; i < ARRAY_SIZE(apq8064_i2c_devices); ++i) {
+		if (apq8064_i2c_devices[i].machs & mach_mask)
+			i2c_register_board_info(apq8064_i2c_devices[i].bus,
+						apq8064_i2c_devices[i].info,
+						apq8064_i2c_devices[i].len);
+	}
+}
+
 static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
@@ -1287,6 +1331,7 @@ static void __init apq8064_common_init(void)
 	apq8064_clock_init();
 	apq8064_init_gpiomux();
 	apq8064_i2c_init();
+	register_i2c_devices();
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
 						&apq8064_qup_spi_gsbi5_pdata;
