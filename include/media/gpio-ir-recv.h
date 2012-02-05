@@ -10,14 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __TSOP_IR_H__
-#define __TSOP_IR_H__
+#ifndef __GPIO_IR_RECV_H__
+#define __GPIO_IR_RECV_H__
 
-struct tsop_platform_data {
+struct gpio_ir_recv_platform_data {
 	unsigned int gpio_nr;
 	bool active_low;
 	bool can_wakeup;
 };
 
-#endif /* __TSOP_IR_H__ */
+#endif /* __GPIO_IR_RECV_H__ */
 
