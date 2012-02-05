@@ -160,6 +160,30 @@ static struct msm_gpiomux_config apq8064_hsic_configs[] = {
 };
 #endif
 
+static struct gpiomux_setting mxt_reset_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mxt_reset_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting mxt_int_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mxt_int_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 8,			/* GSBI3 I2C QUP SDA */
@@ -378,6 +402,23 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	}
 };
 
+static struct msm_gpiomux_config apq8064_mxt_configs[] __initdata = {
+	{	/* TS INTERRUPT */
+		.gpio = 6,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mxt_int_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mxt_int_sus_cfg,
+		},
+	},
+	{	/* TS RESET */
+		.gpio = 33,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mxt_reset_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mxt_reset_sus_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -416,4 +457,8 @@ void __init apq8064_init_gpiomux(void)
 	msm_gpiomux_install(apq8064_hsic_configs,
 			ARRAY_SIZE(apq8064_hsic_configs));
 #endif
+
+	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
+		msm_gpiomux_install(apq8064_mxt_configs,
+			ARRAY_SIZE(apq8064_mxt_configs));
 }

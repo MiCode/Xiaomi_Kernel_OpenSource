@@ -24,6 +24,7 @@
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/ion.h>
 #include <linux/memory.h>
+#include <linux/i2c/atmel_mxt_ts.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -522,6 +523,97 @@ static struct slim_device apq8064_slim_tabla20 = {
 	.e_addr = {0, 1, 0x60, 0, 0x17, 2},
 	.dev = {
 		.platform_data = &apq8064_tabla20_platform_data,
+	},
+};
+
+/* configuration data for mxt1386e using V2.1 firmware */
+static const u8 mxt1386e_config_data_v2_1[] = {
+	/* T6 Object */
+	0, 0, 0, 0, 0, 0,
+	/* T38 Object */
+	14, 0, 0, 24, 1, 12, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0,
+	/* T7 Object */
+	100, 16, 50,
+	/* T8 Object */
+	25, 0, 20, 20, 0, 0, 20, 50, 0, 0,
+	/* T9 Object */
+	131, 0, 0, 26, 42, 0, 32, 80, 2, 5,
+	0, 5, 5, 0, 10, 30, 10, 10, 255, 2,
+	85, 5, 10, 10, 10, 10, 135, 55, 70, 40,
+	10, 5, 0, 0, 0,
+	/* T18 Object */
+	0, 0,
+	/* T24 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T25 Object */
+	3, 0, 60, 115, 156, 99,
+	/* T27 Object */
+	0, 0, 0, 0, 0, 0, 0,
+	/* T40 Object */
+	0, 0, 0, 0, 0,
+	/* T42 Object */
+	2, 0, 255, 0, 255, 0, 0, 0, 0, 0,
+	/* T43 Object */
+	0, 0, 0, 0, 0, 0, 0, 64, 0, 8,
+	16,
+	/* T46 Object */
+	64, 0, 20, 20, 0, 0, 0, 0, 0,
+	/* T47 Object */
+	0, 0, 0, 0, 0, 0, 3, 64, 66, 0,
+	/* T48 Object */
+	31, 64, 64, 0, 0, 0, 0, 0, 0, 0,
+	48, 40, 0, 10, 10, 0, 0, 100, 10, 80,
+	0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+	52, 0, 12, 0, 17, 0, 1, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0,
+	/* T56 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	2, 99, 33, 0, 149, 24, 193, 255, 255, 255,
+	255,
+};
+
+#define MXT_TS_GPIO_IRQ			6
+#define MXT_TS_PWR_EN_GPIO		PM8921_GPIO_PM_TO_SYS(23)
+#define MXT_TS_RESET_GPIO		33
+
+static struct mxt_config_info mxt_config_array[] = {
+	{
+		.config		= mxt1386e_config_data_v2_1,
+		.config_length	= ARRAY_SIZE(mxt1386e_config_data_v2_1),
+		.family_id	= 0xA0,
+		.variant_id	= 0x7,
+		.version	= 0x21,
+		.build		= 0xAA,
+	},
+};
+
+static struct mxt_platform_data mxt_platform_data = {
+	.config_array		= mxt_config_array,
+	.config_array_size	= ARRAY_SIZE(mxt_config_array),
+	.x_size			= 1365,
+	.y_size			= 767,
+	.irqflags		= IRQF_TRIGGER_FALLING,
+	.i2c_pull_up		= true,
+	.reset_gpio		= MXT_TS_RESET_GPIO,
+	.irq_gpio		= MXT_TS_GPIO_IRQ,
+};
+
+static struct i2c_board_info mxt_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
+		.platform_data = &mxt_platform_data,
+		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
 	},
 };
 
@@ -1292,6 +1384,12 @@ struct i2c_registry {
 };
 
 static struct i2c_registry apq8064_i2c_devices[] __initdata = {
+	{
+		I2C_SURF | I2C_LIQUID,
+		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
+		mxt_device_info,
+		ARRAY_SIZE(mxt_device_info),
+	},
 };
 
 static void __init register_i2c_devices(void)
