@@ -734,25 +734,28 @@ static void set_sec_clk_src(struct scalable *sc, uint32_t sec_src_sel)
 }
 
 /* Enable an already-configured HFPLL. */
-static void hfpll_enable(struct scalable *sc)
+static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 {
 	int rc;
 
-	if (cpu_is_msm8960()) {
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 2100000,
-				sc->vreg[VREG_HFPLL_A].max_vdd, 0);
+	if (!skip_regulators) {
+		if (cpu_is_msm8960()) {
+			rc = rpm_vreg_set_voltage(
+					sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+					sc->vreg[VREG_HFPLL_A].rpm_vreg_voter,
+					2100000,
+					sc->vreg[VREG_HFPLL_A].max_vdd, 0);
+			if (rc)
+				pr_err("%s regulator enable failed (%d)\n",
+					sc->vreg[VREG_HFPLL_A].name, rc);
+		}
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
+				sc->vreg[VREG_HFPLL_B].max_vdd, 0);
 		if (rc)
 			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_A].name, rc);
+				sc->vreg[VREG_HFPLL_B].name, rc);
 	}
-	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
-			sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 1800000,
-			sc->vreg[VREG_HFPLL_B].max_vdd, 0);
-	if (rc)
-		pr_err("%s regulator enable failed (%d)\n",
-			sc->vreg[VREG_HFPLL_B].name, rc);
-
 	/* Disable PLL bypass mode. */
 	writel_relaxed(0x2, sc->hfpll_base + HFPLL_MODE);
 
@@ -775,7 +778,7 @@ static void hfpll_enable(struct scalable *sc)
 }
 
 /* Disable a HFPLL for power-savings or while its being reprogrammed. */
-static void hfpll_disable(struct scalable *sc)
+static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 {
 	int rc;
 
@@ -785,20 +788,23 @@ static void hfpll_disable(struct scalable *sc)
 	 */
 	writel_relaxed(0, sc->hfpll_base + HFPLL_MODE);
 
-	rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
-			sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
-			0, 0);
-	if (rc)
-		pr_err("%s regulator enable failed (%d)\n",
-			sc->vreg[VREG_HFPLL_B].name, rc);
-
-	if (cpu_is_msm8960()) {
-		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
-				sc->vreg[VREG_HFPLL_A].rpm_vreg_voter, 0,
+	if (!skip_regulators) {
+		rc = rpm_vreg_set_voltage(sc->vreg[VREG_HFPLL_B].rpm_vreg_id,
+				sc->vreg[VREG_HFPLL_B].rpm_vreg_voter, 0,
 				0, 0);
 		if (rc)
 			pr_err("%s regulator enable failed (%d)\n",
-				sc->vreg[VREG_HFPLL_A].name, rc);
+				sc->vreg[VREG_HFPLL_B].name, rc);
+
+		if (cpu_is_msm8960()) {
+			rc = rpm_vreg_set_voltage(
+					sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
+					sc->vreg[VREG_HFPLL_A].rpm_vreg_voter,
+					0, 0, 0);
+			if (rc)
+				pr_err("%s regulator enable failed (%d)\n",
+					sc->vreg[VREG_HFPLL_A].name, rc);
+		}
 	}
 }
 
@@ -862,9 +868,9 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 		set_pri_clk_src(sc, PRI_SRC_SEL_SEC_SRC);
 
 		/* Program CPU HFPLL. */
-		hfpll_disable(sc);
+		hfpll_disable(sc, 1);
 		hfpll_set_rate(sc, tgt_s);
-		hfpll_enable(sc);
+		hfpll_enable(sc, 1);
 
 		/* Move CPU to HFPLL source. */
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
@@ -880,10 +886,10 @@ static void set_speed(struct scalable *sc, struct core_speed *tgt_s,
 			set_sec_clk_src(sc, tgt_s->sec_src_sel);
 			set_pri_clk_src(sc, tgt_s->pri_src_sel);
 		}
-		hfpll_disable(sc);
+		hfpll_disable(sc, 0);
 	} else if (strt_s->src != HFPLL && tgt_s->src == HFPLL) {
 		hfpll_set_rate(sc, tgt_s);
-		hfpll_enable(sc);
+		hfpll_enable(sc, 0);
 		/*
 		 * If responding to CPU_UP_PREPARE, we can't change CP15
 		 * registers for the CPU that's coming up since we're not
@@ -1141,7 +1147,7 @@ static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 	pr_debug("Initializing HFPLL%d\n", sc - scalable);
 
 	/* Disable the PLL for re-programming. */
-	hfpll_disable(sc);
+	hfpll_disable(sc, 0);
 
 	/* Configure PLL parameters for integer mode. */
 	writel_relaxed(0x7845C665, sc->hfpll_base + HFPLL_CONFIG_CTL);
@@ -1153,7 +1159,7 @@ static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 
 	/* Set an initial rate and enable the PLL. */
 	hfpll_set_rate(sc, tgt_s);
-	hfpll_enable(sc);
+	hfpll_enable(sc, 0);
 }
 
 /* Voltage regulator initialization. */
