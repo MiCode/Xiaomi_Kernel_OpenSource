@@ -455,6 +455,11 @@ errfatal_err:
 	mdm_drv->mdm_status_irq = irq;
 
 status_err:
+	/* Perform early powerup of the external modem in order to
+	 * allow tabla devices to be found.
+	 */
+	mdm_drv->ops->power_on_mdm_cb(mdm_drv);
+
 	pr_info("%s: Registering mdm modem\n", __func__);
 	return misc_register(&mdm_modem_misc);
 
