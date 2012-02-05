@@ -23,6 +23,7 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/ion.h>
+#include <mach/socinfo.h>
 
 #include "devices.h"
 #include "board-8960.h"
@@ -68,6 +69,7 @@
 #define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME	"mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME	"mipi_video_chimei_wxga"
+#define MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME	"mipi_video_chimei_wuxga"
 #define MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME	"mipi_video_simulator_vga"
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
 #define HDMI_PANEL_NAME	"hdmi_msm"
@@ -82,10 +84,18 @@ static struct resource msm_fb_resources[] = {
 static int msm_fb_detect_panel(const char *name)
 {
 	if (machine_is_msm8960_liquid()) {
-		if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-			return 0;
+		u32 ver = socinfo_get_platform_version();
+		if (SOCINFO_VERSION_MAJOR(ver) == 3) {
+			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
+				     strnlen(MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
+						PANEL_NAME_MAX_LEN)))
+				return 0;
+		} else {
+			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+				     strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+						PANEL_NAME_MAX_LEN)))
+				return 0;
+		}
 	} else {
 		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
 				strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
