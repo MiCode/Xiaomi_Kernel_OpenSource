@@ -702,8 +702,6 @@ static void vfe32_start_common(void)
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
 
-	msm_io_dump(vfe32_ctrl->vfebase, vfe32_ctrl->register_total * 4);
-
 	/* Ensure the write order while writing
 	to the command register using the barrier */
 	msm_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
@@ -851,7 +849,9 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	/* capture command is valid for both idle and active state. */
 	vfe32_ctrl->outpath.out1.capture_cnt = num_frames_capture;
 	if (vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
-		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN) {
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_JPEG) {
 		vfe32_ctrl->outpath.out0.capture_cnt =
 			num_frames_capture;
 	}
@@ -887,6 +887,9 @@ static int vfe32_capture(uint32_t num_frames_capture)
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
 		}
 	}
+
+	vfe32_ctrl->vfe_capture_count = num_frames_capture;
+
 	msm_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camio_bus_scale_cfg(
@@ -1286,16 +1289,31 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		rc = vfe32_capture_raw(snapshot_cnt);
 		break;
 	case VFE_CMD_CAPTURE:
-		pr_info("vfe32_proc_general: cmdID = %s\n",
-			vfe32_general_cmd[cmd->id]);
+		CDBG("vfe32_proc_general: cmdID = %s op mode = %d\n",
+			vfe32_general_cmd[cmd->id], vfe32_ctrl->operation_mode);
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
 				sizeof(uint32_t))) {
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		/* Configure primary channel */
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
-						  VFE_MSG_OUTPUT_PRIMARY);
+
+		if (vfe32_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_JPEG) {
+			if (snapshot_cnt != 1) {
+				pr_err("only support 1 inline snapshot\n");
+				rc = -EINVAL;
+				goto proc_general_done;
+			}
+			/* Configure primary channel for JPEG */
+			rc = vfe32_configure_pingpong_buffers(
+				VFE_MSG_V32_JPEG_CAPTURE,
+				VFE_MSG_OUTPUT_PRIMARY);
+		} else {
+			/* Configure primary channel */
+			rc = vfe32_configure_pingpong_buffers(
+				VFE_MSG_V32_CAPTURE,
+				VFE_MSG_OUTPUT_PRIMARY);
+		}
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
 				   " for primary output", __func__);
@@ -2610,7 +2628,9 @@ static void vfe32_process_reg_update_irq(void)
 	}
 
 	if ((vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN) ||
-		(vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB)) {
+		(vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB) ||
+		(vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_JPEG) ||
+		(vfe32_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB)) {
 		/* in snapshot mode */
 		/* later we need to add check for live snapshot mode. */
 		if (vfe32_ctrl->frame_skip_pattern & (0x1 <<
@@ -2858,6 +2878,8 @@ static void vfe32_process_output_path_irq_0(void)
 	*/
 	out_bool = ((vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN ||
 		vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_JPEG ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB ||
 		vfe32_ctrl->operation_mode == VFE_OUTPUTS_RAW ||
 		vfe32_ctrl->liveshot_state == VFE_STATE_STARTED ||
 		vfe32_ctrl->liveshot_state == VFE_STATE_STOP_REQUESTED ||
@@ -2898,6 +2920,10 @@ static void vfe32_process_output_path_irq_0(void)
 				VFE_OUTPUTS_THUMB_AND_MAIN ||
 			vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_MAIN_AND_THUMB ||
+			vfe32_ctrl->operation_mode ==
+				VFE_OUTPUTS_THUMB_AND_JPEG ||
+			vfe32_ctrl->operation_mode ==
+				VFE_OUTPUTS_JPEG_AND_THUMB ||
 			vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_RAW ||
 			vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED)
@@ -3391,6 +3417,10 @@ static void vfe32_do_tasklet(unsigned long data)
 					VFE_OUTPUTS_THUMB_AND_MAIN ||
 				vfe32_ctrl->operation_mode ==
 					VFE_OUTPUTS_MAIN_AND_THUMB ||
+				vfe32_ctrl->operation_mode ==
+					VFE_OUTPUTS_THUMB_AND_JPEG ||
+				vfe32_ctrl->operation_mode ==
+					VFE_OUTPUTS_JPEG_AND_THUMB ||
 				vfe32_ctrl->operation_mode ==
 					VFE_OUTPUTS_RAW) {
 				if ((vfe32_ctrl->outpath.out0.capture_cnt == 0)

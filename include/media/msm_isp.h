@@ -241,6 +241,9 @@ struct msm_isp_cmd {
 #define VPE_SCALER_CONFIG_LEN           260
 #define VPE_DIS_OFFSET_CFG_LEN          12
 
+#define IMEM_Y_OFFSET  0x2E000000
+#define IMEM_CBCR_OFFSET  0x2E00FA00
+
 struct msm_vpe_op_mode_cfg {
 	uint8_t op_mode_cfg[VPE_OPERATION_MODE_CFG_LEN];
 };
@@ -311,6 +314,8 @@ struct msm_mctl_pp_frame_cmd {
 #define VFE_OUTPUTS_PREVIEW		BIT(6)
 #define VFE_OUTPUTS_VIDEO		BIT(7)
 #define VFE_OUTPUTS_RAW			BIT(8)
+#define VFE_OUTPUTS_JPEG_AND_THUMB	BIT(9)
+#define VFE_OUTPUTS_THUMB_AND_JPEG	BIT(10)
 
 #endif /*__MSM_ISP_H__*/
 

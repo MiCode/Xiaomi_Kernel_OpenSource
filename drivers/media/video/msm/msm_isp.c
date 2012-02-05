@@ -199,6 +199,19 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
+	case VFE_MSG_V32_JPEG_CAPTURE:
+		free_buf.num_planes = 1;
+		free_buf.ch_paddr[0] = IMEM_Y_OFFSET;
+		free_buf.ch_paddr[1] = IMEM_CBCR_OFFSET;
+		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		/* Write the same buffer into PONG */
+		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
+		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
+		break;
 	case VFE_MSG_OUTPUT_IRQ:
 		D("%s Got OUTPUT_IRQ: Getting free buf id = %d",
 						__func__, vfe_id);
