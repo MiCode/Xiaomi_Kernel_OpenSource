@@ -278,6 +278,7 @@ union reg_cp_rb_cntl {
 #define REG_CP_ME_CNTL                   0x01F6
 #define REG_CP_ME_RAM_DATA               0x01FA
 #define REG_CP_ME_RAM_WADDR              0x01F8
+#define REG_CP_ME_RAM_RADDR              0x01F9
 #define REG_CP_ME_STATUS                 0x01F7
 #define REG_CP_PFP_UCODE_ADDR            0x00C0
 #define REG_CP_PFP_UCODE_DATA            0x00C1

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,12 +30,16 @@
 #define CTXT_FLAGS_GMEM_SAVE		0x00000200
 /* gmem can be restored from shadow */
 #define CTXT_FLAGS_GMEM_RESTORE		0x00000400
+/* preamble packed in cmdbuffer for context switching */
+#define CTXT_FLAGS_PREAMBLE		0x00000800
 /* shader must be copied to shadow */
 #define CTXT_FLAGS_SHADER_SAVE		0x00002000
 /* shader can be restored from shadow */
 #define CTXT_FLAGS_SHADER_RESTORE	0x00004000
 /* Context has caused a GPU hang */
 #define CTXT_FLAGS_GPU_HANG		0x00008000
+/* Specifies there is no need to save GMEM */
+#define CTXT_FLAGS_NOGMEMALLOC          0x00010000
 
 struct kgsl_device;
 struct adreno_device;
@@ -46,37 +50,56 @@ struct kgsl_context;
 struct gmem_shadow_t {
 	struct kgsl_memdesc gmemshadow;	/* Shadow buffer address */
 
-	/* 256 KB GMEM surface = 4 bytes-per-pixel x 256 pixels/row x
-	* 256 rows. */
-	/* width & height must be a multiples of 32, in case tiled textures
-	 * are used. */
-	enum COLORFORMATX format;
+	/*
+	 * 256 KB GMEM surface = 4 bytes-per-pixel x 256 pixels/row x
+	 * 256 rows. Width & height must be multiples of 32 in case tiled
+	 * textures are used
+	*/
+
+	enum COLORFORMATX format; /* Unused on A3XX */
 	unsigned int size;	/* Size of surface used to store GMEM */
 	unsigned int width;	/* Width of surface used to store GMEM */
 	unsigned int height;	/* Height of surface used to store GMEM */
 	unsigned int pitch;	/* Pitch of surface used to store GMEM */
 	unsigned int gmem_pitch;	/* Pitch value used for GMEM */
-	unsigned int *gmem_save_commands;
-	unsigned int *gmem_restore_commands;
+	unsigned int *gmem_save_commands;    /* Unused on A3XX */
+	unsigned int *gmem_restore_commands; /* Unused on A3XX */
 	unsigned int gmem_save[3];
 	unsigned int gmem_restore[3];
 	struct kgsl_memdesc quad_vertices;
 	struct kgsl_memdesc quad_texcoords;
+	struct kgsl_memdesc quad_vertices_restore;
 };
 
 struct adreno_context {
 	uint32_t flags;
 	struct kgsl_pagetable *pagetable;
 	struct kgsl_memdesc gpustate;
-	unsigned int reg_save[3];
 	unsigned int reg_restore[3];
 	unsigned int shader_save[3];
-	unsigned int shader_fixup[3];
 	unsigned int shader_restore[3];
-	unsigned int chicken_restore[3];
-	unsigned int bin_base_offset;
+
 	/* Information of the GMEM shadow that is created in context create */
 	struct gmem_shadow_t context_gmem_shadow;
+
+	/* A2XX specific items */
+	unsigned int reg_save[3];
+	unsigned int shader_fixup[3];
+	unsigned int chicken_restore[3];
+	unsigned int bin_base_offset;
+
+	/* A3XX specific items */
+	unsigned int regconstant_save[3];
+	unsigned int constant_restore[3];
+	unsigned int hlsqcontrol_restore[3];
+	unsigned int save_fixup[3];
+	unsigned int restore_fixup[3];
+	struct kgsl_memdesc shader_load_commands[2];
+	struct kgsl_memdesc shader_save_commands[4];
+	struct kgsl_memdesc constant_save_commands[3];
+	struct kgsl_memdesc constant_load_commands[3];
+	struct kgsl_memdesc cond_execs[4];
+	struct kgsl_memdesc hlsqcontrol_restore_commands[1];
 };
 
 int adreno_drawctxt_create(struct kgsl_device *device,
@@ -91,7 +114,7 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags);
 void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
-				      struct kgsl_context *context,
+					struct kgsl_context *context,
 					unsigned int offset);
 
 /* GPU context switch helper functions */

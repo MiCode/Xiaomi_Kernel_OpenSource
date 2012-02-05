@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,12 +19,21 @@
 
 /* quad for copying GMEM to context shadow */
 #define QUAD_LEN 12
+#define QUAD_RESTORE_LEN 14
 
 static unsigned int gmem_copy_quad[QUAD_LEN] = {
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000,
 	0x00000000, 0x00000000, 0x3f800000
+};
+
+static unsigned int gmem_restore_quad[QUAD_RESTORE_LEN] = {
+	0x00000000, 0x3f800000, 0x3f800000,
+	0x00000000, 0x00000000, 0x00000000,
+	0x3f800000, 0x00000000, 0x00000000,
+	0x3f800000, 0x00000000, 0x00000000,
+	0x3f800000, 0x3f800000,
 };
 
 #define TEXCOORD_LEN 8
@@ -73,12 +82,12 @@ static void set_gmem_copy_quad(struct gmem_shadow_t *shadow)
 	gmem_copy_quad[4] = uint2float(shadow->height);
 	gmem_copy_quad[9] = uint2float(shadow->width);
 
-	gmem_copy_quad[0] = 0;
-	gmem_copy_quad[6] = 0;
-	gmem_copy_quad[7] = 0;
-	gmem_copy_quad[10] = 0;
+	gmem_restore_quad[5] = uint2float(shadow->height);
+	gmem_restore_quad[7] = uint2float(shadow->width);
 
 	memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
+	memcpy(shadow->quad_vertices_restore.hostptr, gmem_copy_quad,
+		QUAD_RESTORE_LEN << 2);
 
 	memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord,
 		TEXCOORD_LEN << 2);
@@ -102,6 +111,13 @@ void build_quad_vtxbuff(struct adreno_context *drawctxt,
 	shadow->quad_vertices.gpuaddr = virt2gpu(cmd, &drawctxt->gpustate);
 
 	cmd += QUAD_LEN;
+
+	/* Used by A3XX, but define for both to make the code easier */
+	shadow->quad_vertices_restore.hostptr = cmd;
+	shadow->quad_vertices_restore.gpuaddr =
+		virt2gpu(cmd, &drawctxt->gpustate);
+
+	cmd += QUAD_RESTORE_LEN;
 
 	/* tex coord buffer location (in GPU space) */
 	shadow->quad_texcoords.hostptr = cmd;
@@ -139,27 +155,19 @@ int adreno_drawctxt_create(struct kgsl_device *device,
 	drawctxt->pagetable = pagetable;
 	drawctxt->bin_base_offset = 0;
 
-	/* FIXME: Deal with preambles */
+	if (flags & KGSL_CONTEXT_PREAMBLE)
+		drawctxt->flags |= CTXT_FLAGS_PREAMBLE;
 
-	ret = adreno_dev->gpudev->ctxt_gpustate_shadow(adreno_dev, drawctxt);
+	if (flags & KGSL_CONTEXT_NO_GMEM_ALLOC)
+		drawctxt->flags |= CTXT_FLAGS_NOGMEMALLOC;
+
+	ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);
 	if (ret)
 		goto err;
-
-	/* Save the shader instruction memory on context switching */
-	drawctxt->flags |= CTXT_FLAGS_SHADER_SAVE;
-
-	if (!(flags & KGSL_CONTEXT_NO_GMEM_ALLOC)) {
-		/* create gmem shadow */
-		ret = adreno_dev->gpudev->ctxt_gmem_shadow(adreno_dev,
-			drawctxt);
-		if (ret != 0)
-			goto err;
-	}
 
 	context->devctxt = drawctxt;
 	return 0;
 err:
-	kgsl_sharedmem_free(&drawctxt->gpustate);
 	kfree(drawctxt);
 	return ret;
 }

@@ -52,6 +52,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A205 = 205,
 	ADRENO_REV_A220 = 220,
 	ADRENO_REV_A225 = 225,
+	ADRENO_REV_A320 = 320,
 };
 
 struct adreno_gpudev;
@@ -77,24 +78,38 @@ struct adreno_device {
 };
 
 struct adreno_gpudev {
-	int (*ctxt_gpustate_shadow)(struct adreno_device *,
-		struct adreno_context *);
-	int (*ctxt_gmem_shadow)(struct adreno_device *,
-		struct adreno_context *);
+	/*
+	 * These registers are in a different location on A3XX,  so define
+	 * them in the structure and use them as variables.
+	 */
+	unsigned int reg_rbbm_status;
+	unsigned int reg_cp_pfp_ucode_data;
+	unsigned int reg_cp_pfp_ucode_addr;
+
+	/* GPU specific function hooks */
+	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_save)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_restore)(struct adreno_device *, struct adreno_context *);
 	irqreturn_t (*irq_handler)(struct adreno_device *);
 	void (*irq_control)(struct adreno_device *, int);
 	void * (*snapshot)(struct adreno_device *, void *, int *, int);
+	void (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
+	void (*start)(struct adreno_device *);
+	unsigned int (*busy_cycles)(struct adreno_device *);
 };
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
+extern struct adreno_gpudev adreno_a3xx_gpudev;
 
 /* A2XX register sets defined in adreno_a2xx.c */
 extern const unsigned int a200_registers[];
 extern const unsigned int a220_registers[];
 extern const unsigned int a200_registers_count;
 extern const unsigned int a220_registers_count;
+
+/* A3XX register set defined in adreno_a3xx.c */
+extern const unsigned int a3xx_registers[];
+extern const unsigned int a3xx_registers_count;
 
 int adreno_idle(struct kgsl_device *device, unsigned int timeout);
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
@@ -147,7 +162,12 @@ static inline int adreno_is_a22x(struct adreno_device *adreno_dev)
 
 static inline int adreno_is_a2xx(struct adreno_device *adreno_dev)
 {
-	return (adreno_dev->gpurev <= ADRENO_REV_A225);
+	return (adreno_dev->gpurev <= 299);
+}
+
+static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev >= 300);
 }
 
 /**

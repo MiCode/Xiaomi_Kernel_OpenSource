@@ -47,6 +47,7 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_INDEXED_REGS 0x0501
 #define KGSL_SNAPSHOT_SECTION_ISTORE       0x0801
 #define KGSL_SNAPSHOT_SECTION_DEBUG        0x0901
+#define KGSL_SNAPSHOT_SECTION_DEBUGBUS     0x0A01
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
 /* OS sub-section header */
@@ -124,15 +125,28 @@ struct kgsl_snapshot_istore {
 
 /* Debug data sub-section header */
 
+/* A2XX debug sections */
 #define SNAPSHOT_DEBUG_SX         1
 #define SNAPSHOT_DEBUG_CP         2
 #define SNAPSHOT_DEBUG_SQ         3
 #define SNAPSHOT_DEBUG_SQTHREAD   4
 #define SNAPSHOT_DEBUG_MIU        5
 
+/* A3XX debug sections */
+#define SNAPSHOT_DEBUG_VPC_MEMORY 6
+#define SNAPSHOT_DEBUG_CP_MEQ     7
+#define SNAPSHOT_DEBUG_CP_PM4_RAM 8
+#define SNAPSHOT_DEBUG_CP_PFP_RAM 9
+#define SNAPSHOT_DEBUG_CP_ROQ     10
+
 struct kgsl_snapshot_debug {
 	int type;    /* Type identifier for the attached tata */
-	int size;   /* Size of the section in bytes */
+	int size;   /* Size of the section in dwords */
+} __packed;
+
+struct kgsl_snapshot_debugbus {
+	int id;	   /* Debug bus ID */
+	int count; /* Number of dwords in the dump */
 } __packed;
 
 #ifdef __KERNEL__
@@ -252,8 +266,12 @@ struct kgsl_snapshot_indexed_registers {
 	unsigned int count; /* Number of values to read from the pair */
 };
 
-int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
-	void *snapshot, int remain, void *priv);
+/* Helper function to snapshot a section of indexed registers */
+
+void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
+	void *snapshot, int *remain, unsigned int index,
+	unsigned int data, unsigned int start, unsigned int count);
+
 
 #endif
 #endif

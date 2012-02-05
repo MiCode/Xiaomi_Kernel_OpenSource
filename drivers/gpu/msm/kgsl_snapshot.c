@@ -139,7 +139,7 @@ static int snapshot_os(struct kgsl_device *device,
  * register
  */
 
-int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
+static int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
 	void *snapshot, int remain, void *priv)
 {
 	struct kgsl_snapshot_indexed_registers *iregs = priv;
@@ -164,7 +164,6 @@ int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
 
 	return (iregs->count * 4) + sizeof(*header);
 }
-EXPORT_SYMBOL(kgsl_snapshot_dump_indexed_regs);
 
 /*
  * kgsl_snapshot_dump_regs - helper function to dump device registers
@@ -219,6 +218,23 @@ int kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
 	return (count * 8) + sizeof(*header);
 }
 EXPORT_SYMBOL(kgsl_snapshot_dump_regs);
+
+void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
+		void *snapshot, int *remain,
+		unsigned int index, unsigned int data, unsigned int start,
+		unsigned int count)
+{
+	struct kgsl_snapshot_indexed_registers iregs;
+	iregs.index = index;
+	iregs.data = data;
+	iregs.start = start;
+	iregs.count = count;
+
+	return kgsl_snapshot_add_section(device,
+		 KGSL_SNAPSHOT_SECTION_INDEXED_REGS, snapshot,
+		 remain, kgsl_snapshot_dump_indexed_regs, &iregs);
+}
+EXPORT_SYMBOL(kgsl_snapshot_indexed_registers);
 
 /*
  * kgsl_snapshot - construct a device snapshot

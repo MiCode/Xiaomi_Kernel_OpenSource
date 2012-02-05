@@ -224,24 +224,6 @@ static int a2xx_snapshot_miudebug(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(MIUDEBUG_COUNT);
 }
 
-/* Helper function to snapshot a section of indexed registers */
-
-static void *a2xx_snapshot_indexed_registers(struct kgsl_device *device,
-		void *snapshot, int *remain,
-		unsigned int index, unsigned int data, unsigned int start,
-		unsigned int count)
-{
-	struct kgsl_snapshot_indexed_registers iregs;
-	iregs.index = index;
-	iregs.data = data;
-	iregs.start = start;
-	iregs.count = count;
-
-	return kgsl_snapshot_add_section(device,
-		 KGSL_SNAPSHOT_SECTION_INDEXED_REGS, snapshot,
-		 remain, kgsl_snapshot_dump_indexed_regs, &iregs);
-}
-
 /* A2XX GPU snapshot function - this is where all of the A2XX specific
  * bits and pieces are grabbed into the snapshot memory
  */
@@ -269,12 +251,12 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 		kgsl_snapshot_dump_regs, &regs);
 
 	/* CP_STATE_DEBUG indexed registers */
-	snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_CP_STATE_DEBUG_INDEX,
 			REG_CP_STATE_DEBUG_DATA, 0x0, 0x14);
 
 	/* CP_ME indexed registers */
-	snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_CP_ME_CNTL, REG_CP_ME_STATUS,
 			64, 44);
 
@@ -293,7 +275,7 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 	/* SU debug indexed registers (only for < 470) */
 	if (!adreno_is_a22x(adreno_dev))
-		snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+		snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 				remain, REG_PA_SU_DEBUG_CNTL,
 				REG_PA_SU_DEBUG_DATA,
 				0, 0x1B);
@@ -304,26 +286,26 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			a2xx_snapshot_cpdebug, NULL);
 
 	/* MH debug indexed registers */
-	snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, MH_DEBUG_CTRL, MH_DEBUG_DATA, 0x0, 0x40);
 
 	/* Leia only register sets */
 	if (adreno_is_a22x(adreno_dev)) {
 		/* RB DEBUG indexed regisers */
-		snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+		snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_RB_DEBUG_CNTL, REG_RB_DEBUG_DATA, 0, 8);
 
 		/* RB DEBUG indexed registers bank 2 */
-		snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+		snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_RB_DEBUG_CNTL, REG_RB_DEBUG_DATA + 0x1000,
 			0, 8);
 
 		/* PC_DEBUG indexed registers */
-		snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+		snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_PC_DEBUG_CNTL, REG_PC_DEBUG_DATA, 0, 8);
 
 		/* GRAS_DEBUG indexed registers */
-		snapshot = a2xx_snapshot_indexed_registers(device, snapshot,
+		snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_GRAS_DEBUG_CNTL, REG_GRAS_DEBUG_DATA, 0, 4);
 
 		/* MIU debug registers */
