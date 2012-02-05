@@ -4812,7 +4812,7 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_8064[] = {
-	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
@@ -5054,7 +5054,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 };
 
 static struct clk_lookup msm_clocks_8960_v1[] __initdata = {
-	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
+	CLK_LOOKUP("xo",		cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
@@ -5771,15 +5771,6 @@ static void __init msm8960_clock_init(void)
 	} else
 		/* CSI2 hardware not present on 8960v1 devices */
 		pix_rdi_mux_map[2] = NULL;
-
-	if (machine_is_msm8960_sim()) {
-		clk_set_rate(&sdc1_clk.c, 48000000);
-		clk_enable(&sdc1_clk.c);
-		clk_enable(&sdc1_p_clk.c);
-		clk_set_rate(&sdc3_clk.c, 48000000);
-		clk_enable(&sdc3_clk.c);
-		clk_enable(&sdc3_p_clk.c);
-	}
 }
 
 static int __init msm8960_clock_late_init(void)
