@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  *
  */
+
+#define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -342,7 +344,7 @@ static int msm_bus_rpm_compare_cdata(
 		fab_pdata->nmasters) + 1);
 	ret = memcmp(cd1->arb, cd2->arb, n);
 	if (ret) {
-		MSM_BUS_DBG("Commit Data arb[%d] not equal\n", i);
+		MSM_BUS_DBG("Commit Data arb[%d] not equal\n", n);
 		return ret;
 	}
 

@@ -9,6 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
