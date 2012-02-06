@@ -5539,130 +5539,34 @@ static void __init reg_init(void)
 	 *       after bootloaders program them.
 	 */
 	if (cpu_is_apq8064()) {
-		u32 regval, is_pll_enabled;
+		u32 is_pll_enabled;
 
 		/* Program pxo_src_clk to source from PXO */
 		rmwreg(0x1, PXO_SRC_CLK_CTL_REG, 0x7);
 
-		/* Check if PLL8 is active */
-		is_pll_enabled = readl_relaxed(BB_PLL8_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
-			/* Ref clk = 27MHz and program pll8 to 384MHz */
-			writel_relaxed(0xE, BB_PLL8_L_VAL_REG);
-			writel_relaxed(0x2, BB_PLL8_M_VAL_REG);
-			writel_relaxed(0x9, BB_PLL8_N_VAL_REG);
-
-			regval = readl_relaxed(BB_PLL8_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			writel_relaxed(regval, BB_PLL8_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x10000, BB_PLL8_CONFIG_REG, 0x30000);
-
-			/* Enable AUX output */
-			regval = readl_relaxed(BB_PLL8_TEST_CTL_REG);
-			regval |= BIT(12);
-			writel_relaxed(regval, BB_PLL8_TEST_CTL_REG);
-
-			set_fsm_mode(BB_PLL8_MODE_REG);
-
-			/* Enable PLL8 by voting from RPM */
-			regval = readl_relaxed(BB_PLL_ENA_RPM_REG);
-			regval |= BIT(8);
-			writel_relaxed(regval, BB_PLL_ENA_RPM_REG);
-		}
-		/* Check if PLL3 is active */
-		is_pll_enabled = readl_relaxed(GPLL1_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
-			/* Ref clk = 27MHz and program pll3 to 1200MHz */
-			writel_relaxed(0x2C, GPLL1_L_VAL_REG);
-			writel_relaxed(0x4,  GPLL1_M_VAL_REG);
-			writel_relaxed(0x9,  GPLL1_N_VAL_REG);
-
-			regval = readl_relaxed(GPLL1_CONFIG_REG);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(15);
-			regval |= BIT(16);
-
-			writel_relaxed(regval, GPLL1_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x180, GPLL1_CONFIG_REG, 0x180);
-		}
 		/* Check if PLL14 is active */
 		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
 			/* Ref clk = 27MHz and program pll14 to 480MHz */
-			writel_relaxed(0x11, BB_PLL14_L_VAL_REG);
+			writel_relaxed(0x00031011, BB_PLL14_L_VAL_REG);
 			writel_relaxed(0x7,  BB_PLL14_M_VAL_REG);
 			writel_relaxed(0x9,  BB_PLL14_N_VAL_REG);
 
-			regval = readl_relaxed(BB_PLL14_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			writel_relaxed(regval, BB_PLL14_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x10000, BB_PLL14_CONFIG_REG, 0x30000);
+			/*
+			 * Enable the main output and the MN accumulator
+			 * Set pre-divider and post-divider values to 1 and 1
+			 */
+			writel_relaxed(0x00C00000, BB_PLL14_CONFIG_REG);
 
 			set_fsm_mode(BB_PLL14_MODE_REG);
 		}
-		/* Program PLL2 to 800MHz with ref clk = 27MHz */
-		writel_relaxed(0x1D, MM_PLL1_L_VAL_REG);
-		writel_relaxed(0x11, MM_PLL1_M_VAL_REG);
-		writel_relaxed(0x1B, MM_PLL1_N_VAL_REG);
-
-		regval = readl_relaxed(MM_PLL1_CONFIG_REG);
-
-		/* Enable the main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		writel_relaxed(regval, MM_PLL1_CONFIG_REG);
-
-		/* Set VCO frequency */
-		rmwreg(0x20000, MM_PLL1_CONFIG_REG, 0x30000);
 
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
-		writel_relaxed(0x24, MM_PLL3_L_VAL_REG);
-		writel_relaxed(0x1,  MM_PLL3_M_VAL_REG);
-		writel_relaxed(0x9,  MM_PLL3_N_VAL_REG);
+		writel_relaxed(0x31024, MM_PLL3_L_VAL_REG);
+		writel_relaxed(0x1,	MM_PLL3_M_VAL_REG);
+		writel_relaxed(0x9,	MM_PLL3_N_VAL_REG);
 
-		regval = readl_relaxed(MM_PLL3_CONFIG_REG);
-
-		/* Enable the main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		writel_relaxed(regval, MM_PLL3_CONFIG_REG);
-
-		/* Set VCO frequency */
-		rmwreg(0x20000, MM_PLL3_CONFIG_REG, 0x30000);
-
-		/* Enable AUX output */
-		regval = readl_relaxed(MM_PLL3_TEST_CTL_REG);
-		regval |= BIT(12);
-		writel_relaxed(regval, MM_PLL3_TEST_CTL_REG);
+		writel_relaxed(0xC20000, MM_PLL3_CONFIG_REG);
 
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
@@ -5672,18 +5576,7 @@ static void __init reg_init(void)
 			writel_relaxed(0x27A, LCC_PLL0_M_VAL_REG);
 			writel_relaxed(0x465, LCC_PLL0_N_VAL_REG);
 
-			regval = readl_relaxed(LCC_PLL0_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			/* Set VCO frequency */
-			regval &= ~BM(17, 16);
-			writel_relaxed(regval, LCC_PLL0_CONFIG_REG);
+			writel_relaxed(0xC00000, LCC_PLL0_CONFIG_REG);
 
 			set_fsm_mode(LCC_PLL0_MODE_REG);
 		}
