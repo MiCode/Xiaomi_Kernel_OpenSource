@@ -163,6 +163,10 @@ enum rpm_vreg_voter {
  *
  * Consumers can vote to disable a regulator with this function by passing
  * min_uV = 0 and max_uV = 0.
+ *
+ * Voltage switch type regulators may be controlled via rpm_vreg_set_voltage
+ * as well.  For this type of regulator, max_uV > 0 is treated as an enable
+ * request and max_uV == 0 is treated as a disable request.
  */
 int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 			 int max_uV, int sleep_also);
