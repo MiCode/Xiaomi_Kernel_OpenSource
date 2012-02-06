@@ -81,6 +81,8 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
+static void set_mdp_clocks_for_liquid_wuxga(void);
+
 static int msm_fb_detect_panel(const char *name)
 {
 	if (machine_is_msm8960_liquid()) {
@@ -88,8 +90,10 @@ static int msm_fb_detect_panel(const char *name)
 		if (SOCINFO_VERSION_MAJOR(ver) == 3) {
 			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
 				     strnlen(MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
-						PANEL_NAME_MAX_LEN)))
+						PANEL_NAME_MAX_LEN))) {
+				set_mdp_clocks_for_liquid_wuxga();
 				return 0;
+			}
 		} else {
 			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
 				     strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
@@ -642,6 +646,24 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mem_hid = MEMTYPE_EBI1,
 #endif
 };
+
+/**
+ * Set MDP clocks to high frequency to avoid DSI underflow
+ * when using high resolution 1200x1920 WUXGA panel.
+ */
+static void set_mdp_clocks_for_liquid_wuxga(void)
+{
+	int i;
+
+	mdp_ui_vectors[0].ab = 2000000000;
+	mdp_ui_vectors[0].ib = 2000000000;
+
+	mdp_pdata.mdp_core_clk_rate = 200000000;
+
+	for (i = 0; i < ARRAY_SIZE(mdp_core_clk_rate_table); i++)
+		mdp_core_clk_rate_table[i] = 200000000;
+
+}
 
 void __init msm8960_mdp_writeback(struct memtype_reserve* reserve_table)
 {
