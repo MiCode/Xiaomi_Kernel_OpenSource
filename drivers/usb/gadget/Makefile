@@ -3,7 +3,6 @@
 #
 ccflags-$(CONFIG_USB_GADGET_DEBUG) := -DDEBUG
 
-obj-$(CONFIG_USB_GADGET)	+= udc-core.o
 obj-$(CONFIG_USB_DUMMY_HCD)	+= dummy_hcd.o
 obj-$(CONFIG_USB_NET2280)	+= net2280.o
 obj-$(CONFIG_USB_AMD5536UDC)	+= amd5536udc.o

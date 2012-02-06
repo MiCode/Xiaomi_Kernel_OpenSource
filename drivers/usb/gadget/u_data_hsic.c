@@ -741,6 +741,8 @@ int ghsic_data_connect(void *gptr, int port_num)
 	struct gdata_port		*port;
 	struct gserial			*gser;
 	struct grmnet			*gr;
+	struct usb_endpoint_descriptor	*in_desc;
+	struct usb_endpoint_descriptor	*out_desc;
 	unsigned long			flags;
 	int				ret = 0;
 
@@ -766,6 +768,8 @@ int ghsic_data_connect(void *gptr, int port_num)
 		port->rx_q_size = ghsic_data_serial_rx_q_size;
 		gser->in->driver_data = port;
 		gser->out->driver_data = port;
+		in_desc = gser->in_desc;
+		out_desc = gser->out_desc;
 	} else {
 		gr = gptr;
 		port->in = gr->in;
@@ -774,16 +778,18 @@ int ghsic_data_connect(void *gptr, int port_num)
 		port->rx_q_size = ghsic_data_rmnet_rx_q_size;
 		gr->in->driver_data = port;
 		gr->out->driver_data = port;
+		in_desc = gr->in_desc;
+		out_desc = gr->out_desc;
 	}
 
-	ret = usb_ep_enable(port->in);
+	ret = usb_ep_enable(port->in, in_desc);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 				__func__, port->in);
 		goto fail;
 	}
 
-	ret = usb_ep_enable(port->out);
+	ret = usb_ep_enable(port->out, out_desc);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 				__func__, port->out);

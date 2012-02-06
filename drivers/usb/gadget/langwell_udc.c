@@ -1321,9 +1321,7 @@ static int langwell_pullup(struct usb_gadget *_gadget, int is_on)
 	return 0;
 }
 
-static int langwell_start(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *));
-static int langwell_stop(struct usb_gadget_driver *driver);
+
 /* device controller usb_gadget_ops structure */
 static const struct usb_gadget_ops langwell_ops = {
 
@@ -1344,9 +1342,6 @@ static const struct usb_gadget_ops langwell_ops = {
 
 	/* D+ pullup, software-controlled connect/disconnect to USB host */
 	.pullup		= langwell_pullup,
-
-	.start		= langwell_start,
-	.stop		= langwell_stop,
 };
 
 
@@ -1857,7 +1852,7 @@ static DEVICE_ATTR(remote_wakeup, S_IWUSR, NULL, store_remote_wakeup);
  * the driver might get unbound.
  */
 
-static int langwell_start(struct usb_gadget_driver *driver,
+int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		int (*bind)(struct usb_gadget *))
 {
 	struct langwell_udc	*dev = the_controller;
@@ -1919,9 +1914,11 @@ err_unbind:
 	dev_dbg(&dev->pdev->dev, "<--- %s()\n", __func__);
 	return retval;
 }
+EXPORT_SYMBOL(usb_gadget_probe_driver);
+
 
 /* unregister gadget driver */
-static int langwell_stop(struct usb_gadget_driver *driver)
+int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	struct langwell_udc	*dev = the_controller;
 	unsigned long		flags;
@@ -1968,6 +1965,8 @@ static int langwell_stop(struct usb_gadget_driver *driver)
 	dev_dbg(&dev->pdev->dev, "<--- %s()\n", __func__);
 	return 0;
 }
+EXPORT_SYMBOL(usb_gadget_unregister_driver);
+
 
 /*-------------------------------------------------------------------------*/
 
@@ -3374,10 +3373,6 @@ static int langwell_udc_probe(struct pci_dev *pdev,
 	if (retval)
 		goto error;
 
-	retval = usb_add_gadget_udc(&pdev->dev, &dev->gadget);
-	if (retval)
-		goto error;
-
 	retval = device_create_file(&pdev->dev, &dev_attr_langwell_udc);
 	if (retval)
 		goto error;
@@ -3408,7 +3403,6 @@ static int langwell_udc_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	dev_dbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
-	usb_del_gadget_udc(&dev->gadget);
 	/* disable interrupt and set controller to stop state */
 	langwell_udc_stop(dev);
 

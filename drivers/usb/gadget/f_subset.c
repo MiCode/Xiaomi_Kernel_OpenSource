@@ -57,10 +57,18 @@
  * caring about specific product and vendor IDs.
  */
 
+struct geth_descs {
+	struct usb_endpoint_descriptor	*in;
+	struct usb_endpoint_descriptor	*out;
+};
+
 struct f_gether {
 	struct gether			port;
 
 	char				ethaddr[14];
+
+	struct geth_descs		fs;
+	struct geth_descs		hs;
 };
 
 static inline struct f_gether *func_to_geth(struct usb_function *f)
@@ -235,12 +243,10 @@ static int geth_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 
 	DBG(cdev, "init + activate cdc subset\n");
-	if (config_ep_by_speed(cdev->gadget, f, geth->port.in_ep) ||
-	    config_ep_by_speed(cdev->gadget, f, geth->port.out_ep)) {
-		geth->port.in_ep->desc = NULL;
-		geth->port.out_ep->desc = NULL;
-		return -EINVAL;
-	}
+	geth->port.in = ep_choose(cdev->gadget,
+			geth->hs.in, geth->fs.in);
+	geth->port.out = ep_choose(cdev->gadget,
+			geth->hs.out, geth->fs.out);
 
 	net = gether_connect(&geth->port);
 	return IS_ERR(net) ? PTR_ERR(net) : 0;
@@ -291,6 +297,12 @@ geth_bind(struct usb_configuration *c, struct usb_function *f)
 	/* copy descriptors, and track endpoint copies */
 	f->descriptors = usb_copy_descriptors(fs_eth_function);
 
+	geth->fs.in = usb_find_endpoint(fs_eth_function,
+			f->descriptors, &fs_subset_in_desc);
+	geth->fs.out = usb_find_endpoint(fs_eth_function,
+			f->descriptors, &fs_subset_out_desc);
+
+
 	/* support all relevant hardware speeds... we expect that when
 	 * hardware is dual speed, all bulk-capable endpoints work at
 	 * both speeds
@@ -303,6 +315,11 @@ geth_bind(struct usb_configuration *c, struct usb_function *f)
 
 		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(hs_eth_function);
+
+		geth->hs.in = usb_find_endpoint(hs_eth_function,
+				f->hs_descriptors, &hs_subset_in_desc);
+		geth->hs.out = usb_find_endpoint(hs_eth_function,
+				f->hs_descriptors, &hs_subset_out_desc);
 	}
 
 	/* NOTE:  all that is done without knowing or caring about
@@ -317,9 +334,9 @@ geth_bind(struct usb_configuration *c, struct usb_function *f)
 
 fail:
 	/* we might as well release our claims on endpoints */
-	if (geth->port.out_ep->desc)
+	if (geth->port.out)
 		geth->port.out_ep->driver_data = NULL;
-	if (geth->port.in_ep->desc)
+	if (geth->port.in)
 		geth->port.in_ep->driver_data = NULL;
 
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);

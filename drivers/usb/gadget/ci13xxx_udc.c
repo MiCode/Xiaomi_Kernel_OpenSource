@@ -2182,7 +2182,7 @@ __acquires(udc->lock)
 		int type, num, dir, err = -EINVAL;
 		struct usb_ctrlrequest req;
 
-		if (mEp->ep.desc == NULL)
+		if (mEp->desc == NULL)
 			continue;   /* not configured */
 
 		if (hw_test_and_clear_complete(i)) {
@@ -2381,7 +2381,7 @@ static int ep_enable(struct usb_ep *ep,
 
 	/* only internal SW should enable ctrl endpts */
 
-	mEp->ep.desc = desc;
+	mEp->desc = desc;
 
 	if (!list_empty(&mEp->qh.queue))
 		warn("enabling a non-empty endpoint!");
@@ -2436,7 +2436,7 @@ static int ep_disable(struct usb_ep *ep)
 
 	if (ep == NULL)
 		return -EINVAL;
-	else if (mEp->ep.desc == NULL)
+	else if (mEp->desc == NULL)
 		return -EBUSY;
 
 	spin_lock_irqsave(mEp->lock, flags);
@@ -2455,7 +2455,7 @@ static int ep_disable(struct usb_ep *ep)
 
 	} while (mEp->dir != direction);
 
-	mEp->ep.desc = NULL;
+	mEp->desc = NULL;
 
 	spin_unlock_irqrestore(mEp->lock, flags);
 	return retval;
@@ -2543,7 +2543,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 
 	trace("%p, %p, %X", ep, req, gfp_flags);
 
-	if (ep == NULL || req == NULL || mEp->ep.desc == NULL)
+	if (ep == NULL || req == NULL || mEp->desc == NULL)
 		return -EINVAL;
 
 	spin_lock_irqsave(mEp->lock, flags);
@@ -2616,7 +2616,7 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 	trace("%p, %p", ep, req);
 
 	if (ep == NULL || req == NULL || mReq->req.status != -EALREADY ||
-		mEp->ep.desc == NULL || list_empty(&mReq->queue) ||
+		mEp->desc == NULL || list_empty(&mReq->queue) ||
 		list_empty(&mEp->qh.queue))
 		return -EINVAL;
 
@@ -2662,7 +2662,7 @@ static int ep_set_halt(struct usb_ep *ep, int value)
 
 	trace("%p, %i", ep, value);
 
-	if (ep == NULL || mEp->ep.desc == NULL)
+	if (ep == NULL || mEp->desc == NULL)
 		return -EINVAL;
 
 	spin_lock_irqsave(mEp->lock, flags);
@@ -2705,7 +2705,7 @@ static int ep_set_wedge(struct usb_ep *ep)
 
 	trace("%p", ep);
 
-	if (ep == NULL || mEp->ep.desc == NULL)
+	if (ep == NULL || mEp->desc == NULL)
 		return -EINVAL;
 
 	spin_lock_irqsave(mEp->lock, flags);
@@ -2828,9 +2828,7 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 	return 0;
 }
 
-static int ci13xxx_start(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *));
-static int ci13xxx_stop(struct usb_gadget_driver *driver);
+
 /**
  * Device operations part of the API to the USB controller hardware,
  * which don't involve endpoints (or i/o)
@@ -2841,19 +2839,17 @@ static const struct usb_gadget_ops usb_gadget_ops = {
 	.wakeup		= ci13xxx_wakeup,
 	.vbus_draw	= ci13xxx_vbus_draw,
 	.pullup		= ci13xxx_pullup,
-	.start		= ci13xxx_start,
-	.stop		= ci13xxx_stop,
 };
 
 /**
- * ci13xxx_start: register a gadget driver
+ * usb_gadget_probe_driver: register a gadget driver
  * @driver: the driver being registered
  * @bind: the driver's bind callback
  *
- * Check ci13xxx_start() at <linux/usb/gadget.h> for details.
+ * Check usb_gadget_probe_driver() at <linux/usb/gadget.h> for details.
  * Interrupts are enabled here.
  */
-static int ci13xxx_start(struct usb_gadget_driver *driver,
+int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		int (*bind)(struct usb_gadget *))
 {
 	struct ci13xxx *udc = _udc;
@@ -2935,12 +2931,10 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 	if (retval)
 		goto done;
 	spin_unlock_irqrestore(udc->lock, flags);
-	udc->ep0out.ep.desc = &ctrl_endpt_out_desc;
-	retval = usb_ep_enable(&udc->ep0out.ep);
+	retval = usb_ep_enable(&udc->ep0out.ep, &ctrl_endpt_out_desc);
 	if (retval)
 		return retval;
-	udc->ep0in.ep.desc = &ctrl_endpt_in_desc;
-	retval = usb_ep_enable(&udc->ep0in.ep);
+	retval = usb_ep_enable(&udc->ep0in.ep, &ctrl_endpt_in_desc);
 	if (retval)
 		return retval;
 	spin_lock_irqsave(udc->lock, flags);
@@ -2985,13 +2979,14 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 		pm_runtime_put_sync(&udc->gadget.dev);
 	return retval;
 }
+EXPORT_SYMBOL(usb_gadget_probe_driver);
 
 /**
- * ci13xxx_stop: unregister a gadget driver
+ * usb_gadget_unregister_driver: unregister a gadget driver
  *
  * Check usb_gadget_unregister_driver() at "usb_gadget.h" for details
  */
-static int ci13xxx_stop(struct usb_gadget_driver *driver)
+int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	struct ci13xxx *udc = _udc;
 	unsigned long i, flags;
@@ -3050,6 +3045,7 @@ static int ci13xxx_stop(struct usb_gadget_driver *driver)
 
 	return 0;
 }
+EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 /******************************************************************************
  * BUS block
@@ -3224,22 +3220,11 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 		if (retval)
 			goto remove_dbg;
 	}
-
-	retval = usb_add_gadget_udc(dev, &udc->gadget);
-	if (retval)
-		goto remove_trans;
-
 	pm_runtime_no_callbacks(&udc->gadget.dev);
 	pm_runtime_enable(&udc->gadget.dev);
 
 	_udc = udc;
 	return retval;
-
-remove_trans:
-	if (udc->transceiver) {
-		otg_set_peripheral(udc->transceiver, &udc->gadget);
-		otg_put_transceiver(udc->transceiver);
-	}
 
 	err("error = %i", retval);
 remove_dbg:
@@ -3270,7 +3255,6 @@ static void udc_remove(void)
 		err("EINVAL");
 		return;
 	}
-	usb_del_gadget_udc(&udc->gadget);
 
 	if (udc->transceiver) {
 		otg_set_peripheral(udc->transceiver, &udc->gadget);

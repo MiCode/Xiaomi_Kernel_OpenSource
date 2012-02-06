@@ -660,7 +660,7 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	port->nbytes_tolaptop = 0;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	ret = usb_ep_enable(gser->in);
+	ret = usb_ep_enable(gser->in, gser->in_desc);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 				__func__, gser->in);
@@ -669,7 +669,7 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	}
 	gser->in->driver_data = port;
 
-	ret = usb_ep_enable(gser->out);
+	ret = usb_ep_enable(gser->out, gser->out_desc);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 				__func__, gser->out);

@@ -1133,7 +1133,7 @@ static irqreturn_t s3c_hsudc_irq(int irq, void *_dev)
 	return IRQ_HANDLED;
 }
 
-static int s3c_hsudc_start(struct usb_gadget_driver *driver,
+int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		int (*bind)(struct usb_gadget *))
 {
 	struct s3c_hsudc *hsudc = the_controller;
@@ -1181,8 +1181,9 @@ static int s3c_hsudc_start(struct usb_gadget_driver *driver,
 
 	return 0;
 }
+EXPORT_SYMBOL(usb_gadget_probe_driver);
 
-static int s3c_hsudc_stop(struct usb_gadget_driver *driver)
+int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	struct s3c_hsudc *hsudc = the_controller;
 	unsigned long flags;
@@ -1209,6 +1210,7 @@ static int s3c_hsudc_stop(struct usb_gadget_driver *driver)
 			driver->driver.name);
 	return 0;
 }
+EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 static inline u32 s3c_hsudc_read_frameno(struct s3c_hsudc *hsudc)
 {
@@ -1222,8 +1224,6 @@ static int s3c_hsudc_gadget_getframe(struct usb_gadget *gadget)
 
 static struct usb_gadget_ops s3c_hsudc_gadget_ops = {
 	.get_frame	= s3c_hsudc_gadget_getframe,
-	.start		= s3c_hsudc_start,
-	.stop		= s3c_hsudc_stop,
 };
 
 static int s3c_hsudc_probe(struct platform_device *pdev)
@@ -1311,15 +1311,7 @@ static int s3c_hsudc_probe(struct platform_device *pdev)
 
 	disable_irq(hsudc->irq);
 	local_irq_enable();
-
-	ret = usb_add_gadget_udc(&pdev->dev, &hsudc->gadget);
-	if (ret)
-		goto err_add_udc;
-
 	return 0;
-err_add_udc:
-	clk_disable(hsudc->uclk);
-	clk_put(hsudc->uclk);
 err_clk:
 	free_irq(hsudc->irq, hsudc);
 err_irq:

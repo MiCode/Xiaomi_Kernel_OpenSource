@@ -46,6 +46,11 @@
  * and also means that a get_alt() method is required.
  */
 
+struct ecm_ep_descs {
+	struct usb_endpoint_descriptor	*in;
+	struct usb_endpoint_descriptor	*out;
+	struct usb_endpoint_descriptor	*notify;
+};
 
 enum ecm_notify_state {
 	ECM_NOTIFY_NONE,		/* don't notify */
@@ -59,7 +64,11 @@ struct f_ecm {
 
 	char				ethaddr[14];
 
+	struct ecm_ep_descs		fs;
+	struct ecm_ep_descs		hs;
+
 	struct usb_ep			*notify;
+	struct usb_endpoint_descriptor	*notify_desc;
 	struct usb_request		*notify_req;
 	u8				notify_state;
 	bool				is_open;
@@ -455,13 +464,13 @@ static int ecm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (ecm->notify->driver_data) {
 			VDBG(cdev, "reset ecm control %d\n", intf);
 			usb_ep_disable(ecm->notify);
-		}
-		if (!(ecm->notify->desc)) {
+		} else {
 			VDBG(cdev, "init ecm ctrl %d\n", intf);
-			if (config_ep_by_speed(cdev->gadget, f, ecm->notify))
-				goto fail;
+			ecm->notify_desc = ep_choose(cdev->gadget,
+					ecm->hs.notify,
+					ecm->fs.notify);
 		}
-		usb_ep_enable(ecm->notify);
+		usb_ep_enable(ecm->notify, ecm->notify_desc);
 		ecm->notify->driver_data = ecm;
 
 	/* Data interface has two altsettings, 0 and 1 */
@@ -474,17 +483,12 @@ static int ecm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			gether_disconnect(&ecm->port);
 		}
 
-		if (!ecm->port.in_ep->desc ||
-		    !ecm->port.out_ep->desc) {
+		if (!ecm->port.in) {
 			DBG(cdev, "init ecm\n");
-			if (config_ep_by_speed(cdev->gadget, f,
-					       ecm->port.in_ep) ||
-			    config_ep_by_speed(cdev->gadget, f,
-					       ecm->port.out_ep)) {
-				ecm->port.in_ep->desc = NULL;
-				ecm->port.out_ep->desc = NULL;
-				goto fail;
-			}
+			ecm->port.in = ep_choose(cdev->gadget,
+					ecm->hs.in, ecm->fs.in);
+			ecm->port.out = ep_choose(cdev->gadget,
+					ecm->hs.out, ecm->fs.out);
 		}
 
 		/* CDC Ethernet only sends data in non-default altsettings.
@@ -545,7 +549,7 @@ static void ecm_disable(struct usb_function *f)
 	if (ecm->notify->driver_data) {
 		usb_ep_disable(ecm->notify);
 		ecm->notify->driver_data = NULL;
-		ecm->notify->desc = NULL;
+		ecm->notify_desc = NULL;
 	}
 }
 
@@ -661,6 +665,13 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!f->descriptors)
 		goto fail;
 
+	ecm->fs.in = usb_find_endpoint(ecm_fs_function,
+			f->descriptors, &fs_ecm_in_desc);
+	ecm->fs.out = usb_find_endpoint(ecm_fs_function,
+			f->descriptors, &fs_ecm_out_desc);
+	ecm->fs.notify = usb_find_endpoint(ecm_fs_function,
+			f->descriptors, &fs_ecm_notify_desc);
+
 	/* support all relevant hardware speeds... we expect that when
 	 * hardware is dual speed, all bulk-capable endpoints work at
 	 * both speeds
@@ -677,6 +688,13 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 		f->hs_descriptors = usb_copy_descriptors(ecm_hs_function);
 		if (!f->hs_descriptors)
 			goto fail;
+
+		ecm->hs.in = usb_find_endpoint(ecm_hs_function,
+				f->hs_descriptors, &hs_ecm_in_desc);
+		ecm->hs.out = usb_find_endpoint(ecm_hs_function,
+				f->hs_descriptors, &hs_ecm_out_desc);
+		ecm->hs.notify = usb_find_endpoint(ecm_hs_function,
+				f->hs_descriptors, &hs_ecm_notify_desc);
 	}
 
 	/* NOTE:  all that is done without knowing or caring about
@@ -705,9 +723,9 @@ fail:
 	/* we might as well release our claims on endpoints */
 	if (ecm->notify)
 		ecm->notify->driver_data = NULL;
-	if (ecm->port.out_ep->desc)
+	if (ecm->port.out)
 		ecm->port.out_ep->driver_data = NULL;
-	if (ecm->port.in_ep->desc)
+	if (ecm->port.in)
 		ecm->port.in_ep->driver_data = NULL;
 
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
