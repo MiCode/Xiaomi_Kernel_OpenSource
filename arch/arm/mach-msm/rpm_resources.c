@@ -1016,12 +1016,13 @@ int __init msm_rpmrs_levels_init(struct msm_rpmrs_platform_data *data)
 
 	/* Initialize listed bitmap for valid resource IDs */
 	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
-		for (k = 0; k < msm_rpmrs_resources[i]->size; k++)
+		for (k = 0; k < msm_rpmrs_resources[i]->size; k++) {
 			if (msm_rpmrs_resources[i]->rs[k].id >=
 					MSM_RPM_ID_LAST)
 				continue;
 			set_bit(msm_rpmrs_resources[i]->rs[k].id,
 				msm_rpmrs_listed);
+		}
 	}
 
 	return 0;
