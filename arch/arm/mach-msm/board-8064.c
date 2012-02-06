@@ -25,6 +25,7 @@
 #include <linux/ion.h>
 #include <linux/memory.h>
 #include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/cyttsp.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -614,6 +615,116 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
 		.platform_data = &mxt_platform_data,
 		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
+	},
+};
+#define CYTTSP_TS_GPIO_IRQ		6
+#define CYTTSP_TS_GPIO_RESOUT		7
+#define CYTTSP_TS_GPIO_SLEEP		33
+
+static ssize_t tma340_vkeys_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 200,
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":73:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":230:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":389:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":544:1120:97:97"
+	"\n");
+}
+
+static struct kobj_attribute tma340_vkeys_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+	},
+	.show = &tma340_vkeys_show,
+};
+
+static struct attribute *tma340_properties_attrs[] = {
+	&tma340_vkeys_attr.attr,
+	NULL
+};
+
+static struct attribute_group tma340_properties_attr_group = {
+	.attrs = tma340_properties_attrs,
+};
+
+static int cyttsp_platform_init(struct i2c_client *client)
+{
+	int rc = 0;
+	static struct kobject *tma340_properties_kobj;
+
+	tma340_vkeys_attr.attr.name = "virtualkeys.cyttsp-i2c";
+	tma340_properties_kobj = kobject_create_and_add("board_properties",
+								NULL);
+	if (tma340_properties_kobj)
+		rc = sysfs_create_group(tma340_properties_kobj,
+					&tma340_properties_attr_group);
+	if (!tma340_properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n",
+				__func__);
+
+	return 0;
+}
+
+static struct cyttsp_regulator cyttsp_regulator_data[] = {
+	{
+		.name = "vdd",
+		.min_uV = CY_TMA300_VTG_MIN_UV,
+		.max_uV = CY_TMA300_VTG_MAX_UV,
+		.hpm_load_uA = CY_TMA300_CURR_24HZ_UA,
+		.lpm_load_uA = CY_TMA300_CURR_24HZ_UA,
+	},
+	{
+		.name = "vcc_i2c",
+		.min_uV = CY_I2C_VTG_MIN_UV,
+		.max_uV = CY_I2C_VTG_MAX_UV,
+		.hpm_load_uA = CY_I2C_CURR_UA,
+		.lpm_load_uA = CY_I2C_CURR_UA,
+	},
+};
+
+static struct cyttsp_platform_data cyttsp_pdata = {
+	.panel_maxx = 634,
+	.panel_maxy = 1166,
+	.disp_maxx = 599,
+	.disp_maxy = 1023,
+	.disp_minx = 0,
+	.disp_miny = 0,
+	.flags = 0x01,
+	.gen = CY_GEN3,
+	.use_st = CY_USE_ST,
+	.use_mt = CY_USE_MT,
+	.use_hndshk = CY_SEND_HNDSHK,
+	.use_trk_id = CY_USE_TRACKING_ID,
+	.use_sleep = CY_USE_DEEP_SLEEP_SEL,
+	.use_gestures = CY_USE_GESTURES,
+	.fw_fname = "cyttsp_8064_mtp.hex",
+	/* change act_intrvl to customize the Active power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.act_intrvl = CY_ACT_INTRVL_DFLT,
+	/* change tch_tmout to customize the touch timeout for the
+	 * Active power state for Operating mode
+	 */
+	.tch_tmout = CY_TCH_TMOUT_DFLT,
+	/* change lp_intrvl to customize the Low Power power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.lp_intrvl = CY_LP_INTRVL_DFLT,
+	.sleep_gpio = CYTTSP_TS_GPIO_SLEEP,
+	.resout_gpio = CYTTSP_TS_GPIO_RESOUT,
+	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
+	.regulator_info = cyttsp_regulator_data,
+	.num_regulators = ARRAY_SIZE(cyttsp_regulator_data),
+	.init = cyttsp_platform_init,
+	.correct_fw_ver = 17,
+};
+
+static struct i2c_board_info cyttsp_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(CY_I2C_NAME, 0x24),
+		.platform_data = &cyttsp_pdata,
+		.irq = MSM_GPIO_TO_INT(CYTTSP_TS_GPIO_IRQ),
 	},
 };
 
@@ -1389,6 +1500,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info,
 		ARRAY_SIZE(mxt_device_info),
+	},
+	{
+		I2C_FFA,
+		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
+		cyttsp_info,
+		ARRAY_SIZE(cyttsp_info),
 	},
 };
 
