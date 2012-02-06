@@ -425,10 +425,18 @@ dummy_enable (struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 		(desc->bEndpointAddress & USB_DIR_IN) ? "in" : "out",
 		({ char *val;
 		 switch (desc->bmAttributes & 0x03) {
-		 case USB_ENDPOINT_XFER_BULK: val = "bulk"; break;
-		 case USB_ENDPOINT_XFER_ISOC: val = "iso"; break;
-		 case USB_ENDPOINT_XFER_INT: val = "intr"; break;
-		 default: val = "ctrl"; break;
+		 case USB_ENDPOINT_XFER_BULK:
+			 val = "bulk";
+			 break;
+		 case USB_ENDPOINT_XFER_ISOC:
+			 val = "iso";
+			 break;
+		 case USB_ENDPOINT_XFER_INT:
+			 val = "intr";
+			 break;
+		 default:
+			 val = "ctrl";
+			 break;
 		 }; val; }),
 		max);
 
@@ -710,11 +718,17 @@ static int dummy_pullup (struct usb_gadget *_gadget, int value)
 	return 0;
 }
 
+static int dummy_udc_start(struct usb_gadget_driver *driver,
+		int (*bind)(struct usb_gadget *));
+static int dummy_udc_stop(struct usb_gadget_driver *driver);
+
 static const struct usb_gadget_ops dummy_ops = {
 	.get_frame	= dummy_g_get_frame,
 	.wakeup		= dummy_wakeup,
 	.set_selfpowered = dummy_set_selfpowered,
 	.pullup		= dummy_pullup,
+	.start		= dummy_udc_start,
+	.stop		= dummy_udc_stop,
 };
 
 /*-------------------------------------------------------------------------*/
@@ -747,8 +761,7 @@ static DEVICE_ATTR (function, S_IRUGO, show_function, NULL);
  * for each driver that registers:  just add to a big root hub.
  */
 
-int
-usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+static int dummy_udc_start(struct usb_gadget_driver *driver,
 		int (*bind)(struct usb_gadget *))
 {
 	struct dummy	*dum = the_controller;
@@ -812,10 +825,8 @@ usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	usb_hcd_poll_rh_status (dummy_to_hcd (dum));
 	return 0;
 }
-EXPORT_SYMBOL(usb_gadget_probe_driver);
 
-int
-usb_gadget_unregister_driver (struct usb_gadget_driver *driver)
+static int dummy_udc_stop(struct usb_gadget_driver *driver)
 {
 	struct dummy	*dum = the_controller;
 	unsigned long	flags;
@@ -845,7 +856,6 @@ usb_gadget_unregister_driver (struct usb_gadget_driver *driver)
 	usb_hcd_poll_rh_status (dummy_to_hcd (dum));
 	return 0;
 }
-EXPORT_SYMBOL (usb_gadget_unregister_driver);
 
 #undef is_enabled
 
@@ -892,11 +902,20 @@ static int dummy_udc_probe (struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = usb_add_gadget_udc(&pdev->dev, &dum->gadget);
+	if (rc < 0)
+		goto err_udc;
+
 	rc = device_create_file (&dum->gadget.dev, &dev_attr_function);
 	if (rc < 0)
-		device_unregister (&dum->gadget.dev);
-	else
-		platform_set_drvdata(pdev, dum);
+		goto err_dev;
+	platform_set_drvdata(pdev, dum);
+	return rc;
+
+err_dev:
+	usb_del_gadget_udc(&dum->gadget);
+err_udc:
+	device_unregister(&dum->gadget.dev);
 	return rc;
 }
 
@@ -904,6 +923,7 @@ static int dummy_udc_remove (struct platform_device *pdev)
 {
 	struct dummy	*dum = platform_get_drvdata (pdev);
 
+	usb_del_gadget_udc(&dum->gadget);
 	platform_set_drvdata (pdev, NULL);
 	device_remove_file (&dum->gadget.dev, &dev_attr_function);
 	device_unregister (&dum->gadget.dev);
@@ -1786,18 +1806,34 @@ show_urb (char *buf, size_t size, struct urb *urb)
 		urb,
 		({ char *s;
 		 switch (urb->dev->speed) {
-		 case USB_SPEED_LOW:	s = "ls"; break;
-		 case USB_SPEED_FULL:	s = "fs"; break;
-		 case USB_SPEED_HIGH:	s = "hs"; break;
-		 default:		s = "?"; break;
+		 case USB_SPEED_LOW:
+			s = "ls";
+			break;
+		 case USB_SPEED_FULL:
+			s = "fs";
+			break;
+		 case USB_SPEED_HIGH:
+			s = "hs";
+			break;
+		 default:
+			s = "?";
+			break;
 		 }; s; }),
 		ep, ep ? (usb_pipein (urb->pipe) ? "in" : "out") : "",
 		({ char *s; \
 		 switch (usb_pipetype (urb->pipe)) { \
-		 case PIPE_CONTROL:	s = ""; break; \
-		 case PIPE_BULK:	s = "-bulk"; break; \
-		 case PIPE_INTERRUPT:	s = "-int"; break; \
-		 default: 		s = "-iso"; break; \
+		 case PIPE_CONTROL: \
+			s = ""; \
+			break; \
+		 case PIPE_BULK: \
+			s = "-bulk"; \
+			break; \
+		 case PIPE_INTERRUPT: \
+			s = "-int"; \
+			break; \
+		 default: \
+			s = "-iso"; \
+			break; \
 		}; s;}),
 		urb->actual_length, urb->transfer_buffer_length);
 }
@@ -1863,7 +1899,6 @@ static void dummy_stop (struct usb_hcd *hcd)
 	dum = hcd_to_dummy (hcd);
 
 	device_remove_file (dummy_dev(dum), &dev_attr_urbs);
-	usb_gadget_unregister_driver (dum->driver);
 	dev_info (dummy_dev(dum), "stopped\n");
 }
 

@@ -29,8 +29,6 @@ struct grmnet {
 
 	struct usb_ep			*in;
 	struct usb_ep			*out;
-	struct usb_endpoint_descriptor	*in_desc;
-	struct usb_endpoint_descriptor	*out_desc;
 
 	/* to usb host, aka laptop, windows pc etc. Will
 	 * be filled by usb driver of rmnet functionality
