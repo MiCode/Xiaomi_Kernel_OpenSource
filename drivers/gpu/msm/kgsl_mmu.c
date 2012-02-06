@@ -535,9 +535,16 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	int ret;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		memdesc->gpuaddr = memdesc->physaddr;
-		return 0;
+		if (memdesc->sglen == 1) {
+			memdesc->gpuaddr = sg_phys(memdesc->sg);
+			return 0;
+		} else {
+			KGSL_CORE_ERR("Memory is not contigious "
+					"(sglen = %d)\n", memdesc->sglen);
+			return -EINVAL;
+		}
 	}
+
 	memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
 		memdesc->size, KGSL_MMU_ALIGN_SHIFT);
 
