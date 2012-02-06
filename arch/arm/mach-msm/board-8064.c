@@ -1315,6 +1315,14 @@ static struct platform_device apq8064_device_ext_ts_sw_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
+	.name	= "rpm-regulator",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &apq8064_rpm_regulator_pdata,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi3,
@@ -1553,6 +1561,8 @@ static void __init apq8064_common_init(void)
 		pr_err("socinfo_init() failed!\n");
 	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
+	regulator_suppress_info_printing();
+	platform_device_register(&apq8064_device_rpm_regulator);
 	apq8064_clock_init();
 	apq8064_init_gpiomux();
 	apq8064_i2c_init();
