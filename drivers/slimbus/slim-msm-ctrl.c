@@ -354,8 +354,13 @@ static int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
 static void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 {
 #ifdef CONFIG_PM_RUNTIME
+	int ref;
 	pm_runtime_mark_last_busy(dev->dev);
-	pm_runtime_put(dev->dev);
+	ref = atomic_read(&dev->dev->power.usage_count);
+	if (ref <= 0)
+		dev_err(dev->dev, "reference count mismatch:%d", ref);
+	else
+		pm_runtime_put(dev->dev);
 #endif
 }
 
