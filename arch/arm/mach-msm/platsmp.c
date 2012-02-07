@@ -25,7 +25,7 @@
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
 
-#include <mach/pm.h>
+#include "pm.h"
 #include "scm-boot.h"
 #include "spm.h"
 

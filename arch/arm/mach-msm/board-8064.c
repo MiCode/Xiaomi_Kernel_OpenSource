@@ -49,7 +49,6 @@
 #include <asm/setup.h>
 #include <mach/dma.h>
 #include <mach/msm_bus_board.h>
-#include <mach/pm.h>
 #include <mach/cpuidle.h>
 
 #include "msm_watchdog.h"
@@ -58,6 +57,7 @@
 #include "spm.h"
 #include "mpm.h"
 #include "rpm_resources.h"
+#include "pm.h"
 #include "pm-boot.h"
 #include "devices-msm8x60.h"
 

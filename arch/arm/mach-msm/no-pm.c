@@ -15,7 +15,7 @@
 
 #include <mach/cpuidle.h>
 #include "idle.h"
-#include <mach/pm.h>
+#include "pm.h"
 
 void arch_idle(void)
 { }
