@@ -293,6 +293,24 @@ static int pm_chg_masked_write(struct pm8921_chg_chip *chip, u16 addr,
 	return 0;
 }
 
+static int pm_chg_get_rt_status(struct pm8921_chg_chip *chip, int irq_id)
+{
+	return pm8xxx_read_irq_stat(chip->dev->parent,
+					chip->pmic_chg_irq[irq_id]);
+}
+
+/* Treat OverVoltage/UnderVoltage as source missing */
+static int is_usb_chg_plugged_in(struct pm8921_chg_chip *chip)
+{
+	return pm_chg_get_rt_status(chip, USBIN_VALID_IRQ);
+}
+
+/* Treat OverVoltage/UnderVoltage as source missing */
+static int is_dc_chg_plugged_in(struct pm8921_chg_chip *chip)
+{
+	return pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
+}
+
 #define CAPTURE_FSM_STATE_CMD	0xC2
 #define READ_BANK_7		0x70
 #define READ_BANK_4		0x40
@@ -407,21 +425,25 @@ static bool pm_is_chg_charge_dis_bit_set(struct pm8921_chg_chip *chip)
 
 #define PM8921_CHG_V_MIN_MV	3240
 #define PM8921_CHG_V_STEP_MV	20
+#define PM8921_CHG_V_STEP_10_MV_BIT	BIT(7)
 #define PM8921_CHG_VDDMAX_MAX	4500
 #define PM8921_CHG_VDDMAX_MIN	3400
 #define PM8921_CHG_V_MASK	0x7F
-static int pm_chg_vddmax_set(struct pm8921_chg_chip *chip, int voltage)
+static int __pm_chg_vddmax_set(struct pm8921_chg_chip *chip, int voltage)
 {
-	u8 temp;
+	int remainder, voltage_20_step;
+	u8 temp = 0;
 
-	if (voltage < PM8921_CHG_VDDMAX_MIN
-			|| voltage > PM8921_CHG_VDDMAX_MAX) {
-		pr_err("bad mV=%d asked to set\n", voltage);
-		return -EINVAL;
+	voltage_20_step = voltage;
+	remainder = voltage % 20;
+	if (remainder >= 10) {
+		voltage_20_step += 10;
+		temp = PM8921_CHG_V_STEP_10_MV_BIT;
 	}
-	temp = (voltage - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
+
+	temp |= (voltage_20_step - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
-	return pm_chg_masked_write(chip, CHG_VDD_MAX, PM8921_CHG_V_MASK, temp);
+	return pm8xxx_writeb(chip->dev->parent, CHG_VDD_MAX, temp);
 }
 
 static int pm_chg_vddmax_get(struct pm8921_chg_chip *chip, int *voltage)
@@ -437,7 +459,51 @@ static int pm_chg_vddmax_get(struct pm8921_chg_chip *chip, int *voltage)
 	}
 	temp &= PM8921_CHG_V_MASK;
 	*voltage = (int)temp * PM8921_CHG_V_STEP_MV + PM8921_CHG_V_MIN_MV;
+	if (temp & PM8921_CHG_V_STEP_10_MV_BIT)
+		*voltage = *voltage - 10;
 	return 0;
+}
+
+static int pm_chg_vddmax_set(struct pm8921_chg_chip *chip, int voltage)
+{
+	int current_mv, ret, steps, i;
+	bool increase;
+
+	ret = 0;
+
+	if (voltage < PM8921_CHG_VDDMAX_MIN
+		|| voltage > PM8921_CHG_VDDMAX_MAX) {
+		pr_err("bad mV=%d asked to set\n", voltage);
+		return -EINVAL;
+	}
+
+	ret = pm_chg_vddmax_get(chip, &current_mv);
+	if (ret) {
+		pr_err("Failed to read vddmax rc=%d\n", ret);
+		return -EINVAL;
+	}
+	if (current_mv == voltage)
+		return 0;
+
+	/* Only change in increments when USB is present */
+	if (is_usb_chg_plugged_in(chip)) {
+		if (current_mv < voltage) {
+			steps = (voltage - current_mv) / PM8921_CHG_V_STEP_MV;
+			increase = true;
+		} else {
+			steps = (current_mv - voltage) / PM8921_CHG_V_STEP_MV;
+			increase = false;
+		}
+		for (i = 0; i < steps; i++) {
+			if (increase)
+				current_mv += PM8921_CHG_V_STEP_MV;
+			else
+				current_mv -= PM8921_CHG_V_STEP_MV;
+			ret |= __pm_chg_vddmax_set(chip, current_mv);
+		}
+	}
+	ret |= __pm_chg_vddmax_set(chip, voltage);
+	return ret;
 }
 
 #define PM8921_CHG_VDDSAFE_MIN	3400
@@ -858,24 +924,6 @@ static void pm8921_chg_disable_irq(struct pm8921_chg_chip *chip, int interrupt)
 static int pm8921_chg_is_enabled(struct pm8921_chg_chip *chip, int interrupt)
 {
 	return test_bit(interrupt, chip->enabled_irqs);
-}
-
-static int pm_chg_get_rt_status(struct pm8921_chg_chip *chip, int irq_id)
-{
-	return pm8xxx_read_irq_stat(chip->dev->parent,
-					chip->pmic_chg_irq[irq_id]);
-}
-
-/* Treat OverVoltage/UnderVoltage as source missing */
-static int is_usb_chg_plugged_in(struct pm8921_chg_chip *chip)
-{
-	return pm_chg_get_rt_status(chip, USBIN_VALID_IRQ);
-}
-
-/* Treat OverVoltage/UnderVoltage as source missing */
-static int is_dc_chg_plugged_in(struct pm8921_chg_chip *chip)
-{
-	return pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
 }
 
 static bool is_ext_charging(struct pm8921_chg_chip *chip)
