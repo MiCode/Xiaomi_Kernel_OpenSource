@@ -127,13 +127,8 @@ const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
 #define HLSQ_MEMOBJ_OFFSET  0x400
 #define HLSQ_MIPMAP_OFFSET  0x800
 
-#ifdef GSL_USE_A3XX_HLSQ_SHADOW_RAM
 /* Use shadow RAM */
 #define HLSQ_SHADOW_BASE		(0x10000+SSIZE*2)
-#else
-/* Use working RAM */
-#define HLSQ_SHADOW_BASE		0x10000
-#endif
 
 #define REG_TO_MEM_LOOP_COUNT_SHIFT	15
 
@@ -1315,7 +1310,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(SP_FSCTRLREG1_FSINITIALOUTSTANDING, 2) |
 		_SET(SP_FSCTRLREG1_HALFPRECVAROFFSET, 63);
 	/* SP_FS_OBJ_OFFSET_REG */
-	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128);
+	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128) |
+		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 1);
 	/* SP_FS_OBJ_START_REG */
 	*cmds++ = 0x00000000;
 
@@ -1654,7 +1650,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_GRAS_SC_CONTROL);
 	/* GRAS_SC_CONTROL */
-	*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1);
+	/*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1);
+		*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1) |*/
+	*cmds++ = 0x04001000;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_GRAS_SU_MODE_CONTROL);
@@ -2569,7 +2567,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_AHB_CTL0, 0x00000001);
 
 	/* Enable AHB error reporting */
-	adreno_regwrite(device, A3XX_RBBM_AHB_CTL1, 0xA6FFFFFF);
+	adreno_regwrite(device, A3XX_RBBM_AHB_CTL1, 0x86FFFFFF);
 
 	/* Turn on the power counters */
 	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, 0x00003000);
