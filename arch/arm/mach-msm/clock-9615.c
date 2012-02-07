@@ -384,6 +384,10 @@ static struct clk_ops clk_ops_rcg_9615 = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
 	.auto_off = rcg_clk_disable,
+	.enable_hwcg = rcg_clk_enable_hwcg,
+	.disable_hwcg = rcg_clk_disable_hwcg,
+	.in_hwcg_mode = rcg_clk_in_hwcg_mode,
+	.handoff = rcg_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
 	.get_rate = rcg_clk_get_rate,
 	.list_rate = rcg_clk_list_rate,
@@ -398,6 +402,10 @@ static struct clk_ops clk_ops_branch = {
 	.enable = branch_clk_enable,
 	.disable = branch_clk_disable,
 	.auto_off = branch_clk_disable,
+	.enable_hwcg = branch_clk_enable_hwcg,
+	.disable_hwcg = branch_clk_disable_hwcg,
+	.in_hwcg_mode = branch_clk_in_hwcg_mode,
+	.handoff = branch_clk_handoff,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
 	.is_local = local_clk_is_local,
@@ -595,6 +603,8 @@ static struct branch_clk pmem_clk = {
 	.b = {
 		.ctl_reg = PMEM_ACLK_CTL_REG,
 		.en_mask = BIT(4),
+		.hwcg_reg =  PMEM_ACLK_CTL_REG,
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
 		.halt_bit = 20,
 	},
@@ -846,6 +856,8 @@ static struct branch_clk ce1_core_clk = {
 	.b = {
 		.ctl_reg = CE1_CORE_CLK_CTL_REG,
 		.en_mask = BIT(4),
+		.hwcg_reg =  CE1_CORE_CLK_CTL_REG,
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_CFPB_STATEC_REG,
 		.halt_bit = 27,
 	},
@@ -957,6 +969,8 @@ static struct branch_clk usb_hs1_p_clk = {
 	.b = {
 		.ctl_reg = USB_HS1_HCLK_CTL_REG,
 		.en_mask = BIT(4),
+		.hwcg_reg =  USB_HS1_HCLK_CTL_REG,
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
 		.halt_bit = 1,
 	},
@@ -971,6 +985,8 @@ static struct branch_clk usb_hsic_p_clk = {
 	.b = {
 		.ctl_reg = USB_HSIC_HCLK_CTL_REG,
 		.en_mask = BIT(4),
+		.hwcg_reg =  USB_HSIC_HCLK_CTL_REG,
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
 		.halt_bit = 3,
 	},
@@ -985,6 +1001,8 @@ static struct branch_clk sdc1_p_clk = {
 	.b = {
 		.ctl_reg = SDCn_HCLK_CTL_REG(1),
 		.en_mask = BIT(4),
+		.hwcg_reg =  SDCn_HCLK_CTL_REG(1),
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
 		.halt_bit = 11,
 	},
@@ -999,6 +1017,8 @@ static struct branch_clk sdc2_p_clk = {
 	.b = {
 		.ctl_reg = SDCn_HCLK_CTL_REG(2),
 		.en_mask = BIT(4),
+		.hwcg_reg =  SDCn_HCLK_CTL_REG(2),
+		.hwcg_mask = BIT(6),
 		.halt_reg = CLK_HALT_DFAB_STATE_REG,
 		.halt_bit = 10,
 	},
@@ -1807,22 +1827,13 @@ static void __init reg_init(void)
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);
 	writel_relaxed(regval | BIT(0), LCC_PRI_PLL_CLK_CTL_REG);
 
-	/* Disable hardware clock gating on certain clocks */
-	regval = readl_relaxed(USB_HSIC_HCLK_CTL_REG);
+	/*
+	 * Disable hardware clock gating for pmem_clk. Leaving it enabled
+	 * results in the clock staying on.
+	 */
+	regval = readl_relaxed(PMEM_ACLK_CTL_REG);
 	regval &= ~BIT(6);
-	writel_relaxed(regval, USB_HSIC_HCLK_CTL_REG);
-
-	regval = readl_relaxed(CE1_CORE_CLK_CTL_REG);
-	regval &= ~BIT(6);
-	writel_relaxed(regval, CE1_CORE_CLK_CTL_REG);
-
-	regval = readl_relaxed(USB_HS1_HCLK_CTL_REG);
-	regval &= ~BIT(6);
-	writel_relaxed(regval, USB_HS1_HCLK_CTL_REG);
-
-	regval = readl_relaxed(DMA_BAM_HCLK_CTL);
-	regval &= ~BIT(6);
-	writel_relaxed(regval, DMA_BAM_HCLK_CTL);
+	writel_relaxed(regval, PMEM_ACLK_CTL_REG);
 }
 
 /* Local clock driver initialization. */
