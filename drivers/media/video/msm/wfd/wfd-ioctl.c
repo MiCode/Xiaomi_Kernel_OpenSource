@@ -21,6 +21,7 @@
 #include <linux/android_pmem.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
+#include <linux/time.h>
 
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
@@ -31,12 +32,14 @@
 #include "wfd-util.h"
 #include "mdp-subdev.h"
 #include "enc-subdev.h"
+#include "vsg-subdev.h"
 
 #define WFD_VERSION KERNEL_VERSION(0, 0, 1)
 #define DEFAULT_WFD_WIDTH 640
 #define DEFAULT_WFD_HEIGHT 480
-#define MIN_BUF_COUNT 2
-#define VENC_INPUT_BUFFERS 3
+#define VSG_SCRATCH_BUFFERS 1
+#define MDP_WRITEBACK_BUFFERS 3
+#define VENC_INPUT_BUFFERS (VSG_SCRATCH_BUFFERS + MDP_WRITEBACK_BUFFERS)
 
 struct wfd_device {
 	struct platform_device *pdev;
@@ -44,6 +47,7 @@ struct wfd_device {
 	struct video_device *pvdev;
 	struct v4l2_subdev mdp_sdev;
 	struct v4l2_subdev enc_sdev;
+	struct v4l2_subdev vsg_sdev;
 };
 
 struct mem_info {
@@ -116,7 +120,8 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	struct mem_region *mregion;
 	int rc;
 	unsigned long flags;
-	struct mdp_buf_info buf = {0};
+	struct mdp_buf_info mdp_buf = {0};
+	struct vsg_buf_info vsg_buf = {};
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	if (inst->input_bufs_allocated) {
 		spin_unlock_irqrestore(&inst->inst_lock, flags);
@@ -133,27 +138,44 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		if (rc) {
 			WFD_MSG_ERR("Failed to allocate input memory."
 				" This error causes memory leak!!!\n");
-			break;
+			goto alloc_fail;
 		}
 		WFD_MSG_DBG("NOTE: paddr = %p, kvaddr = %p\n", mregion->paddr,
 					mregion->kvaddr);
 		list_add_tail(&mregion->list, &inst->input_mem_list);
-		buf.inst = inst->mdp_inst;
-		buf.cookie = mregion;
-		buf.kvaddr = (u32) mregion->kvaddr;
-		buf.paddr = (u32) mregion->paddr;
-		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
-				MDP_Q_BUFFER, (void *)&buf);
-		if (rc) {
-			WFD_MSG_ERR("Unable to queue the buffer to mdp\n");
-			break;
+
+		mdp_buf.inst = inst->mdp_inst;
+		mdp_buf.cookie = mregion;
+		mdp_buf.kvaddr = (u32) mregion->kvaddr;
+		mdp_buf.paddr = (u32) mregion->paddr;
+		vsg_buf.mdp_buf_info = mdp_buf;
+
+		if (i < MDP_WRITEBACK_BUFFERS) {
+			rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
+					MDP_Q_BUFFER, (void *)&mdp_buf);
+			if (rc) {
+				WFD_MSG_ERR("Unable to queue the"
+						" buffer to mdp\n");
+				break;
+			}
+		} else /*if (i < VSG_SCRATCH_BUFFERS*/ {
+			rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
+					VSG_SET_SCRATCH_BUFFER,
+					(void *)&vsg_buf);
+			if (rc) {
+				WFD_MSG_ERR("Unable to set scratch"
+						" buffer to vsg\n");
+				break;
+			}
 		}
 	}
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 			ALLOC_RECON_BUFFERS, NULL);
-	if (rc)
+	if (rc) {
 		WFD_MSG_ERR("Failed to allocate recon buffers\n");
-
+		goto alloc_fail;
+	}
+alloc_fail:
 	return rc;
 }
 void wfd_free_input_buffers(struct wfd_device *wfd_dev,
@@ -258,7 +280,7 @@ int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
 		rc = wfd_allocate_input_buffers(wfd_dev, inst);
 		if (rc) {
 			WFD_MSG_ERR("Failed to allocate input buffers\n");
-			goto err;
+			goto free_input_bufs;
 		}
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				SET_OUTPUT_BUFFER, (void *)&mregion);
@@ -270,7 +292,6 @@ int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
 	return rc;
 free_input_bufs:
 	wfd_free_input_buffers(wfd_dev, inst);
-err:
 	return rc;
 }
 
@@ -294,6 +315,12 @@ void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
 	struct mem_region mregion;
+
+	if (minfo == NULL) {
+		WFD_MSG_ERR("not freeing buffers since allocation failed");
+		return;
+	}
+
 	mregion.fd = minfo->fd;
 	mregion.offset = minfo->offset;
 	mregion.cookie = (u32)vb;
@@ -306,6 +333,7 @@ void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 	wfd_unregister_out_buf(inst, minfo);
 	wfd_free_input_buffers(wfd_dev, inst);
 }
+
 static int mdp_output_thread(void *data)
 {
 	int rc = 0;
@@ -313,11 +341,13 @@ static int mdp_output_thread(void *data)
 	struct wfd_inst *inst = filp->private_data;
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(filp);
-	struct mdp_buf_info obuf = {inst->mdp_inst, 0, 0, 0};
+	struct mdp_buf_info obuf_mdp = {inst->mdp_inst, 0, 0, 0};
+	struct mem_region *mregion;
+	struct vsg_buf_info ibuf_vsg;
 	while (!kthread_should_stop()) {
 		WFD_MSG_DBG("waiting for mdp output\n");
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev,
-			core, ioctl, MDP_DQ_BUFFER, (void *)&obuf);
+			core, ioctl, MDP_DQ_BUFFER, (void *)&obuf_mdp);
 
 		if (rc) {
 			WFD_MSG_ERR("Either streamoff called or"
@@ -325,8 +355,21 @@ static int mdp_output_thread(void *data)
 			break;
 		}
 
-		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
-			ENCODE_FRAME, obuf.cookie);
+		mregion = obuf_mdp.cookie;
+		if (!mregion) {
+			WFD_MSG_ERR("mdp cookie is null\n");
+			rc = -EINVAL;
+			break;
+		}
+
+		ibuf_vsg.mdp_buf_info = obuf_mdp;
+		ibuf_vsg.mdp_buf_info.inst = inst->mdp_inst;
+		ibuf_vsg.mdp_buf_info.cookie = mregion;
+		ibuf_vsg.mdp_buf_info.kvaddr = (u32) mregion->kvaddr;
+		ibuf_vsg.mdp_buf_info.paddr = (u32) mregion->paddr;
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev,
+			core, ioctl, VSG_Q_BUFFER, (void *)&ibuf_vsg);
+
 		if (rc) {
 			WFD_MSG_ERR("Failed to encode frame\n");
 			break;
@@ -348,20 +391,27 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q)
 			ENCODE_START, (void *)inst->venc_inst);
 	if (rc) {
 		WFD_MSG_ERR("Failed to start encoder\n");
-		goto err;
+		goto subdev_start_fail;
+	}
+
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
+			VSG_START, NULL);
+	if (rc) {
+		WFD_MSG_ERR("Failed to start vsg\n");
+		goto subdev_start_fail;
 	}
 
 	inst->mdp_task = kthread_run(mdp_output_thread, priv_data,
 				"mdp_output_thread");
 	if (IS_ERR(inst->mdp_task)) {
 		rc = PTR_ERR(inst->mdp_task);
-		goto err;
+		goto subdev_start_fail;
 	}
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 			 MDP_START, (void *)inst->mdp_inst);
 	if (rc)
 		WFD_MSG_ERR("Failed to start MDP\n");
-err:
+subdev_start_fail:
 	return rc;
 }
 
@@ -376,6 +426,11 @@ int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
 			 MDP_STOP, (void *)inst->mdp_inst);
 	if (rc)
 		WFD_MSG_ERR("Failed to stop MDP\n");
+
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
+			 VSG_STOP, NULL);
+	if (rc)
+		WFD_MSG_ERR("Failed to stop VSG\n");
 
 	kthread_stop(inst->mdp_task);
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
@@ -441,8 +496,17 @@ static const struct v4l2_subdev_core_ops enc_subdev_core_ops = {
 
 static const struct v4l2_subdev_ops enc_subdev_ops = {
 	.core = &enc_subdev_core_ops,
-}
-;
+};
+
+static const struct v4l2_subdev_core_ops vsg_subdev_core_ops = {
+	.init = vsg_init,
+	.ioctl = vsg_ioctl,
+};
+
+static const struct v4l2_subdev_ops vsg_subdev_ops = {
+	.core = &vsg_subdev_core_ops,
+};
+
 static int wfdioc_querycap(struct file *filp, void *fh,
 		struct v4l2_capability *cap) {
 	WFD_MSG_DBG("wfdioc_querycap: E\n");
@@ -476,6 +540,7 @@ static int wfdioc_g_fmt(struct file *filp, void *fh,
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	return 0;
 }
+
 static int wfdioc_s_fmt(struct file *filp, void *fh,
 			struct v4l2_format *fmt)
 {
@@ -499,7 +564,7 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 				(void *)fmt);
 	if (rc) {
 		WFD_MSG_ERR("Failed to set format on encoder, rc = %d\n", rc);
-		goto err;
+		return rc;
 	}
 	breq.count = VENC_INPUT_BUFFERS;
 	breq.height = fmt->fmt.pix.height;
@@ -508,7 +573,7 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 			SET_BUFFER_REQ, (void *)&breq);
 	if (rc) {
 		WFD_MSG_ERR("Failed to set buffer reqs on encoder\n");
-		goto err;
+		return rc;
 	}
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	inst->input_buf_size = breq.size;
@@ -521,7 +586,6 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 				(void *)&prop);
 	if (rc)
 		WFD_MSG_ERR("Failed to set height/width property on mdp\n");
-err:
 	return rc;
 }
 static int wfdioc_reqbufs(struct file *filp, void *fh,
@@ -542,13 +606,12 @@ static int wfdioc_reqbufs(struct file *filp, void *fh,
 			GET_BUFFER_REQ, (void *)b);
 	if (rc) {
 		WFD_MSG_ERR("Failed to get buf reqs from encoder\n");
-		goto err;
+		return rc;
 	}
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	inst->buf_count = b->count;
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	rc = vb2_reqbufs(&inst->vid_bufq, b);
-err:
 	return rc;
 }
 static int wfd_register_out_buf(struct wfd_inst *inst,
@@ -593,12 +656,11 @@ static int wfdioc_qbuf(struct file *filp, void *fh,
 	rc = wfd_register_out_buf(inst, b);
 	if (rc) {
 		WFD_MSG_ERR("Failed to register buffer\n");
-		goto err;
+		return rc;
 	}
 	rc = vb2_qbuf(&inst->vid_bufq, b);
 	if (rc)
 		WFD_MSG_ERR("Failed to queue buffer\n");
-err:
 	return rc;
 }
 
@@ -634,6 +696,13 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 {
 	struct wfd_inst *inst = filp->private_data;
 	unsigned long flags;
+
+	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
+		WFD_MSG_ERR("stream off for buffer type = %d is not "
+			"supported.\n", i);
+		return -EINVAL;
+	}
+
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	if (inst->streamoff) {
 		WFD_MSG_ERR("Module is already in streamoff state\n");
@@ -642,11 +711,6 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 	}
 	inst->streamoff = true;
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
-	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
-		WFD_MSG_ERR("stream off for buffer type = %d is not "
-			"supported.\n", i);
-		return -EINVAL;
-	}
 	WFD_MSG_DBG("Calling videobuf_streamoff\n");
 	vb2_streamoff(&inst->vid_bufq, i);
 	return 0;
@@ -680,6 +744,148 @@ static int wfdioc_s_ctrl(struct file *filp, void *fh,
 		WFD_MSG_ERR("Failed to set encoder property\n");
 	return rc;
 }
+
+static int wfdioc_g_parm(struct file *filp, void *fh,
+		struct v4l2_streamparm *a)
+{
+	int rc = 0;
+	struct wfd_device *wfd_dev = video_drvdata(filp);
+	struct wfd_inst *inst = filp->private_data;
+	int64_t frame_interval = 0,
+		max_frame_interval = 0; /* both in nsecs*/
+	struct v4l2_qcom_frameskip frameskip, *usr_frameskip;
+
+	usr_frameskip = (struct v4l2_qcom_frameskip *)
+			a->parm.capture.extendedmode;
+
+	if (!usr_frameskip) {
+		rc = -EINVAL;
+		goto get_parm_fail;
+	}
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+			ioctl, VSG_GET_FRAME_INTERVAL, &frame_interval);
+
+	if (rc < 0)
+		goto get_parm_fail;
+
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+			ioctl, VSG_GET_MAX_FRAME_INTERVAL, &max_frame_interval);
+
+	if (rc < 0)
+		goto get_parm_fail;
+
+	frameskip = (struct v4l2_qcom_frameskip) {
+		.maxframeinterval = max_frame_interval,
+	};
+
+	a->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	a->parm.capture = (struct v4l2_captureparm) {
+		.capability = V4L2_CAP_TIMEPERFRAME,
+		.capturemode = 0,
+		.timeperframe = (struct v4l2_fract) {
+			.numerator = frame_interval,
+			.denominator = NSEC_PER_SEC,
+		},
+		.readbuffers = inst->buf_count,
+		.extendedmode = (__u32)usr_frameskip,
+		.reserved = {0}
+	};
+
+	rc = copy_to_user((void *)a->parm.capture.extendedmode,
+			&frameskip, sizeof(frameskip));
+	if (rc < 0)
+		goto get_parm_fail;
+
+get_parm_fail:
+	return rc;
+}
+
+static int wfdioc_s_parm(struct file *filp, void *fh,
+		struct v4l2_streamparm *a)
+{
+	int rc = 0;
+	struct wfd_device *wfd_dev = video_drvdata(filp);
+	struct wfd_inst *inst = filp->private_data;
+	struct v4l2_qcom_frameskip frameskip;
+	int64_t frame_interval, max_frame_interval;
+	void *extendedmode = NULL;
+	enum vsg_modes mode = VSG_MODE_VFR;
+
+
+	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
+		rc = -ENOTSUPP;
+		goto set_parm_fail;
+	}
+
+	if (a->parm.capture.readbuffers == 0 ||
+		a->parm.capture.readbuffers == inst->buf_count) {
+		a->parm.capture.readbuffers = inst->buf_count;
+	} else {
+		rc = -EINVAL;
+		goto set_parm_fail;
+	}
+
+	extendedmode = (void *)a->parm.capture.extendedmode;
+	if (a->parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
+		if (a->parm.capture.timeperframe.denominator == 0) {
+			rc = -EINVAL;
+			goto set_parm_fail;
+		}
+		frame_interval =
+			a->parm.capture.timeperframe.numerator * NSEC_PER_SEC /
+			a->parm.capture.timeperframe.denominator;
+
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+				ioctl, VSG_SET_FRAME_INTERVAL,
+				&frame_interval);
+
+		if (rc)
+			goto set_parm_fail;
+
+		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
+				ioctl, SET_FRAMERATE,
+				&a->parm.capture.timeperframe);
+
+		if (rc)
+			goto set_parm_fail;
+	}
+
+	if (a->parm.capture.capability & V4L2_CAP_QCOM_FRAMESKIP &&
+		extendedmode) {
+		rc = copy_from_user(&frameskip,
+				extendedmode, sizeof(frameskip));
+
+		if (rc)
+			goto set_parm_fail;
+
+		max_frame_interval = (int64_t)frameskip.maxframeinterval;
+		mode = VSG_MODE_VFR;
+
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+				ioctl, VSG_SET_MAX_FRAME_INTERVAL,
+				&max_frame_interval);
+
+		if (rc)
+			goto set_parm_fail;
+
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+				ioctl, VSG_SET_MODE, &mode);
+
+		if (rc)
+			goto set_parm_fail;
+	} else {
+		mode = VSG_MODE_CFR;
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+				ioctl, VSG_SET_MODE, &mode);
+
+		if (rc)
+			goto set_parm_fail;
+	}
+
+set_parm_fail:
+	return rc;
+}
+
 static const struct v4l2_ioctl_ops g_wfd_ioctl_ops = {
 	.vidioc_querycap = wfdioc_querycap,
 	.vidioc_s_fmt_vid_cap = wfdioc_s_fmt,
@@ -691,7 +897,8 @@ static const struct v4l2_ioctl_ops g_wfd_ioctl_ops = {
 	.vidioc_dqbuf = wfdioc_dqbuf,
 	.vidioc_g_ctrl = wfdioc_g_ctrl,
 	.vidioc_s_ctrl = wfdioc_s_ctrl,
-
+	.vidioc_g_parm = wfdioc_g_parm,
+	.vidioc_s_parm = wfdioc_s_parm,
 };
 static int wfd_set_default_properties(struct file *filp)
 {
@@ -712,32 +919,69 @@ static int wfd_set_default_properties(struct file *filp)
 	wfdioc_s_fmt(filp, filp->private_data, &fmt);
 	return 0;
 }
-void venc_op_buffer_done(void *cookie, u32 status,
+static void venc_op_buffer_done(void *cookie, u32 status,
 			struct vb2_buffer *buf)
 {
 	WFD_MSG_DBG("yay!! got callback\n");
 	vb2_buffer_done(buf, VB2_BUF_STATE_DONE);
 }
-void venc_ip_buffer_done(void *cookie, u32 status,
+
+static void venc_ip_buffer_done(void *cookie, u32 status,
 			struct mem_region *mregion)
 {
 	struct file *filp = cookie;
 	struct wfd_inst *inst = filp->private_data;
-	struct mdp_buf_info buf = {0};
+	struct vsg_buf_info buf;
+	struct mdp_buf_info mdp_buf = {0};
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(filp);
 	int rc = 0;
 	WFD_MSG_DBG("yay!! got ip callback\n");
-	buf.inst = inst->mdp_inst;
-	buf.cookie = mregion;
-	buf.kvaddr = (u32) mregion->kvaddr;
-	buf.paddr = (u32) mregion->paddr;
+	mdp_buf.inst = inst->mdp_inst;
+	mdp_buf.cookie = mregion;
+	mdp_buf.kvaddr = (u32) mregion->kvaddr;
+	mdp_buf.paddr = (u32) mregion->paddr;
+	buf.mdp_buf_info = mdp_buf;
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core,
+			ioctl, VSG_RETURN_IP_BUFFER, (void *)&buf);
+	if (rc)
+		WFD_MSG_ERR("Failed to return buffer to vsg\n");
+}
+
+static int vsg_release_input_frame(void *cookie, struct vsg_buf_info *buf)
+{
+	struct file *filp = cookie;
+	struct wfd_device *wfd_dev =
+		(struct wfd_device *)video_drvdata(filp);
+	int rc = 0;
+
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core,
-			ioctl, MDP_Q_BUFFER, (void *)&buf);
+			ioctl, MDP_Q_BUFFER, buf);
 	if (rc)
 		WFD_MSG_ERR("Failed to Q buffer to mdp\n");
 
+	return rc;
 }
+
+static int vsg_encode_frame(void *cookie, struct vsg_buf_info *buf)
+{
+	struct file *filp = cookie;
+	struct wfd_device *wfd_dev =
+		(struct wfd_device *)video_drvdata(filp);
+	struct venc_buf_info venc_buf;
+
+	if (!buf)
+		return -EINVAL;
+
+	venc_buf = (struct venc_buf_info){
+		.timestamp = timespec_to_ns(&buf->time),
+		.mregion = buf->mdp_buf_info.cookie
+	};
+
+	return v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
+			ENCODE_FRAME, &venc_buf);
+}
+
 void *wfd_vb2_mem_ops_get_userptr(void *alloc_ctx, unsigned long vaddr,
 					unsigned long size, int write)
 {
@@ -776,14 +1020,17 @@ static int wfd_open(struct file *filp)
 	int rc = 0;
 	struct wfd_inst *inst;
 	struct wfd_device *wfd_dev;
-	struct venc_msg_ops vmops;
+	struct venc_msg_ops enc_mops;
+	struct vsg_msg_ops vsg_mops;
+
 	WFD_MSG_DBG("wfd_open: E\n");
 	wfd_dev = video_drvdata(filp);
 	inst = kzalloc(sizeof(struct wfd_inst), GFP_KERNEL);
 	if (!inst || !wfd_dev) {
 		WFD_MSG_ERR("Could not allocate memory for "
 			"wfd instance\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto err_mdp_open;
 	}
 	filp->private_data = inst;
 	spin_lock_init(&inst->inst_lock);
@@ -801,21 +1048,34 @@ static int wfd_open(struct file *filp)
 		WFD_MSG_ERR("Failed to load video encoder firmware: %d\n", rc);
 		goto err_venc;
 	}
-	vmops.op_buffer_done = venc_op_buffer_done;
-	vmops.ip_buffer_done = venc_ip_buffer_done;
-	vmops.cbdata = filp;
+	enc_mops.op_buffer_done = venc_op_buffer_done;
+	enc_mops.ip_buffer_done = venc_ip_buffer_done;
+	enc_mops.cbdata = filp;
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, OPEN,
-				(void *)&vmops);
-	if (rc || !vmops.cookie) {
+				(void *)&enc_mops);
+	if (rc || !enc_mops.cookie) {
 		WFD_MSG_ERR("Failed to open encoder subdevice: %d\n", rc);
 		goto err_venc;
 	}
-	inst->venc_inst = vmops.cookie;
+	inst->venc_inst = enc_mops.cookie;
+
+	vsg_mops.encode_frame = vsg_encode_frame;
+	vsg_mops.release_input_frame = vsg_release_input_frame;
+	vsg_mops.cbdata = filp;
+	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl, VSG_OPEN,
+				&vsg_mops);
+	if (rc) {
+		WFD_MSG_ERR("Failed to open vsg subdevice: %d\n", rc);
+		goto err_vsg_open;
+	}
 
 	wfd_initialize_vb2_queue(&inst->vid_bufq, filp);
 	wfd_set_default_properties(filp);
 	WFD_MSG_DBG("wfd_open: X\n");
 	return rc;
+
+err_vsg_open:
+	v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, CLOSE, NULL);
 err_venc:
 	v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_CLOSE, (void *)inst->mdp_inst);
@@ -842,8 +1102,15 @@ static int wfd_close(struct file *filp)
 
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				CLOSE, (void *)inst->venc_inst);
+
 		if (rc)
 			WFD_MSG_ERR("Failed to CLOSE enc subdev: %d\n", rc);
+
+		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
+				VSG_CLOSE, NULL);
+
+		if (rc)
+			WFD_MSG_ERR("Failed to CLOSE vsg subdev: %d\n", rc);
 
 		kfree(inst);
 	}
@@ -869,7 +1136,8 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 	if (!wfd_dev) {
 		WFD_MSG_ERR("Could not allocate memory for "
 				"wfd device\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto err_v4l2_registration;
 	}
 	pdev->dev.platform_data = (void *) wfd_dev;
 	rc = v4l2_device_register(&pdev->dev, &wfd_dev->v4l2_dev);
@@ -914,6 +1182,15 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, init, 0);
 	if (rc) {
 		WFD_MSG_ERR("Failed to initiate encoder device %d\n", rc);
+		goto err_venc_init;
+	}
+
+	v4l2_subdev_init(&wfd_dev->vsg_sdev, &vsg_subdev_ops);
+	strncpy(wfd_dev->vsg_sdev.name, "wfd-vsg", V4L2_SUBDEV_NAME_SIZE);
+	rc = v4l2_device_register_subdev(&wfd_dev->v4l2_dev,
+						&wfd_dev->vsg_sdev);
+	if (rc) {
+		WFD_MSG_ERR("Failed to register vsg subdevice: %d\n", rc);
 		goto err_venc_init;
 	}
 

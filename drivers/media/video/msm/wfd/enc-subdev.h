@@ -11,6 +11,9 @@
 *
 */
 
+#ifndef _WFD_ENC_SUBDEV_
+#define _WFD_ENC_SUBDEV_
+
 #include <media/v4l2-subdev.h>
 #include <media/videobuf2-core.h>
 #define VENC_MAGIC_IOCTL 'V'
@@ -30,6 +33,12 @@ struct bufreq {
 	u32 width;
 	u32 size;
 };
+
+struct venc_buf_info {
+	u64 timestamp;
+	struct mem_region *mregion;
+};
+
 struct venc_msg_ops {
 	void *cookie;
 	void *cbdata;
@@ -42,7 +51,7 @@ struct venc_msg_ops {
 #define OPEN  _IOR('V', 1, void *)
 #define CLOSE  _IO('V', 2)
 #define ENCODE_START  _IO('V', 3)
-#define ENCODE_FRAME  _IO('V', 4)
+#define ENCODE_FRAME  _IOW('V', 4, struct venc_buf_info *)
 #define PAUSE  _IO('V', 5)
 #define RESUME  _IO('V', 6)
 #define FLUSH  _IO('V', 7)
@@ -66,3 +75,6 @@ struct venc_msg_ops {
 extern int venc_init(struct v4l2_subdev *sd, u32 val);
 extern int venc_load_fw(struct v4l2_subdev *sd);
 extern long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
+
+
+#endif /* _WFD_ENC_SUBDEV_ */
