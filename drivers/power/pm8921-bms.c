@@ -25,8 +25,10 @@
 #include <linux/debugfs.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 
 #define BMS_CONTROL		0x224
+#define BMS_S1_DELAY		0x225
 #define BMS_OUTPUT0		0x230
 #define BMS_OUTPUT1		0x231
 #define BMS_TOLERANCES		0x232
@@ -97,7 +99,7 @@ struct pm8921_bms_chip {
 	unsigned int		batt_id_channel;
 	unsigned int		pmic_bms_irq[PM_BMS_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PM_BMS_MAX_INTS);
-	spinlock_t		bms_output_lock;
+	struct mutex		bms_output_lock;
 	spinlock_t		bms_100_lock;
 	struct single_row_lut	*adjusted_fcc_temp_lut;
 	unsigned int		charging_began;
@@ -351,14 +353,6 @@ static int pm_bms_read_output_data(struct pm8921_bms_chip *chip, int type,
 	if (type < OCV_FOR_RBATT || type > VBATT_AVG) {
 		pr_err("invalid type %d asked to read\n", type);
 		return -EINVAL;
-	}
-
-	/* make sure the bms registers are locked */
-	rc = pm8xxx_readb(chip->dev->parent, BMS_CONTROL, &reg);
-	if (rc) {
-		pr_err("fail to read BMS_OUTPUT0 for type %d rc = %d\n",
-			type, rc);
-		return rc;
 	}
 
 	rc = pm_bms_masked_write(chip, BMS_CONTROL, SELECT_OUTPUT_DATA,
@@ -775,12 +769,56 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 	return 100;
 }
 
+#define BMS_MODE_BIT	BIT(6)
+#define EN_VBAT_BIT	BIT(5)
+#define OVERRIDE_MODE_DELAY_MS	20
+int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
+								int *vbat_uv)
+{
+	int16_t vsense_raw;
+	int16_t vbat_raw;
+	int vsense_uv;
+
+	if (the_chip == NULL) {
+		pr_err("Called to early\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&the_chip->bms_output_lock);
+
+	pm8xxx_writeb(the_chip->dev->parent, BMS_S1_DELAY, 0x00);
+	pm_bms_masked_write(the_chip, BMS_CONTROL,
+			BMS_MODE_BIT | EN_VBAT_BIT, BMS_MODE_BIT | EN_VBAT_BIT);
+
+	msleep(OVERRIDE_MODE_DELAY_MS);
+
+	pm_bms_lock_output_data(the_chip);
+	pm_bms_read_output_data(the_chip, VSENSE_AVG, &vsense_raw);
+	pm_bms_read_output_data(the_chip, VBATT_AVG, &vbat_raw);
+	pm_bms_unlock_output_data(the_chip);
+	pm_bms_masked_write(the_chip, BMS_CONTROL,
+			BMS_MODE_BIT | EN_VBAT_BIT, 0);
+
+	pm8xxx_writeb(the_chip->dev->parent, BMS_S1_DELAY, 0x0B);
+
+	mutex_unlock(&the_chip->bms_output_lock);
+
+	convert_vbatt_raw_to_uv(the_chip, vbat_raw, vbat_uv);
+	convert_vsense_to_uv(the_chip, vsense_raw, &vsense_uv);
+	*ibat_ua = vsense_uv * 1000 / (int)the_chip->r_sense;
+
+	pr_debug("vsense_raw = 0x%x vbat_raw = 0x%x"
+			" ibat_ua = %d vbat_uv = %d\n",
+			(uint16_t)vsense_raw, (uint16_t)vbat_raw,
+			*ibat_ua, *vbat_uv);
+	return 0;
+}
+EXPORT_SYMBOL(pm8921_bms_get_simultaneous_battery_voltage_and_current);
+
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&chip->bms_output_lock, flags);
+	mutex_lock(&chip->bms_output_lock);
 	pm_bms_lock_output_data(chip);
 
 	pm_bms_read_output_data(chip,
@@ -794,7 +832,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 	read_cc(chip, &raw->cc);
 
 	pm_bms_unlock_output_data(chip);
-	spin_unlock_irqrestore(&chip->bms_output_lock, flags);
+	mutex_unlock(&chip->bms_output_lock);
 
 	convert_vbatt_raw_to_uv(chip,
 			raw->vbatt_for_rbatt_raw, &raw->vbatt_for_rbatt_uv);
@@ -1200,14 +1238,13 @@ static void calibrate_ccadc_work(struct work_struct *work)
 int pm8921_bms_get_vsense_avg(int *result)
 {
 	int rc = -EINVAL;
-	unsigned long flags;
 
 	if (the_chip) {
-		spin_lock_irqsave(&the_chip->bms_output_lock, flags);
+		mutex_lock(&the_chip->bms_output_lock);
 		pm_bms_lock_output_data(the_chip);
 		rc = read_vsense_avg(the_chip, result);
 		pm_bms_unlock_output_data(the_chip);
-		spin_unlock_irqrestore(&the_chip->bms_output_lock, flags);
+		mutex_unlock(&the_chip->bms_output_lock);
 	}
 
 	pr_err("called before initialization\n");
@@ -1217,7 +1254,6 @@ EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
 
 int pm8921_bms_get_battery_current(int *result_ua)
 {
-	unsigned long flags;
 	int vsense;
 
 	if (!the_chip) {
@@ -1229,15 +1265,15 @@ int pm8921_bms_get_battery_current(int *result_ua)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&the_chip->bms_output_lock, flags);
+	mutex_lock(&the_chip->bms_output_lock);
 	pm_bms_lock_output_data(the_chip);
 	read_vsense_avg(the_chip, &vsense);
 	pm_bms_unlock_output_data(the_chip);
-	spin_unlock_irqrestore(&the_chip->bms_output_lock, flags);
-	pr_debug("vsense=%d\n", vsense);
+	mutex_unlock(&the_chip->bms_output_lock);
+	pr_debug("vsense=%duV\n", vsense);
 	/* cast for signed division */
 	*result_ua = vsense * 1000 / (int)the_chip->r_sense;
-
+	pr_debug("ibat=%duA\n", *result_ua);
 	return 0;
 }
 EXPORT_SYMBOL(pm8921_bms_get_battery_current);
@@ -1645,13 +1681,14 @@ unknown:
 		return 0;
 }
 
-enum {
+enum bms_request_operation {
 	CALC_RBATT,
 	CALC_FCC,
 	CALC_PC,
 	CALC_SOC,
 	CALIB_HKADC,
 	CALIB_CCADC,
+	GET_VBAT_VSENSE_SIMULTANEOUS,
 };
 
 static int test_batt_temp = 5;
@@ -1702,6 +1739,7 @@ static int get_calc(void *data, u64 * val)
 {
 	int param = (int)data;
 	int ret = 0;
+	int ibat_ua, vbat_uv;
 	struct pm8921_soc_params raw;
 
 	read_soc_params_raw(the_chip, &raw);
@@ -1734,6 +1772,13 @@ static int get_calc(void *data, u64 * val)
 		/* reading this will trigger calibration */
 		*val = 0;
 		pm8xxx_calib_ccadc();
+		break;
+	case GET_VBAT_VSENSE_SIMULTANEOUS:
+		/* reading this will call simultaneous vbat and vsense */
+		*val =
+		pm8921_bms_get_simultaneous_battery_voltage_and_current(
+			&ibat_ua,
+			&vbat_uv);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1878,6 +1923,9 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 	debugfs_create_file("calib_ccadc", 0644, chip->dent,
 				(void *)CALIB_CCADC, &calc_fops);
 
+	debugfs_create_file("simultaneous", 0644, chip->dent,
+			(void *)GET_VBAT_VSENSE_SIMULTANEOUS, &calc_fops);
+
 	for (i = 0; i < ARRAY_SIZE(bms_irq_data); i++) {
 		if (chip->pmic_bms_irq[bms_irq_data[i].irq_id])
 			debugfs_create_file(bms_irq_data[i].name, 0444,
@@ -1905,7 +1953,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		pr_err("Cannot allocate pm_bms_chip\n");
 		return -ENOMEM;
 	}
-	spin_lock_init(&chip->bms_output_lock);
+	mutex_init(&chip->bms_output_lock);
 	spin_lock_init(&chip->bms_100_lock);
 	chip->dev = &pdev->dev;
 	chip->r_sense = pdata->r_sense;

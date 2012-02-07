@@ -177,6 +177,14 @@ void pm8921_bms_charging_began(void);
 void pm8921_bms_charging_end(int is_battery_full);
 
 void pm8921_bms_calibrate_hkadc(void);
+/**
+ * pm8921_bms_get_simultaneous_battery_voltage_and_current
+ *		- function to take simultaneous vbat and vsense readings
+ *		  this puts the bms in override mode but keeps coulumb couting
+ *		  on. Useful when ir compensation needs to be implemented
+ */
+int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
+								int *vbat_uv);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -202,6 +210,11 @@ static inline void pm8921_bms_charging_end(int is_battery_full)
 }
 static inline void pm8921_bms_calibrate_hkadc(void)
 {
+}
+static inline int pm8921_bms_get_simultaneous_battery_voltage_and_current(
+						int *ibat_ua, int *vbat_uv)
+{
+	return -ENXIO;
 }
 #endif
 
