@@ -1098,7 +1098,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
-	&apq8064_slim_ctrl,
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_3p3v_vreg,
 	&apq8064_device_ssbi_pmic1,
@@ -1282,6 +1281,12 @@ static void __init apq8064_common_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	apq8064_pm8xxx_gpio_mpp_init();
 	apq8064_init_mmc();
+
+	if (machine_is_apq8064_mtp()) {
+		mdm_8064_device.dev.platform_data = &mdm_platform_data;
+		platform_device_register(&mdm_8064_device);
+	}
+	platform_device_register(&apq8064_slim_ctrl);
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
@@ -1292,11 +1297,6 @@ static void __init apq8064_common_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-
-	if (machine_is_apq8064_mtp()) {
-		mdm_8064_device.dev.platform_data = &mdm_platform_data;
-		platform_device_register(&mdm_8064_device);
-	}
 }
 
 static void __init apq8064_allocate_memory_regions(void)
