@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * Based on the mp3 native driver in arch/arm/mach-msm/qdsp5v2/audio_mp3.c
  *
@@ -196,8 +196,10 @@ static void audplay_send_data(struct audio *audio, unsigned needed);
 static void audplay_config_hostpcm(struct audio *audio);
 static void audplay_buffer_refresh(struct audio *audio);
 static void audio_dsp_event(void *private, unsigned id, uint16_t *msg);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audadpcm_post_event(struct audio *audio, int type,
 		union msm_audio_event_payload payload);
+#endif
 
 /* must be called with audio->lock held */
 static int audio_enable(struct audio *audio)
@@ -1433,6 +1435,7 @@ static int audio_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audadpcm_post_event(struct audio *audio, int type,
 		union msm_audio_event_payload payload)
 {
@@ -1461,7 +1464,6 @@ static void audadpcm_post_event(struct audio *audio, int type,
 	wake_up(&audio->event_wait);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audadpcm_suspend(struct early_suspend *h)
 {
 	struct audadpcm_suspend_ctl *ctl =
