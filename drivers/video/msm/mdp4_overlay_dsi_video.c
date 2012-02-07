@@ -110,6 +110,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	mdp4_overlay_ctrl_db_reset();
+
 	fbi = mfd->fbi;
 	var = &fbi->var;
 

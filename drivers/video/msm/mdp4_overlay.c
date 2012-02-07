@@ -110,6 +110,14 @@ bool mdp4_overlay_status_read(enum mdp4_overlay_status type)
 	return overlay_status[type];
 }
 
+void mdp4_overlay_ctrl_db_reset(void)
+{
+	int i;
+
+	for (i = MDP4_MIXER0; i < MDP4_MIXER_MAX; i++)
+		ctrl->mixer_cfg[i] = 0;
+}
+
 int mdp4_overlay_mixer_play(int mixer_num)
 {
 	if (mixer_num == MDP4_MIXER2)

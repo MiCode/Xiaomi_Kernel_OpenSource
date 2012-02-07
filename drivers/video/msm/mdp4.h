@@ -674,6 +674,7 @@ void mdp4_primary_vsync_dsi_video(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
 void mdp4_overlay_status_write(enum mdp4_overlay_status type, bool val);
 bool mdp4_overlay_status_read(enum mdp4_overlay_status type);
+void mdp4_overlay_ctrl_db_reset(void);
 
 int mdp4_overlay_writeback_on(struct platform_device *pdev);
 int mdp4_overlay_writeback_off(struct platform_device *pdev);
