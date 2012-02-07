@@ -72,6 +72,7 @@ static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver tabla_dai[];
+static const DECLARE_TLV_DB_SCALE(aux_pga_gain, 0, 2, 0);
 
 enum tabla_bandgap_type {
 	TABLA_BANDGAP_OFF = 0,
@@ -236,6 +237,11 @@ struct tabla_priv {
 	/*compander*/
 	int comp_enabled[COMPANDER_MAX];
 	u32 comp_fs[COMPANDER_MAX];
+
+	/* Maintain the status of AUX PGA */
+	int aux_pga_cnt;
+	u8 aux_l_gain;
+	u8 aux_r_gain;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -863,6 +869,11 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE_TLV("ADC5 Volume", TABLA_A_TX_5_6_EN, 5, 3, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC6 Volume", TABLA_A_TX_5_6_EN, 1, 3, 0, analog_gain),
 
+	SOC_SINGLE_TLV("AUX_PGA_LEFT Volume", TABLA_A_AUX_L_GAIN, 0, 39, 0,
+		aux_pga_gain),
+	SOC_SINGLE_TLV("AUX_PGA_RIGHT Volume", TABLA_A_AUX_R_GAIN, 0, 39, 0,
+		aux_pga_gain),
+
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch", TABLA_A_MICB_1_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS2 CAPLESS Switch", TABLA_A_MICB_2_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS3 CAPLESS Switch", TABLA_A_MICB_3_CTL, 4, 1, 1),
@@ -1278,6 +1289,94 @@ static const struct snd_kcontrol_new hphl_switch[] = {
 	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_HPH_L_DAC_CTL, 6, 1, 0)
 };
 
+static const struct snd_kcontrol_new hphl_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					7, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					7, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 7, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 7, 1, 0),
+};
+
+static const struct snd_kcontrol_new hphr_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					6, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					6, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 6, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 6, 1, 0),
+};
+
+static const struct snd_kcontrol_new lineout1_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					5, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					5, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 5, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 5, 1, 0),
+};
+
+static const struct snd_kcontrol_new lineout2_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					4, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					4, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 4, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 4, 1, 0),
+};
+
+static const struct snd_kcontrol_new lineout3_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					3, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					3, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 3, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 3, 1, 0),
+};
+
+static const struct snd_kcontrol_new lineout4_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					2, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					2, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 2, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 2, 1, 0),
+};
+
+static const struct snd_kcontrol_new lineout5_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					1, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					1, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 1, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 1, 1, 0),
+};
+
+static const struct snd_kcontrol_new ear_pa_mix[] = {
+	SOC_DAPM_SINGLE("AUX_PGA_L Switch", TABLA_A_AUX_L_PA_CONN,
+					0, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R Switch", TABLA_A_AUX_R_PA_CONN,
+					0, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_L_INV Switch",
+					TABLA_A_AUX_L_PA_CONN_INV, 0, 1, 0),
+	SOC_DAPM_SINGLE("AUX_PGA_R_INV Switch",
+					TABLA_A_AUX_R_PA_CONN_INV, 0, 1, 0),
+};
+
 static const struct snd_kcontrol_new lineout3_ground_switch =
 	SOC_DAPM_SINGLE("Switch", TABLA_A_RX_LINE_3_DAC_CTL, 6, 1, 0);
 
@@ -1352,6 +1451,260 @@ static int tabla_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tabla_codec_enable_adc_block(codec, 0);
+		break;
+	}
+	return 0;
+}
+
+static void tabla_codec_enable_audio_mode_bandgap(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, TABLA_A_BIAS_REF_CTL, 0x1C);
+	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
+		0x80);
+	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x04,
+		0x04);
+	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x01,
+		0x01);
+	usleep_range(1000, 1000);
+	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
+		0x00);
+}
+
+static void tabla_codec_enable_bandgap(struct snd_soc_codec *codec,
+	enum tabla_bandgap_type choice)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	/* TODO lock resources accessed by audio streams and threaded
+	 * interrupt handlers
+	 */
+
+	pr_debug("%s, choice is %d, current is %d\n", __func__, choice,
+		tabla->bandgap_type);
+
+	if (tabla->bandgap_type == choice)
+		return;
+
+	if ((tabla->bandgap_type == TABLA_BANDGAP_OFF) &&
+		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
+		tabla_codec_enable_audio_mode_bandgap(codec);
+	} else if (choice == TABLA_BANDGAP_MBHC_MODE) {
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x2,
+			0x2);
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
+			0x80);
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x4,
+			0x4);
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x01,
+			0x01);
+		usleep_range(1000, 1000);
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
+			0x00);
+	} else if ((tabla->bandgap_type == TABLA_BANDGAP_MBHC_MODE) &&
+		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
+		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
+		usleep_range(100, 100);
+		tabla_codec_enable_audio_mode_bandgap(codec);
+	} else if (choice == TABLA_BANDGAP_OFF) {
+		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
+	} else {
+		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
+	}
+	tabla->bandgap_type = choice;
+}
+
+static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	pr_debug("%s\n", __func__);
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x04, 0x00);
+	ndelay(160);
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x02, 0x02);
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x05, 0x00);
+	tabla->clock_active = false;
+}
+
+static int tabla_codec_mclk_index(const struct tabla_priv *tabla)
+{
+	if (tabla->mclk_freq == TABLA_MCLK_RATE_12288KHZ)
+		return 0;
+	else if (tabla->mclk_freq == TABLA_MCLK_RATE_9600KHZ)
+		return 1;
+	else {
+		BUG_ON(1);
+		return -EINVAL;
+	}
+}
+
+static void tabla_enable_rx_bias(struct snd_soc_codec *codec, u32  enable)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	if (enable) {
+		tabla->rx_bias_count++;
+		if (tabla->rx_bias_count == 1)
+			snd_soc_update_bits(codec, TABLA_A_RX_COM_BIAS,
+				0x80, 0x80);
+	} else {
+		tabla->rx_bias_count--;
+		if (!tabla->rx_bias_count)
+			snd_soc_update_bits(codec, TABLA_A_RX_COM_BIAS,
+				0x80, 0x00);
+	}
+}
+
+static int tabla_codec_enable_config_mode(struct snd_soc_codec *codec,
+	int enable)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: enable = %d\n", __func__, enable);
+	if (enable) {
+		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x10, 0);
+		snd_soc_write(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x17);
+		usleep_range(5, 5);
+		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x80,
+			0x80);
+		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_TEST, 0x80,
+			0x80);
+		usleep_range(10, 10);
+		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_TEST, 0x80, 0);
+		usleep_range(20, 20);
+		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x08);
+	} else {
+		snd_soc_update_bits(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x1,
+			0);
+		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x80, 0);
+		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x00);
+	}
+	tabla->config_mode_active = enable ? true : false;
+
+	return 0;
+}
+
+static int tabla_codec_enable_clock_block(struct snd_soc_codec *codec,
+	int config_mode)
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: config_mode = %d\n", __func__, config_mode);
+
+	if (config_mode) {
+		tabla_codec_enable_config_mode(codec, 1);
+		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x00);
+		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x02);
+		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN1, 0x0D);
+		usleep_range(1000, 1000);
+	} else
+		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x00);
+
+	if (!config_mode && tabla->mbhc_polling_active) {
+		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x02);
+		tabla_codec_enable_config_mode(codec, 0);
+
+	}
+
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x05, 0x05);
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x02, 0x00);
+	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x04, 0x04);
+	snd_soc_update_bits(codec, TABLA_A_CDC_CLK_MCLK_CTL, 0x01, 0x01);
+	usleep_range(50, 50);
+	tabla->clock_active = true;
+	return 0;
+}
+
+static int tabla_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tabla_codec_enable_bandgap(codec,
+					TABLA_BANDGAP_AUDIO_MODE);
+		tabla_enable_rx_bias(codec, 1);
+
+		snd_soc_update_bits(codec, TABLA_A_AUX_COM_CTL,
+						0x08, 0x08);
+		/* Enable Zero Cross detect for AUX PGA channel
+		 * and set the initial AUX PGA gain to NEG_0P0_DB
+		 * to avoid glitches.
+		 */
+		if (w->reg == TABLA_A_AUX_L_EN) {
+			snd_soc_update_bits(codec, TABLA_A_AUX_L_EN,
+						0x20, 0x20);
+			tabla->aux_l_gain = snd_soc_read(codec,
+							TABLA_A_AUX_L_GAIN);
+			snd_soc_write(codec, TABLA_A_AUX_L_GAIN, 0x1F);
+		} else {
+			snd_soc_update_bits(codec, TABLA_A_AUX_R_EN,
+						0x20, 0x20);
+			tabla->aux_r_gain = snd_soc_read(codec,
+							TABLA_A_AUX_R_GAIN);
+			snd_soc_write(codec, TABLA_A_AUX_R_GAIN, 0x1F);
+		}
+		if (tabla->aux_pga_cnt++ == 1
+			&& !tabla->mclk_enabled) {
+			tabla_codec_enable_clock_block(codec, 1);
+			pr_debug("AUX PGA enabled RC osc\n");
+		}
+		break;
+
+	case SND_SOC_DAPM_POST_PMU:
+		if (w->reg == TABLA_A_AUX_L_EN)
+			snd_soc_write(codec, TABLA_A_AUX_L_GAIN,
+				tabla->aux_l_gain);
+		else
+			snd_soc_write(codec, TABLA_A_AUX_R_GAIN,
+				tabla->aux_r_gain);
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Mute AUX PGA channel in use before disabling AUX PGA */
+		if (w->reg == TABLA_A_AUX_L_EN) {
+			tabla->aux_l_gain = snd_soc_read(codec,
+							TABLA_A_AUX_L_GAIN);
+			snd_soc_write(codec, TABLA_A_AUX_L_GAIN, 0x1F);
+		} else {
+			tabla->aux_r_gain = snd_soc_read(codec,
+							TABLA_A_AUX_R_GAIN);
+			snd_soc_write(codec, TABLA_A_AUX_R_GAIN, 0x1F);
+		}
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		tabla_enable_rx_bias(codec, 0);
+
+		snd_soc_update_bits(codec, TABLA_A_AUX_COM_CTL,
+						0x08, 0x00);
+		if (w->reg == TABLA_A_AUX_L_EN) {
+			snd_soc_write(codec, TABLA_A_AUX_L_GAIN,
+					tabla->aux_l_gain);
+			snd_soc_update_bits(codec, TABLA_A_AUX_L_EN,
+							0x20, 0x00);
+		} else {
+			snd_soc_write(codec, TABLA_A_AUX_R_GAIN,
+					tabla->aux_r_gain);
+			snd_soc_update_bits(codec, TABLA_A_AUX_R_EN,
+						0x20, 0x00);
+		}
+
+		if (tabla->aux_pga_cnt-- == 0) {
+			if (tabla->mbhc_polling_active)
+				tabla_codec_enable_bandgap(codec,
+					TABLA_BANDGAP_MBHC_MODE);
+			else
+				tabla_codec_enable_bandgap(codec,
+					TABLA_BANDGAP_OFF);
+
+			if (!tabla->mclk_enabled &&
+				!tabla->mbhc_polling_active) {
+				tabla_codec_enable_clock_block(codec, 0);
+			}
+		}
 		break;
 	}
 	return 0;
@@ -1945,24 +2298,6 @@ static int tabla_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-
-static void tabla_enable_rx_bias(struct snd_soc_codec *codec, u32  enable)
-{
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
-	if (enable) {
-		tabla->rx_bias_count++;
-		if (tabla->rx_bias_count == 1)
-			snd_soc_update_bits(codec, TABLA_A_RX_COM_BIAS,
-				0x80, 0x80);
-	} else {
-		tabla->rx_bias_count--;
-		if (!tabla->rx_bias_count)
-			snd_soc_update_bits(codec, TABLA_A_RX_COM_BIAS,
-				0x80, 0x00);
-	}
-}
-
 static int tabla_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -2270,7 +2605,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
-	{"EAR PA", NULL, "DAC1"},
+	{"EAR PA", NULL, "EAR_PA_MIXER"},
+	{"EAR_PA_MIXER", NULL, "DAC1"},
 	{"DAC1", NULL, "CP"},
 
 	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX1"},
@@ -2281,8 +2617,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HEADPHONE", NULL, "HPHL"},
 	{"HEADPHONE", NULL, "HPHR"},
 
-	{"HPHL", NULL, "HPHL DAC"},
-	{"HPHR", NULL, "HPHR DAC"},
+	{"HPHL", NULL, "HPHL_PA_MIXER"},
+	{"HPHL_PA_MIXER", NULL, "HPHL DAC"},
+
+	{"HPHR", NULL, "HPHR_PA_MIXER"},
+	{"HPHR_PA_MIXER", NULL, "HPHR DAC"},
 
 	{"HPHL DAC", NULL, "CP"},
 	{"HPHR DAC", NULL, "CP"},
@@ -2310,11 +2649,16 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT4", NULL, "LINEOUT4 PA"},
 	{"LINEOUT5", NULL, "LINEOUT5 PA"},
 
-	{"LINEOUT1 PA", NULL, "LINEOUT1 DAC"},
-	{"LINEOUT2 PA", NULL, "LINEOUT2 DAC"},
-	{"LINEOUT3 PA", NULL, "LINEOUT3 DAC"},
-	{"LINEOUT4 PA", NULL, "LINEOUT4 DAC"},
-	{"LINEOUT5 PA", NULL, "LINEOUT5 DAC"},
+	{"LINEOUT1 PA", NULL, "LINEOUT1_PA_MIXER"},
+	{"LINEOUT1_PA_MIXER", NULL, "LINEOUT1 DAC"},
+	{"LINEOUT2 PA", NULL, "LINEOUT2_PA_MIXER"},
+	{"LINEOUT2_PA_MIXER", NULL, "LINEOUT2 DAC"},
+	{"LINEOUT3 PA", NULL, "LINEOUT3_PA_MIXER"},
+	{"LINEOUT3_PA_MIXER", NULL, "LINEOUT3 DAC"},
+	{"LINEOUT4 PA", NULL, "LINEOUT4_PA_MIXER"},
+	{"LINEOUT4_PA_MIXER", NULL, "LINEOUT4 DAC"},
+	{"LINEOUT5 PA", NULL, "LINEOUT5_PA_MIXER"},
+	{"LINEOUT5_PA_MIXER", NULL, "LINEOUT5 DAC"},
 
 	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
 	{"LINEOUT5 DAC", NULL, "RX7 MIX1"},
@@ -2488,6 +2832,42 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ADC5", NULL, "AMIC5"},
 	{"ADC6", NULL, "AMIC6"},
 
+	/* AUX PGA Connections */
+	{"HPHL_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"HPHL_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"HPHL_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"HPHL_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"HPHR_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"HPHR_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"HPHR_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"HPHR_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"LINEOUT1_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"LINEOUT1_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"LINEOUT1_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"LINEOUT1_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"LINEOUT2_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"LINEOUT2_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"LINEOUT2_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"LINEOUT2_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"LINEOUT3_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"LINEOUT3_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"LINEOUT3_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"LINEOUT3_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"LINEOUT4_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"LINEOUT4_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"LINEOUT4_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"LINEOUT4_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"LINEOUT5_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"LINEOUT5_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"LINEOUT5_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"LINEOUT5_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"EAR_PA_MIXER", "AUX_PGA_L Switch", "AUX_PGA_Left"},
+	{"EAR_PA_MIXER", "AUX_PGA_R Switch", "AUX_PGA_Right"},
+	{"EAR_PA_MIXER", "AUX_PGA_L_INV Switch", "AUX_PGA_Left"},
+	{"EAR_PA_MIXER", "AUX_PGA_R_INV Switch", "AUX_PGA_Right"},
+	{"AUX_PGA_Left", NULL, "AMIC5"},
+	{"AUX_PGA_Right", NULL, "AMIC6"},
+
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC1", "DEC1 MUX"},
 	{"IIR1 INP1 MUX", "DEC2", "DEC2 MUX"},
@@ -2590,7 +2970,6 @@ static int tabla_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
 	int ret;
-
 	BUG_ON(reg > TABLA_MAX_REGISTER);
 
 	if (!tabla_volatile(codec, reg)) {
@@ -2624,150 +3003,11 @@ static unsigned int tabla_read(struct snd_soc_codec *codec,
 	return val;
 }
 
-static void tabla_codec_enable_audio_mode_bandgap(struct snd_soc_codec *codec)
-{
-	snd_soc_write(codec, TABLA_A_BIAS_REF_CTL, 0x1C);
-	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
-		0x80);
-	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x04,
-		0x04);
-	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x01,
-		0x01);
-	usleep_range(1000, 1000);
-	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
-		0x00);
-}
-
-static void tabla_codec_enable_bandgap(struct snd_soc_codec *codec,
-	enum tabla_bandgap_type choice)
-{
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
-	/* TODO lock resources accessed by audio streams and threaded
-	 * interrupt handlers
-	 */
-
-	pr_debug("%s, choice is %d, current is %d\n", __func__, choice,
-		tabla->bandgap_type);
-
-	if (tabla->bandgap_type == choice)
-		return;
-
-	if ((tabla->bandgap_type == TABLA_BANDGAP_OFF) &&
-		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
-		tabla_codec_enable_audio_mode_bandgap(codec);
-	} else if (choice == TABLA_BANDGAP_MBHC_MODE) {
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x2,
-			0x2);
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
-			0x80);
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x4,
-			0x4);
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x01,
-			0x01);
-		usleep_range(1000, 1000);
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x80,
-			0x00);
-	} else if ((tabla->bandgap_type == TABLA_BANDGAP_MBHC_MODE) &&
-		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
-		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
-		usleep_range(100, 100);
-		tabla_codec_enable_audio_mode_bandgap(codec);
-	} else if (choice == TABLA_BANDGAP_OFF) {
-		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
-	} else {
-		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
-	}
-	tabla->bandgap_type = choice;
-}
-
-static int tabla_codec_enable_config_mode(struct snd_soc_codec *codec,
-	int enable)
-{
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
-	if (enable) {
-		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x10, 0);
-		snd_soc_write(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x17);
-		usleep_range(5, 5);
-		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x80,
-			0x80);
-		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_TEST, 0x80,
-			0x80);
-		usleep_range(10, 10);
-		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_TEST, 0x80, 0);
-		usleep_range(20, 20);
-		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x08);
-	} else {
-		snd_soc_update_bits(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x1,
-			0);
-		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x80, 0);
-		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x00);
-	}
-	tabla->config_mode_active = enable ? true : false;
-
-	return 0;
-}
-
-static int tabla_codec_enable_clock_block(struct snd_soc_codec *codec,
-	int config_mode)
-{
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
-	pr_debug("%s: config_mode = %d\n", __func__, config_mode);
-
-	if (config_mode) {
-		tabla_codec_enable_config_mode(codec, 1);
-		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x00);
-		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x02);
-		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN1, 0x0D);
-		usleep_range(1000, 1000);
-	} else
-		snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x08, 0x00);
-
-	if (!config_mode && tabla->mbhc_polling_active) {
-		snd_soc_write(codec, TABLA_A_CLK_BUFF_EN2, 0x02);
-		tabla_codec_enable_config_mode(codec, 0);
-
-	}
-
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x05, 0x05);
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x02, 0x00);
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x04, 0x04);
-	snd_soc_update_bits(codec, TABLA_A_CDC_CLK_MCLK_CTL, 0x01, 0x01);
-	usleep_range(50, 50);
-	tabla->clock_active = true;
-	return 0;
-}
-static void tabla_codec_disable_clock_block(struct snd_soc_codec *codec)
-{
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	pr_debug("%s\n", __func__);
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x04, 0x00);
-	ndelay(160);
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN2, 0x02, 0x02);
-	snd_soc_update_bits(codec, TABLA_A_CLK_BUFF_EN1, 0x05, 0x00);
-	tabla->clock_active = false;
-}
-
-static int tabla_codec_mclk_index(const struct tabla_priv *tabla)
-{
-	if (tabla->mclk_freq == TABLA_MCLK_RATE_12288KHZ)
-		return 0;
-	else if (tabla->mclk_freq == TABLA_MCLK_RATE_9600KHZ)
-		return 1;
-	else {
-		BUG_ON(1);
-		return -EINVAL;
-	}
-}
-
 static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 {
 	u8 *n_ready, *n_cic;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL,
@@ -3662,6 +3902,42 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
 	SND_SOC_DAPM_PGA("IIR1", TABLA_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+
+	/* AUX PGA */
+	SND_SOC_DAPM_ADC_E("AUX_PGA_Left", NULL, TABLA_A_AUX_L_EN, 7, 0,
+		tabla_codec_enable_aux_pga, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("AUX_PGA_Right", NULL, TABLA_A_AUX_R_EN, 7, 0,
+		tabla_codec_enable_aux_pga, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMD),
+
+	/* Lineout, ear and HPH PA Mixers */
+	SND_SOC_DAPM_MIXER("HPHL_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		hphl_pa_mix, ARRAY_SIZE(hphl_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("HPHR_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		hphr_pa_mix, ARRAY_SIZE(hphr_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("LINEOUT1_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		lineout1_pa_mix, ARRAY_SIZE(lineout1_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("LINEOUT2_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		lineout2_pa_mix, ARRAY_SIZE(lineout2_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("LINEOUT3_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		lineout3_pa_mix, ARRAY_SIZE(lineout3_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("LINEOUT4_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		lineout4_pa_mix, ARRAY_SIZE(lineout4_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("LINEOUT5_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		lineout5_pa_mix, ARRAY_SIZE(lineout5_pa_mix)),
+
+	SND_SOC_DAPM_MIXER("EAR_PA_MIXER", SND_SOC_NOPM, 0, 0,
+		ear_pa_mix, ARRAY_SIZE(ear_pa_mix)),
 };
 
 static short tabla_codec_read_sta_result(struct snd_soc_codec *codec)
@@ -5272,7 +5548,9 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	}
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
 	tabla->intf_type = wcd9xxx_get_intf_type();
-
+	tabla->aux_pga_cnt = 0;
+	tabla->aux_l_gain = 0x1F;
+	tabla->aux_r_gain = 0x1F;
 	tabla_update_reg_address(tabla);
 	tabla_update_reg_defaults(codec);
 	tabla_codec_init_reg(codec);
