@@ -364,6 +364,26 @@ void vidc_release_firmware(void)
 }
 EXPORT_SYMBOL(vidc_release_firmware);
 
+u32 vidc_get_fd_info(struct video_client_ctx *client_ctx,
+		enum buffer_dir buffer, int pmem_fd,
+		unsigned long kvaddr, int index)
+{
+	struct buf_addr_table *buf_addr_table;
+	u32 rc = 0;
+	if (!client_ctx)
+		return false;
+	if (buffer == BUFFER_TYPE_INPUT)
+		buf_addr_table = client_ctx->input_buf_addr_table;
+	else
+		buf_addr_table = client_ctx->output_buf_addr_table;
+	if (buf_addr_table[index].pmem_fd == pmem_fd) {
+		if (buf_addr_table[index].kernel_vaddr == kvaddr)
+			rc = buf_addr_table[index].buff_ion_flag;
+	}
+	return rc;
+}
+EXPORT_SYMBOL(vidc_get_fd_info);
+
 u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer,
 	u32 search_with_user_vaddr,
@@ -459,7 +479,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	struct msm_mapped_buffer *mapped_buffer = NULL;
 	size_t ion_len;
 	struct ion_handle *buff_ion_handle = NULL;
-	unsigned long ionflag;
+	unsigned long ionflag = 0;
 
 	if (!client_ctx || !length)
 		return false;
@@ -556,10 +576,13 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle =
 						buff_ion_handle;
+		buf_addr_table[*num_of_buffers].buff_ion_flag =
+						ionflag;
 		*num_of_buffers = *num_of_buffers + 1;
 		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
-			"kernel_vaddr = 0x%08lx inserted!", __func__,
-			client_ctx, user_vaddr, *kernel_vaddr);
+			"kernel_vaddr = 0x%08lx phys_addr=%lu inserted!",
+			__func__, client_ctx, user_vaddr, *kernel_vaddr,
+			phys_addr);
 	}
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;

@@ -28,6 +28,7 @@ struct buf_addr_table {
 	unsigned long user_vaddr;
 	unsigned long kernel_vaddr;
 	unsigned long phy_addr;
+	unsigned long buff_ion_flag;
 	struct ion_handle *buff_ion_handle;
 	int pmem_fd;
 	struct file *file;
@@ -63,6 +64,9 @@ struct video_client_ctx {
 void __iomem *vidc_get_ioaddr(void);
 int vidc_load_firmware(void);
 void vidc_release_firmware(void);
+u32 vidc_get_fd_info(struct video_client_ctx *client_ctx,
+		enum buffer_dir buffer, int pmem_fd,
+		unsigned long kvaddr, int index);
 u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer, u32 search_with_user_vaddr,
 	unsigned long *user_vaddr, unsigned long *kernel_vaddr,

@@ -10,9 +10,11 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/ion.h>
 #include <mach/msm_memtypes.h>
 #include "vcd_ddl.h"
 #include "vcd_ddl_shared_mem.h"
+
 
 struct ddl_context *ddl_get_context(void)
 {
@@ -253,6 +255,15 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 				memset(frame[i].vcd_frm.virtual + luma_size,
 					 0x80808080,
 					frame[i].vcd_frm.alloc_len - luma_size);
+				if (frame[i].vcd_frm.ion_flag == CACHED) {
+					clean_and_invalidate_caches(
+					(unsigned long)frame[i].
+					vcd_frm.virtual,
+					(unsigned long)frame[i].
+					vcd_frm.alloc_len,
+					(unsigned long)frame[i].
+					vcd_frm.physical);
+				}
 			} else {
 				DDL_MSG_ERROR("luma size error");
 				return VCD_ERR_FAIL;
