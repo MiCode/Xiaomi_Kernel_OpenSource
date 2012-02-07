@@ -29,6 +29,7 @@
 #include <sound/tlv.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 #include "wcd9310.h"
 
 #define WCD9310_RATES (SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|\
@@ -2547,8 +2548,13 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 static int tabla_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	struct wcd9xxx *tabla_core = dev_get_drvdata(dai->codec->dev->parent);
 	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
 		 substream->name, substream->stream);
+	if ((tabla_core != NULL) &&
+	    (tabla_core->dev != NULL) &&
+	    (tabla_core->dev->parent != NULL))
+		pm_runtime_get_sync(tabla_core->dev->parent);
 
 	return 0;
 }
@@ -2556,8 +2562,15 @@ static int tabla_startup(struct snd_pcm_substream *substream,
 static void tabla_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	struct wcd9xxx *tabla_core = dev_get_drvdata(dai->codec->dev->parent);
 	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
 		 substream->name, substream->stream);
+	if ((tabla_core != NULL) &&
+	    (tabla_core->dev != NULL) &&
+	    (tabla_core->dev->parent != NULL)) {
+		pm_runtime_mark_last_busy(tabla_core->dev->parent);
+		pm_runtime_put(tabla_core->dev->parent);
+	}
 }
 
 int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
