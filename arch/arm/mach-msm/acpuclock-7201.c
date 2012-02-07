@@ -369,34 +369,39 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 };
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[20];
+static struct cpufreq_frequency_table freq_table[NR_CPUS][20];
 
 static void __init cpufreq_table_init(void)
 {
-	unsigned int i;
-	unsigned int freq_cnt = 0;
+	int cpu;
+	for_each_possible_cpu(cpu) {
+		unsigned int i, freq_cnt = 0;
 
-	/* Construct the freq_table table from acpu_freq_tbl since the
-	 * freq_table values need to match frequencies specified in
-	 * acpu_freq_tbl and acpu_freq_tbl needs to be fixed up during init.
-	 */
-	for (i = 0; acpu_freq_tbl[i].a11clk_khz != 0
-			&& freq_cnt < ARRAY_SIZE(freq_table)-1; i++) {
-		if (acpu_freq_tbl[i].use_for_scaling) {
-			freq_table[freq_cnt].index = freq_cnt;
-			freq_table[freq_cnt].frequency
-				= acpu_freq_tbl[i].a11clk_khz;
-			freq_cnt++;
+		/* Construct the freq_table table from acpu_freq_tbl since
+		 * the freq_table values need to match frequencies specified
+		 * in acpu_freq_tbl and acpu_freq_tbl needs to be fixed up
+		 * during init.
+		 */
+		for (i = 0; acpu_freq_tbl[i].a11clk_khz != 0
+				&& freq_cnt < ARRAY_SIZE(*freq_table)-1; i++) {
+			if (acpu_freq_tbl[i].use_for_scaling) {
+				freq_table[cpu][freq_cnt].index = freq_cnt;
+				freq_table[cpu][freq_cnt].frequency
+					= acpu_freq_tbl[i].a11clk_khz;
+				freq_cnt++;
+			}
 		}
+
+		/* freq_table not big enough to store all usable freqs. */
+		BUG_ON(acpu_freq_tbl[i].a11clk_khz != 0);
+
+		freq_table[cpu][freq_cnt].index = freq_cnt;
+		freq_table[cpu][freq_cnt].frequency = CPUFREQ_TABLE_END;
+		/* Register table with CPUFreq. */
+		cpufreq_frequency_table_get_attr(freq_table[cpu], cpu);
+		pr_info("CPU%d: %d scaling frequencies supported.\n",
+			cpu, freq_cnt);
 	}
-
-	/* freq_table not big enough to store all usable freqs. */
-	BUG_ON(acpu_freq_tbl[i].a11clk_khz != 0);
-
-	freq_table[freq_cnt].index = freq_cnt;
-	freq_table[freq_cnt].frequency = CPUFREQ_TABLE_END;
-
-	pr_info("%d scaling frequencies supported.\n", freq_cnt);
 }
 #endif
 
@@ -995,7 +1000,6 @@ static int __init acpuclk_7627_init(struct acpuclk_soc_data *soc_data)
 
 #ifdef CONFIG_CPU_FREQ_MSM
 	cpufreq_table_init();
-	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
 #endif
 	return 0;
 }
