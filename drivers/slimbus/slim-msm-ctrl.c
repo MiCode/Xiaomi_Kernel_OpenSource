@@ -1886,7 +1886,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	}
 
 
-	dev->rclk = clk_get(dev->dev, "audio_slimbus_clk");
+	dev->rclk = clk_get(dev->dev, "core_clk");
 	if (!dev->rclk) {
 		dev_err(dev->dev, "slimbus clock not found");
 		goto err_clk_get_failed;
