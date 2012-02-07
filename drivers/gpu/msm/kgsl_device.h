@@ -155,7 +155,6 @@ struct kgsl_device {
 	uint32_t state;
 	uint32_t requested_state;
 
-	struct list_head memqueue;
 	unsigned int active_cnt;
 	struct completion suspend_gate;
 
