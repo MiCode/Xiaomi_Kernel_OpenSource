@@ -1398,7 +1398,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_bus_8064_mm_fabric,
 	&msm_bus_8064_sys_fpb,
 	&msm_bus_8064_cpss_fpb,
-	&msm_device_vidc,
+	&apq8064_msm_device_vidc,
 	&msm_8960_riva,
 	&msm_8960_q6_lpass,
 	&msm_gss,
