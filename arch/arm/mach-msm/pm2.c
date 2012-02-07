@@ -1668,6 +1668,13 @@ static struct platform_suspend_ops msm_pm_ops = {
 	.valid = suspend_valid_only_mem,
 };
 
+/* Hotplug the "non boot" CPU's and put
+ * the cores into low power mode
+ */
+void msm_pm_cpu_enter_lowpower(unsigned int cpu)
+{
+	return;
+}
 
 /******************************************************************************
  * Restart Definitions
