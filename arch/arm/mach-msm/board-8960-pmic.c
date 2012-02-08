@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_OUTPUT_VIN(21, 1, PM_GPIO_VIN_VPH),	 /* Backlight Enable */
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
+	PM8XXX_GPIO_OUTPUT_FUNC(25, 0, PM_GPIO_FUNC_2),	 /* TN_CLK */
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
 	PM8XXX_GPIO_OUTPUT(43,	    PM_GPIO_PULL_UP_30), /* DISP_RESET_N */
 	PM8XXX_GPIO_OUTPUT(42, 0),                      /* USB 5V reg enable */
