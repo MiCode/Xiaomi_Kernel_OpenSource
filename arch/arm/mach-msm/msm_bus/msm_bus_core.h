@@ -46,13 +46,22 @@ enum msm_bus_dbg_op_type {
 	MSM_BUS_DBG_OP = 1,
 };
 
+enum msm_bus_hw_sel {
+	MSM_BUS_RPM = 0,
+	MSM_BUS_NOC,
+	MSM_BUS_BIMC,
+};
+
 extern struct bus_type msm_bus_type;
 
 struct msm_bus_node_info {
 	unsigned int id;
 	unsigned int priv_id;
+	unsigned int mas_hw_id;
+	unsigned int slv_hw_id;
 	int gateway;
 	int *masterp;
+	int *qport;
 	int num_mports;
 	int *slavep;
 	int num_sports;
@@ -65,6 +74,12 @@ struct msm_bus_node_info {
 	unsigned int buswidth;
 	unsigned int ws;
 	unsigned int mode;
+	unsigned int perm_mode;
+	unsigned int prio_lvl;
+	unsigned int prio_rd;
+	unsigned int prio_wr;
+	unsigned int prio1;
+	unsigned int prio0;
 };
 
 struct path_node {
@@ -103,6 +118,12 @@ struct msm_bus_inode_info {
 	struct nodeclk nodeclk[NUM_CTX];
 	struct nodeclk memclk;
 	void *hw_data;
+};
+
+struct msm_bus_node_hw_info {
+	bool dirty;
+	unsigned int hw_id;
+	unsigned long bw;
 };
 
 struct msm_bus_hw_algorithm {
