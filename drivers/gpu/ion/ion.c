@@ -882,7 +882,7 @@ out:
 	return ret;
 }
 
-static int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd)
 {

@@ -271,4 +271,23 @@ struct ion_heap *msm_get_contiguous_heap(void);
 void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
 				void *virt_base, unsigned long flags);
 
+/**
+ * ion_do_cache_op - do cache operations.
+ *
+ * @client - pointer to ION client.
+ * @handle - pointer to buffer handle.
+ * @uaddr -  virtual address to operate on.
+ * @offset - offset from physical address.
+ * @len - Length of data to do cache operation on.
+ * @cmd - Cache operation to perform:
+ *		ION_IOC_CLEAN_CACHES
+ *		ION_IOC_INV_CACHES
+ *		ION_IOC_CLEAN_INV_CACHES
+ *
+ * Returns 0 on success
+ */
+int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+			void *uaddr, unsigned long offset, unsigned long len,
+			unsigned int cmd);
+
 #endif /* _ION_PRIV_H */
