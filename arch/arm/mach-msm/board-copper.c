@@ -233,12 +233,6 @@ static struct of_device_id irq_match[] __initdata  = {
 
 void __init msm_copper_init_irq(void)
 {
-	/* Edge trigger PPIs except AVS_SVICINT and AVS_SVICINTSWDONE */
-	writel_relaxed(0xFFFFD7FF, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
-
-	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
-	mb();
-
 	of_irq_init(irq_match);
 }
 

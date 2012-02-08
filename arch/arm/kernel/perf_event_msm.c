@@ -676,7 +676,7 @@ static void enable_irq_callback(void *info)
 {
 	int irq = *(unsigned int *)info;
 
-	enable_percpu_irq(irq, 0);
+	enable_percpu_irq(irq, IRQ_TYPE_EDGE_RISING);
 }
 
 static void disable_irq_callback(void *info)

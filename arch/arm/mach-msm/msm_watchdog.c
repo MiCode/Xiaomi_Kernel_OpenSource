@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,7 +354,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	enable_percpu_irq(WDT0_ACCSCSSNBARK_INT, 0);
+	enable_percpu_irq(WDT0_ACCSCSSNBARK_INT, IRQ_TYPE_EDGE_RISING);
 
 	/*
 	 * This is only temporary till SBLs turn on the XPUs

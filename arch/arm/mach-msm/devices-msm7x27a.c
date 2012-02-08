@@ -1005,13 +1005,6 @@ void __init msm8625_init_irq(void)
 {
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 			(void *)MSM_QGIC_CPU_BASE);
-
-	/* Edge trigger PPIs
-	 */
-	writel_relaxed(0x555555F5, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
-
-	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
-	mb();
 }
 
 void __init msm8625_map_io(void)
