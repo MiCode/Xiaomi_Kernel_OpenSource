@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/i2c.h>
 #include <linux/i2c/smb349.h>
+#include <linux/i2c/sx150x.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
@@ -30,6 +31,7 @@
 #include <linux/cyttsp.h>
 #include <linux/i2c/isa1200.h>
 #include <linux/gpio_keys.h>
+#include <linux/epm_adc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -628,6 +630,60 @@ static struct i2c_board_info smb349_charger_i2c_info[] __initdata = {
 		I2C_BOARD_INFO(SMB349_NAME, 0x1B),
 		.platform_data	= &smb349_data,
 	},
+};
+
+struct sx150x_platform_data apq8064_sx150x_data[] = {
+	[SX150X_EPM] = {
+		.gpio_base	= GPIO_EPM_EXPANDER_BASE,
+		.oscio_is_gpo	= false,
+		.io_pullup_ena	= 0x0,
+		.io_pulldn_ena	= 0x0,
+		.io_open_drain_ena = 0x0,
+		.io_polarity	= 0,
+		.irq_summary	= -1,
+	},
+};
+
+static struct epm_chan_properties ads_adc_channel_data[] = {
+	{10, 100}, {500, 50}, {1, 1}, {1, 1},
+	{20, 50}, {10, 100}, {1, 1}, {1, 1},
+	{10, 100}, {10, 100}, {100, 100}, {200, 100},
+	{100, 50}, {2000, 50}, {1000, 50}, {200, 50},
+	{200, 100}, {1, 1}, {20, 50}, {500, 50},
+	{50, 50}, {200, 100}, {500, 100}, {20, 50},
+	{200, 50}, {2000, 100}, {1000, 50}, {100, 50},
+	{200, 100}, {500, 50}, {1000, 100}, {200, 50},
+	{1000, 50}, {50, 50}, {100, 50}, {100, 50},
+	{1, 1}, {1, 1}, {20, 100}, {20, 50},
+	{500, 100}, {1000, 100}, {100, 50}, {1000, 50},
+	{100, 50}, {1000, 100}, {100, 50}, {100, 50},
+};
+
+static struct epm_adc_platform_data epm_adc_pdata = {
+	.channel		= ads_adc_channel_data,
+	.bus_id	= 0x0,
+	.epm_i2c_board_info = {
+		.type	= "sx1509q",
+		.addr = 0x3e,
+		.platform_data = &apq8064_sx150x_data[SX150X_EPM],
+	},
+	.gpio_expander_base_addr = GPIO_EPM_EXPANDER_BASE,
+};
+
+static struct platform_device epm_adc_device = {
+	.name   = "epm_adc",
+	.id = -1,
+	.dev = {
+		.platform_data = &epm_adc_pdata,
+	},
+};
+
+static void __init apq8064_epm_adc_init(void)
+{
+	epm_adc_pdata.num_channels = 32;
+	epm_adc_pdata.num_adc = 2;
+	epm_adc_pdata.chan_per_adc = 16;
+	epm_adc_pdata.chan_per_mux = 8;
 };
 
 #define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
@@ -1812,6 +1868,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_cpu_idle_device,
 	&apq8064_msm_gov_device,
 	&apq8064_device_cache_erp,
+	&epm_adc_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
@@ -1850,6 +1907,13 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.bus_num                = 0,
 		.chip_select            = 2,
 		.mode                   = SPI_MODE_0,
+	},
+	{
+		.modalias		= "epm_adc",
+		.max_speed_hz		= 1100000,
+		.bus_num		= 0,
+		.chip_select		= 3,
+		.mode			= SPI_MODE_0,
 	},
 };
 
@@ -1896,6 +1960,8 @@ static void __init apq8064_i2c_init(void)
 	apq8064_i2c_qup_gsbi1_pdata.use_gsbi_shared_mode = 1;
 	apq8064_device_qup_i2c_gsbi3.dev.platform_data =
 					&apq8064_i2c_qup_gsbi3_pdata;
+	apq8064_device_qup_i2c_gsbi1.dev.platform_data =
+					&apq8064_i2c_qup_gsbi1_pdata;
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
 					&apq8064_i2c_qup_gsbi4_pdata;
 }
@@ -2180,6 +2246,7 @@ static void __init apq8064_common_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	apq8064_epm_adc_init();
 }
 
 static void __init apq8064_allocate_memory_regions(void)
