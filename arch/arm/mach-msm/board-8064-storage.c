@@ -230,6 +230,10 @@ static struct mmc_platform_data sdc3_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
+	.status_gpio	= 26,
+	.status_irq	= MSM_GPIO_TO_INT(26),
+	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.is_status_gpio_active_low = 1,
 };
 static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
 #else
