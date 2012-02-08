@@ -226,6 +226,9 @@ static int msm_fb_detect_panel(const char *name)
 	} else if (machine_is_msm7627a_qrd1()) {
 		if (!strncmp(name, "mipi_video_truly_wvga", 21))
 			ret = 0;
+	} else if (machine_is_msm7627a_evb()) {
+		if (!strncmp(name, "mipi_cmd_nt35510_wvga", 21))
+			ret = 0;
 	}
 
 #if !defined(CONFIG_FB_MSM_LCDC_AUTO_DETECT) && \
@@ -303,6 +306,18 @@ static struct platform_device mipi_dsi_truly_panel_device = {
 	}
 };
 
+static struct msm_panel_common_pdata mipi_NT35510_pdata = {
+	.pmic_backlight = NULL,/*mipi_NT35510_set_bl,*/
+};
+
+static struct platform_device mipi_dsi_NT35510_panel_device = {
+	.name = "mipi_NT35510",
+	.id   = 0,
+	.dev  = {
+		.platform_data = &mipi_NT35510_pdata,
+	}
+};
+
 static struct platform_device *msm_fb_devices[] __initdata = {
 	&msm_fb_device,
 	&lcdc_toshiba_panel_device,
@@ -317,7 +332,8 @@ static struct platform_device *qrd_fb_devices[] __initdata = {
 };
 
 static struct platform_device *evb_fb_devices[] __initdata = {
-
+	&msm_fb_device,
+	&mipi_dsi_NT35510_panel_device,
 };
 
 void __init msm_msm7627a_allocate_memory_regions(void)
@@ -487,12 +503,60 @@ static int msm_fb_dsi_client_qrd1_reset(void)
 	return rc;
 }
 
+#define GPIO_QRD3_LCD_BRDG_RESET_N	85
+#define GPIO_QRD3_LCD_BACKLIGHT_EN	96
+#define GPIO_QRD3_LCD_EXT_2V85_EN	35
+#define GPIO_QRD3_LCD_EXT_1V8_EN	40
+
+static unsigned qrd3_mipi_dsi_gpio[] = {
+	GPIO_CFG(GPIO_QRD3_LCD_BRDG_RESET_N, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), /* GPIO_QRD3_LCD_BRDG_RESET_N */
+	GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), /* GPIO_QRD3_LCD_BACKLIGHT_EN */
+	GPIO_CFG(GPIO_QRD3_LCD_EXT_2V85_EN, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), /* GPIO_QRD3_LCD_EXT_2V85_EN */
+	GPIO_CFG(GPIO_QRD3_LCD_EXT_1V8_EN, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), /* GPIO_QRD3_LCD_EXT_1V8_EN */
+};
+
+static int msm_fb_dsi_client_qrd3_reset(void)
+{
+	int rc = 0;
+
+	rc = gpio_request(GPIO_QRD3_LCD_BRDG_RESET_N, "qrd3_lcd_brdg_reset_n");
+	if (rc < 0) {
+		pr_err("failed to request qrd3 lcd brdg reset_n\n");
+		return rc;
+	}
+
+	rc = gpio_tlmm_config(qrd3_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
+	if (rc < 0) {
+		pr_err("Failed to enable LCD Bridge reset enable\n");
+		return rc;
+	}
+
+	rc = gpio_direction_output(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
+	if (rc < 0) {
+		pr_err("Failed GPIO bridge Reset\n");
+		gpio_free(GPIO_QRD3_LCD_BRDG_RESET_N);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int msm_fb_dsi_client_reset(void)
 {
 	int rc = 0;
 
 	if (machine_is_msm7627a_qrd1())
 		rc = msm_fb_dsi_client_qrd1_reset();
+	else if (machine_is_msm7627a_evb())
+		rc = msm_fb_dsi_client_qrd3_reset();
 	else
 		rc = msm_fb_dsi_client_msm_reset();
 
@@ -650,7 +714,7 @@ static int mipi_dsi_panel_qrd1_power(int on)
 
 	gpio_set_value_cansleep(QRD_GPIO_BACKLIGHT_EN, !!on);
 
-	if (!on) {
+	if (on) {
 		gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 1);
 		msleep(20);
 		gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 0);
@@ -662,12 +726,99 @@ static int mipi_dsi_panel_qrd1_power(int on)
 	return rc;
 }
 
+static int qrd3_dsi_gpio_initialized;
+
+static int mipi_dsi_panel_qrd3_power(int on)
+{
+	int rc = 0;
+
+	if (!qrd3_dsi_gpio_initialized) {
+		rc = gpio_request(GPIO_QRD3_LCD_BACKLIGHT_EN,
+			"qrd3_gpio_bkl_en");
+		if (rc < 0)
+			return rc;
+
+		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+		if (rc < 0) {
+			pr_err("failed QRD3 GPIO_BACKLIGHT_EN tlmm config\n");
+			return rc;
+		}
+		rc = gpio_direction_output(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
+		if (rc < 0) {
+			pr_err("failed to enable backlight\n");
+			gpio_free(GPIO_QRD3_LCD_BACKLIGHT_EN);
+			return rc;
+		}
+
+		rc = gpio_request(GPIO_QRD3_LCD_EXT_2V85_EN,
+			"qrd3_gpio_ext_2v85_en");
+		if (rc < 0)
+			return rc;
+
+		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_EXT_2V85_EN, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+		if (rc < 0) {
+			pr_err("failed QRD3 GPIO_QRD3_LCD_EXT_2V85_EN tlmm config\n");
+			return rc;
+		}
+
+		rc = gpio_direction_output(GPIO_QRD3_LCD_EXT_2V85_EN, 1);
+		if (rc < 0) {
+			pr_err("failed to enable external 2V85\n");
+			gpio_free(GPIO_QRD3_LCD_EXT_2V85_EN);
+			return rc;
+		}
+
+		rc = gpio_request(GPIO_QRD3_LCD_EXT_1V8_EN,
+			"qrd3_gpio_ext_1v8_en");
+		if (rc < 0)
+			return rc;
+
+		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_EXT_1V8_EN, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+		if (rc < 0) {
+			pr_err("failed QRD3 GPIO_QRD3_LCD_EXT_1V8_EN tlmm config\n");
+			return rc;
+		}
+
+		rc = gpio_direction_output(GPIO_QRD3_LCD_EXT_1V8_EN, 1);
+		if (rc < 0) {
+			pr_err("failed to enable external 1v8\n");
+			gpio_free(GPIO_QRD3_LCD_EXT_1V8_EN);
+			return rc;
+		}
+
+			qrd3_dsi_gpio_initialized = 1;
+	}
+
+	gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, !!on);
+	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_2V85_EN, !!on);
+	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_1V8_EN, !!on);
+
+	if (on) {
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
+		msleep(20);
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 0);
+		msleep(20);
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
+		msleep(20);
+	}
+
+		return rc;
+}
+
 static int mipi_dsi_panel_power(int on)
 {
 	int rc = 0;
 
 	if (machine_is_msm7627a_qrd1())
 		rc = mipi_dsi_panel_qrd1_power(on);
+	else if (machine_is_msm7627a_evb())
+		rc = mipi_dsi_panel_qrd3_power(on);
 	else
 		rc = mipi_dsi_panel_msm_power(on);
 	return rc;
