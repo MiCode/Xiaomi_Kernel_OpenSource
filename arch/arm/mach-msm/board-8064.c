@@ -1288,6 +1288,15 @@ static struct platform_device apq8064_device_ext_5v_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device apq8064_device_ext_mpp8_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8921_MPP_PM_TO_SYS(8),
+	.dev	= {
+		.platform_data
+			= &apq8064_gpio_regulator_pdata[GPIO_VREG_ID_EXT_MPP8],
+	},
+};
+
 static struct platform_device apq8064_device_ext_3p3v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= APQ8064_EXT_3P3V_REG_EN_GPIO,
@@ -1312,6 +1321,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_device_ext_5v_vreg,
+	&apq8064_device_ext_mpp8_vreg,
 	&apq8064_device_ext_3p3v_vreg,
 	&apq8064_device_ext_ts_sw_vreg,
 	&apq8064_device_ssbi_pmic1,

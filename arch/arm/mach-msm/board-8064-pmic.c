@@ -86,6 +86,13 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_STRENGTH_##_strength, \
 			PM_GPIO_FUNC_NORMAL, 0, 0)
 
+#define PM8921_GPIO_OUTPUT_BUFCONF(_gpio, _val, _strength, _bufconf) \
+	PM8921_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT,\
+			PM_GPIO_OUT_BUF_##_bufconf, _val, \
+			PM_GPIO_PULL_NO, PM_GPIO_VIN_S4, \
+			PM_GPIO_STRENGTH_##_strength, \
+			PM_GPIO_FUNC_NORMAL, 0, 0)
+
 #define PM8921_GPIO_INPUT(_gpio, _pull) \
 	PM8921_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0, \
 			_pull, PM_GPIO_VIN_S4, \
@@ -107,12 +114,17 @@ struct pm8xxx_mpp_init {
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT(23, 0, HIGH),	/* touchscreen power FET */
+	PM8921_GPIO_OUTPUT_BUFCONF(25, 0, LOW, CMOS), /* DISP_RESET_N */
+	PM8921_GPIO_OUTPUT_FUNC(26, 0, PM_GPIO_FUNC_2), /* Bl: Off, PWM mode */
+	PM8921_GPIO_OUTPUT_BUFCONF(36, 1, LOW, OPEN_DRAIN),
 };
 
 /* Initial PM8XXX MPP configurations */
 static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
+	PM8921_MPP_INIT(3, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
 	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
-	PM8921_MPP_INIT(7, D_INPUT, PM8921_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
+	PM8921_MPP_INIT(7, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
+	PM8921_MPP_INIT(8, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
 };
 
 void __init apq8064_pm8xxx_gpio_mpp_init(void)

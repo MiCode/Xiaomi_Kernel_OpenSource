@@ -213,6 +213,9 @@ VREG_CONSUMERS(8821_S1) = {
 VREG_CONSUMERS(EXT_5V) = {
 	REGULATOR_SUPPLY("ext_5v",		NULL),
 };
+VREG_CONSUMERS(EXT_MPP8) = {
+	REGULATOR_SUPPLY("ext_mpp8",		NULL),
+};
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_io",		"spi0.2"),
@@ -355,6 +358,8 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 		  APQ8064_EXT_3P3V_REG_EN_GPIO, NULL),
 	GPIO_VREG(EXT_TS_SW, "ext_ts_sw", "ext_ts_sw_en",
 		  PM8921_GPIO_PM_TO_SYS(23), "ext_3p3v"),
+	GPIO_VREG(EXT_MPP8, "ext_mpp8", "ext_mpp8_en",
+			PM8921_MPP_PM_TO_SYS(8), NULL),
 };
 
 /* SAW regulator constraints */
