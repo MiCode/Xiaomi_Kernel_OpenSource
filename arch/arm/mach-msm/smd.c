@@ -102,6 +102,45 @@ struct smsm_state_info {
 	uint32_t last_value;
 };
 
+struct interrupt_config_item {
+	/* must be initialized */
+	irqreturn_t (*irq_handler)(int req, void *data);
+	/* outgoing interrupt config (set from platform data) */
+	uint32_t out_bit_pos;
+	void __iomem *out_base;
+	uint32_t out_offset;
+};
+
+struct interrupt_config {
+	struct interrupt_config_item smd;
+	struct interrupt_config_item smsm;
+};
+
+static irqreturn_t smd_modem_irq_handler(int irq, void *data);
+static irqreturn_t smd_dsp_irq_handler(int irq, void *data);
+static irqreturn_t smd_dsps_irq_handler(int irq, void *data);
+static irqreturn_t smd_wcnss_irq_handler(int irq, void *data);
+static irqreturn_t smsm_irq_handler(int irq, void *data);
+
+static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
+	[SMD_MODEM] = {
+		.smd.irq_handler = smd_modem_irq_handler,
+		.smsm.irq_handler = smsm_irq_handler,
+	},
+	[SMD_Q6] = {
+		.smd.irq_handler = smd_dsp_irq_handler,
+		.smsm.irq_handler = smsm_irq_handler,
+	},
+	[SMD_DSPS] = {
+		.smd.irq_handler = smd_dsps_irq_handler,
+		.smsm.irq_handler = smsm_irq_handler,
+	},
+	[SMD_WCNSS] = {
+		.smd.irq_handler = smd_wcnss_irq_handler,
+		.smsm.irq_handler = smsm_irq_handler,
+	},
+};
+
 #define SMSM_STATE_ADDR(entry)           (smsm_info.state + entry)
 #define SMSM_INTR_MASK_ADDR(entry, host) (smsm_info.intr_mask + \
 					  entry * SMSM_NUM_HOSTS + host)
@@ -240,7 +279,6 @@ static inline void smd_write_intr(unsigned int val,
 static remote_spinlock_t remote_spinlock;
 
 static LIST_HEAD(smd_ch_list_loopback);
-static irqreturn_t smsm_irq_handler(int irq, void *data);
 static void smd_fake_irq_handler(unsigned long arg);
 static void smsm_cb_snapshot(void);
 
@@ -275,6 +313,98 @@ static inline void wakeup_v1_riva(void)
 static inline void wakeup_v1_riva(void) {}
 #endif
 
+static inline void notify_modem_smd(void)
+{
+	static const struct interrupt_config_item *intr
+	   = &private_intr_config[SMD_MODEM].smd;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2M_SMD_INT;
+}
+
+static inline void notify_dsp_smd(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_Q6].smd;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2Q6_SMD_INT;
+}
+
+static inline void notify_dsps_smd(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_DSPS].smd;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2DSPS_SMD_INT;
+}
+
+static inline void notify_wcnss_smd(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_WCNSS].smd;
+	wakeup_v1_riva();
+
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2WCNSS_SMD_INT;
+}
+
+static inline void notify_modem_smsm(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_MODEM].smsm;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2M_SMSM_INT;
+}
+
+static inline void notify_dsp_smsm(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_Q6].smsm;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2Q6_SMSM_INT;
+}
+
+static inline void notify_dsps_smsm(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_DSPS].smsm;
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2DSPS_SMSM_INT;
+}
+
+static inline void notify_wcnss_smsm(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_WCNSS].smsm;
+	wakeup_v1_riva();
+
+	if (intr->out_base)
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	else
+		MSM_TRIG_A2WCNSS_SMSM_INT;
+}
+
 static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 {
 	/* older protocol don't use smsm_intr_mask,
@@ -282,7 +412,7 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 	if (!smsm_info.intr_mask ||
 	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_MODEM))
 				& notify_mask))
-		MSM_TRIG_A2M_SMSM_INT;
+		notify_modem_smsm();
 
 	if (smsm_info.intr_mask &&
 	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_Q6))
@@ -296,44 +426,22 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 			__raw_writel(mux_val,
 					SMSM_INTR_MUX_ADDR(SMEM_APPS_Q6_SMSM));
 		}
-		MSM_TRIG_A2Q6_SMSM_INT;
+		notify_dsp_smsm();
 	}
 
 	if (smsm_info.intr_mask &&
 	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_WCNSS))
 				& notify_mask)) {
-		wakeup_v1_riva();
-		MSM_TRIG_A2WCNSS_SMSM_INT;
+		notify_wcnss_smsm();
 	}
 
 	if (smsm_info.intr_mask &&
 	    (__raw_readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_DSPS))
 				& notify_mask)) {
-		MSM_TRIG_A2DSPS_SMSM_INT;
+		notify_dsps_smsm();
 	}
 
 	smsm_cb_snapshot();
-}
-
-static inline void notify_modem_smd(void)
-{
-	MSM_TRIG_A2M_SMD_INT;
-}
-
-static inline void notify_dsp_smd(void)
-{
-	MSM_TRIG_A2Q6_SMD_INT;
-}
-
-static inline void notify_dsps_smd(void)
-{
-	MSM_TRIG_A2DSPS_SMD_INT;
-}
-
-static inline void notify_wcnss_smd(void)
-{
-	wakeup_v1_riva();
-	MSM_TRIG_A2WCNSS_SMD_INT;
 }
 
 void smd_diag(void)
@@ -449,23 +557,6 @@ struct smd_channel {
 struct edge_to_pid {
 	uint32_t	local_pid;
 	uint32_t	remote_pid;
-};
-
-/*
- * SMD Processor ID's.
- *
- * For all processors that have both SMSM and SMD clients,
- * the SMSM Processor ID and the SMD Processor ID will
- * be the same.  In cases where a processor only supports
- * SMD, the entry will only exist in this enum.
- */
-enum {
-	SMD_APPS = SMSM_APPS,
-	SMD_MODEM = SMSM_MODEM,
-	SMD_Q6 = SMSM_Q6,
-	SMD_WCNSS = SMSM_WCNSS,
-	SMD_DSPS = SMSM_DSPS,
-	SMD_MODEM_Q6_FW,
 };
 
 /**
@@ -1008,32 +1099,26 @@ static irqreturn_t smd_modem_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#if defined(CONFIG_QDSP6)
 static irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 {
 	handle_smd_irq(&smd_ch_list_dsp, notify_dsp_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
-#endif
 
-#if defined(CONFIG_DSPS)
 static irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 {
 	handle_smd_irq(&smd_ch_list_dsps, notify_dsps_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
-#endif
 
-#if defined(CONFIG_WCNSS)
 static irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 {
 	handle_smd_irq(&smd_ch_list_wcnss, notify_wcnss_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
 }
-#endif
 
 static void smd_fake_irq_handler(unsigned long arg)
 {
@@ -2567,22 +2652,121 @@ int smd_core_init(void)
 		pr_err("smd_core_init: "
 		       "enable_irq_wake failed for INT_DSPS_A11_SMSM\n");
 #endif
-
-	/* we may have missed a signal while booting -- fake
-	 * an interrupt to make sure we process any existing
-	 * state
-	 */
-	smsm_irq_handler(0, 0);
-
 	SMD_INFO("smd_core_init() done\n");
 
 	return 0;
 }
 
+static int intr_init(struct interrupt_config_item *private_irq,
+			struct smd_irq_config *platform_irq,
+			struct platform_device *pdev
+			)
+{
+	int irq_id;
+	int ret;
+	int ret_wake;
+
+	private_irq->out_bit_pos = platform_irq->out_bit_pos;
+	private_irq->out_offset = platform_irq->out_offset;
+	private_irq->out_base = platform_irq->out_base;
+
+	irq_id = platform_get_irq_byname(
+					pdev,
+					platform_irq->irq_name
+				);
+	SMD_DBG("smd: %s: register irq: %s id: %d\n", __func__,
+				platform_irq->irq_name, irq_id);
+	ret = request_irq(irq_id,
+				private_irq->irq_handler,
+				platform_irq->flags,
+				platform_irq->device_name,
+				(void *)platform_irq->dev_id
+			);
+	if (ret < 0) {
+		platform_irq->irq_id = ret;
+	} else {
+		platform_irq->irq_id = irq_id;
+		ret_wake = enable_irq_wake(irq_id);
+		if (ret_wake < 0) {
+			pr_err("smd: enable_irq_wake failed on %s",
+					platform_irq->irq_name);
+		}
+	}
+
+	return ret;
+}
+
+int smd_core_platform_init(struct platform_device *pdev)
+{
+	int i;
+	int ret;
+	uint32_t num_ss;
+	struct smd_platform *smd_platform_data;
+	struct smd_subsystem_config *smd_ss_config_list;
+	struct smd_subsystem_config *cfg;
+	int err_ret = 0;
+
+	smd_platform_data = pdev->dev.platform_data;
+	num_ss = smd_platform_data->num_ss_configs;
+	smd_ss_config_list = smd_platform_data->smd_ss_configs;
+
+	for (i = 0; i < num_ss; i++) {
+		cfg = &smd_ss_config_list[i];
+
+		ret = intr_init(
+			&private_intr_config[cfg->irq_config_id].smd,
+			&cfg->smd_int,
+			pdev
+			);
+
+		if (ret < 0) {
+			err_ret = ret;
+			pr_err("smd: register irq failed on %s\n",
+				cfg->smd_int.irq_name);
+			break;
+		}
+
+		ret = intr_init(
+			&private_intr_config[cfg->irq_config_id].smsm,
+			&cfg->smsm_int,
+			pdev
+			);
+
+		if (ret < 0) {
+			err_ret = ret;
+			pr_err("smd: register irq failed on %s\n",
+				cfg->smsm_int.irq_name);
+			break;
+		}
+	}
+
+	if (err_ret < 0) {
+		pr_err("smd: deregistering IRQs\n");
+		for (i = 0; i < num_ss; ++i) {
+			cfg = &smd_ss_config_list[i];
+
+			if (cfg->smd_int.irq_id >= 0)
+				free_irq(cfg->smd_int.irq_id,
+					(void *)cfg->smd_int.dev_id
+					);
+			if (cfg->smsm_int.irq_id >= 0)
+				free_irq(cfg->smsm_int.irq_id,
+					(void *)cfg->smsm_int.dev_id
+					);
+		}
+		return err_ret;
+	}
+
+	SMD_INFO("smd_core_platform_init() done\n");
+	return 0;
+
+}
+
 static int __devinit msm_smd_probe(struct platform_device *pdev)
 {
-	SMD_INFO("smd probe\n");
+	int ret;
 
+	SMD_INFO("smd probe\n");
 	INIT_WORK(&probe_work, smd_channel_probe_worker);
 
 	channel_close_wq = create_singlethread_workqueue("smd_channel_close");
@@ -2596,9 +2780,27 @@ static int __devinit msm_smd_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	if (smd_core_init()) {
-		pr_err("smd_core_init() failed\n");
-		return -1;
+	if (pdev) {
+		if (pdev->dev.of_node) {
+			pr_err("SMD: Device tree not currently supported\n");
+			return -ENODEV;
+		} else if (pdev->dev.platform_data) {
+			ret = smd_core_platform_init(pdev);
+			if (ret) {
+				pr_err(
+				"SMD: smd_core_platform_init() failed\n");
+				return -ENODEV;
+			}
+		} else {
+			ret = smd_core_init();
+			if (ret) {
+				pr_err("smd_core_init() failed\n");
+				return -ENODEV;
+			}
+		}
+	} else {
+		pr_err("SMD: PDEV not found\n");
+		return -ENODEV;
 	}
 
 	smd_initialized = 1;

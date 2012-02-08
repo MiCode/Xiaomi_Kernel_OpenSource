@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/msm_smd.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -18,6 +18,9 @@
 #ifndef __ASM_ARCH_MSM_SMD_H
 #define __ASM_ARCH_MSM_SMD_H
 
+#include <linux/io.h>
+#include <mach/msm_smsm.h>
+
 typedef struct smd_channel smd_channel_t;
 
 #define SMD_MAX_CH_NAME_LEN 20 /* includes null char at end */
@@ -27,6 +30,24 @@ typedef struct smd_channel smd_channel_t;
 #define SMD_EVENT_CLOSE 3
 #define SMD_EVENT_STATUS 4
 #define SMD_EVENT_REOPEN_READY 5
+
+/*
+ * SMD Processor ID's.
+ *
+ * For all processors that have both SMSM and SMD clients,
+ * the SMSM Processor ID and the SMD Processor ID will
+ * be the same.  In cases where a processor only supports
+ * SMD, the entry will only exist in this enum.
+ */
+enum {
+	SMD_APPS = SMSM_APPS,
+	SMD_MODEM = SMSM_MODEM,
+	SMD_Q6 = SMSM_Q6,
+	SMD_WCNSS = SMSM_WCNSS,
+	SMD_DSPS = SMSM_DSPS,
+	SMD_MODEM_Q6_FW,
+	NUM_SMD_SUBSYSTEMS,
+};
 
 enum {
 	SMD_APPS_MODEM = 0,
@@ -47,6 +68,59 @@ enum {
 	SMD_NUM_TYPE,
 	SMD_LOOPBACK_TYPE = 100,
 
+};
+
+/*
+ * SMD IRQ Configuration
+ *
+ * Used to initialize IRQ configurations from platform data
+ *
+ * @irq_name: irq_name to query platform data
+ * @irq_id: initialized to -1 in platform data, stores actual irq id on
+ *		successful registration
+ * @out_base: if not null then settings used for outgoing interrupt
+ *		initialied from platform data
+ */
+
+struct smd_irq_config {
+	/* incoming interrupt config */
+	const char *irq_name;
+	unsigned long flags;
+	int irq_id;
+	const char *device_name;
+	const void *dev_id;
+
+	/* outgoing interrupt config */
+	uint32_t out_bit_pos;
+	void __iomem *out_base;
+	uint32_t out_offset;
+};
+
+/*
+ * SMD subsystem configurations
+ *
+ * SMD subsystems configurations for platform data. This contains the
+ * M2A and A2M interrupt configurations for both SMD and SMSM per
+ * subsystem.
+ *
+ * @subsys_name: name of subsystem passed to PIL
+ * @irq_config_id: unique id for each subsystem
+ * @edge: maps to actual remote subsystem edge
+ *
+ */
+struct smd_subsystem_config {
+	unsigned irq_config_id;
+	const char *subsys_name;
+	int edge;
+
+	struct smd_irq_config smd_int;
+	struct smd_irq_config smsm_int;
+
+};
+
+struct smd_platform {
+	uint32_t num_ss_configs;
+	struct smd_subsystem_config *smd_ss_configs;
 };
 
 #ifdef CONFIG_MSM_SMD
