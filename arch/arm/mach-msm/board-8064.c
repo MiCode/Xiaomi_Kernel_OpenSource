@@ -54,6 +54,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/cpuidle.h>
 #include <mach/mdm2.h>
+#include <linux/msm_tsens.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -890,6 +891,14 @@ static struct mdm_platform_data mdm_platform_data = {
 	.peripheral_platform_device = &apq8064_device_hsic_host,
 };
 
+static struct tsens_platform_data apq_tsens_pdata  = {
+		.tsens_factor		= 1000,
+		.hw_type		= APQ_8064,
+		.tsens_num_sensor	= 11,
+		.slope = {1176, 1176, 1154, 1176, 1111,
+			1132, 1132, 1199, 1132, 1199, 1132},
+};
+
 #define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
 {
@@ -1643,12 +1652,14 @@ static void __init apq8064_sim_init(void)
 		&msm8064_device_watchdog.dev.platform_data;
 
 	wdog_pdata->bark_time = 15000;
+	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
 }
 
 static void __init apq8064_rumi3_init(void)
 {
+	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
@@ -1659,6 +1670,7 @@ static void __init apq8064_rumi3_init(void)
 
 static void __init apq8064_cdp_init(void)
 {
+	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
