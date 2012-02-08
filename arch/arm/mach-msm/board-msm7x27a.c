@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/gpio_event.h>
+#include <linux/memblock.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -799,6 +800,11 @@ static void __init msm7x27a_reserve(void)
 	msm_reserve();
 }
 
+static void __init msm8625_reserve(void)
+{
+	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+}
+
 static void __init msm_device_i2c_init(void)
 {
 	if (machine_is_msm8625_rumi3()) {
@@ -1239,6 +1245,7 @@ MACHINE_END
 MACHINE_START(MSM8625_RUMI3, "QCT MSM8625 RUMI3")
 	.boot_params    = PHYS_OFFSET + 0x100,
 	.map_io         = msm8625_map_io,
+	.reserve        = msm8625_reserve,
 	.init_irq       = msm8625_init_irq,
 	.init_machine   = msm8625_rumi3_init,
 	.timer          = &msm_timer,

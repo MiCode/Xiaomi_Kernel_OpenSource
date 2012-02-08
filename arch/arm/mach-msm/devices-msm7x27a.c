@@ -866,6 +866,24 @@ struct platform_device msm8625_device_qup_i2c_gsbi0 = {
 	.resource	= gsbi0_msm8625_qup_resources,
 };
 
+static struct resource msm8625_gpio_resources[] = {
+	{
+		.start	= MSM8625_INT_GPIO_GROUP1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM8625_INT_GPIO_GROUP2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_device_gpio = {
+	.name		= "msmgpio",
+	.id		= -1,
+	.resource	= msm8625_gpio_resources,
+	.num_resources	= ARRAY_SIZE(msm8625_gpio_resources),
+};
+
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
 	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
@@ -1007,7 +1025,10 @@ void __init msm8625_map_io(void)
 
 static int msm7627a_init_gpio(void)
 {
-	platform_device_register(&msm_device_gpio);
+	if (cpu_is_msm8625())
+		platform_device_register(&msm8625_device_gpio);
+	else
+		platform_device_register(&msm_device_gpio);
 	return 0;
 }
 postcore_initcall(msm7627a_init_gpio);
