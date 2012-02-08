@@ -2,7 +2,7 @@
  *
  * aac audio input device
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_aac_in.c,
  * Copyright (C) 2008 Google, Inc.
@@ -697,21 +697,23 @@ static void audaac_ioport_reset(struct audio_aac_in *audio)
 	 * sleep and knowing that system is not able
 	 * to process io request at the moment
 	 */
-	wake_up(&audio->write_wait);
-	mutex_lock(&audio->write_lock);
-	audaac_in_flush(audio);
-	mutex_unlock(&audio->write_lock);
 	wake_up(&audio->wait);
 	mutex_lock(&audio->read_lock);
-	audaac_out_flush(audio);
+	audaac_in_flush(audio);
 	mutex_unlock(&audio->read_lock);
+	wake_up(&audio->write_wait);
+	mutex_lock(&audio->write_lock);
+	audaac_out_flush(audio);
+	mutex_unlock(&audio->write_lock);
 }
 
 static void audaac_in_flush(struct audio_aac_in *audio)
 {
 	int i;
+	unsigned long flags;
 
 	audio->dsp_cnt = 0;
+	spin_lock_irqsave(&audio->dsp_lock, flags);
 	audio->in_head = 0;
 	audio->in_tail = 0;
 	audio->in_count = 0;
@@ -720,6 +722,7 @@ static void audaac_in_flush(struct audio_aac_in *audio)
 		audio->in[i].size = 0;
 		audio->in[i].read = 0;
 	}
+	spin_unlock_irqrestore(&audio->dsp_lock, flags);
 	MM_DBG("in_bytes %d\n", atomic_read(&audio->in_bytes));
 	MM_DBG("in_samples %d\n", atomic_read(&audio->in_samples));
 	atomic_set(&audio->in_bytes, 0);
@@ -729,15 +732,18 @@ static void audaac_in_flush(struct audio_aac_in *audio)
 static void audaac_out_flush(struct audio_aac_in *audio)
 {
 	int i;
+	unsigned long flags;
 
 	audio->out_head = 0;
-	audio->out_tail = 0;
 	audio->out_count = 0;
+	spin_lock_irqsave(&audio->dsp_lock, flags);
+	audio->out_tail = 0;
 	for (i = OUT_FRAME_NUM-1; i >= 0; i--) {
 		audio->out[i].size = 0;
 		audio->out[i].read = 0;
 		audio->out[i].used = 0;
 	}
+	spin_unlock_irqrestore(&audio->dsp_lock, flags);
 }
 
 /* ------------------- device --------------------- */
