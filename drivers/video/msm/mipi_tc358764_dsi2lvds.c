@@ -638,7 +638,7 @@ static ssize_t mipi_d2l_enable_3d_write(struct device *dev,
 }
 
 static struct device_attribute mipi_d2l_3d_barrier_attributes[] = {
-	__ATTR(enable_3d_barrier, 0664,
+	__ATTR(enable_3d_barrier, 0666,
 	       mipi_d2l_enable_3d_read,
 	       mipi_d2l_enable_3d_write),
 };
