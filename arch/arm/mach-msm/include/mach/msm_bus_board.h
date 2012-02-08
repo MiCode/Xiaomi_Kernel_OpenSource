@@ -39,6 +39,8 @@ struct msm_bus_fabric_registration {
 	const struct msm_bus_board_algorithm *board_algo;
 	int hw_sel;
 	void *hw_data;
+	uint32_t qos_freq;
+	bool virt;
 };
 
 enum msm_bus_bw_tier_type {

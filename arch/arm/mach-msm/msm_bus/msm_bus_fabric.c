@@ -594,12 +594,22 @@ static int msm_bus_fabric_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo)
 {
 	int ret = 0;
-	ret = msm_bus_rpm_hw_init(pdata, hw_algo);
-	if (ret) {
-		MSM_BUS_ERR("RPM initialization failed\n");
-		ret = -EINVAL;
-	}
 
+	switch (pdata->hw_sel) {
+	case MSM_BUS_NOC:
+		msm_bus_noc_hw_init(pdata, hw_algo);
+		break;
+	case MSM_BUS_BIMC:
+		msm_bus_bimc_hw_init(pdata, hw_algo);
+		break;
+	default:
+		ret = msm_bus_rpm_hw_init(pdata, hw_algo);
+		if (ret) {
+			MSM_BUS_ERR("RPM initialization failed\n");
+			ret = -EINVAL;
+		}
+		break;
+	}
 	return ret;
 }
 
