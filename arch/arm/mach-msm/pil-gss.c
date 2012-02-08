@@ -257,6 +257,49 @@ static struct pil_reset_ops pil_gss_ops = {
 	.shutdown = pil_gss_shutdown,
 };
 
+static int pil_gss_init_image_trusted(struct pil_desc *pil,
+		const u8 *metadata, size_t size)
+{
+	return pas_init_image(PAS_GSS, metadata, size);
+}
+
+static int pil_gss_reset_trusted(struct pil_desc *pil)
+{
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
+	int err;
+
+	err = make_gss_proxy_votes(pil->dev);
+	if (err)
+		return err;
+
+	err =  pas_auth_and_reset(PAS_GSS);
+	if (err)
+		remove_gss_proxy_votes_now(drv);
+
+	return err;
+}
+
+static int pil_gss_shutdown_trusted(struct pil_desc *pil)
+{
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
+	int ret;
+
+	ret = pas_shutdown(PAS_GSS);
+	if (ret)
+		return ret;
+
+	remove_gss_proxy_votes_now(drv);
+
+	return ret;
+}
+
+static struct pil_reset_ops pil_gss_ops_trusted = {
+	.init_image = pil_gss_init_image_trusted,
+	.verify_blob = nop_verify_blob,
+	.auth_and_reset = pil_gss_reset_trusted,
+	.shutdown = pil_gss_shutdown_trusted,
+};
+
 static void configure_gss_pll(struct gss_data *drv)
 {
 	u32 regval, is_pll_enabled;
@@ -354,8 +397,13 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	desc->name = "gss";
 	desc->dev = &pdev->dev;
 
-	desc->ops = &pil_gss_ops;
-	dev_info(&pdev->dev, "using non-secure boot\n");
+	if (pas_supported(PAS_GSS) > 0) {
+		desc->ops = &pil_gss_ops_trusted;
+		dev_info(&pdev->dev, "using secure boot\n");
+	} else {
+		desc->ops = &pil_gss_ops;
+		dev_info(&pdev->dev, "using non-secure boot\n");
+	}
 
 	INIT_DELAYED_WORK(&drv->work, remove_gss_proxy_votes);
 
