@@ -126,6 +126,7 @@ config ARCH_MSM8X60
 	select MSM_SPM_V1
 	select MSM_SCM if SMP
 	select MULTI_IRQ_HANDLER
+	select MSM_MULTIMEDIA_USE_ION
 	select MSM_PM8X60 if PM
 
 config ARCH_MSM8960
