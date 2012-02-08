@@ -220,7 +220,7 @@ static struct mmc_platform_data *apq8064_sdc1_pdata;
 
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 static unsigned int sdc3_sup_clk_rates[] = {
-	400000, 24000000, 48000000, 96000000
+	400000, 24000000, 48000000, 96000000, 192000000
 };
 
 static struct mmc_platform_data sdc3_data = {
@@ -234,6 +234,10 @@ static struct mmc_platform_data sdc3_data = {
 	.status_irq	= MSM_GPIO_TO_INT(26),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.is_status_gpio_active_low = 1,
+	.xpc_cap	= 1,
+	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
+			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
+			MMC_CAP_UHS_SDR104 | MMC_CAP_MAX_CURRENT_800),
 };
 static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
 #else
