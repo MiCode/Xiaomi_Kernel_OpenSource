@@ -213,6 +213,7 @@ struct msm_camera_csi2_params {
 #define CSI_DECODE_6BIT 0
 #define CSI_DECODE_8BIT 1
 #define CSI_DECODE_10BIT 2
+#define CSI_DECODE_DPCM_10_8_10 5
 
 struct msm_vfe_phy_info {
 	uint32_t sbuf_phy;

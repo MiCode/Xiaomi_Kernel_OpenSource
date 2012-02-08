@@ -495,6 +495,34 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 };
 #endif
 
+static struct camera_vreg_t msm_8930_s5k3l1yx_vreg[] = {
+	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
+	{"cam_vio", REG_VS, 0, 0, 0},
+	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
+};
+
+static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
+	.flash_type = MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
+	.mount_angle  = 0,
+	.cam_vreg = msm_8930_s5k3l1yx_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8930_s5k3l1yx_vreg),
+	.gpio_conf = &msm_8930_back_cam_gpio_conf,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
+	.sensor_name          = "s5k3l1yx",
+	.pdata                = &msm_camera_csi_device_data[0],
+	.flash_data           = &flash_s5k3l1yx,
+	.sensor_platform_info = &sensor_board_info_s5k3l1yx,
+	.csi_if               = 1,
+	.camera_type          = BACK_CAMERA_2D,
+};
+
 void __init msm8930_init_cam(void)
 {
 	msm_gpiomux_install(msm8930_cam_common_configs,
@@ -526,6 +554,10 @@ struct i2c_board_info msm8930_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("mt9m114", 0x48),
 	.platform_data = &msm_camera_sensor_mt9m114_data,
+	},
+	{
+	I2C_BOARD_INFO("s5k3l1yx", 0x20),
+	.platform_data = &msm_camera_sensor_s5k3l1yx_data,
 	},
 #ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
 	{
