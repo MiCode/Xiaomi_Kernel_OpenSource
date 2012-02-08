@@ -1188,6 +1188,7 @@ static struct platform_device *rumi3_devices[] __initdata = {
 
 static struct platform_device *cdp_devices[] __initdata = {
 	&apq8064_device_uart_gsbi1,
+	&apq8064_device_uart_gsbi7,
 	&msm_device_sps_apq8064,
 };
 

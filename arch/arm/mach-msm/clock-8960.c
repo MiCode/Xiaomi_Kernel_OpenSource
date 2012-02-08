@@ -4846,35 +4846,36 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("pll4",		pll4_clk.c,	NULL),
 	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
-	CLK_DUMMY("bus_clk",		AFAB_CLK,	"msm_apps_fab", 0),
-	CLK_DUMMY("bus_a_clk",		AFAB_A_CLK,	"msm_apps_fab", 0),
-	CLK_DUMMY("bus_clk",		SFAB_CLK,	"msm_sys_fab", 0),
-	CLK_DUMMY("bus_a_clk",		SFAB_A_CLK,	"msm_sys_fab", 0),
-	CLK_DUMMY("bus_clk",		SFPB_CLK,	"msm_sys_fpb", 0),
-	CLK_DUMMY("bus_a_clk",		SFPB_A_CLK,	"msm_sys_fpb", 0),
-	CLK_DUMMY("bus_clk",		MMFAB_CLK,	"msm_mm_fab", 0),
-	CLK_DUMMY("bus_a_clk",		MMFAB_A_CLK,	"msm_mm_fab", 0),
-	CLK_DUMMY("bus_clk",		CFPB_CLK,	"msm_cpss_fpb", 0),
-	CLK_DUMMY("bus_a_clk",		CFPB_A_CLK,	"msm_cpss_fpb", 0),
-	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c, "msm_bus"),
-	CLK_DUMMY("mem_a_clk",		EBI1_A_CLK,        "msm_bus", 0),
+	CLK_LOOKUP("bus_clk",		afab_clk.c,		"msm_apps_fab"),
+	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,		"msm_apps_fab"),
+	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
+	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
+	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
+	CLK_LOOKUP("bus_a_clk",		sfab_a_clk.c,		"msm_sys_fab"),
+	CLK_LOOKUP("bus_clk",		sfpb_clk.c,		"msm_sys_fpb"),
+	CLK_LOOKUP("bus_a_clk",		sfpb_a_clk.c,		"msm_sys_fpb"),
+	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
+	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
+	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
+	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
 
-	CLK_DUMMY("ebi1_clk",		EBI1_CLK,	NULL, 0),
-	CLK_DUMMY("dfab_clk",		DFAB_CLK,	NULL, 0),
-	CLK_DUMMY("dfab_a_clk",		DFAB_A_CLK,	NULL, 0),
-	CLK_DUMMY("bus_clk",		MMFPB_CLK,	NULL, 0),
-	CLK_DUMMY("bus_a_clk",		MMFPB_A_CLK,	NULL, 0),
+	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,		""),
+	CLK_LOOKUP("dfab_clk",		dfab_clk.c,		""),
+	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,		""),
+	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,		""),
+	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,		"clock-8960"),
+	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,		"clock-8960"),
 
 	CLK_LOOKUP("core_clk",		gp0_clk.c,		""),
 	CLK_LOOKUP("core_clk",		gp1_clk.c,		""),
 	CLK_LOOKUP("core_clk",		gp2_clk.c,		""),
-	CLK_LOOKUP("core_clk",		gsbi1_uart_clk.c, "msm_serial_hsl.0"),
+	CLK_LOOKUP("core_clk",		gsbi1_uart_clk.c, "msm_serial_hsl.1"),
 	CLK_LOOKUP("core_clk",		gsbi2_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c,	""),
-	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c,	""),
+	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("core_clk",		gsbi1_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi2_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_qup_clk.c,	""),
@@ -4908,13 +4909,13 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("ce3_core_src_clk",	ce3_src_clk.c,		"qce.0"),
 	CLK_LOOKUP("ce3_core_src_clk",	ce3_src_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("dma_bam_pclk",	dma_bam_p_clk.c,	NULL),
-	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,	"msm_serial_hsl.0"),
+	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,	"msm_serial_hsl.1"),
 	CLK_LOOKUP("iface_clk",		gsbi2_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi3_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		"spi_qsd.0"),
 	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,		""),
-	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		""),
+	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,	"msm_serial_hsl.0"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		usb_fs1_p_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		usb_hs1_p_clk.c,	"msm_otg"),
@@ -5030,6 +5031,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("iface_clk",		vfe_p_clk.c,	"footswitch-8x60.8"),
 	CLK_LOOKUP("vpe_pclk",		vpe_p_clk.c,		""),
 	CLK_LOOKUP("iface_pclk",	vpe_p_clk.c,	"footswitch-8x60.9"),
+
 	CLK_LOOKUP("mi2s_bit_clk",	mi2s_bit_clk.c,		""),
 	CLK_LOOKUP("mi2s_osr_clk",	mi2s_osr_clk.c,		""),
 	CLK_LOOKUP("i2s_mic_bit_clk",	codec_i2s_mic_bit_clk.c, ""),
@@ -5053,16 +5055,19 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("core_clk",		vcodec_axi_a_clk.c,	""),
 	CLK_LOOKUP("core_clk",		vcodec_axi_b_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gfx3d_axi_clk.c,	""),
-	CLK_DUMMY("dfab_dsps_clk",	DFAB_DSPS_CLK,		"", 0),
-	CLK_DUMMY("core_clk",		DFAB_USB_HS_CLK,  "msm_otg", 0),
-	CLK_DUMMY("core_clk",		DFAB_USB_HS3_CLK, "msm_ehci_host.0", 0),
-	CLK_DUMMY("core_clk",		DFAB_USB_HS4_CLK, "msm_ehci_host.1", 0),
-	CLK_DUMMY("bus_clk",		DFAB_SDC1_CLK,		"", 0),
-	CLK_DUMMY("bus_clk",		DFAB_SDC2_CLK,		"", 0),
-	CLK_DUMMY("bus_clk",		DFAB_SDC3_CLK,		"", 0),
-	CLK_DUMMY("bus_clk",		DFAB_SDC4_CLK,		"", 0),
-	CLK_DUMMY("dfab_clk",		DFAB_CLK,		"", 0),
-	CLK_DUMMY("bus_clk",		DFAB_SCM_CLK,	"scm", 0),
+
+	CLK_LOOKUP("dfab_dsps_clk",	dfab_dsps_clk.c, NULL),
+	CLK_LOOKUP("core_clk",		dfab_usb_hs_clk.c,	"msm_otg"),
+	CLK_LOOKUP("core_clk",		dfab_usb_hs3_clk.c, "msm_ehci_host.0"),
+	CLK_LOOKUP("core_clk",		dfab_usb_hs3_clk.c, "msm_ehci_host.1"),
+	CLK_LOOKUP("bus_clk",		dfab_sdc1_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("bus_clk",		dfab_sdc2_clk.c, "msm_sdcc.2"),
+	CLK_LOOKUP("bus_clk",		dfab_sdc3_clk.c, "msm_sdcc.3"),
+	CLK_LOOKUP("bus_clk",		dfab_sdc4_clk.c, "msm_sdcc.4"),
+	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,	"msm_sps"),
+	CLK_LOOKUP("bus_clk",		dfab_bam_dmux_clk.c,	"BAM_RMNT"),
+	CLK_LOOKUP("bus_clk",		dfab_scm_clk.c,	"scm"),
+
 	CLK_LOOKUP("alt_core_clk",    usb_hsic_xcvr_fs_clk.c,  "msm_hsic_host"),
 	CLK_LOOKUP("phy_clk",	      usb_hsic_hsic_clk.c,     "msm_hsic_host"),
 	CLK_LOOKUP("cal_clk",	      usb_hsic_hsio_cal_clk.c, "msm_hsic_host"),
@@ -5539,130 +5544,34 @@ static void __init reg_init(void)
 	 *       after bootloaders program them.
 	 */
 	if (cpu_is_apq8064()) {
-		u32 regval, is_pll_enabled;
+		u32 is_pll_enabled;
 
 		/* Program pxo_src_clk to source from PXO */
 		rmwreg(0x1, PXO_SRC_CLK_CTL_REG, 0x7);
 
-		/* Check if PLL8 is active */
-		is_pll_enabled = readl_relaxed(BB_PLL8_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
-			/* Ref clk = 27MHz and program pll8 to 384MHz */
-			writel_relaxed(0xE, BB_PLL8_L_VAL_REG);
-			writel_relaxed(0x2, BB_PLL8_M_VAL_REG);
-			writel_relaxed(0x9, BB_PLL8_N_VAL_REG);
-
-			regval = readl_relaxed(BB_PLL8_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			writel_relaxed(regval, BB_PLL8_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x10000, BB_PLL8_CONFIG_REG, 0x30000);
-
-			/* Enable AUX output */
-			regval = readl_relaxed(BB_PLL8_TEST_CTL_REG);
-			regval |= BIT(12);
-			writel_relaxed(regval, BB_PLL8_TEST_CTL_REG);
-
-			set_fsm_mode(BB_PLL8_MODE_REG);
-
-			/* Enable PLL8 by voting from RPM */
-			regval = readl_relaxed(BB_PLL_ENA_RPM_REG);
-			regval |= BIT(8);
-			writel_relaxed(regval, BB_PLL_ENA_RPM_REG);
-		}
-		/* Check if PLL3 is active */
-		is_pll_enabled = readl_relaxed(GPLL1_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
-			/* Ref clk = 27MHz and program pll3 to 1200MHz */
-			writel_relaxed(0x2C, GPLL1_L_VAL_REG);
-			writel_relaxed(0x4,  GPLL1_M_VAL_REG);
-			writel_relaxed(0x9,  GPLL1_N_VAL_REG);
-
-			regval = readl_relaxed(GPLL1_CONFIG_REG);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(15);
-			regval |= BIT(16);
-
-			writel_relaxed(regval, GPLL1_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x180, GPLL1_CONFIG_REG, 0x180);
-		}
 		/* Check if PLL14 is active */
 		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled) {
 			/* Ref clk = 27MHz and program pll14 to 480MHz */
-			writel_relaxed(0x11, BB_PLL14_L_VAL_REG);
+			writel_relaxed(0x00031011, BB_PLL14_L_VAL_REG);
 			writel_relaxed(0x7,  BB_PLL14_M_VAL_REG);
 			writel_relaxed(0x9,  BB_PLL14_N_VAL_REG);
 
-			regval = readl_relaxed(BB_PLL14_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			writel_relaxed(regval, BB_PLL14_CONFIG_REG);
-
-			/* Set VCO frequency */
-			rmwreg(0x10000, BB_PLL14_CONFIG_REG, 0x30000);
+			/*
+			 * Enable the main output and the MN accumulator
+			 * Set pre-divider and post-divider values to 1 and 1
+			 */
+			writel_relaxed(0x00C00000, BB_PLL14_CONFIG_REG);
 
 			set_fsm_mode(BB_PLL14_MODE_REG);
 		}
-		/* Program PLL2 to 800MHz with ref clk = 27MHz */
-		writel_relaxed(0x1D, MM_PLL1_L_VAL_REG);
-		writel_relaxed(0x11, MM_PLL1_M_VAL_REG);
-		writel_relaxed(0x1B, MM_PLL1_N_VAL_REG);
-
-		regval = readl_relaxed(MM_PLL1_CONFIG_REG);
-
-		/* Enable the main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		writel_relaxed(regval, MM_PLL1_CONFIG_REG);
-
-		/* Set VCO frequency */
-		rmwreg(0x20000, MM_PLL1_CONFIG_REG, 0x30000);
 
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
-		writel_relaxed(0x24, MM_PLL3_L_VAL_REG);
-		writel_relaxed(0x1,  MM_PLL3_M_VAL_REG);
-		writel_relaxed(0x9,  MM_PLL3_N_VAL_REG);
+		writel_relaxed(0x31024, MM_PLL3_L_VAL_REG);
+		writel_relaxed(0x1,	MM_PLL3_M_VAL_REG);
+		writel_relaxed(0x9,	MM_PLL3_N_VAL_REG);
 
-		regval = readl_relaxed(MM_PLL3_CONFIG_REG);
-
-		/* Enable the main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		writel_relaxed(regval, MM_PLL3_CONFIG_REG);
-
-		/* Set VCO frequency */
-		rmwreg(0x20000, MM_PLL3_CONFIG_REG, 0x30000);
-
-		/* Enable AUX output */
-		regval = readl_relaxed(MM_PLL3_TEST_CTL_REG);
-		regval |= BIT(12);
-		writel_relaxed(regval, MM_PLL3_TEST_CTL_REG);
+		writel_relaxed(0xC20000, MM_PLL3_CONFIG_REG);
 
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
@@ -5672,18 +5581,7 @@ static void __init reg_init(void)
 			writel_relaxed(0x27A, LCC_PLL0_M_VAL_REG);
 			writel_relaxed(0x465, LCC_PLL0_N_VAL_REG);
 
-			regval = readl_relaxed(LCC_PLL0_CONFIG_REG);
-
-			/* Enable the main output and the MN accumulator */
-			regval |= BIT(23) | BIT(22);
-
-			/* Set pre-divider and post-divider values to 1 and 1 */
-			regval &= ~BIT(19);
-			regval &= ~BM(21, 20);
-
-			/* Set VCO frequency */
-			regval &= ~BM(17, 16);
-			writel_relaxed(regval, LCC_PLL0_CONFIG_REG);
+			writel_relaxed(0xC00000, LCC_PLL0_CONFIG_REG);
 
 			set_fsm_mode(LCC_PLL0_MODE_REG);
 		}

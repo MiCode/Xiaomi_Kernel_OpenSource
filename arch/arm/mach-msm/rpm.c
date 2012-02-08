@@ -31,7 +31,6 @@
 #include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <mach/rpm.h>
-#include <mach/socinfo.h>
 
 /******************************************************************************
  * Data type and structure definitions
@@ -425,9 +424,6 @@ static int msm_rpm_set_common(
 	uint32_t sel_masks[SEL_MASK_SIZE] = {};
 	int rc;
 
-	if (cpu_is_apq8064())
-		return 0;
-
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
 		goto set_common_exit;
@@ -470,9 +466,6 @@ static int msm_rpm_clear_common(
 	struct msm_rpm_iv_pair r[SEL_MASK_SIZE];
 	int rc;
 	int i;
-
-	if (cpu_is_apq8064())
-		return 0;
 
 	if (ctx >= MSM_RPM_CTX_SET_COUNT) {
 		rc = -EINVAL;
@@ -611,9 +604,6 @@ int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
 	uint32_t seq_end;
 	int rc;
 	int i;
-
-	if (cpu_is_apq8064())
-		return 0;
 
 	seq_begin = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 				target_status(MSM_RPM_STATUS_ID_SEQUENCE));
@@ -768,9 +758,6 @@ int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	int rc;
 	int i;
 
-	if (cpu_is_apq8064())
-		return 0;
-
 	INIT_LIST_HEAD(&n->list);
 	rc = msm_rpm_fill_sel_masks(n->sel_masks, req, count);
 	if (rc)
@@ -822,9 +809,6 @@ int msm_rpm_unregister_notification(struct msm_rpm_notification *n)
 	struct msm_rpm_notif_config cfg;
 	int rc;
 	int i;
-
-	if (cpu_is_apq8064())
-		return 0;
 
 	rc = mutex_lock_interruptible(&msm_rpm_mutex);
 	if (rc)
@@ -950,9 +934,6 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 {
 	unsigned int irq;
 	int rc;
-
-	if (cpu_is_apq8064())
-		return 0;
 
 	memcpy(&msm_rpm_data, data, sizeof(struct msm_rpm_platform_data));
 	msm_rpm_sel_mask_size = msm_rpm_data.sel_last / 32 + 1;
