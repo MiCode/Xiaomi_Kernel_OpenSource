@@ -621,8 +621,9 @@ void __init apq8064_init_gpiomux(void)
 				ARRAY_SIZE(cyts_gpio_configs));
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-	msm_gpiomux_install(apq8064_hsic_configs,
-			ARRAY_SIZE(apq8064_hsic_configs));
+	if (machine_is_apq8064_mtp())
+		msm_gpiomux_install(apq8064_hsic_configs,
+				ARRAY_SIZE(apq8064_hsic_configs));
 #endif
 
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
