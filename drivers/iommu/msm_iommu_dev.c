@@ -38,13 +38,14 @@ struct iommu_ctx_iter_data {
 	struct device *dev;
 };
 
-static struct platform_device *msm_iommu_root_dev;
+struct platform_device *msm_iommu_root_dev;
 
 static int each_iommu_ctx(struct device *dev, void *data)
 {
 	struct iommu_ctx_iter_data *res = data;
-	struct msm_iommu_ctx_dev *c = dev->platform_data;
+	struct msm_iommu_ctx_drvdata *c;
 
+	c = dev_get_drvdata(dev);
 	if (!res || !c || !c->name || !res->name)
 		return -EINVAL;
 

@@ -23,6 +23,7 @@
 #include <mach/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
+extern struct platform_device *msm_iommu_root_dev;
 
 /* Domain attributes */
 #define MSM_IOMMU_DOMAIN_PT_CACHEABLE	0x1
@@ -103,6 +104,8 @@ struct msm_iommu_ctx_drvdata {
 	const char *name;
 };
 
+irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id);
+
 /*
  * Look up an IOMMU context device by its context name. NULL if none found.
  * Useful for testing and drivers that do not yet fully have IOMMU stuff in
@@ -117,10 +120,17 @@ struct device *msm_iommu_get_ctx(const char *ctx_name);
  */
 irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
 
-#endif
-
-static inline int msm_soc_version_supports_iommu(void)
+static inline int msm_soc_version_supports_iommu_v1(void)
 {
+#ifdef CONFIG_OF
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v2");
+	if (node) {
+		of_node_put(node);
+		return 0;
+	}
+#endif
 	if (cpu_is_msm8960() &&
 	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2)
 		return 0;

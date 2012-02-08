@@ -993,8 +993,8 @@ static struct platform_device *msm_iommu_jpegd_ctx_devs[] = {
 static int __init iommu_init(void)
 {
 	int ret;
-	if (!msm_soc_version_supports_iommu()) {
-		pr_err("IOMMU is not supported on this SoC version.\n");
+	if (!msm_soc_version_supports_iommu_v1()) {
+		pr_err("IOMMU v1 is not supported on this SoC version.\n");
 		return -ENODEV;
 	}
 

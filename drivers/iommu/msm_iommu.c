@@ -1093,7 +1093,7 @@ static void __init setup_iommu_tex_classes(void)
 
 static int __init msm_iommu_init(void)
 {
-	if (!msm_soc_version_supports_iommu())
+	if (!msm_soc_version_supports_iommu_v1())
 		return -ENODEV;
 
 	setup_iommu_tex_classes();
