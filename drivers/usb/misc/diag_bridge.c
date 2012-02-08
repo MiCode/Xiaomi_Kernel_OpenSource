@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/usb.h>
+#include <linux/debugfs.h>
 #include <mach/diag_bridge.h>
 
 #define DRIVER_DESC	"USB host diag bridge driver"
@@ -35,6 +36,12 @@ struct diag_bridge {
 	struct kref		kref;
 	struct diag_bridge_ops	*ops;
 	struct platform_device	*pdev;
+
+	/* debugging counters */
+	unsigned long		bytes_to_host;
+	unsigned long		bytes_to_mdm;
+	unsigned		pending_reads;
+	unsigned		pending_writes;
 };
 struct diag_bridge *__dev;
 
@@ -84,6 +91,9 @@ static void diag_bridge_read_cb(struct urb *urb)
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
 			urb->status < 0 ? urb->status : urb->actual_length);
+
+	dev->bytes_to_host += urb->actual_length;
+	dev->pending_reads--;
 }
 
 int diag_bridge_read(char *data, int size)
@@ -119,10 +129,12 @@ int diag_bridge_read(char *data, int size)
 	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
 				diag_bridge_read_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
+	dev->pending_reads++;
 
 	ret = usb_submit_urb(urb, GFP_ATOMIC);
 	if (ret) {
 		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
+		dev->pending_reads--;
 		usb_unanchor_urb(urb);
 		usb_free_urb(urb);
 		return ret;
@@ -151,6 +163,9 @@ static void diag_bridge_write_cb(struct urb *urb)
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
 			urb->status < 0 ? urb->status : urb->actual_length);
+
+	dev->bytes_to_mdm += urb->actual_length;
+	dev->pending_writes--;
 }
 
 int diag_bridge_write(char *data, int size)
@@ -186,10 +201,12 @@ int diag_bridge_write(char *data, int size)
 	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
 				diag_bridge_write_cb, dev);
 	usb_anchor_urb(urb, &dev->submitted);
+	dev->pending_writes++;
 
 	ret = usb_submit_urb(urb, GFP_ATOMIC);
 	if (ret) {
-		err("submitting urb failed err:%d", ret);
+		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
+		dev->pending_writes--;
 		usb_unanchor_urb(urb);
 		usb_free_urb(urb);
 		return ret;
@@ -210,6 +227,79 @@ static void diag_bridge_delete(struct kref *kref)
 	__dev = 0;
 	kfree(dev);
 }
+
+#if defined(CONFIG_DEBUG_FS)
+#define DEBUG_BUF_SIZE	512
+static ssize_t diag_read_stats(struct file *file, char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct diag_bridge	*dev = __dev;
+	char			*buf;
+	int			ret;
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = scnprintf(buf, DEBUG_BUF_SIZE,
+			"epin:%d, epout:%d\n"
+			"bytes to host: %lu\n"
+			"bytes to mdm: %lu\n"
+			"pending reads: %u\n"
+			"pending writes: %u\n"
+			"last error: %d\n",
+			dev->in_epAddr, dev->out_epAddr,
+			dev->bytes_to_host, dev->bytes_to_mdm,
+			dev->pending_reads, dev->pending_writes,
+			dev->err);
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t diag_reset_stats(struct file *file, const char __user *buf,
+				 size_t count, loff_t *ppos)
+{
+	struct diag_bridge	*dev = __dev;
+
+	dev->bytes_to_host = dev->bytes_to_mdm = 0;
+	dev->pending_reads = dev->pending_writes = 0;
+
+	return count;
+}
+
+const struct file_operations diag_stats_ops = {
+	.read = diag_read_stats,
+	.write = diag_reset_stats,
+};
+
+static struct dentry *dent;
+
+static void diag_bridge_debugfs_init(void)
+{
+	struct dentry *dfile;
+
+	dent = debugfs_create_dir("diag_bridge", 0);
+	if (IS_ERR(dent))
+		return;
+
+	dfile = debugfs_create_file("status", 0444, dent, 0, &diag_stats_ops);
+	if (!dfile || IS_ERR(dfile))
+		debugfs_remove(dent);
+}
+
+static void diag_bridge_debugfs_cleanup(void)
+{
+	if (dent) {
+		debugfs_remove_recursive(dent);
+		dent = NULL;
+	}
+}
+#else
+static inline void diag_bridge_debugfs_init(void) { }
+static inline void diag_bridge_debugfs_cleanup(void) { }
+#endif
 
 static int
 diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
@@ -265,7 +355,7 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	}
 
 	usb_set_intfdata(ifc, dev);
-
+	diag_bridge_debugfs_init();
 	platform_device_add(dev->pdev);
 
 	dev_dbg(&dev->udev->dev, "%s: complete\n", __func__);
@@ -286,6 +376,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
 	platform_device_del(dev->pdev);
+	diag_bridge_debugfs_cleanup();
 	kref_put(&dev->kref, diag_bridge_delete);
 	usb_set_intfdata(ifc, NULL);
 }
