@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
+#include <linux/smp.h>
 
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
@@ -34,6 +35,7 @@
 #define GSS_CSR_CLK_ENABLE	0xC
 #define GSS_CSR_BOOT_REMAP	0x14
 #define GSS_CSR_POWER_UP_DOWN	0x18
+#define GSS_CSR_CFG_HID		0x2C
 
 #define GSS_SLP_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C60)
 #define GSS_RESET		(MSM_CLK_CTL_BASE + 0x2C64)
@@ -63,6 +65,7 @@
 
 struct gss_data {
 	void __iomem *base;
+	void __iomem *qgic2_base;
 	unsigned long start_addr;
 	struct delayed_work work;
 	struct clk *xo;
@@ -139,38 +142,15 @@ static void gss_init(struct gss_data *drv)
 	writel_relaxed(A5_RESET, base + GSS_CSR_RESET);
 }
 
-static int pil_gss_reset(struct pil_desc *pil)
+static void setup_qgic2_bus_access(void *data)
 {
-	struct gss_data *drv = dev_get_drvdata(pil->dev);
+	struct gss_data *drv = data;
 	void __iomem *base = drv->base;
-	unsigned long start_addr = drv->start_addr;
-	int ret;
+	int i;
 
-	ret = make_gss_proxy_votes(pil->dev);
-	if (ret)
-		return ret;
-
-	/* Vote PLL on in GSS's voting register and wait for it to enable. */
-	writel_relaxed(PLL5_VOTE, PLL_ENA_GSS);
-	while ((readl_relaxed(PLL5_STATUS) & PLL_STATUS) == 0)
-		cpu_relax();
-
-	/* Perform GSS initialization. */
-	gss_init(drv);
-
-	/* Configure boot address and enable remap. */
-	writel_relaxed(REMAP_ENABLE | (start_addr >> 16),
-			base + GSS_CSR_BOOT_REMAP);
-
-	/* Power up A5 core. */
-	writel_relaxed(A5_POWER_ENA, base + GSS_CSR_POWER_UP_DOWN);
-	while (!(readl_relaxed(base + GSS_CSR_POWER_UP_DOWN) & A5_POWER_STATUS))
-		cpu_relax();
-
-	/* Release A5 from reset. */
-	writel_relaxed(0x0, base + GSS_CSR_RESET);
-
-	return 0;
+	writel_relaxed(0x2, base + GSS_CSR_CFG_HID);
+	for (i = 0; i <= 3; i++)
+		readl_relaxed(drv->qgic2_base);
 }
 
 static int pil_gss_shutdown(struct pil_desc *pil)
@@ -221,6 +201,51 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 
 	clk_disable_unprepare(drv->xo);
 	remove_gss_proxy_votes_now(drv);
+
+	return 0;
+}
+
+static int pil_gss_reset(struct pil_desc *pil)
+{
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
+	void __iomem *base = drv->base;
+	unsigned long start_addr = drv->start_addr;
+	int ret;
+
+	ret = make_gss_proxy_votes(pil->dev);
+	if (ret)
+		return ret;
+
+	/* Vote PLL on in GSS's voting register and wait for it to enable. */
+	writel_relaxed(PLL5_VOTE, PLL_ENA_GSS);
+	while ((readl_relaxed(PLL5_STATUS) & PLL_STATUS) == 0)
+		cpu_relax();
+
+	/* Perform GSS initialization. */
+	gss_init(drv);
+
+	/* Configure boot address and enable remap. */
+	writel_relaxed(REMAP_ENABLE | (start_addr >> 16),
+			base + GSS_CSR_BOOT_REMAP);
+
+	/* Power up A5 core. */
+	writel_relaxed(A5_POWER_ENA, base + GSS_CSR_POWER_UP_DOWN);
+	while (!(readl_relaxed(base + GSS_CSR_POWER_UP_DOWN) & A5_POWER_STATUS))
+		cpu_relax();
+
+	/*
+	 * Apply a 8064 v1.0 workaround to configure QGIC bus access. This must
+	 * be done from Krait 0 to configure the Master ID correctly.
+	 */
+	ret = smp_call_function_single(0, setup_qgic2_bus_access, drv, 1);
+	if (ret) {
+		pr_err("Failed to configure QGIC2 bus access\n");
+		pil_gss_shutdown(pil);
+		return ret;
+	}
+
+	/* Release A5 from reset. */
+	writel_relaxed(0x0, base + GSS_CSR_RESET);
 
 	return 0;
 }
@@ -311,6 +336,15 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+
+	drv->qgic2_base = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+	if (!drv->qgic2_base)
 		return -ENOMEM;
 
 	drv->xo = clk_get(&pdev->dev, "xo");
