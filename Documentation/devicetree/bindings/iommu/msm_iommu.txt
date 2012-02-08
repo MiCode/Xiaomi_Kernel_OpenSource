@@ -1,0 +1,35 @@
+* Qualcomm MSM IOMMU
+
+Required properties:
+- compatible : one of:
+	- "qcom,msm-smmu-v2"
+- reg : offset and length of the register set for the device.
+
+- List of sub nodes, one for each of the translation context banks supported.
+  Each sub node has the following required properties:
+
+  - reg : offset and length of the register set for the context bank.
+  - interrupts : should contain the context bank interrupt.
+  - qcom,iommu-ctx-sids : List of stream identifiers associated with this
+    translation context.
+  - qcom,iommu-ctx-name : Name of the context bank
+
+Example:
+
+        qcom,iommu@fda64000 {
+                compatible = "qcom,msm-smmu-v2";
+                reg = <0xfda64000 0x10000>;
+
+                qcom,iommu-ctx@fda6c000 {
+                        reg = <0xfda6c000 0x1000>;
+                        interrupts = <0 70 0>;
+                        qcom,iommu-ctx-sids = <0 2>;
+			qcom,iommu-ctx-name = "ctx_0";
+                };
+                qcom,iommu-ctx@fda6d000 {
+                        reg = <0xfda6d000 0x1000>;
+                        interrupts = <0 71 0>;
+                        qcom,iommu-ctx-sids = <1>;
+			qcom,iommu-ctx-name = "ctx_1";
+                };
+        };
