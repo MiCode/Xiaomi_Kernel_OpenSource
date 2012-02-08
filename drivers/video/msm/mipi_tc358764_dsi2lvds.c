@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,9 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/pwm.h>
+#include <linux/gpio.h>
 #include "msm_fb.h"
+#include "mdp4.h"
 #include "mipi_dsi.h"
 #include "mipi_tc358764_dsi2lvds.h"
 
@@ -186,7 +188,11 @@
 #define DEBUG01		0x05A4	/* LVDS Data */
 
 /* PWM */
-#define PWM_FREQ_HZ	(66*1000)	/* 66 KHZ */
+static u32 d2l_pwm_freq_hz = (66*1000);
+
+/* 1366x768 uses pwm at 66 KHZ */
+/* 1200x1920 uses pwm at 25 KHZ */
+#define PWM_FREQ_HZ	(d2l_pwm_freq_hz)
 #define PWM_LEVEL 15
 #define PWM_PERIOD_USEC (USEC_PER_SEC / PWM_FREQ_HZ)
 #define PWM_DUTY_LEVEL (PWM_PERIOD_USEC / PWM_LEVEL)
@@ -213,10 +219,17 @@ static struct dsi_buf d2l_tx_buf;
 static struct dsi_buf d2l_rx_buf;
 static int led_pwm;
 static struct pwm_device *bl_pwm;
+static struct pwm_device *tn_pwm;
 static int bl_level;
 static u32 d2l_gpio_out_mask;
 static u32 d2l_gpio_out_val;
+static u32 d2l_3d_gpio_enable;
+static u32 d2l_3d_gpio_mode;
+static int d2l_enable_3d;
+
 static int mipi_d2l_init(void);
+static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
+			      bool enable, bool mode);
 
 /**
  * Read a bridge register
@@ -236,7 +249,7 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 	mipi_dsi_buf_init(&d2l_tx_buf);
 	mipi_dsi_buf_init(&d2l_rx_buf);
 
-	/* mutex had been acquried at dsi_on */
+	/* mutex had been acquired at mipi_dsi_on */
 	len = mipi_dsi_cmds_rx(mfd, &d2l_tx_buf, &d2l_rx_buf,
 			       &cmd_read_reg, len);
 
@@ -247,7 +260,6 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 
 	pr_debug("%s: reg=0x%x.data=0x%08x.\n", __func__, reg, data);
 
-
 	return data;
 }
 
@@ -256,9 +268,9 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
  *
  * @param mfd
  *
- * @return register data value
+ * @return int
  */
-static u32 mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
+static int mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 {
 	struct wr_cmd_payload payload;
 	struct dsi_cmd_desc cmd_write_reg = {
@@ -268,34 +280,24 @@ static u32 mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 	payload.addr = reg;
 	payload.data = data;
 
-	/* mutex had been acquried at dsi_on */
+	/* mutex had been acquired at mipi_dsi_on */
 	mipi_dsi_cmds_tx(mfd, &d2l_tx_buf, &cmd_write_reg, 1);
 
 	pr_debug("%s: reg=0x%x. data=0x%x.\n", __func__, reg, data);
 
-	return data;
+	return 0;
 }
 
-/*
+static void mipi_d2l_read_status(struct msm_fb_data_type *mfd)
+{
+	mipi_d2l_read_reg(mfd, DSI_LANESTATUS0);	/* 0x214 */
+	mipi_d2l_read_reg(mfd, DSI_LANESTATUS1);	/* 0x218 */
+	mipi_d2l_read_reg(mfd, DSI_INTSTATUS);		/* 0x220 */
+	mipi_d2l_read_reg(mfd, SYSSTAT);		/* 0x500 */
+}
+
+/**
  * Init the D2L bridge via the DSI interface for Video.
- *
- *	Register		Addr	Value
- *  ===================================================
- *  PPI_TX_RX_TA		0x013C	0x00040004
- *  PPI_LPTXTIMECNT	        0x0114	0x00000004
- *  PPI_D0S_CLRSIPOCOUNT	0x0164	0x00000003
- *  PPI_D1S_CLRSIPOCOUNT	0x0168	0x00000003
- *  PPI_D2S_CLRSIPOCOUNT	0x016C	0x00000003
- *  PPI_D3S_CLRSIPOCOUNT	0x0170	0x00000003
- *  PPI_LANEENABLE	        0x0134	0x0000001F
- *  DSI_LANEENABLE	        0x0210	0x0000001F
- *  PPI_STARTPPI	        0x0104	0x00000001
- *  DSI_STARTDSI	        0x0204	0x00000001
- *  VPCTRL			0x0450	0x01000120
- *  HTIM1			0x0454	0x002C0028
- *  VTIM1			0x045C	0x001E0008
- *  VFUEN			0x0464	0x00000001
- *  LVCFG			0x049C	0x00000001
  *
  * VPCTRL.EVTMODE (0x20) configuration bit is needed to determine whether
  * video timing information is delivered in pulse mode or event mode.
@@ -304,15 +306,22 @@ static u32 mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
  *
  * @param mfd
  *
- * @return register data value
+ * @return int
  */
 static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 {
 	struct mipi_panel_info *mipi = &mfd->panel_info.mipi;
 	u32 lanes_enable;
 	u32 vpctrl;
-	u32 htime1 = 0x002C0028;
-	u32 vtime1 = 0x001E0008;
+	u32 htime1;
+	u32 vtime1;
+	u32 ppi_tx_rx_ta; /* BTA Bus-Turn-Around */
+	u32 lvcfg;
+	u32 hbpr;	/* Horizontal Back Porch */
+	u32 hpw;	/* Horizontal Pulse Width */
+	u32 vbpr;	/* Vertical Back Porch */
+	u32 vpw;	/* Vertical Pulse Width */
+	bool vesa_rgb888 = false;
 
 	lanes_enable = 0x01; /* clock-lane enable */
 	lanes_enable |= (mipi->data_lane0 << 1);
@@ -330,25 +339,57 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 		return -EINVAL;
 	}
 
+	if (mfd->panel_info.clk_rate > 800*1000*1000) {
+		pr_err("%s.unsupported clk_rate %d.\n",
+		       __func__, mfd->panel_info.clk_rate);
+		return -EINVAL;
+	}
+
+	pr_debug("%s.xres=%d.yres=%d.\n",
+		__func__, mfd->panel_info.xres, mfd->panel_info.yres);
+
+	hbpr = mfd->panel_info.lcdc.h_back_porch;
+	hpw	= mfd->panel_info.lcdc.h_pulse_width;
+	vbpr = mfd->panel_info.lcdc.v_back_porch;
+	vpw	= mfd->panel_info.lcdc.v_pulse_width;
+
+	htime1 = (hbpr << 16) + hpw;
+	vtime1 = (vbpr << 16) + vpw;
+	lvcfg = 0x0003; /* PCLK=DCLK/3, Dual Link, LVEN */
+	vpctrl = 0x01000120; /* Output RGB888 , Event-Mode , */
+	ppi_tx_rx_ta = 0x00040004;
+
+	if (mfd->panel_info.xres == 1366) {
+		ppi_tx_rx_ta = 0x00040004;
+		lvcfg = 0x01; /* LVEN */
+		vesa_rgb888 = true;
+	}
+
+	if (mfd->panel_info.xres == 1200) {
+		lvcfg = 0x0103; /* PCLK=DCLK/4, Dual Link, LVEN */
+		vesa_rgb888 = true;
+	}
+
 	pr_debug("%s.htime1=0x%x.\n", __func__, htime1);
 	pr_debug("%s.vtime1=0x%x.\n", __func__, vtime1);
 	pr_debug("%s.vpctrl=0x%x.\n", __func__, vpctrl);
-	pr_debug("%s.lanes_enable=0x%x.\n", __func__, lanes_enable);
-
+	pr_debug("%s.lvcfg=0x%x.\n", __func__, lvcfg);
 
 	mipi_d2l_write_reg(mfd, SYSRST, 0xFF);
 	msleep(30);
 
-	/* VESA format instead of JEIDA format for RGB888 */
-	mipi_d2l_write_reg(mfd, LVMX0003, 0x03020100);
-	mipi_d2l_write_reg(mfd, LVMX0407, 0x08050704);
-	mipi_d2l_write_reg(mfd, LVMX0811, 0x0F0E0A09);
-	mipi_d2l_write_reg(mfd, LVMX1215, 0x100D0C0B);
-	mipi_d2l_write_reg(mfd, LVMX1619, 0x12111716);
-	mipi_d2l_write_reg(mfd, LVMX2023, 0x1B151413);
-	mipi_d2l_write_reg(mfd, LVMX2427, 0x061A1918);
+	if (vesa_rgb888) {
+		/* VESA format instead of JEIDA format for RGB888 */
+		mipi_d2l_write_reg(mfd, LVMX0003, 0x03020100);
+		mipi_d2l_write_reg(mfd, LVMX0407, 0x08050704);
+		mipi_d2l_write_reg(mfd, LVMX0811, 0x0F0E0A09);
+		mipi_d2l_write_reg(mfd, LVMX1215, 0x100D0C0B);
+		mipi_d2l_write_reg(mfd, LVMX1619, 0x12111716);
+		mipi_d2l_write_reg(mfd, LVMX2023, 0x1B151413);
+		mipi_d2l_write_reg(mfd, LVMX2427, 0x061A1918);
+	}
 
-	mipi_d2l_write_reg(mfd, PPI_TX_RX_TA, 0x00040004); /* BTA */
+	mipi_d2l_write_reg(mfd, PPI_TX_RX_TA, ppi_tx_rx_ta); /* BTA */
 	mipi_d2l_write_reg(mfd, PPI_LPTXTIMECNT, 0x00000004);
 	mipi_d2l_write_reg(mfd, PPI_D0S_CLRSIPOCOUNT, 0x00000003);
 	mipi_d2l_write_reg(mfd, PPI_D1S_CLRSIPOCOUNT, 0x00000003);
@@ -363,7 +404,7 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 	mipi_d2l_write_reg(mfd, HTIM1, htime1);
 	mipi_d2l_write_reg(mfd, VTIM1, vtime1);
 	mipi_d2l_write_reg(mfd, VFUEN, 0x00000001);
-	mipi_d2l_write_reg(mfd, LVCFG, 0x00000001); /* Enables LVDS tx */
+	mipi_d2l_write_reg(mfd, LVCFG, lvcfg); /* Enables LVDS tx */
 
 	return 0;
 }
@@ -400,6 +441,35 @@ static int mipi_d2l_set_backlight_level(struct pwm_device *pwm, int level)
 		return ret;
 	}
 
+	return 0;
+}
+
+/**
+ * Set TN CLK.
+ *
+ * @param pwm
+ * @param level
+ *
+ * @return int
+ */
+static int mipi_d2l_set_tn_clk(struct pwm_device *pwm, u32 usec)
+{
+	int ret = 0;
+
+	pr_debug("%s: usec=%d.\n", __func__, usec);
+
+	ret = pwm_config(pwm, usec/2 , usec);
+	if (ret) {
+		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
+		return ret;
+	}
+
+	ret = pwm_enable(pwm);
+	if (ret) {
+		pr_err("%s: pwm_enable() failed err=%d\n",
+		       __func__, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -446,8 +516,13 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 		return ret;
 
 	mipi_d2l_write_reg(mfd, GPIOC, d2l_gpio_out_mask);
-	/* Set GPIOs: gpio#4=U/D=0 , gpio#3=L/R=1 , gpio#2,1=CABC=0. */
+	/* Set gpio#4=U/D=0, gpio#3=L/R=1 , gpio#2,1=CABC=0, gpio#0=NA. */
 	mipi_d2l_write_reg(mfd, GPIOO, d2l_gpio_out_val);
+
+	if (mfd->panel_info.xres == 1366)
+		d2l_pwm_freq_hz = (66*1000);
+	else
+		d2l_pwm_freq_hz = (25*1000);
 
 	if (bl_level == 0)
 		bl_level = PWM_LEVEL * 2 / 3 ; /* Default ON value */
@@ -459,6 +534,10 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 			pr_err("%s.mipi_d2l_set_backlight_level.ret=%d",
 			       __func__, ret);
 	}
+
+	mipi_d2l_read_status(mfd);
+
+	mipi_d2l_enable_3d(mfd, false, false);
 
 	pr_info("%s.ret=%d.\n", __func__, ret);
 
@@ -510,6 +589,98 @@ static struct msm_fb_panel_data d2l_panel_data = {
 	.set_backlight = mipi_d2l_set_backlight,
 };
 
+static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
+			      bool enable, bool mode)
+{
+	u32 tn_usec = 1000000 / 66; /* 66 HZ */
+
+	pr_debug("%s.enable=%d.mode=%d.\n", __func__, enable, mode);
+
+	gpio_direction_output(d2l_3d_gpio_enable, enable);
+	gpio_direction_output(d2l_3d_gpio_mode, mode);
+
+	mipi_d2l_set_tn_clk(tn_pwm, tn_usec);
+
+	return 0;
+}
+
+static ssize_t mipi_d2l_enable_3d_read(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	return snprintf((char *)buf, sizeof(buf), "%u\n", d2l_enable_3d);
+}
+
+static ssize_t mipi_d2l_enable_3d_write(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf,
+				size_t count)
+{
+	int ret = -1;
+	u32 data = 0;
+
+	if (sscanf((char *)buf, "%u", &data) != 1) {
+		dev_err(dev, "%s. Invalid input.\n", __func__);
+		ret = -EINVAL;
+	} else {
+		d2l_enable_3d = data;
+		if (data == 1) /* LANDSCAPE */
+			mipi_d2l_enable_3d(d2l_mfd, true, true);
+		else if (data == 2) /* PORTRAIT */
+			mipi_d2l_enable_3d(d2l_mfd, true, false);
+		else if (data == 0)
+			mipi_d2l_enable_3d(d2l_mfd, false, false);
+		else
+			pr_err("%s.Invalid value=%d.\n", __func__, data);
+	}
+
+	return count;
+}
+
+static struct device_attribute mipi_d2l_3d_barrier_attributes[] = {
+	__ATTR(enable_3d_barrier, 0664,
+	       mipi_d2l_enable_3d_read,
+	       mipi_d2l_enable_3d_write),
+};
+
+static int mipi_dsi_3d_barrier_sysfs_register(struct device *dev)
+{
+	int ret;
+
+	pr_debug("%s.d2l_3d_gpio_enable=%d.\n", __func__, d2l_3d_gpio_enable);
+	pr_debug("%s.d2l_3d_gpio_mode=%d.\n", __func__, d2l_3d_gpio_mode);
+
+	ret  = device_create_file(dev, mipi_d2l_3d_barrier_attributes);
+	if (ret) {
+		pr_err("%s.failed to create 3D sysfs.\n", __func__);
+		goto err_device_create_file;
+	}
+
+	ret = gpio_request(d2l_3d_gpio_enable, "d2l_3d_gpio_enable");
+	if (ret) {
+		pr_err("%s.failed to get d2l_3d_gpio_enable=%d.\n",
+		       __func__, d2l_3d_gpio_enable);
+		goto err_d2l_3d_gpio_enable;
+	}
+
+	ret = gpio_request(d2l_3d_gpio_mode, "d2l_3d_gpio_mode");
+	if (ret) {
+		pr_err("%s.failed to get d2l_3d_gpio_mode=%d.\n",
+		       __func__, d2l_3d_gpio_mode);
+		goto err_d2l_3d_gpio_mode;
+	}
+
+	return 0;
+
+err_d2l_3d_gpio_mode:
+	gpio_free(d2l_3d_gpio_enable);
+err_d2l_3d_gpio_enable:
+	device_remove_file(dev, mipi_d2l_3d_barrier_attributes);
+err_device_create_file:
+
+	return ret;
+}
+
 /**
  * Probe for device.
  *
@@ -530,7 +701,6 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 	pr_debug("%s.id=%d.\n", __func__, pdev->id);
 
 	if (pdev->id == 0) {
-		/* d2l_common_pdata = platform_get_drvdata(pdev); */
 		d2l_common_pdata = pdev->dev.platform_data;
 
 		if (d2l_common_pdata == NULL) {
@@ -541,6 +711,8 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 		led_pwm = d2l_common_pdata->gpio_num[0];
 		d2l_gpio_out_mask = d2l_common_pdata->gpio_num[1] >> 8;
 		d2l_gpio_out_val = d2l_common_pdata->gpio_num[1] & 0xFF;
+		d2l_3d_gpio_enable = d2l_common_pdata->gpio_num[2];
+		d2l_3d_gpio_mode = d2l_common_pdata->gpio_num[3];
 
 		mipi_dsi_buf_alloc(&d2l_tx_buf, DSI_BUF_SIZE);
 		mipi_dsi_buf_alloc(&d2l_rx_buf, DSI_BUF_SIZE);
@@ -567,10 +739,20 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 
 		}
 	} else {
-		pr_info("%s. led_pwm is invalid.\n", __func__);
+		pr_err("%s. led_pwm is invalid.\n", __func__);
 	}
 
-	/* pinfo = platform_get_drvdata(pdev); */
+	tn_pwm = pwm_request(1, "3D_TN_clk");
+	if (tn_pwm == NULL || IS_ERR(tn_pwm)) {
+		pr_err("%s pwm_request() failed.id=%d.tn_pwm=%d.\n",
+		       __func__, 1, (int) tn_pwm);
+		tn_pwm = NULL;
+		return -EIO;
+	} else {
+		pr_debug("%s.pwm_request() ok.pwm-id=%d.\n", __func__, 1);
+
+	}
+
 	pinfo = pdev->dev.platform_data;
 
 	if (pinfo == NULL) {
@@ -583,6 +765,9 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 	pdev->dev.platform_data = &d2l_panel_data;
 
 	msm_fb_add_device(pdev);
+
+	if (pinfo->is_3d_panel)
+		mipi_dsi_3d_barrier_sysfs_register(&(pdev->dev));
 
 	return ret;
 }
@@ -667,6 +852,7 @@ static struct platform_driver d2l_driver = {
 static int mipi_d2l_init(void)
 {
 	pr_debug("%s.\n", __func__);
+
 	return platform_driver_register(&d2l_driver);
 }
 
