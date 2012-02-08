@@ -86,8 +86,8 @@ static void diag_smd_cntl_send_req(int proc_num)
 				diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG,
 						 (unsigned long)pkt_params);
 				kfree(temp);
-				buf = buf + HDR_SIZ + data_len;
 			}
+			buf = buf + HDR_SIZ + data_len;
 		}
 	}
 	kfree(pkt_params);
