@@ -1,7 +1,7 @@
 /* drivers/video/msm/src/drv/mdp/mdp_ppp.c
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -52,6 +52,7 @@ static uint32_t bytes_per_pixel[] = {
 	[MDP_RGBX_8888] = 4,
 	[MDP_Y_CBCR_H2V1] = 1,
 	[MDP_Y_CBCR_H2V2] = 1,
+	[MDP_Y_CBCR_H2V2_ADRENO] = 1,
 	[MDP_Y_CRCB_H2V1] = 1,
 	[MDP_Y_CRCB_H2V2] = 1,
 	[MDP_YCRYCB_H2V1] = 2,
@@ -535,14 +536,16 @@ static void mdp_ppp_setbg(MDPIBUF *iBuf)
 
 #define IS_PSEUDOPLNR(img) ((img == MDP_Y_CRCB_H2V2) | \
 				(img == MDP_Y_CBCR_H2V2) | \
+				(img == MDP_Y_CBCR_H2V2_ADRENO) | \
 				(img == MDP_Y_CRCB_H2V1) | \
 				(img == MDP_Y_CBCR_H2V1))
 
 #define IMG_LEN(rect_h, w, rect_w, bpp) (((rect_h) * w) * bpp)
 
 #define Y_TO_CRCB_RATIO(format) \
-	((format == MDP_Y_CBCR_H2V2 || format == MDP_Y_CRCB_H2V2) ?  2 :\
-	(format == MDP_Y_CBCR_H2V1 || format == MDP_Y_CRCB_H2V1) ?  1 : 1)
+	((format == MDP_Y_CBCR_H2V2 || format == MDP_Y_CBCR_H2V2_ADRENO || \
+	  format == MDP_Y_CRCB_H2V2) ?  2 : (format == MDP_Y_CBCR_H2V1 || \
+	  format == MDP_Y_CRCB_H2V1) ?  1 : 1)
 
 #ifdef CONFIG_ANDROID_PMEM
 static void get_len(struct mdp_img *img, struct mdp_rect *rect, uint32_t bpp,
@@ -589,6 +592,7 @@ struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
 	uint32 src_width;
 	uint32 src_height;
 	uint32 src0_ystride;
+	uint32 src0_y1stride;
 	uint32 dst_roi_width;
 	uint32 dst_roi_height;
 	uint32 ppp_src_cfg_reg, ppp_operation_reg, ppp_dst_cfg_reg;
@@ -868,6 +872,7 @@ struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
 		break;
 
 	case MDP_Y_CBCR_H2V2:
+	case MDP_Y_CBCR_H2V2_ADRENO:
 	case MDP_Y_CRCB_H2V2:
 		inpBpp = 1;
 		src1 = (uint8 *) iBuf->mdpImg.cbcr_addr;
@@ -1059,7 +1064,16 @@ struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
 		}
 	}
 
-	src0_ystride = src_width * inpBpp;
+	if (iBuf->mdpImg.imgType == MDP_Y_CBCR_H2V2_ADRENO)
+		src0_ystride = ALIGN(src_width, 32) * inpBpp;
+	else
+		src0_ystride = src_width * inpBpp;
+
+	if (iBuf->mdpImg.imgType == MDP_Y_CBCR_H2V2_ADRENO)
+		src0_y1stride = 2 * ALIGN(src_width/2, 32);
+	else
+		src0_y1stride = src0_ystride;
+
 	dest0_ystride = iBuf->ibuf_width * iBuf->bpp;
 
 	/* no need to care about rotation since it's the real-XY. */
@@ -1121,7 +1135,7 @@ struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x010c, src0); /* comp.plane 0 */
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x0110, src1); /* comp.plane 1 */
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x011c,
-		 (src0_ystride << 16 | src0_ystride));
+		 (src0_y1stride << 16 | src0_ystride));
 
 	/* setup for rgb 565 */
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x0124, ppp_src_cfg_reg);
@@ -1362,9 +1376,16 @@ int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
 	iBuf.mdpImg.imgType = req->src.format;
 
 	iBuf.mdpImg.bmy_addr = (uint32 *) (src_start + req->src.offset);
-	iBuf.mdpImg.cbcr_addr =
-	    (uint32 *) ((uint32) iBuf.mdpImg.bmy_addr +
-			req->src.width * req->src.height);
+
+	if (iBuf.mdpImg.imgType == MDP_Y_CBCR_H2V2_ADRENO)
+		iBuf.mdpImg.cbcr_addr =
+			(uint32 *) ((uint32) iBuf.mdpImg.bmy_addr +
+				ALIGN((ALIGN(req->src.width, 32) *
+				ALIGN(req->src.height, 32)), 4096));
+	else
+		iBuf.mdpImg.cbcr_addr =
+			(uint32 *) ((uint32) iBuf.mdpImg.bmy_addr +
+				req->src.width * req->src.height);
 
 	iBuf.mdpImg.mdpOp = MDPOP_NOP;
 

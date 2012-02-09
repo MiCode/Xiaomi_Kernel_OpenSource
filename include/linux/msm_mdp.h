@@ -1,6 +1,7 @@
 /* include/linux/msm_mdp.h
  *
  * Copyright (C) 2007 Google Incorporated
+ * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -77,6 +78,7 @@ enum {
 	MDP_RGB_565,      /* RGB 565 planer */
 	MDP_XRGB_8888,    /* RGB 888 padded */
 	MDP_Y_CBCR_H2V2,  /* Y and CbCr, pseudo planer w/ Cb is in MSB */
+	MDP_Y_CBCR_H2V2_ADRENO,
 	MDP_ARGB_8888,    /* ARGB 888 */
 	MDP_RGB_888,      /* RGB 888 planer */
 	MDP_Y_CRCB_H2V2,  /* Y and CrCb, pseudo planer w/ Cr is in MSB */
