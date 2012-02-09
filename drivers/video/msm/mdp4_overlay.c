@@ -370,17 +370,18 @@ static int mdp4_leading_0(uint32 num)
 
 static uint32 mdp4_scale_phase_step(int f_num, uint32 src, uint32 dst)
 {
-	uint32 val;
+	uint32 val, s;
 	int	n;
 
 	n = mdp4_leading_0(src);
 	if (n > f_num)
 		n = f_num;
-	val = src << n;	/* maximum to reduce lose of resolution */
-	val /= dst;
+	s = src << n;	/* maximum to reduce lose of resolution */
+	val = s / dst;
 	if (n < f_num) {
 		n = f_num - n;
 		val <<= n;
+		val |= ((s % dst) << n) / dst;
 	}
 
 	return val;
