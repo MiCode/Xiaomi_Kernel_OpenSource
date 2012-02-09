@@ -172,7 +172,7 @@ static char cmd18[2] = {
 	0xB6, 0x02,
 };
 static char cmd19[3] = {
-	0xB1, 0xEC, 0x06,
+	0xB1, 0xEC, 0x00,
 };
 static char cmd20[4] = {
 	0xBC, 0x05, 0x05, 0x05,
@@ -206,7 +206,7 @@ static char cmd26[6] = {
 static char cmd27[2] = {
 	0x35, 0x00,
 };
-static char config_MADCTL[2] = {0x36, 0xC0};
+static char config_MADCTL[2] = {0x36, 0x00};
 static struct dsi_cmd_desc nt35510_cmd_display_on_cmds[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 50, sizeof(cmd0), cmd0},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 50, sizeof(cmd1), cmd1},
