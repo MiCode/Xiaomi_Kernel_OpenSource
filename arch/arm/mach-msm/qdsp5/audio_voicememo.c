@@ -266,7 +266,9 @@ static void audvoicememo_flush_buf(struct audio_voicememo *audio)
 		audio->in[index].used = 0;
 
 	audio->read_next = 0;
+	mutex_lock(&audio->dsp_lock);
 	audio->fill_next = 0;
+	mutex_unlock(&audio->dsp_lock);
 }
 
 static void audvoicememo_ioport_reset(struct audio_voicememo *audio)
@@ -387,6 +389,7 @@ static int audvoicememo_disable(struct audio_voicememo *audio)
 		rc = msm_rpc_write(audio->sndept, &rhdr, sizeof(rhdr));
 		wait_event_timeout(audio->wait, audio->stopped == 0,
 				1 * HZ);
+		audio->stopped = 1;
 		wake_up(&audio->read_wait);
 		audmgr_disable(&audio->audmgr);
 		audio->enabled = 0;
@@ -536,12 +539,14 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 					callback time\n");
 		else if (rec_status == RPC_VOC_REC_STAT_AUTO_STOP) {
 			MM_DBG(" Voice Record AUTO STOP\n");
+			mutex_lock(&audio->lock);
+			audio->stopped = 1;
 			wake_up(&audio->read_wait);
 			audmgr_disable(&audio->audmgr);
-			audio->stopped = 1;
 			audvoicememo_ioport_reset(audio);
 			audio->stopped = 0;
 			audio->enabled = 0;
+			mutex_unlock(&audio->lock);
 		}
 			break;
 		}
@@ -648,7 +653,6 @@ static long audio_voicememo_ioctl(struct file *file,
 	case AUDIO_STOP: {
 			MM_DBG("AUDIO_STOP\n");
 			rc = audvoicememo_disable(audio);
-			audio->stopped = 1;
 			audvoicememo_ioport_reset(audio);
 			audio->stopped = 0;
 			MM_DBG("AUDIO_STOP rc %d\n", rc);

@@ -247,6 +247,7 @@ static int audio_disable(struct audio *audio)
 
 		audpp_disable(-1, audio);
 
+		audio->stopped = 1;
 		wake_up(&audio->wait);
 		audmgr_disable(&audio->audmgr);
 		audio->out_needed = 0;
@@ -519,7 +520,6 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case AUDIO_STOP:
 		rc = audio_disable(audio);
-		audio->stopped = 1;
 		break;
 	case AUDIO_FLUSH:
 		if (audio->stopped) {

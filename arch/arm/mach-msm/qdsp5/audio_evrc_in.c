@@ -281,6 +281,8 @@ static int audevrc_in_disable(struct audio_evrc_in *audio)
 		wake_up(&audio->wait);
 		wait_event_interruptible_timeout(audio->wait_enable,
 				audio->running == 0, 1*HZ);
+		audio->stopped = 1;
+		wake_up(&audio->wait);
 		msm_adsp_disable(audio->audrec);
 		if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
 			msm_adsp_disable(audio->audpre);
@@ -741,7 +743,6 @@ static long audevrc_in_ioctl(struct file *file,
 	}
 	case AUDIO_STOP: {
 		rc = audevrc_in_disable(audio);
-		audio->stopped = 1;
 		break;
 	}
 	case AUDIO_FLUSH: {

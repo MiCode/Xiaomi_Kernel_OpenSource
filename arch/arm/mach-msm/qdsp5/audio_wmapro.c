@@ -301,6 +301,7 @@ static int audio_disable(struct audio *audio)
 			rc = -EFAULT;
 		else
 			rc = 0;
+		audio->stopped = 1;
 		wake_up(&audio->write_wait);
 		wake_up(&audio->read_wait);
 		msm_adsp_disable(audio->audplay);
@@ -901,7 +902,6 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case AUDIO_STOP:
 		MM_DBG("AUDIO_STOP\n");
 		rc = audio_disable(audio);
-		audio->stopped = 1;
 		audio_ioport_reset(audio);
 		audio->stopped = 0;
 		break;
