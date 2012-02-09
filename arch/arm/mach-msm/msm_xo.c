@@ -239,10 +239,9 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 
 	/*
 	 * TODO: Remove early return for 8064 once RPM XO voting support
-	 * is available. Remove early return for 8960 CXO once all voters
-	 * for it are in place.
+	 * is available.
 	 */
-	if (cpu_is_apq8064() || (cpu_is_msm8960() && xo_id == MSM_XO_CXO))
+	if (cpu_is_apq8064())
 		return NULL;
 
 	if (xo_id >= NUM_MSM_XO_IDS) {
