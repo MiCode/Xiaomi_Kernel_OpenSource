@@ -44,6 +44,7 @@
 #define ADM0_PBUS_CLK_CTL_REG			REG(0x2208)
 #define CE1_HCLK_CTL_REG			REG(0x2720)
 #define CE1_CORE_CLK_CTL_REG			REG(0x2724)
+#define PRNG_CLK_NS_REG				REG(0x2E80)
 #define CE3_HCLK_CTL_REG			REG(0x36C4)
 #define CE3_CORE_CLK_CTL_REG			REG(0x36CC)
 #define CE3_CLK_SRC_NS_REG			REG(0x36C0)
@@ -4885,7 +4886,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("core_clk",		gsbi7_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
 	CLK_LOOKUP("mem_clk",		pmem_clk.c,		"msm_sps"),
-	CLK_DUMMY("core_clk",           PRNG_CLK,	"msm_rng.0", OFF),
+	CLK_LOOKUP("core_clk",          prng_clk.c,		"msm_rng.0"),
 	CLK_LOOKUP("core_clk",		sdc1_clk.c,		"msm_sdcc.1"),
 	CLK_LOOKUP("core_clk",		sdc2_clk.c,		"msm_sdcc.2"),
 	CLK_LOOKUP("core_clk",		sdc3_clk.c,		"msm_sdcc.3"),
@@ -5540,8 +5541,8 @@ static void __init reg_init(void)
 		rmwreg(0, SATA_PHY_REF_CLK_CTL_REG, 0x1);
 
 	/*
-	 * TODO: Programming below PLLs is temporary and needs to be removed
-	 *       after bootloaders program them.
+	 * TODO: Programming below PLLs and prng_clk is temporary and
+	 *	 needs to be removed after bootloaders program them.
 	 */
 	if (cpu_is_apq8064()) {
 		u32 is_pll_enabled;
@@ -5588,6 +5589,10 @@ static void __init reg_init(void)
 
 		/* Enable PLL4 source on the LPASS Primary PLL Mux */
 		writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG);
+
+		/* Program prng_clk to 64MHz if it isn't configured */
+		if (!readl_relaxed(PRNG_CLK_NS_REG))
+			writel_relaxed(0x2B, PRNG_CLK_NS_REG);
 	}
 }
 
