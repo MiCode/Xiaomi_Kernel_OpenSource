@@ -522,6 +522,7 @@ static int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, ctrl, ctrlcmd.length);
 	ctrlcmd.timeout_ms = 1000;
+	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in usersspace, and get return value */
@@ -547,6 +548,7 @@ static int msm_server_q_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, queryctrl, ctrlcmd.length);
 	ctrlcmd.timeout_ms = 1000;
+	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
 
 	/* send command to config thread in userspace, and get return value */
