@@ -385,6 +385,67 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.p_addr = 0,
 };
 
+/* 8625 PM platform data */
+static struct msm_pm_platform_data msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
+	/* CORE0 entries */
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 0,
+					.suspend_enabled = 0,
+					.latency = 16000,
+					.residency = 20000,
+	},
+
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 0,
+					.suspend_enabled = 0,
+					.latency = 12000,
+					.residency = 20000,
+	},
+
+	/* picked latency & redisdency values from 7x30 */
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 0,
+					.suspend_enabled = 0,
+					.latency = 500,
+					.residency = 6000,
+	},
+
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 1,
+					.suspend_enabled = 1,
+					.latency = 2,
+					.residency = 10,
+	},
+
+	/* picked latency & redisdency values from 7x30 */
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 0,
+					.suspend_enabled = 0,
+					.latency = 500,
+					.residency = 6000,
+	},
+
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+					.idle_supported = 1,
+					.suspend_supported = 1,
+					.idle_enabled = 1,
+					.suspend_enabled = 1,
+					.latency = 2,
+					.residency = 10,
+	},
+
+};
+
 static struct msm_pm_boot_platform_data msm_pm_8625_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR,
 	.v_addr = MSM_CFG_CTL_BASE,
@@ -1194,6 +1255,8 @@ static void __init msm8625_rumi3_init(void)
 	platform_add_devices(msm8625_rumi3_devices,
 			ARRAY_SIZE(msm8625_rumi3_devices));
 
+	msm_pm_set_platform_data(msm8625_pm_data,
+			 ARRAY_SIZE(msm8625_pm_data));
 	BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
 	msm8x25_spm_device_init();
 }
