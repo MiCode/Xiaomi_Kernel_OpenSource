@@ -15,7 +15,7 @@
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/uaccess.h>
-#include <linux/android_pmem.h>
+#include <linux/ion.h>
 #include <linux/mm.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 
@@ -62,13 +62,13 @@ struct acdb_data {
 	/* Sidetone Cal */
 	struct sidetone_atomic_cal	sidetone_cal;
 
-	/* PMEM information */
-	atomic_t			pmem_fd;
+	/* Allocation information */
+	struct ion_client		*ion_client;
+	struct ion_handle		*ion_handle;
+	atomic_t			map_handle;
 	atomic64_t			paddr;
 	atomic64_t			kvaddr;
-	atomic64_t			pmem_len;
-	struct file			*file;
-
+	atomic64_t			mem_len;
 };
 
 static struct acdb_data		acdb_data;
@@ -200,10 +200,10 @@ void store_anc_cal(struct cal_block *cal_block)
 {
 	pr_debug("%s,\n", __func__);
 
-	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
 			__func__, cal_block->cal_offset,
-			(long)atomic64_read(&acdb_data.pmem_len));
+			(long)atomic64_read(&acdb_data.mem_len));
 		goto done;
 	}
 
@@ -221,10 +221,10 @@ void store_afe_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
-	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
 			__func__, cal_block->cal_offset,
-			(long)atomic64_read(&acdb_data.pmem_len));
+			(long)atomic64_read(&acdb_data.mem_len));
 		goto done;
 	}
 	if ((path >= MAX_AUDPROC_TYPES) || (path < 0)) {
@@ -271,10 +271,10 @@ void store_audproc_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
-	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
 			__func__, cal_block->cal_offset,
-			(long)atomic64_read(&acdb_data.pmem_len));
+			(long)atomic64_read(&acdb_data.mem_len));
 		goto done;
 	}
 	if (path >= MAX_AUDPROC_TYPES) {
@@ -321,10 +321,10 @@ void store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
-	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
 			__func__, cal_block->cal_offset,
-			(long)atomic64_read(&acdb_data.pmem_len));
+			(long)atomic64_read(&acdb_data.mem_len));
 		goto done;
 	}
 	if (path >= MAX_AUDPROC_TYPES) {
@@ -371,10 +371,10 @@ void store_audvol_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
-	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
 			__func__, cal_block->cal_offset,
-			(long)atomic64_read(&acdb_data.pmem_len));
+			(long)atomic64_read(&acdb_data.mem_len));
 		goto done;
 	}
 	if (path >= MAX_AUDPROC_TYPES) {
@@ -432,10 +432,10 @@ void store_vocproc_cal(int32_t len, struct cal_block *cal_blocks)
 	atomic_set(&acdb_data.vocproc_total_cal_size, 0);
 	for (i = 0; i < len; i++) {
 		if (cal_blocks[i].cal_offset >
-					atomic64_read(&acdb_data.pmem_len)) {
-			pr_err("%s: offset %d is > pmem_len %ld\n",
+					atomic64_read(&acdb_data.mem_len)) {
+			pr_err("%s: offset %d is > mem_len %ld\n",
 				__func__, cal_blocks[i].cal_offset,
-				(long)atomic64_read(&acdb_data.pmem_len));
+				(long)atomic64_read(&acdb_data.mem_len));
 			atomic_set(&acdb_data.vocproc_cal[i].cal_size, 0);
 		} else {
 			atomic_add(cal_blocks[i].cal_size,
@@ -484,10 +484,10 @@ void store_vocstrm_cal(int32_t len, struct cal_block *cal_blocks)
 	atomic_set(&acdb_data.vocstrm_total_cal_size, 0);
 	for (i = 0; i < len; i++) {
 		if (cal_blocks[i].cal_offset >
-					atomic64_read(&acdb_data.pmem_len)) {
-			pr_err("%s: offset %d is > pmem_len %ld\n",
+					atomic64_read(&acdb_data.mem_len)) {
+			pr_err("%s: offset %d is > mem_len %ld\n",
 				__func__, cal_blocks[i].cal_offset,
-				(long)atomic64_read(&acdb_data.pmem_len));
+				(long)atomic64_read(&acdb_data.mem_len));
 			atomic_set(&acdb_data.vocstrm_cal[i].cal_size, 0);
 		} else {
 			atomic_add(cal_blocks[i].cal_size,
@@ -536,10 +536,10 @@ void store_vocvol_cal(int32_t len, struct cal_block *cal_blocks)
 	atomic_set(&acdb_data.vocvol_total_cal_size, 0);
 	for (i = 0; i < len; i++) {
 		if (cal_blocks[i].cal_offset >
-					atomic64_read(&acdb_data.pmem_len)) {
-			pr_err("%s: offset %d is > pmem_len %ld\n",
+					atomic64_read(&acdb_data.mem_len)) {
+			pr_err("%s: offset %d is > mem_len %ld\n",
 				__func__, cal_blocks[i].cal_offset,
-				(long)atomic64_read(&acdb_data.pmem_len));
+				(long)atomic64_read(&acdb_data.mem_len));
 			atomic_set(&acdb_data.vocvol_cal[i].cal_size, 0);
 		} else {
 			atomic_add(cal_blocks[i].cal_size,
@@ -603,8 +603,9 @@ static int acdb_open(struct inode *inode, struct file *f)
 	s32 result = 0;
 	pr_debug("%s\n", __func__);
 
-	if (atomic_read(&acdb_data.pmem_fd)) {
-		pr_debug("%s: ACDB opened but PMEM allocated, using existing PMEM!\n",
+	if (atomic64_read(&acdb_data.mem_len)) {
+		pr_debug("%s: ACDB opened but memory allocated, "
+			"using existing allocation!\n",
 			__func__);
 	}
 
@@ -612,46 +613,74 @@ static int acdb_open(struct inode *inode, struct file *f)
 	return result;
 }
 
-static int deregister_pmem(void)
+static int deregister_memory(void)
 {
-	if (atomic_read(&acdb_data.pmem_fd)) {
+	if (atomic64_read(&acdb_data.mem_len)) {
 		mutex_lock(&acdb_data.acdb_mutex);
-		put_pmem_file(acdb_data.file);
+		ion_unmap_kernel(acdb_data.ion_client, acdb_data.ion_handle);
+		ion_free(acdb_data.ion_client, acdb_data.ion_handle);
+		ion_client_destroy(acdb_data.ion_client);
 		mutex_unlock(&acdb_data.acdb_mutex);
-		atomic_set(&acdb_data.pmem_fd, 0);
+		atomic64_set(&acdb_data.mem_len, 0);
 	}
 	return 0;
 }
 
-static int register_pmem(void)
+static int register_memory(void)
 {
-	int result;
-	unsigned long paddr;
-	unsigned long kvaddr;
-	unsigned long pmem_len;
+	int			result;
+	unsigned long		paddr;
+	unsigned long		kvaddr;
+	unsigned long		mem_len;
 
 	mutex_lock(&acdb_data.acdb_mutex);
-	result = get_pmem_file(atomic_read(&acdb_data.pmem_fd),
-				&paddr, &kvaddr, &pmem_len,
-				&acdb_data.file);
-	mutex_unlock(&acdb_data.acdb_mutex);
-	if (result != 0) {
-		atomic_set(&acdb_data.pmem_fd, 0);
-		atomic64_set(&acdb_data.pmem_len, 0);
-		pr_err("%s: Could not register PMEM!!!\n", __func__);
-		goto done;
+	acdb_data.ion_client =
+		msm_ion_client_create(UINT_MAX, "audio_acdb_client");
+	if (IS_ERR_OR_NULL(acdb_data.ion_client)) {
+		pr_err("%s: Could not register ION client!!!\n", __func__);
+		goto err;
 	}
+
+	acdb_data.ion_handle = ion_import_fd(acdb_data.ion_client,
+		atomic_read(&acdb_data.map_handle));
+	if (IS_ERR_OR_NULL(acdb_data.ion_handle)) {
+		pr_err("%s: Could not import map handle!!!\n", __func__);
+		goto err_ion_client;
+	}
+
+	result = ion_phys(acdb_data.ion_client, acdb_data.ion_handle,
+				&paddr, (size_t *)&mem_len);
+	if (result != 0) {
+		pr_err("%s: Could not get phys addr!!!\n", __func__);
+		goto err_ion_handle;
+	}
+
+	kvaddr = (unsigned long)ion_map_kernel(acdb_data.ion_client,
+		acdb_data.ion_handle, 0);
+	if (IS_ERR_OR_NULL(&kvaddr)) {
+		pr_err("%s: Could not get kernel virt addr!!!\n", __func__);
+		goto err_ion_handle;
+	}
+	mutex_unlock(&acdb_data.acdb_mutex);
 
 	atomic64_set(&acdb_data.paddr, paddr);
 	atomic64_set(&acdb_data.kvaddr, kvaddr);
-	atomic64_set(&acdb_data.pmem_len, pmem_len);
-	pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
+	atomic64_set(&acdb_data.mem_len, mem_len);
+	pr_debug("%s done! paddr = 0x%lx, "
 		"kvaddr = 0x%lx, len = x%lx\n",
+		 __func__,
 		(long)atomic64_read(&acdb_data.paddr),
 		(long)atomic64_read(&acdb_data.kvaddr),
-		(long)atomic64_read(&acdb_data.pmem_len));
+		(long)atomic64_read(&acdb_data.mem_len));
 
-done:
+	return result;
+err_ion_handle:
+	ion_free(acdb_data.ion_client, acdb_data.ion_handle);
+err_ion_client:
+	ion_client_destroy(acdb_data.ion_client);
+err:
+	atomic64_set(&acdb_data.mem_len, 0);
+	mutex_unlock(&acdb_data.acdb_mutex);
 	return result;
 }
 static long acdb_ioctl(struct file *f,
@@ -659,7 +688,7 @@ static long acdb_ioctl(struct file *f,
 {
 	int32_t			result = 0;
 	int32_t			size;
-	int32_t			pmem_fd;
+	int32_t			map_fd;
 	uint32_t		topology;
 	struct cal_block	data[MAX_NETWORKS];
 	pr_debug("%s\n", __func__);
@@ -667,23 +696,23 @@ static long acdb_ioctl(struct file *f,
 	switch (cmd) {
 	case AUDIO_REGISTER_PMEM:
 		pr_debug("AUDIO_REGISTER_PMEM\n");
-		if (atomic_read(&acdb_data.pmem_fd)) {
-			deregister_pmem();
-			pr_debug("Remove the existing PMEM\n");
+		if (atomic_read(&acdb_data.mem_len)) {
+			deregister_memory();
+			pr_debug("Remove the existing memory\n");
 		}
 
-		if (copy_from_user(&pmem_fd, (void *)arg, sizeof(pmem_fd))) {
-			pr_err("%s: fail to copy pmem handle!\n", __func__);
+		if (copy_from_user(&map_fd, (void *)arg, sizeof(map_fd))) {
+			pr_err("%s: fail to copy memory handle!\n", __func__);
 			result = -EFAULT;
 		} else {
-			atomic_set(&acdb_data.pmem_fd, pmem_fd);
-			result = register_pmem();
+			atomic_set(&acdb_data.map_handle, map_fd);
+			result = register_memory();
 		}
 		goto done;
 
 	case AUDIO_DEREGISTER_PMEM:
 		pr_debug("AUDIO_DEREGISTER_PMEM\n");
-		deregister_pmem();
+		deregister_memory();
 		goto done;
 	case AUDIO_SET_VOICE_RX_TOPOLOGY:
 		if (copy_from_user(&topology, (void *)arg,
@@ -835,8 +864,8 @@ static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 
 	pr_debug("%s\n", __func__);
 
-	if (atomic_read(&acdb_data.pmem_fd)) {
-		if (size <= atomic64_read(&acdb_data.pmem_len)) {
+	if (atomic64_read(&acdb_data.mem_len)) {
+		if (size <= atomic64_read(&acdb_data.mem_len)) {
 			vma->vm_page_prot = pgprot_noncached(
 						vma->vm_page_prot);
 			result = remap_pfn_range(vma,
@@ -845,11 +874,11 @@ static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 				size,
 				vma->vm_page_prot);
 		} else {
-			pr_err("%s: Not enough PMEM memory!\n", __func__);
+			pr_err("%s: Not enough memory!\n", __func__);
 			result = -ENOMEM;
 		}
 	} else {
-		pr_err("%s: PMEM is not allocated, yet!\n", __func__);
+		pr_err("%s: memory is not allocated, yet!\n", __func__);
 		result = -ENODEV;
 	}
 
@@ -869,7 +898,7 @@ static int acdb_release(struct inode *inode, struct file *f)
 	if (atomic_read(&usage_count) >= 1)
 		result = -EBUSY;
 	else
-		result = deregister_pmem();
+		result = deregister_memory();
 
 	return result;
 }
