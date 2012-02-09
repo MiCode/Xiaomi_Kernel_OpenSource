@@ -755,6 +755,8 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 
 		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(acm_hs_function);
+		if (!f->hs_descriptors)
+			goto fail;
 
 		acm->hs.in = usb_find_endpoint(acm_hs_function,
 				f->hs_descriptors, &acm_hs_in_desc);
@@ -772,6 +774,11 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
+	if (f->hs_descriptors)
+		usb_free_descriptors(f->hs_descriptors);
+	if (f->descriptors)
+		usb_free_descriptors(f->descriptors);
+
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
 
