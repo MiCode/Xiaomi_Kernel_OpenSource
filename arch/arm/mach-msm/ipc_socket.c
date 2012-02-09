@@ -53,7 +53,7 @@ static void *msm_ipc_router_load_modem(void)
 	/* Load GNSS for Standalone 8064 but not for Fusion 3 */
 	if (cpu_is_apq8064()) {
 		if (socinfo_get_platform_subtype() == 0x0)
-			pil = pil_get("gnss");
+			pil = pil_get("gss");
 	} else {
 		pil = pil_get("modem");
 	}
