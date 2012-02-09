@@ -3,7 +3,7 @@
  * Register/Interrupt access for userspace aDSP library.
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1020,6 +1020,30 @@ int adsp_set_clkrate(struct msm_adsp_module *module, unsigned long clk_rate)
 		return clk_set_rate(module->clk, clk_rate);
 
 	return -EINVAL;
+}
+
+int msm_adsp_generate_event(void *data,
+			struct msm_adsp_module *mod,
+			unsigned event_id,
+			unsigned event_length,
+			unsigned event_size,
+			void *msg)
+{
+	unsigned long flags;
+	void (*func)(void *, size_t);
+
+	if (event_size == sizeof(uint32_t))
+		func = read_event_32;
+	else if (event_size == sizeof(uint16_t))
+		func = read_event_16;
+	else
+		return -EINVAL;
+
+	spin_lock_irqsave(&adsp_cmd_lock, flags);
+	read_event_addr = msg;
+	mod->ops->event(data, event_id, event_length, func);
+	spin_unlock_irqrestore(&adsp_cmd_lock, flags);
+	return 0;
 }
 
 int msm_adsp_enable(struct msm_adsp_module *module)
