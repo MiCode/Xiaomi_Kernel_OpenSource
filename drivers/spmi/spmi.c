@@ -233,9 +233,9 @@ struct spmi_device *spmi_new_device(struct spmi_controller *ctrl,
 	spmidev->name = info->name;
 	spmidev->sid  = info->slave_id;
 	spmidev->dev.of_node = info->of_node;
-	spmidev->resource = info->resource;
-	spmidev->num_resources = info->num_resources;
 	spmidev->dev.platform_data = (void *)info->platform_data;
+	spmidev->num_dev_node = info->num_dev_node;
+	spmidev->dev_node = info->dev_node;
 
 	rc = spmi_add_device(spmidev);
 	if (rc < 0) {
