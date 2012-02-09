@@ -18,6 +18,7 @@
 #include <linux/of_spmi.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/types.h>
 
 struct of_spmi_dev_info {
 	struct spmi_controller *ctrl;
@@ -30,14 +31,49 @@ struct of_spmi_res_info {
 	uint32_t num_irq;
 };
 
-static void of_spmi_sum_resources(struct of_spmi_res_info *r_info, bool has_reg)
+/*
+ * Initialize r_info structure for safe usage
+ */
+static inline void of_spmi_init_resource(struct of_spmi_res_info *r_info,
+					 struct device_node *node)
+{
+	r_info->node = node;
+	r_info->num_reg = 0;
+	r_info->num_irq = 0;
+}
+
+/*
+ * Allocate dev_node array for spmi_device
+ */
+static inline int of_spmi_alloc_device_store(struct of_spmi_dev_info *d_info,
+					     uint32_t num_dev_node)
+{
+	d_info->b_info.num_dev_node = num_dev_node;
+	d_info->b_info.dev_node = kzalloc(sizeof(struct spmi_resource) *
+						num_dev_node, GFP_KERNEL);
+	if (!d_info->b_info.dev_node)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/*
+ * Calculate the number of resources to allocate
+ *
+ * The caller is responsible for initializing the of_spmi_res_info structure.
+ */
+static void of_spmi_sum_node_resources(struct of_spmi_res_info *r_info,
+				       bool has_reg)
 {
 	struct of_irq oirq;
 	uint64_t size;
 	uint32_t flags;
+	int i = 0;
 
-	while (of_irq_map_one(r_info->node, r_info->num_irq, &oirq) == 0)
-		r_info->num_irq++;
+	while (of_irq_map_one(r_info->node, i, &oirq) == 0)
+		i++;
+
+	r_info->num_irq += i;
 
 	if (!has_reg)
 		return;
@@ -48,16 +84,32 @@ static void of_spmi_sum_resources(struct of_spmi_res_info *r_info, bool has_reg)
 	 * parent buses have a size-cell of 0. But SPMI does have a
 	 * size-cell of 0.
 	 */
-	while (of_get_address(r_info->node, r_info->num_reg,
-						&size, &flags) != NULL)
-		r_info->num_reg++;
+	i = 0;
+	while (of_get_address(r_info->node, i, &size, &flags) != NULL)
+		i++;
+
+	r_info->num_reg += i;
 }
 
-/**
- * Allocate resources for a child of a spmi-slave node.
+/*
+ * free spmi_resource for the spmi_device
  */
-static int of_spmi_allocate_resources(struct of_spmi_dev_info *d_info,
-				      struct of_spmi_res_info *r_info)
+static void of_spmi_free_device_resources(struct of_spmi_dev_info *d_info)
+{
+	int i;
+
+	for (i = 0; i < d_info->b_info.num_dev_node; i++)
+		kfree(d_info->b_info.dev_node[i].resource);
+
+	kfree(d_info->b_info.dev_node);
+}
+
+/*
+ * Gather node resources and populate
+ */
+static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
+					    struct of_spmi_res_info *r_info,
+					    int idx)
 
 {
 	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
@@ -67,13 +119,10 @@ static int of_spmi_allocate_resources(struct of_spmi_dev_info *d_info,
 	uint64_t size;
 	uint32_t flags;
 
-	if (num_irq || num_reg) {
-		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
-		if (!res)
-			return -ENOMEM;
+	res = d_info->b_info.dev_node[idx].resource;
+	d_info->b_info.dev_node[idx].of_node = r_info->node;
 
-		d_info->b_info.num_resources = num_reg + num_irq;
-		d_info->b_info.resource = res;
+	if ((num_irq || num_reg) && (res != NULL)) {
 		for (i = 0; i < num_reg; i++, res++) {
 			/* Addresses are always 16 bits */
 			addrp = of_get_address(r_info->node, i, &size, &flags);
@@ -85,10 +134,34 @@ static int of_spmi_allocate_resources(struct of_spmi_dev_info *d_info,
 		WARN_ON(of_irq_to_resource_table(r_info->node, res, num_irq) !=
 								num_irq);
 	}
+}
+
+/*
+ * Allocate enough memory to handle the resources associated with the
+ * device_node. The number of device nodes included in this allocation
+ * depends on whether the spmi-dev-container flag is specified or not.
+ */
+static int of_spmi_allocate_node_resources(struct of_spmi_dev_info *d_info,
+					   struct of_spmi_res_info *r_info,
+					   uint32_t idx)
+{
+	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
+	struct resource *res = NULL;
+
+	if (num_irq || num_reg) {
+		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
+		if (!res)
+			return -ENOMEM;
+	}
+	d_info->b_info.dev_node[idx].num_resources = num_reg + num_irq;
+	d_info->b_info.dev_node[idx].resource = res;
 
 	return 0;
 }
 
+/*
+ * create a single spmi_device
+ */
 static int of_spmi_create_device(struct of_spmi_dev_info *d_info,
 				 struct device_node *node)
 {
@@ -117,6 +190,71 @@ static int of_spmi_create_device(struct of_spmi_dev_info *d_info,
 	return 0;
 }
 
+/*
+ * Walks all children of a node containing the spmi-dev-container
+ * binding. This special type of spmi_device can include resources
+ * from more than one device node.
+ */
+static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
+					struct device_node *container)
+{
+	struct of_spmi_res_info r_info = {};
+	struct spmi_controller *ctrl = d_info->ctrl;
+	struct device_node *node;
+	int rc, i, num_dev_node = 0;
+
+	/* first count the total number of device_nodes */
+	for_each_child_of_node(container, node)
+		num_dev_node++;
+
+	rc = of_spmi_alloc_device_store(d_info, num_dev_node);
+	if (rc) {
+		dev_err(&ctrl->dev, "%s: unable to allocate"
+				" device resources\n", __func__);
+		return;
+	}
+
+	/* allocate resources per device_node */
+	i = 0;
+	for_each_child_of_node(container, node) {
+		of_spmi_init_resource(&r_info, node);
+		of_spmi_sum_node_resources(&r_info, 1);
+		rc = of_spmi_allocate_node_resources(d_info, &r_info, i);
+		if (rc) {
+			dev_err(&ctrl->dev, "%s: unable to allocate"
+					" resources\n", __func__);
+			of_spmi_free_device_resources(d_info);
+			return;
+		}
+		i++;
+	}
+
+	/**
+	 * Now we need to cycle through again and actually populate
+	 * the resources for each node.
+	 */
+	i = 0;
+	for_each_child_of_node(container, node) {
+		of_spmi_init_resource(&r_info, node);
+		of_spmi_sum_node_resources(&r_info, 1);
+		of_spmi_populate_node_resources(d_info, &r_info, i);
+		i++;
+	}
+
+	rc = of_spmi_create_device(d_info, container);
+	if (rc) {
+		dev_err(&ctrl->dev, "%s: unable to create device for"
+				" node %s\n", __func__, container->full_name);
+		of_spmi_free_device_resources(d_info);
+		return;
+	}
+}
+
+/*
+ * Walks all children of a node containing the spmi-slave-container
+ * binding. This indicates that all spmi_devices created from this
+ * point all share the same slave_id.
+ */
 static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
 					struct device_node *container)
 {
@@ -127,59 +265,133 @@ static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
 	for_each_child_of_node(container, node) {
 		struct of_spmi_res_info r_info;
 
-		r_info.node = node;
-		of_spmi_sum_resources(&r_info, 1);
+		/**
+		 * Check to see if this node contains children which
+		 * should be all created as the same spmi_device.
+		 */
+		if (of_get_property(node, "spmi-dev-container", NULL)) {
+			of_spmi_walk_dev_container(d_info, node);
+			continue;
+		}
 
-		rc = of_spmi_allocate_resources(d_info, &r_info);
+		rc = of_spmi_alloc_device_store(d_info, 1);
+		if (rc) {
+			dev_err(&ctrl->dev, "%s: unable to allocate"
+					" device resources\n", __func__);
+			goto slave_err;
+		}
+
+		of_spmi_init_resource(&r_info, node);
+		of_spmi_sum_node_resources(&r_info, 1);
+
+		rc = of_spmi_allocate_node_resources(d_info, &r_info, 0);
 		if (rc) {
 			dev_err(&ctrl->dev, "%s: unable to allocate"
 						" resources\n", __func__);
-			return;
+			goto slave_err;
 		}
+
+		of_spmi_populate_node_resources(d_info, &r_info, 0);
+
 		rc = of_spmi_create_device(d_info, node);
 		if (rc) {
 			dev_err(&ctrl->dev, "%s: unable to create device for"
 				     " node %s\n", __func__, node->full_name);
-			return;
+			goto slave_err;
 		}
 	}
+	return;
+
+slave_err:
+	of_spmi_free_device_resources(d_info);
 }
 
 int of_spmi_register_devices(struct spmi_controller *ctrl)
 {
-	struct device_node *node;
+	struct device_node *node = ctrl->dev.of_node;
 
 	/* Only register child devices if the ctrl has a node pointer set */
-	if (!ctrl->dev.of_node)
+	if (!node)
 		return -ENODEV;
 
+	if (of_get_property(node, "spmi-slave-container", NULL)) {
+		dev_err(&ctrl->dev, "%s: structural error: spmi-slave-container"
+			" is prohibited at the root level\n", __func__);
+		return -EINVAL;
+	} else if (of_get_property(node, "spmi-dev-container", NULL)) {
+		dev_err(&ctrl->dev, "%s: structural error: spmi-dev-container"
+			" is prohibited at the root level\n", __func__);
+		return -EINVAL;
+	}
+
+	/**
+	 * Make best effort to launch as many nodes as possible. If there are
+	 * syntax errors, we will simply ignore that subtree and keep going.
+	 */
 	for_each_child_of_node(ctrl->dev.of_node, node) {
 		struct of_spmi_dev_info d_info = {};
 		const __be32 *slave_id;
-		int len, rc;
+		int len, rc, have_dev_container = 0;
 
 		slave_id = of_get_property(node, "reg", &len);
 		if (!slave_id) {
-			dev_err(&ctrl->dev, "of_spmi: invalid sid "
-					"on %s\n", node->full_name);
+			dev_err(&ctrl->dev, "%s: invalid sid "
+					"on %s\n", __func__, node->full_name);
 			continue;
 		}
 
 		d_info.b_info.slave_id = be32_to_cpup(slave_id);
 		d_info.ctrl = ctrl;
 
+		if (of_get_property(node, "spmi-dev-container", NULL))
+			have_dev_container = 1;
 		if (of_get_property(node, "spmi-slave-container", NULL)) {
-			of_spmi_walk_slave_container(&d_info, node);
-			continue;
+			if (have_dev_container)
+				of_spmi_walk_dev_container(&d_info, node);
+			else
+				of_spmi_walk_slave_container(&d_info, node);
 		} else {
 			struct of_spmi_res_info r_info;
 
-			r_info.node = node;
-			of_spmi_sum_resources(&r_info, 0);
-			rc = of_spmi_allocate_resources(&d_info, &r_info);
-			if (rc)
+			/**
+			 * A dev container at the second level without a slave
+			 * container is considered an error.
+			 */
+			if (have_dev_container) {
+				dev_err(&ctrl->dev, "%s: structural error,"
+				     " node %s has spmi-dev-container without"
+				     " specifying spmi-slave-container\n",
+				     __func__, node->full_name);
 				continue;
-			of_spmi_create_device(&d_info, node);
+			}
+
+			rc = of_spmi_alloc_device_store(&d_info, 1);
+			if (rc) {
+				dev_err(&ctrl->dev, "%s: unable to allocate"
+					" device resources\n", __func__);
+				continue;
+			}
+
+			of_spmi_init_resource(&r_info, node);
+			of_spmi_sum_node_resources(&r_info, 0);
+			rc = of_spmi_allocate_node_resources(&d_info,
+								&r_info, 0);
+			if (rc) {
+				dev_err(&ctrl->dev, "%s: unable to allocate"
+						" resources\n", __func__);
+				of_spmi_free_device_resources(&d_info);
+				continue;
+			}
+
+			of_spmi_populate_node_resources(&d_info, &r_info, 0);
+
+			rc = of_spmi_create_device(&d_info, node);
+			if (rc) {
+				dev_err(&ctrl->dev, "%s: unable to create"
+						" device\n", __func__);
+				of_spmi_free_device_resources(&d_info);
+				continue;
+			}
 		}
 	}
 

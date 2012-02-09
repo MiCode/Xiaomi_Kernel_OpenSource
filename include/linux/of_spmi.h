@@ -14,6 +14,17 @@
 #include <linux/of_irq.h>
 
 #ifdef CONFIG_OF_SPMI
+/**
+ * of_spmi_register_devices() - Register devices in the SPMI Device Tree
+ * @ctrl: spmi_controller which devices should be registered to.
+ *
+ * This routine scans the SPMI Device Tree, allocating resources and
+ * creating spmi_devices according to the SPMI bus Device Tree
+ * hierarchy. Details of this hierarchy can be found in
+ * Documentation/devicetree/bindings/spmi. This routine is normally
+ * called from the probe routine of the driver registering as a
+ * spmi_controller.
+ */
 int of_spmi_register_devices(struct spmi_controller *ctrl);
 #else
 static int of_spmi_register_devices(struct spmi_controller *ctrl)

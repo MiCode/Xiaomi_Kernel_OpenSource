@@ -88,24 +88,36 @@ struct spmi_driver {
 #define to_spmi_driver(d) container_of(d, struct spmi_driver, driver)
 
 /**
+ * struct spmi_resource: spmi_resource for one device_node
+ * @num_resources: number of resources for this device node
+ * @resources: array of resources for this device_node
+ * @of_node: device_node of the resource in question
+ */
+struct spmi_resource {
+	struct resource		*resource;
+	u32			num_resources;
+	struct device_node	*of_node;
+};
+
+/**
  * Client/device handle (struct spmi_device):
  * ------------------------------------------
- * This is the client/device handle returned when a SPMI device
- * is registered with a controller.
- * Pointer to this structure is used by client-driver as a handle.
- * @dev: driver model representation of the device.
- * @name: name of driver to use with this device.
- * @ctrl: SPMI controller managing the bus hosting this device.
- * @resource: array of resources for this device_node
- * @num_resources: number of resources for this device node
- * @sid: slave identifier.
+ *  This is the client/device handle returned when a SPMI device
+ *  is registered with a controller.
+ *  Pointer to this structure is used by client-driver as a handle.
+ *  @dev: Driver model representation of the device.
+ *  @name: Name of driver to use with this device.
+ *  @ctrl: SPMI controller managing the bus hosting this device.
+ *  @dev_node: array of SPMI resources - one entry per device_node.
+ *  @num_dev_node: number of device_node structures.
+ *  @sid: Slave Identifier.
  */
 struct spmi_device {
 	struct device		dev;
 	const char		*name;
 	struct spmi_controller	*ctrl;
-	struct resource		*resource;
-	u32			num_resources;
+	struct spmi_resource	*dev_node;
+	u32			num_dev_node;
 	u8			sid;
 };
 #define to_spmi_device(d) container_of(d, struct spmi_device, dev)
@@ -115,16 +127,16 @@ struct spmi_device {
  * @slave_id: slave identifier.
  * @spmi_device: device to be registered with the SPMI framework.
  * @of_node: pointer to the OpenFirmware device node.
- * @num_resources: number of resources for this device node
- * @resource: array of resources for this device_node
+ * @dev_node: one spmi_resource for each device_node.
+ * @num_dev_node: number of device_node structures.
  * @platform_data: goes to spmi_device.dev.platform_data
  */
 struct spmi_boardinfo {
 	char			name[SPMI_NAME_SIZE];
 	uint8_t			slave_id;
 	struct device_node	*of_node;
-	u32			num_resources;
-	struct resource		*resource;
+	struct spmi_resource	*dev_node;
+	u32			num_dev_node;
 	const void		*platform_data;
 };
 
