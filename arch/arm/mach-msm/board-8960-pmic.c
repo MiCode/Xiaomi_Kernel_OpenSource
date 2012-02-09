@@ -95,6 +95,8 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_INPUT(16,	    PM_GPIO_PULL_UP_30), /* SD_CARD_WP */
     /* External regulator shared by display and touchscreen on LiQUID */
 	PM8XXX_GPIO_OUTPUT(17,	    0),			 /* DISP 3.3 V Boost */
+	PM8XXX_GPIO_OUTPUT(18,	1),	/* TABLA SPKR_LEFT_EN */
+	PM8XXX_GPIO_OUTPUT(19,	1),	/* TABLA SPKR_RIGHT_EN */
 	PM8XXX_GPIO_OUTPUT_VIN(21, 1, PM_GPIO_VIN_VPH),	 /* Backlight Enable */
 	PM8XXX_GPIO_DISABLE(22),			 /* Disable NFC */
 	PM8XXX_GPIO_OUTPUT_FUNC(24, 0, PM_GPIO_FUNC_2),	 /* Bl: Off, PWM mode */
