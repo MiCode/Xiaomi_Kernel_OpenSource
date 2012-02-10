@@ -280,6 +280,7 @@ int msm_adsp_get(const char *name, struct msm_adsp_module **out,
 	int rc = 0;
 	static uint32_t init_info_cmd_sent;
 
+	mutex_lock(&adsp_info.lock);
 	if (!init_info_cmd_sent) {
 		init_waitqueue_head(&adsp_info.init_info_wait);
 		msm_get_init_info();
@@ -288,10 +289,13 @@ int msm_adsp_get(const char *name, struct msm_adsp_module **out,
 			5 * HZ);
 		if (!rc) {
 			MM_ERR("INIT_INFO failed\n");
+			mutex_unlock(&adsp_info.lock);
 			return -ETIMEDOUT;
+
 		}
 		init_info_cmd_sent++;
 	}
+	mutex_unlock(&adsp_info.lock);
 
 	module = find_adsp_module_by_name(&adsp_info, name);
 	if (!module)
@@ -1181,6 +1185,7 @@ static int msm_adsp_probe(struct platform_device *pdev)
 
 	spin_lock_init(&adsp_cmd_lock);
 	spin_lock_init(&adsp_write_lock);
+	mutex_init(&adsp_info.lock);
 
 	rc = request_irq(INT_ADSP, adsp_irq_handler, IRQF_TRIGGER_RISING,
 			 "adsp", 0);
