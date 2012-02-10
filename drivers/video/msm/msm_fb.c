@@ -1520,8 +1520,8 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 			pdata->set_backlight(mfd);
 			bl_level_old = unset_bl_level;
 			up(&mfd->sem);
+			bl_updated = 1;
 		}
-		bl_updated = 1;
 	}
 
 	++mfd->panel_info.frame_count;
@@ -2624,8 +2624,8 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 			pdata->set_backlight(mfd);
 			bl_level_old = unset_bl_level;
 			up(&mfd->sem);
+			bl_updated = 1;
 		}
-		bl_updated = 1;
 	}
 
 	return ret;
