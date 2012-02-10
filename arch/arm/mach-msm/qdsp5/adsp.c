@@ -1020,6 +1020,9 @@ static irqreturn_t adsp_irq_handler(int irq, void *data)
 
 int adsp_set_clkrate(struct msm_adsp_module *module, unsigned long clk_rate)
 {
+	if (!module)
+		return -EINVAL;
+
 	if (module->clk && clk_rate)
 		return clk_set_rate(module->clk, clk_rate);
 
@@ -1035,6 +1038,9 @@ int msm_adsp_generate_event(void *data,
 {
 	unsigned long flags;
 	void (*func)(void *, size_t);
+
+	if (!mod)
+		return -EINVAL;
 
 	if (event_size == sizeof(uint32_t))
 		func = read_event_32;
@@ -1053,6 +1059,9 @@ int msm_adsp_generate_event(void *data,
 int msm_adsp_enable(struct msm_adsp_module *module)
 {
 	int rc = 0;
+
+	if (!module)
+		return -EINVAL;
 
 	MM_INFO("enable '%s'state[%d] id[%d]\n",
 				module->name, module->state, module->id);
@@ -1106,6 +1115,9 @@ int msm_adsp_disable_event_rsp(struct msm_adsp_module *module)
 {
 	int rc = 0;
 
+	if (!module)
+		return -EINVAL;
+
 	mutex_lock(&module->lock);
 
 	rc = rpc_adsp_rtos_app_to_modem(RPC_ADSP_RTOS_CMD_DISABLE_EVENT_RSP,
@@ -1119,6 +1131,9 @@ EXPORT_SYMBOL(msm_adsp_disable_event_rsp);
 static int msm_adsp_disable_locked(struct msm_adsp_module *module)
 {
 	int rc = 0;
+
+	if (!module)
+		return -EINVAL;
 
 	switch (module->state) {
 	case ADSP_STATE_DISABLED:
@@ -1145,6 +1160,10 @@ static int msm_adsp_disable_locked(struct msm_adsp_module *module)
 int msm_adsp_disable(struct msm_adsp_module *module)
 {
 	int rc;
+
+	if (!module)
+		return -EINVAL;
+
 	MM_INFO("disable '%s'\n", module->name);
 	mutex_lock(&module->lock);
 	rc = msm_adsp_disable_locked(module);
