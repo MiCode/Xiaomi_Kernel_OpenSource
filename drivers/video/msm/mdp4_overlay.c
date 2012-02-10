@@ -1304,6 +1304,11 @@ static void mdp4_mixer_stage_commit(int mixer)
 	u32 data = 0, stage, flush_bits = 0, pipe_cnt = 0, pull_mode = 0;
 	u32 cfg[MDP4_MIXER_MAX];
 
+	if (mixer == MDP4_MIXER0)
+		flush_bits |= 0x1;
+	else if (mixer == MDP4_MIXER1)
+		flush_bits |= 0x2;
+
 	for (i = MDP4_MIXER0; i < MDP4_MIXER_MAX; i++) {
 		cfg[i] = 0;
 		for (j = MDP4_MIXER_STAGE_BASE; j < MDP4_MIXER_STAGE_MAX; j++) {
