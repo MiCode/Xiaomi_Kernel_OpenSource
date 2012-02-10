@@ -381,6 +381,7 @@ static struct resource resources_ssbi_pmic1[] = {
 
 #define LPASS_SLIMBUS_PHYS	0x28080000
 #define LPASS_SLIMBUS_BAM_PHYS	0x28084000
+#define LPASS_SLIMBUS_SLEW	(MSM8960_TLMM_PHYS + 0x207C)
 /* Board info for the slimbus slave device */
 static struct resource slimbus_res[] = {
 	{
@@ -394,6 +395,12 @@ static struct resource slimbus_res[] = {
 		.end	= LPASS_SLIMBUS_BAM_PHYS + 8191,
 		.flags	= IORESOURCE_MEM,
 		.name	= "slimbus_bam_physical",
+	},
+	{
+		.start	= LPASS_SLIMBUS_SLEW,
+		.end	= LPASS_SLIMBUS_SLEW + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+		.name	= "slimbus_slew_reg",
 	},
 	{
 		.start	= SLIMBUS0_CORE_EE1_IRQ,
