@@ -309,6 +309,15 @@ config FB_MSM_MIPI_CHIMEI_WXGA
 	  The panel is connected to the host
 	  via Toshiba DSI-to-LVDS bridge.
 
+config FB_MSM_MIPI_CHIMEI_WUXGA
+	bool "LVDS Chimei WUXGA Panel using Toshiba MIPI DSI-to-LVDS bridge."
+	select FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
+	---help---
+	  Support for Chimei WUXGA (1920x1200) panel.
+	  The panel is using a serial LVDS input.
+	  The panel is connected to the host
+	  via Toshiba DSI-to-LVDS bridge.
+
 config FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT
 	bool
 	select FB_MSM_MIPI_DSI_TRULY
@@ -446,6 +455,7 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
+	select FB_MSM_MIPI_CHIMEI_WUXGA
 	---help---
 	  Support for MIPI panel auto detect
 
@@ -542,6 +552,10 @@ config FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT_PANEL
 config FB_MSM_MIPI_CHIMEI_WXGA_PANEL
 	bool "MIPI Chimei WXGA PT Panel"
 	select FB_MSM_MIPI_CHIMEI_WXGA
+
+config FB_MSM_MIPI_CHIMEI_WUXGA_PANEL
+	bool "MIPI Chimei WUXGA Panel"
+	select FB_MSM_MIPI_CHIMEI_WUXGA
 
 config FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT_PANEL
 	bool "MIPI Truly Video WVGA PT Panel"
