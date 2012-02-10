@@ -19,6 +19,7 @@ struct msm_watchdog_pdata {
 	/* bark timeout in ms */
 	unsigned int bark_time;
 	bool has_secure;
+	bool needs_expired_enable;
 };
 
 #ifdef CONFIG_MSM_WATCHDOG

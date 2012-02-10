@@ -363,6 +363,9 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	if (cpu_is_msm9615())
 		__raw_writel(0xF, MSM_TCSR_BASE + TCSR_WDT_CFG);
 
+	if (pdata->needs_expired_enable)
+		__raw_writel(0x1, MSM_CLK_CTL_BASE + 0x3820);
+
 	configure_bark_dump();
 
 	delay_time = msecs_to_jiffies(pdata->pet_time);
