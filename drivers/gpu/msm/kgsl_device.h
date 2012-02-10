@@ -126,6 +126,7 @@ struct kgsl_event {
 	void (*func)(struct kgsl_device *, void *, u32);
 	void *priv;
 	struct list_head list;
+	struct kgsl_device_private *owner;
 };
 
 
