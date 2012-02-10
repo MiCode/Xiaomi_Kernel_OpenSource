@@ -109,7 +109,8 @@ static int __init msm_xo_debugfs_init(void)
 			&msm_xo_voters_ops);
 	return IS_ERR(entry) ? PTR_ERR(entry) : 0;
 }
-late_initcall(msm_xo_debugfs_init);
+#else
+static int __init msm_xo_debugfs_init(void) { return 0; }
 #endif
 
 static int msm_xo_update_vote(struct msm_xo *xo)
@@ -332,6 +333,7 @@ int __init msm_xo_init(void)
 	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, cmd, 1);
 	if (ret)
 		goto out;
+	msm_xo_debugfs_init();
 out:
 	return ret;
 }
