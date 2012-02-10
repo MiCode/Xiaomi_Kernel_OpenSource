@@ -131,31 +131,35 @@ static const struct {
 	struct adreno_gpudev *gpudev;
 	unsigned int istore_size;
 	unsigned int pix_shader_start;
+	unsigned int instruction_size; /* Size of an instruction in dwords */
 } adreno_gpulist[] = {
 	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
-		512, 384},
+		512, 384, 3},
 	{ ADRENO_REV_A205, 0, 1, 0, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
-		512, 384},
+		512, 384, 3},
 	{ ADRENO_REV_A220, 2, 1, ANY_ID, ANY_ID,
 		"leia_pm4_470.fw", "leia_pfp_470.fw", &adreno_a2xx_gpudev,
-		512, 384},
+		512, 384, 3},
 	/*
 	 * patchlevel 5 (8960v2) needs special pm4 firmware to work around
 	 * a hardware problem.
 	 */
 	{ ADRENO_REV_A225, 2, 2, 0, 5,
 		"a225p5_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768 },
+		1536, 768, 3 },
 	{ ADRENO_REV_A225, 2, 2, 0, 6,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768 },
+		1536, 768, 3 },
 	{ ADRENO_REV_A225, 2, 2, ANY_ID, ANY_ID,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768 },
+		1536, 768, 3 },
+	/* A3XX doesn't use the pix_shader_start */
 	{ ADRENO_REV_A320, 3, 1, ANY_ID, ANY_ID,
-		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev },
+		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2 },
+
 };
 
 static irqreturn_t adreno_isr(int irq, void *data)
@@ -246,6 +250,16 @@ static void adreno_setstate(struct kgsl_device *device,
 	unsigned int *cmds = &link[0];
 	int sizedwords = 0;
 	unsigned int mh_mmu_invalidate = 0x00000003; /*invalidate all and tc */
+
+	/*
+	 * A3XX doesn't support the fast path (the registers don't even exist)
+	 * so just bail out early
+	 */
+
+	if (adreno_is_a3xx(adreno_dev)) {
+		kgsl_mmu_device_setstate(device, flags);
+		return;
+	}
 
 	/*
 	 * If possible, then set the state via the command stream to avoid
@@ -442,6 +456,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->pm4_fwfile = adreno_gpulist[i].pm4fw;
 	adreno_dev->istore_size = adreno_gpulist[i].istore_size;
 	adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;
+	adreno_dev->instruction_size = adreno_gpulist[i].instruction_size;
 }
 
 static int __devinit

@@ -86,7 +86,7 @@ static void set_gmem_copy_quad(struct gmem_shadow_t *shadow)
 	gmem_restore_quad[7] = uint2float(shadow->width);
 
 	memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
-	memcpy(shadow->quad_vertices_restore.hostptr, gmem_copy_quad,
+	memcpy(shadow->quad_vertices_restore.hostptr, gmem_restore_quad,
 		QUAD_RESTORE_LEN << 2);
 
 	memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord,

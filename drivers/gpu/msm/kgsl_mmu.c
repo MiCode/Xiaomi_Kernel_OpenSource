@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/iommu.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_mmu.h"
@@ -534,9 +535,16 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	int ret;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		memdesc->gpuaddr = memdesc->physaddr;
-		return 0;
+		if (memdesc->sglen == 1) {
+			memdesc->gpuaddr = sg_phys(memdesc->sg);
+			return 0;
+		} else {
+			KGSL_CORE_ERR("Memory is not contigious "
+					"(sglen = %d)\n", memdesc->sglen);
+			return -EINVAL;
+		}
 	}
+
 	memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
 		memdesc->size, KGSL_MMU_ALIGN_SHIFT);
 
@@ -712,7 +720,14 @@ EXPORT_SYMBOL(kgsl_mmu_get_mmutype);
 
 void kgsl_mmu_set_mmutype(char *mmutype)
 {
-	kgsl_mmu_type = iommu_found() ? KGSL_MMU_TYPE_IOMMU : KGSL_MMU_TYPE_GPU;
+	/* Set the default MMU - GPU on <=8960 and nothing on >= 8064 */
+	kgsl_mmu_type =
+		cpu_is_apq8064() ? KGSL_MMU_TYPE_NONE : KGSL_MMU_TYPE_GPU;
+
+	/* Use the IOMMU if it is found */
+	if (iommu_found())
+		kgsl_mmu_type = KGSL_MMU_TYPE_IOMMU;
+
 	if (mmutype && !strncmp(mmutype, "gpummu", 6))
 		kgsl_mmu_type = KGSL_MMU_TYPE_GPU;
 	if (iommu_found() && mmutype && !strncmp(mmutype, "iommu", 5))

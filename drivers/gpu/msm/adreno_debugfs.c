@@ -143,7 +143,8 @@ static ssize_t kgsl_istore_read(
 		return 0;
 
 	adreno_dev = ADRENO_DEVICE(device);
-	count = adreno_dev->istore_size * ADRENO_ISTORE_WORDS;
+	count = adreno_dev->istore_size * adreno_dev->instruction_size;
+
 	remaining = count;
 	for (i = 0; i < count; i += rowc) {
 		unsigned int vals[rowc];

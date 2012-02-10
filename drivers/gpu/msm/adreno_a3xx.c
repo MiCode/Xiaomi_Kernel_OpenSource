@@ -34,7 +34,7 @@ const unsigned int a3xx_registers[] = {
 	0x01ea, 0x01ea, 0x01ee, 0x01f1, 0x01f5, 0x01f5, 0x01fc, 0x01ff,
 	0x0440, 0x0440, 0x0443, 0x0443, 0x0445, 0x0445, 0x044d, 0x044f,
 	0x0452, 0x0452, 0x0454, 0x046f, 0x047c, 0x047c, 0x047f, 0x047f,
-	0x0579, 0x057f, 0x0600, 0x0602, 0x0605, 0x0607, 0x060a, 0x060e,
+	0x0578, 0x057f, 0x0600, 0x0602, 0x0605, 0x0607, 0x060a, 0x060e,
 	0x0612, 0x0614, 0x0c01, 0x0c02, 0x0c06, 0x0c1d, 0x0c3d, 0x0c3f,
 	0x0c48, 0x0c4b, 0x0c80, 0x0c80, 0x0c88, 0x0c8b, 0x0ca0, 0x0cb7,
 	0x0cc0, 0x0cc1, 0x0cc6, 0x0cc7, 0x0ce4, 0x0ce5, 0x0e00, 0x0e05,
@@ -127,13 +127,8 @@ const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
 #define HLSQ_MEMOBJ_OFFSET  0x400
 #define HLSQ_MIPMAP_OFFSET  0x800
 
-#ifdef GSL_USE_A3XX_HLSQ_SHADOW_RAM
 /* Use shadow RAM */
 #define HLSQ_SHADOW_BASE		(0x10000+SSIZE*2)
-#else
-/* Use working RAM */
-#define HLSQ_SHADOW_BASE		0x10000
-#endif
 
 #define REG_TO_MEM_LOOP_COUNT_SHIFT	15
 
@@ -258,13 +253,15 @@ static void build_regconstantsave_cmds(struct adreno_device *adreno_dev,
 				       struct adreno_context *drawctxt)
 {
 	unsigned int *cmd = tmp_ctx.cmd;
-	unsigned int *start = cmd;
+	unsigned int *start;
 	unsigned int i;
 
 	drawctxt->constant_save_commands[0].hostptr = cmd;
 	drawctxt->constant_save_commands[0].gpuaddr =
 	    virt2gpu(cmd, &drawctxt->gpustate);
 	cmd++;
+
+	start = cmd;
 
 	*cmd++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
@@ -1313,7 +1310,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(SP_FSCTRLREG1_FSINITIALOUTSTANDING, 2) |
 		_SET(SP_FSCTRLREG1_HALFPRECVAROFFSET, 63);
 	/* SP_FS_OBJ_OFFSET_REG */
-	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128);
+	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128) |
+		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 1);
 	/* SP_FS_OBJ_START_REG */
 	*cmds++ = 0x00000000;
 
@@ -1329,7 +1327,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	/* SP_FS_OUT_REG */
 	*cmds++ = _SET(SP_FSOUTREG_PAD0, SP_PIXEL_BASED);
 
-	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_SP_FS_MRT_REG_0);
 	/* SP_FS_MRT_REG0 */
 	*cmds++ = _SET(SP_FSMRTREG_REGID, 4);
@@ -1426,7 +1424,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(VPC_VPCVARPSREPLMODE_COMPONENT16, 1) |
 		_SET(VPC_VPCVARPSREPLMODE_COMPONENT17, 2);
 
-	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 11);
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_SP_SP_CTRL_REG);
 	/* SP_SP_CTRL_REG */
 	*cmds++ = _SET(SP_SPCTRLREG_SLEEPMODE, 1);
@@ -1652,7 +1650,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_GRAS_SC_CONTROL);
 	/* GRAS_SC_CONTROL */
-	*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1);
+	/*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1);
+		*cmds++ = _SET(GRAS_SC_CONTROL_RASTER_MODE, 1) |*/
+	*cmds++ = 0x04001000;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_GRAS_SU_MODE_CONTROL);
@@ -2130,24 +2130,17 @@ static int a3xx_create_gpustate_shadow(struct adreno_device *adreno_dev,
 static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 				 struct adreno_context *drawctxt)
 {
+	int result;
+
 	calc_gmemsize(&drawctxt->context_gmem_shadow,
 		adreno_dev->gmemspace.sizebytes);
 	tmp_ctx.gmem_base = adreno_dev->gmemspace.gpu_base;
 
-	if (drawctxt->flags & CTXT_FLAGS_GMEM_SHADOW) {
-		int result =
-		    kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
-			drawctxt->pagetable,
-			drawctxt->context_gmem_shadow.size);
+	result = kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
+		drawctxt->pagetable, drawctxt->context_gmem_shadow.size);
 
-		if (result)
-			return result;
-	} else {
-		memset(&drawctxt->context_gmem_shadow.gmemshadow, 0,
-		       sizeof(drawctxt->context_gmem_shadow.gmemshadow));
-
-		return 0;
-	}
+	if (result)
+		return result;
 
 	build_quad_vtxbuff(drawctxt, &drawctxt->context_gmem_shadow,
 		&tmp_ctx.cmd);
@@ -2162,6 +2155,8 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 
 	kgsl_cache_range_op(&drawctxt->context_gmem_shadow.gmemshadow,
 		KGSL_CACHE_OP_FLUSH);
+
+	drawctxt->flags |= CTXT_FLAGS_GMEM_SHADOW;
 
 	return 0;
 }
@@ -2431,10 +2426,7 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 #define A3XX_INT_MASK \
 	((1 << A3XX_INT_RBBM_AHB_ERROR) |        \
 	 (1 << A3XX_INT_RBBM_REG_TIMEOUT) |      \
-	 (1 << A3XX_INT_RBBM_ME_MS_TIMEOUT) |    \
-	 (1 << A3XX_INT_RBBM_PFP_MS_TIMEOUT) |   \
 	 (1 << A3XX_INT_RBBM_ATB_BUS_OVERFLOW) | \
-	 (1 << A3XX_INT_VFD_ERROR) |             \
 	 (1 << A3XX_INT_CP_T0_PACKET_IN_IB) |    \
 	 (1 << A3XX_INT_CP_OPCODE_ERROR) |       \
 	 (1 << A3XX_INT_CP_RESERVED_BIT_ERROR) | \
@@ -2444,7 +2436,6 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 	 (1 << A3XX_INT_CP_RB_INT) |             \
 	 (1 << A3XX_INT_CP_REG_PROTECT_FAULT) |  \
 	 (1 << A3XX_INT_CP_AHB_ERROR_HALT) |     \
-	 (1 << A3XX_INT_MISC_HANG_DETECT) |      \
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
 
 static struct {
@@ -2474,7 +2465,7 @@ static struct {
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 21 - CP_AHB_ERROR_FAULT */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 22 - Unused */
 	A3XX_IRQ_CALLBACK(NULL),	       /* 23 - Unused */
-	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 24 - MISC_HANG_DETECT */
+	A3XX_IRQ_CALLBACK(NULL),	       /* 24 - MISC_HANG_DETECT */
 	A3XX_IRQ_CALLBACK(a3xx_err_callback),  /* 25 - UCHE_OOB_ACCESS */
 	/* 26 to 31 - Unused */
 };
@@ -2547,6 +2538,9 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	/* GMEM size on A320 is 512K */
+	adreno_dev->gmemspace.sizebytes = SZ_512K;
+
 	/* Reset the core */
 	adreno_regwrite(device, A3XX_RBBM_SW_RESET_CMD,
 		0x00000001);
@@ -2570,10 +2564,17 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_AHB_CTL0, 0x00000001);
 
 	/* Enable AHB error reporting */
-	adreno_regwrite(device, A3XX_RBBM_AHB_CTL1, 0xA6FFFFFF);
+	adreno_regwrite(device, A3XX_RBBM_AHB_CTL1, 0x86FFFFFF);
 
 	/* Turn on the power counters */
 	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, 0x00003000);
+
+	/* Turn on hang detection - this spews a lot of useful information
+	 * into the RBBM registers on a hang */
+
+	adreno_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+			(1 << 16) | 0xFFF);
+
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
