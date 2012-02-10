@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 #ifndef _VCD_DDL_INTERNAL_PROPERTY_H_
 #define _VCD_DDL_INTERNAL_PROPERTY_H_
-#include "vcd_api.h"
+#include <media/msm/vcd_api.h>
 
 #define VCD_EVT_RESP_DDL_BASE          0x3000
 #define VCD_EVT_RESP_DEVICE_INIT       (VCD_EVT_RESP_DDL_BASE + 0x1)

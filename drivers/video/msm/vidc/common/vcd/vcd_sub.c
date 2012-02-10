@@ -13,7 +13,7 @@
 #include <linux/memory_alloc.h>
 #include <mach/msm_subsystem_map.h>
 #include <asm/div64.h>
-#include "vidc_type.h"
+#include <media/msm/vidc_type.h>
 #include "vcd.h"
 #include "vdec_internal.h"
 

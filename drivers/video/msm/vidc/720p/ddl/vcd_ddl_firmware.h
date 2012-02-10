@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 #ifndef _VCD_DDL_FIRMWARE_H_
 #define _VCD_DDL_FIRMWARE_H_
-#include "vcd_property.h"
+#include <media/msm/vcd_property.h>
 
 #define VCD_FW_BIG_ENDIAN     0x0
 #define VCD_FW_LITTLE_ENDIAN  0x1

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,7 @@
 
 #include <linux/msm_vidc_enc.h>
 #include <linux/cdev.h>
-
-#include "vidc_init.h"
+#include <media/msm/vidc_init.h>
 
 #define VID_ENC_MAX_NUM_OF_BUFF 100
 

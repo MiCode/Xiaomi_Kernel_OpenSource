@@ -28,10 +28,10 @@
 #include <linux/android_pmem.h>
 #include <linux/clk.h>
 #include <mach/msm_subsystem_map.h>
-#include "vidc_type.h"
-#include "vcd_api.h"
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 #include "venc_internal.h"
-#include "vidc_init.h"
 
 #if DEBUG
 #define DBG(x...) printk(KERN_DEBUG x)

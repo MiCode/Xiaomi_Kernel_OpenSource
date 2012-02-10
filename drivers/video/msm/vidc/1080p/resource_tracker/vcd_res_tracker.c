@@ -21,9 +21,9 @@
 #include <linux/interrupt.h>
 #include <linux/memory_alloc.h>
 #include <asm/sizes.h>
+#include <media/msm/vidc_init.h>
 #include "vidc.h"
 #include "vcd_res_tracker.h"
-#include "vidc_init.h"
 
 static unsigned int vidc_clk_table[3] = {
 	48000000, 133330000, 200000000

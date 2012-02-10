@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define _VCD_DDL_UTILS_H_
 
 #include <linux/delay.h>
-#include "vidc_type.h"
+#include <media/msm/vidc_type.h>
 
 extern u32 vidc_msg_pmem;
 extern u32 vidc_msg_timing;

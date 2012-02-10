@@ -11,7 +11,7 @@
  *
  */
 
-#include "vidc_type.h"
+#include <media/msm/vidc_type.h>
 #include "vcd.h"
 
 u32 vcd_init(struct vcd_init_config *config, s32 *driver_handle)
