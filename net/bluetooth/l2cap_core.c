@@ -3035,7 +3035,8 @@ void l2cap_ertm_recv_done(struct sock *sk)
 {
 	lock_sock(sk);
 
-	if (l2cap_pi(sk)->mode != L2CAP_MODE_ERTM) {
+	if (l2cap_pi(sk)->mode != L2CAP_MODE_ERTM ||
+			sk->sk_state != BT_CONNECTED) {
 		release_sock(sk);
 		return;
 	}

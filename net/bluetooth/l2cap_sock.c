@@ -965,7 +965,8 @@ static int l2cap_sock_recvmsg(struct kiocb *iocb, struct socket *sock, struct ms
 	else
 		err = bt_sock_recvmsg(iocb, sock, msg, len, flags);
 
-	l2cap_ertm_recv_done(sk);
+	if (err >= 0)
+		l2cap_ertm_recv_done(sk);
 
 	return err;
 }
