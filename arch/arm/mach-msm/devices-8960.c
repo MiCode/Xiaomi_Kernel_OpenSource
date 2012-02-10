@@ -1663,7 +1663,7 @@ static struct platform_device msm_dtv_device = {
 };
 #endif
 
-static struct platform_device msm_lvds_device = {
+struct platform_device msm_lvds_device = {
 	.name   = "lvds",
 	.id     = 0,
 };

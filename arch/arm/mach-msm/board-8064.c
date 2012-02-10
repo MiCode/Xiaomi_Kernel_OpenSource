@@ -1628,6 +1628,7 @@ static void __init apq8064_cdp_init(void)
 	ethernet_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+	apq8064_init_fb();
 	apq8064_init_gpu();
 	platform_add_devices(msm_footswitch_devices,
 			     msm_num_footswitch_devices);
@@ -1659,6 +1660,7 @@ MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
 MACHINE_END
 
 MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
@@ -1668,6 +1670,7 @@ MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
 MACHINE_END
 
 MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
@@ -1677,5 +1680,6 @@ MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
 MACHINE_END
 

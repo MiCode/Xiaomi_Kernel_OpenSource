@@ -399,6 +399,10 @@ struct mipi_dsi_panel_platform_data {
 	char dlane_swap;
 };
 
+struct lvds_panel_platform_data {
+	int *gpio;
+};
+
 struct msm_fb_platform_data {
 	int (*detect_client)(const char *name);
 	int mddi_prescan;
