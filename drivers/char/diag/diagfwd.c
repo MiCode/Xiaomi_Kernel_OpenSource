@@ -124,7 +124,8 @@ int chk_apps_only(void)
  */
 int chk_apps_master(void)
 {
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615())
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615() ||
+		 cpu_is_apq8064() || cpu_is_msm8627())
 		return 1;
 	else
 		return 0;
