@@ -623,7 +623,7 @@ static int footswitch_probe(struct platform_device *pdev)
 	init_data = pdev->dev.platform_data;
 
 	if (pdev->id == FS_MDP) {
-		if (cpu_is_msm8960() || cpu_is_msm8930())
+		if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064())
 			fs->clk_data = mdp_8960_clks;
 		else if (cpu_is_msm8x60())
 			fs->clk_data = mdp_8660_clks;
