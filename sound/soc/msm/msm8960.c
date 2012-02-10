@@ -309,7 +309,6 @@ int msm8960_enable_codec_ext_clk(
 		if (clk_users != 1)
 			return 0;
 
-		codec_clk = clk_get(NULL, "i2s_spkr_osr_clk");
 		if (codec_clk) {
 			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
 			clk_enable(codec_clk);
@@ -328,7 +327,6 @@ int msm8960_enable_codec_ext_clk(
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
 			clk_disable(codec_clk);
-			clk_put(codec_clk);
 			tabla_mclk_enable(codec, 0);
 		}
 	}
@@ -708,8 +706,9 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	int err;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-	pr_debug("%s()\n", __func__);
+	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	if (machine_is_msm8960_liquid()) {
 		top_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(19));
@@ -751,6 +750,8 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pr_err("failed to create new jack\n");
 		return err;
 	}
+
+	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
 	tabla_hs_detect(codec, &hs_jack, &button_jack, tabla_mbhc_cal,
 			TABLA_MICBIAS2, msm8960_enable_codec_ext_clk, 0,
