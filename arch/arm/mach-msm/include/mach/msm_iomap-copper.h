@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,11 +23,16 @@
  *
  */
 
+#define COPPER_MSM_SHARED_RAM_PHYS	0x18D00000
+
 #define COPPER_QGIC_DIST_PHYS	0xF9000000
 #define COPPER_QGIC_DIST_SIZE	SZ_4K
 
 #define COPPER_QGIC_CPU_PHYS	0xF9002000
 #define COPPER_QGIC_CPU_SIZE	SZ_4K
+
+#define COPPER_APCS_GCC_PHYS	0xF9011000
+#define COPPER_APCS_GCC_SIZE	SZ_4K
 
 #define COPPER_TLMM_PHYS	0xFD400000
 #define COPPER_TLMM_SIZE	SZ_16K
