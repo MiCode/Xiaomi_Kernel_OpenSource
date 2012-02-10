@@ -307,6 +307,36 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		}
 		}
 		break;
+	case NOTIFY_VFE_MSG_COMP_STATS: {
+		struct msm_stats_buf *stats = (struct msm_stats_buf *)arg;
+		struct msm_stats_buf *stats_buf = NULL;
+
+		isp_event->isp_data.isp_msg.msg_id = MSG_ID_STATS_COMPOSITE;
+		stats->aec.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->aec.buff, &(stats->aec.fd));
+		stats->awb.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->awb.buff, &(stats->awb.fd));
+		stats->af.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->af.buff, &(stats->af.fd));
+		stats->ihist.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->ihist.buff, &(stats->ihist.fd));
+		stats->rs.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->rs.buff, &(stats->rs.fd));
+		stats->cs.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
+					stats->cs.buff, &(stats->cs.fd));
+
+		stats_buf = kmalloc(sizeof(struct msm_stats_buf), GFP_ATOMIC);
+		if (!stats_buf) {
+			pr_err("%s: out of memory.\n", __func__);
+			rc = -ENOMEM;
+		} else {
+			*stats_buf = *stats;
+			isp_event->isp_data.isp_msg.len	=
+				sizeof(struct msm_stats_buf);
+			isp_event->isp_data.isp_msg.data = stats_buf;
+		}
+		}
+		break;
 	case NOTIFY_VFE_MSG_STATS: {
 		struct msm_stats_buf stats;
 		struct isp_msg_stats *isp_stats = (struct isp_msg_stats *)arg;

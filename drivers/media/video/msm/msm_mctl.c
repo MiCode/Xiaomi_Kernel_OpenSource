@@ -241,6 +241,7 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 	case NOTIFY_ISP_MSG_EVT:
 	case NOTIFY_VFE_MSG_OUT:
 	case NOTIFY_VFE_MSG_STATS:
+	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_BUF_EVT:
 	case NOTIFY_VFE_BUF_FREE_EVT:
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {

@@ -168,6 +168,8 @@
 #define VFE_AF_PINGPONG_STATUS_BIT       0x100
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
 
+#define HFR_MODE_OFF 1
+
 enum VFE32_DMI_RAM_SEL {
 	NO_MEM_SELECTED          = 0,
 	BLACK_LUT_RAM_BANK0      = 0x1,
@@ -220,7 +222,7 @@ enum vfe_output_state {
 #define V32_OUT_CLAMP_OFF         0x00000524
 #define V32_OUT_CLAMP_LEN         8
 
-#define V32_OPERATION_CFG_LEN     32
+#define V32_OPERATION_CFG_LEN     36
 
 #define V32_AXI_OUT_OFF           0x00000038
 #define V32_AXI_OUT_LEN           216
@@ -778,6 +780,8 @@ struct vfe32_output_ch {
 #define VFE32_IMASK_STATS_SKIN_BHIST_BUS_OVFL (0x00000001<<21)
 #define VFE32_IMASK_AXI_ERROR                 (0x00000001<<22)
 
+#define VFE_COM_STATUS 0x000FE000
+
 struct vfe32_output_path {
 	uint16_t output_mode;     /* bitmask  */
 
@@ -864,6 +868,7 @@ struct vfe32_frame_extra {
 #define VFE_CLAMP_MIN                   0x00000528
 #define VFE_REALIGN_BUF                 0x0000052C
 #define VFE_STATS_CFG                   0x00000530
+#define VFE_STATS_AWB_SGW_CFG           0x00000554
 #define VFE_DMI_CFG                     0x00000598
 #define VFE_DMI_ADDR                    0x0000059C
 #define VFE_DMI_DATA_LO                 0x000005A4
@@ -906,6 +911,10 @@ struct vfe32_ctrl_type {
 	spinlock_t  aec_ack_lock;
 	spinlock_t  awb_ack_lock;
 	spinlock_t  af_ack_lock;
+	spinlock_t  ihist_ack_lock;
+	spinlock_t  rs_ack_lock;
+	spinlock_t  cs_ack_lock;
+	spinlock_t  comp_stats_ack_lock;
 
 	uint32_t extlen;
 	void *extdata;
@@ -958,6 +967,7 @@ struct vfe32_ctrl_type {
 	struct platform_device *pdev;
 	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
+	uint32_t hfr_mode;
 };
 
 #define statsAeNum      0
