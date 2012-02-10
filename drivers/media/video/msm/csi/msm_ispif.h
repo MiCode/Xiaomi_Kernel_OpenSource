@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,12 @@ struct ispif_device {
 	struct clk *ispif_clk[5];
 };
 
+struct ispif_isr_queue_cmd {
+	struct list_head list;
+	uint32_t    ispifInterruptStatus0;
+	uint32_t    ispifInterruptStatus1;
+};
+
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_ispif_params)
 
@@ -50,6 +56,12 @@ struct ispif_device {
 #define ISPIF_OFF_FRAME_BOUNDARY    (0x01 << 1)
 #define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
 #define ISPIF_S_STREAM_SHIFT	4
+
+
+#define PIX_0 (0x01 << 0)
+#define RDI_0 (0x01 << 1)
+#define PIX_1 (0x01 << 2)
+#define RDI_1 (0x01 << 3)
 
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
 
