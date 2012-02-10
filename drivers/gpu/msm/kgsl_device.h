@@ -197,6 +197,11 @@ struct kgsl_context {
 
 	/* Pointer to the device specific context information */
 	void *devctxt;
+	/*
+	 * Status indicating whether a gpu reset occurred and whether this
+	 * context was responsible for causing it
+	 */
+	unsigned int reset_status;
 };
 
 struct kgsl_process_private {

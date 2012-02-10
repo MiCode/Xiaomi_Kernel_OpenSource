@@ -604,6 +604,8 @@ adreno_recover_hang(struct kgsl_device *device)
 	unsigned int soptimestamp;
 	unsigned int eoptimestamp;
 	struct adreno_context *drawctxt;
+	struct kgsl_context *context;
+	int next = 0;
 
 	KGSL_DRV_ERR(device, "Starting recovery from 3D GPU hang....\n");
 	rb_buffer = vmalloc(rb->buffer_desc.size);
@@ -671,6 +673,24 @@ adreno_recover_hang(struct kgsl_device *device)
 		"Context that caused a GPU hang: %x\n", bad_context);
 
 	drawctxt->flags |= CTXT_FLAGS_GPU_HANG;
+
+	/*
+	 * Set the reset status of all contexts to
+	 * INNOCENT_CONTEXT_RESET_EXT except for the bad context
+	 * since thats the guilty party
+	 */
+	while ((context = idr_get_next(&device->context_idr, &next))) {
+		if (KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT !=
+			context->reset_status) {
+			if (context->devctxt != drawctxt)
+				context->reset_status =
+				KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
+			else
+				context->reset_status =
+				KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+		}
+		next = next + 1;
+	}
 
 	/* Restore valid commands in ringbuffer */
 	adreno_ringbuffer_restore(rb, rb_buffer, num_rb_contents);
