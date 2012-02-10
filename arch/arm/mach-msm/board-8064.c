@@ -54,6 +54,7 @@
 #include <linux/bootmem.h>
 #include <asm/setup.h>
 #include <mach/dma.h>
+#include <mach/msm_dsps.h>
 #include <mach/msm_bus_board.h>
 #include <mach/cpuidle.h>
 #include <mach/mdm2.h>
@@ -1847,6 +1848,18 @@ static struct platform_device mtp_kp_pdev = {
 	},
 };
 
+/* Sensors DSPS platform data */
+#define DSPS_PIL_GENERIC_NAME		"dsps"
+static void __init apq8064_init_dsps(void)
+{
+	struct msm_dsps_platform_data *pdata =
+		msm_dsps_device_8064.dev.platform_data;
+	pdata->pil_name = DSPS_PIL_GENERIC_NAME;
+	pdata->gpios = NULL;
+	pdata->gpios_num = 0;
+
+	platform_device_register(&msm_dsps_device_8064);
+}
 
 static void __init apq8064_clock_init(void)
 {
@@ -1970,6 +1983,7 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&apq8064_slim_ctrl);
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
+	apq8064_init_dsps();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	acpuclk_init(&acpuclk_8064_soc_data);
 	msm_spm_l2_init(msm_spm_l2_data);
