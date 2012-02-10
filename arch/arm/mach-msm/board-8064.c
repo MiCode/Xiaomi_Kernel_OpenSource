@@ -1331,6 +1331,8 @@ static void __init apq8064_cdp_init(void)
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	apq8064_init_gpu();
+	platform_add_devices(msm_footswitch_devices,
+			     msm_num_footswitch_devices);
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
