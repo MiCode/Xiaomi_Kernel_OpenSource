@@ -315,7 +315,12 @@ unsigned long __init reserve_memory_for_fmem(unsigned long fmem_size)
 		return 0;
 
 	mb = &meminfo.bank[meminfo.nr_banks - 1];
-	fmem_phys = mb->start + (mb->size - fmem_size);
+	/*
+	 * Placing fmem at the top of memory causes multimedia issues.
+	 * Instead, place it 1 page below the top of memory to prevent
+	 * the issues from occurring.
+	 */
+	fmem_phys = mb->start + (mb->size - fmem_size) - PAGE_SIZE;
 	ret = memblock_remove(fmem_phys, fmem_size);
 	BUG_ON(ret);
 
