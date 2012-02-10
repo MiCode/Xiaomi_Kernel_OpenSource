@@ -952,15 +952,17 @@ static void __init msm8930_init_buses(void)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_bus_rpm_set_mt_mask();
-	msm_bus_8960_apps_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_sys_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
-	msm_bus_apps_fabric.dev.platform_data =
-		&msm_bus_8960_apps_fabric_pdata;
-	msm_bus_sys_fabric.dev.platform_data = &msm_bus_8960_sys_fabric_pdata;
-	msm_bus_mm_fabric.dev.platform_data = &msm_bus_8960_mm_fabric_pdata;
-	msm_bus_sys_fpb.dev.platform_data = &msm_bus_8960_sys_fpb_pdata;
-	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_8960_cpss_fpb_pdata;
+	msm_bus_8930_apps_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_sys_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_mm_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_apps_fabric.dev.platform_data =
+		&msm_bus_8930_apps_fabric_pdata;
+	msm_bus_8930_sys_fabric.dev.platform_data =
+		&msm_bus_8930_sys_fabric_pdata;
+	msm_bus_8930_mm_fabric.dev.platform_data =
+		&msm_bus_8930_mm_fabric_pdata;
+	msm_bus_8930_sys_fpb.dev.platform_data = &msm_bus_8930_sys_fpb_pdata;
+	msm_bus_8930_cpss_fpb.dev.platform_data = &msm_bus_8930_cpss_fpb_pdata;
 #endif
 }
 
@@ -1814,6 +1816,11 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8930_cpu_idle_device,
 	&msm8930_msm_gov_device,
+	&msm_bus_8930_apps_fabric,
+	&msm_bus_8930_sys_fabric,
+	&msm_bus_8930_mm_fabric,
+	&msm_bus_8930_sys_fpb,
+	&msm_bus_8930_cpss_fpb,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -1855,11 +1862,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_incall_record_rx,
 	&msm_cpudai_incall_record_tx,
 	&msm_pcm_hostless,
-	&msm_bus_apps_fabric,
-	&msm_bus_sys_fabric,
-	&msm_bus_mm_fabric,
-	&msm_bus_sys_fpb,
-	&msm_bus_cpss_fpb,
 };
 
 static void __init msm8930_i2c_init(void)

@@ -17,6 +17,7 @@
 #include <mach/irqs-8930.h>
 #include <mach/rpm.h>
 #include <mach/msm_dcvs.h>
+#include <mach/msm_bus_board.h>
 
 #include "devices.h"
 #include "rpm_log.h"
@@ -322,3 +323,25 @@ struct platform_device msm8930_msm_gov_device = {
 		.platform_data = &msm8930_core_info,
 	},
 };
+
+struct platform_device msm_bus_8930_sys_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYSTEM,
+};
+struct platform_device msm_bus_8930_apps_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_APPSS,
+};
+struct platform_device msm_bus_8930_mm_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_MMSS,
+};
+struct platform_device msm_bus_8930_sys_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_SYSTEM_FPB,
+};
+struct platform_device msm_bus_8930_cpss_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_CPSS_FPB,
+};
+
