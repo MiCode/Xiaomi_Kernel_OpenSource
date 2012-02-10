@@ -1380,6 +1380,7 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
+	&apq8064_device_qup_i2c_gsbi1,
 	&apq8064_device_qup_i2c_gsbi3,
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
@@ -1509,6 +1510,11 @@ static struct slim_boardinfo apq8064_slim_devices[] = {
 	/* add more slimbus slaves as needed */
 };
 
+static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi1_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi3_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
@@ -1519,8 +1525,20 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+#define GSBI_DUAL_MODE_CODE 0x60
+#define MSM_GSBI1_PHYS		0x12440000
 static void __init apq8064_i2c_init(void)
 {
+	void __iomem *gsbi_mem;
+
+	apq8064_device_qup_i2c_gsbi1.dev.platform_data =
+					&apq8064_i2c_qup_gsbi1_pdata;
+	gsbi_mem = ioremap_nocache(MSM_GSBI1_PHYS, 4);
+	writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+	/* Ensure protocol code is written before proceeding */
+	wmb();
+	iounmap(gsbi_mem);
+	apq8064_i2c_qup_gsbi1_pdata.use_gsbi_shared_mode = 1;
 	apq8064_device_qup_i2c_gsbi3.dev.platform_data =
 					&apq8064_i2c_qup_gsbi3_pdata;
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =

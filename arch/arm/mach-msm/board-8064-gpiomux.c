@@ -64,6 +64,18 @@ struct msm_gpiomux_config apq8064_ethernet_configs[] = {
 };
 #endif
 
+static struct gpiomux_setting gpio_i2c_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_i2c_config_sus = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+};
+
 static struct gpiomux_setting cdc_mclk = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -345,6 +357,20 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		.gpio      = 83,	/* GSBI7 UART2 RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi7_func1_cfg,
+		},
+	},
+	{
+		.gpio      = 21,		/* GSBI1 QUP I2C_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 20,		/* GSBI1 QUP I2C_DATA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 };
