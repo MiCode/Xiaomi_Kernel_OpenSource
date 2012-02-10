@@ -60,8 +60,8 @@ static unsigned int poolsize_write_struct = 8; /* Num of items in the mempool */
 static unsigned int max_clients = 15;
 static unsigned int threshold_client_limit = 30;
 /* This is the maximum number of pkt registrations supported at initialization*/
-unsigned int diag_max_registration = 500;
-unsigned int diag_threshold_registration = 650;
+unsigned int diag_max_registration = 600;
+unsigned int diag_threshold_registration = 750;
 
 /* Timer variables */
 static struct timer_list drain_timer;
@@ -256,15 +256,49 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	return -ENOMEM;
 }
 
+int diag_find_polling_reg(int i)
+{
+	uint16_t subsys_id, cmd_code_lo, cmd_code_hi;
+
+	subsys_id = driver->table[i].subsys_id;
+	cmd_code_lo = driver->table[i].cmd_code_lo;
+	cmd_code_hi = driver->table[i].cmd_code_hi;
+	if (driver->table[i].cmd_code == 0x0C)
+		return 1;
+	else if (driver->table[i].cmd_code == 0xFF) {
+		if (subsys_id == 0x04 && cmd_code_hi == 0x0E &&
+			 cmd_code_lo == 0x0E)
+			return 1;
+		else if (subsys_id == 0x08 && cmd_code_hi == 0x02 &&
+			 cmd_code_lo == 0x02)
+			return 1;
+		else if (subsys_id == 0x32 && cmd_code_hi == 0x03  &&
+			 cmd_code_lo == 0x03)
+			return 1;
+	}
+	return 0;
+}
+
 void diag_clear_reg(int proc_num)
 {
 	int i;
 
+	mutex_lock(&driver->diagchar_mutex);
+	/* reset polling flag */
+	driver->polling_reg_flag = 0;
 	for (i = 0; i < diag_max_registration; i++) {
 		if (driver->table[i].client_id == proc_num) {
 			driver->table[i].process_id = 0;
 		}
 	}
+	/* re-scan the registration table */
+	for (i = 0; i < diag_max_registration; i++) {
+		if (diag_find_polling_reg(i) == 1) {
+			driver->polling_reg_flag = 1;
+			break;
+		}
+	}
+	mutex_unlock(&driver->diagchar_mutex);
 }
 
 void diag_add_reg(int j, struct bindpkt_params *params,
@@ -275,6 +309,11 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 	driver->table[j].subsys_id = params->subsys_id;
 	driver->table[j].cmd_code_lo = params->cmd_code_lo;
 	driver->table[j].cmd_code_hi = params->cmd_code_hi;
+
+	/* check if incoming reg is polling & polling is yet not registered */
+	if (driver->polling_reg_flag == 0)
+		if (diag_find_polling_reg(j) == 1)
+			driver->polling_reg_flag = 1;
 	if (params->proc_id == APPS_PROC) {
 		driver->table[j].process_id = current->tgid;
 		driver->table[j].client_id = APPS_PROC;

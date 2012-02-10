@@ -192,6 +192,7 @@ static struct platform_driver diag_smd_lite_cntl_driver = {
 
 void diagfwd_cntl_init(void)
 {
+	driver->polling_reg_flag = 0;
 	if (driver->buf_in_cntl == NULL) {
 		driver->buf_in_cntl = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_cntl == NULL)
