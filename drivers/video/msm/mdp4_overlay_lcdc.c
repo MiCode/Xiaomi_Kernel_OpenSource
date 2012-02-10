@@ -45,73 +45,6 @@ int first_pixel_start_y;
 static struct mdp4_overlay_pipe *lcdc_pipe;
 static struct completion lcdc_comp;
 
-static void lvds_init(struct msm_fb_data_type *mfd)
-{
-	unsigned int lvds_intf, lvds_phy_cfg0;
-
-	if (mfd->panel_info.bpp == 24) {
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc2014, 0x03040508);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2018, 0x00000102);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc201c, 0x0c0d1011);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc2024, 0x1518191a);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc202c, 0x0f16171b);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2030, 0x0006070e);
-
-		if (mfd->panel_info.lvds.channel_mode ==
-			LVDS_DUAL_CHANNEL_MODE) {
-			lvds_intf = 0x0001ff80;
-			lvds_phy_cfg0 = BIT(6) | BIT(7);
-			if (mfd->panel_info.lvds.channel_swap)
-				lvds_intf |= BIT(4);
-		} else {
-			lvds_intf = 0x00010f84;
-			lvds_phy_cfg0 = BIT(6);
-		}
-	} else if (mfd->panel_info.bpp == 18) {
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc2014, 0x03040508);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2018, 0x00000102);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc201c, 0x0c0d1011);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_3_TO_0 */
-		MDP_OUTP(MDP_BASE +  0xc2024, 0x1518191a);
-		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
-		MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
-
-		if (mfd->panel_info.lvds.channel_mode ==
-			LVDS_DUAL_CHANNEL_MODE) {
-			lvds_intf = 0x00017788;
-			lvds_phy_cfg0 = BIT(6) | BIT(7);
-			if (mfd->panel_info.lvds.channel_swap)
-				lvds_intf |= BIT(4);
-		} else {
-			lvds_intf = 0x0001078c;
-			lvds_phy_cfg0 = BIT(6);
-		}
-	}
-
-	/* MDP_LVDSPHY_CFG0 */
-	MDP_OUTP(MDP_BASE +  0xc3100, lvds_phy_cfg0);
-	/* MDP_LCDC_LVDS_INTF_CTL */
-	MDP_OUTP(MDP_BASE +  0xc2000, lvds_intf);
-	lvds_phy_cfg0 |= BIT(4);
-	/* MDP_LVDSPHY_CFG0, enable serialization */
-	MDP_OUTP(MDP_BASE +  0xc3100, lvds_phy_cfg0);
-}
-
 int mdp_lcdc_on(struct platform_device *pdev)
 {
 	int lcdc_width;
@@ -304,9 +237,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp_bus_scale_update_request(2);
 #endif
 	mdp_histogram_ctrl(TRUE);
-
-	if (mfd->panel.type == LVDS_PANEL)
-		lvds_init(mfd);
 
 	ret = panel_next_on(pdev);
 	if (ret == 0) {

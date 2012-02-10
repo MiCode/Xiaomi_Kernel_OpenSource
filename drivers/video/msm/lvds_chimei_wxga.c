@@ -11,9 +11,19 @@
  */
 
 #include "msm_fb.h"
+#include <linux/pwm.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 
-static struct msm_panel_common_pdata *cm_pdata;
+#define LVDS_CHIMEI_PWM_FREQ_HZ 300
+#define LVDS_CHIMEI_PWM_PERIOD_USEC (USEC_PER_SEC / LVDS_CHIMEI_PWM_FREQ_HZ)
+#define LVDS_CHIMEI_PWM_LEVEL 255
+#define LVDS_CHIMEI_PWM_DUTY_LEVEL \
+	(LVDS_CHIMEI_PWM_PERIOD_USEC / LVDS_CHIMEI_PWM_LEVEL)
+
+
+static struct lvds_panel_platform_data *cm_pdata;
 static struct platform_device *cm_fbpdev;
+static struct pwm_device *bl_lpm;
 
 static int lvds_chimei_panel_on(struct platform_device *pdev)
 {
@@ -27,6 +37,26 @@ static int lvds_chimei_panel_off(struct platform_device *pdev)
 
 static void lvds_chimei_set_backlight(struct msm_fb_data_type *mfd)
 {
+	int ret;
+
+	pr_debug("%s: back light level %d\n", __func__, mfd->bl_level);
+
+	if (bl_lpm) {
+		ret = pwm_config(bl_lpm, LVDS_CHIMEI_PWM_DUTY_LEVEL *
+			mfd->bl_level, LVDS_CHIMEI_PWM_PERIOD_USEC);
+		if (ret) {
+			pr_err("pwm_config on lpm failed %d\n", ret);
+			return;
+		}
+		if (mfd->bl_level) {
+			ret = pwm_enable(bl_lpm);
+			if (ret)
+				pr_err("pwm enable/disable on lpm failed"
+					"for bl %d\n",	mfd->bl_level);
+		} else {
+			pwm_disable(bl_lpm);
+		}
+	}
 }
 
 static int __devinit lvds_chimei_probe(struct platform_device *pdev)
@@ -39,6 +69,17 @@ static int __devinit lvds_chimei_probe(struct platform_device *pdev)
 			pr_err("%s: no PWM gpio specified\n", __func__);
 		return 0;
 	}
+
+	if (cm_pdata != NULL)
+		bl_lpm = pwm_request(cm_pdata->gpio[0],
+			"backlight");
+
+	if (bl_lpm == NULL || IS_ERR(bl_lpm)) {
+		pr_err("%s pwm_request() failed\n", __func__);
+		bl_lpm = NULL;
+	}
+	pr_debug("bl_lpm = %p lpm = %d\n", bl_lpm,
+		cm_pdata->gpio[0]);
 
 	cm_fbpdev = msm_fb_add_device(pdev);
 	if (!cm_fbpdev) {
@@ -85,8 +126,8 @@ static int __init lvds_chimei_wxga_init(void)
 		return ret;
 
 	pinfo = &lvds_chimei_panel_data.panel_info;
-	pinfo->xres = 320;
-	pinfo->yres = 240;
+	pinfo->xres = 1366;
+	pinfo->yres = 768;
 	MSM_FB_SINGLE_MODE_PANEL(pinfo);
 	pinfo->type = LVDS_PANEL;
 	pinfo->pdest = DISPLAY_1;
@@ -94,7 +135,7 @@ static int __init lvds_chimei_wxga_init(void)
 	pinfo->bpp = 24;
 	pinfo->fb_num = 2;
 	pinfo->clk_rate = 75000000;
-	pinfo->bl_max = 15;
+	pinfo->bl_max = 255;
 	pinfo->bl_min = 1;
 
 	/*
@@ -107,12 +148,14 @@ static int __init lvds_chimei_wxga_init(void)
 	pinfo->lcdc.v_back_porch = 0;
 	pinfo->lcdc.v_front_porch = 38;
 	pinfo->lcdc.v_pulse_width = 20;
-	pinfo->lcdc.border_clr = 0xffff00;
 	pinfo->lcdc.underflow_clr = 0xff;
 	pinfo->lcdc.hsync_skew = 0;
 	pinfo->lvds.channel_mode = LVDS_SINGLE_CHANNEL_MODE;
-	pinfo->lcdc.xres_pad = 1046;
-	pinfo->lcdc.yres_pad = 528;
+
+	/* Set border color, padding only for reducing active display region */
+	pinfo->lcdc.border_clr = 0x0;
+	pinfo->lcdc.xres_pad = 0;
+	pinfo->lcdc.yres_pad = 0;
 
 	ret = platform_device_register(&this_device);
 	if (ret)

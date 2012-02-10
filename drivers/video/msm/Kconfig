@@ -495,6 +495,14 @@ config FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT
 	---help---
 	  Support for LCDC + MIPI panel auto detect
 
+config FB_MSM_LVDS_MIPI_PANEL_DETECT
+	bool "LVDS + MIPI Panel Auto Detect"
+	select FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
+	select FB_MSM_LVDS_CHIMEI_WXGA
+	select FB_MSM_MIPI_CHIMEI_WXGA
+	---help---
+	  Support for LVDS + MIPI panel auto detect
+
 config FB_MSM_MDDI_PRISM_WVGA
 	bool "MDDI Prism WVGA Panel"
 	select FB_MSM_MDDI
