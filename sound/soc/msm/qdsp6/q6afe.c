@@ -77,6 +77,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			switch (payload[0]) {
 			case AFE_PORT_AUDIO_IF_CONFIG:
+			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG:
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
 			case AFE_PORT_CMD_LOOPBACK:
@@ -280,7 +281,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		ret_size = SIZEOF_CFG_CMD(afe_port_mi2s_cfg);
 		break;
 	case HDMI_RX:
-		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_cfg);
+		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_multi_ch_cfg);
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
@@ -400,13 +401,25 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -ENODEV;
 		return ret;
 	}
-	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+
+	if (port_id == HDMI_RX) {
+		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
-	config.hdr.src_port = 0;
-	config.hdr.dest_port = 0;
-	config.hdr.token = 0;
-	config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+		config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
+		config.hdr.src_port = 0;
+		config.hdr.dest_port = 0;
+		config.hdr.token = 0;
+		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG;
+	} else {
+
+		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
+		config.hdr.src_port = 0;
+		config.hdr.dest_port = 0;
+		config.hdr.token = 0;
+		config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+	}
 
 	if (afe_validate_port(port_id) < 0) {
 

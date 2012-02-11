@@ -234,8 +234,16 @@ struct afe_port_hdmi_cfg {
 				/* HDMI_5Point1 (6-ch) = 2 */
 				/* HDMI_6Point1 (8-ch) = 3 */
 	u16	data_type;	/* HDMI_Linear = 0 */
-				/* HDMI_non_Linaer = 1 */
+				/* HDMI_non_Linear = 1 */
 } __attribute__ ((packed));
+
+
+struct afe_port_hdmi_multi_ch_cfg {
+	u16	data_type;		/* HDMI_Linear = 0 */
+					/* HDMI_non_Linear = 1 */
+	u16	channel_allocation;	/* The default is 0 (Stereo) */
+	u16	reserved;		/* must be set to 0 */
+} __packed;
 
 
 /* Slimbus Device Ids */
@@ -276,14 +284,16 @@ struct afe_port_rtproxy_cfg {
 	int	num_ch;		/* 1 to 8 */
 } __packed;
 
-#define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
+#define AFE_PORT_AUDIO_IF_CONFIG			0x000100d3
+#define AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG	0x000100D9
 
 union afe_port_config {
-	struct afe_port_pcm_cfg         pcm;
-	struct afe_port_mi2s_cfg        mi2s;
-	struct afe_port_hdmi_cfg        hdmi;
-	struct afe_port_slimbus_cfg	slimbus;
-	struct afe_port_rtproxy_cfg     rtproxy;
+	struct afe_port_pcm_cfg			pcm;
+	struct afe_port_mi2s_cfg		mi2s;
+	struct afe_port_hdmi_cfg		hdmi;
+	struct afe_port_hdmi_multi_ch_cfg	hdmi_multi_ch;
+	struct afe_port_slimbus_cfg		slimbus;
+	struct afe_port_rtproxy_cfg		rtproxy;
 } __attribute__((packed));
 
 struct afe_audioif_config_command {
@@ -482,6 +492,20 @@ struct adm_copp_open_command {
 
 #define ADM_CMD_COPP_CLOSE                               0x00010305
 
+#define ADM_CMD_MULTI_CHANNEL_COPP_OPEN                  0x00010310
+struct adm_multi_ch_copp_open_command {
+	struct apr_hdr hdr;
+	u16 flags;
+	u16 mode; /* 1-RX, 2-Live TX, 3-Non Live TX */
+	u16 endpoint_id1;
+	u16 endpoint_id2;
+	u32 topology_id;
+	u16 channel_config;
+	u16 reserved;
+	u32 rate;
+	u8 dev_channel_mapping[8];
+} __packed;
+
 #define ADM_CMD_MEMORY_MAP				0x00010C30
 struct adm_cmd_memory_map{
 	struct apr_hdr	hdr;
@@ -635,6 +659,9 @@ struct adm_copp_open_respond {
 	u16 reserved;
 } __attribute__ ((packed));
 
+#define ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN               0x00010311
+
+
 #define ASM_STREAM_PRIORITY_NORMAL	0
 #define ASM_STREAM_PRIORITY_LOW		1
 #define ASM_STREAM_PRIORITY_HIGH	2
@@ -674,6 +701,125 @@ struct asm_pcm_cfg {
 	u32 sample_rate;
 	u16 is_signed;
 	u16 interleaved;
+};
+
+#define PCM_CHANNEL_NULL 0
+
+/* Front left channel. */
+#define PCM_CHANNEL_FL    1
+
+/* Front right channel. */
+#define PCM_CHANNEL_FR    2
+
+/* Front center channel. */
+#define PCM_CHANNEL_FC    3
+
+/* Left surround channel.*/
+#define PCM_CHANNEL_LS   4
+
+/* Right surround channel.*/
+#define PCM_CHANNEL_RS   5
+
+/* Low frequency effect channel. */
+#define PCM_CHANNEL_LFE  6
+
+/* Center surround channel; Rear center channel. */
+#define PCM_CHANNEL_CS   7
+
+/* Left back channel; Rear left channel. */
+#define PCM_CHANNEL_LB   8
+
+/* Right back channel; Rear right channel. */
+#define PCM_CHANNEL_RB   9
+
+/* Top surround channel. */
+#define PCM_CHANNEL_TS   10
+
+/* Center vertical height channel.*/
+#define PCM_CHANNEL_CVH  11
+
+/* Mono surround channel.*/
+#define PCM_CHANNEL_MS   12
+
+/* Front left of center. */
+#define PCM_CHANNEL_FLC  13
+
+/* Front right of center. */
+#define PCM_CHANNEL_FRC  14
+
+/* Rear left of center. */
+#define PCM_CHANNEL_RLC  15
+
+/* Rear right of center. */
+#define PCM_CHANNEL_RRC  16
+
+#define PCM_FORMAT_MAX_NUM_CHANNEL  8
+
+
+/*
+ *  Multiple-channel PCM decoder format block structure used in the
+ *  #ASM_STREAM_CMD_OPEN_WRITE command.
+ *  The data must be in little-endian format.
+ */
+struct asm_multi_channel_pcm_fmt_blk {
+
+	u16 num_channels;	/*
+				 * Number of channels.
+				 * Supported values:1 to 8
+				 */
+
+	u16 bits_per_sample;	/*
+				 * Number of bits per sample per channel.
+				 * Supported values: 16, 24 When used for
+				 * playback, the client must send 24-bit
+				 * samples packed in 32-bit words. The
+				 * 24-bit samples must be placed in the most
+				 * significant 24 bits of the 32-bit word. When
+				 * used for recording, the aDSP sends 24-bit
+				 * samples packed in 32-bit words. The 24-bit
+				 * samples are placed in the most significant
+				 * 24 bits of the 32-bit word.
+				 */
+
+	u32 sample_rate;	/*
+				 * Number of samples per second
+				 * (in Hertz). Supported values:
+				 * 2000 to 48000
+				 */
+
+	u16 is_signed;		/*
+				 * Flag that indicates the samples
+				 * are signed (1).
+				 */
+
+	u16 is_interleaved;	/*
+				 * Flag that indicates whether the channels are
+				 * de-interleaved (0) or interleaved (1).
+				 * Interleaved format means corresponding
+				 * samples from the left and right channels are
+				 * interleaved within the buffer.
+				 * De-interleaved format means samples from
+				 * each channel are contiguous in the buffer.
+				 * The samples from one channel immediately
+				 * follow those of the previous channel.
+				 */
+
+	u8 channel_mapping[8];	/*
+				 * Supported values:
+				 * PCM_CHANNEL_NULL, PCM_CHANNEL_FL,
+				 * PCM_CHANNEL_FR, PCM_CHANNEL_FC,
+				 * PCM_CHANNEL_LS, PCM_CHANNEL_RS,
+				 * PCM_CHANNEL_LFE, PCM_CHANNEL_CS,
+				 * PCM_CHANNEL_LB, PCM_CHANNEL_RB,
+				 * PCM_CHANNEL_TS, PCM_CHANNEL_CVH,
+				 * PCM_CHANNEL_MS, PCM_CHANNEL_FLC,
+				 * PCM_CHANNEL_FRC, PCM_CHANNEL_RLC,
+				 * PCM_CHANNEL_RRC.
+				 * Channel[i] mapping describes channel I. Each
+				 * element i of the array describes channel I
+				 * inside the buffer where  I < num_channels.
+				 * An unused channel is set to zero.
+				 */
 };
 
 struct asm_adpcm_cfg {
@@ -878,6 +1024,7 @@ struct asm_stream_cmd_open_read {
 #define MPEG4_MULTI_AAC 0x00010D86
 #define US_POINT_EPOS_FORMAT 0x00012310
 #define US_RAW_FORMAT        0x0001127C
+#define MULTI_CHANNEL_PCM    0x00010C66
 
 #define ASM_ENCDEC_SBCRATE         0x00010C13
 #define ASM_ENCDEC_IMMDIATE_DECODE 0x00010C14
@@ -1059,6 +1206,7 @@ struct asm_stream_media_format_update{
 		struct asm_aac_cfg         aac_cfg;
 		struct asm_flac_cfg        flac_cfg;
 		struct asm_vorbis_cfg      vorbis_cfg;
+		struct asm_multi_channel_pcm_fmt_blk multi_ch_pcm_cfg;
 	} __attribute__((packed)) write_cfg;
 } __attribute__((packed));
 

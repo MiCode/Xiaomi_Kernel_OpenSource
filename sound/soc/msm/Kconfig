@@ -80,6 +80,13 @@ config SND_SOC_MSM8660_LPAIF
 config SND_VOIP_PCM
 	tristate
 
+config SND_SOC_MSM_QDSP6_HDMI_AUDIO
+	tristate "Soc QDSP6 HDMI Audio DAI driver"
+	depends on FB_MSM_HDMI_MSM_PANEL
+	default n
+	help
+	 To support HDMI Audio on MSM8960 over QDSP6.
+
 config MSM_8x60_VOIP
 	tristate "SoC Machine driver for voip"
 	depends on SND_SOC_MSM8X60
@@ -120,6 +127,7 @@ config SND_SOC_MSM8960
 	select SND_SOC_MSM_STUB
 	select SND_SOC_WCD9310
 	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_MSM_QDSP6_HDMI_AUDIO
 	default n
 	help
 	 To add support for SoC audio on MSM8960 and APQ8064 boards

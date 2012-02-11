@@ -206,30 +206,6 @@ static int msm_dai_q6_cdc_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
-static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_hw_params *params,
-	struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
-
-	dev_dbg(dai->dev, "%s start HDMI port\n", __func__);
-
-	dai_data->channels = params_channels(params);
-	switch (dai_data->channels) {
-	case 2:
-		dai_data->port_config.hdmi.channel_mode = 0; /* Put in macro */
-		break;
-	default:
-		return -EINVAL;
-		break;
-	}
-
-	/* Q6 only supports 16 as now */
-	dai_data->port_config.hdmi.bitwidth = 16;
-	dai_data->port_config.hdmi.data_type = 0;
-	dai_data->rate = params_rate(params);
-
-	return 0;
-}
 
 static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai, int stream)
@@ -424,9 +400,6 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case MI2S_RX:
 		rc = msm_dai_q6_mi2s_hw_params(params, dai, substream->stream);
-		break;
-	case HDMI_RX:
-		rc = msm_dai_q6_hdmi_hw_params(params, dai);
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
@@ -903,20 +876,6 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
-static struct snd_soc_dai_driver msm_dai_q6_hdmi_rx_dai = {
-	.playback = {
-		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.channels_min = 2,
-		.channels_max = 2,
-		.rate_max =     48000,
-		.rate_min =	48000,
-	},
-	.ops = &msm_dai_q6_ops,
-	.probe = msm_dai_q6_dai_probe,
-	.remove = msm_dai_q6_dai_remove,
-};
-
 static struct snd_soc_dai_driver msm_dai_q6_voice_playback_tx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
@@ -1100,9 +1059,6 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case MI2S_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_mi2s_rx_dai);
-		break;
-	case HDMI_RX:
-		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_hdmi_rx_dai);
 		break;
 	case SLIMBUS_0_RX:
 		rc = snd_soc_register_dai(&pdev->dev,

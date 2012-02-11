@@ -162,6 +162,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 {
 	int i, session_type, path_type, port_type;
 	struct route_payload payload;
+	u32 channels;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -191,11 +192,23 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 			port_type) && msm_bedais[i].active &&
 			(test_bit(fedai_id,
 			&msm_bedais[i].fe_sessions))) {
-			adm_open(msm_bedais[i].port_id,
+
+			channels = params_channels(msm_bedais[i].hw_params);
+
+			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
+				(channels > 2))
+				adm_multi_ch_copp_open(msm_bedais[i].port_id,
+				path_type,
+				params_rate(msm_bedais[i].hw_params),
+				channels,
+				DEFAULT_COPP_TOPOLOGY);
+			else
+				adm_open(msm_bedais[i].port_id,
 				path_type,
 				params_rate(msm_bedais[i].hw_params),
 				params_channels(msm_bedais[i].hw_params),
 				DEFAULT_COPP_TOPOLOGY);
+
 			payload.copp_ids[payload.num_copps++] =
 				msm_bedais[i].port_id;
 		}
@@ -243,6 +256,7 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type;
+	u32 channels;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -271,10 +285,22 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		set_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
-			adm_open(msm_bedais[reg].port_id, path_type,
+
+			channels = params_channels(msm_bedais[reg].hw_params);
+
+			if ((session_type == SESSION_TYPE_RX) && (channels > 2))
+				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
+				path_type,
+				params_rate(msm_bedais[reg].hw_params),
+				channels,
+				DEFAULT_COPP_TOPOLOGY);
+			else
+				adm_open(msm_bedais[reg].port_id,
+				path_type,
 				params_rate(msm_bedais[reg].hw_params),
 				params_channels(msm_bedais[reg].hw_params),
 				DEFAULT_COPP_TOPOLOGY);
+
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
 		}
@@ -1463,6 +1489,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	unsigned int be_id = rtd->dai_link->be_id;
 	int i, path_type, session_type;
 	struct msm_pcm_routing_bdai_data *bedai;
+	u32 channels;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -1500,10 +1527,22 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
-			adm_open(bedai->port_id, path_type,
+
+			channels = params_channels(bedai->hw_params);
+			if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+				(channels > 2))
+				adm_multi_ch_copp_open(bedai->port_id,
+				path_type,
+				params_rate(bedai->hw_params),
+				channels,
+				DEFAULT_COPP_TOPOLOGY);
+			else
+				adm_open(bedai->port_id,
+				path_type,
 				params_rate(bedai->hw_params),
 				params_channels(bedai->hw_params),
 				DEFAULT_COPP_TOPOLOGY);
+
 			msm_pcm_routing_build_matrix(i,
 				fe_dai_map[i][session_type], path_type);
 		}

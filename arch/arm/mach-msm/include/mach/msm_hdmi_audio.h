@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,15 @@
 
 #ifndef __MSM_HDMI_AUDIO_H
 #define __MSM_HDMI_AUDIO_H
+
+/* Supported HDMI Audio channels */
+#define MSM_HDMI_AUDIO_CHANNEL_2		0
+#define MSM_HDMI_AUDIO_CHANNEL_4		1
+#define MSM_HDMI_AUDIO_CHANNEL_6		2
+#define MSM_HDMI_AUDIO_CHANNEL_8		3
+
+#define TRUE   1
+#define FALSE  0
 
 enum hdmi_supported_sample_rates {
 	HDMI_SAMPLE_RATE_32KHZ,
@@ -27,5 +36,7 @@ int hdmi_audio_enable(bool on , u32 fifo_water_mark);
 int hdmi_audio_packet_enable(bool on);
 void hdmi_msm_audio_sample_rate_reset(int rate);
 int hdmi_msm_audio_get_sample_rate(void);
+int hdmi_msm_audio_info_setup(bool enabled, u32 num_of_channels,
+	u32 channel_allocation, u32 level_shift, bool down_mix);
 
 #endif /* __MSM_HDMI_AUDIO_H*/
