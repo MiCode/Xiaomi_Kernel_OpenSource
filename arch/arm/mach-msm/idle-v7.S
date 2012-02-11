@@ -138,7 +138,9 @@ skip2:
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
-	addne	r0, r0, #CPU_SAVED_STATE_SIZE
+	mov	r2, #CPU_SAVED_STATE_SIZE
+	mul	r2, r2, r1
+	add	r0, r0, r2
 #endif
 
 	ldmfd   r0, {r4-r14}
