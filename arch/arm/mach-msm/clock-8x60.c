@@ -3900,6 +3900,11 @@ static void __init msm8660_clock_init(void)
 	}
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	/* Copy gfx2d's frequency table because it's modified by both clocks */
+	gfx2d1_clk.freq_tbl = kmemdup(clk_tbl_gfx2d,
+			sizeof(struct clk_freq_tbl) * ARRAY_SIZE(clk_tbl_gfx2d),
+			GFP_KERNEL);
+
 	/* Initialize clock registers. */
 	reg_init();
 
