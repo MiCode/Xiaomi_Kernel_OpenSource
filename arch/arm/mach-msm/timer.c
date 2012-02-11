@@ -215,13 +215,13 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 		return __raw_readl(addr);
 
 	t1 = __raw_readl(addr);
-	t2 = __raw_readl(addr);
+	t2 = __raw_readl_no_log(addr);
 	if ((t2-t1) <= 1)
 		return t2;
 	while (1) {
-		t1 = __raw_readl(addr);
-		t2 = __raw_readl(addr);
-		t3 = __raw_readl(addr);
+		t1 = __raw_readl_no_log(addr);
+		t2 = __raw_readl_no_log(addr);
+		t3 = __raw_readl_no_log(addr);
 		cpu_relax();
 		if ((t3-t2) <= 1)
 			return t3;
@@ -304,7 +304,7 @@ static int msm_timer_set_next_event(unsigned long cycles,
 		/* read the counter four extra times to make sure write posts
 		   before reading the time */
 		for (i = 0; i < 4; i++)
-			__raw_readl(clock->regbase + TIMER_COUNT_VAL);
+			__raw_readl_no_log(clock->regbase + TIMER_COUNT_VAL);
 	}
 	now = msm_read_timer_count(clock, LOCAL_TIMER);
 	clock_state->last_set = now;
@@ -415,11 +415,12 @@ uint32_t msm_timer_get_sclk_ticks(void)
 	tmp /= (loop_zero_count-1);
 
 	while (loop_zero_count--) {
-		t1 = __raw_readl(MSM_RPM_MPM_BASE + MPM_SCLK_COUNT_VAL);
+		t1 = __raw_readl_no_log(MSM_RPM_MPM_BASE + MPM_SCLK_COUNT_VAL);
 		do {
 			udelay(1);
 			t2 = t1;
-			t1 = __raw_readl(MSM_RPM_MPM_BASE + MPM_SCLK_COUNT_VAL);
+			t1 = __raw_readl_no_log(
+				MSM_RPM_MPM_BASE + MPM_SCLK_COUNT_VAL);
 		} while ((t2 != t1) && --loop_count);
 
 		if (!loop_count) {
