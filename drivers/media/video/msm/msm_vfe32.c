@@ -598,6 +598,14 @@ static int vfe32_operation_config(uint32_t *cmd)
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_CFG);
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_PIXEL_IF_CFG);
+	if (msm_io_r(vfe32_ctrl->vfebase + V32_GET_HW_VERSION_OFF) ==
+		VFE33_HW_NUMBER) {
+		msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_RDI0_CFG);
+		msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_RDI1_CFG);
+	}  else {
+		++p;
+		++p;
+	}
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_REALIGN_BUF);
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_CHROMA_UP);
 	msm_io_w(*(++p), vfe32_ctrl->vfebase + VFE_STATS_CFG);
