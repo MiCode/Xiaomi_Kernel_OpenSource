@@ -27,10 +27,12 @@
 
 /* MD Registers */
 #define MD4(m_lsb, m, n_lsb, n) \
-		(BVAL((m_lsb+3), m_lsb, m) | BVAL((n_lsb+3), n_lsb, ~(n)))
+		((BVAL((m_lsb+3), m_lsb, m) | BVAL((n_lsb+3), n_lsb, ~(n))) \
+		* !!(n))
 #define MD8(m_lsb, m, n_lsb, n) \
-		(BVAL((m_lsb+7), m_lsb, m) | BVAL((n_lsb+7), n_lsb, ~(n)))
-#define MD16(m, n) (BVAL(31, 16, m) | BVAL(15, 0, ~(n)))
+		((BVAL((m_lsb+7), m_lsb, m) | BVAL((n_lsb+7), n_lsb, ~(n))) \
+		* !!(n))
+#define MD16(m, n) ((BVAL(31, 16, m) | BVAL(15, 0, ~(n))) * !!(n))
 
 /* NS Registers */
 #define NS(n_msb, n_lsb, n, m, mde_lsb, d_msb, d_lsb, d, s_msb, s_lsb, s) \
@@ -101,11 +103,10 @@
  */
 struct clk_freq_tbl {
 	const uint32_t	freq_hz;
-	struct clk	*src_clk;
+	struct clk	*const src_clk;
 	const uint32_t	md_val;
 	const uint32_t	ns_val;
 	const uint32_t	ctl_val;
-	uint32_t	mnd_en_mask;
 	void		*const extra_freq_data;
 };
 
@@ -126,13 +127,12 @@ struct bank_masks {
 	const struct bank_mask_info	bank1_mask;
 };
 
-#define F_RAW(f, sc, m_v, n_v, c_v, m_m, e) { \
+#define F_RAW(f, sc, m_v, n_v, c_v, e) { \
 	.freq_hz = f, \
 	.src_clk = sc, \
 	.md_val = m_v, \
 	.ns_val = n_v, \
 	.ctl_val = c_v, \
-	.mnd_en_mask = m_m, \
 	.extra_freq_data = e, \
 	}
 #define FREQ_END	(UINT_MAX-1)
@@ -185,6 +185,7 @@ struct rcg_clk {
 	const uint32_t	root_en_mask;
 	uint32_t	ns_mask;
 	const uint32_t	ctl_mask;
+	uint32_t	mnd_en_mask;
 
 	void		*bank_info;
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);

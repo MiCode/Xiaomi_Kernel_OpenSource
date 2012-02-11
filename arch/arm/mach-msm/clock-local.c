@@ -192,13 +192,8 @@ void set_rate_mnd_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 		writel_relaxed(ns_reg_val, clk->ns_reg);
 	}
 
-	/*
-	 * If this freq requires the MN counter to be enabled,
-	 * update the enable mask to match the current bank.
-	 */
-	if (nf->mnd_en_mask)
-		nf->mnd_en_mask = new_bank_masks->mnd_en_mask;
-	/* Update the NS mask to match the current bank. */
+	/* Update the MND_EN and NS masks to match the current bank. */
+	clk->mnd_en_mask = new_bank_masks->mnd_en_mask;
 	clk->ns_mask = new_bank_masks->ns_mask;
 }
 
@@ -343,8 +338,8 @@ static void __rcg_clk_enable_reg(struct rcg_clk *clk)
 
 	/* Enable MN counter, if applicable. */
 	reg_val = readl_relaxed(reg);
-	if (clk->current_freq->mnd_en_mask) {
-		reg_val |= clk->current_freq->mnd_en_mask;
+	if (clk->current_freq->md_val) {
+		reg_val |= clk->mnd_en_mask;
 		writel_relaxed(reg_val, reg);
 	}
 	/* Enable root. */
@@ -408,8 +403,8 @@ static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 		writel_relaxed(reg_val, reg);
 	}
 	/* Disable MN counter, if applicable. */
-	if (clk->current_freq->mnd_en_mask) {
-		reg_val &= ~(clk->current_freq->mnd_en_mask);
+	if (clk->current_freq->md_val) {
+		reg_val &= ~(clk->mnd_en_mask);
 		writel_relaxed(reg_val, reg);
 	}
 	/*
@@ -641,7 +636,7 @@ int rcg_clk_handoff(struct clk *c)
 	ns_val = readl_relaxed(clk->ns_reg) & ns_mask;
 	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
 		if ((freq->ns_val & ns_mask) == ns_val &&
-		    (!freq->mnd_en_mask || freq->md_val == md_val)) {
+		    (!freq->md_val || freq->md_val == md_val)) {
 			pr_info("%s rate=%d\n", clk->c.dbg_name, freq->freq_hz);
 			break;
 		}
