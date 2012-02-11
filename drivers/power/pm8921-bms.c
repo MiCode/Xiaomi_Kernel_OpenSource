@@ -1893,7 +1893,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
 	/* begin calibration only on chips > 2.0 */
 	if (chip->revision >= PM8XXX_REVISION_8921_2p0)
-		calibrate_ccadc_work(&(chip->calib_ccadc_work.work));
+		schedule_delayed_work(&chip->calib_ccadc_work, 0);
 
 	/* initial hkadc calibration */
 	schedule_work(&chip->calib_hkadc_work);
