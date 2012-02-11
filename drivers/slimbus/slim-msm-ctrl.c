@@ -1862,11 +1862,6 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	}
 
 
-	dev->rclk = clk_get(dev->dev, "audio_slimbus_clk");
-	if (!dev->rclk) {
-		dev_err(dev->dev, "slimbus clock not found");
-		goto err_clk_get_failed;
-	}
 	dev->framer.rootfreq = SLIM_ROOT_FREQ >> 3;
 	dev->framer.superfreq =
 		dev->framer.rootfreq / SLIM_CL_PER_SUPERFRAME_DIV8;
@@ -1882,6 +1877,20 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	}
 
 	msm_slim_prg_slew(pdev, dev);
+
+	/* Register with framework before enabling frame, clock */
+	ret = slim_add_numbered_controller(&dev->ctrl);
+	if (ret) {
+		dev_err(dev->dev, "error adding controller\n");
+		goto err_ctrl_failed;
+	}
+
+
+	dev->rclk = clk_get(dev->dev, "audio_slimbus_clk");
+	if (!dev->rclk) {
+		dev_err(dev->dev, "slimbus clock not found");
+		goto err_clk_get_failed;
+	}
 	clk_set_rate(dev->rclk, SLIM_ROOT_FREQ);
 	clk_enable(dev->rclk);
 
@@ -1909,13 +1918,6 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	 * before framer register writes
 	 */
 	wmb();
-
-	/* Register with framework before enabling frame, clock */
-	ret = slim_add_numbered_controller(&dev->ctrl);
-	if (ret) {
-		dev_err(dev->dev, "error adding controller\n");
-		goto err_ctrl_failed;
-	}
 
 	/* Framer register initialization */
 	writel_relaxed((0xA << REF_CLK_GEAR) | (0xA << CLK_GEAR) |
@@ -1969,11 +1971,9 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 
 err_ctrl_failed:
 	writel_relaxed(0, dev->base + COMP_CFG);
+err_clk_get_failed:
 	kfree(dev->satd);
 err_request_irq_failed:
-	clk_disable(dev->rclk);
-	clk_put(dev->rclk);
-err_clk_get_failed:
 	msm_slim_sps_exit(dev);
 err_sps_init_failed:
 	iounmap(dev->bam.base);
