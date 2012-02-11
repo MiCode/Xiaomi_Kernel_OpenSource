@@ -68,6 +68,7 @@
 #define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
 #define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME	"mipi_video_toshiba_wsvga"
+#define MIPI_VIDEO_ASUS_WUXGA_PANEL_NAME	"mipi_video_asus_wuxga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME	"mipi_video_chimei_wxga"
 #define MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME	"mipi_video_chimei_wuxga"
 #define MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME	"mipi_video_simulator_vga"
@@ -81,7 +82,7 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-static void set_mdp_clocks_for_liquid_wuxga(void);
+static void set_mdp_clocks_for_wuxga(void);
 
 static int msm_fb_detect_panel(const char *name)
 {
@@ -91,7 +92,7 @@ static int msm_fb_detect_panel(const char *name)
 			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
 				     strnlen(MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
 						PANEL_NAME_MAX_LEN))) {
-				set_mdp_clocks_for_liquid_wuxga();
+				set_mdp_clocks_for_wuxga();
 				return 0;
 			}
 		} else {
@@ -126,6 +127,13 @@ static int msm_fb_detect_panel(const char *name)
 				strnlen(MIPI_CMD_RENESAS_FWVGA_PANEL_NAME,
 					PANEL_NAME_MAX_LEN)))
 			return 0;
+
+		if (!strncmp(name, MIPI_VIDEO_ASUS_WUXGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_ASUS_WUXGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN))) {
+			set_mdp_clocks_for_wuxga();
+			return 0;
+		}
 #endif
 	}
 
@@ -649,9 +657,9 @@ static struct msm_panel_common_pdata mdp_pdata = {
 
 /**
  * Set MDP clocks to high frequency to avoid DSI underflow
- * when using high resolution 1200x1920 WUXGA panel.
+ * when using high resolution 1200x1920 WUXGA panels
  */
-static void set_mdp_clocks_for_liquid_wuxga(void)
+static void set_mdp_clocks_for_wuxga(void)
 {
 	int i;
 
