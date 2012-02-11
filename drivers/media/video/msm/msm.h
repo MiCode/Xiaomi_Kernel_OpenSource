@@ -427,7 +427,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 			int msg_type, struct msm_free_buf *buf,
 			uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
-			int msg_type, struct msm_free_buf *frame, int dirty);
+	int msg_type, struct msm_free_buf *frame, int dirty, int node_type);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 				struct msm_cam_v4l2_dev_inst *pcam_inst,
 				int path, struct msm_free_buf *free_buf);
@@ -474,7 +474,7 @@ int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
 int msm_mctl_pp_notify(struct msm_cam_media_controller *pmctl,
 			struct msm_mctl_pp_frame_info *pp_frame_info);
 int msm_mctl_img_mode_to_inst_index(struct msm_cam_media_controller *pmctl,
-					int out_type);
+					int out_type, int node_type);
 struct msm_frame_buffer *msm_mctl_buf_find(
 	struct msm_cam_media_controller *pmctl,
 	struct msm_cam_v4l2_dev_inst *pcam_inst, int del_buf,

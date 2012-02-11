@@ -142,7 +142,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = -EINVAL, image_mode;
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
-	struct msm_free_buf free_buf;
+	struct msm_free_buf free_buf, temp_free_buf;
 	struct msm_camvfe_params vfe_params;
 	struct msm_vfe_cfg_cmd cfgcmd;
 	struct msm_sync *sync =
@@ -190,7 +190,12 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-		/* Write the same buffer into PONG */
+		temp_free_buf = free_buf;
+		if (msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
+					image_mode, &free_buf)) {
+			/* Write the same buffer into PONG */
+			free_buf = temp_free_buf;
+		}
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
