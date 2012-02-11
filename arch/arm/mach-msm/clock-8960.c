@@ -5249,7 +5249,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"footswitch-8x60.2"),
 	CLK_LOOKUP("bus_clk",		ijpeg_axi_clk.c, "footswitch-8x60.3"),
-	CLK_LOOKUP("mem_clk",		imem_axi_clk.c,		""),
+	CLK_LOOKUP("imem_clk",		imem_axi_clk.c,		NULL),
 	CLK_LOOKUP("ijpeg_clk",         ijpeg_clk.c,            NULL),
 	CLK_LOOKUP("core_clk",		ijpeg_clk.c,	"footswitch-8x60.3"),
 	CLK_LOOKUP("core_clk",		jpegd_clk.c,		""),
