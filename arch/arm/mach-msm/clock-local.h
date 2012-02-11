@@ -106,7 +106,6 @@ struct clk_freq_tbl {
 	const uint32_t	ns_val;
 	const uint32_t	ctl_val;
 	uint32_t	mnd_en_mask;
-	const unsigned	sys_vdd;
 	void		*const extra_freq_data;
 };
 
