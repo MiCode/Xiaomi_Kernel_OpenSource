@@ -33,7 +33,6 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
-#include <mach/socinfo.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
@@ -307,19 +306,11 @@ qup_update_state(struct qup_i2c_dev *dev, uint32_t state)
 /*
  * Before calling qup_config_core_on_en(), please make
  * sure that QuPE core is in RESET state.
- *
- * Configuration of CORE_ON_EN - BIT13 in QUP_CONFIG register
- * is only required for targets like 7x27a, where it needs
- * be turned on for disabling the QuPE pclks.
  */
 static void
 qup_config_core_on_en(struct qup_i2c_dev *dev)
 {
 	uint32_t status;
-
-	if (!(cpu_is_msm7x27a() || cpu_is_msm7x27aa() ||
-		 cpu_is_msm7x25a() || cpu_is_msm7x25aa()))
-		return;
 
 	status = readl_relaxed(dev->base + QUP_CONFIG);
 	status |= BIT(13);
