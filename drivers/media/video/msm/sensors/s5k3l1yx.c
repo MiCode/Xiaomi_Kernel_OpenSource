@@ -114,8 +114,8 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_60fps_settings[] = {
 	{0x0113, 0x0A}, /* CCP_data_format_L raw8=0808 ,DCPM10 -->8= 0A08 */
 	{0x0306, 0x00}, /* pll_multiplier */
 	{0x0307, 0xA5}, /* pll_multiplier */
-	{0x0202, 0x02}, /* coarse_integration_time */
-	{0x0203, 0x1C}, /* coarse_integration_time */
+	{0x0202, 0x03}, /* coarse_integration_time */
+	{0x0203, 0xD8}, /* coarse_integration_time */
 	{0x0340, 0x03}, /* frame_length_lines */
 	{0x0341, 0xE0}, /* frame_length_lines */
 	{0x0342, 0x14}, /* line_length_pck */
@@ -152,7 +152,7 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_90fps_settings[] = {
 	{0x0306, 0x00}, /* pll_multiplier */
 	{0x0307, 0xA5}, /* pll_multiplier */
 	{0x0202, 0x02}, /* coarse_integration_time */
-	{0x0203, 0x1C}, /* coarse_integration_time */
+	{0x0203, 0x90}, /* coarse_integration_time */
 	{0x0340, 0x02}, /* frame_length_lines */
 	{0x0341, 0x98}, /* frame_length_lines */
 	{0x0342, 0x14}, /* line_length_pck */
@@ -188,10 +188,10 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_120fps_settings[] = {
 	{0x0113, 0x0A}, /* CCP_data_format_L raw8=0808 ,DCPM10 -->8= 0A08 */
 	{0x0306, 0x00}, /* pll_multiplier */
 	{0x0307, 0xA5}, /* pll_multiplier */
-	{0x0202, 0x02}, /* coarse_integration_time */
-	{0x0203, 0x1C}, /* coarse_integration_time */
+	{0x0202, 0x01}, /* coarse_integration_time */
+	{0x0203, 0xFA}, /* coarse_integration_time */
 	{0x0340, 0x02}, /* frame_length_lines */
-	{0x0341, 0x0D}, /* frame_length_lines */
+	{0x0341, 0x02}, /* frame_length_lines */
 	{0x0342, 0x14}, /* line_length_pck */
 	{0x0343, 0xD8}, /* line_length_pck */
 	{0x0344, 0x01}, /* x_addr_start */
@@ -519,7 +519,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.x_output = 864,
 		.y_output = 480,
 		.line_length_pclk = 5336,
-		.frame_length_lines = 525,
+		.frame_length_lines = 514,
 		.vt_pixel_clk = 330000000,
 		.op_pixel_clk = 320000000,
 		.binning_factor = 1,
