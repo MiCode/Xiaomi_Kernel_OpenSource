@@ -185,11 +185,6 @@ struct tabla_priv {
 	struct work_struct hphlocp_work; /* reporting left hph ocp off */
 	struct work_struct hphrocp_work; /* reporting right hph ocp off */
 
-	/* pm_cnt holds number of sleep lock holders + 1
-	 * so if pm_cnt is 1 system is sleep-able. */
-	atomic_t pm_cnt;
-	wait_queue_head_t pm_wq;
-
 	u8 hphlocp_cnt; /* headphone left ocp retry */
 	u8 hphrocp_cnt; /* headphone right ocp retry */
 
@@ -3331,24 +3326,6 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static void tabla_lock_sleep(struct tabla_priv *tabla)
-{
-	int ret;
-	while (!(ret = wait_event_timeout(tabla->pm_wq,
-					  atomic_inc_not_zero(&tabla->pm_cnt),
-					  2 * HZ))) {
-		pr_err("%s: didn't wake up for 2000ms (%d), pm_cnt %d\n",
-		       __func__, ret, atomic_read(&tabla->pm_cnt));
-		WARN_ON_ONCE(1);
-	}
-}
-
-static void tabla_unlock_sleep(struct tabla_priv *tabla)
-{
-	atomic_dec(&tabla->pm_cnt);
-	wake_up(&tabla->pm_wq);
-}
-
 static u16 tabla_codec_v_sta_dce(struct snd_soc_codec *codec, bool dce,
 				 s16 vin_mv)
 {
@@ -3403,11 +3380,13 @@ static void btn0_lpress_fn(struct work_struct *work)
 	struct tabla_priv *tabla;
 	short bias_value;
 	int dce_mv, sta_mv;
+	struct tabla *core;
 
 	pr_debug("%s:\n", __func__);
 
 	delayed_work = to_delayed_work(work);
 	tabla = container_of(delayed_work, struct tabla_priv, btn0_dwork);
+	core = dev_get_drvdata(tabla->codec->dev->parent);
 
 	if (tabla) {
 		if (tabla->button_jack) {
@@ -3428,7 +3407,7 @@ static void btn0_lpress_fn(struct work_struct *work)
 		pr_err("%s: Bad tabla private data\n", __func__);
 	}
 
-	tabla_unlock_sleep(tabla);
+	tabla_unlock_sleep(core);
 }
 
 void tabla_mbhc_cal(struct snd_soc_codec *codec)
@@ -3877,10 +3856,10 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	    TABLA_MBHC_CAL_BTN_DET_PTR(priv->calibration);
 	short btnmeas[d->n_btn_meas + 1];
 	struct snd_soc_codec *codec = priv->codec;
+	struct tabla *core = dev_get_drvdata(priv->codec->dev->parent);
 
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
-	tabla_lock_sleep(priv);
 
 	bias_value_dce = tabla_codec_read_dce_result(codec);
 	bias_mv_dce = tabla_codec_sta_dce_v(codec, 1, bias_value_dce);
@@ -3926,11 +3905,12 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 
 		/* XXX: assuming button 0 has the lowest micbias voltage */
 		if (btn == 0) {
+			tabla_lock_sleep(core);
 			if (schedule_delayed_work(&priv->btn0_dwork,
 						  msecs_to_jiffies(400)) == 0) {
 				WARN(1, "Button pressed twice without release"
 				     "event\n");
-				tabla_unlock_sleep(priv);
+				tabla_unlock_sleep(core);
 			}
 		} else {
 			pr_debug("%s: Reporting short button %d(0x%x) press\n",
@@ -3938,23 +3918,24 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 			tabla_snd_soc_jack_report(priv, priv->button_jack, mask,
 						  mask);
 		}
-	} else
+	} else {
 		pr_debug("%s: bogus button press, too short press?\n",
 			 __func__);
+	}
 
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t tabla_release_handler(int irq, void *data)
 {
-	struct tabla_priv *priv = data;
-	struct snd_soc_codec *codec = priv->codec;
 	int ret;
 	short mb_v;
+	struct tabla_priv *priv = data;
+	struct snd_soc_codec *codec = priv->codec;
+	struct tabla *core = dev_get_drvdata(priv->codec->dev->parent);
 
 	pr_debug("%s: enter\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
-	tabla_lock_sleep(priv);
 
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
 		ret = cancel_delayed_work(&priv->btn0_dwork);
@@ -3968,7 +3949,7 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 		} else {
 			/* if scheduled btn0_dwork is canceled from here,
 			 * we have to unlock from here instead btn0_work */
-			tabla_unlock_sleep(priv);
+			tabla_unlock_sleep(core);
 			mb_v = tabla_codec_sta_dce(codec, 0);
 			pr_debug("%s: Mic Voltage on release STA: %d,%d\n",
 				 __func__, mb_v,
@@ -4006,7 +3987,6 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 	}
 
 	tabla_codec_start_hs_polling(codec);
-	tabla_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -4157,7 +4137,6 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
-	tabla_lock_sleep(priv);
 
 	is_removal = snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02;
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
@@ -4229,7 +4208,6 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		}
 		tabla_codec_shutdown_hs_removal_detect(codec);
 		tabla_codec_enable_hs_detect(codec, 1);
-		tabla_unlock_sleep(priv);
 		return IRQ_HANDLED;
 	}
 
@@ -4308,7 +4286,6 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		tabla_sync_hph_state(priv);
 	}
 
-	tabla_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -4326,7 +4303,6 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
-	tabla_lock_sleep(priv);
 
 	usleep_range(generic->t_shutdown_plug_rem,
 		     generic->t_shutdown_plug_rem);
@@ -4364,7 +4340,6 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 		tabla_codec_enable_hs_detect(codec, 1);
 	}
 
-	tabla_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -4376,8 +4351,6 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 	struct snd_soc_codec *codec = priv->codec;
 	int i, j;
 	u8 val;
-
-	tabla_lock_sleep(priv);
 
 	for (i = 0; i < TABLA_SLIM_NUM_PORT_REG; i++) {
 		slimbus_value = tabla_interface_reg_read(codec->control_data,
@@ -4396,7 +4369,6 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 			TABLA_SLIM_PGD_PORT_INT_CLR0 + i, 0xFF);
 	}
 
-	tabla_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -4742,8 +4714,6 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
 	tabla->intf_type = tabla_get_intf_type();
-	atomic_set(&tabla->pm_cnt, 1);
-	init_waitqueue_head(&tabla->pm_wq);
 
 	tabla_update_reg_address(tabla);
 	tabla_update_reg_defaults(codec);
@@ -4941,7 +4911,6 @@ static ssize_t codec_debug_write(struct file *filp,
 	buf = (char *)lbuf;
 	debug_tabla_priv->no_mic_headset_override = (*strsep(&buf, " ") == '0')
 		? false : true;
-
 	return rc;
 }
 
@@ -4954,53 +4923,14 @@ static const struct file_operations codec_debug_ops = {
 #ifdef CONFIG_PM
 static int tabla_suspend(struct device *dev)
 {
-	int ret = 0, cnt;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct tabla_priv *tabla = platform_get_drvdata(pdev);
-
-	cnt = atomic_read(&tabla->pm_cnt);
-	if (cnt > 0) {
-		if (wait_event_timeout(tabla->pm_wq,
-				       (atomic_cmpxchg(&tabla->pm_cnt, 1, 0)
-						== 1), 5 * HZ)) {
-			dev_dbg(dev, "system suspend pm_cnt %d\n",
-				atomic_read(&tabla->pm_cnt));
-		} else {
-			dev_err(dev, "%s timed out pm_cnt = %d\n",
-				__func__, atomic_read(&tabla->pm_cnt));
-			WARN_ON_ONCE(1);
-			ret = -EBUSY;
-		}
-	} else if (cnt == 0)
-		dev_warn(dev, "system is already in suspend, pm_cnt %d\n",
-			 atomic_read(&tabla->pm_cnt));
-	else {
-		WARN(1, "unexpected pm_cnt %d\n", cnt);
-		ret = -EFAULT;
-	}
-
-	return ret;
+	dev_dbg(dev, "%s: system suspend\n", __func__);
+	return 0;
 }
 
 static int tabla_resume(struct device *dev)
 {
-	int ret = 0, cnt;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct tabla_priv *tabla = platform_get_drvdata(pdev);
-
-	cnt = atomic_cmpxchg(&tabla->pm_cnt, 0, 1);
-	if (cnt == 0) {
-		dev_dbg(dev, "system resume, pm_cnt %d\n",
-			atomic_read(&tabla->pm_cnt));
-		wake_up_all(&tabla->pm_wq);
-	} else if (cnt > 0)
-		dev_warn(dev, "system is already awake, pm_cnt %d\n", cnt);
-	else {
-		WARN(1, "unexpected pm_cnt %d\n", cnt);
-		ret = -EFAULT;
-	}
-
-	return ret;
+	dev_dbg(dev, "%s: system resume\n", __func__);
+	return 0;
 }
 
 static const struct dev_pm_ops tabla_pm_ops = {
