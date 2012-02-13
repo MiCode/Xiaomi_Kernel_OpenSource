@@ -37,6 +37,7 @@
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
+#include <linux/mfd/pm8xxx/misc.h>
 #include <linux/pm_qos_params.h>
 #include <linux/power_supply.h>
 
@@ -571,6 +572,9 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 		writel_relaxed(val, USB_OTGSC);
 		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_RISE);
 		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_FALL);
+	} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
+		/* Enable PMIC pull-up */
+		pm8xxx_usb_id_pullup(1);
 	}
 
 	return 0;
@@ -1307,6 +1311,8 @@ static void msm_chg_enable_aca_det(struct msm_otg *motg)
 		ulpi_write(otg, 0x01, 0x0C);
 		ulpi_write(otg, 0x10, 0x0F);
 		ulpi_write(otg, 0x10, 0x12);
+		/* Disable PMIC ID pull-up */
+		pm8xxx_usb_id_pullup(0);
 		/* Enable ACA ID detection */
 		ulpi_write(otg, 0x20, 0x85);
 		aca_id_turned_on = true;
