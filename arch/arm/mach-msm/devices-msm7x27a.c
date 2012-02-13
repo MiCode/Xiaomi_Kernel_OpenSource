@@ -815,6 +815,68 @@ struct platform_device msm8625_device_uart1 = {
 	.resource	= msm8625_resources_uart1,
 };
 
+static struct resource msm8625_uart1_dm_resources[] = {
+	{
+		.start	= MSM_UART1DM_PHYS,
+		.end	= MSM_UART1DM_PHYS + PAGE_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_UART1DM_IRQ,
+		.end	= MSM8625_INT_UART1DM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM8625_INT_UART1DM_RX,
+		.end	= MSM8625_INT_UART1DM_RX,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= DMOV_HSUART1_TX_CHAN,
+		.end	= DMOV_HSUART1_RX_CHAN,
+		.name	= "uartdm_channels",
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= DMOV_HSUART1_TX_CRCI,
+		.end	= DMOV_HSUART1_RX_CRCI,
+		.name	= "uartdm_crci",
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm8625_device_uart_dm1 = {
+	.name	= "msm_serial_hs",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_uart1_dm_resources),
+	.resource	= msm8625_uart1_dm_resources,
+	.dev	= {
+		.dma_mask		= &msm_uart_dm1_dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
+
+static struct resource msm8625_uart2dm_resources[] = {
+	{
+		.start	= MSM_UART2DM_PHYS,
+		.end	= MSM_UART2DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_UART2DM_IRQ,
+		.end	= MSM8625_INT_UART2DM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_uart_dm2 = {
+	.name	= "msm_serial_hsl",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_uart2dm_resources),
+	.resource	= msm8625_uart2dm_resources,
+};
+
 static struct resource msm8625_dmov_resource[] = {
 	{
 		.start	= MSM8625_INT_ADM_AARM,
