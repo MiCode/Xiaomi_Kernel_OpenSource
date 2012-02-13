@@ -513,18 +513,6 @@ static struct platform_device *msm_sdcc_devices[] __initdata = {
 	&msm_device_sdc4,
 };
 
-int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
-{
-	struct platform_device	*pdev;
-
-	if (controller < 1 || controller > 4)
-		return -EINVAL;
-
-	pdev = msm_sdcc_devices[controller-1];
-	pdev->dev.platform_data = plat;
-	return platform_device_register(pdev);
-}
-
 #ifdef CONFIG_MSM_CAMERA_V4L2
 static struct resource msm_csic0_resources[] = {
 	{
@@ -974,6 +962,169 @@ static struct platform_device msm8625_device_gpio = {
 	.resource	= msm8625_gpio_resources,
 	.num_resources	= ARRAY_SIZE(msm8625_gpio_resources),
 };
+
+static struct resource msm8625_resources_sdc1[] = {
+	{
+		.start	= MSM_SDC1_BASE,
+		.end	= MSM_SDC1_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC1_0,
+		.end	= MSM8625_INT_SDC1_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC1_CHAN,
+		.end	= DMOV_SDC1_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC1_CRCI,
+		.end	= DMOV_SDC1_CRCI,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+
+static struct resource msm8625_resources_sdc2[] = {
+	{
+		.start	= MSM_SDC2_BASE,
+		.end	= MSM_SDC2_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC2_0,
+		.end	= MSM8625_INT_SDC2_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC2_CHAN,
+		.end	= DMOV_SDC2_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC2_CRCI,
+		.end	= DMOV_SDC2_CRCI,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+
+static struct resource msm8625_resources_sdc3[] = {
+	{
+		.start	= MSM_SDC3_BASE,
+		.end	= MSM_SDC3_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC3_0,
+		.end	= MSM8625_INT_SDC3_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC3_CHAN,
+		.end	= DMOV_SDC3_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC3_CRCI,
+		.end	= DMOV_SDC3_CRCI,
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+static struct resource msm8625_resources_sdc4[] = {
+	{
+		.start	= MSM_SDC4_BASE,
+		.end	= MSM_SDC4_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC4_0,
+		.end	= MSM8625_INT_SDC4_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC4_CHAN,
+		.end	= DMOV_SDC4_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC4_CRCI,
+		.end	= DMOV_SDC4_CRCI,
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm8625_device_sdc1 = {
+	.name		= "msm_sdcc",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc1),
+	.resource	= msm8625_resources_sdc1,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc2 = {
+	.name		= "msm_sdcc",
+	.id		= 2,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc2),
+	.resource	= msm8625_resources_sdc2,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc3 = {
+	.name		= "msm_sdcc",
+	.id		= 3,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc3),
+	.resource	= msm8625_resources_sdc3,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc4 = {
+	.name		= "msm_sdcc",
+	.id		= 4,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc4),
+	.resource	= msm8625_resources_sdc4,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+static struct platform_device *msm8625_sdcc_devices[] __initdata = {
+	&msm8625_device_sdc1,
+	&msm8625_device_sdc2,
+	&msm8625_device_sdc3,
+	&msm8625_device_sdc4,
+};
+
+int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
+{
+	struct platform_device	*pdev;
+
+	if (controller < 1 || controller > 4)
+		return -EINVAL;
+
+	if (cpu_is_msm8625())
+		pdev = msm8625_sdcc_devices[controller-1];
+	else
+		pdev = msm_sdcc_devices[controller-1];
+
+	pdev->dev.platform_data = plat;
+	return platform_device_register(pdev);
+}
 
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
