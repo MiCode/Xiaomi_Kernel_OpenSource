@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,8 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-/* #define DEBUG */
 
 #include <linux/delay.h>
 #include <linux/types.h>
@@ -52,129 +50,9 @@ static int ov7692_reset_gpio;
 
 
 /*============================================================================
-  DATA DECLARATIONS
-  ============================================================================*/
-/*  96MHz PCLK @ 24MHz MCLK */
-struct reg_addr_val_pair_struct ov7692_init_settings_array[] = {
-	{0x12, 0x80},
-	{0x0e, 0x08},
-	{0x69, 0x52},
-	{0x1e, 0xb3},
-	{0x48, 0x42},
-	{0xff, 0x01},
-	{0xae, 0xa0},
-	{0xa8, 0x26},
-	{0xb4, 0xc0},
-	{0xb5, 0x40},
-	{0xff, 0x00},
-	{0x0c, 0x00},
-	{0x62, 0x10},
-	{0x12, 0x00},
-	{0x17, 0x65},
-	{0x18, 0xa4},
-	{0x19, 0x0a},
-	{0x1a, 0xf6},
-	{0x3e, 0x30},
-	{0x64, 0x0a},
-	{0xff, 0x01},
-	{0xb4, 0xc0},
-	{0xff, 0x00},
-	{0x67, 0x20},
-	{0x81, 0x3f},
-	{0xcc, 0x02},
-	{0xcd, 0x80},
-	{0xce, 0x01},
-	{0xcf, 0xe0},
-	{0xc8, 0x02},
-	{0xc9, 0x80},
-	{0xca, 0x01},
-	{0xcb, 0xe0},
-	{0xd0, 0x48},
-	{0x82, 0x03},
-	{0x0e, 0x00},
-	{0x70, 0x00},
-	{0x71, 0x34},
-	{0x74, 0x28},
-	{0x75, 0x98},
-	{0x76, 0x00},
-	{0x77, 0x64},
-	{0x78, 0x01},
-	{0x79, 0xc2},
-	{0x7a, 0x4e},
-	{0x7b, 0x1f},
-	{0x7c, 0x00},
-	{0x11, 0x00},
-	{0x20, 0x00},
-	{0x21, 0x23},
-	{0x50, 0x9a},
-	{0x51, 0x80},
-	{0x4c, 0x7d},
-	{0x0e, 0x00},
-	{0x85, 0x10},
-	{0x86, 0x00},
-	{0x87, 0x00},
-	{0x88, 0x00},
-	{0x89, 0x2a},
-	{0x8a, 0x26},
-	{0x8b, 0x22},
-	{0xbb, 0x7a},
-	{0xbc, 0x69},
-	{0xbd, 0x11},
-	{0xbe, 0x13},
-	{0xbf, 0x81},
-	{0xc0, 0x96},
-	{0xc1, 0x1e},
-	{0xb7, 0x05},
-	{0xb8, 0x09},
-	{0xb9, 0x00},
-	{0xba, 0x18},
-	{0x5a, 0x1f},
-	{0x5b, 0x9f},
-	{0x5c, 0x6a},
-	{0x5d, 0x42},
-	{0x24, 0x78},
-	{0x25, 0x68},
-	{0x26, 0xb3},
-	{0xa3, 0x0b},
-	{0xa4, 0x15},
-	{0xa5, 0x2a},
-	{0xa6, 0x51},
-	{0xa7, 0x63},
-	{0xa8, 0x74},
-	{0xa9, 0x83},
-	{0xaa, 0x91},
-	{0xab, 0x9e},
-	{0xac, 0xaa},
-	{0xad, 0xbe},
-	{0xae, 0xce},
-	{0xaf, 0xe5},
-	{0xb0, 0xf3},
-	{0xb1, 0xfb},
-	{0xb2, 0x06},
-	{0x8c, 0x5c},
-	{0x8d, 0x11},
-	{0x8e, 0x12},
-	{0x8f, 0x19},
-	{0x90, 0x50},
-	{0x91, 0x20},
-	{0x92, 0x96},
-	{0x93, 0x80},
-	{0x94, 0x13},
-	{0x95, 0x1b},
-	{0x96, 0xff},
-	{0x97, 0x00},
-	{0x98, 0x3d},
-	{0x99, 0x36},
-	{0x9a, 0x51},
-	{0x9b, 0x43},
-	{0x9c, 0xf0},
-	{0x9d, 0xf0},
-	{0x9e, 0xf0},
-	{0x9f, 0xff},
-	{0xa0, 0x68},
-	{0xa1, 0x62},
-	{0xa2, 0x0e},
-};
+			DATA DECLARATIONS
+============================================================================*/
+
 
 static bool OV7692_CSI_CONFIG;
 /* 816x612, 24MHz MCLK 96MHz PCLK */
@@ -214,6 +92,10 @@ struct ov7692_ctrl_t {
 static struct ov7692_ctrl_t *ov7692_ctrl;
 static DECLARE_WAIT_QUEUE_HEAD(ov7692_wait_queue);
 DEFINE_MUTEX(ov7692_mut);
+static int effect_value;
+static int16_t ov7692_effect = CAMERA_EFFECT_OFF;
+static unsigned int SAT_U = 0x80;
+static unsigned int SAT_V = 0x80;
 
 /*=============================================================*/
 
@@ -284,12 +166,31 @@ static int32_t ov7692_i2c_write_b_sensor(uint8_t waddr, uint8_t bdata)
 	memset(buf, 0, sizeof(buf));
 	buf[0] = waddr;
 	buf[1] = bdata;
-
+	CDBG("i2c_write_b addr = 0x%x, val = 0x%x\n", waddr, bdata);
 	rc = ov7692_i2c_txdata(ov7692_client->addr >> 1, buf, 2);
 	if (rc < 0)
 		CDBG("i2c_write_b failed, addr = 0x%x, val = 0x%x!\n",
-				waddr, bdata);
+		waddr, bdata);
+
 	return rc;
+}
+
+static int32_t OV7692_WritePRegs(struct OV7692_WREG *pTb, int32_t len)
+{
+	int32_t i, ret = 0;
+	uint8_t regv;
+
+	for (i = 0; i < len; i++) {
+		if (pTb[i].mask == 0) {
+			ov7692_i2c_write_b_sensor(pTb[i].addr, pTb[i].data);
+		} else {
+			ov7692_i2c_read(pTb[i].addr, &regv, 1);
+			regv &= pTb[i].mask;
+			regv |= (pTb[i].data & (~pTb[i].mask));
+			ov7692_i2c_write_b_sensor(pTb[i].addr, regv);
+		}
+	}
+	return ret;
 }
 
 static int32_t ov7692_sensor_setting(int update_type, int rt)
@@ -314,8 +215,6 @@ static int32_t ov7692_sensor_setting(int update_type, int rt)
 			ov7692_csi_params.dpcm_scheme = 0;
 			ov7692_csi_params.settle_cnt = 0x14;
 
-			rc = msm_camio_csi_config(&ov7692_csi_params);
-			msleep(20);
 			array_length = sizeof(ov7692_init_settings_array) /
 				sizeof(ov7692_init_settings_array[0]);
 			for (i = 0; i < array_length; i++) {
@@ -325,6 +224,10 @@ static int32_t ov7692_sensor_setting(int update_type, int rt)
 				if (rc < 0)
 					return rc;
 			}
+			usleep_range(10000, 11000);
+			rc = msm_camio_csi_config(&ov7692_csi_params);
+			usleep_range(10000, 11000);
+			ov7692_i2c_write_b_sensor(0x0e, 0x00);
 			OV7692_CSI_CONFIG = 1;
 			msleep(20);
 			return rc;
@@ -371,6 +274,442 @@ static int32_t ov7692_set_sensor_mode(int mode,
 	return rc;
 }
 
+static int ov7692_set_exposure_compensation(int compensation)
+{
+	long rc = 0;
+
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...exposure_compensation = %d\n",
+		 __func__ , compensation);
+	switch (compensation) {
+	case CAMERA_EXPOSURE_COMPENSATION_LV0:
+		CDBG("--CAMERA--CAMERA_EXPOSURE_COMPENSATION_LV0\n");
+		rc = OV7692Core_WritePREG(
+			ov7692_exposure_compensation_lv0_tbl);
+		break;
+	case CAMERA_EXPOSURE_COMPENSATION_LV1:
+		CDBG("--CAMERA--CAMERA_EXPOSURE_COMPENSATION_LV1\n");
+		rc = OV7692Core_WritePREG(
+			ov7692_exposure_compensation_lv1_tbl);
+		break;
+	case CAMERA_EXPOSURE_COMPENSATION_LV2:
+		CDBG("--CAMERA--CAMERA_EXPOSURE_COMPENSATION_LV2\n");
+		rc = OV7692Core_WritePREG(
+			ov7692_exposure_compensation_lv2_default_tbl);
+		break;
+	case CAMERA_EXPOSURE_COMPENSATION_LV3:
+		CDBG("--CAMERA--CAMERA_EXPOSURE_COMPENSATION_LV3\n");
+		rc = OV7692Core_WritePREG(
+			ov7692_exposure_compensation_lv3_tbl);
+		break;
+	case CAMERA_EXPOSURE_COMPENSATION_LV4:
+		CDBG("--CAMERA--CAMERA_EXPOSURE_COMPENSATION_LV3\n");
+		rc = OV7692Core_WritePREG(
+			ov7692_exposure_compensation_lv4_tbl);
+		break;
+	default:
+		CDBG("--CAMERA--ERROR CAMERA_EXPOSURE_COMPENSATION\n");
+		break;
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static long ov7692_set_antibanding(int antibanding)
+{
+	long rc = 0;
+
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...antibanding = %d\n", __func__, antibanding);
+	switch (antibanding) {
+	case CAMERA_ANTIBANDING_OFF:
+		CDBG("--CAMERA--CAMERA_ANTIBANDING_OFF\n");
+		break;
+	case CAMERA_ANTIBANDING_60HZ:
+		CDBG("--CAMERA--CAMERA_ANTIBANDING_60HZ\n");
+		rc = OV7692Core_WritePREG(ov7692_antibanding_60z_tbl);
+		break;
+	case CAMERA_ANTIBANDING_50HZ:
+		CDBG("--CAMERA--CAMERA_ANTIBANDING_50HZ\n");
+		rc = OV7692Core_WritePREG(ov7692_antibanding_50z_tbl);
+		break;
+	case CAMERA_ANTIBANDING_AUTO:
+		CDBG("--CAMERA--CAMERA_ANTIBANDING_AUTO\n");
+		rc = OV7692Core_WritePREG(ov7692_antibanding_auto_tbl);
+		break;
+	default:
+		CDBG("--CAMERA--CAMERA_ANTIBANDING_ERROR COMMAND\n");
+		break;
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static int ov7692_set_saturation(int saturation)
+{
+	long rc = 0;
+
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...saturation = %d\n", __func__ , saturation);
+
+	if (effect_value == CAMERA_EFFECT_OFF) {
+		switch (saturation) {
+		case CAMERA_SATURATION_LV0:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV0\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv0_tbl);
+			break;
+		case CAMERA_SATURATION_LV1:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV1\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv1_tbl);
+			break;
+		case CAMERA_SATURATION_LV2:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV2\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv2_tbl);
+			break;
+		case CAMERA_SATURATION_LV3:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV3\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv3_tbl);
+			break;
+		case CAMERA_SATURATION_LV4:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV4\n");
+			rc = OV7692Core_WritePREG(
+				ov7692_saturation_default_lv4_tbl);
+			break;
+		case CAMERA_SATURATION_LV5:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV5\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv5_tbl);
+			break;
+		case CAMERA_SATURATION_LV6:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV6\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv6_tbl);
+			break;
+		case CAMERA_SATURATION_LV7:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV7\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv7_tbl);
+			break;
+		case CAMERA_SATURATION_LV8:
+			CDBG("--CAMERA--CAMERA_SATURATION_LV8\n");
+			rc = OV7692Core_WritePREG(ov7692_saturation_lv8_tbl);
+			break;
+		default:
+			CDBG("--CAMERA--CAMERA_SATURATION_ERROR COMMAND\n");
+			break;
+		}
+	}
+
+	/*for recover saturation level when change special effect*/
+	switch (saturation) {
+	case CAMERA_SATURATION_LV0:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV0\n");
+		SAT_U = 0x00;
+		SAT_V = 0x00;
+		break;
+	case CAMERA_SATURATION_LV1:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV1\n");
+		SAT_U = 0x10;
+		SAT_V = 0x10;
+		break;
+	case CAMERA_SATURATION_LV2:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV2\n");
+		SAT_U = 0x20;
+		SAT_V = 0x20;
+		break;
+	case CAMERA_SATURATION_LV3:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV3\n");
+		SAT_U = 0x30;
+		SAT_V = 0x30;
+		break;
+	case CAMERA_SATURATION_LV4:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV4\n");
+		SAT_U = 0x40;
+		SAT_V = 0x40;
+		break;
+	case CAMERA_SATURATION_LV5:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV5\n");
+		SAT_U = 0x50;
+		SAT_V = 0x50;
+		break;
+	case CAMERA_SATURATION_LV6:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV6\n");
+		SAT_U = 0x60;
+		SAT_V = 0x60;
+		break;
+	case CAMERA_SATURATION_LV7:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV7\n");
+		SAT_U = 0x70;
+		SAT_V = 0x70;
+		break;
+	case CAMERA_SATURATION_LV8:
+		CDBG("--CAMERA--CAMERA_SATURATION_LV8\n");
+		SAT_U = 0x80;
+		SAT_V = 0x80;
+		break;
+	default:
+		CDBG("--CAMERA--CAMERA_SATURATION_ERROR COMMAND\n");
+		break;
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static long ov7692_set_effect(int mode, int effect)
+{
+	int rc = 0;
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+
+	switch (mode) {
+	case SENSOR_PREVIEW_MODE:
+		break;
+	case SENSOR_HFR_60FPS_MODE:
+		break;
+	case SENSOR_HFR_90FPS_MODE:
+		/* Context A Special Effects */
+		CDBG("-CAMERA- %s ...SENSOR_PREVIEW_MODE\n", __func__);
+		break;
+	case SENSOR_SNAPSHOT_MODE:
+		/* Context B Special Effects */
+		CDBG("-CAMERA- %s ...SENSOR_SNAPSHOT_MODE\n", __func__);
+		break;
+	default:
+		break;
+	}
+	effect_value = effect;
+	switch (effect) {
+	case CAMERA_EFFECT_OFF: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_OFF\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_normal_tbl);
+		/* for recover saturation level
+		 when change special effect*/
+		ov7692_i2c_write_b_sensor(0xda, SAT_U);
+		/* for recover saturation level
+		when change special effect*/
+		ov7692_i2c_write_b_sensor(0xdb, SAT_V);
+		break;
+	}
+	case CAMERA_EFFECT_MONO: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_MONO\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_mono_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_BW: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_BW\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_bw_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_BLUISH: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_BLUISH\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_bluish_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_SOLARIZE: {
+		CDBG("%s ...CAMERA_EFFECT_NEGATIVE(No Support)!\n", __func__);
+		break;
+	}
+	case CAMERA_EFFECT_SEPIA: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_SEPIA\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_sepia_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_REDDISH: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_REDDISH\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_reddish_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_GREENISH: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_GREENISH\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_greenish_tbl);
+		break;
+	}
+	case CAMERA_EFFECT_NEGATIVE: {
+		CDBG("--CAMERA-- %s ...CAMERA_EFFECT_NEGATIVE\n", __func__);
+		rc = OV7692Core_WritePREG(ov7692_effect_negative_tbl);
+		break;
+	}
+	default: {
+		CDBG("--CAMERA-- %s ...Default(Not Support)\n", __func__);
+	}
+	}
+	ov7692_effect = effect;
+	/*Refresh Sequencer */
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static int ov7692_set_contrast(int contrast)
+{
+	int rc = 0;
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...contrast = %d\n", __func__ , contrast);
+
+	if (effect_value == CAMERA_EFFECT_OFF) {
+		switch (contrast) {
+		case CAMERA_CONTRAST_LV0:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV0\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv0_tbl);
+			break;
+		case CAMERA_CONTRAST_LV1:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV1\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv1_tbl);
+			break;
+		case CAMERA_CONTRAST_LV2:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV2\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv2_tbl);
+			break;
+		case CAMERA_CONTRAST_LV3:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV3\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv3_tbl);
+			break;
+		case CAMERA_CONTRAST_LV4:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV4\n");
+			rc = OV7692Core_WritePREG(
+				ov7692_contrast_default_lv4_tbl);
+			break;
+		case CAMERA_CONTRAST_LV5:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV5\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv5_tbl);
+			break;
+		case CAMERA_CONTRAST_LV6:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV6\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv6_tbl);
+			break;
+		case CAMERA_CONTRAST_LV7:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV7\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv7_tbl);
+			break;
+		case CAMERA_CONTRAST_LV8:
+			CDBG("--CAMERA--CAMERA_CONTRAST_LV8\n");
+			rc = OV7692Core_WritePREG(ov7692_contrast_lv8_tbl);
+			break;
+		default:
+			CDBG("--CAMERA--CAMERA_CONTRAST_ERROR COMMAND\n");
+			break;
+		}
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static int ov7692_set_sharpness(int sharpness)
+{
+	int rc = 0;
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...sharpness = %d\n", __func__ , sharpness);
+
+	if (effect_value == CAMERA_EFFECT_OFF) {
+		switch (sharpness) {
+		case CAMERA_SHARPNESS_LV0:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV0\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv0_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV1:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV1\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv1_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV2:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV2\n");
+			rc = OV7692Core_WritePREG(
+				ov7692_sharpness_default_lv2_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV3:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV3\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv3_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV4:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV4\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv4_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV5:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV5\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv5_tbl);
+			break;
+		case CAMERA_SHARPNESS_LV6:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_LV6\n");
+			rc = OV7692Core_WritePREG(ov7692_sharpness_lv6_tbl);
+			break;
+		default:
+			CDBG("--CAMERA--CAMERA_SHARPNESS_ERROR COMMAND\n");
+			break;
+		}
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static int ov7692_set_iso(int8_t iso_type)
+{
+	long rc = 0;
+
+	CDBG("--CAMERA-- %s ...(Start)\n", __func__);
+	CDBG("--CAMERA-- %s ...iso_type = %d\n", __func__ , iso_type);
+	switch (iso_type) {
+	case CAMERA_ISO_TYPE_AUTO:
+		CDBG("--CAMERA--CAMERA_ISO_TYPE_AUTO\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_auto);
+		break;
+	case CAMEAR_ISO_TYPE_HJR:
+		CDBG("--CAMERA--CAMEAR_ISO_TYPE_HJR\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_auto);
+		break;
+	case CAMEAR_ISO_TYPE_100:
+		CDBG("--CAMERA--CAMEAR_ISO_TYPE_100\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_100);
+		break;
+	case CAMERA_ISO_TYPE_200:
+		CDBG("--CAMERA--CAMERA_ISO_TYPE_200\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_200);
+		break;
+	case CAMERA_ISO_TYPE_400:
+		CDBG("--CAMERA--CAMERA_ISO_TYPE_400\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_400);
+		break;
+	case CAMEAR_ISO_TYPE_800:
+		CDBG("--CAMERA--CAMEAR_ISO_TYPE_800\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_800);
+		break;
+	case CAMERA_ISO_TYPE_1600:
+		CDBG("--CAMERA--CAMERA_ISO_TYPE_1600\n");
+		rc = OV7692Core_WritePREG(ov7692_iso_type_1600);
+		break;
+	default:
+		CDBG("--CAMERA--ERROR ISO TYPE\n");
+		break;
+	}
+	CDBG("--CAMERA-- %s ...(End)\n", __func__);
+	return rc;
+}
+
+static int ov7692_set_wb_oem(uint8_t param)
+{
+	int rc = 0;
+	CDBG("--CAMERA--%s runs\r\n", __func__);
+
+	switch (param) {
+	case CAMERA_WB_AUTO:
+		CDBG("--CAMERA--CAMERA_WB_AUTO\n");
+		rc = OV7692Core_WritePREG(ov7692_wb_def);
+		break;
+	case CAMERA_WB_CUSTOM:
+		CDBG("--CAMERA--CAMERA_WB_CUSTOM\n");
+		rc = OV7692Core_WritePREG(ov7692_wb_custom);
+		break;
+	case CAMERA_WB_INCANDESCENT:
+		CDBG("--CAMERA--CAMERA_WB_INCANDESCENT\n");
+		rc = OV7692Core_WritePREG(ov7692_wb_inc);
+		break;
+	case CAMERA_WB_DAYLIGHT:
+		CDBG("--CAMERA--CAMERA_WB_DAYLIGHT\n");
+		rc = OV7692Core_WritePREG(ov7692_wb_daylight);
+		break;
+	case CAMERA_WB_CLOUDY_DAYLIGHT:
+		CDBG("--CAMERA--CAMERA_WB_CLOUDY_DAYLIGHT\n");
+		rc = OV7692Core_WritePREG(ov7692_wb_cloudy);
+		break;
+	default:
+		break;
+	}
+	return rc;
+}
+
 static void ov7692_power_on(void)
 {
 	CDBG("%s\n", __func__);
@@ -392,13 +731,12 @@ static void ov7692_sw_reset(void)
 static void ov7692_hw_reset(void)
 {
 	CDBG("--CAMERA-- %s ... (Start...)\n", __func__);
-	gpio_set_value(ov7692_reset_gpio, 1);   /* reset camera reset pin */
-	msleep(20);
+	gpio_set_value(ov7692_reset_gpio, 1);   /*reset camera reset pin*/
+	usleep_range(5000, 5100);
 	gpio_set_value(ov7692_reset_gpio, 0);
-	msleep(20);
+	usleep_range(5000, 5100);
 	gpio_set_value(ov7692_reset_gpio, 1);
-	msleep(20);
-
+	usleep_range(1000, 1100);
 	CDBG("--CAMERA-- %s ... (End...)\n", __func__);
 }
 
@@ -458,6 +796,9 @@ int ov7692_sensor_open_init(const struct msm_camera_sensor_info *data)
 
 	if (data)
 		ov7692_ctrl->sensordata = data;
+	/* turn on LDO for PVT */
+	if (data->pmic_gpio_enable)
+		lcd_camera_power_onoff(1);
 
 	/* enable mclk first */
 
@@ -465,7 +806,7 @@ int ov7692_sensor_open_init(const struct msm_camera_sensor_info *data)
 	msleep(20);
 
 	ov7692_power_on();
-	msleep(20);
+	usleep_range(5000, 5100);
 
 	rc = ov7692_probe_init_sensor(data);
 	if (rc < 0) {
@@ -481,6 +822,8 @@ int ov7692_sensor_open_init(const struct msm_camera_sensor_info *data)
 
 init_fail:
 	CDBG(" ov7692_sensor_open_init fail\n");
+	if (data->pmic_gpio_enable)
+		lcd_camera_power_onoff(0);
 	kfree(ov7692_ctrl);
 init_done:
 	CDBG("ov7692_sensor_open_init done\n");
@@ -559,14 +902,160 @@ int ov7692_sensor_config(void __user *argp)
 	CDBG("ov7692_sensor_config: cfgtype = %d\n", cdata.cfgtype);
 	switch (cdata.cfgtype) {
 	case CFG_SET_MODE:
-		rc = ov7692_set_sensor_mode(cdata.mode,
-				cdata.rs);
+		rc = ov7692_set_sensor_mode(cdata.mode, cdata.rs);
+		break;
+	case CFG_SET_EFFECT:
+		CDBG("--CAMERA-- CFG_SET_EFFECT mode=%d, effect = %d !!\n",
+			 cdata.mode, cdata.cfg.effect);
+		rc = ov7692_set_effect(cdata.mode, cdata.cfg.effect);
+		break;
+	case CFG_START:
+		CDBG("--CAMERA-- CFG_START (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_PWR_UP:
+		CDBG("--CAMERA-- CFG_PWR_UP (Not Support) !!\n");
+		/* Not Support */
 		break;
 	case CFG_PWR_DOWN:
+		CDBG("--CAMERA-- CFG_PWR_DOWN !!\n");
 		ov7692_power_down();
 		break;
+	case CFG_WRITE_EXPOSURE_GAIN:
+		CDBG("--CAMERA-- CFG_WRITE_EXPOSURE_GAIN (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_DEFAULT_FOCUS:
+		CDBG("--CAMERA-- CFG_SET_DEFAULT_FOCUS (Not Implement) !!\n");
+		break;
+	case CFG_MOVE_FOCUS:
+		CDBG("--CAMERA-- CFG_MOVE_FOCUS (Not Implement) !!\n");
+		break;
+	case CFG_REGISTER_TO_REAL_GAIN:
+		CDBG("--CAMERA-- CFG_REGISTER_TO_REAL_GAIN (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_REAL_TO_REGISTER_GAIN:
+		CDBG("--CAMERA-- CFG_REAL_TO_REGISTER_GAIN (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_FPS:
+		CDBG("--CAMERA-- CFG_SET_FPS (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_PICT_FPS:
+		CDBG("--CAMERA-- CFG_SET_PICT_FPS (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_BRIGHTNESS:
+		CDBG("--CAMERA-- CFG_SET_BRIGHTNESS  !!\n");
+		/* rc = ov7692_set_brightness(cdata.cfg.brightness); */
+		break;
+	case CFG_SET_CONTRAST:
+		CDBG("--CAMERA-- CFG_SET_CONTRAST  !!\n");
+		rc = ov7692_set_contrast(cdata.cfg.contrast);
+		break;
+	case CFG_SET_ZOOM:
+		CDBG("--CAMERA-- CFG_SET_ZOOM (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_EXPOSURE_MODE:
+		CDBG("--CAMERA-- CFG_SET_EXPOSURE_MODE !!\n");
+		/* rc = ov7692_set_exposure_mode(cdata.cfg.ae_mode); */
+		break;
+	case CFG_SET_WB:
+		CDBG("--CAMERA-- CFG_SET_WB!!\n");
+		ov7692_set_wb_oem(cdata.cfg.wb_val);
+		rc = 0 ;
+		break;
+	case CFG_SET_ANTIBANDING:
+		CDBG("--CAMERA-- CFG_SET_ANTIBANDING antibanding = %d !!\n",
+			 cdata.cfg.antibanding);
+		rc = ov7692_set_antibanding(cdata.cfg.antibanding);
+		break;
+	case CFG_SET_EXP_GAIN:
+		CDBG("--CAMERA-- CFG_SET_EXP_GAIN (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_PICT_EXP_GAIN:
+		CDBG("--CAMERA-- CFG_SET_PICT_EXP_GAIN (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_LENS_SHADING:
+		CDBG("--CAMERA-- CFG_SET_LENS_SHADING !!\n");
+		/* rc = ov7692_lens_shading_enable(cdata.cfg.lens_shading); */
+		break;
+	case CFG_GET_PICT_FPS:
+		CDBG("--CAMERA-- CFG_GET_PICT_FPS (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_PREV_L_PF:
+		CDBG("--CAMERA-- CFG_GET_PREV_L_PF (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_PREV_P_PL:
+		CDBG("--CAMERA-- CFG_GET_PREV_P_PL (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_PICT_L_PF:
+		CDBG("--CAMERA-- CFG_GET_PICT_L_PF (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_PICT_P_PL:
+		CDBG("--CAMERA-- CFG_GET_PICT_P_PL (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_AF_MAX_STEPS:
+		CDBG("--CAMERA-- CFG_GET_AF_MAX_STEPS (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_GET_PICT_MAX_EXP_LC:
+		CDBG("--CAMERA-- CFG_GET_PICT_MAX_EXP_LC (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SEND_WB_INFO:
+		CDBG("--CAMERA-- CFG_SEND_WB_INFO (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SENSOR_INIT:
+		CDBG("--CAMERA-- CFG_SENSOR_INIT (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_SATURATION:
+		CDBG("--CAMERA-- CFG_SET_SATURATION !!\n");
+		rc = ov7692_set_saturation(cdata.cfg.saturation);
+		break;
+	case CFG_SET_SHARPNESS:
+		CDBG("--CAMERA-- CFG_SET_SHARPNESS !!\n");
+		rc = ov7692_set_sharpness(cdata.cfg.sharpness);
+		break;
+	case CFG_SET_TOUCHAEC:
+		CDBG("--CAMERA-- CFG_SET_TOUCHAEC!!\n");
+		/* ov7692_set_touchaec(cdata.cfg.aec_cord.x,
+			 cdata.cfg.aec_cord.y); */
+		rc = 0 ;
+		break;
+	case CFG_SET_AUTO_FOCUS:
+		CDBG("--CAMERA-- CFG_SET_AUTO_FOCUS (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_AUTOFLASH:
+		CDBG("--CAMERA-- CFG_SET_AUTOFLASH (Not Support) !!\n");
+		/* Not Support */
+		break;
+	case CFG_SET_EXPOSURE_COMPENSATION:
+		CDBG("--CAMERA-- CFG_SET_EXPOSURE_COMPENSATION !\n");
+		rc = ov7692_set_exposure_compensation(
+			cdata.cfg.exp_compensation);
+		break;
+	case CFG_SET_ISO:
+		CDBG("--CAMERA-- CFG_SET_ISO !\n");
+		rc = ov7692_set_iso(cdata.cfg.iso_type);
+		break;
 	default:
-		rc = -EFAULT;
+		CDBG("--CAMERA-- %s: Command=%d (Not Implement) !!\n",
+			 __func__, cdata.cfgtype);
+		rc = -EINVAL;
 		break;
 	}
 
@@ -577,6 +1066,7 @@ int ov7692_sensor_config(void __user *argp)
 static int ov7692_sensor_release(void)
 {
 	int rc = -EBADF;
+
 	mutex_lock(&ov7692_mut);
 	ov7692_sw_reset();
 	ov7692_power_down();
@@ -614,20 +1104,23 @@ static int ov7692_sensor_probe(const struct msm_camera_sensor_info *info,
 		rc = -ENOTSUPP;
 		goto probe_fail;
 	}
-
+	pr_debug("%s: %d Entered\n", __func__, __LINE__);
 	rc = ov7692_probe_init_gpio(info);
 	if (rc < 0) {
 		CDBG("%s: gpio init failed\n", __func__);
 		goto probe_fail;
 	}
+	/* turn on LDO for PVT */
+	if (info->pmic_gpio_enable)
+		lcd_camera_power_onoff(1);
 
 	ov7692_power_down();
 
 	msm_camio_clk_rate_set(24000000);
-	msleep(20);
+	usleep_range(5000, 5100);
 
 	ov7692_power_on();
-	msleep(20);
+	usleep_range(5000, 5100);
 
 	if (info->sensor_reset_enable)
 		ov7692_hw_reset();
@@ -645,12 +1138,18 @@ static int ov7692_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_camera_type = FRONT_CAMERA_2D;
 	s->s_mount_angle = info->sensor_platform_info->mount_angle;
 
+	/* ov7692_sw_reset(); */
 	ov7692_power_down();
+
+	if (info->pmic_gpio_enable)
+		lcd_camera_power_onoff(0);
 
 	return rc;
 
 probe_fail:
 	CDBG("ov7692_sensor_probe: SENSOR PROBE FAILS!\n");
+	if (info->pmic_gpio_enable)
+		lcd_camera_power_onoff(0);
 	i2c_del_driver(&ov7692_i2c_driver);
 	return rc;
 }
