@@ -1834,6 +1834,14 @@ static void __init reg_init(void)
 	regval = readl_relaxed(PMEM_ACLK_CTL_REG);
 	regval &= ~BIT(6);
 	writel_relaxed(regval, PMEM_ACLK_CTL_REG);
+
+	/*
+	 * Disable hardware clock gating for dma_bam_p_clk, which does
+	 * not have working support for the feature.
+	 */
+	regval = readl_relaxed(DMA_BAM_HCLK_CTL);
+	regval &= ~BIT(6);
+	writel_relaxed(regval, DMA_BAM_HCLK_CTL);
 }
 
 /* Local clock driver initialization. */
