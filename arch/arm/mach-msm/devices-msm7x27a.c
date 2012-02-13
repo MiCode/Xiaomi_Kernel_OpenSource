@@ -692,17 +692,6 @@ static void __init msm_register_device(struct platform_device *pdev, void *data)
 				__func__, ret);
 }
 
-void __init msm_fb_register_device(char *name, void *data)
-{
-	if (!strncmp(name, "mdp", 3))
-		msm_register_device(&msm_mdp_device, data);
-	else if (!strncmp(name, "mipi_dsi", 8))
-		msm_register_device(&msm_mipi_dsi_device, data);
-	else if (!strncmp(name, "lcdc", 4))
-		msm_register_device(&msm_lcdc_device, data);
-	else
-		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
-}
 
 #define PERPH_WEB_BLOCK_ADDR (0xA9D00040)
 #define PDM0_CTL_OFFSET (0x04)
@@ -1250,6 +1239,67 @@ struct platform_device msm8625_device_csic1 = {
 	.num_resources  = ARRAY_SIZE(msm8625_csic1_resources),
 };
 #endif
+
+static struct resource msm8625_mipi_dsi_resources[] = {
+	{
+		.name   = "mipi_dsi",
+		.start  = MIPI_DSI_HW_BASE,
+		.end    = MIPI_DSI_HW_BASE + 0x000F0000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM8625_INT_DSI_IRQ,
+		.end    = MSM8625_INT_DSI_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_mipi_dsi_device = {
+	.name   = "mipi_dsi",
+	.id     = 1,
+	.num_resources  = ARRAY_SIZE(msm8625_mipi_dsi_resources),
+	.resource       = msm8625_mipi_dsi_resources,
+};
+
+static struct resource msm8625_mdp_resources[] = {
+	{
+		.name   = "mdp",
+		.start  = MDP_BASE,
+		.end    = MDP_BASE + 0x000F1008 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM8625_INT_MDP,
+		.end    = MSM8625_INT_MDP,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_mdp_device = {
+	.name   = "mdp",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm8625_mdp_resources),
+	.resource       = msm8625_mdp_resources,
+};
+
+void __init msm_fb_register_device(char *name, void *data)
+{
+	if (!strncmp(name, "mdp", 3)) {
+		if (cpu_is_msm8625())
+			msm_register_device(&msm8625_mdp_device, data);
+		else
+			msm_register_device(&msm_mdp_device, data);
+	} else if (!strncmp(name, "mipi_dsi", 8)) {
+		if (cpu_is_msm8625())
+			msm_register_device(&msm8625_mipi_dsi_device, data);
+		else
+			msm_register_device(&msm_mipi_dsi_device, data);
+	} else if (!strncmp(name, "lcdc", 4)) {
+			msm_register_device(&msm_lcdc_device, data);
+	} else {
+		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
+	}
+}
 
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
