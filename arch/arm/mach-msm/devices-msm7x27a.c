@@ -178,17 +178,6 @@ static struct platform_device *msm_host_devices[] = {
 	&msm_device_hsusb_host,
 };
 
-int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
-{
-	struct platform_device	*pdev;
-
-	pdev = msm_host_devices[host];
-	if (!pdev)
-		return -ENODEV;
-	pdev->dev.platform_data = plat;
-	return platform_device_register(pdev);
-}
-
 static struct resource msm_dmov_resource[] = {
 	{
 		.start = INT_ADM_AARM,
@@ -1122,6 +1111,96 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	else
 		pdev = msm_sdcc_devices[controller-1];
 
+	pdev->dev.platform_data = plat;
+	return platform_device_register(pdev);
+}
+
+static struct resource msm8625_resources_hsusb_otg[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_otg = {
+	.name		= "msm_otg",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_hsusb_otg),
+	.resource	= msm8625_resources_hsusb_otg,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct resource msm8625_resources_gadget_peripheral[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_gadget_peripheral = {
+	.name		= "msm_hsusb",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_gadget_peripheral),
+	.resource	= msm8625_resources_gadget_peripheral,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct resource msm8625_resources_hsusb_host[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_hsusb_host = {
+	.name		= "msm_hsusb_host",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_hsusb_host),
+	.resource	= msm8625_resources_hsusb_host,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct platform_device *msm8625_host_devices[] = {
+	&msm8625_device_hsusb_host,
+};
+
+int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
+{
+	struct platform_device	*pdev;
+
+	if (cpu_is_msm8625())
+		pdev = msm8625_host_devices[host];
+	else
+		pdev = msm_host_devices[host];
+	if (!pdev)
+		return -ENODEV;
 	pdev->dev.platform_data = plat;
 	return platform_device_register(pdev);
 }
