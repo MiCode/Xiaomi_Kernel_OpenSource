@@ -1002,7 +1002,10 @@ static int tzcom_release(struct inode *inode, struct file *file)
 	}
 	spin_unlock_irqrestore(&tzcom_data->registered_svc_list_lock, flags);
 	PDEBUG("After removing svc list");
-
+	if (pil != NULL) {
+		pil_put(pil);
+		pil = NULL;
+	}
 	PDEBUG("Freeing tzcom data");
 	kfree(tzcom_data);
 	return 0;
