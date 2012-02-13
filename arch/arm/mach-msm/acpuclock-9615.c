@@ -323,6 +323,11 @@ static int __init acpuclk_9615_init(struct acpuclk_soc_data *soc_data)
 		if (clocks[i].name) {
 			clocks[i].clk = clk_get_sys("acpu", clocks[i].name);
 			BUG_ON(IS_ERR(clocks[i].clk));
+			/*
+			 * Prepare the PLLs because we enable/disable them
+			 * in atomic context during power collapse/restore.
+			 */
+			BUG_ON(clk_prepare(clocks[i].clk));
 		}
 	}
 
