@@ -3,7 +3,7 @@
  * MSM Power Management Routines
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -118,18 +118,6 @@ module_param_named(
  * Sleep Modes and Parameters
  *****************************************************************************/
 
-static int msm_pm_sleep_mode = CONFIG_MSM7X00A_SLEEP_MODE;
-module_param_named(
-	sleep_mode, msm_pm_sleep_mode,
-	int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
-static int msm_pm_idle_sleep_mode = CONFIG_MSM7X00A_IDLE_SLEEP_MODE;
-module_param_named(
-	idle_sleep_mode, msm_pm_idle_sleep_mode,
-	int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
 static int msm_pm_idle_sleep_min_time = CONFIG_MSM7X00A_IDLE_SLEEP_MIN_TIME;
 module_param_named(
 	idle_sleep_min_time, msm_pm_idle_sleep_min_time,
@@ -166,10 +154,20 @@ static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
 
 static struct msm_pm_platform_data *msm_pm_modes;
 
-static struct kobject *msm_pm_mode_kobjs[MSM_PM_SLEEP_MODE_NR];
-static struct attribute_group *msm_pm_mode_attr_group[MSM_PM_SLEEP_MODE_NR];
-static struct attribute **msm_pm_mode_attrs[MSM_PM_SLEEP_MODE_NR];
-static struct kobj_attribute *msm_pm_mode_kobj_attrs[MSM_PM_SLEEP_MODE_NR];
+struct msm_pm_kobj_attribute {
+	unsigned int cpu;
+	struct kobj_attribute ka;
+};
+
+#define GET_CPU_OF_ATTR(attr) \
+	(container_of(attr, struct msm_pm_kobj_attribute, ka)->cpu)
+
+struct msm_pm_sysfs_sleep_mode {
+	struct kobject *kobj;
+	struct attribute_group attr_group;
+	struct attribute *attrs[MSM_PM_MODE_ATTR_NR + 1];
+	struct msm_pm_kobj_attribute kas[MSM_PM_MODE_ATTR_NR];
+};
 
 /*
  * Write out the attribute.
@@ -182,6 +180,8 @@ static ssize_t msm_pm_mode_attr_show(
 
 	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 		struct kernel_param kp;
+		unsigned int cpu;
+		struct msm_pm_platform_data *mode;
 
 		if (msm_pm_sleep_mode_labels[i] == NULL)
 			continue;
@@ -189,23 +189,28 @@ static ssize_t msm_pm_mode_attr_show(
 		if (strcmp(kobj->name, msm_pm_sleep_mode_labels[i]))
 			continue;
 
+		cpu = GET_CPU_OF_ATTR(attr);
+		mode = &msm_pm_modes[MSM_PM_MODE(cpu, i)];
+
 		if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_SUSPEND])) {
-			u32 arg = msm_pm_modes[i].suspend_enabled;
+			u32 arg = mode->suspend_enabled;
 			kp.arg = &arg;
 			ret = param_get_ulong(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_IDLE])) {
-			u32 arg = msm_pm_modes[i].idle_enabled;
+			u32 arg = mode->idle_enabled;
 			kp.arg = &arg;
 			ret = param_get_ulong(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_LATENCY])) {
-			kp.arg = &msm_pm_modes[i].latency;
+			u32 arg = mode->latency;
+			kp.arg = &arg;
 			ret = param_get_ulong(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_RESIDENCY])) {
-			kp.arg = &msm_pm_modes[i].residency;
+			u32 arg = mode->residency;
+			kp.arg = &arg;
 			ret = param_get_ulong(buf, &kp);
 		}
 
@@ -213,7 +218,7 @@ static ssize_t msm_pm_mode_attr_show(
 	}
 
 	if (ret > 0) {
-		strcat(buf, "\n");
+		strlcat(buf, "\n", PAGE_SIZE);
 		ret++;
 	}
 
@@ -231,6 +236,8 @@ static ssize_t msm_pm_mode_attr_store(struct kobject *kobj,
 
 	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 		struct kernel_param kp;
+		unsigned int cpu;
+		struct msm_pm_platform_data *mode;
 
 		if (msm_pm_sleep_mode_labels[i] == NULL)
 			continue;
@@ -238,21 +245,24 @@ static ssize_t msm_pm_mode_attr_store(struct kobject *kobj,
 		if (strcmp(kobj->name, msm_pm_sleep_mode_labels[i]))
 			continue;
 
+		cpu = GET_CPU_OF_ATTR(attr);
+		mode = &msm_pm_modes[MSM_PM_MODE(cpu, i)];
+
 		if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_SUSPEND])) {
-			kp.arg = &msm_pm_modes[i].suspend_enabled;
+			kp.arg = &mode->suspend_enabled;
 			ret = param_set_byte(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_IDLE])) {
-			kp.arg = &msm_pm_modes[i].idle_enabled;
+			kp.arg = &mode->idle_enabled;
 			ret = param_set_byte(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_LATENCY])) {
-			kp.arg = &msm_pm_modes[i].latency;
+			kp.arg = &mode->latency;
 			ret = param_set_ulong(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_RESIDENCY])) {
-			kp.arg = &msm_pm_modes[i].residency;
+			kp.arg = &mode->residency;
 			ret = param_set_ulong(buf, &kp);
 		}
 
@@ -262,6 +272,86 @@ static ssize_t msm_pm_mode_attr_store(struct kobject *kobj,
 	return ret ? ret : count;
 }
 
+ /* Add sysfs entries for one cpu. */
+static int __init msm_pm_mode_sysfs_add_cpu(
+	unsigned int cpu, struct kobject *modes_kobj)
+{
+	char cpu_name[8];
+	struct kobject *cpu_kobj;
+	struct msm_pm_sysfs_sleep_mode *mode = NULL;
+	int i, j, k;
+	int ret;
+
+	snprintf(cpu_name, sizeof(cpu_name), "cpu%u", cpu);
+	cpu_kobj = kobject_create_and_add(cpu_name, modes_kobj);
+	if (!cpu_kobj) {
+		pr_err("%s: cannot create %s kobject\n", __func__, cpu_name);
+		ret = -ENOMEM;
+		goto mode_sysfs_add_cpu_exit;
+	}
+
+	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
+		int idx = MSM_PM_MODE(cpu, i);
+
+		if ((!msm_pm_modes[idx].suspend_supported) &&
+				(!msm_pm_modes[idx].idle_supported))
+			continue;
+
+		mode = kzalloc(sizeof(*mode), GFP_KERNEL);
+		if (!mode) {
+			pr_err("%s: cannot allocate memory for attributes\n",
+				__func__);
+			ret = -ENOMEM;
+			goto mode_sysfs_add_cpu_exit;
+		}
+
+		mode->kobj = kobject_create_and_add(
+				msm_pm_sleep_mode_labels[i], cpu_kobj);
+		if (!mode->kobj) {
+			pr_err("%s: cannot create kobject\n", __func__);
+			ret = -ENOMEM;
+			goto mode_sysfs_add_cpu_exit;
+		}
+
+		for (k = 0, j = 0; k < MSM_PM_MODE_ATTR_NR; k++) {
+			if ((k == MSM_PM_MODE_ATTR_IDLE) &&
+				!msm_pm_modes[idx].idle_supported)
+				continue;
+			if ((k == MSM_PM_MODE_ATTR_SUSPEND) &&
+			     !msm_pm_modes[idx].suspend_supported)
+				continue;
+			mode->kas[j].cpu = cpu;
+			mode->kas[j].ka.attr.mode = 0644;
+			mode->kas[j].ka.show = msm_pm_mode_attr_show;
+			mode->kas[j].ka.store = msm_pm_mode_attr_store;
+			mode->kas[j].ka.attr.name = msm_pm_mode_attr_labels[k];
+			mode->attrs[j] = &mode->kas[j].ka.attr;
+			j++;
+		}
+		mode->attrs[j] = NULL;
+
+		mode->attr_group.attrs = mode->attrs;
+		ret = sysfs_create_group(mode->kobj, &mode->attr_group);
+		if (ret) {
+			printk(KERN_ERR
+				"%s: cannot create kobject attribute group\n",
+				__func__);
+			goto mode_sysfs_add_cpu_exit;
+		}
+	}
+
+	ret = 0;
+
+mode_sysfs_add_cpu_exit:
+	if (ret) {
+		if (mode && mode->kobj)
+			kobject_del(mode->kobj);
+		kfree(mode);
+	}
+
+	return ret;
+}
+
 /*
  * Add sysfs entries for the sleep modes.
  */
@@ -269,13 +359,7 @@ static int __init msm_pm_mode_sysfs_add(void)
 {
 	struct kobject *module_kobj = NULL;
 	struct kobject *modes_kobj = NULL;
-
-	struct kobject *kobj;
-	struct attribute_group *attr_group;
-	struct attribute **attrs;
-	struct kobj_attribute *kobj_attrs;
-
-	int i, j, k;
+	unsigned int cpu;
 	int ret;
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
@@ -283,98 +367,32 @@ static int __init msm_pm_mode_sysfs_add(void)
 		printk(KERN_ERR "%s: cannot find kobject for module %s\n",
 			__func__, KBUILD_MODNAME);
 		ret = -ENOENT;
-		goto mode_sysfs_add_cleanup;
+		goto mode_sysfs_add_exit;
 	}
 
 	modes_kobj = kobject_create_and_add("modes", module_kobj);
 	if (!modes_kobj) {
 		printk(KERN_ERR "%s: cannot create modes kobject\n", __func__);
 		ret = -ENOMEM;
-		goto mode_sysfs_add_cleanup;
+		goto mode_sysfs_add_exit;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(msm_pm_mode_kobjs); i++) {
-		if (!msm_pm_modes[i].suspend_supported &&
-				!msm_pm_modes[i].idle_supported)
-			continue;
-
-		kobj = kobject_create_and_add(
-				msm_pm_sleep_mode_labels[i], modes_kobj);
-		attr_group = kzalloc(sizeof(*attr_group), GFP_KERNEL);
-		attrs = kzalloc(sizeof(*attrs) * (MSM_PM_MODE_ATTR_NR + 1),
-				GFP_KERNEL);
-		kobj_attrs = kzalloc(sizeof(*kobj_attrs) * MSM_PM_MODE_ATTR_NR,
-				GFP_KERNEL);
-
-		if (!kobj || !attr_group || !attrs || !kobj_attrs) {
-			printk(KERN_ERR
-				"%s: cannot create kobject or attributes\n",
-				__func__);
-			ret = -ENOMEM;
-			goto mode_sysfs_add_abort;
-		}
-
-		for (k = 0, j = 0; k < MSM_PM_MODE_ATTR_NR; k++) {
-			if ((k == MSM_PM_MODE_ATTR_SUSPEND) &&
-				(!msm_pm_modes[i].suspend_supported))
-				continue;
-			if ((k == MSM_PM_MODE_ATTR_IDLE) &&
-				(!msm_pm_modes[i].idle_supported))
-				continue;
-
-			kobj_attrs[j].attr.mode = 0644;
-			kobj_attrs[j].show = msm_pm_mode_attr_show;
-			kobj_attrs[j].store = msm_pm_mode_attr_store;
-			kobj_attrs[j].attr.name = msm_pm_mode_attr_labels[k];
-			attrs[j] = &kobj_attrs[j].attr;
-			j++;
-		}
-		attrs[j] = NULL;
-
-		attr_group->attrs = attrs;
-		ret = sysfs_create_group(kobj, attr_group);
-		if (ret) {
-			printk(KERN_ERR
-				"%s: cannot create kobject attribute group\n",
-				__func__);
-			goto mode_sysfs_add_abort;
-		}
-
-		msm_pm_mode_kobjs[i] = kobj;
-		msm_pm_mode_attr_group[i] = attr_group;
-		msm_pm_mode_attrs[i] = attrs;
-		msm_pm_mode_kobj_attrs[i] = kobj_attrs;
+	for_each_possible_cpu(cpu) {
+		ret = msm_pm_mode_sysfs_add_cpu(cpu, modes_kobj);
+		if (ret)
+			goto mode_sysfs_add_exit;
 	}
 
-	return 0;
+	ret = 0;
 
-mode_sysfs_add_abort:
-	kfree(kobj_attrs);
-	kfree(attrs);
-	kfree(attr_group);
-	kobject_put(kobj);
-
-mode_sysfs_add_cleanup:
-	for (i = ARRAY_SIZE(msm_pm_mode_kobjs) - 1; i >= 0; i--) {
-		if (!msm_pm_mode_kobjs[i])
-			continue;
-
-		sysfs_remove_group(
-			msm_pm_mode_kobjs[i], msm_pm_mode_attr_group[i]);
-
-		kfree(msm_pm_mode_kobj_attrs[i]);
-		kfree(msm_pm_mode_attrs[i]);
-		kfree(msm_pm_mode_attr_group[i]);
-		kobject_put(msm_pm_mode_kobjs[i]);
-	}
-
+mode_sysfs_add_exit:
 	return ret;
 }
 
 void __init msm_pm_set_platform_data(
 	struct msm_pm_platform_data *data, int count)
 {
-	BUG_ON(MSM_PM_SLEEP_MODE_NR != count);
+	BUG_ON(MSM_PM_SLEEP_MODE_NR * num_possible_cpus() > count);
 	msm_pm_modes = data;
 }
 
@@ -674,7 +692,7 @@ enum msm_pm_time_stats_id {
 	MSM_PM_STAT_COUNT
 };
 
-static struct msm_pm_time_stats {
+struct msm_pm_time_stats {
 	const char *name;
 	int64_t first_bucket_time;
 	int bucket[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
@@ -682,74 +700,37 @@ static struct msm_pm_time_stats {
 	int64_t max_time[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
 	int count;
 	int64_t total_time;
-} msm_pm_stats[MSM_PM_STAT_COUNT] = {
-	[MSM_PM_STAT_REQUESTED_IDLE].name = "idle-request",
-	[MSM_PM_STAT_REQUESTED_IDLE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_SPIN].name = "idle-spin",
-	[MSM_PM_STAT_IDLE_SPIN].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_WFI].name = "idle-wfi",
-	[MSM_PM_STAT_IDLE_WFI].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].name =
-		"idle-standalone-power-collapse",
-	[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].name =
-		"idle-failed-standalone-power-collapse",
-	[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_SLEEP].name = "idle-sleep",
-	[MSM_PM_STAT_IDLE_SLEEP].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_FAILED_SLEEP].name = "idle-failed-sleep",
-	[MSM_PM_STAT_IDLE_FAILED_SLEEP].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_POWER_COLLAPSE].name = "idle-power-collapse",
-	[MSM_PM_STAT_IDLE_POWER_COLLAPSE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].name =
-		"idle-failed-power-collapse",
-	[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_SUSPEND].name = "suspend",
-	[MSM_PM_STAT_SUSPEND].first_bucket_time =
-		CONFIG_MSM_SUSPEND_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_FAILED_SUSPEND].name = "failed-suspend",
-	[MSM_PM_STAT_FAILED_SUSPEND].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
-
-	[MSM_PM_STAT_NOT_IDLE].name = "not-idle",
-	[MSM_PM_STAT_NOT_IDLE].first_bucket_time =
-		CONFIG_MSM_IDLE_STATS_FIRST_BUCKET,
 };
 
+struct msm_pm_cpu_time_stats {
+	struct msm_pm_time_stats stats[MSM_PM_STAT_COUNT];
+};
+
+static DEFINE_PER_CPU_SHARED_ALIGNED(
+		struct msm_pm_cpu_time_stats, msm_pm_stats);
+
 static uint32_t msm_pm_sleep_limit = SLEEP_LIMIT_NONE;
+
+static DEFINE_SPINLOCK(msm_pm_stats_lock);
 
 /*
  * Add the given time data to the statistics collection.
  */
 static void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
 {
+	unsigned long flags;
+	struct msm_pm_time_stats *stats;
 	int i;
 	int64_t bt;
 
-	msm_pm_stats[id].total_time += t;
-	msm_pm_stats[id].count++;
+	spin_lock_irqsave(&msm_pm_stats_lock, flags);
+	stats = __get_cpu_var(msm_pm_stats).stats;
+
+	stats[id].total_time += t;
+	stats[id].count++;
 
 	bt = t;
-	do_div(bt, msm_pm_stats[id].first_bucket_time);
+	do_div(bt, stats[id].first_bucket_time);
 
 	if (bt < 1ULL << (CONFIG_MSM_IDLE_STATS_BUCKET_SHIFT *
 				(CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1)))
@@ -758,12 +739,17 @@ static void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
 	else
 		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
 
-	msm_pm_stats[id].bucket[i]++;
+	if (i >= CONFIG_MSM_IDLE_STATS_BUCKET_COUNT)
+		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
 
-	if (t < msm_pm_stats[id].min_time[i] || !msm_pm_stats[id].max_time[i])
-		msm_pm_stats[id].min_time[i] = t;
-	if (t > msm_pm_stats[id].max_time[i])
-		msm_pm_stats[id].max_time[i] = t;
+	stats[id].bucket[i]++;
+
+	if (t < stats[id].min_time[i] || !stats[id].max_time[i])
+		stats[id].min_time[i] = t;
+	if (t > stats[id].max_time[i])
+		stats[id].max_time[i] = t;
+
+	spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
 }
 
 /*
@@ -793,7 +779,8 @@ static void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
 static int msm_pm_read_proc
 	(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
-	int i;
+	unsigned int cpu = off / MSM_PM_STAT_COUNT;
+	int id = off % MSM_PM_STAT_COUNT;
 	char *p = page;
 
 	if (count < 1024) {
@@ -809,44 +796,51 @@ static int msm_pm_read_proc
 			SNPRINTF(p, count, "for TCXO shutdown\n\n");
 		else
 			SNPRINTF(p, count, "against TCXO shutdown\n\n");
+	}
 
-		*start = (char *) 1;
-		*eof = 0;
-	} else if (--off < ARRAY_SIZE(msm_pm_stats)) {
+	if (cpu < num_possible_cpus()) {
+		unsigned long flags;
+		struct msm_pm_time_stats *stats;
+		int i;
 		int64_t bucket_time;
 		int64_t s;
 		uint32_t ns;
 
-		s = msm_pm_stats[off].total_time;
+		spin_lock_irqsave(&msm_pm_stats_lock, flags);
+		stats = per_cpu(msm_pm_stats, cpu).stats;
+
+		s = stats[id].total_time;
 		ns = do_div(s, NSEC_PER_SEC);
 		SNPRINTF(p, count,
-			"%s:\n"
+			"[cpu %u] %s:\n"
 			"  count: %7d\n"
 			"  total_time: %lld.%09u\n",
-			msm_pm_stats[off].name,
-			msm_pm_stats[off].count,
+			cpu, stats[id].name,
+			stats[id].count,
 			s, ns);
 
-		bucket_time = msm_pm_stats[off].first_bucket_time;
+		bucket_time = stats[id].first_bucket_time;
 		for (i = 0; i < CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1; i++) {
 			s = bucket_time;
 			ns = do_div(s, NSEC_PER_SEC);
 			SNPRINTF(p, count,
 				"   <%6lld.%09u: %7d (%lld-%lld)\n",
-				s, ns, msm_pm_stats[off].bucket[i],
-				msm_pm_stats[off].min_time[i],
-				msm_pm_stats[off].max_time[i]);
+				s, ns, stats[id].bucket[i],
+				stats[id].min_time[i],
+				stats[id].max_time[i]);
 
 			bucket_time <<= CONFIG_MSM_IDLE_STATS_BUCKET_SHIFT;
 		}
 
 		SNPRINTF(p, count, "  >=%6lld.%09u: %7d (%lld-%lld)\n",
-			s, ns, msm_pm_stats[off].bucket[i],
-			msm_pm_stats[off].min_time[i],
-			msm_pm_stats[off].max_time[i]);
+			s, ns, stats[id].bucket[i],
+			stats[id].min_time[i],
+			stats[id].max_time[i]);
 
 		*start = (char *) 1;
-		*eof = (off + 1 >= ARRAY_SIZE(msm_pm_stats));
+		*eof = (off + 1 >= MSM_PM_STAT_COUNT * num_possible_cpus());
+
+		spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
 	}
 
 	return p - page;
@@ -864,7 +858,7 @@ static int msm_pm_write_proc(struct file *file, const char __user *buffer,
 	char buf[sizeof(MSM_PM_STATS_RESET)];
 	int ret;
 	unsigned long flags;
-	int i;
+	unsigned int cpu;
 
 	if (count < strlen(MSM_PM_STATS_RESET)) {
 		ret = -EINVAL;
@@ -881,26 +875,32 @@ static int msm_pm_write_proc(struct file *file, const char __user *buffer,
 		goto write_proc_failed;
 	}
 
-	local_irq_save(flags);
-	for (i = 0; i < ARRAY_SIZE(msm_pm_stats); i++) {
-		memset(msm_pm_stats[i].bucket,
-			0, sizeof(msm_pm_stats[i].bucket));
-		memset(msm_pm_stats[i].min_time,
-			0, sizeof(msm_pm_stats[i].min_time));
-		memset(msm_pm_stats[i].max_time,
-			0, sizeof(msm_pm_stats[i].max_time));
-		msm_pm_stats[i].count = 0;
-		msm_pm_stats[i].total_time = 0;
-	}
+	spin_lock_irqsave(&msm_pm_stats_lock, flags);
+	for_each_possible_cpu(cpu) {
+		struct msm_pm_time_stats *stats;
+		int i;
 
+		stats = per_cpu(msm_pm_stats, cpu).stats;
+		for (i = 0; i < MSM_PM_STAT_COUNT; i++) {
+			memset(stats[i].bucket,
+				0, sizeof(stats[i].bucket));
+			memset(stats[i].min_time,
+				0, sizeof(stats[i].min_time));
+			memset(stats[i].max_time,
+				0, sizeof(stats[i].max_time));
+			stats[i].count = 0;
+			stats[i].total_time = 0;
+		}
+	}
 	msm_pm_sleep_limit = SLEEP_LIMIT_NONE;
-	local_irq_restore(flags);
+	spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
 
 	return count;
 
 write_proc_failed:
 	return ret;
 }
+
 #undef MSM_PM_STATS_RESET
 #endif /* CONFIG_MSM_IDLE_STATS */
 
@@ -1389,15 +1389,18 @@ void arch_idle(void)
 	int low_power;
 	int ret;
 	int i;
+	unsigned int cpu;
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	int64_t t1;
 	static int64_t t2;
 	int exit_stat;
-#endif /* CONFIG_MSM_IDLE_STATS */
+ #endif /* CONFIG_MSM_IDLE_STATS */
 
 	if (!atomic_read(&msm_pm_init_done))
 		return;
+
+	cpu = smp_processor_id();
 
 	latency_qos = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
 	timer_expiration = msm_timer_enter_idle();
@@ -1406,38 +1409,13 @@ void arch_idle(void)
 	t1 = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - t2);
 	msm_pm_add_stat(MSM_PM_STAT_REQUESTED_IDLE, timer_expiration);
+
+	exit_stat = MSM_PM_STAT_IDLE_SPIN;
+	low_power = 0;
 #endif /* CONFIG_MSM_IDLE_STATS */
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
 		allow[i] = true;
-
-	switch (msm_pm_idle_sleep_mode) {
-	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] =
-			false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_APPS_SLEEP:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND:
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-		break;
-	default:
-		printk(KERN_ERR "idle sleep mode is invalid: %d\n",
-			msm_pm_idle_sleep_mode);
-#ifdef CONFIG_MSM_IDLE_STATS
-		exit_stat = MSM_PM_STAT_IDLE_SPIN;
-#endif /* CONFIG_MSM_IDLE_STATS */
-		low_power = 0;
-		goto arch_idle_exit;
-	}
 
 	if ((timer_expiration < msm_pm_idle_sleep_min_time) ||
 #ifdef CONFIG_HAS_WAKELOCK
@@ -1450,7 +1428,8 @@ void arch_idle(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++) {
-		struct msm_pm_platform_data *mode = &msm_pm_modes[i];
+		struct msm_pm_platform_data *mode =
+					&msm_pm_modes[MSM_PM_MODE(cpu, i)];
 		if (!mode->idle_supported || !mode->idle_enabled ||
 			mode->latency >= latency_qos ||
 			mode->residency * 1000ULL >= timer_expiration)
@@ -1564,7 +1543,6 @@ void arch_idle(void)
 #endif /* CONFIG_MSM_IDLE_STATS */
 	}
 
-arch_idle_exit:
 	msm_timer_exit_idle(low_power);
 
 #ifdef CONFIG_MSM_IDLE_STATS
@@ -1604,32 +1582,9 @@ static int msm_pm_enter(suspend_state_t state)
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
 		allow[i] = true;
 
-	switch (msm_pm_sleep_mode) {
-	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] =
-			false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_APPS_SLEEP:
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
-		/* fall through */
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND:
-	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-		break;
-	default:
-		printk(KERN_ERR "suspend sleep mode is invalid: %d\n",
-			msm_pm_sleep_mode);
-		return -EINVAL;
-	}
-
 	for (i = 0; i < ARRAY_SIZE(allow); i++) {
-		struct msm_pm_platform_data *mode = &msm_pm_modes[i];
+		struct msm_pm_platform_data *mode;
+		mode = &msm_pm_modes[MSM_PM_MODE(0, i)];
 		if (!mode->suspend_supported || !mode->suspend_enabled)
 			allow[i] = false;
 	}
@@ -1778,6 +1733,7 @@ static int __init msm_pm_init(void)
 {
 #ifdef CONFIG_MSM_IDLE_STATS
 	struct proc_dir_entry *d_entry;
+	unsigned int cpu;
 #endif
 	int ret;
 #ifdef CONFIG_CPU_V7
@@ -1846,6 +1802,66 @@ static int __init msm_pm_init(void)
 
 	msm_pm_mode_sysfs_add();
 #ifdef CONFIG_MSM_IDLE_STATS
+	for_each_possible_cpu(cpu) {
+		struct msm_pm_time_stats *stats =
+			per_cpu(msm_pm_stats, cpu).stats;
+
+		stats[MSM_PM_STAT_REQUESTED_IDLE].name = "idle-request";
+		stats[MSM_PM_STAT_REQUESTED_IDLE].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_SPIN].name = "idle-spin";
+		stats[MSM_PM_STAT_IDLE_SPIN].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_WFI].name = "idle-wfi";
+		stats[MSM_PM_STAT_IDLE_WFI].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].name =
+			"idle-standalone-power-collapse";
+		stats[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].
+			first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].name =
+			"idle-failed-standalone-power-collapse";
+		stats[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].
+			first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_SLEEP].name = "idle-sleep";
+		stats[MSM_PM_STAT_IDLE_SLEEP].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_FAILED_SLEEP].name =
+			"idle-failed-sleep";
+		stats[MSM_PM_STAT_IDLE_FAILED_SLEEP].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_POWER_COLLAPSE].name =
+			"idle-power-collapse";
+		stats[MSM_PM_STAT_IDLE_POWER_COLLAPSE].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].name =
+			"idle-failed-power-collapse";
+		stats[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].
+			first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_SUSPEND].name = "suspend";
+		stats[MSM_PM_STAT_SUSPEND].first_bucket_time =
+			CONFIG_MSM_SUSPEND_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_FAILED_SUSPEND].name = "failed-suspend";
+		stats[MSM_PM_STAT_FAILED_SUSPEND].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_NOT_IDLE].name = "not-idle";
+		stats[MSM_PM_STAT_NOT_IDLE].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+	}
 	d_entry = create_proc_entry("msm_pm_stats",
 			S_IRUGO | S_IWUSR | S_IWGRP, NULL);
 	if (d_entry) {
