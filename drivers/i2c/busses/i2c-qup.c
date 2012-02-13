@@ -324,13 +324,13 @@ qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
 	dev->clk_state = state;
 	if (state != 0) {
-		clk_prepare_enable(dev->clk);
-		clk_prepare_enable(dev->pclk);
+		clk_enable(dev->clk);
+		clk_enable(dev->pclk);
 	} else {
 		qup_update_state(dev, QUP_RESET_STATE);
-		clk_disable_unprepare(dev->clk);
+		clk_disable(dev->clk);
 		qup_config_core_on_en(dev);
-		clk_disable_unprepare(dev->pclk);
+		clk_disable(dev->pclk);
 	}
 }
 
@@ -1285,6 +1285,8 @@ qup_i2c_probe(struct platform_device *pdev)
 	dev->suspended = 0;
 	mutex_init(&dev->mlock);
 	dev->clk_state = 0;
+	clk_prepare(dev->clk);
+	clk_prepare(dev->pclk);
 	setup_timer(&dev->pwr_timer, qup_i2c_pwr_timer, (unsigned long) dev);
 
 	pm_runtime_set_active(&pdev->dev);
@@ -1344,6 +1346,8 @@ qup_i2c_remove(struct platform_device *pdev)
 	}
 	free_irq(dev->err_irq, dev);
 	i2c_del_adapter(&dev->adapter);
+	clk_unprepare(dev->clk);
+	clk_unprepare(dev->pclk);
 	clk_put(dev->clk);
 	clk_put(dev->pclk);
 	qup_i2c_free_gpios(dev);
@@ -1378,6 +1382,8 @@ static int qup_i2c_suspend(struct device *device)
 	del_timer_sync(&dev->pwr_timer);
 	if (dev->clk_state != 0)
 		qup_i2c_pwr_mgmt(dev, 0);
+	clk_unprepare(dev->clk);
+	clk_unprepare(dev->pclk);
 	qup_i2c_free_gpios(dev);
 	return 0;
 }
@@ -1387,6 +1393,8 @@ static int qup_i2c_resume(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 	BUG_ON(qup_i2c_request_gpios(dev) != 0);
+	clk_prepare(dev->clk);
+	clk_prepare(dev->pclk);
 	dev->suspended = 0;
 	return 0;
 }
