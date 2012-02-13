@@ -106,12 +106,6 @@ skip:	ldr	r0, =saved_state
 	sub	r1, r1, r0
 	bl	v7_flush_kern_dcache_area
 
-	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
-	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
-	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
-	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
-
-	dsb
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	ldr	r0, =SCM_SVC_BOOT
 	ldr	r1, =SCM_CMD_TERMINATE_PC
@@ -119,10 +113,18 @@ skip:	ldr	r0, =saved_state
 	ldr	r2, [r2]
 	bl	scm_call_atomic1
 #else
+	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
+	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
+	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
+	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
+	dsb
+
 	wfi
-#endif
+
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
+#endif
+
 
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
 	cpsie   f
