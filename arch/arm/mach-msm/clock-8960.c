@@ -5599,6 +5599,10 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm8960_clock_init(void)
 {
+	/* Copy gfx2d's frequency table because it's modified by both clocks */
+	gfx2d1_clk.freq_tbl = kmemdup(clk_tbl_gfx2d,
+			sizeof(struct clk_freq_tbl) * ARRAY_SIZE(clk_tbl_gfx2d),
+			GFP_KERNEL);
 
 	if (cpu_is_msm8960()) {
 		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8921_S3;
