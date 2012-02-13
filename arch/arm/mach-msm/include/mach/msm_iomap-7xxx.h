@@ -44,9 +44,6 @@
 #define MSM7XXX_TMR_PHYS          MSM7XXX_CSR_PHYS
 #define MSM7XXX_TMR_SIZE          SZ_4K
 
-#define MSM7XXX_TMR0_PHYS         0xC0800000
-#define MSM7XXX_TMR0_SIZE         SZ_4K
-
 #define MSM7XXX_GPIO1_PHYS        0xA9200000
 #define MSM7XXX_GPIO1_SIZE        SZ_4K
 
