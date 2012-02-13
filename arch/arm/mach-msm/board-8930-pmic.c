@@ -225,6 +225,45 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 };
 
+#define PM8038_WLED_MAX_CURRENT		25
+
+static struct led_info pm8038_led_info[] = {
+	[0] = {
+		.name			= "wled",
+	},
+};
+
+static struct led_platform_data pm8038_led_core_pdata = {
+	.num_leds = ARRAY_SIZE(pm8038_led_info),
+	.leds = pm8038_led_info,
+};
+
+static struct wled_config_data wled_cfg = {
+	.dig_mod_gen_en = true,
+	.cs_out_en = true,
+	.ctrl_delay_us = 0,
+	.op_fdbck = true,
+	.ovp_val = WLED_OVP_32V,
+	.boost_curr_lim = WLED_CURR_LIMIT_525mA,
+	.num_strings = 1,
+};
+
+static struct pm8xxx_led_config pm8038_led_configs[] = {
+	[0] = {
+		.id = PM8XXX_ID_WLED,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = PM8038_WLED_MAX_CURRENT,
+		.default_state = 1,
+		.wled_cfg = &wled_cfg,
+	},
+};
+
+static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
+	.led_core = &pm8038_led_core_pdata,
+	.configs = pm8038_led_configs,
+	.num_configs = ARRAY_SIZE(pm8038_led_configs),
+};
+
 static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
 	.r_sense		= 10,
 };
@@ -252,6 +291,7 @@ static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8xxx_adc_pdata,
+	.leds_pdata		= &pm8xxx_leds_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
 };
 
