@@ -19,9 +19,10 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
-#include <mach/hardware.h>
 #include <linux/io.h>
-
+#include <mach/hardware.h>
+#include <mach/msm_iomap.h>
+#include <mach/clk.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
@@ -29,10 +30,9 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <mach/clk.h>
 
 #include "msm_fb.h"
-
+#include "mdp4.h"
 static int lvds_probe(struct platform_device *pdev);
 static int lvds_remove(struct platform_device *pdev);
 
@@ -57,6 +57,126 @@ static struct platform_driver lvds_driver = {
 
 static struct lcdc_platform_data *lvds_pdata;
 
+static void lvds_init(struct msm_fb_data_type *mfd)
+{
+	unsigned int lvds_intf, lvds_phy_cfg0;
+
+	MDP_OUTP(MDP_BASE + 0xc2034, 0x33);
+	usleep(1000);
+
+	/* LVDS PHY PLL configuration */
+	MDP_OUTP(MDP_BASE + 0xc3000, 0x08);
+	MDP_OUTP(MDP_BASE + 0xc3004, 0x87);
+	MDP_OUTP(MDP_BASE + 0xc3008, 0x30);
+	MDP_OUTP(MDP_BASE + 0xc300c, 0x06);
+	MDP_OUTP(MDP_BASE + 0xc3014, 0x20);
+	MDP_OUTP(MDP_BASE + 0xc3018, 0x0F);
+	MDP_OUTP(MDP_BASE + 0xc301c, 0x01);
+	MDP_OUTP(MDP_BASE + 0xc3020, 0x41);
+	MDP_OUTP(MDP_BASE + 0xc3024, 0x0d);
+	MDP_OUTP(MDP_BASE + 0xc3028, 0x07);
+	MDP_OUTP(MDP_BASE + 0xc302c, 0x00);
+	MDP_OUTP(MDP_BASE + 0xc3030, 0x1c);
+	MDP_OUTP(MDP_BASE + 0xc3034, 0x01);
+	MDP_OUTP(MDP_BASE + 0xc3038, 0x00);
+	MDP_OUTP(MDP_BASE + 0xc3040, 0xC0);
+	MDP_OUTP(MDP_BASE + 0xc3044, 0x00);
+	MDP_OUTP(MDP_BASE + 0xc3048, 0x30);
+	MDP_OUTP(MDP_BASE + 0xc304c, 0x00);
+
+	MDP_OUTP(MDP_BASE + 0xc3000, 0x11);
+	MDP_OUTP(MDP_BASE + 0xc3064, 0x05);
+	MDP_OUTP(MDP_BASE + 0xc3050, 0x20);
+
+	MDP_OUTP(MDP_BASE + 0xc3000, 0x01);
+	/* Wait until LVDS PLL is locked and ready */
+	while (!readl_relaxed(MDP_BASE + 0xc3080))
+		cpu_relax();
+
+	writel_relaxed(0x00, mmss_cc_base + 0x0264);
+	writel_relaxed(0x00, mmss_cc_base + 0x0094);
+
+	writel_relaxed(0x02, mmss_cc_base + 0x00E4);
+
+	writel_relaxed((0x80 | readl_relaxed(mmss_cc_base + 0x00E4)),
+	       mmss_cc_base + 0x00E4);
+	usleep(1000);
+	writel_relaxed((~0x80 & readl_relaxed(mmss_cc_base + 0x00E4)),
+	       mmss_cc_base + 0x00E4);
+
+	writel_relaxed(0x05, mmss_cc_base + 0x0094);
+	writel_relaxed(0x02, mmss_cc_base + 0x0264);
+	/* Wait until LVDS pixel clock output is enabled */
+	mb();
+
+	if (mfd->panel_info.bpp == 24) {
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc2014, 0x03040508);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2018, 0x00000102);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc201c, 0x0c0d1011);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc2024, 0x151a191a);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc202c, 0x1706071b);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2030, 0x000e0f16);
+
+		if (mfd->panel_info.lvds.channel_mode ==
+			LVDS_DUAL_CHANNEL_MODE) {
+			lvds_intf = 0x0001ff80;
+			lvds_phy_cfg0 = BIT(6) | BIT(7);
+			if (mfd->panel_info.lvds.channel_swap)
+				lvds_intf |= BIT(4);
+		} else {
+			lvds_intf = 0x00010f84;
+			lvds_phy_cfg0 = BIT(6);
+		}
+	} else if (mfd->panel_info.bpp == 18) {
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc2014, 0x03040508);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D0_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2018, 0x00000102);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc201c, 0x0c0d1011);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_3_TO_0 */
+		MDP_OUTP(MDP_BASE +  0xc2024, 0x1518191a);
+		/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
+		MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
+
+		if (mfd->panel_info.lvds.channel_mode ==
+			LVDS_DUAL_CHANNEL_MODE) {
+			lvds_intf = 0x00017788;
+			lvds_phy_cfg0 = BIT(6) | BIT(7);
+			if (mfd->panel_info.lvds.channel_swap)
+				lvds_intf |= BIT(4);
+		} else {
+			lvds_intf = 0x0001078c;
+			lvds_phy_cfg0 = BIT(6);
+		}
+	}
+
+	/* MDP_LVDSPHY_CFG0 */
+	MDP_OUTP(MDP_BASE +  0xc3100, lvds_phy_cfg0);
+	/* MDP_LCDC_LVDS_INTF_CTL */
+	MDP_OUTP(MDP_BASE +  0xc2000, lvds_intf);
+	MDP_OUTP(MDP_BASE +  0xc3108, 0x30);
+	lvds_phy_cfg0 |= BIT(4);
+
+	/* Wait until LVDS PHY registers are configured */
+	mb();
+	usleep(1);
+	/* MDP_LVDSPHY_CFG0, enable serialization */
+	MDP_OUTP(MDP_BASE +  0xc3100, lvds_phy_cfg0);
+}
+
 static int lvds_off(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -65,7 +185,8 @@ static int lvds_off(struct platform_device *pdev)
 	mfd = platform_get_drvdata(pdev);
 	ret = panel_next_off(pdev);
 
-	clk_disable(lvds_clk);
+	if (lvds_clk)
+		clk_disable(lvds_clk);
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)
 		lvds_pdata->lcdc_power_save(0);
@@ -97,22 +218,24 @@ static int lvds_on(struct platform_device *pdev)
 #endif
 	mfd = platform_get_drvdata(pdev);
 
-	mfd->fbi->var.pixclock = clk_round_rate(lvds_clk,
-					mfd->fbi->var.pixclock);
-	ret = clk_set_rate(lvds_clk, mfd->fbi->var.pixclock);
-	if (ret) {
-		pr_err("%s: Can't set lvds clock to rate %u\n",
-			__func__, mfd->fbi->var.pixclock);
-		goto out;
+	if (lvds_clk) {
+		mfd->fbi->var.pixclock = clk_round_rate(lvds_clk,
+			mfd->fbi->var.pixclock);
+		ret = clk_set_rate(lvds_clk, mfd->fbi->var.pixclock);
+		if (ret) {
+			pr_err("%s: Can't set lvds clock to rate %u\n",
+				__func__, mfd->fbi->var.pixclock);
+			goto out;
+		}
+		clk_enable(lvds_clk);
 	}
-
-	clk_enable(lvds_clk);
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)
 		lvds_pdata->lcdc_power_save(1);
 	if (lvds_pdata && lvds_pdata->lcdc_gpio_config)
 		ret = lvds_pdata->lcdc_gpio_config(1);
 
+	lvds_init(mfd);
 	ret = panel_next_on(pdev);
 
 out:
@@ -182,8 +305,11 @@ static int lvds_probe(struct platform_device *pdev)
 		mfd->fb_imgType = MDP_RGB_565;
 
 	fbi = mfd->fbi;
-	fbi->var.pixclock = clk_round_rate(lvds_clk,
-					mfd->panel_info.clk_rate);
+	if (lvds_clk) {
+		fbi->var.pixclock = clk_round_rate(lvds_clk,
+			mfd->panel_info.clk_rate);
+	}
+
 	fbi->var.left_margin = mfd->panel_info.lcdc.h_back_porch;
 	fbi->var.right_margin = mfd->panel_info.lcdc.h_front_porch;
 	fbi->var.upper_margin = mfd->panel_info.lcdc.v_back_porch;
@@ -224,9 +350,9 @@ static int lvds_register_driver(void)
 static int __init lvds_driver_init(void)
 {
 	lvds_clk = clk_get(NULL, "lvds_clk");
-	if (IS_ERR(lvds_clk)) {
+	if (IS_ERR_OR_NULL(lvds_clk)) {
 		pr_err("Couldnt find lvds_clk\n");
-		return -EINVAL;
+		lvds_clk = NULL;
 	}
 
 	return lvds_register_driver();
