@@ -1205,6 +1205,52 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 	return platform_device_register(pdev);
 }
 
+#ifdef CONFIG_MSM_CAMERA_V4L2
+static struct resource msm8625_csic0_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA0F00000,
+		.end    = 0xA0F00000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = MSM8625_INT_CSI_IRQ_0,
+		.end    = MSM8625_INT_CSI_IRQ_0,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource msm8625_csic1_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA1000000,
+		.end    = 0xA1000000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = MSM8625_INT_CSI_IRQ_1,
+		.end    = MSM8625_INT_CSI_IRQ_1,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_csic0 = {
+	.name           = "msm_csic",
+	.id             = 0,
+	.resource       = msm8625_csic0_resources,
+	.num_resources  = ARRAY_SIZE(msm8625_csic0_resources),
+};
+
+struct platform_device msm8625_device_csic1 = {
+	.name           = "msm_csic",
+	.id             = 1,
+	.resource       = msm8625_csic1_resources,
+	.num_resources  = ARRAY_SIZE(msm8625_csic1_resources),
+};
+#endif
+
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
 	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
