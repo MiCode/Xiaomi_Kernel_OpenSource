@@ -21,6 +21,8 @@
 #define SCORPION_EVT_PREFIX 1
 #define SCORPION_MAX_L1_REG 4
 
+#define SCORPION_EVTYPE_EVENT 0xfffff
+
 static u32 scorpion_evt_type_base[] = {0x4c, 0x50, 0x54, 0x58, 0x5c};
 
 enum scorpion_perf_common {
@@ -380,12 +382,14 @@ static unsigned int get_scorpion_evtinfo(unsigned int scorpion_evt_type,
 		evtinfo->group_setval = 0x80000000 | (code << (group * 8));
 		evtinfo->groupcode = reg;
 		evtinfo->armv7_evt_type = scorpion_evt_type_base[reg] | group;
+
 		return evtinfo->armv7_evt_type;
 	}
 
 	if (scorpion_evt_type < SCORPION_EVT_START_IDX || scorpion_evt_type >=
 		(ARRAY_SIZE(scorpion_event) + SCORPION_EVT_START_IDX))
 		return -EINVAL;
+
 	idx = scorpion_evt_type - SCORPION_EVT_START_IDX;
 	if (scorpion_event[idx].scorpion_evt_type == scorpion_evt_type) {
 		evtinfo->group_setval = scorpion_event[idx].group_setval;
@@ -594,7 +598,7 @@ static void scorpion_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
-		val &= ARMV7_EVTYPE_EVENT;
+		val &= SCORPION_EVTYPE_EVENT;
 
 		if (val > 0x40) {
 			event = get_scorpion_evtinfo(val, &evtinfo);
@@ -636,7 +640,7 @@ static void scorpion_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	if (idx != ARMV7_CYCLE_COUNTER) {
 		val = hwc->config_base;
-		val &= ARMV7_EVTYPE_EVENT;
+		val &= SCORPION_EVTYPE_EVENT;
 
 		if (val < 0x40) {
 			armv7_pmnc_write_evtsel(idx, hwc->config_base);
