@@ -69,7 +69,7 @@ obj-$(CONFIG_MCP_SA11X0)	+= mcp-sa11x0.o
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-core.o
 obj-$(CONFIG_MCP_UCB1200_TS)	+= ucb1x00-ts.o
 
-obj-$(CONFIG_WCD9310_CODEC)       += wcd9310-core.o wcd9310-irq.o
+obj-$(CONFIG_WCD9310_CODEC)       += wcd9310-core.o wcd9310-irq.o wcd9310-slimslave.o
 
 ifeq ($(CONFIG_SA1100_ASSABET),y)
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-assabet.o

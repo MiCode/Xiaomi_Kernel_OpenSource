@@ -272,6 +272,16 @@ struct afe_port_slimbus_cfg {
 	u16	reserved;
 } __packed;
 
+struct afe_port_slimbus_sch_cfg {
+	u16	slimbus_dev_id;		/* SLIMBUS Device id.*/
+	u16	bit_width;		/**  bit width of the samples, 16, 24.*/
+	u16	data_format;		/** data format.*/
+	u16	num_channels;		/** Number of channels.*/
+	u16	reserved;
+	/** Slave channel  mapping for respective channels.*/
+	u8	slave_ch_mapping[8];
+} __packed;
+
 struct afe_port_rtproxy_cfg {
 	u16	bitwidth;	/* 16,24,32 */
 	u16	interleaved;    /* interleaved = 1 */
@@ -284,16 +294,18 @@ struct afe_port_rtproxy_cfg {
 	int	num_ch;		/* 1 to 8 */
 } __packed;
 
-#define AFE_PORT_AUDIO_IF_CONFIG			0x000100d3
+#define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
+#define AFE_PORT_AUDIO_SLIM_SCH_CONFIG 0x000100e4
 #define AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG	0x000100D9
 
 union afe_port_config {
-	struct afe_port_pcm_cfg			pcm;
-	struct afe_port_mi2s_cfg		mi2s;
-	struct afe_port_hdmi_cfg		hdmi;
-	struct afe_port_hdmi_multi_ch_cfg	hdmi_multi_ch;
-	struct afe_port_slimbus_cfg		slimbus;
-	struct afe_port_rtproxy_cfg		rtproxy;
+	struct afe_port_pcm_cfg           pcm;
+	struct afe_port_mi2s_cfg          mi2s;
+	struct afe_port_hdmi_cfg          hdmi;
+	struct afe_port_hdmi_multi_ch_cfg hdmi_multi_ch;
+	struct afe_port_slimbus_cfg	  slimbus;
+	struct afe_port_slimbus_sch_cfg	  slim_sch;
+	struct afe_port_rtproxy_cfg       rtproxy;
 } __attribute__((packed));
 
 struct afe_audioif_config_command {

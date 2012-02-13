@@ -14,8 +14,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/mfd/core.h>
+#include <linux/mfd/wcd9310/wcd9310-slimslave.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
-#include <linux/mfd/wcd9310/core.h>
 #include <linux/mfd/wcd9310/pdata.h>
 #include <linux/mfd/wcd9310/registers.h>
 #include <linux/delay.h>
@@ -921,7 +921,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
 	}
-
+	tabla_init_slimslave(tabla, tabla_pgd_la);
 #ifdef CONFIG_DEBUG_FS
 	debugTabla = tabla;
 
@@ -963,6 +963,7 @@ static int tabla_slim_remove(struct slim_device *pdev)
 #endif
 
 	tabla = slim_get_devicedata(pdev);
+	tabla_deinit_slimslave(tabla);
 	tabla_device_exit(tabla);
 	tabla_disable_supplies(tabla);
 	slim_remove_device(tabla->slim_slave);

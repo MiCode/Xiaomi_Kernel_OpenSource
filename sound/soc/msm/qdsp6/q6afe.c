@@ -78,6 +78,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			switch (payload[0]) {
 			case AFE_PORT_AUDIO_IF_CONFIG:
 			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG:
+			case AFE_PORT_AUDIO_SLIM_SCH_CONFIG:
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
 			case AFE_PORT_CMD_LOOPBACK:
@@ -285,7 +286,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
-		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_cfg);
+		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_sch_cfg);
 		break;
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
@@ -418,7 +419,23 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		config.hdr.src_port = 0;
 		config.hdr.dest_port = 0;
 		config.hdr.token = 0;
-		config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+		switch (port_id) {
+		case SLIMBUS_0_RX:
+		case SLIMBUS_0_TX:
+		case SLIMBUS_1_RX:
+		case SLIMBUS_1_TX:
+		case SLIMBUS_2_RX:
+		case SLIMBUS_2_TX:
+		case SLIMBUS_3_RX:
+		case SLIMBUS_3_TX:
+		case SLIMBUS_4_RX:
+		case SLIMBUS_4_TX:
+			config.hdr.opcode = AFE_PORT_AUDIO_SLIM_SCH_CONFIG;
+		break;
+		default:
+			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+		break;
+		}
 	}
 
 	if (afe_validate_port(port_id) < 0) {
@@ -485,7 +502,7 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 		return ret;
 	}
 
-	pr_info("%s: %d %d\n", __func__, port_id, rate);
+	pr_debug("%s: %d %d\n", __func__, port_id, rate);
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX))
@@ -793,7 +810,7 @@ int afe_start_pseudo_port(u16 port_id)
 	int ret = 0;
 	struct afe_pseudoport_start_command start;
 
-	pr_info("%s: port_id=%d\n", __func__, port_id);
+	pr_debug("%s: port_id=%d\n", __func__, port_id);
 
 	ret = afe_q6_interface_prepare();
 	if (ret != 0)
@@ -866,7 +883,7 @@ int afe_stop_pseudo_port(u16 port_id)
 	int ret = 0;
 	struct afe_pseudoport_stop_command stop;
 
-	pr_info("%s: port_id=%d\n", __func__, port_id);
+	pr_debug("%s: port_id=%d\n", __func__, port_id);
 
 	if (this_afe.apr == NULL) {
 		pr_err("%s: AFE is already closed\n", __func__);

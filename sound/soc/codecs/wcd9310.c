@@ -36,8 +36,6 @@
 #define NUM_DECIMATORS 10
 #define NUM_INTERPOLATORS 7
 #define BITS_PER_REG 8
-#define TABLA_RX_DAI_ID 1
-#define TABLA_TX_DAI_ID 2
 #define TABLA_CFILT_FAST_MODE 0x00
 #define TABLA_CFILT_SLOW_MODE 0x40
 #define MBHC_FW_READ_ATTEMPTS 15
@@ -49,6 +47,17 @@
 
 #define TABLA_OCP_ATTEMPT 1
 
+#define AIF1_PB 1
+#define AIF1_CAP 2
+#define NUM_CODEC_DAIS 2
+
+struct tabla_codec_dai_data {
+	u32 rate;
+	u32 *ch_num;
+	u32 ch_act;
+	u32 ch_tot;
+};
+
 #define TABLA_MCLK_RATE_12288KHZ 12288000
 #define TABLA_MCLK_RATE_9600KHZ 9600000
 
@@ -58,6 +67,7 @@
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
+static struct snd_soc_dai_driver tabla_dai[];
 
 enum tabla_bandgap_type {
 	TABLA_BANDGAP_OFF = 0,
@@ -194,6 +204,9 @@ struct tabla_priv {
 	/* Work to perform MBHC Firmware Read */
 	struct delayed_work mbhc_firmware_dwork;
 	const struct firmware *mbhc_fw;
+
+	/* num of slim ports required */
+	struct tabla_codec_dai_data dai[NUM_CODEC_DAIS];
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1907,306 +1920,6 @@ static int tabla_lineout_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
-	/*RX stuff */
-	SND_SOC_DAPM_OUTPUT("EAR"),
-
-	SND_SOC_DAPM_PGA("EAR PA", TABLA_A_RX_EAR_EN, 4, 0, NULL, 0),
-
-	SND_SOC_DAPM_MIXER("DAC1", TABLA_A_RX_EAR_EN, 6, 0, dac1_switch,
-		ARRAY_SIZE(dac1_switch)),
-
-	SND_SOC_DAPM_AIF_IN("SLIM RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_IN("SLIM RX2", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_IN("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_IN("SLIM RX4", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
-
-	/* Headphone */
-	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
-	SND_SOC_DAPM_PGA_E("HPHL", TABLA_A_RX_HPH_CNP_EN, 5, 0, NULL, 0,
-		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER("HPHL DAC", TABLA_A_RX_HPH_L_DAC_CTL, 7, 0,
-		hphl_switch, ARRAY_SIZE(hphl_switch)),
-
-	SND_SOC_DAPM_PGA_E("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
-		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_DAC_E("HPHR DAC", NULL, TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
-		tabla_hphr_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
-	/* Speaker */
-	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
-	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
-	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
-	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
-	SND_SOC_DAPM_OUTPUT("LINEOUT5"),
-
-	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", TABLA_A_RX_LINE_CNP_EN, 0, 0, NULL,
-			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", TABLA_A_RX_LINE_CNP_EN, 1, 0, NULL,
-			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT3 PA", TABLA_A_RX_LINE_CNP_EN, 2, 0, NULL,
-			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT4 PA", TABLA_A_RX_LINE_CNP_EN, 3, 0, NULL,
-			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_E("LINEOUT5 PA", TABLA_A_RX_LINE_CNP_EN, 4, 0, NULL, 0,
-		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_DAC_E("LINEOUT1 DAC", NULL, TABLA_A_RX_LINE_1_DAC_CTL, 7, 0
-		, tabla_lineout_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_DAC_E("LINEOUT2 DAC", NULL, TABLA_A_RX_LINE_2_DAC_CTL, 7, 0
-		, tabla_lineout_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_DAC_E("LINEOUT3 DAC", NULL, TABLA_A_RX_LINE_3_DAC_CTL, 7, 0
-		, tabla_lineout_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SWITCH("LINEOUT3 DAC GROUND", SND_SOC_NOPM, 0, 0,
-				&lineout3_ground_switch),
-	SND_SOC_DAPM_DAC_E("LINEOUT4 DAC", NULL, TABLA_A_RX_LINE_4_DAC_CTL, 7, 0
-		, tabla_lineout_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SWITCH("LINEOUT4 DAC GROUND", SND_SOC_NOPM, 0, 0,
-				&lineout4_ground_switch),
-	SND_SOC_DAPM_DAC_E("LINEOUT5 DAC", NULL, TABLA_A_RX_LINE_5_DAC_CTL, 7, 0
-		, tabla_lineout_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MIXER_E("RX1 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX2 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX3 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX4 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX5 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 4, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX6 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 5, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
-		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
-
-
-	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0,
-		&rx4_dsm_mux, tabla_codec_reset_interpolator,
-		SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("RX6 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 5, 0,
-		&rx6_dsm_mux, tabla_codec_reset_interpolator,
-		SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MIXER("RX1 CHAIN", TABLA_A_CDC_RX1_B6_CTL, 5, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX2 CHAIN", TABLA_A_CDC_RX2_B6_CTL, 5, 0, NULL, 0),
-
-	SND_SOC_DAPM_MUX("RX1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX1 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX2 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx2_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX2 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx2_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX3 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx3_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX3 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx3_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX4 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx4_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx4_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX5 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx5_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX5 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx5_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX6 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx6_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX6 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx6_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX7 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx7_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX7 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx7_mix1_inp2_mux),
-
-	SND_SOC_DAPM_SUPPLY("CP", TABLA_A_CP_EN, 0, 0,
-		tabla_codec_enable_charge_pump, SND_SOC_DAPM_POST_PMU |
-		SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	/* TX */
-
-	SND_SOC_DAPM_SUPPLY("CDC_CONN", TABLA_A_CDC_CLK_OTHR_CTL, 2, 0, NULL,
-		0),
-
-	SND_SOC_DAPM_SUPPLY("LDO_H", TABLA_A_LDO_H_MODE_1, 7, 0,
-		tabla_codec_enable_ldo_h, SND_SOC_DAPM_POST_PMU),
-
-	SND_SOC_DAPM_INPUT("AMIC1"),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TABLA_A_MICB_1_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal1", TABLA_A_MICB_1_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal2", TABLA_A_MICB_1_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_ADC_E("ADC1", NULL, TABLA_A_TX_1_2_EN, 7, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_INPUT("AMIC3"),
-	SND_SOC_DAPM_ADC_E("ADC3", NULL, TABLA_A_TX_3_4_EN, 7, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_INPUT("AMIC4"),
-	SND_SOC_DAPM_ADC_E("ADC4", NULL, TABLA_A_TX_3_4_EN, 3, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_INPUT("AMIC5"),
-	SND_SOC_DAPM_ADC_E("ADC5", NULL, TABLA_A_TX_5_6_EN, 7, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
-
-	SND_SOC_DAPM_INPUT("AMIC6"),
-	SND_SOC_DAPM_ADC_E("ADC6", NULL, TABLA_A_TX_5_6_EN, 3, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC1 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
-		&dec1_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC2 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 1, 0,
-		&dec2_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC3 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 2, 0,
-		&dec3_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC4 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
-		&dec4_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC5 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 4, 0,
-		&dec5_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC6 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 5, 0,
-		&dec6_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC7 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 6, 0,
-		&dec7_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC8 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 7, 0,
-		&dec8_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC9 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0, 0,
-		&dec9_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("DEC10 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B2_CTL, 1, 0,
-		&dec10_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
-	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
-
-	SND_SOC_DAPM_MIXER_E("ANC", SND_SOC_NOPM, 0, 0, NULL, 0,
-		tabla_codec_enable_anc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
-
-	SND_SOC_DAPM_INPUT("AMIC2"),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", TABLA_A_MICB_2_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal1", TABLA_A_MICB_2_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal2", TABLA_A_MICB_2_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal3", TABLA_A_MICB_2_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 External", TABLA_A_MICB_3_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal1", TABLA_A_MICB_3_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal2", TABLA_A_MICB_3_CTL, 7, 0,
-		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_ADC_E("ADC2", NULL, TABLA_A_TX_1_2_EN, 3, 0,
-		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX("SLIM TX1 MUX", SND_SOC_NOPM, 0, 0, &sb_tx1_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX1", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX5 MUX", SND_SOC_NOPM, 0, 0, &sb_tx5_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX5", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			4, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX6 MUX", SND_SOC_NOPM, 0, 0, &sb_tx6_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX6", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			5, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX7 MUX", SND_SOC_NOPM, 0, 0, &sb_tx7_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX7", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX8 MUX", SND_SOC_NOPM, 0, 0, &sb_tx8_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX8", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX9 MUX", SND_SOC_NOPM, 0, 0, &sb_tx9_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX9", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
-
-	SND_SOC_DAPM_MUX("SLIM TX10 MUX", SND_SOC_NOPM, 0, 0, &sb_tx10_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX10", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
-
-	/* Digital Mic Inputs */
-	SND_SOC_DAPM_ADC_E("DMIC1", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("DMIC2", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("DMIC3", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("DMIC4", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("DMIC5", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("DMIC6", NULL, SND_SOC_NOPM, 0, 0,
-		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
-
-	/* Sidetone */
-	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
-	SND_SOC_DAPM_PGA("IIR1", TABLA_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
-};
-
 static const struct snd_soc_dapm_widget tabla_1_x_dapm_widgets[] = {
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_1_A_MICB_4_CTL, 7,
 			       0, tabla_codec_enable_micbias,
@@ -2675,7 +2388,6 @@ static int tabla_codec_enable_config_mode(struct snd_soc_codec *codec,
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
-	pr_debug("%s: enable = %d\n", __func__, enable);
 	if (enable) {
 		snd_soc_update_bits(codec, TABLA_A_CONFIG_MODE_FREQ, 0x10, 0);
 		snd_soc_write(codec, TABLA_A_BIAS_CONFIG_MODE_BG_CTL, 0x17);
@@ -2880,11 +2592,11 @@ static int tabla_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case SND_SOC_DAIFMT_CBS_CFS:
 		/* CPU is master */
 		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
-			if (dai->id == TABLA_TX_DAI_ID)
+			if (dai->id == AIF1_CAP)
 				snd_soc_update_bits(dai->codec,
 					TABLA_A_CDC_CLK_TX_I2S_CTL,
 					TABLA_I2S_MASTER_MODE_MASK, 0);
-			else if (dai->id == TABLA_RX_DAI_ID)
+			else if (dai->id == AIF1_PB)
 				snd_soc_update_bits(dai->codec,
 					TABLA_A_CDC_CLK_RX_I2S_CTL,
 					TABLA_I2S_MASTER_MODE_MASK, 0);
@@ -2894,16 +2606,81 @@ static int tabla_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	/* CPU is slave */
 		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
 			val = TABLA_I2S_MASTER_MODE_MASK;
-			if (dai->id == TABLA_TX_DAI_ID)
+			if (dai->id == AIF1_CAP)
 				snd_soc_update_bits(dai->codec,
 					TABLA_A_CDC_CLK_TX_I2S_CTL, val, val);
-			else if (dai->id == TABLA_RX_DAI_ID)
+			else if (dai->id == AIF1_PB)
 				snd_soc_update_bits(dai->codec,
 					TABLA_A_CDC_CLK_RX_I2S_CTL, val, val);
 		}
 		break;
 	default:
 		return -EINVAL;
+	}
+	return 0;
+}
+
+static int tabla_set_channel_map(struct snd_soc_dai *dai,
+				unsigned int tx_num, unsigned int *tx_slot,
+				unsigned int rx_num, unsigned int *rx_slot)
+
+{
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(dai->codec);
+	u32 i = 0;
+	if (!tx_slot && !rx_slot) {
+		pr_err("%s: Invalid\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s: DAI-ID %x %d %d\n", __func__, dai->id, tx_num, rx_num);
+
+	if (dai->id == AIF1_PB) {
+		for (i = 0; i < rx_num; i++) {
+			tabla->dai[dai->id - 1].ch_num[i]  = rx_slot[i];
+			tabla->dai[dai->id - 1].ch_act = 0;
+			tabla->dai[dai->id - 1].ch_tot = rx_num;
+		}
+	} else if (dai->id == AIF1_CAP) {
+		for (i = 0; i < tx_num; i++) {
+			tabla->dai[dai->id - 1].ch_num[i]  = tx_slot[i];
+			tabla->dai[dai->id - 1].ch_act = 0;
+			tabla->dai[dai->id - 1].ch_tot = tx_num;
+		}
+	}
+	return 0;
+}
+
+static int tabla_get_channel_map(struct snd_soc_dai *dai,
+				unsigned int *tx_num, unsigned int *tx_slot,
+				unsigned int *rx_num, unsigned int *rx_slot)
+
+{
+	struct tabla *tabla = dev_get_drvdata(dai->codec->control_data);
+
+	u32 cnt = 0;
+	u32 tx_ch[SLIM_MAX_TX_PORTS];
+	u32 rx_ch[SLIM_MAX_RX_PORTS];
+
+	if (!rx_slot && !tx_slot) {
+		pr_err("%s: Invalid\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
+	/* for virtual port, codec driver needs to do
+	 * housekeeping, for now should be ok
+	 */
+	tabla_get_channel(tabla, rx_ch, tx_ch);
+	if (dai->id == AIF1_PB) {
+		*rx_num = tabla_dai[dai->id - 1].playback.channels_max;
+		while (cnt < *rx_num) {
+			rx_slot[cnt] = rx_ch[cnt];
+			cnt++;
+		}
+	} else if (dai->id == AIF1_CAP) {
+		*tx_num = tabla_dai[dai->id - 1].capture.channels_max;
+		while (cnt < *tx_num) {
+			tx_slot[cnt] = tx_ch[6 + cnt];
+			cnt++;
+		}
 	}
 	return 0;
 }
@@ -2918,7 +2695,8 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	u16 tx_fs_reg, rx_fs_reg;
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
 
-	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
+	pr_debug("%s: DAI-ID %x rate %d\n", __func__, dai->id,
+						params_rate(params));
 
 	switch (params_rate(params)) {
 	case 8000:
@@ -2948,7 +2726,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	 * If current dai is a tx dai, set sample rate to
 	 * all the txfe paths that are currently not active
 	 */
-	if (dai->id == TABLA_TX_DAI_ID) {
+	if (dai->id == AIF1_CAP) {
 
 		tx_state = snd_soc_read(codec,
 				TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL);
@@ -2987,9 +2765,10 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			}
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_TX_I2S_CTL,
 						0x03, tx_fs_rate);
+		} else {
+			tabla->dai[dai->id - 1].rate   = params_rate(params);
 		}
 	}
-
 	/**
 	 * TODO: Need to handle case where same RX chain takes 2 or more inputs
 	 * with varying sample rates
@@ -2999,7 +2778,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	 * If current dai is a rx dai, set sample rate to
 	 * all the rx paths that are currently not active
 	 */
-	if (dai->id == TABLA_RX_DAI_ID) {
+	if (dai->id == AIF1_PB) {
 
 		rx_state = snd_soc_read(codec,
 			TABLA_A_CDC_CLK_RX_B1_CTL);
@@ -3032,6 +2811,8 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			}
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_RX_I2S_CTL,
 						0x03, (rx_fs_rate >> 0x05));
+		} else {
+			tabla->dai[dai->id - 1].rate   = params_rate(params);
 		}
 	}
 
@@ -3044,12 +2825,14 @@ static struct snd_soc_dai_ops tabla_dai_ops = {
 	.hw_params = tabla_hw_params,
 	.set_sysclk = tabla_set_dai_sysclk,
 	.set_fmt = tabla_set_dai_fmt,
+	.set_channel_map = tabla_set_channel_map,
+	.get_channel_map = tabla_get_channel_map,
 };
 
 static struct snd_soc_dai_driver tabla_dai[] = {
 	{
 		.name = "tabla_rx1",
-		.id = 1,
+		.id = AIF1_PB,
 		.playback = {
 			.stream_name = "AIF1 Playback",
 			.rates = WCD9310_RATES,
@@ -3057,13 +2840,13 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 4,
+			.channels_max = 2,
 		},
 		.ops = &tabla_dai_ops,
 	},
 	{
 		.name = "tabla_tx1",
-		.id = 2,
+		.id = AIF1_CAP,
 		.capture = {
 			.stream_name = "AIF1 Capture",
 			.rates = WCD9310_RATES,
@@ -3071,7 +2854,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 4,
 		},
 		.ops = &tabla_dai_ops,
 	},
@@ -3107,6 +2890,426 @@ static struct snd_soc_dai_driver tabla_i2s_dai[] = {
 		.ops = &tabla_dai_ops,
 	},
 };
+
+static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct tabla *tabla;
+	struct snd_soc_codec *codec = w->codec;
+	struct tabla_priv *tabla_p = snd_soc_codec_get_drvdata(codec);
+	u32  j = 0;
+	u32  ret = 0;
+	codec->control_data = dev_get_drvdata(codec->dev->parent);
+	tabla = codec->control_data;
+	/* Execute the callback only if interface type is slimbus */
+	if (tabla_p->intf_type != TABLA_INTERFACE_TYPE_SLIMBUS)
+		return 0;
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
+			if (tabla_dai[j].id == AIF1_CAP)
+				continue;
+			if (!strncmp(w->sname,
+				tabla_dai[j].playback.stream_name, 13)) {
+				++tabla_p->dai[j].ch_act;
+				break;
+			}
+		}
+		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot)
+			ret = tabla_cfg_slim_sch_rx(tabla,
+						tabla_p->dai[j].ch_num,
+						tabla_p->dai[j].ch_tot,
+						tabla_p->dai[j].rate);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
+			if (tabla_dai[j].id == AIF1_CAP)
+				continue;
+			if (!strncmp(w->sname,
+				tabla_dai[j].playback.stream_name, 13)) {
+				--tabla_p->dai[j].ch_act;
+				break;
+			}
+		}
+		if (!tabla_p->dai[j].ch_act) {
+			ret = tabla_close_slim_sch_rx(tabla,
+						tabla_p->dai[j].ch_num,
+						tabla_p->dai[j].ch_tot);
+			tabla_p->dai[j].rate = 0;
+			memset(tabla_p->dai[j].ch_num, 0, (sizeof(u32)*
+						tabla_p->dai[j].ch_tot));
+			tabla_p->dai[j].ch_tot = 0;
+		}
+	}
+	return ret;
+}
+
+static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct tabla *tabla;
+	struct snd_soc_codec *codec = w->codec;
+	struct tabla_priv *tabla_p = snd_soc_codec_get_drvdata(codec);
+	/* index to the DAI ID, for now hardcoding */
+	u32  j = 0;
+	u32  ret = 0;
+
+	codec->control_data = dev_get_drvdata(codec->dev->parent);
+	tabla = codec->control_data;
+
+	/* Execute the callback only if interface type is slimbus */
+	if (tabla_p->intf_type != TABLA_INTERFACE_TYPE_SLIMBUS)
+		return 0;
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
+			if (tabla_dai[j].id == AIF1_PB)
+				continue;
+			if (!strncmp(w->sname,
+				tabla_dai[j].capture.stream_name, 13)) {
+				++tabla_p->dai[j].ch_act;
+				break;
+			}
+		}
+		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot)
+			ret = tabla_cfg_slim_sch_tx(tabla,
+						tabla_p->dai[j].ch_num,
+						tabla_p->dai[j].ch_tot,
+						tabla_p->dai[j].rate);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
+			if (tabla_dai[j].id == AIF1_PB)
+				continue;
+			if (!strncmp(w->sname,
+				tabla_dai[j].capture.stream_name, 13)) {
+				--tabla_p->dai[j].ch_act;
+				break;
+			}
+		}
+		if (!tabla_p->dai[j].ch_act) {
+			ret = tabla_close_slim_sch_tx(tabla,
+						tabla_p->dai[j].ch_num,
+						tabla_p->dai[j].ch_tot);
+			tabla_p->dai[j].rate = 0;
+			memset(tabla_p->dai[j].ch_num, 0, (sizeof(u32)*
+						tabla_p->dai[j].ch_tot));
+			tabla_p->dai[j].ch_tot = 0;
+		}
+	}
+	return ret;
+}
+
+/* Todo: Have seperate dapm widgets for I2S and Slimbus.
+ * Might Need to have callbacks registered only for slimbus
+ */
+static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
+	/*RX stuff */
+	SND_SOC_DAPM_OUTPUT("EAR"),
+
+	SND_SOC_DAPM_PGA("EAR PA", TABLA_A_RX_EAR_EN, 4, 0, NULL, 0),
+
+	SND_SOC_DAPM_MIXER("DAC1", TABLA_A_RX_EAR_EN, 6, 0, dac1_switch,
+		ARRAY_SIZE(dac1_switch)),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX2", "AIF1 Playback", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("SLIM RX4", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
+
+	/* Headphone */
+	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
+	SND_SOC_DAPM_PGA_E("HPHL", TABLA_A_RX_HPH_CNP_EN, 5, 0, NULL, 0,
+		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER("HPHL DAC", TABLA_A_RX_HPH_L_DAC_CTL, 7, 0,
+		hphl_switch, ARRAY_SIZE(hphl_switch)),
+
+	SND_SOC_DAPM_PGA_E("HPHR", TABLA_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
+		tabla_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_DAC_E("HPHR DAC", NULL, TABLA_A_RX_HPH_R_DAC_CTL, 7, 0,
+		tabla_hphr_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	/* Speaker */
+	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT5"),
+
+	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", TABLA_A_RX_LINE_CNP_EN, 0, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", TABLA_A_RX_LINE_CNP_EN, 1, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT3 PA", TABLA_A_RX_LINE_CNP_EN, 2, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT4 PA", TABLA_A_RX_LINE_CNP_EN, 3, 0, NULL,
+			0, tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT5 PA", TABLA_A_RX_LINE_CNP_EN, 4, 0, NULL, 0,
+		tabla_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_DAC_E("LINEOUT1 DAC", NULL, TABLA_A_RX_LINE_1_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("LINEOUT2 DAC", NULL, TABLA_A_RX_LINE_2_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("LINEOUT3 DAC", NULL, TABLA_A_RX_LINE_3_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SWITCH("LINEOUT3 DAC GROUND", SND_SOC_NOPM, 0, 0,
+				&lineout3_ground_switch),
+	SND_SOC_DAPM_DAC_E("LINEOUT4 DAC", NULL, TABLA_A_RX_LINE_4_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SWITCH("LINEOUT4 DAC GROUND", SND_SOC_NOPM, 0, 0,
+				&lineout4_ground_switch),
+	SND_SOC_DAPM_DAC_E("LINEOUT5 DAC", NULL, TABLA_A_RX_LINE_5_DAC_CTL, 7, 0
+		, tabla_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MIXER_E("RX1 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX2 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX3 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX4 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX5 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 4, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX6 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 5, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
+		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0,
+		&rx4_dsm_mux, tabla_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("RX6 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 5, 0,
+		&rx6_dsm_mux, tabla_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MIXER("RX1 CHAIN", TABLA_A_CDC_RX1_B6_CTL, 5, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX2 CHAIN", TABLA_A_CDC_RX2_B6_CTL, 5, 0, NULL, 0),
+
+	SND_SOC_DAPM_MUX("RX1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX1 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX2 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx2_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX2 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx2_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX3 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx3_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX3 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx3_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX4 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx4_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx4_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX5 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx5_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX5 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx5_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX6 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx6_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX6 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx6_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX7 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx7_mix1_inp1_mux),
+	SND_SOC_DAPM_MUX("RX7 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx7_mix1_inp2_mux),
+
+	SND_SOC_DAPM_SUPPLY("CP", TABLA_A_CP_EN, 0, 0,
+		tabla_codec_enable_charge_pump, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	/* TX */
+
+	SND_SOC_DAPM_SUPPLY("CDC_CONN", TABLA_A_CDC_CLK_OTHR_CTL, 2, 0, NULL,
+		0),
+
+	SND_SOC_DAPM_SUPPLY("LDO_H", TABLA_A_LDO_H_MODE_1, 7, 0,
+		tabla_codec_enable_ldo_h, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_INPUT("AMIC1"),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TABLA_A_MICB_1_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal1", TABLA_A_MICB_1_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal2", TABLA_A_MICB_1_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC1", NULL, TABLA_A_TX_1_2_EN, 7, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_INPUT("AMIC3"),
+	SND_SOC_DAPM_ADC_E("ADC3", NULL, TABLA_A_TX_3_4_EN, 7, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_INPUT("AMIC4"),
+	SND_SOC_DAPM_ADC_E("ADC4", NULL, TABLA_A_TX_3_4_EN, 3, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_INPUT("AMIC5"),
+	SND_SOC_DAPM_ADC_E("ADC5", NULL, TABLA_A_TX_5_6_EN, 7, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_INPUT("AMIC6"),
+	SND_SOC_DAPM_ADC_E("ADC6", NULL, TABLA_A_TX_5_6_EN, 3, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC1 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
+		&dec1_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC2 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 1, 0,
+		&dec2_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC3 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 2, 0,
+		&dec3_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC4 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
+		&dec4_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC5 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 4, 0,
+		&dec5_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC6 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 5, 0,
+		&dec6_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC7 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 6, 0,
+		&dec7_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC8 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL, 7, 0,
+		&dec8_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC9 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0, 0,
+		&dec9_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX_E("DEC10 MUX", TABLA_A_CDC_CLK_TX_CLK_EN_B2_CTL, 1, 0,
+		&dec10_mux, tabla_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
+	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
+
+	SND_SOC_DAPM_MIXER_E("ANC", SND_SOC_NOPM, 0, 0, NULL, 0,
+		tabla_codec_enable_anc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
+
+	SND_SOC_DAPM_INPUT("AMIC2"),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", TABLA_A_MICB_2_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal1", TABLA_A_MICB_2_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal2", TABLA_A_MICB_2_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal3", TABLA_A_MICB_2_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 External", TABLA_A_MICB_3_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal1", TABLA_A_MICB_3_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal2", TABLA_A_MICB_3_CTL, 7, 0,
+		tabla_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC2", NULL, TABLA_A_TX_1_2_EN, 3, 0,
+		tabla_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX1 MUX", SND_SOC_NOPM, 0, 0, &sb_tx1_mux),
+	SND_SOC_DAPM_AIF_OUT("SLIM TX1", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			0, 0),
+
+	SND_SOC_DAPM_MUX("SLIM TX5 MUX", SND_SOC_NOPM, 0, 0, &sb_tx5_mux),
+	SND_SOC_DAPM_AIF_OUT("SLIM TX5", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			4, 0),
+
+	SND_SOC_DAPM_MUX("SLIM TX6 MUX", SND_SOC_NOPM, 0, 0, &sb_tx6_mux),
+	SND_SOC_DAPM_AIF_OUT("SLIM TX6", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			5, 0),
+
+	SND_SOC_DAPM_MUX("SLIM TX7 MUX", SND_SOC_NOPM, 0, 0, &sb_tx7_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX7", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX8 MUX", SND_SOC_NOPM, 0, 0, &sb_tx8_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX8", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX9 MUX", SND_SOC_NOPM, 0, 0, &sb_tx9_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX9", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			0, 0, tabla_codec_enable_slimtx,
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX10 MUX", SND_SOC_NOPM, 0, 0, &sb_tx10_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX10", "AIF1 Capture", NULL, SND_SOC_NOPM,
+			0, 0, tabla_codec_enable_slimtx,
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	/* Digital Mic Inputs */
+	SND_SOC_DAPM_ADC_E("DMIC1", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC2", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC3", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC4", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_ADC_E("DMIC5", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("DMIC6", NULL, SND_SOC_NOPM, 0, 0,
+		tabla_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	/* Sidetone */
+	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
+	SND_SOC_DAPM_PGA("IIR1", TABLA_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+};
+
 static short tabla_codec_read_sta_result(struct snd_soc_codec *codec)
 {
 	u8 bias_msb, bias_lsb;
@@ -4680,6 +4883,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
 	int i;
+	int ch_cnt;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -4831,6 +5035,20 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		goto err_hphr_ocp_irq;
 	}
 	tabla_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+	for (i = 0; i < ARRAY_SIZE(tabla_dai); i++) {
+		switch (tabla_dai[i].id) {
+		case AIF1_PB:
+			ch_cnt = tabla_dai[i].playback.channels_max;
+			break;
+		case AIF1_CAP:
+			ch_cnt = tabla_dai[i].capture.channels_max;
+			break;
+		default:
+			continue;
+		}
+		tabla->dai[i].ch_num = kzalloc((sizeof(unsigned int)*
+					ch_cnt), GFP_KERNEL);
+	}
 
 #ifdef CONFIG_DEBUG_FS
 	debug_tabla_priv = tabla;
@@ -4857,6 +5075,7 @@ err_pdata:
 }
 static int tabla_codec_remove(struct snd_soc_codec *codec)
 {
+	int i;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	tabla_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
 	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
@@ -4867,6 +5086,8 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_OFF);
 	if (tabla->mbhc_fw)
 		release_firmware(tabla->mbhc_fw);
+	for (i = 0; i < ARRAY_SIZE(tabla_dai); i++)
+		kfree(tabla->dai[i].ch_num);
 	kfree(tabla);
 	return 0;
 }
