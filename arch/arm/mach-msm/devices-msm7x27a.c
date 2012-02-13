@@ -1301,6 +1301,31 @@ void __init msm_fb_register_device(char *name, void *data)
 	}
 }
 
+static struct resource msm8625_kgsl_3d0_resources[] = {
+	{
+		.name  = KGSL_3D0_REG_MEMORY,
+		.start = 0xA0000000,
+		.end = 0xA001ffff,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = KGSL_3D0_IRQ,
+		.start = MSM8625_INT_GRAPHICS,
+		.end = MSM8625_INT_GRAPHICS,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_kgsl_3d0 = {
+	.name = "kgsl-3d0",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(msm8625_kgsl_3d0_resources),
+	.resource = msm8625_kgsl_3d0_resources,
+	.dev = {
+		.platform_data = &kgsl_3d0_pdata,
+	},
+};
+
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
 	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
