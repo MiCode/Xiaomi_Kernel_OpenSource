@@ -796,6 +796,8 @@ void __init msm7627a_camera_init(void)
 				ARRAY_SIZE(camera_devices_qrd));
 	} else if (machine_is_msm7627a_evb())
 		return;
+	else if (machine_is_msm7627a_qrd3())
+		return;
 	else
 		platform_add_devices(camera_devices_msm,
 				ARRAY_SIZE(camera_devices_msm));

@@ -218,6 +218,7 @@ obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a.o board-msm7627a-storage.o b
 obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a.o board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o board-msm7627a-display.o board-msm7627a-wlan.o
 obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a.o board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o board-msm7627a-display.o board-msm7627a-wlan.o
 obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a.o board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o board-msm7627a-display.o board-msm7627a-wlan.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a.o board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o board-msm7627a-display.o board-msm7627a-wlan.o
 obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a.o board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o board-msm7627a-display.o board-msm7627a-wlan.o
 obj-$(CONFIG_ARCH_MSM8625) += devices-msm7x27a.o clock-pcom-lookup.o
 obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a.o

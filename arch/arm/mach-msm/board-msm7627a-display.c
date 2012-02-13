@@ -843,6 +843,8 @@ void __init msm_fb_add_devices(void)
 	else if (machine_is_msm7627a_evb())
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
+	else if (machine_is_msm7627a_qrd3())
+		return;
 	else
 		platform_add_devices(msm_fb_devices,
 				ARRAY_SIZE(msm_fb_devices));

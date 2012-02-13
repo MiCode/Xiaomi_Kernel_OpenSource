@@ -684,6 +684,10 @@ static struct platform_device *qrd_common_devices[] __initdata = {
 	&asoc_msm_dai1,
 };
 
+static struct platform_device *qrd3_devices[] __initdata = {
+	&msm_device_nand,
+};
+
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
 static int __init pmem_kernel_ebi1_size_setup(char *p)
 {
@@ -1016,6 +1020,16 @@ static int __init msm_qrd_init_ar6000pm(void)
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 
+static void add_platform_devices(void)
+{
+	platform_add_devices(qrd_common_devices,
+			ARRAY_SIZE(qrd_common_devices));
+
+	if (machine_is_msm7627a_qrd3())
+		platform_add_devices(qrd3_devices,
+				ARRAY_SIZE(qrd3_devices));
+}
+
 #define UART1DM_RX_GPIO		45
 static void __init msm_qrd_init(void)
 {
@@ -1035,8 +1049,7 @@ static void __init msm_qrd_init(void)
 	msm_device_gadget_peripheral.dev.platform_data =
 		&msm_gadget_pdata;
 
-	platform_add_devices(qrd_common_devices,
-			ARRAY_SIZE(qrd_common_devices));
+	add_platform_devices();
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
 	msm_qrd_init_ar6000pm();
@@ -1066,6 +1079,16 @@ static void __init qrd7627a_init_early(void)
 }
 
 MACHINE_START(MSM7627A_QRD1, "QRD MSM7627a QRD1")
+	.boot_params	= PHYS_OFFSET + 0x100,
+	.map_io		= msm_common_io_init,
+	.reserve	= msm7627a_reserve,
+	.init_irq	= msm_init_irq,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= vic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM7627A_QRD3, "QRD MSM7627a QRD3")
 	.boot_params	= PHYS_OFFSET + 0x100,
 	.map_io		= msm_common_io_init,
 	.reserve	= msm7627a_reserve,
