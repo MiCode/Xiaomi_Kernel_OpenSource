@@ -353,9 +353,9 @@ static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
 				int coeff_idx)
 {
 	/* Address does not automatically update if reading */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		0x1F, band_idx * BAND_MAX + coeff_idx);
+		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
 
 	/* Mask bits top 2 bits since they are reserved */
 	return ((snd_soc_read(codec,
@@ -414,27 +414,27 @@ static void set_iir_band_coeff(struct snd_soc_codec *codec,
 {
 	/* Mask top 3 bits, 6-8 are reserved */
 	/* Update address manually each time */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		0x1F, band_idx * BAND_MAX + coeff_idx);
+		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
 
 	/* Mask top 2 bits, 7-8 are reserved */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
-		0x3F, (value >> 24) & 0x3F);
+		(value >> 24) & 0x3F);
 
 	/* Isolate 8bits at a time */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B3_CTL + 16 * iir_idx),
-		0xFF, (value >> 16) & 0xFF);
+		(value >> 16) & 0xFF);
 
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B4_CTL + 16 * iir_idx),
-		0xFF, (value >> 8) & 0xFF);
+		(value >> 8) & 0xFF);
 
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(TABLA_A_CDC_IIR1_COEF_B5_CTL + 16 * iir_idx),
-		0xFF, value & 0xFF);
+		value & 0xFF);
 }
 
 static int tabla_put_iir_band_audio_mixer(
