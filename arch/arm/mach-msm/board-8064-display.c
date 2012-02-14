@@ -15,13 +15,14 @@
 #include <linux/ioport.h>
 #include <linux/platform_device.h>
 #include <linux/bootmem.h>
+#include <linux/ion.h>
 #include <asm/mach-types.h>
 #include <mach/msm_memtypes.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
-#include <linux/ion.h>
 #include <mach/ion.h>
+#include <mach/msm_bus_board.h>
 
 #include "devices.h"
 #include "board-8064.h"
@@ -134,6 +135,90 @@ void __init apq8064_allocate_fb_region(void)
 
 #define MDP_VSYNC_GPIO 0
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct msm_bus_vectors mdp_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors mdp_ui_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 216000000 * 2,
+		.ib = 270000000 * 2,
+	},
+};
+
+static struct msm_bus_vectors mdp_vga_vectors[] = {
+	/* VGA and less video */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 216000000 * 2,
+		.ib = 270000000 * 2,
+	},
+};
+
+static struct msm_bus_vectors mdp_720p_vectors[] = {
+	/* 720p and less video */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 230400000 * 2,
+		.ib = 288000000 * 2,
+	},
+};
+
+static struct msm_bus_vectors mdp_1080p_vectors[] = {
+	/* 1080p and less video */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 334080000 * 2,
+		.ib = 417600000 * 2,
+	},
+};
+
+static struct msm_bus_paths mdp_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(mdp_init_vectors),
+		mdp_init_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_ui_vectors),
+		mdp_ui_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_ui_vectors),
+		mdp_ui_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_vga_vectors),
+		mdp_vga_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_720p_vectors),
+		mdp_720p_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_1080p_vectors),
+		mdp_1080p_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
+	mdp_bus_scale_usecases,
+	ARRAY_SIZE(mdp_bus_scale_usecases),
+	.name = "mdp",
+};
+
+#endif
+
 static int mdp_core_clk_rate_table[] = {
 	200000000,
 	200000000,
@@ -146,6 +231,9 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
+#ifdef CONFIG_MSM_BUS_SCALING
+	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
+#endif
 	.mdp_rev = MDP_REV_44,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	.mem_hid = ION_CP_MM_HEAP_ID,
