@@ -281,8 +281,8 @@ static int mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 	payload.addr = reg;
 	payload.data = data;
 
-	/* mutex had been acquired at mipi_dsi_on */
-	mipi_dsi_cmds_tx(mfd, &d2l_tx_buf, &cmd_write_reg, 1);
+	/* mutex had been acquried at dsi_on */
+	mipi_dsi_cmds_tx(&d2l_tx_buf, &cmd_write_reg, 1);
 
 	pr_debug("%s: reg=0x%x. data=0x%x.\n", __func__, reg, data);
 

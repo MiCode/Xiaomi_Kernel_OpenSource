@@ -1131,23 +1131,23 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_sleep_off_cmds,
+	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_sleep_off_cmds,
 			ARRAY_SIZE(renesas_sleep_off_cmds));
 
 	mipi_set_tx_power_mode(1);
-	mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_display_on_cmds,
+	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_display_on_cmds,
 			ARRAY_SIZE(renesas_display_on_cmds));
 
 	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa() || cpu_is_msm7x25ab()) {
-		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_hvga_on_cmds,
+		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_hvga_on_cmds,
 			ARRAY_SIZE(renesas_hvga_on_cmds));
 	}
 
 	if (mipi->mode == DSI_VIDEO_MODE)
-		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_video_on_cmds,
+		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_video_on_cmds,
 			ARRAY_SIZE(renesas_video_on_cmds));
 	else
-		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_cmd_on_cmds,
+		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_cmd_on_cmds,
 			ARRAY_SIZE(renesas_cmd_on_cmds));
 	mipi_set_tx_power_mode(0);
 
@@ -1165,7 +1165,7 @@ static int mipi_renesas_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_display_off_cmds,
+	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_display_off_cmds,
 			ARRAY_SIZE(renesas_display_off_cmds));
 
 	return 0;

@@ -64,10 +64,10 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
 	mipi  = &mfd->panel_info.mipi;
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &orise_tx_buf, orise_video_on_cmds,
+		mipi_dsi_cmds_tx(&orise_tx_buf, orise_video_on_cmds,
 			ARRAY_SIZE(orise_video_on_cmds));
 	} else {
-		mipi_dsi_cmds_tx(mfd, &orise_tx_buf, orise_cmd_on_cmds,
+		mipi_dsi_cmds_tx(&orise_tx_buf, orise_cmd_on_cmds,
 			ARRAY_SIZE(orise_cmd_on_cmds));
 
 		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
@@ -87,7 +87,7 @@ static int mipi_orise_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &orise_tx_buf, orise_display_off_cmds,
+	mipi_dsi_cmds_tx(&orise_tx_buf, orise_display_off_cmds,
 			ARRAY_SIZE(orise_display_off_cmds));
 
 	return 0;

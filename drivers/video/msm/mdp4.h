@@ -121,7 +121,7 @@ enum {
 #define INTR_PRIMARY_INTF_UDERRUN	BIT(8)
 #define INTR_EXTERNAL_VSYNC		BIT(9)
 #define INTR_EXTERNAL_INTF_UDERRUN	BIT(10)
-#define INTR_PRIMARY_READ_PTR		BIT(11)
+#define INTR_PRIMARY_RDPTR		BIT(11)	/* read pointer */
 #define INTR_DMA_P_HISTOGRAM		BIT(17)
 #define INTR_DMA_S_HISTOGRAM		BIT(26)
 #define INTR_OVERLAY2_DONE		BIT(30)
@@ -260,6 +260,14 @@ struct mdp4_iommu_pipe_info {
 	u8 mark_unmap;
 };
 
+#define IOMMU_FREE_LIST_MAX 32
+
+struct iommu_free_list {
+	int total;
+	int fndx;
+	struct ion_handle *ihdl[IOMMU_FREE_LIST_MAX];
+};
+
 struct blend_cfg {
 	u32 op;
 	u32 bg_alpha;
@@ -339,20 +347,26 @@ struct mdp4_overlay_pipe {
 	uint32 element2; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
 	uint32 element1; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
 	uint32 element0; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
-	struct completion comp;
 	ulong ov_blt_addr; /* blt mode addr */
 	ulong dma_blt_addr; /* blt mode addr */
 	ulong blt_base;
 	ulong blt_offset;
 	uint32 blt_cnt;
+	uint32 blt_changed;
 	uint32 ov_cnt;
 	uint32 dmap_cnt;
 	uint32 dmae_cnt;
 	uint32 blt_end;
+	uint32 blt_ov_koff;
+	uint32 blt_ov_done;
+	uint32 blt_dmap_koff;
+	uint32 blt_dmap_done;
 	uint32 luma_align_size;
 	struct mdp_overlay_pp_params pp_cfg;
-	struct completion dmas_comp;
 	struct mdp_overlay req_data;
+	struct completion comp;
+	struct completion dmas_comp;
+	struct mdp4_iommu_pipe_info iommu;
 };
 
 struct mdp4_statistic {
@@ -368,7 +382,7 @@ struct mdp4_statistic {
 	ulong intr_vsync_e;	/* external interface */
 	ulong intr_underrun_e;	/* external interface */
 	ulong intr_histogram;
-	ulong intr_rd_ptr;
+	ulong intr_rdptr;
 	ulong dsi_mdp_start;
 	ulong dsi_clk_on;
 	ulong dsi_clk_off;
@@ -389,7 +403,13 @@ struct mdp4_statistic {
 	ulong overlay_set[MDP4_MIXER_MAX];
 	ulong overlay_unset[MDP4_MIXER_MAX];
 	ulong overlay_play[MDP4_MIXER_MAX];
+	ulong overlay_commit[MDP4_MIXER_MAX];
 	ulong pipe[OVERLAY_PIPE_MAX];
+	ulong wait4vsync0;
+	ulong wait4vsync1;
+	ulong iommu_map;
+	ulong iommu_unmap;
+	ulong iommu_drop;
 	ulong dsi_clkoff;
 	ulong err_mixer;
 	ulong err_zorder;
@@ -399,6 +419,12 @@ struct mdp4_statistic {
 	ulong err_stage;
 	ulong err_play;
 	ulong err_underflow;
+};
+
+struct vsync_update {
+	int update_cnt;	/* pipes to be updated */
+	struct completion vsync_comp;
+	struct mdp4_overlay_pipe plist[OVERLAY_PIPE_MAX];
 };
 
 struct mdp4_overlay_pipe *mdp4_overlay_ndx2pipe(int ndx);
@@ -436,8 +462,10 @@ void mdp4_overlay_format_to_pipe(uint32 format, struct mdp4_overlay_pipe *pipe);
 uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe);
 uint32 mdp4_overlay_unpack_pattern(struct mdp4_overlay_pipe *pipe);
 uint32 mdp4_overlay_op_mode(struct mdp4_overlay_pipe *pipe);
-void mdp4_lcdc_base_swap(struct mdp4_overlay_pipe *pipe);
+void mdp4_lcdc_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd);
+
+
 #ifdef CONFIG_FB_MSM_DTV
 void mdp4_overlay_dtv_start(void);
 void mdp4_overlay_dtv_ov_done_push(struct msm_fb_data_type *mfd,
@@ -448,9 +476,10 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
-void mdp4_dma_e_done_dtv(void);
-void mdp4_overlay_dtv_wait4vsync(void);
-void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe);
+void mdp4_dmae_done_dtv(void);
+void mdp4_dtv_wait4vsync(int cndx, long long *vtime);
+void mdp4_dtv_vsync_ctrl(int cndx, int enable);
+void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 #else
 static inline void mdp4_overlay_dtv_start(void)
 {
@@ -477,11 +506,15 @@ static inline int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
-static inline void mdp4_dma_e_done_dtv(void)
+static inline void mdp4_dmae_done_dtv(void)
 {
     /* empty */
 }
-static inline void mdp4_overlay_dtv_wait4vsync(void)
+static inline void mdp4_dtv_wait4vsync(int cndx, long long *vtime)
+{
+    /* empty */
+}
+static inline void mdp4_dtv_vsync_ctrl(int cndx, long long *vtime)
 {
     /* empty */
 }
@@ -497,18 +530,9 @@ static inline void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe)
 {
 	/* empty */
 }
-#endif
+#endif /* CONFIG_FB_MSM_DTV */
 
 void mdp4_dtv_set_black_screen(void);
-
-static inline int mdp4_overlay_borderfill_supported(void)
-{
-	unsigned int mdp_hw_version;
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	mdp_hw_version = inpdw(MDP_BASE + 0x0); /* MDP_HW_VERSION */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	return (mdp_hw_version >= 0x0402030b);
-}
 
 int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
@@ -522,11 +546,20 @@ int mdp4_atv_on(struct platform_device *pdev);
 int mdp4_atv_off(struct platform_device *pdev);
 void mdp4_dsi_video_fxn_register(cmd_fxn_t fxn);
 void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd);
-int mdp4_dsi_video_on(struct platform_device *pdev);
-int mdp4_dsi_video_off(struct platform_device *pdev);
-void mdp4_overlay0_done_dsi_video(struct mdp_dma_data *dma);
-void mdp4_overlay0_done_dsi_cmd(struct mdp_dma_data *dma);
+void mdp4_lcdc_vsync_ctrl(int cndx, int enable);
+void mdp4_overlay0_done_dsi_video(int cndx);
+void mdp4_overlay0_done_dsi_cmd(int cndx);
+void mdp4_primary_rdptr(void);
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd);
+int mdp4_overlay_commit(struct fb_info *info, int mixer);
+int mdp4_dsi_video_pipe_commit(void);
+int mdp4_dsi_cmd_pipe_commit(void);
+int mdp4_lcdc_pipe_commit(void);
+int mdp4_dtv_pipe_commit(void);
+void mdp4_dsi_rdptr_init(int cndx);
+void mdp4_dsi_vsync_init(int cndx);
+void mdp4_lcdc_vsync_init(int cndx);
+void mdp4_dtv_vsync_init(int cndx);
 void mdp4_overlay_dsi_state_set(int state);
 int mdp4_overlay_dsi_state_get(void);
 void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe);
@@ -543,12 +576,20 @@ int mdp4_overlay_format2type(uint32 format);
 int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req);
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req);
+int mdp4_overlay_wait4vsync(struct fb_info *info, long long *vtime);
+int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable);
 int mdp4_overlay_unset(struct fb_info *info, int ndx);
 int mdp4_overlay_unset_mixer(int mixer);
 int mdp4_overlay_play_wait(struct fb_info *info,
 	struct msmfb_overlay_data *req);
 int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req);
 struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, int mixer);
+void mdp4_overlay_dma_commit(int mixer);
+void mdp4_overlay_vsync_commit(struct mdp4_overlay_pipe *pipe);
+void mdp4_mixer_stage_commit(int mixer);
+void mdp4_dsi_cmd_do_update(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_lcdc_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_dmap_cfg(struct msm_fb_data_type *mfd, int lcdc);
 void mdp4_overlay_dmap_xy(struct mdp4_overlay_pipe *pipe);
@@ -556,21 +597,20 @@ void mdp4_overlay_dmae_cfg(struct msm_fb_data_type *mfd, int atv);
 void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_pipe_staged(int mixer);
 void mdp4_lcdc_primary_vsyn(void);
-void mdp4_overlay0_done_lcdc(struct mdp_dma_data *dma);
+void mdp4_overlay0_done_lcdc(int cndx);
 void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
-void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(struct mdp_dma_data *dma);
-void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma);
-void mdp4_dma_p_done_dsi_video(struct mdp_dma_data *dma);
-void mdp4_dma_p_done_lcdc(void);
+void mdp4_dmap_done_dsi_cmd(int cndx);
+void mdp4_dmap_done_dsi_video(int cndx);
+void mdp4_dmap_done_lcdc(int cndx);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);
 void mdp4_primary_vsync_lcdc(void);
 void mdp4_external_vsync_dtv(void);
-void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd);
-void mdp4_overlay_lcdc_start(void);
+void mdp4_lcdc_wait4vsync(int cndx, long long *vtime);
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
+void mdp4_overlay_dtv_set_perf(struct msm_fb_data_type *mfd);
 void mdp4_update_perf_level(u32 perf_level);
 void mdp4_set_perf_level(void);
 void mdp4_mddi_overlay_dmas_restore(void);
@@ -579,6 +619,11 @@ void mdp4_mddi_overlay_dmas_restore(void);
 void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_mddi_overlay_restore(void);
 #else
+static inline void mdp4_mddi_kickoff_video(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe)
+{
+	/* empty */
+}
 static inline void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
 	/* empty */
@@ -638,7 +683,7 @@ void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
-void mdp4_dsi_video_base_swap(struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_video_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 
 #ifdef CONFIG_FB_MSM_MDP40
 static inline void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
@@ -646,7 +691,7 @@ static inline void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 	/* empty */
 }
 #endif
-#else
+#else     /* CONFIG_FB_MSM_MIPI_DSI */
 int mdp4_mddi_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 void mdp4_mddi_overlay_blt(struct msm_fb_data_type *mfd,
@@ -686,11 +731,12 @@ static inline int mdp4_dsi_video_overlay_blt_offset(
 {
 	return -ENODEV;
 }
-static inline void mdp4_dsi_video_base_swap(struct mdp4_overlay_pipe *pipe)
+static inline void mdp4_dsi_video_base_swap(int cndx,
+			struct mdp4_overlay_pipe *pipe)
 {
 	/* empty */
 }
-#endif
+#endif  /* CONFIG_FB_MSM_MIPI_DSI */
 
 void mdp4_lcdc_overlay_blt(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
@@ -714,41 +760,77 @@ void mdp4_mddi_read_ptr_intr(void);
 
 void mdp4_dsi_cmd_dma_busy_check(void);
 
+
+
 #ifdef CONFIG_FB_MSM_MIPI_DSI
-void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
-void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd);
-void mdp4_overlay_dsi_video_start(void);
-void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
-				struct mdp4_overlay_pipe *pipe);
-void mdp4_dsi_cmd_overlay_restore(void);
 void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd);
+int mdp4_dsi_cmd_on(struct platform_device *pdev);
+int mdp4_dsi_cmd_off(struct platform_device *pdev);
+int mdp4_dsi_video_off(struct platform_device *pdev);
+int mdp4_dsi_video_on(struct platform_device *pdev);
+void mdp4_primary_vsync_dsi_video(void);
+void mdp4_dsi_cmd_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_wait4vsync(int cndx, long long *vtime);
+void mdp4_dsi_video_wait4vsync(int cndx, long long *vtime);
+void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_video_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_vsync_ctrl(int cndx, int enable);
+void mdp4_dsi_video_vsync_ctrl(int cndx, int enable);
 #ifdef CONFIG_FB_MSM_MDP303
 static inline void mdp4_dsi_cmd_del_timer(void)
 {
 	/* empty */
 }
-#else
+#else /* CONFIG_FB_MSM_MIPI_DSI */
 void mdp4_dsi_cmd_del_timer(void);
 #endif
-#else
-static inline void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
+#else  /* CONFIG_FB_MSM_MIPI_DSI */
+
+static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {
-	/* empty */
+	return 0;
 }
-static inline void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd)
+static inline int mdp4_dsi_cmd_off(struct platform_device *pdev)
 {
-	/* empty */
+	return 0;
 }
+static inline int mdp4_dsi_video_on(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_dsi_video_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline void mdp4_primary_vsync_dsi_video(void)
+{
+}
+static inline void mdp4_dsi_cmd_base_swap(int cndx,
+	struct mdp4_overlay_pipe *pipe)
+{
+}
+static inline void mdp4_dsi_cmd_wait4vsync(int cndx, long long *vtime)
+{
+}
+static inline void mdp4_dsi_video_wait4vsync(int cndx, long long *vtime)
+{
+}
+static inline void mdp4_dsi_cmd_pipe_queue(int cndx,
+			struct mdp4_overlay_pipe *pipe)
+{
+}
+static inline void mdp4_dsi_video_pipe_queue(int cndx,
+			struct mdp4_overlay_pipe *pipe)
+{
+}
+static inline void mdp4_dsi_cmd_vsync_ctrl(int cndx, int enable)
+{
+}
+static inline void mdp4_dsi_video_vsync_ctrl(int cndx, int enable)
+{
+}
+
 static inline void mdp4_overlay_dsi_video_start(void)
-{
-	/* empty */
-}
-static inline void mdp4_overlay_dsi_video_vsync_push(
-	struct msm_fb_data_type *mfd, struct mdp4_overlay_pipe *pipe)
-{
-	/* empty */
-}
-static inline void mdp4_dsi_cmd_overlay_restore(void)
 {
 	/* empty */
 }
@@ -758,7 +840,7 @@ static inline void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd)
 	/* empty */
 }
 #endif
-#endif /* MIPI_DSI */
+#endif /* CONFIG_FB_MSM_MIPI_DSI */
 
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
@@ -766,14 +848,15 @@ void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
-void mdp4_dsi_cmd_base_swap(struct mdp4_overlay_pipe *pipe);
-
 void mdp4_overlay_panel_3d(int mixer_num, uint32 panel_3d);
 int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req);
 void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
 void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
+
+void mdp4_backlight_init(int cndx);
+void mdp4_backlight_put_level(int cndx, int level);
 
 int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info);
 
@@ -784,10 +867,17 @@ void mdp_hw_cursor_init(void);
 int mdp4_mddi_overlay_cursor(struct fb_info *info, struct fb_cursor *cursor);
 int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req);
 void mdp4_overlay_resource_release(void);
-void mdp4_overlay_dsi_video_wait4vsync(struct msm_fb_data_type *mfd);
-void mdp4_primary_vsync_dsi_video(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
 void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe);
+
+#ifdef CONFIG_FB_MSM_MDP303
+static inline int mdp4_overlay_borderfill_supported(void)
+{
+	return 0;
+}
+#else
+int mdp4_overlay_borderfill_supported(void);
+#endif
 
 int mdp4_overlay_writeback_on(struct platform_device *pdev);
 int mdp4_overlay_writeback_off(struct platform_device *pdev);
@@ -823,6 +913,10 @@ void mdp4_init_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 
 int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg);
+void mdp4_overlay_iommu_pipe_free(int ndx, int all);
+void mdp4_overlay_iommu_free_list(int mixer, struct ion_handle *ihdl);
+void mdp4_overlay_iommu_unmap_freelist(int mixer);
+void mdp4_overlay_iommu_vsync_cnt(void);
 void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe);
 void mdp4_iommu_attach(void);
 int mdp4_v4l2_overlay_set(struct fb_info *info, struct mdp_overlay *req,

@@ -354,6 +354,10 @@ void mdp4_blt_xy_update(struct mdp4_overlay_pipe *pipe)
 	outpdw(overlay_base + 0x001c, addr2);
 }
 
+void mdp4_primary_rdptr(void)
+{
+}
+
 /*
  * mdp4_dmap_done_mddi: called from isr
  */
