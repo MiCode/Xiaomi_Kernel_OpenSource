@@ -83,6 +83,14 @@ extern struct msm_bus_fabric_registration msm_bus_8930_mm_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8930_sys_fpb_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8930_cpss_fpb_pdata;
 
+extern struct msm_bus_fabric_registration msm_bus_copper_sys_noc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_mmss_noc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_bimc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_ocmem_noc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_periph_noc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_config_noc_pdata;
+extern struct msm_bus_fabric_registration msm_bus_copper_ocmem_vnoc_pdata;
+
 void msm_bus_rpm_set_mt_mask(void);
 int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 int msm_bus_board_get_iid(int id);
@@ -147,6 +155,20 @@ int msm_bus_board_get_iid(int id);
 		MSM_BUS_CLK_HALT_FIELDSIZE), \
 		MSM_BUS_CLK_UNHALT<<MSM_BUS_MASTER_SHIFT((master),\
 		MSM_BUS_CLK_HALT_FIELDSIZE))\
+
+#define RPM_BUS_SLAVE_REQ	0x766c7362
+#define RPM_BUS_MASTER_REQ	0x73616d62
+
+enum msm_bus_rpm_slave_field_type {
+	RPM_SLAVE_FIELD_BW = 0x00007762,
+};
+
+enum msm_bus_rpm_mas_field_type {
+	RPM_MASTER_FIELD_BW =		0x00007762,
+	RPM_MASTER_FIELD_BW_T0 =	0x30747762,
+	RPM_MASTER_FIELD_BW_T1 =	0x31747762,
+	RPM_MASTER_FIELD_BW_T2 =	0x32747762,
+};
 
 /* Topology related enums */
 enum msm_bus_fabric_type {
