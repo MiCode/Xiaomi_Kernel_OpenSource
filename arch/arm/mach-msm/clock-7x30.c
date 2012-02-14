@@ -227,14 +227,13 @@ static void tcxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_tcxo = {
 	.enable = tcxo_clk_enable,
 	.disable = tcxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = pcom_is_local,
 };
 
 static struct fixed_clk tcxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "tcxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_tcxo,
 		CLK_INIT(tcxo_clk.c),
 	},
@@ -253,66 +252,65 @@ static void lpxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_lpxo = {
 	.enable = lpxo_clk_enable,
 	.disable = lpxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = pcom_is_local,
 };
 
 static struct fixed_clk lpxo_clk = {
-	.rate = 24576000,
 	.c = {
 		.dbg_name = "lpxo_clk",
+		.rate = 24576000,
 		.ops = &clk_ops_lpxo,
 		CLK_INIT(lpxo_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll1_clk = {
-	.rate = 768000000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(1),
 	.status_reg = PLL1_STATUS_BASE_REG,
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll1_clk",
+		.rate = 768000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll1_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll2_clk = {
-	.rate = 806400000, /* TODO: Support scaling */
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(2),
 	.status_reg = PLL2_STATUS_BASE_REG,
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll2_clk",
+		.rate = 806400000, /* TODO: Support scaling */
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll2_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll3_clk = {
-	.rate = 737280000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(3),
 	.status_reg = PLL3_STATUS_BASE_REG,
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll3_clk",
+		.rate = 737280000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll3_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll4_clk = {
-	.rate = 891000000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(4),
 	.status_reg = PLL4_STATUS_BASE_REG,
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 891000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
 	},

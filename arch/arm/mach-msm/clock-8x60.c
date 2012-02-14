@@ -318,14 +318,13 @@ static void pxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_pxo = {
 	.enable = pxo_clk_enable,
 	.disable = pxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = xo_clk_is_local,
 };
 
 static struct fixed_clk pxo_clk = {
-	.rate = 27000000,
 	.c = {
 		.dbg_name = "pxo_clk",
+		.rate = 27000000,
 		.ops = &clk_ops_pxo,
 		CLK_INIT(pxo_clk.c),
 	},
@@ -344,49 +343,48 @@ static void cxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_cxo = {
 	.enable = cxo_clk_enable,
 	.disable = cxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = xo_clk_is_local,
 };
 
 static struct fixed_clk cxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "cxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_cxo,
 		CLK_INIT(cxo_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll8_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll8_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll8_clk.c),
 	},
 };
 
 static struct pll_clk pll2_clk = {
-	.rate = 800000000,
 	.mode_reg = MM_PLL1_MODE_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll2_clk",
+		.rate = 800000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll2_clk.c),
 	},
 };
 
 static struct pll_clk pll3_clk = {
-	.rate = 0, /* TODO: Detect rate dynamically */
 	.mode_reg = MM_PLL2_MODE_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll3_clk",
+		.rate = 0, /* TODO: Detect rate dynamically */
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll3_clk.c),
 	},
@@ -417,15 +415,14 @@ static bool pll4_clk_is_local(struct clk *clk)
 static struct clk_ops clk_ops_pll4 = {
 	.enable = pll4_clk_enable,
 	.disable = pll4_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.get_parent = pll4_clk_get_parent,
 	.is_local = pll4_clk_is_local,
 };
 
 static struct fixed_clk pll4_clk = {
-	.rate = 540672000,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 540672000,
 		.ops = &clk_ops_pll4,
 		CLK_INIT(pll4_clk.c),
 	},

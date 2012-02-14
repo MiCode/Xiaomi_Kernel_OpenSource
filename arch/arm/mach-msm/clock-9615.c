@@ -223,14 +223,13 @@ static void cxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_cxo = {
 	.enable = cxo_clk_enable,
 	.disable = cxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 
 static struct fixed_clk cxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "cxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_cxo,
 		CLK_INIT(cxo_clk.c),
 	},
@@ -274,7 +273,6 @@ static struct clk_ops clk_ops_pll_acpu_vote = {
 	.disable = pll_acpu_vote_clk_disable,
 	.auto_off = pll_acpu_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_rate = pll_vote_clk_get_rate,
 	.get_parent = pll_vote_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
@@ -285,7 +283,6 @@ static struct clk_ops clk_ops_pll_acpu_vote = {
 static unsigned int soft_vote_pll0;
 
 static struct pll_vote_clk pll0_clk = {
-	.rate = 276000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
@@ -294,13 +291,13 @@ static struct pll_vote_clk pll0_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.c = {
 		.dbg_name = "pll0_clk",
+		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll0_acpu_clk = {
-	.rate = 276000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
@@ -308,19 +305,20 @@ static struct pll_vote_clk pll0_acpu_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
 		.dbg_name = "pll0_acpu_clk",
+		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_acpu_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll4_clk = {
-	.rate = 393216000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(4),
 	.status_reg = LCC_PLL0_STATUS_REG,
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 393216000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
 	},
@@ -329,7 +327,6 @@ static struct pll_vote_clk pll4_clk = {
 static unsigned int soft_vote_pll8;
 
 static struct pll_vote_clk pll8_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
@@ -338,13 +335,13 @@ static struct pll_vote_clk pll8_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.c = {
 		.dbg_name = "pll8_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll8_acpu_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
@@ -352,29 +349,30 @@ static struct pll_vote_clk pll8_acpu_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
 		.dbg_name = "pll8_acpu_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_acpu_clk.c),
 	},
 };
 
 static struct pll_clk pll9_acpu_clk = {
-	.rate = 440000000,
 	.mode_reg = SC_PLL0_MODE_REG,
 	.c = {
 		.dbg_name = "pll9_acpu_clk",
+		.rate = 440000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll9_acpu_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll14_clk = {
-	.rate = 480000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(11),
 	.status_reg = BB_PLL14_STATUS_REG,
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll14_clk",
+		.rate = 480000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll14_clk.c),
 	},
@@ -1821,7 +1819,7 @@ static void __init reg_init(void)
 	pll9_lval = readl_relaxed(SC_PLL0_L_VAL_REG);
 
 	if (pll9_lval == 0x1C)
-		pll9_acpu_clk.rate = 550000000;
+		pll9_acpu_clk.c.rate = 550000000;
 
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);

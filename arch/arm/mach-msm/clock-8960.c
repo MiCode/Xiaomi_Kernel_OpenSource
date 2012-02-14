@@ -470,14 +470,13 @@ static void pxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_pxo = {
 	.enable = pxo_clk_enable,
 	.disable = pxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 
 static struct fixed_clk pxo_clk = {
-	.rate = 27000000,
 	.c = {
 		.dbg_name = "pxo_clk",
+		.rate = 27000000,
 		.ops = &clk_ops_pxo,
 		CLK_INIT(pxo_clk.c),
 	},
@@ -496,36 +495,35 @@ static void cxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_cxo = {
 	.enable = cxo_clk_enable,
 	.disable = cxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 
 static struct fixed_clk cxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "cxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_cxo,
 		CLK_INIT(cxo_clk.c),
 	},
 };
 
 static struct pll_clk pll2_clk = {
-	.rate = 800000000,
 	.mode_reg = MM_PLL1_MODE_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll2_clk",
+		.rate = 800000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll2_clk.c),
 	},
 };
 
 static struct pll_clk pll3_clk = {
-	.rate = 1200000000,
 	.mode_reg = BB_MMCC_PLL2_MODE_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll3_clk",
+		.rate = 1200000000,
 		.ops = &clk_ops_pll,
 		.vdd_class = &vdd_sr2_pll,
 		.fmax[VDD_SR2_PLL_ON] = ULONG_MAX,
@@ -534,50 +532,50 @@ static struct pll_clk pll3_clk = {
 };
 
 static struct pll_vote_clk pll4_clk = {
-	.rate = 393216000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(4),
 	.status_reg = LCC_PLL0_STATUS_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 393216000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll8_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll8_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll8_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll14_clk = {
-	.rate = 480000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(14),
 	.status_reg = BB_PLL14_STATUS_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll14_clk",
+		.rate = 480000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll14_clk.c),
 	},
 };
 
 static struct pll_clk pll15_clk = {
-	.rate = 975000000,
 	.mode_reg = MM_PLL3_MODE_REG,
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll15_clk",
+		.rate = 975000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll15_clk.c),
 	},

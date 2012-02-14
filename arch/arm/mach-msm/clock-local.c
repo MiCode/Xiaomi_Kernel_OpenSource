@@ -686,12 +686,6 @@ void pll_vote_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-unsigned long pll_vote_clk_get_rate(struct clk *clk)
-{
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	return pll->rate;
-}
-
 struct clk *pll_vote_clk_get_parent(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
@@ -709,7 +703,6 @@ struct clk_ops clk_ops_pll_vote = {
 	.disable = pll_vote_clk_disable,
 	.auto_off = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_rate = pll_vote_clk_get_rate,
 	.get_parent = pll_vote_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
@@ -766,12 +759,6 @@ static void pll_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned long pll_clk_get_rate(struct clk *clk)
-{
-	struct pll_clk *pll = to_pll_clk(clk);
-	return pll->rate;
-}
-
 static struct clk *pll_clk_get_parent(struct clk *clk)
 {
 	struct pll_clk *pll = to_pll_clk(clk);
@@ -817,13 +804,11 @@ struct clk_ops clk_ops_pll = {
 	.enable = pll_clk_enable,
 	.disable = pll_clk_disable,
 	.auto_off = pll_clk_disable,
-	.get_rate = pll_clk_get_rate,
 	.get_parent = pll_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
 
 struct clk_ops clk_ops_gnd = {
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 

@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/clock.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -222,7 +222,7 @@ EXPORT_SYMBOL(clk_reset);
 unsigned long clk_get_rate(struct clk *clk)
 {
 	if (!clk->ops->get_rate)
-		return 0;
+		return clk->rate;
 
 	return clk->ops->get_rate(clk);
 }
