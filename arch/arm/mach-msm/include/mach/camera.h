@@ -631,12 +631,6 @@ enum msm_bus_perf_setting {
 	S_EXIT
 };
 
-enum msm_cam_mode {
-	MODE_R,
-	MODE_L,
-	MODE_DUAL
-};
-
 struct msm_cam_clk_info {
 	const char *clk_name;
 	long clk_rate;
@@ -648,7 +642,7 @@ int msm_camio_jpeg_clk_disable(void);
 int msm_camio_vpe_clk_enable(uint32_t);
 int msm_camio_vpe_clk_disable(void);
 
-void msm_camio_mode_config(enum msm_cam_mode mode);
+void msm_camio_mode_config(enum msm_camera_i2c_mux_mode mode);
 int  msm_camio_clk_enable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_disable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_config(uint32_t freq);
