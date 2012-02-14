@@ -208,7 +208,7 @@ static struct completion bam_connection_completion;
 static struct delayed_work ul_timeout_work;
 static int ul_packet_written;
 static atomic_t ul_ondemand_vote = ATOMIC_INIT(0);
-static struct clk *dfab_clk;
+static struct clk *dfab_clk, *xo_clk;
 static DEFINE_RWLOCK(ul_wakeup_lock);
 static DECLARE_WORK(kickoff_ul_wakeup, kickoff_ul_wakeup_func);
 static int bam_connection_is_active;
@@ -1690,6 +1690,9 @@ static void vote_dfab(void)
 	rc = clk_prepare_enable(dfab_clk);
 	if (rc)
 		DMUX_LOG_KERR("bam_dmux vote for dfab failed rc = %d\n", rc);
+	rc = clk_prepare_enable(xo_clk);
+	if (rc)
+		DMUX_LOG_KERR("bam_dmux vote for xo failed rc = %d\n", rc);
 	dfab_is_on = 1;
 	mutex_unlock(&dfab_status_lock);
 }
@@ -1705,6 +1708,7 @@ static void unvote_dfab(void)
 		return;
 	}
 	clk_disable_unprepare(dfab_clk);
+	clk_disable_unprepare(xo_clk);
 	dfab_is_on = 0;
 	mutex_unlock(&dfab_status_lock);
 }
@@ -2099,6 +2103,11 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	if (bam_mux_initialized)
 		return 0;
 
+	xo_clk = clk_get(&pdev->dev, "xo");
+	if (IS_ERR(xo_clk)) {
+		pr_err("%s: did not get xo clock\n", __func__);
+		return PTR_ERR(xo_clk);
+	}
 	dfab_clk = clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(dfab_clk)) {
 		pr_err("%s: did not get dfab clock\n", __func__);
