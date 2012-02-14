@@ -747,6 +747,18 @@ config MACH_APQ8064_LIQUID
 	help
 	  Support for the Qualcomm APQ8064 LIQUID device.
 
+config MACH_MPQ8064_HRD
+	depends on ARCH_APQ8064
+	bool "MPQ8064 HRD"
+	help
+	  Support for the Qualcomm MPQ8064 HRD device.
+
+config MACH_MPQ8064_DTV
+	depends on ARCH_APQ8064
+	bool "MPQ8064 DTV"
+	help
+	  Support for the Qualcomm MPQ8064 DTV device.
+
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
 	depends on !MSM_STACKED_MEMORY
