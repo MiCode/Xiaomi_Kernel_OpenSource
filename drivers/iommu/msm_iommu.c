@@ -76,14 +76,14 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 {
 	int ret;
 
-	ret = clk_enable(drvdata->pclk);
+	ret = clk_prepare_enable(drvdata->pclk);
 	if (ret)
 		goto fail;
 
 	if (drvdata->clk) {
-		ret = clk_enable(drvdata->clk);
+		ret = clk_prepare_enable(drvdata->clk);
 		if (ret)
-			clk_disable(drvdata->pclk);
+			clk_disable_unprepare(drvdata->pclk);
 	}
 fail:
 	return ret;
@@ -92,8 +92,8 @@ fail:
 static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 {
 	if (drvdata->clk)
-		clk_disable(drvdata->clk);
-	clk_disable(drvdata->pclk);
+		clk_disable_unprepare(drvdata->clk);
+	clk_disable_unprepare(drvdata->pclk);
 }
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
