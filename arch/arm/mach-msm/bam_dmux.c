@@ -671,7 +671,7 @@ static void bam_mux_write_done(struct work_struct *work)
 	skb = info->skb;
 	kfree(info);
 	hdr = (struct bam_mux_hdr *)skb->data;
-	DBG_INC_WRITE_CNT(skb->data_len);
+	DBG_INC_WRITE_CNT(skb->len);
 	event_data = (unsigned long)(skb);
 	spin_lock_irqsave(&bam_ch[hdr->ch_id].lock, flags);
 	bam_ch[hdr->ch_id].num_tx_pkts--;
@@ -1194,11 +1194,15 @@ static int debug_stats(char *buf, int max)
 	int i = 0;
 
 	i += scnprintf(buf + i, max - i,
+			"skb read cnt:    %u\n"
+			"skb write cnt:   %u\n"
 			"skb copy cnt:    %u\n"
 			"skb copy bytes:  %u\n"
 			"sps tx failures: %u\n"
 			"sps tx stalls:   %u\n"
 			"rx queue len:    %d\n",
+			bam_dmux_read_cnt,
+			bam_dmux_write_cnt,
 			bam_dmux_write_cpy_cnt,
 			bam_dmux_write_cpy_bytes,
 			bam_dmux_tx_sps_failure_cnt,
