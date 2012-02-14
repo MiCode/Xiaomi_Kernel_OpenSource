@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/memory.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -226,6 +226,25 @@ static unsigned long stable_size(struct membank *mb,
 	return unstable_limit - mb->start;
 }
 
+/* stable size of all memory banks contiguous to and below this one */
+static unsigned long total_stable_size(unsigned long bank)
+{
+	int i;
+	struct membank *mb = &meminfo.bank[bank];
+	int memtype = reserve_info->paddr_to_memtype(mb->start);
+	unsigned long size;
+
+	size = stable_size(mb, reserve_info->low_unstable_address);
+	for (i = bank - 1, mb = &meminfo.bank[bank - 1]; i >= 0; i--, mb--) {
+		if (mb->start + mb->size != (mb + 1)->start)
+			break;
+		if (reserve_info->paddr_to_memtype(mb->start) != memtype)
+			break;
+		size += stable_size(mb, reserve_info->low_unstable_address);
+	}
+	return size;
+}
+
 static void __init calculate_reserve_limits(void)
 {
 	int i;
@@ -242,7 +261,7 @@ static void __init calculate_reserve_limits(void)
 			continue;
 		}
 		mt = &reserve_info->memtype_reserve_table[memtype];
-		size = stable_size(mb, reserve_info->low_unstable_address);
+		size = total_stable_size(i);
 		mt->limit = max(mt->limit, size);
 	}
 }
@@ -277,10 +296,11 @@ static void __init reserve_memory_for_mempools(void)
 		if (mt->flags & MEMTYPE_FLAGS_FIXED || !mt->size)
 			continue;
 
-		/* We know we will find a memory bank of the proper size
+		/* We know we will find memory bank(s) of the proper size
 		 * as we have limited the size of the memory pool for
-		 * each memory type to the size of the largest memory
-		 * bank. Choose the memory bank with the highest physical
+		 * each memory type to the largest total size of the memory
+		 * banks which are contiguous and of the correct memory type.
+		 * Choose the memory bank with the highest physical
 		 * address which is large enough, so that we will not
 		 * take memory from the lowest memory bank which the kernel
 		 * is in (and cause boot problems) and so that we might
@@ -293,9 +313,14 @@ static void __init reserve_memory_for_mempools(void)
 				reserve_info->paddr_to_memtype(mb->start);
 			if (memtype != membank_type)
 				continue;
-			size = stable_size(mb,
-				reserve_info->low_unstable_address);
+			size = total_stable_size(i);
 			if (size >= mt->size) {
+				size = stable_size(mb,
+					reserve_info->low_unstable_address);
+				/* mt->size may be larger than size, all this
+				 * means is that we are carving the memory pool
+				 * out of multiple contiguous memory banks.
+				 */
 				mt->start = mb->start + (size - mt->size);
 				ret = memblock_remove(mt->start, mt->size);
 				BUG_ON(ret);
