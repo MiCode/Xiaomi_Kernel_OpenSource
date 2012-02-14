@@ -486,22 +486,22 @@ static int mipi_nt35510_lcd_on(struct platform_device *pdev)
 		rotate = mipi_nt35510_pdata->rotate_panel();
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
+		mipi_dsi_cmds_tx(&nt35510_tx_buf,
 			nt35510_video_display_on_cmds,
 			ARRAY_SIZE(nt35510_video_display_on_cmds));
 
 		if (rotate) {
-			mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
+			mipi_dsi_cmds_tx(&nt35510_tx_buf,
 				nt35510_video_display_on_cmds_rotate,
 			ARRAY_SIZE(nt35510_video_display_on_cmds_rotate));
 		}
 	} else if (mipi->mode == DSI_CMD_MODE) {
-		mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
+		mipi_dsi_cmds_tx(&nt35510_tx_buf,
 			nt35510_cmd_display_on_cmds,
 			ARRAY_SIZE(nt35510_cmd_display_on_cmds));
 
 		if (rotate) {
-			mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
+			mipi_dsi_cmds_tx(&nt35510_tx_buf,
 				nt35510_cmd_display_on_cmds_rotate,
 			ARRAY_SIZE(nt35510_cmd_display_on_cmds_rotate));
 		}
@@ -523,7 +523,7 @@ static int mipi_nt35510_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf, nt35510_display_off_cmds,
+	mipi_dsi_cmds_tx(&nt35510_tx_buf, nt35510_display_off_cmds,
 			ARRAY_SIZE(nt35510_display_off_cmds));
 
 	pr_debug("mipi_nt35510_lcd_off X\n");

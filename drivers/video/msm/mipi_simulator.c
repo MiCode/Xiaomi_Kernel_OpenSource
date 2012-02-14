@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,7 +49,7 @@ static int mipi_simulator_lcd_on(struct platform_device *pdev)
 		 mipi->mode);
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &simulator_tx_buf, display_on_cmds,
+		mipi_dsi_cmds_tx(&simulator_tx_buf, display_on_cmds,
 			ARRAY_SIZE(display_on_cmds));
 	} else {
 		pr_err("%s:%d, CMD MODE NOT SUPPORTED", __func__, __LINE__);
@@ -75,7 +75,7 @@ static int mipi_simulator_lcd_off(struct platform_device *pdev)
 	pr_debug("%s:%d, debug info", __func__, __LINE__);
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &simulator_tx_buf, display_off_cmds,
+		mipi_dsi_cmds_tx(&simulator_tx_buf, display_off_cmds,
 			ARRAY_SIZE(display_off_cmds));
 	} else {
 		pr_debug("%s:%d, DONT REACH HERE", __func__, __LINE__);

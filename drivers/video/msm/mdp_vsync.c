@@ -73,6 +73,20 @@ static struct msm_fb_data_type *vsync_mfd;
 static unsigned char timer_shutdown_flag;
 static uint32 vsync_cnt_cfg;
 
+
+
+void vsync_clk_enable()
+{
+	if (mdp_vsync_clk)
+		clk_prepare_enable(mdp_vsync_clk);
+}
+
+void vsync_clk_disable()
+{
+	if (mdp_vsync_clk)
+		clk_disable_unprepare(mdp_vsync_clk);
+}
+
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd)
 {
 	if (vsync_clk_status == 1)

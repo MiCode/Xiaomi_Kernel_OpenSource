@@ -693,11 +693,11 @@ static int mipi_truly_lcd_on(struct platform_device *pdev)
 	msleep(120);
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &truly_tx_buf,
+		mipi_dsi_cmds_tx(&truly_tx_buf,
 			truly_video_display_on_cmds,
 			ARRAY_SIZE(truly_video_display_on_cmds));
 	} else if (mipi->mode == DSI_CMD_MODE) {
-		mipi_dsi_cmds_tx(mfd, &truly_tx_buf,
+		mipi_dsi_cmds_tx(&truly_tx_buf,
 			truly_cmd_display_on_cmds,
 			ARRAY_SIZE(truly_cmd_display_on_cmds));
 	}
@@ -716,7 +716,7 @@ static int mipi_truly_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(mfd, &truly_tx_buf, truly_display_off_cmds,
+	mipi_dsi_cmds_tx(&truly_tx_buf, truly_display_off_cmds,
 			ARRAY_SIZE(truly_display_off_cmds));
 
 	return 0;
