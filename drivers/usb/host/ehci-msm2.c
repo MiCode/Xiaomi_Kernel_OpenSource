@@ -175,17 +175,24 @@ put_3p3:
 }
 
 #ifdef CONFIG_PM_SLEEP
-#define HSUSB_PHY_SUSP_DIG_VOL  500000
+#define HSUSB_PHY_SUSP_DIG_VOL_P50  500000
+#define HSUSB_PHY_SUSP_DIG_VOL_P75  750000
 static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 {
+	struct msm_usb_host_platform_data *pdata;
 	int max_vol = HSUSB_PHY_VDD_DIG_VOL_MAX;
 	int min_vol;
 	int ret;
 
+	pdata = mhcd->dev->platform_data;
+
 	if (high)
 		min_vol = HSUSB_PHY_VDD_DIG_VOL_MIN;
+	else if (pdata && pdata->dock_connect_irq &&
+			!irq_read_line(pdata->dock_connect_irq))
+		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P75;
 	else
-		min_vol = HSUSB_PHY_SUSP_DIG_VOL;
+		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P50;
 
 	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
