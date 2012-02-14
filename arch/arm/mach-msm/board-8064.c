@@ -30,6 +30,7 @@
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/mmc.h>
+#include <linux/platform_data/qcom_wcnss_device.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -728,6 +729,48 @@ static struct i2c_board_info cyttsp_info[] __initdata = {
 	},
 };
 
+#define MSM_WCNSS_PHYS	0x03000000
+#define MSM_WCNSS_SIZE	0x280000
+
+static struct resource resources_wcnss_wlan[] = {
+	{
+		.start	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+		.end	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
+		.name	= "wcnss_wlanrx_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+		.end	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+		.name	= "wcnss_wlantx_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_WCNSS_PHYS,
+		.end	= MSM_WCNSS_PHYS + MSM_WCNSS_SIZE - 1,
+		.name	= "wcnss_mmio",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= 64,
+		.end	= 68,
+		.name	= "wcnss_gpios_5wire",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct qcom_wcnss_opts qcom_wcnss_pdata = {
+	.has_48mhz_xo	= 1,
+};
+
+static struct platform_device msm_device_wcnss_wlan = {
+	.name		= "wcnss_wlan",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_wcnss_wlan),
+	.resource	= resources_wcnss_wlan,
+	.dev		= {.platform_data = &qcom_wcnss_pdata},
+};
+
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
@@ -1340,6 +1383,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_hsusb_host,
 	&apq8064_device_hsic_host,
 	&android_usb_device,
+	&msm_device_wcnss_wlan,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
