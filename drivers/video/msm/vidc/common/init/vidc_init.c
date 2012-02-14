@@ -678,6 +678,77 @@ bail_out_add:
 }
 EXPORT_SYMBOL(vidc_insert_addr_table);
 
+/*
+ * Similar to vidc_insert_addr_table except intended for in-kernel
+ * use where buffers have already been alloced and mapped properly
+ */
+u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
+	enum buffer_dir buffer, unsigned long user_vaddr,
+	unsigned long kernel_vaddr, unsigned long phys_addr,
+	unsigned int max_num_buffers,
+	unsigned long length)
+{
+	u32 *num_of_buffers = NULL;
+	u32 i;
+	struct buf_addr_table *buf_addr_table;
+	struct msm_mapped_buffer *mapped_buffer = NULL;
+
+	if (!client_ctx || !length || !kernel_vaddr || !phys_addr)
+		return false;
+	mutex_lock(&client_ctx->enrty_queue_lock);
+	if (buffer == BUFFER_TYPE_INPUT) {
+		buf_addr_table = client_ctx->input_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_input_buffers;
+		DBG("%s(): buffer = INPUT #Buf = %d\n",
+			__func__, *num_of_buffers);
+
+	} else {
+		buf_addr_table = client_ctx->output_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_output_buffers;
+		DBG("%s(): buffer = OUTPUT #Buf = %d\n",
+			__func__, *num_of_buffers);
+	}
+
+	if (*num_of_buffers == max_num_buffers) {
+		ERR("%s(): Num of buffers reached max value : %d",
+			__func__, max_num_buffers);
+		goto bail_out_add;
+	}
+
+	i = 0;
+	while (i < *num_of_buffers &&
+		user_vaddr != buf_addr_table[i].user_vaddr) {
+		i++;
+	}
+	if (i < *num_of_buffers) {
+		DBG("%s() : client_ctx = %p."
+			" user_virt_addr = 0x%08lx already set",
+			__func__, client_ctx, user_vaddr);
+		goto bail_out_add;
+	} else {
+		mapped_buffer = NULL;
+		buf_addr_table[*num_of_buffers].client_data = (void *)
+			mapped_buffer;
+		buf_addr_table[*num_of_buffers].dev_addr = phys_addr;
+		buf_addr_table[*num_of_buffers].user_vaddr = user_vaddr;
+		buf_addr_table[*num_of_buffers].kernel_vaddr = kernel_vaddr;
+		buf_addr_table[*num_of_buffers].pmem_fd = -1;
+		buf_addr_table[*num_of_buffers].file = NULL;
+		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
+		buf_addr_table[*num_of_buffers].buff_ion_handle = NULL;
+		*num_of_buffers = *num_of_buffers + 1;
+		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
+			"kernel_vaddr = 0x%08lx inserted!", __func__,
+			client_ctx, user_vaddr, *kernel_vaddr);
+	}
+	mutex_unlock(&client_ctx->enrty_queue_lock);
+	return true;
+bail_out_add:
+	mutex_unlock(&client_ctx->enrty_queue_lock);
+	return false;
+}
+EXPORT_SYMBOL(vidc_insert_addr_table_kernel);
+
 u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer,
 	unsigned long user_vaddr,
