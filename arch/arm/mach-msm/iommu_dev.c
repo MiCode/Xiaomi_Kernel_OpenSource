@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,8 +226,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
-	ret = request_irq(irq, msm_iommu_fault_handler, 0,
-			"msm_iommu_secure_irpt_handler", drvdata);
+	ret = request_threaded_irq(irq, NULL, msm_iommu_fault_handler,
+			IRQF_ONESHOT, "msm_iommu_secure_irpt_handler", drvdata);
 	if (ret) {
 		pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
 		goto fail_io;
