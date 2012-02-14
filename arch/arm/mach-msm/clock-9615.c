@@ -248,7 +248,6 @@ static struct clk_ops clk_ops_pll_acpu_vote = {
 	.auto_off = pll_acpu_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.get_parent = pll_vote_clk_get_parent,
-	.is_local = local_clk_is_local,
 };
 
 #define PLL_SOFT_VOTE_PRIMARY	BIT(0)
@@ -372,7 +371,6 @@ static struct clk_ops clk_ops_rcg_9615 = {
 	.is_enabled = rcg_clk_is_enabled,
 	.round_rate = rcg_clk_round_rate,
 	.reset = rcg_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = rcg_clk_get_parent,
 };
 
@@ -386,7 +384,6 @@ static struct clk_ops clk_ops_branch = {
 	.handoff = branch_clk_handoff,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = branch_clk_get_parent,
 };
 
@@ -1585,7 +1582,6 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 static struct clk_ops measure_clk_ops = {
 	.set_parent = measure_clk_set_parent,
 	.get_rate = measure_clk_get_rate,
-	.is_local = local_clk_is_local,
 };
 
 static struct measure_clk measure_clk = {
