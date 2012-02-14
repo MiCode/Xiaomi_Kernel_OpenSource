@@ -2111,6 +2111,8 @@ static int vid_dec_release_secure(struct inode *inode, struct file *file)
 	struct video_client_ctx *client_ctx = file->private_data;
 
 	INFO("msm_vidc_dec: Inside %s()", __func__);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
 	vid_dec_close_client(client_ctx);
 	res_trk_close_secure_session();
 	vidc_release_firmware();
@@ -2125,13 +2127,15 @@ static int vid_dec_release(struct inode *inode, struct file *file)
 {
 	struct video_client_ctx *client_ctx = file->private_data;
 
-	DBG("msm_vidc_dec: Inside %s()", __func__);
+	INFO("msm_vidc_dec: Inside %s()", __func__);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
 	vid_dec_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
-	DBG("msm_vidc_dec: Return from %s()", __func__);
+	INFO("msm_vidc_dec: Return from %s()", __func__);
 	return 0;
 }
 
