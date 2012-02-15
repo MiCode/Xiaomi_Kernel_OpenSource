@@ -540,9 +540,10 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				client_ctx->user_ion_client,
 				buff_ion_handle,
 				ionflag);
-			if (!(*kernel_vaddr)) {
+			if (IS_ERR_OR_NULL((void *)*kernel_vaddr)) {
 				ERR("%s():ION virtual addr fail\n",
 				 __func__);
+				*kernel_vaddr = (unsigned long)NULL;
 				goto ion_error;
 			}
 			if (ion_phys(client_ctx->user_ion_client,
@@ -587,7 +588,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;
 ion_error:
-	if (*kernel_vaddr)
+	if (*kernel_vaddr && buff_ion_handle)
 		ion_unmap_kernel(client_ctx->user_ion_client, buff_ion_handle);
 	if (!IS_ERR_OR_NULL(buff_ion_handle))
 		ion_free(client_ctx->user_ion_client, buff_ion_handle);
