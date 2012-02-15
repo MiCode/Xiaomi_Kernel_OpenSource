@@ -132,6 +132,8 @@ struct audio {
 
 	unsigned int minor_no;
 	struct codec_operations codec_ops;
+	uint32_t buffer_size;
+	uint32_t buffer_count;
 };
 
 #endif /* !CODEC_UTILS_H */
