@@ -92,6 +92,7 @@
 
 #define PMEM_KERNEL_EBI1_SIZE	0x1C000
 #endif
+#define ADSP_RPC_PROG           0x3000000a
 
 static struct resource smc91x_resources[] = {
 	[0] = {
@@ -1731,6 +1732,25 @@ static void msm7x27_wlan_init(void)
 	}
 }
 
+static void msm_adsp_add_pdev(void)
+{
+	int rc = 0;
+	struct rpc_board_dev *rpc_adsp_pdev;
+
+	rpc_adsp_pdev = kzalloc(sizeof(struct rpc_board_dev), GFP_KERNEL);
+	if (rpc_adsp_pdev == NULL) {
+		pr_err("%s: Memory Allocation failure\n", __func__);
+		return;
+	}
+	rpc_adsp_pdev->prog = ADSP_RPC_PROG;
+	rpc_adsp_pdev->pdev = msm_adsp_device;
+	rc = msm_rpc_add_board_dev(rpc_adsp_pdev, 1);
+	if (rc < 0) {
+		pr_err("%s: return val: %d\n",	__func__, rc);
+		kfree(rpc_adsp_pdev);
+	}
+}
+
 static void __init msm7x2x_init(void)
 {
 
@@ -1797,6 +1817,7 @@ static void __init msm7x2x_init(void)
 #ifdef CONFIG_MSM_CAMERA
 	config_camera_off_gpios(); /* might not be necessary */
 #endif
+	msm_adsp_add_pdev();
 	msm_device_i2c_init();
 	i2c_register_board_info(0, i2c_devices, ARRAY_SIZE(i2c_devices));
 
