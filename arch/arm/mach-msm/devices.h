@@ -38,6 +38,7 @@ extern struct platform_device asoc_mvs_dai1;
 extern struct platform_device msm_ebi0_thermal;
 extern struct platform_device msm_ebi1_thermal;
 
+extern struct platform_device msm_adsp_device;
 extern struct platform_device msm_device_uart1;
 extern struct platform_device msm_device_uart2;
 extern struct platform_device msm_device_uart3;
@@ -139,6 +140,7 @@ extern struct platform_device msm8625_device_gadget_peripheral;
 extern struct platform_device msm8625_device_hsusb_host;
 extern struct platform_device msm8625_device_otg;
 extern struct platform_device msm8625_kgsl_3d0;
+extern struct platform_device msm8625_device_adsp;
 
 extern struct platform_device msm_slim_ctrl;
 extern struct platform_device msm_device_sps;

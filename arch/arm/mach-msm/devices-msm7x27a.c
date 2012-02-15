@@ -210,6 +210,21 @@ struct platform_device msm_device_smd = {
 	.id	= -1,
 };
 
+static struct resource resources_adsp[] = {
+	{
+		.start  = INT_ADSP_A9_A11,
+		.end    = INT_ADSP_A9_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_adsp_device = {
+	.name           = "msm_adsp",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_adsp),
+	.resource       = resources_adsp,
+};
+
 static struct resource resources_uart1[] = {
 	{
 		.start	= INT_UART1,
@@ -841,6 +856,21 @@ struct platform_device msm8625_device_uart_dm2 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(msm8625_uart2dm_resources),
 	.resource	= msm8625_uart2dm_resources,
+};
+
+static struct resource msm8625_resources_adsp[] = {
+	{
+		.start  = MSM8625_INT_ADSP_A9_A11,
+		.end    = MSM8625_INT_ADSP_A9_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_adsp = {
+	.name           = "msm_adsp",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(msm8625_resources_adsp),
+	.resource       = msm8625_resources_adsp,
 };
 
 static struct resource msm8625_dmov_resource[] = {
