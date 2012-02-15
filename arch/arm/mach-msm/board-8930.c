@@ -70,8 +70,8 @@
 
 #ifdef CONFIG_WCD9310_CODEC
 #include <linux/slimbus/slimbus.h>
-#include <linux/mfd/wcd9310/core.h>
-#include <linux/mfd/wcd9310/pdata.h>
+#include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/pdata.h>
 #endif
 
 #include <linux/ion.h>
@@ -531,14 +531,14 @@ static void __init msm8930_allocate_memory_regions(void)
  * does not need to be as high as 2.85V. It is choosen for
  * microphone sensitivity purpose.
  */
-static struct tabla_pdata tabla_platform_data = {
+static struct wcd9xxx_pdata tabla_platform_data = {
 	.slimbus_slave_device = {
 		.name = "tabla-slave",
 		.e_addr = {0, 0, 0x10, 0, 0x17, 2},
 	},
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 
 /*TODO: Replace this with right PM8038 gpio */
 #ifndef MSM8930_PHASE_2
@@ -564,14 +564,14 @@ static struct slim_device msm_slim_tabla = {
 	},
 };
 
-static struct tabla_pdata tabla20_platform_data = {
+static struct wcd9xxx_pdata tabla20_platform_data = {
 	.slimbus_slave_device = {
 		.name = "tabla-slave",
 		.e_addr = {0, 0, 0x60, 0, 0x17, 2},
 	},
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 
 /*TODO: Replace this with right PM8038 gpio */
 #ifndef MSM8930_PHASE_2

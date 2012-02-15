@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mfd/wcd9310/registers.h>
+#include <linux/mfd/wcd9xxx/wcd9310_registers.h>
 #include "wcd9310.h"
 
 const u8 tabla_reg_readable[TABLA_CACHE_SIZE] = {

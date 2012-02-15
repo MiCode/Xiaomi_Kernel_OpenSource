@@ -18,9 +18,10 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
-#include <linux/mfd/wcd9310/core.h>
-#include <linux/mfd/wcd9310/registers.h>
-#include <linux/mfd/wcd9310/pdata.h>
+#include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
+#include <linux/mfd/wcd9xxx/wcd9310_registers.h>
+#include <linux/mfd/wcd9xxx/pdata.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -171,7 +172,7 @@ struct tabla_priv {
 	struct snd_soc_jack *headset_jack;
 	struct snd_soc_jack *button_jack;
 
-	struct tabla_pdata *pdata;
+	struct wcd9xxx_pdata *pdata;
 	u32 anc_slot;
 
 	bool no_mic_headset_override;
@@ -1319,10 +1320,12 @@ static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	if (!tabla->no_mic_headset_override) {
-		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
-		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+		wcd9xxx_enable_irq(codec->control_data,
+				TABLA_IRQ_MBHC_POTENTIAL);
+		wcd9xxx_enable_irq(codec->control_data,
+				TABLA_IRQ_MBHC_RELEASE);
 	} else {
 		tabla_codec_disable_button_presses(codec);
 	}
@@ -1336,11 +1339,12 @@ static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 	if (!tabla->no_mic_headset_override) {
-		tabla_disable_irq(codec->control_data,
+		wcd9xxx_disable_irq(codec->control_data,
 			TABLA_IRQ_MBHC_POTENTIAL);
-		tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+		wcd9xxx_disable_irq(codec->control_data,
+			TABLA_IRQ_MBHC_RELEASE);
 	}
 }
 
@@ -1767,7 +1771,7 @@ static void hphocp_off_report(struct tabla_priv *tabla,
 			tabla->hphlocp_cnt = 0;
 		else
 			tabla->hphrocp_cnt = 0;
-		tabla_enable_irq(codec->control_data, irq);
+		wcd9xxx_enable_irq(codec->control_data, irq);
 	} else {
 		pr_err("%s: Bad tabla private data\n", __func__);
 	}
@@ -1925,16 +1929,16 @@ static int tabla_lineout_dac_event(struct snd_soc_dapm_widget *w,
 
 static const struct snd_soc_dapm_widget tabla_1_x_dapm_widgets[] = {
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_1_A_MICB_4_CTL, 7,
-			       0, tabla_codec_enable_micbias,
-			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			       SND_SOC_DAPM_POST_PMD),
+				0, tabla_codec_enable_micbias,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+				SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_widget tabla_2_higher_dapm_widgets[] = {
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TABLA_2_A_MICB_4_CTL, 7,
-			       0, tabla_codec_enable_micbias,
-			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			       SND_SOC_DAPM_POST_PMD),
+				0, tabla_codec_enable_micbias,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+				SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route audio_i2s_map[] = {
@@ -2284,7 +2288,7 @@ static const struct snd_soc_dapm_route tabla_2_x_lineout_2_to_4_map[] = {
 static int tabla_readable(struct snd_soc_codec *ssc, unsigned int reg)
 {
 	int i;
-	struct tabla *tabla_core = dev_get_drvdata(ssc->dev->parent);
+	struct wcd9xxx *tabla_core = dev_get_drvdata(ssc->dev->parent);
 
 	if (TABLA_IS_1_X(tabla_core->version)) {
 		for (i = 0; i < ARRAY_SIZE(tabla_1_reg_readable); i++) {
@@ -2333,7 +2337,7 @@ static int tabla_write(struct snd_soc_codec *codec, unsigned int reg,
 				reg, ret);
 	}
 
-	return tabla_reg_write(codec->control_data, reg, value);
+	return wcd9xxx_reg_write(codec->control_data, reg, value);
 }
 static unsigned int tabla_read(struct snd_soc_codec *codec,
 				unsigned int reg)
@@ -2353,7 +2357,7 @@ static unsigned int tabla_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	val = tabla_reg_read(codec->control_data, reg);
+	val = wcd9xxx_reg_read(codec->control_data, reg);
 	return val;
 }
 
@@ -2622,7 +2626,7 @@ static int tabla_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
 		/* CPU is master */
-		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 			if (dai->id == AIF1_CAP)
 				snd_soc_update_bits(dai->codec,
 					TABLA_A_CDC_CLK_TX_I2S_CTL,
@@ -2635,7 +2639,7 @@ static int tabla_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
 	/* CPU is slave */
-		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 			val = TABLA_I2S_MASTER_MODE_MASK;
 			if (dai->id == AIF1_CAP)
 				snd_soc_update_bits(dai->codec,
@@ -2685,7 +2689,7 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 				unsigned int *rx_num, unsigned int *rx_slot)
 
 {
-	struct tabla *tabla = dev_get_drvdata(dai->codec->control_data);
+	struct wcd9xxx *tabla = dev_get_drvdata(dai->codec->control_data);
 
 	u32 cnt = 0;
 	u32 tx_ch[SLIM_MAX_TX_PORTS];
@@ -2699,7 +2703,7 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 	/* for virtual port, codec driver needs to do
 	 * housekeeping, for now should be ok
 	 */
-	tabla_get_channel(tabla, rx_ch, tx_ch);
+	wcd9xxx_get_channel(tabla, rx_ch, tx_ch);
 	if (dai->id == AIF1_PB) {
 		*rx_num = tabla_dai[dai->id - 1].playback.channels_max;
 		while (cnt < *rx_num) {
@@ -2784,7 +2788,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 							0x03, tx_fs_rate);
 			}
 		}
-		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 			switch (params_format(params)) {
 			case SNDRV_PCM_FORMAT_S16_LE:
 				snd_soc_update_bits(codec,
@@ -2830,7 +2834,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 						0xE0, rx_fs_rate);
 			}
 		}
-		if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 			switch (params_format(params)) {
 			case SNDRV_PCM_FORMAT_S16_LE:
 				snd_soc_update_bits(codec,
@@ -2945,7 +2949,7 @@ static struct snd_soc_dai_driver tabla_i2s_dai[] = {
 static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
-	struct tabla *tabla;
+	struct wcd9xxx *tabla;
 	struct snd_soc_codec *codec = w->codec;
 	struct tabla_priv *tabla_p = snd_soc_codec_get_drvdata(codec);
 	u32  j = 0;
@@ -2953,7 +2957,7 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	tabla = codec->control_data;
 	/* Execute the callback only if interface type is slimbus */
-	if (tabla_p->intf_type != TABLA_INTERFACE_TYPE_SLIMBUS)
+	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		return 0;
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -2967,10 +2971,10 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			}
 		}
 		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot)
-			ret = tabla_cfg_slim_sch_rx(tabla,
-						tabla_p->dai[j].ch_num,
-						tabla_p->dai[j].ch_tot,
-						tabla_p->dai[j].rate);
+			ret = wcd9xxx_cfg_slim_sch_rx(tabla,
+					tabla_p->dai[j].ch_num,
+					tabla_p->dai[j].ch_tot,
+					tabla_p->dai[j].rate);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
@@ -2983,12 +2987,12 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			}
 		}
 		if (!tabla_p->dai[j].ch_act) {
-			ret = tabla_close_slim_sch_rx(tabla,
+			ret = wcd9xxx_close_slim_sch_rx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot);
 			tabla_p->dai[j].rate = 0;
 			memset(tabla_p->dai[j].ch_num, 0, (sizeof(u32)*
-						tabla_p->dai[j].ch_tot));
+					tabla_p->dai[j].ch_tot));
 			tabla_p->dai[j].ch_tot = 0;
 		}
 	}
@@ -2998,7 +3002,7 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
-	struct tabla *tabla;
+	struct wcd9xxx *tabla;
 	struct snd_soc_codec *codec = w->codec;
 	struct tabla_priv *tabla_p = snd_soc_codec_get_drvdata(codec);
 	/* index to the DAI ID, for now hardcoding */
@@ -3009,7 +3013,7 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	tabla = codec->control_data;
 
 	/* Execute the callback only if interface type is slimbus */
-	if (tabla_p->intf_type != TABLA_INTERFACE_TYPE_SLIMBUS)
+	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		return 0;
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -3024,7 +3028,7 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			}
 		}
 		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot)
-			ret = tabla_cfg_slim_sch_tx(tabla,
+			ret = wcd9xxx_cfg_slim_sch_tx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot,
 						tabla_p->dai[j].rate);
@@ -3041,12 +3045,12 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			}
 		}
 		if (!tabla_p->dai[j].ch_act) {
-			ret = tabla_close_slim_sch_tx(tabla,
+			ret = wcd9xxx_close_slim_sch_tx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot);
 			tabla_p->dai[j].rate = 0;
 			memset(tabla_p->dai[j].ch_num, 0, (sizeof(u32)*
-						tabla_p->dai[j].ch_tot));
+					tabla_p->dai[j].ch_tot));
 			tabla_p->dai[j].ch_tot = 0;
 		}
 	}
@@ -3584,7 +3588,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, tabla->reg_addr.micb_4_mbhc, 0x3,
 			    tabla->micbias);
 
-	tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
 	return 0;
 }
@@ -3655,10 +3659,10 @@ static void btn0_lpress_fn(struct work_struct *work)
 		if (tabla->button_jack) {
 			bias_value = tabla_codec_read_sta_result(tabla->codec);
 			sta_mv = tabla_codec_sta_dce_v(tabla->codec, 0,
-						       bias_value);
+						bias_value);
 			bias_value = tabla_codec_read_dce_result(tabla->codec);
 			dce_mv = tabla_codec_sta_dce_v(tabla->codec, 1,
-						       bias_value);
+						bias_value);
 			pr_debug("%s: Reporting long button press event"
 				 " STA: %d, DCE: %d\n", __func__,
 				 sta_mv, dce_mv);
@@ -3670,7 +3674,6 @@ static void btn0_lpress_fn(struct work_struct *work)
 		pr_err("%s: Bad tabla private data\n", __func__);
 	}
 
-	tabla_unlock_sleep(core);
 }
 
 void tabla_mbhc_cal(struct snd_soc_codec *codec)
@@ -3850,7 +3853,7 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	int n;
 	u8 *n_cic, *gain;
-	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
+	struct wcd9xxx *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	tabla = snd_soc_codec_get_drvdata(codec);
 	generic = TABLA_MBHC_CAL_GENERAL_PTR(tabla->calibration);
@@ -3998,7 +4001,7 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	if (mclk_rate != TABLA_MCLK_RATE_12288KHZ) {
 		if (mclk_rate == TABLA_MCLK_RATE_9600KHZ)
 			pr_err("Error: clock rate %dHz is not yet supported\n",
-			       mclk_rate);
+				mclk_rate);
 		else
 			pr_err("Error: unsupported clock rate %d\n", mclk_rate);
 		return -EINVAL;
@@ -4037,9 +4040,9 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	if (!IS_ERR_VALUE(rc)) {
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
 			0x10);
-		tabla_enable_irq(codec->control_data,
+		wcd9xxx_enable_irq(codec->control_data,
 			TABLA_IRQ_HPH_PA_OCPL_FAULT);
-		tabla_enable_irq(codec->control_data,
+		wcd9xxx_enable_irq(codec->control_data,
 			TABLA_IRQ_HPH_PA_OCPR_FAULT);
 	}
 
@@ -4057,7 +4060,7 @@ static int tabla_determine_button(const struct tabla_priv *priv,
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(priv->calibration);
 	v_btn_low = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_V_BTN_LOW);
 	v_btn_high = tabla_mbhc_cal_btn_det_mp(btn_det,
-					       TABLA_BTN_DET_V_BTN_HIGH);
+				TABLA_BTN_DET_V_BTN_HIGH);
 	for (i = 0; i < btn_det->num_btn; i++) {
 		if ((v_btn_low[i] <= bias_mv) && (v_btn_high[i] >= bias_mv)) {
 			btn = i;
@@ -4115,10 +4118,10 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	    TABLA_MBHC_CAL_BTN_DET_PTR(priv->calibration);
 	short btnmeas[d->n_btn_meas + 1];
 	struct snd_soc_codec *codec = priv->codec;
-	struct tabla *core = dev_get_drvdata(priv->codec->dev->parent);
+	struct wcd9xxx *core = dev_get_drvdata(priv->codec->dev->parent);
 
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
 	bias_value_dce = tabla_codec_read_dce_result(codec);
 	bias_mv_dce = tabla_codec_sta_dce_v(codec, 1, bias_value_dce);
@@ -4164,12 +4167,12 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 
 		/* XXX: assuming button 0 has the lowest micbias voltage */
 		if (btn == 0) {
-			tabla_lock_sleep(core);
+			wcd9xxx_lock_sleep(core);
 			if (schedule_delayed_work(&priv->btn0_dwork,
 						  msecs_to_jiffies(400)) == 0) {
 				WARN(1, "Button pressed twice without release"
 				     "event\n");
-				tabla_unlock_sleep(core);
+				wcd9xxx_unlock_sleep(core);
 			}
 		} else {
 			pr_debug("%s: Reporting short button %d(0x%x) press\n",
@@ -4191,10 +4194,10 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 	short mb_v;
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	struct tabla *core = dev_get_drvdata(priv->codec->dev->parent);
+	struct wcd9xxx *core = dev_get_drvdata(priv->codec->dev->parent);
 
 	pr_debug("%s: enter\n", __func__);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
 	if (priv->buttons_pressed & SND_JACK_BTN_0) {
 		ret = cancel_delayed_work(&priv->btn0_dwork);
@@ -4208,7 +4211,7 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 		} else {
 			/* if scheduled btn0_dwork is canceled from here,
 			 * we have to unlock from here instead btn0_work */
-			tabla_unlock_sleep(core);
+			wcd9xxx_unlock_sleep(core);
 			mb_v = tabla_codec_sta_dce(codec, 0);
 			pr_debug("%s: Mic Voltage on release STA: %d,%d\n",
 				 __func__, mb_v,
@@ -4304,7 +4307,7 @@ static irqreturn_t tabla_hphl_ocp_irq(int irq, void *data)
 			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
 					    0x10);
 		} else {
-			tabla_disable_irq(codec->control_data,
+			wcd9xxx_disable_irq(codec->control_data,
 					  TABLA_IRQ_HPH_PA_OCPL_FAULT);
 			tabla->hphlocp_cnt = 0;
 			tabla->hph_status |= SND_JACK_OC_HPHL;
@@ -4337,7 +4340,7 @@ static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
 			snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10,
 					    0x10);
 		} else {
-			tabla_disable_irq(codec->control_data,
+			wcd9xxx_disable_irq(codec->control_data,
 					  TABLA_IRQ_HPH_PA_OCPR_FAULT);
 			tabla->hphrocp_cnt = 0;
 			tabla->hph_status |= SND_JACK_OC_HPHR;
@@ -4357,26 +4360,26 @@ static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
 static void tabla_sync_hph_state(struct tabla_priv *tabla)
 {
 	if (test_and_clear_bit(TABLA_HPHR_PA_OFF_ACK,
-			       &tabla->hph_pa_dac_state)) {
+				&tabla->hph_pa_dac_state)) {
 		pr_debug("%s: HPHR clear flag and enable PA\n", __func__);
 		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_CNP_EN, 0x10,
 				    1 << 4);
 	}
 	if (test_and_clear_bit(TABLA_HPHL_PA_OFF_ACK,
-			       &tabla->hph_pa_dac_state)) {
+				&tabla->hph_pa_dac_state)) {
 		pr_debug("%s: HPHL clear flag and enable PA\n", __func__);
 		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_CNP_EN, 0x20,
 				    1 << 5);
 	}
 
 	if (test_and_clear_bit(TABLA_HPHR_DAC_OFF_ACK,
-			       &tabla->hph_pa_dac_state)) {
+				&tabla->hph_pa_dac_state)) {
 		pr_debug("%s: HPHR clear flag and enable DAC\n", __func__);
 		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_R_DAC_CTL,
 				    0xC0, 0xC0);
 	}
 	if (test_and_clear_bit(TABLA_HPHL_DAC_OFF_ACK,
-			       &tabla->hph_pa_dac_state)) {
+				&tabla->hph_pa_dac_state)) {
 		pr_debug("%s: HPHL clear flag and enable DAC\n", __func__);
 		snd_soc_update_bits(tabla->codec, TABLA_A_RX_HPH_L_DAC_CTL,
 				    0xC0, 0xC0);
@@ -4395,7 +4398,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	int mic_mv;
 
 	pr_debug("%s: enter\n", __func__);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 
 	is_removal = snd_soc_read(codec, TABLA_A_CDC_MBHC_INT_CTL) & 0x02;
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
@@ -4406,7 +4409,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 
 	if (priv->mbhc_fake_ins_start &&
 	    time_after(jiffies, priv->mbhc_fake_ins_start +
-		       msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
+			msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
 		pr_debug("%s: fake context interrupt, reset insertion\n",
 			 __func__);
 		priv->mbhc_fake_ins_start = 0;
@@ -4482,8 +4485,8 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 			     0),
 			 mb_v, mic_mv);
 		if (time_after(jiffies,
-			       priv->mbhc_fake_ins_start +
-			       msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
+			priv->mbhc_fake_ins_start +
+			msecs_to_jiffies(TABLA_FAKE_INS_THRESHOLD_MS))) {
 			/* Disable HPH trigger and enable MIC line trigger */
 			snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x12,
 					    0x00);
@@ -4509,7 +4512,8 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 		}
 		/* Setup for insertion detection */
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x2, 0);
-		tabla_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+		wcd9xxx_enable_irq(codec->control_data,
+					TABLA_IRQ_MBHC_INSERTION);
 		snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
 
 	} else if (mb_v < (short) priv->mbhc_data.v_no_mic) {
@@ -4559,9 +4563,9 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 	int min_us = TABLA_FAKE_REMOVAL_MIN_PERIOD_MS * 1000;
 
 	pr_debug("%s: enter, removal interrupt\n", __func__);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
 	usleep_range(generic->t_shutdown_plug_rem,
 		     generic->t_shutdown_plug_rem);
@@ -4611,11 +4615,11 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 	int i, j;
 	u8 val;
 
-	for (i = 0; i < TABLA_SLIM_NUM_PORT_REG; i++) {
-		slimbus_value = tabla_interface_reg_read(codec->control_data,
+	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++) {
+		slimbus_value = wcd9xxx_interface_reg_read(codec->control_data,
 			TABLA_SLIM_PGD_PORT_INT_STATUS0 + i);
 		for_each_set_bit(j, &slimbus_value, BITS_PER_BYTE) {
-			val = tabla_interface_reg_read(codec->control_data,
+			val = wcd9xxx_interface_reg_read(codec->control_data,
 				TABLA_SLIM_PGD_PORT_INT_SOURCE0 + i*8 + j);
 			if (val & 0x1)
 				pr_err_ratelimited("overflow error on port %x,"
@@ -4624,7 +4628,7 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 				pr_err_ratelimited("underflow error on port %x,"
 					" value %x\n", i*8 + j, val);
 		}
-		tabla_interface_reg_write(codec->control_data,
+		wcd9xxx_interface_reg_write(codec->control_data,
 			TABLA_SLIM_PGD_PORT_INT_CLR0 + i, 0xFF);
 	}
 
@@ -4635,7 +4639,7 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 static int tabla_handle_pdata(struct tabla_priv *tabla)
 {
 	struct snd_soc_codec *codec = tabla->codec;
-	struct tabla_pdata *pdata = tabla->pdata;
+	struct wcd9xxx_pdata *pdata = tabla->pdata;
 	int k1, k2, k3, rc = 0;
 	u8 leg_mode = pdata->amic_settings.legacy_mode;
 	u8 txfe_bypass = pdata->amic_settings.txfe_enable;
@@ -4802,7 +4806,7 @@ static const struct tabla_reg_mask_val tabla_2_only_reg_2_0_defaults[] = {
 static void tabla_update_reg_defaults(struct snd_soc_codec *codec)
 {
 	u32 i;
-	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
+	struct wcd9xxx *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < ARRAY_SIZE(tabla_1_1_reg_defaults); i++)
 		snd_soc_write(codec, tabla_1_1_reg_defaults[i].reg,
@@ -4894,7 +4898,7 @@ static const struct tabla_reg_mask_val tabla_2_higher_codec_reg_init_val[] = {
 static void tabla_codec_init_reg(struct snd_soc_codec *codec)
 {
 	u32 i;
-	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
+	struct wcd9xxx *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < ARRAY_SIZE(tabla_codec_reg_init_val); i++)
 		snd_soc_update_bits(codec, tabla_codec_reg_init_val[i].reg,
@@ -4918,7 +4922,7 @@ static void tabla_codec_init_reg(struct snd_soc_codec *codec)
 
 static void tabla_update_reg_address(struct tabla_priv *priv)
 {
-	struct tabla *tabla_core = dev_get_drvdata(priv->codec->dev->parent);
+	struct wcd9xxx *tabla_core = dev_get_drvdata(priv->codec->dev->parent);
 	struct tabla_reg_address *reg_addr = &priv->reg_addr;
 
 	if (TABLA_IS_1_X(tabla_core->version)) {
@@ -4934,7 +4938,7 @@ static void tabla_update_reg_address(struct tabla_priv *priv)
 
 static int tabla_codec_probe(struct snd_soc_codec *codec)
 {
-	struct tabla *control;
+	struct wcd9xxx *control;
 	struct tabla_priv *tabla;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret = 0;
@@ -4973,7 +4977,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
-	tabla->intf_type = tabla_get_intf_type();
+	tabla->intf_type = wcd9xxx_get_intf_type();
 
 	tabla_update_reg_address(tabla);
 	tabla_update_reg_defaults(codec);
@@ -5002,7 +5006,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		snd_soc_dapm_new_controls(dapm, tabla_2_higher_dapm_widgets,
 				    ARRAY_SIZE(tabla_2_higher_dapm_widgets));
 
-	if (tabla->intf_type == TABLA_INTERFACE_TYPE_I2C) {
+	if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 		snd_soc_dapm_new_controls(dapm, tabla_dapm_i2s_widgets,
 			ARRAY_SIZE(tabla_dapm_i2s_widgets));
 		snd_soc_dapm_add_routes(dapm, audio_i2s_map,
@@ -5018,49 +5022,49 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 				      ARRAY_SIZE(tabla_2_x_lineout_2_to_4_map));
 	} else  {
 		pr_err("%s : ERROR.  Unsupported Tabla version 0x%2x\n",
-		       __func__, control->version);
+			__func__, control->version);
 		goto err_pdata;
 	}
 
 	snd_soc_dapm_sync(dapm);
 
-	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION,
+	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION,
 		tabla_hs_insert_irq, "Headset insert detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
 			TABLA_IRQ_MBHC_INSERTION);
 		goto err_insert_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 
-	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL,
+	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL,
 		tabla_hs_remove_irq, "Headset remove detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
 			TABLA_IRQ_MBHC_REMOVAL);
 		goto err_remove_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL);
 
-	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL,
+	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL,
 		tabla_dce_handler, "DC Estimation detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
 			TABLA_IRQ_MBHC_POTENTIAL);
 		goto err_potential_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
 
-	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE,
+	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE,
 		tabla_release_handler, "Button Release detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
 			TABLA_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE);
 
-	ret = tabla_request_irq(codec->control_data, TABLA_IRQ_SLIMBUS,
+	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_SLIMBUS,
 		tabla_slimbus_irq, "SLIMBUS Slave", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
@@ -5068,11 +5072,11 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		goto err_slimbus_irq;
 	}
 
-	for (i = 0; i < TABLA_SLIM_NUM_PORT_REG; i++)
-		tabla_interface_reg_write(codec->control_data,
+	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++)
+		wcd9xxx_interface_reg_write(codec->control_data,
 			TABLA_SLIM_PGD_PORT_INT_EN0 + i, 0xFF);
 
-	ret = tabla_request_irq(codec->control_data,
+	ret = wcd9xxx_request_irq(codec->control_data,
 		TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla_hphl_ocp_irq,
 		"HPH_L OCP detect", tabla);
 	if (ret) {
@@ -5080,9 +5084,9 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_IRQ_HPH_PA_OCPL_FAULT);
 		goto err_hphl_ocp_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT);
 
-	ret = tabla_request_irq(codec->control_data,
+	ret = wcd9xxx_request_irq(codec->control_data,
 		TABLA_IRQ_HPH_PA_OCPR_FAULT, tabla_hphr_ocp_irq,
 		"HPH_R OCP detect", tabla);
 	if (ret) {
@@ -5090,7 +5094,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_IRQ_HPH_PA_OCPR_FAULT);
 		goto err_hphr_ocp_irq;
 	}
-	tabla_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
 	for (i = 0; i < ARRAY_SIZE(tabla_dai); i++) {
 		switch (tabla_dai[i].id) {
 		case AIF1_PB:
@@ -5116,17 +5120,18 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	return ret;
 
 err_hphr_ocp_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla);
+	wcd9xxx_free_irq(codec->control_data,
+			TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla);
 err_hphl_ocp_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
 err_slimbus_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
 err_release_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
 err_potential_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
 err_remove_irq:
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
 err_insert_irq:
 err_pdata:
 	kfree(tabla);
@@ -5136,11 +5141,11 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 {
 	int i;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	tabla_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
-	tabla_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
 	tabla_codec_disable_clock_block(codec);
 	tabla_codec_enable_bandgap(codec, TABLA_BANDGAP_OFF);
 	if (tabla->mbhc_fw)
@@ -5227,10 +5232,10 @@ static int __devinit tabla_probe(struct platform_device *pdev)
 		S_IFREG | S_IRUGO, NULL, (void *) "TRRS", &codec_debug_ops);
 
 #endif
-	if (tabla_get_intf_type() == TABLA_INTERFACE_TYPE_SLIMBUS)
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
 			tabla_dai, ARRAY_SIZE(tabla_dai));
-	else if (tabla_get_intf_type() == TABLA_INTERFACE_TYPE_I2C)
+	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
 			tabla_i2s_dai, ARRAY_SIZE(tabla_i2s_dai));
 	return ret;

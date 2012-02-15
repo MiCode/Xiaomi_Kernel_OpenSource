@@ -14,10 +14,8 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/wcd9310/core.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
-#include <linux/clk.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -25,7 +23,6 @@
 #include <sound/q6afe.h>
 #include <sound/q6adm.h>
 #include <sound/msm-dai-q6.h>
-#include <mach/clk.h>
 #include <mach/msm_hdmi_audio.h>
 
 

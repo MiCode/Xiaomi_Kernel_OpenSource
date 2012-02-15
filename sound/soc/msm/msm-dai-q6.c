@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/wcd9310/core.h>
+#include <linux/mfd/wcd9xxx/core.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/clk.h>

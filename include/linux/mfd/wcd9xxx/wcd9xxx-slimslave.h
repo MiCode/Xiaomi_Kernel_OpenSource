@@ -14,7 +14,7 @@
 #define __WCD9310_SLIMSLAVE_H_
 
 #include <linux/slimbus/slimbus.h>
-#include <linux/mfd/wcd9310/core.h>
+#include <linux/mfd/wcd9xxx/core.h>
 
 /* Local to the core only */
 #define SLIM_MAX_RX_PORTS 7
@@ -84,19 +84,19 @@ enum {
 #define BASE_CH_NUM 128
 
 
-int tabla_init_slimslave(struct tabla *tabla, u8 tabla_pgd_la);
+int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la);
 
-int tabla_deinit_slimslave(struct tabla *tabla);
+int wcd9xxx_deinit_slimslave(struct wcd9xxx *wcd9xxx);
 
-int tabla_cfg_slim_sch_rx(struct tabla *tabla, unsigned int *ch_num,
+int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int tot_ch, unsigned int rate);
-int tabla_cfg_slim_sch_tx(struct tabla *tabla, unsigned int *ch_num,
+int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int tot_ch, unsigned int rate);
-int tabla_close_slim_sch_rx(struct tabla *tabla, unsigned int *ch_num,
+int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int tot_ch);
-int tabla_close_slim_sch_tx(struct tabla *tabla, unsigned int *ch_num,
+int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int tot_ch);
-int tabla_get_channel(struct tabla *tabla,
+int wcd9xxx_get_channel(struct wcd9xxx *wcd9xxx,
 			unsigned int *rx_ch,
 			unsigned int *tx_ch);
 #endif /* __WCD9310_SLIMSLAVE_H_ */

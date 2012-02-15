@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,15 @@
 #define __MFD_TABLA_PDATA_H__
 
 #include <linux/slimbus/slimbus.h>
+
+#define SITAR_LDOH_1P95_V 0x0
+#define SITAR_LDOH_2P35_V 0x1
+#define SITAR_LDOH_2P75_V 0x2
+#define SITAR_LDOH_2P85_V 0x3
+
+#define SITAR_CFILT1_SEL 0x0
+#define SITAR_CFILT2_SEL 0x1
+#define SITAR_CFILT3_SEL 0x2
 
 #define TABLA_LDOH_1P95_V 0x0
 #define TABLA_LDOH_2P35_V 0x1
@@ -51,7 +60,7 @@
 #define TABLA_DCYCLE_3839 0xE
 #define TABLA_DCYCLE_4095 0xF
 
-struct tabla_amic {
+struct wcd9xxx_amic {
 	/*legacy mode, txfe_enable and txfe_buff take 7 input
 	 * each bit represent the channel / TXFE number
 	 * and numbered as below
@@ -75,7 +84,7 @@ struct tabla_amic {
  * If ldoh_v = 2.85 250 mv < cfiltx_mv < 2700 mv
  */
 
-struct tabla_micbias_setting {
+struct wcd9xxx_micbias_setting {
 	u8 ldoh_v;
 	u32 cfilt1_mv; /* in mv */
 	u32 cfilt2_mv; /* in mv */
@@ -86,7 +95,7 @@ struct tabla_micbias_setting {
 	u8 bias4_cfilt_sel;
 };
 
-struct tabla_ocp_setting {
+struct wcd9xxx_ocp_setting {
 	unsigned int	use_pdata:1; /* 0 - use sys default as recommended */
 	unsigned int	num_attempts:4; /* up to 15 attempts */
 	unsigned int	run_time:4; /* in duty cycle */
@@ -94,15 +103,39 @@ struct tabla_ocp_setting {
 	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
 };
 
-struct tabla_pdata {
+#define MAX_REGULATOR	6
+/*
+ *      format : TABLA_<POWER_SUPPLY_PIN_NAME>_CUR_MAX
+ *
+ *      <POWER_SUPPLY_PIN_NAME> from Tabla objective spec
+*/
+
+#define  WCD9XXX_CDC_VDDA_CP_CUR_MAX      500000
+#define  WCD9XXX_CDC_VDDA_RX_CUR_MAX      20000
+#define  WCD9XXX_CDC_VDDA_TX_CUR_MAX      20000
+#define  WCD9XXX_VDDIO_CDC_CUR_MAX        5000
+
+#define  WCD9XXX_VDDD_CDC_D_CUR_MAX       5000
+#define  WCD9XXX_VDDD_CDC_A_CUR_MAX       5000
+
+struct wcd9xxx_regulator {
+	const char *name;
+	int min_uV;
+	int max_uV;
+	int optimum_uA;
+	struct regulator *regulator;
+};
+
+struct wcd9xxx_pdata {
 	int irq;
 	int irq_base;
 	int num_irqs;
 	int reset_gpio;
-	struct tabla_amic amic_settings;
+	struct wcd9xxx_amic amic_settings;
 	struct slim_device slimbus_slave_device;
-	struct tabla_micbias_setting micbias;
-	struct tabla_ocp_setting ocp;
+	struct wcd9xxx_micbias_setting micbias;
+	struct wcd9xxx_ocp_setting ocp;
+	struct wcd9xxx_regulator regulator[MAX_REGULATOR];
 };
 
 #endif
