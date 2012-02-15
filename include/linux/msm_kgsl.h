@@ -148,6 +148,7 @@ struct kgsl_device_platform_data {
 	unsigned int idle_timeout;
 	unsigned int nap_allowed;
 	unsigned int clk_map;
+	unsigned int idle_needed;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *iommu_user_ctx_name;
 	const char *iommu_priv_ctx_name;
