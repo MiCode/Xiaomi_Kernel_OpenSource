@@ -397,6 +397,16 @@ config SMB137B_CHARGER
 	  To compile this driver as a module, choose M here: the module will
 	  be called smb137b.
 
+config SMB349_CHARGER
+	tristate "smb349 charger"
+	depends on I2C
+	help
+	  Say Y to enable support for the SMB349 switching mode based charger
+	  and sysfs. The driver supports controlling charger-enable and
+	  current limiting capabilities. The driver also lets the
+	  SMB349 be operated as a slave device via the power supply
+	  framework.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
