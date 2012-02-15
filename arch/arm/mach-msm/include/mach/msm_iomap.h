@@ -47,7 +47,9 @@
 
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615) || \
-	defined(CONFIG_ARCH_MSMCOPPER)
+	defined(CONFIG_ARCH_MSMCOPPER) || defined(CONFIG_ARCH_MSM7X27) || \
+	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
+	defined(CONFIG_ARCH_MSM8625)
 
 /* Unified iomap */
 
@@ -80,13 +82,28 @@
 #define MSM_APCS_GLB_BASE	IOMEM(0xFA702000)	/*  4K  */
 #define MSM_SAW2_BASE		IOMEM(0xFA703000)	/*  4k  */
 #define MSM_SAW3_BASE		IOMEM(0xFA704000)	/*  4k  */
+#define MSM_VIC_BASE		IOMEM(0xFA100000)	/*  4K */
+#define MSM_CSR_BASE		IOMEM(0xFA101000)	/*  4K */
+#define MSM_GPIO1_BASE		IOMEM(0xFA102000)	/*  4K */
+#define MSM_GPIO2_BASE		IOMEM(0xFA103000)	/*  4K */
+#define MSM_SCU_BASE		IOMEM(0xFA102000)	/*  4K */
+#define MSM_CFG_CTL_BASE	IOMEM(0xFA00C000)	/*  4K */
+#define MSM_MDC_BASE		IOMEM(0xFA400000)	/*  1M */
+#define MSM_AD5_BASE		IOMEM(0xFA900000)	/*  13M (D00000)
+							  0xFB600000 */
 
-#if defined(CONFIG_ARCH_MSM9615)
+#define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
+#define MSM8625_SECONDARY_PHYS		0x0FE00000
+
+
+#if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27)
 #define MSM_SHARED_RAM_SIZE	SZ_1M
 #else
 #define MSM_SHARED_RAM_SIZE	SZ_2M
 #endif
 
+#include "msm_iomap-7xxx.h"
+#include "msm_iomap-8625.h"
 #include "msm_iomap-8960.h"
 #include "msm_iomap-8930.h"
 #include "msm_iomap-8064.h"
@@ -105,29 +122,7 @@
 #elif defined(CONFIG_ARCH_FSM9XXX)
 #include "msm_iomap-fsm9xxx.h"
 #else
-#define MSM_VIC_BASE			IOMEM(0xFA000000)	/* 4K */
-#define MSM_CSR_BASE			IOMEM(0xFA001000)	/* 4K */
-#define MSM_TMR_BASE			MSM_CSR_BASE		/* 4K */
-#define MSM_TMR0_BASE			IOMEM(0xFA002000)	/* 4K */
-#define MSM_GPIO1_BASE			IOMEM(0xFA003000)	/* 4K */
-#define MSM_GPIO2_BASE			IOMEM(0xFA004000)	/* 4K */
-#define MSM_CLK_CTL_BASE		IOMEM(0xFA005000)	/* 4K */
-#define MSM_L2CC_BASE			IOMEM(0xFA006000)	/* 4K */
-#define MSM_QGIC_DIST_BASE		IOMEM(0xFA007000)	/* 4K */
-#define MSM_QGIC_CPU_BASE		IOMEM(0xFA008000)	/* 4K */
-#define MSM_SCU_BASE			IOMEM(0xFA009000)	/* 4K */
-#define MSM_SPM0_BASE			IOMEM(0xFA00A000)	/* 4K */
-#define MSM_SPM1_BASE			IOMEM(0xFA00B000)	/* 4K */
-#define MSM_CFG_CTL_BASE		IOMEM(0xFA00C000)	/* 4K */
-#define MSM_SHARED_RAM_BASE		IOMEM(0xFA100000)	/* 4K */
-#define MSM_MDC_BASE			IOMEM(0xFA200000)	/* 4K */
-#define MSM_AD5_BASE			IOMEM(0xFA300000)	/* 4K */
-#define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
-#define MSM8625_SECONDARY_PHYS		0x0FE00000
-#define MSM_SHARED_RAM_SIZE		SZ_1M
-
-#include "msm_iomap-7xxx.h"
-#include "msm_iomap-8625.h"
+#error "Target compiled without IO map\n"
 #endif
 
 #if defined(CONFIG_DEBUG_MSM_UART1)
