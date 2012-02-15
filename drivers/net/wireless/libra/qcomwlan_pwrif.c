@@ -72,7 +72,7 @@ int vos_chip_power_qrf8615(int on)
 	static const int vregs_qwlan_peek_current[] = {
 		4000,
 		150000,
-		200000,
+		60000,
 		0,
 		32000,
 		130000,
