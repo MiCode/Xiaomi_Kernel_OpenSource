@@ -78,8 +78,14 @@ enum pmic_arb_cmd_op_code {
 #define PMIC_ARB_MAX_PERIPHS		256
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
-#define PMIC_ARB_APID_MASK		0xFF
-#define PMIC_ARB_PPID_MASK		0xFFF
+
+#define PMIC_ARB_APID_MASK				0xFF
+#define PMIC_ARB_PPID_MASK				0xFFF
+/* extract PPID and APID from interrupt map in .dts config file format */
+#define PMIC_ARB_DEV_TRE_2_PPID(MAP_COMPRS_VAL)		\
+			((MAP_COMPRS_VAL) >> (20))
+#define PMIC_ARB_DEV_TRE_2_APID(MAP_COMPRS_VAL)		\
+			((MAP_COMPRS_VAL) &  PMIC_ARB_APID_MASK)
 
 /**
  * base - base address of the PMIC Arbiter core registers.
@@ -504,7 +510,7 @@ static int spmi_pmic_arb_get_map_data(struct platform_device *pdev,
 	int ret;
 	int map_size;
 	u32 *map_data;
-	const int map_width = 2 * sizeof(*map_data);
+	const int map_width = sizeof(*map_data);
 	const struct device_node *of_node = pdev->dev.of_node;
 
 	/* Get size of the mapping table (in bytes) */
@@ -514,8 +520,7 @@ static int spmi_pmic_arb_get_map_data(struct platform_device *pdev,
 	}
 
 	/* Map size can't exceed the maximum number of peripherals */
-	if (map_size == 0 || map_size % map_width ||
-				map_size > map_width * PMIC_ARB_MAX_PERIPHS) {
+	if (map_size == 0 || map_size > map_width * PMIC_ARB_MAX_PERIPHS) {
 		dev_err(&pdev->dev, "map size of %d is not valid\n", map_size);
 		return -ENODEV;
 	}
@@ -538,20 +543,9 @@ static int spmi_pmic_arb_get_map_data(struct platform_device *pdev,
 
 	/* Build the mapping table from the data */
 	for (i = 0; i < map_size/sizeof(u32);) {
-		u32 ppid = map_data[i++];
-		u32 apid = map_data[i++];
-
-		if (apid > PMIC_ARB_APID_MASK) {
-			ret = -ENODEV;
-			dev_err(&pdev->dev, "invalid APID: 0x%x\n", apid);
-			goto err;
-		}
-
-		if (ppid > PMIC_ARB_PPID_MASK) {
-			ret = -ENODEV;
-			dev_err(&pdev->dev, "invalid PPID: 0x%x\n", ppid);
-			goto err;
-		}
+		u32 map_compressed_val = map_data[i++];
+		u32 ppid = PMIC_ARB_DEV_TRE_2_PPID(map_compressed_val) ;
+		u32 apid = PMIC_ARB_DEV_TRE_2_APID(map_compressed_val) ;
 
 		if (pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID)
 			dev_warn(&pdev->dev, "duplicate APID 0x%x\n", apid);
