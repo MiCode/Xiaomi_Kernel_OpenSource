@@ -423,7 +423,7 @@ static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
 					RPM_VREG_VOTER3, 1800000, 1800000, 1);
 		} else {
 			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
-					RPM_VREG_VOTER3, 2200000, 2200000, 1);
+					RPM_VREG_VOTER3, 2100000, 2100000, 1);
 			if (rc)
 				return rc;
 			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
