@@ -27,6 +27,9 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
+#include <sound/snd_compress_params.h>
+#include <sound/compress_offload.h>
+#include <sound/compress_driver.h>
 
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
@@ -483,8 +486,37 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 	int rc = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
+	uint64_t timestamp;
+	uint64_t temp;
 
 	switch (cmd) {
+	case SNDRV_COMPRESS_TSTAMP: {
+		struct snd_compr_tstamp tstamp;
+		pr_debug("SNDRV_COMPRESS_TSTAMP\n");
+
+		memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
+		timestamp = q6asm_get_session_time(prtd->audio_client);
+		if (timestamp < 0) {
+			pr_err("%s: Get Session Time return value =%lld\n",
+				__func__, timestamp);
+			return -EAGAIN;
+		}
+		temp = (timestamp * 2 * runtime->channels);
+		temp = temp * (runtime->rate/1000);
+		temp = div_u64(temp, 1000);
+		tstamp.sampling_rate = runtime->rate;
+		tstamp.rendered = (size_t)(temp & 0xFFFFFFFF);
+		tstamp.decoded  = (size_t)((temp >> 32) & 0xFFFFFFFF);
+		tstamp.timestamp = timestamp;
+		pr_debug("%s: bytes_consumed:lsb = %d, msb = %d,"
+			"timestamp = %lld,\n",
+			__func__, tstamp.rendered, tstamp.decoded,
+			tstamp.timestamp);
+		if (copy_to_user((void *) arg, &tstamp,
+			sizeof(struct snd_compr_tstamp)))
+			return -EFAULT;
+		return 0;
+	}
 	case SNDRV_PCM_IOCTL1_RESET:
 		prtd->cmd_ack = 0;
 		rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
