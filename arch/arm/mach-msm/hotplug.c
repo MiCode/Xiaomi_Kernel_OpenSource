@@ -49,6 +49,9 @@ static inline void platform_do_lowpower(unsigned int cpu)
 			/*
 			 * OK, proper wakeup, we're done
 			 */
+			pen_release = -1;
+			dmac_flush_range((void *)&pen_release,
+				(void *)(&pen_release + sizeof(pen_release)));
 			break;
 		}
 
@@ -60,6 +63,8 @@ static inline void platform_do_lowpower(unsigned int cpu)
 		 * possible, since we are currently running incoherently, and
 		 * therefore cannot safely call printk() or anything else
 		 */
+		dmac_inv_range((void *)&pen_release,
+			       (void *)(&pen_release + sizeof(pen_release)));
 		pr_debug("CPU%u: spurious wakeup call\n", cpu);
 	}
 }
