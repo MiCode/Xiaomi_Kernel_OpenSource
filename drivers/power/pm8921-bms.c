@@ -1077,8 +1077,14 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 					- unusable_charge_uah;
 
 	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
-	soc = (remaining_usable_charge_uah * 100)
-		/ (fcc_uah - unusable_charge_uah);
+	if (fcc_uah - unusable_charge_uah <= 0) {
+		pr_warn("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
+						fcc_uah, unusable_charge_uah);
+		soc = 0;
+	} else {
+		soc = (remaining_usable_charge_uah * 100)
+			/ (fcc_uah - unusable_charge_uah);
+	}
 
 	if (soc > 100)
 		soc = 100;
