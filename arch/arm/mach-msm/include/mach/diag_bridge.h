@@ -19,6 +19,8 @@ struct diag_bridge_ops {
 			int buf_size, int actual);
 	void (*write_complete_cb)(void *ctxt, char *buf,
 			int buf_size, int actual);
+	int (*suspend)(void *ctxt);
+	void (*resume)(void *ctxt);
 };
 
 #if defined(CONFIG_USB_QCOM_DIAG_BRIDGE) \

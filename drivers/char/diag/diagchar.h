@@ -228,6 +228,7 @@ struct diagchar_dev {
 	int hsic_ch;
 	int hsic_device_enabled;
 	int hsic_device_opened;
+	int hsic_suspend;
 	int read_len_mdm;
 	int in_busy_hsic_read_on_mdm;
 	int in_busy_hsic_write_on_mdm;
@@ -238,6 +239,8 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_hsic_wq;
 	struct work_struct diag_read_mdm_work;
 	struct work_struct diag_read_hsic_work;
+	struct work_struct diag_disconnect_work;
+	struct work_struct diag_usb_read_complete_work;
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif

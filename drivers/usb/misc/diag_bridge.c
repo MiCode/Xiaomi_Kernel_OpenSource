@@ -82,6 +82,7 @@ static void diag_bridge_read_cb(struct urb *urb)
 			urb->status, urb->actual_length);
 
 	if (urb->status == -EPROTO) {
+		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
 		/* save error so that subsequent read/write returns ESHUTDOWN */
 		dev->err = urb->status;
 		return;
@@ -119,10 +120,17 @@ int diag_bridge_read(char *data, int size)
 	if (dev->err)
 		return -ESHUTDOWN;
 
-	urb = usb_alloc_urb(0, GFP_ATOMIC);
+	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb) {
 		dev_err(&dev->udev->dev, "unable to allocate urb\n");
 		return -ENOMEM;
+	}
+
+	ret = usb_autopm_get_interface(dev->ifc);
+	if (ret < 0) {
+		dev_err(&dev->udev->dev, "autopm_get failed:%d\n", ret);
+		usb_free_urb(urb);
+		return ret;
 	}
 
 	pipe = usb_rcvbulkpipe(dev->udev, dev->in_epAddr);
@@ -131,15 +139,17 @@ int diag_bridge_read(char *data, int size)
 	usb_anchor_urb(urb, &dev->submitted);
 	dev->pending_reads++;
 
-	ret = usb_submit_urb(urb, GFP_ATOMIC);
+	ret = usb_submit_urb(urb, GFP_KERNEL);
 	if (ret) {
 		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
 		dev->pending_reads--;
 		usb_unanchor_urb(urb);
 		usb_free_urb(urb);
+		usb_autopm_put_interface(dev->ifc);
 		return ret;
 	}
 
+	usb_autopm_put_interface(dev->ifc);
 	usb_free_urb(urb);
 
 	return 0;
@@ -153,7 +163,10 @@ static void diag_bridge_write_cb(struct urb *urb)
 
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
+	usb_autopm_put_interface_async(dev->ifc);
+
 	if (urb->status == -EPROTO) {
+		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
 		/* save error so that subsequent read/write returns ESHUTDOWN */
 		dev->err = urb->status;
 		return;
@@ -191,10 +204,17 @@ int diag_bridge_write(char *data, int size)
 	if (dev->err)
 		return -ESHUTDOWN;
 
-	urb = usb_alloc_urb(0, GFP_ATOMIC);
+	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb) {
 		err("unable to allocate urb");
 		return -ENOMEM;
+	}
+
+	ret = usb_autopm_get_interface(dev->ifc);
+	if (ret < 0) {
+		dev_err(&dev->udev->dev, "autopm_get failed:%d\n", ret);
+		usb_free_urb(urb);
+		return ret;
 	}
 
 	pipe = usb_sndbulkpipe(dev->udev, dev->out_epAddr);
@@ -203,12 +223,13 @@ int diag_bridge_write(char *data, int size)
 	usb_anchor_urb(urb, &dev->submitted);
 	dev->pending_writes++;
 
-	ret = usb_submit_urb(urb, GFP_ATOMIC);
+	ret = usb_submit_urb(urb, GFP_KERNEL);
 	if (ret) {
 		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
 		dev->pending_writes--;
 		usb_unanchor_urb(urb);
 		usb_free_urb(urb);
+		usb_autopm_put_interface(dev->ifc);
 		return ret;
 	}
 
@@ -381,6 +402,37 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 	usb_set_intfdata(ifc, NULL);
 }
 
+static int diag_bridge_suspend(struct usb_interface *ifc, pm_message_t message)
+{
+	struct diag_bridge	*dev = usb_get_intfdata(ifc);
+	struct diag_bridge_ops	*cbs = dev->ops;
+	int ret = 0;
+
+	if (cbs && cbs->suspend) {
+		ret = cbs->suspend(cbs->ctxt);
+		if (ret) {
+			dev_dbg(&dev->udev->dev,
+				"%s: diag veto'd suspend\n", __func__);
+			return ret;
+		}
+
+		usb_kill_anchored_urbs(&dev->submitted);
+	}
+
+	return ret;
+}
+
+static int diag_bridge_resume(struct usb_interface *ifc)
+{
+	struct diag_bridge	*dev = usb_get_intfdata(ifc);
+	struct diag_bridge_ops	*cbs = dev->ops;
+
+
+	if (cbs && cbs->resume)
+		cbs->resume(cbs->ctxt);
+
+	return 0;
+}
 
 #define VALID_INTERFACE_NUM	0
 static const struct usb_device_id diag_bridge_ids[] = {
@@ -401,7 +453,10 @@ static struct usb_driver diag_bridge_driver = {
 	.name =		"diag_bridge",
 	.probe =	diag_bridge_probe,
 	.disconnect =	diag_bridge_disconnect,
+	.suspend =	diag_bridge_suspend,
+	.resume =	diag_bridge_resume,
 	.id_table =	diag_bridge_ids,
+	.supports_autosuspend = 1,
 };
 
 static int __init diag_bridge_init(void)
@@ -410,8 +465,7 @@ static int __init diag_bridge_init(void)
 
 	ret = usb_register(&diag_bridge_driver);
 	if (ret) {
-		err("%s: unable to register diag driver",
-				__func__);
+		err("%s: unable to register diag driver", __func__);
 		return ret;
 	}
 

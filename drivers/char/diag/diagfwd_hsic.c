@@ -102,14 +102,16 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 						driver->write_ptr_mdm);
 		}
 	} else {
-		pr_err("DIAG in %s: actual_size: %d\n", __func__, actual_size);
+		pr_debug("%s: actual_size: %d\n", __func__, actual_size);
 	}
 
 	/*
 	 * If for some reason there was no hsic data to write to the
 	 * mdm channel, set up another read
 	 */
-	if (!driver->in_busy_hsic_write_on_mdm)
+	if (!driver->in_busy_hsic_write_on_mdm &&
+			driver->usb_mdm_connected &&
+			!driver->hsic_suspend)
 		queue_work(driver->diag_hsic_wq, &driver->diag_read_hsic_work);
 }
 
@@ -127,13 +129,34 @@ static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
 	if (actual_size < 0)
 		pr_err("DIAG in %s: actual_size: %d\n", __func__, actual_size);
 
-	queue_work(driver->diag_hsic_wq, &driver->diag_read_mdm_work);
+	if (driver->usb_mdm_connected)
+		queue_work(driver->diag_hsic_wq, &driver->diag_read_mdm_work);
+}
+
+static int diag_hsic_suspend(void *ctxt)
+{
+	if (driver->in_busy_hsic_write)
+		return -EBUSY;
+
+	driver->hsic_suspend = 1;
+
+	return 0;
+}
+
+static void diag_hsic_resume(void *ctxt)
+{
+	driver->hsic_suspend = 0;
+
+	if (!driver->in_busy_hsic_write_on_mdm && driver->usb_mdm_connected)
+		queue_work(driver->diag_hsic_wq, &driver->diag_read_hsic_work);
 }
 
 static struct diag_bridge_ops hsic_diag_bridge_ops = {
 	.ctxt = NULL,
 	.read_complete_cb = diag_hsic_read_complete_callback,
 	.write_complete_cb = diag_hsic_write_complete_callback,
+	.suspend = diag_hsic_suspend,
+	.resume = diag_hsic_resume,
 };
 
 static int diag_hsic_close(void)
@@ -177,11 +200,11 @@ static int diagfwd_connect_hsic(void)
 				pr_err("DIAG: HSIC channel open error: %d\n",
 					err);
 			} else {
-				pr_info("DIAG: opened HSIC channel\n");
+				pr_debug("DIAG: opened HSIC channel\n");
 				driver->hsic_device_opened = 1;
 			}
 		} else {
-			pr_info("DIAG: HSIC channel already open\n");
+			pr_debug("DIAG: HSIC channel already open\n");
 		}
 
 		/*
@@ -220,9 +243,7 @@ static int diagfwd_disconnect_hsic(void)
 	driver->in_busy_hsic_read = 1;
 
 	/* Turn off communication over usb mdm and hsic */
-	driver->hsic_ch = 0;
-
-	return 0;
+	return diag_hsic_close();
 }
 
 /*
@@ -311,10 +332,11 @@ static void diagfwd_hsic_notifier(void *priv, unsigned event,
 		diagfwd_connect_hsic();
 		break;
 	case USB_DIAG_DISCONNECT:
-		diagfwd_disconnect_hsic();
+		queue_work(driver->diag_hsic_wq, &driver->diag_disconnect_work);
 		break;
 	case USB_DIAG_READ_DONE:
-		diagfwd_read_complete_hsic(d_req);
+		queue_work(driver->diag_hsic_wq,
+				&driver->diag_usb_read_complete_work);
 		break;
 	case USB_DIAG_WRITE_DONE:
 		diagfwd_write_complete_hsic();
@@ -324,6 +346,16 @@ static void diagfwd_hsic_notifier(void *priv, unsigned event,
 			__func__, event);
 		break;
 	}
+}
+
+static void diag_usb_read_complete_fn(struct work_struct *w)
+{
+	diagfwd_read_complete_hsic(driver->usb_read_mdm_ptr);
+}
+
+static void diag_disconnect_work_fn(struct work_struct *w)
+{
+	diagfwd_disconnect_hsic();
 }
 
 static void diag_read_mdm_work_fn(struct work_struct *work)
@@ -380,7 +412,6 @@ int diag_hsic_enable(void)
 		sizeof(struct diag_request), GFP_KERNEL);
 	if (driver->usb_read_mdm_ptr == NULL)
 		goto err;
-	driver->diag_hsic_wq = create_singlethread_workqueue("diag_hsic_wq");
 #ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_read_mdm_work), diag_read_mdm_work_fn);
 #endif
@@ -413,23 +444,22 @@ static int diag_hsic_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* The hsic (diag_bridge) platform device driver is enabled */
-	err = diag_bridge_open(&hsic_diag_bridge_ops);
-	if (err) {
-		pr_err("DIAG could not open HSIC channel, err: %d\n", err);
-		driver->hsic_device_opened = 0;
-		return err;
-	}
-
-	pr_info("DIAG opened HSIC channel\n");
-	driver->hsic_device_opened = 1;
-
 	/*
 	 * The probe function was called after the usb was connected
 	 * on the legacy channel. Communication over usb mdm and hsic
 	 * needs to be turned on.
 	 */
-	if (driver->usb_connected) {
+	if (driver->usb_mdm_connected) {
+		/* The hsic (diag_bridge) platform device driver is enabled */
+		err = diag_bridge_open(&hsic_diag_bridge_ops);
+		if (err) {
+			pr_err("DIAG could not open HSIC, err: %d\n", err);
+			driver->hsic_device_opened = 0;
+			return err;
+		}
+
+		pr_debug("DIAG opened HSIC channel\n");
+		driver->hsic_device_opened = 1;
 		driver->hsic_ch = 1;
 		driver->in_busy_hsic_write_on_mdm = 0;
 		driver->in_busy_hsic_read_on_mdm = 0;
@@ -448,7 +478,7 @@ static int diag_hsic_probe(struct platform_device *pdev)
 
 static int diag_hsic_remove(struct platform_device *pdev)
 {
-	pr_info("DIAG: %s called\n", __func__);
+	pr_debug("DIAG: %s called\n", __func__);
 	diag_hsic_close();
 	return 0;
 }
@@ -486,6 +516,11 @@ void __init diagfwd_hsic_init(void)
 	int ret;
 
 	pr_debug("DIAG in %s\n", __func__);
+
+	driver->diag_hsic_wq = create_singlethread_workqueue("diag_hsic_wq");
+	INIT_WORK(&(driver->diag_disconnect_work), diag_disconnect_work_fn);
+	INIT_WORK(&(driver->diag_usb_read_complete_work),
+			diag_usb_read_complete_fn);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	driver->mdm_ch = usb_diag_open(DIAG_MDM, driver, diagfwd_hsic_notifier);
