@@ -17,6 +17,13 @@ internally.  Software needs the mapping between the APID and the PPID.
 Up to a maximum of 256 peripherals are supported and the mapping is target
 specific.
 
+Data format of pmic-arb-ppid-map:
+<0x13100001>
+value is 32 bit.
+MSB 12 bits are the PPID
+12 bits padding
+LSB 8 bit are the APID
+
 Example:
 
 	qcom,spmi@fc4c0000 {
@@ -27,6 +34,8 @@ Example:
 		interrupts = <0>;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x130 0x00>, /* PPID 0x130, APID 0 */
-					 <0x131 0x01>; /* PPID 0x131, APID 1 */
+		qcom,pmic-arb-ppid-map = <0x13000000>, /* PPID 0x130, APID 0 */
+					 <0x13100001>, /* PPID 0x131, APID 1 */
 	};
+
+
