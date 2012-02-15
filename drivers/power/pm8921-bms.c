@@ -1565,11 +1565,13 @@ static int64_t read_battery_id(struct pm8921_bms_chip *chip)
 	}
 	pr_debug("batt_id phy = %lld meas = 0x%llx\n", result.physical,
 						result.measurement);
-	return result.physical;
+	return result.adc_code;
 }
 
-#define PALLADIUM_ID_MIN  2500
-#define PALLADIUM_ID_MAX  4000
+#define PALLADIUM_ID_MIN	0x7F40
+#define PALLADIUM_ID_MAX	0x7F5A
+#define DESAY_5200_ID_MIN	0x7F7F
+#define DESAY_5200_ID_MAX	0x802F
 static int set_battery_data(struct pm8921_bms_chip *chip)
 {
 	int64_t battery_id;
@@ -1588,8 +1590,17 @@ static int set_battery_data(struct pm8921_bms_chip *chip)
 		chip->pc_temp_ocv_lut = palladium_1500_data.pc_temp_ocv_lut;
 		chip->pc_sf_lut = palladium_1500_data.pc_sf_lut;
 		return 0;
+	} else if (is_between(DESAY_5200_ID_MIN, DESAY_5200_ID_MAX,
+				battery_id)) {
+		chip->fcc = desay_5200_data.fcc;
+		chip->fcc_temp_lut = desay_5200_data.fcc_temp_lut;
+		chip->fcc_sf_lut = desay_5200_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = desay_5200_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = desay_5200_data.pc_sf_lut;
+		return 0;
 	} else {
-		pr_warn("invalid battery id, palladium 1500 assumed\n");
+		pr_warn("invalid battery id, palladium 1500 assumed batt_id %llx\n",
+				battery_id);
 		chip->fcc = palladium_1500_data.fcc;
 		chip->fcc_temp_lut = palladium_1500_data.fcc_temp_lut;
 		chip->fcc_sf_lut = palladium_1500_data.fcc_sf_lut;
