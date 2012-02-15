@@ -239,6 +239,12 @@ static struct mfd_cell tabla_devs[] = {
 	},
 };
 
+static struct mfd_cell sitar_devs[] = {
+	{
+		.name = "sitar_codec",
+	},
+};
+
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
 {
 	wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_LEAKAGE_CTL, 0x4);
@@ -322,14 +328,22 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 			WCD9XXX_A_CHIP_VERSION) & 0x1F;
 	pr_info("%s : Codec version %u initialized\n",
 		__func__, wcd9xxx->version);
+	pr_info("idbyte_0[%08x] idbyte_1[%08x] idbyte_2[%08x] idbyte_3[%08x]\n",
+			idbyte_0, idbyte_1, idbyte_2, idbyte_3);
 
-	if (TABLA_IS_1_X(wcd9xxx->version)) {
-		wcd9xxx_dev = tabla1x_devs;
-		wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
+	if (!strncmp(wcd9xxx->slim->name, "tabla", 5)) {
+		if (TABLA_IS_1_X(wcd9xxx->version)) {
+			wcd9xxx_dev = tabla1x_devs;
+			wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
+		} else {
+			wcd9xxx_dev = tabla_devs;
+			wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
+		}
 	} else {
-		wcd9xxx_dev = tabla_devs;
-		wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
+		wcd9xxx_dev = sitar_devs;
+		wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 	}
+
 	ret = mfd_add_devices(wcd9xxx->dev, -1,
 		      wcd9xxx_dev, wcd9xxx_dev_size,
 		      NULL, 0);
@@ -704,6 +718,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		ret = -EIO;
 		goto fail;
 	}
+	dev_set_drvdata(&client->dev, wcd9xxx);
 	wcd9xxx->dev = &client->dev;
 	wcd9xxx->reset_gpio = pdata->reset_gpio;
 
@@ -862,12 +877,6 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
 	}
-/*
-	if (!strncmp(wcd9xxx->slim->name, "tabla", 5)) {
-		wcd9xxx->num_rx_port = 7;
-		wcd9xxx->num_tx_port = 10;
-	}
-*/
 	wcd9xxx_init_slimslave(wcd9xxx, wcd9xxx_pgd_la);
 #ifdef CONFIG_DEBUG_FS
 	debugCodec = wcd9xxx;
@@ -944,7 +953,10 @@ static int wcd9xxx_slim_resume(struct slim_device *sldev)
 static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
-	return wcd9xxx_resume(wcd9xxx);
+	if (wcd9xxx)
+		return wcd9xxx_resume(wcd9xxx);
+	else
+		return 0;
 }
 
 static int wcd9xxx_suspend(struct wcd9xxx *wcd9xxx, pm_message_t pmesg)
@@ -998,8 +1010,27 @@ static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 static int wcd9xxx_i2c_suspend(struct i2c_client *i2cdev, pm_message_t pmesg)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
-	return wcd9xxx_suspend(wcd9xxx, pmesg);
+	if (wcd9xxx)
+		return wcd9xxx_suspend(wcd9xxx, pmesg);
+	else
+		return 0;
 }
+
+static const struct slim_device_id sitar_slimtest_id[] = {
+	{"sitar-slim", 0},
+	{}
+};
+static struct slim_driver sitar_slim_driver = {
+	.driver = {
+		.name = "sitar-slim",
+		.owner = THIS_MODULE,
+	},
+	.probe = wcd9xxx_slim_probe,
+	.remove = wcd9xxx_slim_remove,
+	.id_table = sitar_slimtest_id,
+	.resume = wcd9xxx_slim_resume,
+	.suspend = wcd9xxx_slim_suspend,
+};
 
 static const struct slim_device_id slimtest_id[] = {
 	{"tabla-slim", 0},
@@ -1063,7 +1094,7 @@ static struct i2c_driver tabla_i2c_driver = {
 
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3;
+	int ret1, ret2, ret3, ret4;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1077,7 +1108,11 @@ static int __init wcd9xxx_init(void)
 	if (ret3 != 0)
 		pr_err("failed to add the I2C driver\n");
 
-	return (ret1 && ret2 && ret3) ? -1 : 0;
+	ret4 = slim_driver_register(&sitar_slim_driver);
+	if (ret1 != 0)
+		pr_err("Failed to register sitar SB driver: %d\n", ret4);
+
+	return (ret1 && ret2 && ret3 && ret4) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 

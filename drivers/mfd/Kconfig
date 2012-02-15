@@ -879,6 +879,16 @@ config MFD_PM8XXX_BATT_ALARM
 	  voltage leaves the accepatable range which then calls a notifier call
 	  chain.
 
+config WCD9304_CODEC
+        tristate "WCD9304 Codec"
+        select SLIMBUS
+        select MFD_CORE
+        default n
+        help
+          Enables the WCD9304 core driver. The core driver provides
+          read/write capability to registers which are part of the
+          WCD9304 core and gives the ability to use the WCD9304 codec.
+
 config WCD9310_CODEC
         tristate "WCD9310 Codec"
         select SLIMBUS
