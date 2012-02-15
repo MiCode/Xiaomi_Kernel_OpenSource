@@ -2024,8 +2024,8 @@ struct video_client_ctx *vid_dec_open_client(void)
 	}
 
 	client_index = vid_dec_get_empty_client_index();
-	if (client_index == -1) {
-		ERR("%s() : No free clients client_index == -1\n", __func__);
+	if (client_index < 0) {
+		ERR("%s() : No free clients client_index < 0\n", __func__);
 		goto client_failure;
 	}
 	client_ctx = &vid_dec_device_p->vdec_clients[client_index];
