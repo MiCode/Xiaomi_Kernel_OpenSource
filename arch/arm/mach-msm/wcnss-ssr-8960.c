@@ -122,9 +122,13 @@ static int riva_powerup(const struct subsys_data *subsys)
 	if (pdev && pwlanconfig)
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_ON);
-	if (!ret)
+	/* delay PIL operation, this SSR may be happening soon after kernel
+	 * resumes because of a SMSM RESET by Riva when APPS was suspended.
+	 * PIL fails to locate the images without this delay */
+	if (!ret) {
+		msleep(1000);
 		pil_force_boot("wcnss");
-
+	}
 	ss_restart_inprogress = false;
 	enable_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
 
