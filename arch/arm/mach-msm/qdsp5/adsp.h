@@ -118,6 +118,9 @@ struct adsp_info {
 	wait_queue_head_t	init_info_wait;
 	unsigned 		init_info_state;
 	struct mutex lock;
+
+	/* Interrupt value */
+	int int_adsp;
 };
 
 #define RPC_ADSP_RTOS_ATOM_NULL_PROC 0
