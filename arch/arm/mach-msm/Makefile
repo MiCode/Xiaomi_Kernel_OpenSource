@@ -38,7 +38,12 @@ ifdef CONFIG_ARCH_QSD8X50
 	obj-$(CONFIG_MSM_SOC_REV_NONE) += acpuclock-8x50.o
 endif
 
-obj-$(CONFIG_SMP) += headsmp.o platsmp.o
+obj-$(CONFIG_SMP) += headsmp.o
+ifdef CONFIG_ARCH_MSM8625
+	obj-$(CONFIG_SMP) += platsmp-8625.o
+else
+	obj-$(CONFIG_SMP) += platsmp.o
+endif
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 
 obj-$(CONFIG_MSM_CPU_AVS) += avs.o
