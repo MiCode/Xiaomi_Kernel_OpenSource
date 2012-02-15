@@ -34,6 +34,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/map.h>
+#include <linux/mtd/partitions.h>
 
 #include <asm/uaccess.h>
 
@@ -904,6 +905,9 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 
 	case ECCGETSTATS:
 	{
+#ifdef CONFIG_MTD_LAZYECCSTATS
+		part_fill_badblockstats(mtd);
+#endif
 		if (copy_to_user(argp, &mtd->ecc_stats,
 				 sizeof(struct mtd_ecc_stats)))
 			return -EFAULT;

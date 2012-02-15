@@ -49,6 +49,8 @@ struct mtd_partition {
 
 struct mtd_info;
 
+void part_fill_badblockstats(struct mtd_info *mtd);
+
 /*
  * Functions dealing with the various ways of partitioning the space
  */
