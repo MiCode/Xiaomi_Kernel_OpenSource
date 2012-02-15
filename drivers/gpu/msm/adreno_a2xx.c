@@ -1521,8 +1521,8 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
 	cmds[3] = device->memstore.gpuaddr +
-		KGSL_DEVICE_MEMSTORE_OFFSET(current_context);
-	cmds[4] = (unsigned int) context;
+		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
+	cmds[4] = context->id;
 	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE, cmds, 5);
 	kgsl_mmu_setstate(device, context->pagetable);
 
@@ -1648,11 +1648,18 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 
 	if (status & CP_INT_CNTL__RB_INT_MASK) {
 		/* signal intr completion event */
-		unsigned int enableflag = 0;
-		kgsl_sharedmem_writel(&rb->device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable),
-			enableflag);
-		wmb();
+		unsigned int context_id;
+		kgsl_sharedmem_readl(&device->memstore,
+				&context_id,
+				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+					current_context));
+		if (context_id < KGSL_MEMSTORE_MAX) {
+			kgsl_sharedmem_writel(&rb->device->memstore,
+					KGSL_MEMSTORE_OFFSET(context_id,
+						ts_cmp_enable), 0);
+			device->last_expired_ctxt_id = context_id;
+			wmb();
+		}
 		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
 	}
 
@@ -1865,7 +1872,6 @@ static void a2xx_gmeminit(struct adreno_device *adreno_dev)
 static void a2xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	int init_reftimestamp = 0x7fffffff;
 
 	/*
 	 * We need to make sure all blocks are powered up and clocked
@@ -1916,12 +1922,6 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
 	else
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
-
-	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
-
-	kgsl_sharedmem_writel(&device->memstore,
-			      KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
-			      init_reftimestamp);
 
 	adreno_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
 
