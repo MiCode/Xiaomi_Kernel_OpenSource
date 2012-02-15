@@ -1258,4 +1258,8 @@ struct img_plane_info {
 	uint8_t vpe_can_use;
 };
 
+#define QCAMERA_NAME "qcamera"
+#define QCAMERA_DEVICE_GROUP_ID 1
+#define QCAMERA_VNODE_GROUP_ID 2
+
 #endif /* __LINUX_MSM_CAMERA_H */

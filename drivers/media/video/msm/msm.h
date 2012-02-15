@@ -218,6 +218,8 @@ struct msm_cam_media_controller {
 	/* most-frequently accessed manager object*/
 	struct msm_sync sync;
 
+	/*Media device node*/
+	struct media_device media_dev;
 
 	/* the following reflect the HW topology information*/
 	/*mandatory*/
