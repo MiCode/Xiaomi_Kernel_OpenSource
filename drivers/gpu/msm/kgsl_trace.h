@@ -76,25 +76,30 @@ TRACE_EVENT(kgsl_issueibcmds,
 TRACE_EVENT(kgsl_readtimestamp,
 
 	TP_PROTO(struct kgsl_device *device,
-			struct kgsl_cmdstream_readtimestamp *cmd),
+			unsigned int context_id,
+			unsigned int type,
+			unsigned int timestamp),
 
-	TP_ARGS(device, cmd),
+	TP_ARGS(device, context_id, type, timestamp),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
+		__field(unsigned int, context_id)
 		__field(unsigned int, type)
 		__field(unsigned int, timestamp)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
-		__entry->type = cmd->type;
-		__entry->timestamp = cmd->timestamp;
+		__entry->context_id = context_id;
+		__entry->type = type;
+		__entry->timestamp = timestamp;
 	),
 
 	TP_printk(
-		"d_name=%s type=%u timestamp=%u",
+		"d_name=%s context_id=%u type=%u timestamp=%u",
 		__get_str(device_name),
+		__entry->context_id,
 		__entry->type,
 		__entry->timestamp
 	)
@@ -106,25 +111,30 @@ TRACE_EVENT(kgsl_readtimestamp,
 TRACE_EVENT(kgsl_waittimestamp_entry,
 
 	TP_PROTO(struct kgsl_device *device,
-			struct kgsl_device_waittimestamp *cmd),
+			unsigned int context_id,
+			unsigned int timestamp,
+			unsigned int timeout),
 
-	TP_ARGS(device, cmd),
+	TP_ARGS(device, context_id, timestamp, timeout),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
+		__field(unsigned int, context_id)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, timeout)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
-		__entry->timestamp = cmd->timestamp;
-		__entry->timeout = cmd->timeout;
+		__entry->context_id = context_id;
+		__entry->timestamp = timestamp;
+		__entry->timeout = timeout;
 	),
 
 	TP_printk(
-		"d_name=%s timestamp=%u timeout=%u",
+		"d_name=%s context_id=%u timestamp=%u timeout=%u",
 		__get_str(device_name),
+		__entry->context_id,
 		__entry->timestamp,
 		__entry->timeout
 	)
@@ -333,9 +343,10 @@ TRACE_EVENT(kgsl_mem_free,
 
 DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
+		unsigned int curr_ts),
 
-	TP_ARGS(mem_entry, curr_ts),
+	TP_ARGS(mem_entry, id, curr_ts),
 
 	TP_STRUCT__entry(
 		__field(unsigned int, gpuaddr)
@@ -349,7 +360,7 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 	TP_fast_assign(
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
-		__entry->drawctxt_id = 1337;
+		__entry->drawctxt_id = id;
 		__entry->type = mem_entry->memtype;
 		__entry->curr_ts = curr_ts;
 		__entry->free_ts = mem_entry->free_timestamp;
@@ -363,13 +374,15 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 );
 
 DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_queue,
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
-	TP_ARGS(mem_entry, curr_ts)
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
+		unsigned int curr_ts),
+	TP_ARGS(mem_entry, id, curr_ts)
 );
 
 DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_free,
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
-	TP_ARGS(mem_entry, curr_ts)
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
+		unsigned int curr_ts),
+	TP_ARGS(mem_entry, id, curr_ts)
 );
 
 

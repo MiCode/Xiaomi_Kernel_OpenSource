@@ -1397,7 +1397,7 @@ kgsl_gem_unlock_on_ts_ioctl(struct drm_device *dev, void *data,
 	}
 
 	device = kgsl_get_device(ts_device);
-	ts_done = kgsl_check_timestamp(device, args->timestamp);
+	ts_done = kgsl_check_timestamp(device, NULL, args->timestamp);
 
 	mutex_lock(&dev->struct_mutex);
 

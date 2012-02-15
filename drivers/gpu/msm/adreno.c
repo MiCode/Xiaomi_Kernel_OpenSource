@@ -610,13 +610,13 @@ adreno_recover_hang(struct kgsl_device *device)
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int timestamp;
 	unsigned int num_rb_contents;
-	unsigned int bad_context;
 	unsigned int reftimestamp;
 	unsigned int enable_ts;
 	unsigned int soptimestamp;
 	unsigned int eoptimestamp;
-	struct adreno_context *drawctxt;
+	unsigned int context_id;
 	struct kgsl_context *context;
+	struct adreno_context *adreno_context;
 	int next = 0;
 
 	KGSL_DRV_ERR(device, "Starting recovery from 3D GPU hang....\n");
@@ -632,22 +632,35 @@ adreno_recover_hang(struct kgsl_device *device)
 	ret = adreno_ringbuffer_extract(rb, rb_buffer, &num_rb_contents);
 	if (ret)
 		goto done;
-	timestamp = rb->timestamp;
-	KGSL_DRV_ERR(device, "Last issued timestamp: %x\n", timestamp);
-	kgsl_sharedmem_readl(&device->memstore, &bad_context,
-				KGSL_DEVICE_MEMSTORE_OFFSET(current_context));
+	kgsl_sharedmem_readl(&device->memstore, &context_id,
+				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+					current_context));
+	context = idr_find(&device->context_idr, context_id);
+	if (context == NULL) {
+		KGSL_DRV_ERR(device, "Last context unknown id:%d\n",
+				context_id);
+		context_id = KGSL_MEMSTORE_GLOBAL;
+	}
+
+	timestamp = rb->timestamp[KGSL_MEMSTORE_GLOBAL];
+	KGSL_DRV_ERR(device, "Last issued global timestamp: %x\n", timestamp);
+
 	kgsl_sharedmem_readl(&device->memstore, &reftimestamp,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts));
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ref_wait_ts));
 	kgsl_sharedmem_readl(&device->memstore, &enable_ts,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable));
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ts_cmp_enable));
 	kgsl_sharedmem_readl(&device->memstore, &soptimestamp,
-				KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp));
+				KGSL_MEMSTORE_OFFSET(context_id,
+					soptimestamp));
 	kgsl_sharedmem_readl(&device->memstore, &eoptimestamp,
-				KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp));
+				KGSL_MEMSTORE_OFFSET(context_id,
+					eoptimestamp));
 	/* Make sure memory is synchronized before restarting the GPU */
 	mb();
 	KGSL_CTXT_ERR(device,
-		"Context that caused a GPU hang: %x\n", bad_context);
+		"Context id that caused a GPU hang: %d\n", context_id);
 	/* restart device */
 	ret = adreno_stop(device);
 	if (ret)
@@ -658,20 +671,20 @@ adreno_recover_hang(struct kgsl_device *device)
 	KGSL_DRV_ERR(device, "Device has been restarted after hang\n");
 	/* Restore timestamp states */
 	kgsl_sharedmem_writel(&device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp),
+			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp),
 			soptimestamp);
 	kgsl_sharedmem_writel(&device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp),
+			KGSL_MEMSTORE_OFFSET(context_id, eoptimestamp),
 			eoptimestamp);
 	kgsl_sharedmem_writel(&device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp),
+			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp),
 			soptimestamp);
 	if (num_rb_contents) {
 		kgsl_sharedmem_writel(&device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
+			KGSL_MEMSTORE_OFFSET(context_id, ref_wait_ts),
 			reftimestamp);
 		kgsl_sharedmem_writel(&device->memstore,
-			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable),
+			KGSL_MEMSTORE_OFFSET(context_id, ts_cmp_enable),
 			enable_ts);
 	}
 	/* Make sure all writes are posted before the GPU reads them */
@@ -679,12 +692,12 @@ adreno_recover_hang(struct kgsl_device *device)
 	/* Mark the invalid context so no more commands are accepted from
 	 * that context */
 
-	drawctxt = (struct adreno_context *) bad_context;
+	adreno_context = context->devctxt;
 
 	KGSL_CTXT_ERR(device,
-		"Context that caused a GPU hang: %x\n", bad_context);
+		"Context that caused a GPU hang: %d\n", adreno_context->id);
 
-	drawctxt->flags |= CTXT_FLAGS_GPU_HANG;
+	adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
 
 	/*
 	 * Set the reset status of all contexts to
@@ -694,7 +707,7 @@ adreno_recover_hang(struct kgsl_device *device)
 	while ((context = idr_get_next(&device->context_idr, &next))) {
 		if (KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT !=
 			context->reset_status) {
-			if (context->devctxt != drawctxt)
+			if (context->id != context_id)
 				context->reset_status =
 				KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
 			else
@@ -706,7 +719,7 @@ adreno_recover_hang(struct kgsl_device *device)
 
 	/* Restore valid commands in ringbuffer */
 	adreno_ringbuffer_restore(rb, rb_buffer, num_rb_contents);
-	rb->timestamp = timestamp;
+	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = timestamp;
 done:
 	vfree(rb_buffer);
 	return ret;
@@ -807,7 +820,8 @@ static int adreno_getproperty(struct kgsl_device *device,
 				shadowprop.size = device->memstore.size;
 				/* GSL needs this to be set, even if it
 				   appears to be meaningless */
-				shadowprop.flags = KGSL_FLAGS_INITIALIZED;
+				shadowprop.flags = KGSL_FLAGS_INITIALIZED |
+					KGSL_FLAGS_PER_CONTEXT_TIMESTAMPS;
 			}
 			if (copy_to_user(value, &shadowprop,
 				sizeof(shadowprop))) {
@@ -1075,38 +1089,58 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 	__raw_writel(value, reg);
 }
 
+static unsigned int _get_context_id(struct kgsl_context *k_ctxt)
+{
+	unsigned int context_id = KGSL_MEMSTORE_GLOBAL;
+
+	if (k_ctxt != NULL) {
+		struct adreno_context *a_ctxt = k_ctxt->devctxt;
+		/*
+		 * if the context was not created with per context timestamp
+		 * support, we must use the global timestamp since issueibcmds
+		 * will be returning that one.
+		 */
+		if (a_ctxt->flags & CTXT_FLAGS_PER_CONTEXT_TS)
+			context_id = a_ctxt->id;
+	}
+
+	return context_id;
+}
+
 static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
-					unsigned int timestamp)
+		struct kgsl_context *context, unsigned int timestamp)
 {
 	int status;
 	unsigned int ref_ts, enableflag;
+	unsigned int context_id = _get_context_id(context);
 
-	status = kgsl_check_timestamp(device, timestamp);
+	status = kgsl_check_timestamp(device, context, timestamp);
 	if (!status) {
 		mutex_lock(&device->mutex);
 		kgsl_sharedmem_readl(&device->memstore, &enableflag,
-			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable));
+			KGSL_MEMSTORE_OFFSET(context_id, ts_cmp_enable));
 		mb();
 
 		if (enableflag) {
 			kgsl_sharedmem_readl(&device->memstore, &ref_ts,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts));
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ref_wait_ts));
 			mb();
 			if (timestamp_cmp(ref_ts, timestamp) >= 0) {
 				kgsl_sharedmem_writel(&device->memstore,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
-				timestamp);
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ref_wait_ts), timestamp);
 				wmb();
 			}
 		} else {
 			unsigned int cmds[2];
 			kgsl_sharedmem_writel(&device->memstore,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
-				timestamp);
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ref_wait_ts), timestamp);
 			enableflag = 1;
 			kgsl_sharedmem_writel(&device->memstore,
-				KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable),
-				enableflag);
+				KGSL_MEMSTORE_OFFSET(context_id,
+					ts_cmp_enable), enableflag);
 			wmb();
 			/* submit a dummy packet so that even if all
 			* commands upto timestamp get executed we will still
@@ -1140,6 +1174,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 
 /* MUST be called with the device mutex held */
 static int adreno_waittimestamp(struct kgsl_device *device,
+				struct kgsl_context *context,
 				unsigned int timestamp,
 				unsigned int msecs)
 {
@@ -1151,15 +1186,19 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	int retries;
 	unsigned int msecs_first;
 	unsigned int msecs_part;
+	unsigned int ts_issued;
+	unsigned int context_id = _get_context_id(context);
+
+	ts_issued = adreno_dev->ringbuffer.timestamp[context_id];
 
 	/* Don't wait forever, set a max value for now */
 	if (msecs == -1)
 		msecs = adreno_dev->wait_timeout;
 
-	if (timestamp_cmp(timestamp, adreno_dev->ringbuffer.timestamp) > 0) {
-		KGSL_DRV_ERR(device, "Cannot wait for invalid ts: %x, "
-			"rb->timestamp: %x\n",
-			timestamp, adreno_dev->ringbuffer.timestamp);
+	if (timestamp_cmp(timestamp, ts_issued) > 0) {
+		KGSL_DRV_ERR(device, "Cannot wait for invalid ts <%d:0x%x>, "
+			"last issued ts <%d:0x%x>\n",
+			context_id, timestamp, context_id, ts_issued);
 		status = -EINVAL;
 		goto done;
 	}
@@ -1171,7 +1210,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
 	msecs_part = (msecs - msecs_first + 3) / 4;
 	for (retries = 0; retries < 5; retries++) {
-		if (kgsl_check_timestamp(device, timestamp)) {
+		if (kgsl_check_timestamp(device, context, timestamp)) {
 			/* if the timestamp happens while we're not
 			 * waiting, there's a chance that an interrupt
 			 * will not be generated and thus the timestamp
@@ -1193,7 +1232,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		status = kgsl_wait_event_interruptible_timeout(
 				device->wait_queue,
 				kgsl_check_interrupt_timestamp(device,
-					timestamp),
+					context, timestamp),
 				msecs_to_jiffies(retries ?
 					msecs_part : msecs_first), io);
 		mutex_lock(&device->mutex);
@@ -1210,9 +1249,10 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	}
 	status = -ETIMEDOUT;
 	KGSL_DRV_ERR(device,
-		     "Device hang detected while waiting for timestamp: %x,"
-		      "last submitted(rb->timestamp): %x, wptr: %x\n",
-		      timestamp, adreno_dev->ringbuffer.timestamp,
+		     "Device hang detected while waiting for timestamp: "
+		     "<%d:0x%x>, last submitted timestamp: <%d:0x%x>, "
+		     "wptr: 0x%x\n",
+		      context_id, timestamp, context_id, ts_issued,
 		      adreno_dev->ringbuffer.wptr);
 	if (!adreno_dump_and_recover(device)) {
 		/* wait for idle after recovery as the
@@ -1226,15 +1266,17 @@ done:
 }
 
 static unsigned int adreno_readtimestamp(struct kgsl_device *device,
-			     enum kgsl_timestamp_type type)
+		struct kgsl_context *context, enum kgsl_timestamp_type type)
 {
 	unsigned int timestamp = 0;
+	unsigned int context_id = _get_context_id(context);
 
 	if (type == KGSL_TIMESTAMP_CONSUMED)
 		adreno_regread(device, REG_CP_TIMESTAMP, &timestamp);
 	else if (type == KGSL_TIMESTAMP_RETIRED)
 		kgsl_sharedmem_readl(&device->memstore, &timestamp,
-				 KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp));
+				 KGSL_MEMSTORE_OFFSET(context_id,
+					 eoptimestamp));
 	rmb();
 
 	return timestamp;
