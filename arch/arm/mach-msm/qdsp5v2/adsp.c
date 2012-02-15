@@ -2,7 +2,7 @@
  * Register/Interrupt access for userspace aDSP library.
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2009,2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009,2011-2012 Code Aurora Forum. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -45,8 +45,6 @@ static struct dentry *dentry_wdata;
 static struct dentry *dentry_rdata;
 static int wdump, rdump;
 #endif /* CONFIG_DEBUG_FS */
-
-#define INT_ADSP INT_ADSP_A9_A11
 
 static struct adsp_info adsp_info;
 static struct msm_adsp_module *adsp_modules;
@@ -889,7 +887,7 @@ int msm_adsp_enable(struct msm_adsp_module *module)
 
 		mutex_lock(&adsp_open_lock);
 		if (adsp_open_count++ == 0)
-			enable_irq(INT_ADSP);
+			enable_irq(adsp_info.int_adsp);
 		mutex_unlock(&adsp_open_lock);
 		break;
 	case ADSP_STATE_ENABLING:
@@ -944,7 +942,7 @@ int msm_adsp_disable(struct msm_adsp_module *module)
 		mutex_unlock(&module->lock);
 		mutex_lock(&adsp_open_lock);
 		if (--adsp_open_count == 0) {
-			disable_irq(INT_ADSP);
+			disable_irq(adsp_info.int_adsp);
 			MM_INFO("disable interrupt\n");
 		}
 		mutex_unlock(&adsp_open_lock);
@@ -958,6 +956,12 @@ static int msm_adsp_probe(struct platform_device *pdev)
 {
 	unsigned count;
 	int rc, i;
+
+	adsp_info.int_adsp = platform_get_irq(pdev, 0);
+	if (adsp_info.int_adsp < 0) {
+		MM_ERR("no irq resource?\n");
+		return -ENODEV;
+	}
 
 	adsp_info.init_info_ptr = kzalloc(
 		(sizeof(struct adsp_rtos_mp_mtoa_init_info_type)), GFP_KERNEL);
@@ -996,11 +1000,11 @@ static int msm_adsp_probe(struct platform_device *pdev)
 	spin_lock_init(&adsp_cmd_lock);
 	spin_lock_init(&adsp_write_lock);
 
-	rc = request_irq(INT_ADSP, adsp_irq_handler,
+	rc = request_irq(adsp_info.int_adsp, adsp_irq_handler,
 			IRQF_TRIGGER_RISING, "adsp", 0);
 	if (rc < 0)
 		goto fail_request_irq;
-	disable_irq(INT_ADSP);
+	disable_irq(adsp_info.int_adsp);
 
 	for (i = 0; i < count; i++) {
 		struct msm_adsp_module *mod = adsp_modules + i;
@@ -1056,8 +1060,8 @@ fail_allocate_cb:
 	daldevice_detach(adsp_info.handle);
 	adsp_info.handle = NULL;
 fail_dal_attach:
-	enable_irq(INT_ADSP);
-	free_irq(INT_ADSP, 0);
+	enable_irq(adsp_info.int_adsp);
+	free_irq(adsp_info.int_adsp, 0);
 fail_request_irq:
 	kfree(adsp_modules);
 	kfree(adsp_info.init_info_ptr);
@@ -1187,11 +1191,6 @@ static struct platform_driver msm_adsp_driver = {
 	},
 };
 
-struct platform_device msm_adsp_device = {
-	.name = "msm_adsp",
-	.id = -1,
-};
-
 static char msm_adsp_driver_name[] = "msm_adsp";
 
 #ifdef CONFIG_DEBUG_FS
@@ -1218,7 +1217,6 @@ static int __init adsp_init(void)
 #endif /* CONFIG_DEBUG_FS */
 
 	msm_adsp_driver.driver.name = msm_adsp_driver_name;
-	rc = platform_device_register(&msm_adsp_device);
 	rc = platform_driver_register(&msm_adsp_driver);
 	MM_INFO("%s -- %d\n", msm_adsp_driver_name, rc);
 	return rc;
