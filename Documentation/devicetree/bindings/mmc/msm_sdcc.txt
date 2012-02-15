@@ -24,13 +24,13 @@ Optional Properties:
 
 Example:
 
-	qcom,sdcc@F9600000 {
+	qcom,sdcc@f9600000 {
 	/* SDC1 used as eMMC slot */
 	cell-index = <1>;
 	compatible = "qcom,msm-sdcc";
-	reg = <0xF9600000 0x800   // SDCC register interface
-		0xF9600800 0x1800  // DML register interface
-		0xF9602000 0x2000> // BAM register interface
+	reg = <0xf9600000 0x800   // SDCC register interface
+		0xf9600800 0x1800  // DML register interface
+		0xf9602000 0x2000> // BAM register interface
 
 	interrupts = <123>;
 	qcom,sdcc-clk-rates = <400000 24000000 48000000>;
