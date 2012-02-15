@@ -128,6 +128,7 @@ struct diagchar_dev {
 	struct diag_client_map *client_map;
 	int *data_ready;
 	int num_clients;
+	int polling_reg_flag;
 	struct diag_write_device *buf_tbl;
 
 	/* Memory pool parameters */

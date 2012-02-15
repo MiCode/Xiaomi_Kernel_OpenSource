@@ -891,8 +891,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	/* Check for polling for Apps only DIAG */
 	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
 		(*(buf+2) == 0x03)) {
-		/* If there is NO MODEM present */
-		if (!(driver->ch)) {
+		/* If no one has registered for polling */
+		if (!(driver->polling_reg_flag)) {
 			/* Respond to polling for Apps only DIAG */
 			for (i = 0; i < 3; i++)
 				driver->apps_rsp_buf[i] = *(buf+i);
@@ -901,13 +901,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 
 			ENCODE_RSP_AND_SEND(15);
 			return 0;
-		} else {
-			/* Since Modem is present, send error response */
-			return 1;
 		}
 	}
 	 /* Check for ID for NO MODEM present */
-	else if (!(driver->ch)) {
+	else if (!(driver->polling_reg_flag)) {
 		/* respond to 0x0 command */
 		if (*buf == 0x00) {
 			for (i = 0; i < 55; i++)
