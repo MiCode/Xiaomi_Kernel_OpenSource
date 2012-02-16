@@ -4,7 +4,7 @@
  *  FM HCI_SMD ( FM HCI Shared Memory Driver) is Qualcomm's Shared memory driver
  *  for the HCI protocol. This file is based on drivers/bluetooth/hci_vhci.c
  *
- *  Copyright (c) 2000-2001, 2011 Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2000-2001, 2011-2012 Code Aurora Forum. All rights reserved.
  *
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2006  Marcel Holtmann <marcel@holtmann.org>
@@ -25,6 +25,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/skbuff.h>
+#include <linux/workqueue.h>
 #include <mach/msm_smd.h>
 #include <media/radio-iris.h>
 
@@ -34,6 +35,8 @@ struct radio_data {
 	struct smd_channel  *fm_channel;
 };
 struct radio_data hs;
+
+static struct work_struct *reset_worker;
 
 static void radio_hci_smd_destruct(struct radio_hci_dev *hdev)
 {
@@ -92,6 +95,30 @@ static int radio_hci_smd_send_frame(struct sk_buff *skb)
 	return 0;
 }
 
+
+static void send_disable_event(struct work_struct *worker)
+{
+	struct sk_buff *skb;
+	unsigned char buf[6] = { 0x0f, 0x04, 0x01, 0x02, 0x4c, 0x00 };
+	int len = sizeof(buf);
+
+	skb = alloc_skb(len, GFP_ATOMIC);
+	if (!skb) {
+		FMDERR("Memory not allocated for the socket");
+		return;
+	}
+
+	FMDERR("FM INSERT DISABLE Rx Event");
+
+	memcpy(skb_put(skb, len), buf, len);
+
+	skb_orphan(skb);
+	skb->dev = (struct net_device   *)hs.hdev;
+
+	radio_hci_recv_frame(skb);
+	kfree(worker);
+}
+
 static void radio_hci_smd_notify_cmd(void *data, unsigned int event)
 {
 	struct radio_hci_dev *hdev = hs.hdev;
@@ -106,7 +133,15 @@ static void radio_hci_smd_notify_cmd(void *data, unsigned int event)
 		tasklet_schedule(&hs.rx_task);
 		break;
 	case SMD_EVENT_OPEN:
+		break;
 	case SMD_EVENT_CLOSE:
+		reset_worker = kzalloc(sizeof(*reset_worker), GFP_ATOMIC);
+		if (!reset_worker) {
+			FMDERR("Out of memory");
+			break;
+		}
+		INIT_WORK(reset_worker, send_disable_event);
+		schedule_work(reset_worker);
 		break;
 	default:
 		break;
