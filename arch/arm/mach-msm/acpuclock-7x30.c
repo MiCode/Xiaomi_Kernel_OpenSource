@@ -34,8 +34,8 @@
 #include "acpuclock.h"
 #include "spm.h"
 
-#define SCSS_CLK_CTL_ADDR	(MSM_ACC_BASE + 0x04)
-#define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
+#define SCSS_CLK_CTL_ADDR	(MSM_ACC0_BASE + 0x04)
+#define SCSS_CLK_SEL_ADDR	(MSM_ACC0_BASE + 0x08)
 
 #define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
 #define PLL2_M_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x340)

@@ -200,13 +200,13 @@ static inline void smd_write_intr(unsigned int val,
 
 #if defined(CONFIG_ARCH_MSM7X30)
 #define MSM_TRIG_A2M_SMD_INT     \
-			(smd_write_intr(1 << 0, MSM_GCC_BASE + 0x8))
+			(smd_write_intr(1 << 0, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2Q6_SMD_INT    \
-			(smd_write_intr(1 << 8, MSM_GCC_BASE + 0x8))
+			(smd_write_intr(1 << 8, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2M_SMSM_INT    \
-			(smd_write_intr(1 << 5, MSM_GCC_BASE + 0x8))
+			(smd_write_intr(1 << 5, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2Q6_SMSM_INT   \
-			(smd_write_intr(1 << 8, MSM_GCC_BASE + 0x8))
+			(smd_write_intr(1 << 8, MSM_APCS_GCC_BASE + 0x8))
 #define MSM_TRIG_A2DSPS_SMD_INT
 #define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT

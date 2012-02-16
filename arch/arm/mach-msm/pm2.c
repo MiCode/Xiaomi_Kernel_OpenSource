@@ -420,8 +420,8 @@ enum {
  *****************************************************************************/
 
 #if defined(CONFIG_ARCH_MSM7X30)
-#define APPS_CLK_SLEEP_EN (MSM_GCC_BASE + 0x020)
-#define APPS_PWRDOWN      (MSM_ACC_BASE + 0x01c)
+#define APPS_CLK_SLEEP_EN (MSM_APCS_GCC_BASE + 0x020)
+#define APPS_PWRDOWN      (MSM_ACC0_BASE + 0x01c)
 #define APPS_SECOP        (MSM_TCSR_BASE + 0x038)
 #else /* defined(CONFIG_ARCH_MSM7X30) */
 #define APPS_CLK_SLEEP_EN (MSM_CSR_BASE + 0x11c)
