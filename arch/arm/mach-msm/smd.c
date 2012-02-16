@@ -273,6 +273,38 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2WCNSS_SMSM_INT
 #endif
 
+/*
+ * stub out legacy macros if they are not being used so that the legacy
+ * code compiles even though it is not used
+ *
+ * these definitions should not be used in active code and will cause
+ * an early failure
+ */
+#ifndef INT_A9_M2A_0
+#define INT_A9_M2A_0 -1
+#endif
+#ifndef INT_A9_M2A_5
+#define INT_A9_M2A_5 -1
+#endif
+#ifndef INT_ADSP_A11
+#define INT_ADSP_A11 -1
+#endif
+#ifndef INT_ADSP_A11_SMSM
+#define INT_ADSP_A11_SMSM -1
+#endif
+#ifndef INT_DSPS_A11
+#define INT_DSPS_A11 -1
+#endif
+#ifndef INT_DSPS_A11_SMSM
+#define INT_DSPS_A11_SMSM -1
+#endif
+#ifndef INT_WCNSS_A11
+#define INT_WCNSS_A11 -1
+#endif
+#ifndef INT_WCNSS_A11_SMSM
+#define INT_WCNSS_A11_SMSM -1
+#endif
+
 #define SMD_LOOPBACK_CID 100
 
 #define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
