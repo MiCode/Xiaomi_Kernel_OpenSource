@@ -241,8 +241,17 @@ struct msm_isp_cmd {
 #define VPE_SCALER_CONFIG_LEN           260
 #define VPE_DIS_OFFSET_CFG_LEN          12
 
-#define IMEM_Y_OFFSET  0x2E000000
-#define IMEM_CBCR_OFFSET  0x2E00FA00
+
+#define CAPTURE_WIDTH          1280
+#define IMEM_Y_SIZE            (CAPTURE_WIDTH*16)
+#define IMEM_CBCR_SIZE         (CAPTURE_WIDTH*8)
+
+#define IMEM_Y_PING_OFFSET     0x2E000000
+#define IMEM_CBCR_PING_OFFSET  (IMEM_Y_PING_OFFSET + IMEM_Y_SIZE)
+
+#define IMEM_Y_PONG_OFFSET     (IMEM_CBCR_PING_OFFSET + IMEM_CBCR_SIZE)
+#define IMEM_CBCR_PONG_OFFSET  (IMEM_Y_PONG_OFFSET + IMEM_Y_SIZE)
+
 
 struct msm_vpe_op_mode_cfg {
 	uint8_t op_mode_cfg[VPE_OPERATION_MODE_CFG_LEN];
