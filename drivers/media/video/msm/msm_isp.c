@@ -362,6 +362,35 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		stats.buffer = msm_pmem_stats_ptov_lookup(&pmctl->sync,
 						isp_stats->buffer,
 						&(stats.fd));
+		switch (isp_stats->id) {
+		case MSG_ID_STATS_AEC:
+			stats.aec.buff = stats.buffer;
+			stats.aec.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_AF:
+			stats.af.buff = stats.buffer;
+			stats.af.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_AWB:
+			stats.awb.buff = stats.buffer;
+			stats.awb.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_IHIST:
+			stats.ihist.buff = stats.buffer;
+			stats.ihist.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_RS:
+			stats.rs.buff = stats.buffer;
+			stats.rs.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_CS:
+			stats.cs.buff = stats.buffer;
+			stats.cs.fd = stats.fd;
+			break;
+		default:
+			pr_err("%s: Invalid msg type", __func__);
+			break;
+		}
 		if (!stats.buffer) {
 			pr_err("%s: msm_pmem_stats_ptov_lookup error\n",
 							__func__);
