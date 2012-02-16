@@ -79,9 +79,9 @@ static void msm_xusb_pm_qos_update(struct msmusb_hcd *mhcd, int vote)
 		return;
 
 	if (vote)
-		clk_enable(pdata->ebi1_clk);
+		clk_prepare_enable(pdata->ebi1_clk);
 	else
-		clk_disable(pdata->ebi1_clk);
+		clk_disable_unprepare(pdata->ebi1_clk);
 }
 
 static void msm_xusb_enable_clks(struct msmusb_hcd *mhcd)
@@ -96,8 +96,8 @@ static void msm_xusb_enable_clks(struct msmusb_hcd *mhcd)
 		/* OTG driver takes care of clock management */
 		break;
 	case USB_PHY_SERIAL_PMIC:
-		clk_enable(mhcd->alt_core_clk);
-		clk_enable(mhcd->iface_clk);
+		clk_prepare_enable(mhcd->alt_core_clk);
+		clk_prepare_enable(mhcd->iface_clk);
 		break;
 	default:
 		pr_err("%s: undefined phy type ( %X )\n", __func__,
@@ -119,8 +119,8 @@ static void msm_xusb_disable_clks(struct msmusb_hcd *mhcd)
 		/* OTG driver takes care of clock management */
 		break;
 	case USB_PHY_SERIAL_PMIC:
-		clk_disable(mhcd->alt_core_clk);
-		clk_disable(mhcd->iface_clk);
+		clk_disable_unprepare(mhcd->alt_core_clk);
+		clk_disable_unprepare(mhcd->iface_clk);
 		break;
 	default:
 		pr_err("%s: undefined phy type ( %X )\n", __func__,
