@@ -87,7 +87,8 @@ static int msm_fb_detect_panel(const char *name)
 				PANEL_NAME_MAX_LEN)))
 		return 0;
 
-#ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+#if !defined(CONFIG_FB_MSM_LVDS_MIPI_PANEL_DETECT) && \
+	!defined(CONFIG_FB_MSM_MIPI_PANEL_DETECT)
 	if (!strncmp(name, MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
 			strnlen(MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME,
 				PANEL_NAME_MAX_LEN)))
