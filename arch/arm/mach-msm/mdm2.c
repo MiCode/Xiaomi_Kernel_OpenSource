@@ -82,7 +82,7 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	/* Pull RESET gpio low and wait for it to settle. */
 	pr_debug("Pulling RESET gpio low\n");
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
-	usleep(1000);
+	usleep_range(5000, 10000);
 
 	/* Deassert RESET first and wait for ir to settle. */
 	pr_debug("%s: Pulling RESET gpio high\n", __func__);
