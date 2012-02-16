@@ -1101,6 +1101,17 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.platform_name  = "msm-pcm-afe",
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "Voice Stub",
+		.stream_name = "Voice Stub",
+		.cpu_dai_name = "VOICE_STUB",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dsp_link = &fe_media,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* .be_id = do not care */
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -1232,6 +1243,30 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
+	},
+	{
+		.name = LPASS_BE_STUB_RX,
+		.stream_name = "Stub Playback",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tabla_codec",
+		.codec_dai_name = "tabla_rx2",
+		.no_pcm = 1,
+		/* .be_id = do not care */
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm_be_ops,
+	},
+	{
+		.name = LPASS_BE_STUB_TX,
+		.stream_name = "Stub Capture",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tabla_codec",
+		.codec_dai_name = "tabla_tx1",
+		.no_pcm = 1,
+		/* .be_id = do not care */
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm_be_ops,
 	},
 };
 
