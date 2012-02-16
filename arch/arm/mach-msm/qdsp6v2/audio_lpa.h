@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@ struct audio {
 
 	uint32_t device_events;
 
-	struct list_head pmem_region_queue; /* protected by lock */
+	struct list_head ion_region_queue; /* protected by lock */
 
 	int eq_enable;
 	int eq_needs_commit;

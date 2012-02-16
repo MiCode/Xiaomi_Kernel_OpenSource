@@ -28,8 +28,8 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
+#include <linux/ion.h>
 #include <linux/list.h>
-#include <linux/android_pmem.h>
 #include <linux/slab.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
@@ -88,10 +88,10 @@ struct audlpa_event {
 	int event_type;
 	union msm_audio_event_payload payload;
 };
-
-struct audlpa_pmem_region {
+struct audlpa_ion_region {
 	struct list_head list;
-	struct file *file;
+	struct ion_handle *handle;
+	struct ion_client *client;
 	int fd;
 	void *vaddr;
 	unsigned long paddr;
@@ -115,12 +115,13 @@ struct audlpa_dec {
 
 static void audlpa_post_event(struct audio *audio, int type,
 	union msm_audio_event_payload payload);
-static unsigned long audlpa_pmem_fixup(struct audio *audio, void *addr,
+
+static unsigned long audlpa_ion_fixup(struct audio *audio, void *addr,
 				unsigned long len, int ref_up);
+static void audlpa_unmap_ion_region(struct audio *audio);
 static void audlpa_async_send_data(struct audio *audio, unsigned needed,
 				uint32_t token);
 static int audlpa_pause(struct audio *audio);
-static void audlpa_unmap_pmem_region(struct audio *audio);
 static long pcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 static int audlpa_set_pcm_params(void *data);
 
@@ -422,7 +423,7 @@ static long audlpa_process_event_req(struct audio *audio, void __user *arg)
 	    drv_evt->event_type == AUDIO_EVENT_READ_DONE)) {
 		pr_debug("%s: AUDIO_EVENT_WRITE_DONE completing\n", __func__);
 		mutex_lock(&audio->lock);
-		audlpa_pmem_fixup(audio, drv_evt->payload.aio_buf.buf_addr,
+		audlpa_ion_fixup(audio, drv_evt->payload.aio_buf.buf_addr,
 				  drv_evt->payload.aio_buf.buf_len, 0);
 		mutex_unlock(&audio->lock);
 	}
@@ -432,38 +433,41 @@ static long audlpa_process_event_req(struct audio *audio, void __user *arg)
 	return rc;
 }
 
-static int audlpa_pmem_check(struct audio *audio,
-		void *vaddr, unsigned long len)
+static int audlpa_ion_check(struct audio *audio,
+			void *vaddr, unsigned long len)
 {
-	struct audlpa_pmem_region *region_elt;
-	struct audlpa_pmem_region t = { .vaddr = vaddr, .len = len };
+	struct audlpa_ion_region *region_elt;
+	struct audlpa_ion_region t = {.vaddr = vaddr, .len = len };
 
-	list_for_each_entry(region_elt, &audio->pmem_region_queue, list) {
+	list_for_each_entry(region_elt, &audio->ion_region_queue, list) {
 		if (CONTAINS(region_elt, &t) || CONTAINS(&t, region_elt) ||
 		    OVERLAPS(region_elt, &t)) {
-			pr_err("%s: region (vaddr %p len %ld)"
-				" clashes with registered region"
-				" (vaddr %p paddr %p len %ld)\n",
-				__func__, vaddr, len,
-				region_elt->vaddr,
-				(void *)region_elt->paddr,
-				region_elt->len);
+			pr_err("%s[%p]:region (vaddr %p len %ld)"
+			" clashes with registered region"
+			" (vaddr %p paddr %p len %ld)\n",
+			__func__, audio, vaddr, len,
+			region_elt->vaddr,
+			(void *)region_elt->paddr, region_elt->len);
 			return -EINVAL;
 		}
 	}
 
 	return 0;
 }
-
-static int audlpa_pmem_add(struct audio *audio,
-	struct msm_audio_pmem_info *info)
+static int audlpa_ion_add(struct audio *audio,
+			struct msm_audio_ion_info *info)
 {
-	unsigned long paddr, kvaddr, len;
-	struct file *file;
-	struct audlpa_pmem_region *region;
+	ion_phys_addr_t paddr;
+	size_t len;
+	unsigned long kvaddr;
+	struct audlpa_ion_region *region;
 	int rc = -EINVAL;
+	struct ion_handle *handle;
+	struct ion_client *client;
+	unsigned long ionflag;
+	void *temp_ptr;
 
-	pr_debug("%s:\n", __func__);
+	pr_debug("%s[%p]:\n", __func__, audio);
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
 
 	if (!region) {
@@ -471,61 +475,105 @@ static int audlpa_pmem_add(struct audio *audio,
 		goto end;
 	}
 
-	if (get_pmem_file(info->fd, &paddr, &kvaddr, &len, &file)) {
-		kfree(region);
-		goto end;
+	client = msm_ion_client_create(UINT_MAX, "Audio_LPA_Client");
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("Unable to create ION client\n");
+		goto client_error;
 	}
 
-	rc = audlpa_pmem_check(audio, info->vaddr, len);
+	handle = ion_import_fd(client, info->fd);
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: could not get handle of the given fd\n", __func__);
+		goto import_error;
+	}
+
+	rc = ion_handle_get_flags(client, handle, &ionflag);
+	if (rc) {
+		pr_err("%s: could not get flags for the handle\n", __func__);
+		goto flag_error;
+	}
+
+	temp_ptr = ion_map_kernel(client, handle, ionflag);
+	if (IS_ERR_OR_NULL(temp_ptr)) {
+		pr_err("%s: could not get virtual address\n", __func__);
+		goto map_error;
+	}
+	kvaddr = (unsigned long) temp_ptr;
+
+	rc = ion_phys(client, handle, &paddr, &len);
+	if (rc) {
+		pr_err("%s: could not get physical address\n", __func__);
+		goto ion_error;
+	}
+
+	rc = audlpa_ion_check(audio, info->vaddr, len);
 	if (rc < 0) {
-		put_pmem_file(file);
-		kfree(region);
-		goto end;
+		pr_err("%s: audlpa_ion_check failed\n", __func__);
+		goto ion_error;
 	}
 
+	region->client = client;
+	region->handle = handle;
 	region->vaddr = info->vaddr;
 	region->fd = info->fd;
 	region->paddr = paddr;
 	region->kvaddr = kvaddr;
 	region->len = len;
-	region->file = file;
 	region->ref_cnt = 0;
-	pr_debug("%s: add region paddr %lx vaddr %p, len %lu\n", __func__,
-			 region->paddr, region->vaddr,
-			 region->len);
-	list_add_tail(&region->list, &audio->pmem_region_queue);
+	pr_debug("%s[%p]:add region paddr %lx vaddr %p, len %lu kvaddr %lx\n",
+		__func__, audio,
+		region->paddr, region->vaddr, region->len, region->kvaddr);
+	list_add_tail(&region->list, &audio->ion_region_queue);
+
 	rc = q6asm_memory_map(audio->ac, (uint32_t)paddr, IN, (uint32_t)len, 1);
-	if (rc < 0)
-		pr_err("%s: memory map failed\n", __func__);
+	if (rc < 0) {
+		pr_err("%s[%p]: memory map failed\n", __func__, audio);
+		goto ion_error;
+	} else {
+		goto end;
+	}
+
+ion_error:
+	ion_unmap_kernel(client, handle);
+map_error:
+	ion_free(client, handle);
+flag_error:
+import_error:
+	ion_client_destroy(client);
+client_error:
+	kfree(region);
 end:
 	return rc;
 }
 
-static int audlpa_pmem_remove(struct audio *audio,
-	struct msm_audio_pmem_info *info)
+static int audlpa_ion_remove(struct audio *audio,
+			struct msm_audio_ion_info *info)
 {
-	struct audlpa_pmem_region *region;
+	struct audlpa_ion_region *region;
 	struct list_head *ptr, *next;
 	int rc = -EINVAL;
 
-	list_for_each_safe(ptr, next, &audio->pmem_region_queue) {
-		region = list_entry(ptr, struct audlpa_pmem_region, list);
+	list_for_each_safe(ptr, next, &audio->ion_region_queue) {
+		region = list_entry(ptr, struct audlpa_ion_region, list);
 
-		if ((region != NULL) && (region->fd == info->fd) &&
-		    (region->vaddr == info->vaddr)) {
+		if (region != NULL && (region->fd == info->fd) &&
+			(region->vaddr == info->vaddr)) {
 			if (region->ref_cnt) {
-				pr_debug("%s: region %p in use ref_cnt %d\n",
-					__func__, region, region->ref_cnt);
+				pr_debug("%s[%p]:region %p in use ref_cnt %d\n",
+					__func__, audio, region,
+					region->ref_cnt);
 				break;
 			}
 			rc = q6asm_memory_unmap(audio->ac,
-						(uint32_t)region->paddr,
-						IN);
+				(uint32_t) region->paddr, IN);
 			if (rc < 0)
-				pr_err("%s: memory unmap failed\n", __func__);
+				pr_err("%s[%p]: memory unmap failed\n",
+					__func__, audio);
 
 			list_del(&region->list);
-			put_pmem_file(region->file);
+			ion_unmap_kernel(region->client, region->handle);
+			ion_free(region->client, region->handle);
+			ion_client_destroy(region->client);
 			kfree(region);
 			rc = 0;
 			break;
@@ -535,24 +583,21 @@ static int audlpa_pmem_remove(struct audio *audio,
 	return rc;
 }
 
-static int audlpa_pmem_lookup_vaddr(struct audio *audio, void *addr,
-		     unsigned long len, struct audlpa_pmem_region **region)
+static int audlpa_ion_lookup_vaddr(struct audio *audio, void *addr,
+			unsigned long len, struct audlpa_ion_region **region)
 {
-	struct audlpa_pmem_region *region_elt;
-
+	struct audlpa_ion_region *region_elt;
 	int match_count = 0;
-
 	*region = NULL;
 
 	/* returns physical address or zero */
-	list_for_each_entry(region_elt, &audio->pmem_region_queue,
-		list) {
+	list_for_each_entry(region_elt, &audio->ion_region_queue, list) {
 		if (addr >= region_elt->vaddr &&
-		    addr < region_elt->vaddr + region_elt->len &&
-		    addr + len <= region_elt->vaddr + region_elt->len) {
+			addr < region_elt->vaddr + region_elt->len &&
+			addr + len <= region_elt->vaddr + region_elt->len) {
 			/* offset since we could pass vaddr inside a registerd
-			 * pmem buffer
-			 */
+			* ion buffer
+			*/
 
 			match_count++;
 			if (!*region)
@@ -561,32 +606,33 @@ static int audlpa_pmem_lookup_vaddr(struct audio *audio, void *addr,
 	}
 
 	if (match_count > 1) {
-		pr_err("%s: multiple hits for vaddr %p, len %ld\n", __func__,
-			   addr, len);
-		list_for_each_entry(region_elt,
-		  &audio->pmem_region_queue, list) {
-			if (addr >= region_elt->vaddr &&
-			    addr < region_elt->vaddr + region_elt->len &&
-			    addr + len <= region_elt->vaddr + region_elt->len)
-				pr_err("%s: \t%p, %ld --> %p\n", __func__,
-					   region_elt->vaddr, region_elt->len,
-					   (void *)region_elt->paddr);
+		pr_err("%s[%p]:multiple hits for vaddr %p, len %ld\n",
+			 __func__, audio, addr, len);
+		list_for_each_entry(region_elt, &audio->ion_region_queue,
+					list) {
+		if (addr >= region_elt->vaddr &&
+			addr < region_elt->vaddr + region_elt->len &&
+			addr + len <= region_elt->vaddr + region_elt->len)
+			pr_err("\t%s[%p]:%p, %ld --> %p\n",
+				__func__, audio,
+					region_elt->vaddr,
+					region_elt->len,
+					(void *)region_elt->paddr);
 		}
 	}
-
 	return *region ? 0 : -1;
 }
-
-unsigned long audlpa_pmem_fixup(struct audio *audio, void *addr,
-		    unsigned long len, int ref_up)
+static unsigned long audlpa_ion_fixup(struct audio *audio, void *addr,
+			unsigned long len, int ref_up)
 {
-	struct audlpa_pmem_region *region;
+	struct audlpa_ion_region *region;
 	unsigned long paddr;
 	int ret;
 
-	ret = audlpa_pmem_lookup_vaddr(audio, addr, len, &region);
+	ret = audlpa_ion_lookup_vaddr(audio, addr, len, &region);
 	if (ret) {
-		pr_err("%s: lookup (%p, %ld) failed\n", __func__, addr, len);
+		pr_err("%s[%p]:lookup (%p, %ld) failed\n",
+			__func__, audio, addr, len);
 		return 0;
 	}
 	if (ref_up)
@@ -613,7 +659,7 @@ static int audlpa_aio_buf_add(struct audio *audio, unsigned dir,
 		return -EFAULT;
 	}
 
-	buf_node->paddr = audlpa_pmem_fixup(
+	buf_node->paddr = audlpa_ion_fixup(
 		audio, buf_node->buf.buf_addr,
 		buf_node->buf.buf_len, 1);
 	if (dir) {
@@ -921,25 +967,26 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
-	case AUDIO_REGISTER_PMEM: {
-			struct msm_audio_pmem_info info;
-			pr_debug("%s: AUDIO_REGISTER_PMEM\n", __func__);
-			if (copy_from_user(&info, (void *) arg, sizeof(info)))
-				rc = -EFAULT;
-			else
-				rc = audlpa_pmem_add(audio, &info);
-			break;
-		}
+	case AUDIO_REGISTER_ION: {
+		struct msm_audio_ion_info info;
+		pr_debug("%s: AUDIO_REGISTER_ION\n", __func__);
+		if (copy_from_user(&info, (void *)arg, sizeof(info)))
+			rc = -EFAULT;
+		else
+			rc = audlpa_ion_add(audio, &info);
+		break;
+	}
 
-	case AUDIO_DEREGISTER_PMEM: {
-			struct msm_audio_pmem_info info;
-			pr_debug("%s: AUDIO_DEREGISTER_PMEM\n", __func__);
-			if (copy_from_user(&info, (void *) arg, sizeof(info)))
-				rc = -EFAULT;
-			else
-				rc = audlpa_pmem_remove(audio, &info);
-			break;
-		}
+	case AUDIO_DEREGISTER_ION: {
+		struct msm_audio_ion_info info;
+		pr_debug("%s: AUDIO_DEREGISTER_ION\n", __func__);
+		if (copy_from_user(&info, (void *)arg, sizeof(info)))
+			rc = -EFAULT;
+		else
+			rc = audlpa_ion_remove(audio, &info);
+		break;
+	}
+
 	case AUDIO_ASYNC_WRITE:
 		pr_debug("%s: AUDIO_ASYNC_WRITE\n", __func__);
 		if (audio->drv_status & ADRV_STATUS_FSYNC)
@@ -1038,34 +1085,37 @@ int audlpa_fsync(struct file *file, int datasync)
 	return audlpa_async_fsync(audio);
 }
 
-static void audlpa_reset_pmem_region(struct audio *audio)
+void audlpa_reset_ion_region(struct audio *audio)
 {
-	struct audlpa_pmem_region *region;
+	struct audlpa_ion_region *region;
 	struct list_head *ptr, *next;
 
-	list_for_each_safe(ptr, next, &audio->pmem_region_queue) {
-		region = list_entry(ptr, struct audlpa_pmem_region, list);
+	list_for_each_safe(ptr, next, &audio->ion_region_queue) {
+		region = list_entry(ptr, struct audlpa_ion_region, list);
 		list_del(&region->list);
-		put_pmem_file(region->file);
+		ion_unmap_kernel(region->client, region->handle);
+		ion_free(region->client, region->handle);
+		ion_client_destroy(region->client);
 		kfree(region);
 	}
 
 	return;
 }
 
-static void audlpa_unmap_pmem_region(struct audio *audio)
+static void audlpa_unmap_ion_region(struct audio *audio)
 {
-	struct audlpa_pmem_region *region;
+	struct audlpa_ion_region *region;
 	struct list_head *ptr, *next;
 	int rc = -EINVAL;
 
-	pr_debug("%s:\n", __func__);
-	list_for_each_safe(ptr, next, &audio->pmem_region_queue) {
-		region = list_entry(ptr, struct audlpa_pmem_region, list);
-		pr_debug("%s: phy_address = 0x%lx\n", __func__, region->paddr);
+	pr_debug("%s[%p]:\n", __func__, audio);
+	list_for_each_safe(ptr, next, &audio->ion_region_queue) {
+		region = list_entry(ptr, struct audlpa_ion_region, list);
+		pr_debug("%s[%p]: phy_address = 0x%lx\n",
+			__func__, audio, region->paddr);
 		if (region != NULL) {
 			rc = q6asm_memory_unmap(audio->ac,
-						(uint32_t)region->paddr, IN);
+					(uint32_t)region->paddr, IN);
 			if (rc < 0)
 				pr_err("%s: memory unmap failed\n", __func__);
 		}
@@ -1084,12 +1134,12 @@ static int audio_release(struct inode *inode, struct file *file)
 	if (audio->out_enabled)
 		audlpa_async_flush(audio);
 	audio->wflush = 0;
-	audlpa_unmap_pmem_region(audio);
+	audlpa_unmap_ion_region(audio);
 	audio_disable(audio);
 	msm_clear_session_id(audio->ac->session);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
 	q6asm_audio_client_free(audio->ac);
-	audlpa_reset_pmem_region(audio);
+	audlpa_reset_ion_region(audio);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&audio->suspend_ctl.node);
 #endif
@@ -1099,7 +1149,6 @@ static int audio_release(struct inode *inode, struct file *file)
 	audio->event_abort = 1;
 	wake_up(&audio->event_wait);
 	audlpa_reset_event_queue(audio);
-	pmem_kfree(audio->phys);
 	if (audio->stopped == 0)
 		audlpa_allow_sleep(audio);
 	wake_lock_destroy(&audio->wakelock);
@@ -1277,7 +1326,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	spin_lock_init(&audio->dsp_lock);
 	init_waitqueue_head(&audio->write_wait);
 	INIT_LIST_HEAD(&audio->out_queue);
-	INIT_LIST_HEAD(&audio->pmem_region_queue);
+	INIT_LIST_HEAD(&audio->ion_region_queue);
 	INIT_LIST_HEAD(&audio->free_event_queue);
 	INIT_LIST_HEAD(&audio->event_queue);
 	init_waitqueue_head(&audio->wait);
@@ -1342,7 +1391,6 @@ done:
 	return rc;
 err:
 	q6asm_audio_client_free(audio->ac);
-	pmem_kfree(audio->phys);
 	kfree(audio);
 	return rc;
 }
