@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/memory_alloc.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -64,7 +65,6 @@ static atomic_t msm_rtb_idx;
 #endif
 
 struct msm_rtb_state msm_rtb = {
-	.size = SZ_1M,
 	.filter = 1 << LOGK_LOGBUF,
 };
 
@@ -106,16 +106,6 @@ static void msm_rtb_write_data(void *data, struct msm_rtb_layout *start)
 {
 	start->data = data;
 }
-
-static int __init msm_rtb_set_buffer_size(char *p)
-{
-	int s;
-
-	s = memparse(p, NULL);
-	msm_rtb.size = ALIGN(s, SZ_4K);
-	return 0;
-}
-early_param("msm_rtb_size", msm_rtb_set_buffer_size);
 
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
 static int msm_rtb_get_idx(void)
@@ -178,11 +168,14 @@ noinline int uncached_logk(enum logk_event_type log_type, void *data)
 }
 EXPORT_SYMBOL(uncached_logk);
 
-int msm_rtb_init(void)
+int msm_rtb_probe(struct platform_device *pdev)
 {
+	struct msm_rtb_platform_data *d = pdev->dev.platform_data;
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
 	unsigned int cpu;
 #endif
+
+	msm_rtb.size = d->size;
 
 	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_1M)
 		return -EINVAL;
@@ -227,4 +220,22 @@ int msm_rtb_init(void)
 	msm_rtb.enabled = 1;
 	return 0;
 }
+
+static struct platform_driver msm_rtb_driver = {
+	.driver         = {
+		.name = "msm_rtb",
+		.owner = THIS_MODULE
+	},
+};
+
+static int __init msm_rtb_init(void)
+{
+	return platform_driver_probe(&msm_rtb_driver, msm_rtb_probe);
+}
+
+static void __exit msm_rtb_exit(void)
+{
+	platform_driver_unregister(&msm_rtb_driver);
+}
 module_init(msm_rtb_init)
+module_exit(msm_rtb_exit)

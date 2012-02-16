@@ -22,6 +22,10 @@ enum logk_event_type {
 	LOGK_OTHER,
 };
 
+struct msm_rtb_platform_data {
+	unsigned int size;
+};
+
 #if defined(CONFIG_MSM_RTB)
 /*
  * returns 1 if data was logged, 0 otherwise
