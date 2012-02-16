@@ -223,7 +223,7 @@ enum vfe_output_state {
 #define V32_OUT_CLAMP_OFF         0x00000524
 #define V32_OUT_CLAMP_LEN         8
 
-#define V32_OPERATION_CFG_LEN     36
+#define V32_OPERATION_CFG_LEN     44
 
 #define V32_AXI_OUT_OFF           0x00000038
 #define V32_AXI_OUT_LEN           216
@@ -875,6 +875,9 @@ struct vfe32_frame_extra {
 #define VFE_DMI_DATA_LO                 0x000005A4
 #define VFE_BUS_IO_FORMAT_CFG           0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
+#define VFE_RDI0_CFG                    0x00000734
+#define VFE_RDI1_CFG                    0x000007A4
+
 #define VFE_VIOLATION_STATUS            0x000007B4
 
 #define VFE33_DMI_DATA_HI               0x000005A0
