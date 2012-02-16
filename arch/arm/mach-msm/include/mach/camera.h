@@ -493,8 +493,6 @@ struct msm_pmem_region {
 	unsigned long len;
 	struct file *file;
 	struct msm_pmem_info info;
-	struct msm_mapped_buffer *msm_buffer;
-	int subsys_id;
 	struct ion_handle *handle;
 };
 
