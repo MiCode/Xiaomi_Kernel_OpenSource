@@ -1147,7 +1147,7 @@ static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 	pr_debug("Initializing HFPLL%d\n", sc - scalable);
 
 	/* Disable the PLL for re-programming. */
-	hfpll_disable(sc, 0);
+	hfpll_disable(sc, 1);
 
 	/* Configure PLL parameters for integer mode. */
 	writel_relaxed(0x7845C665, sc->hfpll_base + HFPLL_CONFIG_CTL);
