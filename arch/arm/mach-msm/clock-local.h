@@ -27,10 +27,12 @@
 
 /* MD Registers */
 #define MD4(m_lsb, m, n_lsb, n) \
-		(BVAL((m_lsb+3), m_lsb, m) | BVAL((n_lsb+3), n_lsb, ~(n)))
+		((BVAL((m_lsb+3), m_lsb, m) | BVAL((n_lsb+3), n_lsb, ~(n))) \
+		* !!(n))
 #define MD8(m_lsb, m, n_lsb, n) \
-		(BVAL((m_lsb+7), m_lsb, m) | BVAL((n_lsb+7), n_lsb, ~(n)))
-#define MD16(m, n) (BVAL(31, 16, m) | BVAL(15, 0, ~(n)))
+		((BVAL((m_lsb+7), m_lsb, m) | BVAL((n_lsb+7), n_lsb, ~(n))) \
+		* !!(n))
+#define MD16(m, n) ((BVAL(31, 16, m) | BVAL(15, 0, ~(n))) * !!(n))
 
 /* NS Registers */
 #define NS(n_msb, n_lsb, n, m, mde_lsb, d_msb, d_lsb, d, s_msb, s_lsb, s) \
@@ -101,11 +103,10 @@
  */
 struct clk_freq_tbl {
 	const uint32_t	freq_hz;
-	struct clk	*src_clk;
+	struct clk	*const src_clk;
 	const uint32_t	md_val;
 	const uint32_t	ns_val;
 	const uint32_t	ctl_val;
-	uint32_t	mnd_en_mask;
 	void		*const extra_freq_data;
 };
 
@@ -126,13 +127,12 @@ struct bank_masks {
 	const struct bank_mask_info	bank1_mask;
 };
 
-#define F_RAW(f, sc, m_v, n_v, c_v, m_m, e) { \
+#define F_RAW(f, sc, m_v, n_v, c_v, e) { \
 	.freq_hz = f, \
 	.src_clk = sc, \
 	.md_val = m_v, \
 	.ns_val = n_v, \
 	.ctl_val = c_v, \
-	.mnd_en_mask = m_m, \
 	.extra_freq_data = e, \
 	}
 #define FREQ_END	(UINT_MAX-1)
@@ -185,6 +185,7 @@ struct rcg_clk {
 	const uint32_t	root_en_mask;
 	uint32_t	ns_mask;
 	const uint32_t	ctl_mask;
+	uint32_t	mnd_en_mask;
 
 	void		*bank_info;
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
@@ -249,29 +250,14 @@ extern struct clk_ops clk_ops_cdiv;
 
 /**
  * struct fixed_clk - fixed rate clock (used for crystal oscillators)
- * @rate: output rate
  * @c: clk
  */
 struct fixed_clk {
-	unsigned long rate;
 	struct clk c;
 };
 
-static inline struct fixed_clk *to_fixed_clk(struct clk *clk)
-{
-	return container_of(clk, struct fixed_clk, c);
-}
-
-static inline unsigned long fixed_clk_get_rate(struct clk *clk)
-{
-	struct fixed_clk *f = to_fixed_clk(clk);
-	return f->rate;
-}
-
-
 /**
  * struct pll_vote_clk - phase locked loop (HW voteable)
- * @rate: output rate
  * @soft_vote: soft voting variable for multiple PLL software instances
  * @soft_vote_mask: soft voting mask for multiple PLL software instances
  * @en_reg: enable register
@@ -281,8 +267,6 @@ static inline unsigned long fixed_clk_get_rate(struct clk *clk)
  * @c: clk
  */
 struct pll_vote_clk {
-	unsigned long rate;
-
 	u32 *soft_vote;
 	const u32 soft_vote_mask;
 	void __iomem *const en_reg;
@@ -303,14 +287,11 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *clk)
 
 /**
  * struct pll_clk - phase locked loop
- * @rate: output rate
  * @mode_reg: enable register
  * @parent: clock source
  * @c: clk
  */
 struct pll_clk {
-	unsigned long rate;
-
 	void __iomem *const mode_reg;
 
 	struct clk *parent;
@@ -394,7 +375,6 @@ bool local_clk_is_local(struct clk *clk);
  */
 int pll_vote_clk_enable(struct clk *clk);
 void pll_vote_clk_disable(struct clk *clk);
-unsigned long pll_vote_clk_get_rate(struct clk *clk);
 struct clk *pll_vote_clk_get_parent(struct clk *clk);
 int pll_vote_clk_is_enabled(struct clk *clk);
 

@@ -223,14 +223,13 @@ static void cxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_cxo = {
 	.enable = cxo_clk_enable,
 	.disable = cxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 
 static struct fixed_clk cxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "cxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_cxo,
 		CLK_INIT(cxo_clk.c),
 	},
@@ -274,7 +273,6 @@ static struct clk_ops clk_ops_pll_acpu_vote = {
 	.disable = pll_acpu_vote_clk_disable,
 	.auto_off = pll_acpu_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_rate = pll_vote_clk_get_rate,
 	.get_parent = pll_vote_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
@@ -285,7 +283,6 @@ static struct clk_ops clk_ops_pll_acpu_vote = {
 static unsigned int soft_vote_pll0;
 
 static struct pll_vote_clk pll0_clk = {
-	.rate = 276000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
@@ -294,13 +291,13 @@ static struct pll_vote_clk pll0_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.c = {
 		.dbg_name = "pll0_clk",
+		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll0_acpu_clk = {
-	.rate = 276000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
@@ -308,19 +305,20 @@ static struct pll_vote_clk pll0_acpu_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
 		.dbg_name = "pll0_acpu_clk",
+		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_acpu_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll4_clk = {
-	.rate = 393216000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(4),
 	.status_reg = LCC_PLL0_STATUS_REG,
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 393216000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
 	},
@@ -329,7 +327,6 @@ static struct pll_vote_clk pll4_clk = {
 static unsigned int soft_vote_pll8;
 
 static struct pll_vote_clk pll8_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
@@ -338,13 +335,13 @@ static struct pll_vote_clk pll8_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.c = {
 		.dbg_name = "pll8_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll8_acpu_clk = {
-	.rate = 384000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
@@ -352,29 +349,30 @@ static struct pll_vote_clk pll8_acpu_clk = {
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
 		.dbg_name = "pll8_acpu_clk",
+		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_acpu_clk.c),
 	},
 };
 
 static struct pll_clk pll9_acpu_clk = {
-	.rate = 440000000,
 	.mode_reg = SC_PLL0_MODE_REG,
 	.c = {
 		.dbg_name = "pll9_acpu_clk",
+		.rate = 440000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll9_acpu_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll14_clk = {
-	.rate = 480000000,
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(11),
 	.status_reg = BB_PLL14_STATUS_REG,
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll14_clk",
+		.rate = 480000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll14_clk.c),
 	},
@@ -428,6 +426,7 @@ static struct clk_ops clk_ops_branch = {
 		.md_reg = GPn_MD_REG(n), \
 		.root_en_mask = BIT(11), \
 		.ns_mask = (BM(23, 16) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_gp, \
 		.current_freq = &rcg_dummy_freq, \
@@ -444,7 +443,6 @@ static struct clk_ops clk_ops_branch = {
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_gp[] = {
 	F_GP(        0, gnd,  1, 0, 0),
@@ -471,6 +469,7 @@ static CLK_GP(gp2, 2, CLK_HALT_SFPB_MISC_STATE_REG, 5);
 		.md_reg = GSBIn_UART_APPS_MD_REG(n), \
 		.root_en_mask = BIT(11), \
 		.ns_mask = (BM(31, 16) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_gsbi_uart, \
 		.current_freq = &rcg_dummy_freq, \
@@ -487,7 +486,6 @@ static CLK_GP(gp2, 2, CLK_HALT_SFPB_MISC_STATE_REG, 5);
 		.src_clk = &s##_clk.c, \
 		.md_val = MD16(m, n), \
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_uart[] = {
 	F_GSBI_UART(       0, gnd,  1,  0,   0),
@@ -527,6 +525,7 @@ static CLK_GSBI_UART(gsbi5_uart,   5, CLK_HALT_CFPB_STATEB_REG, 22);
 		.md_reg = GSBIn_QUP_APPS_MD_REG(n), \
 		.root_en_mask = BIT(11), \
 		.ns_mask = (BM(23, 16) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_gsbi_qup, \
 		.current_freq = &rcg_dummy_freq, \
@@ -543,7 +542,6 @@ static CLK_GSBI_UART(gsbi5_uart,   5, CLK_HALT_CFPB_STATEB_REG, 22);
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 	F_GSBI_QUP(       0, gnd,  1, 0,  0),
@@ -658,6 +656,7 @@ static struct rcg_clk prng_clk = {
 		.md_reg = SDCn_APPS_CLK_MD_REG(n), \
 		.root_en_mask = BIT(11), \
 		.ns_mask = (BM(23, 16) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = f_table, \
 		.current_freq = &rcg_dummy_freq, \
@@ -674,7 +673,6 @@ static struct rcg_clk prng_clk = {
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_sdc1_2[] = {
 	F_SDC(        0, gnd,   1, 0,   0),
@@ -697,7 +695,6 @@ static CLK_SDC(sdc2_clk, 2, 5, clk_tbl_sdc1_2);
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(16, m, 0, n), \
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_usb[] = {
 	F_USB(       0, gnd,  1, 0,  0),
@@ -724,6 +721,7 @@ static struct rcg_clk usb_hs1_xcvr_clk = {
 	.md_reg = USB_HS1_XCVR_FS_CLK_MD_REG,
 	.root_en_mask = BIT(11),
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_usb,
 	.current_freq = &rcg_dummy_freq,
@@ -748,6 +746,7 @@ static struct rcg_clk usb_hs1_sys_clk = {
 	.md_reg = USB_HS1_SYS_CLK_MD_REG,
 	.root_en_mask = BIT(11),
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_usb,
 	.current_freq = &rcg_dummy_freq,
@@ -772,6 +771,7 @@ static struct rcg_clk usb_hsic_xcvr_clk = {
 	.md_reg = USB_HSIC_XCVR_FS_CLK_MD_REG,
 	.root_en_mask = BIT(11),
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_usb,
 	.current_freq = &rcg_dummy_freq,
@@ -796,6 +796,7 @@ static struct rcg_clk usb_hsic_sys_clk = {
 	.md_reg = USB_HSIC_SYSTEM_CLK_MD_REG,
 	.root_en_mask = BIT(11),
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_usb_hsic_sys,
 	.current_freq = &rcg_dummy_freq,
@@ -1129,7 +1130,6 @@ static struct branch_clk rpm_msg_ram_p_clk = {
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(8, m, 0, n), \
 		.ns_val = NS(31, 24, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 	F_AIF_OSR(       0, gnd,  1, 0,   0),
@@ -1162,6 +1162,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.md_reg = md, \
 		.root_en_mask = BIT(9), \
 		.ns_mask = (BM(31, 24) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_aif_osr, \
 		.current_freq = &rcg_dummy_freq, \
@@ -1186,6 +1187,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.md_reg = md, \
 		.root_en_mask = BIT(9), \
 		.ns_mask = (BM(31, 24) | BM(6, 0)), \
+		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_aif_osr, \
 		.current_freq = &rcg_dummy_freq, \
@@ -1264,7 +1266,6 @@ static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 		.src_clk = &s##_clk.c, \
 		.md_val = MD16(m, n), \
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
 	F_PCM(       0, gnd,  1, 0,   0),
@@ -1296,6 +1297,7 @@ static struct rcg_clk pcm_clk = {
 	.md_reg = LCC_PCM_MD_REG,
 	.root_en_mask = BIT(9),
 	.ns_mask = (BM(31, 16) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_pcm,
 	.current_freq = &rcg_dummy_freq,
@@ -1321,6 +1323,7 @@ static struct rcg_clk audio_slimbus_clk = {
 	.md_reg = LCC_SLIMBUS_MD_REG,
 	.root_en_mask = BIT(9),
 	.ns_mask = (BM(31, 24) | BM(6, 0)),
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_aif_osr,
 	.current_freq = &rcg_dummy_freq,
@@ -1821,7 +1824,7 @@ static void __init reg_init(void)
 	pll9_lval = readl_relaxed(SC_PLL0_L_VAL_REG);
 
 	if (pll9_lval == 0x1C)
-		pll9_acpu_clk.rate = 550000000;
+		pll9_acpu_clk.c.rate = 550000000;
 
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);

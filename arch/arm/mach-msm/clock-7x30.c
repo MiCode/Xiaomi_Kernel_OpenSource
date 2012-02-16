@@ -146,7 +146,6 @@
 		.src_clk = &s##_clk.c, \
 		.md_val = MD16(m, n), \
 		.ns_val = N16(m, n) | SPDIV(SRC_SEL_##s, div), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 
 #define F_MND8(f, nmsb, nlsb, s, div, m, n) \
@@ -155,7 +154,6 @@
 		.src_clk = &s##_clk.c, \
 		.md_val = MD8(8, m, 0, n), \
 		.ns_val = N8(nmsb, nlsb, m, n) | SPDIV(SRC_SEL_##s, div), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 	}
 
 static struct clk_ops clk_ops_rcg_7x30;
@@ -227,14 +225,13 @@ static void tcxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_tcxo = {
 	.enable = tcxo_clk_enable,
 	.disable = tcxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = pcom_is_local,
 };
 
 static struct fixed_clk tcxo_clk = {
-	.rate = 19200000,
 	.c = {
 		.dbg_name = "tcxo_clk",
+		.rate = 19200000,
 		.ops = &clk_ops_tcxo,
 		CLK_INIT(tcxo_clk.c),
 	},
@@ -253,66 +250,65 @@ static void lpxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_lpxo = {
 	.enable = lpxo_clk_enable,
 	.disable = lpxo_clk_disable,
-	.get_rate = fixed_clk_get_rate,
 	.is_local = pcom_is_local,
 };
 
 static struct fixed_clk lpxo_clk = {
-	.rate = 24576000,
 	.c = {
 		.dbg_name = "lpxo_clk",
+		.rate = 24576000,
 		.ops = &clk_ops_lpxo,
 		CLK_INIT(lpxo_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll1_clk = {
-	.rate = 768000000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(1),
 	.status_reg = PLL1_STATUS_BASE_REG,
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll1_clk",
+		.rate = 768000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll1_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll2_clk = {
-	.rate = 806400000, /* TODO: Support scaling */
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(2),
 	.status_reg = PLL2_STATUS_BASE_REG,
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll2_clk",
+		.rate = 806400000, /* TODO: Support scaling */
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll2_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll3_clk = {
-	.rate = 737280000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(3),
 	.status_reg = PLL3_STATUS_BASE_REG,
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll3_clk",
+		.rate = 737280000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll3_clk.c),
 	},
 };
 
 static struct pll_vote_clk pll4_clk = {
-	.rate = 891000000,
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(4),
 	.status_reg = PLL4_STATUS_BASE_REG,
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
+		.rate = 891000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
 	},
@@ -321,7 +317,7 @@ static struct pll_vote_clk pll4_clk = {
 static struct clk_ops clk_ops_branch;
 
 static struct clk_freq_tbl clk_tbl_axi[] = {
-	F_RAW(1, &lpxo_clk.c, 0, 0, 0, 0, NULL),
+	F_RAW(1, &lpxo_clk.c, 0, 0, 0, NULL),
 	F_END,
 };
 
@@ -998,6 +994,7 @@ static struct rcg_clk csi0_clk = {
 	.ns_reg = CSI_NS_REG,
 	.md_reg = CSI_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(24, 17),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_csi,
 	.current_freq = &rcg_dummy_freq,
@@ -1011,7 +1008,7 @@ static struct rcg_clk csi0_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_tcxo[] = {
-	F_RAW(19200000, &tcxo_clk.c, 0, 0, 0, 0, NULL),
+	F_RAW(19200000, &tcxo_clk.c, 0, 0, 0, NULL),
 	F_END,
 };
 
@@ -1142,6 +1139,7 @@ static struct rcg_clk uart1dm_clk = {
 	.ns_reg = UART1DM_NS_REG,
 	.md_reg = UART1DM_NS_REG - 4,
 	.root_en_mask = BIT(11),
+	.mnd_en_mask = BIT(8),
 	.freq_tbl = clk_tbl_uartdm,
 	.ns_mask = F_MASK_MND16,
 	.current_freq = &rcg_dummy_freq,
@@ -1167,6 +1165,7 @@ static struct rcg_clk uart2dm_clk = {
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_uartdm,
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -1252,7 +1251,7 @@ static struct clk_freq_tbl clk_tbl_grp[] = {
 	F_BASIC(192000000, pll1,  4),
 	F_BASIC(245760000, pll3,  3),
 	/* Sync to AXI. Hence this "rate" is not fixed. */
-	F_RAW(1, &lpxo_clk.c, 0, BIT(14), 0, 0, NULL),
+	F_RAW(1, &lpxo_clk.c, 0, BIT(14), 0, NULL),
 	F_END,
 };
 
@@ -1354,6 +1353,7 @@ static struct rcg_clk sdc1_clk = {
 	.ns_reg = SDCn_NS_REG(1),
 	.md_reg = SDCn_NS_REG(1) - 4,
 	.ns_mask = F_MASK_MND8(19, 12),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_sdc1_3,
 	.current_freq = &rcg_dummy_freq,
@@ -1377,6 +1377,7 @@ static struct rcg_clk sdc3_clk = {
 	.ns_reg = SDCn_NS_REG(3),
 	.md_reg = SDCn_NS_REG(3) - 4,
 	.ns_mask = F_MASK_MND8(19, 12),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_sdc1_3,
 	.current_freq = &rcg_dummy_freq,
@@ -1412,6 +1413,7 @@ static struct rcg_clk sdc2_clk = {
 	.ns_reg = SDCn_NS_REG(2),
 	.md_reg = SDCn_NS_REG(2) - 4,
 	.ns_mask = F_MASK_MND8(20, 13),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_sdc2_4,
 	.current_freq = &rcg_dummy_freq,
@@ -1435,6 +1437,7 @@ static struct rcg_clk sdc4_clk = {
 	.ns_reg = SDCn_NS_REG(4),
 	.md_reg = SDCn_NS_REG(4) - 4,
 	.ns_mask = F_MASK_MND8(20, 13),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_sdc2_4,
 	.current_freq = &rcg_dummy_freq,
@@ -1505,6 +1508,7 @@ static struct rcg_clk mdp_lcdc_pclk_clk = {
 	.md_reg = MDP_LCDC_NS_REG - 4,
 	.root_en_mask = BIT(11),
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_mdp_lcdc,
 	.current_freq = &rcg_dummy_freq,
@@ -1533,8 +1537,8 @@ static struct branch_clk mdp_lcdc_pad_pclk_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
-	F_RAW(       0, &gnd_clk.c,  0, (0x3<<2), 0, 0, NULL),
-	F_RAW(24576000, &lpxo_clk.c, 0, (0x1<<2), 0, 0, NULL),
+	F_RAW(       0, &gnd_clk.c,  0, (0x3<<2), 0, NULL),
+	F_RAW(24576000, &lpxo_clk.c, 0, (0x1<<2), 0, NULL),
 	F_END,
 };
 
@@ -1578,6 +1582,7 @@ static struct rcg_clk mi2s_codec_rx_m_clk = {
 	.md_reg = MI2S_RX_NS_REG - 4,
 	.root_en_mask = BIT(11),
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_mi2s_codec,
 	.current_freq = &rcg_dummy_freq,
@@ -1617,6 +1622,7 @@ static struct rcg_clk mi2s_codec_tx_m_clk = {
 	.md_reg = MI2S_TX_NS_REG - 4,
 	.root_en_mask = BIT(11),
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_mi2s_codec,
 	.current_freq = &rcg_dummy_freq,
@@ -1662,6 +1668,7 @@ static struct rcg_clk mi2s_m_clk = {
 	.md_reg = MI2S_NS_REG - 4,
 	.root_en_mask = BIT(11),
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.freq_tbl = clk_tbl_mi2s,
 	.current_freq = &rcg_dummy_freq,
@@ -1694,7 +1701,6 @@ static struct branch_clk mi2s_s_clk = {
 		.freq_hz = f, \
 		.md_val = MD16(m, n), \
 		.ns_val = N16(m, n) | SPDIV(SRC_SEL_SDAC_##s, div), \
-		.mnd_en_mask = BIT(8) * !!(n), \
 		.src_clk = &s##_clk.c, \
 	}
 
@@ -1722,6 +1728,7 @@ static struct rcg_clk sdac_clk = {
 	.ns_reg = SDAC_NS_REG,
 	.md_reg = SDAC_NS_REG - 4,
 	.root_en_mask = BIT(11),
+	.mnd_en_mask = BIT(8),
 	.freq_tbl = clk_tbl_sdac,
 	.ns_mask = F_MASK_MND16,
 	.set_rate = set_rate_mnd,
@@ -1765,6 +1772,7 @@ static struct rcg_clk tv_clk = {
 	},
 	.md_reg = TV_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(23, 16),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_tv,
 	.current_freq = &rcg_dummy_freq,
@@ -1856,6 +1864,7 @@ static struct rcg_clk usb_hs_src_clk = {
 	},
 	.md_reg = USBH_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(23, 16),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_usb,
 	.current_freq = &rcg_dummy_freq,
@@ -1994,6 +2003,7 @@ static struct rcg_clk jpeg_clk = {
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_vfe_jpeg,
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -2018,6 +2028,7 @@ static struct rcg_clk vfe_clk = {
 	.root_en_mask = BIT(13),
 	.freq_tbl = clk_tbl_vfe_jpeg,
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -2102,6 +2113,7 @@ static struct rcg_clk cam_m_clk = {
 	.root_en_mask = BIT(9),
 	.freq_tbl = clk_tbl_cam,
 	.ns_mask = F_MASK_MND16,
+	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -2134,6 +2146,7 @@ static struct rcg_clk vpe_clk = {
 	.ns_reg = VPE_NS_REG,
 	.md_reg = VPE_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(22, 15),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_vpe,
 	.current_freq = &rcg_dummy_freq,
@@ -2170,6 +2183,7 @@ static struct rcg_clk mfc_clk = {
 	.ns_reg = MFC_NS_REG,
 	.md_reg = MFC_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(24, 17),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_mfc,
 	.current_freq = &rcg_dummy_freq,
@@ -2218,6 +2232,7 @@ static struct rcg_clk spi_clk = {
 	.ns_reg = SPI_NS_REG,
 	.md_reg = SPI_NS_REG - 4,
 	.ns_mask = F_MASK_MND8(19, 12),
+	.mnd_en_mask = BIT(8),
 	.root_en_mask = BIT(11),
 	.freq_tbl = clk_tbl_spi,
 	.current_freq = &rcg_dummy_freq,
@@ -2231,10 +2246,10 @@ static struct rcg_clk spi_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_lpa_codec[] = {
-	F_RAW(1, NULL, 0, 0, 0, 0, NULL), /* src MI2S_CODEC_RX */
-	F_RAW(2, NULL, 0, 1, 0, 0, NULL), /* src ECODEC_CIF */
-	F_RAW(3, NULL, 0, 2, 0, 0, NULL), /* src MI2S */
-	F_RAW(4, NULL, 0, 3, 0, 0, NULL), /* src SDAC */
+	F_RAW(1, NULL, 0, 0, 0, NULL), /* src MI2S_CODEC_RX */
+	F_RAW(2, NULL, 0, 1, 0, NULL), /* src ECODEC_CIF */
+	F_RAW(3, NULL, 0, 2, 0, NULL), /* src MI2S */
+	F_RAW(4, NULL, 0, 3, 0, NULL), /* src SDAC */
 	F_END,
 };
 
@@ -2260,7 +2275,7 @@ static struct rcg_clk lpa_codec_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_mdc[] = {
-	F_RAW(1, NULL, 0, 0, 0, 0, NULL),
+	F_RAW(1, NULL, 0, 0, 0, NULL),
 	F_END
 };
 

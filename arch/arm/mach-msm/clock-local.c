@@ -192,13 +192,8 @@ void set_rate_mnd_banked(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 		writel_relaxed(ns_reg_val, clk->ns_reg);
 	}
 
-	/*
-	 * If this freq requires the MN counter to be enabled,
-	 * update the enable mask to match the current bank.
-	 */
-	if (nf->mnd_en_mask)
-		nf->mnd_en_mask = new_bank_masks->mnd_en_mask;
-	/* Update the NS mask to match the current bank. */
+	/* Update the MND_EN and NS masks to match the current bank. */
+	clk->mnd_en_mask = new_bank_masks->mnd_en_mask;
 	clk->ns_mask = new_bank_masks->ns_mask;
 }
 
@@ -343,8 +338,8 @@ static void __rcg_clk_enable_reg(struct rcg_clk *clk)
 
 	/* Enable MN counter, if applicable. */
 	reg_val = readl_relaxed(reg);
-	if (clk->current_freq->mnd_en_mask) {
-		reg_val |= clk->current_freq->mnd_en_mask;
+	if (clk->current_freq->md_val) {
+		reg_val |= clk->mnd_en_mask;
 		writel_relaxed(reg_val, reg);
 	}
 	/* Enable root. */
@@ -408,8 +403,8 @@ static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 		writel_relaxed(reg_val, reg);
 	}
 	/* Disable MN counter, if applicable. */
-	if (clk->current_freq->mnd_en_mask) {
-		reg_val &= ~(clk->current_freq->mnd_en_mask);
+	if (clk->current_freq->md_val) {
+		reg_val &= ~(clk->mnd_en_mask);
 		writel_relaxed(reg_val, reg);
 	}
 	/*
@@ -641,7 +636,7 @@ int rcg_clk_handoff(struct clk *c)
 	ns_val = readl_relaxed(clk->ns_reg) & ns_mask;
 	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
 		if ((freq->ns_val & ns_mask) == ns_val &&
-		    (!freq->mnd_en_mask || freq->md_val == md_val)) {
+		    (!freq->md_val || freq->md_val == md_val)) {
 			pr_info("%s rate=%d\n", clk->c.dbg_name, freq->freq_hz);
 			break;
 		}
@@ -686,12 +681,6 @@ void pll_vote_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-unsigned long pll_vote_clk_get_rate(struct clk *clk)
-{
-	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	return pll->rate;
-}
-
 struct clk *pll_vote_clk_get_parent(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
@@ -709,7 +698,6 @@ struct clk_ops clk_ops_pll_vote = {
 	.disable = pll_vote_clk_disable,
 	.auto_off = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_rate = pll_vote_clk_get_rate,
 	.get_parent = pll_vote_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
@@ -766,12 +754,6 @@ static void pll_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned long pll_clk_get_rate(struct clk *clk)
-{
-	struct pll_clk *pll = to_pll_clk(clk);
-	return pll->rate;
-}
-
 static struct clk *pll_clk_get_parent(struct clk *clk)
 {
 	struct pll_clk *pll = to_pll_clk(clk);
@@ -817,13 +799,11 @@ struct clk_ops clk_ops_pll = {
 	.enable = pll_clk_enable,
 	.disable = pll_clk_disable,
 	.auto_off = pll_clk_disable,
-	.get_rate = pll_clk_get_rate,
 	.get_parent = pll_clk_get_parent,
 	.is_local = local_clk_is_local,
 };
 
 struct clk_ops clk_ops_gnd = {
-	.get_rate = fixed_clk_get_rate,
 	.is_local = local_clk_is_local,
 };
 
