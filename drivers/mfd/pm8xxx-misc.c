@@ -540,7 +540,7 @@ int pm8xxx_smpl_control(int enable)
 		case PM8XXX_VERSION_8018:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8018_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
-				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+				(enable ? SLEEP_CTRL_SMPL_EN_RESET
 					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
 			break;
 		case PM8XXX_VERSION_8058:
@@ -552,7 +552,7 @@ int pm8xxx_smpl_control(int enable)
 		case PM8XXX_VERSION_8921:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
-				(enable ? SLEEP_CTRL_SMPL_EN_PWR_OFF
+				(enable ? SLEEP_CTRL_SMPL_EN_RESET
 					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
 			break;
 		default:
