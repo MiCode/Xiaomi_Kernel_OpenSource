@@ -7333,7 +7333,7 @@ static int l2cap_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 	struct hlist_node *node;
 
 	if (type != ACL_LINK)
-		return -EINVAL;
+		return 0;
 
 	BT_DBG("hdev %s, bdaddr %s", hdev->name, batostr(bdaddr));
 
