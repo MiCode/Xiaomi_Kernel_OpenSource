@@ -1446,6 +1446,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_pcm_afe,
 	&apq_cpudai_auxpcm_rx,
 	&apq_cpudai_auxpcm_tx,
+	&apq_cpudai_stub,
 	&apq8064_rpm_device,
 	&apq8064_rpm_log_device,
 	&apq8064_rpm_stat_device,
