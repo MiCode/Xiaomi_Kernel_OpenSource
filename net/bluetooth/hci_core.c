@@ -561,6 +561,19 @@ int hci_dev_open(__u16 dev)
 		goto done;
 	}
 
+	if (!skb_queue_empty(&hdev->cmd_q)) {
+		BT_ERR("command queue is not empty, purging");
+		skb_queue_purge(&hdev->cmd_q);
+	}
+	if (!skb_queue_empty(&hdev->rx_q)) {
+		BT_ERR("rx queue is not empty, purging");
+		skb_queue_purge(&hdev->rx_q);
+	}
+	if (!skb_queue_empty(&hdev->raw_q)) {
+		BT_ERR("raw queue is not empty, purging");
+		skb_queue_purge(&hdev->raw_q);
+	}
+
 	if (!test_bit(HCI_RAW, &hdev->flags)) {
 		atomic_set(&hdev->cmd_cnt, 1);
 		set_bit(HCI_INIT, &hdev->flags);
