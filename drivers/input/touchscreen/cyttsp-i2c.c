@@ -710,25 +710,26 @@ static void cyttspfw_flash_start(struct cyttsp *ts, const u8 *data,
 	else if (!(g_bl_data.bl_status & BL_CHECKSUM_MASK) &&
 			(appid_lo == ts->platform_data->correct_fw_ver))
 		fw_upgrade = 1;
-	else
-		if ((appid_hi == g_bl_data.appid_hi) &&
-			(appid_lo == g_bl_data.appid_lo)) {
-			if (appver_hi > g_bl_data.appver_hi) {
+	else if ((appid_hi == g_bl_data.appid_hi) &&
+			(appid_lo == g_bl_data.appid_lo))
+			if (appver_hi > g_bl_data.appver_hi)
 				fw_upgrade = 1;
-			} else if ((appver_hi == g_bl_data.appver_hi) &&
-					 (appver_lo > g_bl_data.appver_lo)) {
-					fw_upgrade = 1;
-				} else {
-					fw_upgrade = 0;
-					pr_info("%s: Firmware version "
-					"lesser/equal to existing firmware, "
-					"upgrade not needed\n", __func__);
-				}
-		} else {
-			fw_upgrade = 0;
-			pr_info("%s: Firware versions do not match, "
-						"cannot upgrade\n", __func__);
-		}
+			else if ((appver_hi == g_bl_data.appver_hi) &&
+					 (appver_lo > g_bl_data.appver_lo))
+				fw_upgrade = 1;
+			else {
+				fw_upgrade = 0;
+				pr_info("%s: Firmware version "
+				"lesser/equal to existing firmware, "
+				"upgrade not needed\n", __func__);
+			}
+	else if (appid_lo == ts->platform_data->correct_fw_ver)
+		fw_upgrade = 1;
+	else {
+		fw_upgrade = 0;
+		pr_info("%s: Firmware versions do not match, "
+					"cannot upgrade\n", __func__);
+	}
 
 	if (fw_upgrade) {
 		pr_info("%s: Starting firmware upgrade\n", __func__);
