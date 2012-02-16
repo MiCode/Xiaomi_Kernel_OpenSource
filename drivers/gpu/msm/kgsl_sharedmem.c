@@ -636,13 +636,17 @@ kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
 			unsigned int offsetbytes)
 {
+	uint32_t *src;
 	BUG_ON(memdesc == NULL || memdesc->hostptr == NULL || dst == NULL);
-	WARN_ON(offsetbytes + sizeof(unsigned int) > memdesc->size);
+	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);
+	if (offsetbytes % sizeof(uint32_t) != 0)
+		return -EINVAL;
 
-	if (offsetbytes + sizeof(unsigned int) > memdesc->size)
+	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
+	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
 		return -ERANGE;
-
-	*dst = readl_relaxed(memdesc->hostptr + offsetbytes);
+	src = (uint32_t *)(memdesc->hostptr + offsetbytes);
+	*dst = *src;
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_readl);
@@ -652,12 +656,19 @@ kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes,
 			uint32_t src)
 {
+	uint32_t *dst;
 	BUG_ON(memdesc == NULL || memdesc->hostptr == NULL);
-	BUG_ON(offsetbytes + sizeof(unsigned int) > memdesc->size);
+	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);
+	if (offsetbytes % sizeof(uint32_t) != 0)
+		return -EINVAL;
 
+	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
+	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
+		return -ERANGE;
 	kgsl_cffdump_setmem(memdesc->gpuaddr + offsetbytes,
-		src, sizeof(uint));
-	writel_relaxed(src, memdesc->hostptr + offsetbytes);
+		src, sizeof(uint32_t));
+	dst = (uint32_t *)(memdesc->hostptr + offsetbytes);
+	*dst = src;
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_writel);

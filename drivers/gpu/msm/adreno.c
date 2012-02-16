@@ -978,15 +978,6 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	}
 	mutex_unlock(&kgsl_driver.process_mutex);
 
-	BUG_ON(!mutex_is_locked(&device->mutex));
-	list_for_each_entry(entry, &device->memqueue, list) {
-		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
-			result = &entry->memdesc;
-			return result;
-		}
-
-	}
-
 	while (1) {
 		struct adreno_context *adreno_context = NULL;
 		context = idr_get_next(&device->context_idr, &next);

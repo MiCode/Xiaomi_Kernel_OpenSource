@@ -126,6 +126,7 @@ struct kgsl_event {
 	void (*func)(struct kgsl_device *, void *, u32);
 	void *priv;
 	struct list_head list;
+	struct kgsl_device_private *owner;
 };
 
 
@@ -154,7 +155,6 @@ struct kgsl_device {
 	uint32_t state;
 	uint32_t requested_state;
 
-	struct list_head memqueue;
 	unsigned int active_cnt;
 	struct completion suspend_gate;
 
