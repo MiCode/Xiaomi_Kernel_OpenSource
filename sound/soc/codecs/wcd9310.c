@@ -3789,19 +3789,15 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 	struct tabla_mbhc_general_cfg *generic;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	int n;
-	u8 tabla_ver;
 	u8 *n_cic, *gain;
+	struct tabla *tabla_core = dev_get_drvdata(codec->dev->parent);
 
 	tabla = snd_soc_codec_get_drvdata(codec);
 	generic = TABLA_MBHC_CAL_GENERAL_PTR(tabla->calibration);
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->calibration);
 
-	tabla_ver = snd_soc_read(codec, TABLA_A_CHIP_VERSION);
-	tabla_ver &= 0x1F;
-
 	for (n = 0; n < 8; n++) {
-		if ((tabla_ver != TABLA_VERSION_1_0 &&
-		     tabla_ver != TABLA_VERSION_1_1) || n != 7) {
+		if ((!TABLA_IS_1_X(tabla_core->version)) || n != 7) {
 			snd_soc_update_bits(codec,
 					    TABLA_A_CDC_MBHC_FEATURE_B1_CFG,
 					    0x07, n);
@@ -5197,13 +5193,32 @@ static struct platform_driver tabla_codec_driver = {
 	},
 };
 
+static struct platform_driver tabla1x_codec_driver = {
+	.probe = tabla_probe,
+	.remove = tabla_remove,
+	.driver = {
+		.name = "tabla1x_codec",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &tabla_pm_ops,
+#endif
+	},
+};
+
 static int __init tabla_codec_init(void)
 {
-	return platform_driver_register(&tabla_codec_driver);
+	int rtn = platform_driver_register(&tabla_codec_driver);
+	if (rtn == 0) {
+		rtn = platform_driver_register(&tabla1x_codec_driver);
+		if (rtn != 0)
+			platform_driver_unregister(&tabla_codec_driver);
+	}
+	return rtn;
 }
 
 static void __exit tabla_codec_exit(void)
 {
+	platform_driver_unregister(&tabla1x_codec_driver);
 	platform_driver_unregister(&tabla_codec_driver);
 }
 
