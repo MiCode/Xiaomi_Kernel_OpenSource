@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,14 +23,12 @@
 #include <linux/msm_audio.h>
 #include <linux/debugfs.h>
 #include <linux/list.h>
-#include <linux/android_pmem.h>
 #include <linux/slab.h>
+#include <linux/ion.h>
 #include <asm/ioctls.h>
 #include <asm/atomic.h>
 #include <sound/q6asm.h>
 #include <sound/apr_audio.h>
-
-
 
 #define TUNNEL_MODE     0x0000
 #define NON_TUNNEL_MODE 0x0001
@@ -114,9 +112,10 @@ union  meta_data {
 #define FRAME_NUM               (2)
 #define FRAME_SIZE	((4*1536) + sizeof(struct dec_meta_in))
 
-struct audio_aio_pmem_region {
+struct audio_aio_ion_region {
 	struct list_head list;
-	struct file *file;
+	struct ion_handle *handle;
+	struct ion_client *client;
 	int fd;
 	void *vaddr;
 	unsigned long paddr;
@@ -174,7 +173,7 @@ struct q6audio_aio {
 	struct list_head in_queue;      /* queue to retain input buffers */
 	struct list_head free_event_queue;
 	struct list_head event_queue;
-	struct list_head pmem_region_queue;     /* protected by lock */
+	struct list_head ion_region_queue;     /* protected by lock */
 	struct audio_aio_drv_operations drv_ops;
 	union msm_audio_event_payload eos_write_payload;
 
