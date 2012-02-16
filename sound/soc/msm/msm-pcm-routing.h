@@ -32,6 +32,8 @@
 #define LPASS_BE_SEC_I2S_RX "(Backend) SECONDARY_I2S_RX"
 
 #define LPASS_BE_MI2S_RX "(Backend) MI2S_RX"
+#define LPASS_BE_STUB_RX "(Backend) STUB_RX"
+#define LPASS_BE_STUB_TX "(Backend) STUB_TX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
