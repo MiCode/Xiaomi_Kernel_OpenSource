@@ -306,7 +306,7 @@ struct platform_device apq_cpudai1 = {
 };
 
 struct platform_device apq_cpudai_hdmi_rx = {
-	.name	= "msm-dai-q6",
+	.name	= "msm-dai-q6-hdmi",
 	.id	= 8,
 };
 
