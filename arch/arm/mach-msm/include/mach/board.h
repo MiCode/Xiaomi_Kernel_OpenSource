@@ -202,6 +202,18 @@ struct msm_camera_gpio_conf {
 	uint8_t cam_gpio_set_tbl_size;
 };
 
+enum msm_camera_i2c_mux_mode {
+	MODE_R,
+	MODE_L,
+	MODE_DUAL
+};
+
+struct msm_camera_i2c_conf {
+	uint8_t use_i2c_mux;
+	struct platform_device *mux_dev;
+	enum msm_camera_i2c_mux_mode i2c_mux_mode;
+};
+
 struct msm_camera_sensor_platform_info {
 	int mount_angle;
 	int sensor_reset;
@@ -209,6 +221,7 @@ struct msm_camera_sensor_platform_info {
 	int num_vreg;
 	int32_t (*ext_power_ctrl) (int enable);
 	struct msm_camera_gpio_conf *gpio_conf;
+	struct msm_camera_i2c_conf *i2c_conf;
 };
 
 struct msm_actuator_info {

@@ -32,11 +32,6 @@ static struct clk *camio_jpeg_pclk;
 static struct clk *camio_imem_clk;
 static struct regulator *fs_ijpeg;
 
-static struct platform_device *camio_dev;
-static struct resource *s3drw_io, *s3dctl_io;
-static struct resource *s3drw_mem, *s3dctl_mem;
-void __iomem *s3d_rw, *s3d_ctl;
-
 void msm_io_w(u32 data, void __iomem *addr)
 {
 	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
@@ -232,89 +227,6 @@ int msm_camio_jpeg_clk_enable(void)
 
 	CDBG("%s: exit %d\n", __func__, rc);
 	return rc;
-}
-
-int32_t msm_camio_3d_enable(const struct msm_camera_sensor_info *s_info)
-{
-	int32_t val = 0, rc = 0;
-	char s3drw[] = "s3d_rw";
-	char s3dctl[] = "s3d_ctl";
-	struct platform_device *pdev = camio_dev;
-	pdev->resource = s_info->resource;
-	pdev->num_resources = s_info->num_resources;
-
-	s3drw_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, s3drw);
-	if (!s3drw_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-	s3dctl_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, s3dctl);
-	if (!s3dctl_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-	s3drw_io = request_mem_region(s3drw_mem->start,
-		resource_size(s3drw_mem), pdev->name);
-	if (!s3drw_io)
-		return -EBUSY;
-
-	s3d_rw = ioremap(s3drw_mem->start,
-		resource_size(s3drw_mem));
-	if (!s3d_rw) {
-		rc = -ENOMEM;
-		goto s3drw_nomem;
-	}
-	s3dctl_io = request_mem_region(s3dctl_mem->start,
-		resource_size(s3dctl_mem), pdev->name);
-	if (!s3dctl_io) {
-		rc = -EBUSY;
-		goto s3dctl_busy;
-	}
-	s3d_ctl = ioremap(s3dctl_mem->start,
-		resource_size(s3dctl_mem));
-	if (!s3d_ctl) {
-		rc = -ENOMEM;
-		goto s3dctl_nomem;
-	}
-
-	val = msm_io_r(s3d_rw);
-	msm_io_w((val | 0x200), s3d_rw);
-	return rc;
-
-s3dctl_nomem:
-	release_mem_region(s3dctl_mem->start, resource_size(s3dctl_mem));
-s3dctl_busy:
-	iounmap(s3d_rw);
-s3drw_nomem:
-	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
-return rc;
-}
-
-void msm_camio_3d_disable(void)
-{
-	int32_t val = 0;
-	msm_io_w((val & ~0x200), s3d_rw);
-	iounmap(s3d_ctl);
-	release_mem_region(s3dctl_mem->start, resource_size(s3dctl_mem));
-	iounmap(s3d_rw);
-	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
-}
-
-void msm_camio_mode_config(enum msm_cam_mode mode)
-{
-	uint32_t val;
-	val = msm_io_r(s3d_ctl);
-	if (mode == MODE_DUAL) {
-		msm_io_w(val | 0x3, s3d_ctl);
-	} else if (mode == MODE_L) {
-		msm_io_w(((val | 0x2) & ~(0x1)), s3d_ctl);
-		val = msm_io_r(s3d_ctl);
-		CDBG("the camio mode config left value is %d\n", val);
-	} else {
-		msm_io_w(((val | 0x1) & ~(0x2)), s3d_ctl);
-		val = msm_io_r(s3d_ctl);
-		CDBG("the camio mode config right value is %d\n", val);
-	}
 }
 
 void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,

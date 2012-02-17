@@ -1134,27 +1134,27 @@ struct platform_device msm8960_device_qup_i2c_gsbi12 = {
 };
 
 #ifdef CONFIG_MSM_CAMERA
-struct resource msm_camera_resources[] = {
+static struct resource msm_cam_gsbi4_i2c_mux_resources[] = {
 	{
-		.name   = "s3d_rw",
+		.name   = "i2c_mux_rw",
 		.start  = 0x008003E0,
-		.end    = 0x008003E0 + SZ_16 - 1,
+		.end    = 0x008003E0 + SZ_8 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.name   = "s3d_ctl",
+		.name   = "i2c_mux_ctl",
 		.start  = 0x008020B8,
-		.end    = 0x008020B8 + SZ_16 - 1,
+		.end    = 0x008020B8 + SZ_4 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
 
-int __init msm_get_cam_resources(struct msm_camera_sensor_info *s_info)
-{
-	s_info->resource = msm_camera_resources;
-	s_info->num_resources = ARRAY_SIZE(msm_camera_resources);
-	return 0;
-}
+struct platform_device msm8960_device_i2c_mux_gsbi4 = {
+	.name           = "msm_cam_i2c_mux",
+	.id             = 0,
+	.resource       = msm_cam_gsbi4_i2c_mux_resources,
+	.num_resources  = ARRAY_SIZE(msm_cam_gsbi4_i2c_mux_resources),
+};
 
 static struct resource msm_csiphy0_resources[] = {
 	{

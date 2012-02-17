@@ -13,6 +13,7 @@
 #include "msm_sensor.h"
 #include "msm.h"
 #include "msm_ispif.h"
+#include "msm_camera_i2c_mux.h"
 
 /*=============================================================*/
 
@@ -449,6 +450,26 @@ static struct msm_cam_clk_info cam_clk_info[] = {
 	{"cam_clk", MSM_SENSOR_MCLK_24HZ},
 };
 
+int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
+{
+	struct v4l2_subdev *i2c_mux_sd =
+		dev_get_drvdata(&i2c_conf->mux_dev->dev);
+	v4l2_subdev_call(i2c_mux_sd, core, ioctl,
+		VIDIOC_MSM_I2C_MUX_INIT, NULL);
+	v4l2_subdev_call(i2c_mux_sd, core, ioctl,
+		VIDIOC_MSM_I2C_MUX_CFG, (void *)&i2c_conf->i2c_mux_mode);
+	return 0;
+}
+
+int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
+{
+	struct v4l2_subdev *i2c_mux_sd =
+		dev_get_drvdata(&i2c_conf->mux_dev->dev);
+	v4l2_subdev_call(i2c_mux_sd, core, ioctl,
+				VIDIOC_MSM_I2C_MUX_RELEASE, NULL);
+	return 0;
+}
+
 int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
@@ -506,6 +527,10 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(1);
 
+	if (data->sensor_platform_info->i2c_conf &&
+		data->sensor_platform_info->i2c_conf->use_i2c_mux)
+		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
+
 	return rc;
 enable_clk_failed:
 		msm_camera_config_gpio_table(data, 0);
@@ -531,6 +556,11 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s\n", __func__);
+	if (data->sensor_platform_info->i2c_conf &&
+		data->sensor_platform_info->i2c_conf->use_i2c_mux)
+		msm_sensor_disable_i2c_mux(
+			data->sensor_platform_info->i2c_conf);
+
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(0);
 	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
