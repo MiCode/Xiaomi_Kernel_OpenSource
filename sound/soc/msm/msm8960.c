@@ -984,7 +984,7 @@ static struct snd_soc_ops msm8960_auxpcm_be_ops = {
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
-static struct snd_soc_dai_link msm8960_dai[] = {
+static struct snd_soc_dai_link msm8960_dai_common[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MSM8960 Media1",
@@ -1104,32 +1104,6 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.no_codec = 1,
 		.ignore_suspend = 1,
-	},
-	/* Backend DAI Links */
-	{
-		.name = LPASS_BE_SLIMBUS_0_RX,
-		.stream_name = "Slimbus Playback",
-		.cpu_dai_name = "msm-dai-q6.16384",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "tabla_codec",
-		.codec_dai_name	= "tabla_rx1",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
-		.init = &msm8960_audrx_init,
-		.be_hw_params_fixup = msm8960_slim_0_rx_be_hw_params_fixup,
-		.ops = &msm8960_be_ops,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_0_TX,
-		.stream_name = "Slimbus Capture",
-		.cpu_dai_name = "msm-dai-q6.16385",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "tabla_codec",
-		.codec_dai_name	= "tabla_tx1",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
-		.be_hw_params_fixup = msm8960_slim_0_tx_be_hw_params_fixup,
-		.ops = &msm8960_be_ops,
 	},
 	/* Backend BT/FM DAI Links */
 	{
@@ -1278,13 +1252,88 @@ static struct snd_soc_dai_link msm8960_dai[] = {
 	},
 };
 
-struct snd_soc_card snd_soc_card_msm8960 = {
-	.name		= "msm8960-snd-card",
-	.dai_link	= msm8960_dai,
-	.num_links	= ARRAY_SIZE(msm8960_dai),
+static struct snd_soc_dai_link msm8960_dai_delta_tabla1x[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SLIMBUS_0_RX,
+		.stream_name = "Slimbus Playback",
+		.cpu_dai_name = "msm-dai-q6.16384",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla1x_codec",
+		.codec_dai_name	= "tabla_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+		.init = &msm8960_audrx_init,
+		.be_hw_params_fixup = msm8960_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8960_be_ops,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_0_TX,
+		.stream_name = "Slimbus Capture",
+		.cpu_dai_name = "msm-dai-q6.16385",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla1x_codec",
+		.codec_dai_name	= "tabla_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+		.be_hw_params_fixup = msm8960_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8960_be_ops,
+	},
+};
+
+
+static struct snd_soc_dai_link msm8960_dai_delta_tabla2x[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SLIMBUS_0_RX,
+		.stream_name = "Slimbus Playback",
+		.cpu_dai_name = "msm-dai-q6.16384",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla_codec",
+		.codec_dai_name	= "tabla_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+		.init = &msm8960_audrx_init,
+		.be_hw_params_fixup = msm8960_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm8960_be_ops,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_0_TX,
+		.stream_name = "Slimbus Capture",
+		.cpu_dai_name = "msm-dai-q6.16385",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla_codec",
+		.codec_dai_name	= "tabla_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+		.be_hw_params_fixup = msm8960_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8960_be_ops,
+	},
+};
+
+static struct snd_soc_dai_link msm8960_tabla1x_dai[
+					 ARRAY_SIZE(msm8960_dai_common) +
+					 ARRAY_SIZE(msm8960_dai_delta_tabla1x)];
+
+
+static struct snd_soc_dai_link msm8960_dai[
+					 ARRAY_SIZE(msm8960_dai_common) +
+					 ARRAY_SIZE(msm8960_dai_delta_tabla2x)];
+
+static struct snd_soc_card snd_soc_tabla1x_card_msm8960 = {
+		.name		= "msm8960-tabla1x-snd-card",
+		.dai_link	= msm8960_tabla1x_dai,
+		.num_links	= ARRAY_SIZE(msm8960_tabla1x_dai),
+};
+
+static struct snd_soc_card snd_soc_card_msm8960 = {
+		.name		= "msm8960-snd-card",
+		.dai_link	= msm8960_dai,
+		.num_links	= ARRAY_SIZE(msm8960_dai),
 };
 
 static struct platform_device *msm8960_snd_device;
+static struct platform_device *msm8960_snd_tabla1x_device;
 
 static int msm8960_configure_headset_mic_gpios(void)
 {
@@ -1359,10 +1408,35 @@ static int __init msm8960_audio_init(void)
 		return -ENOMEM;
 	}
 
+	memcpy(msm8960_dai, msm8960_dai_common, sizeof(msm8960_dai_common));
+	memcpy(msm8960_dai + ARRAY_SIZE(msm8960_dai_common),
+		msm8960_dai_delta_tabla2x, sizeof(msm8960_dai_delta_tabla2x));
+
 	platform_set_drvdata(msm8960_snd_device, &snd_soc_card_msm8960);
 	ret = platform_device_add(msm8960_snd_device);
 	if (ret) {
 		platform_device_put(msm8960_snd_device);
+		kfree(tabla_mbhc_cal);
+		return ret;
+	}
+
+	msm8960_snd_tabla1x_device = platform_device_alloc("soc-audio", 1);
+	if (!msm8960_snd_tabla1x_device) {
+		pr_err("Platform device allocation failed\n");
+		kfree(tabla_mbhc_cal);
+		return -ENOMEM;
+	}
+
+	memcpy(msm8960_tabla1x_dai, msm8960_dai_common,
+		sizeof(msm8960_dai_common));
+	memcpy(msm8960_tabla1x_dai + ARRAY_SIZE(msm8960_dai_common),
+		msm8960_dai_delta_tabla1x, sizeof(msm8960_dai_delta_tabla1x));
+
+	platform_set_drvdata(msm8960_snd_tabla1x_device,
+		&snd_soc_tabla1x_card_msm8960);
+	ret = platform_device_add(msm8960_snd_tabla1x_device);
+	if (ret) {
+		platform_device_put(msm8960_snd_tabla1x_device);
 		kfree(tabla_mbhc_cal);
 		return ret;
 	}
@@ -1386,6 +1460,7 @@ static void __exit msm8960_audio_exit(void)
 	}
 	msm8960_free_headset_mic_gpios();
 	platform_device_unregister(msm8960_snd_device);
+	platform_device_unregister(msm8960_snd_tabla1x_device);
 	kfree(tabla_mbhc_cal);
 }
 module_exit(msm8960_audio_exit);
