@@ -10,9 +10,12 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/cpu.h>
 
 #include <asm/cacheflush.h>
 #include <asm/vfp.h>
+
+#include <mach/msm_rtb.h>
 
 #include "pm.h"
 #include "qdss.h"
@@ -114,6 +117,45 @@ int platform_cpu_disable(unsigned int cpu)
 	return cpu == 0 ? -EPERM : 0;
 }
 
+#define CPU_SHIFT	0
+#define CPU_MASK	0xF
+#define CPU_OF(n)	(((n) & CPU_MASK) << CPU_SHIFT)
+#define CPUSET_SHIFT	4
+#define CPUSET_MASK	0xFFFF
+#define CPUSET_OF(n)	(((n) & CPUSET_MASK) << CPUSET_SHIFT)
+
+static int hotplug_rtb_callback(struct notifier_block *nfb,
+				unsigned long action, void *hcpu)
+{
+	/*
+	 * Bits [19:4] of the data are the online mask, lower 4 bits are the
+	 * cpu number that is being changed. Additionally, changes to the
+	 * online_mask that will be done by the current hotplug will be made
+	 * even though they aren't necessarily in the online mask yet.
+	 *
+	 * XXX: This design is limited to supporting at most 16 cpus
+	 */
+	int this_cpumask = CPUSET_OF(1 << (int)hcpu);
+	int cpumask = CPUSET_OF(cpumask_bits(cpu_online_mask)[0]);
+	int cpudata = CPU_OF((int)hcpu) | cpumask;
+
+	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_STARTING:
+		uncached_logk(LOGK_HOTPLUG, (void *)(cpudata | this_cpumask));
+		break;
+	case CPU_DYING:
+		uncached_logk(LOGK_HOTPLUG, (void *)(cpudata & ~this_cpumask));
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+static struct notifier_block hotplug_rtb_notifier = {
+	.notifier_call = hotplug_rtb_callback,
+};
+
 int msm_platform_secondary_init(unsigned int cpu)
 {
 	int ret;
@@ -132,3 +174,9 @@ int msm_platform_secondary_init(unsigned int cpu)
 
 	return ret;
 }
+
+static int __init init_hotplug_notifier(void)
+{
+	return register_hotcpu_notifier(&hotplug_rtb_notifier);
+}
+early_initcall(init_hotplug_notifier);

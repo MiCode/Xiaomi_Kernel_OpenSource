@@ -18,6 +18,7 @@ enum logk_event_type {
 	LOGK_READL,
 	LOGK_WRITEL,
 	LOGK_LOGBUF,
+	LOGK_HOTPLUG,
 	LOGK_OTHER,
 };
 
