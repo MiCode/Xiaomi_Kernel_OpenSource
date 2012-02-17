@@ -157,6 +157,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("riva_vddpx",		"wcnss_wlan.0"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-005b"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
+	REGULATOR_SUPPLY("vddp",		"0-0048"),
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8921_s5",		NULL),
