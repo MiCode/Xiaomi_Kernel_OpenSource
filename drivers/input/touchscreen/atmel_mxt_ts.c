@@ -339,6 +339,7 @@ struct mxt_data {
 	u8 t15_min_reportid;
 	u8 curr_cfg_version;
 	int cfg_version_idx;
+	const char *fw_name;
 };
 
 static struct dentry *debug_base;
@@ -1034,11 +1035,13 @@ static int mxt_search_config_array(struct mxt_data *data, bool version_match)
 			if (data->curr_cfg_version == cfg_version ||
 				!version_match) {
 				data->config_info = cfg_info;
+				data->fw_name = pdata->config_array[i].fw_name;
 				return 0;
 			}
 		}
 	}
 
+	data->fw_name = NULL;
 	dev_info(&data->client->dev,
 		"Config not found: F: %d, V: %d, FW: %d.%d.%d, CFG: %d\n",
 		info->family_id, info->variant_id,
@@ -1394,9 +1397,17 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	struct mxt_data *data = dev_get_drvdata(dev);
 	int error;
 
+	/* If fw_name is set, then the existing firmware has an upgrade */
+	if (!data->fw_name) {
+		dev_err(dev, "Firmware name not specifed in platform data\n");
+		return -EINVAL;
+	}
+
+	dev_info(dev, "Upgrading the firmware file to %s\n", data->fw_name);
+
 	disable_irq(data->irq);
 
-	error = mxt_load_fw(dev, MXT_FW_NAME);
+	error = mxt_load_fw(dev, data->fw_name);
 	if (error) {
 		dev_err(dev, "The firmware update failed(%d)\n", error);
 		count = error;
