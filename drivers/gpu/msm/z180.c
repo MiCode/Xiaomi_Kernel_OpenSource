@@ -584,6 +584,8 @@ static int z180_stop(struct kgsl_device *device)
 	device->ftbl->irqctrl(device, 0);
 	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
 
+	del_timer_sync(&device->idle_timer);
+
 	kgsl_mmu_stop(device);
 
 	/* Disable the clocks before the power rail. */
