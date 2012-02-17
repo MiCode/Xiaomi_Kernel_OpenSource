@@ -53,5 +53,8 @@ void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
 void diag_read_smd_qdsp_cntl_work_fn(struct work_struct *);
 void diag_read_smd_wcnss_cntl_work_fn(struct work_struct *);
+void diag_smd_cntl_notify(void *ctxt, unsigned event);
+void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event);
+void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event);
 
 #endif
