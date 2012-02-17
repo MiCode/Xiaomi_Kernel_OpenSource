@@ -33,7 +33,6 @@
 
 #define QDSP6SS_RST_EVB		0x0
 #define QDSP6SS_RESET		0x04
-#define QDSP6SS_CGC_OVERRIDE	0x18
 #define QDSP6SS_STRAP_TCM	0x1C
 #define QDSP6SS_STRAP_AHB	0x20
 #define QDSP6SS_GFMUX_CTL	0x30
@@ -62,7 +61,6 @@
 
 #define Q6SS_CLK_ENA		BIT(1)
 #define Q6SS_SRC_SWITCH_CLK_OVR	BIT(8)
-#define Q6SS_AXIS_ACLK_EN	BIT(9)
 
 struct q6v4_data {
 	void __iomem *base;
@@ -220,15 +218,6 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 	if (err)
 		dev_err(pil->dev, "Failed to unhalt bus port\n");
 
-	/*
-	 * Assert AXIS_ACLK_EN override to allow for correct updating of the
-	 * QDSP6_CORE_STATE status bit. This is mandatory only for the SW Q6
-	 * in 8960v1 and optional elsewhere.
-	 */
-	reg = readl_relaxed(drv->base + QDSP6SS_CGC_OVERRIDE);
-	reg |= Q6SS_AXIS_ACLK_EN;
-	writel_relaxed(reg, drv->base + QDSP6SS_CGC_OVERRIDE);
-
 	/* Deassert Q6SS_SS_ARES */
 	reg = readl_relaxed(drv->base + QDSP6SS_RESET);
 	reg &= ~(Q6SS_SS_ARES);
@@ -277,16 +266,6 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 
 	/* Bring Q6 core out of reset and start execution. */
 	writel_relaxed(0x0, drv->base + QDSP6SS_RESET);
-
-	/*
-	 * Re-enable auto-gating of AXIS_ACLK at lease one AXI clock cycle
-	 * after resets are de-asserted.
-	 */
-	mb();
-	usleep_range(1, 10);
-	reg = readl_relaxed(drv->base + QDSP6SS_CGC_OVERRIDE);
-	reg &= ~Q6SS_AXIS_ACLK_EN;
-	writel_relaxed(reg, drv->base + QDSP6SS_CGC_OVERRIDE);
 
 	return 0;
 }
