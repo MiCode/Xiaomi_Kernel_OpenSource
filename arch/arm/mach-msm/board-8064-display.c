@@ -37,14 +37,12 @@
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-/* hdmi = 1920 x 1088 x 2(bpp) x 1(page) */
-#define MSM_FB_EXT_BUF_SIZE 0x3FC000
+#define MSM_FB_EXT_BUF_SIZE	(1920 * 1088 * 2 * 1) /* 2 bpp x 1 page */
 #elif defined(CONFIG_FB_MSM_TVOUT)
-/* tvout = 720 x 576 x 2(bpp) x 2(pages) */
-#define MSM_FB_EXT_BUF_SIZE 0x195000
-#else /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
-#define MSM_FB_EXT_BUF_SIZE 0
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
+#define MSM_FB_EXT_BUF_SIZE (720 * 576 * 2 * 2) /* 2 bpp x 2 pages */
+#else
+#define MSM_FB_EXT_BUF_SIZE	0
+#endif
 
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE, 4096)
 
@@ -135,7 +133,6 @@ void __init apq8064_allocate_fb_region(void)
 
 #define MDP_VSYNC_GPIO 0
 
-#ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors mdp_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
@@ -217,8 +214,6 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 	.name = "mdp",
 };
 
-#endif
-
 static int mdp_core_clk_rate_table[] = {
 	200000000,
 	200000000,
@@ -231,9 +226,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
-#ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
-#endif
 	.mdp_rev = MDP_REV_44,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	.mem_hid = ION_CP_MM_HEAP_ID,
@@ -253,6 +246,52 @@ void __init apq8064_mdp_writeback(struct memtype_reserve* reserve_table)
 		mdp_pdata.ov1_wb_size;
 #endif
 }
+
+static struct resource hdmi_msm_resources[] = {
+	{
+		.name  = "hdmi_msm_qfprom_addr",
+		.start = 0x00700000,
+		.end   = 0x007060FF,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name  = "hdmi_msm_hdmi_addr",
+		.start = 0x04A00000,
+		.end   = 0x04A00FFF,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name  = "hdmi_msm_irq",
+		.start = HDMI_IRQ,
+		.end   = HDMI_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static int hdmi_enable_5v(int on);
+static int hdmi_core_power(int on, int show);
+static int hdmi_cec_power(int on);
+
+static struct msm_hdmi_platform_data hdmi_msm_data = {
+	.irq = HDMI_IRQ,
+	.enable_5v = hdmi_enable_5v,
+	.core_power = hdmi_core_power,
+	.cec_power = hdmi_cec_power,
+};
+
+static struct platform_device hdmi_msm_device = {
+	.name = "hdmi_msm",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(hdmi_msm_resources),
+	.resource = hdmi_msm_resources,
+	.dev.platform_data = &hdmi_msm_data,
+};
+
+/* HDMI related GPIOs */
+#define HDMI_CEC_VAR_GPIO	69
+#define HDMI_DDC_CLK_GPIO	70
+#define HDMI_DDC_DATA_GPIO	71
+#define HDMI_HPD_GPIO		72
 
 static bool dsi_power_on;
 static int mipi_dsi_panel_power(int on)
@@ -587,6 +626,273 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 	}
 };
 
+static struct msm_bus_vectors dtv_bus_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+static struct msm_bus_vectors dtv_bus_def_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 2000000000,
+		.ib = 2000000000,
+	},
+};
+#else
+static struct msm_bus_vectors dtv_bus_def_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 566092800 * 2,
+		.ib = 707616000 * 2,
+	},
+};
+#endif
+
+static struct msm_bus_paths dtv_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(dtv_bus_init_vectors),
+		dtv_bus_init_vectors,
+	},
+	{
+		ARRAY_SIZE(dtv_bus_def_vectors),
+		dtv_bus_def_vectors,
+	},
+};
+static struct msm_bus_scale_pdata dtv_bus_scale_pdata = {
+	dtv_bus_scale_usecases,
+	ARRAY_SIZE(dtv_bus_scale_usecases),
+	.name = "dtv",
+};
+
+static struct lcdc_platform_data dtv_pdata = {
+	.bus_scale_table = &dtv_bus_scale_pdata,
+};
+
+static int hdmi_enable_5v(int on)
+{
+	/* TBD: PM8921 regulator instead of 8901 */
+	static struct regulator *reg_8921_hdmi_mvs;	/* HDMI_5V */
+	static int prev_on;
+	int rc;
+
+	if (on == prev_on)
+		return 0;
+
+	if (!reg_8921_hdmi_mvs) {
+		reg_8921_hdmi_mvs = regulator_get(&hdmi_msm_device.dev,
+			"hdmi_mvs");
+		if (IS_ERR(reg_8921_hdmi_mvs)) {
+			pr_err("could not get reg_8921_hdmi_mvs, rc = %ld\n",
+				PTR_ERR(reg_8921_hdmi_mvs));
+			reg_8921_hdmi_mvs = NULL;
+			return -ENODEV;
+		}
+	}
+
+	if (on) {
+		rc = regulator_enable(reg_8921_hdmi_mvs);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"8921_hdmi_mvs", rc);
+			return rc;
+		}
+		pr_debug("%s(on): success\n", __func__);
+	} else {
+		rc = regulator_disable(reg_8921_hdmi_mvs);
+		if (rc)
+			pr_warning("'%s' regulator disable failed, rc=%d\n",
+				"8921_hdmi_mvs", rc);
+		pr_debug("%s(off): success\n", __func__);
+	}
+
+	prev_on = on;
+
+	return 0;
+}
+
+static int hdmi_core_power(int on, int show)
+{
+	static struct regulator *reg_8921_lvs7, *reg_8921_s4, *reg_ext_3p3v;
+	static int prev_on;
+	int rc;
+	int pmic_gpio14 = PM8921_GPIO_PM_TO_SYS(14);
+
+	if (on == prev_on)
+		return 0;
+
+	/* TBD: PM8921 regulator instead of 8901 */
+	if (!reg_ext_3p3v) {
+		reg_ext_3p3v = regulator_get(&hdmi_msm_device.dev,
+					     "hdmi_mux_vdd");
+		if (IS_ERR_OR_NULL(reg_ext_3p3v)) {
+			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
+			       PTR_ERR(reg_ext_3p3v));
+			reg_ext_3p3v = NULL;
+			return -ENODEV;
+		}
+	}
+
+	if (!reg_8921_lvs7) {
+		reg_8921_lvs7 = regulator_get(&hdmi_msm_device.dev,
+					      "hdmi_vdda");
+		if (IS_ERR(reg_8921_lvs7)) {
+			pr_err("could not get reg_8921_lvs7, rc = %ld\n",
+				PTR_ERR(reg_8921_lvs7));
+			reg_8921_lvs7 = NULL;
+			return -ENODEV;
+		}
+	}
+	if (!reg_8921_s4) {
+		reg_8921_s4 = regulator_get(&hdmi_msm_device.dev,
+					    "hdmi_lvl_tsl");
+		if (IS_ERR(reg_8921_s4)) {
+			pr_err("could not get reg_8921_s4, rc = %ld\n",
+				PTR_ERR(reg_8921_s4));
+			reg_8921_s4 = NULL;
+			return -ENODEV;
+		}
+		rc = regulator_set_voltage(reg_8921_s4, 1800000, 1800000);
+		if (rc) {
+			pr_err("set_voltage failed for 8921_s4, rc=%d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	if (on) {
+		/*
+		 * Configure 3P3V_BOOST_EN as GPIO, 8mA drive strength,
+		 * pull none, out-high
+		 */
+		rc = regulator_set_optimum_mode(reg_ext_3p3v, 290000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode ext_3p3v failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+
+		rc = regulator_enable(reg_ext_3p3v);
+		if (rc) {
+			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_enable(reg_8921_lvs7);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"hdmi_vdda", rc);
+			return rc;
+		}
+		rc = regulator_enable(reg_8921_s4);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"hdmi_lvl_tsl", rc);
+			return rc;
+		}
+		rc = gpio_request(HDMI_DDC_CLK_GPIO, "HDMI_DDC_CLK");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_DDC_CLK", HDMI_DDC_CLK_GPIO, rc);
+			goto error1;
+		}
+		rc = gpio_request(HDMI_DDC_DATA_GPIO, "HDMI_DDC_DATA");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_DDC_DATA", HDMI_DDC_DATA_GPIO, rc);
+			goto error2;
+		}
+		rc = gpio_request(HDMI_HPD_GPIO, "HDMI_HPD");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_HPD", HDMI_HPD_GPIO, rc);
+			goto error3;
+		}
+		if (machine_is_apq8064_liquid()) {
+			rc = gpio_request(pmic_gpio14, "PMIC_HDMI_MUX_SEL");
+			if (rc) {
+				pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+					"PMIC_HDMI_MUX_SEL", 14, rc);
+				goto error4;
+			}
+			gpio_set_value_cansleep(pmic_gpio14, 0);
+		}
+		pr_debug("%s(on): success\n", __func__);
+	} else {
+		gpio_free(HDMI_DDC_CLK_GPIO);
+		gpio_free(HDMI_DDC_DATA_GPIO);
+		gpio_free(HDMI_HPD_GPIO);
+
+		if (machine_is_apq8064_liquid()) {
+			gpio_set_value_cansleep(pmic_gpio14, 1);
+			gpio_free(pmic_gpio14);
+		}
+
+		rc = regulator_disable(reg_ext_3p3v);
+		if (rc) {
+			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_8921_lvs7);
+		if (rc) {
+			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_8921_s4);
+		if (rc) {
+			pr_err("disable reg_8921_s4 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		pr_debug("%s(off): success\n", __func__);
+	}
+
+	prev_on = on;
+
+	return 0;
+
+error4:
+	gpio_free(HDMI_HPD_GPIO);
+error3:
+	gpio_free(HDMI_DDC_DATA_GPIO);
+error2:
+	gpio_free(HDMI_DDC_CLK_GPIO);
+error1:
+	regulator_disable(reg_8921_lvs7);
+	regulator_disable(reg_8921_s4);
+	return rc;
+}
+
+static int hdmi_cec_power(int on)
+{
+	static int prev_on;
+	int rc;
+
+	if (on == prev_on)
+		return 0;
+
+	if (on) {
+		rc = gpio_request(HDMI_CEC_VAR_GPIO, "HDMI_CEC_VAR");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_CEC_VAR", HDMI_CEC_VAR_GPIO, rc);
+			goto error;
+		}
+		pr_debug("%s(on): success\n", __func__);
+	} else {
+		gpio_free(HDMI_CEC_VAR_GPIO);
+		pr_debug("%s(off): success\n", __func__);
+	}
+
+	prev_on = on;
+
+	return 0;
+error:
+	return rc;
+}
+
 void __init apq8064_init_fb(void)
 {
 	platform_device_register(&msm_fb_device);
@@ -600,4 +906,6 @@ void __init apq8064_init_fb(void)
 	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("lvds", &lvds_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
+	platform_device_register(&hdmi_msm_device);
+	msm_fb_register_device("dtv", &dtv_pdata);
 }
