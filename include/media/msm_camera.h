@@ -184,10 +184,10 @@
 	_IOW(MSM_CAM_IOCTL_MAGIC, 51, uint32_t *)
 
 #define MSM_CAM_IOCTL_GET_MCTL_INFO \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 51, struct msm_mctl_node_info *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_mctl_node_info *)
 
 #define MSM_CAM_IOCTL_MCTL_DIVERT_DONE \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_cam_evt_divert_frame *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 53, struct msm_cam_evt_divert_frame *)
 
 struct msm_mctl_pp_cmd {
 	int32_t  id;
