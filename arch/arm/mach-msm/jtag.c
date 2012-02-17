@@ -33,6 +33,9 @@
 #define CPMR_ETMCLKEN		(0x8)
 
 
+uint32_t msm_jtag_save_cntr[NR_CPUS];
+uint32_t msm_jtag_restore_cntr[NR_CPUS];
+
 struct dbg_ctx {
 	uint8_t		arch;
 	bool		arch_supported;
@@ -1015,6 +1018,10 @@ void msm_jtag_save_state(void)
 
 	cpu = raw_smp_processor_id();
 
+	msm_jtag_save_cntr[cpu]++;
+	/* ensure counter is updated before moving forward */
+	mb();
+
 	if (dbg.arch_supported)
 		dbg_save_state(cpu);
 	if (etm.arch_supported)
@@ -1026,6 +1033,10 @@ void msm_jtag_restore_state(void)
 	int cpu;
 
 	cpu = raw_smp_processor_id();
+
+	msm_jtag_restore_cntr[cpu]++;
+	/* ensure counter is updated before moving forward */
+	mb();
 
 	if (dbg.arch_supported)
 		dbg_restore_state(cpu);
