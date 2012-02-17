@@ -35,6 +35,7 @@
 #include "vsg-subdev.h"
 
 #define WFD_VERSION KERNEL_VERSION(0, 0, 1)
+#define WFD_DEVICE_NUMBER 38
 #define DEFAULT_WFD_WIDTH 640
 #define DEFAULT_WFD_HEIGHT 480
 #define VSG_SCRATCH_BUFFERS 1
@@ -1155,7 +1156,8 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 	wfd_dev->pvdev->fops = &g_wfd_fops;
 	wfd_dev->pvdev->ioctl_ops = &g_wfd_ioctl_ops;
 
-	rc = video_register_device(wfd_dev->pvdev, VFL_TYPE_GRABBER, -1);
+	rc = video_register_device(wfd_dev->pvdev, VFL_TYPE_GRABBER,
+			WFD_DEVICE_NUMBER);
 	if (rc) {
 		WFD_MSG_ERR("Failed to register the device\n");
 		goto err_video_register_device;
