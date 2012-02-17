@@ -25,6 +25,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
+#include <mach/socinfo.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -142,13 +143,17 @@ static void gss_init(struct gss_data *drv)
 	writel_relaxed(A5_RESET, base + GSS_CSR_RESET);
 }
 
-static void setup_qgic2_bus_access(void *data)
+static void cfg_qgic2_bus_access(void *data)
 {
 	struct gss_data *drv = data;
-	void __iomem *base = drv->base;
 	int i;
 
-	writel_relaxed(0x2, base + GSS_CSR_CFG_HID);
+	/*
+	 * Apply a 8064 v1.0 workaround to configure QGIC bus access.
+	 * This must be done from Krait 0 to configure the Master ID
+	 * correctly.
+	 */
+	writel_relaxed(0x2, drv->base + GSS_CSR_CFG_HID);
 	for (i = 0; i <= 3; i++)
 		readl_relaxed(drv->qgic2_base);
 }
@@ -233,15 +238,15 @@ static int pil_gss_reset(struct pil_desc *pil)
 	while (!(readl_relaxed(base + GSS_CSR_POWER_UP_DOWN) & A5_POWER_STATUS))
 		cpu_relax();
 
-	/*
-	 * Apply a 8064 v1.0 workaround to configure QGIC bus access. This must
-	 * be done from Krait 0 to configure the Master ID correctly.
-	 */
-	ret = smp_call_function_single(0, setup_qgic2_bus_access, drv, 1);
-	if (ret) {
-		pr_err("Failed to configure QGIC2 bus access\n");
-		pil_gss_shutdown(pil);
-		return ret;
+	if (cpu_is_apq8064() &&
+	    ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) &&
+	     (SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0))) {
+		ret = smp_call_function_single(0, cfg_qgic2_bus_access, drv, 1);
+		if (ret) {
+			pr_err("Failed to configure QGIC2 bus access\n");
+			pil_gss_shutdown(pil);
+			return ret;
+		}
 	}
 
 	/* Release A5 from reset. */
@@ -263,6 +268,20 @@ static int pil_gss_init_image_trusted(struct pil_desc *pil,
 	return pas_init_image(PAS_GSS, metadata, size);
 }
 
+static int pil_gss_shutdown_trusted(struct pil_desc *pil)
+{
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
+	int ret;
+
+	ret = pas_shutdown(PAS_GSS);
+	if (ret)
+		return ret;
+
+	remove_gss_proxy_votes_now(drv);
+
+	return ret;
+}
+
 static int pil_gss_reset_trusted(struct pil_desc *pil)
 {
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
@@ -276,21 +295,24 @@ static int pil_gss_reset_trusted(struct pil_desc *pil)
 	if (err)
 		remove_gss_proxy_votes_now(drv);
 
+	if (cpu_is_apq8064() &&
+	    ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) &&
+	     (SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0))) {
+		err = smp_call_function_single(0, cfg_qgic2_bus_access, drv, 1);
+		if (err) {
+			pr_err("Failed to configure QGIC2 bus access\n");
+			pil_gss_shutdown_trusted(pil);
+			return err;
+		}
+		/*
+		 * On 8064v1.0, pas_auth_and_reset() will not release the A5
+		 * from reset. Linux must do this after cfg_qgic2_bus_access()
+		 * is called on CPU0.
+		 */
+		writel_relaxed(0x0, drv->base + GSS_CSR_RESET);
+	}
+
 	return err;
-}
-
-static int pil_gss_shutdown_trusted(struct pil_desc *pil)
-{
-	struct gss_data *drv = dev_get_drvdata(pil->dev);
-	int ret;
-
-	ret = pas_shutdown(PAS_GSS);
-	if (ret)
-		return ret;
-
-	remove_gss_proxy_votes_now(drv);
-
-	return ret;
 }
 
 static struct pil_reset_ops pil_gss_ops_trusted = {
