@@ -3882,6 +3882,21 @@ static struct rcg_clk tv_src_clk = {
 	},
 };
 
+static struct cdiv_clk tv_src_div_clk = {
+	.b = {
+		.ctl_reg = TV_NS_REG,
+		.halt_check = NOCHECK,
+	},
+	.ns_reg = TV_NS_REG,
+	.div_offset = 6,
+	.max_div = 2,
+	.c = {
+		.dbg_name = "tv_src_div_clk",
+		.ops = &clk_ops_cdiv,
+		CLK_INIT(tv_src_div_clk.c),
+	},
+};
+
 static struct branch_clk tv_enc_clk = {
 	.b = {
 		.ctl_reg = TV_CC_REG,
@@ -3947,6 +3962,36 @@ static struct branch_clk hdmi_tv_clk = {
 		.dbg_name = "hdmi_tv_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_tv_clk.c),
+	},
+};
+
+static struct branch_clk rgb_tv_clk = {
+	.b = {
+		.ctl_reg = TV_CC2_REG,
+		.en_mask = BIT(14),
+		.halt_reg = DBG_BUS_VEC_J_REG,
+		.halt_bit = 27,
+	},
+	.parent = &tv_src_clk.c,
+	.c = {
+		.dbg_name = "rgb_tv_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(rgb_tv_clk.c),
+	},
+};
+
+static struct branch_clk npl_tv_clk = {
+	.b = {
+		.ctl_reg = TV_CC2_REG,
+		.en_mask = BIT(16),
+		.halt_reg = DBG_BUS_VEC_J_REG,
+		.halt_bit = 26,
+	},
+	.parent = &tv_src_clk.c,
+	.c = {
+		.dbg_name = "npl_tv_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(npl_tv_clk.c),
 	},
 };
 
@@ -4630,6 +4675,8 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_MM_HS(0x33), &vcap_clk.c },
 	{ TEST_MM_HS(0x34), &vcap_npl_clk.c },
 	{ TEST_MM_HS(0x35), &vcap_axi_clk.c },
+	{ TEST_MM_HS(0x36), &rgb_tv_clk.c },
+	{ TEST_MM_HS(0x37), &npl_tv_clk.c },
 	{ TEST_MM_HS(0x38), &gfx3d_axi_clk.c },
 
 	{ TEST_LPA(0x0F), &mi2s_bit_clk.c },
@@ -4962,8 +5009,9 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("dsi_byte_div_clk",	dsi2_byte_clk.c,	NULL),
 	CLK_LOOKUP("dsi_esc_clk",	dsi1_esc_clk.c,		NULL),
 	CLK_LOOKUP("dsi_esc_clk",	dsi2_esc_clk.c,		NULL),
-	CLK_DUMMY("rgb_tv_clk",		RGB_TV_CLK,		"", OFF),
-	CLK_DUMMY("npl_tv_clk",		NPL_TV_CLK,		"", OFF),
+	CLK_LOOKUP("rgb_clk",		rgb_tv_clk.c,		""),
+	CLK_LOOKUP("npl_clk",		npl_tv_clk.c,		""),
+
 	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"kgsl-3d0.0"),
 	CLK_LOOKUP("core_clk",		gfx3d_clk.c,	"footswitch-8x60.2"),
 	CLK_LOOKUP("bus_clk",		gfx3d_axi_clk.c, "footswitch-8x60.2"),
@@ -4986,12 +5034,13 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("lut_clk",		lut_mdp_clk.c,	"footswitch-8x60.4"),
 	CLK_LOOKUP("core_clk",		rot_clk.c,	"msm_rotator.0"),
 	CLK_LOOKUP("core_clk",		rot_clk.c,	"footswitch-8x60.6"),
-	CLK_DUMMY("tv_src_clk",		TV_SRC_CLK,		NULL, OFF),
+	CLK_LOOKUP("tv_src_clk",	tv_src_clk.c,		""),
+	CLK_LOOKUP("tv_src_div_clk",	tv_src_div_clk.c,	""),
 	CLK_LOOKUP("core_clk",		vcodec_clk.c,		"msm_vidc.0"),
 	CLK_LOOKUP("core_clk",		vcodec_clk.c,	"footswitch-8x60.7"),
-	CLK_DUMMY("mdp_tv_clk",		MDP_TV_CLK,		NULL, OFF),
-	CLK_DUMMY("tv_clk",		MDP_TV_CLK, "footswitch-8x60.4", OFF),
-	CLK_DUMMY("hdmi_clk",		HDMI_TV_CLK,		"", OFF),
+	CLK_LOOKUP("mdp_tv_clk",	mdp_tv_clk.c,		""),
+	CLK_LOOKUP("tv_clk",		mdp_tv_clk.c,	"footswitch-8x60.4"),
+	CLK_LOOKUP("hdmi_clk",		hdmi_tv_clk.c,		""),
 	CLK_LOOKUP("core_clk",		hdmi_app_clk.c,		""),
 	CLK_LOOKUP("vpe_clk",		vpe_clk.c,		""),
 	CLK_LOOKUP("core_clk",		vpe_clk.c,	"footswitch-8x60.9"),
