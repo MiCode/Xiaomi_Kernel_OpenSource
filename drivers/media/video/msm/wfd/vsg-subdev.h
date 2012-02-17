@@ -26,6 +26,7 @@
 enum vsg_flags {
 	VSG_NEVER_RELEASE = 1<<0,
 	VSG_NEVER_SET_LAST_BUFFER = 1<<1,
+	VSG_BUF_BEING_ENCODED = 1<<2,
 };
 
 enum vsg_modes {

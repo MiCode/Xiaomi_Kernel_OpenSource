@@ -114,6 +114,7 @@ static void vsg_work_func(struct work_struct *task)
 		}
 	}
 
+	buf_info->flags |= VSG_BUF_BEING_ENCODED;
 	mutex_unlock(&context->mutex);
 	rc = vsg_encode_frame(context, buf_info);
 	if (rc < 0) {
@@ -121,6 +122,29 @@ static void vsg_work_func(struct work_struct *task)
 		goto err_encode_fail;
 	}
 	mutex_lock(&context->mutex);
+
+	if (!(buf_info->flags & VSG_NEVER_SET_LAST_BUFFER)) {
+		bool is_same_buffer = context->last_buffer &&
+			mdp_buf_info_equals(
+				&context->last_buffer->mdp_buf_info,
+				&buf_info->mdp_buf_info);
+
+		if (!context->last_buffer || !is_same_buffer) {
+			struct vsg_buf_info *old_last_buffer =
+				context->last_buffer;
+			bool last_buf_with_us = old_last_buffer &&
+				!(old_last_buffer->flags &
+					VSG_BUF_BEING_ENCODED);
+
+			if (old_last_buffer && last_buf_with_us) {
+				vsg_release_input_buffer(context,
+					old_last_buffer);
+				kfree(old_last_buffer);
+			}
+
+			vsg_set_last_buffer(context, buf_info);
+		}
+	}
 
 	list_add_tail(&buf_info->node, &context->busy_queue.node);
 err_skip_encode:
@@ -371,10 +395,10 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 			if (!is_last_buffer && !is_regen_buffer &&
 				!(temp->flags & VSG_NEVER_RELEASE)) {
 				vsg_release_input_buffer(context, temp);
+				kfree(temp);
 			}
 
 			list_del(&temp->node);
-			kfree(temp);
 		}
 	}
 
@@ -436,27 +460,26 @@ static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 	WFD_MSG_DBG("Return frame with paddr %p\n",
 			(void *)buf_info->mdp_buf_info.paddr);
 
+	if (!expected_buffer) {
+		WFD_MSG_ERR("Unexpectedly received buffer from enc with "
+			"paddr %p\n", (void *)buf_info->mdp_buf_info.paddr);
+		goto return_ip_buf_bad_buf;
+	}
+
+	expected_buffer->flags &= ~VSG_BUF_BEING_ENCODED;
 	if (mdp_buf_info_equals(&expected_buffer->mdp_buf_info,
 				&buf_info->mdp_buf_info)) {
-		list_del(&expected_buffer->node);
-
-		if (!(expected_buffer->flags & VSG_NEVER_SET_LAST_BUFFER)) {
-			bool is_same_buffer = context->last_buffer &&
-				mdp_buf_info_equals(
+		bool is_same_buffer = context->last_buffer &&
+			mdp_buf_info_equals(
 					&context->last_buffer->mdp_buf_info,
 					&expected_buffer->mdp_buf_info);
 
-			if (!context->last_buffer || !is_same_buffer) {
-				struct vsg_buf_info *old_last_buffer =
-					context->last_buffer;
-				if (context->last_buffer)
-					vsg_release_input_buffer(context,
-							context->last_buffer);
-				vsg_set_last_buffer(context, expected_buffer);
-				kfree(old_last_buffer);
-			}
-		} else
-			WFD_MSG_WARN("Couldn't set the last buffer\n");
+		list_del(&expected_buffer->node);
+		if (!is_same_buffer &&
+			!(expected_buffer->flags & VSG_NEVER_RELEASE)) {
+			vsg_release_input_buffer(context, expected_buffer);
+			kfree(expected_buffer);
+		}
 	} else {
 		WFD_MSG_ERR("Returned buffer %p is not latest buffer, "
 				"expected %p\n",
@@ -497,7 +520,7 @@ static long vsg_set_scratch_buffer(struct v4l2_subdev *sd, void *arg)
 	*regen_buffer = *buf_info;
 	regen_buffer->flags = VSG_NEVER_RELEASE | VSG_NEVER_SET_LAST_BUFFER;
 	context->regen_buffer = regen_buffer;
-	WFD_MSG_ERR("setting buffer with paddr %p as scratch buffer\n",
+	WFD_MSG_DBG("setting buffer with paddr %p as scratch buffer\n",
 			(void *)regen_buffer->mdp_buf_info.paddr);
 	mutex_unlock(&context->mutex);
 set_scratch_buf_err_bad_param:
