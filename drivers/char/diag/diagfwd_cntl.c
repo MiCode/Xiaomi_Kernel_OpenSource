@@ -62,6 +62,15 @@ static void diag_smd_cntl_send_req(int proc_num)
 		while (count_bytes + HDR_SIZ <= r) {
 			type = *(uint32_t *)(buf);
 			data_len = *(uint32_t *)(buf + 4);
+			if (type < DIAG_CTRL_MSG_REG ||
+					 type > DIAG_CTRL_MSG_F3_MASK_V2) {
+				pr_alert("diag: Invalid Msg type %d", type);
+				break;
+			}
+			if (data_len < 0 || data_len > r) {
+				pr_alert("diag: Invalid data len %d", data_len);
+				break;
+			}
 			count_bytes = count_bytes+HDR_SIZ+data_len;
 			if (type == DIAG_CTRL_MSG_REG && r >= count_bytes) {
 				msg = buf+HDR_SIZ;
