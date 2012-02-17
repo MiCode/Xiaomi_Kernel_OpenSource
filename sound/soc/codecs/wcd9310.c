@@ -5216,13 +5216,13 @@ static void tabla_update_reg_address(struct tabla_priv *priv)
 	struct tabla_reg_address *reg_addr = &priv->reg_addr;
 
 	if (TABLA_IS_1_X(tabla_core->version)) {
+		reg_addr->micb_4_mbhc = TABLA_1_A_MICB_4_MBHC;
+		reg_addr->micb_4_int_rbias = TABLA_1_A_MICB_4_INT_RBIAS;
 		reg_addr->micb_4_ctl = TABLA_1_A_MICB_4_CTL;
-		reg_addr->micb_4_int_rbias = TABLA_1_A_MICB_4_INT_RBIAS;
-		reg_addr->micb_4_int_rbias = TABLA_1_A_MICB_4_INT_RBIAS;
 	} else if (TABLA_IS_2_0(tabla_core->version)) {
+		reg_addr->micb_4_mbhc = TABLA_2_A_MICB_4_MBHC;
+		reg_addr->micb_4_int_rbias = TABLA_2_A_MICB_4_INT_RBIAS;
 		reg_addr->micb_4_ctl = TABLA_2_A_MICB_4_CTL;
-		reg_addr->micb_4_int_rbias = TABLA_2_A_MICB_4_INT_RBIAS;
-		reg_addr->micb_4_int_rbias = TABLA_2_A_MICB_4_INT_RBIAS;
 	}
 }
 
