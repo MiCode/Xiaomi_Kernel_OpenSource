@@ -4461,6 +4461,9 @@ DEFINE_CLK_RPM(mmfpb_clk, mmfpb_a_clk, MMFPB, NULL);
 DEFINE_CLK_RPM(sfab_clk, sfab_a_clk, SYSTEM_FABRIC, NULL);
 DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
 
+static DEFINE_CLK_VOTER(sfab_msmbus_a_clk, &sfab_a_clk.c);
+static DEFINE_CLK_VOTER(sfab_tmr_a_clk, &sfab_a_clk.c);
+
 static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_usb_hs3_clk, &dfab_clk.c);
@@ -4898,7 +4901,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
-	CLK_LOOKUP("bus_a_clk",		sfab_a_clk.c,		"msm_sys_fab"),
+	CLK_LOOKUP("bus_a_clk",		sfab_msmbus_a_clk.c,	"msm_sys_fab"),
 	CLK_LOOKUP("bus_clk",		sfpb_clk.c,		"msm_sys_fpb"),
 	CLK_LOOKUP("bus_a_clk",		sfpb_a_clk.c,		"msm_sys_fpb"),
 	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
@@ -5175,7 +5178,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
-	CLK_LOOKUP("bus_a_clk",		sfab_a_clk.c,		"msm_sys_fab"),
+	CLK_LOOKUP("bus_a_clk",		sfab_msmbus_a_clk.c,	"msm_sys_fab"),
 	CLK_LOOKUP("bus_clk",		sfpb_clk.c,		"msm_sys_fpb"),
 	CLK_LOOKUP("bus_a_clk",		sfpb_a_clk.c,		"msm_sys_fpb"),
 	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
@@ -5763,6 +5766,14 @@ static void __init msm8960_clock_init(void)
 	rcg_clk_disable(&tssc_clk.c);
 	clk_enable(&usb_hsic_hsic_clk.c);
 	clk_disable(&usb_hsic_hsic_clk.c);
+
+	/*
+	 * Keep sfab floor @ 54MHz so that Krait AHB is at least 27MHz at all
+	 * times when Apps CPU is active. This ensures the timer's requirement
+	 * of Krait AHB running 4 times as fast as the timer itself.
+	 */
+	clk_set_rate(&sfab_tmr_a_clk.c, 54000000);
+	clk_enable(&sfab_tmr_a_clk.c);
 }
 
 static int __init msm8960_clock_late_init(void)
