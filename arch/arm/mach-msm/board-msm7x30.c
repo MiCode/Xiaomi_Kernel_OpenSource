@@ -4295,11 +4295,24 @@ static int msm_fb_mddi_sel_clk(u32 *clk_rate)
 
 static int msm_fb_mddi_client_power(u32 client_id)
 {
+	int rc;
 	printk(KERN_NOTICE "\n client_id = 0x%x", client_id);
 	/* Check if it is Quicklogic client */
 	if (client_id == 0xc5835800) {
 		printk(KERN_NOTICE "\n Quicklogic MDDI client");
 		other_mddi_client = 0;
+		if (IS_ERR(mddi_ldo16)) {
+			rc = PTR_ERR(mddi_ldo16);
+			pr_err("%s: gp10 vreg get failed (%d)\n", __func__, rc);
+			return rc;
+		}
+		rc = regulator_disable(mddi_ldo16);
+		if (rc) {
+			pr_err("%s: LDO16 vreg enable failed (%d)\n",
+							__func__, rc);
+			return rc;
+		}
+
 	} else {
 		printk(KERN_NOTICE "\n Non-Quicklogic MDDI client");
 		quickvx_mddi_client = 0;
