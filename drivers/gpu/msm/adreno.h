@@ -44,6 +44,7 @@
 enum adreno_gpurev {
 	ADRENO_REV_UNKNOWN = 0,
 	ADRENO_REV_A200 = 200,
+	ADRENO_REV_A203 = 203,
 	ADRENO_REV_A205 = 205,
 	ADRENO_REV_A220 = 220,
 	ADRENO_REV_A225 = 225,
@@ -129,15 +130,19 @@ static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 	return (adreno_dev->gpurev == ADRENO_REV_A200);
 }
 
+static inline int adreno_is_a203(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev == ADRENO_REV_A203);
+}
+
 static inline int adreno_is_a205(struct adreno_device *adreno_dev)
 {
-	return (adreno_dev->gpurev == ADRENO_REV_A200);
+	return (adreno_dev->gpurev == ADRENO_REV_A205);
 }
 
 static inline int adreno_is_a20x(struct adreno_device *adreno_dev)
 {
-	return (adreno_dev->gpurev  == ADRENO_REV_A200 ||
-		adreno_dev->gpurev == ADRENO_REV_A205);
+	return (adreno_dev->gpurev <= 209);
 }
 
 static inline int adreno_is_a220(struct adreno_device *adreno_dev)

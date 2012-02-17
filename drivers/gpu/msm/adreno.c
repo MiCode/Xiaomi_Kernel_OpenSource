@@ -136,6 +136,9 @@ static const struct {
 	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
 		512, 384, 3},
+	{ ADRENO_REV_A203, 0, 1, 1, ANY_ID,
+		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
+		512, 384, 3},
 	{ ADRENO_REV_A205, 0, 1, 0, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
 		512, 384, 3},
@@ -400,11 +403,14 @@ a2xx_getchipid(struct kgsl_device *device)
 
 	/* 8x50 returns 0 for patch release, but it should be 1 */
 	/* 8960v3 returns 5 for patch release, but it should be 6 */
+	/* 8x25 returns 0 for minor id, but it should be 1 */
 	if (cpu_is_qsd8x50())
 		patchid = 1;
 	else if (cpu_is_msm8960() &&
 			SOCINFO_VERSION_MAJOR(soc_platform_version) == 3)
 		patchid = 6;
+	else if (cpu_is_msm8625() && minorid == 0)
+		minorid = 1;
 
 	chipid |= (minorid << 8) | patchid;
 
