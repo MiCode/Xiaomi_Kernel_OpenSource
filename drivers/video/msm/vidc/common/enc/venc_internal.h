@@ -68,6 +68,9 @@ u32 vid_enc_set_get_framerate(struct video_client_ctx *client_ctx,
 u32 vid_enc_set_get_live_mode(struct video_client_ctx *client_ctx,
 		struct venc_switch *encoder_switch, u32 set_flag);
 
+u32 vid_enc_set_get_extradata(struct video_client_ctx *client_ctx,
+		u32 *extradata_flag, u32 set_flag);
+
 u32 vid_enc_set_get_short_header(struct video_client_ctx *client_ctx,
 		struct venc_switch *encoder_switch, u32 set_flag);
 

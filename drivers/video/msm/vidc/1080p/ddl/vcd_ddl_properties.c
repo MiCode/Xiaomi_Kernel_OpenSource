@@ -915,10 +915,15 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 	}
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Requested");
-		vcd_status = ddl_set_metadata_params(ddl, property_hdr,
-			property_value);
-		vcd_status = VCD_S_SUCCESS;
+		DDL_MSG_LOW("Meta Data Interface is Requested");
+		if (!res_trk_check_for_sec_session()) {
+			vcd_status = ddl_set_metadata_params(ddl,
+				property_hdr, property_value);
+		} else {
+			DDL_MSG_ERROR("Meta Data Interface is not "
+				"supported in secure session");
+			vcd_status = VCD_ERR_ILLEGAL_OP;
+		}
 	break;
 	case VCD_I_META_BUFFER_MODE:
 		vcd_status = VCD_S_SUCCESS;
@@ -1836,8 +1841,16 @@ static u32 ddl_valid_buffer_requirement(struct vcd_buffer_requirement
 		/*original_buf_req->align <= req_buf_req->align,*/
 		original_buf_req->sz <= req_buf_req->sz)
 		status = true;
-	else
+	else {
 		DDL_MSG_ERROR("ddl_valid_buf_req:Failed");
+		DDL_MSG_ERROR("codec_buf_req: min_cnt=%d, mx_cnt=%d, "
+			"align=%d, sz=%d\n", original_buf_req->min_count,
+			original_buf_req->max_count, original_buf_req->align,
+			original_buf_req->sz);
+		DDL_MSG_ERROR("client_buffs: actual_count=%d, align=%d, "
+			"sz=%d\n", req_buf_req->actual_count,
+			req_buf_req->align,	req_buf_req->sz);
+	}
 	return status;
 }
 
