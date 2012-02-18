@@ -439,6 +439,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 };
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
+	.battery_type	= BATT_UNKNOWN,
 	.r_sense		= 10,
 	.i_test			= 2500,
 	.v_failure		= 3000,
@@ -601,5 +602,8 @@ void __init msm8960_init_pmic(void)
 	if (machine_is_msm8960_liquid()) {
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
 		pm8921_platform_data.leds_pdata = &pm8xxx_leds_pdata_liquid;
+		pm8921_platform_data.bms_pdata->battery_type = BATT_DESAY;
+	} else if (machine_is_msm8960_mtp()) {
+		pm8921_platform_data.bms_pdata->battery_type = BATT_PALLADIUM;
 	}
 }

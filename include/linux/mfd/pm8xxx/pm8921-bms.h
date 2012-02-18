@@ -95,8 +95,15 @@ struct pm8xxx_bms_core_data {
 	unsigned int	batt_id_channel;
 };
 
+enum battery_type {
+	BATT_UNKNOWN = 0,
+	BATT_PALLADIUM,
+	BATT_DESAY,
+};
+
 /**
  * struct pm8921_bms_platform_data -
+ * @batt_type:		allows to force chose battery calibration data
  * @r_sense:		sense resistor value in (mOhms)
  * @i_test:		current at which the unusable charger cutoff is to be
  *			calculated or the peak system current (mA)
@@ -105,6 +112,7 @@ struct pm8xxx_bms_core_data {
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
+	enum battery_type		battery_type;
 	unsigned int			r_sense;
 	unsigned int			i_test;
 	unsigned int			v_failure;
