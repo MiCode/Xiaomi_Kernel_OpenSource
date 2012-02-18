@@ -221,6 +221,18 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 		.end	= GSBI4_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.name	= "i2c_clk",
+		.start	= 11,
+		.end	= 11,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= 10,
+		.end	= 10,
+		.flags	= IORESOURCE_IO,
+	},
 };
 
 struct platform_device apq8064_device_qup_i2c_gsbi4 = {

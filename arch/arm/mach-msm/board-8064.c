@@ -1576,6 +1576,14 @@ static void __init register_i2c_devices(void)
 	u8 mach_mask = 0;
 	int i;
 
+#ifdef CONFIG_MSM_CAMERA
+	struct i2c_registry apq8064_camera_i2c_devices = {
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
+		APQ_8064_GSBI4_QUP_I2C_BUS_ID,
+		apq8064_camera_board_info.board_info,
+		apq8064_camera_board_info.num_i2c_board_info,
+	};
+#endif
 	/* Build the matching 'supported_machs' bitmask */
 	if (machine_is_apq8064_cdp())
 		mach_mask = I2C_SURF;
@@ -1597,6 +1605,12 @@ static void __init register_i2c_devices(void)
 						apq8064_i2c_devices[i].info,
 						apq8064_i2c_devices[i].len);
 	}
+#ifdef CONFIG_MSM_CAMERA
+	if (apq8064_camera_i2c_devices.machs & mach_mask)
+		i2c_register_board_info(apq8064_camera_i2c_devices.bus,
+			apq8064_camera_i2c_devices.info,
+			apq8064_camera_i2c_devices.len);
+#endif
 }
 
 static void __init apq8064_common_init(void)
@@ -1679,6 +1693,7 @@ static void __init apq8064_cdp_init(void)
 	apq8064_init_gpu();
 	platform_add_devices(msm_footswitch_devices,
 			     msm_num_footswitch_devices);
+	apq8064_init_cam();
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
