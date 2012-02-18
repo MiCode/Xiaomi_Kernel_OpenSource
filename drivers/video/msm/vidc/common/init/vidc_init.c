@@ -384,6 +384,59 @@ u32 vidc_get_fd_info(struct video_client_ctx *client_ctx,
 }
 EXPORT_SYMBOL(vidc_get_fd_info);
 
+void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
+				enum buffer_dir buffer)
+{
+	u32 *num_of_buffers = NULL;
+	u32 i = 0;
+	struct buf_addr_table *buf_addr_table;
+	if (buffer == BUFFER_TYPE_INPUT) {
+		buf_addr_table = client_ctx->input_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_input_buffers;
+		DBG("%s(): buffer = INPUT\n", __func__);
+
+	} else {
+		buf_addr_table = client_ctx->output_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_output_buffers;
+		DBG("%s(): buffer = OUTPUT\n", __func__);
+	}
+
+	if (!*num_of_buffers)
+		goto bail_out_cleanup;
+	if (!client_ctx->user_ion_client)
+		goto bail_out_cleanup;
+	for (i = 0; i < *num_of_buffers; ++i) {
+		if (buf_addr_table[i].client_data) {
+			msm_subsystem_unmap_buffer(
+			(struct msm_mapped_buffer *)
+			buf_addr_table[i].client_data);
+			buf_addr_table[i].client_data = NULL;
+		}
+		if (buf_addr_table[i].buff_ion_handle) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+					buf_addr_table[i].buff_ion_handle);
+			ion_free(client_ctx->user_ion_client,
+					buf_addr_table[i].buff_ion_handle);
+			buf_addr_table[i].buff_ion_handle = NULL;
+		}
+	}
+	if (client_ctx->vcd_h264_mv_buffer.client_data) {
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		client_ctx->vcd_h264_mv_buffer.client_data);
+		client_ctx->vcd_h264_mv_buffer.client_data = NULL;
+	}
+	if (client_ctx->h264_mv_ion_handle) {
+		ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->h264_mv_ion_handle);
+		ion_free(client_ctx->user_ion_client,
+				client_ctx->h264_mv_ion_handle);
+		client_ctx->h264_mv_ion_handle = NULL;
+	}
+bail_out_cleanup:
+	return;
+}
+EXPORT_SYMBOL(vidc_cleanup_addr_table);
+
 u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer,
 	u32 search_with_user_vaddr,

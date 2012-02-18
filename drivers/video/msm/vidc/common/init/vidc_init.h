@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,8 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer, unsigned long user_vaddr,
 	unsigned long *kernel_vaddr);
+void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
+				enum buffer_dir buffer);
 
 u32 vidc_timer_create(void (*timer_handler)(void *),
 	void *user_data, void **timer_handle);
