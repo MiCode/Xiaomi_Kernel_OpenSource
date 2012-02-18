@@ -197,6 +197,11 @@ static int32_t imx074_act_create_subdevice(
 		(struct v4l2_subdev *)sdev);
 }
 
+static int imx074_act_power_down(void *act_info)
+{
+	return (int) msm_actuator_af_power_down(&imx074_act_t);
+}
+
 static struct msm_actuator_ctrl_t imx074_act_t = {
 	.i2c_driver = &imx074_act_i2c_driver,
 	.i2c_addr = 0xE4,
@@ -205,6 +210,7 @@ static struct msm_actuator_ctrl_t imx074_act_t = {
 		.a_init_table = imx074_i2c_add_driver_table,
 		.a_create_subdevice = imx074_act_create_subdevice,
 		.a_config = imx074_act_config,
+		.a_power_down = imx074_act_power_down,
 	},
 
 	.i2c_client = {
