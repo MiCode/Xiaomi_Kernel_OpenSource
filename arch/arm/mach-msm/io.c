@@ -292,7 +292,13 @@ void __init msm_map_apq8064_io(void)
 static struct map_desc msm_copper_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, COPPER),
 	MSM_CHIP_DEVICE(QGIC_CPU, COPPER),
+	MSM_CHIP_DEVICE(APCS_GCC, COPPER),
 	MSM_CHIP_DEVICE(TLMM, COPPER),
+	{
+		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
+		.length =   MSM_SHARED_RAM_SIZE,
+		.type =     MT_DEVICE,
+	},
 #ifdef CONFIG_DEBUG_MSMCOPPER_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
@@ -300,6 +306,7 @@ static struct map_desc msm_copper_io_desc[] __initdata = {
 
 void __init msm_map_copper_io(void)
 {
+	msm_shared_ram_phys = COPPER_MSM_SHARED_RAM_PHYS;
 	msm_map_io(msm_copper_io_desc, ARRAY_SIZE(msm_copper_io_desc));
 }
 #endif /* CONFIG_ARCH_MSMCOPPER */
