@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011 - 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 #define DST_INDEX_SG_CMD(index) (index & 0x3fff)
 #define ADM_DESC_LAST  (1 << 31)
 #define QCE_FIFO_SIZE  0x8000
+
 /*
  * CE HW device structure.
  * Each engine has an instance of the structure.
@@ -128,6 +129,7 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 {
 	unsigned int val;
 	unsigned int rev;
+	unsigned int ret;
 
 	val = (uint32_t)(*((uint32_t *)pce_dev->ce_dm.buffer.version));
 	if (((val & 0xfffffff) != 0x0000043) &&
@@ -144,6 +146,23 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 				"Qualcomm Crypto 4.2 device found at 0x%x\n",
 				pce_dev->phy_iobase);
 		pce_dev->ce_dm.ce_block_size = 64;
+
+		/* Configure the crypto register to support 64byte CRCI if it
+		 * is not XPU protected and the HW version of device is greater
+		 * than 0x42.
+		 * Crypto config register returns a 0 when it is XPU protected.
+		 */
+
+		ret = readl_relaxed(pce_dev->iobase + CRYPTO_CONFIG_REG);
+		if (ret) {
+			val = (CRYPTO_REQ_SIZE_ENUM_64_BYTES <<
+					CRYPTO_REQ_SIZE) |
+				(CRYPTO_FIFO_ENUM_64_BYTES <<
+					CRYPTO_FIFO_THRESHOLD);
+
+			writel_relaxed(val, pce_dev->iobase +
+					CRYPTO_CONFIG_REG);
+		} /* end of if (ret) */
 	} else {
 		if (rev == 0x40) {
 			dev_info(pce_dev->pdev,
@@ -152,12 +171,6 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 			pce_dev->ce_dm.ce_block_size = 16;
 		}
 	}
-	/*
-	* This is a temporary change - until Data Mover changes its
-	* configuration from 16 byte crci to 64 byte crci.
-	*/
-	if (cpu_is_msm9615())
-		pce_dev->ce_dm.ce_block_size = 16;
 
 	dev_info(pce_dev->pdev,
 			"IO base 0x%x\n, ce_in channel %d     , "
@@ -2609,4 +2622,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.14");
+MODULE_VERSION("2.15");
