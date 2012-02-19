@@ -425,6 +425,11 @@ struct platform_device apq_pcm_afe = {
 	.id	= -1,
 };
 
+struct platform_device apq_cpudai_stub = {
+	.name = "msm-dai-stub",
+	.id = -1,
+};
+
 static struct resource resources_ssbi_pmic1[] = {
 	{
 		.start  = MSM_PMIC1_SSBI_CMD_PHYS,
