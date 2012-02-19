@@ -2371,6 +2371,8 @@ static int hdcp_authentication_part1(void)
 		[8] AN_0_READY
 		[9] AN_1_READY */
 		/* wait for an0 and an1 ready bits to be set in LINK0_STATUS */
+
+		mutex_lock(&hdcp_auth_state_mutex);
 		timeout_count = 100;
 		while (((HDMI_INP_ND(0x011C) & (0x3 << 8)) != (0x3 << 8))
 			&& timeout_count--)
@@ -2404,6 +2406,7 @@ static int hdcp_authentication_part1(void)
 		   [31:0] LINK0_AN_1 */
 		/* read an1 calculation */
 		link0_an_1 = HDMI_INP(0x0150);
+		mutex_unlock(&hdcp_auth_state_mutex);
 
 		/* three bits 28..30 */
 		hdcp_key_state((HDMI_INP(0x011C) >> 28) & 0x7);
@@ -3867,7 +3870,11 @@ static void hdmi_msm_turn_on(void)
 			"AUDIO CFG is %08x", i, audio_pkt_ctrl, audio_cfg);
 		msleep(20);
 	}
+
+	mutex_lock(&hdcp_auth_state_mutex);
 	hdmi_msm_reset_core();
+	mutex_unlock(&hdcp_auth_state_mutex);
+
 	hdmi_msm_init_phy(external_common_state->video_resolution);
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);
