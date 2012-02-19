@@ -19,13 +19,8 @@
 #include <linux/threads.h>
 #include <asm/assembler.h>
 
-#ifdef CONFIG_MSM_CPU_AVS
-/* 11 general purpose registers (r4-r14), 10 cp15 registers, 3 AVS registers */
-#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10 + 4 * 3)
-#else
-/* 11 general purpose registers (r4-r14), 10 cp15 registers */
-#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
-#endif
+#include "idle.h"
+
 #ifdef CONFIG_ARCH_MSM_KRAIT
 #define SCM_SVC_BOOT 0x1
 #define SCM_CMD_TERMINATE_PC 0x2
@@ -45,7 +40,8 @@ ENTRY(msm_pm_collapse)
 	cpsid   f
 #endif
 
-	ldr     r0, =saved_state
+	ldr     r0, =msm_saved_state	/* address of msm_saved_state ptr */
+	ldr	r0, [r0]		/* load ptr */
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
@@ -100,14 +96,7 @@ ENTRY(msm_pm_collapse)
 	cmp	r1, #1
 	bne	skip
 	bl	v7_flush_dcache_all
-	b skip2
-
-skip:	ldr	r0, =saved_state
-	ldr	r1, =saved_state_end
-	sub	r1, r1, r0
-	bl	v7_flush_kern_dcache_area
-
-skip2:
+skip:
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	ldr	r0, =SCM_SVC_BOOT
 	ldr	r1, =SCM_CMD_TERMINATE_PC
@@ -134,7 +123,8 @@ skip2:
 #ifdef CONFIG_MSM_JTAG
 	bl	msm_jtag_restore_state
 #endif
-	ldr     r0, =saved_state        /* restore registers */
+	ldr     r0, =msm_saved_state	/* address of msm_saved_state ptr */
+	ldr	r0, [r0]		/* load ptr */
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
@@ -143,7 +133,7 @@ skip2:
 	add	r0, r0, r2
 #endif
 
-	ldmfd   r0, {r4-r14}
+	ldmfd   r0, {r4-r14}		 /* restore registers */
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
 
@@ -157,11 +147,12 @@ ENTRY(msm_pm_collapse_exit)
 	mov     r1, #'A'
 	str     r1, [r0, #0x00C]
 #endif
-	ldr     r1, =saved_state
+	ldr     r1, =msm_saved_state_phys
 	ldr     r2, =msm_pm_collapse_exit
 	adr     r3, msm_pm_collapse_exit
 	add     r1, r1, r3
 	sub     r1, r1, r2
+	ldr	r1, [r1]
 	add	r1, r1, #CPU_SAVED_STATE_SIZE
 #if (NR_CPUS >= 2)
 	mrc	p15, 0, r2, c0, c0, 5	/* MPIDR */
@@ -277,9 +268,13 @@ ENTRY(msm_pm_set_l2_flush_flag)
 msm_pm_pc_pgd:
 	.long	0x0
 
-saved_state:
-	.space	CPU_SAVED_STATE_SIZE * NR_CPUS
-saved_state_end:
+	.globl msm_saved_state
+msm_saved_state:
+	.long	0x0
+
+	.globl msm_saved_state_phys
+msm_saved_state_phys:
+	.long	0x0
 
 msm_pm_boot_vector:
 	.space  4 * NR_CPUS

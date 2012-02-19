@@ -14,9 +14,21 @@
 #ifndef _ARCH_ARM_MACH_MSM_IDLE_H_
 #define _ARCH_ARM_MACH_MSM_IDLE_H_
 
+#ifdef CONFIG_MSM_CPU_AVS
+/* 11 general purpose registers (r4-r14), 10 cp15 registers, 3 AVS registers */
+#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10 + 4 * 3)
+#else
+/* 11 general purpose registers (r4-r14), 10 cp15 registers */
+#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
+#endif
+
+#ifndef __ASSEMBLY__
+
 int msm_arch_idle(void);
 int msm_pm_collapse(void);
 void msm_pm_collapse_exit(void);
+extern void *msm_saved_state;
+extern unsigned long msm_saved_state_phys;
 
 #ifdef CONFIG_CPU_V7
 void msm_pm_boot_entry(void);
@@ -38,5 +50,5 @@ static inline void msm_pm_write_boot_vector(unsigned int cpu,
 	/* empty */
 }
 #endif
-
+#endif
 #endif
