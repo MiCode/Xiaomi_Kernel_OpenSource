@@ -251,6 +251,7 @@ struct msm_camera_sensor_info {
 	char *eeprom_data;
 	enum msm_camera_type camera_type;
 	struct msm_actuator_info *actuator_info;
+	int pmic_gpio_enable;
 };
 
 struct msm_camera_board_info {
