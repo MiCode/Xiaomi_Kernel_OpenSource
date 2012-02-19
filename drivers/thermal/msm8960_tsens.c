@@ -161,18 +161,28 @@ struct tsens_tm_device *tmdev;
 /* Temperature on y axis and ADC-code on x-axis */
 static int tsens_tz_code_to_degC(int adc_code, int sensor_num)
 {
-	int degc;
-	degc = (adc_code * tmdev->sensor[sensor_num].slope_mul_tsens_factor
-			+ tmdev->sensor[sensor_num].offset)
-			/ tmdev->tsens_factor;
+	int degcbeforefactor, degc;
+	degcbeforefactor = (adc_code *
+			tmdev->sensor[sensor_num].slope_mul_tsens_factor
+			+ tmdev->sensor[sensor_num].offset);
+
+	if (degcbeforefactor == 0)
+		degc = degcbeforefactor;
+	else if (degcbeforefactor > 0)
+		degc = (degcbeforefactor + tmdev->tsens_factor/2)
+				/ tmdev->tsens_factor;
+	else
+		degc = (degcbeforefactor - tmdev->tsens_factor/2)
+				/ tmdev->tsens_factor;
 	return degc;
 }
 
 static int tsens_tz_degC_to_code(int degC, int sensor_num)
 {
 	int code = (degC * tmdev->tsens_factor -
-			tmdev->sensor[sensor_num].offset)
-			/ tmdev->sensor[sensor_num].slope_mul_tsens_factor;
+		tmdev->sensor[sensor_num].offset
+		+ tmdev->sensor[sensor_num].slope_mul_tsens_factor/2)
+		/ tmdev->sensor[sensor_num].slope_mul_tsens_factor;
 
 	if (code > TSENS_THRESHOLD_MAX_CODE)
 		code = TSENS_THRESHOLD_MAX_CODE;
@@ -632,7 +642,7 @@ static irqreturn_t tsens_isr(int irq, void *data)
 	sensor_addr = (unsigned int)TSENS_S0_STATUS_ADDR;
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 		if (i == TSENS_8064_SEQ_SENSORS)
-			sensor_addr += 40;
+			sensor_addr += TSENS_8064_S4_S5_OFFSET;
 		if (sensor & TSENS_MASK1) {
 			code = readl_relaxed(sensor_addr);
 			upper_th_x = code >= threshold;
@@ -660,6 +670,20 @@ static irqreturn_t tsens_isr(int irq, void *data)
 	writel_relaxed(reg & mask, TSENS_CNTL_ADDR);
 	mb();
 	return IRQ_HANDLED;
+}
+
+static void tsens8960_sensor_mode_init(void)
+{
+	unsigned int reg_cntl = 0;
+
+	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
+	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615 ||
+			tmdev->hw_type == APQ_8064) {
+		writel_relaxed(reg_cntl &
+				~((((1 << tmdev->tsens_num_sensor) - 1) >> 1)
+				<< (TSENS_SENSOR0_SHIFT + 1)), TSENS_CNTL_ADDR);
+		tmdev->sensor[TSENS_MAIN_SENSOR].mode = THERMAL_DEVICE_ENABLED;
+	}
 }
 
 static void tsens_disable_mode(void)
@@ -889,7 +913,6 @@ int msm_tsens_early_init(struct tsens_platform_data *pdata)
 static int __init tsens_tm_init(void)
 {
 	int rc, i;
-	unsigned int reg_cntl, reg_status;
 
 	if (!tmdev) {
 		pr_info("%s : TSENS early init not done.\n", __func__);
@@ -913,6 +936,8 @@ static int __init tsens_tm_init(void)
 		tmdev->sensor[i].mode = THERMAL_DEVICE_DISABLED;
 	}
 
+	tsens8960_sensor_mode_init();
+
 	rc = request_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
 		IRQF_TRIGGER_RISING, "tsens_interrupt", tmdev);
 	if (rc < 0) {
@@ -922,11 +947,8 @@ static int __init tsens_tm_init(void)
 		goto fail;
 	}
 
-	reg_status = readl_relaxed(TSENS_8064_STATUS_CNTL);
 	pr_debug("%s: OK\n", __func__);
 	mb();
-	reg_status = readl_relaxed(TSENS_8064_STATUS_CNTL);
-	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
 	return 0;
 fail:
 	tsens_disable_mode();
