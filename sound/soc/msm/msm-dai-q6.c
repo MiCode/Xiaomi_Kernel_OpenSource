@@ -618,7 +618,7 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	 * data to the cpu driver, since cpu drive is unaware of any
 	 * boarc specific configuration.
 	 */
-	pcm_clk = clk_get(NULL, auxpcm_pdata->clk);
+	pcm_clk = clk_get(dai->dev, auxpcm_pdata->clk);
 	if (IS_ERR(pcm_clk)) {
 		pr_err("%s: could not get pcm_clk\n", __func__);
 		return PTR_ERR(pcm_clk);
