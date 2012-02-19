@@ -57,6 +57,12 @@ struct vcd_property_adaptive_rc_params {
 	u32 activity_region_flag;
 };
 
+struct vcd_property_slice_delivery_info {
+	u32  enable;
+	u32  num_slices;
+	u32  num_slices_enc;
+};
+
 struct ddl_frame_data_tag;
 
 struct ddl_property_dec_pic_buffers {
