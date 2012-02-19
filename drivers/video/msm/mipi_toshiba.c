@@ -196,7 +196,8 @@ static int mipi_toshiba_lcd_on(struct platform_device *pdev)
 		mipi_dsi_cmds_tx(mfd, &toshiba_tx_buf,
 			toshiba_wvga_display_on_cmds,
 			ARRAY_SIZE(toshiba_wvga_display_on_cmds));
-	else if (TM_GET_PID(mfd->panel.id) == MIPI_DSI_PANEL_WSVGA_PT)
+	else if (TM_GET_PID(mfd->panel.id) == MIPI_DSI_PANEL_WSVGA_PT ||
+		TM_GET_PID(mfd->panel.id) == MIPI_DSI_PANEL_WUXGA)
 		mipi_dsi_cmds_tx(mfd, &toshiba_tx_buf,
 			toshiba_wsvga_display_on_cmds,
 			ARRAY_SIZE(toshiba_wsvga_display_on_cmds));
