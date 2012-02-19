@@ -489,6 +489,7 @@ struct l2cap_pinfo {
 	__u8		fixed_channel;
 	__u8		num_conf_req;
 	__u8		num_conf_rsp;
+	__u8		incoming;
 
 	__u8		fcs;
 	__u8		sec_level;
@@ -648,6 +649,8 @@ struct l2cap_pinfo {
 #define L2CAP_AMP_STATE_RESEGMENT		12
 
 #define L2CAP_ATT_ERROR				0x01
+#define L2CAP_ATT_MTU_REQ			0x02
+#define L2CAP_ATT_MTU_RSP			0x03
 #define L2CAP_ATT_RESPONSE_BIT			0x01
 #define L2CAP_ATT_INDICATE			0x1D
 #define L2CAP_ATT_NOT_SUPPORTED			0x06
@@ -689,6 +692,8 @@ void l2cap_sock_kill(struct sock *sk);
 void l2cap_sock_init(struct sock *sk, struct sock *parent);
 struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock,
 							int proto, gfp_t prio);
+struct sock *l2cap_find_sock_by_fixed_cid_and_dir(__le16 cid, bdaddr_t *src,
+						bdaddr_t *dst, int server);
 void l2cap_send_disconn_req(struct l2cap_conn *conn, struct sock *sk, int err);
 void l2cap_chan_del(struct sock *sk, int err);
 int l2cap_do_connect(struct sock *sk);
