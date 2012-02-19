@@ -911,8 +911,13 @@ static const uint8 *hdmi_edid_find_block(const uint8 *in_buf, uint8 type,
 	uint32 offset = 4;
 
 	*len = 0;
-	if ((in_buf[2] == 4) && (type != 2)) { /* no non-DTD data present */
-		DEV_WARN("EDID: no non-DTD data present\n");
+
+	/*edid buffer 1, byte 2 being 4 means no non-DTD/Data block collection
+	  present.
+	  edid buffer 1, byte 2 being 0 menas no non-DTD/DATA block collection
+	  present and no DTD data present.*/
+	if ((in_buf[2] == 0) || (in_buf[2] == 4)) {
+		DEV_WARN("EDID: no DTD or non-DTD data present\n");
 		return NULL;
 	}
 	while (offset < 0x80) {
