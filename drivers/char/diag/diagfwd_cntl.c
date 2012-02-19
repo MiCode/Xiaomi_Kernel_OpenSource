@@ -19,6 +19,66 @@
 
 #define HDR_SIZ 8
 
+void diag_smd_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->ch_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->ch_cntl);
+		r2 = smd_cur_packet_size(driver->ch_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_cntl_work));
+		else
+			pr_debug("diag: incomplete pkt on Modem CNTL ch\n");
+		break;
+	}
+}
+
+void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->chqdsp_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->chqdsp_cntl);
+		r2 = smd_cur_packet_size(driver->chqdsp_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_qdsp_cntl_work));
+		else
+			pr_debug("diag: incomplete pkt on LPASS CNTL ch\n");
+		break;
+	}
+}
+
+void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->ch_wcnss_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->ch_wcnss_cntl);
+		r2 = smd_cur_packet_size(driver->ch_wcnss_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_wcnss_cntl_work));
+		else
+			pr_debug("diag: incomplete pkt on WCNSS CNTL ch\n");
+		break;
+	}
+}
+
 static void diag_smd_cntl_send_req(int proc_num)
 {
 	int data_len = 0, type = -1, count_bytes = 0, j, r, flag = 0;
@@ -29,6 +89,11 @@ static void diag_smd_cntl_send_req(int proc_num)
 	struct bindpkt_params *temp;
 	void *buf = NULL;
 	smd_channel_t *smd_ch = NULL;
+
+	if (pkt_params == NULL) {
+		pr_alert("diag: Memory allocation failure\n");
+		return;
+	}
 
 	if (proc_num == MODEM_PROC) {
 		buf = driver->buf_in_cntl;
@@ -64,11 +129,13 @@ static void diag_smd_cntl_send_req(int proc_num)
 			data_len = *(uint32_t *)(buf + 4);
 			if (type < DIAG_CTRL_MSG_REG ||
 					 type > DIAG_CTRL_MSG_F3_MASK_V2) {
-				pr_alert("diag: Invalid Msg type %d", type);
+				pr_alert("diag: Invalid Msg type %d proc %d",
+					 type, proc_num);
 				break;
 			}
 			if (data_len < 0 || data_len > r) {
-				pr_alert("diag: Invalid data len %d", data_len);
+				pr_alert("diag: Invalid data len %d proc %d",
+					 data_len, proc_num);
 				break;
 			}
 			count_bytes = count_bytes+HDR_SIZ+data_len;
@@ -79,6 +146,10 @@ static void diag_smd_cntl_send_req(int proc_num)
 				pkt_params->count = msg->count_entries;
 				temp = kzalloc(pkt_params->count * sizeof(struct
 						 bindpkt_params), GFP_KERNEL);
+				if (temp == NULL) {
+					pr_alert("diag: Memory alloc fail\n");
+					return;
+				}
 				for (j = 0; j < pkt_params->count; j++) {
 					temp->cmd_code = msg->cmd_code;
 					temp->subsys_id = msg->subsysid;
@@ -102,11 +173,12 @@ static void diag_smd_cntl_send_req(int proc_num)
 	kfree(pkt_params);
 	if (flag) {
 		/* Poll SMD CNTL channels to check for data */
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_qdsp_cntl_work));
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_wcnss_cntl_work));
+		if (proc_num == MODEM_PROC)
+			diag_smd_cntl_notify(NULL, SMD_EVENT_DATA);
+		else if (proc_num == QDSP_PROC)
+			diag_smd_qdsp_cntl_notify(NULL, SMD_EVENT_DATA);
+		else if (proc_num == WCNSS_PROC)
+			diag_smd_wcnss_cntl_notify(NULL, SMD_EVENT_DATA);
 	}
 }
 
@@ -123,21 +195,6 @@ void diag_read_smd_qdsp_cntl_work_fn(struct work_struct *work)
 void diag_read_smd_wcnss_cntl_work_fn(struct work_struct *work)
 {
 	diag_smd_cntl_send_req(WCNSS_PROC);
-}
-
-static void diag_smd_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
-}
-
-static void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_cntl_work));
-}
-
-static void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_cntl_work));
 }
 
 static int diag_smd_cntl_probe(struct platform_device *pdev)
