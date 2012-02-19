@@ -2287,6 +2287,10 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	/* Select free running MCLK as input clock of cm_dll_sdc4 */
 	clk |= (2 << 23);
 
+	/* Clear IO_PAD_PWR_SWITCH while powering off the card */
+	if (!ios->vdd)
+		host->io_pad_pwr_switch = 0;
+
 	if (host->io_pad_pwr_switch)
 		clk |= IO_PAD_PWR_SWITCH;
 
@@ -2561,6 +2565,10 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
 	int rc = 0;
+
+	spin_lock_irqsave(&host->lock, flags);
+	host->io_pad_pwr_switch = 0;
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		/* Change voltage level of VDDPX to high voltage */
