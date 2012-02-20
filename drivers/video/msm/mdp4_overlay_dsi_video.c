@@ -96,13 +96,16 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	int hsync_end_x;
 	uint8 *buf;
 	int bpp, ptype;
+	int yres, remainder;
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *pipe;
+	struct msm_panel_info *panel_info;
 	int ret;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	panel_info = &mfd->panel_info;
 
 	if (!mfd)
 		return -ENODEV;
@@ -115,10 +118,28 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	fbi = mfd->fbi;
 	var = &fbi->var;
 
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	if (dsi_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(mfd->fb_imgType);
@@ -295,7 +316,9 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 {
 	struct fb_info *fbi;
 	struct mdp4_overlay_pipe *pipe;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
 	int bpp;
+	int yres, remainder;
 	uint8 *buf = NULL;
 
 	if (dsi_pipe == NULL)
@@ -314,10 +337,28 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 
 	fbi = mfd->fbi;
 
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	if (pipe->is_3d) {
 		pipe->src_height = pipe->src_height_3d;
@@ -648,16 +689,36 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	struct fb_info *fbi = mfd->fbi;
 	uint8 *buf;
 	int bpp;
+	int yres, remainder;
 	struct mdp4_overlay_pipe *pipe;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
 
 	if (!mfd->panel_power_on)
 		return;
 
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	/* no need to power on cmd block since it's dsi video mode */
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	mutex_lock(&mfd->dma->ov_mutex);
 

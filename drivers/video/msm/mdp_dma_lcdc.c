@@ -89,12 +89,15 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
 	struct msm_fb_data_type *mfd;
+	struct msm_panel_info *panel_info;
 	uint32 dma_base;
 	uint32 timer_base = LCDC_BASE;
 	uint32 block = MDP_DMA2_BLOCK;
 	int ret;
+	int yres, remainder;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	panel_info = &mfd->panel_info;
 
 	if (!mfd)
 		return -ENODEV;
@@ -105,12 +108,32 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	fbi = mfd->fbi;
 	var = &fbi->var;
 
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp + fbi->var.yoffset * fbi->fix.line_length;
+
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	dma2_cfg_reg = DMA_PACK_ALIGN_LSB | DMA_OUT_SEL_LCDC;
 
@@ -319,14 +342,27 @@ int mdp_lcdc_off(struct platform_device *pdev)
 void mdp_lcdc_update(struct msm_fb_data_type *mfd)
 {
 	struct fb_info *fbi = mfd->fbi;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
 	uint8 *buf;
 	int bpp;
 	unsigned long flag;
 	uint32 dma_base;
+	int yres, remainder;
 	int irq_block = MDP_DMA2_TERM;
 #ifdef CONFIG_FB_MSM_MDP40
 	int intr = INTR_DMA_P_DONE;
 #endif
+
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
 
 	if (!mfd->panel_power_on)
 		return;
@@ -335,8 +371,16 @@ void mdp_lcdc_update(struct msm_fb_data_type *mfd)
 	/* no need to power on cmd block since it's lcdc mode */
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	dma_base = DMA_P_BASE;
 

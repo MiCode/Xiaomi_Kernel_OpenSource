@@ -522,14 +522,37 @@ void mdp_set_dma_pan_info(struct fb_info *info, struct mdp_dirty_region *dirty,
 			  boolean sync)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct fb_info *fbi = mfd->fbi;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
 	MDPIBUF *iBuf;
 	int bpp = info->var.bits_per_pixel / 8;
+	int yres, remainder;
+
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
 
 	down(&mfd->sem);
+
 	iBuf = &mfd->ibuf;
 	iBuf->buf = (uint8 *) info->fix.smem_start;
-	iBuf->buf += info->var.xoffset * bpp +
-			info->var.yoffset * info->fix.line_length;
+
+	if (fbi->var.yoffset < yres) {
+		iBuf->buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		iBuf->buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		iBuf->buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	iBuf->ibuf_width = info->var.xres_virtual;
 	iBuf->bpp = bpp;

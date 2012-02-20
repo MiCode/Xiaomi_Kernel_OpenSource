@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,12 +39,15 @@ extern uint32 mdp_intr_mask;
 int mdp_dma3_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct msm_panel_info *panel_info;
 	struct fb_info *fbi;
 	uint8 *buf;
 	int bpp;
 	int ret = 0;
+	int yres, remainder;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	panel_info = &mfd->panel_info;
 
 	if (!mfd)
 		return -ENODEV;
@@ -53,13 +56,33 @@ int mdp_dma3_on(struct platform_device *pdev)
 		return -EINVAL;
 
 	fbi = mfd->fbi;
+
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
 
 	/* starting address[31..8] of Video frame buffer is CS0 */
 	MDP_OUTP(MDP_BASE + 0xC0008, (uint32) buf >> 3);
@@ -112,15 +135,37 @@ void mdp_dma3_update(struct msm_fb_data_type *mfd)
 	uint8 *buf;
 	int bpp;
 	unsigned long flag;
+	int yres, remainder;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
 
 	if (!mfd->panel_power_on)
 		return;
 
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres)%PAGE_SIZE;
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
 	/* no need to power on cmd block since dma3 is running */
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
-		fbi->var.yoffset * fbi->fix.line_length;
+
+	if (fbi->var.yoffset < yres) {
+		buf += fbi->var.xoffset * bpp;
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		buf += fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder;
+	} else {
+		buf += fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder);
+	}
+
 	MDP_OUTP(MDP_BASE + 0xC0008, (uint32) buf >> 3);
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
