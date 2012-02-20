@@ -487,9 +487,14 @@ static void msm_reset(struct uart_port *port)
 
 static void msm_init_clock(struct uart_port *port)
 {
+	int ret;
 	struct msm_port *msm_port = UART_TO_MSM(port);
 
-	clk_enable(msm_port->clk);
+	ret = clk_prepare_enable(msm_port->clk);
+	if (ret) {
+		pr_err("%s(): Can't enable uartclk. ret:%d\n", __func__, ret);
+		return;
+	}
 
 #ifdef CONFIG_SERIAL_MSM_CLOCK_CONTROL
 	msm_port->clk_state = MSM_CLK_ON;
@@ -519,7 +524,7 @@ static void msm_deinit_clock(struct uart_port *port)
 		clk_disable(msm_port->clk);
 	msm_port->clk_state = MSM_CLK_PORT_OFF;
 #else
-	clk_disable(msm_port->clk);
+	clk_disable_unprepare(msm_port->clk);
 #endif
 
 }
@@ -751,14 +756,18 @@ static int msm_verify_port(struct uart_port *port, struct serial_struct *ser)
 static void msm_power(struct uart_port *port, unsigned int state,
 		      unsigned int oldstate)
 {
+	int ret;
 	struct msm_port *msm_port = UART_TO_MSM(port);
 
 	switch (state) {
 	case 0:
-		clk_enable(msm_port->clk);
+		ret = clk_prepare_enable(msm_port->clk);
+		if (ret)
+			pr_err("msm_serial: %s(): Can't enable uartclk.\n",
+						__func__);
 		break;
 	case 3:
-		clk_disable(msm_port->clk);
+		clk_disable_unprepare(msm_port->clk);
 		break;
 	default:
 		pr_err("msm_serial: %s(): Unknown PM state %d\n",
