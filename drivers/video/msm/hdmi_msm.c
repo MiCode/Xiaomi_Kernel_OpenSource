@@ -4068,6 +4068,7 @@ static void hdmi_msm_hpd_off(void)
 
 	hdmi_msm_set_mode(FALSE);
 	hdmi_msm_state->hpd_initialized = FALSE;
+	hdmi_msm_powerdown_phy();
 	hdmi_msm_state->pd->cec_power(0);
 	hdmi_msm_state->pd->enable_5v(0);
 	hdmi_msm_state->pd->core_power(0, 1);
