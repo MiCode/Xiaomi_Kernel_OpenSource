@@ -42,6 +42,12 @@ config OV5640
 	default n
 	---help---
 	Omni 5M YUV Sensor
+
+config OV5647
+	bool "Sensor ov5647 (BAYER 5M)"
+	depends on MSM_CAMERA
+	---help---
+	  OV 5M Bayer Sensor with AutoFocus
 config WEBCAM_OV7692_QRD
 	bool "Sensor OV7692 QRD(VGA YUV)"
 	depends on MSM_CAMERA && ARCH_MSM7X27A && !MSM_CAMERA_V4L2

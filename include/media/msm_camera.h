@@ -765,8 +765,16 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_OUTPUT_INFO		32
 #define CFG_GET_EEPROM_DATA		33
 #define CFG_SET_ACTUATOR_INFO		34
-#define CFG_GET_ACTUATOR_INFO		35
-#define CFG_MAX			36
+#define CFG_GET_ACTUATOR_INFO           35
+/* TBD: QRD */
+#define CFG_SET_SATURATION            36
+#define CFG_SET_SHARPNESS             37
+#define CFG_SET_TOUCHAEC              38
+#define CFG_SET_AUTO_FOCUS            39
+#define CFG_SET_AUTOFLASH             40
+#define CFG_SET_EXPOSURE_COMPENSATION 41
+#define CFG_SET_ISO                   42
+#define CFG_MAX			43
 
 
 #define MOVE_NEAR	0
@@ -857,14 +865,6 @@ struct msm_snapshot_pp_status {
 #define CAMERA_SETAE_AVERAGE		0
 #define CAMERA_SETAE_CENWEIGHT	1
 
-#define CFG_SET_SATURATION		30
-#define CFG_SET_SHARPNESS			31
-#define CFG_SET_TOUCHAEC            32
-#define CFG_SET_AUTO_FOCUS          33
-#define CFG_SET_AUTOFLASH 34
-/* QRD */
-#define CFG_SET_EXPOSURE_COMPENSATION 35
-
 #define  CAMERA_WB_AUTO               1 /* This list must match aeecamera.h */
 #define  CAMERA_WB_CUSTOM             2
 #define  CAMERA_WB_INCANDESCENT       3
@@ -947,6 +947,14 @@ enum msm_v4l2_power_line_frequency {
 	MSM_V4L2_POWER_LINE_50HZ,
 	MSM_V4L2_POWER_LINE_AUTO,
 };
+
+#define CAMERA_ISO_TYPE_AUTO           0
+#define CAMEAR_ISO_TYPE_HJR            1
+#define CAMEAR_ISO_TYPE_100            2
+#define CAMERA_ISO_TYPE_200            3
+#define CAMERA_ISO_TYPE_400            4
+#define CAMEAR_ISO_TYPE_800            5
+#define CAMERA_ISO_TYPE_1600           6
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
@@ -1083,6 +1091,7 @@ struct sensor_cfg_data {
 		uint16_t pictp_pl;
 		uint32_t pict_max_exp_lc;
 		uint16_t p_fps;
+		uint8_t iso_type;
 		struct sensor_init_cfg init_info;
 		struct sensor_pict_fps gfps;
 		struct exp_gain_cfg exp_gain;
