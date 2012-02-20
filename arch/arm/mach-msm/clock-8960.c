@@ -5739,6 +5739,7 @@ static void __init msm8960_clock_init(void)
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
 	clk_set_rate(&usb_hsic_hsio_cal_clk.c, 9000000);
+	clk_set_rate(&usb_hsic_system_clk.c, 60000000);
 	/*
 	 * Set the CSI rates to a safe default to avoid warnings when
 	 * switching csi pix and rdi clocks.
