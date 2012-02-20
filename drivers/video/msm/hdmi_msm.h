@@ -75,8 +75,10 @@ struct hdmi_msm_state_type {
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	boolean cec_enabled;
+	unsigned int first_monitor;
 	int cec_logical_addr;
 	struct completion cec_frame_wr_done;
+	struct timer_list cec_read_timer;
 #define CEC_STATUS_WR_ERROR	0x0001
 #define CEC_STATUS_WR_DONE	0x0002
 #define CEC_STATUS_WR_TMOUT	0x0004
@@ -86,8 +88,17 @@ struct hdmi_msm_state_type {
 	struct hdmi_msm_cec_msg *cec_queue_wr;
 	struct hdmi_msm_cec_msg *cec_queue_rd;
 	boolean cec_queue_full;
+	boolean fsm_reset_done;
+
+	/*
+	 * CECT 9-5-1
+	 */
+	struct completion cec_line_latch_wait;
+	struct work_struct cec_latch_detect_work;
+
 #define CEC_QUEUE_SIZE		16
 #define CEC_QUEUE_END	 (hdmi_msm_state->cec_queue_start + CEC_QUEUE_SIZE)
+#define RETRANSMIT_MAX_NUM	7
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 	int irq;

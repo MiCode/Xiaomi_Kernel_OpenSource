@@ -79,6 +79,8 @@ static void hdmi_msm_hpd_off(void);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 
+static void hdmi_msm_cec_line_latch_detect(void);
+
 #ifdef TOGGLE_CEC_HARDWARE_FSM
 static boolean msg_send_complete = TRUE;
 static boolean msg_recv_complete = TRUE;
@@ -111,7 +113,7 @@ static boolean msg_recv_complete = TRUE;
 #define HDMI_MSM_CEC_INT_FRAME_WR_DONE_ACK		BIT(0)
 #define HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT		BIT(0)
 
-#define HDMI_MSM_CEC_FRAME_WR_SUCCESS(___st)         (((___st)&0xF) ==\
+#define HDMI_MSM_CEC_FRAME_WR_SUCCESS(___st)         (((___st)&0xB) ==\
 		(HDMI_MSM_CEC_INT_FRAME_WR_DONE_INT |\
 			HDMI_MSM_CEC_INT_FRAME_WR_DONE_MASK |\
 			HDMI_MSM_CEC_INT_FRAME_ERROR_MASK))
@@ -142,8 +144,8 @@ void hdmi_msm_cec_init(void)
 	 */
 	HDMI_OUTP(0x02A0, HDMI_MSM_CEC_ADDR_LOGICAL_ADDR(4));
 
-	/* 0x028C CEC_CTRL */
-	HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+	hdmi_msm_state->first_monitor = 0;
+	hdmi_msm_state->fsm_reset_done = false;
 
 	/* 0x029C CEC_INT */
 	/* Enable CEC interrupts */
@@ -161,7 +163,11 @@ void hdmi_msm_cec_init(void)
 	 * BIT_1_ERR_RANGE_HI = 8 => 750us, the test used 775us,
 	 * so increased this to 9 which => 800us.
 	 */
-	HDMI_OUTP(0x02E0, 0x889788);
+	/*
+	 * CEC latch up issue - To fire monitor interrupt
+	 * for every start of message
+	 */
+	HDMI_OUTP(0x02E0, 0x880000);
 
 	/*
 	 * Slight adjustment to logic 0 low period on write
@@ -173,6 +179,8 @@ void hdmi_msm_cec_init(void)
 	 */
 	HDMI_OUTP(0x02A4, 0x1 | (7 * 0x30) << 7);
 
+	/* 0x028C CEC_CTRL */
+	HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
 }
 
 void hdmi_msm_cec_write_logical_addr(int addr)
@@ -207,6 +215,9 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 
 	boolean frameType = (msg->recvr_id == 15 ? BIT(0) : 0);
 
+	mutex_lock(&hdmi_msm_state_mutex);
+	hdmi_msm_state->fsm_reset_done = false;
+	mutex_unlock(&hdmi_msm_state_mutex);
 #ifdef TOGGLE_CEC_HARDWARE_FSM
 	msg_send_complete = FALSE;
 #endif
@@ -278,7 +289,32 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 		msg_recv_complete = TRUE;
 	}
 	msg_send_complete = TRUE;
+#else
+	HDMI_OUTP(0x028C, 0x0);
+	HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
 #endif
+}
+
+void hdmi_msm_cec_line_latch_detect(void)
+{
+	/*
+	 * CECT 9-5-1
+	 * The timer period needs to be changed to appropriate value
+	 */
+	/*
+	 * Timedout without RD_DONE, WR_DONE or ERR_INT
+	 * Toggle CEC hardware FSM
+	 */
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->first_monitor == 1) {
+		DEV_WARN("CEC line is probably latched up - CECT 9-5-1");
+		if (!msg_recv_complete)
+			hdmi_msm_state->fsm_reset_done = true;
+		HDMI_OUTP(0x028C, 0x0);
+		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+		hdmi_msm_state->first_monitor = 0;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
 }
 
 void hdmi_msm_cec_msg_recv(void)
@@ -475,6 +511,14 @@ void hdmi_msm_cec_msg_recv(void)
 		temp_msg.opcode = 0x04;
 		temp_msg.frame_size = i + 2;
 		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x44:
+		/* User Control Pressed */
+		DEV_INFO("User Control Pressed\n");
+		break;
+	case 0x45:
+		/* User Control Released */
+		DEV_INFO("User Control Released\n");
 		break;
 	default:
 		DEV_INFO("Recvd an unknown cmd = [%u]\n",
@@ -837,6 +881,13 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	HDMI_OUTP(0x0254, 4 | (hpd_state ? 0 : 2));
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+static void hdmi_msm_cec_latch_work(struct work_struct *work)
+{
+	hdmi_msm_cec_line_latch_detect();
+}
+#endif
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 static void hdcp_deauthenticate(void);
 static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
@@ -1099,6 +1150,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 			HDMI_MSM_CEC_INT_FRAME_WR_DONE_ACK);
 		mutex_lock(&hdmi_msm_state_mutex);
 		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_DONE;
+		hdmi_msm_state->first_monitor = 0;
+		del_timer(&hdmi_msm_state->cec_read_timer);
 		mutex_unlock(&hdmi_msm_state_mutex);
 		complete(&hdmi_msm_state->cec_frame_wr_done);
 		return IRQ_HANDLED;
@@ -1112,17 +1165,50 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 #endif
 		HDMI_OUTP(0x029C, cec_intr_status);
 		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->first_monitor = 0;
+		del_timer(&hdmi_msm_state->cec_read_timer);
 		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_ERROR;
 		mutex_unlock(&hdmi_msm_state_mutex);
 		complete(&hdmi_msm_state->cec_frame_wr_done);
 		return IRQ_HANDLED;
 	}
 
-	if ((cec_intr_status & (1 << 4)) && (cec_intr_status & (1 << 5)))
+	if ((cec_intr_status & (1 << 4)) && (cec_intr_status & (1 << 5))) {
 		DEV_DBG("CEC_IRQ_MONITOR\n");
+		HDMI_OUTP(0x029C, cec_intr_status |
+			  HDMI_MSM_CEC_INT_MONITOR_ACK);
+
+		/*
+		 * CECT 9-5-1
+		 * On the first occassion start a timer
+		 * for few hundred ms, if it expires then
+		 * reset the CEC block else go on with
+		 * frame transactions as usual.
+		 * Below adds hdmi_msm_cec_msg_recv() as an
+		 * item into the work queue instead of running in
+		 * interrupt context
+		 */
+		mutex_lock(&hdmi_msm_state_mutex);
+		if (hdmi_msm_state->first_monitor == 0) {
+			/* This timer might have to be changed
+			 * worst case theoritical =
+			 * 16 bytes * 8 * 2.7msec = 346 msec
+			 */
+			mod_timer(&hdmi_msm_state->cec_read_timer,
+					jiffies + HZ/2);
+			hdmi_msm_state->first_monitor = 1;
+		}
+		mutex_unlock(&hdmi_msm_state_mutex);
+		return IRQ_HANDLED;
+	}
 
 	if ((cec_intr_status & (1 << 6)) && (cec_intr_status & (1 << 7))) {
 		DEV_DBG("CEC_IRQ_FRAME_RD_DONE\n");
+
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->first_monitor = 0;
+		del_timer(&hdmi_msm_state->cec_read_timer);
+		mutex_unlock(&hdmi_msm_state_mutex);
 		HDMI_OUTP(0x029C, cec_intr_status |
 			HDMI_MSM_CEC_INT_FRAME_RD_DONE_ACK);
 		hdmi_msm_cec_msg_recv();
@@ -1135,6 +1221,9 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 			HDMI_OUTP(0x028C, 0x0);
 			HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
 		}
+#else
+		HDMI_OUTP(0x028C, 0x0);
+		HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
 #endif
 
 		return IRQ_HANDLED;
@@ -3931,6 +4020,13 @@ static void hdmi_msm_hdcp_timer(unsigned long data)
 }
 #endif
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+static void hdmi_msm_cec_read_timer_func(unsigned long data)
+{
+	queue_work(hdmi_work_queue, &hdmi_msm_state->cec_latch_detect_work);
+}
+#endif
+
 static void hdmi_msm_hpd_read_work(struct work_struct *work)
 {
 	uint32 hpd_ctrl;
@@ -4255,6 +4351,15 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	add_timer(&hdmi_msm_state->hdcp_timer);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	init_timer(&hdmi_msm_state->cec_read_timer);
+	hdmi_msm_state->cec_read_timer.function =
+		hdmi_msm_cec_read_timer_func;
+	hdmi_msm_state->cec_read_timer.data = (uint32)NULL;
+
+	hdmi_msm_state->cec_read_timer.expires = 0xffffffffL;
+ #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+
 	fb_dev = msm_fb_add_device(pdev);
 	if (fb_dev) {
 		rc = external_common_state_create(fb_dev);
@@ -4459,7 +4564,10 @@ static int __init hdmi_msm_init(void)
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+	INIT_WORK(&hdmi_msm_state->cec_latch_detect_work,
+		  hdmi_msm_cec_latch_work);
 	init_completion(&hdmi_msm_state->cec_frame_wr_done);
+	init_completion(&hdmi_msm_state->cec_line_latch_wait);
 #endif
 
 	rc = platform_device_register(&this_device);
