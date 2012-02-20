@@ -18,6 +18,7 @@
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9310/core.h>
 #include <linux/mfd/wcd9310/pdata.h>
+#include <linux/mfd/pm8xxx/misc.h>
 #include <linux/msm_ssbi.h>
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
@@ -26,6 +27,7 @@
 #include <linux/memory.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/cyttsp.h>
+#include <linux/i2c/isa1200.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -541,6 +543,86 @@ static struct slim_device apq8064_slim_tabla20 = {
 	},
 };
 
+#define HAP_SHIFT_LVL_OE_GPIO		PM8921_MPP_PM_TO_SYS(8)
+#define ISA1200_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
+#define ISA1200_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
+#define ISA1200_HAP_CLK			PM8921_GPIO_PM_TO_SYS(44)
+
+static int isa1200_power(int on)
+{
+	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
+
+	return 0;
+}
+
+static int isa1200_dev_setup(bool enable)
+{
+	int rc = 0;
+
+	rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_1, enable);
+	if (rc) {
+		pr_err("%s: unable to write aux clock register(%d)\n",
+			__func__, rc);
+		return rc;
+	}
+
+	if (!enable)
+		goto free_gpio;
+
+	rc = gpio_request(ISA1200_HAP_CLK, "haptics_clk");
+	if (rc) {
+		pr_err("%s: unable to request gpio %d config(%d)\n",
+			__func__, ISA1200_HAP_CLK, rc);
+		return rc;
+	}
+
+	rc = gpio_direction_output(ISA1200_HAP_CLK, 0);
+	if (rc) {
+		pr_err("%s: unable to set direction\n", __func__);
+		goto free_gpio;
+	}
+
+	return 0;
+
+free_gpio:
+	gpio_free(ISA1200_HAP_CLK);
+	return rc;
+}
+
+static struct isa1200_regulator isa1200_reg_data[] = {
+	{
+		.name = "vddp",
+		.min_uV = ISA_I2C_VTG_MIN_UV,
+		.max_uV = ISA_I2C_VTG_MAX_UV,
+		.load_uA = ISA_I2C_CURR_UA,
+	},
+};
+
+static struct isa1200_platform_data isa1200_1_pdata = {
+	.name = "vibrator",
+	.dev_setup = isa1200_dev_setup,
+	.power_on = isa1200_power,
+	.hap_en_gpio = ISA1200_HAP_EN_GPIO,
+	.hap_len_gpio = ISA1200_HAP_LEN_GPIO,
+	.max_timeout = 15000,
+	.mode_ctrl = PWM_GEN_MODE,
+	.pwm_fd = {
+		.pwm_div = 256,
+	},
+	.is_erm = false,
+	.smart_en = true,
+	.ext_clk_en = true,
+	.chip_en = 1,
+	.regulator_info = isa1200_reg_data,
+	.num_regulators = ARRAY_SIZE(isa1200_reg_data),
+};
+
+static struct i2c_board_info isa1200_board_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("isa1200_1", 0x90>>1),
+		.platform_data = &isa1200_1_pdata,
+	},
+};
 /* configuration data for mxt1386e using V2.1 firmware */
 static const u8 mxt1386e_config_data_v2_1[] = {
 	/* T6 Object */
@@ -1380,6 +1462,7 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
+	&apq8064_device_qup_i2c_gsbi1,
 	&apq8064_device_qup_i2c_gsbi3,
 	&apq8064_device_qup_i2c_gsbi4,
 	&apq8064_device_qup_spi_gsbi5,
@@ -1509,6 +1592,11 @@ static struct slim_boardinfo apq8064_slim_devices[] = {
 	/* add more slimbus slaves as needed */
 };
 
+static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi1_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi3_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
@@ -1519,8 +1607,20 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+#define GSBI_DUAL_MODE_CODE 0x60
+#define MSM_GSBI1_PHYS		0x12440000
 static void __init apq8064_i2c_init(void)
 {
+	void __iomem *gsbi_mem;
+
+	apq8064_device_qup_i2c_gsbi1.dev.platform_data =
+					&apq8064_i2c_qup_gsbi1_pdata;
+	gsbi_mem = ioremap_nocache(MSM_GSBI1_PHYS, 4);
+	writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+	/* Ensure protocol code is written before proceeding */
+	wmb();
+	iounmap(gsbi_mem);
+	apq8064_i2c_qup_gsbi1_pdata.use_gsbi_shared_mode = 1;
 	apq8064_device_qup_i2c_gsbi3.dev.platform_data =
 					&apq8064_i2c_qup_gsbi3_pdata;
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
@@ -1581,6 +1681,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
 		cyttsp_info,
 		ARRAY_SIZE(cyttsp_info),
+	},
+	{
+		I2C_FFA | I2C_LIQUID,
+		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		isa1200_board_info,
+		ARRAY_SIZE(isa1200_board_info),
 	},
 };
 

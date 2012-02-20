@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,6 +138,12 @@
 /* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
 #define PM8901_DELAY_AFTER_REG_DISABLE_MS	4
 #define PM8901_DELAY_BEFORE_SHUTDOWN_MS		8
+
+#define REG_PM8XXX_XO_CNTRL_2	0x114
+#define MP3_1_MASK	0xE0
+#define MP3_2_MASK	0x1C
+#define MP3_1_SHIFT	5
+#define MP3_2_SHIFT	2
 
 struct pm8xxx_misc_chip {
 	struct list_head			link;
@@ -1045,6 +1051,48 @@ int pm8xxx_preload_dVdd(void)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_preload_dVdd);
+
+int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
+				enum pm8xxx_aux_clk_div divider, bool enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	u8 clk_mask = 0, value = 0;
+
+	if (clk_id == CLK_MP3_1) {
+		clk_mask = MP3_1_MASK;
+		value = divider << MP3_1_SHIFT;
+	} else if (clk_id == CLK_MP3_2) {
+		clk_mask = MP3_2_MASK;
+		value = divider << MP3_2_SHIFT;
+	} else {
+		pr_err("Invalid clock id of %d\n", clk_id);
+		return -EINVAL;
+	}
+	if (!enable)
+		value = 0;
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8038:
+		case PM8XXX_VERSION_8921:
+			pm8xxx_misc_masked_write(chip,
+					REG_PM8XXX_XO_CNTRL_2, clk_mask, value);
+			break;
+		default:
+			/* Functionality not supported */
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pm8xxx_aux_clk_control);
 
 static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 {
