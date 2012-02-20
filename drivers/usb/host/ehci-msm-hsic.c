@@ -72,6 +72,8 @@ static inline struct usb_hcd *hsic_to_hcd(struct msm_hsic_hcd *mehci)
 #define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
 #define USB_PHY_VDD_DIG_LOAD		49360	/* uA */
 
+#define HSIC_DBG1_REG		0x38
+
 static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 {
 	int ret = 0;
@@ -160,7 +162,7 @@ static int msm_hsic_config_hub(struct msm_hsic_hcd *mehci, int init)
 	static struct regulator *hsic_hub_reg;
 
 	pdata = mehci->dev->platform_data;
-	if (!pdata->hub_reset)
+	if (!pdata || !pdata->hub_reset)
 		return ret;
 
 	if (!init)
@@ -233,7 +235,7 @@ static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 
 	pdata = mehci->dev->platform_data;
 
-	if (!pdata->strobe || !pdata->data)
+	if (!pdata || !pdata->strobe || !pdata->data)
 		return rc;
 
 	if (gpio_status == gpio_en)
@@ -320,6 +322,7 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
 	int cnt = 0;
 	int ret;
+	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
 	ret = msm_hsic_phy_reset(mehci);
 	if (ret) {
@@ -337,35 +340,58 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 	if (cnt >= LINK_RESET_TIMEOUT_USEC)
 		return -ETIMEDOUT;
 
-	/* select ULPI phy */
+	/* Reset PORTSC and select ULPI phy */
 	writel_relaxed(0x80000000, USB_PORTSC);
 
 	/* TODO: Need to confirm if HSIC PHY also requires delay after RESET */
 	msleep(100);
 
 	/* HSIC PHY Initialization */
-	/* Enable LV_MODE in HSIC_CAL_PAD_CTL register */
-	writel_relaxed(HSIC_LV_MODE, HSIC_CAL_PAD_CTL);
 
-	/*set periodic calibration interval to ~2.048sec in HSIC_IO_CAL_REG */
-	ulpi_write(mehci, 0xFF, 0x33);
+	/* HSIC init sequence when HSIC signals (Strobe/Data) are
+	routed via GPIOs */
+	if (pdata && pdata->strobe && pdata->data) {
 
-	/* Enable periodic IO calibration in HSIC_CFG register */
-	ulpi_write(mehci, HSIC_PAD_CALIBRATION, 0x30);
+		/* Enable LV_MODE in HSIC_CAL_PAD_CTL register */
+		writel_relaxed(HSIC_LV_MODE, HSIC_CAL_PAD_CTL);
 
-	/* Configure GPIO 150/151 pins for HSIC functionality mode */
-	ret = msm_hsic_config_gpios(mehci, 1);
-	if (ret) {
-		dev_err(mehci->dev, " gpio configuarion failed\n");
-		return ret;
+		/*set periodic calibration interval to ~2.048sec in
+		  HSIC_IO_CAL_REG */
+		ulpi_write(mehci, 0xFF, 0x33);
+
+		/* Enable periodic IO calibration in HSIC_CFG register */
+		ulpi_write(mehci, HSIC_PAD_CALIBRATION, 0x30);
+
+		/* Configure GPIO 150/151 pins for HSIC functionality mode */
+		ret = msm_hsic_config_gpios(mehci, 1);
+		if (ret) {
+			dev_err(mehci->dev, " gpio configuarion failed\n");
+			return ret;
+		}
+		/* Set LV_MODE=0x1 and DCC=0x2 in HSIC_GPIO150/151_PAD_CTL
+		   register */
+		writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO150_PAD_CTL);
+		writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO151_PAD_CTL);
+		/* Enable HSIC mode in HSIC_CFG register */
+		ulpi_write(mehci, 0x01, 0x31);
+	} else {
+		/* HSIC init sequence when HSIC signals (Strobe/Data) are routed
+		via dedicated I/O */
+
+		/* programmable length of connect signaling (33.2ns) */
+		ret = ulpi_write(mehci, 3, HSIC_DBG1_REG);
+		if (ret) {
+			pr_err("%s: Unable to program length of connect "
+			      "signaling\n", __func__);
+		}
+
+		/*set periodic calibration interval to ~2.048sec in
+		  HSIC_IO_CAL_REG */
+		ulpi_write(mehci, 0xFF, 0x33);
+
+		/* Enable HSIC mode in HSIC_CFG register */
+		ulpi_write(mehci, 0xA9, 0x30);
 	}
-
-	/* Set LV_MODE=0x1 and DCC=0x2 in HSIC_GPIO150/151_PAD_CTL register */
-	writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO150_PAD_CTL);
-	writel_relaxed(HSIC_GPIO_PAD_VAL, HSIC_GPIO151_PAD_CTL);
-
-	/* Enable HSIC mode in HSIC_CFG register */
-	ulpi_write(mehci, 0x01, 0x31);
 
 	return 0;
 }
@@ -428,7 +454,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	clk_disable_unprepare(mehci->cal_clk);
 	clk_disable_unprepare(mehci->ahb_clk);
 	pdata = mehci->dev->platform_data;
-	if (pdata->hub_reset) {
+	if (pdata && pdata->hub_reset) {
 		ret = msm_xo_mode_vote(mehci->xo_handle, MSM_XO_MODE_OFF);
 		if (ret)
 			pr_err("%s failed to devote for"
@@ -471,7 +497,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		dev_err(mehci->dev, "unable to set vddcx voltage: min:1v max:1.3v\n");
 
 	pdata = mehci->dev->platform_data;
-	if (pdata->hub_reset) {
+	if (pdata && pdata->hub_reset) {
 		ret = msm_xo_mode_vote(mehci->xo_handle, MSM_XO_MODE_ON);
 		if (ret)
 			pr_err("%s failed to vote for"
@@ -634,32 +660,32 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	if (!init)
 		goto put_clocks;
 
-	/*core_clk is required for LINK protocol engine,it should be at 60MHz */
+	/*core_clk is required for LINK protocol engine
+	 *clock rate appropriately set by target specific clock driver */
 	mehci->core_clk = clk_get(mehci->dev, "core_clk");
 	if (IS_ERR(mehci->core_clk)) {
 		dev_err(mehci->dev, "failed to get core_clk\n");
 		ret = PTR_ERR(mehci->core_clk);
 		return ret;
 	}
-	clk_set_rate(mehci->core_clk, 60000000);
 
-	/* 60MHz alt_core_clk is for LINK to be used during PHY RESET  */
+	/* alt_core_clk is for LINK to be used during PHY RESET
+	 * clock rate appropriately set by target specific clock driver */
 	mehci->alt_core_clk = clk_get(mehci->dev, "alt_core_clk");
 	if (IS_ERR(mehci->alt_core_clk)) {
 		dev_err(mehci->dev, "failed to core_clk\n");
 		ret = PTR_ERR(mehci->alt_core_clk);
 		goto put_core_clk;
 	}
-	clk_set_rate(mehci->alt_core_clk, 60000000);
 
-	/* 480MHz phy_clk is required for HSIC PHY operation */
+	/* phy_clk is required for HSIC PHY operation
+	 * clock rate appropriately set by target specific clock driver */
 	mehci->phy_clk = clk_get(mehci->dev, "phy_clk");
 	if (IS_ERR(mehci->phy_clk)) {
 		dev_err(mehci->dev, "failed to get phy_clk\n");
 		ret = PTR_ERR(mehci->phy_clk);
 		goto put_alt_core_clk;
 	}
-	clk_set_rate(mehci->phy_clk, 480000000);
 
 	/* 10MHz cal_clk is required for calibration of I/O pads */
 	mehci->cal_clk = clk_get(mehci->dev, "cal_clk");
@@ -778,7 +804,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	}
 
 	pdata = mehci->dev->platform_data;
-	if (pdata->hub_reset) {
+	if (pdata && pdata->hub_reset) {
 		mehci->xo_handle = msm_xo_get(MSM_XO_TCXO_D1, "hsic");
 		if (IS_ERR(mehci->xo_handle)) {
 			pr_err(" %s not able to get the handle"
@@ -843,7 +869,7 @@ unconfig_gpio:
 deinit_hub:
 	msm_hsic_config_hub(mehci, 0);
 free_xo_handle:
-	if (pdata->hub_reset)
+	if (pdata && pdata->hub_reset)
 		msm_xo_put(mehci->xo_handle);
 deinit_vddcx:
 	msm_hsic_init_vddcx(mehci, 0);
@@ -874,7 +900,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	msm_hsic_config_gpios(mehci, 0);
 	msm_hsic_config_hub(mehci, 0);
 	pdata = mehci->dev->platform_data;
-	if (pdata->hub_reset)
+	if (pdata && pdata->hub_reset)
 		msm_xo_put(mehci->xo_handle);
 	msm_hsic_init_vddcx(mehci, 0);
 
