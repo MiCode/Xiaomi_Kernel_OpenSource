@@ -1410,7 +1410,7 @@ power_collapse_bail:
  * Return value:
  *      0: success
  */
-static int msm_pm_power_collapse_standalone(bool from_idle)
+static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 {
 	int collapsed = 0;
 	int ret;

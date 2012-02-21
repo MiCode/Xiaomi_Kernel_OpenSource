@@ -650,7 +650,7 @@ static inline bool msm_pm_l2x0_power_collapse(void)
 }
 #endif
 
-static bool msm_pm_spm_power_collapse(
+static bool __ref msm_pm_spm_power_collapse(
 	unsigned int cpu, bool from_idle, bool notify_rpm)
 {
 	void *entry;

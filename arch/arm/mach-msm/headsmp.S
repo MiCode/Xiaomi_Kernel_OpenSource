@@ -1,7 +1,7 @@
 /*
  *  Copyright (c) 2003 ARM Limited
  *  All Rights Reserved
- *  Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -9,6 +9,8 @@
  */
 #include <linux/linkage.h>
 #include <linux/init.h>
+
+__CPUINIT
 
 /*
  * MSM specific entry point for secondary CPUs.  This provides
