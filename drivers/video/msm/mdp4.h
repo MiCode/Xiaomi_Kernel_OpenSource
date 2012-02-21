@@ -707,6 +707,9 @@ void mdp4_writeback_dma_stop(struct msm_fb_data_type *mfd);
 int mdp4_writeback_init(struct fb_info *info);
 int mdp4_writeback_terminate(struct fb_info *info);
 
+uint32_t mdp_block2base(uint32_t block);
+int mdp_hist_lut_config(struct mdp_hist_lut_data *data);
+
 void mdp4_hsic_set(struct mdp4_overlay_pipe *pipe, struct dpp_ctrl *ctrl);
 void mdp4_hsic_update(struct mdp4_overlay_pipe *pipe);
 int mdp4_csc_config(struct mdp_csc_cfg_data *config);

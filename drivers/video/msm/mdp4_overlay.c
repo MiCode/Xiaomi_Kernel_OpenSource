@@ -558,7 +558,7 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	char *vg_base;
 	uint32 frame_size, src_size, src_xy, dst_size, dst_xy;
 	uint32 format, pattern, luma_offset, chroma_offset;
-	uint32 mask, curr;
+	uint32 mask, curr, addr;
 	int pnum, ptype;
 
 	pnum = pipe->pipe_num - OVERLAY_PIPE_VG1; /* start from 0 */
@@ -625,13 +625,20 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	/* Ensure proper covert matrix loaded when color space swaps */
 	curr = inpdw(vg_base + 0x0058);
 	mask = 0x600;
+
 	if ((curr & mask) != (pipe->op_mode & mask)) {
-		curr = ((uint32_t)vg_base) + 0x4000;
+		addr = ((uint32_t)vg_base) + 0x4000;
 		if (ptype != OVERLAY_TYPE_RGB)
-			mdp4_csc_write(&(mdp_csc_convert[1]), curr);
+			mdp4_csc_write(&(mdp_csc_convert[1]), addr);
 		else
-			mdp4_csc_write(&(mdp_csc_convert[0]), curr);
+			mdp4_csc_write(&(mdp_csc_convert[0]), addr);
+
+		mask = 0xFFFCFFFF;
+	} else {
+		/* Don't touch bits you don't want to configure*/
+		mask = 0xFFFCF1FF;
 	}
+	pipe->op_mode = (pipe->op_mode & mask) | (curr & ~mask);
 
 	/* luma component plane */
 	outpdw(vg_base + 0x0010, pipe->srcp0_addr + luma_offset);

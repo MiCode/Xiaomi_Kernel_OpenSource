@@ -2960,6 +2960,9 @@ static int msmfb_handle_pp_ioctl(struct msmfb_mdp_pp *pp_ptr)
 			break;
 
 		case mdp_lut_hist:
+			ret = mdp_hist_lut_config(
+					(struct mdp_hist_lut_data *)
+					&pp_ptr->data.lut_cfg_data.data);
 			break;
 
 		default:
