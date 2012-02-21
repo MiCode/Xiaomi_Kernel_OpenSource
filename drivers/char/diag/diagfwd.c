@@ -598,7 +598,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	}
 
 	pr_debug("diag: %d %d %d", cmd_code, subsys_id, subsys_cmd_code);
-	for (i = 0; i < diag_max_registration; i++) {
+	for (i = 0; i < diag_max_reg; i++) {
 		entry = driver->table[i];
 		if (entry.process_id != NO_PROCESS) {
 			if (entry.cmd_code == cmd_code && entry.subsys_id ==
@@ -1374,7 +1374,7 @@ void diagfwd_init(void)
 							, GFP_KERNEL)) == NULL)
 		goto err;
 	if (driver->table == NULL &&
-	     (driver->table = kzalloc(diag_max_registration*
+	     (driver->table = kzalloc(diag_max_reg*
 		      sizeof(struct diag_master_table),
 		       GFP_KERNEL)) == NULL)
 		goto err;

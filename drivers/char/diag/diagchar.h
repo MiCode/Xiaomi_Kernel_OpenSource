@@ -52,8 +52,8 @@
 #define MAX_EQUIP_ID 12
 
 /* Maximum number of pkt reg supported at initialization*/
-extern unsigned int diag_max_registration;
-extern unsigned int diag_threshold_registration;
+extern unsigned int diag_max_reg;
+extern unsigned int diag_threshold_reg;
 
 #define APPEND_DEBUG(ch) \
 do {							\
