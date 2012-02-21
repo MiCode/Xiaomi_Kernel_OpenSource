@@ -45,11 +45,19 @@ static void push_object(struct kgsl_device *device, int type, uint32_t ptbase,
 	int index;
 	void *ptr;
 
-	/* Go through the list and see that object has already been seen */
+	/*
+	 * Sometimes IBs can be reused in the same dump.  Because we parse from
+	 * oldest to newest, if we come across an IB that has already been used,
+	 * assume that it has been reused and update the list with the newest
+	 * size.
+	 */
+
 	for (index = 0; index < objbufptr; index++) {
 		if (objbuf[index].gpuaddr == gpuaddr &&
-			objbuf[index].ptbase == ptbase)
-			return;
+			objbuf[index].ptbase == ptbase) {
+				objbuf[index].dwords = dwords;
+				return;
+			}
 	}
 
 	if (objbufptr == SNAPSHOT_OBJ_BUFSIZE) {
@@ -75,6 +83,25 @@ static void push_object(struct kgsl_device *device, int type, uint32_t ptbase,
 	objbuf[objbufptr].ptbase = ptbase;
 	objbuf[objbufptr].dwords = dwords;
 	objbuf[objbufptr++].ptr = ptr;
+}
+
+/*
+ * Return a 1 if the specified object is already on the list of buffers
+ * to be dumped
+ */
+
+static int find_object(int type, unsigned int gpuaddr, unsigned int ptbase)
+{
+	int index;
+
+	for (index = 0; index < objbufptr; index++) {
+		if (objbuf[index].gpuaddr == gpuaddr &&
+			objbuf[index].ptbase == ptbase &&
+			objbuf[index].type == type)
+			return 1;
+	}
+
+	return 0;
 }
 
 /* Snapshot the istore memory */
@@ -113,6 +140,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int rbbase, ptbase, rptr, *rbptr;
 	int start, stop, index;
 	int numitems, size;
+	int parse_ibs = 0, ib_parse_start;
 
 	/* Get the GPU address of the ringbuffer */
 	kgsl_regread(device, REG_CP_RB_BASE, &rbbase);
@@ -158,8 +186,52 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	header->rbsize = rb->sizedwords;
 	header->count = numitems;
 
-	index = start;
+	/*
+	 * We can only reliably dump IBs from the beginning of the context,
+	 * and it turns out that for the vast majority of the time we really
+	 * only care about the current context when it comes to diagnosing
+	 * a hang. So, with an eye to limiting the buffer dumping to what is
+	 * really useful find the beginning of the context and only dump
+	 * IBs from that point
+	 */
+
+	index = rptr;
+	ib_parse_start = start;
 	rbptr = rb->buffer_desc.hostptr;
+
+	while (index != start) {
+		index--;
+
+		if (index < 0) {
+			/*
+			 * The marker we are looking for is 2 dwords long, so
+			 * when wrapping, go back 2 from the end so we don't
+			 * access out of range in the if statement below
+			 */
+			index = rb->sizedwords - 2;
+
+			/*
+			 * Account for the possibility that start might be at
+			 * rb->sizedwords - 1
+			 */
+
+			if (start == rb->sizedwords - 1)
+				break;
+		}
+
+		/*
+		 * Look for a NOP packet with the context switch identifier in
+		 * the second dword
+		 */
+
+		if (rbptr[index] == cp_nop_packet(1) &&
+			rbptr[index + 1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER) {
+				ib_parse_start = index;
+				break;
+		}
+	}
+
+	index = start;
 
 	/*
 	 * Loop through the RB, copying the data and looking for indirect
@@ -169,14 +241,19 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	while (index != rb->wptr) {
 		*data = rbptr[index];
 
-		if (rbptr[index] == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2))
+		/* Only parse IBs between the context start and the rptr */
+
+		if (index == ib_parse_start)
+			parse_ibs = 1;
+
+		if (index == rptr)
+			parse_ibs = 0;
+
+		if (parse_ibs &&
+			rbptr[index] ==
+			cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2))
 			push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
 				rbptr[index + 1], rbptr[index + 2]);
-
-		/*
-		 * FIXME: Handle upcoming MMU pagetable changes, but only
-		 * between the rptr and the wptr
-		 */
 
 		index = index + 1;
 
@@ -288,22 +365,45 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		snapshot, remain, snapshot_rb, NULL);
 
 	/*
-	 * Make sure that the IBs described in the CP registers are on the
-	 * list of objects
+	 * Make sure that the last IB1 that was being executed is dumped.
+	 * Since this was the last IB1 that was processed, we should have
+	 * already added it to the list during the ringbuffer parse but we
+	 * want to be double plus sure.
 	 */
+
 	kgsl_regread(device, REG_CP_IB1_BASE, &ibbase);
 	kgsl_regread(device, REG_CP_IB1_BUFSZ, &ibsize);
 
-	if (ibsize)
+	/*
+	 * The problem is that IB size from the register is the unprocessed size
+	 * of the buffer not the original size, so if we didn't catch this
+	 * buffer being directly used in the RB, then we might not be able to
+	 * dump the whle thing. Print a warning message so we can try to
+	 * figure how often this really happens.
+	 */
+
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, ptbase) && ibsize) {
 		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
 			ibbase, ibsize);
+		KGSL_DRV_ERR(device, "CP_IB1_BASE not found in the ringbuffer. "
+			"Dumping %x dwords of the buffer.\n", ibsize);
+	}
 
 	kgsl_regread(device, REG_CP_IB2_BASE, &ibbase);
 	kgsl_regread(device, REG_CP_IB2_BUFSZ, &ibsize);
 
-	if (ibsize)
+	/*
+	 * Add the last parsed IB2 to the list. The IB2 should be found as we
+	 * parse the objects below, but we try to add it to the list first, so
+	 * it too can be parsed.  Don't print an error message in this case - if
+	 * the IB2 is found during parsing, the list will be updated with the
+	 * correct size.
+	 */
+
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, ptbase) && ibsize) {
 		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
 			ibbase, ibsize);
+	}
 
 	/*
 	 * Go through the list of found objects and dump each one.  As the IBs
