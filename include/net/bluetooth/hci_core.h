@@ -629,7 +629,7 @@ static inline void hci_conn_put(struct hci_conn *conn)
 			if (conn->state == BT_CONNECTED) {
 				timeo = msecs_to_jiffies(conn->disc_timeout);
 				if (!conn->out)
-					timeo *= 20;
+					timeo *= 4;
 			} else
 				timeo = msecs_to_jiffies(10);
 		} else
