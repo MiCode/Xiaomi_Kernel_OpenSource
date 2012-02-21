@@ -402,7 +402,8 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEY_EN;
 
 		if (pipe->pipe_type == OVERLAY_TYPE_VIDEO) {
-			if (pipe->alpha_enable && pipe->dst_h > pipe->src_h)
+			if (pipe->flags & MDP_BACKEND_COMPOSITION &&
+				pipe->alpha_enable && pipe->dst_h > pipe->src_h)
 				pipe->op_mode |= MDP4_OP_SCALEY_PIXEL_RPT;
 			else if (pipe->dst_h <= (pipe->src_h / 4))
 				pipe->op_mode |= MDP4_OP_SCALEY_MN_PHASE;
@@ -424,7 +425,8 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEX_EN;
 
 		if (pipe->pipe_type == OVERLAY_TYPE_VIDEO) {
-			if (pipe->alpha_enable && pipe->dst_w > pipe->src_w)
+			if (pipe->flags & MDP_BACKEND_COMPOSITION &&
+				pipe->alpha_enable && pipe->dst_w > pipe->src_w)
 				pipe->op_mode |= MDP4_OP_SCALEX_PIXEL_RPT;
 			else if (pipe->dst_w <= (pipe->src_w / 4))
 				pipe->op_mode |= MDP4_OP_SCALEX_MN_PHASE;
