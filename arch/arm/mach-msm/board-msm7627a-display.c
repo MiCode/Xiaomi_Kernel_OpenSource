@@ -535,19 +535,6 @@ static int msm_fb_dsi_client_qrd3_reset(void)
 		return rc;
 	}
 
-	rc = gpio_tlmm_config(qrd3_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
-	if (rc < 0) {
-		pr_err("Failed to enable LCD Bridge reset enable\n");
-		return rc;
-	}
-
-	rc = gpio_direction_output(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
-	if (rc < 0) {
-		pr_err("Failed GPIO bridge Reset\n");
-		gpio_free(GPIO_QRD3_LCD_BRDG_RESET_N);
-		return rc;
-	}
-
 	return rc;
 }
 
@@ -805,12 +792,30 @@ static int mipi_dsi_panel_qrd3_power(int on)
 	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_1V8_EN, !!on);
 
 	if (on) {
-		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
+		rc = gpio_tlmm_config(qrd3_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
+
+		if (rc < 0) {
+			pr_err("Failed to enable LCD Bridge reset enable\n");
+			return rc;
+		}
+
+		rc = gpio_direction_output(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
+
+		if (rc < 0) {
+			pr_err("Failed GPIO bridge Reset\n");
+			gpio_free(GPIO_QRD3_LCD_BRDG_RESET_N);
+			return rc;
+		}
+
 		msleep(20);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 0);
 		msleep(20);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
 		msleep(20);
+	} else {
+		gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BRDG_RESET_N, 0,
+			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_DISABLE);
 	}
 
 		return rc;
