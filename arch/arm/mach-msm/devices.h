@@ -149,6 +149,7 @@ extern struct platform_device msm_device_sps_apq8064;
 extern struct platform_device msm_device_bam_dmux;
 extern struct platform_device msm_device_smd;
 extern struct platform_device msm_device_smd_apq8064;
+extern struct platform_device msm8625_device_smd;
 extern struct platform_device msm_device_dmov;
 extern struct platform_device msm8960_device_dmov;
 extern struct platform_device apq8064_device_dmov;

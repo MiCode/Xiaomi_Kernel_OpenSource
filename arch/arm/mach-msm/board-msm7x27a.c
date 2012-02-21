@@ -718,6 +718,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 
 static struct platform_device *msm8625_rumi3_devices[] __initdata = {
 	&msm8625_device_dmov,
+	&msm8625_device_smd,
 	&msm8625_device_uart1,
 	&msm8625_device_qup_i2c_gsbi0,
 };
