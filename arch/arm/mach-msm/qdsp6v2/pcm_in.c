@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2009 Google, Inc.
  * Copyright (C) 2009 HTC Corporation
- * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -71,6 +71,9 @@ void pcm_in_cb(uint32_t opcode, uint32_t token,
 	switch (opcode) {
 	case ASM_DATA_EVENT_READ_DONE:
 		pcm_in_get_dsp_buffers(pcm, token, payload);
+		break;
+	case RESET_EVENTS:
+		reset_device();
 		break;
 	default:
 		break;

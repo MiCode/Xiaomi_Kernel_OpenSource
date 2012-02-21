@@ -827,6 +827,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("q6asm_callback: Reset event is received: %d %d apr[%p]\n",
 				data->reset_event, data->reset_proc, ac->apr);
+			if (ac->cb)
+				ac->cb(data->opcode, data->token,
+					(uint32_t *)data->payload, ac->priv);
 		apr_reset(ac->apr);
 		return 0;
 	}
