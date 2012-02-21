@@ -43,7 +43,7 @@
  */
 unsigned int msm_shared_ram_phys = 0x00100000;
 
-static void msm_map_io(struct map_desc *io_desc, int size)
+static void __init msm_map_io(struct map_desc *io_desc, int size)
 {
 	int i;
 
