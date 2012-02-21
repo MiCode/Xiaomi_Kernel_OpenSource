@@ -25,7 +25,7 @@
 
 #define MVS_PROG 0x30000014
 #define MVS_VERS 0x00030001
-#define MVS_VERS_COMP_VER2 0x00020001
+#define MVS_VERS_COMP_VER2 0x00060001
 #define MVS_VERS_COMP_VER3 0x00030001
 
 
@@ -67,6 +67,8 @@
 #define MVS_FRAME_MODE_G711_DL 10
 #define MVS_FRAME_MODE_PCM_UL 13
 #define MVS_FRAME_MODE_PCM_DL 14
+#define MVS_FRAME_MODE_PCM_WB_UL 23
+#define MVS_FRAME_MODE_PCM_WB_DL 24
 #define MVS_FRAME_MODE_G729A_UL 17
 #define MVS_FRAME_MODE_G729A_DL 18
 #define MVS_FRAME_MODE_G711A_UL 19
@@ -402,6 +404,11 @@ static int audio_mvs_setup_mode(struct audio_mvs_info_type *audio)
 		Save the MVS configuration information. */
 		audio->rate_type = MVS_AMR_MODE_UNDEF;
 		audio->frame_mode = MVS_FRAME_MODE_PCM_DL;
+		break;
+	}
+	case MVS_MODE_PCM_WB: {
+		audio->rate_type = MVS_AMR_MODE_UNDEF;
+		audio->frame_mode = MVS_FRAME_MODE_PCM_WB_DL;
 		break;
 	}
 	case MVS_MODE_IS127:
