@@ -511,7 +511,7 @@ static struct platform_driver msm_hsic_ch_driver = {
 };
 
 
-void __init diagfwd_hsic_init(void)
+void diagfwd_hsic_init(void)
 {
 	int ret;
 
@@ -540,7 +540,7 @@ err:
 	pr_err("DIAG could not initialize for HSIC execution\n");
 }
 
-void __exit diagfwd_hsic_exit(void)
+void diagfwd_hsic_exit(void)
 {
 	pr_debug("DIAG in %s\n", __func__);
 
