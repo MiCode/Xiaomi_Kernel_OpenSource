@@ -130,7 +130,7 @@ const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
 /* Use shadow RAM */
 #define HLSQ_SHADOW_BASE		(0x10000+SSIZE*2)
 
-#define REG_TO_MEM_LOOP_COUNT_SHIFT	15
+#define REG_TO_MEM_LOOP_COUNT_SHIFT	18
 
 #define BUILD_PC_DRAW_INITIATOR(prim_type, source_select, index_size, \
 	vis_cull_mode) \
@@ -1109,11 +1109,13 @@ static void build_save_fixup_cmds(struct adreno_device *adreno_dev,
 
 	/* Constant save */
 	cmd = rmw_regtomem(cmd, A3XX_SP_VS_CTRL_REG1, 0x000003ff,
-			   17, (HLSQ_SHADOW_BASE + 0x2000) / 4,
+			   2 + REG_TO_MEM_LOOP_COUNT_SHIFT,
+			   (HLSQ_SHADOW_BASE + 0x2000) / 4,
 			   drawctxt->constant_save_commands[1].gpuaddr);
 
 	cmd = rmw_regtomem(cmd, A3XX_SP_FS_CTRL_REG1, 0x000003ff,
-			   17, (HLSQ_SHADOW_BASE + 0x2000 + SSIZE) / 4,
+			   2 + REG_TO_MEM_LOOP_COUNT_SHIFT,
+			   (HLSQ_SHADOW_BASE + 0x2000 + SSIZE) / 4,
 			   drawctxt->constant_save_commands[2].gpuaddr);
 
 	cmd = rmw_regtomem(cmd, A3XX_SP_FS_OBJ_OFFSET_REG, 0x00ff0000,
