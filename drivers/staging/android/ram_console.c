@@ -155,7 +155,7 @@ void ram_console_enable_console(int enabled)
 		ram_console.flags &= ~CON_ENABLED;
 }
 
-static void __init
+static void __devinit
 ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 	char *dest)
 {
@@ -239,7 +239,7 @@ ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 	}
 }
 
-static int __init ram_console_init(struct ram_console_buffer *buffer,
+static int __devinit ram_console_init(struct ram_console_buffer *buffer,
 				   size_t buffer_size, const char *bootinfo,
 				   char *old_buf)
 {
@@ -336,7 +336,7 @@ static int __init ram_console_early_init(void)
 		ram_console_old_log_init_buffer);
 }
 #else
-static int ram_console_driver_probe(struct platform_device *pdev)
+static int __devinit ram_console_driver_probe(struct platform_device *pdev)
 {
 	struct resource *res = pdev->resource;
 	size_t start;
