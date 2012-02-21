@@ -332,15 +332,15 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 };
 
 static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vio", REG_VS, 0, 0, 0},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
 };
 
 static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vio", REG_VS, 0, 0, 0},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
 	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
 };
@@ -418,7 +418,6 @@ static struct msm_camera_i2c_conf apq8064_front_cam_i2c_conf = {
 	.i2c_mux_mode = MODE_L,
 };
 
-#ifdef CONFIG_IMX074
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
@@ -440,9 +439,35 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.camera_type = BACK_CAMERA_2D,
 	.actuator_info = &imx074_actuator_info
 };
-#endif
 
-#ifdef CONFIG_OV2720
+static struct camera_vreg_t apq_8064_mt9m114_vreg[] = {
+	{"cam_vio", REG_VS, 0, 0, 0},
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
+	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
+};
+
+static struct msm_camera_sensor_flash_data flash_mt9m114 = {
+	.flash_type = MSM_CAMERA_FLASH_NONE
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
+	.mount_angle = 90,
+	.cam_vreg = apq_8064_mt9m114_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_mt9m114_vreg),
+	.gpio_conf = &apq8064_front_cam_gpio_conf,
+	.i2c_conf = &apq8064_front_cam_i2c_conf,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
+	.sensor_name = "mt9m114",
+	.pdata = &msm_camera_csi_device_data[1],
+	.flash_data = &flash_mt9m114,
+	.sensor_platform_info = &sensor_board_info_mt9m114,
+	.csi_if = 1,
+	.camera_type = FRONT_CAMERA_2D,
+};
+
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
@@ -463,8 +488,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.csi_if	= 1,
 	.camera_type = FRONT_CAMERA_2D,
 };
-#endif
-
 
 void __init apq8064_init_cam(void)
 {
@@ -483,18 +506,18 @@ void __init apq8064_init_cam(void)
 
 #ifdef CONFIG_I2C
 static struct i2c_board_info apq8064_camera_i2c_boardinfo[] = {
-#ifdef CONFIG_IMX074
 	{
 	I2C_BOARD_INFO("imx074", 0x1A),
 	.platform_data = &msm_camera_sensor_imx074_data,
 	},
-#endif
-#ifdef CONFIG_OV2720
+	{
+	I2C_BOARD_INFO("mt9m114", 0x48),
+	.platform_data = &msm_camera_sensor_mt9m114_data,
+	},
 	{
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	.platform_data = &msm_camera_sensor_ov2720_data,
 	},
-#endif
 };
 
 struct msm_camera_board_info apq8064_camera_board_info = {
