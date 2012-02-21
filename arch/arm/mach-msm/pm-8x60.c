@@ -1202,6 +1202,8 @@ static int __init msm_pm_init(void)
 	pmd[2] = __pmd(pmdval + (2 << (PGDIR_SHIFT - 1)));
 	flush_pmd_entry(pmd);
 	msm_pm_pc_pgd = virt_to_phys(pc_pgd);
+	clean_caches((unsigned long)&msm_pm_pc_pgd, sizeof(msm_pm_pc_pgd),
+		     virt_to_phys(&msm_pm_pc_pgd));
 
 	ret = request_irq(rpm_cpu0_wakeup_irq,
 			msm_pm_rpm_wakeup_interrupt, IRQF_TRIGGER_RISING,
