@@ -17,3 +17,4 @@ obj-y += audio_wma.o audio_voicememo.o audio_pcm.o audio_amrwb.o audio_wmapro.o
 obj-y += snd.o snd_adie.o
 obj-$(CONFIG_ARCH_MSM7X27A) += audio_fm.o
 obj-$(CONFIG_ARCH_MSM7X27A) += audio_mvs.o
+obj-$(CONFIG_ARCH_MSM7X27A) += audio_lpa.o
