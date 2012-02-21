@@ -45,6 +45,13 @@
 
 #define MSM_DEBUG_UART_SIZE	SZ_4K
 
+#if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) \
+				|| defined(CONFIG_DEBUG_MSM_UART3)
+#define MSM_DEBUG_UART_BASE	0xFC000000
+#define MSM_DEBUG_UART_PHYS	CONFIG_MSM_DEBUG_UART_PHYS
+#endif
+
+
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615) || \
 	defined(CONFIG_ARCH_MSMCOPPER) || defined(CONFIG_ARCH_MSM7X27) || \
@@ -123,17 +130,6 @@
 #include "msm_iomap-fsm9xxx.h"
 #else
 #error "Target compiled without IO map\n"
-#endif
-
-#if defined(CONFIG_DEBUG_MSM_UART1)
-#define MSM_DEBUG_UART_BASE	0xFB000000
-#define MSM_DEBUG_UART_PHYS	MSM_UART1_PHYS
-#elif defined(CONFIG_DEBUG_MSM_UART2)
-#define MSM_DEBUG_UART_BASE	0xFB000000
-#define MSM_DEBUG_UART_PHYS	MSM_UART2_PHYS
-#elif defined(CONFIG_DEBUG_MSM_UART3)
-#define MSM_DEBUG_UART_BASE	0xFB000000
-#define MSM_DEBUG_UART_PHYS	MSM_UART3_PHYS
 #endif
 
 #endif
