@@ -380,6 +380,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("alt_core_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("xo", NULL, "msm_otg", OFF),
 	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
 	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
