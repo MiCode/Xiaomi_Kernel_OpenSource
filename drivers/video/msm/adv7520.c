@@ -874,7 +874,11 @@ static int __devinit
 	} else
 		DEV_ERR("adv7520_probe: failed to add fb device\n");
 
+#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
+	external_common_state->sdev.name = "hdmi_as_primary";
+#else
 	external_common_state->sdev.name = "hdmi";
+#endif
 	if (switch_dev_register(&external_common_state->sdev) < 0)
 		DEV_ERR("Hdmi switch registration failed\n");
 
