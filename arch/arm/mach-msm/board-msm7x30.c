@@ -118,6 +118,7 @@
 #define OPTNAV_I2C_SLAVE_ADDR	(0xB0 >> 1)
 #define OPTNAV_IRQ		20
 #define OPTNAV_CHIP_SELECT	19
+#define PMIC_GPIO_SDC4_PWR_EN_N 24  /* PMIC GPIO Number 25 */
 
 /* Macros assume PMIC GPIOs start at 0 */
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)     (pm_gpio + NR_GPIO_IRQS)
@@ -156,6 +157,19 @@ static int pm8058_gpios_init(void)
 
 	struct pm8xxx_gpio_init_info sdc4_en = {
 		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N),
+		{
+			.direction      = PM_GPIO_DIR_OUT,
+			.pull           = PM_GPIO_PULL_NO,
+			.vin_sel        = PM8058_GPIO_VIN_L5,
+			.function       = PM_GPIO_FUNC_NORMAL,
+			.inv_int_pol    = 0,
+			.out_strength   = PM_GPIO_STRENGTH_LOW,
+			.output_value   = 0,
+		},
+	};
+
+	struct pm8xxx_gpio_init_info sdc4_pwr_en = {
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_PWR_EN_N),
 		{
 			.direction      = PM_GPIO_DIR_OUT,
 			.pull           = PM_GPIO_PULL_NO,
@@ -293,6 +307,23 @@ static int pm8058_gpios_init(void)
 			return rc;
 		}
 		gpio_set_value_cansleep(sdc4_en.gpio, 0);
+	}
+	/* FFA -> gpio_25 controls vdd of sdcc4 */
+	else {
+		/* SCD4 gpio_25 */
+		rc = pm8xxx_gpio_config(sdc4_pwr_en.gpio, &sdc4_pwr_en.config);
+		if (rc) {
+			pr_err("%s PMIC_GPIO_SDC4_PWR_EN_N config failed: %d\n",
+			       __func__, rc);
+			return rc;
+		}
+
+		rc = gpio_request(sdc4_pwr_en.gpio, "sdc4_pwr_en");
+		if (rc) {
+			pr_err("PMIC_GPIO_SDC4_PWR_EN_N gpio_req failed: %d\n",
+			       rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -5478,9 +5509,24 @@ static uint32_t msm_sdcc_setup_vreg(int dev_id, unsigned int enable)
 	if (test_bit(dev_id, &vreg_sts) == enable)
 		return rc;
 
-	if (!enable || enabled_once[dev_id - 1])
-		return 0;
+	if (dev_id == 4) {
+		if (enable) {
+			pr_debug("Enable Vdd dev_%d\n", dev_id);
+			gpio_set_value_cansleep(
+				PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_PWR_EN_N),
+						0);
+			set_bit(dev_id, &vreg_sts);
+		} else {
+			pr_debug("Disable Vdd dev_%d\n", dev_id);
+			gpio_set_value_cansleep(
+				PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_PWR_EN_N),
+				1);
+			clear_bit(dev_id, &vreg_sts);
+		}
+	}
 
+	if (!enable || enabled_once[dev_id - 1])
+			return 0;
 	if (!curr)
 		return -ENODEV;
 
