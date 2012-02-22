@@ -136,7 +136,7 @@ int ion_iommu_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 		return -EINVAL;
 
 	if (!ION_IS_CACHED(flags))
-		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	for (i = 0; i < data->nrpages; i++)
 		if (vm_insert_page(vma, vma->vm_start + i * PAGE_SIZE,
