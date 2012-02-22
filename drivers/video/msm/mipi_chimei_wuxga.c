@@ -55,12 +55,12 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	/* DSIPHY_TIMING_CTRL */
 	.timing = { 0xC9, 0x92, 0x29, /* panel specific */
 	0, /* DSIPHY_TIMING_CTRL_3 = 0 */
-	0x2E, 0x9B, 0x2C, 0x94, 0x2E, 0x03, 0x04},  /* panel specific */
+	0x2D, 0x9B, 0x2B, 0x94, 0x2D, 0x03, 0x04},  /* panel specific */
 
 	/* DSIPHY_PLL_CTRL */
 	.pll = { 0x00, /* common 8960 */
 	/* VCO */
-	0x32, (0x01 | 0x30) , (0x19 | 0xC0), /* panel specific */
+	0x30, (0x01 | 0x30) , (0x19 | 0xC0), /* panel specific */
 	0x00, 0x50, 0x48, 0x63,
 	0x77, 0x88, 0x99, /* Auto update by dsi-mipi driver */
 	0x00, 0x14, 0x03, 0x00, 0x02, /* common 8960 */
@@ -104,19 +104,19 @@ static int __init mipi_chimei_wuxga_init(void)
 	 * LVDS-CLK = DSI-CLK/4 , 320 MHZ/4= 80 MHZ.
 	 */
 
-	pinfo->clk_rate = 640 * MHZ ; /* bitclk Calculated */
+	pinfo->clk_rate = 635 * MHZ ; /* bitclk Calculated */
 
 	/*
 	 * this panel is operated by DE,
 	 * vsycn and hsync are ignored
 	 */
 
-	pinfo->lcdc.h_front_porch = 16;	/* thfp */
-	pinfo->lcdc.h_back_porch = 160;	/* thb */
+	pinfo->lcdc.h_front_porch = 160-48-32;	/* thfp */
+	pinfo->lcdc.h_back_porch = 48;	/* thb */
 	pinfo->lcdc.h_pulse_width = 32;	/* thpw */
 
-	pinfo->lcdc.v_front_porch = 0;	/* tvfp */
-	pinfo->lcdc.v_back_porch = 26;	/* tvb */
+	pinfo->lcdc.v_front_porch = 26-3-6;	/* tvfp */
+	pinfo->lcdc.v_back_porch = 3;	/* tvb */
 	pinfo->lcdc.v_pulse_width = 6;	/* tvpw */
 
 	pinfo->lcdc.border_clr = 0;		/* black */
@@ -138,7 +138,7 @@ static int __init mipi_chimei_wuxga_init(void)
 	pinfo->mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 
 	/* Four lanes are recomended for 1920x1200 at 60 frames per second */
-	pinfo->mipi.frame_rate = 45; /* 45 frames per second */
+	pinfo->mipi.frame_rate = 60;
 	pinfo->mipi.data_lane0 = true;
 	pinfo->mipi.data_lane1 = true;
 	pinfo->mipi.data_lane2 = true;
