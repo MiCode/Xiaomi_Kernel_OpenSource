@@ -50,21 +50,13 @@ struct cpufreq_suspend_t {
 
 static DEFINE_PER_CPU(struct cpufreq_suspend_t, cpufreq_suspend);
 
-static int override_cpu;
-
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
 	struct cpufreq_freqs freqs;
 
 	freqs.old = policy->cur;
-	if (override_cpu) {
-		if (policy->cur == policy->max)
-			return 0;
-		else
-			freqs.new = policy->max;
-	} else
-		freqs.new = new_freq;
+	freqs.new = new_freq;
 	freqs.cpu = policy->cpu;
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 	ret = acpuclk_set_rate(policy->cpu, new_freq, SETRATE_CPUFREQ);
@@ -268,25 +260,6 @@ static int msm_cpufreq_pm_event(struct notifier_block *this,
 	}
 }
 
-static ssize_t store_mfreq(struct sysdev_class *class,
-			struct sysdev_class_attribute *attr,
-			const char *buf, size_t count)
-{
-	u64 val;
-
-	if (strict_strtoull(buf, 0, &val) < 0) {
-		pr_err("Invalid parameter to mfreq\n");
-		return 0;
-	}
-	if (val)
-		override_cpu = 1;
-	else
-		override_cpu = 0;
-	return count;
-}
-
-static SYSDEV_CLASS_ATTR(mfreq, 0200, NULL, store_mfreq);
-
 static struct freq_attr *msm_freq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
@@ -309,11 +282,6 @@ static struct notifier_block msm_cpufreq_pm_notifier = {
 static int __init msm_cpufreq_register(void)
 {
 	int cpu;
-
-	int err = sysfs_create_file(&cpu_sysdev_class.kset.kobj,
-			&attr_mfreq.attr);
-	if (err)
-		pr_err("Failed to create sysfs mfreq\n");
 
 	for_each_possible_cpu(cpu) {
 		mutex_init(&(per_cpu(cpufreq_suspend, cpu).suspend_mutex));
