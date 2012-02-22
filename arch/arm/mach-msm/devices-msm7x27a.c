@@ -178,17 +178,6 @@ static struct platform_device *msm_host_devices[] = {
 	&msm_device_hsusb_host,
 };
 
-int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
-{
-	struct platform_device	*pdev;
-
-	pdev = msm_host_devices[host];
-	if (!pdev)
-		return -ENODEV;
-	pdev->dev.platform_data = plat;
-	return platform_device_register(pdev);
-}
-
 static struct resource msm_dmov_resource[] = {
 	{
 		.start = INT_ADM_AARM,
@@ -513,18 +502,6 @@ static struct platform_device *msm_sdcc_devices[] __initdata = {
 	&msm_device_sdc4,
 };
 
-int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
-{
-	struct platform_device	*pdev;
-
-	if (controller < 1 || controller > 4)
-		return -EINVAL;
-
-	pdev = msm_sdcc_devices[controller-1];
-	pdev->dev.platform_data = plat;
-	return platform_device_register(pdev);
-}
-
 #ifdef CONFIG_MSM_CAMERA_V4L2
 static struct resource msm_csic0_resources[] = {
 	{
@@ -715,17 +692,6 @@ static void __init msm_register_device(struct platform_device *pdev, void *data)
 				__func__, ret);
 }
 
-void __init msm_fb_register_device(char *name, void *data)
-{
-	if (!strncmp(name, "mdp", 3))
-		msm_register_device(&msm_mdp_device, data);
-	else if (!strncmp(name, "mipi_dsi", 8))
-		msm_register_device(&msm_mipi_dsi_device, data);
-	else if (!strncmp(name, "lcdc", 4))
-		msm_register_device(&msm_lcdc_device, data);
-	else
-		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
-}
 
 #define PERPH_WEB_BLOCK_ADDR (0xA9D00040)
 #define PDM0_CTL_OFFSET (0x04)
@@ -813,6 +779,68 @@ struct platform_device msm8625_device_uart1 = {
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(msm8625_resources_uart1),
 	.resource	= msm8625_resources_uart1,
+};
+
+static struct resource msm8625_uart1_dm_resources[] = {
+	{
+		.start	= MSM_UART1DM_PHYS,
+		.end	= MSM_UART1DM_PHYS + PAGE_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_UART1DM_IRQ,
+		.end	= MSM8625_INT_UART1DM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM8625_INT_UART1DM_RX,
+		.end	= MSM8625_INT_UART1DM_RX,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= DMOV_HSUART1_TX_CHAN,
+		.end	= DMOV_HSUART1_RX_CHAN,
+		.name	= "uartdm_channels",
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= DMOV_HSUART1_TX_CRCI,
+		.end	= DMOV_HSUART1_RX_CRCI,
+		.name	= "uartdm_crci",
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm8625_device_uart_dm1 = {
+	.name	= "msm_serial_hs",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_uart1_dm_resources),
+	.resource	= msm8625_uart1_dm_resources,
+	.dev	= {
+		.dma_mask		= &msm_uart_dm1_dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
+
+static struct resource msm8625_uart2dm_resources[] = {
+	{
+		.start	= MSM_UART2DM_PHYS,
+		.end	= MSM_UART2DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_UART2DM_IRQ,
+		.end	= MSM8625_INT_UART2DM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_uart_dm2 = {
+	.name	= "msm_serial_hsl",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_uart2dm_resources),
+	.resource	= msm8625_uart2dm_resources,
 };
 
 static struct resource msm8625_dmov_resource[] = {
@@ -911,6 +939,391 @@ static struct platform_device msm8625_device_gpio = {
 	.id		= -1,
 	.resource	= msm8625_gpio_resources,
 	.num_resources	= ARRAY_SIZE(msm8625_gpio_resources),
+};
+
+static struct resource msm8625_resources_sdc1[] = {
+	{
+		.start	= MSM_SDC1_BASE,
+		.end	= MSM_SDC1_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC1_0,
+		.end	= MSM8625_INT_SDC1_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC1_CHAN,
+		.end	= DMOV_SDC1_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC1_CRCI,
+		.end	= DMOV_SDC1_CRCI,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+
+static struct resource msm8625_resources_sdc2[] = {
+	{
+		.start	= MSM_SDC2_BASE,
+		.end	= MSM_SDC2_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC2_0,
+		.end	= MSM8625_INT_SDC2_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC2_CHAN,
+		.end	= DMOV_SDC2_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC2_CRCI,
+		.end	= DMOV_SDC2_CRCI,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+
+static struct resource msm8625_resources_sdc3[] = {
+	{
+		.start	= MSM_SDC3_BASE,
+		.end	= MSM_SDC3_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC3_0,
+		.end	= MSM8625_INT_SDC3_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC3_CHAN,
+		.end	= DMOV_SDC3_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC3_CRCI,
+		.end	= DMOV_SDC3_CRCI,
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+static struct resource msm8625_resources_sdc4[] = {
+	{
+		.start	= MSM_SDC4_BASE,
+		.end	= MSM_SDC4_BASE + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_SDC4_0,
+		.end	= MSM8625_INT_SDC4_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "sdcc_dma_chnl",
+		.start	= DMOV_SDC4_CHAN,
+		.end	= DMOV_SDC4_CHAN,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.name	= "sdcc_dma_crci",
+		.start	= DMOV_SDC4_CRCI,
+		.end	= DMOV_SDC4_CRCI,
+		.flags	= IORESOURCE_DMA,
+	},
+};
+
+struct platform_device msm8625_device_sdc1 = {
+	.name		= "msm_sdcc",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc1),
+	.resource	= msm8625_resources_sdc1,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc2 = {
+	.name		= "msm_sdcc",
+	.id		= 2,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc2),
+	.resource	= msm8625_resources_sdc2,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc3 = {
+	.name		= "msm_sdcc",
+	.id		= 3,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc3),
+	.resource	= msm8625_resources_sdc3,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+struct platform_device msm8625_device_sdc4 = {
+	.name		= "msm_sdcc",
+	.id		= 4,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_sdc4),
+	.resource	= msm8625_resources_sdc4,
+	.dev		= {
+		.coherent_dma_mask	= 0xffffffff,
+	},
+};
+
+static struct platform_device *msm8625_sdcc_devices[] __initdata = {
+	&msm8625_device_sdc1,
+	&msm8625_device_sdc2,
+	&msm8625_device_sdc3,
+	&msm8625_device_sdc4,
+};
+
+int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
+{
+	struct platform_device	*pdev;
+
+	if (controller < 1 || controller > 4)
+		return -EINVAL;
+
+	if (cpu_is_msm8625())
+		pdev = msm8625_sdcc_devices[controller-1];
+	else
+		pdev = msm_sdcc_devices[controller-1];
+
+	pdev->dev.platform_data = plat;
+	return platform_device_register(pdev);
+}
+
+static struct resource msm8625_resources_hsusb_otg[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_otg = {
+	.name		= "msm_otg",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_hsusb_otg),
+	.resource	= msm8625_resources_hsusb_otg,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct resource msm8625_resources_gadget_peripheral[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_gadget_peripheral = {
+	.name		= "msm_hsusb",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_gadget_peripheral),
+	.resource	= msm8625_resources_gadget_peripheral,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct resource msm8625_resources_hsusb_host[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM8625_INT_USB_HS,
+		.end	= MSM8625_INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_hsusb_host = {
+	.name		= "msm_hsusb_host",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(msm8625_resources_hsusb_host),
+	.resource	= msm8625_resources_hsusb_host,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct platform_device *msm8625_host_devices[] = {
+	&msm8625_device_hsusb_host,
+};
+
+int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
+{
+	struct platform_device	*pdev;
+
+	if (cpu_is_msm8625())
+		pdev = msm8625_host_devices[host];
+	else
+		pdev = msm_host_devices[host];
+	if (!pdev)
+		return -ENODEV;
+	pdev->dev.platform_data = plat;
+	return platform_device_register(pdev);
+}
+
+#ifdef CONFIG_MSM_CAMERA_V4L2
+static struct resource msm8625_csic0_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA0F00000,
+		.end    = 0xA0F00000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = MSM8625_INT_CSI_IRQ_0,
+		.end    = MSM8625_INT_CSI_IRQ_0,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource msm8625_csic1_resources[] = {
+	{
+		.name   = "csic",
+		.start  = 0xA1000000,
+		.end    = 0xA1000000 + 0x00100000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "csic",
+		.start  = MSM8625_INT_CSI_IRQ_1,
+		.end    = MSM8625_INT_CSI_IRQ_1,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_device_csic0 = {
+	.name           = "msm_csic",
+	.id             = 0,
+	.resource       = msm8625_csic0_resources,
+	.num_resources  = ARRAY_SIZE(msm8625_csic0_resources),
+};
+
+struct platform_device msm8625_device_csic1 = {
+	.name           = "msm_csic",
+	.id             = 1,
+	.resource       = msm8625_csic1_resources,
+	.num_resources  = ARRAY_SIZE(msm8625_csic1_resources),
+};
+#endif
+
+static struct resource msm8625_mipi_dsi_resources[] = {
+	{
+		.name   = "mipi_dsi",
+		.start  = MIPI_DSI_HW_BASE,
+		.end    = MIPI_DSI_HW_BASE + 0x000F0000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM8625_INT_DSI_IRQ,
+		.end    = MSM8625_INT_DSI_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_mipi_dsi_device = {
+	.name   = "mipi_dsi",
+	.id     = 1,
+	.num_resources  = ARRAY_SIZE(msm8625_mipi_dsi_resources),
+	.resource       = msm8625_mipi_dsi_resources,
+};
+
+static struct resource msm8625_mdp_resources[] = {
+	{
+		.name   = "mdp",
+		.start  = MDP_BASE,
+		.end    = MDP_BASE + 0x000F1008 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM8625_INT_MDP,
+		.end    = MSM8625_INT_MDP,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_mdp_device = {
+	.name   = "mdp",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm8625_mdp_resources),
+	.resource       = msm8625_mdp_resources,
+};
+
+void __init msm_fb_register_device(char *name, void *data)
+{
+	if (!strncmp(name, "mdp", 3)) {
+		if (cpu_is_msm8625())
+			msm_register_device(&msm8625_mdp_device, data);
+		else
+			msm_register_device(&msm_mdp_device, data);
+	} else if (!strncmp(name, "mipi_dsi", 8)) {
+		if (cpu_is_msm8625())
+			msm_register_device(&msm8625_mipi_dsi_device, data);
+		else
+			msm_register_device(&msm_mipi_dsi_device, data);
+	} else if (!strncmp(name, "lcdc", 4)) {
+			msm_register_device(&msm_lcdc_device, data);
+	} else {
+		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
+	}
+}
+
+static struct resource msm8625_kgsl_3d0_resources[] = {
+	{
+		.name  = KGSL_3D0_REG_MEMORY,
+		.start = 0xA0000000,
+		.end = 0xA001ffff,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = KGSL_3D0_IRQ,
+		.start = MSM8625_INT_GRAPHICS,
+		.end = MSM8625_INT_GRAPHICS,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8625_kgsl_3d0 = {
+	.name = "kgsl-3d0",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(msm8625_kgsl_3d0_resources),
+	.resource = msm8625_kgsl_3d0_resources,
+	.dev = {
+		.platform_data = &kgsl_3d0_pdata,
+	},
 };
 
 static struct clk_lookup msm_clock_8625_dummy[] = {

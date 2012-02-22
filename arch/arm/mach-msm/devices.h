@@ -128,6 +128,16 @@ extern struct platform_device msm_gsbi12_qup_i2c_device;
 
 extern struct platform_device msm8625_device_qup_i2c_gsbi0;
 extern struct platform_device msm8625_device_qup_i2c_gsbi1;
+extern struct platform_device msm8625_device_uart_dm1;
+extern struct platform_device msm8625_device_uart_dm2;
+extern struct platform_device msm8625_device_sdc1;
+extern struct platform_device msm8625_device_sdc2;
+extern struct platform_device msm8625_device_sdc3;
+extern struct platform_device msm8625_device_sdc4;
+extern struct platform_device msm8625_device_gadget_peripheral;
+extern struct platform_device msm8625_device_hsusb_host;
+extern struct platform_device msm8625_device_otg;
+extern struct platform_device msm8625_kgsl_3d0;
 
 extern struct platform_device msm_slim_ctrl;
 extern struct platform_device msm_device_sps;
