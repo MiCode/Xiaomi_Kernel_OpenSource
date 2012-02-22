@@ -876,6 +876,7 @@ end:
 
 int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 {
+	bool saved_nap;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	BUG_ON(device == NULL);
@@ -907,16 +908,27 @@ int adreno_postmortem_dump(struct kgsl_device *device, int manual)
 	KGSL_LOG_DUMP(device, "BUS CLK = %lu ",
 		kgsl_get_clkrate(pwr->ebi1_clk));
 
-	/*
-	 * Disable the irq, idle timer, and workqueue so we don't
-	 * get interrupted
-	 */
-	kgsl_pwrctrl_stop_work(device);
+	/* Disable the idle timer so we don't get interrupted */
+	del_timer_sync(&device->idle_timer);
+	mutex_unlock(&device->mutex);
+	flush_workqueue(device->work_queue);
+	mutex_lock(&device->mutex);
+
+	/* Turn off napping to make sure we have the clocks full
+	   attention through the following process */
+	saved_nap = device->pwrctrl.nap_allowed;
+	device->pwrctrl.nap_allowed = false;
 
 	/* Force on the clocks */
-	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON);
+	kgsl_pwrctrl_wake(device);
+
+	/* Disable the irq */
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	adreno_dump(device);
+
+	/* Restore nap mode */
+	device->pwrctrl.nap_allowed = saved_nap;
 
 	/* On a manual trigger, turn on the interrupts and put
 	   the clocks to sleep.  They will recover themselves
