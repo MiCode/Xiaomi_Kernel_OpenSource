@@ -30,6 +30,7 @@
  * %PM8XXX_REGULATOR_TYPE_VS:		voltage switch capable of sourcing 100mA
  * %PM8XXX_REGULATOR_TYPE_VS300:	voltage switch capable of sourcing 300mA
  * %PM8XXX_REGULATOR_TYPE_NCP:		negative charge pump
+ * %PM8XXX_REGULATOR_TYPE_BOOST:	boost regulator
  * %PM8XXX_REGULATOR_TYPE_MAX:		used internally for error checking; not
  *					a valid regulator type.
  *
@@ -44,6 +45,7 @@ enum pm8xxx_regulator_type {
 	PM8XXX_REGULATOR_TYPE_VS,
 	PM8XXX_REGULATOR_TYPE_VS300,
 	PM8XXX_REGULATOR_TYPE_NCP,
+	PM8XXX_REGULATOR_TYPE_BOOST,
 	PM8XXX_REGULATOR_TYPE_MAX,
 };
 
@@ -251,6 +253,15 @@ struct pm8xxx_regulator_core_platform_data {
 #define NCP(_name, _ctrl_addr) \
 	{ \
 		.type		= PM8XXX_REGULATOR_TYPE_NCP, \
+		.ctrl_addr	= _ctrl_addr, \
+		.rdesc.name	= _name, \
+		.write_count	= 0, \
+		.prev_write_count = -1, \
+	}
+
+#define BOOST(_name, _ctrl_addr) \
+	{ \
+		.type		= PM8XXX_REGULATOR_TYPE_BOOST, \
 		.ctrl_addr	= _ctrl_addr, \
 		.rdesc.name	= _name, \
 		.write_count	= 0, \

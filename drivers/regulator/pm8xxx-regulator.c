@@ -401,6 +401,19 @@ module_param_named(
 #define NCP_SET_POINTS			((NCP_UV_MAX - NCP_UV_MIN) \
 						/ NCP_UV_STEP + 1)
 
+/* Boost masks and values */
+#define BOOST_ENABLE_MASK		0x80
+#define BOOST_DISABLE			0x00
+#define BOOST_ENABLE			0x80
+#define BOOST_VPROG_MASK		0x1F
+
+#define BOOST_UV_MIN			4000000
+#define BOOST_UV_MAX			5550000
+#define BOOST_UV_STEP			50000
+
+#define BOOST_SET_POINTS		((BOOST_UV_MAX - BOOST_UV_MIN) \
+						/ BOOST_UV_STEP + 1)
+
 #define vreg_err(vreg, fmt, ...) \
 	pr_err("%s: " fmt, vreg->rdesc.name, ##__VA_ARGS__)
 
@@ -1424,6 +1437,64 @@ static int pm8xxx_ncp_set_voltage(struct regulator_dev *rdev, int min_uV,
 	return rc;
 }
 
+static int pm8xxx_boost_get_voltage(struct regulator_dev *rdev)
+{
+	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
+	u8 vprog;
+
+	vprog = vreg->ctrl_reg & BOOST_VPROG_MASK;
+
+	return BOOST_UV_STEP * vprog + BOOST_UV_MIN;
+}
+
+static int pm8xxx_boost_list_voltage(struct regulator_dev *rdev,
+				    unsigned selector)
+{
+	if (selector >= BOOST_SET_POINTS)
+		return 0;
+
+	return selector * BOOST_UV_STEP + BOOST_UV_MIN;
+}
+
+static int pm8xxx_boost_set_voltage(struct regulator_dev *rdev, int min_uV,
+				   int max_uV, unsigned *selector)
+{
+	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
+	int uV = min_uV;
+	u8 val;
+
+	if (uV < BOOST_UV_MIN && max_uV >= BOOST_UV_MIN)
+		uV = BOOST_UV_MIN;
+
+	if (uV < BOOST_UV_MIN || uV > BOOST_UV_MAX) {
+		vreg_err(vreg,
+			"request v=[%d, %d] is outside possible v=[%d, %d]\n",
+			 min_uV, max_uV, BOOST_UV_MIN, BOOST_UV_MAX);
+		return -EINVAL;
+	}
+
+	val = (uV - BOOST_UV_MIN + BOOST_UV_STEP - 1) / BOOST_UV_STEP;
+	uV = val * BOOST_UV_STEP + BOOST_UV_MIN;
+
+	if (uV > max_uV) {
+		vreg_err(vreg,
+			"request v=[%d, %d] cannot be met by any set point\n",
+			min_uV, max_uV);
+		return -EINVAL;
+	}
+
+	/* voltage setting */
+	rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, val,
+			BOOST_VPROG_MASK, &vreg->ctrl_reg);
+	if (rc)
+		vreg_err(vreg, "pm8xxx_vreg_masked_write failed, rc=%d\n", rc);
+	else
+		pm8xxx_vreg_show_state(rdev, PM8XXX_REGULATOR_ACTION_VOLTAGE);
+
+	return rc;
+}
+
 static unsigned int pm8xxx_ldo_get_mode(struct regulator_dev *rdev)
 {
 	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
@@ -2066,6 +2137,38 @@ static int pm8xxx_ncp_disable(struct regulator_dev *rdev)
 	return rc;
 }
 
+static int pm8xxx_boost_enable(struct regulator_dev *rdev)
+{
+	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
+
+	rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, BOOST_ENABLE,
+		BOOST_ENABLE_MASK, &vreg->ctrl_reg);
+
+	if (rc)
+		vreg_err(vreg, "pm8xxx_vreg_masked_write failed, rc=%d\n", rc);
+	else
+		pm8xxx_vreg_show_state(rdev, PM8XXX_REGULATOR_ACTION_ENABLE);
+
+	return rc;
+}
+
+static int pm8xxx_boost_disable(struct regulator_dev *rdev)
+{
+	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
+
+	rc = pm8xxx_vreg_masked_write(vreg, vreg->ctrl_addr, BOOST_DISABLE,
+		BOOST_ENABLE_MASK, &vreg->ctrl_reg);
+
+	if (rc)
+		vreg_err(vreg, "pm8xxx_vreg_masked_write failed, rc=%d\n", rc);
+	else
+		pm8xxx_vreg_show_state(rdev, PM8XXX_REGULATOR_ACTION_DISABLE);
+
+	return rc;
+}
+
 static int pm8xxx_ldo_pin_control_enable(struct regulator_dev *rdev)
 {
 	struct pm8xxx_vreg *vreg = rdev_get_drvdata(rdev);
@@ -2506,6 +2609,11 @@ static void pm8xxx_vreg_show_state(struct regulator_dev *rdev,
 		pr_info("%s %-9s: %s, v=%7d uV\n",
 			action_label, vreg->rdesc.name, enable_label, uV);
 		break;
+	case PM8XXX_REGULATOR_TYPE_BOOST:
+		uV = pm8xxx_boost_get_voltage(rdev);
+		pr_info("%s %-9s: %s, v=%7d uV\n",
+			action_label, vreg->rdesc.name, enable_label, uV);
+		break;
 	default:
 		break;
 	}
@@ -2601,6 +2709,16 @@ static struct regulator_ops pm8xxx_ncp_ops = {
 	.enable_time		= pm8xxx_enable_time,
 };
 
+static struct regulator_ops pm8xxx_boost_ops = {
+	.enable			= pm8xxx_boost_enable,
+	.disable		= pm8xxx_boost_disable,
+	.is_enabled		= pm8xxx_vreg_is_enabled,
+	.set_voltage		= pm8xxx_boost_set_voltage,
+	.get_voltage		= pm8xxx_boost_get_voltage,
+	.list_voltage		= pm8xxx_boost_list_voltage,
+	.enable_time		= pm8xxx_enable_time,
+};
+
 /* Pin control regulator operations. */
 static struct regulator_ops pm8xxx_ldo_pc_ops = {
 	.enable			= pm8xxx_ldo_pin_control_enable,
@@ -2629,6 +2747,7 @@ static struct regulator_ops *pm8xxx_reg_ops[PM8XXX_REGULATOR_TYPE_MAX] = {
 	[PM8XXX_REGULATOR_TYPE_VS]		= &pm8xxx_vs_ops,
 	[PM8XXX_REGULATOR_TYPE_VS300]		= &pm8xxx_vs300_ops,
 	[PM8XXX_REGULATOR_TYPE_NCP]		= &pm8xxx_ncp_ops,
+	[PM8XXX_REGULATOR_TYPE_BOOST]		= &pm8xxx_boost_ops,
 };
 
 static struct regulator_ops *pm8xxx_reg_pc_ops[PM8XXX_REGULATOR_TYPE_MAX] = {
@@ -2647,6 +2766,7 @@ static unsigned pm8xxx_n_voltages[PM8XXX_REGULATOR_TYPE_MAX] = {
 	[PM8XXX_REGULATOR_TYPE_VS]		= 0,
 	[PM8XXX_REGULATOR_TYPE_VS300]		= 0,
 	[PM8XXX_REGULATOR_TYPE_NCP]		= NCP_SET_POINTS,
+	[PM8XXX_REGULATOR_TYPE_BOOST]		= BOOST_SET_POINTS,
 };
 
 static int pm8xxx_init_ldo(struct pm8xxx_vreg *vreg, bool is_real)
@@ -2937,6 +3057,20 @@ static int pm8xxx_init_ncp(struct pm8xxx_vreg *vreg)
 	return rc;
 }
 
+static int pm8xxx_init_boost(struct pm8xxx_vreg *vreg)
+{
+	int rc;
+
+	/* Save the current control register state. */
+	rc = pm8xxx_readb(vreg->dev->parent, vreg->ctrl_addr, &vreg->ctrl_reg);
+	if (rc) {
+		vreg_err(vreg, "pm8xxx_readb failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 {
 	struct pm8xxx_regulator_core_platform_data *core_data;
@@ -3057,6 +3191,9 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 		break;
 	case PM8XXX_REGULATOR_TYPE_NCP:
 		rc = pm8xxx_init_ncp(vreg);
+		break;
+	case PM8XXX_REGULATOR_TYPE_BOOST:
+		rc = pm8xxx_init_boost(vreg);
 		break;
 	default:
 		break;
