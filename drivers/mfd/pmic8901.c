@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -270,7 +270,7 @@ bail:
 	return rc;
 }
 
-static int pm8901_probe(struct platform_device *pdev)
+static int __devinit pm8901_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct pm8901_platform_data *pdata = pdev->dev.platform_data;
