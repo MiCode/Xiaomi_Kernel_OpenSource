@@ -24,6 +24,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/irq.h>
 #include <linux/err.h>
 #include <linux/wakelock.h>
 #include <linux/pm_runtime.h>
@@ -53,6 +54,7 @@ struct msm_hsic_hcd {
 	struct msm_xo_voter	*xo_handle;
 	struct wake_lock	wlock;
 	int			peripheral_status_irq;
+	int			wakeup_irq;
 };
 
 static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
@@ -734,13 +736,23 @@ static irqreturn_t hsic_peripheral_status_change(int irq, void *dev_id)
 {
 	struct msm_hsic_hcd *mehci = dev_id;
 
-	pr_debug("%s: mechi:%p dev_id:%p\n", __func__, mehci, dev_id);
+	pr_debug("%s: mehci:%p dev_id:%p\n", __func__, mehci, dev_id);
 
 	if (mehci)
 		msm_hsic_config_gpios(mehci, 0);
 
 	return IRQ_HANDLED;
 }
+
+static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
+{
+	struct msm_hsic_hcd *mehci = data;
+
+	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt\n", __func__);
+
+	return IRQ_HANDLED;
+}
+
 
 static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 {
@@ -856,6 +868,24 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 				__func__, mehci->peripheral_status_irq, ret);
 	}
 
+	/* configure wakeup irq */
+	ret = platform_get_irq(pdev, 2);
+	if (ret > 0) {
+		mehci->wakeup_irq = ret;
+		dev_dbg(&pdev->dev, "wakeup_irq: %d\n", mehci->wakeup_irq);
+		ret = request_irq(mehci->wakeup_irq, msm_hsic_wakeup_irq,
+				IRQF_TRIGGER_LOW,
+				"msm_hsic_wakeup", mehci);
+		if (!ret) {
+			disable_irq_nosync(mehci->wakeup_irq);
+			enable_irq_wake(mehci->wakeup_irq);
+		} else {
+			dev_err(&pdev->dev, "request_irq(%d) failed: %d\n",
+					mehci->wakeup_irq, ret);
+			mehci->wakeup_irq = 0;
+		}
+	}
+
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
 	 * hence, runtime framework automatically calls this driver's
@@ -893,6 +923,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 
 	if (mehci->peripheral_status_irq)
 		free_irq(mehci->peripheral_status_irq, mehci);
+	if (mehci->wakeup_irq) {
+		disable_irq_wake(mehci->wakeup_irq);
+		free_irq(mehci->wakeup_irq, mehci);
+	}
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);

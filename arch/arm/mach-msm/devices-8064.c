@@ -636,6 +636,12 @@ static struct resource resources_hsic_host[] = {
 		.name	= "peripheral_status_irq",
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.start	= MSM_GPIO_TO_INT(88),
+		.end	= MSM_GPIO_TO_INT(88),
+		.name	= "wakeup_irq",
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 static u64 dma_mask = DMA_BIT_MASK(32);
