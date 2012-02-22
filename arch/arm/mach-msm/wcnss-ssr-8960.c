@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ static DECLARE_WORK(riva_smsm_cb_work, riva_smsm_cb_fn);
 static void riva_fatal_fn(struct work_struct *);
 static DECLARE_WORK(riva_fatal_work, riva_fatal_fn);
 
+static struct delayed_work cancel_vote_work;
 static void *riva_ramdump_dev;
 static int riva_crash;
 static int ss_restart_inprogress;
@@ -97,20 +98,24 @@ static void smsm_riva_reset(void)
 	smsm_change_state(SMSM_APPS_STATE, SMSM_RESET, SMSM_RESET);
 }
 
-/* Subsystem handlers */
-static int riva_shutdown(const struct subsys_data *subsys)
+static void riva_post_bootup(struct work_struct *work)
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-	int    ret = -1;
 
+	pr_debug(MODULE_NAME ": Cancel APPS vote for Iris & Riva\n");
+
+	wcnss_wlan_power(&pdev->dev, pwlanconfig,
+		WCNSS_WLAN_SWITCH_OFF);
+}
+
+/* Subsystem handlers */
+static int riva_shutdown(const struct subsys_data *subsys)
+{
 	pil_force_shutdown("wcnss");
+	flush_delayed_work(&cancel_vote_work);
 
-	/* proxy vote on behalf of Riva */
-	if (pdev && pwlanconfig)
-		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_OFF);
-	return ret;
+	return 0;
 }
 
 static int riva_powerup(const struct subsys_data *subsys)
@@ -131,6 +136,7 @@ static int riva_powerup(const struct subsys_data *subsys)
 	}
 	ss_restart_inprogress = false;
 	enable_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
+	schedule_delayed_work(&cancel_vote_work, msecs_to_jiffies(5000));
 
 	return ret;
 }
@@ -222,6 +228,8 @@ static int __init riva_ssr_module_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
+	INIT_DELAYED_WORK(&cancel_vote_work, riva_post_bootup);
+
 	pr_info("%s: module initialized\n", MODULE_NAME);
 out:
 	return ret;
