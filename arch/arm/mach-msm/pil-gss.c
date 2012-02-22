@@ -273,10 +273,18 @@ static int pil_gss_shutdown_trusted(struct pil_desc *pil)
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
-	ret = pas_shutdown(PAS_GSS);
-	if (ret)
+	/*
+	 * CXO is used in the secure shutdown code to configure the processor
+	 * for low power mode.
+	 */
+	ret = clk_prepare_enable(drv->xo);
+	if (ret) {
+		dev_err(pil->dev, "Failed to enable XO\n");
 		return ret;
+	}
 
+	ret = pas_shutdown(PAS_GSS);
+	clk_disable_unprepare(drv->xo);
 	remove_gss_proxy_votes_now(drv);
 
 	return ret;
