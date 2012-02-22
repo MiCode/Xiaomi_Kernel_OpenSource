@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,8 +45,6 @@
 	msm_adsp_write(prtd->audrec, QDSP_uPAudRecCmdQueue, cmd, len)
 
 int intcnt;
-static int audio_dsp_send_buffer(struct msm_audio *prtd,
-			unsigned idx, unsigned len);
 
 struct audio_frame {
 	uint16_t count_low;
@@ -139,12 +137,15 @@ void alsa_dsp_event(void *data, unsigned id, uint16_t *msg)
 			if (prtd->ops->playback)
 				prtd->ops->playback(prtd);
 
+			if (prtd->mmap_flag)
+				break;
+
 			spin_lock_irqsave(&the_locks.write_dsp_lock, flag);
 			if (prtd->running) {
 				prtd->out[idx].used = 0;
 				frame = prtd->out + prtd->out_tail;
 				if (frame->used) {
-					audio_dsp_send_buffer(prtd,
+					alsa_dsp_send_buffer(prtd,
 							      prtd->out_tail,
 							      frame->used);
 					prtd->out_tail ^= 1;
@@ -414,7 +415,7 @@ ssize_t alsa_send_buffer(struct msm_audio *prtd, const char __user *buf,
 		spin_lock_irqsave(&the_locks.write_dsp_lock, flag);
 		frame = prtd->out + prtd->out_tail;
 		if (frame->used && prtd->out_needed) {
-			audio_dsp_send_buffer(prtd, prtd->out_tail,
+			alsa_dsp_send_buffer(prtd, prtd->out_tail,
 					      frame->used);
 			prtd->out_tail ^= 1;
 			prtd->out_needed--;
@@ -583,7 +584,7 @@ int alsa_buffer_read(struct msm_audio *prtd, void __user *buf,
 }
 EXPORT_SYMBOL(alsa_buffer_read);
 
-static int audio_dsp_send_buffer(struct msm_audio *prtd,
+int alsa_dsp_send_buffer(struct msm_audio *prtd,
 					unsigned idx, unsigned len)
 {
 	audpp_cmd_pcm_intf_send_buffer cmd;

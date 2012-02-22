@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -173,11 +173,15 @@ struct msm_audio {
 	int running;
 	int stopped; /* set when stopped, cleared on flush */
 	int eos_ack;
+	int mmap_flag;
+	int period;
 };
 
 
 
 /* platform data */
+extern int alsa_dsp_send_buffer(struct msm_audio *prtd,
+			unsigned idx, unsigned len);
 extern int audio_dsp_out_enable(struct msm_audio *prtd, int yes);
 extern struct snd_soc_platform_driver msm_soc_platform;
 
