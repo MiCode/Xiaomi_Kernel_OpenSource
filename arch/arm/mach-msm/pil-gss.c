@@ -43,14 +43,8 @@
 #define GSS_CLAMP_ENA		(MSM_CLK_CTL_BASE + 0x2C68)
 #define GSS_CXO_SRC_CTL		(MSM_CLK_CTL_BASE + 0x2C74)
 
-#define PLL5_MODE		(MSM_CLK_CTL_BASE + 0x30E0)
-#define PLL5_L_VAL		(MSM_CLK_CTL_BASE + 0x30E4)
-#define PLL5_M_VAL		(MSM_CLK_CTL_BASE + 0x30E8)
-#define PLL5_N_VAL		(MSM_CLK_CTL_BASE + 0x30EC)
-#define PLL5_CONFIG		(MSM_CLK_CTL_BASE + 0x30F4)
 #define PLL5_STATUS		(MSM_CLK_CTL_BASE + 0x30F8)
 #define PLL_ENA_GSS		(MSM_CLK_CTL_BASE + 0x3480)
-#define PLL_ENA_RPM		(MSM_CLK_CTL_BASE + 0x34A0)
 
 #define PLL5_VOTE		BIT(5)
 #define PLL_STATUS		BIT(16)
@@ -330,63 +324,6 @@ static struct pil_reset_ops pil_gss_ops_trusted = {
 	.shutdown = pil_gss_shutdown_trusted,
 };
 
-static void configure_gss_pll(struct gss_data *drv)
-{
-	u32 regval, is_pll_enabled;
-
-	/* Check if PLL5 is enabled by FSM. */
-	is_pll_enabled = readl_relaxed(PLL5_STATUS) & PLL_STATUS;
-	if (!is_pll_enabled) {
-		/* Enable XO reference for PLL5 */
-		clk_prepare_enable(drv->xo);
-
-		/*
-		 * Assert a vote to hold PLL5 on in RPM register until other
-		 * voters are in place.
-		 */
-		regval = readl_relaxed(PLL_ENA_RPM);
-		regval |= PLL5_VOTE;
-		writel_relaxed(regval, PLL_ENA_RPM);
-
-		/* Ref clk = 27MHz and program pll5 to 288MHz */
-		writel_relaxed(0xF, PLL5_L_VAL);
-		writel_relaxed(0x0, PLL5_M_VAL);
-		writel_relaxed(0x1, PLL5_N_VAL);
-
-		regval = readl_relaxed(PLL5_CONFIG);
-		/* Disable the MN accumulator and enable the main output. */
-		regval &= ~BIT(22);
-		regval |= BIT(23);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~(BIT(21)|BIT(20));
-
-		/* Set VCO frequency */
-		regval &= ~(BIT(17)|BIT(16));
-		writel_relaxed(regval, PLL5_CONFIG);
-
-		regval = readl_relaxed(PLL5_MODE);
-		/* De-assert reset to FSM */
-		regval &= ~BIT(21);
-		writel_relaxed(regval, PLL5_MODE);
-
-		/* Program bias count */
-		regval &= ~(0x3F << 14);
-		regval |= (0x1 << 14);
-		writel_relaxed(regval, PLL5_MODE);
-
-		/* Program lock count */
-		regval &= ~(0x3F << 8);
-		regval |= (0x8 << 8);
-		writel_relaxed(regval, PLL5_MODE);
-
-		/* Enable PLL FSM voting */
-		regval |= BIT(20);
-		writel_relaxed(regval, PLL5_MODE);
-	}
-}
-
 static int __devinit pil_gss_probe(struct platform_device *pdev)
 {
 	struct gss_data *drv;
@@ -436,9 +373,6 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&drv->work, remove_gss_proxy_votes);
-
-	/* FIXME: Remove when PLL is configured by bootloaders. */
-	configure_gss_pll(drv);
 
 	ret = msm_pil_register(desc);
 	if (ret) {
