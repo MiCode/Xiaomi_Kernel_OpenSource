@@ -4062,6 +4062,11 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 
 static void hdmi_msm_hpd_off(void)
 {
+	if (!hdmi_msm_state->hpd_initialized) {
+		DEV_DBG("%s: HPD is already OFF, returning\n", __func__);
+		return;
+	}
+
 	DEV_DBG("%s: (timer, clk, 5V, core, IRQ off)\n", __func__);
 	del_timer(&hdmi_msm_state->hpd_state_timer);
 	disable_irq(hdmi_msm_state->irq);
@@ -4087,6 +4092,12 @@ static void hdmi_msm_dump_regs(const char *prefix)
 static int hdmi_msm_hpd_on(bool trigger_handler)
 {
 	static int phy_reset_done;
+	uint32 hpd_ctrl;
+
+	if (hdmi_msm_state->hpd_initialized) {
+		DEV_DBG("%s: HPD is already ON, returning\n", __func__);
+		return 0;
+	}
 
 	hdmi_msm_clk(1);
 	hdmi_msm_state->pd->core_power(1, 1);
@@ -4104,36 +4115,34 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 	HDMI_OUTP(0x0208, 0x0001001B);
 
 	/* Check HPD State */
-	if (!hdmi_msm_state->hpd_initialized) {
-		uint32 hpd_ctrl;
-		enable_irq(hdmi_msm_state->irq);
+	enable_irq(hdmi_msm_state->irq);
 
-		/* set timeout to 4.1ms (max) for hardware debounce */
-		hpd_ctrl = (HDMI_INP(0x0258) & ~0xFFF) | 0xFFF;
+	/* set timeout to 4.1ms (max) for hardware debounce */
+	hpd_ctrl = (HDMI_INP(0x0258) & ~0xFFF) | 0xFFF;
 
-		/* Toggle HPD circuit to trigger HPD sense */
-		HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
-		HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
+	/* Toggle HPD circuit to trigger HPD sense */
+	HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
+	HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
 
-		DEV_DBG("%s: (clk, 5V, core, IRQ on) <trigger:%s>\n", __func__,
-			trigger_handler ? "true" : "false");
+	DEV_DBG("%s: (clk, 5V, core, IRQ on) <trigger:%s>\n", __func__,
+		trigger_handler ? "true" : "false");
 
-		if (trigger_handler) {
-			/* Set HPD state machine: ensure at least 2 readouts */
-			mutex_lock(&hdmi_msm_state_mutex);
-			hdmi_msm_state->hpd_stable = 0;
-			hdmi_msm_state->hpd_prev_state = TRUE;
-			mutex_lock(&external_common_state_hpd_mutex);
-			external_common_state->hpd_state = FALSE;
-			mutex_unlock(&external_common_state_hpd_mutex);
-			hdmi_msm_state->hpd_cable_chg_detected = TRUE;
-			mutex_unlock(&hdmi_msm_state_mutex);
-			mod_timer(&hdmi_msm_state->hpd_state_timer,
-				jiffies + HZ/2);
-		}
-
-		hdmi_msm_state->hpd_initialized = TRUE;
+	if (trigger_handler) {
+		/* Set HPD state machine: ensure at least 2 readouts */
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->hpd_stable = 0;
+		hdmi_msm_state->hpd_prev_state = TRUE;
+		mutex_lock(&external_common_state_hpd_mutex);
+		external_common_state->hpd_state = FALSE;
+		mutex_unlock(&external_common_state_hpd_mutex);
+		hdmi_msm_state->hpd_cable_chg_detected = TRUE;
+		mutex_unlock(&hdmi_msm_state_mutex);
+		mod_timer(&hdmi_msm_state->hpd_state_timer,
+			jiffies + HZ/2);
 	}
+
+	hdmi_msm_state->hpd_initialized = TRUE;
+
 	hdmi_msm_set_mode(TRUE);
 
 	return 0;
