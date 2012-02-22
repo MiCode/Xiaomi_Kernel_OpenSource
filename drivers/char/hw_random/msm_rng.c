@@ -242,9 +242,6 @@ static struct platform_driver rng_driver = {
 
 static int __init msm_rng_init(void)
 {
-	if (cpu_is_apq8064())
-		return -ENODEV;
-
 	return platform_driver_register(&rng_driver);
 }
 
