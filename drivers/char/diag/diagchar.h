@@ -23,6 +23,7 @@
 #include <asm/mach-types.h>
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
+#define APPS_BUF_SIZE	2000
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
@@ -50,6 +51,9 @@
 #define USER_SPACE_DATA 8000
 #define PKT_SIZE 4096
 #define MAX_EQUIP_ID 12
+#define DIAG_CTRL_MSG_LOG_MASK	9
+#define DIAG_CTRL_MSG_EVENT_MASK	10
+#define DIAG_CTRL_MSG_F3_MASK	11
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;
@@ -148,7 +152,10 @@ struct diagchar_dev {
 	int count_hdlc_pool;
 	int count_write_struct_pool;
 	int used;
-
+	/* Buffers for masks */
+	struct diag_ctrl_event_mask *event_mask;
+	struct diag_ctrl_log_mask *log_mask;
+	struct diag_ctrl_msg_mask *msg_mask;
 	/* State for diag forwarding */
 	unsigned char *buf_in_1;
 	unsigned char *buf_in_2;
@@ -161,6 +168,10 @@ struct diagchar_dev {
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data;
+	/* buffer for updating mask to peripherals */
+	unsigned char *buf_msg_mask_update;
+	unsigned char *buf_log_mask_update;
+	unsigned char *buf_event_mask_update;
 	smd_channel_t *ch;
 	smd_channel_t *ch_cntl;
 	smd_channel_t *chqdsp;
@@ -190,6 +201,13 @@ struct diagchar_dev {
 	struct work_struct diag_read_smd_qdsp_cntl_work;
 	struct work_struct diag_read_smd_wcnss_work;
 	struct work_struct diag_read_smd_wcnss_cntl_work;
+	struct workqueue_struct *diag_cntl_wq;
+	struct work_struct diag_msg_mask_update_work;
+	struct work_struct diag_log_mask_update_work;
+	struct work_struct diag_event_mask_update_work;
+	struct work_struct diag_modem_mask_update_work;
+	struct work_struct diag_qdsp_mask_update_work;
+	struct work_struct diag_wcnss_mask_update_work;
 	uint8_t *msg_masks;
 	uint8_t *log_masks;
 	int log_masks_length;

@@ -36,6 +36,10 @@ void diag_smd_cntl_notify(void *ctxt, unsigned event)
 		else
 			pr_debug("diag: incomplete pkt on Modem CNTL ch\n");
 		break;
+	case SMD_EVENT_OPEN:
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_modem_mask_update_work));
+		break;
 	}
 }
 
@@ -56,6 +60,10 @@ void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
 		else
 			pr_debug("diag: incomplete pkt on LPASS CNTL ch\n");
 		break;
+	case SMD_EVENT_OPEN:
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_qdsp_mask_update_work));
+		break;
 	}
 }
 
@@ -75,6 +83,10 @@ void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
 				 &(driver->diag_read_smd_wcnss_cntl_work));
 		else
 			pr_debug("diag: incomplete pkt on WCNSS CNTL ch\n");
+		break;
+	case SMD_EVENT_OPEN:
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_wcnss_mask_update_work));
 		break;
 	}
 }
@@ -259,6 +271,7 @@ static struct platform_driver diag_smd_lite_cntl_driver = {
 void diagfwd_cntl_init(void)
 {
 	driver->polling_reg_flag = 0;
+	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 	if (driver->buf_in_cntl == NULL) {
 		driver->buf_in_cntl = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_cntl == NULL)
@@ -283,6 +296,8 @@ err:
 		kfree(driver->buf_in_cntl);
 		kfree(driver->buf_in_qdsp_cntl);
 		kfree(driver->buf_in_wcnss_cntl);
+		if (driver->diag_cntl_wq)
+			destroy_workqueue(driver->diag_cntl_wq);
 }
 
 void diagfwd_cntl_exit(void)
@@ -293,6 +308,7 @@ void diagfwd_cntl_exit(void)
 	driver->ch_cntl = 0;
 	driver->chqdsp_cntl = 0;
 	driver->ch_wcnss_cntl = 0;
+	destroy_workqueue(driver->diag_cntl_wq);
 	platform_driver_unregister(&msm_smd_ch1_cntl_driver);
 	platform_driver_unregister(&diag_smd_lite_cntl_driver);
 

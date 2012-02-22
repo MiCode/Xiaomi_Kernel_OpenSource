@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,9 @@ int diag_device_write(void *, int, struct diag_request *);
 int mask_request_validate(unsigned char mask_buf[]);
 void diag_clear_reg(int);
 int chk_apps_only(void);
+void diag_send_event_mask_update(smd_channel_t *, int num_bytes);
+void diag_send_msg_mask_update(smd_channel_t *);
+void diag_send_log_mask_update(smd_channel_t *);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);
@@ -35,5 +38,5 @@ int diagfwd_disconnect(void);
 #endif
 extern int diag_debug_buf_idx;
 extern unsigned char diag_debug_buf[1024];
-
+extern int diag_event_num_bytes;
 #endif
