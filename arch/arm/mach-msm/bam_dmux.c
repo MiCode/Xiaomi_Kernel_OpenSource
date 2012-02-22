@@ -65,6 +65,9 @@ static uint32_t bam_dmux_write_cpy_cnt;
 static uint32_t bam_dmux_write_cpy_bytes;
 static uint32_t bam_dmux_tx_sps_failure_cnt;
 static uint32_t bam_dmux_tx_stall_cnt;
+static atomic_t bam_dmux_ack_out_cnt = ATOMIC_INIT(0);
+static atomic_t bam_dmux_ack_in_cnt = ATOMIC_INIT(0);
+static atomic_t bam_dmux_a2_pwr_cntl_in_cnt = ATOMIC_INIT(0);
 
 #define DBG(x...) do {		                 \
 		if (msm_bam_dmux_debug_enable)  \
@@ -102,6 +105,14 @@ static uint32_t bam_dmux_tx_stall_cnt;
 	bam_dmux_tx_stall_cnt++; \
 } while (0)
 
+#define DBG_INC_ACK_OUT_CNT() \
+	atomic_inc(&bam_dmux_ack_out_cnt)
+
+#define DBG_INC_A2_POWER_CONTROL_IN_CNT() \
+	atomic_inc(&bam_dmux_a2_pwr_cntl_in_cnt)
+
+#define DBG_INC_ACK_IN_CNT() \
+	atomic_inc(&bam_dmux_ack_in_cnt)
 #else
 #define DBG(x...) do { } while (0)
 #define DBG_INC_READ_CNT(x...) do { } while (0)
@@ -109,6 +120,10 @@ static uint32_t bam_dmux_tx_stall_cnt;
 #define DBG_INC_WRITE_CPY(x...) do { } while (0)
 #define DBG_INC_TX_SPS_FAILURE_CNT() do { } while (0)
 #define DBG_INC_TX_STALL_CNT() do { } while (0)
+#define DBG_INC_ACK_OUT_CNT() do { } while (0)
+#define DBG_INC_A2_POWER_CONTROL_IN_CNT() \
+	do { } while (0)
+#define DBG_INC_ACK_IN_CNT() do { } while (0)
 #endif
 
 struct bam_ch_info {
@@ -1200,14 +1215,20 @@ static int debug_stats(char *buf, int max)
 			"skb copy bytes:  %u\n"
 			"sps tx failures: %u\n"
 			"sps tx stalls:   %u\n"
-			"rx queue len:    %d\n",
+			"rx queue len:    %d\n"
+			"a2 ack out cnt:  %d\n"
+			"a2 ack in cnt:   %d\n"
+			"a2 pwr cntl in:  %d\n",
 			bam_dmux_read_cnt,
 			bam_dmux_write_cnt,
 			bam_dmux_write_cpy_cnt,
 			bam_dmux_write_cpy_bytes,
 			bam_dmux_tx_sps_failure_cnt,
 			bam_dmux_tx_stall_cnt,
-			bam_rx_pool_len
+			bam_rx_pool_len,
+			atomic_read(&bam_dmux_ack_out_cnt),
+			atomic_read(&bam_dmux_ack_in_cnt),
+			atomic_read(&bam_dmux_a2_pwr_cntl_in_cnt)
 			);
 
 	return i;
@@ -2047,11 +2068,13 @@ static void toggle_apps_ack(void)
 				clear_bit & SMSM_A2_POWER_CONTROL_ACK,
 				~clear_bit & SMSM_A2_POWER_CONTROL_ACK);
 	clear_bit = ~clear_bit;
+	DBG_INC_ACK_OUT_CNT();
 }
 
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
 	bam_dmux_power_state = new_state & SMSM_A2_POWER_CONTROL ? 1 : 0;
+	DBG_INC_A2_POWER_CONTROL_IN_CNT();
 	bam_dmux_log("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
 
@@ -2090,6 +2113,7 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 static void bam_dmux_smsm_ack_cb(void *priv, uint32_t old_state,
 						uint32_t new_state)
 {
+	DBG_INC_ACK_IN_CNT();
 	bam_dmux_log("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
 	complete_all(&ul_wakeup_ack_completion);
