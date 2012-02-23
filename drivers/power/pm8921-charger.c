@@ -415,6 +415,13 @@ static int pm_chg_charge_dis(struct pm8921_chg_chip *chip, int disable)
 				disable ? CHG_CHARGE_DIS_BIT : 0);
 }
 
+static int pm_is_chg_charge_dis(struct pm8921_chg_chip *chip)
+{
+	u8 temp;
+
+	pm8xxx_readb(chip->dev->parent, CHG_CNTRL, &temp);
+	return  temp & CHG_CHARGE_DIS_BIT;
+}
 #define PM8921_CHG_V_MIN_MV	3240
 #define PM8921_CHG_V_STEP_MV	20
 #define PM8921_CHG_V_STEP_10MV_OFFSET_BIT	BIT(7)
@@ -1044,7 +1051,13 @@ static void bms_notify_check(struct pm8921_chg_chip *chip)
 	}
 }
 
-static enum power_supply_property pm_power_props[] = {
+static enum power_supply_property pm_power_props_usb[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
+
+static enum power_supply_property pm_power_props_mains[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 };
@@ -1054,7 +1067,53 @@ static char *pm_power_supplied_to[] = {
 };
 
 #define USB_WALL_THRESHOLD_MA	500
-static int pm_power_get_property(struct power_supply *psy,
+static int pm_power_get_property_mains(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  union power_supply_propval *val)
+{
+	int current_max;
+
+	/* Check if called before init */
+	if (!the_chip)
+		return -EINVAL;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = 0;
+		if (charging_disabled)
+			return 0;
+
+		/* check external charger first before the dc path */
+		if (is_ext_charging(the_chip)) {
+			val->intval = 1;
+			return 0;
+		}
+
+		if (pm_is_chg_charge_dis(the_chip)) {
+			val->intval = 0;
+			return 0;
+		}
+
+		if (the_chip->dc_present) {
+			val->intval = 1;
+			return 0;
+		}
+
+		/* USB with max current greater than 500 mA connected */
+		pm_chg_iusbmax_get(the_chip, &current_max);
+		if (current_max > USB_WALL_THRESHOLD_MA)
+			val->intval = is_usb_chg_plugged_in(the_chip);
+			return 0;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int pm_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
@@ -1066,13 +1125,24 @@ static int pm_power_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		pm_chg_iusbmax_get(the_chip, &current_max);
-		val->intval = current_max;
+		if (pm_is_chg_charge_dis(the_chip)) {
+			val->intval = 0;
+		} else {
+			pm_chg_iusbmax_get(the_chip, &current_max);
+			val->intval = current_max;
+		}
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
 		if (charging_disabled)
+			return 0;
+
+		/*
+		 * if drawing any current from usb is disabled behave
+		 * as if no usb cable is connected
+		 */
+		if (pm_is_chg_charge_dis(the_chip))
 			return 0;
 
 		/* USB charging */
@@ -1083,22 +1153,6 @@ static int pm_power_get_property(struct power_supply *psy,
 			val->intval = is_usb_chg_plugged_in(the_chip);
 			return 0;
 		}
-
-		/* DC charging */
-		if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
-			/* external charger is connected */
-			if (the_chip->dc_present || is_ext_charging(the_chip)) {
-				val->intval = 1;
-				return 0;
-			}
-			/* USB with max current greater than 500 mA connected */
-			pm_chg_iusbmax_get(the_chip, &current_max);
-			if (current_max > USB_WALL_THRESHOLD_MA)
-				val->intval = is_usb_chg_plugged_in(the_chip);
-			return 0;
-		}
-
-		pr_err("Unkown POWER_SUPPLY_TYPE %d\n", psy->type);
 		break;
 	default:
 		return -EINVAL;
@@ -3462,17 +3516,17 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->usb_psy.type = POWER_SUPPLY_TYPE_USB,
 	chip->usb_psy.supplied_to = pm_power_supplied_to,
 	chip->usb_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to),
-	chip->usb_psy.properties = pm_power_props,
-	chip->usb_psy.num_properties = ARRAY_SIZE(pm_power_props),
-	chip->usb_psy.get_property = pm_power_get_property,
+	chip->usb_psy.properties = pm_power_props_usb,
+	chip->usb_psy.num_properties = ARRAY_SIZE(pm_power_props_usb),
+	chip->usb_psy.get_property = pm_power_get_property_usb,
 
 	chip->dc_psy.name = "pm8921-dc",
 	chip->dc_psy.type = POWER_SUPPLY_TYPE_MAINS,
 	chip->dc_psy.supplied_to = pm_power_supplied_to,
 	chip->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to),
-	chip->dc_psy.properties = pm_power_props,
-	chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props),
-	chip->dc_psy.get_property = pm_power_get_property,
+	chip->dc_psy.properties = pm_power_props_mains,
+	chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props_mains),
+	chip->dc_psy.get_property = pm_power_get_property_mains,
 
 	chip->batt_psy.name = "battery",
 	chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY,
