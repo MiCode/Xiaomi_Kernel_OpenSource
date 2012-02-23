@@ -1171,6 +1171,27 @@ static void slim_sat_rxprocess(struct work_struct *work)
 			}
 			slim_assign_laddr(&dev->ctrl, e_addr, 6, &laddr);
 			sat->satcl.laddr = laddr;
+			/*
+			 * Since capability message is already sent, present
+			 * message will indicate subsystem hosting this
+			 * satellite has restarted.
+			 * Remove all active channels of this satellite
+			 * when this is detected
+			 */
+			if (sat->sent_capability) {
+				for (i = 0; i < sat->nsatch; i++) {
+					enum slim_ch_state chs =
+						slim_get_ch_state(&sat->satcl,
+							sat->satch[i].chanh);
+					pr_err("Slim-SSR, sat:%d, rm chan:%d",
+							laddr,
+							sat->satch[i].chan);
+					if (chs == SLIM_CH_ACTIVE)
+						slim_control_ch(&sat->satcl,
+							sat->satch[i].chanh,
+							SLIM_CH_REMOVE, true);
+				}
+			}
 		} else if (mt != SLIM_MSG_MT_CORE &&
 				mc != SLIM_MSG_MC_REPORT_PRESENT) {
 			satv = msm_slim_get_ctrl(dev);

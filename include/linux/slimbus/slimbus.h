@@ -877,6 +877,7 @@ extern int slim_define_ch(struct slim_device *sb, struct slim_ch *prop,
  * -EXFULL is returned if there is no space in TDM to reserve the bandwidth.
  * -EISCONN/-ENOTCONN is returned if the channel is already connected or not
  * yet defined.
+ * -EINVAL is returned if individual control of a grouped-channel is attempted.
  */
 extern int slim_control_ch(struct slim_device *sb, u16 grpchanh,
 				enum slim_ch_control chctrl, bool commit);

@@ -2730,15 +2730,19 @@ static int add_pending_ch(struct list_head *listh, u8 chan)
  * -EXFULL is returned if there is no space in TDM to reserve the bandwidth.
  * -EISCONN/-ENOTCONN is returned if the channel is already connected or not
  * yet defined.
+ * -EINVAL is returned if individual control of a grouped-channel is attempted.
  */
 int slim_control_ch(struct slim_device *sb, u16 chanh,
 			enum slim_ch_control chctrl, bool commit)
 {
 	struct slim_controller *ctrl = sb->ctrl;
-	struct slim_ich *slc;
 	int ret = 0;
 	/* Get rid of the group flag in MSB if any */
 	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
+	struct slim_ich *slc = &ctrl->chans[chan];
+	if (!(slc->nextgrp & SLIM_START_GRP))
+		return -EINVAL;
+
 	mutex_lock(&sb->sldev_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	do {
