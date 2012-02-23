@@ -28,7 +28,7 @@
 #include "board-msm7627a.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_SIZE	     0x261000
+#define MSM_FB_SIZE		0x2FD000
 #define MSM7x25A_MSM_FB_SIZE    0xE1000
 #else
 #define MSM_FB_SIZE	     0x196000
@@ -684,6 +684,18 @@ static struct platform_device mipi_dsi_NT35510_panel_device = {
 	}
 };
 
+static struct msm_panel_common_pdata mipi_NT35516_pdata = {
+	.pmic_backlight = NULL,
+};
+
+static struct platform_device mipi_dsi_NT35516_panel_device = {
+	.name   = "mipi_truly_tft540960_1_e",
+	.id     = 0,
+	.dev    = {
+		.platform_data = &mipi_NT35516_pdata,
+	}
+};
+
 static struct platform_device *msm_fb_devices[] __initdata = {
 	&msm_fb_device,
 	&lcdc_toshiba_panel_device,
@@ -708,6 +720,7 @@ static struct platform_device *qrd3_fb_devices[] __initdata = {
 static struct platform_device *evb_fb_devices[] __initdata = {
 	&msm_fb_device,
 	&mipi_dsi_NT35510_panel_device,
+	&mipi_dsi_NT35516_panel_device,
 };
 
 void __init msm_msm7627a_allocate_memory_regions(void)
