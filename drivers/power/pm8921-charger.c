@@ -1729,6 +1729,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 		chip->usb_present = usb_present;
 		power_supply_changed(&chip->usb_psy);
 		power_supply_changed(&chip->batt_psy);
+		pm8921_bms_calibrate_hkadc();
 	}
 	if (usb_present) {
 		schedule_delayed_work(&chip->unplug_check_work,
