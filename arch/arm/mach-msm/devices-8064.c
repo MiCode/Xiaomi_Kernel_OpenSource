@@ -31,6 +31,7 @@
 #include <linux/ion.h>
 #include "clock.h"
 #include "devices.h"
+#include "footswitch.h"
 #include "msm_watchdog.h"
 #include "rpm_stats.h"
 #include "rpm_log.h"
@@ -1229,6 +1230,17 @@ struct platform_device msm_gss = {
 	.num_resources  = ARRAY_SIZE(msm_gss_resources),
 	.resource       = msm_gss_resources,
 };
+
+struct platform_device *apq8064_fs_devices[] = {
+	FS_8X60(FS_ROT,    "fs_rot"),
+	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
+	FS_8X60(FS_VFE,    "fs_vfe"),
+	FS_8X60(FS_VPE,    "fs_vpe"),
+	FS_8X60(FS_GFX3D,  "fs_gfx3d"),
+	FS_8X60(FS_VED,    "fs_ved"),
+	FS_8X60(FS_VCAP,   "fs_vcap"),
+};
+unsigned apq8064_num_fs_devices = ARRAY_SIZE(apq8064_fs_devices);
 
 static struct clk_lookup msm_clocks_8064_dummy[] = {
 	CLK_DUMMY("pll2",		PLL2,		NULL, 0),

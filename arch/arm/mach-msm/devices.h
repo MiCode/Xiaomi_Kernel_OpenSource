@@ -241,6 +241,8 @@ extern struct platform_device apq_cpudai_stub;
 
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;
+extern struct platform_device *apq8064_fs_devices[];
+extern unsigned apq8064_num_fs_devices;
 
 extern struct platform_device fsm_qfp_fuse_device;
 
