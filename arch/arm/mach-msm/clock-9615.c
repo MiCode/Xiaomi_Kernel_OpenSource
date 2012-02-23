@@ -1693,6 +1693,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("osr_clk",		spare_i2s_spkr_osr_clk.c,
 			   "msm-dai-q6.4"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.2"),
+	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.3"),
 
 	CLK_LOOKUP("sps_slimbus_clk",	sps_slimbus_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		audio_slimbus_clk.c, "msm_slim_ctrl.1"),

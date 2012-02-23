@@ -39,6 +39,9 @@ struct msm_dai_q6_dai_data {
 };
 
 static struct clk *pcm_clk;
+static DEFINE_MUTEX(aux_pcm_mutex);
+static int aux_pcm_count;
+static struct msm_dai_auxpcm_pdata *auxpcm_plat_data;
 
 static u8 num_of_bits_set(u8 sd_line_mask)
 {
@@ -384,24 +387,46 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
-	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	pr_debug("%s: dai->id = %d", __func__, dai->id);
+	mutex_lock(&aux_pcm_mutex);
 
-	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		clk_disable(pcm_clk);
-		rc = afe_close(dai->id); /* can block */
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to close AFE port\n");
-		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
-			*dai_data->status_mask);
-		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
-
-		rc = afe_close(PCM_TX);
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+	if (aux_pcm_count == 0) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
+				" return\n", __func__, dai->id);
+		mutex_unlock(&aux_pcm_mutex);
+		return;
 	}
+
+	aux_pcm_count--;
+
+	if (aux_pcm_count > 0) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d\n",
+			__func__, dai->id, aux_pcm_count);
+		mutex_unlock(&aux_pcm_mutex);
+		return;
+	} else if (aux_pcm_count < 0) {
+		dev_err(dai->dev, "%s(): ERROR: dai->id %d"
+			" aux_pcm_count = %d < 0\n",
+			__func__, dai->id, aux_pcm_count);
+		aux_pcm_count = 0;
+		mutex_unlock(&aux_pcm_mutex);
+		return;
+	}
+
+	pr_debug("%s: dai->id = %d aux_pcm_count = %d\n", __func__,
+			dai->id, aux_pcm_count);
+
+	clk_disable(pcm_clk);
+	rc = afe_close(PCM_RX); /* can block */
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
+
+	rc = afe_close(PCM_TX);
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+
+	mutex_unlock(&aux_pcm_mutex);
 }
 
 static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
@@ -440,49 +465,65 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
 			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
 
-	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_q6_interface_prepare();
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open AFE APR\n");
+	mutex_lock(&aux_pcm_mutex);
 
-		rc = afe_q6_interface_prepare();
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open AFE APR\n");
-
-		pr_debug("%s:dai->id:%d dai_data->status_mask = %ld\n",
-			__func__, dai->id, *dai_data->status_mask);
-
-		/*
-		 * For AUX PCM Interface the below sequence of clk
-		 * settings and afe_open is a strict requirement.
-		 *
-		 * Also using afe_open instead of afe_port_start_nowait
-		 * to make sure the port is open before deasserting the
-		 * clock line. This is required because pcm register is
-		 * not written before clock deassert. Hence the hw does
-		 * not get updated with new setting if the below clock
-		 * assert/deasset and afe_open sequence is not followed.
-		 */
-
-		clk_reset(pcm_clk, CLK_RESET_ASSERT);
-
-		afe_open(dai->id, &dai_data->port_config,
-			dai_data->rate);
-		set_bit(STATUS_PORT_STARTED,
-			dai_data->status_mask);
-
-		afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
-
-		rc = clk_set_rate(pcm_clk, auxpcm_pdata->pcm_clk_rate);
-		if (rc < 0) {
-			pr_err("%s: clk_set_rate failed\n", __func__);
-			return rc;
-		}
-
-		clk_enable(pcm_clk);
-		clk_reset(pcm_clk, CLK_RESET_DEASSERT);
-
+	if (aux_pcm_count == 2) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just"
+			" return.\n", __func__, dai->id);
+		mutex_unlock(&aux_pcm_mutex);
+		return 0;
+	} else if (aux_pcm_count > 2) {
+		dev_err(dai->dev, "%s(): ERROR: dai->id %d"
+			" aux_pcm_count = %d > 2\n",
+			__func__, dai->id, aux_pcm_count);
+		mutex_unlock(&aux_pcm_mutex);
+		return 0;
 	}
+
+	aux_pcm_count++;
+	if (aux_pcm_count == 2)  {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d after "
+			" increment\n", __func__, dai->id, aux_pcm_count);
+		mutex_unlock(&aux_pcm_mutex);
+		return 0;
+	}
+
+	pr_debug("%s:dai->id:%d  aux_pcm_count = %d. opening afe\n",
+			__func__, dai->id, aux_pcm_count);
+
+	rc = afe_q6_interface_prepare();
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to open AFE APR\n");
+
+	/*
+	 * For AUX PCM Interface the below sequence of clk
+	 * settings and afe_open is a strict requirement.
+	 *
+	 * Also using afe_open instead of afe_port_start_nowait
+	 * to make sure the port is open before deasserting the
+	 * clock line. This is required because pcm register is
+	 * not written before clock deassert. Hence the hw does
+	 * not get updated with new setting if the below clock
+	 * assert/deasset and afe_open sequence is not followed.
+	 */
+
+	clk_reset(pcm_clk, CLK_RESET_ASSERT);
+
+	afe_open(PCM_RX, &dai_data->port_config, dai_data->rate);
+
+	afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
+
+	rc = clk_set_rate(pcm_clk, auxpcm_pdata->pcm_clk_rate);
+	if (rc < 0) {
+		pr_err("%s: clk_set_rate failed\n", __func__);
+		return rc;
+	}
+
+	clk_enable(pcm_clk);
+	clk_reset(pcm_clk, CLK_RESET_DEASSERT);
+
+	mutex_unlock(&aux_pcm_mutex);
+
 	return rc;
 }
 
@@ -504,11 +545,10 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai)
 {
-	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	pr_debug("%s:port:%d  cmd:%d dai_data->status_mask = %ld",
-		__func__, dai->id, cmd, *dai_data->status_mask);
+	pr_debug("%s:port:%d  cmd:%d  aux_pcm_count= %d",
+		__func__, dai->id, cmd, aux_pcm_count);
 
 	switch (cmd) {
 
@@ -521,16 +561,7 @@ static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-
-			clk_disable(pcm_clk);
-			afe_port_stop_nowait(dai->id);
-			clear_bit(STATUS_PORT_STARTED,
-				dai_data->status_mask);
-
-			afe_port_stop_nowait(PCM_TX);
-		}
-		break;
+		return 0;
 
 	default:
 		rc = -EINVAL;
@@ -605,8 +636,36 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
 			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
 
-	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data),
-		GFP_KERNEL);
+	mutex_lock(&aux_pcm_mutex);
+
+	if (!auxpcm_plat_data)
+		auxpcm_plat_data = auxpcm_pdata;
+	else if (auxpcm_plat_data != auxpcm_pdata) {
+
+		dev_err(dai->dev, "AUX PCM RX and TX devices does not have"
+				" same platform data\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * The clk name for AUX PCM operation is passed as platform
+	 * data to the cpu driver, since cpu drive is unaware of any
+	 * boarc specific configuration.
+	 */
+	if (!pcm_clk) {
+
+		pcm_clk = clk_get(dai->dev, auxpcm_pdata->clk);
+
+		if (IS_ERR(pcm_clk)) {
+			pr_err("%s: could not get pcm_clk\n", __func__);
+			pcm_clk = NULL;
+			return -ENODEV;
+		}
+	}
+
+	mutex_unlock(&aux_pcm_mutex);
+
+	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data), GFP_KERNEL);
 
 	if (!dai_data) {
 		dev_err(dai->dev, "DAI-%d: fail to allocate dai data\n",
@@ -615,18 +674,7 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	} else
 		dev_set_drvdata(dai->dev, dai_data);
 
-	/*
-	 * The clk name for AUX PCM operation is passed as platform
-	 * data to the cpu driver, since cpu drive is unaware of any
-	 * boarc specific configuration.
-	 */
-	pcm_clk = clk_get(dai->dev, auxpcm_pdata->clk);
-	if (IS_ERR(pcm_clk)) {
-		pr_err("%s: could not get pcm_clk\n", __func__);
-		return PTR_ERR(pcm_clk);
-		kfree(dai_data);
-	}
-
+	pr_debug("%s : probe done for dai->id %d\n", __func__, dai->id);
 	return rc;
 }
 
@@ -637,21 +685,44 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 
 	dai_data = dev_get_drvdata(dai->dev);
 
-	/* If AFE port is still up, close it */
-	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_close(dai->id); /* can block */
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to close AFE port\n");
-		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+	mutex_lock(&aux_pcm_mutex);
 
-		rc = afe_close(PCM_TX);
-		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+	if (aux_pcm_count == 0) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. clean"
+				" up and return\n", __func__, dai->id);
+		goto done;
 	}
 
+	aux_pcm_count--;
 
+	if (aux_pcm_count > 0) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d\n",
+			__func__, dai->id, aux_pcm_count);
+		goto done;
+	} else if (aux_pcm_count < 0) {
+		dev_err(dai->dev, "%s(): ERROR: dai->id %d"
+			" aux_pcm_count = %d < 0\n",
+			__func__, dai->id, aux_pcm_count);
+		goto done;
+	}
+
+	dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d."
+			"closing afe\n",
+		__func__, dai->id, aux_pcm_count);
+
+	rc = afe_close(PCM_RX); /* can block */
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close AUX PCM RX AFE port\n");
+
+	rc = afe_close(PCM_TX);
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close AUX PCM TX AFE port\n");
+
+done:
 	kfree(dai_data);
 	snd_soc_unregister_dai(dai->dev);
+
+	mutex_unlock(&aux_pcm_mutex);
 
 	return 0;
 }
@@ -1030,6 +1101,9 @@ static struct snd_soc_dai_driver msm_dai_q6_aux_pcm_tx_dai = {
 		.rate_max = 8000,
 		.rate_min = 8000,
 	},
+	.ops = &msm_dai_q6_auxpcm_ops,
+	.probe = msm_dai_q6_dai_auxpcm_probe,
+	.remove = msm_dai_q6_dai_auxpcm_remove,
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_mi2s_rx_dai = {

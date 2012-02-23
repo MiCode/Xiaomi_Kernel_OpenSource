@@ -400,7 +400,7 @@ struct platform_device apq_cpudai_fm_tx = {
  * Machine specific data for AUX PCM Interface
  * which the driver will  be unware of.
  */
-struct msm_dai_auxpcm_pdata apq_auxpcm_rx_pdata = {
+struct msm_dai_auxpcm_pdata apq_auxpcm_pdata = {
 	.clk = "pcm_clk",
 	.mode = AFE_PCM_CFG_MODE_PCM,
 	.sync = AFE_PCM_CFG_SYNC_INT,
@@ -415,13 +415,16 @@ struct platform_device apq_cpudai_auxpcm_rx = {
 	.name = "msm-dai-q6",
 	.id = 2,
 	.dev = {
-		.platform_data = &apq_auxpcm_rx_pdata,
+		.platform_data = &apq_auxpcm_pdata,
 	},
 };
 
 struct platform_device apq_cpudai_auxpcm_tx = {
 	.name = "msm-dai-q6",
 	.id = 3,
+	.dev = {
+		.platform_data = &apq_auxpcm_pdata,
+	},
 };
 
 struct platform_device apq_cpu_fe = {
