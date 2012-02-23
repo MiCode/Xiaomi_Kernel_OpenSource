@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 #ifndef _VCD_CLIENT_SM_H_
 #define _VCD_CLIENT_SM_H_
-#include "vcd_api.h"
+#include <media/msm/vcd_api.h>
 #include "vcd_ddl_api.h"
 
 struct vcd_clnt_state_table;

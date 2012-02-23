@@ -16,7 +16,7 @@
 
 #include <linux/msm_vidc_dec.h>
 #include <linux/cdev.h>
-#include "vidc_init.h"
+#include <media/msm/vidc_init.h>
 
 #define NUM_OF_DRIVER_NODES 2
 

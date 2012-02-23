@@ -11,7 +11,7 @@
  *
  */
 
-#include "vidc_type.h"
+#include <media/msm/vidc_type.h>
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl.h"
 

@@ -29,11 +29,11 @@
 #include <linux/clk.h>
 #include <linux/timer.h>
 #include <mach/msm_subsystem_map.h>
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 #include "vcd_res_tracker_api.h"
-#include "vidc_type.h"
-#include "vcd_api.h"
 #include "vdec_internal.h"
-#include "vidc_init.h"
 
 
 

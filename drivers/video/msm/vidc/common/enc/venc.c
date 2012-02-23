@@ -27,11 +27,11 @@
 #include <linux/workqueue.h>
 #include <linux/android_pmem.h>
 #include <linux/clk.h>
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 
-#include "vidc_type.h"
-#include "vcd_api.h"
 #include "venc_internal.h"
-#include "vidc_init.h"
 #include "vcd_res_tracker_api.h"
 
 #define VID_ENC_NAME	"msm_vidc_enc"

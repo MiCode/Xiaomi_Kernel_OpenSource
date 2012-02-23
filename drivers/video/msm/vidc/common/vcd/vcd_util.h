@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,8 +12,8 @@
  */
 #ifndef _VCD_UTIL_H_
 #define _VCD_UTIL_H_
-#include "vidc_type.h"
-#include "vcd_api.h"
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
 
 #if DEBUG
 
