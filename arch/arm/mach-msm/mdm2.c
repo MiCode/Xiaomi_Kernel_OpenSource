@@ -48,7 +48,7 @@
 
 static int mdm_debug_on;
 static int first_power_on = 1;
-static int hsic_peripheral_status = 1;
+static int hsic_peripheral_status;
 static DEFINE_MUTEX(hsic_status_lock);
 
 static void mdm_peripheral_connect(struct mdm_modem_drv *mdm_drv)

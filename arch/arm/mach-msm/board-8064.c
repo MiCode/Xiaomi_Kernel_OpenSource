@@ -1477,7 +1477,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_otg,
 	&apq8064_device_gadget_peripheral,
 	&apq8064_device_hsusb_host,
-	&apq8064_device_hsic_host,
 	&android_usb_device,
 	&msm_device_wcnss_wlan,
 #ifdef CONFIG_ANDROID_PMEM
@@ -1862,9 +1861,12 @@ static void __init apq8064_common_init(void)
 	if (machine_is_apq8064_liquid())
 		msm_otg_pdata.mhl_enable = true;
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
-	apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	if (machine_is_apq8064_mtp()) {
+		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
+		device_initialize(&apq8064_device_hsic_host.dev);
+	}
 	apq8064_pm8xxx_gpio_mpp_init();
 	apq8064_init_mmc();
 
