@@ -69,13 +69,14 @@
  *****************************************************************************/
 
 enum {
-	MSM_PM_DEBUG_SUSPEND = 1U << 0,
-	MSM_PM_DEBUG_POWER_COLLAPSE = 1U << 1,
-	MSM_PM_DEBUG_STATE = 1U << 2,
-	MSM_PM_DEBUG_CLOCK = 1U << 3,
-	MSM_PM_DEBUG_RESET_VECTOR = 1U << 4,
-	MSM_PM_DEBUG_SMSM_STATE = 1U << 5,
-	MSM_PM_DEBUG_IDLE = 1U << 6,
+	MSM_PM_DEBUG_SUSPEND = BIT(0),
+	MSM_PM_DEBUG_POWER_COLLAPSE = BIT(1),
+	MSM_PM_DEBUG_STATE = BIT(2),
+	MSM_PM_DEBUG_CLOCK = BIT(3),
+	MSM_PM_DEBUG_RESET_VECTOR = BIT(4),
+	MSM_PM_DEBUG_SMSM_STATE = BIT(5),
+	MSM_PM_DEBUG_IDLE = BIT(6),
+	MSM_PM_DEBUG_HOTPLUG = BIT(7),
 };
 
 static int msm_pm_debug_mask;
@@ -1677,7 +1678,27 @@ static struct platform_suspend_ops msm_pm_ops = {
  */
 void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 {
-	return;
+	bool allow[MSM_PM_SLEEP_MODE_NR];
+	int i;
+
+	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
+		struct msm_pm_platform_data *mode;
+
+		mode = &msm_pm_modes[MSM_PM_MODE(cpu, i)];
+		allow[i] = mode->suspend_supported && mode->suspend_enabled;
+	}
+
+	MSM_PM_DPRINTK(MSM_PM_DEBUG_HOTPLUG, KERN_INFO,
+		"CPU%u: %s: shutting down cpu\n", cpu, __func__);
+
+	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
+		msm_pm_power_collapse_standalone(false);
+	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
+		msm_pm_swfi(false);
+	} else {
+		MSM_PM_DPRINTK(MSM_PM_DEBUG_HOTPLUG, KERN_INFO,
+			"CPU%u: %s: shutting down failed!!!\n", cpu, __func__);
+	}
 }
 
 /******************************************************************************

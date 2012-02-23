@@ -62,6 +62,10 @@ static DEFINE_SPINLOCK(boot_lock);
 
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
+	pr_debug("CPU%u: Booted secondary processor\n", cpu);
+
+	WARN_ON(msm_platform_secondary_init(cpu));
+
 	/*
 	 * if any interrupts are already enabled for the primary
 	 * core (e.g. timer irq), then they will not have been enabled
