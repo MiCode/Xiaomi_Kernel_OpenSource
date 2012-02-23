@@ -1385,14 +1385,8 @@ static void mdp4_mixer_stage_commit(int mixer)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	}
 
-	if (data) {
-		if (pipe_cnt == 1) {
-			mdp4_update_perf_level(OVERLAY_PERF_LEVEL4);
-#ifdef CONFIG_MSM_BUS_SCALING
-			mdp_bus_scale_update_request(2);
-#endif
-		}
-	}
+	if (data && pipe_cnt == 1)
+		mdp4_update_perf_level(OVERLAY_PERF_LEVEL4);
 }
 
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe)
@@ -2034,9 +2028,7 @@ int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 #define OVERLAY_720P_TILE_SIZE  0x0E6000
 #define OVERLAY_WSVGA_SIZE 0x98000 /* 1024x608, align 600 to 32bit */
 
-#ifdef CONFIG_MSM_BUS_SCALING
 #define OVERLAY_BUS_SCALE_TABLE_BASE	6
-#endif
 
 static int mdp4_overlay_is_rgb_type(int format)
 {
@@ -2114,6 +2106,8 @@ void mdp4_set_perf_level(void)
 	if (old_perf_level != cur_perf_level) {
 		mdp_set_core_clk(cur_perf_level);
 		old_perf_level = cur_perf_level;
+		mdp_bus_scale_update_request(OVERLAY_BUS_SCALE_TABLE_BASE
+					     - cur_perf_level);
 	}
 }
 
@@ -2282,13 +2276,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	}
 	mutex_unlock(&mfd->dma->ov_mutex);
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	if (pipe->mixer_num == MDP4_MIXER0) {
-		mdp_bus_scale_update_request(OVERLAY_BUS_SCALE_TABLE_BASE
-						- perf_level);
-	}
-#endif
-
 	return 0;
 }
 
@@ -2385,8 +2372,6 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	mdp4_stat.overlay_unset[pipe->mixer_num]++;
 
 	mdp4_overlay_pipe_free(pipe);
-
-	mdp4_set_perf_level();
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
