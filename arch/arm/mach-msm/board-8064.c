@@ -76,7 +76,7 @@
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
 #define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #else
-#define MSM_PMEM_SIZE 0x2800000 /* 40 Mbytes */
+#define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #endif
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
