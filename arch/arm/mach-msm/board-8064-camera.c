@@ -403,6 +403,17 @@ static struct msm_camera_i2c_conf apq8064_back_cam_i2c_conf = {
 	.i2c_mux_mode = MODE_L,
 };
 
+static struct i2c_board_info imx074_actuator_i2c_info = {
+	I2C_BOARD_INFO("imx074_act", 0x11),
+};
+
+static struct msm_actuator_info imx074_actuator_info = {
+	.board_info     = &imx074_actuator_i2c_info,
+	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
+	.vcm_pwd        = 0,
+	.vcm_enable     = 1,
+};
+
 static struct msm_camera_i2c_conf apq8064_front_cam_i2c_conf = {
 	.use_i2c_mux = 1,
 	.mux_dev = &msm8960_device_i2c_mux_gsbi4,
@@ -429,6 +440,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.sensor_platform_info = &sensor_board_info_imx074,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
+	.actuator_info = &imx074_actuator_info
 };
 #endif
 
