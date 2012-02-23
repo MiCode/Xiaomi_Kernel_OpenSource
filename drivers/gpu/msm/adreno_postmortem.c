@@ -294,15 +294,6 @@ static void adreno_dump_rb(struct kgsl_device *device, const void *buf,
 	}
 }
 
-static bool adreno_ib_dump_enabled(void)
-{
-#ifdef CONFIG_MSM_KGSL_PSTMRTMDMP_NO_IB_DUMP
-	return 0;
-#else
-	return 1;
-#endif
-}
-
 struct log_field {
 	bool show;
 	const char *display;
@@ -817,7 +808,7 @@ static int adreno_dump(struct kgsl_device *device)
 		cp_rb_base, cp_rb_rptr, cp_rb_wptr, read_idx);
 	adreno_dump_rb(device, rb_copy, num_item<<2, read_idx, rb_count);
 
-	if (adreno_ib_dump_enabled()) {
+	if (is_adreno_pm_ib_enabled()) {
 		for (read_idx = NUM_DWORDS_OF_RINGBUFFER_HISTORY;
 			read_idx >= 0; --read_idx) {
 			uint32_t this_cmd = rb_copy[read_idx];
@@ -849,16 +840,17 @@ static int adreno_dump(struct kgsl_device *device)
 	}
 
 	/* Dump the registers if the user asked for it */
-
-	if (adreno_is_a20x(adreno_dev))
-		adreno_dump_regs(device, a200_registers,
-			a200_registers_count);
-	else if (adreno_is_a22x(adreno_dev))
-		adreno_dump_regs(device, a220_registers,
-			a220_registers_count);
-	else if (adreno_is_a3xx(adreno_dev))
-		adreno_dump_regs(device, a3xx_registers,
-			a3xx_registers_count);
+	if (is_adreno_pm_regs_enabled()) {
+		if (adreno_is_a20x(adreno_dev))
+			adreno_dump_regs(device, a200_registers,
+					a200_registers_count);
+		else if (adreno_is_a22x(adreno_dev))
+			adreno_dump_regs(device, a220_registers,
+					a220_registers_count);
+		else if (adreno_is_a3xx(adreno_dev))
+			adreno_dump_regs(device, a3xx_registers,
+					a3xx_registers_count);
+	}
 
 error_vfree:
 	vfree(rb_copy);
