@@ -316,8 +316,6 @@ struct mxt_data {
 	bool is_tp;
 
 	unsigned int irq;
-	unsigned int touch_x_size;
-	unsigned int touch_y_size;
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
@@ -752,9 +750,9 @@ static void mxt_input_touchevent(struct mxt_data *data,
 
 	x = (message->message[1] << 4) | ((message->message[3] >> 4) & 0xf);
 	y = (message->message[2] << 4) | ((message->message[3] & 0xf));
-	if (data->touch_x_size < 1024)
+	if (data->pdata->panel_maxx < 1024)
 		x = x >> 2;
-	if (data->touch_y_size < 1024)
+	if (data->pdata->panel_maxy < 1024)
 		y = y >> 2;
 
 	area = message->message[4];
@@ -2058,9 +2056,9 @@ static int mxt_probe(struct i2c_client *client,
 
 	/* For single touch */
 	input_set_abs_params(input_dev, ABS_X,
-			     0, data->pdata->x_size, 0, 0);
+			     pdata->disp_minx, pdata->disp_maxx, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y,
-			     0, data->pdata->y_size, 0, 0);
+			     pdata->disp_miny, pdata->disp_maxy, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE,
 			     0, 255, 0, 0);
 
@@ -2072,21 +2070,11 @@ static int mxt_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, MXT_MAX_AREA, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			     0, data->pdata->x_size, 0, 0);
+			     pdata->disp_minx, pdata->disp_maxx, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			     0, data->pdata->y_size, 0, 0);
+			     pdata->disp_miny, pdata->disp_maxy, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
 			     0, 255, 0, 0);
-
-	if (pdata->touch_x_size)
-		data->touch_x_size = pdata->touch_x_size;
-	else
-		data->touch_x_size = pdata->x_size;
-
-	if (pdata->touch_y_size)
-		data->touch_y_size = pdata->touch_y_size;
-	else
-		data->touch_y_size = pdata->y_size;
 
 	/* set key array supported keys */
 	if (pdata->key_codes) {
