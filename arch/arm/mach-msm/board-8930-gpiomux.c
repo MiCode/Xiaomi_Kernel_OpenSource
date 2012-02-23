@@ -611,7 +611,11 @@ static struct msm_gpiomux_config msm8960_hdmi_configs[] __initdata = {
 };
 #endif
 
-#ifdef MSM8930_PHASE_2
+static struct gpiomux_setting haptics_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
 static struct gpiomux_setting haptics_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
@@ -622,17 +626,18 @@ static struct msm_gpiomux_config msm8930_haptics_configs[] __initdata = {
 	{
 		.gpio = 77,
 		.settings = {
+			[GPIOMUX_ACTIVE] = &haptics_active_cfg,
 			[GPIOMUX_SUSPENDED] = &haptics_suspend_cfg,
 		},
 	},
 	{
 		.gpio = 78,
 		.settings = {
+			[GPIOMUX_ACTIVE] = &haptics_active_cfg,
 			[GPIOMUX_SUSPENDED] = &haptics_suspend_cfg,
 		},
 	},
 };
-#endif
 
 int __init msm8930_init_gpiomux(void)
 {
@@ -679,11 +684,10 @@ int __init msm8930_init_gpiomux(void)
 		msm_gpiomux_install(mdm_configs,
 			ARRAY_SIZE(mdm_configs));
 
-#ifdef MSM8930_PHASE_2
-	if (machine_is_msm8930_mtp() || machine_is_msm8930_fluid())
+	if (machine_is_msm8930_cdp() || machine_is_msm8930_mtp()
+		|| machine_is_msm8930_fluid())
 		msm_gpiomux_install(msm8930_haptics_configs,
 			ARRAY_SIZE(msm8930_haptics_configs));
-#endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
