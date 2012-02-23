@@ -205,14 +205,14 @@ static int get_clocks(struct device *dev, struct footswitch *fs)
 		fs->src_clk = clk_get(dev, "core_clk");
 	}
 	if (IS_ERR(fs->src_clk)) {
-		pr_err("clk_get(src_clk) failed\n");
+		pr_err("%s clk_get(src_clk) failed\n", fs->desc.name);
 		rc = PTR_ERR(fs->src_clk);
 		goto err_src_clk;
 	}
 
 	fs->core_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(fs->core_clk)) {
-		pr_err("clk_get(core_clk) failed\n");
+		pr_err("%s clk_get(core_clk) failed\n", fs->desc.name);
 		rc = PTR_ERR(fs->core_clk);
 		goto err_core_clk;
 	}
@@ -220,7 +220,7 @@ static int get_clocks(struct device *dev, struct footswitch *fs)
 	if (fs->has_ahb_clk) {
 		fs->ahb_clk = clk_get(dev, "iface_clk");
 		if (IS_ERR(fs->ahb_clk)) {
-			pr_err("clk_get(iface_clk) failed\n");
+			pr_err("%s clk_get(iface_clk) failed\n", fs->desc.name);
 			rc = PTR_ERR(fs->ahb_clk);
 			goto err_ahb_clk;
 		}
