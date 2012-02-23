@@ -453,6 +453,7 @@ static inline int ion_map_iommu(struct ion_client *client,
 			struct ion_handle *handle, int domain_num,
 			int partition_num, unsigned long align,
 			unsigned long iova_length, unsigned long *iova,
+			unsigned long *buffer_size,
 			unsigned long flags)
 {
 	return -ENODEV;
