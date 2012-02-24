@@ -264,19 +264,10 @@ static int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = 0;
 
-	retval = usb_autopm_get_interface(dev->intf);
-	if (retval < 0) {
-		dev_err(dev->devicep, "%s Resumption fail\n", __func__);
-		goto done_nopm;
-	}
-
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
 	if (retval < 0)
 		dev_err(dev->devicep, "%s Intr submit %d\n", __func__, retval);
 
-	usb_autopm_put_interface(dev->intf);
-
-done_nopm:
 	return retval;
 }
 
@@ -342,35 +333,19 @@ nomem:
 }
 static int rmnet_usb_ctrl_write_cmd(struct rmnet_ctrl_dev *dev)
 {
-	int			retval = 0;
 	struct usb_device	*udev;
 
 	if (!is_dev_connected(dev))
 		return -ENODEV;
 
 	udev = interface_to_usbdev(dev->intf);
-	retval = usb_autopm_get_interface(dev->intf);
-	if (retval < 0) {
-		dev_err(dev->devicep, "%s: Unable to resume interface: %d\n",
-			__func__, retval);
-
-		/*
-		* Revisit if (retval == -EPERM)
-		*		rmnet_usb_suspend(dev->intf, PMSG_SUSPEND);
-		*/
-
-		return retval;
-	}
 	dev->set_ctrl_line_state_cnt++;
-	retval = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
+	return usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
 		USB_CDC_REQ_SET_CONTROL_LINE_STATE,
 		(USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE),
 		dev->cbits_tomdm,
 		dev->intf->cur_altsetting->desc.bInterfaceNumber,
 		NULL, 0, USB_CTRL_SET_TIMEOUT);
-	usb_autopm_put_interface(dev->intf);
-
-	return retval;
 }
 
 static void ctrl_write_callback(struct urb *urb)
@@ -428,7 +403,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 			     (unsigned char *)out_ctlreq, (void *)buf, size,
 			     ctrl_write_callback, dev);
 
-	result = usb_autopm_get_interface_async(dev->intf);
+	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
 		dev_err(dev->devicep, "%s: Unable to resume interface: %d\n",
 			__func__, result);
@@ -450,7 +425,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 		dev_err(dev->devicep, "%s: Submit URB error %d\n",
 			__func__, result);
 		dev->snd_encap_cmd_cnt--;
-		usb_autopm_put_interface_async(dev->intf);
+		usb_autopm_put_interface(dev->intf);
 		usb_unanchor_urb(sndurb);
 		usb_free_urb(sndurb);
 		kfree(out_ctlreq);
@@ -662,6 +637,8 @@ static ssize_t rmnet_ctl_write(struct file *file, const char __user * buf,
 static int rmnet_ctrl_tiocmset(struct rmnet_ctrl_dev *dev, unsigned int set,
 		unsigned int clear)
 {
+	int retval;
+
 	mutex_lock(&dev->dev_lock);
 	if (set & TIOCM_DTR)
 		dev->cbits_tomdm |= ACM_CTRL_DTR;
@@ -681,7 +658,17 @@ static int rmnet_ctrl_tiocmset(struct rmnet_ctrl_dev *dev, unsigned int set,
 
 	mutex_unlock(&dev->dev_lock);
 
-	return rmnet_usb_ctrl_write_cmd(dev);
+	retval = usb_autopm_get_interface(dev->intf);
+	if (retval < 0) {
+		dev_err(dev->devicep, "%s: Unable to resume interface: %d\n",
+			__func__, retval);
+		return retval;
+	}
+
+	retval = rmnet_usb_ctrl_write_cmd(dev);
+
+	usb_autopm_put_interface(dev->intf);
+	return retval;
 }
 
 static int rmnet_ctrl_tiocmget(struct rmnet_ctrl_dev *dev)
@@ -774,6 +761,10 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	dev->tx_ctrl_err_cnt = 0;
 	dev->set_ctrl_line_state_cnt = 0;
 
+	ret = rmnet_usb_ctrl_write_cmd(dev);
+	if (ret < 0)
+		return ret;
+
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->inturb) {
 		dev_err(dev->devicep, "Error allocating int urb\n");
@@ -799,18 +790,14 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 		dev->intf->cur_altsetting->desc.bInterfaceNumber;
 	dev->in_ctlreq->wLength = cpu_to_le16(DEFAULT_READ_URB_LENGTH);
 
-	interval =
-		max((int)int_in->desc.bInterval,
-		(udev->speed == USB_SPEED_HIGH) ? HS_INTERVAL : FS_LS_INTERVAL);
+	interval = max((int)int_in->desc.bInterval,
+			(udev->speed == USB_SPEED_HIGH) ? HS_INTERVAL
+							: FS_LS_INTERVAL);
 
 	usb_fill_int_urb(dev->inturb, udev,
 			 dev->int_pipe,
 			 dev->intbuf, wMaxPacketSize,
 			 notification_available_cb, dev, interval);
-
-	ret = rmnet_usb_ctrl_write_cmd(dev);
-	if (ret < 0)
-		return ret;
 
 	return rmnet_usb_ctrl_start_rx(dev);
 }

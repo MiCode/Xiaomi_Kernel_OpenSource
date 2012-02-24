@@ -148,7 +148,6 @@ static int rmnet_usb_resume(struct usb_interface *iface)
 
 	retval = usbnet_resume(iface);
 	if (!retval) {
-
 		if (oldstate & PM_EVENT_SUSPEND)
 			retval = rmnet_usb_ctrl_start(dev);
 	}
@@ -258,6 +257,12 @@ static int rmnet_usb_rx_fixup(struct usbnet *dev,
 		dev->net->name, dev->net->stats.rx_packets, skb->len);
 
 	return 1;
+}
+
+static int rmnet_usb_manage_power(struct usbnet *dev, int on)
+{
+	dev->intf->needs_remote_wakeup = on;
+	return 0;
 }
 
 static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
@@ -501,6 +506,7 @@ static const struct driver_info rmnet_info_pid9034 = {
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
+	.manage_power  = rmnet_usb_manage_power,
 	.data          = PID9034_IFACE_MASK,
 };
 
@@ -509,6 +515,7 @@ static const struct driver_info rmnet_info_pid9048 = {
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
+	.manage_power  = rmnet_usb_manage_power,
 	.data          = PID9048_IFACE_MASK,
 };
 
@@ -517,6 +524,7 @@ static const struct driver_info rmnet_info_pid904c = {
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
+	.manage_power  = rmnet_usb_manage_power,
 	.data          = PID904C_IFACE_MASK,
 };
 
