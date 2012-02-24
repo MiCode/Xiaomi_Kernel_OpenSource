@@ -2073,19 +2073,24 @@ static int vid_dec_open_secure(struct inode *inode, struct file *file)
 		mutex_unlock(&vid_dec_device_p->lock);
 		return -ENODEV;
 	}
-	if (res_trk_open_secure_session()) {
-		ERR("Secure session operation failure\n");
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
-	}
+	res_trk_secure_set();
 	file->private_data = vid_dec_open_client();
 	if (!file->private_data) {
-		res_trk_close_secure_session();
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
+		goto error;
+	}
+
+	if (res_trk_open_secure_session()) {
+		ERR("Secure session operation failure\n");
+		goto error;
 	}
 	mutex_unlock(&vid_dec_device_p->lock);
 	return 0;
+
+error:
+	res_trk_secure_unset();
+	mutex_unlock(&vid_dec_device_p->lock);
+	return -ENODEV;
+
 }
 
 static int vid_dec_open(struct inode *inode, struct file *file)
@@ -2113,8 +2118,8 @@ static int vid_dec_release_secure(struct inode *inode, struct file *file)
 	INFO("msm_vidc_dec: Inside %s()", __func__);
 	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
 	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
-	vid_dec_close_client(client_ctx);
 	res_trk_close_secure_session();
+	vid_dec_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
