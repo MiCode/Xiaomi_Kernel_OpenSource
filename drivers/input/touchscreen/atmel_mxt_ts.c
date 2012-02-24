@@ -274,6 +274,10 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define T7_DATA_SIZE		3
 #define MXT_MAX_RW_TRIES	3
 #define MXT_BLOCK_SIZE		256
+#define MXT_CFG_VERSION_LEN	3
+#define MXT_CFG_VERSION_EQUAL	0
+#define MXT_CFG_VERSION_LESS	1
+#define MXT_CFG_VERSION_GREATER	2
 
 #define MXT_DEBUGFS_DIR		"atmel_mxt_ts"
 #define MXT_DEBUGFS_FILE	"object"
@@ -340,8 +344,9 @@ struct mxt_data {
 	u8 t9_min_reportid;
 	u8 t15_max_reportid;
 	u8 t15_min_reportid;
-	u8 curr_cfg_version;
+	u8 cfg_version[MXT_CFG_VERSION_LEN];
 	int cfg_version_idx;
+	bool update_cfg;
 	const char *fw_name;
 };
 
@@ -1056,14 +1061,85 @@ static int mxt_get_object_table(struct mxt_data *data)
 	return 0;
 }
 
-static int mxt_search_config_array(struct mxt_data *data, bool version_match)
+static int compare_versions(const u8 *v1, const u8 *v2)
+{
+	int i;
+
+	if (!v1 || !v2)
+		return -EINVAL;
+
+	/* The major version number stays the same across different versions for
+	 * a particular controller on a target. The minor and sub-minor version
+	 * numbers indicate which version is newer.
+	 */
+	if (v1[0] != v2[0])
+		return -EINVAL;
+
+	for (i = 1; i < MXT_CFG_VERSION_LEN; i++) {
+		if (v1[i] > v2[i])
+			return MXT_CFG_VERSION_LESS;	/* v2 is older */
+
+		if (v1[i] < v2[i])
+			return MXT_CFG_VERSION_GREATER;	/* v2 is newer */
+	}
+
+	return MXT_CFG_VERSION_EQUAL;	/* v1 and v2 are equal */
+}
+
+static void mxt_check_config_version(struct mxt_data *data,
+			const struct mxt_config_info *cfg_info,
+			bool match_major,
+			const u8 **cfg_version_found,
+			bool *found_cfg_major_match)
+{
+	const u8 *cfg_version;
+	int result = -EINVAL;
+
+	cfg_version = cfg_info->config + data->cfg_version_idx;
+
+	if (*cfg_version_found)
+		result = compare_versions(*cfg_version_found, cfg_version);
+
+	if (match_major) {
+		if (result >= MXT_CFG_VERSION_EQUAL)
+			*found_cfg_major_match = true;
+
+		if (result == MXT_CFG_VERSION_EQUAL ||
+			result == MXT_CFG_VERSION_GREATER) {
+			data->config_info = cfg_info;
+			data->fw_name = cfg_info->fw_name;
+			*cfg_version_found = cfg_version;
+		}
+
+		if (result == MXT_CFG_VERSION_GREATER)
+			data->update_cfg = true;
+	} else if (!*cfg_version_found || result == MXT_CFG_VERSION_GREATER) {
+		data->config_info = cfg_info;
+		data->fw_name = cfg_info->fw_name;
+		data->update_cfg = true;
+		*cfg_version_found = cfg_version;
+	}
+}
+
+/* If the controller's config version has a non-zero major number, call this
+ * function with match_major = true to look for the latest config present in
+ * the pdata based on matching family id, variant id, f/w version, build, and
+ * config major number. If the controller is programmed with wrong config data
+ * previously, call this function with match_major = false to look for latest
+ * config based on based on matching family id, variant id, f/w version and
+ * build only.
+ */
+static int mxt_search_config_array(struct mxt_data *data, bool match_major)
 {
 
 	const struct mxt_platform_data *pdata = data->pdata;
 	const struct mxt_config_info *cfg_info;
-	struct mxt_info *info = &data->info;
+	const struct mxt_info *info = &data->info;
+	const u8 *cfg_version_found;
+	bool found_cfg_major_match = false;
 	int i;
-	u8 cfg_version;
+
+	cfg_version_found = match_major ? data->cfg_version : NULL;
 
 	for (i = 0; i < pdata->config_array_size; i++) {
 
@@ -1077,22 +1153,17 @@ static int mxt_search_config_array(struct mxt_data *data, bool version_match)
 			info->version == cfg_info->version &&
 			info->build == cfg_info->build) {
 
-			cfg_version = cfg_info->config[data->cfg_version_idx];
-			if (data->curr_cfg_version == cfg_version ||
-				!version_match) {
-				data->config_info = cfg_info;
-				data->fw_name = pdata->config_array[i].fw_name;
-				return 0;
-			}
+			mxt_check_config_version(data, cfg_info, match_major,
+				&cfg_version_found, &found_cfg_major_match);
 		}
 	}
 
+	if (data->config_info || found_cfg_major_match)
+		return 0;
+
+	data->config_info = NULL;
 	data->fw_name = NULL;
-	dev_info(&data->client->dev,
-		"Config not found: F: %d, V: %d, FW: %d.%d.%d, CFG: %d\n",
-		info->family_id, info->variant_id,
-		info->version >> 4, info->version & 0xF, info->build,
-		data->curr_cfg_version);
+
 	return -EINVAL;
 }
 
@@ -1115,24 +1186,40 @@ static int mxt_get_config(struct mxt_data *data)
 		return -EINVAL;
 	}
 
-	error = mxt_read_reg(data->client, object->start_address,
-				&data->curr_cfg_version);
+	error = __mxt_read_reg(data->client, object->start_address,
+				sizeof(data->cfg_version), data->cfg_version);
 	if (error) {
 		dev_err(dev, "Unable to read config version\n");
 		return error;
 	}
+	dev_info(dev, "Current config version on the controller is %d.%d.%d\n",
+			data->cfg_version[0], data->cfg_version[1],
+			data->cfg_version[2]);
 
 	/* It is possible that the config data on the controller is not
 	 * versioned and the version number returns 0. In this case,
 	 * find a match without the config version checking.
 	 */
 	error = mxt_search_config_array(data,
-				data->curr_cfg_version != 0 ? true : false);
-	if (error)
-		return error;
+				data->cfg_version[0] != 0 ? true : false);
+	if (error) {
+		/* If a match wasn't found for a non-zero config version,
+		 * it means the controller has the wrong config data. Search
+		 * for a best match based on controller and firmware version,
+		 * but not config version.
+		 */
+		if (data->cfg_version[0])
+			error = mxt_search_config_array(data, false);
+		if (error) {
+			dev_err(dev,
+				"Unable to find matching config in pdata\n");
+			return error;
+		}
+	}
 
 	return 0;
 }
+
 static void mxt_reset_delay(struct mxt_data *data)
 {
 	struct mxt_info *info = &data->info;
@@ -1152,14 +1239,49 @@ static void mxt_reset_delay(struct mxt_data *data)
 	}
 }
 
+static int mxt_backup_nv(struct mxt_data *data)
+{
+	int error;
+	u8 command_register;
+	int timeout_counter = 0;
+
+	/* Backup to memory */
+	mxt_write_object(data, MXT_GEN_COMMAND_T6,
+			MXT_COMMAND_BACKUPNV,
+			MXT_BACKUP_VALUE);
+	msleep(MXT_BACKUP_TIME);
+
+	do {
+		error = mxt_read_object(data, MXT_GEN_COMMAND_T6,
+					MXT_COMMAND_BACKUPNV,
+					&command_register);
+		if (error)
+			return error;
+
+		usleep_range(1000, 2000);
+
+	} while ((command_register != 0) && (++timeout_counter <= 100));
+
+	if (timeout_counter > 100) {
+		dev_err(&data->client->dev, "No response after backup!\n");
+		return -EIO;
+	}
+
+	/* Soft reset */
+	mxt_write_object(data, MXT_GEN_COMMAND_T6, MXT_COMMAND_RESET, 1);
+
+	mxt_reset_delay(data);
+
+	return 0;
+}
+
 static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
 	struct mxt_info *info = &data->info;
 	int error;
-	int timeout_counter = 0;
 	u8 val;
-	u8 command_register;
+	const u8 *cfg_ver;
 	struct mxt_object *t7_object;
 	struct mxt_object *t9_object;
 	struct mxt_object *t15_object;
@@ -1209,9 +1331,35 @@ static int mxt_initialize(struct mxt_data *data)
 		dev_dbg(&client->dev, "Config info not found.\n");
 
 	/* Check register init values */
-	error = mxt_check_reg_init(data);
-	if (error)
-		goto free_object_table;
+	if (data->config_info && data->config_info->config) {
+		if (data->update_cfg) {
+			error = mxt_check_reg_init(data);
+			if (error) {
+				dev_err(&client->dev,
+					"Failed to check reg init value\n");
+				goto free_object_table;
+			}
+
+			error = mxt_backup_nv(data);
+			if (error) {
+				dev_err(&client->dev, "Failed to back up NV\n");
+				goto free_object_table;
+			}
+
+			cfg_ver = data->config_info->config +
+							data->cfg_version_idx;
+			dev_info(&client->dev,
+				"Config updated from %d.%d.%d to %d.%d.%d\n",
+				data->cfg_version[0], data->cfg_version[1],
+				data->cfg_version[2],
+				cfg_ver[0], cfg_ver[1], cfg_ver[2]);
+
+			memcpy(data->cfg_version, cfg_ver, MXT_CFG_VERSION_LEN);
+		}
+	} else {
+		dev_info(&client->dev,
+			"No cfg data defined, skipping check reg init\n");
+	}
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
 	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
@@ -1257,32 +1405,6 @@ static int mxt_initialize(struct mxt_data *data)
 						t15_object->num_report_ids + 1;
 		}
 	}
-
-	/* Backup to memory */
-	mxt_write_object(data, MXT_GEN_COMMAND_T6,
-			MXT_COMMAND_BACKUPNV,
-			MXT_BACKUP_VALUE);
-	msleep(MXT_BACKUP_TIME);
-	do {
-		error =  mxt_read_object(data, MXT_GEN_COMMAND_T6,
-					MXT_COMMAND_BACKUPNV,
-					&command_register);
-		if (error)
-			goto free_object_table;
-		usleep_range(1000, 2000);
-	} while ((command_register != 0) && (++timeout_counter <= 100));
-	if (timeout_counter > 100) {
-		dev_err(&client->dev, "No response after backup!\n");
-		error = -EIO;
-		goto free_object_table;
-	}
-
-
-	/* Soft reset */
-	mxt_write_object(data, MXT_GEN_COMMAND_T6,
-			MXT_COMMAND_RESET, 1);
-
-	mxt_reset_delay(data);
 
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
@@ -1566,6 +1688,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 		kfree(data->object_table);
 		data->object_table = NULL;
 		data->cfg_version_idx = 0;
+		data->update_cfg = false;
 
 		mxt_initialize(data);
 	}
