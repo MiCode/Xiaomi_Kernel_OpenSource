@@ -3211,7 +3211,7 @@ int q6asm_get_apr_service_id(int session_id)
 {
 	pr_debug("%s\n", __func__);
 
-	if (session_id < 0) {
+	if (session_id < 0 || session_id > SESSION_MAX) {
 		pr_err("%s: invalid session_id = %d\n", __func__, session_id);
 		return -EINVAL;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -459,7 +459,8 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		return -ENOMEM;
 	}
 	buf = prtd->audio_client->port[dir].buf;
-	if (!buf && !buf[0].data)
+
+	if (buf == NULL || buf[0].data == NULL)
 		return -ENOMEM;
 
 	pr_debug("%s:buf = %p\n", __func__, buf);

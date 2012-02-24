@@ -129,7 +129,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&prtd->lock);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
