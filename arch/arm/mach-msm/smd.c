@@ -72,6 +72,7 @@ enum {
 	MSM_SMSM_DEBUG = 1U << 1,
 	MSM_SMD_INFO = 1U << 2,
 	MSM_SMSM_INFO = 1U << 3,
+	MSM_SMx_POWER_INFO = 1U << 4,
 };
 
 struct smsm_shared_info {
@@ -117,27 +118,31 @@ struct interrupt_config {
 };
 
 static irqreturn_t smd_modem_irq_handler(int irq, void *data);
+static irqreturn_t smsm_modem_irq_handler(int irq, void *data);
 static irqreturn_t smd_dsp_irq_handler(int irq, void *data);
+static irqreturn_t smsm_dsp_irq_handler(int irq, void *data);
 static irqreturn_t smd_dsps_irq_handler(int irq, void *data);
+static irqreturn_t smsm_dsps_irq_handler(int irq, void *data);
 static irqreturn_t smd_wcnss_irq_handler(int irq, void *data);
+static irqreturn_t smsm_wcnss_irq_handler(int irq, void *data);
 static irqreturn_t smsm_irq_handler(int irq, void *data);
 
 static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 	[SMD_MODEM] = {
 		.smd.irq_handler = smd_modem_irq_handler,
-		.smsm.irq_handler = smsm_irq_handler,
+		.smsm.irq_handler = smsm_modem_irq_handler,
 	},
 	[SMD_Q6] = {
 		.smd.irq_handler = smd_dsp_irq_handler,
-		.smsm.irq_handler = smsm_irq_handler,
+		.smsm.irq_handler = smsm_dsp_irq_handler,
 	},
 	[SMD_DSPS] = {
 		.smd.irq_handler = smd_dsps_irq_handler,
-		.smsm.irq_handler = smsm_irq_handler,
+		.smsm.irq_handler = smsm_dsps_irq_handler,
 	},
 	[SMD_WCNSS] = {
 		.smd.irq_handler = smd_wcnss_irq_handler,
-		.smsm.irq_handler = smsm_irq_handler,
+		.smsm.irq_handler = smsm_wcnss_irq_handler,
 	},
 };
 
@@ -175,11 +180,16 @@ module_param_named(debug_mask, msm_smd_debug_mask,
 		if (msm_smd_debug_mask & MSM_SMSM_INFO) \
 			printk(KERN_INFO x);		\
 	} while (0)
+#define SMx_POWER_INFO(x...) do {				\
+		if (msm_smd_debug_mask & MSM_SMx_POWER_INFO) \
+			printk(KERN_INFO x);		\
+	} while (0)
 #else
 #define SMD_DBG(x...) do { } while (0)
 #define SMSM_DBG(x...) do { } while (0)
 #define SMD_INFO(x...) do { } while (0)
 #define SMSM_INFO(x...) do { } while (0)
+#define SMx_POWER_INFO(x...) do { } while (0)
 #endif
 
 static unsigned last_heap_free = 0xffffffff;
@@ -1149,15 +1159,24 @@ static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 		}
 		tmp = ch->recv->state;
 		if (tmp != ch->last_state) {
+			SMx_POWER_INFO("SMD ch%d '%s' State change %d->%d\n",
+					ch->n, ch->name, ch->last_state, tmp);
 			smd_state_change(ch, ch->last_state, tmp);
 			state_change = 1;
 		}
 		if (ch_flags & 0x3) {
 			ch->update_state(ch);
+			SMx_POWER_INFO("SMD ch%d '%s' Data event r%d/w%d\n",
+					ch->n, ch->name,
+					ch->read_avail(ch),
+					ch->fifo_size - ch->write_avail(ch));
 			ch->notify(ch->priv, SMD_EVENT_DATA);
 		}
-		if (ch_flags & 0x4 && !state_change)
+		if (ch_flags & 0x4 && !state_change) {
+			SMx_POWER_INFO("SMD ch%d '%s' State update\n",
+					ch->n, ch->name);
 			ch->notify(ch->priv, SMD_EVENT_STATUS);
+		}
 	}
 	spin_unlock_irqrestore(&smd_lock, flags);
 	do_smd_probe();
@@ -1165,6 +1184,7 @@ static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 
 static irqreturn_t smd_modem_irq_handler(int irq, void *data)
 {
+	SMx_POWER_INFO("SMD Int Modem->Apps\n");
 	handle_smd_irq(&smd_ch_list_modem, notify_modem_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
@@ -1172,6 +1192,7 @@ static irqreturn_t smd_modem_irq_handler(int irq, void *data)
 
 static irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 {
+	SMx_POWER_INFO("SMD Int LPASS->Apps\n");
 	handle_smd_irq(&smd_ch_list_dsp, notify_dsp_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
@@ -1179,6 +1200,7 @@ static irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 
 static irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 {
+	SMx_POWER_INFO("SMD Int DSPS->Apps\n");
 	handle_smd_irq(&smd_ch_list_dsps, notify_dsps_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
@@ -1186,6 +1208,7 @@ static irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 
 static irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 {
+	SMx_POWER_INFO("SMD Int WCNSS->Apps\n");
 	handle_smd_irq(&smd_ch_list_wcnss, notify_wcnss_smd);
 	handle_smd_irq_closing_list();
 	return IRQ_HANDLED;
@@ -2325,6 +2348,30 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smsm_modem_irq_handler(int irq, void *data)
+{
+	SMx_POWER_INFO("SMSM Int Modem->Apps\n");
+	return smsm_irq_handler(irq, data);
+}
+
+static irqreturn_t smsm_dsp_irq_handler(int irq, void *data)
+{
+	SMx_POWER_INFO("SMSM Int LPASS->Apps\n");
+	return smsm_irq_handler(irq, data);
+}
+
+static irqreturn_t smsm_dsps_irq_handler(int irq, void *data)
+{
+	SMx_POWER_INFO("SMSM Int DSPS->Apps\n");
+	return smsm_irq_handler(irq, data);
+}
+
+static irqreturn_t smsm_wcnss_irq_handler(int irq, void *data)
+{
+	SMx_POWER_INFO("SMSM Int WCNSS->Apps\n");
+	return smsm_irq_handler(irq, data);
+}
+
 int smsm_change_intr_mask(uint32_t smsm_entry,
 			  uint32_t clear_mask, uint32_t set_mask)
 {
@@ -2456,6 +2503,9 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 
 			state_changes = state_info->last_value ^ new_state;
 			if (state_changes) {
+				SMx_POWER_INFO("SMSM Change %d: %08x->%08x\n",
+						n, state_info->last_value,
+						new_state);
 				list_for_each_entry(cb_info,
 					&state_info->callbacks, cb_list) {
 
@@ -2606,7 +2656,7 @@ int smd_core_init(void)
 		pr_err("smd_core_init: "
 		       "enable_irq_wake failed for INT_A9_M2A_0\n");
 
-	r = request_irq(INT_A9_M2A_5, smsm_irq_handler,
+	r = request_irq(INT_A9_M2A_5, smsm_modem_irq_handler,
 			flags, "smsm_dev", 0);
 	if (r < 0) {
 		free_irq(INT_A9_M2A_0, 0);
@@ -2629,8 +2679,8 @@ int smd_core_init(void)
 		return r;
 	}
 
-	r = request_irq(INT_ADSP_A11_SMSM, smsm_irq_handler,
-			flags, "smsm_dev", smsm_irq_handler);
+	r = request_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler,
+			flags, "smsm_dev", smsm_dsp_irq_handler);
 	if (r < 0) {
 		free_irq(INT_A9_M2A_0, 0);
 		free_irq(INT_A9_M2A_5, 0);
@@ -2659,7 +2709,7 @@ int smd_core_init(void)
 		free_irq(INT_A9_M2A_0, 0);
 		free_irq(INT_A9_M2A_5, 0);
 		free_irq(INT_ADSP_A11, smd_dsp_irq_handler);
-		free_irq(INT_ADSP_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler);
 		return r;
 	}
 
@@ -2676,7 +2726,7 @@ int smd_core_init(void)
 		free_irq(INT_A9_M2A_0, 0);
 		free_irq(INT_A9_M2A_5, 0);
 		free_irq(INT_ADSP_A11, smd_dsp_irq_handler);
-		free_irq(INT_ADSP_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler);
 		free_irq(INT_DSPS_A11, smd_dsps_irq_handler);
 		return r;
 	}
@@ -2686,13 +2736,13 @@ int smd_core_init(void)
 		pr_err("smd_core_init: "
 		       "enable_irq_wake failed for INT_WCNSS_A11\n");
 
-	r = request_irq(INT_WCNSS_A11_SMSM, smsm_irq_handler,
-			flags, "smsm_dev", smsm_irq_handler);
+	r = request_irq(INT_WCNSS_A11_SMSM, smsm_wcnss_irq_handler,
+			flags, "smsm_dev", smsm_wcnss_irq_handler);
 	if (r < 0) {
 		free_irq(INT_A9_M2A_0, 0);
 		free_irq(INT_A9_M2A_5, 0);
 		free_irq(INT_ADSP_A11, smd_dsp_irq_handler);
-		free_irq(INT_ADSP_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler);
 		free_irq(INT_DSPS_A11, smd_dsps_irq_handler);
 		free_irq(INT_WCNSS_A11, smd_wcnss_irq_handler);
 		return r;
@@ -2705,16 +2755,16 @@ int smd_core_init(void)
 #endif
 
 #if defined(CONFIG_DSPS_SMSM)
-	r = request_irq(INT_DSPS_A11_SMSM, smsm_irq_handler,
-			flags, "smsm_dev", smsm_irq_handler);
+	r = request_irq(INT_DSPS_A11_SMSM, smsm_dsps_irq_handler,
+			flags, "smsm_dev", smsm_dsps_irq_handler);
 	if (r < 0) {
 		free_irq(INT_A9_M2A_0, 0);
 		free_irq(INT_A9_M2A_5, 0);
 		free_irq(INT_ADSP_A11, smd_dsp_irq_handler);
-		free_irq(INT_ADSP_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_ADSP_A11_SMSM, smsm_dsp_irq_handler);
 		free_irq(INT_DSPS_A11, smd_dsps_irq_handler);
 		free_irq(INT_WCNSS_A11, smd_wcnss_irq_handler);
-		free_irq(INT_WCNSS_A11_SMSM, smsm_irq_handler);
+		free_irq(INT_WCNSS_A11_SMSM, smsm_wcnss_irq_handler);
 		return r;
 	}
 
