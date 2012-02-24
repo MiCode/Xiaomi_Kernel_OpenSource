@@ -1667,6 +1667,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 {
 	int usb_present;
 
+	pm_chg_failed_clear(chip, 1);
 	usb_present = is_usb_chg_plugged_in(chip);
 	if (chip->usb_present ^ usb_present) {
 		notify_usb_of_the_plugin_event(usb_present);
@@ -2328,6 +2329,7 @@ static void update_heartbeat(struct work_struct *work)
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, update_heartbeat_work);
 
+	pm_chg_failed_clear(chip, 1);
 	power_supply_changed(&chip->batt_psy);
 	schedule_delayed_work(&chip->update_heartbeat_work,
 			      round_jiffies_relative(msecs_to_jiffies
@@ -2456,7 +2458,10 @@ static void eoc_worker(struct work_struct *work)
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, eoc_work);
 	static int count;
-	int end = is_charging_finished(chip);
+	int end;
+
+	pm_chg_failed_clear(chip, 1);
+	end = is_charging_finished(chip);
 
 	if (end == CHG_NOT_IN_PROGRESS) {
 			/* enable fastchg irq */
