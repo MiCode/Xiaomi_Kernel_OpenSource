@@ -37,7 +37,7 @@ struct afe_ctl {
 
 static struct afe_ctl this_afe;
 
-static uint32_t afe_cal_addr[MAX_AUDPROC_TYPES];
+static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
 
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
@@ -332,12 +332,16 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 		goto done;
 	}
 
-	if (afe_cal_addr[path] != cal_block.cal_paddr) {
-		if (afe_cal_addr[path] != 0)
-			afe_cmd_memory_unmap_nowait(afe_cal_addr[path]);
+	if ((afe_cal_addr[path].cal_paddr != cal_block.cal_paddr) ||
+		(cal_block.cal_size > afe_cal_addr[path].cal_size)) {
+		if (afe_cal_addr[path].cal_paddr != 0)
+			afe_cmd_memory_unmap_nowait(
+				afe_cal_addr[path].cal_paddr);
+
 		afe_cmd_memory_map_nowait(cal_block.cal_paddr,
 						cal_block.cal_size);
-		afe_cal_addr[path] = cal_block.cal_paddr;
+		afe_cal_addr[path].cal_paddr = cal_block.cal_paddr;
+		afe_cal_addr[path].cal_size = cal_block.cal_size;
 	}
 
 	afe_cal.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1565,8 +1569,9 @@ static void __exit afe_exit(void)
 		debugfs_remove(debugfs_afelb_gain);
 #endif
 	for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
-		if (afe_cal_addr[i] != 0)
-			afe_cmd_memory_unmap_nowait(afe_cal_addr[i]);
+		if (afe_cal_addr[i].cal_paddr != 0)
+			afe_cmd_memory_unmap_nowait(
+				afe_cal_addr[i].cal_paddr);
 	}
 }
 
