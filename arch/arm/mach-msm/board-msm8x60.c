@@ -100,6 +100,7 @@
 #include "peripheral-loader.h"
 #include <linux/platform_data/qcom_crypto_device.h>
 #include "rpm_resources.h"
+#include "clock.h"
 #include "pm-boot.h"
 #include "board-storage-common-a.h"
 

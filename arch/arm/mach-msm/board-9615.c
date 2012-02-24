@@ -50,6 +50,7 @@
 #include "devices.h"
 #include "board-9615.h"
 #include "pm.h"
+#include "clock.h"
 #include "pm-boot.h"
 #include <mach/gpiomux.h>
 #include "ci13xxx_udc.h"

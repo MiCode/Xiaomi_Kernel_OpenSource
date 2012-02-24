@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "clock.h"
+#include <mach/clk-provider.h>
 
 static int dummy_clk_reset(struct clk *clk, enum clk_reset_action action)
 {

@@ -28,7 +28,6 @@
 #include <linux/debugfs.h>
 #include <linux/completion.h>
 #include <linux/workqueue.h>
-#include <linux/clk.h>
 #include <linux/mfd/pmic8058.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
@@ -39,7 +38,6 @@
 #include <linux/msm_charm.h>
 #include "msm_watchdog.h"
 #include "devices.h"
-#include "clock.h"
 #include "mdm_private.h"
 #define MDM_PBLRDY_CNT		20
 
