@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/list.h>
 #include <linux/clkdev.h>
+#include <mach/clk-provider.h>
 
 #include "clock.h"
 

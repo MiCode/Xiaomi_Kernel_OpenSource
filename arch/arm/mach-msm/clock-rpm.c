@@ -12,10 +12,9 @@
  */
 
 #include <linux/err.h>
-#include <mach/clk.h>
+#include <mach/clk-provider.h>
 
 #include "rpm_resources.h"
-#include "clock.h"
 #include "clock-rpm.h"
 
 #define __clk_rpmrs_set_rate(r, value, ctx, noirq) \

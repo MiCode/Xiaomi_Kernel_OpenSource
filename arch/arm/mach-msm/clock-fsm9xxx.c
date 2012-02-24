@@ -12,9 +12,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/clk.h>
-
-#include <mach/clk.h>
-
+#include <mach/clk-provider.h>
 #include "clock.h"
 
 /*

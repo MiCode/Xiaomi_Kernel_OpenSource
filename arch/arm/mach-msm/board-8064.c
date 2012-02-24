@@ -78,6 +78,7 @@
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
+#include "clock.h"
 #include "spm.h"
 #include <mach/mpm.h>
 #include "rpm_resources.h"

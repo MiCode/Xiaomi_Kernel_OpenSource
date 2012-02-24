@@ -38,6 +38,7 @@
 #include <mach/socinfo.h>
 #include "devices.h"
 #include "timer.h"
+#include "clock.h"
 #include "pm.h"
 #include "spm.h"
 #include <linux/regulator/consumer.h>

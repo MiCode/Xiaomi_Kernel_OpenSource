@@ -24,7 +24,6 @@
 #include <linux/string.h>
 
 #include <mach/msm_iomap.h>
-#include <mach/clk.h>
 #include <mach/proc_comm.h>
 
 #include "clock.h"

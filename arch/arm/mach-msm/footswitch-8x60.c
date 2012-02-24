@@ -24,7 +24,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
 #include <mach/scm-io.h>
-#include "clock.h"
+#include <mach/clk.h>
 #include "footswitch.h"
 
 #ifdef CONFIG_MSM_SECURE_IO

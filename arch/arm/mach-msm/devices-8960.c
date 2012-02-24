@@ -35,6 +35,7 @@
 #include <mach/msm_dcvs.h>
 #include <mach/msm_rtb.h>
 #include <mach/msm_cache_dump.h>
+#include <mach/clk-provider.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>

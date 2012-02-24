@@ -54,6 +54,7 @@
 #include "timer.h"
 #include "msm-keypad-devices.h"
 #include "acpuclock.h"
+#include "clock.h"
 #include "pm.h"
 #include "irq.h"
 #include "pm-boot.h"

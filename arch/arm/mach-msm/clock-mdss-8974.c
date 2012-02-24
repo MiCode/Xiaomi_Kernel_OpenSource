@@ -20,8 +20,8 @@
 
 #include <asm/processor.h>
 #include <mach/msm_iomap.h>
+#include <mach/clk-provider.h>
 
-#include "clock.h"
 #include "clock-mdss-8974.h"
 
 #define REG_R(addr)		readl_relaxed(addr)

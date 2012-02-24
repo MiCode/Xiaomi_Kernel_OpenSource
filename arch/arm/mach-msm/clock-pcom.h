@@ -13,6 +13,8 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_PCOM_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_PCOM_H
 
+#include <mach/clk-provider.h>
+
 /* clock IDs used by the modem processor */
 
 #define P_ACPU_CLK	0   /* Applications processor clock */

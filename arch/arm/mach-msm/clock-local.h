@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CLOCK_LOCAL_H
 
 #include <linux/spinlock.h>
-#include "clock.h"
+#include <mach/clk-provider.h>
 
 #define MN_MODE_DUAL_EDGE 0x2
 
