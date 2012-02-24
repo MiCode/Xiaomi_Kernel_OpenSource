@@ -44,33 +44,77 @@
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
+#include <net/bluetooth/l2cap.h>
 
-static void hci_le_connect(struct hci_conn *conn)
+struct hci_conn *hci_le_connect(struct hci_dev *hdev, __u16 pkt_type,
+				bdaddr_t *dst, __u8 sec_level, __u8 auth_type,
+				struct bt_le_params *le_params)
 {
-	struct hci_dev *hdev = conn->hdev;
+	struct hci_conn *le;
 	struct hci_cp_le_create_conn cp;
+	struct adv_entry *entry;
+	struct link_key *key;
 
-	BT_DBG("%p", conn);
+	BT_DBG("%p", hdev);
 
-	conn->state = BT_CONNECT;
-	conn->out = 1;
-	conn->link_mode |= HCI_LM_MASTER;
-	conn->sec_level = BT_SECURITY_LOW;
-	conn->type = LE_LINK;
+	le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
+	if (le) {
+		hci_conn_hold(le);
+		return le;
+	}
+
+	key = hci_find_link_key_type(hdev, dst, KEY_TYPE_LTK);
+	if (!key) {
+		entry = hci_find_adv_entry(hdev, dst);
+		if (entry)
+			le = hci_le_conn_add(hdev, dst,
+					entry->bdaddr_type);
+		else
+			le = hci_le_conn_add(hdev, dst, 0);
+	} else {
+		le = hci_le_conn_add(hdev, dst, key->addr_type);
+	}
+
+	if (!le)
+		return ERR_PTR(-ENOMEM);
+
+	hci_conn_hold(le);
+
+	le->state = BT_CONNECT;
+	le->out = 1;
+	le->link_mode |= HCI_LM_MASTER;
+	le->sec_level = BT_SECURITY_LOW;
+	le->type = LE_LINK;
 
 	memset(&cp, 0, sizeof(cp));
-	cp.scan_interval = cpu_to_le16(0x0004);
-	cp.scan_window = cpu_to_le16(0x0004);
-	bacpy(&cp.peer_addr, &conn->dst);
-	cp.peer_addr_type = conn->dst_type;
-	cp.conn_interval_min = cpu_to_le16(0x0008);
-	cp.conn_interval_max = cpu_to_le16(0x0100);
-	cp.supervision_timeout = cpu_to_le16(1000);
-	cp.min_ce_len = cpu_to_le16(0x0001);
-	cp.max_ce_len = cpu_to_le16(0x0001);
+	if (l2cap_sock_le_params_valid(le_params)) {
+		cp.supervision_timeout =
+				cpu_to_le16(le_params->supervision_timeout);
+		cp.scan_interval = cpu_to_le16(le_params->scan_interval);
+		cp.scan_window = cpu_to_le16(le_params->scan_window);
+		cp.conn_interval_min = cpu_to_le16(le_params->interval_min);
+		cp.conn_interval_max = cpu_to_le16(le_params->interval_max);
+		cp.conn_latency = cpu_to_le16(le_params->latency);
+		cp.min_ce_len = cpu_to_le16(le_params->min_ce_len);
+		cp.max_ce_len = cpu_to_le16(le_params->max_ce_len);
+		le->conn_timeout = le_params->conn_timeout;
+	} else {
+		cp.supervision_timeout = cpu_to_le16(BT_LE_SUP_TO_DEFAULT);
+		cp.scan_interval = cpu_to_le16(BT_LE_SCAN_INTERVAL_DEF);
+		cp.scan_window = cpu_to_le16(BT_LE_SCAN_WINDOW_DEF);
+		cp.conn_interval_min = cpu_to_le16(BT_LE_CONN_INTERVAL_MIN_DEF);
+		cp.conn_interval_max = cpu_to_le16(BT_LE_CONN_INTERVAL_MAX_DEF);
+		cp.conn_latency = cpu_to_le16(BT_LE_LATENCY_DEF);
+		le->conn_timeout = 5;
+	}
+	bacpy(&cp.peer_addr, &le->dst);
+	cp.peer_addr_type = le->dst_type;
 
 	hci_send_cmd(hdev, HCI_OP_LE_CREATE_CONN, sizeof(cp), &cp);
+
+	return le;
 }
+EXPORT_SYMBOL(hci_le_connect);
 
 static void hci_le_connect_cancel(struct hci_conn *conn)
 {
@@ -685,41 +729,12 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 {
 	struct hci_conn *acl;
 	struct hci_conn *sco;
-	struct hci_conn *le;
 
 	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
-	if (type == LE_LINK) {
-		struct adv_entry *entry;
-		struct link_key *key;
-
-		le = hci_conn_hash_lookup_ba(hdev, LE_LINK, dst);
-		if (le) {
-			hci_conn_hold(le);
-			return le;
-		}
-
-		key = hci_find_link_key_type(hdev, dst, KEY_TYPE_LTK);
-		if (!key) {
-			entry = hci_find_adv_entry(hdev, dst);
-			if (entry)
-				le = hci_le_conn_add(hdev, dst,
-						entry->bdaddr_type);
-			else
-				le = hci_le_conn_add(hdev, dst, 0);
-		} else {
-			le = hci_le_conn_add(hdev, dst, key->addr_type);
-		}
-
-		if (!le)
-			return ERR_PTR(-ENOMEM);
-
-		hci_le_connect(le);
-
-		hci_conn_hold(le);
-
-		return le;
-	}
+	if (type == LE_LINK)
+		return hci_le_connect(hdev, pkt_type, dst, sec_level,
+							auth_type, NULL);
 
 	acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
 	if (!acl) {
