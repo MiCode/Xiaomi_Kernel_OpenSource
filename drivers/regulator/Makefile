@@ -66,6 +66,7 @@ obj-$(CONFIG_REGULATOR_PMIC8901) += pmic8901-regulator.o
 obj-$(CONFIG_REGULATOR_MSM_GPIO) += msm-gpio-regulator.o
 obj-$(CONFIG_REGULATOR_PM8058_XO) += pm8058-xo.o
 obj-$(CONFIG_REGULATOR_PM8XXX) += pm8xxx-regulator.o
+obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
 obj-$(CONFIG_REGULATOR_TPS65912) += tps65912-regulator.o
 obj-$(CONFIG_REGULATOR_TPS80031) += tps80031-regulator.o
 obj-$(CONFIG_REGULATOR_TWL4030) += twl-regulator.o
