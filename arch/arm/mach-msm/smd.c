@@ -1152,7 +1152,7 @@ static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 			smd_state_change(ch, ch->last_state, tmp);
 			state_change = 1;
 		}
-		if (ch_flags) {
+		if (ch_flags & 0x3) {
 			ch->update_state(ch);
 			ch->notify(ch->priv, SMD_EVENT_DATA);
 		}
