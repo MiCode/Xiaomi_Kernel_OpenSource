@@ -334,3 +334,7 @@ extern int msm_copper_stub_regulator_devices_len;
 extern struct platform_device msm8960_cpu_idle_device;
 extern struct platform_device msm8930_cpu_idle_device;
 extern struct platform_device apq8064_cpu_idle_device;
+
+extern struct platform_device msm8960_msm_gov_device;
+extern struct platform_device msm8930_msm_gov_device;
+extern struct platform_device apq8064_msm_gov_device;

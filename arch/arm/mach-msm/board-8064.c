@@ -1777,6 +1777,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_rtb_device,
 #endif
 	&apq8064_cpu_idle_device,
+	&apq8064_msm_gov_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

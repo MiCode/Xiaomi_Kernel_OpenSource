@@ -1813,6 +1813,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_rtb_device,
 #endif
 	&msm8930_cpu_idle_device,
+	&msm8930_msm_gov_device,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
