@@ -1622,6 +1622,7 @@ static struct measure_clk measure_clk = {
 
 static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("xo",	cxo_clk.c,	"msm_otg"),
+	CLK_LOOKUP("xo",	cxo_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("pll0",	pll0_clk.c,	NULL),
 	CLK_LOOKUP("pll8",	pll8_clk.c,	NULL),
 	CLK_LOOKUP("pll14",	pll14_clk.c,	NULL),
