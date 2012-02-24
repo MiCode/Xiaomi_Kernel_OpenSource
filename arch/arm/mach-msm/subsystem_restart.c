@@ -23,6 +23,8 @@
 #include <linux/io.h>
 #include <linux/kthread.h>
 #include <linux/time.h>
+#include <linux/wakelock.h>
+#include <linux/suspend.h>
 
 #include <asm/current.h>
 
@@ -45,6 +47,8 @@ struct subsys_soc_restart_order {
 
 struct restart_thread_data {
 	struct subsys_data *subsys;
+	struct wake_lock ssr_wake_lock;
+	char wakelockname[64];
 	int coupled;
 };
 
@@ -334,10 +338,8 @@ static int subsystem_restart_thread(void *data)
 	/* Try to acquire shutdown_lock. If this fails, these subsystems are
 	 * already being restarted - return.
 	 */
-	if (!mutex_trylock(shutdown_lock)) {
-		kfree(data);
-		do_exit(0);
-	}
+	if (!mutex_trylock(shutdown_lock))
+		goto out;
 
 	pr_debug("[%p]: Attempting to get powerup lock!\n", current);
 
@@ -430,6 +432,9 @@ static int subsystem_restart_thread(void *data)
 
 	pr_debug("[%p]: Released powerup lock!\n", current);
 
+out:
+	wake_unlock(&r_work->ssr_wake_lock);
+	wake_lock_destroy(&r_work->ssr_wake_lock);
 	kfree(data);
 	do_exit(0);
 }
@@ -481,6 +486,12 @@ int subsystem_restart(const char *subsys_name)
 	case RESET_SUBSYS_INDEPENDENT:
 		pr_debug("Restarting %s [level=%d]!\n", subsys_name,
 				restart_level);
+
+		snprintf(data->wakelockname, sizeof(data->wakelockname),
+				"ssr(%s)", subsys_name);
+		wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND,
+			data->wakelockname);
+		wake_lock(&data->ssr_wake_lock);
 
 		/* Let the kthread handle the actual restarting. Using a
 		 * workqueue will not work since all restart requests are
