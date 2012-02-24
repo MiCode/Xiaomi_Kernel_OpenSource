@@ -613,6 +613,11 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	struct ion_iommu_map *iommu_map;
 	int ret = 0;
 
+	if (ION_IS_CACHED(flags)) {
+		pr_err("%s: Cannot map iommu as cached.\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&client->lock);
 	if (!ion_handle_validate(client, handle)) {
 		pr_err("%s: invalid handle passed to map_kernel.\n",
@@ -628,11 +633,6 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 		pr_err("%s: map_iommu is not implemented by this heap.\n",
 		       __func__);
 		ret = -ENODEV;
-		goto out;
-	}
-
-	if (ion_validate_buffer_flags(buffer, flags)) {
-		ret = -EEXIST;
 		goto out;
 	}
 
