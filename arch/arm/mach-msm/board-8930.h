@@ -109,6 +109,7 @@ extern struct msm_camera_board_info msm8930_camera_board_info;
 void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
+extern void msm8930_add_vidc_device(void);
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes

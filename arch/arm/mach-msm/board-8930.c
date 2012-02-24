@@ -1785,7 +1785,6 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&android_pmem_audio_device,
 #endif
-	&msm_device_vidc,
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
 
@@ -2214,6 +2213,7 @@ static void __init msm8930_cdp_init(void)
 	platform_add_devices(msm_footswitch_devices,
 		msm_num_footswitch_devices);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	msm8930_add_vidc_device();
 	/*
 	 * TODO: When physical 8930/PM8038 hardware becomes
 	 * available, remove this block or add the config
