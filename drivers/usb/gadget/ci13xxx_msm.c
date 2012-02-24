@@ -47,7 +47,6 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 	.flags			= CI13XXX_REGS_SHARED |
 				  CI13XXX_REQUIRE_TRANSCEIVER |
 				  CI13XXX_PULLUP_ON_VBUS |
-				  CI13XXX_DISABLE_STREAMING |
 				  CI13XXX_ZERO_ITC,
 
 	.notify_event		= ci13xxx_msm_notify_event,
