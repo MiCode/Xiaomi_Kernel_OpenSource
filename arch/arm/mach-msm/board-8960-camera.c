@@ -529,16 +529,16 @@ static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
 	.mount_angle = 90,
 	.cam_vreg = msm_8960_mt9m114_vreg,
 	.num_vreg = ARRAY_SIZE(msm_8960_mt9m114_vreg),
-	.gpio_conf = &msm_8960_back_cam_gpio_conf,
+	.gpio_conf = &msm_8960_front_cam_gpio_conf,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
 	.sensor_name = "mt9m114",
-	.pdata = &msm_camera_csi_device_data[0],
+	.pdata = &msm_camera_csi_device_data[1],
 	.flash_data = &flash_mt9m114,
 	.sensor_platform_info = &sensor_board_info_mt9m114,
 	.csi_if = 1,
-	.camera_type = BACK_CAMERA_2D,
+	.camera_type = FRONT_CAMERA_2D,
 };
 
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
