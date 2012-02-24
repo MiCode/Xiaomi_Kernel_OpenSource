@@ -1741,6 +1741,10 @@ config ARCH_MEMORY_REMOVE
 	def_bool n
 	depends on MEMORY_HOTPLUG
 
+config ENABLE_DMM
+	def_bool n
+	depends on MEMORY_HOTPLUG
+
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
 	range 11 64 if ARCH_SHMOBILE
