@@ -239,6 +239,19 @@ static int msm_rpm_process_ack_interrupt(void)
 	return 2;
 }
 
+static void msm_rpm_err_fatal(void)
+{
+	/* Tell RPM that we're handling the interrupt */
+	__raw_writel(0x1, msm_rpm_data.ipc_rpm_reg);
+	panic("RPM error fataled");
+}
+
+static irqreturn_t msm_rpm_err_interrupt(int irq, void *dev_id)
+{
+	msm_rpm_err_fatal();
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t msm_rpm_ack_interrupt(int irq, void *dev_id)
 {
 	unsigned long flags;
@@ -267,6 +280,9 @@ static void msm_rpm_busy_wait_for_request_completion(
 				msm_rpm_request) {
 			if (allow_async_completion)
 				spin_unlock(&msm_rpm_irq_lock);
+			if (gic_is_spi_pending(msm_rpm_data.irq_err))
+				msm_rpm_err_fatal();
+			gic_clear_spi_pending(msm_rpm_data.irq_err);
 			udelay(1);
 			if (allow_async_completion)
 				spin_lock(&msm_rpm_irq_lock);
@@ -355,7 +371,7 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
 	uint32_t ctx_mask_ack = 0;
 	uint32_t sel_masks_ack[SEL_MASK_SIZE];
-	struct irq_chip *irq_chip = NULL;
+	struct irq_chip *irq_chip, *err_chip;
 	int i;
 
 	msm_rpm_request_poll_mode.req = req;
@@ -371,6 +387,13 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 		return -ENOSPC;
 	}
 	irq_chip->irq_mask(irq_get_irq_data(irq));
+	err_chip = irq_get_chip(msm_rpm_data.irq_err);
+	if (!err_chip) {
+		irq_chip->irq_unmask(irq_get_irq_data(irq));
+		spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
+		return -ENOSPC;
+	}
+	err_chip->irq_mask(irq_get_irq_data(msm_rpm_data.irq_err));
 
 	if (msm_rpm_request) {
 		msm_rpm_busy_wait_for_request_completion(true);
@@ -398,6 +421,7 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_busy_wait_for_request_completion(false);
 	BUG_ON(msm_rpm_request);
 
+	err_chip->irq_unmask(irq_get_irq_data(msm_rpm_data.irq_err));
 	irq_chip->irq_unmask(irq_get_irq_data(irq));
 	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 
@@ -980,6 +1004,14 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	if (rc) {
 		pr_err("%s: failed to set wakeup irq %u: %d\n",
 			__func__, irq, rc);
+		return rc;
+	}
+
+	rc = request_irq(data->irq_err, msm_rpm_err_interrupt,
+			IRQF_TRIGGER_RISING, "rpm_err", NULL);
+	if (rc) {
+		pr_err("%s: failed to request error interrupt: %d\n",
+			__func__, rc);
 		return rc;
 	}
 

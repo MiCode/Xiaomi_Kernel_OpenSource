@@ -882,6 +882,7 @@ struct msm_rpm_map_data {
 struct msm_rpm_platform_data {
 	void __iomem *reg_base_addrs[MSM_RPM_PAGE_COUNT];
 	unsigned int irq_ack;
+	unsigned int irq_err;
 	void *ipc_rpm_reg;
 	unsigned int ipc_rpm_val;
 	struct msm_rpm_map_data target_id[MSM_RPM_ID_LAST];
