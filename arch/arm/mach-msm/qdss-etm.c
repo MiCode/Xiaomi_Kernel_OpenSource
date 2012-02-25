@@ -27,6 +27,7 @@
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <asm/sections.h>
+#include <mach/socinfo.h>
 
 #include "qdss.h"
 
@@ -196,8 +197,6 @@ struct etm_ctx {
 };
 
 static struct etm_ctx etm = {
-	.mode			= 0x2,
-	.ctrl			= 0x1000,
 	.trigger_event		= 0x406F,
 	.enable_event		= 0x6F,
 	.enable_ctrl1		= 0x1,
@@ -508,8 +507,12 @@ static ssize_t reset_store(struct kobject *kobj,
 
 	mutex_lock(&etm.mutex);
 	if (val) {
-		etm.mode = 0x3;
-		etm.ctrl = 0x1000;
+		etm.mode = ETM_MODE_EXCLUDE;
+		etm.ctrl = 0x0;
+		if (cpu_is_krait_v1()) {
+			etm.mode |= ETM_MODE_CYCACC;
+			etm.ctrl |= BIT(12);
+		}
 		etm.trigger_event = 0x406F;
 		etm.startstop_ctrl = 0x0;
 		etm.enable_event = 0x6F;
@@ -1168,7 +1171,7 @@ static bool etm_arch_supported(uint8_t arch)
 
 static int __init etm_arch_init(void)
 {
-	int ret;
+	int ret, i;
 	/* use cpu 0 for setup */
 	int cpu = 0;
 	uint32_t etmidr;
@@ -1199,6 +1202,20 @@ static int __init etm_arch_init(void)
 	etm.nr_ext_inp = BMVAL(etmccr, 17, 19);
 	etm.nr_ext_out = BMVAL(etmccr, 20, 22);
 	etm.nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
+
+	if (cpu_is_krait_v1()) {
+		/* Krait pass1 doesn't support include filtering and non-cycle
+		 * accurate tracing
+		 */
+		etm.mode = (ETM_MODE_EXCLUDE | ETM_MODE_CYCACC);
+		etm.ctrl = 0x1000;
+		etm.enable_ctrl1 = 0x1000000;
+		for (i = 0; i < etm.nr_addr_cmp; i++) {
+			etm.addr_val[i] = 0x0;
+			etm.addr_acctype[i] = 0x0;
+			etm.addr_type[i] = ETM_ADDR_TYPE_NONE;
+		}
+	}
 
 	/* Vote for ETM power/clock disable */
 	etm_set_pwrdwn(cpu);
