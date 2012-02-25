@@ -712,10 +712,12 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	return 0;
 
 put_clocks:
-	clk_disable_unprepare(mehci->core_clk);
-	clk_disable_unprepare(mehci->phy_clk);
-	clk_disable_unprepare(mehci->cal_clk);
-	clk_disable_unprepare(mehci->ahb_clk);
+	if (!atomic_read(&mehci->in_lpm)) {
+		clk_disable_unprepare(mehci->core_clk);
+		clk_disable_unprepare(mehci->phy_clk);
+		clk_disable_unprepare(mehci->cal_clk);
+		clk_disable_unprepare(mehci->ahb_clk);
+	}
 	clk_put(mehci->ahb_clk);
 put_cal_clk:
 	clk_put(mehci->cal_clk);
@@ -893,7 +895,6 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 		free_irq(mehci->peripheral_status_irq, mehci);
 
 	device_init_wakeup(&pdev->dev, 0);
-	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
