@@ -427,9 +427,26 @@ static struct pm8xxx_vreg regulator_data[] = {
 	NCP("8921_ncp", 0x090),
 };
 
+/*
+ * PM8917 adds 6 LDOs and a boost regulator beyond those available on PM8921.
+ * It also replaces SMPS 3 with FTSMPS 3.  PM8917 does not have an NCP.
+ */
+static struct pm8xxx_vreg pm8917_regulator_data[] = {
+	/*   name	     pc_name	    ctrl   test   hpm_min */
+	PLDO("8917_l30",     "8917_l30_pc", 0x0A3, 0x0A4, LDO_150),
+	PLDO("8917_l31",     "8917_l31_pc", 0x0A5, 0x0A6, LDO_150),
+	PLDO("8917_l32",     "8917_l32_pc", 0x0A7, 0x0A8, LDO_150),
+	PLDO("8917_l33",     "8917_l33_pc", 0x0C6, 0x0C7, LDO_150),
+	PLDO("8917_l34",     "8917_l34_pc", 0x0D2, 0x0D3, LDO_150),
+	PLDO("8917_l35",     "8917_l35_pc", 0x0D4, 0x0D5, LDO_300),
+
+	/*    name          ctrl */
+	BOOST("8917_boost", 0x04B),
+};
+
 #define MAX_NAME_COMPARISON_LEN 32
 
-static int __devinit match_regulator(
+static int __devinit match_regulator(enum pm8xxx_version version,
 	struct pm8xxx_regulator_core_platform_data *core_data, char *name)
 {
 	int found = 0;
@@ -452,6 +469,25 @@ static int __devinit match_regulator(
 			break;
 		}
 	}
+	if (version == PM8XXX_VERSION_8917) {
+		for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++) {
+			if (pm8917_regulator_data[i].rdesc.name
+			    && strncmp(pm8917_regulator_data[i].rdesc.name,
+					name, MAX_NAME_COMPARISON_LEN) == 0) {
+				core_data->is_pin_controlled = false;
+				core_data->vreg = &pm8917_regulator_data[i];
+				found = 1;
+				break;
+			} else if (pm8917_regulator_data[i].rdesc_pc.name
+			      && strncmp(pm8917_regulator_data[i].rdesc_pc.name,
+					name, MAX_NAME_COMPARISON_LEN) == 0) {
+				core_data->is_pin_controlled = true;
+				core_data->vreg = &pm8917_regulator_data[i];
+				found = 1;
+				break;
+			}
+		}
+	}
 
 	if (!found)
 		pr_err("could not find a match for regulator: %s\n", name);
@@ -466,7 +502,10 @@ pm8921_add_regulators(const struct pm8921_platform_data *pdata,
 	int ret = 0;
 	struct mfd_cell *mfd_regulators;
 	struct pm8xxx_regulator_core_platform_data *cdata;
+	enum pm8xxx_version version;
 	int i;
+
+	version = pm8xxx_get_version(pmic->dev);
 
 	/* Add one device for each regulator used by the board. */
 	mfd_regulators = kzalloc(sizeof(struct mfd_cell)
@@ -488,6 +527,8 @@ pm8921_add_regulators(const struct pm8921_platform_data *pdata,
 	}
 	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
 		mutex_init(&regulator_data[i].pc_lock);
+	for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+		mutex_init(&pm8917_regulator_data[i].pc_lock);
 
 	for (i = 0; i < pdata->num_regulators; i++) {
 		if (!pdata->regulator_pdatas[i].init_data.constraints.name) {
@@ -495,7 +536,7 @@ pm8921_add_regulators(const struct pm8921_platform_data *pdata,
 			ret = -EINVAL;
 			goto bail;
 		}
-		if (!match_regulator(&cdata[i],
+		if (!match_regulator(version, &cdata[i],
 		      pdata->regulator_pdatas[i].init_data.constraints.name)) {
 			ret = -ENODEV;
 			goto bail;
@@ -519,6 +560,8 @@ pm8921_add_regulators(const struct pm8921_platform_data *pdata,
 bail:
 	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
 		mutex_destroy(&regulator_data[i].pc_lock);
+	for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+		mutex_destroy(&pm8917_regulator_data[i].pc_lock);
 	kfree(mfd_regulators);
 	kfree(cdata);
 	return ret;
@@ -908,6 +951,9 @@ static int __devexit pm8921_remove(struct platform_device *pdev)
 		if (pmic->mfd_regulators) {
 			for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
 				mutex_destroy(&regulator_data[i].pc_lock);
+			for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+				mutex_destroy(
+					&pm8917_regulator_data[i].pc_lock);
 		}
 		kfree(pmic->mfd_regulators);
 		kfree(pmic->regulator_cdata);
