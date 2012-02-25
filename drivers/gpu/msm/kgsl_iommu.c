@@ -24,11 +24,23 @@
 #include "kgsl_mmu.h"
 #include "kgsl_sharedmem.h"
 
+/*
+ * On APQ8064, KGSL can control a maximum of 4 IOMMU devices: 2 user and 2
+ * priv domains, 1 each for each of the AXI ports attached to the GPU.  8660
+ * and 8960 have only one AXI port, so maximum allowable IOMMU devices for those
+ * chips is 2.
+ */
+
+#define KGSL_IOMMU_MAX_DEV 4
+
+struct kgsl_iommu_device {
+	struct device *dev;
+	int attached;
+};
+
 struct kgsl_iommu {
-	struct device *iommu_user_dev;
-	int iommu_user_dev_attached;
-	struct device *iommu_priv_dev;
-	int iommu_priv_dev_attached;
+	struct kgsl_iommu_device dev[KGSL_IOMMU_MAX_DEV];
+	int dev_count;
 };
 
 static int kgsl_iommu_pt_equal(struct kgsl_pagetable *pt,
@@ -58,89 +70,101 @@ static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu = mmu->priv;
+	int i;
 
 	BUG_ON(mmu->hwpagetable == NULL);
 	BUG_ON(mmu->hwpagetable->priv == NULL);
 
 	domain = mmu->hwpagetable->priv;
 
-	if (iommu->iommu_user_dev_attached) {
-		iommu_detach_device(domain, iommu->iommu_user_dev);
-		iommu->iommu_user_dev_attached = 0;
+	for (i = 0; i < iommu->dev_count; i++) {
+		iommu_detach_device(domain, iommu->dev[i].dev);
+		iommu->dev[i].attached = 0;
 		KGSL_MEM_INFO(mmu->device,
-				"iommu %p detached from user dev of MMU: %p\n",
-				domain, mmu);
-	}
-	if (iommu->iommu_priv_dev_attached) {
-		iommu_detach_device(domain, iommu->iommu_priv_dev);
-		iommu->iommu_priv_dev_attached = 0;
-		KGSL_MEM_INFO(mmu->device,
-				"iommu %p detached from priv dev of MMU: %p\n",
-				domain, mmu);
+			"iommu %p detached from user dev of MMU: %p\n",
+			domain, mmu);
 	}
 }
 
 static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 {
 	struct iommu_domain *domain;
-	int ret = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
+	int i, ret = 0;
 
 	BUG_ON(mmu->hwpagetable == NULL);
 	BUG_ON(mmu->hwpagetable->priv == NULL);
 
 	domain = mmu->hwpagetable->priv;
 
-	if (iommu->iommu_user_dev && !iommu->iommu_user_dev_attached) {
-		ret = iommu_attach_device(domain, iommu->iommu_user_dev);
-		if (ret) {
-			KGSL_MEM_ERR(mmu->device,
-			"Failed to attach device, err %d\n", ret);
-			goto done;
-		}
-		iommu->iommu_user_dev_attached = 1;
-		KGSL_MEM_INFO(mmu->device,
-				"iommu %p attached to user dev of MMU: %p\n",
+	for (i = 0; i < iommu->dev_count; i++) {
+		if (iommu->dev[i].attached == 0) {
+			ret = iommu_attach_device(domain, iommu->dev[i].dev);
+			if (ret) {
+				KGSL_MEM_ERR(mmu->device,
+					"Failed to attach device, err %d\n",
+						ret);
+				goto done;
+			}
+
+			iommu->dev[i].attached = 1;
+			KGSL_MEM_INFO(mmu->device,
+				"iommu %p detached from user dev of MMU: %p\n",
 				domain, mmu);
-	}
-	if (iommu->iommu_priv_dev && !iommu->iommu_priv_dev_attached) {
-		ret = iommu_attach_device(domain, iommu->iommu_priv_dev);
-		if (ret) {
-			KGSL_MEM_ERR(mmu->device,
-				"Failed to attach device, err %d\n", ret);
-			iommu_detach_device(domain, iommu->iommu_user_dev);
-			iommu->iommu_user_dev_attached = 0;
-			goto done;
 		}
-		iommu->iommu_priv_dev_attached = 1;
-		KGSL_MEM_INFO(mmu->device,
-				"iommu %p attached to priv dev of MMU: %p\n",
-				domain, mmu);
 	}
+
 done:
 	return ret;
+}
+
+static int _get_iommu_ctxs(struct kgsl_iommu *iommu, struct kgsl_device *device,
+	struct kgsl_device_iommu_data *data)
+{
+	int i;
+
+	for (i = 0; i < data->iommu_ctx_count; i++) {
+		if (iommu->dev_count >= KGSL_IOMMU_MAX_DEV) {
+			KGSL_CORE_ERR("Tried to attach too many IOMMU "
+				"devices\n");
+			return -ENOMEM;
+		}
+
+		if (!data->iommu_ctx_names[i])
+			continue;
+
+		iommu->dev[iommu->dev_count].dev =
+			msm_iommu_get_ctx(data->iommu_ctx_names[i]);
+		if (iommu->dev[iommu->dev_count].dev == NULL) {
+			KGSL_CORE_ERR("Failed to iommu dev handle for "
+				"device %s\n", data->iommu_ctx_names[i]);
+			return -EINVAL;
+		}
+
+		iommu->dev_count++;
+	}
+
+	return 0;
 }
 
 static int kgsl_get_iommu_ctxt(struct kgsl_iommu *iommu,
 				struct kgsl_device *device)
 {
-	int status = 0;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
 	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
-	if (pdata_dev->iommu_user_ctx_name)
-		iommu->iommu_user_dev = msm_iommu_get_ctx(
-					pdata_dev->iommu_user_ctx_name);
-	if (pdata_dev->iommu_priv_ctx_name)
-		iommu->iommu_priv_dev = msm_iommu_get_ctx(
-					pdata_dev->iommu_priv_ctx_name);
-	if (!iommu->iommu_user_dev) {
-		KGSL_CORE_ERR("Failed to get user iommu dev handle for "
-				"device %s\n",
-				pdata_dev->iommu_user_ctx_name);
-		status = -EINVAL;
+	int i, ret = 0;
+
+	/* Go through the IOMMU data and attach all the domains */
+
+	for (i = 0; i < pdata_dev->iommu_count; i++) {
+		ret = _get_iommu_ctxs(iommu, device,
+			&pdata_dev->iommu_data[i]);
+		if (ret)
+			break;
 	}
-	return status;
+
+	return ret;
 }
 
 static void kgsl_iommu_setstate(struct kgsl_device *device,
@@ -182,8 +206,6 @@ static int kgsl_iommu_init(struct kgsl_device *device)
 		return -ENOMEM;
 	}
 
-	iommu->iommu_priv_dev_attached = 0;
-	iommu->iommu_user_dev_attached = 0;
 	status = kgsl_get_iommu_ctxt(iommu, device);
 	if (status) {
 		kfree(iommu);
