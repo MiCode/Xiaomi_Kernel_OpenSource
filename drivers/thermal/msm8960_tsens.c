@@ -920,7 +920,7 @@ static int __init tsens_tm_init(void)
 	}
 
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
-		char name[17];
+		char name[18];
 		snprintf(name, sizeof(name), "tsens_tz_sensor%d", i);
 		tmdev->sensor[i].mode = THERMAL_DEVICE_ENABLED;
 		tmdev->sensor[i].sensor_num = i;
