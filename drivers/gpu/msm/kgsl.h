@@ -199,7 +199,7 @@ static inline int timestamp_cmp(unsigned int new, unsigned int old)
 	if (ts_diff == 0)
 		return 0;
 
-	return ((ts_diff > 0) || (ts_diff < -20000)) ? 1 : -1;
+	return ((ts_diff > 0) || (ts_diff < -25000)) ? 1 : -1;
 }
 
 static inline void
