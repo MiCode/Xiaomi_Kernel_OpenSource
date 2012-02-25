@@ -332,7 +332,6 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 };
 
 static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
-	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
 	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
@@ -340,7 +339,6 @@ static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
 };
 
 static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
-	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
 	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
