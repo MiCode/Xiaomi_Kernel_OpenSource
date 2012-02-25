@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,22 +131,24 @@ int ion_iommu_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	struct ion_iommu_priv_data *data = buffer->priv_virt;
 	int i;
-
+	unsigned long curr_addr;
 	if (!data)
 		return -EINVAL;
 
 	if (!ION_IS_CACHED(flags))
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	for (i = 0; i < data->nrpages; i++)
-		if (vm_insert_page(vma, vma->vm_start + i * PAGE_SIZE,
-			data->pages[i]))
+	curr_addr = vma->vm_start;
+	for (i = 0; i < data->nrpages && curr_addr < vma->vm_end; i++) {
+		if (vm_insert_page(vma, curr_addr, data->pages[i])) {
 			/*
 			 * This will fail the mmap which will
 			 * clean up the vma space properly.
 			 */
 			return -EINVAL;
-
+		}
+		curr_addr += PAGE_SIZE;
+	}
 	return 0;
 }
 
