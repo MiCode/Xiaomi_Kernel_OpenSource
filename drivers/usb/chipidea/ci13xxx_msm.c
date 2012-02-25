@@ -39,7 +39,8 @@ static struct ci13xxx_platform_data ci13xxx_msm_platdata = {
 				  CI13XXX_REQUIRE_TRANSCEIVER |
 				  CI13XXX_PULLUP_ON_VBUS |
 				  CI13XXX_ZERO_ITC |
-				  CI13XXX_DISABLE_STREAMING,
+				  CI13XXX_DISABLE_STREAMING |
+				  CI13XXX_IS_OTG,
 
 	.notify_event		= ci13xxx_msm_notify_event,
 };

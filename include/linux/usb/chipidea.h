@@ -20,6 +20,7 @@ struct ci13xxx_platform_data {
 #define CI13XXX_PULLUP_ON_VBUS		BIT(2)
 #define CI13XXX_DISABLE_STREAMING	BIT(3)
 #define CI13XXX_ZERO_ITC		BIT(4)
+#define CI13XXX_IS_OTG			BIT(5)
 
 #define CI13XXX_CONTROLLER_RESET_EVENT		0
 	void	(*notify_event) (struct ci13xxx *ci, unsigned event);

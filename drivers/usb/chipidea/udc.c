@@ -605,6 +605,11 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	ci->suspended = 0;
 	spin_unlock_irqrestore(&ci->lock, flags);
 
+	gadget->b_hnp_enable = 0;
+	gadget->a_hnp_support = 0;
+	gadget->host_request = 0;
+	gadget->otg_srp_reqd = 0;
+
 	/* flush all endpoints */
 	gadget_for_each_ep(ep, gadget) {
 		usb_ep_fifo_flush(ep);
@@ -767,8 +772,15 @@ __acquires(mEp->lock)
 	}
 
 	if ((setup->bRequestType & USB_RECIP_MASK) == USB_RECIP_DEVICE) {
-		/* Assume that device is bus powered for now. */
-		*(u16 *)req->buf = ci->remote_wakeup << 1;
+		if (setup->wIndex == OTG_STATUS_SELECTOR) {
+			*((u8 *)req->buf) = ci->gadget.host_request <<
+						HOST_REQUEST_FLAG;
+			req->length = 1;
+		} else {
+			/* Assume that device is bus powered for now. */
+			*((u16 *)req->buf) = ci->remote_wakeup << 1;
+		}
+		/* TODO: D1 - Remote Wakeup; D0 - Self Powered */
 		retval = 0;
 	} else if ((setup->bRequestType & USB_RECIP_MASK) \
 		   == USB_RECIP_ENDPOINT) {
@@ -978,8 +990,7 @@ __acquires(ci->lock)
 			    type != (USB_DIR_IN|USB_RECIP_ENDPOINT) &&
 			    type != (USB_DIR_IN|USB_RECIP_INTERFACE))
 				goto delegate;
-			if (le16_to_cpu(req.wLength) != 2 ||
-			    le16_to_cpu(req.wValue)  != 0)
+			if (le16_to_cpu(req.wValue)  != 0)
 				break;
 			err = isr_get_status_response(ci, &req);
 			break;
@@ -1018,6 +1029,16 @@ __acquires(ci->lock)
 					ci->remote_wakeup = 1;
 					err = isr_setup_status_phase(ci);
 					break;
+				case USB_DEVICE_B_HNP_ENABLE:
+					ci->gadget.b_hnp_enable = 1;
+					err = isr_setup_status_phase(ci);
+					break;
+				case USB_DEVICE_A_HNP_SUPPORT:
+					ci->gadget.a_hnp_support = 1;
+					err = isr_setup_status_phase(ci);
+					break;
+				case USB_DEVICE_A_ALT_HNP_SUPPORT:
+					break;
 				case USB_DEVICE_TEST_MODE:
 					tmode = le16_to_cpu(req.wIndex) >> 8;
 					switch (tmode) {
@@ -1030,11 +1051,20 @@ __acquires(ci->lock)
 						err = isr_setup_status_phase(
 								ci);
 						break;
+					case TEST_OTG_SRP_REQD:
+						ci->gadget.otg_srp_reqd = 1;
+						err = isr_setup_status_phase(
+								ci);
+						break;
+					case TEST_OTG_HNP_REQD:
+						ci->gadget.host_request = 1;
+						err = isr_setup_status_phase(
+								ci);
 					default:
 						break;
 					}
 				default:
-					goto delegate;
+					break;
 				}
 			} else {
 				goto delegate;
@@ -1678,7 +1708,10 @@ static int udc_start(struct ci13xxx *ci)
 	ci->gadget.ops          = &usb_gadget_ops;
 	ci->gadget.speed        = USB_SPEED_UNKNOWN;
 	ci->gadget.max_speed    = USB_SPEED_HIGH;
-	ci->gadget.is_otg       = 0;
+	if (ci->platdata->flags & CI13XXX_IS_OTG)
+		ci->gadget.is_otg       = 1;
+	else
+		ci->gadget.is_otg       = 0;
 	ci->gadget.name         = ci->platdata->name;
 
 	INIT_LIST_HEAD(&ci->gadget.ep_list);
