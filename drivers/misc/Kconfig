@@ -627,6 +627,13 @@ config TZCOM
 	  TrustZone Operating Environment (TZBSP) using Secure Channel
 	  Manager (SCM) interface.
 
+config QSEECOM
+	tristate "Qualcomm Secure Execution Communicator driver"
+	help
+	  Provides a communication interface between userspace and
+	  Qualcomm Secure Execution Environment (QSEE) using Secure Channel
+	  Manager (SCM) interface.
+
 config QFP_FUSE
 	tristate "QFPROM Fuse Read/Write support"
 	help

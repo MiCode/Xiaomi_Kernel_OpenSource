@@ -428,6 +428,7 @@ header-y += msm_audio_sbc.h
 header-y += msm_ipc.h
 header-y += msm_charm.h
 header-y += tzcom.h
+header-y += qseecom.h
 header-y += qcedev.h
 header-y += idle_stats_device.h
 header-y += genlock.h
