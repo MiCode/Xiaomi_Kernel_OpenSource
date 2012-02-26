@@ -244,6 +244,10 @@ static struct msm_actuator_ctrl_t imx074_act_t = {
 		.f_pix_den = 10,
 		.total_f_dist_num = 197681,
 		.total_f_dist_den = 1000,
+		.hor_view_angle_num = 548,
+		.hor_view_angle_den = 10,
+		.ver_view_angle_num = 425,
+		.ver_view_angle_den = 10,
 	},
 
 	/* Initialize scenario */
