@@ -17,7 +17,7 @@ KERNEL_USE_OF ?= $(shell $(PERL) -e '$$of = "n"; while (<>) { if (/CONFIG_USE_OF
 ifeq "$(KERNEL_USE_OF)" "y"
 KERNEL_ZIMG = $(KERNEL_OUT)/arch/arm/boot/zImage
 DTB_FILE = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH).dtb
-DTS_FILE = $(KERNEL_OUT)/../../../../../../kernel/arch/arm/boot/dts/$(MSM_ARCH).dts
+DTS_FILE = $(TOP)/kernel/arch/arm/boot/dts/$(MSM_ARCH).dts
 FULL_KERNEL = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH)-zImage
 DTC = $(KERNEL_OUT)/scripts/dtc/dtc
 
