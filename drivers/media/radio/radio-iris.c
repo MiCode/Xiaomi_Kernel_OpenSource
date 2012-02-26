@@ -2609,7 +2609,7 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 
 		} else
 			retval = -EINVAL;
-
+		break;
 	case V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD:
 		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
 		if (retval < 0) {
