@@ -879,9 +879,16 @@ static int hdmi_enable_5v(int on)
 	if (on == prev_on)
 		return 0;
 
-	if (!reg_8921_hdmi_mvs)
+	if (!reg_8921_hdmi_mvs) {
 		reg_8921_hdmi_mvs = regulator_get(&hdmi_msm_device.dev,
-			"hdmi_mvs");
+					"hdmi_mvs");
+		if (IS_ERR(reg_8921_hdmi_mvs)) {
+			pr_err("'%s' regulator not found, rc=%ld\n",
+				"hdmi_mvs", IS_ERR(reg_8921_hdmi_mvs));
+			reg_8921_hdmi_mvs = NULL;
+			return -ENODEV;
+		}
+	}
 
 	if (on) {
 		rc = regulator_enable(reg_8921_hdmi_mvs);
