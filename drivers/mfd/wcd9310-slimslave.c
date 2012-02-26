@@ -236,7 +236,7 @@ int tabla_cfg_slim_sch_rx(struct tabla *tab, unsigned int *ch_num,
 		 */
 		if ((slave_port_id >
 				SB_PGD_TX_PORT_MULTI_CHANNEL_1_END_PORT_ID) &&
-			(slave_port_id <
+			(slave_port_id <=
 			 SB_PGD_RX_PORT_MULTI_CHANNEL_0_END_PORT_ID)) {
 				payload_rx = payload_rx  |
 				(1 <<
