@@ -1923,8 +1923,7 @@ static void __init apq8064_cdp_init(void)
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	apq8064_init_fb();
 	apq8064_init_gpu();
-	platform_add_devices(msm_footswitch_devices,
-			     msm_num_footswitch_devices);
+	platform_add_devices(apq8064_fs_devices, apq8064_num_fs_devices);
 	apq8064_init_cam();
 
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
