@@ -100,6 +100,7 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_hw_params *params,
 			break;
 		}
 	}
+	dai_data->rate = params_rate(params);
 	/* Q6 only supports 16 as now */
 	dai_data->port_config.mi2s.bitwidth = 16;
 
