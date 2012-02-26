@@ -103,7 +103,7 @@ static inline int cpu_is_msm7x25(void)
 
 static inline int cpu_is_msm7x27(void)
 {
-#ifdef CONFIG_ARCH_MSM7X27
+#if defined(CONFIG_ARCH_MSM7X27) && !defined(CONFIG_ARCH_MSM7X27A)
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
