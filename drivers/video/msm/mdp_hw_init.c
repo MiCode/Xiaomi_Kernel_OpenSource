@@ -635,8 +635,6 @@ void mdp_hw_init(void)
 	MDP_OUTP(MDP_BASE + 0xE0000, 0);
 	MDP_OUTP(MDP_BASE + 0x100, 0xffffffff);
 	MDP_OUTP(MDP_BASE + 0x90070, 0);
-	MDP_OUTP(MDP_BASE + 0x94010, 1);
-	MDP_OUTP(MDP_BASE + 0x9401c, 2);
 #endif
 
 	/*

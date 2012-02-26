@@ -44,6 +44,10 @@ extern spinlock_t mdp_spin_lock;
 extern int mdp_rev;
 extern struct mdp_csc_cfg mdp_csc_convert[4];
 
+extern struct workqueue_struct *mdp_hist_wq;
+extern struct work_struct mdp_histogram_worker;
+extern boolean mdp_is_hist_valid;
+
 #define MDP4_REVISION_V1		0
 #define MDP4_REVISION_V2		1
 #define MDP4_REVISION_V2_1	2
@@ -606,6 +610,10 @@ struct mdp_dma_data {
 #define MDP_EBI2_LCD0		(msm_mdp_base + 0x003c)
 #define MDP_EBI2_LCD1		(msm_mdp_base + 0x0040)
 #define MDP_EBI2_PORTMAP_MODE	(msm_mdp_base + 0x005c)
+
+#define MDP_DMA_P_HIST_INTR_STATUS	(msm_mdp_base + 0x94014)
+#define MDP_DMA_P_HIST_INTR_CLEAR	(msm_mdp_base + 0x94018)
+#define MDP_DMA_P_HIST_INTR_ENABLE	(msm_mdp_base + 0x9401C)
 #endif
 
 #define MDP_FULL_BYPASS_WORD43  (msm_mdp_base + 0x101ac)
@@ -733,6 +741,8 @@ void mdp_dma_s_update(struct msm_fb_data_type *mfd);
 int mdp_start_histogram(struct fb_info *info);
 int mdp_stop_histogram(struct fb_info *info);
 int mdp_histogram_ctrl(boolean en);
+void __mdp_histogram_kickoff(void);
+void __mdp_histogram_reset(void);
 void mdp_footswitch_ctrl(boolean on);
 
 #ifdef CONFIG_FB_MSM_MDP303

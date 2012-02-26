@@ -296,12 +296,6 @@ void mdp4_hw_init(void)
 	bits =  mdp_intr_mask;
 	outpdw(MDP_BASE + 0x0050, bits);/* enable specififed interrupts */
 
-	/* histogram */
-	MDP_OUTP(MDP_BASE + 0x95010, 1);	/* auto clear HIST */
-
-	/* enable histogram interrupts */
-	outpdw(MDP_BASE + 0x9501c, INTR_HIST_DONE);
-
 	/* For the max read pending cmd config below, if the MDP clock     */
 	/* is less than the AXI clock, then we must use 3 pending          */
 	/* pending requests.  Otherwise, we should use 8 pending requests. */
@@ -386,11 +380,8 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		that histogram works.*/
 		MDP_OUTP(MDP_BASE + 0x95010, 1);
 		outpdw(MDP_BASE + 0x9501c, INTR_HIST_DONE);
-		if (mdp_is_hist_start == TRUE) {
-			MDP_OUTP(MDP_BASE + 0x95004,
-					mdp_hist_frame_cnt);
-			MDP_OUTP(MDP_BASE + 0x95000, 1);
-		}
+		mdp_is_hist_valid = FALSE;
+		__mdp_histogram_reset();
 	}
 
 	if (isr & INTR_EXTERNAL_INTF_UDERRUN)
@@ -569,16 +560,18 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		outpdw(MDP_DMA_P_HIST_INTR_CLEAR, isr);
 		mb();
 		isr &= mask;
+		if (isr & INTR_HIST_RESET_SEQ_DONE)
+			__mdp_histogram_kickoff();
+
 		if (isr & INTR_HIST_DONE) {
-			if (waitqueue_active(&(mdp_hist_comp.wait))) {
-				complete(&mdp_hist_comp);
-			} else {
-				if (mdp_is_hist_start == TRUE) {
-					MDP_OUTP(MDP_BASE + 0x95004,
-							mdp_hist_frame_cnt);
-					MDP_OUTP(MDP_BASE + 0x95000, 1);
+			if (waitqueue_active(&mdp_hist_comp.wait)) {
+				if (!queue_work(mdp_hist_wq,
+						&mdp_histogram_worker)) {
+					pr_err("%s - can't queue hist_read\n",
+							__func__);
 				}
-			}
+			} else
+				__mdp_histogram_reset();
 		}
 	}
 
