@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1380,7 +1380,7 @@ static struct platform_driver msm_adc_rpcrouter_remote_driver = {
 	},
 };
 
-static int msm_adc_probe(struct platform_device *pdev)
+static int __devinit msm_adc_probe(struct platform_device *pdev)
 {
 	struct msm_adc_platform_data *pdata = pdev->dev.platform_data;
 	struct msm_adc_drv *msm_adc;
