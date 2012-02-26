@@ -80,6 +80,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
+			.rate = (rate), \
 			CLK_INIT(name.c), \
 		}, \
 	}; \
@@ -94,6 +95,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
+			.rate = (rate), \
 			CLK_INIT(active.c), \
 		}, \
 	};

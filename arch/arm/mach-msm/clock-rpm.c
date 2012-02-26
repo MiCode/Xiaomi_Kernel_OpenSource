@@ -187,12 +187,6 @@ static bool rpm_clk_is_local(struct clk *clk)
 	return false;
 }
 
-static unsigned long rpm_branch_clk_get_rate(struct clk *clk)
-{
-	struct rpm_clk *r = to_rpm_clk(clk);
-	return r->last_set_khz * 1000;
-}
-
 struct clk_ops clk_ops_rpm = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
@@ -207,5 +201,4 @@ struct clk_ops clk_ops_rpm_branch = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
 	.is_local = rpm_clk_is_local,
-	.get_rate = rpm_branch_clk_get_rate,
 };
