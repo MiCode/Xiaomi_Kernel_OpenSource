@@ -604,7 +604,7 @@ static int __init socinfo_init_sysdev(void)
 
 arch_initcall(socinfo_init_sysdev);
 
-void *setup_dummy_socinfo(void)
+static void * __init setup_dummy_socinfo(void)
 {
 	if (machine_is_msm8960_rumi3() || machine_is_msm8960_sim() ||
 	    machine_is_msm8960_cdp())
