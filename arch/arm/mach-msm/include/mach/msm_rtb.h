@@ -19,6 +19,7 @@ enum logk_event_type {
 	LOGK_WRITEL,
 	LOGK_LOGBUF,
 	LOGK_HOTPLUG,
+	LOGK_CTXID,
 	LOGK_OTHER,
 };
 
