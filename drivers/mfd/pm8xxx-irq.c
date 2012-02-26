@@ -102,6 +102,7 @@ static int pm8xxx_read_config_irq(struct pm_irq_chip *chip, u8 bp, u8 cp, u8 *r)
 		goto bail;
 	}
 
+	cp &= ~PM_IRQF_WRITE;
 	rc = pm8xxx_writeb(chip->dev,
 			SSBI_REG_ADDR_IRQ_CONFIG(chip->base_addr), cp);
 	if (rc)
@@ -127,7 +128,10 @@ static int pm8xxx_write_config_irq(struct pm_irq_chip *chip, u8 bp, u8 cp)
 		pr_err("Failed Selecting Block %d rc=%d\n", bp, rc);
 		goto bail;
 	}
-
+	/*
+	 * Set the write bit here as this could be a unrequested irq
+	 * whose PM_IRQF_WRITE bit is not set
+	 */
 	cp |= PM_IRQF_WRITE;
 	rc = pm8xxx_writeb(chip->dev,
 			SSBI_REG_ADDR_IRQ_CONFIG(chip->base_addr), cp);
@@ -222,7 +226,7 @@ static void pm8xxx_irq_mask(struct irq_data *d)
 	irq_bit = pmirq % 8;
 
 	if (chip->config[pmirq] == 0) {
-		pr_warn("masking rouge irq=%d pmirq=%d\n", d->irq, pmirq);
+		pr_warn("masking rogue irq=%d pmirq=%d\n", d->irq, pmirq);
 		chip->config[pmirq] = irq_bit << PM_IRQF_BITS_SHIFT;
 	}
 
@@ -242,7 +246,7 @@ static void pm8xxx_irq_mask_ack(struct irq_data *d)
 	irq_bit = pmirq % 8;
 
 	if (chip->config[pmirq] == 0) {
-		pr_warn("mask acking rouge irq=%d pmirq=%d\n", d->irq, pmirq);
+		pr_warn("mask acking rogue irq=%d pmirq=%d\n", d->irq, pmirq);
 		chip->config[pmirq] = irq_bit << PM_IRQF_BITS_SHIFT;
 	}
 
@@ -294,6 +298,12 @@ static int pm8xxx_irq_set_type(struct irq_data *d, unsigned int flow_type)
 		else
 			chip->config[pmirq] &= ~PM_IRQF_MASK_FE;
 	}
+
+	/*
+	 * The PM_IRQF_WRITE flag serves as an indication that this interrupt
+	 * been requested
+	 */
+	chip->config[pmirq] |= PM_IRQF_WRITE;
 
 	config = chip->config[pmirq] | PM_IRQF_CLR;
 	return pm8xxx_write_config_irq(chip, block, config);
