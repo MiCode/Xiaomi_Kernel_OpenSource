@@ -267,15 +267,6 @@ static void tabla_bring_down(struct tabla *tabla)
 static int tabla_reset(struct tabla *tabla)
 {
 	int ret;
-	struct pm_gpio param = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 1,
-		.pull	   = PM_GPIO_PULL_NO,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength   = PM_GPIO_STRENGTH_MED,
-		.function       = PM_GPIO_FUNC_NORMAL,
-	};
 
 	if (tabla->reset_gpio) {
 		ret = gpio_request(tabla->reset_gpio, "CDC_RESET");
@@ -285,10 +276,6 @@ static int tabla_reset(struct tabla *tabla)
 			tabla->reset_gpio = 0;
 			return ret;
 		}
-
-		ret = pm8xxx_gpio_config(tabla->reset_gpio, &param);
-		if (ret)
-			pr_err("%s: Failed to configure gpio\n", __func__);
 
 		gpio_direction_output(tabla->reset_gpio, 1);
 		msleep(20);
