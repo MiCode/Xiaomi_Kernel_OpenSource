@@ -2422,7 +2422,7 @@ struct platform_device msm_kgsl_2d0 = {
 };
 
 static const char *kgsl_2d1_iommu_ctx_names[] = {
-	"gfx2d0_2d1",
+	"gfx2d1_2d1",
 };
 
 static struct kgsl_device_iommu_data kgsl_2d1_iommu_data[] = {
