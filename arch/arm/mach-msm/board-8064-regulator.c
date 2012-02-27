@@ -42,8 +42,6 @@ VREG_CONSUMERS(L3) = {
 VREG_CONSUMERS(L4) = {
 	REGULATOR_SUPPLY("8921_l4",		NULL),
 	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_otg"),
-	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.0"),
-	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.1"),
 	REGULATOR_SUPPLY("iris_vddxo",		"wcnss_wlan.0"),
 };
 VREG_CONSUMERS(L5) = {
@@ -104,7 +102,8 @@ VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8921_l23",		NULL),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.1"),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.2"),
-
+	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.0"),
+	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.1"),
 };
 VREG_CONSUMERS(L24) = {
 	REGULATOR_SUPPLY("8921_l24",		NULL),
@@ -219,6 +218,7 @@ VREG_CONSUMERS(8821_S1) = {
 };
 VREG_CONSUMERS(EXT_5V) = {
 	REGULATOR_SUPPLY("ext_5v",		NULL),
+	REGULATOR_SUPPLY("vbus",		"msm_ehci_host.0"),
 };
 VREG_CONSUMERS(EXT_MPP8) = {
 	REGULATOR_SUPPLY("ext_mpp8",		NULL),

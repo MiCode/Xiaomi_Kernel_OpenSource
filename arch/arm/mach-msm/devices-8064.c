@@ -68,6 +68,10 @@
 #define MSM_HSUSB1_PHYS		0x12500000
 #define MSM_HSUSB1_SIZE		SZ_4K
 
+/* Address of HS USB3 */
+#define MSM_HSUSB3_PHYS		0x12520000
+#define MSM_HSUSB3_SIZE		SZ_4K
+
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
 	.bark_time = 11000,
@@ -647,6 +651,30 @@ struct platform_device apq8064_device_hsic_host = {
 	.dev		= {
 		.dma_mask		= &dma_mask,
 		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
+
+static struct resource resources_ehci_host3[] = {
+{
+		.start  = MSM_HSUSB3_PHYS,
+		.end    = MSM_HSUSB3_PHYS + MSM_HSUSB3_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = USB3_HS_IRQ,
+		.end    = USB3_HS_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device apq8064_device_ehci_host3 = {
+	.name           = "msm_ehci_host",
+	.id             = 0,
+	.num_resources  = ARRAY_SIZE(resources_ehci_host3),
+	.resource       = resources_ehci_host3,
+	.dev            = {
+		.dma_mask               = &dma_mask,
+		.coherent_dma_mask      = 0xffffffff,
 	},
 };
 
