@@ -20,8 +20,8 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
-#define PC_CC_ROWS		10
-#define PC_CC_COLS		5
+#define PC_CC_ROWS             29
+#define PC_CC_COLS             13
 
 #define PC_TEMP_ROWS		29
 #define PC_TEMP_COLS		8
@@ -35,19 +35,20 @@ struct single_row_lut {
 };
 
 /**
- * struct pc_sf_lut -
+ * struct sf_lut -
  * @rows:	number of percent charge entries should be <= PC_CC_ROWS
  * @cols:	number of charge cycle entries should be <= PC_CC_COLS
- * @cycles:	the charge cycles at which sf data is available in the table.
+ * @row_entries:	the charge cycles/temperature at which sf data
+ *			is available in the table.
  *		The charge cycles must be in increasing order from 0 to rows.
  * @percent:	the percent charge at which sf data is available in the table
  *		The  percentcharge must be in decreasing order from 0 to cols.
  * @sf:		the scaling factor data
  */
-struct pc_sf_lut {
+struct sf_lut {
 	int rows;
 	int cols;
-	int cycles[PC_CC_COLS];
+	int row_entries[PC_CC_COLS];
 	int percent[PC_CC_ROWS];
 	int sf[PC_CC_ROWS][PC_CC_COLS];
 };
@@ -74,17 +75,22 @@ struct pc_temp_ocv_lut {
  * struct pm8921_bms_battery_data -
  * @fcc:		full charge capacity (mAmpHour)
  * @fcc_temp_lut:	table to get fcc at a given temp
- * @fcc_sf_lut:		table to get fcc scaling factor for given charge cycles
  * @pc_temp_ocv_lut:	table to get percent charge given batt temp and cycles
  * @pc_sf_lut:		table to get percent charge scaling factor given cycles
  *			and percent charge
+ * @rbatt_sf_lut:	table to get battery resistance scaling factor given
+ *			temperature and percent charge
+ * default_rbatt_mohm:	the default value of battery resistance to use when
+ *			readings from bms are not available.
  */
 struct pm8921_bms_battery_data {
-	unsigned int			fcc;
-	struct single_row_lut		*fcc_temp_lut;
-	struct single_row_lut		*fcc_sf_lut;
-	struct pc_temp_ocv_lut		*pc_temp_ocv_lut;
-	struct pc_sf_lut		*pc_sf_lut;
+	unsigned int		fcc;
+	struct single_row_lut	*fcc_temp_lut;
+	struct single_row_lut	*fcc_sf_lut;
+	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
+	struct sf_lut		*pc_sf_lut;
+	struct sf_lut		*rbatt_sf_lut;
+	int			default_rbatt_mohm;
 };
 
 struct pm8xxx_bms_core_data {
@@ -185,6 +191,10 @@ void pm8921_bms_calibrate_hkadc(void);
  */
 int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 								int *vbat_uv);
+/**
+ * pm8921_bms_get_rbatt - function to get the battery resistance in mOhm.
+ */
+int pm8921_bms_get_rbatt(void);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -215,6 +225,10 @@ static inline int pm8921_bms_get_simultaneous_battery_voltage_and_current(
 						int *ibat_ua, int *vbat_uv)
 {
 	return -ENXIO;
+}
+static inline int pm8921_bms_get_rbatt(void)
+{
+	return -EINVAL;
 }
 #endif
 
