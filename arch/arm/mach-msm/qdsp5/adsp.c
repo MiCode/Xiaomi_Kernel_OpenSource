@@ -3,7 +3,7 @@
  * Register/Interrupt access for userspace aDSP library.
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -280,6 +280,7 @@ int msm_adsp_get(const char *name, struct msm_adsp_module **out,
 	int rc = 0;
 	static uint32_t init_info_cmd_sent;
 
+	mutex_lock(&adsp_info.lock);
 	if (!init_info_cmd_sent) {
 		init_waitqueue_head(&adsp_info.init_info_wait);
 		msm_get_init_info();
@@ -288,10 +289,13 @@ int msm_adsp_get(const char *name, struct msm_adsp_module **out,
 			5 * HZ);
 		if (!rc) {
 			MM_ERR("INIT_INFO failed\n");
+			mutex_unlock(&adsp_info.lock);
 			return -ETIMEDOUT;
+
 		}
 		init_info_cmd_sent++;
 	}
+	mutex_unlock(&adsp_info.lock);
 
 	module = find_adsp_module_by_name(&adsp_info, name);
 	if (!module)
@@ -1016,15 +1020,48 @@ static irqreturn_t adsp_irq_handler(int irq, void *data)
 
 int adsp_set_clkrate(struct msm_adsp_module *module, unsigned long clk_rate)
 {
+	if (!module)
+		return -EINVAL;
+
 	if (module->clk && clk_rate)
 		return clk_set_rate(module->clk, clk_rate);
 
 	return -EINVAL;
 }
 
+int msm_adsp_generate_event(void *data,
+			struct msm_adsp_module *mod,
+			unsigned event_id,
+			unsigned event_length,
+			unsigned event_size,
+			void *msg)
+{
+	unsigned long flags;
+	void (*func)(void *, size_t);
+
+	if (!mod)
+		return -EINVAL;
+
+	if (event_size == sizeof(uint32_t))
+		func = read_event_32;
+	else if (event_size == sizeof(uint16_t))
+		func = read_event_16;
+	else
+		return -EINVAL;
+
+	spin_lock_irqsave(&adsp_cmd_lock, flags);
+	read_event_addr = msg;
+	mod->ops->event(data, event_id, event_length, func);
+	spin_unlock_irqrestore(&adsp_cmd_lock, flags);
+	return 0;
+}
+
 int msm_adsp_enable(struct msm_adsp_module *module)
 {
 	int rc = 0;
+
+	if (!module)
+		return -EINVAL;
 
 	MM_INFO("enable '%s'state[%d] id[%d]\n",
 				module->name, module->state, module->id);
@@ -1078,6 +1115,9 @@ int msm_adsp_disable_event_rsp(struct msm_adsp_module *module)
 {
 	int rc = 0;
 
+	if (!module)
+		return -EINVAL;
+
 	mutex_lock(&module->lock);
 
 	rc = rpc_adsp_rtos_app_to_modem(RPC_ADSP_RTOS_CMD_DISABLE_EVENT_RSP,
@@ -1091,6 +1131,9 @@ EXPORT_SYMBOL(msm_adsp_disable_event_rsp);
 static int msm_adsp_disable_locked(struct msm_adsp_module *module)
 {
 	int rc = 0;
+
+	if (!module)
+		return -EINVAL;
 
 	switch (module->state) {
 	case ADSP_STATE_DISABLED:
@@ -1117,6 +1160,10 @@ static int msm_adsp_disable_locked(struct msm_adsp_module *module)
 int msm_adsp_disable(struct msm_adsp_module *module)
 {
 	int rc;
+
+	if (!module)
+		return -EINVAL;
+
 	MM_INFO("disable '%s'\n", module->name);
 	mutex_lock(&module->lock);
 	rc = msm_adsp_disable_locked(module);
@@ -1157,6 +1204,7 @@ static int msm_adsp_probe(struct platform_device *pdev)
 
 	spin_lock_init(&adsp_cmd_lock);
 	spin_lock_init(&adsp_write_lock);
+	mutex_init(&adsp_info.lock);
 
 	rc = request_irq(INT_ADSP, adsp_irq_handler, IRQF_TRIGGER_RISING,
 			 "adsp", 0);

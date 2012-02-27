@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/qdsp5/adsp.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, 2012 Code Aurora Forum. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -117,6 +117,7 @@ struct adsp_info {
 	struct adsp_rtos_mp_mtoa_init_info_type	*init_info_ptr;
 	wait_queue_head_t	init_info_wait;
 	unsigned 		init_info_state;
+	struct mutex lock;
 };
 
 #define RPC_ADSP_RTOS_ATOM_NULL_PROC 0
