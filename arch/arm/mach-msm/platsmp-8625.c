@@ -28,6 +28,8 @@
 #include "pm.h"
 
 #define MSM_CORE1_RESET		0xA8600590
+#define MSM_CORE1_STATUS_MSK	0x02800000
+
 /*
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
@@ -80,20 +82,53 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
+static int  __cpuinit msm8625_release_secondary(void)
+{
+	void __iomem *base_ptr;
+	int value = 0;
+	unsigned long timeout;
+
+	/*
+	 * loop to ensure that the GHS_STATUS_CORE1 bit in the
+	 * MPA5_STATUS_REG(0x3c) is set. The timeout for the while
+	 * loop can be set as 20us as of now
+	 */
+	timeout = jiffies + usecs_to_jiffies(20);
+	while (time_before(jiffies, timeout)) {
+		value = __raw_readl(MSM_CFG_CTL_BASE + 0x3c);
+		if ((value & MSM_CORE1_STATUS_MSK) ==
+				MSM_CORE1_STATUS_MSK)
+			break;
+			udelay(1);
+	}
+
+	if (!value) {
+		pr_err("Core 1 cannot be brought out of Reset!!!\n");
+		return -ENODEV;
+	}
+
+	base_ptr = ioremap_nocache(MSM_CORE1_RESET, SZ_4);
+	if (!base_ptr)
+		return -ENODEV;
+	/* Reset core 1 out of reset */
+	__raw_writel(0x0, base_ptr);
+	mb();
+
+	iounmap(base_ptr);
+
+	return 0;
+}
+
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
-	void __iomem *base_ptr;
 
 	if (cold_boot_done == false) {
-		base_ptr = ioremap_nocache(MSM_CORE1_RESET, SZ_4);
-		if (!base_ptr)
+		if (msm8625_release_secondary()) {
+			pr_err("Failed to release secondary core\n");
 			return -ENODEV;
-		/* Reset core 1 out of reset */
-		__raw_writel(0x0, base_ptr);
-		mb();
+		}
 		cold_boot_done = true;
-		iounmap(base_ptr);
 	}
 
 	/*
