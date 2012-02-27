@@ -974,7 +974,7 @@ static struct resource gsbi0_msm8625_qup_resources[] = {
 };
 
 /* Use GSBI0 QUP for /dev/i2c-0 */
-struct platform_device msm8625_device_qup_i2c_gsbi0 = {
+struct platform_device msm8625_gsbi0_qup_i2c_device = {
 	.name		= "qup_i2c",
 	.id		= MSM_GSBI0_QUP_I2C_BUS_ID,
 	.num_resources	= ARRAY_SIZE(gsbi0_msm8625_qup_resources),
@@ -1003,7 +1003,7 @@ static struct resource gsbi1_msm8625_qup_i2c_resources[] = {
 };
 
 /* Use GSBI1 QUP for /dev/i2c-1 */
-struct platform_device msm8625_device_qup_i2c_gsbi1 = {
+struct platform_device msm8625_gsbi1_qup_i2c_device = {
 	.name		= "qup_i2c",
 	.id		= MSM_GSBI1_QUP_I2C_BUS_ID,
 	.num_resources	= ARRAY_SIZE(gsbi1_qup_i2c_resources),
@@ -1488,7 +1488,7 @@ int __init msm7x2x_misc_init(void)
 	}
 
 	msm_clock_init(&msm7x27a_clock_init_data);
-	if (cpu_is_msm7x27aa())
+	if (cpu_is_msm7x27aa() || cpu_is_msm8625())
 		acpuclk_init(&acpuclk_7x27aa_soc_data);
 	else
 		acpuclk_init(&acpuclk_7x27a_soc_data);

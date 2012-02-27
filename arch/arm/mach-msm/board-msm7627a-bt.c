@@ -32,7 +32,7 @@ static struct bt_vreg_info bt_vregs[] = {
 	{"bt", 21, 2900000, 3300000, 1, NULL}
 };
 
-struct platform_device msm_bt_power_device = {
+static struct platform_device msm_bt_power_device = {
 	.name = "bt_power",
 };
 
@@ -324,7 +324,8 @@ static int config_i2s(int mode)
 	int pin, rc = 0;
 
 	if (mode == FM_I2S_ON) {
-		if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf())
+		if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf()
+				|| machine_is_msm8625_surf())
 			config_pcm_i2s_mode(0);
 		pr_err("%s mode = FM_I2S_ON", __func__);
 
@@ -367,7 +368,8 @@ static int config_pcm(int mode)
 	int pin, rc = 0;
 
 	if (mode == BT_PCM_ON) {
-		if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf())
+		if (machine_is_msm7x27a_surf() || machine_is_msm7625a_surf()
+				|| machine_is_msm8625_surf())
 			config_pcm_i2s_mode(1);
 		pr_err("%s mode =BT_PCM_ON", __func__);
 		rc = switch_pcm_i2s_reg_mode(1);
@@ -940,9 +942,20 @@ void __init msm7627a_bt_power_init(void)
 
 	gpio_bt_config();
 
-	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
-			bahama_devices,
-			ARRAY_SIZE(bahama_devices));
+	rc = i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+				bahama_devices,
+				ARRAY_SIZE(bahama_devices));
+	if (rc < 0) {
+		pr_err("%s: I2C Register failed\n", __func__);
+		return;
+	}
+
+	rc = platform_device_register(&msm_bt_power_device);
+	if (rc < 0) {
+		pr_err("%s: device register failed\n", __func__);
+		return;
+	}
+
 	dev = &msm_bt_power_device.dev;
 
 	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
@@ -964,6 +977,6 @@ reg_get_fail:
 		regulator_put(bt_vregs[i].reg);
 		bt_vregs[i].reg = NULL;
 	}
-	return;
+	platform_device_unregister(&msm_bt_power_device);
 }
 #endif

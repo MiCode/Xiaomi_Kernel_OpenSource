@@ -676,9 +676,6 @@ static struct platform_device *qrd_common_devices[] __initdata = {
 	&msm_device_adspdec,
 	&msm_batt_device,
 	&msm_kgsl_3d0,
-#ifdef CONFIG_BT
-	&msm_bt_power_device,
-#endif
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
