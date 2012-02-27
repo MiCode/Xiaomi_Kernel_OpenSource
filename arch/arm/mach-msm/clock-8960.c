@@ -5045,7 +5045,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("tv_clk",		mdp_tv_clk.c,	"footswitch-8x60.4"),
 	CLK_LOOKUP("hdmi_clk",		hdmi_tv_clk.c,		""),
 	CLK_LOOKUP("core_clk",		hdmi_app_clk.c,		""),
-	CLK_LOOKUP("vpe_clk",		vpe_clk.c,		""),
+	CLK_LOOKUP("vpe_clk",		vpe_clk.c,		"msm_vpe.0"),
 	CLK_LOOKUP("core_clk",		vpe_clk.c,	"footswitch-8x60.9"),
 	CLK_LOOKUP("vfe_clk",		vfe_clk.c,		"msm_vfe.0"),
 	CLK_LOOKUP("core_clk",		vfe_clk.c,	"footswitch-8x60.8"),
@@ -5082,7 +5082,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("iface_clk",		vcodec_p_clk.c,	"footswitch-8x60.7"),
 	CLK_LOOKUP("vfe_pclk",		vfe_p_clk.c,		"msm_vfe.0"),
 	CLK_LOOKUP("iface_clk",		vfe_p_clk.c,	"footswitch-8x60.8"),
-	CLK_LOOKUP("vpe_pclk",		vpe_p_clk.c,		""),
+	CLK_LOOKUP("vpe_pclk",		vpe_p_clk.c,		"msm_vpe.0"),
 	CLK_LOOKUP("iface_clk",		vpe_p_clk.c,	"footswitch-8x60.9"),
 
 	CLK_LOOKUP("bit_clk",		mi2s_bit_clk.c,		"msm-dai-q6.6"),
