@@ -2892,7 +2892,26 @@ static struct {
 	char *name;
 	int  domain;
 } msm_iommu_ctx_names[] = {
-/* Display domains */
+	/* Display */
+	{
+		.name = "mdp_vg1",
+		.domain = DISPLAY_DOMAIN,
+	},
+	/* Display */
+	{
+		.name = "mdp_vg2",
+		.domain = DISPLAY_DOMAIN,
+	},
+	/* Display */
+	{
+		.name = "mdp_rgb1",
+		.domain = DISPLAY_DOMAIN,
+	},
+	/* Display */
+	{
+		.name = "mdp_rgb2",
+		.domain = DISPLAY_DOMAIN,
+	},
 };
 
 void mdp4_iommu_attach(void)
