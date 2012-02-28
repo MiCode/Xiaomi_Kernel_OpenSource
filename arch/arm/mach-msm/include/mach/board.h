@@ -367,6 +367,7 @@ struct lcdc_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 #endif
+	int (*lvds_pixel_remap)(void);
 };
 
 struct tvenc_platform_data {

@@ -23,6 +23,7 @@
 #include <mach/gpiomux.h>
 #include <mach/ion.h>
 #include <mach/msm_bus_board.h>
+#include <mach/socinfo.h>
 
 #include "devices.h"
 #include "board-8064.h"
@@ -527,8 +528,21 @@ static int lvds_panel_power(int on)
 	return 0;
 }
 
+static int lvds_pixel_remap(void)
+{
+	if (machine_is_apq8064_cdp() ||
+	    machine_is_apq8064_liquid()) {
+		u32 ver = socinfo_get_platform_version();
+		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
+		    (SOCINFO_VERSION_MINOR(ver) == 0))
+			return 1;
+	}
+	return 0;
+}
+
 static struct lcdc_platform_data lvds_pdata = {
 	.lcdc_power_save = lvds_panel_power,
+	.lvds_pixel_remap = lvds_pixel_remap
 };
 
 #define LPM_CHANNEL 2
