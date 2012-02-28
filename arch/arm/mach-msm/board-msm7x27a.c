@@ -756,6 +756,7 @@ static struct platform_device *msm8625_surf_devices[] __initdata = {
 	&msm8625_device_uart_dm2,
 	&msm8625_gsbi0_qup_i2c_device,
 	&msm8625_gsbi1_qup_i2c_device,
+	&msm8625_device_smd,
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
 };
