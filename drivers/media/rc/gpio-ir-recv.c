@@ -21,27 +21,22 @@
 #include <media/rc-core.h>
 #include <media/gpio-ir-recv.h>
 
-#define TSOP_DRIVER_NAME	"gpio-rc-recv"
-#define TSOP_DEVICE_NAME	"gpio_ir_recv"
+#define GPIO_IR_DRIVER_NAME	"gpio-rc-recv"
+#define GPIO_IR_DEVICE_NAME	"gpio_ir_recv"
 
 struct gpio_rc_dev {
 	struct rc_dev *rcdev;
-	struct mutex lock;
 	unsigned int gpio_nr;
 	bool active_low;
-	bool can_wakeup;
-	struct work_struct work;
 };
 
-static void ir_decoder_work(struct work_struct *work)
+static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
 {
-	struct gpio_rc_dev *gpio_dev = container_of(work,
-			struct gpio_rc_dev, work);
+	struct gpio_rc_dev *gpio_dev = dev_id;
 	unsigned int gval;
 	int rc = 0;
 	enum raw_event_type type = IR_SPACE;
 
-	mutex_lock(&gpio_dev->lock);
 	gval = gpio_get_value_cansleep(gpio_dev->gpio_nr);
 
 	if (gval < 0)
@@ -60,15 +55,6 @@ static void ir_decoder_work(struct work_struct *work)
 	ir_raw_event_handle(gpio_dev->rcdev);
 
 err_get_value:
-	mutex_unlock(&gpio_dev->lock);
-}
-
-static irqreturn_t gpio_ir_recv_irq_handler(int irq, void *data)
-{
-	struct gpio_rc_dev *gpio_dev = data;
-
-	schedule_work(&gpio_dev->work);
-
 	return IRQ_HANDLED;
 }
 
@@ -78,7 +64,7 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	struct rc_dev *rcdev;
 	const struct gpio_ir_recv_platform_data *pdata =
 					pdev->dev.platform_data;
-	int rc = 0;
+	int rc;
 
 	if (!pdata)
 		return -EINVAL;
@@ -90,8 +76,6 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	if (!gpio_dev)
 		return -ENOMEM;
 
-	mutex_init(&gpio_dev->lock);
-
 	rcdev = rc_allocate_device();
 	if (!rcdev) {
 		rc = -ENOMEM;
@@ -99,18 +83,15 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	}
 
 	rcdev->driver_type = RC_DRIVER_IR_RAW;
-	rcdev->allowed_protos = RC_TYPE_NEC;
-	rcdev->input_name = TSOP_DEVICE_NAME;
+	rcdev->allowed_protos = RC_TYPE_ALL;
+	rcdev->input_name = GPIO_IR_DEVICE_NAME;
 	rcdev->input_id.bustype = BUS_HOST;
-	rcdev->driver_name = TSOP_DRIVER_NAME;
-	rcdev->map_name = RC_MAP_SAMSUNG_NECX;
+	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
+	rcdev->map_name = RC_MAP_EMPTY;
 
 	gpio_dev->rcdev = rcdev;
 	gpio_dev->gpio_nr = pdata->gpio_nr;
 	gpio_dev->active_low = pdata->active_low;
-	gpio_dev->can_wakeup = pdata->can_wakeup;
-
-	INIT_WORK(&gpio_dev->work, ir_decoder_work);
 
 	rc = gpio_request(pdata->gpio_nr, "gpio-ir-recv");
 	if (rc < 0)
@@ -127,22 +108,15 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, gpio_dev);
 
-	rc = request_irq(gpio_to_irq(pdata->gpio_nr), gpio_ir_recv_irq_handler,
+	rc = request_any_context_irq(gpio_to_irq(pdata->gpio_nr),
+				gpio_ir_recv_irq,
 			IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
-			"gpio-ir-recv-irq", gpio_dev);
+					"gpio-ir-recv-irq", gpio_dev);
 	if (rc < 0)
 		goto err_request_irq;
 
-	if (pdata->can_wakeup == true) {
-		rc = enable_irq_wake(gpio_to_irq(pdata->gpio_nr));
-		if (rc < 0)
-			goto err_enable_irq_wake;
-	}
-
 	return 0;
 
-err_enable_irq_wake:
-	free_irq(gpio_to_irq(gpio_dev->gpio_nr), gpio_dev);
 err_request_irq:
 	platform_set_drvdata(pdev, NULL);
 	rc_unregister_device(rcdev);
@@ -153,7 +127,6 @@ err_gpio_request:
 	rc_free_device(rcdev);
 	rcdev = NULL;
 err_allocate_device:
-	mutex_destroy(&gpio_dev->lock);
 	kfree(gpio_dev);
 	return rc;
 }
@@ -162,24 +135,57 @@ static int __devexit gpio_ir_recv_remove(struct platform_device *pdev)
 {
 	struct gpio_rc_dev *gpio_dev = platform_get_drvdata(pdev);
 
-	flush_work_sync(&gpio_dev->work);
-	disable_irq_wake(gpio_to_irq(gpio_dev->gpio_nr));
 	free_irq(gpio_to_irq(gpio_dev->gpio_nr), gpio_dev);
 	platform_set_drvdata(pdev, NULL);
 	rc_unregister_device(gpio_dev->rcdev);
 	gpio_free(gpio_dev->gpio_nr);
 	rc_free_device(gpio_dev->rcdev);
-	mutex_destroy(&gpio_dev->lock);
 	kfree(gpio_dev);
 	return 0;
 }
+
+#ifdef CONFIG_PM
+static int gpio_ir_recv_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct gpio_rc_dev *gpio_dev = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(gpio_to_irq(gpio_dev->gpio_nr));
+	else
+		disable_irq(gpio_to_irq(gpio_dev->gpio_nr));
+
+	return 0;
+}
+
+static int gpio_ir_recv_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct gpio_rc_dev *gpio_dev = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(gpio_to_irq(gpio_dev->gpio_nr));
+	else
+		enable_irq(gpio_to_irq(gpio_dev->gpio_nr));
+
+	return 0;
+}
+
+static const struct dev_pm_ops gpio_ir_recv_pm_ops = {
+	.suspend        = gpio_ir_recv_suspend,
+	.resume         = gpio_ir_recv_resume,
+};
+#endif
 
 static struct platform_driver gpio_ir_recv_driver = {
 	.probe  = gpio_ir_recv_probe,
 	.remove = __devexit_p(gpio_ir_recv_remove),
 	.driver = {
-		.name   = TSOP_DRIVER_NAME,
+		.name   = GPIO_IR_DRIVER_NAME,
 		.owner  = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm	= &gpio_ir_recv_pm_ops,
+#endif
 	},
 };
 
