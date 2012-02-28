@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,7 @@ static int __init prism_init(void)
 		pinfo->pdest = DISPLAY_1;
 		pinfo->mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;
 		pinfo->wait_cycle = 0;
+		pinfo->mddi.is_type1 = TRUE;
 		pinfo->bpp = 18;
 		pinfo->fb_num = 2;
 		pinfo->clk_rate = 153600000;
