@@ -258,15 +258,33 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
-#else
+#elif defined(CONFIG_ARCH_MSM7X01A) || defined(CONFIG_ARCH_MSM7x25)
 #define MSM_TRIG_A2M_SMD_INT     \
 			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (0) * 4))
-#define MSM_TRIG_A2Q6_SMD_INT    \
-			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (8) * 4))
+#define MSM_TRIG_A2Q6_SMD_INT
 #define MSM_TRIG_A2M_SMSM_INT    \
 			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (5) * 4))
-#define MSM_TRIG_A2Q6_SMSM_INT   \
-			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (8) * 4))
+#define MSM_TRIG_A2Q6_SMSM_INT
+#define MSM_TRIG_A2DSPS_SMD_INT
+#define MSM_TRIG_A2DSPS_SMSM_INT
+#define MSM_TRIG_A2WCNSS_SMD_INT
+#define MSM_TRIG_A2WCNSS_SMSM_INT
+#elif defined(CONFIG_ARCH_MSM7X27) || defined(CONFIG_ARCH_MSM7X27A)
+#define MSM_TRIG_A2M_SMD_INT     \
+			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (0) * 4))
+#define MSM_TRIG_A2Q6_SMD_INT
+#define MSM_TRIG_A2M_SMSM_INT    \
+			(smd_write_intr(1, MSM_CSR_BASE + 0x400 + (5) * 4))
+#define MSM_TRIG_A2Q6_SMSM_INT
+#define MSM_TRIG_A2DSPS_SMD_INT
+#define MSM_TRIG_A2DSPS_SMSM_INT
+#define MSM_TRIG_A2WCNSS_SMD_INT
+#define MSM_TRIG_A2WCNSS_SMSM_INT
+#else /* use platform device / device tree configuration */
+#define MSM_TRIG_A2M_SMD_INT
+#define MSM_TRIG_A2Q6_SMD_INT
+#define MSM_TRIG_A2M_SMSM_INT
+#define MSM_TRIG_A2Q6_SMSM_INT
 #define MSM_TRIG_A2DSPS_SMD_INT
 #define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
