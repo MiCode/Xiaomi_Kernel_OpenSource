@@ -223,13 +223,15 @@ u8 *vcd_pmem_get_physical(struct video_client_ctx *client_ctx,
 }
 
 u32 vcd_get_ion_flag(struct video_client_ctx *client_ctx,
-			  unsigned long kernel_vaddr)
+			  unsigned long kernel_vaddr,
+			struct ion_handle **buff_ion_handle)
 {
 	unsigned long phy_addr, user_vaddr;
 	int pmem_fd;
 	struct file *file;
 	s32 buffer_index = -1;
 	u32 ion_flag = 0;
+	struct ion_handle *buff_handle = NULL;
 
 	if (vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_INPUT,
 					  false, &user_vaddr, &kernel_vaddr,
@@ -237,13 +239,17 @@ u32 vcd_get_ion_flag(struct video_client_ctx *client_ctx,
 					  &buffer_index)) {
 
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_INPUT,
-				pmem_fd, kernel_vaddr, buffer_index);
+				pmem_fd, kernel_vaddr, buffer_index,
+				&buff_handle);
+		*buff_ion_handle = buff_handle;
 		return ion_flag;
 	} else if (vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT,
 		false, &user_vaddr, &kernel_vaddr, &phy_addr, &pmem_fd, &file,
 		&buffer_index)) {
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
-				pmem_fd, kernel_vaddr, buffer_index);
+				pmem_fd, kernel_vaddr, buffer_index,
+				&buff_handle);
+		*buff_ion_handle = buff_handle;
 		return ion_flag;
 	} else {
 		VCD_MSG_ERROR("Couldn't get ion flag");
@@ -588,6 +594,7 @@ u32 vcd_set_buffer_internal(
 	struct vcd_buffer_entry *buf_entry;
 	u8 *physical;
 	u32 ion_flag = 0;
+	struct ion_handle *buff_handle = NULL;
 
 	buf_entry = vcd_find_buffer_pool_entry(buf_pool, buffer);
 	if (buf_entry) {
@@ -600,8 +607,8 @@ u32 vcd_set_buffer_internal(
 		cctxt->client_data, (unsigned long)buffer);
 
 	ion_flag = vcd_get_ion_flag(cctxt->client_data,
-				(unsigned long)buffer);
-
+				(unsigned long)buffer,
+				&buff_handle);
 	if (!physical) {
 		VCD_MSG_ERROR("Couldn't get physical address");
 		return VCD_ERR_BAD_POINTER;
@@ -625,6 +632,7 @@ u32 vcd_set_buffer_internal(
 	buf_entry->frame.virtual = buf_entry->virtual;
 	buf_entry->frame.physical = buf_entry->physical;
 	buf_entry->frame.ion_flag = ion_flag;
+	buf_entry->frame.buff_ion_handle = buff_handle;
 
 	buf_pool->validated++;
 

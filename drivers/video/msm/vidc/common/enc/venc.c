@@ -198,6 +198,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 	struct file *file;
 	s32 buffer_index = -1;
 	u32 ion_flag = 0;
+	struct ion_handle *buff_handle = NULL;
 
 	if (!client_ctx || !vcd_frame_data) {
 		ERR("vid_enc_input_frame_done() NULL pointer\n");
@@ -262,11 +263,14 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 	}
 	if (venc_msg->venc_msg_info.buf.len > 0) {
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
-					pmem_fd, kernel_vaddr, buffer_index);
+					pmem_fd, kernel_vaddr, buffer_index,
+					&buff_handle);
 		if (ion_flag == CACHED) {
-			clean_and_invalidate_caches(kernel_vaddr,
+			msm_ion_do_cache_op(client_ctx->user_ion_client,
+				buff_handle,
+				(unsigned long *) kernel_vaddr,
 				(unsigned long)venc_msg->venc_msg_info.buf.len,
-				phy_addr);
+				ION_IOC_CLEAN_INV_CACHES);
 		}
 	}
 	mutex_lock(&client_ctx->msg_queue_lock);
