@@ -227,7 +227,7 @@ static int msm_fb_detect_panel(const char *name)
 	} else if (machine_is_msm7627a_qrd1()) {
 		if (!strncmp(name, "mipi_video_truly_wvga", 21))
 			ret = 0;
-	} else if (machine_is_msm7627a_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		if (!strncmp(name, "mipi_cmd_nt35510_wvga", 21))
 			ret = 0;
 	}
@@ -558,7 +558,7 @@ static int msm_fb_dsi_client_reset(void)
 
 	if (machine_is_msm7627a_qrd1())
 		rc = msm_fb_dsi_client_qrd1_reset();
-	else if (machine_is_msm7627a_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		rc = msm_fb_dsi_client_qrd3_reset();
 	else
 		rc = msm_fb_dsi_client_msm_reset();
@@ -823,7 +823,7 @@ static int mipi_dsi_panel_power(int on)
 
 	if (machine_is_msm7627a_qrd1())
 		rc = mipi_dsi_panel_qrd1_power(on);
-	else if (machine_is_msm7627a_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		rc = mipi_dsi_panel_qrd3_power(on);
 	else
 		rc = mipi_dsi_panel_msm_power(on);
@@ -846,7 +846,7 @@ void __init msm_fb_add_devices(void)
 	if (machine_is_msm7627a_qrd1())
 		platform_add_devices(qrd_fb_devices,
 				ARRAY_SIZE(qrd_fb_devices));
-	else if (machine_is_msm7627a_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
 	else if (machine_is_msm7627a_qrd3())

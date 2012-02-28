@@ -66,6 +66,7 @@ enum {
 	QRD_GPIO_CAM_GP_CAMIF_RESET,
 };
 
+#define ADSP_RPC_PROG           0x3000000a
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 
 #define FPGA_MSM_CNTRL_REG2 0x90008010
