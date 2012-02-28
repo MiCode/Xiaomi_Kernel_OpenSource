@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,11 +150,13 @@ struct msm_ipc_router_xprt {
 	uint32_t link_id;
 	void *priv;
 
-	int (*read_avail)(void);
-	int (*read)(void *data, uint32_t len);
-	int (*write_avail)(void);
-	int (*write)(void *data, uint32_t len, enum write_data_type type);
-	int (*close)(void);
+	int (*read_avail)(struct msm_ipc_router_xprt *xprt);
+	int (*read)(void *data, uint32_t len,
+		    struct msm_ipc_router_xprt *xprt);
+	int (*write_avail)(struct msm_ipc_router_xprt *xprt);
+	int (*write)(void *data, uint32_t len,
+		     struct msm_ipc_router_xprt *xprt);
+	int (*close)(struct msm_ipc_router_xprt *xprt);
 };
 
 extern struct completion msm_ipc_remote_router_up;

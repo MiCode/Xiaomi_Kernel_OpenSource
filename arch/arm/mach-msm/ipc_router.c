@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -756,7 +756,7 @@ static int msm_ipc_router_send_control_msg(
 	pkt->length = pkt_size;
 
 	mutex_lock(&xprt_info->tx_lock);
-	ret = xprt_info->xprt->write(pkt, pkt_size, 0);
+	ret = xprt_info->xprt->write(pkt, pkt_size, xprt_info->xprt);
 	mutex_unlock(&xprt_info->tx_lock);
 
 	release_pkt(pkt);
@@ -933,7 +933,8 @@ static int relay_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	list_for_each_entry(fwd_xprt_info, &xprt_info_list, list) {
 		mutex_lock(&fwd_xprt_info->tx_lock);
 		if (xprt_info->xprt->link_id != fwd_xprt_info->xprt->link_id)
-			fwd_xprt_info->xprt->write(pkt, pkt->length, 0);
+			fwd_xprt_info->xprt->write(pkt, pkt->length,
+						   fwd_xprt_info->xprt);
 		mutex_unlock(&fwd_xprt_info->tx_lock);
 	}
 	mutex_unlock(&xprt_info_list_lock);
@@ -984,7 +985,7 @@ static int forward_msg(struct msm_ipc_router_xprt_info *xprt_info,
 		pr_err("%s: DST in the same cluster\n", __func__);
 		return 0;
 	}
-	fwd_xprt_info->xprt->write(pkt, pkt->length, 0);
+	fwd_xprt_info->xprt->write(pkt, pkt->length, fwd_xprt_info->xprt);
 	mutex_unlock(&fwd_xprt_info->tx_lock);
 	mutex_unlock(&rt_entry->lock);
 	mutex_unlock(&routing_table_lock);
@@ -1713,7 +1714,7 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	mutex_lock(&rt_entry->lock);
 	xprt_info = rt_entry->xprt_info;
 	mutex_lock(&xprt_info->tx_lock);
-	ret = xprt_info->xprt->write(pkt, pkt->length, 0);
+	ret = xprt_info->xprt->write(pkt, pkt->length, xprt_info->xprt);
 	mutex_unlock(&xprt_info->tx_lock);
 	mutex_unlock(&rt_entry->lock);
 	mutex_unlock(&routing_table_lock);
@@ -2070,7 +2071,7 @@ int msm_ipc_router_close(void)
 	mutex_lock(&xprt_info_list_lock);
 	list_for_each_entry_safe(xprt_info, tmp_xprt_info,
 				 &xprt_info_list, list) {
-		xprt_info->xprt->close();
+		xprt_info->xprt->close(xprt_info->xprt);
 		list_del(&xprt_info->list);
 		kfree(xprt_info);
 	}
