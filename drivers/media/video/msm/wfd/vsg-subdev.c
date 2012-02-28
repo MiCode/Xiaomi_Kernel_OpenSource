@@ -280,7 +280,7 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 	context->last_buffer = context->regen_buffer = NULL;
 	context->send_regen_buffer = false;
 	context->mode = DEFAULT_MODE;
-	context->stopped = false;
+	context->stopped = true;
 	mutex_init(&context->mutex);
 
 	sd->dev_priv = context;
@@ -311,6 +311,13 @@ static int vsg_start(struct v4l2_subdev *sd)
 	}
 
 	context = (struct vsg_context *)sd->dev_priv;
+
+	if (context->stopped == false) {
+		WFD_MSG_ERR("VSG not stopped, start not allowed\n");
+		return -EINPROGRESS;
+	}
+
+	context->stopped = false;
 	mod_timer(&context->threshold_timer, jiffies +
 			nsecs_to_jiffies(context->max_frame_interval));
 	return 0;
