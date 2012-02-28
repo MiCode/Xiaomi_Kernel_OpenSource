@@ -5037,6 +5037,10 @@ static inline int l2cap_move_channel_rsp(struct l2cap_conn *conn,
 			}
 		} else {
 			/* Any other amp move state means the move failed. */
+			pi->amp_move_id = pi->amp_id;
+			pi->amp_move_state = L2CAP_AMP_STATE_STABLE;
+			l2cap_amp_move_revert(sk);
+			pi->amp_move_role = L2CAP_AMP_MOVE_NONE;
 			l2cap_send_move_chan_cfm(conn, pi, pi->scid,
 						L2CAP_MOVE_CHAN_UNCONFIRMED);
 			l2cap_sock_set_timer(sk, L2CAP_MOVE_TIMEOUT);
@@ -5405,6 +5409,8 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 		pi->ampcon = chan->conn;
 		pi->ampcon->l2cap_data = pi->conn;
 
+		BT_DBG("amp_move_state %d", pi->amp_move_state);
+
 		if (sk->sk_state != BT_CONNECTED) {
 			struct l2cap_conf_rsp rsp;
 
@@ -5456,12 +5462,14 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 					pi->amp_move_cmd_ident, pi->dcid,
 					L2CAP_MOVE_CHAN_SUCCESS);
 			}
-		} else {
-			ampchan = pi->ampchan;
-
+		} else if ((pi->amp_move_state !=
+				L2CAP_AMP_STATE_WAIT_MOVE_RSP_SUCCESS) &&
+			(pi->amp_move_state !=
+				L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM)) {
 			/* Move was not in expected state, free the
 			 * logical link
 			 */
+			ampchan = pi->ampchan;
 			pi->ampchan = NULL;
 			if (pi->ampcon)
 				pi->ampcon->l2cap_data = NULL;
@@ -5469,6 +5477,8 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 
 			if (ampchan && !hci_chan_put(ampchan))
 				l2cap_deaggregate(ampchan, pi);
+
+			pi->amp_move_state = L2CAP_AMP_STATE_STABLE;
 		}
 	} else {
 		/* Logical link setup failed. */
