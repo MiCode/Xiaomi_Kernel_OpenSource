@@ -2286,14 +2286,6 @@ static void __init apq8064_init_dsps(void)
 	platform_device_register(&msm_dsps_device_8064);
 }
 
-static void __init apq8064_clock_init(void)
-{
-	if (machine_is_apq8064_rumi3())
-		msm_clock_init(&apq8064_dummy_clock_init_data);
-	else
-		msm_clock_init(&apq8064_clock_init_data);
-}
-
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
@@ -2504,7 +2496,7 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&apq8064_device_rpm_regulator);
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
-	apq8064_clock_init();
+	msm_clock_init(&apq8064_clock_init_data);
 	apq8064_init_gpiomux();
 	apq8064_i2c_init();
 	register_i2c_devices();
