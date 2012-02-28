@@ -794,4 +794,10 @@ static inline void mdp_dsi_cmd_overlay_suspend(void)
 }
 #endif
 
+int mdp_ppp_v4l2_overlay_set(struct fb_info *info, struct mdp_overlay *req);
+int mdp_ppp_v4l2_overlay_clear(void);
+int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
+	unsigned long srcp0_addr, unsigned long srcp0_size,
+	unsigned long srcp1_addr, unsigned long srcp1_size);
+
 #endif /* MDP_H */

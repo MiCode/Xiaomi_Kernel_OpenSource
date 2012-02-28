@@ -3603,4 +3603,58 @@ int __init msm_fb_init(void)
 	return 0;
 }
 
+/* Called by v4l2 driver to enable/disable overlay pipe */
+int msm_fb_v4l2_enable(struct mdp_overlay *req, bool enable, void **par)
+{
+	int err = 0;
+#ifdef CONFIG_FB_MSM_MDP40
+	struct mdp4_overlay_pipe *pipe;
+	if (enable) {
+
+		err = mdp4_v4l2_overlay_set(fbi_list[0], req, &pipe);
+
+		*(struct mdp4_overlay_pipe **)par = pipe;
+
+	} else {
+		pipe = *(struct mdp4_overlay_pipe **)par;
+		mdp4_v4l2_overlay_clear(pipe);
+	}
+#else
+#ifdef CONFIG_FB_MSM_MDP30
+	if (enable)
+		err = mdp_ppp_v4l2_overlay_set(fbi_list[0], req);
+	else
+		err = mdp_ppp_v4l2_overlay_clear();
+#else
+	err = -EINVAL;
+#endif
+#endif
+
+	return err;
+}
+EXPORT_SYMBOL(msm_fb_v4l2_enable);
+
+/* Called by v4l2 driver to provide a frame for display */
+int msm_fb_v4l2_update(void *par,
+	unsigned long srcp0_addr, unsigned long srcp0_size,
+	unsigned long srcp1_addr, unsigned long srcp1_size,
+	unsigned long srcp2_addr, unsigned long srcp2_size)
+{
+#ifdef CONFIG_FB_MSM_MDP40
+	struct mdp4_overlay_pipe *pipe = (struct mdp4_overlay_pipe *)par;
+	return mdp4_v4l2_overlay_play(fbi_list[0], pipe,
+		srcp0_addr, srcp1_addr,
+		srcp2_addr);
+#else
+#ifdef CONFIG_FB_MSM_MDP30
+	return mdp_ppp_v4l2_overlay_play(fbi_list[0],
+		srcp0_addr, srcp0_size,
+		srcp1_addr, srcp1_size);
+#else
+	return -EINVAL;
+#endif
+#endif
+}
+EXPORT_SYMBOL(msm_fb_v4l2_update);
+
 module_init(msm_fb_init);
