@@ -225,6 +225,20 @@ struct mdp_dma_data {
 	struct completion dmap_comp;
 };
 
+extern struct list_head mdp_hist_lut_list;
+extern struct mutex mdp_hist_lut_list_mutex;
+struct mdp_hist_lut_mgmt {
+	uint32_t block;
+	struct mutex lock;
+	struct list_head list;
+};
+
+struct mdp_hist_lut_info {
+	uint32_t block;
+	boolean is_enabled, has_sel_update;
+	int bank_sel;
+};
+
 #define MDP_CMD_DEBUG_ACCESS_BASE   (MDP_BASE+0x10000)
 
 #define MDP_DMA2_TERM 0x1

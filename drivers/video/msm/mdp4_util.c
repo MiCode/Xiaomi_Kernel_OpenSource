@@ -2989,3 +2989,144 @@ int mdp4_pgc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 	return ret;
 }
 
+static uint32_t mdp4_pp_block2igc(uint32_t block)
+{
+	uint32_t valid = 0;
+	switch (block) {
+	case MDP_BLOCK_VG_1:
+		valid = 0x1;
+		break;
+	case MDP_BLOCK_VG_2:
+		valid = 0x1;
+		break;
+	case MDP_BLOCK_RGB_1:
+		valid = 0x1;
+		break;
+	case MDP_BLOCK_RGB_2:
+		valid = 0x1;
+		break;
+	case MDP_BLOCK_DMA_P:
+		valid = (mdp_rev >= MDP_REV_40) ? 1 : 0;
+		break;
+	case MDP_BLOCK_DMA_S:
+		valid = (mdp_rev >= MDP_REV_40) ? 1 : 0;
+		break;
+	default:
+		break;
+	}
+	return valid;
+}
+
+static int mdp4_igc_lut_write(struct mdp_igc_lut_data *cfg, uint32_t en_off,
+		uint32_t lut_off)
+{
+	int i;
+	uint32_t base, *off_low, *off_high;
+	uint32_t low[cfg->len];
+	uint32_t high[cfg->len];
+
+	base = mdp_block2base(cfg->block);
+
+	if (cfg->len != 256)
+		return -EINVAL;
+
+	off_low = (uint32_t *)(MDP_BASE + base + lut_off);
+	off_high = (uint32_t *)(MDP_BASE + base + lut_off + 0x800);
+	if (copy_from_user(&low, cfg->c0_c1_data, cfg->len * sizeof(uint32_t)))
+		return -EFAULT;
+	if (copy_from_user(&high, cfg->c2_data, cfg->len * sizeof(uint32_t)))
+		return -EFAULT;
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	for (i = 0; i < cfg->len; i++) {
+		MDP_OUTP(off_low++, low[i]);
+		/*low address write should occur before high address write*/
+		wmb();
+		MDP_OUTP(off_high++, high[i]);
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	return 0;
+}
+
+static int mdp4_igc_lut_ctrl(struct mdp_igc_lut_data *cfg)
+{
+	uint32_t mask, out;
+	uint32_t base = mdp_block2base(cfg->block);
+	int8_t shift = 0;
+
+	switch (cfg->block) {
+	case MDP_BLOCK_DMA_P:
+	case MDP_BLOCK_DMA_S:
+		base = base;
+		shift = 30;
+		break;
+	case MDP_BLOCK_VG_1:
+	case MDP_BLOCK_VG_2:
+	case MDP_BLOCK_RGB_1:
+	case MDP_BLOCK_RGB_2:
+		base += 0x58;
+		shift = 16;
+		break;
+	default:
+		return -EINVAL;
+
+	}
+	out = 1<<shift;
+	mask = ~out;
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	out = inpdw(MDP_BASE + base) & mask;
+	MDP_OUTP(MDP_BASE + base, out | ((cfg->ops & 0x1)<<shift));
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	return 0;
+}
+
+static int mdp4_igc_lut_write_cfg(struct mdp_igc_lut_data *cfg)
+{
+	int ret = 0;
+
+	switch (cfg->block) {
+	case MDP_BLOCK_DMA_P:
+	case MDP_BLOCK_DMA_S:
+		ret = mdp4_igc_lut_write(cfg, 0x00, 0x9000);
+		break;
+	case MDP_BLOCK_VG_1:
+	case MDP_BLOCK_VG_2:
+	case MDP_BLOCK_RGB_1:
+	case MDP_BLOCK_RGB_2:
+		ret = mdp4_igc_lut_write(cfg, 0x58, 0x5000);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg)
+{
+	int ret = 0;
+
+	if (!mdp4_pp_block2igc(cfg->block)) {
+		ret = -ENOTTY;
+		goto error;
+	}
+
+	switch ((cfg->ops & 0x6) >> 1) {
+	case 0x1:
+		pr_info("%s: IGC LUT read not supported\n", __func__);
+		break;
+	case 0x2:
+		ret = mdp4_igc_lut_write_cfg(cfg);
+		if (ret)
+			goto error;
+		break;
+	default:
+		break;
+	}
+
+	ret = mdp4_igc_lut_ctrl(cfg);
+
+error:
+	return ret;
+}
