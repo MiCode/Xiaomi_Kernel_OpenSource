@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,8 +95,15 @@ struct pm8xxx_bms_core_data {
 	unsigned int	batt_id_channel;
 };
 
+enum battery_type {
+	BATT_UNKNOWN = 0,
+	BATT_PALLADIUM,
+	BATT_DESAY,
+};
+
 /**
  * struct pm8921_bms_platform_data -
+ * @batt_type:		allows to force chose battery calibration data
  * @r_sense:		sense resistor value in (mOhms)
  * @i_test:		current at which the unusable charger cutoff is to be
  *			calculated or the peak system current (mA)
@@ -105,6 +112,7 @@ struct pm8xxx_bms_core_data {
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
+	enum battery_type		battery_type;
 	unsigned int			r_sense;
 	unsigned int			i_test;
 	unsigned int			v_failure;
@@ -114,6 +122,7 @@ struct pm8921_bms_platform_data {
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
 extern struct pm8921_bms_battery_data  palladium_1500_data;
+extern struct pm8921_bms_battery_data  desay_5200_data;
 /**
  * pm8921_bms_get_vsense_avg - return the voltage across the sense
  *				resitor in microvolts

@@ -356,6 +356,7 @@ apq8064_pm8xxx_ccadc_pdata = {
 
 static struct pm8921_bms_platform_data
 apq8064_pm8921_bms_pdata __devinitdata = {
+	.battery_type	= BATT_UNKNOWN,
 	.r_sense		= 10,
 	.i_test			= 2500,
 	.v_failure		= 3000,
@@ -428,5 +429,9 @@ void __init apq8064_init_pmic(void)
 	if (machine_is_apq8064_rumi3()) {
 		apq8064_pm8921_irq_pdata.devirq = 0;
 		apq8064_pm8821_irq_pdata.devirq = 0;
+	} else if (machine_is_apq8064_mtp()) {
+		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
+	} else if (machine_is_apq8064_liquid()) {
+		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
 	}
 }

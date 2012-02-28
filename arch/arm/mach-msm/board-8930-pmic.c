@@ -273,6 +273,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 };
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
+	.battery_type	= BATT_UNKNOWN,
 	.r_sense		= 10,
 	.i_test			= 2500,
 	.v_failure		= 3000,
@@ -310,4 +311,8 @@ void __init msm8930_init_pmic(void)
 				&msm8930_ssbi_pm8038_pdata;
 	pm8038_platform_data.num_regulators
 		= msm8930_pm8038_regulator_pdata_len;
+	if (machine_is_apq8064_mtp())
+		pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
+	else if (machine_is_apq8064_liquid())
+		pm8921_bms_pdata.battery_type = BATT_DESAY;
 }
