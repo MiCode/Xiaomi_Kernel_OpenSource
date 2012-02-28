@@ -60,6 +60,7 @@
 #include <mach/mdm2.h>
 #include <linux/msm_tsens.h>
 #include <mach/msm_xo.h>
+#include <mach/msm_rtb.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -191,6 +192,39 @@ static struct memtype_reserve apq8064_reserve_table[] __initdata = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
 };
+
+#if defined(CONFIG_MSM_RTB)
+static struct msm_rtb_platform_data msm_rtb_pdata = {
+	.size = SZ_1M,
+};
+
+static int __init msm_rtb_set_buffer_size(char *p)
+{
+	int s;
+
+	s = memparse(p, NULL);
+	msm_rtb_pdata.size = ALIGN(s, SZ_4K);
+	return 0;
+}
+early_param("msm_rtb_size", msm_rtb_set_buffer_size);
+
+
+static struct platform_device msm_rtb_device = {
+	.name           = "msm_rtb",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &msm_rtb_pdata,
+	},
+};
+#endif
+
+static void __init reserve_rtb_memory(void)
+{
+#if defined(CONFIG_MSM_RTB)
+	apq8064_reserve_table[MEMTYPE_EBI1].size += msm_rtb_pdata.size;
+#endif
+}
+
 
 static void __init size_pmem_devices(void)
 {
@@ -355,6 +389,7 @@ static void __init apq8064_calculate_reserve_sizes(void)
 	reserve_pmem_memory();
 	reserve_ion_memory();
 	reserve_mdp_memory();
+	reserve_rtb_memory();
 }
 
 static struct reserve_info apq8064_reserve_info __initdata = {
@@ -1719,6 +1754,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_riva,
 	&msm_8960_q6_lpass,
 	&msm_gss,
+#ifdef CONFIG_MSM_RTB
+	&msm_rtb_device,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
