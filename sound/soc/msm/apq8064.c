@@ -727,6 +727,13 @@ end:
 	return ret;
 }
 
+static int msm_stubrx_init(struct snd_soc_pcm_runtime *rtd)
+{
+	rtd->pmdown_time = 0;
+
+	return 0;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -1253,6 +1260,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_pcm = 1,
 		/* .be_id = do not care */
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.init = &msm_stubrx_init,
 		.ops = &msm_be_ops,
 	},
 	{
