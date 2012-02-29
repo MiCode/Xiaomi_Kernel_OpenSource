@@ -90,6 +90,42 @@ int32_t imx074_act_write_focus(
 	return rc;
 }
 
+int32_t imx074_act_move_focus(
+	struct msm_actuator_ctrl_t *a_ctrl,
+	int dir,
+	int32_t num_steps)
+{
+	int32_t step_direction, dest_step_position, bit_mask;
+	int32_t rc = 0;
+
+	if (num_steps == 0)
+		return rc;
+
+	if (dir == MOVE_NEAR) {
+		step_direction = 1;
+		bit_mask = 0x80;
+	} else if (dir == MOVE_FAR) {
+		step_direction = -1;
+		bit_mask = 0x00;
+	} else {
+		CDBG("imx074_move_focus: Illegal focus direction");
+		return -EINVAL;
+	}
+	dest_step_position = a_ctrl->curr_step_pos +
+		(step_direction * num_steps);
+	if (dest_step_position < 0)
+		dest_step_position = 0;
+	else if (dest_step_position > IMX074_TOTAL_STEPS_NEAR_TO_FAR)
+		dest_step_position = IMX074_TOTAL_STEPS_NEAR_TO_FAR;
+
+	msm_camera_i2c_write(&a_ctrl->i2c_client,
+		0x00,
+		((num_steps * g_regions[0].code_per_step) | bit_mask),
+		MSM_CAMERA_I2C_BYTE_DATA);
+	a_ctrl->curr_step_pos = dest_step_position;
+	return rc;
+}
+
 static int32_t imx074_set_default_focus(
 	struct msm_actuator_ctrl_t *a_ctrl)
 {
@@ -228,7 +264,7 @@ static struct msm_actuator_ctrl_t imx074_act_t = {
 
 	.func_tbl = {
 		.actuator_init_table = msm_actuator_init_table,
-		.actuator_move_focus = msm_actuator_move_focus,
+		.actuator_move_focus = imx074_act_move_focus,
 		.actuator_write_focus = imx074_act_write_focus,
 		.actuator_set_default_focus = imx074_set_default_focus,
 		.actuator_init_focus = imx074_act_init_focus,
