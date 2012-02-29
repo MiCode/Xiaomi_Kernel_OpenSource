@@ -48,12 +48,6 @@ enum {
 	OVERLAY_PERF_LEVEL4
 };
 
-enum mdp4_overlay_status {
-	MDP4_OVERLAY_TYPE_UNSET,
-	MDP4_OVERLAY_TYPE_SET,
-	MDP4_OVERLAY_TYPE_MAX
-};
-
 typedef int (*cmd_fxn_t)(struct platform_device *pdev);
 
 enum {		/* display */
@@ -727,8 +721,6 @@ void mdp4_overlay_resource_release(void);
 void mdp4_overlay_dsi_video_wait4vsync(struct msm_fb_data_type *mfd);
 void mdp4_primary_vsync_dsi_video(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
-void mdp4_overlay_status_write(enum mdp4_overlay_status type, bool val);
-bool mdp4_overlay_status_read(enum mdp4_overlay_status type);
 void mdp4_overlay_ctrl_db_reset(void);
 
 int mdp4_overlay_writeback_on(struct platform_device *pdev);

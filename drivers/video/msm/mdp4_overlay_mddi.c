@@ -450,27 +450,6 @@ void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 	/* change mdp clk while mdp is idle` */
 	mdp4_set_perf_level();
 
-	if (mdp_hw_revision == MDP4_REVISION_V2_1) {
-		if (mdp4_overlay_status_read(MDP4_OVERLAY_TYPE_UNSET)) {
-			uint32  data;
-			data = inpdw(MDP_BASE + 0x0028);
-			data &= ~0x0300;        /* bit 8, 9, MASTER4 */
-			if (mfd->fbi->var.xres == 540) /* qHD, 540x960 */
-				data |= 0x0200;
-			else
-				data |= 0x0100;
-			MDP_OUTP(MDP_BASE + 0x00028, data);
-			mdp4_overlay_status_write(MDP4_OVERLAY_TYPE_UNSET,
-				false);
-		}
-		if (mdp4_overlay_status_read(MDP4_OVERLAY_TYPE_SET)) {
-			uint32  data;
-			data = inpdw(MDP_BASE + 0x0028);
-			data &= ~0x0300;        /* bit 8, 9, MASTER4 */
-			MDP_OUTP(MDP_BASE + 0x00028, data);
-			mdp4_overlay_status_write(MDP4_OVERLAY_TYPE_SET, false);
-		}
-	}
 	mdp_enable_irq(MDP_OVERLAY0_TERM);
 	mfd->dma->busy = TRUE;
 	/* start OVERLAY pipe */
