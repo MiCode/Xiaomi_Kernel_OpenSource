@@ -607,19 +607,20 @@ struct smd_channel {
 struct edge_to_pid {
 	uint32_t	local_pid;
 	uint32_t	remote_pid;
+	char		subsys_name[SMD_MAX_CH_NAME_LEN];
 };
 
 /**
  * Maps edge type to local and remote processor ID's.
  */
 static struct edge_to_pid edge_to_pids[] = {
-	[SMD_APPS_MODEM] = {SMSM_APPS, SMSM_MODEM},
-	[SMD_APPS_QDSP] = {SMSM_APPS, SMSM_Q6},
+	[SMD_APPS_MODEM] = {SMSM_APPS, SMSM_MODEM, "modem"},
+	[SMD_APPS_QDSP] = {SMSM_APPS, SMSM_Q6, "q6"},
 	[SMD_MODEM_QDSP] = {SMSM_MODEM, SMSM_Q6},
-	[SMD_APPS_DSPS] = {SMSM_APPS, SMSM_DSPS},
+	[SMD_APPS_DSPS] = {SMSM_APPS, SMSM_DSPS, "dsps"},
 	[SMD_MODEM_DSPS] = {SMSM_MODEM, SMSM_DSPS},
 	[SMD_QDSP_DSPS] = {SMSM_Q6, SMSM_DSPS},
-	[SMD_APPS_WCNSS] = {SMSM_APPS, SMSM_WCNSS},
+	[SMD_APPS_WCNSS] = {SMSM_APPS, SMSM_WCNSS, "wcnss"},
 	[SMD_MODEM_WCNSS] = {SMSM_MODEM, SMSM_WCNSS},
 	[SMD_QDSP_WCNSS] = {SMSM_Q6, SMSM_WCNSS},
 	[SMD_DSPS_WCNSS] = {SMSM_DSPS, SMSM_WCNSS},
@@ -738,6 +739,26 @@ static int pid_is_on_edge(struct smd_shared_v2 *shared2,
 
 	return ret;
 }
+
+/*
+ * Returns a pointer to the subsystem name or NULL if no
+ * subsystem name is available.
+ *
+ * @type - Edge definition
+ */
+const char *smd_edge_to_subsystem(uint32_t type)
+{
+	const char *subsys = NULL;
+
+	if (type < ARRAY_SIZE(edge_to_pids)) {
+		subsys = edge_to_pids[type].subsys_name;
+		if (subsys[0] == 0x0)
+			subsys = NULL;
+	}
+	return subsys;
+}
+EXPORT_SYMBOL(smd_edge_to_subsystem);
+
 
 static void smd_reset_edge(struct smd_half_channel *ch, unsigned new_state)
 {
@@ -2788,6 +2809,9 @@ int smd_core_platform_init(struct platform_device *pdev)
 				cfg->smsm_int.irq_name);
 			break;
 		}
+
+		strncpy(edge_to_pids[cfg->edge].subsys_name,
+				cfg->subsys_name, SMD_MAX_CH_NAME_LEN);
 	}
 
 	if (err_ret < 0) {

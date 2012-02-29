@@ -236,6 +236,14 @@ int smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf);
  */
 int smd_write_end(smd_channel_t *ch);
 
+/*
+ * Returns a pointer to the subsystem name or NULL if no
+ * subsystem name is available.
+ *
+ * @type - Edge definition
+ */
+const char *smd_edge_to_subsystem(uint32_t type);
+
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -336,6 +344,11 @@ smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf)
 static inline int smd_write_end(smd_channel_t *ch)
 {
 	return -ENODEV;
+}
+
+static inline const char *smd_edge_to_subsystem(uint32_t type)
+{
+	return NULL;
 }
 #endif
 
