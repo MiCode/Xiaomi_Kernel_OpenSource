@@ -750,12 +750,28 @@ static bool msm_pm_power_collapse(bool from_idle)
 
 	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, true);
 
-	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
-		pr_info("CPU%u: %s: restore clock rate to %lu\n",
-			cpu, __func__, saved_acpuclk_rate);
-	if (acpuclk_set_rate(cpu, saved_acpuclk_rate, SETRATE_PC) < 0)
-		pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
-			cpu, __func__, saved_acpuclk_rate);
+	if (cpu_online(cpu)) {
+		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
+			pr_info("CPU%u: %s: restore clock rate to %lu\n",
+				cpu, __func__, saved_acpuclk_rate);
+		if (acpuclk_set_rate(cpu, saved_acpuclk_rate, SETRATE_PC) < 0)
+			pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
+				cpu, __func__, saved_acpuclk_rate);
+	} else {
+		unsigned int gic_dist_enabled;
+		unsigned int gic_dist_pending;
+		gic_dist_enabled = readl_relaxed(
+				MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_CLEAR);
+		gic_dist_pending = readl_relaxed(
+				MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET);
+		mb();
+		gic_dist_pending &= gic_dist_enabled;
+
+		if (gic_dist_pending)
+			pr_err("CPU %d interrupted during hotplug.Pending int 0x%x\n",
+					cpu, gic_dist_pending);
+	}
+
 
 	avs_reset_delays(avsdscr_setting);
 	msm_pm_config_hw_after_power_up();
