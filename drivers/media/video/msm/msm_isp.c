@@ -90,6 +90,7 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 		case VFE_OUTPUTS_MAIN_AND_VIDEO:
 		case VFE_OUTPUTS_MAIN_AND_THUMB:
 		case VFE_OUTPUTS_RAW:
+		case VFE_OUTPUTS_JPEG_AND_THUMB:
 			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
 			break;
 		case VFE_OUTPUTS_THUMB_AND_MAIN:
@@ -122,6 +123,9 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 			break;
 		case VFE_OUTPUTS_THUMB_AND_MAIN:
 			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
+			break;
+		case VFE_OUTPUTS_JPEG_AND_THUMB:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
 			break;
 		default:
 			image_mode = -1;
@@ -200,16 +204,27 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_V32_JPEG_CAPTURE:
+		D("%s:VFE_MSG_V32_JPEG_CAPTURE vdata->type %d\n", __func__,
+			vdata->type);
 		free_buf.num_planes = 1;
-		free_buf.ch_paddr[0] = IMEM_Y_OFFSET;
-		free_buf.ch_paddr[1] = IMEM_CBCR_OFFSET;
+		free_buf.ch_paddr[0] = IMEM_Y_PING_OFFSET;
+		free_buf.ch_paddr[1] = IMEM_CBCR_PING_OFFSET;
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
+		D("%s:VFE_MSG_V32_JPEG_CAPTURE y_ping=%x cbcr_ping=%x\n",
+			__func__, free_buf.ch_paddr[0], free_buf.ch_paddr[1]);
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		/* Write the same buffer into PONG */
+		free_buf.ch_paddr[0] = IMEM_Y_PONG_OFFSET;
+		free_buf.ch_paddr[1] = IMEM_CBCR_PONG_OFFSET;
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
+		cfgcmd.value = &vfe_id;
+		vfe_params.vfe_cfg = &cfgcmd;
+		vfe_params.data = (void *)&free_buf;
+		D("%s:VFE_MSG_V32_JPEG_CAPTURE y_pong=%x cbcr_pong=%x\n",
+			__func__, free_buf.ch_paddr[0], free_buf.ch_paddr[1]);
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_OUTPUT_IRQ:

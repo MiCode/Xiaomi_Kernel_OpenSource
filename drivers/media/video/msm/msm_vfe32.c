@@ -868,6 +868,7 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	irq_comp_mask	= msm_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 
 	if (vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
+		vfe32_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB ||
 		vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN) {
 		if (vfe32_ctrl->outpath.output_mode &
 			VFE32_OUTPUT_MODE_PRIMARY) {
@@ -1297,8 +1298,6 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		rc = vfe32_capture_raw(snapshot_cnt);
 		break;
 	case VFE_CMD_CAPTURE:
-		CDBG("vfe32_proc_general: cmdID = %s op mode = %d\n",
-			vfe32_general_cmd[cmd->id], vfe32_ctrl->operation_mode);
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
 				sizeof(uint32_t))) {
 			rc = -EFAULT;
@@ -2960,13 +2959,14 @@ static void vfe32_process_output_path_irq_1(void)
 
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 		VFE_MSG_OUTPUT_SECONDARY);
-
 	out_bool = ((vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_THUMB_AND_MAIN ||
 			vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_MAIN_AND_THUMB ||
 			vfe32_ctrl->operation_mode ==
-				VFE_OUTPUTS_RAW) &&
+				VFE_OUTPUTS_RAW ||
+			vfe32_ctrl->operation_mode ==
+				VFE_OUTPUTS_JPEG_AND_THUMB) &&
 			(vfe32_ctrl->vfe_capture_count <= 1)) || free_buf;
 
 	if (out_bool) {
@@ -3003,7 +3003,9 @@ static void vfe32_process_output_path_irq_1(void)
 			vfe32_ctrl->operation_mode ==
 				VFE_OUTPUTS_MAIN_AND_THUMB ||
 			vfe32_ctrl->operation_mode ==
-				VFE_OUTPUTS_RAW)
+				VFE_OUTPUTS_RAW ||
+			vfe32_ctrl->operation_mode ==
+				VFE_OUTPUTS_JPEG_AND_THUMB)
 			vfe32_ctrl->outpath.out1.capture_cnt--;
 
 		vfe_send_outmsg(&vfe32_ctrl->subdev,
