@@ -584,7 +584,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	 */
 	gfp &= ~(__GFP_COMP);
 
-	*handle = ~0;
+	*handle = DMA_ERROR_CODE;
 	size = PAGE_ALIGN(size);
 
 	if (arch_is_coherent() || nommu())
