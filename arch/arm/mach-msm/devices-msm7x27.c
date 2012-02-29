@@ -76,6 +76,21 @@ struct platform_device msm_device_uart2 = {
 	.resource	= resources_uart2,
 };
 
+static struct resource resources_adsp[] = {
+	{
+		.start  = INT_ADSP_A9_A11,
+		.end    = INT_ADSP_A9_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_adsp_device = {
+	.name           = "msm_adsp",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_adsp),
+	.resource       = resources_adsp,
+};
+
 #define MSM_UART1DM_PHYS      0xA0200000
 #define MSM_UART2DM_PHYS      0xA0300000
 static struct resource msm_uart1_dm_resources[] = {

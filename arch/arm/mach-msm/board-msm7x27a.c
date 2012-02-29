@@ -60,6 +60,7 @@
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_PMEM_AUDIO_SIZE	0x5B000
+#define ADSP_RPC_PROG           0x3000000a
 
 #if defined(CONFIG_GPIO_SX150X)
 enum {
@@ -1115,6 +1116,44 @@ static struct platform_device msm_proccomm_regulator_dev = {
 	}
 };
 
+static void msm_adsp_add_pdev(void)
+{
+	int rc = 0;
+	struct rpc_board_dev *rpc_adsp_pdev;
+
+	rpc_adsp_pdev = kzalloc(sizeof(struct rpc_board_dev), GFP_KERNEL);
+	if (rpc_adsp_pdev == NULL) {
+		pr_err("%s: Memory Allocation failure\n", __func__);
+		return;
+	}
+	rpc_adsp_pdev->prog = ADSP_RPC_PROG;
+	rpc_adsp_pdev->pdev = msm_adsp_device;
+	rc = msm_rpc_add_board_dev(rpc_adsp_pdev, 1);
+	if (rc < 0) {
+		pr_err("%s: return val: %d\n",	__func__, rc);
+		kfree(rpc_adsp_pdev);
+	}
+}
+
+static void msm_adsp_8625_add_pdev(void)
+{
+	int rc = 0;
+	struct rpc_board_dev *rpc_adsp_pdev;
+
+	rpc_adsp_pdev = kzalloc(sizeof(struct rpc_board_dev), GFP_KERNEL);
+	if (rpc_adsp_pdev == NULL) {
+		pr_err("%s: Memory Allocation failure\n", __func__);
+		return;
+	}
+	rpc_adsp_pdev->prog = ADSP_RPC_PROG;
+	rpc_adsp_pdev->pdev = msm8625_device_adsp;
+	rc = msm_rpc_add_board_dev(rpc_adsp_pdev, 1);
+	if (rc < 0) {
+		pr_err("%s: return val: %d\n", __func__, rc);
+		kfree(rpc_adsp_pdev);
+	}
+}
+
 static void __init msm7627a_rumi3_init(void)
 {
 	msm7x27a_init_ebi2();
@@ -1125,6 +1164,7 @@ static void __init msm7627a_rumi3_init(void)
 static void __init msm8625_rumi3_init(void)
 {
 	msm7x2x_misc_init();
+	msm_adsp_8625_add_pdev();
 	msm_device_i2c_init();
 	platform_add_devices(msm8625_rumi3_devices,
 			ARRAY_SIZE(msm8625_rumi3_devices));
@@ -1159,6 +1199,7 @@ static void __init msm7x2x_init(void)
 	msm7x27a_init_regulators();
 
 	/* Common functions for SURF/FFA/RUMI3 */
+	msm_adsp_add_pdev();
 	msm_device_i2c_init();
 	msm7x27a_init_ebi2();
 	msm7x27a_cfg_uart2dm_serial();
