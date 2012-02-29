@@ -123,7 +123,7 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_60fps_settings[] = {
 	{0x0344, 0x01}, /* x_addr_start */
 	{0x0345, 0x20}, /* x_addr_start */
 	{0x0346, 0x02}, /* y_addr_start */
-	{0x0347, 0x23}, /* y_addr_start */
+	{0x0347, 0x24}, /* y_addr_start */
 	{0x0348, 0x0E}, /* x_addr_end */
 	{0x0349, 0xA0}, /* x_addr_end */
 	{0x034A, 0x09}, /* y_addr_end */
@@ -160,7 +160,7 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_90fps_settings[] = {
 	{0x0344, 0x01}, /* x_addr_start */
 	{0x0345, 0x20}, /* x_addr_start */
 	{0x0346, 0x02}, /* y_addr_start */
-	{0x0347, 0x23}, /* y_addr_start */
+	{0x0347, 0x24}, /* y_addr_start */
 	{0x0348, 0x0E}, /* x_addr_end */
 	{0x0349, 0xA0}, /* x_addr_end */
 	{0x034A, 0x09}, /* y_addr_end */
@@ -197,7 +197,7 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_video_120fps_settings[] = {
 	{0x0344, 0x01}, /* x_addr_start */
 	{0x0345, 0x20}, /* x_addr_start */
 	{0x0346, 0x02}, /* y_addr_start */
-	{0x0347, 0x23}, /* y_addr_start */
+	{0x0347, 0x24}, /* y_addr_start */
 	{0x0348, 0x0E}, /* x_addr_end */
 	{0x0349, 0xA0}, /* x_addr_end */
 	{0x034A, 0x09}, /* y_addr_end */
