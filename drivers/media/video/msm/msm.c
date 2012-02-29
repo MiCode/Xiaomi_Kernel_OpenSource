@@ -163,6 +163,10 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
+			rcmd = msm_dequeue(queue, list_control);
+			if (!rcmd)
+				free_qcmd(rcmd);
+			kfree(isp_event);
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
 		}
@@ -943,7 +947,8 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 		not in use when we free the buffers */
 	mutex_lock(&pcam->vid_lock);
 	pcam_inst->streamon = 0;
-	rc = msm_server_streamoff(pcam, pcam_inst->my_index);
+	if (g_server_dev.use_count > 0)
+		rc = msm_server_streamoff(pcam, pcam_inst->my_index);
 	mutex_unlock(&pcam->vid_lock);
 	if (rc < 0)
 		pr_err("%s: hw failed to stop streaming\n", __func__);
@@ -1448,6 +1453,7 @@ static int msm_open(struct file *f)
 		}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		pcam->mctl.client = msm_ion_client_create(-1, "camera");
+		kref_init(&pcam->mctl.refcount);
 #endif
 		/* Should be set to sensor ops if any but right now its OK!! */
 		if (!pcam->mctl.mctl_open) {
@@ -1502,6 +1508,7 @@ static int msm_open(struct file *f)
 
 
 	if (pcam->use_count == 1) {
+		msm_queue_init(&g_server_dev.ctrl_q, "control");
 		rc = msm_send_open_server(pcam->vnode_id);
 		if (rc < 0) {
 			mutex_unlock(&pcam->vid_lock);
@@ -1573,6 +1580,14 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 	return rc;
 }
 
+void msm_release_ion_client(struct kref *ref)
+{
+	struct msm_cam_media_controller *mctl = container_of(ref,
+			struct msm_cam_media_controller, refcount);
+	pr_err("%s Calling ion_client_destroy ", __func__);
+	ion_client_destroy(mctl->client);
+}
+
 static int msm_close(struct file *f)
 {
 	int rc = 0;
@@ -1581,12 +1596,10 @@ static int msm_close(struct file *f)
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 	pcam = pcam_inst->pcam;
-	D("%s\n", __func__);
 	if (!pcam) {
 		pr_err("%s NULL pointer of camera device!\n", __func__);
 		return -EINVAL;
 	}
-
 
 	mutex_lock(&pcam->vid_lock);
 	pcam_inst->streamon = 0;
@@ -1610,17 +1623,21 @@ static int msm_close(struct file *f)
 		if (rc < 0)
 			pr_err("msm_cam_server_close_session fails %d\n", rc);
 
-		rc = msm_send_close_server(pcam->vnode_id);
-		if (rc < 0)
-			pr_err("msm_send_close_server failed %d\n", rc);
+		if (g_server_dev.use_count > 0) {
+			rc = msm_send_close_server(pcam->vnode_id);
+			if (rc < 0)
+				pr_err("msm_send_close_server failed %d\n", rc);
+		}
 		if (pcam->mctl.mctl_release) {
 			rc = pcam->mctl.mctl_release(&(pcam->mctl));
 			if (rc < 0)
 				pr_err("mctl_release fails %d\n", rc);
 		}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		ion_client_destroy(pcam->mctl.client);
+		kref_put(&pcam->mctl.refcount, msm_release_ion_client);
 #endif
+		if (g_server_dev.use_count == 0)
+			mutex_unlock(&g_server_dev.server_lock);
 	}
 	mutex_unlock(&pcam->vid_lock);
 	return rc;
@@ -1879,16 +1896,17 @@ static int msm_open_server(struct inode *inode, struct file *fp)
 {
 	int rc;
 	D("%s: open %s\n", __func__, fp->f_path.dentry->d_name.name);
-
+	mutex_lock(&g_server_dev.server_lock);
 	rc = nonseekable_open(inode, fp);
 	if (rc < 0) {
 		pr_err("%s: nonseekable_open error %d\n", __func__, rc);
+		mutex_unlock(&g_server_dev.server_lock);
 		return rc;
 	}
 	g_server_dev.use_count++;
 	if (g_server_dev.use_count == 1)
 		msm_queue_init(&g_server_dev.ctrl_q, "control");
-
+	mutex_unlock(&g_server_dev.server_lock);
 	return rc;
 }
 
@@ -1908,6 +1926,29 @@ static unsigned int msm_poll_config(struct file *fp,
 		rc |= POLLPRI;
 	return rc;
 }
+
+static int msm_close_server(struct inode *inode, struct file *fp)
+{
+	mutex_lock(&g_server_dev.server_lock);
+	if (g_server_dev.use_count > 0)
+		g_server_dev.use_count--;
+	mutex_unlock(&g_server_dev.server_lock);
+	if (g_server_dev.use_count == 0) {
+		if (g_server_dev.pcam_active) {
+			struct v4l2_event v4l2_ev;
+			mutex_lock(&g_server_dev.server_lock);
+
+			v4l2_ev.type = V4L2_EVENT_PRIVATE_START
+				+ MSM_CAM_APP_NOTIFY_ERROR_EVENT;
+			ktime_get_ts(&v4l2_ev.timestamp);
+			v4l2_event_queue(
+				g_server_dev.pcam_active->pvdev, &v4l2_ev);
+		}
+		msm_queue_drain(&g_server_dev.ctrl_q, list_control);
+	}
+	return 0;
+}
+
 
 static long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
 		unsigned int cmd, unsigned long evt)
@@ -2147,8 +2188,17 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	spin_lock_init(&config_cam->p_mctl->sync.pmem_stats_spinlock);
 
 	config_cam->p_mctl->config_device = config_cam;
+	kref_get(&config_cam->p_mctl->refcount);
 	fp->private_data = config_cam;
 	return rc;
+}
+
+static int msm_close_config(struct inode *node, struct file *f)
+{
+	struct msm_cam_config_dev *config_cam = f->private_data;
+	D("%s Decrementing ref count of config node ", __func__);
+	kref_put(&config_cam->p_mctl->refcount, msm_release_ion_client);
+	return 0;
 }
 
 static struct v4l2_file_operations g_msm_fops = {
@@ -2169,6 +2219,7 @@ static const struct file_operations msm_fops_server = {
 	.open  = msm_open_server,
 	.poll  = msm_poll_server,
 	.unlocked_ioctl = msm_ioctl_server,
+	.release = msm_close_server,
 };
 
 static const struct file_operations msm_fops_config = {
@@ -2177,6 +2228,7 @@ static const struct file_operations msm_fops_config = {
 	.poll  = msm_poll_config,
 	.unlocked_ioctl = msm_ioctl_config,
 	.mmap	= msm_mmap_config,
+	.release = msm_close_config,
 };
 
 int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
@@ -2294,6 +2346,7 @@ static int msm_setup_server_dev(int node, char *device_name)
 		return rc;
 	}
 
+	mutex_init(&g_server_dev.server_lock);
 	g_server_dev.pcam_active = NULL;
 	g_server_dev.camera_info.num_cameras = 0;
 	atomic_set(&g_server_dev.number_pcam_active, 0);
