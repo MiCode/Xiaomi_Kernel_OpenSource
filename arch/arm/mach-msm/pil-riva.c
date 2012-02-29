@@ -21,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
+#include <linux/wakelock.h>
 
 #include <mach/msm_iomap.h>
 
@@ -87,6 +88,7 @@ struct riva_data {
 	struct delayed_work work;
 	struct regulator *pll_supply;
 	struct pil_device *pil;
+	struct wake_lock wlock;
 };
 
 static int pil_riva_make_proxy_votes(struct device *dev)
@@ -94,6 +96,7 @@ static int pil_riva_make_proxy_votes(struct device *dev)
 	struct riva_data *drv = dev_get_drvdata(dev);
 	int ret;
 
+	wake_lock(&drv->wlock);
 	ret = regulator_enable(drv->pll_supply);
 	if (ret) {
 		dev_err(dev, "failed to enable pll supply\n");
@@ -120,6 +123,7 @@ static void pil_riva_remove_proxy_votes(struct work_struct *work)
 	regulator_disable(drv->pll_supply);
 	if (drv->use_cxo)
 		clk_disable_unprepare(drv->xo);
+	wake_unlock(&drv->wlock);
 }
 
 static void pil_riva_remove_proxy_votes_now(struct device *dev)
@@ -406,6 +410,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->xo);
 		goto err;
 	}
+	wake_lock_init(&drv->wlock, WAKE_LOCK_SUSPEND, "riva-wlock");
 	INIT_DELAYED_WORK(&drv->work, pil_riva_remove_proxy_votes);
 
 	drv->pil = msm_pil_register(desc);
@@ -416,6 +421,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	return 0;
 err_register:
 	flush_delayed_work_sync(&drv->work);
+	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 err:
 	regulator_put(drv->pll_supply);
@@ -427,6 +433,7 @@ static int __devexit pil_riva_remove(struct platform_device *pdev)
 	struct riva_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
 	flush_delayed_work_sync(&drv->work);
+	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 	regulator_put(drv->pll_supply);
 	return 0;
