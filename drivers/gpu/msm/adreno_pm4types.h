@@ -163,6 +163,13 @@
 
 #define CP_LOAD_STATE 0x30 /* load high level sequencer command */
 
+/* Conditionally load a IB based on a flag */
+#define CP_COND_INDIRECT_BUFFER_PFE 0x3A /* prefetch enabled */
+#define CP_COND_INDIRECT_BUFFER_PFD 0x32 /* prefetch disabled */
+
+/* Load a buffer with pre-fetch enabled */
+#define CP_INDIRECT_BUFFER_PFE 0x3F
+
 #define CP_LOADSTATE_DSTOFFSET_SHIFT 0x00000000
 #define CP_LOADSTATE_STATESRC_SHIFT 0x00000010
 #define CP_LOADSTATE_STATEBLOCKID_SHIFT 0x00000013
