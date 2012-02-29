@@ -761,14 +761,14 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 
 	dev_dbg(dai->dev, "enter %s, id = %d\n", __func__,
 							dai->id);
-	if (!tx_slot && !rx_slot)
-		return -EINVAL;
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
 		/* channel number to be between 128 and 255. For RX port
 		 * use channel numbers from 138 to 144, for TX port
 		 * use channel numbers from 128 to 137
 		 */
+		if (!rx_slot)
+			return -EINVAL;
 		for (i = 0; i < rx_num; i++) {
 			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
 							rx_slot[i];
@@ -787,6 +787,8 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		 * use channel numbers from 138 to 144, for TX port
 		 * use channel numbers from 128 to 137
 		 */
+		if (!tx_slot)
+			return -EINVAL;
 		for (i = 0; i < tx_num; i++) {
 			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
 							tx_slot[i];
