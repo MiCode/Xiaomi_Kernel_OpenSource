@@ -25,6 +25,8 @@
 #include <linux/ashmem.h>
 #include <linux/major.h>
 #include <linux/ion.h>
+#include <linux/io.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -2431,19 +2433,20 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	device->reg_phys = res->start;
 	device->reg_len = resource_size(res);
 
-	if (!request_mem_region(device->reg_phys, device->reg_len,
-		device->name)) {
+	if (!devm_request_mem_region(device->dev, device->reg_phys,
+				device->reg_len, device->name)) {
 		KGSL_DRV_ERR(device, "request_mem_region failed\n");
 		status = -ENODEV;
 		goto error_pwrctrl_close;
 	}
 
-	device->reg_virt = ioremap(device->reg_phys, device->reg_len);
+	device->reg_virt = devm_ioremap(device->dev, device->reg_phys,
+					device->reg_len);
 
 	if (device->reg_virt == NULL) {
 		KGSL_DRV_ERR(device, "ioremap failed\n");
 		status = -ENODEV;
-		goto error_release_mem;
+		goto error_pwrctrl_close;
 	}
 	/*acquire interrupt */
 	device->pwrctrl.interrupt_num =
@@ -2453,15 +2456,16 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		KGSL_DRV_ERR(device, "platform_get_irq_byname failed: %d\n",
 					 device->pwrctrl.interrupt_num);
 		status = -EINVAL;
-		goto error_iounmap;
+		goto error_pwrctrl_close;
 	}
 
-	status = request_irq(device->pwrctrl.interrupt_num, kgsl_irq_handler,
-			     IRQF_TRIGGER_HIGH, device->name, device);
+	status = devm_request_irq(device->dev, device->pwrctrl.interrupt_num,
+				  kgsl_irq_handler, IRQF_TRIGGER_HIGH,
+				  device->name, device);
 	if (status) {
 		KGSL_DRV_ERR(device, "request_irq(%d) failed: %d\n",
 			      device->pwrctrl.interrupt_num, status);
-		goto error_iounmap;
+		goto error_pwrctrl_close;
 	}
 	disable_irq(device->pwrctrl.interrupt_num);
 
@@ -2472,14 +2476,14 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	result = kgsl_drm_init(pdev);
 	if (result)
-		goto error_irq;
+		goto error_pwrctrl_close;
 
 	kgsl_cffdump_open(device->id);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	status = kgsl_create_device_workqueue(device);
 	if (status)
-		goto error_irq;
+		goto error_pwrctrl_close;
 
 	status = kgsl_mmu_init(device);
 	if (status != 0) {
@@ -2513,14 +2517,6 @@ error_close_mmu:
 error_dest_work_q:
 	destroy_workqueue(device->work_queue);
 	device->work_queue = NULL;
-error_irq:
-	free_irq(device->pwrctrl.interrupt_num, NULL);
-	device->pwrctrl.interrupt_num = 0;
-error_iounmap:
-	iounmap(device->reg_virt);
-	device->reg_virt = NULL;
-error_release_mem:
-	release_mem_region(device->reg_phys, device->reg_len);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
@@ -2531,7 +2527,6 @@ EXPORT_SYMBOL(kgsl_device_platform_probe);
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-
 	kgsl_device_snapshot_close(device);
 
 	kgsl_cffdump_close(device->id);
@@ -2550,16 +2545,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		destroy_workqueue(device->work_queue);
 		device->work_queue = NULL;
 	}
-	if (device->reg_virt != NULL) {
-		iounmap(device->reg_virt);
-		device->reg_virt = NULL;
-		release_mem_region(device->reg_phys, device->reg_len);
-	}
-	if (device->pwrctrl.interrupt_num > 0) {
-		free_irq(device->pwrctrl.interrupt_num, NULL);
-		device->pwrctrl.interrupt_num = 0;
-	}
-
 	kgsl_pwrctrl_close(device);
 
 	_unregister_device(device);
