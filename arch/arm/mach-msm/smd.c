@@ -225,24 +225,6 @@ static inline void smd_write_intr(unsigned int val,
 #define MSM_TRIG_A2DSPS_SMSM_INT
 #define MSM_TRIG_A2WCNSS_SMD_INT
 #define MSM_TRIG_A2WCNSS_SMSM_INT
-#elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8930) || \
-	defined(CONFIG_ARCH_APQ8064)
-#define MSM_TRIG_A2M_SMD_INT     \
-			(smd_write_intr(1 << 3, MSM_APCS_GCC_BASE + 0x8))
-#define MSM_TRIG_A2Q6_SMD_INT    \
-			(smd_write_intr(1 << 15, MSM_APCS_GCC_BASE + 0x8))
-#define MSM_TRIG_A2M_SMSM_INT    \
-			(smd_write_intr(1 << 4, MSM_APCS_GCC_BASE + 0x8))
-#define MSM_TRIG_A2Q6_SMSM_INT   \
-			(smd_write_intr(1 << 14, MSM_APCS_GCC_BASE + 0x8))
-#define MSM_TRIG_A2DSPS_SMD_INT  \
-			(smd_write_intr(1, MSM_SIC_NON_SECURE_BASE + 0x4080))
-#define MSM_TRIG_A2DSPS_SMSM_INT \
-			(smd_write_intr(1, MSM_SIC_NON_SECURE_BASE + 0x4094))
-#define MSM_TRIG_A2WCNSS_SMD_INT  \
-			(smd_write_intr(1 << 25, MSM_APCS_GCC_BASE + 0x8))
-#define MSM_TRIG_A2WCNSS_SMSM_INT  \
-			(smd_write_intr(1 << 23, MSM_APCS_GCC_BASE + 0x8))
 #elif defined(CONFIG_ARCH_MSM9615)
 #define MSM_TRIG_A2M_SMD_INT     \
 			(smd_write_intr(1 << 3, MSM_APCS_GCC_BASE + 0x8))
