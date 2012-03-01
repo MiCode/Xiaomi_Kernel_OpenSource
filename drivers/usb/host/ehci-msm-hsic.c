@@ -25,9 +25,12 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/wakelock.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <mach/msm_bus.h>
 
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/msm_hsusb.h>
@@ -55,8 +58,10 @@ struct msm_hsic_hcd {
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
+	uint32_t		bus_perf_client;
 };
 
+static bool debug_bus_voting_enabled = true;
 static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
 {
 	return (struct msm_hsic_hcd *) (hcd->hcd_priv);
@@ -464,6 +469,14 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	if (ret < 0)
 		dev_err(mehci->dev, "unable to set vddcx voltage: min:0.5v max:1.3v\n");
 
+	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
+		ret = msm_bus_scale_client_update_request(
+				mehci->bus_perf_client, 0);
+		if (ret)
+			dev_err(mehci->dev, "%s: Failed to dvote for "
+				   "bus bandwidth %d\n", __func__, ret);
+	}
+
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
 	wake_unlock(&mehci->wlock);
@@ -486,6 +499,14 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	}
 
 	wake_lock(&mehci->wlock);
+
+	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
+		ret = msm_bus_scale_client_update_request(
+				mehci->bus_perf_client, 1);
+		if (ret)
+			dev_err(mehci->dev, "%s: Failed to vote for "
+				   "bus bandwidth %d\n", __func__, ret);
+	}
 
 	ret = regulator_set_voltage(mehci->hsic_vddcx,
 				USB_PHY_VDD_DIG_VOL_MIN,
@@ -754,6 +775,88 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int ehci_hsic_msm_bus_show(struct seq_file *s, void *unused)
+{
+	if (debug_bus_voting_enabled)
+		seq_printf(s, "enabled\n");
+	else
+		seq_printf(s, "disabled\n");
+
+	return 0;
+}
+
+static int ehci_hsic_msm_bus_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ehci_hsic_msm_bus_show, inode->i_private);
+}
+
+static ssize_t ehci_hsic_msm_bus_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char buf[8];
+	int ret;
+	struct seq_file *s = file->private_data;
+	struct msm_hsic_hcd *mehci = s->private;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "enable", 6)) {
+		/* Do not vote here. Let hsic driver decide when to vote */
+		debug_bus_voting_enabled = true;
+	} else {
+		debug_bus_voting_enabled = false;
+		if (mehci->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					mehci->bus_perf_client, 0);
+			if (ret)
+				dev_err(mehci->dev, "%s: Failed to devote "
+					   "for bus bw %d\n", __func__, ret);
+		}
+	}
+
+	return count;
+}
+
+const struct file_operations ehci_hsic_msm_bus_fops = {
+	.open = ehci_hsic_msm_bus_open,
+	.read = seq_read,
+	.write = ehci_hsic_msm_bus_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static struct dentry *ehci_hsic_msm_dbg_root;
+static int ehci_hsic_msm_debugfs_init(struct msm_hsic_hcd *mehci)
+{
+	struct dentry *ehci_hsic_msm_dentry;
+
+	ehci_hsic_msm_dbg_root = debugfs_create_dir("ehci_hsic_msm_dbg", NULL);
+
+	if (!ehci_hsic_msm_dbg_root || IS_ERR(ehci_hsic_msm_dbg_root))
+		return -ENODEV;
+
+	ehci_hsic_msm_dentry = debugfs_create_file("bus_voting",
+		S_IRUGO | S_IWUSR,
+		ehci_hsic_msm_dbg_root, mehci,
+		&ehci_hsic_msm_bus_fops);
+
+	if (!ehci_hsic_msm_dentry) {
+		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void ehci_hsic_msm_debugfs_cleanup(void)
+{
+	debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
+}
+
+
 
 static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 {
@@ -886,6 +989,27 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = ehci_hsic_msm_debugfs_init(mehci);
+	if (ret)
+		dev_dbg(&pdev->dev, "mode debugfs file is"
+			"not available\n");
+
+	if (pdata && pdata->bus_scale_table) {
+		mehci->bus_perf_client =
+		    msm_bus_scale_register_client(pdata->bus_scale_table);
+		/* Configure BUS performance parameters for MAX bandwidth */
+		if (mehci->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					mehci->bus_perf_client, 1);
+			if (ret)
+				dev_err(&pdev->dev, "%s: Failed to vote for "
+					   "bus bandwidth %d\n", __func__, ret);
+		} else {
+			dev_err(&pdev->dev, "%s: Failed to register BUS "
+						"scaling client!!\n", __func__);
+		}
+	}
+
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
 	 * hence, runtime framework automatically calls this driver's
@@ -930,6 +1054,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 		free_irq(mehci->wakeup_irq, mehci);
 	}
 
+	if (mehci->bus_perf_client)
+		msm_bus_scale_unregister_client(mehci->bus_perf_client);
+
+	ehci_hsic_msm_debugfs_cleanup();
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);
 
