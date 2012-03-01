@@ -514,6 +514,12 @@ struct vdec_framesize {
 	uint32_t   bottom;
 };
 
+struct vdec_aspectratioinfo {
+	uint32_t aspect_ratio;
+	uint32_t par_width;
+	uint32_t par_height;
+};
+
 struct vdec_output_frameinfo {
 	void __user *bufferaddr;
 	size_t offset;
@@ -525,6 +531,7 @@ struct vdec_output_frameinfo {
 	void *input_frame_clientdata;
 	struct vdec_framesize framesize;
 	enum vdec_interlaced_format interlaced_format;
+	struct vdec_aspectratioinfo aspect_ratio_info;
 };
 
 union vdec_msgdata {
