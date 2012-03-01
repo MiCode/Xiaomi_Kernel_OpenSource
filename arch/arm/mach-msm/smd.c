@@ -894,9 +894,10 @@ void smd_channel_reset(uint32_t restart_pid)
 
 		/* notify SMSM processors */
 		smsm_irq_handler(0, 0);
-		MSM_TRIG_A2M_SMSM_INT;
-		MSM_TRIG_A2Q6_SMSM_INT;
-		MSM_TRIG_A2DSPS_SMSM_INT;
+		notify_modem_smsm();
+		notify_dsp_smsm();
+		notify_dsps_smsm();
+		notify_wcnss_smsm();
 	}
 
 	/* change all remote states to CLOSING */
