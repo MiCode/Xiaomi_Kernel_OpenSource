@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,6 +256,122 @@ DEFINE_EVENT(kgsl_pwrstate_template, kgsl_pwr_request_state,
 	TP_PROTO(struct kgsl_device *device, unsigned int state),
 	TP_ARGS(device, state)
 );
+
+TRACE_EVENT(kgsl_mem_alloc,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry),
+
+	TP_ARGS(mem_entry),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%08x size=%d",
+		__entry->gpuaddr, __entry->size
+	)
+);
+
+TRACE_EVENT(kgsl_mem_map,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, int fd),
+
+	TP_ARGS(mem_entry, fd),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+		__field(int, fd)
+		__field(int, type)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		__entry->fd = fd;
+		__entry->type = mem_entry->memtype;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%08x size=%d type=%d fd=%d",
+		__entry->gpuaddr, __entry->size,
+		__entry->type, __entry->fd
+	)
+);
+
+TRACE_EVENT(kgsl_mem_free,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry),
+
+	TP_ARGS(mem_entry),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+		__field(int, type)
+		__field(int, fd)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		__entry->type = mem_entry->memtype;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%08x size=%d type=%d",
+		__entry->gpuaddr, __entry->size, __entry->type
+	)
+);
+
+DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
+
+	TP_ARGS(mem_entry, curr_ts),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+		__field(int, type)
+		__field(unsigned int, drawctxt_id)
+		__field(unsigned int, curr_ts)
+		__field(unsigned int, free_ts)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		__entry->drawctxt_id = 1337;
+		__entry->type = mem_entry->memtype;
+		__entry->curr_ts = curr_ts;
+		__entry->free_ts = mem_entry->free_timestamp;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%08x size=%d type=%d ctx=%u curr_ts=0x%08x free_ts=0x%08x",
+		__entry->gpuaddr, __entry->size, __entry->type,
+		__entry->drawctxt_id, __entry->curr_ts, __entry->free_ts
+	)
+);
+
+DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_queue,
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
+	TP_ARGS(mem_entry, curr_ts)
+);
+
+DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_free,
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int curr_ts),
+	TP_ARGS(mem_entry, curr_ts)
+);
+
 
 #endif /* _KGSL_TRACE_H */
 

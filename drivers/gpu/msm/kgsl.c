@@ -1024,6 +1024,7 @@ static void kgsl_freemem_event_cb(struct kgsl_device *device,
 	spin_lock(&entry->priv->mem_lock);
 	list_del(&entry->list);
 	spin_unlock(&entry->priv->mem_lock);
+	trace_kgsl_mem_timestamp_free(entry, timestamp);
 	kgsl_mem_entry_put(entry);
 }
 
@@ -1034,12 +1035,18 @@ static long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
 	int result = 0;
 	struct kgsl_cmdstream_freememontimestamp *param = data;
 	struct kgsl_mem_entry *entry = NULL;
+	struct kgsl_device *device = dev_priv->device;
+	unsigned int cur;
 
 	spin_lock(&dev_priv->process_priv->mem_lock);
 	entry = kgsl_sharedmem_find(dev_priv->process_priv, param->gpuaddr);
 	spin_unlock(&dev_priv->process_priv->mem_lock);
 
 	if (entry) {
+		cur = device->ftbl->readtimestamp(device,
+						KGSL_TIMESTAMP_RETIRED);
+
+		trace_kgsl_mem_timestamp_queue(entry, cur);
 		result = kgsl_add_event(dev_priv->device, param->timestamp,
 					kgsl_freemem_event_cb, entry, dev_priv);
 	} else {
@@ -1118,6 +1125,7 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 	spin_unlock(&private->mem_lock);
 
 	if (entry) {
+		trace_kgsl_mem_free(entry);
 		kgsl_mem_entry_put(entry);
 	} else {
 		KGSL_CORE_ERR("invalid gpuaddr %08x\n", param->gpuaddr);
@@ -1218,6 +1226,7 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 
 	kgsl_mem_entry_attach_process(entry, private);
 
+	trace_kgsl_mem_alloc(entry);
 	/* Process specific statistics */
 	kgsl_process_add_stats(private, entry->memtype, len);
 
@@ -1652,6 +1661,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	kgsl_process_add_stats(private, entry->memtype, param->len);
 
 	kgsl_mem_entry_attach_process(entry, private);
+	trace_kgsl_mem_map(entry, param->fd);
 
 	kgsl_check_idle(dev_priv->device);
 	return result;
@@ -1718,6 +1728,7 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		param->gpuaddr = entry->memdesc.gpuaddr;
 
 		kgsl_process_add_stats(private, entry->memtype, param->size);
+		trace_kgsl_mem_alloc(entry);
 	} else
 		kfree(entry);
 
