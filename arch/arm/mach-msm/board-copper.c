@@ -26,6 +26,7 @@
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
+#include <linux/regulator/stub-regulator.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <mach/board.h>
@@ -39,6 +40,7 @@
 #include <mach/msm_smd.h>
 #include <mach/qpnp-int.h>
 #include "clock.h"
+#include "devices.h"
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -357,6 +359,8 @@ void __init msm_copper_add_devices(void)
 	platform_device_register(&ion_dev);
 #endif
 	platform_device_register(&msm_device_smd_copper);
+	platform_add_devices(msm_copper_stub_regulator_devices,
+					msm_copper_stub_regulator_devices_len);
 }
 
 static struct of_device_id irq_match[] __initdata  = {
