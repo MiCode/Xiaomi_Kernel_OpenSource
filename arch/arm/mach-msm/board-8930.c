@@ -1820,6 +1820,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_bus_8930_mm_fabric,
 	&msm_bus_8930_sys_fpb,
 	&msm_bus_8930_cpss_fpb,
+	&msm8960_device_cache_erp,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
