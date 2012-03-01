@@ -6720,6 +6720,14 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 							((devcfg >> 4) & 0x3);
 			supported_flash.oobsize = (8 << ((devcfg >> 2) & 0x3)) *
 				(supported_flash.pagesize >> 9);
+
+			if ((supported_flash.oobsize > 64) &&
+				(supported_flash.pagesize == 2048)) {
+				pr_info("msm_nand: Found a 2K page device with"
+					" %d oobsize - changing oobsize to 64 "
+					"bytes.\n", supported_flash.oobsize);
+				supported_flash.oobsize = 64;
+			}
 		} else {
 			supported_flash.flash_id = flash_id;
 			supported_flash.density = flashdev->chipsize << 20;
