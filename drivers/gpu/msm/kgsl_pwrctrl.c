@@ -11,6 +11,7 @@
  *
  */
 #include <linux/interrupt.h>
+#include <linux/pm_runtime.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
 
@@ -552,17 +553,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 
-	/*acquire interrupt */
-	pwr->interrupt_num =
-		platform_get_irq_byname(pdev, pwr->irq_name);
 
-	if (pwr->interrupt_num <= 0) {
-		KGSL_PWR_ERR(device, "platform_get_irq_byname failed: %d\n",
-					 pwr->interrupt_num);
-		result = -EINVAL;
-		goto done;
-	}
-
+	pm_runtime_enable(device->parentdev);
 	register_early_suspend(&device->display_off);
 	return result;
 
@@ -582,15 +574,8 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	KGSL_PWR_INFO(device, "close device %d\n", device->id);
 
+	pm_runtime_disable(device->parentdev);
 	unregister_early_suspend(&device->display_off);
-
-	if (pwr->interrupt_num > 0) {
-		if (pwr->have_irq) {
-			free_irq(pwr->interrupt_num, NULL);
-			pwr->have_irq = 0;
-		}
-		pwr->interrupt_num = 0;
-	}
 
 	clk_put(pwr->ebi1_clk);
 
