@@ -892,23 +892,17 @@ u32 vid_enc_get_sequence_header(struct video_client_ctx *client_ctx,
 	u32 vcd_status = VCD_ERR_FAIL;
 	u32 status = true;
 
-	if (!client_ctx ||
-			!seq_header || !seq_header->bufsize)
+	if (!client_ctx || !seq_header || !seq_header->bufsize)
 		return false;
 
 	vcd_property_hdr.prop_id = VCD_I_SEQ_HEADER;
-	vcd_property_hdr.sz =
-		sizeof(struct vcd_sequence_hdr);
+	vcd_property_hdr.sz = sizeof(struct vcd_sequence_hdr);
 
-	hdr.sequence_header =
-		kzalloc(seq_header->bufsize, GFP_KERNEL);
-	seq_header->hdrbufptr = hdr.sequence_header;
-
-	if (!hdr.sequence_header)
-		return false;
+	hdr.sequence_header = seq_header->hdrbufptr;
 	hdr.sequence_header_len = seq_header->bufsize;
 	vcd_status = vcd_get_property(client_ctx->vcd_handle,
 			&vcd_property_hdr, &hdr);
+	seq_header->hdrlen = hdr.sequence_header_len;
 
 	if (vcd_status) {
 		ERR("%s(): Get VCD_I_SEQ_HEADER Failed\n",
