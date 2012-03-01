@@ -95,6 +95,61 @@ static int debug_f3(char *buf, int max)
 	return max;
 }
 
+static int debug_int_stats(char *buf, int max)
+{
+	int i = 0;
+	int subsys;
+	struct interrupt_stat *stats = interrupt_stats;
+	const char *subsys_name;
+
+	i += scnprintf(buf + i, max - i,
+		"   Subsystem    |     In    | Out (Hardcoded) |"
+		" Out (Configured) |\n");
+
+	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
+		subsys_name = smd_pid_to_subsystem(subsys);
+		if (subsys_name) {
+			i += scnprintf(buf + i, max - i,
+				"%-10s %4s | %9u |       %9u |        %9u |\n",
+				smd_pid_to_subsystem(subsys), "smd",
+				stats->smd_in_count,
+				stats->smd_out_hardcode_count,
+				stats->smd_out_config_count);
+
+			i += scnprintf(buf + i, max - i,
+				"%-10s %4s | %9u |       %9u |        %9u |\n",
+				smd_pid_to_subsystem(subsys), "smsm",
+				stats->smsm_in_count,
+				stats->smsm_out_hardcode_count,
+				stats->smsm_out_config_count);
+		}
+		++stats;
+	}
+
+	return i;
+}
+
+static int debug_int_stats_reset(char *buf, int max)
+{
+	int i = 0;
+	int subsys;
+	struct interrupt_stat *stats = interrupt_stats;
+
+	i += scnprintf(buf + i, max - i, "Resetting interrupt stats.\n");
+
+	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
+		stats->smd_in_count = 0;
+		stats->smd_out_hardcode_count = 0;
+		stats->smd_out_config_count = 0;
+		stats->smsm_in_count = 0;
+		stats->smsm_out_hardcode_count = 0;
+		stats->smsm_out_config_count = 0;
+		++stats;
+	}
+
+	return i;
+}
+
 static int debug_diag(char *buf, int max)
 {
 	int i = 0;
@@ -694,6 +749,8 @@ static int __init smd_debugfs_init(void)
 	debug_create("modem_err_f3", 0444, dent, debug_modem_err_f3);
 	debug_create("print_diag", 0444, dent, debug_diag);
 	debug_create("print_f3", 0444, dent, debug_f3);
+	debug_create("int_stats", 0444, dent, debug_int_stats);
+	debug_create("int_stats_reset", 0444, dent, debug_int_stats_reset);
 
 	/* NNV: this is google only stuff */
 	debug_create("build", 0444, dent, debug_read_build_id);

@@ -244,6 +244,14 @@ int smd_write_end(smd_channel_t *ch);
  */
 const char *smd_edge_to_subsystem(uint32_t type);
 
+/*
+ * Returns a pointer to the subsystem name given the
+ * remote processor ID.
+ *
+ * @pid     Remote processor ID
+ * @returns Pointer to subsystem name or NULL if not found
+ */
+const char *smd_pid_to_subsystem(uint32_t pid);
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -347,6 +355,11 @@ static inline int smd_write_end(smd_channel_t *ch)
 }
 
 static inline const char *smd_edge_to_subsystem(uint32_t type)
+{
+	return NULL;
+}
+
+static inline const char *smd_pid_to_subsystem(uint32_t pid)
 {
 	return NULL;
 }
