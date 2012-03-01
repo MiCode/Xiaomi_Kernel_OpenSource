@@ -132,10 +132,9 @@ static const struct kgsl_functable z180_functable;
 
 static struct z180_device device_2d0 = {
 	.dev = {
+		KGSL_DEVICE_COMMON_INIT(device_2d0.dev),
 		.name = DEVICE_2D0_NAME,
 		.id = KGSL_DEVICE_2D0,
-		.ver_major = DRIVER_VERSION_MAJOR,
-		.ver_minor = DRIVER_VERSION_MINOR,
 		.mh = {
 			.mharb = Z180_CFG_MHARB,
 			.mh_intf_cfg1 = 0x00032f07,
@@ -152,20 +151,17 @@ static struct z180_device device_2d0 = {
 		.pwrctrl = {
 			.irq_name = KGSL_2D0_IRQ,
 		},
-		.mutex = __MUTEX_INITIALIZER(device_2d0.dev.mutex),
-		.state = KGSL_STATE_INIT,
-		.active_cnt = 0,
 		.iomemname = KGSL_2D0_REG_MEMORY,
 		.ftbl = &z180_functable,
 	},
+	.cmdwin_lock = __SPIN_LOCK_INITIALIZER(device_2d1.cmdwin_lock),
 };
 
 static struct z180_device device_2d1 = {
 	.dev = {
+		KGSL_DEVICE_COMMON_INIT(device_2d1.dev),
 		.name = DEVICE_2D1_NAME,
 		.id = KGSL_DEVICE_2D1,
-		.ver_major = DRIVER_VERSION_MAJOR,
-		.ver_minor = DRIVER_VERSION_MINOR,
 		.mh = {
 			.mharb = Z180_CFG_MHARB,
 			.mh_intf_cfg1 = 0x00032f07,
@@ -182,12 +178,10 @@ static struct z180_device device_2d1 = {
 		.pwrctrl = {
 			.irq_name = KGSL_2D1_IRQ,
 		},
-		.mutex = __MUTEX_INITIALIZER(device_2d1.dev.mutex),
-		.state = KGSL_STATE_INIT,
-		.active_cnt = 0,
 		.iomemname = KGSL_2D1_REG_MEMORY,
 		.ftbl = &z180_functable,
 	},
+	.cmdwin_lock = __SPIN_LOCK_INITIALIZER(device_2d1.cmdwin_lock),
 };
 
 static irqreturn_t z180_irq_handler(struct kgsl_device *device)
@@ -524,7 +518,6 @@ static int __devinit z180_probe(struct platform_device *pdev)
 	device->parentdev = &pdev->dev;
 
 	z180_dev = Z180_DEVICE(device);
-	spin_lock_init(&z180_dev->cmdwin_lock);
 
 	status = z180_ringbuffer_init(device);
 	if (status != 0)

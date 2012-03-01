@@ -385,7 +385,7 @@ kgsl_destroy_context(struct kgsl_device_private *dev_priv,
 	idr_remove(&dev_priv->device->context_idr, id);
 }
 
-static void kgsl_timestamp_expired(struct work_struct *work)
+void kgsl_timestamp_expired(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 		ts_expired_ws);
@@ -415,6 +415,7 @@ static void kgsl_timestamp_expired(struct work_struct *work)
 
 	mutex_unlock(&device->mutex);
 }
+EXPORT_SYMBOL(kgsl_timestamp_expired);
 
 static void kgsl_check_idle_locked(struct kgsl_device *device)
 {
@@ -2417,27 +2418,14 @@ kgsl_register_device(struct kgsl_device *device)
 	dev_set_drvdata(device->parentdev, device);
 
 	/* Generic device initialization */
-	init_waitqueue_head(&device->wait_queue);
-
 	kgsl_cffdump_open(device->id);
-
-	init_completion(&device->hwaccess_gate);
-	init_completion(&device->suspend_gate);
-
-	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	ret = kgsl_create_device_workqueue(device);
 	if (ret)
 		goto err_devlist;
 
-	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
-	INIT_WORK(&device->ts_expired_ws, kgsl_timestamp_expired);
-
-	INIT_LIST_HEAD(&device->events);
-
 	device->last_expired_ctxt_id = KGSL_CONTEXT_INVALID;
-
 	ret = kgsl_mmu_init(device);
 	if (ret != 0)
 		goto err_dest_work_q;
@@ -2449,8 +2437,6 @@ kgsl_register_device(struct kgsl_device *device)
 	wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
 	pm_qos_add_request(&device->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
 				PM_QOS_DEFAULT_VALUE);
-
-	idr_init(&device->context_idr);
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
