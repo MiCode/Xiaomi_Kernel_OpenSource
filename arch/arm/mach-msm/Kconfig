@@ -2107,5 +2107,60 @@ config MSM_RTB_SEPARATE_CPUS
 	  separately. This will guarantee that the last acesses for each cpu
 	  will be logged but there will be fewer entries per cpu
 
+config MSM_CACHE_ERP
+	bool "Cache / CPU error reporting"
+	depends on ARCH_MSM_KRAIT
+	help
+	  Say 'Y' here to enable reporting of cache and TLB errors to the kernel
+	  log. Enabling this feature can be used as a system debugging technique
+	  if cache corruption is suspected. Cache error statistics will also be
+	  reported in /proc/cpu/msm_cache_erp.
+
+	  For production builds, you should probably say 'N' here.
+
+config MSM_L1_ERR_PANIC
+	bool "Panic on L1 cache / TLB errors"
+	depends on MSM_CACHE_ERP
+	help
+	  To cause the kernel to panic whenever an L1 cache or TLB error is
+	  detected, say 'Y' here. This may be useful as a debugging technique if
+	  general system instability is suspected.
+
+	  For production builds, you should probably say 'N' here.
+
+
+config MSM_L2_ERP_PORT_PANIC
+	bool "Panic on L2 master port errors"
+	depends on MSM_CACHE_ERP
+	help
+	  Master port errors can occur when a memory request is not properly
+	  handled by the destination slave. Enable this option to catch drivers
+	  which attempt to access bad areas of the address space, or access
+	  hardware registers in an improper state (such as certain clocks not
+	  being on). This option may help with debugging, though production
+	  builds should probably say 'N' here.
+
+config MSM_L2_ERP_1BIT_PANIC
+	bool "Panic on recoverable L2 soft errors"
+	depends on MSM_CACHE_ERP
+	help
+	  Enable this option to cause a kernel panic whenever the L2 cache
+	  encounters a single-bit (correctable) soft error. This option should
+	  only be enabled when doing low-level debugging where cache corruption
+	  is suspected.
+
+	  For production builds, you should definitely say 'N' here.
+
+config MSM_L2_ERP_2BIT_PANIC
+	bool "Panic on unrecoverable L2 soft errors"
+	depends on MSM_CACHE_ERP
+	help
+	  Enable this option to cause a kernel panic whenever the L2 cache
+	  encounters a double-bit (non-correctable) soft error. Debug builds
+	  will likely benefit from having this option enabled to catch cache
+	  problems as soon as possible.
+
+	  For production builds, it may be acceptable to say 'N' here, since
+	  an uncorrectable error might not necessarily cause further problems.
 
 endif
