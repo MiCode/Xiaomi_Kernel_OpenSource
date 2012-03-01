@@ -573,7 +573,7 @@ static ssize_t rmnet_ctl_read(struct file *file, char __user *buf, size_t count,
 
 ctrl_read:
 	if (!is_dev_connected(dev)) {
-		dev_err(dev->devicep, "%s: Device not connected\n",
+		dev_dbg(dev->devicep, "%s: Device not connected\n",
 			__func__);
 		return -ENETRESET;
 	}
@@ -827,6 +827,8 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 	dev->cbits_tomdm = ~ACM_CTRL_DTR;
 	dev->intf = NULL;
 	mutex_unlock(&dev->dev_lock);
+
+	wake_up(&dev->read_wait_queue);
 
 	usb_free_urb(dev->inturb);
 	dev->inturb = NULL;
