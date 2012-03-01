@@ -32,6 +32,12 @@
 #include "msm-compr-q6.h"
 #include "msm-pcm-routing.h"
 
+struct snd_msm {
+	struct msm_audio *prtd;
+	unsigned volume;
+};
+static struct snd_msm compressed_audio = {NULL, 0x2000} ;
+
 static struct audio_locks the_locks;
 
 static struct snd_pcm_hardware msm_compr_hardware_playback = {
@@ -281,6 +287,17 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	struct compr_audio *compr;
 	struct msm_audio *prtd;
 	int ret = 0;
+	struct asm_softpause_params softpause = {
+		.enable = SOFT_PAUSE_ENABLE,
+		.period = SOFT_PAUSE_PERIOD,
+		.step = SOFT_PAUSE_STEP,
+		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
+	};
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
 
 	/* Capture path */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
@@ -327,8 +344,38 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	compr->codec = FORMAT_MP3;
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
+	compressed_audio.prtd =  &compr->prtd;
+	ret = compressed_set_volume(compressed_audio.volume);
+	if (ret < 0)
+		pr_err("%s : Set Volume failed : %d", __func__, ret);
+
+	ret = q6asm_set_softpause(compressed_audio.prtd->audio_client,
+								&softpause);
+	if (ret < 0)
+		pr_err("%s: Send SoftPause Param failed ret=%d\n",
+			__func__, ret);
+	ret = q6asm_set_softvolume(compressed_audio.prtd->audio_client,
+								&softvol);
+	if (ret < 0)
+		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
 
 	return 0;
+}
+
+int compressed_set_volume(unsigned volume)
+{
+	int rc = 0;
+	if (compressed_audio.prtd && compressed_audio.prtd->audio_client) {
+		rc = q6asm_set_volume(compressed_audio.prtd->audio_client,
+								 volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed"
+					" rc=%d\n", __func__, rc);
+		}
+	}
+	compressed_audio.volume = volume;
+	return rc;
 }
 
 static int msm_compr_playback_close(struct snd_pcm_substream *substream)
@@ -344,6 +391,7 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	dir = IN;
 	atomic_set(&prtd->pending_buffer, 0);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	compressed_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 

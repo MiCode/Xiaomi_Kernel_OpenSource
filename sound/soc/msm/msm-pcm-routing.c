@@ -54,12 +54,22 @@ static int msm_route_fm_vol_control;
 static const DECLARE_TLV_DB_SCALE(fm_rx_vol_gain, 0,
 			INT_FM_RX_VOL_MAX_STEPS, 0);
 
-#define INT_LPA_RX_VOL_MAX_STEPS 100
-#define INT_LPA_RX_VOL_GAIN 0x2000
+#define INT_RX_VOL_MAX_STEPS 100
+#define INT_RX_VOL_GAIN 0x2000
 
 static int msm_route_lpa_vol_control;
 static const DECLARE_TLV_DB_SCALE(lpa_rx_vol_gain, 0,
-			INT_LPA_RX_VOL_MAX_STEPS, 0);
+			INT_RX_VOL_MAX_STEPS, 0);
+
+static int msm_route_multimedia2_vol_control;
+static const DECLARE_TLV_DB_SCALE(multimedia2_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS, 0);
+
+static int msm_route_compressed_vol_control;
+static const DECLARE_TLV_DB_SCALE(compressed_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS, 0);
+
+
 
 /* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
 #define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
@@ -622,6 +632,43 @@ static int msm_routing_set_lpa_vol_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_routing_get_multimedia2_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	ucontrol->value.integer.value[0] = msm_route_multimedia2_vol_control;
+	return 0;
+}
+
+static int msm_routing_set_multimedia2_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	if (!multi_ch_pcm_set_volume(ucontrol->value.integer.value[0]))
+		msm_route_multimedia2_vol_control =
+			ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int msm_routing_get_compressed_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	ucontrol->value.integer.value[0] = msm_route_compressed_vol_control;
+	return 0;
+}
+
+static int msm_routing_set_compressed_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	if (!compressed_set_volume(ucontrol->value.integer.value[0]))
+		msm_route_compressed_vol_control =
+			ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static void msm_send_eq_values(int eq_idx)
 {
 	int result;
@@ -1107,8 +1154,20 @@ static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 
 static const struct snd_kcontrol_new lpa_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("LPA RX Volume", SND_SOC_NOPM, 0,
-	INT_LPA_RX_VOL_GAIN, 0, msm_routing_get_lpa_vol_mixer,
+	INT_RX_VOL_GAIN, 0, msm_routing_get_lpa_vol_mixer,
 	msm_routing_set_lpa_vol_mixer, lpa_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new multimedia2_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("HIFI2 RX Volume", SND_SOC_NOPM, 0,
+	INT_RX_VOL_GAIN, 0, msm_routing_get_multimedia2_vol_mixer,
+	msm_routing_set_multimedia2_vol_mixer, multimedia2_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new compressed_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("COMPRESSED RX Volume", SND_SOC_NOPM, 0,
+	INT_RX_VOL_GAIN, 0, msm_routing_get_compressed_vol_mixer,
+	msm_routing_set_compressed_vol_mixer, compressed_rx_vol_gain),
 };
 
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
@@ -1756,6 +1815,15 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				eq_coeff_mixer_controls,
 			ARRAY_SIZE(eq_coeff_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				multimedia2_vol_mixer_controls,
+			ARRAY_SIZE(multimedia2_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				compressed_vol_mixer_controls,
+			ARRAY_SIZE(compressed_vol_mixer_controls));
+
 	return 0;
 }
 
