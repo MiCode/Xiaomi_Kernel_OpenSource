@@ -310,8 +310,8 @@ apq8064_pm8921_gpio_pdata __devinitdata = {
 static struct pm8xxx_irq_platform_data
 apq8064_pm8921_irq_pdata __devinitdata = {
 	.irq_base		= PM8921_IRQ_BASE,
-	.devirq			= PM8921_USR_IRQ_N,
-	.irq_trigger_flag	= IRQF_TRIGGER_HIGH,
+	.devirq			= MSM_GPIO_TO_INT(74),
+	.irq_trigger_flag	= IRQF_TRIGGER_LOW,
 	.dev_id			= 0,
 };
 
