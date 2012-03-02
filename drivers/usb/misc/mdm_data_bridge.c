@@ -61,6 +61,8 @@ module_param(tx_urb_mult, uint, S_IRUGO|S_IWUSR);
 struct data_bridge {
 	struct usb_interface		*intf;
 	struct usb_device		*udev;
+	int				id;
+
 	unsigned int			bulk_in;
 	unsigned int			bulk_out;
 	int				err;
@@ -543,6 +545,9 @@ static int data_bridge_resume(struct data_bridge *dev)
 	struct urb	*urb;
 	int		retval;
 
+	if (!test_and_clear_bit(SUSPENDED, &dev->flags))
+		return 0;
+
 	while ((urb = usb_get_from_anchor(&dev->delayed))) {
 		usb_anchor_urb(urb, &dev->tx_active);
 		atomic_inc(&dev->pending_txurbs);
@@ -559,8 +564,6 @@ static int data_bridge_resume(struct data_bridge *dev)
 		dev->txurb_drp_cnt--;
 	}
 
-	clear_bit(SUSPENDED, &dev->flags);
-
 	if (dev->brdg)
 		queue_work(dev->wq, &dev->process_rx_w);
 
@@ -572,16 +575,16 @@ static int bridge_resume(struct usb_interface *iface)
 	int			retval = 0;
 	int			oldstate;
 	struct data_bridge	*dev = usb_get_intfdata(iface);
-	struct bridge		*brdg = dev->brdg;
 
 	oldstate = iface->dev.power.power_state.event;
 	iface->dev.power.power_state.event = PM_EVENT_ON;
 
-	retval = data_bridge_resume(dev);
-	if (!retval) {
-		if (oldstate & PM_EVENT_SUSPEND && brdg)
-			retval = ctrl_bridge_resume(brdg->ch_id);
+	if (oldstate & PM_EVENT_SUSPEND) {
+		retval = data_bridge_resume(dev);
+		if (!retval)
+			retval = ctrl_bridge_resume(dev->id);
 	}
+
 	return retval;
 }
 
@@ -603,19 +606,13 @@ static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
 {
 	int			retval;
 	struct data_bridge	*dev = usb_get_intfdata(intf);
-	struct bridge		*brdg = dev->brdg;
 
 	retval = data_bridge_suspend(dev, message);
 	if (!retval) {
-		if (message.event & PM_EVENT_SUSPEND) {
-			if (brdg)
-				retval = ctrl_bridge_suspend(brdg->ch_id);
-			intf->dev.power.power_state.event = message.event;
-		}
-	} else {
-		dev_dbg(&dev->udev->dev, "%s: device is busy,cannot suspend\n",
-			__func__);
+		retval = ctrl_bridge_suspend(dev->id);
+		intf->dev.power.power_state.event = message.event;
 	}
+
 	return retval;
 }
 
@@ -646,7 +643,7 @@ static int data_bridge_probe(struct usb_interface *iface,
 	skb_queue_head_init(&dev->rx_done);
 
 	dev->wq = bridge_wq;
-
+	dev->id = id;
 	dev->udev = interface_to_usbdev(iface);
 	dev->intf = iface;
 
