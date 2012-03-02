@@ -108,6 +108,7 @@ struct voip_drv_info {
 	uint32_t mode;
 	uint32_t rate_type;
 	uint32_t rate;
+	uint32_t dtx_mode;
 
 	uint8_t capture_start;
 	uint8_t playback_start;
@@ -200,6 +201,31 @@ static int msm_voip_volume_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_voip_dtx_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	voip_info.dtx_mode  = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: dtx: %d\n", __func__, voip_info.dtx_mode);
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+static int msm_voip_dtx_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	mutex_lock(&voip_info.lock);
+
+	ucontrol->value.integer.value[0] = voip_info.dtx_mode;
+
+	mutex_unlock(&voip_info.lock);
+
+	return 0;
+}
+
 static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voip_mute_get, msm_voip_mute_put),
@@ -208,6 +234,8 @@ static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 				0, 2, msm_voip_mode_rate_config_get,
 				msm_voip_mode_rate_config_put),
+	SOC_SINGLE_EXT("Voip Dtx Mode", SND_SOC_NOPM, 0, 1, 0,
+				msm_voip_dtx_mode_get, msm_voip_dtx_mode_put),
 };
 
 static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
@@ -713,11 +741,13 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 		if ((prtd->play_samp_rate == 8000) &&
 					(prtd->cap_samp_rate == 8000))
 			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_NB);
+					VSS_NETWORK_ID_VOIP_NB,
+					voip_info.dtx_mode);
 		else if ((prtd->play_samp_rate == 16000) &&
 					(prtd->cap_samp_rate == 16000))
 			voc_config_vocoder(media_type, rate_type,
-					VSS_NETWORK_ID_VOIP_WB);
+					VSS_NETWORK_ID_VOIP_WB,
+					voip_info.dtx_mode);
 		else {
 			pr_debug("%s: Invalid rate playback %d, capture %d\n",
 				 __func__, prtd->play_samp_rate,
