@@ -334,16 +334,26 @@ static long venc_set_buffer_req(struct v4l2_subdev *sd, void *arg)
 	struct vcd_buffer_requirement buf_req;
 	struct venc_inst *inst = sd->dev_priv;
 	struct video_client_ctx *client_ctx = &inst->venc_client;
+	int aligned_width, aligned_height;
 	if (!client_ctx) {
 		WFD_MSG_ERR("Invalid client context");
 		rc = -EINVAL;
 		goto err;
 	}
+	aligned_width = ALIGN(b->width, 16);
+	aligned_height = ALIGN(b->height, 16);
+
+	if (aligned_width != b->width) {
+		WFD_MSG_ERR("Width not 16 byte aligned\n");
+		rc = -EINVAL;
+		goto err;
+	}
+
 	buf_req.actual_count = b->count;
 	buf_req.min_count = b->count;
 	buf_req.max_count = b->count;
-	buf_req.sz = (((b->height * b->width) + 2047) & (~2047))
-		+ (((b->height * b->width * 1/2) + 2047) & (~2047));
+	buf_req.sz = ALIGN(aligned_height * aligned_width, SZ_2K)
+		+ ALIGN(aligned_height * aligned_width * 1/2, SZ_2K);
 	buf_req.align = 0;
 	inst->width = b->width;
 	inst->height = b->height;
