@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,7 +45,7 @@
 #include <mach/debug_mm.h>
 #include <linux/fs.h>
 
-#define MAX_BUF 3
+#define MAX_BUF 4
 #define BUFSZ (524288)
 
 #define AUDDEC_DEC_PCM 0
