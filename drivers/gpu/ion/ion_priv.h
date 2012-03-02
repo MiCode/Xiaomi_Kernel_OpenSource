@@ -26,6 +26,12 @@
 #include <linux/iommu.h>
 #include <linux/seq_file.h>
 
+enum {
+	DI_PARTITION_NUM = 0,
+	DI_DOMAIN_NUM = 1,
+	DI_MAX,
+};
+
 /**
  * struct ion_iommu_map - represents a mapping of an ion buffer to an iommu
  * @iova_addr - iommu virtual address
@@ -36,6 +42,7 @@
  * @ref - for reference counting this mapping
  * @mapped_size - size of the iova space mapped
  *		(may not be the same as the buffer size)
+ * @flags - iommu domain/partition specific flags.
  *
  * Represents a mapping of one ion buffer to a particular iommu domain
  * and address range. There may exist other mappings of this buffer in
@@ -46,12 +53,13 @@ struct ion_iommu_map {
 	unsigned long iova_addr;
 	struct rb_node node;
 	union {
-		int domain_info[2];
+		int domain_info[DI_MAX];
 		uint64_t key;
 	};
 	struct ion_buffer *buffer;
 	struct kref ref;
 	int mapped_size;
+	unsigned long flags;
 };
 
 struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
