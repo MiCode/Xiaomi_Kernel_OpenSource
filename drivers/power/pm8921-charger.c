@@ -256,9 +256,9 @@ struct pm8921_chg_chip {
 	int				thermal_levels;
 	struct delayed_work		update_heartbeat_work;
 	struct delayed_work		eoc_work;
-	struct delayed_work		unplug_wrkarnd_restore_work;
+	struct work_struct		unplug_ovp_fet_open_work;
 	struct delayed_work		unplug_check_work;
-	struct wake_lock		unplug_wrkarnd_restore_wake_lock;
+	struct wake_lock		unplug_ovp_fet_open_wake_lock;
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
@@ -417,23 +417,28 @@ static int pm_chg_charge_dis(struct pm8921_chg_chip *chip, int disable)
 
 #define PM8921_CHG_V_MIN_MV	3240
 #define PM8921_CHG_V_STEP_MV	20
-#define PM8921_CHG_V_STEP_10_MV_BIT	BIT(7)
+#define PM8921_CHG_V_STEP_10MV_OFFSET_BIT	BIT(7)
 #define PM8921_CHG_VDDMAX_MAX	4500
 #define PM8921_CHG_VDDMAX_MIN	3400
 #define PM8921_CHG_V_MASK	0x7F
 static int __pm_chg_vddmax_set(struct pm8921_chg_chip *chip, int voltage)
 {
-	int remainder, voltage_20_step;
+	int remainder;
 	u8 temp = 0;
 
-	voltage_20_step = voltage;
-	remainder = voltage % 20;
-	if (remainder >= 10) {
-		voltage_20_step += 10;
-		temp = PM8921_CHG_V_STEP_10_MV_BIT;
+	if (voltage < PM8921_CHG_VDDMAX_MIN
+			|| voltage > PM8921_CHG_VDDMAX_MAX) {
+		pr_err("bad mV=%d asked to set\n", voltage);
+		return -EINVAL;
 	}
 
-	temp |= (voltage_20_step - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
+	temp = (voltage - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
+
+	remainder = voltage % 20;
+	if (remainder >= 10) {
+		temp |= PM8921_CHG_V_STEP_10MV_OFFSET_BIT;
+	}
+
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
 	return pm8xxx_writeb(chip->dev->parent, CHG_VDD_MAX, temp);
 }
@@ -449,10 +454,10 @@ static int pm_chg_vddmax_get(struct pm8921_chg_chip *chip, int *voltage)
 		*voltage = 0;
 		return rc;
 	}
-	temp &= PM8921_CHG_V_MASK;
-	*voltage = (int)temp * PM8921_CHG_V_STEP_MV + PM8921_CHG_V_MIN_MV;
-	if (temp & PM8921_CHG_V_STEP_10_MV_BIT)
-		*voltage = *voltage - 10;
+	*voltage = (int)(temp & PM8921_CHG_V_MASK) * PM8921_CHG_V_STEP_MV
+							+ PM8921_CHG_V_MIN_MV;
+	if (temp & PM8921_CHG_V_STEP_10MV_OFFSET_BIT)
+		*voltage =  *voltage + 10;
 	return 0;
 }
 
@@ -839,6 +844,56 @@ static int pm_chg_batt_hot_temp_config(struct pm8921_chg_chip *chip,
 	return pm_chg_masked_write(chip, CHG_CNTRL_2,
 					PM8921_CHG_BATT_TEMP_THR_HOT,
 					 temp);
+}
+
+static void disable_input_voltage_regulation(struct pm8921_chg_chip *chip)
+{
+	u8 temp;
+	int rc;
+
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x70);
+	if (rc) {
+		pr_err("Failed to write 0x70 to CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, &temp);
+	if (rc) {
+		pr_err("Failed to read CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	/* set the input voltage disable bit and the write bit */
+	temp |= 0x81;
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
+	if (rc) {
+		pr_err("Failed to write 0x%x to CTRL_TEST3 rc=%d\n", temp, rc);
+		return;
+	}
+}
+
+static void enable_input_voltage_regulation(struct pm8921_chg_chip *chip)
+{
+	u8 temp;
+	int rc;
+
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x70);
+	if (rc) {
+		pr_err("Failed to write 0x70 to CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, &temp);
+	if (rc) {
+		pr_err("Failed to read CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	/* unset the input voltage disable bit */
+	temp &= 0xFE;
+	/* set the write bit */
+	temp |= 0x80;
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
+	if (rc) {
+		pr_err("Failed to write 0x%x to CTRL_TEST3 rc=%d\n", temp, rc);
+		return;
+	}
 }
 
 static int64_t read_battery_id(struct pm8921_chg_chip *chip)
@@ -1623,7 +1678,11 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 		schedule_delayed_work(&chip->unplug_check_work,
 			round_jiffies_relative(msecs_to_jiffies
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
+	} else {
+		pm8921_chg_disable_irq(chip, CHG_GONE_IRQ);
 	}
+	enable_input_voltage_regulation(chip);
 	bms_notify_check(chip);
 }
 
@@ -1702,26 +1761,94 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	wake_lock(&chip->eoc_wake_lock);
 }
 
-#define WRITE_BANK_4		0xC0
-static void unplug_wrkarnd_restore_worker(struct work_struct *work)
+static void turn_off_usb_ovp_fet(struct pm8921_chg_chip *chip)
 {
 	u8 temp;
 	int rc;
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct pm8921_chg_chip *chip = container_of(dwork,
-				struct pm8921_chg_chip,
-				unplug_wrkarnd_restore_work);
 
-	pr_debug("restoring vin_min to %d mV\n", chip->vin_min);
-	rc = pm_chg_vinmin_set(the_chip, chip->vin_min);
-
-	temp = WRITE_BANK_4 | 0xA;
-	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
+	rc = pm8xxx_writeb(chip->dev->parent, USB_OVP_TEST, 0x30);
 	if (rc) {
-		pr_err("Error %d writing %d to addr %d\n", rc,
-					temp, CHG_BUCK_CTRL_TEST3);
+		pr_err("Failed to write 0x30 to USB_OVP_TEST rc = %d\n", rc);
+		return;
 	}
-	wake_unlock(&chip->unplug_wrkarnd_restore_wake_lock);
+	rc = pm8xxx_readb(chip->dev->parent, USB_OVP_TEST, &temp);
+	if (rc) {
+		pr_err("Failed to read from USB_OVP_TEST rc = %d\n", rc);
+		return;
+	}
+	/* set ovp fet disable bit and the write bit */
+	temp |= 0x81;
+	rc = pm8xxx_writeb(chip->dev->parent, USB_OVP_TEST, temp);
+	if (rc) {
+		pr_err("Failed to write 0x%x USB_OVP_TEST rc=%d\n", temp, rc);
+		return;
+	}
+}
+
+static void turn_on_usb_ovp_fet(struct pm8921_chg_chip *chip)
+{
+	u8 temp;
+	int rc;
+
+	rc = pm8xxx_writeb(chip->dev->parent, USB_OVP_TEST, 0x30);
+	if (rc) {
+		pr_err("Failed to write 0x30 to USB_OVP_TEST rc = %d\n", rc);
+		return;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, USB_OVP_TEST, &temp);
+	if (rc) {
+		pr_err("Failed to read from USB_OVP_TEST rc = %d\n", rc);
+		return;
+	}
+	/* unset ovp fet disable bit and set the write bit */
+	temp &= 0xFE;
+	temp |= 0x80;
+	rc = pm8xxx_writeb(chip->dev->parent, USB_OVP_TEST, temp);
+	if (rc) {
+		pr_err("Failed to write 0x%x to USB_OVP_TEST rc = %d\n",
+								temp, rc);
+		return;
+	}
+}
+
+static int param_open_ovp_counter = 10;
+module_param(param_open_ovp_counter, int, 0644);
+
+#define WRITE_BANK_4		0xC0
+#define USB_OVP_DEBOUNCE_TIME 0x06
+static void unplug_ovp_fet_open_worker(struct work_struct *work)
+{
+	struct pm8921_chg_chip *chip = container_of(work,
+				struct pm8921_chg_chip,
+				unplug_ovp_fet_open_work);
+	int chg_gone, usb_chg_plugged_in;
+	int count = 0;
+
+	while (count++ < param_open_ovp_counter) {
+		pm_chg_masked_write(chip, USB_OVP_CONTROL,
+						USB_OVP_DEBOUNCE_TIME, 0x0);
+		usleep(10);
+		usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
+		chg_gone = pm_chg_get_rt_status(chip, CHG_GONE_IRQ);
+		pr_debug("OVP FET count = %d chg_gone=%d, usb_valid = %d\n",
+					count, chg_gone, usb_chg_plugged_in);
+
+		/* note usb_chg_plugged_in=0 => chg_gone=1 */
+		if (chg_gone == 1 && usb_chg_plugged_in == 1) {
+			pr_debug("since chg_gone = 1 dis ovp_fet for 20msec\n");
+			turn_off_usb_ovp_fet(chip);
+
+			msleep(20);
+
+			turn_on_usb_ovp_fet(chip);
+		} else {
+			pm_chg_masked_write(chip, USB_OVP_CONTROL,
+						USB_OVP_DEBOUNCE_TIME, 0x1);
+			pr_debug("Exit count=%d chg_gone=%d, usb_valid=%d\n",
+					count, chg_gone, usb_chg_plugged_in);
+			return;
+		}
+	}
 }
 static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 {
@@ -1799,8 +1926,7 @@ static irqreturn_t chgwdog_irq_handler(int irq, void *data)
 
 static irqreturn_t vcp_irq_handler(int irq, void *data)
 {
-	pr_warning("VCP triggered BATDET forced on\n");
-	pr_debug("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
+	pr_debug("fsm_state=%d\n", pm_chg_get_fsm_state(data));
 	return IRQ_HANDLED;
 }
 
@@ -1867,6 +1993,29 @@ static irqreturn_t chgstate_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int param_vin_disable_counter = 5;
+module_param(param_vin_disable_counter, int, 0644);
+
+static void attempt_reverse_boost_fix(struct pm8921_chg_chip *chip,
+							int count, int usb_ma)
+{
+	pm8921_charger_vbus_draw(500);
+	pr_debug("count = %d iusb=500mA\n", count);
+	disable_input_voltage_regulation(chip);
+	pr_debug("count = %d disable_input_regulation\n", count);
+
+	msleep(20);
+
+	pr_debug("count = %d end sleep 20ms chg_gone=%d, usb_valid = %d\n",
+				count,
+				pm_chg_get_rt_status(chip, CHG_GONE_IRQ),
+				is_usb_chg_plugged_in(chip));
+	pr_debug("count = %d restoring input regulation and usb_ma = %d\n",
+		 count, usb_ma);
+	enable_input_voltage_regulation(chip);
+	pm8921_charger_vbus_draw(usb_ma);
+}
+
 #define VIN_ACTIVE_BIT BIT(0)
 #define UNPLUG_WRKARND_RESTORE_WAIT_PERIOD_US 200
 #define VIN_MIN_INCREASE_MV 100
@@ -1877,6 +2026,8 @@ static void unplug_check_worker(struct work_struct *work)
 				struct pm8921_chg_chip, unplug_check_work);
 	u8 reg_loop;
 	int ibat, usb_chg_plugged_in;
+	int usb_ma;
+	int chg_gone = 0;
 
 	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
 	if (!usb_chg_plugged_in) {
@@ -1888,8 +2039,25 @@ static void unplug_check_worker(struct work_struct *work)
 			);
 		return;
 	}
+
+	pm_chg_iusbmax_get(chip, &usb_ma);
+	if (usb_ma  ==  500) {
+		pr_debug("Stopping Unplug Check Worker since USB == 500mA\n");
+		disable_input_voltage_regulation(chip);
+		return;
+	}
+
+	if (usb_ma <= 100) {
+		pr_debug(
+			"Unenumerated yet or suspended usb_ma = %d skipping\n",
+			usb_ma);
+		goto check_again_later;
+	}
+	if (pm8921_chg_is_enabled(chip, CHG_GONE_IRQ))
+		pr_debug("chg gone irq is enabled\n");
+
 	reg_loop = pm_chg_get_regulation_loop(chip);
-	pr_debug("reg_loop=0x%x\n", reg_loop);
+	pr_debug("reg_loop=0x%x usb_ma = %d\n", reg_loop, usb_ma);
 
 	if (reg_loop & VIN_ACTIVE_BIT) {
 		ibat = get_prop_batt_current(chip);
@@ -1897,28 +2065,28 @@ static void unplug_check_worker(struct work_struct *work)
 		pr_debug("ibat = %d fsm = %d reg_loop = 0x%x\n",
 				ibat, pm_chg_get_fsm_state(chip), reg_loop);
 		if (ibat > 0) {
-			int err;
-			u8 temp;
+			int count = 0;
 
-			temp = WRITE_BANK_4 | 0xE;
-			err = pm8xxx_writeb(chip->dev->parent,
-						CHG_BUCK_CTRL_TEST3, temp);
-			if (err) {
-				pr_err("Error %d writing %d to addr %d\n", err,
-						temp, CHG_BUCK_CTRL_TEST3);
+			while (count++ < param_vin_disable_counter
+					&& usb_chg_plugged_in == 1) {
+				attempt_reverse_boost_fix(chip, count, usb_ma);
+				usb_chg_plugged_in
+					= is_usb_chg_plugged_in(chip);
 			}
-
-			pm_chg_vinmin_set(chip,
-					chip->vin_min + VIN_MIN_INCREASE_MV);
-
-			wake_lock(&chip->unplug_wrkarnd_restore_wake_lock);
-			schedule_delayed_work(
-				&chip->unplug_wrkarnd_restore_work,
-				round_jiffies_relative(usecs_to_jiffies
-				(UNPLUG_WRKARND_RESTORE_WAIT_PERIOD_US)));
 		}
 	}
 
+	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
+	chg_gone = pm_chg_get_rt_status(chip, CHG_GONE_IRQ);
+
+	if (chg_gone == 1  && usb_chg_plugged_in == 1) {
+		/* run the worker directly */
+		pr_debug(" ver5 step: chg_gone=%d, usb_valid = %d\n",
+						chg_gone, usb_chg_plugged_in);
+		schedule_work(&chip->unplug_ovp_fet_open_work);
+	}
+
+check_again_later:
 	schedule_delayed_work(&chip->unplug_check_work,
 		      round_jiffies_relative(msecs_to_jiffies
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
@@ -2008,6 +2176,13 @@ static irqreturn_t batttemp_cold_irq_handler(int irq, void *data)
 static irqreturn_t chg_gone_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
+	int chg_gone, usb_chg_plugged_in;
+
+	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
+	chg_gone = pm_chg_get_rt_status(chip, CHG_GONE_IRQ);
+
+	pr_debug("chg_gone=%d, usb_valid = %d\n", chg_gone, usb_chg_plugged_in);
+	schedule_work(&chip->unplug_ovp_fet_open_work);
 
 	pr_debug("Chg gone fsm_state=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
@@ -2540,6 +2715,7 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 		schedule_delayed_work(&chip->unplug_check_work,
 			round_jiffies_relative(msecs_to_jiffies
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
 	}
 
 	pm8921_chg_enable_irq(chip, DCIN_VALID_IRQ);
@@ -2621,7 +2797,8 @@ struct pm_chg_irq_init_data chg_irq_data[] = {
 	CHG_IRQ(CHGHOT_IRQ, IRQF_TRIGGER_RISING, chghot_irq_handler),
 	CHG_IRQ(BATTTEMP_COLD_IRQ, IRQF_TRIGGER_RISING,
 						batttemp_cold_irq_handler),
-	CHG_IRQ(CHG_GONE_IRQ, IRQF_TRIGGER_RISING, chg_gone_irq_handler),
+	CHG_IRQ(CHG_GONE_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						chg_gone_irq_handler),
 	CHG_IRQ(BAT_TEMP_OK_IRQ, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 						bat_temp_ok_irq_handler),
 	CHG_IRQ(COARSE_DET_LOW_IRQ, IRQF_TRIGGER_RISING,
@@ -3320,11 +3497,11 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	the_chip = chip;
 
 	wake_lock_init(&chip->eoc_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_eoc");
-	wake_lock_init(&chip->unplug_wrkarnd_restore_wake_lock,
+	wake_lock_init(&chip->unplug_ovp_fet_open_wake_lock,
 			WAKE_LOCK_SUSPEND, "pm8921_unplug_wrkarnd");
 	INIT_DELAYED_WORK(&chip->eoc_work, eoc_worker);
-	INIT_DELAYED_WORK(&chip->unplug_wrkarnd_restore_work,
-					unplug_wrkarnd_restore_worker);
+	INIT_WORK(&chip->unplug_ovp_fet_open_work,
+					unplug_ovp_fet_open_worker);
 	INIT_DELAYED_WORK(&chip->unplug_check_work, unplug_check_worker);
 
 	rc = request_irqs(chip, pdev);
