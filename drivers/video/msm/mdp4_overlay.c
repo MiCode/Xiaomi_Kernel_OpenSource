@@ -2333,8 +2333,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 #endif
 	}
 
-	if (mfd->mdp_rev >= MDP_REV_42 && !mfd->use_ov0_blt &&
-	    !(ctrl->panel_mode & (MDP4_PANEL_MDDI | MDP4_PANEL_DSI_CMD))) {
+	if (mfd->mdp_rev >= MDP_REV_42 && !mfd->use_ov0_blt) {
 		ctrl->stage[pipe->mixer_num][pipe->mixer_stage] = NULL;
 	} else {
 		mdp4_mixer_stage_down(pipe);
