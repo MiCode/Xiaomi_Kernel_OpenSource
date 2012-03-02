@@ -64,6 +64,7 @@
 #define SSBI_REG_ADDR_LPG_BANK_EN	0x144
 #define SSBI_REG_ADDR_LPG_LUT_CFG0	0x145
 #define SSBI_REG_ADDR_LPG_LUT_CFG1	0x146
+#define SSBI_REG_ADDR_LPG_TEST		0x147
 
 /* LPG Control 0 */
 #define PM8XXX_PWM_1KHZ_COUNT_MASK	0xF0
@@ -137,6 +138,10 @@
 /* LPG LUT_CFG1 */
 #define PM8XXX_PWM_LUT_READ			0x40
 
+/* TEST */
+#define PM8XXX_PWM_DTEST_MASK		0x38
+#define PM8XXX_PWM_DTEST_SHIFT		3
+#define PM8XXX_PWM_DTEST_BANK_MASK	0x07
 
 /*
  * PWM Frequency = Clock Frequency / (N * T)
@@ -200,6 +205,7 @@ struct pwm_device {
 	int			irq;
 	struct pm8xxx_pwm_chip	*chip;
 	int			bypass_lut;
+	int			dtest_mode_supported;
 };
 
 struct pm8xxx_pwm_chip {
@@ -638,6 +644,28 @@ static int pm8xxx_pwm_change_lut(struct pwm_device *pwm,
 	return rc;
 }
 
+static int pm8xxx_pwm_set_dtest(struct pwm_device *pwm, int enable)
+{
+	int	rc;
+	u8	reg;
+
+	reg = pwm->pwm_id & PM8XXX_PWM_DTEST_BANK_MASK;
+
+	if (enable) {
+		/* Observe LPG_OUT on DTEST1*/
+		reg |= (1 << PM8XXX_PWM_DTEST_SHIFT) &
+				PM8XXX_PWM_DTEST_MASK;
+	}
+
+	rc = pm8xxx_writeb(pwm->chip->dev->parent,
+			SSBI_REG_ADDR_LPG_TEST, reg);
+	if (rc)
+		pr_err("pm8xxx_write(DTEST=0x%x) failed: rc=%d\n",
+							reg, rc);
+
+	return rc;
+}
+
 /* APIs */
 /**
  * pwm_request - request a PWM device
@@ -785,6 +813,8 @@ int pwm_enable(struct pwm_device *pwm)
 		rc = -EINVAL;
 	} else {
 		if (pwm_chip->is_lpg_supported) {
+			if (pwm->dtest_mode_supported)
+				pm8xxx_pwm_set_dtest(pwm, 1);
 			rc = pm8xxx_pwm_bank_enable(pwm, 1);
 			pm8xxx_pwm_bank_sel(pwm);
 			pm8xxx_pwm_start(pwm, 1, 0);
@@ -811,6 +841,8 @@ void pwm_disable(struct pwm_device *pwm)
 	mutex_lock(&pwm->chip->pwm_mutex);
 	if (pwm->in_use) {
 		if (pwm_chip->is_lpg_supported) {
+			if (pwm->dtest_mode_supported)
+				pm8xxx_pwm_set_dtest(pwm, 0);
 			pm8xxx_pwm_bank_sel(pwm);
 			pm8xxx_pwm_start(pwm, 0, 0);
 			pm8xxx_pwm_bank_enable(pwm, 0);
@@ -1030,11 +1062,17 @@ int pm8xxx_pwm_lut_enable(struct pwm_device *pwm, int start)
 
 	mutex_lock(&pwm->chip->pwm_mutex);
 	if (start) {
+		if (pwm->dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(pwm, 1);
+
 		pm8xxx_pwm_bank_enable(pwm, 1);
 
 		pm8xxx_pwm_bank_sel(pwm);
 		pm8xxx_pwm_start(pwm, 1, 1);
 	} else {
+		if (pwm->dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(pwm, 0);
+
 		pm8xxx_pwm_bank_sel(pwm);
 		pm8xxx_pwm_start(pwm, 0, 0);
 
@@ -1324,6 +1362,7 @@ static int __devexit pm8xxx_pwm_dbg_remove(void)
 
 static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 {
+	const struct pm8xxx_pwm_platform_data *pdata = pdev->dev.platform_data;
 	struct pm8xxx_pwm_chip	*chip;
 	int	i;
 	enum pm8xxx_version version;
@@ -1374,6 +1413,8 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 	for (i = 0; i < chip->pwm_channels; i++) {
 		chip->pwm_dev[i].pwm_id = i;
 		chip->pwm_dev[i].chip = chip;
+		if (i == pdata->dtest_channel)
+			chip->pwm_dev[i].dtest_mode_supported = 1;
 	}
 
 	platform_set_drvdata(pdev, chip);

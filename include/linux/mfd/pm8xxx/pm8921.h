@@ -142,6 +142,7 @@ struct pm8921_platform_data {
 	struct pm8xxx_led_platform_data		*leds_pdata;
 	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 	struct pm8xxx_ccadc_platform_data	*ccadc_pdata;
+	struct pm8xxx_pwm_platform_data		*pwm_pdata;
 };
 
 #endif
