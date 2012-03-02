@@ -2705,7 +2705,12 @@ unsigned char hdmi_is_primary;
 #define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
 #define MSM_ION_MM_SIZE		0x3600000 /* (54MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
+#ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
+#define MSM_ION_WB_SIZE		0xC00000 /* 12MB */
+#else
 #define MSM_ION_WB_SIZE		0x600000 /* 6MB */
+#endif
+
 #define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
