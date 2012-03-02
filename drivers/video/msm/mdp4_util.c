@@ -2755,38 +2755,66 @@ static int mdp4_read_pcc_regs(uint32_t offset,
 	return ret;
 }
 
-#define MDP_DMA_P_BASE 0x90000
-#define MDP_DMA_S_BASE 0xA0000
 
 #define MDP_PCC_OFFSET 0xA000
+#define MDP_DMA_GC_OFFSET 0x8800
+#define MDP_LM_0_GC_OFFSET 0x4800
+#define MDP_LM_1_GC_OFFSET 0x4880
+
 
 #define MDP_DMA_P_OP_MODE_OFFSET 0x70
 #define MDP_DMA_S_OP_MODE_OFFSET 0x28
-
+#define MDP_LM_OP_MODE_OFFSET 0x10
 
 #define DMA_PCC_R2_OFFSET 0x100
+
+#define MDP_GC_COLOR_OFFSET	0x100
+#define MDP_GC_PARMS_OFFSET	0x80
+
+#define MDP_AR_GC_MAX_STAGES	16
+
+static uint32_t mdp_pp_block2pcc(uint32_t block)
+{
+	uint32_t valid = 0;
+
+	switch (block) {
+	case MDP_BLOCK_DMA_P:
+	case MDP_BLOCK_DMA_S:
+		valid = (mdp_rev >= MDP_REV_42) ? 1 : 0;
+		break;
+
+	default:
+		break;
+	}
+
+	return valid;
+}
 
 int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
 {
 	int ret = -1;
 	uint32_t pcc_offset = 0, mdp_cfg_offset = 0;
 	uint32_t mdp_dma_op_mode = 0;
+	uint32_t blockbase;
+
+	if (!mdp_pp_block2pcc(cfg_ptr->block))
+		return ret;
+
+	blockbase = mdp_block2base(cfg_ptr->block);
+	if (!blockbase)
+		return ret;
+
+	blockbase += (uint32_t) MDP_BASE;
 
 	switch (cfg_ptr->block) {
 	case MDP_BLOCK_DMA_P:
-		pcc_offset = (uint32_t) (MDP_BASE + MDP_DMA_P_BASE \
-				+ MDP_PCC_OFFSET);
-		mdp_cfg_offset = (uint32_t)(MDP_BASE + MDP_DMA_P_BASE);
-		mdp_dma_op_mode = (uint32_t)(MDP_BASE + MDP_DMA_P_BASE \
-				+ MDP_DMA_P_OP_MODE_OFFSET);
-		break;
-
 	case MDP_BLOCK_DMA_S:
-		pcc_offset = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE \
-				+ MDP_PCC_OFFSET);
-		mdp_cfg_offset = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE);
-		mdp_dma_op_mode = (uint32_t)(MDP_BASE + MDP_DMA_S_BASE \
-				+ MDP_DMA_S_OP_MODE_OFFSET);
+		pcc_offset = blockbase + MDP_PCC_OFFSET;
+		mdp_cfg_offset = blockbase;
+		mdp_dma_op_mode = blockbase +
+			(MDP_BLOCK_DMA_P == cfg_ptr->block ?
+			 MDP_DMA_P_OP_MODE_OFFSET
+			 : MDP_DMA_S_OP_MODE_OFFSET);
 		break;
 
 	default:
@@ -2823,23 +2851,24 @@ int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
 	return ret;
 }
 
-#define MDP_DMA_GC_OFFSET 0x8800
+static uint32_t mdp_pp_block2argc(uint32_t block)
+{
+	uint32_t valid = 0;
 
-#define MDP_LM_0_BASE 0x10004
-#define MDP_LM_1_BASE 0x18004
-#define MDP_LM_GC_OFFSET 0x47ec
+	switch (block) {
+	case MDP_BLOCK_DMA_P:
+	case MDP_BLOCK_DMA_S:
+	case MDP_BLOCK_OVERLAY_0:
+	case MDP_BLOCK_OVERLAY_1:
+		valid = (mdp_rev >= MDP_REV_42) ? 1 : 0;
+		break;
 
-#define MDP_LM_OP_MODE_OFFSET 0x10
+	default:
+		break;
+	}
 
-#define MDP_DMA_P_CONFIG_OFFSET MDP_DMA_P_BASE
-#define MDP_DMA_S_CONFIG_OFFSET MDP_DMA_S_BASE
-#define MDP_LM_0_OP_MODE_OFFSET (MDP_LM_0_BASE + MDP_LM_OP_MODE_OFFSET)
-#define MDP_LM_1_OP_MODE_OFFSET (MDP_LM_1_BASE + MDP_LM_OP_MODE_OFFSET)
-
-#define MDP_GC_COLOR_OFFSET	0x100
-#define MDP_GC_PARMS_OFFSET	0x80
-
-#define MDP_AR_GC_MAX_STAGES	16
+	return valid;
+}
 
 static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
 {
@@ -2908,26 +2937,35 @@ static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
 	return ret;
 }
 
-int mdp4_pgc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
+int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 {
-	int ret = 0;
+	int ret = -1;
 	uint32_t *offset = 0, *pgc_enable_offset = 0, lshift_bits = 0;
 	struct mdp_ar_gc_lut_data r[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data g[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data b[MDP_AR_GC_MAX_STAGES];
+	uint32_t blockbase;
+
+	if (!mdp_pp_block2argc(pgc_ptr->block))
+		return ret;
+
+	blockbase = mdp_block2base(pgc_ptr->block);
+	if (!blockbase)
+		return ret;
 
 	ret = copy_from_user(&r[0], pgc_ptr->r_data,
-		pgc_ptr->num_r_stages*sizeof(struct mdp_ar_gc_lut_data));
+		pgc_ptr->num_r_stages * sizeof(struct mdp_ar_gc_lut_data));
+
 	if (!ret) {
 		ret = copy_from_user(&g[0],
-			pgc_ptr->g_data,
-			pgc_ptr->num_g_stages
-			* sizeof(struct mdp_ar_gc_lut_data));
+				pgc_ptr->g_data,
+				pgc_ptr->num_g_stages
+				* sizeof(struct mdp_ar_gc_lut_data));
 		if (!ret)
 			ret = copy_from_user(&b[0],
-			pgc_ptr->b_data,
-			pgc_ptr->num_b_stages
-			* sizeof(struct mdp_ar_gc_lut_data));
+					pgc_ptr->b_data,
+					pgc_ptr->num_b_stages
+					* sizeof(struct mdp_ar_gc_lut_data));
 	}
 
 	if (ret)
@@ -2937,36 +2975,25 @@ int mdp4_pgc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 	pgc_ptr->g_data = &g[0];
 	pgc_ptr->b_data = &b[0];
 
+	blockbase += (uint32_t) MDP_BASE;
+
 	switch (pgc_ptr->block) {
 	case MDP_BLOCK_DMA_P:
-		offset = (uint32_t *)(MDP_BASE + MDP_DMA_P_BASE
-					+ MDP_DMA_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *)(MDP_BASE
-					+ MDP_DMA_P_CONFIG_OFFSET);
-		lshift_bits = 28;
-		break;
-
 	case MDP_BLOCK_DMA_S:
-		offset = (uint32_t *)(MDP_BASE + MDP_DMA_S_BASE
-					+  MDP_DMA_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *)(MDP_BASE
-					+ MDP_DMA_S_CONFIG_OFFSET);
+		offset = (uint32_t *)(blockbase + MDP_DMA_GC_OFFSET);
+		pgc_enable_offset = (uint32_t *) blockbase;
 		lshift_bits = 28;
 		break;
 
 	case MDP_BLOCK_OVERLAY_0:
-		offset = (uint32_t *)(MDP_BASE + MDP_LM_0_BASE
-					+ MDP_LM_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *)(MDP_BASE
-					+ MDP_LM_0_OP_MODE_OFFSET);
-		lshift_bits = 2;
-		break;
-
 	case MDP_BLOCK_OVERLAY_1:
-		offset = (uint32_t *)(MDP_BASE + MDP_LM_1_BASE
-					+ MDP_LM_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *)(MDP_BASE
-					+ MDP_LM_0_OP_MODE_OFFSET);
+		offset = (uint32_t *)(blockbase +
+				(MDP_BLOCK_OVERLAY_0 == pgc_ptr->block ?
+				 MDP_LM_0_GC_OFFSET
+				 : MDP_LM_1_GC_OFFSET));
+
+		pgc_enable_offset = (uint32_t *)(blockbase
+				+ MDP_LM_OP_MODE_OFFSET);
 		lshift_bits = 2;
 		break;
 
