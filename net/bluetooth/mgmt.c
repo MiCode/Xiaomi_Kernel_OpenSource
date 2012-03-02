@@ -1613,9 +1613,8 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 	hci_dev_lock_bh(hdev);
 
-	BT_DBG("SSP Cap is %d", cp->ssp_cap);
 	io_cap = cp->io_cap;
-	if ((cp->ssp_cap == 0) || (io_cap == 0x03)) {
+	if (io_cap == 0x03) {
 		sec_level = BT_SECURITY_MEDIUM;
 		auth_type = HCI_AT_DEDICATED_BONDING;
 	} else {
@@ -1633,6 +1632,7 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 			io_cap = 0x01;
 		conn = hci_connect(hdev, ACL_LINK, 0, &cp->bdaddr, sec_level,
 								auth_type);
+		conn->auth_initiator = 1;
 	}
 
 	if (IS_ERR(conn)) {

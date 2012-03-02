@@ -2748,7 +2748,7 @@ static inline void hci_remote_ext_features_evt(struct hci_dev *hdev, struct sk_b
 		conn->ssp_mode = (ev->features[0] & 0x01);
 		/*In case if remote device ssp supported/2.0 device
 		reduce the security level to MEDIUM if it is HIGH*/
-		if (!conn->ssp_mode &&
+		if (!conn->ssp_mode && conn->auth_initiator &&
 			(conn->pending_sec_level == BT_SECURITY_HIGH))
 			conn->pending_sec_level = BT_SECURITY_MEDIUM;
 	}
