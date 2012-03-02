@@ -205,8 +205,10 @@ static void send_adm_cal(int port_id, int path)
 	get_audproc_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
-	if ((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
-		(aud_cal.cal_size > 0)) {
+	if (((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0)) ||
+		(aud_cal.cal_size > mem_addr_audproc[acdb_path].cal_size)) {
+
 		if (mem_addr_audproc[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(
 				&mem_addr_audproc[acdb_path].cal_paddr,
@@ -233,8 +235,9 @@ static void send_adm_cal(int port_id, int path)
 	get_audvol_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
-	if ((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
-		(aud_cal.cal_size > 0)) {
+	if (((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0))  ||
+		(aud_cal.cal_size > mem_addr_audvol[acdb_path].cal_size)) {
 		if (mem_addr_audvol[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(
 				&mem_addr_audvol[acdb_path].cal_paddr,
