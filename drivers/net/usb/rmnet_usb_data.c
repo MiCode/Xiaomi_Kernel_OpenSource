@@ -494,6 +494,7 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 /*bit position represents interface number*/
 #define PID9034_IFACE_MASK	0xF0
 #define PID9048_IFACE_MASK	0x1E0
+#define PID904C_IFACE_MASK	0x1C0
 
 static const struct driver_info rmnet_info_pid9034 = {
 	.description   = "RmNET net device",
@@ -511,6 +512,14 @@ static const struct driver_info rmnet_info_pid9048 = {
 	.data          = PID9048_IFACE_MASK,
 };
 
+static const struct driver_info rmnet_info_pid904c = {
+	.description   = "RmNET net device",
+	.bind          = rmnet_usb_bind,
+	.tx_fixup      = rmnet_usb_tx_fixup,
+	.rx_fixup      = rmnet_usb_rx_fixup,
+	.data          = PID904C_IFACE_MASK,
+};
+
 static const struct usb_device_id vidpids[] = {
 	{
 		USB_DEVICE(0x05c6, 0x9034), /* MDM9x15*/
@@ -519,6 +528,10 @@ static const struct usb_device_id vidpids[] = {
 	{
 		USB_DEVICE(0x05c6, 0x9048), /* MDM9x15*/
 		.driver_info = (unsigned long)&rmnet_info_pid9048,
+	},
+	{
+		USB_DEVICE(0x05c6, 0x904c), /* MDM9x15*/
+		.driver_info = (unsigned long)&rmnet_info_pid904c,
 	},
 
 	{ }, /* Terminating entry */
