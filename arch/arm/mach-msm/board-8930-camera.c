@@ -562,11 +562,17 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.sensor_type          = BAYER_SENSOR,
 };
 
+static struct platform_device msm_camera_server = {
+	.name = "msm_cam_server",
+	.id = 0,
+};
+
 void __init msm8930_init_cam(void)
 {
 	msm_gpiomux_install(msm8930_cam_common_configs,
 			ARRAY_SIZE(msm8930_cam_common_configs));
 
+	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
 	platform_device_register(&msm8960_device_csid0);

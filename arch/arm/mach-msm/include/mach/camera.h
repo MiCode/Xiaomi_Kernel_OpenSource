@@ -365,6 +365,7 @@ struct msm_queue_cmd {
 	struct list_head list_frame;
 	struct list_head list_pict;
 	struct list_head list_vpe_frame;
+	struct list_head list_eventdata;
 	enum msm_queue type;
 	void *command;
 	atomic_t on_heap;

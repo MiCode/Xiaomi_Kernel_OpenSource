@@ -681,6 +681,11 @@ static int32_t msm_camera_8960_ext_power_ctrl(int enable)
 	return rc;
 }
 
+static struct platform_device msm_camera_server = {
+	.name = "msm_cam_server",
+	.id = 0,
+};
+
 void __init msm8960_init_cam(void)
 {
 	msm_gpiomux_install(msm8960_cam_common_configs,
@@ -709,6 +714,7 @@ void __init msm8960_init_cam(void)
 			msm_camera_8960_ext_power_ctrl;
 	}
 
+	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
 	platform_device_register(&msm8960_device_csiphy2);

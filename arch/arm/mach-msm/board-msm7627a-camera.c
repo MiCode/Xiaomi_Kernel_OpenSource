@@ -276,6 +276,11 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 };
 #endif
 
+static struct platform_device msm_camera_server = {
+	.name = "msm_cam_server",
+	.id = 0,
+};
+
 static void __init msm7x27a_init_cam(void)
 {
 	if (!(machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
@@ -291,6 +296,7 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov5647.cam_vreg = NULL;
 		sensor_board_info_ov5647.num_vreg = 0;
 	}
+	platform_device_register(&msm_camera_server);
 	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()) {
 		platform_device_register(&msm8625_device_csic0);
 		platform_device_register(&msm8625_device_csic1);

@@ -356,6 +356,7 @@ struct msm_cam_v4l2_device {
 	 * control thread.  It is accessed only from a process context.
 	 * TO BE REMOVED
 	 */
+	uint32_t server_queue_idx;
 	struct msm_device_queue ctrl_q;
 
 	struct mutex lock;
@@ -387,11 +388,27 @@ struct msm_cam_config_dev {
 	struct msm_mem_map_info mem_map;
 };
 
+#define NUM_SERVER_QUEUE 5
+
+struct msm_cam_server_queue {
+	uint32_t queue_active;
+	struct msm_device_queue ctrl_q;
+	struct msm_device_queue eventData_q;
+	struct msm_ctrl_cmd *ctrl;
+	uint8_t *ctrl_data;
+	uint32_t evt_id;
+};
+
 /* abstract camera server device for all sensor successfully probed*/
 struct msm_cam_server_dev {
 
 	/* config node device*/
-	struct cdev server_cdev;
+	struct platform_device *server_pdev;
+	/* server node v4l2 device */
+	struct v4l2_device v4l2_dev;
+	struct video_device *video_dev;
+	struct media_device media_dev;
+
 	/* info of sensors successfully probed*/
 	struct msm_camera_info camera_info;
 	/* info of configs successfully created*/
@@ -401,18 +418,20 @@ struct msm_cam_server_dev {
 	/* number of camera devices opened*/
 	atomic_t number_pcam_active;
 	struct v4l2_queue_util server_command_queue;
+
 	/* This queue used by the config thread to send responses back to the
 	 * control thread.  It is accessed only from a process context.
 	 */
-	struct msm_device_queue ctrl_q;
-	uint8_t ctrl_data[max_control_command_size];
-	struct msm_ctrl_cmd ctrl;
+	struct msm_cam_server_queue server_queue[NUM_SERVER_QUEUE];
+	uint32_t server_evt_id;
+
 	int use_count;
 	/* all the registered ISP subdevice*/
 	struct msm_isp_ops *isp_subdev[MSM_MAX_CAMERA_CONFIGS];
 	/* info of MCTL nodes successfully probed*/
 	struct msm_mctl_node_info mctl_node_info;
 	struct mutex server_lock;
+	struct mutex server_queue_lock;
 };
 
 /* camera server related functions */

@@ -598,6 +598,11 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
+static struct platform_device msm_camera_server = {
+	.name = "msm_cam_server",
+	.id = 0,
+};
+
 void __init apq8064_init_cam(void)
 {
 	msm_gpiomux_install(apq8064_cam_common_configs,
@@ -609,6 +614,7 @@ void __init apq8064_init_cam(void)
 	} else if (machine_is_apq8064_liquid())
 		sensor_board_info_imx074.mount_angle = 180;
 
+	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_i2c_mux_gsbi4);
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);

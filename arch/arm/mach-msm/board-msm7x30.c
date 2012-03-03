@@ -993,8 +993,14 @@ static struct msm_camera_sensor_info msm_camera_sensor_vx6953_data = {
 	.camera_type = BACK_CAMERA_2D,
 };
 
+static struct platform_device msm_camera_server = {
+	.name = "msm_cam_server",
+	.id = 0,
+};
+
 void __init msm7x30_init_cam(void)
 {
+	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm_device_csic0);
 	platform_device_register(&msm_device_vfe);
 	platform_device_register(&msm_device_vpe);

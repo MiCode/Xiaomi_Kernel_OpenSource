@@ -148,50 +148,44 @@
 #define MSM_CAM_IOCTL_PUT_ST_FRAME \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 39, struct msm_camera_st_frame *)
 
-#define MSM_CAM_IOCTL_GET_CONFIG_INFO \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 40, struct msm_cam_config_dev_info *)
-
 #define MSM_CAM_IOCTL_V4L2_EVT_NOTIFY \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct v4l2_event *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 40, struct v4l2_event *)
 
 #define MSM_CAM_IOCTL_SET_MEM_MAP_INFO \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 42, struct msm_mem_map_info *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct msm_mem_map_info *)
 
 #define MSM_CAM_IOCTL_ACTUATOR_IO_CFG \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 43, struct msm_actuator_cfg_data *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 42, struct msm_actuator_cfg_data *)
 
 #define MSM_CAM_IOCTL_MCTL_POST_PROC \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 44, struct msm_mctl_post_proc_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 43, struct msm_mctl_post_proc_cmd *)
 
 #define MSM_CAM_IOCTL_RESERVE_FREE_FRAME \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 45, struct msm_cam_evt_divert_frame *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 44, struct msm_cam_evt_divert_frame *)
 
 #define MSM_CAM_IOCTL_RELEASE_FREE_FRAME \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 46, struct msm_cam_evt_divert_frame *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 45, struct msm_cam_evt_divert_frame *)
 
 #define MSM_CAM_IOCTL_PICT_PP_DIVERT_DONE \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 47, struct msm_pp_frame *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 46, struct msm_pp_frame *)
 
 #define MSM_CAM_IOCTL_SENSOR_V4l2_S_CTRL \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 48, struct v4l2_control)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 47, struct v4l2_control)
 
 #define MSM_CAM_IOCTL_SENSOR_V4l2_QUERY_CTRL \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 49, struct v4l2_queryctrl)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 48, struct v4l2_queryctrl)
 
 #define MSM_CAM_IOCTL_GET_KERNEL_SYSTEM_TIME \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 50, struct timeval *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 49, struct timeval *)
 
 #define MSM_CAM_IOCTL_SET_VFE_OUTPUT_TYPE \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 51, uint32_t *)
-
-#define MSM_CAM_IOCTL_GET_MCTL_INFO \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_mctl_node_info *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 50, uint32_t *)
 
 #define MSM_CAM_IOCTL_MCTL_DIVERT_DONE \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 53, struct msm_cam_evt_divert_frame *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 51, struct msm_cam_evt_divert_frame *)
 
 #define MSM_CAM_IOCTL_GET_ACTUATOR_INFO \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 54, struct msm_actuator_cfg_data *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 52, struct msm_actuator_cfg_data *)
 
 struct msm_mctl_pp_cmd {
 	int32_t  id;
@@ -260,6 +254,8 @@ struct msm_ctrl_cmd {
 	uint32_t timeout_ms;
 	int resp_fd; /* FIXME: to be used by the kernel, pass-through for now */
 	int vnode_id;  /* video dev id. Can we overload resp_fd? */
+	int queue_idx;
+	uint32_t evt_id;
 	uint32_t stream_type; /* used to pass value to qcamera server */
 	int config_ident; /*used as identifier for config node*/
 };
@@ -1362,5 +1358,24 @@ struct img_plane_info {
 #define QCAMERA_NAME "qcamera"
 #define QCAMERA_DEVICE_GROUP_ID 1
 #define QCAMERA_VNODE_GROUP_ID 2
+
+#define MSM_CAM_V4L2_IOCTL_GET_CAMERA_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_camera_v4l2_ioctl_t *)
+
+#define MSM_CAM_V4L2_IOCTL_GET_CONFIG_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 2, struct msm_camera_v4l2_ioctl_t *)
+
+#define MSM_CAM_V4L2_IOCTL_GET_MCTL_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct msm_camera_v4l2_ioctl_t *)
+
+#define MSM_CAM_V4L2_IOCTL_CTRL_CMD_DONE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct msm_camera_v4l2_ioctl_t *)
+
+#define MSM_CAM_V4L2_IOCTL_GET_EVENT_PAYLOAD \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct msm_camera_v4l2_ioctl_t *)
+
+struct msm_camera_v4l2_ioctl_t {
+	void __user *ioctl_ptr;
+};
 
 #endif /* __LINUX_MSM_CAMERA_H */
