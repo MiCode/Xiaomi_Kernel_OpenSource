@@ -639,7 +639,7 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	/* enable TX & RX */
 	msm_hsl_write(port, data, regmap[vid][UARTDM_CR]);
 
-	msm_hsl_write(port, RESET_STALE_INT, UARTDM_CR_ADDR);
+	msm_hsl_write(port, RESET_STALE_INT, regmap[vid][UARTDM_CR]);
 	/* turn on RX and CTS interrupts */
 	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
 		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
