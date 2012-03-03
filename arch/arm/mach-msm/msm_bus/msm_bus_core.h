@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,22 +20,14 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 
-#if defined DEBUG
-
 #define MSM_BUS_DBG(msg, ...) \
-	printk(KERN_DEBUG "AXI: %s(): " msg, __func__, ## __VA_ARGS__)
-
-#else
-#define MSM_BUS_DBG(msg, ...) no_printk("AXI")
-#endif
-
+	pr_debug(msg, ## __VA_ARGS__)
 #define MSM_BUS_ERR(msg, ...) \
-	printk(KERN_ERR "AXI: %s(): " msg, __func__, ## __VA_ARGS__)
+	pr_err(msg, ## __VA_ARGS__)
 #define MSM_BUS_WARN(msg, ...) \
-	printk(KERN_WARNING "AXI: %s(): " msg, __func__, ## __VA_ARGS__)
+	pr_warn(msg, ## __VA_ARGS__)
 #define MSM_FAB_ERR(msg, ...) \
-	dev_err(&fabric->fabdev.dev, "AXI: %s(): " msg, __func__, ## \
-	__VA_ARGS__)
+	dev_err(&fabric->fabdev.dev, msg, ## __VA_ARGS__)
 
 enum msm_bus_dbg_op_type {
 	MSM_BUS_DBG_UNREGISTER = -2,
