@@ -25,8 +25,8 @@ Recommended properties :
 Second level
 
 Required properties :
- - spmi-dev-container: Used by the parser to understand that this is the second
-   level of the tree.
+ - spmi-slave-container: Used by the parser to understand that this is the
+   second level of the tree.
  - reg: <a b> where a is < 65536 and b is a size. Each device supports an
    arbitrary number of address ranges.
  - compatible : "qcom," prefixed string to match against the driver.
@@ -50,7 +50,7 @@ Example:
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0xd>;
-			spmi-dev-container;
+			spmi-slave-container;
 
 			coincell@2800 {
 				compatible = "qcom,qpnp-coincell";

@@ -37,6 +37,7 @@
 #endif
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
+#include <mach/qpnp-int.h>
 #include "clock.h"
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
@@ -361,6 +362,7 @@ void __init msm_copper_add_devices(void)
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
+	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
 	{}
 };
 
