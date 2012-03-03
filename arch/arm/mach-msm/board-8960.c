@@ -1892,6 +1892,7 @@ static struct mxt_config_info mxt_config_array_2d[] = {
 		.variant_id	= 0x2,
 		.version	= 0x10,
 		.build		= 0xAA,
+		.fw_name	= "atmel_8960_liquid_v2_1_AA.hex",
 	},
 	{
 		.config		= mxt1386e_config_data_v2_1,

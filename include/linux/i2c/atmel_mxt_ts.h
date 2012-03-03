@@ -37,6 +37,8 @@ struct mxt_config_info {
 	u8 variant_id;
 	u8 version;
 	u8 build;
+	/* Points to the firmware name to be upgraded to */
+	const char *fw_name;
 };
 
 /* The platform data for the Atmel maXTouch touchscreen driver */
