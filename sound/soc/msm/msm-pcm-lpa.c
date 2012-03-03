@@ -30,6 +30,7 @@
 #include <sound/snd_compress_params.h>
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
+#include <sound/timer.h>
 
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
@@ -95,6 +96,10 @@ static void event_handler(uint32_t opcode,
 		prtd->pcm_irq_pos += prtd->pcm_count;
 		if (atomic_read(&prtd->start))
 			snd_pcm_period_elapsed(substream);
+		else
+			if (substream->timer_running)
+				snd_timer_interrupt(substream->timer, 1);
+
 		atomic_inc(&prtd->out_count);
 		wake_up(&the_locks.write_wait);
 		if (!atomic_read(&prtd->start)) {
