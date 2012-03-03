@@ -27,7 +27,6 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/sort.h>
-#include <linux/remote_spinlock.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
@@ -39,17 +38,16 @@
 #define A11S_CLK_CNTL_ADDR (MSM_CSR_BASE + 0x100)
 #define A11S_CLK_SEL_ADDR (MSM_CSR_BASE + 0x104)
 #define A11S_VDD_SVS_PLEVEL_ADDR (MSM_CSR_BASE + 0x124)
-#define PLLn_MODE(n)	(MSM_CLK_CTL_BASE + 0x300 + 28 * (n))
-#define PLLn_L_VAL(n)	(MSM_CLK_CTL_BASE + 0x304 + 28 * (n))
 
-#define PLL4_MODE	(MSM_CLK_CTL_BASE + 0x374)
-#define PLL4_L_VAL	(MSM_CLK_CTL_BASE + 0x378)
 
 #define POWER_COLLAPSE_KHZ 19200
 
 /* Max CPU frequency allowed by hardware while in standby waiting for an irq. */
 #define MAX_WAIT_FOR_IRQ_KHZ 128000
 
+/**
+ * enum - For acpuclock PLL IDs
+ */
 enum {
 	ACPU_PLL_TCXO	= -1,
 	ACPU_PLL_0	= 0,
@@ -60,15 +58,16 @@ enum {
 	ACPU_PLL_END,
 };
 
-static const struct pll {
-	void __iomem *mod_reg;
-	const uint32_t l_val_mask;
-} soc_pll[ACPU_PLL_END] = {
-	[ACPU_PLL_0] = {PLLn_MODE(ACPU_PLL_0), 0x3f},
-	[ACPU_PLL_1] = {PLLn_MODE(ACPU_PLL_1), 0x3f},
-	[ACPU_PLL_2] = {PLLn_MODE(ACPU_PLL_2), 0x3f},
-	[ACPU_PLL_3] = {PLLn_MODE(ACPU_PLL_3), 0x3f},
-	[ACPU_PLL_4] = {PLL4_MODE, 0x3ff},
+struct acpu_clk_src {
+	struct clk *clk;
+	const char *name;
+};
+
+static struct acpu_clk_src pll_clk[ACPU_PLL_END] = {
+	[ACPU_PLL_0] = { .name = "pll0_clk" },
+	[ACPU_PLL_1] = { .name = "pll1_clk" },
+	[ACPU_PLL_2] = { .name = "pll2_clk" },
+	[ACPU_PLL_4] = { .name = "pll4_clk" },
 };
 
 struct clock_state {
@@ -76,24 +75,6 @@ struct clock_state {
 	struct mutex			lock;
 	uint32_t			max_speed_delta_khz;
 	struct clk			*ebi1_clk;
-};
-
-#define PLL_BASE	7
-
-struct shared_pll_control {
-	uint32_t	version;
-	struct {
-		/* Denotes if the PLL is ON. Technically, this can be read
-		 * directly from the PLL registers, but this feild is here,
-		 * so let's use it.
-		 */
-		uint32_t	on;
-		/* One bit for each processor core. The application processor
-		 * is allocated bit position 1. All other bits should be
-		 * considered as votes from other processors.
-		 */
-		uint32_t	votes;
-	} pll[PLL_BASE + ACPU_PLL_END];
 };
 
 struct clkctl_acpu_speed {
@@ -112,8 +93,6 @@ struct clkctl_acpu_speed {
 	struct clkctl_acpu_speed *up[ACPU_PLL_END];
 };
 
-static remote_spinlock_t pll_lock;
-static struct shared_pll_control *pll_control;
 static struct clock_state drv_state = { 0 };
 static struct clkctl_acpu_speed *acpu_freq_tbl;
 
@@ -329,26 +308,16 @@ static struct clkctl_acpu_speed pll0_960_pll1_737_pll2_1200_25a[] = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0} }
 };
 
-#define PLL_0_MHZ	0
-#define PLL_196_MHZ	10
-#define PLL_245_MHZ	12
-#define PLL_589_MHZ	30
-#define PLL_737_MHZ	38
-#define PLL_800_MHZ	41
-#define PLL_960_MHZ	50
-#define PLL_1008_MHZ	52
-#define PLL_1200_MHZ	62
-
 #define PLL_CONFIG(m0, m1, m2, m4) { \
-	PLL_##m0##_MHZ, PLL_##m1##_MHZ, PLL_##m2##_MHZ, PLL_##m4##_MHZ, \
+	m0, m1, m2, m4, \
 	pll0_##m0##_pll1_##m1##_pll2_##m2##_pll4_##m4 \
 }
 
 struct pll_freq_tbl_map {
-	unsigned int	pll0_l;
-	unsigned int	pll1_l;
-	unsigned int	pll2_l;
-	unsigned int	pll4_l;
+	unsigned int	pll0_rate;
+	unsigned int	pll1_rate;
+	unsigned int	pll2_rate;
+	unsigned int	pll4_rate;
 	struct clkctl_acpu_speed *tbl;
 };
 
@@ -404,59 +373,6 @@ static void __init cpufreq_table_init(void)
 	}
 }
 #endif
-
-static void pll_enable(void __iomem *addr, unsigned on)
-{
-	if (on) {
-		writel_relaxed(2, addr);
-		mb();
-		udelay(5);
-		writel_relaxed(6, addr);
-		mb();
-		udelay(50);
-		writel_relaxed(7, addr);
-	} else {
-		writel_relaxed(0, addr);
-	}
-}
-
-static int pc_pll_request(unsigned id, unsigned on)
-{
-	int res = 0;
-	on = !!on;
-
-	if (on)
-		pr_debug("Enabling PLL %d\n", id);
-	else
-		pr_debug("Disabling PLL %d\n", id);
-
-	if (id >= ACPU_PLL_END)
-		return -EINVAL;
-
-	remote_spin_lock(&pll_lock);
-	if (on) {
-		pll_control->pll[PLL_BASE + id].votes |= 2;
-		if (!pll_control->pll[PLL_BASE + id].on) {
-			pll_enable(soc_pll[id].mod_reg, 1);
-			pll_control->pll[PLL_BASE + id].on = 1;
-		}
-	} else {
-		pll_control->pll[PLL_BASE + id].votes &= ~2;
-		if (pll_control->pll[PLL_BASE + id].on
-		    && !pll_control->pll[PLL_BASE + id].votes) {
-			pll_enable(soc_pll[id].mod_reg, 0);
-			pll_control->pll[PLL_BASE + id].on = 0;
-		}
-	}
-	remote_spin_unlock(&pll_lock);
-
-	if (on)
-		pr_debug("PLL enabled\n");
-	else
-		pr_debug("PLL disabled\n");
-
-	return res;
-}
 
 static int acpuclk_set_vdd_level(int vdd)
 {
@@ -576,7 +492,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 
 	if (reason == SETRATE_CPUFREQ) {
 		if (strt_s->pll != tgt_s->pll && tgt_s->pll != ACPU_PLL_TCXO) {
-			rc = pc_pll_request(tgt_s->pll, 1);
+			rc = clk_prepare_enable(pll_clk[tgt_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
 					tgt_s->pll, rc);
@@ -651,7 +567,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 
 		if (cur_s->pll != ACPU_PLL_TCXO
 		    && !(plls_enabled & (1 << cur_s->pll))) {
-			rc = pc_pll_request(cur_s->pll, 1);
+			rc = clk_prepare_enable(pll_clk[cur_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
 					cur_s->pll, rc);
@@ -684,12 +600,8 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 	if (tgt_s->pll != ACPU_PLL_TCXO)
 		plls_enabled &= ~(1 << tgt_s->pll);
 	for (pll = ACPU_PLL_0; pll < ACPU_PLL_END; pll++)
-		if (plls_enabled & (1 << pll)) {
-			res = pc_pll_request(pll, 0);
-			if (res < 0)
-				pr_warning("PLL%d disable failed (%d)\n",
-						pll, res);
-		}
+		if (plls_enabled & (1 << pll))
+			clk_disable_unprepare(pll_clk[pll].clk);
 
 	/* Nothing else to do for power collapse. */
 	if (reason == SETRATE_PC)
@@ -742,9 +654,10 @@ static void __init acpuclk_hw_init(void)
 	}
 
 	drv_state.current_speed = speed;
-	if (speed->pll != ACPU_PLL_TCXO)
-		if (pc_pll_request(speed->pll, 1))
+	if (speed->pll != ACPU_PLL_TCXO) {
+		if (clk_prepare_enable(pll_clk[speed->pll].clk))
 			pr_warning("Failed to vote for boot PLL\n");
+	}
 
 	/* Fix div2 to 2 for 7x27/5a(aa) targets */
 	if (!cpu_is_msm7x27()) {
@@ -777,64 +690,52 @@ static unsigned long acpuclk_7627_get_rate(int cpu)
 /*----------------------------------------------------------------------------
  * Clock driver initialization
  *---------------------------------------------------------------------------*/
-
-static void __init acpu_freq_tbl_fixup(void)
+#define MHZ 1000000
+static void __init select_freq_plan(void)
 {
-	unsigned long pll0_l, pll1_l, pll2_l, pll4_l;
-	struct pll_freq_tbl_map *lst;
+	unsigned long pll_mhz[ACPU_PLL_END];
+	struct pll_freq_tbl_map *t;
+	int i;
 
-	/* Wait for the PLLs to be initialized and then read their frequency.
-	 */
-	do {
-		pll0_l = readl_relaxed(PLLn_L_VAL(0)) &
-				soc_pll[ACPU_PLL_0].l_val_mask;
-		cpu_relax();
-		udelay(50);
-	} while (pll0_l == 0);
-	do {
-		pll1_l = readl_relaxed(PLLn_L_VAL(1)) &
-				soc_pll[ACPU_PLL_1].l_val_mask;
-		cpu_relax();
-		udelay(50);
-	} while (pll1_l == 0);
-	do {
-		pll2_l = readl_relaxed(PLLn_L_VAL(2)) &
-				soc_pll[ACPU_PLL_2].l_val_mask;
-		cpu_relax();
-		udelay(50);
-	} while (pll2_l == 0);
-
-	pr_info("L val: PLL0: %d, PLL1: %d, PLL2: %d\n",
-			(int)pll0_l, (int)pll1_l, (int)pll2_l);
-
-	if (!cpu_is_msm7x27() && !cpu_is_msm7x25a()) {
-		do {
-			pll4_l = readl_relaxed(PLL4_L_VAL) &
-				soc_pll[ACPU_PLL_4].l_val_mask;
-			cpu_relax();
-			udelay(50);
-		} while (pll4_l == 0);
-		pr_info("L val: PLL4: %d\n", (int)pll4_l);
-	} else {
-		pll4_l = 0;
+	/* Get PLL clocks */
+	for (i = 0; i < ACPU_PLL_END; i++) {
+		if (pll_clk[i].name) {
+			pll_clk[i].clk = clk_get_sys("acpu", pll_clk[i].name);
+			if (IS_ERR(pll_clk[i].clk)) {
+				pll_mhz[i] = 0;
+				continue;
+			}
+			/* Get PLL's Rate */
+			pll_mhz[i] = clk_get_rate(pll_clk[i].clk)/MHZ;
+		}
 	}
 
-	/* Fix the tables for 7x25a variant to not conflict with 7x27 ones */
+	/*
+	 * For the pll configuration used in acpuclock table e.g.
+	 * pll0_960_pll1_245_pll2_1200" is same for 7627 and
+	 * 7625a (as pll0,pll1,pll2) having same rates, but frequency
+	 * table is different for both targets.
+	 *
+	 * Hence below for loop will not be able to select correct
+	 * table based on PLL rates as rates are same. Hence we need
+	 * to add this cpu check for selecting the correct acpuclock table.
+	 */
 	if (cpu_is_msm7x25a()) {
-		if (pll1_l == PLL_245_MHZ) {
+		if (pll_mhz[ACPU_PLL_1] == 245) {
 			acpu_freq_tbl =
 				pll0_960_pll1_245_pll2_1200_25a;
-		} else if (pll1_l == PLL_737_MHZ) {
+		} else if (pll_mhz[ACPU_PLL_1] == 737) {
 			acpu_freq_tbl =
 				pll0_960_pll1_737_pll2_1200_25a;
 		}
 	} else {
 		/* Select the right table to use. */
-		for (lst = acpu_freq_tbl_list; lst->tbl != 0; lst++) {
-			if (lst->pll0_l == pll0_l && lst->pll1_l == pll1_l
-					&& lst->pll2_l == pll2_l
-					&& lst->pll4_l == pll4_l) {
-				acpu_freq_tbl = lst->tbl;
+		for (t = acpu_freq_tbl_list; t->tbl != 0; t++) {
+			if (t->pll0_rate == pll_mhz[ACPU_PLL_0]
+				&& t->pll1_rate == pll_mhz[ACPU_PLL_1]
+				&& t->pll2_rate == pll_mhz[ACPU_PLL_2]
+				&& t->pll4_rate == pll_mhz[ACPU_PLL_4]) {
+				acpu_freq_tbl = t->tbl;
 				break;
 			}
 		}
@@ -945,33 +846,6 @@ static void __init print_acpu_freq_tbl(void)
 	}
 }
 
-static void shared_pll_control_init(void)
-{
-#define PLL_REMOTE_SPINLOCK_ID "S:7"
-	unsigned smem_size;
-
-	remote_spin_lock_init(&pll_lock, PLL_REMOTE_SPINLOCK_ID);
-	pll_control = smem_get_entry(SMEM_CLKREGIM_SOURCES, &smem_size);
-
-	if (!pll_control) {
-		pr_err("Can't find shared PLL control data structure!\n");
-		BUG();
-	/* There might be more PLLs than what the application processor knows
-	 * about. But the index used for each PLL is guaranteed to remain the
-	 * same. */
-	} else if (smem_size < sizeof(struct shared_pll_control)) {
-			pr_err("Shared PLL control data"
-					"structure too small!\n");
-			BUG();
-	} else if (pll_control->version != 0xCCEE0001) {
-			pr_err("Shared PLL control version mismatch!\n");
-			BUG();
-	} else {
-		pr_info("Shared PLL control available.\n");
-		return;
-	}
-
-}
 
 static struct acpuclk_data acpuclk_7627_data = {
 	.set_rate = acpuclk_7627_set_rate,
@@ -988,9 +862,8 @@ static int __init acpuclk_7627_init(struct acpuclk_soc_data *soc_data)
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));
 
 	mutex_init(&drv_state.lock);
-	shared_pll_control_init();
 	drv_state.max_speed_delta_khz = soc_data->max_speed_delta_khz;
-	acpu_freq_tbl_fixup();
+	select_freq_plan();
 	acpuclk_7627_data.wait_for_irq_khz = find_wait_for_irq_khz();
 	precompute_stepping();
 	acpuclk_hw_init();
