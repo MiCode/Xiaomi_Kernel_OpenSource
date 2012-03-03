@@ -493,6 +493,23 @@ int msm_ion_secure_heap(int heap_id);
  */
 int msm_ion_unsecure_heap(int heap_id);
 
+/**
+ * msm_ion_do_cache_op - do cache operations.
+ *
+ * @client - pointer to ION client.
+ * @handle - pointer to buffer handle.
+ * @vaddr -  virtual address to operate on.
+ * @len - Length of data to do cache operation on.
+ * @cmd - Cache operation to perform:
+ *		ION_IOC_CLEAN_CACHES
+ *		ION_IOC_INV_CACHES
+ *		ION_IOC_CLEAN_INV_CACHES
+ *
+ * Returns 0 on success
+ */
+int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+			void *vaddr, unsigned long len, unsigned int cmd);
+
 #else
 static inline struct ion_client *ion_client_create(struct ion_device *dev,
 				     unsigned int heap_mask, const char *name)
@@ -604,6 +621,14 @@ static inline int msm_ion_unsecure_heap(int heap_id)
 {
 	return -ENODEV;
 }
+
+static inline int msm_ion_do_cache_op(struct ion_client *client,
+			struct ion_handle *handle, void *vaddr,
+			unsigned long len, unsigned int cmd)
+{
+	return -ENODEV;
+}
+
 #endif /* CONFIG_ION */
 #endif /* __KERNEL__ */
 
