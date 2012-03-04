@@ -388,6 +388,8 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q)
 	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
 	int rc = 0;
 
+	WFD_MSG_ERR("Stream on called\n");
+	WFD_MSG_DBG("enc start\n");
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 			ENCODE_START, (void *)inst->venc_inst);
 	if (rc) {
@@ -395,6 +397,7 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q)
 		goto subdev_start_fail;
 	}
 
+	WFD_MSG_DBG("vsg start\n");
 	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
 			VSG_START, NULL);
 	if (rc) {
@@ -408,6 +411,7 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q)
 		rc = PTR_ERR(inst->mdp_task);
 		goto subdev_start_fail;
 	}
+	WFD_MSG_DBG("mdp start\n");
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 			 MDP_START, (void *)inst->mdp_inst);
 	if (rc)
@@ -423,17 +427,20 @@ int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
 		(struct wfd_device *)video_drvdata(priv_data);
 	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
 	int rc = 0;
+	WFD_MSG_DBG("mdp stop\n");
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 			 MDP_STOP, (void *)inst->mdp_inst);
 	if (rc)
 		WFD_MSG_ERR("Failed to stop MDP\n");
 
+	WFD_MSG_DBG("vsg stop\n");
 	rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
 			 VSG_STOP, NULL);
 	if (rc)
 		WFD_MSG_ERR("Failed to stop VSG\n");
 
 	kthread_stop(inst->mdp_task);
+	WFD_MSG_DBG("enc stop\n");
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 			ENCODE_STOP, (void *)inst->venc_inst);
 	if (rc)
