@@ -255,6 +255,40 @@ void ion_iommu_heap_unmap_iommu(struct ion_iommu_map *data)
 	return;
 }
 
+static int ion_iommu_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
+			void *vaddr, unsigned int offset, unsigned int length,
+			unsigned int cmd)
+{
+	unsigned long vstart, pstart;
+	void (*op)(unsigned long, unsigned long, unsigned long);
+	unsigned int i;
+	struct ion_iommu_priv_data *data = buffer->priv_virt;
+
+	if (!data)
+		return -ENOMEM;
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		op = clean_caches;
+		break;
+	case ION_IOC_INV_CACHES:
+		op = invalidate_caches;
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		op = clean_and_invalidate_caches;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	vstart = (unsigned long) vaddr;
+	for (i = 0; i < data->nrpages; ++i, vstart += PAGE_SIZE) {
+		pstart = page_to_phys(data->pages[i]);
+		op(vstart, PAGE_SIZE, pstart);
+	}
+
+	return 0;
+}
 
 static struct ion_heap_ops iommu_heap_ops = {
 	.allocate = ion_iommu_heap_allocate,
@@ -264,6 +298,7 @@ static struct ion_heap_ops iommu_heap_ops = {
 	.unmap_kernel = ion_iommu_heap_unmap_kernel,
 	.map_iommu = ion_iommu_heap_map_iommu,
 	.unmap_iommu = ion_iommu_heap_unmap_iommu,
+	.cache_op = ion_iommu_cache_ops,
 };
 
 struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
