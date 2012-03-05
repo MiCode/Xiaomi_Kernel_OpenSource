@@ -890,7 +890,7 @@ static int msm_mctl_dev_open(struct file *f)
 		return rc;
 	}
 	pcam_inst->vbqueue_initialized = 0;
-
+	kref_get(&pcam->mctl.refcount);
 	f->private_data = &pcam_inst->eventHandle;
 
 	D("f->private_data = 0x%x, pcam = 0x%x\n",
@@ -961,6 +961,7 @@ static int msm_mctl_dev_close(struct file *f)
 	v4l2_fh_exit(&pcam_inst->eventHandle);
 
 	kfree(pcam_inst);
+	kref_put(&pcam->mctl.refcount, msm_release_ion_client);
 	f->private_data = NULL;
 	mutex_unlock(&pcam->mctl_node.dev_lock);
 	D("%s : X ", __func__);
