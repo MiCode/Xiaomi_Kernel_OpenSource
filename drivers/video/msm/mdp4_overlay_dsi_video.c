@@ -155,7 +155,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 
 	if (!(mfd->cont_splash_done)) {
 		mfd->cont_splash_done = 1;
-		set_cont_splashScreen_status(mfd->cont_splash_done);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK,
+			      MDP_BLOCK_POWER_OFF, FALSE);
 		mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
 		/* disable timing generator */
 		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 0);

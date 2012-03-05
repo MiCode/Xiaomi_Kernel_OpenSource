@@ -63,6 +63,8 @@ static struct clk *dsi_s_pclk;
 
 static struct clk *amp_pclk;
 
+static int cont_splash_clks_enabled;
+
 void mipi_dsi_clk_init(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -101,11 +103,9 @@ void mipi_dsi_clk_init(struct platform_device *pdev)
 	}
 
 	if (!(mfd->cont_splash_done)) {
-		clk_enable(amp_pclk); /* clock for AHB-master to AXI */
-		clk_enable(dsi_m_pclk);
-		clk_enable(dsi_s_pclk);
 		clk_enable(dsi_byte_div_clk);
 		clk_enable(dsi_esc_clk);
+		cont_splash_clks_enabled = 1;
 	}
 
 	return;
@@ -538,6 +538,15 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 
 	if (target_type == 1)
 		mipi_dsi_configure_serdes();
+}
+
+void cont_splash_clk_ctrl(void)
+{
+	if (cont_splash_clks_enabled) {
+		clk_disable(dsi_byte_div_clk);
+		clk_disable(dsi_esc_clk);
+		cont_splash_clks_enabled = 0;
+	}
 }
 
 void mipi_dsi_ahb_ctrl(u32 enable)

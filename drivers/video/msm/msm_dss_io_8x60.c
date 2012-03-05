@@ -390,6 +390,10 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 	wmb();
 }
 
+void cont_splash_clk_ctrl(void)
+{
+}
+
 void mipi_dsi_ahb_ctrl(u32 enable)
 {
 	if (enable) {

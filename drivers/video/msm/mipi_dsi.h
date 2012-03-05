@@ -302,6 +302,7 @@ int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes,
 void mipi_dsi_clk_init(struct platform_device *pdev);
 void mipi_dsi_clk_deinit(struct device *dev);
 void mipi_dsi_ahb_ctrl(u32 enable);
+void cont_splash_clk_ctrl(void);
 void mipi_dsi_turn_on_clks(void);
 void mipi_dsi_turn_off_clks(void);
 
