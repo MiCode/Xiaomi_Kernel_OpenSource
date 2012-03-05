@@ -477,6 +477,14 @@ config MACH_MSM8625_RUMI3
 	help
 	  Support for the Qualcomm MSM8625 RUMI3 Emulation Platform.
 
+config MACH_MSM8625_SURF
+	depends on ARCH_MSM8625
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "MSM8625 SURF"
+	help
+	  Support for the Qualcomm MSM8625 SURF.
+
 config MACH_MSM7X30_SURF
        depends on ARCH_MSM7X30
        depends on !MSM_STACKED_MEMORY

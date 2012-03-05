@@ -98,8 +98,6 @@ struct bt_vreg_info {
 	struct regulator *reg;
 };
 
-extern struct platform_device msm_bt_power_device;
-
 void __init msm7627a_bt_power_init(void);
 #endif
 
