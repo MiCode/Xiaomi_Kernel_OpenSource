@@ -254,6 +254,23 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 	mutex_unlock(&routing_lock);
 }
 
+/* Check if FE/BE route is set */
+static bool msm_pcm_routing_route_is_set(u16 be_id, u16 fe_id)
+{
+	bool rc = false;
+
+	if (be_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+		/* recheck FE ID in the mixer control defined in this file */
+		pr_err("%s: bad MM ID\n", __func__);
+		return rc;
+	}
+
+	if (test_bit(fe_id, &msm_bedais[be_id].fe_sessions))
+		rc = true;
+
+	return rc;
+}
+
 static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type;
@@ -350,10 +367,12 @@ static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 
 
-	if (ucontrol->value.integer.value[0]) {
+	if (ucontrol->value.integer.value[0] &&
+	    msm_pcm_routing_route_is_set(mc->reg, mc->shift) == false) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 1);
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
-	} else {
+	} else if (!ucontrol->value.integer.value[0] &&
+		   msm_pcm_routing_route_is_set(mc->reg, mc->shift) == true) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 0);
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 	}
