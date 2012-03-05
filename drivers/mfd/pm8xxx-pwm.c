@@ -1364,7 +1364,7 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_pwm_platform_data *pdata = pdev->dev.platform_data;
 	struct pm8xxx_pwm_chip	*chip;
-	int	i;
+	int	i, dtest_channel;
 	enum pm8xxx_version version;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -1372,6 +1372,11 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
 	}
+
+	if (pdata != NULL)
+		dtest_channel = pdata->dtest_channel;
+	else
+		dtest_channel = -1;
 
 	mutex_init(&chip->pwm_mutex);
 
@@ -1413,7 +1418,7 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 	for (i = 0; i < chip->pwm_channels; i++) {
 		chip->pwm_dev[i].pwm_id = i;
 		chip->pwm_dev[i].chip = chip;
-		if (i == pdata->dtest_channel)
+		if (i == dtest_channel)
 			chip->pwm_dev[i].dtest_mode_supported = 1;
 	}
 
