@@ -187,6 +187,46 @@ struct msm_otg_platform_data {
 	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
+/* Timeout (in msec) values (min - max) associated with OTG timers */
+
+#define TA_WAIT_VRISE	100	/* ( - 100)  */
+#define TA_WAIT_VFALL	500	/* ( - 1000) */
+
+/*
+ * This option is set for embedded hosts or OTG devices in which leakage
+ * currents are very minimal.
+ */
+#ifdef CONFIG_USB_OTG
+#define TA_WAIT_BCON	30000	/* (1100 - 30000) */
+#else
+#define TA_WAIT_BCON	-1
+#endif
+
+#define TA_AIDL_BDIS	500	/* (200 - ) */
+#define TA_BIDL_ADIS	155	/* (155 - 200) */
+#define TB_SRP_FAIL	6000	/* (5000 - 6000) */
+#define TB_ASE0_BRST	200	/* (155 - ) */
+
+/* TB_SSEND_SRP and TB_SE0_SRP are combined */
+#define TB_SRP_INIT	2000	/* (1500 - ) */
+
+#define TA_TST_MAINT	10100	/* (9900 - 10100) */
+#define TB_TST_SRP	3000	/* ( - 5000) */
+#define TB_TST_CONFIG	300
+
+/* Timeout variables */
+
+#define A_WAIT_VRISE	0
+#define A_WAIT_VFALL	1
+#define A_WAIT_BCON	2
+#define A_AIDL_BDIS	3
+#define A_BIDL_ADIS	4
+#define B_SRP_FAIL	5
+#define B_ASE0_BRST	6
+#define A_TST_MAINT	7
+#define B_TST_SRP	8
+#define B_TST_CONFIG	9
+
 /**
  * struct msm_otg: OTG driver data. Shared by HCD and DCD.
  * @otg: USB OTG Transceiver structure.
@@ -233,6 +273,18 @@ struct msm_otg {
 #define ID_A		2
 #define ID_B		3
 #define ID_C		4
+#define A_BUS_DROP	5
+#define A_BUS_REQ	6
+#define A_SRP_DET	7
+#define A_VBUS_VLD	8
+#define B_CONN		9
+#define ADP_CHANGE	10
+#define POWER_UP	11
+#define A_CLR_ERR	12
+#define A_BUS_RESUME	13
+#define A_BUS_SUSPEND	14
+#define A_CONN		15
+#define B_BUS_REQ	16
 	unsigned long inputs;
 	struct work_struct sm_work;
 	atomic_t in_lpm;
@@ -273,6 +325,10 @@ struct msm_otg {
 #define PHY_OTG_COMP_DISABLED		BIT(2)
 	struct pm_qos_request_list pm_qos_req_dma;
 	int reset_counter;
+	unsigned long b_last_se0_sess;
+	unsigned long tmouts;
+	u8 active_tmout;
+	struct hrtimer timer;
 };
 
 struct msm_hsic_host_platform_data {
