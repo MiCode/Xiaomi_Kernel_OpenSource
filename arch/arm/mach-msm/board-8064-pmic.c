@@ -133,6 +133,7 @@ static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {
 
 static struct pm8xxx_gpio_init pm8921_cdp_kp_gpios[] __initdata = {
 	PM8921_GPIO_INPUT(37, PM_GPIO_PULL_UP_1P5),
+	PM8921_GPIO_INPUT(42, PM_GPIO_PULL_UP_1P5),
 };
 
 /* Initial PM8XXX MPP configurations */

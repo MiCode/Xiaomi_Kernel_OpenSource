@@ -1804,7 +1804,7 @@ static int ethernet_init(void)
 #define GPIO_KEY_VOLUME_DOWN	PM8921_GPIO_PM_TO_SYS(38)
 #define GPIO_KEY_CAM_FOCUS	PM8921_GPIO_PM_TO_SYS(3)
 #define GPIO_KEY_CAM_SNAP	PM8921_GPIO_PM_TO_SYS(4)
-#define GPIO_KEY_ROTATION	46
+#define GPIO_KEY_ROTATION	PM8921_GPIO_PM_TO_SYS(42)
 
 static struct gpio_keys_button cdp_keys[] = {
 	{

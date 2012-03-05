@@ -502,28 +502,6 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	},
 };
 
-static struct gpiomux_setting gpio_rotate_key_act_config = {
-	.pull = GPIOMUX_PULL_UP,
-	.drv = GPIOMUX_DRV_8MA,
-	.func = GPIOMUX_FUNC_GPIO,
-};
-
-static struct gpiomux_setting gpio_rotate_key_sus_config = {
-	.pull = GPIOMUX_PULL_NONE,
-	.drv = GPIOMUX_DRV_2MA,
-	.func = GPIOMUX_FUNC_GPIO,
-};
-
-struct msm_gpiomux_config apq8064_rotate_key_config[] = {
-	{
-		.gpio = 46,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_rotate_key_sus_config,
-			[GPIOMUX_ACTIVE] = &gpio_rotate_key_act_config,
-		}
-	},
-};
-
 static struct msm_gpiomux_config apq8064_mxt_configs[] __initdata = {
 	{	/* TS INTERRUPT */
 		.gpio = 6,
@@ -629,8 +607,4 @@ void __init apq8064_init_gpiomux(void)
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
 		msm_gpiomux_install(apq8064_mxt_configs,
 			ARRAY_SIZE(apq8064_mxt_configs));
-
-	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
-		msm_gpiomux_install(apq8064_rotate_key_config,
-				ARRAY_SIZE(apq8064_rotate_key_config));
 }
