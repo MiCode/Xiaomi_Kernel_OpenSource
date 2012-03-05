@@ -104,15 +104,6 @@ static int find_object(int type, unsigned int gpuaddr, unsigned int ptbase)
 	return 0;
 }
 
-/* Return 1 if the packet starting at ptr is an indirect buffer of any kind */
-static inline int packet_is_buffer(unsigned int *ptr)
-{
-	return (*ptr == cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2) ||
-		*ptr == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2) ||
-		*ptr == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFE, 2) ||
-		*ptr == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFD, 2));
-}
-
 /* Snapshot the istore memory */
 static int snapshot_istore(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
@@ -258,7 +249,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		if (index == rptr)
 			parse_ibs = 0;
 
-		if (parse_ibs && packet_is_buffer(&rbptr[index]))
+		if (parse_ibs && adreno_cmd_is_ib(rbptr[index]))
 			push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
 				rbptr[index + 1], rbptr[index + 2]);
 
@@ -312,7 +303,7 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 		*dst = *src;
 		/* If another IB is discovered, then push it on the list too */
 
-		if (packet_is_buffer(src))
+		if (adreno_cmd_is_ib(*src))
 			push_object(device, SNAPSHOT_OBJ_TYPE_IB, obj->ptbase,
 				*(src + 1), *(src + 2));
 

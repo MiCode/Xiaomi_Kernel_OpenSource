@@ -201,7 +201,7 @@ static void dump_ib1(struct kgsl_device *device, uint32_t pt_base,
 
 	for (i = 0; i+3 < ib1_size; ) {
 		value = ib1_addr[i++];
-		if (value == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2)) {
+		if (adreno_cmd_is_ib(value)) {
 			uint32_t ib2_base = ib1_addr[i++];
 			uint32_t ib2_size = ib1_addr[i++];
 
@@ -769,7 +769,7 @@ static int adreno_dump(struct kgsl_device *device)
 	i = 0;
 	for (read_idx = 0; read_idx < num_item; ) {
 		uint32_t this_cmd = rb_copy[read_idx++];
-		if (this_cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2)) {
+		if (adreno_cmd_is_ib(this_cmd)) {
 			uint32_t ib_addr = rb_copy[read_idx++];
 			uint32_t ib_size = rb_copy[read_idx++];
 			dump_ib1(device, cur_pt_base, (read_idx-3)<<2, ib_addr,
@@ -812,8 +812,7 @@ static int adreno_dump(struct kgsl_device *device)
 		for (read_idx = NUM_DWORDS_OF_RINGBUFFER_HISTORY;
 			read_idx >= 0; --read_idx) {
 			uint32_t this_cmd = rb_copy[read_idx];
-			if (this_cmd == cp_type3_packet(
-				CP_INDIRECT_BUFFER_PFD, 2)) {
+			if (adreno_cmd_is_ib(this_cmd)) {
 				uint32_t ib_addr = rb_copy[read_idx+1];
 				uint32_t ib_size = rb_copy[read_idx+2];
 				if (ib_size && cp_ib1_base == ib_addr) {
