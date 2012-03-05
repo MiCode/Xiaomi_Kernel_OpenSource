@@ -1204,10 +1204,12 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 
 	/*
 	 * if entering host mode tell the charger to not draw any current
-	 * from usb - if exiting host mode let the charger draw current
+	 * from usb before turning on the boost.
+	 * if exiting host mode disable the boost before enabling to draw
+	 * current from the source.
 	 */
-	pm8921_disable_source_current(on);
 	if (on) {
+		pm8921_disable_source_current(on);
 		ret = regulator_enable(vbus_otg);
 		if (ret) {
 			pr_err("unable to enable vbus_otg\n");
@@ -1220,6 +1222,7 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 			pr_err("unable to disable vbus_otg\n");
 			return;
 		}
+		pm8921_disable_source_current(on);
 		vbus_is_on = false;
 	}
 }
