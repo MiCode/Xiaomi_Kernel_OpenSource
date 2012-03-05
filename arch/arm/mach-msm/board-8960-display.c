@@ -670,6 +670,12 @@ static void set_mdp_clocks_for_wuxga(void)
 
 	mdp_ui_vectors[0].ab = 2000000000;
 	mdp_ui_vectors[0].ib = 2000000000;
+	mdp_vga_vectors[0].ab = 2000000000;
+	mdp_vga_vectors[0].ib = 2000000000;
+	mdp_720p_vectors[0].ab = 2000000000;
+	mdp_720p_vectors[0].ib = 2000000000;
+	mdp_1080p_vectors[0].ab = 2000000000;
+	mdp_1080p_vectors[0].ib = 2000000000;
 
 	mdp_pdata.mdp_core_clk_rate = 200000000;
 
