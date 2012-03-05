@@ -344,8 +344,7 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 		ch_h[i] = tx[idx].ch_h;
 		sph[i] = tx[idx].sph;
 		slave_port_id = idx ;
-		if ((slave_port_id > SB_PGD_MAX_NUMBER_OF_TX_SLAVE_DEV_PORTS) ||
-		(slave_port_id == 0)) {
+		if (slave_port_id > SB_PGD_MAX_NUMBER_OF_TX_SLAVE_DEV_PORTS) {
 			pr_err("SLIMbus: invalid slave port id: %d",
 							slave_port_id);
 			ret = -EINVAL;
