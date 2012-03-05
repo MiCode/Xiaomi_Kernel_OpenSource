@@ -34,6 +34,13 @@ enum vsg_modes {
 	VSG_MODE_VFR,
 };
 
+enum vsg_states {
+	VSG_STATE_NONE,
+	VSG_STATE_STARTED,
+	VSG_STATE_STOPPED,
+	VSG_STATE_ERROR
+};
+
 struct vsg_buf_info {
 	struct mdp_buf_info mdp_buf_info;
 	struct timespec time;
@@ -59,10 +66,16 @@ struct vsg_context {
 	struct vsg_buf_info *last_buffer, *regen_buffer;
 	bool send_regen_buffer;
 	int mode;
-	bool stopped;
+	int state;
 };
 
 struct vsg_work {
+	struct vsg_context *context;
+	struct work_struct work;
+};
+
+struct vsg_encode_work {
+	struct vsg_buf_info *buf;
 	struct vsg_context *context;
 	struct work_struct work;
 };

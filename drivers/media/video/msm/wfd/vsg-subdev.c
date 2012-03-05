@@ -76,10 +76,29 @@ static void vsg_set_last_buffer(struct vsg_context *context,
 	}
 }
 
+static void vsg_encode_helper_func(struct work_struct *task)
+{
+	struct vsg_encode_work *work =
+		container_of(task, struct vsg_encode_work, work);
+
+	/*
+	 * Note: don't need to lock for context below as we only
+	 * access fields that are "static".
+	 */
+	int rc = vsg_encode_frame(work->context, work->buf);
+	if (rc < 0) {
+		mutex_lock(&work->context->mutex);
+		work->context->state = VSG_STATE_ERROR;
+		mutex_unlock(&work->context->mutex);
+	}
+	kfree(work);
+}
+
 static void vsg_work_func(struct work_struct *task)
 {
 	struct vsg_work *work =
 		container_of(task, struct vsg_work, work);
+	struct vsg_encode_work *encode_work;
 	struct vsg_context *context = work->context;
 	struct vsg_buf_info *buf_info = NULL, *temp = NULL;
 	int rc = 0;
@@ -88,8 +107,9 @@ static void vsg_work_func(struct work_struct *task)
 	if (list_empty(&context->free_queue.node)) {
 		WFD_MSG_DBG("%s: queue empty doing nothing\n", __func__);
 		goto err_skip_encode;
-	} else if (context->stopped) {
-		WFD_MSG_DBG("%s: vsg is stopped doing nothing\n", __func__);
+	} else if (context->state != VSG_STATE_STARTED) {
+		WFD_MSG_DBG("%s: vsg is stopped or in error state "
+				"doing nothing\n", __func__);
 		goto err_skip_encode;
 	}
 
@@ -114,15 +134,19 @@ static void vsg_work_func(struct work_struct *task)
 		}
 	}
 
-	buf_info->flags |= VSG_BUF_BEING_ENCODED;
-	mutex_unlock(&context->mutex);
-	rc = vsg_encode_frame(context, buf_info);
-	if (rc < 0) {
-		WFD_MSG_ERR("frame encode failed");
-		goto err_encode_fail;
+	encode_work = kmalloc(sizeof(*encode_work), GFP_KERNEL);
+	encode_work->buf = buf_info;
+	encode_work->context = context;
+	INIT_WORK(&encode_work->work, vsg_encode_helper_func);
+	rc = queue_work(context->work_queue, &encode_work->work);
+	if (!rc) {
+		WFD_MSG_ERR("Queueing buffer for encode failed\n");
+		kfree(encode_work);
+		encode_work = NULL;
+		goto err_queue_encode_fail;
 	}
-	mutex_lock(&context->mutex);
 
+	buf_info->flags |= VSG_BUF_BEING_ENCODED;
 	if (!(buf_info->flags & VSG_NEVER_SET_LAST_BUFFER)) {
 		bool is_same_buffer = context->last_buffer &&
 			mdp_buf_info_equals(
@@ -149,7 +173,7 @@ static void vsg_work_func(struct work_struct *task)
 	list_add_tail(&buf_info->node, &context->busy_queue.node);
 err_skip_encode:
 	mutex_unlock(&context->mutex);
-err_encode_fail:
+err_queue_encode_fail:
 	kfree(work);
 }
 
@@ -163,7 +187,7 @@ static void vsg_timer_helper_func(struct work_struct *task)
 
 	mutex_lock(&context->mutex);
 
-	if (context->stopped)
+	if (context->state != VSG_STATE_STARTED)
 		goto err_locked;
 
 	if (list_empty(&context->free_queue.node)
@@ -280,7 +304,7 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 	context->last_buffer = context->regen_buffer = NULL;
 	context->send_regen_buffer = false;
 	context->mode = DEFAULT_MODE;
-	context->stopped = false;
+	context->state = VSG_STATE_NONE;
 	mutex_init(&context->mutex);
 
 	sd->dev_priv = context;
@@ -311,6 +335,16 @@ static int vsg_start(struct v4l2_subdev *sd)
 	}
 
 	context = (struct vsg_context *)sd->dev_priv;
+
+	if (context->state == VSG_STATE_STARTED) {
+		WFD_MSG_ERR("VSG not stopped, start not allowed\n");
+		return -EINPROGRESS;
+	} else if (context->state == VSG_STATE_ERROR) {
+		WFD_MSG_ERR("VSG in error state, not allowed to restart\n");
+		return -ENOTRECOVERABLE;
+	}
+
+	context->state = VSG_STATE_STARTED;
 	mod_timer(&context->threshold_timer, jiffies +
 			nsecs_to_jiffies(context->max_frame_interval));
 	return 0;
@@ -328,7 +362,7 @@ static int vsg_stop(struct v4l2_subdev *sd)
 	context = (struct vsg_context *)sd->dev_priv;
 
 	mutex_lock(&context->mutex);
-	context->stopped = true;
+	context->state = VSG_STATE_STOPPED;
 	{ /*delete pending buffers as we're not going to encode them*/
 		struct list_head *pos, *next;
 		list_for_each_safe(pos, next, &context->free_queue.node) {
