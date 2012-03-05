@@ -1203,10 +1203,9 @@ static int ehci_hub_control (
 			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
 #ifdef	CONFIG_USB_OTG
 			if (hcd->self.otg_port == (wIndex + 1) &&
-					hcd->self.b_hnp_enable &&
-					ehci->start_hnp) {
+					hcd->self.b_hnp_enable) {
 				set_bit(wIndex, &ehci->suspended_ports);
-				ehci->start_hnp(ehci);
+				otg_start_hnp(ehci->transceiver);
 				break;
 			}
 #endif

@@ -605,19 +605,6 @@ static int msm_xusb_rpc_close(struct msmusb_hcd *mhcd)
 	return retval;
 }
 
-#ifdef	CONFIG_USB_OTG
-static void ehci_msm_start_hnp(struct ehci_hcd *ehci)
-{
-	struct usb_hcd *hcd = ehci_to_hcd(ehci);
-	struct msmusb_hcd *mhcd = hcd_to_mhcd(hcd);
-
-	/* OTG driver handles HNP */
-	otg_start_hnp(mhcd->xceiv);
-}
-#else
-#define ehci_msm_start_hnp	NULL
-#endif
-
 static int msm_xusb_init_host(struct platform_device *pdev,
 			      struct msmusb_hcd *mhcd)
 {
@@ -645,9 +632,9 @@ static int msm_xusb_init_host(struct platform_device *pdev,
 		otg = container_of(mhcd->xceiv, struct msm_otg, otg);
 		hcd->regs = otg->regs;
 		otg->start_host = msm_hsusb_start_host;
-		ehci->start_hnp = ehci_msm_start_hnp;
 
 		ret = otg_set_host(mhcd->xceiv, &hcd->self);
+		ehci->transceiver = mhcd->xceiv;
 		break;
 	case USB_PHY_SERIAL_PMIC:
 		hcd->regs = ioremap(hcd->rsrc_start, hcd->rsrc_len);
@@ -753,6 +740,7 @@ static void msm_xusb_uninit_host(struct msmusb_hcd *mhcd)
 	case USB_PHY_INTEGRATED:
 		if (pdata->vbus_init)
 			pdata->vbus_init(0);
+		hcd_to_ehci(hcd)->transceiver = NULL;
 		otg_set_host(mhcd->xceiv, NULL);
 		otg_put_transceiver(mhcd->xceiv);
 		cancel_work_sync(&mhcd->otg_work);
