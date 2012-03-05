@@ -226,10 +226,14 @@ static u32 d2l_gpio_out_val;
 static u32 d2l_3d_gpio_enable;
 static u32 d2l_3d_gpio_mode;
 static int d2l_enable_3d;
+static struct i2c_client *d2l_i2c_client;
+static struct i2c_driver d2l_i2c_slave_driver;
 
 static int mipi_d2l_init(void);
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
 			      bool enable, bool mode);
+static u32 d2l_i2c_read_reg(struct i2c_client *client, u16 reg);
+static u32 d2l_i2c_write_reg(struct i2c_client *client, u16 reg, u32 val);
 
 /**
  * Read a bridge register
@@ -296,6 +300,20 @@ static void mipi_d2l_read_status(struct msm_fb_data_type *mfd)
 	mipi_d2l_read_reg(mfd, SYSSTAT);		/* 0x500 */
 }
 
+static void mipi_d2l_read_status_via_i2c(struct i2c_client *client)
+{
+	u32 tmp = 0;
+
+	tmp = d2l_i2c_read_reg(client, DSIERRCNT);
+	d2l_i2c_write_reg(client, DSIERRCNT, 0xFFFF0000);
+
+	d2l_i2c_read_reg(client, DSI_LANESTATUS0);	/* 0x214 */
+	d2l_i2c_read_reg(client, DSI_LANESTATUS1);	/* 0x218 */
+	d2l_i2c_read_reg(client, DSI_INTSTATUS);	/* 0x220 */
+	d2l_i2c_read_reg(client, SYSSTAT);		/* 0x500 */
+
+	d2l_i2c_write_reg(client, DSIERRCNT, tmp);
+}
 /**
  * Init the D2L bridge via the DSI interface for Video.
  *
@@ -315,12 +333,19 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 	u32 vpctrl;
 	u32 htime1;
 	u32 vtime1;
+	u32 htime2;
+	u32 vtime2;
 	u32 ppi_tx_rx_ta; /* BTA Bus-Turn-Around */
 	u32 lvcfg;
 	u32 hbpr;	/* Horizontal Back Porch */
 	u32 hpw;	/* Horizontal Pulse Width */
 	u32 vbpr;	/* Vertical Back Porch */
 	u32 vpw;	/* Vertical Pulse Width */
+
+	u32 hfpr;	/* Horizontal Front Porch */
+	u32 hsize;	/* Horizontal Active size */
+	u32 vfpr;	/* Vertical Front Porch */
+	u32 vsize;	/* Vertical Active size */
 	bool vesa_rgb888 = false;
 
 	lanes_enable = 0x01; /* clock-lane enable */
@@ -345,8 +370,12 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 		return -EINVAL;
 	}
 
-	pr_debug("%s.xres=%d.yres=%d.\n",
-		__func__, mfd->panel_info.xres, mfd->panel_info.yres);
+	pr_debug("%s.xres=%d.yres=%d.fps=%d.dst_format=%d.\n",
+		__func__,
+		 mfd->panel_info.xres,
+		 mfd->panel_info.yres,
+		 mfd->panel_info.mipi.frame_rate,
+		 mfd->panel_info.mipi.dst_format);
 
 	hbpr = mfd->panel_info.lcdc.h_back_porch;
 	hpw	= mfd->panel_info.lcdc.h_pulse_width;
@@ -355,6 +384,15 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 
 	htime1 = (hbpr << 16) + hpw;
 	vtime1 = (vbpr << 16) + vpw;
+
+	hfpr = mfd->panel_info.lcdc.h_front_porch;
+	hsize = mfd->panel_info.xres;
+	vfpr = mfd->panel_info.lcdc.v_front_porch;
+	vsize = mfd->panel_info.yres;
+
+	htime2 = (hfpr << 16) + hsize;
+	vtime2 = (vfpr << 16) + vsize;
+
 	lvcfg = 0x0003; /* PCLK=DCLK/3, Dual Link, LVEN */
 	vpctrl = 0x01000120; /* Output RGB888 , Event-Mode , */
 	ppi_tx_rx_ta = 0x00040004;
@@ -403,6 +441,8 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 	mipi_d2l_write_reg(mfd, VPCTRL, vpctrl); /* RGB888 + Event mode */
 	mipi_d2l_write_reg(mfd, HTIM1, htime1);
 	mipi_d2l_write_reg(mfd, VTIM1, vtime1);
+	mipi_d2l_write_reg(mfd, HTIM2, htime2);
+	mipi_d2l_write_reg(mfd, VTIM2, vtime2);
 	mipi_d2l_write_reg(mfd, VFUEN, 0x00000001);
 	mipi_d2l_write_reg(mfd, LVCFG, lvcfg); /* Enables LVDS tx */
 
@@ -539,6 +579,9 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 
 	mipi_d2l_enable_3d(mfd, false, false);
 
+	/* Add I2C driver only after DSI-CLK is running */
+	i2c_add_driver(&d2l_i2c_slave_driver);
+
 	pr_info("%s.ret=%d.\n", __func__, ret);
 
 	return ret;
@@ -589,6 +632,103 @@ static struct msm_fb_panel_data d2l_panel_data = {
 	.set_backlight = mipi_d2l_set_backlight,
 };
 
+static u32 d2l_i2c_read_reg(struct i2c_client *client, u16 reg)
+{
+	int rc;
+	u32 val = 0;
+	u8 buf[6];
+
+	if (client == NULL) {
+		pr_err("%s.invalid i2c client.\n", __func__);
+		return -EINVAL;
+	}
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xFF;
+
+	rc = i2c_master_send(client, buf, sizeof(reg));
+	rc = i2c_master_recv(client, buf, 4);
+
+	if (rc >= 0) {
+		val = buf[0] + (buf[1] << 8) + (buf[2] << 16) + (buf[3] << 24);
+		pr_debug("%s.reg=0x%x.val=0x%x.\n", __func__, reg, val);
+	} else
+		pr_err("%s.fail.reg=0x%x.\n", __func__, reg);
+
+	return val;
+}
+
+static u32 d2l_i2c_write_reg(struct i2c_client *client, u16 reg, u32 val)
+{
+	int rc;
+	u8 buf[6];
+
+	if (client == NULL) {
+		pr_err("%s.invalid i2c client.\n", __func__);
+		return -EINVAL;
+	}
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xFF;
+
+	buf[2] = (val >> 0) & 0xFF;
+	buf[3] = (val >> 8) & 0xFF;
+	buf[4] = (val >> 16) & 0xFF;
+	buf[5] = (val >> 24) & 0xFF;
+
+	rc = i2c_master_send(client, buf, sizeof(buf));
+
+	if (rc >= 0)
+		pr_debug("%s.reg=0x%x.val=0x%x.\n", __func__, reg, val);
+	else
+		pr_err("%s.fail.reg=0x%x.\n", __func__, reg);
+
+	return val;
+}
+
+static int __devinit d2l_i2c_slave_probe(struct i2c_client *client,
+					 const struct i2c_device_id *id)
+{
+	static const u32 i2c_funcs = I2C_FUNC_I2C;
+
+	d2l_i2c_client = client;
+
+	if (!i2c_check_functionality(client->adapter, i2c_funcs)) {
+		pr_err("%s.i2c_check_functionality failed.\n", __func__);
+		return -ENOSYS;
+	} else {
+		pr_debug("%s.i2c_check_functionality OK.\n", __func__);
+	}
+
+	d2l_i2c_read_reg(client, IDREG);
+
+	mipi_d2l_read_status_via_i2c(d2l_i2c_client);
+
+	return 0;
+}
+
+static __devexit int d2l_i2c_slave_remove(struct i2c_client *client)
+{
+	d2l_i2c_client = NULL;
+
+	return 0;
+}
+
+static const struct i2c_device_id d2l_i2c_id[] = {
+	{"tc358764-i2c", 0},
+	{}
+};
+
+static struct i2c_driver d2l_i2c_slave_driver = {
+	.driver = {
+		.name = "tc358764-i2c",
+		.owner = THIS_MODULE
+	},
+	.probe    = d2l_i2c_slave_probe,
+	.remove   = __devexit_p(d2l_i2c_slave_remove),
+	.id_table = d2l_i2c_id,
+};
+
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
 			      bool enable, bool mode)
 {
@@ -630,6 +770,8 @@ static ssize_t mipi_d2l_enable_3d_write(struct device *dev,
 			mipi_d2l_enable_3d(d2l_mfd, true, false);
 		else if (data == 0)
 			mipi_d2l_enable_3d(d2l_mfd, false, false);
+		else if (data == 9)
+			mipi_d2l_read_status_via_i2c(d2l_i2c_client);
 		else
 			pr_err("%s.Invalid value=%d.\n", __func__, data);
 	}
