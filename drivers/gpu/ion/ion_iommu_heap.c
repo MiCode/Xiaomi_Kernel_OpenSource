@@ -310,6 +310,21 @@ static int ion_iommu_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
+static struct sg_table *ion_iommu_heap_map_dma(struct ion_heap *heap,
+					      struct ion_buffer *buffer)
+{
+	return buffer->sg_table;
+}
+
+static void ion_iommu_heap_unmap_dma(struct ion_heap *heap,
+				 struct ion_buffer *buffer)
+{
+	if (buffer->sg_table)
+		sg_free_table(buffer->sg_table);
+	kfree(buffer->sg_table);
+	buffer->sg_table = 0;
+}
+
 static struct ion_heap_ops iommu_heap_ops = {
 	.allocate = ion_iommu_heap_allocate,
 	.free = ion_iommu_heap_free,
@@ -319,6 +334,8 @@ static struct ion_heap_ops iommu_heap_ops = {
 	.map_iommu = ion_iommu_heap_map_iommu,
 	.unmap_iommu = ion_iommu_heap_unmap_iommu,
 	.cache_op = ion_iommu_cache_ops,
+	.map_dma = ion_iommu_heap_map_dma,
+	.unmap_dma = ion_iommu_heap_unmap_dma,
 };
 
 struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
