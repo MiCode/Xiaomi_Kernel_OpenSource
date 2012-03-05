@@ -2877,14 +2877,21 @@ out:
  * Select the 3/4 of the range and configure the DLL with the
  * selected DLL clock output phase.
 */
-static u8 find_most_appropriate_phase(struct msmsdcc_host *host,
+static int find_most_appropriate_phase(struct msmsdcc_host *host,
 				u8 *phase_table, u8 total_phases)
 {
-	u8 ret, ranges[16][16] = { {0}, {0} };
+	int ret;
+	u8 ranges[16][16] = { {0}, {0} };
 	u8 phases_per_row[16] = {0};
 	int row_index = 0, col_index = 0, selected_row_index = 0, curr_max = 0;
 	int i, cnt, phase_0_raw_index = 0, phase_15_raw_index = 0;
 	bool phase_0_found = false, phase_15_found = false;
+
+	if (total_phases > 16) {
+		pr_err("%s: %s: invalid argument: total_phases=%d\n",
+			mmc_hostname(host->mmc), __func__, total_phases);
+		return -EINVAL;
+	}
 
 	for (cnt = 0; cnt < total_phases; cnt++) {
 		ranges[row_index][col_index] = phase_table[cnt];
@@ -2943,7 +2950,7 @@ static u8 find_most_appropriate_phase(struct msmsdcc_host *host,
 	}
 
 	i = ((curr_max * 3) / 4) - 1;
-	ret = ranges[selected_row_index][i];
+	ret = (int)ranges[selected_row_index][i];
 
 	return ret;
 }
@@ -3022,8 +3029,13 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc)
 	} while (++phase < 16);
 
 	if (tuned_phase_cnt) {
-		phase = find_most_appropriate_phase(host, tuned_phases,
+		rc = find_most_appropriate_phase(host, tuned_phases,
 							tuned_phase_cnt);
+		if (rc < 0)
+			goto kfree;
+		else
+			phase = (u8)rc;
+
 		/*
 		 * Finally set the selected phase in delay
 		 * line hw block.
