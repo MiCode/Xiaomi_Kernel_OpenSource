@@ -825,6 +825,7 @@ static struct platform_device *msm8625_surf_devices[] __initdata = {
 	&msm8625_device_smd,
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
+	&msm8625_kgsl_3d0,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
