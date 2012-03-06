@@ -669,6 +669,9 @@ void q6_audlpa_out_cb(uint32_t opcode, uint32_t token,
 		break;
 	case ASM_SESSION_CMDRSP_GET_SESSION_TIME:
 		break;
+	case RESET_EVENTS:
+		reset_device();
+		break;
 	default:
 		break;
 	}

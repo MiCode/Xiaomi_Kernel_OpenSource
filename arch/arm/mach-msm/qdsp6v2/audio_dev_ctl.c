@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/workqueue.h>
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
@@ -31,6 +32,9 @@
 
 
 static DEFINE_MUTEX(session_lock);
+static struct workqueue_struct *msm_reset_device_work_queue;
+static void reset_device_work(struct work_struct *work);
+static DECLARE_WORK(msm_reset_device_work, reset_device_work);
 
 struct audio_dev_ctrl_state {
 	struct msm_snddev_info *devs[AUDIO_DEV_CTL_MAX_DEV];
@@ -118,6 +122,18 @@ int msm_reset_all_device(void)
 	return 0;
 }
 EXPORT_SYMBOL(msm_reset_all_device);
+
+static void reset_device_work(struct work_struct *work)
+{
+	msm_reset_all_device();
+}
+
+int reset_device(void)
+{
+	queue_work(msm_reset_device_work_queue, &msm_reset_device_work);
+	return 0;
+}
+EXPORT_SYMBOL(reset_device);
 
 int msm_set_copp_id(int session_id, int copp_id)
 {
@@ -1686,7 +1702,9 @@ static int __init audio_dev_ctrl_init(void)
 	init_waitqueue_head(&audio_dev_ctrl.wait);
 
 	event.cb = NULL;
-
+	msm_reset_device_work_queue = create_workqueue("reset_device");
+	if (msm_reset_device_work_queue == NULL)
+		return -ENOMEM;
 	atomic_set(&audio_dev_ctrl.opened, 0);
 	audio_dev_ctrl.num_dev = 0;
 	audio_dev_ctrl.voice_tx_dev = NULL;
@@ -1704,6 +1722,7 @@ static int __init audio_dev_ctrl_init(void)
 
 static void __exit audio_dev_ctrl_exit(void)
 {
+	destroy_workqueue(msm_reset_device_work_queue);
 }
 module_init(audio_dev_ctrl_init);
 module_exit(audio_dev_ctrl_exit);
