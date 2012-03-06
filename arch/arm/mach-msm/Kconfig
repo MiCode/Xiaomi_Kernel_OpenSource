@@ -269,6 +269,7 @@ config ARCH_MSM8625
 	select ARM_GIC
 	select ARCH_MSM_CORTEXMP
 	select MULTI_IRQ_HANDLER
+	select ARM_TICKET_LOCKS
 endmenu
 
 choice
