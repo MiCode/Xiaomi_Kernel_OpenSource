@@ -64,8 +64,8 @@ int tpiu_init(void);
 void tpiu_exit(void);
 int funnel_init(void);
 void funnel_exit(void);
-int ptm_init(void);
-void ptm_exit(void);
+int etm_init(void);
+void etm_exit(void);
 
 void etb_enable(void);
 void etb_disable(void);

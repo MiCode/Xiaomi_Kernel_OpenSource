@@ -71,13 +71,12 @@ static int __init qdss_init(void)
 	ret = funnel_init();
 	if (ret)
 		goto err_funnel;
-	ret = ptm_init();
+	ret = etm_init();
 	if (ret)
-		goto err_ptm;
+		goto err_etm;
 
 	return 0;
-
-err_ptm:
+err_etm:
 	funnel_exit();
 err_funnel:
 	tpiu_exit();
@@ -90,7 +89,7 @@ module_init(qdss_init);
 
 static void __exit qdss_exit(void)
 {
-	ptm_exit();
+	etm_exit();
 	funnel_exit();
 	tpiu_exit();
 	etb_exit();
