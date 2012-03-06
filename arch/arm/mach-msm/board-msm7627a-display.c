@@ -549,6 +549,93 @@ static struct platform_device mipi_dsi_renesas_panel_device = {
 };
 #endif
 
+static int evb_backlight_control(int level)
+{
+
+	int i = 0;
+	int remainder;
+	/* device address byte = 0x72 */
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+	gpio_set_value_cansleep(96, 0);
+	udelay(33);
+	gpio_set_value_cansleep(96, 1);
+	udelay(67);
+	gpio_set_value_cansleep(96, 0);
+	udelay(33);
+	gpio_set_value_cansleep(96, 1);
+	udelay(67);
+	gpio_set_value_cansleep(96, 0);
+	udelay(33);
+	gpio_set_value_cansleep(96, 1);
+	udelay(67);
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+	gpio_set_value_cansleep(96, 0);
+	udelay(33);
+	gpio_set_value_cansleep(96, 1);
+	udelay(67);
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+
+	/* t-EOS and t-start */
+	gpio_set_value_cansleep(96, 0);
+	ndelay(4200);
+	gpio_set_value_cansleep(96, 1);
+	ndelay(9000);
+
+	/* data byte */
+	/* RFA = 0 */
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+
+	/* Address bits */
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+	gpio_set_value_cansleep(96, 0);
+	udelay(67);
+	gpio_set_value_cansleep(96, 1);
+	udelay(33);
+
+	/* Data bits */
+	for (i = 0; i < 5; i++) {
+		remainder = (level) & (16);
+		if (remainder) {
+			gpio_set_value_cansleep(96, 0);
+			udelay(33);
+			gpio_set_value_cansleep(96, 1);
+			udelay(67);
+		} else {
+			gpio_set_value_cansleep(96, 0);
+			udelay(67);
+			gpio_set_value_cansleep(96, 1);
+			udelay(33);
+		}
+		level = level << 1;
+	}
+
+	/* t-EOS */
+	gpio_set_value_cansleep(96, 0);
+	ndelay(12000);
+	gpio_set_value_cansleep(96, 1);
+	return 0;
+}
+
+
 static struct msm_panel_common_pdata mipi_truly_pdata = {
 	.pmic_backlight = mipi_truly_set_bl,
 };
@@ -562,7 +649,7 @@ static struct platform_device mipi_dsi_truly_panel_device = {
 };
 
 static struct msm_panel_common_pdata mipi_NT35510_pdata = {
-	.pmic_backlight = NULL,/*mipi_NT35510_set_bl,*/
+	.pmic_backlight = evb_backlight_control,
 };
 
 static struct platform_device mipi_dsi_NT35510_panel_device = {
@@ -990,7 +1077,7 @@ static int mipi_dsi_panel_qrd3_power(int on)
 			return rc;
 
 		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
 			GPIO_CFG_ENABLE);
 		if (rc < 0) {
 			pr_err("failed QRD3 GPIO_BACKLIGHT_EN tlmm config\n");
@@ -1046,7 +1133,17 @@ static int mipi_dsi_panel_qrd3_power(int on)
 			qrd3_dsi_gpio_initialized = 1;
 	}
 
-	gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, !!on);
+	if (on) {
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
+		udelay(190);
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 0);
+		udelay(286);
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
+		/* 1 wire mode starts from this low to high transition */
+		udelay(50);
+	} else
+		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, !!on);
+
 	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_2V85_EN, !!on);
 	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_1V8_EN, !!on);
 
@@ -1109,10 +1206,11 @@ void __init msm_fb_add_devices(void)
 	if (machine_is_msm7627a_qrd1())
 		platform_add_devices(qrd_fb_devices,
 				ARRAY_SIZE(qrd_fb_devices));
-	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+		mipi_NT35510_pdata.bl_lock = 1;
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
-	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
+	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		sku3_lcdc_lcd_camera_power_init();
 		platform_add_devices(qrd3_fb_devices,
 						ARRAY_SIZE(qrd3_fb_devices));

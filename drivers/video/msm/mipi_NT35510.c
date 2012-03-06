@@ -18,6 +18,7 @@
 static struct msm_panel_common_pdata *mipi_nt35510_pdata;
 static struct dsi_buf nt35510_tx_buf;
 static struct dsi_buf nt35510_rx_buf;
+spinlock_t bl_spinlock;
 
 #define NT35510_SLEEP_OFF_DELAY 150
 #define NT35510_DISPLAY_ON_DELAY 150
@@ -523,8 +524,16 @@ static struct platform_driver this_driver = {
 
 static void mipi_nt35510_set_backlight(struct msm_fb_data_type *mfd)
 {
-	/* Add backlight changes later*/
-	return;
+	int bl_level;
+	unsigned long flags;
+	bl_level = mfd->bl_level;
+
+	if (mipi_nt35510_pdata->bl_lock) {
+		spin_lock_irqsave(&bl_spinlock, flags);
+		mipi_nt35510_pdata->pmic_backlight(bl_level);
+		spin_unlock_irqrestore(&bl_spinlock, flags);
+	} else
+		mipi_nt35510_pdata->pmic_backlight(bl_level);
 }
 
 static struct msm_fb_panel_data nt35510_panel_data = {
@@ -552,6 +561,8 @@ int mipi_nt35510_device_register(struct msm_panel_info *pinfo,
 		return -ENODEV;
 
 	ch_used[channel] = TRUE;
+	if (mipi_nt35510_pdata->bl_lock)
+		spin_lock_init(&bl_spinlock);
 
 	ret = mipi_nt35510_lcd_init();
 	if (ret) {
@@ -564,7 +575,6 @@ int mipi_nt35510_device_register(struct msm_panel_info *pinfo,
 		return -ENOMEM;
 
 	nt35510_panel_data.panel_info = *pinfo;
-
 	ret = platform_device_add_data(pdev, &nt35510_panel_data,
 				sizeof(nt35510_panel_data));
 	if (ret) {
