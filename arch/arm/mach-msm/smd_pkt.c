@@ -622,13 +622,25 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	if (smd_pkt_devp->ch == 0) {
+		init_completion(&smd_pkt_devp->ch_allocated);
+		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
+		smd_pkt_devp->driver.driver.name =
+			smd_ch_name[smd_pkt_devp->i];
+		smd_pkt_devp->driver.driver.owner = THIS_MODULE;
+		r = platform_driver_register(&smd_pkt_devp->driver);
+		if (r) {
+			pr_err("%s: %s Platform driver reg. failed\n",
+				__func__, smd_ch_name[smd_pkt_devp->i]);
+			goto out;
+		}
+
 		peripheral = smd_edge_to_subsystem(
 				smd_ch_edge[smd_pkt_devp->i]);
 		if (peripheral) {
 			smd_pkt_devp->pil = pil_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
 				r = PTR_ERR(smd_pkt_devp->pil);
-				goto out;
+				goto release_pd;
 			}
 
 			/* Wait for the modem SMSM to be inited for the SMD
@@ -697,6 +709,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 release_pil:
 	if (peripheral && (r < 0))
 		pil_put(smd_pkt_devp->pil);
+
+release_pd:
+	if (r < 0)
+		platform_driver_unregister(&smd_pkt_devp->driver);
 out:
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
@@ -722,6 +738,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		smd_pkt_devp->ch = 0;
 		smd_pkt_devp->blocking_write = 0;
 		smd_pkt_devp->poll_mode = 0;
+		platform_driver_unregister(&smd_pkt_devp->driver);
 		if (smd_pkt_devp->pil)
 			pil_put(smd_pkt_devp->pil);
 	}
@@ -798,7 +815,6 @@ static int __init smd_pkt_init(void)
 		mutex_init(&smd_pkt_devp[i]->ch_lock);
 		mutex_init(&smd_pkt_devp[i]->rx_lock);
 		mutex_init(&smd_pkt_devp[i]->tx_lock);
-		init_completion(&smd_pkt_devp[i]->ch_allocated);
 
 		cdev_init(&smd_pkt_devp[i]->cdev, &smd_pkt_fops);
 		smd_pkt_devp[i]->cdev.owner = THIS_MODULE;
@@ -839,13 +855,6 @@ static int __init smd_pkt_init(void)
 					&dev_attr_open_timeout))
 			pr_err("%s: unable to create device attr on #%d\n",
 				__func__, i);
-
-		smd_pkt_devp[i]->driver.probe = smd_pkt_dummy_probe;
-		smd_pkt_devp[i]->driver.driver.name = smd_ch_name[i];
-		smd_pkt_devp[i]->driver.driver.owner = THIS_MODULE;
-		r = platform_driver_register(&smd_pkt_devp[i]->driver);
-		if (r)
-			goto error2;
 	}
 
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
@@ -856,7 +865,6 @@ static int __init smd_pkt_init(void)
  error2:
 	if (i > 0) {
 		while (--i >= 0) {
-			platform_driver_unregister(&smd_pkt_devp[i]->driver);
 			cdev_del(&smd_pkt_devp[i]->cdev);
 			kfree(smd_pkt_devp[i]);
 			device_destroy(smd_pkt_classp,
@@ -876,7 +884,6 @@ static void __exit smd_pkt_cleanup(void)
 	int i;
 
 	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
-		platform_driver_unregister(&smd_pkt_devp[i]->driver);
 		cdev_del(&smd_pkt_devp[i]->cdev);
 		kfree(smd_pkt_devp[i]);
 		device_destroy(smd_pkt_classp,
