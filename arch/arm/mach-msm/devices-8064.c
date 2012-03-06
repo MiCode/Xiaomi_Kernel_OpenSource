@@ -28,6 +28,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/rpm.h>
 #include <mach/mdm2.h>
+#include <mach/msm_smd.h>
 #include <linux/ion.h>
 #include "clock.h"
 #include "devices.h"
@@ -1217,9 +1218,157 @@ struct platform_device msm_device_sps_apq8064 = {
 	.dev.platform_data = &msm_sps_pdata,
 };
 
+static struct resource smd_resource[] = {
+	{
+		.name   = "a9_m2a_0",
+		.start  = INT_A9_M2A_0,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "a9_m2a_5",
+		.start  = INT_A9_M2A_5,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "adsp_a11",
+		.start  = INT_ADSP_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "adsp_a11_smsm",
+		.start  = INT_ADSP_A11_SMSM,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "dsps_a11",
+		.start  = INT_DSPS_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "dsps_a11_smsm",
+		.start  = INT_DSPS_A11_SMSM,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "wcnss_a11",
+		.start  = INT_WCNSS_A11,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "wcnss_a11_smsm",
+		.start  = INT_WCNSS_A11_SMSM,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct smd_subsystem_config smd_config_list[] = {
+	{
+		.irq_config_id = SMD_MODEM,
+		.subsys_name = "gss",
+		.edge = SMD_APPS_MODEM,
+
+		.smd_int.irq_name = "a9_m2a_0",
+		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.irq_id = -1,
+		.smd_int.device_name = "smd_dev",
+		.smd_int.dev_id = 0,
+		.smd_int.out_bit_pos =  1 << 3,
+		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smd_int.out_offset = 0x8,
+
+		.smsm_int.irq_name = "a9_m2a_5",
+		.smsm_int.flags = IRQF_TRIGGER_RISING,
+		.smsm_int.irq_id = -1,
+		.smsm_int.device_name = "smd_smsm",
+		.smsm_int.dev_id = 0,
+		.smsm_int.out_bit_pos =  1 << 4,
+		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smsm_int.out_offset = 0x8,
+	},
+	{
+		.irq_config_id = SMD_Q6,
+		.subsys_name = "q6",
+		.edge = SMD_APPS_QDSP,
+
+		.smd_int.irq_name = "adsp_a11",
+		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.irq_id = -1,
+		.smd_int.device_name = "smd_dev",
+		.smd_int.dev_id = 0,
+		.smd_int.out_bit_pos =  1 << 15,
+		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smd_int.out_offset = 0x8,
+
+		.smsm_int.irq_name = "adsp_a11_smsm",
+		.smsm_int.flags = IRQF_TRIGGER_RISING,
+		.smsm_int.irq_id = -1,
+		.smsm_int.device_name = "smd_smsm",
+		.smsm_int.dev_id = 0,
+		.smsm_int.out_bit_pos =  1 << 14,
+		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smsm_int.out_offset = 0x8,
+	},
+	{
+		.irq_config_id = SMD_DSPS,
+		.subsys_name = "dsps",
+		.edge = SMD_APPS_DSPS,
+
+		.smd_int.irq_name = "dsps_a11",
+		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.irq_id = -1,
+		.smd_int.device_name = "smd_dev",
+		.smd_int.dev_id = 0,
+		.smd_int.out_bit_pos =  1,
+		.smd_int.out_base = (void __iomem *)MSM_SIC_NON_SECURE_BASE,
+		.smd_int.out_offset = 0x4080,
+
+		.smsm_int.irq_name = "dsps_a11_smsm",
+		.smsm_int.flags = IRQF_TRIGGER_RISING,
+		.smsm_int.irq_id = -1,
+		.smsm_int.device_name = "smd_smsm",
+		.smsm_int.dev_id = 0,
+		.smsm_int.out_bit_pos =  1,
+		.smsm_int.out_base = (void __iomem *)MSM_SIC_NON_SECURE_BASE,
+		.smsm_int.out_offset = 0x4094,
+	},
+	{
+		.irq_config_id = SMD_WCNSS,
+		.subsys_name = "wcnss",
+		.edge = SMD_APPS_WCNSS,
+
+		.smd_int.irq_name = "wcnss_a11",
+		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.irq_id = -1,
+		.smd_int.device_name = "smd_dev",
+		.smd_int.dev_id = 0,
+		.smd_int.out_bit_pos =  1 << 25,
+		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smd_int.out_offset = 0x8,
+
+		.smsm_int.irq_name = "wcnss_a11_smsm",
+		.smsm_int.flags = IRQF_TRIGGER_RISING,
+		.smsm_int.irq_id = -1,
+		.smsm_int.device_name = "smd_smsm",
+		.smsm_int.dev_id = 0,
+		.smsm_int.out_bit_pos =  1 << 23,
+		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smsm_int.out_offset = 0x8,
+	},
+};
+
+static struct smd_platform smd_platform_data = {
+	.num_ss_configs = ARRAY_SIZE(smd_config_list),
+	.smd_ss_configs = smd_config_list,
+};
+
 struct platform_device msm_device_smd_apq8064 = {
 	.name		= "msm_smd",
 	.id		= -1,
+	.resource = smd_resource,
+	.num_resources = ARRAY_SIZE(smd_resource),
+	.dev = {
+		.platform_data = &smd_platform_data,
+	},
 };
 
 #ifdef CONFIG_HW_RANDOM_MSM

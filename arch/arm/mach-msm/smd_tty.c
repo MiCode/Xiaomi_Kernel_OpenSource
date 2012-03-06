@@ -235,7 +235,7 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 	int res = 0;
 	unsigned int n = tty->index;
 	struct smd_tty_info *info;
-	char *peripheral = NULL;
+	const char *peripheral = NULL;
 
 
 	if (n >= MAX_SMD_TTYS || !smd_tty[n].smd)
@@ -247,9 +247,7 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 	tty->driver_data = info;
 
 	if (info->open_count++ == 0) {
-		if (smd_tty[n].smd->edge == SMD_APPS_MODEM)
-			peripheral = "modem";
-
+		peripheral = smd_edge_to_subsystem(smd_tty[n].smd->edge);
 		if (peripheral) {
 			info->pil = pil_get(peripheral);
 			if (IS_ERR(info->pil)) {
