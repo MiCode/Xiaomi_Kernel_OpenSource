@@ -1930,11 +1930,6 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, REG_CP_INT_CNTL, 0);
 	adreno_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-	if (adreno_is_a22x(adreno_dev))
-		adreno_dev->gmemspace.sizebytes = SZ_512K;
-	else
-		adreno_dev->gmemspace.sizebytes = SZ_256K;
-
 	a2xx_gmeminit(adreno_dev);
 }
 

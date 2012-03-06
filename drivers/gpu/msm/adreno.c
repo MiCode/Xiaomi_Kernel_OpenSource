@@ -132,36 +132,41 @@ static const struct {
 	unsigned int istore_size;
 	unsigned int pix_shader_start;
 	unsigned int instruction_size; /* Size of an instruction in dwords */
+	unsigned int gmem_size; /* size of gmem for gpu*/
 } adreno_gpulist[] = {
 	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
-		512, 384, 3},
+		512, 384, 3, SZ_256K },
 	{ ADRENO_REV_A203, 0, 1, 1, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
-		512, 384, 3},
+		512, 384, 3, SZ_256K },
 	{ ADRENO_REV_A205, 0, 1, 0, ANY_ID,
 		"yamato_pm4.fw", "yamato_pfp.fw", &adreno_a2xx_gpudev,
-		512, 384, 3},
+		512, 384, 3, SZ_256K },
 	{ ADRENO_REV_A220, 2, 1, ANY_ID, ANY_ID,
 		"leia_pm4_470.fw", "leia_pfp_470.fw", &adreno_a2xx_gpudev,
-		512, 384, 3},
+		512, 384, 3, SZ_512K },
 	/*
 	 * patchlevel 5 (8960v2) needs special pm4 firmware to work around
 	 * a hardware problem.
 	 */
 	{ ADRENO_REV_A225, 2, 2, 0, 5,
 		"a225p5_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768, 3 },
+		1536, 768, 3, SZ_512K },
 	{ ADRENO_REV_A225, 2, 2, 0, 6,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768, 3 },
+		1536, 768, 3, SZ_512K },
 	{ ADRENO_REV_A225, 2, 2, ANY_ID, ANY_ID,
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
-		1536, 768, 3 },
+		1536, 768, 3, SZ_512K },
+	/* A3XX doesn't use the pix_shader_start */
+	{ ADRENO_REV_A305, 3, 1, ANY_ID, ANY_ID,
+		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2, SZ_256K },
 	/* A3XX doesn't use the pix_shader_start */
 	{ ADRENO_REV_A320, 3, 1, ANY_ID, ANY_ID,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
-		512, 0, 2 },
+		512, 0, 2, SZ_512K },
 
 };
 
@@ -463,6 +468,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->istore_size = adreno_gpulist[i].istore_size;
 	adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;
 	adreno_dev->instruction_size = adreno_gpulist[i].instruction_size;
+	adreno_dev->gmemspace.sizebytes = adreno_gpulist[i].gmem_size;
 }
 
 static int __devinit
