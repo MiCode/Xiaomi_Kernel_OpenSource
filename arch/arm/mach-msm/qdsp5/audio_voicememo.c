@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5/audio_mp3.c
  *
@@ -836,6 +836,7 @@ static int audio_voicememo_open(struct inode *inode, struct file *file)
 
 	file->private_data = audio;
 	audio->opened = 1;
+	audio->stopped = 0;
 	rc = 0;
 done:
 	mutex_unlock(&audio->lock);
