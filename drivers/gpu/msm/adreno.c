@@ -420,7 +420,7 @@ a2xx_getchipid(struct kgsl_device *device)
 static unsigned int
 adreno_getchipid(struct kgsl_device *device)
 {
-	if (cpu_is_apq8064())
+	if (cpu_is_apq8064() || cpu_is_msm8930())
 		return a3xx_getchipid(device);
 	else
 		return a2xx_getchipid(device);
