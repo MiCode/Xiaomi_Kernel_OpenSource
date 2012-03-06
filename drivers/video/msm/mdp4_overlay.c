@@ -1455,8 +1455,6 @@ static void mdp4_mixer_stage_commit(int mixer)
 			pipe_cnt++;
 
 			mdp4_mixer_blend_setup(pipe);
-			if (i == mixer && pipe->pipe_num <= OVERLAY_PIPE_RGB2)
-				flush_bits |= (1 << (2 + pipe->pipe_num));
 		}
 	}
 
@@ -1694,12 +1692,14 @@ void mdp4_overlay_reg_flush(struct mdp4_overlay_pipe *pipe, int all)
 {
 	uint32 bits = 0;
 
-	if (pipe->mixer_num == MDP4_MIXER1)
-		bits |= 0x02;
-	else
-		bits |= 0x01;
+	if (all) {
+		if (pipe->mixer_num == MDP4_MIXER1)
+			bits |= 0x02;
+		else
+			bits |= 0x01;
+	}
 
-	if (all && pipe->pipe_num <= OVERLAY_PIPE_RGB2)
+	if (pipe->pipe_num <= OVERLAY_PIPE_RGB2)
 		bits |= 1 << (2 + pipe->pipe_num);
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -2823,6 +2823,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		/* primary interface */
 		ctrl->mixer0_played++;
 		if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
+			mdp4_overlay_reg_flush(pipe, 0);
 			if (!mfd->use_ov0_blt)
 				mdp4_overlay_update_blt_mode(mfd);
 			mdp4_overlay_lcdc_start();
@@ -2830,6 +2831,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		}
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
+			mdp4_overlay_reg_flush(pipe, 0);
 			if (!mfd->use_ov0_blt)
 				mdp4_overlay_update_blt_mode(mfd);
 			mdp4_overlay_dsi_video_start();
