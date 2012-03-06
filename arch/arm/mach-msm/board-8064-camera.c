@@ -102,6 +102,13 @@ static struct gpiomux_setting cam_settings[] = {
 
 static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 	{
+		.gpio = 1,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+		},
+	},
+	{
 		.gpio = 2,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[12],
@@ -111,7 +118,7 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 	{
 		.gpio = 3,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
@@ -171,6 +178,16 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
+};
+
+
+#define VFE_CAMIF_TIMER1_GPIO 3
+#define VFE_CAMIF_TIMER2_GPIO 1
+
+static struct msm_camera_sensor_flash_src msm_flash_src = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
+	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
 };
 
 static struct msm_gpiomux_config apq8064_cam_2d_configs[] = {
@@ -419,7 +436,8 @@ static struct msm_camera_i2c_conf apq8064_front_cam_i2c_conf = {
 };
 
 static struct msm_camera_sensor_flash_data flash_imx074 = {
-	.flash_type	= MSM_CAMERA_FLASH_NONE,
+	.flash_type	= MSM_CAMERA_FLASH_LED,
+	.flash_src	= &msm_flash_src
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
@@ -517,6 +535,9 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	.platform_data = &msm_camera_sensor_ov2720_data,
+	},
+	{
+	I2C_BOARD_INFO("sc628a", 0x6E),
 	},
 };
 
