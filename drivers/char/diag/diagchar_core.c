@@ -48,7 +48,7 @@ struct diagchar_priv {
 };
 /* The following variables can be specified by module options */
  /* for copy buffer */
-static unsigned int itemsize = 2048; /*Size of item in the mempool */
+static unsigned int itemsize = 4096; /*Size of item in the mempool */
 static unsigned int poolsize = 10; /*Number of items in the mempool */
 /* for hdlc buffer */
 static unsigned int itemsize_hdlc = 8192; /*Size of item in the mempool */
@@ -766,6 +766,14 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		diag_process_hdlc((void *)(driver->user_space_data),
 							 payload_size);
 		return 0;
+	}
+
+	if (payload_size > itemsize) {
+		pr_err("diag: Dropping packet, packet payload size crosses"
+				"4KB limit. Current payload size %d\n",
+				payload_size);
+		driver->dropped_count++;
+		return -EBADMSG;
 	}
 
 	buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
