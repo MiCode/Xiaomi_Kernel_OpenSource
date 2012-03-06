@@ -152,6 +152,7 @@ int afe_get_port_type(u16 port_id)
 	case INT_FM_RX:
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
+	case SLIMBUS_4_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -168,6 +169,7 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
 	case RT_PROXY_PORT_001_TX:
+	case SLIMBUS_4_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -211,6 +213,8 @@ int afe_validate_port(u16 port_id)
 	case INT_FM_TX:
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
+	case SLIMBUS_4_RX:
+	case SLIMBUS_4_TX:
 	{
 		ret = 0;
 		break;
@@ -274,6 +278,8 @@ int afe_get_port_index(u16 port_id)
 	case INT_FM_TX: return IDX_INT_FM_TX;
 	case RT_PROXY_PORT_001_RX: return IDX_RT_PROXY_PORT_001_RX;
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
+	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
+	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
 
 	default: return -EINVAL;
 	}
@@ -299,6 +305,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
+	case SLIMBUS_4_RX:
+	case SLIMBUS_4_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_sch_cfg);
 		break;
 	case RT_PROXY_PORT_001_RX:
