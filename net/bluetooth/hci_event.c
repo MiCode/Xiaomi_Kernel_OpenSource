@@ -1106,9 +1106,25 @@ static void hci_cs_auth_requested(struct hci_dev *hdev, __u8 status)
 
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(cp->handle));
 	if (conn) {
-		if (status && conn->state == BT_CONFIG) {
-			hci_proto_connect_cfm(conn, status);
-			hci_conn_put(conn);
+		if (status) {
+			mgmt_auth_failed(hdev->id, &conn->dst, status);
+			clear_bit(HCI_CONN_AUTH_PEND, &conn->pend);
+
+			if (conn->state == BT_CONFIG) {
+				conn->state = BT_CONNECTED;
+				hci_proto_connect_cfm(conn, status);
+				hci_conn_put(conn);
+			} else {
+				hci_auth_cfm(conn, status);
+				hci_conn_hold(conn);
+				conn->disc_timeout = HCI_DISCONN_TIMEOUT;
+				hci_conn_put(conn);
+			}
+
+			if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+				clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
+				hci_encrypt_cfm(conn, status, 0x00);
+			}
 		}
 		conn->auth_initiator = 1;
 	}
