@@ -74,6 +74,20 @@ struct platform_device msm_ebi1_thermal = {
 	.resource       = msm_ebi1_thermal_resources
 };
 
+static struct resource resources_adsp[] = {
+{
+	.start  = INT_ADSP_A9_A11,
+	.end    = INT_ADSP_A9_A11,
+	.flags  = IORESOURCE_IRQ,
+},
+};
+
+struct platform_device msm_adsp_device = {
+	.name           = "msm_adsp",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_adsp),
+	.resource       = resources_adsp,
+};
 
 static struct resource resources_uart1[] = {
 	{
