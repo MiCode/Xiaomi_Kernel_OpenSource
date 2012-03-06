@@ -101,6 +101,7 @@ void msm_pm_boot_config_after_pc(unsigned int cpu)
 int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 {
 	int ret = 0;
+	unsigned long entry;
 
 	switch (pdata->mode) {
 	case MSM_PM_BOOT_CONFIG_TZ:
@@ -130,15 +131,44 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 		if (!pdata->p_addr || !pdata->v_addr)
 			return -ENODEV;
 
-		__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
-				pdata->v_addr);
-
 		ret = msm_pm_boot_reset_vector_init(__va(pdata->p_addr));
 
-		msm_pm_boot_before_pc
-			= msm_pm_config_rst_vector_before_pc;
-		msm_pm_boot_after_pc
-			= msm_pm_config_rst_vector_after_pc;
+		if (!cpu_is_msm8625()) {
+			__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
+					pdata->v_addr);
+
+			msm_pm_boot_before_pc
+				= msm_pm_config_rst_vector_before_pc;
+			msm_pm_boot_after_pc
+				= msm_pm_config_rst_vector_after_pc;
+		} else {
+			entry = virt_to_phys(msm_pm_boot_entry);
+
+			msm_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
+			msm_pm_reset_vector[1] = entry;
+
+			/* Here upper 16bits[16:31] used by CORE1
+			 * lower 16bits[0:15] used by CORE0
+			 */
+			entry = (pdata->p_addr) |
+					((pdata->p_addr & 0xFFFF0000) >> 16);
+
+			/* write 'entry' to boot remapper register */
+			__raw_writel(entry, (pdata->v_addr +
+						MPA5_BOOT_REMAP_ADDR));
+
+			/* Enable boot remapper for C0 [bit:25th] */
+			__raw_writel(readl_relaxed(pdata->v_addr +
+					MPA5_CFG_CTL_REG) | BIT(25),
+					pdata->v_addr + MPA5_CFG_CTL_REG);
+
+			/* Enable boot remapper for C1 [bit:26th] */
+			__raw_writel(readl_relaxed(pdata->v_addr +
+					MPA5_CFG_CTL_REG) | BIT(26),
+					pdata->v_addr + MPA5_CFG_CTL_REG);
+
+			msm_pm_boot_before_pc = msm_pm_write_boot_vector;
+		}
 		break;
 	default:
 		__WARN();

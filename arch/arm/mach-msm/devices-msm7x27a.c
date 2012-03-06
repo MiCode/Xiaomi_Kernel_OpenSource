@@ -33,6 +33,7 @@
 #include "devices-msm7x2xa.h"
 #include "footswitch.h"
 #include "acpuclock.h"
+#include "spm.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI0_PHYS		0xA1200000
@@ -640,6 +641,55 @@ struct platform_device msm7x27a_device_vfe = {
 };
 
 #endif
+
+/* Command sequence for simple WFI */
+static uint8_t spm_wfi_cmd_sequence[] __initdata = {
+	0x00, 0x40, 0x40, 0x03,
+	0x00, 0x40, 0x40, 0x0f,
+};
+
+/* Command sequence for GDFS, this won't send any interrupt to the modem */
+static uint8_t spm_pc_without_modem[] __initdata = {
+	0x20, 0x00, 0x30, 0x10,
+	0x40, 0x40, 0x03, 0x10,
+	0x00, 0x30, 0x2E, 0x40,
+	0x40, 0x0f,
+};
+
+static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
+	[0] = {
+		.mode = MSM_SPM_MODE_CLOCK_GATING,
+		.notify_rpm = false,
+		.cmd = spm_wfi_cmd_sequence,
+	},
+	[1] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = false,
+		.cmd = spm_pc_without_modem,
+	},
+};
+
+static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW0_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x0,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[1] = {
+		.reg_base_addr = MSM_SAW1_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x0,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+};
+
+void __init msm8x25_spm_device_init(void)
+{
+	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+}
 
 #define MDP_BASE		0xAA200000
 #define MIPI_DSI_HW_BASE	0xA1100000
