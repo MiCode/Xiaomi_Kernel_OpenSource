@@ -58,6 +58,7 @@
 #include <mach/cpuidle.h>
 #include <mach/mdm2.h>
 #include <linux/msm_tsens.h>
+#include <mach/msm_xo.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -1939,6 +1940,8 @@ static void __init apq8064_common_init(void)
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 	regulator_suppress_info_printing();
 	platform_device_register(&apq8064_device_rpm_regulator);
+	if (msm_xo_init())
+		pr_err("Failed to initialize XO votes\n");
 	apq8064_clock_init();
 	apq8064_init_gpiomux();
 	apq8064_i2c_init();
