@@ -258,7 +258,6 @@ struct pm8921_chg_chip {
 	struct delayed_work		eoc_work;
 	struct work_struct		unplug_ovp_fet_open_work;
 	struct delayed_work		unplug_check_work;
-	struct wake_lock		unplug_ovp_fet_open_wake_lock;
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
@@ -3651,8 +3650,6 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	the_chip = chip;
 
 	wake_lock_init(&chip->eoc_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_eoc");
-	wake_lock_init(&chip->unplug_ovp_fet_open_wake_lock,
-			WAKE_LOCK_SUSPEND, "pm8921_unplug_wrkarnd");
 	INIT_DELAYED_WORK(&chip->eoc_work, eoc_worker);
 	INIT_WORK(&chip->unplug_ovp_fet_open_work,
 					unplug_ovp_fet_open_worker);
