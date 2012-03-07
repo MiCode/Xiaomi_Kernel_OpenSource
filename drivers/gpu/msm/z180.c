@@ -339,13 +339,15 @@ static void addcmd(struct z180_ringbuffer *rb, unsigned int index,
 	*p++ = ADDR_VGV3_LAST << 24;
 }
 
-static void z180_cmdstream_start(struct kgsl_device *device)
+static void z180_cmdstream_start(struct kgsl_device *device, int init_ram)
 {
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 	unsigned int cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
-	z180_dev->timestamp = 0;
-	z180_dev->current_timestamp = 0;
+	if (init_ram) {
+		z180_dev->timestamp = 0;
+		z180_dev->current_timestamp = 0;
+	}
 
 	addmarker(&z180_dev->ringbuffer, 0);
 
@@ -566,7 +568,7 @@ static int z180_start(struct kgsl_device *device, unsigned int init_ram)
 	if (status)
 		goto error_clk_off;
 
-	z180_cmdstream_start(device);
+	z180_cmdstream_start(device, init_ram);
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
