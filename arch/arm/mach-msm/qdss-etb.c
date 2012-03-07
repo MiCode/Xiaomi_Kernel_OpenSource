@@ -274,6 +274,8 @@ static int __devinit etb_probe(struct platform_device *pdev)
 
 	etb.dev = &pdev->dev;
 
+	mutex_init(&etb.mutex);
+
 	ret = misc_register(&etb_misc);
 	if (ret)
 		goto err_misc;
@@ -284,14 +286,13 @@ static int __devinit etb_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
-	mutex_init(&etb.mutex);
-
 	dev_info(etb.dev, "ETB initialized\n");
 	return 0;
 
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
+	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 err_ioremap:
 err_res:
@@ -303,9 +304,9 @@ static int etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
-	mutex_destroy(&etb.mutex);
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
+	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 
 	return 0;
