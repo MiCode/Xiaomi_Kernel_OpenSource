@@ -67,6 +67,7 @@
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
+static bool debug_bus_voting_enabled;
 
 /* Prevent idle power collapse(pc) while operating in peripheral mode */
 static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
@@ -1155,7 +1156,7 @@ static void msm_otg_start_peripheral(struct otg_transceiver *otg, int on)
 		 */
 		otg_pm_qos_update_latency(motg, 1);
 		/* Configure BUS performance parameters for MAX bandwidth */
-		if (motg->bus_perf_client) {
+		if (motg->bus_perf_client && debug_bus_voting_enabled) {
 			ret = msm_bus_scale_client_update_request(
 					motg->bus_perf_client, 1);
 			if (ret)
@@ -2232,13 +2233,64 @@ const struct file_operations msm_otg_aca_fops = {
 	.release = single_release,
 };
 
+static int msm_otg_bus_show(struct seq_file *s, void *unused)
+{
+	if (debug_bus_voting_enabled)
+		seq_printf(s, "enabled\n");
+	else
+		seq_printf(s, "disabled\n");
+
+	return 0;
+}
+
+static int msm_otg_bus_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_otg_bus_show, inode->i_private);
+}
+
+static ssize_t msm_otg_bus_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	char buf[8];
+	int ret;
+	struct seq_file *s = file->private_data;
+	struct msm_otg *motg = s->private;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "enable", 6)) {
+		/* Do not vote here. Let OTG statemachine decide when to vote */
+		debug_bus_voting_enabled = true;
+	} else {
+		debug_bus_voting_enabled = false;
+		if (motg->bus_perf_client) {
+			ret = msm_bus_scale_client_update_request(
+					motg->bus_perf_client, 0);
+			if (ret)
+				dev_err(motg->otg.dev, "%s: Failed to devote "
+					   "for bus bw %d\n", __func__, ret);
+		}
+	}
+
+	return count;
+}
+
+const struct file_operations msm_otg_bus_fops = {
+	.open = msm_otg_bus_open,
+	.read = seq_read,
+	.write = msm_otg_bus_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static struct dentry *msm_otg_dbg_root;
-static struct dentry *msm_otg_dbg_mode;
-static struct dentry *msm_otg_chg_type;
-static struct dentry *msm_otg_dbg_aca;
 
 static int msm_otg_debugfs_init(struct msm_otg *motg)
 {
+	struct dentry *msm_otg_dentry;
 
 	msm_otg_dbg_root = debugfs_create_dir("msm_otg", NULL);
 
@@ -2248,35 +2300,43 @@ static int msm_otg_debugfs_init(struct msm_otg *motg)
 	if (motg->pdata->mode == USB_OTG &&
 		motg->pdata->otg_control == OTG_USER_CONTROL) {
 
-		msm_otg_dbg_mode = debugfs_create_file("mode", S_IRUGO |
+		msm_otg_dentry = debugfs_create_file("mode", S_IRUGO |
 			S_IWUSR, msm_otg_dbg_root, motg,
 			&msm_otg_mode_fops);
 
-		if (!msm_otg_dbg_mode) {
+		if (!msm_otg_dentry) {
 			debugfs_remove(msm_otg_dbg_root);
 			msm_otg_dbg_root = NULL;
 			return -ENODEV;
 		}
 	}
 
-	msm_otg_chg_type = debugfs_create_file("chg_type", S_IRUGO,
+	msm_otg_dentry = debugfs_create_file("chg_type", S_IRUGO,
 		msm_otg_dbg_root, motg,
 		&msm_otg_chg_fops);
 
-	if (!msm_otg_chg_type) {
+	if (!msm_otg_dentry) {
 		debugfs_remove_recursive(msm_otg_dbg_root);
 		return -ENODEV;
 	}
 
-	msm_otg_dbg_aca = debugfs_create_file("aca", S_IRUGO | S_IWUSR,
+	msm_otg_dentry = debugfs_create_file("aca", S_IRUGO | S_IWUSR,
 		msm_otg_dbg_root, motg,
 		&msm_otg_aca_fops);
 
-	if (!msm_otg_dbg_aca) {
+	if (!msm_otg_dentry) {
 		debugfs_remove_recursive(msm_otg_dbg_root);
 		return -ENODEV;
 	}
 
+	msm_otg_dentry = debugfs_create_file("bus_voting", S_IRUGO | S_IWUSR,
+		msm_otg_dbg_root, motg,
+		&msm_otg_bus_fops);
+
+	if (!msm_otg_dentry) {
+		debugfs_remove_recursive(msm_otg_dbg_root);
+		return -ENODEV;
+	}
 	return 0;
 }
 
@@ -2642,6 +2702,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		if (!motg->bus_perf_client)
 			dev_err(motg->otg.dev, "%s: Failed to register BUS "
 						"scaling client!!\n", __func__);
+		else
+			debug_bus_voting_enabled = true;
 	}
 
 	return 0;
