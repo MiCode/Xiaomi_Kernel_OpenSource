@@ -195,7 +195,7 @@ static int getpath(int src, int dest)
 		list_for_each_entry(fabnodeinfo, gateways, list) {
 		/* see if the destination is at a connected fabric */
 			if (_dst == (fabnodeinfo->info->node_info->priv_id /
-				FABRIC_ID_KEY) && !(fabdev->visited)) {
+				FABRIC_ID_KEY)) {
 				/* Found the fab on which the device exists */
 				info = fabnodeinfo->info;
 				trynextgw = false;
