@@ -342,15 +342,15 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 
 	BUG_ON(host->curr.data);
 
-	host->curr.mrq = NULL;
-	host->curr.cmd = NULL;
-
 	del_timer(&host->req_tout_timer);
 
 	if (mrq->data)
 		mrq->data->bytes_xfered = host->curr.data_xfered;
 	if (mrq->cmd->error == -ETIMEDOUT)
 		mdelay(5);
+
+	/* Clear current request information as current request has ended */
+	memset(&host->curr, 0, sizeof(struct msmsdcc_curr_req));
 
 	/*
 	 * Need to drop the host lock here; mmc_request_done may call
@@ -511,10 +511,13 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 		msmsdcc_stop_data(host);
 		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
-			host->curr.mrq = NULL;
-			host->curr.cmd = NULL;
 			mrq->data->bytes_xfered = host->curr.data_xfered;
 			del_timer(&host->req_tout_timer);
+			/*
+			 * Clear current request information as current
+			 * request has ended
+			 */
+			memset(&host->curr, 0, sizeof(struct msmsdcc_curr_req));
 			spin_unlock_irqrestore(&host->lock, flags);
 
 			mmc_request_done(host->mmc, mrq);
@@ -668,10 +671,13 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 		msmsdcc_stop_data(host);
 		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
-			host->curr.mrq = NULL;
-			host->curr.cmd = NULL;
 			mrq->data->bytes_xfered = host->curr.data_xfered;
 			del_timer(&host->req_tout_timer);
+			/*
+			 * Clear current request information as current
+			 * request has ended
+			 */
+			memset(&host->curr, 0, sizeof(struct msmsdcc_curr_req));
 			spin_unlock_irqrestore(&host->lock, flags);
 
 			mmc_request_done(host->mmc, mrq);
@@ -1561,6 +1567,7 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 					host->curr.cmd = cmd;
 			} else {
 				host->prog_enable = 0;
+				host->curr.wait_for_auto_prog_done = 0;
 				if (host->dummy_52_needed)
 					host->dummy_52_needed = 0;
 				if (cmd->data && cmd->error)
@@ -3981,6 +3988,7 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 			}
 		} else {
 			host->prog_enable = 0;
+			host->curr.wait_for_auto_prog_done = 0;
 			msmsdcc_reset_and_restore(host);
 			msmsdcc_request_end(host, mrq);
 		}
