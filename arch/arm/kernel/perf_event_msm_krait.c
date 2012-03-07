@@ -280,9 +280,9 @@ static void krait_pre_vmresr0(void)
 	u32 v_orig_val;
 	u32 f_orig_val;
 
-	/* CPACR Enable CP10 access */
+	/* CPACR Enable CP10 and CP11 access */
 	v_orig_val = get_copro_access();
-	venum_new_val = v_orig_val | CPACC_SVC(10);
+	venum_new_val = v_orig_val | CPACC_SVC(10) | CPACC_SVC(11);
 	set_copro_access(venum_new_val);
 	/* Store orig venum val */
 	__get_cpu_var(venum_orig_val) = v_orig_val;
