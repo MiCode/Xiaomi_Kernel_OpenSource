@@ -75,6 +75,7 @@ static int __init qdss_init(void)
 	if (ret)
 		goto err_etm;
 
+	pr_info("QDSS initialized\n");
 	return 0;
 err_etm:
 	funnel_exit();
@@ -83,6 +84,7 @@ err_funnel:
 err_tpiu:
 	etb_exit();
 err_etb:
+	pr_err("QDSS init failed\n");
 	return ret;
 }
 module_init(qdss_init);

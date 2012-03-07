@@ -69,7 +69,7 @@ struct etb_ctx {
 	void __iomem	*base;
 	bool		enabled;
 	bool		reading;
-	struct mutex	lock;
+	struct mutex	mutex;
 	atomic_t	in_use;
 	struct device	*dev;
 };
@@ -97,11 +97,11 @@ static void __etb_enable(void)
 
 void etb_enable(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	__etb_enable();
 	etb.enabled = true;
-	dev_info(etb.dev, "etb enabled\n");
-	mutex_unlock(&etb.lock);
+	dev_info(etb.dev, "ETB enabled\n");
+	mutex_unlock(&etb.mutex);
 }
 
 static void __etb_disable(void)
@@ -116,18 +116,19 @@ static void __etb_disable(void)
 	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFSR), 1) != 1
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while disabling etb\n");
+	WARN(count == 0, "timeout while disabling ETB, ETB_FFSR: %#x\n",
+	     etb_readl(etb, ETB_FFSR));
 
 	ETB_LOCK();
 }
 
 void etb_disable(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	__etb_disable();
 	etb.enabled = false;
-	dev_info(etb.dev, "etb disabled\n");
-	mutex_unlock(&etb.lock);
+	dev_info(etb.dev, "ETB disabled\n");
+	mutex_unlock(&etb.mutex);
 }
 
 static void __etb_dump(void)
@@ -186,15 +187,15 @@ static void __etb_dump(void)
 
 void etb_dump(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	if (etb.enabled) {
 		__etb_disable();
 		__etb_dump();
 		__etb_enable();
 
-		dev_info(etb.dev, "etb dumped\n");
+		dev_info(etb.dev, "ETB dumped\n");
 	}
-	mutex_unlock(&etb.lock);
+	mutex_unlock(&etb.mutex);
 }
 
 static int etb_open(struct inode *inode, struct file *file)
@@ -283,8 +284,9 @@ static int __devinit etb_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
-	mutex_init(&etb.lock);
+	mutex_init(&etb.mutex);
 
+	dev_info(etb.dev, "ETB initialized\n");
 	return 0;
 
 err_alloc:
@@ -293,6 +295,7 @@ err_misc:
 	iounmap(etb.base);
 err_ioremap:
 err_res:
+	dev_err(etb.dev, "ETB init failed\n");
 	return ret;
 }
 
@@ -300,7 +303,7 @@ static int etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
-	mutex_destroy(&etb.lock);
+	mutex_destroy(&etb.mutex);
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
 	iounmap(etb.base);

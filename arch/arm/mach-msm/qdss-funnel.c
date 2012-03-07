@@ -26,12 +26,12 @@
 #define funnel_readl(funnel, id, off)		\
 			__raw_readl(funnel.base + (SZ_4K * id) + off)
 
-#define CS_TFUNNEL_FUNCTL		(0x000)
-#define CS_TFUNNEL_PRICTL		(0x004)
-#define CS_TFUNNEL_ITATBDATA0		(0xEEC)
-#define CS_TFUNNEL_ITATBCTR2		(0xEF0)
-#define CS_TFUNNEL_ITATBCTR1		(0xEF4)
-#define CS_TFUNNEL_ITATBCTR0		(0xEF8)
+#define FUNNEL_FUNCTL			(0x000)
+#define FUNNEL_PRICTL			(0x004)
+#define FUNNEL_ITATBDATA0		(0xEEC)
+#define FUNNEL_ITATBCTR2		(0xEF0)
+#define FUNNEL_ITATBCTR1		(0xEF4)
+#define FUNNEL_ITATBCTR0		(0xEF8)
 
 
 #define FUNNEL_LOCK(id)							\
@@ -45,10 +45,10 @@ do {									\
 	mb();								\
 } while (0)
 
-#define DEFAULT_HOLDTIME_MASK		(0xF00)
-#define DEFAULT_HOLDTIME_SHFT		(0x8)
-#define DEFAULT_HOLDTIME		(0x7 << DEFAULT_HOLDTIME_SHFT)
 #define DEFAULT_PRIORITY		(0xFAC680)
+#define FUNNEL_HOLDTIME_MASK		(0xF00)
+#define FUNNEL_HOLDTIME_SHFT		(0x8)
+#define FUNNEL_HOLDTIME			(0x7 << FUNNEL_HOLDTIME_SHFT)
 
 struct funnel_ctx {
 	void __iomem	*base;
@@ -64,12 +64,12 @@ static void __funnel_enable(uint8_t id, uint32_t port_mask)
 
 	FUNNEL_UNLOCK(id);
 
-	functl = funnel_readl(funnel, id, CS_TFUNNEL_FUNCTL);
-	functl &= ~DEFAULT_HOLDTIME_MASK;
-	functl |= DEFAULT_HOLDTIME;
+	functl = funnel_readl(funnel, id, FUNNEL_FUNCTL);
+	functl &= ~FUNNEL_HOLDTIME_MASK;
+	functl |= FUNNEL_HOLDTIME;
 	functl |= port_mask;
-	funnel_writel(funnel, id, functl, CS_TFUNNEL_FUNCTL);
-	funnel_writel(funnel, id, DEFAULT_PRIORITY, CS_TFUNNEL_PRICTL);
+	funnel_writel(funnel, id, functl, FUNNEL_FUNCTL);
+	funnel_writel(funnel, id, DEFAULT_PRIORITY, FUNNEL_PRICTL);
 
 	FUNNEL_LOCK(id);
 }
@@ -78,7 +78,7 @@ void funnel_enable(uint8_t id, uint32_t port_mask)
 {
 	__funnel_enable(id, port_mask);
 	funnel.enabled = true;
-	dev_info(funnel.dev, "funnel port mask 0x%lx enabled\n",
+	dev_info(funnel.dev, "FUNNEL port mask 0x%lx enabled\n",
 					(unsigned long) port_mask);
 }
 
@@ -88,9 +88,9 @@ static void __funnel_disable(uint8_t id, uint32_t port_mask)
 
 	FUNNEL_UNLOCK(id);
 
-	functl = funnel_readl(funnel, id, CS_TFUNNEL_FUNCTL);
+	functl = funnel_readl(funnel, id, FUNNEL_FUNCTL);
 	functl &= ~port_mask;
-	funnel_writel(funnel, id, functl, CS_TFUNNEL_FUNCTL);
+	funnel_writel(funnel, id, functl, FUNNEL_FUNCTL);
 
 	FUNNEL_LOCK(id);
 }
@@ -99,7 +99,7 @@ void funnel_disable(uint8_t id, uint32_t port_mask)
 {
 	__funnel_disable(id, port_mask);
 	funnel.enabled = false;
-	dev_info(funnel.dev, "funnel port mask 0x%lx disabled\n",
+	dev_info(funnel.dev, "FUNNEL port mask 0x%lx disabled\n",
 					(unsigned long) port_mask);
 }
 
@@ -122,10 +122,12 @@ static int __devinit funnel_probe(struct platform_device *pdev)
 
 	funnel.dev = &pdev->dev;
 
+	dev_info(funnel.dev, "FUNNEL initialized\n");
 	return 0;
 
 err_ioremap:
 err_res:
+	dev_err(funnel.dev, "FUNNEL init failed\n");
 	return ret;
 }
 
