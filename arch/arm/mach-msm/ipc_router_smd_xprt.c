@@ -38,7 +38,7 @@ if (msm_ipc_router_smd_xprt_debug_mask) \
 
 #define MIN_FRAG_SZ (IPC_ROUTER_HDR_SIZE + sizeof(union rr_control_msg))
 
-#define NUM_SMD_XPRTS 2
+#define NUM_SMD_XPRTS 3
 #define XPRT_NAME_LEN (SMD_MAX_CH_NAME_LEN + 12)
 
 struct msm_ipc_router_smd_xprt {
@@ -72,16 +72,18 @@ struct msm_ipc_router_smd_xprt_config {
 struct msm_ipc_router_smd_xprt_config smd_xprt_cfg[] = {
 	{"RPCRPY_CNTL", "ipc_rtr_smd_rpcrpy_cntl", SMD_APPS_MODEM, 1},
 	{"IPCRTR", "ipc_rtr_smd_ipcrtr", SMD_APPS_MODEM, 1},
+	{"IPCRTR", "ipc_rtr_q6_ipcrtr", SMD_APPS_QDSP, 1},
 };
 
 static struct msm_ipc_router_smd_xprt smd_remote_xprt[NUM_SMD_XPRTS];
 
-static int find_smd_xprt_cfg(const char *name)
+static int find_smd_xprt_cfg(struct platform_device *pdev)
 {
 	int i;
 
 	for (i = 0; i < NUM_SMD_XPRTS; i++) {
-		if (!strncmp(name, smd_xprt_cfg[i].ch_name, 20))
+		if (!strncmp(pdev->name, smd_xprt_cfg[i].ch_name, 20) &&
+		    (pdev->id == smd_xprt_cfg[i].edge))
 			return i;
 	}
 
@@ -389,7 +391,7 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 	int rc;
 	int id;		/*Index into the smd_xprt_cfg table*/
 
-	id = find_smd_xprt_cfg(pdev->name);
+	id = find_smd_xprt_cfg(pdev);
 	if (id < 0) {
 		pr_err("%s: called for unknown ch %s\n",
 			__func__, pdev->name);
@@ -460,9 +462,8 @@ static struct platform_driver msm_ipc_router_smd_remote_driver[] = {
 static int __init msm_ipc_router_smd_init(void)
 {
 	int i, ret, rc = 0;
-	BUG_ON(ARRAY_SIZE(msm_ipc_router_smd_remote_driver) != NUM_SMD_XPRTS);
 	BUG_ON(ARRAY_SIZE(smd_xprt_cfg) != NUM_SMD_XPRTS);
-	for (i = 0; i < NUM_SMD_XPRTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(msm_ipc_router_smd_remote_driver); i++) {
 		ret = platform_driver_register(
 				&msm_ipc_router_smd_remote_driver[i]);
 		if (ret) {
