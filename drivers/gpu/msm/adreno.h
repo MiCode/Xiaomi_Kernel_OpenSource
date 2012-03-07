@@ -108,8 +108,10 @@ extern struct adreno_gpudev adreno_a3xx_gpudev;
 /* A2XX register sets defined in adreno_a2xx.c */
 extern const unsigned int a200_registers[];
 extern const unsigned int a220_registers[];
+extern const unsigned int a225_registers[];
 extern const unsigned int a200_registers_count;
 extern const unsigned int a220_registers_count;
+extern const unsigned int a225_registers_count;
 
 /* A3XX register set defined in adreno_a3xx.c */
 extern const unsigned int a3xx_registers[];
