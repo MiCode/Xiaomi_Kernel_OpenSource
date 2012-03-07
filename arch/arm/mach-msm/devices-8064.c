@@ -23,6 +23,7 @@
 #include <mach/usbdiag.h>
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
+#include <mach/msm_dsps.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_bus_board.h>
@@ -1901,6 +1902,53 @@ struct platform_device apq8064_rpm_log_device = {
 	},
 };
 
+/* Sensors DSPS platform data */
+
+#define PPSS_REG_PHYS_BASE	0x12080000
+
+static struct dsps_clk_info dsps_clks[] = {};
+static struct dsps_regulator_info dsps_regs[] = {};
+
+/*
+ * Note: GPIOs field is	intialized in run-time at the function
+ * apq8064_init_dsps().
+ */
+
+struct msm_dsps_platform_data msm_dsps_pdata_8064 = {
+	.clks = dsps_clks,
+	.clks_num = ARRAY_SIZE(dsps_clks),
+	.gpios = NULL,
+	.gpios_num = 0,
+	.regs = dsps_regs,
+	.regs_num = ARRAY_SIZE(dsps_regs),
+	.dsps_pwr_ctl_en = 1,
+	.signature = DSPS_SIGNATURE,
+};
+
+static struct resource msm_dsps_resources[] = {
+	{
+		.start = PPSS_REG_PHYS_BASE,
+		.end   = PPSS_REG_PHYS_BASE + SZ_8K - 1,
+		.name  = "ppss_reg",
+		.flags = IORESOURCE_MEM,
+	},
+
+	{
+		.start = PPSS_WDOG_TIMER_IRQ,
+		.end   = PPSS_WDOG_TIMER_IRQ,
+		.name  = "ppss_wdog",
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_dsps_device_8064 = {
+	.name          = "msm_dsps",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_dsps_resources),
+	.resource      = msm_dsps_resources,
+	.dev.platform_data = &msm_dsps_pdata_8064,
+};
+
 #ifdef CONFIG_MSM_MPM
 static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] __initdata = {
 	[1] = MSM_GPIO_TO_INT(26),
@@ -2040,4 +2088,3 @@ struct platform_device mdm_8064_device = {
 	.num_resources	= ARRAY_SIZE(mdm_resources),
 	.resource	= mdm_resources,
 };
-
