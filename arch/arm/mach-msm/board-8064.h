@@ -16,6 +16,7 @@
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
+#include <linux/ahci_platform.h>
 #include <mach/msm_memtypes.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
@@ -80,6 +81,7 @@ int __init apq8064_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
 
 void apq8064_init_mmc(void);
+int __init apq8064_add_ahci(struct ahci_platform_data *platd);
 void apq8064_init_gpiomux(void);
 void apq8064_init_pmic(void);
 
