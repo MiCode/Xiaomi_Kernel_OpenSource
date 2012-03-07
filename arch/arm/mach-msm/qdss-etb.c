@@ -72,6 +72,8 @@ struct etb_ctx {
 	struct mutex	mutex;
 	atomic_t	in_use;
 	struct device	*dev;
+	struct kobject	*kobj;
+	uint32_t	trigger_cntr;
 };
 
 static struct etb_ctx etb;
@@ -89,6 +91,7 @@ static void __etb_enable(void)
 	etb_writel(etb, 0x0, ETB_RAM_WRITE_POINTER);
 	etb_writel(etb, 0x0, ETB_RAM_READ_POINTER);
 
+	etb_writel(etb, etb.trigger_cntr, ETB_TRG);
 	etb_writel(etb, BIT(13) | BIT(0), ETB_FFCR);
 	etb_writel(etb, BIT(0), ETB_CTL_REG);
 
@@ -255,6 +258,62 @@ static struct miscdevice etb_misc = {
 	.fops =		&etb_fops,
 };
 
+#define ETB_ATTR(__name)						\
+static struct kobj_attribute __name##_attr =				\
+	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+
+static ssize_t trigger_cntr_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etb.trigger_cntr = val;
+	return n;
+}
+static ssize_t trigger_cntr_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val = etb.trigger_cntr;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETB_ATTR(trigger_cntr);
+
+static int __init etb_sysfs_init(void)
+{
+	int ret;
+
+	etb.kobj = kobject_create_and_add("etb", qdss_get_modulekobj());
+	if (!etb.kobj) {
+		dev_err(etb.dev, "failed to create ETB sysfs kobject\n");
+		ret = -ENOMEM;
+		goto err_create;
+	}
+
+	ret = sysfs_create_file(etb.kobj, &trigger_cntr_attr.attr);
+	if (ret) {
+		dev_err(etb.dev, "failed to create ETB sysfs trigger_cntr"
+		" attribute\n");
+		goto err_file;
+	}
+
+	return 0;
+err_file:
+	kobject_put(etb.kobj);
+err_create:
+	return ret;
+}
+
+static void etb_sysfs_exit(void)
+{
+	sysfs_remove_file(etb.kobj, &trigger_cntr_attr.attr);
+	kobject_put(etb.kobj);
+}
+
 static int __devinit etb_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -286,6 +345,8 @@ static int __devinit etb_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
+	etb_sysfs_init();
+
 	dev_info(etb.dev, "ETB initialized\n");
 	return 0;
 
@@ -304,6 +365,7 @@ static int etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
+	etb_sysfs_exit();
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
 	mutex_destroy(&etb.mutex);

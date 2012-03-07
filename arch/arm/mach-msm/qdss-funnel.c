@@ -45,7 +45,6 @@ do {									\
 	mb();								\
 } while (0)
 
-#define DEFAULT_PRIORITY		(0xFAC680)
 #define FUNNEL_HOLDTIME_MASK		(0xF00)
 #define FUNNEL_HOLDTIME_SHFT		(0x8)
 #define FUNNEL_HOLDTIME			(0x7 << FUNNEL_HOLDTIME_SHFT)
@@ -54,9 +53,13 @@ struct funnel_ctx {
 	void __iomem	*base;
 	bool		enabled;
 	struct device	*dev;
+	struct kobject	*kobj;
+	uint32_t	priority;
 };
 
-static struct funnel_ctx funnel;
+static struct funnel_ctx funnel = {
+	.priority	= 0xFAC680,
+};
 
 static void __funnel_enable(uint8_t id, uint32_t port_mask)
 {
@@ -69,7 +72,7 @@ static void __funnel_enable(uint8_t id, uint32_t port_mask)
 	functl |= FUNNEL_HOLDTIME;
 	functl |= port_mask;
 	funnel_writel(funnel, id, functl, FUNNEL_FUNCTL);
-	funnel_writel(funnel, id, DEFAULT_PRIORITY, FUNNEL_PRICTL);
+	funnel_writel(funnel, id, funnel.priority, FUNNEL_PRICTL);
 
 	FUNNEL_LOCK(id);
 }
@@ -103,6 +106,62 @@ void funnel_disable(uint8_t id, uint32_t port_mask)
 					(unsigned long) port_mask);
 }
 
+#define FUNNEL_ATTR(__name)						\
+static struct kobj_attribute __name##_attr =				\
+	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+
+static ssize_t priority_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	funnel.priority = val;
+	return n;
+}
+static ssize_t priority_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val = funnel.priority;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+FUNNEL_ATTR(priority);
+
+static int __init funnel_sysfs_init(void)
+{
+	int ret;
+
+	funnel.kobj = kobject_create_and_add("funnel", qdss_get_modulekobj());
+	if (!funnel.kobj) {
+		dev_err(funnel.dev, "failed to create FUNNEL sysfs kobject\n");
+		ret = -ENOMEM;
+		goto err_create;
+	}
+
+	ret = sysfs_create_file(funnel.kobj, &priority_attr.attr);
+	if (ret) {
+		dev_err(funnel.dev, "failed to create FUNNEL sysfs priority"
+		" attribute\n");
+		goto err_file;
+	}
+
+	return 0;
+err_file:
+	kobject_put(funnel.kobj);
+err_create:
+	return ret;
+}
+
+static void funnel_sysfs_exit(void)
+{
+	sysfs_remove_file(funnel.kobj, &priority_attr.attr);
+	kobject_put(funnel.kobj);
+}
+
 static int __devinit funnel_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -122,6 +181,8 @@ static int __devinit funnel_probe(struct platform_device *pdev)
 
 	funnel.dev = &pdev->dev;
 
+	funnel_sysfs_init();
+
 	dev_info(funnel.dev, "FUNNEL initialized\n");
 	return 0;
 
@@ -135,6 +196,7 @@ static int funnel_remove(struct platform_device *pdev)
 {
 	if (funnel.enabled)
 		funnel_disable(0x0, 0xFF);
+	funnel_sysfs_exit();
 	iounmap(funnel.base);
 
 	return 0;
