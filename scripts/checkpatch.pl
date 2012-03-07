@@ -8,9 +8,10 @@
 use strict;
 
 use constant BEFORE_SHORTTEXT => 0;
-use constant IN_SHORTTEXT => 1;
-use constant AFTER_SHORTTEXT => 2;
-use constant CHECK_NEXT_SHORTTEXT => 3;
+use constant IN_SHORTTEXT_BLANKLINE => 1;
+use constant IN_SHORTTEXT => 2;
+use constant AFTER_SHORTTEXT => 3;
+use constant CHECK_NEXT_SHORTTEXT => 4;
 use constant SHORTTEXT_LIMIT => 75;
 
 my $P = $0;
@@ -1233,6 +1234,7 @@ sub process {
 
 	my $shorttext = BEFORE_SHORTTEXT;
 	my $shorttext_exspc = 0;
+	my $commit_text_present = 0;
 
 	sanitise_line_reset();
 	cleanup_continuation_headers();
@@ -1416,8 +1418,24 @@ sub process {
 		my $hereprev = "$here\n$prevrawline\n$rawline\n";
 
 		if ($shorttext != AFTER_SHORTTEXT) {
+			if ($shorttext == IN_SHORTTEXT_BLANKLINE && $line=~/\S/) {
+				# the subject line was just processed,
+				# a blank line must be next
+				WARN("non-blank line after summary line\n" . $herecurr);
+				$shorttext = IN_SHORTTEXT;
+				# this non-blank line may or may not be commit text -
+				# a warning has been generated so assume it is commit
+				# text and move on
+				$commit_text_present = 1;
+				# fall through and treat this line as IN_SHORTTEXT
+			}
 			if ($shorttext == IN_SHORTTEXT) {
 				if ($line=~/^---/ || $line=~/^diff.*/) {
+					if ($commit_text_present == 0) {
+						WARN("please add commit text explaining " .
+						     "*why* the change is needed\n" .
+						     $herecurr);
+					}
 					$shorttext = AFTER_SHORTTEXT;
 				} elsif (length($line) > (SHORTTEXT_LIMIT +
 							  $shorttext_exspc)
@@ -1427,7 +1445,22 @@ sub process {
 					WARN("commit text line over " .
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
+				} elsif ($line=~/^\s*[\x21-\x39\x3b-\x7e]+:/) {
+					# this is a tag, there must be commit
+					# text by now
+					if ($commit_text_present == 0) {
+						WARN("please add commit text explaining " .
+						     "*why* the change is needed\n" .
+						     $herecurr);
+						# prevent duplicate warnings
+						$commit_text_present = 1;
+					}
+				} elsif ($line=~/\S/) {
+					$commit_text_present = 1;
 				}
+			} elsif ($shorttext == IN_SHORTTEXT_BLANKLINE) {
+				# case of non-blank line in this state handled above
+				$shorttext = IN_SHORTTEXT;
 			} elsif ($shorttext == CHECK_NEXT_SHORTTEXT) {
 # The Subject line doesn't have to be the last header in the patch.
 # Avoid moving to the IN_SHORTTEXT state until clear of all headers.
@@ -1435,16 +1468,25 @@ sub process {
 # text which looks like a header is definitely a header.
 				if ($line!~/^[\x21-\x39\x3b-\x7e]+:/) {
 					$shorttext = IN_SHORTTEXT;
-# Check for Subject line followed by a blank line.
+					# Check for Subject line followed by a blank line.
 					if (length($line) != 0) {
 						WARN("non-blank line after " .
 						     "summary line\n" .
 						     $sublinenr . $here .
 						     "\n" . $subjectline .
 						     "\n" . $line . "\n");
+						# this non-blank line may or may not
+						# be commit text - a warning has been
+						# generated so assume it is commit
+						# text and move on
+						$commit_text_present = 1;
 					}
 				}
+			# The next two cases are BEFORE_SHORTTEXT.
 			} elsif ($line=~/^Subject: \[[^\]]*\] (.*)/) {
+				# This is the subject line. Go to
+				# CHECK_NEXT_SHORTTEXT to wait for the commit
+				# text to show up.
 				$shorttext = CHECK_NEXT_SHORTTEXT;
 				$subjectline = $line;
 				$sublinenr = "#$linenr & ";
@@ -1455,7 +1497,10 @@ sub process {
 					     " characters\n" . $herecurr);
 				}
 			} elsif ($line=~/^    (.*)/) {
-				$shorttext = IN_SHORTTEXT;
+				# Indented format, this must be the summary
+				# line (i.e. git show). There will be no more
+				# headers so we are now in the shorttext.
+				$shorttext = IN_SHORTTEXT_BLANKLINE;
 				$shorttext_exspc = 4;
 				if (length($1) > SHORTTEXT_LIMIT) {
 					WARN("summary line over " .
