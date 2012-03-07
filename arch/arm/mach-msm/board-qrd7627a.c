@@ -28,9 +28,11 @@
 #include <linux/input/rmi_i2c.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/consumer.h>
+#include <linux/memblock.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
@@ -659,7 +661,20 @@ static struct platform_device msm_batt_device = {
 	.dev.platform_data  = &msm_psy_batt_data,
 };
 
-static struct platform_device *qrd_common_devices[] __initdata = {
+static struct platform_device *common_devices[] __initdata = {
+	&android_usb_device,
+	&android_pmem_device,
+	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
+	&msm_batt_device,
+	&msm_device_adspdec,
+	&msm_device_snd,
+	&asoc_msm_pcm,
+	&asoc_msm_dai0,
+	&asoc_msm_dai1,
+};
+
+static struct platform_device *qrd7627a_devices[] __initdata = {
 	&msm_device_dmov,
 	&msm_device_smd,
 	&msm_device_uart1,
@@ -668,21 +683,21 @@ static struct platform_device *qrd_common_devices[] __initdata = {
 	&msm_gsbi1_qup_i2c_device,
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
-	&android_usb_device,
-	&android_pmem_device,
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
-	&msm_device_snd,
-	&msm_device_adspdec,
-	&msm_batt_device,
 	&msm_kgsl_3d0,
-	&asoc_msm_pcm,
-	&asoc_msm_dai0,
-	&asoc_msm_dai1,
 };
 
 static struct platform_device *qrd3_devices[] __initdata = {
 	&msm_device_nand,
+};
+
+static struct platform_device *msm8625_evb_devices[] __initdata = {
+	&msm8625_device_dmov,
+	&msm8625_device_smd,
+	&msm8625_gsbi0_qup_i2c_device,
+	&msm8625_gsbi1_qup_i2c_device,
+	&msm8625_device_uart1,
+	&msm8625_device_otg,
+	&msm8625_device_gadget_peripheral,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
@@ -759,10 +774,47 @@ static void __init msm7627a_reserve(void)
 	msm_reserve();
 }
 
-static void __init msm_device_i2c_init(void)
+static void __init msm8625_reserve(void)
+{
+	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+	msm7627a_reserve();
+}
+
+static void msmqrd_adsp_add_pdev(void)
+{
+	int rc = 0;
+	struct rpc_board_dev *rpc_adsp_pdev;
+
+	rpc_adsp_pdev = kzalloc(sizeof(struct rpc_board_dev), GFP_KERNEL);
+	if (rpc_adsp_pdev == NULL) {
+		pr_err("%s: Memory Allocation failure\n", __func__);
+		return;
+	}
+	rpc_adsp_pdev->prog = ADSP_RPC_PROG;
+
+	if (cpu_is_msm8625())
+		rpc_adsp_pdev->pdev = msm8625_device_adsp;
+	else
+		rpc_adsp_pdev->pdev = msm_adsp_device;
+	rc = msm_rpc_add_board_dev(rpc_adsp_pdev, 1);
+	if (rc < 0) {
+		pr_err("%s: return val: %d\n",	__func__, rc);
+		kfree(rpc_adsp_pdev);
+	}
+}
+
+static void __init msm7627a_device_i2c_init(void)
 {
 	msm_gsbi0_qup_i2c_device.dev.platform_data = &msm_gsbi0_qup_i2c_pdata;
 	msm_gsbi1_qup_i2c_device.dev.platform_data = &msm_gsbi1_qup_i2c_pdata;
+}
+
+static void __init msm8625_device_i2c_init(void)
+{
+	msm8625_gsbi0_qup_i2c_device.dev.platform_data
+					= &msm_gsbi0_qup_i2c_pdata;
+	msm8625_gsbi1_qup_i2c_device.dev.platform_data
+					= &msm_gsbi1_qup_i2c_pdata;
 }
 
 static struct msm_handset_platform_data hs_platform_data = {
@@ -955,7 +1007,7 @@ static void msm7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					synaptic_i2c_clearpad3k,
 					ARRAY_SIZE(synaptic_i2c_clearpad3k));
-	} else if (machine_is_msm7627a_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		rc = gpio_tlmm_config(GPIO_CFG(MXT_TS_IRQ_GPIO, 0,
 				GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 				GPIO_CFG_8MA), GPIO_CFG_ENABLE);
@@ -986,11 +1038,11 @@ static void msm7627a_add_io_devices(void)
 #endif
 
 	/* keypad */
-	if (machine_is_msm7627a_evb())
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		platform_device_register(&kp_pdev_8625);
 
 	/* leds */
-	if (machine_is_msm7627a_evb()) {
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		rc = gpio_tlmm_config(GPIO_CFG(LED_RED_GPIO_8625, 0,
 				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
 				GPIO_CFG_16MA), GPIO_CFG_ENABLE);
@@ -1019,32 +1071,63 @@ static int __init msm_qrd_init_ar6000pm(void)
 
 static void add_platform_devices(void)
 {
-	platform_add_devices(qrd_common_devices,
-			ARRAY_SIZE(qrd_common_devices));
-
-	if (machine_is_msm7627a_qrd3())
-		platform_add_devices(qrd3_devices,
-				ARRAY_SIZE(qrd3_devices));
+	if (machine_is_msm8625_evb())
+		platform_add_devices(msm8625_evb_devices,
+				ARRAY_SIZE(msm8625_evb_devices));
+	else {
+		platform_add_devices(qrd7627a_devices,
+				ARRAY_SIZE(qrd7627a_devices));
+		if (machine_is_msm7627a_qrd3())
+			platform_add_devices(qrd3_devices,
+					ARRAY_SIZE(qrd3_devices));
+	}
+	platform_add_devices(common_devices,
+			ARRAY_SIZE(common_devices));
 }
 
 #define UART1DM_RX_GPIO		45
+static void __init qrd7627a_uart1dm_config(void)
+{
+	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(UART1DM_RX_GPIO);
+	if (cpu_is_msm8625())
+		msm8625_device_uart_dm1.dev.platform_data =
+			&msm_uart_dm1_pdata;
+	else
+		msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+}
+
+static void __init qrd7627a_otg_gadget(void)
+{
+	msm_otg_pdata.swfi_latency = msm7627a_pm_data
+		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
+
+	if (cpu_is_msm8625()) {
+		msm8625_device_otg.dev.platform_data = &msm_otg_pdata;
+		msm8625_device_gadget_peripheral.dev.platform_data =
+					&msm_gadget_pdata;
+
+	} else {
+		msm_device_otg.dev.platform_data = &msm_otg_pdata;
+		msm_device_gadget_peripheral.dev.platform_data =
+					&msm_gadget_pdata;
+	}
+}
+
 static void __init msm_qrd_init(void)
 {
 	msm7x2x_misc_init();
 	msm7627a_init_regulators();
-	msm_device_i2c_init();
-#ifdef CONFIG_SERIAL_MSM_HS
-	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(UART1DM_RX_GPIO);
-	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
-#endif
+	msmqrd_adsp_add_pdev();
 
-#ifdef CONFIG_USB_MSM_OTG_72K
-	msm_otg_pdata.swfi_latency = msm7627a_pm_data
-		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
-	msm_device_otg.dev.platform_data = &msm_otg_pdata;
-#endif
-	msm_device_gadget_peripheral.dev.platform_data =
-		&msm_gadget_pdata;
+	if (cpu_is_msm8625())
+		msm8625_device_i2c_init();
+	else
+		msm7627a_device_i2c_init();
+
+	/* uart1dm*/
+	qrd7627a_uart1dm_config();
+	/*OTG gadget*/
+	qrd7627a_otg_gadget();
 
 	add_platform_devices();
 
@@ -1055,9 +1138,11 @@ static void __init msm_qrd_init(void)
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	msm7627a_init_host();
 #endif
-	msm_pm_set_platform_data(msm7627a_pm_data,
+	if (!machine_is_msm8625_evb()) {
+		msm_pm_set_platform_data(msm7627a_pm_data,
 				ARRAY_SIZE(msm7627a_pm_data));
-	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+		BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	}
 
 	msm_fb_add_devices();
 
@@ -1066,7 +1151,6 @@ static void __init msm_qrd_init(void)
 #endif
 
 	msm7627a_camera_init();
-
 	msm7627a_add_io_devices();
 }
 
@@ -1104,4 +1188,14 @@ MACHINE_START(MSM7627A_EVB, "QRD MSM7627a EVB")
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= vic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
+	.boot_params	= PHYS_OFFSET + 0x100,
+	.map_io		= msm8625_map_io,
+	.reserve	= msm8625_reserve,
+	.init_irq	= msm8625_init_irq,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= gic_handle_irq,
 MACHINE_END

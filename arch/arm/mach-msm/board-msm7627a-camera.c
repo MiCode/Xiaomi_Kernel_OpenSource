@@ -1041,7 +1041,7 @@ void __init msm7627a_camera_init(void)
 
 	pr_debug("msm7627a_camera_init Entered\n");
 	/* LCD and camera power (VREG & LDO) init */
-	if (machine_is_msm7627a_evb())
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		lcd_camera_power_init();
 
 #ifndef CONFIG_MSM_CAMERA_V4L2
@@ -1049,7 +1049,7 @@ void __init msm7627a_camera_init(void)
 		qrd1_camera_gpio_cfg();
 		platform_add_devices(camera_devices_qrd,
 				ARRAY_SIZE(camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		evb_camera_gpio_cfg();
 		platform_add_devices(camera_devices_evb,
 				ARRAY_SIZE(camera_devices_evb));
@@ -1059,7 +1059,8 @@ void __init msm7627a_camera_init(void)
 		platform_add_devices(camera_devices_msm,
 				ARRAY_SIZE(camera_devices_msm));
 #endif
-	if (!machine_is_msm7627a_qrd1() || !machine_is_msm7627a_evb())
+	if (!machine_is_msm7627a_qrd1() || !machine_is_msm7627a_evb()
+					|| !machine_is_msm8625_evb())
 		register_i2c_devices();
 	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
 
@@ -1083,7 +1084,7 @@ void __init msm7627a_camera_init(void)
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices_qrd,
 				ARRAY_SIZE(i2c_camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		pr_debug("machine_is_msm7627a_evb i2c_register_board_info\n");
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices_evb,

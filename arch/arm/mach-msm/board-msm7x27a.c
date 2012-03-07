@@ -61,7 +61,6 @@
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_PMEM_AUDIO_SIZE	0x5B000
-#define ADSP_RPC_PROG           0x3000000a
 
 #if defined(CONFIG_GPIO_SX150X)
 enum {
