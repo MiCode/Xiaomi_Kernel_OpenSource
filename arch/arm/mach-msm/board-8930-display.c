@@ -780,8 +780,7 @@ void __init msm8930_init_fb(void)
 	platform_device_register(&mipi_dsi_novatek_panel_device);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	if (!cpu_is_msm8930())
-		platform_device_register(&hdmi_msm_device);
+	platform_device_register(&hdmi_msm_device);
 #endif
 
 	platform_device_register(&mipi_dsi_toshiba_panel_device);
