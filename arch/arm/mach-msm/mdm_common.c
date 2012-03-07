@@ -242,6 +242,8 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 
 static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 {
+	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 0);
+	gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
 	mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 	mdm_drv->boot_type = CHARM_NORMAL_BOOT;
 	complete(&mdm_needs_reload);
