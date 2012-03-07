@@ -1514,6 +1514,7 @@ void pm8921_bms_charging_began(void)
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 
 #define DELTA_FCC_PERCENT	3
+#define MIN_START_PERCENT_FOR_LEARNING	30
 void pm8921_bms_charging_end(int is_battery_full)
 {
 	int batt_temp, rc;
@@ -1537,7 +1538,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
 
-	if (is_battery_full) {
+	if (is_battery_full
+		&& the_chip->start_percent <= MIN_START_PERCENT_FOR_LEARNING) {
 		unsigned long flags;
 		int fcc_uah, new_fcc_uah, delta_fcc_uah;
 
@@ -1548,17 +1550,24 @@ void pm8921_bms_charging_end(int is_battery_full)
 		if (delta_fcc_uah < 0)
 			delta_fcc_uah = -delta_fcc_uah;
 
-		if (delta_fcc_uah * 100  <= (DELTA_FCC_PERCENT * fcc_uah)) {
-			pr_debug("delta_fcc=%d < %d percent of fcc=%d\n",
-				delta_fcc_uah, DELTA_FCC_PERCENT, fcc_uah);
-			last_real_fcc_mah = new_fcc_uah/1000;
-			last_real_fcc_batt_temp = batt_temp;
-			readjust_fcc_table();
-		} else {
+		if (delta_fcc_uah * 100  > (DELTA_FCC_PERCENT * fcc_uah)) {
+			/* new_fcc_uah is outside the scope limit it */
+			if (new_fcc_uah > fcc_uah)
+				new_fcc_uah
+				= (fcc_uah + DELTA_FCC_PERCENT * fcc_uah);
+			else
+				new_fcc_uah
+				= (fcc_uah - DELTA_FCC_PERCENT * fcc_uah);
+
 			pr_debug("delta_fcc=%d > %d percent of fcc=%d"
-				"will not update real fcc\n",
-				delta_fcc_uah, DELTA_FCC_PERCENT, fcc_uah);
+					"restring it to %d\n",
+					delta_fcc_uah, DELTA_FCC_PERCENT,
+					fcc_uah, new_fcc_uah);
 		}
+
+		last_real_fcc_mah = new_fcc_uah/1000;
+		last_real_fcc_batt_temp = batt_temp;
+		readjust_fcc_table();
 
 		spin_lock_irqsave(&the_chip->bms_100_lock, flags);
 		the_chip->ocv_reading_at_100 = raw.last_good_ocv_raw;
