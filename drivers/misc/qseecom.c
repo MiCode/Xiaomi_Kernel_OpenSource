@@ -199,7 +199,7 @@ struct qseecom_dev_handle {
 };
 
 static int __qseecom_is_svc_unique(struct qseecom_dev_handle *data,
-		struct qseecom_register_listener_req svc)
+		struct qseecom_register_listener_req *svc)
 {
 	struct qseecom_registered_listener_list *ptr;
 	int unique = 1;
@@ -207,7 +207,7 @@ static int __qseecom_is_svc_unique(struct qseecom_dev_handle *data,
 
 	spin_lock_irqsave(&qseecom.registered_listener_list_lock, flags);
 	list_for_each_entry(ptr, &qseecom.registered_listener_list_head, list) {
-		if (ptr->svc.listener_id == svc.listener_id) {
+		if (ptr->svc.listener_id == svc->listener_id) {
 			pr_err("Service id: %u is already registered\n",
 					ptr->svc.listener_id);
 			unique = 0;
@@ -333,16 +333,12 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 		pr_err("copy_from_user failed\n");
 		return ret;
 	}
-
-	if (!__qseecom_is_svc_unique(data, rcvd_lstnr)) {
+	data->listener.id = 0;
+	data->service = true;
+	if (!__qseecom_is_svc_unique(data, &rcvd_lstnr)) {
 		pr_err("Service is not unique and is already registered\n");
-		return ret;
-	}
-
-	ret = copy_to_user(argp, &rcvd_lstnr, sizeof(rcvd_lstnr));
-	if (ret) {
-		pr_err("copy_to_user failed\n");
-		return ret;
+		data->released = true;
+		return -EBUSY;
 	}
 
 	new_entry = kmalloc(sizeof(*new_entry), GFP_KERNEL);
@@ -360,13 +356,14 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 		kzfree(new_entry);
 		return -ENOMEM;
 	}
+
 	data->listener.id = rcvd_lstnr.listener_id;
-	data->service = true;
 	init_waitqueue_head(&new_entry->rcv_req_wq);
 
 	spin_lock_irqsave(&qseecom.registered_listener_list_lock, flags);
 	list_add_tail(&new_entry->list, &qseecom.registered_listener_list_head);
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
+
 	return ret;
 }
 
@@ -743,6 +740,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 					break;
 				} else {
 					ptr_app->ref_cnt--;
+					data->released = true;
 					break;
 				}
 			}
