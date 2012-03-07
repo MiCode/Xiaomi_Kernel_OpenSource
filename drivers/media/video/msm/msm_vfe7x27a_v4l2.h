@@ -51,6 +51,10 @@ struct buf_info {
 	struct msm_free_buf free_buf;
 } __packed;
 
+struct prev_free_buf_info {
+	struct msm_free_buf buf[3];
+};
+
 struct vfe_cmd_start {
 	uint32_t input_source:1;
 	uint32_t mode_of_operation:1;
@@ -75,10 +79,13 @@ struct vfe_cmd_start {
 } __packed;
 
 struct vfe2x_ctrl_type {
+	uint16_t output_mode;
 	struct buf_info prev;
+	struct buf_info video;
 	struct buf_info snap;
 	struct buf_info raw;
 	struct buf_info thumb;
+	struct prev_free_buf_info free_buf;
 
 	spinlock_t  table_lock;
 	struct list_head table_q;
@@ -97,6 +104,7 @@ struct vfe2x_ctrl_type {
 	struct platform_device *pdev;
 	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
+	uint32_t    reconfig_vfe;
 } __packed;
 
 struct vfe_frame_extra {
@@ -379,6 +387,21 @@ struct stop_event {
 	int state;
 	int timeout;
 };
+struct vfe_error_msg {
+	unsigned int camif_error:1;
+	unsigned int output1ybusoverflow:1;
+	unsigned int output1cbcrbusoverflow:1;
+	unsigned int output2ybusoverflow:1;
+	unsigned int output2cbcrbusoverflow:1;
+	unsigned int autofocusstatbusoverflow:1;
+	unsigned int wb_expstatbusoverflow:1;
+	unsigned int axierror:1;
+	unsigned int /* reserved */ : 24;
+	unsigned int camif_staus:1;
+	unsigned int pixel_count:14;
+	unsigned int line_count:14;
+	unsigned int /*reserved */ : 3;
+} __packed;
 
 static struct msm_free_buf *vfe2x_check_free_buffer(int id, int path);
 

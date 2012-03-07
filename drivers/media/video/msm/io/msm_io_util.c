@@ -95,32 +95,33 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 				curr_vreg->reg_name);
 			if (IS_ERR(reg_ptr[i])) {
 				pr_err("%s: %s get failed\n",
-				 __func__,
-				 curr_vreg->reg_name);
+					 __func__,
+					 curr_vreg->reg_name);
 				reg_ptr[i] = NULL;
 				goto vreg_get_fail;
 			}
 			if (curr_vreg->type == REG_LDO) {
 				rc = regulator_set_voltage(
-				reg_ptr[i],
-				curr_vreg->min_voltage,
-				curr_vreg->max_voltage);
+					reg_ptr[i],
+					curr_vreg->min_voltage,
+					curr_vreg->max_voltage);
 				if (rc < 0) {
-					pr_err(
-					"%s: %s set voltage failed\n",
-					__func__,
-					curr_vreg->reg_name);
+					pr_err("%s: %s set voltage failed\n",
+						__func__,
+						curr_vreg->reg_name);
 					goto vreg_set_voltage_fail;
 				}
-				rc = regulator_set_optimum_mode(
-					reg_ptr[i],
-					curr_vreg->op_mode);
-				if (rc < 0) {
-					pr_err(
-					"%s: %s set optimum mode failed\n",
-					__func__,
-					curr_vreg->reg_name);
-					goto vreg_set_opt_mode_fail;
+				if (curr_vreg->op_mode) {
+					rc = regulator_set_optimum_mode(
+						reg_ptr[i],
+						curr_vreg->op_mode);
+					if (rc < 0) {
+						pr_err("%s: %s set optimum"
+							"mode failed\n",
+							__func__,
+							curr_vreg->reg_name);
+						goto vreg_set_opt_mode_fail;
+					}
 				}
 			}
 		}
@@ -129,11 +130,12 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			curr_vreg = &cam_vreg[i];
 			if (reg_ptr[i]) {
 				if (curr_vreg->type == REG_LDO) {
-					regulator_set_optimum_mode(
-						reg_ptr[i], 0);
+					if (curr_vreg->op_mode)
+						regulator_set_optimum_mode(
+							reg_ptr[i], 0);
 					regulator_set_voltage(
-						reg_ptr[i],
-						0, curr_vreg->max_voltage);
+						reg_ptr[i], 0, curr_vreg->
+						max_voltage);
 				}
 				regulator_put(reg_ptr[i]);
 				reg_ptr[i] = NULL;
@@ -171,13 +173,13 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 		for (i = 0; i < num_vreg; i++) {
 			if (IS_ERR(reg_ptr[i])) {
 				pr_err("%s: %s null regulator\n",
-				__func__, cam_vreg[i].reg_name);
+					__func__, cam_vreg[i].reg_name);
 				goto disable_vreg;
 			}
 			rc = regulator_enable(reg_ptr[i]);
 			if (rc < 0) {
 				pr_err("%s: %s enable failed\n",
-				__func__, cam_vreg[i].reg_name);
+					__func__, cam_vreg[i].reg_name);
 				goto disable_vreg;
 			}
 		}
@@ -194,6 +196,30 @@ disable_vreg:
 	return rc;
 }
 
+static int config_gpio_table(struct msm_camera_gpio_conf *gpio)
+{
+	int rc = 0, i = 0;
+	uint32_t *table_on;
+	uint32_t *table_off;
+	uint32_t len;
+
+	table_on = gpio->camera_on_table;
+	table_off = gpio->camera_off_table;
+	len = gpio->camera_on_table_size;
+
+	for (i = 0; i < len; i++) {
+		rc = gpio_tlmm_config(table_on[i], GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s not able to get gpio\n", __func__);
+			for (i--; i >= 0; i--)
+				gpio_tlmm_config(table_off[i],
+					GPIO_CFG_ENABLE);
+			break;
+		}
+	}
+	return rc;
+}
+
 int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 	int gpio_en)
 {
@@ -201,38 +227,49 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 	struct msm_camera_gpio_conf *gpio_conf =
 		sinfo->sensor_platform_info->gpio_conf;
 
-	if (gpio_conf->cam_gpio_req_tbl == NULL ||
-		gpio_conf->cam_gpio_common_tbl == NULL) {
-		pr_err("%s: NULL camera gpio table\n", __func__);
-		return -EFAULT;
+	if (!gpio_conf->gpio_no_mux) {
+		if (gpio_conf->cam_gpio_req_tbl == NULL ||
+			gpio_conf->cam_gpio_common_tbl == NULL) {
+			pr_err("%s: NULL camera gpio table\n", __func__);
+			return -EFAULT;
+		}
 	}
+	if (gpio_conf->gpio_no_mux)
+		config_gpio_table(gpio_conf);
 
 	if (gpio_en) {
-		if (gpio_conf->cam_gpiomux_conf_tbl != NULL) {
-			msm_gpiomux_install(
-				(struct msm_gpiomux_config *)gpio_conf->
-				cam_gpiomux_conf_tbl,
-				gpio_conf->cam_gpiomux_conf_tbl_size);
-		}
-		rc = gpio_request_array(gpio_conf->cam_gpio_common_tbl,
+		if (!gpio_conf->gpio_no_mux) {
+			if (gpio_conf->cam_gpiomux_conf_tbl != NULL) {
+				msm_gpiomux_install(
+					(struct msm_gpiomux_config *)
+					gpio_conf->cam_gpiomux_conf_tbl,
+					gpio_conf->cam_gpiomux_conf_tbl_size);
+			}
+			rc = gpio_request_array(gpio_conf->cam_gpio_common_tbl,
 				gpio_conf->cam_gpio_common_tbl_size);
-		if (rc < 0) {
-			pr_err("%s common gpio request failed\n", __func__);
-			return rc;
+			if (rc < 0) {
+				pr_err("%s common gpio request failed\n"
+						, __func__);
+				return rc;
+			}
 		}
-		rc = gpio_request_array(gpio_conf->cam_gpio_req_tbl,
+		if (gpio_conf->cam_gpio_req_tbl_size) {
+			rc = gpio_request_array(gpio_conf->cam_gpio_req_tbl,
 				gpio_conf->cam_gpio_req_tbl_size);
-		if (rc < 0) {
-			pr_err("%s camera gpio request failed\n", __func__);
-			gpio_free_array(gpio_conf->cam_gpio_common_tbl,
-				gpio_conf->cam_gpio_common_tbl_size);
-			return rc;
+			if (rc < 0) {
+				pr_err("%s camera gpio"
+					"request failed\n", __func__);
+				gpio_free_array(gpio_conf->cam_gpio_common_tbl,
+					gpio_conf->cam_gpio_common_tbl_size);
+				return rc;
+			}
 		}
 	} else {
 		gpio_free_array(gpio_conf->cam_gpio_req_tbl,
 				gpio_conf->cam_gpio_req_tbl_size);
-		gpio_free_array(gpio_conf->cam_gpio_common_tbl,
-			gpio_conf->cam_gpio_common_tbl_size);
+		if (!gpio_conf->gpio_no_mux)
+			gpio_free_array(gpio_conf->cam_gpio_common_tbl,
+				gpio_conf->cam_gpio_common_tbl_size);
 	}
 	return rc;
 }
@@ -252,7 +289,7 @@ int msm_camera_config_gpio_table(struct msm_camera_sensor_info *sinfo,
 			usleep_range(gpio_conf->cam_gpio_set_tbl[i].delay,
 				gpio_conf->cam_gpio_set_tbl[i].delay + 1000);
 		}
-	} else {
+	} else if (!gpio_conf->gpio_no_mux) {
 		for (i = gpio_conf->cam_gpio_set_tbl_size - 1; i >= 0; i--) {
 			if (gpio_conf->cam_gpio_set_tbl[i].flags)
 				gpio_set_value_cansleep(

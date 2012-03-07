@@ -127,6 +127,10 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 		case VFE_OUTPUTS_JPEG_AND_THUMB:
 			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
 			break;
+		case VFE_OUTPUTS_PREVIEW:
+		case VFE_OUTPUTS_VIDEO:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+			break;
 		default:
 			image_mode = -1;
 			break;
@@ -401,6 +405,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		case MSG_ID_STATS_CS:
 			stats.cs.buff = stats.buffer;
 			stats.cs.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_AWB_AEC:
 			break;
 		default:
 			pr_err("%s: Invalid msg type", __func__);
@@ -722,6 +728,7 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_ZSL_ALL_CHNLS:
 	case CMD_RAW_PICT_AXI_CFG:
 	case CMD_AXI_CFG_PRIM:
+	case CMD_AXI_CFG_SEC:
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS:
 	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC:
 	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC_ALL_CHNLS:

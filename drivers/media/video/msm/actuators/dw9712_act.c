@@ -101,9 +101,9 @@ int32_t msm_dw9712_act_move_focus(
 
 	/* Determine sign direction */
 	if (dir == MOVE_NEAR)
-		sign_dir = 1;
+		sign_dir = 16;
 	else if (dir == MOVE_FAR)
-		sign_dir = -1;
+		sign_dir = -16;
 	else {
 		pr_err("Illegal focus direction\n");
 		rc = -EINVAL;

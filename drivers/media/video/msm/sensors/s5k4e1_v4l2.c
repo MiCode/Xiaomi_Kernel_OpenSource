@@ -196,8 +196,8 @@ static struct msm_sensor_output_info_t s5k4e1_dimensions[] = {
 		.y_output = 0x7A8,
 		.line_length_pclk = 0xAB2,
 		.frame_length_lines = 0x7B4,
-		.vt_pixel_clk = 816000000,
-		.op_pixel_clk = 816000000,
+		.vt_pixel_clk = 81600000,
+		.op_pixel_clk = 81600000,
 		.binning_factor = 0,
 	},
 	{
@@ -205,8 +205,8 @@ static struct msm_sensor_output_info_t s5k4e1_dimensions[] = {
 		.y_output = 0x3D4,
 		.line_length_pclk = 0xAB2,
 		.frame_length_lines = 0x3E0,
-		.vt_pixel_clk = 816000000,
-		.op_pixel_clk = 816000000,
+		.vt_pixel_clk = 81600000,
+		.op_pixel_clk = 81600000,
 		.binning_factor = 1,
 	},
 };
@@ -349,8 +349,6 @@ static int32_t s5k4e1_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		gain = max_legal_gain;
 	}
 
-	gain = 32;
-	line = 1465;
 	pr_info("s5k4e1_write_exp_gain : gain = %d line = %d\n", gain, line);
 	line = (uint32_t) (line * s_ctrl->fps_divider);
 	fl_lines = s_ctrl->curr_frame_length_lines * s_ctrl->fps_divider / Q10;
@@ -494,6 +492,7 @@ static struct msm_sensor_ctrl_t s5k4e1_s_ctrl = {
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(s5k4e1_subdev_info),
 	.sensor_v4l2_subdev_ops = &s5k4e1_subdev_ops,
 	.func_tbl = &s5k4e1_func_tbl,
+	.clk_rate = MSM_SENSOR_MCLK_24HZ,
 };
 
 module_init(msm_sensor_init_module);
