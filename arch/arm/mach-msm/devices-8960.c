@@ -33,6 +33,7 @@
 #include <mach/msm_smd.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
+#include <mach/msm_tsif.h>
 #include "clock.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -1504,6 +1505,111 @@ struct platform_device msm8960_device_vpe = {
 	.num_resources  = ARRAY_SIZE(msm_vpe_resources),
 };
 #endif
+
+#define MSM_TSIF0_PHYS       (0x18200000)
+#define MSM_TSIF1_PHYS       (0x18201000)
+#define MSM_TSIF_SIZE        (0x200)
+
+#define TSIF_0_CLK       GPIO_CFG(75, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_EN        GPIO_CFG(76, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_DATA      GPIO_CFG(77, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_SYNC      GPIO_CFG(82, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_CLK       GPIO_CFG(79, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_EN        GPIO_CFG(80, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_DATA      GPIO_CFG(81, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_SYNC      GPIO_CFG(78, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+static const struct msm_gpio tsif0_gpios[] = {
+	{ .gpio_cfg = TSIF_0_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_0_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_0_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_0_SYNC, .label =  "tsif_sync", },
+};
+
+static const struct msm_gpio tsif1_gpios[] = {
+	{ .gpio_cfg = TSIF_1_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_1_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_1_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_1_SYNC, .label =  "tsif_sync", },
+};
+
+struct msm_tsif_platform_data tsif1_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif1_gpios),
+	.gpios = tsif1_gpios,
+	.tsif_pclk = "tsif_pclk",
+	.tsif_ref_clk = "tsif_ref_clk",
+};
+
+struct resource tsif1_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF2_IRQ,
+		.end   = TSIF2_IRQ,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF1_PHYS,
+		.end   = MSM_TSIF1_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[2] = {
+		.flags = IORESOURCE_DMA,
+		.start = DMOV_TSIF_CHAN,
+		.end   = DMOV_TSIF_CRCI,
+	},
+};
+
+struct msm_tsif_platform_data tsif0_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif0_gpios),
+	.gpios = tsif0_gpios,
+	.tsif_pclk = "tsif_pclk",
+	.tsif_ref_clk = "tsif_ref_clk",
+};
+struct resource tsif0_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF1_IRQ,
+		.end   = TSIF1_IRQ,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF0_PHYS,
+		.end   = MSM_TSIF0_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[2] = {
+		.flags = IORESOURCE_DMA,
+		.start = DMOV_TSIF_CHAN,
+		.end   = DMOV_TSIF_CRCI,
+	},
+};
+
+struct platform_device msm_device_tsif[2] = {
+	{
+		.name          = "msm_tsif",
+		.id            = 0,
+		.num_resources = ARRAY_SIZE(tsif0_resources),
+		.resource      = tsif0_resources,
+		.dev = {
+			.platform_data = &tsif0_platform_data
+		},
+	},
+	{
+		.name          = "msm_tsif",
+		.id            = 1,
+		.num_resources = ARRAY_SIZE(tsif1_resources),
+		.resource      = tsif1_resources,
+		.dev = {
+			.platform_data = &tsif1_platform_data
+		},
+	}
+};
 
 static struct resource resources_ssbi_pmic[] = {
 	{
