@@ -169,11 +169,7 @@ int msm_spm_turn_on_cpu_rail(unsigned int cpu)
 
 	reg = saw_bases[cpu];
 
-	if (cpu_is_msm8960() || cpu_is_msm8930()) {
-		val = 0xB0;
-		reg += 0x14;
-		timeout = 512;
-	} else if (cpu_is_apq8064()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064()) {
 		val = 0xA4;
 		reg += 0x14;
 		timeout = 512;
