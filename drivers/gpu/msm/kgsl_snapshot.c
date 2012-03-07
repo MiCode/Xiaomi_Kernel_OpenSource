@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/vmalloc.h>
 #include <linux/time.h>
 #include <linux/sysfs.h>
 #include <linux/utsname.h>
@@ -299,6 +298,10 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 	/* Freeze the snapshot on a hang until it gets read */
 	device->snapshot_frozen = (hang) ? 1 : 0;
 
+	/* log buffer info to aid in ramdump recovery */
+	KGSL_DRV_ERR(device, "snapshot created at va %p pa %lx size %d\n",
+			device->snapshot, __pa(device->snapshot),
+			device->snapshot_size);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
@@ -448,7 +451,7 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 	int ret;
 
 	if (device->snapshot == NULL)
-		device->snapshot = vmalloc(KGSL_SNAPSHOT_MEMSIZE);
+		device->snapshot = kzalloc(KGSL_SNAPSHOT_MEMSIZE, GFP_KERNEL);
 
 	if (device->snapshot == NULL)
 		return -ENOMEM;
@@ -491,7 +494,7 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 
 	kobject_put(&device->snapshot_kobj);
 
-	vfree(device->snapshot);
+	kfree(device->snapshot);
 
 	device->snapshot = NULL;
 	device->snapshot_maxsize = 0;
