@@ -559,16 +559,15 @@ void l2cap_chan_del(struct sock *sk, int err)
 		read_unlock(&l->lock);
 	}
 
-	if (l2cap_pi(sk)->ampcon) {
-		l2cap_pi(sk)->ampcon->l2cap_data = NULL;
-		l2cap_pi(sk)->ampcon = NULL;
-		l2cap_pi(sk)->amp_id = 0;
-	}
-
 	if (l2cap_pi(sk)->ampchan) {
 		struct hci_chan *ampchan = l2cap_pi(sk)->ampchan;
+		struct hci_conn *ampcon = l2cap_pi(sk)->ampcon;
 		l2cap_pi(sk)->ampchan = NULL;
-		if (!hci_chan_put(ampchan))
+		l2cap_pi(sk)->ampcon = NULL;
+		l2cap_pi(sk)->amp_id = 0;
+		if (hci_chan_put(ampchan))
+			ampcon->l2cap_data = NULL;
+		else
 			l2cap_deaggregate(ampchan, l2cap_pi(sk));
 	}
 
@@ -5119,14 +5118,14 @@ static inline int l2cap_move_channel_confirm(struct l2cap_conn *conn,
 			pi->amp_id = pi->amp_move_id;
 			if (!pi->amp_id && pi->ampchan) {
 				struct hci_chan *ampchan = pi->ampchan;
+				struct hci_conn *ampcon = pi->ampcon;
 				/* Have moved off of AMP, free the channel */
 				pi->ampchan = NULL;
-				if (pi->ampcon)
-					pi->ampcon->l2cap_data = NULL;
 				pi->ampcon = NULL;
-
-				if (!hci_chan_put(ampchan))
-					l2cap_deaggregate(pi->ampchan, pi);
+				if (hci_chan_put(ampchan))
+					ampcon->l2cap_data = NULL;
+				else
+					l2cap_deaggregate(ampchan, pi);
 			}
 			l2cap_amp_move_success(sk);
 		} else {
@@ -5179,16 +5178,15 @@ static inline int l2cap_move_channel_confirm_rsp(struct l2cap_conn *conn,
 		pi->amp_move_state = L2CAP_AMP_STATE_STABLE;
 		pi->amp_id = pi->amp_move_id;
 
-		if (!pi->amp_id) {
+		if (!pi->amp_id && pi->ampchan) {
 			struct hci_chan *ampchan = pi->ampchan;
-
+			struct hci_conn *ampcon = pi->ampcon;
 			/* Have moved off of AMP, free the channel */
 			pi->ampchan = NULL;
-			if (pi->ampcon)
-				pi->ampcon->l2cap_data = NULL;
 			pi->ampcon = NULL;
-
-			if (ampchan && !hci_chan_put(ampchan))
+			if (hci_chan_put(ampchan))
+				ampcon->l2cap_data = NULL;
+			else
 				l2cap_deaggregate(ampchan, pi);
 		}
 
@@ -5388,6 +5386,7 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 	struct l2cap_pinfo *pi;
 	struct sock *sk;
 	struct hci_chan *ampchan;
+	struct hci_conn *ampcon;
 
 	BT_DBG("status %d, chan %p, conn %p", (int) status, chan, chan->conn);
 
@@ -5466,18 +5465,17 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 				L2CAP_AMP_STATE_WAIT_MOVE_RSP_SUCCESS) &&
 			(pi->amp_move_state !=
 				L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM)) {
-			/* Move was not in expected state, free the
-			 * logical link
-			 */
+			/* Move was not in expected state, free the channel */
 			ampchan = pi->ampchan;
+			ampcon = pi->ampcon;
 			pi->ampchan = NULL;
-			if (pi->ampcon)
-				pi->ampcon->l2cap_data = NULL;
 			pi->ampcon = NULL;
-
-			if (ampchan && !hci_chan_put(ampchan))
-				l2cap_deaggregate(ampchan, pi);
-
+			if (ampchan) {
+				if (hci_chan_put(ampchan))
+					ampcon->l2cap_data = NULL;
+				else
+					l2cap_deaggregate(ampchan, pi);
+			}
 			pi->amp_move_state = L2CAP_AMP_STATE_STABLE;
 		}
 	} else {
@@ -5513,16 +5511,16 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 						L2CAP_MOVE_CHAN_UNCONFIRMED);
 			l2cap_sock_set_timer(sk, L2CAP_MOVE_TIMEOUT);
 		}
-
 		ampchan = pi->ampchan;
-
+		ampcon = pi->ampcon;
 		pi->ampchan = NULL;
-		if (pi->ampcon)
-			pi->ampcon->l2cap_data = NULL;
 		pi->ampcon = NULL;
-
-		if (ampchan && !hci_chan_put(ampchan))
-			l2cap_deaggregate(ampchan, pi);
+		if (ampchan) {
+			if (hci_chan_put(ampchan))
+				ampcon->l2cap_data = NULL;
+			else
+				l2cap_deaggregate(ampchan, pi);
+		}
 	}
 
 	release_sock(sk);
@@ -5603,15 +5601,13 @@ int l2cap_destroy_cfm(struct hci_chan *chan, u8 reason)
 		bh_lock_sock(sk);
 		/* TODO MM/PK - What to do if connection is LOCAL_BUSY?  */
 		if (l2cap_pi(sk)->ampchan == chan) {
-			struct hci_chan *ampchan = l2cap_pi(sk)->ampchan;
-
+			struct hci_conn *ampcon = l2cap_pi(sk)->ampcon;
 			l2cap_pi(sk)->ampchan = NULL;
-			if (l2cap_pi(sk)->ampcon)
-				l2cap_pi(sk)->ampcon->l2cap_data = NULL;
 			l2cap_pi(sk)->ampcon = NULL;
-
-			if (ampchan && !hci_chan_put(ampchan))
-				l2cap_deaggregate(ampchan, l2cap_pi(sk));
+			if (hci_chan_put(chan))
+				ampcon->l2cap_data = NULL;
+			else
+				l2cap_deaggregate(chan, l2cap_pi(sk));
 
 			l2cap_amp_move_init(sk);
 		}
