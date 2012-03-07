@@ -1694,21 +1694,33 @@ static void a2xx_rbbm_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0;
 	unsigned int rderr = 0;
+	unsigned int addr = 0;
+	const char *source;
 
 	adreno_regread(device, REG_RBBM_INT_STATUS, &status);
 
 	if (status & RBBM_INT_CNTL__RDERR_INT_MASK) {
-		union rbbm_read_error_u rerr;
 		adreno_regread(device, REG_RBBM_READ_ERROR, &rderr);
-		rerr.val = rderr;
-		if (rerr.f.read_address == REG_CP_INT_STATUS &&
-			rerr.f.read_error &&
-			rerr.f.read_requester)
+		source = (rderr & RBBM_READ_ERROR_REQUESTER)
+			 ? "host" : "cp";
+		/* convert to dword address */
+		addr = (rderr & RBBM_READ_ERROR_ADDRESS_MASK) >> 2;
+
+		/*
+		 * Log CP_INT_STATUS interrupts from the CP at a
+		 * lower level because they can happen frequently
+		 * and are worked around in a2xx_irq_handler.
+		 */
+		if (addr == REG_CP_INT_STATUS &&
+			rderr & RBBM_READ_ERROR_ERROR &&
+			rderr & RBBM_READ_ERROR_REQUESTER)
 			KGSL_DRV_WARN(device,
-				"rbbm read error interrupt: %08x\n", rderr);
+				"rbbm read error interrupt: %s reg: %04X\n",
+				source, addr);
 		else
 			KGSL_DRV_CRIT(device,
-				"rbbm read error interrupt: %08x\n", rderr);
+				"rbbm read error interrupt: %s reg: %04X\n",
+				source, addr);
 	}
 
 	status &= RBBM_INT_MASK;
