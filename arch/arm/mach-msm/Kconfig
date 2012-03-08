@@ -2221,4 +2221,12 @@ config MSM_DCVS
 
 config HAVE_ARCH_HAS_CURRENT_TIMER
 	bool
+
+config MSM_CACHE_DUMP
+	bool "Cache dumping support"
+	help
+	  Add infrastructure to dump the L1 and L2 caches to an allocated buffer.
+	  This allows for analysis of the caches in case cache corruption is
+	  suspected.
+
 endif
