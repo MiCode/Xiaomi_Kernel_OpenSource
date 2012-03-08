@@ -53,6 +53,7 @@
 #define AIF1_CAP 2
 #define AIF2_PB 3
 #define NUM_CODEC_DAIS 3
+#define TABLA_COMP_DIGITAL_GAIN_OFFSET 3
 
 struct tabla_codec_dai_data {
 	u32 rate;
@@ -103,6 +104,20 @@ enum {
 	BAND_MAX,
 };
 
+enum {
+	COMPANDER_1 = 0,
+	COMPANDER_2,
+	COMPANDER_MAX,
+};
+
+enum {
+	COMPANDER_FS_8KHZ = 0,
+	COMPANDER_FS_16KHZ,
+	COMPANDER_FS_32KHZ,
+	COMPANDER_FS_48KHZ,
+	COMPANDER_FS_MAX,
+};
+
 /* Flags to track of PA and DAC state.
  * PA and DAC should be tracked separately as AUXPGA loopback requires
  * only PA to be turned on without DAC being on. */
@@ -111,6 +126,13 @@ enum tabla_priv_ack_flags {
 	TABLA_HPHR_PA_OFF_ACK,
 	TABLA_HPHL_DAC_OFF_ACK,
 	TABLA_HPHR_DAC_OFF_ACK
+};
+
+
+struct comp_sample_dependent_params {
+	u32 peak_det_timeout;
+	u32 rms_meter_div_fact;
+	u32 rms_meter_resamp_fact;
 };
 
 /* Data used by MBHC */
@@ -210,11 +232,55 @@ struct tabla_priv {
 
 	/* num of slim ports required */
 	struct tabla_codec_dai_data dai[NUM_CODEC_DAIS];
+
+	/*compander*/
+	int comp_enabled[COMPANDER_MAX];
+	u32 comp_fs[COMPANDER_MAX];
 };
 
 #ifdef CONFIG_DEBUG_FS
 struct tabla_priv *debug_tabla_priv;
 #endif
+
+static const u32 comp_shift[] = {
+	0,
+	2,
+};
+
+static const int comp_rx_path[] = {
+	COMPANDER_1,
+	COMPANDER_1,
+	COMPANDER_2,
+	COMPANDER_2,
+	COMPANDER_2,
+	COMPANDER_2,
+	COMPANDER_MAX,
+};
+
+static const struct comp_sample_dependent_params comp_samp_params[] = {
+	{
+		.peak_det_timeout = 0x2,
+		.rms_meter_div_fact = 0x8 << 4,
+		.rms_meter_resamp_fact = 0x21,
+	},
+	{
+		.peak_det_timeout = 0x3,
+		.rms_meter_div_fact = 0x9 << 4,
+		.rms_meter_resamp_fact = 0x28,
+	},
+
+	{
+		.peak_det_timeout = 0x5,
+		.rms_meter_div_fact = 0xB << 4,
+		.rms_meter_resamp_fact = 0x28,
+	},
+
+	{
+		.peak_det_timeout = 0x5,
+		.rms_meter_div_fact = 0xB << 4,
+		.rms_meter_resamp_fact = 0x28,
+	},
+};
 
 static int tabla_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
@@ -479,6 +545,192 @@ static int tabla_put_iir_band_audio_mixer(
 	return 0;
 }
 
+static int tabla_compander_gain_offset(
+	struct snd_soc_codec *codec, u32 enable,
+	unsigned int reg, int mask,	int event)
+{
+	int pa_mode = snd_soc_read(codec, reg) & mask;
+	int gain_offset = 0;
+	/*  if PMU && enable is 1-> offset is 3
+	 *  if PMU && enable is 0-> offset is 0
+	 *  if PMD && pa_mode is PA -> offset is 0: PMU compander is off
+	 *  if PMD && pa_mode is comp -> offset is -3: PMU compander is on.
+	 */
+
+	if (SND_SOC_DAPM_EVENT_ON(event) && (enable != 0))
+		gain_offset = TABLA_COMP_DIGITAL_GAIN_OFFSET;
+	if (SND_SOC_DAPM_EVENT_OFF(event) && (pa_mode == 0))
+		gain_offset = -TABLA_COMP_DIGITAL_GAIN_OFFSET;
+	return gain_offset;
+}
+
+
+static int tabla_config_gain_compander(
+				struct snd_soc_codec *codec,
+				u32 compander, u32 enable, int event)
+{
+	int value = 0;
+	int mask = 1 << 4;
+	int gain = 0;
+	int gain_offset;
+	if (compander >= COMPANDER_MAX) {
+		pr_err("%s: Error, invalid compander channel\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((enable == 0) || SND_SOC_DAPM_EVENT_OFF(event))
+		value = 1 << 4;
+
+	if (compander == COMPANDER_1) {
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_HPH_L_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_L_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX1_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX1_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_HPH_R_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_R_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX2_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX2_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+	} else if (compander == COMPANDER_2) {
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_1_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_LINE_1_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX3_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX3_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_3_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_LINE_3_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX4_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX4_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_2_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_LINE_2_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX5_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX5_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+		gain_offset = tabla_compander_gain_offset(codec, enable,
+				TABLA_A_RX_LINE_4_GAIN, mask, event);
+		snd_soc_update_bits(codec, TABLA_A_RX_LINE_4_GAIN, mask, value);
+		gain = snd_soc_read(codec, TABLA_A_CDC_RX6_VOL_CTL_B2_CTL);
+		snd_soc_update_bits(codec, TABLA_A_CDC_RX6_VOL_CTL_B2_CTL,
+				0xFF, gain - gain_offset);
+	}
+	return 0;
+}
+static int tabla_get_compander(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int comp = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->max;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = tabla->comp_enabled[comp];
+
+	return 0;
+}
+
+static int tabla_set_compander(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	int comp = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->max;
+	int value = ucontrol->value.integer.value[0];
+
+	if (value == tabla->comp_enabled[comp]) {
+		pr_debug("%s: compander #%d enable %d no change\n",
+			    __func__, comp, value);
+		return 0;
+	}
+	tabla->comp_enabled[comp] = value;
+	return 0;
+}
+
+
+static int tabla_config_compander(struct snd_soc_dapm_widget *w,
+						  struct snd_kcontrol *kcontrol,
+						  int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	u32 rate = tabla->comp_fs[w->shift];
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (tabla->comp_enabled[w->shift] != 0) {
+			/* Enable both L/R compander clocks */
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_RX_B2_CTL,
+					0x03 << comp_shift[w->shift],
+					0x03 << comp_shift[w->shift]);
+			/* Clar the HALT for the compander*/
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_COMP1_B1_CTL +
+					w->shift * 8, 1 << 2, 0);
+			/* Toggle compander reset bits*/
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_OTHR_RESET_CTL,
+					0x03 << comp_shift[w->shift],
+					0x03 << comp_shift[w->shift]);
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_CLK_OTHR_RESET_CTL,
+					0x03 << comp_shift[w->shift], 0);
+			tabla_config_gain_compander(codec, w->shift, 1, event);
+			/* Update the RMS meter resampling*/
+			snd_soc_update_bits(codec,
+					TABLA_A_CDC_COMP1_B3_CTL +
+					w->shift * 8, 0xFF, 0x01);
+			/* Wait for 1ms*/
+			usleep_range(1000, 1000);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		/* Set sample rate dependent paramater*/
+		if (tabla->comp_enabled[w->shift] != 0) {
+			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_FS_CFG +
+			w->shift * 8, 0x03,	rate);
+			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B2_CTL +
+			w->shift * 8, 0x0F,
+			comp_samp_params[rate].peak_det_timeout);
+			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B2_CTL +
+			w->shift * 8, 0xF0,
+			comp_samp_params[rate].rms_meter_div_fact);
+			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B3_CTL +
+			w->shift * 8, 0xFF,
+			comp_samp_params[rate].rms_meter_resamp_fact);
+			/* Compander enable -> 0x370/0x378*/
+			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B1_CTL +
+			w->shift * 8, 0x03, 0x03);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Halt the compander*/
+		snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B1_CTL +
+			w->shift * 8, 1 << 2, 1 << 2);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Restore the gain */
+		tabla_config_gain_compander(codec, w->shift,
+				tabla->comp_enabled[w->shift], event);
+		/* Disable the compander*/
+		snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B1_CTL +
+			w->shift * 8, 0x03, 0x00);
+		/* Turn off the clock for compander in pair*/
+		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_RX_B2_CTL,
+			0x03 << comp_shift[w->shift], 0);
+		break;
+	}
+	return 0;
+}
+
 static const char *tabla_ear_pa_gain_text[] = {"POS_6_DB", "POS_2_DB"};
 static const struct soc_enum tabla_ear_pa_gain_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, tabla_ear_pa_gain_text),
@@ -696,6 +948,10 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
 	SOC_SINGLE_MULTI_EXT("IIR2 Band5", IIR2, BAND5, 255, 0, 5,
 	tabla_get_iir_band_audio_mixer, tabla_put_iir_band_audio_mixer),
+	SOC_SINGLE_EXT("COMP1 Switch", SND_SOC_NOPM, 1, COMPANDER_1, 0,
+				   tabla_get_compander, tabla_set_compander),
+	SOC_SINGLE_EXT("COMP2 Switch", SND_SOC_NOPM, 0, COMPANDER_2, 0,
+				   tabla_get_compander, tabla_set_compander),
 };
 
 static const struct snd_kcontrol_new tabla_1_x_snd_controls[] = {
@@ -2075,6 +2331,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT4 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT5 DAC", NULL, "RX_BIAS"},
 
+	{"RX1 MIX1", NULL, "COMP1_CLK"},
+	{"RX2 MIX1", NULL, "COMP1_CLK"},
+	{"RX3 MIX1", NULL, "COMP2_CLK"},
+	{"RX5 MIX1", NULL, "COMP2_CLK"},
+
+
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
 	{"RX2 MIX1", NULL, "RX2 MIX1 INP1"},
@@ -2748,6 +3010,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	u8 path, shift;
 	u16 tx_fs_reg, rx_fs_reg;
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
+	u32 compander_fs;
 
 	pr_debug("%s: DAI-ID %x rate %d\n", __func__, dai->id,
 						params_rate(params));
@@ -2756,18 +3019,22 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	case 8000:
 		tx_fs_rate = 0x00;
 		rx_fs_rate = 0x00;
+		compander_fs = COMPANDER_FS_8KHZ;
 		break;
 	case 16000:
 		tx_fs_rate = 0x01;
 		rx_fs_rate = 0x20;
+		compander_fs = COMPANDER_FS_16KHZ;
 		break;
 	case 32000:
 		tx_fs_rate = 0x02;
 		rx_fs_rate = 0x40;
+		compander_fs = COMPANDER_FS_32KHZ;
 		break;
 	case 48000:
 		tx_fs_rate = 0x03;
 		rx_fs_rate = 0x60;
+		compander_fs = COMPANDER_FS_48KHZ;
 		break;
 	default:
 		pr_err("%s: Invalid sampling rate %d\n", __func__,
@@ -2845,6 +3112,9 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 						+ (BITS_PER_REG*(path-1));
 				snd_soc_update_bits(codec, rx_fs_reg,
 						0xE0, rx_fs_rate);
+				if (comp_rx_path[shift] < COMPANDER_MAX)
+					tabla->comp_fs[comp_rx_path[shift]]
+					= compander_fs;
 			}
 		}
 		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
@@ -3228,6 +3498,13 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("LDO_H", TABLA_A_LDO_H_MODE_1, 7, 0,
 		tabla_codec_enable_ldo_h, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, 0, 0,
+		tabla_config_compander, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("COMP2_CLK", SND_SOC_NOPM, 1, 0,
+		tabla_config_compander, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TABLA_A_MICB_1_CTL, 7, 0,
@@ -4989,6 +5266,10 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->mbhc_fake_ins_start = 0;
 	tabla->no_mic_headset_override = false;
 	tabla->codec = codec;
+	for (i = 0; i < COMPANDER_MAX; i++) {
+		tabla->comp_enabled[i] = 0;
+		tabla->comp_fs[i] = COMPANDER_FS_48KHZ;
+	}
 	tabla->pdata = dev_get_platdata(codec->dev->parent);
 	tabla->intf_type = wcd9xxx_get_intf_type();
 
