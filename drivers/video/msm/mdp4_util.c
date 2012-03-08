@@ -2872,7 +2872,7 @@ static uint32_t mdp_pp_block2argc(uint32_t block)
 
 static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
 {
-	int ret = -1, count = 0;
+	int count = 0;
 
 	uint32_t *c0_offset = offset;
 	uint32_t *c0_params_offset = (uint32_t *)((uint32_t)c0_offset
@@ -2891,6 +2891,7 @@ static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
 						+MDP_GC_PARMS_OFFSET);
 
 
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	for (count = 0; count < MDP_AR_GC_MAX_STAGES; count++) {
 		if (count < lut_data->num_r_stages) {
 			outpdw(c0_offset+count,
@@ -2932,26 +2933,18 @@ static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
 			outpdw(c2_offset+count, 0);
 	}
 
-	ret = 0;
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	return ret;
+	return 0;
 }
 
-int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
+static int mdp4_argc_process_write_req(uint32_t *offset,
+		struct mdp_pgc_lut_data *pgc_ptr)
 {
 	int ret = -1;
-	uint32_t *offset = 0, *pgc_enable_offset = 0, lshift_bits = 0;
 	struct mdp_ar_gc_lut_data r[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data g[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data b[MDP_AR_GC_MAX_STAGES];
-	uint32_t blockbase;
-
-	if (!mdp_pp_block2argc(pgc_ptr->block))
-		return ret;
-
-	blockbase = mdp_block2base(pgc_ptr->block);
-	if (!blockbase)
-		return ret;
 
 	ret = copy_from_user(&r[0], pgc_ptr->r_data,
 		pgc_ptr->num_r_stages * sizeof(struct mdp_ar_gc_lut_data));
@@ -2975,7 +2968,25 @@ int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 	pgc_ptr->g_data = &g[0];
 	pgc_ptr->b_data = &b[0];
 
+	ret = update_ar_gc_lut(offset, pgc_ptr);
+	return ret;
+}
+
+int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
+{
+	int ret = -1;
+	uint32_t *offset = 0, *pgc_enable_offset = 0, lshift_bits = 0;
+	uint32_t blockbase;
+
+	if (!mdp_pp_block2argc(pgc_ptr->block))
+		return ret;
+
+	blockbase = mdp_block2base(pgc_ptr->block);
+	if (!blockbase)
+		return ret;
+
 	blockbase += (uint32_t) MDP_BASE;
+	ret = 0;
 
 	switch (pgc_ptr->block) {
 	case MDP_BLOCK_DMA_P:
@@ -3003,14 +3014,27 @@ int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 	}
 
 	if (!ret) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-		ret = update_ar_gc_lut(offset, pgc_ptr);
-		if (!ret)
-			outpdw(pgc_enable_offset, (inpdw(pgc_enable_offset)
-						|(1<<lshift_bits)));
+		switch ((0x6 & pgc_ptr->flags)>>1) {
+		case 0x1:
+			ret = -ENOTTY;
+			break;
 
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		case 0x2:
+			ret = mdp4_argc_process_write_req(offset, pgc_ptr);
+			break;
+
+		default:
+			break;
+		}
+
+		if (!ret) {
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+			outpdw(pgc_enable_offset, (inpdw(pgc_enable_offset) |
+				((0x1 & pgc_ptr->flags) << lshift_bits)));
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
+									FALSE);
+		}
 	}
 
 	return ret;
