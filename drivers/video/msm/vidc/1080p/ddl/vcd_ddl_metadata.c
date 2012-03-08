@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -246,6 +246,8 @@ void ddl_set_default_encoder_metadata_buffer_size(struct ddl_encoder_data
 	DDL_METADATA_ALIGNSIZE(suffix);
 	encoder->suffix = suffix;
 	encoder->output_buf_req.sz += suffix;
+	encoder->output_buf_req.sz =
+		DDL_ALIGN(encoder->output_buf_req.sz, DDL_KILO_BYTE(4));
 }
 
 u32 ddl_set_metadata_params(struct ddl_client_context *ddl,
@@ -454,6 +456,7 @@ void ddl_process_encoder_metadata(struct ddl_client_context *ddl)
 		return;
 	}
 	out_frame->flags |= VCD_FRAME_FLAG_EXTRADATA;
+	DDL_MSG_LOW("processing metadata for encoder");
 	start_addr = (u32) ((u8 *)out_frame->virtual + out_frame->offset);
 	qfiller = (u32 *)((out_frame->data_len +
 				start_addr + 3) & ~3);
