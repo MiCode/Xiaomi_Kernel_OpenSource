@@ -439,6 +439,7 @@ static struct pm8xxx_vreg pm8917_regulator_data[] = {
 	PLDO("8917_l33",     "8917_l33_pc", 0x0C6, 0x0C7, LDO_150),
 	PLDO("8917_l34",     "8917_l34_pc", 0x0D2, 0x0D3, LDO_150),
 	PLDO("8917_l35",     "8917_l35_pc", 0x0D4, 0x0D5, LDO_300),
+	PLDO("8917_l36",     "8917_l36_pc", 0x0A9, 0x0AA, LDO_50),
 
 	/*    name          ctrl */
 	BOOST("8917_boost", 0x04B),
