@@ -1823,6 +1823,9 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 				ci->suspended = 1;
 				spin_unlock(&ci->lock);
 				ci->driver->suspend(&ci->gadget);
+				if (ci->platdata->notify_event)
+					ci->platdata->notify_event(ci,
+					  CI13XXX_CONTROLLER_SUSPEND_EVENT);
 				spin_lock(&ci->lock);
 			}
 		}
