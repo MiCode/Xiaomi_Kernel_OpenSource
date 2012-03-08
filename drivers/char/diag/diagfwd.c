@@ -510,6 +510,18 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 
 }
 
+void diag_toggle_event_mask(int toggle)
+{
+	uint8_t *ptr = driver->event_masks;
+
+	mutex_lock(&driver->diagchar_mutex);
+	if (toggle)
+		memset(ptr, 0xFF, EVENT_MASK_SIZE);
+	else
+		memset(ptr, 0, EVENT_MASK_SIZE);
+	mutex_unlock(&driver->diagchar_mutex);
+}
+
 static void diag_update_event_mask(uint8_t *buf, int toggle, int num_bytes)
 {
 	uint8_t *ptr = driver->event_masks;
@@ -813,9 +825,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
 			*(uint16_t *)(driver->apps_rsp_buf + 4) =
 							EVENT_LAST_ID + 1;
-			for (i = 0; i < EVENT_LAST_ID/8 + 1; i++)
-				*(unsigned char *)(driver->apps_rsp_buf + 6 + i)
-									 = 0x0;
+			memcpy(driver->apps_rsp_buf+6, driver->event_masks,
+							 EVENT_LAST_ID/8+1);
 			/* cannot do this on work queue, as each event update
 			needs a num_bytes variable. Each queue_work call will
 			overwrite the previous input, as its the same struct */
@@ -832,6 +843,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 #endif
 	} else if (*buf == 0x60) {
 		diag_event_config = *(buf+1);
+		diag_toggle_event_mask(*(buf+1));
+		diag_update_userspace_clients(EVENT_MASKS_TYPE);
 #if defined(CONFIG_DIAG_OVER_USB)
 		if (chk_apps_only()) {
 			driver->apps_rsp_buf[0] = 0x60;
