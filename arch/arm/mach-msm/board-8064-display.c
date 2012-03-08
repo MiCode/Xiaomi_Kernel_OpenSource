@@ -73,19 +73,21 @@ static struct resource msm_fb_resources[] = {
 
 static int msm_fb_detect_panel(const char *name)
 {
+	u32 version;
 	if (machine_is_apq8064_liquid()) {
-		if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
-			strnlen(LVDS_CHIMEI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-
-#if !defined(CONFIG_FB_MSM_LVDS_MIPI_PANEL_DETECT) && \
-	!defined(CONFIG_FB_MSM_MIPI_PANEL_DETECT)
-		if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-			strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-#endif
+		version = socinfo_get_platform_version();
+		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
+			(SOCINFO_VERSION_MINOR(version) == 1)) {
+			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+				return 0;
+		} else {
+			if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
+				strnlen(LVDS_CHIMEI_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+				return 0;
+		}
 	} else if (machine_is_apq8064_mtp()) {
 		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
 			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
