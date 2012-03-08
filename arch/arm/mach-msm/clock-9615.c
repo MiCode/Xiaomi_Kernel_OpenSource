@@ -1380,12 +1380,7 @@ static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
-
-/*
- * TODO: replace dummy_clk below with ebi1_clk.c once the
- * bus driver starts voting on ebi1 rates.
- */
-static DEFINE_CLK_VOTER(ebi1_adm_clk,    &dummy_clk);
+static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c);
 
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
@@ -1733,11 +1728,6 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("q6sw_clk",		q6sw_clk, NULL),
 	CLK_LOOKUP("q6fw_clk",		q6fw_clk, NULL),
 	CLK_LOOKUP("q6_func_clk",	q6_func_clk, NULL),
-
-	/* TODO: Make this real when RPM's ready. */
-	CLK_DUMMY("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL, OFF),
-	CLK_DUMMY("mem_clk",		ebi1_adm_clk.c, "msm_dmov", OFF),
-
 };
 
 static void set_fsm_mode(void __iomem *mode_reg)
