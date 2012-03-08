@@ -514,6 +514,31 @@ static int mxt_get_bootloader_version(struct i2c_client *client, u8 val)
 	}
 }
 
+static int mxt_get_bootloader_id(struct i2c_client *client)
+{
+	u8 val;
+	u8 buf[3];
+
+	if (i2c_master_recv(client, &val, 1) != 1) {
+		dev_err(&client->dev, "%s: i2c recv failed\n", __func__);
+		return -EIO;
+	}
+
+	if (val | MXT_BOOT_EXTENDED_ID)	{
+		if (i2c_master_recv(client, &buf[0], 3) != 3) {
+			dev_err(&client->dev, "%s: i2c recv failed\n",
+								__func__);
+			return -EIO;
+		}
+		return buf[1];
+	} else {
+		dev_info(&client->dev, "Bootloader ID:%d",
+			val & MXT_BOOT_ID_MASK);
+
+		return val & MXT_BOOT_ID_MASK;
+	}
+}
+
 static int mxt_check_bootloader(struct i2c_client *client,
 				unsigned int state)
 {
@@ -1449,24 +1474,69 @@ free_frame:
 	return ret;
 }
 
+static const char *
+mxt_search_fw_name(struct mxt_data *data, u8 bootldr_id)
+{
+	const struct mxt_platform_data *pdata = data->pdata;
+	const struct mxt_config_info *cfg_info;
+	const char *fw_name = NULL;
+	int i;
+
+	for (i = 0; i < pdata->config_array_size; i++) {
+		cfg_info = &pdata->config_array[i];
+		if (bootldr_id == cfg_info->bootldr_id && cfg_info->fw_name) {
+			data->config_info = cfg_info;
+			data->info.family_id = cfg_info->family_id;
+			fw_name = cfg_info->fw_name;
+		}
+	}
+
+	return fw_name;
+}
+
 static ssize_t mxt_update_fw_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
 	int error;
+	const char *fw_name;
+	u8 bootldr_id;
 
 	/* If fw_name is set, then the existing firmware has an upgrade */
 	if (!data->fw_name) {
-		dev_err(dev, "Firmware name not specifed in platform data\n");
-		return -EINVAL;
+		/*
+		 * If the device boots up in the bootloader mode, check if
+		 * there is a firmware to upgrade.
+		 */
+		if (data->state == BOOTLOADER) {
+			bootldr_id = mxt_get_bootloader_id(data->client);
+			if (bootldr_id <= 0) {
+				dev_err(dev,
+					"Unable to retrieve bootloader id\n");
+				return -EINVAL;
+			}
+			fw_name = mxt_search_fw_name(data, bootldr_id);
+			if (fw_name == NULL) {
+				dev_err(dev,
+				"Unable to find fw from bootloader id\n");
+				return -EINVAL;
+			}
+		} else {
+			/* In APPMODE, if the f/w name does not exist, quit */
+			dev_err(dev,
+			"Firmware name not specified in platform data\n");
+			return -EINVAL;
+		}
+	} else {
+		fw_name = data->fw_name;
 	}
 
-	dev_info(dev, "Upgrading the firmware file to %s\n", data->fw_name);
+	dev_info(dev, "Upgrading the firmware file to %s\n", fw_name);
 
 	disable_irq(data->irq);
 
-	error = mxt_load_fw(dev, data->fw_name);
+	error = mxt_load_fw(dev, fw_name);
 	if (error) {
 		dev_err(dev, "The firmware update failed(%d)\n", error);
 		count = error;
@@ -1559,10 +1629,12 @@ static int mxt_input_open(struct input_dev *dev)
 	struct mxt_data *data = input_get_drvdata(dev);
 	int error;
 
-	error = mxt_start(data);
-	if (error < 0) {
-		dev_err(&data->client->dev, "mxt_start failed in input_open\n");
-		return error;
+	if (data->state == APPMODE) {
+		error = mxt_start(data);
+		if (error < 0) {
+			dev_err(&data->client->dev, "mxt_start failed in input_open\n");
+			return error;
+		}
 	}
 
 	return 0;
@@ -1573,10 +1645,11 @@ static void mxt_input_close(struct input_dev *dev)
 	struct mxt_data *data = input_get_drvdata(dev);
 	int error;
 
-	error = mxt_stop(data);
-	if (error < 0)
-		dev_err(&data->client->dev, "mxt_stop failed in input_close\n");
-
+	if (data->state == APPMODE) {
+		error = mxt_stop(data);
+		if (error < 0)
+			dev_err(&data->client->dev, "mxt_stop failed in input_close\n");
+	}
 }
 
 static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)

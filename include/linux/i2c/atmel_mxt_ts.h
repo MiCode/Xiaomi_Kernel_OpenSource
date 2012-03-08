@@ -29,6 +29,12 @@
 /* MXT_TOUCH_KEYARRAY_T15 */
 #define MXT_KEYARRAY_MAX_KEYS	32
 
+/* Bootoader IDs */
+#define MXT_BOOTLOADER_ID_224		0x0A
+#define MXT_BOOTLOADER_ID_224E		0x06
+#define MXT_BOOTLOADER_ID_1386		0x01
+#define MXT_BOOTLOADER_ID_1386E		0x10
+
 /* Config data for a given maXTouch controller with a specific firmware */
 struct mxt_config_info {
 	const u8 *config;
@@ -37,6 +43,7 @@ struct mxt_config_info {
 	u8 variant_id;
 	u8 version;
 	u8 build;
+	u8 bootldr_id;
 	/* Points to the firmware name to be upgraded to */
 	const char *fw_name;
 };
