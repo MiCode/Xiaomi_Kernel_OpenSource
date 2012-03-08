@@ -3176,6 +3176,9 @@ static irqreturn_t udc_irq(void)
 				udc->suspended = 1;
 				spin_unlock(udc->lock);
 				udc->driver->suspend(&udc->gadget);
+				if (udc->udc_driver->notify_event)
+					udc->udc_driver->notify_event(udc,
+					  CI13XXX_CONTROLLER_SUSPEND_EVENT);
 				spin_lock(udc->lock);
 			}
 			isr_statistics.sli++;

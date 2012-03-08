@@ -921,6 +921,7 @@ static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] __initdata = {
 	[16] = MSM_GPIO_TO_INT(15),
 	[19] = MSM_GPIO_TO_INT(26),
 	[20] = MSM_GPIO_TO_INT(28),
+	[22] = USB_HSIC_IRQ,
 	[23] = MSM_GPIO_TO_INT(19),
 	[24] = MSM_GPIO_TO_INT(23),
 	[26] = MSM_GPIO_TO_INT(3),
