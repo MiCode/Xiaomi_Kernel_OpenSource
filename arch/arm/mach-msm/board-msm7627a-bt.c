@@ -109,14 +109,36 @@ static int bt_set_gpio(int on)
 	int rc = 0;
 	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 
+	pr_debug("%s: Setting SYS_RST_PIN(%d) to %d\n",
+			__func__, gpio_bt_sys_rest_en, on);
 	if (on) {
-		rc = gpio_direction_output(gpio_bt_sys_rest_en, 1);
+
+		if (machine_is_msm7627a_evb()) {
+			rc = gpio_tlmm_config(GPIO_CFG(gpio_bt_sys_rest_en, 0,
+					GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+					GPIO_CFG_2MA),
+					GPIO_CFG_ENABLE);
+
+			gpio_set_value(gpio_bt_sys_rest_en, 1);
+		} else {
+			rc = gpio_direction_output(gpio_bt_sys_rest_en, 1);
+		}
 		msleep(100);
 	} else {
+
 		if (!marimba_get_fm_status(&config) &&
 				!marimba_get_bt_status(&config)) {
-			gpio_set_value_cansleep(gpio_bt_sys_rest_en, 0);
-			rc = gpio_direction_input(gpio_bt_sys_rest_en);
+			if (machine_is_msm7627a_evb()) {
+				gpio_set_value(gpio_bt_sys_rest_en, 0);
+				rc = gpio_tlmm_config(GPIO_CFG(
+					gpio_bt_sys_rest_en, 0,
+					GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN,
+					GPIO_CFG_2MA),
+					GPIO_CFG_ENABLE);
+			} else {
+				gpio_set_value_cansleep(gpio_bt_sys_rest_en, 0);
+				rc = gpio_direction_input(gpio_bt_sys_rest_en);
+			}
 			msleep(100);
 		}
 	}
