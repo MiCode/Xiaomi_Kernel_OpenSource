@@ -164,14 +164,20 @@ u32 ddl_open(u32 **ddl_handle, u32 decoding)
 		DDL_MSG_ERROR("ddl_open:Client_trasac_failed");
 		return status;
 	}
-	ddl->shared_mem[0].mem_type = DDL_CMD_MEM;
+	if (res_trk_check_for_sec_session())
+		ddl->shared_mem[0].mem_type = DDL_CMD_MEM;
+	else
+		ddl->shared_mem[0].mem_type = DDL_FW_MEM;
 	ptr = ddl_pmem_alloc(&ddl->shared_mem[0],
 			DDL_FW_AUX_HOST_CMD_SPACE_SIZE, 0);
 	if (!ptr)
 		status = VCD_ERR_ALLOC_FAIL;
 	if (!status && ddl_context->frame_channel_depth
 		== VCD_DUAL_FRAME_COMMAND_CHANNEL) {
-		ddl->shared_mem[1].mem_type = DDL_CMD_MEM;
+		if (res_trk_check_for_sec_session())
+			ddl->shared_mem[1].mem_type = DDL_CMD_MEM;
+		else
+			ddl->shared_mem[1].mem_type = DDL_FW_MEM;
 		ptr = ddl_pmem_alloc(&ddl->shared_mem[1],
 				DDL_FW_AUX_HOST_CMD_SPACE_SIZE, 0);
 		if (!ptr) {
@@ -289,6 +295,11 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 		DDL_MSG_ERROR("ddl_enc_start:Seq_hdr_alloc_failed");
 		return VCD_ERR_ALLOC_FAIL;
 	}
+	msm_ion_do_cache_op(ddl_context->video_ion_client,
+				encoder->seq_header.alloc_handle,
+				encoder->seq_header.virtual_base_addr,
+				encoder->seq_header.buffer_size,
+				ION_IOC_CLEAN_INV_CACHES);
 	if (!ddl_take_command_channel(ddl_context, ddl, client_data))
 		return VCD_ERR_BUSY;
 	ddl_vidc_channel_set(ddl);
