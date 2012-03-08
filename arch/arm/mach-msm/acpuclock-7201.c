@@ -49,12 +49,12 @@
  * enum - For acpuclock PLL IDs
  */
 enum {
-	ACPU_PLL_TCXO	= -1,
 	ACPU_PLL_0	= 0,
 	ACPU_PLL_1,
 	ACPU_PLL_2,
 	ACPU_PLL_3,
 	ACPU_PLL_4,
+	ACPU_PLL_TCXO,
 	ACPU_PLL_END,
 };
 
