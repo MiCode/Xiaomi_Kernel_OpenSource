@@ -258,7 +258,9 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 	struct msmfb_writeback_data_list *node = NULL;
 	mutex_lock(&mfd->unregister_mutex);
 	mutex_lock(&mfd->writeback_mutex);
-	if (!list_empty(&mfd->writeback_free_queue)) {
+	if (!list_empty(&mfd->writeback_free_queue)
+		&& mfd->writeback_state != WB_STOPING
+		&& mfd->writeback_state != WB_STOP) {
 		node = list_first_entry(&mfd->writeback_free_queue,
 				struct msmfb_writeback_data_list, active_entry);
 	}
@@ -306,7 +308,9 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 
 	mutex_lock(&mfd->unregister_mutex);
 	mutex_lock(&mfd->writeback_mutex);
-	if (!list_empty(&mfd->writeback_free_queue)) {
+	if (!list_empty(&mfd->writeback_free_queue)
+		&& mfd->writeback_state != WB_STOPING
+		&& mfd->writeback_state != WB_STOP) {
 		node = list_first_entry(&mfd->writeback_free_queue,
 				struct msmfb_writeback_data_list, active_entry);
 	}
