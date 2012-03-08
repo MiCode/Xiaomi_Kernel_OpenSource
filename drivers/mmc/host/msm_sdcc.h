@@ -281,9 +281,10 @@ struct msmsdcc_dma_data {
 };
 
 struct msmsdcc_pio_data {
-	struct scatterlist	*sg;
-	unsigned int		sg_len;
-	unsigned int		sg_off;
+	struct sg_mapping_iter		sg_miter;
+	char				bounce_buf[4];
+	/* valid bytes in bounce_buf */
+	int				bounce_buf_len;
 };
 
 struct msmsdcc_curr_req {
@@ -361,7 +362,7 @@ struct msmsdcc_host {
 	struct msmsdcc_sps_data sps;
 	bool			is_dma_mode;
 	bool			is_sps_mode;
-	struct sg_mapping_iter sg_miter;
+	struct msmsdcc_pio_data	pio;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
