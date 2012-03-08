@@ -258,13 +258,21 @@ struct pm8921_chg_chip {
 	struct delayed_work		eoc_work;
 	struct work_struct		unplug_ovp_fet_open_work;
 	struct delayed_work		unplug_check_work;
+	struct delayed_work		vin_collapse_check_work;
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
 };
 
-static int usb_max_current;
+/* user space parameter to limit usb current */
+static unsigned int usb_max_current;
+/*
+ * usb_target_ma is used for wall charger
+ * adaptive input current limiting only. Use
+ * pm_iusbmax_get() to get current maximum usb current setting.
+ */
+static int usb_target_ma;
 static int charging_disabled;
 static int thermal_mitigation;
 
@@ -649,18 +657,17 @@ static int pm_chg_iterm_get(struct pm8921_chg_chip *chip, int *chg_current)
 
 struct usb_ma_limit_entry {
 	int usb_ma;
-	u8  chg_iusb_value;
 };
 
 static struct usb_ma_limit_entry usb_ma_table[] = {
-	{100, 0},
-	{500, 1},
-	{700, 2},
-	{850, 3},
-	{900, 4},
-	{1100, 5},
-	{1300, 6},
-	{1500, 7},
+	{100},
+	{500},
+	{700},
+	{850},
+	{900},
+	{1100},
+	{1300},
+	{1500},
 };
 
 #define PM8921_CHG_IUSB_MASK 0x1C
@@ -682,7 +689,7 @@ static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
 static int pm_chg_iusbmax_get(struct pm8921_chg_chip *chip, int *mA)
 {
 	u8 temp;
-	int i, rc;
+	int rc;
 
 	*mA = 0;
 	rc = pm8xxx_readb(chip->dev->parent, PBL_ACCESS2, &temp);
@@ -692,10 +699,7 @@ static int pm_chg_iusbmax_get(struct pm8921_chg_chip *chip, int *mA)
 	}
 	temp &= PM8921_CHG_IUSB_MASK;
 	temp = temp >> 2;
-	for (i = ARRAY_SIZE(usb_ma_table) - 1; i >= 0; i--) {
-		if (usb_ma_table[i].chg_iusb_value == temp)
-			*mA = usb_ma_table[i].usb_ma;
-	}
+	*mA = usb_ma_table[temp].usb_ma;
 	return rc;
 }
 
@@ -1071,8 +1075,6 @@ static int pm_power_get_property_mains(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
-	int current_max;
-
 	/* Check if called before init */
 	if (!the_chip)
 		return -EINVAL;
@@ -1101,8 +1103,7 @@ static int pm_power_get_property_mains(struct power_supply *psy,
 		}
 
 		/* USB with max current greater than 500 mA connected */
-		pm_chg_iusbmax_get(the_chip, &current_max);
-		if (current_max > USB_WALL_THRESHOLD_MA)
+		if (usb_target_ma > USB_WALL_THRESHOLD_MA)
 			val->intval = is_usb_chg_plugged_in(the_chip);
 			return 0;
 
@@ -1421,19 +1422,11 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 {
 	int i, rc;
 
-	if (usb_max_current && mA > usb_max_current) {
-		pr_warn("restricting usb current to %d instead of %d\n",
-					usb_max_current, mA);
-		mA = usb_max_current;
-	}
-
 	if (mA > 0 && mA <= 2) {
 		usb_chg_current = 0;
-		rc = pm_chg_iusbmax_set(the_chip,
-				usb_ma_table[0].chg_iusb_value);
+		rc = pm_chg_iusbmax_set(the_chip, 0);
 		if (rc) {
-			pr_err("unable to set iusb to %d rc = %d\n",
-				usb_ma_table[0].chg_iusb_value, rc);
+			pr_err("unable to set iusb to %d rc = %d\n", 0, rc);
 		}
 		rc = pm_chg_usb_suspend_enable(the_chip, 1);
 		if (rc)
@@ -1448,11 +1441,9 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 		}
 		if (i < 0)
 			i = 0;
-		rc = pm_chg_iusbmax_set(the_chip,
-				usb_ma_table[i].chg_iusb_value);
+		rc = pm_chg_iusbmax_set(the_chip, i);
 		if (rc) {
-			pr_err("unable to set iusb to %d rc = %d\n",
-				usb_ma_table[i].chg_iusb_value, rc);
+			pr_err("unable to set iusb to %d rc = %d\n", i, rc);
 		}
 	}
 }
@@ -1463,15 +1454,30 @@ void pm8921_charger_vbus_draw(unsigned int mA)
 	unsigned long flags;
 
 	pr_debug("Enter charge=%d\n", mA);
+
+	if (usb_max_current && mA > usb_max_current) {
+		pr_warn("restricting usb current to %d instead of %d\n",
+					usb_max_current, mA);
+		mA = usb_max_current;
+	}
+	if (usb_target_ma == 0 && mA > USB_WALL_THRESHOLD_MA)
+		usb_target_ma = mA;
+
 	spin_lock_irqsave(&vbus_lock, flags);
 	if (the_chip) {
-		__pm8921_charger_vbus_draw(mA);
+		if (mA > USB_WALL_THRESHOLD_MA)
+			__pm8921_charger_vbus_draw(USB_WALL_THRESHOLD_MA);
+		else
+			__pm8921_charger_vbus_draw(mA);
 	} else {
 		/*
 		 * called before pmic initialized,
 		 * save this value and use it at probe
 		 */
-		usb_chg_current = mA;
+		if (mA > USB_WALL_THRESHOLD_MA)
+			usb_chg_current = USB_WALL_THRESHOLD_MA;
+		else
+			usb_chg_current = mA;
 	}
 	spin_unlock_irqrestore(&vbus_lock, flags);
 }
@@ -1713,6 +1719,8 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
 		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
 	} else {
+		/* USB unplugged reset target current */
+		usb_target_ma = 0;
 		pm8921_chg_disable_irq(chip, CHG_GONE_IRQ);
 	}
 	enable_input_voltage_regulation(chip);
@@ -1883,9 +1891,73 @@ static void unplug_ovp_fet_open_worker(struct work_struct *work)
 		}
 	}
 }
+
+static int find_usb_ma_value(int value)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(usb_ma_table) - 1; i >= 0; i--) {
+		if (value >= usb_ma_table[i].usb_ma)
+			break;
+	}
+
+	return i;
+}
+
+static void decrease_usb_ma_value(int *value)
+{
+	int i;
+
+	if (value) {
+		i = find_usb_ma_value(*value);
+		if (i > 0)
+			i--;
+		*value = usb_ma_table[i].usb_ma;
+	}
+}
+
+static void increase_usb_ma_value(int *value)
+{
+	int i;
+
+	if (value) {
+		i = find_usb_ma_value(*value);
+
+		if (i < (ARRAY_SIZE(usb_ma_table) - 1))
+			i++;
+		*value = usb_ma_table[i].usb_ma;
+	}
+}
+
+static void vin_collapse_check_worker(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_chg_chip *chip = container_of(dwork,
+			struct pm8921_chg_chip, vin_collapse_check_work);
+
+	/* AICL only for wall-chargers */
+	if (is_usb_chg_plugged_in(chip) &&
+		usb_target_ma > USB_WALL_THRESHOLD_MA) {
+		/* decrease usb_target_ma */
+		decrease_usb_ma_value(&usb_target_ma);
+		/* reset here, increase in unplug_check_worker */
+		__pm8921_charger_vbus_draw(USB_WALL_THRESHOLD_MA);
+		pr_debug("usb_now=%d, usb_target = %d\n",
+				USB_WALL_THRESHOLD_MA, usb_target_ma);
+	} else {
+		handle_usb_insertion_removal(chip);
+	}
+}
+
+#define VIN_MIN_COLLAPSE_CHECK_MS	50
 static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 {
-	handle_usb_insertion_removal(data);
+	if (usb_target_ma)
+		schedule_delayed_work(&the_chip->vin_collapse_check_work,
+				      round_jiffies_relative(msecs_to_jiffies
+						(VIN_MIN_COLLAPSE_CHECK_MS)));
+	else
+	    handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;
 }
 
@@ -2032,7 +2104,7 @@ module_param(param_vin_disable_counter, int, 0644);
 static void attempt_reverse_boost_fix(struct pm8921_chg_chip *chip,
 							int count, int usb_ma)
 {
-	pm8921_charger_vbus_draw(500);
+	__pm8921_charger_vbus_draw(500);
 	pr_debug("count = %d iusb=500mA\n", count);
 	disable_input_voltage_regulation(chip);
 	pr_debug("count = %d disable_input_regulation\n", count);
@@ -2046,7 +2118,7 @@ static void attempt_reverse_boost_fix(struct pm8921_chg_chip *chip,
 	pr_debug("count = %d restoring input regulation and usb_ma = %d\n",
 		 count, usb_ma);
 	enable_input_voltage_regulation(chip);
-	pm8921_charger_vbus_draw(usb_ma);
+	__pm8921_charger_vbus_draw(usb_ma);
 }
 
 #define VIN_ACTIVE_BIT BIT(0)
@@ -2058,10 +2130,10 @@ static void unplug_check_worker(struct work_struct *work)
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, unplug_check_work);
 	u8 reg_loop;
-	int ibat, usb_chg_plugged_in;
-	int usb_ma;
+	int ibat, usb_chg_plugged_in, usb_ma;
 	int chg_gone = 0;
 
+	reg_loop = 0;
 	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
 	if (!usb_chg_plugged_in) {
 		pr_debug("Stopping Unplug Check Worker since USB is removed"
@@ -2074,7 +2146,7 @@ static void unplug_check_worker(struct work_struct *work)
 	}
 
 	pm_chg_iusbmax_get(chip, &usb_ma);
-	if (usb_ma  ==  500) {
+	if (usb_ma == 500 && !usb_target_ma) {
 		pr_debug("Stopping Unplug Check Worker since USB == 500mA\n");
 		disable_input_voltage_regulation(chip);
 		return;
@@ -2088,6 +2160,18 @@ static void unplug_check_worker(struct work_struct *work)
 	}
 	if (pm8921_chg_is_enabled(chip, CHG_GONE_IRQ))
 		pr_debug("chg gone irq is enabled\n");
+
+	reg_loop = pm_chg_get_regulation_loop(chip);
+	pr_debug("reg_loop=0x%x usb_ma = %d\n", reg_loop, usb_ma);
+
+	if (reg_loop & VIN_ACTIVE_BIT) {
+		decrease_usb_ma_value(&usb_ma);
+		usb_target_ma = usb_ma;
+		/* end AICL here */
+		__pm8921_charger_vbus_draw(usb_ma);
+		pr_debug("usb_now=%d, usb_target = %d\n",
+			usb_ma, usb_target_ma);
+	}
 
 	reg_loop = pm_chg_get_regulation_loop(chip);
 	pr_debug("reg_loop=0x%x usb_ma = %d\n", reg_loop, usb_ma);
@@ -2119,7 +2203,19 @@ static void unplug_check_worker(struct work_struct *work)
 		schedule_work(&chip->unplug_ovp_fet_open_work);
 	}
 
+	if (!(reg_loop & VIN_ACTIVE_BIT)) {
+		/* only increase iusb_max if vin loop not active */
+		if (usb_ma < usb_target_ma) {
+			increase_usb_ma_value(&usb_ma);
+			__pm8921_charger_vbus_draw(usb_ma);
+			pr_debug("usb_now=%d, usb_target = %d\n",
+					usb_ma, usb_target_ma);
+		} else {
+			usb_target_ma = usb_ma;
+		}
+	}
 check_again_later:
+	/* schedule to check again later */
 	schedule_delayed_work(&chip->unplug_check_work,
 		      round_jiffies_relative(msecs_to_jiffies
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
@@ -2809,8 +2905,8 @@ static int set_usb_max_current(const char *val, struct kernel_param *kp)
 	}
 	return -EINVAL;
 }
-module_param_call(usb_max_current, set_usb_max_current, param_get_uint,
-					&usb_max_current, 0644);
+module_param_call(usb_max_current, set_usb_max_current,
+	param_get_uint, &usb_max_current, 0644);
 
 static void free_irqs(struct pm8921_chg_chip *chip)
 {
@@ -3132,10 +3228,9 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	}
 
 	/* init with the lowest USB current */
-	rc = pm_chg_iusbmax_set(chip, usb_ma_table[0].chg_iusb_value);
+	rc = pm_chg_iusbmax_set(chip, 0);
 	if (rc) {
-		pr_err("Failed to set usb max to %d rc=%d\n",
-					usb_ma_table[0].chg_iusb_value, rc);
+		pr_err("Failed to set usb max to %d rc=%d\n", 0, rc);
 		return rc;
 	}
 
@@ -3628,6 +3723,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 
 	wake_lock_init(&chip->eoc_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_eoc");
 	INIT_DELAYED_WORK(&chip->eoc_work, eoc_worker);
+	INIT_DELAYED_WORK(&chip->vin_collapse_check_work,
+						vin_collapse_check_worker);
 	INIT_WORK(&chip->unplug_ovp_fet_open_work,
 					unplug_ovp_fet_open_worker);
 	INIT_DELAYED_WORK(&chip->unplug_check_work, unplug_check_worker);
