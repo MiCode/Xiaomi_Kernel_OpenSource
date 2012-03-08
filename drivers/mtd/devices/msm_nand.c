@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -6718,7 +6718,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 			supported_flash.pagesize = 1024 << (devcfg & 0x3);
 			supported_flash.blksize = (64 * 1024) <<
 							((devcfg >> 4) & 0x3);
-			supported_flash.oobsize = (8 << ((devcfg >> 2) & 1)) *
+			supported_flash.oobsize = (8 << ((devcfg >> 2) & 0x3)) *
 				(supported_flash.pagesize >> 9);
 		} else {
 			supported_flash.flash_id = flash_id;
