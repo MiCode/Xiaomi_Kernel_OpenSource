@@ -21,10 +21,6 @@
 #define DIAG_CTRL_MSG_DIAGMODE		3
 /* Diag data based on "light" diag mask */
 #define DIAG_CTRL_MSG_DIAGDATA		4
-/* Deprecated */
-#define DIAG_CTRL_MSG_LOG_MASK		5
-#define DIAG_CTRL_MSG_EVENT_MASK	6
-#define DIAG_CTRL_MSG_F3_MASK		7
 /* Send diag internal feature mask 'diag_int_feature_mask' */
 #define DIAG_CTRL_MSG_FEATURE		8
 /* Send Diag log mask for a particular equip id */
@@ -47,6 +43,39 @@ struct diag_ctrl_msg {
 	uint16_t count_entries;
 	uint16_t port;
 };
+
+struct diag_ctrl_event_mask {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t stream_id;
+	uint8_t status;
+	uint8_t event_config;
+	uint32_t event_mask_size;
+	/* Copy event mask here */
+} __packed;
+
+struct diag_ctrl_log_mask {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t stream_id;
+	uint8_t status;
+	uint8_t equip_id;
+	uint32_t num_items; /* Last log code for this equip_id */
+	uint32_t log_mask_size; /* Size of log mask stored in log_mask[] */
+	/* Copy log mask here */
+} __packed;
+
+struct diag_ctrl_msg_mask {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t stream_id;
+	uint8_t status;
+	uint8_t msg_mode;
+	uint16_t ssid_first; /* Start of range of supported SSIDs */
+	uint16_t ssid_last; /* Last SSID in range */
+	uint32_t msg_mask_size; /* ssid_last - ssid_first + 1 */
+	/* Copy msg mask here */
+} __packed;
 
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
