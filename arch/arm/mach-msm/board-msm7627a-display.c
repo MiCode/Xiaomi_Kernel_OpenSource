@@ -208,7 +208,6 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#define PANEL_NAME_MAX_LEN      30
 #define LCDC_TOSHIBA_FWVGA_PANEL_NAME   "lcdc_toshiba_fwvga_pt"
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME       "mipi_cmd_renesas_fwvga"
 

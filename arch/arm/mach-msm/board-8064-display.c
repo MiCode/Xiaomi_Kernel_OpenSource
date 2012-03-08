@@ -66,7 +66,6 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#define PANEL_NAME_MAX_LEN 30
 #define LVDS_CHIMEI_PANEL_NAME "lvds_chimei_wxga"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME "mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME "mipi_video_chimei_wxga"
