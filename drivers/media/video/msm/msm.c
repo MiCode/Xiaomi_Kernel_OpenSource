@@ -1604,6 +1604,18 @@ static int msm_close(struct file *f)
 	}
 
 	mutex_lock(&pcam->vid_lock);
+
+	if (pcam_inst->streamon) {
+		/*something went wrong since instance
+		is closing without streamoff*/
+		if (pcam->mctl.mctl_release) {
+			rc = pcam->mctl.mctl_release(&(pcam->mctl));
+			if (rc < 0)
+				pr_err("mctl_release fails %d\n", rc);
+		}
+		pcam->mctl.mctl_release = NULL;/*so that it isn't closed again*/
+	}
+
 	pcam_inst->streamon = 0;
 	pcam->use_count--;
 	pcam->dev_inst_map[pcam_inst->image_mode] = NULL;
