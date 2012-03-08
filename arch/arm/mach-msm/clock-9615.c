@@ -387,7 +387,6 @@ static struct clk_ops clk_ops_rcg_9615 = {
 	.in_hwcg_mode = rcg_clk_in_hwcg_mode,
 	.handoff = rcg_clk_handoff,
 	.set_rate = rcg_clk_set_rate,
-	.get_rate = rcg_clk_get_rate,
 	.list_rate = rcg_clk_list_rate,
 	.is_enabled = rcg_clk_is_enabled,
 	.round_rate = rcg_clk_round_rate,

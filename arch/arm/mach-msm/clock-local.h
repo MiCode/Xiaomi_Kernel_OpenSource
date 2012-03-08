@@ -207,7 +207,6 @@ extern struct clk_freq_tbl rcg_dummy_freq;
 int rcg_clk_enable(struct clk *clk);
 void rcg_clk_disable(struct clk *clk);
 int rcg_clk_set_rate(struct clk *clk, unsigned long rate);
-unsigned long rcg_clk_get_rate(struct clk *clk);
 int rcg_clk_list_rate(struct clk *clk, unsigned n);
 int rcg_clk_is_enabled(struct clk *clk);
 long rcg_clk_round_rate(struct clk *clk, unsigned long rate);
