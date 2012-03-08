@@ -561,6 +561,11 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 				"V4L2_PIX_FMT_H264 are supported\n");
 		return -EINVAL;
 	}
+
+	if (fmt->fmt.pix.width % 16) {
+		WFD_MSG_ERR("Only 16 byte aligned widths are supported\n");
+		return -ENOTSUPP;
+	}
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, SET_FORMAT,
 				(void *)fmt);
 	if (rc) {
