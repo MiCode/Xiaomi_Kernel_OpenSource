@@ -821,7 +821,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			timeout = wait_for_completion_timeout(&dev->reconf, HZ);
 			dev->reconf_busy = false;
 			if (timeout) {
-				clk_disable(dev->rclk);
+				clk_disable_unprepare(dev->rclk);
 				disable_irq(dev->irq);
 			}
 		}
@@ -880,7 +880,7 @@ static int msm_clk_pause_wakeup(struct slim_controller *ctrl)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
 	enable_irq(dev->irq);
-	clk_enable(dev->rclk);
+	clk_prepare_enable(dev->rclk);
 	writel_relaxed(1, dev->base + FRM_WAKEUP);
 	/* Make sure framer wakeup write goes through before exiting function */
 	mb();
@@ -1913,7 +1913,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 		goto err_clk_get_failed;
 	}
 	clk_set_rate(dev->rclk, SLIM_ROOT_FREQ);
-	clk_enable(dev->rclk);
+	clk_prepare_enable(dev->rclk);
 
 	/* Component register initialization */
 	writel_relaxed(1, dev->base + COMP_CFG);
