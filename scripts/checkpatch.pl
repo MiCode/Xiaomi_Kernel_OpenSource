@@ -2377,7 +2377,10 @@ sub process {
 					     "commit text line over " .
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
-				} elsif ($line=~/^\s*[\x21-\x39\x3b-\x7e]+:/) {
+				} elsif ($line=~/^\s*change-id:/i ||
+					 $line=~/^\s*signed-off-by:/i ||
+					 $line=~/^\s*crs-fixed:/i ||
+					 $line=~/^\s*acked-by:/i) {
 					# this is a tag, there must be commit
 					# text by now
 					if ($commit_text_present == 0) {
