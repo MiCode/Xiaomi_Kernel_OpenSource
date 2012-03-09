@@ -1788,6 +1788,12 @@ config MSM_PIL_DSPS
 	  DSPS is a sensors offloading processor used for applications such
 	  as rotation detection, temperature, etc.
 
+config MSM_PIL_VIDC
+	tristate "Video Core Secure Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for authenticating the video core image.
+
 config MSM_PIL_GSS
 	tristate "GSS (Coretx A5) Boot Support"
 	depends on MSM_PIL

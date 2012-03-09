@@ -996,6 +996,11 @@ struct platform_device msm_pil_dsps = {
 	.dev.platform_data = "dsps",
 };
 
+struct platform_device msm_pil_vidc = {
+	.name = "pil_vidc",
+	.id = -1,
+};
+
 static struct resource smd_resource[] = {
 	{
 		.name   = "a9_m2a_0",
