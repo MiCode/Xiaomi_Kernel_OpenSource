@@ -26,6 +26,8 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/socinfo.h>
+#include <mach/msm_bus_board.h>
+#include <mach/msm_bus.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -166,6 +168,9 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 		return ret;
 	}
 
+	/* Make sure bus port is halted. */
+	msm_bus_axi_porthalt(MSM_BUS_MASTER_GSS_NAV);
+
 	/*
 	 * Vote PLL on in GSS's voting register and wait for it to enable.
 	 * The PLL must be enable to switch the GFMUX to a low-power source.
@@ -215,6 +220,14 @@ static int pil_gss_reset(struct pil_desc *pil)
 	ret = make_gss_proxy_votes(pil->dev);
 	if (ret)
 		return ret;
+
+	/* Unhalt bus port. */
+	ret = msm_bus_axi_portunhalt(MSM_BUS_MASTER_GSS_NAV);
+	if (ret) {
+		dev_err(pil->dev, "Failed to unhalt bus port\n");
+		remove_gss_proxy_votes_now(drv);
+		return ret;
+	}
 
 	/* Vote PLL on in GSS's voting register and wait for it to enable. */
 	writel_relaxed(PLL5_VOTE, PLL_ENA_GSS);
@@ -278,6 +291,7 @@ static int pil_gss_shutdown_trusted(struct pil_desc *pil)
 		return ret;
 	}
 
+	msm_bus_axi_porthalt(MSM_BUS_MASTER_GSS_NAV);
 	ret = pas_shutdown(PAS_GSS);
 	clk_disable_unprepare(drv->xo);
 	remove_gss_proxy_votes_now(drv);
@@ -292,11 +306,17 @@ static int pil_gss_reset_trusted(struct pil_desc *pil)
 
 	err = make_gss_proxy_votes(pil->dev);
 	if (err)
-		return err;
+		goto out;
+
+	err = msm_bus_axi_portunhalt(MSM_BUS_MASTER_GSS_NAV);
+	if (err) {
+		dev_err(pil->dev, "Failed to unhalt bus port\n");
+		goto remove_votes;
+	}
 
 	err =  pas_auth_and_reset(PAS_GSS);
 	if (err)
-		remove_gss_proxy_votes_now(drv);
+		goto halt_port;
 
 	if (cpu_is_apq8064() &&
 	    ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) &&
@@ -314,7 +334,13 @@ static int pil_gss_reset_trusted(struct pil_desc *pil)
 		 */
 		writel_relaxed(0x0, drv->base + GSS_CSR_RESET);
 	}
+	return 0;
 
+halt_port:
+	msm_bus_axi_porthalt(MSM_BUS_MASTER_GSS_NAV);
+remove_votes:
+	remove_gss_proxy_votes_now(drv);
+out:
 	return err;
 }
 
