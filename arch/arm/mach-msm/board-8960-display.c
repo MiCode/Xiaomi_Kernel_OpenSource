@@ -186,6 +186,50 @@ static struct platform_device msm_fb_device = {
 	.dev.platform_data = &msm_fb_pdata,
 };
 
+static void mipi_dsi_panel_pwm_cfg(void)
+{
+	int rc;
+	static int mipi_dsi_panel_gpio_configured;
+	static struct pm_gpio pwm_enable = {
+		.direction        = PM_GPIO_DIR_OUT,
+		.output_buffer    = PM_GPIO_OUT_BUF_CMOS,
+		.output_value     = 1,
+		.pull             = PM_GPIO_PULL_NO,
+		.vin_sel          = PM_GPIO_VIN_VPH,
+		.out_strength     = PM_GPIO_STRENGTH_HIGH,
+		.function         = PM_GPIO_FUNC_NORMAL,
+		.inv_int_pol      = 0,
+		.disable_pin      = 0,
+	};
+	static struct pm_gpio pwm_mode = {
+		.direction        = PM_GPIO_DIR_OUT,
+		.output_buffer    = PM_GPIO_OUT_BUF_CMOS,
+		.output_value     = 0,
+		.pull             = PM_GPIO_PULL_NO,
+		.vin_sel          = PM_GPIO_VIN_S4,
+		.out_strength     = PM_GPIO_STRENGTH_HIGH,
+		.function         = PM_GPIO_FUNC_2,
+		.inv_int_pol      = 0,
+		.disable_pin      = 0,
+	};
+
+	if (mipi_dsi_panel_gpio_configured == 0) {
+		/* pm8xxx: gpio-21, Backlight Enable */
+		rc = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(21),
+					&pwm_enable);
+		if (rc != 0)
+			pr_err("%s: pwm_enabled failed\n", __func__);
+
+		/* pm8xxx: gpio-24, Bl: Off, PWM mode */
+		rc = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(24),
+					&pwm_mode);
+		if (rc != 0)
+			pr_err("%s: pwm_mode failed\n", __func__);
+
+		mipi_dsi_panel_gpio_configured++;
+	}
+}
+
 static bool dsi_power_on;
 
 /**
@@ -201,6 +245,7 @@ static int mipi_dsi_liquid_panel_power(int on)
 	static int gpio21, gpio24, gpio43;
 	int rc;
 
+	mipi_dsi_panel_pwm_cfg();
 	pr_debug("%s: on=%d\n", __func__, on);
 
 	gpio21 = PM8921_GPIO_PM_TO_SYS(21); /* disp power enable_n */
@@ -663,6 +708,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 #else
 	.mem_hid = MEMTYPE_EBI1,
 #endif
+	.cont_splash_enabled = 0x01,
 };
 
 /**
@@ -716,6 +762,7 @@ static int toshiba_gpio[] = {LPM_CHANNEL0};
 
 static struct mipi_dsi_panel_platform_data toshiba_pdata = {
 	.gpio = toshiba_gpio,
+	.dsi_pwm_cfg = mipi_dsi_panel_pwm_cfg,
 };
 
 static struct platform_device mipi_dsi_toshiba_panel_device = {
