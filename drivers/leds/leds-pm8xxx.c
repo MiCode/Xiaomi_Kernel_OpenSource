@@ -71,7 +71,7 @@
 #define WLED_OP_FDBCK_MASK		0x1C
 #define WLED_OP_FDBCK_BIT_SHFT		0x02
 
-#define WLED_MAX_LEVEL			100
+#define WLED_MAX_LEVEL			255
 #define WLED_8_BIT_MASK			0xFF
 #define WLED_8_BIT_SHFT			0x08
 #define WLED_MAX_DUTY_CYCLE		0xFFF
