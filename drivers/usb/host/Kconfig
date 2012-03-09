@@ -189,6 +189,13 @@ config USB_EHCI_MSM_HSIC
 	  for chip-to-chip interconnect (having maximum circuit length of
 	  10cm) as it removes the analog transceivers.
 
+config USB_EHCI_MSM_HOST4
+	bool "Support for MSM on-chip EHCI USB controller# 4"
+	depends on USB_EHCI_HCD && ARCH_MSM && ARCH_APQ8064
+	---help---
+	  Enables support for the EHCI Compliant USB Host controller# 4
+	  present on the Qualcomm chipsets.
+
 config USB_EHCI_TEGRA
        boolean "NVIDIA Tegra HCD support"
        depends on USB_EHCI_HCD && ARCH_TEGRA

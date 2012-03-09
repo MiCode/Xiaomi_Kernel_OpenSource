@@ -515,19 +515,29 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bus_scale_table	= &usb_bus_scale_pdata,
 };
 
-static struct msm_usb_host_platform_data msm_ehci_host_pdata = {
+static struct msm_usb_host_platform_data msm_ehci_host_pdata3 = {
 	.power_budget = 500,
 };
+
+#ifdef CONFIG_USB_EHCI_MSM_HOST4
+static struct msm_usb_host_platform_data msm_ehci_host_pdata4;
+#endif
 
 static void __init apq8064_ehci_host_init(void)
 {
 	if (machine_is_apq8064_liquid()) {
-		msm_ehci_host_pdata.dock_connect_irq =
+		msm_ehci_host_pdata3.dock_connect_irq =
 				PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9);
 
 		apq8064_device_ehci_host3.dev.platform_data =
-				&msm_ehci_host_pdata;
+				&msm_ehci_host_pdata3;
 		platform_device_register(&apq8064_device_ehci_host3);
+
+#ifdef CONFIG_USB_EHCI_MSM_HOST4
+		apq8064_device_ehci_host4.dev.platform_data =
+				&msm_ehci_host_pdata4;
+		platform_device_register(&apq8064_device_ehci_host4);
+#endif
 	}
 }
 
