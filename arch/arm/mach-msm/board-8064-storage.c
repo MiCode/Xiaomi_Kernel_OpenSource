@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,14 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->disable_cmd23 = true;
 		}
 	}
-	apq8064_add_sdcc(1, apq8064_sdc1_pdata);
-	apq8064_add_sdcc(3, apq8064_sdc3_pdata);
+	if (apq8064_sdc1_pdata) {
+		apq8064_sdc1_pdata->swfi_latency =
+				apq8064_rpm_get_swfi_latency();
+		apq8064_add_sdcc(1, apq8064_sdc1_pdata);
+	}
+	if (apq8064_sdc3_pdata) {
+		apq8064_sdc3_pdata->swfi_latency =
+				apq8064_rpm_get_swfi_latency();
+		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
+	}
 }
