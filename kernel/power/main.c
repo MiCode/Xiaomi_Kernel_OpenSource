@@ -15,6 +15,8 @@
 
 #include "power.h"
 
+#define MAX_BUF 100
+
 DEFINE_MUTEX(pm_mutex);
 
 #ifdef CONFIG_PM_SLEEP
@@ -22,6 +24,10 @@ DEFINE_MUTEX(pm_mutex);
 /* Routines for PM-transition notifications */
 
 static BLOCKING_NOTIFIER_HEAD(pm_chain_head);
+
+static struct hrtimer in_ev_timer;
+static int input_processed;
+static ktime_t touch_evt_timer_val;
 
 int register_pm_notifier(struct notifier_block *nb)
 {
@@ -66,6 +72,72 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(pm_async);
+
+static ssize_t
+touch_event_show(struct kobject *kobj,
+		 struct kobj_attribute *attr, char *buf)
+{
+	if (input_processed == 0)
+		return snprintf(buf, strnlen("touch_event", MAX_BUF) + 1,
+				"touch_event");
+	else
+		return snprintf(buf, strnlen("null", MAX_BUF) + 1,
+				"null");
+}
+
+static ssize_t
+touch_event_store(struct kobject *kobj,
+		  struct kobj_attribute *attr,
+		  const char *buf, size_t n)
+{
+
+	hrtimer_cancel(&in_ev_timer);
+	input_processed = 0;
+
+	/* set a timer to notify the userspace to stop processing
+	 * touch event
+	 */
+	hrtimer_start(&in_ev_timer, touch_evt_timer_val, HRTIMER_MODE_REL);
+
+	/* wakeup the userspace poll */
+	sysfs_notify(kobj, NULL, "touch_event");
+
+	return n;
+}
+
+power_attr(touch_event);
+
+static ssize_t
+touch_event_timer_show(struct kobject *kobj,
+		 struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, MAX_BUF, "%lld", touch_evt_timer_val.tv64);
+}
+
+static ssize_t
+touch_event_timer_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (strict_strtoul(buf, 10, &val))
+		return -EINVAL;
+
+	touch_evt_timer_val = ktime_set(0, val*1000);
+
+	return n;
+}
+
+power_attr(touch_event_timer);
+
+static enum hrtimer_restart input_event_stop(struct hrtimer *hrtimer)
+{
+	/* wakeup the userspace poll */
+	input_processed = 1;
+	sysfs_notify(power_kobj, NULL, "touch_event");
+	return HRTIMER_NORESTART;
+}
 
 #ifdef CONFIG_PM_DEBUG
 int pm_test_level = TEST_NONE;
@@ -313,7 +385,9 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
-static struct attribute * g[] = {
+static struct attribute *g[] = {
+	&touch_event_attr.attr,
+	&touch_event_timer_attr.attr,
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
@@ -358,6 +432,11 @@ static int __init pm_init(void)
 		return error;
 	hibernate_image_size_init();
 	hibernate_reserved_size_init();
+
+	touch_evt_timer_val = ktime_set(2, 0);
+	hrtimer_init(&in_ev_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	in_ev_timer.function = &input_event_stop;
+
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)
 		return -ENOMEM;
