@@ -449,7 +449,7 @@ struct pm_irq_chip *  __devinit pm8xxx_irq_init(struct device *dev,
 	return chip;
 }
 
-int __devexit pm8xxx_irq_exit(struct pm_irq_chip *chip)
+int pm8xxx_irq_exit(struct pm_irq_chip *chip)
 {
 	irq_set_chained_handler(chip->devirq, NULL);
 	kfree(chip);
