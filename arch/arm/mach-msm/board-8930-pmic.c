@@ -89,10 +89,10 @@ struct pm8xxx_mpp_init {
 /* Initial pm8038 GPIO configurations */
 static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
 	/* keys GPIOs */
-	PM8XXX_GPIO_INPUT(3, PM_GPIO_PULL_UP_1P5),
-	PM8XXX_GPIO_INPUT(8, PM_GPIO_PULL_UP_1P5),
-	PM8XXX_GPIO_INPUT(10, PM_GPIO_PULL_UP_1P5),
-	PM8XXX_GPIO_INPUT(11, PM_GPIO_PULL_UP_1P5),
+	PM8XXX_GPIO_INPUT(3, PM_GPIO_PULL_UP_30),
+	PM8XXX_GPIO_INPUT(8, PM_GPIO_PULL_UP_30),
+	PM8XXX_GPIO_INPUT(10, PM_GPIO_PULL_UP_30),
+	PM8XXX_GPIO_INPUT(11, PM_GPIO_PULL_UP_30),
 };
 
 /* Initial pm8038 MPP configurations */
