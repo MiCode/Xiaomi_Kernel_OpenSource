@@ -1353,20 +1353,23 @@ static int encrypt_link(struct sock *sk, u16 index, unsigned char *data,
 	if (!hdev)
 		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENODEV);
 
-	hci_dev_lock(hdev);
+	hci_dev_lock_bh(hdev);
 
 	if (!test_bit(HCI_UP, &hdev->flags)) {
 		err = cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENETDOWN);
-		goto failed;
+		goto done;
 	}
 
-	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK,
-					&cp->bdaddr);
-	if (!conn)
-		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENOTCONN);
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &cp->bdaddr);
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, ENOTCONN);
+		goto done;
+	}
 
-	if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend))
-		return cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, EINPROGRESS);
+	if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+		err = cmd_status(sk, index, MGMT_OP_ENCRYPT_LINK, EINPROGRESS);
+		goto done;
+	}
 
 	if (conn->link_mode & HCI_LM_AUTH) {
 		enc.handle = cpu_to_le16(conn->handle);
@@ -1383,8 +1386,8 @@ static int encrypt_link(struct sock *sk, u16 index, unsigned char *data,
 		}
 	}
 
-failed:
-	hci_dev_unlock(hdev);
+done:
+	hci_dev_unlock_bh(hdev);
 	hci_dev_put(hdev);
 
 	return err;
