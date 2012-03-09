@@ -133,6 +133,12 @@
 #define	TEST_PACKET	4
 #define	TEST_FORCE_EN	5
 
+/* OTG test mode feature bits
+ * See ECN OTG2.0 spec Table 6-8
+ */
+#define TEST_OTG_SRP_REQD	6
+#define TEST_OTG_HNP_REQD	7
+
 /*
  * New Feature Selectors as added by USB 3.0
  * See USB 3.0 spec Table 9-6
@@ -146,9 +152,12 @@
 
 #define USB_ENDPOINT_HALT		0	/* IN/OUT will STALL */
 
-#define OTG_STATUS_SELECTOR	0xF000
+#define OTG_STATUS_SELECTOR		0xF000
+#define HOST_REQUEST_FLAG		0
 #define THOST_REQ_POLL			1500    /* msec (1000 - 2000) */
-#define HOST_REQUEST_FLAG	0
+#define OTG_TTST_SUSP			70	/* msec (0 - 100) */
+
+#define OTG_TTST_VBUS_OFF               1
 
 /* Bit array elements as returned by the USB_REQ_GET_STATUS request. */
 #define USB_DEV_STAT_U1_ENABLED		2	/* transition into U1 state */
