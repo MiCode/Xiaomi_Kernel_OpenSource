@@ -134,6 +134,7 @@ struct diagchar_dev {
 	int num_clients;
 	int polling_reg_flag;
 	struct diag_write_device *buf_tbl;
+	int use_device_tree;
 
 	/* Memory pool parameters */
 	unsigned int itemsize;

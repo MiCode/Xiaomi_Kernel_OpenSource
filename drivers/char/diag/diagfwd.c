@@ -21,6 +21,7 @@
 #include <linux/diagchar.h>
 #include <linux/delay.h>
 #include <linux/reboot.h>
+#include <linux/of.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
 #endif
@@ -76,27 +77,54 @@ do {									\
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
 
+/* Determine if this device uses a device tree */
+#ifdef CONFIG_OF
+static int has_device_tree(void)
+{
+	struct device_node *node;
+
+	node = of_find_node_by_path("/");
+	if (node) {
+		of_node_put(node);
+		return 1;
+	}
+	return 0;
+}
+#else
+static int has_device_tree(void)
+{
+	return 0;
+}
+#endif
+
 int chk_config_get_id(void)
 {
 	/* For all Fusion targets, Modem will always be present */
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		return 0;
 
-	switch (socinfo_get_id()) {
-	case APQ8060_MACHINE_ID:
-	case MSM8660_MACHINE_ID:
-		return APQ8060_TOOLS_ID;
-	case AO8960_MACHINE_ID:
-	case MSM8260A_MACHINE_ID:
-		return AO8960_TOOLS_ID;
-	case APQ8064_MACHINE_ID:
-		return APQ8064_TOOLS_ID;
-	case MSM8930_MACHINE_ID:
-		return MSM8930_TOOLS_ID;
-	case MSM8974_MACHINE_ID:
-		return MSM8974_TOOLS_ID;
-	default:
-		return 0;
+	if (driver->use_device_tree) {
+		if (machine_is_copper())
+			return MSM8974_TOOLS_ID;
+		else
+			return 0;
+	} else {
+		switch (socinfo_get_msm_cpu()) {
+		case MSM_CPU_8X60:
+			return APQ8060_TOOLS_ID;
+		case MSM_CPU_8960:
+			return AO8960_TOOLS_ID;
+		case MSM_CPU_8064:
+			return APQ8064_TOOLS_ID;
+		case MSM_CPU_8930:
+			return MSM8930_TOOLS_ID;
+		case MSM_CPU_COPPER:
+			return MSM8974_TOOLS_ID;
+		case MSM_CPU_8625:
+			return MSM8625_TOOLS_ID;
+		default:
+			return 0;
+		}
 	}
 }
 
@@ -106,18 +134,16 @@ int chk_config_get_id(void)
  */
 int chk_apps_only(void)
 {
-	switch (socinfo_get_id()) {
-	case AO8960_MACHINE_ID:
-	case APQ8064_MACHINE_ID:
-	case MSM8930_MACHINE_ID:
-	case MSM8630_MACHINE_ID:
-	case MSM8230_MACHINE_ID:
-	case APQ8030_MACHINE_ID:
-	case MSM8627_MACHINE_ID:
-	case MSM8227_MACHINE_ID:
-	case MSM8974_MACHINE_ID:
-	case MDM9615_MACHINE_ID:
-	case MSM8260A_MACHINE_ID:
+	if (driver->use_device_tree)
+		return 1;
+
+	switch (socinfo_get_msm_cpu()) {
+	case MSM_CPU_8960:
+	case MSM_CPU_8064:
+	case MSM_CPU_8930:
+	case MSM_CPU_8627:
+	case MSM_CPU_9615:
+	case MSM_CPU_COPPER:
 		return 1;
 	default:
 		return 0;
@@ -131,8 +157,28 @@ int chk_apps_only(void)
  */
 int chk_apps_master(void)
 {
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615() ||
-		 cpu_is_apq8064() || cpu_is_msm8627())
+	if (driver->use_device_tree)
+		return 1;
+	else if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615() ||
+		cpu_is_apq8064() || cpu_is_msm8627())
+		return 1;
+	else
+		return 0;
+}
+
+inline int chk_polling_response(void)
+{
+	if (!(driver->polling_reg_flag) && chk_apps_master())
+		/*
+		 * If the apps processor is master and no other processor
+		 * has registered to respond for polling
+		 */
+		return 1;
+	else if (!(driver->ch) && !(chk_apps_master()))
+		/*
+		 * If the apps processor is not the master and the modem
+		 * is not up
+		 */
 		return 1;
 	else
 		return 0;
@@ -1062,7 +1108,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
 		(*(buf+2) == 0x03)) {
 		/* If no one has registered for polling */
-		if (!(driver->polling_reg_flag)) {
+		if (chk_polling_response()) {
 			/* Respond to polling for Apps only DIAG */
 			for (i = 0; i < 3; i++)
 				driver->apps_rsp_buf[i] = *(buf+i);
@@ -1074,7 +1120,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		}
 	}
 	 /* Check for ID for NO MODEM present */
-	else if (!(driver->polling_reg_flag)) {
+	else if (chk_polling_response()) {
 		/* respond to 0x0 command */
 		if (*buf == 0x00) {
 			for (i = 0; i < 55; i++)
@@ -1481,6 +1527,7 @@ void diagfwd_init(void)
 {
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
+	driver->use_device_tree = has_device_tree();
 
 	if (driver->event_mask == NULL) {
 		driver->event_mask = kzalloc(sizeof(
