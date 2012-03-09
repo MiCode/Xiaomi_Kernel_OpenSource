@@ -34,6 +34,7 @@
 #include "footswitch.h"
 #include "acpuclock.h"
 #include "spm.h"
+#include "mpm-8625.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI0_PHYS		0xA1200000
@@ -1584,6 +1585,7 @@ void __init msm_common_io_init(void)
 
 void __init msm8625_init_irq(void)
 {
+	msm_gic_irq_extn_init(MSM_QGIC_DIST_BASE, MSM_QGIC_CPU_BASE);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 			(void *)MSM_QGIC_CPU_BASE);
 }
