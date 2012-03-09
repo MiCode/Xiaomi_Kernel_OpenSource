@@ -52,6 +52,9 @@ static void riva_smsm_cb_fn(struct work_struct *work)
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 					uint32_t new_state)
 {
+	if (!(new_state & SMSM_RESET))
+		return;
+
 	riva_crash = true;
 	pr_err("%s: smsm state changed to smsm reset\n", MODULE_NAME);
 
@@ -60,10 +63,8 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 						MODULE_NAME);
 		return;
 	}
-	if (new_state & SMSM_RESET) {
-		ss_restart_inprogress = true;
-		schedule_work(&riva_smsm_cb_work);
-	}
+	ss_restart_inprogress = true;
+	schedule_work(&riva_smsm_cb_work);
 }
 
 static void riva_fatal_fn(struct work_struct *work)
