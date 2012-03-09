@@ -209,4 +209,14 @@
 /* gmem command buffer length */
 #define CP_REG(reg) ((0x4 << 16) | (SUBBLOCK_OFFSET(reg)))
 
+
+/* Return 1 if the command is an indirect buffer of any kind */
+static inline int adreno_cmd_is_ib(unsigned int cmd)
+{
+	return (cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2) ||
+		cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2) ||
+		cmd == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFE, 2) ||
+		cmd == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFD, 2));
+}
+
 #endif	/* __ADRENO_PM4TYPES_H */
