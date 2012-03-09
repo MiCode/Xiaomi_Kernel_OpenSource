@@ -698,6 +698,7 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_device_uart1,
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
+	&msm8625_kgsl_3d0,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
@@ -1152,6 +1153,7 @@ static void __init msm_qrd_init(void)
 
 	msm7627a_camera_init();
 	msm7627a_add_io_devices();
+	msm7x25a_kgsl_3d0_init();
 }
 
 static void __init qrd7627a_init_early(void)
