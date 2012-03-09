@@ -48,6 +48,7 @@ struct msm_hcd {
 	struct regulator			*hsusb_1p8;
 	struct regulator			*vbus;
 	bool					async_int;
+	bool					vbus_on;
 	atomic_t				in_lpm;
 	struct wake_lock			wlock;
 };
@@ -174,17 +175,24 @@ put_3p3:
 }
 
 #ifdef CONFIG_PM_SLEEP
-#define HSUSB_PHY_SUSP_DIG_VOL  500000
+#define HSUSB_PHY_SUSP_DIG_VOL_P50  500000
+#define HSUSB_PHY_SUSP_DIG_VOL_P75  750000
 static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 {
+	struct msm_usb_host_platform_data *pdata;
 	int max_vol = HSUSB_PHY_VDD_DIG_VOL_MAX;
 	int min_vol;
 	int ret;
 
+	pdata = mhcd->dev->platform_data;
+
 	if (high)
 		min_vol = HSUSB_PHY_VDD_DIG_VOL_MIN;
+	else if (pdata && pdata->dock_connect_irq &&
+			!irq_read_line(pdata->dock_connect_irq))
+		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P75;
 	else
-		min_vol = HSUSB_PHY_SUSP_DIG_VOL;
+		min_vol = HSUSB_PHY_SUSP_DIG_VOL_P50;
 
 	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
@@ -205,29 +213,6 @@ static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 }
 #endif
 
-static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
-{
-	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
-	struct msm_usb_host_platform_data *pdata;
-
-	if (!init) {
-		regulator_put(mhcd->vbus);
-		return 0;
-	}
-
-	mhcd->vbus = regulator_get(mhcd->dev, "vbus");
-	if (IS_ERR(mhcd->vbus)) {
-		pr_err("Unable to get vbus\n");
-		return -ENODEV;
-	}
-
-	pdata = mhcd->dev->platform_data;
-	if (pdata)
-		hcd->power_budget = pdata->power_budget;
-
-	return 0;
-}
-
 static void msm_ehci_vbus_power(struct msm_hcd *mhcd, bool on)
 {
 	int ret;
@@ -236,19 +221,84 @@ static void msm_ehci_vbus_power(struct msm_hcd *mhcd, bool on)
 		pr_err("vbus is NULL.");
 		return;
 	}
+
+	if (mhcd->vbus_on == on)
+		return;
+
 	if (on) {
 		ret = regulator_enable(mhcd->vbus);
 		if (ret) {
 			pr_err("unable to enable vbus\n");
 			return;
 		}
+		mhcd->vbus_on = true;
 	} else {
 		ret = regulator_disable(mhcd->vbus);
 		if (ret) {
 			pr_err("unable to disable vbus\n");
 			return;
 		}
+		mhcd->vbus_on = false;
 	}
+}
+
+static irqreturn_t msm_ehci_dock_connect_irq(int irq, void *data)
+{
+	const struct msm_usb_host_platform_data *pdata;
+	struct msm_hcd *mhcd = data;
+	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
+
+	pdata = mhcd->dev->platform_data;
+
+	if (atomic_read(&mhcd->in_lpm))
+		usb_hcd_resume_root_hub(hcd);
+
+	if (irq_read_line(pdata->dock_connect_irq)) {
+		dev_dbg(mhcd->dev, "%s:Dock removed disable vbus\n", __func__);
+		msm_ehci_vbus_power(mhcd, 0);
+	} else {
+		dev_dbg(mhcd->dev, "%s:Dock connected enable vbus\n", __func__);
+		msm_ehci_vbus_power(mhcd, 1);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
+{
+	int rc = 0;
+	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
+	const struct msm_usb_host_platform_data *pdata;
+
+	pdata = mhcd->dev->platform_data;
+
+	if (!init) {
+		regulator_put(mhcd->vbus);
+		if (pdata && pdata->dock_connect_irq)
+			free_irq(pdata->dock_connect_irq, mhcd);
+		return rc;
+	}
+
+	mhcd->vbus = regulator_get(mhcd->dev, "vbus");
+	if (IS_ERR(mhcd->vbus)) {
+		pr_err("Unable to get vbus\n");
+		return -ENODEV;
+	}
+
+	if (pdata) {
+		hcd->power_budget = pdata->power_budget;
+
+		if (pdata->dock_connect_irq) {
+			rc = request_threaded_irq(pdata->dock_connect_irq, NULL,
+					msm_ehci_dock_connect_irq,
+					IRQF_TRIGGER_FALLING |
+					IRQF_TRIGGER_RISING |
+					IRQF_ONESHOT, "msm_ehci_host", mhcd);
+			if (!rc)
+				enable_irq_wake(pdata->dock_connect_irq);
+		}
+	}
+	return rc;
 }
 
 static int msm_ehci_ldo_enable(struct msm_hcd *mhcd, int on)
@@ -772,6 +822,7 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 	struct usb_hcd *hcd;
 	struct resource *res;
 	struct msm_hcd *mhcd;
+	const struct msm_usb_host_platform_data *pdata;
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm2 probe\n");
@@ -859,8 +910,10 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 		goto vbus_deinit;
 	}
 
-	/*TBD:for now enable vbus here*/
-	msm_ehci_vbus_power(mhcd, 1);
+	pdata = mhcd->dev->platform_data;
+	if (pdata && (!pdata->dock_connect_irq ||
+				!irq_read_line(pdata->dock_connect_irq)))
+		msm_ehci_vbus_power(mhcd, 1);
 
 	device_init_wakeup(&pdev->dev, 1);
 	wake_lock_init(&mhcd->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
@@ -903,6 +956,7 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
+
 	msm_ehci_vbus_power(mhcd, 0);
 	msm_ehci_init_vbus(mhcd, 0);
 	msm_ehci_ldo_enable(mhcd, 0);
