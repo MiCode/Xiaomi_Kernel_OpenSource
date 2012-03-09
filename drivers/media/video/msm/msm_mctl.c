@@ -177,7 +177,7 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 	int rc = 0;
 	struct msm_camsensor_info info;
 	struct msm_camera_sensor_info *sdata;
-
+	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
 	if (copy_from_user(&info,
 			arg,
 			sizeof(struct msm_camsensor_info))) {
@@ -191,7 +191,11 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 	memcpy(&info.name[0], sdata->sensor_name, MAX_SENSOR_NAME);
 	info.flash_enabled = sdata->flash_data->flash_type !=
 					MSM_CAMERA_FLASH_NONE;
-
+	info.pxlcode = pcam->usr_fmts[0].pxlcode;
+	info.flashtype = sdata->flash_type; /* two flash_types here? */
+	info.camera_type = sdata->camera_type;
+	info.sensor_type = 0; /* need to add YUV/SOC in probing */
+	info.mount_angle = sdata->sensor_platform_info->mount_angle;
 	/* copy back to user space */
 	if (copy_to_user((void *)arg,
 				&info,
@@ -199,7 +203,6 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 		ERR_COPY_TO_USER();
 		rc = -EFAULT;
 	}
-
 	return rc;
 }
 
