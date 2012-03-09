@@ -69,6 +69,7 @@ obj-$(CONFIG_MSM_PIL_QDSP6V3) += pil-q6v3.o
 obj-$(CONFIG_MSM_PIL_QDSP6V4) += pil-q6v4.o
 obj-$(CONFIG_MSM_PIL_LPASS_QDSP6V5) += pil-q6v5.o pil-q6v5-lpass.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-q6v5-mss.o
+obj-$(CONFIG_MSM_PIL_MBA) += pil-mba.o
 obj-$(CONFIG_MSM_PIL_RIVA) += pil-riva.o
 obj-$(CONFIG_MSM_PIL_TZAPPS) += pil-tzapps.o
 obj-$(CONFIG_MSM_PIL_VIDC) += pil-vidc.o
