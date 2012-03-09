@@ -71,6 +71,7 @@ struct q6v4_data {
 	bool vreg_enabled;
 	struct clk *xo;
 	struct delayed_work work;
+	struct pil_device *pil;
 };
 
 static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -421,6 +422,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	desc->name = pdata->name;
 	desc->depends_on = pdata->depends;
 	desc->dev = &pdev->dev;
+	desc->owner = THIS_MODULE;
 
 	if (pas_supported(pdata->pas_id) > 0) {
 		desc->ops = &pil_q6v4_ops_trusted;
@@ -443,9 +445,11 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	}
 	INIT_DELAYED_WORK(&drv->work, pil_q6v4_remove_proxy_votes);
 
-	ret = msm_pil_register(desc);
-	if (ret)
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil)) {
+		ret = PTR_ERR(drv->pil);
 		goto err_pil;
+	}
 	return 0;
 err_pil:
 	flush_delayed_work_sync(&drv->work);
@@ -464,6 +468,7 @@ static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 	clk_put(drv->xo);
 	regulator_put(drv->vreg);
 	regulator_put(drv->pll_supply);
+	msm_pil_unregister(drv->pil);
 	return 0;
 }
 

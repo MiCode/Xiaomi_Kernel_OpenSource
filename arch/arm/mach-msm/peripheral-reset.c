@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,7 @@ static struct pil_desc pil_dsps_desc = {
 	.name = "dsps",
 	.dev = &pil_dsps.dev,
 	.ops = &pil_dsps_ops,
+	.owner = THIS_MODULE,
 };
 
 static int __init msm_peripheral_reset_init(void)
@@ -114,12 +115,12 @@ static int __init msm_peripheral_reset_init(void)
 	if (machine_is_msm8x60_fluid())
 		pil_dsps_desc.name = "dsps_fluid";
 	BUG_ON(platform_device_register(&pil_dsps));
-	BUG_ON(msm_pil_register(&pil_dsps_desc));
+	BUG_ON(IS_ERR(msm_pil_register(&pil_dsps_desc)));
 
 	return 0;
 }
 
-arch_initcall(msm_peripheral_reset_init);
+module_init(msm_peripheral_reset_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Validate and bring peripherals out of reset");

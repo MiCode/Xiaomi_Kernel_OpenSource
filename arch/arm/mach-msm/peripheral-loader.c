@@ -20,9 +20,11 @@
 #include <linux/mutex.h>
 #include <linux/memblock.h>
 #include <linux/slab.h>
+#include <linux/atomic.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
+#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 
@@ -30,34 +32,35 @@ struct pil_device {
 	struct pil_desc *desc;
 	int count;
 	struct mutex lock;
-	struct list_head list;
+	struct device dev;
+	struct module *owner;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *dentry;
+#endif
 };
 
-static DEFINE_MUTEX(pil_list_lock);
-static LIST_HEAD(pil_list);
+#define to_pil_device(d) container_of(d, struct pil_device, dev)
 
-static struct pil_device *__find_peripheral(const char *str)
+struct bus_type pil_bus_type = {
+	.name		= "pil",
+};
+
+static int __find_peripheral(struct device *dev, void *data)
 {
-	struct pil_device *dev;
-
-	list_for_each_entry(dev, &pil_list, list)
-		if (!strcmp(dev->desc->name, str))
-			return dev;
-	return NULL;
+	struct pil_device *pdev = to_pil_device(dev);
+	return !strncmp(pdev->desc->name, data, INT_MAX);
 }
 
 static struct pil_device *find_peripheral(const char *str)
 {
-	struct pil_device *dev;
+	struct device *dev;
 
 	if (!str)
 		return NULL;
 
-	mutex_lock(&pil_list_lock);
-	dev = __find_peripheral(str);
-	mutex_unlock(&pil_list_lock);
-
-	return dev;
+	dev = bus_find_device(&pil_bus_type, NULL, (void *)str,
+			__find_peripheral);
+	return dev ? to_pil_device(dev) : NULL;
 }
 
 #define IOMAP_SIZE SZ_4M
@@ -71,24 +74,23 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 	const u8 *data;
 
 	if (memblock_is_region_memory(phdr->p_paddr, phdr->p_memsz)) {
-		dev_err(pil->desc->dev, "Kernel memory would be overwritten");
+		dev_err(&pil->dev, "Kernel memory would be overwritten");
 		return -EPERM;
 	}
 
 	if (phdr->p_filesz) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d",
 				pil->desc->name, num);
-		ret = request_firmware(&fw, fw_name, pil->desc->dev);
+		ret = request_firmware(&fw, fw_name, &pil->dev);
 		if (ret) {
-			dev_err(pil->desc->dev, "Failed to locate blob %s\n",
+			dev_err(&pil->dev, "Failed to locate blob %s\n",
 					fw_name);
 			return ret;
 		}
 
 		if (fw->size != phdr->p_filesz) {
-			dev_err(pil->desc->dev,
-				"Blob size %u doesn't match %u\n", fw->size,
-				phdr->p_filesz);
+			dev_err(&pil->dev, "Blob size %u doesn't match %u\n",
+					fw->size, phdr->p_filesz);
 			ret = -EPERM;
 			goto release_fw;
 		}
@@ -105,7 +107,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		size = min_t(size_t, IOMAP_SIZE, count);
 		buf = ioremap(paddr, size);
 		if (!buf) {
-			dev_err(pil->desc->dev, "Failed to map memory\n");
+			dev_err(&pil->dev, "Failed to map memory\n");
 			ret = -ENOMEM;
 			goto release_fw;
 		}
@@ -126,7 +128,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		size = min_t(size_t, IOMAP_SIZE, count);
 		buf = ioremap(paddr, size);
 		if (!buf) {
-			dev_err(pil->desc->dev, "Failed to map memory\n");
+			dev_err(&pil->dev, "Failed to map memory\n");
 			ret = -ENOMEM;
 			goto release_fw;
 		}
@@ -140,7 +142,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 	ret = pil->desc->ops->verify_blob(pil->desc, phdr->p_paddr,
 					  phdr->p_memsz);
 	if (ret)
-		dev_err(pil->desc->dev, "Blob %u failed verification\n", num);
+		dev_err(&pil->dev, "Blob %u failed verification\n", num);
 
 release_fw:
 	release_firmware(fw);
@@ -163,40 +165,40 @@ static int load_image(struct pil_device *pil)
 	const struct firmware *fw;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", pil->desc->name);
-	ret = request_firmware(&fw, fw_name, pil->desc->dev);
+	ret = request_firmware(&fw, fw_name, &pil->dev);
 	if (ret) {
-		dev_err(pil->desc->dev, "Failed to locate %s\n", fw_name);
+		dev_err(&pil->dev, "Failed to locate %s\n", fw_name);
 		goto out;
 	}
 
 	if (fw->size < sizeof(*ehdr)) {
-		dev_err(pil->desc->dev, "Not big enough to be an elf header\n");
+		dev_err(&pil->dev, "Not big enough to be an elf header\n");
 		ret = -EIO;
 		goto release_fw;
 	}
 
 	ehdr = (struct elf32_hdr *)fw->data;
 	if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
-		dev_err(pil->desc->dev, "Not an elf header\n");
+		dev_err(&pil->dev, "Not an elf header\n");
 		ret = -EIO;
 		goto release_fw;
 	}
 
 	if (ehdr->e_phnum == 0) {
-		dev_err(pil->desc->dev, "No loadable segments\n");
+		dev_err(&pil->dev, "No loadable segments\n");
 		ret = -EIO;
 		goto release_fw;
 	}
 	if (sizeof(struct elf32_phdr) * ehdr->e_phnum +
 	    sizeof(struct elf32_hdr) > fw->size) {
-		dev_err(pil->desc->dev, "Program headers not within mdt\n");
+		dev_err(&pil->dev, "Program headers not within mdt\n");
 		ret = -EIO;
 		goto release_fw;
 	}
 
 	ret = pil->desc->ops->init_image(pil->desc, fw->data, fw->size);
 	if (ret) {
-		dev_err(pil->desc->dev, "Invalid firmware metadata\n");
+		dev_err(&pil->dev, "Invalid firmware metadata\n");
 		goto release_fw;
 	}
 
@@ -207,7 +209,7 @@ static int load_image(struct pil_device *pil)
 
 		ret = load_segment(phdr, i, pil);
 		if (ret) {
-			dev_err(pil->desc->dev, "Failed to load segment %d\n",
+			dev_err(&pil->dev, "Failed to load segment %d\n",
 					i);
 			goto release_fw;
 		}
@@ -215,10 +217,10 @@ static int load_image(struct pil_device *pil)
 
 	ret = pil->desc->ops->auth_and_reset(pil->desc);
 	if (ret) {
-		dev_err(pil->desc->dev, "Failed to bring out of reset\n");
+		dev_err(&pil->dev, "Failed to bring out of reset\n");
 		goto release_fw;
 	}
-	dev_info(pil->desc->dev, "brought out of reset\n");
+	dev_info(&pil->dev, "brought %s out of reset\n", pil->desc->name);
 
 release_fw:
 	release_firmware(fw);
@@ -242,33 +244,41 @@ void *pil_get(const char *name)
 	struct pil_device *pil_d;
 	void *retval;
 
+	if (!name)
+		return NULL;
+
 	pil = retval = find_peripheral(name);
 	if (!pil)
 		return ERR_PTR(-ENODEV);
+	if (!try_module_get(pil->owner)) {
+		put_device(&pil->dev);
+		return ERR_PTR(-ENODEV);
+	}
 
-	pil_d = find_peripheral(pil->desc->depends_on);
-	if (pil_d) {
-		void *p = pil_get(pil_d->desc->name);
-		if (IS_ERR(p))
-			return p;
+	pil_d = pil_get(pil->desc->depends_on);
+	if (IS_ERR(pil_d)) {
+		retval = pil_d;
+		goto err_depends;
 	}
 
 	mutex_lock(&pil->lock);
-	if (pil->count) {
-		pil->count++;
-		goto unlock;
+	if (!pil->count++) {
+		ret = load_image(pil);
+		if (ret) {
+			retval = ERR_PTR(ret);
+			goto err_load;
+		}
 	}
-
-	ret = load_image(pil);
-	if (ret) {
-		retval = ERR_PTR(ret);
-		goto unlock;
-	}
-
-	pil->count++;
-unlock:
 	mutex_unlock(&pil->lock);
+out:
 	return retval;
+err_load:
+	mutex_unlock(&pil->lock);
+	pil_put(pil_d);
+err_depends:
+	put_device(&pil->dev);
+	module_put(pil->owner);
+	goto out;
 }
 EXPORT_SYMBOL(pil_get);
 
@@ -281,22 +291,29 @@ EXPORT_SYMBOL(pil_get);
  */
 void pil_put(void *peripheral_handle)
 {
-	struct pil_device *pil_d;
-	struct pil_device *pil = peripheral_handle;
-	if (!pil || IS_ERR(pil))
+	struct pil_device *pil_d, *pil = peripheral_handle;
+
+	if (IS_ERR_OR_NULL(pil))
 		return;
 
 	mutex_lock(&pil->lock);
-	WARN(!pil->count, "%s: Reference count mismatch\n", __func__);
-	if (pil->count)
-		pil->count--;
-	if (pil->count == 0)
+	if (WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
+		goto err_out;
+	if (!--pil->count)
 		pil->desc->ops->shutdown(pil->desc);
 	mutex_unlock(&pil->lock);
 
 	pil_d = find_peripheral(pil->desc->depends_on);
-	if (pil_d)
+	module_put(pil->owner);
+	if (pil_d) {
 		pil_put(pil_d);
+		put_device(&pil_d->dev);
+	}
+	put_device(&pil->dev);
+	return;
+err_out:
+	mutex_unlock(&pil->lock);
+	return;
 }
 EXPORT_SYMBOL(pil_put);
 
@@ -312,6 +329,7 @@ void pil_force_shutdown(const char *name)
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		pil->desc->ops->shutdown(pil->desc);
 	mutex_unlock(&pil->lock);
+	put_device(&pil->dev);
 }
 EXPORT_SYMBOL(pil_force_shutdown);
 
@@ -328,13 +346,14 @@ int pil_force_boot(const char *name)
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		ret = load_image(pil);
 	mutex_unlock(&pil->lock);
+	put_device(&pil->dev);
 
 	return ret;
 }
 EXPORT_SYMBOL(pil_force_boot);
 
 #ifdef CONFIG_DEBUG_FS
-int msm_pil_debugfs_open(struct inode *inode, struct file *filp)
+static int msm_pil_debugfs_open(struct inode *inode, struct file *filp)
 {
 	filp->private_data = inode->i_private;
 	return 0;
@@ -384,7 +403,7 @@ static const struct file_operations msm_pil_debugfs_fops = {
 
 static struct dentry *pil_base_dir;
 
-static int msm_pil_debugfs_init(void)
+static int __init msm_pil_debugfs_init(void)
 {
 	pil_base_dir = debugfs_create_dir("pil", NULL);
 	if (!pil_base_dir) {
@@ -394,52 +413,119 @@ static int msm_pil_debugfs_init(void)
 
 	return 0;
 }
-arch_initcall(msm_pil_debugfs_init);
+
+static void __exit msm_pil_debugfs_exit(void)
+{
+	debugfs_remove_recursive(pil_base_dir);
+}
 
 static int msm_pil_debugfs_add(struct pil_device *pil)
 {
 	if (!pil_base_dir)
 		return -ENOMEM;
 
-	if (!debugfs_create_file(pil->desc->name, S_IRUGO | S_IWUSR,
-				pil_base_dir, pil, &msm_pil_debugfs_fops))
-		return -ENOMEM;
-	return 0;
+	pil->dentry = debugfs_create_file(pil->desc->name, S_IRUGO | S_IWUSR,
+				pil_base_dir, pil, &msm_pil_debugfs_fops);
+	return !pil->dentry ? -ENOMEM : 0;
+}
+
+static void msm_pil_debugfs_remove(struct pil_device *pil)
+{
+	debugfs_remove(pil->dentry);
 }
 #else
+static int __init msm_pil_debugfs_init(void) { return 0; };
+static void __exit msm_pil_debugfs_exit(void) { return 0; };
 static int msm_pil_debugfs_add(struct pil_device *pil) { return 0; }
+static void msm_pil_debugfs_remove(struct pil_device *pil) { }
 #endif
+
+static int __msm_pil_shutdown(struct device *dev, void *data)
+{
+	struct pil_device *pil = to_pil_device(dev);
+	pil->desc->ops->shutdown(pil->desc);
+	return 0;
+}
 
 static int msm_pil_shutdown_at_boot(void)
 {
-	struct pil_device *pil;
-
-	mutex_lock(&pil_list_lock);
-	list_for_each_entry(pil, &pil_list, list)
-		pil->desc->ops->shutdown(pil->desc);
-	mutex_unlock(&pil_list_lock);
-
-	return 0;
+	return bus_for_each_dev(&pil_bus_type, NULL, NULL, __msm_pil_shutdown);
 }
 late_initcall(msm_pil_shutdown_at_boot);
 
-int msm_pil_register(struct pil_desc *desc)
+static void pil_device_release(struct device *dev)
 {
+	struct pil_device *pil = to_pil_device(dev);
+	mutex_destroy(&pil->lock);
+	kfree(pil);
+}
+
+struct pil_device *msm_pil_register(struct pil_desc *desc)
+{
+	int err;
+	static atomic_t pil_count = ATOMIC_INIT(-1);
 	struct pil_device *pil = kzalloc(sizeof(*pil), GFP_KERNEL);
+
 	if (!pil)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	mutex_init(&pil->lock);
-	INIT_LIST_HEAD(&pil->list);
 	pil->desc = desc;
+	pil->owner = desc->owner;
+	pil->dev.parent = desc->dev;
+	pil->dev.bus = &pil_bus_type;
+	pil->dev.release = pil_device_release;
 
-	mutex_lock(&pil_list_lock);
-	list_add(&pil->list, &pil_list);
-	mutex_unlock(&pil_list_lock);
+	dev_set_name(&pil->dev, "pil%d", atomic_inc_return(&pil_count));
+	err = device_register(&pil->dev);
+	if (err) {
+		put_device(&pil->dev);
+		mutex_destroy(&pil->lock);
+		kfree(pil);
+		return ERR_PTR(err);
+	}
 
-	return msm_pil_debugfs_add(pil);
+	err = msm_pil_debugfs_add(pil);
+	if (err) {
+		device_unregister(&pil->dev);
+		return ERR_PTR(err);
+	}
+
+	return pil;
 }
 EXPORT_SYMBOL(msm_pil_register);
+
+void msm_pil_unregister(struct pil_device *pil)
+{
+	if (IS_ERR_OR_NULL(pil))
+		return;
+
+	if (get_device(&pil->dev)) {
+		mutex_lock(&pil->lock);
+		WARN_ON(pil->count);
+		msm_pil_debugfs_remove(pil);
+		device_unregister(&pil->dev);
+		mutex_unlock(&pil->lock);
+		put_device(&pil->dev);
+	}
+}
+EXPORT_SYMBOL(msm_pil_unregister);
+
+static int __init msm_pil_init(void)
+{
+	int ret = msm_pil_debugfs_init();
+	if (ret)
+		return ret;
+	return bus_register(&pil_bus_type);
+}
+subsys_initcall(msm_pil_init);
+
+static void __exit msm_pil_exit(void)
+{
+	bus_unregister(&pil_bus_type);
+	msm_pil_debugfs_exit();
+}
+module_exit(msm_pil_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Load peripheral images and bring peripherals out of reset");
