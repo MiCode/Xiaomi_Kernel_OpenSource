@@ -1070,6 +1070,12 @@ static int __init msm_qrd_init_ar6000pm(void)
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 
+static void __init msm_add_footswitch_devices(void)
+{
+	platform_add_devices(msm_footswitch_devices,
+				msm_num_footswitch_devices);
+}
+
 static void add_platform_devices(void)
 {
 	if (machine_is_msm8625_evb())
@@ -1130,6 +1136,7 @@ static void __init msm_qrd_init(void)
 	/*OTG gadget*/
 	qrd7627a_otg_gadget();
 
+	msm_add_footswitch_devices();
 	add_platform_devices();
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
