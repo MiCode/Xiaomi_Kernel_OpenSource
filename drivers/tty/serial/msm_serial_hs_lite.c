@@ -1067,13 +1067,12 @@ static void msm_hsl_console_putchar(struct uart_port *port, int ch)
 
 	wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
 	msm_hsl_write(port, 1, regmap[vid][UARTDM_NCF_TX]);
-
-	while (!(msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
-				UARTDM_SR_TXRDY_BMSK)) {
-		udelay(1);
-		touch_nmi_watchdog();
-	}
-
+	/*
+	 * Dummy read to add 1 AHB clock delay to fix UART hardware bug.
+	 * Bug: Delay required on TX-transfer-init. after writing to
+	 * NO_CHARS_FOR_TX register.
+	 */
+	msm_hsl_read(port, regmap[vid][UARTDM_SR]);
 	msm_hsl_write(port, ch, regmap[vid][UARTDM_TF]);
 }
 
