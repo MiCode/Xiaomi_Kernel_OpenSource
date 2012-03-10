@@ -1940,8 +1940,10 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 	if (!conn)
 		goto unlock;
 
-	if (!ev->status)
+	if (!ev->status) {
 		memcpy(conn->features, ev->features, 8);
+		mgmt_remote_features(hdev->id, &conn->dst, ev->features);
+	}
 
 	if (conn->state != BT_CONFIG)
 		goto unlock;

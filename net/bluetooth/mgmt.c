@@ -2932,3 +2932,16 @@ int mgmt_remote_version(u16 index, bdaddr_t *bdaddr, u8 ver, u16 mnf,
 
 	return mgmt_event(MGMT_EV_REMOTE_VERSION, index, &ev, sizeof(ev), NULL);
 }
+
+int mgmt_remote_features(u16 index, bdaddr_t *bdaddr, u8 features[8])
+{
+	struct mgmt_ev_remote_features ev;
+
+	memset(&ev, 0, sizeof(ev));
+
+	bacpy(&ev.bdaddr, bdaddr);
+	memcpy(ev.features, features, sizeof(ev.features));
+
+	return mgmt_event(MGMT_EV_REMOTE_FEATURES, index, &ev, sizeof(ev),
+									NULL);
+}
