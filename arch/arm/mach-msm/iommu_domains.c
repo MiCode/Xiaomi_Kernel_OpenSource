@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,9 +92,22 @@ struct iommu_domain *msm_get_iommu_domain(int domain_num)
 		return NULL;
 }
 
+static unsigned long subsystem_to_domain_tbl[] = {
+	VIDEO_DOMAIN,
+	VIDEO_DOMAIN,
+	CAMERA_DOMAIN,
+	DISPLAY_DOMAIN,
+	ROTATOR_DOMAIN,
+	0xFFFFFFFF
+};
+
 unsigned long msm_subsystem_get_domain_no(int subsys_id)
 {
-	return GLOBAL_DOMAIN;
+	if (subsys_id > INVALID_SUBSYS_ID && subsys_id <= MAX_SUBSYSTEM_ID &&
+	    subsys_id < ARRAY_SIZE(subsystem_to_domain_tbl))
+		return subsystem_to_domain_tbl[subsys_id];
+	else
+		return subsystem_to_domain_tbl[MAX_SUBSYSTEM_ID];
 }
 
 unsigned long msm_subsystem_get_partition_no(int subsys_id)

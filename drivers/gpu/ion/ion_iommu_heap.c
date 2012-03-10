@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,22 +131,24 @@ int ion_iommu_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	struct ion_iommu_priv_data *data = buffer->priv_virt;
 	int i;
-
+	unsigned long curr_addr;
 	if (!data)
 		return -EINVAL;
 
 	if (!ION_IS_CACHED(flags))
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	for (i = 0; i < data->nrpages; i++)
-		if (vm_insert_page(vma, vma->vm_start + i * PAGE_SIZE,
-			data->pages[i]))
+	curr_addr = vma->vm_start;
+	for (i = 0; i < data->nrpages && curr_addr < vma->vm_end; i++) {
+		if (vm_insert_page(vma, curr_addr, data->pages[i])) {
 			/*
 			 * This will fail the mmap which will
 			 * clean up the vma space properly.
 			 */
 			return -EINVAL;
-
+		}
+		curr_addr += PAGE_SIZE;
+	}
 	return 0;
 }
 
@@ -253,6 +255,69 @@ void ion_iommu_heap_unmap_iommu(struct ion_iommu_map *data)
 	return;
 }
 
+static int ion_iommu_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
+			void *vaddr, unsigned int offset, unsigned int length,
+			unsigned int cmd)
+{
+	unsigned long vstart, pstart;
+	void (*op)(unsigned long, unsigned long, unsigned long);
+	unsigned int i;
+	struct ion_iommu_priv_data *data = buffer->priv_virt;
+
+	if (!data)
+		return -ENOMEM;
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		op = clean_caches;
+		break;
+	case ION_IOC_INV_CACHES:
+		op = invalidate_caches;
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		op = clean_and_invalidate_caches;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	vstart = (unsigned long) vaddr;
+	for (i = 0; i < data->nrpages; ++i, vstart += PAGE_SIZE) {
+		pstart = page_to_phys(data->pages[i]);
+		op(vstart, PAGE_SIZE, pstart);
+	}
+
+	return 0;
+}
+
+static struct scatterlist *ion_iommu_heap_map_dma(struct ion_heap *heap,
+					      struct ion_buffer *buffer)
+{
+	struct scatterlist *sglist = NULL;
+	if (buffer->priv_virt) {
+		struct ion_iommu_priv_data *data = buffer->priv_virt;
+		unsigned int i;
+
+		if (!data->nrpages)
+			return NULL;
+
+		sglist = vmalloc(sizeof(*sglist) * data->nrpages);
+		if (!sglist)
+			return ERR_PTR(-ENOMEM);
+
+		sg_init_table(sglist, data->nrpages);
+		for (i = 0; i < data->nrpages; ++i)
+			sg_set_page(&sglist[i], data->pages[i], PAGE_SIZE, 0);
+	}
+	return sglist;
+}
+
+static void ion_iommu_heap_unmap_dma(struct ion_heap *heap,
+				 struct ion_buffer *buffer)
+{
+	if (buffer->sglist)
+		vfree(buffer->sglist);
+}
 
 static struct ion_heap_ops iommu_heap_ops = {
 	.allocate = ion_iommu_heap_allocate,
@@ -262,6 +327,9 @@ static struct ion_heap_ops iommu_heap_ops = {
 	.unmap_kernel = ion_iommu_heap_unmap_kernel,
 	.map_iommu = ion_iommu_heap_map_iommu,
 	.unmap_iommu = ion_iommu_heap_unmap_iommu,
+	.cache_op = ion_iommu_cache_ops,
+	.map_dma = ion_iommu_heap_map_dma,
+	.unmap_dma = ion_iommu_heap_unmap_dma,
 };
 
 struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
