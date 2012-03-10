@@ -30,6 +30,7 @@
 #include <sound/tlv.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 #include "wcd9304.h"
 
 #define WCD9304_RATES (SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|\
@@ -1888,6 +1889,10 @@ static void sitar_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 static int sitar_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dai->codec->dev->parent);
+	if ((wcd9xxx != NULL) && (wcd9xxx->dev != NULL) &&
+			(wcd9xxx->dev->parent != NULL))
+		pm_runtime_get_sync(wcd9xxx->dev->parent);
 	pr_err("%s(): substream = %s  stream = %d\n" , __func__,
 		substream->name, substream->stream);
 
@@ -1897,6 +1902,12 @@ static int sitar_startup(struct snd_pcm_substream *substream,
 static void sitar_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dai->codec->dev->parent);
+	if ((wcd9xxx != NULL) && (wcd9xxx->dev != NULL) &&
+			(wcd9xxx->dev->parent != NULL)) {
+		pm_runtime_mark_last_busy(wcd9xxx->dev->parent);
+		pm_runtime_put(wcd9xxx->dev->parent);
+	}
 	pr_err("%s(): substream = %s  stream = %d\n" , __func__,
 		substream->name, substream->stream);
 }
@@ -2539,26 +2550,6 @@ static int sitar_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	return 0;
 }
 
-
-static void sitar_lock_sleep(struct sitar_priv *sitar)
-{
-	int ret;
-	while (!(ret = wait_event_timeout(sitar->pm_wq,
-					 atomic_inc_not_zero(&sitar->pm_cnt),
-					 2 * HZ))) {
-		pr_err("%s: didn't wake up for 2000ms (%d), pm_cnt %d\n",
-			__func__, ret, atomic_read(&sitar->pm_cnt));
-		WARN_ON_ONCE(1);
-	}
-}
-
-static void sitar_unlock_sleep(struct sitar_priv *sitar)
-{
-	atomic_dec(&sitar->pm_cnt);
-	wake_up(&sitar->pm_wq);
-}
-
-
 static void btn0_lpress_fn(struct work_struct *work)
 {
 	struct delayed_work *delayed_work;
@@ -2581,7 +2572,6 @@ static void btn0_lpress_fn(struct work_struct *work)
 		pr_err("%s: Bad sitar private data\n", __func__);
 	}
 
-	sitar_unlock_sleep(sitar);
 }
 
 int sitar_hs_detect(struct snd_soc_codec *codec,
@@ -2628,10 +2618,10 @@ static irqreturn_t sitar_dce_handler(int irq, void *data)
 	struct sitar_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
 	short bias_value;
+	struct wcd9xxx *core = dev_get_drvdata(priv->codec->dev->parent);
 
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_REMOVAL);
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
-	sitar_lock_sleep(priv);
 
 	bias_value = sitar_codec_read_dce_result(codec);
 	pr_err("%s: button press interrupt, bias value(DCE Read)=%d\n",
@@ -2648,10 +2638,11 @@ static irqreturn_t sitar_dce_handler(int irq, void *data)
 
 	msleep(100);
 
+	wcd9xxx_lock_sleep(core);
 	if (schedule_delayed_work(&priv->btn0_dwork,
 				 msecs_to_jiffies(400)) == 0) {
 		WARN(1, "Button pressed twice without release event\n");
-		sitar_unlock_sleep(priv);
+		wcd9xxx_unlock_sleep(core);
 	}
 
 	return IRQ_HANDLED;
@@ -2662,10 +2653,10 @@ static irqreturn_t sitar_release_handler(int irq, void *data)
 	struct sitar_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
 	int ret, mic_voltage;
+	struct wcd9xxx *core = dev_get_drvdata(priv->codec->dev->parent);
 
 	pr_err("%s\n", __func__);
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_RELEASE);
-	sitar_lock_sleep(priv);
 
 	mic_voltage = sitar_codec_read_dce_result(codec);
 	pr_err("%s: Microphone Voltage on release(DCE Read) = %d\n",
@@ -2687,7 +2678,7 @@ static irqreturn_t sitar_release_handler(int irq, void *data)
 		} else {
 			/* if scheduled btn0_dwork is canceled from here,
 			* we have to unlock from here instead btn0_work */
-			sitar_unlock_sleep(priv);
+			wcd9xxx_unlock_sleep(core);
 			mic_voltage =
 				sitar_codec_measure_micbias_voltage(codec, 0);
 			pr_err("%s: Mic Voltage on release(new STA) = %d\n",
@@ -2716,7 +2707,6 @@ static irqreturn_t sitar_release_handler(int irq, void *data)
 	}
 
 	sitar_codec_start_hs_polling(codec);
-	sitar_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -2860,7 +2850,6 @@ static irqreturn_t sitar_hs_insert_irq(int irq, void *data)
 
 	pr_err("%s\n", __func__);
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_INSERTION);
-	sitar_lock_sleep(priv);
 
 	is_removal = snd_soc_read(codec, SITAR_A_CDC_MBHC_INT_CTL) & 0x02;
 	snd_soc_update_bits(codec, SITAR_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
@@ -2930,7 +2919,6 @@ static irqreturn_t sitar_hs_insert_irq(int irq, void *data)
 		}
 		sitar_codec_shutdown_hs_removal_detect(codec);
 		sitar_codec_enable_hs_detect(codec, 1);
-		sitar_unlock_sleep(priv);
 		return IRQ_HANDLED;
 	}
 
@@ -2988,7 +2976,6 @@ static irqreturn_t sitar_hs_insert_irq(int irq, void *data)
 		sitar_sync_hph_state(priv);
 	}
 
-	sitar_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -3001,7 +2988,6 @@ static irqreturn_t sitar_hs_remove_irq(int irq, void *data)
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_REMOVAL);
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
 	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_RELEASE);
-	sitar_lock_sleep(priv);
 
 	usleep_range(priv->calibration->shutdown_plug_removal,
 		priv->calibration->shutdown_plug_removal);
@@ -3031,7 +3017,6 @@ static irqreturn_t sitar_hs_remove_irq(int irq, void *data)
 		sitar_codec_enable_hs_detect(codec, 1);
 	}
 
-	sitar_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -3045,7 +3030,6 @@ static irqreturn_t sitar_slimbus_irq(int irq, void *data)
 	int i, j;
 	u8 val;
 
-	sitar_lock_sleep(priv);
 
 	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++) {
 		slimbus_value = wcd9xxx_interface_reg_read(codec->control_data,
@@ -3064,7 +3048,6 @@ static irqreturn_t sitar_slimbus_irq(int irq, void *data)
 			SITAR_SLIM_PGD_PORT_INT_CLR0 + i, 0xFF);
 	}
 
-	sitar_unlock_sleep(priv);
 	return IRQ_HANDLED;
 }
 
@@ -3486,53 +3469,14 @@ static const struct file_operations codec_debug_ops = {
 #ifdef CONFIG_PM
 static int sitar_suspend(struct device *dev)
 {
-	int ret = 0, cnt;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sitar_priv *sitar = platform_get_drvdata(pdev);
-
-	cnt = atomic_read(&sitar->pm_cnt);
-	if (cnt > 0) {
-		if (wait_event_timeout(sitar->pm_wq,
-					(atomic_cmpxchg(&sitar->pm_cnt, 1, 0)
-						== 1), 5 * HZ)) {
-			dev_dbg(dev, "system suspend pm_cnt %d\n",
-				atomic_read(&sitar->pm_cnt));
-		} else {
-			dev_err(dev, "%s timed out pm_cnt = %d\n",
-				__func__, atomic_read(&sitar->pm_cnt));
-			WARN_ON_ONCE(1);
-			ret = -EBUSY;
-		}
-	} else if (cnt == 0)
-		dev_warn(dev, "system is already in suspend, pm_cnt %d\n",
-			atomic_read(&sitar->pm_cnt));
-	else {
-		WARN(1, "unexpected pm_cnt %d\n", cnt);
-		ret = -EFAULT;
-	}
-
-	return ret;
+	dev_dbg(dev, "%s: system suspend\n", __func__);
+	return 0;
 }
 
 static int sitar_resume(struct device *dev)
 {
-	int ret = 0, cnt;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sitar_priv *sitar = platform_get_drvdata(pdev);
-
-	cnt = atomic_cmpxchg(&sitar->pm_cnt, 0, 1);
-	if (cnt == 0) {
-		dev_dbg(dev, "system resume, pm_cnt %d\n",
-			atomic_read(&sitar->pm_cnt));
-		wake_up_all(&sitar->pm_wq);
-	} else if (cnt > 0)
-		dev_warn(dev, "system is already awake, pm_cnt %d\n", cnt);
-	else {
-		WARN(1, "unexpected pm_cnt %d\n", cnt);
-		ret = -EFAULT;
-	}
-
-	return ret;
+	dev_dbg(dev, "%s: system resume\n", __func__);
+	return 0;
 }
 
 static const struct dev_pm_ops sitar_pm_ops = {
