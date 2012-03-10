@@ -526,27 +526,6 @@ int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	return rc;
 }
 
-/* Get the currently-set rate of a clock in Hz. */
-unsigned long rcg_clk_get_rate(struct clk *c)
-{
-	struct rcg_clk *clk = to_rcg_clk(c);
-	unsigned long flags;
-	unsigned ret = 0;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	ret = clk->current_freq->freq_hz;
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	/*
-	 * Return 0 if the rate has never been set. Might not be correct,
-	 * but it's good enough.
-	 */
-	if (ret == FREQ_END)
-		ret = 0;
-
-	return ret;
-}
-
 /* Check if a clock is currently enabled. */
 int rcg_clk_is_enabled(struct clk *clk)
 {
