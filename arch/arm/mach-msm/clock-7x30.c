@@ -31,6 +31,7 @@
 #include "clock-pcom.h"
 #include "clock-voter.h"
 #include "proc_comm.h"
+#include "clock-pll.h"
 
 #define REG_BASE(off) (MSM_CLK_CTL_BASE + (off))
 #define REG(off) (MSM_CLK_CTL_SH2_BASE + (off))
@@ -268,6 +269,7 @@ static struct pll_vote_clk pll1_clk = {
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(1),
 	.status_reg = PLL1_STATUS_BASE_REG,
+	.status_mask = BIT(16),
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll1_clk",
@@ -282,6 +284,7 @@ static struct pll_vote_clk pll2_clk = {
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(2),
 	.status_reg = PLL2_STATUS_BASE_REG,
+	.status_mask = BIT(16),
 	.parent = &tcxo_clk.c,
 	.c = {
 		.dbg_name = "pll2_clk",
@@ -296,6 +299,7 @@ static struct pll_vote_clk pll3_clk = {
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(3),
 	.status_reg = PLL3_STATUS_BASE_REG,
+	.status_mask = BIT(16),
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll3_clk",
@@ -309,6 +313,7 @@ static struct pll_vote_clk pll4_clk = {
 	.en_reg = PLL_ENA_REG,
 	.en_mask = BIT(4),
 	.status_reg = PLL4_STATUS_BASE_REG,
+	.status_mask = BIT(16),
 	.parent = &lpxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",

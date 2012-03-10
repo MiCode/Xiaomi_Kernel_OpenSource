@@ -32,6 +32,7 @@
 #include "clock-voter.h"
 #include "clock-rpm.h"
 #include "devices.h"
+#include "clock-pll.h"
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_LPA(off)	(MSM_LPASS_CLK_CTL_BASE + (off))
@@ -259,6 +260,7 @@ static struct pll_vote_clk pll0_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &cxo_clk.c,
 	.soft_vote = &soft_vote_pll0,
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
@@ -275,6 +277,7 @@ static struct pll_vote_clk pll0_acpu_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
+	.status_mask = BIT(16),
 	.soft_vote = &soft_vote_pll0,
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
@@ -290,6 +293,7 @@ static struct pll_vote_clk pll4_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(4),
 	.status_reg = LCC_PLL0_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
@@ -306,6 +310,7 @@ static struct pll_vote_clk pll8_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &cxo_clk.c,
 	.soft_vote = &soft_vote_pll8,
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
@@ -322,6 +327,7 @@ static struct pll_vote_clk pll8_acpu_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
+	.status_mask = BIT(16),
 	.soft_vote = &soft_vote_pll8,
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
@@ -338,7 +344,7 @@ static struct pll_clk pll9_acpu_clk = {
 	.c = {
 		.dbg_name = "pll9_acpu_clk",
 		.rate = 440000000,
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		CLK_INIT(pll9_acpu_clk.c),
 		.warned = true,
 	},
@@ -348,6 +354,7 @@ static struct pll_vote_clk pll14_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(11),
 	.status_reg = BB_PLL14_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &cxo_clk.c,
 	.c = {
 		.dbg_name = "pll14_clk",
@@ -1742,7 +1749,7 @@ static void __init msm9615_clock_pre_init(void)
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 
-	clk_ops_pll.enable = sr_pll_clk_enable;
+	clk_ops_local_pll.enable = sr_pll_clk_enable;
 
 	/* Enable PDM CXO source. */
 	regval = readl_relaxed(PDM_CLK_NS_REG);
