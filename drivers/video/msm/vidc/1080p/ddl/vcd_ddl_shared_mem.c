@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,6 +199,15 @@
 #define VIDC_SM_CHROMA_ADDR_CHANGE_ADDR   0x0148
 #define VIDC_SM_CHROMA_ADDR_CHANGE_BMASK  0x00000001
 #define VIDC_SM_CHROMA_ADDR_CHANGE_SHFT   0
+
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_ADDR   0x0154
+
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTER_SLICE_BMSK  0x0c
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTER_SLICE_SHFT 2
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTRA_SLICE_BMSK 0X02
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTRA_SLICE_SHFT 1
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_CONCEAL_ENABLE_BMSK  0x01
+#define VIDC_SM_ERROR_CONCEALMENT_CONFIG_CONCEAL_ENABLE_SHFT   0
 
 #define VIDC_SM_SEI_ENABLE_ADDR                     0x0180
 #define VIDC_SM_SEI_ENABLE_RECOVERY_POINT_SEI_BMSK  0x00000001
@@ -724,4 +733,25 @@ void vidc_sm_get_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
 	u32 *sei_enable)
 {
 	*sei_enable = DDL_MEM_READ_32(shared_mem, VIDC_SM_SEI_ENABLE_ADDR);
+}
+
+void vidc_sm_set_error_concealment_config(struct ddl_buf_addr *shared_mem,
+	u32 inter_slice, u32 intra_slice, u32 conceal_config_enable)
+{
+	u32 error_conceal_config = 0;
+
+	error_conceal_config = VIDC_SETFIELD(inter_slice,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTER_SLICE_SHFT,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTER_SLICE_BMSK);
+
+	error_conceal_config |= VIDC_SETFIELD(intra_slice,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTRA_SLICE_SHFT,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_INTRA_SLICE_BMSK);
+
+	error_conceal_config |= VIDC_SETFIELD(conceal_config_enable,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_CONCEAL_ENABLE_SHFT,
+			VIDC_SM_ERROR_CONCEALMENT_CONFIG_CONCEAL_ENABLE_BMSK);
+
+	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_ERROR_CONCEALMENT_CONFIG_ADDR,
+			error_conceal_config);
 }
