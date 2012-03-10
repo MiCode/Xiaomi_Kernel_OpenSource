@@ -365,9 +365,6 @@ struct pll_rate {
 };
 #define PLL_RATE(l, m, n, v, d, i) { l, m, n, v, (d>>1), i }
 
-static int rpm_vreg_id_vdd_dig;
-static int rpm_vreg_id_vdd_sr2_pll;
-
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_LOW,
@@ -375,7 +372,7 @@ enum vdd_dig_levels {
 	VDD_DIG_HIGH
 };
 
-static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_dig_8960(struct clk_vdd_class *vdd_class, int level)
 {
 	static const int vdd_uv[] = {
 		[VDD_DIG_NONE]    =       0,
@@ -383,11 +380,23 @@ static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 		[VDD_DIG_NOMINAL] = 1050000,
 		[VDD_DIG_HIGH]    = 1150000
 	};
-	return rpm_vreg_set_voltage(rpm_vreg_id_vdd_dig, RPM_VREG_VOTER3,
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S3, RPM_VREG_VOTER3,
 				    vdd_uv[level], 1150000, 1);
 }
 
-static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
+static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig_8960);
+
+static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
+{
+	static const int vdd_uv[] = {
+		[VDD_DIG_NONE]    =       0,
+		[VDD_DIG_LOW]     =  945000,
+		[VDD_DIG_NOMINAL] = 1050000,
+		[VDD_DIG_HIGH]    = 1150000
+	};
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_S1, RPM_VREG_VOTER3,
+				    vdd_uv[level], 1150000, 1);
+}
 
 #define VDD_DIG_FMAX_MAP1(l1, f1) \
 	.vdd_class = &vdd_dig, \
@@ -407,49 +416,53 @@ enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_ON
 };
 
-static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_sr2_pll_8960(struct clk_vdd_class *vdd_class, int level)
 {
 	int rc = 0;
-	if (cpu_is_msm8960()) {
-		if (level == VDD_SR2_PLL_OFF) {
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
-					RPM_VREG_VOTER3, 0, 0, 1);
-			if (rc)
-				return rc;
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
-					RPM_VREG_VOTER3, 0, 0, 1);
-			if (rc)
-				rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
-					RPM_VREG_VOTER3, 1800000, 1800000, 1);
-		} else {
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
-					RPM_VREG_VOTER3, 2100000, 2100000, 1);
-			if (rc)
-				return rc;
-			rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
-					RPM_VREG_VOTER3, 1800000, 1800000, 1);
-			if (rc)
-				rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
-						RPM_VREG_VOTER3, 0, 0, 1);
-		}
+
+	if (level == VDD_SR2_PLL_OFF) {
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
 	} else {
-		if (level == VDD_SR2_PLL_OFF) {
-			rc = rpm_vreg_set_voltage(rpm_vreg_id_vdd_sr2_pll,
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
+				RPM_VREG_VOTER3, 2100000, 2100000, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_S8,
 					RPM_VREG_VOTER3, 0, 0, 1);
-			if (rc)
-				return rc;
-		} else {
-			rc = rpm_vreg_set_voltage(rpm_vreg_id_vdd_sr2_pll,
-					RPM_VREG_VOTER3, 1800000, 1800000, 1);
-			if (rc)
-				return rc;
-		}
 	}
 
 	return rc;
 }
 
-static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll);
+static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll_8960);
+
+static int sr2_lreg_uv[] = {
+	[VDD_SR2_PLL_OFF] = 0,
+	[VDD_SR2_PLL_ON] = 1800000,
+};
+
+static int set_vdd_sr2_pll_8064(struct clk_vdd_class *vdd_class, int level)
+{
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_LVS7, RPM_VREG_VOTER3,
+				    sr2_lreg_uv[level], sr2_lreg_uv[level], 1);
+}
+
+static int set_vdd_sr2_pll_8930(struct clk_vdd_class *vdd_class, int level)
+{
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_L23, RPM_VREG_VOTER3,
+				    sr2_lreg_uv[level], sr2_lreg_uv[level], 1);
+}
 
 /*
  * Clock Descriptions
@@ -5679,16 +5692,11 @@ static void __init reg_init(void)
 static void __init msm8960_clock_init(void)
 {
 
-	if (cpu_is_msm8960()) {
-		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8921_S3;
-	} else if (cpu_is_apq8064()) {
-		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8921_S3;
-		rpm_vreg_id_vdd_sr2_pll = RPM_VREG_ID_PM8921_LVS7;
+	if (cpu_is_apq8064()) {
+		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8064;
 	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
-		rpm_vreg_id_vdd_dig = RPM_VREG_ID_PM8038_S1;
-		rpm_vreg_id_vdd_sr2_pll = RPM_VREG_ID_PM8038_L23;
-	} else {
-		BUG();
+		vdd_dig.set_vdd = set_vdd_dig_8930;
+		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8930;
 	}
 
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8960");
