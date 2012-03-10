@@ -3105,7 +3105,7 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 	if (vreg->rdesc.name == NULL) {
 		pr_err("regulator name missing\n");
 		return -EINVAL;
-	} else if (vreg->type < 0 || vreg->type > PM8XXX_REGULATOR_TYPE_MAX) {
+	} else if (vreg->type < 0 || vreg->type >= PM8XXX_REGULATOR_TYPE_MAX) {
 		pr_err("%s: regulator type=%d is invalid\n", vreg->rdesc.name,
 			vreg->type);
 		return -EINVAL;
