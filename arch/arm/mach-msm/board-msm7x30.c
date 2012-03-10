@@ -91,6 +91,7 @@
 #include <linux/bma150.h>
 
 #include "board-msm7x30-regulator.h"
+#include "pm.h"
 
 #define MSM_PMEM_SF_SIZE	0x1700000
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
@@ -2986,6 +2987,26 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 		.residency = 0,
 	},
 };
+
+u32 msm7x30_power_collapse_latency(enum msm_pm_sleep_mode mode)
+{
+	switch (mode) {
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
+		return msm_pm_data
+		[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].latency;
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN:
+		return msm_pm_data
+		[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].latency;
+	case MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT:
+		return msm_pm_data
+		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
+	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
+		return msm_pm_data
+		[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT].latency;
+	default:
+	return 0;
+	}
+}
 
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
@@ -6159,6 +6180,8 @@ static void __init msm7x30_init_mmc(void)
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 	if (mmc_regulator_init(1, "s3", 1800000))
 		goto out1;
+	msm7x30_sdc1_data.swfi_latency = msm7x30_power_collapse_latency(
+		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT);
 
 	if (machine_is_msm7x30_fluid()) {
 		msm7x30_sdc1_data.ocr_mask =  MMC_VDD_27_28 | MMC_VDD_28_29;
@@ -6174,6 +6197,8 @@ out1:
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 	if (mmc_regulator_init(2, "s3", 1800000))
 		goto out2;
+	msm7x30_sdc2_data.swfi_latency = msm7x30_power_collapse_latency(
+		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT);
 
 	if (machine_is_msm8x55_svlte_surf())
 		msm7x30_sdc2_data.msmsdcc_fmax =  24576000;
@@ -6189,6 +6214,8 @@ out2:
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	if (mmc_regulator_init(3, "s3", 1800000))
 		goto out3;
+	msm7x30_sdc3_data.swfi_latency = msm7x30_power_collapse_latency(
+		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT);
 
 	msm_sdcc_setup_gpio(3, 1);
 	msm_add_sdcc(3, &msm7x30_sdc3_data);
@@ -6197,6 +6224,8 @@ out3:
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
 	if (mmc_regulator_init(4, "mmc", 2850000))
 		return;
+	msm7x30_sdc4_data.swfi_latency = msm7x30_power_collapse_latency(
+		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT);
 
 	msm_add_sdcc(4, &msm7x30_sdc4_data);
 #endif
