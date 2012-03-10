@@ -704,7 +704,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	int ret;
 	unsigned long flags;
 
-	ret = usb_ep_enable(port->gr->in, port->gr->in_desc);
+	ret = usb_ep_enable(port->gr->in);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 				__func__, port->gr->in);
@@ -712,7 +712,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 	port->gr->in->driver_data = port;
 
-	ret = usb_ep_enable(port->gr->out, port->gr->out_desc);
+	ret = usb_ep_enable(port->gr->out);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 				__func__, port->gr->out);
@@ -1125,7 +1125,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	d = &port->data_ch;
 
 	if (trans == USB_GADGET_XPORT_BAM) {
-		ret = usb_ep_enable(gr->in, gr->in_desc);
+		ret = usb_ep_enable(gr->in);
 		if (ret) {
 			pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 					__func__, gr->in);
@@ -1133,7 +1133,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		}
 		gr->in->driver_data = port;
 
-		ret = usb_ep_enable(gr->out, gr->out_desc);
+		ret = usb_ep_enable(gr->out);
 		if (ret) {
 			pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 					__func__, gr->out);

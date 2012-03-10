@@ -33,12 +33,6 @@
 /* number of tx requests to allocate */
 #define TX_REQ_MAX 4
 
-struct ccid_descs {
-	struct usb_endpoint_descriptor *in;
-	struct usb_endpoint_descriptor *out;
-	struct usb_endpoint_descriptor *notify;
-};
-
 struct ccid_ctrl_dev {
 	atomic_t opened;
 	struct list_head tx_q;
@@ -64,16 +58,10 @@ struct f_ccid {
 	int ifc_id;
 	spinlock_t lock;
 	atomic_t online;
-	/* usb descriptors */
-	struct ccid_descs fs;
-	struct ccid_descs hs;
 	/* usb eps*/
 	struct usb_ep *notify;
 	struct usb_ep *in;
 	struct usb_ep *out;
-	struct usb_endpoint_descriptor *in_desc;
-	struct usb_endpoint_descriptor *out_desc;
-	struct usb_endpoint_descriptor *notify_desc;
 	struct usb_request *notify_req;
 	struct ccid_ctrl_dev ctrl_dev;
 	struct ccid_bulk_dev bulk_dev;
@@ -436,10 +424,14 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 
 	/* choose the descriptors and enable endpoints */
-	ccid_dev->notify_desc = ep_choose(cdev->gadget,
-				ccid_dev->hs.notify,
-				ccid_dev->fs.notify);
-	ret = usb_ep_enable(ccid_dev->notify, ccid_dev->notify_desc);
+	ret = config_ep_by_speed(cdev->gadget, f, ccid_dev->notify);
+	if (ret) {
+		ccid_dev->notify->desc = NULL;
+		pr_err("%s: config_ep_by_speed failed for ep#%s, err#%d\n",
+				__func__, ccid_dev->notify->name, ret);
+		goto free_bulk_in;
+	}
+	ret = usb_ep_enable(ccid_dev->notify);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->notify->name, ret);
@@ -447,18 +439,28 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	ccid_dev->notify->driver_data = ccid_dev;
 
-	ccid_dev->in_desc = ep_choose(cdev->gadget,
-			ccid_dev->hs.in, ccid_dev->fs.in);
-	ret = usb_ep_enable(ccid_dev->in, ccid_dev->in_desc);
+	ret = config_ep_by_speed(cdev->gadget, f, ccid_dev->in);
+	if (ret) {
+		ccid_dev->in->desc = NULL;
+		pr_err("%s: config_ep_by_speed failed for ep#%s, err#%d\n",
+				__func__, ccid_dev->in->name, ret);
+		goto disable_ep_notify;
+	}
+	ret = usb_ep_enable(ccid_dev->in);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->in->name, ret);
 		goto disable_ep_notify;
 	}
 
-	ccid_dev->out_desc = ep_choose(cdev->gadget,
-			ccid_dev->hs.out, ccid_dev->fs.out);
-	ret = usb_ep_enable(ccid_dev->out, ccid_dev->out_desc);
+	ret = config_ep_by_speed(cdev->gadget, f, ccid_dev->out);
+	if (ret) {
+		ccid_dev->out->desc = NULL;
+		pr_err("%s: config_ep_by_speed failed for ep#%s, err#%d\n",
+				__func__, ccid_dev->out->name, ret);
+		goto disable_ep_in;
+	}
+	ret = usb_ep_enable(ccid_dev->out);
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, ccid_dev->out->name, ret);
@@ -538,16 +540,6 @@ static int ccid_function_bind(struct usb_configuration *c,
 	if (!f->descriptors)
 		goto ep_auto_out_fail;
 
-	ccid_dev->fs.in = usb_find_endpoint(ccid_fs_descs,
-					f->descriptors,
-					&ccid_fs_in_desc);
-	ccid_dev->fs.out = usb_find_endpoint(ccid_fs_descs,
-					f->descriptors,
-					&ccid_fs_out_desc);
-	ccid_dev->fs.notify = usb_find_endpoint(ccid_fs_descs,
-					f->descriptors,
-					&ccid_fs_notify_desc);
-
 	if (gadget_is_dualspeed(cdev->gadget)) {
 		ccid_hs_in_desc.bEndpointAddress =
 				ccid_fs_in_desc.bEndpointAddress;
@@ -560,13 +552,6 @@ static int ccid_function_bind(struct usb_configuration *c,
 		f->hs_descriptors = usb_copy_descriptors(ccid_hs_descs);
 		if (!f->hs_descriptors)
 			goto ep_auto_out_fail;
-
-		ccid_dev->hs.in = usb_find_endpoint(ccid_hs_descs,
-				f->hs_descriptors, &ccid_hs_in_desc);
-		ccid_dev->hs.out = usb_find_endpoint(ccid_hs_descs,
-				f->hs_descriptors, &ccid_hs_out_desc);
-		ccid_dev->hs.notify = usb_find_endpoint(ccid_hs_descs,
-				f->hs_descriptors, &ccid_hs_notify_desc);
 	}
 
 	pr_debug("%s: CCID %s Speed, IN:%s OUT:%s\n", __func__,

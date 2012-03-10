@@ -1500,7 +1500,7 @@ static void init_controller(struct fusb300 *fusb300)
 /*------------------------------------------------------------------------*/
 static struct fusb300 *the_controller;
 
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+static int fusb300_udc_start(struct usb_gadget_driver *driver,
 		int (*bind)(struct usb_gadget *))
 {
 	struct fusb300 *fusb300 = the_controller;
@@ -1544,9 +1544,8 @@ error:
 
 	return retval;
 }
-EXPORT_SYMBOL(usb_gadget_probe_driver);
 
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int fusb300_udc_stop(struct usb_gadget_driver *driver)
 {
 	struct fusb300 *fusb300 = the_controller;
 
@@ -1562,7 +1561,6 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	return 0;
 }
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
 /*--------------------------------------------------------------------------*/
 
 static int fusb300_udc_pullup(struct usb_gadget *_gadget, int is_active)
@@ -1572,12 +1570,15 @@ static int fusb300_udc_pullup(struct usb_gadget *_gadget, int is_active)
 
 static struct usb_gadget_ops fusb300_gadget_ops = {
 	.pullup		= fusb300_udc_pullup,
+	.start		= fusb300_udc_start,
+	.stop		= fusb300_udc_stop,
 };
 
 static int __exit fusb300_remove(struct platform_device *pdev)
 {
 	struct fusb300 *fusb300 = dev_get_drvdata(&pdev->dev);
 
+	usb_del_gadget_udc(&fusb300->gadget);
 	iounmap(fusb300->reg);
 	free_irq(platform_get_irq(pdev, 0), fusb300);
 
@@ -1702,9 +1703,15 @@ static int __init fusb300_probe(struct platform_device *pdev)
 		goto clean_up3;
 
 	init_controller(fusb300);
+	ret = usb_add_gadget_udc(&pdev->dev, &fusb300->gadget);
+	if (ret)
+		goto err_add_udc;
+
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
 
 	return 0;
+err_add_udc:
+	fusb300_free_request(&fusb300->ep[0]->ep, fusb300->ep0_req);
 
 clean_up3:
 	free_irq(ires->start, fusb300);

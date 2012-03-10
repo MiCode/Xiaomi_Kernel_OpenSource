@@ -931,7 +931,7 @@ int gsdio_connect(struct gserial *gser, u8 portno)
 	gser->notify_modem = gsdio_ctrl_notify_modem;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	ret = usb_ep_enable(gser->in, gser->in_desc);
+	ret = usb_ep_enable(gser->in);
 	if (ret) {
 		pr_err("%s: failed to enable in ep w/ err:%d\n",
 					__func__, ret);
@@ -940,7 +940,7 @@ int gsdio_connect(struct gserial *gser, u8 portno)
 	}
 	gser->in->driver_data = port;
 
-	ret = usb_ep_enable(gser->out, gser->out_desc);
+	ret = usb_ep_enable(gser->out);
 	if (ret) {
 		pr_err("%s: failed to enable in ep w/ err:%d\n",
 					__func__, ret);
