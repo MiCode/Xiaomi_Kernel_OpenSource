@@ -734,6 +734,16 @@ int res_trk_check_for_sec_session()
 	return 0;
 }
 
+void res_trk_secure_unset(void)
+{
+	return;
+}
+
+void res_trk_secure_set(void)
+{
+	return;
+}
+
 int res_trk_open_secure_session()
 {
 	return -EINVAL;

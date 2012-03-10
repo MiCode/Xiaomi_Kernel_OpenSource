@@ -40,4 +40,6 @@ int res_trk_disable_iommu_clocks(void);
 int res_trk_check_for_sec_session(void);
 int res_trk_open_secure_session(void);
 int res_trk_close_secure_session(void);
+void res_trk_secure_set(void);
+void res_trk_secure_unset(void);
 #endif

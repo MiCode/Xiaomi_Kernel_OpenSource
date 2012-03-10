@@ -3765,6 +3765,12 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("core_clk",		gfx2d0_clk.c,		"msm_iommu.10"),
 	CLK_LOOKUP("core_clk",		gfx2d1_clk.c,		"msm_iommu.11"),
 
+	CLK_LOOKUP("mdp_iommu_clk", mdp_axi_clk.c,	"msm_vidc.0"),
+	CLK_LOOKUP("rot_iommu_clk",	rot_axi_clk.c,	"msm_vidc.0"),
+	CLK_LOOKUP("vcodec_iommu0_clk", vcodec_axi_clk.c, "msm_vidc.0"),
+	CLK_LOOKUP("vcodec_iommu1_clk", vcodec_axi_clk.c, "msm_vidc.0"),
+	CLK_LOOKUP("smmu_iface_clk", smmu_p_clk.c,	"msm_vidc.0"),
+
 	CLK_LOOKUP("dfab_dsps_clk",	dfab_dsps_clk.c, NULL),
 	CLK_LOOKUP("core_clk",		dfab_usb_hs_clk.c,	"msm_otg"),
 	CLK_LOOKUP("bus_clk",		dfab_sdc1_clk.c, "msm_sdcc.1"),
