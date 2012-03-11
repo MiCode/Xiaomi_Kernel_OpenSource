@@ -243,6 +243,8 @@ extern struct platform_device apq_cpudai_afe_02_rx;
 extern struct platform_device apq_cpudai_afe_02_tx;
 extern struct platform_device apq_pcm_afe;
 extern struct platform_device apq_cpudai_stub;
+extern struct platform_device apq_cpudai_slimbus_1_rx;
+extern struct platform_device apq_cpudai_slimbus_1_tx;
 
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;
