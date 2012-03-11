@@ -306,8 +306,6 @@ static int __init footswitch_init(void)
 	struct footswitch *fs;
 	int ret;
 
-	if (cpu_is_msm8625())
-		return 0;
 	/*
 	 * Enable all footswitches in manual mode (ie. not controlled along
 	 * with pcom clocks).

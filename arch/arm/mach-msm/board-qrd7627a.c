@@ -696,6 +696,7 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_gsbi0_qup_i2c_device,
 	&msm8625_gsbi1_qup_i2c_device,
 	&msm8625_device_uart1,
+	&msm8625_device_uart_dm1,
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
 	&msm8625_kgsl_3d0,
@@ -773,12 +774,6 @@ static void __init msm7627a_reserve(void)
 {
 	reserve_info = &msm7627a_reserve_info;
 	msm_reserve();
-}
-
-static void __init msm8625_reserve(void)
-{
-	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
-	msm7627a_reserve();
 }
 
 static void msmqrd_adsp_add_pdev(void)
@@ -1070,6 +1065,12 @@ static int __init msm_qrd_init_ar6000pm(void)
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 
+static void __init msm_add_footswitch_devices(void)
+{
+	platform_add_devices(msm_footswitch_devices,
+				msm_num_footswitch_devices);
+}
+
 static void add_platform_devices(void)
 {
 	if (machine_is_msm8625_evb())
@@ -1130,6 +1131,7 @@ static void __init msm_qrd_init(void)
 	/*OTG gadget*/
 	qrd7627a_otg_gadget();
 
+	msm_add_footswitch_devices();
 	add_platform_devices();
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
@@ -1194,7 +1196,7 @@ MACHINE_END
 MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
 	.boot_params	= PHYS_OFFSET + 0x100,
 	.map_io		= msm8625_map_io,
-	.reserve	= msm8625_reserve,
+	.reserve	= msm7627a_reserve,
 	.init_irq	= msm8625_init_irq,
 	.init_machine	= msm_qrd_init,
 	.timer		= &msm_timer,

@@ -17,6 +17,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/memblock.h>
 #include <mach/irqs.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
@@ -34,6 +35,7 @@
 #include "footswitch.h"
 #include "acpuclock.h"
 #include "spm.h"
+#include "mpm-8625.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI0_PHYS		0xA1200000
@@ -1584,12 +1586,37 @@ void __init msm_common_io_init(void)
 
 void __init msm8625_init_irq(void)
 {
+	msm_gic_irq_extn_init(MSM_QGIC_DIST_BASE, MSM_QGIC_CPU_BASE);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 			(void *)MSM_QGIC_CPU_BASE);
 }
 
+static phys_addr_t msm8625_phys_base;
+
+static void __init msm_reserve_sdram_memblock(void)
+{
+	phys_addr_t paddr;
+
+	paddr = memblock_alloc(SZ_8, SZ_64K);
+	pr_debug("%s physical address = %x\n", __func__, paddr);
+
+	if (!paddr) {
+		pr_err("%s: failed to reserve SZ_8 bytes\n", __func__);
+		return;
+	}
+
+	msm8625_phys_base = paddr;
+}
+
+phys_addr_t msm8625_get_phys_base(void)
+{
+	return msm8625_phys_base;
+}
+EXPORT_SYMBOL(msm8625_get_phys_base);
+
 void __init msm8625_map_io(void)
 {
+	msm_reserve_sdram_memblock();
 	msm_map_msm8625_io();
 
 	if (socinfo_init() < 0)

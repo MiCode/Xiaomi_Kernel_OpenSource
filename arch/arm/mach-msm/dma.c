@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/dma.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -286,9 +286,11 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 	int ch = DMOV_ID_TO_CHAN(id);
 
 	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
-	if (dmov_conf[adm].clk_ctl == CLK_DIS)
-		msm_dmov_clk_toggle(adm, 1);
-	else if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS)
+	if (dmov_conf[adm].clk_ctl == CLK_DIS) {
+		status = msm_dmov_clk_toggle(adm, 1);
+		if (status != 0)
+			goto error;
+	} else if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS)
 		del_timer(&dmov_conf[adm].timer);
 	dmov_conf[adm].clk_ctl = CLK_EN;
 
@@ -316,6 +318,7 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 		    "%x\n", id, status);
 		list_add_tail(&cmd->list, &dmov_conf[adm].ready_commands[ch]);
 	}
+error:
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 }
 EXPORT_SYMBOL(msm_dmov_enqueue_cmd_ext);
