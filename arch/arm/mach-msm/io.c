@@ -273,6 +273,7 @@ static struct map_desc apq8064_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(SAW3, APQ8064),
 	MSM_CHIP_DEVICE(SAW_L2, APQ8064),
 	MSM_CHIP_DEVICE(IMEM, APQ8064),
+	MSM_CHIP_DEVICE(HDMI, APQ8064),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
