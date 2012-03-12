@@ -77,6 +77,13 @@ enum ion_heap_ids {
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
 };
 
+enum ion_fixed_position {
+	NOT_FIXED,
+	FIXED_LOW,
+	FIXED_MIDDLE,
+	FIXED_HIGH,
+};
+
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  */
