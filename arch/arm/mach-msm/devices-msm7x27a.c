@@ -799,9 +799,7 @@ void __init msm7x25a_kgsl_3d0_init(void)
 		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 160000000;
 		kgsl_3d0_pdata.pwrlevel[1].gpu_freq = 96000000;
 		kgsl_3d0_pdata.pwrlevel[1].bus_freq = 0;
-	} else if (cpu_is_msm8625())
-		/* msm8625 has an idle_timout of 50 hours */
-		kgsl_3d0_pdata.idle_timeout = 18000000;
+	}
 }
 
 static void __init msm_register_device(struct platform_device *pdev, void *data)
