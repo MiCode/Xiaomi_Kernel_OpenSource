@@ -2078,9 +2078,13 @@ static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req,
 	else if (mdp4_overlay_is_rgb_type(req->src.format))
 		return OVERLAY_PERF_LEVEL1;
 
-	if (req->src.width*req->src.height <= OVERLAY_VGA_SIZE)
-		return OVERLAY_PERF_LEVEL4;
-	else if (req->src.width*req->src.height <= OVERLAY_720P_TILE_SIZE) {
+	if (req->src.width*req->src.height <= OVERLAY_VGA_SIZE) {
+		if (mfd->mdp_rev >= MDP_REV_42)
+			return OVERLAY_PERF_LEVEL4;
+		else
+			return OVERLAY_PERF_LEVEL3;
+
+	} else if (req->src.width*req->src.height <= OVERLAY_720P_TILE_SIZE) {
 		u32 max, min;
 		max = (req->dst_rect.h > req->dst_rect.w) ?
 			req->dst_rect.h : req->dst_rect.w;
