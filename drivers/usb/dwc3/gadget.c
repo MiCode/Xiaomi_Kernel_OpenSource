@@ -179,8 +179,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		if (!(dep->flags & DWC3_EP_ENABLED))
 			continue;
 
-		if (usb_endpoint_xfer_bulk(dep->desc)
-				|| usb_endpoint_xfer_isoc(dep->desc))
+		if (usb_endpoint_xfer_bulk(dep->endpoint.desc)
+				|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			mult = 3;
 
 		/*
@@ -230,7 +230,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		 * completed (not the LINK TRB).
 		 */
 		if (((dep->busy_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
-				usb_endpoint_xfer_isoc(dep->desc))
+				usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			dep->busy_slot++;
 	}
 	list_del(&req->list);
@@ -498,7 +498,7 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 		if (ret)
 			return ret;
 
-		dep->desc = desc;
+		dep->endpoint.desc = desc;
 		dep->comp_desc = comp_desc;
 		dep->type = usb_endpoint_type(desc);
 		dep->flags |= DWC3_EP_ENABLED;
@@ -561,7 +561,6 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
 
 	dep->stream_capable = false;
-	dep->desc = NULL;
 	dep->endpoint.desc = NULL;
 	dep->comp_desc = NULL;
 	dep->type = 0;
@@ -722,7 +721,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 
 	/* Skip the LINK-TRB on ISOC */
 	if (((cur_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
-			usb_endpoint_xfer_isoc(dep->desc))
+			usb_endpoint_xfer_isoc(dep->endpoint.desc))
 		return;
 
 	if (!req->trb) {
@@ -735,7 +734,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	trb->bpl = lower_32_bits(dma);
 	trb->bph = upper_32_bits(dma);
 
-	switch (usb_endpoint_type(dep->desc)) {
+	switch (usb_endpoint_type(dep->endpoint.desc)) {
 	case USB_ENDPOINT_XFER_CONTROL:
 		trb->ctrl = DWC3_TRBCTL_CONTROL_SETUP;
 		break;
@@ -760,7 +759,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 		BUG();
 	}
 
-	if (usb_endpoint_xfer_isoc(dep->desc)) {
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		trb->ctrl |= DWC3_TRB_CTRL_ISP_IMI;
 		trb->ctrl |= DWC3_TRB_CTRL_CSP;
 	} else {
@@ -771,7 +770,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			trb->ctrl |= DWC3_TRB_CTRL_LST;
 	}
 
-	if (usb_endpoint_xfer_bulk(dep->desc) && dep->stream_capable)
+	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
 		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(req->request.stream_id);
 
 	trb->ctrl |= DWC3_TRB_CTRL_HWO;
@@ -799,7 +798,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	trbs_left = (dep->busy_slot - dep->free_slot) & DWC3_TRB_MASK;
 
 	/* Can't wrap around on a non-isoc EP since there's no link TRB */
-	if (!usb_endpoint_xfer_isoc(dep->desc)) {
+	if (!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		max = DWC3_TRB_NUM - (dep->free_slot & DWC3_TRB_MASK);
 		if (trbs_left > max)
 			trbs_left = max;
@@ -825,7 +824,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 		 * processed from the first TRB until the last one. Since we
 		 * don't wrap around we have to start at the beginning.
 		 */
-		if (usb_endpoint_xfer_isoc(dep->desc)) {
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dep->busy_slot = 1;
 			dep->free_slot = 1;
 		} else {
@@ -835,7 +834,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	}
 
 	/* The last TRB is a link TRB, not used for xfer */
-	if ((trbs_left <= 1) && usb_endpoint_xfer_isoc(dep->desc))
+	if ((trbs_left <= 1) && usb_endpoint_xfer_isoc(dep->endpoint.desc))
 		return;
 
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
@@ -1019,7 +1018,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		int	start_trans = 1;
 		u8	trans_idx = dep->res_trans_idx;
 
-		if (usb_endpoint_xfer_isoc(dep->desc) &&
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
 				(dep->flags & DWC3_EP_BUSY)) {
 			start_trans = 0;
 			WARN_ON_ONCE(!trans_idx);
@@ -1050,7 +1049,7 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 
 	int				ret;
 
-	if (!dep->desc) {
+	if (!dep->endpoint.desc) {
 		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
 				request, ep->name);
 		return -ESHUTDOWN;
@@ -1167,7 +1166,7 @@ static int dwc3_gadget_ep_set_halt(struct usb_ep *ep, int value)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
-	if (usb_endpoint_xfer_isoc(dep->desc)) {
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		dev_err(dwc->dev, "%s is of Isochronous type\n", dep->name);
 		ret = -EINVAL;
 		goto out;
@@ -1793,7 +1792,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 	case DWC3_DEPEVT_XFERCOMPLETE:
 		dep->res_trans_idx = 0;
 
-		if (usb_endpoint_xfer_isoc(dep->desc)) {
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dev_dbg(dwc->dev, "%s is an Isochronous endpoint\n",
 					dep->name);
 			return;
@@ -1802,7 +1801,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dwc3_endpoint_transfer_complete(dwc, dep, event, 1);
 		break;
 	case DWC3_DEPEVT_XFERINPROGRESS:
-		if (!usb_endpoint_xfer_isoc(dep->desc)) {
+		if (!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dev_dbg(dwc->dev, "%s is not an Isochronous endpoint\n",
 					dep->name);
 			return;
@@ -1811,7 +1810,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dwc3_endpoint_transfer_complete(dwc, dep, event, 0);
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
-		if (usb_endpoint_xfer_isoc(dep->desc)) {
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dwc3_gadget_start_isoc(dwc, dep, event);
 		} else {
 			int ret;
@@ -1832,7 +1831,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 
 		break;
 	case DWC3_DEPEVT_STREAMEVT:
-		if (!usb_endpoint_xfer_bulk(dep->desc)) {
+		if (!usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
 			dev_err(dwc->dev, "Stream event for non-Bulk %s\n",
 					dep->name);
 			return;
