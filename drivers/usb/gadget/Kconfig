@@ -300,17 +300,6 @@ config USB_PXA_U2O
 	  PXA9xx Processor series include a high speed USB2.0 device
 	  controller, which support high speed and full speed USB peripheral.
 
-config USB_GADGET_DWC3
-	tristate "DesignWare USB3.0 (DRD) Controller"
-	depends on USB_DWC3
-	select USB_GADGET_DUALSPEED
-	select USB_GADGET_SUPERSPEED
-	help
-	  DesignWare USB3.0 controller is a SuperSpeed USB3.0 Controller
-	  which can be configured for peripheral-only, host-only, hub-only
-	  and Dual-Role operation. This Controller was first integrated into
-	  the OMAP5 series of processors. More information about the OMAP5
-	  version of this controller, refer to http://www.ti.com/omap5.
 #
 # Controllers available in both integrated and discrete versions
 #
@@ -475,6 +464,33 @@ config USB_CI13XXX_MSM_HSIC
 	  Say "y" to link the driver statically, or "m" to build a
 	  dynamically linked module called "ci13xxx_msm_hsic" and force all
 	  gadget drivers to also be dynamically linked.
+
+config USB_DWC3_MSM
+	tristate "DesignWare USB3.0 (DRD) Controller for MSM"
+	depends on ARCH_MSM
+	select USB_DWC3
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SUPERSPEED
+	select USB_GADGET_SELECTED
+	help
+	  The DesignWare USB3.0 controller is a SuperSpeed USB3.0 Controller
+	  integrated into the Qualcomm MSM chipset series, supporting host,
+	  device and otg modes of operation. For more information please
+	  refer to http://www.qualcomm.com/chipsets.
+
+config USB_DWC3_OMAP
+	tristate "DesignWare USB3.0 (DRD) Controller for OMAP"
+	depends on ARCH_OMAP
+	select USB_DWC3
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SUPERSPEED
+	select USB_GADGET_SELECTED
+	help
+	  DesignWare USB3.0 controller is a SuperSpeed USB3.0 Controller
+	  which can be configured for peripheral-only, host-only, hub-only
+	  and Dual-Role operation. This Controller was first integrated into
+	  the OMAP5 series of processors. More information about the OMAP5
+	  version of this controller, refer to http://www.ti.com/omap5.
 
 #
 # LAST -- dummy/emulated controller

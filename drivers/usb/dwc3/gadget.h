@@ -110,7 +110,7 @@ static inline void dwc3_gadget_move_request_queued(struct dwc3_request *req)
 	list_move_tail(&req->list, &dep->req_queued);
 }
 
-#if defined(CONFIG_USB_GADGET_DWC3) || defined(CONFIG_USB_GADGET_DWC3_MODULE)
+#if defined(CONFIG_USB_DWC3) || defined(CONFIG_USB_DWC3_MODULE)
 int dwc3_gadget_init(struct dwc3 *dwc);
 void dwc3_gadget_exit(struct dwc3 *dwc);
 #else
