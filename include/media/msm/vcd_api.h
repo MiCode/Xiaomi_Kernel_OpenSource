@@ -116,11 +116,14 @@ struct vcd_init_config {
 	void (*timer_stop) (void *timer_handle);
 };
 
+/*Flags passed to vcd_open*/
+#define VCD_CP_SESSION 0x00000001
+
 u32 vcd_init(struct vcd_init_config *config, s32 *driver_handle);
 u32 vcd_term(s32 driver_handle);
 u32 vcd_open(s32 driver_handle, u32 decoding,
 	void (*callback) (u32 event, u32 status, void *info, size_t sz,
-	void *handle, void *const client_data), void *client_data);
+	void *handle, void *const client_data), void *client_data, int flags);
 u32 vcd_close(void *handle);
 u32 vcd_encode_start(void *handle);
 u32 vcd_encode_frame(void *handle, struct vcd_frame_data *input_frame);

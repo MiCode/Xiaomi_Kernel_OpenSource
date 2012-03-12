@@ -74,24 +74,103 @@ u32 vcd_term(s32 driver_handle)
 }
 EXPORT_SYMBOL(vcd_term);
 
+struct client_security_info {
+	int secure_enc;
+	int secure_dec;
+	int non_secure_enc;
+	int non_secure_dec;
+};
+
+static int vcd_get_clients_security_info(struct client_security_info *sec_info)
+{
+	struct vcd_drv_ctxt *drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt;
+	int count = 0;
+	if (!sec_info) {
+		VCD_MSG_ERROR("Invalid argument\n");
+		return -EINVAL;
+	}
+	memset(sec_info, 0 , sizeof(*sec_info));
+	drv_ctxt = vcd_get_drv_context();
+	mutex_lock(&drv_ctxt->dev_mutex);
+	cctxt = drv_ctxt->dev_ctxt.cctxt_list_head;
+	while (cctxt) {
+		if (cctxt->secure && cctxt->decoding)
+			sec_info->secure_dec++;
+		else if (cctxt->secure && !cctxt->decoding)
+			sec_info->secure_enc++;
+		else if (!cctxt->secure && cctxt->decoding)
+			sec_info->non_secure_dec++;
+		else
+			sec_info->non_secure_enc++;
+		count++;
+		cctxt = cctxt->next;
+	}
+	mutex_unlock(&drv_ctxt->dev_mutex);
+	return count;
+}
+
+static int is_session_invalid(u32 decoding, u32 flags)
+{
+	int is_secure;
+	struct client_security_info sec_info;
+	int client_count = 0;
+	int secure_session_running = 0;
+	is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
+	client_count = vcd_get_clients_security_info(&sec_info);
+	secure_session_running = (sec_info.secure_enc > 0) ||
+			(sec_info.secure_dec > 0);
+	if (!decoding && is_secure) {
+		if ((sec_info.secure_dec > 1) ||
+			(sec_info.secure_enc)
+		   ) {
+			VCD_MSG_HIGH("SE-SE: FAILURE\n");
+			VCD_MSG_HIGH("S-S-SE: FAILURE\n");
+			return -EACCES;
+		}
+	} else if (!decoding && !is_secure) {
+		if (secure_session_running) {
+			VCD_MSG_HIGH("SD-NSE: FAILURE\n");
+			VCD_MSG_HIGH("SE-NSE: FAILURE\n");
+			return -EACCES;
+		}
+	} else if (decoding && is_secure) {
+		if (client_count > 0) {
+			VCD_MSG_HIGH("S/NS-SD: FAILURE\n");
+			if (sec_info.secure_enc > 0 ||
+				sec_info.non_secure_enc > 0) {
+				return -EAGAIN;
+			}
+			return -EACCES;
+		}
+	} else {
+		if (sec_info.secure_dec > 0) {
+			VCD_MSG_HIGH("SD-NSD: FAILURE\n");
+			return -EACCES;
+		}
+	}
+	return 0;
+}
+
 u32 vcd_open(s32 driver_handle, u32 decoding,
 	void (*callback) (u32 event, u32 status, void *info, size_t sz,
 		       void *handle, void *const client_data),
-	void *client_data)
+	void *client_data, int flags)
 {
-	u32 rc = VCD_S_SUCCESS;
+	u32 rc = 0;
 	struct vcd_drv_ctxt *drv_ctxt;
-
+	struct vcd_clnt_ctxt *cctxt;
+	int is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
 	VCD_MSG_MED("vcd_open:");
 
 	if (!callback) {
 		VCD_MSG_ERROR("Bad parameters");
-
-		return VCD_ERR_ILLEGAL_PARM;
+		return -EINVAL;
 	}
-	if (res_trk_check_for_sec_session() && vcd_get_num_of_clients()) {
-		VCD_MSG_ERROR("Secure session in progress");
-		return VCD_ERR_BAD_STATE;
+	rc = is_session_invalid(decoding, flags);
+	if (rc) {
+			VCD_MSG_ERROR("Secure session in progress");
+			return rc;
 	}
 	drv_ctxt = vcd_get_drv_context();
 	mutex_lock(&drv_ctxt->dev_mutex);
@@ -100,17 +179,19 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
 		    open(drv_ctxt, driver_handle, decoding, callback,
 			    client_data);
+		if (rc)
+			rc = -ENODEV;
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
 			      drv_ctxt->dev_state.state);
-
-		rc = VCD_ERR_BAD_STATE;
+		rc = -EPERM;
 	}
-
+	if (!rc) {
+		cctxt = drv_ctxt->dev_ctxt.cctxt_list_head;
+		cctxt->secure = is_secure;
+	}
 	mutex_unlock(&drv_ctxt->dev_mutex);
-
 	return rc;
-
 }
 EXPORT_SYMBOL(vcd_open);
 

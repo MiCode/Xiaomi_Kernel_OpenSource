@@ -33,6 +33,7 @@ struct venc_inst {
 			struct mem_region *mregion);
 	u32 width;
 	u32 height;
+	int secure;
 };
 
 struct venc {
@@ -266,6 +267,7 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	struct venc_inst *inst;
 	struct video_client_ctx *client_ctx;
 	struct venc_msg_ops *vmops  =  arg;
+	int flags = 0;
 	mutex_lock(&venc_p.lock);
 	client_index = venc_get_empty_client_index();
 	if (client_index < 0) {
@@ -284,7 +286,11 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	inst->op_buffer_done = vmops->op_buffer_done;
 	inst->ip_buffer_done = vmops->ip_buffer_done;
 	inst->cbdata = vmops->cbdata;
-
+	inst->secure = vmops->secure;
+	if (vmops->secure) {
+		WFD_MSG_ERR("OPENING SECURE SESSION\n");
+		flags |= VCD_CP_SESSION;
+	}
 	if (vcd_get_ion_status()) {
 		client_ctx->user_ion_client = vcd_get_ion_client();
 		if (!client_ctx->user_ion_client) {
@@ -294,9 +300,10 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	}
 
 	rc = vcd_open(venc_p.device_handle, false, venc_cb,
-					inst);
+				inst, flags);
 	if (rc) {
 		WFD_MSG_ERR("vcd_open failed, rc = %d\n", rc);
+		rc = -ENODEV;
 		goto no_free_client;
 	}
 	wait_for_completion(&client_ctx->event);
@@ -1684,6 +1691,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 	struct vcd_property_enc_recon_buffer *ctrl = NULL;
 	unsigned long phy_addr;
 	int i = 0;
+	int flags = 0;
 	u32 len;
 	control.width = inst->width;
 	control.height = inst->height;
@@ -1696,6 +1704,8 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to get recon buf size\n");
 		goto err;
 	}
+	flags = ION_HEAP(ION_CP_MM_HEAP_ID);
+	flags |= inst->secure ? ION_SECURE : ION_HEAP(ION_IOMMU_HEAP_ID);
 
 	if (vcd_get_ion_status()) {
 		for (i = 0; i < 4; ++i) {
@@ -1706,8 +1716,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 			ctrl->user_virtual_addr = (void *)i;
 			client_ctx->recon_buffer_ion_handle[i]
 				= ion_alloc(client_ctx->user_ion_client,
-			control.size, SZ_8K, ION_HEAP(ION_IOMMU_HEAP_ID) |
-			ION_HEAP(ION_CP_MM_HEAP_ID));
+			control.size, SZ_8K, flags);
 
 			ctrl->kernel_virtual_addr = ion_map_kernel(
 				client_ctx->user_ion_client,

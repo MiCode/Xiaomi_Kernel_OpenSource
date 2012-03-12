@@ -521,7 +521,7 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 {
 	s32 client_index;
 	struct video_client_ctx *client_ctx;
-	u32 vcd_status = VCD_ERR_FAIL;
+	int rc = 0;
 	u8 client_count = 0;
 
 	INFO("\n msm_vidc_enc: Inside %s()", __func__);
@@ -530,10 +530,9 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 
 	stop_cmd = 0;
 	client_count = vcd_get_num_of_clients();
-	if (client_count == VIDC_MAX_NUM_CLIENTS ||
-		res_trk_check_for_sec_session()) {
+	if (client_count == VIDC_MAX_NUM_CLIENTS) {
 		ERR("ERROR : vid_enc_open() max number of clients"
-		    "limit reached or secure session is open\n");
+		    "limit reached\n");
 		mutex_unlock(&vid_enc_device_p->lock);
 		return -ENODEV;
 	}
@@ -568,11 +567,11 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 			return -EFAULT;
 		}
 	}
-	vcd_status = vcd_open(vid_enc_device_p->device_handle, false,
-		vid_enc_vcd_cb, client_ctx);
+	rc = vcd_open(vid_enc_device_p->device_handle, false,
+		vid_enc_vcd_cb, client_ctx, 0);
 	client_ctx->stop_msg = 0;
 
-	if (!vcd_status) {
+	if (!rc) {
 		wait_for_completion(&client_ctx->event);
 		if (client_ctx->event_status) {
 			ERR("callback for vcd_open returned error: %u",
@@ -581,13 +580,13 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 			return -EFAULT;
 		}
 	} else {
-		ERR("vcd_open returned error: %u", vcd_status);
+		ERR("vcd_open returned error: %u", rc);
 		mutex_unlock(&vid_enc_device_p->lock);
-		return -EFAULT;
+		return rc;
 	}
 	file->private_data = client_ctx;
 	mutex_unlock(&vid_enc_device_p->lock);
-	return 0;
+	return rc;
 }
 
 static int vid_enc_release(struct inode *inode, struct file *file)

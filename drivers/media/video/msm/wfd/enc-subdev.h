@@ -44,6 +44,7 @@ struct venc_buf_info {
 struct venc_msg_ops {
 	void *cookie;
 	void *cbdata;
+	int secure;
 	void (*op_buffer_done)(void *cookie, u32 status,
 			struct vb2_buffer *buf);
 	void (*ip_buffer_done)(void *cookie, u32 status,

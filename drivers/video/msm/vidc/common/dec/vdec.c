@@ -2034,29 +2034,38 @@ static u32 vid_dec_close_client(struct video_client_ctx *client_ctx)
 	return true;
 }
 
-struct video_client_ctx *vid_dec_open_client(void)
+int vid_dec_open_client(struct video_client_ctx **vid_clnt_ctx, int flags)
 {
+	int rc = 0;
 	s32 client_index;
-	struct video_client_ctx *client_ctx;
-	u32 vcd_status = VCD_ERR_FAIL;
+	struct video_client_ctx *client_ctx = NULL;
 	u8 client_count;
 
+	if (!vid_clnt_ctx) {
+		ERR("Invalid input\n");
+		return -EINVAL;
+	}
+	*vid_clnt_ctx = NULL;
 	client_count = vcd_get_num_of_clients();
 	if (client_count == VIDC_MAX_NUM_CLIENTS) {
 		ERR("ERROR : vid_dec_open() max number of clients"
 			"limit reached\n");
+		rc = -ENOMEM;
 		goto client_failure;
 	}
 
 	DBG(" Virtual Address of ioremap is %p\n", vid_dec_device_p->virt_base);
 	if (!vid_dec_device_p->num_clients) {
-		if (!vidc_load_firmware())
+		if (!vidc_load_firmware()) {
+			rc = -ENOMEM;
 			goto client_failure;
+		}
 	}
 
 	client_index = vid_dec_get_empty_client_index();
-	if (client_index < 0) {
-		ERR("%s() : No free clients client_index < 0\n", __func__);
+	if (client_index == -1) {
+		ERR("%s() : No free clients client_index == -1\n", __func__);
+		rc = -ENOMEM;
 		goto client_failure;
 	}
 	client_ctx = &vid_dec_device_p->vdec_clients[client_index];
@@ -2074,72 +2083,82 @@ struct video_client_ctx *vid_dec_open_client(void)
 		client_ctx->user_ion_client = vcd_get_ion_client();
 		if (!client_ctx->user_ion_client) {
 			ERR("vcd_open ion client get failed");
+			rc = -ENOMEM;
 			goto client_failure;
 		}
 	}
-	vcd_status = vcd_open(vid_dec_device_p->device_handle, true,
-				  vid_dec_vcd_cb, client_ctx);
-	if (!vcd_status) {
+	rc = vcd_open(vid_dec_device_p->device_handle, true,
+				  vid_dec_vcd_cb, client_ctx, flags);
+	if (!rc) {
 		wait_for_completion(&client_ctx->event);
 		if (client_ctx->event_status) {
 			ERR("callback for vcd_open returned error: %u",
 				client_ctx->event_status);
+			rc = -ENODEV;
 			goto client_failure;
 		}
 	} else {
-		ERR("vcd_open returned error: %u", vcd_status);
+		ERR("vcd_open returned error: %u", rc);
 		goto client_failure;
 	}
 	client_ctx->seq_header_set = false;
-	return client_ctx;
+	*vid_clnt_ctx = client_ctx;
 client_failure:
-	return NULL;
+	return rc;
 }
 
 static int vid_dec_open_secure(struct inode *inode, struct file *file)
 {
+	int rc = 0;
+	struct video_client_ctx *client_ctx;
 	mutex_lock(&vid_dec_device_p->lock);
-	if (res_trk_check_for_sec_session() || vcd_get_num_of_clients()) {
-		ERR("Secure session present return failure\n");
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
-	}
 	res_trk_secure_set();
-	file->private_data = vid_dec_open_client();
-	if (!file->private_data) {
+	rc = vid_dec_open_client(&client_ctx, VCD_CP_SESSION);
+	if (rc)
+		goto error;
+	if (!client_ctx) {
+		rc = -ENOMEM;
 		goto error;
 	}
 
+	file->private_data = client_ctx;
 	if (res_trk_open_secure_session()) {
 		ERR("Secure session operation failure\n");
+		rc = -EACCES;
 		goto error;
 	}
 	mutex_unlock(&vid_dec_device_p->lock);
 	return 0;
-
 error:
 	res_trk_secure_unset();
 	mutex_unlock(&vid_dec_device_p->lock);
-	return -ENODEV;
-
+	return rc;
 }
 
 static int vid_dec_open(struct inode *inode, struct file *file)
 {
+	int rc = 0;
+	struct video_client_ctx *client_ctx;
 	INFO("msm_vidc_dec: Inside %s()", __func__);
 	mutex_lock(&vid_dec_device_p->lock);
 	if (res_trk_check_for_sec_session()) {
 		ERR("Secure session present return failure\n");
 		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
+		return -EACCES;
 	}
-	file->private_data = vid_dec_open_client();
-	if (!file->private_data) {
+	rc = vid_dec_open_client(&client_ctx, 0);
+	if (rc) {
 		mutex_unlock(&vid_dec_device_p->lock);
-		return -ENODEV;
+		return rc;
 	}
+	if (!client_ctx) {
+		mutex_unlock(&vid_dec_device_p->lock);
+		return -ENOMEM;
+	}
+
+	file->private_data = client_ctx;
 	mutex_unlock(&vid_dec_device_p->lock);
-	return 0;
+	return rc;
 }
 
 static int vid_dec_release_secure(struct inode *inode, struct file *file)
