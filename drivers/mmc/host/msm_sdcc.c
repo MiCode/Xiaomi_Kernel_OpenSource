@@ -68,6 +68,8 @@
 #define SPS_SDCC_CONSUMER_PIPE_INDEX	2
 #define SPS_CONS_PERIPHERAL		0
 #define SPS_PROD_PERIPHERAL		1
+/* Use SPS only if transfer size is more than this macro */
+#define SPS_MIN_XFER_SIZE		MCI_FIFOSIZE
 
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
@@ -760,13 +762,32 @@ msmsdcc_dma_complete_func(struct msm_dmov_cmd *cmd,
 	tasklet_schedule(&host->dma_tlet);
 }
 
-static int msmsdcc_check_dma_op_req(struct mmc_data *data)
+static bool msmsdcc_is_dma_possible(struct msmsdcc_host *host,
+				    struct mmc_data *data)
 {
-	if (((data->blksz * data->blocks) < MCI_FIFOSIZE) ||
-	     ((data->blksz * data->blocks) % MCI_FIFOSIZE))
-		return -EINVAL;
-	else
-		return 0;
+	bool ret = true;
+	u32 xfer_size = data->blksz * data->blocks;
+
+	if (host->is_sps_mode) {
+		/*
+		 * BAM Mode: Fall back on PIO if size is less
+		 * than or equal to SPS_MIN_XFER_SIZE bytes.
+		 */
+		if (xfer_size <= SPS_MIN_XFER_SIZE)
+			ret = false;
+	} else if (host->is_dma_mode) {
+		/*
+		 * ADM Mode: Fall back on PIO if size is less than FIFO size
+		 * or not integer multiple of FIFO size
+		 */
+		if (xfer_size % MCI_FIFOSIZE)
+			ret = false;
+	} else {
+		/* PIO Mode */
+		ret = false;
+	}
+
+	return ret;
 }
 
 static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
@@ -1075,7 +1096,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	if (host->curr.wait_for_auto_prog_done)
 		datactrl |= MCI_AUTO_PROG_DONE;
 
-	if (!msmsdcc_check_dma_op_req(data)) {
+	if (msmsdcc_is_dma_possible(host, data)) {
 		if (host->is_dma_mode && !msmsdcc_config_dma(host, data)) {
 			datactrl |= MCI_DPSM_DMAENABLE;
 		} else if (host->is_sps_mode) {
@@ -3887,13 +3908,11 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	/*
 	 * This threshold controls when the BAM publish
 	 * the descriptor size on the sideband interface.
-	 * SPS HW will only be used when
-	 * data transfer size >  MCI_FIFOSIZE (64 bytes).
-	 * PIO mode will be used when
-	 * data transfer size < MCI_FIFOSIZE (64 bytes).
-	 * So set this thresold value to 64 bytes.
+	 * SPS HW will be used for data transfer size even
+	 * less than SDCC FIFO size. So let's set BAM summing
+	 * thresold to SPS_MIN_XFER_SIZE bytes.
 	 */
-	bam.summing_threshold = 64;
+	bam.summing_threshold = SPS_MIN_XFER_SIZE;
 	/* SPS driver wll handle the SDCC BAM IRQ */
 	bam.irq = (u32)host->bam_irqres->start;
 	bam.manage = SPS_BAM_MGR_LOCAL;
@@ -4074,7 +4093,7 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 		msmsdcc_print_regs("SDCC-CORE", host->base, 28);
 
 	if (host->curr.data) {
-		if (msmsdcc_check_dma_op_req(host->curr.data))
+		if (!msmsdcc_is_dma_possible(host, host->curr.data))
 			pr_info("%s: PIO mode\n", mmc_hostname(host->mmc));
 		else if (host->is_dma_mode)
 			pr_info("%s: ADM mode: busy=%d, chnl=%d, crci=%d\n",
