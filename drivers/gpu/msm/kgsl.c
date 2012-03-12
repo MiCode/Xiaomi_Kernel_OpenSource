@@ -903,10 +903,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_ibdesc *ibdesc;
 	struct kgsl_context *context;
 
-#ifdef CONFIG_MSM_KGSL_DRM
-	kgsl_gpu_mem_flush(DRM_KGSL_GEM_CACHE_OP_TO_DEV);
-#endif
-
 	context = kgsl_find_context(dev_priv, param->drawctxt_id);
 	if (context == NULL) {
 		result = -EINVAL;
@@ -993,10 +989,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 free_ibdesc:
 	kfree(ibdesc);
 done:
-
-#ifdef CONFIG_MSM_KGSL_DRM
-	kgsl_gpu_mem_flush(DRM_KGSL_GEM_CACHE_OP_FROM_DEV);
-#endif
 
 	return result;
 }

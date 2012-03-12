@@ -156,22 +156,6 @@ static void kgsl_gem_mem_flush(struct kgsl_memdesc *memdesc, int type, int op)
 	kgsl_cache_range_op(memdesc, cacheop);
 }
 
-/* Flush all the memory mapped in the MMU */
-
-void kgsl_gpu_mem_flush(int op)
-{
-	struct drm_kgsl_gem_object *entry;
-
-	list_for_each_entry(entry, &kgsl_mem_list, list) {
-		kgsl_gem_mem_flush(&entry->memdesc, entry->type, op);
-	}
-
-	/* Takes care of WT/WC case.
-	 * More useful when we go barrierless
-	 */
-	dmb();
-}
-
 /* TODO:
  * Add vsync wait */
 

@@ -160,7 +160,6 @@ void kgsl_late_resume_driver(struct early_suspend *h);
 #ifdef CONFIG_MSM_KGSL_DRM
 extern int kgsl_drm_init(struct platform_device *dev);
 extern void kgsl_drm_exit(void);
-extern void kgsl_gpu_mem_flush(int op);
 #else
 static inline int kgsl_drm_init(struct platform_device *dev)
 {
