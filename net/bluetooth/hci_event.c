@@ -1533,7 +1533,7 @@ static inline void hci_inquiry_complete_evt(struct hci_dev *hdev, struct sk_buff
 
 	BT_DBG("%s status %d", hdev->name, status);
 
-	if (!lmp_le_capable(hdev))
+	if (!hdev->disco_state)
 		clear_bit(HCI_INQUIRY, &hdev->flags);
 
 	hci_req_complete(hdev, HCI_OP_INQUIRY, status);
