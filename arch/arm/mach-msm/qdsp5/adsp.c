@@ -1049,6 +1049,7 @@ int msm_adsp_generate_event(void *data,
 
 	spin_lock_irqsave(&adsp_cmd_lock, flags);
 	read_event_addr = msg;
+	read_event_size = event_length;
 	mod->ops->event(data, event_id, event_length, func);
 	spin_unlock_irqrestore(&adsp_cmd_lock, flags);
 	return 0;
