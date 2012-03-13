@@ -49,9 +49,10 @@
 		reg = <0xf980b000 0x1000>;
 		interrupts = <0 123 0>;
 
-		qcom,sdcc-clk-rates = <400000 24000000 48000000>;
+		qcom,sdcc-clk-rates = <400000 24000000 48000000 96000000 192000000>;
 		qcom,sdcc-sup-voltages = <3300 3300>;
 		qcom,sdcc-bus-width = <8>;
+		qcom,sdcc-hs200;
 		qcom,sdcc-nonremovable;
 		qcom,sdcc-disable_cmd23;
 	};

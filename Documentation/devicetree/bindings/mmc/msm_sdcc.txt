@@ -21,6 +21,7 @@ Optional Properties:
 	- qcom,sdcc-nonremovable - specifies whether the card in slot is
 				hot pluggable or hard wired.
 	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.
+	- qcom,sdcc-hs200 - enable eMMC4.5 HS200 bus speed mode
 
 Example:
 

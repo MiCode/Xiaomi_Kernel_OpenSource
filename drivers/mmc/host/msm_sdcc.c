@@ -96,11 +96,22 @@ static struct mmc_command dummy52cmd = {
  * An array holding the Tuning pattern to compare with when
  * executing a tuning cycle.
  */
-static const u32 cmd19_tuning_block[16] = {
+static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
 	0xDDFFDFFF, 0xFBFFFBFF, 0xFF7FFFBF, 0xEFBDF777,
 	0xF0FFF0FF, 0x3CCCFC0F, 0xCFCC33CC, 0xEEFFEFFF,
 	0xFDFFFDFF, 0xFFBFFFDF, 0xFFF7FFBB, 0xDE7B7FF7
+};
+
+static const u32 tuning_block_128[] = {
+	0xFF00FFFF, 0x0000FFFF, 0xCCCCFFFF, 0xCCCC33CC,
+	0xCC3333CC, 0xFFFFCCCC, 0xFFFFEEFF, 0xFFEEEEFF,
+	0xFFDDFFFF, 0xDDDDFFFF, 0xBBFFFFFF, 0xBBFFFFFF,
+	0xFFFFFFBB, 0xFFFFFF77, 0x77FF7777, 0xFFEEDDBB,
+	0x00FFFFFF, 0x00FFFFFF, 0xCCFFFF00, 0xCC33CCCC,
+	0x3333CCCC, 0xFFCCCCCC, 0xFFEEFFFF, 0xEEEEFFFF,
+	0xDDFFFFFF, 0xDDFFFFFF, 0xFFFFFFDD, 0xFFFFFFBB,
+	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
 #if IRQ_DEBUG == 1
@@ -986,7 +997,9 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		*c |= MCI_CSPM_DATCMD;
 
 	/* Check if AUTO CMD19 is required or not? */
-	if (host->tuning_needed) {
+	if (host->tuning_needed &&
+		!(host->mmc->ios.timing == MMC_TIMING_MMC_HS200)) {
+
 		/*
 		 * For open ended block read operation (without CMD23),
 		 * AUTO_CMD19 bit should be set while sending the READ command.
@@ -1518,7 +1531,7 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 				mmc_hostname(host->mmc), cmd->opcode);
 		cmd->error = -ETIMEDOUT;
 	} else if ((status & MCI_CMDCRCFAIL && cmd->flags & MMC_RSP_CRC) &&
-			!host->cmd19_tuning_in_progress) {
+			!host->tuning_in_progress) {
 		pr_err("%s: CMD%d: Command CRC error\n",
 			mmc_hostname(host->mmc), cmd->opcode);
 		msmsdcc_dump_sdcc_state(host);
@@ -2147,6 +2160,22 @@ static inline int msmsdcc_set_vddp_high_vol(struct msmsdcc_host *host)
 	return rc;
 }
 
+static inline int msmsdcc_set_vccq_vol(struct msmsdcc_host *host, int level)
+{
+	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
+	int rc = 0;
+
+	if (curr_slot && curr_slot->vccq_data) {
+		rc = msmsdcc_vreg_set_voltage(curr_slot->vccq_data,
+				level, level);
+		if (rc)
+			pr_err("%s: %s: failed to change vccq level to %d",
+				mmc_hostname(host->mmc), __func__, level);
+	}
+
+	return rc;
+}
+
 static inline int msmsdcc_is_pwrsave(struct msmsdcc_host *host)
 {
 	if (host->clk_rate > 400000 && msmsdcc_pwrsave)
@@ -2428,7 +2457,8 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * Select the controller timing mode according
 	 * to current bus speed mode
 	 */
-	if (ios->timing == MMC_TIMING_UHS_SDR104) {
+	if ((ios->timing == MMC_TIMING_UHS_SDR104) ||
+		(ios->timing == MMC_TIMING_MMC_HS200)) {
 		clk |= (4 << 14);
 		host->tuning_needed = 1;
 	} else if (ios->timing == MMC_TIMING_UHS_DDR50) {
@@ -2535,9 +2565,9 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		host->clks_on = 0;
 	}
 
-	if (host->cmd19_tuning_in_progress)
+	if (host->tuning_in_progress)
 		WARN(!host->clks_on,
-			"cmd19_tuning_in_progress but SDCC clocks are OFF\n");
+			"tuning_in_progress but SDCC clocks are OFF\n");
 
 	spin_unlock_irqrestore(&host->lock, flags);
 }
@@ -2722,6 +2752,16 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	spin_lock_irqsave(&host->lock, flags);
 	host->io_pad_pwr_switch = 0;
 	spin_unlock_irqrestore(&host->lock, flags);
+
+	/*
+	 * For eMMC cards, VccQ voltage range must be changed
+	 * only if it operates in HS200 SDR 1.2V mode or in
+	 * DDR 1.2V mode.
+	 */
+	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_120) {
+		rc = msmsdcc_set_vccq_vol(host, 1200000);
+		goto out;
+	 }
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		/* Change voltage level of VDDPX to high voltage */
@@ -3114,6 +3154,8 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long	flags;
 	u8 phase, *data_buf, tuned_phases[16], tuned_phase_cnt = 0;
+	const u32 *tuning_block_pattern = tuning_block_64;
+	int size = sizeof(tuning_block_64); /* Tuning pattern size in bytes */
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
 
@@ -3128,8 +3170,14 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	WARN(!host->clks_on, "SDCC clocks are turned off\n");
 	WARN(host->sdcc_irq_disabled, "SDCC IRQ is disabled\n");
 
-	host->cmd19_tuning_in_progress = 1;
+	host->tuning_in_progress = 1;
 	msmsdcc_delay(host);
+	if ((opcode == MMC_SEND_TUNING_BLOCK_HS200) &&
+		(mmc->ios.bus_width == MMC_BUS_WIDTH_8)) {
+		tuning_block_pattern = tuning_block_128;
+		size = sizeof(tuning_block_128);
+	}
+
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/* first of all reset the tuning block */
@@ -3137,7 +3185,7 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (rc)
 		goto out;
 
-	data_buf = kmalloc(64, GFP_KERNEL);
+	data_buf = kmalloc(size, GFP_KERNEL);
 	if (!data_buf) {
 		rc = -ENOMEM;
 		goto out;
@@ -3158,23 +3206,23 @@ static int msmsdcc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		if (rc)
 			goto kfree;
 
-		cmd.opcode = MMC_SEND_TUNING_BLOCK;
+		cmd.opcode = opcode;
 		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
 
-		data.blksz = 64;
+		data.blksz = size;
 		data.blocks = 1;
 		data.flags = MMC_DATA_READ;
 		data.timeout_ns = 1000 * 1000 * 1000; /* 1 sec */
 
 		data.sg = &sg;
 		data.sg_len = 1;
-		sg_init_one(&sg, data_buf, 64);
-		memset(data_buf, 0, 64);
+		sg_init_one(&sg, data_buf, size);
+		memset(data_buf, 0, size);
 		mmc_wait_for_req(mmc, &mrq);
 
 		if (!cmd.error && !data.error &&
-			!memcmp(data_buf, cmd19_tuning_block, 64)) {
-			/* tuning is successful with this tuning point */
+			!memcmp(data_buf, tuning_block_pattern, size)) {
+			/* tuning is successful at this tuning point */
 			tuned_phases[tuned_phase_cnt++] = phase;
 			pr_debug("%s: %s: found good phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
@@ -3211,7 +3259,7 @@ kfree:
 out:
 	spin_lock_irqsave(&host->lock, flags);
 	msmsdcc_delay(host);
-	host->cmd19_tuning_in_progress = 0;
+	host->tuning_in_progress = 0;
 	spin_unlock_irqrestore(&host->lock, flags);
 exit:
 	pr_debug("%s: Exit %s\n", mmc_hostname(mmc), __func__);
@@ -4342,6 +4390,12 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->xpc_cap)
 		mmc->caps |= (MMC_CAP_SET_XPC_330 | MMC_CAP_SET_XPC_300 |
 				MMC_CAP_SET_XPC_180);
+
+	if (pdev->dev.of_node) {
+		if (of_get_property((&pdev->dev)->of_node,
+					"qcom,sdcc-hs200", NULL))
+			mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
+	}
 
 	if (plat->nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;

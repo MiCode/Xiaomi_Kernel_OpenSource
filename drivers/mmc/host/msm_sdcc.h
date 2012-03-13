@@ -2,7 +2,7 @@
  *  linux/drivers/mmc/host/msmsdcc.h - QCT MSM7K SDC Controller
  *
  *  Copyright (C) 2008 Google, All Rights Reserved.
- *  Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -394,7 +394,7 @@ struct msmsdcc_host {
 	struct timer_list req_tout_timer;
 	unsigned long reg_write_delay;
 	bool io_pad_pwr_switch;
-	bool cmd19_tuning_in_progress;
+	bool tuning_in_progress;
 	bool tuning_needed;
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
