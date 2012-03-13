@@ -466,6 +466,11 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 
 	status = rmnet_usb_ctrl_probe(iface, unet->status,
 		(struct rmnet_ctrl_dev *)unet->data[1]);
+	if (status)
+		goto out;
+
+	/* allow modem to wake up suspended system */
+	device_set_wakeup_enable(&udev->dev, 1);
 out:
 	return status;
 }
@@ -477,6 +482,7 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	struct rmnet_ctrl_dev	*dev;
 
 	udev = interface_to_usbdev(intf);
+	device_set_wakeup_enable(&udev->dev, 0);
 
 	unet = usb_get_intfdata(intf);
 	if (!unet) {
