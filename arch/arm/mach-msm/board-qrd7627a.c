@@ -1146,10 +1146,12 @@ static void __init msm_add_footswitch_devices(void)
 
 static void add_platform_devices(void)
 {
-	if (machine_is_msm8625_evb())
+	if (machine_is_msm8625_evb()) {
 		platform_add_devices(msm8625_evb_devices,
 				ARRAY_SIZE(msm8625_evb_devices));
-	else {
+		platform_add_devices(qrd3_devices,
+					ARRAY_SIZE(qrd3_devices));
+	} else {
 		platform_add_devices(qrd7627a_devices,
 				ARRAY_SIZE(qrd7627a_devices));
 		if (machine_is_msm7627a_qrd3())
