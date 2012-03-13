@@ -1887,6 +1887,7 @@ u32 vcd_handle_input_done(
 	struct vcd_transc *transc;
 	struct ddl_frame_data_tag *frame =
 		(struct ddl_frame_data_tag *) payload;
+	struct vcd_buffer_entry *orig_frame = NULL;
 	u32 rc;
 
 	if (!cctxt->status.frame_submitted &&
@@ -1901,6 +1902,8 @@ u32 vcd_handle_input_done(
 	VCD_FAILED_RETURN(rc, "Bad input done payload");
 
 	transc = (struct vcd_transc *)frame->vcd_frm.ip_frm_tag;
+	orig_frame = vcd_find_buffer_pool_entry(&cctxt->in_buf_pool,
+					 transc->ip_buf_entry->virtual);
 
 	if ((transc->ip_buf_entry->frame.virtual !=
 		 frame->vcd_frm.virtual)
@@ -1919,8 +1922,17 @@ u32 vcd_handle_input_done(
 			sizeof(struct vcd_frame_data),
 			cctxt, cctxt->client_data);
 
-	transc->ip_buf_entry->in_use = false;
+	orig_frame->in_use--;
 	VCD_BUFFERPOOL_INUSE_DECREMENT(cctxt->in_buf_pool.in_use);
+
+	if (cctxt->decoding && orig_frame->in_use) {
+		VCD_MSG_ERROR("When decoding same input buffer not "
+				"supposed to be queued multiple times");
+		return VCD_ERR_FAIL;
+	}
+
+	if (orig_frame != transc->ip_buf_entry)
+		kfree(transc->ip_buf_entry);
 	transc->ip_buf_entry = NULL;
 	transc->input_done = true;
 
@@ -2640,7 +2652,7 @@ u32 vcd_handle_input_frame(
 	 struct vcd_frame_data *input_frame)
 {
 	struct vcd_dev_ctxt *dev_ctxt = cctxt->dev_ctxt;
-	struct vcd_buffer_entry *buf_entry;
+	struct vcd_buffer_entry *buf_entry, *orig_frame;
 	struct vcd_frame_data *frm_entry;
 	u32 rc = VCD_S_SUCCESS;
 	u32 eos_handled = false;
@@ -2686,18 +2698,49 @@ u32 vcd_handle_input_frame(
 	}
 	VCD_FAILED_RETURN(rc, "Failed: First frame handling");
 
-	buf_entry = vcd_find_buffer_pool_entry(&cctxt->in_buf_pool,
+	orig_frame = vcd_find_buffer_pool_entry(&cctxt->in_buf_pool,
 						 input_frame->virtual);
-	if (!buf_entry) {
+	if (!orig_frame) {
 		VCD_MSG_ERROR("Bad buffer addr: %p", input_frame->virtual);
 		return VCD_ERR_FAIL;
 	}
 
-	if (buf_entry->in_use) {
-		VCD_MSG_ERROR("An inuse input frame is being"
-			"re-queued to scheduler");
-		return VCD_ERR_FAIL;
-	}
+	if (orig_frame->in_use) {
+		/*
+		 * This path only allowed for enc., dec. not allowed
+		 * to queue same buffer multiple times
+		 */
+		if (cctxt->decoding) {
+			VCD_MSG_ERROR("An inuse input frame is being "
+					"re-queued to scheduler");
+			return VCD_ERR_FAIL;
+		}
+
+		buf_entry = kzalloc(sizeof(*buf_entry), GFP_KERNEL);
+		if (!buf_entry) {
+			VCD_MSG_ERROR("Unable to alloc memory");
+			return VCD_ERR_FAIL;
+		}
+
+		INIT_LIST_HEAD(&buf_entry->sched_list);
+		/*
+		 * Pre-emptively poisoning this, as these dupe entries
+		 * shouldn't get added to any list
+		 */
+		INIT_LIST_HEAD(&buf_entry->list);
+		buf_entry->list.next = LIST_POISON1;
+		buf_entry->list.prev = LIST_POISON2;
+
+		buf_entry->valid = orig_frame->valid;
+		buf_entry->alloc = orig_frame->alloc;
+		buf_entry->virtual = orig_frame->virtual;
+		buf_entry->physical = orig_frame->physical;
+		buf_entry->sz = orig_frame->sz;
+		buf_entry->allocated = orig_frame->allocated;
+		buf_entry->in_use = 1; /* meaningless for the dupe buffers */
+		buf_entry->frame = orig_frame->frame;
+	} else
+		buf_entry = orig_frame;
 
 	if (input_frame->alloc_len > buf_entry->sz) {
 		VCD_MSG_ERROR("Bad buffer Alloc_len %d, Actual sz=%d",
@@ -2726,7 +2769,7 @@ u32 vcd_handle_input_frame(
 		cctxt->sched_clnt_hdl, buf_entry, true);
 	VCD_FAILED_RETURN(rc, "Failed: vcd_sched_queue_buffer");
 
-	buf_entry->in_use = true;
+	orig_frame->in_use++;
 	cctxt->in_buf_pool.in_use++;
 	vcd_try_submit_frame(dev_ctxt);
 	return rc;
