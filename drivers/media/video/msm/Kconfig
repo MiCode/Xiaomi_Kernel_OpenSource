@@ -48,9 +48,16 @@ config OV5647
 	depends on MSM_CAMERA
 	---help---
 	  OV 5M Bayer Sensor with AutoFocus
+
+config AD5046_ACT
+	bool "Lens actuator ad5046"
+	depends on MSM_CAMERA && OV5647
+	---help---
+	  ad5046 lens actuator driver for ov5647.
+	  Say Y here if this is msm7627A variant platform.
 config WEBCAM_OV7692_QRD
 	bool "Sensor OV7692 QRD(VGA YUV)"
-	depends on MSM_CAMERA && ARCH_MSM7X27A && !MSM_CAMERA_V4L2
+	depends on MSM_CAMERA && ARCH_MSM7X27A
 	default n
 	---help---
 	  Omni Vision VGA YUV Sensor for QRD Devices
