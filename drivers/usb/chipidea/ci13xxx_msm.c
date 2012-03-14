@@ -25,7 +25,7 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *ci, unsigned event)
 	case CI13XXX_CONTROLLER_RESET_EVENT:
 		dev_dbg(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
 		writel(0, USB_AHBBURST);
-		writel(0, USB_AHBMODE);
+		writel_relaxed(0x8, USB_AHBMODE);
 		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx event\n");
