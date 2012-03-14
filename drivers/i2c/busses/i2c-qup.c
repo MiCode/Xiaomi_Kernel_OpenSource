@@ -33,6 +33,8 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
@@ -1101,7 +1103,24 @@ qup_i2c_probe(struct platform_device *pdev)
 	gsbi_mem = NULL;
 	dev_dbg(&pdev->dev, "qup_i2c_probe\n");
 
-	pdata = pdev->dev.platform_data;
+	if (pdev->dev.of_node) {
+		struct device_node *node = pdev->dev.of_node;
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+		ret = of_property_read_u32(node, "qcom,i2c-bus-freq",
+					&pdata->clk_freq);
+		if (ret)
+			goto get_res_failed;
+		ret = of_property_read_u32(node, "cell-index", &pdev->id);
+		if (ret)
+			goto get_res_failed;
+		/* Optional property */
+		of_property_read_u32(node, "qcom,i2c-src-freq",
+					&pdata->src_clk_rate);
+	} else
+		pdata = pdev->dev.platform_data;
+
 	if (!pdata) {
 		dev_err(&pdev->dev, "platform data not initialized\n");
 		return -ENOSYS;
@@ -1110,7 +1129,8 @@ qup_i2c_probe(struct platform_device *pdev)
 						"qup_phys_addr");
 	if (!qup_mem) {
 		dev_err(&pdev->dev, "no qup mem resource?\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto get_res_failed;
 	}
 
 	/*
@@ -1127,22 +1147,27 @@ qup_i2c_probe(struct platform_device *pdev)
 						"qup_err_intr");
 	if (!err_irq) {
 		dev_err(&pdev->dev, "no error irq resource?\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto get_res_failed;
 	}
 
 	qup_io = request_mem_region(qup_mem->start, resource_size(qup_mem),
 					pdev->name);
 	if (!qup_io) {
 		dev_err(&pdev->dev, "QUP region already claimed\n");
-		return -EBUSY;
+		ret = -EBUSY;
+		goto get_res_failed;
 	}
 	if (!pdata->use_gsbi_shared_mode) {
 		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"gsbi_qup_i2c_addr");
 		if (!gsbi_mem) {
-			dev_err(&pdev->dev, "no gsbi mem resource?\n");
-			ret = -ENODEV;
-			goto err_res_failed;
+			dev_dbg(&pdev->dev, "Assume BLSP\n");
+			/*
+			 * BLSP core does not need protocol programming so this
+			 * resource is not expected
+			 */
+			goto blsp_core_init;
 		}
 		gsbi_io = request_mem_region(gsbi_mem->start,
 						resource_size(gsbi_mem),
@@ -1154,6 +1179,7 @@ qup_i2c_probe(struct platform_device *pdev)
 		}
 	}
 
+blsp_core_init:
 	clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(clk)) {
 		dev_err(&pdev->dev, "Could not get core_clk\n");
@@ -1300,8 +1326,11 @@ qup_i2c_probe(struct platform_device *pdev)
 			free_irq(dev->in_irq, dev);
 		}
 		free_irq(dev->err_irq, dev);
-	} else
+	} else {
+		if (dev->dev->of_node)
+			of_i2c_register_devices(&dev->adapter);
 		return 0;
+	}
 
 
 err_request_irq_failed:
@@ -1322,6 +1351,9 @@ err_clk_get_failed:
 		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
 err_res_failed:
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
+get_res_failed:
+	if (pdev->dev.of_node)
+		kfree(pdata);
 	return ret;
 }
 
@@ -1365,6 +1397,8 @@ qup_i2c_remove(struct platform_device *pdev)
 	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qup_phys_addr");
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
+	if (dev->dev->of_node)
+		kfree(dev->pdata);
 	kfree(dev);
 	return 0;
 }
@@ -1432,6 +1466,13 @@ static const struct dev_pm_ops i2c_qup_dev_pm_ops = {
 	)
 };
 
+static struct of_device_id i2c_qup_dt_match[] = {
+	{
+		.compatible = "qcom,i2c-qup",
+	},
+	{}
+};
+
 static struct platform_driver qup_i2c_driver = {
 	.probe		= qup_i2c_probe,
 	.remove		= __devexit_p(qup_i2c_remove),
@@ -1439,6 +1480,7 @@ static struct platform_driver qup_i2c_driver = {
 		.name	= "qup_i2c",
 		.owner	= THIS_MODULE,
 		.pm = &i2c_qup_dev_pm_ops,
+		.of_match_table = i2c_qup_dt_match,
 	},
 };
 
