@@ -980,50 +980,6 @@ static struct platform_device *msm_iommu_8064_ctx_devs[] = {
 	&msm_device_vcap_vp_ctx,
 };
 
-static int iommu_init_devs(struct platform_device *devs[], int size)
-{
-	int ret, i;
-
-	for (i = 0; i < size; i++) {
-		ret = platform_device_register(devs[i]);
-
-		if (ret != 0) {
-			pr_err("platform_device_register iommu failed, "
-			       "i = %d\n", i);
-			goto failure_unwind;
-		}
-	}
-	return 0;
-
-failure_unwind:
-	while (--i >= 0)
-		platform_device_unregister(devs[i]);
-
-	return ret;
-}
-
-
-static int iommu_init_ctx_devs(struct platform_device *ctx_devs[], int size)
-{
-	int ret, i;
-
-	for (i = 0; i < size; i++) {
-		ret = platform_device_register(ctx_devs[i]);
-		if (ret != 0) {
-			pr_err("platform_device_register ctx failed, "
-			       "i = %d\n", i);
-			goto failure_unwind;
-		}
-	}
-	return 0;
-
-failure_unwind:
-	while (--i >= 0)
-		platform_device_unregister(ctx_devs[i]);
-
-	return ret;
-}
-
 static int __init iommu_init(void)
 {
 	int ret;
@@ -1039,34 +995,34 @@ static int __init iommu_init(void)
 	}
 
 	/* Initialize common devs */
-	ret = iommu_init_devs(msm_iommu_common_devs,
+	ret = platform_add_devices(msm_iommu_common_devs,
 			 ARRAY_SIZE(msm_iommu_common_devs));
 	if (ret != 0)
 		goto failure2;
 
 	/* Initialize soc-specific devs */
 	if (cpu_is_apq8064()) {
-		ret = iommu_init_devs(msm_iommu_8064_devs,
+		ret = platform_add_devices(msm_iommu_8064_devs,
 				 ARRAY_SIZE(msm_iommu_8064_devs));
 	} else {
-		ret = iommu_init_devs(msm_iommu_gfx2d_devs,
+		ret = platform_add_devices(msm_iommu_gfx2d_devs,
 				 ARRAY_SIZE(msm_iommu_gfx2d_devs));
 	}
 	if (ret != 0)
 		goto failure2;
 
 	/* Initialize common ctx_devs */
-	ret = iommu_init_ctx_devs(msm_iommu_common_ctx_devs,
+	ret = platform_add_devices(msm_iommu_common_ctx_devs,
 				 ARRAY_SIZE(msm_iommu_common_ctx_devs));
 	if (ret != 0)
 		goto failure2;
 
 	/* Initialize soc-specific ctx_devs */
 	if (cpu_is_apq8064()) {
-		ret = iommu_init_ctx_devs(msm_iommu_8064_ctx_devs,
+		ret = platform_add_devices(msm_iommu_8064_ctx_devs,
 				ARRAY_SIZE(msm_iommu_8064_ctx_devs));
 	} else {
-		ret = iommu_init_ctx_devs(msm_iommu_gfx2d_ctx_devs,
+		ret = platform_add_devices(msm_iommu_gfx2d_ctx_devs,
 					ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs));
 	}
 	if (ret != 0)
