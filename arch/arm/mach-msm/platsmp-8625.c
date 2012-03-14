@@ -17,7 +17,6 @@
 #include <linux/jiffies.h>
 #include <linux/smp.h>
 #include <linux/io.h>
-#include <linux/highmem.h>
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
@@ -26,9 +25,7 @@
 #include <asm/unified.h>
 #include <mach/msm_iomap.h>
 #include <mach/smp.h>
-
 #include "pm.h"
-#include "devices-msm7x2xa.h"
 
 #define MSM_CORE1_RESET		0xA8600590
 #define MSM_CORE1_STATUS_MSK	0x02800000
@@ -209,8 +206,7 @@ static void __init msm8625_boot_vector_init(uint32_t *boot_vector,
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i, value;
-	phys_addr_t base;
-	void *vaddr;
+	void __iomem *second_ptr;
 
 	/*
 	 * Initialise the present map, which describes the set of CPUs
@@ -225,14 +221,18 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 	 * Write the address of secondary startup into the
 	 * boot remapper register. The secondary CPU branches to this address.
 	 */
-	base = msm8625_get_phys_base();
-	__raw_writel(base, (MSM_CFG_CTL_BASE + 0x34));
+	__raw_writel(MSM8625_SECONDARY_PHYS, (MSM_CFG_CTL_BASE + 0x34));
 	mb();
 
-	vaddr = kmap_atomic(phys_to_page(base));
+	second_ptr = ioremap_nocache(MSM8625_SECONDARY_PHYS, SZ_8);
+	if (!second_ptr) {
+		pr_err("failed to ioremap for secondary core\n");
+		return;
+	}
 
-	msm8625_boot_vector_init(vaddr, virt_to_phys(msm_secondary_startup));
-	kunmap_atomic(vaddr);
+	msm8625_boot_vector_init(second_ptr,
+			virt_to_phys(msm_secondary_startup));
+	iounmap(second_ptr);
 
 	/* Enable boot remapper address: bit 26 for core1 */
 	value = __raw_readl(MSM_CFG_CTL_BASE + 0x30);

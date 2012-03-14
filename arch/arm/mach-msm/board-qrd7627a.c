@@ -843,6 +843,12 @@ static void __init msm7627a_reserve(void)
 	msm_pm_8625_boot_pdata.p_addr = memblock_alloc(SZ_8, SZ_64K);
 }
 
+static void __init msm8625_reserve(void)
+{
+	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+	msm7627a_reserve();
+}
+
 static void msmqrd_adsp_add_pdev(void)
 {
 	int rc = 0;
@@ -1268,7 +1274,7 @@ MACHINE_END
 MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
 	.boot_params	= PHYS_OFFSET + 0x100,
 	.map_io		= msm8625_map_io,
-	.reserve	= msm7627a_reserve,
+	.reserve	= msm8625_reserve,
 	.init_irq	= msm8625_init_irq,
 	.init_machine	= msm_qrd_init,
 	.timer		= &msm_timer,

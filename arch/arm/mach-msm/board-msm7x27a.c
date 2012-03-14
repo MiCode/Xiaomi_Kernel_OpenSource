@@ -948,6 +948,7 @@ static void __init msm7x27a_reserve(void)
 static void __init msm8625_reserve(void)
 {
 	msm7x27a_reserve();
+	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
 	msm_pm_8625_boot_pdata.p_addr = memblock_alloc(SZ_8, SZ_64K);
 }
 
