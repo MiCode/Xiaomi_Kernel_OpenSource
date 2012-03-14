@@ -1639,10 +1639,9 @@ static void reconnect_to_bam(void)
 	if (polling_mode)
 		rx_switch_to_interrupt_mode();
 
-	queue_rx();
-
 	toggle_apps_ack();
 	complete_all(&bam_connection_completion);
+	queue_rx();
 }
 
 static void disconnect_to_bam(void)
@@ -1959,10 +1958,10 @@ static int bam_init(void)
 	}
 
 	bam_mux_initialized = 1;
-	queue_rx();
 	toggle_apps_ack();
 	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
+	queue_rx();
 	return 0;
 
 rx_event_reg_failed:
