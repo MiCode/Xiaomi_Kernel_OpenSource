@@ -1363,12 +1363,16 @@ static void __init msm7x27a_add_io_devices(void)
 
 static void __init msm7x27a_pm_init(void)
 {
-	if (machine_is_msm8625_surf())
-		return;
-
-	msm_pm_set_platform_data(msm7x27a_pm_data,
-			ARRAY_SIZE(msm7x27a_pm_data));
-	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	if (machine_is_msm8625_surf()) {
+		msm_pm_set_platform_data(msm8625_pm_data,
+				ARRAY_SIZE(msm8625_pm_data));
+		BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
+		msm8x25_spm_device_init();
+	} else {
+		msm_pm_set_platform_data(msm7x27a_pm_data,
+				ARRAY_SIZE(msm7x27a_pm_data));
+		BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	}
 }
 
 static void __init msm7x2x_init(void)
