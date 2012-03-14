@@ -24,7 +24,6 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
-#include <mach/msm_xo.h>
 #include <mach/scm-io.h>
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
@@ -298,62 +297,8 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 	.fmax[VDD_DIG_##l2] = (f2), \
 	.fmax[VDD_DIG_##l3] = (f3)
 
-static struct msm_xo_voter *xo_pxo, *xo_cxo;
-
-static bool xo_clk_is_local(struct clk *clk)
-{
-	return false;
-}
-
-static int pxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_ON);
-}
-
-static void pxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_pxo = {
-	.enable = pxo_clk_enable,
-	.disable = pxo_clk_disable,
-	.is_local = xo_clk_is_local,
-};
-
-static struct fixed_clk pxo_clk = {
-	.c = {
-		.dbg_name = "pxo_clk",
-		.rate = 27000000,
-		.ops = &clk_ops_pxo,
-		CLK_INIT(pxo_clk.c),
-	},
-};
-
-static int cxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_ON);
-}
-
-static void cxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_cxo = {
-	.enable = cxo_clk_enable,
-	.disable = cxo_clk_disable,
-	.is_local = xo_clk_is_local,
-};
-
-static struct fixed_clk cxo_clk = {
-	.c = {
-		.dbg_name = "cxo_clk",
-		.rate = 19200000,
-		.ops = &clk_ops_cxo,
-		CLK_INIT(cxo_clk.c),
-	},
-};
+DEFINE_CLK_RPM_BRANCH(pxo_clk, pxo_a_clk, PXO, 27000000);
+DEFINE_CLK_RPM_BRANCH(cxo_clk, cxo_a_clk, CXO, 19200000);
 
 static struct pll_vote_clk pll8_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
@@ -365,6 +310,7 @@ static struct pll_vote_clk pll8_clk = {
 		.rate = 384000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll8_clk.c),
+		.warned = true,
 	},
 };
 
@@ -376,6 +322,7 @@ static struct pll_clk pll2_clk = {
 		.rate = 800000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll2_clk.c),
+		.warned = true,
 	},
 };
 
@@ -387,6 +334,7 @@ static struct pll_clk pll3_clk = {
 		.rate = 0, /* TODO: Detect rate dynamically */
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll3_clk.c),
+		.warned = true,
 	},
 };
 
@@ -425,6 +373,7 @@ static struct fixed_clk pll4_clk = {
 		.rate = 540672000,
 		.ops = &clk_ops_pll4,
 		CLK_INIT(pll4_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3547,7 +3496,9 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_8x60[] = {
-	CLK_LOOKUP("cxo",		cxo_clk.c,	NULL),
+	CLK_LOOKUP("xo",		cxo_clk.c,	""),
+	CLK_LOOKUP("xo",		cxo_a_clk.c,	""),
+	CLK_LOOKUP("xo",		pxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_modem"),
 	CLK_LOOKUP("pll4",		pll4_clk.c,	"pil_qdsp6v3"),
 	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
@@ -3888,18 +3839,9 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm8660_clock_init(void)
 {
-	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8x60");
-	if (IS_ERR(xo_pxo)) {
-		pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
-		BUG();
-	}
-	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-8x60");
-	if (IS_ERR(xo_cxo)) {
-		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
-		BUG();
-	}
-
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	/* Keep PXO on whenever APPS cpu is active */
+	clk_prepare_enable(&pxo_a_clk.c);
 	/* Initialize clock registers. */
 	reg_init();
 

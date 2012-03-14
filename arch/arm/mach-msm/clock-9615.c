@@ -25,7 +25,6 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
-#include <mach/msm_xo.h>
 #include <mach/rpm-9615.h>
 #include <mach/rpm-regulator.h>
 
@@ -208,32 +207,7 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
  * Clock Descriptions
  */
 
-static struct msm_xo_voter *xo_cxo;
-
-static int cxo_clk_enable(struct clk *clk)
-{
-	return msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_ON);
-}
-
-static void cxo_clk_disable(struct clk *clk)
-{
-	msm_xo_mode_vote(xo_cxo, MSM_XO_MODE_OFF);
-}
-
-static struct clk_ops clk_ops_cxo = {
-	.enable = cxo_clk_enable,
-	.disable = cxo_clk_disable,
-	.is_local = local_clk_is_local,
-};
-
-static struct fixed_clk cxo_clk = {
-	.c = {
-		.dbg_name = "cxo_clk",
-		.rate = 19200000,
-		.ops = &clk_ops_cxo,
-		CLK_INIT(cxo_clk.c),
-	},
-};
+DEFINE_CLK_RPM_BRANCH(cxo_clk, cxo_a_clk, CXO, 19200000);
 
 static DEFINE_SPINLOCK(soft_vote_lock);
 
@@ -294,6 +268,7 @@ static struct pll_vote_clk pll0_clk = {
 		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_clk.c),
+		.warned = true,
 	},
 };
 
@@ -308,6 +283,7 @@ static struct pll_vote_clk pll0_acpu_clk = {
 		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll0_acpu_clk.c),
+		.warned = true,
 	},
 };
 
@@ -321,6 +297,7 @@ static struct pll_vote_clk pll4_clk = {
 		.rate = 393216000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll4_clk.c),
+		.warned = true,
 	},
 };
 
@@ -338,6 +315,7 @@ static struct pll_vote_clk pll8_clk = {
 		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_clk.c),
+		.warned = true,
 	},
 };
 
@@ -352,6 +330,7 @@ static struct pll_vote_clk pll8_acpu_clk = {
 		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(pll8_acpu_clk.c),
+		.warned = true,
 	},
 };
 
@@ -362,6 +341,7 @@ static struct pll_clk pll9_acpu_clk = {
 		.rate = 440000000,
 		.ops = &clk_ops_pll,
 		CLK_INIT(pll9_acpu_clk.c),
+		.warned = true,
 	},
 };
 
@@ -375,6 +355,7 @@ static struct pll_vote_clk pll14_clk = {
 		.rate = 480000000,
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(pll14_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1380,12 +1361,7 @@ static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
-
-/*
- * TODO: replace dummy_clk below with ebi1_clk.c once the
- * bus driver starts voting on ebi1 rates.
- */
-static DEFINE_CLK_VOTER(ebi1_adm_clk,    &dummy_clk);
+static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c);
 
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
@@ -1623,6 +1599,7 @@ static struct measure_clk measure_clk = {
 };
 
 static struct clk_lookup msm_clocks_9615[] = {
+	CLK_LOOKUP("xo",	cxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("pll0",	pll0_clk.c,	NULL),
@@ -1733,11 +1710,6 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("q6sw_clk",		q6sw_clk, NULL),
 	CLK_LOOKUP("q6fw_clk",		q6fw_clk, NULL),
 	CLK_LOOKUP("q6_func_clk",	q6_func_clk, NULL),
-
-	/* TODO: Make this real when RPM's ready. */
-	CLK_DUMMY("ebi1_msmbus_clk",	ebi1_msmbus_clk.c, NULL, OFF),
-	CLK_DUMMY("mem_clk",		ebi1_adm_clk.c, "msm_dmov", OFF),
-
 };
 
 static void set_fsm_mode(void __iomem *mode_reg)
@@ -1861,13 +1833,9 @@ static void __init reg_init(void)
 /* Local clock driver initialization. */
 static void __init msm9615_clock_init(void)
 {
-	xo_cxo = msm_xo_get(MSM_XO_CXO, "clock-9615");
-	if (IS_ERR(xo_cxo)) {
-		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
-		BUG();
-	}
-
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	/* Keep CXO on whenever APPS cpu is active */
+	clk_prepare_enable(&cxo_a_clk.c);
 
 	clk_ops_pll.enable = sr_pll_clk_enable;
 
