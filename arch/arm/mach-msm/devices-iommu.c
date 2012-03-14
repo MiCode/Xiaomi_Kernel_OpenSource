@@ -924,7 +924,6 @@ static struct platform_device msm_device_vcap_vp_ctx = {
 };
 
 static struct platform_device *msm_iommu_common_devs[] = {
-	&msm_device_iommu_jpegd,
 	&msm_device_iommu_vpe,
 	&msm_device_iommu_mdp0,
 	&msm_device_iommu_mdp1,
@@ -946,9 +945,11 @@ static struct platform_device *msm_iommu_8064_devs[] = {
 	&msm_device_iommu_vcap,
 };
 
+static struct platform_device *msm_iommu_jpegd_devs[] = {
+	&msm_device_iommu_jpegd,
+};
+
 static struct platform_device *msm_iommu_common_ctx_devs[] = {
-	&msm_device_jpegd_src_ctx,
-	&msm_device_jpegd_dst_ctx,
 	&msm_device_vpe_src_ctx,
 	&msm_device_vpe_dst_ctx,
 	&msm_device_mdp_vg1_ctx,
@@ -978,6 +979,11 @@ static struct platform_device *msm_iommu_8064_ctx_devs[] = {
 	&msm_device_gfx3d1_priv_ctx,
 	&msm_device_vcap_vc_ctx,
 	&msm_device_vcap_vp_ctx,
+};
+
+static struct platform_device *msm_iommu_jpegd_ctx_devs[] = {
+	&msm_device_jpegd_src_ctx,
+	&msm_device_jpegd_dst_ctx,
 };
 
 static int __init iommu_init(void)
@@ -1011,6 +1017,14 @@ static int __init iommu_init(void)
 	if (ret != 0)
 		goto failure2;
 
+	if (!cpu_is_msm8930()) {
+		ret = platform_add_devices(msm_iommu_jpegd_devs,
+			ARRAY_SIZE(msm_iommu_jpegd_devs));
+
+		if (ret != 0)
+			goto failure2;
+	}
+
 	/* Initialize common ctx_devs */
 	ret = platform_add_devices(msm_iommu_common_ctx_devs,
 				 ARRAY_SIZE(msm_iommu_common_ctx_devs));
@@ -1027,6 +1041,14 @@ static int __init iommu_init(void)
 	}
 	if (ret != 0)
 		goto failure2;
+
+	if (!cpu_is_msm8930()) {
+		ret = platform_add_devices(msm_iommu_jpegd_ctx_devs,
+			ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
+
+		if (ret != 0)
+			goto failure2;
+	}
 
 	return 0;
 
@@ -1053,6 +1075,11 @@ static void __exit iommu_exit(void)
 			platform_device_unregister(msm_iommu_gfx2d_ctx_devs[i]);
 	}
 
+	if (!cpu_is_msm8930()) {
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_ctx_devs); i++)
+			platform_device_unregister(msm_iommu_jpegd_ctx_devs[i]);
+	}
+
 	/* Common devs. */
 	for (i = 0; i < ARRAY_SIZE(msm_iommu_common_devs); ++i)
 		platform_device_unregister(msm_iommu_common_devs[i]);
@@ -1064,6 +1091,11 @@ static void __exit iommu_exit(void)
 	} else {
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_gfx2d_devs); i++)
 			platform_device_unregister(msm_iommu_gfx2d_devs[i]);
+	}
+
+	if (!cpu_is_msm8930()) {
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_devs); i++)
+			platform_device_unregister(msm_iommu_jpegd_devs[i]);
 	}
 
 	platform_device_unregister(&msm_root_iommu_dev);
