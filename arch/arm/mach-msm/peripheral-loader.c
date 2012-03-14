@@ -374,8 +374,10 @@ void pil_force_shutdown(const char *name)
 	struct pil_device *pil;
 
 	pil = find_peripheral(name);
-	if (!pil)
+	if (!pil) {
+		pr_err("%s: Couldn't find %s\n", __func__, name);
 		return;
+	}
 
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
@@ -393,8 +395,10 @@ int pil_force_boot(const char *name)
 	struct pil_device *pil;
 
 	pil = find_peripheral(name);
-	if (!pil)
+	if (!pil) {
+		pr_err("%s: Couldn't find %s\n", __func__, name);
 		return -EINVAL;
+	}
 
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
