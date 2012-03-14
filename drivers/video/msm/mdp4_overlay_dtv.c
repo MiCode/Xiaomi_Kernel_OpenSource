@@ -268,6 +268,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 		mdp4_overlay_dtv_wait4vsync();
 		mdp4_dtv_stop(mfd);
 		mdp4_overlay_pipe_free(dtv_pipe);
+		mdp4_iommu_unmap(dtv_pipe);
 		dtv_pipe = NULL;
 	}
 	mdp4_overlay_panel_mode_unset(MDP4_MIXER1, MDP4_PANEL_DTV);
@@ -660,5 +661,6 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_reg_flush(pipe, 0);
 	mdp4_overlay_dtv_start();
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
+	mdp4_iommu_unmap(pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
