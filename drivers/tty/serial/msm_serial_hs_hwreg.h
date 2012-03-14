@@ -51,7 +51,9 @@ enum msm_hsl_regs {
 	UARTDM_NCF_TX,
 	UARTDM_DMEN,
 	UARTDM_BCR,
-	UARTDM_LAST
+	UARTDM_TXFS,
+	UARTDM_RXFS,
+	UARTDM_LAST,
 };
 
 #define UARTDM_MR1_ADDR 0x0
@@ -118,6 +120,7 @@ enum msm_hsl_regs {
 #define UARTDM_ISR_ADDR 0x14
 #define UARTDM_RX_TOTAL_SNAP_ADDR 0x38
 
+#define UARTDM_TXFS_ADDR 0x4C
 #define UARTDM_RXFS_ADDR 0x50
 
 /* Register field Mask Mapping */
