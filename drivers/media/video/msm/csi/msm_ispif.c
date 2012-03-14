@@ -525,16 +525,16 @@ static void msm_ispif_release(struct v4l2_subdev *sd)
 	struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);
 
+	CDBG("%s, free_irq\n", __func__);
+	free_irq(ispif->irq->start, 0);
+	tasklet_kill(&ispif_tasklet);
+
 	if (ispif->csid_version == CSID_VERSION_V2)
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_clk_info), 0);
 	else
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
 			ispif->ispif_clk, 2, 0);
-
-	CDBG("%s, free_irq\n", __func__);
-	free_irq(ispif->irq->start, 0);
-	tasklet_kill(&ispif_tasklet);
 }
 
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num)

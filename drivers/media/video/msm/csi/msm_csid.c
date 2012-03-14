@@ -117,7 +117,8 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
 	irq = msm_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-	CDBG("%s CSID_IRQ_STATUS_ADDR = 0x%x\n", __func__, irq);
+	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		 __func__, csid_dev->pdev->id, irq);
 	msm_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
@@ -180,11 +181,13 @@ static int msm_csid_init(struct v4l2_subdev *sd, uint32_t *csid_version)
 		goto clk_enable_failed;
 	}
 
+	csid_dev->hw_version =
+		msm_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
+	*csid_version = csid_dev->hw_version;
+
 #if DBG_CSID
 	enable_irq(csid_dev->irq->start);
 #endif
-
-	*csid_version = csid_dev->hw_version;
 	return 0;
 
 clk_enable_failed:
@@ -223,19 +226,27 @@ static int msm_csid_release(struct v4l2_subdev *sd)
 static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
+	int rc = -ENOIOCTLCMD;
 	struct csid_cfg_params cfg_params;
+	struct csid_device *csid_dev = v4l2_get_subdevdata(sd);
+	mutex_lock(&csid_dev->mutex);
 	switch (cmd) {
 	case VIDIOC_MSM_CSID_CFG:
 		cfg_params.subdev = sd;
 		cfg_params.parms = arg;
-		return msm_csid_config((struct csid_cfg_params *)&cfg_params);
+		rc = msm_csid_config((struct csid_cfg_params *)&cfg_params);
+		break;
 	case VIDIOC_MSM_CSID_INIT:
-		return msm_csid_init(sd, (uint32_t *)arg);
+		rc = msm_csid_init(sd, (uint32_t *)arg);
+		break;
 	case VIDIOC_MSM_CSID_RELEASE:
-		return msm_csid_release(sd);
+		rc = msm_csid_release(sd);
+		break;
 	default:
-		return -ENOIOCTLCMD;
+		pr_err("%s: command not found\n", __func__);
 	}
+	mutex_unlock(&csid_dev->mutex);
+	return rc;
 }
 
 static struct v4l2_subdev_core_ops msm_csid_subdev_core_ops = {
@@ -295,17 +306,6 @@ static int __devinit csid_probe(struct platform_device *pdev)
 		goto csid_no_resource;
 	}
 	disable_irq(new_csid_dev->irq->start);
-
-	new_csid_dev->base = ioremap(new_csid_dev->mem->start,
-		resource_size(new_csid_dev->mem));
-	if (!new_csid_dev->base) {
-		rc = -ENOMEM;
-		goto csid_no_resource;
-	}
-
-	new_csid_dev->hw_version =
-		msm_io_r(new_csid_dev->base + CSID_HW_VERSION_ADDR);
-	iounmap(new_csid_dev->base);
 
 	new_csid_dev->pdev = pdev;
 	return 0;

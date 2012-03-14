@@ -3949,6 +3949,9 @@ vfe_remap_failed:
 void msm_vfe_subdev_release(struct platform_device *pdev)
 {
 	struct msm_sync *sync = vfe_syncdata;
+	CDBG("%s, free_irq\n", __func__);
+	disable_irq(vfe32_ctrl->vfeirq->start);
+	tasklet_kill(&vfe32_tasklet);
 	msm_cam_clk_enable(&vfe32_ctrl->pdev->dev, vfe32_clk_info,
 			vfe32_ctrl->vfe_clk, ARRAY_SIZE(vfe32_clk_info), 0);
 	if (vfe32_ctrl->fs_vfe) {
@@ -3956,9 +3959,6 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 		regulator_put(vfe32_ctrl->fs_vfe);
 		vfe32_ctrl->fs_vfe = NULL;
 	}
-	CDBG("%s, free_irq\n", __func__);
-	disable_irq(vfe32_ctrl->vfeirq->start);
-	tasklet_kill(&vfe32_tasklet);
 	iounmap(vfe32_ctrl->vfebase);
 
 	if (atomic_read(&irq_cnt))

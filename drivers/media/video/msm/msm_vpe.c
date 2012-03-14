@@ -529,14 +529,14 @@ int vpe_disable(void)
 	}
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
+	disable_irq(vpe_ctrl->vpeirq->start);
+	tasklet_kill(&vpe_tasklet);
 	msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
 			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 0);
 
 	regulator_disable(vpe_ctrl->fs_vpe);
 	regulator_put(vpe_ctrl->fs_vpe);
 	vpe_ctrl->fs_vpe = NULL;
-	disable_irq(vpe_ctrl->vpeirq->start);
-	tasklet_kill(&vpe_tasklet);
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	vpe_ctrl->state = VPE_STATE_IDLE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
