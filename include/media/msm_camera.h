@@ -1190,7 +1190,6 @@ struct msm_camera_info {
 	uint32_t s_mount_angle[MSM_MAX_CAMERA_SENSORS];
 	const char *video_dev_name[MSM_MAX_CAMERA_SENSORS];
 	enum sensor_type_t sensor_type[MSM_MAX_CAMERA_SENSORS];
-
 };
 
 struct msm_cam_config_dev_info {
@@ -1225,6 +1224,13 @@ struct msm_camsensor_info {
 	uint8_t flash_enabled;
 	int8_t total_steps;
 	uint8_t support_3d;
+	enum flash_type flashtype;
+	enum sensor_type_t sensor_type;
+	uint32_t pxlcode; /* enum v4l2_mbus_pixelcode */
+	uint32_t camera_type; /* msm_camera_type */
+	int mount_angle;
+	uint32_t max_width;
+	uint32_t max_height;
 };
 
 #define V4L2_SINGLE_PLANE	0
