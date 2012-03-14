@@ -1098,6 +1098,18 @@ struct platform_device msm9615_rpm_log_device = {
 	},
 };
 
+uint32_t __init msm9615_rpm_get_swfi_latency(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_levels); i++) {
+		if (msm_rpmrs_levels[i].sleep_mode ==
+			MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)
+				return msm_rpmrs_levels[i].latency_us;
+	}
+	return 0;
+}
+
 void __init msm9615_device_init(void)
 {
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));

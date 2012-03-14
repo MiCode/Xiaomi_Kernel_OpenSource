@@ -21,6 +21,8 @@
 #include <mach/gpiomux.h>
 #include "devices.h"
 
+#include "board-9615.h"
+
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT) \
 		|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))
 
@@ -212,11 +214,15 @@ static struct mmc_platform_data *msm9615_sdc2_pdata;
 void __init msm9615_init_mmc(void)
 {
 	if (msm9615_sdc1_pdata) {
+		msm9615_sdc1_pdata->swfi_latency =
+			msm9615_rpm_get_swfi_latency();
 		/* SDC1: External card slot for SD/MMC cards */
 		msm_add_sdcc(1, msm9615_sdc1_pdata);
 	}
 
 	if (msm9615_sdc2_pdata) {
+		msm9615_sdc2_pdata->swfi_latency =
+			msm9615_rpm_get_swfi_latency();
 		/* SDC2: External card slot used for WLAN */
 		msm_add_sdcc(2, msm9615_sdc2_pdata);
 	}

@@ -36,6 +36,7 @@ msm_rpm_regulator_9615_pdata __devinitdata;
 #define GPIO_VREG_ID_EXT_2P95V		0
 
 extern struct gpio_regulator_platform_data msm_gpio_regulator_pdata[];
+uint32_t msm9615_rpm_get_swfi_latency(void);
 
 int msm9615_init_gpiomux(void);
 void msm9615_init_mmc(void);
