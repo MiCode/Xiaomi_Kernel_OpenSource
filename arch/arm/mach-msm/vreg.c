@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/vreg.c
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012 Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -132,6 +132,8 @@ void vreg_put(struct vreg *vreg)
 {
 	kfree(vreg->name);
 	regulator_put(vreg->reg);
+	list_del(&vreg->list);
+	kfree(vreg);
 }
 
 int vreg_enable(struct vreg *vreg)
