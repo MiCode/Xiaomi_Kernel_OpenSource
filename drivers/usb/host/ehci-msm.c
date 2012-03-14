@@ -1,6 +1,6 @@
 /* ehci-msm.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -67,7 +67,7 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 	/* bursts of unspecified length. */
 	writel(0, USB_AHBBURST);
 	/* Use the AHB transactor */
-	writel(0, USB_AHBMODE);
+	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
 	writel(0x13, USB_USBMODE);
 

@@ -596,7 +596,7 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	/* bursts of unspecified length. */
 	writel_relaxed(0, USB_AHBBURST);
 	/* Use the AHB transactor */
-	writel_relaxed(0, USB_AHBMODE);
+	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
 
