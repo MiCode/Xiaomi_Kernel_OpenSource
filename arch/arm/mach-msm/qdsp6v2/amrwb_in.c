@@ -193,8 +193,8 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 	audio = kzalloc(sizeof(struct q6audio_in), GFP_KERNEL);
 
 	if (audio == NULL) {
-		pr_err("%s:session id %d: Could not allocate memory for amrwb"
-			"driver\n", __func__, audio->ac->session);
+		pr_err("%s: Could not allocate memory for amrwb driver\n",
+								__func__);
 		return -ENOMEM;
 	}
 	/* Allocate memory for encoder config param */
@@ -235,8 +235,8 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 				(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s:session id %d: Could not allocate memory for audio"
-			"client\n", __func__, audio->ac->session);
+		pr_err("%s:audio[%p]: Could not allocate memory for audio"
+			"client\n", __func__, audio);
 		kfree(audio->enc_cfg);
 		kfree(audio);
 		return -ENOMEM;

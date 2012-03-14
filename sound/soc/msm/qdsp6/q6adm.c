@@ -76,7 +76,11 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		index = afe_get_port_index(data->token);
 		pr_debug("%s: Port ID %d, index %d\n", __func__,
 			data->token, index);
-
+		if (index < 0 || index >= AFE_MAX_PORTS) {
+			pr_err("%s: invalid port idx %d token %d\n",
+					__func__, index, data->token);
+			return 0;
+		}
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			pr_debug("APR_BASIC_RSP_RESULT\n");
 			switch (payload[0]) {
@@ -139,6 +143,11 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 	s32				result = 0;
 	struct adm_set_params_command	adm_params;
 	int index = afe_get_port_index(port_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %d\n",
+				__func__, index, port_id);
+		return 0;
+	}
 
 	pr_debug("%s: Port id %d, index %d\n", __func__, port_id, index);
 
@@ -331,8 +340,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 
-		pr_debug("%s: channel_config=%d port_id=%d rate=%d\
-			topology_id=0x%X\n", __func__, open.channel_config,\
+		pr_debug("%s: channel_config=%d port_id=%d rate=%d"
+			"topology_id=0x%X\n", __func__, open.channel_config,\
 			open.endpoint_id1, open.rate,\
 			open.topology_id);
 
@@ -498,6 +507,11 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	int ret = 0, i = 0;
 	/* Assumes port_ids have already been validated during adm_open */
 	int index = afe_get_port_index(copp_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d token %d\n",
+					__func__, index, copp_id);
+		return 0;
+	}
 
 	pr_debug("%s: session 0x%x path:%d num_copps:%d port_id[0]:%d\n",
 		 __func__, session_id, path, num_copps, port_id[0]);
@@ -526,7 +540,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		pr_debug("%s: port_id[%d]: %d, index: %d\n", __func__, i,
 			 port_id[i], tmp);
 
-		route.session[0].copp_id[i] =
+		if (tmp >= 0 && tmp < AFE_MAX_PORTS)
+			route.session[0].copp_id[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
 	}
 	if (num_copps % 2)
