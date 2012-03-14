@@ -2387,6 +2387,7 @@ u32 vcd_handle_first_fill_output_buffer_for_enc(
 	u32 rc, seqhdr_present = 0;
 	struct vcd_property_hdr prop_hdr;
 	struct vcd_sequence_hdr seq_hdr;
+	struct vcd_property_sps_pps_for_idr_enable idr_enable;
 	struct vcd_property_codec codec;
 	*handled = true;
 	prop_hdr.prop_id = DDL_I_SEQHDR_PRESENT;
@@ -2403,29 +2404,64 @@ u32 vcd_handle_first_fill_output_buffer_for_enc(
 	rc = ddl_get_property(cctxt->ddl_handle, &prop_hdr, &codec);
 	if (!VCD_FAILED(rc)) {
 		if (codec.codec != VCD_CODEC_H263) {
-			prop_hdr.prop_id = VCD_I_SEQ_HEADER;
-			prop_hdr.sz = sizeof(struct vcd_sequence_hdr);
-			seq_hdr.sequence_header = frm_entry->virtual;
-			seq_hdr.sequence_header_len =
-				frm_entry->alloc_len;
-			rc = ddl_get_property(cctxt->ddl_handle,
-				&prop_hdr, &seq_hdr);
-			if (!VCD_FAILED(rc)) {
-				frm_entry->data_len =
-					seq_hdr.sequence_header_len;
-				frm_entry->time_stamp = 0;
-				frm_entry->flags |=
-					VCD_FRAME_FLAG_CODECCONFIG;
+			/*
+			 * The seq. header is stored in a seperate internal
+			 * buffer and is memcopied into the output buffer
+			 * that we provide.  In secure sessions, we aren't
+			 * allowed to touch these buffers.  In these cases
+			 * seq. headers are returned to client as part of
+			 * I-frames. So for secure session, just return
+			 * empty buffer.
+			 */
+			if (!cctxt->secure) {
+				prop_hdr.prop_id = VCD_I_SEQ_HEADER;
+				prop_hdr.sz = sizeof(struct vcd_sequence_hdr);
+				seq_hdr.sequence_header = frm_entry->virtual;
+				seq_hdr.sequence_header_len =
+					frm_entry->alloc_len;
+				rc = ddl_get_property(cctxt->ddl_handle,
+						&prop_hdr, &seq_hdr);
+				if (!VCD_FAILED(rc)) {
+					frm_entry->data_len =
+						seq_hdr.sequence_header_len;
+					frm_entry->time_stamp = 0;
+					frm_entry->flags |=
+						VCD_FRAME_FLAG_CODECCONFIG;
+				} else
+					VCD_MSG_ERROR("rc = 0x%x. Failed:"
+							"ddl_get_property: VCD_I_SEQ_HEADER",
+							rc);
+			} else {
+				/*
+				 * First check that the proper props are enabled
+				 * so  client can get the proper info eventually
+				 */
+				prop_hdr.prop_id = VCD_I_ENABLE_SPS_PPS_FOR_IDR;
+				prop_hdr.sz = sizeof(idr_enable);
+				rc = ddl_get_property(cctxt->ddl_handle,
+						&prop_hdr, &idr_enable);
+				if (!VCD_FAILED(rc)) {
+					if (!idr_enable.
+						sps_pps_for_idr_enable_flag) {
+						VCD_MSG_ERROR("SPS/PPS per IDR "
+							"needs to be enabled");
+						rc = VCD_ERR_BAD_STATE;
+					} else {
+						/* Send zero len frame */
+						frm_entry->data_len = 0;
+						frm_entry->time_stamp = 0;
+						frm_entry->flags = 0;
+					}
+				}
+
+			}
+
+			if (!VCD_FAILED(rc))
 				cctxt->callback(VCD_EVT_RESP_OUTPUT_DONE,
-					VCD_S_SUCCESS, frm_entry,
-					sizeof(struct vcd_frame_data),
-					cctxt,
-					cctxt->client_data);
-			} else
-			VCD_MSG_ERROR(
-				"rc = 0x%x. Failed:\
-				ddl_get_property: VCD_I_SEQ_HEADER",
-				rc);
+						VCD_S_SUCCESS, frm_entry,
+						sizeof(struct vcd_frame_data),
+						cctxt,
+						cctxt->client_data);
 		} else
 			VCD_MSG_LOW("Codec Type is H.263\n");
 	} else
