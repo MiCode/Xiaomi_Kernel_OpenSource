@@ -487,7 +487,8 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 		if (!smd_configs[n].dev_name)
 			continue;
 
-		if (!strncmp(pdev->name, smd_configs[n].dev_name,
+		if (pdev->id == smd_configs[n].edge &&
+			!strncmp(pdev->name, smd_configs[n].dev_name,
 					SMD_MAX_CH_NAME_LEN)) {
 			complete_all(&smd_tty[idx].ch_allocated);
 			return 0;
