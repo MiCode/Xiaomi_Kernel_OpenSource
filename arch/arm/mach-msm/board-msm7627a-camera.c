@@ -33,6 +33,39 @@ static uint32_t camera_on_gpio_table[] = {
 	GPIO_CFG(15, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
 
+static struct gpio s5k4e1_cam_req_gpio[] = {
+	{GPIO_CAM_GP_CAMIF_RESET_N, GPIOF_DIR_OUT, "CAM_RESET"},
+};
+
+static struct msm_gpio_set_tbl s5k4e1_cam_gpio_set_tbl[] = {
+	{GPIO_CAM_GP_CAMIF_RESET_N, GPIOF_OUT_INIT_LOW, 1000},
+	{GPIO_CAM_GP_CAMIF_RESET_N, GPIOF_OUT_INIT_HIGH, 4000},
+};
+
+static struct msm_camera_gpio_conf gpio_conf_s5k4e1 = {
+	.camera_off_table = camera_off_gpio_table,
+	.camera_off_table_size = ARRAY_SIZE(camera_off_gpio_table),
+	.camera_on_table = camera_on_gpio_table,
+	.camera_on_table_size = ARRAY_SIZE(camera_on_gpio_table),
+	.cam_gpio_req_tbl = s5k4e1_cam_req_gpio,
+	.cam_gpio_req_tbl_size = ARRAY_SIZE(s5k4e1_cam_req_gpio),
+	.cam_gpio_set_tbl = s5k4e1_cam_gpio_set_tbl,
+	.cam_gpio_set_tbl_size = ARRAY_SIZE(s5k4e1_cam_gpio_set_tbl),
+	.gpio_no_mux = 1,
+};
+
+static struct msm_camera_gpio_conf gpio_conf_mt9e013 = {
+	.camera_off_table = camera_off_gpio_table,
+	.camera_on_table = camera_on_gpio_table,
+	.gpio_no_mux = 1,
+};
+
+static struct msm_camera_gpio_conf gpio_conf_ov9726 = {
+	.camera_off_table = camera_off_gpio_table,
+	.camera_on_table = camera_on_gpio_table,
+	.gpio_no_mux = 1,
+};
+
 #ifdef CONFIG_MSM_CAMERA_FLASH
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
@@ -41,111 +74,22 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 };
 #endif
 
-static struct regulator_bulk_data regs_camera[] = {
-	{ .supply = "msme1", .min_uV = 1800000, .max_uV = 1800000 },
-	{ .supply = "gp2",   .min_uV = 2850000, .max_uV = 2850000 },
-	{ .supply = "usb2",  .min_uV = 1800000, .max_uV = 1800000 },
+static struct camera_vreg_t msm_cam_vreg[] = {
+	{"msme1", REG_LDO, 1800000, 1800000, 0},
+	{"gp2", REG_LDO, 2850000, 2850000, 0},
+	{"usb2", REG_LDO, 1800000, 1800000, 0},
 };
 
-static void msm_camera_vreg_config(int vreg_en)
-{
-	int rc = vreg_en ?
-		regulator_bulk_enable(ARRAY_SIZE(regs_camera), regs_camera) :
-		regulator_bulk_disable(ARRAY_SIZE(regs_camera), regs_camera);
-
-	if (rc)
-		pr_err("%s: could not %sable regulators: %d\n",
-				__func__, vreg_en ? "en" : "dis", rc);
-}
-
-static int config_gpio_table(uint32_t *table, int len)
-{
-	int rc = 0, i = 0;
-
-	for (i = 0; i < len; i++) {
-		rc = gpio_tlmm_config(table[i], GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s not able to get gpio\n", __func__);
-			for (i--; i >= 0; i--)
-				gpio_tlmm_config(camera_off_gpio_table[i],
-							GPIO_CFG_ENABLE);
-			break;
-		}
-	}
-	return rc;
-}
-
 static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data;
-/* TODO: static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data; */
-static int config_camera_on_gpios_rear(void)
-{
-	int rc = 0;
-
-	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
-		msm_camera_vreg_config(1);
-
-	rc = config_gpio_table(camera_on_gpio_table,
-			ARRAY_SIZE(camera_on_gpio_table));
-	if (rc < 0) {
-		pr_err("%s: CAMSENSOR gpio table request"
-		"failed\n", __func__);
-		return rc;
-	}
-
-	return rc;
-}
-
-static void config_camera_off_gpios_rear(void)
-{
-	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
-		msm_camera_vreg_config(0);
-
-	config_gpio_table(camera_off_gpio_table,
-			ARRAY_SIZE(camera_off_gpio_table));
-}
-
-static int config_camera_on_gpios_front(void)
-{
-	int rc = 0;
-
-	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
-		msm_camera_vreg_config(1);
-
-	rc = config_gpio_table(camera_on_gpio_table,
-			ARRAY_SIZE(camera_on_gpio_table));
-	if (rc < 0) {
-		pr_err("%s: CAMSENSOR gpio table request"
-			"failed\n", __func__);
-		return rc;
-	}
-
-	return rc;
-}
-
-static void config_camera_off_gpios_front(void)
-{
-	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
-		msm_camera_vreg_config(0);
-
-	config_gpio_table(camera_off_gpio_table,
-			ARRAY_SIZE(camera_off_gpio_table));
-}
 
 struct msm_camera_device_platform_data msm_camera_device_data_csi1 = {
-	.camera_gpio_on  = config_camera_on_gpios_rear,
-	.camera_gpio_off = config_camera_off_gpios_rear,
-	.ioclk.mclk_clk_rate = 24000000,
-	.ioclk.vfe_clk_rate  = 192000000,
 	.csid_core = 1,
 	.is_csic = 1,
 };
 
 struct msm_camera_device_platform_data msm_camera_device_data_csi0 = {
-	.camera_gpio_on  = config_camera_on_gpios_front,
-	.camera_gpio_off = config_camera_off_gpios_front,
-	.ioclk.mclk_clk_rate = 24000000,
-	.ioclk.vfe_clk_rate  = 192000000,
 	.csid_core = 0,
+	.is_csic = 1,
 };
 
 #ifdef CONFIG_DW9712_ACT
@@ -169,10 +113,9 @@ static struct msm_camera_sensor_flash_data flash_s5k4e1 = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_s5k4e1 = {
 	.mount_angle	= 90,
-	.sensor_reset	= GPIO_CAM_GP_CAMIF_RESET_N,
-	.sensor_pwd	= 85,
-	.vcm_pwd	= GPIO_CAM_GP_CAM_PWDN,
-	.vcm_enable	= 1,
+	.cam_vreg = msm_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_cam_vreg),
+	.gpio_conf = &gpio_conf_s5k4e1,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
@@ -198,10 +141,9 @@ static struct msm_camera_sensor_flash_data flash_mt9e013 = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_mt9e013 = {
 	.mount_angle	= 90,
-	.sensor_reset	= 0,
-	.sensor_pwd	= 85,
-	.vcm_pwd	= 1,
-	.vcm_enable	= 0,
+	.cam_vreg = msm_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_cam_vreg),
+	.gpio_conf = &gpio_conf_mt9e013,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
@@ -256,10 +198,9 @@ static struct msm_camera_sensor_flash_data flash_ov9726 = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov9726 = {
 	.mount_angle	= 90,
-	.sensor_reset	= GPIO_CAM_GP_CAM1MP_XCLR,
-	.sensor_pwd	= 85,
-	.vcm_pwd	= 1,
-	.vcm_enable	= 0,
+	.cam_vreg = msm_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_cam_vreg),
+	.gpio_conf = &gpio_conf_ov9726,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
@@ -276,6 +217,15 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 
 static void __init msm7x27a_init_cam(void)
 {
+	if (!(machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
+				|| machine_is_msm7627a_qrd1())) {
+		sensor_board_info_s5k4e1.cam_vreg = NULL;
+		sensor_board_info_s5k4e1.num_vreg = 0;
+		sensor_board_info_mt9e013.cam_vreg = NULL;
+		sensor_board_info_mt9e013.num_vreg = 0;
+		sensor_board_info_ov9726.cam_vreg = NULL;
+		sensor_board_info_ov9726.num_vreg = 0;
+	}
 	platform_device_register(&msm7x27a_device_csic0);
 	platform_device_register(&msm7x27a_device_csic1);
 	platform_device_register(&msm7x27a_device_clkctl);
@@ -939,6 +889,7 @@ static void __init register_i2c_devices(void)
 				ARRAY_SIZE(cam_exp_i2c_info));
 }
 
+#ifndef CONFIG_MSM_CAMERA_V4L2
 #define LCD_CAMERA_LDO_2V8 35 /* SKU1&SKU3 2.8V LDO */
 #define SKU3_LCD_CAMERA_LDO_1V8 40 /* SKU3 1.8V LDO */
 
@@ -1033,10 +984,11 @@ int lcd_camera_power_onoff(int on)
 	return rc;
 }
 EXPORT_SYMBOL(lcd_camera_power_onoff);
-
+#endif
 
 void __init msm7627a_camera_init(void)
 {
+#ifndef CONFIG_MSM_CAMERA_V4L2
 	int rc;
 
 	pr_debug("msm7627a_camera_init Entered\n");
@@ -1044,7 +996,6 @@ void __init msm7627a_camera_init(void)
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		lcd_camera_power_init();
 
-#ifndef CONFIG_MSM_CAMERA_V4L2
 	if (machine_is_msm7627a_qrd1()) {
 		qrd1_camera_gpio_cfg();
 		platform_add_devices(camera_devices_qrd,
@@ -1062,6 +1013,7 @@ void __init msm7627a_camera_init(void)
 	if (!machine_is_msm7627a_qrd1() || !machine_is_msm7627a_evb()
 					|| !machine_is_msm8625_evb())
 		register_i2c_devices();
+#ifndef CONFIG_MSM_CAMERA_V4L2
 	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
 
 	if (rc) {
@@ -1075,6 +1027,7 @@ void __init msm7627a_camera_init(void)
 		pr_err("%s: could not set voltages: %d\n", __func__, rc);
 		return;
 	}
+#endif
 
 #if defined(CONFIG_MSM_CAMERA_V4L2)
 	msm7x27a_init_cam();
@@ -1091,6 +1044,7 @@ void __init msm7627a_camera_init(void)
 				ARRAY_SIZE(i2c_camera_devices_evb));
 	} else
 #endif
+		pr_debug("i2c_register_board_info\n");
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices,
 				ARRAY_SIZE(i2c_camera_devices));

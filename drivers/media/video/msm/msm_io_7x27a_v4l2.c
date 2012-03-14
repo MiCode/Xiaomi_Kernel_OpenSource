@@ -97,33 +97,6 @@ void msm_camio_clk_rate_set(int rate)
 	clk_set_rate(clk, rate);
 }
 
-int msm_sensor_probe_on(struct device *dev)
-{
-	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = dev->platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	camio_clk = camdev->ioclk;
-
-	rc = camdev->camera_gpio_on();
-	if (rc < 0)
-		return rc;
-
-	rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
-	if (rc < 0)
-		camdev->camera_gpio_off();
-
-	return rc;
-}
-
-int msm_sensor_probe_off(struct device *dev)
-{
-	struct msm_camera_sensor_info *sinfo = dev->platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
-	camdev->camera_gpio_off();
-	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-}
-
 void msm_camio_vfe_blk_reset(void)
 {
 	uint32_t val;
@@ -150,28 +123,6 @@ void msm_camio_vfe_blk_reset(void)
 	writel_relaxed(val, appbase + 0x00000208);
 	mb();
 	usleep_range(10000, 11000);
-}
-
-int msm_camio_probe_on(struct platform_device *pdev)
-{
-	int rc = 0;
-	const struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	camio_clk = camdev->ioclk;
-
-	rc = camdev->camera_gpio_on();
-	if (rc < 0)
-		return rc;
-	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
-}
-
-int msm_camio_probe_off(struct platform_device *pdev)
-{
-	const struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
-	camdev->camera_gpio_off();
-	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
 }
 
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
