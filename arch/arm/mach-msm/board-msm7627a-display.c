@@ -28,11 +28,13 @@
 #include "board-msm7627a.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_SIZE		0x2FD000
-#define MSM7x25A_MSM_FB_SIZE    0xE1000
+#define MSM_FB_SIZE		0x4BF000
+#define MSM7x25A_MSM_FB_SIZE    0x1C2000
+#define MSM8x25_MSM_FB_SIZE	0x5FA000
 #else
-#define MSM_FB_SIZE	     0x196000
-#define MSM7x25A_MSM_FB_SIZE    0x96000
+#define MSM_FB_SIZE		0x32A000
+#define MSM7x25A_MSM_FB_SIZE	0x12C000
+#define MSM8x25_MSM_FB_SIZE	0x3FC000
 #endif
 
 /*
@@ -730,8 +732,11 @@ void __init msm_msm7627a_allocate_memory_regions(void)
 
 	if (machine_is_msm7625a_surf() || machine_is_msm7625a_ffa())
 		fb_size = MSM7x25A_MSM_FB_SIZE;
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+		fb_size = MSM8x25_MSM_FB_SIZE;
 	else
 		fb_size = MSM_FB_SIZE;
+
 	addr = alloc_bootmem_align(fb_size, 0x1000);
 	msm_fb_resources[0].start = __pa(addr);
 	msm_fb_resources[0].end = msm_fb_resources[0].start + fb_size - 1;
