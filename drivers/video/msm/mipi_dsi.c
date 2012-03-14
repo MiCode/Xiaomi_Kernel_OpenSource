@@ -91,6 +91,9 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		} else {
 			mdp3_dsi_cmd_dma_busy_wait(mfd);
 		}
+	} else {
+		/* video mode, wait until fifo cleaned */
+		mipi_dsi_controller_cfg(0);
 	}
 
 	/*
