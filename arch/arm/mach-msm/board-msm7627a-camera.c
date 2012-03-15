@@ -297,8 +297,13 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov5647.cam_vreg = NULL;
 		sensor_board_info_ov5647.num_vreg = 0;
 	}
-	platform_device_register(&msm7x27a_device_csic0);
-	platform_device_register(&msm7x27a_device_csic1);
+	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()) {
+		platform_device_register(&msm8625_device_csic0);
+		platform_device_register(&msm8625_device_csic1);
+	} else {
+		platform_device_register(&msm7x27a_device_csic0);
+		platform_device_register(&msm7x27a_device_csic1);
+	}
 	platform_device_register(&msm7x27a_device_clkctl);
 	platform_device_register(&msm7x27a_device_vfe);
 }

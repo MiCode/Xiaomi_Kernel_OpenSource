@@ -1138,7 +1138,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_SEC: {
 		CDBG("CMD_AXI_CFG_SEC\n");
 		raw_mode = 0;
-		vfe2x_ctrl->output_mode =  OUTPUT_SEC;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1191,7 +1190,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_PRIM: {
 		CDBG("CMD_AXI_CFG_PRIM : %d\n", op_mode);
 		raw_mode = 0;
-		vfe2x_ctrl->output_mode =  OUTPUT_PRIM;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1257,7 +1255,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_SEC|CMD_AXI_CFG_PRIM: {
 		CDBG("CMD_AXI_CFG_SEC|PRIM\n");
 		raw_mode = 0;
-		vfe2x_ctrl->output_mode =  OUTPUT_SEC|OUTPUT_PRIM;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1333,7 +1330,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case CMD_RAW_PICT_AXI_CFG: {
 		CDBG("CMD_RAW_PICT_AXI_CFG:%d\n", op_mode);
-		vfe2x_ctrl->output_mode =  OUTPUT_PRIM;
 		raw_mode = 1;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
