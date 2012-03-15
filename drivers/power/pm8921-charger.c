@@ -263,6 +263,7 @@ struct pm8921_chg_chip {
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
+	enum pm8921_chg_led_src_config	led_src_config;
 };
 
 /* user space parameter to limit usb current */
@@ -855,6 +856,26 @@ static int pm_chg_batt_hot_temp_config(struct pm8921_chg_chip *chip,
 	return pm_chg_masked_write(chip, CHG_CNTRL_2,
 					PM8921_CHG_BATT_TEMP_THR_HOT,
 					 temp);
+}
+
+#define PM8921_CHG_LED_SRC_CONFIG_SHIFT	4
+#define PM8921_CHG_LED_SRC_CONFIG_MASK	0x30
+static int pm_chg_led_src_config(struct pm8921_chg_chip *chip,
+				enum pm8921_chg_led_src_config led_src_config)
+{
+	u8 temp;
+
+	if (led_src_config < LED_SRC_GND ||
+			led_src_config > LED_SRC_BYPASS)
+		return -EINVAL;
+
+	if (led_src_config == LED_SRC_BYPASS)
+		return 0;
+
+	temp = led_src_config << PM8921_CHG_LED_SRC_CONFIG_SHIFT;
+
+	return pm_chg_masked_write(chip, CHG_CNTRL_3,
+					PM8921_CHG_LED_SRC_CONFIG_MASK, temp);
 }
 
 static void disable_input_voltage_regulation(struct pm8921_chg_chip *chip)
@@ -3330,6 +3351,12 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 						chip->hot_thr, rc);
 	}
 
+	rc = pm_chg_led_src_config(chip, chip->led_src_config);
+	if (rc) {
+		pr_err("Failed to set charger LED src config %d  rc=%d\n",
+						chip->led_src_config, rc);
+	}
+
 	/* Workarounds for die 1.1 and 1.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) < PM8XXX_REVISION_8921_2p0) {
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST2, 0xF1);
@@ -3671,6 +3698,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->cold_thr = pdata->cold_thr;
 	chip->hot_thr = pdata->hot_thr;
 	chip->rconn_mohm = pdata->rconn_mohm;
+	chip->led_src_config = pdata->led_src_config;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {
