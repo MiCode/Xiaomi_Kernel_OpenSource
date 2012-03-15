@@ -79,7 +79,6 @@ struct vfe_cmd_start {
 } __packed;
 
 struct vfe2x_ctrl_type {
-	uint16_t output_mode;
 	struct buf_info prev;
 	struct buf_info video;
 	struct buf_info snap;
