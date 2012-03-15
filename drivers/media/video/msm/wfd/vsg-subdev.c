@@ -21,6 +21,7 @@
 #define DEFAULT_FRAME_INTERVAL (66*NSEC_PER_MSEC)
 #define DEFAULT_MAX_FRAME_INTERVAL (1*NSEC_PER_SEC)
 #define DEFAULT_MODE ((enum vsg_modes)VSG_MODE_CFR)
+#define MAX_BUFS_BUSY_WITH_ENC 5
 
 static int vsg_release_input_buffer(struct vsg_context *context,
 		struct vsg_buf_info *buf)
@@ -55,25 +56,10 @@ static void vsg_set_last_buffer(struct vsg_context *context,
 	if (buf->flags & VSG_NEVER_SET_LAST_BUFFER)
 		WFD_MSG_WARN("Shouldn't be setting this to last buffer\n");
 
-	/* Update the last buffer and memcpy the data into the back up buffer*/
 	context->last_buffer = buf;
 
 	WFD_MSG_DBG("Setting last buffer to paddr %p\n",
 			(void *)buf->mdp_buf_info.paddr);
-
-	if (context->regen_buffer) {
-		int buf_size;
-		void *cookie;
-
-		/*FIXME: Somewhat hacky, looking into cookie */
-		cookie = buf->mdp_buf_info.cookie;
-		buf_size = ((struct mem_region *)cookie)->size;
-
-		memcpy((void *)context->regen_buffer->mdp_buf_info.kvaddr,
-				(void *)buf->mdp_buf_info.kvaddr,
-				buf_size);
-		context->send_regen_buffer = false;
-	}
 }
 
 static void vsg_encode_helper_func(struct work_struct *task)
@@ -101,7 +87,7 @@ static void vsg_work_func(struct work_struct *task)
 	struct vsg_encode_work *encode_work;
 	struct vsg_context *context = work->context;
 	struct vsg_buf_info *buf_info = NULL, *temp = NULL;
-	int rc = 0;
+	int rc = 0, count = 0;
 	mutex_lock(&context->mutex);
 
 	if (list_empty(&context->free_queue.node)) {
@@ -113,6 +99,14 @@ static void vsg_work_func(struct work_struct *task)
 		goto err_skip_encode;
 	}
 
+	list_for_each_entry(temp, &context->busy_queue.node, node) {
+		if (++count > MAX_BUFS_BUSY_WITH_ENC) {
+			WFD_MSG_WARN("Skipping encode, too many "
+				"buffers with encoder");
+			goto err_skip_encode;
+		}
+	}
+
 	buf_info = list_first_entry(&context->free_queue.node,
 			struct vsg_buf_info, node);
 	list_del(&buf_info->node);
@@ -122,16 +116,18 @@ static void vsg_work_func(struct work_struct *task)
 	hrtimer_forward_now(&context->threshold_timer, ns_to_ktime(
 				context->max_frame_interval));
 
+	temp = NULL;
 	list_for_each_entry(temp, &context->busy_queue.node, node) {
 		if (mdp_buf_info_equals(&temp->mdp_buf_info,
 					&buf_info->mdp_buf_info)) {
-			WFD_MSG_DBG("Buffer %p already in queue "
-				"to be encoded, delaying encoding\n",
-				(void *)temp->mdp_buf_info.paddr);
-			list_add(&buf_info->node, &context->free_queue.node);
-			/* just skip the push to encoder*/
-			goto err_skip_encode;
+			temp->flags |= VSG_NEVER_RELEASE;
 		}
+	}
+
+	if (context->last_buffer &&
+		mdp_buf_info_equals(&context->last_buffer->mdp_buf_info,
+			&buf_info->mdp_buf_info)) {
+		context->last_buffer->flags |= VSG_NEVER_RELEASE;
 	}
 
 	encode_work = kmalloc(sizeof(*encode_work), GFP_KERNEL);
@@ -143,37 +139,34 @@ static void vsg_work_func(struct work_struct *task)
 		WFD_MSG_ERR("Queueing buffer for encode failed\n");
 		kfree(encode_work);
 		encode_work = NULL;
-		goto err_queue_encode_fail;
+		goto err_skip_encode;
 	}
 
 	buf_info->flags |= VSG_BUF_BEING_ENCODED;
 	if (!(buf_info->flags & VSG_NEVER_SET_LAST_BUFFER)) {
-		bool is_same_buffer = context->last_buffer &&
-			mdp_buf_info_equals(
-				&context->last_buffer->mdp_buf_info,
-				&buf_info->mdp_buf_info);
-
-		if (!context->last_buffer || !is_same_buffer) {
+		if (context->last_buffer) {
 			struct vsg_buf_info *old_last_buffer =
 				context->last_buffer;
 			bool last_buf_with_us = old_last_buffer &&
 				!(old_last_buffer->flags &
 					VSG_BUF_BEING_ENCODED);
+			bool can_release = old_last_buffer &&
+				!(old_last_buffer->flags &
+					VSG_NEVER_RELEASE);
 
-			if (old_last_buffer && last_buf_with_us) {
+			if (old_last_buffer && last_buf_with_us
+				&& can_release) {
 				vsg_release_input_buffer(context,
 					old_last_buffer);
 				kfree(old_last_buffer);
 			}
-
-			vsg_set_last_buffer(context, buf_info);
 		}
+		vsg_set_last_buffer(context, buf_info);
 	}
 
 	list_add_tail(&buf_info->node, &context->busy_queue.node);
 err_skip_encode:
 	mutex_unlock(&context->mutex);
-err_queue_encode_fail:
 	kfree(work);
 }
 
@@ -208,24 +201,12 @@ static void vsg_timer_helper_func(struct work_struct *task)
 				goto err_locked;
 			}
 
-			if (context->regen_buffer) {
-				if (context->send_regen_buffer) {
-					buf_to_encode =
-						context->regen_buffer;
-				} else {
-					buf_to_encode = context->last_buffer;
-				}
-
-				context->send_regen_buffer =
-					!context->send_regen_buffer;
-			} else {
-				WFD_MSG_WARN("Have no regen buffer\n");
-				buf_to_encode = context->last_buffer;
-			}
+			buf_to_encode = context->last_buffer;
 
 			info->mdp_buf_info = buf_to_encode->mdp_buf_info;
-			info->flags = buf_to_encode->flags;
+			info->flags = 0;
 			INIT_LIST_HEAD(&info->node);
+
 			list_add_tail(&info->node, &context->free_queue.node);
 			WFD_MSG_DBG("Regenerated frame with paddr %p\n",
 				(void *)info->mdp_buf_info.paddr);
@@ -302,8 +283,7 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 			HRTIMER_MODE_REL);
 	context->threshold_timer.function = vsg_threshold_timeout_func;
 
-	context->last_buffer = context->regen_buffer = NULL;
-	context->send_regen_buffer = false;
+	context->last_buffer = NULL;
 	context->mode = DEFAULT_MODE;
 	context->state = VSG_STATE_NONE;
 	mutex_init(&context->mutex);
@@ -321,7 +301,6 @@ static int vsg_close(struct v4l2_subdev *sd)
 
 	context = (struct vsg_context *)sd->dev_priv;
 	destroy_workqueue(context->work_queue);
-	kfree(context->regen_buffer);
 	kfree(context);
 	return 0;
 }
@@ -415,19 +394,12 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 		list_for_each_safe(pos, next, &context->free_queue.node) {
 			struct vsg_buf_info *temp =
 				list_entry(pos, struct vsg_buf_info, node);
-			bool is_last_buffer, is_regen_buffer;
-
-			is_last_buffer = context->last_buffer &&
+			bool is_last_buffer = context->last_buffer &&
 				mdp_buf_info_equals(
 					&context->last_buffer->mdp_buf_info,
 					&temp->mdp_buf_info);
 
-			is_regen_buffer = context->regen_buffer &&
-				mdp_buf_info_equals(
-					&context->regen_buffer->mdp_buf_info,
-					&temp->mdp_buf_info);
-
-			if (!is_last_buffer && !is_regen_buffer &&
+			if (!is_last_buffer &&
 				!(temp->flags & VSG_NEVER_RELEASE)) {
 				vsg_release_input_buffer(context, temp);
 				kfree(temp);
@@ -474,7 +446,7 @@ static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	struct vsg_context *context = NULL;
 	struct vsg_buf_info *buf_info, *last_buffer,
-			*regen_buffer, *expected_buffer;
+			*expected_buffer;
 	int rc = 0;
 
 	if (!arg || !sd) {
@@ -487,7 +459,6 @@ static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 	mutex_lock(&context->mutex);
 	buf_info = (struct vsg_buf_info *)arg;
 	last_buffer = context->last_buffer;
-	regen_buffer = context->regen_buffer;
 
 	expected_buffer = list_first_entry(&context->busy_queue.node,
 			struct vsg_buf_info, node);
@@ -527,38 +498,6 @@ static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 return_ip_buf_bad_buf:
 	mutex_unlock(&context->mutex);
 return_ip_buf_err_bad_param:
-	return rc;
-}
-
-static long vsg_set_scratch_buffer(struct v4l2_subdev *sd, void *arg)
-{
-	struct vsg_context *context = NULL;
-	struct vsg_buf_info *buf_info;
-	struct vsg_buf_info *regen_buffer =
-		kzalloc(sizeof(*regen_buffer), GFP_KERNEL);
-	int rc = 0;
-
-	if (!arg || !sd) {
-		WFD_MSG_ERR("ERROR, invalid arguments into %s\n", __func__);
-		rc = -EINVAL;
-		goto set_scratch_buf_err_bad_param;
-	} else if (!regen_buffer) {
-		WFD_MSG_ERR("ERROR, out of memory in %s\n", __func__);
-		rc = -ENOMEM;
-		goto set_scratch_buf_err_bad_param;
-	}
-
-	context = (struct vsg_context *)sd->dev_priv;
-	buf_info = (struct vsg_buf_info *)arg;
-
-	mutex_lock(&context->mutex);
-	*regen_buffer = *buf_info;
-	regen_buffer->flags = VSG_NEVER_RELEASE | VSG_NEVER_SET_LAST_BUFFER;
-	context->regen_buffer = regen_buffer;
-	WFD_MSG_DBG("setting buffer with paddr %p as scratch buffer\n",
-			(void *)regen_buffer->mdp_buf_info.paddr);
-	mutex_unlock(&context->mutex);
-set_scratch_buf_err_bad_param:
 	return rc;
 }
 
@@ -723,9 +662,6 @@ long vsg_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case VSG_RETURN_IP_BUFFER:
 		rc = vsg_return_ip_buffer(sd, arg);
-		break;
-	case VSG_SET_SCRATCH_BUFFER:
-		rc = vsg_set_scratch_buffer(sd, arg);
 		break;
 	case VSG_GET_FRAME_INTERVAL:
 		rc = vsg_get_frame_interval(sd, arg);

@@ -40,9 +40,7 @@
 #define WFD_DEVICE_SECURE (WFD_DEVICE_NUMBER_BASE + 1)
 #define DEFAULT_WFD_WIDTH 640
 #define DEFAULT_WFD_HEIGHT 480
-#define VSG_SCRATCH_BUFFERS 1
-#define MDP_WRITEBACK_BUFFERS 3
-#define VENC_INPUT_BUFFERS (VSG_SCRATCH_BUFFERS + MDP_WRITEBACK_BUFFERS)
+#define VENC_INPUT_BUFFERS 4
 
 struct wfd_device {
 	struct platform_device *pdev;
@@ -246,7 +244,6 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	int rc;
 	unsigned long flags;
 	struct mdp_buf_info mdp_buf = {0};
-	struct vsg_buf_info vsg_buf = {};
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	if (inst->input_bufs_allocated) {
 		spin_unlock_irqrestore(&inst->inst_lock, flags);
@@ -300,7 +297,6 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mdp_buf.cookie = enc_mregion;
 		mdp_buf.kvaddr = (u32) mdp_mregion->kvaddr;
 		mdp_buf.paddr = (u32) mdp_mregion->paddr;
-		vsg_buf.mdp_buf_info = mdp_buf;
 
 		WFD_MSG_DBG("NOTE: mdp paddr = %p, kvaddr = %p\n",
 				mdp_mregion->paddr,
@@ -311,23 +307,12 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mpair->mdp = mdp_mregion;
 		list_add_tail(&mpair->list, &inst->input_mem_list);
 
-		if (i < MDP_WRITEBACK_BUFFERS) {
-			rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
-					MDP_Q_BUFFER, (void *)&mdp_buf);
-			if (rc) {
-				WFD_MSG_ERR("Unable to queue the"
-						" buffer to mdp\n");
-				break;
-			}
-		} else /*if (i < VSG_SCRATCH_BUFFERS*/ {
-			rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
-					VSG_SET_SCRATCH_BUFFER,
-					(void *)&vsg_buf);
-			if (rc) {
-				WFD_MSG_ERR("Unable to set scratch"
-						" buffer to vsg\n");
-				break;
-			}
+		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
+				MDP_Q_BUFFER, (void *)&mdp_buf);
+		if (rc) {
+			WFD_MSG_ERR("Unable to queue the"
+					" buffer to mdp\n");
+			break;
 		}
 	}
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
