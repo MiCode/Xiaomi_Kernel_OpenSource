@@ -344,5 +344,14 @@ config REGULATOR_PM8058_XO
 	  chip. It is only supposed to be used when Linux on application
 	  processor is the master in control of XO buffers.
 
+config REGULATOR_STUB
+	tristate "Stub Regulator"
+	help
+	  This driver adds stub regulator support. The driver is absent of any
+	  real hardware based implementation. It allows for clients to register
+	  their regulator device constraints and use all of the standard
+	  regulator interfaces. This is useful for bringing up new platforms
+	  when the real hardware based implementation may not be yet available.
+	  Clients can use the real regulator device names with proper
+	  constraint checking while the real driver is being developed.
 endif
-
