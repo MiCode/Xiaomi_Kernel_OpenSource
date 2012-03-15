@@ -131,7 +131,6 @@ struct pm8xxx_adc {
 	struct mutex				adc_lock;
 	struct mutex				mpp_adc_lock;
 	spinlock_t				btm_lock;
-	uint32_t				adc_num_channel;
 	uint32_t				adc_num_board_channel;
 	struct completion			adc_rslt_completion;
 	struct pm8xxx_adc_amux			*adc_channel;
@@ -200,6 +199,17 @@ static struct pm8xxx_mpp_config_data pm8xxx_adc_mpp_unconfig = {
 
 static bool pm8xxx_adc_calib_first_adc;
 static bool pm8xxx_adc_initialized, pm8xxx_adc_calib_device_init;
+
+static int32_t pm8xxx_adc_check_channel_valid(uint32_t channel)
+{
+	if (channel < CHANNEL_VCOIN ||
+	(channel > CHANNEL_MUXOFF && channel < ADC_MPP_1_ATEST_8) ||
+	(channel > ADC_MPP_1_ATEST_7 && channel < ADC_MPP_2_ATEST_8)
+	|| (channel >= ADC_CHANNEL_MAX_NUM))
+		return -EBADF;
+	else
+		return 0;
+}
 
 static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 					uint32_t channel)
@@ -675,12 +685,13 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 
 	mutex_lock(&adc_pmic->adc_lock);
 
-	for (i = 0; i < adc_pmic->adc_num_channel; i++) {
+	for (i = 0; i < adc_pmic->adc_num_board_channel; i++) {
 		if (channel == adc_pmic->adc_channel[i].channel_name)
 			break;
 	}
 
-	if (i == adc_pmic->adc_num_channel) {
+	if (i == adc_pmic->adc_num_board_channel ||
+		(pm8xxx_adc_check_channel_valid(channel) != 0)) {
 		rc = -EBADF;
 		goto fail_unlock;
 	}
@@ -1001,12 +1012,10 @@ static ssize_t pm8xxx_adc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
-	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	struct pm8xxx_adc_chan_result result;
 	int rc = -1;
 
-	if (attr->index < adc_pmic->adc_num_channel)
-		rc = pm8xxx_adc_read(attr->index, &result);
+	rc = pm8xxx_adc_read(attr->index, &result);
 
 	if (rc)
 		return 0;
@@ -1076,9 +1085,14 @@ static struct sensor_device_attribute pm8xxx_adc_attr =
 static int32_t pm8xxx_adc_init_hwmon(struct platform_device *pdev)
 {
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
-	int rc = 0, i;
+	int rc = 0, i, channel;
 
 	for (i = 0; i < pmic_adc->adc_num_board_channel; i++) {
+		channel = adc_pmic->adc_channel[i].channel_name;
+		if (pm8xxx_adc_check_channel_valid(channel)) {
+			pr_err("Invalid ADC init HWMON channel: %d\n", channel);
+			continue;
+		}
 		pm8xxx_adc_attr.index = adc_pmic->adc_channel[i].channel_name;
 		pm8xxx_adc_attr.dev_attr.attr.name =
 						adc_pmic->adc_channel[i].name;
@@ -1184,7 +1198,6 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 	init_completion(&adc_pmic->adc_rslt_completion);
 	adc_pmic->adc_channel = pdata->adc_channel;
 	adc_pmic->adc_num_board_channel = pdata->adc_num_board_channel;
-	adc_pmic->adc_num_channel = ADC_MPP_2_CHANNEL_NONE;
 	adc_pmic->mpp_base = pdata->adc_mpp_base;
 
 	mutex_init(&adc_pmic->adc_lock);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +75,6 @@ enum pm8xxx_adc_channels {
 	ADC_MPP_1_ATEST_5,
 	ADC_MPP_1_ATEST_6,
 	ADC_MPP_1_ATEST_7,
-	ADC_MPP_1_CHANNEL_NONE,
 	ADC_MPP_2_ATEST_8 = 40,
 	ADC_MPP_2_USB_SNS_DIV20,
 	ADC_MPP_2_DCIN_SNS_DIV20,
@@ -92,7 +91,7 @@ enum pm8xxx_adc_channels {
 	ADC_MPP_2_ATEST_5,
 	ADC_MPP_2_ATEST_6,
 	ADC_MPP_2_ATEST_7,
-	ADC_MPP_2_CHANNEL_NONE,
+	ADC_CHANNEL_MAX_NUM,
 };
 
 #define PM8XXX_ADC_PMIC_0	0x0
