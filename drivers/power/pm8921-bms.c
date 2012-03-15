@@ -121,6 +121,7 @@ struct pm8921_bms_chip {
 	int			batt_temp_suspend;
 	int			soc_rbatt_suspend;
 	int			default_rbatt_mohm;
+	uint16_t		prev_last_good_ocv_raw;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -917,8 +918,16 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 	mutex_unlock(&chip->bms_output_lock);
 
 	usb_chg =  usb_chg_plugged_in();
-	convert_vbatt_raw_to_uv(chip, usb_chg,
+
+	if (chip->prev_last_good_ocv_raw == 0 ||
+		chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
+		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
+		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
+		last_ocv_uv = raw->last_good_ocv_uv;
+	} else {
+		raw->last_good_ocv_uv = last_ocv_uv;
+	}
 
 	if (raw->last_good_ocv_uv)
 		last_ocv_uv = raw->last_good_ocv_uv;
