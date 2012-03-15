@@ -96,6 +96,8 @@ struct kgsl_driver {
 	struct {
 		unsigned int vmalloc;
 		unsigned int vmalloc_max;
+		unsigned int page_alloc;
+		unsigned int page_alloc_max;
 		unsigned int coherent;
 		unsigned int coherent_max;
 		unsigned int mapped;

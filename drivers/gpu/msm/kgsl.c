@@ -1349,7 +1349,7 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 		goto error;
 	}
 
-	result = kgsl_sharedmem_vmalloc_user(&entry->memdesc,
+	result = kgsl_sharedmem_page_alloc_user(&entry->memdesc,
 					     private->pagetable, len,
 					     param->flags);
 	if (result != 0)
@@ -1360,7 +1360,7 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 	result = kgsl_sharedmem_map_vma(vma, &entry->memdesc);
 	if (result) {
 		KGSL_CORE_ERR("kgsl_sharedmem_map_vma failed: %d\n", result);
-		goto error_free_vmalloc;
+		goto error_free_alloc;
 	}
 
 	param->gpuaddr = entry->memdesc.gpuaddr;
@@ -1376,7 +1376,7 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 	kgsl_check_idle(dev_priv->device);
 	return 0;
 
-error_free_vmalloc:
+error_free_alloc:
 	kgsl_sharedmem_free(&entry->memdesc);
 
 error_free_entry:
