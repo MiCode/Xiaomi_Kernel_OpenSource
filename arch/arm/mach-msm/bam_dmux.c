@@ -236,7 +236,6 @@ static int wait_for_dfab;
 static struct completion dfab_unvote_completion;
 static DEFINE_SPINLOCK(wakelock_reference_lock);
 static int wakelock_reference_count;
-static struct delayed_work msm9615_bam_init_work;
 static int a2_pc_disabled_wakelock_skipped;
 /* End A2 power collaspe */
 
@@ -2033,7 +2032,7 @@ ioremap_failed:
 	return ret;
 }
 
-static void msm9615_bam_init(struct work_struct *work)
+static void msm9615_bam_init(void)
 {
 	int ret = 0;
 
@@ -2078,19 +2077,10 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 	} else if (new_state & SMSM_A2_POWER_CONTROL) {
 		bam_dmux_log("%s: init\n", __func__);
 		grab_wakelock();
-		if (cpu_is_msm9615()) {
-			/*
-			 * even though a2 has signaled it is ready via the
-			 * SMSM_A2_POWER_CONTROL bit, it has not yet
-			 * enabled the pipes as needed by sps_connect
-			 * in satallite mode.  Add a short delay to give modem
-			 * time to enable the pipes.
-			 */
-			schedule_delayed_work(&msm9615_bam_init_work,
-						msecs_to_jiffies(100));
-		} else {
+		if (cpu_is_msm9615())
+			msm9615_bam_init();
+		else
 			bam_init();
-		}
 	} else {
 		bam_dmux_log("%s: bad state change\n", __func__);
 		pr_err("%s: unsupported state change\n", __func__);
@@ -2158,7 +2148,6 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	init_completion(&bam_connection_completion);
 	init_completion(&dfab_unvote_completion);
 	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
-	INIT_DELAYED_WORK(&msm9615_bam_init_work, msm9615_bam_init);
 	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
 
 	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
