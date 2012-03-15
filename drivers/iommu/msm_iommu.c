@@ -434,6 +434,16 @@ static int __get_pgprot(int prot, int len)
 	unsigned int pgprot;
 	int tex;
 
+	if (!(prot & (IOMMU_READ | IOMMU_WRITE))) {
+		prot |= IOMMU_READ | IOMMU_WRITE;
+		WARN_ONCE(1, "No attributes in iommu mapping; assuming RW\n");
+	}
+
+	if ((prot & IOMMU_WRITE) && !(prot & IOMMU_READ)) {
+		prot |= IOMMU_READ;
+		WARN_ONCE(1, "Write-only iommu mappings unsupported; falling back to RW\n");
+	}
+
 	if (prot & IOMMU_CACHE)
 		tex = (pgprot_kernel >> 2) & 0x07;
 	else
@@ -447,11 +457,15 @@ static int __get_pgprot(int prot, int len)
 		pgprot |= tex & 0x01 ? FL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? FL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? FL_TEX0 : 0;
+		pgprot |= FL_AP0 | FL_AP1;
+		pgprot |= prot & IOMMU_WRITE ? 0 : FL_AP2;
 	} else	{
 		pgprot = SL_SHARED;
 		pgprot |= tex & 0x01 ? SL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? SL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? SL_TEX0 : 0;
+		pgprot |= SL_AP0 | SL_AP1;
+		pgprot |= prot & IOMMU_WRITE ? 0 : SL_AP2;
 	}
 
 	return pgprot;
@@ -513,9 +527,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			}
 
 		for (i = 0; i < 16; i++)
-			*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION |
-				  FL_AP_READ | FL_AP_WRITE | FL_TYPE_SECT |
-				  FL_SHARED | FL_NG | pgprot;
+			*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION
+				  | FL_TYPE_SECT | FL_SHARED | FL_NG | pgprot;
 		if (!priv->redirect)
 			clean_pte(fl_pte, fl_pte + 16);
 	}
@@ -526,8 +539,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			goto fail;
 		}
 
-		*fl_pte = (pa & 0xFFF00000) | FL_AP_READ | FL_AP_WRITE | FL_NG |
-					    FL_TYPE_SECT | FL_SHARED | pgprot;
+		*fl_pte = (pa & 0xFFF00000) | FL_NG | FL_TYPE_SECT | FL_SHARED
+					    | pgprot;
 		if (!priv->redirect)
 			clean_pte(fl_pte, fl_pte + 1);
 	}
@@ -570,8 +583,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			goto fail;
 		}
 
-		*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_AP0 | SL_AP1 | SL_NG |
-					  SL_SHARED | SL_TYPE_SMALL | pgprot;
+		*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_NG | SL_SHARED
+						    | SL_TYPE_SMALL | pgprot;
 		if (!priv->redirect)
 			clean_pte(sl_pte, sl_pte + 1);
 	}
@@ -586,8 +599,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			}
 
 		for (i = 0; i < 16; i++)
-			*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_AP0 |
-			    SL_NG | SL_AP1 | SL_SHARED | SL_TYPE_LARGE | pgprot;
+			*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_NG
+					  | SL_SHARED | SL_TYPE_LARGE | pgprot;
 
 		if (!priv->redirect)
 			clean_pte(sl_pte, sl_pte + 16);
@@ -786,8 +799,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 		while (offset < len && sl_offset < NUM_SL_PTE) {
 			pa = chunk_pa + chunk_offset;
 			sl_table[sl_offset] = (pa & SL_BASE_MASK_SMALL) |
-					      pgprot | SL_AP0 | SL_AP1 | SL_NG |
-					      SL_SHARED | SL_TYPE_SMALL;
+				     pgprot | SL_NG | SL_SHARED | SL_TYPE_SMALL;
 			sl_offset++;
 			offset += SZ_4K;
 
