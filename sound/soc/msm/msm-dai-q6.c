@@ -24,6 +24,7 @@
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
 #include <sound/msm-dai-q6.h>
+#include <sound/pcm_params.h>
 #include <mach/clk.h>
 
 enum {
@@ -286,27 +287,6 @@ static int msm_dai_q6_auxpcm_hw_params(
 	return 0;
 }
 
-static int get_frame_size(u16 rate, u16 ch)
-{
-	if (rate == 8000) {
-		if (ch == 1)
-			return 128 * 2;
-		else
-			return 128 * 2 * 2;
-	} else if (rate == 16000) {
-		if (ch == 1)
-			return 128 * 2 * 2;
-		else
-			return 128 * 2 * 4;
-	} else if (rate == 48000) {
-		if (ch == 1)
-			return 128 * 2 * 6;
-		else
-			return 128 * 2 * 12;
-	} else
-		return 128 * 2 * 12;
-}
-
 static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
 {
@@ -321,8 +301,7 @@ static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 
 	dai_data->port_config.rtproxy.bitwidth = 16; /* Q6 only supports 16 */
 	dai_data->port_config.rtproxy.interleaved = 1;
-	dai_data->port_config.rtproxy.frame_sz = get_frame_size(dai_data->rate,
-					dai_data->port_config.rtproxy.num_ch);
+	dai_data->port_config.rtproxy.frame_sz = params_period_bytes(params);
 	dai_data->port_config.rtproxy.jitter =
 				dai_data->port_config.rtproxy.frame_sz/2;
 	dai_data->port_config.rtproxy.lw_mark = 0;
