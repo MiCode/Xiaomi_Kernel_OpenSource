@@ -226,12 +226,22 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 int32_t msm_sensor_setting1(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res);
 
+int32_t msm_sensor_setting2(struct msm_sensor_ctrl_t *s_ctrl,
+			int update_type, int res);
+
+int32_t msm_sensor_setting3(struct msm_sensor_ctrl_t *s_ctrl,
+			int update_type, int res);
+
 int msm_sensor_enable_debugfs(struct msm_sensor_ctrl_t *s_ctrl);
 
 long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg);
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
+
+#if (defined CONFIG_WEBCAM_OV7692_QRD || defined CONFIG_OV5647)
+	extern int lcd_camera_power_onoff(int on);
+#endif
 
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, void __user *)
