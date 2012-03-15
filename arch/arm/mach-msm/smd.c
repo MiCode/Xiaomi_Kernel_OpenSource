@@ -654,6 +654,7 @@ struct restart_notifier_block {
 	struct notifier_block nb;
 };
 
+static int disable_smsm_reset_handshake;
 static struct platform_device loopback_tty_pdev = {.name = "LOOPBACK_TTY"};
 
 static LIST_HEAD(smd_ch_closed_list);
@@ -2338,7 +2339,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			/* If we get an interrupt and the apps SMSM_RESET
 			   bit is already set, the modem is acking the
 			   app's reset ack. */
-			if (!cpu_is_msm8960() && !cpu_is_msm8930())
+			if (!disable_smsm_reset_handshake)
 				apps &= ~SMSM_RESET;
 			/* Issue a fake irq to handle any
 			 * smd state changes during reset
@@ -2349,7 +2350,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			modem_queue_start_reset_notify();
 
 		} else if (modm & SMSM_RESET) {
-			if (!cpu_is_msm8960() && !cpu_is_msm8930())
+			if (!disable_smsm_reset_handshake)
 				apps |= SMSM_RESET;
 
 			pr_err("\nSMSM: Modem SMSM state changed to SMSM_RESET.");
@@ -2870,6 +2871,10 @@ int smd_core_platform_init(struct platform_device *pdev)
 	smd_platform_data = pdev->dev.platform_data;
 	num_ss = smd_platform_data->num_ss_configs;
 	smd_ss_config_list = smd_platform_data->smd_ss_configs;
+
+	if (smd_platform_data->smd_ssr_config)
+		disable_smsm_reset_handshake = smd_platform_data->
+			   smd_ssr_config->disable_smsm_reset_handshake;
 
 	for (i = 0; i < num_ss; i++) {
 		cfg = &smd_ss_config_list[i];

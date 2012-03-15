@@ -1386,9 +1386,14 @@ static struct smd_subsystem_config smd_config_list[] = {
 	},
 };
 
+static struct smd_subsystem_restart_config smd_ssr_config = {
+	.disable_smsm_reset_handshake = 1,
+};
+
 static struct smd_platform smd_platform_data = {
 	.num_ss_configs = ARRAY_SIZE(smd_config_list),
 	.smd_ss_configs = smd_config_list,
+	.smd_ssr_config = &smd_ssr_config,
 };
 
 struct platform_device msm_device_smd_apq8064 = {

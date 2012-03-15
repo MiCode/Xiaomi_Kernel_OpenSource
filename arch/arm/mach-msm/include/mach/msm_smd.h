@@ -123,9 +123,19 @@ struct smd_subsystem_config {
 
 };
 
+/*
+ * Subsystem Restart Configuration
+ *
+ * @disable_smsm_reset_handshake
+ */
+struct smd_subsystem_restart_config {
+	int disable_smsm_reset_handshake;
+};
+
 struct smd_platform {
 	uint32_t num_ss_configs;
 	struct smd_subsystem_config *smd_ss_configs;
+	struct smd_subsystem_restart_config *smd_ssr_config;
 };
 
 #ifdef CONFIG_MSM_SMD
