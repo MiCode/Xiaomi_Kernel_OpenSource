@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,6 @@
 #define VIDC_1080P_ERROR_SLICE_ADDR_INVALID       121
 #define VIDC_1080P_ERROR_NON_PAIRED_FIELD_NOT_SUPPORTED         122
 #define VIDC_1080P_ERROR_NON_FRAME_DATA_RECEIVED                123
-#define VIDC_1080P_ERROR_INCOMPLETE_FRAME                       124
 #define VIDC_1080P_ERROR_NO_BUFFER_RELEASED_FROM_HOST           125
 #define VIDC_1080P_ERROR_NULL_FW_DEBUG_INFO_POINTER             126
 #define VIDC_1080P_ERROR_ALLOC_DEBUG_INFO_SIZE_INSUFFICIENT     127
@@ -126,9 +125,15 @@
 #define VIDC_1080P_WARN_BIT_RATE_NOT_SUPPORTED           168
 #define VIDC_1080P_WARN_COLOR_DIFF_FORMAT_NOT_SUPPORTED  169
 #define VIDC_1080P_WARN_NULL_EXTRA_METADATA_POINTER      170
+#define VIDC_1080P_WARN_DEBLOCKING_NOT_DONE              178
+#define VIDC_1080P_WARN_INCOMPLETE_FRAME                 179
 #define VIDC_1080P_WARN_METADATA_NO_SPACE_MB_INFO        180
 #define VIDC_1080P_WARN_METADATA_NO_SPACE_SLICE_SIZE     181
 #define VIDC_1080P_WARN_RESOLUTION_WARNING               182
+
+#define VIDC_1080P_WARN_NO_LONG_TERM_REFERENCE           183
+#define VIDC_1080P_WARN_NO_SPACE_MPEG2_DATA_DUMP         190
+#define VIDC_1080P_WARN_METADATA_NO_SPACE_MISSING_MB     191
 
 #define VIDC_1080P_H264_ENC_TYPE_P       0
 #define VIDC_1080P_H264_ENC_TYPE_B       1

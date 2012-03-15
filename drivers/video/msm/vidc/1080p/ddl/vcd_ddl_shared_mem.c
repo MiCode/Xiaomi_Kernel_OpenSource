@@ -85,6 +85,8 @@
 #define VIDC_SM_ENC_EXT_CTRL_VBV_BUFFER_SIZE_SHFT    16
 #define VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_BMSK  0x80
 #define VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_SHFT  7
+#define VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_BMSK    0X100
+#define VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_SHFT    8
 #define VIDC_SM_ENC_EXT_CTRL_SEQ_HDR_CTRL_BMSK       0x8
 #define VIDC_SM_ENC_EXT_CTRL_SEQ_HDR_CTRL_SHFT       3
 #define VIDC_SM_ENC_EXT_CTRL_FRAME_SKIP_ENABLE_BMSK  0x6
@@ -212,6 +214,8 @@
 #define VIDC_SM_SEI_ENABLE_ADDR                     0x0180
 #define VIDC_SM_SEI_ENABLE_RECOVERY_POINT_SEI_BMSK  0x00000001
 #define VIDC_SM_SEI_ENABLE_RECOVERY_POINT_SEI_SHFT  0
+
+#define VIDC_SM_NUM_STUFF_BYTES_CONSUME_ADDR    0X01ac
 
 #define VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK	0x40
 #define VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_SHFT	6
@@ -361,7 +365,7 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 	*shared_mem, u32 hec_enable,
 	enum VIDC_SM_frame_skip frame_skip_mode,
 	u32 seq_hdr_in_band, u32 vbv_buffer_size, u32 cpcfc_enable,
-	u32 closed_gop_enable)
+	u32 sps_pps_control, u32 closed_gop_enable)
 {
 	u32 enc_ctrl;
 
@@ -380,6 +384,9 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 			VIDC_SETFIELD((cpcfc_enable) ? 1 : 0,
 			VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_SHFT,
 			VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_BMSK) |
+			VIDC_SETFIELD((sps_pps_control) ? 1 : 0,
+			VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_SHFT,
+			VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_BMSK) |
 			VIDC_SETFIELD(closed_gop_enable,
 			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_SHFT,
 			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK);
@@ -754,4 +761,12 @@ void vidc_sm_set_error_concealment_config(struct ddl_buf_addr *shared_mem,
 
 	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_ERROR_CONCEALMENT_CONFIG_ADDR,
 			error_conceal_config);
+}
+
+void vidc_sm_set_decoder_stuff_bytes_consumption(
+	struct ddl_buf_addr *shared_mem,
+	enum vidc_sm_num_stuff_bytes_consume_info consume_info)
+{
+	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_NUM_STUFF_BYTES_CONSUME_ADDR,
+	consume_info);
 }

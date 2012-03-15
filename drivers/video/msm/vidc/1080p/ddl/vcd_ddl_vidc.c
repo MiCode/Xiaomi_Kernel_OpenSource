@@ -263,6 +263,10 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 			VIDC_SM_RECOVERY_POINT_SEI);
 	ddl_context->vidc_decode_seq_start[ddl->command_channel](
 		&seq_start_param);
+
+	vidc_sm_set_decoder_stuff_bytes_consumption(
+		&ddl->shared_mem[ddl->command_channel],
+		VIDC_SM_NUM_STUFF_BYTES_CONSUME_NONE);
 }
 
 void ddl_vidc_decode_dynamic_property(struct ddl_client_context *ddl,
@@ -548,7 +552,8 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	vidc_sm_set_extended_encoder_control(&ddl->shared_mem
 		[ddl->command_channel], hdr_ext_control,
 		r_cframe_skip, false, 0,
-		h263_cpfc_enable, encoder->closed_gop);
+		h263_cpfc_enable, encoder->sps_pps.sps_pps_for_idr_enable_flag,
+		encoder->closed_gop);
 	vidc_sm_set_encoder_init_rc_value(&ddl->shared_mem
 		[ddl->command_channel],
 		encoder->target_bit_rate.target_bitrate);
