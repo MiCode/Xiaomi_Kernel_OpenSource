@@ -477,4 +477,12 @@ config GPIO_PM8XXX_RPC
 	  This option enables support for on-chip GPIO found on Qualcomm PM8xxx
 	  PMICs through RPC.
 
+config GPIO_QPNP
+	depends on ARCH_MSMCOPPER
+	depends on OF_SPMI
+	depends on MSM_QPNP_INT
+	tristate "Qualcomm QPNP GPIO support"
+	help
+	  Say 'y' here to include support for the Qualcomm QPNP gpio
+	  support. QPNP is a SPMI based PMIC implementation.
 endif
