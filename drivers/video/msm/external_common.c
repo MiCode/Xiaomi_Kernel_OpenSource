@@ -343,6 +343,86 @@ static ssize_t hdmi_common_rda_edid_scan_info(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_common_wta_vendor_name(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	uint8 *s = (uint8 *) buf;
+	uint8 *d = external_common_state->spd_vendor_name;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	ret = (ret > 8) ? 8 : ret;
+
+	memset(external_common_state->spd_vendor_name, 0, 8);
+	while (*s) {
+		if (*s & 0x60 && *s ^ 0x7f) {
+			*d = *s;
+		} else {
+			/* stop copying if control character found */
+			break;
+		}
+
+		if (++s > (uint8 *) (buf + ret))
+			break;
+
+		d++;
+	}
+
+	DEV_DBG("%s: '%s'\n", __func__,
+			external_common_state->spd_vendor_name);
+
+	return ret;
+}
+
+static ssize_t hdmi_common_rda_vendor_name(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = snprintf(buf, PAGE_SIZE, "%s\n",
+		external_common_state->spd_vendor_name);
+	DEV_DBG("%s: '%s'\n", __func__,
+			external_common_state->spd_vendor_name);
+
+	return ret;
+}
+
+static ssize_t hdmi_common_wta_product_description(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	uint8 *s = (uint8 *) buf;
+	uint8 *d = external_common_state->spd_product_description;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	ret = (ret > 16) ? 16 : ret;
+
+	memset(external_common_state->spd_product_description, 0, 16);
+	while (*s) {
+		if (*s & 0x60 && *s ^ 0x7f) {
+			*d = *s;
+		} else {
+			/* stop copying if control character found */
+			break;
+		}
+
+		if (++s > (uint8 *) (buf + ret))
+			break;
+
+		d++;
+	}
+
+	DEV_DBG("%s: '%s'\n", __func__,
+			external_common_state->spd_product_description);
+
+	return ret;
+}
+
+static ssize_t hdmi_common_rda_product_description(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = snprintf(buf, PAGE_SIZE, "%s\n",
+		external_common_state->spd_product_description);
+	DEV_DBG("%s: '%s'\n", __func__,
+			external_common_state->spd_product_description);
+
+	return ret;
+}
+
 static ssize_t hdmi_common_rda_hdcp(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -711,6 +791,11 @@ static DEVICE_ATTR(pa, S_IRUGO,
 	hdmi_common_rda_edid_physical_address, NULL);
 static DEVICE_ATTR(scan_info, S_IRUGO,
 	hdmi_common_rda_edid_scan_info, NULL);
+static DEVICE_ATTR(vendor_name, S_IRUGO | S_IWUSR, hdmi_common_rda_vendor_name,
+	hdmi_common_wta_vendor_name);
+static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
+	hdmi_common_rda_product_description,
+	hdmi_common_wta_product_description);
 static DEVICE_ATTR(3d_present, S_IRUGO, hdmi_common_rda_3d_present, NULL);
 static DEVICE_ATTR(hdcp_present, S_IRUGO, hdmi_common_rda_hdcp_present, NULL);
 #endif
@@ -731,6 +816,8 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_hpd.attr,
 	&dev_attr_pa.attr,
 	&dev_attr_scan_info.attr,
+	&dev_attr_vendor_name.attr,
+	&dev_attr_product_description.attr,
 	&dev_attr_3d_present.attr,
 	&dev_attr_hdcp_present.attr,
 #endif
