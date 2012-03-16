@@ -2171,7 +2171,7 @@ static void __init msm8930_cdp_init(void)
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
 	platform_device_register(&msm8930_device_rpm_regulator);
-	msm_clock_init(&msm8960_clock_init_data);
+	msm_clock_init(&msm8930_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	msm8930_init_gpiomux();
