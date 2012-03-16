@@ -231,7 +231,7 @@ start_rx_end:
 int gsdio_write(struct gsdio_port *port, struct usb_request *req)
 {
 	unsigned	avail;
-	char		*packet = req->buf;
+	char		*packet;
 	unsigned	size = req->actual;
 	unsigned	n;
 	int		ret = 0;

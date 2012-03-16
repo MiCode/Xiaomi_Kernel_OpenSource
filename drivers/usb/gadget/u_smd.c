@@ -245,7 +245,7 @@ static void gsmd_rx_push(struct work_struct *w)
 			char		*packet = req->buf;
 			unsigned	size = req->actual;
 			unsigned	n;
-			unsigned	count;
+			int		count;
 
 			n = port->n_read;
 			if (n) {
