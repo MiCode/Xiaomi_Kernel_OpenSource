@@ -58,6 +58,9 @@
 /* register read/modify/write */
 #define CP_REG_RMW		0x21
 
+/* Set binning configuration registers */
+#define CP_SET_BIN_DATA             0x2f
+
 /* reads register in chip and writes to memory */
 #define CP_REG_TO_MEM		0x3e
 
@@ -197,7 +200,13 @@
 #define cp_nop_packet(cnt) \
 	 (CP_TYPE3_PKT | (((cnt)-1) << 16) | (CP_NOP << 8))
 
-#define pkt_is_type3(pkt) ((pkt) & CP_TYPE3_PKT)
+#define pkt_is_type0(pkt) (((pkt) & 0XC0000000) == CP_TYPE0_PKT)
+
+#define type0_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
+#define type0_pkt_offset(pkt) ((pkt) & 0x7FFF)
+
+#define pkt_is_type3(pkt) (((pkt) & 0xC0000000) == CP_TYPE3_PKT)
+
 #define cp_type3_opcode(pkt) (((pkt) >> 8) & 0xFF)
 #define type3_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
 
