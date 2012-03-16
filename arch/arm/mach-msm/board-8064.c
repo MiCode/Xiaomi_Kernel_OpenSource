@@ -1868,6 +1868,11 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_msm_gov_device,
 	&apq8064_device_cache_erp,
 	&epm_adc_device,
+	&apq8064_qdss_device,
+	&msm_etb_device,
+	&msm_tpiu_device,
+	&msm_funnel_device,
+	&apq8064_etm_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {
