@@ -48,6 +48,8 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_ISTORE       0x0801
 #define KGSL_SNAPSHOT_SECTION_DEBUG        0x0901
 #define KGSL_SNAPSHOT_SECTION_DEBUGBUS     0x0A01
+#define KGSL_SNAPSHOT_SECTION_GPU_OBJECT   0x0B01
+
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
 /* OS sub-section header */
@@ -148,6 +150,13 @@ struct kgsl_snapshot_debugbus {
 	int id;	   /* Debug bus ID */
 	int count; /* Number of dwords in the dump */
 } __packed;
+
+struct kgsl_snapshot_gpu_object {
+	int type;      /* Type of GPU object */
+	__u32 gpuaddr; /* GPU address of the the object */
+	__u32 ptbase;  /* Base for the pagetable the GPU address is valid in */
+	int size;    /* Size of the object (in dwords) */
+};
 
 #ifdef __KERNEL__
 
@@ -272,6 +281,9 @@ void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 	void *snapshot, int *remain, unsigned int index,
 	unsigned int data, unsigned int start, unsigned int count);
 
+/* Freeze a GPU buffer so it can be dumped in the snapshot */
+int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
+	unsigned int gpuaddr, unsigned int size, unsigned int type);
 
 #endif
 #endif

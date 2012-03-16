@@ -126,10 +126,15 @@ struct kgsl_memdesc {
 #define KGSL_MEM_ENTRY_ION    4
 #define KGSL_MEM_ENTRY_MAX    5
 
+/* List of flags */
+
+#define KGSL_MEM_ENTRY_FROZEN (1 << 0)
+
 struct kgsl_mem_entry {
 	struct kref refcount;
 	struct kgsl_memdesc memdesc;
 	int memtype;
+	int flags;
 	void *priv_data;
 	struct list_head list;
 	uint32_t free_timestamp;

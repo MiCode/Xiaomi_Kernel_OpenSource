@@ -27,6 +27,9 @@
 
 #define SNAPSHOT_OBJ_TYPE_IB 0
 
+/* Keep track of how many bytes are frozen after a snapshot and tell the user */
+static int snapshot_frozen_objsize;
+
 static struct kgsl_snapshot_obj {
 	int type;
 	uint32_t gpuaddr;
@@ -354,6 +357,8 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	/* Reset the list of objects */
 	objbufptr = 0;
 
+	snapshot_frozen_objsize = 0;
+
 	/* Get the physical address of the MMU pagetable */
 	ptbase = kgsl_mmu_get_current_ptbase(device);
 
@@ -424,6 +429,10 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	if (adreno_dev->gpudev->snapshot)
 		snapshot = adreno_dev->gpudev->snapshot(adreno_dev, snapshot,
 			remain, hang);
+
+	if (snapshot_frozen_objsize)
+		KGSL_DRV_ERR(device, "GPU snapshot froze %dKb of GPU buffers\n",
+			snapshot_frozen_objsize / 1024);
 
 	return snapshot;
 }
