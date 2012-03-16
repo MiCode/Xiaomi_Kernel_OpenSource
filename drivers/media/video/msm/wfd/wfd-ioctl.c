@@ -917,6 +917,7 @@ static int wfd_set_default_properties(struct file *filp)
 {
 	unsigned long flags;
 	struct v4l2_format fmt;
+	struct v4l2_control ctrl;
 	struct wfd_inst *inst = filp->private_data;
 	if (!inst) {
 		WFD_MSG_ERR("Invalid argument\n");
@@ -930,6 +931,10 @@ static int wfd_set_default_properties(struct file *filp)
 			= V4L2_PIX_FMT_H264;
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	wfdioc_s_fmt(filp, filp->private_data, &fmt);
+
+	ctrl.id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
+	ctrl.value = V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME;
+	wfdioc_s_ctrl(filp, filp->private_data, &ctrl);
 	return 0;
 }
 static void venc_op_buffer_done(void *cookie, u32 status,
