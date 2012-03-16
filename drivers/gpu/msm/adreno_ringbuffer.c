@@ -641,7 +641,6 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	unsigned int val3;
 	unsigned int copy_rb_contents = 0;
 	unsigned int cur_context;
-	unsigned int j;
 
 	GSL_RB_GET_READPTR(rb, &rb->rptr);
 
@@ -792,19 +791,6 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	}
 
 	*rb_size = temp_idx;
-	KGSL_DRV_ERR(device, "Extracted rb contents, size: %x\n", *rb_size);
-	for (temp_idx = 0; temp_idx < *rb_size;) {
-		char str[80];
-		int idx = 0;
-		if ((temp_idx + 8) <= *rb_size)
-			j = 8;
-		else
-			j = *rb_size - temp_idx;
-		for (; j != 0; j--)
-			idx += scnprintf(str + idx, 80 - idx,
-				"%8.8X ", temp_rb_buffer[temp_idx++]);
-		printk(KERN_ALERT "%s", str);
-	}
 	return 0;
 }
 
