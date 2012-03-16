@@ -365,7 +365,15 @@ static long venc_get_buffer_req(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to get out buf reqs rc = %d", rc);
 		goto err;
 	}
-	b->count = buf_req.actual_count;
+
+	buf_req.actual_count = b->count = max(buf_req.min_count, b->count);
+	rc = vcd_set_buffer_requirements(client_ctx->vcd_handle,
+			VCD_BUFFER_OUTPUT, &buf_req);
+	if (rc) {
+		WFD_MSG_ERR("Failed to set out buf reqs rc = %d", rc);
+		goto err;
+	}
+
 err:
 	return rc;
 }
