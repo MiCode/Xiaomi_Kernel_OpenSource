@@ -167,6 +167,37 @@ static void ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
 	}
 }
 
+/* Add an IB as a GPU object, but first, parse it to find more goodies within */
+
+static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
+		unsigned int gpuaddr, unsigned int dwords)
+{
+	int i, ret;
+	unsigned int *src = (unsigned int *) adreno_convertaddr(device, ptbase,
+		gpuaddr, dwords << 2);
+
+	if (src == NULL)
+		return;
+
+	for (i = 0; i < dwords; i++) {
+		if (pkt_is_type3(src[i])) {
+			if ((dwords - i) < type3_pkt_size(src[i]) + 1)
+				continue;
+
+			if (adreno_cmd_is_ib(src[i]))
+				ib_add_gpu_object(device, ptbase,
+					src[i + 1], src[i + 2]);
+			else
+				ib_parse_type3(device, &src[i], ptbase);
+		}
+	}
+
+	ret = kgsl_snapshot_get_object(device, ptbase, gpuaddr, dwords << 2,
+		SNAPSHOT_GPU_OBJECT_IB);
+
+	snapshot_frozen_objsize += ret;
+}
+
 /* Snapshot the istore memory */
 static int snapshot_istore(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
@@ -200,7 +231,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int *data = snapshot + sizeof(*header);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned int rbbase, ptbase, rptr, *rbptr;
+	unsigned int rbbase, ptbase, rptr, *rbptr, ibbase;
 	int start, stop, index;
 	int numitems, size;
 	int parse_ibs = 0, ib_parse_start;
@@ -213,6 +244,13 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 
 	/* Get the current read pointers for the RB */
 	kgsl_regread(device, REG_CP_RB_RPTR, &rptr);
+
+	/*
+	 * Get the address of the last executed IB1 so we can be sure to
+	 * snapshot it
+	 */
+
+	kgsl_regread(device, REG_CP_IB1_BASE, &ibbase);
 
 	/* start the dump at the rptr minus some history */
 	start = (int) rptr - NUM_DWORDS_OF_RINGBUFFER_HISTORY;
@@ -312,9 +350,19 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		if (index == rptr)
 			parse_ibs = 0;
 
-		if (parse_ibs && adreno_cmd_is_ib(rbptr[index]))
-			push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
-				rbptr[index + 1], rbptr[index + 2]);
+		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
+			/*
+			 * The IB from CP_IB1_BASE goes into the snapshot, all
+			 * others get marked at GPU objects
+			 */
+			if (rbptr[index + 1] == ibbase)
+				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
+					ptbase, rbptr[index + 1],
+					rbptr[index + 2]);
+			else
+				ib_add_gpu_object(device, ptbase,
+					rbptr[index + 1], rbptr[index + 2]);
+		}
 
 		index = index + 1;
 
