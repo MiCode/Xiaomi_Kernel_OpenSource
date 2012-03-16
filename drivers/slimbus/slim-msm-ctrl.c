@@ -88,10 +88,80 @@
 #define QC_DEVID_PGD	0x5
 #define QC_MSM_DEVS	5
 
+#define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
+#define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
+#define CFG_PORT(r, v) ((v) ? CFG_PORT_V2(r) : CFG_PORT_V1(r))
+
+#define PGD_THIS_EE_V2(r) (dev->base + (r ## _V2) + (dev->ee * 0x1000))
+#define PGD_PORT_V2(r, p) (dev->base + (r ## _V2) + ((p) * 0x1000))
+#define CFG_PORT_V2(r) ((r ## _V2))
 /* Component registers */
-enum comp_reg {
-	COMP_CFG	= 0,
-	COMP_TRUST_CFG	= 0x14,
+enum comp_reg_v2 {
+	COMP_CFG_V2		= 4,
+	COMP_TRUST_CFG_V2	= 0x3000,
+};
+
+/* Manager PGD registers */
+enum pgd_reg_v2 {
+	PGD_CFG_V2		= 0x800,
+	PGD_STAT_V2		= 0x804,
+	PGD_INT_EN_V2		= 0x810,
+	PGD_INT_STAT_V2		= 0x814,
+	PGD_INT_CLR_V2		= 0x818,
+	PGD_OWN_EEn_V2		= 0x300C,
+	PGD_PORT_INT_EN_EEn_V2	= 0x5000,
+	PGD_PORT_INT_ST_EEn_V2	= 0x5004,
+	PGD_PORT_INT_CL_EEn_V2	= 0x5008,
+	PGD_PORT_CFGn_V2	= 0x14000,
+	PGD_PORT_STATn_V2	= 0x14004,
+	PGD_PORT_PARAMn_V2	= 0x14008,
+	PGD_PORT_BLKn_V2	= 0x1400C,
+	PGD_PORT_TRANn_V2	= 0x14010,
+	PGD_PORT_MCHANn_V2	= 0x14014,
+	PGD_PORT_PSHPLLn_V2	= 0x14018,
+	PGD_PORT_PC_CFGn_V2	= 0x8000,
+	PGD_PORT_PC_VALn_V2	= 0x8004,
+	PGD_PORT_PC_VFR_TSn_V2	= 0x8008,
+	PGD_PORT_PC_VFR_STn_V2	= 0x800C,
+	PGD_PORT_PC_VFR_CLn_V2	= 0x8010,
+	PGD_IE_STAT_V2		= 0x820,
+	PGD_VE_STAT_V2		= 0x830,
+};
+
+#define PGD_THIS_EE_V1(r) (dev->base + (r ## _V1) + (dev->ee * 16))
+#define PGD_PORT_V1(r, p) (dev->base + (r ## _V1) + ((p) * 32))
+#define CFG_PORT_V1(r) ((r ## _V1))
+/* Component registers */
+enum comp_reg_v1 {
+	COMP_CFG_V1		= 0,
+	COMP_TRUST_CFG_V1	= 0x14,
+};
+
+/* Manager PGD registers */
+enum pgd_reg_v1 {
+	PGD_CFG_V1		= 0x1000,
+	PGD_STAT_V1		= 0x1004,
+	PGD_INT_EN_V1		= 0x1010,
+	PGD_INT_STAT_V1		= 0x1014,
+	PGD_INT_CLR_V1		= 0x1018,
+	PGD_OWN_EEn_V1		= 0x1020,
+	PGD_PORT_INT_EN_EEn_V1	= 0x1030,
+	PGD_PORT_INT_ST_EEn_V1	= 0x1034,
+	PGD_PORT_INT_CL_EEn_V1	= 0x1038,
+	PGD_PORT_CFGn_V1	= 0x1080,
+	PGD_PORT_STATn_V1	= 0x1084,
+	PGD_PORT_PARAMn_V1	= 0x1088,
+	PGD_PORT_BLKn_V1	= 0x108C,
+	PGD_PORT_TRANn_V1	= 0x1090,
+	PGD_PORT_MCHANn_V1	= 0x1094,
+	PGD_PORT_PSHPLLn_V1	= 0x1098,
+	PGD_PORT_PC_CFGn_V1	= 0x1600,
+	PGD_PORT_PC_VALn_V1	= 0x1604,
+	PGD_PORT_PC_VFR_TSn_V1	= 0x1608,
+	PGD_PORT_PC_VFR_STn_V1	= 0x160C,
+	PGD_PORT_PC_VFR_CLn_V1	= 0x1610,
+	PGD_IE_STAT_V1		= 0x1700,
+	PGD_VE_STAT_V1		= 0x1710,
 };
 
 /* Manager registers */
@@ -141,33 +211,6 @@ enum intf_reg {
 	INTF_INT_CLR	= 0x618,
 	INTF_IE_STAT	= 0x630,
 	INTF_VE_STAT	= 0x640,
-};
-
-/* Manager PGD registers */
-enum pgd_reg {
-	PGD_CFG			= 0x1000,
-	PGD_STAT		= 0x1004,
-	PGD_INT_EN		= 0x1010,
-	PGD_INT_STAT		= 0x1014,
-	PGD_INT_CLR		= 0x1018,
-	PGD_OWN_EEn		= 0x1020,
-	PGD_PORT_INT_EN_EEn	= 0x1030,
-	PGD_PORT_INT_ST_EEn	= 0x1034,
-	PGD_PORT_INT_CL_EEn	= 0x1038,
-	PGD_PORT_CFGn		= 0x1080,
-	PGD_PORT_STATn		= 0x1084,
-	PGD_PORT_PARAMn		= 0x1088,
-	PGD_PORT_BLKn		= 0x108C,
-	PGD_PORT_TRANn		= 0x1090,
-	PGD_PORT_MCHANn		= 0x1094,
-	PGD_PORT_PSHPLLn	= 0x1098,
-	PGD_PORT_PC_CFGn	= 0x1600,
-	PGD_PORT_PC_VALn	= 0x1604,
-	PGD_PORT_PC_VFR_TSn	= 0x1608,
-	PGD_PORT_PC_VFR_STn	= 0x160C,
-	PGD_PORT_PC_VFR_CLn	= 0x1610,
-	PGD_IE_STAT		= 0x1700,
-	PGD_VE_STAT		= 0x1710,
 };
 
 enum rsc_grp {
@@ -245,6 +288,7 @@ struct msm_slim_ctrl {
 	bool			chan_active;
 	enum msm_ctrl_state	state;
 	int			nsats;
+	u32			ver;
 };
 
 struct msm_sat_chan {
@@ -509,13 +553,13 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 		mb();
 		complete(&dev->reconf);
 	}
-	pstat = readl_relaxed(dev->base + PGD_PORT_INT_ST_EEn + (16 * dev->ee));
+	pstat = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_ST_EEn, dev->ver));
 	if (pstat != 0) {
 		int i = 0;
 		for (i = dev->pipe_b; i < MSM_SLIM_NPORTS; i++) {
 			if (pstat & 1 << i) {
-				u32 val = readl_relaxed(dev->base +
-						PGD_PORT_STATn + (i * 32));
+				u32 val = readl_relaxed(PGD_PORT(PGD_PORT_STATn,
+							i, dev->ver));
 				if (val & (1 << 19)) {
 					dev->ctrl.ports[i].err =
 						SLIM_P_DISCONNECT;
@@ -532,8 +576,8 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 					dev->ctrl.ports[i].err =
 						SLIM_P_UNDERFLOW;
 			}
-			writel_relaxed(1, dev->base + PGD_PORT_INT_CL_EEn +
-				(dev->ee * 16));
+			writel_relaxed(1, PGD_THIS_EE(PGD_PORT_INT_CL_EEn,
+							dev->ver));
 		}
 		/*
 		 * Guarantee that port interrupt bit(s) clearing writes go
@@ -612,13 +656,13 @@ msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 static void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
 {
 	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
-	u32 int_port = readl_relaxed(dev->base + PGD_PORT_INT_EN_EEn +
-					(dev->ee * 16));
-	writel_relaxed(set_cfg, dev->base + PGD_PORT_CFGn + (pn * 32));
-	writel_relaxed(DEF_BLKSZ, dev->base + PGD_PORT_BLKn + (pn * 32));
-	writel_relaxed(DEF_TRANSZ, dev->base + PGD_PORT_TRANn + (pn * 32));
-	writel_relaxed((int_port | 1 << pn) , dev->base + PGD_PORT_INT_EN_EEn +
-			(dev->ee * 16));
+	u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+					dev->ver));
+	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pn, dev->ver));
+	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pn, dev->ver));
+	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pn, dev->ver));
+	writel_relaxed((int_port | 1 << pn) , PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
+								dev->ver));
 	/* Make sure that port registers are updated before returning */
 	mb();
 }
@@ -645,8 +689,8 @@ static int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 		}
 	}
 
-	stat = readl_relaxed(dev->base + PGD_PORT_STATn +
-				(32 * (pn + dev->pipe_b)));
+	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->pipe_b),
+					dev->ver));
 	if (dev->ctrl.ports[pn].flow == SLIM_SRC) {
 		cfg->destination = dev->bam.hdl;
 		cfg->source = SPS_DEV_HANDLE_MEM;
@@ -1947,10 +1991,13 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	clk_set_rate(dev->rclk, SLIM_ROOT_FREQ);
 	clk_prepare_enable(dev->rclk);
 
+	dev->ver = readl_relaxed(dev->base);
+	/* Version info in 16 MSbits */
+	dev->ver >>= 16;
 	/* Component register initialization */
-	writel_relaxed(1, dev->base + COMP_CFG);
+	writel_relaxed(1, dev->base + CFG_PORT(COMP_CFG, dev->ver));
 	writel_relaxed((EE_MGR_RSC_GRP | EE_NGD_2 | EE_NGD_1),
-				dev->base + COMP_TRUST_CFG);
+				dev->base + CFG_PORT(COMP_TRUST_CFG, dev->ver));
 
 	/*
 	 * Manager register initialization
@@ -2001,15 +2048,16 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	 * ported generic device inside MSM manager
 	 */
 	mb();
-	writel_relaxed(1, dev->base + PGD_CFG);
-	writel_relaxed(0x3F<<17, dev->base + (PGD_OWN_EEn + (4 * dev->ee)));
+	writel_relaxed(1, dev->base + CFG_PORT(PGD_CFG, dev->ver));
+	writel_relaxed(0x3F<<17, dev->base + CFG_PORT(PGD_OWN_EEn, dev->ver) +
+				(4 * dev->ee));
 	/*
 	 * Make sure that ported generic device is enabled and port-EE settings
 	 * are written through before finally enabling the component
 	 */
 	mb();
 
-	writel_relaxed(1, dev->base + COMP_CFG);
+	writel_relaxed(1, dev->base + CFG_PORT(COMP_CFG, dev->ver));
 	/*
 	 * Make sure that all writes have gone through before exiting this
 	 * function
@@ -2026,7 +2074,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	return 0;
 
 err_ctrl_failed:
-	writel_relaxed(0, dev->base + COMP_CFG);
+	writel_relaxed(0, dev->base + CFG_PORT(COMP_CFG, dev->ver));
 err_clk_get_failed:
 	kfree(dev->satd);
 err_request_irq_failed:
