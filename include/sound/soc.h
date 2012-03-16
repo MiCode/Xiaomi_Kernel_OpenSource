@@ -368,6 +368,8 @@ int snd_soc_set_runtime_hwparams(struct snd_pcm_substream *substream,
 int snd_soc_jack_new(struct snd_soc_codec *codec, const char *id, int type,
 		     struct snd_soc_jack *jack);
 void snd_soc_jack_report(struct snd_soc_jack *jack, int status, int mask);
+void snd_soc_jack_report_no_dapm(struct snd_soc_jack *jack, int status,
+				 int mask);
 int snd_soc_jack_add_pins(struct snd_soc_jack *jack, int count,
 			  struct snd_soc_jack_pin *pins);
 void snd_soc_jack_notifier_register(struct snd_soc_jack *jack,
