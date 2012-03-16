@@ -21,6 +21,8 @@
 #include <linux/memblock.h>
 #include <linux/slab.h>
 #include <linux/atomic.h>
+#include <linux/suspend.h>
+#include <linux/rwsem.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -156,6 +158,9 @@ static int segment_is_loadable(const struct elf32_phdr *p)
 	return (p->p_type & PT_LOAD) && !segment_is_hash(p->p_flags);
 }
 
+/* Sychronize request_firmware() with suspend */
+static DECLARE_RWSEM(pil_pm_rwsem);
+
 static int load_image(struct pil_device *pil)
 {
 	int i, ret;
@@ -164,6 +169,7 @@ static int load_image(struct pil_device *pil)
 	const struct elf32_phdr *phdr;
 	const struct firmware *fw;
 
+	down_read(&pil_pm_rwsem);
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", pil->desc->name);
 	ret = request_firmware(&fw, fw_name, &pil->dev);
 	if (ret) {
@@ -225,6 +231,7 @@ static int load_image(struct pil_device *pil)
 release_fw:
 	release_firmware(fw);
 out:
+	up_read(&pil_pm_rwsem);
 	return ret;
 }
 
@@ -511,11 +518,29 @@ void msm_pil_unregister(struct pil_device *pil)
 }
 EXPORT_SYMBOL(msm_pil_unregister);
 
+static int pil_pm_notify(struct notifier_block *b, unsigned long event, void *p)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		down_write(&pil_pm_rwsem);
+		break;
+	case PM_POST_SUSPEND:
+		up_write(&pil_pm_rwsem);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block pil_pm_notifier = {
+	.notifier_call = pil_pm_notify,
+};
+
 static int __init msm_pil_init(void)
 {
 	int ret = msm_pil_debugfs_init();
 	if (ret)
 		return ret;
+	register_pm_notifier(&pil_pm_notifier);
 	return bus_register(&pil_bus_type);
 }
 subsys_initcall(msm_pil_init);
@@ -523,6 +548,7 @@ subsys_initcall(msm_pil_init);
 static void __exit msm_pil_exit(void)
 {
 	bus_unregister(&pil_bus_type);
+	unregister_pm_notifier(&pil_pm_notifier);
 	msm_pil_debugfs_exit();
 }
 module_exit(msm_pil_exit);
