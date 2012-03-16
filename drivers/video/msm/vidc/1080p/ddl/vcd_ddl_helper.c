@@ -353,7 +353,7 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 void ddl_release_context_buffers(struct ddl_context *ddl_context)
 {
 	ddl_pmem_free(&ddl_context->metadata_shared_input);
-	ddl_fw_release();
+	ddl_fw_release(&ddl_context->dram_base_a);
 }
 
 void ddl_release_client_internal_buffers(struct ddl_client_context *ddl)

@@ -31,6 +31,7 @@ u32 res_trk_get_core_type(void);
 u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr);
 int res_trk_get_mem_type(void);
 u32 res_trk_get_enable_ion(void);
+u32 res_trk_is_cp_enabled(void);
 u32 res_trk_get_disable_fullhd(void);
 struct ion_client *res_trk_get_ion_client(void);
 u32 res_trk_get_disable_dmx(void);
@@ -43,4 +44,7 @@ int res_trk_close_secure_session(void);
 void res_trk_secure_set(void);
 void res_trk_secure_unset(void);
 u32 get_res_trk_perf_level(enum vcd_perf_level);
+int res_trk_enable_footswitch(void);
+int res_trk_disable_footswitch(void);
+void res_trk_release_fw_addr(void);
 #endif
