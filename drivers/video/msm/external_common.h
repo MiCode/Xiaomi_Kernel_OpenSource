@@ -194,6 +194,12 @@ extern struct hdmi_disp_mode_timing_type
  * device */
 struct hdmi_disp_mode_list_type {
 	uint32	disp_mode_list[HDMI_VFRMT_MAX];
+#define TOP_AND_BOTTOM		0x10
+#define FRAME_PACKING		0x20
+#define SIDE_BY_SIDE_HALF	0x40
+	uint32	disp_3d_mode_list[HDMI_VFRMT_MAX];
+	uint32	disp_multi_3d_mode_list[16];
+	uint32	disp_multi_3d_mode_list_cnt;
 	uint32	num_of_elements;
 };
 #endif
@@ -256,6 +262,8 @@ const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_supported_mode(
 	uint32 mode);
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
+
+ssize_t video_3d_format_2string(uint32 format, char *buf);
 #endif
 
 int external_common_state_create(struct platform_device *pdev);
