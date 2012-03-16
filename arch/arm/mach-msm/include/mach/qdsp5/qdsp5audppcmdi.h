@@ -15,7 +15,7 @@ REFERENCES
 EXTERNALIZED FUNCTIONS
   None
 
-Copyright (c) 1992-2009, Code Aurora Forum. All rights reserved.
+Copyright(c) 1992-2009, 2012 Code Aurora Forum. All rights reserved.
 
 This software is licensed under the terms of the GNU General Public
 License version 2, as published by the Free Software Foundation, and
@@ -958,6 +958,12 @@ typedef struct {
 #define AUDPP_CMD_CMD_TYPE_OBJ		0x0015
 #define AUDPP_CMD_CMD_TYPE_QUERY	0x1000
 
+#define SRS_PARAMS_MAX_G 8
+#define SRS_PARAMS_MAX_W 55
+#define SRS_PARAMS_MAX_C 51
+#define SRS_PARAMS_MAX_H 53
+#define SRS_PARAMS_MAX_P 116
+#define SRS_PARAMS_MAX_L 8
 
 typedef struct {
 	unsigned short			cmd_id;
@@ -999,6 +1005,33 @@ typedef struct {
 	unsigned short			absolute_gain;
 } __attribute__((packed)) audpp_cmd_reverb_config_env_15;
 
+/*
+ * Command Structure to configure post processing params (SRS TruMedia)
+ */
+struct audpp_cmd_cfg_object_params_srstm_g {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_G];
+} __packed;
+struct audpp_cmd_cfg_object_params_srstm_w {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_W];
+} __packed;
+struct audpp_cmd_cfg_object_params_srstm_c {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_C];
+} __packed;
+struct audpp_cmd_cfg_object_params_srstm_h {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_H];
+} __packed;
+struct audpp_cmd_cfg_object_params_srstm_p {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_P];
+} __packed;
+struct audpp_cmd_cfg_object_params_srstm_l {
+	audpp_cmd_cfg_object_params_common	common;
+	unsigned short				v[SRS_PARAMS_MAX_L];
+} __packed;
 
 #endif /* QDSP5AUDPPCMDI_H */
 
