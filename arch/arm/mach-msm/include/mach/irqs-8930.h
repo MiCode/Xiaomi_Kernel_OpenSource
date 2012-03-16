@@ -152,10 +152,10 @@
 #define SPS_MTI_2				(GIC_SPI_START + 109)
 #define SPS_MTI_3				(GIC_SPI_START + 110)
 #define GPS_PPS_OUT				(GIC_SPI_START + 111)
-#define SPS_MTI_5				(GIC_SPI_START + 112)
-#define SPS_MTI_6				(GIC_SPI_START + 113)
-#define SPS_MTI_7				(GIC_SPI_START + 114)
-#define SPS_MTI_8				(GIC_SPI_START + 115)
+/* SPI IRQ 112 is unused */
+/* SPI IRQ 113 is unused */
+/* SPI IRQ 114 is unused */
+/* SPI IRQ 115 is unused */
 #define TLMM_MSM_DIR_CONN_IRQ_11		(GIC_SPI_START + 116)
 #define TLMM_MSM_DIR_CONN_IRQ_10		(GIC_SPI_START + 117)
 #define BAM_DMA1				(GIC_SPI_START + 118)
