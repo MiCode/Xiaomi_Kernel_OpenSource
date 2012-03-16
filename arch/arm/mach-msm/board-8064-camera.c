@@ -512,6 +512,9 @@ void __init apq8064_init_cam(void)
 	msm_gpiomux_install(apq8064_cam_common_configs,
 			ARRAY_SIZE(apq8064_cam_common_configs));
 
+	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
+		sensor_board_info_imx074.mount_angle = 0;
+
 	platform_device_register(&msm8960_device_i2c_mux_gsbi4);
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
