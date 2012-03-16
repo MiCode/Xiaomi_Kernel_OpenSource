@@ -107,6 +107,66 @@ static int find_object(int type, unsigned int gpuaddr, unsigned int ptbase)
 	return 0;
 }
 
+static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
+	unsigned int ptbase)
+{
+	unsigned int block, source, type;
+
+	/*
+	 * The object here is to find indirect shaders i.e - shaders loaded from
+	 * GPU memory instead of directly in the command.  These should be added
+	 * to the list of memory objects to dump. So look at the load state
+	 * call and see if 1) the shader block is a shader (block = 4, 5 or 6)
+	 * 2) that the block is indirect (source = 4). If these all match then
+	 * add the memory address to the list.  The size of the object will
+	 * differ depending on the type.  Type 0 (instructions) are 8 dwords per
+	 * unit and type 1 (constants) are 2 dwords per unit.
+	 */
+
+	if (type3_pkt_size(pkt[0]) < 2)
+		return;
+
+	/*
+	 * pkt[1] 18:16 - source
+	 * pkt[1] 21:19 - state block
+	 * pkt[1] 31:22 - size in units
+	 * pkt[2] 0:1 - type
+	 * pkt[2] 31:2 - GPU memory address
+	 */
+
+	block = (pkt[1] >> 19) & 0x07;
+	source = (pkt[1] >> 16) & 0x07;
+	type = pkt[2] & 0x03;
+
+	if ((block == 4 || block == 5 || block == 6) && source == 4) {
+		int unitsize = (type == 0) ? 8 : 2;
+		int ret;
+
+		/* Freeze the GPU buffer containing the shader */
+
+		ret = kgsl_snapshot_get_object(device, ptbase,
+				pkt[2] & 0xFFFFFFFC,
+				(((pkt[1] >> 22) & 0x03FF) * unitsize) << 2,
+				SNAPSHOT_GPU_OBJECT_SHADER);
+		snapshot_frozen_objsize += ret;
+	}
+}
+
+/*
+ * Parse all the type3 opcode packets that may contain important information,
+ * such as additional GPU buffers to grab
+ */
+
+static void ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
+	unsigned int ptbase)
+{
+	switch (cp_type3_opcode(*ptr)) {
+	case CP_LOAD_STATE:
+		ib_parse_load_state(device, ptr, ptbase);
+		break;
+	}
+}
+
 /* Snapshot the istore memory */
 static int snapshot_istore(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
@@ -280,7 +340,6 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	return size + sizeof(*header);
 }
 
-/* Snapshot the memory for an indirect buffer */
 static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
 {
@@ -302,16 +361,19 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	header->size = obj->dwords;
 
 	/* Write the contents of the ib */
-	for (i = 0; i < obj->dwords; i++) {
+	for (i = 0; i < obj->dwords; i++, src++, dst++) {
 		*dst = *src;
-		/* If another IB is discovered, then push it on the list too */
 
-		if (adreno_cmd_is_ib(*src))
-			push_object(device, SNAPSHOT_OBJ_TYPE_IB, obj->ptbase,
-				*(src + 1), *(src + 2));
+		if (pkt_is_type3(*src)) {
+			if ((obj->dwords - i) < type3_pkt_size(*src) + 1)
+				continue;
 
-		src++;
-		dst++;
+			if (adreno_cmd_is_ib(*src))
+				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
+					obj->ptbase, src[1], src[2]);
+			else
+				ib_parse_type3(device, src, obj->ptbase);
+		}
 	}
 
 	return (obj->dwords << 2) + sizeof(*header);

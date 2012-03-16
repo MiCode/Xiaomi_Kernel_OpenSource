@@ -197,6 +197,9 @@
 #define cp_nop_packet(cnt) \
 	 (CP_TYPE3_PKT | (((cnt)-1) << 16) | (CP_NOP << 8))
 
+#define pkt_is_type3(pkt) ((pkt) & CP_TYPE3_PKT)
+#define cp_type3_opcode(pkt) (((pkt) >> 8) & 0xFF)
+#define type3_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
 
 /* packet headers */
 #define CP_HDR_ME_INIT	cp_type3_packet(CP_ME_INIT, 18)

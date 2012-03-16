@@ -151,6 +151,8 @@ struct kgsl_snapshot_debugbus {
 	int count; /* Number of dwords in the dump */
 } __packed;
 
+#define SNAPSHOT_GPU_OBJECT_SHADER 1
+
 struct kgsl_snapshot_gpu_object {
 	int type;      /* Type of GPU object */
 	__u32 gpuaddr; /* GPU address of the the object */
