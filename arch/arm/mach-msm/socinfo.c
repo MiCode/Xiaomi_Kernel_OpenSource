@@ -257,7 +257,6 @@ static enum msm_cpu cur_cpu;
 static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
 	.version = 1,
-	.build_id = "Dummy socinfo placeholder"
 };
 
 uint32_t socinfo_get_id(void)
@@ -613,10 +612,14 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
-	else if (early_machine_is_copper())
+	else if (early_machine_is_copper()) {
 		dummy_socinfo.id = 126;
-	else if (machine_is_msm8625_rumi3())
+		strlcpy(dummy_socinfo.build_id, "copper - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (machine_is_msm8625_rumi3())
 		dummy_socinfo.id = 127;
+	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
+		sizeof(dummy_socinfo.build_id));
 	return (void *) &dummy_socinfo;
 }
 
