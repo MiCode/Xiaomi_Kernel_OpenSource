@@ -47,7 +47,20 @@ scm_version()
 
 		# If we are at a tagged commit (like "v2.6.30-rc6"), we ignore
 		# it, because this version is defined in the top level Makefile.
-		if [ -z "`git describe --exact-match 2>/dev/null`" ]; then
+		if atag="`git describe --exact-match --abbrev=0 2>/dev/null`"; then
+			# Make sure we're at the tag that matches the Makefile.
+			# If not place the hash of the tag as well for
+			# v2.6.30-rc5-g314aef
+			if [ "x$atag" -ne "x$VERSION" ]; then
+				# If only the short version is requested,
+				# don't bother running further git commands
+				if $short; then
+					echo "+"
+					return
+				fi
+				printf '%s%s' -g "`git show-ref -s --abbrev $atag 2>/dev/null`"
+			fi
+		else
 
 			# If only the short version is requested, don't bother
 			# running further git commands
@@ -55,17 +68,18 @@ scm_version()
 				echo "+"
 				return
 			fi
+			# If we are past a tagged commit (like
+			# "v2.6.30-rc5-302-g72357d5"), we pretty print it and
+			# include the hash of any new tag on top.
+			if atag="`git describe 2>/dev/null`"; then
+				tag="`git describe --abbrev=0 2>/dev/null`"
+				commit="`echo "$atag" | awk -F- '{printf("-%05d-%s", $(NF-1),$(NF))}'`"
+				printf '%s%s%s' -g "`git show-ref -s --abbrev $tag 2>/dev/null`" $commit
+			# If we don't have a tag at all we print -g{commitish}.
+			else
+				printf '%s%s' -g $head
+			fi
 		fi
-		# If we are past a tagged commit (like
-		# "v2.6.30-rc5-302-g72357d5"), we pretty print it but strip
-		# off the v2.6.30-rc5 part because that's in the Makefile.
-		if atag="`git describe 2>/dev/null`"; then
-			atag="-${atag/v$KERNELVERSION-/}"
-		# If we don't have a tag at all we print -g{commitish}.
-		else
-			atag="-g$head"
-		fi
-		printf '%s' "$atag"
 
 		# Is this git on svn?
 		if git config --get svn-remote.svn.url >/dev/null; then
