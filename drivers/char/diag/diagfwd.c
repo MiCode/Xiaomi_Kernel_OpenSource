@@ -522,7 +522,7 @@ static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 	uint8_t *temp = buf;
 	int i = 0;
 	unsigned char *ptr_data;
-	int offset = 8*MAX_EQUIP_ID;
+	int offset = (sizeof(struct mask_info))*MAX_EQUIP_ID;
 	struct mask_info *ptr = (struct mask_info *)driver->log_masks;
 
 	mutex_lock(&driver->diagchar_mutex);
@@ -661,9 +661,10 @@ void diag_send_log_mask_update(smd_channel_t *ch)
 	void *buf = driver->buf_log_mask_update;
 	int header_size = sizeof(struct diag_ctrl_log_mask);
 	struct mask_info *ptr = (struct mask_info *)driver->log_masks;
-	int i, size = (driver->log_mask->num_items+7)/8;
+	int i, size;
 
 	for (i = 0; i < MAX_EQUIP_ID; i++) {
+		size = (ptr->num_items+7)/8;
 		/* reached null entry */
 		if ((ptr->equip_id == 0) && (ptr->index == 0))
 			break;
@@ -1608,7 +1609,7 @@ void diagfwd_init(void)
 	if (driver->log_masks == NULL &&
 	    (driver->log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
 		goto err;
-	driver->log_masks_length = 8*MAX_EQUIP_ID;
+	driver->log_masks_length = (sizeof(struct mask_info))*MAX_EQUIP_ID;
 	if (driver->event_masks == NULL &&
 	    (driver->event_masks = kzalloc(EVENT_MASK_SIZE,
 					    GFP_KERNEL)) == NULL)
