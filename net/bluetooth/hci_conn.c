@@ -787,6 +787,10 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 
 	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
 		struct hci_cp_auth_requested cp;
+
+		/* encrypt must be pending if auth is also pending */
+		set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
+
 		cp.handle = cpu_to_le16(conn->handle);
 		hci_send_cmd(conn->hdev, HCI_OP_AUTH_REQUESTED,
 							sizeof(cp), &cp);
@@ -817,7 +821,7 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 		return 0;
 	} else if (conn->link_mode & HCI_LM_ENCRYPT) {
 		return hci_conn_auth(conn, sec_level, auth_type);
-	} else if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+	} else if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
 		return 0;
 	}
 
