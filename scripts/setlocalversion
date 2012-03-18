@@ -51,14 +51,14 @@ scm_version()
 			# Make sure we're at the tag that matches the Makefile.
 			# If not place the hash of the tag as well for
 			# v2.6.30-rc5-g314aef
-			if [ "x$atag" -ne "x$VERSION" ]; then
+			if [ "x$atag" != "x$VERSION" ]; then
 				# If only the short version is requested,
 				# don't bother running further git commands
 				if $short; then
 					echo "+"
 					return
 				fi
-				printf '%s%s' -g "`git show-ref -s --abbrev $atag 2>/dev/null`"
+				printf '%s%s' -g "`git show-ref -s --abbrev --tags $atag 2>/dev/null`"
 			fi
 		else
 
@@ -74,7 +74,7 @@ scm_version()
 			if atag="`git describe 2>/dev/null`"; then
 				tag="`git describe --abbrev=0 2>/dev/null`"
 				commit="`echo "$atag" | awk -F- '{printf("-%05d-%s", $(NF-1),$(NF))}'`"
-				printf '%s%s%s' -g "`git show-ref -s --abbrev $tag 2>/dev/null`" $commit
+				printf '%s%s%s' -g "`git show-ref -s --abbrev --tags $tag 2>/dev/null`" $commit
 			# If we don't have a tag at all we print -g{commitish}.
 			else
 				printf '%s%s' -g $head
