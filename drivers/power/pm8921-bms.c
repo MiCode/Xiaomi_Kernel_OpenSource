@@ -44,6 +44,8 @@
 #define ADC_ARB_SECP_DATA0	0x196
 
 #define ADC_ARB_BMS_CNTRL	0x18D
+#define AMUX_TRIM_2		0x322
+#define TEST_PROGRAM_REV	0x339
 
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
@@ -121,6 +123,7 @@ struct pm8921_bms_chip {
 	int			batt_temp_suspend;
 	int			soc_rbatt_suspend;
 	int			default_rbatt_mohm;
+	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
 };
 
@@ -520,6 +523,20 @@ static int read_cc(struct pm8921_bms_chip *chip, int *result)
 	return 0;
 }
 
+static int adjust_xo_vbatt_reading_for_mbg(struct pm8921_bms_chip *chip,
+						int result)
+{
+	int64_t numerator;
+	int64_t denominator;
+
+	if (chip->amux_2_trim_delta == 0)
+		return result;
+
+	numerator = (s64)result * 1000000;
+	denominator = (1000000 + (410 * (s64)chip->amux_2_trim_delta));
+	return div_s64(numerator, denominator);
+}
+
 static int convert_vbatt_raw_to_uv(struct pm8921_bms_chip *chip,
 					int usb_chg,
 					uint16_t reading, int *result)
@@ -528,6 +545,7 @@ static int convert_vbatt_raw_to_uv(struct pm8921_bms_chip *chip,
 	pr_debug("raw = %04x vbatt = %u\n", reading, *result);
 	*result = adjust_xo_vbatt_reading(chip, usb_chg, *result);
 	pr_debug("after adj vbatt = %u\n", *result);
+	*result = adjust_xo_vbatt_reading_for_mbg(chip, *result);
 	return 0;
 }
 
@@ -902,6 +920,19 @@ static int read_rbatt_params_raw(struct pm8921_bms_chip *chip,
 	return 0;
 }
 
+#define MBG_TRANSIENT_ERROR_RAW 51
+static void adjust_pon_ocv_raw(struct pm8921_bms_chip *chip,
+				struct pm8921_soc_params *raw)
+{
+	/* in 8921 parts the PON ocv is taken when the MBG is not settled.
+	 * decrease the pon ocv by 15mV raw value to account for it
+	 * Since a 1/3rd  of vbatt is supplied to the adc the raw value
+	 * needs to be adjusted by 5mV worth bits
+	 */
+	if (raw->last_good_ocv_raw >= MBG_TRANSIENT_ERROR_RAW)
+		raw->last_good_ocv_raw -= MBG_TRANSIENT_ERROR_RAW;
+}
+
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
 {
@@ -919,8 +950,13 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 
 	usb_chg =  usb_chg_plugged_in();
 
-	if (chip->prev_last_good_ocv_raw == 0 ||
-		chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
+	if (chip->prev_last_good_ocv_raw == 0) {
+		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
+		adjust_pon_ocv_raw(chip, raw);
+		convert_vbatt_raw_to_uv(chip, usb_chg,
+			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
+		last_ocv_uv = raw->last_good_ocv_uv;
+	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
@@ -928,9 +964,6 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 	} else {
 		raw->last_good_ocv_uv = last_ocv_uv;
 	}
-
-	if (raw->last_good_ocv_uv)
-		last_ocv_uv = raw->last_good_ocv_uv;
 
 	pr_debug("0p625 = %duV\n", chip->xoadc_v0625);
 	pr_debug("1p25 = %duV\n", chip->xoadc_v125);
@@ -2190,6 +2223,61 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 	}
 }
 
+#define REG_SBI_CONFIG		0x04F
+#define PAGE3_ENABLE_MASK	0x6
+#define PROGRAM_REV_MASK	0x0F
+#define PROGRAM_REV		0x9
+static int read_ocv_trim(struct pm8921_bms_chip *chip)
+{
+	int rc;
+	u8 reg, sbi_config;
+
+	rc = pm8xxx_readb(chip->dev->parent, REG_SBI_CONFIG, &sbi_config);
+	if (rc) {
+		pr_err("error = %d reading sbi config reg\n", rc);
+		return rc;
+	}
+
+	reg = sbi_config | PAGE3_ENABLE_MASK;
+	rc = pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, reg);
+	if (rc) {
+		pr_err("error = %d writing sbi config reg\n", rc);
+		return rc;
+	}
+
+	rc = pm8xxx_readb(chip->dev->parent, TEST_PROGRAM_REV, &reg);
+	if (rc)
+		pr_err("Error %d reading %d addr %d\n",
+			rc, reg, TEST_PROGRAM_REV);
+	pr_err("program rev reg is 0x%x\n", reg);
+	reg &= PROGRAM_REV_MASK;
+
+	/* If the revision is equal or higher do not adjust trim delta */
+	if (reg >= PROGRAM_REV) {
+		chip->amux_2_trim_delta = 0;
+		goto restore_sbi_config;
+	}
+
+	rc = pm8xxx_readb(chip->dev->parent, AMUX_TRIM_2, &reg);
+	if (rc) {
+		pr_err("error = %d reading trim reg\n", rc);
+		return rc;
+	}
+
+	pr_err("trim reg is 0x%x\n", reg);
+	chip->amux_2_trim_delta = abs(0x49 - reg);
+	pr_err("trim delta is %d\n", chip->amux_2_trim_delta);
+
+restore_sbi_config:
+	rc = pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, sbi_config);
+	if (rc) {
+		pr_err("error = %d writing sbi config reg\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -2259,6 +2347,11 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	the_chip = chip;
 	create_debugfs_entries(chip);
 
+	rc = read_ocv_trim(chip);
+	if (rc) {
+		pr_err("couldn't adjust ocv_trim rc= %d\n", rc);
+		goto free_irqs;
+	}
 	check_initial_ocv(chip);
 
 	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
