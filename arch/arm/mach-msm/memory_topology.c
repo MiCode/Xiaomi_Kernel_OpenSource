@@ -66,7 +66,8 @@ unsigned int get_num_populated_chipselects()
 }
 #endif
 
-#if defined(CONFIG_ARCH_MSM8960)
+#if (defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8930)) \
+	&& defined(CONFIG_ENABLE_DMM)
 static int rpm_change_memory_state(int retention_mask,
 					int active_mask)
 {

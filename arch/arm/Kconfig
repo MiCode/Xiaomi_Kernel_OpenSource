@@ -1631,6 +1631,10 @@ config ARCH_POPULATES_NODE_MAP
 	def_bool n
 	depends on MEMORY_HOTPLUG
 
+config ENABLE_DMM
+	def_bool n
+	depends on MEMORY_HOTPLUG
+
 config FIX_MOVABLE_ZONE
 	def_bool n
 	depends on MEMORY_HOTPLUG
