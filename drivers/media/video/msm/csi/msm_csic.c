@@ -137,18 +137,17 @@
 #define MIPI_PWR_CNTL_EN	0x07
 #define MIPI_PWR_CNTL_DIS	0x0
 
-static int msm_csic_config(struct csic_cfg_params *cfg_params)
+static int msm_csic_config(struct v4l2_subdev *sd,
+	struct msm_camera_csi_params *csic_params)
 {
 	int rc = 0;
 	uint32_t val = 0;
 	struct csic_device *csic_dev;
-	struct msm_camera_csi_params *csic_params;
 	void __iomem *csicbase;
 	int i;
 
-	csic_dev = v4l2_get_subdevdata(cfg_params->subdev);
+	csic_dev = v4l2_get_subdevdata(sd);
 	csicbase = csic_dev->base;
-	csic_params = cfg_params->parms;
 
 	/* Enable error correction for DATA lane. Applies to all data lanes */
 	msm_camera_io_w(0x4, csicbase + MIPI_PHY_CONTROL);
@@ -259,7 +258,7 @@ static struct msm_cam_clk_info csic_7x_clk_info[] = {
 	{"csi_pclk", -1},
 };
 
-static int msm_csic_init(struct v4l2_subdev *sd, uint32_t *csic_version)
+static int msm_csic_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
 	struct csic_device *csic_dev;
@@ -355,17 +354,40 @@ static int msm_csic_release(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static long msm_csic_cmd(struct v4l2_subdev *sd, void *arg)
+{
+	long rc = 0;
+	struct csic_cfg_data cdata;
+	struct msm_camera_csi_params csic_params;
+	if (copy_from_user(&cdata,
+		(void *)arg,
+		sizeof(struct csic_cfg_data)))
+		return -EFAULT;
+	CDBG("%s cfgtype = %d\n", __func__, cdata.cfgtype);
+	switch (cdata.cfgtype) {
+	case CSIC_INIT:
+		rc = msm_csic_init(sd);
+		break;
+	case CSIC_CFG:
+		if (copy_from_user(&csic_params,
+			(void *)cdata.csic_params,
+			sizeof(struct msm_camera_csi_params)))
+			return -EFAULT;
+		rc = msm_csic_config(sd, &csic_params);
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
 static long msm_csic_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
-	struct csic_cfg_params cfg_params;
 	switch (cmd) {
 	case VIDIOC_MSM_CSIC_CFG:
-		cfg_params.subdev = sd;
-		cfg_params.parms = arg;
-		return msm_csic_config((struct csic_cfg_params *)&cfg_params);
-	case VIDIOC_MSM_CSIC_INIT:
-		return msm_csic_init(sd, (uint32_t *)arg);
+		return msm_csic_cmd(sd, arg);
 	case VIDIOC_MSM_CSIC_RELEASE:
 		return msm_csic_release(sd);
 	default:

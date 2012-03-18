@@ -127,30 +127,6 @@ struct msm_vpe_phy_info {
 	uint32_t frame_id;
 };
 
-struct msm_camera_csid_lut_params {
-	uint8_t num_cid;
-	struct msm_camera_csid_vc_cfg *vc_cfg;
-};
-
-struct msm_camera_csid_params {
-	uint8_t lane_cnt;
-	uint16_t lane_assign;
-	uint8_t phy_sel;
-	struct msm_camera_csid_lut_params lut_params;
-};
-
-struct msm_camera_csiphy_params {
-	uint8_t lane_cnt;
-	uint8_t settle_cnt;
-	uint16_t lane_mask;
-	uint8_t combo_mode;
-};
-
-struct msm_camera_csi2_params {
-	struct msm_camera_csid_params csid_params;
-	struct msm_camera_csiphy_params csiphy_params;
-};
-
 #ifndef CONFIG_MSM_CAMERA_V4L2
 #define VFE31_OUTPUT_MODE_PT (0x1 << 0)
 #define VFE31_OUTPUT_MODE_S (0x1 << 1)

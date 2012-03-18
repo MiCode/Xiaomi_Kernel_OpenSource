@@ -217,6 +217,14 @@
 #define MSM_CAM_IOCTL_STATS_UNREG_BUF \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 61, struct msm_stats_flush_bufq *)
 
+#define MSM_CAM_IOCTL_CSIC_IO_CFG \
+	_IOWR(MSM_CAM_IOCTL_MAGIC, 62, struct csic_cfg_data *)
+
+#define MSM_CAM_IOCTL_CSID_IO_CFG \
+	_IOWR(MSM_CAM_IOCTL_MAGIC, 63, struct csid_cfg_data *)
+
+#define MSM_CAM_IOCTL_CSIPHY_IO_CFG \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 64, struct csiphy_cfg_data *)
 
 struct v4l2_event_and_payload {
 	struct v4l2_event evt;
@@ -1275,8 +1283,78 @@ struct csi_lane_params_t {
 	uint8_t csi_lane_assign;
 	uint8_t csi_lane_mask;
 	uint8_t csi_if;
-	uint8_t csid_core;
-	uint32_t csid_version;
+	uint8_t csid_core[2];
+};
+
+struct msm_camera_csid_lut_params {
+	uint8_t num_cid;
+	struct msm_camera_csid_vc_cfg *vc_cfg;
+};
+
+struct msm_camera_csid_params {
+	uint8_t lane_cnt;
+	uint16_t lane_assign;
+	uint8_t phy_sel;
+	struct msm_camera_csid_lut_params lut_params;
+};
+
+struct msm_camera_csiphy_params {
+	uint8_t lane_cnt;
+	uint8_t settle_cnt;
+	uint16_t lane_mask;
+	uint8_t combo_mode;
+};
+
+struct msm_camera_csi2_params {
+	struct msm_camera_csid_params csid_params;
+	struct msm_camera_csiphy_params csiphy_params;
+};
+
+enum msm_camera_csi_data_format {
+	CSI_8BIT,
+	CSI_10BIT,
+	CSI_12BIT,
+};
+
+struct msm_camera_csi_params {
+	enum msm_camera_csi_data_format data_format;
+	uint8_t lane_cnt;
+	uint8_t lane_assign;
+	uint8_t settle_cnt;
+	uint8_t dpcm_scheme;
+};
+
+enum csic_cfg_type_t {
+	CSIC_INIT,
+	CSIC_CFG,
+};
+
+struct csic_cfg_data {
+	enum csic_cfg_type_t cfgtype;
+	struct msm_camera_csi_params *csic_params;
+};
+
+enum csid_cfg_type_t {
+	CSID_INIT,
+	CSID_CFG,
+};
+
+struct csid_cfg_data {
+	enum csid_cfg_type_t cfgtype;
+	union {
+		uint32_t csid_version;
+		struct msm_camera_csid_params *csid_params;
+	} cfg;
+};
+
+enum csiphy_cfg_type_t {
+	CSIPHY_INIT,
+	CSIPHY_CFG,
+};
+
+struct csiphy_cfg_data {
+	enum csiphy_cfg_type_t cfgtype;
+	struct msm_camera_csiphy_params *csiphy_params;
 };
 
 #define CSI_EMBED_DATA 0x12

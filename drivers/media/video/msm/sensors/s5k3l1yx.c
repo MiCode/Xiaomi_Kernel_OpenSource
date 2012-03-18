@@ -536,53 +536,6 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csid_vc_cfg s5k3l1yx_cid_cfg[] = {
-	{0, CSI_RAW10, CSI_DECODE_10BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params s5k3l1yx_csi_params = {
-	.csid_params = {
-		.lane_cnt = 4,
-		.lut_params = {
-			.num_cid = ARRAY_SIZE(s5k3l1yx_cid_cfg),
-			.vc_cfg = s5k3l1yx_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 4,
-		.settle_cnt = 0x1B,
-	},
-};
-
-static struct msm_camera_csid_vc_cfg s5k3l1yx_cid_dpcm_cfg[] = {
-	{0, CSI_RAW8, CSI_DECODE_DPCM_10_8_10},
-};
-
-static struct msm_camera_csi2_params s5k3l1yx_csi_dpcm_params = {
-	.csid_params = {
-		.lane_assign = 0xe4,
-		.lane_cnt = 4,
-		.lut_params = {
-			.num_cid = ARRAY_SIZE(s5k3l1yx_cid_dpcm_cfg),
-			.vc_cfg = s5k3l1yx_cid_dpcm_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 4,
-		.settle_cnt = 0x1B,
-	},
-};
-
-static struct msm_camera_csi2_params *s5k3l1yx_csi_params_array[] = {
-	&s5k3l1yx_csi_params,
-	&s5k3l1yx_csi_params,
-	&s5k3l1yx_csi_params,
-	&s5k3l1yx_csi_params,
-	&s5k3l1yx_csi_params,
-	&s5k3l1yx_csi_dpcm_params,
-};
-
 static struct msm_sensor_output_reg_addr_t s5k3l1yx_reg_addr = {
 	.x_output = 0x34C,
 	.y_output = 0x34E,
@@ -721,7 +674,6 @@ static struct msm_sensor_ctrl_t s5k3l1yx_s_ctrl = {
 	.sensor_id_info = &s5k3l1yx_id_info,
 	.sensor_exp_gain_info = &s5k3l1yx_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csi_params = &s5k3l1yx_csi_params_array[0],
 	.msm_sensor_mutex = &s5k3l1yx_mut,
 	.sensor_i2c_driver = &s5k3l1yx_i2c_driver,
 	.sensor_v4l2_subdev_info = s5k3l1yx_subdev_info,
