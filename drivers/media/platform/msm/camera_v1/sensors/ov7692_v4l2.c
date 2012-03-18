@@ -821,18 +821,6 @@ struct msm_sensor_v4l2_ctrl_info_t ov7692_v4l2_ctrl_info[] = {
 
 };
 
-static struct msm_camera_csi_params ov7692_csi_params = {
-	.data_format = CSI_8BIT,
-	.lane_cnt    = 1,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt  = 0x14,
-};
-
-static struct msm_camera_csi_params *ov7692_csi_params_array[] = {
-	&ov7692_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t ov7692_reg_addr = {
 	.x_output = 0xCC,
 	.y_output = 0xCE,
@@ -899,7 +887,6 @@ static struct msm_sensor_fn_t ov7692_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
-	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
 
 static struct msm_sensor_reg_t ov7692_regs = {
@@ -925,7 +912,6 @@ static struct msm_sensor_ctrl_t ov7692_s_ctrl = {
 	.sensor_output_reg_addr = &ov7692_reg_addr,
 	.sensor_id_info = &ov7692_id_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csic_params = &ov7692_csi_params_array[0],
 	.msm_sensor_mutex = &ov7692_mut,
 	.sensor_i2c_driver = &ov7692_i2c_driver,
 	.sensor_v4l2_subdev_info = ov7692_subdev_info,

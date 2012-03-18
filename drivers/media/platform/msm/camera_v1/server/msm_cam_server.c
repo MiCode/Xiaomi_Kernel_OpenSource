@@ -1663,21 +1663,6 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 			rc = v4l2_subdev_call(p_mctl->vfe_sdev, video,
 			s_crystal_freq, *(uint32_t *)arg, 0);
 		break;
-	case NOTIFY_CSIPHY_CFG:
-		p_mctl = v4l2_get_subdev_hostdata(sd);
-		rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
-			core, ioctl, VIDIOC_MSM_CSIPHY_CFG, arg);
-		break;
-	case NOTIFY_CSID_CFG:
-		p_mctl = v4l2_get_subdev_hostdata(sd);
-		rc = v4l2_subdev_call(p_mctl->csid_sdev,
-			core, ioctl, VIDIOC_MSM_CSID_CFG, arg);
-		break;
-	case NOTIFY_CSIC_CFG:
-		p_mctl = v4l2_get_subdev_hostdata(sd);
-		rc = v4l2_subdev_call(p_mctl->csic_sdev,
-			core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
-		break;
 	case NOTIFY_GESTURE_EVT:
 		rc = v4l2_subdev_call(g_server_dev.gesture_device,
 			core, ioctl, VIDIOC_MSM_GESTURE_EVT, arg);

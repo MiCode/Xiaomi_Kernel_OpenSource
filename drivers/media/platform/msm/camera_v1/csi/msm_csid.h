@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
+#include <media/msm_camera.h>
 
 struct csid_device {
 	struct platform_device *pdev;
@@ -32,19 +33,10 @@ struct csid_device {
 	struct clk *csid_clk[5];
 };
 
-struct csid_cfg_params {
-	struct v4l2_subdev *subdev;
-	void *parms;
-};
-
 #define VIDIOC_MSM_CSID_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct csid_cfg_params)
-
-#define VIDIOC_MSM_CSID_INIT \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct v4l2_subdev*)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct csic_cfg_data*)
 
 #define VIDIOC_MSM_CSID_RELEASE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_subdev*)
-
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct v4l2_subdev*)
 #endif
 

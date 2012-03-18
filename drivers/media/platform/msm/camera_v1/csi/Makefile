@@ -1,5 +1,5 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
-ccflags-y += -Idrivers/media/platform/msm/camera_v1
+ccflags-y += -Idrivers/media/platform/msm/camera_v1 -Idrivers/media/platform/msm/camera_v1/server
 ifeq ($(CONFIG_MSM_CSI20_HEADER),y)
   ccflags-y += -Idrivers/media/platform/msm/camera_v1/csi/include/csi2.0
 else ifeq ($(CONFIG_MSM_CSI30_HEADER),y)

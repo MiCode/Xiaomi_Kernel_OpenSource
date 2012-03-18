@@ -156,9 +156,6 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_PIX_SOF_COUNT, /*arg = int*/
 	NOTIFY_AXI_RDI_SOF_COUNT, /*arg = struct rdi_count_msg*/
 	NOTIFY_PCLK_CHANGE, /* arg = pclk */
-	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
-	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
-	NOTIFY_CSIC_CFG, /* arg = msm_camera_csic_params */
 	NOTIFY_VFE_IRQ,
 	NOTIFY_AXI_IRQ,
 	NOTIFY_GESTURE_EVT, /* arg = v4l2_event */

@@ -145,14 +145,12 @@ struct msm_sensor_fn_t {
 		(struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
 	int32_t (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
-	int (*sensor_adjust_frame_lines)
-		(struct msm_sensor_ctrl_t *s_ctrl, uint16_t res);
+	void (*sensor_adjust_frame_lines) (struct msm_sensor_ctrl_t *s_ctrl);
 	int32_t (*sensor_get_csi_params)(struct msm_sensor_ctrl_t *,
 		struct csi_lane_params_t *);
 };
 
 struct msm_sensor_csi_info {
-	uint32_t csid_version;
 	uint8_t is_csic;
 };
 
@@ -175,23 +173,23 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_reg_t *msm_sensor_reg;
 	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
 	uint16_t num_v4l2_ctrl;
-	uint32_t csid_version;
 	uint8_t is_csic;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
-	uint16_t prev_gain;
-	uint16_t prev_line;
+	/* Number of frames to delay after start / stop stream in Q10 format.
+	   Initialize to -1 for this value to be ignored */
+	int16_t wait_num_frames;
+	/* minimum delay after stop / stop stream in ms */
+	uint16_t min_delay;
+	/* delay (in ms) after power up sequence */
+	uint16_t power_seq_delay;
 
 	uint32_t fps_divider;
 	enum msm_sensor_resolution_t curr_res;
 	enum msm_sensor_cam_mode_t cam_mode;
 
 	struct mutex *msm_sensor_mutex;
-	struct msm_camera_csi2_params *curr_csi_params;
-	struct msm_camera_csi2_params **csi_params;
-	struct msm_camera_csi_params **csic_params;
-	struct msm_camera_csi_params *curr_csic_params;
 
 	struct v4l2_subdev sensor_v4l2_subdev;
 	struct v4l2_subdev_info *sensor_v4l2_subdev_info;
@@ -256,11 +254,9 @@ int msm_sensor_write_res_settings
 int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res);
 
-int32_t msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl,
-	uint16_t res);
+void msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl);
 
-int32_t msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl,
-	uint16_t res);
+void msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res);
@@ -281,7 +277,7 @@ int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
 
 #define VIDIOC_MSM_SENSOR_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, void __user *)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, void __user *)
 
 #define VIDIOC_MSM_SENSOR_RELEASE \
 	_IO('V', BASE_VIDIOC_PRIVATE + 11)

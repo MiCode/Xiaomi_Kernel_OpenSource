@@ -848,19 +848,6 @@ static struct msm_sensor_output_info_t vx6953_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csi_params vx6953_csi_params = {
-	.data_format = CSI_8BIT,
-	.lane_cnt    = 1,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt  = 7,
-};
-
-static struct msm_camera_csi_params *vx6953_csi_params_array[] = {
-	&vx6953_csi_params,
-	&vx6953_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t vx6953_reg_addr = {
 	.x_output = 0x034C,
 	.y_output = 0x034E,
@@ -1880,13 +1867,6 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 				vx6953_s_ctrl.msm_sensor_reg->
 				default_data_type);
 
-
-			vx6953_s_ctrl.curr_csic_params =
-				vx6953_s_ctrl.csic_params[0];
-			v4l2_subdev_notify(&vx6953_s_ctrl.sensor_v4l2_subdev,
-				NOTIFY_CSIC_CFG,
-				vx6953_s_ctrl.curr_csic_params);
-
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
 			if (rt == RES_PREVIEW) {
 				CDBG("%s write mode_tbl for preview\n",
@@ -2042,7 +2022,6 @@ static struct msm_sensor_ctrl_t vx6953_s_ctrl = {
 	.sensor_id_info = &vx6953_id_info,
 	.sensor_exp_gain_info = &vx6953_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csic_params = &vx6953_csi_params_array[0],
 	.msm_sensor_mutex = &vx6953_mut,
 	.sensor_i2c_driver = &vx6953_i2c_driver,
 	.sensor_v4l2_subdev_info = vx6953_subdev_info,

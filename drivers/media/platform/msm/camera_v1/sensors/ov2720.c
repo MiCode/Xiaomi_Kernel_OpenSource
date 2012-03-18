@@ -658,34 +658,6 @@ static struct msm_sensor_output_info_t ov2720_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csid_vc_cfg ov2720_cid_cfg[] = {
-	{0, CSI_RAW10, CSI_DECODE_10BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params ov2720_csi_params = {
-	.csid_params = {
-		.lane_cnt = 2,
-		.lut_params = {
-			.num_cid = 2,
-			.vc_cfg = ov2720_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 2,
-		.settle_cnt = 0x1B,
-	},
-};
-
-static struct msm_camera_csi2_params *ov2720_csi_params_array[] = {
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t ov2720_reg_addr = {
 	.x_output = 0x3808,
 	.y_output = 0x380a,
@@ -853,7 +825,6 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.sensor_id_info = &ov2720_id_info,
 	.sensor_exp_gain_info = &ov2720_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csi_params = &ov2720_csi_params_array[0],
 	.msm_sensor_mutex = &ov2720_mut,
 	.sensor_i2c_driver = &ov2720_i2c_driver,
 	.sensor_v4l2_subdev_info = ov2720_subdev_info,

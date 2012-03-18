@@ -510,19 +510,6 @@ static struct msm_sensor_output_info_t ov8825_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csi_params ov8825_csi_params = {
-	.data_format = CSI_10BIT,
-	.lane_cnt    = 2,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt  = 14,
-};
-
-static struct msm_camera_csi_params *ov8825_csi_params_array[] = {
-	&ov8825_csi_params,
-	&ov8825_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t ov8825_reg_addr = {
 	.x_output = 0x3808,
 	.y_output = 0x380a,
@@ -868,13 +855,10 @@ int32_t ov8825_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
-	static int csi_config;
 
-	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
-	msleep(30);
 	if (update_type == MSM_SENSOR_REG_INIT) {
 		CDBG("Register INIT\n");
-		s_ctrl->curr_csi_params = NULL;
+		s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 		msm_sensor_enable_debugfs(s_ctrl);
 		msm_sensor_write_init_settings(s_ctrl);
 		CDBG("Update OTP\n");
@@ -885,30 +869,15 @@ int32_t ov8825_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 		usleep_range(10000, 11000);
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, 0x100, 0x0,
 		  MSM_CAMERA_I2C_BYTE_DATA);
-		csi_config = 0;
 	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
 		CDBG("PERIODIC : %d\n", res);
 		msm_sensor_write_conf_array(
 			s_ctrl->sensor_i2c_client,
 			s_ctrl->msm_sensor_reg->mode_settings, res);
 		msleep(30);
-		if (!csi_config) {
-			s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
-			CDBG("CSI config in progress\n");
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSIC_CFG,
-				s_ctrl->curr_csic_params);
-			CDBG("CSI config is done\n");
-			mb();
-			msleep(30);
-			csi_config = 1;
-		}
 		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 			NOTIFY_PCLK_CHANGE,
 			&s_ctrl->sensordata->pdata->ioclk.vfe_clk_rate);
-
-		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
-		msleep(50);
 	}
 	return rc;
 }
@@ -955,7 +924,6 @@ static struct msm_sensor_ctrl_t ov8825_s_ctrl = {
 	.sensor_id_info = &ov8825_id_info,
 	.sensor_exp_gain_info = &ov8825_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csic_params = &ov8825_csi_params_array[0],
 	.msm_sensor_mutex = &ov8825_mut,
 	.sensor_i2c_driver = &ov8825_i2c_driver,
 	.sensor_v4l2_subdev_info = ov8825_subdev_info,
