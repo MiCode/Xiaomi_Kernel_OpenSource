@@ -13,4 +13,12 @@
 #ifndef __MACH_QDSS_H
 #define __MACH_QDSS_H
 
+#ifdef CONFIG_MSM_JTAG
+extern void msm_jtag_save_state(void);
+extern void msm_jtag_restore_state(void);
+#else
+static inline void msm_jtag_save_state(void) {}
+static inline void msm_jtag_restore_state(void) {}
+#endif
+
 #endif

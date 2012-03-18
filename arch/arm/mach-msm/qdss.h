@@ -52,7 +52,6 @@
 #define PFT_ARCH_V1_1		(0x31)
 
 #define TIMEOUT_US		(100)
-#define OSLOCK_MAGIC		(0xC5ACCE55)
 #define CS_UNLOCK_MAGIC		(0xC5ACCE55)
 
 #define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
@@ -78,13 +77,5 @@ void funnel_disable(uint8_t id, uint32_t port_mask);
 struct kobject *qdss_get_modulekobj(void);
 int qdss_clk_enable(void);
 void qdss_clk_disable(void);
-
-#ifdef CONFIG_MSM_JTAG
-extern void msm_jtag_save_state(void);
-extern void msm_jtag_restore_state(void);
-#else
-static inline void msm_jtag_save_state(void) {}
-static inline void msm_jtag_restore_state(void) {}
-#endif
 
 #endif

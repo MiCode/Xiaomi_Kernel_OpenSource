@@ -49,7 +49,6 @@
 #include "scm-boot.h"
 #include "spm.h"
 #include "timer.h"
-#include "qdss.h"
 #include "pm-boot.h"
 
 /******************************************************************************
