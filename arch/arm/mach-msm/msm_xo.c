@@ -19,6 +19,8 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 #include <linux/seq_file.h>
+#include <linux/uaccess.h>
+#include <linux/string.h>
 
 #include <mach/msm_xo.h>
 #include <mach/rpm.h>
@@ -44,18 +46,93 @@ struct msm_xo_voter {
 static struct msm_xo msm_xo_sources[NUM_MSM_XO_IDS];
 
 #ifdef CONFIG_DEBUG_FS
-static const char *msm_xo_mode_to_str(unsigned mode)
+static const char *msm_xo_to_str[NUM_MSM_XO_IDS] = {
+	[MSM_XO_TCXO_D0] = "D0",
+	[MSM_XO_TCXO_D1] = "D1",
+	[MSM_XO_TCXO_A0] = "A0",
+	[MSM_XO_TCXO_A1] = "A1",
+	[MSM_XO_TCXO_A2] = "A2",
+	[MSM_XO_CORE] = "CORE",
+};
+
+static const char *msm_xo_mode_to_str[NUM_MSM_XO_MODES] = {
+	[MSM_XO_MODE_ON] = "ON",
+	[MSM_XO_MODE_PIN_CTRL] = "PIN",
+	[MSM_XO_MODE_OFF] = "OFF",
+};
+
+static int msm_xo_debugfs_open(struct inode *inode, struct file *filp)
 {
-	switch (mode) {
-	case MSM_XO_MODE_ON:
-		return "ON";
-	case MSM_XO_MODE_PIN_CTRL:
-		return "PIN";
-	case MSM_XO_MODE_OFF:
-		return "OFF";
-	default:
-		return "ERR";
+	filp->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t msm_xo_debugfs_read(struct file *filp, char __user *ubuf,
+		size_t cnt, loff_t *ppos)
+{
+	int r;
+	char buf[10];
+	struct msm_xo_voter *xo = filp->private_data;
+
+	r = snprintf(buf, sizeof(buf), "%s\n", msm_xo_mode_to_str[xo->mode]);
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
+}
+
+static ssize_t msm_xo_debugfs_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	struct msm_xo_voter *xo = filp->private_data;
+	char buf[10], *b;
+	int i, ret;
+
+	if (cnt > sizeof(buf) - 1)
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+	buf[cnt] = '\0';
+	b = strstrip(buf);
+
+	for (i = 0; i < ARRAY_SIZE(msm_xo_mode_to_str); i++)
+		if (!strncasecmp(b, msm_xo_mode_to_str[i], sizeof(buf))) {
+			ret = msm_xo_mode_vote(xo, i);
+			return ret ? : cnt;
+		}
+
+	return -EINVAL;
+}
+
+static const struct file_operations msm_xo_debugfs_fops = {
+	.open	= msm_xo_debugfs_open,
+	.read	= msm_xo_debugfs_read,
+	.write	= msm_xo_debugfs_write,
+};
+
+static struct dentry *xo_debugfs_root;
+static struct msm_xo_voter *xo_debugfs_voters[NUM_MSM_XO_IDS];
+
+static int __init msm_xo_init_debugfs_voters(void)
+{
+	int i;
+
+	xo_debugfs_root = debugfs_create_dir("msm_xo", NULL);
+	if (!xo_debugfs_root)
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(msm_xo_sources); i++) {
+		xo_debugfs_voters[i] = msm_xo_get(i, "debugfs");
+		if (IS_ERR(xo_debugfs_voters[i]))
+			goto err;
+		debugfs_create_file(msm_xo_to_str[i], S_IRUGO | S_IWUSR,
+				xo_debugfs_root, xo_debugfs_voters[i],
+				&msm_xo_debugfs_fops);
 	}
+	return 0;
+err:
+	while (--i >= 0)
+		msm_xo_put(xo_debugfs_voters[i]);
+	debugfs_remove_recursive(xo_debugfs_root);
+	return -ENOMEM;
 }
 
 static void msm_xo_dump_xo(struct seq_file *m, struct msm_xo *xo,
@@ -63,25 +140,22 @@ static void msm_xo_dump_xo(struct seq_file *m, struct msm_xo *xo,
 {
 	struct msm_xo_voter *voter;
 
-	seq_printf(m, "%-20s%s\n", name, msm_xo_mode_to_str(xo->mode));
+	seq_printf(m, "CXO %-16s%s\n", name, msm_xo_mode_to_str[xo->mode]);
 	list_for_each_entry(voter, &xo->voters, list)
 		seq_printf(m, " %s %-16s %s\n",
 				xo->mode == voter->mode ? "*" : " ",
 				voter->name,
-				msm_xo_mode_to_str(voter->mode));
+				msm_xo_mode_to_str[voter->mode]);
 }
 
 static int msm_xo_show_voters(struct seq_file *m, void *v)
 {
 	unsigned long flags;
+	int i;
 
 	spin_lock_irqsave(&msm_xo_lock, flags);
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_D0], "TCXO D0");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_D1], "TCXO D1");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A0], "TCXO A0");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A1], "TCXO A1");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A2], "TCXO A2");
-	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CORE], "TCXO Core");
+	for (i = 0; i < ARRAY_SIZE(msm_xo_sources); i++)
+		msm_xo_dump_xo(m, &msm_xo_sources[i], msm_xo_to_str[i]);
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
 	return 0;
@@ -101,11 +175,11 @@ static const struct file_operations msm_xo_voters_ops = {
 
 static int __init msm_xo_debugfs_init(void)
 {
-	struct dentry *entry;
-
-	entry = debugfs_create_file("xo_voters", S_IRUGO, NULL, NULL,
-			&msm_xo_voters_ops);
-	return IS_ERR(entry) ? PTR_ERR(entry) : 0;
+	msm_xo_init_debugfs_voters();
+	if (!debugfs_create_file("xo_voters", S_IRUGO, NULL, NULL,
+			&msm_xo_voters_ops))
+		return -ENOMEM;
+	return 0;
 }
 #else
 static int __init msm_xo_debugfs_init(void) { return 0; }
