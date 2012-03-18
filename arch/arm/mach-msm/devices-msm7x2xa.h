@@ -31,5 +31,4 @@ void __init msm8625_init_irq(void);
 void __init msm8625_map_io(void);
 int  ar600x_wlan_power(bool on);
 void __init msm8x25_spm_device_init(void);
-phys_addr_t msm8625_get_phys_base(void);
 #endif
