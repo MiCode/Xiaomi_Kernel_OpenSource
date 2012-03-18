@@ -145,6 +145,7 @@ int afe_get_port_type(u16 port_id)
 	case MI2S_RX:
 	case HDMI_RX:
 	case SLIMBUS_0_RX:
+	case SLIMBUS_1_RX:
 	case INT_BT_SCO_RX:
 	case INT_BT_A2DP_RX:
 	case INT_FM_RX:
@@ -160,6 +161,7 @@ int afe_get_port_type(u16 port_id)
 	case DIGI_MIC_TX:
 	case VOICE_RECORD_TX:
 	case SLIMBUS_0_TX:
+	case SLIMBUS_1_TX:
 	case INT_FM_TX:
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
@@ -168,7 +170,7 @@ int afe_get_port_type(u16 port_id)
 		break;
 
 	default:
-		pr_err("%s: invalid port id\n", __func__);
+		pr_err("%s: invalid port id %d\n", __func__, port_id);
 		ret = -EINVAL;
 	}
 
@@ -197,6 +199,8 @@ int afe_validate_port(u16 port_id)
 	case VOICE_PLAYBACK_TX:
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
+	case SLIMBUS_1_RX:
+	case SLIMBUS_1_TX:
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
 	case INT_BT_A2DP_RX:
@@ -257,6 +261,8 @@ int afe_get_port_index(u16 port_id)
 	case VOICE_PLAYBACK_TX: return IDX_VOICE_PLAYBACK_TX;
 	case SLIMBUS_0_RX: return IDX_SLIMBUS_0_RX;
 	case SLIMBUS_0_TX: return IDX_SLIMBUS_0_TX;
+	case SLIMBUS_1_RX: return IDX_SLIMBUS_1_RX;
+	case SLIMBUS_1_TX: return IDX_SLIMBUS_1_TX;
 	case INT_BT_SCO_RX: return IDX_INT_BT_SCO_RX;
 	case INT_BT_SCO_TX: return IDX_INT_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return IDX_INT_BT_A2DP_RX;
@@ -286,6 +292,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
+	case SLIMBUS_1_RX:
+	case SLIMBUS_1_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_sch_cfg);
 		break;
 	case RT_PROXY_PORT_001_RX:

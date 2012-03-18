@@ -58,6 +58,16 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
+/* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
+enum {
+	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
+	SLIM_1_TX_1 = 146, /* BT-SCO and USB RX */
+	SLIM_2_RX_1 = 147, /* HDMI RX */
+	SLIM_3_RX_1 = 148, /* In-call recording RX */
+	SLIM_3_RX_2 = 149, /* In-call recording RX */
+	SLIM_4_TX_1 = 150, /* In-call musid delivery TX */
+};
+
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
 static int msm_spk_control;
@@ -743,6 +753,42 @@ static int msm_stubrx_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int msm_slimbus_1_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch = SLIM_1_RX_1, tx_ch = SLIM_1_TX_1;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: APQ BT/USB TX -> SLIMBUS_1_RX -> MDM TX shared ch %d\n",
+			__func__, rx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_1 RX channel map\n",
+				__func__, ret);
+
+			goto end;
+		}
+	} else {
+		pr_debug("%s: MDM RX -> SLIMBUS_1_TX -> APQ BT/USB Rx shared ch %d\n",
+			__func__, tx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 1, &tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_1 TX channel map\n",
+				__func__, ret);
+
+			goto end;
+		}
+	}
+
+end:
+	return ret;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -926,6 +972,7 @@ static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
+
 static int msm_aux_pcm_get_gpios(void)
 {
 	int ret = 0;
@@ -1023,6 +1070,12 @@ static struct snd_soc_ops msm_be_ops = {
 static struct snd_soc_ops msm_auxpcm_be_ops = {
 	.startup = msm_auxpcm_startup,
 	.shutdown = msm_auxpcm_shutdown,
+};
+
+static struct snd_soc_ops msm_slimbus_1_be_ops = {
+	.startup = msm_startup,
+	.hw_params = msm_slimbus_1_hw_params,
+	.shutdown = msm_shutdown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1125,7 +1178,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.dsp_link = &fe_media,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		/* .be_id = do not care */
+		.be_id = MSM_FRONTEND_DAI_VOICE_STUB,
 	},
 	/* Backend DAI Links */
 	{
@@ -1283,6 +1336,31 @@ static struct snd_soc_dai_link msm_dai[] = {
 		/* .be_id = do not care */
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm_be_ops,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_1_RX,
+		.stream_name = "Slimbus1 Playback",
+		.cpu_dai_name = "msm-dai-q6.16386",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_RX,
+		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
+		.ops = &msm_slimbus_1_be_ops,
+
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_1_TX,
+		.stream_name = "Slimbus1 Capture",
+		.cpu_dai_name = "msm-dai-q6.16387",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
+		.be_hw_params_fixup =  msm_btsco_be_hw_params_fixup,
+		.ops = &msm_slimbus_1_be_ops,
 	},
 };
 
