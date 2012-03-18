@@ -992,6 +992,7 @@ struct asm_encode_cfg_blk {
 		struct asm_qcelp13_read_cfg qcelp13;
 		struct asm_sbc_read_cfg     sbc;
 		struct asm_amrwb_read_cfg   amrwb;
+		struct asm_multi_channel_pcm_fmt_blk      mpcm;
 	} __attribute__((packed)) cfg;
 };
 
