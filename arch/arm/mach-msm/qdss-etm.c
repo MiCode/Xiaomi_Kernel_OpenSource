@@ -29,7 +29,7 @@
 #include <asm/sections.h>
 #include <mach/socinfo.h>
 
-#include "qdss.h"
+#include "qdss-priv.h"
 
 #define etm_writel(etm, cpu, val, off)	\
 			__raw_writel((val), etm.base + (SZ_4K * cpu) + off)

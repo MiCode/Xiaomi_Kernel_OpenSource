@@ -21,7 +21,7 @@
 #include <linux/ratelimit.h>
 #include <mach/scm.h>
 
-#include "qdss.h"
+#include "qdss-priv.h"
 #include "cp14.h"
 
 /* no of dbg regs + 1 (for storing the reg count) */

@@ -21,7 +21,7 @@
 #include <mach/rpm.h>
 
 #include "rpm_resources.h"
-#include "qdss.h"
+#include "qdss-priv.h"
 
 enum {
 	QDSS_CLK_OFF,
