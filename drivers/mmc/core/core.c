@@ -232,6 +232,11 @@ static void __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
 {
 	init_completion(&mrq->completion);
 	mrq->done = mmc_wait_done;
+	if (mmc_card_removed(host->card)) {
+		mrq->cmd->error = -ENOMEDIUM;
+		complete(&mrq->completion);
+		return;
+	}
 	mmc_start_request(host, mrq);
 }
 
