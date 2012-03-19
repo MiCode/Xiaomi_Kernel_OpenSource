@@ -6,6 +6,10 @@ config ARM_GIC
 config GIC_NON_BANKED
 	bool
 
+config GIC_SECURE
+	bool
+	depends on ARM_GIC
+
 config ARM_VIC
 	bool
 

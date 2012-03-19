@@ -156,7 +156,7 @@ static inline unsigned int gic_irq(struct irq_data *d)
 	return d->hwirq;
 }
 
-#ifdef CONFIG_CPU_V7
+#if defined(CONFIG_CPU_V7) && defined(CONFIG_GIC_SECURE)
 static const inline bool is_cpu_secure(void)
 {
 	unsigned int dscr;

@@ -250,6 +250,7 @@ config ARCH_FSM9XXX
 config ARCH_MSM9615
 	bool "MSM9615"
 	select ARM_GIC
+	select GIC_SECURE
 	select ARCH_MSM_CORTEX_A5
 	select CPU_V7
 	select MSM_V2_TLMM
