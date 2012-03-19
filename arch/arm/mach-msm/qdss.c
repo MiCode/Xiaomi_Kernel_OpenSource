@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/export.h>
 #include <mach/rpm.h>
 
 #include "rpm_resources.h"
@@ -32,6 +33,8 @@ enum {
 struct qdss_ctx {
 	struct kobject	*modulekobj;
 	uint8_t		max_clk;
+	uint8_t		clk_count;
+	struct mutex	clk_mutex;
 };
 
 static struct qdss_ctx qdss;
@@ -42,35 +45,71 @@ struct kobject *qdss_get_modulekobj(void)
 	return qdss.modulekobj;
 }
 
+/**
+ * qdss_clk_enable - enable qdss clocks
+ *
+ * Enables qdss clocks via RPM if they aren't already enabled, otherwise
+ * increments the reference count.
+ *
+ * CONTEXT:
+ * Might sleep. Uses a mutex lock. Should be called from a non-atomic context.
+ *
+ * RETURNS:
+ * 0 on success, non-zero on failure
+ */
 int qdss_clk_enable(void)
 {
 	int ret;
-
 	struct msm_rpm_iv_pair iv;
-	iv.id = MSM_RPM_ID_QDSS_CLK;
-	if (qdss.max_clk)
-		iv.value = QDSS_CLK_ON_HSDBG;
-	else
-		iv.value = QDSS_CLK_ON_DBG;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-	if (WARN(ret, "qdss clks not enabled (%d)\n", ret))
-		goto err_clk;
 
+	mutex_lock(&qdss.clk_mutex);
+	if (qdss.clk_count == 0) {
+		iv.id = MSM_RPM_ID_QDSS_CLK;
+		if (qdss.max_clk)
+			iv.value = QDSS_CLK_ON_HSDBG;
+		else
+			iv.value = QDSS_CLK_ON_DBG;
+		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
+		if (WARN(ret, "qdss clks not enabled (%d)\n", ret))
+			goto err_clk;
+	}
+	qdss.clk_count++;
+	mutex_unlock(&qdss.clk_mutex);
 	return 0;
 err_clk:
+	mutex_unlock(&qdss.clk_mutex);
 	return ret;
 }
+EXPORT_SYMBOL(qdss_clk_enable);
 
+/**
+ * qdss_clk_disable - disable qdss clocks
+ *
+ * Disables qdss clocks via RPM if the reference count is one, otherwise
+ * decrements the reference count.
+ *
+ * CONTEXT:
+ * Might sleep. Uses a mutex lock. Should be called from a non-atomic context.
+ */
 void qdss_clk_disable(void)
 {
 	int ret;
 	struct msm_rpm_iv_pair iv;
 
-	iv.id = MSM_RPM_ID_QDSS_CLK;
-	iv.value = QDSS_CLK_OFF;
-	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-	WARN(ret, "qdss clks not disabled (%d)\n", ret);
+	mutex_lock(&qdss.clk_mutex);
+	if (WARN(qdss.clk_count == 0, "qdss clks are unbalanced\n"))
+		goto out;
+	if (qdss.clk_count == 1) {
+		iv.id = MSM_RPM_ID_QDSS_CLK;
+		iv.value = QDSS_CLK_OFF;
+		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
+		WARN(ret, "qdss clks not disabled (%d)\n", ret);
+	}
+	qdss.clk_count--;
+out:
+	mutex_unlock(&qdss.clk_mutex);
 }
+EXPORT_SYMBOL(qdss_clk_disable);
 
 #define QDSS_ATTR(name)						\
 static struct kobj_attribute name##_attr =				\
@@ -128,6 +167,8 @@ static int __init qdss_init(void)
 {
 	int ret;
 
+	mutex_init(&qdss.clk_mutex);
+
 	ret = qdss_sysfs_init();
 	if (ret)
 		goto err_sysfs;
@@ -155,6 +196,7 @@ err_tpiu:
 err_etb:
 	qdss_sysfs_exit();
 err_sysfs:
+	mutex_destroy(&qdss.clk_mutex);
 	pr_err("QDSS init failed\n");
 	return ret;
 }
@@ -167,6 +209,7 @@ static void __exit qdss_exit(void)
 	funnel_exit();
 	tpiu_exit();
 	etb_exit();
+	mutex_destroy(&qdss.clk_mutex);
 }
 module_exit(qdss_exit);
 

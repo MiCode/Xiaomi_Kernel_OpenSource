@@ -13,6 +13,14 @@
 #ifndef __MACH_QDSS_H
 #define __MACH_QDSS_H
 
+#ifdef CONFIG_MSM_QDSS
+extern int qdss_clk_enable(void);
+extern void qdss_clk_disable(void);
+#else
+static inline int qdss_clk_enable(void) { return -ENOSYS; }
+static inline void qdss_clk_disable(void) {}
+#endif
+
 #ifdef CONFIG_MSM_JTAG
 extern void msm_jtag_save_state(void);
 extern void msm_jtag_restore_state(void);
