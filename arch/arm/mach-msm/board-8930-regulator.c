@@ -342,7 +342,7 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
-		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
+		 | REGULATOR_CHANGE_DRMS, 0, _min_uV, _system_uA, 0, _pd, \
 		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8930_NONE, \
 		 RPM_VREG_FORCE_MODE_8930_##_force_mode, \
 		 RPM_VREG_FORCE_MODE_8930_##_sleep_set_force_mode, \
@@ -459,7 +459,7 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_SMPS(S1, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, AUTO, LPM),
 	RPM_SMPS(S2, 1, 1, 1, 1400000, 1400000, NULL, 100000, 1p60, AUTO, LPM),
 	RPM_SMPS(S3, 0, 1, 1, 1150000, 1150000, NULL, 100000, 3p20, AUTO, LPM),
-	RPM_SMPS(S4, 1, 1, 1, 2200000, 2200000, NULL, 100000, 1p60, AUTO, LPM),
+	RPM_SMPS(S4, 1, 1, 1, 1950000, 2200000, NULL, 100000, 1p60, AUTO, LPM),
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L1,	 0, 1, 0, 1300000, 1300000, "8038_s2", 0, 0),
