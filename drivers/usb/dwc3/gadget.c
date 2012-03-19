@@ -1327,7 +1327,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		const struct dwc3_event_depevt *event, int status)
 {
 	struct dwc3_request	*req;
-	struct dwc3_trb         trb;
+	struct dwc3_trb         trb = {0};
 	unsigned int		count;
 	unsigned int		s_pkt = 0;
 
