@@ -4967,15 +4967,16 @@ static inline int l2cap_move_channel_rsp(struct l2cap_conn *conn,
 			 */
 			pi->amp_move_state =
 				L2CAP_AMP_STATE_WAIT_LOGICAL_CONFIRM;
-		} else if (result == L2CAP_MOVE_CHAN_SUCCESS &&
-			pi->amp_move_state ==
+		} else if (pi->amp_move_state ==
 				L2CAP_AMP_STATE_WAIT_MOVE_RSP_SUCCESS) {
-			/* Logical link is up or moving to BR/EDR,
-			 * proceed with move */
-			if (pi->conn_state & L2CAP_CONN_LOCAL_BUSY) {
+			if (result == L2CAP_MOVE_CHAN_PENDING) {
+				break;
+			} else if (pi->conn_state & L2CAP_CONN_LOCAL_BUSY) {
 				pi->amp_move_state =
 					L2CAP_AMP_STATE_WAIT_LOCAL_BUSY;
 			} else {
+				/* Logical link is up or moving to BR/EDR,
+				 * proceed with move */
 				pi->amp_move_state =
 					L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM_RSP;
 				l2cap_send_move_chan_cfm(conn, pi, pi->scid,
