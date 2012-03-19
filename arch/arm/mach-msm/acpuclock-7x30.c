@@ -76,6 +76,7 @@ struct clkctl_acpu_speed {
 	unsigned int	vdd_mv;
 	unsigned int	vdd_raw;
 	struct pll	*pll_rate;
+	unsigned long	lpj; /* loops_per_jiffy */
 };
 
 static struct clock_state drv_state = { 0 };
@@ -258,6 +259,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	/* Perform the frequency switch */
 	acpuclk_set_src(tgt_s);
 	drv_state.current_speed = tgt_s;
+	loops_per_jiffy = tgt_s->lpj;
 
 	if (tgt_s->src == PLL_2 && strt_s->src == PLL_2)
 		clk_disable(acpuclk_sources[backup_s->src]);
@@ -390,6 +392,19 @@ static void __init acpuclk_hw_init(void)
 	return;
 }
 
+/* Initalize the lpj field in the acpu_freq_tbl. */
+static void __init lpj_init(void)
+{
+	int i;
+	const struct clkctl_acpu_speed *base_clk = drv_state.current_speed;
+
+	for (i = 0; acpu_freq_tbl[i].acpu_clk_khz; i++) {
+		acpu_freq_tbl[i].lpj = cpufreq_scale(loops_per_jiffy,
+						base_clk->acpu_clk_khz,
+						acpu_freq_tbl[i].acpu_clk_khz);
+	}
+}
+
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table cpufreq_tbl[ARRAY_SIZE(acpu_freq_tbl)];
 
@@ -464,6 +479,7 @@ static int __init acpuclk_7x30_init(struct acpuclk_soc_data *soc_data)
 	pll2_fixup();
 	populate_plls();
 	acpuclk_hw_init();
+	lpj_init();
 	setup_cpufreq_table();
 	acpuclk_register(&acpuclk_7x30_data);
 
