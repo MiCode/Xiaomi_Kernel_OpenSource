@@ -32,6 +32,9 @@
 #define REG_RTC_BASE		0x11D
 #define REG_IRQ_BASE            0x1BB
 
+#define REG_SPK_BASE		0x253
+#define REG_SPK_REGISTERS	3
+
 #define PM8038_VERSION_MASK	0xFFF0
 #define PM8038_VERSION_VALUE	0x09F0
 #define PM8038_REVISION_MASK	0x000F
@@ -273,6 +276,22 @@ static struct mfd_cell leds_cell __devinitdata = {
 	.id		= -1,
 };
 
+static const struct resource resources_spk[] __devinitconst = {
+	[0] = {
+		.name   = PM8XXX_SPK_DEV_NAME,
+		.start  = REG_SPK_BASE,
+		.end    = REG_SPK_BASE + REG_SPK_REGISTERS,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct mfd_cell spk_cell __devinitdata = {
+	.name           = PM8XXX_SPK_DEV_NAME,
+	.id             = -1,
+	.num_resources	= ARRAY_SIZE(resources_spk),
+	.resources	= resources_spk,
+};
+
 static struct mfd_cell debugfs_cell __devinitdata = {
 	.name		= "pm8xxx-debug",
 	.id		= 0,
@@ -512,6 +531,16 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
 		if (ret) {
 			pr_err("Failed to add leds subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->spk_pdata) {
+		spk_cell.platform_data = pdata->spk_pdata;
+		spk_cell.pdata_size = sizeof(struct pm8xxx_spk_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &spk_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add spk subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
