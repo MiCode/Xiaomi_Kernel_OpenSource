@@ -5060,8 +5060,23 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	if (host->plat->status_irq)
 		disable_irq(host->plat->status_irq);
 
-	if (!pm_runtime_suspended(dev))
-		rc = msmsdcc_runtime_suspend(dev);
+	if (!pm_runtime_suspended(dev)) {
+		if (!(mmc->card && mmc_card_sdio(mmc->card))) {
+			/*
+			 * decrement power.usage_counter if it's
+			 * not zero earlier
+			 */
+			pm_runtime_put_noidle(dev);
+			rc = pm_runtime_suspend(dev);
+		}
+
+		/*
+		 * if device runtime PM status is still not suspended
+		 * then perform suspend here.
+		 */
+		if (!pm_runtime_suspended(dev))
+			rc = msmsdcc_runtime_suspend(dev);
+	}
 
 	return rc;
 }
