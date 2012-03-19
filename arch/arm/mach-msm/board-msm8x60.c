@@ -2686,9 +2686,9 @@ unsigned char hdmi_is_primary;
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
 #endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
 
-#define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
+#define MSM_PMEM_KERNEL_EBI1_SIZE  0x3BC000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
-#define MSM_PMEM_AUDIO_SIZE        0x28B000
+#define MSM_PMEM_AUDIO_SIZE        0x4CF000
 
 #define MSM_SMI_BASE          0x38000000
 #define MSM_SMI_SIZE          0x4000000
@@ -2712,9 +2712,9 @@ unsigned char hdmi_is_primary;
 #endif
 
 #define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
-#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 #define MSM_ION_HEAP_NUM	9
 #define MSM_HDMI_PRIM_ION_SF_SIZE MSM_HDMI_PRIM_PMEM_SF_SIZE
 static unsigned msm_ion_sf_size = MSM_ION_SF_SIZE;
