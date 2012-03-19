@@ -1123,7 +1123,7 @@ static void __init msm_timer_init(void)
 	}
 	msm_sched_clock_init();
 
-	if (is_smp()) {
+	if (is_smp() && !cpu_is_msm8625()) {
 		__raw_writel(1,
 			msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
 		set_delay_fn(read_current_timer_delay_loop);
