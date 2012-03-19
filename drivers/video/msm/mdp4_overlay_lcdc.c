@@ -41,6 +41,7 @@
 
 int first_pixel_start_x;
 int first_pixel_start_y;
+static int lcdc_enabled;
 
 static struct mdp4_overlay_pipe *lcdc_pipe;
 static struct completion lcdc_comp;
@@ -238,11 +239,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp_histogram_ctrl(TRUE);
 
 	ret = panel_next_on(pdev);
-	if (ret == 0) {
-		/* enable LCDC block */
-		MDP_OUTP(MDP_BASE + LCDC_BASE, 1);
-		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	}
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
@@ -261,6 +257,7 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);
+	lcdc_enabled = 0;
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
@@ -382,6 +379,18 @@ static void mdp4_overlay_lcdc_dma_busy_wait(struct msm_fb_data_type *mfd)
 		wait_for_completion(&mfd->dma->comp);
 	}
 	pr_debug("%s: done pid=%d\n", __func__, current->pid);
+}
+
+void mdp4_overlay_lcdc_start(void)
+{
+	if (!lcdc_enabled) {
+		/* enable LCDC block */
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		MDP_OUTP(MDP_BASE + LCDC_BASE, 1);
+		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		lcdc_enabled = 1;
+	}
 }
 
 void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
@@ -567,6 +576,8 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 	pipe->srcp0_addr = (uint32) buf;
 	mdp4_overlay_rgb_setup(pipe);
 	mdp4_mixer_stage_up(pipe);
+	mdp4_overlay_reg_flush(pipe, 0);
+	mdp4_overlay_lcdc_start();
 	mdp4_overlay_lcdc_vsync_push(mfd, pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
