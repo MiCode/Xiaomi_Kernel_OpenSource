@@ -416,16 +416,17 @@ VREG_CONSUMERS(EXT_TS_SW) = {
 		 _supply_regulator, _system_uA)
 
 #define RPM_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
-		 _supply_regulator, _system_uA, _freq) \
+		 _supply_regulator, _system_uA, _freq, _force_mode, \
+		 _sleep_set_force_mode) \
 	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
 		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
 		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8960_NONE, \
-		 RPM_VREG_FORCE_MODE_8960_NONE, \
-		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
-		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
-		 _supply_regulator, _system_uA)
+		 RPM_VREG_FORCE_MODE_8960_##_force_mode, \
+		 RPM_VREG_FORCE_MODE_8960_##_sleep_set_force_mode, \
+		 RPM_VREG_POWER_MODE_8960_PWM, RPM_VREG_STATE_OFF, \
+		 _sleep_selectable, _always_on, _supply_regulator, _system_uA)
 
 #define RPM_VS(_id, _always_on, _pd, _sleep_selectable, _supply_regulator) \
 	RPM_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, 0, 1000, 1000, _pd, \
@@ -506,12 +507,12 @@ msm8064_pm8921_regulator_pdata[] __devinitdata = {
 
 static struct rpm_regulator_init_data
 apq8064_rpm_regulator_init_data[] __devinitdata = {
-	/*	ID a_on pd ss min_uV   max_uV   supply    sys_uA  freq */
-	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL,     100000, 3p20),
-	RPM_SMPS(S2, 0, 1, 0, 1300000, 1300000, NULL,          0, 1p60),
-	RPM_SMPS(S3, 0, 1, 1,  500000, 1150000, NULL,     100000, 4p80),
-	RPM_SMPS(S4, 1, 1, 0, 1800000, 1800000, NULL,     100000, 1p60),
-	RPM_SMPS(S7, 0, 1, 0, 1300000, 1300000, NULL,     100000, 3p20),
+	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
+	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S2, 0, 1, 0, 1300000, 1300000, NULL,      0, 1p60, NONE, NONE),
+	RPM_SMPS(S3, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
+	RPM_SMPS(S4, 1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60, NONE, NONE),
+	RPM_SMPS(S7, 0, 1, 0, 1300000, 1300000, NULL, 100000, 3p20, NONE, NONE),
 
 	/*	ID a_on pd ss min_uV   max_uV   supply    sys_uA init_ip */
 	RPM_LDO(L1,  1, 1, 0, 1100000, 1100000, "8921_s4",     0, 10000),
