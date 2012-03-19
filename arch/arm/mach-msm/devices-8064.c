@@ -453,6 +453,16 @@ struct platform_device apq_lpa_pcm = {
 	.id     = -1,
 };
 
+struct platform_device apq_compr_dsp = {
+	.name   = "msm-compr-dsp",
+	.id     = -1,
+};
+
+struct platform_device apq_multi_ch_pcm = {
+	.name   = "msm-multi-ch-pcm-dsp",
+	.id     = -1,
+};
+
 struct platform_device apq_pcm_hostless = {
 	.name	= "msm-pcm-hostless",
 	.id	= -1,
