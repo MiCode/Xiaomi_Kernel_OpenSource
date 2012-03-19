@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,9 @@ enum rpm_vreg_voltage_corner {
  * @pin_fn:		action to perform when pin control pin(s) is/are active
  * @force_mode:		used to specify a force mode which overrides the votes
  *			of other RPM masters.
+ * @sleep_set_force_mode: force mode to use in sleep-set requests
+ * @power_mode:		mode to use as HPM (typically PWM or hysteretic) when
+ *			utilizing Auto mode selection
  * @default_uV:		initial voltage to set the regulator to if enable is
  *			called before set_voltage (e.g. when boot_on or
  *			always_on is set).
@@ -120,6 +123,7 @@ struct rpm_regulator_init_data {
 	unsigned			pin_ctrl;
 	int				pin_fn;
 	int				force_mode;
+	int				sleep_set_force_mode;
 	int				power_mode;
 	int				default_uV;
 	unsigned			peak_uA;

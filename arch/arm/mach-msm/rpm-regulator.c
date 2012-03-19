@@ -327,6 +327,12 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 	vreg->req[1].value &= ~mask1;
 	vreg->req[1].value |= val1 & mask1;
 
+	/* Set the force mode field based on which set is being requested. */
+	if (set == MSM_RPM_CTX_SET_0)
+		SET_PART(vreg, fm, vreg->pdata.force_mode);
+	else
+		SET_PART(vreg, fm, vreg->pdata.sleep_set_force_mode);
+
 	if (update_voltage)
 		min_uV_vote[voter] = voltage_from_req(vreg);
 
