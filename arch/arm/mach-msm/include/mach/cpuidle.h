@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CPUIDLE_H
 
 #include <linux/notifier.h>
-#include "pm.h"
+#include "../../pm.h"
 
 struct msm_cpuidle_state {
 	unsigned int cpu;
