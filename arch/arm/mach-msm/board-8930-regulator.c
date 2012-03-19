@@ -456,10 +456,10 @@ msm8930_pm8038_regulator_pdata[] __devinitdata = {
 static struct rpm_regulator_init_data
 msm8930_rpm_regulator_init_data[] __devinitdata = {
 	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
-	RPM_SMPS(S1, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
-	RPM_SMPS(S2, 1, 1, 0, 1400000, 1400000, NULL, 100000, 1p60, NONE, NONE),
-	RPM_SMPS(S3, 0, 1, 0, 1150000, 1150000, NULL, 100000, 3p20, NONE, NONE),
-	RPM_SMPS(S4, 1, 1, 0, 2200000, 2200000, NULL, 100000, 1p60, NONE, NONE),
+	RPM_SMPS(S1, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, AUTO, LPM),
+	RPM_SMPS(S2, 1, 1, 1, 1400000, 1400000, NULL, 100000, 1p60, AUTO, LPM),
+	RPM_SMPS(S3, 0, 1, 1, 1150000, 1150000, NULL, 100000, 3p20, AUTO, LPM),
+	RPM_SMPS(S4, 1, 1, 1, 2200000, 2200000, NULL, 100000, 1p60, AUTO, LPM),
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L1,	 0, 1, 0, 1300000, 1300000, "8038_s2", 0, 0),
