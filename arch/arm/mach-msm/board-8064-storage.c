@@ -273,6 +273,10 @@ void __init apq8064_init_mmc(void)
 	if (apq8064_sdc3_pdata) {
 		apq8064_sdc3_pdata->swfi_latency =
 				apq8064_rpm_get_swfi_latency();
+		if (!machine_is_apq8064_cdp()) {
+			apq8064_sdc3_pdata->wpswitch_gpio = 0;
+			apq8064_sdc3_pdata->wpswitch_polarity = 0;
+		}
 		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 	}
 }
