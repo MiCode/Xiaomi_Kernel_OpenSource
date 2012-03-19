@@ -39,7 +39,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 
-#include <timer.h>
+#include "timer.h"
 
 #define DRV_NAME	"msm_dsps"
 #define DRV_VERSION	"3.02"
