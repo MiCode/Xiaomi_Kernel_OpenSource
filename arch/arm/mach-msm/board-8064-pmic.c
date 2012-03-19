@@ -125,6 +125,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_INPUT(38, PM_GPIO_PULL_UP_1P5),
 	/* TABLA CODEC RESET */
 	PM8921_GPIO_OUTPUT(34, 1, MED),
+	PM8921_GPIO_INPUT(17, PM_GPIO_PULL_UP_1P5),	/* SD_WP */
 };
 
 static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {
