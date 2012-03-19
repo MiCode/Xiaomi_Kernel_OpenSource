@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -835,6 +835,7 @@ static struct platform_device *devices[] __initdata = {
 	&qcedev_device,
 	&ota_qcrypto_device,
 	&fsm_xo_device,
+	&fsm9xxx_device_watchdog,
 };
 
 static void __init fsm9xxx_init_irq(void)

@@ -316,6 +316,7 @@ extern struct platform_device msm8960_device_watchdog;
 extern struct platform_device msm8660_device_watchdog;
 extern struct platform_device msm8064_device_watchdog;
 extern struct platform_device msm9615_device_watchdog;
+extern struct platform_device fsm9xxx_device_watchdog;
 
 extern struct platform_device msm_etb_device;
 extern struct platform_device msm_tpiu_device;
