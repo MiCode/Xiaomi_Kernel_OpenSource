@@ -27,6 +27,8 @@ extern void msm_secondary_startup(void);
 #define msm_secondary_startup NULL
 #endif
 
+extern int power_collapsed;
+
 enum msm_pm_sleep_mode {
 	MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND,
 	MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
