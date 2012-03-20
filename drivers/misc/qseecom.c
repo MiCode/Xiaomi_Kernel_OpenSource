@@ -486,23 +486,6 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	if (__copy_from_user(&req, (void __user *)argp, sizeof(req)))
 		return -EFAULT;
 
-	if (qseecom.qseos_version == QSEOS_VERSION_13) {
-		long pil_error;
-		mutex_lock(&pil_access_lock);
-		if (pil_ref_cnt == 0) {
-			pil = pil_get("tzapps");
-			if (IS_ERR(pil)) {
-				pr_err("Playready PIL image load failed\n");
-				pil_error = PTR_ERR(pil);
-				pil = NULL;
-				pr_debug("tzapps image load FAILED\n");
-				mutex_unlock(&pil_access_lock);
-				return pil_error;
-			}
-		}
-		pil_ref_cnt++;
-		mutex_unlock(&pil_access_lock);
-	}
 	/* Get the handle of the shared fd */
 	data->client.ihandle = ion_import_fd(qseecom.ion_clnt, req.ifd_data_fd);
 	if (IS_ERR_OR_NULL(data->client.ihandle)) {
@@ -789,11 +772,6 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 				break;
 			}
 		}
-		mutex_lock(&pil_access_lock);
-		if (pil_ref_cnt == 1)
-			pil_put(pil);
-		pil_ref_cnt--;
-		mutex_unlock(&pil_access_lock);
 	}
 	data->released = true;
 	return ret;
@@ -1330,6 +1308,23 @@ static int qseecom_open(struct inode *inode, struct file *file)
 	data->released = false;
 	init_waitqueue_head(&data->abort_wq);
 	atomic_set(&data->ioctl_count, 0);
+	if (qseecom.qseos_version == QSEOS_VERSION_13) {
+		int pil_error;
+		mutex_lock(&pil_access_lock);
+		if (pil_ref_cnt == 0) {
+			pil = pil_get("tzapps");
+			if (IS_ERR(pil)) {
+				pr_err("Playready PIL image load failed\n");
+				pil_error = PTR_ERR(pil);
+				pil = NULL;
+				pr_debug("tzapps image load FAILED\n");
+				mutex_unlock(&pil_access_lock);
+				return pil_error;
+			}
+		}
+		pil_ref_cnt++;
+		mutex_unlock(&pil_access_lock);
+	}
 	return ret;
 }
 
@@ -1348,6 +1343,13 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			pr_err("Close failed\n");
 			return ret;
 		}
+	}
+	if (qseecom.qseos_version == QSEOS_VERSION_13) {
+		mutex_lock(&pil_access_lock);
+		if (pil_ref_cnt == 1)
+			pil_put(pil);
+		pil_ref_cnt--;
+		mutex_unlock(&pil_access_lock);
 	}
 	kfree(data);
 	qsee_disable_clock_vote();
