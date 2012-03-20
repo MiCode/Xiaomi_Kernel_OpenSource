@@ -2008,6 +2008,10 @@ config MSM_SLEEP_STATS
 config MSM_SLEEP_STATS_DEVICE
 	bool "Enable exporting of MSM sleep device stats to userspace"
 
+config MSM_RUN_QUEUE_STATS
+	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
+	default y
+
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
        default n
