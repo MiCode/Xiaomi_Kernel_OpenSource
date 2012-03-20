@@ -159,7 +159,7 @@ err_create:
 	return ret;
 }
 
-static void funnel_sysfs_exit(void)
+static void __exit funnel_sysfs_exit(void)
 {
 	sysfs_remove_file(funnel.kobj, &priority_attr.attr);
 	kobject_put(funnel.kobj);
@@ -197,7 +197,7 @@ err_res:
 	return ret;
 }
 
-static int funnel_remove(struct platform_device *pdev)
+static int __devexit funnel_remove(struct platform_device *pdev)
 {
 	if (funnel.enabled)
 		funnel_disable(0x0, 0xFF);
@@ -210,18 +210,23 @@ static int funnel_remove(struct platform_device *pdev)
 
 static struct platform_driver funnel_driver = {
 	.probe          = funnel_probe,
-	.remove         = funnel_remove,
+	.remove         = __devexit_p(funnel_remove),
 	.driver         = {
 		.name   = "msm_funnel",
 	},
 };
 
-int __init funnel_init(void)
+static int __init funnel_init(void)
 {
 	return platform_driver_register(&funnel_driver);
 }
+module_init(funnel_init);
 
-void funnel_exit(void)
+static void __exit funnel_exit(void)
 {
 	platform_driver_unregister(&funnel_driver);
 }
+module_exit(funnel_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("CoreSight Funnel driver");

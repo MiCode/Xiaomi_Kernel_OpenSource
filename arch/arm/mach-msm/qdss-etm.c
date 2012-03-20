@@ -1151,14 +1151,14 @@ err_create:
 	return ret;
 }
 
-static void etm_sysfs_exit(void)
+static void __exit etm_sysfs_exit(void)
 {
 	sysfs_remove_group(etm.kobj, &etm_attr_grp);
 	sysfs_remove_file(etm.kobj, &enabled_attr.attr);
 	kobject_put(etm.kobj);
 }
 
-static bool etm_arch_supported(uint8_t arch)
+static bool __init etm_arch_supported(uint8_t arch)
 {
 	switch (arch) {
 	case PFT_ARCH_V1_1:
@@ -1286,7 +1286,7 @@ err_res:
 	return ret;
 }
 
-static int etm_remove(struct platform_device *pdev)
+static int __devexit etm_remove(struct platform_device *pdev)
 {
 	if (etm.enabled)
 		etm_disable();
@@ -1301,7 +1301,7 @@ static int etm_remove(struct platform_device *pdev)
 
 static struct platform_driver etm_driver = {
 	.probe          = etm_probe,
-	.remove         = etm_remove,
+	.remove         = __devexit_p(etm_remove),
 	.driver         = {
 		.name   = "msm_etm",
 	},
@@ -1311,8 +1311,13 @@ int __init etm_init(void)
 {
 	return platform_driver_register(&etm_driver);
 }
+module_init(etm_init);
 
-void etm_exit(void)
+void __exit etm_exit(void)
 {
 	platform_driver_unregister(&etm_driver);
 }
+module_exit(etm_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("CoreSight Program Flow Trace driver");

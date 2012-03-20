@@ -158,7 +158,7 @@ err:
 	return ret;
 }
 
-static void qdss_sysfs_exit(void)
+static void __exit qdss_sysfs_exit(void)
 {
 	sysfs_remove_file(qdss.modulekobj, &max_clk_attr.attr);
 }
@@ -172,29 +172,9 @@ static int __init qdss_init(void)
 	ret = qdss_sysfs_init();
 	if (ret)
 		goto err_sysfs;
-	ret = etb_init();
-	if (ret)
-		goto err_etb;
-	ret = tpiu_init();
-	if (ret)
-		goto err_tpiu;
-	ret = funnel_init();
-	if (ret)
-		goto err_funnel;
-	ret = etm_init();
-	if (ret)
-		goto err_etm;
 
 	pr_info("QDSS initialized\n");
 	return 0;
-err_etm:
-	funnel_exit();
-err_funnel:
-	tpiu_exit();
-err_tpiu:
-	etb_exit();
-err_etb:
-	qdss_sysfs_exit();
 err_sysfs:
 	mutex_destroy(&qdss.clk_mutex);
 	pr_err("QDSS init failed\n");
@@ -205,10 +185,6 @@ module_init(qdss_init);
 static void __exit qdss_exit(void)
 {
 	qdss_sysfs_exit();
-	etm_exit();
-	funnel_exit();
-	tpiu_exit();
-	etb_exit();
 	mutex_destroy(&qdss.clk_mutex);
 }
 module_exit(qdss_exit);

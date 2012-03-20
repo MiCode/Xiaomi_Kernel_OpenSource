@@ -58,15 +58,6 @@
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
-int etb_init(void);
-void etb_exit(void);
-int tpiu_init(void);
-void tpiu_exit(void);
-int funnel_init(void);
-void funnel_exit(void);
-int etm_init(void);
-void etm_exit(void);
-
 void etb_enable(void);
 void etb_disable(void);
 void etb_dump(void);
