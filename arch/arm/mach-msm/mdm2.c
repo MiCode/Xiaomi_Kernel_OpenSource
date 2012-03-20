@@ -47,7 +47,7 @@
 #define MDM_MODEM_DELTA		100
 
 static int mdm_debug_on;
-static int first_power_on = 1;
+static int power_on_count;
 static int hsic_peripheral_status;
 static DEFINE_MUTEX(hsic_status_lock);
 
@@ -77,6 +77,16 @@ out:
 
 static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
+	power_on_count++;
+
+	/* The second attempt to power-on the mdm is the first attempt
+	 * from user space, but we're already powered on. Ignore this.
+	 * Subsequent attempts are from SSR or if something failed, in
+	 * which case we must always reset the modem.
+	 */
+	if (power_on_count == 2)
+		return;
+
 	mdm_peripheral_disconnect(mdm_drv);
 
 	/* Pull RESET gpio low and wait for it to settle. */
@@ -84,7 +94,7 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
 	usleep_range(5000, 10000);
 
-	/* Deassert RESET first and wait for ir to settle. */
+	/* Deassert RESET first and wait for it to settle. */
 	pr_debug("%s: Pulling RESET gpio high\n", __func__);
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
 	usleep(1000);
@@ -93,13 +103,12 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	 * the first time the mdm is powered up.
 	 * Some targets do not use ap2mdm_kpdpwr_n_gpio.
 	 */
-	if (first_power_on) {
+	if (power_on_count == 1) {
 		if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
 			pr_debug("%s: Powering on mdm modem\n", __func__);
 			gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
 			usleep(1000);
 		}
-		first_power_on = 0;
 	}
 	mdm_peripheral_connect(mdm_drv);
 
