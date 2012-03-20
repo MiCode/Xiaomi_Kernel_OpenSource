@@ -20,12 +20,11 @@
 #ifdef DEBUG_WFD
 	#define WFD_MSG_INFO(fmt...) pr_info(WFD_TAG fmt)
 	#define WFD_MSG_WARN(fmt...) pr_warning(WFD_TAG fmt)
-	#define WFD_MSG_DBG(fmt...) pr_debug(WFD_TAG fmt)
 #else
 	#define WFD_MSG_INFO(fmt...)
 	#define WFD_MSG_WARN(fmt...)
-	#define WFD_MSG_DBG(fmt...)
 #endif
 	#define WFD_MSG_ERR(fmt...) pr_err(KERN_ERR WFD_TAG fmt)
 	#define WFD_MSG_CRIT(fmt...) pr_crit(KERN_CRIT WFD_TAG fmt)
+	#define WFD_MSG_DBG(fmt...) pr_debug(WFD_TAG fmt)
 #endif
