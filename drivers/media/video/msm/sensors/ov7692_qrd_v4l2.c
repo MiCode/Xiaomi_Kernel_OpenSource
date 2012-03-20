@@ -467,6 +467,61 @@ static const struct i2c_device_id ov7692_i2c_id[] = {
 	{SENSOR_NAME, (kernel_ulong_t)&ov7692_s_ctrl},
 	{ }
 };
+static int ov7692_pwdn_gpio;
+static int ov7692_reset_gpio;
+
+static int ov7692_probe_init_gpio(const struct msm_camera_sensor_info *data)
+{
+	int rc = 0;
+	CDBG("%s: entered\n", __func__);
+
+	ov7692_pwdn_gpio = data->sensor_pwd;
+	ov7692_reset_gpio = data->sensor_reset ;
+
+	CDBG("%s: pwdn_gpio:%d, reset_gpio:%d\n", __func__,
+			ov7692_pwdn_gpio, ov7692_reset_gpio);
+
+	if (data->sensor_reset_enable)
+		gpio_direction_output(data->sensor_reset, 1);
+
+	gpio_direction_output(data->sensor_pwd, 1);
+
+	return rc;
+
+}
+static void ov7692_power_on(void)
+{
+	CDBG("%s\n", __func__);
+	gpio_set_value(ov7692_pwdn_gpio, 0);
+}
+
+static void ov7692_power_down(void)
+{
+	CDBG("%s\n", __func__);
+	gpio_set_value(ov7692_pwdn_gpio, 1);
+}
+
+int32_t ov7692_sensor_i2c_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
+{
+	int32_t rc = 0;
+	struct msm_sensor_ctrl_t *s_ctrl;
+	rc = msm_sensor_i2c_probe(client, id);
+
+	ov7692_power_down();
+
+	if (client->dev.platform_data == NULL) {
+		pr_err("%s: NULL sensor data\n", __func__);
+		return -EFAULT;
+	}
+
+	s_ctrl = client->dev.platform_data;
+	if (s_ctrl->sensordata->pmic_gpio_enable)
+		lcd_camera_power_onoff(0);
+
+	return rc;
+
+}
 
 static struct i2c_driver ov7692_i2c_driver = {
 	.id_table = ov7692_i2c_id,
@@ -504,39 +559,6 @@ static struct v4l2_subdev_ops ov7692_subdev_ops = {
 	.video  = &ov7692_subdev_video_ops,
 };
 
-static int ov7692_pwdn_gpio;
-static int ov7692_reset_gpio;
-
-static int ov7692_probe_init_gpio(const struct msm_camera_sensor_info *data)
-{
-	int rc = 0;
-	CDBG("%s: entered\n", __func__);
-
-	ov7692_pwdn_gpio = data->sensor_pwd;
-	ov7692_reset_gpio = data->sensor_reset ;
-
-	CDBG("%s: pwdn_gpio:%d, reset_gpio:%d\n", __func__,
-			ov7692_pwdn_gpio, ov7692_reset_gpio);
-
-	if (data->sensor_reset_enable)
-		gpio_direction_output(data->sensor_reset, 1);
-
-	gpio_direction_output(data->sensor_pwd, 1);
-
-	return rc;
-
-}
-static void ov7692_power_on(void)
-{
-	CDBG("%s\n", __func__);
-	gpio_set_value(ov7692_pwdn_gpio, 0);
-}
-
-static void ov7692_power_down(void)
-{
-	CDBG("%s\n", __func__);
-	gpio_set_value(ov7692_pwdn_gpio, 1);
-}
 static int32_t ov7692_i2c_txdata(struct i2c_client *ov7692_client,
 		unsigned short saddr,
 		unsigned char *txdata, int length)
