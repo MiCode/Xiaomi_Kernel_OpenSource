@@ -666,6 +666,7 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 	if (!port->wq) {
 		pr_err("%s: Unable to create workqueue:%s\n",
 			__func__, data_bridge_names[port_num]);
+		kfree(port);
 		return -ENOMEM;
 	}
 	port->port_num = port_num;
