@@ -542,7 +542,6 @@ static struct msm_camera_csid_vc_cfg s5k3l1yx_cid_cfg[] = {
 
 static struct msm_camera_csi2_params s5k3l1yx_csi_params = {
 	.csid_params = {
-		.lane_assign = 0xe4,
 		.lane_cnt = 4,
 		.lut_params = {
 			.num_cid = ARRAY_SIZE(s5k3l1yx_cid_cfg),

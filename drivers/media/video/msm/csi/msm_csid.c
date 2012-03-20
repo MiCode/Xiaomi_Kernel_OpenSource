@@ -51,8 +51,8 @@
 #define CSID_TG_DT_n_CFG_1_ADDR                     0xAC
 #define CSID_TG_DT_n_CFG_2_ADDR                     0xB0
 #define CSID_TG_DT_n_CFG_3_ADDR                     0xD8
-
-#define DBG_CSID 0
+#define CSID_RST_DONE_IRQ_BITSHIFT                  11
+#define CSID_RST_STB_ALL                            0x7FFF
 
 static int msm_csid_cid_lut(
 	struct msm_camera_csid_lut_params *csid_lut_params,
@@ -92,6 +92,7 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	csid_dev = v4l2_get_subdevdata(cfg_params->subdev);
 	csidbase = csid_dev->base;
 	csid_params = cfg_params->parms;
+
 	val = csid_params->lane_cnt - 1;
 	val |= csid_params->lane_assign << 2;
 	val |= 0x1 << 10;
@@ -105,8 +106,9 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	if (rc < 0)
 		return rc;
 
-	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_MASK_ADDR);
-	msm_io_w(0x7fF10800, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
+	val = ((1 << csid_params->lane_cnt) - 1) << 20;
+	msm_io_w(0x7f010800 | val, csidbase + CSID_IRQ_MASK_ADDR);
+	msm_io_w(0x7f010800 | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
 
 	msleep(20);
 	return rc;
@@ -119,8 +121,17 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	irq = msm_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
 	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
+	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
+			complete(&csid_dev->reset_complete);
 	msm_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
+}
+
+static void msm_csid_reset(struct csid_device *csid_dev)
+{
+	msm_io_w(CSID_RST_STB_ALL, csid_dev->base + CSID_RST_CMD_ADDR);
+	wait_for_completion_interruptible(&csid_dev->reset_complete);
+	return;
 }
 
 static int msm_csid_subdev_g_chip_ident(struct v4l2_subdev *sd,
@@ -185,9 +196,11 @@ static int msm_csid_init(struct v4l2_subdev *sd, uint32_t *csid_version)
 		msm_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
 	*csid_version = csid_dev->hw_version;
 
-#if DBG_CSID
+	init_completion(&csid_dev->reset_complete);
+
 	enable_irq(csid_dev->irq->start);
-#endif
+
+	msm_csid_reset(csid_dev);
 	return 0;
 
 clk_enable_failed:
@@ -206,9 +219,7 @@ static int msm_csid_release(struct v4l2_subdev *sd)
 	struct csid_device *csid_dev;
 	csid_dev = v4l2_get_subdevdata(sd);
 
-#if DBG_CSID
 	disable_irq(csid_dev->irq->start);
-#endif
 
 	msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
 		csid_dev->csid_clk, ARRAY_SIZE(csid_clk_info), 0);
