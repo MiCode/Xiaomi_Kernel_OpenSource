@@ -100,7 +100,7 @@ enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(struct wcd9xxx *wcd9xxx,
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_pm_cmpxchg);
 
-void wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
+bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	enum wcd9xxx_pm_state os;
 
@@ -111,10 +111,12 @@ void wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 	 * so need to embrace wlock_holders with mutex.
 	 */
 	mutex_lock(&wcd9xxx->pm_lock);
-	if (wcd9xxx->wlock_holders++ == 0)
+	if (wcd9xxx->wlock_holders++ == 0) {
+		pr_debug("%s: holding wake lock\n", __func__);
 		wake_lock(&wcd9xxx->wlock);
+	}
 	mutex_unlock(&wcd9xxx->pm_lock);
-	while (!wait_event_timeout(wcd9xxx->pm_wq,
+	if (!wait_event_timeout(wcd9xxx->pm_wq,
 			((os = wcd9xxx_pm_cmpxchg(wcd9xxx, WCD9XXX_PM_SLEEPABLE,
 						WCD9XXX_PM_AWAKE)) ==
 						    WCD9XXX_PM_SLEEPABLE ||
@@ -123,9 +125,12 @@ void wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: system didn't resume within 5000ms, state %d, "
 		       "wlock %d\n", __func__, wcd9xxx->pm_state,
 		       wcd9xxx->wlock_holders);
-		WARN_ON_ONCE(1);
+		WARN_ON(1);
+		wcd9xxx_unlock_sleep(wcd9xxx);
+		return false;
 	}
 	wake_up_all(&wcd9xxx->pm_wq);
+	return true;
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_lock_sleep);
 
@@ -134,6 +139,7 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (--wcd9xxx->wlock_holders == 0) {
 		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
+		pr_debug("%s: releasing wake lock\n", __func__);
 		wake_unlock(&wcd9xxx->wlock);
 	}
 	mutex_unlock(&wcd9xxx->pm_lock);
@@ -166,7 +172,10 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 	u8 status[WCD9XXX_NUM_IRQ_REGS];
 	int i;
 
-	wcd9xxx_lock_sleep(wcd9xxx);
+	if (unlikely(wcd9xxx_lock_sleep(wcd9xxx) == false)) {
+		dev_err(wcd9xxx->dev, "Failed to hold suspend\n");
+		return IRQ_NONE;
+	}
 	ret = wcd9xxx_bulk_read(wcd9xxx, TABLA_A_INTR_STATUS0,
 			       WCD9XXX_NUM_IRQ_REGS, status);
 	if (ret < 0) {

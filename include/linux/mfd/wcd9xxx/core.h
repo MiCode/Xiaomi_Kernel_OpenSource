@@ -119,6 +119,7 @@ struct wcd9xxx {
 	wait_queue_head_t pm_wq;
 	struct wake_lock wlock;
 	int wlock_holders;
+
 	int num_rx_port;
 	int num_tx_port;
 };
@@ -138,7 +139,7 @@ void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx);
 int wcd9xxx_get_logical_addresses(u8 *pgd_la, u8 *inf_la);
 int wcd9xxx_get_intf_type(void);
 
-void wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx);
+bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx);
 void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx);
 enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(struct wcd9xxx *wcd9xxx,
 				enum wcd9xxx_pm_state o,

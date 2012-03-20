@@ -15,7 +15,6 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/slab.h>
 #include <sound/core.h>
@@ -26,12 +25,14 @@
 #include <sound/jack.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
+#include <linux/mfd/wcd9xxx/core.h>
 #include "msm-pcm-routing.h"
 #include "../codecs/wcd9310.h"
 
 /* 8960 machine driver */
 
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
+#define PM8921_IRQ_BASE (NR_MSM_IRQS + NR_GPIO_IRQS)
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 
 #define MSM8960_SPK_ON 1
@@ -58,6 +59,10 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
+#define JACK_DETECT_GPIO 38
+#define JACK_DETECT_INT PM8921_GPIO_IRQ(PM8921_IRQ_BASE, JACK_DETECT_GPIO)
+#define GPIO_DETECT_USED false
+
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
 static int msm8960_spk_control;
@@ -77,7 +82,21 @@ static int msm8960_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
-static void *tabla_mbhc_cal;
+static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+					bool dapm);
+
+static struct tabla_mbhc_config mbhc_cfg = {
+	.headset_jack = &hs_jack,
+	.button_jack = &button_jack,
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.micbias = TABLA_MICBIAS2,
+	.mclk_cb_fn = msm8960_enable_codec_ext_clk,
+	.mclk_rate = TABLA_EXT_CLK_RATE,
+	.gpio = 0,
+	.gpio_irq = 0,
+	.gpio_level_insert = 1,
+};
 
 static void msm8960_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 {
@@ -299,8 +318,9 @@ static int msm8960_spkramp_event(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
-int msm8960_enable_codec_ext_clk(
-		struct snd_soc_codec *codec, int enable)
+
+static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+					bool dapm)
 {
 	pr_debug("%s: enable = %d\n", __func__, enable);
 	if (enable) {
@@ -312,7 +332,7 @@ int msm8960_enable_codec_ext_clk(
 		if (codec_clk) {
 			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
 			clk_enable(codec_clk);
-			tabla_mclk_enable(codec, 1);
+			tabla_mclk_enable(codec, 1, dapm);
 		} else {
 			pr_err("%s: Error setting Tabla MCLK\n", __func__);
 			clk_users--;
@@ -327,7 +347,7 @@ int msm8960_enable_codec_ext_clk(
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
 			clk_disable(codec_clk);
-			tabla_mclk_enable(codec, 0);
+			tabla_mclk_enable(codec, 0, dapm);
 		}
 	}
 	return 0;
@@ -340,9 +360,9 @@ static int msm8960_mclk_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		return msm8960_enable_codec_ext_clk(w->codec, 1);
+		return msm8960_enable_codec_ext_clk(w->codec, 1, true);
 	case SND_SOC_DAPM_POST_PMD:
-		return msm8960_enable_codec_ext_clk(w->codec, 0);
+		return msm8960_enable_codec_ext_clk(w->codec, 0, true);
 	}
 	return 0;
 }
@@ -707,6 +727,13 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct pm_gpio jack_gpio_cfg = {
+		.direction = PM_GPIO_DIR_IN,
+		.pull = PM_GPIO_PULL_UP_1P5,
+		.function = PM_GPIO_FUNC_NORMAL,
+		.vin_sel = 2,
+		.inv_int_pol = 0,
+	};
 
 	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -753,9 +780,20 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
-	err = tabla_hs_detect(codec, &hs_jack, &button_jack, tabla_mbhc_cal,
-			      TABLA_MICBIAS2, msm8960_enable_codec_ext_clk, 0,
-			      TABLA_EXT_CLK_RATE);
+	if (GPIO_DETECT_USED) {
+		mbhc_cfg.gpio = PM8921_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
+		mbhc_cfg.gpio_irq = JACK_DETECT_INT;
+	}
+
+	if (mbhc_cfg.gpio) {
+		err = pm8xxx_gpio_config(mbhc_cfg.gpio, &jack_gpio_cfg);
+		if (err) {
+			pr_err("%s: pm8xxx_gpio_config failed %d\n", __func__,
+			       err);
+			return err;
+		}
+	}
+	err = tabla_hs_detect(codec, &mbhc_cfg);
 
 	return err;
 }
@@ -1396,8 +1434,8 @@ static int __init msm8960_audio_init(void)
 		return -ENODEV ;
 	}
 
-	tabla_mbhc_cal = def_tabla_mbhc_cal();
-	if (!tabla_mbhc_cal) {
+	mbhc_cfg.calibration = def_tabla_mbhc_cal();
+	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
 		return -ENOMEM;
 	}
@@ -1405,7 +1443,7 @@ static int __init msm8960_audio_init(void)
 	msm8960_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm8960_snd_device) {
 		pr_err("Platform device allocation failed\n");
-		kfree(tabla_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
 
@@ -1417,14 +1455,14 @@ static int __init msm8960_audio_init(void)
 	ret = platform_device_add(msm8960_snd_device);
 	if (ret) {
 		platform_device_put(msm8960_snd_device);
-		kfree(tabla_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
 
 	msm8960_snd_tabla1x_device = platform_device_alloc("soc-audio", 1);
 	if (!msm8960_snd_tabla1x_device) {
 		pr_err("Platform device allocation failed\n");
-		kfree(tabla_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
 
@@ -1438,7 +1476,7 @@ static int __init msm8960_audio_init(void)
 	ret = platform_device_add(msm8960_snd_tabla1x_device);
 	if (ret) {
 		platform_device_put(msm8960_snd_tabla1x_device);
-		kfree(tabla_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
 
@@ -1462,7 +1500,7 @@ static void __exit msm8960_audio_exit(void)
 	msm8960_free_headset_mic_gpios();
 	platform_device_unregister(msm8960_snd_device);
 	platform_device_unregister(msm8960_snd_tabla1x_device);
-	kfree(tabla_mbhc_cal);
+	kfree(mbhc_cfg.calibration);
 }
 module_exit(msm8960_audio_exit);
 
