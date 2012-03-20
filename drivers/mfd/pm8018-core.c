@@ -230,6 +230,30 @@ static struct mfd_cell leds_cell __devinitdata = {
 	.id		= -1,
 };
 
+static const struct resource thermal_alarm_cell_resources[] __devinitconst = {
+	SINGLE_IRQ_RESOURCE("pm8018_tempstat_irq", PM8018_TEMPSTAT_IRQ),
+	SINGLE_IRQ_RESOURCE("pm8018_overtemp_irq", PM8018_OVERTEMP_IRQ),
+};
+
+static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
+	.adc_channel =			CHANNEL_DIE_TEMP,
+	.adc_type =			PM8XXX_TM_ADC_PM8XXX_ADC,
+	.reg_addr_temp_alarm_ctrl =	REG_TEMP_ALARM_CTRL,
+	.reg_addr_temp_alarm_pwm =	REG_TEMP_ALARM_PWM,
+	.tm_name =			"pm8018_tz",
+	.irq_name_temp_stat =		"pm8018_tempstat_irq",
+	.irq_name_over_temp =		"pm8018_overtemp_irq",
+};
+
+static struct mfd_cell thermal_alarm_cell __devinitdata = {
+	.name		= PM8XXX_TM_DEV_NAME,
+	.id		= -1,
+	.resources	= thermal_alarm_cell_resources,
+	.num_resources	= ARRAY_SIZE(thermal_alarm_cell_resources),
+	.platform_data	= &thermal_alarm_cdata,
+	.pdata_size	= sizeof(struct pm8xxx_tm_core_data),
+};
+
 static struct pm8xxx_vreg regulator_data[] = {
 	/*   name	     pc_name	    ctrl   test   hpm_min */
 	PLDO("8018_l2",      "8018_l2_pc",  0x0B0, 0x0B1, LDO_50),
@@ -475,6 +499,12 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		}
 	}
 
+	ret = mfd_add_devices(pmic->dev, 0, &thermal_alarm_cell, 1, NULL,
+				irq_base);
+	if (ret) {
+		pr_err("Failed to add thermal alarm subdevice, ret=%d\n", ret);
+		goto bail;
+	}
 
 	return 0;
 bail:

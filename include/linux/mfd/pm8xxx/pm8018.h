@@ -23,6 +23,7 @@
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/mfd/pm8xxx/mpp.h>
 #include <linux/mfd/pm8xxx/rtc.h>
+#include <linux/mfd/pm8xxx/tm.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/regulator/pm8xxx-regulator.h>
@@ -56,6 +57,9 @@
 #define PM8018_ADC_EOC_USR_IRQ		PM8018_IRQ_BLOCK_BIT(9, 6)
 #define PM8018_ADC_BATT_TEMP_WARM_IRQ	PM8018_IRQ_BLOCK_BIT(9, 1)
 #define PM8018_ADC_BATT_TEMP_COLD_IRQ	PM8018_IRQ_BLOCK_BIT(9, 0)
+
+#define PM8018_OVERTEMP_IRQ		PM8018_IRQ_BLOCK_BIT(4, 2)
+#define PM8018_TEMPSTAT_IRQ		PM8018_IRQ_BLOCK_BIT(6, 7)
 
 #define PM8018_LVS1_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 0)
 
