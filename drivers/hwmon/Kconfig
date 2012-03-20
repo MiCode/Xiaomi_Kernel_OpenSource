@@ -777,7 +777,7 @@ config SENSORS_MAX6650
 
 config SENSORS_MSM_ADC
 	tristate "MSM ADC Driver for current measurement"
-	depends on ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX
+	depends on ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX || ARCH_MSM7X27A
 	default n
 	help
 	  Provides interface for measuring the ADC's on AMUX channels of XOADC,
