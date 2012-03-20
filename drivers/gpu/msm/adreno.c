@@ -973,7 +973,6 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 {
 	struct kgsl_memdesc *result = NULL;
 	struct kgsl_mem_entry *entry;
-	struct kgsl_process_private *priv;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *ringbuffer = &adreno_dev->ringbuffer;
 	struct kgsl_context *context;
@@ -988,21 +987,10 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr, size))
 		return &device->memstore;
 
-	mutex_lock(&kgsl_driver.process_mutex);
-	list_for_each_entry(priv, &kgsl_driver.process_list, list) {
-		if (!kgsl_mmu_pt_equal(priv->pagetable, pt_base))
-			continue;
-		spin_lock(&priv->mem_lock);
-		entry = kgsl_sharedmem_find_region(priv, gpuaddr, size);
-		if (entry) {
-			result = &entry->memdesc;
-			spin_unlock(&priv->mem_lock);
-			mutex_unlock(&kgsl_driver.process_mutex);
-			return result;
-		}
-		spin_unlock(&priv->mem_lock);
-	}
-	mutex_unlock(&kgsl_driver.process_mutex);
+	entry = kgsl_get_mem_entry(pt_base, gpuaddr, size);
+
+	if (entry)
+		return &entry->memdesc;
 
 	while (1) {
 		struct adreno_context *adreno_context = NULL;

@@ -176,6 +176,12 @@ struct kgsl_device {
 				   losing the output on multiple hangs  */
 	struct kobject snapshot_kobj;
 
+	/*
+	 * List of GPU buffers that have been frozen in memory until they can be
+	 * dumped
+	 */
+	struct list_head snapshot_obj_list;
+
 	/* Logging levels */
 	int cmd_log;
 	int ctxt_log;

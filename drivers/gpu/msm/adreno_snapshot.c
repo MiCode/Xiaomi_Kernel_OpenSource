@@ -27,6 +27,9 @@
 
 #define SNAPSHOT_OBJ_TYPE_IB 0
 
+/* Keep track of how many bytes are frozen after a snapshot and tell the user */
+static int snapshot_frozen_objsize;
+
 static struct kgsl_snapshot_obj {
 	int type;
 	uint32_t gpuaddr;
@@ -104,6 +107,97 @@ static int find_object(int type, unsigned int gpuaddr, unsigned int ptbase)
 	return 0;
 }
 
+static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
+	unsigned int ptbase)
+{
+	unsigned int block, source, type;
+
+	/*
+	 * The object here is to find indirect shaders i.e - shaders loaded from
+	 * GPU memory instead of directly in the command.  These should be added
+	 * to the list of memory objects to dump. So look at the load state
+	 * call and see if 1) the shader block is a shader (block = 4, 5 or 6)
+	 * 2) that the block is indirect (source = 4). If these all match then
+	 * add the memory address to the list.  The size of the object will
+	 * differ depending on the type.  Type 0 (instructions) are 8 dwords per
+	 * unit and type 1 (constants) are 2 dwords per unit.
+	 */
+
+	if (type3_pkt_size(pkt[0]) < 2)
+		return;
+
+	/*
+	 * pkt[1] 18:16 - source
+	 * pkt[1] 21:19 - state block
+	 * pkt[1] 31:22 - size in units
+	 * pkt[2] 0:1 - type
+	 * pkt[2] 31:2 - GPU memory address
+	 */
+
+	block = (pkt[1] >> 19) & 0x07;
+	source = (pkt[1] >> 16) & 0x07;
+	type = pkt[2] & 0x03;
+
+	if ((block == 4 || block == 5 || block == 6) && source == 4) {
+		int unitsize = (type == 0) ? 8 : 2;
+		int ret;
+
+		/* Freeze the GPU buffer containing the shader */
+
+		ret = kgsl_snapshot_get_object(device, ptbase,
+				pkt[2] & 0xFFFFFFFC,
+				(((pkt[1] >> 22) & 0x03FF) * unitsize) << 2,
+				SNAPSHOT_GPU_OBJECT_SHADER);
+		snapshot_frozen_objsize += ret;
+	}
+}
+
+/*
+ * Parse all the type3 opcode packets that may contain important information,
+ * such as additional GPU buffers to grab
+ */
+
+static void ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
+	unsigned int ptbase)
+{
+	switch (cp_type3_opcode(*ptr)) {
+	case CP_LOAD_STATE:
+		ib_parse_load_state(device, ptr, ptbase);
+		break;
+	}
+}
+
+/* Add an IB as a GPU object, but first, parse it to find more goodies within */
+
+static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
+		unsigned int gpuaddr, unsigned int dwords)
+{
+	int i, ret;
+	unsigned int *src = (unsigned int *) adreno_convertaddr(device, ptbase,
+		gpuaddr, dwords << 2);
+
+	if (src == NULL)
+		return;
+
+	for (i = 0; i < dwords; i++) {
+		if (pkt_is_type3(src[i])) {
+			if ((dwords - i) < type3_pkt_size(src[i]) + 1)
+				continue;
+
+			if (adreno_cmd_is_ib(src[i]))
+				ib_add_gpu_object(device, ptbase,
+					src[i + 1], src[i + 2]);
+			else
+				ib_parse_type3(device, &src[i], ptbase);
+		}
+	}
+
+	ret = kgsl_snapshot_get_object(device, ptbase, gpuaddr, dwords << 2,
+		SNAPSHOT_GPU_OBJECT_IB);
+
+	snapshot_frozen_objsize += ret;
+}
+
 /* Snapshot the istore memory */
 static int snapshot_istore(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
@@ -137,7 +231,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int *data = snapshot + sizeof(*header);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned int rbbase, ptbase, rptr, *rbptr;
+	unsigned int rbbase, ptbase, rptr, *rbptr, ibbase;
 	int start, stop, index;
 	int numitems, size;
 	int parse_ibs = 0, ib_parse_start;
@@ -150,6 +244,13 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 
 	/* Get the current read pointers for the RB */
 	kgsl_regread(device, REG_CP_RB_RPTR, &rptr);
+
+	/*
+	 * Get the address of the last executed IB1 so we can be sure to
+	 * snapshot it
+	 */
+
+	kgsl_regread(device, REG_CP_IB1_BASE, &ibbase);
 
 	/* start the dump at the rptr minus some history */
 	start = (int) rptr - NUM_DWORDS_OF_RINGBUFFER_HISTORY;
@@ -249,9 +350,19 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		if (index == rptr)
 			parse_ibs = 0;
 
-		if (parse_ibs && adreno_cmd_is_ib(rbptr[index]))
-			push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
-				rbptr[index + 1], rbptr[index + 2]);
+		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
+			/*
+			 * The IB from CP_IB1_BASE goes into the snapshot, all
+			 * others get marked at GPU objects
+			 */
+			if (rbptr[index + 1] == ibbase)
+				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
+					ptbase, rbptr[index + 1],
+					rbptr[index + 2]);
+			else
+				ib_add_gpu_object(device, ptbase,
+					rbptr[index + 1], rbptr[index + 2]);
+		}
 
 		index = index + 1;
 
@@ -277,7 +388,6 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	return size + sizeof(*header);
 }
 
-/* Snapshot the memory for an indirect buffer */
 static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
 {
@@ -299,16 +409,19 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	header->size = obj->dwords;
 
 	/* Write the contents of the ib */
-	for (i = 0; i < obj->dwords; i++) {
+	for (i = 0; i < obj->dwords; i++, src++, dst++) {
 		*dst = *src;
-		/* If another IB is discovered, then push it on the list too */
 
-		if (adreno_cmd_is_ib(*src))
-			push_object(device, SNAPSHOT_OBJ_TYPE_IB, obj->ptbase,
-				*(src + 1), *(src + 2));
+		if (pkt_is_type3(*src)) {
+			if ((obj->dwords - i) < type3_pkt_size(*src) + 1)
+				continue;
 
-		src++;
-		dst++;
+			if (adreno_cmd_is_ib(*src))
+				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
+					obj->ptbase, src[1], src[2]);
+			else
+				ib_parse_type3(device, src, obj->ptbase);
+		}
 	}
 
 	return (obj->dwords << 2) + sizeof(*header);
@@ -353,6 +466,8 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 
 	/* Reset the list of objects */
 	objbufptr = 0;
+
+	snapshot_frozen_objsize = 0;
 
 	/* Get the physical address of the MMU pagetable */
 	ptbase = kgsl_mmu_get_current_ptbase(device);
@@ -424,6 +539,10 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	if (adreno_dev->gpudev->snapshot)
 		snapshot = adreno_dev->gpudev->snapshot(adreno_dev, snapshot,
 			remain, hang);
+
+	if (snapshot_frozen_objsize)
+		KGSL_DRV_ERR(device, "GPU snapshot froze %dKb of GPU buffers\n",
+			snapshot_frozen_objsize / 1024);
 
 	return snapshot;
 }

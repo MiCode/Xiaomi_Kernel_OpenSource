@@ -641,7 +641,6 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	unsigned int val3;
 	unsigned int copy_rb_contents = 0;
 	unsigned int cur_context;
-	unsigned int j;
 
 	GSL_RB_GET_READPTR(rb, &rb->rptr);
 
@@ -748,8 +747,20 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 			kgsl_sharedmem_readl(&rb->buffer_desc, &value, rb_rptr);
 			rb_rptr = adreno_ringbuffer_inc_wrapped(rb_rptr,
 							rb->buffer_desc.size);
-			BUG_ON((copy_rb_contents == 0) &&
-				(value == cur_context));
+
+			/*
+			 * If other context switches were already lost and
+			 * and the current context is the one that is hanging,
+			 * then we cannot recover.  Print an error message
+			 * and leave.
+			 */
+
+			if ((copy_rb_contents == 0) && (value == cur_context)) {
+				KGSL_DRV_ERR(device, "GPU recovery could not "
+					"find the previous context\n");
+				return -EINVAL;
+			}
+
 			/*
 			 * If we were copying the commands and got to this point
 			 * then we need to remove the 3 commands that appear
@@ -780,19 +791,6 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	}
 
 	*rb_size = temp_idx;
-	KGSL_DRV_ERR(device, "Extracted rb contents, size: %x\n", *rb_size);
-	for (temp_idx = 0; temp_idx < *rb_size;) {
-		char str[80];
-		int idx = 0;
-		if ((temp_idx + 8) <= *rb_size)
-			j = 8;
-		else
-			j = *rb_size - temp_idx;
-		for (; j != 0; j--)
-			idx += scnprintf(str + idx, 80 - idx,
-				"%8.8X ", temp_rb_buffer[temp_idx++]);
-		printk(KERN_ALERT "%s", str);
-	}
 	return 0;
 }
 
