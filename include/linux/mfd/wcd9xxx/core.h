@@ -173,5 +173,11 @@ static inline void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq)
 		return;
 	disable_irq_nosync(wcd9xxx->irq_base + irq);
 }
+static inline void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq)
+{
+	if (!wcd9xxx->irq_base)
+		return;
+	disable_irq(wcd9xxx->irq_base + irq);
+}
 
 #endif
