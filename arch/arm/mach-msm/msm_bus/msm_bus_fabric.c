@@ -348,12 +348,12 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 			status = clk_set_rate(info->nodeclk[i].clk, info->
 				nodeclk[i].rate);
 			if (enable && !(info->nodeclk[i].enable)) {
-				clk_enable(info->nodeclk[i].clk);
+				clk_prepare_enable(info->nodeclk[i].clk);
 				info->nodeclk[i].dirty = false;
 				info->nodeclk[i].enable = true;
 			} else if ((info->nodeclk[i].rate == 0) && (!enable)
 				&& (info->nodeclk[i].enable)) {
-				clk_disable(info->nodeclk[i].clk);
+				clk_disable_unprepare(info->nodeclk[i].clk);
 				info->nodeclk[i].dirty = false;
 				info->nodeclk[i].enable = false;
 			}
@@ -362,12 +362,12 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 	if (info->memclk.dirty) {
 		status = clk_set_rate(info->memclk.clk, info->memclk.rate);
 		if (enable && !(info->memclk.enable)) {
-			clk_enable(info->memclk.clk);
+			clk_prepare_enable(info->memclk.clk);
 			info->memclk.dirty = false;
 			info->memclk.enable = true;
 		} else if (info->memclk.rate == 0 && (!enable) &&
 			(info->memclk.enable)) {
-			clk_disable(info->memclk.clk);
+			clk_disable_unprepare(info->memclk.clk);
 			info->memclk.dirty = false;
 			info->memclk.enable = false;
 		}
