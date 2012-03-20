@@ -29,9 +29,13 @@
 #include <linux/android_pmem.h>
 #include <linux/io.h>
 #include <linux/ion.h>
+#include <linux/tzcom.h>
+#include <linux/clk.h>
 #include <mach/scm.h>
 #include <mach/peripheral-loader.h>
-#include <linux/tzcom.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
+#include <mach/socinfo.h>
 #include "tzcomi.h"
 
 #define TZCOM_DEV "tzcom"
@@ -51,6 +55,7 @@
 		__func__, current->pid, current->comm, ## args)
 
 
+static uint32_t tzcom_perf_client;
 static struct class *driver_class;
 static dev_t tzcom_device_no;
 static struct cdev tzcom_cdev;
@@ -68,7 +73,9 @@ static atomic_t svc_instance_ctr = ATOMIC_INIT(0);
 static DEFINE_MUTEX(sb_in_lock);
 static DEFINE_MUTEX(sb_out_lock);
 static DEFINE_MUTEX(send_cmd_lock);
-
+static DEFINE_MUTEX(tzcom_bw_mutex);
+static int tzcom_bw_count;
+static struct clk *tzcom_bus_clk;
 struct tzcom_callback_list {
 	struct list_head      list;
 	struct tzcom_callback callback;
@@ -93,6 +100,53 @@ struct tzcom_data_t {
 	wait_queue_head_t abort_wq;
 	atomic_t          ioctl_count;
 };
+
+static int tzcom_enable_bus_scaling(void)
+{
+	int ret = 0;
+	if (!tzcom_perf_client)
+		return -EINVAL;
+
+	if (IS_ERR_OR_NULL(tzcom_bus_clk))
+		return -EINVAL;
+
+	mutex_lock(&tzcom_bw_mutex);
+	if (!tzcom_bw_count) {
+		ret = msm_bus_scale_client_update_request(
+				tzcom_perf_client, 1);
+		if (ret) {
+			pr_err("Bandwidth request failed (%d)\n", ret);
+		} else {
+			ret = clk_enable(tzcom_bus_clk);
+			if (ret)
+				pr_err("Clock enable failed\n");
+		}
+	}
+	if (ret)
+		msm_bus_scale_client_update_request(tzcom_perf_client, 0);
+	else
+		tzcom_bw_count++;
+	mutex_unlock(&tzcom_bw_mutex);
+	return ret;
+}
+
+static void tzcom_disable_bus_scaling(void)
+{
+	if (!tzcom_perf_client)
+		return ;
+
+	if (IS_ERR_OR_NULL(tzcom_bus_clk))
+		return ;
+
+	mutex_lock(&tzcom_bw_mutex);
+	if (tzcom_bw_count > 0)
+		if (tzcom_bw_count-- == 1) {
+			msm_bus_scale_client_update_request(tzcom_perf_client,
+								0);
+			clk_disable(tzcom_bus_clk);
+		}
+	mutex_unlock(&tzcom_bw_mutex);
+}
 
 static int tzcom_scm_call(const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len)
@@ -878,6 +932,9 @@ static int tzcom_open(struct inode *inode, struct file *file)
 	struct tzcom_data_t *tzcom_data;
 
 	PDEBUG("In here");
+
+	ret = tzcom_enable_bus_scaling();
+
 	if (pil == NULL) {
 		pil = pil_get("tzapps");
 		if (IS_ERR(pil)) {
@@ -1008,9 +1065,39 @@ static int tzcom_release(struct inode *inode, struct file *file)
 	}
 	PDEBUG("Freeing tzcom data");
 	kfree(tzcom_data);
+	tzcom_disable_bus_scaling();
 	return 0;
 }
 
+static struct msm_bus_paths tzcom_bw_table[] = {
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+			},
+		},
+		.num_paths = 1,
+	},
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+				.ib = (492 * 8) * 1000000UL,
+				.ab = (492 * 8) *  100000UL,
+			},
+		},
+		.num_paths = 1,
+	},
+
+};
+
+static struct msm_bus_scale_pdata tzcom_bus_pdata = {
+	.usecase = tzcom_bw_table,
+	.num_usecases = ARRAY_SIZE(tzcom_bw_table),
+	.name = "tzcom",
+};
 static const struct file_operations tzcom_fops = {
 		.owner = THIS_MODULE,
 		.unlocked_ioctl = tzcom_ioctl,
@@ -1098,6 +1185,18 @@ static int __init tzcom_init(void)
 	/* Initialized in tzcom_open */
 	pil = NULL;
 
+	tzcom_perf_client = msm_bus_scale_register_client(
+					&tzcom_bus_pdata);
+	if (!tzcom_perf_client)
+		pr_err("Unable to register bus client");
+
+	tzcom_bus_clk = clk_get(class_dev, "bus_clk");
+	if (IS_ERR(tzcom_bus_clk)) {
+		tzcom_bus_clk = NULL;
+	} else  if (tzcom_bus_clk != NULL) {
+		pr_debug("Enabled DFAB clock\n");
+		clk_set_rate(tzcom_bus_clk, 64000000);
+	}
 	return 0;
 
 class_device_destroy:
@@ -1132,6 +1231,7 @@ static void __exit tzcom_exit(void)
 		pil_put(pil);
 		pil = NULL;
 	}
+	clk_put(tzcom_bus_clk);
 	device_destroy(driver_class, tzcom_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(tzcom_device_no, 1);
