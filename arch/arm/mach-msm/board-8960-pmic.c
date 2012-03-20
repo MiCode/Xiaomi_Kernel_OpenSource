@@ -432,6 +432,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.warm_bat_voltage	= 4100,
 	.thermal_mitigation	= pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
+	.rconn_mohm		= 18,
 };
 
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
