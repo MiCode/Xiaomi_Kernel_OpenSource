@@ -90,6 +90,14 @@ static const char *label_freq[] = {
 	[RPM_VREG_FREQ_1p28]		= "1.28",
 	[RPM_VREG_FREQ_1p20]		= "1.20",
 };
+
+static const char *label_corner[] = {
+	[RPM_VREG_CORNER_NONE]		= "NONE",
+	[RPM_VREG_CORNER_LOW]		= "LOW",
+	[RPM_VREG_CORNER_NOMINAL]	= "NOM",
+	[RPM_VREG_CORNER_HIGH]		= "HIGH",
+};
+
 /*
  * This is used when voting for LPM or HPM by subtracting or adding to the
  * hpm_min_load of a regulator.  It has units of uA.
@@ -117,7 +125,7 @@ static void rpm_regulator_req(struct vreg *vreg, int set)
 	int uV, mV, fm, pm, pc, pf, pd, freq, state, i;
 	const char *pf_label = "", *fm_label = "", *pc_total = "";
 	const char *pc_en[4] = {"", "", "", ""};
-	const char *pm_label = "", *freq_label = "";
+	const char *pm_label = "", *freq_label = "", *corner_label = "";
 	char buf[DEBUG_PRINT_BUFFER_SIZE];
 	size_t buflen = DEBUG_PRINT_BUFFER_SIZE;
 	int pos = 0;
@@ -169,7 +177,7 @@ static void rpm_regulator_req(struct vreg *vreg, int set)
 			vreg->rdesc.name,
 			(set == MSM_RPM_CTX_SET_0 ? 'A' : 'S'));
 
-	if (USES_PART(vreg, uV))
+	if (USES_PART(vreg, uV) && vreg->type != RPM_REGULATOR_TYPE_CORNER)
 		pos += scnprintf(buf + pos, buflen - pos, ", v=%7d uV", uV);
 	if (USES_PART(vreg, mV))
 		pos += scnprintf(buf + pos, buflen - pos, ", v=%4d mV", mV);
@@ -215,6 +223,12 @@ static void rpm_regulator_req(struct vreg *vreg, int set)
 	if (USES_PART(vreg, hpm))
 		pos += scnprintf(buf + pos, buflen - pos,
 				 ", hpm=%d", GET_PART(vreg, hpm));
+	if (USES_PART(vreg, uV) && vreg->type == RPM_REGULATOR_TYPE_CORNER) {
+		if (uV >= 0 && uV < (ARRAY_SIZE(label_corner) - 1))
+			corner_label = label_corner[uV+1];
+		pos += scnprintf(buf + pos, buflen - pos, ", corner=%s (%d)",
+			corner_label, uV);
+	}
 
 	pos += scnprintf(buf + pos, buflen - pos, "; req[0]={%d, 0x%08X}",
 			 vreg->req[0].id, vreg->req[0].value);
@@ -507,6 +521,16 @@ int rpm_vreg_set_voltage(int vreg_id, enum rpm_vreg_voter voter, int min_uV,
 		}
 	}
 
+	if (vreg->type == RPM_REGULATOR_TYPE_CORNER) {
+		/*
+		 * Translate from enum values which work as inputs in the
+		 * rpm_vreg_set_voltage function to the actual corner values
+		 * sent to the RPM.
+		 */
+		if (uV > 0)
+			uV -= RPM_VREG_CORNER_NONE;
+	}
+
 	if (vreg->part->uV.mask) {
 		val[vreg->part->uV.word] = uV << vreg->part->uV.shift;
 		mask[vreg->part->uV.word] = vreg->part->uV.mask;
@@ -695,6 +719,7 @@ static void set_enable(struct vreg *vreg, unsigned int *mask, unsigned int *val)
 	switch (vreg->type) {
 	case RPM_REGULATOR_TYPE_LDO:
 	case RPM_REGULATOR_TYPE_SMPS:
+	case RPM_REGULATOR_TYPE_CORNER:
 		/* Enable by setting a voltage. */
 		if (vreg->part->uV.mask) {
 			val[vreg->part->uV.word]
@@ -717,7 +742,7 @@ static void set_enable(struct vreg *vreg, unsigned int *mask, unsigned int *val)
 	}
 }
 
-static int vreg_enable(struct regulator_dev *rdev)
+static int rpm_vreg_enable(struct regulator_dev *rdev)
 {
 	struct vreg *vreg = rdev_get_drvdata(rdev);
 	unsigned int mask[2] = {0}, val[2] = {0};
@@ -746,6 +771,7 @@ static void set_disable(struct vreg *vreg, unsigned int *mask,
 	switch (vreg->type) {
 	case RPM_REGULATOR_TYPE_LDO:
 	case RPM_REGULATOR_TYPE_SMPS:
+	case RPM_REGULATOR_TYPE_CORNER:
 		/* Disable by setting a voltage of 0 uV. */
 		if (vreg->part->uV.mask) {
 			val[vreg->part->uV.word] |= 0 << vreg->part->uV.shift;
@@ -765,7 +791,7 @@ static void set_disable(struct vreg *vreg, unsigned int *mask,
 	}
 }
 
-static int vreg_disable(struct regulator_dev *rdev)
+static int rpm_vreg_disable(struct regulator_dev *rdev)
 {
 	struct vreg *vreg = rdev_get_drvdata(rdev);
 	unsigned int mask[2] = {0}, val[2] = {0};
@@ -836,6 +862,15 @@ static int vreg_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV,
 			"next set point: %d\n",
 			min_uV, max_uV, uV);
 		return -EINVAL;
+	}
+
+	if (vreg->type == RPM_REGULATOR_TYPE_CORNER) {
+		/*
+		 * Translate from enum values which work as inputs in the
+		 * regulator_set_voltage function to the actual corner values
+		 * sent to the RPM.
+		 */
+		uV -= RPM_VREG_CORNER_NONE;
 	}
 
 	if (vreg->part->uV.mask) {
@@ -1111,8 +1146,8 @@ static int vreg_enable_time(struct regulator_dev *rdev)
 
 /* Real regulator operations. */
 static struct regulator_ops ldo_ops = {
-	.enable			= vreg_enable,
-	.disable		= vreg_disable,
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
 	.is_enabled		= vreg_is_enabled,
 	.set_voltage		= vreg_set_voltage,
 	.get_voltage		= vreg_get_voltage,
@@ -1124,8 +1159,8 @@ static struct regulator_ops ldo_ops = {
 };
 
 static struct regulator_ops smps_ops = {
-	.enable			= vreg_enable,
-	.disable		= vreg_disable,
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
 	.is_enabled		= vreg_is_enabled,
 	.set_voltage		= vreg_set_voltage,
 	.get_voltage		= vreg_get_voltage,
@@ -1137,15 +1172,25 @@ static struct regulator_ops smps_ops = {
 };
 
 static struct regulator_ops switch_ops = {
-	.enable			= vreg_enable,
-	.disable		= vreg_disable,
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
 	.is_enabled		= vreg_is_enabled,
 	.enable_time		= vreg_enable_time,
 };
 
 static struct regulator_ops ncp_ops = {
-	.enable			= vreg_enable,
-	.disable		= vreg_disable,
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
+	.is_enabled		= vreg_is_enabled,
+	.set_voltage		= vreg_set_voltage,
+	.get_voltage		= vreg_get_voltage,
+	.list_voltage		= vreg_list_voltage,
+	.enable_time		= vreg_enable_time,
+};
+
+static struct regulator_ops corner_ops = {
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
 	.is_enabled		= vreg_is_enabled,
 	.set_voltage		= vreg_set_voltage,
 	.get_voltage		= vreg_get_voltage,
@@ -1165,6 +1210,7 @@ struct regulator_ops *vreg_ops[] = {
 	[RPM_REGULATOR_TYPE_SMPS]	= &smps_ops,
 	[RPM_REGULATOR_TYPE_VS]		= &switch_ops,
 	[RPM_REGULATOR_TYPE_NCP]	= &ncp_ops,
+	[RPM_REGULATOR_TYPE_CORNER]	= &corner_ops,
 };
 
 static int __devinit

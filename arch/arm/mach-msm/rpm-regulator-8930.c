@@ -50,6 +50,11 @@ static struct rpm_vreg_parts switch_parts = {
 	.hpm		= REQUEST_MEMBER(0, 0x00000C00, 10),
 };
 
+static struct rpm_vreg_parts corner_parts = {
+	.request_len	= 1,
+	.uV		= REQUEST_MEMBER(0, 0x00000003,  0),
+};
+
 /* Physically available PMIC regulator voltage setpoint ranges */
 static struct vreg_range pldo_ranges[] = {
 	VOLTAGE_RANGE( 750000, 1487500, 12500),
@@ -78,11 +83,16 @@ static struct vreg_range ftsmps_ranges[] = {
 	VOLTAGE_RANGE(1500000, 3300000, 50000),
 };
 
+static struct vreg_range corner_ranges[] = {
+	VOLTAGE_RANGE(RPM_VREG_CORNER_NONE, RPM_VREG_CORNER_HIGH, 1),
+};
+
 static struct vreg_set_points pldo_set_points = SET_POINTS(pldo_ranges);
 static struct vreg_set_points nldo_set_points = SET_POINTS(nldo_ranges);
 static struct vreg_set_points nldo1200_set_points = SET_POINTS(nldo1200_ranges);
 static struct vreg_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct vreg_set_points ftsmps_set_points = SET_POINTS(ftsmps_ranges);
+static struct vreg_set_points corner_set_points = SET_POINTS(corner_ranges);
 
 static struct vreg_set_points *all_set_points[] = {
 	&pldo_set_points,
@@ -90,6 +100,7 @@ static struct vreg_set_points *all_set_points[] = {
 	&nldo1200_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
+	&corner_set_points,
 };
 
 #define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load) \
@@ -135,6 +146,19 @@ static struct vreg_set_points *all_set_points[] = {
 		.rdesc_pc.name	 = _name_pc, \
 	}
 
+#define CORNER(_id, _rpm_id, _name, _ranges) \
+	[RPM_VREG_ID_PM8038_##_id] = { \
+		.req = { \
+			[0] = { .id = MSM_RPM_ID_##_rpm_id, }, \
+			[1] = { .id = -1, }, \
+		}, \
+		.type		 = RPM_REGULATOR_TYPE_CORNER, \
+		.set_points	 = &_ranges##_set_points, \
+		.part		 = &corner_parts, \
+		.id		 = RPM_VREG_ID_PM8038_##_id, \
+		.rdesc.name	 = _name, \
+	}
+
 static struct vreg vregs[] = {
 	LDO(L1,   "8038_l1",   NULL,          nldo1200, LDO_1200),
 	LDO(L2,   "8038_l2",   "8038_l2_pc",  nldo,     LDO_150),
@@ -171,6 +195,8 @@ static struct vreg vregs[] = {
 
 	LVS(LVS1, "8038_lvs1", "8038_lvs1_pc"),
 	LVS(LVS2, "8038_lvs2", "8038_lvs2_pc"),
+
+	CORNER(VDD_DIG_CORNER, VOLTAGE_CORNER, "vdd_dig_corner", corner),
 };
 
 static const char *pin_func_label[] = {

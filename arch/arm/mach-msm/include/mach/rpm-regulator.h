@@ -68,6 +68,19 @@ enum rpm_vreg_freq {
 };
 
 /**
+ * enum rpm_vreg_voltage_corner - possible voltage corner values
+ *
+ * These should be used in regulator_set_voltage and rpm_vreg_set_voltage calls
+ * for corner type regulators as if they had units of uV.
+ */
+enum rpm_vreg_voltage_corner {
+	RPM_VREG_CORNER_NONE = 1,
+	RPM_VREG_CORNER_LOW,
+	RPM_VREG_CORNER_NOMINAL,
+	RPM_VREG_CORNER_HIGH,
+};
+
+/**
  * struct rpm_regulator_init_data - RPM regulator initialization data
  * @init_data:		regulator constraints
  * @id:			regulator id; from enum rpm_vreg_id
