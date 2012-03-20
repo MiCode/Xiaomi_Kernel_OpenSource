@@ -4732,6 +4732,14 @@ static int msmsdcc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void msmsdcc_shutdown(struct platform_device *pdev)
+{
+	struct mmc_host *mmc = mmc_get_drvdata(pdev);
+
+	mmc_remove_host(mmc);
+	mmc_free_host(mmc);
+}
+
 #ifdef CONFIG_MSM_SDIO_AL
 int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 {
@@ -5030,6 +5038,7 @@ MODULE_DEVICE_TABLE(of, msmsdcc_dt_match);
 static struct platform_driver msmsdcc_driver = {
 	.probe		= msmsdcc_probe,
 	.remove		= msmsdcc_remove,
+	.shutdown	= msmsdcc_shutdown,
 	.driver		= {
 		.name	= "msm_sdcc",
 		.pm	= &msmsdcc_dev_pm_ops,
