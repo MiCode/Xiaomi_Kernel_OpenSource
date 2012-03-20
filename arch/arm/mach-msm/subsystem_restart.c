@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,7 +577,8 @@ static int __init ssr_init_soc_restart_orders(void)
 		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
 	}
 
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm9615() ||
+			cpu_is_apq8064()) {
 		restart_orders = restart_orders_8960;
 		n_restart_orders = ARRAY_SIZE(restart_orders_8960);
 	}

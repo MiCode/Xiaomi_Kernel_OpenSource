@@ -1810,6 +1810,14 @@ config MSM_WCNSS_SSR_8960
 	 monitors WCNSS hardware watchdog interrupt lines and plugs WCNSS
 	 into the subsystem restart framework.
 
+config MSM_GSS_SSR_8064
+	bool "MSM 8064 GSS restart driver"
+	depends on (ARCH_APQ8064)
+	help
+	 This option enables the gps subsystem restart driver for APQ8064, which monitors
+	 gss hardware watchdog interrupt lines and plugs into the subsystem
+	 restart and PIL drivers.
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
