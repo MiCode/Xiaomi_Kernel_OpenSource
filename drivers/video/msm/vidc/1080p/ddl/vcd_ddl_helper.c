@@ -14,7 +14,7 @@
 #include <mach/msm_memtypes.h>
 #include "vcd_ddl.h"
 #include "vcd_ddl_shared_mem.h"
-
+#include "vcd_res_tracker_api.h"
 
 struct ddl_context *ddl_get_context(void)
 {
@@ -639,6 +639,7 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 	u32 status = VCD_S_SUCCESS, dpb = 0;
 	u32 width = 0, height = 0;
 	u8 *ptr;
+	struct ddl_context *ddl_context = ddl->ddl_context;
 
 	dec_bufs = &ddl->codec_data.decoder.hw_bufs;
 	ddl_calc_dec_hw_buffers_size(ddl->codec_data.decoder.
@@ -649,6 +650,11 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 			DDL_KILO_BYTE(2));
 		if (!ptr)
 			status = VCD_ERR_ALLOC_FAIL;
+		msm_ion_do_cache_op(ddl_context->video_ion_client,
+					dec_bufs->context.alloc_handle,
+					dec_bufs->context.virtual_base_addr,
+					dec_bufs->context.buffer_size,
+					ION_IOC_CLEAN_INV_CACHES);
 	}
 	if (buf_size.sz_nb_ip > 0) {
 		dec_bufs->h264_nb_ip.mem_type = DDL_MM_MEM;
@@ -726,9 +732,15 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 			DDL_KILO_BYTE(2));
 		if (!ptr)
 			status = VCD_ERR_ALLOC_FAIL;
-		else
+		else {
 			memset(dec_bufs->desc.align_virtual_addr,
 				   0, buf_size.sz_desc);
+			msm_ion_do_cache_op(ddl_context->video_ion_client,
+						dec_bufs->desc.alloc_handle,
+						dec_bufs->desc.alloc_handle,
+						dec_bufs->desc.buffer_size,
+						ION_IOC_CLEAN_INV_CACHES);
+		}
 	}
 	if (status)
 		ddl_free_dec_hw_buffers(ddl);
@@ -830,6 +842,7 @@ u32 ddl_allocate_enc_hw_buffers(struct ddl_client_context *ddl)
 	struct ddl_enc_buffer_size buf_size;
 	void *ptr;
 	u32 status = VCD_S_SUCCESS;
+	struct ddl_context *ddl_context = ddl->ddl_context;
 
 	enc_bufs = &ddl->codec_data.encoder.hw_bufs;
 	enc_bufs->dpb_count = DDL_ENC_MIN_DPB_BUFFERS;
@@ -908,6 +921,11 @@ u32 ddl_allocate_enc_hw_buffers(struct ddl_client_context *ddl)
 				buf_size.sz_context, DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
+			msm_ion_do_cache_op(ddl_context->video_ion_client,
+					enc_bufs->context.alloc_handle,
+					enc_bufs->context.virtual_base_addr,
+					enc_bufs->context.buffer_size,
+					ION_IOC_CLEAN_INV_CACHES);
 		}
 		if (status)
 			ddl_free_enc_hw_buffers(ddl);
