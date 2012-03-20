@@ -156,6 +156,7 @@ struct etm_ctx {
 	bool				enabled;
 	struct wake_lock		wake_lock;
 	struct pm_qos_request_list	qos_req;
+	struct qdss_source		*src;
 	struct mutex			mutex;
 	struct device			*dev;
 	struct kobject			*kobj;
@@ -339,10 +340,6 @@ static int etm_enable(void)
 		goto err;
 	}
 
-	ret = qdss_clk_enable();
-	if (ret)
-		goto err;
-
 	wake_lock(&etm.wake_lock);
 	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is enabled atomically
@@ -353,11 +350,10 @@ static int etm_enable(void)
 	 */
 	pm_qos_update_request(&etm.qos_req, 0);
 
-	etb_disable();
-	tpiu_disable();
-	/* enable ETB first to avoid loosing any trace data */
-	etb_enable();
-	funnel_enable(0x0, 0x3);
+	ret = qdss_enable(etm.src);
+	if (ret)
+		goto err_qdss;
+
 	for_each_online_cpu(cpu)
 		__etm_enable(cpu);
 
@@ -368,6 +364,10 @@ static int etm_enable(void)
 
 	dev_info(etm.dev, "ETM tracing enabled\n");
 	return 0;
+
+err_qdss:
+	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
+	wake_unlock(&etm.wake_lock);
 err:
 	return ret;
 }
@@ -407,16 +407,13 @@ static int etm_disable(void)
 
 	for_each_online_cpu(cpu)
 		__etm_disable(cpu);
-	etb_dump();
-	etb_disable();
-	funnel_disable(0x0, 0x3);
+
+	qdss_disable(etm.src);
 
 	etm.enabled = false;
 
 	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&etm.wake_lock);
-
-	qdss_clk_disable();
 
 	dev_info(etm.dev, "ETM tracing disabled\n");
 	return 0;
@@ -1249,6 +1246,12 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	wake_lock_init(&etm.wake_lock, WAKE_LOCK_SUSPEND, "msm_etm");
 	pm_qos_add_request(&etm.qos_req, PM_QOS_CPU_DMA_LATENCY,
 						PM_QOS_DEFAULT_VALUE);
+	etm.src = qdss_get("msm_etm");
+	if (IS_ERR(etm.src)) {
+		ret = PTR_ERR(etm.src);
+		goto err_qdssget;
+	}
+
 	ret = qdss_clk_enable();
 	if (ret)
 		goto err_clk;
@@ -1276,6 +1279,8 @@ err_sysfs:
 err_arch:
 	qdss_clk_disable();
 err_clk:
+	qdss_put(etm.src);
+err_qdssget:
 	pm_qos_remove_request(&etm.qos_req);
 	wake_lock_destroy(&etm.wake_lock);
 	mutex_destroy(&etm.mutex);
@@ -1291,6 +1296,7 @@ static int __devexit etm_remove(struct platform_device *pdev)
 	if (etm.enabled)
 		etm_disable();
 	etm_sysfs_exit();
+	qdss_put(etm.src);
 	pm_qos_remove_request(&etm.qos_req);
 	wake_lock_destroy(&etm.wake_lock);
 	mutex_destroy(&etm.mutex);
