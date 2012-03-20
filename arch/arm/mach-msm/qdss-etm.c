@@ -19,21 +19,22 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/fs.h>
-#include <linux/miscdevice.h>
-#include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/smp.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
-#include <asm/atomic.h>
+#include <linux/sysfs.h>
+#include <linux/stat.h>
+#include <asm/sections.h>
+#include <mach/socinfo.h>
 
 #include "qdss.h"
 
-#define ptm_writel(ptm, cpu, val, off)	\
-			__raw_writel((val), ptm.base + (SZ_4K * cpu) + off)
-#define ptm_readl(ptm, cpu, off)	\
-			__raw_readl(ptm.base + (SZ_4K * cpu) + off)
+#define etm_writel(etm, cpu, val, off)	\
+			__raw_writel((val), etm.base + (SZ_4K * cpu) + off)
+#define etm_readl(etm, cpu, off)	\
+			__raw_readl(etm.base + (SZ_4K * cpu) + off)
 
 /*
  * Device registers:
@@ -99,92 +100,120 @@
 #define ETMPDCR			(0x310)
 #define ETMPDSR			(0x314)
 
-#define PTM_LOCK(cpu)							\
+#define ETM_MAX_ADDR_CMP	(16)
+#define ETM_MAX_CNTR		(4)
+#define ETM_MAX_CTXID_CMP	(3)
+
+#define ETM_MODE_EXCLUDE	BIT(0)
+#define ETM_MODE_CYCACC		BIT(1)
+#define ETM_MODE_STALL		BIT(2)
+#define ETM_MODE_TIMESTAMP	BIT(3)
+#define ETM_MODE_CTXID		BIT(4)
+#define ETM_MODE_ALL		(0x1F)
+
+#define ETM_EVENT_MASK		(0x1FFFF)
+#define ETM_SYNC_MASK		(0xFFF)
+#define ETM_ALL_MASK		(0xFFFFFFFF)
+
+#define ETM_SEQ_STATE_MAX_VAL	(0x2)
+
+enum {
+	ETM_ADDR_TYPE_NONE,
+	ETM_ADDR_TYPE_SINGLE,
+	ETM_ADDR_TYPE_RANGE,
+	ETM_ADDR_TYPE_START,
+	ETM_ADDR_TYPE_STOP,
+};
+
+#define ETM_LOCK(cpu)							\
 do {									\
 	mb();								\
-	ptm_writel(ptm, cpu, 0x0, CS_LAR);				\
+	etm_writel(etm, cpu, 0x0, CS_LAR);				\
 } while (0)
-#define PTM_UNLOCK(cpu)							\
+#define ETM_UNLOCK(cpu)							\
 do {									\
-	ptm_writel(ptm, cpu, CS_UNLOCK_MAGIC, CS_LAR);			\
+	etm_writel(etm, cpu, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
 
-/* Forward declarations */
-static void ptm_cfg_rw_init(void);
+#ifdef MODULE_PARAM_PREFIX
+#undef MODULE_PARAM_PREFIX
+#endif
+#define MODULE_PARAM_PREFIX "qdss."
 
 #ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
-static int trace_on_boot = 1;
+static int etm_boot_enable = 1;
 #else
-static int trace_on_boot;
+static int etm_boot_enable;
 #endif
 module_param_named(
-	trace_on_boot, trace_on_boot, int, S_IRUGO
+	etm_boot_enable, etm_boot_enable, int, S_IRUGO
 );
 
-struct ptm_config {
-	/* read only config registers */
-	uint32_t	config_code;
-	/* derived values */
-	uint8_t		nr_addr_comp;
-	uint8_t		nr_cntr;
-	uint8_t		nr_ext_input;
-	uint8_t		nr_ext_output;
-	uint8_t		nr_context_id_comp;
-
-	uint32_t	config_code_extn;
-	/* derived values */
-	uint8_t		nr_extnd_ext_input_sel;
-	uint8_t		nr_instr_resources;
-
-	uint32_t	system_config;
-	/* derived values */
-	uint8_t		fifofull_supported;
-	uint8_t		nr_procs_supported;
-
-	/* read-write registers */
-	uint32_t	main_control;
-	uint32_t	trigger_event;
-	uint32_t	te_start_stop_control;
-	uint32_t	te_event;
-	uint32_t	te_control;
-	uint32_t	fifofull_level;
-	uint32_t	addr_comp_value[16];
-	uint32_t	addr_comp_access_type[16];
-	uint32_t	cntr_reload_value[4];
-	uint32_t	cntr_enable_event[4];
-	uint32_t	cntr_reload_event[4];
-	uint32_t	cntr_value[4];
-	uint32_t	seq_state_12_event;
-	uint32_t	seq_state_21_event;
-	uint32_t	seq_state_23_event;
-	uint32_t	seq_state_32_event;
-	uint32_t	seq_state_13_event;
-	uint32_t	seq_state_31_event;
-	uint32_t	current_seq_state;
-	uint32_t	ext_output_event[4];
-	uint32_t	context_id_comp_value[3];
-	uint32_t	context_id_comp_mask;
-	uint32_t	sync_freq;
-	uint32_t	extnd_ext_input_sel;
-	uint32_t	ts_event;
-	uint32_t	aux_control;
-	uint32_t	coresight_trace_id;
-	uint32_t	vmid_comp_value;
-};
-
-struct ptm_ctx {
-	struct ptm_config		cfg;
+struct etm_ctx {
 	void __iomem			*base;
-	bool				trace_enabled;
+	bool				enabled;
 	struct wake_lock		wake_lock;
 	struct pm_qos_request_list	qos_req;
-	atomic_t			in_use;
+	struct mutex			mutex;
 	struct device			*dev;
+	struct kobject			*kobj;
+	uint8_t				arch;
+	uint8_t				nr_addr_cmp;
+	uint8_t				nr_cntr;
+	uint8_t				nr_ext_inp;
+	uint8_t				nr_ext_out;
+	uint8_t				nr_ctxid_cmp;
+	uint8_t				reset;
+	uint32_t			mode;
+	uint32_t			ctrl;
+	uint32_t			trigger_event;
+	uint32_t			startstop_ctrl;
+	uint32_t			enable_event;
+	uint32_t			enable_ctrl1;
+	uint32_t			fifofull_level;
+	uint8_t				addr_idx;
+	uint32_t			addr_val[ETM_MAX_ADDR_CMP];
+	uint32_t			addr_acctype[ETM_MAX_ADDR_CMP];
+	uint32_t			addr_type[ETM_MAX_ADDR_CMP];
+	uint8_t				cntr_idx;
+	uint32_t			cntr_rld_val[ETM_MAX_CNTR];
+	uint32_t			cntr_event[ETM_MAX_CNTR];
+	uint32_t			cntr_rld_event[ETM_MAX_CNTR];
+	uint32_t			cntr_val[ETM_MAX_CNTR];
+	uint32_t			seq_12_event;
+	uint32_t			seq_21_event;
+	uint32_t			seq_23_event;
+	uint32_t			seq_31_event;
+	uint32_t			seq_32_event;
+	uint32_t			seq_13_event;
+	uint32_t			seq_curr_state;
+	uint8_t				ctxid_idx;
+	uint32_t			ctxid_val[ETM_MAX_CTXID_CMP];
+	uint32_t			ctxid_mask;
+	uint32_t			sync_freq;
+	uint32_t			timestamp_event;
 };
 
-static struct ptm_ctx ptm;
+static struct etm_ctx etm = {
+	.trigger_event		= 0x406F,
+	.enable_event		= 0x6F,
+	.enable_ctrl1		= 0x1,
+	.fifofull_level		= 0x28,
+	.addr_val		= {(uint32_t) _stext, (uint32_t) _etext},
+	.addr_type		= {ETM_ADDR_TYPE_RANGE, ETM_ADDR_TYPE_RANGE},
+	.cntr_event		= {[0 ... (ETM_MAX_CNTR - 1)] = 0x406F},
+	.cntr_rld_event		= {[0 ... (ETM_MAX_CNTR - 1)] = 0x406F},
+	.seq_12_event		= 0x406F,
+	.seq_21_event		= 0x406F,
+	.seq_23_event		= 0x406F,
+	.seq_31_event		= 0x406F,
+	.seq_32_event		= 0x406F,
+	.seq_13_event		= 0x406F,
+	.sync_freq		= 0x80,
+	.timestamp_event	= 0x406F,
+};
 
 
 /* ETM clock is derived from the processor clock and gets enabled on a
@@ -202,117 +231,119 @@ static struct ptm_ctx ptm;
  * clock vote in the driver and the save-restore code uses 1. above
  * for its vote
  */
-static void ptm_set_powerdown(int cpu)
+static void etm_set_pwrdwn(int cpu)
 {
 	uint32_t etmcr;
 
-	etmcr = ptm_readl(ptm, cpu, ETMCR);
+	etmcr = etm_readl(etm, cpu, ETMCR);
 	etmcr |= BIT(0);
-	ptm_writel(ptm, cpu, etmcr, ETMCR);
+	etm_writel(etm, cpu, etmcr, ETMCR);
 }
 
-static void ptm_clear_powerdown(int cpu)
+static void etm_clr_pwrdwn(int cpu)
 {
 	uint32_t etmcr;
 
-	etmcr = ptm_readl(ptm, cpu, ETMCR);
+	etmcr = etm_readl(etm, cpu, ETMCR);
 	etmcr &= ~BIT(0);
-	ptm_writel(ptm, cpu, etmcr, ETMCR);
+	etm_writel(etm, cpu, etmcr, ETMCR);
 }
 
-static void ptm_set_prog(int cpu)
+static void etm_set_prog(int cpu)
 {
 	uint32_t etmcr;
 	int count;
 
-	etmcr = ptm_readl(ptm, cpu, ETMCR);
+	etmcr = etm_readl(etm, cpu, ETMCR);
 	etmcr |= BIT(10);
-	ptm_writel(ptm, cpu, etmcr, ETMCR);
+	etm_writel(etm, cpu, etmcr, ETMCR);
 
-	for (count = TIMEOUT_US; BVAL(ptm_readl(ptm, cpu, ETMSR), 1) != 1
+	for (count = TIMEOUT_US; BVAL(etm_readl(etm, cpu, ETMSR), 1) != 1
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while setting prog bit\n");
+	WARN(count == 0, "timeout while setting prog bit, ETMSR: %#x\n",
+	     etm_readl(etm, cpu, ETMSR));
 }
 
-static void ptm_clear_prog(int cpu)
+static void etm_clr_prog(int cpu)
 {
 	uint32_t etmcr;
 	int count;
 
-	etmcr = ptm_readl(ptm, cpu, ETMCR);
+	etmcr = etm_readl(etm, cpu, ETMCR);
 	etmcr &= ~BIT(10);
-	ptm_writel(ptm, cpu, etmcr, ETMCR);
+	etm_writel(etm, cpu, etmcr, ETMCR);
 
-	for (count = TIMEOUT_US; BVAL(ptm_readl(ptm, cpu, ETMSR), 1) != 0
+	for (count = TIMEOUT_US; BVAL(etm_readl(etm, cpu, ETMSR), 1) != 0
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while clearing prog bit\n");
+	WARN(count == 0, "timeout while clearing prog bit, ETMSR: %#x\n",
+	     etm_readl(etm, cpu, ETMSR));
 }
 
-static void __ptm_trace_enable(int cpu)
+static void __etm_enable(int cpu)
 {
 	int i;
 
-	PTM_UNLOCK(cpu);
+	ETM_UNLOCK(cpu);
 	/* Vote for ETM power/clock enable */
-	ptm_clear_powerdown(cpu);
-	ptm_set_prog(cpu);
+	etm_clr_pwrdwn(cpu);
+	etm_set_prog(cpu);
 
-	ptm_writel(ptm, cpu, ptm.cfg.main_control | BIT(10), ETMCR);
-	ptm_writel(ptm, cpu, ptm.cfg.trigger_event, ETMTRIGGER);
-	ptm_writel(ptm, cpu, ptm.cfg.te_start_stop_control, ETMTSSCR);
-	ptm_writel(ptm, cpu, ptm.cfg.te_event, ETMTEEVR);
-	ptm_writel(ptm, cpu, ptm.cfg.te_control, ETMTECR1);
-	ptm_writel(ptm, cpu, ptm.cfg.fifofull_level, ETMFFLR);
-	for (i = 0; i < ptm.cfg.nr_addr_comp; i++) {
-		ptm_writel(ptm, cpu, ptm.cfg.addr_comp_value[i], ETMACVRn(i));
-		ptm_writel(ptm, cpu, ptm.cfg.addr_comp_access_type[i],
-							ETMACTRn(i));
+	etm_writel(etm, cpu, etm.ctrl | BIT(10), ETMCR);
+	etm_writel(etm, cpu, etm.trigger_event, ETMTRIGGER);
+	etm_writel(etm, cpu, etm.startstop_ctrl, ETMTSSCR);
+	etm_writel(etm, cpu, etm.enable_event, ETMTEEVR);
+	etm_writel(etm, cpu, etm.enable_ctrl1, ETMTECR1);
+	etm_writel(etm, cpu, etm.fifofull_level, ETMFFLR);
+	for (i = 0; i < etm.nr_addr_cmp; i++) {
+		etm_writel(etm, cpu, etm.addr_val[i], ETMACVRn(i));
+		etm_writel(etm, cpu, etm.addr_acctype[i], ETMACTRn(i));
 	}
-	for (i = 0; i < ptm.cfg.nr_cntr; i++) {
-		ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_value[i],
-							ETMCNTRLDVRn(i));
-		ptm_writel(ptm, cpu, ptm.cfg.cntr_enable_event[i],
-							ETMCNTENRn(i));
-		ptm_writel(ptm, cpu, ptm.cfg.cntr_reload_event[i],
-							ETMCNTRLDEVRn(i));
-		ptm_writel(ptm, cpu, ptm.cfg.cntr_value[i], ETMCNTVRn(i));
+	for (i = 0; i < etm.nr_cntr; i++) {
+		etm_writel(etm, cpu, etm.cntr_rld_val[i], ETMCNTRLDVRn(i));
+		etm_writel(etm, cpu, etm.cntr_event[i], ETMCNTENRn(i));
+		etm_writel(etm, cpu, etm.cntr_rld_event[i], ETMCNTRLDEVRn(i));
+		etm_writel(etm, cpu, etm.cntr_val[i], ETMCNTVRn(i));
 	}
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_12_event, ETMSQ12EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_21_event, ETMSQ21EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_23_event, ETMSQ23EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_32_event, ETMSQ32EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_13_event, ETMSQ13EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.seq_state_31_event, ETMSQ31EVR);
-	ptm_writel(ptm, cpu, ptm.cfg.current_seq_state, ETMSQR);
-	for (i = 0; i < ptm.cfg.nr_ext_output; i++)
-		ptm_writel(ptm, cpu, ptm.cfg.ext_output_event[i],
-							ETMEXTOUTEVRn(i));
-	for (i = 0; i < ptm.cfg.nr_context_id_comp; i++)
-		ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_value[i],
-							ETMCIDCVRn(i));
-	ptm_writel(ptm, cpu, ptm.cfg.context_id_comp_mask, ETMCIDCMR);
-	ptm_writel(ptm, cpu, ptm.cfg.sync_freq, ETMSYNCFR);
-	ptm_writel(ptm, cpu, ptm.cfg.extnd_ext_input_sel, ETMEXTINSELR);
-	ptm_writel(ptm, cpu, ptm.cfg.ts_event, ETMTSEVR);
-	ptm_writel(ptm, cpu, ptm.cfg.aux_control, ETMAUXCR);
-	ptm_writel(ptm, cpu, cpu+1, ETMTRACEIDR);
-	ptm_writel(ptm, cpu, ptm.cfg.vmid_comp_value, ETMVMIDCVR);
+	etm_writel(etm, cpu, etm.seq_12_event, ETMSQ12EVR);
+	etm_writel(etm, cpu, etm.seq_21_event, ETMSQ21EVR);
+	etm_writel(etm, cpu, etm.seq_23_event, ETMSQ23EVR);
+	etm_writel(etm, cpu, etm.seq_31_event, ETMSQ31EVR);
+	etm_writel(etm, cpu, etm.seq_32_event, ETMSQ32EVR);
+	etm_writel(etm, cpu, etm.seq_13_event, ETMSQ13EVR);
+	etm_writel(etm, cpu, etm.seq_curr_state, ETMSQR);
+	for (i = 0; i < etm.nr_ext_out; i++)
+		etm_writel(etm, cpu, 0x0000406F, ETMEXTOUTEVRn(i));
+	for (i = 0; i < etm.nr_ctxid_cmp; i++)
+		etm_writel(etm, cpu, etm.ctxid_val[i], ETMCIDCVRn(i));
+	etm_writel(etm, cpu, etm.ctxid_mask, ETMCIDCMR);
+	etm_writel(etm, cpu, etm.sync_freq, ETMSYNCFR);
+	etm_writel(etm, cpu, 0x00000000, ETMEXTINSELR);
+	etm_writel(etm, cpu, etm.timestamp_event, ETMTSEVR);
+	etm_writel(etm, cpu, 0x00000000, ETMAUXCR);
+	etm_writel(etm, cpu, cpu+1, ETMTRACEIDR);
+	etm_writel(etm, cpu, 0x00000000, ETMVMIDCVR);
 
-	ptm_clear_prog(cpu);
-	PTM_LOCK(cpu);
+	etm_clr_prog(cpu);
+	ETM_LOCK(cpu);
 }
 
-static int ptm_trace_enable(void)
+static int etm_enable(void)
 {
 	int ret, cpu;
 
+	if (etm.enabled) {
+		dev_err(etm.dev, "ETM tracing already enabled\n");
+		ret = -EPERM;
+		goto err;
+	}
+
 	ret = qdss_clk_enable();
 	if (ret)
-		return ret;
+		goto err;
 
-	wake_lock(&ptm.wake_lock);
+	wake_lock(&etm.wake_lock);
 	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is enabled atomically
 	 *
@@ -320,7 +351,7 @@ static int ptm_trace_enable(void)
 	 * operation and to ensure cores where trace is expected to be turned
 	 * on are already hotplugged on
 	 */
-	pm_qos_update_request(&ptm.qos_req, 0);
+	pm_qos_update_request(&etm.qos_req, 0);
 
 	etb_disable();
 	tpiu_disable();
@@ -328,34 +359,43 @@ static int ptm_trace_enable(void)
 	etb_enable();
 	funnel_enable(0x0, 0x3);
 	for_each_online_cpu(cpu)
-		__ptm_trace_enable(cpu);
+		__etm_enable(cpu);
 
-	ptm.trace_enabled = true;
+	etm.enabled = true;
 
-	pm_qos_update_request(&ptm.qos_req, PM_QOS_DEFAULT_VALUE);
-	wake_unlock(&ptm.wake_lock);
+	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
+	wake_unlock(&etm.wake_lock);
 
+	dev_info(etm.dev, "ETM tracing enabled\n");
 	return 0;
+err:
+	return ret;
 }
 
-static void __ptm_trace_disable(int cpu)
+static void __etm_disable(int cpu)
 {
-	PTM_UNLOCK(cpu);
-	ptm_set_prog(cpu);
+	ETM_UNLOCK(cpu);
+	etm_set_prog(cpu);
 
 	/* program trace enable to low by using always false event */
-	ptm_writel(ptm, cpu, 0x6F | BIT(14), ETMTEEVR);
+	etm_writel(etm, cpu, 0x6F | BIT(14), ETMTEEVR);
 
 	/* Vote for ETM power/clock disable */
-	ptm_set_powerdown(cpu);
-	PTM_LOCK(cpu);
+	etm_set_pwrdwn(cpu);
+	ETM_LOCK(cpu);
 }
 
-static void ptm_trace_disable(void)
+static int etm_disable(void)
 {
-	int cpu;
+	int ret, cpu;
 
-	wake_lock(&ptm.wake_lock);
+	if (!etm.enabled) {
+		dev_err(etm.dev, "ETM tracing already disabled\n");
+		ret = -EPERM;
+		goto err;
+	}
+
+	wake_lock(&etm.wake_lock);
 	/* 1. causes all online cpus to come out of idle PC
 	 * 2. prevents idle PC until save restore flag is disabled atomically
 	 *
@@ -363,219 +403,29 @@ static void ptm_trace_disable(void)
 	 * operation and to ensure cores where trace is expected to be turned
 	 * off are already hotplugged on
 	 */
-	pm_qos_update_request(&ptm.qos_req, 0);
+	pm_qos_update_request(&etm.qos_req, 0);
 
 	for_each_online_cpu(cpu)
-		__ptm_trace_disable(cpu);
+		__etm_disable(cpu);
 	etb_dump();
 	etb_disable();
 	funnel_disable(0x0, 0x3);
 
-	ptm.trace_enabled = false;
+	etm.enabled = false;
 
-	pm_qos_update_request(&ptm.qos_req, PM_QOS_DEFAULT_VALUE);
-	wake_unlock(&ptm.wake_lock);
+	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
+	wake_unlock(&etm.wake_lock);
 
 	qdss_clk_disable();
-}
 
-static int ptm_open(struct inode *inode, struct file *file)
-{
-	if (atomic_cmpxchg(&ptm.in_use, 0, 1))
-		return -EBUSY;
-
-	dev_dbg(ptm.dev, "%s: successfully opened\n", __func__);
+	dev_info(etm.dev, "ETM tracing disabled\n");
 	return 0;
-}
-
-static void ptm_range_filter(char range, uint32_t reg1,
-				uint32_t addr1, uint32_t reg2, uint32_t addr2)
-{
-	ptm.cfg.addr_comp_value[reg1] = addr1;
-	ptm.cfg.addr_comp_value[reg2] = addr2;
-
-	ptm.cfg.te_control |= (1 << (reg1/2));
-	if (range == 'i')
-		ptm.cfg.te_control &= ~BIT(24);
-	else if (range == 'e')
-		ptm.cfg.te_control |= BIT(24);
-}
-
-static void ptm_start_stop_filter(char start_stop,
-				uint32_t reg, uint32_t addr)
-{
-	ptm.cfg.addr_comp_value[reg] = addr;
-
-	if (start_stop == 's')
-		ptm.cfg.te_start_stop_control |= (1 << reg);
-	else if (start_stop == 't')
-		ptm.cfg.te_start_stop_control |= (1 << (reg + 16));
-
-	ptm.cfg.te_control |= BIT(25);
-}
-
-#define MAX_COMMAND_STRLEN  40
-static ssize_t ptm_write(struct file *file, const char __user *data,
-				size_t len, loff_t *ppos)
-{
-	char command[MAX_COMMAND_STRLEN];
-	int str_len;
-	unsigned long reg1, reg2;
-	unsigned long addr1, addr2;
-
-	str_len = strnlen_user(data, MAX_COMMAND_STRLEN);
-	dev_dbg(ptm.dev, "string length: %d", str_len);
-	if (str_len == 0 || str_len == (MAX_COMMAND_STRLEN+1)) {
-		dev_err(ptm.dev, "error in str_len: %d", str_len);
-		return -EFAULT;
-	}
-	/* includes the null character */
-	if (copy_from_user(command, data, str_len)) {
-		dev_err(ptm.dev, "error in copy_from_user: %d", str_len);
-		return -EFAULT;
-	}
-
-	dev_dbg(ptm.dev, "input = %s", command);
-
-	switch (command[0]) {
-	case '0':
-		if (ptm.trace_enabled) {
-			ptm_trace_disable();
-			dev_info(ptm.dev, "tracing disabled\n");
-		} else
-			dev_err(ptm.dev, "trace already disabled\n");
-
-		break;
-	case '1':
-		if (!ptm.trace_enabled) {
-			if (!ptm_trace_enable())
-				dev_info(ptm.dev, "tracing enabled\n");
-			else
-				dev_err(ptm.dev, "error enabling trace\n");
-		} else
-			dev_err(ptm.dev, "trace already enabled\n");
-		break;
-	case 'f':
-		switch (command[2]) {
-		case 'i':
-			switch (command[4]) {
-			case 'i':
-				if (sscanf(&command[6], "%lx:%lx:%lx:%lx\\0",
-					&reg1, &addr1, &reg2, &addr2) != 4)
-					goto err_out;
-				if (reg1 > 7 || reg2 > 7 || (reg1 % 2))
-					goto err_out;
-				ptm_range_filter('i',
-						reg1, addr1, reg2, addr2);
-				break;
-			case 'e':
-				if (sscanf(&command[6], "%lx:%lx:%lx:%lx\\0",
-					&reg1, &addr1, &reg2, &addr2) != 4)
-					goto err_out;
-				if (reg1 > 7 || reg2 > 7 || (reg1 % 2)
-					|| command[2] == 'd')
-					goto err_out;
-				ptm_range_filter('e',
-						reg1, addr1, reg2, addr2);
-				break;
-			case 's':
-				if (sscanf(&command[6], "%lx:%lx\\0",
-					&reg1, &addr1) != 2)
-					goto err_out;
-				if (reg1 > 7)
-					goto err_out;
-				ptm_start_stop_filter('s', reg1, addr1);
-				break;
-			case 't':
-				if (sscanf(&command[6], "%lx:%lx\\0",
-						&reg1, &addr1) != 2)
-					goto err_out;
-				if (reg1 > 7)
-					goto err_out;
-				ptm_start_stop_filter('t', reg1, addr1);
-				break;
-			default:
-				goto err_out;
-			}
-			break;
-		case 'r':
-			ptm_cfg_rw_init();
-			break;
-		default:
-			goto err_out;
-		}
-		break;
-	default:
-		goto err_out;
-	}
-
-	return len;
-
-err_out:
-	return -EFAULT;
-}
-
-static int ptm_release(struct inode *inode, struct file *file)
-{
-	atomic_set(&ptm.in_use, 0);
-	dev_dbg(ptm.dev, "%s: released\n", __func__);
-	return 0;
-}
-
-static const struct file_operations ptm_fops = {
-	.owner =	THIS_MODULE,
-	.open =		ptm_open,
-	.write =	ptm_write,
-	.release =	ptm_release,
-};
-
-static struct miscdevice ptm_misc = {
-	.name =		"msm_ptm",
-	.minor =	MISC_DYNAMIC_MINOR,
-	.fops =		&ptm_fops,
-};
-
-static void ptm_cfg_rw_init(void)
-{
-	int i;
-
-	ptm.cfg.main_control =				0x00001000;
-	ptm.cfg.trigger_event =				0x0000406F;
-	ptm.cfg.te_start_stop_control =			0x00000000;
-	ptm.cfg.te_event =				0x0000006F;
-	ptm.cfg.te_control =				0x01000000;
-	ptm.cfg.fifofull_level =			0x00000028;
-	for (i = 0; i < ptm.cfg.nr_addr_comp; i++) {
-		ptm.cfg.addr_comp_value[i] =		0x00000000;
-		ptm.cfg.addr_comp_access_type[i] =	0x00000000;
-	}
-	for (i = 0; i < ptm.cfg.nr_cntr; i++) {
-		ptm.cfg.cntr_reload_value[i] =		0x00000000;
-		ptm.cfg.cntr_enable_event[i] =		0x0000406F;
-		ptm.cfg.cntr_reload_event[i] =		0x0000406F;
-		ptm.cfg.cntr_value[i] =			0x00000000;
-	}
-	ptm.cfg.seq_state_12_event =			0x0000406F;
-	ptm.cfg.seq_state_21_event =			0x0000406F;
-	ptm.cfg.seq_state_23_event =			0x0000406F;
-	ptm.cfg.seq_state_32_event =			0x0000406F;
-	ptm.cfg.seq_state_13_event =			0x0000406F;
-	ptm.cfg.seq_state_31_event =			0x0000406F;
-	ptm.cfg.current_seq_state =			0x00000000;
-	for (i = 0; i < ptm.cfg.nr_ext_output; i++)
-		ptm.cfg.ext_output_event[i] =		0x0000406F;
-	for (i = 0; i < ptm.cfg.nr_context_id_comp; i++)
-		ptm.cfg.context_id_comp_value[i] =	0x00000000;
-	ptm.cfg.context_id_comp_mask =			0x00000000;
-	ptm.cfg.sync_freq =				0x00000080;
-	ptm.cfg.extnd_ext_input_sel =			0x00000000;
-	ptm.cfg.ts_event =				0x0000406F;
-	ptm.cfg.aux_control =				0x00000000;
-	ptm.cfg.vmid_comp_value =			0x00000000;
+err:
+	return ret;
 }
 
 /* Memory mapped writes to clear os lock not supported */
-static void ptm_os_unlock(void *unused)
+static void etm_os_unlock(void *unused)
 {
 	unsigned long value = 0x0;
 
@@ -583,42 +433,800 @@ static void ptm_os_unlock(void *unused)
 	asm("isb\n\t");
 }
 
-static void ptm_cfg_ro_init(void)
-{
-	/* use cpu 0 for setup */
-	int cpu = 0;
-
-	/* Unlock OS lock first to allow memory mapped reads and writes */
-	ptm_os_unlock(NULL);
-	smp_call_function(ptm_os_unlock, NULL, 1);
-	PTM_UNLOCK(cpu);
-	/* Vote for ETM power/clock enable */
-	ptm_clear_powerdown(cpu);
-	ptm_set_prog(cpu);
-
-	/* find all capabilities */
-	ptm.cfg.config_code	=	ptm_readl(ptm, cpu, ETMCCR);
-	ptm.cfg.nr_addr_comp =		BMVAL(ptm.cfg.config_code, 0, 3) * 2;
-	ptm.cfg.nr_cntr =		BMVAL(ptm.cfg.config_code, 13, 15);
-	ptm.cfg.nr_ext_input =		BMVAL(ptm.cfg.config_code, 17, 19);
-	ptm.cfg.nr_ext_output =		BMVAL(ptm.cfg.config_code, 20, 22);
-	ptm.cfg.nr_context_id_comp =	BMVAL(ptm.cfg.config_code, 24, 25);
-
-	ptm.cfg.config_code_extn =	ptm_readl(ptm, cpu, ETMCCER);
-	ptm.cfg.nr_extnd_ext_input_sel =
-					BMVAL(ptm.cfg.config_code_extn, 0, 2);
-	ptm.cfg.nr_instr_resources =	BMVAL(ptm.cfg.config_code_extn, 13, 15);
-
-	ptm.cfg.system_config =		ptm_readl(ptm, cpu, ETMSCR);
-	ptm.cfg.fifofull_supported =	BVAL(ptm.cfg.system_config, 8);
-	ptm.cfg.nr_procs_supported =	BMVAL(ptm.cfg.system_config, 12, 14);
-
-	/* Vote for ETM power/clock disable */
-	ptm_set_powerdown(cpu);
-	PTM_LOCK(cpu);
+#define ETM_STORE(__name, mask)						\
+static ssize_t __name##_store(struct kobject *kobj,			\
+			struct kobj_attribute *attr,			\
+			const char *buf, size_t n)			\
+{									\
+	unsigned long val;						\
+									\
+	if (sscanf(buf, "%lx", &val) != 1)				\
+		return -EINVAL;						\
+									\
+	etm.__name = val & mask;					\
+	return n;							\
 }
 
-static int __devinit ptm_probe(struct platform_device *pdev)
+#define ETM_SHOW(__name)						\
+static ssize_t __name##_show(struct kobject *kobj,			\
+			struct kobj_attribute *attr,			\
+			char *buf)					\
+{									\
+	unsigned long val = etm.__name;					\
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);		\
+}
+
+#define ETM_ATTR(__name)						\
+static struct kobj_attribute __name##_attr =				\
+	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+#define ETM_ATTR_RO(__name)						\
+static struct kobj_attribute __name##_attr =				\
+	__ATTR(__name, S_IRUGO, __name##_show, NULL)
+
+static ssize_t enabled_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	int ret = 0;
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	if (val)
+		ret = etm_enable();
+	else
+		ret = etm_disable();
+	mutex_unlock(&etm.mutex);
+
+	if (ret)
+		return ret;
+	return n;
+}
+ETM_SHOW(enabled);
+ETM_ATTR(enabled);
+
+ETM_SHOW(nr_addr_cmp);
+ETM_ATTR_RO(nr_addr_cmp);
+ETM_SHOW(nr_cntr);
+ETM_ATTR_RO(nr_cntr);
+ETM_SHOW(nr_ctxid_cmp);
+ETM_ATTR_RO(nr_ctxid_cmp);
+
+/* Reset to trace everything i.e. exclude nothing. */
+static ssize_t reset_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	int i;
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	if (val) {
+		etm.mode = ETM_MODE_EXCLUDE;
+		etm.ctrl = 0x0;
+		if (cpu_is_krait_v1()) {
+			etm.mode |= ETM_MODE_CYCACC;
+			etm.ctrl |= BIT(12);
+		}
+		etm.trigger_event = 0x406F;
+		etm.startstop_ctrl = 0x0;
+		etm.enable_event = 0x6F;
+		etm.enable_ctrl1 = 0x1000000;
+		etm.fifofull_level = 0x28;
+		etm.addr_idx = 0x0;
+		for (i = 0; i < etm.nr_addr_cmp; i++) {
+			etm.addr_val[i] = 0x0;
+			etm.addr_acctype[i] = 0x0;
+			etm.addr_type[i] = ETM_ADDR_TYPE_NONE;
+		}
+		etm.cntr_idx = 0x0;
+		for (i = 0; i < etm.nr_cntr; i++) {
+			etm.cntr_rld_val[i] = 0x0;
+			etm.cntr_event[i] = 0x406F;
+			etm.cntr_rld_event[i] = 0x406F;
+			etm.cntr_val[i] = 0x0;
+		}
+		etm.seq_12_event = 0x406F;
+		etm.seq_21_event = 0x406F;
+		etm.seq_23_event = 0x406F;
+		etm.seq_31_event = 0x406F;
+		etm.seq_32_event = 0x406F;
+		etm.seq_13_event = 0x406F;
+		etm.seq_curr_state = 0x0;
+		etm.ctxid_idx = 0x0;
+		for (i = 0; i < etm.nr_ctxid_cmp; i++)
+			etm.ctxid_val[i] = 0x0;
+		etm.ctxid_mask = 0x0;
+		etm.sync_freq = 0x80;
+		etm.timestamp_event = 0x406F;
+	}
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+ETM_SHOW(reset);
+ETM_ATTR(reset);
+
+static ssize_t mode_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.mode = val & ETM_MODE_ALL;
+
+	if (etm.mode & ETM_MODE_EXCLUDE)
+		etm.enable_ctrl1 |= BIT(24);
+	else
+		etm.enable_ctrl1 &= ~BIT(24);
+
+	if (etm.mode & ETM_MODE_CYCACC)
+		etm.ctrl |= BIT(12);
+	else
+		etm.ctrl &= ~BIT(12);
+
+	if (etm.mode & ETM_MODE_STALL)
+		etm.ctrl |= BIT(7);
+	else
+		etm.ctrl &= ~BIT(7);
+
+	if (etm.mode & ETM_MODE_TIMESTAMP)
+		etm.ctrl |= BIT(28);
+	else
+		etm.ctrl &= ~BIT(28);
+	if (etm.mode & ETM_MODE_CTXID)
+		etm.ctrl |= (BIT(14) | BIT(15));
+	else
+		etm.ctrl &= ~(BIT(14) | BIT(15));
+	mutex_unlock(&etm.mutex);
+
+	return n;
+}
+ETM_SHOW(mode);
+ETM_ATTR(mode);
+
+ETM_STORE(trigger_event, ETM_EVENT_MASK);
+ETM_SHOW(trigger_event);
+ETM_ATTR(trigger_event);
+
+ETM_STORE(enable_event, ETM_EVENT_MASK);
+ETM_SHOW(enable_event);
+ETM_ATTR(enable_event);
+
+ETM_STORE(fifofull_level, ETM_ALL_MASK);
+ETM_SHOW(fifofull_level);
+ETM_ATTR(fifofull_level);
+
+static ssize_t addr_idx_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+	if (val >= etm.nr_addr_cmp)
+		return -EINVAL;
+
+	/* Use mutex to ensure index doesn't change while it gets dereferenced
+	 * multiple times within a mutex block elsewhere.
+	 */
+	mutex_lock(&etm.mutex);
+	etm.addr_idx = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+ETM_SHOW(addr_idx);
+ETM_ATTR(addr_idx);
+
+static ssize_t addr_single_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_SINGLE)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	etm.addr_val[idx] = val;
+	etm.addr_type[idx] = ETM_ADDR_TYPE_SINGLE;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t addr_single_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_SINGLE)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	val = etm.addr_val[idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(addr_single);
+
+static ssize_t addr_range_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val1, val2;
+	uint8_t idx;
+
+	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
+		return -EINVAL;
+	/* lower address comparator cannot have a higher address value */
+	if (val1 > val2)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (idx % 2 != 0) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+	if (!((etm.addr_type[idx] == ETM_ADDR_TYPE_NONE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_NONE) ||
+	      (etm.addr_type[idx] == ETM_ADDR_TYPE_RANGE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_RANGE))) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	etm.addr_val[idx] = val1;
+	etm.addr_type[idx] = ETM_ADDR_TYPE_RANGE;
+	etm.addr_val[idx + 1] = val2;
+	etm.addr_type[idx + 1] = ETM_ADDR_TYPE_RANGE;
+	etm.enable_ctrl1 |= (1 << (idx/2));
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t addr_range_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val1, val2;
+	uint8_t idx;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (idx % 2 != 0) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+	if (!((etm.addr_type[idx] == ETM_ADDR_TYPE_NONE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_NONE) ||
+	      (etm.addr_type[idx] == ETM_ADDR_TYPE_RANGE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_RANGE))) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	val1 = etm.addr_val[idx];
+	val2 = etm.addr_val[idx + 1];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx %#lx\n", val1, val2);
+}
+ETM_ATTR(addr_range);
+
+static ssize_t addr_start_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_START)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	etm.addr_val[idx] = val;
+	etm.addr_type[idx] = ETM_ADDR_TYPE_START;
+	etm.startstop_ctrl |= (1 << idx);
+	etm.enable_ctrl1 |= BIT(25);
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t addr_start_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_START)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	val = etm.addr_val[idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(addr_start);
+
+static ssize_t addr_stop_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_STOP)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	etm.addr_val[idx] = val;
+	etm.addr_type[idx] = ETM_ADDR_TYPE_STOP;
+	etm.startstop_ctrl |= (1 << (idx + 16));
+	etm.enable_ctrl1 |= BIT(25);
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t addr_stop_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_STOP)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	val = etm.addr_val[idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(addr_stop);
+
+static ssize_t addr_acctype_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.addr_acctype[etm.addr_idx] = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t addr_acctype_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.addr_acctype[etm.addr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(addr_acctype);
+
+static ssize_t cntr_idx_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+	if (val >= etm.nr_cntr)
+		return -EINVAL;
+
+	/* Use mutex to ensure index doesn't change while it gets dereferenced
+	 * multiple times within a mutex block elsewhere.
+	 */
+	mutex_lock(&etm.mutex);
+	etm.cntr_idx = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+ETM_SHOW(cntr_idx);
+ETM_ATTR(cntr_idx);
+
+static ssize_t cntr_rld_val_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.cntr_rld_val[etm.cntr_idx] = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t cntr_rld_val_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+	mutex_lock(&etm.mutex);
+	val = etm.cntr_rld_val[etm.cntr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(cntr_rld_val);
+
+static ssize_t cntr_event_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.cntr_event[etm.cntr_idx] = val & ETM_EVENT_MASK;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t cntr_event_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.cntr_event[etm.cntr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(cntr_event);
+
+static ssize_t cntr_rld_event_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.cntr_rld_event[etm.cntr_idx] = val & ETM_EVENT_MASK;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t cntr_rld_event_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.cntr_rld_event[etm.cntr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(cntr_rld_event);
+
+static ssize_t cntr_val_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.cntr_val[etm.cntr_idx] = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t cntr_val_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.cntr_val[etm.cntr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(cntr_val);
+
+ETM_STORE(seq_12_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_12_event);
+ETM_ATTR(seq_12_event);
+
+ETM_STORE(seq_21_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_21_event);
+ETM_ATTR(seq_21_event);
+
+ETM_STORE(seq_23_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_23_event);
+ETM_ATTR(seq_23_event);
+
+ETM_STORE(seq_31_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_31_event);
+ETM_ATTR(seq_31_event);
+
+ETM_STORE(seq_32_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_32_event);
+ETM_ATTR(seq_32_event);
+
+ETM_STORE(seq_13_event, ETM_EVENT_MASK);
+ETM_SHOW(seq_13_event);
+ETM_ATTR(seq_13_event);
+
+static ssize_t seq_curr_state_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+	if (val > ETM_SEQ_STATE_MAX_VAL)
+		return -EINVAL;
+
+	etm.seq_curr_state = val;
+	return n;
+}
+ETM_SHOW(seq_curr_state);
+ETM_ATTR(seq_curr_state);
+
+static ssize_t ctxid_idx_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+	if (val >= etm.nr_ctxid_cmp)
+		return -EINVAL;
+
+	/* Use mutex to ensure index doesn't change while it gets dereferenced
+	 * multiple times within a mutex block elsewhere.
+	 */
+	mutex_lock(&etm.mutex);
+	etm.ctxid_idx = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+ETM_SHOW(ctxid_idx);
+ETM_ATTR(ctxid_idx);
+
+static ssize_t ctxid_val_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&etm.mutex);
+	etm.ctxid_val[etm.ctxid_idx] = val;
+	mutex_unlock(&etm.mutex);
+	return n;
+}
+static ssize_t ctxid_val_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.ctxid_val[etm.ctxid_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETM_ATTR(ctxid_val);
+
+ETM_STORE(ctxid_mask, ETM_ALL_MASK);
+ETM_SHOW(ctxid_mask);
+ETM_ATTR(ctxid_mask);
+
+ETM_STORE(sync_freq, ETM_SYNC_MASK);
+ETM_SHOW(sync_freq);
+ETM_ATTR(sync_freq);
+
+ETM_STORE(timestamp_event, ETM_EVENT_MASK);
+ETM_SHOW(timestamp_event);
+ETM_ATTR(timestamp_event);
+
+static struct attribute *etm_attrs[] = {
+	&nr_addr_cmp_attr.attr,
+	&nr_cntr_attr.attr,
+	&nr_ctxid_cmp_attr.attr,
+	&reset_attr.attr,
+	&mode_attr.attr,
+	&trigger_event_attr.attr,
+	&enable_event_attr.attr,
+	&fifofull_level_attr.attr,
+	&addr_idx_attr.attr,
+	&addr_single_attr.attr,
+	&addr_range_attr.attr,
+	&addr_start_attr.attr,
+	&addr_stop_attr.attr,
+	&addr_acctype_attr.attr,
+	&cntr_idx_attr.attr,
+	&cntr_rld_val_attr.attr,
+	&cntr_event_attr.attr,
+	&cntr_rld_event_attr.attr,
+	&cntr_val_attr.attr,
+	&seq_12_event_attr.attr,
+	&seq_21_event_attr.attr,
+	&seq_23_event_attr.attr,
+	&seq_31_event_attr.attr,
+	&seq_32_event_attr.attr,
+	&seq_13_event_attr.attr,
+	&seq_curr_state_attr.attr,
+	&ctxid_idx_attr.attr,
+	&ctxid_val_attr.attr,
+	&ctxid_mask_attr.attr,
+	&sync_freq_attr.attr,
+	&timestamp_event_attr.attr,
+	NULL,
+};
+
+static struct attribute_group etm_attr_grp = {
+	.attrs = etm_attrs,
+};
+
+static int __init etm_sysfs_init(void)
+{
+	int ret;
+
+	etm.kobj = kobject_create_and_add("etm", qdss_get_modulekobj());
+	if (!etm.kobj) {
+		dev_err(etm.dev, "failed to create ETM sysfs kobject\n");
+		ret = -ENOMEM;
+		goto err_create;
+	}
+
+	ret = sysfs_create_file(etm.kobj, &enabled_attr.attr);
+	if (ret) {
+		dev_err(etm.dev, "failed to create ETM sysfs enabled"
+		" attribute\n");
+		goto err_file;
+	}
+
+	if (sysfs_create_group(etm.kobj, &etm_attr_grp))
+		dev_err(etm.dev, "failed to create ETM sysfs group\n");
+
+	return 0;
+err_file:
+	kobject_put(etm.kobj);
+err_create:
+	return ret;
+}
+
+static void etm_sysfs_exit(void)
+{
+	sysfs_remove_group(etm.kobj, &etm_attr_grp);
+	sysfs_remove_file(etm.kobj, &enabled_attr.attr);
+	kobject_put(etm.kobj);
+}
+
+static bool etm_arch_supported(uint8_t arch)
+{
+	switch (arch) {
+	case PFT_ARCH_V1_1:
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+static int __init etm_arch_init(void)
+{
+	int ret, i;
+	/* use cpu 0 for setup */
+	int cpu = 0;
+	uint32_t etmidr;
+	uint32_t etmccr;
+
+	/* Unlock OS lock first to allow memory mapped reads and writes */
+	etm_os_unlock(NULL);
+	smp_call_function(etm_os_unlock, NULL, 1);
+	ETM_UNLOCK(cpu);
+	/* Vote for ETM power/clock enable */
+	etm_clr_pwrdwn(cpu);
+	/* Set prog bit. It will be set from reset but this is included to
+	 * ensure it is set
+	 */
+	etm_set_prog(cpu);
+
+	/* find all capabilities */
+	etmidr = etm_readl(etm, cpu, ETMIDR);
+	etm.arch = BMVAL(etmidr, 4, 11);
+	if (etm_arch_supported(etm.arch) == false) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	etmccr = etm_readl(etm, cpu, ETMCCR);
+	etm.nr_addr_cmp = BMVAL(etmccr, 0, 3) * 2;
+	etm.nr_cntr = BMVAL(etmccr, 13, 15);
+	etm.nr_ext_inp = BMVAL(etmccr, 17, 19);
+	etm.nr_ext_out = BMVAL(etmccr, 20, 22);
+	etm.nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
+
+	if (cpu_is_krait_v1()) {
+		/* Krait pass1 doesn't support include filtering and non-cycle
+		 * accurate tracing
+		 */
+		etm.mode = (ETM_MODE_EXCLUDE | ETM_MODE_CYCACC);
+		etm.ctrl = 0x1000;
+		etm.enable_ctrl1 = 0x1000000;
+		for (i = 0; i < etm.nr_addr_cmp; i++) {
+			etm.addr_val[i] = 0x0;
+			etm.addr_acctype[i] = 0x0;
+			etm.addr_type[i] = ETM_ADDR_TYPE_NONE;
+		}
+	}
+
+	/* Vote for ETM power/clock disable */
+	etm_set_pwrdwn(cpu);
+	ETM_LOCK(cpu);
+
+	return 0;
+err:
+	return ret;
+}
+
+static int __devinit etm_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *res;
@@ -629,80 +1237,82 @@ static int __devinit ptm_probe(struct platform_device *pdev)
 		goto err_res;
 	}
 
-	ptm.base = ioremap_nocache(res->start, resource_size(res));
-	if (!ptm.base) {
+	etm.base = ioremap_nocache(res->start, resource_size(res));
+	if (!etm.base) {
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
 
-	ptm.dev = &pdev->dev;
+	etm.dev = &pdev->dev;
 
-	ret = misc_register(&ptm_misc);
-	if (ret)
-		goto err_misc;
-
+	mutex_init(&etm.mutex);
+	wake_lock_init(&etm.wake_lock, WAKE_LOCK_SUSPEND, "msm_etm");
+	pm_qos_add_request(&etm.qos_req, PM_QOS_CPU_DMA_LATENCY,
+						PM_QOS_DEFAULT_VALUE);
 	ret = qdss_clk_enable();
 	if (ret)
 		goto err_clk;
 
-	ptm_cfg_ro_init();
-	ptm_cfg_rw_init();
+	ret = etm_arch_init();
+	if (ret)
+		goto err_arch;
 
-	ptm.trace_enabled = false;
+	ret = etm_sysfs_init();
+	if (ret)
+		goto err_sysfs;
 
-	wake_lock_init(&ptm.wake_lock, WAKE_LOCK_SUSPEND, "msm_ptm");
-	pm_qos_add_request(&ptm.qos_req, PM_QOS_CPU_DMA_LATENCY,
-						PM_QOS_DEFAULT_VALUE);
-	atomic_set(&ptm.in_use, 0);
+	etm.enabled = false;
 
 	qdss_clk_disable();
 
-	dev_info(ptm.dev, "PTM intialized.\n");
+	dev_info(etm.dev, "ETM initialized\n");
 
-	if (trace_on_boot) {
-		if (!ptm_trace_enable())
-			dev_info(ptm.dev, "tracing enabled\n");
-		else
-			dev_err(ptm.dev, "error enabling trace\n");
-	}
+	if (etm_boot_enable)
+		etm_enable();
 
 	return 0;
 
+err_sysfs:
+err_arch:
+	qdss_clk_disable();
 err_clk:
-	misc_deregister(&ptm_misc);
-err_misc:
-	iounmap(ptm.base);
+	pm_qos_remove_request(&etm.qos_req);
+	wake_lock_destroy(&etm.wake_lock);
+	mutex_destroy(&etm.mutex);
+	iounmap(etm.base);
 err_ioremap:
 err_res:
+	dev_err(etm.dev, "ETM init failed\n");
 	return ret;
 }
 
-static int ptm_remove(struct platform_device *pdev)
+static int etm_remove(struct platform_device *pdev)
 {
-	if (ptm.trace_enabled)
-		ptm_trace_disable();
-	pm_qos_remove_request(&ptm.qos_req);
-	wake_lock_destroy(&ptm.wake_lock);
-	misc_deregister(&ptm_misc);
-	iounmap(ptm.base);
+	if (etm.enabled)
+		etm_disable();
+	etm_sysfs_exit();
+	pm_qos_remove_request(&etm.qos_req);
+	wake_lock_destroy(&etm.wake_lock);
+	mutex_destroy(&etm.mutex);
+	iounmap(etm.base);
 
 	return 0;
 }
 
-static struct platform_driver ptm_driver = {
-	.probe          = ptm_probe,
-	.remove         = ptm_remove,
+static struct platform_driver etm_driver = {
+	.probe          = etm_probe,
+	.remove         = etm_remove,
 	.driver         = {
-		.name   = "msm_ptm",
+		.name   = "msm_etm",
 	},
 };
 
-int __init ptm_init(void)
+int __init etm_init(void)
 {
-	return platform_driver_register(&ptm_driver);
+	return platform_driver_register(&etm_driver);
 }
 
-void ptm_exit(void)
+void etm_exit(void)
 {
-	platform_driver_unregister(&ptm_driver);
+	platform_driver_unregister(&etm_driver);
 }

@@ -23,19 +23,19 @@
 #define tpiu_writel(tpiu, val, off)	__raw_writel((val), tpiu.base + off)
 #define tpiu_readl(tpiu, off)		__raw_readl(tpiu.base + off)
 
-#define TPIU_SUPPORTED_PORT_SIZE			(0x000)
-#define TPIU_CURRENT_PORT_SIZE				(0x004)
-#define TPIU_SUPPORTED_TRIGGER_MODES			(0x100)
-#define TPIU_TRIGGER_COUNTER_VALUE			(0x104)
-#define TPIU_TRIGGER_MULTIPLIER				(0x108)
-#define TPIU_SUPPORTED_TEST_PATTERNM			(0x200)
-#define TPIU_CURRENT_TEST_PATTERNM			(0x204)
-#define TPIU_TEST_PATTERN_REPEAT_COUNTER		(0x208)
-#define TPIU_FORMATTER_AND_FLUSH_STATUS			(0x300)
-#define TPIU_FORMATTER_AND_FLUSH_CONTROL		(0x304)
-#define TPIU_FORMATTER_SYNCHRONIZATION_COUNTER		(0x308)
-#define TPIU_EXTCTL_IN_PORT				(0x400)
-#define TPIU_EXTCTL_OUT_PORT				(0x404)
+#define TPIU_SUPP_PORTSZ				(0x000)
+#define TPIU_CURR_PORTSZ				(0x004)
+#define TPIU_SUPP_TRIGMODES				(0x100)
+#define TPIU_TRIG_CNTRVAL				(0x104)
+#define TPIU_TRIG_MULT					(0x108)
+#define TPIU_SUPP_TESTPATM				(0x200)
+#define TPIU_CURR_TESTPATM				(0x204)
+#define TPIU_TEST_PATREPCNTR				(0x208)
+#define TPIU_FFSR					(0x300)
+#define TPIU_FFCR					(0x304)
+#define TPIU_FSYNC_CNTR					(0x308)
+#define TPIU_EXTCTL_INPORT				(0x400)
+#define TPIU_EXTCTL_OUTPORT				(0x404)
 #define TPIU_ITTRFLINACK				(0xEE4)
 #define TPIU_ITTRFLIN					(0xEE8)
 #define TPIU_ITATBDATA0					(0xEEC)
@@ -67,8 +67,8 @@ static void __tpiu_disable(void)
 {
 	TPIU_UNLOCK();
 
-	tpiu_writel(tpiu, 0x3000, TPIU_FORMATTER_AND_FLUSH_CONTROL);
-	tpiu_writel(tpiu, 0x3040, TPIU_FORMATTER_AND_FLUSH_CONTROL);
+	tpiu_writel(tpiu, 0x3000, TPIU_FFCR);
+	tpiu_writel(tpiu, 0x3040, TPIU_FFCR);
 
 	TPIU_LOCK();
 }
@@ -77,7 +77,7 @@ void tpiu_disable(void)
 {
 	__tpiu_disable();
 	tpiu.enabled = false;
-	dev_info(tpiu.dev, "tpiu disabled\n");
+	dev_info(tpiu.dev, "TPIU disabled\n");
 }
 
 static int __devinit tpiu_probe(struct platform_device *pdev)
@@ -99,10 +99,12 @@ static int __devinit tpiu_probe(struct platform_device *pdev)
 
 	tpiu.dev = &pdev->dev;
 
+	dev_info(tpiu.dev, "TPIU initialized\n");
 	return 0;
 
 err_ioremap:
 err_res:
+	dev_err(tpiu.dev, "TPIU init failed\n");
 	return ret;
 }
 

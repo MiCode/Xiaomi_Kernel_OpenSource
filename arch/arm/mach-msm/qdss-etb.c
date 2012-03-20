@@ -69,9 +69,11 @@ struct etb_ctx {
 	void __iomem	*base;
 	bool		enabled;
 	bool		reading;
-	struct mutex	lock;
+	struct mutex	mutex;
 	atomic_t	in_use;
 	struct device	*dev;
+	struct kobject	*kobj;
+	uint32_t	trigger_cntr;
 };
 
 static struct etb_ctx etb;
@@ -89,6 +91,7 @@ static void __etb_enable(void)
 	etb_writel(etb, 0x0, ETB_RAM_WRITE_POINTER);
 	etb_writel(etb, 0x0, ETB_RAM_READ_POINTER);
 
+	etb_writel(etb, etb.trigger_cntr, ETB_TRG);
 	etb_writel(etb, BIT(13) | BIT(0), ETB_FFCR);
 	etb_writel(etb, BIT(0), ETB_CTL_REG);
 
@@ -97,37 +100,48 @@ static void __etb_enable(void)
 
 void etb_enable(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	__etb_enable();
 	etb.enabled = true;
-	dev_info(etb.dev, "etb enabled\n");
-	mutex_unlock(&etb.lock);
+	dev_info(etb.dev, "ETB enabled\n");
+	mutex_unlock(&etb.mutex);
 }
 
 static void __etb_disable(void)
 {
 	int count;
+	uint32_t ffcr;
 
 	ETB_UNLOCK();
 
-	etb_writel(etb, BIT(12) | BIT(13), ETB_FFCR);
+	ffcr = etb_readl(etb, ETB_FFCR);
+	ffcr |= (BIT(12) | BIT(6));
+	etb_writel(etb, ffcr, ETB_FFCR);
+
+	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFCR), 6) != 0
+				&& count > 0; count--)
+		udelay(1);
+	WARN(count == 0, "timeout while flushing ETB, ETB_FFCR: %#x\n",
+	     etb_readl(etb, ETB_FFCR));
+
 	etb_writel(etb, 0x0, ETB_CTL_REG);
 
 	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFSR), 1) != 1
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while disabling etb\n");
+	WARN(count == 0, "timeout while disabling ETB, ETB_FFSR: %#x\n",
+	     etb_readl(etb, ETB_FFSR));
 
 	ETB_LOCK();
 }
 
 void etb_disable(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	__etb_disable();
 	etb.enabled = false;
-	dev_info(etb.dev, "etb disabled\n");
-	mutex_unlock(&etb.lock);
+	dev_info(etb.dev, "ETB disabled\n");
+	mutex_unlock(&etb.mutex);
 }
 
 static void __etb_dump(void)
@@ -186,15 +200,15 @@ static void __etb_dump(void)
 
 void etb_dump(void)
 {
-	mutex_lock(&etb.lock);
+	mutex_lock(&etb.mutex);
 	if (etb.enabled) {
 		__etb_disable();
 		__etb_dump();
 		__etb_enable();
 
-		dev_info(etb.dev, "etb dumped\n");
+		dev_info(etb.dev, "ETB dumped\n");
 	}
-	mutex_unlock(&etb.lock);
+	mutex_unlock(&etb.mutex);
 }
 
 static int etb_open(struct inode *inode, struct file *file)
@@ -254,6 +268,62 @@ static struct miscdevice etb_misc = {
 	.fops =		&etb_fops,
 };
 
+#define ETB_ATTR(__name)						\
+static struct kobj_attribute __name##_attr =				\
+	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+
+static ssize_t trigger_cntr_store(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etb.trigger_cntr = val;
+	return n;
+}
+static ssize_t trigger_cntr_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	unsigned long val = etb.trigger_cntr;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+ETB_ATTR(trigger_cntr);
+
+static int __init etb_sysfs_init(void)
+{
+	int ret;
+
+	etb.kobj = kobject_create_and_add("etb", qdss_get_modulekobj());
+	if (!etb.kobj) {
+		dev_err(etb.dev, "failed to create ETB sysfs kobject\n");
+		ret = -ENOMEM;
+		goto err_create;
+	}
+
+	ret = sysfs_create_file(etb.kobj, &trigger_cntr_attr.attr);
+	if (ret) {
+		dev_err(etb.dev, "failed to create ETB sysfs trigger_cntr"
+		" attribute\n");
+		goto err_file;
+	}
+
+	return 0;
+err_file:
+	kobject_put(etb.kobj);
+err_create:
+	return ret;
+}
+
+static void etb_sysfs_exit(void)
+{
+	sysfs_remove_file(etb.kobj, &trigger_cntr_attr.attr);
+	kobject_put(etb.kobj);
+}
+
 static int __devinit etb_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -273,6 +343,8 @@ static int __devinit etb_probe(struct platform_device *pdev)
 
 	etb.dev = &pdev->dev;
 
+	mutex_init(&etb.mutex);
+
 	ret = misc_register(&etb_misc);
 	if (ret)
 		goto err_misc;
@@ -283,16 +355,19 @@ static int __devinit etb_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
-	mutex_init(&etb.lock);
+	etb_sysfs_init();
 
+	dev_info(etb.dev, "ETB initialized\n");
 	return 0;
 
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
+	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 err_ioremap:
 err_res:
+	dev_err(etb.dev, "ETB init failed\n");
 	return ret;
 }
 
@@ -300,9 +375,10 @@ static int etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
-	mutex_destroy(&etb.lock);
+	etb_sysfs_exit();
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
+	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 
 	return 0;

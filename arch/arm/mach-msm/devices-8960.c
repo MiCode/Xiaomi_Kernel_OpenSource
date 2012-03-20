@@ -3127,7 +3127,7 @@ struct platform_device msm_dsps_device = {
 #define MSM_ETB_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1000)
 #define MSM_TPIU_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x3000)
 #define MSM_FUNNEL_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x4000)
-#define MSM_PTM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+#define MSM_ETM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
 
 static struct resource msm_etb_resources[] = {
 	{
@@ -3174,19 +3174,19 @@ struct platform_device msm_funnel_device = {
 	.resource      = msm_funnel_resources,
 };
 
-static struct resource msm_ptm_resources[] = {
+static struct resource msm_etm_resources[] = {
 	{
-		.start = MSM_PTM_PHYS_BASE,
-		.end   = MSM_PTM_PHYS_BASE + (SZ_4K * 2) - 1,
+		.start = MSM_ETM_PHYS_BASE,
+		.end   = MSM_ETM_PHYS_BASE + (SZ_4K * 2) - 1,
 		.flags = IORESOURCE_MEM,
 	},
 };
 
-struct platform_device msm_ptm_device = {
-	.name          = "msm_ptm",
+struct platform_device msm_etm_device = {
+	.name          = "msm_etm",
 	.id            = 0,
-	.num_resources = ARRAY_SIZE(msm_ptm_resources),
-	.resource      = msm_ptm_resources,
+	.num_resources = ARRAY_SIZE(msm_etm_resources),
+	.resource      = msm_etm_resources,
 };
 
 #endif

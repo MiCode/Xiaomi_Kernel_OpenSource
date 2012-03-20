@@ -64,8 +64,8 @@ int tpiu_init(void);
 void tpiu_exit(void);
 int funnel_init(void);
 void funnel_exit(void);
-int ptm_init(void);
-void ptm_exit(void);
+int etm_init(void);
+void etm_exit(void);
 
 void etb_enable(void);
 void etb_disable(void);
@@ -73,6 +73,8 @@ void etb_dump(void);
 void tpiu_disable(void);
 void funnel_enable(uint8_t id, uint32_t port_mask);
 void funnel_disable(uint8_t id, uint32_t port_mask);
+
+struct kobject *qdss_get_modulekobj(void);
 int qdss_clk_enable(void);
 void qdss_clk_disable(void);
 
