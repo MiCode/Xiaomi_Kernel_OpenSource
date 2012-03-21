@@ -89,4 +89,10 @@ config OF_MTD
 	depends on MTD
 	def_bool y
 
+config OF_SLIMBUS
+	def_tristate SLIMBUS
+	depends on SLIMBUS
+	help
+	  OpenFirmware SLIMBUS accessors
+
 endmenu # OF
