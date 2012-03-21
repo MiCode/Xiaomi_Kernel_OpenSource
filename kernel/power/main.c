@@ -12,6 +12,7 @@
 #include <linux/string.h>
 #include <linux/resume-trace.h>
 #include <linux/workqueue.h>
+#include <linux/hrtimer.h>
 
 #include "power.h"
 
@@ -25,8 +26,11 @@ DEFINE_MUTEX(pm_mutex);
 
 static BLOCKING_NOTIFIER_HEAD(pm_chain_head);
 
-static struct hrtimer in_ev_timer;
-static int input_processed;
+static void touch_event_fn(struct work_struct *work);
+static DECLARE_WORK(touch_event_struct, touch_event_fn);
+
+static struct hrtimer tc_ev_timer;
+static int tc_ev_processed;
 static ktime_t touch_evt_timer_val;
 
 int register_pm_notifier(struct notifier_block *nb)
@@ -77,7 +81,7 @@ static ssize_t
 touch_event_show(struct kobject *kobj,
 		 struct kobj_attribute *attr, char *buf)
 {
-	if (input_processed == 0)
+	if (tc_ev_processed == 0)
 		return snprintf(buf, strnlen("touch_event", MAX_BUF) + 1,
 				"touch_event");
 	else
@@ -91,13 +95,13 @@ touch_event_store(struct kobject *kobj,
 		  const char *buf, size_t n)
 {
 
-	hrtimer_cancel(&in_ev_timer);
-	input_processed = 0;
+	hrtimer_cancel(&tc_ev_timer);
+	tc_ev_processed = 0;
 
 	/* set a timer to notify the userspace to stop processing
 	 * touch event
 	 */
-	hrtimer_start(&in_ev_timer, touch_evt_timer_val, HRTIMER_MODE_REL);
+	hrtimer_start(&tc_ev_timer, touch_evt_timer_val, HRTIMER_MODE_REL);
 
 	/* wakeup the userspace poll */
 	sysfs_notify(kobj, NULL, "touch_event");
@@ -131,11 +135,20 @@ touch_event_timer_store(struct kobject *kobj,
 
 power_attr(touch_event_timer);
 
-static enum hrtimer_restart input_event_stop(struct hrtimer *hrtimer)
+static void touch_event_fn(struct work_struct *work)
 {
 	/* wakeup the userspace poll */
-	input_processed = 1;
+	tc_ev_processed = 1;
 	sysfs_notify(power_kobj, NULL, "touch_event");
+
+	return;
+}
+
+static enum hrtimer_restart tc_ev_stop(struct hrtimer *hrtimer)
+{
+
+	schedule_work(&touch_event_struct);
+
 	return HRTIMER_NORESTART;
 }
 
@@ -434,8 +447,9 @@ static int __init pm_init(void)
 	hibernate_reserved_size_init();
 
 	touch_evt_timer_val = ktime_set(2, 0);
-	hrtimer_init(&in_ev_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	in_ev_timer.function = &input_event_stop;
+	hrtimer_init(&tc_ev_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	tc_ev_timer.function = &tc_ev_stop;
+	tc_ev_processed = 1;
 
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)
