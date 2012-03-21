@@ -586,10 +586,7 @@ static inline void hci_chan_hold(struct hci_chan *chan)
 }
 int hci_chan_put(struct hci_chan *chan);
 
-struct hci_chan *hci_chan_accept(struct hci_conn *hcon,
-				struct hci_ext_fs *tx_fs,
-				struct hci_ext_fs *rx_fs);
-struct hci_chan *hci_chan_create(struct hci_conn *hcon,
+struct hci_chan *hci_chan_create(struct hci_chan *chan,
 				struct hci_ext_fs *tx_fs,
 				struct hci_ext_fs *rx_fs);
 void hci_chan_modify(struct hci_chan *chan,
