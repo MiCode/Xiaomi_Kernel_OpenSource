@@ -160,6 +160,7 @@ static void diag_smd_cntl_send_req(int proc_num)
 						 bindpkt_params), GFP_KERNEL);
 				if (temp == NULL) {
 					pr_alert("diag: Memory alloc fail\n");
+					kfree(pkt_params);
 					return;
 				}
 				for (j = 0; j < pkt_params->count; j++) {
