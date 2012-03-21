@@ -346,6 +346,7 @@ struct mxt_data {
 	u8 t15_min_reportid;
 	u8 cfg_version[MXT_CFG_VERSION_LEN];
 	int cfg_version_idx;
+	int t38_start_addr;
 	bool update_cfg;
 	const char *fw_name;
 };
@@ -1052,8 +1053,10 @@ static int mxt_get_object_table(struct mxt_data *data)
 		/* Calculate index for config major version in config array.
 		 * Major version is the first byte in object T38.
 		 */
-		if (object->type == MXT_SPT_USERDATA_T38)
+		if (object->type == MXT_SPT_USERDATA_T38) {
+			data->t38_start_addr = object->start_address;
 			found_t38 = true;
+		}
 		if (!found_t38 && mxt_object_writable(object->type))
 			data->cfg_version_idx += object->size + 1;
 	}
@@ -1651,6 +1654,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	int error;
 	const char *fw_name;
 	u8 bootldr_id;
+	u8 cfg_version[MXT_CFG_VERSION_LEN] = {0};
 
 	/* If fw_name is set, then the existing firmware has an upgrade */
 	if (!data->fw_name) {
@@ -1700,6 +1704,12 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 		data->object_table = NULL;
 		data->cfg_version_idx = 0;
 		data->update_cfg = false;
+
+		error = __mxt_write_reg(data->client, data->t38_start_addr,
+				sizeof(cfg_version), cfg_version);
+		if (error)
+			dev_err(dev,
+			"Unable to zero out config version after fw upgrade\n");
 
 		mxt_initialize(data);
 	}
