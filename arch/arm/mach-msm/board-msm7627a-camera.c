@@ -1063,9 +1063,8 @@ void __init msm7627a_camera_init(void)
 	pr_debug("msm7627a_camera_init Entered\n");
 	/* LCD and camera power (VREG & LDO) init */
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
-		evb_camera_gpio_cfg();
 		lcd_camera_power_init();
-
+		evb_camera_gpio_cfg();
 	}
 
 #ifndef CONFIG_MSM_CAMERA_V4L2

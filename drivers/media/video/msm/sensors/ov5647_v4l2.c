@@ -515,10 +515,29 @@ static const struct i2c_device_id ov5647_i2c_id[] = {
 	{SENSOR_NAME, (kernel_ulong_t)&ov5647_s_ctrl},
 	{ }
 };
+int32_t ov5647_sensor_i2c_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
+{
+	int32_t rc = 0;
+	struct msm_sensor_ctrl_t *s_ctrl;
+
+	rc = msm_sensor_i2c_probe(client, id);
+
+	if (client->dev.platform_data == NULL) {
+		pr_err("%s: NULL sensor data\n", __func__);
+		return -EFAULT;
+	}
+
+	s_ctrl = client->dev.platform_data;
+	if (s_ctrl->sensordata->pmic_gpio_enable)
+		lcd_camera_power_onoff(0);
+
+	return rc;
+}
 
 static struct i2c_driver ov5647_i2c_driver = {
 	.id_table = ov5647_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = ov5647_sensor_i2c_probe,
 	.driver = {
 		.name = SENSOR_NAME,
 	},
