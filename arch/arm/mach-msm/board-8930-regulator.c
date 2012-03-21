@@ -189,6 +189,9 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
 	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
+VREG_CONSUMERS(VDD_DIG_CORNER) = {
+	REGULATOR_SUPPLY("vdd_dig_corner",	NULL),
+};
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
@@ -358,6 +361,15 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
 
+#define RPM_CORNER(_id, _always_on, _sleep_selectable, _min_uV, _max_uV, \
+		_supply_regulator) \
+	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 0, 0, 0, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8930_NONE, \
+		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, 0)
+
 /* Pin control initialization */
 #define RPM_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
 	{ \
@@ -469,6 +481,10 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	/*	ID     a_on pd ss		    supply */
 	RPM_VS(LVS1,	 0, 1, 0,		    "8038_l11"),
 	RPM_VS(LVS2,	 0, 1, 0,		    "8038_l11"),
+
+	/*	   ID            a_on ss min_corner  max_corner  supply */
+	RPM_CORNER(VDD_DIG_CORNER, 0, 1, RPM_VREG_CORNER_NONE,
+		RPM_VREG_CORNER_HIGH, NULL),
 };
 
 int msm8930_pm8038_regulator_pdata_len __devinitdata =
@@ -479,5 +495,5 @@ struct rpm_regulator_platform_data msm8930_rpm_regulator_pdata __devinitdata = {
 	.num_regulators		= ARRAY_SIZE(msm8930_rpm_regulator_init_data),
 	.version		= RPM_VREG_VERSION_8930,
 	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8038_L24,
-	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8038_S1,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8038_VDD_DIG_CORNER,
 };
