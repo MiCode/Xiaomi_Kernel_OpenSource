@@ -496,6 +496,7 @@ static struct mipi_dsi_panel_platform_data novatek_pdata = {
 	.fpga_ctrl_mode = FPGA_SPI_INTF,
 	.phy_ctrl_settings = &dsi_novatek_cmd_mode_phy_db,
 	.dlane_swap = 0x1,
+	.enable_wled_bl_ctrl = 0x1,
 };
 
 static struct platform_device mipi_dsi_novatek_panel_device = {
