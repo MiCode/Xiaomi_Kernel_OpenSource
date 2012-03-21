@@ -280,7 +280,7 @@ static int shelby_phy_init_seq[] = {
 #define HSIC_BAM_PHY_BASE	0x12542000
 #define A2_BAM_PHY_BASE		0x124C2000
 static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
-#ifndef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
+#ifndef CONFIG_USB_CI13XXX_MSM_HSIC
 	[0][USB_TO_PEER_PERIPHERAL] = {
 		.src_phy_addr = USB_BAM_PHY_BASE,
 		.src_pipe_index = 11,
@@ -407,7 +407,7 @@ static struct usb_bam_pipe_connect msm_usb_bam_connections[4][2] = {
 
 static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 	.connections = &msm_usb_bam_connections[0][0],
-#ifndef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
+#ifndef CONFIG_USB_CI13XXX_MSM_HSIC
 	.usb_active_bam = HSUSB_BAM,
 	.usb_bam_num_pipes = 16,
 #else
@@ -514,7 +514,7 @@ static struct platform_device *common_devices[] = {
 #ifdef CONFIG_LTC4088_CHARGER
 	&msm_device_charger,
 #endif
-#ifndef CONFIG_USB_GADGET_CI13XXX_MSM_HSIC
+#ifndef CONFIG_USB_CI13XXX_MSM_HSIC
 	&msm_device_otg,
 #endif
 	&msm_device_hsic_peripheral,
