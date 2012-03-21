@@ -424,7 +424,8 @@ long diagchar_ioctl(struct file *filp,
 			driver->in_busy_2 = 1;
 			driver->in_busy_qdsp_1 = 1;
 			driver->in_busy_qdsp_2 = 1;
-			driver->in_busy_wcnss = 1;
+			driver->in_busy_wcnss_1 = 1;
+			driver->in_busy_wcnss_2 = 1;
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 1;
 #endif
@@ -434,7 +435,8 @@ long diagchar_ioctl(struct file *filp,
 			driver->in_busy_2 = 0;
 			driver->in_busy_qdsp_1 = 0;
 			driver->in_busy_qdsp_2 = 0;
-			driver->in_busy_wcnss = 0;
+			driver->in_busy_wcnss_1 = 0;
+			driver->in_busy_wcnss_2 = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -465,9 +467,10 @@ long diagchar_ioctl(struct file *filp,
 			diagfwd_disconnect();
 			driver->in_busy_1 = 0;
 			driver->in_busy_2 = 0;
+			driver->in_busy_qdsp_1 = 0;
 			driver->in_busy_qdsp_2 = 0;
-			driver->in_busy_qdsp_2 = 0;
-			driver->in_busy_wcnss = 0;
+			driver->in_busy_wcnss_1 = 0;
+			driver->in_busy_wcnss_2 = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -607,16 +610,27 @@ drop:
 			driver->in_busy_qdsp_2 = 0;
 		}
 		/* copy wncss data */
-		if (driver->in_busy_wcnss == 1) {
+		if (driver->in_busy_wcnss_1 == 1) {
 			num_data++;
 			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_wcnss->length), 4);
+				 (driver->write_ptr_wcnss_1->length), 4);
 			/*Copy the actual data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-							buf_in_wcnss),
-					 driver->write_ptr_wcnss->length);
-			driver->in_busy_wcnss = 0;
+							buf_in_wcnss_1),
+					 driver->write_ptr_wcnss_1->length);
+			driver->in_busy_wcnss_1 = 0;
+		}
+		if (driver->in_busy_wcnss_2 == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+				 (driver->write_ptr_wcnss_2->length), 4);
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
+							buf_in_wcnss_2),
+					 driver->write_ptr_wcnss_2->length);
+			driver->in_busy_wcnss_2 = 0;
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* copy 9K data over SDIO */
