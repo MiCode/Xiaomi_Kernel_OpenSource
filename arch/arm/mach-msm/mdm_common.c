@@ -42,6 +42,8 @@
 
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_MODEM_DELTA	100
+#define MDM_BOOT_TIMEOUT	60000L
+#define MDM_RDUMP_TIMEOUT	60000L
 
 static int mdm_debug_on;
 static struct workqueue_struct *mdm_queue;
@@ -250,8 +252,12 @@ static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 	mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 	mdm_drv->boot_type = CHARM_NORMAL_BOOT;
 	complete(&mdm_needs_reload);
-	wait_for_completion(&mdm_boot);
-	pr_info("%s: mdm modem has been restarted\n", __func__);
+	if (!wait_for_completion_timeout(&mdm_boot,
+			msecs_to_jiffies(MDM_BOOT_TIMEOUT))) {
+		mdm_drv->mdm_boot_status = -ETIMEDOUT;
+		pr_info("%s: mdm modem restart timed out.\n", __func__);
+	} else
+		pr_info("%s: mdm modem has been restarted\n", __func__);
 	INIT_COMPLETION(mdm_boot);
 	return mdm_drv->mdm_boot_status;
 }
@@ -263,7 +269,14 @@ static int mdm_subsys_ramdumps(int want_dumps,
 	if (want_dumps) {
 		mdm_drv->boot_type = CHARM_RAM_DUMPS;
 		complete(&mdm_needs_reload);
-		wait_for_completion(&mdm_ram_dumps);
+		if (!wait_for_completion_timeout(&mdm_ram_dumps,
+				msecs_to_jiffies(MDM_RDUMP_TIMEOUT))) {
+			mdm_drv->mdm_ram_dump_status = -ETIMEDOUT;
+			pr_info("%s: mdm modem ramdumps timed out.\n",
+					__func__);
+		} else
+			pr_info("%s: mdm modem ramdumps completed.\n",
+					__func__);
 		INIT_COMPLETION(mdm_ram_dumps);
 		gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
 		mdm_drv->ops->power_down_mdm_cb(mdm_drv);
