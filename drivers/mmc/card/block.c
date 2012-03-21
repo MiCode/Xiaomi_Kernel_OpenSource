@@ -1540,6 +1540,9 @@ mmc_blk_set_blksize(struct mmc_blk_data *md, struct mmc_card *card)
 {
 	int err;
 
+	if (mmc_card_blockaddr(card) || mmc_card_ddr_mode(card))
+		return 0;
+
 	mmc_claim_host(card->host);
 	err = mmc_set_blocklen(card, 512);
 	mmc_release_host(card->host);
