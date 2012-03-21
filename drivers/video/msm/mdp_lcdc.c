@@ -91,9 +91,9 @@ static int lcdc_suspend(struct msm_panel_data *fb_panel)
 	pr_info("%s: suspending\n", __func__);
 
 	mdp_writel(lcdc->mdp, 0, MDP_LCDC_EN);
-	clk_disable(lcdc->pad_pclk);
-	clk_disable(lcdc->pclk);
-	clk_disable(lcdc->mdp_clk);
+	clk_disable_unprepare(lcdc->pad_pclk);
+	clk_disable_unprepare(lcdc->pclk);
+	clk_disable_unprepare(lcdc->mdp_clk);
 
 	return 0;
 }
@@ -104,9 +104,9 @@ static int lcdc_resume(struct msm_panel_data *fb_panel)
 
 	pr_info("%s: resuming\n", __func__);
 
-	clk_enable(lcdc->mdp_clk);
-	clk_enable(lcdc->pclk);
-	clk_enable(lcdc->pad_pclk);
+	clk_prepare_enable(lcdc->mdp_clk);
+	clk_prepare_enable(lcdc->pclk);
+	clk_prepare_enable(lcdc->pad_pclk);
 	mdp_writel(lcdc->mdp, 1, MDP_LCDC_EN);
 
 	return 0;
@@ -117,9 +117,9 @@ static int lcdc_hw_init(struct mdp_lcdc_info *lcdc)
 	struct msm_panel_data *fb_panel = &lcdc->fb_panel_data;
 	uint32_t dma_cfg;
 
-	clk_enable(lcdc->mdp_clk);
-	clk_enable(lcdc->pclk);
-	clk_enable(lcdc->pad_pclk);
+	clk_prepare_enable(lcdc->mdp_clk);
+	clk_prepare_enable(lcdc->pclk);
+	clk_prepare_enable(lcdc->pad_pclk);
 
 	clk_set_rate(lcdc->pclk, lcdc->parms.clk_rate);
 	clk_set_rate(lcdc->pad_pclk, lcdc->parms.clk_rate);
