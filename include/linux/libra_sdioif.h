@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 
 typedef int (suspend_handler_t)(struct sdio_func *);
 typedef void (resume_handler_t)(struct sdio_func *);
+typedef void (notify_card_removal_t)(void);
 
 int libra_enable_sdio_irq_in_chip(struct sdio_func *func, u8 enable);
 int    libra_sdio_configure(sdio_irq_handler_t libra_sdio_rxhandler,
@@ -74,5 +75,6 @@ void libra_sdio_release_irq(struct sdio_func *func);
 int libra_enable_sdio_irq(struct sdio_func *func, u8 enable);
 void libra_sdio_disable_func(struct sdio_func *func);
 int libra_disable_sdio_irq_capability(struct sdio_func *func, u8 disable);
-
+int libra_sdio_notify_card_removal(
+		notify_card_removal_t *libra_sdio_notify_card_removal_hdlr);
 #endif /* __LIBRA_SDIOIF_H__ */
