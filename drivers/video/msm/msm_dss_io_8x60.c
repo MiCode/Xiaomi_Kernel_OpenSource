@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -579,6 +579,14 @@ void hdmi_msm_init_phy(int video_format)
 
 void hdmi_msm_powerdown_phy(void)
 {
+	/* Assert RESET PHY from controller */
+	HDMI_OUTP_ND(0x02D4, 0x4);
+	udelay(10);
+	/* De-assert RESET PHY from controller */
+	HDMI_OUTP_ND(0x02D4, 0x0);
+	/* Turn off Driver */
+	HDMI_OUTP_ND(0x0308, 0x1F);
+	udelay(10);
 	/* Disable PLL */
 	HDMI_OUTP_ND(0x030C, 0x00);
 	/* Power down PHY */
