@@ -314,11 +314,13 @@ config  MSM_SMP
 config  ARCH_MSM_SCORPIONMP
 	select ARCH_MSM_SCORPION
 	select MSM_SMP
+	select HAVE_ARCH_HAS_CURRENT_TIMER
 	bool
 
 config  ARCH_MSM_KRAITMP
 	select ARCH_MSM_KRAIT
 	select MSM_SMP
+	select HAVE_ARCH_HAS_CURRENT_TIMER
 	bool
 
 config  ARCH_MSM_CORTEXMP
@@ -2193,4 +2195,6 @@ config MSM_DCVS
 	  algorithm and the algorithm returns a frequency for the core which is
 	  passed to the frequency change driver.
 
+config HAVE_ARCH_HAS_CURRENT_TIMER
+	bool
 endif
