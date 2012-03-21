@@ -134,6 +134,50 @@ struct smd_half_channel {
 	unsigned head;
 };
 
+struct smd_half_channel_word_access {
+	unsigned state;
+	unsigned fDSR;
+	unsigned fCTS;
+	unsigned fCD;
+	unsigned fRI;
+	unsigned fHEAD;
+	unsigned fTAIL;
+	unsigned fSTATE;
+	unsigned fBLOCKREADINTR;
+	unsigned tail;
+	unsigned head;
+};
+
+struct smd_half_channel_access {
+	void (*set_state)(volatile void *half_channel, unsigned data);
+	unsigned (*get_state)(volatile void *half_channel);
+	void (*set_fDSR)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fDSR)(volatile void *half_channel);
+	void (*set_fCTS)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fCTS)(volatile void *half_channel);
+	void (*set_fCD)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fCD)(volatile void *half_channel);
+	void (*set_fRI)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fRI)(volatile void *half_channel);
+	void (*set_fHEAD)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fHEAD)(volatile void *half_channel);
+	void (*set_fTAIL)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fTAIL)(volatile void *half_channel);
+	void (*set_fSTATE)(volatile void *half_channel, unsigned char data);
+	unsigned (*get_fSTATE)(volatile void *half_channel);
+	void (*set_fBLOCKREADINTR)(volatile void *half_channel,
+					unsigned char data);
+	unsigned (*get_fBLOCKREADINTR)(volatile void *half_channel);
+	void (*set_tail)(volatile void *half_channel, unsigned data);
+	unsigned (*get_tail)(volatile void *half_channel);
+	void (*set_head)(volatile void *half_channel, unsigned data);
+	unsigned (*get_head)(volatile void *half_channel);
+};
+
+int is_word_access_ch(unsigned ch_type);
+
+struct smd_half_channel_access *get_half_ch_funcs(unsigned ch_type);
+
 struct smem_ram_ptn {
 	char name[16];
 	unsigned start;
