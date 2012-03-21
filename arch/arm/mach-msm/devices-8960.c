@@ -1233,6 +1233,34 @@ struct platform_device msm8960_device_qup_i2c_gsbi3 = {
 	.resource	= resources_qup_i2c_gsbi3,
 };
 
+static struct resource resources_qup_i2c_gsbi9[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI9_PHYS,
+		.end	= MSM_GSBI9_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI9_QUP_PHYS,
+		.end	= MSM_GSBI9_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI9_QUP_IRQ,
+		.end	= GSBI9_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_qup_i2c_gsbi9 = {
+	.name		= "qup_i2c",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi9),
+	.resource	= resources_qup_i2c_gsbi9,
+};
+
 static struct resource resources_qup_i2c_gsbi10[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -2166,7 +2194,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("core_clk",	GSBI6_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",	GSBI7_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",	GSBI8_QUP_CLK,		NULL, OFF),
-	CLK_DUMMY("core_clk",	GSBI9_QUP_CLK,		NULL, OFF),
+	CLK_DUMMY("core_clk",	GSBI9_QUP_CLK,		"qup_i2c.0", OFF),
 	CLK_DUMMY("core_clk",	GSBI10_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",	GSBI11_QUP_CLK,		NULL, OFF),
 	CLK_DUMMY("core_clk",	GSBI12_QUP_CLK,		NULL, OFF),
@@ -2199,7 +2227,7 @@ static struct clk_lookup msm_clocks_8960_dummy[] = {
 	CLK_DUMMY("iface_clk",		GSBI6_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		GSBI7_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		GSBI8_P_CLK,		NULL, OFF),
-	CLK_DUMMY("iface_clk",		GSBI9_P_CLK,		NULL, OFF),
+	CLK_DUMMY("iface_clk",		GSBI9_P_CLK,	 "qup_i2c.0", OFF),
 	CLK_DUMMY("iface_clk",		GSBI10_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_DUMMY("iface_clk",		GSBI12_P_CLK,		NULL, OFF),
