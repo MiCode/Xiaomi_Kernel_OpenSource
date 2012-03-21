@@ -1862,6 +1862,7 @@ static int __init msm_pm_init(void)
 	unsigned int cpu;
 #endif
 	int ret;
+	int val;
 #ifdef CONFIG_CPU_V7
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
@@ -1923,6 +1924,19 @@ static int __init msm_pm_init(void)
 		printk(KERN_ERR "%s: failed to clear interrupt mask, %d\n",
 			__func__, ret);
 		return ret;
+	}
+
+	if (cpu_is_msm8625()) {
+		target_type = TARGET_IS_8625;
+		clean_caches((unsigned long)&target_type, sizeof(target_type),
+				virt_to_phys(&target_type));
+
+		/* Override the DBGNOPOWERDN for each cpu in
+		 * MPA5_GDFS_CNT_VAL register
+		 */
+		val = __raw_readl((MSM_CFG_CTL_BASE + 0x38));
+		val = val | 0x00030000;
+		__raw_writel(val, (MSM_CFG_CTL_BASE + 0x38));
 	}
 
 #ifdef CONFIG_MSM_MEMORY_LOW_POWER_MODE

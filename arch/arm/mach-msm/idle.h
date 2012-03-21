@@ -22,6 +22,10 @@
 #define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
 #endif
 
+#define ON	1
+#define OFF	0
+#define TARGET_IS_8625	1
+
 #ifndef __ASSEMBLY__
 
 int msm_arch_idle(void);
@@ -35,6 +39,7 @@ void msm_pm_boot_entry(void);
 void msm_pm_set_l2_flush_flag(unsigned int flag);
 extern unsigned long msm_pm_pc_pgd;
 extern unsigned long msm_pm_boot_vector[NR_CPUS];
+extern uint32_t target_type;
 #else
 static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
 {
