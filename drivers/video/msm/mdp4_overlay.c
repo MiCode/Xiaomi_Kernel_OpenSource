@@ -2506,7 +2506,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 #endif
 	}
 
-	if (mfd->mdp_rev >= MDP_REV_42 && !mfd->use_ov0_blt &&
+	if (mfd->mdp_rev >= MDP_REV_41 && !mfd->use_ov0_blt &&
 		(pipe->mixer_num == MDP4_MIXER0)) {
 		ctrl->stage[pipe->mixer_num][pipe->mixer_stage] = NULL;
 	} else {
