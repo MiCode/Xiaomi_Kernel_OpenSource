@@ -29,6 +29,8 @@ struct kgsl_process_private;
 
 /** Set if the memdesc describes cached memory */
 #define KGSL_MEMFLAGS_CACHED    0x00000001
+/** Set if the memdesc is mapped into all pagetables */
+#define KGSL_MEMFLAGS_GLOBAL    0x00000002
 
 struct kgsl_memdesc_ops {
 	int (*vmflags)(struct kgsl_memdesc *);
