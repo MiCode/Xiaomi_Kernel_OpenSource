@@ -1,0 +1,60 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msmcopper.dtsi"
+
+/ {
+	model = "Qualcomm MSM Copper RUMI";
+	compatible = "qcom,msmcopper-rumi", "qcom,msmcopper";
+
+	timer {
+		clock-frequency = <5000000>;
+	};
+
+	serial@f991f000 {
+		status = "disable";
+	};
+
+	usb@f9a55000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f980b000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f984b000 {
+		status = "disable";
+	};
+
+	qcom,sps@f998000 {
+		status = "disable";
+	};
+
+	spi@f9924000 {
+		status = "disable";
+	};
+
+	slim@fe12f000 {
+		status = "disable";
+	};
+
+	qcom,spmi@fc4c0000 {
+		status = "disable";
+	};
+
+	i2c@f9966000 {
+		status = "disable";
+	};
+};
