@@ -15,7 +15,7 @@
 
 /*
  * These numbers are used from the kernel command line and sysfs
- * to control filtering. Remove items from here with extreme caution
+ * to control filtering. Remove items from here with extreme caution.
  */
 enum logk_event_type {
 	LOGK_NONE = 0,
@@ -24,8 +24,10 @@ enum logk_event_type {
 	LOGK_LOGBUF = 3,
 	LOGK_HOTPLUG = 4,
 	LOGK_CTXID = 5,
-	LOGK_OTHER = 31,
+	LOGK_TIMESTAMP = 6,
 };
+
+#define LOGTYPE_NOPC 0x80
 
 struct msm_rtb_platform_data {
 	unsigned int size;

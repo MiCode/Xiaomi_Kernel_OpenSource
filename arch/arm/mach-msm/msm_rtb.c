@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/atomic.h>
 #include <asm/io.h>
 #include <asm-generic/sizes.h>
 #include <mach/memory.h>
@@ -76,7 +77,7 @@ module_param_named(enable, msm_rtb.enabled, int, 0644);
 int msm_rtb_event_should_log(enum logk_event_type log_type)
 {
 	return msm_rtb.initialized && msm_rtb.enabled &&
-		((1 << log_type) & msm_rtb.filter);
+		((1 << (log_type & ~LOGTYPE_NOPC)) & msm_rtb.filter);
 }
 EXPORT_SYMBOL(msm_rtb_event_should_log);
 
@@ -109,10 +110,39 @@ static void msm_rtb_write_data(void *data, struct msm_rtb_layout *start)
 	start->data = data;
 }
 
+static void uncached_logk_pc_idx(enum logk_event_type log_type, void *caller,
+				 void *data, int idx)
+{
+	struct msm_rtb_layout *start;
+
+	start = &msm_rtb.rtb[idx & (msm_rtb.nentries - 1)];
+
+	msm_rtb_emit_sentinel(start);
+	msm_rtb_write_type(log_type, start);
+	msm_rtb_write_caller(caller, start);
+	msm_rtb_write_idx(idx, start);
+	msm_rtb_write_data(data, start);
+	mb();
+
+	return;
+}
+
+static void uncached_logk_timestamp(int idx)
+{
+	unsigned long long timestamp;
+	void *timestamp_upper, *timestamp_lower;
+	timestamp = sched_clock();
+	timestamp_lower = (void *)lower_32_bits(timestamp);
+	timestamp_upper = (void *)upper_32_bits(timestamp);
+
+	uncached_logk_pc_idx(LOGK_TIMESTAMP|LOGTYPE_NOPC, timestamp_lower,
+			     timestamp_upper, idx);
+}
+
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
 static int msm_rtb_get_idx(void)
 {
-	int cpu, i;
+	int cpu, i, offset;
 	atomic_t *index;
 
 	/*
@@ -126,15 +156,33 @@ static int msm_rtb_get_idx(void)
 	i = atomic_add_return(msm_rtb.step_size, index);
 	i -= msm_rtb.step_size;
 
+	/* Check if index has wrapped around */
+	offset = (i & (msm_rtb.nentries - 1)) -
+		 ((i - msm_rtb.step_size) & (msm_rtb.nentries - 1));
+	if (offset < 0) {
+		uncached_logk_timestamp(i);
+		i = atomic_add_return(msm_rtb.step_size, index);
+		i -= msm_rtb.step_size;
+	}
+
 	return i;
 }
 #else
 static int msm_rtb_get_idx(void)
 {
-	int i;
+	int i, offset;
 
 	i = atomic_inc_return(&msm_rtb_idx);
 	i--;
+
+	/* Check if index has wrapped around */
+	offset = (i & (msm_rtb.nentries - 1)) -
+		 ((i - 1) & (msm_rtb.nentries - 1));
+	if (offset < 0) {
+		uncached_logk_timestamp(i);
+		i = atomic_inc_return(&msm_rtb_idx);
+		i--;
+	}
 
 	return i;
 }
@@ -144,21 +192,13 @@ int uncached_logk_pc(enum logk_event_type log_type, void *caller,
 				void *data)
 {
 	int i;
-	struct msm_rtb_layout *start;
 
 	if (!msm_rtb_event_should_log(log_type))
 		return 0;
 
 	i = msm_rtb_get_idx();
 
-	start = &msm_rtb.rtb[i & (msm_rtb.nentries - 1)];
-
-	msm_rtb_emit_sentinel(start);
-	msm_rtb_write_type(log_type, start);
-	msm_rtb_write_caller(caller, start);
-	msm_rtb_write_idx(i, start);
-	msm_rtb_write_data(data, start);
-	mb();
+	uncached_logk_pc_idx(log_type, caller, data, i);
 
 	return 1;
 }
