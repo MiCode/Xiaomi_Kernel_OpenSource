@@ -93,6 +93,14 @@
 #define MSM_ION_HEAP_NUM	1
 #endif
 
+#define GPIO_EXPANDER_IRQ_BASE	(PM8821_IRQ_BASE + PM8821_NR_IRQS)
+#define GPIO_EXPANDER_GPIO_BASE	(PM8821_MPP_BASE + PM8821_NR_MPPS)
+#define GPIO_EPM_EXPANDER_BASE	GPIO_EXPANDER_GPIO_BASE
+
+enum {
+	SX150X_EPM,
+};
+
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
 static int __init pmem_kernel_ebi1_size_setup(char *p)
