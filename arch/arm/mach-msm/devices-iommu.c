@@ -1001,59 +1001,45 @@ static int __init iommu_init(void)
 	}
 
 	/* Initialize common devs */
-	ret = platform_add_devices(msm_iommu_common_devs,
-			 ARRAY_SIZE(msm_iommu_common_devs));
-	if (ret != 0)
-		goto failure2;
+	platform_add_devices(msm_iommu_common_devs,
+				ARRAY_SIZE(msm_iommu_common_devs));
 
 	/* Initialize soc-specific devs */
-	if (cpu_is_apq8064()) {
-		ret = platform_add_devices(msm_iommu_8064_devs,
-				 ARRAY_SIZE(msm_iommu_8064_devs));
-	} else {
-		ret = platform_add_devices(msm_iommu_gfx2d_devs,
-				 ARRAY_SIZE(msm_iommu_gfx2d_devs));
+	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+		platform_add_devices(msm_iommu_jpegd_devs,
+				ARRAY_SIZE(msm_iommu_jpegd_devs));
+		platform_add_devices(msm_iommu_gfx2d_devs,
+				ARRAY_SIZE(msm_iommu_gfx2d_devs));
 	}
-	if (ret != 0)
-		goto failure2;
 
-	if (!cpu_is_msm8930()) {
-		ret = platform_add_devices(msm_iommu_jpegd_devs,
-			ARRAY_SIZE(msm_iommu_jpegd_devs));
-
-		if (ret != 0)
-			goto failure2;
+	if (cpu_is_apq8064()) {
+		platform_add_devices(msm_iommu_jpegd_devs,
+				ARRAY_SIZE(msm_iommu_jpegd_devs));
+		platform_add_devices(msm_iommu_8064_devs,
+				ARRAY_SIZE(msm_iommu_8064_devs));
 	}
 
 	/* Initialize common ctx_devs */
 	ret = platform_add_devices(msm_iommu_common_ctx_devs,
-				 ARRAY_SIZE(msm_iommu_common_ctx_devs));
-	if (ret != 0)
-		goto failure2;
+				ARRAY_SIZE(msm_iommu_common_ctx_devs));
 
 	/* Initialize soc-specific ctx_devs */
-	if (cpu_is_apq8064()) {
-		ret = platform_add_devices(msm_iommu_8064_ctx_devs,
-				ARRAY_SIZE(msm_iommu_8064_ctx_devs));
-	} else {
-		ret = platform_add_devices(msm_iommu_gfx2d_ctx_devs,
-					ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs));
+	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+		platform_add_devices(msm_iommu_jpegd_ctx_devs,
+				ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
+		platform_add_devices(msm_iommu_gfx2d_ctx_devs,
+				ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs));
 	}
-	if (ret != 0)
-		goto failure2;
 
-	if (!cpu_is_msm8930()) {
-		ret = platform_add_devices(msm_iommu_jpegd_ctx_devs,
-			ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
-
-		if (ret != 0)
-			goto failure2;
+	if (cpu_is_apq8064()) {
+		platform_add_devices(msm_iommu_jpegd_ctx_devs,
+				ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
+		platform_add_devices(msm_iommu_8064_ctx_devs,
+				ARRAY_SIZE(msm_iommu_8064_ctx_devs));
 	}
 
 	return 0;
 
-failure2:
-	platform_device_unregister(&msm_root_iommu_dev);
 failure:
 	return ret;
 }
@@ -1066,34 +1052,34 @@ static void __exit iommu_exit(void)
 	for (i = 0; i < ARRAY_SIZE(msm_iommu_common_ctx_devs); i++)
 		platform_device_unregister(msm_iommu_common_ctx_devs[i]);
 
-	/* soc-specific ctx_devs. */
-	if (cpu_is_apq8064()) {
-		for (i = 0; i < ARRAY_SIZE(msm_iommu_8064_ctx_devs); i++)
-			platform_device_unregister(msm_iommu_8064_ctx_devs[i]);
-	} else {
-		for (i = 0; i < ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs); i++)
-			platform_device_unregister(msm_iommu_gfx2d_ctx_devs[i]);
-	}
-
-	if (!cpu_is_msm8930()) {
-		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_ctx_devs); i++)
-			platform_device_unregister(msm_iommu_jpegd_ctx_devs[i]);
-	}
-
 	/* Common devs. */
 	for (i = 0; i < ARRAY_SIZE(msm_iommu_common_devs); ++i)
 		platform_device_unregister(msm_iommu_common_devs[i]);
 
-	/* soc-specific devs. */
-	if (cpu_is_apq8064()) {
-		for (i = 0; i < ARRAY_SIZE(msm_iommu_8064_devs); i++)
-			platform_device_unregister(msm_iommu_8064_devs[i]);
-	} else {
+	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs); i++)
+			platform_device_unregister(msm_iommu_gfx2d_ctx_devs[i]);
+
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_ctx_devs); i++)
+			platform_device_unregister(msm_iommu_jpegd_ctx_devs[i]);
+
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_gfx2d_devs); i++)
 			platform_device_unregister(msm_iommu_gfx2d_devs[i]);
+
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_devs); i++)
+			platform_device_unregister(msm_iommu_jpegd_devs[i]);
 	}
 
-	if (!cpu_is_msm8930()) {
+	if (cpu_is_apq8064()) {
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_8064_ctx_devs); i++)
+			platform_device_unregister(msm_iommu_8064_ctx_devs[i]);
+
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_ctx_devs); i++)
+			platform_device_unregister(msm_iommu_jpegd_ctx_devs[i]);
+
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_8064_devs); i++)
+			platform_device_unregister(msm_iommu_8064_devs[i]);
+
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_devs); i++)
 			platform_device_unregister(msm_iommu_jpegd_devs[i]);
 	}
