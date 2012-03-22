@@ -11,6 +11,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -20,6 +21,7 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 #include <linux/regulator/consumer.h>
+#include <linux/platform_device.h>
 
 #include <asm/cpu.h>
 
@@ -734,7 +736,7 @@ static int acpuclk_8x60_set_rate(int cpu, unsigned long rate,
 	}
 
 	/* AVS needs SAW_VCTL to be intitialized correctly, before enable,
-	 * and is not initialized at acpuclk_init().
+	 * and is not initialized during probe.
 	 */
 	if (reason == SETRATE_CPUFREQ)
 		AVS_DISABLE(cpu);
@@ -1062,7 +1064,7 @@ static struct acpuclk_data acpuclk_8x60_data = {
 	.wait_for_irq_khz = MAX_AXI,
 };
 
-static int __init acpuclk_8x60_init(struct acpuclk_soc_data *soc_data)
+static int __init acpuclk_8x60_probe(struct platform_device *pdev)
 {
 	struct clkctl_acpu_speed *max_freq;
 	int cpu;
@@ -1091,6 +1093,15 @@ static int __init acpuclk_8x60_init(struct acpuclk_soc_data *soc_data)
 	return 0;
 }
 
-struct acpuclk_soc_data acpuclk_8x60_soc_data __initdata = {
-	.init = acpuclk_8x60_init,
+static struct platform_driver acpuclk_8x60_driver = {
+	.driver = {
+		.name = "acpuclk-8x60",
+		.owner = THIS_MODULE,
+	},
 };
+
+static int __init acpuclk_8x60_init(void)
+{
+	return platform_driver_probe(&acpuclk_8x60_driver, acpuclk_8x60_probe);
+}
+device_initcall(acpuclk_8x60_init);

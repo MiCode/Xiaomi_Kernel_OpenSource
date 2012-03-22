@@ -202,6 +202,11 @@ struct platform_device msm_device_hsic_host = {
 	},
 };
 
+struct platform_device msm8960_device_acpuclk = {
+	.name		= "acpuclk-8960",
+	.id		= -1,
+};
+
 #define SHARED_IMEM_TZ_BASE 0x2a03f720
 static struct resource tzlog_resources[] = {
 	{

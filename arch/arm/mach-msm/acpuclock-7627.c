@@ -18,6 +18,7 @@
 
 #include <linux/version.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/errno.h>
 #include <linux/string.h>
@@ -27,6 +28,8 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/sort.h>
+#include <linux/platform_device.h>
+
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
@@ -402,7 +405,7 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[NR_CPUS][20];
 
-static void __init cpufreq_table_init(void)
+static void cpufreq_table_init(void)
 {
 	int cpu;
 	for_each_possible_cpu(cpu) {
@@ -693,7 +696,7 @@ out:
 	return rc;
 }
 
-static void __init acpuclk_hw_init(void)
+static void acpuclk_hw_init(void)
 {
 	struct clkctl_acpu_speed *speed;
 	uint32_t div, sel, reg_clksel;
@@ -775,7 +778,7 @@ static unsigned long acpuclk_7627_get_rate(int cpu)
  * Clock driver initialization
  *---------------------------------------------------------------------------*/
 #define MHZ 1000000
-static void __init select_freq_plan(void)
+static void select_freq_plan(void)
 {
 	unsigned long pll_mhz[ACPU_PLL_END];
 	struct pll_freq_tbl_map *t;
@@ -835,7 +838,7 @@ static void __init select_freq_plan(void)
  * Hardware requires the CPU to be dropped to less than MAX_WAIT_FOR_IRQ_KHZ
  * before entering a wait for irq low-power mode. Find a suitable rate.
  */
-static unsigned long __init find_wait_for_irq_khz(void)
+static unsigned long find_wait_for_irq_khz(void)
 {
 	unsigned long found_khz = 0;
 	int i;
@@ -847,7 +850,7 @@ static unsigned long __init find_wait_for_irq_khz(void)
 	return found_khz;
 }
 
-static void __init lpj_init(void)
+static void lpj_init(void)
 {
 	int i = 0, cpu;
 	const struct clkctl_acpu_speed *base_clk = drv_state.current_speed;
@@ -868,7 +871,7 @@ static void __init lpj_init(void)
 	}
 }
 
-static void __init precompute_stepping(void)
+static void precompute_stepping(void)
 {
 	int i, step_idx;
 
@@ -909,7 +912,7 @@ static void __init precompute_stepping(void)
 	}
 }
 
-static void __init print_acpu_freq_tbl(void)
+static void print_acpu_freq_tbl(void)
 {
 	struct clkctl_acpu_speed *t;
 	short down_idx[ACPU_PLL_END];
@@ -947,15 +950,17 @@ static struct acpuclk_data acpuclk_7627_data = {
 	.switch_time_us = 50,
 };
 
-static int __init acpuclk_7627_init(struct acpuclk_soc_data *soc_data)
+static int acpuclk_7627_probe(struct platform_device *pdev)
 {
+	const struct acpuclk_pdata *pdata = pdev->dev.platform_data;
+
 	pr_info("%s()\n", __func__);
 
 	drv_state.ebi1_clk = clk_get(NULL, "ebi1_acpu_clk");
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));
 
 	mutex_init(&drv_state.lock);
-	drv_state.max_speed_delta_khz = soc_data->max_speed_delta_khz;
+	drv_state.max_speed_delta_khz = pdata->max_speed_delta_khz;
 	select_freq_plan();
 	acpuclk_7627_data.wait_for_irq_khz = find_wait_for_irq_khz();
 	precompute_stepping();
@@ -970,23 +975,16 @@ static int __init acpuclk_7627_init(struct acpuclk_soc_data *soc_data)
 	return 0;
 }
 
-struct acpuclk_soc_data acpuclk_7x27_soc_data __initdata = {
-	.max_speed_delta_khz = 400000,
-	.init = acpuclk_7627_init,
+static struct platform_driver acpuclk_7627_driver = {
+	.probe = acpuclk_7627_probe,
+	.driver = {
+		.name = "acpuclk-7627",
+		.owner = THIS_MODULE,
+	},
 };
 
-struct acpuclk_soc_data acpuclk_7x27a_soc_data __initdata = {
-	.max_speed_delta_khz = 400000,
-	.init = acpuclk_7627_init,
-};
-
-struct acpuclk_soc_data acpuclk_7x27aa_soc_data __initdata = {
-	.max_speed_delta_khz = 504000,
-	.init = acpuclk_7627_init,
-};
-
-struct acpuclk_soc_data acpuclk_8625_soc_data __initdata = {
-	/* TODO: Need to update speed delta from H/w Team */
-	.max_speed_delta_khz = 604800,
-	.init = acpuclk_7627_init,
-};
+static int __init acpuclk_7627_init(void)
+{
+	return platform_driver_register(&acpuclk_7627_driver);
+}
+postcore_initcall(acpuclk_7627_init);

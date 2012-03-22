@@ -50,7 +50,6 @@
 #include "devices.h"
 #include "board-9615.h"
 #include "pm.h"
-#include "acpuclock.h"
 #include "pm-boot.h"
 #include <mach/gpiomux.h>
 
@@ -850,6 +849,7 @@ static struct platform_device msm_tsens_device = {
 };
 
 static struct platform_device *common_devices[] = {
+	&msm9615_device_acpuclk,
 	&msm9615_device_dmov,
 	&msm_device_smd,
 #ifdef CONFIG_LTC4088_CHARGER
@@ -979,7 +979,6 @@ static void __init msm9615_common_init(void)
 	msm_device_usb_bam.dev.platform_data = &msm_usb_bam_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm9615_pm8xxx_gpio_mpp_init();
-	acpuclk_init(&acpuclk_9615_soc_data);
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
 	msm9615_init_ar6000pm();

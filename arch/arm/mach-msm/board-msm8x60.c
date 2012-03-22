@@ -99,7 +99,6 @@
 #include "peripheral-loader.h"
 #include <linux/platform_data/qcom_crypto_device.h>
 #include "rpm_resources.h"
-#include "acpuclock.h"
 #include "pm-boot.h"
 #include "board-storage-common-a.h"
 
@@ -5134,6 +5133,7 @@ static struct platform_device *asoc_devices[] __initdata = {
 };
 
 static struct platform_device *surf_devices[] __initdata = {
+	&msm8x60_device_acpuclk,
 	&msm_device_smd,
 	&msm_device_uart_dm12,
 	&msm_pil_q6v3,
@@ -10338,9 +10338,6 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	 */
 	msm8x60_init_buses();
 	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
-	/* CPU frequency control is not supported on simulated targets. */
-	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
-		acpuclk_init(&acpuclk_8x60_soc_data);
 
 	/*
 	 * Enable EBI2 only for boards which make use of it. Leave
