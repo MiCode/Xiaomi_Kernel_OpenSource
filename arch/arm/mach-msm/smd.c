@@ -33,6 +33,7 @@
 #include <linux/uaccess.h>
 #include <linux/kfifo.h>
 #include <linux/wakelock.h>
+#include <linux/notifier.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -334,6 +335,9 @@ static DECLARE_WORK(smsm_cb_work, notify_smsm_cb_clients_worker);
 static DEFINE_MUTEX(smsm_lock);
 static struct smsm_state_info *smsm_states;
 static int spinlocks_initialized;
+static RAW_NOTIFIER_HEAD(smsm_driver_state_notifier_list);
+static DEFINE_MUTEX(smsm_driver_state_notifier_lock);
+static void smsm_driver_state_notify(uint32_t state, void *data);
 
 static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr)
@@ -2306,6 +2310,7 @@ static int smsm_init(void)
 		return i;
 
 	wmb();
+	smsm_driver_state_notify(SMSM_INIT, NULL);
 	return 0;
 }
 
@@ -2764,6 +2769,38 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 }
 EXPORT_SYMBOL(smsm_state_cb_deregister);
 
+int smsm_driver_state_notifier_register(struct notifier_block *nb)
+{
+	int ret;
+	if (!nb)
+		return -EINVAL;
+	mutex_lock(&smsm_driver_state_notifier_lock);
+	ret = raw_notifier_chain_register(&smsm_driver_state_notifier_list, nb);
+	mutex_unlock(&smsm_driver_state_notifier_lock);
+	return ret;
+}
+EXPORT_SYMBOL(smsm_driver_state_notifier_register);
+
+int smsm_driver_state_notifier_unregister(struct notifier_block *nb)
+{
+	int ret;
+	if (!nb)
+		return -EINVAL;
+	mutex_lock(&smsm_driver_state_notifier_lock);
+	ret = raw_notifier_chain_unregister(&smsm_driver_state_notifier_list,
+					    nb);
+	mutex_unlock(&smsm_driver_state_notifier_lock);
+	return ret;
+}
+EXPORT_SYMBOL(smsm_driver_state_notifier_unregister);
+
+static void smsm_driver_state_notify(uint32_t state, void *data)
+{
+	mutex_lock(&smsm_driver_state_notifier_lock);
+	raw_notifier_call_chain(&smsm_driver_state_notifier_list,
+				state, data);
+	mutex_unlock(&smsm_driver_state_notifier_lock);
+}
 
 int smd_core_init(void)
 {
