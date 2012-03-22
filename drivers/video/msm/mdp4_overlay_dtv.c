@@ -368,6 +368,9 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 {
 	int result = 0;
 
+	if (dtv_pipe == NULL)
+		return result;
+
 	pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
 	mdp4_overlay_dtv_ov_done_push(mfd, pipe);
 
