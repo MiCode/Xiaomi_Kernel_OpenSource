@@ -3819,14 +3819,14 @@ static void __init reg_init(void)
 	/* Reset 3D core once more, with its clock enabled. This can
 	 * eventually be done as part of the GDFS footswitch driver. */
 	clk_set_rate(&gfx3d_clk.c, 27000000);
-	clk_enable(&gfx3d_clk.c);
+	clk_prepare_enable(&gfx3d_clk.c);
 	writel_relaxed(BIT(12), SW_RESET_CORE_REG);
 	mb();
 	udelay(5);
 	writel_relaxed(0, SW_RESET_CORE_REG);
 	/* Make sure reset is de-asserted before clock is disabled. */
 	mb();
-	clk_disable(&gfx3d_clk.c);
+	clk_disable_unprepare(&gfx3d_clk.c);
 
 	/* Enable TSSC and PDM PXO sources. */
 	writel_relaxed(BIT(11), TSSC_CLK_CTL_REG);
@@ -3875,7 +3875,7 @@ static int __init msm8660_clock_late_init(void)
 	rc = clk_set_rate(mmfpb_a_clk, 64000000);
 	if (WARN(rc, "mmfpb_a_clk rate was not set (%d)\n", rc))
 		return rc;
-	rc = clk_enable(mmfpb_a_clk);
+	rc = clk_prepare_enable(mmfpb_a_clk);
 	if (WARN(rc, "mmfpb_a_clk not enabled (%d)\n", rc))
 		return rc;
 
