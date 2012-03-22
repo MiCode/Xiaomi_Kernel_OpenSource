@@ -19,16 +19,12 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/workqueue.h>
 #include <linux/clk.h>
-#include <linux/wakelock.h>
 
 #include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-
-#define PROXY_VOTE_TIMEOUT		10000
 
 #define RIVA_PMU_A2XB_CFG		0xB8
 #define RIVA_PMU_A2XB_CFG_EN		BIT(0)
@@ -85,31 +81,35 @@ struct riva_data {
 	unsigned long start_addr;
 	struct clk *xo;
 	bool use_cxo;
-	struct delayed_work work;
 	struct regulator *pll_supply;
 	struct pil_device *pil;
-	struct wake_lock wlock;
 };
 
-static int pil_riva_make_proxy_votes(struct device *dev)
+static bool cxo_is_needed(struct riva_data *drv)
 {
-	struct riva_data *drv = dev_get_drvdata(dev);
+	u32 reg = readl_relaxed(drv->base + RIVA_PMU_CFG);
+	return (reg & RIVA_PMU_CFG_IRIS_XO_MODE)
+		!= RIVA_PMU_CFG_IRIS_XO_MODE_48;
+}
+
+static int pil_riva_make_proxy_vote(struct pil_desc *pil)
+{
+	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
-	wake_lock(&drv->wlock);
+	drv->use_cxo = cxo_is_needed(drv);
 	ret = regulator_enable(drv->pll_supply);
 	if (ret) {
-		dev_err(dev, "failed to enable pll supply\n");
+		dev_err(pil->dev, "failed to enable pll supply\n");
 		goto err;
 	}
 	if (drv->use_cxo) {
 		ret = clk_prepare_enable(drv->xo);
 		if (ret) {
-			dev_err(dev, "failed to enable xo\n");
+			dev_err(pil->dev, "failed to enable xo\n");
 			goto err_clk;
 		}
 	}
-	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
 	return 0;
 err_clk:
 	regulator_disable(drv->pll_supply);
@@ -117,19 +117,12 @@ err:
 	return ret;
 }
 
-static void pil_riva_remove_proxy_votes(struct work_struct *work)
+static void pil_riva_remove_proxy_vote(struct pil_desc *pil)
 {
-	struct riva_data *drv = container_of(work, struct riva_data, work.work);
+	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	regulator_disable(drv->pll_supply);
 	if (drv->use_cxo)
 		clk_disable_unprepare(drv->xo);
-	wake_unlock(&drv->wlock);
-}
-
-static void pil_riva_remove_proxy_votes_now(struct device *dev)
-{
-	struct riva_data *drv = dev_get_drvdata(dev);
-	flush_delayed_work(&drv->work);
 }
 
 static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -139,13 +132,6 @@ static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	drv->start_addr = ehdr->e_entry;
 	return 0;
-}
-
-static bool cxo_is_needed(struct riva_data *drv)
-{
-	u32 reg = readl_relaxed(drv->base + RIVA_PMU_CFG);
-	return (reg & RIVA_PMU_CFG_IRIS_XO_MODE)
-		!= RIVA_PMU_CFG_IRIS_XO_MODE_48;
 }
 
 static int pil_riva_reset(struct pil_desc *pil)
@@ -163,16 +149,6 @@ static int pil_riva_reset(struct pil_desc *pil)
 	reg = readl_relaxed(base + RIVA_PMU_A2XB_CFG);
 	reg |= RIVA_PMU_A2XB_CFG_EN;
 	writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
-
-	drv->use_cxo = cxo_is_needed(drv);
-	ret = pil_riva_make_proxy_votes(pil->dev);
-	if (ret) {
-		reg &= ~RIVA_PMU_A2XB_CFG_EN;
-		writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
-		mb();
-		clk_disable_unprepare(drv->xo);
-		return ret;
-	}
 
 	/* Program PLL 13 to 960 MHz */
 	reg = readl_relaxed(RIVA_PLL_MODE);
@@ -287,7 +263,6 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	mb();
 
 	clk_disable_unprepare(drv->xo);
-	pil_riva_remove_proxy_votes_now(pil->dev);
 
 	return 0;
 }
@@ -296,6 +271,8 @@ static struct pil_reset_ops pil_riva_ops = {
 	.init_image = pil_riva_init_image,
 	.auth_and_reset = pil_riva_reset,
 	.shutdown = pil_riva_shutdown,
+	.proxy_vote = pil_riva_make_proxy_vote,
+	.proxy_unvote = pil_riva_remove_proxy_vote,
 };
 
 static int pil_riva_init_image_trusted(struct pil_desc *pil,
@@ -313,9 +290,7 @@ static int pil_riva_reset_trusted(struct pil_desc *pil)
 	if (ret)
 		return ret;
 	/* Proxy-vote for resources RIVA needs */
-	ret = pil_riva_make_proxy_votes(pil->dev);
-	if (!ret)
-		ret = pas_auth_and_reset(PAS_RIVA);
+	ret = pas_auth_and_reset(PAS_RIVA);
 	clk_disable_unprepare(drv->xo);
 	return ret;
 }
@@ -329,7 +304,6 @@ static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 	if (ret)
 		return ret;
 	ret = pas_shutdown(PAS_RIVA);
-	pil_riva_remove_proxy_votes_now(pil->dev);
 	clk_disable_unprepare(drv->xo);
 
 	return ret;
@@ -339,6 +313,8 @@ static struct pil_reset_ops pil_riva_ops_trusted = {
 	.init_image = pil_riva_init_image_trusted,
 	.auth_and_reset = pil_riva_reset_trusted,
 	.shutdown = pil_riva_shutdown_trusted,
+	.proxy_vote = pil_riva_make_proxy_vote,
+	.proxy_unvote = pil_riva_remove_proxy_vote,
 };
 
 static int __devinit pil_riva_probe(struct platform_device *pdev)
@@ -389,6 +365,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	desc->name = "wcnss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
+	desc->proxy_timeout = 10000;
 
 	if (pas_supported(PAS_RIVA) > 0) {
 		desc->ops = &pil_riva_ops_trusted;
@@ -403,8 +380,6 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->xo);
 		goto err;
 	}
-	wake_lock_init(&drv->wlock, WAKE_LOCK_SUSPEND, "riva-wlock");
-	INIT_DELAYED_WORK(&drv->work, pil_riva_remove_proxy_votes);
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
@@ -413,8 +388,6 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	}
 	return 0;
 err_register:
-	flush_delayed_work_sync(&drv->work);
-	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 err:
 	regulator_put(drv->pll_supply);
@@ -425,8 +398,6 @@ static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	flush_delayed_work_sync(&drv->work);
-	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 	regulator_put(drv->pll_supply);
 	return 0;
